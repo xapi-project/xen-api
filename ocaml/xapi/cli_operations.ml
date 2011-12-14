@@ -2427,12 +2427,57 @@ let vm_retrieve_wlb_recommendations printer rpc session_id params =
 let vm_migrate printer rpc session_id params =
 	(* Hack to match host-uuid and host-name for backwards compatibility *)
 	let params = List.map (fun (k, v) -> if (k = "host-uuid") || (k = "host-name") then ("host", v) else (k, v)) params in
-	if not (List.mem_assoc "host" params) then failwith "No destination host specified";
-	let host = (get_host_by_name_or_id rpc session_id (List.assoc "host" params)).getref () in
 	let options = List.map_assoc_with_key (string_of_bool +++ bool_of_string) (List.restrict_with_default "false" ["force"; "live"; "encrypt"] params) in
-	ignore(do_vm_op ~include_control_vms:true printer rpc session_id (fun vm -> Client.VM.pool_migrate rpc session_id (vm.getref ()) host options)
-		params ["host"; "host-uuid"; "host-name"; "live"; "encrypt"])
+	(* If we specify all of: remote-address, remote-username, remote-password
+	   then we're using the new codepath *)
+	if List.mem_assoc "remote-address" params && (List.mem_assoc "remote-username" params)
+		&& (List.mem_assoc "remote-password" params) then begin
+			printer (Cli_printer.PMsg "Using the new cross-host, cross-SR, cross-pool, cross-everything codepath.");
+			let remote_rpc ip xml =
+				let open Xmlrpc_client in
+				let http = xmlrpc ~version:"1.0" "/" in
+				XML_protocol.rpc ~transport:(SSL(SSL.make ~use_fork_exec_helper:false (), ip, 443)) ~http xml in
+			let ip = List.assoc "remote-address" params in
+			let username = List.assoc "remote-username" params in
+			let password = List.assoc "remote-password" params in
+			let rpc = remote_rpc ip in
+			let remote_session = Client.Session.login_with_password rpc username password "1.3" in
+			finally
+				(fun () ->
+					let host, host_record =
+						let all = Client.Host.get_all_records rpc remote_session in
+						if List.mem_assoc "host" params then begin
+							let x = List.assoc "host" params in
+							try
+								List.find (fun (_, h) -> h.API.host_hostname = x || h.API.host_name_label = x || h.API.host_uuid = x) all
+							with Not_found ->
+								failwith (Printf.sprintf "Failed to find host: %s" x)
+						end else begin
+							printer (Cli_printer.PMsg "No host specified; I will choose automatically");
+							List.hd all
+						end in
+					printer (Cli_printer.PMsg (Printf.sprintf "Will migrate to remote host: %s" host_record.API.host_name_label));
+					let sr =
+						if List.mem_assoc "destination-sr-uuid" params
+						then Client.SR.get_by_uuid rpc remote_session (List.assoc "destination-sr-uuid" params)
+						else
+							let pool = Client.Pool.get_all rpc remote_session |> List.hd in
+							let sr = Client.Pool.get_default_SR rpc remote_session pool in
+							(try ignore (Client.SR.get_uuid rpc remote_session sr)
+							 with _ -> failwith "No destination SR specified and no default SR on remote pool");
+							sr in
+					printer (Cli_printer.PMsg (Printf.sprintf "Will migrate to remote SR: %s" (Client.SR.get_name_label rpc remote_session sr)));
+					let token = Client.VM.migrate_receive rpc remote_session host sr options in
+					printer (Cli_printer.PMsg (Printf.sprintf "Received token: %s" token))
+				)
+				(fun () -> Client.Session.logout rpc remote_session)
+		end else begin
+			if not (List.mem_assoc "host" params) then failwith "No destination host specified";
+			let host = (get_host_by_name_or_id rpc session_id (List.assoc "host" params)).getref () in
 
+			ignore(do_vm_op ~include_control_vms:true printer rpc session_id (fun vm -> Client.VM.pool_migrate rpc session_id (vm.getref ()) host options)
+				params ["host"; "host-uuid"; "host-name"; "live"; "encrypt"])
+		end
 let vm_disk_list_aux vm is_cd_list printer rpc session_id params =
 	let vbds = List.filter (fun vbd -> Client.VBD.get_type rpc session_id vbd = (if is_cd_list then `CD else `Disk)) (vm.record()).API.vM_VBDs in
 	let vbdrecords = List.map (fun vbd-> (vbd_record rpc session_id vbd)) vbds in
