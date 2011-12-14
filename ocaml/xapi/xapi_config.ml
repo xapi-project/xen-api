@@ -90,6 +90,7 @@ let read_log_config filename =
 
 let read_config filename =
 	let configargs = [
+		"use-xenopsd", Config.Set_bool Xapi_globs.use_xenopsd;
 	] in
 	try
 		Config.read filename configargs (fun _ _ -> ())
