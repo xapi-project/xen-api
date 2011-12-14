@@ -135,7 +135,7 @@ let copy' ~task ~sr ~vdi ~url ~dest =
 			);
 		debug "Updating remote content_id";
 		Remote.VDI.set_content_id ~task ~sr:dest ~vdi:dest_vdi.vdi ~content_id:local_vdi.content_id |> success |> unit;
-		(* XXX: this is useful because we don't have content_ids by default *)
+		(* PR-1255: XXX: this is useful because we don't have content_ids by default *)
 		Local.VDI.set_content_id ~task ~sr ~vdi:local_vdi.vdi ~content_id:local_vdi.content_id |> success |> unit;
 		dest_vdi
 	with e ->
@@ -173,6 +173,10 @@ let start ~task ~sr ~vdi ~url ~dest =
 		let new_parent = copy' ~task ~sr ~vdi:snapshot.vdi ~url ~dest in
 		Remote.VDI.compose ~task ~sr:dest ~vdi1:new_parent.vdi ~vdi2:leaf.vdi |> success |> unit;
 		debug "New parent = %s" new_parent.vdi;
+		debug "Updating remote content_id";
+		Remote.VDI.set_content_id ~task ~sr:dest ~vdi:leaf.vdi ~content_id:local_vdi.content_id |> success |> unit;
+		(* PR-1255: XXX: this is useful because we don't have content_ids by default *)
+		Local.VDI.set_content_id ~task ~sr ~vdi:local_vdi.vdi ~content_id:local_vdi.content_id |> success |> unit;
 		Success (Vdi leaf)
 	with e ->
 		error "Caught %s: performing cleanup actions" (Printexc.to_string e);
