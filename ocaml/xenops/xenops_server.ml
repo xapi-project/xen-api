@@ -52,6 +52,7 @@ let filter_prefix prefix xs =
 
 type operation =
 	| VM_start of Vm.id
+	| VM_poweroff of (Vm.id * float option)
 	| VM_shutdown of (Vm.id * float option)
 	| VM_reboot of (Vm.id * float option)
 	| VM_delay of (Vm.id * float) (** used to suppress fast reboot loops *)
@@ -86,6 +87,7 @@ let string_of_operation =
 	let open Printf in
 	function
 	| VM_start id -> sprintf "VM_start %s" id
+	| VM_poweroff (id, t) -> sprintf "VM_poweroff (%s, %s)" id (Opt.default "None" (Opt.map string_of_float t))
 	| VM_shutdown (id, t) -> sprintf "VM_shutdown (%s, %s)" id (Opt.default "None" (Opt.map string_of_float t))
 	| VM_reboot (id, t) -> sprintf "VM_shutdown (%s, %s)" id (Opt.default "None" (Opt.map string_of_float t))
 	| VM_delay (id, t) -> sprintf "VM_delay (%s, %.0f)" id t
@@ -292,6 +294,13 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 				perform ~subtask:"VM_destroy" (VM_destroy id) t;
 				raise e
 			end
+		| VM_poweroff (id, timeout) ->
+			debug "VM.poweroff %s" id;
+			perform ~subtask:"VM_shutdown" (VM_shutdown (id, timeout)) t;
+			let vm_t = id |> VM_DB.key_of |> VM_DB.read |> unbox in
+			if vm_t.Vm.transient
+			then perform ~subtask:"VM_remove" (VM_remove id) t;
+			Updates.add (Dynamic.Vm id) updates
 		| VM_shutdown (id, timeout) ->
 			debug "VM.shutdown %s" id;
 			Opt.iter (fun x -> perform ~subtask:"VM_shutdown_domain(Halt)" (VM_shutdown_domain(id, Halt, x)) t) timeout;
@@ -451,7 +460,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 					[] in
 			let operations_of_action = function
 				| Vm.Coredump -> []
-				| Vm.Shutdown -> [ VM_shutdown (id, None) ]
+				| Vm.Shutdown -> [ VM_poweroff (id, None) ]
 				| Vm.Start    ->
 					let delay = if run_time < 60. then begin
 						debug "VM %s rebooted too quickly; inserting delay" id;
@@ -683,7 +692,7 @@ module VM = struct
 
 	let start _ id = queue_operation id (VM_start id) |> return
 
-	let shutdown _ id timeout = queue_operation id (VM_shutdown (id, timeout)) |> return
+	let shutdown _ id timeout = queue_operation id (VM_poweroff (id, timeout)) |> return
 
 	let reboot _ id timeout = queue_operation id (VM_reboot (id, timeout)) |> return
 

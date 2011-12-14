@@ -160,6 +160,7 @@ let create_vm id =
 		on_crash = [ Vm.Shutdown ];
 		on_shutdown = [ Vm.Shutdown ];
 		on_reboot = [ Vm.Start ];
+		transient = false;
 	}
 
 let sl x = Printf.sprintf "[ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ ":" ^ v) x))

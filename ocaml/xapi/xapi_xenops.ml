@@ -132,6 +132,7 @@ module MD = struct
 			on_crash = on_crash_behaviour vm.API.vM_actions_after_crash;
 			on_shutdown = on_normal_exit_behaviour vm.API.vM_actions_after_shutdown;
 			on_reboot = on_normal_exit_behaviour vm.API.vM_actions_after_reboot;
+			transient = true;
 		}		
 end
 
