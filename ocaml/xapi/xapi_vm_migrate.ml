@@ -781,4 +781,9 @@ let migrate  ~__context ~vm ~dest ~live ~options =
 	raise (Api_errors.Server_error(Api_errors.not_implemented, [ "VM.migrate" ]))
 
 let migrate_receive ~__context ~host ~sR ~options =
-	raise (Api_errors.Server_error(Api_errors.not_implemented, [ "VM.migrate" ]))
+	let session_id = Ref.string_of (Context.get_session_id __context) in
+	let ip = Db.Host.get_address ~__context ~self:host in
+	let sm_url = Printf.sprintf "http://%s/services/SM?session_id=%s" ip session_id in
+	let xenops_url = Printf.sprintf "http://%s/services/xenops?session_id=%s" ip session_id in
+	[ "SM", sm_url;
+	  "xenops", xenops_url ]

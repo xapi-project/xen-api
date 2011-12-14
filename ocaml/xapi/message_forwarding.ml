@@ -1541,7 +1541,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			update_vif_operations ~__context ~vm
 
 		let migrate ~__context ~vm ~dest ~live ~options =
-			info "VM.migrate: VM = '%s'; destination = '%s'" (vm_uuid ~__context vm) dest;
+			info "VM.migrate: VM = '%s'" (vm_uuid ~__context vm);
 			let local_fn = Local.VM.migrate ~vm ~dest ~live ~options in
 			with_vm_operation ~__context ~self:vm ~doc:"VM.migrate" ~op:`migrate
 				(fun () ->
