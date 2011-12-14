@@ -7,8 +7,8 @@
 
 . /etc/init.d/functions
 
-export XENSOURCE_INVENTORY=/etc/xensource-inventory
-export INTERFACE_RECONFIGURE="@BASE_PATH@/libexec/interface-reconfigure"
+export XENSOURCE_INVENTORY=@INVENTORY@
+export INTERFACE_RECONFIGURE="@LIBEXECDIR@/interface-reconfigure"
 
 [ -r ${XENSOURCE_INVENTORY} ] || exit 0
 . ${XENSOURCE_INVENTORY}

@@ -4,14 +4,14 @@
 
 trap "cleanup" TERM INT
 
-if [ ! -e /etc/xensource-inventory ]; then
+if [ ! -e @INVENTORY@ ]; then
   echo Must run on a XenServer host.
   exit 1
 fi
 
-. /etc/xensource-inventory
+. @INVENTORY@
 
-XE="@BASE_PATH@/bin/xe"
+XE="@BINDIR@/xe"
 
 master_uuid=$(${XE} pool-list params=master --minimal)
 if [ $? -gt 0 ]; then
@@ -242,7 +242,7 @@ if [ ${leave_mounted} -eq 0 ]; then
   IFS=","
   echo -n "Backing up SR metadata: "
   mkdir -p ${metadir}
-  "@BASE_PATH@/libexec/backup-sr-metadata.py" -f ${metadir}/SRMETA.xml
+  "@LIBEXECDIR@/backup-sr-metadata.py" -f ${metadir}/SRMETA.xml
   echo "done"
 
   echo -n "Backing up VM metadata: "
@@ -255,14 +255,14 @@ if [ ${leave_mounted} -eq 0 ]; then
   echo "done"
   echo -n "Backing up Template metadata: "
   ${debug} echo ""
-  template_uuids=$("@BASE_PATH@/libexec/print-custom-templates")
+  template_uuids=$("@LIBEXECDIR@/print-custom-templates")
   if [ $? -eq 0 ]; then
       for tmpl_uuid in ${template_uuids}; do
           ${XE} template-export --metadata template-uuid=${tmpl_uuid} filename=${metadir}/all/${tmpl_uuid}.vmmeta >/dev/null 2>&1
       done
   fi
   echo "done"
-  "@BASE_PATH@/libexec/link-vms-by-sr.py" -d ${metadir}
+  "@LIBEXECDIR@/link-vms-by-sr.py" -d ${metadir}
 else
   cd ${mnt}
   env PS1="Mounted backup VDI on: ${mnt}\nPress ^D to exit shell and safely detach it.\n\n[\u@\h \W]\$ " bash

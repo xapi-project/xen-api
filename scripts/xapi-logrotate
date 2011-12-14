@@ -3,6 +3,6 @@
 	size 16M
     sharedscripts
     postrotate
-	/opt/xensource/bin/xe log-reopen 2> /dev/null || true
+	@BINDIR@/xe log-reopen 2> /dev/null || true
     endscript
 }

@@ -13,7 +13,7 @@
 # Memory ballooning daemon
 
 # location of the executable:
-SQUEEZED="@BASE_PATH@/libexec/squeezed"
+SQUEEZED="@LIBEXECDIR@/squeezed"
 
 # pidfile:
 PID_FILE="/var/run/squeezed.pid"
@@ -25,7 +25,7 @@ SUBSYS_FILE="/var/lock/subsys/squeezed"
 . /etc/init.d/functions
 
 if [ -e /var/xapi/xiu-xc ]; then
-	export XENCTRL_OSDEP="@BASE_PATH@/lib/libxenctrl_xiu.so"
+	export XENCTRL_OSDEP="@OPTDIR@/lib/libxenctrl_xiu.so"
 	export XIU=/var/xapi/xiu
 fi
 

@@ -700,7 +700,7 @@ let on_disable config_params =
 	debug "Doing a manual Likewise domain-leave cleanup...";
 	(* When likewise raises an exception during domain-leave, we try again, using *)
 	(* some of the command-line workarounds that Kyle describes in CA-27627: *)
-	let lw_force_domain_leave_script = Xapi_globs.base_path ^ "/libexec/lw-force-domain-leave" in
+	let lw_force_domain_leave_script = Filename.concat Fhs.libexecdir "lw-force-domain-leave" in
 	(try
 		let output, stderr = Forkhelpers.execute_command_get_output lw_force_domain_leave_script [] in
 		debug "execute %s: stdout=[%s],stderr=[%s]" lw_force_domain_leave_script (Stringext.String.replace "\n" ";" output) (Stringext.String.replace "\n" ";" stderr)

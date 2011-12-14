@@ -10,5 +10,5 @@ type fake_ds = {
 
 type fake_ds_list = fake_ds list with rpc
 
-let fake_dir = "/var/xapi/fake_data"
+let fake_dir = Filename.concat Fhs.vardir "fake_data"
 

@@ -20,9 +20,9 @@ import time
 from optparse import OptionParser
 #import XenAPI
 
-pool_conf = '/etc/xensource/pool.conf'
-interface_reconfigure = "@BASE_PATH@/libexec/interface-reconfigure"
-inventory_file = '/etc/xensource-inventory'
+pool_conf = '@ETCDIR@/pool.conf'
+interface_reconfigure = "@LIBEXECDIR@/interface-reconfigure"
+inventory_file = '@INVENTORY@'
 management_conf = '/etc/firstboot.d/data/management.conf'
 network_reset = '/tmp/network-reset'
 

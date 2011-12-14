@@ -646,7 +646,7 @@ module Local_domain_socket = struct
 
 	let socket = ref None
 
-	let path = "/var/xapi/storage"
+	let path = Filename.concat Fhs.vardir "storage"
 
 	let xmlrpc_handler process req bio _ =
 		let body = Http_svr.read_body req bio in

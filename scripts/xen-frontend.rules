@@ -1,1 +1,1 @@
-SUBSYSTEM=="block", KERNEL=="xvd*", RUN+="/etc/xensource/scripts/block-frontend $env{ACTION} $number"
+SUBSYSTEM=="block", KERNEL=="xvd*", RUN+="@SCRIPTSDIR@/block-frontend $env{ACTION} $number"

@@ -37,14 +37,14 @@ README : index.html
 	lynx -dump index.html > README
 .PHONY: install
 install:
-	mkdir -p $(LIBEXEC)
+	mkdir -p $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)/usr/lib/$(PYTHON_DIR)/site-packages
-	mkdir -p $(DESTDIR)/etc/xapi.d/plugins
+	mkdir -p $(DESTDIR)$(PLUGINDIR)
 	$(IDATA) XenAPIPlugin.py XenAPI.py inventory.py $(DESTDIR)/usr/lib/$(PYTHON_DIR)/site-packages/
-	$(IEXE) echo.py $(DESTDIR)/etc/xapi.d/plugins/echo
-	$(IEXE) wake-on-lan.py $(DESTDIR)/etc/xapi.d/plugins/wake-on-lan
-	$(IEXE) shutdown.py $(LIBEXEC)/shutdown
-	$(IEXE) shell.py $(LIBEXEC)/shell.py
+	$(IEXE) echo.py $(DESTDIR)$(PLUGINDIR)/echo
+	$(IEXE) wake-on-lan.py $(DESTDIR)$(PLUGINDIR)/wake-on-lan
+	$(IEXE) shutdown.py $(DESTDIR)$(LIBEXECDIR)/shutdown
+	$(IEXE) shell.py $(DESTDIR)$(LIBEXECDIR)/shell.py
 
 .PHONY: sdk-install
 sdk-install:

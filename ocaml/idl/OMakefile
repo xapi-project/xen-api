@@ -100,7 +100,7 @@ sdk-install: doc sdk-README.txt
 META: META.in
 	sed 's/@VERSION@/$(PRODUCT_VERSION)/g' < $< > $@
 
-if $(defined DESTDIR)
+if $(defined-env DESTDIR)
 	INSTALL_PATH = $(DESTDIR)/$(shell ocamlfind printconf destdir)
 	export
 else

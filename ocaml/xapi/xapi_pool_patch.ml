@@ -273,10 +273,10 @@ let sync () =
       | Success(output, _) -> ()
 
 let patch_header_length = 8
-let skip_signature_flag = "/etc/xensource/skipsignature"
+let skip_signature_flag = Filename.concat Fhs.etcdir "skipsignature"
 
-let update_upload_pre_script = Xapi_globs.base_path ^ "/libexec/update-upload-pre"
-let update_upload_post_script = Xapi_globs.base_path ^ "/libexec/update-upload-post"
+let update_upload_pre_script = Filename.concat Fhs.libexecdir "update-upload-pre"
+let update_upload_post_script = Filename.concat Fhs.libexecdir "update-upload-post"
 
 let skip_signature_test () = Sys.file_exists skip_signature_flag
 

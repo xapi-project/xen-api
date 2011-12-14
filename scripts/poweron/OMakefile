@@ -1,8 +1,8 @@
 .PHONY: install
 install:
-             mkdir -p $(DESTDIR)/etc/xapi.d/plugins
-             $(IPROG) wlan.py $(DESTDIR)/etc/xapi.d/plugins/wlan.py
-             $(IPROG) iLOPowerON.xml $(DESTDIR)/etc/xapi.d/plugins/iLOPowerON.xml
-             $(IPROG) iLO.py $(DESTDIR)/etc/xapi.d/plugins/iLO.py
-             $(IPROG) DRAC.py $(DESTDIR)/etc/xapi.d/plugins/DRAC.py
-             $(IPROG) power-on.py $(DESTDIR)/etc/xapi.d/plugins/power-on-host
+             mkdir -p $(DESTDIR)$(PLUGINDIR)
+             $(IPROG) wlan.py $(DESTDIR)$(PLUGINDIR)/wlan.py
+             $(IPROG) iLOPowerON.xml $(DESTDIR)$(PLUGINDIR)/iLOPowerON.xml
+             $(IPROG) iLO.py $(DESTDIR)$(PLUGINDIR)/iLO.py
+             $(IPROG) DRAC.py $(DESTDIR)$(PLUGINDIR)/DRAC.py
+             $(IPROG) power-on.py $(DESTDIR)$(PLUGINDIR)/power-on-host

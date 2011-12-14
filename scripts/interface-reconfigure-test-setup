@@ -2,7 +2,7 @@
 
 set -e
 
-. /etc/xensource-inventory
+. @INVENTORY@
 
 names=$(xe pif-list host-uuid="$INSTALLATION_UUID" management=false params=device VLAN=-1 --minimal | sed -e 's/,/+/g')
 pifs=$(xe pif-list host-uuid="$INSTALLATION_UUID" management=false VLAN=-1 --minimal)

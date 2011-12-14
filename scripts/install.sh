@@ -4,8 +4,22 @@
 #
 # Usage: ./install.sh <mode> <file1> .. <filen> <dest>
 #
-# Assumptions:
-# - The 'base-path' script is located in the same directory.
+# Replaces the following strings:
+#
+# @OPTDIR@ -> ${OPTDIR}
+# @ETCDIR@ -> ${ETCDIR}
+# @VARDIR@ -> ...etc...
+# @VARPATCHDIR@
+# @ETCDIR@
+# @OPTDIR@
+# @PLUGINDIR@
+# @HOOKSDIR@
+# @INVENTORY@
+# @XAPICONF@
+# @LIBEXECDIR@
+# @SCRIPTSDIR@
+
+set -x
 
 MODE=${1}
 NUM_FILES=$(($#-2))
@@ -27,6 +41,21 @@ for FILE in ${FILES}; do
     NEWFILE=${DEST}
   fi
   if file ${NEWFILE} | grep -q "text"; then
-    sed -i "s!@BASE_PATH@!${BASE_PATH}!g" ${NEWFILE}
+    sed -i -e "s!@OPTDIR@!${OPTDIR}!g" \
+	-e "s!@ETCDIR@!${ETCDIR}!g" \
+        -e "s!@VARDIR@!${VARDIR}!g" \
+        -e "s!@VARPATCHDIR@!${VARPATCHDIR}!g" \
+        -e "s!@PLUGINDIR@!${PLUGINDIR}!g" \
+        -e "s!@HOOKSDIR@!${HOOKSDIR}!g" \
+        -e "s!@INVENTORY@!${INVENTORY}!g" \
+        -e "s!@XAPICONF@!${XAPICONF}!g" \
+        -e "s!@LIBEXECDIR@!${LIBEXECDIR}!g" \
+        -e "s!@SCRIPTSDIR@!${SCRIPTSDIR}!g" \
+        -e "s!@SHAREDIR@!${SHAREDIR}!g" \
+        -e "s!@WEBDIR@!${WEBDIR}!g" \
+        -e "s!@XHADIR@!${XHADIR}!g" \
+        -e "s!@BINDIR@!${BINDIR}!g" \
+	-e "s!@SBINDIR@!${SBINDIR}!g" \
+         ${NEWFILE}
   fi
 done
