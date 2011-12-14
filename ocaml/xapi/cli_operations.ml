@@ -2433,19 +2433,18 @@ let vm_migrate printer rpc session_id params =
 	if List.mem_assoc "remote-address" params && (List.mem_assoc "remote-username" params)
 		&& (List.mem_assoc "remote-password" params) then begin
 			printer (Cli_printer.PMsg "Using the new cross-host, cross-SR, cross-pool, cross-everything codepath.");
-			let remote_rpc ip xml =
+			let ip = List.assoc "remote-address" params in
+			let remote_rpc xml =
 				let open Xmlrpc_client in
 				let http = xmlrpc ~version:"1.0" "/" in
 				XML_protocol.rpc ~transport:(SSL(SSL.make ~use_fork_exec_helper:false (), ip, 443)) ~http xml in
-			let ip = List.assoc "remote-address" params in
 			let username = List.assoc "remote-username" params in
 			let password = List.assoc "remote-password" params in
-			let rpc = remote_rpc ip in
-			let remote_session = Client.Session.login_with_password rpc username password "1.3" in
+			let remote_session = Client.Session.login_with_password remote_rpc username password "1.3" in
 			finally
 				(fun () ->
 					let host, host_record =
-						let all = Client.Host.get_all_records rpc remote_session in
+						let all = Client.Host.get_all_records remote_rpc remote_session in
 						if List.mem_assoc "host" params then begin
 							let x = List.assoc "host" params in
 							try
@@ -2459,18 +2458,20 @@ let vm_migrate printer rpc session_id params =
 					printer (Cli_printer.PMsg (Printf.sprintf "Will migrate to remote host: %s" host_record.API.host_name_label));
 					let sr =
 						if List.mem_assoc "destination-sr-uuid" params
-						then Client.SR.get_by_uuid rpc remote_session (List.assoc "destination-sr-uuid" params)
+						then Client.SR.get_by_uuid remote_rpc remote_session (List.assoc "destination-sr-uuid" params)
 						else
-							let pool = Client.Pool.get_all rpc remote_session |> List.hd in
-							let sr = Client.Pool.get_default_SR rpc remote_session pool in
-							(try ignore (Client.SR.get_uuid rpc remote_session sr)
+							let pool = Client.Pool.get_all remote_rpc remote_session |> List.hd in
+							let sr = Client.Pool.get_default_SR remote_rpc remote_session pool in
+							(try ignore (Client.SR.get_uuid remote_rpc remote_session sr)
 							 with _ -> failwith "No destination SR specified and no default SR on remote pool");
 							sr in
-					printer (Cli_printer.PMsg (Printf.sprintf "Will migrate to remote SR: %s" (Client.SR.get_name_label rpc remote_session sr)));
-					let token = Client.VM.migrate_receive rpc remote_session host sr options in
-					printer (Cli_printer.PMsg (Printf.sprintf "Received token: %s" token))
+					printer (Cli_printer.PMsg (Printf.sprintf "Will migrate to remote SR: %s" (Client.SR.get_name_label remote_rpc remote_session sr)));
+					let token = Client.VM.migrate_receive remote_rpc remote_session host sr options in
+					printer (Cli_printer.PMsg (Printf.sprintf "Received token: [ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ ":" ^ v) token))));
+					ignore(do_vm_op ~include_control_vms:true printer rpc session_id (fun vm -> Client.VM.migrate rpc session_id (vm.getref ()) token true options)
+						params ["host"; "host-uuid"; "host-name"; "live"; "encrypt"; "remote-address"; "remote-username"; "remote-password"; "destination-sr-uuid" ])
 				)
-				(fun () -> Client.Session.logout rpc remote_session)
+				(fun () -> Client.Session.logout remote_rpc remote_session)
 		end else begin
 			if not (List.mem_assoc "host" params) then failwith "No destination host specified";
 			let host = (get_host_by_name_or_id rpc session_id (List.assoc "host" params)).getref () in

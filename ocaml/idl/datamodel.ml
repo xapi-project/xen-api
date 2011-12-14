@@ -1897,7 +1897,7 @@ let vm_migrate_receive = call
   ~params:[Ref _host, "host", "The target host";
            Ref _sr, "SR", "The target SR";
 		   Map(String, String), "options", "Extra configuration operations" ]
-  ~result:(String, "A value which should be passed to VM.migrate")
+  ~result:(Map(String,String), "A value which should be passed to VM.migrate")
   ~allowed_roles:_R_VM_POWER_ADMIN
   ()
 
@@ -1981,7 +1981,7 @@ let vm_migrate = call
   ~in_product_since:rel_rio
   ~doc: "Migrate the VM to another host.  This can only be called when the specified VM is in the Running state."
   ~params:[Ref _vm, "vm", "The VM";
-           String, "dest", "The result of a VM.migrate_receive call.";
+           Map(String,String), "dest", "The result of a VM.migrate_receive call.";
            Bool, "live", "Live migration";
            Map (String, String), "options", "Other parameters"]
   ~errs:[Api_errors.vm_bad_power_state]
