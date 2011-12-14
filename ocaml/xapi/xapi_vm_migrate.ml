@@ -780,3 +780,5 @@ let handler req fd _ =
 let migrate  ~__context ~vm ~dest ~live ~options =
 	raise (Api_errors.Server_error(Api_errors.not_implemented, [ "VM.migrate" ]))
 
+let migrate_receive ~__context ~host ~sR ~options =
+	raise (Api_errors.Server_error(Api_errors.not_implemented, [ "VM.migrate" ]))
