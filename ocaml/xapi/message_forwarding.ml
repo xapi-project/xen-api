@@ -1540,15 +1540,20 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			update_vbd_operations ~__context ~vm;
 			update_vif_operations ~__context ~vm
 
-		(* !!! FIXME *)
 		let migrate ~__context ~vm ~dest ~live ~options =
 			info "VM.migrate: VM = '%s'; destination = '%s'" (vm_uuid ~__context vm) dest;
 			let local_fn = Local.VM.migrate ~vm ~dest ~live ~options in
 			with_vm_operation ~__context ~self:vm ~doc:"VM.migrate" ~op:`migrate
 				(fun () ->
-					local_fn ~__context);
+					forward_vm_op ~local_fn ~__context ~vm
+						(fun session_id rpc -> Client.VM.migrate rpc session_id vm dest live options)
+				);
 			update_vbd_operations ~__context ~vm;
 			update_vif_operations ~__context ~vm
+
+		let migrate_receive ~__context ~host ~sR ~options =
+			info "VM.migrate_receive: host = '%s'; SR = '%s'" (host_uuid ~__context host) (sr_uuid ~__context sR);
+			Local.VM.migrate_receive ~__context ~host ~sR ~options
 
 		let send_trigger ~__context ~vm ~trigger =
 			info "VM.send_trigger: VM = '%s'; trigger = '%s'" (vm_uuid ~__context vm) trigger;
