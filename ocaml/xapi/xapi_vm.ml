@@ -199,7 +199,13 @@ let unpause  ~__context ~vm =
    same VM twice during memory calculations to determine whether a given VM can start on a particular host..
 *)
 
-let start ~__context ~vm ~start_paused:paused ~force =
+let start_xenopsd ~__context ~vm ~start_paused:paused ~force =
+	Xapi_xenops.start ~__context ~self:vm paused;
+	let localhost = Helpers.get_localhost ~__context in
+	Helpers.call_api_functions ~__context
+		(fun rpc session_id -> Client.VM.atomic_set_resident_on rpc session_id vm localhost)
+
+let start_internal ~__context ~vm ~start_paused:paused ~force =
 	License_check.with_vm_license_check ~__context vm (fun () ->
 		Local_work_queue.wait_in_line Local_work_queue.normal_vm_queue
 			(Printf.sprintf "VM.start %s" (Context.string_of_task __context))
@@ -264,6 +270,8 @@ let start ~__context ~vm ~start_paused:paused ~force =
 						let start_delay = Db.VM.get_start_delay ~__context ~self:vm in
 						Thread.delay (Int64.to_float start_delay)
 					) ()))
+
+let start = if !Xapi_globs.use_xenopsd then start_xenopsd else start_internal
 
 (** For VM.start_on and VM.resume_on the message forwarding layer should only forward here
     if 'host' = localhost *)
@@ -647,15 +655,23 @@ let record_shutdown_details ~__context ~vm reason initiator action =
     replace_other_config_key ~__context ~vm "last_shutdown_time" (Date.to_string (Date.of_float (Unix.gettimeofday())));
     info "VM %s shutdown initiated %sly; actions_after[%s] = %s" vm' initiator reason' action'
 
+let hard_reboot_xenopsd ~__context ~vm =
+	Xapi_xenops.reboot ~__context ~self:vm None
+
 (** VM.hard_reboot entrypoint *)
-let hard_reboot ~__context ~vm =
+let hard_reboot_internal ~__context ~vm =
   let action = Db.VM.get_actions_after_reboot ~__context ~self:vm in
   record_shutdown_details ~__context ~vm Xal.Rebooted "external" action;
   let args = { TwoPhase.__context=__context; vm=vm; api_call_name="VM.hard_reboot"; clean=false } in
   retry_on_conflict args (of_action action)
 
+let hard_reboot = if !Xapi_globs.use_xenopsd then hard_reboot_xenopsd else hard_reboot_internal
+
+let hard_shutdown_xenopsd ~__context ~vm =
+	Xapi_xenops.shutdown ~__context ~self:vm None
+
 (** VM.hard_shutdown entrypoint *)
-let hard_shutdown ~__context ~vm =
+let hard_shutdown_internal ~__context ~vm =
 	try
 		let action = Db.VM.get_actions_after_shutdown ~__context ~self:vm in
 		record_shutdown_details ~__context ~vm Xal.Halted "external" action;
@@ -674,21 +690,33 @@ let hard_shutdown ~__context ~vm =
 			(debug ("hard_shutdown: caught any exception besides VM_BAD_POWER_STATE, re-raising.");
 			raise e)
 
+let hard_shutdown = if !Xapi_globs.use_xenopsd then hard_shutdown_xenopsd else hard_shutdown_internal
+
+let clean_reboot_xenopsd ~__context ~vm =
+	Xapi_xenops.reboot ~__context ~self:vm (Some 1200.0)
+
 (** VM.clean_reboot entrypoint *)
-let clean_reboot ~__context ~vm =
+let clean_reboot_internal ~__context ~vm =
   let action = Db.VM.get_actions_after_reboot ~__context ~self:vm in
   record_shutdown_details ~__context ~vm Xal.Rebooted "external" action;
   let args = { TwoPhase.__context=__context; vm=vm; api_call_name="VM.clean_reboot"; clean=true } in
   retry_on_conflict args (of_action action)
 
+let clean_reboot = if !Xapi_globs.use_xenopsd then clean_reboot_xenopsd else clean_reboot_internal
+
+let clean_shutdown_xenopsd ~__context ~vm =
+	Xapi_xenops.shutdown ~__context ~self:vm (Some 1200.0)
+
 (** VM.clean_shutdown entrypoint *)
-let clean_shutdown ~__context ~vm =
+let clean_shutdown_internal ~__context ~vm =
   let action = Db.VM.get_actions_after_shutdown ~__context ~self:vm in
   record_shutdown_details ~__context ~vm Xal.Halted "external" action;
   let args = { TwoPhase.__context=__context; vm=vm; api_call_name="VM.clean_shutdown"; clean=true } in
 	retry_on_conflict args (of_action action);
 	let shutdown_delay = Db.VM.get_shutdown_delay ~__context ~self:vm in
 	Thread.delay (Int64.to_float shutdown_delay)
+
+let clean_shutdown = if !Xapi_globs.use_xenopsd then clean_shutdown_xenopsd else clean_shutdown_internal
 
 (***************************************************************************************)
 
