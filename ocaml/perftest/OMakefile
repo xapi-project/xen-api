@@ -1,11 +1,11 @@
-OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client
-OCAMLINCLUDES = ../idl/ocaml_backend ../xapi ../idl ../autogen ../client_records
+OCAML_LIBS    = ../fhs ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client
+OCAMLINCLUDES = ../idl/ocaml_backend ../xapi ../idl ../autogen ../client_records ..
 OCAMLPACKS    = xml-light2 stdext stunnel http-svr log rpc-light
 
-PERFTEST_FILES = scenario perfutil createVM createpool testtypes perftest tests ../xapi/xapi_inventory perfdebug
+PERFTEST_FILES = scenario perfutil createVM createpool testtypes perftest tests ../xapi/xapi_inventory perfdebug 
 OCamlProgram(perftest, $(PERFTEST_FILES))
 OCamlDocProgram(perftest, $(PERFTEST_FILES))
-OCamlProgram(apiperf, perfutil apiperf)
+OCamlProgram(apiperf, perfutil apiperf ../fhs)
 OCamlProgram(histogram, statistics histogram gnuplot testtypes perfdebug graphutil)
 OCamlProgram(cumulative_time, cumulative_time gnuplot testtypes perfdebug graphutil)
 
@@ -20,6 +20,6 @@ clean:
 
 .PHONY: install
 install:
-        mkdir -p $(DEBUGDIST)
-        $(IPROG) perftest $(DEBUGDIST)
+        mkdir -p $(DESTDIR)$(OPTDIR)/debug
+        $(IPROG) perftest $(DESTDIR)$(OPTDIR)/debug
 

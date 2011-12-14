@@ -13,15 +13,15 @@
 # chkconfig: 2345 91 01
 # description: XenAPI server SSL proxy
 # processname: stunnel
-# config: /etc/xensource/stunnel.conf
+# config: @ETCDIR@/stunnel.conf
 # pidfile: /var/run/xapissl.pid
 
 # Source function library.
 . /lib/lsb/init-functions
 
-PEMFILE="/etc/xensource/xapi-ssl.pem"
+PEMFILE="@ETCDIR@/xapi-ssl.pem"
 SSLPIDFILE="/var/run/xapissl.pid"
-SSLCONFFILE="/etc/xensource/xapi-ssl.conf"
+SSLCONFFILE="@ETCDIR@/xapi-ssl.conf"
 XAPISSL_LOCK="/var/lock/xapissl"
 
 # If stunnel4 exists, use it. Otherwise use stunnel.
@@ -29,7 +29,7 @@ XAPISSL_LOCK="/var/lock/xapissl"
 [ -z ${STUNNEL} ] && STUNNEL=$(which stunnel)
 
 mgmt_ip() {
-    . /etc/xensource-inventory
+    . @INVENTORY@
     if [ -n "${MANAGEMENT_INTERFACE}" ] &&
         [ "${MANAGEMENT_INTERFACE}" != "lo" ];
     then
@@ -58,7 +58,7 @@ cert = ${PEMFILE}
 ciphers = !SSLv2:RSA+AES256-SHA:RSA+AES128-SHA:RSA+RC4-SHA:RSA+RC4-MD5:RSA+DES-CBC3-SHA
 EOF
 
-    . /etc/xensource-inventory
+    . @INVENTORY@
     # Only if the management interface is set ask stunnel to bind to it
     if [ -n "${MANAGEMENT_INTERFACE}" ] &&
         [ "${MANAGEMENT_INTERFACE}" != "lo" ];
@@ -100,7 +100,7 @@ start() {
             *)
                 CN=`mgmt_ip`;;
         esac
-        "@BASE_PATH@/libexec/generate_ssl_cert" ${PEMFILE} ${CN}
+        "@LIBEXECDIR@/generate_ssl_cert" ${PEMFILE} ${CN}
     fi
     writeconffile
     start_daemon ${STUNNEL} ${SSLCONFFILE}

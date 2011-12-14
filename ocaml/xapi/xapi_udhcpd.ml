@@ -25,9 +25,9 @@ open Threadext
 let ip_begin_key = "ip_begin"
 let ip_end_key = "ip_end"
 
-let udhcpd_conf = "/var/xapi/udhcpd.conf"
-let udhcpd_skel = "/var/xapi/udhcpd.skel"
-let leases_db = "/var/xapi/dhcp-leases.db"
+let udhcpd_conf = Filename.concat Fhs.vardir "udhcpd.conf"
+let udhcpd_skel = Filename.concat Fhs.etcdir "udhcpd.skel"
+let leases_db = Filename.concat Fhs.vardir "dhcp-leases.db"
 let pidfile = "/var/run/udhcpd.pid"
 
 module Ip = struct
@@ -123,7 +123,7 @@ let write_config_nolock ~__context ip_router =
 	Unixext.unlink_safe udhcpd_conf;
 	Unixext.write_string_to_file udhcpd_conf (Udhcpd_conf.to_string config)
 
-let command = Xapi_globs.base_path ^ "/libexec/udhcpd"
+let command = Filename.concat Fhs.libexecdir "udhcpd"
   
 let restart_nolock () =
 	let pid = try Unixext.pidfile_read pidfile with _ -> None in

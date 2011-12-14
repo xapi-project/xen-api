@@ -67,7 +67,7 @@ if [ -z "$VMUUID" ]; then
     logger -t $(basename $0) "VM UUID not found in args"
 fi
 
-. /etc/xensource-inventory
+. @INVENTORY@
 
 if [ -z "$INSTALLATION_UUID" ]; then
     logger -t $(basename $0) "Could not determine host UUID"
@@ -165,7 +165,7 @@ def _get_assignments(session):
     return devices
 
 def enable_iommu(session, args):
-    rc = os.system("@BASE_PATH@/libexec/xen-cmdline --set-xen iommu=1")
+    rc = os.system("@OPTDIR@/libexec/xen-cmdline --set-xen iommu=1")
     return str(rc == 0)
 
 #def list_assigned_vfs(session, args):

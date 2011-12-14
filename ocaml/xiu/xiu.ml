@@ -221,7 +221,7 @@ module Udev = struct
     | _, _ -> eprintf "(XIU) unknown error running udev script\n"
 
   let vif domid devid device action = 
-    let vif_script = "/etc/xensource/scripts/vif" in
+    let vif_script = Filename.concat Fhs.scriptsdir "vif" in
     let env = 
       [ "DEVPATH", sprintf "/devices/xen-backend/vif-%d-%d" domid devid;
 	"PHYSDEVBUS", "xen-backend";
@@ -229,7 +229,7 @@ module Udev = struct
 	"XENBUS_BASE_PATH", "backend";
 	"XENBUS_PATH", sprintf "backend/vif/%d/%d" domid devid;
 	"XENBUS_TYPE", "vif";
-	"PATH", Xapi_globs.base_path ^ "/bin:/usr/local/bin:/bin:/usr/bin"; (* added <base_path>/bin for xenstore wrapper *)
+	"PATH", Fhs.bindir ^ ":/usr/local/bin:/bin:/usr/bin"; (* added @BINDIR@ for xenstore wrapper *)
 	"XIU", !xiu_path; (* make sure we pick up the fake list_domains *)
 	"vif", device
       ] in
@@ -858,7 +858,7 @@ let main xiu_path =
 	()
 
 let _ =
-	let config_file = ref "/etc/xensource/xiu.conf" in
+	let config_file = ref (Filename.concat Fhs.etcdir "xiu.conf") in
 	let other_args = ref [] in
 	Arg.parse [ "-v", Arg.Unit (fun () -> incr debug_level), "increase debug level";
 	            "--conf", Arg.Set_string config_file, "set config file"; ]

@@ -375,7 +375,7 @@ def db_init_from_xenapi(session):
     
 class DatabaseCache(object):
     def __read_xensource_inventory(self):
-        filename = root_prefix() + "/etc/xensource-inventory"
+        filename = root_prefix() + "@INVENTORY@"
         f = open(filename, "r")
         lines = [x.strip("\n") for x in f.readlines()]
         f.close()
@@ -948,7 +948,7 @@ def DatapathFactory():
     # XXX Need a datapath object for bridgeless PIFs
 
     try:
-        network_conf = open(root_prefix() + "/etc/xensource/network.conf", 'r')
+        network_conf = open(root_prefix() + "@ETCDIR@/network.conf", 'r')
         network_backend = network_conf.readline().strip()
         network_conf.close()                
     except Exception, e:

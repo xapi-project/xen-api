@@ -24,7 +24,7 @@ open D
 let management_interface_server = ref None
 let management_m = Mutex.create ()
 
-let rewrite_management_interface_script = Xapi_globs.base_path ^ "/libexec/rewrite-management-interface"
+let rewrite_management_interface_script = Filename.concat Fhs.libexecdir "rewrite-management-interface"
 
 let rewrite_management_interface interface =
 	(* XXX: probably should decompose this into Xapi_inventory.update <k> <v> and

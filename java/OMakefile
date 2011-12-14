@@ -8,6 +8,6 @@ clean:
 
 .PHONY: install
 install:
-	mkdir -p $(DEBUGDIST)/www
+	mkdir -p $(DESTDIR)$(OPTDIR)/debug/www
 	# If we haven't built it then we can't install it (see COMPILE_JAVA)
-	$(IDATA) XenServerConsole.jar $(DEBUGDIST)/www || /bin/true
+	$(IDATA) XenServerConsole.jar $(DESTDIR)$(OPTDIR)/debug/www || /bin/true

@@ -23,7 +23,7 @@ open D
 let filename = ref ""
 
 let gpg_binary_path = "/usr/bin/gpg"
-let gpg_homedir = Xapi_globs.base_path ^ "/gpg/"
+let gpg_homedir = Filename.concat Fhs.optdir "gpg/"
 let gpg_pub_keyring = gpg_homedir ^ "pubring.gpg"
 let allowed_gpg_checksum =
 	[ "be00ee82bffad791edfba477508d5d84"; (* centos52 version *)

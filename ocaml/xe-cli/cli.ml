@@ -74,7 +74,7 @@ let nonpersistent_rpc xml =
 let local_rpc xml =
 	let open Xmlrpcclient in
 	let http = xmlrpc ~version:"1.0" "/" in
-	XML_protocol.rpc ~transport:(Unix "/var/xapi/xapi") ~http xml
+	XML_protocol.rpc ~transport:(Unix (Filename.concat Fhs.vardir "xapi")) ~http xml
 
 (* Read command, determine username, password, host and port, and then
    invoke cmd *)

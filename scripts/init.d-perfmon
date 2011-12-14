@@ -5,13 +5,13 @@
 # chkconfig: 2345 95 05
 # description: Performance monitoring/alarm generation daemon
 # processname: perfmon
-# config: /etc/xensource/perfmon.conf
+# config: @ETCDIR@/perfmon.conf
 # pidfile: /var/run/perfmon.pid
 
 # Source function library.
 . /etc/init.d/functions
 
-PERFMON="@BASE_PATH@/bin/perfmon"
+PERFMON="@BINDIR@/perfmon"
 PERFMON_FLAGS=
 
 if [ -f /etc/sysconfig/perfmon ]; then
