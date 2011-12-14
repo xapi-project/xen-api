@@ -19,6 +19,9 @@ open Printf
 
 module D = Debug.Debugger(struct let name="xapi_globs" end)
 
+(* set this to true to use the experimental codepath *)
+let use_xenopsd = ref false
+
 (* xapi process returns this code on exit when it wants to be restarted *)
 let restart_return_code = 123
 
