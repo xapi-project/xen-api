@@ -192,12 +192,17 @@ let assert_not_suspended ~__context ~vm =
     let error_params = [Ref.string_of vm; expected; Record_util.power_to_string `Suspended] in
     raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, error_params))
 
+let insert_xenopsd ~__context ~vbd ~vdi =
+    Xapi_xenops.vbd_insert ~__context ~self:vbd ~vdi;
+    Db.VBD.set_VDI ~__context ~self:vbd ~value:vdi;
+    Db.VBD.set_empty ~__context ~self:vbd ~value:false
+
 (* Throw an error if the media is not 'removable' (ie a "CD")
    Throw an error if the media is not empty.
    If the VM is offline, just change the database.
    If the VM is online AND HVM then attempt the insert, mod the db
    If the VM is online AND PV then attempt a hot plug, mod the db *)
-let insert  ~__context ~vbd ~vdi =
+let insert_internal  ~__context ~vbd ~vdi =
   let vm = Db.VBD.get_VM ~__context ~self:vbd in
   Locking_helpers.with_lock vm
     (fun token () ->
@@ -239,6 +244,13 @@ let insert  ~__context ~vbd ~vdi =
 	  raise e
     ) ()
 
+let insert = if !Xapi_globs.use_xenopsd then insert_xenopsd else insert_internal
+
+let eject_xenopsd ~__context ~vbd =
+    Xapi_xenops.vbd_eject ~__context ~self:vbd;
+    Db.VBD.set_empty ~__context ~self:vbd ~value:true;
+    Db.VBD.set_VDI ~__context ~self:vbd ~value:Ref.null
+
 (* Throw an error if the media is not a "CD"
    Throw an error if the media is empty already.
    If the VM is offline, just change the database.
@@ -246,7 +258,7 @@ let insert  ~__context ~vbd ~vdi =
    locked.
    If the VM is online AND HVM then attempt the eject, mod the db.
    If the VM is online AND PV then attempt the hot unplug, mod the db *)
-let eject  ~__context ~vbd =
+let eject_internal  ~__context ~vbd =
   let vm = Db.VBD.get_VM ~__context ~self:vbd in
   Locking_helpers.with_lock vm
     (fun token () ->
@@ -272,6 +284,8 @@ let eject  ~__context ~vbd =
 	(* In any case change the database *)
 	Db.VBD.set_empty ~__context ~self:vbd ~value:true;
 	Db.VBD.set_VDI ~__context ~self:vbd ~value:Ref.null) ()
+
+let eject = if !Xapi_globs.use_xenopsd then eject_xenopsd else eject_internal
 
 let refresh ~__context ~vbd ~vdi =
   let vm = Db.VBD.get_VM ~__context ~self:vbd in
