@@ -776,14 +776,67 @@ let handler req fd _ =
 	   TaskHelper.failed ~__context (Api_errors.internal_error, [ ExnHelper.string_of_exn e ])
     )
 
+let _sm = "SM"
+let _xenops = "xenops"
+let _sr = "SR"
+
+module XenAPI = Client
+module SMAPI = Storage_migrate.Local
+module XenopsAPI = Xenops_client.Client
+open Storage_interface
+open Listext
+open Fun
+
 (** We don't support cross-pool migration atm *)
 let migrate  ~__context ~vm ~dest ~live ~options =
-	raise (Api_errors.Server_error(Api_errors.not_implemented, [ "VM.migrate" ]))
+	if not(!Xapi_globs.use_xenopsd)
+	then failwith "You must have /etc/xapi.conf:use_xenopsd=true";
+	(* Create mirrors of all the disks on the remote *)
+	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
+	let vdis = List.filter_map
+		(fun vbd ->
+			if not(Db.VBD.get_empty ~__context ~self:vbd)
+			then
+				let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
+				let location = Db.VDI.get_location ~__context ~self:vdi in
+				let sr = Db.SR.get_uuid ~__context ~self:(Db.VDI.get_SR ~__context ~self:vdi) in
+				Some (location, sr)
+			else None) vbds in
+	let task = Ref.string_of (Context.get_task_id __context) in
+	let dest_sr = List.assoc _sr dest in
+	let url = List.assoc _sm dest in
+	try
+		List.iter
+			(fun (location, sr) ->
+				match SMAPI.Mirror.start ~task ~sr ~vdi:location ~url ~dest:dest_sr with
+					| Success (Vdi v) ->
+						debug "Local VDI %s mirrored to %s" location v.vdi
+					| x ->
+						failwith (Printf.sprintf "SMAPI.Mirror.start: %s" (rpc_of_result x |> Jsonrpc.to_string))
+			) vdis;
+		(* Migrate the VM *)
+		let open Xenops_client in
+		let vm = Db.VM.get_uuid ~__context ~self:vm in
+		XenopsAPI.VM.migrate vm (List.assoc _xenops dest) |> success |> wait_for_task |> success_task |> ignore
+	with e ->
+		error "Caught %s: cleaning up" (Printexc.to_string e);
+		List.iter
+			(fun (location, sr) ->
+				try
+					match SMAPI.Mirror.stop ~task ~sr ~vdi:location with
+						| Success Unit -> ()
+						| x ->
+							error "SMAPI.Mirror.stop: %s" (rpc_of_result x |> Jsonrpc.to_string)
+				with e ->
+					error "SMAPI.Mirror.stop: %s" (Printexc.to_string e)
+			) vdis
 
 let migrate_receive ~__context ~host ~sR ~options =
 	let session_id = Ref.string_of (Context.get_session_id __context) in
 	let ip = Db.Host.get_address ~__context ~self:host in
 	let sm_url = Printf.sprintf "http://%s/services/SM?session_id=%s" ip session_id in
+	let sr = Db.SR.get_uuid ~__context ~self:sR in
 	let xenops_url = Printf.sprintf "http://%s/services/xenops?session_id=%s" ip session_id in
-	[ "SM", sm_url;
-	  "xenops", xenops_url ]
+	[ _sm, sm_url;
+	  _sr, sr;
+	  _xenops, xenops_url ]
