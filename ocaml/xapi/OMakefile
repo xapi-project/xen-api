@@ -126,6 +126,7 @@ XAPI_MODULES = $(COMMON) \
 	../auth/parse_likewise \
 	xapi_subject \
 	audit_log \
+	xapi_xenops \
 	xapi_vmpp \
 	xapi_vm_appliance \
 	xapi_vm_appliance_lifecycle \
