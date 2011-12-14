@@ -238,8 +238,9 @@ let print_vm id =
 	(* Sort into order based on position *)
 	let pcis = List.sort (fun a b -> compare a.Pci.position b.Pci.position) pcis in
 	let pcis = [ _pci, Printf.sprintf "[ %s ]" (String.concat ", " (List.map (fun x -> Printf.sprintf "'%s'" (print_pci x)) pcis)) ] in
+	let transient = [ "# transient", string_of_bool vm_t.transient ] in
 	String.concat "\n" (List.map (fun (k, v) -> Printf.sprintf "%s=%s" k v)
-		(name @ boot @ vcpus @ memory @ vbds @ vifs @ pcis))
+		(name @ boot @ vcpus @ memory @ vbds @ vifs @ pcis @ transient))
 
 
 let add filename =
@@ -321,6 +322,7 @@ let add filename =
 				on_crash = [ Vm.Shutdown ];
 				on_shutdown = [ Vm.Shutdown ];
 				on_reboot = [ Vm.Start ];
+				transient = false;
 			} in
 			let (id: Vm.id) = success (Client.VM.add vm) in
 			let disks = if mem _disk then find _disk |> list string else [] in
