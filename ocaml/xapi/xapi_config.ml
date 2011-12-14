@@ -89,20 +89,7 @@ let read_log_config filename =
 		) filename
 
 let read_config filename =
-	let set_log s =
-		let ls = String.split ~limit:3 ';' s in
-		match ls with
-			| [ level; key; logger ] ->
-				append_log level key logger
-			| _ ->
-				warn "format mismatch: expecting 3 arguments"
-	in
-
 	let configargs = [
-		(* "license_filename", Config.Set_string License_file.filename; *)
-		"stunnelng", Config.Set_bool Stunnel.use_new_stunnel;
-		"log", Config.String set_log;
-		"gc-debug", Config.Set_bool Xapi_globs.xapi_gc_debug;
 	] in
 	try
 		Config.read filename configargs (fun _ _ -> ())
