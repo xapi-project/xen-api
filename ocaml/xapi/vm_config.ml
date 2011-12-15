@@ -108,3 +108,9 @@ let device_of_vif vif =
 		devid = vif.devid } in
 	Device_common.device_of_backend backend vif.domid
 
+let effective_locking_mode_of_vif:(__context:Context.t -> vif -> API.vif_locking_mode) =
+	(fun ~__context vif ->
+		match vif.locking_mode with
+		| `default -> Db.Network.get_default_locking_mode ~__context ~self:vif.network_ref
+		| x -> x)
+
