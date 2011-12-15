@@ -156,7 +156,7 @@ let assert_ip_address_is domain field_name addr =
 	| _ -> raise (Api_errors.Server_error (Api_errors.invalid_value, [field_name; addr]))
 
 let set_ipv4_allowed ~__context ~self ~value =
-	change_locking_config ~__context ~self ~licence_check:true
+	change_locking_config ~__context ~self ~licence_check:(value <> [])
 		(fun () ->
 			List.iter (assert_ip_address_is Unix.PF_INET "ipv4_allowed") value;
 			Db.VIF.set_ipv4_allowed ~__context ~self ~value)
@@ -172,7 +172,7 @@ let remove_ipv4_allowed ~__context ~self ~value =
 		(fun () -> Db.VIF.remove_ipv4_allowed ~__context ~self ~value)
 
 let set_ipv6_allowed ~__context ~self ~value =
-	change_locking_config ~__context ~self ~licence_check:true
+	change_locking_config ~__context ~self ~licence_check:(value <> [])
 		(fun () ->
 			List.iter (assert_ip_address_is Unix.PF_INET6 "ipv6_allowed") value;
 			Db.VIF.set_ipv6_allowed ~__context ~self ~value)
