@@ -562,14 +562,16 @@ let rec events_watch from =
 	let open Dynamic in
 	let lines = List.map
 		(function
-			| Vm_t(x, state) ->
-				Printf.sprintf "VM %s" x.Vm.name
-			| Vbd_t(x, state) ->
-				Printf.sprintf "VBD %s.%s" (fst x.Vbd.id) (snd x.Vbd.id)
-			| Vif_t(x, state) ->
-				Printf.sprintf "VIF %s.%s" (fst x.Vif.id) (snd x.Vif.id)
-			| Task_t x ->
-				Printf.sprintf "Task %s %s" x.Task.id (x.Task.result |> Task.rpc_of_result |> Jsonrpc.to_string)
+			| Vm_t(id, _) ->
+				Printf.sprintf "VM %s" id
+			| Vbd_t(id, _) ->
+				Printf.sprintf "VBD %s.%s" (fst id) (snd id)
+			| Vif_t(id, _) ->
+				Printf.sprintf "VIF %s.%s" (fst id) (snd id)
+			| Task_t(id, Some x) ->
+				Printf.sprintf "Task %s %s" id (x.Task.result |> Task.rpc_of_result |> Jsonrpc.to_string)
+			| Task_t(id, None) ->
+				Printf.sprintf "Task %s (unknown final state)" id
 		) events in
 	List.iter (fun x -> Printf.printf "%-8d %s\n" (Opt.unbox next) x) lines;
 	flush stdout;

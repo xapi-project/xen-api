@@ -389,12 +389,14 @@ let force_state_reset ~__context ~self ~value:state =
 		List.iter 
 			(fun vbd ->
 				 Db.VBD.set_currently_attached ~__context ~self:vbd ~value:false;
-				 Db.VBD.set_reserved ~__context ~self:vbd ~value:false;)
+				 Db.VBD.set_reserved ~__context ~self:vbd ~value:false;
+				 Xapi_vbd_helpers.clear_current_operations ~__context ~self:vbd)
 			(Db.VM.get_VBDs ~__context ~self);
 		List.iter 
 			(fun vif ->
 				 Db.VIF.set_currently_attached ~__context ~self:vif ~value:false;
-				 Db.VIF.set_reserved ~__context ~self:vif ~value:false)
+				 Db.VIF.set_reserved ~__context ~self:vif ~value:false;
+				 Xapi_vif_helpers.clear_current_operations ~__context ~self:vif)
 			(Db.VM.get_VIFs ~__context ~self);
 		List.iter 
 			(fun vgpu ->

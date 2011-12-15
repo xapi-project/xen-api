@@ -287,10 +287,10 @@ module Dynamic = struct
 		| Vif of Vif.id
 		| Task of Task.id
 	type t =
-		| Vm_t of Vm.t * Vm.state
-		| Vbd_t of Vbd.t * Vbd.state
-		| Vif_t of Vif.t * Vif.state
-		| Task_t of Task.t
+		| Vm_t of Vm.id * ((Vm.t * Vm.state) option)
+		| Vbd_t of Vbd.id * ((Vbd.t * Vbd.state) option)
+		| Vif_t of Vif.id * ((Vif.t * Vif.state) option)
+		| Task_t of Task.id * (Task.t option)
 end
 
 module TASK = struct

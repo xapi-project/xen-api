@@ -739,18 +739,16 @@ end
 module UPDATES = struct
 	let lookup x =
 		let module B = (val get_backend () : S) in
-		try
-			Some (match x with
-				| Dynamic.Vm id -> let a, b = VM.stat' id in Dynamic.Vm_t (a, b)
-				| Dynamic.Vbd id -> let a, b = VBD.stat' id in Dynamic.Vbd_t (a, b)
-				| Dynamic.Vif id -> let a, b = VIF.stat' id in Dynamic.Vif_t (a, b)
-				| Dynamic.Task id -> Dynamic.Task_t (TASK.stat' id)
-			)
-		with Exception Does_not_exist -> None
+		let exists f x = try Some(f x) with Exception Does_not_exist -> None in
+		match x with
+			| Dynamic.Vm id -> Dynamic.Vm_t(id, exists VM.stat' id)
+			| Dynamic.Vbd id -> Dynamic.Vbd_t(id, exists VBD.stat' id)
+			| Dynamic.Vif id -> Dynamic.Vif_t(id, exists VIF.stat' id)
+			| Dynamic.Task id -> Dynamic.Task_t(id, exists TASK.stat' id)
 
 	let get _ last timeout =
 		let ids, next = Updates.get last timeout updates in
-		let ts = List.filter_map lookup ids in
+		let ts = List.map lookup ids in
 		return (ts, next)
 end
 
@@ -765,21 +763,21 @@ let internal_event_thread_body = Debug.with_thread_associated "events" (fun () -
 		assert (updates <> []);
 		List.iter
 			(function
-				| Dynamic.Vm id, Some (Dynamic.Vm_t (vm, state)) ->
-					debug "Received an event on managed VM %s" vm.Vm.id;
-					let (_: Task.id) = queue_operation vm.Vm.id (VM_check_state vm.Vm.id) in
+				| Dynamic.Vm id ->
+					debug "Received an event on managed VM %s" id;
+					let (_: Task.id) = queue_operation id (VM_check_state id) in
 					()
-				| Dynamic.Vbd id, Some (Dynamic.Vbd_t (vbd, state)) ->
-					debug "Received an event on managed VBD %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
-					let (_: Task.id) = queue_operation (VBD_DB.vm_of vbd.Vbd.id) (VBD_check_state vbd.Vbd.id) in
+				| Dynamic.Vbd id ->
+					debug "Received an event on managed VBD %s.%s" (fst id) (snd id);
+					let (_: Task.id) = queue_operation (VBD_DB.vm_of id) (VBD_check_state id) in
 					()
-				| Dynamic.Vif id, Some (Dynamic.Vif_t (vif, state)) ->
-					debug "Received an event on managed VIF %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
-					let (_: Task.id) = queue_operation (VIF_DB.vm_of vif.Vif.id) (VIF_check_state vif.Vif.id) in
+				| Dynamic.Vif id ->
+					debug "Received an event on managed VIF %s.%s" (fst id) (snd id);
+					let (_: Task.id) = queue_operation (VIF_DB.vm_of id) (VIF_check_state id) in
 					()
-				| id, _ ->
-					debug "Ignoring event on %s" (Jsonrpc.to_string (Dynamic.rpc_of_id id))
-			) (List.combine updates (List.map UPDATES.lookup updates));
+				| x ->
+					debug "Ignoring event on %s" (Jsonrpc.to_string (Dynamic.rpc_of_id x))
+			) updates;
 		id := next_id
 	done;
 	debug "Shutting down internal event thread"

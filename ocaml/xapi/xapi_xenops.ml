@@ -152,80 +152,91 @@ open Xenops_interface
 open Xenops_client
 open Fun
 
-let update_vm ~__context x state =
+let update_vm ~__context id info =
 	try
 		let open Vm in
-		let self = Db.VM.get_by_uuid ~__context ~uuid:x.id in
-		Db.VM.set_power_state ~__context ~self ~value:(match state.power_state with
+		let self = Db.VM.get_by_uuid ~__context ~uuid:id in
+		if info = None then debug "VM state missing: assuming VM has shut down";
+		let power_state = Opt.default Halted (Opt.map (fun x -> (snd x).power_state) info) in
+		Db.VM.set_power_state ~__context ~self ~value:(match power_state with
 			| Running -> `Running
 			| Halted -> `Halted
 			| Suspended -> `Suspended
 			| Paused -> `Paused
 		);
 		(* consoles *)
-		Db.VM.set_memory_target ~__context ~self ~value:state.memory_target;
-		let key = "timeoffset" in
-		(try Db.VM.remove_from_platform ~__context ~self ~key with _ -> ());
-		Db.VM.add_to_platform ~__context ~self ~key ~value:state.rtc_timeoffset;
-		List.iter
-			(fun domid ->
-				Mutex.execute Monitor.uncooperative_domains_m
-					(fun () ->
-						if state.uncooperative_balloon_driver
-						then Hashtbl.replace Monitor.uncooperative_domains domid ()
-						else Hashtbl.remove Monitor.uncooperative_domains domid
-					);
-				let lookup key =
-					if List.mem_assoc key state.guest_agent then Some (List.assoc key state.guest_agent) else None in
-				let list dir =
-					List.map snd (List.filter (fun x -> String.startswith dir (fst x)) state.guest_agent) in
-				Xapi_guest_agent.all lookup list ~__context ~domid ~uuid:x.id
-			) state.domids;
-		let metrics = Db.VM.get_metrics ~__context ~self in
-		Db.VM_metrics.set_start_time ~__context ~self:metrics ~value:(Date.of_float state.last_start_time);
+		Opt.iter
+			(fun (_, state) ->
+				Db.VM.set_memory_target ~__context ~self ~value:state.memory_target;
+				let key = "timeoffset" in
+				(try Db.VM.remove_from_platform ~__context ~self ~key with _ -> ());
+				Db.VM.add_to_platform ~__context ~self ~key ~value:state.rtc_timeoffset;
+				List.iter
+					(fun domid ->
+						Mutex.execute Monitor.uncooperative_domains_m
+							(fun () ->
+								if state.uncooperative_balloon_driver
+								then Hashtbl.replace Monitor.uncooperative_domains domid ()
+								else Hashtbl.remove Monitor.uncooperative_domains domid
+							);
+						let lookup key =
+							if List.mem_assoc key state.guest_agent then Some (List.assoc key state.guest_agent) else None in
+						let list dir =
+							List.map snd (List.filter (fun x -> String.startswith dir (fst x)) state.guest_agent) in
+						Xapi_guest_agent.all lookup list ~__context ~domid ~uuid:id
+					) state.domids;
+				let metrics = Db.VM.get_metrics ~__context ~self in
+				Db.VM_metrics.set_start_time ~__context ~self:metrics ~value:(Date.of_float state.last_start_time)
+			) info;
 		Xapi_vm_lifecycle.update_allowed_operations ~__context ~self;
 	with e ->
 		error "Caught %s while updating VM: has this VM been removed while this host is offline?" (Printexc.to_string e)
 
-let update_vbd ~__context x state =
+let update_vbd ~__context id info =
 	try
 		let open Vbd in
-		let vm = Db.VM.get_by_uuid ~__context ~uuid:(fst x.id) in
+		let vm = Db.VM.get_by_uuid ~__context ~uuid:(fst id) in
 		let vbds = Db.VM.get_VBDs ~__context ~self:vm in
 		let vbdrs = List.map (fun self -> self, Db.VBD.get_record ~__context ~self) vbds in
-		let linux_device = snd x.id in
-		let disk_number = Device_number.of_linux_device (snd x.id) |> Device_number.to_disk_number |> string_of_int in
-		debug "VM %s VBD userdevices = [ %s ]" (fst x.id) (String.concat "; " (List.map (fun (_,r) -> r.API.vBD_userdevice) vbdrs));
+		let linux_device = snd id in
+		let disk_number = Device_number.of_linux_device (snd id) |> Device_number.to_disk_number |> string_of_int in
+		debug "VM %s VBD userdevices = [ %s ]" (fst id) (String.concat "; " (List.map (fun (_,r) -> r.API.vBD_userdevice) vbdrs));
 		let vbd, vbd_r = List.find (fun (_, vbdr) -> vbdr.API.vBD_userdevice = linux_device || vbdr.API.vBD_userdevice = disk_number) vbdrs in
-		Db.VBD.set_currently_attached ~__context ~self:vbd ~value:state.plugged;
-		debug "state.media_present = %b" state.media_present;
-		if state.plugged then begin
-			if state.media_present then begin
-				(* XXX PR-1255: I need to know the actual SR and VDI in use, not the content requested *)
-				match x.backend with
-					| Some (VDI x) ->
-						let vdi, _ = Storage_access.find_content ~__context x in
-						Db.VBD.set_VDI ~__context ~self:vbd ~value:vdi;
-						Db.VBD.set_empty ~__context ~self:vbd ~value:false
-					| _ ->
-						error "I don't know what to do with this kind of VDI backend"
-			end else if vbd_r.API.vBD_type = `CD then begin
-				Db.VBD.set_empty ~__context ~self:vbd ~value:true;
-				Db.VBD.set_VDI ~__context ~self:vbd ~value:Ref.null
-			end
-		end;
+		Opt.iter
+			(fun (x, state) ->
+				Db.VBD.set_currently_attached ~__context ~self:vbd ~value:state.plugged;
+				debug "state.media_present = %b" state.media_present;
+				if state.plugged then begin
+					if state.media_present then begin
+						(* XXX PR-1255: I need to know the actual SR and VDI in use, not the content requested *)
+						match x.backend with
+							| Some (VDI x) ->
+								let vdi, _ = Storage_access.find_content ~__context x in
+								Db.VBD.set_VDI ~__context ~self:vbd ~value:vdi;
+								Db.VBD.set_empty ~__context ~self:vbd ~value:false
+							| _ ->
+								error "I don't know what to do with this kind of VDI backend"
+					end else if vbd_r.API.vBD_type = `CD then begin
+						Db.VBD.set_empty ~__context ~self:vbd ~value:true;
+						Db.VBD.set_VDI ~__context ~self:vbd ~value:Ref.null
+					end
+				end
+			) info;
 		Xapi_vbd_helpers.update_allowed_operations ~__context ~self:vbd
 	with e ->
 		error "Caught %s while updating VBD" (Printexc.to_string e)
 
-let update_vif ~__context x state =
+let update_vif ~__context id info =
 	try
 		let open Vif in
-		let vm = Db.VM.get_by_uuid ~__context ~uuid:(fst x.id) in
+		let vm = Db.VM.get_by_uuid ~__context ~uuid:(fst id) in
 		let vifs = Db.VM.get_VIFs ~__context ~self:vm in
 		let vifrs = List.map (fun self -> self, Db.VIF.get_record ~__context ~self) vifs in
-		let vif, _ = List.find (fun (_, vifr) -> vifr.API.vIF_device = (snd x.id)) vifrs in
-		Db.VIF.set_currently_attached ~__context ~self:vif ~value:state.plugged;
+		let vif, _ = List.find (fun (_, vifr) -> vifr.API.vIF_device = (snd id)) vifrs in
+		Opt.iter
+			(fun (_, state) ->
+				Db.VIF.set_currently_attached ~__context ~self:vif ~value:state.plugged
+			) info;
 		Xapi_vif_helpers.update_allowed_operations ~__context ~self:vif
 	with e ->
 		error "Caught %s while updating VIF" (Printexc.to_string e)
@@ -235,23 +246,43 @@ let rec events_watch ~__context from =
 	let open Dynamic in
 	List.iter
 		(function
-			| Vm_t(x, state) ->
-				debug "xenops event on VM %s" x.Vm.name;
-				update_vm ~__context x state;
-			| Vbd_t(x, state) ->
-				debug "xenops event on VBD %s.%s" (fst x.Vbd.id) (snd x.Vbd.id);
-				update_vbd ~__context x state
-			| Vif_t(x, state) ->
-				debug "xenops event on VIF %s.%s" (fst x.Vif.id) (snd x.Vif.id);
-				update_vif ~__context x state
-			| Task_t x ->
-				debug "xenops event on Task %s %s" x.Task.id (x.Task.result |> Task.rpc_of_result |> Jsonrpc.to_string)
+			| Vm_t(id, info) ->
+				debug "xenops event on VM %s" id;
+				update_vm ~__context id info;
+			| Vbd_t(id, info) ->
+				debug "xenops event on VBD %s.%s" (fst id) (snd id);
+				update_vbd ~__context id info
+			| Vif_t(id, info) ->
+				debug "xenops event on VIF %s.%s" (fst id) (snd id);
+				update_vif ~__context id info
+			| Task_t(id, info) ->
+				debug "xenops event on Task %s" id
 		) events;
 	events_watch ~__context next
 
 let events_thread () =
     Server_helpers.exec_with_new_task "xapi_xenops"
 		(fun __context ->
+			(* For each VM resident on this host, check if the xenopsd
+			   has forgotten about it: this means it has shut down *)
+			let localhost = Helpers.get_localhost ~__context in
+			let vms = Db.Host.get_resident_VMs ~__context ~self:localhost in
+			let vms = List.filter (fun vm -> not(Db.VM.get_is_control_domain ~__context ~self:vm)) vms in
+			let in_db = List.map (fun self -> Db.VM.get_uuid ~__context ~self) vms in
+			let in_xenopsd = Client.VM.list () |> success |> List.map (fun (vm, _) -> vm.Vm.id) in
+			List.iter
+				(fun id ->
+					info "VM %s is not running here: setting power_state to Halted" id;
+					let vm = Db.VM.get_by_uuid ~__context ~uuid:id in
+					Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted
+				) (List.set_difference in_db in_xenopsd);
+			List.iter
+				(fun id ->
+					info "VM %s is running here: setting power_state to Running" id;
+					let vm = Db.VM.get_by_uuid ~__context ~uuid:id in
+					Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Running;
+					Db.VM.set_resident_on ~__context ~self:vm ~value:localhost
+				) (List.set_difference in_db in_xenopsd);			
 			while true do
 				try
 					events_watch ~__context None;
