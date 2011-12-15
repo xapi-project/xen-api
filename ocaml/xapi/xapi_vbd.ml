@@ -19,6 +19,7 @@ open Vmopshelpers
 open Stringext
 open Xapi_vbd_helpers
 open Vbdops
+open Threadext
 open D
 
 let assert_operation_valid ~__context ~self ~(op:API.vbd_operations) = 
@@ -157,10 +158,81 @@ let unplug ~__context ~self = unplug_common ~__context ~self false
 let unplug_force ~__context ~self = unplug_common ~__context ~self true
 let unplug_force_no_safety_check ~__context ~self = unplug_common ~do_safety_check:false ~__context ~self true
 
-let create  ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable ~empty ~other_config
-    ~qos_algorithm_type ~qos_algorithm_params  : API.ref_VBD =
-  create ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable ~empty  ~other_config
-    ~qos_algorithm_type ~qos_algorithm_params
+(** Hold this mutex while resolving the 'autodetect' device names to prevent two concurrent
+    VBD.creates racing with each other and choosing the same device. For simplicity keep this
+    as a global lock rather than a per-VM one. Rely on the fact that the message forwarding layer
+    always runs this code on the master. *)
+let autodetect_mutex = Mutex.create ()
+
+(** VBD.create doesn't require any interaction with xen *)
+let create  ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable ~empty
+           ~other_config ~qos_algorithm_type ~qos_algorithm_params =
+
+	if not empty then begin
+	  let vdi_type = Db.VDI.get_type ~__context ~self:vDI in
+	  if not(List.mem vdi_type [ `system; `user; `ephemeral; `suspend; `crashdump; `metadata])
+	  then raise (Api_errors.Server_error(Api_errors.vdi_incompatible_type, [ Ref.string_of vDI; Record_util.vdi_type_to_string vdi_type ]))
+	end;
+
+	(* All "CD" VBDs must be readonly *)
+	if _type = `CD && mode <> `RO
+	then raise (Api_errors.Server_error(Api_errors.vbd_cds_must_be_readonly, []));
+	(* Only "CD" VBDs may be empty *)
+	if _type <> `CD && empty
+	then raise (Api_errors.Server_error(Api_errors.vbd_not_removable_media, [ "in constructor" ]));
+
+	(* Prevent VBDs being created which are of type "CD" which are
+	   not either .iso files or CD block devices *)
+	if _type = `CD && not(empty)
+	then Xapi_vdi_helpers.assert_vdi_is_valid_iso ~__context ~vdi:vDI;
+	(* Prevent RW VBDs being created pointing to RO VDIs *)
+	if mode = `RW && Db.VDI.get_read_only ~__context ~self:vDI
+	then raise (Api_errors.Server_error(Api_errors.vdi_readonly, [ Ref.string_of vDI ]));
+
+	Mutex.execute autodetect_mutex
+	  (fun () ->
+	     let possibilities = Xapi_vm_helpers.allowed_VBD_devices ~__context ~vm:vM in
+
+             if not (valid_device userdevice) || (userdevice = "autodetect" && possibilities = []) then
+               raise (Api_errors.Server_error (Api_errors.invalid_device,[userdevice]));
+
+	     (* Resolve the "autodetect" into a fixed device name now *)
+	     let userdevice = if userdevice = "autodetect"
+	     then string_of_int (Device_number.to_disk_number (List.hd possibilities)) (* already checked for [] above *)
+	     else userdevice in
+
+	     let uuid = Uuid.make_uuid () in
+	     let ref = Ref.make () in
+	     debug "VBD.create (device = %s; uuid = %s; ref = %s)"
+	       userdevice (Uuid.string_of_uuid uuid) (Ref.string_of ref);
+
+	     (* Check that the device is definitely unique. If the requested device is numerical
+		    (eg 1) then we 'expand' it into other possible names (eg 'hdb' 'xvdb') to detect
+		    all possible clashes. *)
+		 let userdevices = Xapi_vm_helpers.possible_VBD_devices_of_string userdevice in
+		 let existing_devices = Xapi_vm_helpers.all_used_VBD_devices ~__context ~self:vM in
+		 if Listext.List.intersect userdevices existing_devices <> []
+	     then raise (Api_errors.Server_error (Api_errors.device_already_exists, [userdevice]));
+
+	     (* Make people aware that non-shared disks make VMs not agile *)
+	     if not empty then assert_doesnt_make_vm_non_agile ~__context ~vm:vM ~vdi:vDI;
+
+	     let metrics = Ref.make () and metrics_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+	     Db.VBD_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
+	       ~io_read_kbs:0. ~io_write_kbs:0. ~last_updated:(Date.of_float 0.)
+	       ~other_config:[];
+
+	     Db.VBD.create ~__context ~ref ~uuid:(Uuid.to_string uuid)
+	       ~current_operations:[] ~allowed_operations:[] ~storage_lock:false
+	       ~vM ~vDI ~userdevice ~device:"" ~bootable ~mode ~_type ~unpluggable ~empty ~reserved:false
+	       ~qos_algorithm_type ~qos_algorithm_params ~qos_supported_algorithms:[]
+	       ~currently_attached:false
+	       ~status_code:Int64.zero ~status_detail:""
+               ~runtime_properties:[] ~other_config
+	       ~metrics;
+	     update_allowed_operations ~__context ~self:ref;
+	     ref
+	  )
 
 let destroy  ~__context ~self = destroy ~__context ~self
 
