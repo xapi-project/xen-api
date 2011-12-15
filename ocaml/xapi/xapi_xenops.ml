@@ -183,6 +183,7 @@ let update_vm ~__context x state =
 			) state.domids;
 		let metrics = Db.VM.get_metrics ~__context ~self in
 		Db.VM_metrics.set_start_time ~__context ~self:metrics ~value:(Date.of_float state.last_start_time);
+		Xapi_vm_lifecycle.update_allowed_operations ~__context ~self;
 	with e ->
 		error "Caught %s while updating VM: has this VM been removed while this host is offline?" (Printexc.to_string e)
 
@@ -212,7 +213,8 @@ let update_vbd ~__context x state =
 				Db.VBD.set_empty ~__context ~self:vbd ~value:true;
 				Db.VBD.set_VDI ~__context ~self:vbd ~value:Ref.null
 			end
-		end
+		end;
+		Xapi_vbd_helpers.update_allowed_operations ~__context ~self:vbd
 	with e ->
 		error "Caught %s while updating VBD" (Printexc.to_string e)
 
@@ -223,7 +225,8 @@ let update_vif ~__context x state =
 		let vifs = Db.VM.get_VIFs ~__context ~self:vm in
 		let vifrs = List.map (fun self -> self, Db.VIF.get_record ~__context ~self) vifs in
 		let vif, _ = List.find (fun (_, vifr) -> vifr.API.vIF_device = (snd x.id)) vifrs in
-		Db.VIF.set_currently_attached ~__context ~self:vif ~value:state.plugged
+		Db.VIF.set_currently_attached ~__context ~self:vif ~value:state.plugged;
+		Xapi_vif_helpers.update_allowed_operations ~__context ~self:vif
 	with e ->
 		error "Caught %s while updating VIF" (Printexc.to_string e)
 
