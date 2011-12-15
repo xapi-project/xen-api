@@ -84,11 +84,15 @@ module Storage = struct
 		let rec retry_econnrefused upto f =
 			try
 				f ()
-			with Unix.Unix_error(Unix.ECONNREFUSED, "connect", _) as e ->
-				if upto = 0 then raise e;
-				debug "Caught ECONNREFUSED; retrying in 5s";
-				Thread.delay 5.;
-				retry_econnrefused (upto - 1) f
+			with
+				| Unix.Unix_error(Unix.ECONNREFUSED, "connect", _) as e ->
+					if upto = 0 then raise e;
+					debug "Caught ECONNREFUSED; retrying in 5s";
+					Thread.delay 5.;
+					retry_econnrefused (upto - 1) f
+				| e ->
+					debug "Caught %s: (probably a fatal error)" (Printexc.to_string e);
+					raise e
 
 		let rpc call =
 			let open Xmlrpc_client in
