@@ -76,12 +76,8 @@ let add_vif ~__context ~xs vif_device =
 	let vif_uuid = Db.VIF.get_uuid ~__context ~self:vif_device.Vm_config.vif_ref in
 
 	let locking_mode =
-		let (locking_mode:API.vif_locking_mode) =
-			match vif_device.Vm_config.locking_mode with
-			| `default -> Db.Network.get_default_locking_mode ~__context ~self:vif_device.Vm_config.network_ref
-			| x -> x
-		in
-		Record_util.vif_locking_mode_to_string locking_mode
+		Record_util.vif_locking_mode_to_string
+		(Vm_config.effective_locking_mode_of_vif ~__context vif_device)
 	in
 
 	let extra_private_keys = [
