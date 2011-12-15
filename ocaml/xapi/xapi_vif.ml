@@ -84,26 +84,30 @@ let create  ~__context ~device ~network ~vM
 
 let destroy  ~__context ~self = destroy ~__context ~self
 
+let do_if_device_active ~__context ~self f =
+	let vif_rec = Db.VIF.get_record ~__context ~self in
+	let vm_rec = Db.VM.get_record ~__context ~self:vif_rec.API.vIF_VM in
+	let attached = vif_rec.API.vIF_currently_attached in
+	let suspended = vm_rec.API.vM_power_state = `Suspended in
+	if attached && not suspended then begin
+		let protocol = Helpers.device_protocol_of_string vm_rec.API.vM_domarch in
+		match Vm_config.vif_of_vif ~__context vm_rec (Int64.to_int vm_rec.API.vM_domid) protocol self with
+		| None -> ()
+		| Some vif_device -> f vif_device
+	end
+
 (* This function moves a dom0 vif device from one bridge to another, without involving the guest,
  * so it also works on guests that do not support hot(un)plug of VIFs. *)
 let move ~__context ~network vif =
 	debug "Moving VIF %s to network %s" (Db.VIF.get_uuid ~__context ~self:vif)
 		(Db.Network.get_uuid ~__context ~self:network);
-	let vif_rec = Db.VIF.get_record ~__context ~self:vif in
-	let suspended = Db.VM.get_power_state ~__context ~self:vif_rec.API.vIF_VM = `Suspended in
-	let attached = vif_rec.API.vIF_currently_attached && not suspended in
 	Db.VIF.set_network ~__context ~self:vif ~value:network;
-	if attached then
-		let vm_r = Db.VM.get_record ~__context ~self:vif_rec.API.vIF_VM in
-		let protocol = Helpers.device_protocol_of_string vm_r.API.vM_domarch in
-		match Vm_config.vif_of_vif ~__context vm_r (Int64.to_int vm_r.API.vM_domid) protocol vif with
-		| None -> ()
-		| Some vif_device ->
-			let xs_bridge_path = Hotplug.get_private_data_path_of_device (Vm_config.device_of_vif vif_device) ^ "/bridge" in
-			with_xs (fun xs -> xs.Xs.write xs_bridge_path vif_device.Vm_config.bridge);
-			let domid = string_of_int vif_device.Vm_config.domid in
-			let devid = string_of_int vif_device.Vm_config.devid in
-			ignore(Helpers.call_script (Filename.concat Fhs.scriptsdir "vif") ["move"; "vif"; domid; devid])
+	do_if_device_active ~__context ~self:vif (fun vif_device ->
+		let xs_bridge_path = Hotplug.get_private_data_path_of_device (Vm_config.device_of_vif vif_device) ^ "/bridge" in
+		with_xs (fun xs -> xs.Xs.write xs_bridge_path vif_device.Vm_config.bridge);
+		let domid = string_of_int vif_device.Vm_config.domid in
+		let devid = string_of_int vif_device.Vm_config.devid in
+		ignore(Helpers.call_script (Filename.concat Fhs.scriptsdir "vif") ["move"; "vif"; domid; devid]))
 
 let assert_locking_licensed ~__context =
 	if (not (Pool_features.is_enabled ~__context Features.VIF_locking)) then
