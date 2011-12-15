@@ -22,7 +22,7 @@ let default_uri = "file:" ^ default_path
 let ( |> ) a b = b a
 
 let http_request url meth =
-	Http.Request.make ~version:"1.1" ~keep_alive:false ?auth:(Http.Url.auth_of url) ~user_agent:"xenopsd" meth (Http.Url.uri_of url)
+	Http.Request.make ~version:"1.1" ~keep_alive:false ?auth:(Http.Url.auth_of url) ~user_agent:"xenopsd" ~query:(Http.Url.get_query_params url) meth (Http.Url.get_uri url)
 
 let rpc url call =
 	let transport = transport_of_url url in

@@ -20,12 +20,12 @@ open Fun
 open Stringext
 open Xmlrpc_client
 
-let url = ref (Http.Url.File ({ Http.Url.path = "/var/xapi/storage" }, "/"))
+let url = Http.Url.(ref (File { path = "/var/xapi/storage" }, { uri = "/"; query_params = [] }))
 
 module RPC = struct
 let rpc call =
 	XMLRPC_protocol.rpc ~transport:(transport_of_url !url)
-		~http:(xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of !url) (Http.Url.uri_of !url)) call
+		~http:(xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of !url) ~query:(Http.Url.get_query_params !url) (Http.Url.get_uri !url)) call
 end
 
 open Storage_interface

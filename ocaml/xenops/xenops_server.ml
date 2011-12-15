@@ -364,9 +364,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			let id = Remote.VM.import_metadata (export_metadata id) |> success in
 			debug "Received id = %s" id;
 			let suffix = Printf.sprintf "/memory/%s" id in
-			let memory_url = match url with
-				| Http.Url.Http(a, b) -> Http.Url.Http(a, b ^ suffix)
-				| Http.Url.File(a, b) -> Http.Url.File(a, b ^ suffix) in
+			let memory_url = Http.Url.(set_uri url (get_uri url ^ suffix)) in
 			with_transport (transport_of_url memory_url)
 				(fun mfd ->
 					Http_client.rpc mfd (Xenops_migrate.http_put memory_url)
