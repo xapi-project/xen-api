@@ -40,7 +40,7 @@ type vif = {
 (* Note: we always pass in the VM's domid rather than use the one from the VM record because
    during migration the VM actually has two domids. *)
 
-let vif_of_vif ~__context ~vm vm_r domid protocol vif =
+let vif_of_vif ~__context vm_r domid protocol vif =
 	let vif_r = Db.VIF.get_record ~__context ~self:vif in
 	let log_qos_failure reason =
 		warn "vif QoS failed: %s (vm=%s,vif=%s)" reason vm_r.API.vM_uuid vif_r.API.vIF_uuid in
@@ -100,7 +100,7 @@ let vifs_of_vm ~__context ~vm domid =
 	let vm_r = Db.VM.get_record ~__context ~self:vm in
 	let protocol = Helpers.device_protocol_of_string vm_r.API.vM_domarch in
 
-	List.concat (List.map Opt.to_list (List.map (vif_of_vif ~__context ~vm vm_r domid protocol) vm_r.API.vM_VIFs))
+	List.concat (List.map Opt.to_list (List.map (vif_of_vif ~__context vm_r domid protocol) vm_r.API.vM_VIFs))
 
 let device_of_vif vif = 
 	let backend = { Device_common.domid = 0;
