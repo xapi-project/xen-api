@@ -213,3 +213,39 @@ let cleanup (x: cleanup_stack) =
 	 )
     )
 
+(* Copy VM metadata to a remote pool *)
+let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address which =
+	let subtask_of = (Ref.string_of (Context.get_task_id __context)) in
+
+	let open Xmlrpc_client in
+
+	let which = match which with
+		| `All -> "all=true"
+		| `Only vm -> Printf.sprintf "ref=%s" (Ref.string_of vm) in
+
+	Helpers.call_api_functions ~__context (fun my_rpc my_session_id ->
+		let get = Xapi_http.http_request ~version:"1.0" ~subtask_of
+			~cookie:["session_id", Ref.string_of my_session_id] ~keep_alive:false
+			Http.Get
+			(Printf.sprintf "%s?%s" Constants.export_metadata_uri which) in
+		let put = Xapi_http.http_request ~version:"1.0" ~subtask_of
+			~cookie:["session_id", Ref.string_of session_id] ~keep_alive:false
+			Http.Put
+			(Printf.sprintf "%s?restore=true" Constants.import_metadata_uri) in
+		debug "Piping HTTP %s to %s" (Http.Request.to_string get) (Http.Request.to_string put);
+		with_transport (Unix Xapi_globs.unix_domain_socket)
+			(with_http get
+				(fun (r, ifd) ->
+					debug "Content-length: %s" (Opt.default "None" (Opt.map Int64.to_string r.Http.Response.content_length));
+					let put = { put with Http.Request.content_length = r.Http.Response.content_length } in
+					debug "Connecting to %s:%d" remote_address !Xapi_globs.https_port;
+					with_transport (SSL (SSL.make (), remote_address, !Xapi_globs.https_port))
+						(with_http put
+							(fun (_, ofd) ->
+								let (n: int64) = Unixext.copy_file ?limit:r.Http.Response.content_length ifd ofd in
+								debug "Written %Ld bytes" n
+							)
+						)
+				)
+			)
+	)
