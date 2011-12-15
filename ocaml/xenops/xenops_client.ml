@@ -50,14 +50,14 @@ let event_wait p =
 
 let wait_for_task id =
 	let finished = function
-		| Dynamic.Task_t t ->
-			if t.Task.id = id then begin
+		| Dynamic.Task_t(id', Some t) ->
+			if id = id' then begin
 				match t.Task.result with
 				| Task.Pending _ -> false
 				| Task.Completed _ -> true
 				| Task.Failed _ -> true
 			end else false
-		| x ->
+		| _ ->
 			false in 
 	event_wait finished;
 	id
