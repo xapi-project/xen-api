@@ -126,6 +126,8 @@ let _ =
 
   Logs.reset_all (if !daemonize then [ log_file_path ] else [ "file:/dev/stdout" ]);
 
+  Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
+
   if !daemonize then Unixext.daemonize ();
 
   Unixext.mkdir_rec (Filename.dirname !pidfile) 0o755;
