@@ -62,7 +62,6 @@
 /usr/lib/xcp/lib/xha-lc
 /usr/lib/xcp/lib/pygrub.xcp
 /usr/lib/xcp/scripts
-/etc/bash_completion.d
 /etc/logrotate.d
 /etc/pam.d
 /etc/xcp
