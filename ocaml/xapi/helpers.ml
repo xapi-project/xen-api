@@ -77,6 +77,12 @@ let make_rpc ~__context xml : XMLRPC.xmlrpc =
 		else SSL(SSL.make ~use_stunnel_cache:true (), Pool_role.get_master_address(), !Xapi_globs.https_port) in
 	XML_protocol.rpc ~transport ~http xml
 
+let make_remote_rpc remote_address xml =
+	let open Xmlrpc_client in
+	let transport = SSL(SSL.make (), remote_address, !Xapi_globs.https_port) in
+	let http = xmlrpc ~version:"1.0" "/" in
+	XML_protocol.rpc ~transport ~http xml
+
 (** Log into pool master using the client code, call a function
     passing it the rpc function and session id, logout when finished. *)
 let call_api_functions ~__context f =
