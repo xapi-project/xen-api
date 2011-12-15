@@ -81,9 +81,21 @@ module Storage = struct
 	open Storage_interface
 
 	module Client = Client(struct
+		let rec retry_econnrefused upto f =
+			try
+				f ()
+			with Unix.Unix_error(Unix.ECONNREFUSED, "connect", _) as e ->
+				if upto = 0 then raise e;
+				debug "Caught ECONNREFUSED; retrying in 5s";
+				Thread.delay 5.;
+				retry_econnrefused (upto - 1) f
+
 		let rpc call =
 			let open Xmlrpc_client in
-			XMLRPC_protocol.rpc ~transport:(Unix "/var/xapi/storage") ~http:(xmlrpc ~version:"1.0" "/") call
+			retry_econnrefused 10
+				(fun () ->
+					XMLRPC_protocol.rpc ~transport:(Unix "/var/xapi/storage") ~http:(xmlrpc ~version:"1.0" "/") call
+				)
 	end)
 
 	let success = function
