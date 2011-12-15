@@ -330,8 +330,8 @@ let deref_symlinks path =
 	let rec inner seen_already path = 
 		if List.mem path seen_already
 		then failwith "Circular symlink";
-		let stats = Unix.lstat path in
-		if stats.Unix.st_kind = Unix.S_LNK
+		let stats = Unix.LargeFile.lstat path in
+		if stats.Unix.LargeFile.st_kind = Unix.S_LNK
 		then inner (path :: seen_already) (Unix.readlink path)
 		else path in
 	inner [] path
