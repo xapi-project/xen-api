@@ -98,7 +98,8 @@ let is_allowed_concurrently ~(op:API.vm_operations) ~current_ops =
 	and snapshot    = [`snapshot; `checkpoint]
 	and allowed_operations = (* a list of valid state -> operation *)
 		[ [`snapshot_with_quiesce], `snapshot;
-		  [`reverting],             `hard_shutdown ] in                
+		  [`reverting],             `hard_shutdown;
+		  [`migrate],               `metadata_export ] in
 	let state_machine () = 
 		let current_state = List.map snd current_ops in
 		List.exists (fun (state, transition) -> state = current_state && transition = op) allowed_operations
@@ -360,7 +361,7 @@ let update_allowed_operations ~__context ~self =
 			[`snapshot; `copy; `clone; `revert; `checkpoint; `snapshot_with_quiesce;
 			 `start; `start_on; `pause; `unpause; `clean_shutdown; `clean_reboot;
 			`hard_shutdown; `hard_reboot; `suspend; `resume; `resume_on; `export; `destroy;
-			`provision; `changing_VCPUs_live; `pool_migrate; `make_into_template; `changing_static_range;
+			`provision; `changing_VCPUs_live; `pool_migrate; `migrate; `make_into_template; `changing_static_range;
 			`changing_shadow_memory; `changing_dynamic_range]
 	in
 	(* FIXME: need to be able to deal with rolling-upgrade for orlando as well *)
