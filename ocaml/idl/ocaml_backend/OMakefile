@@ -115,6 +115,7 @@ SERVER_OBJS = ../../database/escaping locking_helpers \
 	../../xapi/xmlrpc_sexpr
 
 XAPI_CLIENT_OBJS = \
+	../../fhs \
 	../../util/util_globs_inventory \
 	../../util/util_inventory \
 	../../util/version \
