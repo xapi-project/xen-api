@@ -28,6 +28,10 @@ let _mkfs = "/sbin/mkfs"
 let _mount = "/bin/mount"
 let _umount = "/bin/umount"
 
+let run cmd args =
+	debug "%s %s" cmd (String.concat " " args);
+	ignore(Forkhelpers.execute_command_get_output cmd args)
+
 module VmExtra = struct
 	(** Extra data we store per VM. This is preserved when the domain is
 		suspended so it can be re-used in the following 'create' which is
@@ -157,7 +161,7 @@ module Storage = struct
 			)
 end
 
-let with_disk ~xc ~xs task disk f = match disk with
+let with_disk ~xc ~xs task disk write f = match disk with
 	| Local path -> f path
 	| VDI path ->
 		let open Storage_interface in
@@ -166,7 +170,7 @@ let with_disk ~xc ~xs task disk f = match disk with
 		let dp = Client.DP.create "with_disk" "xenopsd" in
 		finally
 			(fun () ->
-				let vdi = attach_and_activate task dp sr vdi false in
+				let vdi = attach_and_activate task dp sr vdi write in
 				let backend_vm_id = uuid_of_di (Xenctrl.domain_getinfo xc vdi.domid) |> Uuid.string_of_uuid in
 
 				let frontend_domid = this_domid ~xs in
@@ -212,7 +216,6 @@ let with_disk ~xc ~xs task disk f = match disk with
 											(fun () ->
 												debug "Opened %s" block_device;
 												Device.Vbd.clean_shutdown_async ~xs device;
-												Thread.delay 60.;
 												try
 													Device.Vbd.clean_shutdown_wait ~xs device
 												with Device_error(_, x) ->
@@ -578,7 +581,7 @@ module VM = struct
 					| PV { boot = Indirect { devices = [] } } ->
 						raise (Exception No_bootable_device)
 					| PV { boot = Indirect ( { devices = d :: _ } as i ) } ->
-						with_disk ~xc ~xs task d
+						with_disk ~xc ~xs task d false
 							(fun dev ->
 								let b = Bootloader.extract ~bootloader:i.bootloader 
 									~legacy_args:i.legacy_args ~extra_args:i.extra_args
@@ -673,13 +676,13 @@ module VM = struct
 	(* Create an ext2 filesystem without maximal mount count and
 	   checking interval. *)
 	let mke2fs device =
-		ignore(Forkhelpers.execute_command_get_output _mkfs ["-t"; "ext2"; device]);
-		ignore(Forkhelpers.execute_command_get_output _tune2fs  ["-i"; "0"; "-c"; "0"; device])
+		run _mkfs ["-t"; "ext2"; device];
+		run _tune2fs  ["-i"; "0"; "-c"; "0"; device]
 
 	(* Mount a filesystem somewhere, with optional type *)
 	let mount ?ty:(ty = None) src dest =
 		let ty = match ty with None -> [] | Some ty -> [ "-t"; ty ] in
-		ignore(Forkhelpers.execute_command_get_output _mount (ty @ [ src; dest ]))
+		ignore(run _mount (ty @ [ src; dest ]))
 
 	let timeout = 300. (* 5 minutes: something is seriously wrong if we hit this timeout *)
 	exception Umount_timeout
@@ -691,7 +694,7 @@ module VM = struct
 
 		while not(!finished) && (Unix.gettimeofday () -. start < timeout) do
 			try
-				ignore(Forkhelpers.execute_command_get_output _umount [dest] );
+				run _umount [dest];
 				finished := true
 			with e ->
 				if not(retry) then raise e;
@@ -716,7 +719,7 @@ module VM = struct
 
 	let with_data ~xc ~xs task data write f = match data with
 		| Disk disk ->
-			with_disk ~xc ~xs task disk
+			with_disk ~xc ~xs task disk write
 				(fun path ->
 					if write then mke2fs path;
 					with_mounted_dir path
@@ -808,7 +811,16 @@ module VM = struct
 		with_xc_and_xs
 			(fun xc xs ->
 				match domid_of_uuid ~xc ~xs uuid with
-					| None -> halted_vm
+					| None ->
+						(* XXX: we need to store (eg) guest agent info *)
+						begin match vme with
+							| Some { VmExtra.suspend_memory_bytes = 0L } ->
+								halted_vm
+							| Some _ ->
+								{ halted_vm with Vm.power_state = Suspended }
+							| None ->
+								halted_vm
+						end
 					| Some d ->
 						let vnc = Opt.map (fun port -> { Vm.protocol = Vm.Rfb; port = port })
 							(Device.get_vnc_port ~xs d)in
