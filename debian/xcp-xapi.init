@@ -46,7 +46,6 @@ grep hypervisor /proc/cpuinfo > /dev/null || exit 0
 . /lib/lsb/init-functions
 
 # Wait for xapi to write its "init complete" cookie: after here it's safe to modify templates.
-# (One possible failure mode incurred by not waiting is to not be able to find the tools .iso)
 wait_for_xapi() {
     MAX_RETRIES=50
     RETRY=0
@@ -91,6 +90,10 @@ do_start()
 	# to handle requests from services started subsequently which depend
 	# on this one.  As a last resort, sleep for some time.
 	wait_for_xapi 
+
+	# Do some standard setup, e.g. pif-scan, template creation (maybe)
+	. /etc/xcp/inventory
+	xe pif-scan host-uuid=${INSTALLATION_UUID}
 
 	# Check whether the md5 of the create-templates binary matches the one
 	# used previously. If not, recreate the templates.
