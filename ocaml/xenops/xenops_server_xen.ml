@@ -22,7 +22,11 @@ open Threadext
 open Stringext
 open Fun
 
-let dmpath = "/opt/xensource/libexec/qemu-dm-wrapper"
+let _qemu_dm = "/opt/xensource/libexec/qemu-dm-wrapper"
+let _tune2fs = "/sbin/tune2fs"
+let _mkfs = "/sbin/mkfs"
+let _mount = "/bin/mount"
+let _umount = "/bin/umount"
 
 module VmExtra = struct
 	(** Extra data we store per VM. This is preserved when the domain is
@@ -632,7 +636,7 @@ module VM = struct
 		let vmextra = vm |> key_of |> DB.read |> Opt.unbox in
 		Opt.iter (fun info ->
 			(if saved_state then Device.Dm.restore else Device.Dm.start)
-			~xs ~dmpath info di.Xenctrl.domid) (vmextra |> create_device_model_config);
+			~xs ~dmpath:_qemu_dm info di.Xenctrl.domid) (vmextra |> create_device_model_config);
 		match vm.Vm.ty with
 			| Vm.PV { vncterm = true; vncterm_ip = ip } -> Device.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
 			| _ -> ()
@@ -666,22 +670,74 @@ module VM = struct
 					debug "OTHER EVENT";
 					false)
 
-	let with_data ~xc ~xs task data flags f = match data with
+	(* Create an ext2 filesystem without maximal mount count and
+	   checking interval. *)
+	let mke2fs device =
+		ignore(Forkhelpers.execute_command_get_output _mkfs ["-t"; "ext2"; device]);
+		ignore(Forkhelpers.execute_command_get_output _tune2fs  ["-i"; "0"; "-c"; "0"; device])
+
+	(* Mount a filesystem somewhere, with optional type *)
+	let mount ?ty:(ty = None) src dest =
+		let ty = match ty with None -> [] | Some ty -> [ "-t"; ty ] in
+		ignore(Forkhelpers.execute_command_get_output _mount (ty @ [ src; dest ]))
+
+	let timeout = 300. (* 5 minutes: something is seriously wrong if we hit this timeout *)
+	exception Umount_timeout
+
+	(** Unmount a mountpoint. Retries every 5 secs for a total of 5mins before returning failure *)
+	let umount ?(retry=true) dest =
+		let finished = ref false in
+		let start = Unix.gettimeofday () in
+
+		while not(!finished) && (Unix.gettimeofday () -. start < timeout) do
+			try
+				ignore(Forkhelpers.execute_command_get_output _umount [dest] );
+				finished := true
+			with e ->
+				if not(retry) then raise e;
+				debug "Caught exception (%s) while unmounting %s: pausing before retrying"
+					(Printexc.to_string e) dest;
+				Thread.delay 5.
+		done;
+		if not(!finished) then raise Umount_timeout
+
+	let with_mounted_dir device f =
+		let mount_point = Filename.temp_file "xenops_mount_" "" in
+		Unix.unlink mount_point;
+		Unix.mkdir mount_point 0o640;
+		finally
+			(fun () ->
+				mount ~ty:(Some "ext2") device mount_point;
+				f mount_point)
+			(fun () ->
+				(try umount mount_point with e -> debug "Caught %s" (Printexc.to_string e));
+				(try Unix.rmdir mount_point with e -> debug "Caught %s" (Printexc.to_string e))
+			)
+
+	let with_data ~xc ~xs task data write f = match data with
 		| Disk disk ->
 			with_disk ~xc ~xs task disk
 				(fun path ->
-					(* Make a filesystem on the disk later *)
-					(* Do we really want to balloon the guest down? *)
-					Unixext.with_file path flags 0o644
-						(fun fd ->
-							finally
-								(fun () -> f fd)
-								(fun () ->
-									try
-										Unixext.fsync fd;
-									with Unix.Unix_error(Unix.EIO, _, _) ->
-										debug "Caught EIO in fsync after suspend; suspend image may be corrupt";
-										raise (Exception IO_error)
+					if write then mke2fs path;
+					with_mounted_dir path
+						(fun dir ->
+							(* Do we really want to balloon the guest down? *)
+							let flags =
+								if write
+								then [ Unix.O_WRONLY; Unix.O_CREAT ]
+								else [ Unix.O_RDONLY ] in
+							let filename = dir ^ "/suspend-image" in
+							Unixext.with_file filename flags 0o600
+								(fun fd ->
+									finally
+										(fun () -> f fd)
+										(fun () ->
+											try
+												Unixext.fsync fd;
+											with Unix.Unix_error(Unix.EIO, _, _) ->
+												debug "Caught EIO in fsync after suspend; suspend image may be corrupt";
+												raise (Exception IO_error)
+										)
 								)
 						)
 				)
@@ -697,7 +753,7 @@ module VM = struct
 			(fun xc xs (task:Xenops_task.t) vm di ->
 				let hvm = di.Xenctrl.hvm_guest in
 				let domid = di.Xenctrl.domid in
-				with_data ~xc ~xs task data [ Unix.O_WRONLY ]
+				with_data ~xc ~xs task data true
 					(fun fd ->
 						debug "Invoking Domain.suspend";
 						Domain.suspend ~xc ~xs ~hvm domid fd flags'
@@ -740,7 +796,7 @@ module VM = struct
 		on_domain
 			(fun xc xs task vm di ->
 				let domid = di.Xenctrl.domid in
-				with_data ~xc ~xs task data [ Unix.O_RDONLY ]
+				with_data ~xc ~xs task data false
 					(fun fd ->
 						Domain.restore ~xc ~xs build_info domid fd
 					)
