@@ -449,7 +449,10 @@ module VM = struct
 						set_initial_target ~xs domid initial_target;
 						if vm.suppress_spurious_page_faults
 						then Domain.suppress_spurious_page_faults ~xc domid;
-						Domain.set_machine_address_size ~xc domid vm.machine_address_size
+						Domain.set_machine_address_size ~xc domid vm.machine_address_size;
+						for i = 0 to vm.vcpus (* XXX max *) - 1 do
+							Device.Vcpu.add ~xs ~devid:i domid
+						done
 					)
 			)
 	let create = create_exn
