@@ -145,7 +145,8 @@ module Vm = struct
 		memory_static_max: int64;
 		memory_dynamic_max: int64;
 		memory_dynamic_min: int64;
-		vcpus: int;
+		vcpu_max: int; (* boot-time maximum *)
+		vcpus: int;    (* ideal number to use *)
 		on_crash: action list;
 		on_shutdown: action list;
 		on_reboot: action list;
@@ -166,6 +167,7 @@ module Vm = struct
 		domids: int list;
 		consoles: console list;
 		memory_target: int64;
+		vcpu_target: int; (* actual number of vcpus *)
 		rtc_timeoffset: string;
 		uncooperative_balloon_driver: bool;
 		guest_agent: (string * string) list;
