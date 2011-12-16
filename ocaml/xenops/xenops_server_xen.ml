@@ -190,7 +190,8 @@ let with_disk ~xc ~xs task disk f = match disk with
 						finally
 							(fun () ->
 								device.frontend.devid 
-							|> Device_number.of_xenstore_key |> Device_number.to_linux_device 
+							|> Device_number.of_xenstore_key |> Device_number.to_linux_device
+							|> (fun x -> "/dev/" ^ x)
 							|> f)
 							(fun () ->
 								Xenops_task.with_subtask task "Vbd.clean_shutdown"
