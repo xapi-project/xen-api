@@ -18,6 +18,7 @@ open Xenops_server_plugin
 open Xenops_helpers
 open Xenstore
 open Pervasiveext
+open Listext
 open Threadext
 open Stringext
 open Fun
@@ -393,43 +394,72 @@ module VM = struct
 
 	let create_exn (task: Xenops_task.t) vm =
 		let k = key_of vm in
-		let vmextra =
-			if DB.exists k then begin
-				debug "VM %s: reloading stored domain-level configuration" vm.Vm.id;
-				DB.read k |> unbox
-			end else begin
-				debug "VM %s: has no stored domain-level configuration, regenerating" vm.Vm.id;
-				let hvm = match vm.ty with HVM _ -> true | _ -> false in
-				(* XXX add per-vcpu information to the platform data *)
-				let vcpus = [
-					"vcpu/number", string_of_int vm.vcpu_max;
-					"vcpu/current", string_of_int vm.vcpus;
-				] in
-				let create_info = {
-					Domain.ssidref = vm.ssidref;
-					hvm = hvm;
-					hap = hvm;
-					name = vm.name;
-					xsdata = vm.xsdata;
-					platformdata = vm.platformdata @ vcpus;
-					bios_strings = vm.bios_strings;
-				} in {
-					VmExtra.domid = 0;
-					create_info = create_info;
-					build_info = None;
-					vcpu_max = vm.vcpu_max;
-					vcpus = vm.vcpus;
-					shadow_multiplier = (match vm.Vm.ty with Vm.HVM { Vm.shadow_multiplier = sm } -> sm | _ -> 1.);
-					memory_static_max = vm.memory_static_max;
-					suspend_memory_bytes = 0L;
-					ty = None;
-					vbds = [];
-					vifs = [];
-					last_create_time = Unix.gettimeofday ();
-				}
-			end in
 		with_xc_and_xs
 			(fun xc xs ->
+				let vmextra =
+					if DB.exists k then begin
+						debug "VM %s: reloading stored domain-level configuration" vm.Vm.id;
+						DB.read k |> unbox
+					end else begin
+						debug "VM %s: has no stored domain-level configuration, regenerating" vm.Vm.id;
+						let hvm = match vm.ty with HVM _ -> true | _ -> false in
+						(* XXX add per-vcpu information to the platform data *)
+						(* VCPU configuration *)
+						let pcpus = (Xenctrl.physinfo xc).Xenctrl.max_nr_cpus in
+						let all_pcpus = pcpus |> Range.make 0 |> Range.to_list in
+						let all_vcpus = vm.vcpu_max |> Range.make 0 |> Range.to_list in
+						let masks = match vm.scheduler_params.affinity with
+							| [] ->
+								(* Every vcpu can run on every pcpu *)
+								List.map (fun _ -> all_pcpus) all_vcpus
+							| m :: ms ->
+								(* Treat the first as the template for the rest *)
+								let defaults = List.map (fun _ -> m) all_vcpus in
+								List.take vm.vcpu_max (m :: ms @ defaults) in
+						(* convert a mask into a binary string, one char per pCPU *)
+						let bitmap cpus: string = 
+							let cpus = List.filter (fun x -> x >= 0 && x < pcpus) cpus in
+							let result = String.make pcpus '0' in
+							List.iter (fun cpu -> result.[cpu] <- '1') cpus;
+							result in
+						let affinity = 
+							List.mapi (fun idx mask -> 
+								Printf.sprintf "vcpu/%d/affinity" idx, bitmap mask
+							) masks in
+						let weight = Opt.default [] (Opt.map
+							(fun (w, c) -> [
+								"vcpu/weight", string_of_int w;
+								"vcpu/cap", string_of_int c
+							])
+							vm.scheduler_params.priority
+						) in
+						let vcpus = [
+							"vcpu/number", string_of_int vm.vcpu_max;
+							"vcpu/current", string_of_int vm.vcpus;
+						] @ affinity @ weight in
+						let create_info = {
+							Domain.ssidref = vm.ssidref;
+							hvm = hvm;
+							hap = hvm;
+							name = vm.name;
+							xsdata = vm.xsdata;
+							platformdata = vm.platformdata @ vcpus;
+							bios_strings = vm.bios_strings;
+						} in {
+							VmExtra.domid = 0;
+							create_info = create_info;
+							build_info = None;
+							vcpu_max = vm.vcpu_max;
+							vcpus = vm.vcpus;
+							shadow_multiplier = (match vm.Vm.ty with Vm.HVM { Vm.shadow_multiplier = sm } -> sm | _ -> 1.);
+							memory_static_max = vm.memory_static_max;
+							suspend_memory_bytes = 0L;
+							ty = None;
+							vbds = [];
+							vifs = [];
+							last_create_time = Unix.gettimeofday ();
+						}
+					end in
 				let open Memory in
 				let overhead_bytes = compute_overhead vmextra in
 				(* If we are resuming then we know exactly how much memory is needed *)

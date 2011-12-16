@@ -120,7 +120,27 @@ module MD = struct
 		let on_normal_exit_behaviour = function
 			| `restart -> [ Vm.Start ]
 			| `destroy -> [ Vm.Shutdown ] in
-		let open Vm in {
+		let open Vm in
+		let scheduler_params =
+			(* vcpu <-> pcpu affinity settings are stored here.
+			   Format is either:
+			   1,2,3         ::  all vCPUs receive this mask
+			   1,2,3; 4,5,6  ::  vCPU n receives mask n. Unlisted vCPUs 
+			                     receive first mask *)
+			let affinity =
+				try
+					List.map
+						(fun x -> List.map int_of_string (String.split ',' x))
+						(String.split ';' (List.assoc "mask" vm.API.vM_VCPUs_params))
+				with _ -> [] in
+			let priority =
+				try
+					let weight = List.assoc "weight" vm.API.vM_VCPUs_params in
+					let cap = List.assoc "cap" vm.API.vM_VCPUs_params in
+					Some (int_of_string weight, int_of_string cap)
+				with _ -> None in
+			{ priority = priority; affinity = affinity } in
+		{
 			id = vm.API.vM_uuid;
 			name = vm.API.vM_name_label;
 			ssidref = 0l;
@@ -135,6 +155,7 @@ module MD = struct
 			memory_dynamic_min = vm.API.vM_memory_dynamic_min;
 			vcpu_max = Int64.to_int vm.API.vM_VCPUs_max;
 			vcpus = Int64.to_int vm.API.vM_VCPUs_at_startup;
+			scheduler_params = scheduler_params;
 			on_crash = on_crash_behaviour vm.API.vM_actions_after_crash;
 			on_shutdown = on_normal_exit_behaviour vm.API.vM_actions_after_shutdown;
 			on_reboot = on_normal_exit_behaviour vm.API.vM_actions_after_reboot;

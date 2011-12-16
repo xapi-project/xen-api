@@ -160,6 +160,7 @@ let create_vm id =
 		memory_dynamic_min = 128L ** 1024L ** 1024L;
 		vcpu_max = 2;
 		vcpus = 2;
+		scheduler_params = { priority = None; affinity = [] };
 		on_crash = [ Vm.Shutdown ];
 		on_shutdown = [ Vm.Shutdown ];
 		on_reboot = [ Vm.Start ];
