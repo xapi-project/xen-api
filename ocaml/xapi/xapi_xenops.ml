@@ -18,6 +18,7 @@ open D
 open Stringext
 open Listext
 open Threadext
+module XenAPI = Client.Client
 open Xenops_interface
 
 let disk_of_vdi ~__context ~self =
@@ -341,7 +342,7 @@ let start ~__context ~self paused =
 	let id = Client.VM.import_metadata txt |> success in
 	Client.VM.start id |> success |> wait_for_task |> success_task |> ignore_task;
 	if not paused
-	then Client.VM.unpause id |> success |> wait_for_task |> success_task |> ignore_task	
+	then Client.VM.unpause id |> success |> wait_for_task |> success_task |> ignore_task
 
 let id_of_vm ~__context ~self = Db.VM.get_uuid ~__context ~self
 
@@ -352,6 +353,46 @@ let reboot ~__context ~self timeout =
 let shutdown ~__context ~self timeout =
 	let id = id_of_vm ~__context ~self in
 	Client.VM.shutdown id timeout |> success |> wait_for_task |> success_task |> ignore_task
+
+let suspend ~__context ~self =
+	let id = id_of_vm ~__context ~self in
+	let vm_t, state = Client.VM.stat id |> success in
+	(* XXX: this needs to be at boot time *)
+	let space_needed = Int64.(add (of_float (to_float vm_t.Vm.memory_static_max *. 1.2 *. 1.05)) 104857600L) in
+	let suspend_SR = Helpers.choose_suspend_sr ~__context ~vm:self in
+	let sm_config = [Xapi_globs._sm_vm_hint, id] in
+	Helpers.call_api_functions ~__context
+		(fun rpc session_id ->
+			let vdi =
+				XenAPI.VDI.create ~rpc ~session_id
+					~name_label:"Suspend image"
+					~name_description:"Suspend image"
+					~sR:suspend_SR ~virtual_size:space_needed
+					~sharable:false ~read_only:false ~_type:`suspend
+					~other_config:[] ~xenstore_data:[] ~sm_config ~tags:[] in
+			let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in
+			Db.VM.set_suspend_VDI ~__context ~self ~value:vdi;
+			try
+				Client.VM.suspend id disk |> success |> wait_for_task |> success_task |> ignore_task
+			with e ->
+				debug "Caught exception suspending VM: %s" (Printexc.to_string e);
+				XenAPI.VDI.destroy ~rpc ~session_id ~self:vdi;
+				Db.VM.set_suspend_VDI ~__context ~self ~value:Ref.null;
+				raise e
+		)
+
+let resume ~__context ~self ~start_paused ~force =
+	let vdi = Db.VM.get_suspend_VDI ~__context ~self in
+	let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in	
+	let id = id_of_vm ~__context ~self in
+	Client.VM.resume id disk |> success |> wait_for_task |> success_task |> ignore_task;
+	if not start_paused
+	then Client.VM.unpause id |> success |> wait_for_task |> success_task |> ignore_task;
+	Helpers.call_api_functions ~__context
+		(fun rpc session_id ->
+			XenAPI.VDI.destroy rpc session_id vdi
+		);
+	Db.VM.set_suspend_VDI ~__context ~self ~value:Ref.null
 
 let id_of_vbd ~__context ~self =
 	let vm = Db.VBD.get_VM ~__context ~self in
