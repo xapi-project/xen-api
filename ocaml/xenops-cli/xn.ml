@@ -260,6 +260,7 @@ let add filename =
 			let builder_info = match pv with
 				| true -> PV {
 					framebuffer = false;
+					vncterm = true;
 					boot =
 						if mem _bootloader then Indirect {
 							bootloader = find _bootloader |> string;
@@ -277,7 +278,7 @@ let add filename =
 								Printf.sprintf "A PV guest needs either %s or %s and %s" _bootloader _kernel _ramdisk
 							];
 							exit 1
-						end
+						end;
 					}
 				| false -> HVM {
 					hap = true;

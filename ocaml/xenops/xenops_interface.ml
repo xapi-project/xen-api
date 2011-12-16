@@ -117,6 +117,7 @@ module Vm = struct
 	type pv_info = {
 		boot: pv_boot;
 		framebuffer: bool;
+		vncterm: bool;
 	}
 
 	type builder_info =
