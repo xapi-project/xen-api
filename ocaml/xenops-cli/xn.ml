@@ -322,6 +322,7 @@ let add filename =
 				memory_dynamic_min = bytes;
 				vcpu_max = vcpus;
 				vcpus = vcpus;
+				scheduler_params = { priority = None; affinity = [] };
 				on_crash = [ Vm.Shutdown ];
 				on_shutdown = [ Vm.Shutdown ];
 				on_reboot = [ Vm.Start ];

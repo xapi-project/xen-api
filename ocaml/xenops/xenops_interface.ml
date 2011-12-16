@@ -132,6 +132,11 @@ module Vm = struct
 		| Shutdown
 		| Start
 
+	type scheduler_params = {
+		priority: (int * int) option; (* weight, cap *)
+		affinity: int list list (* vcpu -> pcpu list *)
+	}
+
 	type t = {
 		id: id;
 		name: string;
@@ -147,6 +152,7 @@ module Vm = struct
 		memory_dynamic_min: int64;
 		vcpu_max: int; (* boot-time maximum *)
 		vcpus: int;    (* ideal number to use *)
+		scheduler_params: scheduler_params;
 		on_crash: action list;
 		on_shutdown: action list;
 		on_reboot: action list;
