@@ -170,6 +170,9 @@ let with_disk ~xc ~xs task disk f = match disk with
 					| None ->
 						debug "Failed to determine my own domain id!";
 						raise (Exception Does_not_exist)
+					| Some backend_domid when backend_domid = frontend_domid ->
+						(* There's no need to use a PV disk if we're in the same domain *)
+						f vdi.params
 					| Some backend_domid ->
 						let t = {
 							Device.Vbd.mode = Device.Vbd.ReadOnly;
