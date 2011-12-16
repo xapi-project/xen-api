@@ -118,6 +118,7 @@ module Vm = struct
 		boot: pv_boot;
 		framebuffer: bool;
 		vncterm: bool;
+		vncterm_ip: string option;
 	}
 
 	type builder_info =

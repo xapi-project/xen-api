@@ -855,11 +855,13 @@ let save ~xs domid =
 			  debug "Device.PV_Vnc.save: %s has appeared" filename
 	| None     -> ()
 
-let start ?statefile ~xs domid =
+let start ?statefile ~xs ?ip domid =
+	let ip = Opt.default "127.0.0.1" ip in
 	let l = [ string_of_int domid; (* absorbed by vncterm-wrapper *)
 		  (* everything else goes straight through to vncterm: *)
 		  "-x"; sprintf "/local/domain/%d/console" domid;
 		  "-T"; (* listen for raw connections *)
+		  "-v"; ip ^ ":1";
 		] @ load_args statefile in
 	(* Now add the close fds wrapper *)
 	let pid = Forkhelpers.safe_close_and_exec None None None [] vncterm_wrapper l in

@@ -122,6 +122,7 @@ let create_vm id =
 	let _ = PV {
 		framebuffer = false;
 		vncterm = true;
+		vncterm_ip = None;
 		Vm.boot = Indirect {
 			bootloader = "pygrub";
 			extra_args = "extra";
@@ -206,6 +207,7 @@ let vm_assert_equal vm vm' =
 		| PV p, PV p' ->
 			assert_equal ~msg:"framebuffer" ~printer:string_of_bool p.framebuffer p'.framebuffer;
 			assert_equal ~msg:"vncterm" ~printer:string_of_bool p.vncterm p'.vncterm;
+			assert_equal ~msg:"vncterm_ip" ~printer:(Opt.default "None") p.vncterm_ip p'.vncterm_ip;
 			begin match p.boot, p'.boot with
 				| Direct _, Indirect _
 				| Indirect _, Direct _ -> failwith "pv-boot-ness"

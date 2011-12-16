@@ -70,12 +70,14 @@ let builder_of_vm ~__context ~vm =
 				boot = Direct { kernel = k; cmdline = ka; ramdisk = initrd };
 				framebuffer = false;
 				vncterm = true;
+				vncterm_ip = Some "0.0.0.0" (*None PR-1255*);
 			}
 		| Helpers.IndirectPV { Helpers.bootloader = b; extra_args = e; legacy_args = l; pv_bootloader_args = p; vdis = vdis } ->
 			PV {
 				boot = Indirect { bootloader = b; extra_args = e; legacy_args = l; bootloader_args = p; devices = List.filter_map (fun x -> disk_of_vdi ~__context ~self:x) vdis };
 				framebuffer = false;
 				vncterm = true;
+				vncterm_ip = Some "0.0.0.0" (*None PR-1255*);
 			}
 
 module MD = struct
