@@ -785,7 +785,7 @@ let power_state_reset ~__context ~vm =
 
   Xapi_vm_lifecycle.force_state_reset ~__context ~value:`Halted ~self:vm
 
-let suspend  ~__context ~vm =
+let suspend_internal  ~__context ~vm =
 	Local_work_queue.wait_in_line Local_work_queue.long_running_queue
 	  (Printf.sprintf "VM.suspend %s" (Context.string_of_task __context))
 	(fun () ->
@@ -818,7 +818,12 @@ let suspend  ~__context ~vm =
 		) ()
  	)
 
-let resume ~__context ~vm ~start_paused ~force =
+let suspend_xenopsd  ~__context ~vm =
+	Xapi_xenops.suspend ~__context ~self:vm
+
+let suspend ~__context = if !Xapi_globs.use_xenopsd then suspend_xenopsd ~__context else suspend_internal ~__context
+
+let resume_internal ~__context ~vm ~start_paused ~force =
 	Local_work_queue.wait_in_line Local_work_queue.long_running_queue
 	  (Printf.sprintf "VM.resume %s" (Context.string_of_task __context))
 	(fun () ->
@@ -864,6 +869,10 @@ let resume ~__context ~vm ~start_paused ~force =
 		) ()
 	)
 
+let resume_xenopsd ~__context ~vm ~start_paused ~force =
+	Xapi_xenops.resume ~__context ~self:vm ~start_paused ~force
+
+let resume ~__context = if !Xapi_globs.use_xenopsd then resume_xenopsd ~__context else resume_internal ~__context
 
 let resume_on  ~__context ~vm ~host ~start_paused ~force =
 	(* If we modify this to support resume_on other-than-localhost,
