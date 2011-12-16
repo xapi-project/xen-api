@@ -261,6 +261,7 @@ let add filename =
 				| true -> PV {
 					framebuffer = false;
 					vncterm = true;
+					vncterm_ip = Some "0.0.0.0";
 					boot =
 						if mem _bootloader then Indirect {
 							bootloader = find _bootloader |> string;

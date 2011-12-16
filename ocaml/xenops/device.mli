@@ -109,7 +109,7 @@ sig
 	exception Failed_to_start
 	val save : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
 	val get_statefile : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> string option
-	val start : ?statefile:string -> xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
+	val start : ?statefile:string -> xs:Xenstore.Xs.xsh -> ?ip:string -> Xenctrl.domid -> unit
 	val stop : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
 
 	val get_vnc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
