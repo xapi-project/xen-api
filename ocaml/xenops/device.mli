@@ -66,6 +66,9 @@ sig
 	val media_is_ejected : xs:Xenstore.Xs.xsh -> device_number:Device_number.t -> int -> bool
 	val media_tray_is_locked : xs:Xenstore.Xs.xsh -> device_number:Device_number.t -> int -> bool
 
+	val clean_shutdown_async : xs:Xenstore.Xs.xsh -> device -> unit
+	val clean_shutdown_wait : xs:Xenstore.Xs.xsh -> device -> unit
+
 	(* For migration: *)
 	val hard_shutdown_request : xs:Xenstore.Xs.xsh -> device -> unit
 	val hard_shutdown_complete : xs:Xenstore.Xs.xsh -> device -> string Watch.t
