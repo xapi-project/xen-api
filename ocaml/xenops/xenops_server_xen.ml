@@ -187,15 +187,34 @@ let with_disk ~xc ~xs task disk f = match disk with
 							Xenops_task.with_subtask task "Vbd.add"
 								(fun () -> Device.Vbd.add ~xs ~hvm:false t frontend_domid) in
 						let open Device_common in
+						let block_device =
+							device.frontend.devid |> Device_number.of_xenstore_key |> Device_number.to_linux_device |> (fun x -> "/dev/" ^ x) in
 						finally
 							(fun () ->
-								device.frontend.devid 
-							|> Device_number.of_xenstore_key |> Device_number.to_linux_device
-							|> (fun x -> "/dev/" ^ x)
-							|> f)
+								f block_device
+							)
 							(fun () ->
 								Xenops_task.with_subtask task "Vbd.clean_shutdown"
-									(fun () -> Device.clean_shutdown ~xs device))
+									(fun () ->
+										(* To avoid having two codepaths: a 99% "normal" codepath and a 1%
+										   "transient failure" codepath we deliberately trigger a "transient
+										   failure" in 100% of cases by opening the device ourselves. *)
+										let f = ref (Some (Unix.openfile block_device [ Unix.O_RDONLY ] 0o0)) in
+										let close () = Opt.iter (fun fd -> Unix.close fd; f := None) !f in
+										finally
+											(fun () ->
+												debug "Opened %s" block_device;
+												Device.Vbd.clean_shutdown_async ~xs device;
+												Thread.delay 60.;
+												try
+													Device.Vbd.clean_shutdown_wait ~xs device
+												with Device_error(_, x) ->
+													debug "Caught transient Device_error %s" x;
+													close ();
+													Device.Vbd.clean_shutdown_wait ~xs device
+											) (fun () -> close ())
+									)
+							)
 				end
 			)
 			(fun () -> deactivate_and_detach task dp)

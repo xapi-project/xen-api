@@ -135,7 +135,7 @@ let assert_exists_t ~xs t (x: device) =
   with Xenbus.Xb.Noent -> raise Device_not_found
 
 (** When hot-unplugging a device we ask nicely *)
-let request_closure ~xs (x: device) =
+let clean_shutdown_async ~xs (x: device) =
 	let backend_path = backend_path_of_device ~xs x in
 	let state_path = backend_path ^ "/state" in
 	Xs.transaction xs (fun t ->
@@ -155,8 +155,8 @@ let unplug_watch ~xs (x: device) =
 let error_watch ~xs (x: device) = Watch.value_to_appear (error_path_of_device ~xs x)
 let frontend_closed ~xs (x: device) = Watch.map (fun () -> "") (Watch.value_to_become (frontend_path_of_device ~xs x ^ "/state") (Xenbus_utils.string_of Xenbus_utils.Closed))
 
-let clean_shutdown ~xs (x: device) =
-	debug "Device.Generic.clean_shutdown %s" (string_of_device x);
+let clean_shutdown_wait ~xs (x: device) =
+	debug "Device.Generic.clean_shutdown_wait %s" (string_of_device x);
 
 	let on_error error =
 	    debug "Device.Generic.shutdown_common: read an error: %s" error;
@@ -164,7 +164,6 @@ let clean_shutdown ~xs (x: device) =
 		(* After CA-73099 we stopped doing that *)
 	    raise (Device_error (x, error)) in
 
-	request_closure ~xs x;
 	match Watch.wait_for ~xs (Watch.any_of [
 		`Disconnected, frontend_closed ~xs x;
 		`Unplugged, unplug_watch ~xs x; 
@@ -182,6 +181,11 @@ let clean_shutdown ~xs (x: device) =
 			end
 		| `Unplugged, _ -> rm_device_state ~xs x
 		| `Failed, error -> on_error error
+
+let clean_shutdown ~xs (x: device) =
+	debug "Device.Generic.clean_shutdown %s" (string_of_device x);
+	clean_shutdown_async ~xs x;
+	clean_shutdown_wait ~xs x
 
 let hard_shutdown_request ~xs (x: device) =
 	debug "Device.Generic.hard_shutdown_request %s" (string_of_device x);
@@ -377,10 +381,9 @@ let shutdown_done ~xs (x: device): string Watch.t =
     Watch.value_to_appear (backend_shutdown_done_path_of_device ~xs x)
 
 
-let shutdown_request_clean_shutdown ~xs (x: device) =
-    debug "Device.Vbd.clean_shutdown %s" (string_of_device x);
+let shutdown_request_clean_shutdown_wait ~xs (x: device) =
+    debug "Device.Vbd.clean_shutdown_wait %s" (string_of_device x);
 
-    request_shutdown ~xs x false; (* normal *)
     (* Allow the domain to reject the request by writing to the error node *)
     let shutdown_done = shutdown_done ~xs x in
     let error = Watch.value_to_appear (error_path_of_device ~xs x) in
@@ -407,9 +410,17 @@ let shutdown_request_hard_shutdown ~xs (x: device) =
 
 	debug "Device.Vbd.hard_shutdown complete"
 
-let clean_shutdown ~xs x = match shutdown_mode_of_device ~xs x with
-	| Classic -> Generic.clean_shutdown ~xs x
-	| ShutdownRequest -> shutdown_request_clean_shutdown ~xs x
+let clean_shutdown_async ~xs x = match shutdown_mode_of_device ~xs x with
+	| Classic -> Generic.clean_shutdown_async ~xs x
+	| ShutdownRequest -> request_shutdown ~xs x false (* normal *)
+
+let clean_shutdown_wait ~xs x = match shutdown_mode_of_device ~xs x with
+	| Classic -> Generic.clean_shutdown_wait ~xs x
+	| ShutdownRequest -> shutdown_request_clean_shutdown_wait ~xs x
+
+let clean_shutdown ~xs x =
+	clean_shutdown_async ~xs x;
+	clean_shutdown_wait ~xs x
 
 let hard_shutdown ~xs x = match shutdown_mode_of_device ~xs x with
 	| Classic -> Generic.hard_shutdown ~xs x
