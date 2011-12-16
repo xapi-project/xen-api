@@ -154,6 +154,14 @@ open Xenops_interface
 open Xenops_client
 open Fun
 
+let to_xenops_console_protocol = let open Vm in function
+	| `rfb -> Rfb
+	| `vt100 -> Vt100
+	| `rdp -> Rfb (* RDP was never used in the XenAPI so this never happens *)
+let to_xenapi_console_protocol = let open Vm in function
+	| Rfb -> `rfb
+	| Vt100 -> `vt100
+
 let update_vm ~__context id info =
 	try
 		let open Vm in
@@ -169,6 +177,29 @@ let update_vm ~__context id info =
 		(* consoles *)
 		Opt.iter
 			(fun (_, state) ->
+				let current_protocols = List.map
+					(fun self -> Db.Console.get_protocol ~__context ~self |> to_xenops_console_protocol, self)
+					(Db.VM.get_consoles ~__context ~self) in
+				let new_protocols = List.map (fun c -> c.protocol, c) state.consoles in
+				(* Destroy consoles that have gone away *)
+				List.iter
+					(fun protocol ->
+						let self = List.assoc protocol current_protocols in
+						Db.Console.destroy ~__context ~self
+					) (List.set_difference (List.map fst current_protocols) (List.map fst new_protocols));
+				(* Create consoles that have appeared *)
+				List.iter
+					(fun protocol ->
+						let localhost = Helpers.get_localhost ~__context in
+						let address = Db.Host.get_address ~__context ~self:localhost in
+						let ref = Ref.make () in
+						let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+						let location = Printf.sprintf "https://%s%s?uuid=%s" address Constants.console_uri uuid in
+						Db.Console.create ~__context ~ref ~uuid
+							~protocol:(to_xenapi_console_protocol protocol) ~location ~vM:self
+							~other_config:[] ~port:(Int64.of_int (List.assoc protocol new_protocols).port)
+					) (List.set_difference (List.map fst new_protocols) (List.map fst current_protocols));
+
 				Db.VM.set_memory_target ~__context ~self ~value:state.memory_target;
 				let key = "timeoffset" in
 				(try Db.VM.remove_from_platform ~__context ~self ~key with _ -> ());
