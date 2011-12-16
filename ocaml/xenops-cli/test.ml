@@ -121,6 +121,7 @@ let create_vm id =
 	let open Vm in
 	let _ = PV {
 		framebuffer = false;
+		vncterm = true;
 		Vm.boot = Indirect {
 			bootloader = "pygrub";
 			extra_args = "extra";
@@ -204,6 +205,7 @@ let vm_assert_equal vm vm' =
 			assert_equal ~msg:"qemu_disk_cmdline" ~printer:string_of_bool h.qemu_disk_cmdline h'.qemu_disk_cmdline;
 		| PV p, PV p' ->
 			assert_equal ~msg:"framebuffer" ~printer:string_of_bool p.framebuffer p'.framebuffer;
+			assert_equal ~msg:"vncterm" ~printer:string_of_bool p.vncterm p'.vncterm;
 			begin match p.boot, p'.boot with
 				| Direct _, Indirect _
 				| Indirect _, Direct _ -> failwith "pv-boot-ness"

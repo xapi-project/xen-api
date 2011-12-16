@@ -610,7 +610,10 @@ module VM = struct
 		let vmextra = vm |> key_of |> DB.read |> Opt.unbox in
 		Opt.iter (fun info ->
 			(if saved_state then Device.Dm.restore else Device.Dm.start)
-			~xs ~dmpath info di.Xenctrl.domid) (vmextra |> create_device_model_config)
+			~xs ~dmpath info di.Xenctrl.domid) (vmextra |> create_device_model_config);
+		match vm.Vm.ty with
+			| Vm.PV { vncterm = true } -> Device.PV_Vnc.start ~xs di.Xenctrl.domid
+			| _ -> ()
 
 	let create_device_model task vm saved_state = on_domain (create_device_model_exn saved_state) task vm
 
