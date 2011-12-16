@@ -42,6 +42,7 @@ module VmExtra = struct
 		domid: int;
 		create_info: Domain.create_info;
 		build_info: Domain.build_info option;
+		vcpu_max: int;
 		vcpus: int;
 		shadow_multiplier: float;
 		memory_static_max: int64;
@@ -372,7 +373,7 @@ module VM = struct
 		let static_max_mib = Memory.mib_of_bytes_used domain.VmExtra.memory_static_max in
 		let memory_overhead_mib =
 			(if domain.VmExtra.create_info.Domain.hvm then Memory.HVM.overhead_mib else Memory.Linux.overhead_mib)
-			static_max_mib domain.VmExtra.vcpus domain.VmExtra.shadow_multiplier in
+			static_max_mib domain.VmExtra.vcpu_max domain.VmExtra.shadow_multiplier in
 		Memory.bytes_of_mib memory_overhead_mib
 
 	let shutdown_reason = function
@@ -401,7 +402,7 @@ module VM = struct
 				let hvm = match vm.ty with HVM _ -> true | _ -> false in
 				(* XXX add per-vcpu information to the platform data *)
 				let vcpus = [
-					"vcpu/number", string_of_int vm.vcpus;
+					"vcpu/number", string_of_int vm.vcpu_max;
 					"vcpu/current", string_of_int vm.vcpus;
 				] in
 				let create_info = {
@@ -416,6 +417,7 @@ module VM = struct
 					VmExtra.domid = 0;
 					create_info = create_info;
 					build_info = None;
+					vcpu_max = vm.vcpu_max;
 					vcpus = vm.vcpus;
 					shadow_multiplier = (match vm.Vm.ty with Vm.HVM { Vm.shadow_multiplier = sm } -> sm | _ -> 1.);
 					memory_static_max = vm.memory_static_max;
@@ -450,7 +452,7 @@ module VM = struct
 						if vm.suppress_spurious_page_faults
 						then Domain.suppress_spurious_page_faults ~xc domid;
 						Domain.set_machine_address_size ~xc domid vm.machine_address_size;
-						for i = 0 to vm.vcpus (* XXX max *) - 1 do
+						for i = 0 to vm.vcpu_max - 1 do
 							Device.Vcpu.add ~xs ~devid:i domid
 						done
 					)
@@ -560,7 +562,7 @@ module VM = struct
 			Domain.memory_max = vm.memory_static_max /// 1024L;
 			memory_target = initial_target /// 1024L;
 			kernel = kernel;
-			vcpus = vm.vcpus;
+			vcpus = vm.vcpu_max;
 			priv = priv;
 		} in
 		(* We should prevent leaking files in our filesystem *)
@@ -845,6 +847,10 @@ module VM = struct
 							consoles = Opt.to_list vnc @ (Opt.to_list tc);
 							uncooperative_balloon_driver = uncooperative;
 							guest_agent = guest_agent;
+							vcpu_target = begin match vme with
+								| Some x -> x.VmExtra.vcpus
+								| None -> 0
+							end;
 							memory_target = memory_target;
 							rtc_timeoffset = rtc;
 							last_start_time = match vme with
