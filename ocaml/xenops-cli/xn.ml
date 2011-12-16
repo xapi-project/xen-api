@@ -320,6 +320,7 @@ let add filename =
 				memory_static_max = bytes;
 				memory_dynamic_max = bytes;
 				memory_dynamic_min = bytes;
+				vcpu_max = vcpus;
 				vcpus = vcpus;
 				on_crash = [ Vm.Shutdown ];
 				on_shutdown = [ Vm.Shutdown ];
@@ -367,7 +368,7 @@ let list () =
 			| Running -> String.concat "," (List.map string_of_int state.Vm.domids)
 			| _ -> "-" in
 		let mem = Int64.to_string (Int64.div (Int64.div vm.memory_static_max 1024L) 1024L) in
-		let vcpus = string_of_int vm.vcpus in
+		let vcpus = string_of_int state.vcpu_target in
 		let state = state.Vm.power_state |> string_of_power_state in
 		line vm.name domid mem vcpus state "" in
 	let vms = success (Client.VM.list ()) in

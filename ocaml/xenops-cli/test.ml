@@ -158,6 +158,7 @@ let create_vm id =
 		memory_static_max = 128L ** 1024L ** 1024L;
 		memory_dynamic_max = 128L ** 1024L ** 1024L;
 		memory_dynamic_min = 128L ** 1024L ** 1024L;
+		vcpu_max = 2;
 		vcpus = 2;
 		on_crash = [ Vm.Shutdown ];
 		on_shutdown = [ Vm.Shutdown ];
@@ -180,6 +181,7 @@ let vm_assert_equal vm vm' =
 	assert_equal ~msg:"memory_static_max" ~printer:Int64.to_string vm.memory_static_max vm'.memory_static_max;
 	assert_equal ~msg:"memory_dynamic_max" ~printer:Int64.to_string vm.memory_dynamic_max vm'.memory_dynamic_max;
 	assert_equal ~msg:"memory_dynamic_min" ~printer:Int64.to_string vm.memory_dynamic_min vm'.memory_dynamic_min;
+	assert_equal ~msg:"vcpu_max" ~printer:string_of_int vm.vcpu_max vm'.vcpu_max;
 	assert_equal ~msg:"vcpus" ~printer:string_of_int vm.vcpus vm'.vcpus;
 	assert_equal ~msg:"on_crash" ~printer:(fun x -> String.concat ", " (List.map (fun x -> x |> Vm.rpc_of_action |> Jsonrpc.to_string) x)) vm.on_crash vm'.on_crash;
 	assert_equal ~msg:"on_shutdown" ~printer:(fun x -> String.concat ", " (List.map (fun x -> x |> Vm.rpc_of_action |> Jsonrpc.to_string) x)) vm.on_shutdown vm'.on_shutdown;
