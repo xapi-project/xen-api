@@ -68,12 +68,14 @@ let builder_of_vm ~__context ~vm =
 		| Helpers.DirectPV { Helpers.kernel = k; kernel_args = ka; ramdisk = initrd } ->
 			PV {
 				boot = Direct { kernel = k; cmdline = ka; ramdisk = initrd };
-				framebuffer = false
+				framebuffer = false;
+				vncterm = true;
 			}
 		| Helpers.IndirectPV { Helpers.bootloader = b; extra_args = e; legacy_args = l; pv_bootloader_args = p; vdis = vdis } ->
 			PV {
 				boot = Indirect { bootloader = b; extra_args = e; legacy_args = l; bootloader_args = p; devices = List.filter_map (fun x -> disk_of_vdi ~__context ~self:x) vdis };
-				framebuffer = false
+				framebuffer = false;
+				vncterm = true;
 			}
 
 module MD = struct
