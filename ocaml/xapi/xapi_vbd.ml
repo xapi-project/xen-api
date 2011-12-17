@@ -160,7 +160,7 @@ let unplug_common_internal ?(do_safety_check=true) ~__context ~self (force: bool
        dynamic_destroy ~do_safety_check ~__context ~vbd:self force token) ()
 
 let unplug_common_xenopsd ?(do_safety_check=true) ~__context ~self (force: bool) =
-	Xapi_xenops.vbd_unplug ~__context ~self
+	Xapi_xenops.vbd_unplug ~__context ~self force
 
 let unplug ~__context ~self = (if !Xapi_globs.use_xenopsd then unplug_common_xenopsd else unplug_common_internal) ~__context ~self false
 let unplug_force ~__context ~self = (if !Xapi_globs.use_xenopsd then unplug_common_xenopsd else unplug_common_internal) ~__context ~self true
