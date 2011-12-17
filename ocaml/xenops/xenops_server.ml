@@ -745,11 +745,16 @@ module UPDATES = struct
 			| Dynamic.Vbd id -> Dynamic.Vbd_t(id, exists VBD.stat' id)
 			| Dynamic.Vif id -> Dynamic.Vif_t(id, exists VIF.stat' id)
 			| Dynamic.Task id -> Dynamic.Task_t(id, exists TASK.stat' id)
+			| Dynamic.Barrier id -> Dynamic.Barrier_t id
 
 	let get _ last timeout =
 		let ids, next = Updates.get last timeout updates in
 		let ts = List.map lookup ids in
 		return (ts, next)
+
+	let inject_barrier _ id =
+		Updates.add (Dynamic.Barrier id) updates;
+		return ()
 end
 
 let internal_event_thread = ref None
