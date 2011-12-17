@@ -576,6 +576,8 @@ let rec events_watch from =
 				Printf.sprintf "Task %s %s" id (x.Task.result |> Task.rpc_of_result |> Jsonrpc.to_string)
 			| Task_t(id, None) ->
 				Printf.sprintf "Task %s (unknown final state)" id
+			| Barrier_t id ->
+				Printf.sprintf "Barrier %d" id
 		) events in
 	List.iter (fun x -> Printf.printf "%-8d %s\n" (Opt.unbox next) x) lines;
 	flush stdout;

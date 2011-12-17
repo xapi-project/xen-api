@@ -296,11 +296,13 @@ module Dynamic = struct
 		| Vbd of Vbd.id
 		| Vif of Vif.id
 		| Task of Task.id
+		| Barrier of int
 	type t =
 		| Vm_t of Vm.id * ((Vm.t * Vm.state) option)
 		| Vbd_t of Vbd.id * ((Vbd.t * Vbd.state) option)
 		| Vif_t of Vif.id * ((Vif.t * Vif.state) option)
 		| Task_t of Task.id * (Task.t option)
+		| Barrier_t of int
 end
 
 module TASK = struct
@@ -360,7 +362,8 @@ module VIF = struct
 end
 
 module UPDATES = struct
-	external get: int option -> int option -> (Dynamic.t list * int option) option * (error option) = "" 
+	external get: int option -> int option -> (Dynamic.t list * int option) option * (error option) = ""
+    external inject_barrier: int -> (unit option) * (error option) = "" 
 end
 
 module DEBUG = struct
