@@ -355,7 +355,7 @@ end
 module VIF = struct
 	external add: Vif.t -> (Vif.id option) * (error option) = ""
 	external plug: Vif.id -> (Task.id option) * (error option) = ""
-	external unplug: Vif.id -> (Task.id option) * (error option) = ""
+	external unplug: Vif.id -> bool -> (Task.id option) * (error option) = ""
 	external stat: Vif.id -> ((Vif.t * Vif.state) option) * (error option) = ""
 	external list: Vm.id -> ((Vif.t * Vif.state) list option) * (error option) = ""
 	external remove: Vif.id -> (unit option) * (error option) = ""

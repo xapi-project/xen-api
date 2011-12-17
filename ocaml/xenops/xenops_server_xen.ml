@@ -1120,7 +1120,7 @@ module VIF = struct
 
 	let plug task vm = plug_exn task vm
 
-	let unplug_exn task vm vif =
+	let unplug task vm vif force =
 		with_xc_and_xs
 			(fun xc xs ->
 				try
@@ -1128,15 +1128,13 @@ module VIF = struct
 					let device = device_by_id xc xs vm Device_common.Vif (id_of vif) in
 					(* NB different from the VBD case to make the test pass for now *)
 					Xenops_task.with_subtask task (Printf.sprintf "Vif.hard_shutdown %s" (id_of vif))
-						(fun () -> Device.hard_shutdown ~xs device);
+						(fun () -> (if force then Device.hard_shutdown else Device.clean_shutdown) ~xs device);
 					Xenops_task.with_subtask task (Printf.sprintf "Vif.release %s" (id_of vif))
 						(fun () -> Device.Vif.release ~xs device);
 				with (Exception Does_not_exist) ->
 					debug "Ignoring missing device: %s" (id_of vif)
 			);
 		()
-
-	let unplug task vm = unplug_exn task vm
 
 	let get_state vm vif =
 		with_xc_and_xs
