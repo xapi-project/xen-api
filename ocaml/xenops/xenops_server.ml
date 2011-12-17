@@ -80,7 +80,7 @@ type operation =
 	| VBD_eject of Vbd.id
 	| VBD_check_state of Vbd.id
 	| VIF_plug of Vif.id
-	| VIF_unplug of Vif.id
+	| VIF_unplug of Vif.id * bool
 	| VIF_check_state of Vif.id
 
 let string_of_operation =
@@ -115,7 +115,7 @@ let string_of_operation =
 	| VBD_eject id -> sprintf "VBD_eject %s.%s" (fst id) (snd id)
 	| VBD_check_state id -> sprintf "VBD_check_state %s.%s" (fst id) (snd id)
 	| VIF_plug id -> sprintf "VIF_plug %s.%s" (fst id) (snd id)
-	| VIF_unplug id -> sprintf "VIF_unplug %s.%s" (fst id) (snd id)
+	| VIF_unplug (id, force) -> sprintf "VIF_unplug %s.%s force=%b" (fst id) (snd id) force
 	| VIF_check_state id -> sprintf "VIF_check_state %s.%s" (fst id) (snd id)
 
 module TASK = struct
@@ -306,7 +306,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			Opt.iter (fun x -> perform ~subtask:"VM_shutdown_domain(Halt)" (VM_shutdown_domain(id, Halt, x)) t) timeout;
 			perform ~subtask:"VM_destroy" (VM_destroy id) t;
 			List.iter (fun vbd -> perform ~subtask:(Printf.sprintf "VBD_unplug %s" (snd vbd.Vbd.id)) (VBD_unplug vbd.Vbd.id) t) (VBD_DB.list id |> List.map fst);
-			List.iter (fun vif -> perform ~subtask:(Printf.sprintf "VIF_unplug %s" (snd vif.Vif.id)) (VIF_unplug vif.Vif.id) t) (VIF_DB.list id |> List.map fst);
+			List.iter (fun vif -> perform ~subtask:(Printf.sprintf "VIF_unplug %s" (snd vif.Vif.id)) (VIF_unplug (vif.Vif.id, true)) t) (VIF_DB.list id |> List.map fst);
 			Updates.add (Dynamic.Vm id) updates
 		| VM_reboot (id, timeout) ->
 			debug "VM.reboot %s" id;
@@ -533,9 +533,9 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			debug "VIF.plug %s" (VIF_DB.string_of_id id);
 			B.VIF.plug t (VIF_DB.vm_of id) (id |> VIF_DB.key_of |> VIF_DB.read |> unbox);
 			Updates.add (Dynamic.Vif id) updates
-		| VIF_unplug id ->
+		| VIF_unplug (id, force) ->
 			debug "VIF.unplug %s" (VIF_DB.string_of_id id);
-			B.VIF.unplug t (VIF_DB.vm_of id) (id |> VIF_DB.key_of |> VIF_DB.read |> unbox);
+			B.VIF.unplug t (VIF_DB.vm_of id) (id |> VIF_DB.key_of |> VIF_DB.read |> unbox) force;
 			Updates.add (Dynamic.Vif id) updates
 		| VIF_check_state id ->
 			debug "VIF.check_state %s" (VIF_DB.string_of_id id);
@@ -546,7 +546,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 				then B.VIF.get_device_action_request (VIF_DB.vm_of id) vif_t
 				else Some Needs_unplug in
 			let operations_of_request = function
-				| Needs_unplug -> VIF_unplug id in
+				| Needs_unplug -> VIF_unplug (id, true) in
 			let operations = List.map operations_of_request (Opt.to_list request) in
 			List.iter (fun x -> perform x t) operations
 	in
@@ -636,7 +636,7 @@ module VIF = struct
 	let add _ x = add' x |> return
 
 	let plug _ id = queue_operation (DB.vm_of id) (VIF_plug id) |> return
-	let unplug _ id = queue_operation (DB.vm_of id) (VIF_unplug id) |> return
+	let unplug _ id force = queue_operation (DB.vm_of id) (VIF_unplug (id, force)) |> return
 
 	let remove _ id =
 		debug "VIF.remove %s" (string_of_id id);

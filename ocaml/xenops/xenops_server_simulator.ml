@@ -310,7 +310,7 @@ end
 
 module VIF = struct
 	let plug _ vm vif = Mutex.execute m (add_vif vm vif)
-	let unplug _ vm vif = Mutex.execute m (remove_vif vm vif)
+	let unplug _ vm vif _ = Mutex.execute m (remove_vif vm vif)
 
 	let get_state vm vif = Mutex.execute m (vif_state vm vif)
 

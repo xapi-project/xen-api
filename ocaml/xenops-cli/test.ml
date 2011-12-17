@@ -516,7 +516,7 @@ module VifDeviceTests = DeviceTests(struct
 	let add = Client.VIF.add
 	let remove = Client.VIF.remove
 	let plug = Client.VIF.plug
-	let unplug = Client.VIF.unplug
+	let unplug id = Client.VIF.unplug id false
 	let list = Client.VIF.list
 	let find id vifs = List.find (fun (x, _) -> x.Vif.id = id) vifs |> fst
 	let assert_equal vif vif' =

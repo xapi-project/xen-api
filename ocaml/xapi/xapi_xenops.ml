@@ -570,9 +570,9 @@ let vif_plug ~__context ~self =
 	Event.wait ();
 	assert (Db.VIF.get_currently_attached ~__context ~self)
 
-let vif_unplug ~__context ~self =
+let vif_unplug ~__context ~self force =
 	let id = id_of_vif ~__context ~self in
-	Client.VIF.unplug id |> success |> wait_for_task |> success_task |> ignore_task;
+	Client.VIF.unplug id force |> success |> wait_for_task |> success_task |> ignore_task;
 	Event.wait ();
 	assert (not(Db.VIF.get_currently_attached ~__context ~self))
 
