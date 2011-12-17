@@ -534,7 +534,8 @@ let vbd_eject ~__context ~self =
 	let id = id_of_vbd ~__context ~self in
 	Client.VBD.eject id |> success |> wait_for_task |> success_task |> ignore_task;
 	Event.wait ();
-	assert (Db.VBD.get_empty ~__context ~self)
+	assert (Db.VBD.get_empty ~__context ~self);
+	assert (Db.VBD.get_VDI ~__context ~self = Ref.null)
 
 
 let vbd_insert ~__context ~self ~vdi =
@@ -542,5 +543,20 @@ let vbd_insert ~__context ~self ~vdi =
 	let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in
 	Client.VBD.insert id disk |> success |> wait_for_task |> success_task |> ignore_task;
 	Event.wait ();
-	assert (not(Db.VBD.get_empty ~__context ~self))
+	assert (not(Db.VBD.get_empty ~__context ~self));
+	assert (Db.VBD.get_VDI ~__context ~self = vdi)
+
+let vbd_plug ~__context ~self =
+	let id = id_of_vbd ~__context ~self in
+	Client.VBD.plug id |> success |> wait_for_task |> success_task |> ignore_task;
+	Event.wait ();
+	assert (Db.VBD.get_currently_attached ~__context ~self)
+
+let vbd_unplug ~__context ~self =
+	let id = id_of_vbd ~__context ~self in
+	Client.VBD.unplug id |> success |> wait_for_task |> success_task |> ignore_task;
+	Event.wait ();
+	assert (not(Db.VBD.get_currently_attached ~__context ~self))
+
+
 
