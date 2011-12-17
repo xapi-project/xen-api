@@ -276,6 +276,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 	let one = function
 		| VM_start id ->
 			debug "VM.start %s" id;
+			Xenops_hooks.vm_pre_start ~reason:Xenops_hooks.reason__none ~id;
 			begin try
 				perform ~subtask:"VM_create" (VM_create id) t;
 				perform ~subtask:"VM_build" (VM_build id) t;
@@ -296,7 +297,13 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			end
 		| VM_poweroff (id, timeout) ->
 			debug "VM.poweroff %s" id;
+			let reason =
+				if timeout = None
+				then Xenops_hooks.reason__hard_shutdown
+				else Xenops_hooks.reason__clean_shutdown in
+			Xenops_hooks.vm_pre_destroy ~reason ~id;			
 			perform ~subtask:"VM_shutdown" (VM_shutdown (id, timeout)) t;
+			Xenops_hooks.vm_post_destroy ~reason ~id;
 			let vm_t = id |> VM_DB.key_of |> VM_DB.read |> unbox in
 			if vm_t.Vm.transient
 			then perform ~subtask:"VM_remove" (VM_remove id) t;
@@ -310,8 +317,15 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			Updates.add (Dynamic.Vm id) updates
 		| VM_reboot (id, timeout) ->
 			debug "VM.reboot %s" id;
+			let reason =
+				if timeout = None
+				then Xenops_hooks.reason__hard_reboot
+				else Xenops_hooks.reason__clean_reboot in
 			Opt.iter (fun x -> perform ~subtask:"VM_shutdown_domain(Reboot)" (VM_shutdown_domain(id, Reboot, x)) t) timeout;
+			Xenops_hooks.vm_pre_destroy ~reason ~id;
 			perform ~subtask:"VM_shutdown" (VM_shutdown (id, None)) t;
+			Xenops_hooks.vm_post_destroy ~reason ~id;
+			Xenops_hooks.vm_pre_reboot ~reason:Xenops_hooks.reason__none ~id;
 			perform ~subtask:"VM_start" (VM_start id) t;
 			perform ~subtask:"VM_unpause" (VM_unpause id) t;
 			Updates.add (Dynamic.Vm id) updates
@@ -327,7 +341,10 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 		| VM_suspend (id, data) ->
 			debug "VM.suspend %s" id;
 			perform ~subtask:"VM_save" (VM_save (id, [], data)) t;
+			let reason = Xenops_hooks.reason__suspend in
+			Xenops_hooks.vm_pre_destroy ~reason ~id;
 			perform ~subtask:"VM_shutdown" (VM_shutdown (id, None)) t;
+			Xenops_hooks.vm_post_destroy ~reason ~id;
 			Updates.add (Dynamic.Vm id) updates
 		| VM_restore_devices id -> (* XXX: this is delayed due to the 'attach'/'activate' behaviour *)
 			debug "VM_restore_devices %s" id;
@@ -349,6 +366,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			Updates.add (Dynamic.Vm id) updates
 		| VM_migrate (id, url') ->
 			debug "VM.migrate %s -> %s" id url';
+			Xenops_hooks.vm_pre_migrate ~reason:Xenops_hooks.reason__migrate_source ~id;
 			let open Xmlrpc_client in
 			let open Xenops_client in
 			let url = url' |> Http.Url.of_string in
@@ -376,7 +394,10 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 							debug "XXX completed signal ok";
 						)
 				);
+			let reason = Xenops_hooks.reason__suspend in
+			Xenops_hooks.vm_pre_destroy ~reason ~id;
 			perform ~subtask:"VM_shutdown" (VM_shutdown (id, None)) t;
+			Xenops_hooks.vm_post_destroy ~reason ~id;
 			perform ~subtask:"VM_remove" (VM_remove id) t;
 			Updates.add (Dynamic.Vm id) updates
 		| VM_receive_memory (id, s) ->
