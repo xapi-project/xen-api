@@ -48,6 +48,7 @@ type error =
 	| VDI_not_found of string
 	| Caller_must_pass_file_descriptor
 	| Failed_to_contact_remote_service of string
+	| Hook_failed of string * string * string * string
 
 type error_response = unit option * error option
 type string_response = string option * error option
