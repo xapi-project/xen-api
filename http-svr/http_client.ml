@@ -18,8 +18,6 @@ open Stringext
 module D = Debug.Debugger(struct let name="http" end)
 open D
 
-exception Connection_reset
-
 (** Thrown when no data is received from the remote HTTP server. This could happen if
     (eg) an stunnel accepted the connection but xapi refused the forward causing stunnel
     to immediately close. *)
@@ -35,10 +33,7 @@ exception Http_error of string * string
 exception Parse_error of string
 
 let http_rpc_send_query fd request =
-	try
-		Unixext.really_write_string fd (Http.Request.to_wire_string request)
-	with
-	| Unix.Unix_error(Unix.ECONNRESET, _, _) -> raise Connection_reset
+	Unixext.really_write_string fd (Http.Request.to_wire_string request)
 
 (* Internal exception thrown when reading a newline-terminated HTTP header when the 
    connection is closed *)
@@ -50,23 +45,20 @@ exception Http_header_truncated of string
 let input_line_fd (fd: Unix.file_descr) = 
 	let buf = Buffer.create 20 in
 	let finished = ref false in
-	try
-		while not(!finished) do
-			let buffer = " " in
-			let read = Unix.read fd buffer 0 1 in
-			if read = 1 then begin
-				if buffer = "\n"
-				then finished := true
-				else Buffer.add_char buf buffer.[0]
-			end else begin
-				if Buffer.contents buf = ""
-				then finished := true
-				else raise (Http_header_truncated (Buffer.contents buf));
-			end
-		done;
-		Buffer.contents buf
-	with
-	| Unix.Unix_error(Unix.ECONNRESET, _, _) -> raise Connection_reset
+	while not(!finished) do
+		let buffer = " " in
+		let read = Unix.read fd buffer 0 1 in
+		if read = 1 then begin
+			if buffer = "\n"
+			then finished := true
+			else Buffer.add_char buf buffer.[0]
+		end else begin
+			if Buffer.contents buf = ""
+			then finished := true
+			else raise (Http_header_truncated (Buffer.contents buf));
+		end
+	done;
+	Buffer.contents buf
 
 let response_of_fd_exn_slow fd =
 	let task_id = ref None in
@@ -155,7 +147,9 @@ let response_of_fd ?(use_fastpath=false) fd =
 		if use_fastpath
 		then Some(response_of_fd_exn fd)
 		else Some (response_of_fd_exn_slow fd)
-	with _ -> None
+	with
+	| Unix.Unix_error(_, _, _) as e -> raise e
+	| _ -> None
 
 (** See perftest/tests.ml *)
 let last_content_length = ref 0L

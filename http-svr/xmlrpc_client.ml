@@ -245,8 +245,9 @@ let with_transport transport f = match transport with
 			)
 
 let with_http request f s =
-	Http_client.rpc s request
-		(fun response s -> f (response, s))
+	try
+		Http_client.rpc s request (fun response s -> f (response, s))
+	with Unix.Unix_error(Unix.ECONNRESET, _, _) -> raise Connection_reset
 
 let curry2 f (a, b) = f a b
 
