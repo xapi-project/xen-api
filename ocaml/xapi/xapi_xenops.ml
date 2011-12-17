@@ -201,18 +201,35 @@ let to_xenapi_console_protocol = let open Vm in function
 	| Rfb -> `rfb
 	| Vt100 -> `vt100
 
+let attach_networks ~__context ~self =
+	List.iter
+		(fun vif ->
+			Xapi_network.register_vif ~__context vif;
+			let network = Db.VIF.get_network ~__context ~self:vif in
+			Xapi_network.attach_internal ~__context ~self:network ();
+			Xapi_udhcpd.maybe_add_lease ~__context vif
+		) (Db.VM.get_VIFs ~__context ~self)
+
+let detach_networks ~__context ~self =
+	List.iter
+		(fun vif ->
+			Xapi_network.deregister_vif ~__context vif
+		) (Db.VM.get_VIFs ~__context ~self)
+
 let update_vm ~__context id info =
 	try
 		let open Vm in
 		let self = Db.VM.get_by_uuid ~__context ~uuid:id in
 		if info = None then debug "VM state missing: assuming VM has shut down";
-		let power_state = Opt.default Halted (Opt.map (fun x -> (snd x).power_state) info) in
-		Db.VM.set_power_state ~__context ~self ~value:(match power_state with
-			| Running -> `Running
-			| Halted -> `Halted
-			| Suspended -> `Suspended
-			| Paused -> `Paused
-		);
+		let power_state = match (Opt.map (fun x -> (snd x).power_state) info) with
+			| Some Running -> `Running
+			| Some Halted -> `Running (* reboot transient *)
+			| Some Suspended -> `Suspended
+			| Some Paused -> `Paused
+			| None -> `Halted in
+		if power_state = `Suspended || power_state = `Halted
+		then detach_networks ~__context ~self;
+		Db.VM.set_power_state ~__context ~self ~value:power_state;
 		(* consoles *)
 		Opt.iter
 			(fun (_, state) ->
@@ -307,6 +324,8 @@ let update_vif ~__context id info =
 		let vif, _ = List.find (fun (_, vifr) -> vifr.API.vIF_device = (snd id)) vifrs in
 		Opt.iter
 			(fun (_, state) ->
+				if not state.plugged
+				then Xapi_network.deregister_vif ~__context vif;
 				Db.VIF.set_currently_attached ~__context ~self:vif ~value:state.plugged
 			) info;
 		Xapi_vif_helpers.update_allowed_operations ~__context ~self:vif
@@ -376,6 +395,7 @@ let success_task id =
 let start ~__context ~self paused =
 	let txt = create_metadata ~__context ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
 	let id = Client.VM.import_metadata txt |> success in
+	attach_networks ~__context ~self;
 	Client.VM.start id |> success |> wait_for_task |> success_task |> ignore_task;
 	if not paused
 	then Client.VM.unpause id |> success |> wait_for_task |> success_task |> ignore_task
@@ -421,6 +441,7 @@ let resume ~__context ~self ~start_paused ~force =
 	let vdi = Db.VM.get_suspend_VDI ~__context ~self in
 	let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in	
 	let id = id_of_vm ~__context ~self in
+	attach_networks ~__context ~self;
 	Client.VM.resume id disk |> success |> wait_for_task |> success_task |> ignore_task;
 	if not start_paused
 	then Client.VM.unpause id |> success |> wait_for_task |> success_task |> ignore_task;
