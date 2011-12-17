@@ -75,7 +75,7 @@ type operation =
 	| PCI_plug of Pci.id
 	| PCI_unplug of Pci.id
 	| VBD_plug of Vbd.id
-	| VBD_unplug of Vbd.id
+	| VBD_unplug of Vbd.id * bool
 	| VBD_insert of Vbd.id * disk
 	| VBD_eject of Vbd.id
 	| VBD_check_state of Vbd.id
@@ -110,7 +110,7 @@ let string_of_operation =
 	| PCI_plug id -> sprintf "PCI_plug %s.%s" (fst id) (snd id)
 	| PCI_unplug id -> sprintf "PCI_unplug %s.%s" (fst id) (snd id)
 	| VBD_plug id -> sprintf "VBD_plug %s.%s" (fst id) (snd id)
-	| VBD_unplug id -> sprintf "VBD_unplug %s.%s" (fst id) (snd id)
+	| VBD_unplug (id, force) -> sprintf "VBD_unplug %s.%s force=%b" (fst id) (snd id) force
 	| VBD_insert (id, disk) -> sprintf "VBD_insert (%s.%s, %s)" (fst id) (snd id) (string_of_disk disk)
 	| VBD_eject id -> sprintf "VBD_eject %s.%s" (fst id) (snd id)
 	| VBD_check_state id -> sprintf "VBD_check_state %s.%s" (fst id) (snd id)
@@ -305,7 +305,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			debug "VM.shutdown %s" id;
 			Opt.iter (fun x -> perform ~subtask:"VM_shutdown_domain(Halt)" (VM_shutdown_domain(id, Halt, x)) t) timeout;
 			perform ~subtask:"VM_destroy" (VM_destroy id) t;
-			List.iter (fun vbd -> perform ~subtask:(Printf.sprintf "VBD_unplug %s" (snd vbd.Vbd.id)) (VBD_unplug vbd.Vbd.id) t) (VBD_DB.list id |> List.map fst);
+			List.iter (fun vbd -> perform ~subtask:(Printf.sprintf "VBD_unplug %s" (snd vbd.Vbd.id)) (VBD_unplug (vbd.Vbd.id, true)) t) (VBD_DB.list id |> List.map fst);
 			List.iter (fun vif -> perform ~subtask:(Printf.sprintf "VIF_unplug %s" (snd vif.Vif.id)) (VIF_unplug (vif.Vif.id, true)) t) (VIF_DB.list id |> List.map fst);
 			Updates.add (Dynamic.Vm id) updates
 		| VM_reboot (id, timeout) ->
@@ -488,9 +488,9 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			debug "VBD.plug %s" (VBD_DB.string_of_id id);
 			B.VBD.plug t (VBD_DB.vm_of id) (id |> VBD_DB.key_of |> VBD_DB.read |> unbox);
 			Updates.add (Dynamic.Vbd id) updates
-		| VBD_unplug id ->
+		| VBD_unplug (id, force) ->
 			debug "VBD.unplug %s" (VBD_DB.string_of_id id);
-			B.VBD.unplug t (VBD_DB.vm_of id) (id |> VBD_DB.key_of |> VBD_DB.read |> unbox);
+			B.VBD.unplug t (VBD_DB.vm_of id) (id |> VBD_DB.key_of |> VBD_DB.read |> unbox) force;
 			Updates.add (Dynamic.Vbd id) updates
 		| VBD_insert (id, disk) ->
 			debug "VBD.insert %s" (VBD_DB.string_of_id id);
@@ -526,7 +526,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 				then B.VBD.get_device_action_request (VBD_DB.vm_of id) vbd_t
 				else Some Needs_unplug in
 			let operations_of_request = function
-				| Needs_unplug -> VBD_unplug id in
+				| Needs_unplug -> VBD_unplug (id, true) in
 			let operations = List.map operations_of_request (Opt.to_list request) in
 			List.iter (fun x -> perform x t) operations
 		| VIF_plug id ->
@@ -597,7 +597,7 @@ module VBD = struct
 	let add _ x = add' x |> return
 
 	let plug _ id = queue_operation (DB.vm_of id) (VBD_plug id) |> return
-	let unplug _ id = queue_operation (DB.vm_of id) (VBD_unplug id) |> return
+	let unplug _ id force = queue_operation (DB.vm_of id) (VBD_unplug (id, force)) |> return
 
 	let insert _ id disk = queue_operation (DB.vm_of id) (VBD_insert(id, disk)) |> return
 	let eject _ id = queue_operation (DB.vm_of id) (VBD_eject id) |> return

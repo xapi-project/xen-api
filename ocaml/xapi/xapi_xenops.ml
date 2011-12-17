@@ -553,9 +553,9 @@ let vbd_plug ~__context ~self =
 	Event.wait ();
 	assert (Db.VBD.get_currently_attached ~__context ~self)
 
-let vbd_unplug ~__context ~self =
+let vbd_unplug ~__context ~self force =
 	let id = id_of_vbd ~__context ~self in
-	Client.VBD.unplug id |> success |> wait_for_task |> success_task |> ignore_task;
+	Client.VBD.unplug id force |> success |> wait_for_task |> success_task |> ignore_task;
 	Event.wait ();
 	assert (not(Db.VBD.get_currently_attached ~__context ~self))
 

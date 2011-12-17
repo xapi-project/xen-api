@@ -236,7 +236,7 @@ module type S = sig
 	end
 	module VBD : sig
 		val plug: Xenops_task.t -> Vm.id -> Vbd.t -> unit
-		val unplug: Xenops_task.t -> Vm.id -> Vbd.t -> unit
+		val unplug: Xenops_task.t -> Vm.id -> Vbd.t -> bool -> unit
 		val insert: Xenops_task.t -> Vm.id -> Vbd.t -> disk -> unit
 		val eject: Xenops_task.t -> Vm.id -> Vbd.t -> unit
 
