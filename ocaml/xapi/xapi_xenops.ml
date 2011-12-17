@@ -146,7 +146,7 @@ module MD = struct
 			ssidref = 0l;
 			xsdata = [];
 			platformdata = vm.API.vM_platform;
-			bios_strings = [];
+			bios_strings = vm.API.vM_bios_strings;
 			ty = builder_of_vm ~__context ~vm;
 			suppress_spurious_page_faults = (try List.assoc "suppress-spurious-page-faults" vm.API.vM_other_config = "true" with _ -> false);
 			machine_address_size = (try Some(int_of_string (List.assoc "machine-address-size" vm.API.vM_other_config)) with _ -> None);
