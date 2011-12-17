@@ -298,7 +298,7 @@ end
 
 module VBD = struct
 	let plug _ (vm: Vm.id) (vbd: Vbd.t) = Mutex.execute m (add_vbd vm vbd)
-	let unplug _ vm vbd = Mutex.execute m (remove_vbd vm vbd)
+	let unplug _ vm vbd _ = Mutex.execute m (remove_vbd vm vbd)
 
 	let insert _ vm vbd disk = ()
 	let eject _ vm vbd = ()

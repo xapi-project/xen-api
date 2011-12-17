@@ -1016,14 +1016,16 @@ module VBD = struct
 				()
 			) vm
 
-	let unplug task vm vbd =
+	let unplug task vm vbd force =
 		with_xc_and_xs
 			(fun xc xs ->
 				try
 					(* If the device is gone then this is ok *)
 					let device = device_by_id xc xs vm Device_common.Vbd (id_of vbd) in
+					if force && (not (Device.can_surprise_remove ~xs device))
+					then debug "WARNING: device is not surprise-removable";
 					Xenops_task.with_subtask task (Printf.sprintf "Vbd.clean_shutdown %s" (id_of vbd))
-						(fun () -> Device.clean_shutdown ~xs device);
+						(fun () -> (if force then Device.hard_shutdown else Device.clean_shutdown) ~xs device);
 					Xenops_task.with_subtask task (Printf.sprintf "Vbd.release %s" (id_of vbd))
 						(fun () -> Device.Vbd.release ~xs device);
 					deactivate_and_detach task device vbd;

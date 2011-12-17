@@ -481,7 +481,7 @@ module VbdDeviceTests = DeviceTests(struct
 	let add = Client.VBD.add
 	let remove = Client.VBD.remove
 	let plug = Client.VBD.plug
-	let unplug = Client.VBD.unplug
+	let unplug id = Client.VBD.unplug id false
 	let list = Client.VBD.list
 	let find id vbds = List.find (fun (x, _) -> x.Vbd.id = id) vbds |> fst
 	let assert_equal vbd vbd' =

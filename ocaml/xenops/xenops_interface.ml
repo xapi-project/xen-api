@@ -344,7 +344,7 @@ end
 module VBD = struct
 	external add: Vbd.t -> (Vbd.id option) * (error option) = ""
 	external plug: Vbd.id -> (Task.id option) * (error option) = ""
-	external unplug: Vbd.id -> (Task.id option) * (error option) = ""
+	external unplug: Vbd.id -> bool -> (Task.id option) * (error option) = ""
 	external eject: Vbd.id -> (Task.id option) * (error option) = ""
 	external insert: Vbd.id -> disk -> (Task.id option) * (error option) = ""
 	external stat: Vbd.id -> ((Vbd.t * Vbd.state) option) * (error option) = ""
