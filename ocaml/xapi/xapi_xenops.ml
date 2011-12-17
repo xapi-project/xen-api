@@ -353,6 +353,7 @@ let update_vbd ~__context id info =
 		let vbd, vbd_r = List.find (fun (_, vbdr) -> vbdr.API.vBD_userdevice = linux_device || vbdr.API.vBD_userdevice = disk_number) vbdrs in
 		Opt.iter
 			(fun (x, state) ->
+				Db.VBD.set_device ~__context ~self:vbd ~value:linux_device;
 				Db.VBD.set_currently_attached ~__context ~self:vbd ~value:state.plugged;
 				debug "state.media_present = %b" state.media_present;
 				if state.plugged then begin
