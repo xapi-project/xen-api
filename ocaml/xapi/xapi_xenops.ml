@@ -140,11 +140,15 @@ module MD = struct
 					Some (int_of_string weight, int_of_string cap)
 				with _ -> None in
 			{ priority = priority; affinity = affinity } in
+		let xsdata = vm.API.vM_xenstore_data in
+		(* disallowed by default; allowed only if it has one of a set of prefixes *)
+		let allowed_xsdata (x, _) = List.fold_left (||) false (List.map (fun p -> String.startswith p x) [ "vm-data/"; "FIST/" ]) in
+		let xsdata = List.filter allowed_xsdata xsdata in
 		{
 			id = vm.API.vM_uuid;
 			name = vm.API.vM_name_label;
 			ssidref = 0l;
-			xsdata = [];
+			xsdata = xsdata;
 			platformdata = vm.API.vM_platform;
 			bios_strings = vm.API.vM_bios_strings;
 			ty = builder_of_vm ~__context ~vm;
