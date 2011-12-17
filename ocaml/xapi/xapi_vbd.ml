@@ -108,7 +108,7 @@ let set_mode ~__context ~self ~value =
 	then raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [Ref.string_of vm; Record_util.power_to_string `Halted; Record_util.power_to_string power_state]));
 	Db.VBD.set_mode ~__context ~self ~value
 
-let plug ~__context ~self =
+let plug_internal ~__context ~self =
   let r = Db.VBD.get_record_internal ~__context ~self in
   let vm = r.Db_actions.vBD_VM in
 
@@ -131,8 +131,13 @@ let plug ~__context ~self =
 					[Ref.string_of self]))
        end;
        dynamic_create ~__context ~vbd:self token) ()
-  
-let unplug_common ?(do_safety_check=true) ~__context ~self (force: bool) =
+ 
+let plug_xenopsd ~__context ~self =
+	Xapi_xenops.vbd_plug ~__context ~self
+
+let plug ~__context = if !Xapi_globs.use_xenopsd then plug_xenopsd ~__context else plug_internal ~__context
+
+let unplug_common_internal ?(do_safety_check=true) ~__context ~self (force: bool) =
   let r = Db.VBD.get_record_internal ~__context ~self in
   let vm = r.Db_actions.vBD_VM in
 
@@ -154,9 +159,12 @@ let unplug_common ?(do_safety_check=true) ~__context ~self (force: bool) =
        end;
        dynamic_destroy ~do_safety_check ~__context ~vbd:self force token) ()
 
-let unplug ~__context ~self = unplug_common ~__context ~self false
-let unplug_force ~__context ~self = unplug_common ~__context ~self true
-let unplug_force_no_safety_check ~__context ~self = unplug_common ~do_safety_check:false ~__context ~self true
+let unplug_common_xenopsd ?(do_safety_check=true) ~__context ~self (force: bool) =
+	Xapi_xenops.vbd_unplug ~__context ~self
+
+let unplug ~__context ~self = (if !Xapi_globs.use_xenopsd then unplug_common_xenopsd else unplug_common_internal) ~__context ~self false
+let unplug_force ~__context ~self = (if !Xapi_globs.use_xenopsd then unplug_common_xenopsd else unplug_common_internal) ~__context ~self true
+let unplug_force_no_safety_check ~__context ~self = (if !Xapi_globs.use_xenopsd then unplug_common_xenopsd else unplug_common_internal) ~do_safety_check:false ~__context ~self true
 
 (** Hold this mutex while resolving the 'autodetect' device names to prevent two concurrent
     VBD.creates racing with each other and choosing the same device. For simplicity keep this
@@ -265,9 +273,7 @@ let assert_not_suspended ~__context ~vm =
     raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, error_params))
 
 let insert_xenopsd ~__context ~vbd ~vdi =
-    Xapi_xenops.vbd_insert ~__context ~self:vbd ~vdi;
-    Db.VBD.set_VDI ~__context ~self:vbd ~value:vdi;
-    Db.VBD.set_empty ~__context ~self:vbd ~value:false
+    Xapi_xenops.vbd_insert ~__context ~self:vbd ~vdi
 
 (* Throw an error if the media is not 'removable' (ie a "CD")
    Throw an error if the media is not empty.
@@ -319,9 +325,7 @@ let insert_internal  ~__context ~vbd ~vdi =
 let insert ~__context = if !Xapi_globs.use_xenopsd then insert_xenopsd ~__context else insert_internal ~__context
 
 let eject_xenopsd ~__context ~vbd =
-    Xapi_xenops.vbd_eject ~__context ~self:vbd;
-    Db.VBD.set_empty ~__context ~self:vbd ~value:true;
-    Db.VBD.set_VDI ~__context ~self:vbd ~value:Ref.null
+    Xapi_xenops.vbd_eject ~__context ~self:vbd
 
 (* Throw an error if the media is not a "CD"
    Throw an error if the media is empty already.
