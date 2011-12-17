@@ -80,12 +80,17 @@ let unplug_internal  ~__context ~self = Xapi_vif_helpers.unplug (dynamic_destroy
 	~__context ~self
 
 let unplug_xenopsd ~__context ~self =
-	Xapi_xenops.vif_unplug ~__context ~self
+	Xapi_xenops.vif_unplug ~__context ~self false
 
 let unplug ~__context = if !Xapi_globs.use_xenopsd then unplug_xenopsd ~__context else unplug_internal ~__context
 
-let unplug_force ~__context ~self = Xapi_vif_helpers.unplug (dynamic_destroy ~force:true)
+let unplug_force_internal ~__context ~self = Xapi_vif_helpers.unplug (dynamic_destroy ~force:true)
 	~__context ~self
+
+let unplug_force_xenopsd ~__context ~self =
+	Xapi_xenops.vif_unplug ~__context ~self true
+
+let unplug_force ~__context = if !Xapi_globs.use_xenopsd then unplug_force_xenopsd ~__context else unplug_force_internal ~__context
 
 let create  ~__context ~device ~network ~vM
            ~mAC ~mTU ~other_config ~qos_algorithm_type ~qos_algorithm_params : API.ref_VIF =

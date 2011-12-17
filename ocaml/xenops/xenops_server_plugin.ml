@@ -246,7 +246,7 @@ module type S = sig
 	end
 	module VIF : sig
 		val plug: Xenops_task.t -> Vm.id -> Vif.t -> unit
-		val unplug: Xenops_task.t -> Vm.id -> Vif.t -> unit
+		val unplug: Xenops_task.t -> Vm.id -> Vif.t -> bool -> unit
 
 		val get_state: Vm.id -> Vif.t -> Vif.state
 
