@@ -69,10 +69,20 @@ let dynamic_destroy ~__context ~vif ~force token =
 	debug "Attempting to dynamically detach VIF from domid %d" domid;
 	with_xs (fun xs -> destroy_vif ~__context ~xs domid vif token force)
 
-let plug  ~__context ~self = plug dynamic_create ~__context ~self
+let plug_internal  ~__context ~self = plug dynamic_create ~__context ~self
 
-let unplug  ~__context ~self = Xapi_vif_helpers.unplug (dynamic_destroy ~force:false)
+let plug_xenopsd ~__context ~self =
+	Xapi_xenops.vif_plug ~__context ~self
+
+let plug ~__context = if !Xapi_globs.use_xenopsd then plug_xenopsd ~__context else plug_internal ~__context
+
+let unplug_internal  ~__context ~self = Xapi_vif_helpers.unplug (dynamic_destroy ~force:false)
 	~__context ~self
+
+let unplug_xenopsd ~__context ~self =
+	Xapi_xenops.vif_unplug ~__context ~self
+
+let unplug ~__context = if !Xapi_globs.use_xenopsd then unplug_xenopsd ~__context else unplug_internal ~__context
 
 let unplug_force ~__context ~self = Xapi_vif_helpers.unplug (dynamic_destroy ~force:true)
 	~__context ~self
