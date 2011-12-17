@@ -112,7 +112,8 @@ module UpdateRecorder = functor(Ord: Map.OrderedType) -> struct
 		(* XXX: events for deleted things *)
 		let before, after = M.partition (fun _ time -> time < from) t.map in
 		let xs, last = M.fold (fun key v (acc, m) -> key :: acc, max m v) after ([], from) in
-		xs, last + 1
+		(* NB 'xs' must be in order so 'Barrier' requests don't permute *)
+		List.rev xs, last + 1
 end
 
 module Updates = struct

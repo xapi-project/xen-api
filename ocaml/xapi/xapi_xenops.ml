@@ -216,6 +216,66 @@ let detach_networks ~__context ~self =
 			Xapi_network.deregister_vif ~__context vif
 		) (Db.VM.get_VIFs ~__context ~self)
 
+
+(* Event handling:
+   When we tell the xenopsd to start a VM, we wait for the task to complete.
+   We also wait for an iteration of the xenops event loop to ensure that
+   the states of modified objects are properly set. For example: the VM
+   power_state is modified by the event thread *only* and must take its
+   final value when the XenAPI VM.start returns. It will not be set when
+   the xenops VM.start returns since the event is asynchronous. *)
+
+module Event = struct
+	type t = {
+		mutable finished: bool;
+		m: Mutex.t;
+		c: Condition.t;
+	}
+	let make () = {
+		finished = false;
+		m = Mutex.create ();
+		c = Condition.create ();
+	}
+	let active = Hashtbl.create 10
+	let active_m = Mutex.create ()
+	let register =
+		let counter = ref 0 in
+		fun t ->
+			Mutex.execute active_m
+				(fun () ->
+					let id = !counter in
+					incr counter;
+					Hashtbl.replace active id t;
+					id
+				)
+	let wait () =
+		let t = make () in
+		let id = register t in
+		Client.UPDATES.inject_barrier id |> success;
+		Mutex.execute t.m
+			(fun () ->
+				while not t.finished do Condition.wait t.c t.m done
+			)
+	let wakeup id =
+		let t = Mutex.execute active_m
+			(fun () ->
+				if not(Hashtbl.mem active id)
+				then (warn "Event.wakeup: unknown id %d" id; None)
+				else
+					let t = Hashtbl.find active id in
+					Hashtbl.remove active id;
+					Some t
+			) in
+		Opt.iter
+			(fun t ->
+				Mutex.execute t.m
+					(fun () ->
+						t.finished <- true;
+						Condition.signal t.c
+					)
+			) t
+end
+
 let update_vm ~__context id info =
 	try
 		let open Vm in
@@ -348,6 +408,9 @@ let rec events_watch ~__context from =
 				update_vif ~__context id info
 			| Task_t(id, info) ->
 				debug "xenops event on Task %s" id
+			| Barrier_t id ->
+				debug "barrier %d" id;
+				Event.wakeup id
 		) events;
 	events_watch ~__context next
 
@@ -392,23 +455,30 @@ let success_task id =
 	| Task.Failed x -> failwith (Jsonrpc.to_string (rpc_of_error x))
 	| Task.Pending _ -> failwith "task pending"
 
+
 let start ~__context ~self paused =
 	let txt = create_metadata ~__context ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
 	let id = Client.VM.import_metadata txt |> success in
 	attach_networks ~__context ~self;
 	Client.VM.start id |> success |> wait_for_task |> success_task |> ignore_task;
 	if not paused
-	then Client.VM.unpause id |> success |> wait_for_task |> success_task |> ignore_task
+	then Client.VM.unpause id |> success |> wait_for_task |> success_task |> ignore_task;
+	Event.wait ();
+	assert (Db.VM.get_power_state ~__context ~self = (if paused then `Paused else `Running))
 
 let id_of_vm ~__context ~self = Db.VM.get_uuid ~__context ~self
 
 let reboot ~__context ~self timeout =
 	let id = id_of_vm ~__context ~self in
-	Client.VM.reboot id timeout |> success |> wait_for_task |> success_task |> ignore_task
+	Client.VM.reboot id timeout |> success |> wait_for_task |> success_task |> ignore_task;
+	Event.wait ();
+	assert (Db.VM.get_power_state ~__context ~self = `Running)
 
 let shutdown ~__context ~self timeout =
 	let id = id_of_vm ~__context ~self in
-	Client.VM.shutdown id timeout |> success |> wait_for_task |> success_task |> ignore_task
+	Client.VM.shutdown id timeout |> success |> wait_for_task |> success_task |> ignore_task;
+	Event.wait ();
+	assert (Db.VM.get_power_state ~__context ~self = `Halted)
 
 let suspend ~__context ~self =
 	let id = id_of_vm ~__context ~self in
@@ -429,7 +499,9 @@ let suspend ~__context ~self =
 			let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in
 			Db.VM.set_suspend_VDI ~__context ~self ~value:vdi;
 			try
-				Client.VM.suspend id disk |> success |> wait_for_task |> success_task |> ignore_task
+				Client.VM.suspend id disk |> success |> wait_for_task |> success_task |> ignore_task;
+				Event.wait ();
+				assert (Db.VM.get_power_state ~__context ~self = `Suspended)
 			with e ->
 				debug "Caught exception suspending VM: %s" (Printexc.to_string e);
 				XenAPI.VDI.destroy ~rpc ~session_id ~self:vdi;
@@ -445,6 +517,8 @@ let resume ~__context ~self ~start_paused ~force =
 	Client.VM.resume id disk |> success |> wait_for_task |> success_task |> ignore_task;
 	if not start_paused
 	then Client.VM.unpause id |> success |> wait_for_task |> success_task |> ignore_task;
+	Event.wait ();
+	assert (Db.VM.get_power_state ~__context ~self = if start_paused then `Paused else `Running);
 	Helpers.call_api_functions ~__context
 		(fun rpc session_id ->
 			XenAPI.VDI.destroy rpc session_id vdi
@@ -458,9 +532,15 @@ let id_of_vbd ~__context ~self =
 
 let vbd_eject ~__context ~self =
 	let id = id_of_vbd ~__context ~self in
-	Client.VBD.eject id |> success |> wait_for_task |> success_task |> ignore_task
+	Client.VBD.eject id |> success |> wait_for_task |> success_task |> ignore_task;
+	Event.wait ();
+	assert (Db.VBD.get_empty ~__context ~self)
+
 
 let vbd_insert ~__context ~self ~vdi =
 	let id = id_of_vbd ~__context ~self in
 	let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in
-	Client.VBD.insert id disk |> success |> wait_for_task |> success_task |> ignore_task
+	Client.VBD.insert id disk |> success |> wait_for_task |> success_task |> ignore_task;
+	Event.wait ();
+	assert (not(Db.VBD.get_empty ~__context ~self))
+
