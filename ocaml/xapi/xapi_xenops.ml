@@ -21,6 +21,10 @@ open Threadext
 module XenAPI = Client.Client
 open Xenops_interface
 
+(* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
+let filtered_platform_flags = ["acpi"; "apic"; "nx"; "pae"; "viridian";
+                               "acpi_s3";"acpi_s4"; "mmio_size_mib"]
+
 let disk_of_vdi ~__context ~self =
 	try
 		let vdi = Db.VDI.get_record ~__context ~self in
@@ -144,12 +148,18 @@ module MD = struct
 		(* disallowed by default; allowed only if it has one of a set of prefixes *)
 		let allowed_xsdata (x, _) = List.fold_left (||) false (List.map (fun p -> String.startswith p x) [ "vm-data/"; "FIST/" ]) in
 		let xsdata = List.filter allowed_xsdata xsdata in
+
+		let platformdata =
+			let p = vm.API.vM_platform in
+			if not (Pool_features.is_enabled ~__context Features.No_platform_filter) then
+				List.filter (fun (k, v) -> List.mem k filtered_platform_flags) p
+			else p in
 		{
 			id = vm.API.vM_uuid;
 			name = vm.API.vM_name_label;
 			ssidref = 0l;
 			xsdata = xsdata;
-			platformdata = vm.API.vM_platform;
+			platformdata = platformdata;
 			bios_strings = vm.API.vM_bios_strings;
 			ty = builder_of_vm ~__context ~vm;
 			suppress_spurious_page_faults = (try List.assoc "suppress-spurious-page-faults" vm.API.vM_other_config = "true" with _ -> false);
