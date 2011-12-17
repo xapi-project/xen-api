@@ -559,5 +559,21 @@ let vbd_unplug ~__context ~self =
 	Event.wait ();
 	assert (not(Db.VBD.get_currently_attached ~__context ~self))
 
+let id_of_vif ~__context ~self =
+	let vm = Db.VIF.get_VM ~__context ~self in
+	let vbd = MD.of_vif ~__context ~vm:(Db.VM.get_record ~__context ~self:vm) ~vif:(Db.VIF.get_record ~__context ~self) in
+	vbd.Vif.id
+
+let vif_plug ~__context ~self =
+	let id = id_of_vif ~__context ~self in
+	Client.VIF.plug id |> success |> wait_for_task |> success_task |> ignore_task;
+	Event.wait ();
+	assert (Db.VIF.get_currently_attached ~__context ~self)
+
+let vif_unplug ~__context ~self =
+	let id = id_of_vif ~__context ~self in
+	Client.VIF.unplug id |> success |> wait_for_task |> success_task |> ignore_task;
+	Event.wait ();
+	assert (not(Db.VIF.get_currently_attached ~__context ~self))
 
 
