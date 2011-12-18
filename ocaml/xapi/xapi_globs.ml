@@ -107,6 +107,7 @@ let _date = "date"
 let _product_version = "product_version"
 let _product_version_text = "product_version_text"
 let _product_version_text_short = "product_version_text_short"
+let _platform_name = "platform_name"
 let _platform_version = "platform_version"
 let _product_brand = "product_brand"
 let _build_number = "build_number"
@@ -120,15 +121,26 @@ let _xapi_minor = "xapi_minor"
 let _export_vsn = "export_vsn"
 let _dbv = "dbv"
 
+(* When comparing two host versions, always treat a host that has platform_version defined as newer
+ * than any host that does not have platform_version defined.
+ * Substituting this default when a host does not have platform_version defined will be acceptable,
+ * as long as a host never has to distinguish between two hosts of different versions which are both
+ * older than itself. *)
+let default_platform_version = "0.0.0"
+
 (* Used to differentiate between 
    Rio beta2 (0) [no inline checksums, end-of-tar checksum table],
    Rio GA (1) [inline checksums, end-of-tar checksum table]
    and Miami GA (2) [inline checksums, no end-of-tar checksum table] *)
 let export_vsn = 2
 
-let software_version = [ _product_version, Version.product_version;
+let software_version =
+	(* In the case of XCP, all product_* fields will be blank. *)
+	List.filter (fun (_, value) -> value <> "")
+		[_product_version, Version.product_version;
 			_product_version_text,       Version.product_version_text;
 			_product_version_text_short, Version.product_version_text_short;
+			_platform_name, Version.platform_name;
 			_platform_version, Version.platform_version;
 			 _product_brand,   Version.product_brand;
 			 _build_number,    Version.build_number;
