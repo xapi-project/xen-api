@@ -132,7 +132,6 @@ Description: Binary utils to help debug XCP
  This package contains extra utilities for debugging XCP hosts.
 
 Package: xcp-xe
-Section: admin
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: command line utility for managing XCP hosts
