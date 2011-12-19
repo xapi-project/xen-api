@@ -36,14 +36,14 @@ type t = in_channel * out_channel * Unix.file_descr * Unix.file_descr * Forkhelp
 
 (** Fork and run a xenguest helper with particular args, leaving 'fds' open 
     (in addition to internal control I/O fds) *)
-let connect (args: string list) (fds: (string * Unix.file_descr) list) : t =
+let connect domid (args: string list) (fds: (string * Unix.file_descr) list) : t =
 	debug "connect: args = [ %s ]" (String.concat " " args);
 	(* Need to send commands and receive responses from the
 	   slave process *)
 
 	let using_xiu = Xenctrl.is_fake () in
 
-	let last_log_file = "/tmp/xenguest.log" in
+	let last_log_file = Printf.sprintf "/tmp/xenguest.%d.log" domid in
 	(try Unix.unlink last_log_file with _ -> ());
 
 	let slave_to_server_w_uuid = Uuid.to_string (Uuid.make_uuid ()) in

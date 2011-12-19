@@ -493,7 +493,7 @@ let build_linux ~xc ~xs ~static_max_kib ~target_kib ~kernel ~cmdline ~ramdisk
 	let store_port, console_port = build_pre ~xc ~xs
 		~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
 
-	let cnx = XenguestHelper.connect
+	let cnx = XenguestHelper.connect domid
 	  [
 	    "-mode"; "linux_build";
 	    "-domid"; string_of_int domid;
@@ -560,7 +560,7 @@ let build_hvm ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
 	let store_port, console_port = build_pre ~xc ~xs
 		~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
 
-	let cnx = XenguestHelper.connect
+	let cnx = XenguestHelper.connect domid
 	  [
 	    "-mode"; "hvm_build";
 	    "-domid"; string_of_int domid;
@@ -640,7 +640,7 @@ let restore_common ~xc ~xs ~hvm ~store_port ~console_port ~vcpus ~extras domid f
 	Unix.clear_close_on_exec fd;
 	let fd_uuid = Uuid.to_string (Uuid.make_uuid ()) in
 
-	let cnx = XenguestHelper.connect
+	let cnx = XenguestHelper.connect domid
 	  ([
 	    "-mode"; if hvm then "hvm_restore" else "restore";
 	    "-domid"; string_of_int domid;
@@ -792,7 +792,7 @@ let suspend ~xc ~xs ~hvm domid fd flags ?(progress_callback = fun _ -> ()) do_su
 		"-fork"; "true";
 	] @ (List.concat flags') in
 
-	let cnx = XenguestHelper.connect xenguestargs [ fd_uuid, fd ] in
+	let cnx = XenguestHelper.connect domid xenguestargs [ fd_uuid, fd ] in
 	finally (fun () ->
 		debug "Blocking for suspend notification from xenguest";
 
