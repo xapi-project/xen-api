@@ -59,6 +59,7 @@ module Query = struct
 		vendor: string;
 		version: string;
 		features: string list;
+		instance_id: string; (* Unique to this invocation of xenopsd *)
 	}
 end
 external query: unit -> (Query.t option * error option) = ""
