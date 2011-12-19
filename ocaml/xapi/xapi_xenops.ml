@@ -526,53 +526,57 @@ let resume ~__context ~self ~start_paused ~force =
 		);
 	Db.VM.set_suspend_VDI ~__context ~self ~value:Ref.null
 
-let id_of_vbd ~__context ~self =
+let md_of_vbd ~__context ~self =
 	let vm = Db.VBD.get_VM ~__context ~self in
-	let vbd = MD.of_vbd ~__context ~vm:(Db.VM.get_record ~__context ~self:vm) ~vbd:(Db.VBD.get_record ~__context ~self) in
-	vbd.Vbd.id
+	MD.of_vbd ~__context ~vm:(Db.VM.get_record ~__context ~self:vm) ~vbd:(Db.VBD.get_record ~__context ~self)
 
 let vbd_eject ~__context ~self =
-	let id = id_of_vbd ~__context ~self in
-	Client.VBD.eject id |> success |> wait_for_task |> success_task |> ignore_task;
+	let vbd = md_of_vbd ~__context ~self in
+	Client.VBD.eject vbd.Vbd.id |> success |> wait_for_task |> success_task |> ignore_task;
 	Event.wait ();
 	assert (Db.VBD.get_empty ~__context ~self);
 	assert (Db.VBD.get_VDI ~__context ~self = Ref.null)
 
 
 let vbd_insert ~__context ~self ~vdi =
-	let id = id_of_vbd ~__context ~self in
+	let vbd = md_of_vbd ~__context ~self in
 	let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in
-	Client.VBD.insert id disk |> success |> wait_for_task |> success_task |> ignore_task;
+	Client.VBD.insert vbd.Vbd.id disk |> success |> wait_for_task |> success_task |> ignore_task;
 	Event.wait ();
 	assert (not(Db.VBD.get_empty ~__context ~self));
 	assert (Db.VBD.get_VDI ~__context ~self = vdi)
 
 let vbd_plug ~__context ~self =
-	let id = id_of_vbd ~__context ~self in
+	let vbd = md_of_vbd ~__context ~self in
+	Client.VBD.remove vbd.Vbd.id |> might_not_exist;
+	let id = Client.VBD.add vbd |> success in
 	Client.VBD.plug id |> success |> wait_for_task |> success_task |> ignore_task;
 	Event.wait ();
 	assert (Db.VBD.get_currently_attached ~__context ~self)
 
 let vbd_unplug ~__context ~self force =
-	let id = id_of_vbd ~__context ~self in
-	Client.VBD.unplug id force |> success |> wait_for_task |> success_task |> ignore_task;
+	let vbd = md_of_vbd ~__context ~self in
+	Client.VBD.unplug vbd.Vbd.id force |> success |> wait_for_task |> success_task |> ignore_task;
+	Client.VBD.remove vbd.Vbd.id |> success;
 	Event.wait ();
 	assert (not(Db.VBD.get_currently_attached ~__context ~self))
 
-let id_of_vif ~__context ~self =
+let md_of_vif ~__context ~self =
 	let vm = Db.VIF.get_VM ~__context ~self in
-	let vbd = MD.of_vif ~__context ~vm:(Db.VM.get_record ~__context ~self:vm) ~vif:(Db.VIF.get_record ~__context ~self) in
-	vbd.Vif.id
+	MD.of_vif ~__context ~vm:(Db.VM.get_record ~__context ~self:vm) ~vif:(Db.VIF.get_record ~__context ~self)
 
 let vif_plug ~__context ~self =
-	let id = id_of_vif ~__context ~self in
+	let vif = md_of_vif ~__context ~self in
+	Client.VIF.remove vif.Vif.id |> might_not_exist;
+	let id = Client.VIF.add vif |> success in
 	Client.VIF.plug id |> success |> wait_for_task |> success_task |> ignore_task;
 	Event.wait ();
 	assert (Db.VIF.get_currently_attached ~__context ~self)
 
 let vif_unplug ~__context ~self force =
-	let id = id_of_vif ~__context ~self in
-	Client.VIF.unplug id force |> success |> wait_for_task |> success_task |> ignore_task;
+	let vif = md_of_vif ~__context ~self in
+	Client.VIF.unplug vif.Vif.id force |> success |> wait_for_task |> success_task |> ignore_task;
+	Client.VIF.remove vif.Vif.id |> success;
 	Event.wait ();
 	assert (not(Db.VIF.get_currently_attached ~__context ~self))
 
