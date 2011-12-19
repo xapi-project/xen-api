@@ -577,20 +577,6 @@ module Shutdown = struct
 				  Monitor.do_monitor __context xc
 			  )
 	  end;
-
-    if Db.VM.get_power_state ~__context ~self:vm = `Suspended then begin
-      debug "hard_shutdown: destroying any suspend VDI";
-
-      let vdi = Db.VM.get_suspend_VDI ~__context ~self:vm in
-      if vdi <> Ref.null (* avoid spurious but scary messages *)
-      then Helpers.log_exn_continue
-	(Printf.sprintf "destroying suspend VDI: %s" (Ref.string_of vdi))
-	(Helpers.call_api_functions ~__context)
-	(fun rpc session_id -> Client.VDI.destroy rpc session_id vdi);
-      (* Whether or not that worked, forget about the VDI *)
-      Db.VM.set_suspend_VDI ~__context ~self:vm ~value:Ref.null;
-    end;
-
 	Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted
 
 
@@ -690,7 +676,19 @@ let hard_shutdown_internal ~__context ~vm =
 			(debug ("hard_shutdown: caught any exception besides VM_BAD_POWER_STATE, re-raising.");
 			raise e)
 
-let hard_shutdown ~__context = if !Xapi_globs.use_xenopsd then hard_shutdown_xenopsd ~__context else hard_shutdown_internal ~__context
+let hard_shutdown ~__context ~vm =
+    if Db.VM.get_power_state ~__context ~self:vm = `Suspended then begin
+		debug "hard_shutdown: destroying any suspend VDI";
+		let vdi = Db.VM.get_suspend_VDI ~__context ~self:vm in
+		if vdi <> Ref.null (* avoid spurious but scary messages *)
+		then Helpers.log_exn_continue
+			(Printf.sprintf "destroying suspend VDI: %s" (Ref.string_of vdi))
+			(Helpers.call_api_functions ~__context)
+			(fun rpc session_id -> Client.VDI.destroy rpc session_id vdi);
+		(* Whether or not that worked, forget about the VDI *)
+		Db.VM.set_suspend_VDI ~__context ~self:vm ~value:Ref.null;
+    end else
+		if !Xapi_globs.use_xenopsd then hard_shutdown_xenopsd ~__context ~vm else hard_shutdown_internal ~__context ~vm
 
 let clean_reboot_xenopsd ~__context ~vm =
 	Xapi_xenops.reboot ~__context ~self:vm (Some 1200.0)
