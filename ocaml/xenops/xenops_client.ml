@@ -35,6 +35,12 @@ let success = function
 	| (Some x, _) -> x
 	| None, None -> failwith "protocol error"
 
+let might_not_exist = function
+	| (_, Some Does_not_exist) -> ()
+	| (Some (), _) -> ()
+	| (_, Some x) -> failwith (Jsonrpc.to_string (rpc_of_error x))
+	| None, None -> failwith "protocol error"
+
 let query url =
 	let module Remote = Xenops_interface.Client(struct let rpc = rpc url end) in
 	Remote.query () |> success
