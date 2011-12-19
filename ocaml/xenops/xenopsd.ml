@@ -125,6 +125,7 @@ let _ =
     (Printf.sprintf "Usage: %s [-daemon] [-pidfile filename]" name);
 
   Logs.reset_all (if !daemonize then [ log_file_path ] else [ "file:/dev/stdout" ]);
+  Logs.set "http" Log.Debug [ "nil" ];
 
   Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
 
