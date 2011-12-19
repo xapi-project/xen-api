@@ -288,7 +288,11 @@ let update_vm ~__context id info =
 			| Some Paused -> `Paused
 			| None -> `Halted in
 		if power_state = `Suspended || power_state = `Halted
-		then detach_networks ~__context ~self;
+		then
+			(try
+				detach_networks ~__context ~self
+			with e ->
+				error "Error detaching networks: %s" (Printexc.to_string e));
 		Db.VM.set_power_state ~__context ~self ~value:power_state;
 		(* consoles *)
 		Opt.iter
@@ -437,7 +441,35 @@ let events_thread () =
 					let vm = Db.VM.get_by_uuid ~__context ~uuid:id in
 					Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Running;
 					Db.VM.set_resident_on ~__context ~self:vm ~value:localhost
-				) (List.set_difference in_db in_xenopsd);			
+				) (List.set_difference in_db in_xenopsd);
+			(* Tell xenopsd to manage domain 0 *)
+			let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
+			let open Vm in
+			if not(List.mem uuid in_xenopsd)
+			then Client.VM.add {
+				id = uuid;
+				name = "Domain-0";
+				ssidref = 0l;
+				xsdata = [];
+				platformdata = [];
+				bios_strings = [];
+				ty = PV {
+					boot = Direct { kernel = ""; cmdline = ""; ramdisk = None };
+					framebuffer = false; vncterm = false; vncterm_ip = None 
+				};
+				suppress_spurious_page_faults = false;
+				machine_address_size = None;
+				memory_static_max = 0L;
+				memory_dynamic_max = 0L;
+				memory_dynamic_min = 0L;
+				vcpu_max = 0;
+				vcpus = 0;
+				scheduler_params = { priority = None; affinity = [] };
+				on_crash = [];
+				on_shutdown = [];
+				on_reboot = [];
+				transient = false
+			} |> ignore;
 			while true do
 				try
 					events_watch ~__context None;
