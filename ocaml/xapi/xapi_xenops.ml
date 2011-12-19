@@ -18,6 +18,7 @@ open D
 open Stringext
 open Listext
 open Threadext
+open Fun
 module XenAPI = Client.Client
 open Xenops_interface
 
@@ -101,12 +102,20 @@ module MD = struct
 		}
 
 	let of_vif ~__context ~vm ~vif =
+		let mtu =
+			try
+				if List.mem_assoc "mtu" vif.API.vIF_other_config
+				then List.assoc "mtu" vif.API.vIF_other_config |> int_of_string
+				else 1500
+			with _ ->
+				error "Failed to parse VIF.other_config:mtu; defaulting to 1500";
+				1500 in
 		let open Vif in {
 			id = (vm.API.vM_uuid, vif.API.vIF_device);
 			position = int_of_string vif.API.vIF_device;
 			mac = vif.API.vIF_MAC;
 			carrier = true;
-			mtu = Int64.to_int vif.API.vIF_MTU;
+			mtu = mtu;
 			rate = None;
 			backend = backend_of_network ~__context ~self:vif.API.vIF_network;
 			other_config = vif.API.vIF_other_config;
@@ -297,6 +306,7 @@ let update_vm ~__context id info =
 		(* consoles *)
 		Opt.iter
 			(fun (_, state) ->
+				if state.domids <> [] then Db.VM.set_domid ~__context ~self ~value:(List.hd state.domids |> Int64.of_int);
 				let current_protocols = List.map
 					(fun self -> Db.Console.get_protocol ~__context ~self |> to_xenops_console_protocol, self)
 					(Db.VM.get_consoles ~__context ~self) in
@@ -545,7 +555,8 @@ let suspend ~__context ~self =
 let resume ~__context ~self ~start_paused ~force =
 	let vdi = Db.VM.get_suspend_VDI ~__context ~self in
 	let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in	
-	let id = id_of_vm ~__context ~self in
+	let txt = create_metadata ~__context ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
+	let id = Client.VM.import_metadata txt |> success in
 	attach_networks ~__context ~self;
 	Client.VM.resume id disk |> success |> wait_for_task |> success_task |> ignore_task;
 	if not start_paused
