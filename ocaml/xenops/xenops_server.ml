@@ -314,9 +314,19 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 		| VM_shutdown (id, timeout) ->
 			debug "VM.shutdown %s" id;
 			Opt.iter (fun x -> perform ~subtask:"VM_shutdown_domain(Halt)" (VM_shutdown_domain(id, Halt, x)) t) timeout;
+			List.iter (fun vbd ->
+				try
+					perform ~subtask:(Printf.sprintf "VBD_unplug %s" (snd vbd.Vbd.id)) (VBD_unplug (vbd.Vbd.id, true)) t
+				with e ->
+					debug "Ignoring exception: %s" (Printexc.to_string e)
+			) (VBD_DB.list id |> List.map fst);
+			List.iter (fun vif ->
+				try
+					perform ~subtask:(Printf.sprintf "VIF_unplug %s" (snd vif.Vif.id)) (VIF_unplug (vif.Vif.id, true)) t
+				with e ->
+					debug "Ignoring exception: %s" (Printexc.to_string e)
+			) (VIF_DB.list id |> List.map fst);
 			perform ~subtask:"VM_destroy" (VM_destroy id) t;
-			List.iter (fun vbd -> perform ~subtask:(Printf.sprintf "VBD_unplug %s" (snd vbd.Vbd.id)) (VBD_unplug (vbd.Vbd.id, true)) t) (VBD_DB.list id |> List.map fst);
-			List.iter (fun vif -> perform ~subtask:(Printf.sprintf "VIF_unplug %s" (snd vif.Vif.id)) (VIF_unplug (vif.Vif.id, true)) t) (VIF_DB.list id |> List.map fst);
 			Updates.add (Dynamic.Vm id) updates
 		| VM_reboot (id, timeout) ->
 			debug "VM.reboot %s" id;
@@ -404,7 +414,8 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			Xenops_hooks.vm_pre_destroy ~reason ~id;
 			perform ~subtask:"VM_shutdown" (VM_shutdown (id, None)) t;
 			Xenops_hooks.vm_post_destroy ~reason ~id;
-			perform ~subtask:"VM_remove" (VM_remove id) t;
+			if not is_localhost
+			then perform ~subtask:"VM_remove" (VM_remove id) t;
 			Updates.add (Dynamic.Vm id) updates
 		| VM_receive_memory (id, s) ->
 			debug "VM.receive_memory %s" id;
