@@ -31,11 +31,14 @@ let make_context () = {
 	transferred_fd = None
 }
 
+let instance_id = Uuid.string_of_uuid (Uuid.make_uuid ())
+
 let query _ _ = Some {
-    Query.name = "xenops";
-    vendor = "XCP";
-    version = "0.1";
-    features = [];
+	Query.name = "xenops";
+	vendor = "XCP";
+	version = "0.1";
+	features = [];
+	instance_id = instance_id;
 }, None
 
 let backend = ref None
@@ -371,13 +374,16 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			let open Xenops_client in
 			let url = url' |> Http.Url.of_string in
 			(* We need to perform version exchange here *)
-			begin
+			let is_localhost =
 				try
-					debug "Remote system is: %s" (query url |> Query.rpc_of_t |> Jsonrpc.to_string)
+					let q = query url in
+					debug "Remote system is: %s" (q |> Query.rpc_of_t |> Jsonrpc.to_string);
+					q.Query.instance_id = instance_id
 				with e ->
 					debug "Failed to contact remote system on %s: is it running? (%s)" url' (Printexc.to_string e);
-					raise (Exception(Failed_to_contact_remote_service (url |> transport_of_url |> string_of_transport)))
-			end;
+					raise (Exception(Failed_to_contact_remote_service (url |> transport_of_url |> string_of_transport))) in
+			if is_localhost
+			then debug "This is a localhost migration.";
 			let module Remote = Xenops_interface.Client(struct let rpc = rpc url end) in
 			let id = Remote.VM.import_metadata (export_metadata id) |> success in
 			debug "Received id = %s" id;
