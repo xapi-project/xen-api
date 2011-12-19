@@ -40,7 +40,6 @@ module VmExtra = struct
 		we throw this information away and generate fresh data on the
 		following 'create' *)
 	type t = {
-		domid: int;
 		create_info: Domain.create_info;
 		build_info: Domain.build_info option;
 		vcpu_max: int;
@@ -446,8 +445,7 @@ module VM = struct
 							platformdata = vm.platformdata @ vcpus;
 							bios_strings = vm.bios_strings;
 						} in {
-							VmExtra.domid = 0;
-							create_info = create_info;
+							VmExtra.create_info = create_info;
 							build_info = None;
 							vcpu_max = vm.vcpu_max;
 							vcpus = vm.vcpus;
@@ -469,10 +467,6 @@ module VM = struct
 				Mem.with_reservation ~xc ~xs ~min:min_kib ~max:max_kib
 					(fun target_plus_overhead_kib reservation_id ->
 						let domid = Domain.make ~xc ~xs vmextra.VmExtra.create_info (uuid_of_vm vm) in
-						DB.write k {
-							vmextra with
-							VmExtra.domid = domid;
-						};
 						Mem.transfer_reservation_to_domain ~xs ~reservation_id ~domid;
 						let initial_target =
 							let target_plus_overhead_bytes = bytes_of_kib target_plus_overhead_kib in
