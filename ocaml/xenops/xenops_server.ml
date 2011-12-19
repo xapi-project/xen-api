@@ -609,6 +609,12 @@ module PCI = struct
 	let string_of_id (a, b) = a ^ "." ^ b
 	let add' x =
 		debug "PCI.add %s %s" (string_of_id x.id) (Jsonrpc.to_string (rpc_of_t x));
+		(* Only if the corresponding VM actually exists *)
+		let vm = DB.vm_of x.id in
+		if not (VM_DB.exists [ vm ]) then begin
+			debug "VM %s not managed by me" vm;
+			raise (Exception Does_not_exist);
+		end;
 		DB.add (DB.key_of x.id) x;
 		x.id
 	let add _ x = add' x |> return
@@ -630,6 +636,12 @@ module VBD = struct
 	let string_of_id (a, b) = a ^ "." ^ b
 	let add' x =
 		debug "VBD.add %s %s" (string_of_id x.id) (Jsonrpc.to_string (rpc_of_t x));
+		(* Only if the corresponding VM actually exists *)
+		let vm = DB.vm_of x.id in
+		if not (VM_DB.exists [ vm ]) then begin
+			debug "VM %s not managed by me" vm;
+			raise (Exception Does_not_exist);
+		end;
 		DB.add (DB.key_of x.id) x;
 		x.id
 	let add _ x = add' x |> return
@@ -664,6 +676,12 @@ module VIF = struct
 	let string_of_id (a, b) = a ^ "." ^ b
 	let add' x =
 		debug "VIF.add %s" (Jsonrpc.to_string (rpc_of_t x));
+		(* Only if the corresponding VM actually exists *)
+		let vm = DB.vm_of x.id in
+		if not (VM_DB.exists [ vm ]) then begin
+			debug "VM %s not managed by me" vm;
+			raise (Exception Does_not_exist);
+		end;
 		(* Generate MAC if necessary *)
 		let mac = match x.mac with
 			| "random" -> Device.Vif.random_local_mac ()
