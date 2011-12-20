@@ -184,7 +184,13 @@ module MD = struct
 			on_reboot = on_normal_exit_behaviour vm.API.vM_actions_after_reboot;
 			transient = true;
 		}		
+
+
 end
+
+open Xenops_interface
+open Xenops_client
+open Fun
 
 (* Create an instance of Metadata.t, suitable for uploading to the xenops service *)
 let create_metadata ~__context ~self =
@@ -203,9 +209,32 @@ let create_metadata ~__context ~self =
 		domains = domains
 	}
 
-open Xenops_interface
-open Xenops_client
-open Fun
+let id_of_vm ~__context ~self = Db.VM.get_uuid ~__context ~self
+
+(* Serialise updates to the xenopsd metadata *)
+let metadata_m = Mutex.create ()
+
+let push_metadata_to_xenopsd_locked ~__context ~self =
+	let txt = create_metadata ~__context ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
+	Client.VM.import_metadata txt |> success
+
+let push_metadata_to_xenopsd ~__context ~self =
+	Mutex.execute metadata_m (fun () -> push_metadata_to_xenopsd_locked ~__context ~self)
+
+let pull_metadata_from_xenopsd id =
+	Mutex.execute metadata_m
+		(fun () ->
+			let md = Client.VM.export_metadata id |> success |> Jsonrpc.of_string |> Metadata.t_of_rpc in
+			Client.VM.remove id |> success;
+			md)
+
+let update_metadata_in_xenopsd ~__context ~self =
+	let id = id_of_vm ~__context ~self in
+	Mutex.execute metadata_m
+		(fun () ->
+			let all = Client.VM.list () |> success |> List.map (fun (x, _) -> x.Vm.id) in
+			if List.mem id all
+			then push_metadata_to_xenopsd_locked ~__context ~self |> ignore)
 
 let to_xenops_console_protocol = let open Vm in function
 	| `rfb -> Rfb
@@ -432,7 +461,7 @@ let rec events_watch ~__context from =
 		) events;
 	events_watch ~__context next
 
-let events_thread () =
+let events_from_xenopsd () =
     Server_helpers.exec_with_new_task "xapi_xenops"
 		(fun __context ->
 			(* For each VM resident on this host, check if the xenopsd
@@ -492,6 +521,45 @@ let events_thread () =
 			done
 		)
 
+
+(* XXX: PR-1255: this will be receiving too many events and we may wish to synchronise
+   updates to the VM metadata and resident_on fields *)
+let events_from_xapi () =
+	let open Event_types in
+    Server_helpers.exec_with_new_task "xapi_xenops"
+		(fun __context ->
+			let localhost = Helpers.get_localhost ~__context in
+			while true do
+				try
+					Helpers.call_api_functions ~__context
+						(fun rpc session_id ->
+							XenAPI.Event.register ~rpc ~session_id ~classes:["VM"];
+							(* In case we miss events, update all VM metadata *)
+							List.iter
+								(fun vm ->
+									info "VM %s might have changed: updating xenopsd metadata" (Ref.string_of vm);
+									update_metadata_in_xenopsd ~__context ~self:vm |> ignore
+								) (Db.Host.get_resident_VMs ~__context ~self:localhost);
+							while true do
+								let events = events_of_xmlrpc (XenAPI.Event.next ~rpc ~session_id) in
+								List.iter
+									(function
+										| { ty = "vm"; reference = vm' } ->
+											let vm = Ref.of_string vm' in
+											if Db.VM.get_resident_on ~__context ~self:vm = localhost then begin
+												info "VM %s has changed: updating xenopsd metadata" vm';
+												update_metadata_in_xenopsd ~__context ~self:vm |> ignore
+											end
+										| _ -> ()
+									) events
+							done
+						)
+				with e ->
+					debug "Caught %s listening to events from xapi" (Printexc.to_string e);
+					Thread.delay 15.
+			done
+		)
+
 let success_task id =
 	let t = Client.TASK.stat id |> success in
 	match t.Task.result with
@@ -501,18 +569,14 @@ let success_task id =
 	| Task.Failed x -> failwith (Jsonrpc.to_string (rpc_of_error x))
 	| Task.Pending _ -> failwith "task pending"
 
-
 let start ~__context ~self paused =
-	let txt = create_metadata ~__context ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
-	let id = Client.VM.import_metadata txt |> success in
+	let id = push_metadata_to_xenopsd ~__context ~self in
 	attach_networks ~__context ~self;
 	Client.VM.start id |> success |> wait_for_task |> success_task |> ignore_task;
 	if not paused
 	then Client.VM.unpause id |> success |> wait_for_task |> success_task |> ignore_task;
 	Event.wait ();
 	assert (Db.VM.get_power_state ~__context ~self = (if paused then `Paused else `Running))
-
-let id_of_vm ~__context ~self = Db.VM.get_uuid ~__context ~self
 
 let reboot ~__context ~self timeout =
 	let id = id_of_vm ~__context ~self in
@@ -549,14 +613,13 @@ let suspend ~__context ~self =
 				Event.wait ();
 				assert (Db.VM.get_power_state ~__context ~self = `Suspended);
 				(* XXX PR-1255: need to convert between 'domains' and lbr *)
-				let md = Client.VM.export_metadata id |> success |> Jsonrpc.of_string |> Metadata.t_of_rpc in
+				let md = pull_metadata_from_xenopsd id in
 				match md.Metadata.domains with
 					| None ->
 						failwith "Suspended VM has no domain-specific metadata"
 					| Some x ->
 						Db.VM.set_last_booted_record ~__context ~self ~value:x;
-						debug "VM %s last_booted_record set to %s" (Ref.string_of self) x;
-						Client.VM.remove id |> success
+						debug "VM %s last_booted_record set to %s" (Ref.string_of self) x
 			with e ->
 				debug "Caught exception suspending VM: %s" (Printexc.to_string e);
 				XenAPI.VDI.destroy ~rpc ~session_id ~self:vdi;
@@ -567,8 +630,7 @@ let suspend ~__context ~self =
 let resume ~__context ~self ~start_paused ~force =
 	let vdi = Db.VM.get_suspend_VDI ~__context ~self in
 	let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in	
-	let txt = create_metadata ~__context ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
-	let id = Client.VM.import_metadata txt |> success in
+	let id = push_metadata_to_xenopsd ~__context ~self in
 	attach_networks ~__context ~self;
 	Client.VM.resume id disk |> success |> wait_for_task |> success_task |> ignore_task;
 	if not start_paused
