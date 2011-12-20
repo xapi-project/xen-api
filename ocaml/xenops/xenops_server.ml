@@ -617,7 +617,7 @@ module PCI = struct
 			debug "VM %s not managed by me" vm;
 			raise (Exception Does_not_exist);
 		end;
-		DB.add (DB.key_of x.id) x;
+		DB.write (DB.key_of x.id) x;
 		x.id
 	let add _ x = add' x |> return
 
@@ -644,7 +644,7 @@ module VBD = struct
 			debug "VM %s not managed by me" vm;
 			raise (Exception Does_not_exist);
 		end;
-		DB.add (DB.key_of x.id) x;
+		DB.write (DB.key_of x.id) x;
 		x.id
 	let add _ x = add' x |> return
 
@@ -689,7 +689,7 @@ module VIF = struct
 			| "random" -> Device.Vif.random_local_mac ()
 			| "" -> Device.Vif.hashchain_local_mac x.position (DB.vm_of x.id)
 			| mac -> mac in
-		DB.add (DB.key_of x.id) { x with mac = mac };
+		DB.write (DB.key_of x.id) { x with mac = mac };
 		x.id
 	let add _ x = add' x |> return
 
@@ -720,7 +720,7 @@ module VM = struct
 
 	let add' x =
 		debug "VM.add %s" (Jsonrpc.to_string (rpc_of_t x));
-		DB.add (DB.key_of x.id) x;
+		DB.write (DB.key_of x.id) x;
 		x.id
 	let add _ x = add' x |> return
 	let remove _ id = immediate_operation id (VM_remove id) |> return
@@ -766,10 +766,8 @@ module VM = struct
 		let id = md.Metadata.vm.Vm.id in
 		(* We allow a higher-level toolstack to replace the metadata of a running VM.
 		   Any changes will take place on next reboot. *)
-		if DB.exists (DB.key_of id) then begin
-			debug "Updating VM metadata for VM: %s" id;
-			DB.remove [ id ]; (* deletes VBDs and VIFs recursively *)
-		end;
+		if DB.exists (DB.key_of id)
+		then debug "Updating VM metadata for VM: %s" id;
 		let vm = add' md.Metadata.vm in
 		let vbds = List.map (fun x -> { x with Vbd.id = (vm, snd x.Vbd.id) }) md.Metadata.vbds in
 		let vifs = List.map (fun x -> { x with Vif.id = (vm, snd x.Vif.id) }) md.Metadata.vifs in
