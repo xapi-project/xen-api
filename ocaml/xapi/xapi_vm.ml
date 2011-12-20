@@ -868,7 +868,10 @@ let resume_internal ~__context ~vm ~start_paused ~force =
 	)
 
 let resume_xenopsd ~__context ~vm ~start_paused ~force =
-	Xapi_xenops.resume ~__context ~self:vm ~start_paused ~force
+	Xapi_xenops.resume ~__context ~self:vm ~start_paused ~force;
+	let localhost = Helpers.get_localhost ~__context in
+	Helpers.call_api_functions ~__context
+		(fun rpc session_id -> Client.VM.atomic_set_resident_on rpc session_id vm localhost)
 
 let resume ~__context = if !Xapi_globs.use_xenopsd then resume_xenopsd ~__context else resume_internal ~__context
 

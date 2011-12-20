@@ -511,7 +511,7 @@ module VM = struct
 						for i = 0 to vm.vcpu_max - 1 do
 							Device.Vcpu.add ~xs ~devid:i domid
 						done
-					)
+					);
 			)
 	let create = create_exn
 

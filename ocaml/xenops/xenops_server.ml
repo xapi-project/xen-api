@@ -350,6 +350,8 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			B.VM.save t (id |> VM_DB.key_of |> VM_DB.read |> unbox) flags data
 		| VM_restore (id, data) ->
 			debug "VM.restore %s" id;
+			if id |> VM_DB.key_of |> VM_DB.exists |> not
+			then failwith (Printf.sprintf "%s doesn't exist" id);
 			B.VM.restore t (id |> VM_DB.key_of |> VM_DB.read |> unbox) data
 		| VM_suspend (id, data) ->
 			debug "VM.suspend %s" id;
@@ -512,8 +514,8 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			debug "VM.remove %s" id;
 			let power = (B.VM.get_state (id |> VM_DB.key_of |> VM_DB.read |> unbox)).Vm.power_state in
 			begin match power with
-				| Running _ | Suspended | Paused -> raise (Exception (Bad_power_state(power, Halted)))
-				| Halted ->
+				| Running _ | Paused -> raise (Exception (Bad_power_state(power, Halted)))
+				| Halted | Suspended ->
 					VM_DB.remove [ id ]
 			end
 		| PCI_plug id ->

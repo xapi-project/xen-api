@@ -191,11 +191,16 @@ let create_metadata ~__context ~self =
 	let vm = Db.VM.get_record ~__context ~self in
 	let vbds = List.map (fun self -> Db.VBD.get_record ~__context ~self) vm.API.vM_VBDs in
 	let vifs = List.map (fun self -> Db.VIF.get_record ~__context ~self) vm.API.vM_VIFs in
+	(* XXX PR-1255: need to convert between 'domains' and last_boot_record *)
+	let domains =
+		if vm.API.vM_power_state = `Suspended
+		then Some vm.API.vM_last_booted_record
+		else None in
 	let open Metadata in {
 		vm = MD.of_vm ~__context ~vm;
 		vbds = List.map (fun vbd -> MD.of_vbd ~__context ~vm ~vbd) vbds;
 		vifs = List.map (fun vif -> MD.of_vif ~__context ~vm ~vif) vifs;
-		domains = None
+		domains = domains
 	}
 
 open Xenops_interface
@@ -220,11 +225,13 @@ let attach_networks ~__context ~self =
 		) (Db.VM.get_VIFs ~__context ~self)
 
 let detach_networks ~__context ~self =
-	List.iter
-		(fun vif ->
-			Xapi_network.deregister_vif ~__context vif
-		) (Db.VM.get_VIFs ~__context ~self)
-
+	try
+		List.iter
+			(fun vif ->
+				Xapi_network.deregister_vif ~__context vif
+			) (Db.VM.get_VIFs ~__context ~self)
+	with e ->
+		error "Caught %s while detaching networks" (Printexc.to_string e)
 
 (* Event handling:
    When we tell the xenopsd to start a VM, we wait for the task to complete.
@@ -297,11 +304,7 @@ let update_vm ~__context id info =
 			| Some Paused -> `Paused
 			| None -> `Halted in
 		if power_state = `Suspended || power_state = `Halted
-		then
-			(try
-				detach_networks ~__context ~self
-			with e ->
-				error "Error detaching networks: %s" (Printexc.to_string e));
+		then detach_networks ~__context ~self;
 		Db.VM.set_power_state ~__context ~self ~value:power_state;
 		(* consoles *)
 		Opt.iter
@@ -544,7 +547,16 @@ let suspend ~__context ~self =
 			try
 				Client.VM.suspend id disk |> success |> wait_for_task |> success_task |> ignore_task;
 				Event.wait ();
-				assert (Db.VM.get_power_state ~__context ~self = `Suspended)
+				assert (Db.VM.get_power_state ~__context ~self = `Suspended);
+				(* XXX PR-1255: need to convert between 'domains' and lbr *)
+				let md = Client.VM.export_metadata id |> success |> Jsonrpc.of_string |> Metadata.t_of_rpc in
+				match md.Metadata.domains with
+					| None ->
+						failwith "Suspended VM has no domain-specific metadata"
+					| Some x ->
+						Db.VM.set_last_booted_record ~__context ~self ~value:x;
+						debug "VM %s last_booted_record set to %s" (Ref.string_of self) x;
+						Client.VM.remove id |> success
 			with e ->
 				debug "Caught exception suspending VM: %s" (Printexc.to_string e);
 				XenAPI.VDI.destroy ~rpc ~session_id ~self:vdi;
