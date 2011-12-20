@@ -65,9 +65,11 @@ let run item =
 	with
 		| Exception e ->
 			debug "Caught exception while processing queue: %s" (e |> rpc_of_error |> Jsonrpc.to_string);
+			debug "%s" (Printexc.get_backtrace ());
 			item.result <- Task.Failed e
 		| e ->
 			debug "Caught exception while processing queue: %s" (Printexc.to_string e);
+			debug "%s" (Printexc.get_backtrace ());
 			item.result <- Task.Failed (Internal_error (Printexc.to_string e))
 
 let find_locked id =
