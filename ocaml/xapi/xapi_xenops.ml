@@ -110,6 +110,7 @@ module MD = struct
 			with _ ->
 				error "Failed to parse VIF.other_config:mtu; defaulting to 1500";
 				1500 in
+		let network_uuid = Db.Network.get_uuid ~__context ~self:vif.API.vIF_network in
 		let open Vif in {
 			id = (vm.API.vM_uuid, vif.API.vIF_device);
 			position = int_of_string vif.API.vIF_device;
@@ -119,7 +120,10 @@ module MD = struct
 			rate = None;
 			backend = backend_of_network ~__context ~self:vif.API.vIF_network;
 			other_config = vif.API.vIF_other_config;
-			extra_private_keys = []
+			extra_private_keys = [
+                "vif-uuid", vif.API.vIF_uuid;
+				"network-uuid", network_uuid
+			]
 		}
 
 	let of_vm ~__context ~vm =
