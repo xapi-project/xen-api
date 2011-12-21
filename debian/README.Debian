@@ -136,3 +136,9 @@ xe vm-shutdown uuid=$vm
 
 And if you want to completely get rid of it:
 xe vm-destroy uuid=$vm
+
+If you want to add a new machine in the pool, then:
+xe pool-join master-address=<ip-of-your-other-dom0> \
+   master-username=<username> master-password=<pass>
+
+Thomas Goirand <zigo@debian.org>
