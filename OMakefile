@@ -119,6 +119,7 @@ OCAML_PHASE3_XEN = \
 	ocaml/license/v6d \
 	ocaml/license/v6d-reopen-logs \
 	ocaml/network/xcp-networkd \
+	ocaml/network/xcp-networkd-reopen-logs
 
 OCAML_PHASE3_NOXEN = \
 		     ocaml/ptoken/genptoken \

@@ -307,6 +307,8 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root,-)
 @OPTDIR@/libexec/xcp-networkd
 /etc/rc.d/init.d/xcp-networkd
+@OPTDIR@/bin/xcp-networkd-reopen-logs
+/etc/logrotate.d/xcp-networkd
 
 %files xenops
 %defattr(-,root,root,-)
