@@ -1,0 +1,96 @@
+#! /bin/bash
+#
+# xcp-networkd     Start/Stop the XCP networking daemon
+#
+# chkconfig: 2345 21 79
+# description: XCP networking daemon
+# processname: xcp-networkd
+# pidfile: /var/run/xcp-networkd.pid
+
+# Source function library.
+. /etc/init.d/functions
+
+# v6 licensing daemon
+
+# location of the executable:
+NETWORKD="@LIBEXECDIR@/xcp-networkd"
+
+# pidfile:
+PID_FILE="/var/run/xcp-networkd.pid"
+
+# lock file
+SUBSYS_FILE="/var/lock/subsys/xcp-networkd"
+
+start() {
+	echo -n $"Starting the XCP networking daemon: "
+	
+	if [ -e ${SUBSYS_FILE} ]; then
+		if [ -e ${PID_FILE} ] && [ -e /proc/`cat ${PID_FILE}` ]; then
+			echo -n $"cannot start xcp-networkd: already running."
+			failure $"cannot start xcp-networkd: already running."
+			echo
+			return 1
+		fi
+	fi
+	
+	${NETWORKD} -daemon -pidfile ${PID_FILE} >/dev/null 2>&1 </dev/null
+
+	MAX_RETRIES=30
+	RETRY=0
+	while [ ${RETRY} -lt ${MAX_RETRIES} ]; do
+		PID=$(cat ${NETWORKD} 2>/dev/null)
+		kill -0 ${PID} 2> /dev/null
+		if [ $? -eq 0 ]; then
+			touch ${SUBSYS_FILE}
+			success
+			echo
+			return 0
+		fi
+		sleep 1
+		echo -n .
+		RETRY=$(( ${RETRY} + 1 ))
+	done
+	echo -n $"failed to start xcp-networkd."
+	failure $"failed to start xcp-networkd."
+	killproc networkd
+	rm -f ${SUBSYS_FILE} ${PID_FILE}
+	echo
+	return 1
+}
+
+stop() {
+	echo -n $"Stopping the XCP networking daemon: "
+
+	if [ ! -e ${SUBSYS_FILE} ]; then
+		echo -n $"cannot stop xcp-networkd: daemon is not running."
+		failure $"cannot stop xcp-networkd: daemon is not running."
+		echo
+		return 1;
+	fi
+
+	killproc xcp-networkd
+	RETVAL=$?
+	echo
+	[ $RETVAL -eq 0 ] && rm -f ${SUBSYS_FILE}
+	return $RETVAL
+}
+
+restart() {
+	stop
+	start
+}
+
+case "$1" in
+	start)
+		start
+		;;
+	stop)
+		stop
+		;;
+	restart)
+		restart
+		;;
+	*)
+		echo $"Usage: $0 {start|stop|restart}"
+		exit 1
+esac

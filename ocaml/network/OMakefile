@@ -1,0 +1,25 @@
+OCAML_LIBS    = ../util/version ../idl/ocaml_backend/xapi_client
+OCAMLINCLUDES = .. ../idl/ocaml_backend ../idl ../autogen ../xapi ../gpg ../util
+OCAMLPACKS    = xml-light2 stdext stunnel http-svr log rpc-light oUnit
+
+UseCamlp4(rpc-light.idl, network_interface)
+UseCamlp4(rpc-light.syntax, network_server)
+
+# Name of daemon to install in dom0:
+NETWORKD = xcp-networkd
+
+NETWORKD_FILES = networkd network_utils network_interface network_server
+
+OCamlProgram($(NETWORKD), $(NETWORKD_FILES))
+OCamlDocProgram($(NETWORKD), $(NETWORKD_FILES))
+
+.PHONY: install
+install:
+	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) $(NETWORKD) $(DESTDIR)$(LIBEXECDIR)
+
+.PHONY: clean
+clean:
+	rm -f *.cmi *.cmx *.cmo *.a *.cma *.cmxa *.run *.opt *.annot *.o *.rej *.orig *.spit *.spot *.omc
+	rm -f $(NETWORKD)
+
