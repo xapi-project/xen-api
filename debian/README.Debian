@@ -120,8 +120,19 @@ Tell the VM that we want to boot using a debian repo:
 xe vm-param-set uuid=$vm \
    other-config:install-repository=http://ftp.uk.debian.org/debian
 
+Before you start it, you can set it's memory to 1GB:
+xe vm-memory-limits-set static-min=1024MiB static-max=1024MiB \
+   dynamic-min=1024MiB dynamic-max=1024MiB \
+   vm=5aa8a7bc-700c-ba5c-3bcb-36090cc28b8f
+
 Finally start the VM:
 xe vm-start uuid=$vm
 
 And access it's console:
 xe console vm=$vm
+
+When you're done with the VM, you can do:
+xe vm-shutdown uuid=$vm
+
+And if you want to completely get rid of it:
+xe vm-destroy uuid=$vm
