@@ -18,7 +18,7 @@ service xapi stop
 service v6d stop
 service squeezed stop
 service perfmon stop
-service xcp-networkd stop
+[ -e /tmp/do-not-use-networkd ] || service xcp-networkd stop
 service fe stop
 if [ $POOLCONF == "master" ]; then
 	@ETCDIR@/master.d/03-mpathalert-daemon stop;
@@ -30,7 +30,7 @@ if [ $POOLCONF == "master" ]; then
 	@ETCDIR@/master.d/03-mpathalert-daemon start;
 fi
 service fe start
-service xcp-networkd start
+[ -e /tmp/do-not-use-networkd ] || service xcp-networkd start
 service perfmon start
 service squeezed start
 service v6d start
