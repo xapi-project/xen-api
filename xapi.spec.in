@@ -117,7 +117,6 @@ rm -rf $RPM_BUILD_ROOT
 
 %post core
 [ ! -x /sbin/chkconfig ] || chkconfig --add xapi
-[ ! -x /sbin/chkconfig ] || chkconfig --add management-interface
 [ ! -x /sbin/chkconfig ] || chkconfig --add xenservices
 [ ! -x /sbin/chkconfig ] || chkconfig --add xapi-domains
 [ ! -x /sbin/chkconfig ] || chkconfig --add perfmon
@@ -203,6 +202,7 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/bin/xe-toolstack-restart
 @OPTDIR@/bin/xe-xentrace
 @OPTDIR@/bin/xsh
+@OPTDIR@/bin/xe-networkd
 /etc/xensource/bugtool/xapi.xml
 /etc/xensource/bugtool/xapi/stuff.xml
 @OPTDIR@/libexec/sm_diagnostics
