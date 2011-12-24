@@ -381,7 +381,16 @@ let update_vm ~__context id info =
 						let lookup key =
 							if List.mem_assoc key state.guest_agent then Some (List.assoc key state.guest_agent) else None in
 						let list dir =
-							List.map snd (List.filter (fun x -> String.startswith dir (fst x)) state.guest_agent) in
+							let dir = if dir.[0] = '/' then String.sub dir 1 (String.length dir - 1) else dir in
+							let results = Listext.List.filter_map (fun (path, value) ->
+								if String.startswith dir path then begin
+									let rest = String.sub path (String.length dir) (String.length path - (String.length dir)) in
+									match List.filter (fun x -> x <> "") (String.split '/' rest) with
+										| x :: _ -> Some x
+										| _ -> None
+								end else None
+							) state.guest_agent in
+							results in
 						Xapi_guest_agent.all lookup list ~__context ~domid ~uuid:id
 					) state.domids;
 				let metrics = Db.VM.get_metrics ~__context ~self in
