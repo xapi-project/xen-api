@@ -92,7 +92,7 @@ let string_of_operation =
 	| VM_start id -> sprintf "VM_start %s" id
 	| VM_poweroff (id, t) -> sprintf "VM_poweroff (%s, %s)" id (Opt.default "None" (Opt.map string_of_float t))
 	| VM_shutdown (id, t) -> sprintf "VM_shutdown (%s, %s)" id (Opt.default "None" (Opt.map string_of_float t))
-	| VM_reboot (id, t) -> sprintf "VM_shutdown (%s, %s)" id (Opt.default "None" (Opt.map string_of_float t))
+	| VM_reboot (id, t) -> sprintf "VM_reboot (%s, %s)" id (Opt.default "None" (Opt.map string_of_float t))
 	| VM_delay (id, t) -> sprintf "VM_delay (%s, %.0f)" id t
 	| VM_suspend (id, data) -> sprintf "VM_suspend (%s, %s)" id (string_of_data data)
 	| VM_resume (id, data) -> sprintf "VM_resume (%s, %s)" id (string_of_data data)
@@ -238,10 +238,12 @@ module Per_VM_queues = struct
 	let add vm (op, f) =
 		Mutex.execute m
 			(fun () ->
+				debug "Queue.push %s" (string_of_operation op);
 				Queue.push (op, f) queue;
 				Condition.signal c)
 
 	let rec process_queue q =
+		debug "Queue.pop called";
 		let op, item =
 			Mutex.execute m
 				(fun () ->
@@ -250,7 +252,13 @@ module Per_VM_queues = struct
 					done;
 					Queue.pop q
 				) in
-		Debug.with_thread_associated (string_of_operation op) Xenops_task.run item;
+		debug "Queue.pop returned %s" (string_of_operation op);
+		begin
+			try
+				Debug.with_thread_associated (string_of_operation op) Xenops_task.run item;
+			with e ->
+				debug "Queue caught: %s" (Printexc.to_string e)
+		end;
 		debug "Triggering event on task id %s" item.Xenops_task.id;
 		Updates.add (Dynamic.Task item.Xenops_task.id) updates;
 		process_queue q
