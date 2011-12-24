@@ -1384,11 +1384,17 @@ let watch_xenstore () =
 let init () =
 	let (_: Thread.t) = Thread.create
 		(fun () ->
-			try
-				Debug.with_thread_associated "xenstore" watch_xenstore ();
-				debug "watch_xenstore thread exitted"
-			with e ->
-				debug "watch_xenstore thread raised: %s" (Printexc.to_string e)
+			while true do
+				begin
+					try
+						Debug.with_thread_associated "xenstore" watch_xenstore ();
+						debug "watch_xenstore thread exitted"
+					with e ->
+						debug "watch_xenstore thread raised: %s" (Printexc.to_string e);
+						debug "watch_xenstore thread backtrace: %s" (Printexc.get_backtrace ())
+				end;
+				Thread.delay 5.
+			done
 		) () in
 	()
 
