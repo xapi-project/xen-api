@@ -1253,16 +1253,25 @@ let watch_xenstore () =
 			let domains = ref IntMap.empty in
 			let watches = ref IntMap.empty in
 
+			let watch path =
+				debug "watch_xenstore: watch %s" path;
+				xs.Xs.watch path path in
+			let unwatch path =
+				try
+					debug "watch_xenstore: unwatch %s" path;
+					xs.Xs.unwatch path path
+				with Xenbus.Xb.Noent ->
+					debug "watch_xenstore: Xb.Noent" in
 			let add_domU_watches xs domid uuid =
 				debug "Adding watches for: domid %d" domid;
-				List.iter (fun p -> xs.Xs.watch p p) (all_domU_watches domid uuid);
+				List.iter watch (all_domU_watches domid uuid);
 				watches := IntMap.add domid [] !watches in
 			let remove_domU_watches xs domid uuid =
 				debug "Removing watches for: domid %d" domid;
-				List.iter (fun p -> xs.Xs.unwatch p p) (all_domU_watches domid uuid);
+				List.iter unwatch (all_domU_watches domid uuid);
 				IntMap.iter (fun _ ds ->
 					List.iter (fun d ->
-						List.iter (fun p -> xs.Xs.unwatch p p) (watches_of_device d)
+						List.iter unwatch (watches_of_device d)
 					) ds
 				) !watches;
 
@@ -1272,7 +1281,7 @@ let watch_xenstore () =
 				let open Device_common in
 				debug "Adding watches for: %s" (string_of_device device);
 				let domid = device.frontend.domid in
-				List.iter (fun p -> xs.Xs.watch p p) (watches_of_device device);
+				List.iter watch (watches_of_device device);
 				watches := IntMap.add domid (device :: (IntMap.find domid !watches)) !watches in
 
 			let remove_device_watch xs device =
@@ -1280,7 +1289,7 @@ let watch_xenstore () =
 				debug "Removing watches for: %s" (string_of_device device);
 				let domid = device.frontend.domid in
 				let current = IntMap.find domid !watches in
-				List.iter (fun p -> xs.Xs.unwatch p p) (watches_of_device device);
+				List.iter unwatch (watches_of_device device);
 				watches := IntMap.add domid (List.filter (fun x -> x <> device) current) !watches in
 
 			let look_for_different_domains () =
