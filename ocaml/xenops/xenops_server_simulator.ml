@@ -131,6 +131,11 @@ let create_device_model_nolock vm () =
 	let k = key_of vm in
 	DB.write k { read k with Domain.qemu_created = true }
 
+let destroy_device_model_nolock vm () =
+	debug "Domain.destroy_device_model vm=%s" vm.Vm.id;
+	let k = key_of vm in
+	DB.write k { read k with Domain.qemu_created = false }
+
 let request_shutdown_nolock vm reason () =
 	let k = key_of vm in
 	DB.write k { read k with Domain.domain_action_request =
@@ -273,6 +278,7 @@ module VM = struct
 	let unpause _ vm = Mutex.execute m (do_pause_unpause_nolock vm false)
 	let build _ vm vbds vifs = Mutex.execute m (build_nolock vm vbds vifs)
 	let create_device_model _ vm _ = Mutex.execute m (create_device_model_nolock vm)
+	let destroy_device_model _ vm = Mutex.execute m (destroy_device_model_nolock vm)
 	let request_shutdown _ vm reason ack_delay = Mutex.execute m (request_shutdown_nolock vm reason)
 	let wait_shutdown _ vm reason timeout = true
 
