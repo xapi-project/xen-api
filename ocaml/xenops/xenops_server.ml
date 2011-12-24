@@ -71,6 +71,7 @@ type operation =
 	| VM_create of Vm.id
 	| VM_build of Vm.id
 	| VM_create_device_model of (Vm.id * bool)
+	| VM_destroy_device_model of Vm.id
 	| VM_pause of Vm.id
 	| VM_unpause of Vm.id
 	| VM_check_state of Vm.id
@@ -106,6 +107,7 @@ let string_of_operation =
 	| VM_create id -> sprintf "VM_create %s" id
 	| VM_build id -> sprintf "VM_build %s" id
 	| VM_create_device_model (id, resuming) -> sprintf "VM_create_device_model(%s, resuming = %b)" id resuming
+	| VM_destroy_device_model (id) -> sprintf "VM_destroy_device_model(%s)" id
 	| VM_pause id -> sprintf "VM_pause %s" id
 	| VM_unpause id -> sprintf "VM_unpause %s" id
 	| VM_check_state id -> sprintf "VM_check_state %s" id
@@ -322,6 +324,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 		| VM_shutdown (id, timeout) ->
 			debug "VM.shutdown %s" id;
 			Opt.iter (fun x -> perform ~subtask:"VM_shutdown_domain(Halt)" (VM_shutdown_domain(id, Halt, x)) t) timeout;
+			perform ~subtask:"VM_destroy_device_model" (VM_destroy_device_model (id)) t;
 			List.iter (fun vbd ->
 				try
 					perform ~subtask:(Printf.sprintf "VBD_unplug %s" (snd vbd.Vbd.id)) (VBD_unplug (vbd.Vbd.id, true)) t
@@ -479,6 +482,9 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 		| VM_create_device_model (id, save_state) ->
 			debug "VM.create_device_model %s" id;
 			B.VM.create_device_model t (id |> VM_DB.key_of |> VM_DB.read |> unbox) save_state
+		| VM_destroy_device_model id ->
+			debug "VM.destroy_device_model %s" id;
+			B.VM.destroy_device_model t (id |> VM_DB.key_of |> VM_DB.read |> unbox)
 		| VM_pause id ->
 			debug "VM.pause %s" id;
 			B.VM.pause t (id |> VM_DB.key_of |> VM_DB.read |> unbox)
