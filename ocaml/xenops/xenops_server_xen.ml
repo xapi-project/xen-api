@@ -524,6 +524,16 @@ module VM = struct
 					| Some di -> f xc xs task vm di
 			)
 
+	let log_exn_continue msg f x = try f x with e -> debug "Ignoring exception: %s while %s" (Printexc.to_string e) msg
+
+	let destroy_device_model = on_domain (fun xc xs task vm di ->
+		let domid = di.Xenctrl.domid in
+		log_exn_continue "Error stoping device-model, already dead ?"
+	        (fun () -> Device.Dm.stop ~xs domid) ();
+		log_exn_continue "Error stoping vncterm, already dead ?"
+	        (fun () -> Device.PV_Vnc.stop ~xs domid) ();
+	) Oldest
+
 	let destroy = on_domain (fun xc xs task vm di ->
 		let domid = di.Xenctrl.domid in
 
