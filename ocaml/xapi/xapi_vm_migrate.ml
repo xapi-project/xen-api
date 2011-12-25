@@ -640,7 +640,7 @@ let pool_migrate_nolock  ~__context ~vm ~host ~options =
 		raise (Api_errors.Server_error(Api_errors.internal_error, [msg]))
 
 
-let pool_migrate ~__context ~vm ~host ~options =
+let pool_migrate_internal ~__context ~vm ~host ~options =
 	(* Migration is only allowed to a host of equal or greater versions. *)
 	if Helpers.rolling_upgrade_in_progress ~__context then
 		Helpers.assert_host_versions_not_decreasing ~__context
@@ -788,7 +788,23 @@ open Storage_interface
 open Listext
 open Fun
 
-(** We don't support cross-pool migration atm *)
+let pool_migrate_xenopsd ~__context ~vm ~host ~options =
+	let session_id = Ref.string_of (Context.get_session_id __context) in
+	let ip = Db.Host.get_address ~__context ~self:host in
+	let xenops_url = Printf.sprintf "http://%s/services/xenops?session_id=%s" ip session_id in
+	let open Xenops_client in
+	let vm' = Db.VM.get_uuid ~__context ~self:vm in
+	(* XXX: PR-1255: the live flag *)
+	XenopsAPI.VM.migrate vm' xenops_url |> success |> wait_for_task |> success_task |> ignore;
+	(* XXX: PR-1255: have we missed important events on the receiver? *)
+	Helpers.call_api_functions ~__context
+		(fun rpc session_id ->
+			XenAPI.VM.atomic_set_resident_on rpc session_id vm host
+		)
+
+let pool_migrate ~__context =
+	if !Xapi_globs.use_xenopsd then pool_migrate_xenopsd ~__context else pool_migrate_internal ~__context
+
 let migrate  ~__context ~vm ~dest ~live ~options =
 	if not(!Xapi_globs.use_xenopsd)
 	then failwith "You must have /etc/xapi.conf:use_xenopsd=true";
