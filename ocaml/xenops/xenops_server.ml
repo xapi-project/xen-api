@@ -46,6 +46,14 @@ let get_backend () = match !backend with
   | Some x -> x 
   | None -> failwith "No backend implementation set"
 
+let ignore_exception msg f x =
+	try f x
+	with
+		| Exception error ->
+			debug "%s: ignoring exception: %s" msg (error |> rpc_of_error |> Jsonrpc.to_string)
+		| e ->
+			debug "%s: ignoring exception: %s" msg (Printexc.to_string e)
+
 let filter_prefix prefix xs =
 	List.filter_map
 		(fun x ->
@@ -326,16 +334,14 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			Opt.iter (fun x -> perform ~subtask:"VM_shutdown_domain(Halt)" (VM_shutdown_domain(id, Halt, x)) t) timeout;
 			perform ~subtask:"VM_destroy_device_model" (VM_destroy_device_model (id)) t;
 			List.iter (fun vbd ->
-				try
-					perform ~subtask:(Printf.sprintf "VBD_unplug %s" (snd vbd.Vbd.id)) (VBD_unplug (vbd.Vbd.id, true)) t
-				with e ->
-					debug "Ignoring exception: %s" (Printexc.to_string e)
+				let op = VBD_unplug (vbd.Vbd.id, true) in
+				let msg = string_of_operation op in
+				ignore_exception msg (perform ~subtask:msg op) t
 			) (VBD_DB.list id |> List.map fst);
 			List.iter (fun vif ->
-				try
-					perform ~subtask:(Printf.sprintf "VIF_unplug %s" (snd vif.Vif.id)) (VIF_unplug (vif.Vif.id, true)) t
-				with e ->
-					debug "Ignoring exception: %s" (Printexc.to_string e)
+				let op = VIF_unplug (vif.Vif.id, true) in
+				let msg = string_of_operation op in
+				ignore_exception msg (perform ~subtask:msg op) t
 			) (VIF_DB.list id |> List.map fst);
 			perform ~subtask:"VM_destroy" (VM_destroy id) t;
 			Updates.add (Dynamic.Vm id) updates
@@ -544,8 +550,10 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			Updates.add (Dynamic.Vbd id) updates
 		| VBD_unplug (id, force) ->
 			debug "VBD.unplug %s" (VBD_DB.string_of_id id);
-			B.VBD.unplug t (VBD_DB.vm_of id) (id |> VBD_DB.key_of |> VBD_DB.read |> unbox) force;
-			Updates.add (Dynamic.Vbd id) updates
+			finally
+				(fun () ->
+					B.VBD.unplug t (VBD_DB.vm_of id) (id |> VBD_DB.key_of |> VBD_DB.read |> unbox) force
+				) (fun () -> Updates.add (Dynamic.Vbd id) updates)
 		| VBD_insert (id, disk) ->
 			debug "VBD.insert %s" (VBD_DB.string_of_id id);
 			let vbd_t = id |> VBD_DB.key_of |> VBD_DB.read |> unbox in
@@ -589,8 +597,10 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			Updates.add (Dynamic.Vif id) updates
 		| VIF_unplug (id, force) ->
 			debug "VIF.unplug %s" (VIF_DB.string_of_id id);
-			B.VIF.unplug t (VIF_DB.vm_of id) (id |> VIF_DB.key_of |> VIF_DB.read |> unbox) force;
-			Updates.add (Dynamic.Vif id) updates
+			finally
+				(fun () ->
+					B.VIF.unplug t (VIF_DB.vm_of id) (id |> VIF_DB.key_of |> VIF_DB.read |> unbox) force;
+				) (fun () -> Updates.add (Dynamic.Vif id) updates)
 		| VIF_check_state id ->
 			debug "VIF.check_state %s" (VIF_DB.string_of_id id);
 			let vif_t = id |> VIF_DB.key_of |> VIF_DB.read |> unbox in
