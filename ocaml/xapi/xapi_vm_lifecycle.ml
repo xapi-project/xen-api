@@ -406,6 +406,8 @@ let force_state_reset ~__context ~self ~value:state =
 			(fun pci ->
 				Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:self)
 			(Db.VM.get_attached_PCIs ~__context ~self);
+	end;
+	if state = `Halted || state = `Suspended then begin
 		Db.VM.set_resident_on ~__context ~self ~value:Ref.null;
 		(* make sure we aren't reserving any memory for this VM *)
 		Db.VM.set_scheduled_to_be_resident_on ~__context ~self ~value:Ref.null
