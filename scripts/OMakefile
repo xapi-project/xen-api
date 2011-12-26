@@ -13,6 +13,7 @@ install:
 	mkdir -p $(LIBEXEC)
 	$(IPROG) base-path $(DESTDIR)/etc/xapi.d
 	$(IPROG) sm_diagnostics $(LIBEXEC)
+	$(IPROG) xn_diagnostics $(LIBEXEC)
 	$(IPROG) thread_diagnostics $(LIBEXEC)
 	mkdir -p $(DESTDIR)/etc/xensource/bugtool/xapi
 	mkdir -p $(DESTDIR)/etc/xensource/bugtool/xenopsd

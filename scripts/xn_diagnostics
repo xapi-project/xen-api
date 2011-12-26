@@ -1,0 +1,7 @@
+#!/bin/sh
+
+echo xn list:
+xn list
+echo
+echo xn list verbose:
+xn list verbose
