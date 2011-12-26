@@ -15,8 +15,11 @@ install:
 	$(IPROG) sm_diagnostics $(LIBEXEC)
 	$(IPROG) thread_diagnostics $(LIBEXEC)
 	mkdir -p $(DESTDIR)/etc/xensource/bugtool/xapi
+	mkdir -p $(DESTDIR)/etc/xensource/bugtool/xenopsd
 	$(IDATA) bugtool-plugin/xapi.xml $(DESTDIR)/etc/xensource/bugtool
 	$(IDATA) bugtool-plugin/xapi/stuff.xml $(DESTDIR)/etc/xensource/bugtool/xapi
+	$(IDATA) bugtool-plugin/xenopsd.xml $(DESTDIR)/etc/xensource/bugtool
+	$(IDATA) bugtool-plugin/xenopsd/stuff.xml $(DESTDIR)/etc/xensource/bugtool/xenopsd
 	$(IPROG) fence $(LIBEXEC)
 	$(IPROG) xha-lc $(LIBEXEC)
 	$(IPROG) xapi-health-check $(LIBEXEC)
