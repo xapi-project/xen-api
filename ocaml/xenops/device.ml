@@ -532,6 +532,7 @@ let add_async ~xs ~hvm x domid =
 
 let add_wait ~xs device =
 	Hotplug.wait_for_plug ~xs device;
+	debug "Device.Vbd successfully added; device_is_online = %b" (Hotplug.device_is_online ~xs device);
 	(* 'Normally' we connect devices to other domains, and cannot know whether the
 	   device is 'available' from their userspace (or even if they have a userspace).
 	   The best we can do is just to wait for the backend hotplug scripts to run,
