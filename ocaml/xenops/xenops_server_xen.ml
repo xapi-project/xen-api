@@ -383,14 +383,17 @@ let device_by_id xc xs vm kind domain_selection id =
 			raise (Exception Does_not_exist)
 		| Some frontend_domid ->
 			let devices = Device_common.list_frontends ~xs frontend_domid in
+
 			let key = _device_id kind in
 			let id_of_device device =
 				let path = Hotplug.get_private_data_path_of_device device in
 				try Some (xs.Xs.read (Printf.sprintf "%s/%s" path key))
 				with _ -> None in
+			let ids = List.map id_of_device devices in
 			try
-				List.find (fun device -> id_of_device device = Some id) devices
+				List.assoc (Some id) (List.combine ids devices)
 			with Not_found ->
+				debug "Failed to find active device: domid = %d; kind = %s; id = %s; devices = [ %s ]" frontend_domid (Device_common.string_of_kind kind) id (String.concat ", " (List.map (Opt.default "None") ids));
 				raise (Exception Device_not_connected)
 
 module VM = struct
@@ -1129,7 +1132,10 @@ module VBD = struct
 				let (device: Device_common.device) = device_by_id xc xs vm Device_common.Vbd Newest (id_of vbd) in
 				if Hotplug.device_is_online ~xs device
 				then None
-				else Some Needs_unplug
+				else begin
+					debug "VBD_unplug needed, device offline: %s" (Device_common.string_of_device device);
+					Some Needs_unplug
+				end
 			)
 end
 
