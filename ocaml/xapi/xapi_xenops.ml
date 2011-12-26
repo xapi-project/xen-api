@@ -691,6 +691,10 @@ let vbd_eject ~__context ~self =
 		let vbd = md_of_vbd ~__context ~self in
 		Client.VBD.eject vbd.Vbd.id |> success |> wait_for_task |> success_task |> ignore_task;
 		Event.wait ();
+		(* XXX: PR-1255: this is because a PV eject is an unplug, so the
+		   event is different *)
+		Db.VBD.set_empty ~__context ~self ~value:true;
+		Db.VBD.set_VDI ~__context ~self ~value:Ref.null		
 	end;
 	assert (Db.VBD.get_empty ~__context ~self);
 	assert (Db.VBD.get_VDI ~__context ~self = Ref.null)
