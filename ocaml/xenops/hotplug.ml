@@ -66,15 +66,10 @@ let path_written_by_hotplug_scripts (x: device) = match x.backend.kind with
 			x.backend.domid (string_of_kind x.backend.kind) x.frontend.domid x.frontend.devid
 	| k -> failwith (Printf.sprintf "No xenstore interface for this kind of device: %s" (string_of_kind k))
 
-let value_written_by_hotplug_scripts (x: device) = match x.backend.kind with
-	| Vif -> "online"
-	| Vbd -> "connected"
-	| k -> failwith (Printf.sprintf "No xenstore interface for this kind of device: %s" (string_of_kind k))
-
 let hotplugged ~xs (x: device) =
-	let path = path_written_by_hotplug_scripts x
-	and v = value_written_by_hotplug_scripts x in
-	try xs.Xs.read path = v with Xenbus.Xb.Noent -> false
+	let path = path_written_by_hotplug_scripts x in
+	debug "Checking to see whether %s" path;
+	try ignore(xs.Xs.read path); true with Xenbus.Xb.Noent -> false
 
 (* The path in xenstore written to by the frontend hotplug scripts *)
 let frontend_status_node (x: device) = 
