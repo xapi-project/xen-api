@@ -682,18 +682,32 @@ let md_of_vbd ~__context ~self =
 	MD.of_vbd ~__context ~vm:(Db.VM.get_record ~__context ~self:vm) ~vbd:(Db.VBD.get_record ~__context ~self)
 
 let vbd_eject ~__context ~self =
-	let vbd = md_of_vbd ~__context ~self in
-	Client.VBD.eject vbd.Vbd.id |> success |> wait_for_task |> success_task |> ignore_task;
-	Event.wait ();
+	let vm = Db.VBD.get_VM ~__context ~self in
+	(* XXX: PR-1255: move the offline stuff to the master/message_forwarding? *)
+	if Db.VM.get_power_state ~__context ~self:vm = `Halted then begin
+		Db.VBD.set_empty ~__context ~self ~value:true;
+		Db.VBD.set_VDI ~__context ~self ~value:Ref.null
+	end else begin
+		let vbd = md_of_vbd ~__context ~self in
+		Client.VBD.eject vbd.Vbd.id |> success |> wait_for_task |> success_task |> ignore_task;
+		Event.wait ();
+	end;
 	assert (Db.VBD.get_empty ~__context ~self);
 	assert (Db.VBD.get_VDI ~__context ~self = Ref.null)
 
 
 let vbd_insert ~__context ~self ~vdi =
-	let vbd = md_of_vbd ~__context ~self in
-	let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in
-	Client.VBD.insert vbd.Vbd.id disk |> success |> wait_for_task |> success_task |> ignore_task;
-	Event.wait ();
+	let vm = Db.VBD.get_VM ~__context ~self in
+	(* XXX: PR-1255: move the offline stuff to the master/message_forwarding? *)
+	if Db.VM.get_power_state ~__context ~self:vm = `Halted then begin
+		Db.VBD.set_VDI ~__context ~self ~value:vdi;
+		Db.VBD.set_empty ~__context ~self ~value:false
+	end else begin
+		let vbd = md_of_vbd ~__context ~self in
+		let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in
+		Client.VBD.insert vbd.Vbd.id disk |> success |> wait_for_task |> success_task |> ignore_task;
+		Event.wait ()
+	end;
 	assert (not(Db.VBD.get_empty ~__context ~self));
 	assert (Db.VBD.get_VDI ~__context ~self = vdi)
 
