@@ -1024,32 +1024,36 @@ module VBD = struct
 	let plug task vm vbd =
 		on_frontend
 			(fun xc xs frontend_domid hvm ->
-				let vdi = attach_and_activate task xc xs frontend_domid vbd vbd.backend in
-				(* Remember the VBD id with the device *)
-				let id = _device_id Device_common.Vbd, id_of vbd in
-				let x = {
-					Device.Vbd.mode = (match vbd.mode with 
-						| ReadOnly -> Device.Vbd.ReadOnly 
-						| ReadWrite -> Device.Vbd.ReadWrite
-					);
-					device_number = vbd.position;
-					phystype = Device.Vbd.Phys;
-					params = vdi.Storage.params;
-					dev_type = (match vbd.ty with
-						| CDROM -> Device.Vbd.CDROM
-						| Disk -> Device.Vbd.Disk
-					);
-					unpluggable = vbd.unpluggable;
-					protocol = None;
-					extra_backend_keys = vbd.extra_backend_keys;
-					extra_private_keys = id :: vbd.extra_private_keys;
-					backend_domid = vdi.Storage.domid
-				} in
-				(* Store the VBD ID -> actual frontend ID for unplug *)
-				let (_: Device_common.device) =
-					Xenops_task.with_subtask task (Printf.sprintf "Vbd.add %s" (id_of vbd))
-						(fun () -> Device.Vbd.add ~xs ~hvm x frontend_domid) in
-				()
+				if vbd.backend = None && not hvm
+				then debug "PV guests don't support empty CDROM drives"
+				else begin
+					let vdi = attach_and_activate task xc xs frontend_domid vbd vbd.backend in
+					(* Remember the VBD id with the device *)
+					let id = _device_id Device_common.Vbd, id_of vbd in
+					let x = {
+						Device.Vbd.mode = (match vbd.mode with 
+							| ReadOnly -> Device.Vbd.ReadOnly 
+							| ReadWrite -> Device.Vbd.ReadWrite
+						);
+						device_number = vbd.position;
+						phystype = Device.Vbd.Phys;
+						params = vdi.Storage.params;
+						dev_type = (match vbd.ty with
+							| CDROM -> Device.Vbd.CDROM
+							| Disk -> Device.Vbd.Disk
+						);
+						unpluggable = vbd.unpluggable;
+						protocol = None;
+						extra_backend_keys = vbd.extra_backend_keys;
+						extra_private_keys = id :: vbd.extra_private_keys;
+						backend_domid = vdi.Storage.domid
+					} in
+					(* Store the VBD ID -> actual frontend ID for unplug *)
+					let (_: Device_common.device) =
+						Xenops_task.with_subtask task (Printf.sprintf "Vbd.add %s" (id_of vbd))
+							(fun () -> Device.Vbd.add ~xs ~hvm x frontend_domid) in
+					()
+				end
 			) Newest vm
 
 	let unplug task vm vbd force =
@@ -1070,25 +1074,32 @@ module VBD = struct
 			)
 
 	let insert task vm vbd disk =
-		with_xc_and_xs
-			(fun xc xs ->
-				let (device: Device_common.device) = device_by_id xc xs vm Device_common.Vbd Newest (id_of vbd) in
-				let frontend_domid = frontend_domid_of_device device in
-				let vdi = attach_and_activate task xc xs frontend_domid vbd (Some disk) in
-				let device_number = device_number_of_device device in
-				let phystype = Device.Vbd.Phys in
-				Device.Vbd.media_insert ~xs ~device_number ~params:vdi.Storage.params ~phystype frontend_domid
-			)
+		on_frontend
+			(fun xc xs frontend_domid hvm ->
+				if not hvm
+				then plug task vm { vbd with backend = Some disk }
+				else begin
+					let (device: Device_common.device) = device_by_id xc xs vm Device_common.Vbd Newest (id_of vbd) in
+					let vdi = attach_and_activate task xc xs frontend_domid vbd (Some disk) in
+					let device_number = device_number_of_device device in
+					let phystype = Device.Vbd.Phys in
+					Device.Vbd.media_insert ~xs ~device_number ~params:vdi.Storage.params ~phystype frontend_domid
+				end
+			) Newest vm
 
 	let eject task vm vbd =
-		with_xc_and_xs
-			(fun xc xs ->
-				let (device: Device_common.device) = device_by_id xc xs vm Device_common.Vbd Newest (id_of vbd) in
-				let frontend_domid = frontend_domid_of_device device in
-				let device_number = device_number_of_device device in
-				Device.Vbd.media_eject ~xs ~device_number frontend_domid;
+		on_frontend
+			(fun xc xs frontend_domid hvm ->
+				let (device: Device_common.device) = device_by_id xc xs vm Device_common.Vbd Oldest (id_of vbd) in
+
+				if not hvm
+				then unplug task vm vbd false
+				else begin
+					let device_number = device_number_of_device device in
+					Device.Vbd.media_eject ~xs ~device_number frontend_domid;
+				end;
 				deactivate_and_detach task device vbd;
-			)
+			) Oldest vm
 
 	let get_state vm vbd =
 		with_xc_and_xs
