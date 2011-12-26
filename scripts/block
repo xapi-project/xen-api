@@ -38,7 +38,7 @@ change)
 	syslog "${XENBUS_PATH}: change"
 	;;
 remove)
-	syslog "${XENBUS_PATH}: change"
+	syslog "${XENBUS_PATH}: remove"
     xenstore-rm "${HOTPLUG_STATUS}"
 	xenstore-rm "${HOTPLUG}/hotplug"
 	;;
