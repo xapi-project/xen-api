@@ -586,7 +586,10 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			let request =
 				if vm_state.Vm.power_state = Running
 				then B.VBD.get_device_action_request (VBD_DB.vm_of id) vbd_t
-				else Some Needs_unplug in
+				else begin
+					debug "VM %s is not running: VBD_unplug needed" (VBD_DB.vm_of id);
+					Some Needs_unplug
+				end in
 			let operations_of_request = function
 				| Needs_unplug -> VBD_unplug (id, true) in
 			let operations = List.map operations_of_request (Opt.to_list request) in
@@ -800,14 +803,15 @@ module VM = struct
 		md.Metadata.domains |> Opt.iter (B.VM.set_internal_state (vm |> VM_DB.key_of |> VM_DB.read |> unbox));
 		vm |> return
 
-	let receive_memory req s _ =
+	let receive_memory req s _ : unit =
 		debug "VM.receive_memory";
 		req.Http.Request.close <- true;
 		(* The URI is /service/xenops/memory/id *)
 		let bits = String.split '/' req.Http.Request.uri in
 		let id = bits |> List.rev |> List.hd in
 		debug "VM.receive_memory id = %s" id;
-		immediate_operation id (VM_receive_memory(id, s))
+		let task = queue_operation id (VM_receive_memory(id, s)) in
+		Xenops_client.wait_for_task task |> ignore
 end
 
 module DEBUG = struct
