@@ -12,7 +12,7 @@ Homepage: http://www.xen.org/XCP/
 Package: xcp-xapi
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}, xcp-squeezed, xcp-v6d, xcp-fe, xcp-storage-managers, xen-hypervisor-4.1-amd64 | xen-hypervisor-4.1-i386 | xen-hypervisor-4.1, xen-utils-4.1, stunnel, hwdata, xcp-eliloader, xcp-xe
-Recommends: xcp-vncterm, xcp-guest-templates
+Recommends: xcp-vncterm, xcp-guest-templates, smbfs
 Provides: xcp
 Description: XCP XenAPI server
  The Xen Cloud Platform (XCP) is an open source enterprise-ready server
