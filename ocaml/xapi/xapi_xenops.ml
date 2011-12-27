@@ -18,6 +18,7 @@ open D
 open Stringext
 open Listext
 open Threadext
+open Pervasiveext
 open Fun
 module XenAPI = Client.Client
 open Xenops_interface
@@ -325,6 +326,18 @@ module Event = struct
 			) t
 end
 
+(* Ignore events on VMs which are migrating away *)
+let migrating_away = Hashtbl.create 10
+let migrating_away_m = Mutex.create ()
+
+let with_migrating_away uuid f =
+	Mutex.execute migrating_away_m (fun () -> Hashtbl.replace migrating_away uuid ());
+	finally f
+		(fun () -> Mutex.execute migrating_away_m (fun () -> Hashtbl.remove migrating_away uuid))
+
+let is_migrating_away uuid =
+	Mutex.execute migrating_away_m (fun () -> Hashtbl.mem migrating_away uuid)
+
 let update_vm ~__context id info =
 	try
 		let open Vm in
@@ -332,6 +345,8 @@ let update_vm ~__context id info =
 		let localhost = Helpers.get_localhost ~__context in
 		if Db.VM.get_resident_on ~__context ~self <> localhost
 		then debug "Ignoring event for VM (VM %s not resident)" id
+		else if is_migrating_away id
+		then debug "Ignoring event for VM (VM %s migrating away)" id
 		else begin
 			if info = None then debug "VM state missing: assuming VM has shut down";
 			let power_state = match (Opt.map (fun x -> (snd x).power_state) info) with
@@ -414,6 +429,8 @@ let update_vbd ~__context id info =
 		let localhost = Helpers.get_localhost ~__context in
 		if Db.VM.get_resident_on ~__context ~self:vm <> localhost
 		then debug "Ignoring event for VBD (VM %s not resident)" (fst id)
+		else if is_migrating_away (fst id)
+		then debug "Ignoring event for VM (VM %s migrating away)" (fst id)
 		else begin
 			let vbds = Db.VM.get_VBDs ~__context ~self:vm in
 			let vbdrs = List.map (fun self -> self, Db.VBD.get_record ~__context ~self) vbds in
@@ -454,6 +471,8 @@ let update_vif ~__context id info =
 		let localhost = Helpers.get_localhost ~__context in
 		if Db.VM.get_resident_on ~__context ~self:vm <> localhost
 		then debug "Ignoring event for VIF (VM %s not resident)" (fst id)
+		else if is_migrating_away (fst id)
+		then debug "Ignoring event for VM (VM %s migrating away)" (fst id)
 		else begin
 			let vifs = Db.VM.get_VIFs ~__context ~self:vm in
 			let vifrs = List.map (fun self -> self, Db.VIF.get_record ~__context ~self) vifs in

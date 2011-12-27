@@ -794,12 +794,15 @@ let pool_migrate_xenopsd ~__context ~vm ~host ~options =
 	let xenops_url = Printf.sprintf "http://%s/services/xenops?session_id=%s" ip session_id in
 	let open Xenops_client in
 	let vm' = Db.VM.get_uuid ~__context ~self:vm in
-	(* XXX: PR-1255: the live flag *)
-	XenopsAPI.VM.migrate vm' xenops_url |> success |> wait_for_task |> success_task |> ignore;
-	(* XXX: PR-1255: have we missed important events on the receiver? *)
-	Helpers.call_api_functions ~__context
-		(fun rpc session_id ->
-			XenAPI.VM.atomic_set_resident_on rpc session_id vm host
+	Xapi_xenops.with_migrating_away vm'
+		(fun () ->
+			(* XXX: PR-1255: the live flag *)
+			XenopsAPI.VM.migrate vm' xenops_url |> success |> wait_for_task |> success_task |> ignore;
+			(* XXX: PR-1255: have we missed important events on the receiver? *)
+			Helpers.call_api_functions ~__context
+				(fun rpc session_id ->
+					XenAPI.VM.atomic_set_resident_on rpc session_id vm host
+				)
 		)
 
 let pool_migrate ~__context =
