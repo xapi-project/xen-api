@@ -420,7 +420,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			let memory_url = Http.Url.(set_uri url (get_uri url ^ suffix)) in
 			with_transport (transport_of_url memory_url)
 				(fun mfd ->
-					Http_client.rpc mfd (Xenops_migrate.http_put memory_url)
+					Http_client.rpc mfd (Xenops_migrate.http_put memory_url ~cookie:["instance_id", instance_id])
 						(fun response _ ->
 							debug "XXX transmit memory";
 							perform ~subtask:"memory transfer" (VM_save(id, [ Live ], FD mfd)) t;
@@ -806,12 +806,17 @@ module VM = struct
 	let receive_memory req s _ : unit =
 		debug "VM.receive_memory";
 		req.Http.Request.close <- true;
+		let remote_instance = List.assoc "instance_id" req.Http.Request.cookie in
+		let is_localhost = instance_id = remote_instance in
 		(* The URI is /service/xenops/memory/id *)
 		let bits = String.split '/' req.Http.Request.uri in
 		let id = bits |> List.rev |> List.hd in
-		debug "VM.receive_memory id = %s" id;
-		let task = queue_operation id (VM_receive_memory(id, s)) in
-		Xenops_client.wait_for_task task |> ignore
+		debug "VM.receive_memory id = %s is_localhost = %b" id is_localhost;
+		let op = VM_receive_memory(id, s) in
+		(* If it's a localhost migration then we're already in the queue *)
+		if is_localhost
+		then immediate_operation id op
+		else queue_operation id op |> Xenops_client.wait_for_task |> ignore
 end
 
 module DEBUG = struct
