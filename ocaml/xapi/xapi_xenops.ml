@@ -570,6 +570,17 @@ let events_from_xenopsd () =
 			done
 		)
 
+(* Ignore events on VMs which are shutting down *)
+let shutting_down = Hashtbl.create 10
+let shutting_down_m = Mutex.create ()
+
+let with_shutting_down uuid f =
+	Mutex.execute shutting_down_m (fun () -> Hashtbl.replace shutting_down uuid ());
+	finally f
+		(fun () -> Mutex.execute shutting_down_m (fun () -> Hashtbl.remove shutting_down uuid))
+
+let is_shutting_down uuid =
+	Mutex.execute shutting_down_m (fun () -> Hashtbl.mem shutting_down uuid)
 
 (* XXX: PR-1255: this will be receiving too many events and we may wish to synchronise
    updates to the VM metadata and resident_on fields *)
@@ -595,7 +606,7 @@ let events_from_xapi () =
 									(function
 										| { ty = "vm"; reference = vm' } ->
 											let vm = Ref.of_string vm' in
-											if Db.VM.get_resident_on ~__context ~self:vm = localhost then begin
+											if Db.VM.get_resident_on ~__context ~self:vm = localhost && not(is_shutting_down (Db.VM.get_uuid ~__context ~self:vm)) then begin
 												info "VM %s has changed: updating xenopsd metadata" vm';
 												update_metadata_in_xenopsd ~__context ~self:vm |> ignore
 											end
@@ -635,13 +646,16 @@ let reboot ~__context ~self timeout =
 
 let shutdown ~__context ~self timeout =
 	let id = id_of_vm ~__context ~self in
-	Client.VM.shutdown id timeout |> success |> wait_for_task |> success_task |> ignore_task;
-	Event.wait ();
-	assert (Db.VM.get_power_state ~__context ~self = `Halted);
-	List.iter
-		(fun vbd ->
-			assert (not(Db.VBD.get_currently_attached ~__context ~self:vbd))
-		) (Db.VM.get_VBDs ~__context ~self)
+	with_shutting_down id
+		(fun () ->
+			Client.VM.shutdown id timeout |> success |> wait_for_task |> success_task |> ignore_task;
+			Event.wait ();
+			assert (Db.VM.get_power_state ~__context ~self = `Halted);
+			List.iter
+				(fun vbd ->
+					assert (not(Db.VBD.get_currently_attached ~__context ~self:vbd))
+				) (Db.VM.get_VBDs ~__context ~self)
+		)
 
 let suspend ~__context ~self =
 	let id = id_of_vm ~__context ~self in
