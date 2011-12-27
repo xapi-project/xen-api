@@ -579,8 +579,8 @@ let with_shutting_down uuid f =
 	finally f
 		(fun () -> Mutex.execute shutting_down_m (fun () -> Hashtbl.remove shutting_down uuid))
 
-let is_shutting_down uuid =
-	Mutex.execute shutting_down_m (fun () -> Hashtbl.mem shutting_down uuid)
+(* XXX; PR-1255: this needs to be combined with the migration lock *)
+let is_shutting_down uuid = Hashtbl.mem shutting_down uuid
 
 (* XXX: PR-1255: this will be receiving too many events and we may wish to synchronise
    updates to the VM metadata and resident_on fields *)
@@ -606,10 +606,13 @@ let events_from_xapi () =
 									(function
 										| { ty = "vm"; reference = vm' } ->
 											let vm = Ref.of_string vm' in
-											if Db.VM.get_resident_on ~__context ~self:vm = localhost && not(is_shutting_down (Db.VM.get_uuid ~__context ~self:vm)) then begin
-												info "VM %s has changed: updating xenopsd metadata" vm';
-												update_metadata_in_xenopsd ~__context ~self:vm |> ignore
-											end
+											Mutex.execute shutting_down_m
+												(fun () ->
+													if Db.VM.get_resident_on ~__context ~self:vm = localhost && not(is_shutting_down (Db.VM.get_uuid ~__context ~self:vm)) then begin
+														info "VM %s has changed: updating xenopsd metadata" vm';
+														update_metadata_in_xenopsd ~__context ~self:vm |> ignore
+													end
+												)
 										| _ -> ()
 									) events
 							done
