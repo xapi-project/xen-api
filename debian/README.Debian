@@ -110,6 +110,10 @@ template=$(xe template-list name-label="Debian Squeeze 6.0 (32-bit)" --minimal)
 to get its UUID, then create the VM instance with:
 vm=$(xe vm-install template=$template new-name-label=debian)
 
+Note that if you have installed bash completion, then you can do:
+xe vm-install template=[ TAB ]
+to show the list of templates.
+
 Get the UID of your xenbr0 network:
 network=$(xe network-list bridge=xenbr0 --minimal)
 
