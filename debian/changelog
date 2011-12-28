@@ -1,6 +1,7 @@
 xen-api (1.3-14) unstable; urgency=low
 
   * Now Recommends: smbfs so we can mount iso SR over samba.
+  * Packages XenAPI python library in a separate binary.
 
  -- Thomas Goirand <zigo@debian.org>  Tue, 27 Dec 2011 15:00:43 +0000
 

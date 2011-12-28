@@ -11,7 +11,7 @@ Homepage: http://www.xen.org/XCP/
 
 Package: xcp-xapi
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}, xcp-squeezed, xcp-v6d, xcp-fe, xcp-storage-managers, xen-hypervisor-4.1-amd64 | xen-hypervisor-4.1-i386 | xen-hypervisor-4.1, xen-utils-4.1, stunnel, hwdata, xcp-eliloader, xcp-xe
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}, python-xcp-api (=${binary:Version}), xcp-squeezed, xcp-v6d, xcp-fe, xcp-storage-managers, xen-hypervisor-4.1-amd64 | xen-hypervisor-4.1-i386 | xen-hypervisor-4.1, xen-utils-4.1, stunnel, hwdata, xcp-eliloader, xcp-xe
 Recommends: xcp-vncterm, xcp-guest-templates, smbfs
 Provides: xcp
 Description: XCP XenAPI server
@@ -34,6 +34,30 @@ Description: XCP XenAPI server
  .
  This package contains the XenAPI server, which provides the control plane for
  XCP hosts and resource pools.
+
+Package: python-xcp-api
+Architecture: all
+Section: python
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}
+Description: XCP XenAPI Python libraries
+ The Xen Cloud Platform (XCP) is an open source enterprise-ready server
+ virtualization and cloud computing platform, with support for a range of
+ guest operating systems, Linux network and storage support.
+ .
+ XCP addresses the needs of cloud providers, hosting services and data centers
+ by combining the isolation and multitenancy capabilities of the Xen hypervisor
+ with enhanced security, storage and network virtualization technologies to
+ offer a rich set of virtual infrastructure cloud services. The platform
+ also address user requirements for security, availability, performance and
+ isolation across both private and public clouds.
+ .
+ XCP consolidates server workloads, enables savings in power, cooling, and
+ management costs and thus contributing to environmentally sustainable
+ computing, an increased ability to adapt to ever-changing IT environments,
+ an optimized use of existing hardware, and an improved level of IT
+ reliability.
+ .
+ This package contains Python libraries to use XCP API.
 
 Package: xcp-squeezed
 Architecture: any
