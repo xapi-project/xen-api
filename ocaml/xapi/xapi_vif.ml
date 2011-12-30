@@ -140,14 +140,18 @@ let assert_locking_licensed ~__context =
 	if (not (Pool_features.is_enabled ~__context Features.VIF_locking)) then
 		raise (Api_errors.Server_error(Api_errors.license_restriction, []))
 
-let change_locking_config ~__context ~self ~licence_check f =
-	if licence_check then assert_locking_licensed ~__context;
+let change_locking_config ~__context ~self ~run_prechecks f =
+	(* If turning the feature "on", we should check that the feature is licensed *)
+	(* and that there is no vswitch controller active. *)
+	if run_prechecks then begin
+		assert_locking_licensed ~__context;
+		Helpers.assert_vswitch_controller_not_active ~__context
+	end;
 	f ();
 	refresh_filtering_rules ~__context ~self
 
 let set_locking_mode ~__context ~self ~value =
-	(* Allow unlicensed users to set locking_mode = `default, i.e. turn the feature off. *)
-	change_locking_config ~__context ~self ~licence_check:(value <> `default)
+	change_locking_config ~__context ~self ~run_prechecks:(value <> `default)
 		(fun () -> Db.VIF.set_locking_mode ~__context ~self ~value)
 
 let assert_ip_address_is domain field_name addr =
@@ -156,33 +160,33 @@ let assert_ip_address_is domain field_name addr =
 	| _ -> raise (Api_errors.Server_error (Api_errors.invalid_value, [field_name; addr]))
 
 let set_ipv4_allowed ~__context ~self ~value =
-	change_locking_config ~__context ~self ~licence_check:(value <> [])
+	change_locking_config ~__context ~self ~run_prechecks:(value <> [])
 		(fun () ->
 			List.iter (assert_ip_address_is Unix.PF_INET "ipv4_allowed") value;
 			Db.VIF.set_ipv4_allowed ~__context ~self ~value)
 
 let add_ipv4_allowed ~__context ~self ~value =
-	change_locking_config ~__context ~self ~licence_check:true
+	change_locking_config ~__context ~self ~run_prechecks:true
 		(fun () ->
 			assert_ip_address_is Unix.PF_INET "ipv4_allowed" value;
 			Db.VIF.add_ipv4_allowed ~__context ~self ~value)
 
 let remove_ipv4_allowed ~__context ~self ~value =
-	change_locking_config ~__context ~self ~licence_check:false
+	change_locking_config ~__context ~self ~run_prechecks:false
 		(fun () -> Db.VIF.remove_ipv4_allowed ~__context ~self ~value)
 
 let set_ipv6_allowed ~__context ~self ~value =
-	change_locking_config ~__context ~self ~licence_check:(value <> [])
+	change_locking_config ~__context ~self ~run_prechecks:(value <> [])
 		(fun () ->
 			List.iter (assert_ip_address_is Unix.PF_INET6 "ipv6_allowed") value;
 			Db.VIF.set_ipv6_allowed ~__context ~self ~value)
 
 let add_ipv6_allowed ~__context ~self ~value =
-	change_locking_config ~__context ~self ~licence_check:true
+	change_locking_config ~__context ~self ~run_prechecks:true
 		(fun () ->
 			assert_ip_address_is Unix.PF_INET6 "ipv6_allowed" value;
 			Db.VIF.add_ipv6_allowed ~__context ~self ~value)
 
 let remove_ipv6_allowed ~__context ~self ~value =
-	change_locking_config ~__context ~self ~licence_check:false
+	change_locking_config ~__context ~self ~run_prechecks:false
 		(fun () -> Db.VIF.remove_ipv4_allowed ~__context ~self ~value)
