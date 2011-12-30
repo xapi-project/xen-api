@@ -171,6 +171,9 @@ You should then attach it as the default for the pool of storage for XCP:
 pool=`xe pool-list --minimal`
 xe pool-param-set uuid=$pool default-SR=$SR
 
+If later, you want to use that SR with openstack, you should also do:
+xe sr-param-set uuid=$SR other-config:i18n-key=local-storage
+
 this will, by default, use mkfs.ext3, so expect it to take some time
 if you gave xe sr-create a big partition.
 
@@ -260,6 +263,9 @@ xe vm-destroy uuid=$vm
 If you want to add a new machine in the pool, then:
 xe pool-join master-address=<ip-of-your-other-dom0> \
    master-username=<username> master-password=<pass>
+
+8/ XCP with Openstack
+---------------------
 
 999/ Feedback
 -------------
