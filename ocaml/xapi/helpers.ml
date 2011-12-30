@@ -877,6 +877,13 @@ let update_vswitch_controller ~__context ~host =
 			(Printexc.to_string e)
 			(Db.Host.get_name_label ~__context ~self:host)
 
+let assert_vswitch_controller_not_active ~__context =
+	let pool = get_pool ~__context in
+	let controller = Db.Pool.get_vswitch_controller ~__context ~self:pool in
+	let net_type = Netdev.network.Netdev.kind in
+	if (controller <> "") && (net_type = Netdev.Vswitch) then
+		raise (Api_errors.Server_error (Api_errors.operation_not_allowed, ["A vswitch controller is active"]))
+
 let set_vm_uncooperative ~__context ~self ~value =
   let current_value =
 	let oc = Db.VM.get_other_config ~__context ~self in
