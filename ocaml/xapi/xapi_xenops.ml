@@ -88,6 +88,8 @@ let builder_of_vm ~__context ~vm =
 			}
 
 module MD = struct
+	(** Convert between xapi DB records and xenopsd records *)
+
 	let of_vbd ~__context ~vm ~vbd =
 		let hvm = vm.API.vM_HVM_boot_policy <> "" in
 		let device_number = Device_number.of_string hvm vbd.API.vBD_userdevice in
@@ -219,16 +221,18 @@ let id_of_vm ~__context ~self = Db.VM.get_uuid ~__context ~self
 (* Serialise updates to the xenopsd metadata *)
 let metadata_m = Mutex.create ()
 
-let push_metadata_to_xenopsd_locked ~__context ~self =
-	let txt = create_metadata ~__context ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
-	Client.VM.import_metadata txt |> success
-
 let push_metadata_to_xenopsd ~__context ~self =
-	Mutex.execute metadata_m (fun () -> push_metadata_to_xenopsd_locked ~__context ~self)
+	Mutex.execute metadata_m (fun () ->
+		let txt = create_metadata ~__context ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
+		Client.VM.import_metadata txt |> success
+	)
+
+let metadata_cache = Hashtbl.create 10
 
 let pull_metadata_from_xenopsd id =
 	Mutex.execute metadata_m
 		(fun () ->
+			Hashtbl.remove metadata_cache id;
 			let md = Client.VM.export_metadata id |> success |> Jsonrpc.of_string |> Metadata.t_of_rpc in
 			Client.VM.remove id |> success;
 			md)
@@ -239,7 +243,16 @@ let update_metadata_in_xenopsd ~__context ~self =
 		(fun () ->
 			let all = Client.VM.list () |> success |> List.map (fun (x, _) -> x.Vm.id) in
 			if List.mem id all
-			then push_metadata_to_xenopsd_locked ~__context ~self |> ignore)
+			then
+				let txt = create_metadata ~__context ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
+				if Hashtbl.mem metadata_cache id && (Hashtbl.find metadata_cache id = txt)
+				then debug "No need to update xenopsd: VM %s metadata has not changed" id
+				else begin
+					debug "VM %s metadata has changed: updating xenopsd" id;
+					let (_: Vm.id) = Client.VM.import_metadata txt |> success in
+					Hashtbl.replace metadata_cache id txt
+				end
+		)
 
 let to_xenops_console_protocol = let open Vm in function
 	| `rfb -> Rfb
@@ -584,6 +597,7 @@ let is_shutting_down uuid = Hashtbl.mem shutting_down uuid
 
 (* XXX: PR-1255: this will be receiving too many events and we may wish to synchronise
    updates to the VM metadata and resident_on fields *)
+(* XXX: PR-1255: we also want to only listen for events on VMs and fields we care about *)
 let events_from_xapi () =
 	let open Event_types in
     Server_helpers.exec_with_new_task "xapi_xenops"
@@ -597,7 +611,6 @@ let events_from_xapi () =
 							(* In case we miss events, update all VM metadata *)
 							List.iter
 								(fun vm ->
-									info "VM %s might have changed: updating xenopsd metadata" (Ref.string_of vm);
 									update_metadata_in_xenopsd ~__context ~self:vm |> ignore
 								) (Db.Host.get_resident_VMs ~__context ~self:localhost);
 							while true do
@@ -609,7 +622,6 @@ let events_from_xapi () =
 											Mutex.execute shutting_down_m
 												(fun () ->
 													if Db.VM.get_resident_on ~__context ~self:vm = localhost && not(is_shutting_down (Db.VM.get_uuid ~__context ~self:vm)) then begin
-														info "VM %s has changed: updating xenopsd metadata" vm';
 														update_metadata_in_xenopsd ~__context ~self:vm |> ignore
 													end
 												)
