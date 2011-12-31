@@ -709,6 +709,7 @@ let events_from_xenopsd () =
 			let vms = List.filter (fun vm -> not(Db.VM.get_is_control_domain ~__context ~self:vm)) vms in
 			let in_db = List.map (fun self -> id_of_vm ~__context ~self) vms in
 			let in_xenopsd = Client.VM.list () |> success |> List.map (fun (vm, _) -> vm.Vm.id) in
+			List.iter add_caches in_xenopsd;
 			List.iter
 				(fun id ->
 					info "VM %s is not running here: setting power_state to Halted" id;
