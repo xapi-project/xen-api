@@ -328,6 +328,7 @@ let remove_caches id =
 let push_metadata_to_xenopsd ~__context ~self =
 	Mutex.execute metadata_m (fun () ->
 		let txt = create_metadata ~__context ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
+		info "xenops: VM.import_metadata %s" txt;
 		Client.VM.import_metadata txt |> success;
 	)
 
@@ -335,7 +336,9 @@ let push_metadata_to_xenopsd ~__context ~self =
 let pull_metadata_from_xenopsd id =
 	Mutex.execute metadata_m
 		(fun () ->
+			info "xenops: VM.export_metadata %s" id;
 			let md = Client.VM.export_metadata id |> success |> Jsonrpc.of_string |> Metadata.t_of_rpc in
+			info "xenops: VM.remove %s" id;
 			Client.VM.remove id |> success;
 			md)
 
@@ -351,6 +354,7 @@ let update_metadata_in_xenopsd ~__context ~self =
 				then debug "No need to update xenopsd: VM %s metadata has not changed" id
 				else begin
 					debug "VM %s metadata has changed: updating xenopsd" id;
+					info "xenops: VM.import_metadata %s" txt;
 					let (_: Vm.id) = Client.VM.import_metadata txt |> success in
 					if Hashtbl.mem metadata_cache id
 					then Hashtbl.replace metadata_cache id (Some txt)
@@ -417,7 +421,7 @@ module Event = struct
 	let wait () =
 		let t = make () in
 		let id = register t in
-		debug "inject_barrier %d" id;
+		debug "Client.UPDATES.inject_barrier %d" id;
 		Client.UPDATES.inject_barrier id |> success;
 		Mutex.execute t.m
 			(fun () ->
@@ -722,30 +726,33 @@ let events_from_xenopsd () =
 			let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
 			let open Vm in
 			if not(List.mem uuid in_xenopsd)
-			then Client.VM.add {
-				id = uuid;
-				name = "Domain-0";
-				ssidref = 0l;
-				xsdata = [];
-				platformdata = [];
-				bios_strings = [];
-				ty = PV {
-					boot = Direct { kernel = ""; cmdline = ""; ramdisk = None };
-					framebuffer = false; vncterm = false; vncterm_ip = None 
-				};
-				suppress_spurious_page_faults = false;
-				machine_address_size = None;
-				memory_static_max = 0L;
-				memory_dynamic_max = 0L;
-				memory_dynamic_min = 0L;
-				vcpu_max = 0;
-				vcpus = 0;
-				scheduler_params = { priority = None; affinity = [] };
-				on_crash = [];
-				on_shutdown = [];
-				on_reboot = [];
-				transient = false
-			} |> ignore;
+			then begin
+				info "Client.VM.add %s" uuid;
+				Client.VM.add {
+					id = uuid;
+					name = "Domain-0";
+					ssidref = 0l;
+					xsdata = [];
+					platformdata = [];
+					bios_strings = [];
+					ty = PV {
+						boot = Direct { kernel = ""; cmdline = ""; ramdisk = None };
+						framebuffer = false; vncterm = false; vncterm_ip = None 
+					};
+					suppress_spurious_page_faults = false;
+					machine_address_size = None;
+					memory_static_max = 0L;
+					memory_dynamic_max = 0L;
+					memory_dynamic_min = 0L;
+					vcpu_max = 0;
+					vcpus = 0;
+					scheduler_params = { priority = None; affinity = [] };
+					on_crash = [];
+					on_shutdown = [];
+					on_reboot = [];
+					transient = false
+				} |> ignore;
+			end;
 			while true do
 				try
 					events_watch ~__context None;
@@ -818,8 +825,7 @@ let success_task id =
 
 let refresh_vm ~__context ~self =
 	let id = id_of_vm ~__context ~self in
-	debug "refresh_vm %s" id;
-	(* Inject refresh event *)
+	info "xenops: UPDATES.refresh_vm %s" id;
 	Client.UPDATES.refresh_vm id |> success;
 	Event.wait ()
 
@@ -841,15 +847,19 @@ let start ~__context ~self paused =
 	let id = push_metadata_to_xenopsd ~__context ~self in
 	add_caches id;
 	attach_networks ~__context ~self;
+	info "xenops: VM.start %s" id;
 	Client.VM.start id |> success |> wait_for_task |> success_task |> ignore_task;
-	if not paused
-	then Client.VM.unpause id |> success |> wait_for_task |> success_task |> ignore_task;
+	if not paused then begin
+		info "xenops: VM.unpause %s" id;
+		Client.VM.unpause id |> success |> wait_for_task |> success_task |> ignore_task
+	end;
 	set_resident_on ~__context ~self;
 	assert (Db.VM.get_power_state ~__context ~self = (if paused then `Paused else `Running))
 
 let reboot ~__context ~self timeout =
 	assert_resident_on ~__context ~self;
 	let id = id_of_vm ~__context ~self in
+	info "xenops: VM.reboot %s" id;
 	Client.VM.reboot id timeout |> success |> wait_for_task |> success_task |> ignore_task;
 	Event.wait ();
 	assert (Db.VM.get_power_state ~__context ~self = `Running)
@@ -859,6 +869,7 @@ let shutdown ~__context ~self timeout =
 	let id = id_of_vm ~__context ~self in
 	with_shutting_down id
 		(fun () ->
+			info "xenops: VM.shutdown %s" id;
 			Client.VM.shutdown id timeout |> success |> wait_for_task |> success_task |> ignore_task;
 			Event.wait ();
 			remove_caches id;
@@ -891,6 +902,7 @@ let suspend ~__context ~self =
 			let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in
 			Db.VM.set_suspend_VDI ~__context ~self ~value:vdi;
 			try
+				info "xenops: VM.suspend %s to %s" id (disk |> rpc_of_disk |> Jsonrpc.to_string);
 				Client.VM.suspend id disk |> success |> wait_for_task |> success_task |> ignore_task;
 				Event.wait ();
 				remove_caches id;
@@ -917,9 +929,12 @@ let resume ~__context ~self ~start_paused ~force =
 	let id = push_metadata_to_xenopsd ~__context ~self in
 	add_caches id;
 	attach_networks ~__context ~self;
+	info "xenops: VM.resume %s from %s" id (disk |> rpc_of_disk |> Jsonrpc.to_string);
 	Client.VM.resume id disk |> success |> wait_for_task |> success_task |> ignore_task;
-	if not start_paused
-	then Client.VM.unpause id |> success |> wait_for_task |> success_task |> ignore_task;
+	if not start_paused then begin
+		info "xenops: VM.unpause %s" id;
+		Client.VM.unpause id |> success |> wait_for_task |> success_task |> ignore_task
+	end;
 	set_resident_on ~__context ~self;
 	assert (Db.VM.get_power_state ~__context ~self = if start_paused then `Paused else `Running);
 	Helpers.call_api_functions ~__context
@@ -941,6 +956,7 @@ let vbd_eject ~__context ~self =
 		Db.VBD.set_VDI ~__context ~self ~value:Ref.null
 	end else begin
 		let vbd = md_of_vbd ~__context ~self in
+		info "xenops: VBD.eject %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
 		Client.VBD.eject vbd.Vbd.id |> success |> wait_for_task |> success_task |> ignore_task;
 		Event.wait ();
 		(* XXX: PR-1255: this is because a PV eject is an unplug, so the
@@ -962,6 +978,7 @@ let vbd_insert ~__context ~self ~vdi =
 	end else begin
 		let vbd = md_of_vbd ~__context ~self in
 		let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in
+		info "xenops: VBD.insert %s.%s %s" (fst vbd.Vbd.id) (snd vbd.Vbd.id) (disk |> rpc_of_disk |> Jsonrpc.to_string);
 		Client.VBD.insert vbd.Vbd.id disk |> success |> wait_for_task |> success_task |> ignore_task;
 		Event.wait ()
 	end;
@@ -972,8 +989,11 @@ let vbd_plug ~__context ~self =
 	let vm = Db.VBD.get_VM ~__context ~self in
 	assert_resident_on ~__context ~self:vm;
 	let vbd = md_of_vbd ~__context ~self in
+	info "xenops: VBD.remove %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
 	Client.VBD.remove vbd.Vbd.id |> might_not_exist;
+	info "xenops: VBD.add %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
 	let id = Client.VBD.add vbd |> success in
+	info "xenops: VBD.plug %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
 	Client.VBD.plug id |> success |> wait_for_task |> success_task |> ignore_task;
 	Event.wait ();
 	assert (Db.VBD.get_currently_attached ~__context ~self)
@@ -982,7 +1002,9 @@ let vbd_unplug ~__context ~self force =
 	let vm = Db.VBD.get_VM ~__context ~self in
 	assert_resident_on ~__context ~self:vm;
 	let vbd = md_of_vbd ~__context ~self in
+	info "xenops: VBD.unplug %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
 	Client.VBD.unplug vbd.Vbd.id force |> success |> wait_for_task |> success_task |> ignore_task;
+	info "xenops: VBD.remove %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
 	Client.VBD.remove vbd.Vbd.id |> success;
 	Event.wait ();
 	assert (not(Db.VBD.get_currently_attached ~__context ~self))
@@ -995,8 +1017,11 @@ let vif_plug ~__context ~self =
 	let vm = Db.VIF.get_VM ~__context ~self in
 	assert_resident_on ~__context ~self:vm;
 	let vif = md_of_vif ~__context ~self in
+	info "xenops: VIF.eject %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
 	Client.VIF.remove vif.Vif.id |> might_not_exist;
+	info "xenops: VIF.add %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
 	let id = Client.VIF.add vif |> success in
+	info "xenops: VIF.plug %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
 	Client.VIF.plug id |> success |> wait_for_task |> success_task |> ignore_task;
 	Event.wait ();
 	assert (Db.VIF.get_currently_attached ~__context ~self)
@@ -1005,9 +1030,9 @@ let vif_unplug ~__context ~self force =
 	let vm = Db.VIF.get_VM ~__context ~self in
 	assert_resident_on ~__context ~self:vm;
 	let vif = md_of_vif ~__context ~self in
+	info "xenops: VIF.unplug %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
 	Client.VIF.unplug vif.Vif.id force |> success |> wait_for_task |> success_task |> ignore_task;
+	info "xenops: VIF.remove %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
 	Client.VIF.remove vif.Vif.id |> success;
 	Event.wait ();
 	assert (not(Db.VIF.get_currently_attached ~__context ~self))
-
-
