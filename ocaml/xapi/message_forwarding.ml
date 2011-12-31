@@ -1508,6 +1508,14 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				~priority:1L ~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ());
 			Monitor_rrds.push_rrd __context (Db.VM.get_uuid ~__context ~self:vm)
 
+		let pool_migrate_complete ~__context ~vm ~host =
+			info "VM.pool_migrate_complete: VM = '%s'; host = '%s'"
+				(vm_uuid ~__context vm) (host_uuid ~__context host);
+			let local_fn = Local.VM.pool_migrate_complete ~vm ~host in
+			do_op_on ~local_fn ~__context ~host
+				(fun session_id rpc ->
+					Client.VM.pool_migrate_complete rpc session_id vm host)
+
 		let pool_migrate ~__context ~vm ~host ~options =
 			info "VM.pool_migrate: VM = '%s'; host = '%s'"
 				(vm_uuid ~__context vm) (host_uuid ~__context host);

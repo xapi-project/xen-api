@@ -410,7 +410,8 @@ let force_state_reset ~__context ~self ~value:state =
 	if state = `Halted || state = `Suspended then begin
 		Db.VM.set_resident_on ~__context ~self ~value:Ref.null;
 		(* make sure we aren't reserving any memory for this VM *)
-		Db.VM.set_scheduled_to_be_resident_on ~__context ~self ~value:Ref.null
+		Db.VM.set_scheduled_to_be_resident_on ~__context ~self ~value:Ref.null;
+		Db.VM.set_domid ~__context ~self ~value:(-1L)
 	end
 
 (** Someone is cancelling a task so remove it from the current_operations *)

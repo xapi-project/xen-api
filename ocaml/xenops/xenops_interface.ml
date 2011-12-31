@@ -365,7 +365,8 @@ end
 
 module UPDATES = struct
 	external get: int option -> int option -> (Dynamic.t list * int option) option * (error option) = ""
-    external inject_barrier: int -> (unit option) * (error option) = "" 
+    external inject_barrier: int -> (unit option) * (error option) = ""
+	external refresh_vm: Vm.id -> (unit option) * (error option) = ""
 end
 
 module DEBUG = struct
