@@ -703,7 +703,7 @@ let events_from_xenopsd () =
 			let localhost = Helpers.get_localhost ~__context in
 			let vms = Db.Host.get_resident_VMs ~__context ~self:localhost in
 			let vms = List.filter (fun vm -> not(Db.VM.get_is_control_domain ~__context ~self:vm)) vms in
-			let in_db = List.map (fun self -> Db.VM.get_uuid ~__context ~self) vms in
+			let in_db = List.map (fun self -> id_of_vm ~__context ~self) vms in
 			let in_xenopsd = Client.VM.list () |> success |> List.map (fun (vm, _) -> vm.Vm.id) in
 			List.iter
 				(fun id ->
@@ -793,7 +793,7 @@ let events_from_xapi () =
 											let vm = Ref.of_string vm' in
 											Mutex.execute shutting_down_m
 												(fun () ->
-													if Db.VM.get_resident_on ~__context ~self:vm = localhost && not(is_shutting_down (Db.VM.get_uuid ~__context ~self:vm)) then begin
+													if Db.VM.get_resident_on ~__context ~self:vm = localhost && not(is_shutting_down (id_of_vm ~__context ~self:vm)) then begin
 														update_metadata_in_xenopsd ~__context ~self:vm |> ignore
 													end
 												)
@@ -817,7 +817,7 @@ let success_task id =
 	| Task.Pending _ -> failwith "task pending"
 
 let refresh_vm ~__context ~self =
-	let id = Db.VM.get_uuid ~__context ~self in
+	let id = id_of_vm ~__context ~self in
 	debug "refresh_vm %s" id;
 	(* Inject refresh event *)
 	Client.UPDATES.refresh_vm id |> success;
@@ -826,7 +826,7 @@ let refresh_vm ~__context ~self =
 (* After this function is called, locally-generated events will be reflected
    in the xapi pool metadata. *)
 let set_resident_on ~__context ~self =
-	let id = Db.VM.get_uuid ~__context ~self in
+	let id = id_of_vm ~__context ~self in
 	debug "VM %s set_resident_on" id;
 	let localhost = Helpers.get_localhost ~__context in
 	Helpers.call_api_functions ~__context
