@@ -15,7 +15,7 @@ open Stringext
 open Pervasiveext
 open Threadext
 
-module D = Debug.Debugger(struct let name = "xapi" end)
+module D = Debug.Debugger(struct let name = "xmlrpc_client" end)
 open D
 
 module Internal = struct
