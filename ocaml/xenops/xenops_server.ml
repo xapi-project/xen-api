@@ -842,6 +842,7 @@ module UPDATES = struct
 		return (ts, next)
 
 	let inject_barrier _ id =
+		debug "inject_barrier %d" id;
 		Updates.add (Dynamic.Barrier id) updates;
 		return ()
 end
