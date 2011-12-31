@@ -687,8 +687,8 @@ let hard_shutdown ~__context ~vm =
 			(fun rpc session_id -> Client.VDI.destroy rpc session_id vdi);
 		(* Whether or not that worked, forget about the VDI *)
 		Db.VM.set_suspend_VDI ~__context ~self:vm ~value:Ref.null;
-    end else
-		if !Xapi_globs.use_xenopsd then hard_shutdown_xenopsd ~__context ~vm else hard_shutdown_internal ~__context ~vm
+		Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted;
+    end else if !Xapi_globs.use_xenopsd then hard_shutdown_xenopsd ~__context ~vm else hard_shutdown_internal ~__context ~vm
 
 let clean_reboot_xenopsd ~__context ~vm =
 	Xapi_xenops.reboot ~__context ~self:vm (Some 1200.0)
