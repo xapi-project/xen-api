@@ -851,16 +851,19 @@ module VM = struct
 
 						let k = key_of vm in
 						let d = Opt.unbox (DB.read k) in
-						
-						let devices = List.map (fun vbd -> vbd.Vbd.id |> snd |> device_by_id xc xs vm.id Device_common.Vbd Oldest) d.VmExtra.vbds in
+
+						(* Empty drives should be ignored (since they don't
+						   even exist in the PV case) *)
+						let vbds = List.filter (fun vbd -> vbd.Vbd.backend <> None) d.VmExtra.vbds in
+						let devices = List.map (fun vbd -> vbd.Vbd.id |> snd |> device_by_id xc xs vm.id Device_common.Vbd Oldest) vbds in
 						Domain.hard_shutdown_all_vbds ~xc ~xs devices;
 						List.iter (fun vbd -> match vbd.Vbd.backend with
-							| None
+							| None (* can never happen due to 'filter' above *)
 							| Some (Local _) -> ()
 							| Some (VDI path) ->
 								let sr, vdi = Storage.get_disk_by_name task path in
 								Storage.deactivate task (Storage.id_of domid vbd.Vbd.id) sr vdi
-						) d.VmExtra.vbds;
+						) vbds;
 
 						DB.write k { d with
 							VmExtra.suspend_memory_bytes = Memory.bytes_of_pages pages;

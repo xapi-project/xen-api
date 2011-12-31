@@ -773,28 +773,52 @@ let success_task id =
 	| Task.Failed x -> failwith (Jsonrpc.to_string (rpc_of_error x))
 	| Task.Pending _ -> failwith "task pending"
 
+let refresh_vm ~__context ~self =
+	let id = Db.VM.get_uuid ~__context ~self in
+	(* Inject refresh event *)
+	Client.UPDATES.refresh_vm id |> success;
+	Event.wait ()
+
+(* After this function is called, locally-generated events will be reflected
+   in the xapi pool metadata. *)
+let set_resident_on ~__context ~self =
+	let id = Db.VM.get_uuid ~__context ~self in
+	debug "VM %s set_resident_on" id;
+	let localhost = Helpers.get_localhost ~__context in
+	Helpers.call_api_functions ~__context
+		(fun rpc session_id -> XenAPI.VM.atomic_set_resident_on rpc session_id self localhost);
+	refresh_vm ~__context ~self
+
+let assert_resident_on ~__context ~self =
+	let localhost = Helpers.get_localhost ~__context in
+	assert (Db.VM.get_resident_on ~__context ~self = localhost)
+
 let start ~__context ~self paused =
 	let id = push_metadata_to_xenopsd ~__context ~self in
 	attach_networks ~__context ~self;
 	Client.VM.start id |> success |> wait_for_task |> success_task |> ignore_task;
 	if not paused
 	then Client.VM.unpause id |> success |> wait_for_task |> success_task |> ignore_task;
-	Event.wait ();
+	set_resident_on ~__context ~self;
 	assert (Db.VM.get_power_state ~__context ~self = (if paused then `Paused else `Running))
 
 let reboot ~__context ~self timeout =
+	assert_resident_on ~__context ~self;
 	let id = id_of_vm ~__context ~self in
 	Client.VM.reboot id timeout |> success |> wait_for_task |> success_task |> ignore_task;
 	Event.wait ();
 	assert (Db.VM.get_power_state ~__context ~self = `Running)
 
 let shutdown ~__context ~self timeout =
+	assert_resident_on ~__context ~self;
 	let id = id_of_vm ~__context ~self in
 	with_shutting_down id
 		(fun () ->
 			Client.VM.shutdown id timeout |> success |> wait_for_task |> success_task |> ignore_task;
 			Event.wait ();
 			assert (Db.VM.get_power_state ~__context ~self = `Halted);
+			(* force_state_reset called from the xenopsd event loop above *)
+			assert (Db.VM.get_resident_on ~__context ~self = Ref.null);
 			List.iter
 				(fun vbd ->
 					assert (not(Db.VBD.get_currently_attached ~__context ~self:vbd))
@@ -802,6 +826,7 @@ let shutdown ~__context ~self timeout =
 		)
 
 let suspend ~__context ~self =
+	assert_resident_on ~__context ~self;
 	let id = id_of_vm ~__context ~self in
 	let vm_t, state = Client.VM.stat id |> success in
 	(* XXX: this needs to be at boot time *)
@@ -823,6 +848,7 @@ let suspend ~__context ~self =
 				Client.VM.suspend id disk |> success |> wait_for_task |> success_task |> ignore_task;
 				Event.wait ();
 				assert (Db.VM.get_power_state ~__context ~self = `Suspended);
+				assert (Db.VM.get_resident_on ~__context ~self = Ref.null);
 				(* XXX PR-1255: need to convert between 'domains' and lbr *)
 				let md = pull_metadata_from_xenopsd id in
 				match md.Metadata.domains with
@@ -846,7 +872,7 @@ let resume ~__context ~self ~start_paused ~force =
 	Client.VM.resume id disk |> success |> wait_for_task |> success_task |> ignore_task;
 	if not start_paused
 	then Client.VM.unpause id |> success |> wait_for_task |> success_task |> ignore_task;
-	Event.wait ();
+	set_resident_on ~__context ~self;
 	assert (Db.VM.get_power_state ~__context ~self = if start_paused then `Paused else `Running);
 	Helpers.call_api_functions ~__context
 		(fun rpc session_id ->
@@ -860,6 +886,7 @@ let md_of_vbd ~__context ~self =
 
 let vbd_eject ~__context ~self =
 	let vm = Db.VBD.get_VM ~__context ~self in
+	assert_resident_on ~__context ~self:vm;
 	(* XXX: PR-1255: move the offline stuff to the master/message_forwarding? *)
 	if Db.VM.get_power_state ~__context ~self:vm = `Halted then begin
 		Db.VBD.set_empty ~__context ~self ~value:true;
@@ -879,6 +906,7 @@ let vbd_eject ~__context ~self =
 
 let vbd_insert ~__context ~self ~vdi =
 	let vm = Db.VBD.get_VM ~__context ~self in
+	assert_resident_on ~__context ~self:vm;
 	(* XXX: PR-1255: move the offline stuff to the master/message_forwarding? *)
 	if Db.VM.get_power_state ~__context ~self:vm = `Halted then begin
 		Db.VBD.set_VDI ~__context ~self ~value:vdi;
@@ -893,6 +921,8 @@ let vbd_insert ~__context ~self ~vdi =
 	assert (Db.VBD.get_VDI ~__context ~self = vdi)
 
 let vbd_plug ~__context ~self =
+	let vm = Db.VBD.get_VM ~__context ~self in
+	assert_resident_on ~__context ~self:vm;
 	let vbd = md_of_vbd ~__context ~self in
 	Client.VBD.remove vbd.Vbd.id |> might_not_exist;
 	let id = Client.VBD.add vbd |> success in
@@ -901,6 +931,8 @@ let vbd_plug ~__context ~self =
 	assert (Db.VBD.get_currently_attached ~__context ~self)
 
 let vbd_unplug ~__context ~self force =
+	let vm = Db.VBD.get_VM ~__context ~self in
+	assert_resident_on ~__context ~self:vm;
 	let vbd = md_of_vbd ~__context ~self in
 	Client.VBD.unplug vbd.Vbd.id force |> success |> wait_for_task |> success_task |> ignore_task;
 	Client.VBD.remove vbd.Vbd.id |> success;
@@ -912,6 +944,8 @@ let md_of_vif ~__context ~self =
 	MD.of_vif ~__context ~vm:(Db.VM.get_record ~__context ~self:vm) ~vif:(Db.VIF.get_record ~__context ~self)
 
 let vif_plug ~__context ~self =
+	let vm = Db.VIF.get_VM ~__context ~self in
+	assert_resident_on ~__context ~self:vm;
 	let vif = md_of_vif ~__context ~self in
 	Client.VIF.remove vif.Vif.id |> might_not_exist;
 	let id = Client.VIF.add vif |> success in
@@ -920,6 +954,8 @@ let vif_plug ~__context ~self =
 	assert (Db.VIF.get_currently_attached ~__context ~self)
 
 let vif_unplug ~__context ~self force =
+	let vm = Db.VIF.get_VM ~__context ~self in
+	assert_resident_on ~__context ~self:vm;
 	let vif = md_of_vif ~__context ~self in
 	Client.VIF.unplug vif.Vif.id force |> success |> wait_for_task |> success_task |> ignore_task;
 	Client.VIF.remove vif.Vif.id |> success;

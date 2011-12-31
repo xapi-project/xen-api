@@ -1889,6 +1889,18 @@ let vm_pool_migrate = call
   ~allowed_roles:_R_VM_POWER_ADMIN
   ()
 
+let vm_pool_migrate_complete = call
+  ~in_oss_since:None 
+  ~in_product_since:rel_tampa
+  ~name:"pool_migrate_complete"
+  ~doc:"Tell a destination host that migration is complete."
+  ~params:[Ref _vm, "vm", "The VM which has finished migrating";
+	   Ref _host, "host", "The target host" ]
+  ~hide_from_docs:true
+  ~pool_internal:true
+  ~allowed_roles:_R_VM_POWER_ADMIN
+  ()
+
 let vm_migrate_receive = call
   ~in_oss_since:None
   ~in_product_since:rel_tampa
@@ -6368,7 +6380,8 @@ let vm =
 		vm_cleanReboot; vm_hardShutdown; vm_stateReset; vm_hardReboot; vm_suspend; csvm; vm_resume; 
 		vm_hardReboot_internal;
 		vm_resume_on; 
-		vm_pool_migrate; set_vcpus_number_live;
+		vm_pool_migrate; vm_pool_migrate_complete;
+		set_vcpus_number_live;
 		vm_add_to_VCPUs_params_live;
 		vm_set_ha_restart_priority;  (* updates the allowed-operations of the VM *)
 		vm_set_ha_always_run;        (* updates the allowed-operations of the VM *)
