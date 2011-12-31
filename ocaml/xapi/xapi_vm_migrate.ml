@@ -803,6 +803,7 @@ let pool_migrate_xenopsd ~__context ~vm ~host ~options =
 					XenAPI.VM.atomic_set_resident_on rpc session_id vm host
 				)
 		);
+	Xapi_xenops.remove_caches vm';
 	(* We will have missed important events because we set resident_on late.
 	   This was deliberate: resident_on is used by the pool master to reserve
 	   memory. If we called 'atomic_set_resident_on' before the domain is
@@ -813,7 +814,9 @@ let pool_migrate_xenopsd ~__context ~vm ~host ~options =
 		)
 
 let pool_migrate_complete ~__context ~vm ~host =
-	debug "VM.pool_migrate_complete %s" (Db.VM.get_uuid ~__context ~self:vm);
+	let id = Db.VM.get_uuid ~__context ~self:vm in
+	debug "VM.pool_migrate_complete %s" id;
+	Xapi_xenops.add_caches id;
 	Xapi_xenops.refresh_vm ~__context ~self:vm
 
 let pool_migrate ~__context =

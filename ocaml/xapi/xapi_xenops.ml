@@ -221,20 +221,15 @@ let id_of_vm ~__context ~self = Db.VM.get_uuid ~__context ~self
 (* Serialise updates to the xenopsd metadata *)
 let metadata_m = Mutex.create ()
 
-let push_metadata_to_xenopsd ~__context ~self =
-	Mutex.execute metadata_m (fun () ->
-		let txt = create_metadata ~__context ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
-		Client.VM.import_metadata txt |> success
-	)
-
 (* Remember the last events received from xapi so we can suppress
    non-updates (the xapi objects are bigger and will change more often
    than the xenopsd ones) *)
 let metadata_cache = Hashtbl.create 10
 
-module Cache = struct
+module Xenops_cache = struct
 	(** Remember the last events received from xenopsd so we can compute
-	   field-level differences *)
+		field-level differences. This allows us to minimise the number of
+		database writes we issue upwards. *)
 
 	type t = {
 		vm: Vm.state option;
@@ -248,6 +243,14 @@ module Cache = struct
 	}
 			
 	let cache = Hashtbl.create 10 (* indexed by Vm.id *)
+
+	let register_nolock id =
+		debug "xenopsd events: creating empty cache for %s" id;
+		Hashtbl.replace cache id empty
+
+	let unregister_nolock id =
+		debug "xenopsd events: deleting cache for %s" id;
+		Hashtbl.remove cache id
 
 	let find id : t option =
 		Mutex.execute metadata_m
@@ -278,35 +281,60 @@ module Cache = struct
 				else None
 			| _ -> None
 
-	let replace id t =
+	let update id t =
 		Mutex.execute metadata_m
 			(fun () ->
-				Hashtbl.replace cache id t
+				if Hashtbl.mem cache id
+				then Hashtbl.replace cache id t
+				else debug "xenopsd event: Not updating cache for unregistered VM %s" id
 			)
 
-	let replace_vbd id info =
+	let update_vbd id info =
 		let existing = Opt.default empty (find (fst id)) in
 		let vbds' = List.filter (fun (vbd_id, _) -> vbd_id <> id) existing.vbds in
-		replace (fst id) { existing with vbds = Opt.default vbds' (Opt.map (fun info -> (id, info) :: vbds') info) }
+		update (fst id) { existing with vbds = Opt.default vbds' (Opt.map (fun info -> (id, info) :: vbds') info) }
 
-	let replace_vif id info =
+	let update_vif id info =
 		let existing = Opt.default empty (find (fst id)) in
 		let vifs' = List.filter (fun (vif_id, _) -> vif_id <> id) existing.vifs in
-		replace (fst id) { existing with vifs = Opt.default vifs' (Opt.map (fun info -> (id, info) :: vifs') info) }
+		update (fst id) { existing with vifs = Opt.default vifs' (Opt.map (fun info -> (id, info) :: vifs') info) }
 
-	let replace_vm id info =
+	let update_vm id info =
 		let existing = Opt.default empty (find id) in
-		replace id { existing with vm = info }
+		update id { existing with vm = info }
 
-	let remove_nolock id =
+	let unregister_nolock id =
 		Hashtbl.remove cache id
 end
 
-let pull_metadata_from_xenopsd id =
+(* Set up event caches for a VM *)
+let add_caches id =
+	Mutex.execute metadata_m
+		(fun () ->
+			Hashtbl.replace metadata_cache id None;
+			Xenops_cache.register_nolock id;
+			debug "VM %s: registering with cache (xenops cache size = %d)" id (Hashtbl.length Xenops_cache.cache)
+		)
+
+(* Remove event caches for a VM *)
+let remove_caches id =
 	Mutex.execute metadata_m
 		(fun () ->
 			Hashtbl.remove metadata_cache id;
-			Cache.remove_nolock id;
+			Xenops_cache.unregister_nolock id;
+			debug "VM %s: unregistering with cache (xenops cache size = %d; xapi cache size = %d)" id (Hashtbl.length Xenops_cache.cache) (Hashtbl.length metadata_cache);
+		)
+
+let push_metadata_to_xenopsd ~__context ~self =
+	Mutex.execute metadata_m (fun () ->
+		let txt = create_metadata ~__context ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
+		Client.VM.import_metadata txt |> success;
+	)
+
+(* Unregisters a VM with xenopsd, and cleans up metadata and caches *)
+let pull_metadata_from_xenopsd id =
+	Mutex.execute metadata_m
+		(fun () ->
 			let md = Client.VM.export_metadata id |> success |> Jsonrpc.of_string |> Metadata.t_of_rpc in
 			Client.VM.remove id |> success;
 			md)
@@ -319,12 +347,13 @@ let update_metadata_in_xenopsd ~__context ~self =
 			if List.mem id all
 			then
 				let txt = create_metadata ~__context ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
-				if Hashtbl.mem metadata_cache id && (Hashtbl.find metadata_cache id = txt)
+				if Hashtbl.mem metadata_cache id && (Hashtbl.find metadata_cache id = Some txt)
 				then debug "No need to update xenopsd: VM %s metadata has not changed" id
 				else begin
 					debug "VM %s metadata has changed: updating xenopsd" id;
 					let (_: Vm.id) = Client.VM.import_metadata txt |> success in
-					Hashtbl.replace metadata_cache id txt
+					if Hashtbl.mem metadata_cache id
+					then Hashtbl.replace metadata_cache id (Some txt)
 				end
 		)
 
@@ -437,7 +466,7 @@ let update_vm ~__context id =
 			if Db.VM.get_resident_on ~__context ~self <> localhost
 			then debug "xenopsd event: ignoring event for VM (VM %s not resident)" id
 			else
-				let previous = Cache.find_vm id in
+				let previous = Xenops_cache.find_vm id in
 				let info = try Some (Client.VM.stat id |> success) with _ -> None in
 				if Opt.map snd info = previous
 				then debug "xenopsd event: ignoring event for VM %s: metadata has not changed" id
@@ -556,7 +585,7 @@ let update_vm ~__context id =
 								Db.VM_metrics.set_start_time ~__context ~self:metrics ~value:(Date.of_float state.last_start_time)
 							) info
 					end;
-					Cache.replace_vm id (Opt.map snd info);
+					Xenops_cache.update_vm id (Opt.map snd info);
 					Xapi_vm_lifecycle.update_allowed_operations ~__context ~self;
 				end
 	with e ->
@@ -573,7 +602,7 @@ let update_vbd ~__context (id: (string * string)) =
 			if Db.VM.get_resident_on ~__context ~self:vm <> localhost
 			then debug "xenopsd event: ignoring event for VBD (VM %s not resident)" (fst id)
 			else
-				let previous = Cache.find_vbd id in
+				let previous = Xenops_cache.find_vbd id in
 				let info = try Some(Client.VBD.stat id |> success) with _ -> None in
 				if Opt.map snd info = previous
 				then debug "xenopsd event: ignoring event for VBD %s.%s: metadata has not changed" (fst id) (snd id)
@@ -606,7 +635,7 @@ let update_vbd ~__context (id: (string * string)) =
 								end
 							end
 						) info;
-					Cache.replace_vbd id (Opt.map snd info);
+					Xenops_cache.update_vbd id (Opt.map snd info);
 					Xapi_vbd_helpers.update_allowed_operations ~__context ~self:vbd
 				end
 	with e ->
@@ -623,7 +652,7 @@ let update_vif ~__context id =
 			then debug "xenopsd event: ignoring event for VIF (VM %s not resident)" (fst id)
 			else
 				let open Vif in
-				let previous = Cache.find_vif id in
+				let previous = Xenops_cache.find_vif id in
 				let info = try Some (Client.VIF.stat id |> success) with _ -> None in
 				if Opt.map snd info = previous
 				then debug "xenopsd event: ignoring event for VIF %s.%s: metadata has not changed" (fst id) (snd id)
@@ -638,7 +667,7 @@ let update_vif ~__context id =
 							debug "xenopsd event: Updating VIF %s.%s currently_attached <- %b" (fst id) (snd id) state.plugged;
 							Db.VIF.set_currently_attached ~__context ~self:vif ~value:state.plugged
 						) info;
-					Cache.replace_vif id (Opt.map snd info);
+					Xenops_cache.update_vif id (Opt.map snd info);
 					Xapi_vif_helpers.update_allowed_operations ~__context ~self:vif
 				end
 	with e ->
@@ -810,6 +839,7 @@ let assert_resident_on ~__context ~self =
 
 let start ~__context ~self paused =
 	let id = push_metadata_to_xenopsd ~__context ~self in
+	add_caches id;
 	attach_networks ~__context ~self;
 	Client.VM.start id |> success |> wait_for_task |> success_task |> ignore_task;
 	if not paused
@@ -831,6 +861,7 @@ let shutdown ~__context ~self timeout =
 		(fun () ->
 			Client.VM.shutdown id timeout |> success |> wait_for_task |> success_task |> ignore_task;
 			Event.wait ();
+			remove_caches id;
 			assert (Db.VM.get_power_state ~__context ~self = `Halted);
 			(* force_state_reset called from the xenopsd event loop above *)
 			assert (Db.VM.get_resident_on ~__context ~self = Ref.null);
@@ -862,6 +893,7 @@ let suspend ~__context ~self =
 			try
 				Client.VM.suspend id disk |> success |> wait_for_task |> success_task |> ignore_task;
 				Event.wait ();
+				remove_caches id;
 				assert (Db.VM.get_power_state ~__context ~self = `Suspended);
 				assert (Db.VM.get_resident_on ~__context ~self = Ref.null);
 				(* XXX PR-1255: need to convert between 'domains' and lbr *)
@@ -883,6 +915,7 @@ let resume ~__context ~self ~start_paused ~force =
 	let vdi = Db.VM.get_suspend_VDI ~__context ~self in
 	let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in	
 	let id = push_metadata_to_xenopsd ~__context ~self in
+	add_caches id;
 	attach_networks ~__context ~self;
 	Client.VM.resume id disk |> success |> wait_for_task |> success_task |> ignore_task;
 	if not start_paused
