@@ -227,12 +227,34 @@ let push_metadata_to_xenopsd ~__context ~self =
 		Client.VM.import_metadata txt |> success
 	)
 
+(* Remember the last events received from xapi so we can suppress
+   non-updates (the xapi objects are bigger and will change more often
+   than the xenopsd ones) *)
 let metadata_cache = Hashtbl.create 10
+
+(* Remember the last events received from xenopsd so we can compute
+   field-level differences *)
+let info_cache = Hashtbl.create 10
+
+let find_previous_info id =
+	Mutex.execute metadata_m
+		(fun () ->
+			if Hashtbl.mem info_cache id
+			then Some (Hashtbl.find info_cache id)
+			else None
+		)
+
+let replace_previous_info id info =
+	Mutex.execute metadata_m
+		(fun () ->
+			Hashtbl.replace info_cache id info
+		)
 
 let pull_metadata_from_xenopsd id =
 	Mutex.execute metadata_m
 		(fun () ->
 			Hashtbl.remove metadata_cache id;
+			Hashtbl.remove info_cache id;
 			let md = Client.VM.export_metadata id |> success |> Jsonrpc.of_string |> Metadata.t_of_rpc in
 			Client.VM.remove id |> success;
 			md)
@@ -362,56 +384,85 @@ let update_vm ~__context id info =
 		then debug "Ignoring event for VM (VM %s migrating away)" id
 		else begin
 			if info = None then debug "VM state missing: assuming VM has shut down";
-			let power_state = match (Opt.map (fun x -> (snd x).power_state) info) with
-				| Some Running -> `Running
-				| Some Halted -> `Running (* reboot transient *)
-				| Some Suspended -> `Suspended
-				| Some Paused -> `Paused
-				| None -> `Halted in
-			if power_state = `Suspended || power_state = `Halted
-			then detach_networks ~__context ~self;
-			(* This will mark VBDs, VIFs as detached and clear resident_on
-			   if the VM has permenantly shutdown. *)
-			Xapi_vm_lifecycle.force_state_reset ~__context ~self ~value:power_state;
+			let previous = find_previous_info id in
+			let different f =
+				let a = Opt.map (fun x -> f (snd x)) info in
+				let b = Opt.map f previous in
+				a <> b in
+			
+			if different (fun x -> x.power_state) then begin
+				let power_state = match (Opt.map (fun x -> (snd x).power_state) info) with
+					| Some Running -> `Running
+					| Some Halted -> `Running (* reboot transient *)
+					| Some Suspended -> `Suspended
+					| Some Paused -> `Paused
+					| None -> `Halted in
+				debug "Updating VM %s power_state <- %s" id (Record_util.power_state_to_string power_state);
+				if power_state = `Suspended || power_state = `Halted
+				then detach_networks ~__context ~self;
+				(* This will mark VBDs, VIFs as detached and clear resident_on
+				   if the VM has permenantly shutdown. *)
+				Xapi_vm_lifecycle.force_state_reset ~__context ~self ~value:power_state;
+			end;
 			(* consoles *)
+			if different (fun x -> x.consoles) then begin
+				debug "Updating VM %s consoles" id;
+				Opt.iter
+					(fun (_, state) ->
+						if state.domids <> [] then Db.VM.set_domid ~__context ~self ~value:(List.hd state.domids |> Int64.of_int);
+						let current_protocols = List.map
+							(fun self -> Db.Console.get_protocol ~__context ~self |> to_xenops_console_protocol, self)
+							(Db.VM.get_consoles ~__context ~self) in
+						let new_protocols = List.map (fun c -> c.protocol, c) state.consoles in
+						(* Destroy consoles that have gone away *)
+						List.iter
+							(fun protocol ->
+								let self = List.assoc protocol current_protocols in
+								Db.Console.destroy ~__context ~self
+							) (List.set_difference (List.map fst current_protocols) (List.map fst new_protocols));
+						(* Create consoles that have appeared *)
+						List.iter
+							(fun protocol ->
+								let localhost = Helpers.get_localhost ~__context in
+								let address = Db.Host.get_address ~__context ~self:localhost in
+								let ref = Ref.make () in
+								let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+								let location = Printf.sprintf "https://%s%s?uuid=%s" address Constants.console_uri uuid in
+								Db.Console.create ~__context ~ref ~uuid
+									~protocol:(to_xenapi_console_protocol protocol) ~location ~vM:self
+									~other_config:[] ~port:(Int64.of_int (List.assoc protocol new_protocols).port)
+							) (List.set_difference (List.map fst new_protocols) (List.map fst current_protocols));
+					) info;
+			end;
+			if different (fun x -> x.memory_target) then begin
+				Opt.iter
+					(fun (_, state) ->
+						debug "Updating VM %s memory_target <- %Ld" id state.memory_target;
+						Db.VM.set_memory_target ~__context ~self ~value:state.memory_target
+					) info
+			end;
+			if different (fun x -> x.rtc_timeoffset) then begin
+				Opt.iter
+					(fun (_, state) ->
+						debug "Updating VM %s platform:timeoffset <- %s" id state.rtc_timeoffset;
+						let key = "timeoffset" in
+						(try Db.VM.remove_from_platform ~__context ~self ~key with _ -> ());
+						Db.VM.add_to_platform ~__context ~self ~key ~value:state.rtc_timeoffset;
+					) info
+			end;
 			Opt.iter
 				(fun (_, state) ->
-					if state.domids <> [] then Db.VM.set_domid ~__context ~self ~value:(List.hd state.domids |> Int64.of_int);
-					let current_protocols = List.map
-						(fun self -> Db.Console.get_protocol ~__context ~self |> to_xenops_console_protocol, self)
-						(Db.VM.get_consoles ~__context ~self) in
-					let new_protocols = List.map (fun c -> c.protocol, c) state.consoles in
-					(* Destroy consoles that have gone away *)
-					List.iter
-						(fun protocol ->
-							let self = List.assoc protocol current_protocols in
-							Db.Console.destroy ~__context ~self
-						) (List.set_difference (List.map fst current_protocols) (List.map fst new_protocols));
-					(* Create consoles that have appeared *)
-					List.iter
-						(fun protocol ->
-							let localhost = Helpers.get_localhost ~__context in
-							let address = Db.Host.get_address ~__context ~self:localhost in
-							let ref = Ref.make () in
-							let uuid = Uuid.to_string (Uuid.make_uuid ()) in
-							let location = Printf.sprintf "https://%s%s?uuid=%s" address Constants.console_uri uuid in
-							Db.Console.create ~__context ~ref ~uuid
-								~protocol:(to_xenapi_console_protocol protocol) ~location ~vM:self
-								~other_config:[] ~port:(Int64.of_int (List.assoc protocol new_protocols).port)
-						) (List.set_difference (List.map fst new_protocols) (List.map fst current_protocols));
-					
-					Db.VM.set_memory_target ~__context ~self ~value:state.memory_target;
-					let key = "timeoffset" in
-					(try Db.VM.remove_from_platform ~__context ~self ~key with _ -> ());
-					Db.VM.add_to_platform ~__context ~self ~key ~value:state.rtc_timeoffset;
 					List.iter
 						(fun domid ->
-							Mutex.execute Monitor.uncooperative_domains_m
-								(fun () ->
-									if state.uncooperative_balloon_driver
-									then Hashtbl.replace Monitor.uncooperative_domains domid ()
-									else Hashtbl.remove Monitor.uncooperative_domains domid
-								);
+							if different (fun x -> x.uncooperative_balloon_driver) then begin
+								debug "Updating VM %s domid %d uncooperative_balloon_driver <- %b" id domid state.uncooperative_balloon_driver;
+								Mutex.execute Monitor.uncooperative_domains_m
+									(fun () ->
+										if state.uncooperative_balloon_driver
+										then Hashtbl.replace Monitor.uncooperative_domains domid ()
+										else Hashtbl.remove Monitor.uncooperative_domains domid
+									)
+							end;
 							let lookup key =
 								if List.mem_assoc key state.guest_agent then Some (List.assoc key state.guest_agent) else None in
 							let list dir =
@@ -425,11 +476,21 @@ let update_vm ~__context id info =
 									end else None
 								) state.guest_agent in
 								results in
-							Xapi_guest_agent.all lookup list ~__context ~domid ~uuid:id
+							if different (fun x -> x.guest_agent) then begin
+								debug "Updating VM %s domid %d guest_agent" id domid;
+								Xapi_guest_agent.all lookup list ~__context ~domid ~uuid:id
+							end;
 						) state.domids;
-					let metrics = Db.VM.get_metrics ~__context ~self in
-					Db.VM_metrics.set_start_time ~__context ~self:metrics ~value:(Date.of_float state.last_start_time)
 				) info;
+			if different (fun x -> x.last_start_time) then begin
+				Opt.iter
+					(fun (_, state) ->
+						debug "Updating VM %s last_start_time <- %s" id (Date.to_string (Date.of_float state.last_start_time));
+						let metrics = Db.VM.get_metrics ~__context ~self in
+						Db.VM_metrics.set_start_time ~__context ~self:metrics ~value:(Date.of_float state.last_start_time)
+					) info
+			end;
+			Opt.iter (replace_previous_info id) (Opt.map snd info);
 			Xapi_vm_lifecycle.update_allowed_operations ~__context ~self;
 		end
 	with e ->
