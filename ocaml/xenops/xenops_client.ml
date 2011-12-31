@@ -54,19 +54,11 @@ let event_wait p =
 		List.iter (fun d -> if p d then finished := true) deltas;
 	done
 
-let wait_for_task id =
-	let finished = function
-		| Dynamic.Task_t(id', Some t) ->
-			if id = id' then begin
-				match t.Task.result with
-				| Task.Pending _ -> false
-				| Task.Completed _ -> true
-				| Task.Failed _ -> true
-			end else false
-		| _ ->
-			false in 
-	event_wait finished;
-	id
+let task_ended id =
+	match (Client.TASK.stat id |> success).Task.result with
+		| Task.Completed _
+		| Task.Failed _ -> true
+		| Task.Pending _ -> false
 
 let success_task id =
 	let t = Client.TASK.stat id |> success in
@@ -74,6 +66,15 @@ let success_task id =
 	| Task.Completed _ -> t
 	| Task.Failed x -> failwith (Jsonrpc.to_string (rpc_of_error x))
 	| Task.Pending _ -> failwith "task pending"
+
+let wait_for_task id =
+	let finished = function
+		| Dynamic.Task id' ->
+			id = id' && (task_ended id)
+		| _ ->
+			false in 
+	event_wait finished;
+	id
 
 let ignore_task (t: Task.t) = ()
 
