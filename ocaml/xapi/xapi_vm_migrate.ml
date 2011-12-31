@@ -797,6 +797,7 @@ let pool_migrate_xenopsd ~__context ~vm ~host ~options =
 	Xapi_xenops.with_migrating_away vm'
 		(fun () ->
 			(* XXX: PR-1255: the live flag *)
+			info "xenops: VM.migrate %s to %s" vm' xenops_url;
 			XenopsAPI.VM.migrate vm' xenops_url |> success |> wait_for_task |> success_task |> ignore;
 			Helpers.call_api_functions ~__context
 				(fun rpc session_id ->
