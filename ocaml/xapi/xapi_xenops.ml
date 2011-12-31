@@ -232,29 +232,81 @@ let push_metadata_to_xenopsd ~__context ~self =
    than the xenopsd ones) *)
 let metadata_cache = Hashtbl.create 10
 
-(* Remember the last events received from xenopsd so we can compute
-   field-level differences *)
-let info_cache = Hashtbl.create 10
+module Cache = struct
+	(** Remember the last events received from xenopsd so we can compute
+	   field-level differences *)
 
-let find_previous_info id =
-	Mutex.execute metadata_m
-		(fun () ->
-			if Hashtbl.mem info_cache id
-			then Some (Hashtbl.find info_cache id)
-			else None
-		)
+	type t = {
+		vm: Vm.state option;
+		vbds: (Vbd.id * Vbd.state) list;
+		vifs: (Vif.id * Vif.state) list;
+	}
+	let empty = {
+		vm = None;
+		vbds = [];
+		vifs = [];
+	}
+			
+	let cache = Hashtbl.create 10 (* indexed by Vm.id *)
 
-let replace_previous_info id info =
-	Mutex.execute metadata_m
-		(fun () ->
-			Hashtbl.replace info_cache id info
-		)
+	let find id : t option =
+		Mutex.execute metadata_m
+			(fun () ->
+				if Hashtbl.mem cache id
+				then Some (Hashtbl.find cache id)
+				else None
+			)
+
+	let find_vm id : Vm.state option =
+		match find id with
+			| Some { vm = Some vm } -> Some vm
+			| _ -> None
+
+	let find_vbd id : Vbd.state option =
+		match find (fst id) with
+			| Some { vbds = vbds } ->
+				if List.mem_assoc id vbds
+				then Some (List.assoc id vbds)
+				else None
+			| _ -> None
+
+	let find_vif id : Vif.state option =
+		match find (fst id) with
+			| Some { vifs = vifs } ->
+				if List.mem_assoc id vifs
+				then Some (List.assoc id vifs)
+				else None
+			| _ -> None
+
+	let replace id t =
+		Mutex.execute metadata_m
+			(fun () ->
+				Hashtbl.replace cache id t
+			)
+
+	let replace_vbd id info =
+		let existing = Opt.default empty (find (fst id)) in
+		let vbds' = List.filter (fun (vbd_id, _) -> vbd_id <> id) existing.vbds in
+		replace (fst id) { existing with vbds = (id, info) :: vbds' }
+
+	let replace_vif id info =
+		let existing = Opt.default empty (find (fst id)) in
+		let vifs' = List.filter (fun (vif_id, _) -> vif_id <> id) existing.vifs in
+		replace (fst id) { existing with vifs = (id, info) :: vifs' }
+
+	let replace_vm id info =
+		let existing = Opt.default empty (find id) in
+		replace id { existing with vm = Some info }
+
+	let remove_nolock id =
+		Hashtbl.remove cache id
+end
 
 let pull_metadata_from_xenopsd id =
 	Mutex.execute metadata_m
 		(fun () ->
 			Hashtbl.remove metadata_cache id;
-			Hashtbl.remove info_cache id;
+			Cache.remove_nolock id;
 			let md = Client.VM.export_metadata id |> success |> Jsonrpc.of_string |> Metadata.t_of_rpc in
 			Client.VM.remove id |> success;
 			md)
@@ -336,6 +388,7 @@ module Event = struct
 	let wait () =
 		let t = make () in
 		let id = register t in
+		debug "inject_barrier %d" id;
 		Client.UPDATES.inject_barrier id |> success;
 		Mutex.execute t.m
 			(fun () ->
@@ -376,191 +429,206 @@ let is_migrating_away uuid =
 let update_vm ~__context id info =
 	try
 		let open Vm in
-		let self = Db.VM.get_by_uuid ~__context ~uuid:id in
-		let localhost = Helpers.get_localhost ~__context in
-		if Db.VM.get_resident_on ~__context ~self <> localhost
-		then debug "Ignoring event for VM (VM %s not resident)" id
-		else if is_migrating_away id
-		then debug "Ignoring event for VM (VM %s migrating away)" id
-		else begin
-			if info = None then debug "VM state missing: assuming VM has shut down";
-			let previous = find_previous_info id in
-			let different f =
-				let a = Opt.map (fun x -> f (snd x)) info in
-				let b = Opt.map f previous in
-				a <> b in
-			
-			if different (fun x -> x.power_state) then begin
-				let power_state = match (Opt.map (fun x -> (snd x).power_state) info) with
-					| Some Running -> `Running
-					| Some Halted -> `Running (* reboot transient *)
-					| Some Suspended -> `Suspended
-					| Some Paused -> `Paused
-					| None -> `Halted in
-				debug "Updating VM %s power_state <- %s" id (Record_util.power_state_to_string power_state);
-				if power_state = `Suspended || power_state = `Halted
-				then detach_networks ~__context ~self;
-				(* This will mark VBDs, VIFs as detached and clear resident_on
-				   if the VM has permenantly shutdown. *)
-				Xapi_vm_lifecycle.force_state_reset ~__context ~self ~value:power_state;
-			end;
-			(* consoles *)
-			if different (fun x -> x.consoles) then begin
-				debug "Updating VM %s consoles" id;
+		let previous = Cache.find_vm id in
+		if Opt.map snd info = previous
+		then debug "xenopsd event: ignoring event for VM %s: metadata has not changed" id
+		else
+			let self = Db.VM.get_by_uuid ~__context ~uuid:id in
+			let localhost = Helpers.get_localhost ~__context in
+			if Db.VM.get_resident_on ~__context ~self <> localhost
+			then debug "xenopsd event: ignoring event for VM (VM %s not resident)" id
+			else if is_migrating_away id
+			then debug "xenopsd event: ignoring event for VM (VM %s migrating away)" id
+			else begin
+				if info = None then debug "xenopsd event: VM state missing: assuming VM has shut down";
+				let different f =
+					let a = Opt.map (fun x -> f (snd x)) info in
+					let b = Opt.map f previous in
+					a <> b in
+
+				if different (fun x -> x.power_state) then begin
+					let power_state = match (Opt.map (fun x -> (snd x).power_state) info) with
+						| Some Running -> `Running
+						| Some Halted -> `Running (* reboot transient *)
+						| Some Suspended -> `Suspended
+						| Some Paused -> `Paused
+						| None -> `Halted in
+					debug "xenopsd event: Updating VM %s power_state <- %s" id (Record_util.power_state_to_string power_state);
+					if power_state = `Suspended || power_state = `Halted
+					then detach_networks ~__context ~self;
+					(* This will mark VBDs, VIFs as detached and clear resident_on
+					   if the VM has permenantly shutdown. *)
+					Xapi_vm_lifecycle.force_state_reset ~__context ~self ~value:power_state;
+				end;
+				(* consoles *)
+				if different (fun x -> x.consoles) then begin
+					debug "xenopsd event: Updating VM %s consoles" id;
+					Opt.iter
+						(fun (_, state) ->
+							if state.domids <> [] then Db.VM.set_domid ~__context ~self ~value:(List.hd state.domids |> Int64.of_int);
+							let current_protocols = List.map
+								(fun self -> Db.Console.get_protocol ~__context ~self |> to_xenops_console_protocol, self)
+								(Db.VM.get_consoles ~__context ~self) in
+							let new_protocols = List.map (fun c -> c.protocol, c) state.consoles in
+							(* Destroy consoles that have gone away *)
+							List.iter
+								(fun protocol ->
+									let self = List.assoc protocol current_protocols in
+									Db.Console.destroy ~__context ~self
+								) (List.set_difference (List.map fst current_protocols) (List.map fst new_protocols));
+							(* Create consoles that have appeared *)
+							List.iter
+								(fun protocol ->
+									let localhost = Helpers.get_localhost ~__context in
+									let address = Db.Host.get_address ~__context ~self:localhost in
+									let ref = Ref.make () in
+									let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+									let location = Printf.sprintf "https://%s%s?uuid=%s" address Constants.console_uri uuid in
+									Db.Console.create ~__context ~ref ~uuid
+										~protocol:(to_xenapi_console_protocol protocol) ~location ~vM:self
+										~other_config:[] ~port:(Int64.of_int (List.assoc protocol new_protocols).port)
+								) (List.set_difference (List.map fst new_protocols) (List.map fst current_protocols));
+						) info;
+				end;
+				if different (fun x -> x.memory_target) then begin
+					Opt.iter
+						(fun (_, state) ->
+							debug "xenopsd event: Updating VM %s memory_target <- %Ld" id state.memory_target;
+							Db.VM.set_memory_target ~__context ~self ~value:state.memory_target
+						) info
+				end;
+				if different (fun x -> x.rtc_timeoffset) then begin
+					Opt.iter
+						(fun (_, state) ->
+							debug "xenopsd event: Updating VM %s platform:timeoffset <- %s" id state.rtc_timeoffset;
+							let key = "timeoffset" in
+							(try Db.VM.remove_from_platform ~__context ~self ~key with _ -> ());
+							Db.VM.add_to_platform ~__context ~self ~key ~value:state.rtc_timeoffset;
+						) info
+				end;
 				Opt.iter
 					(fun (_, state) ->
-						if state.domids <> [] then Db.VM.set_domid ~__context ~self ~value:(List.hd state.domids |> Int64.of_int);
-						let current_protocols = List.map
-							(fun self -> Db.Console.get_protocol ~__context ~self |> to_xenops_console_protocol, self)
-							(Db.VM.get_consoles ~__context ~self) in
-						let new_protocols = List.map (fun c -> c.protocol, c) state.consoles in
-						(* Destroy consoles that have gone away *)
 						List.iter
-							(fun protocol ->
-								let self = List.assoc protocol current_protocols in
-								Db.Console.destroy ~__context ~self
-							) (List.set_difference (List.map fst current_protocols) (List.map fst new_protocols));
-						(* Create consoles that have appeared *)
-						List.iter
-							(fun protocol ->
-								let localhost = Helpers.get_localhost ~__context in
-								let address = Db.Host.get_address ~__context ~self:localhost in
-								let ref = Ref.make () in
-								let uuid = Uuid.to_string (Uuid.make_uuid ()) in
-								let location = Printf.sprintf "https://%s%s?uuid=%s" address Constants.console_uri uuid in
-								Db.Console.create ~__context ~ref ~uuid
-									~protocol:(to_xenapi_console_protocol protocol) ~location ~vM:self
-									~other_config:[] ~port:(Int64.of_int (List.assoc protocol new_protocols).port)
-							) (List.set_difference (List.map fst new_protocols) (List.map fst current_protocols));
+							(fun domid ->
+								if different (fun x -> x.uncooperative_balloon_driver) then begin
+									debug "xenopsd event: Updating VM %s domid %d uncooperative_balloon_driver <- %b" id domid state.uncooperative_balloon_driver;
+									Mutex.execute Monitor.uncooperative_domains_m
+										(fun () ->
+											if state.uncooperative_balloon_driver
+											then Hashtbl.replace Monitor.uncooperative_domains domid ()
+											else Hashtbl.remove Monitor.uncooperative_domains domid
+										)
+								end;
+								let lookup key =
+									if List.mem_assoc key state.guest_agent then Some (List.assoc key state.guest_agent) else None in
+								let list dir =
+									let dir = if dir.[0] = '/' then String.sub dir 1 (String.length dir - 1) else dir in
+									let results = Listext.List.filter_map (fun (path, value) ->
+										if String.startswith dir path then begin
+											let rest = String.sub path (String.length dir) (String.length path - (String.length dir)) in
+											match List.filter (fun x -> x <> "") (String.split '/' rest) with
+												| x :: _ -> Some x
+												| _ -> None
+										end else None
+									) state.guest_agent in
+									results in
+								if different (fun x -> x.guest_agent) then begin
+									debug "xenopsd event: Updating VM %s domid %d guest_agent" id domid;
+									Xapi_guest_agent.all lookup list ~__context ~domid ~uuid:id
+								end;
+							) state.domids;
 					) info;
-			end;
-			if different (fun x -> x.memory_target) then begin
-				Opt.iter
-					(fun (_, state) ->
-						debug "Updating VM %s memory_target <- %Ld" id state.memory_target;
-						Db.VM.set_memory_target ~__context ~self ~value:state.memory_target
-					) info
-			end;
-			if different (fun x -> x.rtc_timeoffset) then begin
-				Opt.iter
-					(fun (_, state) ->
-						debug "Updating VM %s platform:timeoffset <- %s" id state.rtc_timeoffset;
-						let key = "timeoffset" in
-						(try Db.VM.remove_from_platform ~__context ~self ~key with _ -> ());
-						Db.VM.add_to_platform ~__context ~self ~key ~value:state.rtc_timeoffset;
-					) info
-			end;
-			Opt.iter
-				(fun (_, state) ->
-					List.iter
-						(fun domid ->
-							if different (fun x -> x.uncooperative_balloon_driver) then begin
-								debug "Updating VM %s domid %d uncooperative_balloon_driver <- %b" id domid state.uncooperative_balloon_driver;
-								Mutex.execute Monitor.uncooperative_domains_m
-									(fun () ->
-										if state.uncooperative_balloon_driver
-										then Hashtbl.replace Monitor.uncooperative_domains domid ()
-										else Hashtbl.remove Monitor.uncooperative_domains domid
-									)
-							end;
-							let lookup key =
-								if List.mem_assoc key state.guest_agent then Some (List.assoc key state.guest_agent) else None in
-							let list dir =
-								let dir = if dir.[0] = '/' then String.sub dir 1 (String.length dir - 1) else dir in
-								let results = Listext.List.filter_map (fun (path, value) ->
-									if String.startswith dir path then begin
-										let rest = String.sub path (String.length dir) (String.length path - (String.length dir)) in
-										match List.filter (fun x -> x <> "") (String.split '/' rest) with
-											| x :: _ -> Some x
-											| _ -> None
-									end else None
-								) state.guest_agent in
-								results in
-							if different (fun x -> x.guest_agent) then begin
-								debug "Updating VM %s domid %d guest_agent" id domid;
-								Xapi_guest_agent.all lookup list ~__context ~domid ~uuid:id
-							end;
-						) state.domids;
-				) info;
-			if different (fun x -> x.last_start_time) then begin
-				Opt.iter
-					(fun (_, state) ->
-						debug "Updating VM %s last_start_time <- %s" id (Date.to_string (Date.of_float state.last_start_time));
-						let metrics = Db.VM.get_metrics ~__context ~self in
-						Db.VM_metrics.set_start_time ~__context ~self:metrics ~value:(Date.of_float state.last_start_time)
-					) info
-			end;
-			Opt.iter (replace_previous_info id) (Opt.map snd info);
-			Xapi_vm_lifecycle.update_allowed_operations ~__context ~self;
+				if different (fun x -> x.last_start_time) then begin
+					Opt.iter
+						(fun (_, state) ->
+							debug "xenopsd event: Updating VM %s last_start_time <- %s" id (Date.to_string (Date.of_float state.last_start_time));
+							let metrics = Db.VM.get_metrics ~__context ~self in
+							Db.VM_metrics.set_start_time ~__context ~self:metrics ~value:(Date.of_float state.last_start_time)
+						) info
+				end;
+				Opt.iter (Cache.replace_vm id) (Opt.map snd info);
+				Xapi_vm_lifecycle.update_allowed_operations ~__context ~self;
 		end
 	with e ->
-		error "Caught %s while updating VM: has this VM been removed while this host is offline?" (Printexc.to_string e)
+		error "xenopsd event: Caught %s while updating VM: has this VM been removed while this host is offline?" (Printexc.to_string e)
 
-let update_vbd ~__context id info =
+let update_vbd ~__context (id: (string * string)) info =
 	try
 		let open Vbd in
-		let vm = Db.VM.get_by_uuid ~__context ~uuid:(fst id) in
-		let localhost = Helpers.get_localhost ~__context in
-		if Db.VM.get_resident_on ~__context ~self:vm <> localhost
-		then debug "Ignoring event for VBD (VM %s not resident)" (fst id)
-		else if is_migrating_away (fst id)
-		then debug "Ignoring event for VM (VM %s migrating away)" (fst id)
-		else begin
-			let vbds = Db.VM.get_VBDs ~__context ~self:vm in
-			let vbdrs = List.map (fun self -> self, Db.VBD.get_record ~__context ~self) vbds in
-			let linux_device = snd id in
-			let disk_number = Device_number.of_linux_device (snd id) |> Device_number.to_disk_number |> string_of_int in
-			debug "VM %s VBD userdevices = [ %s ]" (fst id) (String.concat "; " (List.map (fun (_,r) -> r.API.vBD_userdevice) vbdrs));
-			let vbd, vbd_r = List.find (fun (_, vbdr) -> vbdr.API.vBD_userdevice = linux_device || vbdr.API.vBD_userdevice = disk_number) vbdrs in
-			Opt.iter
-				(fun (x, state) ->
-					Db.VBD.set_device ~__context ~self:vbd ~value:linux_device;
-					Db.VBD.set_currently_attached ~__context ~self:vbd ~value:state.plugged;
-					debug "state.media_present = %b" state.media_present;
-					if state.plugged then begin
-						if state.media_present then begin
-							(* XXX PR-1255: I need to know the actual SR and VDI in use, not the content requested *)
-							match x.backend with
-								| Some (VDI x) ->
-									let vdi, _ = Storage_access.find_content ~__context x in
-									Db.VBD.set_VDI ~__context ~self:vbd ~value:vdi;
-									Db.VBD.set_empty ~__context ~self:vbd ~value:false
-								| _ ->
-									error "I don't know what to do with this kind of VDI backend"
-						end else if vbd_r.API.vBD_type = `CD then begin
-							Db.VBD.set_empty ~__context ~self:vbd ~value:true;
-							Db.VBD.set_VDI ~__context ~self:vbd ~value:Ref.null
+		let previous = Cache.find_vbd id in
+		if Opt.map snd info = previous
+		then debug "xenopsd event: ignoring event for VBD %s.%s: metadata has not changed" (fst id) (snd id)
+		else
+			let vm = Db.VM.get_by_uuid ~__context ~uuid:(fst id) in
+			let localhost = Helpers.get_localhost ~__context in
+			if Db.VM.get_resident_on ~__context ~self:vm <> localhost
+			then debug "xenopsd event: ignoring event for VBD (VM %s not resident)" (fst id)
+			else if is_migrating_away (fst id)
+			then debug "xenopsd event: ignoring event for VM (VM %s migrating away)" (fst id)
+			else begin
+				let vbds = Db.VM.get_VBDs ~__context ~self:vm in
+				let vbdrs = List.map (fun self -> self, Db.VBD.get_record ~__context ~self) vbds in
+				let linux_device = snd id in
+				let disk_number = Device_number.of_linux_device (snd id) |> Device_number.to_disk_number |> string_of_int in
+				debug "VM %s VBD userdevices = [ %s ]" (fst id) (String.concat "; " (List.map (fun (_,r) -> r.API.vBD_userdevice) vbdrs));
+				let vbd, vbd_r = List.find (fun (_, vbdr) -> vbdr.API.vBD_userdevice = linux_device || vbdr.API.vBD_userdevice = disk_number) vbdrs in
+				Opt.iter
+					(fun (x, state) ->
+						debug "xenopsd event: Updating VBD %s.%s device <- %s; currently_attached <- %b" (fst id) (snd id) linux_device state.plugged;
+						Db.VBD.set_device ~__context ~self:vbd ~value:linux_device;
+						Db.VBD.set_currently_attached ~__context ~self:vbd ~value:state.plugged;
+						debug "state.media_present = %b" state.media_present;
+						if state.plugged then begin
+							if state.media_present then begin
+								(* XXX PR-1255: I need to know the actual SR and VDI in use, not the content requested *)
+								match x.backend with
+									| Some (VDI x) ->
+										let vdi, _ = Storage_access.find_content ~__context x in
+										Db.VBD.set_VDI ~__context ~self:vbd ~value:vdi;
+										Db.VBD.set_empty ~__context ~self:vbd ~value:false
+									| _ ->
+										error "I don't know what to do with this kind of VDI backend"
+							end else if vbd_r.API.vBD_type = `CD then begin
+								Db.VBD.set_empty ~__context ~self:vbd ~value:true;
+								Db.VBD.set_VDI ~__context ~self:vbd ~value:Ref.null
+							end
 						end
-					end
 				) info;
-			Xapi_vbd_helpers.update_allowed_operations ~__context ~self:vbd
-		end
+				Opt.iter (Cache.replace_vbd id) (Opt.map snd info);
+				Xapi_vbd_helpers.update_allowed_operations ~__context ~self:vbd
+			end
 	with e ->
-		error "Caught %s while updating VBD" (Printexc.to_string e)
+		error "xenopds event: Caught %s while updating VBD" (Printexc.to_string e)
 
 let update_vif ~__context id info =
 	try
 		let open Vif in
-		let vm = Db.VM.get_by_uuid ~__context ~uuid:(fst id) in
-		let localhost = Helpers.get_localhost ~__context in
-		if Db.VM.get_resident_on ~__context ~self:vm <> localhost
-		then debug "Ignoring event for VIF (VM %s not resident)" (fst id)
-		else if is_migrating_away (fst id)
-		then debug "Ignoring event for VM (VM %s migrating away)" (fst id)
-		else begin
-			let vifs = Db.VM.get_VIFs ~__context ~self:vm in
-			let vifrs = List.map (fun self -> self, Db.VIF.get_record ~__context ~self) vifs in
-			let vif, _ = List.find (fun (_, vifr) -> vifr.API.vIF_device = (snd id)) vifrs in
-			Opt.iter
-				(fun (_, state) ->
-					if not state.plugged
-					then Xapi_network.deregister_vif ~__context vif;
-					Db.VIF.set_currently_attached ~__context ~self:vif ~value:state.plugged
-				) info;
-			Xapi_vif_helpers.update_allowed_operations ~__context ~self:vif
-		end
+		let previous = Cache.find_vif id in
+		if Opt.map snd info = previous
+		then debug "xenopsd event: ignoring event for VIF %s.%s: metadata has not changed" (fst id) (snd id)
+		else
+			let vm = Db.VM.get_by_uuid ~__context ~uuid:(fst id) in
+			let localhost = Helpers.get_localhost ~__context in
+			if Db.VM.get_resident_on ~__context ~self:vm <> localhost
+			then debug "xenopsd event: ignoring event for VIF (VM %s not resident)" (fst id)
+			else if is_migrating_away (fst id)
+			then debug "xenopsd event: ignoring event for VIF (VM %s migrating away)" (fst id)
+			else begin
+				let vifs = Db.VM.get_VIFs ~__context ~self:vm in
+				let vifrs = List.map (fun self -> self, Db.VIF.get_record ~__context ~self) vifs in
+				let vif, _ = List.find (fun (_, vifr) -> vifr.API.vIF_device = (snd id)) vifrs in
+				Opt.iter
+					(fun (_, state) ->
+						if not state.plugged
+						then Xapi_network.deregister_vif ~__context vif;
+						debug "xenopsd event: Updating VIF %s.%s currently_attached <- %b" (fst id) (snd id) state.plugged;
+						Db.VIF.set_currently_attached ~__context ~self:vif ~value:state.plugged
+					) info;
+				Opt.iter (Cache.replace_vif id) (Opt.map snd info);
+				Xapi_vif_helpers.update_allowed_operations ~__context ~self:vif
+			end
 	with e ->
-		error "Caught %s while updating VIF" (Printexc.to_string e)
+		error "xenopsd event: Caught %s while updating VIF" (Printexc.to_string e)
 
 let rec events_watch ~__context from =
 	let events, next = Client.UPDATES.get from None |> success in
