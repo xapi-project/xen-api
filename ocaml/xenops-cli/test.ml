@@ -74,16 +74,10 @@ let event_wait p =
 let wait_for_task id =
 	Printf.fprintf stderr "wait_for id = %s\n%!" id;
 	let finished = function
-		| Dynamic.Task_t(id', Some t) ->
-			Printf.fprintf stderr "got event for id %s\n%!" id';
-			if id = id' then begin
-				match t.Task.result with
-				| Task.Pending _ -> false
-				| Task.Completed _ -> true
-				| Task.Failed _ -> true
-			end else false
+		| Dynamic.Task id' ->
+			id = id' && (task_ended id)
 		| x ->
-			Printf.fprintf stderr "ignore event on %s\n%!" (x |> Dynamic.rpc_of_t |> Jsonrpc.to_string);
+			Printf.fprintf stderr "ignore event on %s\n%!" (x |> Dynamic.rpc_of_id |> Jsonrpc.to_string);
 			false in 
 	event_wait finished;
 	id
@@ -321,8 +315,12 @@ let vm_test_reboot _ =
 			(* ... need to wait for the domain id to change *)
 			event_wait
 				(function
-					| Dynamic.Vm_t(id', Some(_, vm_state)) ->
-						id = id' && vm_state.Vm.domids <> state.Vm.domids
+					| Dynamic.Vm id' ->
+						id = id' && (match try Some (Client.VM.stat id |> success) with _ -> None with
+							| Some (_, vm_state) ->
+								vm_state.Vm.domids <> state.Vm.domids
+							| _ -> false
+						)
 					| _ -> false);
 			Client.VM.shutdown id None |> success |> wait_for_task |> success_task;
 		)
@@ -338,8 +336,12 @@ let vm_test_halt _ =
 			(* ... need to wait for the domain ids to disappear *)
 			event_wait
 				(function
-					| Dynamic.Vm_t(id', Some(_, vm_state)) ->
-						id = id' && vm_state.Vm.domids = []
+					| Dynamic.Vm id' ->
+						id = id' && (match try Some (Client.VM.stat id |> success) with _ -> None with
+							| Some (_, vm_state) ->
+								vm_state.Vm.domids = []
+							| _ -> false
+						)
 					| _ -> false);
 			Client.VM.shutdown id None |> success |> wait_for_task |> success_task;
 		)

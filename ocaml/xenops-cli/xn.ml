@@ -566,17 +566,15 @@ let rec events_watch from =
 	let open Dynamic in
 	let lines = List.map
 		(function
-			| Vm_t(id, _) ->
+			| Vm id ->
 				Printf.sprintf "VM %s" id
-			| Vbd_t(id, _) ->
+			| Vbd id ->
 				Printf.sprintf "VBD %s.%s" (fst id) (snd id)
-			| Vif_t(id, _) ->
+			| Vif id ->
 				Printf.sprintf "VIF %s.%s" (fst id) (snd id)
-			| Task_t(id, Some x) ->
-				Printf.sprintf "Task %s %s" id (x.Task.result |> Task.rpc_of_result |> Jsonrpc.to_string)
-			| Task_t(id, None) ->
-				Printf.sprintf "Task %s (unknown final state)" id
-			| Barrier_t id ->
+			| Task id ->
+				Printf.sprintf "Task %s" id
+			| Barrier id ->
 				Printf.sprintf "Barrier %d" id
 		) events in
 	List.iter (fun x -> Printf.printf "%-8d %s\n" (Opt.unbox next) x) lines;
