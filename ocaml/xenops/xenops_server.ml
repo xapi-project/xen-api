@@ -845,6 +845,17 @@ module UPDATES = struct
 		debug "inject_barrier %d" id;
 		Updates.add (Dynamic.Barrier id) updates;
 		return ()
+
+	let refresh_vm _ id =
+		debug "refresh_vm %s" id;
+		Updates.add (Dynamic.Vm id) updates;
+		List.iter
+			(fun x -> Updates.add (Dynamic.Vbd x.Vbd.id) updates)
+			(VBD_DB.list id |> List.map fst);
+		List.iter
+			(fun x -> Updates.add (Dynamic.Vif x.Vif.id) updates)
+			(VIF_DB.list id |> List.map fst);
+		return ()
 end
 
 let internal_event_thread = ref None

@@ -798,12 +798,23 @@ let pool_migrate_xenopsd ~__context ~vm ~host ~options =
 		(fun () ->
 			(* XXX: PR-1255: the live flag *)
 			XenopsAPI.VM.migrate vm' xenops_url |> success |> wait_for_task |> success_task |> ignore;
-			(* XXX: PR-1255: have we missed important events on the receiver? *)
 			Helpers.call_api_functions ~__context
 				(fun rpc session_id ->
 					XenAPI.VM.atomic_set_resident_on rpc session_id vm host
 				)
+		);
+	(* We will have missed important events because we set resident_on late.
+	   This was deliberate: resident_on is used by the pool master to reserve
+	   memory. If we called 'atomic_set_resident_on' before the domain is
+	   transferred then we would have no record of the memory use. *)
+	Helpers.call_api_functions ~__context
+		(fun rpc session_id ->
+			XenAPI.VM.pool_migrate_complete rpc session_id vm host
 		)
+
+let pool_migrate_complete ~__context ~vm ~host =
+	debug "VM.pool_migrate_complete %s" (Db.VM.get_uuid ~__context ~self:vm);
+	Xapi_xenops.refresh_vm ~__context ~self:vm
 
 let pool_migrate ~__context =
 	if !Xapi_globs.use_xenopsd then pool_migrate_xenopsd ~__context else pool_migrate_internal ~__context
