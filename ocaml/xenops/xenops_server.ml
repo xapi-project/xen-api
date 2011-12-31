@@ -826,20 +826,9 @@ module DEBUG = struct
 end
 
 module UPDATES = struct
-	let lookup x =
-		let module B = (val get_backend () : S) in
-		let exists f x = try Some(f x) with Exception Does_not_exist -> None in
-		match x with
-			| Dynamic.Vm id -> Dynamic.Vm_t(id, exists VM.stat' id)
-			| Dynamic.Vbd id -> Dynamic.Vbd_t(id, exists VBD.stat' id)
-			| Dynamic.Vif id -> Dynamic.Vif_t(id, exists VIF.stat' id)
-			| Dynamic.Task id -> Dynamic.Task_t(id, exists TASK.stat' id)
-			| Dynamic.Barrier id -> Dynamic.Barrier_t id
-
 	let get _ last timeout =
 		let ids, next = Updates.get last timeout updates in
-		let ts = List.map lookup ids in
-		return (ts, next)
+		return (ids, next)
 
 	let inject_barrier _ id =
 		debug "inject_barrier %d" id;
