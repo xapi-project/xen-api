@@ -875,9 +875,10 @@ module VM = struct
 			) () in
 		let op = VM_receive_memory(id, s) in
 		(* If it's a localhost migration then we're already in the queue *)
+		let open Xenops_client in
 		if is_localhost
 			then immediate_operation dbg id op
-			else queue_operation dbg id op |> Xenops_client.wait_for_task |> ignore
+			else queue_operation dbg id op |> wait_for_task dbg |> success_task dbg |> ignore_task
 end
 
 module DEBUG = struct
