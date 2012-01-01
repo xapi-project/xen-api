@@ -58,14 +58,10 @@ module DB = struct
 	include TypedTable(struct
 		include VmExtra
 		let namespace = "extra"
+		type key = string
+		let key vm = [ vm ]
 	end)
-	let key_of vm = [ vm ]
 end
-
-let read_vmextra_t id =
-	match id |> DB.key_of |> DB.read with
-		| None -> raise (Exception (Does_not_exist ("VmExtra", id)))
-		| Some x -> x
 
 (* Used to signal when work needs to be done on a VM *)
 let updates = Updates.empty ()
@@ -432,7 +428,7 @@ module VM = struct
 		Int64.of_string (xs.Xs.read (Printf.sprintf "/local/domain/%d/memory/initial-target" domid))
 
 	let create_exn (task: Xenops_task.t) vm =
-		let k = DB.key_of vm.Vm.id in
+		let k = vm.Vm.id in
 		with_xc_and_xs
 			(fun xc xs ->
 				let vmextra =
@@ -547,7 +543,7 @@ module VM = struct
 	let destroy = on_domain (fun xc xs task vm di ->
 		let domid = di.Xenctrl.domid in
 
-		let vbds = Opt.default [] (Opt.map (fun d -> d.VmExtra.vbds) (DB.read (DB.key_of vm.Vm.id))) in
+		let vbds = Opt.default [] (Opt.map (fun d -> d.VmExtra.vbds) (DB.read vm.Vm.id)) in
 
 		(* Normally we throw-away our domain-level information. If the domain
 		   has suspended then we preserve it. *)
@@ -555,7 +551,7 @@ module VM = struct
 		then debug "VM %s (domid: %d) has suspended; preserving domain-level information" vm.Vm.id di.Xenctrl.domid
 		else begin
 			debug "VM %s (domid: %d) will not have domain-level information preserved" vm.Vm.id di.Xenctrl.domid;
-			if DB.exists (DB.key_of vm.Vm.id) then DB.remove (DB.key_of vm.Vm.id);
+			if DB.exists vm.Vm.id then DB.remove vm.Vm.id;
 		end;
 		Domain.destroy ~preserve_xs_vm:false ~xc ~xs domid;
 		(* Detach any remaining disks *)
@@ -678,8 +674,8 @@ module VM = struct
 			let arch = Domain.build ~xc ~xs build_info domid in
 			Domain.cpuid_apply ~xc ~hvm:(will_be_hvm vm) domid;
 			debug "Built domid %d with architecture %s" domid (Domain.string_of_domarch arch);
-			let k = DB.key_of vm.Vm.id in
-			let d = read_vmextra_t vm.Vm.id in
+			let k = vm.Vm.id in
+			let d = DB.read_exn vm.Vm.id in
 			DB.write k { d with
 				VmExtra.build_info = Some build_info;
 				ty = Some vm.ty;
@@ -717,7 +713,7 @@ module VM = struct
 	let build task vm vbds vifs = on_domain (build_domain vm vbds vifs) Newest task vm
 
 	let create_device_model_exn saved_state xc xs task vm di =
-		let vmextra = read_vmextra_t vm.Vm.id in
+		let vmextra = DB.read_exn vm.Vm.id in
 		Opt.iter (fun info ->
 			(if saved_state then Device.Dm.restore else Device.Dm.start)
 			~xs ~dmpath:_qemu_dm info di.Xenctrl.domid) (vmextra |> create_device_model_config);
@@ -856,8 +852,8 @@ module VM = struct
 						debug "Final memory usage of the domain = %Ld pages" pages;
 						(* Flush all outstanding disk blocks *)
 
-						let k = DB.key_of vm.Vm.id in
-						let d = read_vmextra_t vm.Vm.id in
+						let k = vm.Vm.id in
+						let d = DB.read_exn vm.Vm.id in
 
 						(* Empty drives should be ignored (since they don't
 						   even exist in the PV case) *)
@@ -879,7 +875,7 @@ module VM = struct
 			) Oldest task vm
 
 	let restore task vm data =
-		let build_info = match read_vmextra_t vm.Vm.id with
+		let build_info = match DB.read_exn vm.Vm.id with
 			| { VmExtra.build_info = None } ->
 				debug "No stored build_info for %s: cannot safely restore" vm.Vm.id;
 				raise (Exception(Does_not_exist("build_info", vm.Vm.id)))
@@ -895,7 +891,7 @@ module VM = struct
 
 	let get_state vm =
 		let uuid = uuid_of_vm vm in
-		let vme = vm.Vm.id |> DB.key_of |> DB.read in (* may not exist *)
+		let vme = vm.Vm.id |> DB.read in (* may not exist *)
 		with_xc_and_xs
 			(fun xc xs ->
 				match domid_of_uuid ~xc ~xs Newest uuid with
@@ -960,10 +956,10 @@ module VM = struct
 			)
 
 	let get_internal_state vm =
-		read_vmextra_t vm.Vm.id |> VmExtra.rpc_of_t |> Jsonrpc.to_string
+		DB.read_exn vm.Vm.id |> VmExtra.rpc_of_t |> Jsonrpc.to_string
 
 	let set_internal_state vm state =
-		let k = DB.key_of vm.Vm.id in
+		let k = vm.Vm.id in
 		DB.write k (state |> Jsonrpc.of_string |> VmExtra.t_of_rpc)
 end
 
@@ -1348,7 +1344,7 @@ let watch_xenstore () =
 						(* The uuid is either in the new domains map or the old map. *)
 						let di = IntMap.find domid (if IntMap.mem domid domains' then domains' else !domains) in
 						let id = Uuid.uuid_of_int_array di.Xenctrl.handle |> Uuid.string_of_uuid in
-						if not (DB.exists [ id ])
+						if not (DB.exists id)
 						then debug "However domain %d is not managed by us: ignoring" domid
 						else begin
 							Updates.add (Dynamic.Vm id) updates;

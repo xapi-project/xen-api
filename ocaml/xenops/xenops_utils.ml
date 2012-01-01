@@ -56,11 +56,13 @@ let unwrap = function
 
 let dropnone x = List.filter_map (fun x -> x) x
 
-module type READWRITE = sig
+module type ITEM = sig
 	type t
 	val t_of_rpc: Rpc.t -> t
 	val rpc_of_t: t -> Rpc.t
 	val namespace: string
+	type key
+	val key: key -> string list
 end
 
 let root = "/var/run/" ^ service_name
@@ -77,42 +79,46 @@ let empty_database () =
 	if Sys.file_exists root then rm_rf root;
 	Unixext.mkdir_rec root 0x0755
 
-module TypedTable = functor(RW: READWRITE) -> struct
-	open RW
+module TypedTable = functor(I: ITEM) -> struct
+	open I
 	type key = string list
-	let filename_of_key k = Printf.sprintf "%s/%s/%s" root RW.namespace (String.concat "/" k)
-	let read (k: key) =
-		let filename = filename_of_key k in
+	let filename_of_key k = Printf.sprintf "%s/%s/%s" root I.namespace (String.concat "/" k)
+	let read (k: I.key) =
+		let filename = k |> I.key |> filename_of_key in
 		debug "DB.read %s" filename;
 		try
 			Some (t_of_rpc (Jsonrpc.of_string (Unixext.string_of_file filename)))
 		with _ -> None
-	let write (k: key) (x: t) =
-		let filename = filename_of_key k in
+	let read_exn (k: I.key) = match read k with
+		| Some x -> x
+		| None -> raise (Exception (Does_not_exist (I.namespace, I.key k |> String.concat "/")))
+	let write (k: I.key) (x: t) =
+		let filename = k |> I.key |> filename_of_key in
 		debug "DB.write %s" filename;
 		Unixext.mkdir_rec (Filename.dirname filename) 0o755;
 		let json = Jsonrpc.to_string (rpc_of_t x) in
 		debug "%s <- %s" filename json;
 		Unixext.write_string_to_file filename json
-	let exists (k: key) = Sys.file_exists (filename_of_key k)
-	let delete (k: key) =
-		let filename = filename_of_key k in
+	let exists (k: I.key) = Sys.file_exists (k |> I.key |> filename_of_key)
+	let delete (k: I.key) =
+		let filename = k |> I.key |> filename_of_key in
 		debug "DB.delete %s" filename;
 		rm_rf filename
 	let list (k: key) =
-		if exists k
-		then Array.to_list (Sys.readdir (filename_of_key k))
+		let filename = filename_of_key k in
+		if Sys.file_exists filename
+		then Array.to_list (Sys.readdir filename)
 		else []
 
-	let add (k: key) (x: t) =
+	let add (k: I.key) (x: t) =
 		if exists k then begin
-			debug "Key %s already exists" (String.concat "/" k);
+			debug "Key %s already exists" (k |> I.key |> filename_of_key);
 			raise (Exception Already_exists)
 		end else write k x
 
-	let remove (k: key) =
+	let remove (k: I.key) =
 		if not(exists k)
-		then raise (Exception(Does_not_exist(RW.namespace, String.concat "/" k)))
+		then raise (Exception(Does_not_exist(I.namespace, k |> I.key |> filename_of_key)))
 		else delete k
 end
 
