@@ -961,6 +961,8 @@ module VM = struct
 	let set_internal_state vm state =
 		let k = vm.Vm.id in
 		DB.write k (state |> Jsonrpc.of_string |> VmExtra.t_of_rpc)
+
+	let minimum_reboot_delay = 120.
 end
 
 let on_frontend f domain_selection frontend =

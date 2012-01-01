@@ -229,6 +229,8 @@ module type S = sig
 
 		val get_internal_state: Vm.t -> string
 		val set_internal_state: Vm.t -> string -> unit
+
+		val minimum_reboot_delay: float
 	end
 	module PCI : sig
 		val get_state: Vm.id -> Pci.t -> Pci.state
