@@ -41,39 +41,39 @@ let might_not_exist = function
 	| (_, Some x) -> failwith (Jsonrpc.to_string (rpc_of_error x))
 	| None, None -> failwith "protocol error"
 
-let query url =
+let query dbg url =
 	let module Remote = Xenops_interface.Client(struct let rpc = rpc url end) in
-	Remote.query () |> success
+	Remote.query dbg () |> success
 
-let event_wait p =
+let event_wait dbg p =
 	let finished = ref false in
 	let event_id = ref None in
 	while not !finished do
-		let deltas, next_id = Client.UPDATES.get !event_id (Some 30) |> success in
+		let deltas, next_id = Client.UPDATES.get dbg !event_id (Some 30) |> success in
 		event_id := next_id;
 		List.iter (fun d -> if p d then finished := true) deltas;
 	done
 
-let task_ended id =
-	match (Client.TASK.stat id |> success).Task.result with
+let task_ended dbg id =
+	match (Client.TASK.stat dbg id |> success).Task.result with
 		| Task.Completed _
 		| Task.Failed _ -> true
 		| Task.Pending _ -> false
 
-let success_task id =
-	let t = Client.TASK.stat id |> success in
+let success_task dbg id =
+	let t = Client.TASK.stat dbg id |> success in
 	match t.Task.result with
 	| Task.Completed _ -> t
 	| Task.Failed x -> failwith (Jsonrpc.to_string (rpc_of_error x))
 	| Task.Pending _ -> failwith "task pending"
 
-let wait_for_task id =
+let wait_for_task dbg id =
 	let finished = function
 		| Dynamic.Task id' ->
-			id = id' && (task_ended id)
+			id = id' && (task_ended dbg id)
 		| _ ->
 			false in 
-	event_wait finished;
+	event_wait dbg finished;
 	id
 
 let ignore_task (t: Task.t) = ()

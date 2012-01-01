@@ -51,6 +51,7 @@ module Receiver = struct
 			Client.VM.destroy local_rpc id |> success |> wait_for_task local_rpc |> success_task local_rpc |> ignore_task
 *)
 	let initial = Waiting_metadata, []
+(*
 	let next (state, created_objects) call = match state, call.Rpc.name, call.Rpc.params with
 		| Waiting_metadata, call, [ Rpc.String md ] when call = _metadata ->
 			let vm = md |> Client.VM.import_metadata |> unwrap in
@@ -63,12 +64,13 @@ module Receiver = struct
 		| state, name, _ ->
 			List.iter cleanup created_objects;
 			Error (Printf.sprintf "Unexpected call. State = %s; Call = %s" (state |> rpc_of_state |> Jsonrpc.to_string) name), []
-
+*)
 	let string_of_state x = x |> fst |> rpc_of_state |> Jsonrpc.to_string
 end
 
 type sender_state = unit
 
+(*
 let rec receiver_loop req s state =
 	let next_req, next_state = try
 		let call = Unixext.really_read_string s (req.Http.Request.content_length |> Opt.unbox |> Int64.to_int) |> Jsonrpc.call_of_string in
@@ -93,6 +95,7 @@ let rec receiver_loop req s state =
 let receive req s _ =
 	let _, _ = receiver_loop req s Receiver.initial in
 	()
+*)
 
 let http_post url length body =
 	Http.Request.make ~version:"1.1" ?auth:(Http.Url.auth_of url) ~user_agent:"xenopsd" ~length ~query:(Http.Url.get_query_params url) ~body Http.Post (Http.Url.get_uri url)

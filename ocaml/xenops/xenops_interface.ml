@@ -53,6 +53,8 @@ type error =
 type error_response = unit option * error option
 type string_response = string option * error option
 
+type debug_info = string
+
 module Query = struct
 	type t = {
 		name: string;
@@ -62,7 +64,7 @@ module Query = struct
 		instance_id: string; (* Unique to this invocation of xenopsd *)
 	}
 end
-external query: unit -> (Query.t option * error option) = ""
+external query: debug_info -> unit -> (Query.t option * error option) = ""
 
 type disk =
 	| Local of string (** path to a local block device *)
@@ -307,68 +309,68 @@ module Dynamic = struct
 end
 
 module TASK = struct
-	external stat: Task.id -> (Task.t option) * (error option) = ""
-	external cancel: Task.id -> (unit option) * (error option) = ""
+	external stat: debug_info -> Task.id -> (Task.t option) * (error option) = ""
+	external cancel: debug_info -> Task.id -> (unit option) * (error option) = ""
 end
 
 module VM = struct
-	external add: Vm.t -> (Vm.id option) * (error option) = ""
-	external remove: Vm.id -> (unit option) * (error option) = ""
+	external add: debug_info -> Vm.t -> (Vm.id option) * (error option) = ""
+	external remove: debug_info -> Vm.id -> (unit option) * (error option) = ""
 
-	external create: Vm.id -> (Task.id option) * (error option) = ""
-	external build: Vm.id -> (Task.id option) * (error option) = ""
-	external create_device_model: Vm.id -> bool -> (Task.id option) * (error option) = ""
-	external destroy: Vm.id -> (Task.id option) * (error option) = ""
-	external pause: Vm.id -> (Task.id option) * (error option) = ""
-	external unpause: Vm.id -> (Task.id option) * (error option) = ""
-	external stat: Vm.id -> ((Vm.t * Vm.state) option) * (error option) = ""
-	external list: unit -> ((Vm.t * Vm.state) list option) * (error option) = ""
+	external create: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
+	external build: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
+	external create_device_model: debug_info -> Vm.id -> bool -> (Task.id option) * (error option) = ""
+	external destroy: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
+	external pause: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
+	external unpause: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
+	external stat: debug_info -> Vm.id -> ((Vm.t * Vm.state) option) * (error option) = ""
+	external list: debug_info -> unit -> ((Vm.t * Vm.state) list option) * (error option) = ""
 
-	external start: Vm.id -> (Task.id option) * (error option) = ""
-	external shutdown: Vm.id -> float option -> (Task.id option) * (error option) = ""
-	external reboot: Vm.id -> float option -> (Task.id option) * (error option) = ""
-	external suspend: Vm.id -> disk -> (Task.id option) * (error option) = ""
-	external resume: Vm.id -> disk -> (Task.id option) * (error option) = ""
+	external start: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
+	external shutdown: debug_info -> Vm.id -> float option -> (Task.id option) * (error option) = ""
+	external reboot: debug_info -> Vm.id -> float option -> (Task.id option) * (error option) = ""
+	external suspend: debug_info -> Vm.id -> disk -> (Task.id option) * (error option) = ""
+	external resume: debug_info -> Vm.id -> disk -> (Task.id option) * (error option) = ""
 
-	external migrate: Vm.id -> string -> (Task.id option) * (error option) = ""
+	external migrate: debug_info -> Vm.id -> string -> (Task.id option) * (error option) = ""
 
-	external export_metadata: Vm.id -> (string option) * (error option) = ""
-	external import_metadata: string -> (Vm.id option) * (error option) = ""
+	external export_metadata: debug_info -> Vm.id -> (string option) * (error option) = ""
+	external import_metadata: debug_info -> string -> (Vm.id option) * (error option) = ""
 end
 
 module PCI = struct
-	external add: Pci.t -> (Pci.id option) * (error option) = ""
-	external remove: Pci.id -> (unit option) * (error option) = ""
-	external list: Vm.id -> ((Pci.t * Pci.state) list option) * (error option) = ""
+	external add: debug_info -> Pci.t -> (Pci.id option) * (error option) = ""
+	external remove: debug_info -> Pci.id -> (unit option) * (error option) = ""
+	external list: debug_info -> Vm.id -> ((Pci.t * Pci.state) list option) * (error option) = ""
 end
 
 module VBD = struct
-	external add: Vbd.t -> (Vbd.id option) * (error option) = ""
-	external plug: Vbd.id -> (Task.id option) * (error option) = ""
-	external unplug: Vbd.id -> bool -> (Task.id option) * (error option) = ""
-	external eject: Vbd.id -> (Task.id option) * (error option) = ""
-	external insert: Vbd.id -> disk -> (Task.id option) * (error option) = ""
-	external stat: Vbd.id -> ((Vbd.t * Vbd.state) option) * (error option) = ""
-	external list: Vm.id -> ((Vbd.t * Vbd.state) list option) * (error option) = ""
-	external remove: Vbd.id -> (unit option) * (error option) = ""
+	external add: debug_info -> Vbd.t -> (Vbd.id option) * (error option) = ""
+	external plug: debug_info -> Vbd.id -> (Task.id option) * (error option) = ""
+	external unplug: debug_info -> Vbd.id -> bool -> (Task.id option) * (error option) = ""
+	external eject: debug_info -> Vbd.id -> (Task.id option) * (error option) = ""
+	external insert: debug_info -> Vbd.id -> disk -> (Task.id option) * (error option) = ""
+	external stat: debug_info -> Vbd.id -> ((Vbd.t * Vbd.state) option) * (error option) = ""
+	external list: debug_info -> Vm.id -> ((Vbd.t * Vbd.state) list option) * (error option) = ""
+	external remove: debug_info -> Vbd.id -> (unit option) * (error option) = ""
 end
 
 module VIF = struct
-	external add: Vif.t -> (Vif.id option) * (error option) = ""
-	external plug: Vif.id -> (Task.id option) * (error option) = ""
-	external unplug: Vif.id -> bool -> (Task.id option) * (error option) = ""
-	external stat: Vif.id -> ((Vif.t * Vif.state) option) * (error option) = ""
-	external list: Vm.id -> ((Vif.t * Vif.state) list option) * (error option) = ""
-	external remove: Vif.id -> (unit option) * (error option) = ""
+	external add: debug_info -> Vif.t -> (Vif.id option) * (error option) = ""
+	external plug: debug_info -> Vif.id -> (Task.id option) * (error option) = ""
+	external unplug: debug_info -> Vif.id -> bool -> (Task.id option) * (error option) = ""
+	external stat: debug_info -> Vif.id -> ((Vif.t * Vif.state) option) * (error option) = ""
+	external list: debug_info -> Vm.id -> ((Vif.t * Vif.state) list option) * (error option) = ""
+	external remove: debug_info -> Vif.id -> (unit option) * (error option) = ""
 end
 
 module UPDATES = struct
-	external get: int option -> int option -> (Dynamic.id list * int option) option * (error option) = ""
-    external inject_barrier: int -> (unit option) * (error option) = ""
-	external refresh_vm: Vm.id -> (unit option) * (error option) = ""
+	external get: debug_info -> int option -> int option -> (Dynamic.id list * int option) option * (error option) = ""
+    external inject_barrier: debug_info -> int -> (unit option) * (error option) = ""
+	external refresh_vm: debug_info -> Vm.id -> (unit option) * (error option) = ""
 end
 
 module DEBUG = struct
-	external trigger: string -> string list -> (unit option) * (error option) = ""
+	external trigger: debug_info -> string -> string list -> (unit option) * (error option) = ""
 end
 

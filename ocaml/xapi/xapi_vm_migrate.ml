@@ -789,6 +789,7 @@ open Listext
 open Fun
 
 let pool_migrate_xenopsd ~__context ~vm ~host ~options =
+	let dbg = Context.string_of_task __context in
 	let session_id = Ref.string_of (Context.get_session_id __context) in
 	let ip = Db.Host.get_address ~__context ~self:host in
 	let xenops_url = Printf.sprintf "http://%s/services/xenops?session_id=%s" ip session_id in
@@ -798,7 +799,7 @@ let pool_migrate_xenopsd ~__context ~vm ~host ~options =
 		(fun () ->
 			(* XXX: PR-1255: the live flag *)
 			info "xenops: VM.migrate %s to %s" vm' xenops_url;
-			XenopsAPI.VM.migrate vm' xenops_url |> success |> wait_for_task |> success_task |> ignore;
+			XenopsAPI.VM.migrate dbg vm' xenops_url |> success |> wait_for_task dbg |> success_task dbg |> ignore;
 			Helpers.call_api_functions ~__context
 				(fun rpc session_id ->
 					XenAPI.VM.atomic_set_resident_on rpc session_id vm host
@@ -837,7 +838,7 @@ let migrate  ~__context ~vm ~dest ~live ~options =
 				let sr = Db.SR.get_uuid ~__context ~self:(Db.VDI.get_SR ~__context ~self:vdi) in
 				Some (location, sr)
 			else None) vbds in
-	let task = Ref.string_of (Context.get_task_id __context) in
+	let task = Context.string_of_task __context in
 	let dest_sr = List.assoc _sr dest in
 	let url = List.assoc _sm dest in
 	let xenops = List.assoc _xenops dest in
@@ -860,7 +861,7 @@ let migrate  ~__context ~vm ~dest ~live ~options =
 		(* Migrate the VM *)
 		let open Xenops_client in
 		let vm = Db.VM.get_uuid ~__context ~self:vm in
-		XenopsAPI.VM.migrate vm xenops |> success |> wait_for_task |> success_task |> ignore
+		XenopsAPI.VM.migrate task vm xenops |> success |> wait_for_task task |> success_task task |> ignore
 	with e ->
 		error "Caught %s: cleaning up" (Printexc.to_string e);
 		List.iter

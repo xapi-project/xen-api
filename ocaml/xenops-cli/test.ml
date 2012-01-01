@@ -39,6 +39,8 @@ let usage_and_exit () =
 	Printf.fprintf stderr "  %s" Sys.argv.(0);
 	exit 1
 
+let dbg = "test"
+
 let success = function
 	| (_, Some x) -> failwith (Jsonrpc.to_string (rpc_of_error x))
 	| (Some x, _) -> x
@@ -66,7 +68,7 @@ let event_wait p =
 	let finished = ref false in
 	let event_id = ref None in
 	while not !finished do
-		let deltas, next_id = Client.UPDATES.get !event_id (Some 30) |> success in
+		let deltas, next_id = Client.UPDATES.get dbg !event_id (Some 30) |> success in
 		event_id := next_id;
 		List.iter (fun d -> if p d then finished := true) deltas;
 	done
@@ -75,7 +77,7 @@ let wait_for_task id =
 	Printf.fprintf stderr "wait_for id = %s\n%!" id;
 	let finished = function
 		| Dynamic.Task id' ->
-			id = id' && (task_ended id)
+			id = id' && (task_ended dbg id)
 		| x ->
 			Printf.fprintf stderr "ignore event on %s\n%!" (x |> Dynamic.rpc_of_id |> Jsonrpc.to_string);
 			false in 
@@ -83,26 +85,26 @@ let wait_for_task id =
 	id
 
 let success_task id =
-	let t = Client.TASK.stat id |> success in
+	let t = Client.TASK.stat dbg id |> success in
 	match t.Task.result with
 	| Task.Completed _ -> ()
 	| Task.Failed x -> failwith (Jsonrpc.to_string (rpc_of_error x))
 	| Task.Pending _ -> failwith "task pending"
 
 let fail_not_built_task id =
-	let t = Client.TASK.stat id |> success in
+	let t = Client.TASK.stat dbg id |> success in
 	match t.Task.result with
 	| Task.Completed _ -> failwith "task completed successfully: expected Domain_not_built"
 	| Task.Failed Domain_not_built -> ()
 	| Task.Failed x -> failwith (Jsonrpc.to_string (rpc_of_error x))
 	| Task.Pending _ -> failwith "task pending"
 
-let test_query _ = let (_: Query.t) = success (Client.query ()) in ()
+let test_query _ = let (_: Query.t) = success (Client.query dbg ()) in ()
 
 let missing_vm = "missing"
 
 let vm_test_remove_missing _ =
-	match Client.VM.remove missing_vm with
+	match Client.VM.remove dbg missing_vm with
 		| Some _, _ -> failwith "VDI.remove succeeded"
 		| None, Some Does_not_exist -> ()
 		| _, _ -> failwith "protocol error"
@@ -222,11 +224,11 @@ let vm_assert_equal vm vm' =
 
 let with_vm id f =
 	let vm = create_vm id in
-	let (id: Vm.id) = success (Client.VM.add vm) in
+	let (id: Vm.id) = success (Client.VM.add dbg vm) in
 	finally (fun () -> f id)
 		(fun () ->
 			try
-				success (Client.VM.remove id)
+				success (Client.VM.remove dbg id)
 			with e ->
 				Printf.fprintf stderr "Caught failure during with_vm cleanup: %s" (Printexc.to_string e);
 				raise e
@@ -239,36 +241,36 @@ let vm_test_add_remove _ =
 let vm_test_create_destroy _ =
 	with_vm example_uuid
 		(fun id ->
-			Client.VM.create id |> success |> wait_for_task |> success_task;
-			Client.VM.destroy id |> success |> wait_for_task |> success_task;
+			Client.VM.create dbg id |> success |> wait_for_task |> success_task;
+			Client.VM.destroy dbg id |> success |> wait_for_task |> success_task;
 		)
 
 let vm_test_pause_unpause _ =
 	with_vm example_uuid
 		(fun id ->
-			Client.VM.create id |> success |> wait_for_task |> success_task;
-			Client.VM.unpause id |> success |> wait_for_task |> fail_not_built_task;
-			Client.VM.pause id |> success |> wait_for_task |> fail_not_built_task;
-			Client.VM.destroy id |> success |> wait_for_task |> success_task;
+			Client.VM.create dbg id |> success |> wait_for_task |> success_task;
+			Client.VM.unpause dbg id |> success |> wait_for_task |> fail_not_built_task;
+			Client.VM.pause dbg id |> success |> wait_for_task |> fail_not_built_task;
+			Client.VM.destroy dbg id |> success |> wait_for_task |> success_task;
 		)
 
 let vm_test_build_pause_unpause _ =
 	with_vm example_uuid
 		(fun id ->
-			Client.VM.create id |> success |> wait_for_task |> success_task;
-			Client.VM.build id |> success |> wait_for_task |> success_task;
-			Client.VM.unpause id |> success |> wait_for_task |> fail_not_built_task;
-			Client.VM.create_device_model id false |> success |> wait_for_task |> success_task;
-			Client.VM.unpause id |> success |> wait_for_task |> success_task;
-			Client.VM.pause id |> success |> wait_for_task |> success_task;
-			Client.VM.destroy id |> success |> wait_for_task |> success_task;
+			Client.VM.create dbg id |> success |> wait_for_task |> success_task;
+			Client.VM.build dbg id |> success |> wait_for_task |> success_task;
+			Client.VM.unpause dbg id |> success |> wait_for_task |> fail_not_built_task;
+			Client.VM.create_device_model dbg id false |> success |> wait_for_task |> success_task;
+			Client.VM.unpause dbg id |> success |> wait_for_task |> success_task;
+			Client.VM.pause dbg id |> success |> wait_for_task |> success_task;
+			Client.VM.destroy dbg id |> success |> wait_for_task |> success_task;
 		)
 
 let vm_test_add_list_remove _ =
 	with_vm example_uuid
 		(fun id ->
 			let vm = create_vm example_uuid in
-			let (vms: (Vm.t * Vm.state) list) = success (Client.VM.list ()) in
+			let (vms: (Vm.t * Vm.state) list) = success (Client.VM.list dbg ()) in
 			let vm' = List.find (fun x -> x.Vm.id = id) (List.map fst vms) in
 			vm_assert_equal vm vm'
 		)
@@ -276,20 +278,20 @@ let vm_test_add_list_remove _ =
 let vm_remove_running _ =
 	with_vm example_uuid
 		(fun id ->
-			Client.VM.create id |> success |> wait_for_task |> success_task;
-			Client.VM.build id |> success |> wait_for_task |> success_task;
-			Client.VM.create_device_model id false |> success |> wait_for_task |> success_task;
-			Client.VM.unpause id |> success |> wait_for_task |> success_task;
-			fail_running (Client.VM.remove id);
-			Client.VM.destroy id |> success |> wait_for_task |> success_task;
+			Client.VM.create dbg id |> success |> wait_for_task |> success_task;
+			Client.VM.build dbg id |> success |> wait_for_task |> success_task;
+			Client.VM.create_device_model dbg id false |> success |> wait_for_task |> success_task;
+			Client.VM.unpause dbg id |> success |> wait_for_task |> success_task;
+			fail_running (Client.VM.remove dbg id);
+			Client.VM.destroy dbg id |> success |> wait_for_task |> success_task;
 		)
 
 let vm_test_start_shutdown _ =
 	with_vm example_uuid
 		(fun id ->
-			Client.VM.start id |> success |> wait_for_task |> success_task;
-			fail_running (Client.VM.remove id);
-			Client.VM.shutdown id None |> success |> wait_for_task |> success_task;
+			Client.VM.start dbg id |> success |> wait_for_task |> success_task;
+			fail_running (Client.VM.remove dbg id);
+			Client.VM.shutdown dbg id None |> success |> wait_for_task |> success_task;
 		)
 
 let vm_test_consoles _ =
@@ -306,63 +308,63 @@ let vm_test_consoles _ =
 let vm_test_reboot _ =
 	with_vm example_uuid
 		(fun id ->
-			Client.VM.create id |> success |> wait_for_task |> success_task;
-			Client.VM.build id |> success |> wait_for_task |> success_task;
-			Client.VM.create_device_model id false |> success |> wait_for_task |> success_task;
-			Client.VM.unpause id |> success |> wait_for_task |> success_task;
-			let state : Vm.state = Client.VM.stat id |> success |> snd in
-			success (Client.DEBUG.trigger "reboot" [ id ]);
+			Client.VM.create dbg id |> success |> wait_for_task |> success_task;
+			Client.VM.build dbg id |> success |> wait_for_task |> success_task;
+			Client.VM.create_device_model dbg id false |> success |> wait_for_task |> success_task;
+			Client.VM.unpause dbg id |> success |> wait_for_task |> success_task;
+			let state : Vm.state = Client.VM.stat dbg id |> success |> snd in
+			success (Client.DEBUG.trigger dbg "reboot" [ id ]);
 			(* ... need to wait for the domain id to change *)
 			event_wait
 				(function
 					| Dynamic.Vm id' ->
-						id = id' && (match try Some (Client.VM.stat id |> success) with _ -> None with
+						id = id' && (match try Some (Client.VM.stat dbg id |> success) with _ -> None with
 							| Some (_, vm_state) ->
 								vm_state.Vm.domids <> state.Vm.domids
 							| _ -> false
 						)
 					| _ -> false);
-			Client.VM.shutdown id None |> success |> wait_for_task |> success_task;
+			Client.VM.shutdown dbg id None |> success |> wait_for_task |> success_task;
 		)
 
 let vm_test_halt _ =
 	with_vm example_uuid
 		(fun id ->
-			Client.VM.create id |> success |> wait_for_task |> success_task;
-			Client.VM.build id |> success |> wait_for_task |> success_task;
-			Client.VM.create_device_model id false |> success |> wait_for_task |> success_task;
-			Client.VM.unpause id |> success |> wait_for_task |> success_task;
-			success (Client.DEBUG.trigger "halt" [ id ]);
+			Client.VM.create dbg id |> success |> wait_for_task |> success_task;
+			Client.VM.build dbg id |> success |> wait_for_task |> success_task;
+			Client.VM.create_device_model dbg id false |> success |> wait_for_task |> success_task;
+			Client.VM.unpause dbg id |> success |> wait_for_task |> success_task;
+			success (Client.DEBUG.trigger dbg "halt" [ id ]);
 			(* ... need to wait for the domain ids to disappear *)
 			event_wait
 				(function
 					| Dynamic.Vm id' ->
-						id = id' && (match try Some (Client.VM.stat id |> success) with _ -> None with
+						id = id' && (match try Some (Client.VM.stat dbg id |> success) with _ -> None with
 							| Some (_, vm_state) ->
 								vm_state.Vm.domids = []
 							| _ -> false
 						)
 					| _ -> false);
-			Client.VM.shutdown id None |> success |> wait_for_task |> success_task;
+			Client.VM.shutdown dbg id None |> success |> wait_for_task |> success_task;
 		)
 
 let vm_test_suspend _ =
 	with_vm example_uuid
 		(fun id ->
-			Client.VM.create id |> success |> wait_for_task |> success_task;
-			Client.VM.build id |> success |> wait_for_task |> success_task;
-			Client.VM.unpause id |> success |> wait_for_task |> success_task;
-			Client.VM.suspend id (Local "disk") |> success |> wait_for_task |> success_task;
-			Client.VM.destroy id |> success |> wait_for_task |> success_task;
+			Client.VM.create dbg id |> success |> wait_for_task |> success_task;
+			Client.VM.build dbg id |> success |> wait_for_task |> success_task;
+			Client.VM.unpause dbg id |> success |> wait_for_task |> success_task;
+			Client.VM.suspend dbg id (Local "disk") |> success |> wait_for_task |> success_task;
+			Client.VM.destroy dbg id |> success |> wait_for_task |> success_task;
 		)
 
 let vm_test_resume _ =
 	with_vm example_uuid
 		(fun id ->
-			Client.VM.create id |> success |> wait_for_task |> success_task;
-			Client.VM.resume id (Local "disk") |> success |> wait_for_task |> success_task;
-			Client.VM.unpause id |> success |> wait_for_task |> success_task;
-			Client.VM.destroy id |> success |> wait_for_task |> success_task;
+			Client.VM.create dbg id |> success |> wait_for_task |> success_task;
+			Client.VM.resume dbg id (Local "disk") |> success |> wait_for_task |> success_task;
+			Client.VM.unpause dbg id |> success |> wait_for_task |> success_task;
+			Client.VM.destroy dbg id |> success |> wait_for_task |> success_task;
 		)
 	
 
@@ -396,11 +398,11 @@ module DeviceTests = functor(D: DEVICE) -> struct
 	let with_added_vm id f =
 		with_vm id
 			(fun id ->
-				Client.VM.create id |> success |> wait_for_task |> success_task;
+				Client.VM.create dbg id |> success |> wait_for_task |> success_task;
 				finally
 					(fun () -> f id)
 					(fun () -> 
-						Client.VM.destroy id |> success |> wait_for_task |> success_task
+						Client.VM.destroy dbg id |> success |> wait_for_task |> success_task
 					)
 			)
 
@@ -480,11 +482,11 @@ module VbdDeviceTests = DeviceTests(struct
 			extra_backend_keys = [ "backend", "keys" ];
 			extra_private_keys = [ "private", "keys" ];
 		}
-	let add = Client.VBD.add
-	let remove = Client.VBD.remove
-	let plug = Client.VBD.plug
-	let unplug id = Client.VBD.unplug id false
-	let list = Client.VBD.list
+	let add = Client.VBD.add dbg
+	let remove = Client.VBD.remove dbg
+	let plug = Client.VBD.plug dbg
+	let unplug id = Client.VBD.unplug dbg id false
+	let list = Client.VBD.list dbg
 	let find id vbds = List.find (fun (x, _) -> x.Vbd.id = id) vbds |> fst
 	let assert_equal vbd vbd' =
 		let open Vbd in
@@ -515,11 +517,11 @@ module VifDeviceTests = DeviceTests(struct
 			other_config = [ "other", "config" ];
 			extra_private_keys = [ "private", "keys" ];
 		}
-	let add = Client.VIF.add
-	let remove = Client.VIF.remove
-	let plug = Client.VIF.plug
-	let unplug id = Client.VIF.unplug id false
-	let list = Client.VIF.list
+	let add = Client.VIF.add dbg
+	let remove = Client.VIF.remove dbg
+	let plug = Client.VIF.plug dbg
+	let unplug id = Client.VIF.unplug dbg id false
+	let list = Client.VIF.list dbg
 	let find id vifs = List.find (fun (x, _) -> x.Vif.id = id) vifs |> fst
 	let assert_equal vif vif' =
 		let open Vif in
