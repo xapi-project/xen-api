@@ -345,7 +345,6 @@ let vm_test_halt _ =
 							| _ -> false
 						)
 					| _ -> false);
-			Client.VM.shutdown dbg id None |> success |> wait_for_task |> success_task;
 		)
 
 let vm_test_suspend _ =
