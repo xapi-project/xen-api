@@ -142,7 +142,7 @@ let _ =
 	  then (module Xenops_server_simulator: Xenops_server_plugin.S)
 	  else (module Xenops_server_xen: Xenops_server_plugin.S)));
 
-  start path Server.process;
+  Debug.with_thread_associated "main" (start path) Server.process;
   Xenops_server_plugin.Scheduler.start ();
   Xenops_server.Per_VM_queues.start ();
   while true do
