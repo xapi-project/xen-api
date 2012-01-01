@@ -54,10 +54,18 @@ module VmExtra = struct
 	} with rpc
 end
 
-module DB = TypedTable(struct
-	include VmExtra
-	let namespace = "extra"
-end)
+module DB = struct
+	include TypedTable(struct
+		include VmExtra
+		let namespace = "extra"
+	end)
+	let key_of vm = [ vm ]
+end
+
+let read_vmextra_t id =
+	match id |> DB.key_of |> DB.read with
+		| None -> raise (Exception (Does_not_exist ("VmExtra", id)))
+		| Some x -> x
 
 (* Used to signal when work needs to be done on a VM *)
 let updates = Updates.empty ()
@@ -208,8 +216,8 @@ let with_disk ~xc ~xs task disk write f = match disk with
 				let frontend_domid = this_domid ~xs in
 				begin match domid_of_uuid ~xc ~xs Expect_only_one (Uuid.uuid_of_string backend_vm_id) with
 					| None ->
-						debug "Failed to determine my own domain id!";
-						raise (Exception Does_not_exist)
+						debug "Failed to determine domid of backend VM id: %s" backend_vm_id;
+						raise (Exception(Does_not_exist("domain", backend_vm_id)))
 					| Some backend_domid when backend_domid = frontend_domid ->
 						(* There's no need to use a PV disk if we're in the same domain *)
 						f vdi.params
@@ -380,7 +388,7 @@ let device_by_id xc xs vm kind domain_selection id =
 	match vm |> Uuid.uuid_of_string |> domid_of_uuid ~xc ~xs domain_selection with
 		| None ->
 			debug "VM %s does not exist in domain list" vm;
-			raise (Exception Does_not_exist)
+			raise (Exception(Does_not_exist("domain", vm)))
 		| Some frontend_domid ->
 			let devices = Device_common.list_frontends ~xs frontend_domid in
 
@@ -398,8 +406,6 @@ let device_by_id xc xs vm kind domain_selection id =
 
 module VM = struct
 	open Vm
-
-	let key_of vm = [ vm.Vm.id ]
 
 	let will_be_hvm vm = match vm.ty with HVM _ -> true | _ -> false
 
@@ -426,72 +432,73 @@ module VM = struct
 		Int64.of_string (xs.Xs.read (Printf.sprintf "/local/domain/%d/memory/initial-target" domid))
 
 	let create_exn (task: Xenops_task.t) vm =
-		let k = key_of vm in
+		let k = DB.key_of vm.Vm.id in
 		with_xc_and_xs
 			(fun xc xs ->
 				let vmextra =
-					if DB.exists k then begin
-						debug "VM %s: reloading stored domain-level configuration" vm.Vm.id;
-						DB.read k |> unbox
-					end else begin
-						debug "VM %s: has no stored domain-level configuration, regenerating" vm.Vm.id;
-						let hvm = match vm.ty with HVM _ -> true | _ -> false in
-						(* XXX add per-vcpu information to the platform data *)
-						(* VCPU configuration *)
-						let pcpus = (Xenctrl.physinfo xc).Xenctrl.max_nr_cpus in
-						let all_pcpus = pcpus |> Range.make 0 |> Range.to_list in
-						let all_vcpus = vm.vcpu_max |> Range.make 0 |> Range.to_list in
-						let masks = match vm.scheduler_params.affinity with
-							| [] ->
-								(* Every vcpu can run on every pcpu *)
-								List.map (fun _ -> all_pcpus) all_vcpus
-							| m :: ms ->
-								(* Treat the first as the template for the rest *)
-								let defaults = List.map (fun _ -> m) all_vcpus in
-								List.take vm.vcpu_max (m :: ms @ defaults) in
-						(* convert a mask into a binary string, one char per pCPU *)
-						let bitmap cpus: string = 
-							let cpus = List.filter (fun x -> x >= 0 && x < pcpus) cpus in
-							let result = String.make pcpus '0' in
-							List.iter (fun cpu -> result.[cpu] <- '1') cpus;
-							result in
-						let affinity = 
-							List.mapi (fun idx mask -> 
-								Printf.sprintf "vcpu/%d/affinity" idx, bitmap mask
-							) masks in
-						let weight = Opt.default [] (Opt.map
-							(fun (w, c) -> [
-								"vcpu/weight", string_of_int w;
-								"vcpu/cap", string_of_int c
-							])
-							vm.scheduler_params.priority
-						) in
-						let vcpus = [
-							"vcpu/number", string_of_int vm.vcpu_max;
-							"vcpu/current", string_of_int vm.vcpus;
-						] @ affinity @ weight in
-						let create_info = {
-							Domain.ssidref = vm.ssidref;
-							hvm = hvm;
-							hap = hvm;
-							name = vm.name;
-							xsdata = vm.xsdata;
-							platformdata = vm.platformdata @ vcpus;
-							bios_strings = vm.bios_strings;
-						} in {
-							VmExtra.create_info = create_info;
-							build_info = None;
-							vcpu_max = vm.vcpu_max;
-							vcpus = vm.vcpus;
-							shadow_multiplier = (match vm.Vm.ty with Vm.HVM { Vm.shadow_multiplier = sm } -> sm | _ -> 1.);
-							memory_static_max = vm.memory_static_max;
-							suspend_memory_bytes = 0L;
-							ty = None;
-							vbds = [];
-							vifs = [];
-							last_create_time = Unix.gettimeofday ();
-						}
-					end in
+					match DB.read k with
+						| Some x ->
+							debug "VM %s: reloading stored domain-level configuration" vm.Vm.id;
+							x
+						| None -> begin
+							debug "VM %s: has no stored domain-level configuration, regenerating" vm.Vm.id;
+							let hvm = match vm.ty with HVM _ -> true | _ -> false in
+							(* XXX add per-vcpu information to the platform data *)
+							(* VCPU configuration *)
+							let pcpus = (Xenctrl.physinfo xc).Xenctrl.max_nr_cpus in
+							let all_pcpus = pcpus |> Range.make 0 |> Range.to_list in
+							let all_vcpus = vm.vcpu_max |> Range.make 0 |> Range.to_list in
+							let masks = match vm.scheduler_params.affinity with
+								| [] ->
+									(* Every vcpu can run on every pcpu *)
+									List.map (fun _ -> all_pcpus) all_vcpus
+								| m :: ms ->
+									(* Treat the first as the template for the rest *)
+									let defaults = List.map (fun _ -> m) all_vcpus in
+									List.take vm.vcpu_max (m :: ms @ defaults) in
+							(* convert a mask into a binary string, one char per pCPU *)
+							let bitmap cpus: string = 
+								let cpus = List.filter (fun x -> x >= 0 && x < pcpus) cpus in
+								let result = String.make pcpus '0' in
+								List.iter (fun cpu -> result.[cpu] <- '1') cpus;
+								result in
+							let affinity = 
+								List.mapi (fun idx mask -> 
+									Printf.sprintf "vcpu/%d/affinity" idx, bitmap mask
+								) masks in
+							let weight = Opt.default [] (Opt.map
+								(fun (w, c) -> [
+									"vcpu/weight", string_of_int w;
+									"vcpu/cap", string_of_int c
+								])
+								vm.scheduler_params.priority
+							) in
+							let vcpus = [
+								"vcpu/number", string_of_int vm.vcpu_max;
+								"vcpu/current", string_of_int vm.vcpus;
+							] @ affinity @ weight in
+							let create_info = {
+								Domain.ssidref = vm.ssidref;
+								hvm = hvm;
+								hap = hvm;
+								name = vm.name;
+								xsdata = vm.xsdata;
+								platformdata = vm.platformdata @ vcpus;
+								bios_strings = vm.bios_strings;
+							} in {
+								VmExtra.create_info = create_info;
+								build_info = None;
+								vcpu_max = vm.vcpu_max;
+								vcpus = vm.vcpus;
+								shadow_multiplier = (match vm.Vm.ty with Vm.HVM { Vm.shadow_multiplier = sm } -> sm | _ -> 1.);
+								memory_static_max = vm.memory_static_max;
+								suspend_memory_bytes = 0L;
+								ty = None;
+								vbds = [];
+								vifs = [];
+								last_create_time = Unix.gettimeofday ();
+							}
+						end in
 				let open Memory in
 				let overhead_bytes = compute_overhead vmextra in
 				(* If we are resuming then we know exactly how much memory is needed *)
@@ -523,7 +530,7 @@ module VM = struct
 		with_xc_and_xs
 			(fun xc xs ->
 				match di_of_uuid ~xc ~xs domain_selection uuid with
-					| None -> raise (Exception Does_not_exist)
+					| None -> raise (Exception(Does_not_exist("domain", vm.Vm.id)))
 					| Some di -> f xc xs task vm di
 			)
 
@@ -540,7 +547,7 @@ module VM = struct
 	let destroy = on_domain (fun xc xs task vm di ->
 		let domid = di.Xenctrl.domid in
 
-		let vbds = Opt.default [] (Opt.map (fun d -> d.VmExtra.vbds) (DB.read (key_of vm))) in
+		let vbds = Opt.default [] (Opt.map (fun d -> d.VmExtra.vbds) (DB.read (DB.key_of vm.Vm.id))) in
 
 		(* Normally we throw-away our domain-level information. If the domain
 		   has suspended then we preserve it. *)
@@ -548,7 +555,7 @@ module VM = struct
 		then debug "VM %s (domid: %d) has suspended; preserving domain-level information" vm.Vm.id di.Xenctrl.domid
 		else begin
 			debug "VM %s (domid: %d) will not have domain-level information preserved" vm.Vm.id di.Xenctrl.domid;
-			if DB.exists (key_of vm) then DB.remove (key_of vm);
+			if DB.exists (DB.key_of vm.Vm.id) then DB.remove (DB.key_of vm.Vm.id);
 		end;
 		Domain.destroy ~preserve_xs_vm:false ~xc ~xs domid;
 		(* Detach any remaining disks *)
@@ -671,8 +678,8 @@ module VM = struct
 			let arch = Domain.build ~xc ~xs build_info domid in
 			Domain.cpuid_apply ~xc ~hvm:(will_be_hvm vm) domid;
 			debug "Built domid %d with architecture %s" domid (Domain.string_of_domarch arch);
-			let k = key_of vm in
-			let d = Opt.unbox (DB.read k) in
+			let k = DB.key_of vm.Vm.id in
+			let d = read_vmextra_t vm.Vm.id in
 			DB.write k { d with
 				VmExtra.build_info = Some build_info;
 				ty = Some vm.ty;
@@ -710,7 +717,7 @@ module VM = struct
 	let build task vm vbds vifs = on_domain (build_domain vm vbds vifs) Newest task vm
 
 	let create_device_model_exn saved_state xc xs task vm di =
-		let vmextra = vm |> key_of |> DB.read |> Opt.unbox in
+		let vmextra = read_vmextra_t vm.Vm.id in
 		Opt.iter (fun info ->
 			(if saved_state then Device.Dm.restore else Device.Dm.start)
 			~xs ~dmpath:_qemu_dm info di.Xenctrl.domid) (vmextra |> create_device_model_config);
@@ -849,8 +856,8 @@ module VM = struct
 						debug "Final memory usage of the domain = %Ld pages" pages;
 						(* Flush all outstanding disk blocks *)
 
-						let k = key_of vm in
-						let d = Opt.unbox (DB.read k) in
+						let k = DB.key_of vm.Vm.id in
+						let d = read_vmextra_t vm.Vm.id in
 
 						(* Empty drives should be ignored (since they don't
 						   even exist in the PV case) *)
@@ -872,7 +879,11 @@ module VM = struct
 			) Oldest task vm
 
 	let restore task vm data =
-		let build_info = vm |> key_of |> DB.read |> Opt.unbox |> (fun x -> x.VmExtra.build_info) |> Opt.unbox in
+		let build_info = match read_vmextra_t vm.Vm.id with
+			| { VmExtra.build_info = None } ->
+				debug "No stored build_info for %s: cannot safely restore" vm.Vm.id;
+				raise (Exception(Does_not_exist("build_info", vm.Vm.id)))
+			| { VmExtra.build_info = Some x } -> x in
 		on_domain
 			(fun xc xs task vm di ->
 				let domid = di.Xenctrl.domid in
@@ -884,7 +895,7 @@ module VM = struct
 
 	let get_state vm =
 		let uuid = uuid_of_vm vm in
-		let vme = vm |> key_of |> DB.read in (* may not exist *)
+		let vme = vm.Vm.id |> DB.key_of |> DB.read in (* may not exist *)
 		with_xc_and_xs
 			(fun xc xs ->
 				match domid_of_uuid ~xc ~xs Newest uuid with
@@ -949,17 +960,19 @@ module VM = struct
 			)
 
 	let get_internal_state vm =
-		vm |> key_of |> DB.read |> Opt.unbox |> VmExtra.rpc_of_t |> Jsonrpc.to_string
+		read_vmextra_t vm.Vm.id |> VmExtra.rpc_of_t |> Jsonrpc.to_string
 
 	let set_internal_state vm state =
-		let k = key_of vm in
+		let k = DB.key_of vm.Vm.id in
 		DB.write k (state |> Jsonrpc.of_string |> VmExtra.t_of_rpc)
 end
 
 let on_frontend f domain_selection frontend =
 	with_xc_and_xs
 		(fun xc xs ->
-			let frontend_di = frontend |> Uuid.uuid_of_string |> di_of_uuid ~xc ~xs domain_selection |> unbox in
+			let frontend_di = match frontend |> Uuid.uuid_of_string |> di_of_uuid ~xc ~xs domain_selection with
+				| None -> raise (Exception (Does_not_exist ("domain", frontend)))
+				| Some x -> x in
 			f xc xs frontend_di.Xenctrl.domid frontend_di.Xenctrl.hvm_guest
 		)
 
@@ -1075,7 +1088,7 @@ module VBD = struct
 					Xenops_task.with_subtask task (Printf.sprintf "Vbd.release %s" (id_of vbd))
 						(fun () -> Device.Vbd.release ~xs device);
 					deactivate_and_detach task device vbd;
-				with (Exception Does_not_exist) ->
+				with (Exception(Does_not_exist(_,_))) ->
 					debug "Ignoring missing device: %s" (id_of vbd)
 			)
 
@@ -1124,7 +1137,7 @@ module VBD = struct
 						kthread_pid = kthread_pid
 					}
 				with
-					| Exception Does_not_exist
+					| Exception (Does_not_exist(_, _))
 					| Exception Device_not_connected ->
 						unplugged_vbd
 			)
@@ -1151,7 +1164,11 @@ module VIF = struct
 		match vif.backend with
 			| Bridge _
 			| VSwitch _ -> this_domid ~xs
-			| Netback (vm, _) -> vm |> Uuid.uuid_of_string |> domid_of_uuid ~xc ~xs Expect_only_one |> unbox
+			| Netback (vm, _) ->
+				begin match vm |> Uuid.uuid_of_string |> domid_of_uuid ~xc ~xs Expect_only_one with
+					| None -> raise (Exception (Does_not_exist ("domain", vm)))
+					| Some x -> x
+				end
 
 	let plug_exn task vm vif =
 		on_frontend
@@ -1189,7 +1206,7 @@ module VIF = struct
 						(fun () -> (if force then Device.hard_shutdown else Device.clean_shutdown) ~xs device);
 					Xenops_task.with_subtask task (Printf.sprintf "Vif.release %s" (id_of vif))
 						(fun () -> Device.Vif.release ~xs device);
-				with (Exception Does_not_exist) ->
+				with (Exception(Does_not_exist(_,_))) ->
 					debug "Ignoring missing device: %s" (id_of vif)
 			);
 		()
@@ -1208,7 +1225,7 @@ module VIF = struct
 						kthread_pid = kthread_pid
 					}
 				with
-					| Exception Does_not_exist
+					| Exception (Does_not_exist(_,_))
 					| Exception Device_not_connected ->
 						unplugged_vif
 			)
@@ -1435,7 +1452,7 @@ module DEBUG = struct
 			with_xc_and_xs
 				(fun xc xs ->
 					match di_of_uuid ~xc ~xs Newest uuid with
-						| None -> raise (Exception Does_not_exist)			
+						| None -> raise (Exception(Does_not_exist("domain", k)))			
 						| Some di ->
 							Xenctrl.domain_shutdown xc di.Xenctrl.domid Xenctrl.Reboot
 				)
@@ -1444,7 +1461,7 @@ module DEBUG = struct
 			with_xc_and_xs
 				(fun xc xs ->
 					match di_of_uuid ~xc ~xs Newest uuid with
-						| None -> raise (Exception Does_not_exist)			
+						| None -> raise (Exception(Does_not_exist("domain", k)))
 						| Some di ->
 							Xenctrl.domain_shutdown xc di.Xenctrl.domid Xenctrl.Halt
 				)

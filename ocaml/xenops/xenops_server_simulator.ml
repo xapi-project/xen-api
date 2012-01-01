@@ -67,8 +67,9 @@ let m = Mutex.create ()
 
 let read x = match DB.read x with
 	| None ->
-		debug "Failed to find key: %s" (String.concat "/" x);
-		raise (Exception Does_not_exist)
+		let k = String.concat "/" x in
+		debug "Failed to find key: %s" k;
+		raise (Exception(Does_not_exist("DB", k)))
 	| Some y -> y
 
 let create_nolock vm () =
@@ -252,7 +253,7 @@ let remove_vif vm vif () =
 	let d = read k in
 	let this_one x = x.Vif.id = vif.Vif.id in
 	if List.filter this_one d.Domain.vifs = []
-	then raise (Exception Does_not_exist)
+	then raise (Exception(Does_not_exist("VIF", Printf.sprintf "%s.%s" (fst vif.Vif.id) (snd vif.Vif.id))))
 	else DB.write k { d with Domain.vifs = List.filter (fun x -> not (this_one x)) d.Domain.vifs }
 
 let remove_pci vm pci () =
@@ -260,7 +261,7 @@ let remove_pci vm pci () =
 	let d = read k in
 	let this_one x = x.Pci.id = pci.Pci.id in
 	if List.filter this_one d.Domain.pcis = []
-	then raise (Exception Does_not_exist)
+	then raise (Exception(Does_not_exist("PCI", Printf.sprintf "%s.%s" (fst pci.Pci.id) (snd pci.Pci.id))))
 	else DB.write k { d with Domain.pcis = List.filter (fun x -> not (this_one x)) d.Domain.pcis }
 
 let remove_vbd vm vbd () =
@@ -268,7 +269,7 @@ let remove_vbd vm vbd () =
 	let d = read k in
 	let this_one x = x.Vbd.id = vbd.Vbd.id in
 	if List.filter this_one d.Domain.vbds = []
-	then raise (Exception Does_not_exist)
+	then raise (Exception(Does_not_exist("VBD", Printf.sprintf "%s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id))))
 	else DB.write k { d with Domain.vbds = List.filter (fun x -> not (this_one x)) d.Domain.vbds }
 	
 module VM = struct

@@ -106,7 +106,7 @@ let missing_vm = "missing"
 let vm_test_remove_missing _ =
 	match Client.VM.remove dbg missing_vm with
 		| Some _, _ -> failwith "VDI.remove succeeded"
-		| None, Some Does_not_exist -> ()
+		| None, Some (Does_not_exist(_, _)) -> ()
 		| _, _ -> failwith "protocol error"
 
 let example_uuid = "c0ffeec0-ffee-c0ff-eec0-ffeec0ffeec0"
