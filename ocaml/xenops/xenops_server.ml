@@ -517,7 +517,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 				| Some Needs_poweroff -> vm.Vm.on_shutdown
 				| Some Needs_crashdump ->
 					(* A VM which crashes too quickly should be shutdown *)
-					if run_time < 120.0 then begin
+					if run_time < 120. then begin
 						debug "VM %s ran too quickly (%.2f seconds); shutting down" id run_time;
 						[ Vm.Shutdown ]
 					end else vm.Vm.on_crash
@@ -531,7 +531,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 				| Vm.Coredump -> []
 				| Vm.Shutdown -> [ VM_poweroff (id, None) ]
 				| Vm.Start    ->
-					let delay = if run_time < 60. then begin
+					let delay = if run_time < B.VM.minimum_reboot_delay then begin
 						debug "VM %s rebooted too quickly; inserting delay" id;
 						[ VM_delay (id, 15.) ]
 					end else [] in
