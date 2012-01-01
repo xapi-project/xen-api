@@ -28,7 +28,7 @@ type power_state =
 type error =
 	| Internal_error of string
 	| Already_exists
-	| Does_not_exist
+	| Does_not_exist of string * string
 	| Unimplemented
 	| Domain_not_built
 	| Bad_power_state of power_state * power_state

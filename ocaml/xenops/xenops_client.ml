@@ -36,7 +36,7 @@ let success = function
 	| None, None -> failwith "protocol error"
 
 let might_not_exist = function
-	| (_, Some Does_not_exist) -> ()
+	| (_, Some (Does_not_exist(_, _))) -> ()
 	| (Some (), _) -> ()
 	| (_, Some x) -> failwith (Jsonrpc.to_string (rpc_of_error x))
 	| None, None -> failwith "protocol error"
