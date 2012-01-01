@@ -33,7 +33,7 @@ let make_context () = {
 
 let instance_id = Uuid.string_of_uuid (Uuid.make_uuid ())
 
-let query _ _ = Some {
+let query _ _ _ = Some {
 	Query.name = "xenops";
 	vendor = "XCP";
 	version = "0.1";
@@ -132,7 +132,7 @@ let string_of_operation =
 	| VIF_check_state id -> sprintf "VIF_check_state %s.%s" (fst id) (snd id)
 
 module TASK = struct
-	let cancel _ id =
+	let cancel _ id dbg =
 		Mutex.execute m
 			(fun () ->
 				let x = find_locked id in
@@ -148,7 +148,7 @@ module TASK = struct
 					Task.subtasks = x.subtasks;
 				}
 			)
-	let stat _ id = stat' id |> return
+	let stat _ dbg id = stat' id |> return
 end
 
 module VM_DB = struct
@@ -229,14 +229,17 @@ end
 
 let updates =
 	let u = Updates.empty () in
-	(* Make sure all objects are 'registered' with the updates system *)
-	(* XXX: when do they get unregistered again? *)
-	List.iter
-		(fun vm ->
-			Updates.add (Dynamic.Vm vm) u;
-			List.iter (fun vbd -> Updates.add (Dynamic.Vbd vbd) u) (VBD_DB.ids vm);
-			List.iter (fun vif -> Updates.add (Dynamic.Vif vif) u) (VIF_DB.ids vm)
-		) (VM_DB.ids ());
+	Debug.with_thread_associated "updates"
+		(fun () ->
+			(* Make sure all objects are 'registered' with the updates system *)
+			(* XXX: when do they get unregistered again? *)
+			List.iter
+				(fun vm ->
+					Updates.add (Dynamic.Vm vm) u;
+					List.iter (fun vbd -> Updates.add (Dynamic.Vbd vbd) u) (VBD_DB.ids vm);
+					List.iter (fun vif -> Updates.add (Dynamic.Vif vif) u) (VIF_DB.ids vm)
+				) (VM_DB.ids ())
+		) ();
 	u
 
 module Per_VM_queues = struct
@@ -246,11 +249,14 @@ module Per_VM_queues = struct
 	let c = Condition.create ()
 
 	let add vm (op, f) =
-		Mutex.execute m
+		Debug.with_thread_associated "queue"
 			(fun () ->
-				debug "Queue.push %s" (string_of_operation op);
-				Queue.push (op, f) queue;
-				Condition.signal c)
+				Mutex.execute m
+					(fun () ->
+						debug "Queue.push %s" (string_of_operation op);
+						Queue.push (op, f) queue;
+						Condition.signal c)
+			) ()
 
 	let rec process_queue q =
 		debug "Queue.pop called";
@@ -265,7 +271,12 @@ module Per_VM_queues = struct
 		debug "Queue.pop returned %s" (string_of_operation op);
 		begin
 			try
-				Debug.with_thread_associated (string_of_operation op) Xenops_task.run item;
+				Debug.with_thread_associated
+					item.Xenops_task.dbg
+					(fun () ->
+						debug "Task %s reference %s: %s" item.Xenops_task.id item.Xenops_task.dbg (string_of_operation op);
+						Xenops_task.run item
+					) ()
 			with e ->
 				debug "Queue caught: %s" (Printexc.to_string e)
 		end;
@@ -274,7 +285,8 @@ module Per_VM_queues = struct
 		process_queue q
 
 	let start () =
-		let (_: Thread.t) = Thread.create process_queue queue in
+		let (_: Thread.t) = Thread.create
+			(Debug.with_thread_associated "queue" process_queue) queue in
 		()
 end
 
@@ -293,7 +305,6 @@ let export_metadata id =
 
 let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 	let module B = (val get_backend () : S) in
-	
 	let one = function
 		| VM_start id ->
 			debug "VM.start %s" id;
@@ -405,7 +416,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			(* We need to perform version exchange here *)
 			let is_localhost =
 				try
-					let q = query url in
+					let q = query t.Xenops_task.dbg url in
 					debug "Remote system is: %s" (q |> Query.rpc_of_t |> Jsonrpc.to_string);
 					q.Query.instance_id = instance_id
 				with e ->
@@ -414,13 +425,13 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			if is_localhost
 			then debug "This is a localhost migration.";
 			let module Remote = Xenops_interface.Client(struct let rpc = rpc url end) in
-			let id = Remote.VM.import_metadata (export_metadata id) |> success in
+			let id = Remote.VM.import_metadata t.Xenops_task.dbg (export_metadata id) |> success in
 			debug "Received id = %s" id;
 			let suffix = Printf.sprintf "/memory/%s" id in
 			let memory_url = Http.Url.(set_uri url (get_uri url ^ suffix)) in
 			with_transport (transport_of_url memory_url)
 				(fun mfd ->
-					Http_client.rpc mfd (Xenops_migrate.http_put memory_url ~cookie:["instance_id", instance_id])
+					Http_client.rpc mfd (Xenops_migrate.http_put memory_url ~cookie:["instance_id", instance_id; "dbg", t.Xenops_task.dbg])
 						(fun response _ ->
 							debug "XXX transmit memory";
 							perform ~subtask:"memory transfer" (VM_save(id, [ Live ], FD mfd)) t;
@@ -621,15 +632,19 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 		| None -> one op
 		| Some name -> Xenops_task.with_subtask t name (fun () -> one op)
 
-let queue_operation id op =
-	let task = Xenops_task.add (fun t -> perform op t) in
+let queue_operation dbg id op =
+	let task = Xenops_task.add dbg (fun t -> perform op t) in
 	Per_VM_queues.add id (op, task);
 	debug "Pushed %s with id %s" (string_of_operation op) task.Xenops_task.id;
 	task.Xenops_task.id
 
-let immediate_operation id op =
-	let task = Xenops_task.add (fun t -> perform op t) in
-	Debug.with_thread_associated (string_of_operation op) Xenops_task.run task
+let immediate_operation dbg id op =
+	let task = Xenops_task.add dbg (fun t -> perform op t) in
+	Debug.with_thread_associated dbg
+		(fun () ->
+			debug "Task %s reference %s: %s" task.Xenops_task.id task.Xenops_task.dbg (string_of_operation op);
+			Xenops_task.run task
+		) ()
 
 module PCI = struct
 	open Pci
@@ -646,16 +661,24 @@ module PCI = struct
 		end;
 		DB.write (DB.key_of x.id) x;
 		x.id
-	let add _ x = add' x |> return
+	let add _ dbg x =
+		Debug.with_thread_associated dbg (fun () -> add' x |> return) ()
 
-	let remove _ id =
-		debug "PCI.remove %s" (string_of_id id);
-		let module B = (val get_backend () : S) in
-		if (B.PCI.get_state (DB.vm_of id) (id |> DB.key_of |> DB.read |> unbox)).Pci.plugged
-		then raise (Exception Device_is_connected)
-		else return (DB.remove (DB.key_of id))
+	let remove _ dbg id =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				debug "PCI.remove %s" (string_of_id id);
+				let module B = (val get_backend () : S) in
+				if (B.PCI.get_state (DB.vm_of id) (id |> DB.key_of |> DB.read |> unbox)).Pci.plugged
+				then raise (Exception Device_is_connected)
+				else return (DB.remove (DB.key_of id))
+			) ()
 
-	let list _ vm = DB.list vm |> return
+	let list _ dbg vm =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				debug "PCI.list %s" vm;
+				DB.list vm |> return) ()
 end
 
 module VBD = struct
@@ -673,28 +696,41 @@ module VBD = struct
 		end;
 		DB.write (DB.key_of x.id) x;
 		x.id
-	let add _ x = add' x |> return
+	let add _ dbg x =
+		Debug.with_thread_associated dbg
+			(fun () -> add' x |> return) ()
 
-	let plug _ id = queue_operation (DB.vm_of id) (VBD_plug id) |> return
-	let unplug _ id force = queue_operation (DB.vm_of id) (VBD_unplug (id, force)) |> return
+	let plug _ dbg id = queue_operation dbg (DB.vm_of id) (VBD_plug id) |> return
+	let unplug _ dbg id force = queue_operation dbg (DB.vm_of id) (VBD_unplug (id, force)) |> return
 
-	let insert _ id disk = queue_operation (DB.vm_of id) (VBD_insert(id, disk)) |> return
-	let eject _ id = queue_operation (DB.vm_of id) (VBD_eject id) |> return
-	let remove _ id =
-		debug "VBD.remove %s" (string_of_id id);
-		let module B = (val get_backend () : S) in
-		if (B.VBD.get_state (DB.vm_of id) (id |> DB.key_of |> DB.read |> unbox)).Vbd.plugged
-		then raise (Exception Device_is_connected)
-		else return (DB.remove (DB.key_of id))
+	let insert _ dbg id disk = queue_operation dbg (DB.vm_of id) (VBD_insert(id, disk)) |> return
+	let eject _ dbg id = queue_operation dbg (DB.vm_of id) (VBD_eject id) |> return
+	let remove _ dbg id =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				debug "VBD.remove %s" (string_of_id id);
+				let module B = (val get_backend () : S) in
+				if (B.VBD.get_state (DB.vm_of id) (id |> DB.key_of |> DB.read |> unbox)).Vbd.plugged
+				then raise (Exception Device_is_connected)
+				else return (DB.remove (DB.key_of id))
+			) ()
 
 	let stat' id =
+		debug "VBD.stat %s" (string_of_id id);
 		let module B = (val get_backend () : S) in
 		let vbd_t = id |> DB.key_of |> DB.read |> unbox in
 		let state = B.VBD.get_state (DB.vm_of id) vbd_t in
 		vbd_t, state
-	let stat _ id = return (stat' id)
+	let stat _ dbg id =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				return (stat' id)) ()
 
-	let list _ vm = DB.list vm |> return
+	let list _ dbg vm =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				debug "VBD.list %s" vm;
+				DB.list vm |> return) ()
 end
 
 module VIF = struct
@@ -718,26 +754,37 @@ module VIF = struct
 			| mac -> mac in
 		DB.write (DB.key_of x.id) { x with mac = mac };
 		x.id
-	let add _ x = add' x |> return
+	let add _ dbg x =
+		Debug.with_thread_associated dbg (fun () -> add' x |> return) ()
 
-	let plug _ id = queue_operation (DB.vm_of id) (VIF_plug id) |> return
-	let unplug _ id force = queue_operation (DB.vm_of id) (VIF_unplug (id, force)) |> return
+	let plug _ dbg id = queue_operation dbg (DB.vm_of id) (VIF_plug id) |> return
+	let unplug _ dbg id force = queue_operation dbg (DB.vm_of id) (VIF_unplug (id, force)) |> return
 
-	let remove _ id =
-		debug "VIF.remove %s" (string_of_id id);
-		let module B = (val get_backend () : S) in
-		if (B.VIF.get_state (DB.vm_of id) (id |> DB.key_of |> DB.read |> unbox)).Vif.plugged
-		then raise (Exception Device_is_connected)
-		else return (DB.remove (DB.key_of id))
+	let remove _ dbg id =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				debug "VIF.remove %s" (string_of_id id);
+				let module B = (val get_backend () : S) in
+				if (B.VIF.get_state (DB.vm_of id) (id |> DB.key_of |> DB.read |> unbox)).Vif.plugged
+				then raise (Exception Device_is_connected)
+				else return (DB.remove (DB.key_of id))
+			) ()
 
 	let stat' id =
+		debug "VIF.stat %s" (string_of_id id);
 		let module B = (val get_backend () : S) in
 		let vif_t = id |> DB.key_of |> DB.read |> unbox in
 		let state = B.VIF.get_state (DB.vm_of id) vif_t in
 		vif_t, state
-	let stat _ id = return (stat' id)
+	let stat _ dbg id =
+		Debug.with_thread_associated dbg
+			(fun () -> return (stat' id)) ()
 
-	let list _ vm = DB.list vm |> return
+	let list _ dbg vm =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				debug "VIF.list %s" vm;
+				DB.list vm |> return) ()
 end
 
 module VM = struct
@@ -749,108 +796,136 @@ module VM = struct
 		debug "VM.add %s" (Jsonrpc.to_string (rpc_of_t x));
 		DB.write (DB.key_of x.id) x;
 		x.id
-	let add _ x = add' x |> return
-	let remove _ id = immediate_operation id (VM_remove id) |> return
+	let add _ dbg x =
+		Debug.with_thread_associated dbg (fun () -> add' x |> return) ()
+	let remove _ dbg id = immediate_operation dbg id (VM_remove id) |> return
 
 	let stat' x =
+		debug "VM.stat %s" x;
 		let module B = (val get_backend () : S) in
 		let vm_t = x |> DB.key_of |> DB.read |> unbox in
 		let state = B.VM.get_state vm_t in
 		vm_t, state
-	let stat _ id = return (stat' id)
+	let stat _ dbg id =
+		Debug.with_thread_associated dbg (fun () -> return (stat' id)) ()
 
-	let list _ () = DB.list () |> return
+	let list _ dbg () =
+		Debug.with_thread_associated dbg (fun () ->
+			debug "VM.list";
+			DB.list () |> return) ()
 
-	let create _ id = queue_operation id (VM_create id) |> return
+	let create _ dbg id = queue_operation dbg id (VM_create id) |> return
 
-	let build _ id = queue_operation id (VM_build id) |> return
+	let build _ dbg id = queue_operation dbg id (VM_build id) |> return
 
-	let create_device_model _ id save_state = queue_operation id (VM_create_device_model (id, save_state)) |> return
+	let create_device_model _ dbg id save_state = queue_operation dbg id (VM_create_device_model (id, save_state)) |> return
 
-	let destroy _ id = queue_operation id (VM_destroy id) |> return
+	let destroy _ dbg id = queue_operation dbg id (VM_destroy id) |> return
 
-	let pause _ id = queue_operation id (VM_pause id) |> return
+	let pause _ dbg id = queue_operation dbg id (VM_pause id) |> return
 
-	let unpause _ id = queue_operation id (VM_unpause id) |> return
+	let unpause _ dbg id = queue_operation dbg id (VM_unpause id) |> return
 
-	let start _ id = queue_operation id (VM_start id) |> return
+	let start _ dbg id = queue_operation dbg id (VM_start id) |> return
 
-	let shutdown _ id timeout = queue_operation id (VM_poweroff (id, timeout)) |> return
+	let shutdown _ dbg id timeout = queue_operation dbg id (VM_poweroff (id, timeout)) |> return
 
-	let reboot _ id timeout = queue_operation id (VM_reboot (id, timeout)) |> return
+	let reboot _ dbg id timeout = queue_operation dbg id (VM_reboot (id, timeout)) |> return
 
-	let suspend _ id disk = queue_operation id (VM_suspend (id, Disk disk)) |> return
+	let suspend _ dbg id disk = queue_operation dbg id (VM_suspend (id, Disk disk)) |> return
 
-	let resume _ id disk = queue_operation id (VM_resume (id, Disk disk)) |> return
+	let resume _ dbg id disk = queue_operation dbg id (VM_resume (id, Disk disk)) |> return
 
-	let migrate context id url = queue_operation id (VM_migrate (id, url)) |> return
+	let migrate context dbg id url = queue_operation dbg id (VM_migrate (id, url)) |> return
 
-	let export_metadata _ id = export_metadata id |> return
+	let export_metadata _ dbg id = export_metadata id |> return
 
-	let import_metadata _ s =
-		let module B = (val get_backend () : S) in
-		let md = s |> Jsonrpc.of_string |> Metadata.t_of_rpc in
-		let id = md.Metadata.vm.Vm.id in
-		(* We allow a higher-level toolstack to replace the metadata of a running VM.
-		   Any changes will take place on next reboot. *)
-		if DB.exists (DB.key_of id)
-		then debug "Updating VM metadata for VM: %s" id;
-		let vm = add' md.Metadata.vm in
-		let vbds = List.map (fun x -> { x with Vbd.id = (vm, snd x.Vbd.id) }) md.Metadata.vbds in
-		let vifs = List.map (fun x -> { x with Vif.id = (vm, snd x.Vif.id) }) md.Metadata.vifs in
-		let (_: Vbd.id list) = List.map VBD.add' vbds in
-		let (_: Vif.id list) = List.map VIF.add' vifs in
-		md.Metadata.domains |> Opt.iter (B.VM.set_internal_state (vm |> VM_DB.key_of |> VM_DB.read |> unbox));
-		vm |> return
+	let import_metadata _ dbg s =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				let module B = (val get_backend () : S) in
+				let md = s |> Jsonrpc.of_string |> Metadata.t_of_rpc in
+				let id = md.Metadata.vm.Vm.id in
+				(* We allow a higher-level toolstack to replace the metadata of a running VM.
+				   Any changes will take place on next reboot. *)
+				if DB.exists (DB.key_of id)
+				then debug "Updating VM metadata for VM: %s" id;
+				let vm = add' md.Metadata.vm in
+				let vbds = List.map (fun x -> { x with Vbd.id = (vm, snd x.Vbd.id) }) md.Metadata.vbds in
+				let vifs = List.map (fun x -> { x with Vif.id = (vm, snd x.Vif.id) }) md.Metadata.vifs in
+				let (_: Vbd.id list) = List.map VBD.add' vbds in
+				let (_: Vif.id list) = List.map VIF.add' vifs in
+				md.Metadata.domains |> Opt.iter (B.VM.set_internal_state (vm |> VM_DB.key_of |> VM_DB.read |> unbox));
+				vm |> return
+			) ()
 
 	let receive_memory req s _ : unit =
-		debug "VM.receive_memory";
-		req.Http.Request.close <- true;
-		let remote_instance = List.assoc "instance_id" req.Http.Request.cookie in
-		let is_localhost = instance_id = remote_instance in
-		(* The URI is /service/xenops/memory/id *)
-		let bits = String.split '/' req.Http.Request.uri in
-		let id = bits |> List.rev |> List.hd in
-		debug "VM.receive_memory id = %s is_localhost = %b" id is_localhost;
+		let dbg = List.assoc "dbg" req.Http.Request.cookie in
+		let is_localhost, id = Debug.with_thread_associated dbg
+			(fun () ->
+				debug "VM.receive_memory";
+				req.Http.Request.close <- true;
+				let remote_instance = List.assoc "instance_id" req.Http.Request.cookie in
+				let is_localhost = instance_id = remote_instance in
+				(* The URI is /service/xenops/memory/id *)
+				let bits = String.split '/' req.Http.Request.uri in
+				let id = bits |> List.rev |> List.hd in
+				debug "VM.receive_memory id = %s is_localhost = %b" id is_localhost;
+				is_localhost, id
+			) () in
 		let op = VM_receive_memory(id, s) in
 		(* If it's a localhost migration then we're already in the queue *)
 		if is_localhost
-		then immediate_operation id op
-		else queue_operation id op |> Xenops_client.wait_for_task |> ignore
+			then immediate_operation dbg id op
+			else queue_operation dbg id op |> Xenops_client.wait_for_task |> ignore
 end
 
 module DEBUG = struct
-	let trigger _ cmd args =
-		let module B = (val get_backend () : S) in
-		B.DEBUG.trigger cmd args |> return
+	let trigger _ dbg cmd args =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				let module B = (val get_backend () : S) in
+				B.DEBUG.trigger cmd args |> return
+			) ()
 end
 
 module UPDATES = struct
-	let get _ last timeout =
-		let ids, next = Updates.get last timeout updates in
-		return (ids, next)
+	let get _ dbg last timeout =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				debug "UPDATES.get %s %s" (Opt.default "None" (Opt.map string_of_int last)) (Opt.default "None" (Opt.map string_of_int timeout)); 
+				let ids, next = Updates.get last timeout updates in
+				return (ids, next)
+			) ()
 
-	let inject_barrier _ id =
-		debug "inject_barrier %d" id;
-		Updates.add (Dynamic.Barrier id) updates;
-		return ()
+	let inject_barrier _ dbg id =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				debug "UPDATES.inject_barrier %d" id;
+				Updates.add (Dynamic.Barrier id) updates;
+				return ()
+			) ()
 
-	let refresh_vm _ id =
-		debug "refresh_vm %s" id;
-		Updates.add (Dynamic.Vm id) updates;
-		List.iter
-			(fun x -> Updates.add (Dynamic.Vbd x.Vbd.id) updates)
-			(VBD_DB.list id |> List.map fst);
-		List.iter
-			(fun x -> Updates.add (Dynamic.Vif x.Vif.id) updates)
-			(VIF_DB.list id |> List.map fst);
-		return ()
+	let refresh_vm _ dbg id =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				debug "UPDATES.refresh_vm %s" id;
+				Updates.add (Dynamic.Vm id) updates;
+				List.iter
+					(fun x -> Updates.add (Dynamic.Vbd x.Vbd.id) updates)
+					(VBD_DB.list id |> List.map fst);
+				List.iter
+					(fun x -> Updates.add (Dynamic.Vif x.Vif.id) updates)
+					(VIF_DB.list id |> List.map fst);
+				return ()
+			) ()
 end
 
 let internal_event_thread = ref None
 
 let internal_event_thread_body = Debug.with_thread_associated "events" (fun () ->
 	debug "Starting internal event thread";
+	let dbg = "events" in
 	let module B = (val get_backend () : S) in
 	let id = ref None in
 	while true do
@@ -860,15 +935,15 @@ let internal_event_thread_body = Debug.with_thread_associated "events" (fun () -
 			(function
 				| Dynamic.Vm id ->
 					debug "Received an event on managed VM %s" id;
-					let (_: Task.id) = queue_operation id (VM_check_state id) in
+					let (_: Task.id) = queue_operation dbg id (VM_check_state id) in
 					()
 				| Dynamic.Vbd id ->
 					debug "Received an event on managed VBD %s.%s" (fst id) (snd id);
-					let (_: Task.id) = queue_operation (VBD_DB.vm_of id) (VBD_check_state id) in
+					let (_: Task.id) = queue_operation dbg (VBD_DB.vm_of id) (VBD_check_state id) in
 					()
 				| Dynamic.Vif id ->
 					debug "Received an event on managed VIF %s.%s" (fst id) (snd id);
-					let (_: Task.id) = queue_operation (VIF_DB.vm_of id) (VIF_check_state id) in
+					let (_: Task.id) = queue_operation dbg (VIF_DB.vm_of id) (VIF_check_state id) in
 					()
 				| x ->
 					debug "Ignoring event on %s" (Jsonrpc.to_string (Dynamic.rpc_of_id x))

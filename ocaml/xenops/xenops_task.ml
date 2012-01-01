@@ -22,6 +22,7 @@ open Xenops_utils
 
 type t = {
 	id: string;
+	dbg: string; (* token sent by client *)
 	mutable result: Task.result;
 	mutable subtasks: (string * Task.result) list;
 	f: t -> unit;
@@ -42,9 +43,10 @@ let next_task_id =
 		result
 
 (* XXX: when are these ever removed? *)
-let add (f: t -> unit) =
+let add dbg (f: t -> unit) =
 	let t = {
 		id = next_task_id ();
+		dbg = dbg;
 		result = Task.Pending 0.;
 		subtasks = [];
 		f = f;
