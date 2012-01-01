@@ -56,10 +56,6 @@ let unwrap = function
 
 let dropnone x = List.filter_map (fun x -> x) x
 
-let unbox = function
-	| None -> raise (Exception Does_not_exist)
-	| Some x -> x
-
 module type READWRITE = sig
 	type t
 	val t_of_rpc: Rpc.t -> t
@@ -116,7 +112,7 @@ module TypedTable = functor(RW: READWRITE) -> struct
 
 	let remove (k: key) =
 		if not(exists k)
-		then raise (Exception Does_not_exist)
+		then raise (Exception(Does_not_exist(RW.namespace, String.concat "/" k)))
 		else delete k
 end
 

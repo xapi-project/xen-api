@@ -75,7 +75,7 @@ let run item =
 			item.result <- Task.Failed (Internal_error (Printexc.to_string e))
 
 let find_locked id =
-	if not (SMap.mem id !tasks) then raise (Exception Does_not_exist);
+	if not (SMap.mem id !tasks) then raise (Exception(Does_not_exist("task", id)));
 	SMap.find id !tasks
 
 let with_subtask t name f =

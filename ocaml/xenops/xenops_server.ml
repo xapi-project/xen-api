@@ -162,7 +162,7 @@ module VM_DB = struct
 		list []
 	let list () =
 		debug "VM.list";
-		let vms = ids () |> List.map key_of |> List.map read |> List.map unbox in
+		let vms = ids () |> List.map key_of |> List.map read |> List.filter_map (fun x -> x) in
 		let module B = (val get_backend () : S) in
 		let states = List.map B.VM.get_state vms in
 		List.combine vms states
@@ -290,9 +290,29 @@ module Per_VM_queues = struct
 		()
 end
 
+let read_vm_t id =
+	match id |> VM_DB.key_of |> VM_DB.read with
+		| Some x -> x
+		| None -> raise (Exception (Does_not_exist ("VM", id)))
+
+let read_vbd_t id =
+	match id |> VBD_DB.key_of |> VBD_DB.read with
+		| Some x -> x
+		| None -> raise (Exception (Does_not_exist ("VBD", (fst id) ^"."^ (snd id))))
+
+let read_vif_t id =
+	match id |> VIF_DB.key_of |> VIF_DB.read with
+		| Some x -> x
+		| None -> raise (Exception (Does_not_exist ("VIF", (fst id) ^"."^ (snd id))))
+
+let read_pci_t id =
+	match id |> PCI_DB.key_of |> PCI_DB.read with
+		| Some x -> x
+		| None -> raise (Exception (Does_not_exist ("PCI", (fst id) ^"."^ (snd id))))
+
 let export_metadata id =
 	let module B = (val get_backend () : S) in
-	let vm_t = id |> VM_DB.key_of |> VM_DB.read |> unbox in
+	let vm_t = read_vm_t id in
 	let vbds = VBD_DB.list id |> List.map fst in
 	let vifs = VIF_DB.list id |> List.map fst in
 	let domains = B.VM.get_internal_state vm_t in
@@ -336,7 +356,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			Xenops_hooks.vm_pre_destroy ~reason ~id;			
 			perform ~subtask:"VM_shutdown" (VM_shutdown (id, timeout)) t;
 			Xenops_hooks.vm_post_destroy ~reason ~id;
-			let vm_t = id |> VM_DB.key_of |> VM_DB.read |> unbox in
+			let vm_t = read_vm_t id in
 			if vm_t.Vm.transient
 			then perform ~subtask:"VM_remove" (VM_remove id) t;
 			Updates.add (Dynamic.Vm id) updates
@@ -375,12 +395,12 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			Thread.delay t
 		| VM_save (id, flags, data) ->
 			debug "VM.save %s" id;
-			B.VM.save t (id |> VM_DB.key_of |> VM_DB.read |> unbox) flags data
+			B.VM.save t (read_vm_t id) flags data
 		| VM_restore (id, data) ->
 			debug "VM.restore %s" id;
 			if id |> VM_DB.key_of |> VM_DB.exists |> not
 			then failwith (Printf.sprintf "%s doesn't exist" id);
-			B.VM.restore t (id |> VM_DB.key_of |> VM_DB.read |> unbox) data
+			B.VM.restore t (read_vm_t id) data
 		| VM_suspend (id, data) ->
 			debug "VM.suspend %s" id;
 			perform ~subtask:"VM_save" (VM_save (id, [], data)) t;
@@ -449,7 +469,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			Updates.add (Dynamic.Vm id) updates
 		| VM_receive_memory (id, s) ->
 			debug "VM.receive_memory %s" id;
-			let state = B.VM.get_state (id |> VM_DB.key_of |> VM_DB.read |> unbox) in
+			let state = B.VM.get_state (read_vm_t id) in
 			debug "VM.receive_memory %s power_state = %s" id (state.Vm.power_state |> rpc_of_power_state |> Jsonrpc.to_string);
 			let response = Http.Response.make ~version:"1.1" "200" "OK" in
 			response |> Http.Response.to_wire_string |> Unixext.really_write_string s;
@@ -477,7 +497,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 				)
 		| VM_shutdown_domain (id, reason, timeout) ->
 			let start = Unix.gettimeofday () in
-			let vm = id |> VM_DB.key_of |> VM_DB.read |> unbox in
+			let vm = read_vm_t id in
 			(* Spend at most the first minute waiting for a clean shutdown ack. This allows
 			   us to abort early. *)
 			if not (B.VM.request_shutdown t vm reason (max 60. timeout))
@@ -487,29 +507,29 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			then raise (Exception Failed_to_shutdown)
 		| VM_destroy id ->
 			debug "VM.destroy %s" id;
-			B.VM.destroy t (id |> VM_DB.key_of |> VM_DB.read |> unbox)
+			B.VM.destroy t (read_vm_t id)
 		| VM_create id ->
 			debug "VM.create %s" id;
-			B.VM.create t (id |> VM_DB.key_of |> VM_DB.read |> unbox)
+			B.VM.create t (read_vm_t id)
 		| VM_build id ->
 			debug "VM.build %s" id;
 			let vbds : Vbd.t list = VBD_DB.list id |> List.map fst in
 			let vifs : Vif.t list = VIF_DB.list id |> List.map fst in
-			B.VM.build t (id |> VM_DB.key_of |> VM_DB.read |> unbox) vbds vifs
+			B.VM.build t (read_vm_t id) vbds vifs
 		| VM_create_device_model (id, save_state) ->
 			debug "VM.create_device_model %s" id;
-			B.VM.create_device_model t (id |> VM_DB.key_of |> VM_DB.read |> unbox) save_state
+			B.VM.create_device_model t (read_vm_t id) save_state
 		| VM_destroy_device_model id ->
 			debug "VM.destroy_device_model %s" id;
-			B.VM.destroy_device_model t (id |> VM_DB.key_of |> VM_DB.read |> unbox)
+			B.VM.destroy_device_model t (read_vm_t id)
 		| VM_pause id ->
 			debug "VM.pause %s" id;
-			B.VM.pause t (id |> VM_DB.key_of |> VM_DB.read |> unbox)
+			B.VM.pause t (read_vm_t id)
 		| VM_unpause id ->
 			debug "VM.unpause %s" id;
-			B.VM.unpause t (id |> VM_DB.key_of |> VM_DB.read |> unbox)
+			B.VM.unpause t (read_vm_t id)
 		| VM_check_state id ->
-			let vm = id |> VM_DB.key_of |> VM_DB.read |> unbox in
+			let vm = read_vm_t id in
 			let state = B.VM.get_state vm in
 			let run_time = Unix.gettimeofday () -. state.Vm.last_start_time in
 			let actions = match B.VM.get_domain_action_request vm with
@@ -543,7 +563,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			Updates.add (Dynamic.Vm id) updates
 		| VM_remove id ->
 			debug "VM.remove %s" id;
-			let power = (B.VM.get_state (id |> VM_DB.key_of |> VM_DB.read |> unbox)).Vm.power_state in
+			let power = (B.VM.get_state (read_vm_t id)).Vm.power_state in
 			begin match power with
 				| Running _ | Paused -> raise (Exception (Bad_power_state(power, Halted)))
 				| Halted | Suspended ->
@@ -551,24 +571,24 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			end
 		| PCI_plug id ->
 			debug "PCI.plug %s" (PCI_DB.string_of_id id);
-			B.PCI.plug t (PCI_DB.vm_of id) (id |> PCI_DB.key_of |> PCI_DB.read |> unbox)
+			B.PCI.plug t (PCI_DB.vm_of id) (read_pci_t id)
 		| PCI_unplug id ->
 			debug "PCI.unplug %s" (PCI_DB.string_of_id id);
-			B.PCI.unplug t (PCI_DB.vm_of id) (id |> PCI_DB.key_of |> PCI_DB.read |> unbox)
+			B.PCI.unplug t (PCI_DB.vm_of id) (read_pci_t id)
 		| VBD_plug id ->
 			debug "VBD.plug %s" (VBD_DB.string_of_id id);
-			B.VBD.plug t (VBD_DB.vm_of id) (id |> VBD_DB.key_of |> VBD_DB.read |> unbox);
+			B.VBD.plug t (VBD_DB.vm_of id) (read_vbd_t id);
 			Updates.add (Dynamic.Vbd id) updates
 		| VBD_unplug (id, force) ->
 			debug "VBD.unplug %s" (VBD_DB.string_of_id id);
 			finally
 				(fun () ->
-					B.VBD.unplug t (VBD_DB.vm_of id) (id |> VBD_DB.key_of |> VBD_DB.read |> unbox) force
+					B.VBD.unplug t (VBD_DB.vm_of id) (read_vbd_t id) force
 				) (fun () -> Updates.add (Dynamic.Vbd id) updates)
 		| VBD_insert (id, disk) ->
 			debug "VBD.insert %s" (VBD_DB.string_of_id id);
-			let vbd_t = id |> VBD_DB.key_of |> VBD_DB.read |> unbox in
-			let vm_state = B.VM.get_state (VBD_DB.vm_of id |> VM_DB.key_of |> VM_DB.read |> unbox) in
+			let vbd_t = read_vbd_t id in
+			let vm_state = B.VM.get_state (read_vm_t (VBD_DB.vm_of id)) in
 			let vbd_state = B.VBD.get_state (VBD_DB.vm_of id) vbd_t in
 			if vm_state.Vm.power_state = Running
 			then
@@ -579,9 +599,9 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			Updates.add (Dynamic.Vbd id) updates
 		| VBD_eject id ->
 			debug "VBD.eject %s" (VBD_DB.string_of_id id);
-			let vbd_t = id |> VBD_DB.key_of |> VBD_DB.read |> unbox in
+			let vbd_t = read_vbd_t id in
 			if vbd_t.Vbd.ty = Vbd.Disk then raise (Exception (Media_not_ejectable));
-			let vm_state = B.VM.get_state (VBD_DB.vm_of id |> VM_DB.key_of |> VM_DB.read |> unbox) in
+			let vm_state = B.VM.get_state (read_vm_t (VBD_DB.vm_of id)) in
 			let vbd_state = B.VBD.get_state (VBD_DB.vm_of id) vbd_t in
 			if vm_state.Vm.power_state = Running
 			then
@@ -592,8 +612,8 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			Updates.add (Dynamic.Vbd id) updates
 		| VBD_check_state id ->
 			debug "VBD.check_state %s" (VBD_DB.string_of_id id);
-			let vbd_t = id |> VBD_DB.key_of |> VBD_DB.read |> unbox in
-			let vm_state = B.VM.get_state (VBD_DB.vm_of id |> VM_DB.key_of |> VM_DB.read |> unbox) in
+			let vbd_t = read_vbd_t id in
+			let vm_state = B.VM.get_state (read_vm_t (VBD_DB.vm_of id)) in
 			let request =
 				if vm_state.Vm.power_state = Running
 				then B.VBD.get_device_action_request (VBD_DB.vm_of id) vbd_t
@@ -607,18 +627,18 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			List.iter (fun x -> perform x t) operations
 		| VIF_plug id ->
 			debug "VIF.plug %s" (VIF_DB.string_of_id id);
-			B.VIF.plug t (VIF_DB.vm_of id) (id |> VIF_DB.key_of |> VIF_DB.read |> unbox);
+			B.VIF.plug t (VIF_DB.vm_of id) (read_vif_t id);
 			Updates.add (Dynamic.Vif id) updates
 		| VIF_unplug (id, force) ->
 			debug "VIF.unplug %s" (VIF_DB.string_of_id id);
 			finally
 				(fun () ->
-					B.VIF.unplug t (VIF_DB.vm_of id) (id |> VIF_DB.key_of |> VIF_DB.read |> unbox) force;
+					B.VIF.unplug t (VIF_DB.vm_of id) (read_vif_t id) force;
 				) (fun () -> Updates.add (Dynamic.Vif id) updates)
 		| VIF_check_state id ->
 			debug "VIF.check_state %s" (VIF_DB.string_of_id id);
-			let vif_t = id |> VIF_DB.key_of |> VIF_DB.read |> unbox in
-			let vm_state = B.VM.get_state (VIF_DB.vm_of id |> VM_DB.key_of |> VM_DB.read |> unbox) in
+			let vif_t = read_vif_t id in
+			let vm_state = B.VM.get_state (read_vm_t (VIF_DB.vm_of id)) in
 			let request =
 				if vm_state.Vm.power_state = Running
 				then B.VIF.get_device_action_request (VIF_DB.vm_of id) vif_t
@@ -657,7 +677,7 @@ module PCI = struct
 		let vm = DB.vm_of x.id in
 		if not (VM_DB.exists [ vm ]) then begin
 			debug "VM %s not managed by me" vm;
-			raise (Exception Does_not_exist);
+			raise (Exception (Does_not_exist ("VM", vm)));
 		end;
 		DB.write (DB.key_of x.id) x;
 		x.id
@@ -669,7 +689,7 @@ module PCI = struct
 			(fun () ->
 				debug "PCI.remove %s" (string_of_id id);
 				let module B = (val get_backend () : S) in
-				if (B.PCI.get_state (DB.vm_of id) (id |> DB.key_of |> DB.read |> unbox)).Pci.plugged
+				if (B.PCI.get_state (DB.vm_of id) (read_pci_t id)).Pci.plugged
 				then raise (Exception Device_is_connected)
 				else return (DB.remove (DB.key_of id))
 			) ()
@@ -692,7 +712,7 @@ module VBD = struct
 		let vm = DB.vm_of x.id in
 		if not (VM_DB.exists [ vm ]) then begin
 			debug "VM %s not managed by me" vm;
-			raise (Exception Does_not_exist);
+			raise (Exception (Does_not_exist("VM", vm)));
 		end;
 		DB.write (DB.key_of x.id) x;
 		x.id
@@ -710,7 +730,7 @@ module VBD = struct
 			(fun () ->
 				debug "VBD.remove %s" (string_of_id id);
 				let module B = (val get_backend () : S) in
-				if (B.VBD.get_state (DB.vm_of id) (id |> DB.key_of |> DB.read |> unbox)).Vbd.plugged
+				if (B.VBD.get_state (DB.vm_of id) (read_vbd_t id)).Vbd.plugged
 				then raise (Exception Device_is_connected)
 				else return (DB.remove (DB.key_of id))
 			) ()
@@ -718,7 +738,7 @@ module VBD = struct
 	let stat' id =
 		debug "VBD.stat %s" (string_of_id id);
 		let module B = (val get_backend () : S) in
-		let vbd_t = id |> DB.key_of |> DB.read |> unbox in
+		let vbd_t = read_vbd_t id in
 		let state = B.VBD.get_state (DB.vm_of id) vbd_t in
 		vbd_t, state
 	let stat _ dbg id =
@@ -745,7 +765,7 @@ module VIF = struct
 		let vm = DB.vm_of x.id in
 		if not (VM_DB.exists [ vm ]) then begin
 			debug "VM %s not managed by me" vm;
-			raise (Exception Does_not_exist);
+			raise (Exception(Does_not_exist("VM", vm)));
 		end;
 		(* Generate MAC if necessary *)
 		let mac = match x.mac with
@@ -765,7 +785,7 @@ module VIF = struct
 			(fun () ->
 				debug "VIF.remove %s" (string_of_id id);
 				let module B = (val get_backend () : S) in
-				if (B.VIF.get_state (DB.vm_of id) (id |> DB.key_of |> DB.read |> unbox)).Vif.plugged
+				if (B.VIF.get_state (DB.vm_of id) (read_vif_t id)).Vif.plugged
 				then raise (Exception Device_is_connected)
 				else return (DB.remove (DB.key_of id))
 			) ()
@@ -773,7 +793,7 @@ module VIF = struct
 	let stat' id =
 		debug "VIF.stat %s" (string_of_id id);
 		let module B = (val get_backend () : S) in
-		let vif_t = id |> DB.key_of |> DB.read |> unbox in
+		let vif_t = read_vif_t id in
 		let state = B.VIF.get_state (DB.vm_of id) vif_t in
 		vif_t, state
 	let stat _ dbg id =
@@ -803,7 +823,7 @@ module VM = struct
 	let stat' x =
 		debug "VM.stat %s" x;
 		let module B = (val get_backend () : S) in
-		let vm_t = x |> DB.key_of |> DB.read |> unbox in
+		let vm_t = read_vm_t x in
 		let state = B.VM.get_state vm_t in
 		vm_t, state
 	let stat _ dbg id =
@@ -855,7 +875,7 @@ module VM = struct
 				let vifs = List.map (fun x -> { x with Vif.id = (vm, snd x.Vif.id) }) md.Metadata.vifs in
 				let (_: Vbd.id list) = List.map VBD.add' vbds in
 				let (_: Vif.id list) = List.map VIF.add' vifs in
-				md.Metadata.domains |> Opt.iter (B.VM.set_internal_state (vm |> VM_DB.key_of |> VM_DB.read |> unbox));
+				md.Metadata.domains |> Opt.iter (B.VM.set_internal_state (read_vm_t vm));
 				vm |> return
 			) ()
 
