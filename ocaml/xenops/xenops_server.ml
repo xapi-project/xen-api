@@ -644,7 +644,12 @@ let immediate_operation dbg id op =
 		(fun () ->
 			debug "Task %s reference %s: %s" task.Xenops_task.id task.Xenops_task.dbg (string_of_operation op);
 			Xenops_task.run task
-		) ()
+		) ();
+	match task.Xenops_task.result with
+		| Task.Pending _ -> assert false
+		| Task.Completed _ -> ()
+		| Task.Failed e ->
+			raise (Exception e)
 
 module PCI = struct
 	open Pci
