@@ -18,6 +18,7 @@ service xapi stop
 service v6d stop
 service squeezed stop
 service perfmon stop
+service xenopsd stop
 service fe stop
 if [ $POOLCONF == "master" ]; then
 	/etc/xensource/master.d/03-mpathalert-daemon stop;
@@ -29,6 +30,7 @@ if [ $POOLCONF == "master" ]; then
 	/etc/xensource/master.d/03-mpathalert-daemon start;
 fi
 service fe start
+service xenopsd start
 service perfmon start
 service squeezed start
 service v6d start
