@@ -52,21 +52,27 @@ let get_handler req bio _ =
 	let s = Buf_io.fd_of bio in
 	Http_svr.response_str req s "<html><body>Hello there</body></html>"
 
-let start path process =
+(* Start accepting connections on sockets before we daemonize *)
+let prepare_sockets path =
     Unixext.mkdir_safe (Filename.dirname path) 0o700;
     Unixext.unlink_safe path;
     let domain_sock = Http_svr.bind (Unix.ADDR_UNIX(path)) "unix_rpc" in
-    Http_svr.Server.add_handler server Http.Post "/" (Http_svr.BufIO (xmlrpc_handler process));
-	Http_svr.Server.add_handler server Http.Put  "/services/xenops/memory" (Http_svr.FdIO Xenops_server.VM.receive_memory);
-    Http_svr.Server.add_handler server Http.Get "/" (Http_svr.BufIO get_handler);
-    Http_svr.start server domain_sock;
-	socket := Some domain_sock;
 
 	(* Start receiving forwarded /file descriptors/ from xapi *)
 	Unixext.unlink_safe forwarded_path;
 	let forwarded_sock = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
 	Unix.bind forwarded_sock (Unix.ADDR_UNIX forwarded_path);
 	Unix.listen forwarded_sock 5;
+
+	domain_sock, forwarded_sock
+
+let start (domain_sock, forwarded_sock) process =
+    Http_svr.Server.add_handler server Http.Post "/" (Http_svr.BufIO (xmlrpc_handler process));
+	Http_svr.Server.add_handler server Http.Put  "/services/xenops/memory" (Http_svr.FdIO Xenops_server.VM.receive_memory);
+    Http_svr.Server.add_handler server Http.Get "/" (Http_svr.BufIO get_handler);
+    Http_svr.start server domain_sock;
+	socket := Some domain_sock;
+
 	let (_: Thread.t) = Thread.create
 		(fun () ->
 			debug "Listening on %s" forwarded_path;
@@ -130,6 +136,9 @@ let _ =
 
   Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
 
+  (* Accept connections before we have daemonized *)
+  let sockets = prepare_sockets path in
+
   if !daemonize then Unixext.daemonize ();
 
   Unixext.mkdir_rec (Filename.dirname !pidfile) 0o755;
@@ -142,7 +151,7 @@ let _ =
 	  then (module Xenops_server_simulator: Xenops_server_plugin.S)
 	  else (module Xenops_server_xen: Xenops_server_plugin.S)));
 
-  Debug.with_thread_associated "main" (start path) Server.process;
+  Debug.with_thread_associated "main" (start sockets) Server.process;
   Xenops_server_plugin.Scheduler.start ();
   Xenops_server.Per_VM_queues.start ();
   while true do
