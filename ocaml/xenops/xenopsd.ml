@@ -12,12 +12,38 @@
  * GNU Lesser General Public License for more details.
  *)
 let name = "xenopsd"
-let default_pidfile = Printf.sprintf "/var/run/%s.pid" name 
-let log_file_path = Printf.sprintf "file:/var/log/xenopsd/%s.log" name 
+
+(* Server configuration. We have built-in (hopefully) sensible defaults,
+   together with command-line arguments and a configuration file. They
+   are applied in order: (latest takes precedence)
+      defaults < arguments < config file
+*)
+let config_file = ref (Printf.sprintf "/etc/%s.conf" name)
+let pidfile = ref (Printf.sprintf "/var/run/%s.pid" name)
+let log_file_path = ref (Printf.sprintf "file:/var/log/xenopsd/%s.log" name)
+let simulate = ref false
+let persist = ref true
+
+let config_spec = [
+	"pidfile", Config.Set_string pidfile;
+	"log", Config.Set_string log_file_path;
+	"simulate", Config.Set_bool simulate;
+	"persist", Config.Set_bool persist;
+]
 
 open Xenops_utils
 open Pervasiveext 
 open Fun
+
+let read_config_file () =
+	let unknown_key k v = debug "Unknown key/value pairs: (%s, %s)" k v in
+	if Sys.file_exists !config_file then begin
+		(* Will raise exception if config is mis-formatted. It's up to the
+		   caller to inspect and handle the failure.
+		*)
+		Config.read !config_file config_spec unknown_key;
+		debug "Read global variables successfully from %s" !config_file
+	end
 
 let socket = ref None
 let server = Http_svr.Server.empty (Xenops_server.make_context ())
@@ -116,22 +142,21 @@ let reopen_logs _ =
   []
 
 let _ = 
-  let pidfile = ref default_pidfile in
   let daemonize = ref false in
-  let simulate = ref false in
-  let clean = ref false in
+  Logs.reset_all [ "file:/dev/stdout" ];
 
   Arg.parse (Arg.align [
 	       "-daemon", Arg.Set daemonize, "Create a daemon";
 	       "-pidfile", Arg.Set_string pidfile, Printf.sprintf "Set the pid file (default \"%s\")" !pidfile;
 		   "-simulate", Arg.Set simulate, "Use the simulator backend (default is the xen backend)";
-		   "-clean", Arg.Set clean, "Remove any existing persistent configuration (useful for testing)";
+		   "-config", Arg.Set_string config_file, Printf.sprintf "Read configuration from the specified config file (default \"%s\")" !config_file;
 	     ])
     (fun _ -> failwith "Invalid argument")
     (Printf.sprintf "Usage: %s [-daemon] [-pidfile filename]" name);
+  read_config_file ();
 
-  Unixext.mkdir_rec (Filename.dirname log_file_path) 0o755;
-  Logs.reset_all (if !daemonize then [ log_file_path ] else [ "file:/dev/stdout" ]);
+  Unixext.mkdir_rec (Filename.dirname !log_file_path) 0o755;
+  Logs.reset_all (if !daemonize then [ !log_file_path ] else [ "file:/dev/stdout" ]);
   Logs.set "http" Log.Debug [ "nil" ];
 
   Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
@@ -144,7 +169,7 @@ let _ =
   Unixext.mkdir_rec (Filename.dirname !pidfile) 0o755;
   Unixext.pidfile_write !pidfile;
 
-  if !clean then Xenops_utils.empty_database ();
+  if not(!persist) then Xenops_utils.empty_database ();
 
   Xenops_server.set_backend
 	  (Some (if !simulate
