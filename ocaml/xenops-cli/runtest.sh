@@ -12,6 +12,5 @@ if [ -e ${PIDFILE} ]; then
 fi
 rm -f /var/log/xenopsd/xenopsd.log
 ./ocaml/xenops/xenopsd -pidfile ${PIDFILE} -simulate -clean -daemon
-sleep 5
 ./ocaml/xenops-cli/xenopstest
 
