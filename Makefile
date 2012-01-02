@@ -33,6 +33,10 @@ all: version
 phase3:
 	omake phase3
 
+.PHONY: test
+test:
+	omake test
+
 .PHONY: install
 install:
 	omake install
