@@ -74,12 +74,12 @@ let event_wait p =
 	done
 
 let wait_for_task id =
-	Printf.fprintf stderr "wait_for id = %s\n%!" id;
+(*	Printf.fprintf stderr "wait_for id = %s\n%!" id; *)
 	let finished = function
 		| Dynamic.Task id' ->
 			id = id' && (task_ended dbg id)
 		| x ->
-			Printf.fprintf stderr "ignore event on %s\n%!" (x |> Dynamic.rpc_of_id |> Jsonrpc.to_string);
+(*			Printf.fprintf stderr "ignore event on %s\n%!" (x |> Dynamic.rpc_of_id |> Jsonrpc.to_string); *)
 			false in 
 	event_wait finished;
 	id
@@ -227,6 +227,19 @@ let with_vm id f =
 	let (id: Vm.id) = success (Client.VM.add dbg vm) in
 	finally (fun () -> f id)
 		(fun () ->
+			let _, state = Client.VM.stat dbg id |> success in
+			begin match state.Vm.power_state with
+				| Running
+				| Paused ->
+					Printf.fprintf stderr "VM is running or paused; shutting down";
+					begin try
+						Client.VM.shutdown dbg id None |> success |> wait_for_task |> success_task
+					with e ->
+						Printf.fprintf stderr "Caught failure during with_vm cleanup: %s" (Printexc.to_string e);
+						raise e
+					end
+				| _ -> ()
+			end;
 			try
 				success (Client.VM.remove dbg id)
 			with e ->
@@ -352,17 +365,17 @@ let vm_test_suspend _ =
 		(fun id ->
 			Client.VM.create dbg id |> success |> wait_for_task |> success_task;
 			Client.VM.build dbg id |> success |> wait_for_task |> success_task;
+			Client.VM.create_device_model dbg id false |> success |> wait_for_task |> success_task;
 			Client.VM.unpause dbg id |> success |> wait_for_task |> success_task;
-			Client.VM.suspend dbg id (Local "disk") |> success |> wait_for_task |> success_task;
-			Client.VM.destroy dbg id |> success |> wait_for_task |> success_task;
+			Client.VM.suspend dbg id (Local "/tmp/suspend-image") |> success |> wait_for_task |> success_task;
 		)
 
 let vm_test_resume _ =
 	with_vm example_uuid
 		(fun id ->
-			Client.VM.create dbg id |> success |> wait_for_task |> success_task;
-			Client.VM.resume dbg id (Local "disk") |> success |> wait_for_task |> success_task;
+			Client.VM.resume dbg id (Local "/tmp/suspend-image") |> success |> wait_for_task |> success_task;
 			Client.VM.unpause dbg id |> success |> wait_for_task |> success_task;
+			Client.VM.shutdown dbg id None |> success |> wait_for_task |> success_task;
 			Client.VM.destroy dbg id |> success |> wait_for_task |> success_task;
 		)
 	
@@ -584,10 +597,8 @@ let _ =
 			"vif_test_add_plug_unplug_remove" >:: VifDeviceTests.add_plug_unplug_remove;
 			"vif_test_add_plug_unplug_many_remove" >:: VifDeviceTests.add_plug_unplug_many_remove;
 			"vif_remove_running" >:: VifDeviceTests.remove_running;
-(*
 			"vm_test_suspend" >:: vm_test_suspend;
 			"vm_test_resume" >:: vm_test_resume;
-*)
 		] in
 
 	run_test_tt ~verbose:!verbose suite
