@@ -1897,7 +1897,7 @@ let vm_pool_migrate_complete = call
   ~params:[Ref _vm, "vm", "The VM which has finished migrating";
 	   Ref _host, "host", "The target host" ]
   ~hide_from_docs:true
-  ~pool_internal:true
+  ~pool_internal:false (* needed for cross-pool migrate too *)
   ~allowed_roles:_R_VM_POWER_ADMIN
   ()
 
