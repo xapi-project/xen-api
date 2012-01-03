@@ -223,7 +223,7 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address wh
 
 	let which = match which with
 		| `All -> "all=true"
-		| `Only vm -> Printf.sprintf "ref=%s" (Ref.string_of vm) in
+		| `Only vm -> Printf.sprintf "export_snapshots=false&ref=%s" (Ref.string_of vm) in
 
 	Helpers.call_api_functions ~__context (fun my_rpc my_session_id ->
 		let get = Xapi_http.http_request ~version:"1.0" ~subtask_of
