@@ -77,6 +77,7 @@ let make_rpc ~__context xml : XMLRPC.xmlrpc =
 		else SSL(SSL.make ~use_stunnel_cache:true (), Pool_role.get_master_address(), !Xapi_globs.https_port) in
 	XML_protocol.rpc ~transport ~http xml
 
+(* This one uses rpc-light *)
 let make_remote_rpc remote_address xml =
 	let open Xmlrpc_client in
 	let transport = SSL(SSL.make (), remote_address, !Xapi_globs.https_port) in

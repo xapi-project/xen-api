@@ -779,6 +779,7 @@ let handler req fd _ =
 let _sm = "SM"
 let _xenops = "xenops"
 let _sr = "SR"
+let _host = "host"
 let _session_id = "session_id"
 
 module XenAPI = Client
@@ -800,10 +801,6 @@ let pool_migrate_xenopsd ~__context ~vm ~host ~options =
 			(* XXX: PR-1255: the live flag *)
 			info "xenops: VM.migrate %s to %s" vm' xenops_url;
 			XenopsAPI.VM.migrate dbg vm' xenops_url |> success |> wait_for_task dbg |> success_task dbg |> ignore;
-			Helpers.call_api_functions ~__context
-				(fun rpc session_id ->
-					XenAPI.VM.atomic_set_resident_on rpc session_id vm host
-				)
 		);
 	Xapi_xenops.remove_caches vm';
 	(* We will have missed important events because we set resident_on late.
@@ -818,6 +815,10 @@ let pool_migrate_xenopsd ~__context ~vm ~host ~options =
 let pool_migrate_complete ~__context ~vm ~host =
 	let id = Db.VM.get_uuid ~__context ~self:vm in
 	debug "VM.pool_migrate_complete %s" id;
+	Helpers.call_api_functions ~__context
+		(fun rpc session_id ->
+			XenAPI.VM.atomic_set_resident_on rpc session_id vm host
+		);
 	Xapi_xenops.add_caches id;
 	Xapi_xenops.refresh_vm ~__context ~self:vm
 
@@ -840,6 +841,7 @@ let migrate  ~__context ~vm ~dest ~live ~options =
 			else None) vbds in
 	let task = Context.string_of_task __context in
 	let dest_sr = List.assoc _sr dest in
+	let dest_host = List.assoc _host dest in
 	let url = List.assoc _sm dest in
 	let xenops = List.assoc _xenops dest in
 	let session_id = Ref.of_string (List.assoc _session_id dest) in
@@ -847,6 +849,7 @@ let migrate  ~__context ~vm ~dest ~live ~options =
 		| Http.Url.Http { Http.Url.host = host }, _ -> host
 		| _, _ -> failwith (Printf.sprintf "Cannot extract foreign IP address from: %s" xenops) in
 	try
+		let remote_rpc = Helpers.make_remote_rpc remote_address in
 		List.iter
 			(fun (location, sr) ->
 				match SMAPI.Mirror.start ~task ~sr ~vdi:location ~url ~dest:dest_sr with
@@ -856,12 +859,15 @@ let migrate  ~__context ~vm ~dest ~live ~options =
 						failwith (Printf.sprintf "SMAPI.Mirror.start: %s" (rpc_of_result x |> Jsonrpc.to_string))
 			) vdis;
 		(* Move the xapi VM metadata *)
-		let rpc = Helpers.make_remote_rpc remote_address in
-		Importexport.remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address (`Only vm);
+		Importexport.remote_metadata_export_import ~__context ~rpc:remote_rpc ~session_id ~remote_address (`Only vm);
 		(* Migrate the VM *)
 		let open Xenops_client in
 		let vm = Db.VM.get_uuid ~__context ~self:vm in
-		XenopsAPI.VM.migrate task vm xenops |> success |> wait_for_task task |> success_task task |> ignore
+		XenopsAPI.VM.migrate task vm xenops |> success |> wait_for_task task |> success_task task |> ignore;
+		let new_vm = XenAPI.VM.get_by_uuid remote_rpc session_id vm in
+		(* Signal the remote pool that we're done *)
+		XenAPI.VM.pool_migrate_complete remote_rpc session_id new_vm (Ref.of_string dest_host);
+		debug "Done"
 	with e ->
 		error "Caught %s: cleaning up" (Printexc.to_string e);
 		List.iter
@@ -884,6 +890,7 @@ let migrate_receive ~__context ~host ~sR ~options =
 	let xenops_url = Printf.sprintf "http://%s/services/xenops?session_id=%s" ip session_id in
 	[ _sm, sm_url;
 	  _sr, sr;
+	  _host, Ref.string_of host;
 	  _xenops, xenops_url;
 	  _session_id, session_id;
 	]
