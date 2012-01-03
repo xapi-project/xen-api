@@ -506,11 +506,6 @@ let update_env __context sync_keys =
     with_xal (fun xal -> update_vms ~xal ~__context);
   );
 
-  switched_sync Xapi_globs.sync_remove_leaked_vbds (fun () ->
-    debug "removing any leaked dom0 block-attached VBDs (if any)";
-    Attach_helpers.remove_all_leaked_vbds __context;
-  );
-
 (*
   debug "resynchronising db with host physical interfaces";
   update_physical_networks ~__context;
