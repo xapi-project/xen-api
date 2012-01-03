@@ -3257,6 +3257,11 @@ let blob_create printer rpc session_id params =
 
 
 let export_common fd printer rpc session_id params filename num ?task_uuid use_compression preserve_power_state vm =
+    let vm_metadata_only : bool = get_bool_param params "metadata" in
+    let export_snapshots : bool =
+        if List.mem_assoc "include-snapshots" params
+        then bool_of_string "include-snapshots" (List.assoc "include-snapshots" params)
+        else vm_metadata_only in
 	let vm_metadata_only = get_bool_param params "metadata" in
 	let vm_record = vm.record () in
 	let exporttask, task_destroy_fn =
@@ -3279,14 +3284,15 @@ let export_common fd printer rpc session_id params filename num ?task_uuid use_c
 			let f = if !num > 1 then filename ^ (string_of_int !num) else filename in
 			download_file ~__context rpc session_id exporttask fd f
 				(Printf.sprintf
-					"%s?session_id=%s&task_id=%s&ref=%s&%s=%s&preserve_power_state=%b"
+					"%s?session_id=%s&task_id=%s&ref=%s&%s=%s&preserve_power_state=%b&export_snapshots=%b"
 					(if vm_metadata_only then Constants.export_metadata_uri else Constants.export_uri)
 					(Ref.string_of session_id)
 					(Ref.string_of exporttask)
 					(Ref.string_of (vm.getref ()))
 					Constants.use_compression
 					(if use_compression then "true" else "false")
-					preserve_power_state)
+					preserve_power_state
+					export_snapshots)
 				"Export";
 			num := !num + 1)
 		(fun () -> task_destroy_fn ())
@@ -3300,7 +3306,7 @@ let vm_export fd printer rpc session_id params =
 	let op vm =
 		export_common fd printer rpc session_id params filename num ?task_uuid use_compression preserve_power_state vm
 	in
-	ignore(do_vm_op printer rpc session_id op params ["filename"; "metadata"; "compress"; "preserve-power-state"])
+	ignore(do_vm_op printer rpc session_id op params ["filename"; "metadata"; "compress"; "preserve-power-state"; "include-snapshots"])
 
 let vm_export_aux obj_type fd printer rpc session_id params =
 	let filename = List.assoc "filename" params in
