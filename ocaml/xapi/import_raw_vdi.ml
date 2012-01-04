@@ -68,7 +68,11 @@ let localhost_handler rpc session_id vdi (req: Request.t) (s: Unix.file_descr) =
 									then receive_chunks s fd
 									else ignore(Unixext.Direct.copy_from_fd ?limit:req.Request.content_length s fd);
 									Unixext.Direct.fsync fd;
+									info "Import successful: sending back result code '0'";
+									Result.marshal s 0l;
 								with Unix.Unix_error(Unix.EIO, _, _) ->
+									error "Device I/O errors: sending back result code '1'";
+									Result.marshal s 1l;
 									raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O errors"]))
 							)
 					)

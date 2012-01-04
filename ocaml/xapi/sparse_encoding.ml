@@ -80,6 +80,18 @@ module Marshal = struct
 
 end
 
+module Result = struct
+	(** Represents a final result sent on close *)
+	type t = int32
+
+	(** Writes a type t from a file descriptor *)
+	let marshal (fd: Unix.file_descr) x =
+		let t = Marshal.int32 x in
+		let n = Unix.write fd t 0 (String.length t) in
+		if n < (String.length t)
+		then failwith "short write while marshalling result code";
+end
+
 module Chunk = struct
 	(** Represents an single block of data to write *)
 	type t = {
