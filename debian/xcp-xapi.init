@@ -45,6 +45,12 @@ grep hypervisor /proc/cpuinfo > /dev/null || exit 0
 # and status_of_proc is working.
 . /lib/lsb/init-functions
 
+# Exit with failure if xend is running
+if [ -f /var/run/xend.pid ]; then
+	log_failure_msg "/var/lib/xend.pid exists; ${NAME} conflicts with xend"
+	exit 1
+fi
+
 # Wait for xapi to write its "init complete" cookie: after here it's safe to modify templates.
 wait_for_xapi() {
     MAX_RETRIES=50
