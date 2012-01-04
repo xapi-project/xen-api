@@ -76,9 +76,15 @@ let print_source = function
 let print_pci x =
 	let open Pci in
 	let open Xn_cfg_types in
-	Printf.sprintf "%04x:%02x:%02x.%01x,%s=%d,%s=%d" x.domain x.bus x.dev x.fn
-		_msitranslate (if x.msitranslate then 1 else 0)
-		_power_mgmt (if x.power_mgmt then 1 else 0)
+	let msi = match x.msitranslate with
+		| None -> ""
+		| Some true -> Printf.sprintf ",%s=1" _msitranslate
+		| Some false -> Printf.sprintf ",%s=0" _msitranslate in
+	let power = match x.power_mgmt with
+		| None -> ""
+		| Some true -> Printf.sprintf ",%s=1" _power_mgmt
+		| Some false -> Printf.sprintf ",%s=0" _power_mgmt in
+	Printf.sprintf "%04x:%02x:%02x.%01x%s%s" x.domain x.bus x.dev x.fn msi power
 
 let parse_pci vm_id (x, idx) = match String.split ',' x with
 	| bdf :: options ->
@@ -104,12 +110,12 @@ let parse_pci vm_id (x, idx) = match String.split ',' x with
 				Printf.fprintf stderr "Failed to parse PCI option: %s. It should be key=value.\n" x;
 				exit 2
 		) options in
-		let default_bool d k opts =
-			if List.mem_assoc k opts then List.assoc k opts = "1" else d in
+		let bool_opt k opts =
+			if List.mem_assoc k opts then Some (List.assoc k opts = "1") else None in
 		let open Pci in
 		let open Xn_cfg_types in
-		let msitranslate = default_bool false _msitranslate options in
-		let power_mgmt = default_bool false _power_mgmt options in
+		let msitranslate = bool_opt _msitranslate options in
+		let power_mgmt = bool_opt _power_mgmt options in
 		{
 			Pci.id = vm_id, string_of_int idx;
 			position = idx;
@@ -240,9 +246,14 @@ let print_vm id =
 	(* Sort into order based on position *)
 	let pcis = List.sort (fun a b -> compare a.Pci.position b.Pci.position) pcis in
 	let pcis = [ _pci, Printf.sprintf "[ %s ]" (String.concat ", " (List.map (fun x -> Printf.sprintf "'%s'" (print_pci x)) pcis)) ] in
+	let global_pci_opts = [
+		_vm_pci_msitranslate, if vm_t.pci_msitranslate then "1" else "0";
+		_vm_pci_power_mgmt, if vm_t.pci_power_mgmt then "1" else "0";
+	] in
+
 	let transient = [ "# transient", string_of_bool vm_t.transient ] in
 	String.concat "\n" (List.map (fun (k, v) -> Printf.sprintf "%s=%s" k v)
-		(name @ boot @ vcpus @ memory @ vbds @ vifs @ pcis @ transient))
+		(name @ boot @ vcpus @ memory @ vbds @ vifs @ pcis @ global_pci_opts @ transient))
 
 
 let add filename =
@@ -303,6 +314,8 @@ let add filename =
 			let mib = if mem _memory then find _memory |> int |> Int64.of_int else 64L in
 			let bytes = Int64.mul 1024L (Int64.mul 1024L mib) in
 			let vcpus = if mem _vcpus then find _vcpus |> int else 1 in
+			let pci_msitranslate = if mem _vm_pci_msitranslate then find _vm_pci_msitranslate |> bool else true in
+			let pci_power_mgmt = if mem _vm_pci_power_mgmt then find _vm_pci_power_mgmt |> bool else false in
 			let vm = {
 				id = uuid;
 				name = name;
@@ -329,6 +342,8 @@ let add filename =
 				on_shutdown = [ Vm.Shutdown ];
 				on_reboot = [ Vm.Start ];
 				transient = false;
+				pci_msitranslate = pci_msitranslate;
+				pci_power_mgmt = pci_power_mgmt;
 			} in
 			let (id: Vm.id) = success (Client.VM.add dbg vm) in
 			let disks = if mem _disk then find _disk |> list string else [] in
@@ -514,8 +529,8 @@ let pci_add x idx bdf =
 		bus = bus;
 		dev = dev;
 		fn = fn;
-		msitranslate = false;
-		power_mgmt = false
+		msitranslate = None;
+		power_mgmt = None
 	} |> success in
 	Printf.printf "%s.%s\n" (fst id) (snd id)
 

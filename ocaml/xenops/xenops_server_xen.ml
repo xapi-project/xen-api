@@ -51,6 +51,8 @@ module VmExtra = struct
 		vbds: Vbd.t list; (* needed to regenerate qemu IDE config *)
 		vifs: Vif.t list;
 		last_create_time: float;
+		pci_msitranslate: bool;
+		pci_power_mgmt: bool;
 	} with rpc
 end
 
@@ -493,6 +495,8 @@ module VM = struct
 								vbds = [];
 								vifs = [];
 								last_create_time = Unix.gettimeofday ();
+								pci_msitranslate = vm.Vm.pci_msitranslate;
+								pci_power_mgmt = vm.Vm.pci_power_mgmt;
 							}
 						end in
 				let open Memory in
@@ -992,11 +996,17 @@ module PCI = struct
 
 	let plug task vm pci =
 		let device = pci.domain, pci.bus, pci.dev, pci.fn in
-		let msitranslate = if pci.msitranslate then 1 else 0
-		and pci_power_mgmt = if pci.power_mgmt then 1 else 0 in
-		Device.PCI.bind [ device ];
 		on_frontend
 			(fun xc xs frontend_domid hvm ->
+				(* Make sure the backend defaults are set *)
+				let vm_t = DB.read_exn vm in
+				xs.Xs.write (Printf.sprintf "/local/domain/0/backend/pci/%d/0/msitranslate" frontend_domid) (if vm_t.VmExtra.pci_msitranslate then "1" else "0");
+				xs.Xs.write (Printf.sprintf "/local/domain/0/backend/pci/%d/0/power_mgmt" frontend_domid) (if vm_t.VmExtra.pci_power_mgmt then "1" else "0");
+				(* Apply overrides (if provided) *)
+				let msitranslate = if (Opt.default vm_t.VmExtra.pci_msitranslate pci.msitranslate) then 1 else 0 in
+				let pci_power_mgmt = if (Opt.default vm_t.VmExtra.pci_power_mgmt pci.power_mgmt) then 1 else 0 in
+
+				Device.PCI.bind [ device ];
 				(* If the guest is HVM then we plug via qemu *)
 				if hvm
 				then Device.PCI.plug ~xc ~xs device frontend_domid

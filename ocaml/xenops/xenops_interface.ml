@@ -161,6 +161,8 @@ module Vm = struct
 		on_shutdown: action list;
 		on_reboot: action list;
 		transient: bool;
+		pci_msitranslate: bool;
+		pci_power_mgmt: bool;
 	}
 
 	type console_protocol =
@@ -197,8 +199,8 @@ module Pci = struct
 		bus: int;
 		dev: int;
 		fn: int;
-		msitranslate: bool;
-		power_mgmt: bool;
+		msitranslate: bool option;
+		power_mgmt: bool option;
 	}
 
 	type state = {
