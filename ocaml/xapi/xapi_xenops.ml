@@ -129,7 +129,35 @@ module MD = struct
 			]
 		}
 
-	let of_vm ~__context ~vm =
+	let pcis_of_vm ~__context (vmref, vm) =
+		(* The GPU PCI devices which xapi manages may have dependencies: *)
+		let hvm = vm.API.vM_HVM_boot_policy <> "" in
+		let managed_pcis = Vgpuops.create_vgpus ~__context (vmref, vm) hvm in
+		let dependent_pcis = List.setify (List.flatten
+			(List.map (fun pci -> Db.PCI.get_dependencies ~__context ~self:pci) managed_pcis)) in
+		let devs = List.sort compare (List.map (Pciops.pcidev_of_pci ~__context) (managed_pcis @ dependent_pcis)) in
+
+		(* The 'unmanaged' PCI devices are in the other_config key: *)
+		let other_pcidevs = Pciops.other_pcidevs_of_vm ~__context vm.API.vM_other_config in
+		let unmanaged = List.flatten (List.map (fun (_, dev) -> dev) (Pciops.sort_pcidevs other_pcidevs)) in
+
+		let devs = devs @ unmanaged in
+
+		let open Pci in
+		List.map
+			(fun (idx, (domain, bus, dev, fn)) -> {
+				id = (vm.API.vM_uuid, string_of_int idx);
+				position = idx;
+				domain = domain;
+				bus = bus;
+				dev = dev;
+				fn = fn;
+				msitranslate = None;
+				power_mgmt = None;
+			})
+			(List.combine (Range.to_list (Range.make 0 (List.length devs))) devs)
+
+	let of_vm ~__context (vmref, vm) =
 		let on_crash_behaviour = function
 			| `preserve -> []
 			| `coredump_and_restart -> [ Vm.Coredump; Vm.Start ]
@@ -170,6 +198,16 @@ module MD = struct
 			if not (Pool_features.is_enabled ~__context Features.No_platform_filter) then
 				List.filter (fun (k, v) -> List.mem k filtered_platform_flags) p
 			else p in
+
+		let pci_msitranslate = true in (* default setting *)
+		(* CA-55754: allow VM.other_config:msitranslate to override the bus-wide setting *)
+		let pci_msitranslate =
+			if List.mem_assoc "msitranslate" vm.API.vM_other_config
+			then List.assoc "msitranslate" vm.API.vM_other_config = "1"
+			else pci_msitranslate in
+		(* CA-55754: temporarily disable msitranslate when GPU is passed through. *)
+		let pci_msitranslate =
+			if vm.API.vM_VGPUs <> [] then false else pci_msitranslate in
 		{
 			id = vm.API.vM_uuid;
 			name = vm.API.vM_name_label;
@@ -190,6 +228,8 @@ module MD = struct
 			on_shutdown = on_normal_exit_behaviour vm.API.vM_actions_after_shutdown;
 			on_reboot = on_normal_exit_behaviour vm.API.vM_actions_after_reboot;
 			transient = true;
+			pci_msitranslate = pci_msitranslate;
+			pci_power_mgmt = false;
 		}		
 
 
@@ -210,7 +250,7 @@ let create_metadata ~__context ~self =
 		then Some vm.API.vM_last_booted_record
 		else None in
 	let open Metadata in {
-		vm = MD.of_vm ~__context ~vm;
+		vm = MD.of_vm ~__context (self, vm);
 		vbds = List.map (fun vbd -> MD.of_vbd ~__context ~vm ~vbd) vbds;
 		vifs = List.map (fun vif -> MD.of_vif ~__context ~vm ~vif) vifs;
 		domains = domains
@@ -759,7 +799,9 @@ let events_from_xenopsd () =
 					on_crash = [];
 					on_shutdown = [];
 					on_reboot = [];
-					transient = false
+					transient = false;
+					pci_msitranslate = true;
+					pci_power_mgmt = false;
 				} |> ignore;
 			end;
 			while true do

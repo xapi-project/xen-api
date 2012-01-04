@@ -792,7 +792,7 @@ let restore ~__context ~xc ~xs ~self start_paused =
 
   let reservation_id = Memory_control.reserve_memory ~__context ~xc ~xs ~kib:memory_required_kib in
   let domid = create ~__context ~xc ~xs ~self ~reservation_id snapshot () in
-  let other_pcidevs = Pciops.other_pcidevs_of_vm ~__context ~vm:self in
+  let other_pcidevs = Pciops.other_pcidevs_of_vm ~__context snapshot.API.vM_other_config in
 
   (* Ensure no old consoles survive *)
   destroy_consoles ~__context ~vM:self;
@@ -1115,7 +1115,7 @@ let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot 
 								let vifs = Vm_config.vifs_of_vm ~__context ~vm domid in
 								create_vifs ~__context ~xs vifs;
 								progress_cb 0.70;
-								let pcis = Vgpuops.create_vgpus ~__context ~vm domid hvm in
+								let pcis = Vgpuops.create_vgpus ~__context (vm, snapshot) hvm in
 								(* WORKAROUND FOR CA-55754: temporarily disable msitranslate when GPU is passed through. *)
 								(* other-config:msitranslate can be used the override the default *)
 								let msitranslate =
@@ -1135,7 +1135,7 @@ let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot 
 									| None -> ()
 								end;
 								let other_pcidevs =
-									match pcidevs with Some x -> x | None -> Pciops.other_pcidevs_of_vm ~__context ~vm in
+									match pcidevs with Some x -> x | None -> Pciops.other_pcidevs_of_vm ~__context snapshot.API.vM_other_config in
 								let pci_passthrough = pcis <> [] || other_pcidevs <> [] in
 								if not hvm then
 									Pciops.attach_pcis ~__context ~xc ~xs ~hvm domid other_pcidevs;
