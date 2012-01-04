@@ -211,11 +211,11 @@ let with_transport transport f = match transport with
 				Stunnel.connect ~use_fork_exec_helper ~write_to_log ~unique_id ~verify_cert ~extended_diagnosis:true host port in
 		let s = st_proc.Stunnel.fd in
 		let s_pid = Stunnel.getpid st_proc.Stunnel.pid in
-		info "stunnel pid: %d (cached = %b) connected to %s:%d" s_pid use_stunnel_cache host port;
+		debug "stunnel pid: %d (cached = %b) connected to %s:%d" s_pid use_stunnel_cache host port;
 
 		(* Call the {,un}set_stunnelpid_callback hooks around the remote call *)
 		let with_recorded_stunnelpid task_opt s_pid f =
-			info "with_recorded_stunnelpid task_opt=%s s_pid=%d" (Opt.default "None" task_opt) s_pid;
+			debug "with_recorded_stunnelpid task_opt=%s s_pid=%d" (Opt.default "None" task_opt) s_pid;
 			begin
 				match !Internal.set_stunnelpid_callback with
 					| Some f -> f task_id s_pid
@@ -243,7 +243,7 @@ let with_transport transport f = match transport with
 						if use_stunnel_cache
 						then begin
 							Stunnel_cache.add st_proc;
-							info "stunnel pid: %d (cached = %b) returned stunnel to cache" s_pid use_stunnel_cache;
+							debug "stunnel pid: %d (cached = %b) returned stunnel to cache" s_pid use_stunnel_cache;
 						end else
 							begin
 								Unix.unlink st_proc.Stunnel.logfile;
