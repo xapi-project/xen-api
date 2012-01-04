@@ -41,20 +41,52 @@ let backend_of_network ~__context ~self =
 	let bridge = Db.Network.get_bridge ~__context ~self in
 	VSwitch bridge (* PR-1255 *)
 
-let builder_of_vm ~__context ~vm =
-	let open Vm in
-	let find f map default feature =
-		try f (List.assoc feature map)
-		with _ -> default in
-	let string = find (fun x -> x) in
-	let int = find int_of_string in
-	let bool = find bool_of_string in
+let find f map default feature =
+	try f (List.assoc feature map)
+	with _ -> default
+let string = find (fun x -> x)
+let int = find int_of_string
+let bool = find bool_of_string
 
+let rtc_timeoffset_of_vm ~__context (vm, vm_t) vbds =
+	let timeoffset = string vm_t.API.vM_platform "0" "timeoffset" in
+	(* If any VDI has on_boot = reset AND has a VDI.other_config:timeoffset
+	   then we override the platform/timeoffset. This is needed because windows
+	   stores the local time in timeoffset (the BIOS clock) but records whether
+	   it has adjusted it for daylight savings in the system disk. If we reset
+	   the system disk to an earlier snapshot then the BIOS clock needs to be
+	   reset too. *)
+	let non_empty_vbds = List.filter (fun vbd -> not vbd.API.vBD_empty) vbds in
+	let vdis = List.map (fun vbd -> vbd.API.vBD_VDI) non_empty_vbds in
+	let vdis_with_timeoffset_to_be_reset_on_boot =
+		vdis
+		|> List.map (fun self -> (self, Db.VDI.get_record ~__context ~self))
+		|> List.filter (fun (_, record) -> record.API.vDI_on_boot = `reset)
+		|> List.filter_map (fun (reference, record) ->
+			Opt.of_exception (fun () ->
+				reference,
+				List.assoc "timeoffset"
+					record.API.vDI_other_config)) in
+	match vdis_with_timeoffset_to_be_reset_on_boot with
+		| [] ->
+			timeoffset
+		| [(reference, timeoffset)] ->
+			timeoffset
+		| reference_timeoffset_pairs ->
+			raise (Api_errors.Server_error (
+				(Api_errors.vm_attached_to_more_than_one_vdi_with_timeoffset_marked_as_reset_on_boot),
+				(Ref.string_of vm) ::
+					(reference_timeoffset_pairs
+					|> List.map fst
+					|> List.map Ref.string_of)))
+
+let builder_of_vm ~__context ~vm timeoffset =
+	let open Vm in
 	match Helpers.boot_method_of_vm ~__context ~vm with
 		| Helpers.HVM { Helpers.timeoffset = t } -> HVM {
 			hap = true;
 			shadow_multiplier = vm.API.vM_HVM_shadow_multiplier;
-			timeoffset = string vm.API.vM_platform "0" "timeoffset";
+			timeoffset = timeoffset;
 			video_mib = int vm.API.vM_platform 4 "videoram";
 			video = begin match string vm.API.vM_platform "cirrus" "vga" with
 				| "std" -> Standard_VGA
@@ -157,7 +189,7 @@ module MD = struct
 			})
 			(List.combine (Range.to_list (Range.make 0 (List.length devs))) devs)
 
-	let of_vm ~__context (vmref, vm) =
+	let of_vm ~__context (vmref, vm) vbds =
 		let on_crash_behaviour = function
 			| `preserve -> []
 			| `coredump_and_restart -> [ Vm.Coredump; Vm.Start ]
@@ -198,6 +230,11 @@ module MD = struct
 			if not (Pool_features.is_enabled ~__context Features.No_platform_filter) then
 				List.filter (fun (k, v) -> List.mem k filtered_platform_flags) p
 			else p in
+		let timeoffset = rtc_timeoffset_of_vm ~__context (vmref, vm) vbds in
+		(* Replace the timeoffset in the platform data too, to avoid confusion *)
+		let platformdata =
+			("timeoffset", timeoffset) ::
+				(List.filter (fun (key, _) -> key <> "timeoffset") platformdata) in
 
 		let pci_msitranslate = true in (* default setting *)
 		(* CA-55754: allow VM.other_config:msitranslate to override the bus-wide setting *)
@@ -215,7 +252,7 @@ module MD = struct
 			xsdata = xsdata;
 			platformdata = platformdata;
 			bios_strings = vm.API.vM_bios_strings;
-			ty = builder_of_vm ~__context ~vm;
+			ty = builder_of_vm ~__context ~vm timeoffset;
 			suppress_spurious_page_faults = (try List.assoc "suppress-spurious-page-faults" vm.API.vM_other_config = "true" with _ -> false);
 			machine_address_size = (try Some(int_of_string (List.assoc "machine-address-size" vm.API.vM_other_config)) with _ -> None);
 			memory_static_max = vm.API.vM_memory_static_max;
@@ -250,7 +287,7 @@ let create_metadata ~__context ~self =
 		then Some vm.API.vM_last_booted_record
 		else None in
 	let open Metadata in {
-		vm = MD.of_vm ~__context (self, vm);
+		vm = MD.of_vm ~__context (self, vm) vbds;
 		vbds = List.map (fun vbd -> MD.of_vbd ~__context ~vm ~vbd) vbds;
 		vifs = List.map (fun vif -> MD.of_vif ~__context ~vm ~vif) vifs;
 		domains = domains
