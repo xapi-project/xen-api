@@ -19,8 +19,7 @@
 
 (** Return a list of GPU PCI devices that are going to be attached. *)
 val create_vgpus :
-  __context:Context.t ->
-  vm:[ `VM ] Ref.t -> int -> bool -> [ `PCI ] Ref.t list
+  __context:Context.t -> (API.ref_VM * API.vM_t) -> bool -> [ `PCI ] Ref.t list
 
 (** Mark all VGPUs for the given VM as unattached. *)
 val clear_vgpus : __context:Context.t -> vm:[ `VM ] Ref.t -> unit

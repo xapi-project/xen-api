@@ -492,7 +492,7 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
   debug "Receiver 7b. unpausing domain";
   Domain.unpause ~xc domid;
 
-  Pciops.plug_pcis ~__context ~vm domid [] (Pciops.other_pcidevs_of_vm ~__context ~vm);
+  Pciops.plug_pcis ~__context ~vm domid [] (Pciops.other_pcidevs_of_vm ~__context snapshot.API.vM_other_config);
 
   Db.VM.set_domid ~__context ~self:vm ~value:(Int64.of_int domid);
   Helpers.call_api_functions ~__context

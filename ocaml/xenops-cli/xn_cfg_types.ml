@@ -16,6 +16,11 @@ let int = function
 	| Int x -> x
 	| x -> raise (Type_error("int", x |> rpc_of_value |> Jsonrpc.to_string))
 
+let bool = function
+	| Int 1 -> true
+	| Int 0 -> false
+	| x -> raise (Type_error("bool", x |> rpc_of_value |> Jsonrpc.to_string))
+
 let list f = function
 	| List vs -> List.map f vs
 	| x -> raise (Type_error("int", x |> rpc_of_value |> Jsonrpc.to_string))
@@ -48,3 +53,5 @@ let _disk = "disk"
 let _pci = "pci"
 let _msitranslate = "msitranslate"
 let _power_mgmt = "power_mgmt"
+let _vm_pci_msitranslate = "pci_msitranslate"
+let _vm_pci_power_mgmt = "pci_power_mgmt"

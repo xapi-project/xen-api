@@ -40,8 +40,7 @@ let sort_pcidevs devs =
 		id, (List.map snd (List.filter (fun (x, _) -> x = id) devs))
 	) ids
 
-let other_pcidevs_of_vm ~__context ~vm =
-	let other_config = Db.VM.get_other_config ~__context ~self:vm in
+let other_pcidevs_of_vm ~__context other_config =
 	let devs =
 		try
 			let oc = List.assoc "pci" other_config in
