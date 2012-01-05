@@ -13,6 +13,9 @@
  *)
 let name = "xenopsd"
 
+let major_version = 0
+let minor_version = 9
+
 (* Server configuration. We have built-in (hopefully) sensible defaults,
    together with command-line arguments and a configuration file. They
    are applied in order: (latest takes precedence)
@@ -20,15 +23,17 @@ let name = "xenopsd"
 *)
 let config_file = ref (Printf.sprintf "/etc/%s.conf" name)
 let pidfile = ref (Printf.sprintf "/var/run/%s.pid" name)
-let log_file_path = ref (Printf.sprintf "file:/var/log/xenopsd/%s.log" name)
+let log_destination = ref "syslog:xenopsd"
 let simulate = ref false
 let persist = ref true
+let daemon = ref false
 
 let config_spec = [
 	"pidfile", Config.Set_string pidfile;
-	"log", Config.Set_string log_file_path;
+	"log", Config.Set_string log_destination;
 	"simulate", Config.Set_bool simulate;
 	"persist", Config.Set_bool persist;
+	"daemon", Config.Set_bool daemon;
 ]
 
 open Xenops_utils
@@ -44,6 +49,13 @@ let read_config_file () =
 		Config.read !config_file config_spec unknown_key;
 		debug "Read global variables successfully from %s" !config_file
 	end
+
+let dump_config_file () =
+	debug "pidfile = %s" !pidfile;
+	debug "log = %s" !log_destination;
+	debug "simulate = %b" !simulate;
+	debug "persist = %b" !persist;
+	debug "daemon = %b" !daemon
 
 let socket = ref None
 let server = Http_svr.Server.empty (Xenops_server.make_context ())
@@ -142,11 +154,11 @@ let reopen_logs _ =
   []
 
 let _ = 
-  let daemonize = ref false in
-  Logs.reset_all [ "file:/dev/stdout" ];
+  Logs.reset_all [ !log_destination ];
+  debug "xenopsd version %d.%d starting" major_version minor_version;
 
   Arg.parse (Arg.align [
-	       "-daemon", Arg.Set daemonize, "Create a daemon";
+	       "-daemon", Arg.Set daemon, "Create a daemon";
 	       "-pidfile", Arg.Set_string pidfile, Printf.sprintf "Set the pid file (default \"%s\")" !pidfile;
 		   "-simulate", Arg.Set simulate, "Use the simulator backend (default is the xen backend)";
 		   "-config", Arg.Set_string config_file, Printf.sprintf "Read configuration from the specified config file (default \"%s\")" !config_file;
@@ -155,16 +167,16 @@ let _ =
     (Printf.sprintf "Usage: %s [-daemon] [-pidfile filename]" name);
   read_config_file ();
 
-  Unixext.mkdir_rec (Filename.dirname !log_file_path) 0o755;
-  Logs.reset_all (if !daemonize then [ !log_file_path ] else [ "file:/dev/stdout" ]);
+  Logs.reset_all [ !log_destination ];
   Logs.set "http" Log.Debug [ "nil" ];
+  dump_config_file ();
 
   Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
 
   (* Accept connections before we have daemonized *)
   let sockets = prepare_sockets path in
 
-  if !daemonize then Unixext.daemonize ();
+  if !daemon then Unixext.daemonize ();
 
   Unixext.mkdir_rec (Filename.dirname !pidfile) 0o755;
   Unixext.pidfile_write !pidfile;
