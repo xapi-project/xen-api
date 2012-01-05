@@ -1,7 +1,11 @@
 xen-api (1.3-14) unstable; urgency=low
 
+  [Thomas Goirand]
   * Now Recommends: smbfs so we can mount iso SR over samba.
   * Packages XenAPI python library in a separate binary.
+  [Mike McClurg]
+  * Added a debian/patches to make it possible to use override
+  XCP reported version in /etc/xcp/xapi_version_override.
 
  -- Thomas Goirand <zigo@debian.org>  Tue, 27 Dec 2011 15:00:43 +0000
 
