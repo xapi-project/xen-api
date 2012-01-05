@@ -141,54 +141,58 @@ let copy_bonds_from_master ~__context () =
    PIF (e.g. if the master has eth0.25 and we don't have eth0) then we do nothing.
 *)
 let copy_vlans_from_master ~__context () =
-	debug "Resynchronising VLANs";
-	(* 1. Download data from the master, minimising round-trips *)
 	let me = !Xapi_globs.localhost_ref in
-	let pool = Helpers.get_pool ~__context in
-	let master = Db.Pool.get_master ~__context ~self:pool in
-	let pifs = Db.PIF.get_all_records ~__context in
-	let vlans = Db.VLAN.get_all_records ~__context in
-	(* 2. Make lists and lookup tables *)
-	let all_master_pifs = List.filter (fun (_, prec) -> prec.API.pIF_host=master) pifs in
-	let my_pifs = List.filter (fun (_, pif) -> pif.API.pIF_host=me) pifs in
-	let master_vlan_pifs = List.filter (fun (_,prec) -> prec.API.pIF_VLAN <> -1L) all_master_pifs in
-	let my_vlan_pifs = List.filter (fun (_,prec) -> prec.API.pIF_VLAN <> -1L) my_pifs in
+	let oc = Db.Host.get_other_config ~__context ~self:me in
+	if not (List.mem_assoc Xapi_globs.sync_vlans oc &&
+		List.assoc Xapi_globs.sync_vlans oc = Xapi_globs.sync_switch_off) then begin
+		debug "Resynchronising VLANs";
+		(* 1. Download data from the master, minimising round-trips *)
+		let pool = Helpers.get_pool ~__context in
+		let master = Db.Pool.get_master ~__context ~self:pool in
+		let pifs = Db.PIF.get_all_records ~__context in
+		let vlans = Db.VLAN.get_all_records ~__context in
+		(* 2. Make lists and lookup tables *)
+		let all_master_pifs = List.filter (fun (_, prec) -> prec.API.pIF_host=master) pifs in
+		let my_pifs = List.filter (fun (_, pif) -> pif.API.pIF_host=me) pifs in
+		let master_vlan_pifs = List.filter (fun (_,prec) -> prec.API.pIF_VLAN <> -1L) all_master_pifs in
+		let my_vlan_pifs = List.filter (fun (_,prec) -> prec.API.pIF_VLAN <> -1L) my_pifs in
 
-	let get_network_of_pif_underneath_vlan vlan_pif_ref =
-		let pif_r = List.assoc vlan_pif_ref pifs in
-		let vlan = pif_r.API.pIF_VLAN_master_of in
-		let vlan_r = List.assoc vlan vlans in
-		let pif_underneath_vlan = vlan_r.API.vLAN_tagged_PIF in
-		let pif_underneath_vlan_r = List.assoc pif_underneath_vlan pifs in
-		pif_underneath_vlan_r.API.pIF_network in
+		let get_network_of_pif_underneath_vlan vlan_pif_ref =
+			let pif_r = List.assoc vlan_pif_ref pifs in
+			let vlan = pif_r.API.pIF_VLAN_master_of in
+			let vlan_r = List.assoc vlan vlans in
+			let pif_underneath_vlan = vlan_r.API.vLAN_tagged_PIF in
+			let pif_underneath_vlan_r = List.assoc pif_underneath_vlan pifs in
+			pif_underneath_vlan_r.API.pIF_network in
 
-	let maybe_create_vlan_pif_for_me (master_pif_ref, master_pif_rec) =
-		(* check to see if I have any existing pif(s) that for the specified device, network, vlan... *)
-		let existing_pif = List.filter (fun (my_pif_ref,my_pif_record) -> 
-			(* Is my VLAN PIF that we're considering (my_pif_ref) the one that corresponds to the master_pif we're considering (master_pif_ref)? *)
-			true 
-			&& my_pif_record.API.pIF_network = master_pif_rec.API.pIF_network 
-			&& my_pif_record.API.pIF_VLAN = master_pif_rec.API.pIF_VLAN
-			&& ((get_network_of_pif_underneath_vlan my_pif_ref) =
-				(get_network_of_pif_underneath_vlan master_pif_ref))
-			) my_vlan_pifs in
-		(* if I don't have any such pif(s) then make one: *)
-		if List.length existing_pif = 0 
-		then
-			begin
-				(* On the master, we find the pif, p, that underlies the VLAN 
-				 * (e.g. "eth0" underlies "eth0.25") and then find the network that p's on: *)
-				let network_of_pif_underneath_vlan_on_master = get_network_of_pif_underneath_vlan master_pif_ref in
-				match List.filter (fun (_,prec) -> prec.API.pIF_network=network_of_pif_underneath_vlan_on_master ) my_pifs with
-				| [] -> () (* we have no PIF on which to make the vlan; do nothing *)
-				| [(pif_ref,_)] -> (* this is the PIF on which we want to base our vlan record; let's make it *)
-					ignore (Xapi_vlan.create ~__context ~tagged_PIF:pif_ref
-						~tag:master_pif_rec.API.pIF_VLAN ~network:master_pif_rec.API.pIF_network)
-				| _ -> () (* this should never happen cos we should never have more than one of _our_ pifs on the same nework *)
-			end
-	in 
-	(* for each of the master's pifs, create a corresponding one on this host if necessary *)
-	List.iter maybe_create_vlan_pif_for_me master_vlan_pifs
+		let maybe_create_vlan_pif_for_me (master_pif_ref, master_pif_rec) =
+			(* check to see if I have any existing pif(s) that for the specified device, network, vlan... *)
+			let existing_pif = List.filter (fun (my_pif_ref,my_pif_record) -> 
+				(* Is my VLAN PIF that we're considering (my_pif_ref) the one that corresponds to the master_pif we're considering (master_pif_ref)? *)
+				true 
+				&& my_pif_record.API.pIF_network = master_pif_rec.API.pIF_network 
+				&& my_pif_record.API.pIF_VLAN = master_pif_rec.API.pIF_VLAN
+				&& ((get_network_of_pif_underneath_vlan my_pif_ref) =
+					(get_network_of_pif_underneath_vlan master_pif_ref))
+				) my_vlan_pifs in
+			(* if I don't have any such pif(s) then make one: *)
+			if List.length existing_pif = 0 
+			then
+				begin
+					(* On the master, we find the pif, p, that underlies the VLAN 
+					 * (e.g. "eth0" underlies "eth0.25") and then find the network that p's on: *)
+					let network_of_pif_underneath_vlan_on_master = get_network_of_pif_underneath_vlan master_pif_ref in
+					match List.filter (fun (_,prec) -> prec.API.pIF_network=network_of_pif_underneath_vlan_on_master ) my_pifs with
+					| [] -> () (* we have no PIF on which to make the vlan; do nothing *)
+					| [(pif_ref,_)] -> (* this is the PIF on which we want to base our vlan record; let's make it *)
+						ignore (Xapi_vlan.create ~__context ~tagged_PIF:pif_ref
+							~tag:master_pif_rec.API.pIF_VLAN ~network:master_pif_rec.API.pIF_network)
+					| _ -> () (* this should never happen cos we should never have more than one of _our_ pifs on the same nework *)
+				end
+		in 
+		(* for each of the master's pifs, create a corresponding one on this host if necessary *)
+		List.iter maybe_create_vlan_pif_for_me master_vlan_pifs
+	end
 
 (** Copy tunnels from master *)
 let copy_tunnels_from_master ~__context () =
