@@ -55,27 +55,30 @@ let localhost_handler rpc session_id vdi (req: Request.t) (s: Unix.file_descr) =
 	| None ->
 		Server_helpers.exec_with_new_task "VDI.import" 
 			(fun __context ->
-				Sm_fs_ops.with_block_attached_device __context rpc session_id vdi `RW
-					(fun path ->
-						Unixext.Direct.with_openfile path 0
-							(fun fd ->
-								let headers = Http.http_200_ok ~keep_alive:false () @
-									[ Http.Hdr.task_id ^ ":" ^ (Ref.string_of task_id);
-									content_type ] in
-								Http_svr.headers s headers;
-								try
-									if chunked
-									then receive_chunks s fd
-									else ignore(Unixext.Direct.copy_from_fd ?limit:req.Request.content_length s fd);
-									Unixext.Direct.fsync fd;
-									info "Import successful: sending back result code '0'";
-									Result.marshal s 0l;
-								with Unix.Unix_error(Unix.EIO, _, _) ->
-									error "Device I/O errors: sending back result code '1'";
-									Result.marshal s 1l;
-									raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O errors"]))
-							)
-					)
+				try
+					Sm_fs_ops.with_block_attached_device __context rpc session_id vdi `RW
+						(fun path ->
+							Unixext.Direct.with_openfile path 0
+								(fun fd ->
+									let headers = Http.http_200_ok ~keep_alive:false () @
+										[ Http.Hdr.task_id ^ ":" ^ (Ref.string_of task_id);
+										content_type ] in
+									Http_svr.headers s headers;
+									try
+										if chunked
+										then receive_chunks s fd
+										else ignore(Unixext.Direct.copy_from_fd ?limit:req.Request.content_length s fd);
+										Unixext.Direct.fsync fd;
+									with Unix.Unix_error(Unix.EIO, _, _) ->
+										raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O errors"]))
+								)
+						);
+					info "Import successful: sending back result code '0'";
+					Result.marshal s 0l;
+				with e ->
+					error "Device I/O errors: sending back result code '1'";
+					Result.marshal s 1l;
+					raise e
 			);
 	    TaskHelper.complete ~__context [];
       with e ->
