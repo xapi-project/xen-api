@@ -51,25 +51,25 @@ let reason__none = "none"
 let exitcode_log_and_continue = 1
 (* all other exit codes cause xapi to abort operation and raise XAPI_HOOK_FAILED api exception *)
 
-let list_individual_hooks ~script_name = 
-  let script_dir = Xapi_globs.xapi_hooks_root^script_name^"/" in
+let list_individual_hooks ~script_name =
+  let script_dir = Filename.concat Xapi_globs.xapi_hooks_root script_name in
   if (try Unix.access script_dir [Unix.F_OK]; true with _ -> false) 
   then
     let scripts = Sys.readdir script_dir in
     Array.stable_sort compare scripts;
     scripts
-  else [| |]      
+  else [| |]
 
 let execute_hook ~__context ~script_name ~args ~reason =
   let args = args @ [ "-reason"; reason ] in
   let scripts = list_individual_hooks ~script_name in
 
-  let script_dir = Xapi_globs.xapi_hooks_root^script_name^"/" in
+  let script_dir = Filename.concat Xapi_globs.xapi_hooks_root script_name in
     Array.iter
       (fun script->
 	 try
 	   debug "Executing hook '%s/%s' with args [ %s ]" script_name script (String.concat "; " args);
-	   ignore (Forkhelpers.execute_command_get_output (script_dir^script) args);
+	   ignore (Forkhelpers.execute_command_get_output (Filename.concat script_dir script) args);
 	 with
 	   Forkhelpers.Spawn_internal_error (_,stdout,Unix.WEXITED i) (* i<>0 since that case does not generate exn *) ->
 	     if i=exitcode_log_and_continue then
