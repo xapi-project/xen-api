@@ -25,8 +25,16 @@ open Unixext
 open Pervasiveext
 open Client
 
-let receive_chunks (s: Unix.file_descr) (fd: Unixext.Direct.t) =
+let _o_direct = "o_direct"
+
+let receive_chunks_direct (s: Unix.file_descr) (fd: Unixext.Direct.t) =
+	debug "receive_chunks_direct";
+	Chunk.fold (fun () -> Chunk.write_direct fd) () s
+
+let receive_chunks (s: Unix.file_descr) (fd: Unix.file_descr) =
+	debug "receive_chunks";
 	Chunk.fold (fun () -> Chunk.write fd) () s
+
 
 let vdi_of_req ~__context (req: Request.t) = 
 	let all = req.Request.query @ req.Request.cookie in
@@ -45,7 +53,8 @@ let localhost_handler rpc session_id vdi (req: Request.t) (s: Unix.file_descr) =
 	let all = req.Request.query @ req.Request.cookie in
       let chunked = List.mem_assoc "chunked" all in
       let task_id = Context.get_task_id __context in
-	 debug "import_raw_vdi task_id = %s vdi = %s; chunked = %b" (Ref.string_of task_id) (Ref.string_of vdi) chunked;
+	  let o_direct = List.mem_assoc _o_direct all in
+	 debug "import_raw_vdi task_id = %s vdi = %s; chunked = %b; o_direct = %b" (Ref.string_of task_id) (Ref.string_of vdi) chunked o_direct;
 	 try
 	match req.Request.transfer_encoding with
 	| Some x ->
@@ -58,20 +67,40 @@ let localhost_handler rpc session_id vdi (req: Request.t) (s: Unix.file_descr) =
 				try
 					Sm_fs_ops.with_block_attached_device __context rpc session_id vdi `RW
 						(fun path ->
-							Unixext.Direct.with_openfile path 0
-								(fun fd ->
-									let headers = Http.http_200_ok ~keep_alive:false () @
-										[ Http.Hdr.task_id ^ ":" ^ (Ref.string_of task_id);
-										content_type ] in
-									Http_svr.headers s headers;
-									try
+							let headers = Http.http_200_ok ~keep_alive:false () @
+								[ Http.Hdr.task_id ^ ":" ^ (Ref.string_of task_id);
+								content_type ] in
+							try
+								if o_direct
+								then Unixext.Direct.with_openfile path 0
+									(fun fd ->
+										Http_svr.headers s headers;
+										if chunked
+										then receive_chunks_direct s fd
+										else ignore(Unixext.Direct.copy_from_fd ?limit:req.Request.content_length s fd);
+										debug "Flushing blocks to disk";
+										Unixext.Direct.fsync fd;
+									)
+								else Unixext.with_file path [ Unix.O_WRONLY ] 0
+									(fun fd ->
+										Http_svr.headers s headers;
 										if chunked
 										then receive_chunks s fd
-										else ignore(Unixext.Direct.copy_from_fd ?limit:req.Request.content_length s fd);
-										Unixext.Direct.fsync fd;
-									with Unix.Unix_error(Unix.EIO, _, _) ->
-										raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O errors"]))
-								)
+										else ignore(Unixext.copy_file ?limit:req.Request.content_length s fd);
+										debug "Flushing blocks to disk";
+										Unixext.fsync fd;
+									)
+							with
+								| Unix.Unix_error(Unix.EIO, _, _) ->
+									error "Caught EIO in import_raw_vdi: some low-level device I/O error occurred";
+									raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O errors"]))
+								| Unix.Unix_error(e, fn, arg) as exn ->
+									error "Caught Unix_error(%s, %s, %s) in import_raw_vdi" (Unix.error_message e) fn arg;
+									raise exn
+								| exn ->
+									error "Caught %s in import_raw_vdi" (Printexc.to_string exn);
+									raise exn
+
 						);
 					info "Import successful: sending back result code '0'";
 					Result.marshal s 0l;
