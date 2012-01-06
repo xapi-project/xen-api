@@ -135,7 +135,23 @@ let plug_internal ~__context ~self =
 let plug_xenopsd ~__context ~self =
 	Xapi_xenops.vbd_plug ~__context ~self
 
-let plug ~__context = if !Xapi_globs.use_xenopsd then plug_xenopsd ~__context else plug_internal ~__context
+let plug ~__context ~self =
+	let vm = Db.VBD.get_VM ~__context ~self in
+	let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
+	let force_loopback_vbd = Helpers.force_loopback_vbd ~__context in
+	if System_domains.storage_driver_domain_of_vbd ~__context ~vbd:self = vm && not force_loopback_vbd then begin
+		debug "VBD.plug of loopback VBD '%s'" (Ref.string_of self);
+		let hvm = Helpers.has_booted_hvm ~__context ~self:vm in
+		Storage_access.attach_and_activate ~__context ~vbd:self ~domid ~hvm
+			(fun params ->
+				let prefix = "/dev/" in
+				let prefix_len = String.length prefix in
+				let path = String.sub params prefix_len (String.length params - prefix_len) in
+				Db.VBD.set_device ~__context ~self ~value:path;
+				Db.VBD.set_currently_attached ~__context ~self ~value:true;
+			)
+	end
+	else if !Xapi_globs.use_xenopsd then plug_xenopsd ~__context ~self else plug_internal ~__context ~self
 
 let unplug_common_internal ?(do_safety_check=true) ~__context ~self (force: bool) =
   let r = Db.VBD.get_record_internal ~__context ~self in
@@ -162,9 +178,30 @@ let unplug_common_internal ?(do_safety_check=true) ~__context ~self (force: bool
 let unplug_common_xenopsd ?(do_safety_check=true) ~__context ~self (force: bool) =
 	Xapi_xenops.vbd_unplug ~__context ~self force
 
-let unplug ~__context ~self = (if !Xapi_globs.use_xenopsd then unplug_common_xenopsd else unplug_common_internal) ~__context ~self false
-let unplug_force ~__context ~self = (if !Xapi_globs.use_xenopsd then unplug_common_xenopsd else unplug_common_internal) ~__context ~self true
-let unplug_force_no_safety_check ~__context ~self = (if !Xapi_globs.use_xenopsd then unplug_common_xenopsd else unplug_common_internal) ~do_safety_check:false ~__context ~self true
+let unplug ~__context ~self =
+	let vm = Db.VBD.get_VM ~__context ~self in
+	let force_loopback_vbd = Helpers.force_loopback_vbd ~__context in
+	if System_domains.storage_driver_domain_of_vbd ~__context ~vbd:self = vm && not force_loopback_vbd then begin
+		debug "VBD.unplug of loopback VBD '%s'" (Ref.string_of self);
+		let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
+		Storage_access.deactivate_and_detach ~__context ~vbd:self ~domid ~unplug_frontends:true;
+		Db.VBD.set_currently_attached ~__context ~self ~value:false
+	end
+	else (if !Xapi_globs.use_xenopsd then unplug_common_xenopsd else unplug_common_internal) ~__context ~self false
+
+let unplug_force ~__context ~self =
+	let vm = Db.VBD.get_VM ~__context ~self in
+	let force_loopback_vbd = Helpers.force_loopback_vbd ~__context in
+	if System_domains.storage_driver_domain_of_vbd ~__context ~vbd:self = vm && not force_loopback_vbd
+	then unplug ~__context ~self
+	else (if !Xapi_globs.use_xenopsd then unplug_common_xenopsd else unplug_common_internal) ~__context ~self true
+
+let unplug_force_no_safety_check ~__context ~self =
+	let vm = Db.VBD.get_VM ~__context ~self in
+	let force_loopback_vbd = Helpers.force_loopback_vbd ~__context in
+	if System_domains.storage_driver_domain_of_vbd ~__context ~vbd:self = vm && not force_loopback_vbd
+	then unplug ~__context ~self
+	else (if !Xapi_globs.use_xenopsd then unplug_common_xenopsd else unplug_common_internal) ~do_safety_check:false ~__context ~self true
 
 (** Hold this mutex while resolving the 'autodetect' device names to prevent two concurrent
     VBD.creates racing with each other and choosing the same device. For simplicity keep this
