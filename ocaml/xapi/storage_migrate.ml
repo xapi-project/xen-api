@@ -165,7 +165,7 @@ let start ~task ~sr ~vdi ~url ~dest =
 		(* Copy the snapshot to the remote *)
 		let new_parent = copy' ~task ~sr ~vdi:snapshot.vdi ~url ~dest in
 		Remote.VDI.compose ~task ~sr:dest ~vdi1:new_parent.vdi ~vdi2:leaf.vdi |> success |> unit;
-		debug "New parent = %s" new_parent.vdi;
+		debug "Local VDI %s == remote VDI %s" snapshot.vdi new_parent.vdi;
 		debug "Updating remote content_id";
 		Remote.VDI.set_content_id ~task ~sr:dest ~vdi:leaf.vdi ~content_id:local_vdi.content_id |> success |> unit;
 		(* PR-1255: XXX: this is useful because we don't have content_ids by default *)
