@@ -178,10 +178,19 @@ module Storage = struct
 				(fun () -> Client.VDI.attach "attach_and_activate" dp sr vdi read_write |> success |> params) in
 		Xenops_task.with_subtask task (Printf.sprintf "VDI.activate %s" dp)
 			(fun () -> Client.VDI.activate "attach_and_activate" dp sr vdi |> success |> unit);
+(*		let md5, _ = Forkhelpers.execute_command_get_output "/usr/bin/md5sum" [ result ] in
+		debug "post-activate path=%s md5=%s" result md5;
+*)
 		(* XXX: we need to find out the backend domid *)
 		{ domid = 0; params = result }
 
 	let deactivate task dp sr vdi =
+		debug "Deactivating disk %s %s" sr vdi;
+(*
+		let path = Printf.sprintf "/dev/sm/backend/%s/%s" sr vdi in
+		let md5, _ = Forkhelpers.execute_command_get_output "/usr/bin/md5sum" [ path] in
+		debug "pre-deactivate path=%s md5=%s" path  md5;
+*)
 		Xenops_task.with_subtask task (Printf.sprintf "VDI.deactivate %s" dp)
 			(fun () -> Client.VDI.deactivate "deactivate" dp sr vdi |> success |> unit)
 
@@ -864,14 +873,18 @@ module VM = struct
 						let vbds = List.filter (fun vbd -> vbd.Vbd.backend <> None) d.VmExtra.vbds in
 						let devices = List.map (fun vbd -> vbd.Vbd.id |> snd |> device_by_id xc xs vm.id Device_common.Vbd Oldest) vbds in
 						Domain.hard_shutdown_all_vbds ~xc ~xs devices;
+						debug "Disk backends have all been flushed";
 						List.iter (fun vbd -> match vbd.Vbd.backend with
 							| None (* can never happen due to 'filter' above *)
 							| Some (Local _) -> ()
 							| Some (VDI path) ->
 								let sr, vdi = Storage.get_disk_by_name task path in
+								(*
 								Storage.deactivate task (Storage.id_of domid vbd.Vbd.id) sr vdi
+								  *)
+								debug "XXX Skipping disk deactivate sr=%s vdi=%s" sr vdi
 						) vbds;
-
+						debug "Storing final memory usage";
 						DB.write k { d with
 							VmExtra.suspend_memory_bytes = Memory.bytes_of_pages pages;
 						}
