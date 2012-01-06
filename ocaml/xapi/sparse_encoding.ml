@@ -109,11 +109,23 @@ module Chunk = struct
 		if n < len 
 		then failwith (Printf.sprintf "Short write: attempted to write %d bytes at %Ld, only wrote %d" len offset n)
 
-	(** Writes a single block of data to the output device *)
-	let write fd x =
-		debug "Chunk.write start=%Ld length=%d" x.start (String.length x.data);
+	let write_direct fd x =
+		debug "Chunk.write start=%Lx length=%d" x.start (String.length x.data);
+		let start_aligned = Int64.rem x.start 512L = 0L in
+		let length_aligned = (String.length x.data) mod 512 = 0 in
+		if not start_aligned || (not length_aligned) then begin
+			debug "UNALIGNED O_DIRECT Chunk.write start=%Lx length=%d" x.start (String.length x.data);
+			debug "data = [%s]" x.data;
+			failwith (Printf.sprintf "UNALIGNED O_DIRECT Chunk.write start=%Lx length=%d" x.start (String.length x.data));
+		end;
 		ignore(Unixext.Direct.lseek fd x.start Unix.SEEK_SET);
 		really_write_direct fd x.start x.data 0 (String.length x.data)
+
+	(** Writes a single block of data to the output device *)
+	let write fd x =
+		debug "Chunk.write start=%Lx length=%d" x.start (String.length x.data);
+		ignore(Unix.LargeFile.lseek fd x.start Unix.SEEK_SET);
+		really_write fd x.start x.data 0 (String.length x.data)
 
 	(** Reads a type t from a file descriptor *)
 	let unmarshal (fd: Unix.file_descr) = 
