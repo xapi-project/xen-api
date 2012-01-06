@@ -13,17 +13,20 @@
 # GNU Lesser General Public License for more details.
 #
 
+import fcntl
 import os
 import os.path
 import string
 import subprocess
 import sys
 import syslog
+import time
 
 command_name = sys.argv[0]
 short_command_name = os.path.basename(command_name)
 
 ebtables = "/sbin/ebtables"
+ebtables_lock_path = "/var/lock/ebtables.lock"
 
 vsctl = "/usr/bin/ovs-vsctl"
 ofctl = "/usr/bin/ovs-ofctl"
@@ -118,8 +121,22 @@ def create_bridge_rules(vif_name, config):
                 do_chain_action(ebtables, "-A", vif_chain, ["-p", "IPv4", "-o", vif_name, "--ip-dst", ipv4, "-j", "ACCEPT"])
                 do_chain_action(ebtables, "-A", vif_chain, ["-p", "IPv4", "-i", vif_name, "--ip-src", ipv4, "-j", "ACCEPT"])
 
+def acquire_lock(path):
+    lock_file = open(path, 'w')
+    while True:
+        send_to_syslog("attempting to acquire lock %s" % path)
+        try:
+            fcntl.lockf(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            send_to_syslog("acquired lock %s" % path)
+            return lock_file
+        except IOError, e:
+            send_to_syslog("failed to acquire lock %s because '%s' - waiting 1 second" % (path, e))
+            time.sleep(1)
+
 def handle_bridge(vif_type, domid, devid, action):
     if (action == "clear") or (action == "filter"):
+        # ebtables fails if called concurrently, so acquire a lock before starting to call it.
+        ebtables_lock_file = acquire_lock(ebtables_lock_path)
         vif_name = "%s%s.%s" % (vif_type, domid, devid)
         clear_bridge_rules(vif_name)
         if action == "filter":
