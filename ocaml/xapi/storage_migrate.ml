@@ -92,6 +92,7 @@ let copy' ~task ~sr ~vdi ~url ~dest =
 		with Not_found -> failwith (Printf.sprintf "Local VDI %s not found" vdi) in
 	(* Finding VDIs which are similar to [vdi] *)
 	let vdis = Local.VDI.similar_content ~task ~sr ~vdi |> success |> _vdis in
+	debug "Similar VDIs to %s = [ %s ]" vdi (String.concat "; " (List.map (fun x -> x.vdi) vdis));
 	(* Choose the "nearest" one *)
 	let nearest = List.fold_left
 		(fun acc vdi -> match acc with
@@ -102,6 +103,7 @@ let copy' ~task ~sr ~vdi ~url ~dest =
 					debug "Local VDI %s has same content_id (%s) as remote VDI %s" vdi.vdi vdi.content_id remote_vdi.vdi;
 					Some (vdi, remote_vdi)
 				with _ -> None) None vdis in
+	debug "Nearest VDI = %s == %s" (Opt.default "None" (Opt.map (fun x -> (fst x).vdi) nearest)) (Opt.default "None" (Opt.map (fun x -> (snd x).vdi) nearest));
 
 	let dest_vdi =
 		match nearest with
