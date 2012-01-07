@@ -32,6 +32,8 @@ module Local = Client(struct let rpc = rpc local_url end)
 
 let success = function
 	| Success x -> x
+	| Failure (Backend_error (code, params)) ->
+		raise (Api_errors.Server_error(code, params))
 	| Failure f -> failwith (Printf.sprintf "Storage_interface.Failure %s" (f |> rpc_of_failure_t |> Jsonrpc.to_string))
 
 let _vdi = function
@@ -176,6 +178,16 @@ let start ~task ~sr ~vdi ~url ~dest =
 		perform_cleanup_actions !on_fail;
 		Failure (Internal_error (Printexc.to_string e))
 
+(* XXX: PR-1255: copy the xenopsd 'raise Exception' pattern *)
+let start ~task ~sr ~vdi ~url ~dest =
+	try
+		start ~task ~sr ~vdi ~url ~dest
+	with
+		| Api_errors.Server_error(code, params) ->
+			Failure(Backend_error(code, params))
+		| e ->
+			Failure(Internal_error(Printexc.to_string e))
+
 let stop ~task ~sr ~vdi =
 	(* Find the local VDI *)
 	let vdis = Local.SR.scan ~task ~sr |> success |> _vdis in
@@ -186,3 +198,13 @@ let stop ~task ~sr ~vdi =
 	let snapshot = Local.VDI.snapshot ~task ~sr ~vdi:local_vdi.vdi ~vdi_info:local_vdi ~params:[] |> success |> _vdi in
 	Local.VDI.destroy ~task ~sr ~vdi:snapshot.vdi |> success |> unit;
 	Success Unit
+
+(* XXX: PR-1255: copy the xenopsd 'raise Exception' pattern *)
+let stop ~task ~sr ~vdi =
+	try
+		stop ~task ~sr ~vdi
+	with
+		| Api_errors.Server_error(code, params) ->
+			Failure(Backend_error(code, params))
+		| e ->
+			Failure(Internal_error(Printexc.to_string e))
