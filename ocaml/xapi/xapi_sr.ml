@@ -540,6 +540,8 @@ let scan ~__context ~sr =
 			let db_vdis = Db.VDI.get_records_where ~__context ~expr:(Eq(Field "SR", Literal sr')) in
 			update_vdis ~__context ~sr:sr db_vdis vs;
 			Db.SR.remove_from_other_config ~__context ~self:sr ~key:"dirty";
+		| Failure (Backend_error(code, params)) ->
+			raise (Api_errors.Server_error(code, params))
 		| x ->
 			error "Unexpected result from scanning SR %s: %s" sr' (string_of_result x);
 			raise (Api_errors.Server_error(Api_errors.internal_error, [ "SR.scan"; sr'; string_of_result x ]))
