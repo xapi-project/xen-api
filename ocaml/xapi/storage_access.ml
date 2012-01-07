@@ -155,7 +155,6 @@ module Builtin_impl = struct
 			Server_helpers.exec_with_new_task "SR.scan" ~subtask_of:(Ref.of_string task)
 				(fun __context ->
 					let sr = Db.SR.get_by_uuid ~__context ~uuid:sr' in
-
 					Sm.call_sm_functions ~__context ~sR:sr
 						(fun device_config _type ->
 							try
@@ -166,12 +165,16 @@ module Builtin_impl = struct
 							with
 								| Smint.Not_implemented_in_backend ->
 									Failure (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
+								| Api_errors.Server_error(code, params) ->
+									error "SR.scan failed SR:%s code=%s params=[%s]" (Ref.string_of sr) code (String.concat "; " params);
+									Failure (Backend_error(code, params))
 								| e ->
 									let e' = ExnHelper.string_of_exn e in
 									error "SR.scan failed SR:%s error:%s" (Ref.string_of sr) e';
 									Failure (Storage_interface.Internal_error e')
 						)
-				)			
+				)
+
 
 		let list context ~task = assert false
 
