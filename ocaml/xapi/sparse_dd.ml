@@ -77,7 +77,12 @@ module DD(Input : IO)(Output : IO) = struct
 		let empty = Bat.of_list [] and full = Bat.of_list [0L, size] in
 		let bat = Opt.default full bat in
 		let bat' = if erase then Bat.difference full bat else empty in
-		let sizeof bat = Bat.fold_left (fun total (_, size) -> total +* size) 0L bat in 
+		let sizeof bat = Bat.fold_left (fun total (_, size) -> total +* size) 0L bat in
+		let sizeof_bat = sizeof bat and sizeof_bat' = sizeof bat' in
+		Printf.printf "\nData to be scanned: %Ld (%.0f/100 of total)" sizeof_bat
+			(100. *. (Int64.to_float sizeof_bat) /. (Int64.to_float size));
+		Printf.printf "\nData to be erased: %Ld (%.0f/100 of total)" sizeof_bat'
+			(100. *. (Int64.to_float sizeof_bat;) /. (Int64.to_float size));
 		let total_work = sizeof bat +* (sizeof bat') in
 		let stats = { writes = 0; bytes = 0L } in
 		let with_stats f offset stats substr = 
@@ -462,6 +467,7 @@ let _ =
 			(* We need to copy blocks from: (base - src) + (src - base)
 			   ie. everything except for blocks from the shared nodes *)
 			let unshared = List.set_difference b s @ (List.set_difference s b) in
+			Printf.printf "Scanning for changes in: [ %s ]\n" (String.concat "; " unshared);
 			List.fold_left Bat.union empty (List.map bat unshared)
 		) src_chain
 	with e ->
