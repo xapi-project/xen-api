@@ -44,18 +44,17 @@ let dd ?(progress_cb=(fun _ -> ())) ?base prezeroed infile outfile size =
 					sparse_dd_path args in
 				close pipe_write;
 				(* Read Progress: output from the binary *)
-				let buf = String.create 128 in
-				let finished = ref false in
-				while not (!finished) do
-					let n = Unix.read pipe_read buf 0 (String.length buf) in
-					if n = 0 then finished := true else debug "sparse_dd: %s" (String.sub buf 0 n);
-					try 
-						Scanf.sscanf (String.sub buf 0 n) "Progress: %d"
-						(fun progress ->
-							progress_cb (float_of_int progress /. 100.)
-						)
-					with _ -> ()
-				done;
+				let open Sparse_encoding in
+				Chunk.fold
+					(fun () chunk ->
+						debug "sparse_dd: %s" chunk.Chunk.data;
+						try 
+							Scanf.sscanf chunk.Chunk.data "Progress: %d"
+								(fun progress ->
+									progress_cb (float_of_int progress /. 100.)
+								)
+						with _ -> ()
+					) () pipe_read;
 				match Forkhelpers.waitpid pid with
 				| (_, Unix.WEXITED 0) -> ()
 				| (_, Unix.WEXITED n) -> error "sparse_dd exit: %d" n; failwith "sparse_dd"
