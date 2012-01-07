@@ -68,14 +68,15 @@ module DD(Input : IO)(Output : IO) = struct
 
 	(** [copy progress_cb bat sparse src dst size] copies blocks of data from [src] to [dst]
 	    where [bat] represents the allocated / dirty blocks in [src];
-	    where if prezeroed is true it means do scan for and skip over blocks of \000
+        where if [erase] is true it means erase all other blocks in the file;
+        where if [write_zeroes] is true it means scan for and skip over blocks of \000
 	    while calling [progress_cb] frequently to report the fraction complete
 	*)
-	let copy progress_cb bat prezeroed src dst blocksize size =
+	let copy progress_cb bat erase write_zeroes src dst blocksize size =
 		(* If [prezeroed] then nothing needs wiping; otherwise we wipe not(bat) *)
 		let empty = Bat.of_list [] and full = Bat.of_list [0L, size] in
 		let bat = Opt.default full bat in
-		let bat' = if prezeroed then empty else Bat.difference full bat in
+		let bat' = if erase then Bat.difference full bat else empty in
 		let sizeof bat = Bat.fold_left (fun total (_, size) -> total +* size) 0L bat in 
 		let total_work = sizeof bat +* (sizeof bat') in
 		let stats = { writes = 0; bytes = 0L } in
@@ -91,7 +92,7 @@ module DD(Input : IO)(Output : IO) = struct
 				buf.[offset + i] <- '\000'
 			done in
 		(* Do any necessary pre-zeroing then do the real work *)
-		let sparse = if prezeroed then Some '\000' else None in
+		let sparse = if write_zeroes then None else Some '\000' in
 		fold bat sparse (Input.op src) blocksize size (with_stats copy) 
 			(fold bat' sparse input_zero blocksize size (with_stats copy) stats)
 end
@@ -179,16 +180,15 @@ module File_copy = DD(File_reader)(File_writer)
 module Network_copy = DD(File_reader)(Network_writer)
 
 (** [file_dd ?progress_cb ?size ?bat prezeroed src dst]
-    If [size] is not given, will assume a plain file and will use st_size from Unix.stat.
-    If [prezeroed] is false, will first explicitly write zeroes to all blocks not in [bat].
-    Will then write blocks from [src] into [dst], using the [bat]. If [prezeroed] will additionally
-    scan for zeroes within the allocated blocks.
+    If [size] is not given, will assume a plain file and will use st_size from Unix.stat
+	If [erase]: will erase other parts of the disk
+	If [write_zeroes]: will not scan for and skip zeroes
     If [dst] has the format:
        fd:X
     then data is written directly to file descriptor X in a chunked encoding. Otherwise
     it is written directly to the file referenced by [dst].
  *)     
-let file_dd ?(progress_cb = (fun _ -> ())) ?size ?bat prezeroed src dst = 
+let file_dd ?(progress_cb = (fun _ -> ())) ?size ?bat erase write_zeroes src dst = 
 	let size = match size with
 	| None -> (Unix.LargeFile.stat src).Unix.LargeFile.st_size 
 	| Some x -> x in
@@ -198,7 +198,7 @@ let file_dd ?(progress_cb = (fun _ -> ())) ?size ?bat prezeroed src dst =
 		Network_writer.do_http_put
 		(fun _ ofd ->
 			Printf.printf "\nWriting chunked encoding to fd: %d\n" (Unixext.int_of_file_descr ofd);
-			let stats = Network_copy.copy progress_cb bat prezeroed ifd ofd blocksize size in
+			let stats = Network_copy.copy progress_cb bat erase write_zeroes ifd ofd blocksize size in
 			Printf.printf "\nSending final chunk\n";
 			Network_writer.close ofd;			
 			Printf.printf "Waiting for connection to close\n";
@@ -212,7 +212,7 @@ let file_dd ?(progress_cb = (fun _ -> ())) ?size ?bat prezeroed src dst =
 		let (_: int) = Unix.write ofd "\000" 0 1 in
 		let (_: int64) = Unix.LargeFile.lseek ofd 0L Unix.SEEK_SET in
 		Printf.printf "Copying\n";
-		File_copy.copy progress_cb bat prezeroed ifd ofd blocksize size
+		File_copy.copy progress_cb bat erase write_zeroes ifd ofd blocksize size
 	end 
 
 (** [make_random size zero nonzero] returns a string (of size [size]) and a BAT. Blocks not in the BAT
@@ -246,9 +246,11 @@ let test_dd (input, bat) ignore_bat prezeroed zero nonzero =
 	let size = String.length input in
 	let blocksize = Int64.of_int (size / 100) in
 	let output = String.make size (if prezeroed then zero else nonzero) in
+	let erase = not prezeroed in
+	let write_zeroes = not prezeroed in
 	try
 
-		let stats = String_copy.copy (fun _ -> ()) bat prezeroed input output blocksize (Int64.of_int size) in
+		let stats = String_copy.copy (fun _ -> ()) bat erase write_zeroes input output blocksize (Int64.of_int size) in
 		assert (String.compare input output = 0);
 		stats
 	with e ->
@@ -391,7 +393,7 @@ let _ =
 		    "-src", Arg.String (fun x -> src := Some x), "source disk";
 		    "-dest", Arg.String (fun x -> dest := Some x), "destination disk";
 		    "-size", Arg.String (fun x -> size := Int64.of_string x), "number of bytes to copy";
-		    "-prezeroed", Arg.Set prezeroed, "assume the destination disk has been prezeroed";
+		    "-prezeroed", Arg.Set prezeroed, "assume the destination disk has been prezeroed (but not full of zeroes if [-base] is provided)";
 		    "-machine", Arg.Set machine_readable, "emit machine-readable output";
 		    "-test", Arg.Set test, "perform some unit tests"; ]
 	(fun x -> Printf.fprintf stderr "Warning: ignoring unexpected argument %s\n" x)
@@ -410,7 +412,7 @@ let _ =
 			      "";
 			      Printf.sprintf "%s -prezeroed      -src /dev/xvda -dest /dev/xvdb -size 1024" Sys.argv.(0);
 			      "  -- copy 1024 bytes from /dev/xvda to /dev/xvdb assuming that /dev/xvdb is completely";
-			      "     full of zeroes so there's no need to explicitly copy runs of zeroes.";
+			      "     full of zeroes so there's no need to explicitly erase other parts of the disk.";
 			      "";
 			      Printf.sprintf "%s                 -src /dev/xvda -dest /dev/xvdb -size 1024" Sys.argv.(0);
 			      "";
@@ -467,7 +469,9 @@ let _ =
 		None in
 
 	progress_cb 0.;
-	let stats = file_dd ~progress_cb ?size ?bat !prezeroed (Opt.unbox !src) (Opt.unbox !dest) in
+	let erase = not !prezeroed in
+	let write_zeroes = not !prezeroed || !base <> None in
+	let stats = file_dd ~progress_cb ?size ?bat erase write_zeroes (Opt.unbox !src) (Opt.unbox !dest) in
 	Printf.printf "Time: %.2f seconds\n" (Unix.gettimeofday () -. start);
 	Printf.printf "\nNumber of writes: %d\n" stats.writes;
 	Printf.printf "Number of bytes: %Ld\n" stats.bytes
