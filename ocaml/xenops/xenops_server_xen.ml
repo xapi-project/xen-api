@@ -178,19 +178,11 @@ module Storage = struct
 				(fun () -> Client.VDI.attach "attach_and_activate" dp sr vdi read_write |> success |> params) in
 		Xenops_task.with_subtask task (Printf.sprintf "VDI.activate %s" dp)
 			(fun () -> Client.VDI.activate "attach_and_activate" dp sr vdi |> success |> unit);
-(*		let md5, _ = Forkhelpers.execute_command_get_output "/usr/bin/md5sum" [ result ] in
-		debug "post-activate path=%s md5=%s" result md5;
-*)
 		(* XXX: we need to find out the backend domid *)
 		{ domid = 0; params = result }
 
 	let deactivate task dp sr vdi =
 		debug "Deactivating disk %s %s" sr vdi;
-(*
-		let path = Printf.sprintf "/dev/sm/backend/%s/%s" sr vdi in
-		let md5, _ = Forkhelpers.execute_command_get_output "/usr/bin/md5sum" [ path] in
-		debug "pre-deactivate path=%s md5=%s" path  md5;
-*)
 		Xenops_task.with_subtask task (Printf.sprintf "VDI.deactivate %s" dp)
 			(fun () -> Client.VDI.deactivate "deactivate" dp sr vdi |> success |> unit)
 
