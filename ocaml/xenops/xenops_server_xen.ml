@@ -871,10 +871,7 @@ module VM = struct
 							| Some (Local _) -> ()
 							| Some (VDI path) ->
 								let sr, vdi = Storage.get_disk_by_name task path in
-								(*
 								Storage.deactivate task (Storage.id_of domid vbd.Vbd.id) sr vdi
-								  *)
-								debug "XXX Skipping disk deactivate sr=%s vdi=%s" sr vdi
 						) vbds;
 						debug "Storing final memory usage";
 						DB.write k { d with
