@@ -265,6 +265,7 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 			&& op <> `awaiting_memory_live
 			&& op <> `metadata_export
 			&& op <> `changing_dynamic_range
+			&& op <> `start
 		then Some (Api_errors.operation_not_allowed, ["Operations on domain 0 are not allowed"])
 		else None) in
 

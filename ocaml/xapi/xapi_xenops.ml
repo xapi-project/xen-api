@@ -948,6 +948,17 @@ let start ~__context ~self paused =
 	set_resident_on ~__context ~self;
 	assert (Db.VM.get_power_state ~__context ~self = (if paused then `Paused else `Running))
 
+let start ~__context ~self paused =
+	try
+		start ~__context ~self paused
+	with Exception (Bad_power_state(a, b)) ->
+		let power_state = function
+			| Running -> "Running"
+			| Halted -> "Halted"
+			| Suspended -> "Suspended"
+			| Paused -> "Paused" in
+		raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [ Ref.string_of self; power_state a; power_state b ]))
+
 let reboot ~__context ~self timeout =
 	assert_resident_on ~__context ~self;
 	let id = id_of_vm ~__context ~self in

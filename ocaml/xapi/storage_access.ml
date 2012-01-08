@@ -567,8 +567,12 @@ let bind ~__context ~pbd =
     let driver = System_domains.storage_driver_domain_of_pbd ~__context ~pbd in
     if Db.VM.get_power_state ~__context ~self:driver = `Halted then begin
         info "PBD %s driver domain %s is offline: starting" (Ref.string_of pbd) (Ref.string_of driver);
-        Helpers.call_api_functions ~__context
-            (fun rpc session_id -> XenAPI.VM.start rpc session_id driver false false);
+		try
+			Helpers.call_api_functions ~__context
+				(fun rpc session_id -> XenAPI.VM.start rpc session_id driver false false)
+		with (Api_errors.Server_error(code, params)) when code = Api_errors.vm_bad_power_state ->
+			error "Caught VM_BAD_POWER_STATE [ %s ]" (String.concat "; " params);
+			(* ignore for now *)
     end;
 	let uuid = Db.VM.get_uuid ~__context ~self:driver in
     let ip_of driver =
