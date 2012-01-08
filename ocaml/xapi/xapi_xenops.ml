@@ -783,9 +783,7 @@ let rec events_watch ~__context from =
 		) events;
 	events_watch ~__context next
 
-let events_from_xenopsd () =
-    Server_helpers.exec_with_new_task "xapi_xenops"
-		(fun __context ->
+let initial_vm_resync ~__context =
 			(* For each VM resident on this host, check if the xenopsd
 			   has forgotten about it: this means it has shut down *)
 			let localhost = Helpers.get_localhost ~__context in
@@ -840,7 +838,11 @@ let events_from_xenopsd () =
 					pci_msitranslate = true;
 					pci_power_mgmt = false;
 				} |> ignore;
-			end;
+			end
+
+let events_from_xenopsd () =
+    Server_helpers.exec_with_new_task "xapi_xenops"
+		(fun __context ->
 			while true do
 				try
 					events_watch ~__context None;
