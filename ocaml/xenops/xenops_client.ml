@@ -30,8 +30,10 @@ let rpc url call =
 
 module Client = Client(struct let rpc = default_uri |> Http.Url.of_string |> rpc end)
 
+exception Exception of error
+
 let success = function
-	| (_, Some x) -> failwith (Jsonrpc.to_string (rpc_of_error x))
+	| (_, Some x) -> raise (Exception x)
 	| (Some x, _) -> x
 	| None, None -> failwith "protocol error"
 
@@ -64,7 +66,7 @@ let success_task dbg id =
 	let t = Client.TASK.stat dbg id |> success in
 	match t.Task.result with
 	| Task.Completed _ -> t
-	| Task.Failed x -> failwith (Jsonrpc.to_string (rpc_of_error x))
+	| Task.Failed x -> raise (Exception x)
 	| Task.Pending _ -> failwith "task pending"
 
 let wait_for_task dbg id =
