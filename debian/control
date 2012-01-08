@@ -39,6 +39,7 @@ Package: python-xenapi
 Architecture: all
 Section: python
 Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}
+Replaces: xcp-xapi (<< 1.3-14)
 Description: XCP XenAPI Python libraries
  The Xen Cloud Platform (XCP) is an open source enterprise-ready server
  virtualization and cloud computing platform, with support for a range of
