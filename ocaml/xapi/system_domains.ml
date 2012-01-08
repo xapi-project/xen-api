@@ -87,7 +87,8 @@ let storage_driver_domain_of_pbd ~__context ~pbd =
 			try
 				Db.VM.get_by_uuid ~__context ~uuid:v
 			with _ ->
-				failwith (Printf.sprintf "PBD %s has invalid %s key" (Ref.string_of pbd) storage_driver_domain_key)
+				error "PBD %s has invalid %s key: falling back to dom0" (Ref.string_of pbd) storage_driver_domain_key;
+				dom0
 	end else dom0
 
 let storage_driver_domain_of_pbd ~__context ~pbd =
