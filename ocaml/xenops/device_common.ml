@@ -18,16 +18,19 @@ open Pervasiveext
 open Xenstore
 
 type kind = Vif | Vbd | Tap | Pci | Vfs | Vfb | Vkbd
+with rpc
 
 type devid = int
 (** Represents one end of a device *)
-type endpoint = { domid: Xenctrl.domid; kind: kind; devid: int }
+type endpoint = { domid: int; kind: kind; devid: int }
+with rpc
 
 (** Represent a device as a pair of endpoints *)
 type device = { 
   frontend: endpoint;
   backend: endpoint
 }
+with rpc
 
 exception Device_frontend_already_connected of device
 exception Device_backend_vanished of device

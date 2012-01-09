@@ -33,6 +33,16 @@ let run cmd args =
 	debug "%s %s" cmd (String.concat " " args);
 	ignore(Forkhelpers.execute_command_get_output cmd args)
 
+type block_device =
+	| Path of string
+	| Device of Device_common.device
+with rpc
+
+type attached_vdi = {
+	domid: int;
+	params: string;
+}
+
 module VmExtra = struct
 	(** Extra data we store per VM. This is preserved when the domain is
 		suspended so it can be re-used in the following 'create' which is
@@ -49,6 +59,7 @@ module VmExtra = struct
 		suspend_memory_bytes: int64;
 		ty: Vm.builder_info option;
 		vbds: Vbd.t list; (* needed to regenerate qemu IDE config *)
+		qemu_vbds: (Vbd.id * (int * block_device)) list;
 		vifs: Vif.t list;
 		last_create_time: float;
 		pci_msitranslate: bool;
@@ -123,6 +134,69 @@ let di_of_uuid ~xc ~xs domain_selection uuid =
 let domid_of_uuid ~xc ~xs domain_selection uuid =
 	Opt.map (fun di -> di.Xenctrl.domid) (di_of_uuid ~xc ~xs domain_selection uuid)
 
+let create_vbd_frontend ~xc ~xs task frontend_domid vdi =
+	let backend_vm_id = uuid_of_di (Xenctrl.domain_getinfo xc vdi.domid) |> Uuid.string_of_uuid in
+	match domid_of_uuid ~xc ~xs Expect_only_one (Uuid.uuid_of_string backend_vm_id) with
+		| None ->
+			debug "Failed to determine domid of backend VM id: %s" backend_vm_id;
+			raise (Exception(Does_not_exist("domain", backend_vm_id)))
+		| Some backend_domid when backend_domid = frontend_domid ->
+			(* There's no need to use a PV disk if we're in the same domain *)
+			Path vdi.params
+		| Some backend_domid ->
+			let t = {
+				Device.Vbd.mode = Device.Vbd.ReadOnly;
+				device_number = None; (* we don't mind *)
+				phystype = Device.Vbd.Phys;
+				params = vdi.params;
+				dev_type = Device.Vbd.Disk;
+				unpluggable = true;
+				protocol = None;
+				extra_backend_keys = [];
+				extra_private_keys = [];
+				backend_domid = backend_domid;
+			} in
+			let device = Xenops_task.with_subtask task "Vbd.add"
+				(fun () -> Device.Vbd.add ~xs ~hvm:false t frontend_domid) in
+			Device device
+
+let block_device_of_vbd_frontend = function
+	| Path x -> x
+	| Device device ->
+		let open Device_common in
+		device.frontend.devid |> Device_number.of_xenstore_key |> Device_number.to_linux_device |> (fun x -> "/dev/" ^ x)
+
+let destroy_vbd_frontend ~xc ~xs task disk =
+	match disk with
+		| Path _ -> ()
+		| Device device ->
+			Xenops_task.with_subtask task "Vbd.clean_shutdown"
+				(fun () ->
+					let open Device_common in
+					let me = this_domid ~xs in
+					(* To avoid having two codepaths: a 99% "normal" codepath and a 1%
+					   "transient failure" codepath we deliberately trigger a "transient
+					   failure" in 100% of cases by opening the device ourselves.
+					   NB this only works when we're in the same domain as the frontend. *)
+					let f = ref (
+						if device.frontend.domid = me
+						then Some (Unix.openfile (block_device_of_vbd_frontend disk) [ Unix.O_RDONLY ] 0o0)
+						else None
+					) in
+					let close () = Opt.iter (fun fd -> Unix.close fd; f := None) !f in
+					finally
+						(fun () ->
+							Device.Vbd.clean_shutdown_async ~xs device;
+							try
+								Device.Vbd.clean_shutdown_wait ~xs device
+							with Device_error(_, x) ->
+								debug "Caught transient Device_error %s" x;
+								close ();
+								Device.Vbd.clean_shutdown_wait ~xs device
+						) (fun () -> close ())
+				)
+		
+
 module Storage = struct
 	open Storage_interface
 
@@ -167,11 +241,6 @@ module Storage = struct
 	(* Used to identify this VBD to the storage layer *)
 	let id_of frontend_domid vbd = Printf.sprintf "vbd/%d/%s" frontend_domid (snd vbd)
 
-	type attached_vdi = {
-		domid: int;
-		params: string;
-	}
-
 	let attach_and_activate task dp sr vdi read_write =
 		let result =
 			Xenops_task.with_subtask task (Printf.sprintf "VDI.attach %s" dp)
@@ -210,61 +279,15 @@ let with_disk ~xc ~xs task disk write f = match disk with
 		finally
 			(fun () ->
 				let vdi = attach_and_activate task dp sr vdi write in
-				let backend_vm_id = uuid_of_di (Xenctrl.domain_getinfo xc vdi.domid) |> Uuid.string_of_uuid in
-
 				let frontend_domid = this_domid ~xs in
-				begin match domid_of_uuid ~xc ~xs Expect_only_one (Uuid.uuid_of_string backend_vm_id) with
-					| None ->
-						debug "Failed to determine domid of backend VM id: %s" backend_vm_id;
-						raise (Exception(Does_not_exist("domain", backend_vm_id)))
-					| Some backend_domid when backend_domid = frontend_domid ->
-						(* There's no need to use a PV disk if we're in the same domain *)
-						f vdi.params
-					| Some backend_domid ->
-						let t = {
-							Device.Vbd.mode = Device.Vbd.ReadOnly;
-							device_number = None; (* we don't mind *)
-							phystype = Device.Vbd.Phys;
-							params = vdi.params;
-							dev_type = Device.Vbd.Disk;
-							unpluggable = true;
-							protocol = None;
-							extra_backend_keys = [];
-							extra_private_keys = [];
-							backend_domid = backend_domid;
-						} in
-						let device =
-							Xenops_task.with_subtask task "Vbd.add"
-								(fun () -> Device.Vbd.add ~xs ~hvm:false t frontend_domid) in
-						let open Device_common in
-						let block_device =
-							device.frontend.devid |> Device_number.of_xenstore_key |> Device_number.to_linux_device |> (fun x -> "/dev/" ^ x) in
-						finally
-							(fun () ->
-								f block_device
-							)
-							(fun () ->
-								Xenops_task.with_subtask task "Vbd.clean_shutdown"
-									(fun () ->
-										(* To avoid having two codepaths: a 99% "normal" codepath and a 1%
-										   "transient failure" codepath we deliberately trigger a "transient
-										   failure" in 100% of cases by opening the device ourselves. *)
-										let f = ref (Some (Unix.openfile block_device [ Unix.O_RDONLY ] 0o0)) in
-										let close () = Opt.iter (fun fd -> Unix.close fd; f := None) !f in
-										finally
-											(fun () ->
-												debug "Opened %s" block_device;
-												Device.Vbd.clean_shutdown_async ~xs device;
-												try
-													Device.Vbd.clean_shutdown_wait ~xs device
-												with Device_error(_, x) ->
-													debug "Caught transient Device_error %s" x;
-													close ();
-													Device.Vbd.clean_shutdown_wait ~xs device
-											) (fun () -> close ())
-									)
-							)
-				end
+				let device = create_vbd_frontend ~xc ~xs task frontend_domid vdi in
+				finally
+					(fun () ->
+						device |> block_device_of_vbd_frontend |> f
+					)
+					(fun () ->
+						destroy_vbd_frontend ~xc ~xs task device
+					)
 			)
 			(fun () -> deactivate_and_detach task dp)
 
@@ -494,6 +517,7 @@ module VM = struct
 								suspend_memory_bytes = 0L;
 								ty = None;
 								vbds = [];
+								qemu_vbds = [];
 								vifs = [];
 								last_create_time = Unix.gettimeofday ();
 								pci_msitranslate = vm.Vm.pci_msitranslate;
@@ -543,6 +567,7 @@ module VM = struct
 	        (fun () -> Device.Dm.stop ~xs domid) ();
 		log_exn_continue "Error stoping vncterm, already dead ?"
 	        (fun () -> Device.PV_Vnc.stop ~xs domid) ();
+		(* If qemu is in a different domain to storage, detach disks *)
 	) Oldest
 
 	let destroy = on_domain (fun xc xs task vm di ->
@@ -578,7 +603,11 @@ module VM = struct
 	let create_device_model_config = function
 		| { VmExtra.build_info = None }
 		| { VmExtra.ty = None } -> raise (Exception Domain_not_built)
-		| { VmExtra.ty = Some ty; build_info = Some build_info; vifs = vifs; vbds = vbds } ->
+		| {
+			VmExtra.ty = Some ty; build_info = Some build_info;
+			vifs = vifs;
+			vbds = vbds; qemu_vbds = qemu_vbds
+		} ->
 			let make ?(boot_order="cd") ?(serial="pty") ?(nics=[])
 					?(disks=[]) ?(pci_emulations=[]) ?(usb=["tablet"])
 					?(acpi=true) ?(video=Cirrus) ?(keymap="en-us")
@@ -621,16 +650,25 @@ module VM = struct
 				| PV { framebuffer = true } ->
 					Some (make ~hvm:false ())
 				| HVM hvm_info ->
-					if hvm_info.qemu_disk_cmdline
-					then failwith "Need a disk frontend in this domain";
+					let disks = List.filter_map (fun vbd ->
+						let id = vbd.Vbd.id in
+						if hvm_info.Vm.qemu_disk_cmdline && (List.mem_assoc id qemu_vbds)
+						then
+							let index, bd = List.assoc id qemu_vbds in
+							let path = block_device_of_vbd_frontend bd in
+							let media =
+								if vbd.Vbd.ty = Vbd.Disk
+								then Device.Dm.Disk else Device.Dm.Cdrom in
+							Some (index, path, media)
+						else None
+					) vbds in
 					Some (make ~video_mib:hvm_info.video_mib
 						~video:hvm_info.video ~acpi:hvm_info.acpi
 						?serial:hvm_info.serial ?keymap:hvm_info.keymap
 						?vnc_ip:hvm_info.vnc_ip
 						~pci_emulations:hvm_info.pci_emulations
 						~pci_passthrough:hvm_info.pci_passthrough
-						~boot_order:hvm_info.boot_order ~nics ())
-
+						~boot_order:hvm_info.boot_order ~nics ~disks ())
 
 	let build_domain_exn xc xs domid task vm vbds vifs =
 		let open Memory in
@@ -1033,9 +1071,9 @@ module VBD = struct
 	let attach_and_activate task xc xs frontend_domid vbd = function
 		| None ->
 			(* XXX: do something better with CDROMs *)
-			{ Storage.domid = this_domid ~xs; params = "" }
+			{ domid = this_domid ~xs; params = "" }
 		| Some (Local path) ->
-			{ Storage.domid = this_domid ~xs; params = path }
+			{ domid = this_domid ~xs; params = path }
 		| Some (VDI path) ->
 			let sr, vdi = Storage.get_disk_by_name task path in
 			let dp = Storage.id_of frontend_domid vbd.id in
@@ -1051,22 +1089,24 @@ module VBD = struct
 		Device_number.of_xenstore_key d.Device_common.frontend.Device_common.devid
 
 	let plug task vm vbd =
+		let vm_t = DB.read_exn vm in
 		on_frontend
 			(fun xc xs frontend_domid hvm ->
 				if vbd.backend = None && not hvm
 				then debug "PV guests don't support empty CDROM drives"
 				else begin
 					let vdi = attach_and_activate task xc xs frontend_domid vbd vbd.backend in
+
 					(* Remember the VBD id with the device *)
 					let id = _device_id Device_common.Vbd, id_of vbd in
 					let x = {
-						Device.Vbd.mode = (match vbd.mode with 
+						Device.Vbd.mode = (match vbd.mode with
 							| ReadOnly -> Device.Vbd.ReadOnly 
 							| ReadWrite -> Device.Vbd.ReadWrite
 						);
 						device_number = vbd.position;
 						phystype = Device.Vbd.Phys;
-						params = vdi.Storage.params;
+						params = vdi.params;
 						dev_type = (match vbd.ty with
 							| CDROM -> Device.Vbd.CDROM
 							| Disk -> Device.Vbd.Disk
@@ -1075,17 +1115,37 @@ module VBD = struct
 						protocol = None;
 						extra_backend_keys = vbd.extra_backend_keys;
 						extra_private_keys = id :: vbd.extra_private_keys;
-						backend_domid = vdi.Storage.domid
+						backend_domid = vdi.domid
 					} in
-					(* Store the VBD ID -> actual frontend ID for unplug *)
-					let (_: Device_common.device) =
+					let device =
 						Xenops_task.with_subtask task (Printf.sprintf "Vbd.add %s" (id_of vbd))
 							(fun () -> Device.Vbd.add ~xs ~hvm x frontend_domid) in
-					()
+
+					(* NB now the frontend position has been resolved *)
+					let open Device_common in
+					let device_number = device.frontend.devid |> Device_number.of_xenstore_key in
+
+					(* If qemu is in a different domain to storage, attach disks to it *)
+					let qemu_domid = this_domid ~xs in
+					let qemu_frontend = match Device_number.spec device_number with
+						| Device_number.Ide, n, _ when n < 4 ->
+							begin match vbd.Vbd.backend with
+								| None -> None
+								| Some _ -> 
+									let bd = create_vbd_frontend ~xc ~xs task qemu_domid vdi in
+									let index = Device_number.to_disk_number device_number in
+									Some (index, bd)
+							end
+						| _, _, _ -> None in
+					(* Remember what we've just done *)
+					Opt.iter (fun q ->
+						DB.write vm { vm_t with VmExtra.qemu_vbds = (vbd.Vbd.id, q) :: vm_t.VmExtra.qemu_vbds }
+					) qemu_frontend
 				end
 			) Newest vm
 
 	let unplug task vm vbd force =
+		let vm_t = DB.read_exn vm in
 		with_xc_and_xs
 			(fun xc xs ->
 				try
@@ -1097,6 +1157,13 @@ module VBD = struct
 						(fun () -> (if force then Device.hard_shutdown else Device.clean_shutdown) ~xs device);
 					Xenops_task.with_subtask task (Printf.sprintf "Vbd.release %s" (id_of vbd))
 						(fun () -> Device.Vbd.release ~xs device);
+					(* If we have a qemu frontend, detach this too. *)
+					if List.mem_assoc vbd.Vbd.id vm_t.VmExtra.qemu_vbds then begin
+						let _, qemu_vbd = List.assoc vbd.Vbd.id vm_t.VmExtra.qemu_vbds in
+						destroy_vbd_frontend ~xc ~xs task qemu_vbd;
+						DB.write vm { vm_t with VmExtra.qemu_vbds = List.remove_assoc vbd.Vbd.id vm_t.VmExtra.qemu_vbds }
+					end;
+
 					deactivate_and_detach task device vbd;
 				with (Exception(Does_not_exist(_,_))) ->
 					debug "Ignoring missing device: %s" (id_of vbd)
@@ -1112,7 +1179,7 @@ module VBD = struct
 					let vdi = attach_and_activate task xc xs frontend_domid vbd (Some disk) in
 					let device_number = device_number_of_device device in
 					let phystype = Device.Vbd.Phys in
-					Device.Vbd.media_insert ~xs ~device_number ~params:vdi.Storage.params ~phystype frontend_domid
+					Device.Vbd.media_insert ~xs ~device_number ~params:vdi.params ~phystype frontend_domid
 				end
 			) Newest vm
 
