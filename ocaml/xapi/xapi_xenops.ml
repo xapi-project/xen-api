@@ -102,7 +102,7 @@ let builder_of_vm ~__context ~vm timeoffset =
 			pci_emulations = [];
 			pci_passthrough = false;
 			boot_order = string vm.API.vM_HVM_boot_params "cd" "order";
-			qemu_disk_cmdline = false;
+			qemu_disk_cmdline = bool vm.API.vM_platform false "qemu_disk_cmdline";
 		}
 		| Helpers.DirectPV { Helpers.kernel = k; kernel_args = ka; ramdisk = initrd } ->
 			PV {
