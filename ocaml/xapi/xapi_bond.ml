@@ -433,9 +433,6 @@ let destroy ~__context ~self =
 		(* Copy IP configuration from master to primary member *)
 		copy_configuration ~__context master primary_slave;
 
-		if !Nm.use_networkd then
-			(* Force the bond down. This will also remove any VLANs on top of the bond. *)
-			Nm.bring_pif_down ~__context ~force:true master;
 		if Db.PIF.get_management ~__context ~self:master = true then begin
 			(* The master is the management interface: move management to first slave *)
 			debug "Moving management from master to slaves";
