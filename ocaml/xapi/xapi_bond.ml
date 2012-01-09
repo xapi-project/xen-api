@@ -369,9 +369,10 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 		(* Copy the IP configuration of the primary member to the master *)
 		copy_configuration ~__context primary_slave master;
 
-		(* Temporary measure for compatibility with current interface-reconfigure.
-		 * Remove once interface-reconfigure has been updated to recognise bond.mode and bond.properties. *)
-		refresh_pif_other_config ~__context ~self:bond;
+		if not !Nm.use_networkd then
+			(* Temporary measure for compatibility with current interface-reconfigure.
+			 * Remove once interface-reconfigure has been updated to recognise bond.mode and bond.properties. *)
+			refresh_pif_other_config ~__context ~self:bond;
 
 		begin match management_pif with
 		| Some management_pif ->
@@ -432,6 +433,9 @@ let destroy ~__context ~self =
 		(* Copy IP configuration from master to primary member *)
 		copy_configuration ~__context master primary_slave;
 
+		if !Nm.use_networkd then
+			(* Force the bond down. This will also remove any VLANs on top of the bond. *)
+			Nm.bring_pif_down ~__context ~force:true master;
 		if Db.PIF.get_management ~__context ~self:master = true then begin
 			(* The master is the management interface: move management to first slave *)
 			debug "Moving management from master to slaves";
@@ -483,7 +487,8 @@ let set_mode ~__context ~self ~value =
 	in
 	Db.Bond.set_properties ~__context ~self ~value:properties;
 
-	refresh_pif_other_config ~__context ~self;
+	if not !Nm.use_networkd then
+		refresh_pif_other_config ~__context ~self;
 
 	(* Need to set currently_attached to false, otherwise bring_pif_up does nothing... *)
 	Db.PIF.set_currently_attached ~__context ~self:master ~value:false;
@@ -502,7 +507,8 @@ let set_property ~__context ~self ~name ~value =
 	let properties = (name, value)::properties in
 	Db.Bond.set_properties ~__context ~self ~value:properties;
 
-	refresh_pif_other_config ~__context ~self;
+	if not !Nm.use_networkd then
+		refresh_pif_other_config ~__context ~self;
 
 	(* Need to set currently_attached to false, otherwise bring_pif_up does nothing... *)
 	let master = Db.Bond.get_master ~__context ~self in

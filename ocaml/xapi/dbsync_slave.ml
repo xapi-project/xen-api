@@ -458,7 +458,16 @@ let update_env __context sync_keys =
 		  Monitor.set_cache_sr cache_sr_uuid
 	  with _ -> Monitor.unset_cache_sr () 
   end;
-  
+
+  begin try
+    Unix.access "/tmp/do-not-use-networkd" [Unix.F_OK];
+    Nm.use_networkd := false;
+    debug "Using interface-reconfigure to setup networking"
+  with _ ->
+    Nm.use_networkd := true;
+    debug "Using xcp-network to setup networking"
+  end;
+
   (* Load the host rrd *)
   Monitor_rrds.load_rrd ~__context (Helpers.get_localhost_uuid ()) true;
 
