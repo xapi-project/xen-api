@@ -826,7 +826,6 @@ let initial_vm_resync ~__context =
 	   has forgotten about it: this means it has shut down *)
 	let localhost = Helpers.get_localhost ~__context in
 	let vms = Db.Host.get_resident_VMs ~__context ~self:localhost in
-	let vms = List.filter (fun vm -> not(Db.VM.get_is_control_domain ~__context ~self:vm)) vms in
 	let in_db = List.map (fun self -> id_of_vm ~__context ~self) vms in
 	let dbg = Context.string_of_task __context in
 	let in_xenopsd = Client.VM.list dbg () |> success |> List.map (fun (vm, _) -> vm.Vm.id) in
