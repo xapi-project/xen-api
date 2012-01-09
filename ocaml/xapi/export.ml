@@ -452,7 +452,10 @@ let metadata_handler (req: Request.t) s _ =
 						&& (List.mem_assoc Xapi_globs.default_template_key vm.API.vM_other_config)
 						&& ((List.assoc Xapi_globs.default_template_key vm.API.vM_other_config) = "true") in
 					let all_vms = Db.VM.get_all_records ~__context in
-					let interesting_vms = List.filter (fun (_, vm) -> not (is_default_template vm)) all_vms in
+					let interesting_vms = List.filter (fun (_, vm) ->
+						not (is_default_template vm)
+						&& (not vm.API.vM_is_control_domain)
+					) all_vms in
 					List.map fst interesting_vms
 				end else
 					[vm_from_request ~__context req]
