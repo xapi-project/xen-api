@@ -50,7 +50,7 @@ let debug (fmt: ('a , unit, string, unit) format4) =
 			flush stdout) fmt
 	else Printf.kprintf (fun s -> D.debug "%s" s) fmt
 
-let call_script ?(log_successful_output=false) script args =
+let call_script ?(log_successful_output=true) script args =
 	try
 		Unix.access script [ Unix.X_OK ];
 		(* Use the same $PATH as xapi *)
@@ -491,10 +491,14 @@ module Ovs = struct
 		with _ -> []
 
 	let bridge_to_ports name =
-		String.split '\n' (String.rtrim (call ["list-ports"; name]))
+		try
+			String.split '\n' (String.rtrim (call ["list-ports"; name]))
+		with _ -> []
 
 	let bridge_to_interfaces name =
-		String.split '\n' (String.rtrim (call ["list-ifaces"; name]))
+		try
+			String.split '\n' (String.rtrim (call ["list-ifaces"; name]))
+		with _ -> []
 
 	let bridge_to_vlan name =
 		call ["br-to-parent"; name],
