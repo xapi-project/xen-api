@@ -37,5 +37,6 @@ OCamlLibrary(fhs, fhs)
 	lvhdrt \
 	mpathalert \
 	multipathrt \
-	doc
+	doc \
+	network
 

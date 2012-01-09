@@ -4,7 +4,7 @@ OCAML_LIBS    = ../fhs ../util/version ../util/vm_memory_constraints ../util/san
 OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
 	../autogen ../database/ \
 	../xenops ../xva ../util \
-	../auth ../license ../client_records ../rfb ../gpg ..
+	../auth ../license ../client_records ../rfb ../gpg ../network ..
 
 UseCamlp4(rpc-light.syntax, features rrd monitor_fake monitor_fake_common vdi_automaton storage_impl xapi_udhcpd)
 UseCamlp4(rpc-light.idl, storage_interface)
@@ -46,6 +46,8 @@ OCamlProgram(storage_impl_test, storage_interface vdi_automaton storage_impl sto
 COMMON = \
 	xapi_templates \
 	../idl/api_lowlevel \
+	../network/network_interface \
+	../network/network \
 	nm \
 	xapi_mgmt_iface \
 	smint \
