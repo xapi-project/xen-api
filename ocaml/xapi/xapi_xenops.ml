@@ -783,62 +783,67 @@ let rec events_watch ~__context from =
 		) events;
 	events_watch ~__context next
 
+let manage_dom0 ~__context =
+	(* Tell xenopsd to manage domain 0 *)
+	let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
+	let dbg = Context.string_of_task __context in
+	let in_xenopsd = Client.VM.list dbg () |> success |> List.map (fun (vm, _) -> vm.Vm.id) in
+	let open Vm in
+	if not(List.mem uuid in_xenopsd)
+	then begin
+		info "Client.VM.add %s" uuid;
+		Client.VM.add dbg {
+			id = uuid;
+			name = "Domain-0";
+			ssidref = 0l;
+			xsdata = [];
+			platformdata = [];
+			bios_strings = [];
+			ty = PV {
+				boot = Direct { kernel = ""; cmdline = ""; ramdisk = None };
+				framebuffer = false; vncterm = false; vncterm_ip = None 
+			};
+			suppress_spurious_page_faults = false;
+			machine_address_size = None;
+			memory_static_max = 0L;
+			memory_dynamic_max = 0L;
+			memory_dynamic_min = 0L;
+			vcpu_max = 0;
+			vcpus = 0;
+			scheduler_params = { priority = None; affinity = [] };
+			on_crash = [];
+			on_shutdown = [];
+			on_reboot = [];
+			transient = false;
+			pci_msitranslate = true;
+			pci_power_mgmt = false;
+		} |> ignore;
+	end
+
 let initial_vm_resync ~__context =
-			(* For each VM resident on this host, check if the xenopsd
-			   has forgotten about it: this means it has shut down *)
-			let localhost = Helpers.get_localhost ~__context in
-			let vms = Db.Host.get_resident_VMs ~__context ~self:localhost in
-			let vms = List.filter (fun vm -> not(Db.VM.get_is_control_domain ~__context ~self:vm)) vms in
-			let in_db = List.map (fun self -> id_of_vm ~__context ~self) vms in
-			let dbg = Context.string_of_task __context in
-			let in_xenopsd = Client.VM.list dbg () |> success |> List.map (fun (vm, _) -> vm.Vm.id) in
-			List.iter add_caches in_xenopsd;
-			List.iter
-				(fun id ->
-					info "VM %s is not running here: setting power_state to Halted" id;
-					let vm = Db.VM.get_by_uuid ~__context ~uuid:id in
-					Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted
-				) (List.set_difference in_db in_xenopsd);
-			List.iter
-				(fun id ->
-					info "VM %s is running here: setting power_state to Running" id;
-					let vm = Db.VM.get_by_uuid ~__context ~uuid:id in
-					Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Running;
-					Db.VM.set_resident_on ~__context ~self:vm ~value:localhost
-				) (List.set_difference in_db in_xenopsd);
-			(* Tell xenopsd to manage domain 0 *)
-			let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
-			let open Vm in
-			if not(List.mem uuid in_xenopsd)
-			then begin
-				info "Client.VM.add %s" uuid;
-				Client.VM.add dbg {
-					id = uuid;
-					name = "Domain-0";
-					ssidref = 0l;
-					xsdata = [];
-					platformdata = [];
-					bios_strings = [];
-					ty = PV {
-						boot = Direct { kernel = ""; cmdline = ""; ramdisk = None };
-						framebuffer = false; vncterm = false; vncterm_ip = None 
-					};
-					suppress_spurious_page_faults = false;
-					machine_address_size = None;
-					memory_static_max = 0L;
-					memory_dynamic_max = 0L;
-					memory_dynamic_min = 0L;
-					vcpu_max = 0;
-					vcpus = 0;
-					scheduler_params = { priority = None; affinity = [] };
-					on_crash = [];
-					on_shutdown = [];
-					on_reboot = [];
-					transient = false;
-					pci_msitranslate = true;
-					pci_power_mgmt = false;
-				} |> ignore;
-			end
+	manage_dom0 ~__context;
+	(* For each VM resident on this host, check if the xenopsd
+	   has forgotten about it: this means it has shut down *)
+	let localhost = Helpers.get_localhost ~__context in
+	let vms = Db.Host.get_resident_VMs ~__context ~self:localhost in
+	let vms = List.filter (fun vm -> not(Db.VM.get_is_control_domain ~__context ~self:vm)) vms in
+	let in_db = List.map (fun self -> id_of_vm ~__context ~self) vms in
+	let dbg = Context.string_of_task __context in
+	let in_xenopsd = Client.VM.list dbg () |> success |> List.map (fun (vm, _) -> vm.Vm.id) in
+	List.iter add_caches in_xenopsd;
+	List.iter
+		(fun id ->
+			info "VM %s is not running here: setting power_state to Halted" id;
+			let vm = Db.VM.get_by_uuid ~__context ~uuid:id in
+			Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted
+		) (List.set_difference in_db in_xenopsd);
+	List.iter
+		(fun id ->
+			info "VM %s is running here: setting power_state to Running" id;
+			let vm = Db.VM.get_by_uuid ~__context ~uuid:id in
+			Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Running;
+			Db.VM.set_resident_on ~__context ~self:vm ~value:localhost
+		) (List.set_difference in_db in_xenopsd)
 
 let events_from_xenopsd () =
     Server_helpers.exec_with_new_task "xapi_xenops"
