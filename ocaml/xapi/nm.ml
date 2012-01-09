@@ -88,11 +88,11 @@ let get_fail_mode ~__context pif_rc =
 			Standalone
 
 let create_bond ~__context bond mtu =
+	(* Get all information we need from the DB before doing anything that may drop our
+	 * management connection *)
 	let master = Db.Bond.get_master ~__context ~self:bond in
 	let master_rc = Db.PIF.get_record ~__context ~self:master in
 	let slaves = Db.Bond.get_slaves ~__context ~self:bond in
-
-	(* clean up bond slaves *)
 	let slave_devices_and_bridges = List.map (fun pif ->
 		let device = Db.PIF.get_device ~__context ~self:pif in
 		let bridge =
@@ -101,6 +101,12 @@ let create_bond ~__context bond mtu =
 		in
 		device, bridge
 	) slaves in
+	let bridge = Db.Network.get_bridge ~__context ~self:master_rc.API.pIF_network in
+	let props = Db.Bond.get_properties ~__context ~self:bond in
+	let mode = Db.Bond.get_mode ~__context ~self:bond in
+	let fail_mode = get_fail_mode ~__context master_rc in
+
+	(* clean up bond slaves *)
 	List.iter (fun (device, bridge) ->
 		Net.Interface.set_ipv4_addr bridge None4;
 		Net.Bridge.destroy ~force:true bridge;
@@ -109,24 +115,21 @@ let create_bond ~__context bond mtu =
 	) slave_devices_and_bridges;
 
 	(* create bond bridge *)
-	let bridge = Db.Network.get_bridge ~__context ~self:master_rc.API.pIF_network in
 	let port = master_rc.API.pIF_device in
 	let mac = master_rc.API.pIF_MAC in
-	let fail_mode = get_fail_mode ~__context master_rc in
 	Net.Bridge.create ~mac ~fail_mode bridge;
 	Net.Bridge.add_port ~mac bridge port
 		(List.map (fun (device, _) -> device) slave_devices_and_bridges);
 
 	(* set bond properties *)
 	let hashing_algorithm =
-		let props = Db.Bond.get_properties ~__context ~self:bond in
 		if List.mem_assoc "hashing_algorithm" props then
 			List.assoc "hashing_algorithm" props
 		else
 			"src_mac"
 	in
 	let props = [
-		"mode", Record_util.bond_mode_to_string (Db.Bond.get_mode ~__context ~self:bond);
+		"mode", Record_util.bond_mode_to_string mode;
 		"miimon", "100";
 		"downdelay", "200";
 		"updelay", "31000";
@@ -229,6 +232,8 @@ let rec create_bridges ~__context pif_rc bridge =
 		Net.Interface.set_mtu pif_rc.API.pIF_device mtu;
 	| `phy_pif  ->
 		let fail_mode = get_fail_mode ~__context pif_rc in
+		if pif_rc.API.pIF_bond_slave_of <> Ref.null then
+			destroy_bond ~__context ~force:true pif_rc.API.pIF_bond_slave_of;
 		Net.Bridge.create ~mac:pif_rc.API.pIF_MAC ~fail_mode bridge;
 		Net.Bridge.add_port bridge pif_rc.API.pIF_device [pif_rc.API.pIF_device];
 		Net.Interface.set_mtu pif_rc.API.pIF_device mtu;
@@ -332,12 +337,18 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 				begin try
 					let rc = Db.PIF.get_record ~__context ~self:pif in
 					let bridge = Db.Network.get_bridge ~__context ~self:rc.API.pIF_network in
+					let dhcp_options =
+						if rc.API.pIF_ip_configuration_mode = `DHCP then
+							determine_dhcp_options ~__context pif management_interface
+						else
+							[]
+					in
 					create_bridges ~__context rc bridge;
 					begin match rc.API.pIF_ip_configuration_mode with
 					| `None ->
 						Net.Interface.set_ipv4_addr bridge None4;
 					| `DHCP ->
-						Net.Interface.set_ipv4_addr bridge (DHCP4 (determine_dhcp_options ~__context pif management_interface));
+						Net.Interface.set_ipv4_addr bridge (DHCP4 dhcp_options)
 					| `Static ->
 						Net.Interface.set_ipv4_addr bridge
 							(Static4 [
