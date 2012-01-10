@@ -31,6 +31,7 @@ type error =
 	| Does_not_exist of string * string
 	| Unimplemented
 	| Domain_not_built
+	| Maximum_vcpus of int
 	| Bad_power_state of power_state * power_state
 	| Failed_to_acknowledge_shutdown_request
 	| Failed_to_shutdown
@@ -325,6 +326,7 @@ module VM = struct
 	external destroy: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
 	external pause: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
 	external unpause: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
+	external set_vcpus: debug_info -> Vm.id -> int -> (Task.id option) * (error option) = ""
 	external stat: debug_info -> Vm.id -> ((Vm.t * Vm.state) option) * (error option) = ""
 	external list: debug_info -> unit -> ((Vm.t * Vm.state) list option) * (error option) = ""
 

@@ -600,6 +600,11 @@ module VM = struct
 		Domain.unpause ~xc di.Xenctrl.domid
 	) Newest
 
+	let set_vcpus = on_domain (fun xc xs _ _ di ->
+		if di.Xenctrl.hvm_guest then raise (Exception Not_supported);
+		raise (Exception Unimplemented)
+	) Newest
+
 	(* NB: the arguments which affect the qemu configuration must be saved and
 	   restored with the VM. *)
 	let create_device_model_config = function

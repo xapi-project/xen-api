@@ -82,6 +82,7 @@ type operation =
 	| VM_destroy_device_model of Vm.id
 	| VM_pause of Vm.id
 	| VM_unpause of Vm.id
+	| VM_set_vcpus of (Vm.id * int)
 	| VM_check_state of Vm.id
 	| VM_remove of Vm.id
 	| PCI_plug of Pci.id
@@ -118,6 +119,7 @@ let string_of_operation =
 	| VM_destroy_device_model (id) -> sprintf "VM_destroy_device_model(%s)" id
 	| VM_pause id -> sprintf "VM_pause %s" id
 	| VM_unpause id -> sprintf "VM_unpause %s" id
+	| VM_set_vcpus (id, x) -> sprintf "VM_set_vcpus (%s, %d)" id x
 	| VM_check_state id -> sprintf "VM_check_state %s" id
 	| VM_remove id -> sprintf "VM_remove %s" id
 	| PCI_plug id -> sprintf "PCI_plug %s.%s" (fst id) (snd id)
@@ -508,6 +510,12 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 		| VM_unpause id ->
 			debug "VM.unpause %s" id;
 			B.VM.unpause t (VM_DB.read_exn id)
+		| VM_set_vcpus (id, n) ->
+			debug "VM.set_vcpus (%s, %d)" id n;
+			let vm_t = VM_DB.read_exn id in
+			if n > vm_t.Vm.vcpu_max
+			then raise (Exception (Maximum_vcpus vm_t.Vm.vcpu_max));
+			B.VM.set_vcpus t (VM_DB.read_exn id) n
 		| VM_check_state id ->
 			let vm = VM_DB.read_exn id in
 			let state = B.VM.get_state vm in
@@ -830,6 +838,8 @@ module VM = struct
 	let pause _ dbg id = queue_operation dbg id (VM_pause id) |> return
 
 	let unpause _ dbg id = queue_operation dbg id (VM_unpause id) |> return
+
+	let set_vcpus _ dbg id n = queue_operation dbg id (VM_set_vcpus (id, n)) |> return
 
 	let start _ dbg id = queue_operation dbg id (VM_start id) |> return
 
