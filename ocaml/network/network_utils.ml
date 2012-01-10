@@ -442,11 +442,9 @@ module Ovs = struct
 							Sysfs.has_vlan_accel interface
 			in
 			let setting = if do_workaround then "on" else "off" in
-			Ip.link_set_down interface;
 			(try
 				ignore (call_script ovs_vlan_bug_workaround [interface; setting]);
 			with _ -> ());
-			Ip.link_set_up interface
 		) phy_interfaces
 
 	let create_bridge ?mac ~fail_mode vlan vlan_bug_workaround name =
