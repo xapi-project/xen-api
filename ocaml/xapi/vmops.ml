@@ -208,20 +208,6 @@ let destroy_consoles ~__context ~vM =
 	let all = Db.VM.get_consoles ~__context ~self:vM in
 	List.iter (fun console -> Db.Console.destroy ~__context ~self:console) all
 
-(* /boot/ contains potentially sensitive files like xen-initrd, so we will only*)
-(* allow directly booting guests from the subfolder /boot/guest/ *) 
-let allowed_dom0_directory_for_kernels = "/boot/guest/"
-let is_kernel_whitelisted kernel =
-  let safe_str str = not (Stringext.String.has_substr str "..") in
-  (* make sure the script prefix is the allowed dom0 directory *)
-  (Stringext.String.startswith allowed_dom0_directory_for_kernels kernel)
-  (* avoid ..-style attacks and other weird things *)
-  &&(safe_str kernel)
-let assert_kernel_is_whitelisted kernel =
-  if not (is_kernel_whitelisted kernel) then
-    raise (Api_errors.Server_error (Api_errors.permission_denied, [
-      (Printf.sprintf "illegal kernel path %s" kernel)]))
-
 let hvm_video_mib snapshot =
 	let platform = snapshot.API.vM_platform in
 	let default = 4 in (* MiB *)
@@ -268,8 +254,6 @@ let create_kernel ~__context ~xc ~xs ~self domid snapshot =
 			     ramdisk = pv_ramdisk } ->
 		(* No bootloader; get the kernel, initrd from dom0 *)
 
-		assert_kernel_is_whitelisted pv_kernel;
-		maybe assert_kernel_is_whitelisted pv_ramdisk;
 		debug "build linux \"%s\" \"%s\" vcpus:%d mem_max:%Ld mem_target:%Ld"
 		      pv_kernel pv_args vcpus mem_max_kib mem_target_kib;
 		Domain.build_linux xc xs mem_max_kib mem_target_kib pv_kernel pv_args
