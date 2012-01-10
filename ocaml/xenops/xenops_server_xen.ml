@@ -600,10 +600,33 @@ module VM = struct
 		Domain.unpause ~xc di.Xenctrl.domid
 	) Newest
 
-	let set_vcpus = on_domain (fun xc xs _ _ di ->
+	let set_vcpus task vm target = on_domain (fun xc xs _ _ di ->
 		if di.Xenctrl.hvm_guest then raise (Exception Not_supported);
+
+		let domid = di.Xenctrl.domid in
+		(* Returns the instantaneous CPU number from xenstore *)
+		let current =
+			let n = ref (-1) in
+			for i = 0 to vm.Vm.vcpu_max - 1
+			do if Device.Vcpu.status ~xs ~devid:i domid then n := i
+			done;
+			!n + 1 in
+
+		if current > target then (
+			(* need to deplug cpus *)
+			for i = current - 1 downto target
+			do
+				Device.Vcpu.set ~xs ~devid:i domid false
+			done
+		) else if current < target then (
+			(* need to plug cpus *)
+			for i = current to (target - 1)
+			do
+				Device.Vcpu.set ~xs ~devid:i domid true
+			done
+		);
 		raise (Exception Unimplemented)
-	) Newest
+	) Newest task vm
 
 	(* NB: the arguments which affect the qemu configuration must be saved and
 	   restored with the VM. *)
