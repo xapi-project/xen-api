@@ -99,6 +99,14 @@ let fail_not_built_task id =
 	| Task.Failed x -> failwith (Jsonrpc.to_string (rpc_of_error x))
 	| Task.Pending _ -> failwith "task pending"
 
+let fail_max_vcpus_task id =
+	let t = Client.TASK.stat dbg id |> success in
+	match t.Task.result with
+	| Task.Completed _ -> failwith "task completed successfully: expected Max_vcpus"
+	| Task.Failed (Maximum_vcpus _) -> ()
+	| Task.Failed x -> failwith (Jsonrpc.to_string (rpc_of_error x))
+	| Task.Pending _ -> failwith "task pending"
+
 let test_query _ = let (_: Query.t) = success (Client.query dbg ()) in ()
 
 let missing_vm = "missing"
@@ -278,6 +286,26 @@ let vm_test_build_pause_unpause _ =
 			Client.VM.create_device_model dbg id false |> success |> wait_for_task |> success_task;
 			Client.VM.unpause dbg id |> success |> wait_for_task |> success_task;
 			Client.VM.pause dbg id |> success |> wait_for_task |> success_task;
+			Client.VM.destroy dbg id |> success |> wait_for_task |> success_task;
+		)
+
+let vm_test_build_vcpus _ =
+	with_vm example_uuid
+		(fun id ->
+			Client.VM.create dbg id |> success |> wait_for_task |> success_task;
+			Client.VM.build dbg id |> success |> wait_for_task |> success_task;
+			Client.VM.set_vcpus dbg id 1 |> success |> wait_for_task |> fail_not_built_task;
+			Client.VM.create_device_model dbg id false |> success |> wait_for_task |> success_task;
+			Client.VM.unpause dbg id |> success |> wait_for_task |> success_task;
+			Client.VM.set_vcpus dbg id 1 |> success |> wait_for_task |> success_task;
+			let state = Client.VM.stat dbg id |> success |> snd in
+			if state.Vm.vcpu_target <> 1
+			then failwith (Printf.sprintf "vcpu_target %d <> 1" state.Vm.vcpu_target);
+			Client.VM.set_vcpus dbg id 2 |> success |> wait_for_task |> success_task;
+			let state = Client.VM.stat dbg id |> success |> snd in
+			if state.Vm.vcpu_target <> 2
+			then failwith (Printf.sprintf "vcpu_target %d <> 2" state.Vm.vcpu_target);
+			Client.VM.set_vcpus dbg id 4 |> success |> wait_for_task |> fail_max_vcpus_task;
 			Client.VM.destroy dbg id |> success |> wait_for_task |> success_task;
 		)
 
@@ -581,6 +609,7 @@ let _ =
 			"vm_test_create_destroy" >:: vm_test_create_destroy;
 			"vm_test_pause_unpause" >:: vm_test_pause_unpause;
 			"vm_test_build_pause_unpause" >:: vm_test_build_pause_unpause;
+			"vm_test_build_vcpus" >:: vm_test_build_vcpus;
 			"vm_test_add_list_remove" >:: vm_test_add_list_remove;
 			"vm_remove_running" >:: vm_remove_running;
 			"vm_test_start_shutdown" >:: vm_test_start_shutdown;

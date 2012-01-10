@@ -27,6 +27,7 @@ module Domain = struct
 		domain_action_request: domain_action_request option;
 		paused: bool;
 		built: bool;
+		vcpus: int;
 		qemu_created: bool;
 		suspended: bool;
 		vbds: Vbd.t list;
@@ -79,6 +80,7 @@ let create_nolock vm () =
 			domain_action_request = None;
 			paused = true;
 			built = false;
+			vcpus = vm.Vm.vcpus;
 			qemu_created = false;
 			suspended = false;
 			vifs = [];
@@ -95,6 +97,7 @@ let get_state_nolock vm () =
 		{ halted_vm with
 			Vm.power_state = Running;
 			domids = [ d.Domain.domid ];
+			vcpu_target = d.Domain.vcpus;
 			last_start_time = d.Domain.last_create_time;
 		}
 	end else halted_vm
@@ -144,6 +147,12 @@ let do_pause_unpause_nolock vm paused () =
 	if not d.Domain.built || (d.Domain.hvm && not(d.Domain.qemu_created))
 	then raise (Exception Domain_not_built)
 	else DB.write vm.Vm.id { d with Domain.paused = paused }
+
+let do_set_vcpus_nolock vm n () =
+	let d = DB.read_exn vm.Vm.id in
+	if not d.Domain.built || (d.Domain.hvm && not(d.Domain.qemu_created))
+	then raise (Exception Domain_not_built)	
+	else DB.write vm.Vm.id { d with Domain.vcpus = n }
 
 let add_vif vm vif () =
 	let d = DB.read_exn vm in
@@ -250,6 +259,7 @@ module VM = struct
 	let destroy _ vm = Mutex.execute m (destroy_nolock vm)
 	let pause _ vm = Mutex.execute m (do_pause_unpause_nolock vm true)
 	let unpause _ vm = Mutex.execute m (do_pause_unpause_nolock vm false)
+	let set_vcpus _ vm n = Mutex.execute m (do_set_vcpus_nolock vm n)
 	let build _ vm vbds vifs = Mutex.execute m (build_nolock vm vbds vifs)
 	let create_device_model _ vm _ = Mutex.execute m (create_device_model_nolock vm)
 	let destroy_device_model _ vm = Mutex.execute m (destroy_device_model_nolock vm)
