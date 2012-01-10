@@ -938,6 +938,22 @@ let assert_resident_on ~__context ~self =
 	let localhost = Helpers.get_localhost ~__context in
 	assert (Db.VM.get_resident_on ~__context ~self = localhost)
 
+let pause ~__context ~self =
+	let id = id_of_vm ~__context ~self in
+	debug "xenops: VM.pause %s" id;
+	let dbg = Context.string_of_task __context in
+	Client.VM.pause dbg id |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
+	Event.wait dbg ();
+	assert (Db.VM.get_power_state ~__context ~self = `Paused)
+
+let unpause ~__context ~self =
+	let id = id_of_vm ~__context ~self in
+	debug "xenops: VM.unpause %s" id;
+	let dbg = Context.string_of_task __context in
+	Client.VM.unpause dbg id |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
+	Event.wait dbg ();
+	assert (Db.VM.get_power_state ~__context ~self = `Running)
+
 let start ~__context ~self paused =
 	let id = push_metadata_to_xenopsd ~__context ~self in
 	add_caches id;
