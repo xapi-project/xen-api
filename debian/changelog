@@ -1,5 +1,6 @@
 xen-api (1.3.1-3) unstable; urgency=low
 
+  * BUG: remove erroneous vif plug patch
   * BUG: fix xe path in xe-mount-iso-sr
 
  -- Mike McClurg <mike.mcclurg@citrix.com>  Tue, 10 Jan 2012 12:27:34 +0000

@@ -18,7 +18,6 @@
 0018-pam.patch
 0019-python-XenAPI-install-path.patch
 0020-xapissl-script-install.patch
-0021-vif-hot-unplug.patch
 0022-new-ocaml-layout.patch
 0023-dont-statically-link-anything.patch
 0024-remove-calls-to-xenlight.patch
