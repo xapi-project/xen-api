@@ -738,36 +738,10 @@ let power_state_reset ~__context ~vm =
   if power_state = `Running || power_state = `Paused then begin
     debug "VM.power_state_reset vm=%s power state is either running or paused: performing sanity checks" (Ref.string_of vm);
     let localhost = Helpers.get_localhost ~__context in
-    (* We only query domid, resident_on and Xenctrl.domain_getinfo with the VM lock held to make
-       sure the VM isn't in the middle of a migrate/reboot/shutdown. Note we don't hold it for
-       the whole of this function which might perform off-box RPCs. *)
-    let resident, domid, getinfo = Locking_helpers.with_lock vm
-      (fun token () ->
-	 let resident = Db.VM.get_resident_on ~__context ~self:vm in
-	 let domid = Db.VM.get_domid ~__context ~self:vm in
-	 let getinfo =
-	   if resident = localhost then begin
-	     debug "VM.power_state_reset vm=%s resident_on=localhost; looking for a domain" (Ref.string_of vm);
-	     if domid = -1L then None
-	     else (try Some (with_xc (fun xc -> Xenctrl.domain_getinfo xc (Int64.to_int domid)))
-		   with e ->
-		     debug "VM.power_state_reset vm=%s caught %s: assuming domain doesn't exist"
-		       (Ref.string_of vm) (ExnHelper.string_of_exn e);
-		     None)
-	   end else None in
-	 resident, domid, getinfo) () in
-    if resident = localhost then begin
-      match getinfo with
-      | Some di ->
-	  let uuid = Uuid.to_string (Uuid.uuid_of_int_array di.Xenctrl.handle) in
-	  if Db.VM.get_uuid ~__context ~self:vm = uuid then begin
-	    error "VM.power_state_reset vm=%s uuid=%s domid=%Ld cannot proceed because domain still exists"
-	      (Ref.string_of vm) uuid domid;
-	    raise (Api_errors.Server_error(Api_errors.domain_exists, [ Ref.string_of vm; Int64.to_string domid ]))
-	  end
-      | None ->
-	  (* No domain found so this is ok *)
-	  ()
+	let resident = Db.VM.get_resident_on ~__context ~self:vm in
+	if resident = localhost then begin
+	    debug "VM.power_state_reset vm=%s resident_on=localhost;" (Ref.string_of vm);
+		raise (Api_errors.Server_error(Api_errors.domain_exists, [ Ref.string_of vm ]))
     end else begin
       (* If resident on another host, check if that host is alive: if so
 	 then refuse to perform the reset, since we have delegated state management
