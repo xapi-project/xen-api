@@ -245,10 +245,6 @@ let start_internal ~__context ~vm ~start_paused:paused ~force =
 						Helpers.call_api_functions ~__context
 							(fun rpc session_id -> Client.VM.atomic_set_resident_on rpc session_id vm localhost);
 
-						(* Populate last_boot_CPU_flags with the vendor and feature set of the host CPU. *)
-						let host = Db.VM.get_resident_on ~__context ~self:vm in
-						Xapi_vm_helpers.populate_cpu_flags ~__context ~vm ~host;
-
 						if paused then
 							Db.VM.set_power_state ~__context ~self:vm ~value:`Paused
 						else (
@@ -829,7 +825,6 @@ let resume_internal ~__context ~vm ~start_paused ~force =
 								Client.VM.atomic_set_resident_on rpc session_id vm
 								localhost
 							);
-							Xapi_vm_helpers.populate_cpu_flags ~__context ~vm ~host:localhost;
 							Db.VM.set_power_state ~__context ~self:vm
 								~value:(if start_paused then `Paused else `Running);
 (*
