@@ -981,6 +981,11 @@ let copy_guest_metrics ~__context ~vm =
 	with _ ->
 		Ref.null
 
+let start_delay ~__context ~vm =
+	let start_delay = Db.VM.get_start_delay ~__context ~self:vm in
+	Thread.delay (Int64.to_float start_delay)
+
+
 (* Populate last_boot_CPU_flags with the vendor and feature set of the given host's CPU. *)
 let populate_cpu_flags ~__context ~vm ~host =
 	let add_or_replace (key, value) values =

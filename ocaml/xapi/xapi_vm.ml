@@ -263,9 +263,6 @@ let start_internal ~__context ~vm ~start_paused:paused ~force =
 							*)
 							Db.VM.set_power_state ~__context ~self:vm ~value:`Running
 						);
-						
-						let start_delay = Db.VM.get_start_delay ~__context ~self:vm in
-						Thread.delay (Int64.to_float start_delay)
 					) ())
 
 let start ~__context ~vm ~start_paused ~force =
