@@ -1,0 +1,13 @@
+Index: xen-api/scripts/xe-mount-iso-sr
+===================================================================
+--- xen-api.orig/scripts/xe-mount-iso-sr	2012-01-10 12:25:48.222560650 +0000
++++ xen-api/scripts/xe-mount-iso-sr	2012-01-10 12:26:04.386561035 +0000
+@@ -19,7 +19,7 @@
+ shift 1
+ OPTIONS=$*
+ 
+-XE="@BINDIR@/xe"
++XE="/usr/bin/xe"
+ UUID=$(uuidgen)
+ 
+ SR=$(${XE} sr-introduce name-label="Remote ISO Library on: ${LOCATION}" content-type=iso shared=true type=iso uuid=${UUID} physical-size=0)
