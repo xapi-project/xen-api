@@ -845,8 +845,6 @@ let resume_internal ~__context ~vm ~start_paused ~force =
 	(fun () ->
 		Locking_helpers.with_lock vm
 		(fun token () ->
-			License_check.with_vm_license_check ~__context vm
-			(fun () ->
 				Stats.time_this "VM resume"
 				(fun () ->
 					with_xc_and_xs
@@ -880,7 +878,6 @@ let resume_internal ~__context ~vm ~start_paused ~force =
 						)
 *)
 					)
-				)
 			)
 		) ()
 	)
@@ -888,7 +885,11 @@ let resume_internal ~__context ~vm ~start_paused ~force =
 let resume_xenopsd ~__context ~vm ~start_paused ~force =
 	Xapi_xenops.resume ~__context ~self:vm ~start_paused ~force
 
-let resume ~__context = if !Xapi_globs.use_xenopsd then resume_xenopsd ~__context else resume_internal ~__context
+let resume ~__context ~vm ~start_paused ~force = 
+	License_check.with_vm_license_check ~__context vm
+		(fun () ->
+			(if !Xapi_globs.use_xenopsd then resume_xenopsd else resume_internal) ~__context ~vm ~start_paused ~force
+		)
 
 let resume_on  ~__context ~vm ~host ~start_paused ~force =
 	(* If we modify this to support resume_on other-than-localhost,
