@@ -713,7 +713,11 @@ let clean_reboot_internal ~__context ~vm =
   let args = { TwoPhase.__context=__context; vm=vm; api_call_name="VM.clean_reboot"; clean=true } in
   retry_on_conflict args (of_action action)
 
-let clean_reboot ~__context = if !Xapi_globs.use_xenopsd then clean_reboot_xenopsd ~__context else clean_reboot_internal ~__context
+let clean_reboot ~__context ~vm =
+	License_check.with_vm_license_check ~__context vm
+		(fun () ->
+			(if !Xapi_globs.use_xenopsd then clean_reboot_xenopsd else clean_reboot_internal) ~__context ~vm
+		)
 
 let clean_shutdown_xenopsd ~__context ~vm =
 	Xapi_xenops.shutdown ~__context ~self:vm (Some 1200.0)
