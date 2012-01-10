@@ -646,10 +646,6 @@ let pool_migrate_internal ~__context ~vm ~host ~options =
 		Helpers.assert_host_versions_not_decreasing ~__context
 			~host_from:(Helpers.get_localhost ~__context)
 			~host_to:host ;
-	(* Check that the VM is compatible with the host it is being migrated to. *)
-	let force = try bool_of_string (List.assoc "force" options) with _ -> false in
-	if not force then
-		Xapi_vm_helpers.assert_vm_is_compatible ~__context ~vm ~host;
 	Local_work_queue.wait_in_line Local_work_queue.long_running_queue 
 	  (Printf.sprintf "VM.pool_migrate %s" (Context.string_of_task __context))
 	  (fun () ->
