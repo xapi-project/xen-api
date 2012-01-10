@@ -669,7 +669,19 @@ let update_vm ~__context id =
 							(fun (_, state) ->
 								debug "xenopsd event: Updating VM %s last_start_time <- %s" id (Date.to_string (Date.of_float state.last_start_time));
 								let metrics = Db.VM.get_metrics ~__context ~self in
-								Db.VM_metrics.set_start_time ~__context ~self:metrics ~value:(Date.of_float state.last_start_time)
+								let start_time = Date.of_float state.last_start_time in
+								Db.VM_metrics.set_start_time ~__context ~self:metrics ~value:start_time;
+								begin
+									try
+										let gm = Db.VM.get_guest_metrics ~__context ~self in
+										let update_time = Db.VM_guest_metrics.get_last_updated ~__context ~self:gm in
+										if update_time < start_time then begin
+											debug "VM %s guest metrics update time (%s) < VM start time (%s): deleting"
+												id (Date.to_string update_time) (Date.to_string start_time);
+											Xapi_vm_helpers.delete_guest_metrics ~__context ~self
+										end
+									with _ -> () (* The guest metrics didn't exist *)
+								end
 							) info
 					end;
 					Xenops_cache.update_vm id (Opt.map snd info);
