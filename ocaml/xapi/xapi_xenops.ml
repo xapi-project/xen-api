@@ -80,6 +80,20 @@ let rtc_timeoffset_of_vm ~__context (vm, vm_t) vbds =
 					|> List.map fst
 					|> List.map Ref.string_of)))
 
+(* /boot/ contains potentially sensitive files like xen-initrd, so we will only*)
+(* allow directly booting guests from the subfolder /boot/guest/ *) 
+let allowed_dom0_directory_for_boot_files = "/boot/guest/"
+let is_boot_file_whitelisted filename =
+	let safe_str str = not (String.has_substr str "..") in
+	(* make sure the script prefix is the allowed dom0 directory *)
+	(String.startswith allowed_dom0_directory_for_boot_files filename)
+		(* avoid ..-style attacks and other weird things *)
+	&&(safe_str filename)
+let assert_boot_file_is_whitelisted filename =
+	if not (is_boot_file_whitelisted filename) then
+		raise (Api_errors.Server_error (Api_errors.permission_denied, [
+			(Printf.sprintf "illegal boot file path %s" filename)]))
+
 let builder_of_vm ~__context ~vm timeoffset =
 	let open Vm in
 	match Helpers.boot_method_of_vm ~__context ~vm with
@@ -105,6 +119,8 @@ let builder_of_vm ~__context ~vm timeoffset =
 			qemu_disk_cmdline = bool vm.API.vM_platform false "qemu_disk_cmdline";
 		}
 		| Helpers.DirectPV { Helpers.kernel = k; kernel_args = ka; ramdisk = initrd } ->
+			assert_boot_file_is_whitelisted k;
+			Opt.iter assert_boot_file_is_whitelisted initrd;
 			PV {
 				boot = Direct { kernel = k; cmdline = ka; ramdisk = initrd };
 				framebuffer = false;
@@ -1093,6 +1109,14 @@ let resume ~__context ~self ~start_paused ~force =
 			XenAPI.VDI.destroy rpc session_id vdi
 		);
 	Db.VM.set_suspend_VDI ~__context ~self ~value:Ref.null
+
+
+let is_vm_running ~__context ~self =
+	let id = id_of_vm ~__context ~self in
+	let dbg = Context.string_of_task __context in
+	debug "xenops: VM.stat %s" id;
+	(* If the metadata is still present, VM is "Running" *)
+	try Client.VM.stat dbg id |> success |> ignore; true with _ -> false
 
 let md_of_vbd ~__context ~self =
 	let vm = Db.VBD.get_VM ~__context ~self in
