@@ -72,7 +72,8 @@ let rec add_value f = function
 
 	| Float d ->
 		f "<value><double>";
-		f (Printf.sprintf "%g" d);
+		(* NB: "%g" loses a lot of precision (e.g. resulting in "1.32621e+09") *)
+		f (Printf.sprintf "%0.16g" d);
 		f "</double></value>"
 
 	| String s ->
