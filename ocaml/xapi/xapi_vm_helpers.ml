@@ -985,6 +985,10 @@ let start_delay ~__context ~vm =
 	let start_delay = Db.VM.get_start_delay ~__context ~self:vm in
 	Thread.delay (Int64.to_float start_delay)
 
+let shutdown_delay ~__context ~vm =
+	let shutdown_delay = Db.VM.get_shutdown_delay ~__context ~self:vm in
+	Thread.delay (Int64.to_float shutdown_delay)
+
 
 (* Populate last_boot_CPU_flags with the vendor and feature set of the given host's CPU. *)
 let populate_cpu_flags ~__context ~vm ~host =
