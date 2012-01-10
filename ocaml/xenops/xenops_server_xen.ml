@@ -461,7 +461,9 @@ module VM = struct
 					match DB.read k with
 						| Some x ->
 							debug "VM %s: reloading stored domain-level configuration" vm.Vm.id;
-							x
+							{ x with
+								VmExtra.last_create_time = Unix.gettimeofday ()
+							}
 						| None -> begin
 							debug "VM %s: has no stored domain-level configuration, regenerating" vm.Vm.id;
 							let hvm = match vm.ty with HVM _ -> true | _ -> false in
