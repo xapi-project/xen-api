@@ -1162,6 +1162,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 										let host = forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_start
 											(fun session_id rpc ->
 												Client.VM.start rpc session_id vm start_paused force) in
+										Xapi_vm_helpers.populate_cpu_flags ~__context ~vm ~host;
 										Xapi_vm_helpers.start_delay ~__context ~vm;
 										host
 									))) in
@@ -1213,6 +1214,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 													Client.VM.start
 														rpc session_id vm start_paused force)
 										);
+									Xapi_vm_helpers.populate_cpu_flags ~__context ~vm ~host;
 									Xapi_vm_helpers.start_delay ~__context ~vm;
 								)));
 			update_vbd_operations ~__context ~vm;
@@ -1468,8 +1470,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 						with_vbds_marked ~__context ~vm ~doc:"VM.resume" ~op:`attach
 							(fun vbds ->
 								let snapshot = Helpers.get_boot_record ~__context ~self:vm in
-								forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_resume
-									(fun session_id rpc -> Client.VM.resume rpc session_id vm start_paused force)))
+								let host = forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_resume
+									(fun session_id rpc -> Client.VM.resume rpc session_id vm start_paused force) in
+								Xapi_vm_helpers.populate_cpu_flags ~__context ~vm ~host;
+								host
+							);
+					)
 			in
 			update_vbd_operations ~__context ~vm;
 			update_vif_operations ~__context ~vm;
@@ -1498,7 +1504,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 							reserve_memory_for_vm ~__context ~vm ~host ~snapshot ~host_op:`vm_resume
 								(fun () ->
 									do_op_on ~local_fn ~__context ~host
-										(fun session_id rpc -> Client.VM.resume_on rpc session_id vm host start_paused force))));
+										(fun session_id rpc -> Client.VM.resume_on rpc session_id vm host start_paused force));
+							Xapi_vm_helpers.populate_cpu_flags ~__context ~vm ~host;
+						);
+				);
 			update_vbd_operations ~__context ~vm;
 			update_vif_operations ~__context ~vm;
 			let uuid = Db.VM.get_uuid ~__context ~self:vm in
