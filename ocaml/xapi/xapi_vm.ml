@@ -467,9 +467,7 @@ module Reboot = struct
 	   error "Caught exception during %s: %s" api_call_name (ExnHelper.string_of_exn exn);
 	   with_xc_and_xs (fun xc xs -> Vmops.destroy ~__context ~xc ~xs ~self:vm domid `Halted);
 	   raise exn
-      );
-	(* If this is a storage domain, attempt to plug the PBD *)
-	Opt.iter (fun pbd -> Xapi_pbd.plug ~__context ~self:pbd) (System_domains.pbd_of_vm ~__context ~vm)
+      )
 
 
 

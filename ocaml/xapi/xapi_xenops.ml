@@ -585,7 +585,16 @@ let update_vm ~__context id =
 						Opt.iter
 							(fun (_, state) ->
 								Db.VM.set_domid ~__context ~self ~value:(List.hd state.domids |> Int64.of_int)
-							) info
+							) info;
+						(* If this is a storage domain, attempt to plug the PBD *)
+						Opt.iter (fun pbd ->
+							let (_: Thread.t) = Thread.create (fun () ->
+								(* Don't block the database update thread *)
+								Xapi_pbd.plug ~__context ~self:pbd
+							) () in
+							()
+						) (System_domains.pbd_of_vm ~__context ~vm:self)
+
 					end;
 					(* consoles *)
 					if different (fun x -> x.consoles) then begin
