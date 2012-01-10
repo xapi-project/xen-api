@@ -807,12 +807,6 @@ let resume_internal ~__context ~vm ~start_paused ~force =
 					(fun xc xs ->
 						debug "resume: making sure the VM really is suspended";
 						assert_power_state_is ~__context ~vm ~expected:`Suspended;
-						let localhost = Helpers.get_localhost ~__context in
-						if not force then begin
-							debug "resume: checking the VM is compatible with this host";
-							Xapi_vm_helpers.assert_vm_is_compatible ~__context ~vm ~host:localhost
-						end;
-
 							(* vmops.restore guarantees that, if an exn occurs *)
 							(* during execution, any disks that were attached/ *)
 							(* activated have been detached/de-activated and   *)
@@ -823,7 +817,7 @@ let resume_internal ~__context ~vm ~start_paused ~force =
 							Helpers.call_api_functions ~__context
 							(fun rpc session_id ->
 								Client.VM.atomic_set_resident_on rpc session_id vm
-								localhost
+								(Helpers.get_localhost ~__context)
 							);
 							Db.VM.set_power_state ~__context ~self:vm
 								~value:(if start_paused then `Paused else `Running);
@@ -843,6 +837,9 @@ let resume ~__context ~vm ~start_paused ~force =
 		(fun () ->
 			if Db.VM.get_ha_restart_priority ~__context ~self:vm = Constants.ha_restart
 			then Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
+
+			let host = Helpers.get_localhost ~__context in
+			if not force then Xapi_vm_helpers.assert_vm_is_compatible ~__context ~vm ~host;
 
 			(if !Xapi_globs.use_xenopsd then resume_xenopsd else resume_internal) ~__context ~vm ~start_paused ~force
 		)
