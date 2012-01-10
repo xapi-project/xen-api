@@ -216,7 +216,6 @@ let start_xenopsd ~__context ~vm ~start_paused:paused ~force =
 	Xapi_xenops.start ~__context ~self:vm paused
 
 let start_internal ~__context ~vm ~start_paused:paused ~force =
-	License_check.with_vm_license_check ~__context vm (fun () ->
 		Local_work_queue.wait_in_line Local_work_queue.normal_vm_queue
 			(Printf.sprintf "VM.start %s" (Context.string_of_task __context))
 			(fun () ->
@@ -279,9 +278,13 @@ let start_internal ~__context ~vm ~start_paused:paused ~force =
 						
 						let start_delay = Db.VM.get_start_delay ~__context ~self:vm in
 						Thread.delay (Int64.to_float start_delay)
-					) ()))
+					) ())
 
-let start ~__context = if !Xapi_globs.use_xenopsd then start_xenopsd ~__context else start_internal ~__context
+let start ~__context ~vm ~start_paused ~force =
+	License_check.with_vm_license_check ~__context vm
+		(fun () ->
+			(if !Xapi_globs.use_xenopsd then start_xenopsd else start_internal) ~__context ~vm ~start_paused ~force
+		)
 
 (** For VM.start_on and VM.resume_on the message forwarding layer should only forward here
     if 'host' = localhost *)
