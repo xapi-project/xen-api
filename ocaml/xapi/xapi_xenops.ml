@@ -689,6 +689,14 @@ let update_vm ~__context id =
 									end;
 								) state.domids;
 						) info;
+					if different (fun x -> x.vcpu_target) then begin
+						Opt.iter
+							(fun (_, state) ->
+								debug "xenopsd event: Updating VM %s vcpu_target <- %d" id state.Vm.vcpu_target;
+								let metrics = Db.VM.get_metrics ~__context ~self in
+								Db.VM_metrics.set_VCPUs_number ~__context ~self:metrics ~value:(Int64.of_int state.Vm.vcpu_target);
+							) info
+					end;
 					if different (fun x -> x.last_start_time) then begin
 						Opt.iter
 							(fun (_, state) ->
