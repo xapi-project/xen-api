@@ -1094,32 +1094,12 @@ let set_VCPUs_at_startup ~__context ~self ~value =
 (** Sets the number of VCPUs for a {b Running} PV guest.
 @raise Api_errors.operation_not_allowed if [self] is an HVM guest. *)
 let set_VCPUs_number_live ~__context ~self ~nvcpu =
-	Locking_helpers.with_lock self (fun target () ->
-	if Helpers.has_booted_hvm ~__context ~self then (
-		error "VM.set_VCPUs_number_live: HVM VMs cannot hotplug cpus";
-		raise (Api_errors.Server_error (Api_errors.operation_not_allowed,
-			["HVM VMs cannot hotplug CPUs"]));
-	);
-
-	let at_boot_time = Helpers.get_boot_record ~__context ~self in
-	let domid = Helpers.domid_of_vm ~__context ~self in
-	let max = at_boot_time.API.vM_VCPUs_max in
-
-	if nvcpu < 1L || nvcpu > max then invalid_value
-		"VCPU values must satisfy: 0 < VCPUs ≤ VCPUs_max"
-		(Int64.to_string nvcpu);
-	(* We intend to modify the VCPUs_at_startup parameter to have the new target value *)
-	let new_boot_record = { at_boot_time with API.vM_VCPUs_at_startup = nvcpu } in
-	with_xs (fun xs ->
-		Vmops.set_cpus_number ~__context ~xs ~self domid new_boot_record
-	);
-	Helpers.set_boot_record ~__context ~self new_boot_record;
+	Xapi_xenops.set_vcpus ~__context ~self nvcpu;
 	(* Strictly speaking, PV guest memory overhead depends on the number of  *)
 	(* vCPUs. Although our current overhead calculation uses a conservative  *)
 	(* overestimate that ignores the real number of VCPUs, we still update   *)
 	(* the overhead in case our level of conservativeness changes in future. *)
 	update_memory_overhead ~__context ~vm:self
-) ()
 
 let add_to_VCPUs_params_live ~__context ~self ~key ~value = Locking_helpers.with_lock self (fun token () ->
   add_to_VCPUs_params_live ~__context ~self ~key ~value

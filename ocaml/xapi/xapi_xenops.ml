@@ -993,6 +993,25 @@ let unpause ~__context ~self =
 	Event.wait dbg ();
 	assert (Db.VM.get_power_state ~__context ~self = `Running)
 
+let set_vcpus ~__context ~self n =
+	let id = id_of_vm ~__context ~self in
+	debug "xenops: VM.unpause %s" id;
+	let dbg = Context.string_of_task __context in
+	try
+		Client.VM.set_vcpus dbg id (Int64.to_int n) |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
+		Db.VM.set_VCPUs_at_startup ~__context ~self ~value:n;
+		Event.wait dbg ();
+	with
+		| Exception (Maximum_vcpus n) ->
+			raise (Api_errors.Server_error(Api_errors.invalid_value, [
+				"VCPU values must satisfy: 0 < VCPUs ≤ VCPUs_max";
+				string_of_int n
+			]))
+		| Exception Not_supported ->
+			error "VM.set_VCPUs_number_live: HVM VMs cannot hotplug cpus";
+			raise (Api_errors.Server_error (Api_errors.operation_not_allowed,
+			["HVM VMs cannot hotplug CPUs"]))
+
 let start ~__context ~self paused =
 	let id = push_metadata_to_xenopsd ~__context ~self in
 	add_caches id;
