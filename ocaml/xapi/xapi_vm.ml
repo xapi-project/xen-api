@@ -191,19 +191,21 @@ let pause_xenopsd ~__context ~vm =
 let pause ~__context = if !Xapi_globs.use_xenopsd then pause_xenopsd ~__context else pause_internal ~__context
 
 let unpause_internal  ~__context ~vm =
-  License_check.with_vm_license_check ~__context vm
-    (fun () ->
        Locking_helpers.with_lock vm (fun _ () ->
 	let domid = Helpers.domid_of_vm ~__context ~self:vm in
 	debug "unpause: domid %d" domid;
 	with_xc (fun xc -> Domain.unpause ~xc domid);
 	Db.VM.set_power_state ~__context ~self:vm ~value:`Running
-    ) ())
+    ) ()
 
 let unpause_xenopsd ~__context ~vm =
 	Xapi_xenops.unpause ~__context ~self:vm
 
-let unpause ~__context = if !Xapi_globs.use_xenopsd then unpause_xenopsd ~__context else pause_internal ~__context
+let unpause ~__context ~vm =
+  License_check.with_vm_license_check ~__context vm
+    (fun () ->
+		(if !Xapi_globs.use_xenopsd then unpause_xenopsd else pause_internal) ~__context ~vm
+	)
 
 (* Note: it is important that we use the pool-internal API call, VM.atomic_set_resident_on, to set resident_on and clear
    scheduled_to_be_resident_on atomically. This prevents concurrent API calls on the master from accounting for the
