@@ -1159,14 +1159,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 										Xapi_vm_helpers.update_memory_overhead ~__context ~vm;
 										Xapi_vm_helpers.consider_generic_bios_strings ~__context ~vm;
 										let snapshot = Db.VM.get_record ~__context ~self:vm in
-										forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_start
+										let host = forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_start
 											(fun session_id rpc ->
-												Client.VM.start
-													rpc
-													session_id
-													vm
-													start_paused
-													force)))) in
+												Client.VM.start rpc session_id vm start_paused force) in
+										Xapi_vm_helpers.start_delay ~__context ~vm;
+										host
+									))) in
 			update_vbd_operations ~__context ~vm;
 			update_vif_operations ~__context ~vm;
 			let uuid = Db.VM.get_uuid ~__context ~self:vm in
@@ -1213,11 +1211,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 											do_op_on ~local_fn ~__context ~host
 												(fun session_id rpc ->
 													Client.VM.start
-														rpc
-														session_id
-														vm
-														start_paused
-														force)))));
+														rpc session_id vm start_paused force)
+										);
+									Xapi_vm_helpers.start_delay ~__context ~vm;
+								)));
 			update_vbd_operations ~__context ~vm;
 			update_vif_operations ~__context ~vm;
 			let _ (* uuid *) = Db.VM.get_uuid ~__context ~self:vm in
