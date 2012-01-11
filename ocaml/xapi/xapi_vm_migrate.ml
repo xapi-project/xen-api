@@ -832,8 +832,15 @@ let migrate  ~__context ~vm ~dest ~live ~options =
 			then
 				let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
 				let location = Db.VDI.get_location ~__context ~self:vdi in
-				let sr = Db.SR.get_uuid ~__context ~self:(Db.VDI.get_SR ~__context ~self:vdi) in
-				Some (location, sr)
+				(* XXX PR-1255: eject any CDROMs for now *)
+				if Db.VBD.get_type ~__context ~self:vbd = `CD then begin
+					info "Ejecting CD %s from %s" location (Ref.string_of vbd);
+					Xapi_xenops.vbd_eject ~__context ~self:vbd;
+					None
+				end else begin
+					let sr = Db.SR.get_uuid ~__context ~self:(Db.VDI.get_SR ~__context ~self:vdi) in
+					Some (location, sr)
+				end
 			else None) vbds in
 	let task = Context.string_of_task __context in
 	let dest_sr = List.assoc _sr dest in
