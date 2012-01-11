@@ -1,10 +1,10 @@
 set -e
 set -x
 
-obus-gen-interface ping_pong.xml 
-obus-gen-server ping_pong.xml
+obus-gen-interface ../ping_pong.xml 
+obus-gen-server ../ping_pong.xml
 
-obus-gen-interface -o ping_pong ping_pong.xml 
+obus-gen-interface -o ping_pong ../ping_pong.xml 
 
 
 PACKS=obus,lwt.syntax
