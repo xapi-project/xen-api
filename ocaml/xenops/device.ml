@@ -463,9 +463,6 @@ let add ~xs ~hvm ~mode ~device_number ~phystype ~params ~dev_type ~unpluggable
 	     List.iter (fun (k, v) -> Hashtbl.add back_tbl k v) keys
 	 | None -> ());
 
-	(* PV guests don't support CDROMs so we model these as disks *)
-	let dev_type = if not hvm then Disk else dev_type in
-
 	Hashtbl.add_list front_tbl [
 		"backend-id", string_of_int backend_domid;
 		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
@@ -484,6 +481,11 @@ let add ~xs ~hvm ~mode ~device_number ~phystype ~params ~dev_type ~unpluggable
 		"mode", string_of_mode mode;
 		"params", params;
 	];
+    (* We don't have PV drivers for HVM guests for CDROMs. We prevent
+       blkback from successfully opening the device since this can
+       prevent qemu CD eject (and subsequent vdi_deactivate) *)
+	if hvm && (dev_type = CDROM) then
+		Hashtbl.add back_tbl "no-physical-device" "";
 
 	if protocol <> Protocol_Native then
 		Hashtbl.add front_tbl "protocol" (string_of_protocol protocol);
@@ -642,7 +644,7 @@ let add ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) ?(protocol=Protocol_Na
 		"frontend-id", sprintf "%u" domid;
 		"online", "1";
 		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
-		"script", "/etc/xensource/scripts/vif";
+		"script", (Filename.concat Fhs.scriptsdir "vif");
 		"mac", mac;
 		"handle", string_of_int devid
 	] @ back_options in
@@ -720,7 +722,7 @@ end
 
 module PV_Vnc = struct
 
-let vncterm_wrapper = Xapi_globs.base_path ^ "/libexec/vncterm-wrapper"
+let vncterm_wrapper = Filename.concat Fhs.libexecdir "vncterm-wrapper"
 
 let vnc_pid_path domid = sprintf "/local/domain/%d/vncterm-pid" domid
 
@@ -1052,7 +1054,7 @@ let write_string_to_file file s =
 let do_flr device =
   debug "Doing FLR on pci device: %s" device;
 	let doflr = "/sys/bus/pci/drivers/pciback/do_flr" in
-	let script = Xapi_globs.base_path ^ "/libexec/pci-flr" in
+	let script = Filename.concat Fhs.libexecdir "pci-flr" in
 	let callscript =
                 let f s devstr =
 	                try ignore (Forkhelpers.execute_command_get_output script [ s; devstr; ])

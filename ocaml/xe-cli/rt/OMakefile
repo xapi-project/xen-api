@@ -30,5 +30,5 @@ install:
 	mkdir -p /tmp/cli-rt-domu/root
 	cp gtmessages.ml gtcomms.ml gtlinuxops.ml gtserver_linux.ml /tmp/cli-rt-domu/root
 	(cd $(ROOT)/scripts; /bin/sh ./make-patch /tmp/cli-rt-domu /tmp/cli-rt-domu-shar.sh)
-	mv /tmp/cli-rt-domu-shar.sh $(BASE_PATH)/debug
-	$(IPROG) install-debian-pv.sh install-debian-pv-inside.sh $(BASE_PATH)/debug
+	mv /tmp/cli-rt-domu-shar.sh $(DESTDIR)$(OPTDIR)/debug
+	$(IPROG) install-debian-pv.sh install-debian-pv-inside.sh $(DESTDIR)$(OPTDIR)/debug

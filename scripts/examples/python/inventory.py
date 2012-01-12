@@ -1,6 +1,6 @@
 # Simple functions to read the constants from the xensource-inventory file
 
-INVENTORY="/etc/xensource-inventory"
+INVENTORY="@INVENTORY@"
 INSTALLATION_UUID="INSTALLATION_UUID"
 
 def read_kvpairs(filename):

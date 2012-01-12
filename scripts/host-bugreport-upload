@@ -19,7 +19,7 @@ BASE_URL=$(echo ${INPUT_URL} | sed -ne 's,\(^[^:]*://[^/]*\)\(/\([^/]*/\)*\)*[^/
 if [ -z "$FILENAME" ]; then
 # Build the remote filename
   now=$(date --utc +"%Y:%m:%dT%H:%M:%SZ")
-  . /etc/xensource-inventory
+  . @INVENTORY@
   FILENAME=${INSTALLATION_UUID}-${now}
 fi
 [ ! -z "${BASE_URL}" ] || BASE_URL="${DEFAULT_BASE_URL}"

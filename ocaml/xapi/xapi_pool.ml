@@ -158,23 +158,39 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 			raise (Api_errors.Server_error(Api_errors.pool_joining_host_must_have_physical_managment_nic, []));
 		end in
 
-	let assert_product_version_matches () = 
+	(* Used to tell XCP and XenServer apart - use PRODUCT_BRAND if present, else use PLATFORM_NAME. *)
+	let get_compatibility_name software_version =
+		if List.mem_assoc Xapi_globs._product_brand software_version then
+			Some (List.assoc Xapi_globs._product_brand software_version)
+		else if List.mem_assoc Xapi_globs._platform_name software_version then
+			Some (List.assoc Xapi_globs._platform_name software_version)
+		else
+			None
+	in
+
+	let assert_hosts_compatible () =
 		let me = Db.Host.get_record ~__context ~self:(Helpers.get_localhost ~__context) in
 		let master_ref = get_master rpc session_id in
 		let master = Client.Host.get_record ~rpc ~session_id ~self:master_ref in
 		let my_software_version = me.API.host_software_version in
 		let master_software_version = master.API.host_software_version in
-		let product_version x = 
-			if List.mem_assoc "product_version" x
-			then Some (List.assoc "product_version" x)
-			else None in
-		let master_product_version = product_version master_software_version in
-		let my_product_version = product_version my_software_version in
-		if master_product_version <> my_product_version then begin
-			debug "master PRODUCT_VERSION = %s; my PRODUCT_VERSION = %s" 
-				(Opt.default "Unknown" master_product_version)
-				(Opt.default "Unknown" my_product_version);
-			raise (Api_errors.Server_error(Api_errors.pool_joining_host_must_have_same_product_version, []))
+		let compatibility_info x =
+			let open Xapi_globs in
+			let platform_version = if List.mem_assoc _platform_version x
+				then Some (List.assoc _platform_version x)
+				else None in
+			let compatibility_name = get_compatibility_name x in
+			(platform_version, compatibility_name)
+		in
+		let master_compatibility_info = compatibility_info master_software_version in
+		let my_compatibility_info = compatibility_info my_software_version in
+		if master_compatibility_info <> my_compatibility_info then begin
+			debug "master PLATFORM_VERSION = %s, master compatibility name = %s; my PLATFORM_VERSION = %s, my compatibility name = %s; "
+				(Opt.default "Unknown" (fst master_compatibility_info))
+				(Opt.default "Unknown" (snd master_compatibility_info))
+				(Opt.default "Unknown" (fst my_compatibility_info))
+				(Opt.default "Unknown" (snd my_compatibility_info));
+			raise (Api_errors.Server_error(Api_errors.pool_hosts_not_compatible, []))
 		end in
 
 	let assert_hosts_homogeneous () =
@@ -185,17 +201,18 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 		(* Check software version *)
 					
 		let get_software_version_fields fields =
-			begin try List.assoc "product_version" fields with _ -> "" end,
-			begin try List.assoc "product_brand" fields with _ -> "" end,
-			begin try List.assoc "build_number" fields with _ -> "" end,
-			begin try List.assoc "git_id" fields with _ -> "" end,
-			begin try 
-				if List.mem_assoc Xapi_globs.linux_pack_vsn_key fields then "installed"
+			let open Xapi_globs in
+			begin try List.assoc _platform_version fields with _ -> "" end,
+			begin match get_compatibility_name fields with Some x -> x | None -> "" end,
+			begin try List.assoc _build_number fields with _ -> "" end,
+			begin try List.assoc _git_id fields with _ -> "" end,
+			begin try
+				if List.mem_assoc linux_pack_vsn_key fields then "installed"
 				else "not present"
 			with _ -> "not present" end
 		in
-		let print_software_version (version,brand,number,id,linux_pack) =
-			debug "version:%s, brand:%s, build:%s, id:%s, linux_pack:%s" version brand number id linux_pack in
+		let print_software_version (version,name,number,id,linux_pack) =
+			debug "version:%s, name:%s, build:%s, id:%s, linux_pack:%s" version name number id linux_pack in
 			
 		let master_software_version = master.API.host_software_version in
 		let my_software_version = Db.Host.get_software_version ~__context ~self:me in
@@ -299,7 +316,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 	assert_i_know_of_no_other_hosts();
 	assert_no_running_vms_on_me ();
 	assert_no_vms_with_current_ops ();
-	assert_product_version_matches ();
+	assert_hosts_compatible ();
 	if (not force) then assert_hosts_homogeneous ();
 	assert_no_shared_srs_on_me ();
 	assert_management_interface_is_physical ();

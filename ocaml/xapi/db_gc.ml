@@ -181,13 +181,10 @@ let check_host_liveness ~__context =
 	    with _ -> 0.0 (* never *)
 	in
 	let old_heartbeat_time = 
-	  if rum && (Version.product_version <> 
-			(List.assoc Xapi_globs._product_version 
-			    (Db.Host.get_software_version ~__context ~self:host)))
-	  then
-	    (debug "Host %s considering using metrics last update time as heartbeat" (Ref.string_of host);
-	     Date.to_float (Db.Host_metrics.get_last_updated ~__context ~self:hmetric))
-	  else 0.0 in
+		if rum && (Version.platform_version <> (Helpers.version_string_of ~__context host)) then
+			(debug "Host %s considering using metrics last update time as heartbeat" (Ref.string_of host);
+				Date.to_float (Db.Host_metrics.get_last_updated ~__context ~self:hmetric))
+		else 0.0 in
 	(* Use whichever value is the most recent to determine host liveness *)
 	let host_time = max old_heartbeat_time new_heartbeat_time in
 
@@ -284,17 +281,51 @@ let timeout_sessions ~__context =
     timeout_sessions_common ~__context intrapool_sessions;
   end
 
+let probation_pending_tasks = Hashtbl.create 53
+
 let timeout_tasks ~__context =
-  let all_tasks = Db.Task.get_internal_records_where ~__context ~expr:Db_filter_types.True in
-  let oldest_completed_time = Unix.time() -. !Xapi_globs.completed_task_timeout (* time out completed tasks after 65 minutes *) in
-  let oldest_pending_time   = Unix.time() -. !Xapi_globs.pending_task_timeout   (* time out pending tasks after 24 hours *) in
+	let all_tasks = Db.Task.get_internal_records_where ~__context ~expr:Db_filter_types.True in
+	let oldest_completed_time = Unix.time() -. !Xapi_globs.completed_task_timeout (* time out completed tasks after 65 minutes *) in
+	let oldest_pending_time   = Unix.time() -. !Xapi_globs.pending_task_timeout   (* time out pending tasks after 24 hours *) in
 
-  let should_delete_task (_, t) = 
-    if task_status_is_completed t.Db_actions.task_status
-    then Date.to_float t.Db_actions.task_finished < oldest_completed_time
-    else Date.to_float t.Db_actions.task_created < oldest_pending_time in
+	let completed, pending =
+		List.partition
+			(fun (_, t) -> task_status_is_completed t.Db_actions.task_status)
+			all_tasks in
 
-  let old, young = List.partition should_delete_task all_tasks in
+	let completed_old, completed_young =
+		List.partition
+			(fun (_, t) ->
+				Date.to_float t.Db_actions.task_finished < oldest_completed_time)
+			completed in
+
+	let pending_old, pending_young =
+		List.partition
+			(fun (_, t) ->
+				Date.to_float t.Db_actions.task_created < oldest_pending_time)
+			pending in
+
+	let pending_old_run, pending_old_hung =
+		List.partition
+			(fun (_, t) ->
+				try
+					let pre_progress =
+						Hashtbl.find probation_pending_tasks t.Db_actions.task_uuid in
+					t.Db_actions.task_progress -. pre_progress > min_float
+				with Not_found -> true)
+			pending_old in
+
+	let () =
+		Hashtbl.clear probation_pending_tasks;
+		List.iter
+			(fun (_, t) ->
+				Hashtbl.add probation_pending_tasks
+					t.Db_actions.task_uuid t.Db_actions.task_progress)
+			pending_old in
+
+	let old = pending_old_hung @ completed_old in
+	let young = pending_old_run @ pending_young @ completed_young in
+
   (* If there are still too many young tasks then we'll try to delete some completed ones *)
   let lucky, unlucky = 
     if List.length young <= Xapi_globs.max_tasks
@@ -340,15 +371,14 @@ let timeout_alerts ~__context =
    we detect the beginning or end of a rolling upgrade, call out to an external script. *)
 let detect_rolling_upgrade ~__context =
 	try
-		(* If my product version is different to any host (including myself) then we're in a rolling upgrade mode *)
+		(* If my platform version is different to any host (including myself) then we're in a rolling upgrade mode *)
 		(* NB: it is critical this code runs once in the master of a pool of one before the dbsync, since this
 		   is the only time at which the master's Version will be out of sync with its database record *)
 		let all_hosts = Db.Host.get_all ~__context in
-		let other_versions = List.map (fun host -> Db.Host.get_software_version ~__context ~self:host) all_hosts in
-		let product_versions = List.map (fun x -> List.assoc Xapi_globs._product_version x) other_versions in
+		let platform_versions = List.map (fun host -> Helpers.version_string_of ~__context host) all_hosts in
 
-		let is_different_to_me product_version = product_version <> Version.product_version in
-		let actually_in_progress = List.fold_left (||) false (List.map is_different_to_me product_versions) in
+		let is_different_to_me platform_version = platform_version <> Version.platform_version in
+		let actually_in_progress = List.fold_left (||) false (List.map is_different_to_me platform_versions) in
 		(* Check the current state of the Pool as indicated by the Pool.other_config:rolling_upgrade_in_progress *)
 		let pools = Db.Pool.get_all ~__context in
 		match pools with
@@ -359,8 +389,8 @@ let detect_rolling_upgrade ~__context =
 					List.mem_assoc Xapi_globs.rolling_upgrade_in_progress (Db.Pool.get_other_config ~__context ~self:pool) in
 				(* Resynchronise *)
 				if actually_in_progress <> pool_says_in_progress then begin
-					debug "xapi product version = %s; host product versions = [ %s ]"
-						Version.product_version (String.concat "; " product_versions);
+					debug "xapi platform version = %s; host platform versions = [ %s ]"
+						Version.platform_version (String.concat "; " platform_versions);
 
 					warn "Pool thinks rolling upgrade%s in progress but Host version numbers indicate otherwise; correcting"
 						(if pool_says_in_progress then "" else " not");

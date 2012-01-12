@@ -1,6 +1,6 @@
 #!/bin/sh
 
-. /etc/xensource-inventory
+. @INVENTORY@
 echo Host: ${INSTALLATION_UUID}
 echo
 xe host-get-sm-diagnostics uuid=${INSTALLATION_UUID}

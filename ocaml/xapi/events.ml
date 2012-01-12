@@ -48,7 +48,7 @@ module Crashdump = struct
   let to_file domid filename =
 	if true then (
 		(* opensource version *)
-		let path = Xapi_globs.base_path ^ "/libexec/dumpcore" in
+		let path = Filename.concat Fhs.libexecdir "dumpcore" in
 		let args = [ "-domid"; string_of_int domid;
 		              "-file"; filename ] in
 		let pid = Forkhelpers.safe_close_and_exec None None None [] path args in

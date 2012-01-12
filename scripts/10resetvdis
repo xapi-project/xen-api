@@ -16,5 +16,5 @@ IFS=","
 for i in `xe pbd-list host-uuid=$HOSTUUID --minimal`
 do
    SR=`xe pbd-param-get uuid=$i param-name=sr-uuid`  
-   "@BASE_PATH@/sm/resetvdis.py" $HOSTUUID $SR
+   "@OPTDIR@/sm/resetvdis.py" $HOSTUUID $SR
 done

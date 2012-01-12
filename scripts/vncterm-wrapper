@@ -10,7 +10,7 @@ DOMID=$1
 shift 1
 
 #Getting the VM UUID
-export VMUUID=`"@BASE_PATH@/bin/list_domains" -domid $DOMID -minimal`
+export VMUUID=`"@BINDIR@/list_domains" -domid $DOMID -minimal`
 
 #For security reasons, we only listen on locahost by default
 export VNCTERM_LISTEN="-v 127.0.0.1:1"
@@ -18,7 +18,7 @@ export VNCTERM_LISTEN="-v 127.0.0.1:1"
 VNCVIEWER=""
 if test `/bin/ps aux | /bin/fgrep 'X :0' | /bin/fgrep -v fgrep | /usr/bin/wc -l` -eq 1 && test $DOMID -gt 0
 then
-    GRAPHICAL_CONF="/etc/xensource/graphical.conf"
+    GRAPHICAL_CONF="@ETCDIR@/graphical.conf"
     if egrep -s -q "^VNCTERM_DISPLAYS_ENABLED=[Ff][Aa][Ll][Ss][Ee]$" ${GRAPHICAL_CONF} ; then
         VNCVIEWER=""
     else

@@ -89,20 +89,7 @@ let read_log_config filename =
 		) filename
 
 let read_config filename =
-	let set_log s =
-		let ls = String.split ~limit:3 ';' s in
-		match ls with
-			| [ level; key; logger ] ->
-				append_log level key logger
-			| _ ->
-				warn "format mismatch: expecting 3 arguments"
-	in
-
 	let configargs = [
-		(* "license_filename", Config.Set_string License_file.filename; *)
-		"stunnelng", Config.Set_bool Stunnel.use_new_stunnel;
-		"log", Config.String set_log;
-		"gc-debug", Config.Set_bool Xapi_globs.xapi_gc_debug;
 	] in
 	try
 		Config.read filename configargs (fun _ _ -> ())
@@ -111,10 +98,15 @@ let read_config filename =
 								 eprintf "config file error: %s: %s\n" p s) ls;
 		exit 2
 
+let log_if_not_empty format_string value =
+	if value <> "" then debug format_string value
+
 let dump_config () =
 	debug "Server configuration:";
-	debug "product_version: %s" Version.product_version;
-	debug "product_brand: %s" Version.product_brand;
+	log_if_not_empty "product_version: %s" Version.product_version;
+	log_if_not_empty "product_brand: %s" Version.product_brand;
+	debug "platform_version: %s" Version.platform_version;
+	debug "platform_name: %s" Version.platform_name;
 	debug "build_number: %s" Version.build_number;
 	debug "git changeset: %s" Version.git_id;
 	debug "version: %d.%d" version_major version_minor;

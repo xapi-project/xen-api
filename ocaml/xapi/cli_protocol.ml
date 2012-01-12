@@ -17,7 +17,7 @@
 
 (** Used to ensure that we actually are talking to a thin CLI server *)
 let major = 0
-let minor = 1
+let minor = 2
 
 (** A prefix string which should be unique, used to detect that we're talking to
     a totally different kind of server (eg a standard HTTP server) *)
@@ -42,9 +42,10 @@ type command =
     If the command was "Load" or "Prompt" then the client sends a list
     of data chunks. *)
 type response = 
-    | OK
-    | Failed
-	
+	| OK
+	| Wait
+	| Failed
+
 (** When streaming binary data, send in chunks with a known length and a
     special End marker at the end. *)
 type blob_header = 
@@ -72,8 +73,9 @@ let string_of_command = function
   | PrintStderr x            -> "PrintStderr " ^ x
 
 let string_of_response = function
-  | OK      -> "OK"
-  | Failed  -> "Failed"
+	| OK      -> "OK"
+	| Wait    -> "Wait"
+	| Failed  -> "Failed"
 
 let string_of_blob_header = function
   | Chunk x -> "Chunk " ^ (Int32.to_string x)
@@ -182,12 +184,14 @@ let unmarshal_command pos =
     | n -> raise (Unknown_tag("command", n))
 
 let marshal_response = function
-  | OK      -> marshal_int 5
+	| OK      -> marshal_int 5
+	| Wait    -> marshal_int 18
   | Failed  -> marshal_int 6
 
 let unmarshal_response pos = 
   let tag, pos = unmarshal_int pos in match tag with
-    | 5 -> OK, pos
+	  | 5 -> OK, pos
+	  | 18 -> Wait, pos
     | 6 -> Failed, pos
     | n -> raise (Unknown_tag("response", n))
 
@@ -287,6 +291,7 @@ let examples =
     Command (Exit 5);
     Response OK;
     Response Failed;
+    Response Wait;
     Blob (Chunk 1024l);
     Blob (Chunk 10240l);
     Blob (Chunk 102400l);

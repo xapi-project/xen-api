@@ -10,7 +10,7 @@ clean:
 
 .PHONY: install
 install:
-	mkdir -p $(DEBUGDIST)
-	$(IPROG) graph $(DEBUGDIST)
+	mkdir -p $(DESTDIR)$(OPTDIR)/debug
+	$(IPROG) graph $(DESTDIR)$(OPTDIR)/debug
 
 

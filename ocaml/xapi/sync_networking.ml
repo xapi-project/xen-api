@@ -147,9 +147,13 @@ let copy_bonds_from_master ~__context () =
 (** Copy VLANs from master *)
 (* This is now executed fully on the master, once asked by the slave when the slave's Xapi starts up *)
 let copy_vlans_from_master ~__context () =
-	debug "Resynchronising VLANs";
 	let host = !Xapi_globs.localhost_ref in
-	Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Host.sync_vlans ~rpc ~session_id ~host)
+	let oc = Db.Host.get_other_config ~__context ~self:host in
+	if not (List.mem_assoc Xapi_globs.sync_vlans oc &&
+		List.assoc Xapi_globs.sync_vlans oc = Xapi_globs.sync_switch_off) then begin
+		debug "Resynchronising VLANs";
+		Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Host.sync_vlans ~rpc ~session_id ~host)
+	end
 
 (** Copy tunnels from master *)
 let copy_tunnels_from_master ~__context () =

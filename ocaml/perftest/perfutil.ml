@@ -18,7 +18,7 @@ open Stringext
 
 let rpc xml =
 	let open Xmlrpc_client in
-	XML_protocol.rpc ~transport:(Unix "/var/xapi/xapi") ~http:(xmlrpc ~version:"1.0" "/") xml
+	XML_protocol.rpc ~transport:(Unix (Filename.concat Fhs.vardir "xapi")) ~http:(xmlrpc ~version:"1.0" "/") xml
 
 let remoterpc host xml =
 	let open Xmlrpc_client in

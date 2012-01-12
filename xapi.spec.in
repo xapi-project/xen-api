@@ -60,6 +60,14 @@ Group: System/Hypervisor
 This package contains daemon that defines and controls XCP editions and
 associated features
 
+%package networkd
+Summary: The networking daemon
+Group: System/Hypervisor
+
+%description networkd
+This package contains a daemon that is able to configure network
+interfaces and bridges
+
 %package xenops
 Summary: Low-level debugging tools
 Group: System/Hypervisor
@@ -109,11 +117,13 @@ rm -rf $RPM_BUILD_ROOT
 
 %post core
 [ ! -x /sbin/chkconfig ] || chkconfig --add xapi
-[ ! -x /sbin/chkconfig ] || chkconfig --add management-interface
 [ ! -x /sbin/chkconfig ] || chkconfig --add xenservices
 [ ! -x /sbin/chkconfig ] || chkconfig --add xapi-domains
 [ ! -x /sbin/chkconfig ] || chkconfig --add perfmon
 [ ! -x /sbin/chkconfig ] || chkconfig --add genptoken
+
+%post networkd
+[ ! -x /sbin/chkconfig ] || chkconfig --add xcp-networkd
 
 %post squeezed
 [ ! -x /sbin/chkconfig ] || chkconfig squeezed on
@@ -123,7 +133,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %files core
 %defattr(-,root,root,-)
-@BASE_PATH@/bin/xapi
+@OPTDIR@/bin/xapi
 /etc/xapi.conf
 /etc/logrotate.d/audit
 /etc/logrotate.d/v6d
@@ -173,91 +183,92 @@ rm -rf $RPM_BUILD_ROOT
 /etc/xensource/scripts/tap
 /etc/xensource/scripts/vif
 /etc/xensource/scripts/block
-@BASE_PATH@/bin/fix_firewall.sh
-@BASE_PATH@/bin/list_domains
-@BASE_PATH@/bin/mpathalert
-@BASE_PATH@/bin/perfmon
-@BASE_PATH@/bin/static-vdis
-@BASE_PATH@/bin/v6d-reopen-logs
-@BASE_PATH@/bin/xapi-autostart-vms
-@BASE_PATH@/bin/xapi-db-process
-@BASE_PATH@/bin/xapi-wait-init-complete
-@BASE_PATH@/bin/xe-backup-metadata
-@BASE_PATH@/bin/xe-edit-bootloader
-@BASE_PATH@/bin/xe-mount-iso-sr
-@BASE_PATH@/bin/xe-restore-metadata
-@BASE_PATH@/bin/xe-reset-networking
-@BASE_PATH@/bin/xe-scsi-dev-map
-@BASE_PATH@/bin/xe-set-iscsi-iqn
-@BASE_PATH@/bin/xe-toolstack-restart
-@BASE_PATH@/bin/xe-xentrace
-@BASE_PATH@/bin/xsh
+@OPTDIR@/bin/fix_firewall.sh
+@OPTDIR@/bin/list_domains
+@OPTDIR@/bin/mpathalert
+@OPTDIR@/bin/perfmon
+@OPTDIR@/bin/static-vdis
+@OPTDIR@/bin/v6d-reopen-logs
+@OPTDIR@/bin/xapi-autostart-vms
+@OPTDIR@/bin/xapi-db-process
+@OPTDIR@/bin/xapi-wait-init-complete
+@OPTDIR@/bin/xe-backup-metadata
+@OPTDIR@/bin/xe-edit-bootloader
+@OPTDIR@/bin/xe-mount-iso-sr
+@OPTDIR@/bin/xe-restore-metadata
+@OPTDIR@/bin/xe-reset-networking
+@OPTDIR@/bin/xe-scsi-dev-map
+@OPTDIR@/bin/xe-set-iscsi-iqn
+@OPTDIR@/bin/xe-toolstack-restart
+@OPTDIR@/bin/xe-xentrace
+@OPTDIR@/bin/xsh
+@OPTDIR@/bin/xe-networkd
 /etc/xensource/bugtool/xapi.xml
 /etc/xensource/bugtool/xapi/stuff.xml
-@BASE_PATH@/libexec/sm_diagnostics
-@BASE_PATH@/libexec/thread_diagnostics
-@BASE_PATH@/libexec/fakeguestagent
-@BASE_PATH@/libexec/InterfaceReconfigure.py
-@BASE_PATH@/libexec/InterfaceReconfigure.pyo
-@BASE_PATH@/libexec/InterfaceReconfigure.pyc
-@BASE_PATH@/libexec/InterfaceReconfigureBridge.py
-@BASE_PATH@/libexec/InterfaceReconfigureBridge.pyo
-@BASE_PATH@/libexec/InterfaceReconfigureBridge.pyc
-@BASE_PATH@/libexec/InterfaceReconfigureVswitch.py
-@BASE_PATH@/libexec/InterfaceReconfigureVswitch.pyo
-@BASE_PATH@/libexec/InterfaceReconfigureVswitch.pyc
-@BASE_PATH@/libexec/backup-metadata-cron
-@BASE_PATH@/libexec/backup-sr-metadata.py
-@BASE_PATH@/libexec/backup-sr-metadata.pyo
-@BASE_PATH@/libexec/backup-sr-metadata.pyc
-@BASE_PATH@/libexec/block_device_io
-@BASE_PATH@/libexec/cdrommon
-@BASE_PATH@/libexec/dumpcore
-@BASE_PATH@/libexec/fence
-@BASE_PATH@/libexec/fence.bin
-@BASE_PATH@/libexec/generate_ssl_cert
-@BASE_PATH@/libexec/host-backup
-@BASE_PATH@/libexec/host-bugreport-upload
-@BASE_PATH@/libexec/host-restore
-@BASE_PATH@/libexec/interface-reconfigure
-@BASE_PATH@/libexec/interface-visualise
-@BASE_PATH@/libexec/license-check.py
-@BASE_PATH@/libexec/license-check.pyo
-@BASE_PATH@/libexec/license-check.pyc
-@BASE_PATH@/libexec/link-vms-by-sr.py
-@BASE_PATH@/libexec/link-vms-by-sr.pyo
-@BASE_PATH@/libexec/link-vms-by-sr.pyc
-@BASE_PATH@/libexec/logrotate.sh
-@BASE_PATH@/libexec/logs-download
-@BASE_PATH@/libexec/lw-force-domain-leave
-@BASE_PATH@/libexec/mail-alarm
-@BASE_PATH@/libexec/print-custom-templates
-@BASE_PATH@/libexec/probe-device-for-file
-@BASE_PATH@/libexec/genptoken
-@BASE_PATH@/libexec/qemu-dm-wrapper
-@BASE_PATH@/libexec/restore-sr-metadata.py
-@BASE_PATH@/libexec/restore-sr-metadata.pyo
-@BASE_PATH@/libexec/restore-sr-metadata.pyc
-@BASE_PATH@/libexec/rewrite-management-interface
-@BASE_PATH@/libexec/set-dom0-memory-target-from-packs
-@BASE_PATH@/libexec/set-hostname
-@BASE_PATH@/libexec/shell.py
-@BASE_PATH@/libexec/shell.pyo
-@BASE_PATH@/libexec/shell.pyc
-@BASE_PATH@/libexec/shutdown
-@BASE_PATH@/libexec/sparse_dd
-@BASE_PATH@/libexec/update-mh-info
-@BASE_PATH@/libexec/upload-wrapper
-@BASE_PATH@/libexec/vncterm-wrapper
-@BASE_PATH@/libexec/xapi-health-check
-@BASE_PATH@/libexec/xapi-rolling-upgrade
-@BASE_PATH@/libexec/xenguest
-@BASE_PATH@/libexec/xha-lc
-@BASE_PATH@/libexec/xiu
-@BASE_PATH@/lib/libxenctrl_xiu.so
-@BASE_PATH@/libexec/pci-info
-@BASE_PATH@/packages/post-install-scripts/debian-etch
-@BASE_PATH@/packages/post-install-scripts/debug
+@OPTDIR@/libexec/sm_diagnostics
+@OPTDIR@/libexec/thread_diagnostics
+@OPTDIR@/libexec/fakeguestagent
+@OPTDIR@/libexec/InterfaceReconfigure.py
+@OPTDIR@/libexec/InterfaceReconfigure.pyo
+@OPTDIR@/libexec/InterfaceReconfigure.pyc
+@OPTDIR@/libexec/InterfaceReconfigureBridge.py
+@OPTDIR@/libexec/InterfaceReconfigureBridge.pyo
+@OPTDIR@/libexec/InterfaceReconfigureBridge.pyc
+@OPTDIR@/libexec/InterfaceReconfigureVswitch.py
+@OPTDIR@/libexec/InterfaceReconfigureVswitch.pyo
+@OPTDIR@/libexec/InterfaceReconfigureVswitch.pyc
+@OPTDIR@/libexec/backup-metadata-cron
+@OPTDIR@/libexec/backup-sr-metadata.py
+@OPTDIR@/libexec/backup-sr-metadata.pyo
+@OPTDIR@/libexec/backup-sr-metadata.pyc
+@OPTDIR@/libexec/block_device_io
+@OPTDIR@/libexec/cdrommon
+@OPTDIR@/libexec/dumpcore
+@OPTDIR@/libexec/fence
+@OPTDIR@/libexec/fence.bin
+@OPTDIR@/libexec/generate_ssl_cert
+@OPTDIR@/libexec/host-backup
+@OPTDIR@/libexec/host-bugreport-upload
+@OPTDIR@/libexec/host-restore
+@OPTDIR@/libexec/interface-reconfigure
+@OPTDIR@/libexec/interface-visualise
+@OPTDIR@/libexec/license-check.py
+@OPTDIR@/libexec/license-check.pyo
+@OPTDIR@/libexec/license-check.pyc
+@OPTDIR@/libexec/link-vms-by-sr.py
+@OPTDIR@/libexec/link-vms-by-sr.pyo
+@OPTDIR@/libexec/link-vms-by-sr.pyc
+@OPTDIR@/libexec/logrotate.sh
+@OPTDIR@/libexec/logs-download
+@OPTDIR@/libexec/lw-force-domain-leave
+@OPTDIR@/libexec/mail-alarm
+@OPTDIR@/libexec/print-custom-templates
+@OPTDIR@/libexec/probe-device-for-file
+@OPTDIR@/libexec/genptoken
+@OPTDIR@/libexec/qemu-dm-wrapper
+@OPTDIR@/libexec/restore-sr-metadata.py
+@OPTDIR@/libexec/restore-sr-metadata.pyo
+@OPTDIR@/libexec/restore-sr-metadata.pyc
+@OPTDIR@/libexec/rewrite-management-interface
+@OPTDIR@/libexec/set-dom0-memory-target-from-packs
+@OPTDIR@/libexec/set-hostname
+@OPTDIR@/libexec/shell.py
+@OPTDIR@/libexec/shell.pyo
+@OPTDIR@/libexec/shell.pyc
+@OPTDIR@/libexec/shutdown
+@OPTDIR@/libexec/sparse_dd
+@OPTDIR@/libexec/update-mh-info
+@OPTDIR@/libexec/upload-wrapper
+@OPTDIR@/libexec/vncterm-wrapper
+@OPTDIR@/libexec/xapi-health-check
+@OPTDIR@/libexec/xapi-rolling-upgrade
+@OPTDIR@/libexec/xenguest
+@OPTDIR@/libexec/xha-lc
+@OPTDIR@/libexec/xiu
+@OPTDIR@/lib/libxenctrl_xiu.so
+@OPTDIR@/libexec/pci-info
+@OPTDIR@/packages/post-install-scripts/debian-etch
+@OPTDIR@/packages/post-install-scripts/debug
 /usr/lib/python2.4/site-packages/XenAPI.py
 /usr/lib/python2.4/site-packages/XenAPI.pyo
 /usr/lib/python2.4/site-packages/XenAPI.pyc
@@ -270,110 +281,117 @@ rm -rf $RPM_BUILD_ROOT
 %exclude   /usr/lib/python2.4/site-packages/xen/*
 %exclude   /usr/lib/python2.4/site-packages/xen/lowlevel/*
 /var/xapi/udhcpd.skel
-@BASE_PATH@/debug/rbac_static.csv
+@OPTDIR@/debug/rbac_static.csv
 /etc/xapi.d/host-post-declare-dead/10resetvdis
 
 %files xe
 %defattr(-,root,root,-)
-@BASE_PATH@/bin/xe
-@BASE_PATH@/debug/sm
+@OPTDIR@/bin/xe
+@OPTDIR@/debug/sm
 /usr/bin/xe
 /etc/bash_completion.d/xe
 
 %files squeezed
 %defattr(-,root,root,-)
-@BASE_PATH@/libexec/squeezed
+@OPTDIR@/libexec/squeezed
 /etc/logrotate.d/squeezed
 /etc/rc.d/init.d/squeezed
-@BASE_PATH@/bin/squeezed_client
+@OPTDIR@/bin/squeezed_client
 
 %files v6d
 %defattr(-,root,root,-)
-@BASE_PATH@/libexec/v6d
+@OPTDIR@/libexec/v6d
 /etc/rc.d/init.d/v6d
+
+%files networkd
+%defattr(-,root,root,-)
+@OPTDIR@/libexec/xcp-networkd
+/etc/rc.d/init.d/xcp-networkd
+@OPTDIR@/bin/xcp-networkd-reopen-logs
+/etc/logrotate.d/xcp-networkd
 
 %files xenops
 %defattr(-,root,root,-)
-@BASE_PATH@/debug/xenops
-@BASE_PATH@/debug/add_vbd
-@BASE_PATH@/debug/add_vif
-@BASE_PATH@/debug/build_domain
-@BASE_PATH@/debug/build_hvm
-@BASE_PATH@/debug/create_domain
-@BASE_PATH@/debug/debug_ha_query_liveset
-@BASE_PATH@/debug/destroy_domain
-@BASE_PATH@/debug/event_listen
-@BASE_PATH@/debug/graph
-@BASE_PATH@/debug/memory_breakdown
-@BASE_PATH@/debug/memory_summary
-@BASE_PATH@/debug/pause_domain
-@BASE_PATH@/debug/restore_domain
-@BASE_PATH@/debug/rrddump
-@BASE_PATH@/debug/shutdown_domain
-@BASE_PATH@/debug/sm_stress
-@BASE_PATH@/debug/suspend_domain
-@BASE_PATH@/debug/unpause_domain
-@BASE_PATH@/debug/vncproxy
-@BASE_PATH@/debug/with-vdi
-@BASE_PATH@/debug/xal
-@BASE_PATH@/debug/xs
+@OPTDIR@/debug/xenops
+@OPTDIR@/debug/add_vbd
+@OPTDIR@/debug/add_vif
+@OPTDIR@/debug/build_domain
+@OPTDIR@/debug/build_hvm
+@OPTDIR@/debug/create_domain
+@OPTDIR@/debug/debug_ha_query_liveset
+@OPTDIR@/debug/destroy_domain
+@OPTDIR@/debug/event_listen
+@OPTDIR@/debug/graph
+@OPTDIR@/debug/memory_breakdown
+@OPTDIR@/debug/memory_summary
+@OPTDIR@/debug/pause_domain
+@OPTDIR@/debug/restore_domain
+@OPTDIR@/debug/rrddump
+@OPTDIR@/debug/shutdown_domain
+@OPTDIR@/debug/sm_stress
+@OPTDIR@/debug/suspend_domain
+@OPTDIR@/debug/unpause_domain
+@OPTDIR@/debug/vncproxy
+@OPTDIR@/debug/with-vdi
+@OPTDIR@/debug/xal
+@OPTDIR@/debug/xs
 
 %files www
 %defattr(-,root,root,-)
-#@BASE_PATH@/debug/www/XenServerConsole.jar
-@BASE_PATH@/debug/www/api.js
-@BASE_PATH@/debug/www/apicall.css
-@BASE_PATH@/debug/www/apicall.js
-@BASE_PATH@/debug/www/construct_tree.js
-@BASE_PATH@/debug/www/devweb.css
-@BASE_PATH@/debug/www/devweb.js
-@BASE_PATH@/debug/www/editables.js
-@BASE_PATH@/debug/www/graphs.js
-@BASE_PATH@/debug/www/haplan.css
-@BASE_PATH@/debug/www/haplan.js
-@BASE_PATH@/debug/www/images/xen_logo.gif
-@BASE_PATH@/debug/www/index.html
-@BASE_PATH@/debug/www/jquery/jqDnR.css
-@BASE_PATH@/debug/www/jquery/jqDnR.js
-@BASE_PATH@/debug/www/jquery/jqModal.css
-@BASE_PATH@/debug/www/jquery/jqModal.js
-@BASE_PATH@/debug/www/jquery/jquery-1.3.2.js
-@BASE_PATH@/debug/www/jquery/jquery-dom.js
-@BASE_PATH@/debug/www/jquery/jquery.autocomplete.css
-@BASE_PATH@/debug/www/jquery/jquery.autocomplete.js
-@BASE_PATH@/debug/www/jquery/jquery.bgiframe.js
-@BASE_PATH@/debug/www/jquery/jquery.color.js
-@BASE_PATH@/debug/www/jquery/jquery.cookie.js
-@BASE_PATH@/debug/www/jquery/jquery.jeditable.js
-@BASE_PATH@/debug/www/jquery/jquery.rpc.js
-@BASE_PATH@/debug/www/jquery/jquery.treeview.js
-@BASE_PATH@/debug/www/main.js
-@BASE_PATH@/debug/www/messages.js
-@BASE_PATH@/debug/www/networks.css
-@BASE_PATH@/debug/www/networks.js
-@BASE_PATH@/debug/www/objectviewoverrides.js
-@BASE_PATH@/debug/www/offline.js
-@BASE_PATH@/debug/www/process_rrd.js
-@BASE_PATH@/debug/www/tree.css
-@BASE_PATH@/debug/www/vmsearch.js
-@BASE_PATH@/debug/www/xenapi.js
+#@OPTDIR@/debug/www/XenServerConsole.jar
+@OPTDIR@/debug/www/api.js
+@OPTDIR@/debug/www/apicall.css
+@OPTDIR@/debug/www/apicall.js
+@OPTDIR@/debug/www/construct_tree.js
+@OPTDIR@/debug/www/devweb.css
+@OPTDIR@/debug/www/devweb.js
+@OPTDIR@/debug/www/editables.js
+@OPTDIR@/debug/www/graphs.js
+@OPTDIR@/debug/www/haplan.css
+@OPTDIR@/debug/www/haplan.js
+@OPTDIR@/debug/www/images/xen_logo.gif
+@OPTDIR@/debug/www/index.html
+@OPTDIR@/debug/www/jquery/jqDnR.css
+@OPTDIR@/debug/www/jquery/jqDnR.js
+@OPTDIR@/debug/www/jquery/jqModal.css
+@OPTDIR@/debug/www/jquery/jqModal.js
+@OPTDIR@/debug/www/jquery/jquery-1.3.2.js
+@OPTDIR@/debug/www/jquery/jquery-dom.js
+@OPTDIR@/debug/www/jquery/jquery.autocomplete.css
+@OPTDIR@/debug/www/jquery/jquery.autocomplete.js
+@OPTDIR@/debug/www/jquery/jquery.bgiframe.js
+@OPTDIR@/debug/www/jquery/jquery.color.js
+@OPTDIR@/debug/www/jquery/jquery.cookie.js
+@OPTDIR@/debug/www/jquery/jquery.jeditable.js
+@OPTDIR@/debug/www/jquery/jquery.rpc.js
+@OPTDIR@/debug/www/jquery/jquery.treeview.js
+@OPTDIR@/debug/www/main.js
+@OPTDIR@/debug/www/messages.js
+@OPTDIR@/debug/www/networks.css
+@OPTDIR@/debug/www/networks.js
+@OPTDIR@/debug/www/objectviewoverrides.js
+@OPTDIR@/debug/www/offline.js
+@OPTDIR@/debug/www/process_rrd.js
+@OPTDIR@/debug/www/tree.css
+@OPTDIR@/debug/www/vmsearch.js
+@OPTDIR@/debug/www/xenapi.js
 
 %files tests
 %defattr(-,root,root,-)
 /etc/xapi.d/plugins/lvhdrt-helper
 /etc/xapi.d/plugins/lvhdrt-trash-vdi
 /etc/xapi.d/plugins/multipathrt-helper
-@BASE_PATH@/debug/cli-rt-domu-shar.sh
-@BASE_PATH@/debug/cli_test
-@BASE_PATH@/debug/install-debian-pv-inside.sh
-@BASE_PATH@/debug/install-debian-pv.sh
-@BASE_PATH@/debug/lvhdrt
-@BASE_PATH@/debug/multipathrt
-@BASE_PATH@/debug/myfirstpatch.asc
-@BASE_PATH@/debug/perftest
-@BASE_PATH@/debug/quicktest
-@BASE_PATH@/debug/quicktestbin
-@BASE_PATH@/debug/watch_test
+@OPTDIR@/debug/cli-rt-domu-shar.sh
+@OPTDIR@/debug/cli_test
+@OPTDIR@/debug/install-debian-pv-inside.sh
+@OPTDIR@/debug/install-debian-pv.sh
+@OPTDIR@/debug/lvhdrt
+@OPTDIR@/debug/multipathrt
+@OPTDIR@/debug/myfirstpatch.asc
+@OPTDIR@/debug/perftest
+@OPTDIR@/debug/quicktest
+@OPTDIR@/debug/quicktestbin
+@OPTDIR@/debug/watch_test
 /cli-rt/*
 /etc/xapi.d/plugins/monitor_fake_plugin
 

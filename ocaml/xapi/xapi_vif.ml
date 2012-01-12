@@ -102,5 +102,5 @@ let move ~__context ~network vif =
 			with_xs (fun xs -> xs.Xs.write xs_bridge_path vif_device.Vm_config.bridge);
 			let domid = string_of_int vif_device.Vm_config.domid in
 			let devid = string_of_int vif_device.Vm_config.devid in
-			ignore(Helpers.call_script "/etc/xensource/scripts/vif" ["move"; "vif"; domid; devid])
+			ignore(Helpers.call_script (Filename.concat Fhs.scriptsdir "vif") ["move"; "vif"; domid; devid])
 

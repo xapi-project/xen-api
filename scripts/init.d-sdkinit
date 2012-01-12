@@ -11,12 +11,12 @@
 case "$1" in
     start)
 	# This is a run-once script!
-	if [ -e /etc/xensource-inventory ]; then
+	if [ -e @INVENTORY@ ]; then
             exit 0
 	fi
 	echo -n "Starting sdkinit: "
-	cat /proc/cpuinfo > /etc/xensource/boot_time_cpu
-	touch /etc/xensource/boot_time_info_updated
+	cat /proc/cpuinfo > @ETCDIR@/boot_time_cpu
+	touch @ETCDIR@/boot_time_info_updated
 
 	if [ -d /proc/xen ]; then
 		# Set the domain0 uuid to the real uuid of this SDK VM
@@ -31,7 +31,7 @@ case "$1" in
 	HOSTUUID=`uuidgen`
 	INSTALLDATE=`date "+%Y-%m-%d %H:%M:%S.000000"`
 
-	(cat /etc/xensource-inventory.skel; cat << EOF) > /etc/xensource-inventory
+	(cat @INVENTORY@.skel; cat << EOF) > @INVENTORY@
 KERNEL_VERSION='2.6.18-92.1.6.el5.xs4.1.920.367.638xen'
 XEN_VERSION='3.2.1'
 INSTALLATION_DATE='${INSTALLDATE}'

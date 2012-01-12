@@ -62,7 +62,7 @@ let ws_proxy __context req protocol port s =
     | `rdp -> "rdp"
   in
 
-  let real_path = "/var/xapi/wsproxy" in    
+  let real_path = Filename.concat Fhs.vardir "wsproxy" in    
   let sock = 
     try
       Some (Fecomms.open_unix_domain_sock_client real_path)

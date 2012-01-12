@@ -19,13 +19,13 @@ fi
 shift 1
 OPTIONS=$*
 
-XE="@BASE_PATH@/bin/xe"
+XE="@BINDIR@/xe"
 UUID=$(uuidgen)
 
 SR=$(${XE} sr-introduce name-label="Remote ISO Library on: ${LOCATION}" content-type=iso shared=true type=iso uuid=${UUID} physical-size=0)
 ${XE} sr-param-set other-config:auto-scan=true uuid=${UUID}
 
-. /etc/xensource-inventory 
+. @INVENTORY@ 
 
 PBD=$(${XE} pbd-create host-uuid=${INSTALLATION_UUID} sr-uuid=$SR device-config:location="${LOCATION}" device-config:options="${OPTIONS}")
 

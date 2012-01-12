@@ -178,7 +178,7 @@ call_hook_script() {
     fi
 }
 
-NETWORK_MODE=$(cat /etc/xensource/network.conf)
+NETWORK_MODE=$(cat @ETCDIR@/network.conf)
 ACTION=$1
 
 # Older versions of XenServer do not pass in the type as an argument

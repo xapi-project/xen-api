@@ -12,7 +12,7 @@
 XAPI_START_TIMEOUT_SECONDS=240
 
 # wait for xapi to complete initialisation for a max of XAPI_START_TIMEOUT_SECONDS
-/opt/xensource/bin/xapi-wait-init-complete ${XAPI_START_TIMEOUT_SECONDS}
+@BINDIR@/xapi-wait-init-complete ${XAPI_START_TIMEOUT_SECONDS}
 
 if [ $? -eq 0 ]; then
 

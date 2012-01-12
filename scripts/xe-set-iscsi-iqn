@@ -6,12 +6,12 @@
 
 set -e
 
-XE="@BASE_PATH@/bin/xe"
+XE="@BINDIR@/xe"
 
 configmap="other-config"
 configkey="iscsi_iqn"
 
-if [ ! -f /etc/xensource-inventory ]; then
+if [ ! -f @INVENTORY@ ]; then
   echo Error: Not a XenServer host
   exit 1
 fi
@@ -28,7 +28,7 @@ else
   iqn="$1"
 fi
 
-. /etc/xensource-inventory
+. @INVENTORY@
 
 ${XE} host-param-remove uuid=${INSTALLATION_UUID} param-name=${configmap} param-key=${configkey} || true
 ${XE} host-param-set uuid=${INSTALLATION_UUID} ${configmap}-${configkey}=${iqn}

@@ -1,12 +1,12 @@
 OCAML_LIBS    =
-OCAMLINCLUDES = ../xapi
+OCAMLINCLUDES = ../xapi ..
 OCAMLPACKS    = xml-light2 stdext stunnel log http-svr oUnit
 
 section
-	OCAMLINCLUDES += .
+	OCAMLINCLUDES += . 
 	OCAMLFLAGS = -dtypes -thread -warn-error F
-	CLI_FILES = main ../xapi/storage_interface ../xapi/vdi_automaton
-	TEST_FILES = test ../xapi/storage_interface ../xapi/vdi_automaton
+	CLI_FILES = main ../xapi/storage_interface ../xapi/vdi_automaton ../fhs
+	TEST_FILES = test ../xapi/storage_interface ../xapi/vdi_automaton ../fhs
 	OCamlProgram(sm, $(CLI_FILES))
 	OCamlDocProgram(sm, $(CLI_FILES))
 	OCamlProgram(smtest, $(TEST_FILES))
@@ -23,6 +23,6 @@ clean:
 
 .PHONY: install
 install:
-	mkdir -p $(DEBUGDIST)
-	$(IPROG) sm $(DEBUGDIST)
+	mkdir -p $(DESTDIR)$(OPTDIR)/debug
+	$(IPROG) sm $(DESTDIR)$(OPTDIR)/debug
 

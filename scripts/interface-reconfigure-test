@@ -42,7 +42,7 @@ class Failure(Exception):
         #    self.msg = self.msg + "FAIL: " + m + "\n"
 
 def get_current_host():
-    f = open("/etc/xensource-inventory")
+    f = open("@INVENTORY@")
     hosts = [h.strip() for h in f.readlines() if h.startswith("INSTALLATION_UUID=")]
     f.close()
 

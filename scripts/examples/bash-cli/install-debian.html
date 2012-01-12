@@ -41,8 +41,8 @@
 
 <I><FONT COLOR="#B22222"># Source the inventory file, which tells us amongst other thing the name of
 </FONT></I><I><FONT COLOR="#B22222"># the management interface
-</FONT></I><B><FONT COLOR="#A020F0">if</FONT></B> [ -e /etc/xensource-inventory ]; <B><FONT COLOR="#A020F0">then</FONT></B>
-  . /etc/xensource-inventory
+</FONT></I><B><FONT COLOR="#A020F0">if</FONT></B> [ -e @INVENTORY@ ]; <B><FONT COLOR="#A020F0">then</FONT></B>
+  . @INVENTORY@
 <B><FONT COLOR="#A020F0">fi</FONT></B>
 <B><FONT COLOR="#A020F0">if</FONT></B> [ -z <B><FONT COLOR="#BC8F8F">&quot;${MANAGEMENT_INTERFACE}&quot;</FONT></B> ]; <B><FONT COLOR="#A020F0">then</FONT></B>
   <B><FONT COLOR="#DA70D6">echo</FONT></B> No MANAGEMENT_INTERFACE environment varible <B><FONT COLOR="#DA70D6">set</FONT></B>: assuming xenbr0

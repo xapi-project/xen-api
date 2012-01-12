@@ -30,8 +30,8 @@ fi
 
 # Source the inventory file, which tells us amongst other thing the name of
 # the management interface
-if [ -e /etc/xensource-inventory ]; then
-  . /etc/xensource-inventory
+if [ -e @INVENTORY@ ]; then
+  . @INVENTORY@
 fi
 if [ -z "${MANAGEMENT_INTERFACE}" ]; then
   echo No MANAGEMENT_INTERFACE environment varible set: assuming xenbr0

@@ -21,8 +21,8 @@ clean:
 
 .PHONY: install
 install:
-	mkdir -p $(LIBEXEC)
-	$(IPROG) xenguest dumpcore $(LIBEXEC)
+	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) xenguest dumpcore $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DIST)/xenguest-src
 	$(IDATA) $(XENGUEST_SRC_FILES) $(DIST)/xenguest-src
 

@@ -18,6 +18,9 @@ open Stringext
 let dmidecode_prog = "/usr/sbin/dmidecode"
 
 let remove_invisible str =
+	let l = String.split '\n' str in
+	let l = List.filter (fun s -> not (String.startswith "#" s)) l in
+	let str = String.concat "" l in
 	String.fold_left (fun s c -> if c >= ' ' && c <= '~' then s ^ (String.of_char c) else s) "" str
 
 let trim str =
@@ -37,7 +40,7 @@ let trim str =
 	let a = check_left 0 in
 	let b = (check_right (l-1)) - a in
 	try	String.sub str a b with Invalid_argument _  -> ""
-	
+
 (* obtain the BIOS string with the given name from dmidecode *)
 let get_bios_string name =
 	try
@@ -95,4 +98,4 @@ let set_host_bios_strings ~__context ~host =
 	(* combine *)
 	let bios_strings = named_strings @ oem_strings @ hp_rombios in
 	Db.Host.set_bios_strings ~__context ~self:host ~value:bios_strings
-	
+
