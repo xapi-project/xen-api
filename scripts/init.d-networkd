@@ -71,7 +71,7 @@ stop() {
 	killproc xcp-networkd
 	RETVAL=$?
 	echo
-	[ $RETVAL -eq 0 ] && rm -f ${SUBSYS_FILE}
+	[ $RETVAL -eq 0 ] && rm -f ${SUBSYS_FILE} ${PID_FILE}
 	return $RETVAL
 }
 
