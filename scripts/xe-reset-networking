@@ -121,10 +121,7 @@ Type 'yes' to continue.
 			f.write('slave:' + address)
 		finally:
 			f.close()
-	
-	# Stop networking subsystem to ensure bonds etc are down
-	os.system('service network stop')
-		
+
 	# Construct bridge name for management interface based on convention
 	if device[:3] == 'eth':
 		bridge = 'xenbr' + device[3:]
@@ -164,6 +161,8 @@ Type 'yes' to continue.
 			if options.dns != '':
 				f.write('DNS=' + options.dns + '\n')
 	finally:
+		f.flush()
+		os.fsync(f.fileno())
 		f.close()
 
 	# Reset the domain 0 network interface naming configuration
@@ -172,5 +171,5 @@ Type 'yes' to continue.
 	os.system("/etc/sysconfig/network-scripts/interface-rename.py --reset-to-install")
 
 	# Reboot
-	os.system("/sbin/reboot")
+	os.system("/sbin/reboot -f")
 
