@@ -38,7 +38,7 @@ start() {
 	MAX_RETRIES=30
 	RETRY=0
 	while [ ${RETRY} -lt ${MAX_RETRIES} ]; do
-		PID=$(cat ${NETWORKD} 2>/dev/null)
+		PID=$(cat ${PID_FILE} 2>/dev/null)
 		kill -0 ${PID} 2> /dev/null
 		if [ $? -eq 0 ]; then
 			touch ${SUBSYS_FILE}
