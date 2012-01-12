@@ -32,6 +32,7 @@ let ovs_ofctl = "/usr/bin/ovs-ofctl"
 let ovs_vlan_bug_workaround = "/usr/sbin/ovs-vlan-bug-workaround"
 let brctl = "/usr/sbin/brctl"
 let modprobe = "/sbin/modprobe"
+let ethtool = "/sbin/ethtool"
 
 let debug (fmt: ('a , unit, string, unit) format4) =
 	let time_of_float x = 
@@ -594,5 +595,18 @@ module Brctl = struct
 		if List.mem name (Sysfs.bridge_to_interfaces bridge) then
 			ignore (call ["delif"; bridge; name])
 
+end
+
+module Ethtool = struct
+	let call args =
+		call_script ethtool args
+
+	let set_options name options =
+		if options <> [] then
+			ignore (call ("-s" :: name :: (List.concat (List.map (fun (k, v) -> [k; v]) options))))
+
+	let set_offload name options =
+		if options <> [] then
+			ignore (call ("-K" :: name :: (List.concat (List.map (fun (k, v) -> [k; v]) options))))
 end
 

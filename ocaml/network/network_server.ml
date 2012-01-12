@@ -42,6 +42,8 @@ type interface = {
 	ipv6_gateway: Unix.inet_addr option;
 	dns: Unix.inet_addr list;
 	mtu: int;
+	ethtool_settings: (string * string) list;
+	ethtool_offload: (string * string) list;
 	persistent_i: bool;
 }
 and port = {
@@ -98,6 +100,8 @@ let read_management_conf () =
 		ipv6_gateway = None;
 		dns;
 		mtu = 1500;
+		ethtool_settings = [];
+		ethtool_offload = ["gro", "off"; "lro", "off"];
 		persistent_i = true;
 	} in
 	let bridge = {
@@ -174,6 +178,8 @@ module Interface = struct
 		ipv6_gateway = None;
 		dns = [];
 		mtu = 1500;
+		ethtool_settings = [];
+		ethtool_offload = ["gro", "off"; "lro", "off"];
 		persistent_i = false;
 	}
 
@@ -299,6 +305,18 @@ module Interface = struct
 		update_config name {(get_config name) with mtu};
 		ignore (Ip.link_set_mtu name mtu)
 
+	let set_ethtool_settings _ name params =
+		debug "Configuring ethtool settings for %s: %s" name
+			(String.concat ", " (List.map (fun (k, v) -> k ^ "=" ^ v) params));
+		update_config name {(get_config name) with ethtool_settings = params};
+		Ethtool.set_options name params
+
+	let set_ethtool_offload _ name params =
+		debug "Configuring ethtool offload settings for %s: %s" name
+			(String.concat ", " (List.map (fun (k, v) -> k ^ "=" ^ v) params));
+		update_config name {(get_config name) with ethtool_offload = params};
+		Ethtool.set_offload name params
+
 	let is_connected _ name =
 		Sysfs.get_carrier name
 
@@ -307,7 +325,9 @@ module Interface = struct
 
 	let bring_up _ name =
 		debug "Bringing up interface %s" name;
-		Ip.link_set_up name
+		Ip.link_set_up name;
+		set_ethtool_settings () name default.ethtool_settings;
+		set_ethtool_offload () name default.ethtool_offload
 
 	let bring_down _ name =
 		debug "Bringing down interface %s" name;
@@ -324,7 +344,8 @@ module Interface = struct
 		let all = get_all () () in
 		(* Do not touch physical interfaces that are already up *)
 		let exclude = List.filter (fun interface -> is_up () interface && is_physical () interface) all in
-		List.iter (function (name, {ipv4_addr; ipv4_gateway; ipv6_addr; ipv6_gateway; dns; mtu; _}) ->
+		List.iter (function (name, {ipv4_addr; ipv4_gateway; ipv6_addr; ipv6_gateway; dns; mtu;
+			ethtool_settings; ethtool_offload; _}) ->
 			if not (List.mem name exclude) then begin
 				(* best effort *)
 				(try set_ipv4_addr () name ipv4_addr with _ -> ());
@@ -333,6 +354,8 @@ module Interface = struct
 				(try match ipv6_gateway with None -> () | Some gateway -> set_ipv6_gateway () name gateway with _ -> ());
 				(try set_dns () name dns with _ -> ());
 				(try set_mtu () name mtu with _ -> ());
+				(try set_ethtool_settings () name ethtool_settings with _ -> ());
+				(try set_ethtool_offload () name ethtool_offload with _ -> ());
 				(try bring_up () name with _ -> ())
 			end
 		) !config.interface_config
