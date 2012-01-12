@@ -388,7 +388,8 @@ module Bridge = struct
 		config := {!config with bridge_config = update_config !config.bridge_config name data}
 
 	let determine_backend () =
-		let backend = String.strip String.isspace (Unixext.string_of_file "/etc/xensource/network.conf") in
+		let backend = String.strip String.isspace
+			(Unixext.string_of_file (Fhs.etcdir ^ "/network.conf")) in
 		match backend with
 		| "openvswitch" | "vswitch" -> kind := Openvswitch
 		| "bridge" -> kind := Bridge
