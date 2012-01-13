@@ -1,6 +1,7 @@
 xen-api (1.3.2-1) unstable; urgency=low
 
   * New upstream feature: networkd
+  * BUG: fix service names in xe-toolstack-restart
 
  -- Mike McClurg <mike.mcclurg@citrix.com>  Tue, 10 Jan 2012 15:41:03 +0000
 

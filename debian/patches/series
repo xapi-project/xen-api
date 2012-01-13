@@ -30,3 +30,4 @@ default-management-interface
 fixes-an-English-typo
 xe-mount-iso-sr-paths
 networkd-brctl-path
+xe-toolstack-restart-paths
