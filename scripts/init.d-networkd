@@ -2,7 +2,7 @@
 #
 # xcp-networkd     Start/Stop the XCP networking daemon
 #
-# chkconfig: 2345 21 79
+# chkconfig: 2345 13 76
 # description: XCP networking daemon
 # processname: xcp-networkd
 # pidfile: /var/run/xcp-networkd.pid
