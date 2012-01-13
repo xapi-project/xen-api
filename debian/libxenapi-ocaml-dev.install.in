@@ -1,0 +1,11 @@
+@OCamlStdlibDir@/xcp/xapi-client/META
+@OCamlStdlibDir@/xcp/xapi-client/*.cmxa
+@OCamlStdlibDir@/xcp/xapi-client/*.cmi
+@OCamlStdlibDir@/xcp/xapi-client/*.cmx
+@OCamlStdlibDir@/xcp/xapi-client/*.a
+@OCamlStdlibDir@/xcp/xapi-datamodel/*.cmxa
+@OCamlStdlibDir@/xcp/xapi-datamodel/*.a
+@OCamlStdlibDir@/xcp/xapi-datamodel/*.cmi
+@OCamlStdlibDir@/xcp/xapi-datamodel/META
+
+

@@ -1,0 +1,37 @@
+From: Jon Ludlam <jonathan.ludlam@eu.citrix.com>
+Date: Wed, 23 Nov 2011 21:36:34 +0000
+Subject: dont-statically-link-anything
+
+Don't statically link anything.
+---
+ ocaml/xe-cli/OMakefile |    2 +-
+ ocaml/xenops/OMakefile |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/ocaml/xe-cli/OMakefile b/ocaml/xe-cli/OMakefile
+index 75d8a2a..fd39b30 100644
+--- a/ocaml/xe-cli/OMakefile
++++ b/ocaml/xe-cli/OMakefile
+@@ -4,7 +4,7 @@ OCAMLPACKS    = xml-light2 stdext stunnel log
+ 
+ section
+ 	OCAMLINCLUDES += .
+-	OCAMLFLAGS = -dtypes -thread -warn-error F -cclib -static
++	OCAMLFLAGS = -dtypes -thread -warn-error F 
+ 	CLI_FILES = newcli ../xapi/cli_protocol options
+ 	OCamlProgram(xe, $(CLI_FILES))
+ 	OCamlDocProgram(xe, $(CLI_FILES))
+diff --git a/ocaml/xenops/OMakefile b/ocaml/xenops/OMakefile
+index fed74a3..89992bb 100644
+--- a/ocaml/xenops/OMakefile
++++ b/ocaml/xenops/OMakefile
+@@ -48,7 +48,7 @@ OCamlProgram(dbgring, dbgring)
+ 
+ section
+ 	OCAMLINCLUDES   = ../idl/ocaml_backend ../idl
+-	OCAMLFLAGS = -dtypes -warn-error F -cclib -static
++	OCAMLFLAGS = -dtypes -warn-error F 
+ 	OCAMLPACKS = xenctrl xenstore
+ 	OCamlProgram(xs, xenstore_readdir)
+ 
+-- 

@@ -1,0 +1,215 @@
+.TH xe "1" "December 2011" "xe version 1.3" "User Commands"
+.SH NAME
+xe \- XCP's command line interface
+.SH SYNOPSIS
+.B xe
+.B <command>
+[
+.B -s
+.B server
+] [
+.B -pw
+.B passwd 
+] [
+.B -p
+.B port
+] [
+.B -u
+.B user
+] [
+.B -pwf password-file
+]
+.B <command\-specific\-arguments>
+
+.LP
+
+.SH DESCRIPTION
+.LP
+.I xe
+.IP
+xe is the command line interface for XCP.
+
+.SH "OPTIONS"
+.LP
+.I Parameters and options conventions
+.IP
+
+.LP
+.B -s <server-hostname>
+.IP
+
+.LP
+.B -pw <password>
+.IP
+
+.LP
+.B -p <port>
+.IP
+Port number on which to connect.
+
+.LP
+.B -u <user>
+.IP
+
+
+.LP
+.B -pw <password-file>
+.IP
+
+
+.SH "EXAMPLES"
+.LP
+.I Example1:
+.IP
+xe vm-list
+
+.LP
+List all running VMs.
+
+.LP
+.I Example2:
+.IP
+xe cd-list 
+
+.LP
+List all available CDs.
+
+.SH COMMANDS
+.LP
+.B Host command List:
+.LP
+host\-all\-editions, host\-apply\-edition, host\-backup,
+host\-bugreport-upload, host\-call\-plugin, host\-compute\-free\-memory,
+host\-compute\-memory\-overhead, host\-cpu\-info, host\-cpu\-list,
+host\-cpu\-param\-get, host\-cpu\-param\-list, host\-crashdump\-destroy,
+host\-crashdump\-list, host\-crashdump\-param\-get,
+host\-crashdump\-param\-list,
+host\-crashdump\-upload, host-data-source\-forget, host-data-source\-list,
+host\-data\-source\-query, host\-data\-source\-record, host\-disable,
+host\-disable\-local\-storage\-caching, host\-dmesg,
+host\-emergency\-ha\-disable, host\-emergency\-management\-reconfigure,
+host\-enable, host\-enable\-local\-storage\-caching, host\-evacuate,
+host\-forget, host\-get\-cpu\-features, host\-get\-server\-certificate,
+host\-get\-sm\-diagnostics, host\-get\-system\-status,
+host\-get\-system\-status\-capabilities, host\-get\-thread\-diagnostics,
+host\-get\-uncooperative\-vms, host\-get\-vms\-which\-prevent\-evacuation,
+host\-is\-in\-emergency\-mode, host\-license\-add, host\-license\-view,
+host\-list, host\-logs\-download, host\-management\-disable,
+host\-management\-reconfigure, host\-param\-add, host\-param\-clear,
+host\-param\-get, host\-param\-list, host\-param\-remove, host\-param\-set,
+host\-power\-on, host\-reboot, host\-reset\-cpu\-features, host\-restore,
+host\-retrieve\-wlb\-evacuate\-recommendations, host\-send\-debug\-keys,
+host\-set\-cpu\-features, host\-set\-hostname\-live,
+host\-set\-power\-on\-mode,
+host\-shutdown, host\-shutdown\-agent, host\-sm\-dp\-destroy,
+host\-sync\-data, host\-syslog\-reconfigure
+
+.LP
+.B VM command List:
+.LP
+vm\-assert\-can\-be\-recovered, vm\-cd\-add, vm\-cd\-eject, vm\-cd\-insert,
+vm\-cd\-list, vm\-cd\-remove, vm\-checkpoint, vm\-clone,
+vm\-compute\-maximum\-memory, vm\-compute\-memory\-overhead, vm\-copy,
+vm\-copy\-bios\-strings, vm\-crashdump\-list, vm\-data\-source\-forget,
+vm\-data\-source\-list, vm\-data\-source\-query, vm\-data\-source\-record,
+vm\-destroy, vm\-disk\-add, vm\-disk\-list, vm\-disk\-remove, vm\-export,
+vm\-import, vm\-install, vm\-is\-bios\-customized, vm\-list,
+vm\-memory\-dynamic\-range\-set, vm\-memory\-limits\-set,
+vm\-memory\-shadow\-multiplier\-set, vm\-memory\-static\-range\-set,
+vm\-memory\-target\-set, vm\-migrate, vm\-param\-add, vm\-param\-clear,
+vm\-param\-get, vm\-param\-list, vm\-param\-remove, vm\-param\-set,
+vm\-pause,
+vm\-reboot, vm\-recover, vm\-reset\-powerstate, vm\-resume,
+vm\-retrieve\-wlb\-recommendations, vm\-shutdown, vm\-snapshot,
+vm\-snapshot\-with\-quiesce, vm\-start, vm\-suspend, vm\-uninstall,
+vm\-unpause,
+vm\-vcpu\-hotplug, vm\-vif\-list
+
+.LP
+.B Other commands:
+.LP    
+appliance\-assert\-can\-be\-recovered, appliance\-create, appliance\-destroy,
+appliance\-list, appliance\-param\-clear, appliance\-param\-get,
+appliance\-param\-list, appliance\-param\-set, appliance\-recover,
+appliance\-shutdown, appliance\-start, audit\-log\-get, bond\-create,
+bond\-destroy, bond\-list, bond\-param\-clear, bond\-param\-get,
+bond\-param\-list, bond\-param\-set, bond\-set\-mode, cd\-list, console\-list,
+console\-param\-add, console\-param\-clear, console\-param\-get,
+console\-param\-list, console\-param\-remove, console\-param\-set,
+diagnostic\-compact, diagnostic\-db\-log, diagnostic\-db\-stats,
+diagnostic\-gc\-stats, diagnostic\-license\-status, diagnostic\-net\-stats,
+diagnostic\-timing\-stats, diagnostic\-vdi\-status, diagnostic\-vm\-status,
+drtask\-create, drtask\-destroy, drtask\-list, drtask\-param\-get,
+drtask\-param\-list, event\-wait, gpu\-group\-list, gpu\-group\-param\-add,
+gpu\-group\-param\-clear, gpu\-group\-param\-get, gpu\-group\-param\-list,
+gpu\-group\-param\-remove, gpu\-group\-param\-set, log\-get, log\-get\-keys,
+log\-reopen, log\-set\-output, message\-create, message\-destroy,
+message\-list, message\-param\-get, message\-param\-list, network\-create,
+network\-destroy, network\-list, network\-param\-add, network\-param\-clear,
+network\-param\-get, network\-param\-list, network\-param\-remove,
+network\-param\-set, patch\-apply, patch\-clean, patch\-destroy, patch\-list,
+patch\-param\-clear, patch\-param\-get, patch\-param\-list, patch\-pool\-apply,
+patch\-precheck, patch\-upload, pbd\-create, pbd\-destroy, pbd\-list,
+pbd\-param\-add, pbd\-param\-clear, pbd\-param\-get, pbd\-param\-list,
+pbd\-param\-remove, pbd\-param\-lset, pbd-plug, pbd\-unplug, pgpu\-list,
+pgpu\-param\-add, pgpu\-param\-clear, pgpu\-param\-get, pgpu\-param\-list,
+pgpu\-param\-remove, pgpu\-param\-set, pif\-forget, pif\-introduce, pif\-list,
+pif\-param\-add, pif\-param\-clear, pif\-param\-get, pif\-param\-list,
+pif\-param\-remove, pif\-param\-set, pif\-plug, pif\-reconfigure\-ip, pif\-scan,
+pif\-unplug, pool\-certificate\-install, pool\-certificate\-list,
+pool\-certificate\-sync, pool\-certificate\-uninstall, pool\-crl\-install,
+pool\-crl\-list, pool\-crl\-uninstall, pool\-deconfigure\-wlb,
+pool\-designate\-new\-master, pool\-disable\-external\-auth,
+pool\-disable\-local\-storage\-caching, pool\-disable\-redo\-log,
+pool\-dump\-database, pool\-eject, pool\-emergency\-reset\-master,
+pool\-emergency\-transition\-to\-master, pool\-enable\-external\-auth,
+pool\-enable\-local\-storage\-caching, pool\-enable\-redo\-log,
+pool\-ha\-compute\-hypothetical\-max\-host\-failures\-to\-tolerate,
+pool\-ha\-compute\-max\-host\-failures\-to\-tolerate, pool\-ha\-disable,
+pool\-ha\-enable, pool\-initialize\-wlb, pool\-join, pool\-list,
+pool\-param\-add, pool\-param\-clear, pool\-param\-get, pool\-param\-list,
+pool\-param\-remove, pool\-param\-set, pool\-recover\-slaves,
+pool\-restore\-database, pool\-retrieve\-wlb\-configuration,
+pool\-retrieve\-wlb\-diagnostics, pool\-retrieve\-wlb\-recommendations,
+pool\-retrieve\-wlb\-report, pool\-send\-test\-post,
+pool\-send\-wlb\-configuration, pool\-sync\-database, pool\-vlan\-create,
+role\-list, role\-param\-get, role\-param\-list, secret\-create,
+secret\-destroy, secret\-list, secret\-param\-clear, secret\-param\-get,
+secret\-param\-list, secret\-param\-set, session\-subject\-identifier\-list,
+session\-subject\-identifier\-logout, session\-subject\-identifier\-logout\-all,
+sm\-list, sm\-param\-get, sm\-param\-list, snapshot\-clone, snapshot\-copy,
+snapshot\-destroy, snapshot\-disk\-list, snapshot\-export\-to\-template,
+snapshot\-list, snapshot\-param\-add, snapshot\-param\-clear,
+snapshot\-param\-get, snapshot\-param\-list, snapshot\-param\-remove,
+snapshot\-param\-set, snapshot\-reset\-powerstate, snapshot\-revert,
+snapshot\-uninstall, sr\-create, sr\-destroy,
+sr\-disable\-database\-replication, sr\-enable\-database\-replication,
+sr\-forget, sr\-introduce, sr\-list, sr\-param\-add, sr\-param\-clear,
+sr\-param\-get, sr\-param\-list, sr\-param\-remove, sr\-param\-set, sr\-probe,
+sr\-scan, sr\-update, subject\-add, subject\-list, subject\-param\-clear,
+subject\-param\-get, subject\-param\-list, subject\-remove, subject\-role\-add,
+subject\-role\-remove, task\-cancel, task\-list, task\-param\-get,
+task\-param\-list, template\-export, template\-list, template\-param\-add,
+template\-param\-clear, template\-param\-get, template\-param\-list,
+template\-param\-remove, template\-param\-set, template\-uninstall,
+tunnel\-create, tunnel\-destroy, tunnel\-list, tunnel\-param\-add,
+tunnel\-param\-clear, tunnel\-param\-get, tunnel\-param\-list,
+tunnel\-param\-remove, tunnel\-param\-set, update\-upload,
+user\-password\-change, vbd\-create, vbd\-destroy, vbd\-eject, vbd\-insert,
+vbd\-list, vbd\-param\-add, vbd\-param\-clear, vbd\-param\-get, vbd\-param\-list,
+vbd\-param\-remove, vbd\-param\-set, vbd\-plug, vbd\-unplug, vdi\-clone,
+vdi\-copy, vdi\-create, vdi\-destroy, vdi\-forget, vdi\-import, vdi\-introduce,
+vdi\-list, vdi\-param\-add, vdi\-param\-clear, vdi\-param\-get, vdi\-param\-list,
+vdi\-param\-remove, vdi\-param\-set, vdi\-resize, vdi\-snapshot, vdi\-unlock,
+vdi\-update, vgpu\-create, vgpu\-destroy, vgpu\-list, vgpu\-param\-add,
+vgpu\-param\-clear, vgpu\-param\-get, vgpu\-param\-list, vgpu\-param\-remove,
+vgpu\-param\-set, vif\-create, vif\-destroy, vif\-list, vif\-param\-add,
+vif\-param\-clear, vif\-param\-get, vif\-param\-list, vif\-param\-remove,
+vif\-param\-set, vif\-plug, vif\-unplug, vlan\-create, vlan\-destroy,
+vlan\-list, vlan\-param\-get, vlan\-param\-list, vmpp\-create, vmpp\-destroy,
+vmpp\-list, vmpp\-param\-add, vmpp\-param\-clear, vmpp\-param\-get,
+vmpp\-param\-list, vmpp\-param\-remove, vmpp\-param\-set
+
+.SH "SEE ALSO"
+.LP
+xe also has an extensive built\-in help system. Please see 'xe help <command>' for more information, or 'xe help \-\-all' for all help options.

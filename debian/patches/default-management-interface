@@ -1,0 +1,13 @@
+Description: Sets xenbr0 as default bridge name.
+Forwarded: not-needed.
+--- a/ocaml/util/util_inventory.ml
++++ b/ocaml/util/util_inventory.ml
+@@ -46,7 +46,7 @@
+   let dom0_uuid = Uuid.string_of_uuid (Uuid.make_uuid ()) in
+   [ _installation_uuid, host_uuid;
+     _control_domain_uuid, dom0_uuid;
+-    _management_interface, "";
++    _management_interface, "xenbr0";
+     _build_number, "0" ]
+ 
+ (* trim any quotes off the ends *)

@@ -1,0 +1,13 @@
+Description: remove compilation of JS
+Forwarded: not-needed.
+--- a/OMakefile
++++ b/OMakefile
+@@ -72,7 +72,7 @@
+ BUILD_NUMBER=$(getenv BUILD_NUMBER, -1)
+ export
+ 
+-.SUBDIRS: ocaml scripts $(if $(COMPILE_JAVA), java) $(if $(COMPILE_JS), javascript)
++.SUBDIRS: ocaml scripts $(if $(COMPILE_JAVA), java) 
+ 
+ export
+ 

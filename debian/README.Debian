@@ -1,0 +1,273 @@
+xen-api for Debian author's notes
+---------------------------------
+
+This is the XCP toolstack ported to Debian. Installing these packages will turn
+a Debian system into an XCP virtualization host. While we aim to be
+functionally equivalent to a standard XCP system, not all features are
+currently ported to Debian. Noteably, block-based storage repositories have
+been disabled.
+
+ -- Jon Ludlam <jonathan.ludlam@eu.citrix.com>  Thu, 07 Jul 2011 21:50:18 +0100
+
+Quick setup and howto
+---------------------
+0/ Important nodes
+------------------
+In this howto, we will pretend that you'll be setting-up a server called
+node1234 with IP address 12.34.56.78. Obviously, the reader will adapt and replace
+these values to match his own configuration.
+
+Before we start, remember that many "xe" commands are simply outputing a UUID
+uppon success. This UUID can later be used as a unique reference for the object
+that we are talking about. For example, a VM (Virtual Machine) has a UUID, but
+so does a compute node, it's network (bridge), it's physical network interface,
+a virtual machine network interface, a storage repository, an iso image, etc.
+
+When we write:
+network=$(xe network-list bridge=xenbr0 --minimal)
+
+that means we want the $network shell script variable to contain the UUID of
+the network attached to our xenbr0, but you could also type:
+xe network-list bridge=xenbr0
+
+and copy/paste the information somewhere for later use as well.
+
+1/ Install Debian squeeze
+-------------------------
+Make sure you use LVM, and leave enough free space on the VG to be able to host
+VMs. What I use is a 2GB RAID1 rootfs on 2 disks, then a 990 GB RAID10 array on
+which I have LVM as a host for swap (1GB), usr (8 to 16 GB), var (the amount of
+RAM + 4GB), tmp (1GB).
+
+Important note: For performance reasons, it is recommended to use a 32 bits
+dom0 kernel (with of course a 32 bits userland OS), and a 64 bits hypervisor
+(yes, the amd64 version of the hypervisor is also installable if you install a
+32 bits Debian).
+
+2/ Upgrade to SID or testing
+----------------------------
+XCP is currently only in SID (not even in Wheezy yet as of writing, but it
+should soon migrate).
+
+3/ Install Xen and XCP
+----------------------
+3.1/ Installing XCP itself.
+You can just do:
+
+apt-get install xcp-xapi
+
+If you have installation of Recommended packages activated, then it will pull
+all the necessary. Otherwise, you might want to do:
+
+apt-get install xcp-xapi xcp-vncterm xcp-guest-templates \
+    linux-headers-686-pae bridge-utils qemu-keymaps qemu-utils libc6-xen
+
+3.2/ Samba or NFS
+With XCP you can boot guests on iso images. To do that, you will need to use
+special iso SR (XCP uses Storage Repositories, or SR), for iso images. The .iso
+images can be stored either using NFS or Samba. So you should install support
+for one of them if you plan booting on iso images. Note that you can still
+install Debian guests without using an iso SR. Anyway, for Samba, you will need
+to do:
+
+apt-get install smbfs
+
+The following samba config will serve these images in the folder /iso-images:
+
+[isoimg]
+        comment = XCP iso image SR
+        writable = no
+        path = /iso-images
+        public = yes
+        browseable = yes
+        guest ok = yes
+
+3.3/ Bash completion
+Since you'll be using xe, I would highly recommend that you install
+bash-completion as well. The xcp-xe package contains a
+/etc/bash_completion.d/xe file with all the commands. So do:
+
+apt-get install bash-completion
+
+and uncomment the use of it in /etc/bash.bashrc so that everyone in the
+system may use completion.
+
+4/ Configuring Xen and XCP
+--------------------------
+4.1/ Switch using xl instead of xm and xend to control Xen
+As of writing, you should do that:
+sed -i "s/TOOLSTACK=/TOOLSTACK=xl/" /etc/default/xen
+
+It is later planned to change this in Debian with 3 switches: xm, xl and xe.
+Since this is not yet implemented, please refer to the /etc/default/xen
+file for an eventual explanation.
+
+4.2/ Configure network to use a bridge xenbr0
+The following will convert a static IP configuration on eth0 to a bridged
+physical interface using xenbr0:
+sed -i "s/allow-hotplug eth0/auto xenbr0/" /etc/network/interfaces
+sed -i "s/iface eth0/iface xenbr0/"/etc/network/interfaces
+echo "  bridge_ports eth0" >>/etc/network/interfaces
+
+In other words, the following /etc/network/interfaces would do:
+
+auto lo
+iface lo inet loopback
+
+auto xenbr0
+iface xenbr0 inet static
+        bridge_ports eth0
+        address 12.34.56.78
+        netmask 255.255.255.0
+        network 12.34.56.0
+        broadcast 12.34.56.255
+        gateway 12.34.56.1
+
+If you are using DHCP, then this will fit you:
+auto lo xenbr0
+iface lo inet loopback
+
+iface eth0 inet manual
+
+iface xenbr0 inet dhcp
+        bridge_ports eth0
+
+4.3/ Set Xen as default in GRUB
+cd /etc/grub.d
+mv 10_linux 25_linux
+
+echo "
+# Start dom0 with less RAM
+GRUB_CMDLINE_XEN_DEFAULT=\"dom0_mem=1024M\"
+
+# Disable OS prober to prevent virtual machines on logical volumes from
+# appearing in the boot menu.
+GRUB_DISABLE_OS_PROBER=true
+" >>/etc/default/grub
+
+update-grub2 or dpkg-reconfigure grub-pc (the later is needed to check that
+you've installed Grub on both MBR of your freshly installed Debian anyway).
+
+4.4/ Reboot (under Xen)
+Since you've just configure to run under Xen and with the correct $TOOLSTACK
+above, you should be booting under the correct environment.
+
+5/ Setting-up storage repositories (SRs)
+5.1/ VM SR
+For your virtual machines, XCP uses storage repositories. To create a new
+one, you need a big block device on your server. For example, if you use
+LVM, you could do something like that to create it:
+lvcreate -L500G -nsr0 node1234vg0
+
+to create a 500 GB LVM, then tell XCP to use it:
+xe sr-create type=ext name-label=node1234sr0 \
+   device-config:device=/dev/mapper/node1234vg0-sr0
+
+By default, this will print the new UUID of the SR, but you can also get it
+with:
+SR=`xe sr-list type=ext --minimal`
+
+You should then attach it as the default for the pool of storage for XCP:
+pool=`xe pool-list --minimal`
+xe pool-param-set uuid=$pool default-SR=$SR
+
+If later, you want to use that SR with openstack, you should also do:
+xe sr-param-set uuid=$SR other-config:i18n-key=local-storage
+
+this will, by default, use mkfs.ext3, so expect it to take some time
+if you gave xe sr-create a big partition.
+
+5.2/ ISO SR using samba
+If you have some ISO images that you want to use in your VMs, then you
+should export them through NFS or a samba share, then do as below for
+samba:
+
+/usr/lib/xcp/bin/xe-mount-iso-sr //12.23.34.45/isoimg -t smbfs
+
+"isoimg" is of course here the name of the share Samba share (nothing unusual,
+right?).
+
+as like this for NFS:
+xe-mount-iso-sr nfs-server:/path/to/isos
+
+Once you've done that, you will be able to do:
+xe cd-list
+
+and see the list of available iso images. Note that there's some sort of
+caching, so it may take few seconds until "xe cd-list" shows the iso that you
+may have dropped in this share.
+
+6/ Using XCP: let the fun begins
+--------------------------------
+6.1/ Choosing a template
+Now that you have XCP up and running on your server, let's play and setup some
+virtual machines.
+
+You can list available VM templates with "xe template-list", once you've done
+your choice, you will need to do something like this:
+template=$(xe template-list name-label="Debian Squeeze 6.0 (32-bit)" --minimal)
+
+Creating a VM instance may be done using:
+vm=$(xe vm-install template=$template new-name-label=debian)
+
+Note that if you have installed bash completion, then you can do:
+xe vm-install template=[ TAB ]
+to show the list of templates. You could use both a real template name, or
+its UUID.
+
+By using a template, all sorts of booting parameters will be set the correct
+way so you don't have to worry about them (eg: if your VM needs hardware
+virtualization, for example, or if we should use pygrub, etc.).
+
+6.2/ Configuration for our VM before it starts
+Get the UID of your xenbr0 network to use it when creating the vif below:
+network=$(xe network-list bridge=xenbr0 --minimal)
+
+And use it to attach a new virtual network interface to your VM:
+vif=$(xe vif-create vm-uuid=$vm network-uuid=$network device=0)
+
+Tell the VM that we want to boot using a debian repo:
+xe vm-param-set uuid=$vm \
+   other-config:install-repository=http://ftp.uk.debian.org/debian
+
+Let's say you wanted to use an iso image rather than the ftp repository,
+which image would be in your iso SR (see above), then you could have done
+this way:
+xe vm-cd-add vm=windows cd-name=squeeze.iso device=3
+
+Before you start it, you can set it's memory to 1GB:
+xe vm-memory-limits-set static-min=1024MiB static-max=1024MiB \
+   dynamic-min=1024MiB dynamic-max=1024MiB \
+   vm=$vm
+
+6.3/ Cloning the newly created VM
+Since we've done quite some work, it could be possible to clone our virtual
+machine to later do another install:
+xe vm-clone new-name-label=squeeze-32-bits-1024mb vm=$vm
+
+6.4/ Life and death of a VM
+Finally start the VM:
+xe vm-start uuid=$vm
+
+And access it's console:
+xe console vm=$vm
+
+When you're done with the VM, you can do:
+xe vm-shutdown uuid=$vm
+
+And if you want to completely get rid of the VM, we do:
+xe vm-destroy uuid=$vm
+
+7/ Pool of servers
+------------------
+If you want to add a new machine in the pool, then:
+xe pool-join master-address=<ip-of-your-other-dom0> \
+   master-username=<username> master-password=<pass>
+
+8/ XCP with Openstack
+---------------------
+
+999/ Feedback
+-------------
+This quick howto was written by Thomas Goirand <zigo@debian.org>, please send
+me feedback, corrections and improvements!

@@ -1,0 +1,41 @@
+From: Jon Ludlam <jonathan.ludlam@eu.citrix.com>
+Date: Fri, 7 Oct 2011 14:44:33 +0100
+Subject: dont-build-xiu
+
+---
+ OMakefile           |    2 --
+ ocaml/xiu/OMakefile |    4 ----
+ 2 files changed, 0 insertions(+), 6 deletions(-)
+
+diff --git a/OMakefile b/OMakefile
+index 4392945..a4858d5 100644
+--- a/OMakefile
++++ b/OMakefile
+@@ -110,8 +110,6 @@ OCAML_PHASE3_XEN = \
+ 	allxenops \
+ 	ocaml/xenguest/xenguest \
+ 	ocaml/xenguest/dumpcore \
+-	ocaml/xiu/libxenctrl_xiu.so \
+-	ocaml/xiu/xiu \
+ 	ocaml/xapi/fakeguestagent \
+ 	ocaml/xapi/quicktestbin \
+ 	ocaml/xapi/sparse_dd \
+diff --git a/ocaml/xiu/OMakefile b/ocaml/xiu/OMakefile
+index e936775..013992a 100644
+--- a/ocaml/xiu/OMakefile
++++ b/ocaml/xiu/OMakefile
+@@ -18,13 +18,9 @@ clean:
+ .PHONY: install
+ install:
+ 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+-	$(IPROG) xiu $(DESTDIR)$(LIBEXECDIR)/
+ 	mkdir -p $(DESTDIR)$(OPTDIR)/lib
+-	$(IDATA) libxenctrl_xiu.so $(DESTDIR)$(OPTDIR)/lib
+ 
+ .PHONY: sdk-install
+ sdk-install:
+ 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+-	$(IPROG) xiu $(DESTDIR)$(LIBEXECDIR)/
+ 	mkdir -p $(DESTDIR)$(OPTDIR)/lib
+-	$(IDATA) libxenctrl_xiu.so $(DESTDIR)$(OPTDIR)/lib
+-- 

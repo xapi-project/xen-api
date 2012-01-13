@@ -1,0 +1,22 @@
+From: Jon Ludlam <jonathan.ludlam@eu.citrix.com>
+Date: Fri, 7 Oct 2011 14:44:35 +0100
+Subject: no-max_nr_vcpus
+
+---
+ ocaml/xapi/vmops.ml |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/ocaml/xapi/vmops.ml b/ocaml/xapi/vmops.ml
+index 66e178a..a639f90 100644
+--- a/ocaml/xapi/vmops.ml
++++ b/ocaml/xapi/vmops.ml
+@@ -311,7 +311,7 @@ let general_domain_create_check ~__context ~vm ~snapshot =
+ let vcpu_configuration snapshot = 
+   let vcpus = Int64.to_int snapshot.API.vM_VCPUs_max in
+   let vcpus_current = Int64.to_int snapshot.API.vM_VCPUs_at_startup in
+-  let pcpus = with_xc (fun xc -> (Xenctrl.physinfo xc).Xenctrl.max_nr_cpus) in
++  let pcpus = 256 (* with_xc (fun xc -> (Xenctrl.physinfo xc).Xenctrl.max_nr_cpus) *) in
+   debug "xen reports max %d pCPUs" pcpus;
+ 
+   (* vcpu <-> pcpu affinity settings are stored here. Format is either:
+-- 

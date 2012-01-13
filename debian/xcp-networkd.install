@@ -1,0 +1,3 @@
+/usr/lib/xcp/lib/xcp-networkd
+/usr/lib/xcp/bin/xcp-networkd-reopen-logs
+/etc/logrotate.d/xcp-networkd

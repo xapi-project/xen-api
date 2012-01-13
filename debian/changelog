@@ -1,0 +1,52 @@
+xen-api (1.3.2-1) unstable; urgency=low
+
+  * New upstream feature: networkd
+  * BUG: fix service names in xe-toolstack-restart
+
+ -- Mike McClurg <mike.mcclurg@citrix.com>  Tue, 10 Jan 2012 15:41:03 +0000
+
+xen-api (1.3.1-3) unstable; urgency=low
+
+  * BUG: remove erroneous vif plug patch
+  * BUG: fix xe path in xe-mount-iso-sr
+
+ -- Mike McClurg <mike.mcclurg@citrix.com>  Tue, 10 Jan 2012 12:27:34 +0000
+
+xen-api (1.3.1-2) unstable; urgency=low
+
+  * Noop: merge package updates 1.3-15 and 1.3.1-1
+
+ -- Mike McClurg <mike.mcclurg@citrix.com>  Sun, 08 Jan 2012 14:35:04 +0000
+
+xen-api (1.3.1-1) unstable; urgency=low
+
+  * Upstream version bump
+
+ -- Mike McClurg <mike.mcclurg@citrix.com>  Sat, 07 Jan 2012 22:48:48 +0000
+
+xen-api (1.3-15) unstable; urgency=low
+
+  * python-xenapi was missing a Replaces: xcp-xapi (<< 1.3-14), since it has
+  files that moved from it.
+  * Fixed wrong path of xend.pid in xcp-xapi init.d error message.
+  * dh_python2 calls reworked, since it was missing some .py files, and as a
+  consequence python-xenapi didn't include a postinst for building .pyc files.
+
+ -- Thomas Goirand <zigo@debian.org>  Sun, 08 Jan 2012 03:32:39 +0000
+
+xen-api (1.3-14) unstable; urgency=low
+
+  [Thomas Goirand]
+  * Now Recommends: smbfs so we can mount iso SR over samba.
+  * Packages XenAPI python library in a separate binary.
+  [Mike McClurg]
+  * Added a debian/patches to make it possible to use override
+  XCP reported version in /etc/xcp/xapi_version_override.
+
+ -- Thomas Goirand <zigo@debian.org>  Tue, 27 Dec 2011 15:00:43 +0000
+
+xen-api (1.3-13) unstable; urgency=low
+
+  * Initial release (Closes: #646720)
+
+ -- Jon Ludlam <jonathan.ludlam@eu.citrix.com>  Thu, 07 Jul 2011 21:50:18 +0100

@@ -1,0 +1,102 @@
+From a8fd021406c00d12f336766c4a97a0439d1bc28c Mon Sep 17 00:00:00 2001
+From: Thomas Goirand <thomas@goirand.fr>
+Date: Sun, 11 Dec 2011 16:35:05 +0000
+Subject: [PATCH 06/15] Correct some english typoes.
+
+---
+ ocaml/idl/datamodel.ml                 |    4 ++--
+ ocaml/xapi/message_forwarding.ml       |    2 +-
+ ocaml/xapi/xapi_pool.ml                |    2 +-
+ scripts/scalability-tests/repeat-start |    6 +++---
+ scripts/scalability-tests/start-tests  |    2 +-
+ 5 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/ocaml/idl/datamodel.ml b/ocaml/idl/datamodel.ml
+index 827e97c..e29d3f7 100644
+--- a/ocaml/idl/datamodel.ml
++++ b/ocaml/idl/datamodel.ml
+@@ -441,7 +441,7 @@ let _ =
+   error Api_errors.pif_does_not_allow_unplug [ "PIF" ]
+     ~doc:"The operation you requested cannot be performed because the specified PIF does not allow unplug." ();
+   error Api_errors.pif_has_no_network_configuration [ ]
+-    ~doc:"PIF has no IP configuration (mode curently set to 'none')" ();
++    ~doc:"PIF has no IP configuration (mode currently set to 'none')" ();
+   error Api_errors.cannot_plug_bond_slave ["PIF"]
+     ~doc:"This PIF is a bond slave and cannot be plugged." ();
+   error Api_errors.cannot_add_vlan_to_bond_slave ["PIF"]
+@@ -5383,7 +5383,7 @@ let pool_recover_slaves = call
+   ~in_oss_since:None
+   ~in_product_since:rel_rio
+   ~params:[]
+-  ~result:(Set (Ref _host), "list of hosts whose master address were succesfully reset")
++  ~result:(Set (Ref _host), "list of hosts whose master address were successfully reset")
+   ~doc:"Instruct a pool master, M, to try and contact its slaves and, if slaves are in emergency mode, reset their master address to M."
+   ~allowed_roles:_R_POOL_OP
+   ()
+diff --git a/ocaml/xapi/message_forwarding.ml b/ocaml/xapi/message_forwarding.ml
+index aac0898..d98ab5c 100644
+--- a/ocaml/xapi/message_forwarding.ml
++++ b/ocaml/xapi/message_forwarding.ml
+@@ -2698,7 +2698,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
+ 			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.PIF.scan rpc session_id host)
+ 
+ 		let introduce ~__context ~host ~mAC ~device =
+-			info "PIF.introduce: host = '%s'; MAC adress = '%s'; device = '%s'" (host_uuid ~__context host) mAC device;
++			info "PIF.introduce: host = '%s'; MAC address = '%s'; device = '%s'" (host_uuid ~__context host) mAC device;
+ 			let local_fn = Local.PIF.introduce ~host ~mAC ~device in
+ 			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.PIF.introduce rpc session_id host mAC device)
+ 
+diff --git a/ocaml/xapi/xapi_pool.ml b/ocaml/xapi/xapi_pool.ml
+index ce34850..56cce33 100644
+--- a/ocaml/xapi/xapi_pool.ml
++++ b/ocaml/xapi/xapi_pool.ml
+@@ -1253,7 +1253,7 @@ let get_slaves_list ~__context =
+ (* calling Host.enable_external_auth with the specified parameters in turn on each of the hosts in the pool
+     * The call fails immediately if any of the pool hosts already have external auth enabled (must disable first)
+     * If a call to a single host to enable external auth fails, then Pool.enable_external_auth fails, and there is
+-      a best-effort attempt to disable any hosts who had their external auth succesfully enabled before the failure occured
++      a best-effort attempt to disable any hosts who had their external auth successfully enabled before the failure occured
+ *)
+ let enable_external_auth ~__context ~pool ~config ~service_name ~auth_type = 
+ 
+diff --git a/scripts/scalability-tests/repeat-start b/scripts/scalability-tests/repeat-start
+index afd209c..a439b7a 100755
+--- a/scripts/scalability-tests/repeat-start
++++ b/scripts/scalability-tests/repeat-start
+@@ -8,7 +8,7 @@
+ if [ $# -ne 2 ]; then 
+    echo "Usage: $0 n vm_name"
+    echo "Starts VMs nammed vm_name<1> .. vm_name<n> and output the time taken and the load average."
+-   echo "if WAIT_FOR_IP is set to 1, then wait the IP adress to appear before starting the next VM. need xgetip executable to be in the current directory."
++   echo "if WAIT_FOR_IP is set to 1, then wait the IP address to appear before starting the next VM. need xgetip executable to be in the current directory."
+    exit 1
+ fi 
+ 
+@@ -22,9 +22,9 @@ wait_IP () {
+     i=$1
+     VM_UUID=`xe vm-list name-label=${VM_NAME}${i} params=uuid --minimal`
+     MAC=`xe vif-list vm-uuid=${VM_UUID} params=MAC --minimal`
+-    echo "Waiting for the IP adress of ${VM_NAME}${i} to appear."
++    echo "Waiting for the IP address of ${VM_NAME}${i} to appear."
+     IP=`./xgetip xenbr0 ${MAC} &> /dev/null`
+-    echo "IP adress of ${VM_NAME}${i} is ${IP}."
++    echo "IP address of ${VM_NAME}${i} is ${IP}."
+ }
+ 
+ echo "# vm_number cumulative_time load_average"
+diff --git a/scripts/scalability-tests/start-tests b/scripts/scalability-tests/start-tests
+index e976cf5..06fc671 100755
+--- a/scripts/scalability-tests/start-tests
++++ b/scripts/scalability-tests/start-tests
+@@ -14,7 +14,7 @@ if [ $# -ne 2 ]; then
+    echo "  * a pool already set up with a shared NFS storage and a HVM VM called dsl;"
+    echo "  * ${0} must be started on the master of this pool;"
+    echo "${0} clones <number_of_vm>, then starts them all, then shutdown them all, then destroy them all."
+-   echo "If WAIT_FOR_IP is set to 1, the script waits for the IP adress of the VM to appear before starting the next VM."
++   echo "If WAIT_FOR_IP is set to 1, the script waits for the IP address of the VM to appear before starting the next VM."
+    exit 1
+ fi 
+ 
+-- 
+1.7.7.3
+

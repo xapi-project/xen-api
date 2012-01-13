@@ -1,0 +1,13 @@
+Description: spelling-error-in-binary usr/sbin/xapi incompatable incompatible
+Forwarded: not-needed.
+--- xen-api-1.3.orig/ocaml/xapi/pool_db_backup.ml
++++ xen-api-1.3/ocaml/xapi/pool_db_backup.ml
+@@ -44,7 +44,7 @@ let write_database (s: Unix.file_descr)
+ let version_check db =
+ 	let major, minor = Manifest.schema (Database.manifest db) in
+ 	if major <> Datamodel.schema_major_vsn || minor <> Datamodel.schema_minor_vsn then begin
+-		error "Pool backup file was created with incompatable product version";
++		error "Pool backup file was created with incompatible product version";
+ 		raise (Api_errors.Server_error(Api_errors.restore_incompatible_version, []))
+     end 
+ 
