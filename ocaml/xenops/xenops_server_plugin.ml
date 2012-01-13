@@ -218,6 +218,7 @@ module type S = sig
 		val pause: Xenops_task.t -> Vm.t -> unit
 		val unpause: Xenops_task.t -> Vm.t -> unit
 		val set_vcpus: Xenops_task.t -> Vm.t -> int -> unit
+		val set_shadow_multiplier: Xenops_task.t -> Vm.t -> float -> unit
 		val request_shutdown: Xenops_task.t -> Vm.t -> shutdown_request -> float -> bool
 		val wait_shutdown: Xenops_task.t -> Vm.t -> shutdown_request -> float -> bool
 

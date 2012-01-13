@@ -132,6 +132,7 @@ let halted_vm = {
 	uncooperative_balloon_driver = false;
 	guest_agent = [];
 	last_start_time = 0.;
+	shadow_multiplier_target = 1.;
 }
 
 let unplugged_pci = {

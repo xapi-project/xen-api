@@ -628,6 +628,22 @@ module VM = struct
 		raise (Exception Unimplemented)
 	) Newest task vm
 
+	let set_shadow_multiplier task vm target = on_domain (fun xc xs _ _ di ->
+		if not di.Xenctrl.hvm_guest then raise (Exception Not_supported);
+		let domid = di.Xenctrl.domid in
+		let static_max_mib = Memory.mib_of_bytes_used vm.Vm.memory_static_max in
+		let newshadow = Int64.to_int (Memory.HVM.shadow_mib static_max_mib vm.Vm.vcpu_max target) in
+		let curshadow = Xenctrl.shadow_allocation_get xc domid in
+		let needed_mib = newshadow - curshadow in
+		debug "Domid %d has %d MiB shadow; an increase of %d MiB requested" domid curshadow needed_mib;
+		if not(Memory.wait_xen_free_mem xc (Int64.mul (Int64.of_int needed_mib) 1024L)) then begin
+		    debug "Failed waiting for Xen to free %d MiB: some memory is not properly accounted" needed_mib;
+			raise (Exception (Not_enough_memory (Memory.bytes_of_mib (Int64.of_int needed_mib))))
+		end;
+		debug "Setting domid %d's shadow memory to %d MiB" domid newshadow;
+		Xenctrl.shadow_allocation_set xc domid newshadow;
+	) Newest task vm
+
 	(* NB: the arguments which affect the qemu configuration must be saved and
 	   restored with the VM. *)
 	let create_device_model_config = function
@@ -968,7 +984,7 @@ module VM = struct
 		let vme = vm.Vm.id |> DB.read in (* may not exist *)
 		with_xc_and_xs
 			(fun xc xs ->
-				match domid_of_uuid ~xc ~xs Newest uuid with
+				match di_of_uuid ~xc ~xs Newest uuid with
 					| None ->
 						(* XXX: we need to store (eg) guest agent info *)
 						begin match vme with
@@ -979,12 +995,12 @@ module VM = struct
 							| None ->
 								halted_vm
 						end
-					| Some d ->
+					| Some di ->
 						let vnc = Opt.map (fun port -> { Vm.protocol = Vm.Rfb; port = port })
-							(Device.get_vnc_port ~xs d)in
+							(Device.get_vnc_port ~xs di.Xenctrl.domid) in
 						let tc = Opt.map (fun port -> { Vm.protocol = Vm.Vt100; port = port })
-							(Device.get_tc_port ~xs d) in
-						let local x = Printf.sprintf "/local/domain/%d/%s" d x in
+							(Device.get_tc_port ~xs di.Xenctrl.domid) in
+						let local x = Printf.sprintf "/local/domain/%d/%s" di.Xenctrl.domid x in
 						let uncooperative = try ignore_string (xs.Xs.read (local "memory/uncooperative")); true with Xenbus.Xb.Noent -> false in
 						let memory_target = try xs.Xs.read (local "memory/target") |> Int64.of_string |> Int64.mul 1024L with Xenbus.Xb.Noent -> 0L in
 						let rtc = try xs.Xs.read (Printf.sprintf "/vm/%s/rtc/timeoffset" (Uuid.string_of_uuid uuid)) with Xenbus.Xb.Noent -> "" in
@@ -993,10 +1009,19 @@ module VM = struct
 							let subdirs = try List.map (fun x -> dir ^ "/" ^ x) (xs.Xs.directory (root ^ "/" ^ dir)) with _ -> [] in
 							this @ (List.concat (List.map (ls_lR root) subdirs)) in
 						let guest_agent =
-							[ "drivers"; "attr"; "data" ] |> List.map (ls_lR (Printf.sprintf "/local/domain/%d" d)) |> List.concat in
+							[ "drivers"; "attr"; "data" ] |> List.map (ls_lR (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid)) |> List.concat in
+						let shadow_multiplier_target =
+							if not di.Xenctrl.hvm_guest
+							then 1.
+							else
+								let static_max_mib = Memory.mib_of_bytes_used vm.Vm.memory_static_max in
+								let default_shadow_mib = Memory.HVM.shadow_mib static_max_mib vm.Vm.vcpu_max 1. in
+								let actual_shadow_mib =
+									Int64.of_int (Xenctrl.shadow_allocation_get xc di.Xenctrl.domid) in
+								(Int64.to_float actual_shadow_mib) /. (Int64.to_float default_shadow_mib) in
 						{
 							Vm.power_state = Running;
-							domids = [ d ];
+							domids = [ di.Xenctrl.domid ];
 							consoles = Opt.to_list vnc @ (Opt.to_list tc);
 							uncooperative_balloon_driver = uncooperative;
 							guest_agent = guest_agent;
@@ -1006,9 +1031,11 @@ module VM = struct
 							end;
 							memory_target = memory_target;
 							rtc_timeoffset = rtc;
-							last_start_time = match vme with
+							last_start_time = begin match vme with
 								| Some x -> x.VmExtra.last_create_time
 								| None -> 0.
+							end;
+							shadow_multiplier_target = shadow_multiplier_target;
 						}
 			)
 

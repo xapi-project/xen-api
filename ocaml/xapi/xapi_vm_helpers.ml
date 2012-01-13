@@ -825,52 +825,6 @@ let set_HVM_shadow_multiplier ~__context ~self ~value =
 	Db.VM.set_HVM_shadow_multiplier ~__context ~self ~value;
 	update_memory_overhead ~__context ~vm:self
 
-(** Sets the HVM shadow multiplier for a {b Running} VM. Runs on the slave. *)
-let set_shadow_multiplier_live ~__context ~self ~multiplier =
-	if Db.VM.get_power_state ~__context ~self <> `Running
-	then failwith "assertion_failed: set_shadow_multiplier_live should only be \
-		called when the VM is Running";
-	validate_HVM_shadow_multiplier multiplier;
-	if Helpers.has_booted_hvm ~__context ~self then (
-		let bootrec = Helpers.get_boot_record ~__context ~self in
-		let domid = Helpers.domid_of_vm ~__context ~self in
-		let vcpus = Int64.to_int bootrec.API.vM_VCPUs_max in
-		let static_max_mib = Memory.mib_of_bytes_used (bootrec.API.vM_memory_static_max) in
-		let newshadow = Int64.to_int (Memory.HVM.shadow_mib static_max_mib vcpus multiplier) in
-
-		(* Make sure enough free memory exists *)
-		let host = Db.VM.get_resident_on ~__context ~self in
-		let free_mem_b =
-			Memory_check.host_compute_free_memory_with_maximum_compression
-				~__context ~host None in
-		let free_mem_mib = Int64.to_int (Int64.div (Int64.div free_mem_b 1024L) 1024L) in
-		let multiplier_to_record = Xenctrl.with_intf
-		  (fun xc ->
-		     let curshadow = Xenctrl.shadow_allocation_get xc domid in
-		     let needed_mib = newshadow - curshadow in
-		     debug "Domid %d has %d MiB shadow; an increase of %d MiB requested; host has %d MiB free"
-		       domid curshadow needed_mib free_mem_mib;
-		     if free_mem_mib < needed_mib
-		     then raise (Api_errors.Server_error(Api_errors.host_not_enough_free_memory, [ Int64.to_string (Memory.bytes_of_mib (Int64.of_int needed_mib)); Int64.to_string free_mem_b ]));
-		     if not(Memory.wait_xen_free_mem xc (Int64.mul (Int64.of_int needed_mib) 1024L)) then begin
-		       warn "Failed waiting for Xen to free %d MiB: some memory is not properly accounted" needed_mib;
-		       (* Dump stats here: *)
-		       let (_ : int64) =
-		         Memory_check.host_compute_free_memory_with_maximum_compression
-		           ~dump_stats:true ~__context ~host None in
-		       raise (Api_errors.Server_error(Api_errors.host_not_enough_free_memory, [ Int64.to_string (Memory.bytes_of_mib (Int64.of_int needed_mib)); Int64.to_string free_mem_b ]));
-		     end;
-		     debug "Setting domid %d's shadow memory to %d MiB" domid newshadow;
-		     Xenctrl.shadow_allocation_set xc domid newshadow;
-		     Memory.HVM.round_shadow_multiplier static_max_mib vcpus multiplier domid) in
-		Db.VM.set_HVM_shadow_multiplier ~__context ~self ~value:multiplier_to_record;
-		let newbootrec = { bootrec with API.vM_HVM_shadow_multiplier = multiplier_to_record } in
-		Helpers.set_boot_record ~__context ~self newbootrec;
-		update_memory_overhead ~__context ~vm:self;
-		()
-	) else
-		()
-
 let send_sysrq ~__context ~vm ~key =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ "send_sysrq" ]))
 
