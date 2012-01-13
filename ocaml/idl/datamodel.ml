@@ -4618,7 +4618,7 @@ let vif_locking_mode =
 	Enum ("vif_locking_mode", [
 		"default", "No specific configuration set - default network policy applies";
 		"locked", "Only traffic to a specific MAC and a list of IPv4 or IPv6 addresses is permitted";
-		"unlocked", "Current unrestricted behaviour";
+		"unlocked", "All traffic is permitted";
 		"disabled", "No traffic is permitted";
 	])
 
