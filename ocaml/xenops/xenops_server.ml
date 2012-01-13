@@ -83,6 +83,7 @@ type operation =
 	| VM_pause of Vm.id
 	| VM_unpause of Vm.id
 	| VM_set_vcpus of (Vm.id * int)
+	| VM_set_shadow_multiplier of (Vm.id * float)
 	| VM_check_state of Vm.id
 	| VM_remove of Vm.id
 	| PCI_plug of Pci.id
@@ -120,6 +121,7 @@ let string_of_operation =
 	| VM_pause id -> sprintf "VM_pause %s" id
 	| VM_unpause id -> sprintf "VM_unpause %s" id
 	| VM_set_vcpus (id, x) -> sprintf "VM_set_vcpus (%s, %d)" id x
+	| VM_set_shadow_multiplier (id, x) -> sprintf "VM_set_shadow_multiplier (%s, %.2f)" id x
 	| VM_check_state id -> sprintf "VM_check_state %s" id
 	| VM_remove id -> sprintf "VM_remove %s" id
 	| PCI_plug id -> sprintf "PCI_plug %s.%s" (fst id) (snd id)
@@ -516,6 +518,10 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			if n > vm_t.Vm.vcpu_max
 			then raise (Exception (Maximum_vcpus vm_t.Vm.vcpu_max));
 			B.VM.set_vcpus t (VM_DB.read_exn id) n
+		| VM_set_shadow_multiplier (id, m) ->
+			debug "VM.set_shadow_multiplier (%s, %.2f)" id m;
+			B.VM.set_shadow_multiplier t (VM_DB.read_exn id) m;
+			Updates.add (Dynamic.Vm id) updates
 		| VM_check_state id ->
 			let vm = VM_DB.read_exn id in
 			let state = B.VM.get_state vm in
@@ -840,6 +846,8 @@ module VM = struct
 	let unpause _ dbg id = queue_operation dbg id (VM_unpause id) |> return
 
 	let set_vcpus _ dbg id n = queue_operation dbg id (VM_set_vcpus (id, n)) |> return
+
+	let set_shadow_multiplier _ dbg id n = queue_operation dbg id (VM_set_shadow_multiplier (id, n)) |> return
 
 	let start _ dbg id = queue_operation dbg id (VM_start id) |> return
 

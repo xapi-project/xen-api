@@ -1132,10 +1132,17 @@ let get_cooperative ~__context ~self =
 let set_HVM_shadow_multiplier ~__context ~self ~value =
 	set_HVM_shadow_multiplier ~__context ~self ~value
 
+(** Sets the HVM shadow multiplier for a {b Running} VM. Runs on the slave. *)
 let set_shadow_multiplier_live ~__context ~self ~multiplier =
 	Locking_helpers.with_lock self
 		(fun token () ->
-			set_shadow_multiplier_live ~__context ~self ~multiplier;
+			let power_state = Db.VM.get_power_state ~__context ~self in
+			if power_state <> `Running
+			then raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [Ref.string_of self; "running"; (Record_util.power_to_string power_state)]));
+
+			validate_HVM_shadow_multiplier multiplier;
+
+			Xapi_xenops.set_shadow_multiplier ~__context ~self multiplier;
 			update_memory_overhead ~__context ~vm:self
 		) ()
 
