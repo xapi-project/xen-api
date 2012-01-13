@@ -62,7 +62,7 @@ Description: XCP XenAPI Python libraries
 
 Package: xcp-squeezed
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, xen-hypervisor-4.1-amd64 | xen-hypervisor-4.1-i386 | xen-hypervisor-4.1
+Depends: ${shlibs:Depends}, ${misc:Depends}, xen-hypervisor-4.1-amd64 | xen-hypervisor-4.1-i386 | xen-hypervisor-4.1, xen-utils-common
 Description: daemon in charge of memory ballooning for xen domains
  The Xen Cloud Platform (XCP) is an open source enterprise-ready server
  virtualization and cloud computing platform, with support for a range of
