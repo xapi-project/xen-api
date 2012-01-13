@@ -6,8 +6,8 @@ Uploaders: Jon Ludlam <jonathan.ludlam@eu.citrix.com>, Thomas Goirand <zigo@debi
 Build-Depends: debhelper (>= 8.0.0), dh-autoreconf, dh-ocaml, ocaml-native-compilers, ocaml-findlib, camlp4, camlp4-extra, autotools-dev, libtype-conv-camlp4-dev, libxmlm-ocaml-dev, uuid-dev, libxcp-ocaml, libxcp-ocaml-dev, omake, libxen-ocaml-dev, libxen-ocaml, libpam-dev, zlib1g-dev, xen-utils, libxen-dev, libounit-ocaml-dev, python-all (>= 2.6.6-3~)
 Standards-Version: 3.9.2
 Homepage: http://www.xen.org/XCP/
-#Vcs-Git: git://git.debian.org/collab-maint/xen-api.git
-#Vcs-Browser: http://git.debian.org/?p=collab-maint/xen-api.git;a=summary
+Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-xen/xen-api.git
+Vcs-Git: http://anonscm.debian.org/git/pkg-xen/xen-api.git
 
 Package: xcp-xapi
 Architecture: any
