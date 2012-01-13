@@ -28,6 +28,7 @@ module Domain = struct
 		paused: bool;
 		built: bool;
 		vcpus: int;
+		shadow_multiplier: float;
 		qemu_created: bool;
 		suspended: bool;
 		vbds: Vbd.t list;
@@ -81,6 +82,7 @@ let create_nolock vm () =
 			paused = true;
 			built = false;
 			vcpus = vm.Vm.vcpus;
+			shadow_multiplier = (match vm.Vm.ty with Vm.HVM { Vm.shadow_multiplier = x } -> x | _ -> 1.);
 			qemu_created = false;
 			suspended = false;
 			vifs = [];
@@ -153,6 +155,12 @@ let do_set_vcpus_nolock vm n () =
 	if not d.Domain.built || (d.Domain.hvm && not(d.Domain.qemu_created))
 	then raise (Exception Domain_not_built)	
 	else DB.write vm.Vm.id { d with Domain.vcpus = n }
+
+let do_set_shadow_multiplier_nolock vm m () =
+	let d = DB.read_exn vm.Vm.id in
+	if not d.Domain.built || (d.Domain.hvm && not(d.Domain.qemu_created))
+	then raise (Exception Domain_not_built)	
+	else DB.write vm.Vm.id { d with Domain.shadow_multiplier = m }
 
 let add_vif vm vif () =
 	let d = DB.read_exn vm in
@@ -260,6 +268,7 @@ module VM = struct
 	let pause _ vm = Mutex.execute m (do_pause_unpause_nolock vm true)
 	let unpause _ vm = Mutex.execute m (do_pause_unpause_nolock vm false)
 	let set_vcpus _ vm n = Mutex.execute m (do_set_vcpus_nolock vm n)
+	let set_shadow_multiplier _ vm n = Mutex.execute m (do_set_shadow_multiplier_nolock vm n)
 	let build _ vm vbds vifs = Mutex.execute m (build_nolock vm vbds vifs)
 	let create_device_model _ vm _ = Mutex.execute m (create_device_model_nolock vm)
 	let destroy_device_model _ vm = Mutex.execute m (destroy_device_model_nolock vm)

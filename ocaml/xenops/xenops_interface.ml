@@ -50,6 +50,7 @@ type error =
 	| Caller_must_pass_file_descriptor
 	| Failed_to_contact_remote_service of string
 	| Hook_failed of string * string * string * string
+	| Not_enough_memory of int64
 
 type error_response = unit option * error option
 type string_response = string option * error option
@@ -181,6 +182,7 @@ module Vm = struct
 		consoles: console list;
 		memory_target: int64;
 		vcpu_target: int; (* actual number of vcpus *)
+		shadow_multiplier_target: float; (* actual setting *)
 		rtc_timeoffset: string;
 		uncooperative_balloon_driver: bool;
 		guest_agent: (string * string) list;
@@ -327,6 +329,7 @@ module VM = struct
 	external pause: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
 	external unpause: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
 	external set_vcpus: debug_info -> Vm.id -> int -> (Task.id option) * (error option) = ""
+	external set_shadow_multiplier : debug_info -> Vm.id -> float -> (Task.id option) * (error option) = "" 
 	external stat: debug_info -> Vm.id -> ((Vm.t * Vm.state) option) * (error option) = ""
 	external list: debug_info -> unit -> ((Vm.t * Vm.state) list option) * (error option) = ""
 

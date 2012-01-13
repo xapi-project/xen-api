@@ -717,6 +717,13 @@ let update_vm ~__context id =
 								end
 							) info
 					end;
+					if different (fun x -> x.shadow_multiplier_target) then begin
+						Opt.iter
+							(fun (_, state) ->
+								debug "xenopsd event: Updating VM %s shadow_multiplier <- %.2f" id state.shadow_multiplier_target;
+								Db.VM.set_HVM_shadow_multiplier ~__context ~self ~value:state.shadow_multiplier_target
+							) info
+					end;
 					Xenops_cache.update_vm id (Opt.map snd info);
 					Xapi_vm_lifecycle.update_allowed_operations ~__context ~self;
 				end
@@ -961,7 +968,7 @@ let success_task dbg id =
 	| Task.Completed _ -> t
 	| Task.Failed (Failed_to_contact_remote_service x) ->
 		failwith (Printf.sprintf "Failed to contact remote service on: %s\n" x)
-	| Task.Failed x -> failwith (Jsonrpc.to_string (rpc_of_error x))
+	| Task.Failed x -> raise (Exception x)
 	| Task.Pending _ -> failwith "task pending"
 
 let refresh_vm ~__context ~self =
@@ -1019,6 +1026,18 @@ let set_vcpus ~__context ~self n =
 			error "VM.set_VCPUs_number_live: HVM VMs cannot hotplug cpus";
 			raise (Api_errors.Server_error (Api_errors.operation_not_allowed,
 			["HVM VMs cannot hotplug CPUs"]))
+
+let set_shadow_multiplier ~__context ~self target =
+	let id = id_of_vm ~__context ~self in
+	debug "xenops: VM.set_shadow_multiplier %s" id;
+	let dbg = Context.string_of_task __context in
+	try
+		Client.VM.set_shadow_multiplier dbg id target |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
+		Event.wait dbg ();
+	with
+		| Exception Not_supported ->
+			(* The existing behaviour is to ignore this failure *)
+			error "VM.set_shadow_multiplier: not supported for PV domains"
 
 let start ~__context ~self paused =
 	let id = push_metadata_to_xenopsd ~__context ~self in
