@@ -147,7 +147,7 @@ let unplugged_pci = {
 
 let unplugged_vbd = {
 	Vbd.plugged = false;
-	kthread_pid = 0;
+	qos_target = None;
 	media_present = false;
 }
 

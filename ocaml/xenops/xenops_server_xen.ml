@@ -28,10 +28,11 @@ let _tune2fs = "/sbin/tune2fs"
 let _mkfs = "/sbin/mkfs"
 let _mount = "/bin/mount"
 let _umount = "/bin/umount"
+let _ionice = "/usr/bin/ionice"
 
 let run cmd args =
 	debug "%s %s" cmd (String.concat " " args);
-	ignore(Forkhelpers.execute_command_get_output cmd args)
+	fst(Forkhelpers.execute_command_get_output cmd args)
 
 type block_device =
 	| Path of string
@@ -842,13 +843,13 @@ module VM = struct
 	(* Create an ext2 filesystem without maximal mount count and
 	   checking interval. *)
 	let mke2fs device =
-		run _mkfs ["-t"; "ext2"; device];
-		run _tune2fs  ["-i"; "0"; "-c"; "0"; device]
+		run _mkfs ["-t"; "ext2"; device] |> ignore_string;
+		run _tune2fs  ["-i"; "0"; "-c"; "0"; device] |> ignore_string
 
 	(* Mount a filesystem somewhere, with optional type *)
 	let mount ?ty:(ty = None) src dest =
 		let ty = match ty with None -> [] | Some ty -> [ "-t"; ty ] in
-		ignore(run _mount (ty @ [ src; dest ]))
+		run _mount (ty @ [ src; dest ]) |> ignore_string
 
 	let timeout = 300. (* 5 minutes: something is seriously wrong if we hit this timeout *)
 	exception Umount_timeout
@@ -860,7 +861,7 @@ module VM = struct
 
 		while not(!finished) && (Unix.gettimeofday () -. start < timeout) do
 			try
-				run _umount [dest];
+				run _umount [dest] |> ignore_string;
 				finished := true
 			with e ->
 				if not(retry) then raise e;
@@ -1268,13 +1269,84 @@ module VBD = struct
 				deactivate_and_detach task device vbd;
 			) Oldest vm
 
+	let to_ionice_class_params =
+		let to_params = function
+			| Highest -> 0
+			| High    -> 2
+			| Normal  -> 4
+			| Low     -> 6
+			| Lowest  -> 7
+			| Other x -> x in
+		function
+			| RealTime x   -> 1, (to_params x)
+			| Idle         -> 3, (to_params Lowest)
+			| BestEffort x -> 2, (to_params x)
+	let parse_ionice_result s : Vbd.qos_scheduler option =
+		try
+			match String.split ' ' (String.strip String.isspace s) with
+				| [ cls_colon; "prio"; param ] ->
+					let cls = String.sub cls_colon 0 (String.length cls_colon - 1) in
+					let param = match param with
+						| "7" -> Lowest
+						| "6" -> Low
+						| "4" -> Normal
+						| "2" -> High
+						| "0" -> Highest
+						| x -> Other (int_of_string x) in
+					Some (match cls with
+						| "idle" -> Idle
+						| "realtime" -> RealTime param
+						| "best-effort" -> BestEffort param
+						| _ -> raise Not_found (* caught below *)
+					)
+				| _ ->
+					debug "Failed to parse ionice result: %s" s;
+					None
+		with _ ->
+			debug "Failed to parse ionice result: %s" s;
+			None
+
+	let ionice (cls, param) pid =
+		try
+			run _ionice [
+				Printf.sprintf "-c%d" cls;
+				Printf.sprintf "-n%d" param;
+				Printf.sprintf "-p%d" pid
+			] |> ignore_string
+		with e ->
+			debug "Ionice failed: %s" (Printexc.to_string e)
+
+	let set_qos task vm vbd =
+		with_xc_and_xs
+			(fun xc xs ->
+				Opt.iter (function
+					| Ionice qos ->
+						let (device: Device_common.device) = device_by_id xc xs vm Device_common.Vbd Newest (id_of vbd) in
+						let path = Device_common.kthread_pid_path_of_device ~xs device in
+						let kthread_pid = try xs.Xs.read path |> int_of_string with _ -> 0 in
+						ionice (to_ionice_class_params qos) kthread_pid
+				) vbd.Vbd.qos
+			)
+
+	let get_qos xc xs vm vbd device =
+		try
+			let path = Device_common.kthread_pid_path_of_device ~xs device in
+			let kthread_pid = xs.Xs.read path |> int_of_string in
+			let i = run _ionice [ Printf.sprintf "-p%d" kthread_pid ] |> parse_ionice_result in
+			Opt.map (fun i -> Ionice i) i
+		with _ -> None
+
+	let string_of_qos = function
+		| None -> "None"
+		| Some x -> x |> Vbd.rpc_of_qos |> Jsonrpc.to_string
+
 	let get_state vm vbd =
 		with_xc_and_xs
 			(fun xc xs ->
 				try
 					let (device: Device_common.device) = device_by_id xc xs vm Device_common.Vbd Newest (id_of vbd) in
-					let path = Device_common.kthread_pid_path_of_device ~xs device in
-					let kthread_pid = try xs.Xs.read path |> int_of_string with _ -> 0 in
+					let qos_target = get_qos xc xs vm vbd device in
+
 					let plugged = Hotplug.device_is_online ~xs device in
 					let device_number = device_number_of_device device in
 					let domid = device.Device_common.frontend.Device_common.domid in
@@ -1282,7 +1354,7 @@ module VBD = struct
 					{
 						Vbd.plugged = plugged;
 						media_present = not ejected;
-						kthread_pid = kthread_pid
+						qos_target = qos_target
 					}
 				with
 					| Exception (Does_not_exist(_, _))
@@ -1295,8 +1367,13 @@ module VBD = struct
 			(fun xc xs ->
 				let (device: Device_common.device) = device_by_id xc xs vm Device_common.Vbd Newest (id_of vbd) in
 				if Hotplug.device_is_online ~xs device
-				then None
-				else begin
+				then begin
+					let qos_target = get_qos xc xs vm vbd device in
+					if qos_target <> vbd.Vbd.qos then begin
+						debug "VBD_set_qos needed, current = %s; target = %s" (string_of_qos qos_target) (string_of_qos vbd.Vbd.qos);
+						Some Needs_set_qos
+					end else None
+				end else begin
 					debug "VBD_unplug needed, device offline: %s" (Device_common.string_of_device device);
 					Some Needs_unplug
 				end

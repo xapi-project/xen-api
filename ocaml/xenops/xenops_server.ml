@@ -91,6 +91,7 @@ type operation =
 	| PCI_plug of Pci.id
 	| PCI_unplug of Pci.id
 	| VBD_plug of Vbd.id
+	| VBD_set_qos of Vbd.id
 	| VBD_unplug of Vbd.id * bool
 	| VBD_insert of Vbd.id * disk
 	| VBD_eject of Vbd.id
@@ -544,9 +545,12 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 		| PCI_unplug id ->
 			debug "PCI.unplug %s" (PCI_DB.string_of_id id);
 			B.PCI.unplug t (PCI_DB.vm_of id) (PCI_DB.read_exn id)
-		| VBD_plug id ->
-			debug "VBD.plug %s" (VBD_DB.string_of_id id);
-			B.VBD.plug t (VBD_DB.vm_of id) (VBD_DB.read_exn id);
+        | VBD_plug id ->
+            debug "VBD.plug %s" (VBD_DB.string_of_id id);
+            B.VBD.plug t (VBD_DB.vm_of id) (VBD_DB.read_exn id);
+		| VBD_set_qos id ->
+			debug "VBD.set_qos %s" (VBD_DB.string_of_id id);
+			B.VBD.set_qos t (VBD_DB.vm_of id) (VBD_DB.read_exn id);
 			Updates.add (Dynamic.Vbd id) updates
 		| VBD_unplug (id, force) ->
 			debug "VBD.unplug %s" (VBD_DB.string_of_id id);
@@ -591,8 +595,9 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 					Some Needs_unplug
 				end in
 			let operations_of_request = function
-				| Needs_unplug -> VBD_unplug (id, true) in
-			let operations = List.map operations_of_request (Opt.to_list request) in
+				| Needs_unplug -> Some (VBD_unplug (id, true))
+				| Needs_set_qos -> Some (VBD_set_qos id) in
+			let operations = List.filter_map operations_of_request (Opt.to_list request) in
 			List.iter (fun x -> perform x t) operations
 		| VIF_plug id ->
 			debug "VIF.plug %s" (VIF_DB.string_of_id id);
@@ -613,8 +618,9 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 				then B.VIF.get_device_action_request (VIF_DB.vm_of id) vif_t
 				else Some Needs_unplug in
 			let operations_of_request = function
-				| Needs_unplug -> VIF_unplug (id, true) in
-			let operations = List.map operations_of_request (Opt.to_list request) in
+				| Needs_unplug -> Some (VIF_unplug (id, true))
+				| Needs_set_qos -> None in
+			let operations = List.filter_map operations_of_request (Opt.to_list request) in
 			List.iter (fun x -> perform x t) operations
 	in
 	match subtask with

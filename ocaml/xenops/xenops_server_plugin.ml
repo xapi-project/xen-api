@@ -184,6 +184,7 @@ with rpc
 
 type device_action_request =
 	| Needs_unplug
+	| Needs_set_qos
 
 type shutdown_request =
 	| Halt
@@ -248,6 +249,8 @@ module type S = sig
 		val unplug: Xenops_task.t -> Vm.id -> Vbd.t -> bool -> unit
 		val insert: Xenops_task.t -> Vm.id -> Vbd.t -> disk -> unit
 		val eject: Xenops_task.t -> Vm.id -> Vbd.t -> unit
+
+		val set_qos: Xenops_task.t -> Vm.id -> Vbd.t -> unit
 
 		val get_state: Vm.id -> Vbd.t -> Vbd.state
 

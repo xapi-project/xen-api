@@ -261,6 +261,15 @@ let remove_vbd vm vbd () =
 	if List.filter this_one d.Domain.vbds = []
 	then raise (Exception(Does_not_exist("VBD", Printf.sprintf "%s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id))))
 	else DB.write vm { d with Domain.vbds = List.filter (fun x -> not (this_one x)) d.Domain.vbds }
+
+let set_qos_vbd vm vbd () =
+	let d = DB.read_exn vm in
+	let this_one x = x.Vbd.id = vbd.Vbd.id in
+	if List.filter this_one d.Domain.vbds = []
+	then raise (Exception(Does_not_exist("VBD", Printf.sprintf "%s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id))));
+	(* XXX *)
+	()
+
 	
 module VM = struct
 	let create _ vm = Mutex.execute m (create_nolock vm)
@@ -305,6 +314,8 @@ module VBD = struct
 
 	let insert _ vm vbd disk = ()
 	let eject _ vm vbd = ()
+
+	let set_qos _ vm vbd = Mutex.execute m (set_qos_vbd vm vbd)
 
 	let get_state vm vbd = Mutex.execute m (vbd_state vm vbd)
 

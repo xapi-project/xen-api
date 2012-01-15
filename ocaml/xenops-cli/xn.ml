@@ -165,6 +165,7 @@ let parse_disk vm_id x = match String.split ',' x with
 			unpluggable = true;
 			extra_backend_keys = [];
 			extra_private_keys = [];
+			qos = None;
 		}
 	| _ ->
 		Printf.fprintf stderr "I don't understand '%s'. Please use 'phy:path,xvda,w'\n" x;
