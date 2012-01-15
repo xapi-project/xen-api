@@ -69,6 +69,8 @@ type operation =
 	| VM_delay of (Vm.id * float) (** used to suppress fast reboot loops *)
 	| VM_suspend of (Vm.id * data)
 	| VM_resume of (Vm.id * data)
+	| VM_s3suspend of Vm.id
+	| VM_s3resume of Vm.id
 	| VM_save of (Vm.id * flag list * data)
 	| VM_restore of (Vm.id * data)
 	| VM_restore_devices of Vm.id
@@ -96,44 +98,9 @@ type operation =
 	| VIF_plug of Vif.id
 	| VIF_unplug of Vif.id * bool
 	| VIF_check_state of Vif.id
+with rpc
 
-let string_of_operation =
-	let open Printf in
-	function
-	| VM_start id -> sprintf "VM_start %s" id
-	| VM_poweroff (id, t) -> sprintf "VM_poweroff (%s, %s)" id (Opt.default "None" (Opt.map string_of_float t))
-	| VM_shutdown (id, t) -> sprintf "VM_shutdown (%s, %s)" id (Opt.default "None" (Opt.map string_of_float t))
-	| VM_reboot (id, t) -> sprintf "VM_reboot (%s, %s)" id (Opt.default "None" (Opt.map string_of_float t))
-	| VM_delay (id, t) -> sprintf "VM_delay (%s, %.0f)" id t
-	| VM_suspend (id, data) -> sprintf "VM_suspend (%s, %s)" id (string_of_data data)
-	| VM_resume (id, data) -> sprintf "VM_resume (%s, %s)" id (string_of_data data)
-	| VM_save (id, flags, data) -> sprintf "VM_save (%s, [ %s ], %s)" id (String.concat ", " (List.map string_of_flag flags)) (string_of_data data)
-	| VM_restore (id, data) -> sprintf "VM_restore (%s, %s)" id (string_of_data data)
-	| VM_restore_devices id -> sprintf "VM_restore_devices %s" id
-	| VM_migrate (id, url) -> sprintf "VM_migrate (%s, %s)" id url
-	| VM_receive_memory (id, fd) -> sprintf "VM_receive_memory (%s, %d)" id (Unixext.int_of_file_descr fd)
-	| VM_shutdown_domain (id, request, t) -> sprintf "VM_shutdown_domain (%s, %s, %.0f)" id (string_of_shutdown_request request) t
-	| VM_destroy id -> sprintf "VM_destroy %s" id
-	| VM_create id -> sprintf "VM_create %s" id
-	| VM_build id -> sprintf "VM_build %s" id
-	| VM_create_device_model (id, resuming) -> sprintf "VM_create_device_model(%s, resuming = %b)" id resuming
-	| VM_destroy_device_model (id) -> sprintf "VM_destroy_device_model(%s)" id
-	| VM_pause id -> sprintf "VM_pause %s" id
-	| VM_unpause id -> sprintf "VM_unpause %s" id
-	| VM_set_vcpus (id, x) -> sprintf "VM_set_vcpus (%s, %d)" id x
-	| VM_set_shadow_multiplier (id, x) -> sprintf "VM_set_shadow_multiplier (%s, %.2f)" id x
-	| VM_check_state id -> sprintf "VM_check_state %s" id
-	| VM_remove id -> sprintf "VM_remove %s" id
-	| PCI_plug id -> sprintf "PCI_plug %s.%s" (fst id) (snd id)
-	| PCI_unplug id -> sprintf "PCI_unplug %s.%s" (fst id) (snd id)
-	| VBD_plug id -> sprintf "VBD_plug %s.%s" (fst id) (snd id)
-	| VBD_unplug (id, force) -> sprintf "VBD_unplug %s.%s force=%b" (fst id) (snd id) force
-	| VBD_insert (id, disk) -> sprintf "VBD_insert (%s.%s, %s)" (fst id) (snd id) (string_of_disk disk)
-	| VBD_eject id -> sprintf "VBD_eject %s.%s" (fst id) (snd id)
-	| VBD_check_state id -> sprintf "VBD_check_state %s.%s" (fst id) (snd id)
-	| VIF_plug id -> sprintf "VIF_plug %s.%s" (fst id) (snd id)
-	| VIF_unplug (id, force) -> sprintf "VIF_unplug %s.%s force=%b" (fst id) (snd id) force
-	| VIF_check_state id -> sprintf "VIF_check_state %s.%s" (fst id) (snd id)
+let string_of_operation x = x |> rpc_of_operation |> Jsonrpc.to_string
 
 module TASK = struct
 	let cancel _ id dbg =
@@ -392,6 +359,14 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			Xenops_hooks.vm_pre_destroy ~reason ~id;
 			perform ~subtask:"VM_shutdown" (VM_shutdown (id, None)) t;
 			Xenops_hooks.vm_post_destroy ~reason ~id;
+			Updates.add (Dynamic.Vm id) updates
+		| VM_s3suspend id ->
+			debug "VM.s3suspend %s" id;
+			B.VM.s3suspend t (VM_DB.read_exn id);
+			Updates.add (Dynamic.Vm id) updates
+		| VM_s3resume id ->
+			debug "VM.s3resume %s" id;
+			B.VM.s3resume t (VM_DB.read_exn id);
 			Updates.add (Dynamic.Vm id) updates
 		| VM_restore_devices id -> (* XXX: this is delayed due to the 'attach'/'activate' behaviour *)
 			debug "VM_restore_devices %s" id;
@@ -858,6 +833,9 @@ module VM = struct
 	let suspend _ dbg id disk = queue_operation dbg id (VM_suspend (id, Disk disk)) |> return
 
 	let resume _ dbg id disk = queue_operation dbg id (VM_resume (id, Disk disk)) |> return
+
+	let s3suspend _ dbg id = queue_operation dbg id (VM_s3suspend id) |> return
+	let s3resume _ dbg id = queue_operation dbg id (VM_s3resume id) |> return
 
 	let migrate context dbg id url = queue_operation dbg id (VM_migrate (id, url)) |> return
 

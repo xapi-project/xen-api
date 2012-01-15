@@ -278,6 +278,9 @@ module VM = struct
 	let save _ vm flags data = Mutex.execute m (save_nolock vm flags data)
 	let restore _ vm data = Mutex.execute m (restore_nolock vm data)
 
+	let s3suspend _ vm = ()
+	let s3resume _ vm = ()
+
 	let get_state vm = Mutex.execute m (get_state_nolock vm)
 	let get_domain_action_request vm = Mutex.execute m (get_domain_action_request_nolock vm)
 
