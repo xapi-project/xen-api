@@ -1156,6 +1156,19 @@ let resume ~__context ~self ~start_paused ~force =
 		);
 	Db.VM.set_suspend_VDI ~__context ~self ~value:Ref.null
 
+let s3suspend ~__context ~self =
+	let id = id_of_vm ~__context ~self in
+	let dbg = Context.string_of_task __context in
+	debug "xenops: VM.s3suspend %s" id;
+	Client.VM.s3suspend dbg id |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
+	Event.wait dbg ()
+
+let s3resume ~__context ~self =
+	let id = id_of_vm ~__context ~self in
+	let dbg = Context.string_of_task __context in
+	debug "xenops: VM.s3resume %s" id;
+	Client.VM.s3resume dbg id |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
+	Event.wait dbg ()
 
 let is_vm_running ~__context ~self =
 	let id = id_of_vm ~__context ~self in

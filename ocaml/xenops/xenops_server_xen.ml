@@ -980,12 +980,14 @@ module VM = struct
 			) Newest task vm
 
 	let s3suspend =
+		(* XXX: TODO: monitor the guest's response; track the s3 state *)
 		on_domain
 			(fun xc xs task vm di ->
 				Domain.shutdown ~xs di.Xenctrl.domid Domain.S3Suspend
 			) Newest
 
 	let s3resume =
+		(* XXX: TODO: monitor the guest's response; track the s3 state *)
 		on_domain
 			(fun xc xs task vm di ->
 				Domain.send_s3resume ~xc di.Xenctrl.domid
