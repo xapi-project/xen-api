@@ -221,6 +221,15 @@ module Vbd = struct
 
 	(* FIXME: take a URL and call VDI.attach ourselves *)
 
+	type qos_class =
+		| Highest | High | Normal | Low | Lowest | Other of int
+	type qos_scheduler =
+		| RealTime of qos_class
+		| Idle
+		| BestEffort of qos_class
+	type qos =
+		| Ionice of qos_scheduler
+
 	type t = {
 		id: id;
 		position: Device_number.t option;
@@ -230,11 +239,12 @@ module Vbd = struct
 		unpluggable: bool;
 		extra_backend_keys: (string * string) list;
 		extra_private_keys: (string * string) list;
+		qos: qos option;
 	}
 
 	type state = {
 		plugged: bool;
-		kthread_pid: int;
+		qos_target: qos option;
 		media_present: bool;
 	}
 
