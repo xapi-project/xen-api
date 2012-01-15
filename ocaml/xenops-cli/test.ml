@@ -523,6 +523,7 @@ module VbdDeviceTests = DeviceTests(struct
 			unpluggable = true;
 			extra_backend_keys = [ "backend", "keys" ];
 			extra_private_keys = [ "private", "keys" ];
+			qos = None;
 		}
 	let add = Client.VBD.add dbg
 	let remove = Client.VBD.remove dbg

@@ -511,19 +511,7 @@ let callback_devices ctx domid dev_event =
 			  end
 		    
 	      | Xal.DevThread (devid, pid) ->
-	          let vm = vm_of_domid ~__context domid in
-			  let vbd = read_vbd_ref devid in
-			  if not(Db.is_valid_ref __context vbd)
-			  then debug "ignoring event because VBD does not exist in DB"
-			  else begin
-				  let work_item ~__context token = 
-					  let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
-					  Vbdops.set_vbd_qos ~__context ~self:vbd domid devid pid
-				  in
-				  debug "Adding Vbdops.set_vbd_qos to queue";
-				  let description = Printf.sprintf "DevThread(%s, %d) domid %d" devid pid domid in
-				  push vm Local_work_queue.normal_vm_queue description work_item 
-			  end
+			  ()
 		    
 	      | Xal.DevEject devid ->
 	          let vm = vm_of_domid ~__context domid in

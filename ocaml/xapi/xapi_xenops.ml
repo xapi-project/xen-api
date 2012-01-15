@@ -141,7 +141,44 @@ module MD = struct
 	let of_vbd ~__context ~vm ~vbd =
 		let hvm = vm.API.vM_HVM_boot_policy <> "" in
 		let device_number = Device_number.of_string hvm vbd.API.vBD_userdevice in
-		let open Vbd in {
+		let open Vbd in
+		let ty = vbd.API.vBD_qos_algorithm_type in
+		let params = vbd.API.vBD_qos_algorithm_params in
+
+		let qos_class params =
+			if List.mem_assoc "class" params then
+				match List.assoc "class" params with
+					| "highest" -> Highest
+					| "high"    -> High
+					| "normal"  -> Normal
+					| "low"     -> Low
+					| "lowest"  -> Lowest
+					| s         ->
+						try Other (int_of_string s) 
+						with _ ->
+							warn "Unknown VBD QoS scheduler class (try 'high' 'low' 'normal')";
+							Normal
+			else
+				Normal in
+		let qos_scheduler params =
+			try
+				match List.assoc "sched" params with
+				| "rt" | "real-time" -> RealTime (qos_class params)
+				| "idle"             -> Idle
+				| "best-effort"      -> BestEffort (qos_class params)
+				| _                  ->
+					warn "Unknown VBD QoS scheduler (try 'real-time' 'idle' 'best-effort')";
+					BestEffort (qos_class params)
+			with Not_found ->
+				BestEffort (qos_class params) in
+		let qos = function
+			| "ionice" -> Some (Ionice (qos_scheduler params))
+			| "" -> None
+			| x ->
+				warn "Unknown VBD QoS type: %s (try 'ionice')" x;
+				None in
+
+		{
 			id = (vm.API.vM_uuid, Device_number.to_linux_device device_number);
 			position = Some device_number;
 			mode = if vbd.API.vBD_mode = `RO then ReadOnly else ReadWrite;
@@ -150,6 +187,7 @@ module MD = struct
 			unpluggable = true;
 			extra_backend_keys = [];
 			extra_private_keys = [];
+			qos = qos ty;
 		}
 
 	let of_vif ~__context ~vm ~vif =
