@@ -42,6 +42,12 @@ let debug (fmt: ('a , unit, string, unit) format4) =
 			flush stdout) fmt
 	else Printf.kprintf (fun s -> D.debug "%s" s) fmt
 
+module Unix = struct
+	include Unix
+	let file_descr_of_rpc x = x |> Rpc.int_of_rpc |> Unixext.file_descr_of_int
+	let rpc_of_file_descr x = x |> Unixext.int_of_file_descr |> Rpc.rpc_of_int
+end
+
 let all = List.fold_left (&&) true
 let any = List.fold_left (||) false
 

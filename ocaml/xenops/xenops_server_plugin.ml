@@ -198,12 +198,13 @@ let string_of_disk d = d |> rpc_of_disk |> Jsonrpc.to_string
 type data =
 	| Disk of disk
 	| FD of Unix.file_descr
-let string_of_data = function
-	| Disk d -> Printf.sprintf "Disk %s" (string_of_disk d)
-	| FD fd -> Printf.sprintf "FD %d" (Unixext.int_of_file_descr fd)
+with rpc
+let string_of_data x = x |> rpc_of_data |> Jsonrpc.to_string
 
 type flag =
 	| Live
+with rpc
+let string_of_flag x = x |> rpc_of_flag |> Jsonrpc.to_string
 let string_of_flag = function
 	| Live -> "Live"
 
@@ -224,6 +225,9 @@ module type S = sig
 
 		val save: Xenops_task.t -> Vm.t -> flag list -> data -> unit
 		val restore: Xenops_task.t -> Vm.t -> data -> unit
+
+		val s3suspend: Xenops_task.t -> Vm.t -> unit
+		val s3resume: Xenops_task.t -> Vm.t -> unit
 
 		val get_state: Vm.t -> Vm.state
 
