@@ -197,6 +197,13 @@ and see the list of available iso images. Note that there's some sort of
 caching, so it may take few seconds until "xe cd-list" shows the iso that you
 may have dropped in this share.
 
+Note that neither smbfs nor nfs-common are hard dependencies, so you may
+need to apt-get install these packages manually:
+
+apt-get install smbfs
+or
+apt-get install nfs-common
+
 6/ Using XCP: let the fun begins
 --------------------------------
 6.1/ Choosing a template
