@@ -1234,17 +1234,9 @@ let create_new_blob ~__context ~vm ~name ~mime_type =
   Db.VM.add_to_blobs ~__context ~self:vm ~key:name ~value:blob;
   blob
 
-let s3_suspend ~__context ~vm =
-  (* XXX: TODO: monitor the guest's response; track the s3 state *)
-   Locking_helpers.with_lock vm (fun _ () ->
-     let domid = Helpers.domid_of_vm ~__context ~self:vm in
-     with_xs (fun xs -> Domain.shutdown ~xs domid Domain.S3Suspend)) ()
+let s3_suspend ~__context ~vm = Xapi_xenops.s3suspend ~__context ~self:vm
 
-let s3_resume ~__context ~vm =
-  (* XXX: TODO: monitor the guest's response; track the s3 state *)
-  Locking_helpers.with_lock vm (fun _ () ->
-    let domid = Helpers.domid_of_vm ~__context ~self:vm in
-    with_xc (fun xc -> Domain.send_s3resume ~xc domid)) ()
+let s3_resume ~__context ~vm = Xapi_xenops.s3resume ~__context ~self:vm
 
 let copy_bios_strings = Xapi_vm_helpers.copy_bios_strings
 
