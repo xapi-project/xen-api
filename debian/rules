@@ -24,4 +24,5 @@ override_dh_installinit:
 	dh_installinit -pxcp-networkd -- defaults 20
 
 override_dh_python2:
-	dh_python2 /usr/lib
+	dh_python2
+	dh_python2 /usr/lib/xcp
