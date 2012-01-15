@@ -339,6 +339,9 @@ module VM = struct
 	external suspend: debug_info -> Vm.id -> disk -> (Task.id option) * (error option) = ""
 	external resume: debug_info -> Vm.id -> disk -> (Task.id option) * (error option) = ""
 
+	external s3suspend: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
+	external s3resume: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
+
 	external migrate: debug_info -> Vm.id -> string -> (Task.id option) * (error option) = ""
 
 	external export_metadata: debug_info -> Vm.id -> (string option) * (error option) = ""

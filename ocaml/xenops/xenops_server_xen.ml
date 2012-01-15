@@ -979,6 +979,18 @@ module VM = struct
 					)
 			) Newest task vm
 
+	let s3suspend =
+		on_domain
+			(fun xc xs task vm di ->
+				Domain.shutdown ~xs di.Xenctrl.domid Domain.S3Suspend
+			) Newest
+
+	let s3resume =
+		on_domain
+			(fun xc xs task vm di ->
+				Domain.send_s3resume ~xc di.Xenctrl.domid
+			) Newest
+
 	let get_state vm =
 		let uuid = uuid_of_vm vm in
 		let vme = vm.Vm.id |> DB.read in (* may not exist *)
