@@ -336,7 +336,7 @@ let main_loop ifd ofd =
     debug "Read: %s\n%!" (string_of_message cmd); flush stderr;
     match cmd with
     | Command (Print x) -> print_endline x; flush stdout
-    | Command (PrintStderr x) -> Printf.fprintf stderr "%s\n%!" x
+    | Command (PrintStderr x) -> Printf.fprintf stderr "%s%!" x
     | Command (Debug x) -> debug "debug from server: %s\n%!" x
     | Command (Load x) ->
         begin
