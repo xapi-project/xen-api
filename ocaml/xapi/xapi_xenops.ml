@@ -629,6 +629,7 @@ let update_vm ~__context id =
 						if power_state = `Suspended || power_state = `Halted then begin
 							detach_networks ~__context ~self;
 							Db.VM.set_ha_always_run ~__context ~self ~value:false;
+							Storage_access.reset ~__context ~vm:self;
 						end;
 						(* This will mark VBDs, VIFs as detached and clear resident_on
 						   if the VM has permenantly shutdown. *)
