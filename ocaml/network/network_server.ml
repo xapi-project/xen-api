@@ -308,12 +308,16 @@ module Interface = struct
 	let set_ethtool_settings _ name params =
 		debug "Configuring ethtool settings for %s: %s" name
 			(String.concat ", " (List.map (fun (k, v) -> k ^ "=" ^ v) params));
+		let add_defaults = List.filter (fun (k, v) -> not (List.mem_assoc k params)) default.ethtool_settings in
+		let params = params @ add_defaults in
 		update_config name {(get_config name) with ethtool_settings = params};
 		Ethtool.set_options name params
 
 	let set_ethtool_offload _ name params =
 		debug "Configuring ethtool offload settings for %s: %s" name
 			(String.concat ", " (List.map (fun (k, v) -> k ^ "=" ^ v) params));
+		let add_defaults = List.filter (fun (k, v) -> not (List.mem_assoc k params)) default.ethtool_offload in
+		let params = params @ add_defaults in
 		update_config name {(get_config name) with ethtool_offload = params};
 		Ethtool.set_offload name params
 
@@ -325,9 +329,7 @@ module Interface = struct
 
 	let bring_up _ name =
 		debug "Bringing up interface %s" name;
-		Ip.link_set_up name;
-		set_ethtool_settings () name default.ethtool_settings;
-		set_ethtool_offload () name default.ethtool_offload
+		Ip.link_set_up name
 
 	let bring_down _ name =
 		debug "Bringing down interface %s" name;
@@ -354,9 +356,9 @@ module Interface = struct
 				(try match ipv6_gateway with None -> () | Some gateway -> set_ipv6_gateway () name gateway with _ -> ());
 				(try set_dns () name dns with _ -> ());
 				(try set_mtu () name mtu with _ -> ());
+				(try bring_up () name with _ -> ());
 				(try set_ethtool_settings () name ethtool_settings with _ -> ());
-				(try set_ethtool_offload () name ethtool_offload with _ -> ());
-				(try bring_up () name with _ -> ())
+				(try set_ethtool_offload () name ethtool_offload with _ -> ())
 			end
 		) !config.interface_config
 end
