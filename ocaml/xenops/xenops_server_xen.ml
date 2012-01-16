@@ -1269,50 +1269,9 @@ module VBD = struct
 				deactivate_and_detach task device vbd;
 			) Oldest vm
 
-	let to_ionice_class_params =
-		let to_params = function
-			| Highest -> 0
-			| High    -> 2
-			| Normal  -> 4
-			| Low     -> 6
-			| Lowest  -> 7
-			| Other x -> x in
-		function
-			| RealTime x   -> 1, (to_params x)
-			| Idle         -> 3, (to_params Lowest)
-			| BestEffort x -> 2, (to_params x)
-	let parse_ionice_result s : Vbd.qos_scheduler option =
+	let ionice qos pid =
 		try
-			match String.split ' ' (String.strip String.isspace s) with
-				| [ cls_colon; "prio"; param ] ->
-					let cls = String.sub cls_colon 0 (String.length cls_colon - 1) in
-					let param = match param with
-						| "7" -> Lowest
-						| "6" -> Low
-						| "4" -> Normal
-						| "2" -> High
-						| "0" -> Highest
-						| x -> Other (int_of_string x) in
-					Some (match cls with
-						| "idle" -> Idle
-						| "realtime" -> RealTime param
-						| "best-effort" -> BestEffort param
-						| _ -> raise Not_found (* caught below *)
-					)
-				| _ ->
-					debug "Failed to parse ionice result: %s" s;
-					None
-		with _ ->
-			debug "Failed to parse ionice result: %s" s;
-			None
-
-	let ionice (cls, param) pid =
-		try
-			run _ionice [
-				Printf.sprintf "-c%d" cls;
-				Printf.sprintf "-n%d" param;
-				Printf.sprintf "-p%d" pid
-			] |> ignore_string
+			run _ionice (Ionice.set_args qos pid) |> ignore_string
 		with e ->
 			debug "Ionice failed: %s" (Printexc.to_string e)
 
@@ -1325,7 +1284,7 @@ module VBD = struct
 							let (device: Device_common.device) = device_by_id xc xs vm Device_common.Vbd Newest (id_of vbd) in
 							let path = Device_common.kthread_pid_path_of_device ~xs device in
 							let kthread_pid = xs.Xs.read path |> int_of_string in
-							ionice (to_ionice_class_params qos) kthread_pid
+							ionice qos kthread_pid
 						with
 							| Xenbus.Xb.Noent ->
 								(* This means the kthread-pid hasn't been written yet. We'll be called back later. *)
@@ -1339,9 +1298,14 @@ module VBD = struct
 		try
 			let path = Device_common.kthread_pid_path_of_device ~xs device in
 			let kthread_pid = xs.Xs.read path |> int_of_string in
-			let i = run _ionice [ Printf.sprintf "-p%d" kthread_pid ] |> parse_ionice_result in
+			let i = run _ionice (Ionice.get_args kthread_pid) |> Ionice.parse_result_exn in
 			Opt.map (fun i -> Ionice i) i
-		with _ -> None
+		with
+			| Ionice.Parse_failed x ->
+				debug "Failed to parse ionice result: %s" x;
+				None
+			| _ ->
+				None
 
 	let string_of_qos = function
 		| None -> "None"
