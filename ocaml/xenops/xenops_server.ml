@@ -545,9 +545,10 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 		| PCI_unplug id ->
 			debug "PCI.unplug %s" (PCI_DB.string_of_id id);
 			B.PCI.unplug t (PCI_DB.vm_of id) (PCI_DB.read_exn id)
-        | VBD_plug id ->
-            debug "VBD.plug %s" (VBD_DB.string_of_id id);
-            B.VBD.plug t (VBD_DB.vm_of id) (VBD_DB.read_exn id);
+		| VBD_plug id ->
+			debug "VBD.plug %s" (VBD_DB.string_of_id id);
+			B.VBD.plug t (VBD_DB.vm_of id) (VBD_DB.read_exn id);
+			Updates.add (Dynamic.Vbd id) updates
 		| VBD_set_qos id ->
 			debug "VBD.set_qos %s" (VBD_DB.string_of_id id);
 			B.VBD.set_qos t (VBD_DB.vm_of id) (VBD_DB.read_exn id);
