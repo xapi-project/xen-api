@@ -72,6 +72,50 @@ let determine_mtu ~__context pif_rc bridge =
 	else
 		Int64.to_int (Db.Network.get_MTU ~__context ~self:pif_rc.API.pIF_network)
 
+let determine_ethtool_settings oc =
+	let proc key =
+		if List.mem_assoc ("ethtool-" ^ key) oc then
+			let value = List.assoc ("ethtool-" ^ key) oc in
+			if value = "true" || value = "on" then
+				[key, "on"]
+			else if value = "false" || value = "off" then
+				[key, "off"]
+			else begin
+				debug "Invalid value for ethtool-%s = %s. Must be on|true|off|false." key value;
+				[]
+			end
+		else
+			[]
+	in
+	let speed =
+		if List.mem_assoc "ethtool-speed" oc then
+			let value = List.assoc "ethtool-speed" oc in
+			if value = "10" || value = "100" || value = "1000" then
+				["speed", value]
+			else begin
+				debug "Invalid value for ethtool-speed = %s. Must be 10|100|1000." value;
+				[]
+			end
+		else
+			[]
+	in
+	let duplex =
+		if List.mem_assoc "ethtool-duplex" oc then
+			let value = List.assoc "ethtool-duplex" oc in
+			if value = "half" || value = "full" then
+				["duplex", value]
+			else begin
+				debug "Invalid value for ethtool-duplex = %s. Must be half|full." value;
+				[]
+			end
+		else
+			[]
+	in
+	let autoneg = proc "autoneg" in
+	let settings = speed @ duplex @ autoneg in
+	let offload = List.flatten (List.map proc ["rx"; "tx"; "sg"; "tso"; "ufo"; "gso"; "gro"; "lro"]) in
+	settings, offload
+
 let get_fail_mode ~__context pif_rc =
 	let fail_mode_of_string = function
 		| "secure" -> Secure
@@ -237,8 +281,16 @@ let rec create_bridges ~__context pif_rc bridge =
 		Net.Bridge.create ~mac:pif_rc.API.pIF_MAC ~fail_mode bridge;
 		Net.Bridge.add_port bridge pif_rc.API.pIF_device [pif_rc.API.pIF_device];
 		Net.Interface.set_mtu pif_rc.API.pIF_device mtu;
+		let (ethtool_settings, ethtool_offload) =
+			determine_ethtool_settings pif_rc.API.pIF_other_config in
+		Net.Interface.set_ethtool_settings pif_rc.API.pIF_device ethtool_settings;
+		Net.Interface.set_ethtool_offload pif_rc.API.pIF_device ethtool_offload
 	end;
-	Net.Interface.set_mtu bridge mtu
+	Net.Interface.set_mtu bridge mtu;
+	let (ethtool_settings, ethtool_offload) =
+		determine_ethtool_settings (Db.Network.get_other_config ~__context ~self:pif_rc.API.pIF_network) in
+	Net.Interface.set_ethtool_settings bridge ethtool_settings;
+	Net.Interface.set_ethtool_offload bridge ethtool_offload
 
 let rec destroy_bridges ~__context ~force pif_rc bridge =
 	begin match get_pif_type pif_rc with
