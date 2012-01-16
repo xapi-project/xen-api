@@ -291,7 +291,16 @@ let vbd_unplug_order vbds = List.rev (vbd_plug_order vbds)
 let pci_plug_order pcis =
 	List.sort (fun a b -> compare a.Pci.position b.Pci.position) pcis
 
-let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
+let rec perform_subtasks subtasks t =
+	List.iteri
+		(fun idx x ->
+			perform ~subtask:(string_of_operation x) x t;
+			let progress = float_of_int idx /. (float_of_int (List.length subtasks)) in
+			t.Xenops_task.result <- Task.Pending progress;
+			Updates.add (Dynamic.Task t.Xenops_task.id) updates
+		) subtasks
+
+and perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 	let module B = (val get_backend () : S) in
 	let one = function
 		| VM_start id ->
@@ -318,13 +327,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 				] @ (List.map (fun pci -> PCI_plug pci.Pci.id)
 					(PCI_DB.list id |> List.map fst |> pci_plug_order)
 				) in
-				List.iteri
-					(fun idx x ->
-						perform ~subtask:(string_of_operation x) x t;
-						let progress = float_of_int idx /. (float_of_int (List.length subtasks)) in
-						t.Xenops_task.result <- Task.Pending progress;
-						Updates.add (Dynamic.Task t.Xenops_task.id) updates
-					) subtasks;
+				perform_subtasks subtasks t;
 				Updates.add (Dynamic.Vm id) updates
 			with e ->
 				debug "VM.start threw error: %s. Calling VM.destroy" (Printexc.to_string e);
@@ -346,19 +349,18 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			Updates.add (Dynamic.Vm id) updates
 		| VM_shutdown (id, timeout) ->
 			debug "VM.shutdown %s" id;
-			Opt.iter (fun x -> perform ~subtask:"VM_shutdown_domain(Halt)" (VM_shutdown_domain(id, Halt, x)) t) timeout;
-			perform ~subtask:"VM_destroy_device_model" (VM_destroy_device_model (id)) t;
-			List.iter (fun vbd ->
-				let op = VBD_unplug (vbd.Vbd.id, true) in
-				let msg = string_of_operation op in
-				ignore_exception msg (perform ~subtask:msg op) t
-			) (VBD_DB.list id |> List.map fst |> vbd_unplug_order);
-			List.iter (fun vif ->
-				let op = VIF_unplug (vif.Vif.id, true) in
-				let msg = string_of_operation op in
-				ignore_exception msg (perform ~subtask:msg op) t
-			) (VIF_DB.list id |> List.map fst);
-			perform ~subtask:"VM_destroy" (VM_destroy id) t;
+			let subtasks =
+				(Opt.default [] (Opt.map (fun x -> [ VM_shutdown_domain(id, Halt, x) ]) timeout)
+				) @ [
+					VM_destroy_device_model id;
+				] @ (List.map (fun vbd -> VBD_unplug (vbd.Vbd.id, true))
+					(VBD_DB.list id |> List.map fst |> vbd_unplug_order)
+				) @ (List.map (fun vif -> VIF_unplug (vif.Vif.id, true))
+					(VIF_DB.list id |> List.map fst)
+				) @ [
+					VM_destroy id
+				] in
+			perform_subtasks subtasks t;
 			Updates.add (Dynamic.Vm id) updates
 		| VM_reboot (id, timeout) ->
 			debug "VM.reboot %s" id;
