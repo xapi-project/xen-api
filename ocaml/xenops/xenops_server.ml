@@ -288,6 +288,9 @@ let vbd_plug_order vbds =
 
 let vbd_unplug_order vbds = List.rev (vbd_plug_order vbds)
 
+let pci_plug_order pcis =
+	List.sort (fun a b -> compare a.Pci.position b.Pci.position) pcis
+
 let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 	let module B = (val get_backend () : S) in
 	let one = function
@@ -295,17 +298,33 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			debug "VM.start %s" id;
 			Xenops_hooks.vm_pre_start ~reason:Xenops_hooks.reason__none ~id;
 			begin try
-				perform ~subtask:"VM_create" (VM_create id) t;
-				perform ~subtask:"VM_build" (VM_build id) t;
-				List.iter (fun vbd -> perform ~subtask:(Printf.sprintf "VBD_plug %s" (snd vbd.Vbd.id)) (VBD_plug vbd.Vbd.id) t) (VBD_DB.list id |> List.map fst |> vbd_plug_order);
-				List.iter (fun vif -> perform ~subtask:(Printf.sprintf "VIF_plug %s" (snd vif.Vif.id)) (VIF_plug vif.Vif.id) t) (VIF_DB.list id |> List.map fst);
-				(* Unfortunately this has to be done after the vbd,vif devices have been created since
-				   qemu reads xenstore keys in preference to its own commandline. After this is
-				   fixed we can consider creating qemu as a part of the 'build' *)
-				perform ~subtask:"VM_create_device_model" (VM_create_device_model (id, false)) t;
-				(* We hotplug PCI devices into HVM guests via qemu, since otherwise hotunplug triggers
-				   some kind of unfixed race condition causing an interrupt storm. *)
-				List.iter (fun pci -> perform ~subtask:(Printf.sprintf "PCI_plug %s" (snd pci.Pci.id)) (PCI_plug pci.Pci.id) t) (PCI_DB.list id |> List.map fst |> List.sort (fun a b -> compare a.Pci.position b.Pci.position));
+				let subtasks = [
+					VM_create id;
+					VM_build id;
+				] @ (List.map (fun vbd -> VBD_plug vbd.Vbd.id)
+					(VBD_DB.list id |> List.map fst |> vbd_plug_order)
+				) @ (List.map (fun vif -> VIF_plug vif.Vif.id)
+					(VIF_DB.list id |> List.map fst)
+				) @ [
+					(* Unfortunately this has to be done after the vbd,vif 
+					   devices have been created since qemu reads xenstore keys
+					   in preference to its own commandline. After this is
+					   fixed we can consider creating qemu as a part of the
+					   'build' *)
+					VM_create_device_model (id, false);
+					(* We hotplug PCI devices into HVM guests via qemu, since
+					   otherwise hotunplug triggers some kind of unfixed race
+					   condition causing an interrupt storm. *)
+				] @ (List.map (fun pci -> PCI_plug pci.Pci.id)
+					(PCI_DB.list id |> List.map fst |> pci_plug_order)
+				) in
+				List.iteri
+					(fun idx x ->
+						perform ~subtask:(string_of_operation x) x t;
+						let progress = float_of_int idx /. (float_of_int (List.length subtasks)) in
+						t.Xenops_task.result <- Task.Pending progress;
+						Updates.add (Dynamic.Task t.Xenops_task.id) updates
+					) subtasks;
 				Updates.add (Dynamic.Vm id) updates
 			with e ->
 				debug "VM.start threw error: %s. Calling VM.destroy" (Printexc.to_string e);
