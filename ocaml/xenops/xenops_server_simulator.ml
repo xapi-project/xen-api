@@ -31,7 +31,7 @@ module Domain = struct
 		shadow_multiplier: float;
 		qemu_created: bool;
 		suspended: bool;
-		vbds: Vbd.t list;
+		vbds: Vbd.t list; (* maintained in reverse-plug order *)
 		vifs: Vif.t list;
 		pcis: Pci.t list;
 		last_create_time: float;
@@ -345,6 +345,15 @@ module DEBUG = struct
 			let d = DB.read_exn k in
 			DB.write k { d with Domain.domain_action_request = Some Needs_poweroff };
 			Updates.add (Dynamic.Vm k) updates
+		| "check-vbd-plug-ordering", [ k ] ->
+			let d = DB.read_exn k in
+			let open Vbd in
+			let plug_order = List.rev d.Domain.vbds in
+			let rw, ro = List.partition (fun vbd -> vbd.mode = ReadWrite) plug_order in
+			if rw @ ro <> plug_order then begin
+				debug "DEBUG.trigger: check-vbd-plug-ordering: ordering violation";
+				raise (Exception (Internal_error "check-vbd-plug-ordering"))
+			end
 		| _ ->
 			debug "DEBUG.trigger cmd=%s Not_supported" cmd;
 			raise (Exception Not_supported)
