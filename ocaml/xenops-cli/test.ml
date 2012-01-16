@@ -591,6 +591,21 @@ let ionice_qos_scheduler _ =
 			assert_equal ~msg:"qos" ~printer:(fun x -> x |> rpc_of_qos_scheduler |> Jsonrpc.to_string) x y
 		) xs
 
+let ionice_output _ =
+	let open Vbd in
+	let equals = [
+		"none: prio 4", None;
+		"best-effort: prio 2", Some(BestEffort High);
+		"realtime: prio 6", Some(RealTime Low);
+		"idle: prio 7", Some Idle;
+	] in
+	List.iter
+		(fun (x, y) ->
+			let x' = try Ionice.parse_result_exn x with _ -> None in
+			assert_equal ~msg:"qos" ~printer:(function None -> "None"
+				| Some x -> x |> rpc_of_qos_scheduler |> Jsonrpc.to_string
+			) x' y
+		) equals
 
 
 let _ =
@@ -645,6 +660,7 @@ let _ =
 			"vm_test_suspend" >:: vm_test_suspend;
 			"vm_test_resume" >:: vm_test_resume;
 			"ionice_qos_scheduler" >:: ionice_qos_scheduler;
+			"ionice_output" >:: ionice_output;
 		] in
 
 	run_test_tt ~verbose:!verbose suite
