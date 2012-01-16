@@ -1006,7 +1006,9 @@ let success_task dbg id =
 	| Task.Completed _ -> t
 	| Task.Failed (Failed_to_contact_remote_service x) ->
 		failwith (Printf.sprintf "Failed to contact remote service on: %s\n" x)
-	| Task.Failed x -> raise (Exception x)
+	| Task.Failed x ->
+		debug "%s: caught xenops exception: %s" dbg (rpc_of_error x |> Jsonrpc.to_string);
+		raise (Exception x)
 	| Task.Pending _ -> failwith "task pending"
 
 let refresh_vm ~__context ~self =
@@ -1279,7 +1281,12 @@ let vbd_unplug ~__context ~self force =
 	let vbd = md_of_vbd ~__context ~self in
 	info "xenops: VBD.unplug %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
 	let dbg = Context.string_of_task __context in
-	Client.VBD.unplug dbg vbd.Vbd.id force |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
+	begin
+		try
+			Client.VBD.unplug dbg vbd.Vbd.id force |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
+		with (Exception Device_detach_rejected) ->
+			raise (Api_errors.Server_error(Api_errors.device_detach_rejected, [ "VBD"; Ref.string_of self; "" ]))
+	end;
 	info "xenops: VBD.remove %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
 	Client.VBD.remove dbg vbd.Vbd.id |> success;
 	Event.wait dbg ();
