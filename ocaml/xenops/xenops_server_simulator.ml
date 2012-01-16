@@ -306,6 +306,8 @@ module PCI = struct
 	let unplug _ vm pci = Mutex.execute m (remove_pci vm pci)
 
 	let get_state vm pci = Mutex.execute m (pci_state vm pci)
+
+	let get_device_action_request vm pci = None
 end
 
 module VBD = struct

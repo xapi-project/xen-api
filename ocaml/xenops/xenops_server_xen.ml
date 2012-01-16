@@ -1106,6 +1106,12 @@ module PCI = struct
 				}
 			)
 
+	let get_device_action_request vm pci =
+		let state = get_state vm pci in
+		(* If it has disappeared from xenstore then we assume unplug is needed if only
+		   to release resources/ deassign devices *)
+		if not state.plugged then Some Needs_unplug else None
+
 	let plug task vm pci =
 		let device = pci.domain, pci.bus, pci.dev, pci.fn in
 		on_frontend
@@ -1129,9 +1135,12 @@ module PCI = struct
 		let device = pci.domain, pci.bus, pci.dev, pci.fn in
 		on_frontend
 			(fun xc xs frontend_domid hvm ->
-				if hvm
-				then Device.PCI.unplug ~xc ~xs device frontend_domid
-				else debug "PCI.unplug for PV guests is unsupported"
+				try
+					if hvm
+					then Device.PCI.unplug ~xc ~xs device frontend_domid
+					else debug "PCI.unplug for PV guests is unsupported"
+				with Not_found ->
+					debug "PCI.unplug %s.%s caught Not_found: assuming device is unplugged already" (fst pci.id) (snd pci.id)
 			) Oldest vm
 end
 

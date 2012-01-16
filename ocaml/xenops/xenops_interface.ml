@@ -315,12 +315,14 @@ module Dynamic = struct
 		| Vm of Vm.id
 		| Vbd of Vbd.id
 		| Vif of Vif.id
+		| Pci of Pci.id
 		| Task of Task.id
 		| Barrier of int
 	type t =
 		| Vm_t of Vm.id * ((Vm.t * Vm.state) option)
 		| Vbd_t of Vbd.id * ((Vbd.t * Vbd.state) option)
 		| Vif_t of Vif.id * ((Vif.t * Vif.state) option)
+		| Pci_t of Pci.id * ((Pci.t * Pci.state) option)
 		| Task_t of Task.id * (Task.t option)
 end
 
@@ -362,6 +364,7 @@ end
 module PCI = struct
 	external add: debug_info -> Pci.t -> (Pci.id option) * (error option) = ""
 	external remove: debug_info -> Pci.id -> (unit option) * (error option) = ""
+	external stat: debug_info -> Pci.id -> ((Pci.t * Pci.state) option) * (error option) = ""
 	external list: debug_info -> Vm.id -> ((Pci.t * Pci.state) list option) * (error option) = ""
 end
 
