@@ -1237,8 +1237,12 @@ module VBD = struct
 					end;
 
 					deactivate_and_detach task device vbd;
-				with (Exception(Does_not_exist(_,_))) ->
-					debug "Ignoring missing device: %s" (id_of vbd)
+				with 
+					| Exception(Does_not_exist(_,_)) ->
+						debug "Ignoring missing device: %s" (id_of vbd)
+					| Device_common.Device_error(_, s) ->
+						debug "Caught Device_error: %s" s;
+						raise (Exception Device_detach_rejected)
 			)
 
 	let insert task vm vbd disk =
