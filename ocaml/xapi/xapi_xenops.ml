@@ -232,7 +232,7 @@ module MD = struct
 		let open Pci in
 		List.map
 			(fun (idx, (domain, bus, dev, fn)) -> {
-				id = (vm.API.vM_uuid, string_of_int idx);
+				id = (vm.API.vM_uuid, Printf.sprintf "%04x:%02x:%02x.%01x" domain bus dev fn);
 				position = idx;
 				domain = domain;
 				bus = bus;
@@ -366,11 +366,13 @@ module Xenops_cache = struct
 		vm: Vm.state option;
 		vbds: (Vbd.id * Vbd.state) list;
 		vifs: (Vif.id * Vif.state) list;
+		pcis: (Pci.id * Pci.state) list;
 	}
 	let empty = {
 		vm = None;
 		vbds = [];
 		vifs = [];
+		pcis = [];
 	}
 			
 	let cache = Hashtbl.create 10 (* indexed by Vm.id *)
@@ -412,6 +414,14 @@ module Xenops_cache = struct
 				else None
 			| _ -> None
 
+	let find_pci id : Pci.state option =
+		match find (fst id) with
+			| Some { pcis = pcis } ->
+				if List.mem_assoc id pcis
+				then Some (List.assoc id pcis)
+				else None
+			| _ -> None
+
 	let update id t =
 		Mutex.execute metadata_m
 			(fun () ->
@@ -429,6 +439,11 @@ module Xenops_cache = struct
 		let existing = Opt.default empty (find (fst id)) in
 		let vifs' = List.filter (fun (vif_id, _) -> vif_id <> id) existing.vifs in
 		update (fst id) { existing with vifs = Opt.default vifs' (Opt.map (fun info -> (id, info) :: vifs') info) }
+
+	let update_pci id info =
+		let existing = Opt.default empty (find (fst id)) in
+		let pcis' = List.filter (fun (pci_id, _) -> pci_id <> id) existing.pcis in
+		update (fst id) { existing with pcis = Opt.default pcis' (Opt.map (fun info -> (id, info) :: pcis') info) }
 
 	let update_vm id info =
 		let existing = Opt.default empty (find id) in
@@ -853,6 +868,59 @@ let update_vif ~__context id =
 	with e ->
 		error "xenopsd event: Caught %s while updating VIF" (Printexc.to_string e)
 
+let update_pci ~__context id =
+	try
+		if is_migrating_away (fst id)
+		then debug "xenopsd event: ignoring event for PCI (VM %s migrating away)" (fst id)
+		else
+			let vm = Db.VM.get_by_uuid ~__context ~uuid:(fst id) in
+			let localhost = Helpers.get_localhost ~__context in
+			if Db.VM.get_resident_on ~__context ~self:vm <> localhost
+			then debug "xenopsd event: ignoring event for PCI (VM %s not resident)" (fst id)
+			else
+				let open Pci in
+				let previous = Xenops_cache.find_pci id in
+				let dbg = Context.string_of_task __context in
+				let info = try Some (Client.PCI.stat dbg id |> success) with _ -> None in
+				if Opt.map snd info = previous
+				then debug "xenopsd event: ignoring event for PCI %s.%s: metadata has not changed" (fst id) (snd id)
+				else begin
+					(* XXX: we resync all PCI devices at this point *)
+
+					(* This is what the DB thinks: *)
+					let pcis = Db.VM.get_attached_PCIs ~__context ~self:vm in
+					let pcirs = List.map (fun self -> self, Db.PCI.get_record ~__context ~self) pcis in
+					let pci, _ = List.find (fun (_, pcir) -> pcir.API.pCI_pci_id = (snd id) && pcir.API.pCI_host = localhost) pcirs in
+
+					(* Assumption: a VM can have only one vGPU *)
+					let gpu =
+						let gpu_class_id = Xapi_pci.find_class_id (Xapi_pci.Display_controller) in
+						if Db.PCI.get_class_id ~__context ~self:pci = gpu_class_id
+						then
+							match Db.VM.get_VGPUs ~__context ~self:vm with
+								| x :: _ -> Some x
+								| _ -> None
+						else None in
+					let attached_in_db = List.mem vm (Db.PCI.get_attached_VMs ~__context ~self:pci) in
+					Opt.iter
+						(fun (_, state) ->
+							debug "xenopsd event: Updating PCI %s.%s currently_attached <- %b" (fst id) (snd id) state.plugged;
+							if attached_in_db && (not state.plugged)
+							then Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:vm
+							else if (not attached_in_db) && state.plugged
+							then Db.PCI.add_attached_VMs ~__context ~self:pci ~value:vm;
+
+							Opt.iter
+								(fun gpu ->
+									debug "xenopsd event: Update VGPU %s.%s currently_attached <- %b" (fst id) (snd id) state.plugged;
+									Db.VGPU.set_currently_attached ~__context ~self:gpu ~value:state.plugged
+								) gpu
+						) info;
+					Xenops_cache.update_pci id (Opt.map snd info);
+				end
+	with e ->
+		error "xenopsd event: Caught %s while updating PCI" (Printexc.to_string e)
+
 let rec events_watch ~__context from =
 	let dbg = Context.string_of_task __context in
 	let events, next = Client.UPDATES.get dbg from None |> success in
@@ -868,6 +936,9 @@ let rec events_watch ~__context from =
 			| Vif id ->
 				debug "xenops event on VIF %s.%s" (fst id) (snd id);
 				update_vif ~__context id
+			| Pci id ->
+				debug "xenops event on PCI %s.%s" (fst id) (snd id);
+				update_pci ~__context id
 			| Task id ->
 				debug "xenops event on Task %s" id
 			| Barrier id ->

@@ -243,6 +243,7 @@ module type S = sig
 		val get_state: Vm.id -> Pci.t -> Pci.state
 		val plug: Xenops_task.t -> Vm.id -> Pci.t -> unit
 		val unplug: Xenops_task.t -> Vm.id -> Pci.t -> unit
+		val get_device_action_request: Vm.id -> Pci.t -> device_action_request option
 	end
 	module VBD : sig
 		val plug: Xenops_task.t -> Vm.id -> Vbd.t -> unit
