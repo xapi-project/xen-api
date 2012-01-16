@@ -66,11 +66,17 @@ let netmask_to_prefixlen netmask =
 		List.fold_left length 0 [a; b; c; d]
 	)
 
-let determine_mtu ~__context pif_rc bridge =
+let determine_mtu ~__context pif_rc =
+	let mtu = Int64.to_int (Db.Network.get_MTU ~__context ~self:pif_rc.API.pIF_network) in
 	if List.mem_assoc "mtu" pif_rc.API.pIF_other_config then
-		int_of_string (List.assoc "mtu" pif_rc.API.pIF_other_config)
+		let value = List.assoc "mtu" pif_rc.API.pIF_other_config in
+		try
+			int_of_string value
+		with _ ->
+			debug "Invalid value for mtu = %s" value;
+			mtu
 	else
-		Int64.to_int (Db.Network.get_MTU ~__context ~self:pif_rc.API.pIF_network)
+		mtu
 
 let determine_ethtool_settings oc =
 	let proc key =
@@ -259,7 +265,7 @@ let get_pif_type pif_rc =
 			| None -> `phy_pif
 
 let rec create_bridges ~__context pif_rc bridge =
-	let mtu = determine_mtu ~__context pif_rc bridge in
+	let mtu = determine_mtu ~__context pif_rc in
 	begin match get_pif_type pif_rc with
 	| `tunnel_pif _ ->
 		let fail_mode = get_fail_mode ~__context pif_rc in
