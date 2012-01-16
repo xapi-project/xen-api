@@ -90,6 +90,7 @@ type operation =
 	| VM_remove of Vm.id
 	| PCI_plug of Pci.id
 	| PCI_unplug of Pci.id
+	| PCI_check_state of Pci.id
 	| VBD_plug of Vbd.id
 	| VBD_set_qos of Vbd.id
 	| VBD_unplug of Vbd.id * bool
@@ -553,10 +554,25 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			end
 		| PCI_plug id ->
 			debug "PCI.plug %s" (PCI_DB.string_of_id id);
-			B.PCI.plug t (PCI_DB.vm_of id) (PCI_DB.read_exn id)
+			B.PCI.plug t (PCI_DB.vm_of id) (PCI_DB.read_exn id);
+			Updates.add (Dynamic.Pci id) updates;
 		| PCI_unplug id ->
 			debug "PCI.unplug %s" (PCI_DB.string_of_id id);
-			B.PCI.unplug t (PCI_DB.vm_of id) (PCI_DB.read_exn id)
+			B.PCI.unplug t (PCI_DB.vm_of id) (PCI_DB.read_exn id);
+			Updates.add (Dynamic.Pci id) updates;
+		| PCI_check_state id ->
+			debug "PCI.check_state %s" (PCI_DB.string_of_id id);
+			let vif_t = PCI_DB.read_exn id in
+			let vm_state = B.VM.get_state (VM_DB.read_exn (PCI_DB.vm_of id)) in
+			let request =
+				if vm_state.Vm.power_state = Running
+				then B.PCI.get_device_action_request (VIF_DB.vm_of id) vif_t
+				else Some Needs_unplug in
+			let operations_of_request = function
+				| Needs_unplug -> Some (PCI_unplug id)
+				| Needs_set_qos -> None in
+			let operations = List.filter_map operations_of_request (Opt.to_list request) in
+			List.iter (fun x -> perform x t) operations
 		| VBD_plug id ->
 			debug "VBD.plug %s" (VBD_DB.string_of_id id);
 			B.VBD.plug t (VBD_DB.vm_of id) (VBD_DB.read_exn id);
@@ -686,6 +702,17 @@ module PCI = struct
 				then raise (Exception Device_is_connected)
 				else return (DB.remove id)
 			) ()
+
+	let stat' id =
+		debug "PCI.stat %s" (string_of_id id);
+		let module B = (val get_backend () : S) in
+		let pci_t = PCI_DB.read_exn id in
+		let state = B.PCI.get_state (DB.vm_of id) pci_t in
+		pci_t, state
+	let stat _ dbg id =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				return (stat' id)) ()
 
 	let list _ dbg vm =
 		Debug.with_thread_associated dbg
@@ -965,6 +992,10 @@ let internal_event_thread_body = Debug.with_thread_associated "events" (fun () -
 				| Dynamic.Vif id ->
 					debug "Received an event on managed VIF %s.%s" (fst id) (snd id);
 					let (_: Task.id) = queue_operation dbg (VIF_DB.vm_of id) (VIF_check_state id) in
+					()
+				| Dynamic.Pci id ->
+					debug "Received an event on managed PCI %s.%s" (fst id) (snd id);
+					let (_: Task.id) = queue_operation dbg (PCI_DB.vm_of id) (PCI_check_state id) in
 					()
 				| x ->
 					debug "Ignoring event on %s" (Jsonrpc.to_string (Dynamic.rpc_of_id x))

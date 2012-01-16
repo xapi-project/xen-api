@@ -590,6 +590,8 @@ let rec events_watch from =
 				Printf.sprintf "VBD %s.%s" (fst id) (snd id)
 			| Vif id ->
 				Printf.sprintf "VIF %s.%s" (fst id) (snd id)
+			| Pci id ->
+				Printf.sprintf "PCI %s.%s" (fst id) (snd id)
 			| Task id ->
 				Printf.sprintf "Task %s" id
 			| Barrier id ->
