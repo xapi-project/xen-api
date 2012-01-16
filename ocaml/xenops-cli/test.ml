@@ -579,6 +579,41 @@ module VifDeviceTests = DeviceTests(struct
 		assert_equal ~msg:"extra_private_keys" ~printer:sl vif.extra_private_keys vif'.extra_private_keys
 end)
 
+let vbd_plug_ordering_good _ =
+	let open Vbd in
+	let rw position id = {
+		Vbd.id = (id, position);
+		position = None;
+		mode = ReadWrite;
+		backend = Some (Local "/dev/zero");
+		ty = Disk;
+		unpluggable = true;
+		extra_backend_keys = [ "backend", "keys" ];
+		extra_private_keys = [ "private", "keys" ];
+		qos = None;
+	} in
+	let ro position id = { (rw position id) with mode = ReadOnly } in
+	(* We'll try adding the VBDs in both a good order and a bad order.
+	   The VM.start should plug them in the correct order. *)
+	let vbds = [
+		[ ro "0"; rw "1" ];
+		[ rw "0"; ro "1" ];
+	] in
+	List.iter
+		(fun vbds ->
+			with_vm example_uuid
+				(fun id ->
+					List.iter
+						(fun vbd ->
+							let (_: Vbd.id) = Client.VBD.add dbg (vbd id) |> success in
+							()
+						) vbds;
+					Client.VM.start dbg id |> success |> wait_for_task |> success_task;
+					Client.DEBUG.trigger dbg "check-vbd-plug-ordering" [ id ] |> success;
+					Client.VM.shutdown dbg id None |> success |> wait_for_task |> success_task;
+				) 
+		) vbds
+
 let ionice_qos_scheduler _ =
 	let open Vbd in
 	(* Check that we can parse and print the qos_scheduler values *)
@@ -651,6 +686,7 @@ let _ =
 			"vbd_test_add_plug_unplug_remove" >:: VbdDeviceTests.add_plug_unplug_remove;
 			"vbd_test_add_plug_unplug_many_remove" >:: VbdDeviceTests.add_plug_unplug_many_remove;
 			"vbd_remove_running" >:: VbdDeviceTests.remove_running;
+			"vbd_plug_ordering_good" >:: vbd_plug_ordering_good;
 			"vif_test_add_remove" >:: VifDeviceTests.add_remove;
 			"vif_test_add_list_remove" >:: VifDeviceTests.add_list_remove;
 			"vif_test_add_vm_remove" >:: VifDeviceTests.add_vm_remove;
