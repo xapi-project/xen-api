@@ -1229,7 +1229,7 @@ let shutdown ~__context ~self timeout =
 		(fun () ->
 			info "xenops: VM.shutdown %s" id;
 			let dbg = Context.string_of_task __context in
-			Client.VM.shutdown dbg id timeout |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
+			Client.VM.shutdown dbg id timeout |> success |> register_task __context |> wait_for_task dbg |> unregister_task |> success_task dbg |> ignore_task;
 			Event.wait dbg ();
 			remove_caches id;
 			assert (Db.VM.get_power_state ~__context ~self = `Halted);
