@@ -921,6 +921,42 @@ let update_pci ~__context id =
 	with e ->
 		error "xenopsd event: Caught %s while updating PCI" (Printexc.to_string e)
 
+let id_to_task_tbl = Hashtbl.create 10
+let id_to_task_tbl_m = Mutex.create ()
+
+let id_to_task_exn id =
+	Mutex.execute id_to_task_tbl_m
+		(fun () ->
+			Hashtbl.find id_to_task_tbl id
+		)
+
+let register_task __context id =
+	let task = Context.get_task_id __context in
+	Mutex.execute id_to_task_tbl_m
+		(fun () ->
+			Hashtbl.replace id_to_task_tbl id task
+		);
+	id
+
+let unregister_task id =
+	Mutex.execute id_to_task_tbl_m
+		(fun () ->
+			Hashtbl.remove id_to_task_tbl id
+		);
+	id
+
+let update_task ~__context id =
+	try
+		let self = id_to_task_exn id in
+		let dbg = Context.string_of_task __context in
+		let task_t = Client.TASK.stat dbg id |> success in
+		match task_t.Task.result with
+			| Task.Pending x ->
+				Db.Task.set_progress ~__context ~self ~value:x
+			| _ -> ()
+	with e ->
+		error "xenopsd event: Caught %s while updating task" (Printexc.to_string e)
+
 let rec events_watch ~__context from =
 	let dbg = Context.string_of_task __context in
 	let events, next = Client.UPDATES.get dbg from None |> success in
@@ -940,7 +976,8 @@ let rec events_watch ~__context from =
 				debug "xenops event on PCI %s.%s" (fst id) (snd id);
 				update_pci ~__context id
 			| Task id ->
-				debug "xenops event on Task %s" id
+				debug "xenops event on Task %s" id;
+				update_task ~__context id
 			| Barrier id ->
 				debug "barrier %d" id;
 				Event.wakeup id
@@ -1157,7 +1194,7 @@ let start ~__context ~self paused =
 	attach_networks ~__context ~self;
 	info "xenops: VM.start %s" id;
 	let dbg = Context.string_of_task __context in
-	Client.VM.start dbg id |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
+	Client.VM.start dbg id |> success |> register_task __context |> wait_for_task dbg |> unregister_task |> success_task dbg |> ignore_task;
 	if not paused then begin
 		info "xenops: VM.unpause %s" id;
 		Client.VM.unpause dbg id |> success |> wait_for_task dbg |> success_task dbg |> ignore_task
