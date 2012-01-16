@@ -1321,10 +1321,17 @@ module VBD = struct
 			(fun xc xs ->
 				Opt.iter (function
 					| Ionice qos ->
-						let (device: Device_common.device) = device_by_id xc xs vm Device_common.Vbd Newest (id_of vbd) in
-						let path = Device_common.kthread_pid_path_of_device ~xs device in
-						let kthread_pid = try xs.Xs.read path |> int_of_string with _ -> 0 in
-						ionice (to_ionice_class_params qos) kthread_pid
+						try
+							let (device: Device_common.device) = device_by_id xc xs vm Device_common.Vbd Newest (id_of vbd) in
+							let path = Device_common.kthread_pid_path_of_device ~xs device in
+							let kthread_pid = xs.Xs.read path |> int_of_string in
+							ionice (to_ionice_class_params qos) kthread_pid
+						with
+							| Xenbus.Xb.Noent ->
+								(* This means the kthread-pid hasn't been written yet. We'll be called back later. *)
+								()
+							| e ->
+								debug "Failed to ionice kthread-pid: %s" (Printexc.to_string e)
 				) vbd.Vbd.qos
 			)
 
