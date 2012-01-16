@@ -2045,19 +2045,48 @@ let vm_memory_shadow_multiplier_set printer rpc session_id params =
 			Client.VM.set_shadow_multiplier_live rpc session_id vm multiplier) params ["multiplier"] in
 	()
 
+let progress_bar printer task_record =
+	let progress = task_record.API.task_progress in
+	let hashes = String.make (int_of_float (progress *. 70.)) '#' in
+	let animation = "|/-\\" in
+	let char = animation.[int_of_float (progress *. 100.) mod (String.length animation)] in
+	let line = Printf.sprintf "\r %3d%% %c %s" (int_of_float (progress *. 100.)) char hashes in
+	Cli_printer.PStderr line |> printer
+
+let wait_with_progress_bar printer rpc session_id task =
+	Cli_util.track (progress_bar printer) rpc session_id task;
+	Cli_printer.PStderr "\n" |> printer;
+	Cli_util.result_from_task rpc session_id task
+
+let wait printer rpc session_id task =
+	Cli_util.track (fun _ -> ()) rpc session_id task;
+	Cli_util.result_from_task rpc session_id task
+
 let vm_start printer rpc session_id params =
 	let force = get_bool_param params "force" in
 	let paused = get_bool_param params "paused" in
 	ignore(do_vm_op printer rpc session_id
 		(fun vm ->
 			let vm=vm.getref () in
-			if List.mem_assoc "on" params
-			then let host = get_host_by_name_or_id rpc session_id (List.assoc "on" params) in
-			Client.VM.start_on rpc session_id vm (host.getref()) paused force
-			else
-				hook_no_hosts_available printer rpc session_id vm
-					(fun ()->Client.VM.start rpc session_id vm paused force)
-		) params ["on"; "paused"])
+			let waiter =
+				if List.mem_assoc "progress" params
+				then wait_with_progress_bar
+				else wait in
+			let task =
+				if List.mem_assoc "on" params
+				then
+					let host = get_host_by_name_or_id rpc session_id (List.assoc "on" params) in
+					Client.Async.VM.start_on rpc session_id vm (host.getref()) paused force
+				else
+					Client.Async.VM.start rpc session_id vm paused force in
+			finally
+				(fun () ->
+					hook_no_hosts_available printer rpc session_id vm
+						(fun () ->
+							waiter printer rpc session_id task
+						)
+				) (fun () -> Client.Task.destroy rpc session_id task)
+		) params ["on"; "paused"; "progress"])
 
 let vm_suspend printer rpc session_id params =
 	ignore(do_vm_op printer rpc session_id (fun vm -> Client.VM.suspend rpc session_id (vm.getref ())) params [])
