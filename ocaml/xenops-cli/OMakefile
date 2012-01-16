@@ -7,7 +7,7 @@ UseCamlp4(rpc-light.syntax, xn_cfg_types)
 section
 	OCAMLINCLUDES += .
 	OCAMLFLAGS = -dtypes -thread -warn-error F
-	COMMON_FILES = ../xenops/xenops_interface ../xenops/device_number ../xenops/xenops_client ../xenops/table
+	COMMON_FILES = ../xenops/xenops_interface ../xenops/device_number ../xenops/xenops_client ../xenops/table ../xenops/ionice
 	OCamlProgram(xenopstest, test $(COMMON_FILES))
 	OCamlDocProgram(xenopstest, test $(COMMON_FILES))
 

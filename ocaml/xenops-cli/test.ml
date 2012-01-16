@@ -579,6 +579,19 @@ module VifDeviceTests = DeviceTests(struct
 		assert_equal ~msg:"extra_private_keys" ~printer:sl vif.extra_private_keys vif'.extra_private_keys
 end)
 
+let ionice_qos_scheduler _ =
+	let open Vbd in
+	(* Check that we can parse and print the qos_scheduler values *)
+	let prios = [ Highest; High; Normal; Low; Lowest; Other 499 ] in
+	let xs = Idle :: (List.map (fun x -> RealTime x) prios) @ (List.map (fun x -> BestEffort x) prios) in
+	List.iter
+		(fun x ->
+			let cls, param = Ionice.to_class_param x in
+			let y = Ionice.of_class_param_exn (string_of_int cls) (string_of_int param) in
+			assert_equal ~msg:"qos" ~printer:(fun x -> x |> rpc_of_qos_scheduler |> Jsonrpc.to_string) x y
+		) xs
+
+
 
 let _ =
 	let verbose = ref false in
@@ -631,6 +644,7 @@ let _ =
 			"vif_remove_running" >:: VifDeviceTests.remove_running;
 			"vm_test_suspend" >:: vm_test_suspend;
 			"vm_test_resume" >:: vm_test_resume;
+			"ionice_qos_scheduler" >:: ionice_qos_scheduler;
 		] in
 
 	run_test_tt ~verbose:!verbose suite
