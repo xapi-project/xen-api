@@ -275,6 +275,18 @@ let export_metadata id =
 		domains = Some domains;
 	} |> Metadata.rpc_of_t |> Jsonrpc.to_string
 
+(* This is a symptom of the ordering-sensitivity of the SM backend: it is not possible
+   to upgrade RO -> RW or downgrade RW -> RO on the fly.
+   One possible fix is to always attach RW and enforce read/only-ness at the VBD-level.
+   However we would need to fix the LVHD "attach provisioning mode". *)
+let vbd_plug_order vbds =
+	(* return RW devices first since the storage layer can't upgrade a
+	   'RO attach' into a 'RW attach' *)
+	let rw, ro = List.partition (fun vbd -> vbd.Vbd.mode = Vbd.ReadWrite) vbds in
+	rw @ ro
+
+let vbd_unplug_order vbds = List.rev (vbd_plug_order vbds)
+
 let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 	let module B = (val get_backend () : S) in
 	let one = function
@@ -284,7 +296,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			begin try
 				perform ~subtask:"VM_create" (VM_create id) t;
 				perform ~subtask:"VM_build" (VM_build id) t;
-				List.iter (fun vbd -> perform ~subtask:(Printf.sprintf "VBD_plug %s" (snd vbd.Vbd.id)) (VBD_plug vbd.Vbd.id) t) (VBD_DB.list id |> List.map fst);
+				List.iter (fun vbd -> perform ~subtask:(Printf.sprintf "VBD_plug %s" (snd vbd.Vbd.id)) (VBD_plug vbd.Vbd.id) t) (VBD_DB.list id |> List.map fst |> vbd_plug_order);
 				List.iter (fun vif -> perform ~subtask:(Printf.sprintf "VIF_plug %s" (snd vif.Vif.id)) (VIF_plug vif.Vif.id) t) (VIF_DB.list id |> List.map fst);
 				(* Unfortunately this has to be done after the vbd,vif devices have been created since
 				   qemu reads xenstore keys in preference to its own commandline. After this is
@@ -320,7 +332,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 				let op = VBD_unplug (vbd.Vbd.id, true) in
 				let msg = string_of_operation op in
 				ignore_exception msg (perform ~subtask:msg op) t
-			) (VBD_DB.list id |> List.map fst);
+			) (VBD_DB.list id |> List.map fst |> vbd_unplug_order);
 			List.iter (fun vif ->
 				let op = VIF_unplug (vif.Vif.id, true) in
 				let msg = string_of_operation op in
@@ -371,7 +383,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			Updates.add (Dynamic.Vm id) updates
 		| VM_restore_devices id -> (* XXX: this is delayed due to the 'attach'/'activate' behaviour *)
 			debug "VM_restore_devices %s" id;
-			List.iter (fun vbd -> perform ~subtask:(Printf.sprintf "VBD_plug %s" (snd vbd.Vbd.id)) (VBD_plug vbd.Vbd.id) t) (VBD_DB.list id |> List.map fst);
+			List.iter (fun vbd -> perform ~subtask:(Printf.sprintf "VBD_plug %s" (snd vbd.Vbd.id)) (VBD_plug vbd.Vbd.id) t) (VBD_DB.list id |> List.map fst |> vbd_plug_order);
 			List.iter (fun vif -> perform ~subtask:(Printf.sprintf "VIF_plug %s" (snd vif.Vif.id)) (VIF_plug vif.Vif.id) t) (VIF_DB.list id |> List.map fst);
 			(* Unfortunately this has to be done after the devices have been created since
 			   qemu reads xenstore keys in preference to its own commandline. After this is
