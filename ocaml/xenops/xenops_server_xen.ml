@@ -913,7 +913,7 @@ module VM = struct
 				)
 		| FD fd -> f fd
 
-	let save task vm flags data =
+	let save task progress_callback vm flags data =
 		let flags' =
 			List.map
 				(function
@@ -926,7 +926,7 @@ module VM = struct
 				with_data ~xc ~xs task data true
 					(fun fd ->
 						debug "Invoking Domain.suspend";
-						Domain.suspend ~xc ~xs ~hvm domid fd flags'
+						Domain.suspend ~xc ~xs ~hvm ~progress_callback domid fd flags'
 							(fun () ->
 								debug "In callback";
 								if not(request_shutdown task vm Suspend 30.)
@@ -965,7 +965,7 @@ module VM = struct
 					)
 			) Oldest task vm
 
-	let restore task vm data =
+	let restore task progress_callback vm data =
 		let build_info = match DB.read_exn vm.Vm.id with
 			| { VmExtra.build_info = None } ->
 				debug "No stored build_info for %s: cannot safely restore" vm.Vm.id;
@@ -976,7 +976,7 @@ module VM = struct
 				let domid = di.Xenctrl.domid in
 				with_data ~xc ~xs task data false
 					(fun fd ->
-						Domain.restore ~xc ~xs build_info domid fd
+						Domain.restore ~xc ~xs (* XXX progress_callback *) build_info domid fd
 					)
 			) Newest task vm
 
