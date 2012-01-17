@@ -453,6 +453,9 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			begin match power with
 				| Running _ | Paused -> raise (Exception (Bad_power_state(power, Halted)))
 				| Halted | Suspended ->
+					List.iter (fun vbd -> VBD_DB.remove vbd.Vbd.id) (VBD_DB.list id |> List.map fst);
+					List.iter (fun vif -> VIF_DB.remove vif.Vif.id) (VIF_DB.list id |> List.map fst);
+					List.iter (fun pci -> PCI_DB.remove pci.Pci.id) (PCI_DB.list id |> List.map fst);
 					VM_DB.remove id
 			end
 		| PCI_plug id ->
