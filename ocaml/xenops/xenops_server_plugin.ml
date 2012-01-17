@@ -209,6 +209,8 @@ let string_of_flag x = x |> rpc_of_flag |> Jsonrpc.to_string
 let string_of_flag = function
 	| Live -> "Live"
 
+type progress_cb = float -> unit
+
 module type S = sig
 	val init: unit -> unit
 	module VM : sig
@@ -224,8 +226,8 @@ module type S = sig
 		val request_shutdown: Xenops_task.t -> Vm.t -> shutdown_request -> float -> bool
 		val wait_shutdown: Xenops_task.t -> Vm.t -> shutdown_request -> float -> bool
 
-		val save: Xenops_task.t -> Vm.t -> flag list -> data -> unit
-		val restore: Xenops_task.t -> Vm.t -> data -> unit
+		val save: Xenops_task.t -> progress_cb -> Vm.t -> flag list -> data -> unit
+		val restore: Xenops_task.t -> progress_cb -> Vm.t -> data -> unit
 
 		val s3suspend: Xenops_task.t -> Vm.t -> unit
 		val s3resume: Xenops_task.t -> Vm.t -> unit

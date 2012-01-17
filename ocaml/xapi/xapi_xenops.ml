@@ -1137,6 +1137,14 @@ let set_resident_on ~__context ~self =
 		(fun rpc session_id -> XenAPI.VM.atomic_set_resident_on rpc session_id self localhost);
 	refresh_vm ~__context ~self
 
+let sync_with_task __context x =
+	let dbg = Context.string_of_task __context in
+	x |> success |> register_task __context |> wait_for_task dbg |> unregister_task |> success_task dbg |> ignore_task
+
+let sync __context x =
+	let dbg = Context.string_of_task __context in
+	x |> success |> wait_for_task dbg |> success_task dbg |> ignore_task
+
 let assert_resident_on ~__context ~self =
 	let localhost = Helpers.get_localhost ~__context in
 	assert (Db.VM.get_resident_on ~__context ~self = localhost)
@@ -1145,7 +1153,7 @@ let pause ~__context ~self =
 	let id = id_of_vm ~__context ~self in
 	debug "xenops: VM.pause %s" id;
 	let dbg = Context.string_of_task __context in
-	Client.VM.pause dbg id |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
+	Client.VM.pause dbg id |> sync_with_task __context;
 	Event.wait dbg ();
 	assert (Db.VM.get_power_state ~__context ~self = `Paused)
 
@@ -1153,7 +1161,7 @@ let unpause ~__context ~self =
 	let id = id_of_vm ~__context ~self in
 	debug "xenops: VM.unpause %s" id;
 	let dbg = Context.string_of_task __context in
-	Client.VM.unpause dbg id |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
+	Client.VM.unpause dbg id |> sync_with_task __context;
 	Event.wait dbg ();
 	assert (Db.VM.get_power_state ~__context ~self = `Running)
 
@@ -1162,7 +1170,7 @@ let set_vcpus ~__context ~self n =
 	debug "xenops: VM.unpause %s" id;
 	let dbg = Context.string_of_task __context in
 	try
-		Client.VM.set_vcpus dbg id (Int64.to_int n) |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
+		Client.VM.set_vcpus dbg id (Int64.to_int n) |> sync_with_task __context;
 		Db.VM.set_VCPUs_at_startup ~__context ~self ~value:n;
 		Event.wait dbg ();
 	with
@@ -1181,7 +1189,7 @@ let set_shadow_multiplier ~__context ~self target =
 	debug "xenops: VM.set_shadow_multiplier %s" id;
 	let dbg = Context.string_of_task __context in
 	try
-		Client.VM.set_shadow_multiplier dbg id target |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
+		Client.VM.set_shadow_multiplier dbg id target |> sync_with_task __context;
 		Event.wait dbg ();
 	with
 		| Exception Not_supported ->
@@ -1194,10 +1202,10 @@ let start ~__context ~self paused =
 	attach_networks ~__context ~self;
 	info "xenops: VM.start %s" id;
 	let dbg = Context.string_of_task __context in
-	Client.VM.start dbg id |> success |> register_task __context |> wait_for_task dbg |> unregister_task |> success_task dbg |> ignore_task;
+	Client.VM.start dbg id |> sync_with_task __context;
 	if not paused then begin
 		info "xenops: VM.unpause %s" id;
-		Client.VM.unpause dbg id |> success |> wait_for_task dbg |> success_task dbg |> ignore_task
+		Client.VM.unpause dbg id |> sync __context;
 	end;
 	set_resident_on ~__context ~self;
 	assert (Db.VM.get_power_state ~__context ~self = (if paused then `Paused else `Running))
@@ -1218,7 +1226,7 @@ let reboot ~__context ~self timeout =
 	let id = id_of_vm ~__context ~self in
 	info "xenops: VM.reboot %s" id;
 	let dbg = Context.string_of_task __context in
-	Client.VM.reboot dbg id timeout |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
+	Client.VM.reboot dbg id timeout |> sync_with_task __context;
 	Event.wait dbg ();
 	assert (Db.VM.get_power_state ~__context ~self = `Running)
 
@@ -1229,7 +1237,7 @@ let shutdown ~__context ~self timeout =
 		(fun () ->
 			info "xenops: VM.shutdown %s" id;
 			let dbg = Context.string_of_task __context in
-			Client.VM.shutdown dbg id timeout |> success |> register_task __context |> wait_for_task dbg |> unregister_task |> success_task dbg |> ignore_task;
+			Client.VM.shutdown dbg id timeout |> sync_with_task __context;
 			Event.wait dbg ();
 			remove_caches id;
 			assert (Db.VM.get_power_state ~__context ~self = `Halted);

@@ -1799,7 +1799,7 @@ let wrap_op printer pri rpc session_id op e =
 	let msgs = Client.Message.get ~rpc ~session_id ~cls:`VM ~obj_uuid:(safe_get_field (field_lookup e.fields "uuid")) ~since:(Date.of_float now) in
 	List.iter (fun (ref,msg) ->
 		if msg.API.message_priority > pri
-		then printer (Cli_printer.PStderr (format_message msg))) msgs;
+		then printer (Cli_printer.PStderr (format_message msg ^ "\n"))) msgs;
 	result
 
 let do_multiple op set =
@@ -2092,7 +2092,10 @@ let vm_start printer rpc session_id params =
 		) params ["on"; "paused"; "progress"])
 
 let vm_suspend printer rpc session_id params =
-	ignore(do_vm_op printer rpc session_id (fun vm -> Client.VM.suspend rpc session_id (vm.getref ())) params [])
+	ignore(do_vm_op printer rpc session_id (fun vm ->
+		let task = Client.Async.VM.suspend rpc session_id (vm.getref ()) in
+		waiter printer rpc session_id params task
+	) params ["progress"])
 
 let vm_resume printer rpc session_id params =
 	let force = get_bool_param params "force" in
@@ -2100,11 +2103,16 @@ let vm_resume printer rpc session_id params =
 		(fun vm ->
 			if List.mem_assoc "on" params then
 				let host = get_host_by_name_or_id rpc session_id (List.assoc "on" params) in
-				Client.VM.resume_on rpc session_id (vm.getref()) (host.getref()) false force
+				let task = Client.Async.VM.resume_on rpc session_id (vm.getref()) (host.getref()) false force in
+				waiter printer rpc session_id params task
 			else
 				let vm=vm.getref() in
 				hook_no_hosts_available printer rpc session_id vm
-					(fun ()->Client.VM.resume rpc session_id vm false force)) params ["on"])
+					(fun ()->
+						let task = Client.Async.VM.resume rpc session_id vm false force in
+						waiter printer rpc session_id params task
+					)
+		) params ["on"; "progress"])
 
 let vm_pause printer rpc session_id params =
 	ignore(do_vm_op printer rpc session_id (fun vm -> Client.VM.pause rpc session_id (vm.getref ())) params [])
@@ -2761,7 +2769,7 @@ let host_apply_edition printer rpc session_id params =
 		let port = List.assoc "license-server-port" params in
 		let port_int = try int_of_string port with _ -> -1 in
 		if port_int < 0 || port_int > 65535 then
-			printer (Cli_printer.PStderr "NOTE: The given port number is invalid; reverting to the current value.")
+			printer (Cli_printer.PStderr "NOTE: The given port number is invalid; reverting to the current value.\n")
 		else begin
 			Client.Host.remove_from_license_server rpc session_id host "port";
 			Client.Host.add_to_license_server rpc session_id host "port" port
@@ -2778,7 +2786,7 @@ let host_apply_edition printer rpc session_id params =
 			let print_if_checkout_error (ref, msg) =
 				if msg.API.message_name = "LICENSE_NOT_AVAILABLE" || msg.API.message_name = "LICENSE_SERVER_UNREACHABLE" then
 					(* the body of the alert message is specified in the v6 daemon *)
-					printer (Cli_printer.PStderr msg.API.message_body)
+					printer (Cli_printer.PStderr (msg.API.message_body ^ "\n"))
 			in
 			if alerts = [] then
 				raise e
@@ -2789,7 +2797,7 @@ let host_apply_edition printer rpc session_id params =
 		| Api_errors.Server_error (name, args) as e when name = Api_errors.invalid_edition ->
 			let editions = List.map (fun (x, _, _, _) -> x) (V6client.get_editions ()) in
 			let editions = String.concat ", " editions in
-			printer (Cli_printer.PStderr ("Valid editions are: " ^ editions));
+			printer (Cli_printer.PStderr ("Valid editions are: " ^ editions ^ "\n"));
 			raise e
 		| e -> raise e
 
