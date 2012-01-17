@@ -247,6 +247,15 @@ xe vm-memory-limits-set static-min=1024MiB static-max=1024MiB \
    dynamic-min=1024MiB dynamic-max=1024MiB \
    vm=$vm
 
+If you want to resize the HDD of a VM, you should first get the UUID
+of it's VDI:
+
+xe vm-disk-list vm=$vm
+
+Then resize its VDI:
+
+xe vdi-resize uuid=<UUID-OF-THE-VDI> disk-size=10GiB
+
 6.3/ Cloning the newly created VM
 Since we've done quite some work, it could be possible to clone our virtual
 machine to later do another install:
