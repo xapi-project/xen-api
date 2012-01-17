@@ -24,7 +24,6 @@ open Xenops_helpers
 
 let with_xc              = with_xc
 let with_xs              = with_xs
-let with_xal             = with_xal
 let with_xc_and_xs       = with_xc_and_xs
 let with_xc_and_xs_final = with_xc_and_xs_final
 

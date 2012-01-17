@@ -87,18 +87,6 @@ val assert_host_is_localhost : __context:Context.t -> host:API.ref_host -> unit
 val start_on :
   __context:Context.t ->
   vm:API.ref_VM -> host:API.ref_host -> start_paused:bool -> force:'a -> unit
-val record_shutdown_details :
-  __context:Context.t ->
-  vm:[ `VM ] Ref.t ->
-  Xal.died_reason ->
-  string ->
-  [< `coredump_and_destroy
-   | `coredump_and_restart
-   | `destroy
-   | `preserve
-   | `rename_restart
-   | `restart ] ->
-  unit
 val hard_reboot : __context:Context.t -> vm:API.ref_VM -> unit
 val hard_shutdown : __context:Context.t -> vm:API.ref_VM -> unit
 val clean_reboot : __context:Context.t -> vm:API.ref_VM -> unit

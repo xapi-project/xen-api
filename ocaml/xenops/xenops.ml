@@ -77,24 +77,7 @@ let build_hvm ~xc ~xs ~kernel ~domid ~vcpus ~static_max_kib ~target_kib =
 	printf "built hvm domain: %u\n" domid
 
 let clean_shutdown_domain ~xal ~domid ~reason ~sync =
-  let xc = Xal.xc_of_ctx xal in
-  let xs = Xal.xs_of_ctx xal in
-  Domain.shutdown ~xs domid reason;
-  (* Wait for any necessary acknowledgement. If we get a Watch.Timeout _ then
-	 we abort early; otherwise we continue in Xal.wait_release below. *)
-  let acked = try Domain.shutdown_wait_for_ack ~xc ~xs domid reason; true with Watch.Timeout _ -> false in
-	if not acked then (
-		eprintf "domain %u didn't acknowledged shutdown\n" domid;
-	) else (
-		printf "shutdown domain: %u\n" domid;
-		if sync then
-			try
-				ignore (Xal.wait_release xal ~timeout:30. domid);
-				printf "domain shutdowned correctly\n"
-			with Xal.Timeout ->
-				eprintf "domain %u didn't shutdown\n" domid;
-				raise Xal.Timeout
-	)
+	failwith "Use 'xn' instead"
 
 let hard_shutdown_domain ~xc ~domid ~reason = Domain.hard_shutdown ~xc domid reason
 
@@ -730,7 +713,7 @@ let _ = try
 		match reason with
 		| None -> error "no shutdown reason specified"
 		| Some reason ->
-			with_xal (fun xal -> clean_shutdown_domain ~xal ~domid ~reason ~sync)
+			failwith "use 'xn' instead"
 		)
 	| "hard_shutdown_domain" -> (
 		assert_domid ();

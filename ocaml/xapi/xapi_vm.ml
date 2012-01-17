@@ -215,23 +215,6 @@ let start_on  ~__context ~vm ~host ~start_paused ~force =
 	assert_host_is_localhost ~__context ~host;
 	start ~__context ~vm ~start_paused ~force
 
-(** CA-11132: Record information about the shutdown in odd other-config keys for Egenera *)
-let record_shutdown_details ~__context ~vm reason initiator action =
-    let replace_other_config_key ~__context ~vm k v =
-      begin
-	try Db.VM.remove_from_other_config ~__context ~self:vm ~key:k
-	with _ -> ()
-      end;
-      Db.VM.add_to_other_config ~__context ~self:vm ~key:k ~value:v in
-    let vm' = Ref.string_of vm in
-    let reason' = Xal.string_of_died_reason reason in
-    let action' = Record_util.on_crash_behaviour_to_string action in
-    replace_other_config_key ~__context ~vm "last_shutdown_reason" reason';
-    replace_other_config_key ~__context ~vm "last_shutdown_initiator" initiator;
-    replace_other_config_key ~__context ~vm "last_shutdown_action" action';
-    replace_other_config_key ~__context ~vm "last_shutdown_time" (Date.to_string (Date.of_float (Unix.gettimeofday())));
-    info "VM %s shutdown initiated %sly; actions_after[%s] = %s" vm' initiator reason' action'
-
 let hard_reboot ~__context ~vm =
 	License_check.with_vm_license_check ~__context vm
 		(fun () ->
