@@ -89,6 +89,12 @@ module TypedTable = functor(I: ITEM) -> struct
 	open I
 	type key = string list
 	let filename_of_key k = Printf.sprintf "%s/%s/%s" root I.namespace (String.concat "/" k)
+	let paths_of_key k =
+		let prefixes, _ = List.fold_left
+			(fun (acc, prefix) element ->
+				(element :: prefix) :: acc, element :: prefix
+			) ([], []) k in
+		List.map filename_of_key (List.map List.rev prefixes)
 	let read (k: I.key) =
 		let filename = k |> I.key |> filename_of_key in
 		debug "DB.read %s" filename;
@@ -107,9 +113,21 @@ module TypedTable = functor(I: ITEM) -> struct
 		Unixext.write_string_to_file filename json
 	let exists (k: I.key) = Sys.file_exists (k |> I.key |> filename_of_key)
 	let delete (k: I.key) =
-		let filename = k |> I.key |> filename_of_key in
-		debug "DB.delete %s" filename;
-		rm_rf filename
+		let key = I.key k in
+		(* If the parent directory is now empty, remove that too *)
+		List.iter
+			(fun path ->
+				if Sys.is_directory path then begin
+					if Array.length (Sys.readdir path) = 0 then begin
+						debug "DB.delete %s" path;
+						Unix.rmdir path
+					end
+				end else begin
+					debug "DB.delete %s" path;
+					Unix.unlink path;
+				end
+			) (paths_of_key key)
+		
 	let list (k: key) =
 		let filename = filename_of_key k in
 		if Sys.file_exists filename
