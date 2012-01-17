@@ -79,3 +79,20 @@ let vm_pre_reboot ~reason ~id =
   execute_vm_hook ~script_name:scriptname__vm_pre_reboot ~reason ~id
 let vm_post_destroy ~reason ~id =
   execute_vm_hook ~script_name:scriptname__vm_post_destroy ~reason ~id
+
+type script =
+	| VM_pre_destroy
+	| VM_pre_migrate
+	| VM_pre_start
+	| VM_pre_reboot
+	| VM_post_destroy
+with rpc
+
+let vm script reason id =
+	let script_name = match script with
+		| VM_pre_destroy  -> scriptname__vm_pre_destroy
+		| VM_pre_migrate  -> scriptname__vm_pre_migrate
+		| VM_pre_start    -> scriptname__vm_pre_start
+		| VM_pre_reboot   -> scriptname__vm_pre_reboot
+		| VM_post_destroy -> scriptname__vm_post_destroy in
+	execute_vm_hook ~script_name ~reason ~id

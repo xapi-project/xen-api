@@ -284,8 +284,8 @@ module VM = struct
 	let request_shutdown _ vm reason ack_delay = Mutex.execute m (request_shutdown_nolock vm reason)
 	let wait_shutdown _ vm reason timeout = true
 
-	let save _ vm flags data = Mutex.execute m (save_nolock vm flags data)
-	let restore _ vm data = Mutex.execute m (restore_nolock vm data)
+	let save _ cb vm flags data = Mutex.execute m (save_nolock vm flags data)
+	let restore _ cb vm data = Mutex.execute m (restore_nolock vm data)
 
 	let s3suspend _ vm = ()
 	let s3resume _ vm = ()
