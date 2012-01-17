@@ -78,7 +78,6 @@ val assert_power_state_is :
             > `Halted `Paused `Running `Suspended ] ->
   unit
 val assert_not_ha_protected : __context:Context.t -> vm:[ `VM ] Ref.t -> unit
-val pause_already_locked : __context:Context.t -> vm:[ `VM ] Ref.t -> unit
 val pause : __context:Context.t -> vm:API.ref_VM -> unit
 val unpause : __context:Context.t -> vm:API.ref_VM -> unit
 val start :
@@ -88,31 +87,6 @@ val assert_host_is_localhost : __context:Context.t -> host:API.ref_host -> unit
 val start_on :
   __context:Context.t ->
   vm:API.ref_VM -> host:API.ref_host -> start_paused:bool -> force:'a -> unit
-module TwoPhase :
-  sig
-    type args = {
-      __context : Context.t;
-      vm : API.ref_VM;
-      api_call_name : string;
-      clean : bool;
-    }
-    type t = { in_guest : args -> unit; in_dom0 : args -> unit; }
-  end
-module Reboot :
-  sig
-    val in_guest : TwoPhase.args -> unit
-	val in_dom0_already_locked : TwoPhase.args -> unit
-    val in_dom0 : TwoPhase.args -> unit
-    val actions : TwoPhase.t
-  end
-module Shutdown :
-  sig
-    val in_guest : TwoPhase.args -> unit
-	val in_dom0_already_locked : TwoPhase.args -> unit
-    val in_dom0 : TwoPhase.args -> unit
-    val actions : TwoPhase.t
-  end
-val of_action : [< `destroy | `restart ] -> TwoPhase.t
 val record_shutdown_details :
   __context:Context.t ->
   vm:[ `VM ] Ref.t ->
