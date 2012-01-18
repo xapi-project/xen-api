@@ -1248,6 +1248,8 @@ module VBD = struct
 					deactivate_and_detach task device vbd;
 				with 
 					| Exception(Does_not_exist(_,_)) ->
+						debug "Ignoring missing domain: %s" (id_of vbd)
+					| Exception Device_not_connected ->
 						debug "Ignoring missing device: %s" (id_of vbd)
 					| Device_common.Device_error(_, s) ->
 						debug "Caught Device_error: %s" s;
@@ -1415,8 +1417,11 @@ module VIF = struct
 						(fun () -> (if force then Device.hard_shutdown else Device.clean_shutdown) ~xs device);
 					Xenops_task.with_subtask task (Printf.sprintf "Vif.release %s" (id_of vif))
 						(fun () -> Device.Vif.release ~xs device);
-				with (Exception(Does_not_exist(_,_))) ->
-					debug "Ignoring missing device: %s" (id_of vif)
+				with
+					| Exception(Does_not_exist(_,_)) ->
+						debug "Ignoring missing domain: %s" (id_of vif)
+					| Exception(Device_not_connected) ->
+						debug "Ignoring missing device: %s" (id_of vif)
 			);
 		()
 
