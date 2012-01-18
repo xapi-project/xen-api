@@ -588,6 +588,8 @@ let create_all_templates rpc session_id =
 		hvm_template "Windows Server 2003"        X32  256  8 [  x;v;];
 		hvm_template "Windows Server 2003 PAE"    X32  256  8 [n;  v;];
 		hvm_template "Windows Server 2003 PAE"    X32  256  8 [n;x;v;];
+		hvm_template "Test template 1"            X32  256  8 [n;  v;];
+		hvm_template "Test template 2"            X32  256  8 [n;x;v;];
 		hvm_template "Windows Server 2003"        X64  256  8 [n;  v;];
 		hvm_template "Windows Server 2003"        X64  256  8 [n;x;v;];
 		hvm_template "Windows Server 2008"        X32  512 24 [n;  v;];
