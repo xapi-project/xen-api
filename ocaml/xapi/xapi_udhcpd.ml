@@ -26,7 +26,7 @@ let ip_begin_key = "ip_begin"
 let ip_end_key = "ip_end"
 
 let udhcpd_conf = Filename.concat Fhs.vardir "udhcpd.conf"
-let udhcpd_skel = Filename.concat Fhs.etcdir "udhcpd.skel"
+let udhcpd_skel = Filename.concat Fhs.vardir "udhcpd.skel"
 let leases_db = Filename.concat Fhs.vardir "dhcp-leases.db"
 let pidfile = "/var/run/udhcpd.pid"
 
