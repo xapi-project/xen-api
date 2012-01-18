@@ -149,6 +149,7 @@ let create_vm id =
 		pci_passthrough = false;
 		boot_order = "boot";
 		qemu_disk_cmdline = false;
+		qemu_stubdom = false;
 	} in {
 		id = id;
 		name = "Example: " ^ id;

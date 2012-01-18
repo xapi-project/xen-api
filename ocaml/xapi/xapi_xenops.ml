@@ -113,6 +113,7 @@ let builder_of_vm ~__context ~vm timeoffset =
 			pci_passthrough = false;
 			boot_order = string vm.API.vM_HVM_boot_params "cd" "order";
 			qemu_disk_cmdline = bool vm.API.vM_platform false "qemu_disk_cmdline";
+			qemu_stubdom = bool vm.API.vM_platform false "qemu_stubdom";
 		}
 		| Helpers.DirectPV { Helpers.kernel = k; kernel_args = ka; ramdisk = initrd } ->
 			let k = if is_boot_file_whitelisted k then k else begin
@@ -1223,6 +1224,7 @@ let start ~__context ~self paused =
 		Client.VM.unpause dbg id |> sync __context;
 	end;
 	set_resident_on ~__context ~self;
+	(* XXX: if the guest crashed or shutdown immediately then it may be offline now *)
 	assert (Db.VM.get_power_state ~__context ~self = (if paused then `Paused else `Running))
 
 let start ~__context ~self paused =

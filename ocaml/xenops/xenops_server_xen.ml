@@ -427,6 +427,12 @@ let device_by_id xc xs vm kind domain_selection id =
 				debug "Failed to find active device: domid = %d; kind = %s; id = %s; devices = [ %s ]" frontend_domid (Device_common.string_of_kind kind) id (String.concat ", " (List.map (Opt.default "None") ids));
 				raise (Exception Device_not_connected)
 
+let set_stubdom ~xs domid domid' =
+	xs.Xs.write (Printf.sprintf "/local/domain/%d/stub-domid" domid) (string_of_int domid')
+
+let get_stubdom ~xs domid =
+	try Some (int_of_string (xs.Xs.read (Printf.sprintf "/local/domain/%d/stub-domid" domid))) with _ -> None
+
 module VM = struct
 	open Vm
 
@@ -538,6 +544,17 @@ module VM = struct
 						DB.write k vmextra;
 						let domid = Domain.make ~xc ~xs vmextra.VmExtra.create_info (uuid_of_vm vm) in
 						Mem.transfer_reservation_to_domain ~xs ~reservation_id ~domid;
+						begin match vm.Vm.ty with
+							| Vm.HVM { Vm.qemu_stubdom = true } ->
+								Mem.with_reservation ~xc ~xs ~min:Stubdom.memory_kib ~max:Stubdom.memory_kib
+									(fun _ reservation_id ->
+										let stubdom_domid = Stubdom.create ~xc ~xs domid in
+										Mem.transfer_reservation_to_domain ~xs ~reservation_id ~domid:stubdom_domid;
+										set_stubdom ~xs domid stubdom_domid;
+									)
+							| _ ->
+								()
+						end;
 						let initial_target =
 							let target_plus_overhead_bytes = bytes_of_kib target_plus_overhead_kib in
 							let target_bytes = target_plus_overhead_bytes --- overhead_bytes in
@@ -575,6 +592,12 @@ module VM = struct
 
 	let destroy = on_domain (fun xc xs task vm di ->
 		let domid = di.Xenctrl.domid in
+
+		(* We need to clean up the stubdom before the primary otherwise we deadlock *)
+		Opt.iter
+			(fun stubdom_domid ->
+				Domain.destroy ~preserve_xs_vm:false ~xc ~xs stubdom_domid
+			) (get_stubdom ~xs domid);
 
 		let vbds = Opt.default [] (Opt.map (fun d -> d.VmExtra.vbds) (DB.read vm.Vm.id)) in
 
@@ -805,8 +828,18 @@ module VM = struct
 	let create_device_model_exn saved_state xc xs task vm di =
 		let vmextra = DB.read_exn vm.Vm.id in
 		Opt.iter (fun info ->
-			(if saved_state then Device.Dm.restore else Device.Dm.start)
-			~xs ~dmpath:_qemu_dm info di.Xenctrl.domid) (vmextra |> create_device_model_config);
+			match vm.Vm.ty with
+				| Vm.HVM { Vm.qemu_stubdom = true } ->
+					if saved_state then failwith "Cannot resume with stubdom yet";
+					Opt.iter
+						(fun stubdom_domid ->
+							Stubdom.build ~xc ~xs info di.Xenctrl.domid stubdom_domid;
+							Device.Dm.start_vnconly ~xs ~dmpath:_qemu_dm info stubdom_domid
+						) (get_stubdom ~xs di.Xenctrl.domid);
+				| _ ->
+					(if saved_state then Device.Dm.restore else Device.Dm.start)
+						~xs ~dmpath:_qemu_dm info di.Xenctrl.domid
+		) (vmextra |> create_device_model_config);
 		match vm.Vm.ty with
 			| Vm.PV { vncterm = true; vncterm_ip = ip } -> Device.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
 			| _ -> ()
@@ -1207,7 +1240,7 @@ module VBD = struct
 					let device_number = device.frontend.devid |> Device_number.of_xenstore_key in
 
 					(* If qemu is in a different domain to storage, attach disks to it *)
-					let qemu_domid = this_domid ~xs in
+					let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs frontend_domid) in
 					let qemu_frontend = match Device_number.spec device_number with
 						| Device_number.Ide, n, _ when n < 4 ->
 							begin match vbd.Vbd.backend with

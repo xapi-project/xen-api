@@ -101,6 +101,7 @@ module Vm = struct
 		pci_passthrough: bool;
 		boot_order: string;
 		qemu_disk_cmdline: bool;
+		qemu_stubdom: bool;
 	}
 
 	type pv_direct_boot = {
