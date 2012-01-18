@@ -548,6 +548,7 @@ let perform_atomics atomics t =
 			(fun progress x ->
 				let weight = weight_of_atomic x in
 				let progress_callback = progress_callback progress (weight /. total_weight) t in
+				debug "Performing atomic: %s" (string_of_atomic x);
 				perform_atomic ~subtask:(string_of_atomic x) ~progress_callback x t;
 				progress_callback 1.;
 				progress +. (weight /. total_weight)

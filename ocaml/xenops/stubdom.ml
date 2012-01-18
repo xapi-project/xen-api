@@ -18,7 +18,10 @@ open Xenstore
 
 let fs_backend_path = "/usr/sbin/fs-backend"
 
-let create ~xc ~xs (info: Device.Dm.info) domid =
+let memory_mib = 32L
+let memory_kib = Int64.mul 1024L memory_mib
+
+let create ~xc ~xs domid =
     let stubdom_name = Printf.sprintf "stubdom:%d" domid in
 	let stubdom_uuid = Uuid.make_uuid() in
     debug "jjd27: creating stubdom with name '%s' and uuid '%s'" stubdom_name (Uuid.to_string stubdom_uuid);
@@ -35,12 +38,13 @@ let create ~xc ~xs (info: Device.Dm.info) domid =
     debug "jjd27: created stubdom with domid %d" stubdom_domid;
 
     Domain.set_machine_address_size ~xc stubdom_domid (Some 32);
+	stubdom_domid
 
+let build ~xc ~xs info domid stubdom_domid =
     (* Now build it as a PV domain *)
-    let mib32 = Int64.mul 32L 1024L in
     let (_: Domain.domarch) = Domain.build ~xc ~xs {
-        Domain.memory_max=mib32;
-        Domain.memory_target=mib32;
+        Domain.memory_max=memory_kib;
+        Domain.memory_target=memory_kib;
         Domain.kernel="/usr/lib/xen/boot/ioemu-stubdom.gz";
         Domain.vcpus=1;
         Domain.priv=Domain.BuildPV {Domain.cmdline=""; Domain.ramdisk=None};
@@ -65,9 +69,7 @@ let create ~xc ~xs (info: Device.Dm.info) domid =
     (* Write the qemu-dm command-line arguments into XenStore *)
 	let guest_uuid_str = Uuid.to_string (Domain.get_uuid xc domid) in
     let path = Printf.sprintf "/vm/%s/image/dmargs" guest_uuid_str in
-	(* XXX *)
-	let args = [] (* Device.Dm.cmdline info *) in
-    let args = List.tl (List.tl args) in
+	let args = Device.Dm.cmdline_of_info info false domid in
     let args = List.filter (fun x -> x <> "-serial" && x <> "pty") args in
     xs.Xs.write path (String.concat " " args);
     debug "jjd27: written qemu-dm args into xenstore at %s: [%s]" path (String.concat " " args);
@@ -87,10 +89,10 @@ let create ~xc ~xs (info: Device.Dm.info) domid =
     List.iter (fun domid -> ignore (Device.Vfb.add ~xc ~xs domid)) [stubdom_domid; domid];
 
     (* Add a vkbd device to the stubdom and the guest *)
-    List.iter (fun domid -> ignore (Device.Vkbd.add ~xc ~xs domid)) [stubdom_domid; domid];
+    List.iter (fun domid -> ignore (Device.Vkbd.add ~xc ~xs domid)) [stubdom_domid; domid]
 
 	(* XXX: 
     (* Add a place for qemu to record the dm state in XenStore, with appropriate permissions *)
     List.iter (fun domid -> Device.Dm.init ~xs ~domid) [stubdom_domid; domid];
 	*)
-    stubdom_domid
+
