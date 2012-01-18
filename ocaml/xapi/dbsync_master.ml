@@ -69,9 +69,6 @@ let set_pool_defaults ~__context =
 			~key:Xapi_globs.cpuid_feature_mask_key
 			~value:Xapi_globs.cpuid_default_feature_mask
 
-(** Look at all running VMs, examine their consoles and regenerate the console URLs.
-    This catches the case where the IP address changes but the URLs still point to the wrong
-    place. *)
 let refresh_console_urls ~__context =
   List.iter
     (fun console ->
@@ -238,8 +235,6 @@ let update_env __context =
      marked as running with dangling resident_on references. We delete the control domains
      and reset the rest to Halted. *)
   reset_vms_running_on_missing_hosts ~__context;
-
-  refresh_console_urls ~__context;
 
   (* Resets all Halted VMs to a known good state *)
   release_locks ~__context;
