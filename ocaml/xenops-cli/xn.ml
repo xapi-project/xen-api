@@ -309,6 +309,7 @@ let add filename =
 					pci_passthrough = false;
 					boot_order = if mem _boot then find _boot |> string else "cd";
 					qemu_disk_cmdline = false;
+					qemu_stubdom = false;
 				} in
 			let uuid = if mem _uuid then find _uuid |> string else Uuid.string_of_uuid (Uuid.make_uuid ()) in
 			let name = if mem _name then find _name |> string else uuid in
