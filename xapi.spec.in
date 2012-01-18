@@ -207,7 +207,6 @@ rm -rf $RPM_BUILD_ROOT
 /etc/xensource/bugtool/xapi/stuff.xml
 @BASE_PATH@/libexec/sm_diagnostics
 @BASE_PATH@/libexec/thread_diagnostics
-@BASE_PATH@/libexec/fakeguestagent
 @BASE_PATH@/libexec/InterfaceReconfigure.py
 @BASE_PATH@/libexec/InterfaceReconfigure.pyo
 @BASE_PATH@/libexec/InterfaceReconfigure.pyc
