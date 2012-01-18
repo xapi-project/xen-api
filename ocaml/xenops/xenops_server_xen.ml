@@ -1068,7 +1068,7 @@ module VM = struct
 									Int64.of_int (Xenctrl.shadow_allocation_get xc di.Xenctrl.domid) in
 								(Int64.to_float actual_shadow_mib) /. (Int64.to_float default_shadow_mib) in
 						{
-							Vm.power_state = Running;
+							Vm.power_state = if di.Xenctrl.paused then Paused else Running;
 							domids = [ di.Xenctrl.domid ];
 							consoles = Opt.to_list vnc @ (Opt.to_list tc);
 							uncooperative_balloon_driver = uncooperative;
