@@ -1043,10 +1043,21 @@ let initial_vm_resync ~__context =
 		) (List.set_difference in_db in_xenopsd);
 	List.iter
 		(fun id ->
-			info "VM %s is running here: setting power_state to Running" id;
-			let vm = Db.VM.get_by_uuid ~__context ~uuid:id in
-			Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Running;
-			Db.VM.set_resident_on ~__context ~self:vm ~value:localhost
+			try
+				info "VM %s is running here: setting power_state to Running" id;
+				let vm = Db.VM.get_by_uuid ~__context ~uuid:id in
+				Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Running;
+				Db.VM.set_resident_on ~__context ~self:vm ~value:localhost
+			with _ ->
+				begin
+					try
+						info "VM %s is running here but isn't in the database: terminating" id;
+						let dbg = Context.string_of_task __context in
+						Client.VM.shutdown dbg id None |> success |> wait_for_task dbg |> ignore;
+						Client.VM.remove dbg id |> success
+					with e ->
+						error "Failed to remove VM %s: %s" id (Printexc.to_string e)
+				end
 		) (List.set_difference in_xenopsd in_db)
 
 let events_from_xenopsd () =
