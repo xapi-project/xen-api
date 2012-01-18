@@ -188,10 +188,27 @@ let assert_not_suspended ~__context ~vm =
     let error_params = [Ref.string_of vm; expected; Record_util.power_to_string `Suspended] in
     raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, error_params))
 
+let assert_ok_to_insert ~__context ~vbd ~vdi =
+	let vm = Db.VBD.get_VM ~__context ~self:vbd in
+    assert_not_suspended ~__context ~vm;
+    assert_removable ~__context ~vbd;
+    assert_empty ~__context ~vbd;
+	Xapi_vdi_helpers.assert_vdi_is_valid_iso ~__context ~vdi;
+    Xapi_vdi_helpers.assert_managed ~__context ~vdi;
+	assert_doesnt_make_vm_non_agile ~__context ~vm ~vdi
+
 let insert ~__context ~vbd ~vdi =
+	assert_ok_to_insert ~__context ~vbd ~vdi;
     Xapi_xenops.vbd_insert ~__context ~self:vbd ~vdi
 
+let assert_ok_to_eject ~__context ~vbd =
+	let vm = Db.VBD.get_VM ~__context ~self:vbd in
+    assert_removable ~__context ~vbd;
+    assert_not_empty ~__context ~vbd;
+    assert_not_suspended ~__context ~vm
+
 let eject ~__context ~vbd =
+	assert_ok_to_eject ~__context ~vbd;
     Xapi_xenops.vbd_eject ~__context ~self:vbd
 
 let refresh ~__context ~vbd ~vdi =
