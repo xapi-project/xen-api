@@ -89,10 +89,6 @@ let is_boot_file_whitelisted filename =
 	(String.startswith allowed_dom0_directory_for_boot_files filename)
 		(* avoid ..-style attacks and other weird things *)
 	&&(safe_str filename)
-let assert_boot_file_is_whitelisted filename =
-	if not (is_boot_file_whitelisted filename) then
-		raise (Api_errors.Server_error (Api_errors.permission_denied, [
-			(Printf.sprintf "illegal boot file path %s" filename)]))
 
 let builder_of_vm ~__context ~vm timeoffset =
 	let open Vm in
@@ -119,8 +115,16 @@ let builder_of_vm ~__context ~vm timeoffset =
 			qemu_disk_cmdline = bool vm.API.vM_platform false "qemu_disk_cmdline";
 		}
 		| Helpers.DirectPV { Helpers.kernel = k; kernel_args = ka; ramdisk = initrd } ->
-			assert_boot_file_is_whitelisted k;
-			Opt.iter assert_boot_file_is_whitelisted initrd;
+			let k = if is_boot_file_whitelisted k then k else begin
+				debug "kernel %s is not in the whitelist: ignoring" k;
+				""
+			end in
+			let initrd = Opt.map (fun x ->
+				if is_boot_file_whitelisted x then x else begin
+					debug "initrd %s is not in the whitelist: ignoring" k;
+					""
+				end
+			) initrd in
 			PV {
 				boot = Direct { kernel = k; cmdline = ka; ramdisk = initrd };
 				framebuffer = false;
@@ -1043,7 +1047,7 @@ let initial_vm_resync ~__context =
 			let vm = Db.VM.get_by_uuid ~__context ~uuid:id in
 			Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Running;
 			Db.VM.set_resident_on ~__context ~self:vm ~value:localhost
-		) (List.set_difference in_db in_xenopsd)
+		) (List.set_difference in_xenopsd in_db)
 
 let events_from_xenopsd () =
     Server_helpers.exec_with_new_task "xapi_xenops"
