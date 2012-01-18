@@ -3316,7 +3316,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let local_fn = Local.VBD.insert ~vbd ~vdi in
 			with_vbd_marked ~__context ~vbd ~doc:"VBD.insert" ~op:`insert
 				(fun () ->
-					forward_vbd_op ~local_fn ~__context ~self:vbd
+					let vm = Db.VBD.get_VM ~__context ~self:vbd in
+					if Db.VM.get_power_state ~__context ~self:vm = `Halted then begin
+						Xapi_vbd.assert_ok_to_insert ~__context ~vbd ~vdi;
+						Db.VBD.set_VDI ~__context ~self:vbd ~value:vdi;
+						Db.VBD.set_empty ~__context ~self:vbd ~value:false
+					end
+					else forward_vbd_op ~local_fn ~__context ~self:vbd
 						(fun session_id rpc -> Client.VBD.insert rpc session_id vbd vdi));
 			update_vbd_and_vdi_operations ~__context ~vbd
 
@@ -3325,7 +3331,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let local_fn = Local.VBD.eject ~vbd in
 			with_vbd_marked ~__context ~vbd ~doc:"VBD.eject" ~op:`eject
 				(fun () ->
-					forward_vbd_op ~local_fn ~__context ~self:vbd
+					let vm = Db.VBD.get_VM ~__context ~self:vbd in
+					if Db.VM.get_power_state ~__context ~self:vm = `Halted then begin
+						Xapi_vbd.assert_ok_to_eject ~__context ~vbd;
+						Db.VBD.set_empty ~__context ~self:vbd ~value:true;
+						Db.VBD.set_VDI ~__context ~self:vbd ~value:Ref.null;
+					end
+					else forward_vbd_op ~local_fn ~__context ~self:vbd
 						(fun session_id rpc -> Client.VBD.eject rpc session_id vbd));
 			update_vbd_and_vdi_operations ~__context ~vbd
 
