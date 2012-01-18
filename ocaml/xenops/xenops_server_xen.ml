@@ -61,6 +61,7 @@ module VmExtra = struct
 		ty: Vm.builder_info option;
 		vbds: Vbd.t list; (* needed to regenerate qemu IDE config *)
 		qemu_vbds: (Vbd.id * (int * qemu_frontend)) list;
+		qemu_vifs: (Vif.id * (int * qemu_frontend)) list;
 		vifs: Vif.t list;
 		last_create_time: float;
 		pci_msitranslate: bool;
@@ -527,6 +528,7 @@ module VM = struct
 								ty = None;
 								vbds = [];
 								qemu_vbds = [];
+								qemu_vifs = [];
 								vifs = [];
 								last_create_time = Unix.gettimeofday ();
 								pci_msitranslate = vm.Vm.pci_msitranslate;
