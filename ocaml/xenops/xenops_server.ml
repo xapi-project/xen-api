@@ -478,10 +478,12 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			Updates.add (Dynamic.Vm id) updates
 		| VM_pause id ->
 			debug "VM.pause %s" id;
-			B.VM.pause t (VM_DB.read_exn id)
+			B.VM.pause t (VM_DB.read_exn id);
+			Updates.add (Dynamic.Vm id) updates
 		| VM_unpause id ->
 			debug "VM.unpause %s" id;
-			B.VM.unpause t (VM_DB.read_exn id)
+			B.VM.unpause t (VM_DB.read_exn id);
+			Updates.add (Dynamic.Vm id) updates
 		| VM_create_device_model (id, save_state) ->
 			debug "VM.create_device_model %s" id;
 			B.VM.create_device_model t (VM_DB.read_exn id) save_state
@@ -706,7 +708,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			let vif_t = PCI_DB.read_exn id in
 			let vm_state = B.VM.get_state (VM_DB.read_exn (PCI_DB.vm_of id)) in
 			let request =
-				if vm_state.Vm.power_state = Running
+				if vm_state.Vm.power_state = Running || vm_state.Vm.power_state = Paused
 				then B.PCI.get_device_action_request (VIF_DB.vm_of id) vif_t
 				else Some Needs_unplug in
 			let operations_of_request = function
@@ -719,7 +721,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			let vbd_t = VBD_DB.read_exn id in
 			let vm_state = B.VM.get_state (VM_DB.read_exn (VBD_DB.vm_of id)) in
 			let request =
-				if vm_state.Vm.power_state = Running
+				if vm_state.Vm.power_state = Running || vm_state.Vm.power_state = Paused
 				then B.VBD.get_device_action_request (VBD_DB.vm_of id) vbd_t
 				else begin
 					debug "VM %s is not running: VBD_unplug needed" (VBD_DB.vm_of id);
@@ -735,7 +737,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			let vif_t = VIF_DB.read_exn id in
 			let vm_state = B.VM.get_state (VM_DB.read_exn (VIF_DB.vm_of id)) in
 			let request =
-				if vm_state.Vm.power_state = Running
+				if vm_state.Vm.power_state = Running || vm_state.Vm.power_state = Paused
 				then B.VIF.get_device_action_request (VIF_DB.vm_of id) vif_t
 				else Some Needs_unplug in
 			let operations_of_request = function
