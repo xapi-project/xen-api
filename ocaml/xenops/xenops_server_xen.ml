@@ -623,7 +623,11 @@ module VM = struct
 
 	let unpause = on_domain (fun xc xs _ _ di ->
 		if di.Xenctrl.total_memory_pages = 0n then raise (Exception Domain_not_built);
-		Domain.unpause ~xc di.Xenctrl.domid
+		Domain.unpause ~xc di.Xenctrl.domid;
+		Opt.iter
+			(fun stubdom_domid ->
+				Domain.unpause ~xc stubdom_domid
+			) (get_stubdom ~xs di.Xenctrl.domid)
 	) Newest
 
 	let set_vcpus task vm target = on_domain (fun xc xs _ _ di ->
