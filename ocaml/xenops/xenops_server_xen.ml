@@ -34,8 +34,8 @@ let run cmd args =
 	debug "%s %s" cmd (String.concat " " args);
 	fst(Forkhelpers.execute_command_get_output cmd args)
 
-type block_device =
-	| Path of string
+type qemu_frontend =
+	| Name of string (* block device path or bridge name *)
 	| Device of Device_common.device
 with rpc
 
@@ -60,7 +60,7 @@ module VmExtra = struct
 		suspend_memory_bytes: int64;
 		ty: Vm.builder_info option;
 		vbds: Vbd.t list; (* needed to regenerate qemu IDE config *)
-		qemu_vbds: (Vbd.id * (int * block_device)) list;
+		qemu_vbds: (Vbd.id * (int * qemu_frontend)) list;
 		vifs: Vif.t list;
 		last_create_time: float;
 		pci_msitranslate: bool;
@@ -143,7 +143,7 @@ let create_vbd_frontend ~xc ~xs task frontend_domid vdi =
 			raise (Exception(Does_not_exist("domain", backend_vm_id)))
 		| Some backend_domid when backend_domid = frontend_domid ->
 			(* There's no need to use a PV disk if we're in the same domain *)
-			Path vdi.params
+			Name vdi.params
 		| Some backend_domid ->
 			let t = {
 				Device.Vbd.mode = Device.Vbd.ReadOnly;
@@ -162,14 +162,14 @@ let create_vbd_frontend ~xc ~xs task frontend_domid vdi =
 			Device device
 
 let block_device_of_vbd_frontend = function
-	| Path x -> x
+	| Name x -> x
 	| Device device ->
 		let open Device_common in
 		device.frontend.devid |> Device_number.of_xenstore_key |> Device_number.to_linux_device |> (fun x -> "/dev/" ^ x)
 
 let destroy_vbd_frontend ~xc ~xs task disk =
 	match disk with
-		| Path _ -> ()
+		| Name _ -> ()
 		| Device device ->
 			Xenops_task.with_subtask task "Vbd.clean_shutdown"
 				(fun () ->
