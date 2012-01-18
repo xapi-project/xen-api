@@ -69,8 +69,9 @@ let build ~xc ~xs info domid stubdom_domid =
     (* Write the qemu-dm command-line arguments into XenStore *)
 	let guest_uuid_str = Uuid.to_string (Domain.get_uuid xc domid) in
     let path = Printf.sprintf "/vm/%s/image/dmargs" guest_uuid_str in
-	let args = Device.Dm.cmdline_of_info info false domid in
-    let args = List.filter (fun x -> x <> "-serial" && x <> "pty") args in
+	(* Remove any 'pty' references from the arguments: XXX why? *)
+	let info' = { info with Device.Dm.serial = None; monitor = None } in
+	let args = Device.Dm.cmdline_of_info info' false domid in
     xs.Xs.write path (String.concat " " args);
     debug "jjd27: written qemu-dm args into xenstore at %s: [%s]" path (String.concat " " args);
 

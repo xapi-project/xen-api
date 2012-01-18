@@ -182,7 +182,8 @@ sig
 	type info = {
 		memory: int64;
 		boot: string;
-		serial: string;
+		serial: string option;
+		monitor: string option;
 		vcpus: int;
 		usb: string list;
 		nics: (string * string * int) list;

@@ -678,7 +678,8 @@ module VM = struct
 			vifs = vifs;
 			vbds = vbds; qemu_vbds = qemu_vbds
 		} ->
-			let make ?(boot_order="cd") ?(serial="pty") ?(nics=[])
+			let make ?(boot_order="cd") ?(serial="pty") ?(monitor="pty") 
+					?(nics=[])
 					?(disks=[]) ?(pci_emulations=[]) ?(usb=["tablet"])
 					?(acpi=true) ?(video=Cirrus) ?(keymap="en-us")
 					?vnc_ip ?(pci_passthrough=false) ?(hvm=true) ?(video_mib=4) () =
@@ -688,7 +689,8 @@ module VM = struct
 				let open Device.Dm in {
 					memory = build_info.Domain.memory_max;
 					boot = boot_order;
-					serial = serial;
+					serial = Some serial;
+					monitor = Some monitor;
 					vcpus = build_info.Domain.vcpus;
 					nics = nics;
 					disks = disks;

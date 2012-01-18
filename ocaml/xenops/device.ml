@@ -1455,7 +1455,8 @@ let string_of_media = function Disk -> "disk" | Cdrom -> "cdrom"
 type info = {
 	memory: int64;
 	boot: string;
-	serial: string;
+	serial: string option;
+	monitor: string option;
 	vcpus: int;
 	usb: string list;
 	nics: (string * string * int) list;
@@ -1640,7 +1641,7 @@ let cmdline_of_info info restore domid =
 		"-d"; string_of_int domid;
 		"-m"; Int64.to_string (Int64.div info.memory 1024L);
 		"-boot"; info.boot;
-		"-serial"; info.serial;
+	] @ (Opt.default [] (Opt.map (fun x -> [ "-serial"; x ]) info.serial)) @ [
 		"-vcpus"; string_of_int info.vcpus;
 	] @ disp_options @ usb' @ List.concat nics' @ List.concat disks'
 	@ (if info.acpi then [ "-acpi" ] else [])
@@ -1648,7 +1649,7 @@ let cmdline_of_info info restore domid =
 	@ (List.fold_left (fun l pci -> "-pciemulation" :: pci :: l) [] (List.rev info.pci_emulations))
 	@ (if info.pci_passthrough then ["-priv"] else [])
 	@ (List.fold_left (fun l (k, v) -> ("-" ^ k) :: (match v with None -> l | Some v -> v :: l)) [] info.extras)
-	@ [ "-monitor"; "pty" ]
+	@ (Opt.default [] (Opt.map (fun x -> [ "-monitor"; x ]) info.monitor))
 
 
 let vnconly_cmdline ~info ?(extras=[]) domid =
