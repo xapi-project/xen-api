@@ -499,12 +499,13 @@ let main_loop ifd ofd =
               (* Get the result header immediately *)
               match http_response_code resultline with
               | 200 ->
-	                (try
-		                 copy_with_heartbeat file_ch oc heartbeat_fun;
-		                 close_in file_ch;
-	                 with Sys_error s -> raise (ClientSideError s));
-	                (try close_in ic with _ -> ()); (* Nb. Unix.close_connection only requires the in_channel *)
-                  marshal ofd (Response OK)
+	              Pervasiveext.finally
+		              (fun () ->
+			              copy_with_heartbeat file_ch oc heartbeat_fun;
+			              marshal ofd (Response OK))
+		              (fun () ->
+			              (try close_in ic with _ -> ());
+			              (try close_in file_ch with _ -> ()))
               | 302 ->
 	                let newloc = List.assoc "location" headers in
 	                (try close_in ic with _ -> ()); (* Nb. Unix.close_connection only requires the in_channel *)
@@ -545,12 +546,13 @@ let main_loop ifd ofd =
 			                with e -> raise (ClientSideError (Printexc.to_string e))
 	                in
 	                while input_line ic <> "\r" do () done;
-	                (try
-		                 copy_with_heartbeat ic file_ch heartbeat_fun;
-		                 close_out file_ch
-	                 with Sys_error s -> raise (ClientSideError s));
-	                (try close_in ic with _ -> ()); (* Nb. Unix.close_connection only requires the in_channel *)
-	                marshal ofd (Response OK)
+	                Pervasiveext.finally
+		                (fun ()  ->
+			                copy_with_heartbeat ic file_ch heartbeat_fun;
+			                marshal ofd (Response OK))
+		                (fun () ->
+			                (try close_in ic with _ -> ());
+			                (try close_out file_ch with _ -> ()))
               | 302 ->
                   let headers = read_rest_of_headers ic in
                   let newloc = List.assoc "location" headers in
