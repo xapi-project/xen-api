@@ -39,7 +39,7 @@ let disk_of_vdi ~__context ~self =
 
 let backend_of_network ~__context ~self =
 	let bridge = Db.Network.get_bridge ~__context ~self in
-	VSwitch bridge (* PR-1255 *)
+	Network.Local bridge (* PR-1255 *)
 
 let find f map default feature =
 	try f (List.assoc feature map)

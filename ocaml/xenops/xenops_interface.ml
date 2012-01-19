@@ -76,11 +76,12 @@ type disk =
 type disk_list = disk list
 
 (** XXX: this code shouldn't care about the vswitch/bridge difference *)
-type network =
-	| Bridge of string (** name of a local bridge *)
-	| VSwitch of string (** name of a local vswitch *)
-	| Netback of string * string (** vm.id * backend *)
-type network_list = network list
+module Network = struct
+	type t =
+		| Local of string (** name of a local switch *)
+		| Remote of string * string (** vm.id * switch *)
+	type ts = t list
+end
 
 module Vm = struct
 	type video_card =
@@ -273,7 +274,7 @@ module Vif = struct
 		carrier: bool;
 		mtu: int;
 		rate: (int64 * int64) option;
-		backend: network;
+		backend: Network.t;
 		other_config: (string * string) list;
 		locking_mode: locking_mode;
 		extra_private_keys: (string * string) list;
