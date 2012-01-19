@@ -1421,15 +1421,16 @@ module VIF = struct
 				end
 
 	let plug_exn task vm vif =
+		let vm_t = DB.read_exn vm in
 		on_frontend
 			(fun xc xs frontend_domid hvm ->
 				let backend_domid = backend_domid_of xc xs vif in
 				(* Remember the VIF id with the device *)
 				let id = _device_id Device_common.Vif, id_of vif in
 
-				let (_: Device_common.device) =
-					Xenops_task.with_subtask task (Printf.sprintf "Vif.add %s" (id_of vif))
-						(fun () ->
+				Xenops_task.with_subtask task (Printf.sprintf "Vif.add %s" (id_of vif))
+					(fun () ->
+						let create frontend_domid =
 							Device.Vif.add ~xs ~devid:vif.position
 								~netty:(match vif.backend with
 									| Network.Local x -> Netman.Vswitch x
@@ -1438,23 +1439,49 @@ module VIF = struct
 								~rate:vif.rate ~backend_domid
 								~other_config:vif.other_config
 								~extra_private_keys:(id :: vif.extra_private_keys)
-								frontend_domid) in
-				()
+								frontend_domid in
+						let (_: Device_common.device) = create frontend_domid in
+
+						(* If qemu is in a different domain, then plug into it *)
+						let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs frontend_domid) in
+						let qemu_frontend = 
+							if vif.position < 4 then begin
+								let device = create qemu_domid in
+								Some (vif.position, Device device)
+							end else None in
+						(* Remember what we've just done *)
+						Opt.iter (fun q ->
+							DB.write vm { vm_t with VmExtra.qemu_vifs = (vif.Vif.id, q) :: vm_t.VmExtra.qemu_vifs }
+						) qemu_frontend
+					)
 			) Newest vm
 
 	let plug task vm = plug_exn task vm
 
 	let unplug task vm vif force =
+		let vm_t = DB.read_exn vm in
 		with_xc_and_xs
 			(fun xc xs ->
 				try
 					(* If the device is gone then this is ok *)
 					let device = device_by_id xc xs vm Device_common.Vif Oldest (id_of vif) in
-					(* NB different from the VBD case to make the test pass for now *)
-					Xenops_task.with_subtask task (Printf.sprintf "Vif.hard_shutdown %s" (id_of vif))
-						(fun () -> (if force then Device.hard_shutdown else Device.clean_shutdown) ~xs device);
-					Xenops_task.with_subtask task (Printf.sprintf "Vif.release %s" (id_of vif))
-						(fun () -> Device.Vif.release ~xs device);
+					let destroy device =
+						(* NB different from the VBD case to make the test pass for now *)
+						Xenops_task.with_subtask task (Printf.sprintf "Vif.hard_shutdown %s" (id_of vif))
+							(fun () -> (if force then Device.hard_shutdown else Device.clean_shutdown) ~xs device);
+						Xenops_task.with_subtask task (Printf.sprintf "Vif.release %s" (id_of vif))
+							(fun () -> Device.Vif.release ~xs device) in
+					destroy device;
+
+					(* If we have a qemu frontend, detach this too. *)
+					if List.mem_assoc vif.Vif.id vm_t.VmExtra.qemu_vifs then begin
+						match (List.assoc vif.Vif.id vm_t.VmExtra.qemu_vifs) with
+							| _, Device device ->
+								destroy device;
+								DB.write vm { vm_t with VmExtra.qemu_vifs = List.remove_assoc vif.Vif.id vm_t.VmExtra.qemu_vifs }
+							| _, _ -> ()
+					end;
+
 				with
 					| Exception(Does_not_exist(_,_)) ->
 						debug "Ignoring missing domain: %s" (id_of vif)
