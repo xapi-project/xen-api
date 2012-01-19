@@ -336,7 +336,6 @@ rm -rf $RPM_BUILD_ROOT
 @BASE_PATH@/debug/unpause_domain
 @BASE_PATH@/debug/vncproxy
 @BASE_PATH@/debug/with-vdi
-@BASE_PATH@/debug/xal
 @BASE_PATH@/debug/xs
 
 %files www
