@@ -159,7 +159,7 @@ let create_bond ~__context bond mtu =
 	(* clean up bond slaves *)
 	List.iter (fun (device, bridge) ->
 		Net.Interface.set_ipv4_addr bridge None4;
-		Net.Bridge.destroy ~force:true bridge;
+		Net.Bridge.destroy ~force:true ~name:bridge ();
 		Net.Interface.set_persistent bridge false;
 		Net.Interface.set_mtu device mtu
 	) slave_devices_and_bridges;
@@ -167,9 +167,9 @@ let create_bond ~__context bond mtu =
 	(* create bond bridge *)
 	let port = master_rc.API.pIF_device in
 	let mac = master_rc.API.pIF_MAC in
-	Net.Bridge.create ~mac ~fail_mode bridge;
-	Net.Bridge.add_port ~mac bridge port
-		(List.map (fun (device, _) -> device) slave_devices_and_bridges);
+	Net.Bridge.create ~mac ~fail_mode ~name:bridge ();
+	Net.Bridge.add_port ~mac ~bridge:bridge ~name:port
+		~interfaces:(List.map (fun (device, _) -> device) slave_devices_and_bridges) ();
 
 	(* set bond properties *)
 	let hashing_algorithm =
@@ -203,7 +203,7 @@ let destroy_bond ~__context ~force bond =
 		Db.Network.get_bridge ~__context ~self:network
 	in
 	Net.Interface.set_ipv4_addr bridge None4;
-	Net.Bridge.destroy ~force bridge
+	Net.Bridge.destroy ~force ~name:bridge ()
 
 let create_vlan ~__context vlan =
 	let master = Db.VLAN.get_untagged_PIF ~__context ~self:vlan in
@@ -224,7 +224,7 @@ let create_vlan ~__context vlan =
 		else
 			None
 	in
-	Net.Bridge.create ~vlan:(parent, tag) ?vlan_bug_workaround bridge
+	Net.Bridge.create ~vlan:(parent, tag) ?vlan_bug_workaround ~name:bridge ()
 
 let destroy_vlan ~__context vlan =
 	let master = Db.VLAN.get_untagged_PIF ~__context ~self:vlan in
@@ -233,7 +233,7 @@ let destroy_vlan ~__context vlan =
 		Db.Network.get_bridge ~__context ~self:network
 	in
 	Net.Interface.set_ipv4_addr bridge None4;
-	Net.Bridge.destroy bridge
+	Net.Bridge.destroy bridge ()
 
 let get_bond pif_rc =
 	match pif_rc.API.pIF_bond_master_of with
@@ -269,12 +269,12 @@ let rec create_bridges ~__context pif_rc bridge =
 	begin match get_pif_type pif_rc with
 	| `tunnel_pif _ ->
 		let fail_mode = get_fail_mode ~__context pif_rc in
-		Net.Bridge.create ~mac:pif_rc.API.pIF_MAC ~fail_mode bridge;
+		Net.Bridge.create ~mac:pif_rc.API.pIF_MAC ~fail_mode ~name:bridge ();
 	| `vlan_pif vlan ->
 		let slave = Db.VLAN.get_tagged_PIF ~__context ~self:vlan in
 		let rc = Db.PIF.get_record ~__context ~self:slave in
 		let bridge = Db.Network.get_bridge ~__context ~self:rc.API.pIF_network in
-		if not (Net.Interface.is_up bridge) then
+		if not (Net.Interface.is_up ~name:bridge) then
 			create_bridges ~__context rc bridge;
 		create_vlan ~__context vlan
 	| `bond_pif bond ->
@@ -284,8 +284,8 @@ let rec create_bridges ~__context pif_rc bridge =
 		let fail_mode = get_fail_mode ~__context pif_rc in
 		if pif_rc.API.pIF_bond_slave_of <> Ref.null then
 			destroy_bond ~__context ~force:true pif_rc.API.pIF_bond_slave_of;
-		Net.Bridge.create ~mac:pif_rc.API.pIF_MAC ~fail_mode bridge;
-		Net.Bridge.add_port bridge pif_rc.API.pIF_device [pif_rc.API.pIF_device];
+		Net.Bridge.create ~mac:pif_rc.API.pIF_MAC ~fail_mode ~name:bridge ();
+		Net.Bridge.add_port bridge pif_rc.API.pIF_device [pif_rc.API.pIF_device] ();
 		Net.Interface.set_mtu pif_rc.API.pIF_device mtu;
 		let (ethtool_settings, ethtool_offload) =
 			determine_ethtool_settings pif_rc.API.pIF_other_config in
@@ -301,7 +301,7 @@ let rec create_bridges ~__context pif_rc bridge =
 let rec destroy_bridges ~__context ~force pif_rc bridge =
 	begin match get_pif_type pif_rc with
 	| `tunnel_pif _ ->
-		Net.Bridge.destroy bridge
+		Net.Bridge.destroy bridge ()
 	| `vlan_pif vlan ->
 		destroy_vlan ~__context vlan;
 		let slave = Db.VLAN.get_tagged_PIF ~__context ~self:vlan in
@@ -312,7 +312,7 @@ let rec destroy_bridges ~__context ~force pif_rc bridge =
 	| `bond_pif bond ->
 		destroy_bond ~__context ~force bond
 	| `phy_pif  ->
-		Net.Bridge.destroy bridge
+		Net.Bridge.destroy bridge ()
 	end
 
 (* Determine the gateway and DNS PIFs:
