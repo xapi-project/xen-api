@@ -557,7 +557,7 @@ module VifDeviceTests = DeviceTests(struct
 			carrier = false;
 			mtu = 1450;
 			rate = Some(1L, 2L);
-			backend = Bridge "xenbr0";
+			backend = Network.Local "xenbr0";
 			other_config = [ "other", "config" ];
 			extra_private_keys = [ "private", "keys" ];
 		}
@@ -575,7 +575,7 @@ module VifDeviceTests = DeviceTests(struct
 		assert_equal ~msg:"carrier" ~printer:string_of_bool vif.carrier vif'.carrier;
 		assert_equal ~msg:"mtu" ~printer:string_of_int vif.mtu vif'.mtu;
 		assert_equal ~msg:"rate" ~printer:(function Some (a, b) -> Printf.sprintf "Some %Ld %Ld" a b | None -> "None") vif.rate vif'.rate;
-		assert_equal ~msg:"backend" ~printer:(fun x -> x |> rpc_of_network |> Jsonrpc.to_string) vif.backend vif'.backend;
+		assert_equal ~msg:"backend" ~printer:(fun x -> x |> Network.rpc_of_t |> Jsonrpc.to_string) vif.backend vif'.backend;
 		assert_equal ~msg:"other_config" ~printer:sl vif.other_config vif'.other_config;
 		assert_equal ~msg:"extra_private_keys" ~printer:sl vif.extra_private_keys vif'.extra_private_keys
 end)

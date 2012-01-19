@@ -185,9 +185,8 @@ let print_disk vbd =
 let print_vif vif =
 	let mac = if vif.Vif.mac = "" then "" else Printf.sprintf "mac=%s" vif.Vif.mac in
 	let bridge = match vif.Vif.backend with
-		| Bridge x -> Printf.sprintf "bridge=%s" x
-		| VSwitch x -> Printf.sprintf "bridge=%s" x
-		| Netback (_, _) ->
+		| Network.Local x -> Printf.sprintf "bridge=%s" x
+		| Network.Remote (_, _) ->
 			Printf.fprintf stderr "Cannot handle backend = Netback(_, _)\n%!";
 			exit 2 in
 	String.concat "," [ mac; bridge ]
@@ -207,7 +206,7 @@ let parse_vif vm_id (x, idx) =
 		carrier = true;
 		mtu = 1500;
 		rate = None;
-		backend = if List.mem_assoc _bridge kvpairs then VSwitch (List.assoc _bridge kvpairs) else VSwitch "xenbr0";
+		backend = if List.mem_assoc _bridge kvpairs then Network.Local (List.assoc _bridge kvpairs) else Network.Local "xenbr0";
 		other_config = [];
 		locking_mode = Vif.Unlocked;
 		extra_private_keys = [];
