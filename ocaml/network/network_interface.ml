@@ -18,6 +18,9 @@ module Unix = struct
 	let rpc_of_inet_addr inet = Rpc.rpc_of_string (Unix.string_of_inet_addr inet)
 end
 
+type iface = string
+type port = string
+type bridge = string
 type dhcp_options = [`set_gateway | `set_dns]
 type ipv4 = None4 | DHCP4 of dhcp_options list | Static4 of (Unix.inet_addr * int) list
 type ipv6 = None6 | DHCP6 of dhcp_options list | Autoconf6 | Static6 of (Unix.inet_addr * int) list
@@ -25,29 +28,29 @@ type ipv6 = None6 | DHCP6 of dhcp_options list | Autoconf6 | Static6 of (Unix.in
 external reopen_logs: unit -> bool = ""
 
 module Interface = struct
-	external get_all: unit -> string list = ""
-	external get_mac: string -> string = ""
-	external is_up: string -> bool = ""
-	external get_ipv4_addr: string -> (Unix.inet_addr * int) list = ""
-	external set_ipv4_addr: string -> ipv4 -> unit = ""
-	external get_ipv4_gateway: string -> Unix.inet_addr option = ""
-	external set_ipv4_gateway: string -> Unix.inet_addr -> unit = ""
-	external get_ipv6_addr: string -> (Unix.inet_addr * int) list = ""
-	external set_ipv6_addr: string -> ipv6 -> unit = ""
-	external get_ipv6_gateway: string -> Unix.inet_addr option = ""
-	external set_ipv6_gateway: string -> Unix.inet_addr -> unit = ""
-	external get_dns: string -> Unix.inet_addr list = ""
-	external set_dns: string -> Unix.inet_addr list -> unit = ""
-	external get_mtu: string -> int = ""
-	external set_mtu: string -> int -> unit = ""
-	external set_ethtool_settings: string -> (string * string) list -> unit = ""
-	external set_ethtool_offload: string -> (string * string) list -> unit = ""
-	external is_connected: string -> bool = ""
-	external is_physical: string -> bool = ""
-	external bring_up: string -> unit = ""
-	external bring_down: string -> unit = ""
-	external is_persistent: string -> bool = ""
-	external set_persistent: string -> bool -> unit = ""
+	external get_all : unit -> iface list = ""
+	external get_mac : name:iface -> string = ""
+	external is_up : name:iface -> bool = ""
+	external get_ipv4_addr : name:iface -> (Unix.inet_addr * int) list = ""
+	external set_ipv4_addr : name:iface -> ipv4 -> unit = ""
+	external get_ipv4_gateway : name:iface -> Unix.inet_addr option = ""
+	external set_ipv4_gateway : name:iface -> Unix.inet_addr -> unit = ""
+	external get_ipv6_addr : name:iface -> (Unix.inet_addr * int) list = ""
+	external set_ipv6_addr : name:iface -> ipv6 -> unit = ""
+	external get_ipv6_gateway : name:iface -> Unix.inet_addr option = ""
+	external set_ipv6_gateway : name:iface -> Unix.inet_addr -> unit = ""
+	external get_dns : name:iface -> Unix.inet_addr list = ""
+	external set_dns : name:iface -> Unix.inet_addr list -> unit = ""
+	external get_mtu : name:iface -> int = ""
+	external set_mtu : name:iface -> int -> unit = ""
+	external set_ethtool_settings : name:iface -> (string * string) list -> unit = ""
+	external set_ethtool_offload : name:iface -> (string * string) list -> unit = ""
+	external is_connected : name:iface -> bool = ""
+	external is_physical : name:iface -> bool = ""
+	external bring_up : name:iface -> unit = ""
+	external bring_down : name:iface -> unit = ""
+	external is_persistent : name:iface -> bool = ""
+	external set_persistent : name:iface -> bool -> unit = ""
 end
 
 type kind = Openvswitch | Bridge
@@ -55,19 +58,20 @@ type bond_mode = Balance_slb | Active_backup | Lacp
 type fail_mode = Standalone | Secure
 
 module Bridge = struct
-	external get_all: unit -> string list = ""
-	external create: ?vlan:(string * int) -> ?vlan_bug_workaround:bool ->
-		?mac:string -> ?fail_mode:fail_mode -> string -> unit = ""
-	external destroy: ?force:bool -> string -> unit = ""
-	external get_kind: string -> kind = ""
-	external get_ports: string -> string list = ""
-	external is_persistent: string -> bool = ""
-	external set_persistent: string -> bool -> unit = ""
-	external get_vlan: string -> (string * int) option = ""
-	external add_port: ?mac:string -> string -> string -> string list -> unit = ""
-	external remove_port: string -> string -> unit = ""
-	external get_interfaces: string -> string list = ""
-	external get_bond_properties: string -> string -> (string * string) list = ""
-	external set_bond_properties: string -> string -> (string * string) list -> unit = ""
-	external get_fail_mode: string -> fail_mode option = ""
+	external get_all : unit -> bridge list = ""
+	external create : ?vlan:(bridge * int) -> ?vlan_bug_workaround:bool ->
+		?mac:string -> ?fail_mode:fail_mode -> name:bridge -> unit -> unit = ""
+	external destroy : ?force:bool -> name:bridge -> unit -> unit = ""
+	external get_kind : unit -> kind = ""
+	external get_ports : name:bridge -> port list = ""
+	external is_persistent : name:bridge -> bool = ""
+	external set_persistent : name:bridge -> bool -> unit = ""
+	external get_vlan : name:bridge -> (bridge * int) option = ""
+	external add_port : ?mac:string -> bridge:bridge -> name:port -> interfaces:iface list -> unit -> unit = ""
+	external remove_port : bridge:bridge -> name:port -> unit = ""
+	external get_interfaces : name:bridge -> iface list = ""
+	external get_bond_properties : bridge:bridge -> name:string -> (string * string) list = ""
+	external set_bond_properties : bridge:bridge -> name:string -> (string * string) list -> unit = ""
+	external get_fail_mode : name:bridge -> fail_mode option = ""
 end
+
