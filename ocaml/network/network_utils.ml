@@ -357,11 +357,11 @@ module Dhclient = struct
 
 	let lease_file ?(ipv6=false) interface =
 		let ipv6' = if ipv6 then "6" else "" in
-		Printf.sprintf "/var/xapi/dhclient%s-%s.leases" ipv6' interface
+		Filename.concat Fhs.vardir (Printf.sprintf "dhclient%s-%s.leases" ipv6' interface)
 
 	let conf_file ?(ipv6=false) interface =
 		let ipv6' = if ipv6 then "6" else "" in
-		Printf.sprintf "/var/xapi/dhclient%s-%s.conf" ipv6' interface
+		Filename.concat Fhs.vardir (Printf.sprintf "dhclient%s-%s.conf" ipv6' interface)
 
 	let write_conf_file ?(ipv6=false) interface options =
 		let minimal = ["subnet-mask"; "broadcast-address"; "time-offset"; "domain-name"; "host-name"] in
