@@ -86,11 +86,11 @@ let build ~xc ~xs info domid stubdom_domid =
     (* Set the FS backend in XenStore for the stubdom to have access to the domain filesystem *)
     Device.Vfs.add ~xc ~xs stubdom_domid;
 
-    (* Add a vfb device to the stubdom and domain *)
-    List.iter (fun domid -> ignore (Device.Vfb.add ~xc ~xs domid)) [stubdom_domid; domid];
+	(* VFB is needed so we can see the framebuffer via the stubdom *)
+	Device.Vfb.add ~xc ~xs stubdom_domid;
 
-    (* Add a vkbd device to the stubdom and the guest *)
-    List.iter (fun domid -> ignore (Device.Vkbd.add ~xc ~xs domid)) [stubdom_domid; domid]
+	(* VKBD is needed for keyboard input via the stubdom *)
+	Device.Vkbd.add ~xc ~xs stubdom_domid;
 
 	(* XXX: 
     (* Add a place for qemu to record the dm state in XenStore, with appropriate permissions *)
