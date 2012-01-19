@@ -715,9 +715,8 @@ module VM = struct
 					extras = [];
 				} in
 			let bridge_of_network = function
-				| Bridge b -> b
-				| VSwitch v -> v
-				| Netback (_, _) -> failwith "Need to create a VIF frontend" in
+				| Network.Local b -> b
+				| Network.Remote (_, _) -> failwith "Need to create a VIF frontend" in
 			let nics = List.map (fun vif ->
 				vif.Vif.mac,
 				bridge_of_network vif.Vif.backend,
@@ -1414,9 +1413,8 @@ module VIF = struct
 
 	let backend_domid_of xc xs vif =
 		match vif.backend with
-			| Bridge _
-			| VSwitch _ -> this_domid ~xs
-			| Netback (vm, _) ->
+			| Network.Local _ -> this_domid ~xs
+			| Network.Remote (vm, _) ->
 				begin match vm |> Uuid.uuid_of_string |> domid_of_uuid ~xc ~xs Expect_only_one with
 					| None -> raise (Exception (Does_not_exist ("domain", vm)))
 					| Some x -> x
@@ -1434,9 +1432,8 @@ module VIF = struct
 						(fun () ->
 							Device.Vif.add ~xs ~devid:vif.position
 								~netty:(match vif.backend with
-									| VSwitch x -> Netman.Vswitch x
-									| Bridge x -> Netman.Bridge x
-									| Netback (_, _) -> failwith "Unsupported")
+									| Network.Local x -> Netman.Vswitch x
+									| Network.Remote (_, _) -> failwith "Unsupported")
 								~mac:vif.mac ~carrier:vif.carrier ~mtu:vif.mtu
 								~rate:vif.rate ~backend_domid
 								~other_config:vif.other_config
