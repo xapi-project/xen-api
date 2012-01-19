@@ -134,12 +134,15 @@ Type 'yes' to continue.
 	
 	# Reconfigure new management interface
 	print "Reconfiguring " + device + "..."
-	if_args = ' --force ' + bridge + ' rewrite --mac=x --device=' + device + ' --mode=' + options.mode
-	if options.mode == 'static':
-		if_args += ' --ip=' + options.ip + ' --netmask=' + options.netmask
-		if options.gateway != '':
-			if_args += ' --gateway=' + options.gateway
-	os.system(interface_reconfigure + if_args + ' >/dev/null 2>/dev/null')
+	if os.access('/tmp/do-not-use-networkd', os.F_OK):
+		if_args = ' --force ' + bridge + ' rewrite --mac=x --device=' + device + ' --mode=' + options.mode
+		if options.mode == 'static':
+			if_args += ' --ip=' + options.ip + ' --netmask=' + options.netmask
+			if options.gateway != '':
+				if_args += ' --gateway=' + options.gateway
+		os.system(interface_reconfigure + if_args + ' >/dev/null 2>/dev/null')
+	else:
+		os.remove('@VARDIR@/networkd.db')
 
 	# Update interfaces in inventory file
 	print 'Updating inventory file...'
@@ -147,7 +150,24 @@ Type 'yes' to continue.
 	inventory['MANAGEMENT_INTERFACE'] = bridge
 	inventory['CURRENT_INTERFACES'] = ''
 	write_inventory(inventory)
-	
+
+	# Rewrite firstboot management.conf file, which will be picked it by xcp-networkd on restart (if used)
+	try:
+		f = file(management_conf, 'w')
+		f.write("LABEL='" + device + "'\n")
+		f.write("MODE='" + options.mode + "'\n")
+		if options.mode == 'static':
+			f.write("IP='" + options.ip + "'\n")
+			f.write("NETMASK='" + options.netmask + "'\n")
+			if options.gateway != '':
+				f.write("GATEWAY='" + options.gateway + "'\n")
+			if options.dns != '':
+				f.write("DNS='" + options.dns + "'\n")
+	finally:
+		f.flush()
+		os.fsync(f.fileno())
+		f.close()
+
 	# Write trigger file for XAPI to continue the network reset on startup
 	try:
 		f = file(network_reset, 'w')
