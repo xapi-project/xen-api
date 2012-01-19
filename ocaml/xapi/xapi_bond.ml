@@ -70,6 +70,8 @@ let get_local_vifs ~__context host networks =
 		let resident_on = Db.VM.get_resident_on ~__context ~self:vm in
 		if resident_on = host then
 			true
+		else if resident_on <> Ref.null then
+			false
 		else begin
 			let hosts = Xapi_vm.get_possible_hosts ~__context ~vm in
 			(List.mem host hosts && List.length hosts = 1) || (List.length hosts = 0)
