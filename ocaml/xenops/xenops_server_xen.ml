@@ -1443,16 +1443,15 @@ module VIF = struct
 						let (_: Device_common.device) = create frontend_domid in
 
 						(* If qemu is in a different domain, then plug into it *)
-						let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs frontend_domid) in
-						let qemu_frontend = 
-							if vif.position < 4 then begin
-								let device = create qemu_domid in
-								Some (vif.position, Device device)
-							end else None in
-						(* Remember what we've just done *)
-						Opt.iter (fun q ->
-							DB.write vm { vm_t with VmExtra.qemu_vifs = (vif.Vif.id, q) :: vm_t.VmExtra.qemu_vifs }
-						) qemu_frontend
+						let me = this_domid ~xs in
+						Opt.iter
+							(fun stubdom_domid ->
+								if vif.position < 4 && stubdom_domid <> me then begin
+									let device = create stubdom_domid in
+									let q = vif.position, Device device in
+									DB.write vm { vm_t with VmExtra.qemu_vifs = (vif.Vif.id, q) :: vm_t.VmExtra.qemu_vifs }
+								end
+							) (get_stubdom ~xs frontend_domid);
 					)
 			) Newest vm
 
