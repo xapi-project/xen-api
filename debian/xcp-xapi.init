@@ -86,9 +86,6 @@ do_start()
 	modprobe xen-netback
 	modprobe xen-blkback
 	modprobe blktap
-	if [ ! -e /etc/xcp/network.conf ]; then
-		echo "bridge" > /etc/xcp/network.conf
-	fi
 
 	mkdir -p /var/run/xend/boot
 	mkdir -p /usr/share/xcp/packages/iso

@@ -54,6 +54,10 @@ start() {
 			/usr/bin/ovs-vsctl --no-wait --timeout=5 del-br $bridge
 		done
 	fi
+	
+	if [ ! -e /etc/xcp/network.conf ]; then
+		echo "bridge" > /etc/xcp/network.conf
+	fi
 
 	if [ -e ${SUBSYS_FILE} ]; then
 		if [ -e ${PIDFILE} ] && [ -e /proc/`cat ${PIDFILE}` ]; then
