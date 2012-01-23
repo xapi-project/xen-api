@@ -5,7 +5,7 @@ IMPORT_BRANDING := yes
 include $(B_BASE)/common.mk
 include $(B_BASE)/rpmbuild.mk
 
-REPO                   = $(call gitloc,xen-api)
+REPO                   = $(call git_loc,xen-api)
 
 STAGING                = $(REPO)/dist/staging
 OUTPUT_XAPI            = $(MY_MAIN_PACKAGES)/xapi.tar.bz2

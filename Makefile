@@ -1,7 +1,7 @@
 ifdef B_BASE
 include $(B_BASE)/common.mk
 include $(B_BASE)/rpmbuild.mk
-REPO=$(call gitloc,xen-api)
+REPO=$(call git_loc,xen-api)
 else
 MY_OUTPUT_DIR ?= $(CURDIR)/output
 MY_OBJ_DIR ?= $(CURDIR)/obj
