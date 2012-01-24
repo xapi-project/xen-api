@@ -364,9 +364,10 @@ module Dhclient = struct
 		Filename.concat Fhs.vardir (Printf.sprintf "dhclient%s-%s.conf" ipv6' interface)
 
 	let write_conf_file ?(ipv6=false) interface options =
-		let minimal = ["subnet-mask"; "broadcast-address"; "time-offset"; "domain-name"; "host-name"] in
+		let minimal = ["subnet-mask"; "broadcast-address"; "time-offset"; "host-name"; "nis-domain";
+			"nis-servers"; "ntp-servers"; "interface-mtu"] in
 		let set_gateway = if List.mem `set_gateway options then ["routers"] else [] in
-		let set_dns = if List.mem `set_dns options then ["domain-name-servers"] else [] in
+		let set_dns = if List.mem `set_dns options then ["domain-name"; "domain-name-servers"] else [] in
 		let request = minimal @ set_gateway @ set_dns in
 		let conf = Printf.sprintf "interface \"%s\" {\n  request %s;\n}\n" interface (String.concat ", " request) in
 		Unixext.write_string_to_file (conf_file ~ipv6 interface) conf
