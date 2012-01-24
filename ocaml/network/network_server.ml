@@ -57,6 +57,7 @@ and bridge_config_t = {
 	bridge_mac: string option;
 	fail_mode: fail_mode option;
 	vlan_bug_workaround: bool option;
+	other_config: (string * string) list;
 	persistent_b: bool;
 }
 and config_t = {
@@ -110,6 +111,7 @@ let read_management_conf () =
 		bridge_mac = None;
 		fail_mode = None;
 		vlan_bug_workaround = None;
+		other_config = [];
 		persistent_b = true
 	} in
 	{interface_config = [bridge_name, interface]; bridge_config = [bridge_name, bridge]}
@@ -370,6 +372,7 @@ module Bridge = struct
 		bridge_mac = None;
 		fail_mode = None;
 		vlan_bug_workaround = None;
+		other_config = [];
 		persistent_b = false;
 	}
 	let default_port = {
@@ -405,12 +408,12 @@ module Bridge = struct
 		| Openvswitch -> Ovs.list_bridges ()
 		| Bridge -> []
 
-	let create _ ?vlan ?vlan_bug_workaround ?mac ?fail_mode ~name () =
+	let create _ ?vlan ?vlan_bug_workaround ?mac ?fail_mode ?(other_config=[]) ~name () =
 		debug "Creating bridge %s%s" name (match vlan with
 			| None -> ""
 			| Some (parent, vlan) -> Printf.sprintf " (VLAN %d on bridge %s)" vlan parent
 		);
-		update_config name {get_config name with vlan; bridge_mac=mac; fail_mode; vlan_bug_workaround};
+		update_config name {get_config name with vlan; bridge_mac=mac; fail_mode; vlan_bug_workaround; other_config};
 		begin match !kind with
 		| Openvswitch ->
 			let fail_mode = match fail_mode with
@@ -603,10 +606,10 @@ module Bridge = struct
 		in
 		let bridge_config = List.sort vlans_go_last !config.bridge_config in
 		let current = get_all () () in
-		List.iter (function (bridge_name, {ports; vlan; bridge_mac; fail_mode; _}) ->
+		List.iter (function (bridge_name, {ports; vlan; bridge_mac; fail_mode; other_config; _}) ->
 			(* Do not try to recreate bridges that already exist *)
 			if not (List.mem bridge_name current) then begin
-				create () ?vlan ?mac:bridge_mac ?fail_mode ~name:bridge_name ();
+				create () ?vlan ?mac:bridge_mac ?fail_mode ~other_config ~name:bridge_name ();
 				List.iter (fun (port_name, {interfaces; bond_properties; mac}) ->
 					add_port () ~mac ~bridge:bridge_name ~name:port_name ~interfaces ();
 					if bond_properties <> [] then
