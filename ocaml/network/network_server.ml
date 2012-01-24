@@ -56,7 +56,6 @@ and bridge_config_t = {
 	vlan: (bridge * int) option;
 	bridge_mac: string option;
 	fail_mode: fail_mode option;
-	vlan_bug_workaround: bool option;
 	other_config: (string * string) list;
 	persistent_b: bool;
 }
@@ -110,7 +109,6 @@ let read_management_conf () =
 		vlan = None;
 		bridge_mac = None;
 		fail_mode = None;
-		vlan_bug_workaround = None;
 		other_config = [];
 		persistent_b = true
 	} in
@@ -371,7 +369,6 @@ module Bridge = struct
 		vlan = None;
 		bridge_mac = None;
 		fail_mode = None;
-		vlan_bug_workaround = None;
 		other_config = [];
 		persistent_b = false;
 	}
@@ -408,12 +405,12 @@ module Bridge = struct
 		| Openvswitch -> Ovs.list_bridges ()
 		| Bridge -> []
 
-	let create _ ?vlan ?vlan_bug_workaround ?mac ?fail_mode ?(other_config=[]) ~name () =
+	let create _ ?vlan ?mac ?fail_mode ?(other_config=[]) ~name () =
 		debug "Creating bridge %s%s" name (match vlan with
 			| None -> ""
 			| Some (parent, vlan) -> Printf.sprintf " (VLAN %d on bridge %s)" vlan parent
 		);
-		update_config name {get_config name with vlan; bridge_mac=mac; fail_mode; vlan_bug_workaround; other_config};
+		update_config name {get_config name with vlan; bridge_mac=mac; fail_mode; other_config};
 		begin match !kind with
 		| Openvswitch ->
 			let fail_mode = match fail_mode with
@@ -423,6 +420,12 @@ module Bridge = struct
 						add_default := name :: !add_default
 					with _ -> ());
 					"secure"
+			in
+			let vlan_bug_workaround =
+				if List.mem_assoc "vlan-bug-workaround" other_config then
+					Some (List.assoc "vlan-bug-workaround" other_config = "true")
+				else
+					None
 			in
 			ignore (Ovs.create_bridge ?mac ~fail_mode vlan vlan_bug_workaround name)
 		| Bridge ->
