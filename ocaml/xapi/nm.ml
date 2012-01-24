@@ -224,14 +224,7 @@ let create_vlan ~__context vlan =
 
 	let tag = Int64.to_int (Db.VLAN.get_tag ~__context ~self:vlan) in
 	let other_config = determine_other_config ~__context master_rc master_network_rc in
-	let vlan_bug_workaround =
-		let oc = Db.PIF.get_other_config ~__context ~self:master in
-		if List.mem_assoc "vlan-bug-workaround" oc then
-			Some (List.assoc "vlan-bug-workaround" oc = "true")
-		else
-			None
-	in
-	Net.Bridge.create ~vlan:(slave_network_rc.API.network_bridge, tag) ?vlan_bug_workaround
+	Net.Bridge.create ~vlan:(slave_network_rc.API.network_bridge, tag)
 		~other_config ~name:master_network_rc.API.network_bridge ()
 
 let destroy_vlan ~__context vlan =
