@@ -1052,19 +1052,19 @@ let write_string_to_file file s =
 	Unixext.with_file file [ Unix.O_WRONLY ] 0o640 fn_write_string
 
 let do_flr device =
-  debug "Doing FLR on pci device: %s" device;
+	debug "Doing FLR on pci device: %s" device;
 	let doflr = "/sys/bus/pci/drivers/pciback/do_flr" in
 	let script = Filename.concat Fhs.libexecdir "pci-flr" in
 	let callscript =
-                let f s devstr =
-	                try ignore (Forkhelpers.execute_command_get_output script [ s; devstr; ])
-			        with _ -> ()
-			in
-			f
+		let f s devstr =
+			try ignore (Forkhelpers.execute_command_get_output script [ s; devstr; ])
+			with _ -> ()
 		in
-        callscript "flr-pre" device;
-        ( try write_string_to_file doflr device with _ -> (); );
-        callscript "flr-post" device
+		f
+	in
+	callscript "flr-pre" device;
+	( try write_string_to_file doflr device with _ -> (); );
+	callscript "flr-post" device
 
 let bind pcidevs =
 	let bind_to_pciback device =
