@@ -429,8 +429,19 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 						if rc.API.pIF_gateway <> "" then
 							Net.Interface.set_ipv4_gateway bridge (Unix.inet_addr_of_string rc.API.pIF_gateway);
 						if rc.API.pIF_DNS <> "" then begin
-							let dnss = List.map Unix.inet_addr_of_string (String.split ',' rc.API.pIF_DNS) in
-							Net.Interface.set_dns bridge dnss
+							let nameservers = List.map Unix.inet_addr_of_string (String.split ',' rc.API.pIF_DNS) in
+							let domains =
+								if List.mem_assoc "domain" rc.API.pIF_other_config then
+									let domains = List.assoc "domain" rc.API.pIF_other_config in
+									try
+										String.split ',' domains
+									with _ ->
+										warn "Invalid DNS search domains: %s" domains;
+										[]
+								else
+									[]
+							in
+							Net.Interface.set_dns ~name:bridge ~nameservers ~domains
 						end
 					end;
 					let static_routes = determine_static_routes net_rc in
