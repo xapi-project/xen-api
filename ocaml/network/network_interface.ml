@@ -39,6 +39,7 @@ module Interface = struct
 	external set_ipv6_addr : name:iface -> ipv6 -> unit = ""
 	external get_ipv6_gateway : name:iface -> Unix.inet_addr option = ""
 	external set_ipv6_gateway : name:iface -> Unix.inet_addr -> unit = ""
+	external set_ipv4_routes : name:iface -> (Unix.inet_addr * int * Unix.inet_addr) list -> unit = ""
 	external get_dns : name:iface -> Unix.inet_addr list = ""
 	external set_dns : name:iface -> Unix.inet_addr list -> unit = ""
 	external get_mtu : name:iface -> int = ""

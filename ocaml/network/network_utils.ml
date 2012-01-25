@@ -332,10 +332,17 @@ module Ip = struct
 		let v = string_of_version version in
 		call (v @ ["route"; "show"; "dev"; dev])
 
-	let set_gateway dev gateway =
+	let set_route ?network dev gateway =
 		try
-			ignore (call ["route"; "replace"; "default"; "via"; Unix.string_of_inet_addr gateway; "dev"; dev])
+			match network with
+			| None ->
+				ignore (call ["route"; "replace"; "default"; "via"; Unix.string_of_inet_addr gateway; "dev"; dev])
+			| Some (ip, prefixlen) ->
+				let addr = Printf.sprintf "%s/%d" (Unix.string_of_inet_addr ip) prefixlen in
+				ignore (call ["route"; "replace"; addr; "via"; Unix.string_of_inet_addr gateway; "dev"; dev])
 		with _ -> ()
+
+	let set_gateway dev gateway = set_route dev gateway
 
 	let vlan_name interface vlan =
 		Printf.sprintf "%s.%d" interface vlan

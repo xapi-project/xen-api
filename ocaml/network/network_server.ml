@@ -40,6 +40,7 @@ type interface_config_t = {
 	ipv4_gateway: Unix.inet_addr option;
 	ipv6_addr: ipv6;
 	ipv6_gateway: Unix.inet_addr option;
+	ipv4_routes: (Unix.inet_addr * int * Unix.inet_addr) list;
 	dns: Unix.inet_addr list;
 	mtu: int;
 	ethtool_settings: (string * string) list;
@@ -98,6 +99,7 @@ let read_management_conf () =
 		ipv4_gateway;
 		ipv6_addr = None6;
 		ipv6_gateway = None;
+		ipv4_routes = [];
 		dns;
 		mtu = 1500;
 		ethtool_settings = [];
@@ -176,6 +178,7 @@ module Interface = struct
 		ipv4_gateway = None;
 		ipv6_addr = None6;
 		ipv6_gateway = None;
+		ipv4_routes = [];
 		dns = [];
 		mtu = 1500;
 		ethtool_settings = [];
@@ -273,6 +276,12 @@ module Interface = struct
 		update_config name {(get_config name) with ipv6_gateway = Some gateway};
 		Ip.set_gateway name gateway
 
+	let set_ipv4_routes _ ~name routes =
+		debug "Configuring IPv4 static routes for %s: %s" name (String.concat ", " (List.map (fun (i, p, g) ->
+			Printf.sprintf "%s/%d/%s" (Unix.string_of_inet_addr i) p (Unix.string_of_inet_addr g)) routes));
+		update_config name {(get_config name) with ipv4_routes = routes};
+		List.iter (fun (i, p, g) -> Ip.set_route ~network:(i, p) name g) routes
+
 	let get_dns _ ~name =
 		let servers = Unixext.file_lines_fold (fun servers line ->
 			if String.startswith "nameserver" line then begin
@@ -346,7 +355,7 @@ module Interface = struct
 		let all = get_all () () in
 		(* Do not touch physical interfaces that are already up *)
 		let exclude = List.filter (fun interface -> is_up () interface && is_physical () interface) all in
-		List.iter (function (name, {ipv4_addr; ipv4_gateway; ipv6_addr; ipv6_gateway; dns; mtu;
+		List.iter (function (name, {ipv4_addr; ipv4_gateway; ipv6_addr; ipv6_gateway; ipv4_routes; dns; mtu;
 			ethtool_settings; ethtool_offload; _}) ->
 			if not (List.mem name exclude) then begin
 				(* best effort *)
@@ -354,6 +363,7 @@ module Interface = struct
 				(try match ipv4_gateway with None -> () | Some gateway -> set_ipv4_gateway () name gateway with _ -> ());
 				(try set_ipv6_addr () name ipv6_addr with _ -> ());
 				(try match ipv6_gateway with None -> () | Some gateway -> set_ipv6_gateway () name gateway with _ -> ());
+				(try set_ipv4_routes () name ipv4_routes with _ -> ());
 				(try set_dns () name dns with _ -> ());
 				(try set_mtu () name mtu with _ -> ());
 				(try bring_up () name with _ -> ());

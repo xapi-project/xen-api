@@ -375,6 +375,15 @@ let determine_dhcp_options ~__context pif management_interface =
 	(if pif = gateway_pif then [`set_gateway] else []) @
 	(if pif = dns_pif then [`set_dns] else [])
 
+let determine_static_routes net_rc =
+	if List.mem_assoc "static-routes" net_rc.API.network_other_config then
+		try
+			let routes = String.split ',' (List.assoc "static-routes" net_rc.API.network_other_config) in
+			List.map (fun route -> Scanf.sscanf route "%[^/]/%d/%[^/]" (fun a b c -> Unix.inet_addr_of_string a, b, Unix.inet_addr_of_string c)) routes
+		with _ -> []
+	else
+		[]
+
 let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 	with_local_lock (fun () ->
 		let uuid = Db.PIF.get_uuid ~__context ~self:pif in
@@ -424,6 +433,8 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 							Net.Interface.set_dns bridge dnss
 						end
 					end;
+					let static_routes = determine_static_routes net_rc in
+					if static_routes <> [] then Net.Interface.set_ipv4_routes bridge static_routes;
 					if is_dom0_interface rc then begin
 						Net.Interface.set_persistent bridge true;
 						Net.Bridge.set_persistent bridge true
