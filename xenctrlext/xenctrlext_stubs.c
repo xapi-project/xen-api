@@ -153,6 +153,25 @@ CAMLprim value stub_xenctrlext_domain_set_vpt_align(value xch, value id, value m
 	CAMLreturn(Val_unit);
 }
 
+CAMLprim value stub_xc_domain_trigger_power(value xch, value domid)
+{
+	CAMLparam2(xch, domid);
+#if defined(XENCTRL_HAS_TRIGGER_POWER)
+	xc_domain_trigger_power(_H(xch), _D(domid));
+#endif
+	CAMLreturn(Val_unit);
+}
+
+CAMLprim value stub_xc_domain_trigger_sleep(value xch, value domid)
+{
+	CAMLparam2(xch, domid);
+#if defined(XENCTRL_HAS_TRIGGER_SLEEP)
+	xc_domain_trigger_sleep(_H(xch), _D(domid));
+#endif
+	CAMLreturn(Val_unit);
+}
+
+
 /* 
 * Local variables: 
 * indent-tabs-mode: t
