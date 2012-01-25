@@ -16,7 +16,9 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
+#include <xenctrl.h>
 
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
@@ -24,6 +26,31 @@
 #include <caml/custom.h>
 #include <caml/fail.h>
 #include <caml/signals.h>
+#include <caml/callback.h>
+
+#define _H(__h) ((xc_interface *)(__h))
+#define _D(__d) ((uint32_t)Int_val(__d))
+
+/* From xenctrl_stubs */
+#define ERROR_STRLEN 1024
+static void failwith_xc(xc_interface *xch)
+{
+        static char error_str[ERROR_STRLEN];
+        if (xch) {
+                const xc_error *error = xc_get_last_error(xch);
+                if (error->code == XC_ERROR_NONE)
+                        snprintf(error_str, ERROR_STRLEN, "%d: %s", errno, strerror(errno));
+                else
+                        snprintf(error_str, ERROR_STRLEN, "%d: %s: %s",
+                                 error->code,
+                                 xc_error_code_to_desc(error->code),
+                                 error->message);
+        } else {
+                snprintf(error_str, ERROR_STRLEN, "Unable to open XC interface");
+        }
+        caml_raise_with_string(*caml_named_value("xc.error"), error_str);
+}
+
 
 CAMLprim value stub_xenctrlext_get_boot_cpufeatures(value xch)
 {
@@ -49,10 +76,83 @@ CAMLprim value stub_xenctrlext_get_boot_cpufeatures(value xch)
 
 	CAMLreturn(v);
 #else
-	failwith("XENCTRL_HAS_GET_CPUFEATURES not defined");
+	caml_failwith("XENCTRL_HAS_GET_CPUFEATURES not defined");
 #endif
 }
- 
+
+static int xcext_domain_send_s3resume(xc_interface *xch, unsigned int domid)
+{
+	return xc_set_hvm_param(xch, domid, HVM_PARAM_ACPI_S_STATE, 0);
+}
+
+static int xcext_domain_set_timer_mode(xc_interface *xch, unsigned int domid, int mode)
+{
+	return xc_set_hvm_param(xch, domid,
+                            HVM_PARAM_TIMER_MODE, (unsigned long) mode);
+}
+
+static int xcext_domain_set_hpet(xc_interface *xch, unsigned int domid, int hpet)
+{
+	return xc_set_hvm_param(xch, domid, HVM_PARAM_HPET_ENABLED, (unsigned long) hpet);
+}
+static int xcext_domain_set_vpt_align(xc_interface *xch, unsigned int domid, int vpt_align)
+{
+	return xc_set_hvm_param(xch, domid, HVM_PARAM_HPET_ENABLED, (unsigned long) vpt_align);
+}
+
+CAMLprim value stub_xenctrlext_domain_get_acpi_s_state(value xch, value domid)
+{
+	CAMLparam2(xch, domid);
+	unsigned long v;
+	int ret;
+
+	ret = xc_get_hvm_param(_H(xch), _D(domid), HVM_PARAM_ACPI_S_STATE, &v);
+	if (ret != 0)
+		failwith_xc(_H(xch));
+
+	CAMLreturn(Val_int(v));
+}
+
+CAMLprim value stub_xenctrlext_domain_send_s3resume(value xch, value domid)
+{
+	CAMLparam2(xch, domid);
+	xcext_domain_send_s3resume(_H(xch), _D(domid));
+	CAMLreturn(Val_unit);
+}
+
+CAMLprim value stub_xenctrlext_domain_set_timer_mode(value xch, value id, value mode)
+{
+	CAMLparam3(xch, id, mode);
+	int ret;
+
+	ret = xcext_domain_set_timer_mode(_H(xch), _D(id), Int_val(mode));
+	if (ret < 0)
+		failwith_xc(_H(xch));
+	CAMLreturn(Val_unit);
+}
+
+CAMLprim value stub_xenctrlext_domain_set_hpet(value xch, value id, value mode)
+{
+	CAMLparam3(xch, id, mode);
+	int ret;
+
+	ret = xcext_domain_set_hpet(_H(xch), _D(id), Int_val(mode));
+	if (ret < 0)
+		failwith_xc(_H(xch));
+	CAMLreturn(Val_unit);
+}
+
+CAMLprim value stub_xenctrlext_domain_set_vpt_align(value xch, value id, value mode)
+{
+	CAMLparam3(xch, id, mode);
+	int ret;
+
+	ret = xcext_domain_set_vpt_align(_H(xch), _D(id), Int_val(mode));
+	if (ret < 0)
+		failwith_xc(_H(xch));
+	CAMLreturn(Val_unit);
+}
+
 /* 
 * Local variables: 
 * indent-tabs-mode: t
