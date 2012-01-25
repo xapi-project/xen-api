@@ -1055,12 +1055,11 @@ let do_flr device =
 	debug "Doing FLR on pci device: %s" device;
 	let doflr = "/sys/bus/pci/drivers/pciback/do_flr" in
 	let script = Filename.concat Fhs.libexecdir "pci-flr" in
-	let callscript =
-		let f s devstr =
+	let callscript s devstr =
+		if Sys.file_exists script then begin
 			try ignore (Forkhelpers.execute_command_get_output script [ s; devstr; ])
 			with _ -> ()
-		in
-		f
+		end
 	in
 	callscript "flr-pre" device;
 	( try write_string_to_file doflr device with _ -> (); );
