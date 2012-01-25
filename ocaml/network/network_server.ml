@@ -427,7 +427,13 @@ module Bridge = struct
 				else
 					None
 			in
-			ignore (Ovs.create_bridge ?mac ~fail_mode vlan vlan_bug_workaround name)
+			let external_id =
+				if List.mem_assoc "network-uuids" other_config then
+					Some ("xs-network-uuids", List.assoc "network-uuids" other_config)
+				else
+					None
+			in
+			ignore (Ovs.create_bridge ?mac ~fail_mode ?external_id vlan vlan_bug_workaround name)
 		| Bridge ->
 			ignore (Brctl.create_bridge name);
 			Opt.iter (Ip.set_mac name) mac;

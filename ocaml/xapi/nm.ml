@@ -142,7 +142,8 @@ let determine_other_config ~__context pif_rc net_rc =
 	let pif_oc = pif_rc.API.pIF_other_config in
 	let net_oc = net_rc.API.network_other_config in
 	let pool_oc = Db.Pool.get_other_config ~__context ~self:(Helpers.get_pool ~__context) in
-	pool_oc |> (List.update_assoc net_oc) |> (List.update_assoc pif_oc)
+	let additional = ["network-uuids", net_rc.API.network_uuid] in
+	(pool_oc |> (List.update_assoc net_oc) |> (List.update_assoc pif_oc)) @ additional
 
 let create_bond ~__context bond mtu =
 	(* Get all information we need from the DB before doing anything that may drop our
@@ -224,6 +225,8 @@ let create_vlan ~__context vlan =
 
 	let tag = Int64.to_int (Db.VLAN.get_tag ~__context ~self:vlan) in
 	let other_config = determine_other_config ~__context master_rc master_network_rc in
+	let other_config = List.replace_assoc "network-uuids"
+		(master_network_rc.API.network_uuid ^ ";" ^ slave_network_rc.API.network_uuid) other_config in
 	Net.Bridge.create ~vlan:(slave_network_rc.API.network_bridge, tag)
 		~other_config ~name:master_network_rc.API.network_bridge ()
 
