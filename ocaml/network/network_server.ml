@@ -41,7 +41,7 @@ type interface_config_t = {
 	ipv6_addr: ipv6;
 	ipv6_gateway: Unix.inet_addr option;
 	ipv4_routes: (Unix.inet_addr * int * Unix.inet_addr) list;
-	dns: Unix.inet_addr list;
+	dns: Unix.inet_addr list * string list;
 	mtu: int;
 	ethtool_settings: (string * string) list;
 	ethtool_offload: (string * string) list;
@@ -85,14 +85,20 @@ let read_management_conf () =
 					Some (List.assoc "GATEWAY" args |> Unix.inet_addr_of_string)
 				else None
 			in
-			let dns =
+			let nameservers =
 				if List.mem_assoc "DNS" args then
 					List.map Unix.inet_addr_of_string (String.split ',' (List.assoc "DNS" args))
 				else []
 			in
+			let domains =
+				if List.mem_assoc "DOMAIN" args then
+					String.split ' ' (List.assoc "DOMAIN" args)
+				else []
+			in
+			let dns = nameservers, domains in
 			Static4 [ip, prefixlen], gateway, dns
 		| "dhcp" | _ ->
-			DHCP4 [`set_gateway; `set_dns], None, []
+			DHCP4 [`set_gateway; `set_dns], None, ([], [])
 	in
 	let interface = {
 		ipv4_addr;
@@ -179,7 +185,7 @@ module Interface = struct
 		ipv6_addr = None6;
 		ipv6_gateway = None;
 		ipv4_routes = [];
-		dns = [];
+		dns = [], [];
 		mtu = 1500;
 		ethtool_settings = [];
 		ethtool_offload = ["gro", "off"; "lro", "off"];
@@ -283,27 +289,26 @@ module Interface = struct
 		List.iter (fun (i, p, g) -> Ip.set_route ~network:(i, p) name g) routes
 
 	let get_dns _ ~name =
-		let servers = Unixext.file_lines_fold (fun servers line ->
-			if String.startswith "nameserver" line then begin
+		let nameservers, domains = Unixext.file_lines_fold (fun (nameservers, domains) line ->
+			if String.startswith "nameserver" line then
 				let server = List.nth (String.split_f String.isspace line) 1 in
-				(Unix.inet_addr_of_string server) :: servers
-			end else
-				servers
-		) [] resolv_conf in
-		List.rev servers
+				(Unix.inet_addr_of_string server) :: nameservers, domains
+			else if String.startswith "search" line then
+				let domains = List.tl (String.split_f String.isspace line) in
+				nameservers, domains
+			else
+				nameservers, domains
+		) ([], []) resolv_conf in
+		List.rev nameservers, domains
 
-	let set_dns _ ~name dns =
-		debug "Configuring DNS for %s: %s" name (String.concat ", " (List.map Unix.string_of_inet_addr dns));
-		update_config name {(get_config name) with dns};
-		if dns <> [] then
-			let lines = Unixext.file_lines_fold (fun lines line ->
-				if not (String.startswith "nameserver" line) then
-					line :: lines
-				else
-					lines
-			) [] resolv_conf in
-			let lines = List.rev lines in
-			let lines = lines @ List.map (fun ip -> "nameserver " ^ (Unix.string_of_inet_addr ip)) dns in
+	let set_dns _ ~name ~nameservers ~domains =
+		debug "Configuring DNS for %s: nameservers: %s; domains: %s" name
+			(String.concat ", " (List.map Unix.string_of_inet_addr nameservers)) (String.concat ", " domains);
+		update_config name {(get_config name) with dns = nameservers, domains};
+		if nameservers <> [] || domains <> [] then
+			let domains' = if domains <> [] then ["search " ^ (String.concat " " domains)] else [] in
+			let nameservers' = List.map (fun ip -> "nameserver " ^ (Unix.string_of_inet_addr ip)) nameservers in
+			let lines = domains' @ nameservers' in
 			Unixext.write_string_to_file resolv_conf ((String.concat "\n" lines) ^ "\n")
 
 	let get_mtu _ ~name =
@@ -355,7 +360,7 @@ module Interface = struct
 		let all = get_all () () in
 		(* Do not touch physical interfaces that are already up *)
 		let exclude = List.filter (fun interface -> is_up () interface && is_physical () interface) all in
-		List.iter (function (name, {ipv4_addr; ipv4_gateway; ipv6_addr; ipv6_gateway; ipv4_routes; dns; mtu;
+		List.iter (function (name, {ipv4_addr; ipv4_gateway; ipv6_addr; ipv6_gateway; ipv4_routes; dns=nameservers,domains; mtu;
 			ethtool_settings; ethtool_offload; _}) ->
 			if not (List.mem name exclude) then begin
 				(* best effort *)
@@ -364,7 +369,7 @@ module Interface = struct
 				(try set_ipv6_addr () name ipv6_addr with _ -> ());
 				(try match ipv6_gateway with None -> () | Some gateway -> set_ipv6_gateway () name gateway with _ -> ());
 				(try set_ipv4_routes () name ipv4_routes with _ -> ());
-				(try set_dns () name dns with _ -> ());
+				(try set_dns () ~name ~nameservers ~domains with _ -> ());
 				(try set_mtu () name mtu with _ -> ());
 				(try bring_up () name with _ -> ());
 				(try set_ethtool_settings () name ethtool_settings with _ -> ());
