@@ -216,6 +216,22 @@ CAMLprim value stub_xenctrlext_domain_suppress_spurious_page_faults(value xch,
 	CAMLreturn(Val_unit);
 }
 
+CAMLprim value stub_xenctrlext_get_max_nr_cpus(value xch)
+{
+	CAMLparam1(xch);
+	xc_physinfo_t c_physinfo;
+	int r;
+
+	caml_enter_blocking_section();
+	r = xc_physinfo(_H(xch), &c_physinfo);
+	caml_leave_blocking_section();
+
+	if (r)
+		failwith_xc(_H(xch));
+
+	CAMLreturn(Val_int(c_physinfo.max_cpu_id + 1));
+}
+
 /* 
 * Local variables: 
 * indent-tabs-mode: t

@@ -41,3 +41,5 @@ type runstateinfo = {
 }
 
 external domain_get_runstate_info : handle -> int -> runstateinfo = "stub_xc_get_runstate_info"
+
+external get_max_nr_cpus: handle -> int = "stub_xenctrlext_get_max_nr_cpus"
