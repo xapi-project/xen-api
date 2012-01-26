@@ -311,7 +311,7 @@ let general_domain_create_check ~__context ~vm ~snapshot =
 let vcpu_configuration snapshot = 
   let vcpus = Int64.to_int snapshot.API.vM_VCPUs_max in
   let vcpus_current = Int64.to_int snapshot.API.vM_VCPUs_at_startup in
-  let pcpus = with_xc (fun xc -> (Xenctrl.physinfo xc).Xenctrl.max_nr_cpus) in
+  let pcpus = with_xc Xenctrlext.get_max_nr_cpus in
   debug "xen reports max %d pCPUs" pcpus;
 
   (* vcpu <-> pcpu affinity settings are stored here. Format is either:
