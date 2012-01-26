@@ -56,7 +56,6 @@ and bridge_config_t = {
 	ports: (port * port_config_t) list;
 	vlan: (bridge * int) option;
 	bridge_mac: string option;
-	fail_mode: fail_mode option;
 	other_config: (string * string) list;
 	persistent_b: bool;
 }
@@ -116,7 +115,6 @@ let read_management_conf () =
 		ports = [device, {interfaces = [device]; bond_properties = []; mac = ""}];
 		vlan = None;
 		bridge_mac = None;
-		fail_mode = None;
 		other_config = [];
 		persistent_b = true
 	} in
@@ -383,7 +381,6 @@ module Bridge = struct
 		ports = [];
 		vlan = None;
 		bridge_mac = None;
-		fail_mode = None;
 		other_config = [];
 		persistent_b = false;
 	}
@@ -420,21 +417,29 @@ module Bridge = struct
 		| Openvswitch -> Ovs.list_bridges ()
 		| Bridge -> []
 
-	let create _ ?vlan ?mac ?fail_mode ?(other_config=[]) ~name () =
+	let create _ ?vlan ?mac ?(other_config=[]) ~name () =
 		debug "Creating bridge %s%s" name (match vlan with
 			| None -> ""
 			| Some (parent, vlan) -> Printf.sprintf " (VLAN %d on bridge %s)" vlan parent
 		);
-		update_config name {get_config name with vlan; bridge_mac=mac; fail_mode; other_config};
+		update_config name {get_config name with vlan; bridge_mac=mac; other_config};
 		begin match !kind with
 		| Openvswitch ->
-			let fail_mode = match fail_mode with
-				| None | Some Standalone -> "standalone"
-				| Some Secure ->
-					(try if Ovs.get_fail_mode name <> "secure" then
-						add_default := name :: !add_default
-					with _ -> ());
-					"secure"
+			let fail_mode =
+				if not (List.mem_assoc "vswitch-controller-fail-mode" other_config) then
+					"standalone"
+				else
+					let mode = List.assoc "vswitch-controller-fail-mode" other_config in
+					if mode = "secure" || mode = "standalone" then begin
+						(try if mode = "secure" && Ovs.get_fail_mode name <> "secure" then
+							add_default := name :: !add_default
+						with _ -> ());
+						mode
+					end else begin
+						debug "%s isn't a valid setting for other_config:vswitch-controller-fail-mode; \
+							defaulting to 'standalone'" mode;
+						"standalone"
+					end
 			in
 			let vlan_bug_workaround =
 				if List.mem_assoc "vlan-bug-workaround" other_config then
@@ -456,7 +461,7 @@ module Bridge = struct
 					if dib = "true" || dib = "false" then
 						Some (Some dib)
 					else
-						(debug "%s isn't a valid setting for other_config:disable-in-band" dib;
+						(debug "%s isn't a valid setting for other_config:vswitch-disable-in-band" dib;
 						None)
 			in
 			ignore (Ovs.create_bridge ?mac ~fail_mode ?external_id ?disable_in_band
@@ -642,18 +647,14 @@ module Bridge = struct
 		in
 		let bridge_config = List.sort vlans_go_last !config.bridge_config in
 		let current = get_all () () in
-		List.iter (function (bridge_name, {ports; vlan; bridge_mac; fail_mode; other_config; _}) ->
+		List.iter (function (bridge_name, {ports; vlan; bridge_mac; other_config; _}) ->
 			(* Do not try to recreate bridges that already exist *)
 			if not (List.mem bridge_name current) then begin
-				create () ?vlan ?mac:bridge_mac ?fail_mode ~other_config ~name:bridge_name ();
+				create () ?vlan ?mac:bridge_mac ~other_config ~name:bridge_name ();
 				List.iter (fun (port_name, {interfaces; bond_properties; mac}) ->
 					add_port () ~mac ~bridge:bridge_name ~name:port_name ~interfaces ();
 					if bond_properties <> [] then
-						set_bond_properties () bridge_name port_name bond_properties;
-					if fail_mode = Some Secure && bridge_mac <> None then
-					match fail_mode, bridge_mac with
-					| Some Secure, Some mac -> add_default_flows () bridge_name mac interfaces
-					| _ -> ()
+						set_bond_properties () bridge_name port_name bond_properties
 				) ports
 			end
 		) bridge_config
