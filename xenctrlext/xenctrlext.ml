@@ -27,3 +27,17 @@ external domain_trigger_power: handle -> domid -> unit = "stub_xc_domain_trigger
 external domain_trigger_sleep: handle -> domid -> unit = "stub_xc_domain_trigger_sleep"
 
 external domain_suppress_spurious_page_faults: handle -> domid -> unit = "stub_xenctrlext_domain_suppress_spurious_page_faults"
+
+type runstateinfo = {
+  state : int32;
+  missed_changes: int32;
+  state_entry_time : int64;
+  time0 : int64;
+  time1 : int64;
+  time2 : int64;
+  time3 : int64;
+  time4 : int64;
+  time5 : int64;
+}
+
+external domain_get_runstate_info : handle -> int -> runstateinfo = "stub_xc_get_runstate_info"
