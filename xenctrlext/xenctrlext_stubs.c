@@ -51,7 +51,7 @@ static void failwith_xc(xc_interface *xch)
         caml_raise_with_string(*caml_named_value("xc.error"), error_str);
 }
 
-CAMLprim value stub_xc_get_runstate_info(value xch, value domid)
+CAMLprim value stub_xenctrlext_get_runstate_info(value xch, value domid)
 {
 	CAMLparam2(xch, domid);
 #if defined(XENCTRL_HAS_GET_RUNSTATE_INFO)
@@ -187,7 +187,7 @@ CAMLprim value stub_xenctrlext_domain_set_vpt_align(value xch, value id, value m
 	CAMLreturn(Val_unit);
 }
 
-CAMLprim value stub_xc_domain_trigger_power(value xch, value domid)
+CAMLprim value stub_xenctrlext_domain_trigger_power(value xch, value domid)
 {
 	CAMLparam2(xch, domid);
 #if defined(XENCTRL_HAS_TRIGGER_POWER)
@@ -196,7 +196,7 @@ CAMLprim value stub_xc_domain_trigger_power(value xch, value domid)
 	CAMLreturn(Val_unit);
 }
 
-CAMLprim value stub_xc_domain_trigger_sleep(value xch, value domid)
+CAMLprim value stub_xenctrlext_domain_trigger_sleep(value xch, value domid)
 {
 	CAMLparam2(xch, domid);
 #if defined(XENCTRL_HAS_TRIGGER_SLEEP)
