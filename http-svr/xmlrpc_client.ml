@@ -47,8 +47,12 @@ let write_to_log x = StunnelDebug.debug "%s" (String.strip String.isspace x)
     This is used to prevent us accidentally trying to reuse a connection which has been 
     closed or left in some other inconsistent state. *)
 let check_reusable (x: Unix.file_descr) =
-	let unknown_msg = Printf.sprintf "unknown-message-%s" (Uuid.string_of_uuid (Uuid.make_uuid ())) in
-	let xml = Xml.to_string (XMLRPC.To.methodCall unknown_msg []) in
+	let msg_name = "system.isAlive" in
+	let msg_uuid = Uuid.string_of_uuid (Uuid.make_uuid ()) in
+	(* This is for backward compatability *)
+	let msg_func = Printf.sprintf "%s:%s" msg_name msg_uuid in
+	let msg_param = [ XMLRPC.To.string msg_uuid ] in
+	let xml = Xml.to_string (XMLRPC.To.methodCall msg_func msg_param) in
 	let http = xmlrpc ~version:"1.1" ~keep_alive:true ~body:xml "/" in
 	try
 		Http_client.rpc x http
@@ -60,12 +64,16 @@ let check_reusable (x: Unix.file_descr) =
 						let buf = Buf_io.of_fd x in
 						Buf_io.really_input buf tmp 0 len;
 						begin match XMLRPC.From.methodResponse (Xml.parse_string tmp) with
-							| XMLRPC.Failure(code, [ param ])
-									when code = "MESSAGE_METHOD_UNKNOWN" && param = unknown_msg ->
-								true
-							| _ ->
-								StunnelDebug.debug "check_reusable: unexpected response: connection not reusable: %s" tmp;
-								false
+						| XMLRPC.Failure("MESSAGE_METHOD_UNKNOWN", [ param ])
+								when param = msg_func ->
+							(* This must be the server pre-dates system.isAlive *)
+							true
+						| XMLRPC.Success param when param = msg_param ->
+							(* This must be the new server withs system.isAlive *)
+							true
+						| _ ->
+							StunnelDebug.debug "check_reusable: unexpected response: connection not reusable: %s" tmp;
+							false
 						end
 					| None ->
 						StunnelDebug.debug "check_reusable: no content-length from known-invalid URI: connection not reusable";
@@ -203,11 +211,11 @@ let with_transport transport f = match transport with
 				Stunnel.connect ~use_fork_exec_helper ~write_to_log ~unique_id ~verify_cert ~extended_diagnosis:true host port in
 		let s = st_proc.Stunnel.fd in
 		let s_pid = Stunnel.getpid st_proc.Stunnel.pid in
-		info "stunnel pid: %d (cached = %b) connected to %s:%d" s_pid use_stunnel_cache host port;
+		debug "stunnel pid: %d (cached = %b) connected to %s:%d" s_pid use_stunnel_cache host port;
 
 		(* Call the {,un}set_stunnelpid_callback hooks around the remote call *)
 		let with_recorded_stunnelpid task_opt s_pid f =
-			info "with_recorded_stunnelpid task_opt=%s s_pid=%d" (Opt.default "None" task_opt) s_pid;
+			debug "with_recorded_stunnelpid task_opt=%s s_pid=%d" (Opt.default "None" task_opt) s_pid;
 			begin
 				match !Internal.set_stunnelpid_callback with
 					| Some f -> f task_id s_pid
@@ -235,7 +243,7 @@ let with_transport transport f = match transport with
 						if use_stunnel_cache
 						then begin
 							Stunnel_cache.add st_proc;
-							info "stunnel pid: %d (cached = %b) returned stunnel to cache" s_pid use_stunnel_cache;
+							debug "stunnel pid: %d (cached = %b) returned stunnel to cache" s_pid use_stunnel_cache;
 						end else
 							begin
 								Unix.unlink st_proc.Stunnel.logfile;
