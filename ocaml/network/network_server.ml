@@ -36,9 +36,9 @@ let netmask_to_prefixlen netmask =
 type context = unit
 
 type interface_config_t = {
-	ipv4_addr: ipv4;
+	ipv4_conf: ipv4;
 	ipv4_gateway: Unix.inet_addr option;
-	ipv6_addr: ipv6;
+	ipv6_conf: ipv6;
 	ipv6_gateway: Unix.inet_addr option;
 	ipv4_routes: (Unix.inet_addr * int * Unix.inet_addr) list;
 	dns: Unix.inet_addr list * string list;
@@ -74,7 +74,7 @@ let read_management_conf () =
 	let device = List.assoc "LABEL" args in
 	let bridge_name = Util_inventory.lookup Util_inventory._management_interface in
 	debug "Management bridge in inventory file: %s" bridge_name;
-	let ipv4_addr, ipv4_gateway, dns =
+	let ipv4_conf, ipv4_gateway, dns =
 		match List.assoc "MODE" args with
 		| "static" ->
 			let ip = List.assoc "IP" args |> Unix.inet_addr_of_string in
@@ -100,9 +100,9 @@ let read_management_conf () =
 			DHCP4 [`set_gateway; `set_dns], None, ([], [])
 	in
 	let interface = {
-		ipv4_addr;
+		ipv4_conf;
 		ipv4_gateway;
-		ipv6_addr = None6;
+		ipv6_conf = None6;
 		ipv6_gateway = None;
 		ipv4_routes = [];
 		dns;
@@ -178,9 +178,9 @@ let reopen_logs _ () =
 
 module Interface = struct
 	let default = {
-		ipv4_addr = None4;
+		ipv4_conf = None4;
 		ipv4_gateway = None;
-		ipv6_addr = None6;
+		ipv6_conf = None6;
 		ipv6_gateway = None;
 		ipv4_routes = [];
 		dns = [], [];
@@ -211,10 +211,10 @@ module Interface = struct
 	let get_ipv4_addr _ ~name =
 		Ip.get_ipv4 name
 
-	let set_ipv4_addr _ ~name addr =
-		debug "Configuring IPv4 address for %s: %s" name (addr |> rpc_of_ipv4 |> Jsonrpc.to_string);
-		update_config name {(get_config name) with ipv4_addr = addr};
-		match addr with
+	let set_ipv4_conf _ ~name ~conf =
+		debug "Configuring IPv4 address for %s: %s" name (conf |> rpc_of_ipv4 |> Jsonrpc.to_string);
+		update_config name {(get_config name) with ipv4_conf = conf};
+		match conf with
 		| None4 ->
 			if List.mem name (get_all () ()) then begin
 				if Dhclient.is_running name then
@@ -238,18 +238,18 @@ module Interface = struct
 			Some (Unix.inet_addr_of_string addr)
 		with Not_found -> None
 
-	let set_ipv4_gateway _ ~name gateway =
-		debug "Configuring IPv4 gateway for %s: %s" name (Unix.string_of_inet_addr gateway);
-		update_config name {(get_config name) with ipv4_gateway = Some gateway};
-		Ip.set_gateway name gateway
+	let set_ipv4_gateway _ ~name ~address =
+		debug "Configuring IPv4 gateway for %s: %s" name (Unix.string_of_inet_addr address);
+		update_config name {(get_config name) with ipv4_gateway = Some address};
+		Ip.set_gateway name address
 
 	let get_ipv6_addr _ ~name =
 		Ip.get_ipv6 name
 
-	let set_ipv6_addr _ ~name addr =
-		debug "Configuring IPv6 address for %s: %s" name (addr |> rpc_of_ipv6 |> Jsonrpc.to_string);
-		update_config name {(get_config name) with ipv6_addr = addr};
-		match addr with
+	let set_ipv6_conf _ ~name ~conf =
+		debug "Configuring IPv6 address for %s: %s" name (conf |> rpc_of_ipv6 |> Jsonrpc.to_string);
+		update_config name {(get_config name) with ipv6_conf = conf};
+		match conf with
 		| None6 ->
 			if List.mem name (get_all () ()) then begin
 				if Dhclient.is_running ~ipv6:true name then
@@ -275,12 +275,12 @@ module Interface = struct
 	let get_ipv6_gateway _ ~name =
 		Some (Unix.inet_addr_of_string "fd::1")
 
-	let set_ipv6_gateway _ ~name gateway =
-		debug "Configuring IPv6 gateway for %s: %s" name (Unix.string_of_inet_addr gateway);
-		update_config name {(get_config name) with ipv6_gateway = Some gateway};
-		Ip.set_gateway name gateway
+	let set_ipv6_gateway _ ~name ~address =
+		debug "Configuring IPv6 gateway for %s: %s" name (Unix.string_of_inet_addr address);
+		update_config name {(get_config name) with ipv6_gateway = Some address};
+		Ip.set_gateway name address
 
-	let set_ipv4_routes _ ~name routes =
+	let set_ipv4_routes _ ~name ~routes =
 		debug "Configuring IPv4 static routes for %s: %s" name (String.concat ", " (List.map (fun (i, p, g) ->
 			Printf.sprintf "%s/%d/%s" (Unix.string_of_inet_addr i) p (Unix.string_of_inet_addr g)) routes));
 		update_config name {(get_config name) with ipv4_routes = routes};
@@ -312,12 +312,12 @@ module Interface = struct
 	let get_mtu _ ~name =
 		Ip.get_mtu name
 
-	let set_mtu _ ~name mtu =
+	let set_mtu _ ~name ~mtu =
 		debug "Configuring MTU for %s: %d" name mtu;
 		update_config name {(get_config name) with mtu};
 		ignore (Ip.link_set_mtu name mtu)
 
-	let set_ethtool_settings _ ~name params =
+	let set_ethtool_settings _ ~name ~params =
 		debug "Configuring ethtool settings for %s: %s" name
 			(String.concat ", " (List.map (fun (k, v) -> k ^ "=" ^ v) params));
 		let add_defaults = List.filter (fun (k, v) -> not (List.mem_assoc k params)) default.ethtool_settings in
@@ -325,7 +325,7 @@ module Interface = struct
 		update_config name {(get_config name) with ethtool_settings = params};
 		Ethtool.set_options name params
 
-	let set_ethtool_offload _ ~name params =
+	let set_ethtool_offload _ ~name ~params =
 		debug "Configuring ethtool offload settings for %s: %s" name
 			(String.concat ", " (List.map (fun (k, v) -> k ^ "=" ^ v) params));
 		let add_defaults = List.filter (fun (k, v) -> not (List.mem_assoc k params)) default.ethtool_offload in
@@ -350,28 +350,28 @@ module Interface = struct
 	let is_persistent _ ~name =
 		(get_config name).persistent_i
 
-	let set_persistent _ ~name v =
-		debug "Making interface %s %spersistent" name (if v then "" else "non-");
-		update_config name {(get_config name) with persistent_i = v}
+	let set_persistent _ ~name ~value =
+		debug "Making interface %s %spersistent" name (if value then "" else "non-");
+		update_config name {(get_config name) with persistent_i = value}
 
-	let make_config () =
+	let restore_config () =
 		let all = get_all () () in
 		(* Do not touch physical interfaces that are already up *)
-		let exclude = List.filter (fun interface -> is_up () interface && is_physical () interface) all in
-		List.iter (function (name, {ipv4_addr; ipv4_gateway; ipv6_addr; ipv6_gateway; ipv4_routes; dns=nameservers,domains; mtu;
+		let exclude = List.filter (fun interface -> is_up () ~name:interface && is_physical () ~name:interface) all in
+		List.iter (function (name, {ipv4_conf; ipv4_gateway; ipv6_conf; ipv6_gateway; ipv4_routes; dns=nameservers,domains; mtu;
 			ethtool_settings; ethtool_offload; _}) ->
 			if not (List.mem name exclude) then begin
 				(* best effort *)
-				(try set_ipv4_addr () name ipv4_addr with _ -> ());
-				(try match ipv4_gateway with None -> () | Some gateway -> set_ipv4_gateway () name gateway with _ -> ());
-				(try set_ipv6_addr () name ipv6_addr with _ -> ());
-				(try match ipv6_gateway with None -> () | Some gateway -> set_ipv6_gateway () name gateway with _ -> ());
-				(try set_ipv4_routes () name ipv4_routes with _ -> ());
+				(try set_ipv4_conf () ~name ~conf:ipv4_conf with _ -> ());
+				(try match ipv4_gateway with None -> () | Some gateway -> set_ipv4_gateway () ~name ~address:gateway with _ -> ());
+				(try set_ipv6_conf () ~name ~conf:ipv6_conf with _ -> ());
+				(try match ipv6_gateway with None -> () | Some gateway -> set_ipv6_gateway () ~name ~address:gateway with _ -> ());
+				(try set_ipv4_routes () ~name ~routes:ipv4_routes with _ -> ());
 				(try set_dns () ~name ~nameservers ~domains with _ -> ());
-				(try set_mtu () name mtu with _ -> ());
-				(try bring_up () name with _ -> ());
-				(try set_ethtool_settings () name ethtool_settings with _ -> ());
-				(try set_ethtool_offload () name ethtool_offload with _ -> ())
+				(try set_mtu () ~name ~mtu with _ -> ());
+				(try bring_up () ~name with _ -> ());
+				(try set_ethtool_settings () ~name ~params:ethtool_settings with _ -> ());
+				(try set_ethtool_offload () ~name ~params:ethtool_offload with _ -> ())
 			end
 		) !config.interface_config
 end
@@ -477,21 +477,21 @@ module Bridge = struct
 				) (Sysfs.bridge_to_interfaces parent)) in
 				Ip.create_vlan interface vlan;
 				let vlan_name = Ip.vlan_name interface vlan in
-				Interface.bring_up () vlan_name;
+				Interface.bring_up () ~name:vlan_name;
 				Brctl.create_port name vlan_name
 		end;
-		Interface.bring_up () name
+		Interface.bring_up () ~name
 
 	let destroy _ ?(force=false) ~name () =
-		Interface.bring_down () name;
+		Interface.bring_down () ~name;
 		match !kind with
 		| Openvswitch ->
 			if Ovs.get_vlans name = [] || force then begin
 				debug "Destroying bridge %s" name;
 				remove_config name;
 				List.iter (fun dev ->
-					Interface.set_ipv4_addr () dev None4;
-					Interface.bring_down () dev
+					Interface.set_ipv4_conf () ~name:dev ~conf:None4;
+					Interface.bring_down () ~name:dev
 				) (Ovs.bridge_to_interfaces name);
 				ignore (Ovs.destroy_bridge name)
 			end else
@@ -511,8 +511,8 @@ module Bridge = struct
 				debug "Destroying bridge %s" name;
 				remove_config name;
 				List.iter (fun dev ->
-					Interface.set_ipv4_addr () dev None4;
-					Interface.bring_down () dev;
+					Interface.set_ipv4_conf () ~name:dev ~conf:None4;
+					Interface.bring_down () ~name:dev;
 					if Sysfs.is_bond_device dev then
 						Sysfs.remove_bond_master dev;
 					if String.startswith "eth" dev && String.contains dev '.' then
@@ -561,7 +561,7 @@ module Bridge = struct
 			end else begin
 				ignore (Ovs.create_bond name interfaces bridge mac);
 				List.iter (fun name -> Interface.bring_up () ~name) interfaces;
-				Interface.bring_up () name
+				Interface.bring_up () ~name
 			end;
 			if List.mem bridge !add_default then begin
 				add_default_flows () bridge mac interfaces;
@@ -578,7 +578,7 @@ module Bridge = struct
 					List.iter (fun name -> Interface.bring_down () ~name) interfaces;
 					List.iter (Sysfs.add_bond_slave name) interfaces
 				end;
-				Interface.bring_up () name;
+				Interface.bring_up () ~name;
 				ignore (Brctl.create_port bridge name)
 			end
 
@@ -601,9 +601,9 @@ module Bridge = struct
 	let get_bond_properties _ ~bridge ~name =
 		[]
 
-	let set_bond_properties _ ~bridge ~name props =
+	let set_bond_properties _ ~bridge ~name ~params =
 		debug "Setting bond properties on port %s of bridge %s: %s" name bridge
-			(String.concat ", " (List.map (fun (k, v) -> k ^ "=" ^ v) props));
+			(String.concat ", " (List.map (fun (k, v) -> k ^ "=" ^ v) params));
 		let config = get_config bridge in
 		let port, ports =
 			if List.mem_assoc name config.ports then
@@ -611,15 +611,15 @@ module Bridge = struct
 			else
 				default_port, config.ports
 		in
-		let ports = (name, {port with bond_properties = props}) :: ports in
+		let ports = (name, {port with bond_properties = params}) :: ports in
 		update_config bridge {config with ports};
 		match !kind with
 		| Openvswitch ->
-			ignore (Ovs.set_bond_properties name props)
+			ignore (Ovs.set_bond_properties name params)
 		| Bridge ->
-			Interface.bring_down () name;
-			Sysfs.set_bond_properties name props;
-			Interface.bring_up () name
+			Interface.bring_down () ~name;
+			Sysfs.set_bond_properties name params;
+			Interface.bring_up () ~name
 
 	let get_fail_mode _ ~name =
 		match !kind with
@@ -634,11 +634,11 @@ module Bridge = struct
 	let is_persistent _ ~name =
 		(get_config name).persistent_b
 
-	let set_persistent _ ~name v =
-		debug "Making bridge %s %spersistent" name (if v then "" else "non-");
-		update_config name {(get_config name) with persistent_b = v}
+	let set_persistent _ ~name ~value =
+		debug "Making bridge %s %spersistent" name (if value then "" else "non-");
+		update_config name {(get_config name) with persistent_b = value}
 
-	let make_config () =
+	let restore_config () =
 		let vlans_go_last (_, {vlan=vlan_of_a}) (_, {vlan=vlan_of_b}) =
 			if vlan_of_a = None && vlan_of_b = None then 0
 			else if vlan_of_a <> None && vlan_of_b = None then 1
@@ -654,7 +654,7 @@ module Bridge = struct
 				List.iter (fun (port_name, {interfaces; bond_properties; mac}) ->
 					add_port () ~mac ~bridge:bridge_name ~name:port_name ~interfaces ();
 					if bond_properties <> [] then
-						set_bond_properties () bridge_name port_name bond_properties
+						set_bond_properties () ~bridge:bridge_name ~name:port_name ~params:bond_properties
 				) ports
 			end
 		) bridge_config
@@ -675,7 +675,7 @@ let on_startup () =
 	try
 		(* the following is best-effort *)
 		read_config ();
-		Bridge.make_config ();
-		Interface.make_config ()
+		Bridge.restore_config ();
+		Interface.restore_config ()
 	with _ -> ()
 
