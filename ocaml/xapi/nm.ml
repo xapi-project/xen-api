@@ -123,21 +123,6 @@ let determine_ethtool_settings oc =
 	let offload = List.flatten (List.map proc ["rx"; "tx"; "sg"; "tso"; "ufo"; "gso"; "gro"; "lro"]) in
 	settings, offload
 
-let get_fail_mode ~__context pif_rc =
-	let fail_mode_of_string = function
-		| "secure" -> Secure
-		| "standalone" | _ -> Standalone
-	in
-	let oc = Db.Network.get_other_config ~__context ~self:pif_rc.API.pIF_network in
-	if List.mem_assoc "vswitch-controller-fail-mode" oc then
-		fail_mode_of_string (List.assoc "vswitch-controller-fail-mode" oc)
-	else
-		let oc = Db.Pool.get_other_config ~__context ~self:(Helpers.get_pool ~__context) in
-		if List.mem_assoc "vswitch-controller-fail-mode" oc then
-			fail_mode_of_string (List.assoc "vswitch-controller-fail-mode" oc)
-		else
-			Standalone
-
 let determine_other_config ~__context pif_rc net_rc =
 	let pif_oc = pif_rc.API.pIF_other_config in
 	let net_oc = net_rc.API.network_other_config in
@@ -163,7 +148,6 @@ let create_bond ~__context bond mtu =
 	let props = Db.Bond.get_properties ~__context ~self:bond in
 	let mode = Db.Bond.get_mode ~__context ~self:bond in
 	let other_config = determine_other_config ~__context master_rc master_net_rc in
-	let fail_mode = get_fail_mode ~__context master_rc in
 
 	(* clean up bond slaves *)
 	List.iter (fun (device, bridge) ->
@@ -176,7 +160,7 @@ let create_bond ~__context bond mtu =
 	(* create bond bridge *)
 	let port = master_rc.API.pIF_device in
 	let mac = master_rc.API.pIF_MAC in
-	Net.Bridge.create ~mac ~fail_mode ~other_config ~name:master_net_rc.API.network_bridge ();
+	Net.Bridge.create ~mac ~other_config ~name:master_net_rc.API.network_bridge ();
 	Net.Bridge.add_port ~mac ~bridge:master_net_rc.API.network_bridge ~name:port
 		~interfaces:(List.map (fun (device, _) -> device) slave_devices_and_bridges) ();
 
@@ -273,8 +257,7 @@ let rec create_bridges ~__context pif_rc net_rc =
 	let other_config = determine_other_config ~__context pif_rc net_rc in
 	begin match get_pif_type pif_rc with
 	| `tunnel_pif _ ->
-		let fail_mode = get_fail_mode ~__context pif_rc in
-		Net.Bridge.create ~mac:pif_rc.API.pIF_MAC ~fail_mode ~other_config ~name:net_rc.API.network_bridge ();
+		Net.Bridge.create ~mac:pif_rc.API.pIF_MAC ~other_config ~name:net_rc.API.network_bridge ();
 	| `vlan_pif vlan ->
 		let slave = Db.VLAN.get_tagged_PIF ~__context ~self:vlan in
 		let pif_rc = Db.PIF.get_record ~__context ~self:slave in
@@ -286,10 +269,9 @@ let rec create_bridges ~__context pif_rc net_rc =
 		create_bond ~__context bond mtu;
 		Net.Interface.set_mtu pif_rc.API.pIF_device mtu;
 	| `phy_pif  ->
-		let fail_mode = get_fail_mode ~__context pif_rc in
 		if pif_rc.API.pIF_bond_slave_of <> Ref.null then
 			destroy_bond ~__context ~force:true pif_rc.API.pIF_bond_slave_of;
-		Net.Bridge.create ~mac:pif_rc.API.pIF_MAC ~fail_mode ~other_config ~name:net_rc.API.network_bridge ();
+		Net.Bridge.create ~mac:pif_rc.API.pIF_MAC ~other_config ~name:net_rc.API.network_bridge ();
 		Net.Bridge.add_port net_rc.API.network_bridge pif_rc.API.pIF_device [pif_rc.API.pIF_device] ();
 		Net.Interface.set_mtu pif_rc.API.pIF_device mtu;
 		let (ethtool_settings, ethtool_offload) =
