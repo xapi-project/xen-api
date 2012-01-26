@@ -25,3 +25,5 @@ external domain_get_acpi_s_state: handle -> domid -> int = "stub_xenctrlext_doma
 
 external domain_trigger_power: handle -> domid -> unit = "stub_xc_domain_trigger_power"
 external domain_trigger_sleep: handle -> domid -> unit = "stub_xc_domain_trigger_sleep"
+
+external domain_suppress_spurious_page_faults: handle -> domid -> unit = "stub_xenctrlext_domain_suppress_spurious_page_faults"

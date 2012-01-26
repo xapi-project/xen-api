@@ -171,6 +171,16 @@ CAMLprim value stub_xc_domain_trigger_sleep(value xch, value domid)
 	CAMLreturn(Val_unit);
 }
 
+CAMLprim value stub_xenctrlext_domain_suppress_spurious_page_faults(value xch,
+                                                           value domid)
+{
+	CAMLparam2(xch, domid);
+
+	int retval = xc_domain_suppress_spurious_page_faults(_H(xch), _D(domid));
+	if (retval)
+		failwith_xc(_H(xch));
+	CAMLreturn(Val_unit);
+}
 
 /* 
 * Local variables: 
