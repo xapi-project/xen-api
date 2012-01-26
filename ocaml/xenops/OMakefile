@@ -49,7 +49,7 @@ OCamlProgram(dbgring, dbgring)
 
 section
 	OCAMLINCLUDES   = ../idl/ocaml_backend ../idl
-	OCAMLFLAGS = -dtypes -warn-error F -cclib -static
+	OCAMLFLAGS = -dtypes -warn-error F # -cclib -static
 	OCAMLPACKS = xenctrl xenstore
 	OCamlProgram(xs, xenstore_readdir)
 
