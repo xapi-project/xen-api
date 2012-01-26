@@ -1,3 +1,4 @@
+\#*
 *.cmi
 *.cmo
 *.cmx
@@ -7,7 +8,7 @@
 *.cmxa
 *.a
 *.annot
-/META
+META
 autom4te.cache/
 *.swp
 stdext/config.h
@@ -39,4 +40,4 @@ stdext/fe_cli
 stdext/fe_test
 uuid/META
 xml-light2/xmlpp
-Makefile
+/Makefile
