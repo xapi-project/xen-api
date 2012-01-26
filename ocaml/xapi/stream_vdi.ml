@@ -61,6 +61,7 @@ let for_each_vdi __context f prefix_vdis =
 type progress = 
     { total_size: int64;
       mutable transmitted_so_far: int64;
+      mutable time_of_last_update: float;
       __context: Context.t
     }
 
@@ -68,19 +69,20 @@ type progress =
 let new_progress_record __context (prefix_vdis: vdi list) = 
   { total_size = List.fold_left (fun tot (_,_,s) -> Int64.add tot s) 0L prefix_vdis;
     transmitted_so_far = 0L;
+    time_of_last_update = 0.0;
     __context = __context }
 
 (** Called every time <n> (uncompressed) bytes have been read or written. Updates
-    the task record in the database *)
+    the task record in the database if no update has been sent for 10 seconds. *)
 let made_progress __context progress n = 
   let total_size_MiB = Int64.div progress.total_size 1048576L in
-  let old_so_far_MiB = Int64.div progress.transmitted_so_far 1048576L in
   progress.transmitted_so_far <- Int64.add progress.transmitted_so_far n;
   let so_far_MiB = Int64.div progress.transmitted_so_far 1048576L in
-  let old_fraction_complete = Int64.to_float old_so_far_MiB /. (Int64.to_float total_size_MiB) in
   let fraction_complete = Int64.to_float so_far_MiB /. (Int64.to_float total_size_MiB) in
-  let round x = int_of_float (x *. 50.0) in
-  if round old_fraction_complete <> round fraction_complete then begin
+  let now = Unix.time () in
+  let time_since_last_update = now -. progress.time_of_last_update in
+  if time_since_last_update > 10.0 then begin
+    progress.time_of_last_update <- now;
     TaskHelper.set_progress progress.__context fraction_complete;
     TaskHelper.exn_if_cancelling ~__context;
   end
