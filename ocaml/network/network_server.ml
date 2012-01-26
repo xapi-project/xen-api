@@ -448,7 +448,19 @@ module Bridge = struct
 				else
 					None
 			in
-			ignore (Ovs.create_bridge ?mac ~fail_mode ?external_id vlan vlan_bug_workaround name)
+			let disable_in_band =
+				if not (List.mem_assoc "vswitch-disable-in-band" other_config) then
+					Some None
+				else
+					let dib = List.assoc "vswitch-disable-in-band" other_config in
+					if dib = "true" || dib = "false" then
+						Some (Some dib)
+					else
+						(debug "%s isn't a valid setting for other_config:disable-in-band" dib;
+						None)
+			in
+			ignore (Ovs.create_bridge ?mac ~fail_mode ?external_id ?disable_in_band
+				vlan vlan_bug_workaround name)
 		| Bridge ->
 			ignore (Brctl.create_bridge name);
 			Opt.iter (Ip.set_mac name) mac;
