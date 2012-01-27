@@ -59,7 +59,7 @@ module Iteratee (IO : Monad) = struct
 
   let ie_contM k x = IO.return (IE_cont (None,k), x)
   let ie_doneM res x = IO.return (IE_done res, x)
-  let rec ie_errM msg k x = IO.return (IE_cont (Some msg, k), Chunk "")
+  let ie_errM msg k x = IO.return (IE_cont (Some msg, k), x)
 
   let state = function
     | IE_done result -> "Done"
@@ -90,10 +90,11 @@ module Iteratee (IO : Monad) = struct
     in 
     IE_cont (None, step)
 
-  let writer really_write =
+  let writer really_write name =
     let rec step st = 
       match st with
 	| Chunk s ->
+	  Printf.printf "Iteratee.writer (%s): writing '%s'" name s;
 	  IO.bind (really_write s) 
 	    (fun () -> IO.return (IE_cont (None, step), Chunk ""))
 	| Eof _ ->
@@ -122,9 +123,12 @@ module Iteratee (IO : Monad) = struct
 	| _, "" 
 	| Eof _, _ -> IO.return (IE_done cnt, stream)
 	| Chunk s, str ->
-	  if s.[0]=str.[0] 
-	  then let (hd,tl) = split str 1 in step (cnt+1) tl (Chunk (snd (split s 1)))
-	  else IO.return (IE_done cnt, stream)
+	  if String.length s = 0 
+	  then IO.return (IE_cont (None, step 0 str), stream)
+	  else
+	    if s.[0]=str.[0] 
+	    then let (hd,tl) = split str 1 in step (cnt+1) tl (Chunk (snd (split s 1)))
+	    else IO.return (IE_done cnt, stream)
     in
     IE_cont (None, step 0 str)
 
@@ -273,19 +277,27 @@ module Iteratee (IO : Monad) = struct
 
   let modify f =
     let rec step k s =
+      Printf.printf "step\n%!";
       match s with
 	| Chunk c ->
-	  let s = f c in
+	  Printf.printf "modify: got '%s'\n%!" c;
+	  let s = try f c with e -> Printf.printf "got exception %s\n%!" (Printexc.to_string e); raise e in
+	  Printf.printf "modified: got '%s'\n%!" s;
 	  IO.bind (k (Chunk s)) (fun i ->
 	    match i with
 	      | (IE_cont (None, f), s) -> IO.return (IE_cont (None, step f), s)
 	      | (IE_cont (err, f), s) -> IO.return (IE_cont (err, step f), s)
 	      | (i, s) -> IO.return (IE_done i, s))
 	| Eof _ ->
+	  Printf.printf "EOF!?\n%!";
 	  IO.bind (k s) (fun (i,_) -> IO.return (IE_done i, s))
     in fun s -> match s with
-      | IE_cont (None, k) -> IE_cont (None, step k)
-      | IE_cont (Some _, _) 
+      | IE_cont (None, k) -> 
+	Printf.printf "Modify; in this match case\n%!";
+	IE_cont (None, step k)
+      | IE_cont (Some _, _) ->
+	Printf.printf "Modify; in the second match case\n%!";
+	return s	  
       | IE_done _ -> return s
 
   type 'a either = Left of 'a | Right of 'a

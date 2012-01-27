@@ -3,8 +3,8 @@ OBJS=helpers iteratees lwt_support test websockets wsproxy
 OCAMLC=ocamlc
 OCAMLOPT=ocamlopt
 OCAMLFIND=ocamlfind
-OCAMLCFLAGS=-package $(PACKS) -syntax camlp4o 
-OCAMLOPTFLAGS=-package $(PACKS) -syntax camlp4o -annot
+OCAMLCFLAGS=-package $(PACKS) -syntax camlp4o -g
+OCAMLOPTFLAGS=-package $(PACKS) -syntax camlp4o -annot -g
 OCAMLLINKFLAGS=-package $(PACKS) -linkpkg
 
 wsproxy : $(foreach obj,$(OBJS),$(obj).cmx)

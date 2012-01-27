@@ -50,6 +50,12 @@ module Iteratee :
       val bind : 'a t -> ('a -> 'b t) -> 'b t
       val ( >>= ) : 'a t -> ('a -> 'b t) -> 'b t
 
+      val ie_contM :
+        (stream -> ('a t * stream) IO.t) -> 'b -> ('a t * 'b) IO.t
+      val ie_doneM : 'a -> 'b -> ('a t * 'b) IO.t
+      val ie_errM :
+        err -> (stream -> ('a t * stream) IO.t) -> 'b -> ('a t * 'b) IO.t
+
       (** Return a string representation of the state of the monad *)
       val state : 'a t -> string
 
@@ -62,7 +68,7 @@ module Iteratee :
 
       (** writer - a generic writer iteratee. Takes an argument of type
 	  'string -> unit IO.t' *)
-      val writer : (string -> unit IO.t) -> unit t
+      val writer : (string -> unit IO.t) -> string -> unit t
 
       (** break - iteratee that stops consuming input when the supplied predicate is met, 
 	  then returns the string so far *)

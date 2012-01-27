@@ -38,6 +38,9 @@ module Wsprotocol (IO : Iteratees.Monad) = struct
     else
       Printf.sprintf "%c%c%s%s" (char_of_int 0x81) (char_of_int 127)
 	(Helpers.marshal_int32 (Int32.of_int l)) s) s
+
+  let wsframe_old s = modify (fun s -> 
+    Printf.printf "frame: got %s\n" s; Printf.sprintf "\x00%s\xff" s) s
     
   let rec wsunframe x = 
     let read_sz =
@@ -83,6 +86,26 @@ module Wsprotocol (IO : Iteratees.Monad) = struct
 	  end	
 	| _ -> return s
     in inner "" x
+
+  let rec wsunframe_old s =
+    match s with 
+      | IE_cont (None, k) ->
+	begin    
+	  heads "\x00" >>= fun n ->
+	  (if n=0
+	   then Printf.printf "waa\n%!");
+	  break ((=) '\xff') >>= fun str -> 
+	  drop 1 >>= fun () -> 
+	  Printf.printf "Unframe: got: '%s'\n%!" str;
+	  List.iter (fun c -> Printf.printf "'%c' (%d)" c (Char.code c)) (Stringext.String.explode str);
+	  liftI (IO.bind (
+	    Printf.printf "before...\n%!";
+	    let res = k (Iteratees.Chunk str) in 
+	    Printf.printf "here...\n%!"; res) (fun (i,_) ->
+	    IO.return (wsunframe_old i)))
+	end
+      | _ -> return s
+
 end  
 
 module TestWsIteratee = Wsprotocol(Test.StringMonad)
@@ -93,11 +116,14 @@ let test3 = "\x01\x03\x48\x65\x6c"
 let test4 = "\x80\x02\x6c\x6f"
 let test5 = test1 ^ "\x88\x00"
 
+let testold1 = "\x00Hello\xff\x00There\xff"
+
 let runtest () = 
   let open TestWsIteratee in
   let open I in 
 
-  let it = wsunframe (writer Test.StringMonad.strwr) in
+  let it = wsunframe (writer Test.StringMonad.strwr "foo") in
+  let itold = wsunframe_old (writer Test.StringMonad.strwr "bar") in
 
   let ($) f x = f x in
   let (>>=) x f = Test.StringMonad.bind x f in
@@ -114,5 +140,7 @@ let runtest () =
   let mytest3 = enum_nchunk test3 3 $ it in dump mytest3;
   let x = mytest3 >>= (enum_nchunk test4 3) in dump x;
   let x = enum_eof =<< (enum_nchunk test5 3 it) in dump x;
-  let x = enum_eof =<< (enum_nchunk test3 3 it) in dump x
-
+  let x = enum_eof =<< (enum_nchunk test3 3 it) in dump x;
+  Printf.printf "old style:\n";
+  let x = enum_nchunk testold1 3 $ itold in dump x
+						

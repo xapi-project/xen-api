@@ -18,7 +18,7 @@ module Wsprotocol :
       type 'a t = 'a Iteratees.Iteratee(IO).t
 
       (** Exposing the writer from the IO Iteratee *)
-      val writer : (string -> unit IO.t) -> unit t
+      val writer : (string -> unit IO.t) -> string -> unit t
 
       (** enumeratee that base64 encodes individual chunks
 	  and passes them onto the sub-iteratee *)
@@ -32,9 +32,17 @@ module Wsprotocol :
 	  passes the encoded data to the sub-iteratee *)
       val wsframe : 'a t -> 'a t t
 
+      (** enumeratee that old-style websocket-encodes data and
+	  passes the encoded data to the sub-iteratee *)
+      val wsframe_old : 'a t -> 'a t t
+
       (** enumeratee that websocket-decodes data and
 	  passes the decoded data to the sub-iteratee *)
       val wsunframe : 'a t -> 'a t t
+
+      (** enumeratee that old-style websocket-decodes data and
+	  passes the decoded data to the sub-iteratee *)
+      val wsunframe_old : 'a t -> 'a t t
     end
 
 (** Run some tests from the websockets document *)
