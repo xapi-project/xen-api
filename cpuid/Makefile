@@ -1,6 +1,6 @@
 include ../config.mk
 
-INCLUDES = -I ../stdext $(OCAML_XC_INC) -I ../xen-utils
+INCLUDES = -I ../stdext -I ../xenctrlext $(OCAML_XC_INC) -I ../xen-utils
 
 OBJS = cpuid
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
@@ -51,7 +51,7 @@ uninstall:
 
 .PHONY: doc
 doc: $(INTF)
-	python ../doc/doc.py $(DOCDIR) "cpuid" "package" "$(OBJS)" "." "stdext xenctrl xen-utils" ""
+	python ../doc/doc.py $(DOCDIR) "cpuid" "package" "$(OBJS)" "." "stdext xenctrl xenctrlext xen-utils" ""
 
 clean:
 	rm -f META *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(SPOT) $(LIBS) $(PROGRAMS) *~ *.rej
