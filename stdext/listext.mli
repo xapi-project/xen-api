@@ -184,8 +184,16 @@ sig
 	val tails : 'a list -> ('a list) list
 	val safe_hd : 'a list -> 'a option
 
-	(** Replace the value belonging to a key in an association list. *)
+	(** Replace the value belonging to a key in an association list. Adds the key/value pair
+	 *  if it does not yet exist in the list. If the same key occurs multiple time in the original
+	 *  list, all occurances are removed and replaced by a single new key/value pair.
+	 *  This function is useful is the assoc list is used as a lightweight map/hashtable/dictonary. *)
 	val replace_assoc : 'a -> 'b -> ('a * 'b) list -> ('a * 'b) list
+
+	(** Includes everything from [update] and all key/value pairs from [existing] for
+	 *  which the key does not exist in [update]. In other words, it is like [replace_assoc]
+	 *  but then given a whole assoc list of updates rather than a single key/value pair. *)
+	val update_assoc : ('a * 'b) list -> ('a * 'b) list -> ('a * 'b) list
 
 	val make_assoc : ('a -> 'b) -> 'a list -> ('a * 'b) list
 
