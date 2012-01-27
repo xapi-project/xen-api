@@ -44,6 +44,9 @@ dom0 kernel (with of course a 32 bits userland OS), and a 64 bits hypervisor
 (yes, the amd64 version of the hypervisor is also installable if you install a
 32 bits Debian).
 
+Also, make sure you install the 686-bigmem (otherwised called as -pae in SID),
+if you want your dom0 to be able to run on more than 1GB.
+
 2/ Upgrade to SID or testing
 ----------------------------
 XCP is currently only in SID (not even in Wheezy yet as of writing, but it
