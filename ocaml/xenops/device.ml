@@ -969,7 +969,7 @@ let pci_info_of ~msitranslate ~pci_power_mgmt = function
 
 
 (* XXX: this will crash because of the logging policy within the
-   Xenlight ocaml bindings. *)
+   Xenlight ocaml bindings.
 let add_libxl ~msitranslate ~pci_power_mgmt pcidevs domid =
 	List.iter
 		(fun dev ->
@@ -979,9 +979,9 @@ let add_libxl ~msitranslate ~pci_power_mgmt pcidevs domid =
 				debug "Xenlight.pci_add: %s" (Printexc.to_string e);
 				raise e
 		) pcidevs
-
+*)
 (* XXX: this will crash because of the logging policy within the
-   Xenlight ocaml bindings. *)
+   Xenlight ocaml bindings.
 let release_libxl ~msitranslate ~pci_power_mgmt pcidevs domid =
 	List.iter
 		(fun dev ->
@@ -991,7 +991,7 @@ let release_libxl ~msitranslate ~pci_power_mgmt pcidevs domid =
 				debug "Xenlight.pci_remove: %s" (Printexc.to_string e);
 				raise e
 		) pcidevs
-
+*)
 (* XXX: we don't want to use the 'xl' command here because the "interface"
    isn't considered as stable as the C API *)
 let xl_pci cmd ?(msitranslate=0) ?(pci_power_mgmt=0) pcidevs domid =

@@ -451,8 +451,12 @@ static struct xc_osdep_ops xiu_privcmd_ops =
         .map_foreign_bulk = &xiu_privcmd_map_foreign_bulk,
         .map_foreign_range = &xiu_privcmd_map_foreign_range,
         .map_foreign_ranges = &xiu_privcmd_map_foreign_ranges,
+#if defined(XENCTRL_HAS_ARCH_IOCTRL)
         .arch_ioctl = NULL,
+#endif
+#if defined(XENCTRL_HAS_RESTRICT_TO)
         .restrict_to = NULL,
+#endif
     }
 };
 
@@ -570,7 +574,9 @@ static struct xc_osdep_ops xiu_evtchn_ops = {
         .unbind = &xiu_evtchn_unbind,
         .pending = &xiu_evtchn_pending,
         .unmask = &xiu_evtchn_unmask,
+#if defined(XENCTRL_HAS_RESTRICT_TO)
         .restrict_to = NULL,
+#endif
     },
 };
 
