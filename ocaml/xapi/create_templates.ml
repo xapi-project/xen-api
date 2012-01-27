@@ -597,8 +597,8 @@ let create_all_templates rpc session_id =
 		hvm_template "Windows 7"                  X64 2048 24 [n;  v;];
 		hvm_template "Windows Server 2003"        X32  256  8 [    v;];
 		hvm_template "Windows Server 2003"        X32  256  8 [  x;v;];
-		hvm_template "Windows Server 2003 PAE"    X32  256  8 [n;  v;c4;];
-		hvm_template "Windows Server 2003 PAE"    X32  256  8 [n;x;v;c4;];
+		{(hvm_template "Windows Server 2003 PAE"    X32  256  8 [n;  v;c4;]) with vM_VCPUs_max = 4L; vM_VCPUs_at_startup = 4L};
+		{(hvm_template "Windows Server 2003 PAE"    X32  256  8 [n;x;v;c4;]) with vM_VCPUs_max = 4L; vM_VCPUs_at_startup = 4L};
 		hvm_template "Windows Server 2003"        X64  256  8 [n;  v;];
 		hvm_template "Windows Server 2003"        X64  256  8 [n;x;v;];
 		hvm_template "Windows Server 2008"        X32  512 24 [n;  v;];
