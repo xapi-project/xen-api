@@ -29,6 +29,7 @@ let gib = 1024L ** mib
 let viridian_flag = (Xapi_globs.viridian_key_name,Xapi_globs.default_viridian_key_value)
 let nx_flag = ("nx","true")
 let no_nx_flag = ("nx","false")
+let cores_per_socket_flag n = ("cores-per-socket", string_of_int n)
 let base_platform_flags = ["acpi","true";"apic","true";"pae","true"]
 
 let default_template = (Xapi_globs.default_template_key, "true")
@@ -319,6 +320,7 @@ type hvm_template_flags =
 	| NX
 	| XenApp
 	| Viridian
+	| CoresPerSocket of int
 
 type architecture =
 	| X32
@@ -363,6 +365,14 @@ let hvm_template
 	let name = Printf.sprintf "%s%s"
 		(if xen_app then "Citrix XenApp on " else "")
 		(make_long_name name architecture is_experimental) in
+	let cps_flag =
+		List.fold_left
+			(fun acc flag ->
+				match flag with
+				| CoresPerSocket n -> [cores_per_socket_flag n]
+				| _ -> acc)
+			[] flags
+	in
 	{
 		base with
 		vM_name_label = name;
@@ -376,7 +386,7 @@ let hvm_template
 			install_methods_otherconfig_key, "cdrom"
 		] @ (if xen_app then ["application_template", "1"] else []);
 		vM_platform =
-			if List.mem NX flags
+			(if List.mem NX flags
 			then
 				if List.mem Viridian flags
 				then nx_flag :: base_platform_flags @ [ viridian_flag ]
@@ -384,7 +394,7 @@ let hvm_template
 			else 
 				if List.mem Viridian flags
 				then no_nx_flag :: base_platform_flags @ [ viridian_flag ]
-				else no_nx_flag :: base_platform_flags;
+				else no_nx_flag :: base_platform_flags) @ cps_flag;
 		vM_HVM_shadow_multiplier =
 			(if xen_app then 4.0 else base.vM_HVM_shadow_multiplier);
 		vM_recommendations = (recommendations ~memory:maximum_supported_memory_gib ());
@@ -578,6 +588,7 @@ let create_all_templates rpc session_id =
 		let n = NX       in
 		let x = XenApp   in
 		let v = Viridian in
+		let c4 = CoresPerSocket 4 in
 	[
 		other_install_media_template (default_memory_parameters 128L);
 		hvm_template "Windows XP SP3"             X32  256  8 [    v;];
@@ -588,6 +599,8 @@ let create_all_templates rpc session_id =
 		hvm_template "Windows Server 2003"        X32  256  8 [  x;v;];
 		hvm_template "Windows Server 2003 PAE"    X32  256  8 [n;  v;];
 		hvm_template "Windows Server 2003 PAE"    X32  256  8 [n;x;v;];
+		{(hvm_template "Windows Server 2003 PAE (4 cores per socket)"    X32  256  8 [n;  v;c4;]) with vM_VCPUs_max = 4L; vM_VCPUs_at_startup = 4L};
+		{(hvm_template "Windows Server 2003 PAE (4 cores per socket)"    X32  256  8 [n;x;v;c4;]) with vM_VCPUs_max = 4L; vM_VCPUs_at_startup = 4L};
 		hvm_template "Windows Server 2003"        X64  256  8 [n;  v;];
 		hvm_template "Windows Server 2003"        X64  256  8 [n;x;v;];
 		hvm_template "Windows Server 2008"        X32  512 24 [n;  v;];
