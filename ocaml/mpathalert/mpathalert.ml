@@ -296,7 +296,7 @@ let _ =
 	let rpc xml =
 		let open Xmlrpc_client in
 		let http = xmlrpc ~version:"1.0" "/" in
-		XML_protocol.rpc ~transport:(Unix "/var/xapi/xapi") ~http xml in
+		XML_protocol.rpc ~transport:(Unix (Filename.concat Fhs.vardir "xapi")) ~http xml in
 	let queue = Queue.create () in
 	let msg = Buffer.create 1024 in
 

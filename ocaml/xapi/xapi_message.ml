@@ -19,13 +19,13 @@
 (** Message store *)
 
 (* We use a filesystem based 'database': 
- *  Base directory: /var/xapi/blobs/messages
+ *  Base directory: @VARDIR@/blobs/messages
  *  All messages go in there, filename=timestamp
  *  
  *  Symlinks are created to the messages for fast indexing:
- *  /var/xapi/blobs/messages/VM/<uuid>/<timestamp> -> message
- *  /var/xapi/blobs/messages/uuid/<message uuid> -> message
- *  /var/xapi/blobs/messages/ref/<message ref> -> message
+ *  @VARDIR@/blobs/messages/VM/<uuid>/<timestamp> -> message
+ *  @VARDIR@/blobs/messages/uuid/<message uuid> -> message
+ *  @VARDIR@/blobs/messages/ref/<message ref> -> message
  *)
 
 open Listext   

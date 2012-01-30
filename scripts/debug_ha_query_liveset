@@ -2,8 +2,8 @@
 
 # Run by xen-bugtool
 
-export PATH=$PATH:@BASE_PATH@/xha
+export PATH=$PATH:@OPTDIR@/xha
 echo Running ha_query_liveset $*:
-"@BASE_PATH@/xha/ha_query_liveset" $*
+"@OPTDIR@/xha/ha_query_liveset" $*
 echo Output of command: $?
 

@@ -2,5 +2,5 @@
 
 echo "#!/bin/bash" > xencaml
 ROOT=`cd .. && pwd`
-echo "`pwd`/xencaml-bin.run -I @BASE_PATH@/lib/site-lib/stdext -I @BASE_PATH@/lib/site-lib/str -I @BASE_PATH@/lib/site-lib/xml-light2 -I @BASE_PATH@/lib/xmlm -I $ROOT/idl/ocaml_backend -I $ROOT/idl -I $ROOT/autogen/ -I $ROOT/http -I $ROOT/util \$@" >> xencaml
+echo "`pwd`/xencaml-bin.run -I @OPTDIR@/lib/site-lib/stdext -I @OPTDIR@/lib/site-lib/str -I @OPTDIR@/lib/site-lib/xml-light2 -I @OPTDIR@/lib/xmlm -I $ROOT/idl/ocaml_backend -I $ROOT/idl -I $ROOT/autogen/ -I $ROOT/http -I $ROOT/util \$@" >> xencaml
 chmod 755 xencaml

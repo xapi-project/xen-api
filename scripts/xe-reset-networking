@@ -20,9 +20,9 @@ import time
 from optparse import OptionParser
 #import XenAPI
 
-pool_conf = '/etc/xensource/pool.conf'
-interface_reconfigure = "@BASE_PATH@/libexec/interface-reconfigure"
-inventory_file = '/etc/xensource-inventory'
+pool_conf = '@ETCDIR@/pool.conf'
+interface_reconfigure = "@LIBEXECDIR@/interface-reconfigure"
+inventory_file = '@INVENTORY@'
 management_conf = '/etc/firstboot.d/data/management.conf'
 network_reset = '/tmp/network-reset'
 
@@ -121,10 +121,7 @@ Type 'yes' to continue.
 			f.write('slave:' + address)
 		finally:
 			f.close()
-	
-	# Stop networking subsystem to ensure bonds etc are down
-	os.system('service network stop')
-		
+
 	# Construct bridge name for management interface based on convention
 	if device[:3] == 'eth':
 		bridge = 'xenbr' + device[3:]
@@ -137,12 +134,15 @@ Type 'yes' to continue.
 	
 	# Reconfigure new management interface
 	print "Reconfiguring " + device + "..."
-	if_args = ' --force ' + bridge + ' rewrite --mac=x --device=' + device + ' --mode=' + options.mode
-	if options.mode == 'static':
-		if_args += ' --ip=' + options.ip + ' --netmask=' + options.netmask
-		if options.gateway != '':
-			if_args += ' --gateway=' + options.gateway
-	os.system(interface_reconfigure + if_args + ' >/dev/null 2>/dev/null')
+	if os.access('/tmp/do-not-use-networkd', os.F_OK):
+		if_args = ' --force ' + bridge + ' rewrite --mac=x --device=' + device + ' --mode=' + options.mode
+		if options.mode == 'static':
+			if_args += ' --ip=' + options.ip + ' --netmask=' + options.netmask
+			if options.gateway != '':
+				if_args += ' --gateway=' + options.gateway
+		os.system(interface_reconfigure + if_args + ' >/dev/null 2>/dev/null')
+	else:
+		os.remove('@VARDIR@/networkd.db')
 
 	# Update interfaces in inventory file
 	print 'Updating inventory file...'
@@ -150,7 +150,24 @@ Type 'yes' to continue.
 	inventory['MANAGEMENT_INTERFACE'] = bridge
 	inventory['CURRENT_INTERFACES'] = ''
 	write_inventory(inventory)
-	
+
+	# Rewrite firstboot management.conf file, which will be picked it by xcp-networkd on restart (if used)
+	try:
+		f = file(management_conf, 'w')
+		f.write("LABEL='" + device + "'\n")
+		f.write("MODE='" + options.mode + "'\n")
+		if options.mode == 'static':
+			f.write("IP='" + options.ip + "'\n")
+			f.write("NETMASK='" + options.netmask + "'\n")
+			if options.gateway != '':
+				f.write("GATEWAY='" + options.gateway + "'\n")
+			if options.dns != '':
+				f.write("DNS='" + options.dns + "'\n")
+	finally:
+		f.flush()
+		os.fsync(f.fileno())
+		f.close()
+
 	# Write trigger file for XAPI to continue the network reset on startup
 	try:
 		f = file(network_reset, 'w')
@@ -164,6 +181,8 @@ Type 'yes' to continue.
 			if options.dns != '':
 				f.write('DNS=' + options.dns + '\n')
 	finally:
+		f.flush()
+		os.fsync(f.fileno())
 		f.close()
 
 	# Reset the domain 0 network interface naming configuration
@@ -172,5 +191,5 @@ Type 'yes' to continue.
 	os.system("/etc/sysconfig/network-scripts/interface-rename.py --reset-to-install")
 
 	# Reboot
-	os.system("/sbin/reboot")
+	os.system("/sbin/reboot -f")
 

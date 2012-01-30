@@ -16,7 +16,7 @@ module D = Debug.Debugger(struct let name = "xenguesthelper" end)
 open D
 
 (** Installed path of the xenguest helper *)
-let path = Xapi_globs.base_path ^ "/libexec/xenguest"
+let path = Filename.concat Fhs.libexecdir "xenguest"
 
 (** Where to place the last xenguesthelper debug log (just in case) *)
 let last_log_file = "/tmp/xenguesthelper-log"

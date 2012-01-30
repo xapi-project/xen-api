@@ -36,15 +36,15 @@ let ha_redo_log = Redo_log.create ~name:"HA redo log" ~state_change_callback:Non
 (*********************************************************************************************)
 (* Interface with the low-level HA subsystem                                                 *)
 
-let ha_set_pool_state = Xapi_globs.base_path ^ "/xha/ha_set_pool_state"
-let ha_start_daemon = Xapi_globs.base_path ^ "/xha/ha_start_daemon"
-let ha_stop_daemon = Xapi_globs.base_path ^ "/xha/ha_stop_daemon"
-let ha_query_liveset = Xapi_globs.base_path ^ "/xha/ha_query_liveset"
-let ha_propose_master = Xapi_globs.base_path ^ "/xha/ha_propose_master"
-let ha_disarm_fencing = Xapi_globs.base_path ^  "/xha/ha_disarm_fencing"
-let ha_set_excluded = Xapi_globs.base_path ^ "/xha/ha_set_excluded"
-let fence_path = Xapi_globs.base_path ^ "/libexec/fence"
-(* Unused: let ha_clear_excluded = Xapi_globs.base_path ^ "/xha/ha_clear_excluded" *)
+let ha_set_pool_state = Filename.concat Fhs.xhadir "ha_set_pool_state"
+let ha_start_daemon = Filename.concat Fhs.xhadir "ha_start_daemon"
+let ha_stop_daemon = Filename.concat Fhs.xhadir "ha_stop_daemon"
+let ha_query_liveset = Filename.concat Fhs.xhadir "ha_query_liveset"
+let ha_propose_master = Filename.concat Fhs.xhadir "ha_propose_master"
+let ha_disarm_fencing = Filename.concat Fhs.xhadir "ha_disarm_fencing"
+let ha_set_excluded = Filename.concat Fhs.xhadir "ha_set_excluded"
+let fence_path = Filename.concat Fhs.libexecdir "fence"
+(* Unused: let ha_clear_excluded = Filename.concat Fhs.xhadir "ha_clear_excluded" *)
 
 (** The xHA scripts throw these exceptions: *)
 exception Xha_error of Xha_errno.code

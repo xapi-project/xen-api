@@ -1,13 +1,14 @@
-OCAMLINCLUDES    = ../xapi ../util
-OCAML_LIBS       = ../util/stats
+OCAMLINCLUDES    = ../xapi ../util ..
+OCAML_LIBS       = ../util/stats ../fhs
 OCAML_CLIBS     += $(XEN_OCAML_CLIBS)
 # XXX: these should all be specified in the ocamlfind META file:
-XENLIGHT_LINK_FLAGS= -cclib -lxlutil -cclib -luuid -cclib -lblktapctl -cclib -lutil -cclib -lxenlight -cclib -lxenstore
+XENLIGHT_LINK_FLAGS= -cclib -luuid
+#XENLIGHT_LINK_FLAGS= -cclib -lxlutil -cclib -luuid -cclib -lblktapctl -cclib -lutil -cclib -lxenlight -cclib -lxenstore
 OCAML_LINK_FLAGS+= $(XEN_OCAML_LINK_FLAGS) $(XENLIGHT_LINK_FLAGS)
 
 CFLAGS          += $(XEN_CFLAGS)
 
-OCAMLPACKS    = xml-light2 cdrom sexpr log stunnel http-svr netdev xenstore xenctrl rpc-light xenlight
+OCAMLPACKS     = xml-light2 sexpr stunnel http-svr netdev rpc-light threads xenctrl xenctrlext xenstore stdext log cdrom netdev xenlight
 OCAMLFLAGS    += -thread
 
 UseCamlp4(rpc-light.syntax, device_number xenops_server xenops_server_simulator xenops_migrate xenops_server_xen xenops_server_plugin domain device device_common xenops_hooks)
@@ -53,7 +54,7 @@ OCamlProgram(dbgring, dbgring)
 
 section
 	OCAMLINCLUDES   = ../idl/ocaml_backend ../idl
-	OCAMLFLAGS = -dtypes -warn-error F -cclib -static
+	OCAMLFLAGS = -dtypes -warn-error F # -cclib -static
 	OCAMLPACKS = xenctrl xenstore
 	OCamlProgram(xs, xenstore_readdir)
 
@@ -70,15 +71,16 @@ allxenops: $(DEBUG_PROGS) $(BIN_PROGS) $(OTHER_PROGS)
 
 .PHONY: install
 install:
-	mkdir -p $(DEBUGDIST)
-	cp -f $(DEBUG_PROGS) $(DEBUGDIST)
-	sh -c 'for i in $(SYMLINK_PROGS); do ln -nfs xenops $(DEBUGDIST)/$$i; done'
-	mkdir -p $(BIN_PATH)
-	$(IPROG) $(BIN_PROGS) $(BIN_PATH)
-	mkdir -p $(LIBEXEC)
-	$(IPROG) fence $(LIBEXEC)/fence.bin
-	$(IPROG) squeezed $(LIBEXEC)/squeezed
-	$(IPROG) xenopsd $(LIBEXEC)/xenopsd
+	mkdir -p $(DESTDIR)$(OPTDIR)/debug
+	cp -f $(DEBUG_PROGS) $(DESTDIR)$(OPTDIR)/debug
+	sh -c 'for i in $(SYMLINK_PROGS); do ln -nfs xenops $(DESTDIR)$(OPTDIR)/debug/$$i; done'
+	mkdir -p $(DESTDIR)$(BINDIR)
+	$(IPROG) $(BIN_PROGS) $(DESTDIR)$(BINDIR)
+	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) fence $(DESTDIR)$(LIBEXECDIR)/fence.bin
+	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) squeezed $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) xenopsd $(DESTDIR)$(LIBEXECDIR)/xenopsd
 
 .PHONY: sdk-install
 sdk-install: install

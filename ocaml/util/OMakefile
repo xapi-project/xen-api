@@ -1,3 +1,6 @@
+OCAMLINCLUDES = ..
+OCAML_LIBS = ../fhs
+
 #OCamlLibrary(util_globs_inventory, util_globs_inventory)
 OCamlLibrary(util_inventory, util_globs_inventory util_inventory)
 OCamlLibrary(version,        util_globs_inventory util_inventory version)

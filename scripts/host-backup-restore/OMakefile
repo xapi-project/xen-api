@@ -1,7 +1,7 @@
 .PHONY: install
 install:
-	mkdir -p $(LIBEXEC)
-	$(IPROG) host-backup host-restore $(LIBEXEC)
+	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) host-backup host-restore $(DESTDIR)$(LIBEXECDIR)
 
 .PHONY: sdk-install
 sdk-install: install

@@ -16,14 +16,14 @@ if [ -f /etc/sysconfig/xapi ]; then
 fi
 
 if [ -e /var/xapi/xiu-xc ]; then
-	export XENCTRL_OSDEP="@BASE_PATH@/lib/libxenctrl_xiu.so"
+	export XENCTRL_OSDEP="@OPTDIR@/lib/libxenctrl_xiu.so"
 	export XIU=/var/xapi/xiu
 fi
 
 XAPI_STARTUP_COOKIE=/var/run/xapi_startup.cookie
 XAPI_INIT_COMPLETE_COOKIE=/var/run/xapi_init_complete.cookie
-XAPI_BLOCK_STARTUP_COOKIE=/etc/xensource/xapi_block_startup
-XAPI_BOOT_TIME_INFO_UPDATED=/etc/xensource/boot_time_info_updated
+XAPI_BLOCK_STARTUP_COOKIE=@ETCDIR@/xapi_block_startup
+XAPI_BOOT_TIME_INFO_UPDATED=@ETCDIR@/boot_time_info_updated
 
 # Enable core dumping for xapi
 ulimit -c unlimited
@@ -52,7 +52,7 @@ start() {
 	# Enable backtraces
 	export OCAMLRUNPARAM="b"
 	# Add HA scripts to the path
-	PATH=$PATH:@BASE_PATH@/xha
+	PATH=$PATH:@OPTDIR@/xha
 
 	# For debugging, prevent xapi startup
 	if [ -e ${XAPI_BLOCK_STARTUP_COOKIE} ]; then
@@ -68,12 +68,12 @@ start() {
 	if [ -e ${XAPI_BOOT_TIME_INFO_UPDATED} ]; then
 	    # clear out qemu coredumps/chroot dirs on system boot:
 	    rm -rf /var/xen/qemu/*
-	    "@BASE_PATH@/bin/xapi" -daemon ${xapiflags} \
+	    "@BINDIR@/xapi" -daemon ${xapiflags} \
 		-writereadyfile ${XAPI_STARTUP_COOKIE} -writeinitcomplete ${XAPI_INIT_COMPLETE_COOKIE} -onsystemboot
 		RETVAL=$?
 	    rm -f ${XAPI_BOOT_TIME_INFO_UPDATED}
 	else
-	    "@BASE_PATH@/bin/xapi" -daemon ${xapiflags} \
+	    "@BINDIR@/xapi" -daemon ${xapiflags} \
 		-writereadyfile ${XAPI_STARTUP_COOKIE} -writeinitcomplete ${XAPI_INIT_COMPLETE_COOKIE}
 		RETVAL=$?
 	fi

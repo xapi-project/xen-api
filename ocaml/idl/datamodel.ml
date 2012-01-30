@@ -677,6 +677,8 @@ let _ =
     ~doc:"Cannot join pool whose external authentication configuration is different." ();
   error Api_errors.pool_joining_host_must_have_same_product_version []
     ~doc:"The host joining the pool must have the same product version as the pool master." ();
+  error Api_errors.pool_hosts_not_compatible []
+    ~doc:"The hosts in this pool are not compatible." ();
   error Api_errors.pool_hosts_not_homogeneous [ "reason" ]
     ~doc:"The hosts in this pool are not homogeneous." ();
   error Api_errors.pool_not_in_emergency_mode []

@@ -1,5 +1,5 @@
 
-OCAMLINCLUDES = ../idl/ocaml_backend ../xapi ../idl ../util ../autogen
+OCAMLINCLUDES = ../idl/ocaml_backend ../xapi ../idl ../util ../autogen ..
 OCAMLPACKS    = xml-light2 stdext stunnel http-svr log sexpr rpc-light
 #OCAMLPPFLAGS  = -pp "camlp4o" 
 #OCAMLDEPFLAGS = -pp "camlp4o"
@@ -13,7 +13,7 @@ OCamlProgram(unit_test_sql, unit_test_sql)
 BLOCK_DEVICE_IO_FILES = \
 	block_device_io_errors \
 	block_device_io \
-	../xapi/config_constants ../xapi/xapi_globs ../idl/ocaml_backend/ref \
+	../xapi/xapi_globs ../idl/ocaml_backend/ref \
 	../xapi/helper_process ../xapi/helper_hostname ../idl/api_errors
 
 OCamlProgram(block_device_io, $(BLOCK_DEVICE_IO_FILES))
@@ -28,13 +28,13 @@ section:
 	OCamlProgram(database_test, $(DATABASE_TEST_FILES))
 
 section:
-	OCAML_LIBS +=  ../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server
+	OCAML_LIBS += ../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server
 	OCamlProgram(unit_test_marshall, unit_test_marshall db_remote_cache_access_v1)
 
 .PHONY: install
 install:
-	mkdir -p $(LIBEXEC)
-	$(IPROG) block_device_io $(LIBEXEC)
+	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) block_device_io $(DESTDIR)$(LIBEXECDIR)
 
 .PHONY: sdk-install
 sdk-install: install

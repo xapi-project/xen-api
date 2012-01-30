@@ -134,6 +134,8 @@ let do_help cmd minimal s =
   flush ();
   marshal s (Command (Exit 0))
 
+let uninteresting_cmd_postfixes = [ "help"; "-get"; "-list" ]
+
 let exec_command req cmd s session args =
 	let params = get_params cmd in
 	let minimal =
@@ -147,15 +149,18 @@ let exec_command req cmd s session args =
 	Cli_frontend.populate_cmdtable rpc Ref.null;
 	(* Log the actual CLI command to help diagnose failures like CA-25516 *)
 	let cmd_name = get_cmdname cmd in
-	if String.startswith "secret-" cmd_name
-	then
-		debug "xe %s %s" cmd_name (String.concat " " (List.map (fun (k, v) -> let v' = if k = "value" then "(omitted)" else v in k ^ "=" ^ v') params))
+	if cmd_name = "help" then do_help cmd minimal s
 	else
-		debug "xe %s %s" cmd_name (String.concat " " (List.map (fun (k, v) -> k ^ "=" ^ v) params));
-	if cmd_name = "help"
-	then do_help cmd minimal s
-	else do_rpcs req s u p minimal cmd session args
-
+		let uninteresting =
+			List.exists
+				(fun k -> String.endswith k cmd_name) uninteresting_cmd_postfixes in
+		let do_log = if uninteresting then debug else info in
+		if String.startswith "secret-" cmd_name
+		then
+			do_log "xe %s %s" cmd_name (String.concat " " (List.map (fun (k, v) -> let v' = if k = "value" then "(omitted)" else v in k ^ "=" ^ v') params))
+		else
+			do_log "xe %s %s" cmd_name (String.concat " " (List.map (fun (k, v) -> k ^ "=" ^ v) params));
+		do_rpcs req s u p minimal cmd session args
 
 let get_line str i =
   try

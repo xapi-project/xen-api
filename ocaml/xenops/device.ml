@@ -719,7 +719,7 @@ let add ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) ?(protocol=Protocol_Na
 		"frontend-id", sprintf "%u" domid;
 		"online", "1";
 		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
-		"script", "/etc/xensource/scripts/vif";
+		"script", (Filename.concat Fhs.scriptsdir "vif");
 		"mac", mac;
 		"handle", string_of_int devid
 	] @ back_options in
@@ -797,7 +797,7 @@ end
 
 module PV_Vnc = struct
 
-let vncterm_wrapper = Xapi_globs.base_path ^ "/libexec/vncterm-wrapper"
+let vncterm_wrapper = Filename.concat Fhs.libexecdir "vncterm-wrapper"
 
 let vnc_pid_path domid = sprintf "/local/domain/%d/vncterm-pid" domid
 
@@ -1046,7 +1046,7 @@ let pci_info_of ~msitranslate ~pci_power_mgmt = function
 
 
 (* XXX: this will crash because of the logging policy within the
-   Xenlight ocaml bindings. *)
+   Xenlight ocaml bindings.
 let add_libxl ~msitranslate ~pci_power_mgmt pcidevs domid =
 	List.iter
 		(fun dev ->
@@ -1056,9 +1056,9 @@ let add_libxl ~msitranslate ~pci_power_mgmt pcidevs domid =
 				debug "Xenlight.pci_add: %s" (Printexc.to_string e);
 				raise e
 		) pcidevs
-
+*)
 (* XXX: this will crash because of the logging policy within the
-   Xenlight ocaml bindings. *)
+   Xenlight ocaml bindings.
 let release_libxl ~msitranslate ~pci_power_mgmt pcidevs domid =
 	List.iter
 		(fun dev ->
@@ -1068,7 +1068,7 @@ let release_libxl ~msitranslate ~pci_power_mgmt pcidevs domid =
 				debug "Xenlight.pci_remove: %s" (Printexc.to_string e);
 				raise e
 		) pcidevs
-
+*)
 (* XXX: we don't want to use the 'xl' command here because the "interface"
    isn't considered as stable as the C API *)
 let xl_pci cmd ?(msitranslate=0) ?(pci_power_mgmt=0) pcidevs domid =
@@ -1129,19 +1129,18 @@ let write_string_to_file file s =
 	Unixext.with_file file [ Unix.O_WRONLY ] 0o640 fn_write_string
 
 let do_flr device =
-  debug "Doing FLR on pci device: %s" device;
+	debug "Doing FLR on pci device: %s" device;
 	let doflr = "/sys/bus/pci/drivers/pciback/do_flr" in
-	let script = Xapi_globs.base_path ^ "/libexec/pci-flr" in
-	let callscript =
-                let f s devstr =
-	                try ignore (Forkhelpers.execute_command_get_output script [ s; devstr; ])
-			        with _ -> ()
-			in
-			f
-		in
-        callscript "flr-pre" device;
-        ( try write_string_to_file doflr device with _ -> (); );
-        callscript "flr-post" device
+	let script = Filename.concat Fhs.libexecdir "pci-flr" in
+	let callscript s devstr =
+		if Sys.file_exists script then begin
+			try ignore (Forkhelpers.execute_command_get_output script [ s; devstr; ])
+			with _ -> ()
+		end
+	in
+	callscript "flr-pre" device;
+	( try write_string_to_file doflr device with _ -> (); );
+	callscript "flr-post" device
 
 let bind pcidevs =
 	let bind_to_pciback device =

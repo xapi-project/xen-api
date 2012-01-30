@@ -55,7 +55,7 @@ let update_allowed_operations ~__context ~self =
 let assert_can_boot_here ~__context ~self ~host =
 	let snapshot = Db.VM.get_record ~__context ~self in
 	if Helpers.rolling_upgrade_in_progress ~__context then
-		Helpers.assert_product_version_is_same_on_master ~__context ~host ~self;
+		Helpers.assert_platform_version_is_same_on_master ~__context ~host ~self;
 	assert_can_boot_here ~__context ~self ~host ~snapshot
 
 let retrieve_wlb_recommendations ~__context ~vm =

@@ -245,9 +245,7 @@ let shutdown_wait_for_ack ?(timeout=60.) ~xc ~xs domid req =
   let di = Xenctrl.domain_getinfo xc domid in
 
   if di.Xenctrl.hvm_guest then begin
-	if Xenctrl.hvm_check_pvdriver xc domid
-	then debug "HVM guest with PV drivers: not expecting any acknowledgement"
-	else Xenctrl.domain_shutdown xc domid (shutdown_to_xc_shutdown req)
+	debug "HVM guest with PV drivers: not expecting any acknowledgement"
   end else begin
 	debug "Waiting for PV domain %d to acknowledge shutdown request" domid;
 	let path = control_shutdown ~xs domid in
@@ -381,7 +379,7 @@ let destroy ?(preserve_xs_vm=false) ~xc ~xs domid =
 	      warn "Xenctrl.domain_getinfo %d threw unexpected error: %s -- assuming domain nolonger exists" domid (Printexc.to_string e);
 	      raise e in
 	let start = Unix.gettimeofday () in
-	let timeout = 30. in
+	let timeout = 60. in
 	while still_exists () && (Unix.gettimeofday () -. start < timeout) do
 	  Thread.delay 5.
 	done;
@@ -426,9 +424,9 @@ let build_pre ~xc ~xs ~vcpus ~xen_max_mib ~shadow_mib ~required_host_free_mib do
           maybe (fun opt -> try f opt with exn -> warn "exception setting %s: %s" name (Printexc.to_string exn)) opt
         in
 
-	maybe_exn_ign "timer mode" (fun mode -> Xenctrl.domain_set_timer_mode xc domid mode) timer_mode;
-        maybe_exn_ign "hpet" (fun hpet -> Xenctrl.domain_set_hpet xc domid hpet) hpet;
-        maybe_exn_ign "vpt align" (fun vpt_align -> Xenctrl.domain_set_vpt_align xc domid vpt_align) vpt_align;
+	maybe_exn_ign "timer mode" (fun mode -> Xenctrlext.domain_set_timer_mode xc domid mode) timer_mode;
+        maybe_exn_ign "hpet" (fun hpet -> Xenctrlext.domain_set_hpet xc domid hpet) hpet;
+        maybe_exn_ign "vpt align" (fun vpt_align -> Xenctrlext.domain_set_vpt_align xc domid vpt_align) vpt_align;
 
 	Xenctrl.domain_max_vcpus xc domid vcpus;
 	Xenctrl.domain_set_memmap_limit xc domid (Memory.kib_of_mib xen_max_mib);
@@ -864,10 +862,10 @@ let suspend ~xc ~xs ~hvm domid fd flags ?(progress_callback = fun _ -> ()) do_su
 	);
 	debug "Suspend for domid %d finished" domid
 
-let send_s3resume ~xc domid = Xenctrl.domain_send_s3resume xc domid
+let send_s3resume ~xc domid = Xenctrlext.domain_send_s3resume xc domid
 
-let trigger_power ~xc domid = Xenctrl.domain_trigger_power xc domid
-let trigger_sleep ~xc domid = Xenctrl.domain_trigger_sleep xc domid
+let trigger_power ~xc domid = Xenctrlext.domain_trigger_power xc domid
+let trigger_sleep ~xc domid = Xenctrlext.domain_trigger_sleep xc domid
 
 let vcpu_affinity_set ~xc domid vcpu cpumap =
 	(*
@@ -950,7 +948,7 @@ let set_machine_address_size ~xc domid width =
 
 let suppress_spurious_page_faults ~xc domid =
   debug "suppress spurious page faults for dom%d" domid;
-  Xenctrl.domain_suppress_spurious_page_faults xc domid
+  Xenctrlext.domain_suppress_spurious_page_faults xc domid
 
 type cpuid_reg = Eax | Ebx | Ecx | Edx
 type cpuid_rtype = Clear | Set | Default | Same | Keep

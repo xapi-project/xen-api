@@ -5,7 +5,7 @@
 # chkconfig: 2345 21 78
 # description: Xen services required by xapi
 # processname: xenstored, xenconsoled
-# config: /etc/xensource/rio.conf
+# config: @ETCDIR@/rio.conf
 # pidfile: /var/run/xenstored.pid, /var/run/xenconsoled.pid
 
 [ -e /proc/xen ] || exit 0
@@ -16,11 +16,11 @@
 start() {
     # If this domain hasn't got sufficient privileges then assume it is a domU
     # and start the hypercall simulator
-    "@BASE_PATH@/bin/list_domains" 2>/dev/null 1>/dev/null
+    "@BINDIR@/list_domains" 2>/dev/null 1>/dev/null
     if [ $? -ne 0 ]; then
 	echo -n $"Starting simulator: "
 	rm -f /var/xapi/xiu-xc /var/xapi/xiu-xs
-	"@BASE_PATH@/libexec/xiu" /var/xapi/xiu 2>/dev/null 1>/dev/null &
+	"@LIBEXECDIR@/xiu" /var/xapi/xiu 2>/dev/null 1>/dev/null &
 
         # wait for unix domain socket to appear 
         RETRIES=180
@@ -36,7 +36,7 @@ start() {
 	    failure $"xiu"
 	    exit 1
 	fi
-	export XENCTRL_OSDEP="@BASE_PATH@/lib/libxenctrl_xiu.so"
+	export XENCTRL_OSDEP="@OPTDIR@/lib/libxenctrl_xiu.so"
 	export XIU=/var/xapi/xiu
     fi
 	echo -n $"Starting xenstored: "	
@@ -57,9 +57,9 @@ start() {
 
     # Existence of stampfile suppresses the access log (oem)
     XENSTORED_ARG=""
-    [ ! -e /etc/xensource/xenstored-no-access-log ] || XENSTORED_ARG="--no-access-log"
+    [ ! -e @ETCDIR@/xenstored-no-access-log ] || XENSTORED_ARG="--no-access-log"
     [ -e /var/lib/xenstored/tdb ] && mv -f /var/lib/xenstored/tdb /var/lib/xenstored/tdb.bak
-    "@BASE_PATH@/bin/xenstored" ${XENSTORED_ARG}
+    "@BINDIR@/xenstored" ${XENSTORED_ARG}
 
 	/usr/sbin/xenconsoled
 	[ -d /var/log/blktap ] || mkdir /var/log/blktap
@@ -72,7 +72,7 @@ start() {
 	xenstore-rm /vm
 
 	# start cdrommon on all physicals cdrom at startup
-	for i in `find /dev/xapi/cd/ ! -type d`; do "@BASE_PATH@/libexec/cdrommon" $i; done
+	for i in `find /dev/xapi/cd/ ! -type d`; do "@LIBEXECDIR@/cdrommon" $i; done
 
 	echo 
 	touch /var/lock/subsys/xen;

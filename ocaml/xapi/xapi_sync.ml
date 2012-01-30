@@ -38,7 +38,7 @@ let sync_host ~__context host =
 				let output,log = Forkhelpers.execute_command_get_output
 					~env:(Unix.environment ())
 					"/usr/bin/rsync"
-					["--delete";"--stats";"-az";localpath;remotepath;"-e"; Xapi_globs.base_path ^ "/bin/xsh"] in
+					["--delete";"--stats";"-az";localpath;remotepath;"-e"; Filename.concat Fhs.bindir "xsh"] in
 				debug "sync output: \n%s" output;
 				debug "log output: '%s'" log;
 

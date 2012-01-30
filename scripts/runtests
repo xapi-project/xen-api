@@ -12,7 +12,7 @@ fi
 
 IF=$1
 
-export PATH=$PATH:@BASE_PATH@/bin
+export PATH=$PATH:@BINDIR@
 
 # generic stuff, necessary for xenrt too
 

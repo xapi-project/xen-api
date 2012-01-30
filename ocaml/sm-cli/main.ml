@@ -20,7 +20,7 @@ open Fun
 open Stringext
 open Xmlrpc_client
 
-let url = Http.Url.(ref (File { path = "/var/xapi/storage" }, { uri = "/"; query_params = [] }))
+let url = Http.Url.(ref (File { path = Filename.concat Fhs.vardir "storage" }, { uri = "/"; query_params = [] }))
 
 module RPC = struct
 let rpc call =

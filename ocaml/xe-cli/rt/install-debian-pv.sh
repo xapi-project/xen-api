@@ -49,7 +49,7 @@ VIF=`xe vif-create vm-uuid=${VM} network-uuid=${NETWORK} device=0`
 VDI=`xe vbd-list vm-uuid=${VM} userdevice=0 params=vdi-uuid --minimal`
 
 # Run the inner-script bit:
-"@BASE_PATH@/debug/with-vdi" ${VDI} "@BASE_PATH@/debug/install-debian-pv-inside.sh"
+"@OPTDIR@/debug/with-vdi" ${VDI} "@OPTDIR@/debug/install-debian-pv-inside.sh"
 
 # Start it up
 xe vm-start vm=${VM}

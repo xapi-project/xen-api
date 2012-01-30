@@ -370,8 +370,12 @@ static int hvm_build_set_params(xc_interface *xch, int domid,
 	memset(va_hvm->vcpu_online, 0, sizeof(va_hvm->vcpu_online));
 	for (i = 0; i < f.vcpus_current; i++)
 		va_hvm->vcpu_online[i/8] |= 1 << (i % 8);
+#if defined(HVM_INFO_TABLE_HAS_S4_ENABLED)
 	va_hvm->s4_enabled = f.acpi_s4;
+#endif
+#if defined(HVM_INFO_TABLE_HAS_S3_ENABLED)
 	va_hvm->s3_enabled = f.acpi_s3;
+#endif
 	va_hvm->checksum = 0;
 	for (i = 0, sum = 0; i < va_hvm->length; i++)
 		sum += ((uint8_t *) va_hvm)[i];

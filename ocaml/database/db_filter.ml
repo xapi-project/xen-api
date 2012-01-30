@@ -98,8 +98,14 @@ let eval_expr (lookup_val: _val -> string) =
     | Or (a, b) -> f a || (f b)
   in f
 
+exception Expression_error of (string * exn)
+
 (* A simple parser for the expression language: *)
-let expr_of_string x = Db_filter_parse.exprstr Db_filter_lex.lexer (Lexing.from_string x)
+let expr_of_string x = try 
+	 Db_filter_parse.exprstr Db_filter_lex.lexer
+	   (Lexing.from_string x)
+  with e -> raise (Expression_error (x, e))
+
 
 
 

@@ -9,7 +9,7 @@ import os, subprocess, XenAPI, inventory, time, sys
 # Return a list of (domid, uuid) tuples, one per paused domain on this host
 def list_paused_domains():
     results = []
-    all = subprocess.Popen(["@BASE_PATH@/bin/list_domains"], stdout=subprocess.PIPE).communicate()[0]
+    all = subprocess.Popen(["@BINDIR@/list_domains"], stdout=subprocess.PIPE).communicate()[0]
     lines = all.split("\n")
     for domain in lines[1:]:
         bits = domain.split()
@@ -54,7 +54,7 @@ def log(str):
 # Destroy the given domain
 def destroy_domain((domid, uuid)):
     log("destroying domid %s uuid %s" % (domid, uuid))
-    all = subprocess.Popen(["@BASE_PATH@/debug/destroy_domain", "-domid", domid], stdout=subprocess.PIPE).communicate()[0]
+    all = subprocess.Popen(["@OPTDIR@/debug/destroy_domain", "-domid", domid], stdout=subprocess.PIPE).communicate()[0]
 
 # Keep track of when a domain first looked like it should be here
 domain_first_noticed = {}
