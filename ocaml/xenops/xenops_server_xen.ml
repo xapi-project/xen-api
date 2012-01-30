@@ -477,7 +477,7 @@ module VM = struct
 							let hvm = match vm.ty with HVM _ -> true | _ -> false in
 							(* XXX add per-vcpu information to the platform data *)
 							(* VCPU configuration *)
-							let pcpus = (Xenctrl.physinfo xc).Xenctrl.max_nr_cpus in
+							let pcpus = Xenctrlext.get_max_nr_cpus xc in							
 							let all_pcpus = pcpus |> Range.make 0 |> Range.to_list in
 							let all_vcpus = vm.vcpu_max |> Range.make 0 |> Range.to_list in
 							let masks = match vm.scheduler_params.affinity with
