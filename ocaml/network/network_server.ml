@@ -62,9 +62,12 @@ and bridge_config_t = {
 and config_t = {
 	interface_config: (iface * interface_config_t) list;
 	bridge_config: (bridge * bridge_config_t) list;
+	gateway_interface: iface option;
+	dns_interface: iface option;
 } with rpc
 
-let config : config_t ref = ref {interface_config = []; bridge_config = []}
+let config : config_t ref = ref {interface_config = []; bridge_config = [];
+	gateway_interface = None; dns_interface = None}
 
 let read_management_conf () =
 	let management_conf = Unixext.string_of_file (Xapi_globs.first_boot_dir ^ "data/management.conf") in
@@ -118,10 +121,11 @@ let read_management_conf () =
 		other_config = [];
 		persistent_b = true
 	} in
-	{interface_config = [bridge_name, interface]; bridge_config = [bridge_name, bridge]}
+	{interface_config = [bridge_name, interface]; bridge_config = [bridge_name, bridge];
+		gateway_interface = Some bridge_name; dns_interface = Some bridge_name}
 
 let write_config () =
-	let persistent_config = {
+	let persistent_config = {!config with
 		interface_config = List.filter (fun (name, interface) -> interface.persistent_i) !config.interface_config;
 		bridge_config = List.filter (fun (name, bridge) -> bridge.persistent_b) !config.bridge_config;
 	} in
@@ -211,9 +215,8 @@ module Interface = struct
 	let get_ipv4_addr _ ~name =
 		Ip.get_ipv4 name
 
-	let set_ipv4_conf _ ~name ~conf =
+	let configure_ipv4 name conf =
 		debug "Configuring IPv4 address for %s: %s" name (conf |> rpc_of_ipv4 |> Jsonrpc.to_string);
-		update_config name {(get_config name) with ipv4_conf = conf};
 		match conf with
 		| None4 ->
 			if List.mem name (get_all () ()) then begin
@@ -222,6 +225,22 @@ module Interface = struct
 				Ip.flush_ip_addr name
 			end
 		| DHCP4 options ->
+			let options =
+				if !config.gateway_interface = None || !config.gateway_interface = Some name then
+					options
+				else begin
+					debug "%s is not the default gateway interface" name;
+					List.filter ((<>) `set_gateway) options
+				end
+			in
+			let options =
+				if !config.dns_interface = None || !config.dns_interface = Some name then
+					options
+				else begin
+					debug "%s is not the DNS interface" name;
+					List.filter ((<>) `set_dns) options
+				end
+			in
 			if Dhclient.is_running name then
 				ignore (Dhclient.stop name);
 			ignore (Dhclient.start name options)
@@ -229,6 +248,17 @@ module Interface = struct
 			if Dhclient.is_running name then
 				ignore (Dhclient.stop name);
 			List.iter (Ip.set_ip_addr name) addrs
+
+	let set_ipv4_conf _ ~name ~conf =
+		update_config name {(get_config name) with ipv4_conf = conf};
+		(match conf with
+		| DHCP4 options ->
+			if List.mem `set_gateway options then
+				config := {!config with gateway_interface = Some name};
+			if List.mem `set_dns options then
+				config := {!config with dns_interface = Some name};
+		| _ -> ());
+		configure_ipv4 name conf
 
 	let get_ipv4_gateway _ ~name =
 		let output = Ip.route_show ~version:Ip.V4 name in
@@ -238,10 +268,17 @@ module Interface = struct
 			Some (Unix.inet_addr_of_string addr)
 		with Not_found -> None
 
-	let set_ipv4_gateway _ ~name ~address =
+	let configure_ipv4_gateway name address =
 		debug "Configuring IPv4 gateway for %s: %s" name (Unix.string_of_inet_addr address);
+		if !config.gateway_interface = None || !config.gateway_interface = Some name then
+			Ip.set_gateway name address
+		else
+			debug "%s is not the default gateway interface" name
+
+	let set_ipv4_gateway _ ~name ~address =
 		update_config name {(get_config name) with ipv4_gateway = Some address};
-		Ip.set_gateway name address
+		config := {!config with gateway_interface = Some name};
+		configure_ipv4_gateway name address
 
 	let get_ipv6_addr _ ~name =
 		Ip.get_ipv6 name
@@ -299,15 +336,23 @@ module Interface = struct
 		) ([], []) resolv_conf in
 		List.rev nameservers, domains
 
+	let configure_dns name nameservers domains =
+		if (nameservers <> [] || domains <> []) then begin
+			debug "Configuring DNS for %s: nameservers: %s; domains: %s" name
+				(String.concat ", " (List.map Unix.string_of_inet_addr nameservers)) (String.concat ", " domains);
+			if (!config.dns_interface = None || !config.dns_interface = Some name) then
+				let domains' = if domains <> [] then ["search " ^ (String.concat " " domains)] else [] in
+				let nameservers' = List.map (fun ip -> "nameserver " ^ (Unix.string_of_inet_addr ip)) nameservers in
+				let lines = domains' @ nameservers' in
+				Unixext.write_string_to_file resolv_conf ((String.concat "\n" lines) ^ "\n")
+			else
+				debug "%s is not the DNS interface" name
+		end
+
 	let set_dns _ ~name ~nameservers ~domains =
-		debug "Configuring DNS for %s: nameservers: %s; domains: %s" name
-			(String.concat ", " (List.map Unix.string_of_inet_addr nameservers)) (String.concat ", " domains);
 		update_config name {(get_config name) with dns = nameservers, domains};
-		if nameservers <> [] || domains <> [] then
-			let domains' = if domains <> [] then ["search " ^ (String.concat " " domains)] else [] in
-			let nameservers' = List.map (fun ip -> "nameserver " ^ (Unix.string_of_inet_addr ip)) nameservers in
-			let lines = domains' @ nameservers' in
-			Unixext.write_string_to_file resolv_conf ((String.concat "\n" lines) ^ "\n")
+		config := {!config with dns_interface = Some name};
+		configure_dns name nameservers domains
 
 	let get_mtu _ ~name =
 		Ip.get_mtu name
@@ -362,12 +407,12 @@ module Interface = struct
 			ethtool_settings; ethtool_offload; _}) ->
 			if not (List.mem name exclude) then begin
 				(* best effort *)
-				(try set_ipv4_conf () ~name ~conf:ipv4_conf with _ -> ());
-				(try match ipv4_gateway with None -> () | Some gateway -> set_ipv4_gateway () ~name ~address:gateway with _ -> ());
+				(try configure_ipv4 name ipv4_conf with _ -> ());
+				(try match ipv4_gateway with None -> () | Some gateway -> configure_ipv4_gateway name gateway with _ -> ());
 				(try set_ipv6_conf () ~name ~conf:ipv6_conf with _ -> ());
 				(try match ipv6_gateway with None -> () | Some gateway -> set_ipv6_gateway () ~name ~address:gateway with _ -> ());
 				(try set_ipv4_routes () ~name ~routes:ipv4_routes with _ -> ());
-				(try set_dns () ~name ~nameservers ~domains with _ -> ());
+				(try configure_dns name nameservers domains with _ -> ());
 				(try set_mtu () ~name ~mtu with _ -> ());
 				(try bring_up () ~name with _ -> ());
 				(try set_ethtool_settings () ~name ~params:ethtool_settings with _ -> ());
