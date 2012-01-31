@@ -232,6 +232,19 @@ CAMLprim value stub_xenctrlext_get_max_nr_cpus(value xch)
 	CAMLreturn(Val_int(c_physinfo.max_cpu_id + 1));
 }
 
+CAMLprim value stub_xenctrlext_domain_set_target(value xch,
+					 value domid,
+					 value target)
+{
+	CAMLparam3(xch, domid, target);
+
+	int retval = xc_domain_set_target(_H(xch), _D(domid), _D(target));
+	if (retval)
+		failwith_xc(_H(xch));
+	CAMLreturn(Val_unit);
+}
+
+
 /* 
 * Local variables: 
 * indent-tabs-mode: t
