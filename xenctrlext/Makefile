@@ -34,13 +34,13 @@ libxenctrlext_stubs.a: xenctrlext_stubs.o
 	ocamlmklib -o xenctrlext_stubs $+
 
 %.cmo: %.ml %.cmi
-	$(OCAMLC) -package xenctrl -c -o $@ $<
+	$(OCAMLC) -package xenctrl,xenstore -c -o $@ $<
 
 %.cmi: %.mli
-	$(OCAMLC) -package xenctrl -c -o $@ $<
+	$(OCAMLC) -package xenctrl,xenstore -c -o $@ $<
 
 %.cmx: %.ml %.cmi
-	$(OCAMLOPT) $(OCAMLOPTFLAGS) -package xenctrl -c -o $@ $<
+	$(OCAMLOPT) $(OCAMLOPTFLAGS) -package xenctrl,xenstore -c -o $@ $<
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
