@@ -13,6 +13,7 @@ install:
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) base-path $(DESTDIR)/etc/xapi.d
 	$(IPROG) sm_diagnostics $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) xn_diagnostics $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) thread_diagnostics $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xn_diagnostics $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)$(ETCDIR)/bugtool/xapi
