@@ -88,14 +88,23 @@ let daemonize () =
 exception Break
 
 let lines_fold f start input =
-	let rec fold accumulator =
+	let accumulator = ref start in
+	let running = ref true in
+	while !running do
 		let line =
 			try Some (input_line input)
-			with End_of_file -> None in
+			with End_of_file -> None
+		in
 		match line with
-			| Some line -> (try fold (f accumulator line) with Break -> accumulator)
-			| None -> accumulator in
-	fold start
+		| Some line ->
+			begin
+				try accumulator := (f !accumulator line)
+				with Break -> running := false
+			end
+		| None ->
+				running := false
+	done;
+	!accumulator
 
 let lines_iter f = lines_fold (fun () line -> ignore(f line)) ()
 
