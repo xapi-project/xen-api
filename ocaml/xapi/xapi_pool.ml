@@ -1266,6 +1266,21 @@ let get_master_slaves_list ~__context =
 let get_slaves_list ~__context =
 	get_master_slaves_list_with_fn ~__context (fun master slaves -> slaves)
 
+(* destroy all subject not validated in external authentication *)
+let revalidate_subjects ~__context =
+	let revalidate_subject ~__context ~self =
+		let subj_id = Db.Subject.get_subject_identifier ~__context ~self in
+		debug "Revalidating subject %s" subj_id;
+		try
+			let open Auth_signature in
+			ignore((Extauth.Ext_auth.d()).query_subject_information subj_id)
+		with Not_found ->
+			debug "Destroying subject %s" subj_id;
+			Xapi_subject.destroy ~__context ~self in
+	let subjects_in_db = Db.Subject.get_all ~__context in
+	List.iter (fun subj -> revalidate_subject ~__context ~self:subj) subjects_in_db
+
+
 (* CP-719: Enables external auth/directory service across a whole pool; *)
 (* calling Host.enable_external_auth with the specified parameters in turn on each of the hosts in the pool
     * The call fails immediately if any of the pool hosts already have external auth enabled (must disable first)
@@ -1378,7 +1393,10 @@ let enable_external_auth ~__context ~pool ~config ~service_name ~auth_type =
 	end
 
 	else begin (* OK *)
-		debug "External authentication enabled for all hosts in the pool"
+		debug "External authentication enabled for all hosts in the pool";
+
+		(* CA-59647: remove subjects that do not belong to the new domain *)
+		revalidate_subjects ~__context;
 	end
 	)
 
