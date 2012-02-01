@@ -312,14 +312,14 @@ rm -rf $RPM_BUILD_ROOT
 
 %files xenopsd
 %defattr(-,root,root,-)
-@BASE_PATH@/libexec/xenopsd
+@OPTDIR@/libexec/xenopsd
 /etc/rc.d/init.d/xenopsd
 /etc/xenopsd.conf
-@BASE_PATH@/bin/xn
+@OPTDIR@/bin/xn
 /usr/bin/xn
 /etc/xensource/bugtool/xenopsd.xml
 /etc/xensource/bugtool/xenopsd/stuff.xml
-@BASE_PATH@/libexec/xn_diagnostics
+@OPTDIR@/libexec/xn_diagnostics
 
 %files v6d
 %defattr(-,root,root,-)
