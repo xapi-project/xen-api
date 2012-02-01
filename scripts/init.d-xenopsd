@@ -13,7 +13,7 @@
 NAME="xenopsd"
 
 # location of the executable:
-BIN="@BASE_PATH@/libexec/$NAME"
+BIN="@OPTDIR@/libexec/$NAME"
 
 # pidfile:
 PID_FILE="/var/run/$NAME.pid"
