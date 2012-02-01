@@ -327,10 +327,7 @@ module Database = struct
 	let lookup_key key db =
 		if KeyMap.mem (Ref key) db.keymap
 		then Some (KeyMap.find (Ref key) db.keymap)
-		else
-			if KeyMap.mem (Uuid key) db.keymap
-			then Some (KeyMap.find (Uuid key) db.keymap)
-			else None
+		else None
 
 	let make schema = {
 		tables    = TableSet.empty;
