@@ -18,10 +18,10 @@ section
 
 .PHONY: install
 install:
-	mkdir -p $(BIN_PATH)
-	$(IPROG) xn $(BIN_PATH)
+	mkdir -p $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xn $(DESTDIR)$(OPTDIR)/bin
 	mkdir -p $(DESTDIR)/usr/bin
-	ln -sf $(BIN_DIR)/xn $(DESTDIR)/usr/bin/xn
+	ln -sf $(OPTDIR)/bin/xn $(DESTDIR)/usr/bin/xn
 
 .PHONY: clean
 clean:
