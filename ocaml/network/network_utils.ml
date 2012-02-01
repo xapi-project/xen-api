@@ -332,10 +332,17 @@ module Ip = struct
 		let v = string_of_version version in
 		call (v @ ["route"; "show"; "dev"; dev])
 
-	let set_gateway dev gateway =
+	let set_route ?network dev gateway =
 		try
-			ignore (call ["route"; "replace"; "default"; "via"; Unix.string_of_inet_addr gateway; "dev"; dev])
+			match network with
+			| None ->
+				ignore (call ["route"; "replace"; "default"; "via"; Unix.string_of_inet_addr gateway; "dev"; dev])
+			| Some (ip, prefixlen) ->
+				let addr = Printf.sprintf "%s/%d" (Unix.string_of_inet_addr ip) prefixlen in
+				ignore (call ["route"; "replace"; addr; "via"; Unix.string_of_inet_addr gateway; "dev"; dev])
 		with _ -> ()
+
+	let set_gateway dev gateway = set_route dev gateway
 
 	let vlan_name interface vlan =
 		Printf.sprintf "%s.%d" interface vlan
@@ -449,7 +456,7 @@ module Ovs = struct
 			with _ -> ());
 		) phy_interfaces
 
-	let create_bridge ?mac ~fail_mode vlan vlan_bug_workaround name =
+	let create_bridge ?mac ?external_id ?disable_in_band ~fail_mode vlan vlan_bug_workaround name =
 		let vlan_arg = match vlan with
 			| None -> []
 			| Some (parent, tag) ->
@@ -462,7 +469,24 @@ module Ovs = struct
 		in
 		let fail_mode_arg =
 			if vlan = None then ["--"; "set"; "bridge"; name; "fail_mode=" ^ fail_mode] else [] in
-		call (["--"; "--may-exist"; "add-br"; name] @ vlan_arg @ mac_arg @ fail_mode_arg)
+		let external_id_arg = match external_id with
+			| None -> []
+			| Some (key, value) ->
+				match vlan with
+				| None -> ["--"; "br-set-external-id"; name; key; value]
+				| Some (parent, _) -> ["--"; "br-set-external-id"; parent; key; value]
+		in
+		let disable_in_band_arg =
+			if vlan = None then
+				match disable_in_band with
+				| None -> []
+				| Some None -> ["--"; "remove"; "bridge"; name; "other_config"; "disable-in-band"]
+				| Some (Some dib) -> ["--"; "set"; "bridge"; name; "other_config:disable-in-band=" ^ dib]
+			else
+				[]
+		in
+		call (["--"; "--may-exist"; "add-br"; name] @ vlan_arg @ mac_arg @ fail_mode_arg @
+			disable_in_band_arg @ external_id_arg)
 
 	let destroy_bridge name =
 		call ["--"; "--if-exists"; "del-br"; name]

@@ -17,6 +17,7 @@ open D
 open Stringext
 open Listext
 open Threadext
+open Fun
 open Db_filter_types
 
 let use_networkd = ref true
@@ -66,26 +67,68 @@ let netmask_to_prefixlen netmask =
 		List.fold_left length 0 [a; b; c; d]
 	)
 
-let determine_mtu ~__context pif_rc bridge =
+let determine_mtu ~__context pif_rc =
+	let mtu = Int64.to_int (Db.Network.get_MTU ~__context ~self:pif_rc.API.pIF_network) in
 	if List.mem_assoc "mtu" pif_rc.API.pIF_other_config then
-		int_of_string (List.assoc "mtu" pif_rc.API.pIF_other_config)
+		let value = List.assoc "mtu" pif_rc.API.pIF_other_config in
+		try
+			int_of_string value
+		with _ ->
+			debug "Invalid value for mtu = %s" value;
+			mtu
 	else
-		Int64.to_int (Db.Network.get_MTU ~__context ~self:pif_rc.API.pIF_network)
+		mtu
 
-let get_fail_mode ~__context pif_rc =
-	let fail_mode_of_string = function
-		| "secure" -> Secure
-		| "standalone" | _ -> Standalone
-	in
-	let oc = Db.Network.get_other_config ~__context ~self:pif_rc.API.pIF_network in
-	if List.mem_assoc "vswitch-controller-fail-mode" oc then
-		fail_mode_of_string (List.assoc "vswitch-controller-fail-mode" oc)
-	else
-		let oc = Db.Pool.get_other_config ~__context ~self:(Helpers.get_pool ~__context) in
-		if List.mem_assoc "vswitch-controller-fail-mode" oc then
-			fail_mode_of_string (List.assoc "vswitch-controller-fail-mode" oc)
+let determine_ethtool_settings oc =
+	let proc key =
+		if List.mem_assoc ("ethtool-" ^ key) oc then
+			let value = List.assoc ("ethtool-" ^ key) oc in
+			if value = "true" || value = "on" then
+				[key, "on"]
+			else if value = "false" || value = "off" then
+				[key, "off"]
+			else begin
+				debug "Invalid value for ethtool-%s = %s. Must be on|true|off|false." key value;
+				[]
+			end
 		else
-			Standalone
+			[]
+	in
+	let speed =
+		if List.mem_assoc "ethtool-speed" oc then
+			let value = List.assoc "ethtool-speed" oc in
+			if value = "10" || value = "100" || value = "1000" then
+				["speed", value]
+			else begin
+				debug "Invalid value for ethtool-speed = %s. Must be 10|100|1000." value;
+				[]
+			end
+		else
+			[]
+	in
+	let duplex =
+		if List.mem_assoc "ethtool-duplex" oc then
+			let value = List.assoc "ethtool-duplex" oc in
+			if value = "half" || value = "full" then
+				["duplex", value]
+			else begin
+				debug "Invalid value for ethtool-duplex = %s. Must be half|full." value;
+				[]
+			end
+		else
+			[]
+	in
+	let autoneg = proc "autoneg" in
+	let settings = speed @ duplex @ autoneg in
+	let offload = List.flatten (List.map proc ["rx"; "tx"; "sg"; "tso"; "ufo"; "gso"; "gro"; "lro"]) in
+	settings, offload
+
+let determine_other_config ~__context pif_rc net_rc =
+	let pif_oc = pif_rc.API.pIF_other_config in
+	let net_oc = net_rc.API.network_other_config in
+	let pool_oc = Db.Pool.get_other_config ~__context ~self:(Helpers.get_pool ~__context) in
+	let additional = ["network-uuids", net_rc.API.network_uuid] in
+	(pool_oc |> (List.update_assoc net_oc) |> (List.update_assoc pif_oc)) @ additional
 
 let create_bond ~__context bond mtu =
 	(* Get all information we need from the DB before doing anything that may drop our
@@ -101,25 +144,25 @@ let create_bond ~__context bond mtu =
 		in
 		device, bridge
 	) slaves in
-	let bridge = Db.Network.get_bridge ~__context ~self:master_rc.API.pIF_network in
+	let master_net_rc = Db.Network.get_record ~__context ~self:master_rc.API.pIF_network in
 	let props = Db.Bond.get_properties ~__context ~self:bond in
 	let mode = Db.Bond.get_mode ~__context ~self:bond in
-	let fail_mode = get_fail_mode ~__context master_rc in
+	let other_config = determine_other_config ~__context master_rc master_net_rc in
 
 	(* clean up bond slaves *)
 	List.iter (fun (device, bridge) ->
-		Net.Interface.set_ipv4_addr bridge None4;
-		Net.Bridge.destroy ~force:true bridge;
-		Net.Interface.set_persistent bridge false;
-		Net.Interface.set_mtu device mtu
+		Net.Interface.set_ipv4_conf ~name:bridge ~conf:None4;
+		Net.Bridge.destroy ~force:true ~name:bridge ();
+		Net.Interface.set_persistent ~name:bridge ~value:false;
+		Net.Interface.set_mtu ~name:device ~mtu
 	) slave_devices_and_bridges;
 
 	(* create bond bridge *)
 	let port = master_rc.API.pIF_device in
 	let mac = master_rc.API.pIF_MAC in
-	Net.Bridge.create ~mac ~fail_mode bridge;
-	Net.Bridge.add_port ~mac bridge port
-		(List.map (fun (device, _) -> device) slave_devices_and_bridges);
+	Net.Bridge.create ~mac ~other_config ~name:master_net_rc.API.network_bridge ();
+	Net.Bridge.add_port ~mac ~bridge:master_net_rc.API.network_bridge ~name:port
+		~interfaces:(List.map (fun (device, _) -> device) slave_devices_and_bridges) ();
 
 	(* set bond properties *)
 	let hashing_algorithm =
@@ -144,7 +187,7 @@ let create_bond ~__context bond mtu =
 	) master_rc.API.pIF_other_config in
 	(* add defaults for properties that are not overridden *)
 	let props = (List.filter (fun (k, _) -> not (List.mem_assoc k overrides)) props) @ overrides in
-	Net.Bridge.set_bond_properties bridge port props
+	Net.Bridge.set_bond_properties ~bridge:master_net_rc.API.network_bridge ~name:port ~params:props
 
 let destroy_bond ~__context ~force bond =
 	let master = Db.Bond.get_master ~__context ~self:bond in
@@ -152,29 +195,24 @@ let destroy_bond ~__context ~force bond =
 		let network = Db.PIF.get_network ~__context ~self:master in
 		Db.Network.get_bridge ~__context ~self:network
 	in
-	Net.Interface.set_ipv4_addr bridge None4;
-	Net.Bridge.destroy ~force bridge
+	Net.Interface.set_ipv4_conf ~name:bridge ~conf:None4;
+	Net.Bridge.destroy ~force ~name:bridge ()
 
 let create_vlan ~__context vlan =
 	let master = Db.VLAN.get_untagged_PIF ~__context ~self:vlan in
+	let master_rc = Db.PIF.get_record ~__context ~self:master in
+	let master_network_rc = Db.Network.get_record ~__context ~self:master_rc.API.pIF_network in
+
 	let slave = Db.VLAN.get_tagged_PIF ~__context ~self:vlan in
-	let bridge =
-		let network = Db.PIF.get_network ~__context ~self:master in
-		Db.Network.get_bridge ~__context ~self:network
-	in
-	let parent =
-		let network = Db.PIF.get_network ~__context ~self:slave in
-		Db.Network.get_bridge ~__context ~self:network
-	in
+	let slave_rc = Db.PIF.get_record ~__context ~self:slave in
+	let slave_network_rc = Db.Network.get_record ~__context ~self:slave_rc.API.pIF_network in
+
 	let tag = Int64.to_int (Db.VLAN.get_tag ~__context ~self:vlan) in
-	let vlan_bug_workaround =
-		let oc = Db.PIF.get_other_config ~__context ~self:master in
-		if List.mem_assoc "vlan-bug-workaround" oc then
-			Some (List.assoc "vlan-bug-workaround" oc = "true")
-		else
-			None
-	in
-	Net.Bridge.create ~vlan:(parent, tag) ?vlan_bug_workaround bridge
+	let other_config = determine_other_config ~__context master_rc master_network_rc in
+	let other_config = List.replace_assoc "network-uuids"
+		(master_network_rc.API.network_uuid ^ ";" ^ slave_network_rc.API.network_uuid) other_config in
+	Net.Bridge.create ~vlan:(slave_network_rc.API.network_bridge, tag)
+		~other_config ~name:master_network_rc.API.network_bridge ()
 
 let destroy_vlan ~__context vlan =
 	let master = Db.VLAN.get_untagged_PIF ~__context ~self:vlan in
@@ -182,8 +220,8 @@ let destroy_vlan ~__context vlan =
 		let network = Db.PIF.get_network ~__context ~self:master in
 		Db.Network.get_bridge ~__context ~self:network
 	in
-	Net.Interface.set_ipv4_addr bridge None4;
-	Net.Bridge.destroy bridge
+	Net.Interface.set_ipv4_conf ~name:bridge ~conf:None4;
+	Net.Bridge.destroy ~name:bridge ()
 
 let get_bond pif_rc =
 	match pif_rc.API.pIF_bond_master_of with
@@ -214,36 +252,42 @@ let get_pif_type pif_rc =
 			| Some tunnel -> `tunnel_pif tunnel
 			| None -> `phy_pif
 
-let rec create_bridges ~__context pif_rc bridge =
-	let mtu = determine_mtu ~__context pif_rc bridge in
+let rec create_bridges ~__context pif_rc net_rc =
+	let mtu = determine_mtu ~__context pif_rc in
+	let other_config = determine_other_config ~__context pif_rc net_rc in
 	begin match get_pif_type pif_rc with
 	| `tunnel_pif _ ->
-		let fail_mode = get_fail_mode ~__context pif_rc in
-		Net.Bridge.create ~mac:pif_rc.API.pIF_MAC ~fail_mode bridge;
+		Net.Bridge.create ~mac:pif_rc.API.pIF_MAC ~other_config ~name:net_rc.API.network_bridge ();
 	| `vlan_pif vlan ->
 		let slave = Db.VLAN.get_tagged_PIF ~__context ~self:vlan in
-		let rc = Db.PIF.get_record ~__context ~self:slave in
-		let bridge = Db.Network.get_bridge ~__context ~self:rc.API.pIF_network in
-		if not (Net.Interface.is_up bridge) then
-			create_bridges ~__context rc bridge;
+		let pif_rc = Db.PIF.get_record ~__context ~self:slave in
+		let net_rc = Db.Network.get_record ~__context ~self:pif_rc.API.pIF_network in
+		if not (Net.Interface.is_up ~name:net_rc.API.network_bridge) then
+			create_bridges ~__context pif_rc net_rc;
 		create_vlan ~__context vlan
 	| `bond_pif bond ->
 		create_bond ~__context bond mtu;
-		Net.Interface.set_mtu pif_rc.API.pIF_device mtu;
+		Net.Interface.set_mtu ~name:pif_rc.API.pIF_device ~mtu;
 	| `phy_pif  ->
-		let fail_mode = get_fail_mode ~__context pif_rc in
 		if pif_rc.API.pIF_bond_slave_of <> Ref.null then
 			destroy_bond ~__context ~force:true pif_rc.API.pIF_bond_slave_of;
-		Net.Bridge.create ~mac:pif_rc.API.pIF_MAC ~fail_mode bridge;
-		Net.Bridge.add_port bridge pif_rc.API.pIF_device [pif_rc.API.pIF_device];
-		Net.Interface.set_mtu pif_rc.API.pIF_device mtu;
+		Net.Bridge.create ~mac:pif_rc.API.pIF_MAC ~other_config ~name:net_rc.API.network_bridge ();
+		Net.Bridge.add_port ~bridge:net_rc.API.network_bridge ~name:pif_rc.API.pIF_device ~interfaces:[pif_rc.API.pIF_device] ();
+		Net.Interface.set_mtu ~name:pif_rc.API.pIF_device ~mtu;
+		let (ethtool_settings, ethtool_offload) =
+			determine_ethtool_settings pif_rc.API.pIF_other_config in
+		Net.Interface.set_ethtool_settings ~name:pif_rc.API.pIF_device ~params:ethtool_settings;
+		Net.Interface.set_ethtool_offload ~name:pif_rc.API.pIF_device ~params:ethtool_offload
 	end;
-	Net.Interface.set_mtu bridge mtu
+	Net.Interface.set_mtu ~name:net_rc.API.network_bridge ~mtu;
+	let (ethtool_settings, ethtool_offload) = determine_ethtool_settings net_rc.API.network_other_config in
+	Net.Interface.set_ethtool_settings ~name:net_rc.API.network_bridge ~params:ethtool_settings;
+	Net.Interface.set_ethtool_offload ~name:net_rc.API.network_bridge ~params:ethtool_offload
 
 let rec destroy_bridges ~__context ~force pif_rc bridge =
 	begin match get_pif_type pif_rc with
 	| `tunnel_pif _ ->
-		Net.Bridge.destroy bridge
+		Net.Bridge.destroy ~name:bridge ()
 	| `vlan_pif vlan ->
 		destroy_vlan ~__context vlan;
 		let slave = Db.VLAN.get_tagged_PIF ~__context ~self:vlan in
@@ -254,7 +298,7 @@ let rec destroy_bridges ~__context ~force pif_rc bridge =
 	| `bond_pif bond ->
 		destroy_bond ~__context ~force bond
 	| `phy_pif  ->
-		Net.Bridge.destroy bridge
+		Net.Bridge.destroy ~name:bridge ()
 	end
 
 (* Determine the gateway and DNS PIFs:
@@ -313,6 +357,15 @@ let determine_dhcp_options ~__context pif management_interface =
 	(if pif = gateway_pif then [`set_gateway] else []) @
 	(if pif = dns_pif then [`set_dns] else [])
 
+let determine_static_routes net_rc =
+	if List.mem_assoc "static-routes" net_rc.API.network_other_config then
+		try
+			let routes = String.split ',' (List.assoc "static-routes" net_rc.API.network_other_config) in
+			List.map (fun route -> Scanf.sscanf route "%[^/]/%d/%[^/]" (fun a b c -> Unix.inet_addr_of_string a, b, Unix.inet_addr_of_string c)) routes
+		with _ -> []
+	else
+		[]
+
 let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 	with_local_lock (fun () ->
 		let uuid = Db.PIF.get_uuid ~__context ~self:pif in
@@ -336,37 +389,51 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 			if !use_networkd then
 				begin try
 					let rc = Db.PIF.get_record ~__context ~self:pif in
-					let bridge = Db.Network.get_bridge ~__context ~self:rc.API.pIF_network in
+					let net_rc = Db.Network.get_record ~__context ~self:rc.API.pIF_network in
+					let bridge = net_rc.API.network_bridge in
 					let dhcp_options =
 						if rc.API.pIF_ip_configuration_mode = `DHCP then
 							determine_dhcp_options ~__context pif management_interface
 						else
 							[]
 					in
-					create_bridges ~__context rc bridge;
+					create_bridges ~__context rc net_rc;
 					begin match rc.API.pIF_ip_configuration_mode with
 					| `None ->
-						Net.Interface.set_ipv4_addr bridge None4;
+						Net.Interface.set_ipv4_conf ~name:bridge ~conf:None4;
 					| `DHCP ->
-						Net.Interface.set_ipv4_addr bridge (DHCP4 dhcp_options)
+						Net.Interface.set_ipv4_conf ~name:bridge ~conf:(DHCP4 dhcp_options)
 					| `Static ->
-						Net.Interface.set_ipv4_addr bridge
-							(Static4 [
+						Net.Interface.set_ipv4_conf ~name:bridge
+							~conf:(Static4 [
 								Unix.inet_addr_of_string rc.API.pIF_IP,
 								netmask_to_prefixlen rc.API.pIF_netmask]);
 						if rc.API.pIF_gateway <> "" then
-							Net.Interface.set_ipv4_gateway bridge (Unix.inet_addr_of_string rc.API.pIF_gateway);
+							Net.Interface.set_ipv4_gateway ~name:bridge ~address:(Unix.inet_addr_of_string rc.API.pIF_gateway);
 						if rc.API.pIF_DNS <> "" then begin
-							let dnss = List.map Unix.inet_addr_of_string (String.split ',' rc.API.pIF_DNS) in
-							Net.Interface.set_dns bridge dnss
+							let nameservers = List.map Unix.inet_addr_of_string (String.split ',' rc.API.pIF_DNS) in
+							let domains =
+								if List.mem_assoc "domain" rc.API.pIF_other_config then
+									let domains = List.assoc "domain" rc.API.pIF_other_config in
+									try
+										String.split ',' domains
+									with _ ->
+										warn "Invalid DNS search domains: %s" domains;
+										[]
+								else
+									[]
+							in
+							Net.Interface.set_dns ~name:bridge ~nameservers ~domains
 						end
 					end;
+					let static_routes = determine_static_routes net_rc in
+					if static_routes <> [] then Net.Interface.set_ipv4_routes ~name:bridge ~routes:static_routes;
 					if is_dom0_interface rc then begin
-						Net.Interface.set_persistent bridge true;
-						Net.Bridge.set_persistent bridge true
+						Net.Interface.set_persistent ~name:bridge ~value:true;
+						Net.Bridge.set_persistent ~name:bridge ~value:true
 					end else begin
-						Net.Interface.set_persistent bridge false;
-						Net.Bridge.set_persistent bridge false
+						Net.Interface.set_persistent ~name:bridge ~value:false;
+						Net.Bridge.set_persistent ~name:bridge ~value:false
 					end
 				with Network_interface.RpcFailure (err, params) ->
 					let e = Printf.sprintf "%s [%s]" err (String.concat ", " (List.map (fun (k, v) -> k ^ " = " ^ v) params)) in
@@ -432,7 +499,7 @@ let bring_pif_down ~__context ?(force=false) (pif: API.ref_PIF) =
 				try
 					let bridge = Db.Network.get_bridge ~__context ~self:rc.API.pIF_network in
 					destroy_bridges ~__context ~force rc bridge;
-					Net.Interface.set_persistent bridge false
+					Net.Interface.set_persistent ~name:bridge ~value:false
 				with Network_interface.RpcFailure (err, params) ->
 					let e = Printf.sprintf "%s [%s]" err (String.concat ", " (List.map (fun (k, v) -> k ^ " = " ^ v) params)) in
 					error "Network configuration error: %s" e;
