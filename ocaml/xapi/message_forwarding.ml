@@ -2427,6 +2427,16 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			info "Pool_patch.clean: pool patch = '%s'" (pool_patch_uuid ~__context self);
 			Xapi_pool_patch.clean ~__context ~self
 
+		let clean_on_host ~__context ~self ~host =
+			info "Pool_patch.clean_on_host: pool patch = '%s'" (pool_patch_uuid ~__context self);
+			let local_fn = Local.Pool_patch.clean ~self in
+			do_op_on ~local_fn ~__context ~host
+				(fun session_id rpc -> Client.Pool_patch.clean rpc session_id self)
+
+		let pool_clean ~__context ~self =
+			info "Pool_patch.pool_clean: pool patch = '%s'" (pool_patch_uuid ~__context self);
+			Xapi_pool_patch.pool_clean ~__context ~self
+
 		let destroy ~__context ~self =
 			info "Pool_patch.destroy: pool patch = '%s'" (pool_patch_uuid ~__context self);
 			Xapi_pool_patch.destroy ~__context ~self

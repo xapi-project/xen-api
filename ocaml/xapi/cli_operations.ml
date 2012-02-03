@@ -3811,6 +3811,11 @@ let patch_clean printer rpc session_id params =
 	let patch_ref = Client.Pool_patch.get_by_uuid rpc session_id uuid in
 	Client.Pool_patch.clean rpc session_id patch_ref
 
+let patch_pool_clean printer rpc session_id params =
+	let uuid = List.assoc "uuid" params in
+	let patch_ref = Client.Pool_patch.get_by_uuid rpc session_id uuid in
+	Client.Pool_patch.pool_clean rpc session_id patch_ref
+
 let patch_destroy printer rpc session_id params =
 	let uuid = List.assoc "uuid" params in
 	let patch_ref = Client.Pool_patch.get_by_uuid rpc session_id uuid in
