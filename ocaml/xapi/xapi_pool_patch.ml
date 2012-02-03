@@ -726,17 +726,34 @@ let pool_apply ~__context ~self =
   
 let clean ~__context ~self = 
   let path = Db.Pool_patch.get_filename ~__context ~self in
-    Unixext.unlink_safe path;
-    Db.Pool_patch.set_filename ~__context ~self ~value:""
+	Unixext.unlink_safe path
+
+let clean_on_host ~__context ~self ~host = 
+	debug "pool_patch.clean_on_host";
+	clean ~__context ~self
+
+let pool_clean ~__context ~self = 
+	debug "pool_patch.pool_clean";
+	let hosts = Db.Host.get_all ~__context in
+	List.iter 
+		(fun host ->
+			Helpers.call_api_functions ~__context
+				(fun rpc session_id -> Client.Client.Pool_patch.clean_on_host ~rpc ~session_id ~self ~host)
+		)
+		hosts; 
+	Db.Pool_patch.set_filename ~__context ~self ~value:""
 
 let destroy ~__context ~self = 
   let hosts = Db.Host.get_all ~__context in
   let applied = List.exists (fun host -> patch_is_applied_to ~__context ~patch:self ~host) hosts in
-  
+
   if applied
   then raise (Api_errors.Server_error(Api_errors.patch_is_applied, []));
 
-  let path = Db.Pool_patch.get_filename ~__context ~self in
-
-    Db.Pool_patch.destroy ~__context ~self;
-    Unixext.unlink_safe path
+	List.iter 
+		(fun host ->
+			Helpers.call_api_functions ~__context
+				(fun rpc session_id -> Client.Client.Pool_patch.clean_on_host ~rpc ~session_id ~self ~host)
+		)
+		hosts; 
+	Db.Pool_patch.destroy ~__context ~self
