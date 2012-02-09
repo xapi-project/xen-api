@@ -675,8 +675,10 @@ let destroy_sr ~__context ~sr =
 		(Client.SR.attach task (Db.SR.get_uuid ~__context ~self:sr) pbd_t.API.pBD_device_config);
 	(* The current backends expect the PBD to be temporarily set to currently_attached = true *)
 	Db.PBD.set_currently_attached ~__context ~self:pbd ~value:true;
-	expect_unit (fun () -> ())
-		(Client.SR.destroy task (Db.SR.get_uuid ~__context ~self:sr));	
-	(* All PBDs are clearly currently_attached = false now *)
-	Db.PBD.set_currently_attached ~__context ~self:pbd ~value:false;
+	Pervasiveext.finally (fun () ->
+		expect_unit (fun () -> ())
+			(Client.SR.destroy task (Db.SR.get_uuid ~__context ~self:sr)))
+		(fun () -> 
+			(* All PBDs are clearly currently_attached = false now *)
+			Db.PBD.set_currently_attached ~__context ~self:pbd ~value:false);
 	unbind ~__context ~pbd
