@@ -13,7 +13,7 @@
 # v6 licensing daemon
 
 # location of the executable:
-V6D="@BASE_PATH@/libexec/v6d"
+V6D="@LIBEXECDIR@/v6d"
 
 # pidfile:
 PID_FILE="/var/run/v6d.pid"

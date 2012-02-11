@@ -2,14 +2,14 @@
 # Script which restores metadata into a VDI
 # Citrix Systems Inc, 2008
 
-if [ ! -e /etc/xensource-inventory ]; then
+if [ ! -e @INVENTORY@ ]; then
   echo Must run on a XenServer host.
   exit 1
 fi
 
-. /etc/xensource-inventory
+. @INVENTORY@
 
-XE="@BASE_PATH@/bin/xe"
+XE="@BINDIR@/xe"
 
 master_uuid=$(${XE} pool-list params=master --minimal)
 if [ $? -gt 0 ]; then
@@ -170,7 +170,7 @@ for vdi_uuid in ${vdis}; do
    ${debug} echo ${device} >&2
 
    ${debug} echo -n "Probing device: " >&2
-   probecmd="@BASE_PATH@/libexec/probe-device-for-file"
+   probecmd="@LIBEXECDIR@/probe-device-for-file"
    metadata_stamp="/.ctxs-metadata-backup"
    mnt=
    ${probecmd} ${device} ${metadata_stamp}
@@ -287,7 +287,7 @@ for meta in *.vmmeta; do
    if [ ${dry_run} -gt 0 ]; then
        echo xe vm-import filename=${meta} sr-uuid=${sr_uuid} --metadata --preserve
    else
-       "@BASE_PATH@/bin/xe" vm-import filename="${full_dir}/${meta}" sr-uuid=${sr_uuid} --metadata --preserve
+       "@BINDIR@/xe" vm-import filename="${full_dir}/${meta}" sr-uuid=${sr_uuid} --metadata --preserve
        if [ $? -gt 0 ]; then
           error_count=$(( $error_count + 1 ))
        else
@@ -297,7 +297,7 @@ for meta in *.vmmeta; do
 done
 
 smmeta_file=${mnt}/metadata/${chosen_metadata_dir}/SRMETA.xml
-cmd="@BASE_PATH@/libexec/restore-sr-metadata.py -u ${sr_uuid} -f ${smmeta_file}"
+cmd="@LIBEXECDIR@/restore-sr-metadata.py -u ${sr_uuid} -f ${smmeta_file}"
 if [ -e ${smmeta_file} ]; then
     if [ ${dry_run} -gt 0 ]; then
         echo ${cmd}

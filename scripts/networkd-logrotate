@@ -1,0 +1,9 @@
+/var/log/xcp-networkd.log {
+    missingok
+    notifempty
+    size 30k
+    sharedscripts
+    postrotate
+        /opt/xensource/bin/xcp-networkd-reopen-logs 2> /dev/null > /dev/null || true
+    endscript
+}

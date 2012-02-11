@@ -89,7 +89,7 @@ let get_handler (req: Http.Request.t) s _ =
 			debug "uri = %s" req.Http.Request.uri;
 			match String.split '/' req.Http.Request.uri with
 				| [ ""; services; "xenops" ] when services = _services ->
-					hand_over_connection req s "/var/xapi/xenopsd.forwarded"
+					hand_over_connection req s (Filename.concat Fhs.vardir "xenopsd.forwarded")
 				| [ ""; services; "SM"; driver ] when services = _services ->
 					begin
 						try

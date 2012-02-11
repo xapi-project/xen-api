@@ -60,8 +60,10 @@ let track_http_operation ?use_existing_task fd rpc session_id (make_command: API
   let task_id = match use_existing_task with None -> Client.Task.create rpc session_id label "" | Some t -> t in
   finally
     (fun () ->
-       marshal fd (Command (make_command task_id));
-       if unmarshal fd = Response OK then begin
+	     marshal fd (Command (make_command task_id));
+	     let response = ref (Response Wait) in
+	     while !response = Response Wait do response := unmarshal fd done;
+	     if !response = Response OK then begin
 	 (* Wait for the task to complete *)
 	 debug "Waiting for the task to be completed";
 	 wait_for_task_completion rpc session_id task_id;

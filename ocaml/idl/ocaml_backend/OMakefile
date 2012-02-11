@@ -52,7 +52,7 @@ autogen_idl: $(AUTOGEN_DIR)/client.ml $(AUTOGEN_DIR)/aPI.ml $(AUTOGEN_DIR)/serve
 
 COMMON_OBJS = ref \
 	../datamodel_types event_types \
-	../api_errors ../api_messages ../../xapi/config_constants ../../xapi/xapi_globs \
+	../api_errors ../api_messages ../../xapi/xapi_globs \
 	../constants
 CLIENT_OBJS = $(AUTOGEN_DIR)/aPI $(AUTOGEN_DIR)/client event_helper
 SERVER_OBJS = ../../database/escaping locking_helpers \
@@ -115,6 +115,7 @@ SERVER_OBJS = ../../database/escaping locking_helpers \
 	../../xapi/xmlrpc_sexpr
 
 XAPI_CLIENT_OBJS = \
+	../../fhs \
 	../../util/util_globs_inventory \
 	../../util/util_inventory \
 	../../util/version \
@@ -152,7 +153,7 @@ clean:
 META: META.in
 	sed 's/@VERSION@/$(PRODUCT_VERSION)/g' < $< > $@
 
-if $(defined DESTDIR)
+if $(defined-env DESTDIR)
 	INSTALL_PATH = $(DESTDIR)/$(shell ocamlfind printconf destdir)
 	export
 else

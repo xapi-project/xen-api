@@ -1,8 +1,10 @@
 # You must set your XEN_ROOT env var before building
 XEN_CFLAGS    = -I$(XEN_ROOT)/usr/include
 OCAMLINCLUDES = +ocamldoc
-OCAML_LIBS    = $(ROOT)/ocaml/util/version $(ROOT)/ocaml/util/stats
+OCAML_LIBS    = $(ROOT)/ocaml/fhs $(ROOT)/ocaml/util/version $(ROOT)/ocaml/util/stats
 OCAMLPACKS    = stdext log
+
+OCamlLibrary(fhs, fhs)
 
 .SUBDIRS: \
 	ptoken \
@@ -35,5 +37,6 @@ OCAMLPACKS    = stdext log
 	lvhdrt \
 	mpathalert \
 	multipathrt \
-	doc
+	doc \
+	network
 

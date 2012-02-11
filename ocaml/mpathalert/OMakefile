@@ -1,8 +1,8 @@
 OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client
-OCAMLINCLUDES = ../idl/ocaml_backend/ ../idl ../autogen
+OCAMLINCLUDES = ../idl/ocaml_backend/ ../idl ../autogen ..
 OCAMLPACKS    = xml-light2 stdext stunnel http-svr log rpc-light
 
-OCamlProgram(mpathalert, mpathalert)
+OCamlProgram(mpathalert, mpathalert ../fhs)
 OCamlDocProgram(mpathalert, mpathalert)
 
 .PHONY: clean
@@ -12,6 +12,6 @@ clean:
 
 .PHONY: install
 install:
-	mkdir -p $(BIN_PATH)
-	$(IPROG) mpathalert $(BIN_PATH)
+	mkdir -p $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) mpathalert $(DESTDIR)$(OPTDIR)/bin
 

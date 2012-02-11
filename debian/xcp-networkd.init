@@ -1,0 +1,115 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          xcp-networkd
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: XCP networking daemon
+# Description:       xcp-networkd provides a network configuration daemon
+#                    for xcp-xapi, which handles the configuration of
+#                    network interfaces and network bridges (either
+#                    linux or Open vSwitch) for xcp-xapi.
+### END INIT INFO
+
+# Do NOT "set -e"
+
+# PATH should only include /usr/* if it runs after the mountnfs.sh script
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+DESC="Start/Stop the XCP networking daemon"
+NAME=xcp-networkd
+DAEMON=/usr/lib/xcp/lib/$NAME
+DAEMON_ARGS="--options args"
+PIDFILE=/var/run/$NAME.pid
+SCRIPTNAME=/etc/init.d/$NAME
+
+# Exit if the package is not installed
+[ -x "$DAEMON" ] || exit 0
+
+# Read configuration variable file if it is present
+[ -r /etc/default/$NAME ] && . /etc/default/$NAME
+
+# Load the VERBOSE setting and other rcS variables
+. /lib/init/vars.sh
+
+# Define LSB log_* functions.
+# Depend on lsb-base (>= 3.2-14) to ensure that this file is present
+# and status_of_proc is working.
+. /lib/lsb/init-functions
+
+# lock file
+SUBSYS_FILE="/var/run/lock/xcp-networkd"
+
+start() {
+	echo -n "Starting the XCP networking daemon: "
+	
+	if [ -e ${SUBSYS_FILE} ]; then
+		if [ -e ${PIDFILE} ] && [ -e /proc/`cat ${PIDFILE}` ]; then
+			log_failure_msg "cannot start xcp-networkd: already running."
+			echo
+			return 1
+		fi
+	fi
+	
+	${DAEMON} -daemon -pidfile ${PIDFILE} >/dev/null 2>&1 </dev/null
+
+	MAX_RETRIES=30
+	RETRY=0
+	while [ ${RETRY} -lt ${MAX_RETRIES} ]; do
+		PID=$(cat ${PIDFILE} 2>/dev/null)
+		kill -0 ${PID} 2> /dev/null
+		if [ $? -eq 0 ]; then
+			touch ${SUBSYS_FILE}
+			log_success_msg "${NAME} is running"
+			echo
+			return 0
+		fi
+		sleep 1
+		echo -n .
+		RETRY=$(( ${RETRY} + 1 ))
+	done
+	log_failure_msg "failed to start xcp-networkd."
+	killproc networkd
+	rm -f ${SUBSYS_FILE} ${PIDFILE}
+	echo
+	return 1
+}
+
+stop() {
+	echo -n "Stopping the XCP networking daemon: "
+
+	if [ ! -e ${SUBSYS_FILE} ]; then
+		log_failure_msg "cannot stop xcp-networkd: daemon is not running."
+		echo
+		return 1;
+	fi
+
+	killproc ${NAME}
+	RETVAL=$?
+	echo
+	[ $RETVAL -eq 0 ] && rm -f ${SUBSYS_FILE} ${PIDFILE}
+	return $RETVAL
+}
+
+restart() {
+	stop
+	start
+}
+
+case "$1" in
+	start)
+		start
+		;;
+	stop)
+		stop
+		;;
+	restart|force-reload)
+		restart
+		;;
+	status)
+		status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+esac

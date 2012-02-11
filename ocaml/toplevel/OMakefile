@@ -1,11 +1,11 @@
-OCAML_LIBS    = ../idl/ocaml_backend/common ../idl/ocaml_backend/client $(BASE_PATH)/lib/ocaml/toplevellib
+OCAML_LIBS    = ../idl/ocaml_backend/common ../idl/ocaml_backend/client $(DESTDIR)$(OPTDIR)/lib/ocaml/toplevellib
 OCAMLINCLUDES = ../idl/ocaml_backend/
 OCAMLPACKS    = xml-light2 stdext uuid
 
 COMPILE_NATIVE=no
 section
 	OCAMLFLAGS+=-linkall
-	OCamlProgram(xencaml-bin, toplevelhelper $(BASE_PATH)/lib/ocaml/topstart )
+	OCamlProgram(xencaml-bin, toplevelhelper $(DESTDIR)$(OPTDIR)/lib/ocaml/topstart )
 
 .PHONY: clean
 

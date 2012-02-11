@@ -74,7 +74,7 @@ struct
 end
 
 (* some constants *)
-let extauth_hook_script_name = "extauth-hook" (* script name in /etc/xapi.d/plugins/ *)
+let extauth_hook_script_name = "extauth-hook" (* script name in @PLUGINDIR@/ *)
 let event_name_after_subject_add = "after-subject-add"
 let event_name_after_subject_remove = "after-subject-remove"
 let event_name_after_xapi_initialize = "after-xapi-initialize"
@@ -102,10 +102,10 @@ let can_execute_extauth_hook_script ~__context host event_name =
 (* use the generic call below to avoid concurrency problems between the script and host.{enable,disable}_extauth *)
 let call_extauth_hook_script_in_host_wrapper ~__context host event_name ~call_plugin_fn =
 	(* CP-709: call extauth-hook-script *)
-	(* Forkhelpers.execute_command_get_output hook-script "/etc/xapi.d/plugins/extauth-hook" *)
+	(* Forkhelpers.execute_command_get_output hook-script "@PLUGINDIR@/extauth-hook" *)
 	(* fork a new thread and call new xapi.host.call-subject-add-hook-script method *)
 	(* see xapi_sync.ml *)
-	(* host.call-plugins scriptname (calls /etc/xapi.d/plugins/scriptname*)
+	(* host.call-plugins scriptname (calls @PLUGINDIR@/scriptname*)
 
 	if can_execute_extauth_hook_script ~__context host event_name
 	then begin
@@ -148,7 +148,7 @@ let call_extauth_hook_script_in_host ~__context host event_name =
 	let call_plugin_fn () = 
 		Helpers.call_api_functions ~__context (fun rpc session_id ->
 			Client.Client.Host.call_plugin rpc session_id host (* will call extauth plugin with mutex *) 
-			extauth_hook_script_name (* script name in /etc/xapi.d/plugins/ *) 
+			extauth_hook_script_name (* script name in @PLUGINDIR@/ *) 
 			event_name (* event name sent to script *)
 			event_params (* parameters sent to event name *)
 		)

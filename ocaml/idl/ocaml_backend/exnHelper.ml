@@ -63,6 +63,8 @@ let error_of_exn e =
 		internal_error, [ Printf.sprintf "Subprocess exitted with unexpected code %d; stdout = [ %s ]; stderr = [ %s ]" n stdout stderr ]
 	| Invalid_argument x ->
 		internal_error, [ Printf.sprintf "Invalid argument: %s" x ]
+	| Db_filter.Expression_error (expr, exc) ->
+	  invalid_value, [ expr; (Printexc.to_string exc)]
 	| e ->
 		internal_error, [ Printexc.to_string e ]
 

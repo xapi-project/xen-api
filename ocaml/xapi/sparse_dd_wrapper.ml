@@ -21,7 +21,7 @@ open Printf
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
 
-let sparse_dd_path = Xapi_globs.base_path ^ "/libexec/sparse_dd"
+let sparse_dd_path = Filename.concat Fhs.libexecdir "sparse_dd"
 
 (** Use the new external sparse_dd program *)
 let dd ~__context prezeroed infile outfile size = 

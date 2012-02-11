@@ -272,7 +272,6 @@ def _configure_physical_interface(pif):
     f = open_pif_ifcfg(pif)
 
     f.write("TYPE=Ethernet\n")
-    f.write("HWADDR=%(MAC)s\n" % pifrec)
 
     settings,offload = ethtool_settings(pifrec['other_config'],
                                         PIF_OTHERCONFIG_DEFAULTS)

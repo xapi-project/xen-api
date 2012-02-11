@@ -1,7 +1,7 @@
 #####################################################################
 # Example configuration file for perfmon. This file is read by
 # /etc/init.d/perfmon and used to construct the command line
-# arguments to pass to @BASE_PATH@/bin/perfmon.
+# arguments to pass to @BINDIR@/perfmon.
 
 # uncomment lines to enable options.
 

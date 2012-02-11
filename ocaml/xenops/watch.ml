@@ -39,7 +39,7 @@ type 'a t = { paths: path list;
 let map f x = { x with evaluate = fun ~xs -> result_map f (x.evaluate ~xs) }
   
 (** Block waiting for a result *)
-let wait_for ~xs ?(timeout=60. *. 20.) (x: 'a t) =
+let wait_for ~xs ?(timeout=300.) (x: 'a t) =
   let result = ref None in
 
   (*let start_time = Unix.gettimeofday () in

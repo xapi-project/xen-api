@@ -427,8 +427,11 @@ let compare_int_lists : int list -> int list -> int =
 
 let version_string_of : __context:Context.t -> API.ref_host -> string =
 	fun ~__context host ->
-		List.assoc Xapi_globs._product_version
-			(Db.Host.get_software_version ~__context ~self:host)
+		try
+			List.assoc Xapi_globs._platform_version
+				(Db.Host.get_software_version ~__context ~self:host)
+		with Not_found ->
+			Xapi_globs.default_platform_version
 
 let version_of : __context:Context.t -> API.ref_host -> int list =
 	fun ~__context host ->
@@ -436,7 +439,7 @@ let version_of : __context:Context.t -> API.ref_host -> int list =
 		in List.map int_of_string (String.split '.' vs)
 
 (* Compares host versions, analogous to Pervasives.compare. *)
-let compare_host_product_versions : __context:Context.t -> API.ref_host -> API.ref_host -> int =
+let compare_host_platform_versions : __context:Context.t -> API.ref_host -> API.ref_host -> int =
 	fun ~__context host_a host_b ->
 		let version_of = version_of ~__context in
 		compare_int_lists (version_of host_a) (version_of host_b)
@@ -461,16 +464,16 @@ let host_has_highest_version_in_pool : __context:Context.t -> host:API.ref_host 
 		(compare_int_lists host_version max_version) >= 0
 
 let host_versions_not_decreasing ~__context ~host_from ~host_to =
-	compare_host_product_versions ~__context host_from host_to <= 0
+	compare_host_platform_versions ~__context host_from host_to <= 0
 
-let is_product_version_same_on_master ~__context ~host =
+let is_platform_version_same_on_master ~__context ~host =
 	if is_pool_master ~__context ~host then true else
 	let pool = get_pool ~__context in
 	let master = Db.Pool.get_master ~__context ~self:pool in
-	compare_host_product_versions ~__context master host = 0
+	compare_host_platform_versions ~__context master host = 0
 
-let assert_product_version_is_same_on_master ~__context ~host ~self =
-	if not (is_product_version_same_on_master ~__context ~host) then
+let assert_platform_version_is_same_on_master ~__context ~host ~self =
+	if not (is_platform_version_same_on_master ~__context ~host) then
 		raise (Api_errors.Server_error (Api_errors.vm_host_incompatible_version,
 			[Ref.string_of host; Ref.string_of self]))
 
@@ -644,7 +647,7 @@ let on_oem ~__context =
 
 exception File_doesnt_exist of string
 
-let find_partition_path = Xapi_globs.base_path ^ "/libexec/find-partition"
+let find_partition_path = Filename.concat Fhs.libexecdir "find-partition"
 
 let find_secondary_partition () =
 	try

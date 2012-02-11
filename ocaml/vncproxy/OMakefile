@@ -1,13 +1,13 @@
 OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client
-OCAMLINCLUDES = ../idl/ocaml_backend ../idl ../autogen
+OCAMLINCLUDES = ../idl/ocaml_backend ../idl ../autogen ..
 OCAMLPACKS    = xml-light2 stdext stunnel http-svr rpc-light
 
-OCamlProgram(vncproxy, vncproxy)
+OCamlProgram(vncproxy, vncproxy ../fhs)
 
 .PHONY: install
 install: 
-	mkdir -p $(DEBUGDIST)
-	$(IPROG) vncproxy $(DEBUGDIST)
+	mkdir -p $(DESTDIR)$(OPTDIR)/debug
+	$(IPROG) vncproxy $(DESTDIR)$(OPTDIR)/debug
 
 .PHONY: sdk-install
 sdk-install: install

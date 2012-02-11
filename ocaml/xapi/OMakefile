@@ -1,10 +1,10 @@
 OCAMLPACKS    = xml-light2 cdrom pciutil sexpr log stunnel http-svr rss xen-utils netdev tapctl vhd xenstore rpc-light
-OCAML_LIBS    = ../util/version ../util/vm_memory_constraints ../util/sanitycheck ../util/stats \
+OCAML_LIBS    = ../fhs ../util/version ../util/vm_memory_constraints ../util/sanitycheck ../util/stats \
 	../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server ../util/ocamltest
 OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
 	../autogen ../database/ \
 	../xenops ../xva ../util \
-	../auth ../license ../client_records ../rfb ../gpg
+	../auth ../license ../client_records ../rfb ../gpg ../network ..
 
 UseCamlp4(rpc-light.syntax, features rrd monitor_fake monitor_fake_common vdi_automaton storage_impl xapi_udhcpd)
 UseCamlp4(rpc-light.idl, storage_interface)
@@ -46,6 +46,8 @@ OCamlProgram(storage_impl_test, storage_interface vdi_automaton storage_impl sto
 COMMON = \
 	xapi_templates \
 	../idl/api_lowlevel \
+	../network/network_interface \
+	../network/network \
 	nm \
 	xapi_mgmt_iface \
 	smint \
@@ -278,34 +280,26 @@ OCamlProgram(at_least_once_more, at_least_once_more at_least_once_more_test)
 
 .DEFAULT: xapi
 
-.PHONY: generate_constants
-
-generate_constants: config_constants.ml
-
-config_constants.ml: config_constants.ml.in
-	sed "s!@BASE_PATH@!\"$(RAW_BASE_PATH)\"!" $< > $@
-
 .PHONY: install
 install:
-	mkdir -p $(BIN_PATH)
-	cp -f xapi $(BIN_PATH)
-	mkdir -p $(DEBUGDIST)
-	$(IPROG) quicktest $(DEBUGDIST)
-	cp -f quicktestbin $(DEBUGDIST)
-	$(IPROG) rrddump $(DEBUGDIST)
-	mkdir -p $(LIBEXEC)
-	$(IPROG) sparse_dd $(LIBEXEC)
-	mkdir -p $(DESTDIR)/etc/xapi.d/plugins
-	$(IPROG) monitor_fake_plugin $(DESTDIR)/etc/xapi.d/plugins
+	mkdir -p $(DESTDIR)$(SBINDIR)
+	cp -f xapi $(DESTDIR)$(SBINDIR)
+	mkdir -p $(DESTDIR)$(OPTDIR)/debug
+	$(IPROG) quicktest $(DESTDIR)$(OPTDIR)/debug
+	cp -f quicktestbin $(DESTDIR)$(OPTDIR)/debug
+	$(IPROG) rrddump $(DESTDIR)$(OPTDIR)/debug
+	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) sparse_dd $(DESTDIR)$(LIBEXECDIR)
+	mkdir -p $(DESTDIR)$(PLUGINDIR)
+	$(IPROG) monitor_fake_plugin $(DESTDIR)$(PLUGINDIR)
 
 .PHONY: sdk-install
 sdk-install: install
-	mkdir -p $(LIBEXEC)
-	cp fakeguestagent $(LIBEXEC)/
+	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+	cp fakeguestagent $(DESTDIR)$(LIBEXECDIR)/
 
 .PHONY: clean
 clean:
 	rm -rf $(CLEAN_OBJS) *.aux *.log *.fig xapi
-	rm -f config_constants.ml
 	rm -f binpack xapi_unit_test sparse_dd fakeguestagent monitor_fake_plugin rrddump quicktestbin
 
