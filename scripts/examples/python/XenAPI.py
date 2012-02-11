@@ -86,7 +86,6 @@ class UDSHTTP(httplib.HTTP):
 
 class UDSTransport(xmlrpclib.Transport):
     def __init__(self, use_datetime=0):
-        xmlrpclib.Transport.__init__(self, use_datetime)
         self._use_datetime = use_datetime
         self._extra_headers=[]
     def add_extra_header(self, key, value):
@@ -190,7 +189,7 @@ class Session(xmlrpclib.ServerProxy):
             return xmlrpclib.ServerProxy.__getattr__(self, name)
 
 def xapi_local():
-    return Session("http://_var_lib_xcp_xapi/", transport=UDSTransport())
+    return Session("http://_var_xapi_xapi/", transport=UDSTransport())
 
 def _parse_result(result):
     if type(result) != dict or 'Status' not in result:
