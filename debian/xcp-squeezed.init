@@ -18,7 +18,7 @@ PATH=/sbin:/usr/sbin:/bin:/usr/bin
 DESC="XCP Squeeze ballooning daemon"
 NAME=squeezed
 DAEMON=/usr/sbin/${NAME}
-PIDFILE=/var/run/${NAME}.pid
+PIDFILE=/var/run/xcp-${NAME}.pid
 DAEMON_ARGS="-daemon -pidfile ${PIDFILE}"
 SCRIPTNAME=/etc/init.d/${NAME}
 
