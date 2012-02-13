@@ -16,21 +16,21 @@
 
 # PATH should only include /usr/* if it runs after the mountnfs.sh script
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
-DESC="XCP networking daemon"
 NAME=xcp-networkd
-DAEMON=/usr/lib/xcp/lib/$NAME
-DAEMON_ARGS="--options args"
 PIDFILE=/var/run/$NAME.pid
+DESC="XCP networking daemon"
+DAEMON=/usr/lib/xcp/lib/$NAME
+DAEMON_ARGS="-daemon -pidfile ${PIDFILE}"
 SCRIPTNAME=/etc/init.d/$NAME
 
 # Exit if the package is removed by not purged
-if ! [ -x "$DAEMON" ] ; then
+if ! [ -x "${DAEMON}" ] ; then
 	exit 0
 fi
 
 # Read configuration variable file if it is present
-if [ -r /etc/default/$NAME ] ; then
-	. /etc/default/$NAME
+if [ -r /etc/default/${NAME} ] ; then
+	. /etc/default/${NAME}
 fi
 
 # Load the VERBOSE setting and other rcS variables
@@ -44,7 +44,8 @@ fi
 # lock file
 SUBSYS_FILE="/var/run/lock/xcp-networkd"
 
-start() {
+case "${1}" in
+start)
 	log_daemon_msg "Starting ${DESC}" ${NAME}
 	if [ -e ${SUBSYS_FILE} ]; then
 		if [ -e ${PIDFILE} -a -e /proc/`cat ${PIDFILE}` ] ; then
@@ -52,67 +53,31 @@ start() {
 			return 1
 		fi
 	fi
-	
-	${DAEMON} -daemon -pidfile ${PIDFILE} >/dev/null 2>&1 </dev/null
-
-	MAX_RETRIES=30
-	RETRY=0
-	while [ ${RETRY} -lt ${MAX_RETRIES} ]; do
-		PID=$(cat ${PIDFILE} 2>/dev/null)
-		kill -0 ${PID} 2> /dev/null
-		if [ $? -eq 0 ]; then
-			touch ${SUBSYS_FILE}
-			log_success_msg "${NAME} is running"
-			return 0
-		fi
-		sleep 1
-		echo -n .
-		RETRY=$(( ${RETRY} + 1 ))
-	done
-	log_failure_msg "failed to start xcp-networkd."
-	killproc networkd
-	rm -f ${SUBSYS_FILE} ${PIDFILE}
-	echo
-	return 1
-}
-
-stop() {
+	start-stop-daemon --start --quiet --pidfile ${PIDFILE} --exec ${DAEMON} -- ${DAEMON_ARGS}
+	RET=$?
+	log_end_msg ${RET}
+	exit ${RET}
+;;
+stop)
 	log_daemon_msg "Stopping ${DESC}" ${NAME}
-
-	if [ ! -e ${SUBSYS_FILE} ]; then
-		log_failure_msg "${NAME} daemon is not running."
-		echo
-		return 1;
-	fi
-
-	killproc ${NAME}
-	RETVAL=$?
-	echo
-	if [ "${RETVAL}" -eq 0 ] ; then
-		rm -f ${SUBSYS_FILE} ${PIDFILE}
-	fi
-	return $RETVAL
-}
-
-restart() {
-	stop
-	start
-}
-
-case "$1" in
-	start)
-		start
-		;;
-	stop)
-		stop
-		;;
-	restart|force-reload)
-		restart
-		;;
-	status)
-		status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
-		;;
-	*)
-		echo "Usage: $0 {start|stop|restart}"
-		exit 1
+	start-stop-daemon --stop --retry=TERM/30/KILL/5 --pidfile ${PIDFILE}
+	RET=$?
+	log_end_msg ${RET}
+	exit ${RET}
+;;
+restart|force-reload)
+	${0} stop
+	sleep 1
+	${0} start
+;;
+status)
+	status_of_proc "${DAEMON}" "${NAME}"
+	exit $?
+;;
+*)
+	echo "Usage: ${0} {start|stop|restart|force-reload|status}"
+	exit 1
+;;
 esac
+
+exit 0
