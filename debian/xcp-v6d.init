@@ -33,7 +33,8 @@ case "$1" in
 start)
 	[ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
 	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON --test > /dev/null
-	if [ $? =! 0 -a $? =! 1 ] ; then
+	RET=$?
+	if ! [ ${RET} = 0 -o ${RET} = 1 ] ; then
 		[ "$VERBOSE" != no ] && log_end_msg 1
 		exit 1
 	fi
@@ -64,7 +65,7 @@ status)
 #;;
 restart|force-reload)
 	${0} stop
-	${1} start
+	${0} start
 ;;
 *)
 	echo "Usage: $0 {start|stop|status|restart|force-reload}" >&2
