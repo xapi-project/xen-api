@@ -25,7 +25,7 @@ SCRIPTNAME=/etc/init.d/${NAME}
 [ -x "${DAEMON}" ] || exit 0
 
 # Load the VERBOSE setting and other rcS variables
-if [ -r /lib/init/vars.sh ] && . /lib/init/vars.sh
+[ -r /lib/init/vars.sh ] && . /lib/init/vars.sh
 
 . /lib/lsb/init-functions
 
@@ -33,17 +33,16 @@ case "$1" in
 start)
 	[ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
 	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON --test > /dev/null
-	RETVAL="$?"
-	if [ ${RETVAL} =! 0 -a ${RETVAL} =! 1 ] ; then
+	if [ $? =! 0 -a $? =! 1 ] ; then
 		[ "$VERBOSE" != no ] && log_end_msg 1
 		exit 1
 	fi
 	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON -- $DAEMON_ARGS
-	if [ $? = 0 ] ; then
-		[ "$VERBOSE" != no ] && log_end_msg 0
-	else
+	if [ $? != 0 -a $? != 1 ] ; then
 		[ "$VERBOSE" != no ] && log_end_msg 1
 		exit 1
+	else
+		[ "$VERBOSE" != no ] && log_end_msg 0
 	fi
 ;;
 stop)
