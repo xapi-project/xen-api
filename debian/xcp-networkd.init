@@ -16,18 +16,22 @@
 
 # PATH should only include /usr/* if it runs after the mountnfs.sh script
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
-DESC="Start/Stop the XCP networking daemon"
+DESC="XCP networking daemon"
 NAME=xcp-networkd
 DAEMON=/usr/lib/xcp/lib/$NAME
 DAEMON_ARGS="--options args"
 PIDFILE=/var/run/$NAME.pid
 SCRIPTNAME=/etc/init.d/$NAME
 
-# Exit if the package is not installed
-[ -x "$DAEMON" ] || exit 0
+# Exit if the package is removed by not purged
+if ! [ -x "$DAEMON" ] ; then
+	exit 0
+fi
 
 # Read configuration variable file if it is present
-[ -r /etc/default/$NAME ] && . /etc/default/$NAME
+if [ -r /etc/default/$NAME ] ; then
+	. /etc/default/$NAME
+fi
 
 # Load the VERBOSE setting and other rcS variables
 . /lib/init/vars.sh
@@ -41,12 +45,10 @@ SCRIPTNAME=/etc/init.d/$NAME
 SUBSYS_FILE="/var/run/lock/xcp-networkd"
 
 start() {
-	echo -n "Starting the XCP networking daemon: "
-	
+	log_daemon_msg "Starting ${DESC}" ${NAME}
 	if [ -e ${SUBSYS_FILE} ]; then
-		if [ -e ${PIDFILE} ] && [ -e /proc/`cat ${PIDFILE}` ]; then
-			log_failure_msg "cannot start xcp-networkd: already running."
-			echo
+		if [ -e ${PIDFILE} -a -e /proc/`cat ${PIDFILE}` ] ; then
+			log_failure_msg "${NAME} is already running."
 			return 1
 		fi
 	fi
@@ -61,7 +63,6 @@ start() {
 		if [ $? -eq 0 ]; then
 			touch ${SUBSYS_FILE}
 			log_success_msg "${NAME} is running"
-			echo
 			return 0
 		fi
 		sleep 1
@@ -76,10 +77,10 @@ start() {
 }
 
 stop() {
-	echo -n "Stopping the XCP networking daemon: "
+	log_daemon_msg "Stopping ${DESC}" ${NAME}
 
 	if [ ! -e ${SUBSYS_FILE} ]; then
-		log_failure_msg "cannot stop xcp-networkd: daemon is not running."
+		log_failure_msg "${NAME} daemon is not running."
 		echo
 		return 1;
 	fi
@@ -87,7 +88,9 @@ stop() {
 	killproc ${NAME}
 	RETVAL=$?
 	echo
-	[ $RETVAL -eq 0 ] && rm -f ${SUBSYS_FILE} ${PIDFILE}
+	if [ "${RETVAL}" -eq 0 ] ; then
+		rm -f ${SUBSYS_FILE} ${PIDFILE}
+	fi
 	return $RETVAL
 }
 
