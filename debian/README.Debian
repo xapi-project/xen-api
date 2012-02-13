@@ -135,6 +135,13 @@ iface eth0 inet manual
 iface xenbr0 inet dhcp
         bridge_ports eth0
 
+Note that if you are using openvswitch together with XCP, and the xcp-networkd
+daemon, it is overly important that you do setup your xenbr0 as per above,
+because otherwise, you will loose all network connectivity on next reboot,
+as a xenbr0 interface will be setup automatically, and your eth0 will *not*
+be automatically set in the forwarding state (eg: it will stay disabled, which
+means no connectivity).
+
 4.3/ Set Xen as default in GRUB
 cd /etc/grub.d
 mv 10_linux 25_linux
