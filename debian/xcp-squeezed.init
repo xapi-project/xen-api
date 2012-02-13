@@ -45,7 +45,7 @@ start)
 		exit 1
 	fi
 	start-stop-daemon --start --quiet --pidfile ${PIDFILE} --exec ${DAEMON} -- ${DAEMON_ARGS}
-	if [ $? = 0 ] ; then
+	if [ $? != 0 -a $? != 1 ] ; then
 		[ "${VERBOSE}" != no ] && log_end_msg 1
 		exit 1
 	else
@@ -72,7 +72,6 @@ status)
 #	log_end_msg $?
 #;;
 restart|force-reload)
-	log_daemon_msg "Restarting ${DESC}" "${NAME}"
 	${0} stop
 	sleep 1
 	${0} start
