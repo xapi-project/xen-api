@@ -205,4 +205,4 @@ Description: daemon to manage network configuration for xcp-xapi
  .
  xcp-networkd provides a network configuration daemon for xcp-xapi, which
  handles the configuration of network interfaces and network bridges (either
- linux or Open vSwitch) for xcp-xapi.
+ Linux or Open vSwitch) for xcp-xapi.
