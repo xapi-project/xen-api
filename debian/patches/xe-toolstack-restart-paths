@@ -1,5 +1,5 @@
-Index: xen-api/scripts/xe-toolstack-restart
-===================================================================
+Description: changes names of services to start / stop in the scripts/xe-toolstack-restart to match what we have in Debian.
+Forwarded: not-needed
 --- xen-api.orig/scripts/xe-toolstack-restart	2012-01-13 09:31:02.845982567 +0000
 +++ xen-api/scripts/xe-toolstack-restart	2012-01-13 09:33:01.085985372 +0000
 @@ -14,25 +14,17 @@
