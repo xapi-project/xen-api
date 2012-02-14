@@ -183,8 +183,7 @@ Description: command line utility for managing XCP hosts
 
 Package: xcp-networkd
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, lsb-base, ethtool, bridge-utils, iproute, isc-dhcp-client, procps, openvswitch-switch, module-init-tools
-Suggests: openvswitch-datapath-dkms
+Depends: ${shlibs:Depends}, ${misc:Depends}, lsb-base, ethtool, bridge-utils, iproute, isc-dhcp-client, procps, openvswitch-switch, module-init-tools, openvswitch-datapath-dkms
 Description: daemon to manage network configuration for xcp-xapi
  The Xen Cloud Platform (XCP) is an open source enterprise-ready server
  virtualization and cloud computing platform, with support for a range of

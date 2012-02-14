@@ -1,0 +1,30 @@
+Fix XenAPI.py errors
+    
+    This commit fixes two bugs in XenAPI.py. One was probably a Python 2.4 -> 2.7
+    bug, where we weren't initialising UDSTransport's superclass. Then next was a
+    bug we introduced when we moved the XCP files around in /var: UDSTransport was
+    relying on the socket /var/xapi/xapi, but we had moved it to /var/xcp/xapi.
+    
+    Signed-off-by: Mike McClurg <mike.mcclurg@citrix.com>
+
+diff --git a/scripts/examples/python/XenAPI.py b/scripts/examples/python/XenAPI.py
+index c459d31..2322c50 100644
+--- a/scripts/examples/python/XenAPI.py
++++ b/scripts/examples/python/XenAPI.py
+@@ -86,6 +86,7 @@ class UDSHTTP(httplib.HTTP):
+ 
+ class UDSTransport(xmlrpclib.Transport):
+     def __init__(self, use_datetime=0):
++        xmlrpclib.Transport.__init__(self, use_datetime)
+         self._use_datetime = use_datetime
+         self._extra_headers=[]
+     def add_extra_header(self, key, value):
+@@ -189,7 +190,7 @@ class Session(xmlrpclib.ServerProxy):
+             return xmlrpclib.ServerProxy.__getattr__(self, name)
+ 
+ def xapi_local():
+-    return Session("http://_var_xapi_xapi/", transport=UDSTransport())
++    return Session("http://_var_lib_xcp_xapi/", transport=UDSTransport())
+ 
+ def _parse_result(result):
+     if type(result) != dict or 'Status' not in result:

@@ -33,3 +33,5 @@ networkd-brctl-path
 xe-toolstack-restart-paths
 
 unexpected-upstream-changes.patch
+fix-xenapi-py
+fix-vif-script

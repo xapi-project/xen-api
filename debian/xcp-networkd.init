@@ -22,6 +22,7 @@ DESC="XCP networking daemon"
 DAEMON=/usr/lib/xcp/lib/$NAME
 DAEMON_ARGS="-daemon -pidfile ${PIDFILE}"
 SCRIPTNAME=/etc/init.d/$NAME
+COOKIE=/var/run/xcp-networkd.cookie
 
 # Exit if the package is removed by not purged
 if ! [ -x "${DAEMON}" ] ; then
@@ -47,6 +48,21 @@ SUBSYS_FILE="/var/run/lock/xcp-networkd"
 case "${1}" in
 start)
 	log_daemon_msg "Starting ${DESC}" ${NAME}
+	# Copied from the XenServer openvswitch init script.
+	# xcp-networkd gets confused if it sees the bridges already
+	# present and decides that nothing needs to be done, thus
+	# it doesn't bring up eth0 & co.
+	if [ ! -e /var/run/xcp-networkd.booted ]; then
+		touch /var/run/xcp-networkd.booted
+		for bridge in $(/usr/bin/ovs-vsctl list-br); do
+			/usr/bin/ovs-vsctl --no-wait --timeout=5 del-br $bridge
+		done
+	fi
+	
+	if [ ! -e /etc/xcp/network.conf ]; then
+		echo "bridge" > /etc/xcp/network.conf
+	fi
+
 	if [ -e ${SUBSYS_FILE} ]; then
 		if [ -e ${PIDFILE} -a -e /proc/`cat ${PIDFILE}` ] ; then
 			log_failure_msg "${NAME} is already running."
