@@ -521,8 +521,10 @@ let build_linux ~xc ~xs ~static_max_kib ~target_kib ~kernel ~cmdline ~ramdisk
 
 	let local_stuff = [
 		"serial/0/limit",    string_of_int 65536;
+(*
 		"console/port",      string_of_int console_port;
 		"console/ring-ref",  sprintf "%nu" console_mfn;
+*)
 	] in
 	let vm_stuff = [] in
 	build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
@@ -598,8 +600,10 @@ let build_hvm ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
 
 	let local_stuff = [
 		"serial/0/limit",    string_of_int 65536;
+(*
 		"console/port",      string_of_int console_port;
 		"console/ring-ref",  sprintf "%nu" console_mfn;
+*)
 	] in
 (*
 	let store_mfn =
