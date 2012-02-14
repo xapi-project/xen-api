@@ -32,3 +32,4 @@ xe-mount-iso-sr-paths
 networkd-brctl-path
 xe-toolstack-restart-paths
 fix-xenapi-py
+fix-vif-script
