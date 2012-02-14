@@ -93,6 +93,33 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 		end
 	in
 
+	(* CA-73264 Applied patches must match *) 
+	let assert_applied_patches_match () =
+		let get_patches patches get_pool_patch get_uuid =
+			let patch_refs = List.map (fun x -> get_pool_patch ~self:x) patches in
+			let patch_uuids = List.map (fun x -> get_uuid ~self:x) patch_refs in
+			patch_uuids in
+		let pool_patches = get_patches 
+			(Client.Host.get_patches ~rpc ~session_id ~self:(get_master ~rpc ~session_id)) 
+			(Client.Host_patch.get_pool_patch ~rpc ~session_id) 
+			(Client.Pool_patch.get_uuid ~rpc ~session_id) in
+		let host_patches = get_patches 
+			(Db.Host.get_patches ~__context ~self:(Helpers.get_localhost ~__context))
+			(Db.Host_patch.get_pool_patch ~__context) (Db.Pool_patch.get_uuid ~__context) in
+		let string_of_patches ps = (String.concat " " (List.map (fun patch -> patch) ps)) in
+		let set_difference a b = List.filter (fun x -> not(List.mem x b)) a in
+		let diff = (set_difference host_patches pool_patches) @ 
+			(set_difference pool_patches host_patches)in
+		if (List.length diff > 0) then begin
+			error "Pool.join failed because of patches mismatch";
+			error "Remote has %s" (string_of_patches pool_patches);
+			error "Local has %s" (string_of_patches host_patches);
+			raise (Api_errors.Server_error(Api_errors.pool_hosts_not_homogeneous,
+				[(Printf.sprintf "Patches applied differ: Remote has %s -- Local has %s" 
+				(string_of_patches pool_patches) (string_of_patches host_patches))]))
+		end
+	in
+
 	(* CP-700: Restrict pool.join if AD configuration of slave-to-be does not match *)
 	(* that of master of pool-to-join *)
 	let assert_external_auth_matches () =
@@ -322,7 +349,8 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 	assert_management_interface_is_physical ();
 	assert_external_auth_matches ();
 	assert_restrictions_match ();
-	assert_homogeneous_vswitch_configuration ()
+	assert_homogeneous_vswitch_configuration ();
+	assert_applied_patches_match ()
 
 let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) : API.ref_host =
 	let my_uuid = host.API.host_uuid in
