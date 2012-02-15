@@ -1,0 +1,33 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: xen-api\n"
+"Report-Msgid-Bugs-To: xen-api@packages.debian.org\n"
+"POT-Creation-Date: 2012-02-15 03:11+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#. Type: select
+#. Description
+#: ../xcp-networkd.templates:1001
+msgid "XCP networking manager:"
+msgstr ""
+
+#. Type: select
+#. Description
+#: ../xcp-networkd.templates:1001
+msgid ""
+"xcp-networkd has two modes of networking. With bridge, all of your virtual "
+"machines will see all traffic, and by default will be able to connect to "
+"each other, while openvswitch manages VLAN."
+msgstr ""
