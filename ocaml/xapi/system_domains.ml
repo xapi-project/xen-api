@@ -152,7 +152,7 @@ let pingable ip () =
 
 let queryable ip port () =
 	let open Xmlrpc_client in
-	let rpc = XMLRPC_protocol.rpc ~transport:(TCP(ip, port)) ~http:(xmlrpc ~version:"1.0" "/") in
+	let rpc = XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"remote_smapiv2" ~transport:(TCP(ip, port)) ~http:(xmlrpc ~version:"1.0" "/") in
     try
 		let module C = Storage_interface.Client(struct let rpc = rpc end) in
         let q = C.query () in

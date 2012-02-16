@@ -37,7 +37,8 @@ let _host = "host"
 let _session_id = "session_id"
 
 module XenAPI = Client
-module SMAPI = Storage_migrate.Local
+module SMAPI = Storage_interface.Client(struct let rpc = Storage_migrate.rpc ~srcstr:"xapi" ~dststr:"smapiv2" Storage_migrate.local_url end)
+
 module XenopsAPI = Xenops_client.Client
 open Storage_interface
 open Listext

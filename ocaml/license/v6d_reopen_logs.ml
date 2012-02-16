@@ -18,7 +18,7 @@ let socket = Filename.concat Fhs.vardir "v6"
 (* RPC function for communication with the v6 daemon *)
 let v6rpc xml = 
 	let open Xmlrpc_client in
-	XML_protocol.rpc ~transport:(Unix socket) ~http:(xmlrpc ~version:"1.0" "/") xml
+	XML_protocol.rpc ~srcstr:"v6d_reopen_logs" ~dststr:"v6d" ~transport:(Unix socket) ~http:(xmlrpc ~version:"1.0" "/") xml
 
 let _ = 
 	try

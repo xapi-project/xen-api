@@ -28,7 +28,8 @@ let rpc url call =
 	let transport = transport_of_url url in
 	XMLRPC_protocol.rpc ~transport ~http:(http_request url Http.Post) call
 
-module Client = Client(struct let rpc = default_uri |> Http.Url.of_string |> rpc end)
+module IntClient = Client(struct let rpc = default_uri |> Http.Url.of_string |> rpc ~srcstr:"xenops" ~dststr:"xenops" end)
+module Client = Client(struct let rpc = default_uri |> Http.Url.of_string |> rpc ~srcstr:"xapi" ~dststr:"xenops" end)
 
 exception Exception of error
 
@@ -44,7 +45,7 @@ let might_not_exist = function
 	| None, None -> failwith "protocol error"
 
 let query dbg url =
-	let module Remote = Xenops_interface.Client(struct let rpc = rpc url end) in
+	let module Remote = Xenops_interface.Client(struct let rpc = rpc url ~srcstr:"xenops" ~dststr:"dst_xenops" end) in
 	Remote.query dbg () |> success
 
 let event_wait dbg p =
