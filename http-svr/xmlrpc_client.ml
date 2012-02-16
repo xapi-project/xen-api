@@ -18,6 +18,8 @@ open Threadext
 module D = Debug.Debugger(struct let name = "xmlrpc_client" end)
 open D
 
+module E = Debug.Debugger(struct let name = "mscgen" end)
+
 module Internal = struct
 	let set_stunnelpid_callback : (string option -> int -> unit) option ref = ref None
 	let unset_stunnelpid_callback : (string option -> int -> unit) option ref = ref None
@@ -264,6 +266,7 @@ module type FORMAT = sig
 	val response_of_file_descr: Unix.file_descr -> response
 	type request
 	val request_to_string: request -> string
+	val request_to_short_string: request -> string
 end
 
 module XML = struct
@@ -272,6 +275,7 @@ module XML = struct
 	let response_of_file_descr fd = Xml.parse_in (Unix.in_channel_of_descr fd)
 	type request = Xml.xml
 	let request_to_string = Xml.to_string
+	let request_to_short_string = Xml.to_string
 end
 
 module XMLRPC = struct
@@ -280,6 +284,7 @@ module XMLRPC = struct
 	let response_of_file_descr fd = Xmlrpc.response_of_in_channel (Unix.in_channel_of_descr fd)
 	type request = Rpc.call
 	let request_to_string x = Xmlrpc.string_of_call x
+	let request_to_short_string x = x.Rpc.name
 end
 
 module Protocol = functor(F: FORMAT) -> struct
@@ -293,7 +298,8 @@ module Protocol = functor(F: FORMAT) -> struct
 		with
 			| Unix.Unix_error(Unix.ECONNRESET, _, _) -> raise Connection_reset
 
-	let rpc ~transport ~http req =
+	let rpc ~srcstr ~dststr ~transport ~http req =
+		E.debug "%s=>%s [label=\"%s\"];" srcstr dststr (F.request_to_short_string req) ;
 		let body = F.request_to_string req in
 		let http = { http with Http.Request.body = Some body } in
 		with_transport transport (with_http http (curry2 read_response))
