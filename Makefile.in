@@ -51,7 +51,6 @@ endif
 	$(MAKE) -C xml-light2 bins
 	$(MAKE) -C sexpr bins
 	$(MAKE) -C stdext bins
-	$(MAKE) -C xenctrlext bins
 	$(MAKE) -C close-and-exec bins
 
 STUBLIBDIR = $(OCAMLDESTDIR)/stublibs
@@ -97,7 +96,6 @@ endif
 	$(MAKE) -C xml-light2 bininstall
 	$(MAKE) -C sexpr bininstall
 	$(MAKE) -C stdext bininstall
-	$(MAKE) -C xenctrlext bininstall
 	$(MAKE) -C close-and-exec bininstall
 	$(MAKE) -C forking_executioner bininstall
 
@@ -141,7 +139,6 @@ endif
 	$(MAKE) -C xml-light2 binuninstall
 	$(MAKE) -C sexpr binuninstall
 	$(MAKE) -C stdext binuninstall
-	$(MAKE) -C xenctrlext binuninstall
 	$(MAKE) -C close-and-exec binuninstall
 	$(MAKE) -C forking_executioner binuninstall
 
