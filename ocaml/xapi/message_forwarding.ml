@@ -179,7 +179,7 @@ let remote_rpc_no_retry context hostname (task_opt: API.ref_task option) xml =
 	let transport = SSL(SSL.make ?task_id:(may Ref.string_of task_opt) (),
 	hostname, !Xapi_globs.https_port) in
 	let http = xmlrpc ?task_id:(may Ref.string_of task_opt) ~version:"1.0" "/" in
-	XML_protocol.rpc ~transport ~http xml
+	XML_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
 
 (* Use HTTP 1.1, use the stunnel cache and pre-verify the connection *)
 let remote_rpc_retry context hostname (task_opt: API.ref_task option) xml =
@@ -187,7 +187,7 @@ let remote_rpc_retry context hostname (task_opt: API.ref_task option) xml =
 	let transport = SSL(SSL.make ~use_stunnel_cache:true ?task_id:(may Ref.string_of task_opt) (),
 	hostname, !Xapi_globs.https_port) in
 	let http = xmlrpc ?task_id:(may Ref.string_of task_opt) ~version:"1.1" "/" in
-	XML_protocol.rpc ~transport ~http xml
+	XML_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
 
 let call_slave_with_session remote_rpc_fn __context host (task_opt: API.ref_task option) f =
 	let session_id = Xapi_session.login_no_password ~__context ~uname:None ~host ~pool:true ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:"" ~auth_user_name:"" ~rbac_permissions:[] in

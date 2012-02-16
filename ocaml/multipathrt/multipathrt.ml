@@ -18,7 +18,7 @@ open Globs
 
 let rpc_of_hostname host xml =
 	let open Xmlrpc_client in
-	XML_protocol.rpc ~transport:(TCP(host, 80)) ~http:(xmlrpc ~version:"1.0" "/") xml
+	XML_protocol.rpc ~srcstr:"multipathrt" ~dststr:"xapi" ~transport:(TCP(host, 80)) ~http:(xmlrpc ~version:"1.0" "/") xml
 
 let _ =
   Arg.parse [

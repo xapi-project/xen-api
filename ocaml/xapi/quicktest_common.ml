@@ -148,8 +148,8 @@ let host = ref ""
 
 open Xmlrpc_client
 let http = xmlrpc ~version:"1.1" "/"
-let rpc_remote xml = XML_protocol.rpc ~transport:(SSL(SSL.make(), !host, 443)) ~http xml
-let rpc_unix_domain xml = XML_protocol.rpc ~transport:(Unix Xapi_globs.unix_domain_socket) ~http xml
+let rpc_remote xml = XML_protocol.rpc ~srcstr:"quicktest" ~dststr:"xapi" ~transport:(SSL(SSL.make(), !host, 443)) ~http xml
+let rpc_unix_domain xml = XML_protocol.rpc ~srcstr:"quicktest" ~dststr:"xapi" ~transport:(Unix Xapi_globs.unix_domain_socket) ~http xml
 
 let rpc = ref rpc_unix_domain
 

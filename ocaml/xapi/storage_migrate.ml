@@ -28,7 +28,7 @@ let rpc url call =
 	XMLRPC_protocol.rpc ~transport:(transport_of_url url)
 		~http:(xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of url) ~query:(Http.Url.get_query_params url) (Http.Url.get_uri url)) call
 
-module Local = Client(struct let rpc = rpc local_url end)
+module Local = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"smapiv2" local_url end)
 
 let success = function
 	| Success x -> x
@@ -79,7 +79,7 @@ let perform_cleanup_actions =
 
 let copy' ~task ~sr ~vdi ~url ~dest =
 	let remote_url = Http.Url.of_string url in
-	let module Remote = Client(struct let rpc = rpc remote_url end) in
+	let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
 
 	(* Check the remote SR exists *)
 	let srs = Remote.SR.list ~task in
@@ -144,7 +144,7 @@ let copy ~task ~sr ~vdi ~url ~dest = Success (Vdi (copy' ~task ~sr ~vdi ~url ~de
 let start ~task ~sr ~vdi ~url ~dest =
 	debug "Mirror.start sr:%s vdi:%s url:%s dest:%s" sr vdi url dest;
 	let remote_url = Http.Url.of_string url in
-	let module Remote = Client(struct let rpc = rpc remote_url end) in
+	let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
 
 	(* Find the local VDI *)
 	let vdis = Local.SR.scan ~task ~sr |> success |> _vdis in

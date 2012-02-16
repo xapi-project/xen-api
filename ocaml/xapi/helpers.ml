@@ -75,14 +75,14 @@ let make_rpc ~__context xml : XMLRPC.xmlrpc =
 		if Pool_role.is_master ()
 		then Unix(Xapi_globs.unix_domain_socket)
 		else SSL(SSL.make ~use_stunnel_cache:true (), Pool_role.get_master_address(), !Xapi_globs.https_port) in
-	XML_protocol.rpc ~transport ~http xml
+	XML_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http xml
 
 (* This one uses rpc-light *)
 let make_remote_rpc remote_address xml =
 	let open Xmlrpc_client in
 	let transport = SSL(SSL.make (), remote_address, !Xapi_globs.https_port) in
 	let http = xmlrpc ~version:"1.0" "/" in
-	XML_protocol.rpc ~transport ~http xml
+	XML_protocol.rpc ~srcstr:"xapi" ~dststr:"remote_xapi" ~transport ~http xml
 
 (** Log into pool master using the client code, call a function
     passing it the rpc function and session id, logout when finished. *)
@@ -129,7 +129,7 @@ let call_emergency_mode_functions hostname f =
 	let open Xmlrpc_client in
 	let transport = SSL(SSL.make (), hostname, !Xapi_globs.https_port) in
 	let http = xmlrpc ~version:"1.0" "/" in
-	let rpc = XML_protocol.rpc ~transport ~http in
+	let rpc = XML_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http in
   let session_id = Client.Client.Session.slave_local_login rpc !Xapi_globs.pool_secret in
   finally
     (fun () -> f rpc session_id)

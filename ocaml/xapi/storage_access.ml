@@ -560,7 +560,7 @@ let make_local _ =
 
 let make_remote host path =
 	let open Xmlrpc_client in
-    (module Server(Storage_proxy.Proxy(struct let rpc call = XMLRPC_protocol.rpc ~transport:(TCP(host, 8080)) ~http:(xmlrpc ~version:"1.0" path) call end)) : SERVER)
+    (module Server(Storage_proxy.Proxy(struct let rpc call = XMLRPC_protocol.rpc ~srcstr:"smapiv2" ~dststr:"smapiv1" ~transport:(TCP(host, 8080)) ~http:(xmlrpc ~version:"1.0" path) call end)) : SERVER)
 
 let bind ~__context ~pbd =
     (* Start the VM if necessary, record its uuid *)

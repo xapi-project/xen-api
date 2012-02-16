@@ -19,7 +19,7 @@ let make_rpc path  =
 	let module Rpc = struct
 		let transport = ref (Unix path)
 		let rpc call =
-			XMLRPC_protocol.rpc ~transport:!transport ~http:(xmlrpc ~version:"1.0" "/") call
+			XMLRPC_protocol.rpc ~srcstr:"networkd_reopen_logs" ~dststr:"networkd" ~transport:!transport ~http:(xmlrpc ~version:"1.0" "/") call
 	end in
 	(module Rpc : Network_interface.RPC)
 

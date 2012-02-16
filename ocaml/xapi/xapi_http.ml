@@ -36,7 +36,7 @@ let inet_rpc xml =
 		then TCP(host, http)
 		else SSL(SSL.make (), host, https) in
 	let http = xmlrpc ~version path in
-	XML_protocol.rpc ~transport ~http xml
+	XML_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http xml
 
 open Client
 

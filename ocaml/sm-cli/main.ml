@@ -24,7 +24,7 @@ let url = Http.Url.(ref (File { path = Filename.concat Fhs.vardir "storage" }, {
 
 module RPC = struct
 let rpc call =
-	XMLRPC_protocol.rpc ~transport:(transport_of_url !url)
+	XMLRPC_protocol.rpc ~transport:(transport_of_url !url) ~srcstr:"sm-cli" ~dststr:"smapiv2"
 		~http:(xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of !url) ~query:(Http.Url.get_query_params !url) (Http.Url.get_uri !url)) call
 end
 

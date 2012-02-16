@@ -96,7 +96,7 @@ open D
 let forward req body xml =
   let open Xmlrpc_client in
   let transport = SSL(SSL.make ~use_stunnel_cache:true (), Pool_role.get_master_address(), !Xapi_globs.https_port) in
-  XML_protocol.rpc ~transport ~http:{ req with Http.Request.frame = true } xml
+  XML_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http:{ req with Http.Request.frame = true } xml
 
 (* Whitelist of functions that do *not* get forwarded to the master (e.g. session.login_with_password) *)
 (* !!! Note, this only blocks synchronous calls. As is it happens, all the calls we want to block right now are only

@@ -2477,7 +2477,7 @@ let vm_migrate printer rpc session_id params =
 			let remote_rpc xml =
 				let open Xmlrpc_client in
 				let http = xmlrpc ~version:"1.0" "/" in
-				XML_protocol.rpc ~transport:(SSL(SSL.make ~use_fork_exec_helper:false (), ip, 443)) ~http xml in
+				XML_protocol.rpc ~srcstr:"cli" ~dststr:"dst_xapi" ~transport:(SSL(SSL.make ~use_fork_exec_helper:false (), ip, 443)) ~http xml in
 			let username = List.assoc "remote-username" params in
 			let password = List.assoc "remote-password" params in
 			let remote_session = Client.Session.login_with_password remote_rpc username password "1.3" in

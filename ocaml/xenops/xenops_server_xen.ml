@@ -220,7 +220,7 @@ module Storage = struct
 			let open Xmlrpc_client in
 			retry_econnrefused 10
 				(fun () ->
-					XMLRPC_protocol.rpc ~transport:(Unix "/var/xapi/storage") ~http:(xmlrpc ~version:"1.0" "/") call
+					XMLRPC_protocol.rpc ~srcstr:"src_xenops" ~dststr:"src_smapiv2" ~transport:(Unix "/var/xapi/storage") ~http:(xmlrpc ~version:"1.0" "/") call
 				)
 	end)
 
