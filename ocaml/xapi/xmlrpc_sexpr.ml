@@ -18,15 +18,8 @@
 open Xml
 open XMLRPC
 open SExpr
+open Stringext
 
-
-let rec trim str =
-	let len=String.length str in
-	if len=0 then str
-	else match (str.[0],str.[len-1]) with
-		| ((' '|'\t'|'\n'),_) -> trim (String.sub str 1 (len-1))
-		| (_,(' '|'\t'|'\n')) -> trim (String.sub str 0 (len-2))
-		| _ -> str
 
 (** Accepts an xml-rpc tree of type xml.xml
     with contents <tag> [child1] [child2] ... [childn] </tag>
@@ -50,7 +43,7 @@ let xmlrpc_to_sexpr (root:xml) =
 	let rec visit (h:int) (xml_lt:xml list) = match (h, xml_lt) with
 		| h, [] -> []
 		| h, (PCData text)::_ ->
-		let text = trim text in
+		let text = String.strip String.isspace text in
 		SExpr.String text::[] 	 
 
 		(* empty <value>s have default value '' *)
@@ -79,7 +72,7 @@ let xmlrpc_to_sexpr (root:xml) =
 
 		(* any other element *)
 		| h,((Element (tag, _, children))::siblings) -> 
-			let tag = trim tag in
+			let tag = String.strip String.isspace tag in
 			let mytag = (SExpr.String tag) in
 			let (mychildren:SExpr.t list) = visit (h+1) children in
 			let anode = (SExpr.Node (mytag::mychildren)) in

@@ -28,9 +28,6 @@ struct
  *
 *)
 
-(* removes white spaces in the beginning and the end of a string *)
-let trim = Xmlrpc_sexpr.trim 
-
 (** has_substr str sub returns true if sub is a substring of str. Simple, naive, slow. *)
 let has_substr str sub =
   if String.length sub > String.length str then false else
