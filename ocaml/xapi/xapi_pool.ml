@@ -788,9 +788,8 @@ let eject ~__context ~host =
 			(* assumes that the management interface is either physical or a bond *)
 			if pif.API.pIF_bond_master_of <> [] then
 				let bond = List.hd pif.API.pIF_bond_master_of in
-				let slaves = Db.Bond.get_slaves ~__context ~self:bond in
-				let first_slave = List.hd slaves in
-				Db.PIF.get_device ~__context ~self:first_slave
+				let primary_slave = Db.Bond.get_primary_slave ~__context ~self:bond in
+				Db.PIF.get_device ~__context ~self:primary_slave
 			else
 				pif.API.pIF_device
 		in
