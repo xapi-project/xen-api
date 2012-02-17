@@ -64,7 +64,8 @@ let netmask_to_prefixlen netmask =
 			else
 				l
 		in
-		List.fold_left length 0 [a; b; c; d]
+		let masks = List.map ((-) 255) [a; b; c; d] in
+		32 - (List.fold_left length 0 masks)
 	)
 
 let determine_mtu ~__context pif_rc =
