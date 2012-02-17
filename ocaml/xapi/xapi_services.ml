@@ -81,6 +81,15 @@ let post_handler (req: Http.Request.t) s _ =
 					req.Http.Request.close <- true
 		)
 
+
+let rpc call =
+	let url = Http.Url.(File { path = "/var/xapi/storage" }, { uri = "/"; query_params = [] }) in
+	let open Xmlrpc_client in
+	XMLRPC_protocol.rpc ~transport:(transport_of_url url)
+		~http:(xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of url) ~query:(Http.Url.get_query_params url) (Http.Url.get_uri url)) call
+
+module Local = Storage_interface.Client(struct let rpc = rpc ~srcstr:"xapi" ~dststr:"smapiv2" end)
+
 let put_handler (req: Http.Request.t) s _ =
 	Xapi_http.with_context ~dummy:true "Querying services" req s
 		(fun __context ->
@@ -90,6 +99,8 @@ let put_handler (req: Http.Request.t) s _ =
 				| [ ""; services; "SM"; "data"; sr; vdi ] when services = _services ->
 					let vdi, _ = Storage_access.find_vdi ~__context sr vdi in
 					Import_raw_vdi.import vdi req s ()
+				| [ ""; services; "SM"; "nbd"; sr; vdi; dp ] when services = _services ->
+					Storage_migrate.nbd_handler req s sr vdi dp
 				| _ ->
 					Http_svr.headers s (Http.http_404_missing ~version:"1.0" ());
 					req.Http.Request.close <- true
@@ -125,3 +136,5 @@ let get_handler (req: Http.Request.t) s _ =
 					Http_svr.headers s (Http.http_404_missing ~version:"1.0" ());
 					req.Http.Request.close <- true
 		)
+
+	

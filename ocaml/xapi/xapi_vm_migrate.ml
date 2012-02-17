@@ -88,6 +88,9 @@ let migrate  ~__context ~vm ~dest ~live ~options =
 			then
 				let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
 				let location = Db.VDI.get_location ~__context ~self:vdi in
+				let device = Db.VBD.get_device ~__context ~self:vbd in
+				let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
+				let dp = Storage_access.datapath_of_vbd ~domid ~device in
 				(* XXX PR-1255: eject any CDROMs for now *)
 				if Db.VBD.get_type ~__context ~self:vbd = `CD then begin
 					info "Ejecting CD %s from %s" location (Ref.string_of vbd);
@@ -95,7 +98,7 @@ let migrate  ~__context ~vm ~dest ~live ~options =
 					None
 				end else begin
 					let sr = Db.SR.get_uuid ~__context ~self:(Db.VDI.get_SR ~__context ~self:vdi) in
-					Some (location, sr)
+					Some (dp, location, sr)
 				end
 			else None) vbds in
 	let task = Context.string_of_task __context in
@@ -110,8 +113,8 @@ let migrate  ~__context ~vm ~dest ~live ~options =
 	try
 		let remote_rpc = Helpers.make_remote_rpc remote_address in
 		List.iter
-			(fun (location, sr) ->
-				match SMAPI.Mirror.start ~task ~sr ~vdi:location ~url ~dest:dest_sr with
+			(fun (dp, location, sr) ->
+				match SMAPI.Mirror.start ~task ~sr ~vdi:location ~dp ~url ~dest:dest_sr with
 					| Success (Vdi v) ->
 						debug "Local VDI %s mirrored to %s" location v.vdi
 					| x ->
@@ -130,7 +133,7 @@ let migrate  ~__context ~vm ~dest ~live ~options =
 	with e ->
 		error "Caught %s: cleaning up" (Printexc.to_string e);
 		List.iter
-			(fun (location, sr) ->
+			(fun (dp, location, sr) ->
 				try
 					match SMAPI.Mirror.stop ~task ~sr ~vdi:location with
 						| Success Unit -> ()
