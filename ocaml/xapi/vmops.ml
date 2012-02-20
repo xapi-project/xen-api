@@ -1080,7 +1080,13 @@ let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot 
 								(* If any VBDs cannot be attached, let the exn propagate *)
 								List.iter
 									(fun self ->
-										create_vbd ~__context ~xs ~hvm ~protocol domid self)
+										try 
+										  create_vbd ~__context ~xs ~hvm ~protocol domid self
+										with Failure e -> 
+											debug "Error in start_paused: %s" e;
+											raise (Api_errors.Server_error(Api_errors.operation_not_allowed,
+											[ "Cannot attach a VBD." ]));
+									)
 									vbds;
 								progress_cb 0.60;
 								debug "creating VIF devices and attaching to domain";
