@@ -421,6 +421,20 @@ module Ovs = struct
 	let ofctl args =
 		call_script ovs_ofctl args
 
+	let bridge_to_ports name =
+		try
+			String.split '\n' (String.rtrim (call ["list-ports"; name]))
+		with _ -> []
+
+	let bridge_to_interfaces name =
+		try
+			String.split '\n' (String.rtrim (call ["list-ifaces"; name]))
+		with _ -> []
+
+	let bridge_to_vlan name =
+		call ["br-to-parent"; name],
+		int_of_string (call ["br-to-vlan"; name])
+
 	let handle_vlan_bug_workaround override bridge =
 		(* This is a list of drivers that do support VLAN tx or rx acceleration, but
 		 * to which the VLAN bug workaround should not be applied. This could be
@@ -485,8 +499,12 @@ module Ovs = struct
 			else
 				[]
 		in
-		call (["--"; "--may-exist"; "add-br"; name] @ vlan_arg @ mac_arg @ fail_mode_arg @
-			disable_in_band_arg @ external_id_arg)
+		let vif_arg =
+			let existing_vifs = List.filter (fun iface -> not (Sysfs.is_physical iface)) (bridge_to_interfaces name) in
+			List.flatten (List.map (fun vif -> ["--"; "--may-exist"; "add-port"; name; vif]) existing_vifs)
+		in
+		call (["--"; "--if-exists"; "del-br"; name; "--"; "--may-exist"; "add-br"; name] @
+			vlan_arg @ mac_arg @ fail_mode_arg @ disable_in_band_arg @ external_id_arg @ vif_arg)
 
 	let destroy_bridge name =
 		call ["--"; "--if-exists"; "del-br"; name]
@@ -513,20 +531,6 @@ module Ovs = struct
 			let vlans_on_bridge = List.filter (fun (_, br) -> List.mem br bridge_ports) vlans_with_uuid in
 			List.map (fun (n, _) -> n) vlans_on_bridge
 		with _ -> []
-
-	let bridge_to_ports name =
-		try
-			String.split '\n' (String.rtrim (call ["list-ports"; name]))
-		with _ -> []
-
-	let bridge_to_interfaces name =
-		try
-			String.split '\n' (String.rtrim (call ["list-ifaces"; name]))
-		with _ -> []
-
-	let bridge_to_vlan name =
-		call ["br-to-parent"; name],
-		int_of_string (call ["br-to-vlan"; name])
 
 	let create_port name bridge =
 		call ["--"; "--may-exist"; "add-port"; bridge; name]
