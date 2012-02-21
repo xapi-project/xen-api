@@ -38,7 +38,7 @@ let run_external_scripts becoming_master =
 	   debug "Executing %s %s" filename arg;
 	   ignore(Forkhelpers.execute_command_get_output filename [arg])
 	 with Forkhelpers.Spawn_internal_error(_, _, Unix.WEXITED n) ->
-	   debug "%s %s exitted with code %d" filename arg n
+	   debug "%s %s exited with code %d" filename arg n
       ) order in
 
   let already_run = try bool_of_string (Localdb.get Constants.master_scripts) with _ -> false in

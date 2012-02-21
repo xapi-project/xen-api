@@ -96,7 +96,7 @@ let post_install_script rpc session_id __context install_vm vm (script, vbds) =
 		   end
 	       in update_progress ()
 	     ) with
-	       | Success _ -> debug "Install script exitted successfully."
+	       | Success _ -> debug "Install script exited successfully."
 	       | Failure(log, Subprocess_failed n) ->
 		   error "post_install_script failed: message='%s' (assuming this was because the disk was too small)" log;
 		   raise (Api_errors.Server_error (Api_errors.provision_failed_out_of_space, []))

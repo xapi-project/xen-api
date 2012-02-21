@@ -115,7 +115,7 @@ let host_restore_handler (req: Request.t) s _ =
 					in
 
 					match result with
-						| Success _ -> debug "restore script exitted successfully"
+						| Success _ -> debug "restore script exited successfully"
 						| Failure (log, exn) ->
 							debug "host-restore script failed with output: %s" log;
 							raise (Api_errors.Server_error (Api_errors.restore_script_failed, [log]))               )
