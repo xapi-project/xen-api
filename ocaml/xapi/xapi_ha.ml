@@ -140,7 +140,7 @@ let on_master_failure () =
 		Xapi_pool_transition.become_another_masters_slave address;
 		(* XXX CA-16388: prevent blocking *)
 		Thread.delay 15.;
-		error "Failed to flush and exit properly; forcibly exitting";
+		error "Failed to flush and exit properly; forcibly exiting";
 		exit Xapi_globs.restart_return_code in
 
 	let finished = ref false in
@@ -871,7 +871,7 @@ let ha_disarm_fencing __context localhost =
 	try
 		let (_ : string) = call_script ha_disarm_fencing [] in ()
 	with Xha_error Xha_errno.Mtc_exit_daemon_is_not_present ->
-		info "ha_disarm_fencing: daemon has exitted so returning success"
+		info "ha_disarm_fencing: daemon has exited so returning success"
 
 let ha_set_excluded __context localhost =
 	let (_ : string) = call_script ha_set_excluded [] in ()
@@ -956,7 +956,7 @@ let ha_wait_for_shutdown_via_statefile __context localhost =
 		done
 	with
 		| Xha_error Xha_errno.Mtc_exit_daemon_is_not_present ->
-			info "ha_wait_for_shutdown_via_statefile: daemon has exitted so returning success"
+			info "ha_wait_for_shutdown_via_statefile: daemon has exited so returning success"
 
 
 (** Attach the statefile VDIs and return the resulting list of paths in dom0 *)

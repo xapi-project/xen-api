@@ -66,7 +66,7 @@ let call_script ?(log_successful_output=true) script args =
 		debug "Assuming script %s doesn't exist" script;
 		raise (RpcFailure ("SCRIPT_DOES_NOT_EXIST", ["script", script; "args", String.concat " " args]))
 	| Forkhelpers.Spawn_internal_error(stderr, stdout, Unix.WEXITED n)->
-		debug "%s %s exitted with code %d [stdout = '%s'; stderr = '%s']" script (String.concat " " args) n stdout stderr;
+		debug "%s %s exited with code %d [stdout = '%s'; stderr = '%s']" script (String.concat " " args) n stdout stderr;
 		raise (RpcFailure ("SCRIPT_ERROR", ["script", script; "args", String.concat " " args; "code",
 			string_of_int n; "stdout", stdout; "stderr", stderr]))
 

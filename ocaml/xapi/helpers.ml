@@ -676,7 +676,7 @@ let call_script ?(log_successful_output=true) script args =
       debug "Assuming script %s doesn't exist: caught %s" script (ExnHelper.string_of_exn e);
       raise e
   | Forkhelpers.Spawn_internal_error(stderr, stdout, Unix.WEXITED n) as e->
-      debug "%s %s exitted with code %d [stdout = '%s'; stderr = '%s']" script (String.concat " " args) n stdout stderr;
+      debug "%s %s exited with code %d [stdout = '%s'; stderr = '%s']" script (String.concat " " args) n stdout stderr;
       raise e
 
 (* Repeatedly bisect a range to find the maximum value for which the monotonic function returns true *)

@@ -217,7 +217,7 @@ module Udev = struct
     then Unix.execve filename (Array.of_list args) (Array.of_list (List.map (fun (k, v) -> k ^ "=" ^ v) env));
     match Unix.waitpid [ ] pid with
     | _, Unix.WEXITED 0 -> ()
-    | _, Unix.WEXITED n -> eprintf "(XIU) udev script exitted with code %d\n" n
+    | _, Unix.WEXITED n -> eprintf "(XIU) udev script exited with code %d\n" n
     | _, _ -> eprintf "(XIU) unknown error running udev script\n"
 
   let vif domid devid device action = 

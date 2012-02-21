@@ -1600,10 +1600,10 @@ let __start ~xs ~dmpath ~restore ?(timeout = !Xapi_globs.qemu_dm_ready_timeout) 
 					| 0, Unix.WEXITED 0 -> () (* still running *)
 					| _, Unix.WEXITED n ->
 						error "qemu-dm: unexpected exit with code: %d" n;
-						raise (Ioemu_failed "qemu-dm exitted unexpectedly")
+						raise (Ioemu_failed "qemu-dm exited unexpectedly")
 					| _, (Unix.WSIGNALED n | Unix.WSTOPPED n) ->
 						error "qemu-dm: unexpected signal: %d" n;
-						raise (Ioemu_failed "qemu-dm exitted unexpectedly")
+						raise (Ioemu_failed "qemu-dm exited unexpectedly")
 				end
 		done
 	end;
