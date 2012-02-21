@@ -180,6 +180,17 @@ let mark_host_as_dead ~__context ~host ~reason =
 (* Toggled by an explicit Host.disable call to prevent a master restart making us bounce back *)
 let user_requested_host_disable = ref false
 
+(* Track whether the host considers itself started - we want to block host.enable API calls until this is the case. *)
+let startup_complete = ref false
+let startup_complete_m = Mutex.create ()
+
+let signal_startup_complete () =
+	Mutex.execute startup_complete_m (fun () -> startup_complete := true)
+
+let assert_startup_complete () =
+	Mutex.execute startup_complete_m
+		(fun () -> if not (!startup_complete) then
+			raise (Api_errors.Server_error (Api_errors.host_still_booting, [])))
 
 let consider_enabling_host_nolock ~__context =
 	debug "Helpers.consider_enabling_host_nolock called";
@@ -218,7 +229,8 @@ let consider_enabling_host_nolock ~__context =
 		(* If Host has been enabled and HA is also enabled then tell the master to recompute its plan *)
 		if Db.Host.get_enabled ~__context ~self:localhost && (Db.Pool.get_ha_enabled ~__context ~self:pool)
 		then Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.Pool.ha_schedule_plan_recomputation rpc session_id)
-	end
+	end;
+	signal_startup_complete ()
 
 (** Attempt to minimise the number of times we call consider_enabling_host_nolock *)
 let consider_enabling_host =
