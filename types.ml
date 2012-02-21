@@ -62,6 +62,33 @@ module Interfaces = struct
   }
 end
 
+let to_json x =
+  let of_arg_list args =
+    `Assoc (List.map (fun (name, ty) -> name, `String (Type.string_of_t ty)) args) in
+  let of_interface i =
+    `Assoc [
+      "name", `String i.Interface.name;
+      "description", `String i.Interface.description;
+      "methods", 
+      `List (List.map
+	       (fun m ->
+		 `Assoc [
+		   "name", `String m.Method.name;
+		   "inputs", of_arg_list m.Method.inputs;
+		   "outputs", of_arg_list m.Method.outputs;
+		 ]
+	       ) i.Interface.methods)
+    ] in
+  let of_interfaces i =
+    `Assoc [
+      "name", `String i.Interfaces.name;
+      "description", `String i.Interfaces.description;
+      "interfaces", `List (List.map of_interface i.Interfaces.interfaces)
+    ] in
+  let json = of_interfaces x in
+  Yojson.Basic.to_string json
+
+
 let to_dbus_xml x =
   let open Xmlm in
       let buffer = Buffer.create 128 in
@@ -171,4 +198,8 @@ let smapiv2 =
   }
 
 let _ =
-  print_string (to_dbus_xml smapiv2)
+  print_string (to_dbus_xml smapiv2);
+  print_string "";
+  print_string "\n";
+  print_string "";
+  print_string (to_json smapiv2);
