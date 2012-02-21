@@ -1,0 +1,174 @@
+
+module Type = struct
+    (** Subset of dbus types which we'll use *)
+
+  type basic =
+    | Int64
+    | String
+    | Double
+    | Boolean
+  let basic = [
+    Int64, "x";
+    String, "s";
+    Double, "d";
+    Boolean, "b";
+  ]
+  let string_of_basic x = List.assoc x basic
+  let basic_of_string x =
+    let basic' = List.map (fun (x, y) -> y, x) basic in
+    if List.mem_assoc x basic'
+    then Some (List.assoc x basic')
+    else None
+
+  type t =
+    | Basic of basic
+    | Struct of (string * t) * ((string * t) list)
+    | Array of t
+    | Dict of basic * t
+
+  let rec string_of_t = function
+    | Basic b -> string_of_basic b
+    | Struct ((_, h), tl) -> Printf.sprintf "(%s%s)" (string_of_t h) (String.concat "" (List.map string_of_t (List.map snd tl)))
+    | Array x -> Printf.sprintf "a%s" (string_of_t x)
+    | Dict (k, v) -> Printf.sprintf "a{%s%s}" (string_of_basic k) (string_of_t v)
+
+  type ts = t list
+
+end
+
+type arg = string * Type.t
+
+module Method = struct
+  type t = {
+    name: string;
+    inputs: arg list;
+    outputs: arg list;
+  }    
+end
+
+module Interface = struct
+  type t = {
+    name: string;
+    description: string;
+    methods: Method.t list;
+  }
+end
+
+module Interfaces = struct
+  type t = {
+    name: string;
+    description: string;
+    interfaces: Interface.t list;
+  }
+end
+
+let to_dbus_xml x =
+  let open Xmlm in
+      let buffer = Buffer.create 128 in
+      let output = Xmlm.make_output ~nl:true ~indent:(Some 4) (`Buffer buffer) in
+      Xmlm.output output (`Dtd None);
+      Xmlm.output output (`El_start (("", "node"), [ ("", "name"), "/org/xen/xcp/" ^ x.Interfaces.name ]));
+      Xmlm.output output (`El_start (("", "tp:docstring"), []));
+      Xmlm.output output (`Data x.Interfaces.description);
+      Xmlm.output output (`El_end);
+      List.iter
+	(fun i ->
+	  Xmlm.output output (`El_start (("", "interface"), [ ("", "name"), "org.xen.xcp." ^ i.Interface.name ]));
+	  List.iter
+	    (fun m ->
+	      Xmlm.output output (`El_start (("", "method"), [ ("", "name"), m.Method.name ]));
+	      List.iter
+		(fun (name, ty) ->
+		  Xmlm.output output (`El_start (("", "arg"), [ ("", "type"), Type.string_of_t ty; ("", "name"), name; ("", "direction"), "in" ]));
+		  Xmlm.output output (`El_end);
+		) m.Method.inputs;
+	      List.iter
+		(fun (name, ty) ->
+		  Xmlm.output output (`El_start (("", "arg"), [ ("", "type"), Type.string_of_t ty; ("", "name"), name; ("", "direction"), "out" ]));
+		  Xmlm.output output (`El_end);
+		) m.Method.outputs;
+	      Xmlm.output output (`El_end);
+	    ) i.Interface.methods;
+	  Xmlm.output output (`El_end);
+	) x.Interfaces.interfaces;
+      Xmlm.output output (`El_end);
+
+      Buffer.contents buffer
+
+
+(* XXX: need documentation *)
+let smapiv2 =
+  let vdi_info =
+    Type.(Struct(
+      ( "vdi", Basic String ),
+      [ "sr", Basic String;
+	"content_id", Basic String;
+	"name_label", Basic String;
+	"name_description", Basic String;
+	"ty", Basic String;
+	"metadata_of_pool", Basic String;
+	"is_a_snapshot", Basic Boolean;
+	"snapshot_time", Basic String;
+	"snapshot_of", Basic String;
+	"read_only", Basic Boolean;
+	"virtual_size", Basic Int64;
+	"physical_utilisation", Basic Int64;
+      ]
+    )) in
+  {
+    Interfaces.name = "SMAPIv2";
+    description = "The Storage Manager API";
+    interfaces =
+      [
+	{
+	  Interface.name = "VDI";
+	  description = "Operations which operate on Virtual Disk Images";
+	  methods = [
+	    {
+	      Method.name = "create";
+	      inputs = [
+		"sr", Type.(Basic String);
+		"vdi_info", vdi_info;
+		"params", Type.(Dict(String, Basic String))
+	      ];
+	      outputs = [
+		"new_vdi", vdi_info
+	      ];
+	    }; {
+	      Method.name = "snapshot";
+	      inputs = [
+		"sr", Type.(Basic String);
+		"vdi", Type.(Basic String);
+		"vdi_info", vdi_info;
+		"params", Type.(Dict(String, Basic String))
+	      ];
+	      outputs = [
+		"new_vdi", vdi_info
+	      ];
+	    }
+	      
+	  ]
+	}; {
+	  Interface.name = "SR";
+	  description = "Operations which act on Storage Repositories";
+	  methods = [
+	    
+	  ]
+	}; {
+	  Interface.name = "DP";
+	  description = "Operations which act on DataPaths";
+	  methods = [
+	    
+	  ]
+	}; {
+	  Interface.name = "Mirror";
+	  description = "Operations which act on disk mirrors.";
+	  methods = [
+	    
+	  ]
+	}
+      ]
+  }
+
+let _ =
+  print_string (to_dbus_xml smapiv2)
