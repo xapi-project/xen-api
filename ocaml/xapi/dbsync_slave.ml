@@ -74,7 +74,7 @@ let get_start_time () =
 (* not sufficient just to fill in this data on create time [Xen caps may change if VT enabled in BIOS etc.] *)
 let refresh_localhost_info ~__context info =
   let host = !Xapi_globs.localhost_ref in
-  let software_version = Create_misc.make_software_version () in
+  let software_version = Create_misc.make_software_version ~__context in
 
   (* Xapi_ha_flags.resync_host_armed_flag __context host; *)
   debug "Updating host software_version";
