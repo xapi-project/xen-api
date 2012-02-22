@@ -49,7 +49,7 @@ val attach_internal :
   __context:Context.t -> self:[ `network ] Ref.t -> unit -> unit
 
 (** Remove the bridge associated to this network *)
-val detach : string -> unit
+val detach : __context:Context.t -> string -> unit
 
 (** Makes the network immediately available on a particular host (Network.attach is hidden from docs) *)
 val attach :
