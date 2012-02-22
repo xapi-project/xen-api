@@ -138,9 +138,15 @@ let to_dbus_xml x =
       List.iter
 	(fun i ->
 	  Xmlm.output output (`El_start (("", "interface"), [ ("", "name"), "org.xen.xcp." ^ i.Interface.name ]));
+      Xmlm.output output (`El_start (("", "tp:docstring"), []));
+      Xmlm.output output (`Data i.Interface.description);
+      Xmlm.output output (`El_end);
 	  List.iter
 	    (fun m ->
 	      Xmlm.output output (`El_start (("", "method"), [ ("", "name"), m.Method.name ]));
+	      Xmlm.output output (`El_start (("", "tp:docstring"), []));
+(*	      Xmlm.output output (`Data m.Method.description); *)
+	      Xmlm.output output (`El_end);
 	      List.iter
 		(fun (name, ty) ->
 		  Xmlm.output output (`El_start (("", "arg"), [ ("", "type"), Type.string_of_t ty; ("", "name"), name; ("", "direction"), "in" ]));
@@ -209,6 +215,110 @@ let smapiv2 =
 	      outputs = [
 		"new_vdi", vdi_info
 	      ];
+	    }; {
+	      Method.name = "clone";
+	      inputs = [
+		"sr", Type.(Basic String);
+		"vdi", Type.(Basic String);
+		"vdi_info", vdi_info;
+		"params", Type.(Dict(String, Basic String))
+	      ];
+	      outputs = [
+		"new_vdi", vdi_info
+	      ];
+	    }; {
+	      Method.name = "destroy";
+	      inputs = [
+		"sr", Type.(Basic String);
+		"vdi", Type.(Basic String);
+	      ];
+	      outputs = [
+	      ];
+	    }; {
+	      Method.name = "attach";
+	      inputs = [
+		"dp", Type.(Basic String);
+		"sr", Type.(Basic String);
+		"vdi", Type.(Basic String);
+		"read_write", Type.(Basic Boolean);
+	      ];
+	      outputs = [
+		"params", Type.(Basic String);
+	      ];
+	    }; {
+	      Method.name = "activate";
+	      inputs = [
+		"dp", Type.(Basic String);
+		"sr", Type.(Basic String);
+		"vdi", Type.(Basic String);
+	      ];
+	      outputs = [
+	      ];
+	    }; {
+	      Method.name = "deactivate";
+	      inputs = [
+		"dp", Type.(Basic String);
+		"sr", Type.(Basic String);
+		"vdi", Type.(Basic String);
+	      ];
+	      outputs = [
+	      ];
+	    }; {
+	      Method.name = "deattach";
+	      inputs = [
+		"dp", Type.(Basic String);
+		"sr", Type.(Basic String);
+		"vdi", Type.(Basic String);
+	      ];
+	      outputs = [
+	      ];
+	    }; {
+	      Method.name = "copy";
+	      inputs = [
+		"sr", Type.(Basic String);
+		"vdi", Type.(Basic String);
+		"url", Type.(Basic String);
+		"dest", Type.(Basic String);
+	      ];
+	      outputs = [
+		"new_vdi", Type.(Basic String);
+	      ];
+	    }; {
+	      Method.name = "get_url";
+	      inputs = [
+		"sr", Type.(Basic String);
+		"vdi", Type.(Basic String);
+	      ];
+	      outputs = [
+		"url", Type.(Basic String);
+	      ];
+	    }; {
+	      Method.name = "get_by_name";
+	      inputs = [
+		"sr", Type.(Basic String);
+		"name", Type.(Basic String);
+	      ];
+	      outputs = [
+		"vdi", Type.(Basic String);
+	      ];
+	    }; {
+	      Method.name = "set_content_id";
+	      inputs = [
+		"sr", Type.(Basic String);
+		"vdi", Type.(Basic String);
+		"content_id", Type.(Basic String);
+	      ];
+	      outputs = [
+	      ];
+	    }; {
+	      Method.name = "compose";
+	      inputs = [
+		"sr", Type.(Basic String);
+		"vdi1", Type.(Basic String);
+		"vdi2", Type.(Basic String);
+	      ];
+	      outputs = [
+	      ];
 	    }
 	      
 	  ]
@@ -216,19 +326,98 @@ let smapiv2 =
 	  Interface.name = "SR";
 	  description = "Operations which act on Storage Repositories";
 	  methods = [
-	    
+	    {
+	      Method.name = "attach";
+	      inputs = [
+		"sr", Type.(Basic String);
+		"device_config", Type.(Dict(String, Basic String));
+	      ];
+	      outputs = [
+	      ];
+	    }; {
+	      Method.name = "detach";
+	      inputs = [
+		"sr", Type.(Basic String);
+	      ];
+	      outputs = [
+	      ];
+	    }; {
+	      Method.name = "destroy";
+	      inputs = [
+		"sr", Type.(Basic String);
+	      ];
+	      outputs = [
+	      ];
+	    }; {
+	      Method.name = "reset";
+	      inputs = [
+		"sr", Type.(Basic String);
+	      ];
+	      outputs = [
+	      ];
+	    }; {
+	      Method.name = "scan";
+	      inputs = [
+		"sr", Type.(Basic String);
+	      ];
+	      outputs = [
+		(* XXX: vdi_info list *)
+	      ];
+	    }
 	  ]
 	}; {
 	  Interface.name = "DP";
 	  description = "Operations which act on DataPaths";
 	  methods = [
-	    
+	    {
+	      Method.name = "create";
+	      inputs = [
+		"id", Type.(Basic String);
+	      ];
+	      outputs = [
+		"dp", Type.(Basic String);
+	      ];
+	    }; {
+	      Method.name = "destroy";
+	      inputs = [
+		"id", Type.(Basic String);
+		"allow_leak", Type.(Basic Boolean);
+	      ];
+	      outputs = [
+	      ];
+	    }; {
+	      Method.name = "diagnostics";
+	      inputs = [
+	      ];
+	      outputs = [
+		"diagnostics", Type.(Basic String);
+	      ];
+	    }
 	  ]
 	}; {
 	  Interface.name = "Mirror";
 	  description = "Operations which act on disk mirrors.";
 	  methods = [
-	    
+	    {
+	      Method.name = "start";
+	      inputs = [
+		"sr", Type.(Basic String);
+		"vdi", Type.(Basic String);
+		"url", Type.(Basic String);
+		"dest", Type.(Basic String);
+	      ];
+	      outputs = [
+		"new_vdi", Type.(Basic String);
+	      ];	      
+	    }; {
+	      Method.name = "stop";
+	      inputs = [
+		"sr", Type.(Basic String);
+		"vdi", Type.(Basic String);
+	      ];
+	      outputs = [
+	      ];	      
+	    }
 	  ]
 	}
       ]
