@@ -24,6 +24,8 @@ open Client
 open Pervasiveext
 open Xenstore
 
+open Network
+
 module D=Debug.Debugger(struct let name="dbsync" end)
 open D
 
@@ -186,7 +188,8 @@ let resynchronise_pif_params ~__context =
 	(* Determine all bridges that are currently up, and ask the master to sync the currently_attached
 	 * fields on all my PIFs *)
 	Helpers.call_api_functions ~__context (fun rpc session_id ->
-		let bridges = Netdev.network.Netdev.list () in
+		let dbg = Context.string_of_task __context in
+		let bridges = Net.Bridge.get_all dbg () in
 		Client.Host.sync_pif_currently_attached rpc session_id localhost bridges
 	);
 
