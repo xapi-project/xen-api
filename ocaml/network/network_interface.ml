@@ -199,6 +199,10 @@ type kind = Openvswitch | Bridge
 type bond_mode = Balance_slb | Active_backup | Lacp
 type fail_mode = Standalone | Secure
 
+let string_of_kind = function
+	| Openvswitch -> "openvswitch"
+	| Bridge -> "bridge"
+
 module Bridge = struct
 	external get_all : debug_info -> unit -> bridge list = ""
 	external get_bond_links_up : debug_info -> name:port -> int = ""
