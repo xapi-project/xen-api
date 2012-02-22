@@ -1,4 +1,6 @@
 
+let ( |> ) f g = g f
+
 module Type = struct
     (** Subset of dbus types which we'll use *)
 
@@ -19,6 +21,11 @@ module Type = struct
     if List.mem_assoc x basic'
     then Some (List.assoc x basic')
     else None
+  let ocaml_of_basic = function
+    | Int64 -> "int64"
+    | String -> "string"
+    | Double -> "float"
+    | Boolean -> "bool"
 
   type t =
     | Basic of basic
@@ -31,6 +38,11 @@ module Type = struct
     | Struct ((_, h), tl) -> Printf.sprintf "(%s%s)" (string_of_t h) (String.concat "" (List.map string_of_t (List.map snd tl)))
     | Array x -> Printf.sprintf "a%s" (string_of_t x)
     | Dict (k, v) -> Printf.sprintf "a{%s%s}" (string_of_basic k) (string_of_t v)
+  let rec ocaml_of_t = function
+    | Basic b -> ocaml_of_basic b
+    | Struct (_, _) -> "XXX"
+    | Array t -> ocaml_of_t t ^ " list"
+    | Dict (key, v) -> Printf.sprintf "(%s * %s) list" (ocaml_of_basic key) (ocaml_of_t v)
 
   type ts = t list
 
@@ -61,6 +73,31 @@ module Interfaces = struct
     interfaces: Interface.t list;
   }
 end
+
+let to_rpclight x =
+  let open Format in
+      let of_method m =
+	let of_args name args =
+	  printf "@[type %s = {@." name;
+	  List.iter
+	    (fun (name, ty) ->
+	      printf "@[%s@ :@ %s;@.@]" name (Type.ocaml_of_t ty) 
+	    ) args;
+	  printf "@.}@.@]" in
+	of_args (m.Method.name ^ "_inputs") m.Method.inputs;
+	of_args (m.Method.name ^ "_outputs") m.Method.outputs;
+	printf "@[external %s: %s_inputs -> %s_outputs = \"\"@.@]" m.Method.name m.Method.name m.Method.name in
+      let of_interface i =
+	printf "@[module %s = struct@." i.Interface.name;
+	printf "(* %s *)@." i.Interface.description;
+	List.iter of_method i.Interface.methods;
+	printf "end@.@]" in
+      let of_interfaces i =
+	printf "@[(* %s *)@." i.Interfaces.description;
+	List.iter of_interface i.Interfaces.interfaces;
+	printf "@.@]"
+      in
+      of_interfaces x
 
 let to_json x =
   let of_arg_list args =
@@ -203,3 +240,6 @@ let _ =
   print_string "\n";
   print_string "";
   print_string (to_json smapiv2);
+  print_string "\n";
+  print_string "";
+  to_rpclight smapiv2
