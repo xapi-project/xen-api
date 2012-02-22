@@ -641,7 +641,11 @@ module Bridge = struct
 			ignore (Brctl.destroy_port bridge name)
 
 	let get_interfaces _ ~name =
-		["eth0"]
+		match !kind with
+		| Openvswitch ->
+			Ovs.bridge_to_interfaces name
+		| Bridge ->
+			Sysfs.bridge_to_interfaces name
 
 	let get_bond_properties _ ~bridge ~name =
 		[]
