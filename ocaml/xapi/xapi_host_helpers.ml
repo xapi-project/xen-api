@@ -193,7 +193,7 @@ let assert_startup_complete () =
 			raise (Api_errors.Server_error (Api_errors.host_still_booting, [])))
 
 let consider_enabling_host_nolock ~__context =
-	debug "Helpers.consider_enabling_host_nolock called";
+	debug "Xapi_host_helpers.consider_enabling_host_nolock called";
 	(* If HA is enabled only consider marking the host as enabled if all the storage plugs in successfully.
        Disabled hosts are excluded from the HA planning calculations. Otherwise a host may boot,
        fail to plug in a PBD and cause all protected VMs to suddenly become non-agile. *)
@@ -219,8 +219,7 @@ let consider_enabling_host_nolock ~__context =
 			if try bool_of_string (Localdb.get Constants.host_disabled_until_reboot) with _ -> false then begin
 				debug "Host.enabled: system not just rebooted but host_disabled_until_reboot still set. Leaving host disabled";
 			end else begin
-				debug "System has not just rebooted but host_disabled_until_reboot is not set. Re-enabling host";
-				debug "Host.enabled: system just rebooted && host_disabled_until_reboot not set: setting localhost to enabled";
+				debug "Host.enabled: system not just rebooted && host_disabled_until_reboot not set: setting localhost to enabled";
 				Db.Host.set_enabled ~__context ~self:localhost ~value:true;
 				(* Start processing pending VM powercycle events *)
 				Local_work_queue.start_vm_lifecycle_queue ();
@@ -243,6 +242,6 @@ let consider_enabling_host =
 let consider_enabling_host_request ~__context = At_least_once_more.again consider_enabling_host
 
 let consider_enabling_host ~__context =
-	debug "Helpers.consider_enabling_host called";
+	debug "Xapi_host_helpers.consider_enabling_host called";
 	consider_enabling_host_request ~__context
 
