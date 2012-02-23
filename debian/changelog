@@ -2,6 +2,7 @@ xen-api (1.3.2-2) unstable; urgency=low
 
   * New upstream release.
   * Fixes missing lsb-base dependency needed by all daemons init.d scripts.
+  * Init scripts fail gracefully when preconditions not met
   [v 1.3.2-2]
   * xcp-networkd depends on openvswitch-datapath-dkms
   * xcp-networkd.init creates missing network.conf
