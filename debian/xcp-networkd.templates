@@ -1,8 +1,11 @@
 Template: xcp-xapi/networking_type
 Type: select
 Choices: bridge, openvswitch
-Default: openvswitch
+Default: bridge
 _Description: XCP networking manager:
- xcp-networkd has two modes of networking. With bridge, all of your virtual
- machines will see all traffic, and by default will be able to connect to each
- other, while openvswitch manages VLAN.
+ xcp-networkd supports two network backends: standard Linux bridging
+ and Open vSwitch. While both modes support a similar feature set,
+ Open vSwitch provides additional features such as QoS, monitoring,
+ and control using the OpenFlow protocol. These additional features
+ are not controlled directly through the XenAPI, but can instead be
+ enabled and controlled through the ovs-* suite of commands.
