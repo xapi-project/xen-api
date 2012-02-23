@@ -29,6 +29,9 @@ if ! [ -x "${DAEMON}" ] ; then
 	exit 0
 fi
 
+# Exit if we aren't running on Xen
+grep hypervisor /proc/cpuinfo > /dev/null || exit 0
+
 # Read configuration variable file if it is present
 if [ -r /etc/default/${NAME} ] ; then
 	. /etc/default/${NAME}
@@ -48,20 +51,33 @@ SUBSYS_FILE="/var/run/lock/xcp-networkd"
 case "${1}" in
 start)
 	log_daemon_msg "Starting ${DESC}" ${NAME}
-	# Copied from the XenServer openvswitch init script.
-	# xcp-networkd gets confused if it sees the bridges already
-	# present and decides that nothing needs to be done, thus
-	# it doesn't bring up eth0 & co.
-	if [ ! -e /var/run/xcp-networkd.booted ]; then
-		touch /var/run/xcp-networkd.booted
-		for bridge in $(/usr/bin/ovs-vsctl list-br); do
-			/usr/bin/ovs-vsctl --no-wait --timeout=5 del-br $bridge
-		done
-	fi
-	
+
+	# Make sure network.conf exists
 	if [ ! -e /etc/xcp/network.conf ]; then
 		echo "bridge" > /etc/xcp/network.conf
 	fi
+
+	# To run if we are in openvswitch mode
+	if [ `cat /etc/xcp/network.conf` == "openvswitch" ]; then
+
+		# Fail if openvswitch_mod is not loaded
+		if [ `lsmod | grep openvswitch_mod > /dev/null` ]; then
+			log_failure_msg "cannot start xcp-networkd: openvswitch_mod not loaded."
+			exit 1
+		fi
+
+		# Copied from the XenServer openvswitch init script.
+		# xcp-networkd gets confused if it sees the bridges already
+		# present and decides that nothing needs to be done, thus
+		# it doesn't bring up eth0 & co.
+		if [ ! -e /var/run/xcp-networkd.booted ]; then
+			touch /var/run/xcp-networkd.booted
+			for bridge in $(/usr/bin/ovs-vsctl list-br); do
+				/usr/bin/ovs-vsctl --no-wait --timeout=5 del-br $bridge
+			done
+		fi
+
+	fi # openvswitch
 
 	if [ -e ${SUBSYS_FILE} ]; then
 		if [ -e ${PIDFILE} -a -e /proc/`cat ${PIDFILE}` ] ; then
