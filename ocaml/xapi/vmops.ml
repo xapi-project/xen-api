@@ -71,45 +71,56 @@ let check_vm_parameters ~__context ~self ~snapshot =
 		raise (Api_errors.Server_error (Api_errors.vm_memory_size_too_low, [ refself ]));
 	()
 
-let add_vif ~__context ~xs vif_device = 
-  if vif_device.Vm_config.bridge = "" then failwith "Don't know how to connect a VIF to this type of Network";
-  let vif_uuid = Db.VIF.get_uuid ~__context ~self:vif_device.Vm_config.vif_ref in
-  let extra_private_keys = ["ref", Ref.string_of vif_device.Vm_config.vif_ref;
-                            "vif-uuid", vif_uuid;
-                            "network-uuid", Db.Network.get_uuid ~__context ~self:vif_device.Vm_config.network_ref] in
-  Xapi_network.register_vif ~__context vif_device.Vm_config.vif_ref;
-  Xapi_network.attach_internal ~__context ~self:vif_device.Vm_config.network_ref ();
-  Xapi_udhcpd.maybe_add_lease ~__context vif_device.Vm_config.vif_ref;
+let add_vif ~__context ~xs vif_device =
+	if vif_device.Vm_config.bridge = "" then failwith "Don't know how to connect a VIF to this type of Network";
+	let vif_uuid = Db.VIF.get_uuid ~__context ~self:vif_device.Vm_config.vif_ref in
 
-  Xapi_xenops_errors.handle_xenops_error
-    (fun () ->
-       let netty = Netman.netty_of_bridge vif_device.Vm_config.bridge in
-	   (* If there are any non-virtual interfaces on the bridge with a valid
-		  carrier then reflect the status *)
-	   let ifs = 
-		   let all = Netdev.network.Netdev.intf_list vif_device.Vm_config.bridge in
-		   List.filter (fun x -> not(String.startswith "vif" x) && not(String.startswith "tap" x)) all in
-	   let carrier = 
-		   let all = List.map (fun x -> try Netdev.get_carrier x with _ -> false) ifs in
-		   (all = []) (* internal network *)
-		   || 
-		   (List.fold_left (||) false all) (* any interface on external network *)
-	   in
+	let locking_mode =
+		Record_util.vif_locking_mode_to_string
+		(Vm_config.effective_locking_mode_of_vif ~__context vif_device)
+	in
 
-       let (_: Device_common.device) = Device.Vif.add ~xs ~devid:vif_device.Vm_config.devid ~netty 
-	 ~mac:vif_device.Vm_config.mac ~carrier:(not(!Monitor_rrds.pass_through_pif_carrier) || carrier) ~mtu:vif_device.Vm_config.mtu ~rate:vif_device.Vm_config.rate ~protocol:vif_device.Vm_config.protocol 
-	 ~other_config:vif_device.Vm_config.other_config ~extra_private_keys
-	 vif_device.Vm_config.domid in
-       ()
-    );
-  Db.VIF.set_currently_attached ~__context ~self:vif_device.Vm_config.vif_ref ~value:true;
-  (* sync MTU *)
-  try
-    let device = "vif" ^ (string_of_int vif_device.Vm_config.domid) ^ "." ^ (string_of_int vif_device.Vm_config.devid) in
-    let mtu = Int64.of_string (Netdev.get_mtu device) in
-    Db.VIF.set_MTU ~__context ~self:vif_device.Vm_config.vif_ref ~value:mtu
-  with _ ->
-    debug "could not update MTU field on VIF %s" vif_uuid
+	let extra_private_keys = [
+		"ref", Ref.string_of vif_device.Vm_config.vif_ref;
+		"vif-uuid", vif_uuid;
+		"network-uuid", Db.Network.get_uuid ~__context ~self:vif_device.Vm_config.network_ref;
+		"locking-mode", locking_mode;
+		"ipv4-allowed", String.concat "," vif_device.Vm_config.ipv4_allowed;
+		"ipv6-allowed", String.concat "," vif_device.Vm_config.ipv6_allowed;
+	] in
+	Xapi_network.register_vif ~__context vif_device.Vm_config.vif_ref;
+	Xapi_network.attach_internal ~__context ~self:vif_device.Vm_config.network_ref ();
+	Xapi_udhcpd.maybe_add_lease ~__context vif_device.Vm_config.vif_ref;
+
+	Xapi_xenops_errors.handle_xenops_error
+		(fun () ->
+			let netty = Netman.netty_of_bridge vif_device.Vm_config.bridge in
+			(* If there are any non-virtual interfaces on the bridge with a valid
+			   carrier then reflect the status *)
+			let ifs =
+				let all = Netdev.network.Netdev.intf_list vif_device.Vm_config.bridge in
+				List.filter (fun x -> not(String.startswith "vif" x) && not(String.startswith "tap" x)) all in
+			let carrier =
+				let all = List.map (fun x -> try Netdev.get_carrier x with _ -> false) ifs in
+				(all = []) (* internal network *)
+				||
+				(List.fold_left (||) false all) (* any interface on external network *)
+			in
+
+			let (_: Device_common.device) = Device.Vif.add ~xs ~devid:vif_device.Vm_config.devid ~netty
+				~mac:vif_device.Vm_config.mac ~carrier:(not(!Monitor_rrds.pass_through_pif_carrier) || carrier) ~mtu:vif_device.Vm_config.mtu ~rate:vif_device.Vm_config.rate ~protocol:vif_device.Vm_config.protocol
+				~other_config:vif_device.Vm_config.other_config ~extra_private_keys
+				vif_device.Vm_config.domid in
+			()
+		);
+	Db.VIF.set_currently_attached ~__context ~self:vif_device.Vm_config.vif_ref ~value:true;
+	(* sync MTU *)
+	try
+		let device = "vif" ^ (string_of_int vif_device.Vm_config.domid) ^ "." ^ (string_of_int vif_device.Vm_config.devid) in
+		let mtu = Int64.of_string (Netdev.get_mtu device) in
+		Db.VIF.set_MTU ~__context ~self:vif_device.Vm_config.vif_ref ~value:mtu
+	with _ ->
+		debug "could not update MTU field on VIF %s" vif_uuid
 
 
 (* take a list of vif devices and attach them to the domid *)

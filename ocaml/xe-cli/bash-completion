@@ -182,6 +182,16 @@ $0 !~ /^host-cpu-/ && $0 !~ /^host-crashdump-/ && $0 !~ /^gpu-group-/ { print $1
 				   return 0
 				fi
 				;;
+			locking-mode) # VIF.locking_mode
+				IFS=$'\n,'
+				COMPREPLY=( $(compgen -W "default ,locked ,unlocked ,disabled " -- ${value}) )
+				return 0
+				;;
+			default-locking-mode) # network.default_locking_mode
+				IFS=$'\n,'
+				COMPREPLY=( $(compgen -W "unlocked ,disabled " -- ${value}) )
+				return 0
+				;;
 			entries) # for host-get-system-status
                                 val=$(final_comma_separated_param "$value")
                                 master_uuid=$(xe pool-list params=master --minimal 2>/dev/null)

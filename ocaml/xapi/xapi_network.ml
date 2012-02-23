@@ -105,11 +105,12 @@ let mutex = Mutex.create ()
 let stem = "xapi"
 
 let pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~bridge =
-	let r = Ref.make() and uuid = Uuid.make_uuid() in
-	Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
-		~current_operations:[] ~allowed_operations:[]
-		~name_label ~name_description ~mTU ~bridge ~other_config ~blobs:[] ~tags:[];
-	r
+  let r = Ref.make() and uuid = Uuid.make_uuid() in
+  Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
+    ~current_operations:[] ~allowed_operations:[]
+    ~name_label ~name_description ~mTU ~bridge
+    ~other_config ~blobs:[] ~tags:[] ~default_locking_mode:`unlocked;
+  r
 
 let create ~__context ~name_label ~name_description ~mTU ~other_config ~tags =
 	Mutex.execute mutex (fun () ->
@@ -123,8 +124,9 @@ let create ~__context ~name_label ~name_description ~mTU ~other_config ~tags =
 			else
 				let r = Ref.make () and uuid = Uuid.make_uuid () in
 				Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
-				  ~current_operations:[] ~allowed_operations:[]
-				  ~name_label ~name_description ~mTU ~bridge:name ~other_config ~blobs:[] ~tags;
+					~current_operations:[] ~allowed_operations:[]
+					~name_label ~name_description ~mTU ~bridge:name
+					~other_config ~blobs:[] ~tags ~default_locking_mode:`unlocked;
 				r in
 		loop ())
 
@@ -156,3 +158,21 @@ let create_new_blob ~__context ~network ~name ~mime_type =
 	Db.Network.add_to_blobs ~__context ~self:network ~key:name ~value:blob;
 	blob
 
+let set_default_locking_mode ~__context ~network ~value =
+	if (value = `disabled) then begin
+		(* Allow unlicensed users to set default_locking_mode = `unlocked, i.e. turn the feature off. *)
+		if not(Pool_features.is_enabled ~__context Features.VIF_locking) then
+			raise (Api_errors.Server_error(Api_errors.license_restriction, []));
+		(* Don't allow locking of a network if a vswitch controller is present. *)
+		Helpers.assert_vswitch_controller_not_active ~__context
+	end;
+	(* Get all VIFs which are attached and associated with this network. *)
+	let open Db_filter_types in
+	match Db.VIF.get_records_where ~__context
+		~expr:(And (
+			(Eq (Field "network", Literal (Ref.string_of network))),
+			(Eq (Field "currently_attached", Literal "true"))
+		))
+	with
+	| [] -> Db.Network.set_default_locking_mode ~__context ~self:network ~value
+	| (vif,_)::_ -> raise (Api_errors.Server_error (Api_errors.vif_in_use, [Ref.string_of network; Ref.string_of vif]))
