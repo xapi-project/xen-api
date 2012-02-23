@@ -48,14 +48,19 @@ module Type = struct
 
 end
 
-type arg = string * Type.t
+module Arg = struct
+  type t = {
+    name: string;
+    ty: Type.t;
+  }
+end
 
 module Method = struct
   type t = {
     name: string;
     description: string;
-    inputs: arg list;
-    outputs: arg list;
+    inputs: Arg.t list;
+    outputs: Arg.t list;
   }    
 end
 
@@ -81,7 +86,7 @@ let to_rpclight x =
 	let of_args name args =
 	  printf "@[type %s = {@." name;
 	  List.iter
-	    (fun (name, ty) ->
+	    (fun { Arg.name = name; ty = ty } ->
 	      printf "@[%s@ :@ %s;@.@]" name (Type.ocaml_of_t ty) 
 	    ) args;
 	  printf "@.}@.@]" in
@@ -104,7 +109,7 @@ let to_rpclight x =
 
 let to_json x =
   let of_arg_list args =
-    `Assoc (List.map (fun (name, ty) -> name, `String (Type.string_of_t ty)) args) in
+    `Assoc (List.map (fun arg -> arg.Arg.name, `String (Type.string_of_t arg.Arg.ty)) args) in
   let of_interface i =
     `Assoc [
       "name", `String i.Interface.name;
@@ -151,13 +156,13 @@ let to_dbus_xml x =
 	      Xmlm.output output (`Data m.Method.description);
 	      Xmlm.output output (`El_end);
 	      List.iter
-		(fun (name, ty) ->
-		  Xmlm.output output (`El_start (("", "arg"), [ ("", "type"), Type.string_of_t ty; ("", "name"), name; ("", "direction"), "in" ]));
+		(fun arg ->
+		  Xmlm.output output (`El_start (("", "arg"), [ ("", "type"), Type.string_of_t arg.Arg.ty; ("", "name"), arg.Arg.name; ("", "direction"), "in" ]));
 		  Xmlm.output output (`El_end);
 		) m.Method.inputs;
 	      List.iter
-		(fun (name, ty) ->
-		  Xmlm.output output (`El_start (("", "arg"), [ ("", "type"), Type.string_of_t ty; ("", "name"), name; ("", "direction"), "out" ]));
+		(fun arg ->
+		  Xmlm.output output (`El_start (("", "arg"), [ ("", "type"), Type.string_of_t arg.Arg.ty; ("", "name"), arg.Arg.name; ("", "direction"), "out" ]));
 		  Xmlm.output output (`El_end);
 		) m.Method.outputs;
 	      Xmlm.output output (`El_end);
@@ -188,6 +193,22 @@ let smapiv2 =
 	"physical_utilisation", Basic Int64;
       ]
     )) in
+  let sr = {
+    Arg.name = "sr";
+    ty = Type.(Basic String);
+  } in
+  let vdi = {
+    Arg.name = "vdi";
+    ty = Type.(Basic String);
+  } in
+  let vdi_info' = {
+    Arg.name = "vdi_info";
+    ty = vdi_info;
+  } in
+  let params = {
+    Arg.name = "params";
+    ty = Type.(Dict(String, Basic String))
+  } in
   {
     Interfaces.name = "SMAPIv2";
     description = "The Storage Manager API";
@@ -201,43 +222,49 @@ let smapiv2 =
 	      Method.name = "create";
 	      description = "[create task sr vdi_info params] creates a new VDI in [sr] using [vdi_info]. Some fields in the [vdi_info] may be modified (e.g. rounded up), so the function returns the vdi_info which was used.";
 	      inputs = [
-		"sr", Type.(Basic String);
-		"vdi_info", vdi_info;
-		"params", Type.(Dict(String, Basic String))
+		sr;
+		vdi_info';
+		params;
 	      ];
 	      outputs = [
-		"new_vdi", vdi_info
+		{ Arg.name = "new_vdi";
+		  ty = vdi_info
+		}
 	      ];
 	    }; {
 	      Method.name = "snapshot";
 	      description = "[snapshot task sr vdi vdi_info params] creates a new VDI which is a snapshot of [vdi] in [sr]";
 	      inputs = [
-		"sr", Type.(Basic String);
-		"vdi", Type.(Basic String);
-		"vdi_info", vdi_info;
-		"params", Type.(Dict(String, Basic String))
+		sr;
+		vdi;
+		vdi_info';
+		params;
 	      ];
 	      outputs = [
-		"new_vdi", vdi_info
+		{ Arg.name = "new_vdi";
+		  ty = vdi_info
+		}
 	      ];
 	    }; {
 	      Method.name = "clone";
 	      description = "[clone task sr vdi vdi_info params] creates a new VDI which is a clone of [vdi] in [sr]";
 	      inputs = [
-		"sr", Type.(Basic String);
-		"vdi", Type.(Basic String);
-		"vdi_info", vdi_info;
-		"params", Type.(Dict(String, Basic String))
+		sr;
+		vdi;
+		vdi_info';
+		params;
 	      ];
 	      outputs = [
-		"new_vdi", vdi_info
+		{ Arg.name = "new_vdi";
+		  ty = vdi_info
+		}
 	      ];
 	    }; {
 	      Method.name = "destroy";
 	      description = "[destroy task sr vdi] removes [vdi] from [sr]";
 	      inputs = [
-		"sr", Type.(Basic String);
-		"vdi", Type.(Basic String);
+		sr;
+		vdi;
 	      ];
 	      outputs = [
 	      ];
@@ -245,21 +272,29 @@ let smapiv2 =
 	      Method.name = "attach";
 	      description = "[attach task dp sr vdi read_write] returns the [params] for a given [vdi] in [sr] which can be written to if (but not necessarily only if) [read_write] is true";
 	      inputs = [
-		"dp", Type.(Basic String);
-		"sr", Type.(Basic String);
-		"vdi", Type.(Basic String);
-		"read_write", Type.(Basic Boolean);
+		{ Arg.name = "dp";
+		  ty = Type.(Basic String);
+		};
+		sr;
+		vdi;
+		{ Arg.name = "read_write";
+		  ty = Type.(Basic Boolean)
+		}
 	      ];
 	      outputs = [
-		"params", Type.(Basic String);
+		{ Arg.name = "params";
+		  ty = Type.(Basic String);
+		}
 	      ];
 	    }; {
 	      Method.name = "activate";
 	      description = "[activate task dp sr vdi] signals the desire to immediately use [vdi]. This client must have called [attach] on the [vdi] first.";
 	      inputs = [
-		"dp", Type.(Basic String);
-		"sr", Type.(Basic String);
-		"vdi", Type.(Basic String);
+		{ Arg.name = "dp";
+		  ty = Type.(Basic String);
+		};
+		sr;
+		vdi;
 	      ];
 	      outputs = [
 	      ];
@@ -267,9 +302,11 @@ let smapiv2 =
 	      Method.name = "deactivate";
 	      description = "[deactivate task dp sr vdi] signals that this client has stopped reading (and writing) [vdi].";
 	      inputs = [
-		"dp", Type.(Basic String);
-		"sr", Type.(Basic String);
-		"vdi", Type.(Basic String);
+		{ Arg.name = "dp";
+		  ty = Type.(Basic String);
+		};
+		sr;
+		vdi;
 	      ];
 	      outputs = [
 	      ];
@@ -277,9 +314,11 @@ let smapiv2 =
 	      Method.name = "detach";
 	      description = "[detach task dp sr vdi] signals that this client no-longer needs the [params] to be valid.";
 	      inputs = [
-		"dp", Type.(Basic String);
-		"sr", Type.(Basic String);
-		"vdi", Type.(Basic String);
+		{ Arg.name = "dp";
+		  ty = Type.(Basic String);
+		};
+		sr;
+		vdi;
 	      ];
 	      outputs = [
 	      ];
@@ -287,41 +326,49 @@ let smapiv2 =
 	      Method.name = "copy";
 	      description = "[copy task sr vdi url sr2] copies the data from [vdi] into a remote system [url]'s [sr2]";
 	      inputs = [
-		"sr", Type.(Basic String);
-		"vdi", Type.(Basic String);
-		"url", Type.(Basic String);
-		"dest", Type.(Basic String);
+		sr;
+		vdi;
+		{ Arg.name = "url";
+		  ty = Type.(Basic String);
+		};
+		{ sr with Arg.name = "dest" };
 	      ];
 	      outputs = [
-		"new_vdi", Type.(Basic String);
+		{ vdi with Arg.name = "new_vdi" }
 	      ];
 	    }; {
 	      Method.name = "get_url";
 	      description = "[get_url task sr vdi] returns a URL suitable for accessing disk data directly.";
 	      inputs = [
-		"sr", Type.(Basic String);
-		"vdi", Type.(Basic String);
+		sr;
+		vdi
 	      ];
 	      outputs = [
-		"url", Type.(Basic String);
+		{ Arg.name = "url";
+		  ty = Type.(Basic String);
+		}
 	      ];
 	    }; {
 	      Method.name = "get_by_name";
 	      description = "[get_by_name task sr name] returns the vdi within [sr] with [name]";
 	      inputs = [
-		"sr", Type.(Basic String);
-		"name", Type.(Basic String);
+		sr;
+		{ Arg.name = "name";
+		  ty = Type.(Basic String);
+		};
 	      ];
 	      outputs = [
-		"vdi", Type.(Basic String);
+		vdi
 	      ];
 	    }; {
 	      Method.name = "set_content_id";
 	      description = "[set_content_id task sr vdi content_id] tells the storage backend that a VDI has an updated [content_id]";
 	      inputs = [
-		"sr", Type.(Basic String);
-		"vdi", Type.(Basic String);
-		"content_id", Type.(Basic String);
+		sr;
+		vdi;
+		{ Arg.name = "content_id";
+		  ty = Type.(Basic String);
+		}
 	      ];
 	      outputs = [
 	      ];
@@ -329,9 +376,9 @@ let smapiv2 =
 	      Method.name = "compose";
 	      description = "[compose task sr vdi1 vdi2] layers the updates from [vdi2] onto [vdi1], modifying [vdi2]";
 	      inputs = [
-		"sr", Type.(Basic String);
-		"vdi1", Type.(Basic String);
-		"vdi2", Type.(Basic String);
+		sr;
+		{ vdi with Arg.name = "vdi1" };
+		{ vdi with Arg.name = "vdi2" };
 	      ];
 	      outputs = [
 	      ];
@@ -346,8 +393,10 @@ let smapiv2 =
 	      Method.name = "attach";
 	      description = "[attach task sr]: attaches the SR";
 	      inputs = [
-		"sr", Type.(Basic String);
-		"device_config", Type.(Dict(String, Basic String));
+		sr;
+		{ Arg.name = "device_config";
+		  ty = Type.(Dict(String, Basic String));
+		};
 	      ];
 	      outputs = [
 	      ];
@@ -355,7 +404,7 @@ let smapiv2 =
 	      Method.name = "detach";
 	      description = "[detach task sr]: detaches the SR, first detaching and/or deactivating any active VDIs. This may fail with Sr_not_attached, or any error from VDI.detach or VDI.deactivate.";
 	      inputs = [
-		"sr", Type.(Basic String);
+		sr;
 	      ];
 	      outputs = [
 	      ];
@@ -363,7 +412,7 @@ let smapiv2 =
 	      Method.name = "destroy";
 	      description = "[destroy sr]: destroys (i.e. makes unattachable and unprobeable) the [sr], first detaching and/or deactivating any active VDIs. This may fail with Sr_not_attached, or any error from VDI.detach or VDI.deactivate.";
 	      inputs = [
-		"sr", Type.(Basic String);
+		sr;
 	      ];
 	      outputs = [
 	      ];
@@ -371,7 +420,7 @@ let smapiv2 =
 	      Method.name = "reset";
 	      description = "[reset task sr]: declares that the SR has been completely reset, e.g. by rebooting the VM hosting the SR backend.";
 	      inputs = [
-		"sr", Type.(Basic String);
+		sr;
 	      ];
 	      outputs = [
 	      ];
@@ -379,7 +428,7 @@ let smapiv2 =
 	      Method.name = "scan";
 	      description = "[scan task sr] returns a list of VDIs contained within an attached SR";
 	      inputs = [
-		"sr", Type.(Basic String);
+		sr;
 	      ];
 	      outputs = [
 		(* XXX: vdi_info list *)
@@ -394,17 +443,25 @@ let smapiv2 =
 	      Method.name = "create";
 	      description = "[create task id]: creates and returns a dp";
 	      inputs = [
-		"id", Type.(Basic String);
+		{ Arg.name = "id";
+		  ty = Type.(Basic String);
+		}
 	      ];
 	      outputs = [
-		"dp", Type.(Basic String);
+		{ Arg.name = "id";
+		  ty = Type.(Basic String);
+		}
 	      ];
 	    }; {
 	      Method.name = "destroy";
 	      description = "[destroy task id]: frees any resources associated with [id] and destroys it. This will typically do any needed VDI.detach, VDI.deactivate cleanup.";
 	      inputs = [
-		"id", Type.(Basic String);
-		"allow_leak", Type.(Basic Boolean);
+		{ Arg.name = "id";
+		  ty = Type.(Basic String);
+		}; {
+		  Arg.name = "allow_leak";
+		  ty = Type.(Basic Boolean);
+		}
 	      ];
 	      outputs = [
 	      ];
@@ -414,7 +471,9 @@ let smapiv2 =
 	      inputs = [
 	      ];
 	      outputs = [
-		"diagnostics", Type.(Basic String);
+		{ Arg.name = "diagnostics";
+		  ty = Type.(Basic String);
+		}
 	      ];
 	    }
 	  ]
@@ -426,20 +485,22 @@ let smapiv2 =
 	      Method.name = "start";
 	      description = "[start task sr vdi url sr2] creates a VDI in remote [url]'s [sr2] and writes data synchronously. It returns the id of the VDI.";
 	      inputs = [
-		"sr", Type.(Basic String);
-		"vdi", Type.(Basic String);
-		"url", Type.(Basic String);
-		"dest", Type.(Basic String);
+		sr;
+		vdi;
+		{ Arg.name = "url";
+		  ty = Type.(Basic String);
+		};
+		{ sr with Arg.name = "dest" }
 	      ];
 	      outputs = [
-		"new_vdi", Type.(Basic String);
+		{ vdi with Arg.name = "new_vdi" }
 	      ];	      
 	    }; {
 	      Method.name = "stop";
 	      description = "[stop task sr vdi] stops mirroring local [vdi]";
 	      inputs = [
-		"sr", Type.(Basic String);
-		"vdi", Type.(Basic String);
+		sr;
+		vdi;
 	      ];
 	      outputs = [
 	      ];	      
