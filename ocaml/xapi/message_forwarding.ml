@@ -2466,6 +2466,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let create_new_blob ~__context ~network ~name ~mime_type =
 			info "Network.create_new_blob: network = '%s'; name = %s; MIME type = '%s'" (network_uuid ~__context network) name mime_type;
 			Local.Network.create_new_blob ~__context ~network ~name ~mime_type
+
+		let set_default_locking_mode ~__context ~network ~value =
+			info "Network.set_default_locking_mode: network = '%s'; value = %s" (network_uuid ~__context network) (Record_util.network_default_locking_mode_to_string value);
+			Local.Network.set_default_locking_mode ~__context ~network ~value
 	end
 
 	module VIF = struct
@@ -2535,6 +2539,48 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 		let unplug ~__context ~self = unplug_common ~__context ~self ~force:false
 		let unplug_force ~__context ~self = unplug_common ~__context ~self ~force:true
+
+		let set_locking_mode ~__context ~self ~value =
+			info "VIF.set_locking_mode: VIF = '%s'; value = '%s'" (vif_uuid ~__context self) (Record_util.vif_locking_mode_to_string value);
+			let local_fn = Local.VIF.set_locking_mode ~self ~value in
+			let remote_fn = (fun session_id rpc -> Client.VIF.set_locking_mode rpc session_id self value) in
+			forward_vif_op ~local_fn ~__context ~self remote_fn
+
+		let set_ipv4_allowed ~__context ~self ~value =
+			info "VIF.set_ipv4_allowed: VIF = '%s'; value = '%s'" (vif_uuid ~__context self) (String.concat "," value);
+			let local_fn = Local.VIF.set_ipv4_allowed ~self ~value in
+			let remote_fn = (fun session_id rpc -> Client.VIF.set_ipv4_allowed rpc session_id self value) in
+			forward_vif_op ~local_fn ~__context ~self remote_fn
+
+		let add_ipv4_allowed ~__context ~self ~value =
+			info "VIF.add_ipv4_allowed: VIF = '%s'; value = '%s'" (vif_uuid ~__context self) value;
+			let local_fn = Local.VIF.add_ipv4_allowed ~self ~value in
+			let remote_fn = (fun session_id rpc -> Client.VIF.add_ipv4_allowed rpc session_id self value) in
+			forward_vif_op ~local_fn ~__context ~self remote_fn
+
+		let remove_ipv4_allowed ~__context ~self ~value =
+			info "VIF.remove_ipv4_allowed: VIF = '%s'; value = '%s'" (vif_uuid ~__context self) value;
+			let local_fn = Local.VIF.remove_ipv4_allowed ~self ~value in
+			let remote_fn = (fun session_id rpc -> Client.VIF.remove_ipv4_allowed rpc session_id self value) in
+			forward_vif_op ~local_fn ~__context ~self remote_fn
+
+		let set_ipv6_allowed ~__context ~self ~value =
+			info "VIF.set_ipv6_allowed: VIF = '%s'; value = '%s'" (vif_uuid ~__context self) (String.concat "," value);
+			let local_fn = Local.VIF.set_ipv6_allowed ~self ~value in
+			let remote_fn = (fun session_id rpc -> Client.VIF.set_ipv6_allowed rpc session_id self value) in
+			forward_vif_op ~local_fn ~__context ~self remote_fn
+
+		let add_ipv6_allowed ~__context ~self ~value =
+			info "VIF.add_ipv6_allowed: VIF = '%s'; value = '%s'" (vif_uuid ~__context self) value;
+			let local_fn = Local.VIF.add_ipv6_allowed ~self ~value in
+			let remote_fn = (fun session_id rpc -> Client.VIF.add_ipv6_allowed rpc session_id self value) in
+			forward_vif_op ~local_fn ~__context ~self remote_fn
+
+		let remove_ipv6_allowed ~__context ~self ~value =
+			info "VIF.remove_ipv6_allowed: VIF = '%s'; value = '%s'" (vif_uuid ~__context self) value;
+			let local_fn = Local.VIF.remove_ipv6_allowed ~self ~value in
+			let remote_fn = (fun session_id rpc -> Client.VIF.remove_ipv6_allowed rpc session_id self value) in
+			forward_vif_op ~local_fn ~__context ~self remote_fn
 
 	end
 

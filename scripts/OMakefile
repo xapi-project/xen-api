@@ -112,6 +112,7 @@ install:
 	mkdir -p $(DESTDIR)$(HOOKSDIR)/host-post-declare-dead
 	$(IPROG) 10resetvdis $(DESTDIR)$(HOOKSDIR)/host-post-declare-dead
 	$(IPROG) pci-info $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) setup-vif-rules $(DESTDIR)$(LIBEXECDIR)
 
 .PHONY: sdk-install
 sdk-install: install
