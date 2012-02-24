@@ -191,8 +191,9 @@ let gen_mac(dev, seed) =
 
 let m = Mutex.create () (* prevents duplicate VIFs being created by accident *)
 
-let create  ~__context ~device ~network ~vM
-           ~mAC ~mTU ~other_config ~qos_algorithm_type ~qos_algorithm_params ~currently_attached : API.ref_VIF =
+let create ~__context ~device ~network ~vM
+           ~mAC ~mTU ~other_config ~qos_algorithm_type ~qos_algorithm_params
+           ~currently_attached ~locking_mode ~ipv4_allowed ~ipv6_allowed : API.ref_VIF =
         let () = debug "VIF.create running" in
 
 	let uuid = Uuid.make_uuid () in
@@ -245,8 +246,9 @@ let create  ~__context ~device ~network ~vM
 	  ~qos_algorithm_type ~qos_algorithm_params ~qos_supported_algorithms:[]
 	  ~currently_attached
 	  ~status_code:0L ~status_detail:""
-          ~runtime_properties:[] ~other_config
-	  ~metrics in ()
+	  ~runtime_properties:[] ~other_config
+	  ~metrics ~locking_mode
+	  ~ipv4_allowed ~ipv6_allowed in ()
 	  );
 	update_allowed_operations ~__context ~self:ref;
 	debug "VIF ref='%s' created (VM = '%s'; MAC address = '%s')" (Ref.string_of ref) (Ref.string_of vM) mAC; 
@@ -280,4 +282,7 @@ let copy ~__context ~vm ~preserve_mac_address vif =
 		~other_config:all.API.vIF_other_config
 		~qos_algorithm_type:all.API.vIF_qos_algorithm_type
 		~qos_algorithm_params:all.API.vIF_qos_algorithm_params
+		~locking_mode:all.API.vIF_locking_mode
+		~ipv4_allowed:all.API.vIF_ipv4_allowed
+		~ipv6_allowed:all.API.vIF_ipv6_allowed
 
