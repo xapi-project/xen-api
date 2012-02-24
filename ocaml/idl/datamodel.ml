@@ -3387,9 +3387,27 @@ let pool_patch_precheck = call
 
 let pool_patch_clean = call
   ~name:"clean"
-  ~doc:"Removes the patch's files from all hosts in the pool, but does not remove the database entries"
+  ~doc:"Removes the patch's files from the server"
   ~in_oss_since:None
   ~in_product_since:rel_miami
+  ~params:[ Ref _pool_patch, "self", "The patch to clean up" ]
+  ~allowed_roles:_R_POOL_OP
+  ()
+
+let pool_patch_clean_on_host = call
+  ~name:"clean_on_host"
+  ~doc:"Removes the patch's files from the specified host"
+  ~in_oss_since:None
+  ~in_product_since:rel_tampa
+  ~params:[ Ref _pool_patch, "self", "The patch to clean up"; Ref _host, "host", "The host on which to clean the patch"  ]
+  ~allowed_roles:_R_POOL_OP
+  ()
+
+let pool_patch_pool_clean = call
+  ~name:"pool_clean"
+  ~doc:"Removes the patch's files from all hosts in the pool, but does not remove the database entries"
+  ~in_oss_since:None
+  ~in_product_since:rel_tampa
   ~params:[ Ref _pool_patch, "self", "The patch to clean up" ]
   ~allowed_roles:_R_POOL_OP
   ()
@@ -3426,7 +3444,7 @@ let pool_patch =
     ~descr:"Pool-wide patches"
     ~doccomments:[]
     ~messages_default_allowed_roles:_R_POOL_OP
-    ~messages:[pool_patch_apply; pool_patch_pool_apply; pool_patch_precheck; pool_patch_clean; pool_patch_destroy]
+    ~messages:[pool_patch_apply; pool_patch_pool_apply; pool_patch_precheck; pool_patch_clean; pool_patch_pool_clean; pool_patch_destroy; pool_patch_clean_on_host]
     ~contents:
     [ uid       ~in_oss_since:None _pool_patch;
       namespace ~name:"name" ~contents:(names None StaticRO) ();

@@ -846,6 +846,14 @@ let rec cmdtable_data : (string*cmd_spec) list =
       flags=[];
     };
 
+	"patch-pool-clean",
+	{
+		reqd=["uuid"];
+		optn=[];
+		help="Delete a previously uploaded patch file on all hosts in the pool.";
+		implementation= No_fd Cli_operations.patch_pool_clean;
+		flags=[];
+	};
 
    "user-password-change",
     {
