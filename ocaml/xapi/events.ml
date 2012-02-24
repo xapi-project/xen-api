@@ -229,12 +229,24 @@ module Resync = struct
 
 	  (* Code common to both 'xen vbd exists' case and 'loopback only' case *)
 	  let maybe_detach online =
-		  if not online then Storage_access.deactivate_and_detach ~__context ~vbd ~domid ~unplug_frontends:true;
+		let update_vbd_and_vdi_operations ~__context ~vbd =
+		  try
+			Xapi_vbd_helpers.update_allowed_operations ~__context ~self:vbd;
+			  if not (Db.VBD.get_empty ~__context ~self:vbd) then
+				let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
+				Xapi_vdi.update_allowed_operations ~__context ~self:vdi
+		  with _ -> () in
+		if not online then Storage_access.deactivate_and_detach ~__context ~vbd ~domid ~unplug_frontends:true;
 		  (* If VM is suspended, leave currently_attached and the VDI lock
 			 as they are so we can resume properly. *)
 		  if Db.VM.get_power_state ~__context ~self:vm = `Suspended
 		  then debug "VM is suspended: leaving currently-attached as-is"
-		  else Db.VBD.set_currently_attached ~__context ~self:vbd ~value:online in
+		  else 
+			begin
+			  Db.VBD.set_currently_attached ~__context ~self:vbd ~value:online;
+			  update_vbd_and_vdi_operations ~__context ~vbd
+			end
+	  in
 
 	  if is_loopback && not force_loopback_vbd then begin
 		  let online = Storage_access.is_attached ~__context ~vbd ~domid in
