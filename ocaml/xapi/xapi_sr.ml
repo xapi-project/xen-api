@@ -86,6 +86,13 @@ let valid_operations ~__context record _ref' : table =
       all_ops in
   set_errors Api_errors.sr_operation_not_supported [ _ref ] forbidden_by_backend;
 
+  (* CA-70294: if the SR has a PBD, destroy and forget operations are not allowed.*)
+  let all_pbds_attached_to_this_sr =
+	Db.PBD.get_records_where ~__context ~expr:(And(Eq(Field "SR", Literal _ref), Eq(Field "currently_attached", Literal "true"))) in
+  if List.length all_pbds_attached_to_this_sr > 0 then
+	set_errors Api_errors.sr_operation_not_supported [ _ref ] [ `destroy; `forget ]
+  else ();
+
 
   let safe_to_parallelise = [ ] in
   let current_ops = List.setify (List.map snd current_ops) in
