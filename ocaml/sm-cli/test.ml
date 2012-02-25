@@ -26,7 +26,7 @@ let default_path = Filename.concat Fhs.vardir "storage"
 let transport = ref (Unix default_path)
 
 let rpc call =
-	XMLRPC_protocol.rpc ~transport:!transport
+	XMLRPC_protocol.rpc ~srcstr:"sm-cli-test" ~dststr:"smapiv2" ~transport:!transport
 		~http:(xmlrpc ~version:"1.0" "/") call
 
 open Storage_interface
