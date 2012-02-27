@@ -24,9 +24,9 @@ let ( |> ) a b = b a
 let http_request url meth =
 	Http.Request.make ~version:"1.1" ~keep_alive:false ?auth:(Http.Url.auth_of url) ~user_agent:"xenopsd" ~query:(Http.Url.get_query_params url) meth (Http.Url.get_uri url)
 
-let rpc url call =
+let rpc ~srcstr ~dststr url call =
 	let transport = transport_of_url url in
-	XMLRPC_protocol.rpc ~transport ~http:(http_request url Http.Post) call
+	XMLRPC_protocol.rpc ~transport ~srcstr ~dststr ~http:(http_request url Http.Post) call
 
 module IntClient = Client(struct let rpc = default_uri |> Http.Url.of_string |> rpc ~srcstr:"xenops" ~dststr:"xenops" end)
 module Client = Client(struct let rpc = default_uri |> Http.Url.of_string |> rpc ~srcstr:"xapi" ~dststr:"xenops" end)
