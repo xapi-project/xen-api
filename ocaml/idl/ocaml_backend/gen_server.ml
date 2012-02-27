@@ -283,6 +283,8 @@ let gen_module api : O.Module.t =
 	    [ 
 	      "let __call, __params = From.methodCall xml in";
 	      "let __call, __params = transform __call __params in (* Potentially rewrite call, translating 'syntactic sugar' calls server-side  *) ";
+          "List.iter (fun p -> let s = Xml.to_string p in if not (Encodings.UTF8_XML.is_valid s) then"; 
+          "raise (Api_errors.Server_error(Api_errors.invalid_value, [\"Invalid UTF-8 string in parameter\"; s])))  __params;";
 	      "let __async = Server_helpers.is_async __call in";
 	      "let __label = __call in";
 	      "let __call = if __async then Server_helpers.remove_async_prefix __call else __call in";
