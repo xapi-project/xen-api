@@ -298,7 +298,7 @@ module Protocol = functor(F: FORMAT) -> struct
 		with
 			| Unix.Unix_error(Unix.ECONNRESET, _, _) -> raise Connection_reset
 
-	let rpc ~srcstr ~dststr ~transport ~http req =
+	let rpc ?(srcstr="unset") ?(dststr="unset") ~transport ~http req =
 		E.debug "%s=>%s [label=\"%s\"];" srcstr dststr (F.request_to_short_string req) ;
 		let body = F.request_to_string req in
 		let http = { http with Http.Request.body = Some body } in
