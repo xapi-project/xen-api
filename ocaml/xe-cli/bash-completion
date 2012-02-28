@@ -184,7 +184,7 @@ $0 !~ /^host-cpu-/ && $0 !~ /^host-crashdump-/ && $0 !~ /^gpu-group-/ { print $1
 				;;
 			locking-mode) # VIF.locking_mode
 				IFS=$'\n,'
-				COMPREPLY=( $(compgen -W "default ,locked ,unlocked ,disabled " -- ${value}) )
+				COMPREPLY=( $(compgen -W "network_default ,locked ,unlocked ,disabled " -- ${value}) )
 				return 0
 				;;
 			default-locking-mode) # network.default_locking_mode

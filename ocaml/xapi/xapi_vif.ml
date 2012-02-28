@@ -80,7 +80,7 @@ let create  ~__context ~device ~network ~vM
            ~mAC ~mTU ~other_config ~qos_algorithm_type ~qos_algorithm_params : API.ref_VIF =
   create ~__context ~device ~network ~vM ~currently_attached:false
     ~mAC ~mTU ~other_config ~qos_algorithm_type ~qos_algorithm_params
-    ~locking_mode:`default ~ipv4_allowed:[] ~ipv6_allowed:[]
+    ~locking_mode:`network_default ~ipv4_allowed:[] ~ipv6_allowed:[]
 
 let destroy  ~__context ~self = destroy ~__context ~self
 
@@ -151,7 +151,7 @@ let change_locking_config ~__context ~self ~run_prechecks f =
 	refresh_filtering_rules ~__context ~self
 
 let set_locking_mode ~__context ~self ~value =
-	change_locking_config ~__context ~self ~run_prechecks:(value <> `default)
+	change_locking_config ~__context ~self ~run_prechecks:(value <> `network_default)
 		(fun () -> Db.VIF.set_locking_mode ~__context ~self ~value)
 
 let assert_ip_address_is domain field_name addr =
