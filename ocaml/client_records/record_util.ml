@@ -137,17 +137,17 @@ let vif_operation_to_string = function
   | `unplug_force -> "unplug_force"
 
 let vif_locking_mode_to_string = function
-	| `default -> "default"
+	| `network_default -> "network_default"
 	| `locked -> "locked"
 	| `unlocked -> "unlocked"
 	| `disabled -> "disabled"
 
 let string_to_vif_locking_mode = function
-	| "default" -> `default
+	| "network_default" -> `network_default
 	| "locked" -> `locked
 	| "unlocked" -> `unlocked
 	| "disabled" -> `disabled
-	| s -> raise (Record_failure ("Expected 'default', 'locked', 'unlocked', 'disabled', got "^s))
+	| s -> raise (Record_failure ("Expected 'network_default', 'locked', 'unlocked', 'disabled', got "^s))
 
 let network_default_locking_mode_to_string = function
 	| `unlocked -> "unlocked"
