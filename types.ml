@@ -51,6 +51,7 @@ end
 module Arg = struct
   type t = {
     name: string;
+    description: string;
     ty: Type.t;
   }
 end
@@ -158,11 +159,17 @@ let to_dbus_xml x =
 	      List.iter
 		(fun arg ->
 		  Xmlm.output output (`El_start (("", "arg"), [ ("", "type"), Type.string_of_t arg.Arg.ty; ("", "name"), arg.Arg.name; ("", "direction"), "in" ]));
+	      Xmlm.output output (`El_start (("", "tp:docstring"), []));
+	      Xmlm.output output (`Data arg.Arg.description);
+	      Xmlm.output output (`El_end);
 		  Xmlm.output output (`El_end);
 		) m.Method.inputs;
 	      List.iter
 		(fun arg ->
 		  Xmlm.output output (`El_start (("", "arg"), [ ("", "type"), Type.string_of_t arg.Arg.ty; ("", "name"), arg.Arg.name; ("", "direction"), "out" ]));
+		  Xmlm.output output (`El_start (("", "tp:docstring"), []));
+		  Xmlm.output output (`Data arg.Arg.description);
+		  Xmlm.output output (`El_end);
 		  Xmlm.output output (`El_end);
 		) m.Method.outputs;
 	      Xmlm.output output (`El_end);
@@ -196,18 +203,22 @@ let smapiv2 =
   let sr = {
     Arg.name = "sr";
     ty = Type.(Basic String);
+    description = "The Storage Repository to operate within";
   } in
   let vdi = {
     Arg.name = "vdi";
     ty = Type.(Basic String);
+    description = "The Virtual Disk Image to operate on";
   } in
   let vdi_info' = {
     Arg.name = "vdi_info";
     ty = vdi_info;
+    description = "The Virtual Disk Image properties";
   } in
   let params = {
     Arg.name = "params";
-    ty = Type.(Dict(String, Basic String))
+    ty = Type.(Dict(String, Basic String));
+    description = "Additional key/value pairs";
   } in
   {
     Interfaces.name = "SMAPIv2";
@@ -228,7 +239,8 @@ let smapiv2 =
 	      ];
 	      outputs = [
 		{ Arg.name = "new_vdi";
-		  ty = vdi_info
+		  ty = vdi_info;
+		  description = "The created Virtual Disk Image";
 		}
 	      ];
 	    }; {
@@ -242,7 +254,8 @@ let smapiv2 =
 	      ];
 	      outputs = [
 		{ Arg.name = "new_vdi";
-		  ty = vdi_info
+		  ty = vdi_info;
+		  description = "[snapshot task sr vdi vdi_info params] creates a new VDI which is a snapshot of [vdi] in [sr]";
 		}
 	      ];
 	    }; {
@@ -256,7 +269,8 @@ let smapiv2 =
 	      ];
 	      outputs = [
 		{ Arg.name = "new_vdi";
-		  ty = vdi_info
+		  ty = vdi_info;
+		  description = "[clone task sr vdi vdi_info params] creates a new VDI which is a clone of [vdi] in [sr]";
 		}
 	      ];
 	    }; {
@@ -274,16 +288,19 @@ let smapiv2 =
 	      inputs = [
 		{ Arg.name = "dp";
 		  ty = Type.(Basic String);
+		  description = "DataPath to attach this VDI for";
 		};
 		sr;
 		vdi;
 		{ Arg.name = "read_write";
-		  ty = Type.(Basic Boolean)
+		  ty = Type.(Basic Boolean);
+		  description = "If true then the DataPath will be used read/write, false otherwise";
 		}
 	      ];
 	      outputs = [
 		{ Arg.name = "params";
 		  ty = Type.(Basic String);
+		  description = "xenstore backend params key";
 		}
 	      ];
 	    }; {
@@ -292,6 +309,7 @@ let smapiv2 =
 	      inputs = [
 		{ Arg.name = "dp";
 		  ty = Type.(Basic String);
+		  description = "DataPath to attach this VDI for";
 		};
 		sr;
 		vdi;
@@ -304,6 +322,7 @@ let smapiv2 =
 	      inputs = [
 		{ Arg.name = "dp";
 		  ty = Type.(Basic String);
+		  description = "DataPath to deactivate";
 		};
 		sr;
 		vdi;
@@ -316,6 +335,7 @@ let smapiv2 =
 	      inputs = [
 		{ Arg.name = "dp";
 		  ty = Type.(Basic String);
+		  description = "DataPath to detach";
 		};
 		sr;
 		vdi;
@@ -330,6 +350,7 @@ let smapiv2 =
 		vdi;
 		{ Arg.name = "url";
 		  ty = Type.(Basic String);
+		  description = "URL which identifies a remote system";
 		};
 		{ sr with Arg.name = "dest" };
 	      ];
@@ -346,6 +367,7 @@ let smapiv2 =
 	      outputs = [
 		{ Arg.name = "url";
 		  ty = Type.(Basic String);
+		  description = "URL which represents this VDI";
 		}
 	      ];
 	    }; {
@@ -355,6 +377,7 @@ let smapiv2 =
 		sr;
 		{ Arg.name = "name";
 		  ty = Type.(Basic String);
+		  description = "Name of the VDI to return";
 		};
 	      ];
 	      outputs = [
@@ -368,6 +391,7 @@ let smapiv2 =
 		vdi;
 		{ Arg.name = "content_id";
 		  ty = Type.(Basic String);
+		  description = "New value of the VDI content_id field";
 		}
 	      ];
 	      outputs = [
@@ -396,6 +420,7 @@ let smapiv2 =
 		sr;
 		{ Arg.name = "device_config";
 		  ty = Type.(Dict(String, Basic String));
+		  description = "Host-local SR configuration (e.g. address information)";
 		};
 	      ];
 	      outputs = [
@@ -445,11 +470,13 @@ let smapiv2 =
 	      inputs = [
 		{ Arg.name = "id";
 		  ty = Type.(Basic String);
+		  description = "Human-readable DataPath name, for logging and diagnostics";
 		}
 	      ];
 	      outputs = [
 		{ Arg.name = "id";
 		  ty = Type.(Basic String);
+		  description = "Abstract DataPath identifier";
 		}
 	      ];
 	    }; {
@@ -458,9 +485,11 @@ let smapiv2 =
 	      inputs = [
 		{ Arg.name = "id";
 		  ty = Type.(Basic String);
+		  description = "Abstract DataPath identifier";
 		}; {
 		  Arg.name = "allow_leak";
 		  ty = Type.(Basic Boolean);
+		  description = "If true then a failure will be logged but the call will not fail";
 		}
 	      ];
 	      outputs = [
@@ -473,6 +502,7 @@ let smapiv2 =
 	      outputs = [
 		{ Arg.name = "diagnostics";
 		  ty = Type.(Basic String);
+		  description = "A string containing loggable human-readable diagnostics information";
 		}
 	      ];
 	    }
@@ -489,6 +519,7 @@ let smapiv2 =
 		vdi;
 		{ Arg.name = "url";
 		  ty = Type.(Basic String);
+		  description = "The URL to mirror the VDI to";
 		};
 		{ sr with Arg.name = "dest" }
 	      ];
