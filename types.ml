@@ -196,7 +196,13 @@ let to_html x =
       let h2 = wrap "h2" in
       let h3 = wrap "h3" in
       let td = wrap "td" in
-      let pre = wrap "pre" in
+      let pre ?lang txt =
+	let cls = match lang with
+	  | None -> "prettyprint"
+	  | Some x -> Printf.sprintf "prettyprint lang-%s" x in
+	Xmlm.output output (`El_start (("", "pre"), [ ("", "class"), cls ]));
+	Xmlm.output output (`Data txt);
+	Xmlm.output output (`El_end) in
       let wrapf name items =
 	Xmlm.output output (`El_start (("", name), []));
 	items ();
@@ -252,7 +258,7 @@ let to_html x =
             </div>
             <div class=\"tab-pane fade\" id=\"ocaml-%s\">
 " m.Method.name);
-	      pre (to_rpclight x);
+	      pre ~lang:"ml" (to_rpclight x);
 	      Buffer.add_string buffer
 (Printf.sprintf "
             </div>
