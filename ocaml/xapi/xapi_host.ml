@@ -43,11 +43,13 @@ let set_power_on_mode ~__context ~self ~power_on_mode ~power_on_config =
 
 (** Before we re-enable this host we make sure it's safe to do so. It isn't if:
 	+ we're in the middle of an HA shutdown/reboot and have our fencing temporarily disabled.
+	+ xapi hasn't properly started up yet.
 	+ HA is enabled and this host has broken storage or networking which would cause protected VMs
 	to become non-agile
 	+ our license doesn't support pooling and we're a slave
  *)
 let assert_safe_to_reenable ~__context ~self =
+	assert_startup_complete ();
 	let host_disabled_until_reboot = try bool_of_string (Localdb.get Constants.host_disabled_until_reboot) with _ -> false in
 	if host_disabled_until_reboot
 	then raise (Api_errors.Server_error(Api_errors.host_disabled_until_reboot, []));
