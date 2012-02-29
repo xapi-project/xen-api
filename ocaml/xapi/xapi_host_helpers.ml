@@ -180,9 +180,20 @@ let mark_host_as_dead ~__context ~host ~reason =
 (* Toggled by an explicit Host.disable call to prevent a master restart making us bounce back *)
 let user_requested_host_disable = ref false
 
+(* Track whether the host considers itself started - we want to block host.enable API calls until this is the case. *)
+let startup_complete = ref false
+let startup_complete_m = Mutex.create ()
+
+let signal_startup_complete () =
+	Mutex.execute startup_complete_m (fun () -> startup_complete := true)
+
+let assert_startup_complete () =
+	Mutex.execute startup_complete_m
+		(fun () -> if not (!startup_complete) then
+			raise (Api_errors.Server_error (Api_errors.host_still_booting, [])))
 
 let consider_enabling_host_nolock ~__context =
-	debug "Helpers.consider_enabling_host_nolock called";
+	debug "Xapi_host_helpers.consider_enabling_host_nolock called";
 	(* If HA is enabled only consider marking the host as enabled if all the storage plugs in successfully.
        Disabled hosts are excluded from the HA planning calculations. Otherwise a host may boot,
        fail to plug in a PBD and cause all protected VMs to suddenly become non-agile. *)
@@ -208,8 +219,7 @@ let consider_enabling_host_nolock ~__context =
 			if try bool_of_string (Localdb.get Constants.host_disabled_until_reboot) with _ -> false then begin
 				debug "Host.enabled: system not just rebooted but host_disabled_until_reboot still set. Leaving host disabled";
 			end else begin
-				debug "System has not just rebooted but host_disabled_until_reboot is not set. Re-enabling host";
-				debug "Host.enabled: system just rebooted && host_disabled_until_reboot not set: setting localhost to enabled";
+				debug "Host.enabled: system not just rebooted && host_disabled_until_reboot not set: setting localhost to enabled";
 				Db.Host.set_enabled ~__context ~self:localhost ~value:true;
 				(* Start processing pending VM powercycle events *)
 				Local_work_queue.start_vm_lifecycle_queue ();
@@ -218,7 +228,8 @@ let consider_enabling_host_nolock ~__context =
 		(* If Host has been enabled and HA is also enabled then tell the master to recompute its plan *)
 		if Db.Host.get_enabled ~__context ~self:localhost && (Db.Pool.get_ha_enabled ~__context ~self:pool)
 		then Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.Pool.ha_schedule_plan_recomputation rpc session_id)
-	end
+	end;
+	signal_startup_complete ()
 
 (** Attempt to minimise the number of times we call consider_enabling_host_nolock *)
 let consider_enabling_host =
@@ -231,6 +242,6 @@ let consider_enabling_host =
 let consider_enabling_host_request ~__context = At_least_once_more.again consider_enabling_host
 
 let consider_enabling_host ~__context =
-	debug "Helpers.consider_enabling_host called";
+	debug "Xapi_host_helpers.consider_enabling_host called";
 	consider_enabling_host_request ~__context
 
