@@ -134,6 +134,57 @@ let to_json x =
   let json = of_interfaces x in
   Yojson.Basic.to_string json
 
+let to_html x =
+  let open Xmlm in
+      let buffer = Buffer.create 128 in
+      let output = Xmlm.make_output ~nl:true ~indent:(Some 4) (`Buffer buffer) in
+      Xmlm.output output (`Dtd None);
+      let wrap name body =
+	Xmlm.output output (`El_start (("", name), []));
+	Xmlm.output output (`Data body);
+	Xmlm.output output (`El_end) in
+      let h1 = wrap "h1" in
+      let h2 = wrap "h2" in
+      let h3 = wrap "h3" in
+      let td = wrap "td" in
+      let wrapf name items =
+	Xmlm.output output (`El_start (("", name), []));
+	items ();
+	Xmlm.output output (`El_end) in
+      let th = wrapf "th" in
+      let tr = wrapf "tr" in
+      let p = wrap "p" in
+
+      let of_args args =
+	Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "alert alert-info" ]));
+	Xmlm.output output (`El_start (("", "table"), [ ("", "class"), "table table-striped" ]));
+	th (fun () -> td "Type"; td "Description");
+	List.iter
+	  (fun arg ->
+	    tr (fun () -> td arg.Arg.name; td (Type.ocaml_of_t arg.Arg.ty); td arg.Arg.description);
+	  ) args;
+	Xmlm.output output (`El_end);
+	Xmlm.output output (`El_end) in
+
+      Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "container" ]));
+      h1 x.Interfaces.name;
+      p x.Interfaces.description;
+      List.iter
+	(fun i ->
+	  h2 i.Interface.name;
+	  p i.Interface.description;
+	  List.iter
+	    (fun m ->
+	      h3 m.Method.name;
+	      p m.Method.description;
+	      p "inputs:";
+	      of_args m.Method.inputs;
+	      p "outputs:";
+	      of_args m.Method.outputs;
+	    ) i.Interface.methods;
+	) x.Interfaces.interfaces;
+      Xmlm.output output (`El_end);
+      Buffer.contents buffer
 
 let to_dbus_xml x =
   let open Xmlm in
@@ -541,7 +592,10 @@ let smapiv2 =
       ]
   }
 
+let print_file = Unixext.file_lines_iter print_string
+
 let _ =
+(*
   print_string (to_dbus_xml smapiv2);
   print_string "";
   print_string "\n";
@@ -549,4 +603,10 @@ let _ =
   print_string (to_json smapiv2);
   print_string "\n";
   print_string "";
-  to_rpclight smapiv2
+  to_rpclight smapiv2;
+  print_string "";
+*)
+  print_file ("doc/header.html");
+  print_string (to_html smapiv2);
+  print_file ("doc/footer.html")
+
