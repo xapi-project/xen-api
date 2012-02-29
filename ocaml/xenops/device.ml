@@ -947,6 +947,7 @@ let add_noexn ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?(flrscript=None) pcide
 	Generic.add_device ~xs device (others @ xsdevs @ backendlist) frontendlist [];
 	()
 
+(* comment out while we sort out libxenlight
 let pci_info_of ~msitranslate ~pci_power_mgmt = function
     | domain, bus, dev, func ->
         {
@@ -966,6 +967,7 @@ let pci_info_of ~msitranslate ~pci_power_mgmt = function
             msitranslate = msitranslate = 1;
             power_mgmt = pci_power_mgmt = 1;
         }
+*)
 
 
 (* XXX: this will crash because of the logging policy within the
@@ -992,6 +994,7 @@ let release_libxl ~msitranslate ~pci_power_mgmt pcidevs domid =
 				raise e
 		) pcidevs
 *)
+
 (* XXX: we don't want to use the 'xl' command here because the "interface"
    isn't considered as stable as the C API *)
 let xl_pci cmd ?(msitranslate=0) ?(pci_power_mgmt=0) pcidevs domid =
