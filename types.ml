@@ -202,13 +202,16 @@ let to_html x =
       let buffer = Buffer.create 128 in
       let output = Xmlm.make_output ~nl:true ~indent:(Some 4) (`Buffer buffer) in
       Xmlm.output output (`Dtd None);
-      let wrap name body =
-	Xmlm.output output (`El_start (("", name), []));
+      let wrap ?id name body =
+	let attrs = match id with
+	  | None -> []
+	  | Some id -> [ ("", "id"), id ] in
+	Xmlm.output output (`El_start (("", name), attrs));
 	Xmlm.output output (`Data body);
 	Xmlm.output output (`El_end) in
-      let h1 = wrap "h1" in
-      let h2 = wrap "h2" in
-      let h3 = wrap "h3" in
+      let h1 ?id = wrap ?id "h1" in
+      let h2 ?id = wrap ?id "h2" in
+      let h3 ?id = wrap ?id "h3" in
       let td = wrap "td" in
       let pre ?lang txt =
 	let cls = match lang with
@@ -217,13 +220,22 @@ let to_html x =
 	Xmlm.output output (`El_start (("", "pre"), [ ("", "class"), cls ]));
 	Xmlm.output output (`Data txt);
 	Xmlm.output output (`El_end) in
-      let wrapf name items =
-	Xmlm.output output (`El_start (("", name), []));
+      let wrapf ?cls name items =
+	let attrs = match cls with
+	  | None -> []
+	  | Some cls -> [ ("", "class"), cls ] in
+	Xmlm.output output (`El_start (("", name), attrs));
 	items ();
 	Xmlm.output output (`El_end) in
       let th = wrapf "th" in
       let tr = wrapf "tr" in
+      let ul ?cls = wrapf ?cls "ul" in
+      let li ?cls = wrapf ?cls "li" in
       let p = wrap "p" in
+      let a_href link txt =
+	Xmlm.output output (`El_start (("", "a"), [ ("", "href"), link ]));
+	Xmlm.output output (`Data txt);
+	Xmlm.output output (`El_end) in
 
       let of_args args =
 	Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "alert alert-info" ]));
@@ -236,16 +248,36 @@ let to_html x =
 	Xmlm.output output (`El_end);
 	Xmlm.output output (`El_end) in
 
-      Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "container" ]));
-      h1 x.Interfaces.name;
+      Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "container-fluid" ]));
+      Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "row-fluid" ]));
+
+      (* Side bar *)
+      Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "span2" ]));
+      ul ~cls:"nav nav-list" (fun () ->
+	List.iter (fun i ->
+	  li ~cls:"nav-header" (fun () ->
+	    a_href (Printf.sprintf "#a-%s" i.Interface.name) i.Interface.name
+	  );
+	  List.iter (fun m ->
+	    li (fun () ->
+	      a_href (Printf.sprintf "#a-%s" m.Method.name) m.Method.name
+	    )
+	  ) i.Interface.methods
+	) x.Interfaces.interfaces
+      );
+    Xmlm.output output (`El_end);
+
+      (* Main content *)
+      Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "span10" ]));
+      h1 ~id:(Printf.sprintf "a-%s" x.Interfaces.name) x.Interfaces.name;
       p x.Interfaces.description;
       List.iter
 	(fun i ->
-	  h2 i.Interface.name;
+	  h2 ~id:(Printf.sprintf "a-%s" i.Interface.name) i.Interface.name;
 	  p i.Interface.description;
 	  List.iter
 	    (fun m ->
-	      h3 m.Method.name;
+	      h3 ~id:(Printf.sprintf "a-%s" m.Method.name) m.Method.name;
 	      p m.Method.description;
 	      Buffer.add_string buffer
 (Printf.sprintf "
@@ -280,6 +312,8 @@ let to_html x =
 ");
 	    ) i.Interface.methods;
 	) x.Interfaces.interfaces;
+      Xmlm.output output (`El_end);
+      Xmlm.output output (`El_end);
       Xmlm.output output (`El_end);
       Buffer.contents buffer
 
