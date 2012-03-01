@@ -141,51 +141,61 @@ let to_json x =
   let json = of_interfaces x in
   Yojson.Basic.to_string json
 
-let to_dbus_xml x =
-  let open Xmlm in
-      let buffer = Buffer.create 128 in
-      let output = Xmlm.make_output ~nl:true ~indent:(Some 4) (`Buffer buffer) in
-      Xmlm.output output (`Dtd None);
-      Xmlm.output output (`El_start (("", "node"), [ ("", "name"), "/org/xen/xcp/" ^ x.Interfaces.name ]));
-      Xmlm.output output (`El_start (("", "tp:docstring"), []));
-      Xmlm.output output (`Data x.Interfaces.description);
-      Xmlm.output output (`El_end);
+module To_dbus = struct
+  let of_arg is_in arg add =
+    add (`El_start (("", "arg"), [ ("", "type"), Type.string_of_t arg.Arg.ty; ("", "name"), arg.Arg.name; ("", "direction"), if is_in then "in" else "out" ]));
+    add (`El_start (("", "tp:docstring"), []));
+    add (`Data arg.Arg.description);
+    add (`El_end);
+    add (`El_end)
+
+  let of_method m add =
+    add (`El_start (("", "method"), [ ("", "name"), m.Method.name ]));
+    add (`El_start (("", "tp:docstring"), []));
+    add (`Data m.Method.description);
+    add (`El_end);
+    List.iter
+      (fun arg ->
+	of_arg true arg add
+      ) m.Method.inputs;
+    List.iter
+      (fun arg ->
+	of_arg false arg add
+      ) m.Method.outputs;
+    add (`El_end)
+
+  let of_interface i add =
+    add (`El_start (("", "interface"), [ ("", "name"), "org.xen.xcp." ^ i.Interface.name ]));
+    add (`El_start (("", "tp:docstring"), []));
+    add (`Data i.Interface.description);
+    add (`El_end);
+    List.iter
+      (fun m ->
+	of_method m add
+      ) i.Interface.methods;
+    add (`El_end)
+
+  let of_interfaces x add =
+      add (`El_start (("", "node"), [ ("", "name"), "/org/xen/xcp/" ^ x.Interfaces.name ]));
+      add (`El_start (("", "tp:docstring"), []));
+      add (`Data x.Interfaces.description);
+      add (`El_end);
       List.iter
 	(fun i ->
-	  Xmlm.output output (`El_start (("", "interface"), [ ("", "name"), "org.xen.xcp." ^ i.Interface.name ]));
-      Xmlm.output output (`El_start (("", "tp:docstring"), []));
-      Xmlm.output output (`Data i.Interface.description);
-      Xmlm.output output (`El_end);
-	  List.iter
-	    (fun m ->
-	      Xmlm.output output (`El_start (("", "method"), [ ("", "name"), m.Method.name ]));
-	      Xmlm.output output (`El_start (("", "tp:docstring"), []));
-	      Xmlm.output output (`Data m.Method.description);
-	      Xmlm.output output (`El_end);
-	      List.iter
-		(fun arg ->
-		  Xmlm.output output (`El_start (("", "arg"), [ ("", "type"), Type.string_of_t arg.Arg.ty; ("", "name"), arg.Arg.name; ("", "direction"), "in" ]));
-	      Xmlm.output output (`El_start (("", "tp:docstring"), []));
-	      Xmlm.output output (`Data arg.Arg.description);
-	      Xmlm.output output (`El_end);
-		  Xmlm.output output (`El_end);
-		) m.Method.inputs;
-	      List.iter
-		(fun arg ->
-		  Xmlm.output output (`El_start (("", "arg"), [ ("", "type"), Type.string_of_t arg.Arg.ty; ("", "name"), arg.Arg.name; ("", "direction"), "out" ]));
-		  Xmlm.output output (`El_start (("", "tp:docstring"), []));
-		  Xmlm.output output (`Data arg.Arg.description);
-		  Xmlm.output output (`El_end);
-		  Xmlm.output output (`El_end);
-		) m.Method.outputs;
-	      Xmlm.output output (`El_end);
-	    ) i.Interface.methods;
-	  Xmlm.output output (`El_end);
+	  of_interface i add
 	) x.Interfaces.interfaces;
-      Xmlm.output output (`El_end);
+      add (`El_end)
 
-      Buffer.contents buffer
+end
 
+let with_xmlm f =
+  let buffer = Buffer.create 128 in
+  let output = Xmlm.make_output ~nl:true ~indent:(Some 4) (`Buffer buffer) in
+  Xmlm.output output (`Dtd None);
+  f (Xmlm.output output);
+  Buffer.contents buffer
+
+let to_dbus_xml x = with_xmlm (To_dbus.of_interfaces x)
 
 let to_html x =
   let open Xmlm in
@@ -256,7 +266,7 @@ let to_html x =
             </div>
             <div class=\"tab-pane fade\" id=\"dbus-%s\">
 " m.Method.name);
-	      pre (to_dbus_xml x);
+	      pre (with_xmlm (To_dbus.of_method m));
 	      Buffer.add_string buffer
 (Printf.sprintf "
             </div>
