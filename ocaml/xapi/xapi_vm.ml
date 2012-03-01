@@ -218,8 +218,11 @@ let start ~__context ~vm ~start_paused:paused ~force =
 						(* since the message_forwarding layer has already    *)
 						(* done it and it's very expensive on a slave.       *)
 						if Db.VM.get_ha_restart_priority ~__context ~self:vm = Constants.ha_restart
-						then Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
-
+						then
+						  begin
+							Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context vm;
+							Db.VM.set_ha_always_run ~__context ~self:vm ~value:true
+						  end;
 						(* check BIOS strings: set to generic values if empty *)
 						let bios_strings = Db.VM.get_bios_strings ~__context ~self:vm in
 						if bios_strings = [] then begin
