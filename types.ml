@@ -81,35 +81,39 @@ module Interfaces = struct
   }
 end
 
-let to_rpclight x =
-  let open Format in
-      let buffer = Buffer.create 128 in
-      let add = Buffer.add_string buffer in
-      let of_method m =
-	let of_args name args =
-	  add (sprintf "@[type %s = {@." name);
-	  List.iter
-	    (fun { Arg.name = name; ty = ty } ->
-	      add (sprintf "@[%s@ :@ %s;@.@]" name (Type.ocaml_of_t ty))
-	    ) args;
-	  add (sprintf "@.}@.@]") in
-	of_args (m.Method.name ^ "_inputs") m.Method.inputs;
-	of_args (m.Method.name ^ "_outputs") m.Method.outputs;
-	add (sprintf "@[external %s: %s_inputs -> %s_outputs = \"\"@.@]" m.Method.name m.Method.name m.Method.name);
-	add (sprintf "@[(** %s *)@.@]" m.Method.description)
-      in
-      let of_interface i =
-	add (sprintf "@[module %s = struct@." i.Interface.name);
-	add (sprintf "(* %s *)@." i.Interface.description);
-	List.iter of_method i.Interface.methods;
-	add (sprintf "end@.@]") in
-      let of_interfaces i =
-	add (sprintf "@[(* %s *)@." i.Interfaces.description);
-	List.iter of_interface i.Interfaces.interfaces;
-	add (sprintf "@.@]")
-      in
-      of_interfaces x;
-      Buffer.contents buffer
+let with_buffer f =
+  let buffer = Buffer.create 128 in
+  f (Buffer.add_string buffer);
+  Buffer.contents buffer
+
+module To_rpclight = struct
+  let of_method m add =
+    let open Format in
+    let of_args name args =
+      add (sprintf "@[type %s = {@." name);
+      List.iter
+	(fun { Arg.name = name; ty = ty } ->
+	  add (sprintf "@[%s@ :@ %s;@.@]" name (Type.ocaml_of_t ty))
+	) args;
+      add (sprintf "@.}@.@]") in
+    of_args (m.Method.name ^ "_inputs") m.Method.inputs;
+    of_args (m.Method.name ^ "_outputs") m.Method.outputs;
+    add (sprintf "@[external %s: %s_inputs -> %s_outputs = \"\"@.@]" m.Method.name m.Method.name m.Method.name);
+    add (sprintf "@[(** %s *)@.@]" m.Method.description)
+
+  let of_interface i add =
+    let open Format in
+    add (sprintf "@[module %s = struct@." i.Interface.name);
+    add (sprintf "(* %s *)@." i.Interface.description);
+    List.iter (fun j -> of_method j add) i.Interface.methods;
+    add (sprintf "end@.@]")
+
+  let of_interfaces i add =
+    let open Format in
+    add (sprintf "@[(* %s *)@." i.Interfaces.description);
+    List.iter (fun j -> of_interface j add) i.Interfaces.interfaces;
+    add (sprintf "@.@]")
+end
 
 let to_json x =
   let of_arg_list args =
@@ -258,7 +262,7 @@ let to_html x =
             </div>
             <div class=\"tab-pane fade\" id=\"ocaml-%s\">
 " m.Method.name);
-	      pre ~lang:"ml" (to_rpclight x);
+	      pre ~lang:"ml" (with_buffer (To_rpclight.of_method m));
 	      Buffer.add_string buffer
 (Printf.sprintf "
             </div>
