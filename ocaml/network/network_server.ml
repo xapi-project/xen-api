@@ -125,11 +125,7 @@ let read_management_conf () =
 		gateway_interface = Some bridge_name; dns_interface = Some bridge_name}
 
 let write_config () =
-	let persistent_config = {!config with
-		interface_config = List.filter (fun (name, interface) -> interface.persistent_i) !config.interface_config;
-		bridge_config = List.filter (fun (name, bridge) -> bridge.persistent_b) !config.bridge_config;
-	} in
-	let config_json = persistent_config |> rpc_of_config_t |> Jsonrpc.to_string in
+	let config_json = !config |> rpc_of_config_t |> Jsonrpc.to_string in
 	Unixext.write_string_to_file config_file_path config_json
 
 let read_config () =
@@ -403,6 +399,9 @@ module Interface = struct
 		let all = get_all () () in
 		(* Do not touch physical interfaces that are already up *)
 		let exclude = List.filter (fun interface -> is_up () ~name:interface && is_physical () ~name:interface) all in
+		let persistent_config = List.filter (fun (name, interface) -> interface.persistent_i) !config.interface_config in
+		debug "Ensuring the following persistent interfaces are up: %s"
+			(String.concat ", " (List.map (fun (name, _) -> name) persistent_config));
 		List.iter (function (name, {ipv4_conf; ipv4_gateway; ipv6_conf; ipv6_gateway; ipv4_routes; dns=nameservers,domains; mtu;
 			ethtool_settings; ethtool_offload; _}) ->
 			if not (List.mem name exclude) then begin
@@ -418,7 +417,7 @@ module Interface = struct
 				(try set_ethtool_settings () ~name ~params:ethtool_settings with _ -> ());
 				(try set_ethtool_offload () ~name ~params:ethtool_offload with _ -> ())
 			end
-		) !config.interface_config
+		) persistent_config
 end
 
 module Bridge = struct
@@ -690,7 +689,19 @@ module Bridge = struct
 			else if vlan_of_a = None && vlan_of_b <> None then -1
 			else 0
 		in
-		let bridge_config = List.sort vlans_go_last !config.bridge_config in
+		let persistent_config = List.filter (fun (name, bridge) -> bridge.persistent_b) !config.bridge_config in
+		debug "Ensuring the following persistent bridges are up: %s"
+			(String.concat ", " (List.map (fun (name, _) -> name) persistent_config));
+		let vlan_parents = List.filter_map (function
+			| (_, {vlan=Some (parent, _)}) ->
+				if not (List.mem_assoc parent persistent_config) then
+					Some (parent, List.assoc parent !config.bridge_config)
+				else
+					None
+			| _ -> None) persistent_config in
+		debug "Additionally ensuring the following VLAN parent bridges are up: %s"
+			(String.concat ", " (List.map (fun (name, _) -> name) vlan_parents));
+		let persistent_config = List.sort vlans_go_last (vlan_parents @ persistent_config) in
 		let current = get_all () () in
 		List.iter (function (bridge_name, {ports; vlan; bridge_mac; other_config; _}) ->
 			(* Do not try to recreate bridges that already exist *)
@@ -702,7 +713,7 @@ module Bridge = struct
 						set_bond_properties () ~bridge:bridge_name ~name:port_name ~params:bond_properties
 				) ports
 			end
-		) bridge_config
+		) persistent_config
 end
 
 let on_startup () =
