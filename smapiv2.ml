@@ -41,11 +41,16 @@ let api =
   {
     Interfaces.name = "SMAPIv2";
     description = "The Storage Manager API";
+    type_decls = [ { TyDecl.name = "vdi_info";
+		     description = "All per-VDI properties";
+		     ty = vdi_info
+		   } ];
     interfaces =
       [
 	{
 	  Interface.name = "VDI";
 	  description = "Operations which operate on Virtual Disk Images";
+	  type_decls = [];
 	  methods = [
 	    {
 	      Method.name = "create";
@@ -230,6 +235,7 @@ let api =
 	}; {
 	  Interface.name = "SR";
 	  description = "Operations which act on Storage Repositories";
+	  type_decls = [];
 	  methods = [
 	    {
 	      Method.name = "attach";
@@ -281,6 +287,7 @@ let api =
 	}; {
 	  Interface.name = "DP";
 	  description = "Operations which act on DataPaths";
+	  type_decls = [];
 	  methods = [
 	    {
 	      Method.name = "create";
@@ -328,6 +335,7 @@ let api =
 	}; {
 	  Interface.name = "Mirror";
 	  description = "Operations which act on disk mirrors.";
+	  type_decls = [];
 	  methods = [
 	    {
 	      Method.name = "start";

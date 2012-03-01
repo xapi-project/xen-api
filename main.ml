@@ -1,3 +1,9 @@
+open Pervasiveext
+
+let with_file filename f =
+  let oc = open_out filename in
+  finally (fun () -> f oc) (fun () -> close_out oc)
+
 let print_file_to oc = Unixext.file_lines_iter (output_string oc)
 
 let _ =
@@ -12,9 +18,17 @@ let _ =
   to_rpclight smapiv2;
   print_string "";
 *)
-  let oc = open_out "doc/smapiv2.html" in
-  print_file_to oc ("doc/header.html");
-  output_string oc (Types.to_html Smapiv2.api);
-  print_file_to oc ("doc/footer.html");
-  close_out oc
+  with_file "doc/smapiv2.html"
+      (fun oc ->
+	print_file_to oc ("doc/header.html");
+	output_string oc (Types.to_html Smapiv2.api);
+	print_file_to oc ("doc/footer.html")
+      );
+  with_file "doc/xenops.html"
+    (fun oc ->
+	print_file_to oc ("doc/header.html");
+	output_string oc (Types.to_html Xenops.api);
+	print_file_to oc ("doc/footer.html")
+    )
+
 

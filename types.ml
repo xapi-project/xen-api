@@ -32,17 +32,27 @@ module Type = struct
     | Struct of (string * t) * ((string * t) list)
     | Array of t
     | Dict of basic * t
+    | Name of string
 
-  let rec string_of_t = function
+  type env = (string * t) list
+
+  let rec string_of_t env = function
     | Basic b -> string_of_basic b
-    | Struct ((_, h), tl) -> Printf.sprintf "(%s%s)" (string_of_t h) (String.concat "" (List.map string_of_t (List.map snd tl)))
-    | Array x -> Printf.sprintf "a%s" (string_of_t x)
-    | Dict (k, v) -> Printf.sprintf "a{%s%s}" (string_of_basic k) (string_of_t v)
+    | Struct ((_, h), tl) -> Printf.sprintf "(%s%s)" (string_of_t env h) (String.concat "" (List.map (string_of_t env) (List.map snd tl)))
+    | Array x -> Printf.sprintf "a%s" (string_of_t env x)
+    | Dict (k, v) -> Printf.sprintf "a{%s%s}" (string_of_basic k) (string_of_t env v)
+    | Name x ->
+      if not(List.mem_assoc x env)
+      then failwith (Printf.sprintf "Unknown type: %s" x)
+      else string_of_t env (List.assoc x env)
+
   let rec ocaml_of_t = function
     | Basic b -> ocaml_of_basic b
-    | Struct (_, _) -> "XXX"
+    | Struct (hd, tl) ->
+      "{ " ^ (String.concat ";" (List.map (fun (name, ty) -> Printf.sprintf "%s: %s" name (ocaml_of_t ty)) (hd :: tl))) ^ " }"
     | Array t -> ocaml_of_t t ^ " list"
     | Dict (key, v) -> Printf.sprintf "(%s * %s) list" (ocaml_of_basic key) (ocaml_of_t v)
+    | Name x -> x
 
   type ts = t list
 
@@ -65,10 +75,19 @@ module Method = struct
   }    
 end
 
+module TyDecl = struct
+  type t = {
+    name: string;
+    description: string;
+    ty: Type.t;
+  }
+end
+
 module Interface = struct
   type t = {
     name: string;
     description: string;
+    type_decls: TyDecl.t list;
     methods: Method.t list;
   }
 end
@@ -77,6 +96,7 @@ module Interfaces = struct
   type t = {
     name: string;
     description: string;
+    type_decls: TyDecl.t list;
     interfaces: Interface.t list;
   }
 end
@@ -117,7 +137,7 @@ end
 
 let to_json x =
   let of_arg_list args =
-    `Assoc (List.map (fun arg -> arg.Arg.name, `String (Type.string_of_t arg.Arg.ty)) args) in
+    `Assoc (List.map (fun arg -> arg.Arg.name, `String (Type.string_of_t [] arg.Arg.ty)) args) in
   let of_interface i =
     `Assoc [
       "name", `String i.Interface.name;
@@ -143,7 +163,7 @@ let to_json x =
 
 module To_dbus = struct
   let of_arg is_in arg add =
-    add (`El_start (("", "arg"), [ ("", "type"), Type.string_of_t arg.Arg.ty; ("", "name"), arg.Arg.name; ("", "direction"), if is_in then "in" else "out" ]));
+    add (`El_start (("", "arg"), [ ("", "type"), Type.string_of_t [] arg.Arg.ty; ("", "name"), arg.Arg.name; ("", "direction"), if is_in then "in" else "out" ]));
     add (`El_start (("", "tp:docstring"), []));
     add (`Data arg.Arg.description);
     add (`El_end);
@@ -254,6 +274,11 @@ let to_html x =
       (* Side bar *)
       Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "span2" ]));
       ul ~cls:"nav nav-list" (fun () ->
+	List.iter (fun t ->
+	  li (fun () ->
+	    a_href (Printf.sprintf "#a-%s" t.TyDecl.name) t.TyDecl.name
+	  )
+	) x.Interfaces.type_decls;
 	List.iter (fun i ->
 	  li ~cls:"nav-header" (fun () ->
 	    a_href (Printf.sprintf "#a-%s" i.Interface.name) i.Interface.name
@@ -271,6 +296,24 @@ let to_html x =
       Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "span10" ]));
       h1 ~id:(Printf.sprintf "a-%s" x.Interfaces.name) x.Interfaces.name;
       p x.Interfaces.description;
+      List.iter
+	(fun t ->
+	  h2 ~id:(Printf.sprintf "a-%s" t.TyDecl.name) (Printf.sprintf "type %s" t.TyDecl.name);
+	  p t.TyDecl.description;
+	  pre ~lang:"ml" (Printf.sprintf "type %s = %s" t.TyDecl.name (Type.ocaml_of_t t.TyDecl.ty));
+	  match t.TyDecl.ty with
+	    | Type.Struct(hd, tl) ->
+	      Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "alert alert-info" ]));
+	      Xmlm.output output (`El_start (("", "table"), [ ("", "class"), "table table-striped" ]));
+	      th (fun () -> td "Type"; td "Description");
+	      List.iter
+		(fun (name, ty) ->
+		  tr (fun () -> td name; td (Type.ocaml_of_t ty); td "foo");
+		) (hd :: tl);
+		Xmlm.output output (`El_end);
+	      Xmlm.output output (`El_end)
+	    | _ -> ()
+	) x.Interfaces.type_decls;
       List.iter
 	(fun i ->
 	  h2 ~id:(Printf.sprintf "a-%s" i.Interface.name) i.Interface.name;
