@@ -365,12 +365,14 @@ let vif_record rpc session_id vif =
 		~get:(fun () -> String.concat "; " (x ()).API.vIF_ipv4_allowed)
 		~get_set:(fun () -> (x ()).API.vIF_ipv4_allowed)
 		~add_to_set:(fun value -> Client.VIF.add_ipv4_allowed rpc session_id vif value)
-		~remove_from_set:(fun value -> Client.VIF.remove_ipv4_allowed rpc session_id vif value) ();
+		~remove_from_set:(fun value -> Client.VIF.remove_ipv4_allowed rpc session_id vif value)
+		~set:(fun value -> Client.VIF.set_ipv4_allowed rpc session_id vif (String.split ',' value)) ();
 	make_field ~name:"ipv6-allowed"
 		~get:(fun () -> String.concat "; " (x ()).API.vIF_ipv6_allowed)
 		~get_set:(fun () -> (x ()).API.vIF_ipv6_allowed)
 		~add_to_set:(fun value -> Client.VIF.add_ipv6_allowed rpc session_id vif value)
-		~remove_from_set:(fun value -> Client.VIF.remove_ipv6_allowed rpc session_id vif value) ();
+		~remove_from_set:(fun value -> Client.VIF.remove_ipv6_allowed rpc session_id vif value)
+		~set:(fun value -> Client.VIF.set_ipv6_allowed rpc session_id vif (String.split ',' value)) ();
       ]}
 
 
