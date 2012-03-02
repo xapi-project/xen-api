@@ -11,6 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+open Listext
 open Vmopshelpers
 open Xapi_vif_helpers
 open Xenstore
@@ -160,10 +161,11 @@ let assert_ip_address_is domain field_name addr =
 	| _ -> raise (Api_errors.Server_error (Api_errors.invalid_value, [field_name; addr]))
 
 let set_ipv4_allowed ~__context ~self ~value =
-	change_locking_config ~__context ~self ~run_prechecks:(value <> [])
+	let setified_value = List.setify value in
+	change_locking_config ~__context ~self ~run_prechecks:(setified_value <> [])
 		(fun () ->
-			List.iter (assert_ip_address_is Unix.PF_INET "ipv4_allowed") value;
-			Db.VIF.set_ipv4_allowed ~__context ~self ~value)
+			List.iter (assert_ip_address_is Unix.PF_INET "ipv4_allowed") setified_value;
+			Db.VIF.set_ipv4_allowed ~__context ~self ~value:setified_value)
 
 let add_ipv4_allowed ~__context ~self ~value =
 	change_locking_config ~__context ~self ~run_prechecks:true
@@ -176,10 +178,11 @@ let remove_ipv4_allowed ~__context ~self ~value =
 		(fun () -> Db.VIF.remove_ipv4_allowed ~__context ~self ~value)
 
 let set_ipv6_allowed ~__context ~self ~value =
-	change_locking_config ~__context ~self ~run_prechecks:(value <> [])
+	let setified_value = List.setify value in
+	change_locking_config ~__context ~self ~run_prechecks:(setified_value <> [])
 		(fun () ->
-			List.iter (assert_ip_address_is Unix.PF_INET6 "ipv6_allowed") value;
-			Db.VIF.set_ipv6_allowed ~__context ~self ~value)
+			List.iter (assert_ip_address_is Unix.PF_INET6 "ipv6_allowed") setified_value;
+			Db.VIF.set_ipv6_allowed ~__context ~self ~value:setified_value)
 
 let add_ipv6_allowed ~__context ~self ~value =
 	change_locking_config ~__context ~self ~run_prechecks:true
