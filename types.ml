@@ -36,15 +36,22 @@ module Type = struct
 
   type env = (string * t) list
 
-  let rec string_of_t env = function
+  let rec dbus_of_t env = function
     | Basic b -> string_of_basic b
-    | Struct ((_, h), tl) -> Printf.sprintf "(%s%s)" (string_of_t env h) (String.concat "" (List.map (string_of_t env) (List.map snd tl)))
-    | Array x -> Printf.sprintf "a%s" (string_of_t env x)
-    | Dict (k, v) -> Printf.sprintf "a{%s%s}" (string_of_basic k) (string_of_t env v)
+    | Struct ((_, h), tl) -> Printf.sprintf "(%s%s)" (dbus_of_t env h) (String.concat "" (List.map (dbus_of_t env) (List.map snd tl)))
+    | Array x -> Printf.sprintf "a%s" (dbus_of_t env x)
+    | Dict (k, v) -> Printf.sprintf "a{%s%s}" (string_of_basic k) (dbus_of_t env v)
     | Name x ->
       if not(List.mem_assoc x env)
       then failwith (Printf.sprintf "Unknown type: %s" x)
-      else string_of_t env (List.assoc x env)
+      else dbus_of_t env (List.assoc x env)
+
+  let rec string_of_t = function
+    | Basic b -> ocaml_of_basic b
+    | Struct (_, _) -> "struct { ... }"
+    | Array t -> string_of_t t ^ " list"
+    | Dict (key, v) -> Printf.sprintf "(%s * %s) list" (ocaml_of_basic key) (string_of_t v)
+    | Name x -> x
 
   let rec ocaml_of_t = function
     | Basic b -> ocaml_of_basic b
@@ -137,7 +144,7 @@ end
 
 let to_json x =
   let of_arg_list args =
-    `Assoc (List.map (fun arg -> arg.Arg.name, `String (Type.string_of_t [] arg.Arg.ty)) args) in
+    `Assoc (List.map (fun arg -> arg.Arg.name, `String (Type.dbus_of_t [] arg.Arg.ty)) args) in
   let of_interface i =
     `Assoc [
       "name", `String i.Interface.name;
@@ -163,7 +170,7 @@ let to_json x =
 
 module To_dbus = struct
   let of_arg is_in arg add =
-    add (`El_start (("", "arg"), [ ("", "type"), Type.string_of_t [] arg.Arg.ty; ("", "name"), arg.Arg.name; ("", "direction"), if is_in then "in" else "out" ]));
+    add (`El_start (("", "arg"), [ ("", "type"), Type.dbus_of_t [] arg.Arg.ty; ("", "name"), arg.Arg.name; ("", "direction"), if is_in then "in" else "out" ]));
     add (`El_start (("", "tp:docstring"), []));
     add (`Data arg.Arg.description);
     add (`El_end);
@@ -240,6 +247,7 @@ let to_html x =
 	Xmlm.output output (`El_start (("", "pre"), [ ("", "class"), cls ]));
 	Xmlm.output output (`Data txt);
 	Xmlm.output output (`El_end) in
+      let code ?id = wrap ?id "code" in
       let wrapf ?cls name items =
 	let attrs = match cls with
 	  | None -> []
@@ -247,6 +255,7 @@ let to_html x =
 	Xmlm.output output (`El_start (("", name), attrs));
 	items ();
 	Xmlm.output output (`El_end) in
+      let tdcode x = wrapf "td" (fun () -> code x) in
       let th = wrapf "th" in
       let tr = wrapf "tr" in
       let ul ?cls = wrapf ?cls "ul" in
@@ -263,7 +272,7 @@ let to_html x =
 	th (fun () -> td "Type"; td "Description");
 	List.iter
 	  (fun arg ->
-	    tr (fun () -> td arg.Arg.name; td (Type.ocaml_of_t arg.Arg.ty); td arg.Arg.description);
+	    tr (fun () -> tdcode arg.Arg.name; tdcode (Type.string_of_t arg.Arg.ty); td arg.Arg.description);
 	  ) args;
 	Xmlm.output output (`El_end);
 	Xmlm.output output (`El_end) in
@@ -298,17 +307,17 @@ let to_html x =
       p x.Interfaces.description;
       List.iter
 	(fun t ->
-	  h2 ~id:(Printf.sprintf "a-%s" t.TyDecl.name) (Printf.sprintf "type %s" t.TyDecl.name);
+	  h2 ~id:(Printf.sprintf "a-%s" t.TyDecl.name) (Printf.sprintf "type %s = %s" t.TyDecl.name (Type.string_of_t t.TyDecl.ty));
 	  p t.TyDecl.description;
-	  pre ~lang:"ml" (Printf.sprintf "type %s = %s" t.TyDecl.name (Type.ocaml_of_t t.TyDecl.ty));
 	  match t.TyDecl.ty with
 	    | Type.Struct(hd, tl) ->
+	      p "Members:";
 	      Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "alert alert-info" ]));
 	      Xmlm.output output (`El_start (("", "table"), [ ("", "class"), "table table-striped" ]));
 	      th (fun () -> td "Type"; td "Description");
 	      List.iter
 		(fun (name, ty) ->
-		  tr (fun () -> td name; td (Type.ocaml_of_t ty); td "foo");
+		  tr (fun () -> tdcode name; tdcode (Type.ocaml_of_t ty); td "foo");
 		) (hd :: tl);
 		Xmlm.output output (`El_end);
 	      Xmlm.output output (`El_end)
