@@ -312,15 +312,14 @@ let to_html x =
 	  match t.TyDecl.ty with
 	    | Type.Struct(hd, tl) ->
 	      p "Members:";
-	      Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "alert alert-info" ]));
-	      Xmlm.output output (`El_start (("", "table"), [ ("", "class"), "table table-striped" ]));
+	      Xmlm.output output (`El_start (("", "table"), [ ("", "class"), "table table-striped table-condensed" ]));
+
 	      th (fun () -> td "Type"; td "Description");
 	      List.iter
 		(fun (name, ty) ->
 		  tr (fun () -> tdcode name; tdcode (Type.ocaml_of_t ty); td "foo");
 		) (hd :: tl);
-		Xmlm.output output (`El_end);
-	      Xmlm.output output (`El_end)
+	      Xmlm.output output (`El_end);
 	    | _ -> ()
 	) x.Interfaces.type_decls;
       List.iter
