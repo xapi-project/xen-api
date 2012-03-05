@@ -90,6 +90,7 @@ module TyDecl = struct
     description: string;
     ty: Type.t;
   }
+  let to_env x = x.name, x.ty
 end
 
 module Interface = struct
@@ -171,36 +172,36 @@ let to_json x =
   Yojson.Basic.to_string json
 
 module To_dbus = struct
-  let of_arg is_in arg add =
-    add (`El_start (("", "arg"), [ ("", "type"), Type.dbus_of_t [] arg.Arg.ty; ("", "name"), arg.Arg.name; ("", "direction"), if is_in then "in" else "out" ]));
+  let of_arg env is_in arg add =
+    add (`El_start (("", "arg"), [ ("", "type"), Type.dbus_of_t env arg.Arg.ty; ("", "name"), arg.Arg.name; ("", "direction"), if is_in then "in" else "out" ]));
     add (`El_start (("", "tp:docstring"), []));
     add (`Data arg.Arg.description);
     add (`El_end);
     add (`El_end)
 
-  let of_method m add =
+  let of_method env m add =
     add (`El_start (("", "method"), [ ("", "name"), m.Method.name ]));
     add (`El_start (("", "tp:docstring"), []));
     add (`Data m.Method.description);
     add (`El_end);
     List.iter
       (fun arg ->
-	of_arg true arg add
+	of_arg env true arg add
       ) m.Method.inputs;
     List.iter
       (fun arg ->
-	of_arg false arg add
+	of_arg env false arg add
       ) m.Method.outputs;
     add (`El_end)
 
-  let of_interface i add =
+  let of_interface env i add =
     add (`El_start (("", "interface"), [ ("", "name"), "org.xen.xcp." ^ i.Interface.name ]));
     add (`El_start (("", "tp:docstring"), []));
     add (`Data i.Interface.description);
     add (`El_end);
     List.iter
       (fun m ->
-	of_method m add
+	of_method env m add
       ) i.Interface.methods;
     add (`El_end)
 
@@ -209,9 +210,10 @@ module To_dbus = struct
       add (`El_start (("", "tp:docstring"), []));
       add (`Data x.Interfaces.description);
       add (`El_end);
+      let env = List.map TyDecl.to_env x.Interfaces.type_decls in
       List.iter
 	(fun i ->
-	  of_interface i add
+	  of_interface env i add
 	) x.Interfaces.interfaces;
       add (`El_end)
 
@@ -311,6 +313,7 @@ let to_html x =
     Xmlm.output output (`El_end);
 
       (* Main content *)
+    let env = List.map TyDecl.to_env x.Interfaces.type_decls in
       Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "span10" ]));
       h1 ~id:(Printf.sprintf "a-%s" x.Interfaces.name) x.Interfaces.name;
       p x.Interfaces.description;
@@ -358,7 +361,7 @@ let to_html x =
             </div>
             <div class=\"tab-pane fade\" id=\"dbus-%s\">
 " m.Method.name);
-	      pre (with_xmlm (To_dbus.of_method m));
+	      pre (with_xmlm (To_dbus.of_method env m));
 	      Buffer.add_string buffer
 (Printf.sprintf "
             </div>

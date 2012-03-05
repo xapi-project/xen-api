@@ -30,7 +30,8 @@ let api =
   } in
   let vdi_info' = {
     Arg.name = "vdi_info";
-    ty = vdi_info;
+(*    ty = vdi_info; *)
+    ty = Type.Name "vdi_info";
     description = "The Virtual Disk Image properties";
   } in
   let params = {
