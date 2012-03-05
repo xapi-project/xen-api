@@ -281,7 +281,21 @@ let to_html x =
 	th (fun () -> td "Type"; td "Description");
 	List.iter
 	  (fun arg ->
-	    tr (fun () -> tdcode arg.Arg.name; tdcode (Type.string_of_t arg.Arg.ty); td arg.Arg.description);
+	    tr (fun () ->
+	      tdcode arg.Arg.name;
+	      begin match arg.Arg.ty with
+		| Type.Name x ->
+		  wrapf "td"
+		    (fun () ->
+		      wrapf "code"
+			(fun () ->
+			  a_href (Printf.sprintf "#a-%s" x) x
+			)
+		    )
+		| _ ->
+		  tdcode (Type.string_of_t arg.Arg.ty)
+	      end;
+	      td arg.Arg.description);
 	  ) args;
 	Xmlm.output output (`El_end);
 	Xmlm.output output (`El_end) in
