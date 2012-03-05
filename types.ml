@@ -29,7 +29,7 @@ module Type = struct
 
   type t =
     | Basic of basic
-    | Struct of (string * t) * ((string * t) list)
+    | Struct of (string * t * string) * ((string * t * string) list)
     | Array of t
     | Dict of basic * t
     | Name of string
@@ -38,7 +38,9 @@ module Type = struct
 
   let rec dbus_of_t env = function
     | Basic b -> string_of_basic b
-    | Struct ((_, h), tl) -> Printf.sprintf "(%s%s)" (dbus_of_t env h) (String.concat "" (List.map (dbus_of_t env) (List.map snd tl)))
+    | Struct (hd, tl) ->
+      let member (_, h, _) = dbus_of_t env h in
+      Printf.sprintf "(%s%s)" (member hd) (String.concat "" (List.map member tl))
     | Array x -> Printf.sprintf "a%s" (dbus_of_t env x)
     | Dict (k, v) -> Printf.sprintf "a{%s%s}" (string_of_basic k) (dbus_of_t env v)
     | Name x ->
@@ -56,7 +58,7 @@ module Type = struct
   let rec ocaml_of_t = function
     | Basic b -> ocaml_of_basic b
     | Struct (hd, tl) ->
-      "{ " ^ (String.concat ";" (List.map (fun (name, ty) -> Printf.sprintf "%s: %s" name (ocaml_of_t ty)) (hd :: tl))) ^ " }"
+      "{ " ^ (String.concat ";" (List.map (fun (name, ty, descr) -> Printf.sprintf "%s: %s (** %s *)" name (ocaml_of_t ty) descr) (hd :: tl))) ^ " }"
     | Array t -> ocaml_of_t t ^ " list"
     | Dict (key, v) -> Printf.sprintf "(%s * %s) list" (ocaml_of_basic key) (ocaml_of_t v)
     | Name x -> x
@@ -219,6 +221,7 @@ let with_xmlm f =
   let buffer = Buffer.create 128 in
   let output = Xmlm.make_output ~nl:true ~indent:(Some 4) (`Buffer buffer) in
   Xmlm.output output (`Dtd None);
+  Buffer.reset buffer;
   f (Xmlm.output output);
   Buffer.contents buffer
 
@@ -229,6 +232,7 @@ let to_html x =
       let buffer = Buffer.create 128 in
       let output = Xmlm.make_output ~nl:true ~indent:(Some 4) (`Buffer buffer) in
       Xmlm.output output (`Dtd None);
+      Buffer.reset buffer;
       let wrap ?id name body =
 	let attrs = match id with
 	  | None -> []
@@ -261,8 +265,11 @@ let to_html x =
       let ul ?cls = wrapf ?cls "ul" in
       let li ?cls = wrapf ?cls "li" in
       let p = wrap "p" in
-      let a_href link txt =
-	Xmlm.output output (`El_start (("", "a"), [ ("", "href"), link ]));
+      let a_href ?toggle link txt =
+	let toggle = match toggle with
+	  | None -> []
+	  | Some x -> [ ("", "data-toggle"), x ] in
+	Xmlm.output output (`El_start (("", "a"), [ ("", "href"), link ] @ toggle));
 	Xmlm.output output (`Data txt);
 	Xmlm.output output (`El_end) in
 
@@ -282,23 +289,25 @@ let to_html x =
 
       (* Side bar *)
       Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "span2" ]));
+      Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "well sidebar-nav" ]));
       ul ~cls:"nav nav-list" (fun () ->
 	List.iter (fun t ->
 	  li (fun () ->
-	    a_href (Printf.sprintf "#a-%s" t.TyDecl.name) t.TyDecl.name
+	    a_href (* ~toggle:"tab" *) (Printf.sprintf "#a-%s" t.TyDecl.name) t.TyDecl.name
 	  )
 	) x.Interfaces.type_decls;
 	List.iter (fun i ->
 	  li ~cls:"nav-header" (fun () ->
-	    a_href (Printf.sprintf "#a-%s" i.Interface.name) i.Interface.name
+	    a_href (* ~toggle:"tab" *) (Printf.sprintf "#a-%s" i.Interface.name) i.Interface.name
 	  );
 	  List.iter (fun m ->
 	    li (fun () ->
-	      a_href (Printf.sprintf "#a-%s" m.Method.name) m.Method.name
+	      a_href (* ~toggle:"tab" *) (Printf.sprintf "#a-%s" m.Method.name) m.Method.name
 	    )
 	  ) i.Interface.methods
 	) x.Interfaces.interfaces
       );
+    Xmlm.output output (`El_end);
     Xmlm.output output (`El_end);
 
       (* Main content *)
@@ -316,8 +325,8 @@ let to_html x =
 
 	      th (fun () -> td "Type"; td "Description");
 	      List.iter
-		(fun (name, ty) ->
-		  tr (fun () -> tdcode name; tdcode (Type.ocaml_of_t ty); td "foo");
+		(fun (name, ty, descr) ->
+		  tr (fun () -> tdcode name; tdcode (Type.ocaml_of_t ty); td descr);
 		) (hd :: tl);
 	      Xmlm.output output (`El_end);
 	    | _ -> ()

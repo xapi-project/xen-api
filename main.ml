@@ -4,7 +4,9 @@ let with_file filename f =
   let oc = open_out filename in
   finally (fun () -> f oc) (fun () -> close_out oc)
 
-let print_file_to oc = Unixext.file_lines_iter (output_string oc)
+let print_file_to oc =
+  let output_line oc txt = output_string oc txt; output_string oc "\n" in
+  Unixext.file_lines_iter (output_line oc)
 
 let _ =
 (*

@@ -3,19 +3,19 @@ open Types
 let api =
   let vdi_info =
     Type.(Struct(
-      ( "vdi", Basic String ),
-      [ "sr", Basic String;
-	"content_id", Basic String;
-	"name_label", Basic String;
-	"name_description", Basic String;
-	"ty", Basic String;
-	"metadata_of_pool", Basic String;
-	"is_a_snapshot", Basic Boolean;
-	"snapshot_time", Basic String;
-	"snapshot_of", Basic String;
-	"read_only", Basic Boolean;
-	"virtual_size", Basic Int64;
-	"physical_utilisation", Basic Int64;
+      ( "vdi", Basic String, "The unique id of this VDI" ),
+      [ "sr", Basic String, "The SR containing this VDI";
+	"content_id", Basic String, "The unique id of the VDI contents. If two VDIs have the same content_id then they must have the same data inside";
+	"name_label", Basic String, "Human-readable name of the VDI";
+	"name_description", Basic String, "Human-readable description of the VDI";
+	"ty", Basic String, "Used by a toolstack to remember why a VDI was created";
+	"metadata_of_pool", Basic String, "In the special case of a pool metadata containing VDI, this is the pool reference";
+	"is_a_snapshot", Basic Boolean, "True if the VDI is a snapshot of another VDI";
+	"snapshot_time", Basic String, "If is_a_snapshot is true then this is the time the snapshot was created";
+	"snapshot_of", Basic String, "If is_a_snapshot is true then this is the VDI which was snapshotted";
+	"read_only", Basic Boolean, "If true then this VDI is stored on read-only media";
+	"virtual_size", Basic Int64, "Size of the VDI from the perspective of a VM (in bytes)";
+	"physical_utilisation", Basic Int64, "Amount of space currently being consumed on the physical storage media";
       ]
     )) in
   let sr = {
