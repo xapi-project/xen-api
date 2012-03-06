@@ -86,7 +86,45 @@ let api =
 	      ]
 	       
 	    ));
-	  } ]
+	  }; {
+	    TyDecl.name = "pv_direct_boot";
+	    description = "PV VM boot options without a 'pygrub'-style bootloader";
+	    ty = Type.(Struct(
+	      ("kernel", Basic String, "Path to the VM kernel image"),
+	      ["cmdline", Basic String, "Command-line options to pass to the VM kernel";
+	       "ramdisk", Option (Basic String), "Optional initial ramdisk to pass to the VM kernel" ]));
+	  }; {
+	    TyDecl.name = "pv_indirect_boot";
+	    description = "PV VM boot options when using a 'pygrub'-style bootloader";
+	    ty = Type.(Struct(
+	      ("bootloader", Basic String, "Name of the bootloader to use (e.g. 'pygrub')"),
+	      [ "extra_args", Basic String, "Additional arguments to pass to the VM kernel in addition to those from the bootloader";
+		"legacy_args", Basic String, "";
+		"bootloader_args", Basic String, "Additional arguments to pass to the bootloader itself";
+		"devices", Array (Type.Name "disk"), "Ordered list of disks to search for bootloader configuration" ]));
+	  }; {
+	    TyDecl.name = "pv_boot";
+	    description = "Describes how to boot a particular PV VM";
+	    ty = Type.(Variant(
+	      ("Direct", Type.Name "pv_direct_boot", "Use the given kernel/cmdline/ramdisk"),
+	      ["Indirect", Type.Name "pv_indirect_boot", "Determine the kernel/cmdline/ramdisk through a bootloader (e.g. 'pygrub')"]))
+
+	  }; {
+	    TyDecl.name = "pv_info";
+	    description = "Hardware configuration for a particular PV VM";
+	    ty = Type.(Struct(
+	      ("boot", Type.Name "pv_boot", "Describe how to acquire a kernel/cmdline/initrd"),
+	      ["framebuffer", Basic Boolean, "If true then create a PV framebuffer";
+	       "vncterm", Basic Boolean, "If true then export the default serial console over VNC";
+	       "vncterm_ip", Option (Basic String), "Specify the IP address to bind the default VNC serial console to"]));
+	  }; {
+	    TyDecl.name = "builder_info";
+	    description = "Describes how to boot a particular VM (HVM or PV)";
+	    ty = Type.(Variant(
+	      ("HVM", Type.Name "hvm_info", "Boot HVM"),
+	      ["PV", Type.Name "pv_info", "Boot PV" ]));
+	  }
+		       ]
 	}
       ]
   }
