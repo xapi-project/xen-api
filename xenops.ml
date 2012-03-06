@@ -54,7 +54,19 @@ let api =
 			   ));
 			 } ];
 	  methods = []
-	}
+	}; {
+          Interface.name = "Vm";
+          description = "Types used to represent a VM configuration";
+	  type_decls = [ { TyDecl.name = "video_card";
+			   description = "Type of video hardware";
+			   ty = Type.(Variant(
+			     ("Cirrus", Unit, "Cirrus Logic"),
+			     [ "Standard_VGA", Unit, "Standard VGA" ]
+			   ));
+			 }
 
+		       ];
+	  methods = []
+	}
       ]
     }
