@@ -36,6 +36,7 @@ module Type = struct
     | Name of string
     | Unit
     | Option of t
+    | Pair of t * t
 
   type env = (string * t) list
 
@@ -55,6 +56,7 @@ module Type = struct
       then failwith (Printf.sprintf "Unknown type: %s" x)
       else dbus_of_t env (List.assoc x env)
     | Unit -> ""
+    | Pair (a, b) -> dbus_of_t env a ^ (dbus_of_t env b)
 
   let rec string_of_t = function
     | Basic b -> ocaml_of_basic b
@@ -65,6 +67,7 @@ module Type = struct
     | Name x -> x
     | Unit -> "unit"
     | Option x -> string_of_t x ^ " option"
+    | Pair(a, b) -> string_of_t a ^ " * " ^ (string_of_t b)
 
   let rec ocaml_of_t = function
     | Basic b -> ocaml_of_basic b
@@ -79,6 +82,7 @@ module Type = struct
     | Name x -> x
     | Unit -> "unit"
     | Option x -> string_of_t x ^ " option"
+    | Pair(a, b) -> ocaml_of_t a ^ " * " ^ (ocaml_of_t b)
 
   type ts = t list
 
