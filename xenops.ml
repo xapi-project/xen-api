@@ -383,6 +383,34 @@ let api =
 	    };
 	  ];
 	  methods = []	 
+	}; {
+	  Interface.name = "Dynamic";
+	  description = "Dynamically-typed values";
+	  type_decls = [
+	    { TyDecl.name = "id";
+	      description = "A reference (or handle) to a specific object";
+	      ty = Type.(Variant(
+		("Vm", Name "Vm.id", "A VM reference"),
+		["Vbd", Name "Vbd.id", "A VBD reference";
+		 "Vif", Name "Vif.id", "A VIF reference";
+		 "Pci", Name "Pci.id", "A PCI reference";
+		 "Task", Name "Task.id", "A Task reference";
+		 "Barrier", Basic Int64, "A barrier inserted into an event stream"
+		]));
+	    }; {
+	      TyDecl.name = "t";
+	      description = "A dynamically-typed event";
+	      ty = Type.(Variant(
+		("Vm_t", Pair(Name "Vm.id", Option (Pair (Name "Vm.t", Name "Vm.state"))), ""),
+		[
+		  "Vbd_t", Pair(Name "Vbd.id", Option (Pair (Name "Vbd.t", Name "Vbd.state"))), "";
+		  "Vif_t", Pair(Name "Vif.id", Option (Pair (Name "Vif.t", Name "Vif.state"))), "";
+		  "Pci_t", Pair(Name "Pci.id", Option (Pair (Name "Pci.t", Name "Pci.state"))), "";
+		  "Task_t", Pair(Name "Task.id", Option (Name "Task.t")), ""
+		]));
+	    }
+	  ];
+	  methods = [];
 	}
       ]
   }
