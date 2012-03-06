@@ -359,6 +359,30 @@ let api =
 	    }
 	  ];
 	  methods = [];
+	}; {
+	  Interface.name = "Task";
+	  description = "Describes asynchronous tasks";
+	  type_decls = [
+	    { TyDecl.name = "id";
+	      description = "A reference (or handle) to a specific task";
+	      ty = Type.(Basic String)
+	    }; {
+	      TyDecl.name = "result";
+	      description = "The result of a task which has stopped executing";
+	      ty = Type.(Variant(
+		("Pending", Basic Double, "Task is still running and is the given fraction complete"),
+		["Completed", Basic Double, "Task has completed successfully after the given number of seconds";
+		 "Failed", Basic String, "XXX Task has failed with the given error"]));
+	    }; {
+	      TyDecl.name = "t";
+	      description = "An asynchronous task";
+	      ty = Type.(Struct(
+		("id", Name "id", "A reference (or handle) to a specific task"),
+		["result", Name "result", "Current progress or result";
+		 "subtasks", Dict(String, Basic String), "Diagnostic information about 'subtasks'"]));
+	    };
+	  ];
+	  methods = []	 
 	}
       ]
   }
