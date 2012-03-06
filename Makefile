@@ -1,9 +1,9 @@
 
 idl: types.cmx smapiv2.cmx xenops.cmx main.cmx
-	ocamlfind ocamlopt -package xmlm,yojson,stdext -linkpkg -o idl types.cmx smapiv2.cmx xenops.cmx main.cmx
+	ocamlfind ocamlopt -package xmlm,yojson,stdext -linkpkg -g -o idl types.cmx smapiv2.cmx xenops.cmx main.cmx
 
 %.cmx: %.ml
-	ocamlfind ocamlopt -package xmlm,yojson,stdext -c $<
+	ocamlfind ocamlopt -package xmlm,yojson,stdext -c -g $<
 
 .PHONY: install
 install: idl
