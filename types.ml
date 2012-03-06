@@ -316,6 +316,11 @@ let to_html x =
 	  li ~cls:"nav-header" (fun () ->
 	    a_href (* ~toggle:"tab" *) (Printf.sprintf "#a-%s" i.Interface.name) i.Interface.name
 	  );
+	  List.iter (fun t ->
+	    li (fun () ->
+	      a_href (* ~toggle:"tab" *) (Printf.sprintf "#a-%s" t.TyDecl.name) t.TyDecl.name
+	    )
+	  ) i.Interface.type_decls;
 	  List.iter (fun m ->
 	    li (fun () ->
 	      a_href (* ~toggle:"tab" *) (Printf.sprintf "#a-%s" m.Method.name) m.Method.name
@@ -326,32 +331,32 @@ let to_html x =
     Xmlm.output output (`El_end);
     Xmlm.output output (`El_end);
 
+    let of_type_decl t =
+      h2 ~id:(Printf.sprintf "a-%s" t.TyDecl.name) (Printf.sprintf "type %s = %s" t.TyDecl.name (Type.string_of_t t.TyDecl.ty));
+      p t.TyDecl.description;
+      match t.TyDecl.ty with
+	| Type.Struct(hd, tl) ->
+	  p "Members:";
+	  Xmlm.output output (`El_start (("", "table"), [ ("", "class"), "table table-striped table-condensed" ]));
+	  th (fun () -> td "Type"; td "Description");
+	  List.iter
+	    (fun (name, ty, descr) ->
+	      tr (fun () -> tdcode name; tdcode (Type.ocaml_of_t ty); td descr);
+	    ) (hd :: tl);
+	  Xmlm.output output (`El_end);
+	| _ -> () in
+
       (* Main content *)
     let env = List.map TyDecl.to_env x.Interfaces.type_decls in
       Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "span10" ]));
       h1 ~id:(Printf.sprintf "a-%s" x.Interfaces.name) x.Interfaces.name;
       p x.Interfaces.description;
-      List.iter
-	(fun t ->
-	  h2 ~id:(Printf.sprintf "a-%s" t.TyDecl.name) (Printf.sprintf "type %s = %s" t.TyDecl.name (Type.string_of_t t.TyDecl.ty));
-	  p t.TyDecl.description;
-	  match t.TyDecl.ty with
-	    | Type.Struct(hd, tl) ->
-	      p "Members:";
-	      Xmlm.output output (`El_start (("", "table"), [ ("", "class"), "table table-striped table-condensed" ]));
-
-	      th (fun () -> td "Type"; td "Description");
-	      List.iter
-		(fun (name, ty, descr) ->
-		  tr (fun () -> tdcode name; tdcode (Type.ocaml_of_t ty); td descr);
-		) (hd :: tl);
-	      Xmlm.output output (`El_end);
-	    | _ -> ()
-	) x.Interfaces.type_decls;
+      List.iter of_type_decl x.Interfaces.type_decls;
       List.iter
 	(fun i ->
 	  h2 ~id:(Printf.sprintf "a-%s" i.Interface.name) i.Interface.name;
 	  p i.Interface.description;
+	  List.iter of_type_decl i.Interface.type_decls;
 	  List.iter
 	    (fun m ->
 	      h3 ~id:(Printf.sprintf "a-%s" m.Method.name) m.Method.name;
