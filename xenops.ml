@@ -212,6 +212,34 @@ let api =
 	      ));
 	    }
 		       ]
+	}; {
+          Interface.name = "Pci";
+          description = "PCI devices passed-through to the VM";
+	  type_decls = [
+	    { TyDecl.name = "id";
+	      description = "A reference (or handle) to a PCI device";
+	      ty = Type.(Array (Basic String))
+	    }; {
+	      TyDecl.name = "t";
+	      description = "PCI device configuration";
+	      ty = Type.(Struct(
+		("id", Name "id", "Reference to this PCI device configuration"),
+		["position", Basic Int64, "Position on the VM's virtual PCI bus";
+		 "domain", Basic Int64, "Physical PCI device domain";
+		 "bus", Basic Int64, "Physical PCI device bus";
+		 "dev", Basic Int64, "Physical PCI device dev";
+		 "fn", Basic Int64, "Physical PCI device function";
+		 "msitranslate", Option (Basic Boolean), "Override the VM-wide MSI translation setting for this device";
+		 "power_mgmt", Option (Basic Boolean), "Override the VM-wide PCI power management setting for this device";
+		]));
+	    }; {
+	      TyDecl.name = "state";
+	      description = "Run-time state of this PCI device";
+	      ty = Type.(Struct(
+		("plugged", Basic Boolean, "If true this device is currently attached to the VM"), []));
+	    }
+	  ];
+	  methods = [];
 	}
       ]
   }
