@@ -35,6 +35,7 @@ module Type = struct
     | Dict of basic * t
     | Name of string
     | Unit
+    | Option of t
 
   type env = (string * t) list
 
@@ -45,7 +46,8 @@ module Type = struct
       Printf.sprintf "(%s%s)" (member hd) (String.concat "" (List.map member tl))
     | Variant (hd, tl) ->
       let member (_, h, _) = dbus_of_t env h in
-      Printf.sprintf "(i(%s%s))" (member hd) (String.concat "" (List.map member tl))      
+      Printf.sprintf "(i(%s%s))" (member hd) (String.concat "" (List.map member tl))
+    | Option t -> Printf.sprintf "(b%s)" (dbus_of_t env t)
     | Array x -> Printf.sprintf "a%s" (dbus_of_t env x)
     | Dict (k, v) -> Printf.sprintf "a{%s%s}" (string_of_basic k) (dbus_of_t env v)
     | Name x ->
@@ -62,6 +64,7 @@ module Type = struct
     | Dict (key, v) -> Printf.sprintf "(%s * %s) list" (ocaml_of_basic key) (string_of_t v)
     | Name x -> x
     | Unit -> "unit"
+    | Option x -> string_of_t x ^ " option"
 
   let rec ocaml_of_t = function
     | Basic b -> ocaml_of_basic b
@@ -75,6 +78,7 @@ module Type = struct
     | Dict (key, v) -> Printf.sprintf "(%s * %s) list" (ocaml_of_basic key) (ocaml_of_t v)
     | Name x -> x
     | Unit -> "unit"
+    | Option x -> string_of_t x ^ " option"
 
   type ts = t list
 
