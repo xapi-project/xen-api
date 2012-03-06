@@ -65,7 +65,345 @@ let api =
 	}; {
           Interface.name = "Vm";
           description = "Types used to represent a VM configuration";
-	  methods = [];
+	  methods = [	    
+	    {
+	      Method.name = "add";
+	      description = "[add t] registers a new VM configuration [t] with the service.";
+	      inputs = [
+		{ Arg.name = "t";
+		  ty = Type.(Name "t");
+		  description = "The VM configuration to register";
+		}
+	      ];
+	      outputs = [
+		{ Arg.name = "id";
+		  ty = Type.(Name "id");
+		  description = "A reference to the registered configuration";
+		}
+	      ];
+	    }; {
+	      Method.name = "remove";
+	      description = "[remove id] unregisters a VM configuration [id].";
+	      inputs = [
+		{ Arg.name = "id";
+		  ty = Type.(Name "id");
+		  description = "The reference of the VM to unregister.";
+		}
+	      ];
+	      outputs = []
+	    }; {
+	      Method.name = "create";
+	      description = "[create id] creates the necessary domains to (re)start a given VM";
+	      inputs = [
+		{ Arg.name = "id";
+		  ty = Type.(Name "id");
+		  description = "The reference of the VM to act on.";
+		}
+	      ];
+	      outputs = [
+		{ Arg.name = "task";
+		  ty = Type.(Name "Task.id");
+		  description = "A reference to an asynchronous task"
+		}
+	      ]
+	    }; {
+	      Method.name = "build";
+	      description = "[build id] runs the domain builder to (re)start a given VM";
+	      inputs = [
+		{ Arg.name = "id";
+		  ty = Type.(Name "id");
+		  description = "The reference of the VM to act on.";
+		}
+	      ];
+	      outputs = [
+		{ Arg.name = "task";
+		  ty = Type.(Name "Task.id");
+		  description = "A reference to an asynchronous task"
+		}
+	      ]
+	    }; {
+	      Method.name = "create_device_model";
+	      description = "[create_device_model id] instantiates the virtual hardware (device model) to (re)start a given VM";
+	      inputs = [
+		{ Arg.name = "id";
+		  ty = Type.(Name "id");
+		  description = "The reference of the VM to act on.";
+		}; {
+		  Arg.name = "is_resuming";
+		  ty = Type.(Basic Boolean);
+		  description = "If true then the VM is being resumed and device model state should be reloaded";
+		}
+	      ];
+	      outputs = [
+		{ Arg.name = "task";
+		  ty = Type.(Name "Task.id");
+		  description = "A reference to an asynchronous task"
+		}
+	      ]
+	    }; {
+	      Method.name = "destroy";
+	      description = "[destroy id] destroys all domains associated with a given VM";
+	      inputs = [
+		{ Arg.name = "id";
+		  ty = Type.(Name "id");
+		  description = "The reference of the VM to act on.";
+		}
+	      ];
+	      outputs = [
+		{ Arg.name = "task";
+		  ty = Type.(Name "Task.id");
+		  description = "A reference to an asynchronous task"
+		}
+	      ]
+	    }; {
+	      Method.name = "pause";
+	      description = "[pause id] deschedules all vCPUs of a VM, leaving it paused";
+	      inputs = [
+		{ Arg.name = "id";
+		  ty = Type.(Name "id");
+		  description = "The reference of the VM to act on.";
+		}
+	      ];
+	      outputs = [
+		{ Arg.name = "task";
+		  ty = Type.(Name "Task.id");
+		  description = "A reference to an asynchronous task"
+		}
+	      ]
+	    }; {
+	      Method.name = "unpause";
+	      description = "[unpause id] unpauses a VM, allowing all vCPUs to be scheduled";
+	      inputs = [
+		{ Arg.name = "id";
+		  ty = Type.(Name "id");
+		  description = "The reference of the VM to act on.";
+		}
+	      ];
+	      outputs = [
+		{ Arg.name = "task";
+		  ty = Type.(Name "Task.id");
+		  description = "A reference to an asynchronous task"
+		}
+	      ]
+	    }; {
+	      Method.name = "set_vcpus";
+	      description = "[set_vcpus id target] sets the total number of vCPUs which a VM should use to [target]";
+	      inputs = [
+		{ Arg.name = "id";
+		  ty = Type.(Name "id");
+		  description = "The reference of the VM to act on.";
+		}; {
+		  Arg.name = "num_vpcus";
+		  ty = Type.(Basic Int64);
+		  description = "The target number of vCPUs";
+		}
+	      ];
+	      outputs = [
+		{ Arg.name = "task";
+		  ty = Type.(Name "Task.id");
+		  description = "A reference to an asynchronous task"
+		}
+	      ]
+	    }; {
+	      Method.name = "set_shadow_multiplier";
+	      description = "[set_shadow_multiplier id] sets the total number of vCPUs which a VM should use to [target]";
+	      inputs = [
+		{ Arg.name = "id";
+		  ty = Type.(Name "id");
+		  description = "The reference of the VM to act on.";
+		}; {
+		  Arg.name = "shadow_multiplier";
+		  ty = Type.(Basic Double);
+		  description = "The target shadow_multiplier";
+		}
+	      ];
+	      outputs = [
+		{ Arg.name = "task";
+		  ty = Type.(Name "Task.id");
+		  description = "A reference to an asynchronous task"
+		}
+	      ]
+	    }; {
+	      Method.name = "stat";
+	      description = "[stat id] returns the current VM configuration";
+	      inputs = [
+		{ Arg.name = "id";
+		  ty = Type.(Name "id");
+		  description = "The reference of the VM to query.";
+		};
+	      ];
+	      outputs = [
+		{ Arg.name = "state";
+		  ty = Type.(Option(Pair(Name "t", Name "state")));
+		  description = "The current VM runtime state"
+		}
+	      ]
+	    }; {	      
+	      Method.name = "list";
+	      description = "[list id] returns the list of all registered VM configurations";
+	      inputs = [];
+	      outputs = [
+		{ Arg.name = "VMs";
+		  ty = Type.(Array(Pair(Name "t", Name "state")));
+		  description = "All registered VM configurations"
+		}
+	      ]
+	    }; {	      
+	      Method.name = "start";
+	      description = "[start id] powers-on a VM, leaving it Running";
+	      inputs = [
+		{ Arg.name = "id";
+		  ty = Type.(Name "id");
+		  description = "The reference of the VM to act on.";
+		}
+	      ];
+	      outputs = [
+		{ Arg.name = "task";
+		  ty = Type.(Name "Task.id");
+		  description = "A reference to an asynchronous task"
+		}
+	      ]
+	    }; {
+	      Method.name = "shutdown";
+	      description = "[shutdown id] shuts down and powers-off a VM, leaving it Halted";
+	      inputs = [
+		{ Arg.name = "id";
+		  ty = Type.(Name "id");
+		  description = "The reference of the VM to act on.";
+		}; {
+		  Arg.name = "clean_shutdown_timeout";
+		  ty = Type.(Option (Basic Double));
+		  description = "If a clean_shutdown_timeout is provided, signal and wait for the guest to shutdown before powering it off";
+		}
+	      ];
+	      outputs = [
+		{ Arg.name = "task";
+		  ty = Type.(Name "Task.id");
+		  description = "A reference to an asynchronous task"
+		}
+	      ]
+	    }; {
+	      Method.name = "reboot";
+	      description = "[reboot id] reboots a VM, leaving it Running";
+	      inputs = [
+		{ Arg.name = "id";
+		  ty = Type.(Name "id");
+		  description = "The reference of the VM to act on.";
+		}; {
+		  Arg.name = "clean_shutdown_timeout";
+		  ty = Type.(Option (Basic Double));
+		  description = "If a clean_shutdown_timeout is provided, signal and wait for the guest to shutdown before powering it off";
+		}
+	      ];
+	      outputs = [
+		{ Arg.name = "task";
+		  ty = Type.(Name "Task.id");
+		  description = "A reference to an asynchronous task"
+		}
+	      ]
+	    }; {
+	      Method.name = "resume";
+	      description = "[resume id disk] resumes a VM from the given [disk], leaving it Running";
+	      inputs = [
+		{ Arg.name = "id";
+		  ty = Type.(Name "id");
+		  description = "The reference of the VM to act on.";
+		}; {
+		  Arg.name = "disk";
+		  ty = Type.(Name "disk");
+		  description = "The disk from which to load the running memory state";
+		}
+	      ];
+	      outputs = [
+		{ Arg.name = "task";
+		  ty = Type.(Name "Task.id");
+		  description = "A reference to an asynchronous task"
+		}
+	      ]
+	    }; {
+
+	      Method.name = "s3suspend";
+	      description = "[s3suspend id] triggers an S3 suspend";
+	      inputs = [
+		{ Arg.name = "id";
+		  ty = Type.(Name "id");
+		  description = "The reference of the VM to act on.";
+		};
+	      ];
+	      outputs = [
+		{ Arg.name = "task";
+		  ty = Type.(Name "Task.id");
+		  description = "A reference to an asynchronous task"
+		}
+	      ]
+	    }; {
+	      Method.name = "s3resume";
+	      description = "[s3resume id] triggers an S3 resume";
+	      inputs = [
+		{ Arg.name = "id";
+		  ty = Type.(Name "id");
+		  description = "The reference of the VM to act on.";
+		};
+	      ];
+	      outputs = [
+		{ Arg.name = "task";
+		  ty = Type.(Name "Task.id");
+		  description = "A reference to an asynchronous task"
+		}
+	      ]
+	    }; {
+	      Method.name = "migrate";
+	      description = "[migrate id url] migrates a running VM image to a remote machine";
+	      inputs = [
+		{ Arg.name = "id";
+		  ty = Type.(Name "id");
+		  description = "The reference of the VM to act on.";
+		}; {
+		  Arg.name = "url";
+		  ty = Type.(Basic String);
+		  description = "URL of remote xenops service to receive the running VM image";
+		}
+	      ];
+	      outputs = [
+		{ Arg.name = "task";
+		  ty = Type.(Name "Task.id");
+		  description = "A reference to an asynchronous task"
+		}
+	      ]
+	    }; {
+	      Method.name = "export_metadata";
+	      description = "[export_metadata id] returns a whole VM configuration as a string";
+	      inputs = [
+		{ Arg.name = "id";
+		  ty = Type.(Name "id");
+		  description = "The reference of the VM to act on.";
+		};
+	      ];
+	      outputs = [
+		{ Arg.name = "VM";
+		  ty = Type.(Basic String);
+		  description = "A whole VM configuration"
+		}
+	      ]
+	    }; {
+	      Method.name = "import_metadata";
+	      description = "[import_metadata config] takes a whole VM configuration and registers it (including all devices)";
+	      inputs = [
+		{ Arg.name = "config";
+		  ty = Type.(Basic String);
+		  description = "The whole VM configuration to import.";
+		};
+	      ];
+	      outputs = [
+		{ Arg.name = "id";
+		  ty = Type.(Name "VM.id");
+		  description = "A reference to the registered VM."
+		}
+	      ]
+	    };
+
+
+	  ];
 	  type_decls = [ {
 	    TyDecl.name = "video_card";
 	    description = "Type of video hardware";
