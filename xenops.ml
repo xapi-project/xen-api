@@ -344,7 +344,21 @@ let api =
 		]));
 	    }
 	  ]
-	}	 
-
+	}; {
+	  Interface.name = "Metadata";
+	  description = "Encapsulates a whole VM configuration (VM, VBDs, VIFs, PCIs)";
+	  type_decls = [
+	    { TyDecl.name = "t";
+	      description = "A whole VM configuration (e.g. for export or import)";
+	      ty = Type.(Struct(
+		("vm", Name "Vm.t", ""),
+		["vbds", Array(Name "Vbd.t"), "";
+		 "vifs", Array(Name "Vif.t"), "";
+		 "pcis", Array(Name "Pci.t"), "";
+		 "domains", Option (Basic String), "Opaque data describing per-domain state"]));
+	    }
+	  ];
+	  methods = [];
+	}
       ]
   }
