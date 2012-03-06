@@ -41,8 +41,20 @@ let api =
 		  description = "The properties of this service";
 		}
 	      ];
-	    }	    
+	    }
 	  ]
+	}; {
+          Interface.name = "Network";
+          description = "Types used for configuring VM networking";
+	  type_decls = [ { TyDecl.name = "t";
+			   description = "A network to be attached to a VM";
+			   ty = Type.(Variant(
+			     ("Local", Basic String, "name of an already-configured local switch"),
+			     [ "Remote", Basic String, "name of a switch in another domain" ]
+			   ));
+			 } ];
+	  methods = []
 	}
+
       ]
     }
