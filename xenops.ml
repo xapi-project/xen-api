@@ -22,6 +22,18 @@ let api =
 			   ))
 			 }];
           methods = [
+	    {
+	      Method.name = "query";
+	      description = "[query] returns the properties of this service";
+	      inputs = [
+	      ];
+	      outputs = [
+		{ Arg.name = "info";
+		  ty = Type.Name "info";
+		  description = "The properties of this service";
+		}
+	      ];
+	    }	    
 	  ]
 	}
       ]
