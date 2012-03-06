@@ -382,7 +382,35 @@ let api =
 		 "subtasks", Dict(String, Basic String), "Diagnostic information about 'subtasks'"]));
 	    };
 	  ];
-	  methods = []	 
+	  methods = [
+	    
+	    {
+	      Method.name = "stat";
+	      description = "[stat task] returns the current state of [task].";
+	      inputs = [
+		{ Arg.name = "id";
+		  ty = Type.(Name "id");
+		  description = "The reference of the task to query";
+		}
+	      ];
+	      outputs = [
+		{ Arg.name = "t";
+		  ty = Type.(Name "t");
+		  description = "The current state of the task";
+		}
+	      ];
+	    }; {
+	      Method.name = "cancel";
+	      description = "[cancel task] requests that [task] be immediately cancelled.";
+	      inputs = [
+		{ Arg.name = "id";
+		  ty = Type.(Name "id");
+		  description = "The reference of the task to cancel";
+		}
+	      ];
+	      outputs = []
+	    }
+	  ]
 	}; {
 	  Interface.name = "Dynamic";
 	  description = "Dynamically-typed values";
