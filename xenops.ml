@@ -305,6 +305,46 @@ let api =
 		 "media_present", Basic Boolean, "If true then media is present in this drive"]))
 	    }
 	  ]
-	}
+	}; {
+	  Interface.name = "Vif";
+	  description = "Virtual (Network) InterFace configuration";
+	  methods = [];
+	  type_decls = [
+	    { TyDecl.name = "id";
+	      description = "A reference (or handle) to identify this VIF configuration";
+	      ty = Type.(Array(Basic String));
+	    }; {
+	      TyDecl.name = "rate";
+	      description = "QoS settings for this VIF";
+	      ty = Type.(Struct(
+		("kbytes_per_sec", Basic Int64, "kBytes/sec maximum rate to allow"),
+		["timeslice_us", Basic Int64, "Interval in microseconds to impose the maximum rate"]
+	      ));
+	    }; {
+	      TyDecl.name = "t";
+	      description = "a VIF configuration";
+	      ty = Type.(Struct(
+		("id", Name "id", "A reference to uniquely identify this VIF configuration"),
+		["position", Basic Int64, "Position this VIF will be exposed at on the VM's bus";
+		 "mac", Basic String, "MAC address";
+		 "carrier", Basic Boolean, "If true then signal that a carrier is present";
+		 "mtu", Basic Int64, "Maximum Transfer Unit (MTU)";
+		 "rate", Option(Name "rate"), "Optional QoS setting";
+		 "backend", Name "Network.t", "XXX";
+		 "other_config", Dict(String, Basic String), "";
+		 "extra_private_keys", Dict(String, Basic String), ""
+		]));
+	    }; {
+	      TyDecl.name = "state";
+	      description = "Run-time state of this VIF";
+	      ty = Type.(Struct(
+		("plugged", Basic Boolean, "If true then this VIF is currently attached to the VM"),
+		["kthread_pid", Basic Int64, "";
+		 "media_present", Basic Boolean, "If true then media is present in this VIF"
+		]));
+	    }
+	  ]
+	}	 
+
       ]
   }
