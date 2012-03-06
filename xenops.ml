@@ -4,7 +4,15 @@ let api =
   {
     Interfaces.name = "xenops";
     description = "The Xen domain management API";
-    type_decls = [];
+    type_decls = [
+      { TyDecl.name = "disk";
+	description = "A disk which should be added to a VM";
+	ty = Type.(Variant(
+	  ( "Local", Basic String, "An already-configured block device in dmoain 0 (intended for testing)" ),
+	  [ "VDI", Basic String, "Identifies a VDI controlled by the Storage Manager (of the form SR/VDI)" ]
+	))
+      }
+    ];
     interfaces =
       [
         {
