@@ -30,6 +30,7 @@ module Type = struct
   type t =
     | Basic of basic
     | Struct of (string * t * string) * ((string * t * string) list)
+    | Variant of (string * t * string) * ((string * t * string) list)
     | Array of t
     | Dict of basic * t
     | Name of string
@@ -41,6 +42,9 @@ module Type = struct
     | Struct (hd, tl) ->
       let member (_, h, _) = dbus_of_t env h in
       Printf.sprintf "(%s%s)" (member hd) (String.concat "" (List.map member tl))
+    | Variant (hd, tl) ->
+      let member (_, h, _) = dbus_of_t env h in
+      Printf.sprintf "(i(%s%s))" (member hd) (String.concat "" (List.map member tl))      
     | Array x -> Printf.sprintf "a%s" (dbus_of_t env x)
     | Dict (k, v) -> Printf.sprintf "a{%s%s}" (string_of_basic k) (dbus_of_t env v)
     | Name x ->
@@ -51,6 +55,7 @@ module Type = struct
   let rec string_of_t = function
     | Basic b -> ocaml_of_basic b
     | Struct (_, _) -> "struct { ... }"
+    | Variant (_, _) -> "variant { ... }"
     | Array t -> string_of_t t ^ " list"
     | Dict (key, v) -> Printf.sprintf "(%s * %s) list" (ocaml_of_basic key) (string_of_t v)
     | Name x -> x
@@ -59,6 +64,10 @@ module Type = struct
     | Basic b -> ocaml_of_basic b
     | Struct (hd, tl) ->
       "{ " ^ (String.concat ";" (List.map (fun (name, ty, descr) -> Printf.sprintf "%s: %s (** %s *)" name (ocaml_of_t ty) descr) (hd :: tl))) ^ " }"
+    | Variant (hd, tl) ->
+      let member (name, ty, descr) =
+	Printf.sprintf "| %s (%s) (** %s *)" name (ocaml_of_t ty) descr in
+      String.concat "\n" (List.map member (hd :: tl))
     | Array t -> ocaml_of_t t ^ " list"
     | Dict (key, v) -> Printf.sprintf "(%s * %s) list" (ocaml_of_basic key) (ocaml_of_t v)
     | Name x -> x
@@ -331,19 +340,24 @@ let to_html x =
     Xmlm.output output (`El_end);
     Xmlm.output output (`El_end);
 
+    let of_struct_variant_fields all =
+      Xmlm.output output (`El_start (("", "table"), [ ("", "class"), "table table-striped table-condensed" ]));
+      th (fun () -> td "Type"; td "Description");
+      List.iter
+	(fun (name, ty, descr) ->
+	  tr (fun () -> tdcode name; tdcode (Type.ocaml_of_t ty); td descr);
+	) all;
+      Xmlm.output output (`El_end) in
     let of_type_decl t =
       h2 ~id:(Printf.sprintf "a-%s" t.TyDecl.name) (Printf.sprintf "type %s = %s" t.TyDecl.name (Type.string_of_t t.TyDecl.ty));
       p t.TyDecl.description;
       match t.TyDecl.ty with
 	| Type.Struct(hd, tl) ->
 	  p "Members:";
-	  Xmlm.output output (`El_start (("", "table"), [ ("", "class"), "table table-striped table-condensed" ]));
-	  th (fun () -> td "Type"; td "Description");
-	  List.iter
-	    (fun (name, ty, descr) ->
-	      tr (fun () -> tdcode name; tdcode (Type.ocaml_of_t ty); td descr);
-	    ) (hd :: tl);
-	  Xmlm.output output (`El_end);
+	  of_struct_variant_fields (hd :: tl)
+	| Type.Variant(hd, tl) ->
+	  p "Constructors:";
+	  of_struct_variant_fields (hd :: tl)
 	| _ -> () in
 
       (* Main content *)
