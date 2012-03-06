@@ -34,6 +34,7 @@ module Type = struct
     | Array of t
     | Dict of basic * t
     | Name of string
+    | Unit
 
   type env = (string * t) list
 
@@ -51,6 +52,7 @@ module Type = struct
       if not(List.mem_assoc x env)
       then failwith (Printf.sprintf "Unknown type: %s" x)
       else dbus_of_t env (List.assoc x env)
+    | Unit -> ""
 
   let rec string_of_t = function
     | Basic b -> ocaml_of_basic b
@@ -59,6 +61,7 @@ module Type = struct
     | Array t -> string_of_t t ^ " list"
     | Dict (key, v) -> Printf.sprintf "(%s * %s) list" (ocaml_of_basic key) (string_of_t v)
     | Name x -> x
+    | Unit -> "unit"
 
   let rec ocaml_of_t = function
     | Basic b -> ocaml_of_basic b
@@ -71,6 +74,7 @@ module Type = struct
     | Array t -> ocaml_of_t t ^ " list"
     | Dict (key, v) -> Printf.sprintf "(%s * %s) list" (ocaml_of_basic key) (ocaml_of_t v)
     | Name x -> x
+    | Unit -> "unit"
 
   type ts = t list
 
