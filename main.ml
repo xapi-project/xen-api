@@ -20,16 +20,23 @@ let _ =
   to_rpclight smapiv2;
   print_string "";
 *)
+  let resolve_refs_in_api api =
+    let idents, api = Types.lift_type_decls api in
+    Types.dump_ident_mappings idents;
+    idents, (Types.resolve_references idents api) in
+
   with_file "doc/smapiv2.html"
       (fun oc ->
 	print_file_to oc ("doc/header.html");
-	output_string oc (Types.to_html Smapiv2.api);
+	let idents, api = resolve_refs_in_api Smapiv2.api in
+	output_string oc (Types.to_html idents api);
 	print_file_to oc ("doc/footer.html")
       );
   with_file "doc/xenops.html"
     (fun oc ->
 	print_file_to oc ("doc/header.html");
-	output_string oc (Types.to_html Xenops.api);
+	let idents, api = resolve_refs_in_api Xenops.api in
+	output_string oc (Types.to_html idents api);
 	print_file_to oc ("doc/footer.html")
     )
 

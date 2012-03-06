@@ -102,7 +102,7 @@ let api =
 	      ];
 	      outputs = [
 		{ Arg.name = "task";
-		  ty = Type.(Name "Task.id");
+		  ty = Type.(Name "id/Task");
 		  description = "A reference to an asynchronous task"
 		}
 	      ]
@@ -117,7 +117,7 @@ let api =
 	      ];
 	      outputs = [
 		{ Arg.name = "task";
-		  ty = Type.(Name "Task.id");
+		  ty = Type.(Name "id/Task");
 		  description = "A reference to an asynchronous task"
 		}
 	      ]
@@ -136,7 +136,7 @@ let api =
 	      ];
 	      outputs = [
 		{ Arg.name = "task";
-		  ty = Type.(Name "Task.id");
+		  ty = Type.(Name "id/Task");
 		  description = "A reference to an asynchronous task"
 		}
 	      ]
@@ -151,7 +151,7 @@ let api =
 	      ];
 	      outputs = [
 		{ Arg.name = "task";
-		  ty = Type.(Name "Task.id");
+		  ty = Type.(Name "id/Task");
 		  description = "A reference to an asynchronous task"
 		}
 	      ]
@@ -166,7 +166,7 @@ let api =
 	      ];
 	      outputs = [
 		{ Arg.name = "task";
-		  ty = Type.(Name "Task.id");
+		  ty = Type.(Name "id/Task");
 		  description = "A reference to an asynchronous task"
 		}
 	      ]
@@ -181,7 +181,7 @@ let api =
 	      ];
 	      outputs = [
 		{ Arg.name = "task";
-		  ty = Type.(Name "Task.id");
+		  ty = Type.(Name "id/Task");
 		  description = "A reference to an asynchronous task"
 		}
 	      ]
@@ -200,7 +200,7 @@ let api =
 	      ];
 	      outputs = [
 		{ Arg.name = "task";
-		  ty = Type.(Name "Task.id");
+		  ty = Type.(Name "id/Task");
 		  description = "A reference to an asynchronous task"
 		}
 	      ]
@@ -219,7 +219,7 @@ let api =
 	      ];
 	      outputs = [
 		{ Arg.name = "task";
-		  ty = Type.(Name "Task.id");
+		  ty = Type.(Name "id/Task");
 		  description = "A reference to an asynchronous task"
 		}
 	      ]
@@ -259,7 +259,7 @@ let api =
 	      ];
 	      outputs = [
 		{ Arg.name = "task";
-		  ty = Type.(Name "Task.id");
+		  ty = Type.(Name "id/Task");
 		  description = "A reference to an asynchronous task"
 		}
 	      ]
@@ -278,7 +278,7 @@ let api =
 	      ];
 	      outputs = [
 		{ Arg.name = "task";
-		  ty = Type.(Name "Task.id");
+		  ty = Type.(Name "id/Task");
 		  description = "A reference to an asynchronous task"
 		}
 	      ]
@@ -297,7 +297,7 @@ let api =
 	      ];
 	      outputs = [
 		{ Arg.name = "task";
-		  ty = Type.(Name "Task.id");
+		  ty = Type.(Name "id/Task");
 		  description = "A reference to an asynchronous task"
 		}
 	      ]
@@ -316,7 +316,7 @@ let api =
 	      ];
 	      outputs = [
 		{ Arg.name = "task";
-		  ty = Type.(Name "Task.id");
+		  ty = Type.(Name "id/Task");
 		  description = "A reference to an asynchronous task"
 		}
 	      ]
@@ -332,7 +332,7 @@ let api =
 	      ];
 	      outputs = [
 		{ Arg.name = "task";
-		  ty = Type.(Name "Task.id");
+		  ty = Type.(Name "id/Task");
 		  description = "A reference to an asynchronous task"
 		}
 	      ]
@@ -347,7 +347,7 @@ let api =
 	      ];
 	      outputs = [
 		{ Arg.name = "task";
-		  ty = Type.(Name "Task.id");
+		  ty = Type.(Name "id/Task");
 		  description = "A reference to an asynchronous task"
 		}
 	      ]
@@ -366,7 +366,7 @@ let api =
 	      ];
 	      outputs = [
 		{ Arg.name = "task";
-		  ty = Type.(Name "Task.id");
+		  ty = Type.(Name "id/Task");
 		  description = "A reference to an asynchronous task"
 		}
 	      ]
@@ -396,7 +396,7 @@ let api =
 	      ];
 	      outputs = [
 		{ Arg.name = "id";
-		  ty = Type.(Name "VM.id");
+		  ty = Type.(Name "id");
 		  description = "A reference to the registered VM."
 		}
 	      ]
@@ -668,7 +668,7 @@ let api =
 		 "carrier", Basic Boolean, "If true then signal that a carrier is present";
 		 "mtu", Basic Int64, "Maximum Transfer Unit (MTU)";
 		 "rate", Option(Name "rate"), "Optional QoS setting";
-		 "backend", Name "Network.t", "XXX";
+		 "backend", Name "t/Network", "XXX";
 		 "other_config", Dict(String, Basic String), "";
 		 "extra_private_keys", Dict(String, Basic String), ""
 		]));
@@ -689,10 +689,10 @@ let api =
 	    { TyDecl.name = "t";
 	      description = "A whole VM configuration (e.g. for export or import)";
 	      ty = Type.(Struct(
-		("vm", Name "Vm.t", ""),
-		["vbds", Array(Name "Vbd.t"), "";
-		 "vifs", Array(Name "Vif.t"), "";
-		 "pcis", Array(Name "Pci.t"), "";
+		("vm", Name "t/Vm", ""),
+		["vbds", Array(Name "t/Vbd"), "";
+		 "vifs", Array(Name "t/Vif"), "";
+		 "pcis", Array(Name "t/Pci"), "";
 		 "domains", Option (Basic String), "Opaque data describing per-domain state"]));
 	    }
 	  ];
@@ -756,23 +756,23 @@ let api =
 	    { TyDecl.name = "id";
 	      description = "A reference (or handle) to a specific object";
 	      ty = Type.(Variant(
-		("Vm", Name "Vm.id", "A VM reference"),
-		["Vbd", Name "Vbd.id", "A VBD reference";
-		 "Vif", Name "Vif.id", "A VIF reference";
-		 "Pci", Name "Pci.id", "A PCI reference";
-		 "Task", Name "Task.id", "A Task reference";
+		("Vm", Name "id/Vm", "A VM reference"),
+		["Vbd", Name "id/Vbd", "A VBD reference";
+		 "Vif", Name "id/Vif", "A VIF reference";
+		 "Pci", Name "id/Pci", "A PCI reference";
+		 "Task", Name "id/Task", "A Task reference";
 		 "Barrier", Basic Int64, "A barrier inserted into an event stream"
 		]));
 	    }; {
 	      TyDecl.name = "t";
 	      description = "A dynamically-typed event";
 	      ty = Type.(Variant(
-		("Vm_t", Pair(Name "Vm.id", Option (Pair (Name "Vm.t", Name "Vm.state"))), ""),
+		("Vm_t", Pair(Name "id/Vm", Option (Pair (Name "t/Vm", Name "state/Vm"))), ""),
 		[
-		  "Vbd_t", Pair(Name "Vbd.id", Option (Pair (Name "Vbd.t", Name "Vbd.state"))), "";
-		  "Vif_t", Pair(Name "Vif.id", Option (Pair (Name "Vif.t", Name "Vif.state"))), "";
-		  "Pci_t", Pair(Name "Pci.id", Option (Pair (Name "Pci.t", Name "Pci.state"))), "";
-		  "Task_t", Pair(Name "Task.id", Option (Name "Task.t")), ""
+		  "Vbd_t", Pair(Name "id/Vbd", Option (Pair (Name "t/Vbd", Name "state/Vbd"))), "";
+		  "Vif_t", Pair(Name "id/Vif", Option (Pair (Name "t/Vif", Name "state/Vif"))), "";
+		  "Pci_t", Pair(Name "id/Pci", Option (Pair (Name "t/Pci", Name "state/Pci"))), "";
+		  "Task_t", Pair(Name "id/Task", Option (Name "t/Task")), ""
 		]));
 	    }
 	  ];
