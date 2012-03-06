@@ -354,6 +354,7 @@ let to_html x =
       List.iter of_type_decl x.Interfaces.type_decls;
       List.iter
 	(fun i ->
+	  let env = List.map TyDecl.to_env i.Interface.type_decls @ env in
 	  h2 ~id:(Printf.sprintf "a-%s" i.Interface.name) i.Interface.name;
 	  p i.Interface.description;
 	  List.iter of_type_decl i.Interface.type_decls;
