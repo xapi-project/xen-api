@@ -189,6 +189,7 @@ end
 module Interfaces = struct
   type t = {
     name: string;
+    title: string;
     description: string;
     type_decls: TyDecl.t list;
     interfaces: Interface.t list;
@@ -516,7 +517,7 @@ let to_html env x =
 
       (* Main content *)
       Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "span10" ]));
-      h1 ~id:(Printf.sprintf "a-%s" x.Interfaces.name) x.Interfaces.name;
+      h1 ~id:(Printf.sprintf "a-%s" x.Interfaces.name) (Printf.sprintf "%s: %s" x.Interfaces.name x.Interfaces.title);
       p x.Interfaces.description;
       List.iter of_type_decl x.Interfaces.type_decls;
       List.iter
