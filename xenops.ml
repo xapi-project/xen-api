@@ -240,6 +240,71 @@ let api =
 	    }
 	  ];
 	  methods = [];
+	}; {
+	  Interface.name = "Vbd";
+	  description = "Virtual Block Device configuration";
+	  methods = [];
+	  type_decls = [
+	    { TyDecl.name = "mode";
+	      description = "Indicates whether this block device will be exposed read/only or read/write";
+	      ty = Type.(Variant(
+		("ReadOnly", Unit, "Expose as read/only"),
+		["ReadWrite", Unit, "Expose as read/write"]));
+	    }; {
+	      TyDecl.name = "ty";
+	      description = "Indicates whether this block device will be exposed as a fixed disk or removable CDROM";
+	      ty = Type.(Variant(
+		("CDROM", Unit, "Expose as a removable CDROM"),
+		["Disk", Unit, "Expose as a fixed disk"]))
+	    }; {
+	      TyDecl.name = "id";
+	      description = "A reference (or handle) to this VBD configuration";
+	      ty = Type.(Array(Basic String));
+	    }; {
+	      TyDecl.name = "qos_class";
+	      description = "Disk QoS scheduling class";
+	      ty = Type.(Variant(
+		("Highest", Unit, ""),
+		["High", Unit, "";
+		 "Normal", Unit, "";
+		 "Low", Unit, "";
+		 "Lowest", Unit, "";
+		 "Other", Basic Int64, ""]));
+	    }; {
+	      TyDecl.name = "qos_scheduler";
+	      description = "Choice of Disk QoS scheduler";
+	      ty = Type.(Variant(
+		("RealTime", Name "qos_class", ""),
+		["Idle", Unit, "";
+		 "BestEffort", Name "qos_class", ""]));
+	    }; {
+	      TyDecl.name = "qos";
+	      description = "VBD QoS configuration";
+	      ty = Type.(Variant(
+		("Ionice", Name "qos_scheduler", ""), []));
+	    }; {
+	      TyDecl.name = "t";
+	      description = "VBD configuration";
+	      ty = Type.(Struct(
+		("id", Name "id", "Unique ID for this VBD configuration"),
+		["position", Option (Basic Int64), "Position this disk should be exposed at on the VM's disk controller";
+		 "mode", Name "mode", "Read/write or Read/only";
+		 "backend", Option (Name "disk"), "Actual disk contents (None means empty)";
+		 "ty", Name "ty", "Fixed disk or removable CDROM";
+		 "unpluggable", Basic Boolean, "If true then the device can be hot-unplugged from the VM";
+		 "extra_backend_keys", Dict(String, Basic String), "Key/value pairs to be written to the disk backend in xenstore";
+		 "extra_private_keys", Dict(String, Basic String), "Key/value pairs to be written to the per-disk private directory in xenstore";
+		 "qos", Option(Name "qos"), "Optional QoS configuration"
+		]));
+	    }; {
+	      TyDecl.name = "state";
+	      description = "Run-time state of the VBD";
+	      ty = Type.(Struct(
+		("id", Name "id", "Unique ID for the corresponding VBD"),
+		["qos_target", Option(Name "qos"), "Disk QoS parameters in effect (if any)";
+		 "media_present", Basic Boolean, "If true then media is present in this drive"]))
+	    }
+	  ]
 	}
       ]
   }
