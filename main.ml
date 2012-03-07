@@ -129,6 +129,7 @@ let _ =
   let apis = [
     Smapiv2.api;
     Xenops.api;
+    Memory.api;
   ] in
   let pages = List.map page_of_api apis in
 
