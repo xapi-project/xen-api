@@ -142,6 +142,19 @@ as a xenbr0 interface will be setup automatically, and your eth0 will *not*
 be automatically set in the forwarding state (eg: it will stay disabled, which
 means no connectivity).
 
+If you intend to run XCP using Open vSwitch (that is, if your
+/etc/xcp/network.conf contains "openvswitch" and not "bridge), then you should
+tell XCP about your network configuration:
+
+PIF_UUID=`xe pif-list device=eth0`
+xe pif-reconfigure-ip uuid=$PIF_UUID mode=static \
+	IP=1.2.3.4 netmask=255.255.255.0 gateway=1.2.3.1
+
+Note that it will survive reboots. If you use dhcp, then simply use:
+
+PIF_UUID=`xe pif-list device=eth0`
+xe pif-reconfigure-ip uuid=$PIF_UUID mode=dhcp
+
 4.3/ Set Xen as default in GRUB
 cd /etc/grub.d
 mv 10_linux 25_linux
