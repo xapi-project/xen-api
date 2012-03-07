@@ -52,6 +52,13 @@ case "${1}" in
 start)
 	log_daemon_msg "Starting ${DESC}" ${NAME}
 
+	if [ -e ${SUBSYS_FILE} ]; then
+		if [ -e ${PIDFILE} -a -e /proc/`cat ${PIDFILE}` ] ; then
+			log_failure_msg "${NAME} is already running."
+			exit 1
+		fi
+	fi
+
 	# Make sure network.conf exists
 	if [ ! -e /etc/xcp/network.conf ]; then
 		echo "bridge" > /etc/xcp/network.conf
@@ -79,12 +86,6 @@ start)
 
 	fi # openvswitch
 
-	if [ -e ${SUBSYS_FILE} ]; then
-		if [ -e ${PIDFILE} -a -e /proc/`cat ${PIDFILE}` ] ; then
-			log_failure_msg "${NAME} is already running."
-			exit 1
-		fi
-	fi
 	start-stop-daemon --start --quiet --pidfile ${PIDFILE} --exec ${DAEMON} -- ${DAEMON_ARGS}
 	RET=$?
 	log_end_msg ${RET}
