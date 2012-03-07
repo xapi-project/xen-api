@@ -575,6 +575,11 @@ module Bridge = struct
 		| Openvswitch -> Ovs.bridge_to_ports name
 		| Bridge -> []
 
+	let get_all_ports _ () =
+		match !kind with
+		| Openvswitch -> List.concat (List.map Ovs.bridge_to_ports (Ovs.list_bridges ()))
+		| Bridge -> []
+
 	let get_vlan _ ~name =
 		match !kind with
 		| Openvswitch -> Some (Ovs.bridge_to_vlan name)
