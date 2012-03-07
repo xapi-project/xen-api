@@ -4,7 +4,7 @@ let api =
   {
     Interfaces.name = "memory";
     title = "Memory manager";
-    description = "The memory management service (also known as \"squeezed\") shares host memory among running VMs via their balloon drivers.";
+    description = "The memory management service (also known as \"squeezed\") shares host memory among running VMs via their balloon drivers. Each VM has an associated memory range (minimum and maximum amount of allocated memory) and the manager attempts to share the host memory fairly.";
     exn_decls = [
     ];
     type_decls = [
