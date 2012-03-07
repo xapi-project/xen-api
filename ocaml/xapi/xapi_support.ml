@@ -31,7 +31,7 @@ let do_upload label file url options =
 
 	match with_logfile_fd label
 		(fun log_fd ->
-			let upload_wrapper = Xapi_globs.base_path ^ "/libexec/upload-wrapper" in
+			let upload_wrapper = Filename.concat Fhs.libexecdir "upload-wrapper" in
 			let pid = safe_close_and_exec None (Some log_fd) (Some log_fd) [] upload_wrapper [file; url; proxy] in
 			waitpid_fail_if_bad_exit pid) with
 			| Success _ -> debug "Upload succeeded"

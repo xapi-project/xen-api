@@ -1,5 +1,5 @@
-OCAMLINCLUDES    = ../xapi ../util
-OCAML_LIBS       = ../util/stats
+OCAMLINCLUDES    = ../xapi ../util ..
+OCAML_LIBS       = ../util/stats ../fhs
 OCAML_CLIBS     += $(XEN_OCAML_CLIBS)
 # XXX: these should all be specified in the ocamlfind META file:
 XENLIGHT_LINK_FLAGS= -cclib -lxlutil -cclib -luuid -cclib -lblktapctl -cclib -lutil -cclib -lxenlight -cclib -lxenstore
@@ -66,14 +66,15 @@ allxenops: $(DEBUG_PROGS) $(BIN_PROGS) $(OTHER_PROGS)
 
 .PHONY: install
 install:
-	mkdir -p $(DEBUGDIST)
-	cp -f $(DEBUG_PROGS) $(DEBUGDIST)
-	sh -c 'for i in $(SYMLINK_PROGS); do ln -nfs xenops $(DEBUGDIST)/$$i; done'
-	mkdir -p $(BIN_PATH)
-	$(IPROG) $(BIN_PROGS) $(BIN_PATH)
-	mkdir -p $(LIBEXEC)
-	$(IPROG) fence $(LIBEXEC)/fence.bin
-	$(IPROG) squeezed $(LIBEXEC)/squeezed
+	mkdir -p $(DESTDIR)$(OPTDIR)/debug
+	cp -f $(DEBUG_PROGS) $(DESTDIR)$(OPTDIR)/debug
+	sh -c 'for i in $(SYMLINK_PROGS); do ln -nfs xenops $(DESTDIR)$(OPTDIR)/debug/$$i; done'
+	mkdir -p $(DESTDIR)$(BINDIR)
+	$(IPROG) $(BIN_PROGS) $(DESTDIR)$(BINDIR)
+	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) fence $(DESTDIR)$(LIBEXECDIR)/fence.bin
+	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) squeezed $(DESTDIR)$(LIBEXECDIR)
 
 .PHONY: sdk-install
 sdk-install: install

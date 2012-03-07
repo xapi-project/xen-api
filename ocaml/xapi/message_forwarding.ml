@@ -2685,7 +2685,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					let start_time = Unix.gettimeofday () in
 					let progress = ref 0.0 in
 					while !progress = 0.0 do
-						if Unix.gettimeofday () -. start_time < !Xapi_globs.pif_reconfigure_ip_timeout then
+						if Unix.gettimeofday () -. start_time > !Xapi_globs.pif_reconfigure_ip_timeout then
 							failwith "Failed to see host on network after timeout expired";
 						Thread.delay 1.0;
 						progress := Db.Task.get_progress ~__context ~self:task_id;

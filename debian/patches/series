@@ -1,4 +1,3 @@
-0001-fhs.patch
 0002-dont-build-xiu.patch
 0003-no-runstate-info.patch
 0004-no-max_nr_vcpus.patch
@@ -8,7 +7,6 @@
 0008-install-locations.patch
 0009-fix-xenapi-py.patch
 0010-fix-base-path-script.patch
-0011-debian-base-path.patch
 0012-debian-qemu-location.patch
 0013-dom0-memory.patch
 0014-interface-reconfigure.patch
@@ -18,18 +16,20 @@
 0018-pam.patch
 0019-python-XenAPI-install-path.patch
 0020-xapissl-script-install.patch
-0021-vif-hot-unplug.patch
 0022-new-ocaml-layout.patch
 0023-dont-statically-link-anything.patch
 0024-remove-calls-to-xenlight.patch
 0025-log-filenames.patch
 0026-fix-permissions.patch
 0028-iface-reconf-needs-env-python.patch
-0029-fix-with-vdi.patch
 0030-xe-install-to-usr-bin.patch
 0031-Correct-some-english-typoes.patch
 
 no-web
 default-management-interface
 fixes-an-English-typo
-xapi-version-override
+xe-mount-iso-sr-paths
+networkd-brctl-path
+xe-toolstack-restart-paths
+fix-xenapi-py
+fix-vif-script

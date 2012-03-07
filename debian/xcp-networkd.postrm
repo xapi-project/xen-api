@@ -1,0 +1,12 @@
+#!/bin/sh
+
+set -e
+
+# Remove configuration if package is being purged
+if [ "$1" = "purge" ]; then
+	rm -f /etc/xcp/network.conf
+fi
+
+#DEBHELPER#
+
+exit 0

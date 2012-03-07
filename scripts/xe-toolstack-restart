@@ -12,23 +12,25 @@
 # GNU Lesser General Public License for more details.
 #
 
-POOLCONF=`cat /etc/xensource/pool.conf`
+POOLCONF=`cat @ETCDIR@/pool.conf`
 
 service xapi stop
 service v6d stop
 service squeezed stop
 service perfmon stop
+[ -e /tmp/do-not-use-networkd ] || service xcp-networkd stop
 service fe stop
 if [ $POOLCONF == "master" ]; then
-	/etc/xensource/master.d/03-mpathalert-daemon stop;
+	@ETCDIR@/master.d/03-mpathalert-daemon stop;
 fi
 
 set -e
 
 if [ $POOLCONF == "master" ]; then
-	/etc/xensource/master.d/03-mpathalert-daemon start;
+	@ETCDIR@/master.d/03-mpathalert-daemon start;
 fi
 service fe start
+[ -e /tmp/do-not-use-networkd ] || service xcp-networkd start
 service perfmon start
 service squeezed start
 service v6d start

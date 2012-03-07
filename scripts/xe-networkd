@@ -1,0 +1,26 @@
+#!/bin/bash
+
+if [ $# -ne 1 ] ; then
+	echo "Need 'on' or 'off'..."
+	exit 1
+fi
+
+TMP_FILE=/tmp/do-not-use-networkd
+
+case $1 in
+	on)
+		chkconfig --add xcp-networkd
+		chkconfig --del management-interface
+		[ -e $TMP_FILE ] && rm $TMP_FILE
+		;;
+	off)
+		chkconfig --add management-interface
+		chkconfig --del xcp-networkd
+		touch $TMP_FILE
+		;;
+	*)
+		echo "Expected 'on' or 'off'"
+		exit 1
+		;;
+esac
+

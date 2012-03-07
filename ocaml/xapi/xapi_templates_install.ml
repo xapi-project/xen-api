@@ -25,7 +25,7 @@ module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
 let allowed_dom0_directory_for_provision_scripts =
-  Xapi_globs.base_path ^ "/packages/post-install-scripts/"
+  Filename.concat Fhs.sharedir "packages/post-install-scripts/"
 
 let is_whitelisted script =
   let safe_char = function 'a'..'z'-> true |'-'->true |'/'->true |_ -> false in

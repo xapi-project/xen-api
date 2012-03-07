@@ -42,7 +42,7 @@ let daemon_init post_daemonize_hook process =
 	post_daemonize_hook ();
 	
 	(* unix socket *)
-	let unix_socket_path = "/var/xapi/v6" in
+	let unix_socket_path = Filename.concat Fhs.vardir "v6" in
 	Unixext.mkdir_safe (Filename.dirname unix_socket_path) 0o700;
 	Unixext.unlink_safe unix_socket_path;
 	let domain_sock = Http_svr.bind (Unix.ADDR_UNIX(unix_socket_path)) "unix_rpc" in

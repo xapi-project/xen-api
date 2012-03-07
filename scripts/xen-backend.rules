@@ -1,7 +1,7 @@
-SUBSYSTEM=="xen-backend", KERNEL=="tap*", RUN+="/etc/xensource/scripts/tap $env{ACTION}"
-SUBSYSTEM=="xen-backend", KERNEL=="vbd*", RUN+="/etc/xensource/scripts/block $env{ACTION}"
+SUBSYSTEM=="xen-backend", KERNEL=="tap*", RUN+="@SCRIPTSDIR@/tap $env{ACTION}"
+SUBSYSTEM=="xen-backend", KERNEL=="vbd*", RUN+="@SCRIPTSDIR@/block $env{ACTION}"
 
-SUBSYSTEM=="xen-backend", KERNEL=="vif*", RUN+="/etc/xensource/scripts/vif $env{ACTION} vif"
-SUBSYSTEM=="net",         KERNEL=="tap*", RUN+="/etc/xensource/scripts/vif $env{ACTION} tap"
+SUBSYSTEM=="xen-backend", KERNEL=="vif*", RUN+="@SCRIPTSDIR@/vif $env{ACTION} vif"
+SUBSYSTEM=="net",         KERNEL=="tap*", RUN+="@SCRIPTSDIR@/vif $env{ACTION} tap"
 
 KERNEL=="evtchn", NAME="xen/%k"

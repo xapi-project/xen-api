@@ -380,7 +380,7 @@ let destroy ?(preserve_xs_vm=false) ~xc ~xs domid =
 	      warn "Xenctrl.domain_getinfo %d threw unexpected error: %s -- assuming domain nolonger exists" domid (Printexc.to_string e);
 	      raise e in
 	let start = Unix.gettimeofday () in
-	let timeout = 30. in
+	let timeout = 60. in
 	while still_exists () && (Unix.gettimeofday () -. start < timeout) do
 	  Thread.delay 5.
 	done;

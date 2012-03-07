@@ -1,6 +1,6 @@
 #!/bin/sh
 
-function usage()
+function usage
 {
   echo
   echo Usage:
@@ -31,7 +31,7 @@ if [ -n "$COMMAND" ]; then
   fi
 fi
 
-. /etc/xensource-inventory
+. @INVENTORY@
 
 if [ `xe vdi-param-get uuid=${VDI} param-name=read-only` = "true" ] ; then 
     MODE=RO

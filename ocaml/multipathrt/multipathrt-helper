@@ -16,8 +16,8 @@ dmsetup = "/sbin/dmsetup"
 iptables = "/sbin/iptables"
 dd = "/bin/dd"
 scli = "/usr/local/bin/scli"
-list_domains = "@BASE_PATH@/bin/list_domains"
-xs = "@BASE_PATH@/debug/xs"
+list_domains = "@OPTDIR@/bin/list_domains"
+xs = "@OPTDIR@/debug/xs"
 
 def doexec(args, inputtext=None):
     """Execute a subprocess, then return its return code, stdout and stderr"""

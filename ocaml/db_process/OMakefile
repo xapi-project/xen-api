@@ -1,4 +1,4 @@
-OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client ../util/stats ../idl/ocaml_backend/server
+OCAML_LIBS    = ../fhs ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client ../util/stats ../idl/ocaml_backend/server
 OCAMLINCLUDES = ../idl/ocaml_backend ../xapi ../database
 OCAMLPACKS    =  xml-light2 uuid sexpr log stunnel http-svr
 
@@ -7,8 +7,8 @@ OCamlProgram(xapi-db-process, xapi_db_process)
 
 .PHONY: install
 install:
-	mkdir -p $(BIN_PATH)
-	cp -f xapi-db-process $(BIN_PATH)
+	mkdir -p $(DESTDIR)$(OPTDIR)/bin
+	cp -f xapi-db-process $(DESTDIR)$(OPTDIR)/bin
 
 .PHONY: sdk-install
 sdk-install: install

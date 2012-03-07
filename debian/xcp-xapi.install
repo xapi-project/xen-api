@@ -61,8 +61,12 @@
 /usr/lib/xcp/lib/xha-lc
 /usr/lib/xcp/lib/pygrub.xcp
 /usr/lib/xcp/scripts
-/etc/logrotate.d
+/etc/logrotate.d/audit
+/etc/logrotate.d/xapi
+/etc/logrotate.d/v6d
+/etc/logrotate.d/squeezed
 /etc/pam.d
 /etc/xcp
 /lib
 /usr/lib/xcp/lib/xapissl
+/usr/lib/xcp/bin/xe-networkd

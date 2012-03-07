@@ -1,0 +1,13 @@
+Index: xen-api/scripts/vif
+===================================================================
+--- xen-api.orig/scripts/vif	2012-02-14 13:19:50.536981455 +0000
++++ xen-api/scripts/vif	2012-02-14 13:20:00.568981406 +0000
+@@ -255,7 +255,7 @@
+     fi
+     ;;
+ 
+-remove)
++remove|offline)
+     if [ "${TYPE}" = "vif" ] ;then
+         call_hook_script $DOMID "${ACTION}"
+ 		# Unclear whether this is necessary, since netback also does it:

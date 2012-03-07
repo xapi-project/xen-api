@@ -3,7 +3,7 @@
 # Copyright (c) Citrix Systems 2008. All rights reserved.
 #
 
-# Usage: ssh root@<host> @BASE_PATH@/libexec/interface-visualise > <host>-network.dot
+# Usage: ssh root@<host> @LIBEXECDIR@/interface-visualise > <host>-network.dot
 #        dotty <host>-network.dot
 
 echo "digraph G {"

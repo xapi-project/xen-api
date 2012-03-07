@@ -44,6 +44,9 @@ dom0 kernel (with of course a 32 bits userland OS), and a 64 bits hypervisor
 (yes, the amd64 version of the hypervisor is also installable if you install a
 32 bits Debian).
 
+Also, make sure you install the 686-bigmem (otherwised called as -pae in SID),
+if you want your dom0 to be able to run on more than 1GB.
+
 2/ Upgrade to SID or testing
 ----------------------------
 XCP is currently only in SID (not even in Wheezy yet as of writing, but it
@@ -132,6 +135,26 @@ iface eth0 inet manual
 iface xenbr0 inet dhcp
         bridge_ports eth0
 
+Note that if you are using openvswitch together with XCP, and the xcp-networkd
+daemon, it is overly important that you do setup your xenbr0 as per above,
+because otherwise, you will loose all network connectivity on next reboot,
+as a xenbr0 interface will be setup automatically, and your eth0 will *not*
+be automatically set in the forwarding state (eg: it will stay disabled, which
+means no connectivity).
+
+If you intend to run XCP using Open vSwitch (that is, if your
+/etc/xcp/network.conf contains "openvswitch" and not "bridge), then you should
+tell XCP about your network configuration:
+
+PIF_UUID=`xe pif-list device=eth0`
+xe pif-reconfigure-ip uuid=$PIF_UUID mode=static \
+	IP=1.2.3.4 netmask=255.255.255.0 gateway=1.2.3.1
+
+Note that it will survive reboots. If you use dhcp, then simply use:
+
+PIF_UUID=`xe pif-list device=eth0`
+xe pif-reconfigure-ip uuid=$PIF_UUID mode=dhcp
+
 4.3/ Set Xen as default in GRUB
 cd /etc/grub.d
 mv 10_linux 25_linux
@@ -197,6 +220,13 @@ and see the list of available iso images. Note that there's some sort of
 caching, so it may take few seconds until "xe cd-list" shows the iso that you
 may have dropped in this share.
 
+Note that neither smbfs nor nfs-common are hard dependencies, so you may
+need to apt-get install these packages manually:
+
+apt-get install smbfs
+or
+apt-get install nfs-common
+
 6/ Using XCP: let the fun begins
 --------------------------------
 6.1/ Choosing a template
@@ -239,6 +269,15 @@ Before you start it, you can set it's memory to 1GB:
 xe vm-memory-limits-set static-min=1024MiB static-max=1024MiB \
    dynamic-min=1024MiB dynamic-max=1024MiB \
    vm=$vm
+
+If you want to resize the HDD of a VM, you should first get the UUID
+of it's VDI:
+
+xe vm-disk-list vm=$vm
+
+Then resize its VDI:
+
+xe vdi-resize uuid=<UUID-OF-THE-VDI> disk-size=10GiB
 
 6.3/ Cloning the newly created VM
 Since we've done quite some work, it could be possible to clone our virtual

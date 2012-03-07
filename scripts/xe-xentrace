@@ -30,14 +30,14 @@ done
 
 SIZE=$((${SIZE_GB} * 1024 * 1024 * 1024))
 
-if [ ! -e /etc/xensource-inventory ]; then
+if [ ! -e @INVENTORY@ ]; then
   echo Must run on a XenServer host.
   exit 1
 fi
 
-. /etc/xensource-inventory
+. @INVENTORY@
 
-XE="@BASE_PATH@/bin/xe"
+XE="@BINDIR@/xe"
 
 crashdump_sr=$(${XE} host-list params=crash-dump-sr-uuid --minimal uuid=${INSTALLATION_UUID})
 

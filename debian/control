@@ -3,7 +3,7 @@ Section: admin
 Priority: extra
 Maintainer: Pkg Xen <pkg-xen-devel@lists.alioth.debian.org>
 Uploaders: Jon Ludlam <jonathan.ludlam@eu.citrix.com>, Thomas Goirand <zigo@debian.org>, Mike McClurg <mike.mcclurg@citrix.com>
-Build-Depends: debhelper (>= 8.0.0), dh-autoreconf, dh-ocaml, ocaml-native-compilers, ocaml-findlib, camlp4, camlp4-extra, autotools-dev, libtype-conv-camlp4-dev, libxmlm-ocaml-dev, uuid-dev, libxcp-ocaml, libxcp-ocaml-dev, omake, libxen-ocaml-dev, libxen-ocaml, libpam-dev, zlib1g-dev, xen-utils, libxen-dev, libounit-ocaml-dev, python-all (>= 2.6.6-3~)
+Build-Depends: debhelper (>= 8.0.0), dh-autoreconf, dh-ocaml, ocaml-native-compilers, ocaml-findlib, camlp4, camlp4-extra, autotools-dev, libtype-conv-camlp4-dev, libxmlm-ocaml-dev, uuid-dev, libxcp-ocaml, libxcp-ocaml-dev, omake, libxen-ocaml-dev, libxen-ocaml, libpam-dev, zlib1g-dev, xen-utils, libxen-dev, libounit-ocaml-dev, python-all (>= 2.6.6-3~), po-debconf
 Standards-Version: 3.9.2
 Homepage: http://www.xen.org/XCP/
 Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-xen/xen-api.git
@@ -11,7 +11,7 @@ Vcs-Git: http://anonscm.debian.org/git/pkg-xen/xen-api.git
 
 Package: xcp-xapi
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}, python-xenapi (= ${source:Version}), xcp-squeezed, xcp-v6d, xcp-fe, xcp-storage-managers, xen-hypervisor-4.1-amd64 | xen-hypervisor-4.1-i386 | xen-hypervisor-4.1, xen-utils-4.1, stunnel, hwdata, xcp-eliloader, xcp-xe
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}, lsb-base, debconf, python-xenapi (= ${source:Version}), xcp-squeezed, xcp-v6d, xcp-fe, xcp-storage-managers, xen-hypervisor-4.1-amd64 | xen-hypervisor-4.1-i386 | xen-hypervisor-4.1, xen-utils-4.1, stunnel, hwdata, xcp-eliloader, xcp-xe, xcp-networkd
 Recommends: xcp-vncterm, xcp-guest-templates, smbfs
 Provides: xcp
 Description: XCP XenAPI server
@@ -62,7 +62,7 @@ Description: XCP XenAPI Python libraries
 
 Package: xcp-squeezed
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, xen-hypervisor-4.1-amd64 | xen-hypervisor-4.1-i386 | xen-hypervisor-4.1, xen-utils-common
+Depends: ${shlibs:Depends}, ${misc:Depends}, lsb-base, xen-hypervisor-4.1-amd64 | xen-hypervisor-4.1-i386 | xen-hypervisor-4.1, xen-utils-common
 Description: daemon in charge of memory ballooning for xen domains
  The Xen Cloud Platform (XCP) is an open source enterprise-ready server
  virtualization and cloud computing platform, with support for a range of
@@ -86,7 +86,7 @@ Description: daemon in charge of memory ballooning for xen domains
 
 Package: xcp-v6d
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, lsb-base
 Description: feature daemon for xcp-xapi
  The Xen Cloud Platform (XCP) is an open source enterprise-ready server
  virtualization and cloud computing platform, with support for a range of
@@ -180,3 +180,28 @@ Description: command line utility for managing XCP hosts
  xcp-xe provides the xe utility, the command line interface for XCP systems.
  This tool may be used to control a Debian XCP system from dom0, or it may be
  used from a non-Xen system to control another XCP or Citrix XenServer system.
+
+Package: xcp-networkd
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, lsb-base, ethtool, bridge-utils, iproute, isc-dhcp-client, procps, openvswitch-switch, module-init-tools, openvswitch-datapath-dkms
+Description: daemon to manage network configuration for xcp-xapi
+ The Xen Cloud Platform (XCP) is an open source enterprise-ready server
+ virtualization and cloud computing platform, with support for a range of
+ guest operating systems, Linux network and storage support.
+ .
+ XCP addresses the needs of cloud providers, hosting services and data centers
+ by combining the isolation and multitenancy capabilities of the Xen hypervisor
+ with enhanced security, storage and network virtualization technologies to
+ offer a rich set of virtual infrastructure cloud services. The platform
+ also address user requirements for security, availability, performance and
+ isolation across both private and public clouds.
+ .
+ XCP consolidates server workloads, enables savings in power, cooling, and
+ management costs and thus contributing to environmentally sustainable
+ computing, an increased ability to adapt to ever-changing IT environments,
+ an optimized use of existing hardware, and an improved level of IT
+ reliability.
+ .
+ xcp-networkd provides a network configuration daemon for xcp-xapi, which
+ handles the configuration of network interfaces and network bridges (either
+ Linux or Open vSwitch) for xcp-xapi.

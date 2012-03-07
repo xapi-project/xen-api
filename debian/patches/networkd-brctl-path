@@ -1,0 +1,13 @@
+Description: Fixes the path to the brctl
+Forwarded: not-needed
+--- xen-api.orig/ocaml/network/network_utils.ml	2012-01-12 21:11:57.840928641 +0000
++++ xen-api/ocaml/network/network_utils.ml	2012-01-12 21:12:20.472929178 +0000
+@@ -30,7 +30,7 @@
+ let ovs_vsctl = "/usr/bin/ovs-vsctl"
+ let ovs_ofctl = "/usr/bin/ovs-ofctl"
+ let ovs_vlan_bug_workaround = "/usr/sbin/ovs-vlan-bug-workaround"
+-let brctl = "/usr/sbin/brctl"
++let brctl = "/sbin/brctl"
+ let modprobe = "/sbin/modprobe"
+ let ethtool = "/sbin/ethtool"
+ 

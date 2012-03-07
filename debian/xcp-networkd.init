@@ -1,0 +1,117 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          xcp-networkd
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Should-Start:      openvswitch-switch
+# Short-Description: XCP networking daemon
+# Description:       xcp-networkd provides a network configuration daemon
+#                    for xcp-xapi, which handles the configuration of
+#                    network interfaces and network bridges (either
+#                    linux or Open vSwitch) for xcp-xapi.
+### END INIT INFO
+
+# Do NOT "set -e"
+
+# PATH should only include /usr/* if it runs after the mountnfs.sh script
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+NAME=xcp-networkd
+PIDFILE=/var/run/$NAME.pid
+DESC="XCP networking daemon"
+DAEMON=/usr/lib/xcp/lib/$NAME
+DAEMON_ARGS="-daemon -pidfile ${PIDFILE}"
+SCRIPTNAME=/etc/init.d/$NAME
+COOKIE=/var/run/xcp-networkd.cookie
+
+# Exit if the package is removed by not purged
+if ! [ -x "${DAEMON}" ] ; then
+	exit 0
+fi
+
+# Exit if we aren't running on Xen
+grep hypervisor /proc/cpuinfo > /dev/null || exit 0
+
+# Read configuration variable file if it is present
+if [ -r /etc/default/${NAME} ] ; then
+	. /etc/default/${NAME}
+fi
+
+# Load the VERBOSE setting and other rcS variables
+. /lib/init/vars.sh
+
+# Define LSB log_* functions.
+# Depend on lsb-base (>= 3.2-14) to ensure that this file is present
+# and status_of_proc is working.
+. /lib/lsb/init-functions
+
+# lock file
+SUBSYS_FILE="/var/run/lock/xcp-networkd"
+
+case "${1}" in
+start)
+	log_daemon_msg "Starting ${DESC}" ${NAME}
+
+	if [ -e ${SUBSYS_FILE} ]; then
+		if [ -e ${PIDFILE} -a -e /proc/`cat ${PIDFILE}` ] ; then
+			log_failure_msg "${NAME} is already running."
+			exit 1
+		fi
+	fi
+
+	# Make sure network.conf exists
+	if [ ! -e /etc/xcp/network.conf ]; then
+		echo "bridge" > /etc/xcp/network.conf
+	fi
+
+	# To run if we are in openvswitch mode
+	if [ `cat /etc/xcp/network.conf` = "openvswitch" ]; then
+
+		# Fail if openvswitch_mod is not loaded
+		if [ `lsmod | grep openvswitch_mod > /dev/null` ]; then
+			log_failure_msg "cannot start xcp-networkd: openvswitch_mod not loaded."
+			exit 1
+		fi
+
+		# Copied from the XenServer openvswitch init script.
+		# xcp-networkd gets confused if it sees the bridges already
+		# present and decides that nothing needs to be done, thus
+		# it doesn't bring up eth0 & co.
+		if [ ! -e /var/run/xcp-networkd.booted ]; then
+			touch /var/run/xcp-networkd.booted
+			for bridge in $(/usr/bin/ovs-vsctl list-br); do
+				/usr/bin/ovs-vsctl --no-wait --timeout=5 del-br $bridge
+			done
+		fi
+
+	fi # openvswitch
+
+	start-stop-daemon --start --quiet --pidfile ${PIDFILE} --exec ${DAEMON} -- ${DAEMON_ARGS}
+	RET=$?
+	log_end_msg ${RET}
+	exit ${RET}
+;;
+stop)
+	log_daemon_msg "Stopping ${DESC}" ${NAME}
+	start-stop-daemon --stop --retry=TERM/30/KILL/5 --pidfile ${PIDFILE}
+	RET=$?
+	log_end_msg ${RET}
+	exit ${RET}
+;;
+restart|force-reload)
+	${0} stop
+	sleep 1
+	${0} start
+;;
+status)
+	status_of_proc "${DAEMON}" "${NAME}"
+	exit $?
+;;
+*)
+	echo "Usage: ${0} {start|stop|restart|force-reload|status}"
+	exit 1
+;;
+esac
+
+exit 0

@@ -2242,7 +2242,9 @@ let console fd printer rpc session_id params =
 	let l = Client.Console.get_location rpc session_id c in
 	let uri = Printf.sprintf "%s&session_id=%s" l (Ref.string_of session_id) in
 	marshal fd (Command (HttpConnect uri));
-	match unmarshal fd with
+	let response = ref (Response Wait) in
+	while !response = Response Wait do response := unmarshal fd done;
+	match !response with
 		| Response OK -> ()
 		| _ ->
 			failwith "Failure"
@@ -2783,8 +2785,10 @@ let wait_for_task_complete rpc session_id task_id =
 
 let download_file ~__context rpc session_id task fd filename uri label =
 	marshal fd (Command (HttpGet (filename, uri)));
+	let response = ref (Response Wait) in
+	while !response = Response Wait do response := unmarshal fd done;
 	let ok =
-		match unmarshal fd with
+		match !response with
 			| Response OK -> true
 			| Response Failed ->
 				(* Need to check whether the thin cli managed to contact the server
@@ -3077,7 +3081,9 @@ let blob_get fd printer rpc session_id params =
 	finally
 		(fun () ->
 			marshal fd (Command (HttpGet (filename, bloburi)));
-			let ok = match unmarshal fd with
+			let response = ref (Response Wait) in
+			while !response = Response Wait do response := unmarshal fd done;
+			let ok = match !response with
 				| Response OK -> true
 				| Response Failed ->
 					if Client.Task.get_progress rpc session_id blobtask < 0.0
@@ -3123,7 +3129,9 @@ let blob_put fd printer rpc session_id params =
 	finally
 		(fun () ->
 			marshal fd (Command (HttpPut (filename, bloburi)));
-			let ok = match unmarshal fd with
+			let response = ref (Response Wait) in
+			while !response = Response Wait do response := unmarshal fd done;
+			let ok = match !response with
 				| Response OK -> true
 				| Response Failed ->
 					if Client.Task.get_progress rpc session_id blobtask < 0.0

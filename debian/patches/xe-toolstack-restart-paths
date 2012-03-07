@@ -1,0 +1,38 @@
+Description: changes names of services to start / stop in the scripts/xe-toolstack-restart to match what we have in Debian.
+Forwarded: not-needed
+--- xen-api.orig/scripts/xe-toolstack-restart	2012-01-13 09:31:02.845982567 +0000
++++ xen-api/scripts/xe-toolstack-restart	2012-01-13 09:33:01.085985372 +0000
+@@ -14,25 +14,17 @@
+ 
+ POOLCONF=`cat @ETCDIR@/pool.conf`
+ 
+-service xapi stop
+-service v6d stop
+-service squeezed stop
+-service perfmon stop
++service xcp-xapi stop
++service xcp-v6d stop
++service xcp-squeezed stop
+ [ -e /tmp/do-not-use-networkd ] || service xcp-networkd stop
+-service fe stop
+-if [ $POOLCONF == "master" ]; then
+-	@ETCDIR@/master.d/03-mpathalert-daemon stop;
+-fi
++service xcp-fe stop
+ 
+ set -e
+ 
+-if [ $POOLCONF == "master" ]; then
+-	@ETCDIR@/master.d/03-mpathalert-daemon start;
+-fi
+-service fe start
++service xcp-fe start
+ [ -e /tmp/do-not-use-networkd ] || service xcp-networkd start
+-service perfmon start
+-service squeezed start
+-service v6d start
+-service xapi start
++service xcp-squeezed start
++service xcp-v6d start
++service xcp-xapi start
+ echo "done."

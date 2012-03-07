@@ -41,6 +41,9 @@ LDFLAGS+=-static
 if $(not $(defined-env XEN_ROOT))
   XEN_ROOT =
   export
+if $(not $(defined-env DESTDIR))
+  DESTDIR = 
+  export
 
 XEN_CFLAGS=-I$(XEN_ROOT)/usr/include
 XEN_OCAML_LINK_FLAGS=-cclib -L$(XEN_ROOT)/usr/$(LIBDIR)
@@ -48,14 +51,6 @@ XEN_OCAML_CLIBS=
 
 # For the Zurich chroot environment
 CFLAGS+=-I$(shell ocamlc -where)
-
-DESTDIR=$(getenv DESTDIR, $(ROOT)/dist/staging)
-RAW_BASE_PATH=$(shell scripts/base-path scripts/xapi.conf)
-BASE_PATH=$(DESTDIR)$(RAW_BASE_PATH)
-BIN_DIR=$(RAW_BASE_PATH)/bin
-BIN_PATH=$(DESTDIR)$(BIN_DIR)
-DEBUGDIST=$(BASE_PATH)/debug
-LIBEXEC=$(BASE_PATH)/libexec
 
 DIST=$(ROOT)/dist
 SDK=$(DESTDIR)/usr/share/doc/xapi
@@ -84,7 +79,7 @@ export
 .PHONY: none
 
 # Ocaml #############################################################################
-OCAML_PHASE1= generate_constants autogen_idl
+OCAML_PHASE1= autogen_idl
 OCAML_PHASE2= $(if $(BYTE_ENABLED), ocaml/idl/ocaml_backend/xapi_client.cma) $(if $(NATIVE_ENABLED), ocaml/idl/ocaml_backend/xapi_client.cmxa)
 
 # JS ################################################################################
@@ -122,7 +117,9 @@ OCAML_PHASE3_XEN = \
 	ocaml/xapi/sparse_dd \
 	ocaml/xapi/monitor_fake_plugin \
 	ocaml/license/v6d \
-	ocaml/license/v6d-reopen-logs
+	ocaml/license/v6d-reopen-logs \
+	ocaml/network/xcp-networkd \
+	ocaml/network/xcp-networkd-reopen-logs
 
 OCAML_PHASE3_NOXEN = \
 		     ocaml/ptoken/genptoken \
