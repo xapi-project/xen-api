@@ -41,7 +41,7 @@ let api =
   } in
   {
     Interfaces.name = "SMAPIv2";
-    title = "The Storage Manager API";
+    title = "Storage Manager";
     description = "The Storage Manager (SM) is responsible for all storage operations on an XCP host. It organises Virtual Disk Images (VDIs) into homogenous collections known as Storage Repositories (SRs) where each collection is stored in a specific format (e.g. .vhd files on NFS, raw LUN on a iSCSI/FC storage array). The Storage Manager API (SMAPI) provides a simple abstract interface which allows the toolstack to create, destroy, snapshot, clone, resize etc VDIs within SRs";
     type_decls = [ { TyDecl.name = "vdi_info";
 		     description = "All per-VDI properties";

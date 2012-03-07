@@ -3,7 +3,7 @@ open Types
 let api =
   {
     Interfaces.name = "xenops";
-    title = "The Xen domain management API";
+    title = "Domain manager";
     description = "The Xen domain management service is responsible for all domain management on an XCP host. The API allows clients to register VM configurations with the management service and issue VM lifecycle commands such as: start, shutdown, reboot, suspend, resume and migrate. A simple event interface allows interested clients to notice when significant events have happened, for example a VM reboot or a Virtual Block Device (VBD) unplug.";
     type_decls = [
       { TyDecl.name = "power_state";

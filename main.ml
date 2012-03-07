@@ -28,13 +28,20 @@ let page_of_api api =
   api = api;
 }
 
+module Html = struct
+  let div cls = `El_start (("", "div"), [ ("", "class"), cls ])
+  let a cls toggle target = `El_start (("", "a"), [ ("", "class"), cls; ("", "data-toggle"), toggle; ("", "data-target"), target ])
+  let span cls = `El_start (("", "span"), [ ("", "class"), cls ])
+  let ul cls = `El_start (("", "ul"), [ ("", "class"), cls ])
+  let li cls = `El_start (("", "li"), match cls with None -> [] | Some x -> [ ("", "class"), x ])
+  let h1 = `El_start (("", "h1"), [])
+  let h2 = `El_start (("", "h2"), [])
+  let p = `El_start (("", "p"), [])
+  let endtag = `El_end
+end
+
 let html_navbar oc pages this_page =
-  let div cls = `El_start (("", "div"), [ ("", "class"), cls ]) in
-  let a cls toggle target = `El_start (("", "a"), [ ("", "class"), cls; ("", "data-toggle"), toggle; ("", "data-target"), target ]) in
-  let span cls = `El_start (("", "span"), [ ("", "class"), cls ]) in
-  let ul cls = `El_start (("", "ul"), [ ("", "class"), cls ]) in
-  let li cls = `El_start (("", "li"), match cls with None -> [] | Some x -> [ ("", "class"), x ]) in
-  let endtag = `El_end in
+  let open Html in
   let txt = Types.with_xmlm
     (fun xmlm ->
       xmlm (div "navbar navbar-fixed-top");
@@ -45,14 +52,14 @@ let html_navbar oc pages this_page =
       xmlm (span "icon-bar"); xmlm endtag;
       xmlm (span "icon-bar"); xmlm endtag;
       xmlm endtag;
-      xmlm (`El_start (("", "a"), [ ("", "class"), "brand"; ("", "href"), "#"]));
+      xmlm (`El_start (("", "a"), [ ("", "class"), "brand"; ("", "href"), "index.html"]));
       xmlm (`Data "XCP on-host APIs");
       xmlm endtag;
       xmlm (div "nav-collapse");
       xmlm (ul "nav");
       List.iter
 	(fun page ->
-	  xmlm (li (if page = this_page then Some "active" else None));
+	  xmlm (li (if Some page = this_page then Some "active" else None));
 	  xmlm (`El_start (("", "a"), [ ("", "href"), page.filename ]));
 	  xmlm (`Data page.name);
 	  xmlm endtag;
@@ -65,6 +72,53 @@ let html_navbar oc pages this_page =
       xmlm endtag
     ) in
   output_string oc txt
+
+let index_html oc pages =
+  let open Html in
+  let txt = Types.with_xmlm
+    (fun xmlm ->
+      xmlm (div "container");
+      xmlm (div "hero-unit");
+      xmlm h1;
+      xmlm (`Data "XCP on-host APIs");
+      xmlm endtag;
+      xmlm p;
+      xmlm (`Data "XCP is built from a number of separate services including: a domain manager, a storage manager, a host networking manager and a statistics collector. In the future some of these services will be located within isolated domains, which means they can only communicate via explicit APIs. This site contains the prototype API definitions and example code.");
+      xmlm endtag; (* p *)
+      xmlm endtag; (* hero-unit *)
+      (* Make rows of 3 elements each *)
+      let rec make_rows = function
+	| a :: b :: c :: rest -> [a; b; c] :: (make_rows rest)
+	| a :: b :: [] -> [[a; b]]
+	| a :: [] -> [[a]]
+	| [] -> [] in
+      List.iter
+	(fun row ->
+	  xmlm (div "row");
+	  List.iter
+	    (fun page ->
+	      xmlm (div "span4");
+	      xmlm h2;
+	      xmlm (`Data page.title);
+	      xmlm endtag;
+	      xmlm p;
+	      xmlm (`Data page.description);
+	      xmlm endtag;
+	      xmlm p;
+	      xmlm (`El_start (("", "a"), [("", "class"), "btn"; ("", "href"), page.filename]));
+	      xmlm (`Data "View details »");
+	      xmlm endtag;
+	      xmlm endtag;
+	      xmlm endtag;
+	    ) row;
+	  xmlm endtag;
+	) (make_rows pages);
+      xmlm endtag (* container *)
+    ) in
+  print_file_to oc ("doc/header.html");
+  html_navbar oc pages None;
+  output_string oc txt;
+  print_file_to oc ("doc/footer.html")
 
 let _ =
   let resolve_refs_in_api api =
@@ -83,10 +137,14 @@ let _ =
       with_file page.path
        (fun oc ->
 	 print_file_to oc ("doc/header.html");
-	 html_navbar oc pages page;
+	 html_navbar oc pages (Some page);
 	 let idents, api = resolve_refs_in_api page.api in
 	 output_string oc (Types.to_html idents api);
 	 print_file_to oc ("doc/footer.html")
       );
-    ) pages
+    ) pages;
+  with_file "doc/index.html"
+    (fun oc ->
+      index_html oc pages
+    )
 
