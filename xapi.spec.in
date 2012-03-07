@@ -194,6 +194,7 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/bin/xapi-wait-init-complete
 @OPTDIR@/bin/xe-backup-metadata
 @OPTDIR@/bin/xe-edit-bootloader
+@OPTDIR@/bin/xe-get-network-backend
 @OPTDIR@/bin/xe-mount-iso-sr
 @OPTDIR@/bin/xe-restore-metadata
 @OPTDIR@/bin/xe-reset-networking

@@ -65,6 +65,7 @@ install:
 	$(IPROG) xe-toolstack-restart $(DESTDIR)$(BINDIR)
 	$(IPROG) xe-xentrace $(DESTDIR)$(BINDIR)
 	$(IPROG) xe-edit-bootloader $(DESTDIR)$(BINDIR)
+	$(IPROG) xe-get-network-backend $(DESTDIR)$(BINDIR)
 	$(IPROG) static-vdis $(DESTDIR)$(BINDIR)
 	$(IPROG) with-vdi $(DESTDIR)$(OPTDIR)/debug
 	mkdir -p $(DESTDIR)/etc/udev/rules.d ### FHS_FIXME
