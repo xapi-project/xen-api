@@ -5,6 +5,112 @@ let api =
     Interfaces.name = "xenops";
     title = "Domain manager";
     description = "The Xen domain management service is responsible for all domain management on an XCP host. The API allows clients to register VM configurations with the management service and issue VM lifecycle commands such as: start, shutdown, reboot, suspend, resume and migrate. A simple event interface allows interested clients to notice when significant events have happened, for example a VM reboot or a Virtual Block Device (VBD) unplug.";
+    exn_decls = [
+      { TyDecl.name = "Internal_error";
+	description = "An unexpected internal error occurred. The exception parameter will contain further information.";
+	ty = Type.(Basic String)
+      }; {
+	TyDecl.name = "Already_exists";
+	description = "An object could not be created because one already exists with the same primary key.";
+	ty = Type.Unit;
+      }; {
+	TyDecl.name = "Does_not_exist";
+	description = "An object of type {1} and reference {2} does not exist";
+	ty = Type.(Pair (Basic String, Basic String));
+      }; {
+	TyDecl.name = "Unimplemented";
+	description = "The called function has not been implemented yet.";
+	ty = Type.Unit
+      }; {
+	TyDecl.name = "Domain_not_built";
+	description = "This operation cannot be performed on a domain which has not been built by the domain builder";
+	ty = Type.Unit
+      }; {
+	TyDecl.name = "Maximum_vcpus";
+	description = "The maximum number of vCPUs is {1}";
+	ty = Type.(Basic Int64);
+      }; {
+	TyDecl.name = "Bad_power_state";
+	description = "The operation cannot be performed while the VM is in the {1} power_state; it should be {2} instead";
+	ty = Type.(Pair(Name "power_state", Name "power_state"))
+      }; {
+	TyDecl.name = "Failed_to_achnowledge_shutdown_request";
+	description = "The VM failed to acknowledge a request to shut itself down. Perhaps it does not have the VM tools installed?";
+	ty = Type.Unit;
+      }; {
+	TyDecl.name = "Failed_to_shutdown";
+	description = "The VM failed to shutdown";
+	ty = Type.Unit;
+      }; {
+	TyDecl.name = "Device_is_connected";
+	description = "The device is still connected to a VM";
+	ty = Type.Unit;
+      }; {
+	TyDecl.name = "Device_not_connected";
+	description = "The device is not connected to a VM";
+	ty = Type.Unit;
+      }; {
+	TyDecl.name = "Device_detach_rejected";
+	description = "The VM rejected a request to hot-unplug the device";
+	ty = Type.Unit;
+      }; {
+	TyDecl.name = "Media_not_ejectable";
+	description = "The device contains media which is not ejectable.";
+	ty = Type.Unit;
+      }; {
+	TyDecl.name = "Media_present";
+	description = "The device already contains media.";
+	ty = Type.Unit;
+      }; {
+	TyDecl.name = "Media_not_present";
+	description = "THe device does not contain media.";
+	ty = Type.Unit;
+      }; {
+	TyDecl.name = "No_bootable_device";
+	description = "The VM cannot be started because no device is bootable.";
+	ty = Type.Unit;
+      }; {
+	TyDecl.name = "Bootloader_error";
+	description = "The VM bootloader returned an error.";
+	ty = Type.(Pair(Basic String, Array(Basic String)));
+      }; {
+	TyDecl.name = "Ballooning_error";
+	description = "The ballooning service returned an error.";
+	ty = Type.(Pair(Basic String, Basic String));
+      }; {
+	TyDecl.name = "No_ballooning_service";
+	description = "Memory could not be allocated because no ballooning service is running.";
+	ty = Type.Unit;
+      }; {
+	TyDecl.name = "Not_supported";
+	description = "The operation is not supported on this (kind of) VM.";
+	ty = Type.Unit;
+      }; {
+	TyDecl.name = "IO_error";
+	description = "A disk I/O error occurred.";
+	ty = Type.Unit;
+      }; {
+	TyDecl.name = "VDI_not_found";
+	description = "The storage service could not find a VDI";
+	ty = Type.Unit;
+      }; {
+	TyDecl.name = "Caller_must_pass_file_descriptor";
+	description = "This operation requires the caller to pass a file descriptor but none was sent.";
+	ty = Type.Unit;
+      }; {
+	TyDecl.name = "Failed_to_contact_remote_service";
+	description = "The remote service ({1}) could not be contacted. Perhaps it is not running?";
+	ty = Type.(Basic String);
+      }; {
+	TyDecl.name = "Hook_failed";
+	description = "The hook script failed with the given error";
+	ty = Type.(Pair((Pair((Pair(Basic String, Basic String)), Basic String)), Basic String));
+      }; {
+	TyDecl.name = "Not_enough_memory";
+	description = "The host does not have enough memory free to complete this operation";
+	ty = Type.(Basic Int64);
+      }
+    ];
     type_decls = [
       { TyDecl.name = "power_state";
 	description = "Power state of the VM";

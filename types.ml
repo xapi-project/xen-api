@@ -192,6 +192,7 @@ module Interfaces = struct
     title: string;
     description: string;
     type_decls: TyDecl.t list;
+    exn_decls: TyDecl.t list;
     interfaces: Interface.t list;
   }
 end
