@@ -5,6 +5,7 @@
 # Required-Stop:     $remote_fs $syslog
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
+# Should-Start:      openvswitch-switch
 # Short-Description: XCP networking daemon
 # Description:       xcp-networkd provides a network configuration daemon
 #                    for xcp-xapi, which handles the configuration of
