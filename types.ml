@@ -213,6 +213,7 @@ let lift_type_decls i =
     idents, List.rev type_decls in
   (* Global scope *)
   let idents, type_decls = of_type_decls [] [] i.Interfaces.type_decls in
+  let idents, exn_decls = of_type_decls [] idents i.Interfaces.exn_decls in
   let of_interface idents i =
     let idents, type_decls = of_type_decls [ i.Interface.name ] idents i.Interface.type_decls in
     idents, { i with Interface.type_decls = type_decls } in
@@ -222,7 +223,7 @@ let lift_type_decls i =
 	let idents, i' = of_interface idents i in
 	(idents, i' :: interfaces)
       ) (idents, []) i.Interfaces.interfaces in
-  idents, { i with Interfaces.type_decls = type_decls; interfaces = List.rev interfaces }
+  idents, { i with Interfaces.type_decls = type_decls; exn_decls = exn_decls; interfaces = List.rev interfaces }
 
 let dump_ident_mappings idents =
   List.iter
@@ -486,7 +487,18 @@ let to_html env x =
 	      a_href (* ~toggle:"tab" *) (Printf.sprintf "#a-%s" m.Method.name) m.Method.name
 	    )
 	  ) i.Interface.methods
-	) x.Interfaces.interfaces
+	) x.Interfaces.interfaces;
+	li ~cls:"nav-header" (fun () ->
+	  a_href "#a-exceptions" "Exceptions";
+	);
+(*
+	List.iter (fun t ->
+	  li (fun () ->
+	    let ident = ident_of_type_decl env t in
+	    a_href (Printf.sprintf "#a-%s" ident.Ident.id) t.TyDecl.name
+	  )
+	) x.Interfaces.exn_decls;
+*)
       );
     Xmlm.output output (`El_end);
     Xmlm.output output (`El_end);
@@ -563,6 +575,22 @@ let to_html env x =
 ");
 	    ) i.Interface.methods;
 	) x.Interfaces.interfaces;
+
+      h1 ~id:"a-exceptions" "Exceptions";
+
+      Xmlm.output output (`El_start (("", "table"), [ ("", "class"), "table table-striped table-condensed" ]));
+      th (fun () -> td "Parameter Types"; td "Description");
+      List.iter
+	(fun t ->
+	  let ident = ident_of_type_decl env t in
+	  tr (fun () ->
+	    tdcode (String.concat "/" ident.Ident.name);
+	    tdcode (Type.ocaml_of_t ident.Ident.original_ty);
+	    td ident.Ident.description
+	  )
+	) x.Interfaces.exn_decls;
+      Xmlm.output output (`El_end);
+
       Xmlm.output output (`El_end);
       Xmlm.output output (`El_end);
       Xmlm.output output (`El_end);
