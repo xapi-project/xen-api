@@ -423,9 +423,24 @@ module Ovs = struct
 	let ofctl args =
 		call_script ovs_ofctl args
 
+	let port_to_interfaces name =
+		try
+			let raw = call ["get"; "port"; name; "interfaces"] in
+			let raw = String.rtrim raw in
+			if raw <> "[]" then
+				let raw_list = (String.split ',' (String.sub raw 1 (String.length raw - 2))) in
+				let uuids = List.map (String.strip String.isspace) raw_list in
+				List.map (fun uuid ->
+					let raw = String.rtrim (call ["get"; "interface"; uuid; "name"]) in
+					String.sub raw 1 (String.length raw - 2)) uuids
+			else
+				[]
+		with _ -> []
+
 	let bridge_to_ports name =
 		try
-			String.split '\n' (String.rtrim (call ["list-ports"; name]))
+			let ports = String.split '\n' (String.rtrim (call ["list-ports"; name])) in
+			List.map (fun port -> port, port_to_interfaces port) ports
 		with _ -> []
 
 	let bridge_to_interfaces name =
@@ -512,7 +527,7 @@ module Ovs = struct
 		call ["--"; "--if-exists"; "del-br"; name]
 
 	let list_bridges () =
-		String.split '\n' (call ["list-br"])
+		String.split '\n' (String.rtrim (call ["list-br"]))
 
 	let get_vlans name =
 		try
