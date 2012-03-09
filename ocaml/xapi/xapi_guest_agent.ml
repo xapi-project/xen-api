@@ -91,7 +91,7 @@ let mutex = Mutex.create ()
     and 'list' reads a directory from xenstore. Both are relative to the guest's 
     domainpath. *)
 let all (lookup: string -> string option) (list: string -> string list) ~__context ~domid ~uuid =
-  let all_attr = list "/attr" and all_control = list "/control" in
+  let all_attr = list "attr" and all_control = list "control" in
   let to_map kvpairs = List.concat (List.map (fun (xskey, mapkey) -> match lookup xskey with
     | Some xsval -> [ mapkey, xsval ]
     | None -> []) kvpairs) in
