@@ -248,6 +248,103 @@ let with_buffer f =
   f (Buffer.add_string buffer);
   Buffer.contents buffer
 
+module To_python = struct
+  type t =
+    | Block of t list
+    | Line of string
+  let rec lines_of_t t =
+    let indent = String.make 4 ' ' in
+    match t with
+      | Line x -> [ x ]
+      | Block xs ->
+	let all = List.concat (List.map lines_of_t xs) in
+	List.map (fun x -> indent ^ x) all
+  let string_of_ts ts = String.concat "\n" (List.concat (List.map lines_of_t ts))
+
+    (** [typecheck env ty v] returns a python fragment which checks 
+	[v] has type [ty] in environment [env] *)
+  let rec typecheck env ty v =
+    let open Type in
+    let open Printf in
+    let raise_type_error =
+      Line (sprintf "raise (Type_error(\"%s\", repr(%s)))" (Type.ocaml_of_t ty) v) in
+    match ty with
+      | Basic b ->
+	let python_of_basic = function
+	  | Int64   -> "0L"
+	  | String  -> "\"\""
+	  | Double  -> "1.1"
+	  | Boolean -> "True" in
+	[ Line (sprintf "if type(%s) <> type(%s):" v (python_of_basic b));
+	  Block [ raise_type_error ]
+	]
+      | Struct (hd, tl) ->
+	let member (name, ty, descr) =
+	  typecheck env ty (sprintf "%s['%s']" v name) in
+	List.concat (List.map member (hd :: tl))
+      | Variant (hd, tl) ->
+	let member first (name, ty, descr) =
+	  [ Line (sprintf "%sif isinstance(%s, %s):" (if first then "" else "el") v name);
+	    Block (typecheck env ty (sprintf "%s.value" v))
+	  ] in
+	(member true hd) @ (List.concat (List.map (member false) tl))
+      | Array t ->
+	[ Line (sprintf "if type(%s) <> type([]):" v);
+	  Block [ raise_type_error ];
+	  Line (sprintf "for x in %s:" v);
+	  Block (typecheck env t "x")
+	]
+      | Dict (key, va) ->
+	[ Line (sprintf "if type(%s) <> type({}):" v);
+	  Block [ raise_type_error ];
+	  Line (sprintf "for x in %s.keys():" v);
+	  Block (typecheck env (Basic key) "x");
+	  Line (sprintf "for x in %s.values():" v);
+	  Block (typecheck env va "x")
+	]
+      | Name x ->
+	failwith "typecheck encountered Name: pass structural types only"
+      | Unit ->
+	[ Line (sprintf "if type(%s) <> type(None):" v);
+	  Block [ raise_type_error ]
+	]
+      | Option t ->
+	[ Line (sprintf "if %s <> None:" v);
+	  Block (typecheck env t v)
+	]
+      | Pair (a, b) ->
+	failwith "Not sure how to typecheck pairs"
+
+  let server_of_interface i =
+    let open Printf in
+    [ Line (sprintf "class %s_server_xmlrpc:" i.Interface.name);
+      Block [
+	Line (sprintf "\"\"\"%s\"\"\"" i.Interface.description);
+	Line "def __init__(self, impl):";
+	Block [
+	  Line "\"\"\"impl is a proxy object whose methods contain the implementation\"\"\"";
+	  Line "self._impl = impl";
+	];
+	Line "def _dispatch(self, method, params):";
+	Block [
+	  Line "\"\"type check inputs, call implementation, type check outputs and return\"\"";
+	  Line "try:";
+	  Block ([
+	    Line "log(\"method = %s params = %s\" % (method, repr(params)))";
+	    Line "args = params[0]";
+	  ] @ []);
+	  Line "except Exception, e:";
+	  Block [
+	    Line "log(\"caught %s\" % e)";
+	    Line "traceback.print_exc()";
+	    Line "return value(internal_error(str(e)))"
+	  ]
+	]
+      ]
+    ]
+
+end
+
 module To_rpclight = struct
   let of_method m add =
     let open Format in
