@@ -319,6 +319,27 @@ module To_python = struct
       | Pair (a, b) ->
 	failwith "Not sure how to typecheck pairs"
 
+  let rec skeleton_of_interface env i =
+    let open Printf in
+    let of_method m =
+      [ Line (sprintf "def %s(self%s):" m.Method.name (String.concat "" (List.map (fun x -> ", " ^ x) (List.map (fun x -> x.Arg.name) m.Method.inputs))));
+	Block [
+	  Line (sprintf "\"\"\"%s\"\"\"" i.Interface.description);
+	  Line (sprintf "raise UnimplementedException(\"%s\", \"%s\")" i.Interface.name m.Method.name)
+	]
+      ] in
+    [ Line (sprintf "class %s_skeleton:" i.Interface.name);
+      Block ([
+	Line (sprintf "\"\"\"%s\"\"\"" i.Interface.description);
+	Line "def __init__(self):";
+	Block [
+	  Line "pass";
+	];
+      ] @ (
+	List.concat (List.map of_method i.Interface.methods)
+      ))
+    ]
+
   let server_of_interface env i =
     let open Printf in
     let typecheck_method_wrapper m =
