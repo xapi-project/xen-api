@@ -319,14 +319,53 @@ module To_python = struct
       | Pair (a, b) ->
 	failwith "Not sure how to typecheck pairs"
 
-  let rec skeleton_of_interface env i =
+  let rec value_of env =
+    let open Type in
+    let open Printf in function
+      | Basic Int64 -> "0L"
+      | Basic String -> "\"string\""
+      | Basic Double -> "1.1"
+      | Basic Boolean -> "True"
+      | Struct (hd, tl) ->
+	let member (name, ty, descr) =
+	  sprintf "\"%s\": %s" name (value_of env ty) in
+	sprintf "{ %s }" (String.concat ", " (List.map member (hd :: tl)))
+      | Variant (hd, tl) ->
+	failwith "value_of env Variant"
+      | Array t ->
+	sprintf "[ %s, %s ]" (value_of env t) (value_of env t)
+      | Dict (key, va) ->
+	sprintf "{ %s: %s }" (value_of env (Basic key)) (value_of env va)
+      | Name x ->
+	let ident =
+	  if not(List.mem_assoc x env)
+	  then failwith (Printf.sprintf "Unable to find ident: %s" x)
+	  else List.assoc x env in
+	value_of env ident.Ident.ty
+      | Unit ->
+	"None"
+      | Option t ->
+	"None"
+      | Pair (a, b) ->
+	failwith "value_of Pair"
+
+  let rec skeleton_of_interface unimplemented env i =
     let open Printf in
     let of_method m =
       [ Line (sprintf "def %s(self%s):" m.Method.name (String.concat "" (List.map (fun x -> ", " ^ x) (List.map (fun x -> x.Arg.name) m.Method.inputs))));
-	Block [
+	Block ([
 	  Line (sprintf "\"\"\"%s\"\"\"" i.Interface.description);
-	  Line (sprintf "raise UnimplementedException(\"%s\", \"%s\")" i.Interface.name m.Method.name)
-	]
+	] @ (
+	  if unimplemented
+	  then [ Line (sprintf "raise UnimplementedException(\"%s\", \"%s\")" i.Interface.name m.Method.name) ]
+	  else ([
+	    Line "result = {}";
+	  ] @ (
+	    List.map (fun a -> Line (sprintf "result[\"%s\"] = %s" a.Arg.name (value_of env a.Arg.ty))) m.Method.outputs
+	  ) @ [
+	    Line "return result"
+	  ])
+	))
       ] in
     [ Line (sprintf "class %s_skeleton:" i.Interface.name);
       Block ([
