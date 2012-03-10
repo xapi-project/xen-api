@@ -1,3 +1,9 @@
+xen-api (1.3.2-3) unstable; urgency=low
+
+  * Added /etc/xen as an empty directory for xcp-networkd (Closes: #663352).
+
+ -- Thomas Goirand <zigo@debian.org>  Sat, 10 Mar 2012 22:25:05 +0000
+
 xen-api (1.3.2-2) unstable; urgency=low
 
   * New upstream release.
