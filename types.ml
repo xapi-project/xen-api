@@ -261,8 +261,8 @@ module To_python = struct
 	List.map (fun x -> indent ^ x) all
   let string_of_ts ts = String.concat "\n" (List.concat (List.map lines_of_t ts))
 
-    (** [typecheck env ty v] returns a python fragment which checks 
-	[v] has type [ty] in environment [env] *)
+    (** [typecheck ty v] returns a python fragment which checks 
+	[v] has type [ty] *)
   let rec typecheck env ty v =
     let open Type in
     let open Printf in
@@ -303,7 +303,11 @@ module To_python = struct
 	  Block (typecheck env va "x")
 	]
       | Name x ->
-	failwith "typecheck encountered Name: pass structural types only"
+	let ident =
+	  if not(List.mem_assoc x env)
+	  then failwith (Printf.sprintf "Unable to find ident: %s" x)
+	  else List.assoc x env in
+	typecheck env ident.Ident.ty v
       | Unit ->
 	[ Line (sprintf "if type(%s) <> type(None):" v);
 	  Block [ raise_type_error ]
@@ -315,16 +319,44 @@ module To_python = struct
       | Pair (a, b) ->
 	failwith "Not sure how to typecheck pairs"
 
-  let server_of_interface i =
+  let server_of_interface env i =
     let open Printf in
-    [ Line (sprintf "class %s_server_xmlrpc:" i.Interface.name);
-      Block [
+    let typecheck_method_wrapper m =
+      let extract_input arg =
+	[ Line (sprintf "%s = args[\"%s\"]" arg.Arg.name arg.Arg.name) ]
+	  @ (typecheck env arg.Arg.ty arg.Arg.name) in
+      let check_output arg =
+	typecheck env arg.Arg.ty (sprintf "results[\"%s\"]" arg.Arg.name) in
+      [ Line (sprintf "def %s(self, args):" m.Method.name);
+	Block ([
+	  Line "\"\"\"type-check inputs, call implementation, type-check outputs and return\"\"\""
+	] @ (
+	  List.concat (List.map extract_input m.Method.inputs)
+	) @ [
+	  Line (sprintf "results = self.impl.%s(%s)" m.Method.name (String.concat ", " (List.map (fun x -> x.Arg.name) m.Method.inputs)))
+	] @ (
+	  List.concat (List.map check_output m.Method.outputs)
+	) @ [
+	  Line "return results"
+	])
+      ] in    
+    let dispatch_method first m =
+      [ Line (sprintf "%sif method == \"%s.%s\":" (if first then "" else "el") i.Interface.name m.Method.name);
+	Block [ Line (sprintf "return self.%s(args)" m.Method.name) ]
+      ] in
+    let first_is_special f xs = match xs with
+      | [] -> []
+      | x :: xs -> f true x :: (List.map (f false) xs) in
+    [ Line (sprintf "class %s_server_dispatcher:" i.Interface.name);
+      Block ([
 	Line (sprintf "\"\"\"%s\"\"\"" i.Interface.description);
 	Line "def __init__(self, impl):";
 	Block [
 	  Line "\"\"\"impl is a proxy object whose methods contain the implementation\"\"\"";
 	  Line "self._impl = impl";
 	];
+      ] @ (List.concat (List.map typecheck_method_wrapper i.Interface.methods)
+      ) @ [
 	Line "def _dispatch(self, method, params):";
 	Block [
 	  Line "\"\"type check inputs, call implementation, type check outputs and return\"\"";
@@ -332,7 +364,7 @@ module To_python = struct
 	  Block ([
 	    Line "log(\"method = %s params = %s\" % (method, repr(params)))";
 	    Line "args = params[0]";
-	  ] @ []);
+	  ] @ (List.concat (first_is_special dispatch_method i.Interface.methods)));
 	  Line "except Exception, e:";
 	  Block [
 	    Line "log(\"caught %s\" % e)";
@@ -340,7 +372,7 @@ module To_python = struct
 	    Line "return value(internal_error(str(e)))"
 	  ]
 	]
-      ]
+      ])
     ]
 
 end
