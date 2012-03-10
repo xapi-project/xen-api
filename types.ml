@@ -331,7 +331,7 @@ module To_python = struct
 	  sprintf "\"%s\": %s" name (value_of env ty) in
 	sprintf "{ %s }" (String.concat ", " (List.map member (hd :: tl)))
       | Variant (hd, tl) ->
-	failwith "value_of env Variant"
+	"None"
       | Array t ->
 	sprintf "[ %s, %s ]" (value_of env t) (value_of env t)
       | Dict (key, va) ->
@@ -347,26 +347,37 @@ module To_python = struct
       | Option t ->
 	"None"
       | Pair (a, b) ->
-	failwith "value_of Pair"
+	"[]"
+
+  let skeleton_method unimplemented env i m =
+    let open Printf in
+    [ Line (sprintf "def %s(self%s):" m.Method.name (String.concat "" (List.map (fun x -> ", " ^ x) (List.map (fun x -> x.Arg.name) m.Method.inputs))));
+      Block ([
+	Line (sprintf "\"\"\"%s\"\"\"" i.Interface.description);
+      ] @ (
+	if unimplemented
+	then [ Line (sprintf "raise UnimplementedException(\"%s\", \"%s\")" i.Interface.name m.Method.name) ]
+	else ([
+	  Line "result = {}";
+	] @ (
+	  List.map (fun a -> Line (sprintf "result[\"%s\"] = %s" a.Arg.name (value_of env a.Arg.ty))) m.Method.outputs
+	) @ [
+	  Line "return result"
+	])
+      ))
+    ]
+  let example_skeleton_user env i m =
+    let open Printf in
+    [ Line "";
+      Line (sprintf "class %s_myimplementation(%s_skeleton):" i.Interface.name i.Interface.name);
+      Line "...";
+      Block (skeleton_method false env i m);
+      Line "...";
+    ]
 
   let rec skeleton_of_interface unimplemented env i =
     let open Printf in
-    let of_method m =
-      [ Line (sprintf "def %s(self%s):" m.Method.name (String.concat "" (List.map (fun x -> ", " ^ x) (List.map (fun x -> x.Arg.name) m.Method.inputs))));
-	Block ([
-	  Line (sprintf "\"\"\"%s\"\"\"" i.Interface.description);
-	] @ (
-	  if unimplemented
-	  then [ Line (sprintf "raise UnimplementedException(\"%s\", \"%s\")" i.Interface.name m.Method.name) ]
-	  else ([
-	    Line "result = {}";
-	  ] @ (
-	    List.map (fun a -> Line (sprintf "result[\"%s\"] = %s" a.Arg.name (value_of env a.Arg.ty))) m.Method.outputs
-	  ) @ [
-	    Line "return result"
-	  ])
-	))
-      ] in
+
     [ Line (sprintf "class %s_skeleton:" i.Interface.name);
       Block ([
 	Line (sprintf "\"\"\"%s\"\"\"" i.Interface.description);
@@ -375,7 +386,7 @@ module To_python = struct
 	  Line "pass";
 	];
       ] @ (
-	List.concat (List.map of_method i.Interface.methods)
+	List.concat (List.map (skeleton_method true env i) i.Interface.methods)
       ))
     ]
 
@@ -737,10 +748,11 @@ let to_html env x =
             <li class=\"active\"><a href=\"#defn-%s\" data-toggle=\"tab\">Definition</a></li>
             <li><a href=\"#dbus-%s\" data-toggle=\"tab\">DBUS XML</a></li>
             <li><a href=\"#ocaml-%s\" data-toggle=\"tab\">ocaml</a></li>
+            <li><a href=\"#python-server-%s\" data-toggle=\"tab\">python server</a></li>
           </ul>
           <div id=\"myTabContent\" class=\"tab-content\">
             <div class=\"tab-pane fade in active\" id=\"defn-%s\">
-" m.Method.name m.Method.name m.Method.name m.Method.name);
+" m.Method.name m.Method.name m.Method.name m.Method.name m.Method.name);
 	      p "inputs:";
 	      of_args m.Method.inputs;
 	      p "outputs:";
@@ -757,6 +769,12 @@ let to_html env x =
             <div class=\"tab-pane fade\" id=\"ocaml-%s\">
 " m.Method.name);
 	      pre ~lang:"ml" (with_buffer (To_rpclight.of_method m));
+	      Buffer.add_string buffer
+(Printf.sprintf "
+            </div>
+            <div class=\"tab-pane fade\" id=\"python-server-%s\">
+" m.Method.name);
+	      pre ~lang:"python" (To_python.example_skeleton_user env i m |> To_python.string_of_ts);
 	      Buffer.add_string buffer
 (Printf.sprintf "
             </div>
