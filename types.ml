@@ -317,7 +317,8 @@ module To_python = struct
 	  Block (typecheck env t v)
 	]
       | Pair (a, b) ->
-	failwith "Not sure how to typecheck pairs"
+	[ Line "# Not sure how to typecheck pairs"
+	]
 
   let rec value_of env =
     let open Type in
@@ -428,7 +429,7 @@ module To_python = struct
 	];
       ] @ (List.concat (List.map typecheck_method_wrapper i.Interface.methods)
       ) @ [
-	Line "def _dispatch(self, method, params):";
+	Line "def dispatch(self, method, params):";
 	Block [
 	  Line "\"\"type check inputs, call implementation, type check outputs and return\"\"";
 	  Line "try:";
@@ -442,6 +443,35 @@ module To_python = struct
 	    Line "traceback.print_exc()";
 	    Line "return value(internal_error(str(e)))"
 	  ]
+	]
+      ])
+    ]
+
+  let of_interfaces env i =
+    let open Printf in
+    (List.concat (List.map (server_of_interface env) i.Interfaces.interfaces)
+    ) @ [
+      Line (sprintf "class %s_server_dispatcher:" i.Interfaces.name);
+      Block ([
+	Line "\"\"\"Demux calls to individual interface server_dispatchers\"\"\"";
+	Line (sprintf "def __init__(self%s):" (String.concat "" (List.map (fun x -> ", " ^ x ^ " = None") (List.map (fun i -> i.Interface.name) i.Interfaces.interfaces))));
+	Block (List.map (fun i -> Line (sprintf "self.%s = %s" i.Interface.name i.Interface.name)) i.Interfaces.interfaces);
+	Line "def _dispatch(self, method, params):";
+	Line "try:";
+	Block ([
+	  Line "log(\"method = %s params = %s\" % (method, repr(params)))";
+	] @ (
+	    List.fold_left (fun (first, acc) i -> false, acc @ [
+	      Line (sprintf "%sif method.startswith(\"%s\") and self.%s:" (if first then "" else "el") i.Interface.name i.Interface.name);
+	      Block [ Line (sprintf "return self.%s.dispatch(method, params)" i.Interface.name) ];
+	    ]) (true, []) i.Interfaces.interfaces |> snd
+	  )
+	);
+	Line "except Exception, e:";
+	Block [
+	  Line "log(\"caught %s\" % e)";
+	  Line "traceback.print_exc()";
+	  Line "return value(internal_error(str(e)))"
 	]
       ])
     ]
