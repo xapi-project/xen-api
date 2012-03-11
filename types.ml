@@ -449,6 +449,18 @@ module To_python = struct
       ])
     ]
 
+  let test_impl_of_interfaces env i =
+    let open Printf in
+    [ Line (sprintf "class %s_server_test:" i.Interfaces.name);
+      Block [
+	Line "\"\"\"Create a server which will respond to all calls, returning arbitrary values. This is intended as a marshal/unmarshal test.\"\"\"";
+	Line "def __init__(self):";
+	Block [
+	  Line (Printf.sprintf "self.server = %s_server_dispatcher(%s)" i.Interfaces.name (String.concat ", " (List.map (fun i -> i.Interface.name ^ "_test()") i.Interfaces.interfaces))) 
+	]
+      ]
+    ]
+
   let of_interfaces env i =
     let open Printf in
     (List.fold_left (fun acc i -> acc @
@@ -478,7 +490,7 @@ module To_python = struct
 	  Line "return value(internal_error(str(e)))"
 	]
       ])
-    ]
+    ] @ (test_impl_of_interfaces env i)
 
 end
 
