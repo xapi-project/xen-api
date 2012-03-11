@@ -376,10 +376,10 @@ module To_python = struct
       Line "...";
     ]
 
-  let rec skeleton_of_interface unimplemented env i =
+  let rec skeleton_of_interface unimplemented suffix env i =
     let open Printf in
 
-    [ Line (sprintf "class %s_skeleton:" i.Interface.name);
+    [ Line (sprintf "class %s_%s:" i.Interface.name suffix);
       Block ([
 	Line (sprintf "\"\"\"%s\"\"\"" i.Interface.description);
 	Line "def __init__(self):";
@@ -387,9 +387,11 @@ module To_python = struct
 	  Line "pass";
 	];
       ] @ (
-	List.concat (List.map (skeleton_method true env i) i.Interface.methods)
+	List.concat (List.map (skeleton_method unimplemented env i) i.Interface.methods)
       ))
     ]
+  let test_impl_of_interface = skeleton_of_interface false "test"
+  let skeleton_of_interface = skeleton_of_interface true "skeleton"
 
   let server_of_interface env i =
     let open Printf in
@@ -449,7 +451,9 @@ module To_python = struct
 
   let of_interfaces env i =
     let open Printf in
-    (List.concat (List.map (server_of_interface env) i.Interfaces.interfaces)
+    (List.fold_left (fun acc i -> acc @
+      (server_of_interface env i) @ (skeleton_of_interface env i) @ (test_impl_of_interface env i)
+     ) [] i.Interfaces.interfaces
     ) @ [
       Line (sprintf "class %s_server_dispatcher:" i.Interfaces.name);
       Block ([
