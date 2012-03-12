@@ -398,17 +398,23 @@ module To_python = struct
     let open Printf in
     let typecheck_method_wrapper m =
       let extract_input arg =
-	[ Line (sprintf "%s = args[\"%s\"]" arg.Arg.name arg.Arg.name) ]
+	[ Line (sprintf "if not(args.has_key('%s')):" arg.Arg.name);
+	  Block [ Line (sprintf "raise UnmarshalException('argument missing', '%s', '')" arg.Arg.name) ];
+	  Line (sprintf "%s = args[\"%s\"]" arg.Arg.name arg.Arg.name) ]
 	  @ (typecheck env arg.Arg.ty arg.Arg.name) in
       let check_output arg =
 	typecheck env arg.Arg.ty (sprintf "results[\"%s\"]" arg.Arg.name) in
       [ Line (sprintf "def %s(self, args):" m.Method.name);
 	Block ([
-	  Line "\"\"\"type-check inputs, call implementation, type-check outputs and return\"\"\""
+	  Line "\"\"\"type-check inputs, call implementation, type-check outputs and return\"\"\"";
+	  Line "if type(args) <> type({}):";
+	  Block [
+	    Line "raise (UnmarshalException('arguments', 'dict', repr(args)))"
+	  ]
 	] @ (
 	  List.concat (List.map extract_input m.Method.inputs)
 	) @ [
-	  Line (sprintf "results = self.impl.%s(%s)" m.Method.name (String.concat ", " (List.map (fun x -> x.Arg.name) m.Method.inputs)))
+	  Line (sprintf "results = self._impl.%s(%s)" m.Method.name (String.concat ", " (List.map (fun x -> x.Arg.name) m.Method.inputs)))
 	] @ (
 	  List.concat (List.map check_output m.Method.outputs)
 	) @ [
@@ -417,7 +423,7 @@ module To_python = struct
       ] in    
     let dispatch_method first m =
       [ Line (sprintf "%sif method == \"%s.%s\":" (if first then "" else "el") i.Interface.name m.Method.name);
-	Block [ Line (sprintf "return self.%s(args)" m.Method.name) ]
+	Block [ Line (sprintf "return success(self.%s(args))" m.Method.name) ]
       ] in
     let first_is_special f xs = match xs with
       | [] -> []
@@ -433,20 +439,11 @@ module To_python = struct
       ] @ (List.concat (List.map typecheck_method_wrapper i.Interface.methods)
       ) @ [
 	Line "def _dispatch(self, method, params):";
-	Block [
+	Block ([
 	  Line "\"\"\"type check inputs, call implementation, type check outputs and return\"\"\"";
-	  Line "try:";
-	  Block ([
-	    Line "log(\"method = %s params = %s\" % (method, repr(params)))";
-	    Line "args = params[0]";
-	  ] @ (List.concat (first_is_special dispatch_method i.Interface.methods)));
-	  Line "except Exception, e:";
-	  Block [
-	    Line "log(\"caught %s\" % e)";
-	    Line "traceback.print_exc()";
-	    Line "return value(internal_error(str(e)))"
-	  ]
-	]
+	  Line "log(\"method = %s params = %s\" % (method, repr(params)))";
+	  Line "args = params[0]";
+	] @ (List.concat (first_is_special dispatch_method i.Interface.methods)))
       ])
     ]
 
@@ -457,14 +454,15 @@ module To_python = struct
 	Line "\"\"\"Create a server which will respond to all calls, returning arbitrary values. This is intended as a marshal/unmarshal test.\"\"\"";
 	Line "def __init__(self):";
 	Block [
-	  Line (sprintf "%s_server_dispatcher.__init__(self%s)" i.Interfaces.name (String.concat "" (List.map (fun i -> ", " ^ i.Interface.name ^ "_test()") i.Interfaces.interfaces)))
+	  Line (sprintf "%s_server_dispatcher.__init__(self%s)" i.Interfaces.name (String.concat "" (List.map (fun i -> ", " ^ i.Interface.name ^ "_server_dispatcher(" ^ i.Interface.name ^ "_test())") i.Interfaces.interfaces)))
 	]
       ]
     ]
 
   let of_interfaces env i =
     let open Printf in
-    [ Line "from xcp import log, UnknownMethod, UnimplementedException"
+    [ Line "from xcp import log, UnknownMethod, UnimplementedException, InternalError, UnmarshalException, success";
+      Line "import traceback";
     ] @ (
       List.fold_left (fun acc i -> acc @
       (server_of_interface env i) @ (skeleton_of_interface env i) @ (test_impl_of_interface env i)
@@ -493,7 +491,16 @@ module To_python = struct
 	  Block [
 	    Line "log(\"caught %s\" % e)";
 	    Line "traceback.print_exc()";
-	    Line "return value(internal_error(str(e)))"
+	    Line "try:";
+	    Block [
+	      Line "# A declared (expected) failure will have a .failure() method";
+	      Line "return e.failure()"
+	    ];
+	    Line "except:";
+	    Block [
+	      Line "# An undeclared (unexpected) failure is wrapped as InternalError";
+	      Line "return (InternalError(str(e)).failure())"
+	    ]
 	  ]
 	]
       ])
