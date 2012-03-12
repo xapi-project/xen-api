@@ -34,16 +34,35 @@ let highest_forgotten_id = ref (-1L)
 
 (** Types used to store user event subscriptions: ***********************************************)
 type subscription = 
-    | Class of string (** subscribe to all events for objects of this class *)
-    | All             (** subscribe to everything *)
+    | Class of string           (** subscribe to all events for objects of this class *)
+	| Object of string * string (** subscribe to all events for this specific object *)
+    | All                       (** subscribe to everything *)
 
-let subscription_of_string x = if x = "*" then All else Class (String.lowercase x)
+let subscription_of_string x = if x = "*" then All else match String.split ~limit:2 '/' x with
+	| [ cls ] -> Class (String.lowercase cls)
+	| [ cls; id ] -> Object(String.lowercase cls, id)
+	| _ ->
+		raise (Api_errors.Server_error(Api_errors.event_subscription_parse_failure, [ x ]))
+
+let any = List.fold_left (fun acc x -> acc || x) false
 
 (** [table_matches subs tbl]: true if at least one subscription from [subs] would select some events from [tbl] *)
-let table_matches subs tbl = List.mem All subs || (List.mem (Class (String.lowercase tbl)) subs)
+let table_matches subs tbl =
+	let tbl = String.lowercase tbl in
+	let matches = function
+		| All -> true
+		| Class x -> x = tbl
+		| Object (x, _) -> x = tbl in
+	any (List.map matches subs)
 
 (** [event_matches subs ev]: true if at least one subscription from [subs] selects for event [ev] *)
-let event_matches subs ev = List.mem All subs || (List.mem (Class (String.lowercase ev.ty)) subs)
+let event_matches subs ev =
+	let tbl = String.lowercase ev.ty in
+	let matches = function
+		| All -> true
+		| Class x -> x = tbl
+		| Object (x, y) -> x = tbl && (y = ev.reference) in
+	any (List.map matches subs)
 
 (** Every session that calls 'register' gets a subscription*)
 type subscription_record = {
@@ -150,14 +169,14 @@ let assert_subscribed ~__context =
 
 (** Register an interest in events generated on objects of class <class_name> *)
 let register ~__context ~classes = 
-	let subs = List.map subscription_of_string (List.map String.lowercase classes) in
+	let subs = List.map subscription_of_string classes in
 	let sub = get_subscription ~__context in
 	Mutex.execute sub.m (fun () -> sub.subs <- subs @ sub.subs)
 
 
 (** Unregister interest in events generated on objects of class <class_name> *)
 let unregister ~__context ~classes = 
-	let subs = List.map subscription_of_string (List.map String.lowercase classes) in
+	let subs = List.map subscription_of_string classes in
 	let sub = get_subscription ~__context in
 	Mutex.execute sub.m
 		(fun () -> sub.subs <- List.filter (fun x -> not(List.mem x subs)) sub.subs)
@@ -273,7 +292,7 @@ let from ~__context ~classes ~token ~timeout =
 	in
 
 	(* Temporarily create a subscription for the duration of this call *)
-	let subs = List.map subscription_of_string (List.map String.lowercase classes) in
+	let subs = List.map subscription_of_string classes in
 	let sub = get_subscription ~__context in
 
 	sub.timeout <- Unix.gettimeofday () +. timeout;
