@@ -72,42 +72,6 @@ let subscriptions = Hashtbl.create 10
 let event_lock = Mutex.create ()
 let newevents = Condition.create ()
 
-(** This function takes a set of events (requested by the client) and removes
-    redundancies (like multiple Mods of the same object or Mod of a deleted object).
-    NB we cannot safely remove object Deletes because a client might receive the Add event
-    if one call and a Del event in a subsequent call.
-    NB events are stored in reverse order. *)
-let coalesce_events events = 
-	(* We're not trying to be super-efficient here, we scan the list multiple times. 
-	   Let's keep the queue short. *)
-	let refs_of_op op events = List.concat 
-		(List.map (function { op = op'; reference = reference } -> 
-			     if op = op' then [ reference ] else []) events) in
-
-	let dummy x = { x with op = Dummy } in
-
-	(* If an object has been deleted, remove any Modification events *)
-	let all_dead = refs_of_op Del events in
-	let events' = List.map (function { op = Mod; reference = reference } as x ->
-				 if List.mem reference all_dead 
-				 then dummy x else x
-				| x -> x) events in
-
-	(* If one Mod event has been seen, remove the rest (we keep the latest (ie 
-	   the first one in the list) since the list is reversed)) *)
-	let events' = List.rev (snd (List.fold_left 
-	  (fun (already_seen, acc) x -> 
-	     if x.op = Mod then
-	       let x = if List.mem x.reference already_seen then dummy x else x in
-	       x.reference :: already_seen, x :: acc
-	     else already_seen, x :: acc) ([], []) events')) in
-
-	(* For debugging we may wish to keep the dummy events so we can account for 
-	   every event ID. However normally we want to zap them. *)
-	let events' = List.filter (fun ev -> ev.op <> Dummy) events' in
-	(* debug "Removed %d redundant events" (List.length events - (List.length events')); *)
-	events'
-
 let event_add ?snapshot ty op reference  =
 
   let gen_events_for tbl =
@@ -140,9 +104,6 @@ let event_add ?snapshot ty op reference  =
 		end else begin
 			(* debug "Dropping event %s" (string_of_event ev) *)
 		end;
-		
-		(* Remove redundant events from the queue *)
-		(* queue := coalesce_events !queue;*)
 		
 		(* GC the events in the queue *)
 		let too_many = List.length !queue - max_stored_events in
