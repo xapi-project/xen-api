@@ -226,6 +226,7 @@ let gpu_group_contains_vgpu = "GPU_GROUP_CONTAINS_VGPU"
 let gpu_group_contains_pgpu = "GPU_GROUP_CONTAINS_PGPU"
 let invalid_device = "INVALID_DEVICE"
 let events_lost = "EVENTS_LOST"
+let event_subscription_parse_failure = "EVENT_SUBSCRIPTION_PARSE_FAILURE"
 let session_not_registered = "SESSION_NOT_REGISTERED"
 
 let import_error_generic = "IMPORT_ERROR"
