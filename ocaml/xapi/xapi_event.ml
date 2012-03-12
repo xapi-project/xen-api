@@ -24,8 +24,6 @@ let message_get_since_for_events : (__context:Context.t -> float -> (float * (AP
 
 (** Limit the event queue to this many events: *)
 let max_stored_events = 500
-(** Limit the maximum age of an event in the event queue to this value in seconds: *)
-let max_event_age = 15. *. 60. (* 15 minutes *)
 
 (** Ordered list of events, newest first *)
 let queue = ref []
@@ -58,8 +56,7 @@ type subscription_record = {
 
 
 (** Thrown if the user requests events which we don't have because we've thrown
-    then away. This should only happen if the client (or network) becomes unresponsive
-    for the max_event_age interval or if more than max_stored_events are produced 
+    then away. This should only happen if more than max_stored_events are produced 
     between successive calls to Event.next (). The client should refresh all its state
     manually before calling Event.next () again.
 *)
@@ -148,14 +145,11 @@ let event_add ?snapshot ty op reference  =
 		(* queue := coalesce_events !queue;*)
 		
 		(* GC the events in the queue *)
-		let young, old = List.partition (fun ev -> ts -. ev.ts <= max_event_age) !queue in
-		let too_many = List.length young - max_stored_events in
-		let to_keep, to_drop = if too_many <= 0 then young, old
+		let too_many = List.length !queue - max_stored_events in
+		let to_keep, to_drop = if too_many <= 0 then !queue, []
 		  else
 		    (* Reverse-sort by ID and preserve the first 'max_stored_events' *)
-		    let lucky, unlucky = 
-		      List.chop max_stored_events (List.sort (fun a b -> compare b.id a.id) young) in
-		    lucky, old @ unlucky in
+		    List.chop max_stored_events (List.sort (fun a b -> compare b.id a.id) !queue) in
 		queue := to_keep;
 		(* Remember the highest ID of the list of events to drop *)
 		if to_drop <> [] then
