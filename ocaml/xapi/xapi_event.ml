@@ -39,7 +39,11 @@ type subscription =
 
 let subscription_of_string x = if x = "*" then All else Class (String.lowercase x)
 
-let event_matches subs ty = List.mem All subs || (List.mem (Class (String.lowercase ty)) subs)
+(** [table_matches subs tbl]: true if at least one subscription from [subs] would select some events from [tbl] *)
+let table_matches subs tbl = List.mem All subs || (List.mem (Class (String.lowercase tbl)) subs)
+
+(** [event_matches subs ev]: true if at least one subscription from [subs] selects for event [ev] *)
+let event_matches subs ev = List.mem All subs || (List.mem (Class (String.lowercase ev.ty)) subs)
 
 (** Every session that calls 'register' gets a subscription*)
 type subscription_record = {
@@ -93,7 +97,7 @@ let event_add ?snapshot ty op reference  =
 
 		let matches_anything = Hashtbl.fold
 			(fun _ s acc ->
-				 if event_matches s.subs ty
+				 if event_matches s.subs ev
 				 then (s.cur_id <- get_current_event_number (); true)
 				 else acc) subscriptions false in
 		if matches_anything then begin
@@ -249,7 +253,7 @@ let rec next ~__context =
 	(* Are any of the new events interesting? *)
 	let events = events_read last_id end_id in
 	let subs = Mutex.execute subscription.m (fun () -> subscription.subs) in
-	let relevant = List.filter (fun ev -> event_matches subs ev.ty) events in
+	let relevant = List.filter (fun ev -> event_matches subs ev) events in
 	(* debug "number of relevant events = %d" (List.length relevant); *)
 	if relevant = [] then next ~__context 
 	else XMLRPC.To.array (List.map xmlrpc_of_event relevant)
@@ -286,14 +290,14 @@ let from ~__context ~classes ~token ~timeout =
 	in
 
 	let all_subs = Mutex.execute sub.m (fun () -> Hashtbl.fold (fun _ s acc -> s.subs @ acc) subscriptions []) in
-	let tables = List.filter (fun table -> event_matches all_subs table) all_event_tables in
+	let tables = List.filter (fun table -> table_matches all_subs table) all_event_tables in
 
 	let events_lost = ref [] in
 
 	let grab_range t =
 		let tableset = Db_cache_types.Database.tableset (Db_ref.get_database t) in
 		let (timestamp,messages) =
-			if event_matches all_subs "message" then (!message_get_since_for_events) ~__context sub.last_timestamp else (0.0, []) in
+			if table_matches all_subs "message" then (!message_get_since_for_events) ~__context sub.last_timestamp else (0.0, []) in
 		(timestamp, messages, tableset, List.fold_left
 			(fun acc table ->
 				 Db_cache_types.Table.fold_over_recent sub.last_generation
@@ -337,45 +341,33 @@ let from ~__context ~classes ~token ~timeout =
 	sub.last_generation <- last;
 	sub.last_timestamp <- timestamp;
 
-	let delevs = List.fold_left (fun acc (table, objref, dtime) ->
-									 if event_matches sub.subs table then begin
-										 let ev = {id=dtime;
-												   ts=0.0;
-												   ty=String.lowercase table;
-												   op=Del;
-												   reference=objref;
-												   snapshot=None} in
-										 ev::acc
-									 end else acc
-								) [] deletes in
+	let event_of op ?snapshot (table, objref, time) =
+		{
+			id=time;
+			ts=0.0;
+			ty=String.lowercase table;
+			op=op;
+			reference=objref;
+			snapshot=snapshot
+		} in
+	let delevs = List.fold_left (fun acc x ->
+		let ev = event_of Del x in
+		if event_matches sub.subs ev then ev::acc else acc
+	) [] deletes in
 
 	let modevs = List.fold_left (fun acc (table, objref, mtime) ->
-									 if event_matches sub.subs table then begin
-										 let serialiser = Eventgen.find_get_record table in
-										 let xml = serialiser ~__context ~self:objref () in
-										 let ev = { id=mtime;
-													ts=0.0;
-													ty=String.lowercase table;
-													op=Mod;
-													reference=objref;
-													snapshot=xml } in
-										 ev::acc
-									 end else acc
-								) delevs mods in
+		let serialiser = Eventgen.find_get_record table in
+		let xml = serialiser ~__context ~self:objref () in
+		let ev = event_of Mod ?snapshot:xml (table, objref, mtime) in
+		if event_matches sub.subs ev then ev::acc else acc
+	) delevs mods in
 
 	let createevs = List.fold_left (fun acc (table, objref, ctime) ->
-										if event_matches sub.subs table then begin
-											let serialiser = Eventgen.find_get_record table in
-											let xml = serialiser ~__context ~self:objref () in
-											let ev = { id=ctime;
-													   ts=0.0;
-													   ty=String.lowercase table;
-													   op=Add;
-													   reference=objref;
-													   snapshot=xml } in
-											ev::acc
-										end else acc
-								   ) modevs creates in
+		let serialiser = Eventgen.find_get_record table in
+		let xml = serialiser ~__context ~self:objref () in
+		let ev = event_of Add ?snapshot:xml (table, objref, ctime) in
+		if event_matches sub.subs ev then ev::acc else acc
+	) modevs creates in
 	
 	let message_events = List.fold_left (fun acc (_ref,message) ->
 											 let objref = Ref.string_of _ref in
