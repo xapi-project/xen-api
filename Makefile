@@ -14,6 +14,8 @@ toplevel: types.cmo smapiv2.cmo xenops.cmo memory.cmo
 .PHONY: install
 install: idl
 	./idl
+	cp -f test.py doc/test.py
+	cp -f xcp.py doc/xcp.py
 
 .PHONY: clean
 clean:

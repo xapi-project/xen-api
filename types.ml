@@ -357,6 +357,7 @@ module To_python = struct
 	Line (sprintf "\"\"\"%s\"\"\"" i.Interface.description);
       ] @ (
 	if unimplemented
+
 	then [ Line (sprintf "raise UnimplementedException(\"%s\", \"%s\")" i.Interface.name m.Method.name) ]
 	else ([
 	  Line "result = {}";
@@ -431,7 +432,7 @@ module To_python = struct
 	];
       ] @ (List.concat (List.map typecheck_method_wrapper i.Interface.methods)
       ) @ [
-	Line "def dispatch(self, method, params):";
+	Line "def _dispatch(self, method, params):";
 	Block [
 	  Line "\"\"\"type check inputs, call implementation, type check outputs and return\"\"\"";
 	  Line "try:";
@@ -451,21 +452,23 @@ module To_python = struct
 
   let test_impl_of_interfaces env i =
     let open Printf in
-    [ Line (sprintf "class %s_server_test:" i.Interfaces.name);
+    [ Line (sprintf "class %s_server_test(%s_server_dispatcher):" i.Interfaces.name i.Interfaces.name);
       Block [
 	Line "\"\"\"Create a server which will respond to all calls, returning arbitrary values. This is intended as a marshal/unmarshal test.\"\"\"";
 	Line "def __init__(self):";
 	Block [
-	  Line (Printf.sprintf "self.server = %s_server_dispatcher(%s)" i.Interfaces.name (String.concat ", " (List.map (fun i -> i.Interface.name ^ "_test()") i.Interfaces.interfaces))) 
+	  Line (sprintf "%s_server_dispatcher.__init__(self%s)" i.Interfaces.name (String.concat "" (List.map (fun i -> ", " ^ i.Interface.name ^ "_test()") i.Interfaces.interfaces)))
 	]
       ]
     ]
 
   let of_interfaces env i =
     let open Printf in
-    (List.fold_left (fun acc i -> acc @
+    [ Line "from xcp import log, UnknownMethod, UnimplementedException"
+    ] @ (
+      List.fold_left (fun acc i -> acc @
       (server_of_interface env i) @ (skeleton_of_interface env i) @ (test_impl_of_interface env i)
-     ) [] i.Interfaces.interfaces
+      ) [] i.Interfaces.interfaces
     ) @ [
       Line (sprintf "class %s_server_dispatcher:" i.Interfaces.name);
       Block ([
@@ -480,9 +483,11 @@ module To_python = struct
 	  ] @ (
 	    List.fold_left (fun (first, acc) i -> false, acc @ [
 	      Line (sprintf "%sif method.startswith(\"%s\") and self.%s:" (if first then "" else "el") i.Interface.name i.Interface.name);
-	      Block [ Line (sprintf "return self.%s.dispatch(method, params)" i.Interface.name) ];
+	      Block [ Line (sprintf "return self.%s._dispatch(method, params)" i.Interface.name) ];
 	    ]) (true, []) i.Interfaces.interfaces |> snd
-	  )
+	  ) @ [
+	    Line "raise UnknownMethod(method)"
+	  ]
 	  );
 	  Line "except Exception, e:";
 	  Block [
@@ -658,11 +663,17 @@ let to_html env x =
       let ul ?cls = wrapf ?cls "ul" in
       let li ?cls = wrapf ?cls "li" in
       let p = wrap "p" in
-      let a_href ?toggle link txt =
+      let a_href ?toggle ?icon link txt =
 	let toggle = match toggle with
 	  | None -> []
 	  | Some x -> [ ("", "data-toggle"), x ] in
 	Xmlm.output output (`El_start (("", "a"), [ ("", "href"), link ] @ toggle));
+	Opt.iter (fun icon ->
+	  Xmlm.output output (`El_start (("", "i"), [ ("", "class"), icon ]));
+	  Xmlm.output output (`Data "");
+	  Xmlm.output output (`El_end)
+	) icon;
+	
 	Xmlm.output output (`Data txt);
 	Xmlm.output output (`El_end) in
 
@@ -717,22 +728,22 @@ let to_html env x =
 	List.iter (fun t ->
 	  let ident = ident_of_type_decl env t in
 	  li (fun () ->
-	    a_href (* ~toggle:"tab" *) (Printf.sprintf "#a-%s" ident.Ident.id) t.TyDecl.name
+	    a_href (* ~toggle:"tab" *) ~icon:"icon-pencil" (Printf.sprintf "#a-%s" ident.Ident.id) t.TyDecl.name
 	  )
 	) x.Interfaces.type_decls;
 	List.iter (fun i ->
 	  li ~cls:"nav-header" (fun () ->
-	    a_href (* ~toggle:"tab" *) (Printf.sprintf "#a-%s" i.Interface.name) i.Interface.name
+	    a_href (* ~toggle:"tab" *) ~icon:"icon-book" (Printf.sprintf "#a-%s" i.Interface.name) i.Interface.name
 	  );
 	  List.iter (fun t ->
 	    let ident = ident_of_type_decl env t in
 	    li (fun () ->
-	      a_href (* ~toggle:"tab" *) (Printf.sprintf "#a-%s" ident.Ident.id) t.TyDecl.name
+	      a_href (* ~toggle:"tab" *) ~icon:"icon-pencil" (Printf.sprintf "#a-%s" ident.Ident.id) t.TyDecl.name
 	    )
 	  ) i.Interface.type_decls;
 	  List.iter (fun m ->
 	    li (fun () ->
-	      a_href (* ~toggle:"tab" *) (Printf.sprintf "#a-%s" m.Method.name) m.Method.name
+	      a_href (* ~toggle:"tab" *) ~icon:"icon-cogs" (Printf.sprintf "#a-%s" m.Method.name) m.Method.name
 	    )
 	  ) i.Interface.methods
 	) x.Interfaces.interfaces;

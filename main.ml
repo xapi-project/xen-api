@@ -85,6 +85,12 @@ let index_html oc pages =
       xmlm p;
       xmlm (`Data "XCP is built from a number of separate services including: a domain manager, a storage manager, a host networking manager and a statistics collector. In the future some of these services will be located within isolated domains, which means they can only communicate via explicit APIs. This site contains the prototype API definitions and example code.");
       xmlm endtag; (* p *)
+      xmlm (`El_start (("", "a"), [("", "class"), "btn btn-primary btn-large"; ("", "href"), "https://github.com/xen-org"]));
+      xmlm (`El_start (("", "i"), [("", "class"), "icon-github-sign icon-large"]));
+      xmlm (`Data "");
+      xmlm endtag; (* i *)
+      xmlm (`Data "View Project on GitHub");
+      xmlm endtag; (* a *)
       xmlm endtag; (* hero-unit *)
       (* Make rows of 3 elements each *)
       let rec make_rows = function
@@ -105,8 +111,10 @@ let index_html oc pages =
 	      xmlm (`Data page.description);
 	      xmlm endtag;
 	      xmlm p;
-	      xmlm (`El_start (("", "a"), [("", "class"), "btn"; ("", "href"), page.filename]));
+	      xmlm (`El_start (("", "a"), [("", "class"), "btn btn-info"; ("", "href"), page.filename]));
+	      xmlm (`El_start (("", "i"), [("", "class"), "icon-info-sign"]));
 	      xmlm (`Data "View details »");
+	      xmlm endtag;
 	      xmlm endtag;
 	      xmlm endtag;
 	      xmlm endtag;
