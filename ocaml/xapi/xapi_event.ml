@@ -279,17 +279,11 @@ let rec next ~__context =
 
 let from ~__context ~classes ~token ~timeout = 
 	let from, from_t = 
-		try 
-			match String.split ',' token with
-				| [from;from_t] -> 
-					(Int64.of_string from, float_of_string from_t)
-				| [""] -> (0L, 0.1)
-				| _ -> 
-					warn "Bad format passed to Event.from: %s" token;
-					failwith "Error"
-		with _ ->
-			(0L, 0.1)
-	in
+		try
+			token_of_string token
+		with e ->
+			warn "Failed to parse event.from token: %s (%s)" token (Printexc.to_string e);
+			raise (Api_errors.Server_error(Api_errors.event_from_token_parse_failure, [ token ])) in
 
 	(* Temporarily create a subscription for the duration of this call *)
 	let subs = List.map subscription_of_string classes in
@@ -400,23 +394,23 @@ let from ~__context ~classes ~token ~timeout =
 											 ev::acc) createevs messages in
 
 	let valid_ref_counts =
-        XMLRPC.To.structure
-            (Db_cache_types.TableSet.fold
-                (fun tablename _ _ table acc ->
-                    (String.lowercase tablename, XMLRPC.To.int
-                        (Db_cache_types.Table.fold
-                            (fun r _ _ _ acc -> Int32.add 1l acc) table 0l))::acc)
-                tableset [])
-	in
+        Db_cache_types.TableSet.fold
+            (fun tablename _ _ table acc ->
+                (String.lowercase tablename,
+                    (Db_cache_types.Table.fold
+                        (fun r _ _ _ acc -> Int32.add 1l acc) table 0l))::acc)
+            tableset [] in
 
 	let session = Context.get_session_id __context in
 
 	on_session_deleted session;
 
-	XMLRPC.To.structure [("events",XMLRPC.To.array (List.map xmlrpc_of_event message_events)); 
-						 ("valid_ref_counts",valid_ref_counts); 
-						 ("token",XMLRPC.To.string (Printf.sprintf "%Ld,%f" last timestamp))
-						]
+	let result = {
+		events = message_events;
+		valid_ref_counts = valid_ref_counts;
+		token = last, timestamp;
+	} in
+	xmlrpc_of_event_from result
 
 let get_current_id ~__context = Mutex.execute event_lock (fun () -> !id)
 
