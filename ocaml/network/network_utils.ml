@@ -326,7 +326,9 @@ module Ip = struct
 
 	let flush_ip_addr ?(ipv6=false) dev =
 		let ipv6' = if ipv6 then ["-6"] else ["-4"] in
-		ignore (call(ipv6' @ ["addr"; "flush"; "dev"; dev]))
+		try
+			ignore (call(ipv6' @ ["addr"; "flush"; "dev"; dev]))
+		with _ -> ()
 
 	let route_show ?(version=V46) dev =
 		let v = string_of_version version in
