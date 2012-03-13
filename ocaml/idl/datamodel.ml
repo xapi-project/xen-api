@@ -909,6 +909,8 @@ let _ =
     ~doc:"Some events have been lost from the queue and cannot be retrieved." ();
   error Api_errors.event_subscription_parse_failure [ "subscription" ]
 	  ~doc:"The server failed to parse your event subscription. Valid values include: *, class-name, class-name/object-reference." ();
+  error Api_errors.event_from_token_parse_failure [ "token" ]
+	  ~doc:"The event.from token could not be parsed. Valid values include: '', and a value returned from a previous event.from call." ();
   error Api_errors.session_not_registered ["handle"]
     ~doc:"This session is not registered to receive events.  You must call event.register before event.next.  The session handle you are using is echoed." ();
 
