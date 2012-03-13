@@ -31,7 +31,7 @@ type import_failure =
 | Cannot_handle_chunked
 | Failed_to_find_object of string
 | Attached_disks_not_found
-| Unexpected_file of string * string
+| Unexpected_file of string (* expected *) * string (* actual *)
 
 exception IFailure of import_failure
 
@@ -735,12 +735,14 @@ let read_xml hdr fd =
   really_read_bigbuffer fd xml_string hdr.Tar.Header.file_size;
   Xml.parse_bigbuffer xml_string
 
-let assert_filename_is hdr filename = 
-  if hdr.Tar.Header.file_name <> filename then begin
+let assert_filename_is hdr =
+  let expected = Xva.xml_filename in
+  let actual = hdr.Tar.Header.file_name in
+  if expected <> actual then begin
     let hex = Tar.Header.to_hex in
     error "import expects the next file in the stream to be [%s]; got [%s]"
-      (hex  hdr.Tar.Header.file_name) (hex Xva.xml_filename);
-    raise (IFailure (Unexpected_file(hdr.Tar.Header.file_name, Xva.xml_filename)))
+      (hex expected) (hex actual);
+    raise (IFailure (Unexpected_file(expected, actual)))
   end
 
 (** Takes an fd and a function, tries first to read the first tar block
@@ -755,7 +757,7 @@ let with_open_archive fd f =
 
     (* we assume the first block is not all zeroes *)
     let hdr = Opt.unbox (Tar.Header.unmarshal buffer) in
-    assert_filename_is hdr Xva.xml_filename;
+    assert_filename_is hdr;
 
     (* successfully opened uncompressed stream *)
     retry_with_gzip := false;
@@ -779,7 +781,7 @@ let with_open_archive fd f =
     finally
       (fun () ->
 	 let hdr = Tar.Header.get_next_header pipe_out in
-	 assert_filename_is hdr Xva.xml_filename;
+	 assert_filename_is hdr;
 
 	 let xml = read_xml hdr pipe_out in
 	 Tar.Archive.skip pipe_out (Tar.Header.compute_zero_padding_length hdr);
@@ -1033,11 +1035,11 @@ let handler (req: Request.t) s _ =
 		      | Attached_disks_not_found ->
 		          error "Cannot import guest with currently attached disks which cannot be found";
 		          raise (Api_errors.Server_error (Api_errors.import_error_attached_disks_not_found, []))
-		      | Unexpected_file (filename_expected, filename_found) -> 
+		      | Unexpected_file (expected, actual) ->
 		          let hex = Tar.Header.to_hex in
 		          error "Invalid XVA file: import expects the next file in the stream to be \"%s\" [%s]; got \"%s\" [%s]"
-		            filename_expected (hex filename_expected) filename_found (hex filename_found);
-		          raise (Api_errors.Server_error (Api_errors.import_error_unexpected_file, [filename_expected; filename_found]))
+		            expected (hex expected) actual (hex actual);
+		          raise (Api_errors.Server_error (Api_errors.import_error_unexpected_file, [expected; actual]))
 		    end
 		| Api_errors.Server_error(code, params) as e ->
 		    raise e
