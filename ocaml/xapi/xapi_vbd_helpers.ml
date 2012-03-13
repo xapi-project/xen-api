@@ -116,7 +116,7 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
 	  (* However allow VBD pause and unpause if the VM is paused: *)
 	  let bad_ops' = if power_state = `Paused then bad_ops else `pause :: `unpause :: bad_ops in
       set_errors Api_errors.vm_bad_power_state [ Ref.string_of vm; expected; actual ] bad_ops');
-      
+
   (* HVM guests only support plug/unplug IF they have recent PV drivers *)
   (* They can only eject/insert CDs not plug/unplug *)
   let vm_gm = Db.VM.get_guest_metrics ~__context ~self:vm in
@@ -128,6 +128,13 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
     if record.Db_actions.vBD_type = `CD
     then set_errors Api_errors.operation_not_allowed 
       [ "HVM CDROMs cannot be hotplugged/unplugged, only inserted or ejected" ] [ `plug; `unplug; `unplug_force ]
+  end;
+
+  (* When a VM is suspended, no operations are allowed for CD. *)
+  if record.Db_actions.vBD_type = `CD && power_state = `Suspended then begin
+    let expected = String.concat ", " (List.map Record_util.power_to_string [`Halted; `Running]) in
+    let error_params = [Ref.string_of vm; expected; Record_util.power_to_string `Suspended] in
+    set_errors Api_errors.vm_bad_power_state error_params all_ops
   end;
 
   if not(empty) then begin
