@@ -52,7 +52,7 @@ DESTDIR=$RPM_BUILD_ROOT %{__make} install
 rm -rf $RPM_BUILD_ROOT
 
 %post fe
-[ ! -x /sbin/chkconfig ] || chkconfig fe on
+[ ! -x /sbin/chkconfig ] || chkconfig --add fe
 
 
 %files fe
