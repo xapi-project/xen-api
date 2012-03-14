@@ -192,6 +192,13 @@ $0 !~ /^host-cpu-/ && $0 !~ /^host-crashdump-/ && $0 !~ /^gpu-group-/ { print $1
 				COMPREPLY=( $(compgen -W "unlocked ,disabled " -- ${value}) )
 				return 0
 				;;
+			pif-uuids) # bond-create
+				val=$(final_comma_separated_param "$value")
+				pifs=`${xe} pif-list --minimal 2>/dev/null`
+				IFS=$'\n,'
+				COMPREPLY=( $(compgen -W "$pifs" -- "$val" ) )
+				return 0
+				;;
 			entries) # for host-get-system-status
                                 val=$(final_comma_separated_param "$value")
                                 master_uuid=$(xe pool-list params=master --minimal 2>/dev/null)
