@@ -66,6 +66,7 @@ type atomic =
 	| VIF_plug of Vif.id
 	| VIF_unplug of Vif.id * bool
 	| VIF_set_carrier of Vif.id * bool
+	| VIF_set_locking_mode of Vif.id * Vif.locking_mode
 	| VM_hook_script of (Vm.id * Xenops_hooks.script * string)
 	| VBD_plug of Vbd.id
 	| VBD_set_qos of Vbd.id
@@ -411,6 +412,12 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			finally
 				(fun () ->
 					B.VIF.set_carrier t (VIF_DB.vm_of id) (VIF_DB.read_exn id) carrier;
+				) (fun () -> Updates.add (Dynamic.Vif id) updates)
+                | VIF_set_locking_mode (id, mode) ->
+			debug "VIF.set_locking_mode %s %s" (VIF_DB.string_of_id id) (mode |> Vif.rpc_of_locking_mode |> Jsonrpc.to_string);
+			finally
+				(fun () ->
+					B.VIF.set_locking_mode t (VIF_DB.vm_of id) (VIF_DB.read_exn id) mode;
 				) (fun () -> Updates.add (Dynamic.Vif id) updates)
 		| VM_hook_script(id, script, reason) ->
 			Xenops_hooks.vm script id reason
@@ -903,6 +910,7 @@ module VIF = struct
 	let plug _ dbg id = queue_operation dbg (DB.vm_of id) (Atomic (VIF_plug id)) |> return
 	let unplug _ dbg id force = queue_operation dbg (DB.vm_of id) (Atomic (VIF_unplug (id, force))) |> return
 	let set_carrier _ dbg id carrier = queue_operation dbg (DB.vm_of id) (Atomic (VIF_set_carrier (id, carrier))) |> return
+	let set_locking_mode _ dbg id carrier = queue_operation dbg (DB.vm_of id) (Atomic (VIF_set_locking_mode (id, carrier))) |> return
 
 	let remove _ dbg id =
 		Debug.with_thread_associated dbg

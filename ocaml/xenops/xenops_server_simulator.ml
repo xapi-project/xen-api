@@ -254,6 +254,12 @@ let set_carrier vm vif carrier () =
 	let vifs = List.map (fun vif -> { vif with Vif.carrier = if this_one vif then carrier else vif.Vif.carrier }) d.Domain.vifs in
 	DB.write vm { d with Domain.vifs = vifs }
 
+let set_locking_mode vm vif mode () =
+	let d = DB.read_exn vm in
+	let this_one x = x.Vif.id = vif.Vif.id in
+	let vifs = List.map (fun vif -> { vif with Vif.locking_mode = if this_one vif then mode else vif.Vif.locking_mode }) d.Domain.vifs in
+	DB.write vm { d with Domain.vifs = vifs }
+
 let remove_pci vm pci () =
 	let d = DB.read_exn vm in
 	let this_one x = x.Pci.id = pci.Pci.id in
@@ -334,6 +340,7 @@ module VIF = struct
 	let plug _ vm vif = Mutex.execute m (add_vif vm vif)
 	let unplug _ vm vif _ = Mutex.execute m (remove_vif vm vif)
 	let set_carrier _ vm vif carrier = Mutex.execute m (set_carrier vm vif carrier)
+	let set_locking_mode _ vm vif mode = Mutex.execute m (set_locking_mode vm vif mode)
 
 	let get_state vm vif = Mutex.execute m (vif_state vm vif)
 
