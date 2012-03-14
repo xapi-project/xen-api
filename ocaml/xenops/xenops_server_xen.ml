@@ -1420,6 +1420,29 @@ module VIF = struct
 					| Some x -> x
 				end
 
+	let _locking_mode = "locking-mode"
+	let _ipv4_allowed = "ipv4-allowed"
+	let _ipv6_allowed = "ipv6-allowed"
+
+	let locking_mode_keys = [
+		_locking_mode;
+		_ipv4_allowed;
+		_ipv6_allowed;
+	]
+
+	let xenstore_of_locking_mode = function
+		| Locked { ipv4 = ipv4; ipv6 = ipv6 } -> [
+			_locking_mode, "locked";
+			_ipv4_allowed, String.concat "," ipv4;
+			_ipv6_allowed, String.concat "," ipv6;
+		]
+		| Unlocked -> [
+			_locking_mode, "unlocked";
+		]
+		| Disabled -> [
+			_locking_mode, "disabled";
+		]
+
 	let plug_exn task vm vif =
 		let vm_t = DB.read_exn vm in
 		on_frontend
@@ -1427,6 +1450,8 @@ module VIF = struct
 				let backend_domid = backend_domid_of xc xs vif in
 				(* Remember the VIF id with the device *)
 				let id = _device_id Device_common.Vif, id_of vif in
+
+				let locking_mode = xenstore_of_locking_mode vif.locking_mode in
 
 				Xenops_task.with_subtask task (Printf.sprintf "Vif.add %s" (id_of vif))
 					(fun () ->
@@ -1438,7 +1463,7 @@ module VIF = struct
 								~mac:vif.mac ~carrier:vif.carrier ~mtu:vif.mtu
 								~rate:vif.rate ~backend_domid
 								~other_config:vif.other_config
-								~extra_private_keys:(id :: vif.extra_private_keys)
+								~extra_private_keys:(id :: vif.extra_private_keys @ locking_mode)
 								frontend_domid in
 						let (_: Device_common.device) = create frontend_domid in
 
@@ -1501,6 +1526,27 @@ module VIF = struct
 						debug "Ignoring missing domain: %s" (id_of vif)
 					| Exception(Device_not_connected) ->
 						debug "Ignoring missing device: %s" (id_of vif)
+			)
+
+	let set_locking_mode task vm vif mode =
+		let open Device_common in
+		with_xc_and_xs
+			(fun xc xs ->
+				(* If the device is gone then this is ok *)
+				let device = device_by_id xc xs vm Vif Newest (id_of vif) in
+				let path = Hotplug.get_private_data_path_of_device device in
+				(* Delete the old keys *)
+				List.iter (fun x -> xs.Xs.rm (path ^ "/" ^ x)) locking_mode_keys;
+				List.iter (fun (x, y) -> xs.Xs.write (path ^ "/" ^ x) y) (xenstore_of_locking_mode mode);
+
+
+				let domid = string_of_int device.frontend.domid in
+				let devid = string_of_int device.frontend.devid in
+                ignore (run (Filename.concat Fhs.libexecdir "setup-vif-rules") ["vif"; domid; devid; "filter"]);
+                (* Update rules for the tap device if the VM has booted HVM with no PV drivers. *)
+				let di = Xenctrl.domain_getinfo xc device.frontend.domid in
+				if di.Xenctrl.hvm_guest
+				then ignore (run (Filename.concat Fhs.libexecdir "setup-vif-rules") ["tap"; domid; devid; "filter"])
 			)
 
 	let get_state vm vif =

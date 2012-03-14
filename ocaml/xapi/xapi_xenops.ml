@@ -204,7 +204,13 @@ module MD = struct
 			with _ ->
 				error "Failed to parse VIF.other_config:mtu; defaulting to 1500";
 				1500 in
-		let network_uuid = Db.Network.get_uuid ~__context ~self:vif.API.vIF_network in
+		let net = Db.Network.get_record ~__context ~self:vif.API.vIF_network in
+		let locking_mode = match vif.API.vIF_locking_mode, net.API.network_default_locking_mode with
+			| `network_default, `disabled -> Vif.Disabled
+			| `network_default, `unlocked -> Vif.Unlocked
+			| `locked, _ -> Vif.Locked { Vif.ipv4 = vif.API.vIF_ipv4_allowed; ipv6 = vif.API.vIF_ipv6_allowed }
+			| `unlocked, _ -> Vif.Unlocked
+			| `disabled, _ -> Vif.Disabled in
 		let open Vif in {
 			id = (vm.API.vM_uuid, vif.API.vIF_device);
 			position = int_of_string vif.API.vIF_device;
@@ -214,9 +220,10 @@ module MD = struct
 			rate = None;
 			backend = backend_of_network ~__context ~self:vif.API.vIF_network;
 			other_config = vif.API.vIF_other_config;
+			locking_mode = locking_mode;
 			extra_private_keys = [
                 "vif-uuid", vif.API.vIF_uuid;
-				"network-uuid", network_uuid
+				"network-uuid", net.API.network_uuid
 			]
 		}
 
@@ -1477,6 +1484,15 @@ let vif_plug ~__context ~self =
 	Client.VIF.plug dbg id |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
 	Event.wait dbg ();
 	assert (Db.VIF.get_currently_attached ~__context ~self)
+
+let vif_set_locking_mode ~__context ~self =
+	let vm = Db.VIF.get_VM ~__context ~self in
+	assert_resident_on ~__context ~self:vm;
+	let vif = md_of_vif ~__context ~self in
+	info "xenops: VIF.set_locking_mode %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
+	let dbg = Context.string_of_task __context in
+	Client.VIF.set_locking_mode dbg vif.Vif.id vif.Vif.locking_mode |> sync_with_task __context;
+	Event.wait dbg ();
 
 let vif_unplug ~__context ~self force =
 	let vm = Db.VIF.get_VM ~__context ~self in

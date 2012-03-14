@@ -559,6 +559,7 @@ module VifDeviceTests = DeviceTests(struct
 			rate = Some(1L, 2L);
 			backend = Network.Local "xenbr0";
 			other_config = [ "other", "config" ];
+			locking_mode = Vif.Unlocked;
 			extra_private_keys = [ "private", "keys" ];
 		}
 	let add = Client.VIF.add dbg
