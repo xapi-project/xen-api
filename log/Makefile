@@ -1,7 +1,7 @@
 include ../config.mk
 
-OBJS = syslog log logs debug
-INTF = log.cmi logs.cmi syslog.cmi debug.cmi
+OBJS = syslog debug
+INTF = syslog.cmi debug.cmi
 LIBS = log.cma log.cmxa
 
 OCAMLCFLAGS += -thread -I ../stdext
@@ -42,9 +42,7 @@ META: META.in
 	sed 's/@VERSION@/$(VERSION)/g' < $< > $@
 
 #dependency:
-log.cmi: syslog.cmi
-logs.cmi: log.cmi
-debug.cmi: logs.cmi
+debug.cmi:
 
 .PHONY: install
 install: $(LIBS) META
