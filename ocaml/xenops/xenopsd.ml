@@ -23,7 +23,7 @@ let minor_version = 9
 *)
 let config_file = ref (Printf.sprintf "/etc/%s.conf" name)
 let pidfile = ref (Printf.sprintf "/var/run/%s.pid" name)
-let log_destination = ref "syslog:xenopsd"
+let log_destination = ref "syslog:daemon"
 let simulate = ref false
 let persist = ref true
 let daemon = ref false
@@ -146,16 +146,10 @@ let start (domain_sock, forwarded_sock) process =
 		) () in
 	()
 
-(* val reopen_logs: unit -> unit *)
-let reopen_logs _ = 
-  debug "Reopening logfiles";
-  Logs.reopen ();
-  debug "Logfiles reopened";
-  []
-
 let _ = 
-  Logs.reset_all [ !log_destination ];
-  debug "xenopsd version %d.%d starting" major_version minor_version;
+	Debug.set_facility Syslog.Local5;
+
+	debug "xenopsd version %d.%d starting" major_version minor_version;
 
   Arg.parse (Arg.align [
 	       "-daemon", Arg.Set daemon, "Create a daemon";
@@ -167,8 +161,6 @@ let _ =
     (Printf.sprintf "Usage: %s [-daemon] [-pidfile filename]" name);
   read_config_file ();
 
-  Logs.reset_all [ !log_destination ];
-  Logs.set "http" Log.Debug [ "nil" ];
   dump_config_file ();
 
   Sys.set_signal Sys.sigpipe Sys.Signal_ignore;

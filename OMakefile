@@ -118,9 +118,7 @@ OCAML_PHASE3_XEN = \
 	ocaml/xapi/sparse_dd \
 	ocaml/xapi/monitor_fake_plugin \
 	ocaml/license/v6d \
-	ocaml/license/v6d-reopen-logs \
-	ocaml/network/xcp-networkd \
-	ocaml/network/xcp-networkd-reopen-logs
+	ocaml/network/xcp-networkd
 
 OCAML_PHASE3_NOXEN = \
 		     ocaml/ptoken/genptoken \

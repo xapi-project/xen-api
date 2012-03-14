@@ -310,37 +310,18 @@ let create_owner_vbd_and_plug rpc session_id vm vdi device_name bootable rw cd u
    CLI Operation Implementation
    --------------------------------------------------------------------- *)
 
-(* Temporary hack for logging *)
+(* NB: all logging is now via syslog. No manual log controls are here. *)
 let log_set_output printer _ session_id params =
-	let logger = List.assoc "output" params in
-	try
-		let key = List.assoc "key" params in
-		Log.validate logger;
-		let level = try List.assoc "level" params with _ -> "all" in
-		if level="all" then
-			(Logs.add key [logger];
-			printer (Cli_printer.PList ["Setting all logging output for key "^key^" to logger: "^logger]))
-		else
-			(let loglevel = Log.level_of_string level in
-			Logs.set key loglevel [logger];
-			printer (Cli_printer.PList ["Setting logging output at level "^level^" for key "^key^" to logger: "^logger]))
-	with
-		| Log.Unknown_level x -> failwith ("Unknown logging level "^x)
-		| Not_found ->
-			Logs.reset_all [ logger ];
-			printer (Cli_printer.PList ["Resetting all logging output to logger: "^logger])
+	()
 
 let log_get_keys printer _ session_id params =
-	let keys = Debug.get_all_debug_keys () in
-	printer (Cli_printer.PList keys)
+	()
 
 let log_get printer _ session_id params =
-	let logger = Logs.get_or_open "string" in
-	let lines = Log.get_strings logger in
-	printer (Cli_printer.PList (List.rev lines))
+	()
 
 let log_reopen printer _ session_id params =
-	Logs.reopen (); ()
+	()
 
 let string_of_task_status task = match task.API.task_status with
 	| `pending ->
