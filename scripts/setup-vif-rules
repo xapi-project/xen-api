@@ -159,7 +159,7 @@ def add_flow(bridge_name, args):
 
 def create_vswitch_rules(bridge_name, port, config):
     if config["locking_mode"] == "disabled":
-        add_flow(bridge_name, "in_port=%s,idle_timeout=0,action=drop")
+        add_flow(bridge_name, "in_port=%s,idle_timeout=0,action=drop" % port)
     elif config["locking_mode"] == "locked":
         mac = config["mac"]
         ipv4_allowed = config["ipv4_allowed"]
