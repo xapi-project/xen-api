@@ -1047,7 +1047,7 @@ let _ =
     ~doc:"The specified CRL is corrupt or unreadable." ();
 
   error Api_errors.vmpp_has_vm []
-    ~doc:"There is at least on VM assigned to this protection policy." ();
+    ~doc:"There is at least one VM assigned to this protection policy." ();
   error Api_errors.vmpp_archive_more_frequent_than_backup []
     ~doc:"Archive more frequent than backup." ();
   error Api_errors.vm_assigned_to_protection_policy []
