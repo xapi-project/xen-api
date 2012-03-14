@@ -134,7 +134,7 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
   if record.Db_actions.vBD_type = `CD && power_state = `Suspended then begin
     let expected = String.concat ", " (List.map Record_util.power_to_string [`Halted; `Running]) in
     let error_params = [Ref.string_of vm; expected; Record_util.power_to_string `Suspended] in
-    set_errors Api_errors.vm_bad_power_state error_params all_ops
+    set_errors Api_errors.vm_bad_power_state error_params [`insert; `eject] (* `attach required for resume *)
   end;
 
   if not(empty) then begin
