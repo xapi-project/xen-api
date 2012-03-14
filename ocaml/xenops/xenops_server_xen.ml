@@ -1489,6 +1489,20 @@ module VIF = struct
 			);
 		()
 
+	let set_carrier task vm vif carrier =
+		with_xc_and_xs
+			(fun xc xs ->
+				try
+					(* If the device is gone then this is ok *)
+					let device = device_by_id xc xs vm Device_common.Vif Newest (id_of vif) in
+					Device.Vif.set_carrier ~xs device carrier
+				with
+					| Exception(Does_not_exist(_,_)) ->
+						debug "Ignoring missing domain: %s" (id_of vif)
+					| Exception(Device_not_connected) ->
+						debug "Ignoring missing device: %s" (id_of vif)
+			)
+
 	let get_state vm vif =
 		with_xc_and_xs
 			(fun xc xs ->

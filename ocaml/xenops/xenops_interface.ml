@@ -388,6 +388,7 @@ module VIF = struct
 	external stat: debug_info -> Vif.id -> ((Vif.t * Vif.state) option) * (error option) = ""
 	external list: debug_info -> Vm.id -> ((Vif.t * Vif.state) list option) * (error option) = ""
 	external remove: debug_info -> Vif.id -> (unit option) * (error option) = ""
+	external set_carrier: debug_info -> Vif.id -> bool -> (Task.id option) * (error option) = ""
 end
 
 module UPDATES = struct
