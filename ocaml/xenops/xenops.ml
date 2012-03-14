@@ -491,8 +491,6 @@ let do_cmd_parsing subcmd init_pos =
 		in
 
 	let common = [
-		"-debug", Arg.Unit (fun () -> Logs.set_default Log.Debug [ "stderr" ]),
-			  "enable debugging";
 		"-domid", Arg.Set_int domid, "Domain ID to be built";
 	]
 	and setmaxmem_args = [

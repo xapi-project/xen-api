@@ -31,11 +31,4 @@ let get_editions () =
 let get_version () =
 	""
 
-let reopen_logs () =
-	try
-		debug "Reopening logfiles";
-		Logs.reopen ();
-		debug "Logfiles reopened";
-		true
-	with _ -> false
-
+let reopen_logs () = true

@@ -3,6 +3,6 @@
 	size 16M
     sharedscripts
     postrotate
-	@BINDIR@/xe log-reopen 2> /dev/null || true
+               /usr/bin/killall -HUP syslogd
     endscript
 }
