@@ -248,6 +248,12 @@ let remove_vif vm vif () =
 	then raise (Exception(Does_not_exist("VIF", Printf.sprintf "%s.%s" (fst vif.Vif.id) (snd vif.Vif.id))))
 	else DB.write vm { d with Domain.vifs = List.filter (fun x -> not (this_one x)) d.Domain.vifs }
 
+let set_carrier vm vif carrier () =
+	let d = DB.read_exn vm in
+	let this_one x = x.Vif.id = vif.Vif.id in
+	let vifs = List.map (fun vif -> { vif with Vif.carrier = if this_one vif then carrier else vif.Vif.carrier }) d.Domain.vifs in
+	DB.write vm { d with Domain.vifs = vifs }
+
 let remove_pci vm pci () =
 	let d = DB.read_exn vm in
 	let this_one x = x.Pci.id = pci.Pci.id in
@@ -327,6 +333,7 @@ end
 module VIF = struct
 	let plug _ vm vif = Mutex.execute m (add_vif vm vif)
 	let unplug _ vm vif _ = Mutex.execute m (remove_vif vm vif)
+	let set_carrier _ vm vif carrier = Mutex.execute m (set_carrier vm vif carrier)
 
 	let get_state vm vif = Mutex.execute m (vif_state vm vif)
 
