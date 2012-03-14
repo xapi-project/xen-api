@@ -824,7 +824,6 @@ let server_init() =
     Server_helpers.exec_with_new_task "server_init" (fun __context ->
     Startup.run ~__context [
     "Reading config file", [], (fun () -> Xapi_config.read_config !Xapi_globs.config_file);
-    "Reading log config file", [ Startup.NoExnRaising ], (fun () ->Xapi_config.read_log_config !Xapi_globs.log_config_file);
     "Reading external global variables definition", [ Startup.NoExnRaising ], Xapi_globs.read_external_config;
     "Initing stunnel path", [], Stunnel.init_stunnel_path;
     "XAPI SERVER STARTING", [], print_server_starting_message;
@@ -1032,7 +1031,6 @@ let watchdog f =
 		(* parent process blocks sigint and forward sigterm to child. *)
 		ignore(Unix.sigprocmask Unix.SIG_BLOCK [Sys.sigint]);
 		Sys.catch_break false;
-		Logs.append "watchdog" Log.Info "syslog:xapi_watchdog";
 		
 		(* watchdog logic *)
 		let loginfo fmt = W.info fmt in
@@ -1197,6 +1195,8 @@ tolarence, the next tweak will be %f seconds away at the earliest."
 
 
 let _ =
+	Debug.set_facility Syslog.Local5;
+
 	init_args(); (* need to read args to find out whether to daemonize or not *)
 
   if !daemonize then

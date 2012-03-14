@@ -1,9 +1,0 @@
-/var/log/squeezed.log {
-    missingok
-    notifempty
-    size 30k
-    sharedscripts
-    postrotate
-        /opt/xensource/bin/squeezed_client reopen-logs 2> /dev/null > /dev/null || true
-    endscript
-}

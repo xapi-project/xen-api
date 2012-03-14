@@ -186,7 +186,6 @@ rm -rf $RPM_BUILD_ROOT
 /etc/xapi.d/plugins/iovirt
 /etc/xensource/db.conf
 /etc/xensource/db.conf.rio
-/etc/xensource/log.conf
 /etc/xensource/master.d/01-example
 /etc/xensource/master.d/03-mpathalert-daemon
 /etc/xensource/pool.conf
@@ -199,7 +198,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/bin/mpathalert
 @OPTDIR@/bin/perfmon
 @OPTDIR@/bin/static-vdis
-@OPTDIR@/bin/v6d-reopen-logs
 @OPTDIR@/bin/xapi-autostart-vms
 @OPTDIR@/bin/xapi-db-process
 @OPTDIR@/bin/xapi-wait-init-complete
@@ -249,7 +247,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/link-vms-by-sr.py
 @OPTDIR@/libexec/link-vms-by-sr.pyo
 @OPTDIR@/libexec/link-vms-by-sr.pyc
-@OPTDIR@/libexec/logrotate.sh
 @OPTDIR@/libexec/logs-download
 @OPTDIR@/libexec/lw-force-domain-leave
 @OPTDIR@/libexec/mail-alarm
@@ -306,7 +303,6 @@ rm -rf $RPM_BUILD_ROOT
 %files squeezed
 %defattr(-,root,root,-)
 @OPTDIR@/libexec/squeezed
-/etc/logrotate.d/squeezed
 /etc/rc.d/init.d/squeezed
 @OPTDIR@/bin/squeezed_client
 
@@ -330,8 +326,6 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root,-)
 @OPTDIR@/libexec/xcp-networkd
 /etc/rc.d/init.d/xcp-networkd
-@OPTDIR@/bin/xcp-networkd-reopen-logs
-/etc/logrotate.d/xcp-networkd
 
 %files xenops
 %defattr(-,root,root,-)
