@@ -632,8 +632,7 @@ module Bridge = struct
 				ignore (Ovs.create_port (List.hd interfaces) bridge)
 			end else begin
 				ignore (Ovs.create_bond name interfaces bridge mac);
-				List.iter (fun name -> Interface.bring_up () ~name) interfaces;
-				Interface.bring_up () ~name
+				List.iter (fun name -> Interface.bring_up () ~name) interfaces
 			end;
 			if List.mem bridge !add_default then begin
 				add_default_flows () bridge mac interfaces;
