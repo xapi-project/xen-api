@@ -506,14 +506,21 @@ let create_or_get_vdi_on_master __context rpc session_id (vdi_ref, vdi) : API.re
 
 let create_or_get_network_on_master __context rpc session_id (network_ref, network) : API.ref_network =
 	let my_bridge = network.API.network_bridge in
+	let is_physical = match network.API.network_PIFs with
+		| [] -> false
+		| hd :: _ -> Db.PIF.get_physical ~__context ~self:hd
+	in
+	let is_himn =
+		(List.mem_assoc Xapi_globs.is_host_internal_management_network network.API.network_other_config) &&
+		(List.assoc Xapi_globs.is_host_internal_management_network network.API.network_other_config = "true")
+	in
 
 	let new_network_ref =
-		if String.startswith "xenbr" my_bridge || my_bridge = "xenapi" then
+		if is_physical || is_himn then
 			(* Physical network or Host Internal Management Network:
 			 * try to join an existing network with the same bridge name, or create one.
-			 * This relies on the convention that PIFs with the same device name need to be connected.
-			 * Furthermore, there should be only one Host Internal Management Network in a pool, and it
-			 * should always have bridge name "xenapi". *)
+			 * This relies on the convention that physical PIFs with the same device name need to be connected.
+			 * Furthermore, there should be only one Host Internal Management Network in a pool. *)
 			try
 				let pool_networks = Client.Network.get_all_records ~rpc ~session_id in
 				let net_ref, _ = List.find (fun (_, net) -> net.API.network_bridge = my_bridge) pool_networks in
