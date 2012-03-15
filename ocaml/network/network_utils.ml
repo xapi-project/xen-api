@@ -553,7 +553,7 @@ module Ovs = struct
 		call ["--"; "--may-exist"; "add-port"; bridge; name]
 
 	let create_bond name interfaces bridge mac =
-		call (["--"; "--fake-iface"; "--may-exist"; "add-bond"; bridge; name] @ interfaces @
+		call (["--"; "--may-exist"; "add-bond"; bridge; name] @ interfaces @
 			["--"; "set"; "port"; name; "MAC=\"" ^ (String.escaped mac) ^ "\""])
 
 	let destroy_port name =
