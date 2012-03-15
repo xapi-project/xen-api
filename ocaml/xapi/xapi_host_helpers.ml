@@ -84,7 +84,7 @@ let valid_operations ~__context record _ref' =
   (* The host power_on_mode must be not disabled *)
   begin 
     try 
-      if record.Db_actions.host_power_on_mode == ""
+      if record.Db_actions.host_power_on_mode = ""
       then set_errors Api_errors.host_power_on_mode_disabled [] [ `power_on ]
     with _ -> () 
   end;
