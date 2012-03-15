@@ -188,7 +188,9 @@ let assert_tray_not_locked xs device_number domid vbd =
 (** Throws BAD_POWER_STATE if the VM is suspended *)
 let assert_not_suspended ~__context ~vm =
   if (Db.VM.get_power_state ~__context ~self:vm)=`Suspended then
-    raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [ Ref.string_of vm; Record_util.power_to_string `Running; Record_util.power_to_string `Suspended]))
+    let expected = String.concat ", " (List.map Record_util.power_to_string [`Halted; `Running]) in
+    let error_params = [Ref.string_of vm; expected; Record_util.power_to_string `Suspended] in
+    raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, error_params))
 
 (* Throw an error if the media is not 'removable' (ie a "CD")
    Throw an error if the media is not empty.
