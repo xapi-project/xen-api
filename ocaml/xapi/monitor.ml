@@ -56,18 +56,18 @@ let memory_targets_m = Mutex.create ()
 let uncooperative_domains: (int, unit) Hashtbl.t = Hashtbl.create 20
 let uncooperative_domains_m = Mutex.create ()
 
+let string_of_domain_handle dh =
+  Uuid.string_of_uuid (Uuid.uuid_of_int_array dh.Xenctrl.handle)
+
 let uuid_of_domid domains domid = 
-  let domid_to_uuid = List.map (fun di -> di.Xenctrl.domid, Uuid.uuid_of_int_array di.Xenctrl.handle) domains in
-  if List.mem_assoc domid domid_to_uuid
-  then Uuid.string_of_uuid (List.assoc domid domid_to_uuid)
-  else failwith (Printf.sprintf "Failed to find uuid corresponding to domid: %d" domid)
+  try string_of_domain_handle (List.find (fun di -> di.Xenctrl.domid = domid) domains)
+  with Not_found -> failwith (Printf.sprintf "Failed to find uuid corresponding to domid: %d" domid)
 
 let get_uncooperative_domains () = 
   let domids = Mutex.execute uncooperative_domains_m (fun () -> Hashtbl.fold (fun domid _ acc -> domid::acc) uncooperative_domains []) in
   let dis = Xenctrl.with_intf (fun xc -> Xenctrl.domain_getinfolist xc 0) in
-  let domid_to_uuid = List.map (fun di -> di.Xenctrl.domid, Uuid.uuid_of_int_array di.Xenctrl.handle) dis in
-  let uuids = List.concat (List.map (fun domid -> if List.mem_assoc domid domid_to_uuid then [ List.assoc domid domid_to_uuid ] else []) domids) in
-  List.map Uuid.string_of_uuid uuids
+  let dis_uncoop = List.filter (fun di -> List.mem di.Xenctrl.domid domids) dis in
+  List.map string_of_domain_handle dis_uncoop
 
 (*****************************************************)
 (* cpu related code                                  *)
