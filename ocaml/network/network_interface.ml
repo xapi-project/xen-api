@@ -29,6 +29,7 @@ external reopen_logs: unit -> bool = ""
 
 module Interface = struct
 	external get_all : unit -> iface list = ""
+	external exists : name:iface -> bool = ""
 	external get_mac : name:iface -> string = ""
 	external is_up : name:iface -> bool = ""
 	external get_ipv4_addr : name:iface -> (Unix.inet_addr * int) list = ""

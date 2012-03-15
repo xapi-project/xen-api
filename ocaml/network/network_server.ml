@@ -199,6 +199,9 @@ module Interface = struct
 	let get_all _ () =
 		Sysfs.list ()
 
+	let exists _ ~name =
+		List.mem name (Sysfs.list ())
+
 	let get_mac _ ~name =
 		Ip.get_mac name
 
