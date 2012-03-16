@@ -23,7 +23,7 @@ open D
 
 (** Given an operation, [allowed_power_states] returns all the possible power state for
 	wich this operation can be performed. *)
-let allowed_power_states ~(op:API.vm_operations) =
+let allowed_power_states ~__context ~vmr ~(op:API.vm_operations) =
 	let all_power_states =
 		[`Halted; `Paused; `Suspended; `Running] in
 	match op with
@@ -64,6 +64,7 @@ let allowed_power_states ~(op:API.vm_operations) =
 	                                -> [`Halted; `Running]
 	| `clone
 	| `copy
+	                                -> `Halted :: (if vmr.Db_actions.vM_is_a_snapshot || Helpers.clone_suspended_vm_enabled ~__context then [`Suspended] else [])
 	| `create_template (* Don't touch until XMLRPC unmarshal code is able to pre-blank fields on input. *)
 	| `destroy
 	| `export
@@ -84,9 +85,9 @@ let allowed_power_states ~(op:API.vm_operations) =
 	| `get_cooperative
 	                                -> all_power_states
 
-(** check if [op] can be done in [power_state], when no other operation is in progress *)
-let is_allowed_sequentially ~power_state ~op =
-	List.mem power_state (allowed_power_states op)
+(** check if [op] can be done when [vmr] is in [power_state], when no other operation is in progress *)
+let is_allowed_sequentially ~__context ~vmr ~power_state ~op =
+	List.mem power_state (allowed_power_states ~__context ~vmr ~op)
 
 (**	check if [op] can be done while [current_ops] are already in progress.
 	Remark: we do not test whether the power-state is valid. *)
@@ -164,8 +165,8 @@ let check_snapshot ~vmr ~op ~ref_str =
 	else Some (Api_errors.vm_is_snapshot, [ref_str; Record_util.vm_operation_to_string op])
 
 (* report a power_state/operation error *)
-let report_power_state_error ~power_state ~op ~ref_str =
-	let expected = allowed_power_states op in
+let report_power_state_error ~__context ~vmr ~power_state ~op ~ref_str =
+	let expected = allowed_power_states ~__context ~vmr ~op in
 	let expected = String.concat ", " (List.map Record_util.power_to_string expected) in
 	let actual = Record_util.power_to_string power_state in
 	Some (Api_errors.vm_bad_power_state, [ref_str; expected; actual])
@@ -220,8 +221,8 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 
 	(* Always check the power state constrain of the operation first *)
 	let current_error = check current_error (fun () -> 
-		if not (is_allowed_sequentially ~power_state ~op)
-		then report_power_state_error ~power_state ~op ~ref_str
+		if not (is_allowed_sequentially ~__context ~vmr ~power_state ~op)
+		then report_power_state_error ~__context ~vmr ~power_state ~op ~ref_str
 		else None) in
 
 	(* if other operations are in progress, check that the new operation concurrently to these ones. *)
@@ -270,13 +271,6 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 	let current_error = check current_error (fun () -> 
 		if need_pv_drivers_check ~__context ~vmr ~power_state ~op
 		then check_drivers ~__context ~vmr ~vmgmr ~op ~ref
-		else None) in
-
-	(* check is the correct flag is set to allow clone/copy on suspended VM. *)
-	let current_error = check current_error (fun () ->
-		if (power_state = `Suspended && (op = `clone || op = `copy)
-		    && not is_snapshot && not clone_suspended_vm_enabled)
-		then Some (Api_errors.vm_bad_power_state, [ref_str; "halted"; Record_util.power_to_string power_state])
 		else None) in
 
 	(* check if the dynamic changeable operations are still valid *)
