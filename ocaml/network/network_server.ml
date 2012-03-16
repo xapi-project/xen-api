@@ -243,6 +243,7 @@ module Interface = struct
 		| Static4 addrs ->
 			if Dhclient.is_running name then
 				ignore (Dhclient.stop name);
+			Ip.flush_ip_addr name;
 			List.iter (Ip.set_ip_addr name) addrs
 
 	let set_ipv4_conf _ ~name ~conf =
