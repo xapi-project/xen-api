@@ -1155,7 +1155,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
 
    "vm-pause",
     {
-      reqd=["uuid"];
+      reqd=[];
       optn=[];
       help="Pause a running VM. Note this operation does not free the associated memory (see 'vm-suspend').";
       implementation= No_fd Cli_operations.vm_pause;
@@ -1164,7 +1164,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
 
    "vm-unpause",
     {
-      reqd=["uuid"];
+      reqd=[];
       optn=[];
       help="Unpause a paused VM.";
       implementation= No_fd Cli_operations.vm_unpause;
