@@ -614,7 +614,7 @@ let guest_agent_update ctx domid uuid =
        let xs = Xal.xs_of_ctx ctx in
        let path = xs.Xs.getdomainpath domid in
        let lookup (key: string) = try Some (xs.Xs.read (path ^ "/" ^ key)) with Xenbus.Xb.Noent -> None in
-       let list (dir: string) = try List.filter (fun x -> x <> "") (xs.Xs.directory (path ^ dir)) with Xenbus.Xb.Noent -> [] in
+       let list (dir: string) = try List.filter (fun x -> x <> "") (xs.Xs.directory (path ^ "/" ^ dir)) with Xenbus.Xb.Noent -> [] in
        (* NB Xapi_guest_agent.all is robust to spurious events *)
        Server_helpers.exec_with_new_task (Printf.sprintf "Event thread updating guest metrics (domid: %d)" domid)
 	 (fun __context -> Xapi_guest_agent.all lookup list ~__context ~domid ~uuid)
