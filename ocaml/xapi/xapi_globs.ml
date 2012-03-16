@@ -40,7 +40,9 @@ let api_version_vendor = "XenSource"
 let api_version_vendor_implementation = []
 
 (* version of latest tools ISO in filesystem *)
-let tools_version = ref (-1, -1, -1, -1)
+let tools_version_none = (-1, -1, -1, -1)
+
+let tools_version = ref tools_version_none
 
 (* client min/max version range *)
 let xencenter_min_verstring = "1.9"

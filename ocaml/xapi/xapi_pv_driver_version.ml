@@ -60,7 +60,7 @@ let string_of_vsn2 (maj, min) = string_of_vsn [maj; min]
    with the master's SR scanning thread. Called from the startup code only *)
 let get_latest_tools_vsn () = 
   let all = Sys.readdir Xapi_globs.tools_sr_dir in
-  let none = (-1, -1, -1, -1) in
+  let none = Xapi_globs.tools_version_none in
   let vsn_of_filename f = 
     try
       let prefix = "xs-tools-" and suffix = ".iso" in
@@ -128,6 +128,8 @@ let compare_vsn_with_product_vsn ?(relaxed=false) (pv_maj, pv_min, pv_mic) (prod
    returns 1 if the PV drivers are a newer verrsion than the tools version on this host *)
 let compare_vsn_with_tools_iso ?(relaxed=false) pv_vsn =
 	(* XXX: consolidate with create_templates code and the function above *)
+	if !Xapi_globs.tools_version = Xapi_globs.tools_version_none then get_latest_tools_vsn ();
+
 	if relaxed then
 		let pv_maj, pv_min, _, _ = pv_vsn in
 		let tools_maj, tools_min, _, _  = !Xapi_globs.tools_version in
