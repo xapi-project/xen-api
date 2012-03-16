@@ -1,8 +1,8 @@
 xen-api (1.3.2-4) unstable; urgency=low
 
   * Added missing dependency on pciutils.
-  * xcp-networkd should have been depending on debconf, not xcp-xapi, this is now
-  corrected.
+  * xcp-networkd should have been depending on debconf, not xcp-xapi, this is
+  now corrected.
 
  -- Thomas Goirand <zigo@debian.org>  Fri, 16 Mar 2012 11:22:14 +0000
 
