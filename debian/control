@@ -11,7 +11,7 @@ Vcs-Git: http://anonscm.debian.org/git/pkg-xen/xen-api.git
 
 Package: xcp-xapi
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}, lsb-base, debconf, python-xenapi (= ${source:Version}), xcp-squeezed, xcp-v6d, xcp-fe, xcp-storage-managers, xen-hypervisor-4.1-amd64 | xen-hypervisor-4.1-i386 | xen-hypervisor-4.1, xen-utils-4.1, stunnel, hwdata, xcp-eliloader, xcp-xe, xcp-networkd
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}, lsb-base, pciutils, python-xenapi (= ${source:Version}), xcp-squeezed, xcp-v6d, xcp-fe, xcp-storage-managers, xen-hypervisor-4.1-amd64 | xen-hypervisor-4.1-i386 | xen-hypervisor-4.1, xen-utils-4.1, stunnel, hwdata, xcp-eliloader, xcp-xe, xcp-networkd
 Recommends: xcp-vncterm, xcp-guest-templates, smbfs
 Provides: xcp
 Description: XCP XenAPI server
@@ -183,7 +183,7 @@ Description: command line utility for managing XCP hosts
 
 Package: xcp-networkd
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, lsb-base, ethtool, bridge-utils, iproute, isc-dhcp-client, procps, openvswitch-switch, module-init-tools, openvswitch-datapath-dkms
+Depends: ${shlibs:Depends}, ${misc:Depends}, debconf, lsb-base, ethtool, bridge-utils, iproute, isc-dhcp-client, procps, openvswitch-switch, module-init-tools, openvswitch-datapath-dkms
 Description: daemon to manage network configuration for xcp-xapi
  The Xen Cloud Platform (XCP) is an open source enterprise-ready server
  virtualization and cloud computing platform, with support for a range of
