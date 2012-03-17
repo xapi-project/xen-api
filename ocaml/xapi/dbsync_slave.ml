@@ -18,7 +18,6 @@
 open Stringext
 open Listext
 open Printf
-open Vmopshelpers
 open Create_misc
 open Client
 open Pervasiveext
@@ -114,7 +113,10 @@ let refresh_localhost_info ~__context info =
 let record_host_memory_properties ~__context =
 	let self = !Xapi_globs.localhost_ref in
 	let total_memory_bytes =
-		with_xc (fun xc -> Memory.get_total_memory_bytes ~xc) in
+		let open Xenops_client in
+		let dbg = Context.string_of_task __context in
+		let mib = Client.HOST.get_total_memory_mib dbg |> success in
+		Int64.mul 1024L (Int64.mul 1024L mib) in
 	let metrics = Db.Host.get_metrics ~__context ~self in
 	Db.Host_metrics.set_memory_total ~__context ~self:metrics ~value:total_memory_bytes;
 	let boot_memory_file = Xapi_globs.initial_host_free_memory_file in
