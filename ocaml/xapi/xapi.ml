@@ -934,7 +934,6 @@ let server_init() =
       "pool db backup", [ Startup.OnlyMaster; Startup.OnThread ], Pool_db_backup.pool_db_backup_thread;
       "monitor", [ Startup.OnThread ], Monitor.loop;
       "monitor_dbcalls", [Startup.OnThread], Monitor_dbcalls.monitor_dbcall_thread;
-      "guest_agent_monitor", [ Startup.NoExnRaising ], Xapi_guest_agent.guest_metrics_liveness_thread;
       "touching ready file", [], (fun () -> Helpers.touch_file !Xapi_globs.ready_file);
        (* -- CRITICAL: this check must be performed before touching shared storage *)
       "Performing no-other-masters check", [ Startup.OnlyMaster ], check_no_other_masters;
