@@ -11,9 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Vmopshelpers
 open Xapi_vif_helpers
-open Xenstore
+module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
 let assert_operation_valid ~__context ~self ~(op:API.vif_operations) = 
@@ -48,15 +47,5 @@ let move ~__context ~network vif =
 	let suspended = Db.VM.get_power_state ~__context ~self:vif_rec.API.vIF_VM = `Suspended in
 	let attached = vif_rec.API.vIF_currently_attached && not suspended in
 	Db.VIF.set_network ~__context ~self:vif ~value:network;
-	if attached then
-		let vm_r = Db.VM.get_record ~__context ~self:vif_rec.API.vIF_VM in
-		let protocol = Helpers.device_protocol_of_string vm_r.API.vM_domarch in
-		match Vm_config.vif_of_vif ~__context ~vm:vif_rec.API.vIF_VM vm_r (Int64.to_int vm_r.API.vM_domid) protocol vif with
-		| None -> ()
-		| Some vif_device ->
-			let xs_bridge_path = Hotplug.get_private_data_path_of_device (Vm_config.device_of_vif vif_device) ^ "/bridge" in
-			with_xs (fun xs -> xs.Xs.write xs_bridge_path vif_device.Vm_config.bridge);
-			let domid = string_of_int vif_device.Vm_config.domid in
-			let devid = string_of_int vif_device.Vm_config.devid in
-			ignore(Helpers.call_script (Filename.concat Fhs.scriptsdir "vif") ["move"; "vif"; domid; devid])
+	if attached then Xapi_xenops.vif_move ~__context ~self:vif network
 
