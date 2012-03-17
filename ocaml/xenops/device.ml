@@ -575,12 +575,24 @@ let qemu_media_change ~xs ~device_number domid _type params =
 	let devid = Device_number.to_xenstore_key device_number in
 	let back_dom_path = xs.Xs.getdomainpath 0 in
 	let backend  = sprintf "%s/backend/vbd/%u/%d" back_dom_path domid devid in
+	let path = backend ^ "/params" in
+
+	(* unfortunately qemu filter the request if on the same string it has,
+	   so we trick it by having a different string, but the same path, adding a
+	   spurious '/' character at the beggining of the string.  *)
+	let oldval = try xs.Xs.read path with _ -> "" in
+	let pathtowrite =
+		if oldval = params then (
+			"/" ^ params
+		) else
+			params in
+
 	let back_delta = [
 		"type",           _type;
-		"params",         params;
+		"params",         pathtowrite;
 	] in
 	Xs.transaction xs (fun t -> t.Xst.writev backend back_delta);
-	debug "Media changed: params = %s" params
+	debug "Media changed: params = %s" pathtowrite
 
 let media_tray_is_locked ~xs ~device_number domid =
 	let devid = Device_number.to_xenstore_key device_number in
@@ -597,23 +609,6 @@ let media_eject ~xs ~device_number domid =
 let media_insert ~xs ~device_number ~params ~phystype domid =
 	let _type = backendty_of_physty phystype in
 	qemu_media_change ~xs ~device_number domid _type params
-
-let media_refresh ~xs ~device_number ~params domid =
-	let devid = Device_number.to_xenstore_key device_number in
-	let back_dom_path = xs.Xs.getdomainpath 0 in
-	let backend = sprintf "%s/backend/vbd/%u/%d" back_dom_path domid devid in
-	let path = backend ^ "/params" in
-	(* unfortunately qemu filter the request if on the same string it has,
-	   so we trick it by having a different string, but the same path, adding a
-	   spurious '/' character at the beggining of the string.  *)
-	let oldval = try xs.Xs.read path with _ -> "" in
-	let pathtowrite =
-		if oldval = params then (
-			"/" ^ params
-		) else
-			params in
-	xs.Xs.write path pathtowrite;
-	()
 
 let media_is_ejected ~xs ~device_number domid =
 	let devid = Device_number.to_xenstore_key device_number in
