@@ -530,6 +530,9 @@ let upgrade_grace_file = Filename.concat Fhs.vardir "ugp"
 (** Where the ballooning daemon writes the initial overhead value *)
 let squeezed_reserved_host_memory = "/squeezed/reserved-host-memory"
 
+(** Where the ballooning daemon writes the initial overhead value *)
+let squeezed_reserved_host_memory_filename = "/var/run/squeezed/reserved-host-memory"
+
 (** Xenclient enabled *)
 let xenclient_enabled = false
 

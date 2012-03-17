@@ -137,14 +137,11 @@ let record_host_memory_properties ~__context =
 				total_memory_bytes -- boot_memory_bytes in
 			let nonobvious_overhead_memory_kib = 
 				try
-					Vmopshelpers.with_xs
-						(fun xs -> Int64.of_string
-							(xs.Xs.read
-								Xapi_globs.squeezed_reserved_host_memory))
-				with _ ->
+					Int64.of_string (Unixext.string_of_file Xapi_globs.squeezed_reserved_host_memory_filename)
+				with e ->
 					error "Failed to read %s: \
-						host memory overhead may be too small"
-						Xapi_globs.squeezed_reserved_host_memory;
+						host memory overhead may be too small (%s)"
+						Xapi_globs.squeezed_reserved_host_memory_filename (Printexc.to_string e);
 					0L
 			in
 			let nonobvious_overhead_memory_bytes =
