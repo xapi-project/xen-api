@@ -215,6 +215,7 @@ module type S = sig
 	val init: unit -> unit
 	module HOST : sig
 		val get_console_data: unit -> string
+		val get_total_memory_mib: unit -> int64
 	end
 	module VM : sig
 		val create: Xenops_task.t -> Vm.t -> unit
