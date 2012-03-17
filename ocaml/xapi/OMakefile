@@ -159,7 +159,6 @@ XAPI_MODULES = $(COMMON) \
 	vm_config \
 	pciops \
 	vgpuops \
-	memory_control \
 	vbdops \
 	attach_helpers \
 	message_forwarding \
