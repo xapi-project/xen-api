@@ -446,6 +446,11 @@ module HOST = struct
 			(fun xc xs ->
 				Xenctrl.readconsolering xc
 			)
+	let get_total_memory_mib () =
+		with_xc_and_xs
+		(fun xc xs ->
+			Memory.get_total_memory_mib ~xc
+		)
 end
 
 module VM = struct
