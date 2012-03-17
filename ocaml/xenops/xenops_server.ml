@@ -978,6 +978,13 @@ module HOST = struct
 				let module B = (val get_backend () : S) in
 				B.HOST.get_console_data () |> return
 			) ()
+	let get_total_memory_mib _ dbg =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				debug "HOST.get_total_memory_mib";
+				let module B = (val get_backend () : S) in
+				B.HOST.get_total_memory_mib () |> return
+			) ()
 end
 
 module VM = struct

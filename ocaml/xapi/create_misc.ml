@@ -58,9 +58,10 @@ let read_localhost_info () =
 	let me = Helpers.get_localhost_uuid () in
 	let lookup_inventory_nofail k = try Some (Xapi_inventory.lookup k) with _ -> None in
 	let this_host_name = Helpers.get_hostname() in
-	let total_memory_mib = 
-		Vmopshelpers.with_xc
-			(fun xc -> Memory.get_total_memory_mib ~xc) in
+	let total_memory_mib =
+		let open Xenops_client in
+		Client.HOST.get_total_memory_mib "read_localhost_info" |> success in
+
 	let dom0_static_max = 
 		(* Query the balloon driver to determine how much memory is available for domain 0. *)
 		(* We cannot ask XenControl for this information, since for domain 0, the value of  *)
