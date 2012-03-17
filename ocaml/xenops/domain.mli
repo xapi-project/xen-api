@@ -93,7 +93,7 @@ val hard_shutdown: xc:Xenctrl.handle -> domid -> shutdown_reason -> unit
 exception Domain_does_not_exist
 
 (** Tell the domain to shutdown with reason 'shutdown_reason'. Don't wait for an ack *)
-val shutdown: xs:Xenstore.Xs.xsh -> domid -> shutdown_reason -> unit
+val shutdown: xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> domid -> shutdown_reason -> unit
 
 (** Tell the domain to shutdown with reason ''shutdown_reason', waiting for an ack *)
 val shutdown_wait_for_ack: ?timeout:float -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> domid -> shutdown_reason -> unit
@@ -178,7 +178,7 @@ val vcpu_affinity_get: xc: Xenctrl.handle -> domid -> int -> bool array
 val get_uuid: xc: Xenctrl.handle -> Xenctrl.domid -> [`domain] Uuid.t
 
 (** Write the min,max values of memory/target to xenstore for use by a memory policy agent *)
-val set_memory_dynamic_range: xs: Xenstore.Xs.xsh -> min:int -> max:int -> domid -> unit
+val set_memory_dynamic_range: xc:Xenctrl.handle -> xs: Xenstore.Xs.xsh -> min:int -> max:int -> domid -> unit
 
 (** Grant a domain access to a range of IO ports *)
 val add_ioport: xc: Xenctrl.handle -> domid -> int -> int -> unit

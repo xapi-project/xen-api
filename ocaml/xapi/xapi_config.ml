@@ -28,7 +28,11 @@ let read_config filename =
 			(fun x ->
 				try
 					let modules = String.split_f String.isspace x in
-					List.iter Debug.disable modules
+					List.iter
+						(fun x ->
+							debug "Disabling logging for: %s" x;
+							Debug.disable x
+						) modules
 				with e ->
 					error "Processing disabled-logging-for = %s: %s" x (Printexc.to_string e)
 			)

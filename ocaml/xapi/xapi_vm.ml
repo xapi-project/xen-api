@@ -563,10 +563,6 @@ let add_to_VCPUs_params_live ~__context ~self ~key ~value = Locking_helpers.with
   add_to_VCPUs_params_live ~__context ~self ~key ~value
 ) ()
 
-let set_memory_dynamic_range ~__context ~self ~min ~max = Locking_helpers.with_lock self (fun token () ->
-	set_memory_dynamic_range ~__context ~self ~min ~max
-) ()
-
 let set_memory_target_live ~__context ~self ~target = Locking_helpers.with_lock self (fun token () ->
 	set_memory_target_live ~__context ~self ~target
 ) ()
@@ -603,6 +599,30 @@ let set_shadow_multiplier_live ~__context ~self ~multiplier =
 			Xapi_xenops.set_shadow_multiplier ~__context ~self multiplier;
 			update_memory_overhead ~__context ~vm:self
 		) ()
+
+let set_memory_dynamic_range ~__context ~self ~min ~max = 
+	(* NB called in either `Halted or `Running states *)
+	let power_state = Db.VM.get_power_state ~__context ~self in
+	(* Check the range constraints *)
+	let constraints = 
+		if power_state = `Running 
+		then Vm_memory_constraints.get_live ~__context ~vm_ref:self 
+		else Vm_memory_constraints.get ~__context ~vm_ref:self in
+	let constraints = { constraints with Vm_memory_constraints.
+		dynamic_min = min;
+		target = min;
+		dynamic_max = max } in
+	Vm_memory_constraints.assert_valid_for_current_context
+		~__context ~vm:self ~constraints;
+
+	(* memory_target is now unused but setting it equal *)
+	(* to dynamic_min avoids tripping validation code.  *)
+	Db.VM.set_memory_target ~__context ~self ~value:min;
+	Db.VM.set_memory_dynamic_min ~__context ~self ~value:min;
+	Db.VM.set_memory_dynamic_max ~__context ~self ~value:max;
+
+	if power_state = `Running
+	then Xapi_xenops.set_memory_dynamic_range ~__context ~self min max
 
 let send_sysrq ~__context ~vm ~key = Locking_helpers.with_lock vm (fun token () ->
   send_sysrq ~__context ~vm ~key
