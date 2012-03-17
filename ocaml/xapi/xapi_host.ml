@@ -537,7 +537,9 @@ let power_on ~__context ~host =
   if result <> "True" then failwith (Printf.sprintf "The host failed to power on.")
 
 let dmesg ~__context ~host =
-	Vmopshelpers.with_xc (fun xc -> Xenctrl.readconsolering xc)
+	let open Xenops_client in
+	let dbg = Context.string_of_task __context in
+	Client.HOST.get_console_data dbg |> success
 
 let dmesg_clear ~__context ~host =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ "dmesg_clear" ]))

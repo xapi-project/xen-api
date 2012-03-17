@@ -440,6 +440,14 @@ let set_stubdom ~xs domid domid' =
 let get_stubdom ~xs domid =
 	try Some (int_of_string (xs.Xs.read (Printf.sprintf "/local/domain/%d/stub-domid" domid))) with _ -> None
 
+module HOST = struct
+	let get_console_data () =
+		with_xc_and_xs
+			(fun xc xs ->
+				Xenctrl.readconsolering xc
+			)
+end
+
 module VM = struct
 	open Vm
 

@@ -496,7 +496,9 @@ let create_chipset_info ~__context =
 	let host = Helpers.get_localhost ~__context in
 	let current_info = Db.Host.get_chipset_info ~__context ~self:host in
 	let iommu =
-		let xen_dmesg = Vmopshelpers.with_xc (fun xc -> Xenctrl.readconsolering xc) in
+		let open Xenops_client in
+		let dbg = Context.string_of_task __context in
+		let xen_dmesg = Client.HOST.get_console_data dbg |> success in
 		if String.has_substr xen_dmesg "I/O virtualisation enabled" then
 			"true"
 		else if String.has_substr xen_dmesg "I/O virtualisation disabled" then

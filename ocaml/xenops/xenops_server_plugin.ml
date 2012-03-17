@@ -213,6 +213,9 @@ type progress_cb = float -> unit
 
 module type S = sig
 	val init: unit -> unit
+	module HOST : sig
+		val get_console_data: unit -> string
+	end
 	module VM : sig
 		val create: Xenops_task.t -> Vm.t -> unit
 		val build: Xenops_task.t -> Vm.t -> Vbd.t list -> Vif.t list -> unit
