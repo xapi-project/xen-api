@@ -15,7 +15,6 @@
  * @group XenAPI functions
  *)
  
-open Vmopshelpers
 open Stringext
 open Xapi_vbd_helpers
 open Vbdops
@@ -210,26 +209,6 @@ let assert_ok_to_eject ~__context ~vbd =
 let eject ~__context ~vbd =
 	assert_ok_to_eject ~__context ~vbd;
     Xapi_xenops.vbd_eject ~__context ~self:vbd
-
-let refresh ~__context ~vbd ~vdi =
-  let vm = Db.VBD.get_VM ~__context ~self:vbd in
-  Locking_helpers.with_lock vm (fun token () ->
-    if Helpers.is_running ~__context ~self:vm
-    && Db.VBD.get_currently_attached ~__context ~self:vbd then (
-		let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
-        let device_number = Device_number.of_string true (Db.VBD.get_device ~__context ~self:vbd) in
-		Storage_access.attach_and_activate ~__context ~vbd ~domid ~hvm:true
-			(fun params ->
-				(* Use the path from the qemu blkfront where available, since this is
-				   relative to the domain in which qemu is running. *)
-				let params = Opt.default params (Storage_access.Qemu_blkfront.path_opt ~__context ~self:vbd) in
-				with_xs 
-					(fun xs -> 
-						Device.Vbd.media_refresh ~xs ~device_number ~params domid
-					)
-			)
-      )
-  ) ()
 
 open Threadext
 open Pervasiveext

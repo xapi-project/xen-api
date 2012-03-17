@@ -167,7 +167,7 @@ let signal_cdrom_event ~__context params =
 	  let vdi = List.hd vdis in
 	  debug "cdrom inserted notification in vdi %s" (Ref.string_of vdi);
 	  let vbds = Db.VDI.get_VBDs ~__context ~self:vdi in
-	  List.iter (fun vbd -> Xapi_vbd.refresh ~__context ~vbd ~vdi) vbds
+	  List.iter (fun vbd -> Xapi_xenops.vbd_insert ~__context ~self:vbd ~vdi) vbds
 	) else
 	  ()
 	in
