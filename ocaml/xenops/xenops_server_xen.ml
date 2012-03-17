@@ -448,9 +448,14 @@ module HOST = struct
 			)
 	let get_total_memory_mib () =
 		with_xc_and_xs
-		(fun xc xs ->
-			Memory.get_total_memory_mib ~xc
-		)
+			(fun xc xs ->
+				Memory.get_total_memory_mib ~xc
+			)
+	let send_debug_keys keys =
+		with_xc_and_xs
+			(fun xc xs ->
+				Xenctrl.send_debug_keys xc keys
+			)
 end
 
 module VM = struct

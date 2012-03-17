@@ -58,7 +58,7 @@ val power_on : __context:Context.t -> host:[ `host ] Ref.t -> unit
 val dmesg : __context:Context.t -> host:'b -> string
 val dmesg_clear : __context:'a -> host:'b -> 'c
 val get_log : __context:'a -> host:'b -> 'c
-val send_debug_keys : __context:'a -> host:'b -> keys:string -> unit
+val send_debug_keys : __context:Context.t -> host:'b -> keys:string -> unit
 val list_methods : __context:'a -> 'b
 val is_slave : __context:'a -> host:'b -> bool
 
