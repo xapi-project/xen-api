@@ -985,6 +985,14 @@ module HOST = struct
 				let module B = (val get_backend () : S) in
 				B.HOST.get_total_memory_mib () |> return
 			) ()
+
+	let send_debug_keys _ dbg keys =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				debug "HOST.send_debug_keys %s" keys;
+				let module B = (val get_backend () : S) in
+				B.HOST.send_debug_keys keys |> return
+			) ()
 end
 
 module VM = struct
