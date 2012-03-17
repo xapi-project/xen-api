@@ -25,22 +25,25 @@ module D = Debug.Debugger(struct let name = service_name end)
 
 let print_debug = ref false
 
-let debug (fmt: ('a , unit, string, unit) format4) =
-	let time_of_float x = 
-		let time = Unix.gmtime x in
-		Printf.sprintf "%04d%02d%02dT%02d:%02d:%02dZ"
-			(time.Unix.tm_year+1900)
+let write_to_stdout x =
+	if !print_debug then begin
+		let time_of_float x =
+			let time = Unix.gmtime x in
+			Printf.sprintf "%04d%02d%02dT%02d:%02d:%02dZ"
+				(time.Unix.tm_year+1900)
 			(time.Unix.tm_mon+1)
-			time.Unix.tm_mday
-			time.Unix.tm_hour
-			time.Unix.tm_min
-			time.Unix.tm_sec in
-	if !print_debug 
-	then Printf.kprintf
-		(fun s -> 
-			Printf.printf "%s %s\n" (time_of_float (Unix.gettimeofday ()))  s; 
-			flush stdout) fmt
-	else Printf.kprintf (fun s -> D.debug "%s" s) fmt
+				time.Unix.tm_mday
+				time.Unix.tm_hour
+				time.Unix.tm_min
+				time.Unix.tm_sec in
+		Printf.printf "%s %s\n" (time_of_float (Unix.gettimeofday ())) x;
+		flush stdout
+	end
+
+let debug fmt = Printf.kprintf (fun x -> write_to_stdout x; D.debug "%s" x) fmt
+let warn fmt = Printf.kprintf (fun x -> write_to_stdout x; D.warn "%s" x) fmt
+let error fmt = Printf.kprintf (fun x -> write_to_stdout x; D.error "%s" x) fmt
+let info fmt = Printf.kprintf (fun x -> write_to_stdout x; D.info "%s" x) fmt
 
 module Unix = struct
 	include Unix
@@ -97,19 +100,18 @@ module TypedTable = functor(I: ITEM) -> struct
 		List.map filename_of_key (List.map List.rev prefixes)
 	let read (k: I.key) =
 		let filename = k |> I.key |> filename_of_key in
-		debug "DB.read %s" filename;
 		try
 			Some (t_of_rpc (Jsonrpc.of_string (Unixext.string_of_file filename)))
-		with _ -> None
+		with e ->
+			None
 	let read_exn (k: I.key) = match read k with
 		| Some x -> x
 		| None -> raise (Exception (Does_not_exist (I.namespace, I.key k |> String.concat "/")))
 	let write (k: I.key) (x: t) =
 		let filename = k |> I.key |> filename_of_key in
-		debug "DB.write %s" filename;
 		Unixext.mkdir_rec (Filename.dirname filename) 0o755;
 		let json = Jsonrpc.to_string (rpc_of_t x) in
-		debug "%s <- %s" filename json;
+		debug "DB.write %s <- %s" filename json;
 		Unixext.write_string_to_file filename json
 	let exists (k: I.key) = Sys.file_exists (k |> I.key |> filename_of_key)
 	let delete (k: I.key) =
@@ -141,9 +143,10 @@ module TypedTable = functor(I: ITEM) -> struct
 		end else write k x
 
 	let remove (k: I.key) =
-		if not(exists k)
-		then raise (Exception(Does_not_exist(I.namespace, k |> I.key |> filename_of_key)))
-		else delete k
+		if not(exists k) then begin
+			debug "Key %s does not exist" (k |> I.key |> filename_of_key);
+			raise (Exception(Does_not_exist(I.namespace, k |> I.key |> filename_of_key)))
+		end else delete k
 end
 
 let halted_vm = {

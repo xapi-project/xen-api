@@ -344,7 +344,8 @@ module VM = struct
 	external pause: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
 	external unpause: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
 	external set_vcpus: debug_info -> Vm.id -> int -> (Task.id option) * (error option) = ""
-	external set_shadow_multiplier : debug_info -> Vm.id -> float -> (Task.id option) * (error option) = "" 
+	external set_shadow_multiplier : debug_info -> Vm.id -> float -> (Task.id option) * (error option) = ""
+	external set_memory_dynamic_range : debug_info -> Vm.id -> int64 -> int64 -> (Task.id option) * (error option) = ""
 	external stat: debug_info -> Vm.id -> ((Vm.t * Vm.state) option) * (error option) = ""
 	external list: debug_info -> unit -> ((Vm.t * Vm.state) list option) * (error option) = ""
 

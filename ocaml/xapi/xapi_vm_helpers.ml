@@ -695,38 +695,6 @@ type set_cpus_number_fn = __context:Context.t -> self:API.ref_VM -> int -> API.v
 let add_to_VCPUs_params_live ~__context ~self ~key ~value =
 	raise (Api_errors.Server_error (Api_errors.not_implemented, [ "add_to_VCPUs_params_live" ]))
 
-let set_memory_dynamic_range ~__context ~self ~min ~max = 
-	(* NB called in either `Halted or `Running states *)
-	let power_state = Db.VM.get_power_state ~__context ~self in
-	(* Check the range constraints *)
-	let constraints = 
-		if power_state = `Running 
-		then Vm_memory_constraints.get_live ~__context ~vm_ref:self 
-		else Vm_memory_constraints.get ~__context ~vm_ref:self in
-	let constraints = { constraints with Vm_memory_constraints.
-		dynamic_min = min;
-		target = min;
-		dynamic_max = max } in
-	Vm_memory_constraints.assert_valid_for_current_context
-		~__context ~vm:self ~constraints;
-
-	(* memory_target is now unused but setting it equal *)
-	(* to dynamic_min avoids tripping validation code.  *)
-	Db.VM.set_memory_target ~__context ~self ~value:min;
-	Db.VM.set_memory_dynamic_min ~__context ~self ~value:min;
-	Db.VM.set_memory_dynamic_max ~__context ~self ~value:max;
-
-	if power_state = `Running then begin
-		let domid = Helpers.domid_of_vm ~__context ~self in
-		Vmopshelpers.with_xc_and_xs
-			(fun xc xs ->
-				Domain.set_memory_dynamic_range ~xs
-					~min:(Int64.to_int (Int64.div min 1024L))
-					~max:(Int64.to_int (Int64.div max 1024L))
-					domid;
-				At_least_once_more.again Memory_control.async_balance_memory)
-	end
-
 (** Sets the current memory target for a running VM, to the given *)
 (** value (in bytes), rounded down to the nearest page boundary.  *)
 (** Writes the new target to the database and also to XenStore.   *)

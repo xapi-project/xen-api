@@ -512,7 +512,7 @@ let update_metadata_in_xenopsd ~__context ~self =
 			then
 				let txt = create_metadata ~__context ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
 				if Hashtbl.mem metadata_cache id && (Hashtbl.find metadata_cache id = Some txt)
-				then debug "No need to update xenopsd: VM %s metadata has not changed" id
+				then ()
 				else begin
 					debug "VM %s metadata has changed: updating xenopsd" id;
 					info "xenops: VM.import_metadata %s" txt;
@@ -959,14 +959,18 @@ let unregister_task id =
 
 let update_task ~__context id =
 	try
-		let self = id_to_task_exn id in
+		let self = id_to_task_exn id in (* throws Not_found *)
 		let dbg = Context.string_of_task __context in
 		let task_t = Client.TASK.stat dbg id |> success in
 		match task_t.Task.result with
 			| Task.Pending x ->
 				Db.Task.set_progress ~__context ~self ~value:x
 			| _ -> ()
-	with e ->
+	with Not_found ->
+		(* Since this is called on all tasks, possibly after the task has been
+		   destroyed, it's safe to ignore a Not_found exception here. *)
+		()
+	| e ->
 		error "xenopsd event: Caught %s while updating task" (Printexc.to_string e)
 
 let rec events_watch ~__context from =
@@ -1252,6 +1256,13 @@ let set_shadow_multiplier ~__context ~self target =
 		| Exception Not_supported ->
 			(* The existing behaviour is to ignore this failure *)
 			error "VM.set_shadow_multiplier: not supported for PV domains"
+
+let set_memory_dynamic_range ~__context ~self min max =
+	let id = id_of_vm ~__context ~self in
+	debug "xenops: VM.set_memory_dynamic_range %s" id;
+	let dbg = Context.string_of_task __context in
+	Client.VM.set_memory_dynamic_range dbg id min max |> sync_with_task __context;
+	Event.wait dbg ()
 
 let start ~__context ~self paused =
 	let id = push_metadata_to_xenopsd ~__context ~self in

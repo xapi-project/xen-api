@@ -223,6 +223,7 @@ module type S = sig
 		val unpause: Xenops_task.t -> Vm.t -> unit
 		val set_vcpus: Xenops_task.t -> Vm.t -> int -> unit
 		val set_shadow_multiplier: Xenops_task.t -> Vm.t -> float -> unit
+		val set_memory_dynamic_range: Xenops_task.t -> Vm.t -> int64 -> int64 -> unit
 		val request_shutdown: Xenops_task.t -> Vm.t -> shutdown_request -> float -> bool
 		val wait_shutdown: Xenops_task.t -> Vm.t -> shutdown_request -> float -> bool
 
