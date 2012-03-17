@@ -465,13 +465,16 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 					B.VBD.unplug t (VBD_DB.vm_of id) (VBD_DB.read_exn id) force
 				) (fun () -> Updates.add (Dynamic.Vbd id) updates)
 		| VBD_insert (id, disk) ->
+			(* NB this is also used to "refresh" ie signal a qemu that it should
+			   re-open a device, useful for when a physical CDROM is inserted into
+			   the host. *)
 			debug "VBD.insert %s" (VBD_DB.string_of_id id);
 			let vbd_t = VBD_DB.read_exn id in
 			let vm_state = B.VM.get_state (VM_DB.read_exn (VBD_DB.vm_of id)) in
 			let vbd_state = B.VBD.get_state (VBD_DB.vm_of id) vbd_t in
 			if vm_state.Vm.power_state = Running
 			then
-				if vbd_state.Vbd.media_present
+				if vbd_state.Vbd.media_present && vbd_t.Vbd.backend <> Some disk
 				then raise (Exception Media_present)
 				else B.VBD.insert t (VBD_DB.vm_of id) vbd_t disk;
 			VBD_DB.write id { vbd_t with Vbd.backend = Some disk };

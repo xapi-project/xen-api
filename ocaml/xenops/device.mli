@@ -62,7 +62,6 @@ sig
 	val media_eject : xs:Xenstore.Xs.xsh -> device_number:Device_number.t -> int -> unit
 	val media_insert : xs:Xenstore.Xs.xsh -> device_number:Device_number.t
 	                -> params:string -> phystype:physty -> int -> unit
-	val media_refresh : xs:Xenstore.Xs.xsh -> device_number:Device_number.t -> params:string -> int -> unit
 	val media_is_ejected : xs:Xenstore.Xs.xsh -> device_number:Device_number.t -> int -> bool
 	val media_tray_is_locked : xs:Xenstore.Xs.xsh -> device_number:Device_number.t -> int -> bool
 
