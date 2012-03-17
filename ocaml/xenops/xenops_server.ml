@@ -970,6 +970,16 @@ module VIF = struct
 				DB.list vm |> return) ()
 end
 
+module HOST = struct
+	let get_console_data _ dbg =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				debug "HOST.get_console_data";
+				let module B = (val get_backend () : S) in
+				B.HOST.get_console_data () |> return
+			) ()
+end
+
 module VM = struct
 	open Vm
 

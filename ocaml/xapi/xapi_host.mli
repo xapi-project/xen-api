@@ -55,7 +55,7 @@ val enable : __context:Context.t -> host:[ `host ] Ref.t -> unit
 val shutdown : __context:Context.t -> host:[ `host ] Ref.t -> unit
 val reboot : __context:Context.t -> host:[ `host ] Ref.t -> unit
 val power_on : __context:Context.t -> host:[ `host ] Ref.t -> unit
-val dmesg : __context:'a -> host:'b -> string
+val dmesg : __context:Context.t -> host:'b -> string
 val dmesg_clear : __context:'a -> host:'b -> 'c
 val get_log : __context:'a -> host:'b -> 'c
 val send_debug_keys : __context:'a -> host:'b -> keys:string -> unit

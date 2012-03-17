@@ -290,7 +290,9 @@ let set_qos_vbd vm vbd () =
 	(* XXX *)
 	()
 
-	
+module HOST = struct
+	let get_console_data () = "Xen simulator"
+end
 module VM = struct
 	let create _ vm = Mutex.execute m (create_nolock vm)
 	let destroy _ vm = Mutex.execute m (destroy_nolock vm)

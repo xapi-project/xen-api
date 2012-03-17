@@ -333,6 +333,10 @@ module TASK = struct
 	external cancel: debug_info -> Task.id -> (unit option) * (error option) = ""
 end
 
+module HOST = struct
+	external get_console_data: debug_info -> (string option) * (error option) = ""
+end
+
 module VM = struct
 	external add: debug_info -> Vm.t -> (Vm.id option) * (error option) = ""
 	external remove: debug_info -> Vm.id -> (unit option) * (error option) = ""
