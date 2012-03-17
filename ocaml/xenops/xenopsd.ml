@@ -11,6 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+open Xenops_utils
+open Pervasiveext 
+open Fun
+
 let name = "xenopsd"
 
 let major_version = 0
@@ -34,11 +38,16 @@ let config_spec = [
 	"simulate", Config.Set_bool simulate;
 	"persist", Config.Set_bool persist;
 	"daemon", Config.Set_bool daemon;
+	"disable-logging-for", Config.String
+		(fun x ->
+			try
+				let open Stringext in
+				let modules = String.split_f String.isspace x in
+				List.iter Debug.disable modules
+			with e ->
+				error "Processing disabled-logging-for = %s: %s" x (Printexc.to_string e)
+		)
 ]
-
-open Xenops_utils
-open Pervasiveext 
-open Fun
 
 let read_config_file () =
 	let unknown_key k v = debug "Unknown key/value pairs: (%s, %s)" k v in

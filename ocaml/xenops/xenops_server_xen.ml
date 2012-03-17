@@ -120,27 +120,33 @@ let di_of_uuid ~xc ~xs domain_selection uuid =
 				| true, false -> -1 (* a is older than b *)
 				| false, true -> 1
 				| _, _ ->
-					debug "WARNING: unable to tell which of domid %d and %d is newer" a.domid b.domid;
+					warn "VM %s: unable to tell which of domid %d and %d is newer" uuid' a.domid b.domid;
 					compare a.domid b.domid
 		) possible in
+	let domid_list = String.concat ", " (List.map (fun x -> string_of_int x.domid) oldest_first) in
 	if List.length oldest_first > 2
-	then debug "WARNING: there are %d domains with the same uuid (%s)" (List.length oldest_first) uuid';
+	then warn "VM %s: there are %d domains (%s) with the same uuid: one or more have leaked" uuid' (List.length oldest_first) domid_list;
 	if domain_selection = Expect_only_one && (List.length oldest_first > 1)
-	then raise (Exception (Internal_error (Printf.sprintf "More than one domain with uuid (%s): %s" uuid' (String.concat ", " (List.map (fun x -> string_of_int x.domid) oldest_first)))));
+	then raise (Exception (Internal_error (Printf.sprintf "More than one domain with uuid (%s): %s" uuid' domid_list)));
 	match (if domain_selection = Oldest then oldest_first else List.rev oldest_first) with
 		| [] -> None
-		| x :: _ ->
-			debug "Choosing domid: %d" x.domid;
+		| x :: [] ->
+			Some x
+		| x :: rest ->
+			debug "VM = %s; domids = [ %s ]; we will operate on %d" uuid' domid_list x.domid;
 			Some x
 
 let domid_of_uuid ~xc ~xs domain_selection uuid =
 	Opt.map (fun di -> di.Xenctrl.domid) (di_of_uuid ~xc ~xs domain_selection uuid)
 
+let get_uuid ~xc domid = uuid_of_di (Xenctrl.domain_getinfo xc domid)
+
 let create_vbd_frontend ~xc ~xs task frontend_domid vdi =
-	let backend_vm_id = uuid_of_di (Xenctrl.domain_getinfo xc vdi.domid) |> Uuid.string_of_uuid in
+	let frontend_vm_id = get_uuid ~xc frontend_domid |> Uuid.string_of_uuid in
+	let backend_vm_id = get_uuid ~xc vdi.domid |> Uuid.string_of_uuid in
 	match domid_of_uuid ~xc ~xs Expect_only_one (Uuid.uuid_of_string backend_vm_id) with
 		| None ->
-			debug "Failed to determine domid of backend VM id: %s" backend_vm_id;
+			error "VM = %s; domid = %d; Failed to determine domid of backend VM id: %s" frontend_vm_id frontend_domid backend_vm_id;
 			raise (Exception(Does_not_exist("domain", backend_vm_id)))
 		| Some backend_domid when backend_domid = frontend_domid ->
 			(* There's no need to use a PV disk if we're in the same domain *)
@@ -213,7 +219,7 @@ module Storage = struct
 					Thread.delay 5.;
 					retry_econnrefused (upto - 1) f
 				| e ->
-					debug "Caught %s: (probably a fatal error)" (Printexc.to_string e);
+					error "Caught %s: does the storage service need restarting?" (Printexc.to_string e);
 					raise e
 
 		let rpc call =
@@ -354,16 +360,15 @@ module Mem = struct
 		let reserved_memory, reservation_id =
 			retry
 				(fun () ->
-					debug "reserve_memory_range min=%Ld max=%Ld" min max;
+					debug "Requesting a host memory reservation between %Ld and %Ld" min max;
 					let args = [ Squeezed_rpc._session_id, session_id; Squeezed_rpc._min, Int64.to_string min; Squeezed_rpc._max, Int64.to_string max ] in
 					let results = call_daemon xs Squeezed_rpc._reserve_memory_range args in
 					let kib = List.assoc Squeezed_rpc._kib results
 					and reservation_id = List.assoc Squeezed_rpc._reservation_id results in
-					debug "reserve_memory_range actual = %s" kib;
+					debug "Memory reservation size = %s (reservation_id = %s)" kib reservation_id;
 					Int64.of_string kib, reservation_id
 				)
 		in
-		debug "reserved_memory = %Ld; min = %Ld; max = %Ld" reserved_memory min max;
 		(* Post condition: *)
 		assert (reserved_memory >= min);
 		assert (reserved_memory <= max);
@@ -389,13 +394,14 @@ module Mem = struct
 			(fun () -> delete_reservation ~xs ~reservation_id:id)
 
 	(** Transfer this 'reservation' to the given domain id *)
-	let transfer_reservation_to_domain_exn ~xs ~reservation_id ~domid =
+	let transfer_reservation_to_domain_exn ~xc ~xs ~reservation_id ~domid =
 		let session_id = get_session_id ~xs in
-		debug "transfer_reservation_to_domain %s -> %d" reservation_id domid;
+		let uuid = get_uuid ~xc domid in
+		debug "VM = %s; domid = %d; transfer_reservation_to_domain %s" (Uuid.to_string uuid) domid reservation_id;
 		let args = [ Squeezed_rpc._session_id, session_id; Squeezed_rpc._reservation_id, reservation_id; Squeezed_rpc._domid, string_of_int domid ] in
 		ignore_results (call_daemon xs Squeezed_rpc._transfer_reservation_to_domain args)
-	let transfer_reservation_to_domain ~xs ~reservation_id ~domid =
-		wrap (fun () -> transfer_reservation_to_domain_exn ~xs ~reservation_id ~domid)
+	let transfer_reservation_to_domain ~xc ~xs ~reservation_id ~domid =
+		wrap (fun () -> transfer_reservation_to_domain_exn ~xc ~xs ~reservation_id ~domid)
 
 	(** After an event which frees memory (eg a domain destruction), perform a one-off memory rebalance *)
 	let balance_memory ~xc ~xs =
@@ -411,7 +417,7 @@ let _device_id kind = Device_common.string_of_kind kind ^ "-id"
 let device_by_id xc xs vm kind domain_selection id =
 	match vm |> Uuid.uuid_of_string |> domid_of_uuid ~xc ~xs domain_selection with
 		| None ->
-			debug "VM %s does not exist in domain list" vm;
+			debug "VM = %s; does not exist in domain list" vm;
 			raise (Exception(Does_not_exist("domain", vm)))
 		| Some frontend_domid ->
 			let devices = Device_common.list_frontends ~xs frontend_domid in
@@ -425,7 +431,7 @@ let device_by_id xc xs vm kind domain_selection id =
 			try
 				List.assoc (Some id) (List.combine ids devices)
 			with Not_found ->
-				debug "Failed to find active device: domid = %d; kind = %s; id = %s; devices = [ %s ]" frontend_domid (Device_common.string_of_kind kind) id (String.concat ", " (List.map (Opt.default "None") ids));
+				debug "VM = %s; domid = %d; Device is not active: kind = %s; id = %s; active devices = [ %s ]" vm frontend_domid (Device_common.string_of_kind kind) id (String.concat ", " (List.map (Opt.default "None") ids));
 				raise (Exception Device_not_connected)
 
 let set_stubdom ~xs domid domid' =
@@ -468,12 +474,12 @@ module VM = struct
 				let vmextra =
 					match DB.read k with
 						| Some x ->
-							debug "VM %s: reloading stored domain-level configuration" vm.Vm.id;
+							debug "VM = %s; reloading stored domain-level configuration" vm.Vm.id;
 							{ x with
 								VmExtra.last_create_time = Unix.gettimeofday ()
 							}
 						| None -> begin
-							debug "VM %s: has no stored domain-level configuration, regenerating" vm.Vm.id;
+							debug "VM = %s; has no stored domain-level configuration, regenerating" vm.Vm.id;
 							let hvm = match vm.ty with HVM _ -> true | _ -> false in
 							(* XXX add per-vcpu information to the platform data *)
 							(* VCPU configuration *)
@@ -545,13 +551,13 @@ module VM = struct
 					(fun target_plus_overhead_kib reservation_id ->
 						DB.write k vmextra;
 						let domid = Domain.make ~xc ~xs vmextra.VmExtra.create_info (uuid_of_vm vm) in
-						Mem.transfer_reservation_to_domain ~xs ~reservation_id ~domid;
+						Mem.transfer_reservation_to_domain ~xc ~xs ~reservation_id ~domid;
 						begin match vm.Vm.ty with
 							| Vm.HVM { Vm.qemu_stubdom = true } ->
 								Mem.with_reservation ~xc ~xs ~min:Stubdom.memory_kib ~max:Stubdom.memory_kib
 									(fun _ reservation_id ->
 										let stubdom_domid = Stubdom.create ~xc ~xs domid in
-										Mem.transfer_reservation_to_domain ~xs ~reservation_id ~domid:stubdom_domid;
+										Mem.transfer_reservation_to_domain ~xc ~xs ~reservation_id ~domid:stubdom_domid;
 										set_stubdom ~xs domid stubdom_domid;
 									)
 							| _ ->
@@ -581,7 +587,7 @@ module VM = struct
 					| Some di -> f xc xs task vm di
 			)
 
-	let log_exn_continue msg f x = try f x with e -> debug "Ignoring exception: %s while %s" (Printexc.to_string e) msg
+	let log_exn_continue msg f x = try f x with e -> debug "Safely ignoring exception: %s while %s" (Printexc.to_string e) msg
 
 	let destroy_device_model = on_domain (fun xc xs task vm di ->
 		let domid = di.Xenctrl.domid in
@@ -606,9 +612,9 @@ module VM = struct
 		(* Normally we throw-away our domain-level information. If the domain
 		   has suspended then we preserve it. *)
 		if di.Xenctrl.shutdown && (Domain.shutdown_reason_of_int di.Xenctrl.shutdown_code = Domain.Suspend)
-		then debug "VM %s (domid: %d) has suspended; preserving domain-level information" vm.Vm.id di.Xenctrl.domid
+		then debug "VM = %s; domid = %d; domain has suspended; preserving domain-level information" vm.Vm.id di.Xenctrl.domid
 		else begin
-			debug "VM %s (domid: %d) will not have domain-level information preserved" vm.Vm.id di.Xenctrl.domid;
+			debug "VM = %s; domid = %d; will not have domain-level information preserved" vm.Vm.id di.Xenctrl.domid;
 			if DB.exists vm.Vm.id then DB.remove vm.Vm.id;
 		end;
 		Domain.destroy ~preserve_xs_vm:false ~xc ~xs domid;
@@ -665,13 +671,21 @@ module VM = struct
 		let newshadow = Int64.to_int (Memory.HVM.shadow_mib static_max_mib vm.Vm.vcpu_max target) in
 		let curshadow = Xenctrl.shadow_allocation_get xc domid in
 		let needed_mib = newshadow - curshadow in
-		debug "Domid %d has %d MiB shadow; an increase of %d MiB requested" domid curshadow needed_mib;
+		debug "VM = %s; domid = %d; Domain has %d MiB shadow; an increase of %d MiB requested" vm.Vm.id domid curshadow needed_mib;
 		if not(Memory.wait_xen_free_mem xc (Int64.mul (Int64.of_int needed_mib) 1024L)) then begin
-		    debug "Failed waiting for Xen to free %d MiB: some memory is not properly accounted" needed_mib;
+		    error "VM = %s; domid = %d; Failed waiting for Xen to free %d MiB: some memory is not properly accounted" vm.Vm.id domid needed_mib;
 			raise (Exception (Not_enough_memory (Memory.bytes_of_mib (Int64.of_int needed_mib))))
 		end;
-		debug "Setting domid %d's shadow memory to %d MiB" domid newshadow;
+		debug "VM = %s; domid = %d; shadow_allocation_setto %d MiB" vm.Vm.id domid newshadow;
 		Xenctrl.shadow_allocation_set xc domid newshadow;
+	) Newest task vm
+
+	let set_memory_dynamic_range task vm min max = on_domain (fun xc xs _ _ di ->
+		let domid = di.Xenctrl.domid in
+		Domain.set_memory_dynamic_range ~xc ~xs
+			~min:(Int64.to_int (Int64.div min 1024L))
+			~max:(Int64.to_int (Int64.div max 1024L))
+			domid;
 	) Newest task vm
 
 	(* NB: the arguments which affect the qemu configuration must be saved and
@@ -793,7 +807,7 @@ module VM = struct
 							) in
 			let arch = Domain.build ~xc ~xs build_info domid in
 			Domain.cpuid_apply ~xc ~hvm:(will_be_hvm vm) domid;
-			debug "Built domid %d with architecture %s" domid (Domain.string_of_domarch arch);
+			debug "VM = %s; domid = %d; Domain built with architecture %s" vm.Vm.id domid (Domain.string_of_domarch arch);
 			let k = vm.Vm.id in
 			let d = DB.read_exn vm.Vm.id in
 			DB.write k { d with
@@ -806,27 +820,28 @@ module VM = struct
 
 
 	let build_domain vm vbds vifs xc xs task _ di =
+		let domid = di.Xenctrl.domid in
 		try
-			build_domain_exn xc xs di.Xenctrl.domid task vm vbds vifs
+			build_domain_exn xc xs domid task vm vbds vifs
 		with
 			| Bootloader.Bad_sexpr x ->
-				let m = Printf.sprintf "Bootloader.Bad_sexpr %s" x in
+				let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Bad_sexpr %s" vm.Vm.id domid x in
 				debug "%s" m;
 				raise (Exception (Internal_error m))
 			| Bootloader.Bad_error x ->
-				let m = Printf.sprintf "Bootloader.Bad_error %s" x in
+				let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Bad_error %s" vm.Vm.id domid x in
 				debug "%s" m;
 				raise (Exception (Internal_error m))
 			| Bootloader.Unknown_bootloader x ->
-				let m = Printf.sprintf "Bootloader.Unknown_bootloader %s" x in
+				let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Unknown_bootloader %s" vm.Vm.id domid x in
 				debug "%s" m;
 				raise (Exception (Internal_error m))
 			| Bootloader.Error_from_bootloader (a, b) ->
-				let m = Printf.sprintf "Bootloader.Error_from_bootloader (%s, [ %s ])" a (String.concat "; " b) in
+				let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Error_from_bootloader (%s, [ %s ])" vm.Vm.id domid a (String.concat "; " b) in
 				debug "%s" m;
 				raise (Exception (Bootloader_error (a, b)))
 			| e ->
-				let m = Printf.sprintf "Bootloader error: %s" (Printexc.to_string e) in
+				let m = Printf.sprintf "VM = %s; domid = %d; Bootloader error: %s" vm.Vm.id domid (Printexc.to_string e) in
 				debug "%s" m;
 				raise (Exception (Internal_error m))
 
@@ -859,8 +874,7 @@ module VM = struct
 			(fun xc xs vm task di ->
 				let domid = di.Xenctrl.domid in
 				try
-					Domain.shutdown ~xs domid reason;
-					debug "Calling shutdown_wait_for_ack";
+					Domain.shutdown ~xc ~xs domid reason;
 					Domain.shutdown_wait_for_ack ~timeout:ack_delay ~xc ~xs domid reason;
 					true
 				with Watch.Timeout _ ->
@@ -945,7 +959,7 @@ module VM = struct
 											try
 												Unixext.fsync fd;
 											with Unix.Unix_error(Unix.EIO, _, _) ->
-												debug "Caught EIO in fsync after suspend; suspend image may be corrupt";
+												error "Caught EIO in fsync after suspend; suspend image may be corrupt";
 												raise (Exception IO_error)
 										)
 								)
@@ -965,13 +979,10 @@ module VM = struct
 				let domid = di.Xenctrl.domid in
 				with_data ~xc ~xs task data true
 					(fun fd ->
-						debug "Invoking Domain.suspend";
 						Domain.suspend ~xc ~xs ~hvm ~progress_callback domid fd flags'
 							(fun () ->
-								debug "In callback";
 								if not(request_shutdown task vm Suspend 30.)
 								then raise (Exception Failed_to_acknowledge_shutdown_request);
-								debug "Waiting for shutdown";
 								if not(wait_shutdown task vm Suspend 1200.)
 								then raise (Exception Failed_to_shutdown);
 							);
@@ -979,7 +990,7 @@ module VM = struct
 						   much to allocate for the resume *)
 						let di = Xenctrl.domain_getinfo xc domid in
 						let pages = Int64.of_nativeint di.Xenctrl.total_memory_pages in
-						debug "Final memory usage of the domain = %Ld pages" pages;
+						debug "VM = %s; domid = %d; Final memory usage of the domain = %Ld pages" vm.Vm.id domid pages;
 						(* Flush all outstanding disk blocks *)
 
 						let k = vm.Vm.id in
@@ -990,7 +1001,7 @@ module VM = struct
 						let vbds = List.filter (fun vbd -> vbd.Vbd.backend <> None) d.VmExtra.vbds in
 						let devices = List.map (fun vbd -> vbd.Vbd.id |> snd |> device_by_id xc xs vm.id Device_common.Vbd Oldest) vbds in
 						Domain.hard_shutdown_all_vbds ~xc ~xs devices;
-						debug "Disk backends have all been flushed";
+						debug "VM = %s; domid = %d; Disk backends have all been flushed" vm.Vm.id domid;
 						List.iter (fun vbd -> match vbd.Vbd.backend with
 							| None (* can never happen due to 'filter' above *)
 							| Some (Local _) -> ()
@@ -998,7 +1009,7 @@ module VM = struct
 								let sr, vdi = Storage.get_disk_by_name task path in
 								Storage.deactivate task (Storage.id_of domid vbd.Vbd.id) sr vdi
 						) vbds;
-						debug "Storing final memory usage";
+						debug "VM = %s; domid = %d; Storing final memory usage" vm.Vm.id domid;
 						DB.write k { d with
 							VmExtra.suspend_memory_bytes = Memory.bytes_of_pages pages;
 						}
@@ -1008,7 +1019,7 @@ module VM = struct
 	let restore task progress_callback vm data =
 		let build_info = match DB.read_exn vm.Vm.id with
 			| { VmExtra.build_info = None } ->
-				debug "No stored build_info for %s: cannot safely restore" vm.Vm.id;
+				error "VM = %s; No stored build_info: cannot safely restore" vm.Vm.id;
 				raise (Exception(Does_not_exist("build_info", vm.Vm.id)))
 			| { VmExtra.build_info = Some x } -> x in
 		on_domain
@@ -1024,7 +1035,7 @@ module VM = struct
 		(* XXX: TODO: monitor the guest's response; track the s3 state *)
 		on_domain
 			(fun xc xs task vm di ->
-				Domain.shutdown ~xs di.Xenctrl.domid Domain.S3Suspend
+				Domain.shutdown ~xc ~xs di.Xenctrl.domid Domain.S3Suspend
 			) Newest
 
 	let s3resume =
@@ -1178,9 +1189,9 @@ module PCI = struct
 				try
 					if hvm
 					then Device.PCI.unplug ~xc ~xs device frontend_domid
-					else debug "PCI.unplug for PV guests is unsupported"
+					else error "VM = %s; PCI.unplug for PV guests is unsupported" vm
 				with Not_found ->
-					debug "PCI.unplug %s.%s caught Not_found: assuming device is unplugged already" (fst pci.id) (snd pci.id)
+					debug "VM = %s; PCI.unplug %s.%s caught Not_found: assuming device is unplugged already" vm (fst pci.id) (snd pci.id)
 			) Oldest vm
 end
 
@@ -1214,7 +1225,7 @@ module VBD = struct
 		on_frontend
 			(fun xc xs frontend_domid hvm ->
 				if vbd.backend = None && not hvm
-				then debug "PV guests don't support empty CDROM drives"
+				then info "VM = %s; an empty CDROM drive on a PV guest is simulated by unplugging the whole drive" vm
 				else begin
 					let vdi = attach_and_activate task xc xs frontend_domid vbd vbd.backend in
 
@@ -1273,7 +1284,7 @@ module VBD = struct
 					(* If the device is gone then this is ok *)
 					let device = device_by_id xc xs vm Device_common.Vbd Oldest (id_of vbd) in
 					if force && (not (Device.can_surprise_remove ~xs device))
-					then debug "WARNING: device is not surprise-removable";
+					then debug "VM = %s; VBD = %s; Device is not surprise-removable" vm (id_of vbd); (* happens on normal shutdown too *)
 					Xenops_task.with_subtask task (Printf.sprintf "Vbd.clean_shutdown %s" (id_of vbd))
 						(fun () -> (if force then Device.hard_shutdown else Device.clean_shutdown) ~xs device);
 					Xenops_task.with_subtask task (Printf.sprintf "Vbd.release %s" (id_of vbd))
@@ -1288,9 +1299,9 @@ module VBD = struct
 					deactivate_and_detach task device vbd;
 				with 
 					| Exception(Does_not_exist(_,_)) ->
-						debug "Ignoring missing domain: %s" (id_of vbd)
+						debug "VM = %s; VBD = %s; Ignoring missing domain" vm (id_of vbd)
 					| Exception Device_not_connected ->
-						debug "Ignoring missing device: %s" (id_of vbd)
+						debug "VM = %s; VBD = %s; Ignoring missing device" vm (id_of vbd)
 					| Device_common.Device_error(_, s) ->
 						debug "Caught Device_error: %s" s;
 						raise (Exception Device_detach_rejected)
@@ -1328,7 +1339,7 @@ module VBD = struct
 		try
 			run _ionice (Ionice.set_args qos pid) |> ignore_string
 		with e ->
-			debug "Ionice failed: %s" (Printexc.to_string e)
+			error "Ionice failed on pid %d: %s" pid (Printexc.to_string e)
 
 	let set_qos task vm vbd =
 		with_xc_and_xs
@@ -1345,7 +1356,7 @@ module VBD = struct
 								(* This means the kthread-pid hasn't been written yet. We'll be called back later. *)
 								()
 							| e ->
-								debug "Failed to ionice kthread-pid: %s" (Printexc.to_string e)
+								error "Failed to ionice kthread-pid: %s" (Printexc.to_string e)
 				) vbd.Vbd.qos
 			)
 
@@ -1357,7 +1368,7 @@ module VBD = struct
 			Opt.map (fun i -> Ionice i) i
 		with
 			| Ionice.Parse_failed x ->
-				debug "Failed to parse ionice result: %s" x;
+				error "Failed to parse ionice result: %s" x;
 				None
 			| _ ->
 				None
@@ -1396,11 +1407,11 @@ module VBD = struct
 				then begin
 					let qos_target = get_qos xc xs vm vbd device in
 					if qos_target <> vbd.Vbd.qos then begin
-						debug "VBD_set_qos needed, current = %s; target = %s" (string_of_qos qos_target) (string_of_qos vbd.Vbd.qos);
+						debug "VM = %s; VBD = %s; VBD_set_qos needed, current = %s; target = %s" vm (id_of vbd) (string_of_qos qos_target) (string_of_qos vbd.Vbd.qos);
 						Some Needs_set_qos
 					end else None
 				end else begin
-					debug "VBD_unplug needed, device offline: %s" (Device_common.string_of_device device);
+					debug "VM = %s; VBD = %s; VBD_unplug needed, device offline: %s" vm (id_of vbd) (Device_common.string_of_device device);
 					Some Needs_unplug
 				end
 			)
@@ -1508,9 +1519,9 @@ module VIF = struct
 
 				with
 					| Exception(Does_not_exist(_,_)) ->
-						debug "Ignoring missing domain: %s" (id_of vif)
+						debug "VM = %s; Ignoring missing domain" (id_of vif)
 					| Exception(Device_not_connected) ->
-						debug "Ignoring missing device: %s" (id_of vif)
+						debug "VM = %s; Ignoring missing device" (id_of vif)
 			);
 		()
 
@@ -1523,9 +1534,9 @@ module VIF = struct
 					Device.Vif.set_carrier ~xs device carrier
 				with
 					| Exception(Does_not_exist(_,_)) ->
-						debug "Ignoring missing domain: %s" (id_of vif)
+						debug "VM = %s; Ignoring missing domain" (id_of vif)
 					| Exception(Device_not_connected) ->
-						debug "Ignoring missing device: %s" (id_of vif)
+						debug "VM = %s; Ignoring missing device" (id_of vif)
 			)
 
 	let set_locking_mode task vm vif mode =
@@ -1639,14 +1650,14 @@ let watch_xenstore () =
 			let watches = ref IntMap.empty in
 
 			let watch path =
-				debug "watch_xenstore: watch %s" path;
+				debug "xenstore watch %s" path;
 				xs.Xs.watch path path in
 			let unwatch path =
 				try
-					debug "watch_xenstore: unwatch %s" path;
+					debug "xenstore unwatch %s" path;
 					xs.Xs.unwatch path path
 				with Xenbus.Xb.Noent ->
-					debug "watch_xenstore: Xb.Noent" in
+					debug "xenstore unwatch %s threw Xb.Noent" path in
 			let add_domU_watches xs domid uuid =
 				debug "Adding watches for: domid %d" domid;
 				List.iter watch (all_domU_watches domid uuid);
@@ -1754,7 +1765,7 @@ let watch_xenstore () =
 				then look_for_different_domains ()
 				else match List.filter (fun x -> x <> "") (String.split '/' path) with
 					| "local" :: "domain" :: domid :: "backend" :: kind :: frontend :: devid :: _ ->
-						debug "Watch on backend %s %s -> %s.%s" domid kind frontend devid;
+						debug "Watch on backend domid: %s kind: %s -> frontend domid: %s devid: %s" domid kind frontend devid;
 						fire_event_on_device frontend kind devid
 					| "local" :: "domain" :: frontend :: "device" :: _ ->
 						look_for_different_devices (int_of_string frontend)

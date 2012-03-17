@@ -77,6 +77,7 @@ type atomic =
 	| PCI_unplug of Pci.id
 	| VM_set_vcpus of (Vm.id * int)
 	| VM_set_shadow_multiplier of (Vm.id * float)
+	| VM_set_memory_dynamic_range of (Vm.id * int64 * int64)
 	| VM_pause of Vm.id
 	| VM_unpause of Vm.id
 	| VM_create_device_model of (Vm.id * bool)
@@ -163,9 +164,10 @@ module PCI_DB = struct
 
 	let ids vm : Pci.id list =
 		list [ vm ] |> (filter_prefix "pci.") |> List.map (fun id -> (vm, id))
+	let pcis vm = ids vm |> List.map read |> dropnone
 	let list vm =
 		debug "PCI.list";
-		let xs = ids vm |> List.map read |> dropnone in
+		let xs = pcis vm in
 		let module B = (val get_backend () : S) in
 		let states = List.map (B.PCI.get_state vm) xs in
 		List.combine xs states
@@ -183,12 +185,13 @@ module VBD_DB = struct
 
 	let ids vm : Vbd.id list =
 		list [ vm ] |> (filter_prefix "vbd.") |> List.map (fun id -> (vm, id))
+	let vbds vm = ids vm |> List.map read |> dropnone
 	let list vm =
 		debug "VBD.list";
-		let vbds = ids vm |> List.map read |> dropnone in
+		let vbds' = vbds vm in
 		let module B = (val get_backend () : S) in
-		let states = List.map (B.VBD.get_state vm) vbds in
-		List.combine vbds states
+		let states = List.map (B.VBD.get_state vm) vbds' in
+		List.combine vbds' states
 end
 
 module VIF_DB = struct
@@ -203,11 +206,12 @@ module VIF_DB = struct
 
 	let ids vm : Vif.id list =
 		list [ vm ] |> (filter_prefix "vif.") |> List.map (fun id -> (vm, id))
+	let vifs vm = ids vm |> List.map read |> dropnone
  	let list vm =
-		let vifs = ids vm |> List.map read |> dropnone in
+		let vifs' = vifs vm in
 		let module B = (val get_backend () : S) in
-		let states = List.map (B.VIF.get_state vm) vifs in
-		List.combine vifs states
+		let states = List.map (B.VIF.get_state vm) vifs' in
+		List.combine vifs' states
 end
 
 let updates =
@@ -231,18 +235,44 @@ module Per_VM_queues = struct
 	let m = Mutex.create ()
 	let c = Condition.create ()
 
+	(* [filter_with_memory p xs] returns elements [x \in xs] where [p (x_i, [x_0...x_i-1])] *)
+	let filter_with_memory p xs =
+		List.fold_left (fun (acc, xs) x -> xs :: acc, x :: xs) ([], []) xs
+		|> fst |> List.rev |> List.combine xs (* association list of (element, all previous elements) *)
+		|> List.filter p
+		|> List.map fst
+
+	let should_coalesce = function
+		| VM_check_state (_)
+		| PCI_check_state (_)
+		| VBD_check_state (_)
+		| VIF_check_state (_) -> true
+		| _ -> false
+
+	let to_list queue = Queue.fold (fun xs x -> x :: xs) [] queue |> List.rev
+	let of_list xs =
+		let q = Queue.create () in
+		List.iter (fun x -> Queue.push x q) xs;
+		q
+
 	let add vm (op, f) =
 		Debug.with_thread_associated "queue"
 			(fun () ->
 				Mutex.execute m
 					(fun () ->
-						debug "Queue.push %s" (string_of_operation op);
+						debug "Queue.push %s onto [ %s ]" (string_of_operation op) (String.concat ", " (List.rev (Queue.fold (fun acc (b, _) -> string_of_operation b :: acc) [] queue)));
 						Queue.push (op, f) queue;
+						(* We expect to get multiple {VM,VBD,VIF,PCI}_check_state operations. We can coalesce these *)
+						let queue' =
+							to_list queue
+							|> filter_with_memory (fun (this, prev) -> not (should_coalesce (fst this)) || not (List.mem (fst this) (List.map fst prev)))
+							|> of_list in
+						Queue.clear queue;
+						Queue.transfer queue' queue;
 						Condition.signal c)
 			) ()
 
 	let rec process_queue q =
-		debug "Queue.pop called";
 		let op, item =
 			Mutex.execute m
 				(fun () ->
@@ -263,7 +293,6 @@ module Per_VM_queues = struct
 			with e ->
 				debug "Queue caught: %s" (Printexc.to_string e)
 		end;
-		debug "Triggering event on task id %s" item.Xenops_task.id;
 		Updates.add (Dynamic.Task item.Xenops_task.id) updates;
 		process_queue q
 
@@ -276,8 +305,8 @@ end
 let export_metadata id =
 	let module B = (val get_backend () : S) in
 	let vm_t = VM_DB.read_exn id in
-	let vbds = VBD_DB.list id |> List.map fst in
-	let vifs = VIF_DB.list id |> List.map fst in
+	let vbds = VBD_DB.vbds id in
+	let vifs = VIF_DB.vifs id in
 	let domains = B.VM.get_internal_state vm_t in
 	{
 		Metadata.vm = vm_t;
@@ -308,9 +337,9 @@ let rec atomics_of_operation = function
 			VM_create id;
 			VM_build id;
 		] @ (List.map (fun vbd -> VBD_plug vbd.Vbd.id)
-			(VBD_DB.list id |> List.map fst |> vbd_plug_order)
+			(VBD_DB.vbds id |> vbd_plug_order)
 		) @ (List.map (fun vif -> VIF_plug vif.Vif.id)
-			(VIF_DB.list id |> List.map fst)
+			(VIF_DB.vifs id)
 		) @ [
 			(* Unfortunately this has to be done after the vbd,vif 
 			   devices have been created since qemu reads xenstore keys
@@ -322,25 +351,25 @@ let rec atomics_of_operation = function
 			   otherwise hotunplug triggers some kind of unfixed race
 			   condition causing an interrupt storm. *)
 		] @ (List.map (fun pci -> PCI_plug pci.Pci.id)
-			(PCI_DB.list id |> List.map fst |> pci_plug_order)
+			(PCI_DB.pcis id |> pci_plug_order)
 		)
 	| VM_shutdown (id, timeout) ->
 		(Opt.default [] (Opt.map (fun x -> [ VM_shutdown_domain(id, Halt, x) ]) timeout)
 		) @ [
 			VM_destroy_device_model id;
 		] @ (List.map (fun vbd -> VBD_unplug (vbd.Vbd.id, true))
-			(VBD_DB.list id |> List.map fst |> vbd_unplug_order)
+			(VBD_DB.vbds id |> vbd_unplug_order)
 		) @ (List.map (fun vif -> VIF_unplug (vif.Vif.id, true))
-			(VIF_DB.list id |> List.map fst)
+			(VIF_DB.vifs id)
 		) @ [
 			VM_destroy id
 		]
 	| VM_restore_devices id ->
 		[
 		] @ (List.map (fun vbd -> VBD_plug vbd.Vbd.id)
-			(VBD_DB.list id |> List.map fst |> vbd_plug_order)
+			(VBD_DB.vbds id |> vbd_plug_order)
 		) @ (List.map (fun vif -> VIF_plug vif.Vif.id)
-			(VIF_DB.list id |> List.map fst)
+			(VIF_DB.vifs id)
 		) @ [
 			(* Unfortunately this has to be done after the devices have been created since
 			   qemu reads xenstore keys in preference to its own commandline. After this is
@@ -349,7 +378,7 @@ let rec atomics_of_operation = function
 			(* We hotplug PCI devices into HVM guests via qemu, since otherwise hotunplug triggers
 			   some kind of unfixed race condition causing an interrupt storm. *)
 		] @ (List.map (fun pci -> PCI_plug pci.Pci.id)
-			(PCI_DB.list id |> List.map fst |> pci_plug_order)
+			(PCI_DB.pcis id |> pci_plug_order)
 		)
 	| VM_poweroff (id, timeout) ->
 		let vm_t = VM_DB.read_exn id in
@@ -466,9 +495,9 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			begin match power with
 				| Running _ | Paused -> raise (Exception (Bad_power_state(power, Halted)))
 				| Halted | Suspended ->
-					List.iter (fun vbd -> VBD_DB.remove vbd.Vbd.id) (VBD_DB.list id |> List.map fst);
-					List.iter (fun vif -> VIF_DB.remove vif.Vif.id) (VIF_DB.list id |> List.map fst);
-					List.iter (fun pci -> PCI_DB.remove pci.Pci.id) (PCI_DB.list id |> List.map fst);
+					List.iter (fun vbd -> VBD_DB.remove vbd.Vbd.id) (VBD_DB.vbds id);
+					List.iter (fun vif -> VIF_DB.remove vif.Vif.id) (VIF_DB.vifs id);
+					List.iter (fun pci -> PCI_DB.remove pci.Pci.id) (PCI_DB.pcis id);
 					VM_DB.remove id
 			end
 		| PCI_plug id ->
@@ -488,6 +517,10 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 		| VM_set_shadow_multiplier (id, m) ->
 			debug "VM.set_shadow_multiplier (%s, %.2f)" id m;
 			B.VM.set_shadow_multiplier t (VM_DB.read_exn id) m;
+			Updates.add (Dynamic.Vm id) updates
+		| VM_set_memory_dynamic_range (id, min, max) ->
+			debug "VM.set_memory_dynamic_range (%s, %Ld, %Ld)" id min max;
+			B.VM.set_memory_dynamic_range t (VM_DB.read_exn id) min max;
 			Updates.add (Dynamic.Vm id) updates
 		| VM_pause id ->
 			debug "VM.pause %s" id;
@@ -511,8 +544,8 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			B.VM.create t (VM_DB.read_exn id)
 		| VM_build id ->
 			debug "VM.build %s" id;
-			let vbds : Vbd.t list = VBD_DB.list id |> List.map fst in
-			let vifs : Vif.t list = VIF_DB.list id |> List.map fst in
+			let vbds : Vbd.t list = VBD_DB.vbds id in
+			let vifs : Vif.t list = VIF_DB.vifs id in
 			B.VM.build t (VM_DB.read_exn id) vbds vifs
 		| VM_shutdown_domain (id, reason, timeout) ->
 			let start = Unix.gettimeofday () in
@@ -551,7 +584,6 @@ let weight_of_atomic = function
 	| _ -> 1.
 
 let progress_callback start len t y =
-	debug "progress_callback start=%.2f len=%.2f y=%.2f" start len y;
 	let new_progress = start +. (y *. len) in
 	t.Xenops_task.result <- Task.Pending new_progress;
 	Updates.add (Dynamic.Task t.Xenops_task.id) updates
@@ -563,7 +595,7 @@ let perform_atomics atomics t =
 			(fun progress x ->
 				let weight = weight_of_atomic x in
 				let progress_callback = progress_callback progress (weight /. total_weight) t in
-				debug "Performing atomic: %s" (string_of_atomic x);
+				debug "Performing: %s" (string_of_atomic x);
 				perform_atomic ~subtask:(string_of_atomic x) ~progress_callback x t;
 				progress_callback 1.;
 				progress +. (weight /. total_weight)
@@ -769,7 +801,6 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 let queue_operation dbg id op =
 	let task = Xenops_task.add dbg (fun t -> perform op t) in
 	Per_VM_queues.add id (op, task);
-	debug "Pushed %s with id %s" (string_of_operation op) task.Xenops_task.id;
 	task.Xenops_task.id
 
 let immediate_operation dbg id op =
@@ -962,9 +993,7 @@ module VM = struct
 		Debug.with_thread_associated dbg (fun () -> return (stat' id)) ()
 
 	let list _ dbg () =
-		Debug.with_thread_associated dbg (fun () ->
-			debug "VM.list";
-			DB.list () |> return) ()
+		Debug.with_thread_associated dbg (fun () -> DB.list () |> return) ()
 
 	let create _ dbg id = queue_operation dbg id (Atomic(VM_create id)) |> return
 
@@ -981,6 +1010,8 @@ module VM = struct
 	let set_vcpus _ dbg id n = queue_operation dbg id (Atomic(VM_set_vcpus (id, n))) |> return
 
 	let set_shadow_multiplier _ dbg id n = queue_operation dbg id (Atomic(VM_set_shadow_multiplier (id, n))) |> return
+
+	let set_memory_dynamic_range _ dbg id min max = queue_operation dbg id (Atomic(VM_set_memory_dynamic_range (id, min, max))) |> return
 
 	let start _ dbg id = queue_operation dbg id (VM_start id) |> return
 
@@ -1053,7 +1084,7 @@ module UPDATES = struct
 	let get _ dbg last timeout =
 		Debug.with_thread_associated dbg
 			(fun () ->
-				debug "UPDATES.get %s %s" (Opt.default "None" (Opt.map string_of_int last)) (Opt.default "None" (Opt.map string_of_int timeout)); 
+				(* debug "UPDATES.get %s %s" (Opt.default "None" (Opt.map string_of_int last)) (Opt.default "None" (Opt.map string_of_int timeout)); *)
 				let ids, next = Updates.get last timeout updates in
 				return (ids, next)
 			) ()
@@ -1073,10 +1104,10 @@ module UPDATES = struct
 				Updates.add (Dynamic.Vm id) updates;
 				List.iter
 					(fun x -> Updates.add (Dynamic.Vbd x.Vbd.id) updates)
-					(VBD_DB.list id |> List.map fst);
+					(VBD_DB.vbds id);
 				List.iter
 					(fun x -> Updates.add (Dynamic.Vif x.Vif.id) updates)
-					(VIF_DB.list id |> List.map fst);
+					(VIF_DB.vifs id);
 				return ()
 			) ()
 end
