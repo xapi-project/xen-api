@@ -293,6 +293,7 @@ let set_qos_vbd vm vbd () =
 module HOST = struct
 	let get_console_data () = "Xen simulator"
 	let get_total_memory_mib () = Int64.mul 1024L 1024L (* 1 TiB *)
+	let send_debug_keys _ = ()
 end
 module VM = struct
 	let create _ vm = Mutex.execute m (create_nolock vm)
