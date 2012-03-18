@@ -27,14 +27,4 @@ let with_xs              = with_xs
 let with_xc_and_xs       = with_xc_and_xs
 let with_xc_and_xs_final = with_xc_and_xs_final
 
-exception Vm_corresponding_to_domid_not_in_db of int
-let uuid_of_domid domid =
-  Uuid.to_string (with_xc (fun xc -> Domain.get_uuid xc domid))
-
-let vm_of_domid ~__context domid =
-	try
-		let uuid = Uuid.to_string (with_xc (fun xc -> Domain.get_uuid xc domid)) in
-		Db.VM.get_by_uuid ~__context ~uuid
-	with Xenctrl.Error _
-		-> raise (Vm_corresponding_to_domid_not_in_db domid)
 

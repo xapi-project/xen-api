@@ -43,22 +43,6 @@ let of_sr sr =
 		raise (No_storage_plugin_for_sr sr)
 	end else (Hashtbl.find plugins sr).processor
 
-let domid_of_sr sr =
-	if not (Hashtbl.mem plugins sr) then begin
-		error "No storage plugin for SR: %s" sr;
-		raise (No_storage_plugin_for_sr sr)
-	end;
-	let uuid = (Hashtbl.find plugins sr).backend_domain in
-	try
-		Vmopshelpers.with_xc
-			(fun xc ->
-				let all = Xenctrl.domain_getinfolist xc 0 in
-				let di = List.find (fun x -> Uuid.to_string (Uuid.uuid_of_int_array x.Xenctrl.handle) = uuid) all in
-				di.Xenctrl.domid
-			)
-	with _ ->
-		failwith (Printf.sprintf "Failed to find domid of driver domain %s (SR %s)" uuid sr)
-
 open Fun
 
 let multicast f = Hashtbl.fold (fun sr plugin acc -> (sr, f sr plugin.processor) :: acc) plugins []
