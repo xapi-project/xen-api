@@ -175,11 +175,6 @@ let assert_not_empty ~__context ~vbd =
 	if Db.VBD.get_empty ~__context ~self:vbd
 	then raise (Api_errors.Server_error(Api_errors.vbd_is_empty, [ Ref.string_of vbd ]))
 
-(** Throws VBD_TRAY_LOCKED if the VBD's virtual CD tray is locked *)
-let assert_tray_not_locked xs device_number domid vbd =
-  if Device.Vbd.media_tray_is_locked ~xs ~device_number domid
-  then raise (Api_errors.Server_error(Api_errors.vbd_tray_locked, [ Ref.string_of vbd ]))
-
 (** Throws BAD_POWER_STATE if the VM is suspended *)
 let assert_not_suspended ~__context ~vm =
   if (Db.VM.get_power_state ~__context ~self:vm)=`Suspended then
