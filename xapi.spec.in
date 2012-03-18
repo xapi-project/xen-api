@@ -407,7 +407,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/debug/perftest
 @OPTDIR@/debug/quicktest
 @OPTDIR@/debug/quicktestbin
-@OPTDIR@/debug/watch_test
 /cli-rt/*
 /etc/xapi.d/plugins/monitor_fake_plugin
 
