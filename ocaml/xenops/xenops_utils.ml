@@ -154,6 +154,7 @@ let halted_vm = {
 	domids = [];
 	consoles = [];
 	memory_target = 0L;
+	memory_actual = 0L;
 	vcpu_target = 0;
 	rtc_timeoffset = "";
 	uncooperative_balloon_driver = false;
