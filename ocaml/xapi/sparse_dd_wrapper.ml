@@ -13,7 +13,6 @@
  *)
 (* Allows xapi to drive the sparse_dd program *)
 
-open Vmopshelpers
 open Pervasiveext
 open Client
 open Printf
