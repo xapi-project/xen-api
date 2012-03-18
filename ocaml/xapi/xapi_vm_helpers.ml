@@ -705,11 +705,6 @@ let set_HVM_shadow_multiplier ~__context ~self ~value =
 	Db.VM.set_HVM_shadow_multiplier ~__context ~self ~value;
 	update_memory_overhead ~__context ~vm:self
 
-let send_sysrq ~__context ~vm ~key =
-  raise (Api_errors.Server_error (Api_errors.not_implemented, [ "send_sysrq" ]))
-
-let send_trigger ~__context ~vm ~trigger =
-  raise (Api_errors.Server_error (Api_errors.not_implemented, [ "send_trigger" ]))
 
 let inclusive_range a b = Range.to_list (Range.make a (b + 1))
 let vbd_inclusive_range hvm a b =
