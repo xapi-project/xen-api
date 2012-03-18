@@ -218,3 +218,5 @@ val cpuid_rtype_of_char : char -> cpuid_rtype
 val cpuid_set : xc: Xenctrl.handle -> hvm: bool -> domid -> cpuid_config -> cpuid_config
 val cpuid_apply : xc: Xenctrl.handle -> hvm: bool -> domid -> unit
 val cpuid_check : xc: Xenctrl.handle -> cpuid_config -> (bool * ((int64 * int64 option) * (cpuid_reg * cpuid_rtype array) list)) list
+
+val set_memory_target : xs:Xenstore.Xs.xsh -> Xenstore.Xs.domid -> int64 -> unit

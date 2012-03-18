@@ -1106,3 +1106,14 @@ let cpuid_check ~xc cfg =
 		let (success, cfgout) = Xenctrl.cpuid_check xc node tmp in
 		(success, (node, (cpuid_cfg_of_xc_cpuid_cfg cfgout)))
 	) cfg
+
+(** Sets the current memory target for a running VM, to the given value (in KiB), *)
+(** by writing the target to XenStore. The value is automatically rounded down to *)
+(** the nearest page boundary.                                                    *)
+let set_memory_target ~xs domid mem_kib =
+	let mem_kib = Memory.round_kib_down_to_nearest_page_boundary mem_kib in
+	let dompath = xs.Xs.getdomainpath domid in
+	xs.Xs.write (dompath ^ "/memory/target") (Int64.to_string mem_kib);
+	(* Debugging information: *)
+	let mem_mib = Memory.mib_of_kib_used mem_kib in
+	debug "domain %d set memory target to %Ld MiB" domid mem_mib
