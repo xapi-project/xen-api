@@ -115,7 +115,6 @@ XAPI_MODULES = $(COMMON) \
 	xapi_host_patch \
 	xapi_pool_patch \
 	xapi_support \
-	xapi_xenops_errors \
 	xapi_session \
 	xapi_auth \
 	../auth/auth_signature \
