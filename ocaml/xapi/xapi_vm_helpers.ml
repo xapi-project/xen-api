@@ -695,27 +695,8 @@ type set_cpus_number_fn = __context:Context.t -> self:API.ref_VM -> int -> API.v
 let add_to_VCPUs_params_live ~__context ~self ~key ~value =
 	raise (Api_errors.Server_error (Api_errors.not_implemented, [ "add_to_VCPUs_params_live" ]))
 
-(** Sets the current memory target for a running VM, to the given *)
-(** value (in bytes), rounded down to the nearest page boundary.  *)
-(** Writes the new target to the database and also to XenStore.   *)
-let set_memory_target_live ~__context ~self ~target = () (*
-	let bootrec = Helpers.get_boot_record ~__context ~self in
-	if not (Helpers.ballooning_enabled_for_vm ~__context bootrec) then
-		raise (Api_errors.Server_error (Api_errors.ballooning_disabled, []));
-	(* Round down the given target to the nearest page boundary. *)
-	let target = Memory.round_bytes_down_to_nearest_page_boundary target in
-	(* Make sure the new target is within the acceptable range. *)
-	let constraints = Vm_memory_constraints.get_live ~__context ~vm_ref:self in
-	let constraints = {constraints with Vm_memory_constraints.target = target} in
-	if not (Vm_memory_constraints.are_valid ~constraints) then raise (
-		Api_errors.Server_error (
-		Api_errors.memory_constraint_violation, ["invalid target"]));
-	(* We've been forwarded, so the VM is local to this machine. *)
-	let domid = Helpers.domid_of_vm ~__context ~self in
-	Db.VM.set_memory_target ~__context ~self ~value:target;
-	let target = Memory.kib_of_bytes_used target in
-	Vmopshelpers.with_xs (fun xs -> Balloon.set_memory_target ~xs domid target)
-*)
+(* Use set_memory_dynamic_range instead *)
+let set_memory_target_live ~__context ~self ~target = ()
 
 (** The default upper bound on the acceptable difference between *)
 (** actual memory usage and target memory usage when waiting for *)
