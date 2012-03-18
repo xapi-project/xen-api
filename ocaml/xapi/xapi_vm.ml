@@ -464,9 +464,7 @@ let checkpoint ~__context ~vm ~new_name =
 			(Printf.sprintf "VM.checkpoint %s" (Context.string_of_task __context))
 			(fun () ->
 				TaskHelper.set_cancellable ~__context;
-				Locking_helpers.with_lock vm
-					(fun token () -> Xapi_vm_snapshot.checkpoint ~__context ~vm ~new_name)
-					()
+				Xapi_vm_snapshot.checkpoint ~__context ~vm ~new_name
 			)
 	end
 
@@ -492,7 +490,6 @@ let provision ~__context ~vm =
 	Local_work_queue.wait_in_line Local_work_queue.long_running_queue
 	  (Printf.sprintf "VM.provision %s" (Context.string_of_task __context))
 	  (fun () ->
-	     Locking_helpers.with_lock vm (fun token () ->
 	(* This bit could be done in the guest: *)
 	debug "start: checking to see whether VM needs 'installing'";
 	Helpers.call_api_functions ~__context (fun rpc session_id ->
@@ -521,7 +518,6 @@ let provision ~__context ~vm =
 		   raise e
 	       end
 	     end)
-) ()
 	  )
 
 (** Sets the maximum number of VCPUs for a {b Halted} guest. *)
@@ -643,17 +639,14 @@ let set_HVM_shadow_multiplier ~__context ~self ~value =
 
 (** Sets the HVM shadow multiplier for a {b Running} VM. Runs on the slave. *)
 let set_shadow_multiplier_live ~__context ~self ~multiplier =
-	Locking_helpers.with_lock self
-		(fun token () ->
-			let power_state = Db.VM.get_power_state ~__context ~self in
-			if power_state <> `Running
-			then raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [Ref.string_of self; "running"; (Record_util.power_to_string power_state)]));
+	let power_state = Db.VM.get_power_state ~__context ~self in
+	if power_state <> `Running
+	then raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [Ref.string_of self; "running"; (Record_util.power_to_string power_state)]));
 
-			validate_HVM_shadow_multiplier multiplier;
+	validate_HVM_shadow_multiplier multiplier;
 
-			Xapi_xenops.set_shadow_multiplier ~__context ~self multiplier;
-			update_memory_overhead ~__context ~vm:self
-		) ()
+	Xapi_xenops.set_shadow_multiplier ~__context ~self multiplier;
+	update_memory_overhead ~__context ~vm:self
 
 let set_memory_dynamic_range ~__context ~self ~min ~max = 
 	(* NB called in either `Halted or `Running states *)
@@ -679,17 +672,14 @@ let set_memory_dynamic_range ~__context ~self ~min ~max =
 	if power_state = `Running
 	then Xapi_xenops.set_memory_dynamic_range ~__context ~self min max
 
-let send_sysrq ~__context ~vm ~key = Locking_helpers.with_lock vm (fun token () ->
-  send_sysrq ~__context ~vm ~key
-) ()
+let send_sysrq ~__context ~vm ~key =
+  raise (Api_errors.Server_error (Api_errors.not_implemented, [ "send_sysrq" ]))
 
-let send_trigger ~__context ~vm ~trigger = Locking_helpers.with_lock vm (fun token () ->
-  send_trigger ~__context ~vm ~trigger
-) ()
+let send_trigger ~__context ~vm ~trigger =
+  raise (Api_errors.Server_error (Api_errors.not_implemented, [ "send_trigger" ]))
 
-let get_boot_record ~__context ~self = Locking_helpers.with_lock self (fun token () ->
+let get_boot_record ~__context ~self =
   Helpers.get_boot_record ~__context ~self
-) ()
 
 let get_data_sources ~__context ~self = Monitor_rrds.query_possible_vm_dss (Db.VM.get_uuid ~__context ~self)
 
@@ -699,11 +689,9 @@ let query_data_source ~__context ~self ~data_source = Monitor_rrds.query_vm_dss 
 
 let forget_data_source_archives ~__context ~self ~data_source = Monitor_rrds.forget_vm_ds (Db.VM.get_uuid ~__context ~self) data_source
 
-
-let get_possible_hosts ~__context ~vm = Locking_helpers.with_lock vm (fun token () ->
+let get_possible_hosts ~__context ~vm =
   let snapshot = Db.VM.get_record ~__context ~self:vm in
   get_possible_hosts_for_vm ~__context ~vm ~snapshot
-) ()
 
 let get_allowed_VBD_devices ~__context ~vm = List.map (fun d -> string_of_int (Device_number.to_disk_number d)) (allowed_VBD_devices ~__context ~vm)
 let get_allowed_VIF_devices = allowed_VIF_devices
