@@ -695,9 +695,6 @@ type set_cpus_number_fn = __context:Context.t -> self:API.ref_VM -> int -> API.v
 let add_to_VCPUs_params_live ~__context ~self ~key ~value =
 	raise (Api_errors.Server_error (Api_errors.not_implemented, [ "add_to_VCPUs_params_live" ]))
 
-(* Use set_memory_dynamic_range instead *)
-let set_memory_target_live ~__context ~self ~target = ()
-
 (** The default upper bound on the acceptable difference between *)
 (** actual memory usage and target memory usage when waiting for *)
 (** a running VM to reach its current memory target.             *)
