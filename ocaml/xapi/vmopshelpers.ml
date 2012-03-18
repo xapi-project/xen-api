@@ -27,4 +27,5 @@ let with_xs              = with_xs
 let with_xc_and_xs       = with_xc_and_xs
 let with_xc_and_xs_final = with_xc_and_xs_final
 
-
+let get_uuid ~xc domid =
+	Uuid.uuid_of_int_array (Xenctrl.domain_getinfo xc domid).Xenctrl.handle
