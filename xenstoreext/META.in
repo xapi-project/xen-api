@@ -1,0 +1,5 @@
+version = ""
+description = "Xenstoreext - Extensions to xenstore not yet provided upstream"
+requires = "unix,stdext"
+archive(byte) = "xenstoreext.cma"
+archive(native) = "xenstoreext.cmxa"
