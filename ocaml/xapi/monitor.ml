@@ -560,3 +560,13 @@ let loop () =
 		                    (fun __context -> _loop __context xc)
 	)
 
+let on_restart () =
+	Mutex.execute Rrd_shared.mutex
+		(fun () ->
+			(* Explicitly dirty all VM memory values *)
+			let uuids = Vmopshelpers.with_xc
+				(fun xc -> List.map (fun di -> Uuid.to_string (Uuid.uuid_of_int_array di.Xenctrl.handle))
+					(Xenctrl.domain_getinfolist xc 0)) in
+			Rrd_shared.dirty_memory := List.fold_left (fun acc x -> Rrd_shared.StringSet.add x acc) Rrd_shared.StringSet.empty uuids;
+			Rrd_shared.dirty_host_memory := true;
+			Condition.broadcast Rrd_shared.condition)
