@@ -350,12 +350,6 @@ let has_booted_hvm_of_record ~__context r =
     let boot_record = get_boot_record_of_record ~__context ~string:r.Db_actions.vM_last_booted_record ~uuid:r.Db_actions.vM_uuid in
     boot_record.API.vM_HVM_boot_policy <> ""
 
-let device_protocol_of_string domarch =
-    match Domain.domarch_of_string domarch with
-    | Domain.Arch_HVM | Domain.Arch_native -> Device_common.Protocol_Native
-    | Domain.Arch_X32                      -> Device_common.Protocol_X86_32
-    | Domain.Arch_X64                      -> Device_common.Protocol_X86_64
-
 let is_running ~__context ~self = Db.VM.get_domid ~__context ~self <> -1L
 
 let devid_of_vif ~__context ~self =

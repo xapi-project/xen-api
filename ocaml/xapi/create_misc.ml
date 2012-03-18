@@ -157,7 +157,7 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info)
 	(* Determine information about the host machine. *)
 	let domarch =
 		let i = Int64.of_nativeint (Int64.to_nativeint 0xffffffffL) in
-		Domain.string_of_domarch (if i > 0L then Domain.Arch_X64 else Domain.Arch_X32) in
+		if i > 0L then "x64" else "x32" in
 	let localhost = Helpers.get_localhost ~__context in
 	(* Read the control domain uuid from the inventory file *)
 	let uuid = host_info.dom0_uuid in
