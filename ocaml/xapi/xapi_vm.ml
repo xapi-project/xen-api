@@ -564,9 +564,67 @@ let add_to_VCPUs_params_live ~__context ~self ~key ~value =
 (* Use set_memory_dynamic_range instead *)
 let set_memory_target_live ~__context ~self ~target = ()
 
-let wait_memory_target_live ~__context ~self = Locking_helpers.with_lock self (fun token () ->
-	wait_memory_target_live ~__context ~self ()
-) ()
+(** The default upper bound on the acceptable difference between *)
+(** actual memory usage and target memory usage when waiting for *)
+(** a running VM to reach its current memory target.             *)
+let wait_memory_target_tolerance_bytes = Memory.bytes_of_mib 1L
+
+(** Returns true if (and only if) the   *)
+(** specified argument is a power of 2. *)
+let is_power_of_2 n =
+	(n > 1) && (n land (0 - n) = n)
+
+(** Waits for a running VM to reach its current memory target. *)
+(** This function waits until the following condition is true: *)
+(**                                                            *)
+(**     abs (memory_actual - memory_target) <= tolerance       *)
+(**                                                            *)
+(** If the task associated with this function is cancelled or  *)
+(** if the time-out counter exceeds its limit, this function   *)
+(** raises a server error and terminates.                      *)
+let wait_memory_target_live ~__context ~self =
+	let timeout_seconds = int_of_float !Xapi_globs.wait_memory_target_timeout in
+	let tolerance_bytes = wait_memory_target_tolerance_bytes in
+	let raise_error error =
+		raise (Api_errors.Server_error (error, [Ref.string_of (Context.get_task_id __context)])) in
+	let open Xenops_client in
+	let id = Xapi_xenops.id_of_vm ~__context ~self in
+	let dbg = Context.string_of_task __context in
+	let rec wait accumulated_wait_time_seconds =
+		if accumulated_wait_time_seconds > timeout_seconds
+			then raise_error Api_errors.vm_memory_target_wait_timeout;
+		if TaskHelper.is_cancelling ~__context
+			then raise_error Api_errors.task_cancelled;
+
+		(* Fetch up-to-date value of memory_actual and memory_target *)
+		let _, s = Client.VM.stat dbg id |> success in
+		let memory_target_bytes = s.Xenops_interface.Vm.memory_target in
+		let memory_actual_bytes = s.Xenops_interface.Vm.memory_actual in
+
+		let difference_bytes = Int64.abs (Int64.sub memory_actual_bytes memory_target_bytes) in
+		debug "memory_actual = %Ld; memory_target = %Ld; difference = %Ld %s tolerance (%Ld)" memory_actual_bytes memory_target_bytes difference_bytes (if difference_bytes <= tolerance_bytes then "<=" else ">") tolerance_bytes;
+		if difference_bytes <= tolerance_bytes then
+			(* The memory target has been reached: use the most *)
+			(* recent value of memory_actual to update the same *)
+			(* field within the VM's metrics record, presenting *)
+			(* a consistent view to the world.                  *)
+			let vm_metrics_ref = Db.VM.get_metrics ~__context ~self in
+			Db.VM_metrics.set_memory_actual ~__context ~self:vm_metrics_ref ~value:memory_actual_bytes
+		else begin
+			(* At exponentially increasing intervals, write  *)
+			(* a debug message saying how long we've waited: *)
+			if is_power_of_2 accumulated_wait_time_seconds then debug
+				"Waited %i second(s) for VM %s to reach \
+				its target = %Ld bytes; actual = %Ld bytes."
+				accumulated_wait_time_seconds id
+				memory_target_bytes memory_actual_bytes;
+			(* The memory target has not yet been reached: *)
+			(* wait for a while before repeating the test. *)
+			Thread.delay 1.0;
+			wait (accumulated_wait_time_seconds + 1)
+		end
+	in
+	wait 0
 
 let get_cooperative ~__context ~self =
   (* If the VM is not supposed to be capable of ballooning then return true *)
