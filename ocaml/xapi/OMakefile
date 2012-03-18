@@ -67,6 +67,7 @@ OCamlProgram(xenstore_copy, xenstore_dump xenstore_copy)
 OCamlProgram(rrddump, rrddump rrd)
 
 XAPI_MODULES = $(COMMON) \
+	../util/table \
 	balloon \
 	system_domains \
 	local_work_queue \
