@@ -301,14 +301,7 @@ let on_master_restart ~__context =
   debug "master might have just restarted: refreshing non-persistent data in the master's database";
   Xapi_host_helpers.consider_enabling_host_request ~__context;
   debug "triggering an immediate refresh of non-persistent fields (eg memory)";
-  Mutex.execute Rrd_shared.mutex 
-    (fun () -> 
-       (* Explicitly dirty all VM memory values *)
-       let uuids = Vmopshelpers.with_xc 
-	 (fun xc -> List.map (fun di -> Uuid.to_string (Uuid.uuid_of_int_array di.Xenctrl.handle)) (Xenctrl.domain_getinfolist xc 0)) in
-       Rrd_shared.dirty_memory := List.fold_left (fun acc x -> Rrd_shared.StringSet.add x acc) Rrd_shared.StringSet.empty uuids;
-       Rrd_shared.dirty_host_memory := true; 
-       Condition.broadcast Rrd_shared.condition);
+  Monitor.on_restart ();
   (* To make the slave appear live we need to set the live flag AND send a heartbeat otherwise the master
      will mark the slave offline again before the regular heartbeat turns up. *)
   debug "sending an immediate heartbeat";
