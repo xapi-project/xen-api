@@ -554,7 +554,7 @@ let calculate_boot_time_host_free_memory () =
 		host_free_pages + host_scrub_pages + domain0_total_pages in
 	let boot_time_host_free_kib =
 		Xenctrl.pages_to_kib (Int64.of_nativeint boot_time_host_free_pages) in
-	Memory.bytes_of_kib boot_time_host_free_kib
+	Int64.mul 1024L boot_time_host_free_kib
 
 (* Read the free memory on the host and record this in the db. This is used *)
 (* as the baseline for memory calculations in the message forwarding layer. *)

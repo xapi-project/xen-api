@@ -29,13 +29,22 @@ exception Failure
     proxy could not be found. *)
 let port_of_proxy __context console =
 	let vm = Db.Console.get_VM __context console in
-	let domid = Helpers.domid_of_vm __context vm in
-	let vnc_port_option = 
-		with_xs
-			(fun xs -> match Db.Console.get_protocol __context console with
-				| `rfb -> Device.get_vnc_port xs domid
-				| `vt100 -> Device.get_tc_port xs domid
-				| `rdp -> raise Failure) in
+	let vnc_port_option =
+		try
+			let open Xenops_interface in
+			let open Xenops_client in
+			let id = Xapi_xenops.id_of_vm ~__context ~self:vm in
+			let dbg = Context.string_of_task __context in		
+			let _, s = Client.VM.stat dbg id |> success in
+			let proto = match Db.Console.get_protocol __context console with
+				| `rfb -> Vm.Rfb
+				| `vt100 -> Vm.Vt100
+				| `rdp -> failwith "No support for tunnelling RDP" in
+			let console = List.find (fun x -> x.Vm.protocol = proto) s.Vm.consoles in
+			Some console.Vm.port
+		with e ->
+			debug "%s" (Printexc.to_string e);
+			None in
 	debug "VM %s console port: %s" (Ref.string_of vm) (Opt.default "None" (Opt.map (fun x -> "Some " ^ (string_of_int x)) vnc_port_option));
 	vnc_port_option
 

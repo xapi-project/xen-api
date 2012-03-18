@@ -449,7 +449,7 @@ module HOST = struct
 	let get_total_memory_mib () =
 		with_xc_and_xs
 			(fun xc xs ->
-				Memory.get_total_memory_mib ~xc
+				(Xenctrl.physinfo xc).Xenctrl.total_pages |> Int64.of_nativeint |> Int64.div 1024L |> Int64.div 1024L
 			)
 	let send_debug_keys keys =
 		with_xc_and_xs
@@ -690,7 +690,7 @@ module VM = struct
 		let curshadow = Xenctrl.shadow_allocation_get xc domid in
 		let needed_mib = newshadow - curshadow in
 		debug "VM = %s; domid = %d; Domain has %d MiB shadow; an increase of %d MiB requested" vm.Vm.id domid curshadow needed_mib;
-		if not(Memory.wait_xen_free_mem xc (Int64.mul (Int64.of_int needed_mib) 1024L)) then begin
+		if not(Domain.wait_xen_free_mem xc (Int64.mul (Int64.of_int needed_mib) 1024L)) then begin
 		    error "VM = %s; domid = %d; Failed waiting for Xen to free %d MiB: some memory is not properly accounted" vm.Vm.id domid needed_mib;
 			raise (Exception (Not_enough_memory (Memory.bytes_of_mib (Int64.of_int needed_mib))))
 		end;

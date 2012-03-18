@@ -20,6 +20,8 @@ StaticCLibrary(statdev_stubs, statdev_stubs)
 OCamlLibraryClib(xenops, $(LIBFILES), statdev_stubs)
 OCamlDocLibrary(xenops, $(LIBFILES))
 
+OCamlLibrary(xenops_client, xenops_interface device_number memory xenops_client ionice)
+
 OCAML_LIBS += ../util/version ../idl/ocaml_backend/common xenops
 
 OCamlProgram(list_domains, list_domains)

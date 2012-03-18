@@ -104,6 +104,37 @@ let domarch_of_string = function
 let get_uuid ~xc domid =
 	Uuid.uuid_of_int_array (Xenctrl.domain_getinfo xc domid).Xenctrl.handle
 
+let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds=64) required_memory_kib : bool =
+	let open Memory in
+	let rec wait accumulated_wait_time_seconds =
+		let host_info = Xenctrl.physinfo xc in
+		let free_memory_kib =
+			kib_of_pages (Int64.of_nativeint host_info.Xenctrl.free_pages) in
+		let scrub_memory_kib =
+			kib_of_pages (Int64.of_nativeint host_info.Xenctrl.scrub_pages) in
+		(* At exponentially increasing intervals, write  *)
+		(* a debug message saying how long we've waited: *)
+		if is_power_of_2 accumulated_wait_time_seconds then debug
+			"Waited %i second(s) for memory to become available: \
+			%Ld KiB free, %Ld KiB scrub, %Ld KiB required"
+			accumulated_wait_time_seconds
+			free_memory_kib scrub_memory_kib required_memory_kib;
+		if free_memory_kib >= required_memory_kib
+			(* We already have enough memory. *)
+			then true else
+		if scrub_memory_kib = 0L
+			(* We'll never have enough memory. *)
+			then false else
+		if accumulated_wait_time_seconds >= maximum_wait_time_seconds
+			(* We've waited long enough. *)
+			then false else
+		begin
+			Thread.delay 1.0;
+			wait (accumulated_wait_time_seconds + 1)
+		end in
+	wait 0
+
+
 let make ~xc ~xs vm_info uuid =
 	let flags = if vm_info.hvm then begin
 		let default_flags =
@@ -422,7 +453,7 @@ let build_pre ~xc ~xs ~vcpus ~xen_max_mib ~shadow_mib ~required_host_free_mib do
 	let uuid = get_uuid ~xc domid in
 	debug "VM = %s; domid = %d; waiting for %Ld MiB of free host memory" (Uuid.to_string uuid) domid required_host_free_mib;
 	(* CA-39743: Wait, if necessary, for the Xen scrubber to catch up. *)
-	let (_: bool) = Memory.wait_xen_free_mem ~xc (Memory.kib_of_mib required_host_free_mib) in
+	let (_: bool) = wait_xen_free_mem ~xc (Memory.kib_of_mib required_host_free_mib) in
 
 	let shadow_mib = Int64.to_int shadow_mib in
 
@@ -1117,3 +1148,5 @@ let set_memory_target ~xs domid mem_kib =
 	(* Debugging information: *)
 	let mem_mib = Memory.mib_of_kib_used mem_kib in
 	debug "domain %d set memory target to %Ld MiB" domid mem_mib
+
+
