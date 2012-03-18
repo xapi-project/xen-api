@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 (* Make VDIs with ext2 filesystems on them *)
-open Vmopshelpers
 open Pervasiveext
 open Client
 open Printf
