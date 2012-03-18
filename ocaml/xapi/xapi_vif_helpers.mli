@@ -33,16 +33,6 @@ val cancel_tasks :
 val clear_current_operations :
   __context:Context.t -> self:[ `VIF ] Ref.t -> unit
 
-(** Type of a function which does the actual hotplug/hotunplug. *)
-type do_hotplug_fn =
-    __context:Context.t -> vif:API.ref_VIF -> Locking_helpers.token -> unit
-
-(** Hotplug the VIF, dynamically attaching it to the running VM. *)
-val plug : do_hotplug_fn -> __context:Context.t -> self:API.ref_VIF -> unit
-
-(** Hot-unplug the VIF, dynamically unattaching it to the running VM. *)
-val unplug : do_hotplug_fn -> __context:Context.t -> self:API.ref_VIF -> unit
-
 (** Create a VIF object in the database. *)
 val create :
   __context:Context.t ->
