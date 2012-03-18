@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 val parse_proc_xen_balloon : unit -> (string * int64 option) list
-val set_memory_target : xs:Xenstore.Xs.xsh -> Xenstore.Xs.domid -> int64 -> unit
 val _current_allocation : string
 val _requested_target : string
 val _low_mem_balloon : string

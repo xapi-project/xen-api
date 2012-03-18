@@ -122,7 +122,7 @@ let restore_domain ~xc ~xs ~domid ~vcpus ~static_max_kib ~target_kib ~file =
 let balloon_domain ~xs ~domid ~mem_mib =
 	if mem_mib <= 16L then
 		failwith (sprintf "cannot balloon domain below 16Mb: %Ld requested" mem_mib);
-	Balloon.set_memory_target ~xs domid (Int64.mul mem_mib 1024L)
+	Domain.set_memory_target ~xs domid (Int64.mul mem_mib 1024L)
 
 let domain_get_uuid ~xc ~domid =
 	try
