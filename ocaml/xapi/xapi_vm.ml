@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 open Printf
-open Vmopshelpers
 open Stringext
 open Pervasiveext
 open Xapi_vm_helpers
