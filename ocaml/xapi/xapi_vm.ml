@@ -558,13 +558,11 @@ let set_VCPUs_number_live ~__context ~self ~nvcpu =
 	(* the overhead in case our level of conservativeness changes in future. *)
 	update_memory_overhead ~__context ~vm:self
 
-let add_to_VCPUs_params_live ~__context ~self ~key ~value = Locking_helpers.with_lock self (fun token () ->
-  add_to_VCPUs_params_live ~__context ~self ~key ~value
-) ()
+let add_to_VCPUs_params_live ~__context ~self ~key ~value =
+	raise (Api_errors.Server_error (Api_errors.not_implemented, [ "add_to_VCPUs_params_live" ]))
 
-let set_memory_target_live ~__context ~self ~target = Locking_helpers.with_lock self (fun token () ->
-	set_memory_target_live ~__context ~self ~target
-) ()
+(* Use set_memory_dynamic_range instead *)
+let set_memory_target_live ~__context ~self ~target = ()
 
 let wait_memory_target_live ~__context ~self = Locking_helpers.with_lock self (fun token () ->
 	wait_memory_target_live ~__context ~self ()
