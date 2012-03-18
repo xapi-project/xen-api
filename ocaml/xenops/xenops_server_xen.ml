@@ -1087,6 +1087,11 @@ module VM = struct
 						let local x = Printf.sprintf "/local/domain/%d/%s" di.Xenctrl.domid x in
 						let uncooperative = try ignore_string (xs.Xs.read (local "memory/uncooperative")); true with Xenbus.Xb.Noent -> false in
 						let memory_target = try xs.Xs.read (local "memory/target") |> Int64.of_string |> Int64.mul 1024L with Xenbus.Xb.Noent -> 0L in
+						let memory_actual =
+							let pages = Int64.of_nativeint di.Xenctrl.total_memory_pages in
+							let kib = Xenctrl.pages_to_kib pages in 
+							Memory.bytes_of_kib kib in
+
 						let rtc = try xs.Xs.read (Printf.sprintf "/vm/%s/rtc/timeoffset" (Uuid.string_of_uuid uuid)) with Xenbus.Xb.Noent -> "" in
 						let rec ls_lR root dir =
 							let this = try [ dir, xs.Xs.read (root ^ "/" ^ dir) ] with _ -> [] in
@@ -1114,6 +1119,7 @@ module VM = struct
 								| None -> 0
 							end;
 							memory_target = memory_target;
+							memory_actual = memory_actual;
 							rtc_timeoffset = rtc;
 							last_start_time = begin match vme with
 								| Some x -> x.VmExtra.last_create_time
