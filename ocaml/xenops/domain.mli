@@ -220,3 +220,6 @@ val cpuid_apply : xc: Xenctrl.handle -> hvm: bool -> domid -> unit
 val cpuid_check : xc: Xenctrl.handle -> cpuid_config -> (bool * ((int64 * int64 option) * (cpuid_reg * cpuid_rtype array) list)) list
 
 val set_memory_target : xs:Xenstore.Xs.xsh -> Xenstore.Xs.domid -> int64 -> unit
+
+val wait_xen_free_mem : xc:Xenctrl.handle -> ?maximum_wait_time_seconds:int -> int64 -> bool
+

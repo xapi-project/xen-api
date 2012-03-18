@@ -16,16 +16,19 @@
  *)
 
 open Pervasiveext
+open Xenstore
 
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
-open Xenops_helpers
+let with_xc f = Xenctrl.with_intf f
 
-let with_xc              = with_xc
-let with_xs              = with_xs
-let with_xc_and_xs       = with_xc_and_xs
-let with_xc_and_xs_final = with_xc_and_xs_final
+let with_xs f =
+	let xs = Xs.daemon_open () in
+	finally (fun () -> f xs) (fun () -> Xs.close xs)
+
+let with_xc_and_xs f =
+	Xenctrl.with_intf (fun xc -> with_xs (fun xs -> f xc xs))
 
 let get_uuid ~xc domid =
 	Uuid.uuid_of_int_array (Xenctrl.domain_getinfo xc domid).Xenctrl.handle

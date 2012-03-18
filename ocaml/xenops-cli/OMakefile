@@ -1,4 +1,4 @@
-OCAML_LIBS    =
+OCAML_LIBS    = ../xenops/xenops_client
 OCAMLINCLUDES = ../xenops ../util
 OCAMLPACKS    = xml-light2 stdext stunnel log http-svr oUnit
 
@@ -7,7 +7,7 @@ UseCamlp4(rpc-light.syntax, xn_cfg_types)
 section
 	OCAMLINCLUDES += .
 	OCAMLFLAGS = -dtypes -thread -warn-error F
-	COMMON_FILES = ../xenops/xenops_interface ../xenops/device_number ../xenops/xenops_client ../util/table ../xenops/ionice
+	COMMON_FILES = ../util/table
 	OCamlProgram(xenopstest, test $(COMMON_FILES))
 	OCamlDocProgram(xenopstest, test $(COMMON_FILES))
 

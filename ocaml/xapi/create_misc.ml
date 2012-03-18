@@ -71,7 +71,7 @@ let read_localhost_info () =
 		let keys = [Balloon._low_mem_balloon; Balloon._high_mem_balloon; Balloon._current_allocation] in
 		let values = List.map lookup keys in
 		let result = List.fold_left Int64.add 0L values in
-		Memory.bytes_of_kib result in
+		Int64.mul 1024L result in
 
 	  {name_label=this_host_name;
 	   xen_verstring=xen_verstring;
@@ -247,7 +247,7 @@ and create_domain_zero_default_memory_constraints host_info : Vm_memory_constrai
 	  constraints 
 	with _ -> 
 	  let static_min, static_max = calculate_domain_zero_memory_static_range host_info in
-	  let target = static_min +++ (Memory.bytes_of_mib 100L) in
+	  let target = static_min +++ (Int64.(mul 100L (mul 1024L 1024L))) in
 	  let target = if target > static_max then static_max else target in
 	  {
 	    static_min  = static_min;
@@ -290,7 +290,7 @@ and calculate_domain_zero_memory_static_range (host_info: host_info) : int64 * i
 		let gradient = 21.0 /. 1024.0 in (* d [domain 0 memory] /  d [total host memory]     *)
 		let result = Int64.add (Int64.of_float (gradient *. (Int64.to_float host_total_memory_mib))) intercept in
 		let result = if result < minimum then minimum else result in
-		Memory.bytes_of_mib result in
+		Int64.(mul result (mul 1024L 1024L)) in
 
 	(* static_min must not be greater than static_max *)
 	let static_min = calculate_domain_zero_memory_static_min () in

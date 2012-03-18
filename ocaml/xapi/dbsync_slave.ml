@@ -147,7 +147,7 @@ let record_host_memory_properties ~__context =
 					0L
 			in
 			let nonobvious_overhead_memory_bytes =
-				Memory.bytes_of_kib nonobvious_overhead_memory_kib in
+				Int64.mul 1024L nonobvious_overhead_memory_kib in
 			Db.Host.set_boot_free_mem ~__context ~self
 				~value:boot_memory_bytes;
 			Db.Host.set_memory_overhead ~__context ~self ~value:
