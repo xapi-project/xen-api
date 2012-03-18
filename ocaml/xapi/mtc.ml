@@ -26,8 +26,6 @@
  *)
 open Pervasiveext
 open Printf
-open Vmopshelpers
-open Xenstore
 
 module DD=Debug.Debugger(struct let name="MTC:" end)
 open DD
@@ -171,13 +169,6 @@ let migration_event_entered_suspend_key       =            "/entering_fg"
 let migration_event_entered_suspend_acked_key =            "/entering_fg_acked" 
 let migration_event_abort_req_key             =            "/abort"
 
-(* The base xenstore path + the migration key in which events will be added.
-   This function currently returns /local/domain/<domid>/migration.
-   Therefore, it is imperative that the ~vm be associated with a domain ID *)
-let migration_base_path ~xs ~__context ~vm =
-      let domid = Helpers.domid_of_vm ~__context ~self:vm in
-      xs.Xs.getdomainpath domid ^ migration_key
-
 (* Converts the Task object's status into a string.  Any new states that
    this code does not recognize will return "unknown" *)  
 let string_of_task_status status =
@@ -187,132 +178,6 @@ let string_of_task_status status =
         | `failure -> "failure"
         | `cancelled -> "cancelled"
         | _ -> "unknown"
-
-(* Initializes event notification keys.  Currently it just removes all previous
-   entry under the 'migration_base_path' *)
-let event_notify_init ~__context ~vm =
-  if (is_this_vm_protected ~__context ~self:vm) then (
-    with_xc_and_xs
-      (fun xc xs ->
-        let path = migration_base_path ~xs ~__context ~vm in
-        debug "Event notification: initializing. Path: %s" path;
-	try
-          (* We don't remove the base path because there may be a request to
-             abort a migration that we want to catch before the migration gets
-             too far along.  We saw this problem when dom0 was really busy, our
-             AM issues the migrate command to XAPI, but because XAPI doesn't get
-             to run in time, our AM times out the migration request and sets the
-             abort key so that when XAPI gets around to running, it knows not to
-             start the migration. *)
-          (* xs.Xs.rm path; *)
-          let key = (migration_base_path ~xs ~__context ~vm) ^ migration_event_entered_suspend_key in
-          xs.Xs.rm key;
-          let key = (migration_base_path ~xs ~__context ~vm) ^ migration_event_entered_suspend_acked_key in
-          xs.Xs.rm key;
-          let key = (migration_base_path ~xs ~__context ~vm) ^ migration_task_error_info_key in
-          xs.Xs.rm key;
-          let key = (migration_base_path ~xs ~__context ~vm) ^ migration_task_progress_key in
-          xs.Xs.rm key;
-          let key = (migration_base_path ~xs ~__context ~vm) ^ migration_task_status_key in
-          xs.Xs.rm key;
-        with _ ->
-           debug "Ignoring failure while deleting migration keys. Path: %s" path;
-
-      )
-  )
-
-(* Writes out fields from task to xenstore keys. Note that we write the 
-   'status' field last to guarantee any listeners that the rest of the
-   field values are accurate *)
-let event_notify_task_status ~__context ~vm ~status ?(str="no error info") progress  =
-  if (is_this_vm_protected ~__context ~self:vm) then (
-    with_xc_and_xs
-      (fun xc xs ->
-  
-        debug "Event: Updating MTC task status: %s." (string_of_task_status status);
-  
-        (* Write out the task's progress indicator field *)
-        let key = (migration_base_path ~xs ~__context ~vm) ^ migration_task_progress_key in
-        let adjusted = int_of_float (progress *. 100.) in
-        let value = string_of_int adjusted in
-        debug "progress = %s" value;
-        xs.Xs.write key value;
-  
-        let key = (migration_base_path ~xs ~__context ~vm) ^ migration_task_error_info_key in
-  	xs.Xs.write key str;
-  
-        (* Write out the status field.  It should be written last so anyone watching
-           on it can be certain that the other fields are accurate. *)
-        let key = (migration_base_path ~xs ~__context ~vm) ^ migration_task_status_key in
-        let value = string_of_task_status status in
-        xs.Xs.write key value;  
-      )
-  )  
-
-(* Provides event via xenstore that the migration process has now entered
-   the foreground phase (ie, domain has been suspended).
-   Called only by the source of a migration. *)
-let event_notify_entering_suspend ~__context ~self =
-    with_xc_and_xs
-      (fun xc xs ->
-        let key = (migration_base_path ~xs ~__context ~vm:self) ^ 
-                   migration_event_entered_suspend_key in
-        debug "Entering suspend. Key: %s" key;
-        xs.Xs.write key "1";
-      )
-
-(* A blocking wait.  Wait for external party to acknowlege the suspend
-   stage has been entered. If no response is received within timeout,
-   routine simply returns `ACKED to simulate a response. *)
-let event_wait_entering_suspend_acked ?timeout ~__context ~self =
-    with_xc_and_xs
-      (fun xc xs ->
-        let ack_key = (migration_base_path ~xs ~__context ~vm:self) ^ 
-                       migration_event_entered_suspend_acked_key in
-        let abort_key = (migration_base_path ~xs ~__context ~vm:self) ^ 
-                         migration_event_abort_req_key in
-        debug "Waiting for suspend ack. Key: %s or abort key: %s" ack_key abort_key;
-
-        try
-	  (* Allow an abort event to be triggered while waiting for the ack *)
-          let abort_req = Watch.value_to_become abort_key "1" in 
-	  let ack_watch = Watch.value_to_become ack_key "1" in
-	  match Watch.wait_for ~xs ?timeout (Watch.any_of [ `ACKED, ack_watch; `ABORT, abort_req]) with
- 	    | `ACKED, _ ->
-	         debug "Suspend was acked on key: %s" ack_key;
-
-                 (* Give precendence to the abort key if both are found to be set *)
-                let value = try xs.Xs.read abort_key with _ -> "" in
-                 if (value = "1") then (   
-	           debug "A suspend ack and abort event were detected. Abort taking precedence";
-                   `ABORT
-                 ) else
-                   `ACKED
-	    | `ABORT, _ ->
-	         debug "Abort detected while waiting for suspend ack: %s" ack_key;
-                 `ABORT
-            | _,_ -> `TIMED_OUT            
-        with 
-          Watch.Timeout _ ->
-              debug "Timed-out waiting for suspend ack on key: %s" ack_key;
-              `TIMED_OUT            
-      )
-
-(* Check to see if an abort request has been made through XenStore *)
-let event_check_for_abort_req ~__context ~self =
-  if (is_this_vm_protected ~__context ~self) then (
-    with_xc_and_xs
-      (fun xc xs ->
-        let abort_key = (migration_base_path ~xs ~__context ~vm:self) ^ 
-                       migration_event_abort_req_key in
-
-        debug "Checking if abort was requested. Key: %s" abort_key;
-
-        let value = try xs.Xs.read abort_key with _ -> "not set" in
-        debug "Value of abort key: %s" value;
-        value = "1"
-      )
-  ) else false 
 
 
 
