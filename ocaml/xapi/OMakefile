@@ -17,7 +17,7 @@ XENLIGHT_LINK_FLAGS=-cclib -luuid
 # xen stuff at all.
 # NB order of libraries is important: OMake cannot determine dependencies between libraries
 # (the same holds for OCaml packages)
-XEN_OCAML_LIBS = ../xenops/xenops ../auth/pam
+XEN_OCAML_LIBS = ../xenops/xenops_client ../auth/pam
 XEN_OCAMLINCLUDES =
 XEN_OCAMLPACKS = xenctrl xenctrlext xenstore xenstoreext cpuid # xenlight
 OCAML_CLIBS = $(XEN_OCAML_CLIBS) $(OCAML_CLIBS)
@@ -60,7 +60,7 @@ COMMON = \
 
 #OCamlProgram(upload_receive, $(COMMON) fileupload upload_receive)
 
-OCamlProgram(quicktestbin, quicktest quicktest_common quicktest_ocamltest quicktest_storage quicktest_http quicktest_encodings quicktest_vm_placement vm_placement ../xenops/squeeze_test quicktest_vm_memory_constraints ../util/vm_memory_constraints quicktest_lifecycle)
+OCamlProgram(quicktestbin, quicktest quicktest_common quicktest_ocamltest quicktest_storage quicktest_http quicktest_encodings quicktest_vm_placement vm_placement ../xenops/squeeze ../xenops/squeeze_test quicktest_vm_memory_constraints ../util/vm_memory_constraints quicktest_lifecycle)
 
 OCamlProgram(xenstore_copy, xenstore_dump xenstore_copy)
 

@@ -563,7 +563,7 @@ let set_memory_target_live ~__context ~self ~target = ()
 (** The default upper bound on the acceptable difference between *)
 (** actual memory usage and target memory usage when waiting for *)
 (** a running VM to reach its current memory target.             *)
-let wait_memory_target_tolerance_bytes = Memory.bytes_of_mib 1L
+let wait_memory_target_tolerance_bytes = Int64.(mul 1L (mul 1024L 1024L))
 
 (** Returns true if (and only if) the   *)
 (** specified argument is a power of 2. *)
@@ -722,29 +722,20 @@ let csvm ~__context ~vm =
     NB function is related to Vmops.check_enough_memory.
  *)
 let maximise_memory ~__context ~self ~total ~approximate =
+	let r = Db.VM.get_record ~__context ~self in
+	let r = { r with API.vM_VCPUs_max = if approximate then 64L else r.API.vM_VCPUs_max } in
 
-  (* If being conservative then round the vcpus up to 64 and assume HVM (worst case) *)
-  let vcpus =
-    if approximate
-    then 64
-    else Int64.to_int (Db.VM.get_VCPUs_max ~__context ~self) in
-  let hvm = Helpers.will_boot_hvm ~__context ~self || approximate in
+	(* Need to find the maximum input value to this function so that it still evaluates
+       to true *)
+	let will_fit static_max =
+		let r = { r with API.vM_memory_static_max = static_max } in
+		let normal, shadow = Memory_check.vm_compute_start_memory ~__context ~policy:Memory_check.Static_max r in
+		Int64.add normal shadow <= total in
 
-  let ( /* ) = Int64.div and ( ** ) = Int64.mul in
-
-  let shadow_multiplier = Db.VM.get_HVM_shadow_multiplier ~__context ~self in
-  (* Need to find the maximum input value to this function so that it still evaluates
-     to true *)
-  let will_fit static_max =
-    let mem_kib = static_max /* 1024L in
-    debug "Checking: mem_kib=%Ld" mem_kib;
-    debug "          total  =%Ld" total;
-    (Memory.required_to_boot hvm vcpus mem_kib mem_kib shadow_multiplier) ** 1024L <= total in
-
-  let max = Helpers.bisect will_fit 0L total in
-  (* Round down to the nearest MiB boundary... there's a slight mismatch between the
-     boot_free_mem - sum(static_max) value and the results of querying the free pages in Xen.*)
-  (((max /* 1024L) /* 1024L) ** 1024L) ** 1024L
+	let max = Helpers.bisect will_fit 0L total in
+	(* Round down to the nearest MiB boundary... there's a slight mismatch between the
+       boot_free_mem - sum(static_max) value and the results of querying the free pages in Xen.*)
+	Int64.(mul (mul (div (div max 1024L) 1024L) 1024L) 1024L)
 
 (* In the master's forwarding layer with the global forwarding lock *)
 let atomic_set_resident_on ~__context ~vm ~host = assert false
