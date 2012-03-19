@@ -232,38 +232,27 @@ let updates =
 
 module StringMap = Map.Make(struct type t = string let compare = compare end)
 
-module Q = struct
-
-	type 'a t = 'a Queue.t
-
+let push_with_coalesce should_coalesce item queue =
 	(* [filter_with_memory p xs] returns elements [x \in xs] where [p (x_i, [x_0...x_i-1])] *)
 	let filter_with_memory p xs =
 		List.fold_left (fun (acc, xs) x -> xs :: acc, x :: xs) ([], []) xs
 		|> fst |> List.rev |> List.combine xs (* association list of (element, all previous elements) *)
 		|> List.filter p
-		|> List.map fst
+		|> List.map fst in
 
-	let to_list queue = Queue.fold (fun xs x -> x :: xs) [] queue |> List.rev
+	let to_list queue = Queue.fold (fun xs x -> x :: xs) [] queue |> List.rev in
 	let of_list xs =
 		let q = Queue.create () in
 		List.iter (fun x -> Queue.push x q) xs;
-		q
+		q in
 
-	let create = Queue.create
-	let fold = Queue.fold
-
-	let push ?(should_coalesce = fun _ -> false) item queue =
-		Queue.push item queue;
-		let queue' =
-			to_list queue
-		|> filter_with_memory (fun (this, prev) -> not (should_coalesce this) || not (List.mem this prev))
-		|> of_list in
-		Queue.clear queue;
-		Queue.transfer queue' queue
-
-	let pop = Queue.pop
-	let is_empty = Queue.is_empty
-end
+	Queue.push item queue;
+	let queue' =
+		to_list queue
+	|> filter_with_memory (fun (this, prev) -> not (should_coalesce this) || not (List.mem this prev))
+	|> of_list in
+	Queue.clear queue;
+	Queue.transfer queue' queue
 
 module Queues = struct
 	(** A set of queues where 'pop' operates on each queue in a round-robin fashion *)
@@ -288,14 +277,14 @@ module Queues = struct
 	let get tag qs =
 		Mutex.execute qs.m
 			(fun () ->
-				if StringMap.mem tag qs.qs then StringMap.find tag qs.qs else Q.create ()
+				if StringMap.mem tag qs.qs then StringMap.find tag qs.qs else Queue.create ()
 			)
 
-	let push ?should_coalesce tag item qs =
+	let push_with_coalesce should_coalesce tag item qs =
 		Mutex.execute qs.m
 			(fun () ->
-				let q = if StringMap.mem tag qs.qs then StringMap.find tag qs.qs else Q.create () in
-				Q.push ?should_coalesce item q;
+				let q = if StringMap.mem tag qs.qs then StringMap.find tag qs.qs else Queue.create () in
+				push_with_coalesce should_coalesce item q;
 				qs.qs <- StringMap.add tag q qs.qs;
 				Condition.signal qs.c
 			)
@@ -311,9 +300,9 @@ module Queues = struct
 				(* the min_binding in the 'after' is the next queue *)
 				let last_tag, q = StringMap.min_binding (if StringMap.is_empty after then before else after) in
 				qs.last_tag <- last_tag;
-				let item = Q.pop q in
+				let item = Queue.pop q in
 				(* remove empty queues from the whole mapping *)
-				qs.qs <- if Q.is_empty q then StringMap.remove last_tag qs.qs else qs.qs;
+				qs.qs <- if Queue.is_empty q then StringMap.remove last_tag qs.qs else qs.qs;
 				item
 			)
 end
@@ -331,8 +320,8 @@ module Per_VM_queues = struct
 	let add vm item =
 		Debug.with_thread_associated "queue"
 			(fun () ->
-				debug "Queue.push %s onto [ %s ]" (string_of_operation (fst item)) (String.concat ", " (List.rev (Q.fold (fun acc (b, _) -> string_of_operation b :: acc) [] (Queues.get "tag" queue))));
-				Queues.push ~should_coalesce "tag" item queue;
+				debug "Queue.push %s onto [ %s ]" (string_of_operation (fst item)) (String.concat ", " (List.rev (Queue.fold (fun acc (b, _) -> string_of_operation b :: acc) [] (Queues.get vm queue))));
+				Queues.push_with_coalesce should_coalesce vm item queue;
 			) ()
 
 	let rec process_queue q =
