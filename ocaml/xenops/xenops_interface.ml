@@ -68,6 +68,7 @@ module Query = struct
 	}
 end
 external query: debug_info -> unit -> (Query.t option * error option) = ""
+external get_diagnostics: debug_info -> unit -> (string list option * error option) = ""
 
 type disk =
 	| Local of string (** path to a local block device *)
