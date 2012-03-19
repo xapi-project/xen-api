@@ -230,11 +230,11 @@ let updates =
 		) ();
 	u
 
-module Per_VM_queues = struct
-	(* Single queue for now, one per Vm later *)
-	let queue = Queue.create ()
-	let m = Mutex.create ()
-	let c = Condition.create ()
+module StringMap = Map.Make(struct type t = string let compare = compare end)
+
+module Q = struct
+
+	type 'a t = 'a Queue.t
 
 	(* [filter_with_memory p xs] returns elements [x \in xs] where [p (x_i, [x_0...x_i-1])] *)
 	let filter_with_memory p xs =
@@ -243,45 +243,100 @@ module Per_VM_queues = struct
 		|> List.filter p
 		|> List.map fst
 
-	let should_coalesce = function
-		| VM_check_state (_)
-		| PCI_check_state (_)
-		| VBD_check_state (_)
-		| VIF_check_state (_) -> true
-		| _ -> false
-
 	let to_list queue = Queue.fold (fun xs x -> x :: xs) [] queue |> List.rev
 	let of_list xs =
 		let q = Queue.create () in
 		List.iter (fun x -> Queue.push x q) xs;
 		q
 
-	let add vm (op, f) =
+	let create = Queue.create
+	let fold = Queue.fold
+
+	let push ?(should_coalesce = fun _ -> false) item queue =
+		Queue.push item queue;
+		let queue' =
+			to_list queue
+		|> filter_with_memory (fun (this, prev) -> not (should_coalesce this) || not (List.mem this prev))
+		|> of_list in
+		Queue.clear queue;
+		Queue.transfer queue' queue
+
+	let pop = Queue.pop
+	let is_empty = Queue.is_empty
+end
+
+module Queues = struct
+	(** A set of queues where 'pop' operates on each queue in a round-robin fashion *)
+
+	type tag = string
+	(** Each distinct 'tag' value creates a separate virtual queue *)
+
+	type 'a t = {
+		mutable qs: 'a Queue.t StringMap.t;
+		mutable last_tag: string;
+		m: Mutex.t;
+		c: Condition.t;
+	}
+
+	let create () = {
+ 		qs = StringMap.empty;
+		last_tag = "";
+		m = Mutex.create ();
+		c = Condition.create ();
+	}
+
+	let get tag qs =
+		Mutex.execute qs.m
+			(fun () ->
+				if StringMap.mem tag qs.qs then StringMap.find tag qs.qs else Q.create ()
+			)
+
+	let push ?should_coalesce tag item qs =
+		Mutex.execute qs.m
+			(fun () ->
+				let q = if StringMap.mem tag qs.qs then StringMap.find tag qs.qs else Q.create () in
+				Q.push ?should_coalesce item q;
+				qs.qs <- StringMap.add tag q qs.qs;
+				Condition.signal qs.c
+			)
+
+	let pop qs =
+		Mutex.execute qs.m
+			(fun () ->
+				while StringMap.is_empty qs.qs do
+					Condition.wait qs.c qs.m;
+				done;
+				(* partition based on last_tag *)
+				let before, after = StringMap.partition (fun x _ -> x <= qs.last_tag) qs.qs in
+				(* the min_binding in the 'after' is the next queue *)
+				let last_tag, q = StringMap.min_binding (if StringMap.is_empty after then before else after) in
+				qs.last_tag <- last_tag;
+				let item = Q.pop q in
+				(* remove empty queues from the whole mapping *)
+				qs.qs <- if Q.is_empty q then StringMap.remove last_tag qs.qs else qs.qs;
+				item
+			)
+end
+
+module Per_VM_queues = struct
+	let queue : (operation * Xenops_task.t) Queues.t = Queues.create ()
+
+	let should_coalesce : (operation * Xenops_task.t -> bool) = function
+		| VM_check_state (_), _
+		| PCI_check_state (_), _
+		| VBD_check_state (_), _
+		| VIF_check_state (_), _ -> true
+		| _, _ -> false
+
+	let add vm item =
 		Debug.with_thread_associated "queue"
 			(fun () ->
-				Mutex.execute m
-					(fun () ->
-						debug "Queue.push %s onto [ %s ]" (string_of_operation op) (String.concat ", " (List.rev (Queue.fold (fun acc (b, _) -> string_of_operation b :: acc) [] queue)));
-						Queue.push (op, f) queue;
-						(* We expect to get multiple {VM,VBD,VIF,PCI}_check_state operations. We can coalesce these *)
-						let queue' =
-							to_list queue
-							|> filter_with_memory (fun (this, prev) -> not (should_coalesce (fst this)) || not (List.mem (fst this) (List.map fst prev)))
-							|> of_list in
-						Queue.clear queue;
-						Queue.transfer queue' queue;
-						Condition.signal c)
+				debug "Queue.push %s onto [ %s ]" (string_of_operation (fst item)) (String.concat ", " (List.rev (Q.fold (fun acc (b, _) -> string_of_operation b :: acc) [] (Queues.get "tag" queue))));
+				Queues.push ~should_coalesce "tag" item queue;
 			) ()
 
 	let rec process_queue q =
-		let op, item =
-			Mutex.execute m
-				(fun () ->
-					while Queue.is_empty q do
-						Condition.wait c m
-					done;
-					Queue.pop q
-				) in
+		let op, item = Queues.pop q in
 		debug "Queue.pop returned %s" (string_of_operation op);
 		begin
 			try
