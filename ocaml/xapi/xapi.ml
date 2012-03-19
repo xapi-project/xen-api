@@ -689,7 +689,7 @@ let common_http_handlers = [
   ("put_blob", (Http_svr.FdIO Xapi_blob.handler));
   (* disabled RSS feed for release; this is useful for developers, but not reqd for product.
      [the motivation for disabling it is that it simplifies security audit etc.] *)
-  (* ("get_message_rss_feed", Xapi_message.handler); *)
+  (* ("get_message_rss_feed", Xapi_message.rss_handler); *)
   ("connect_remotecmd", (Http_svr.FdIO Xapi_remotecmd.handler));
   ("post_remote_stats", (Http_svr.BufIO remote_stats_handler));
   ("get_wlb_report", (Http_svr.BufIO Wlb_reports.report_handler));

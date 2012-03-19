@@ -449,7 +449,7 @@ let register_event_hook () =
 
 (* Query params: cls=VM etc, obj_uuid=<..>, min_priority. Returns the last
    days worth of messages as an RSS feed. *)  
-let handler (req: Http.Request.t) (bio: Buf_io.t) _ =
+let rss_handler (req: Http.Request.t) (bio: Buf_io.t) _ =
   let query = req.Http.Request.query in
   req.Http.Request.close <- true;
   debug "Message handler";
