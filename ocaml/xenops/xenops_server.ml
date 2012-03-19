@@ -280,6 +280,18 @@ module Queues = struct
 				if StringMap.mem tag qs.qs then StringMap.find tag qs.qs else Queue.create ()
 			)
 
+	let tags qs =
+		Mutex.execute qs.m
+			(fun () ->
+				StringMap.fold (fun x _ acc -> x :: acc) qs.qs []
+			)
+
+	let get_last_tag qs =
+		Mutex.execute qs.m
+			(fun () ->
+				qs.last_tag
+			)
+
 	let push_with_coalesce should_coalesce tag item qs =
 		Mutex.execute qs.m
 			(fun () ->
@@ -309,6 +321,14 @@ end
 
 module Per_VM_queues = struct
 	let queue : (operation * Xenops_task.t) Queues.t = Queues.create ()
+
+	let to_string_list () =
+		let tags = Queues.tags queue in
+		let last_tag = Queues.get_last_tag queue in
+		List.map
+			(fun tag ->
+				Printf.sprintf "%s: %s [ %s ]" tag (if tag = last_tag then "*" else " ") (String.concat ", " (List.rev (Queue.fold (fun acc (b, _) -> string_of_operation b :: acc) [] (Queues.get tag queue))))
+			) tags
 
 	let should_coalesce : (operation * Xenops_task.t -> bool) = function
 		| VM_check_state (_), _
@@ -1234,3 +1254,6 @@ let set_backend m =
 	internal_event_thread := Some (Thread.create internal_event_thread_body ());
 	let module B = (val get_backend () : S) in
 	B.init ()
+
+let get_diagnostics _ _ () =
+	Per_VM_queues.to_string_list () |> return
