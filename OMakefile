@@ -126,6 +126,7 @@ OCAML_PHASE3_NOXEN = \
 	ocaml/auth/testauthx \
 	ocaml/xe-cli/xe \
 	ocaml/sm-cli/sm \
+	ocaml/sm-cli/smtest \
 	ocaml/xsh/xsh \
 	ocaml/xe-cli/rt/test_host \
 	ocaml/xe-cli/rt/gtclient \
