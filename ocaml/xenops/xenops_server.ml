@@ -350,13 +350,60 @@ module Worker = struct
 	type state =
 		| Idle
 		| Processing of operation
+		| Shutdown_requested
+		| Shutdown
 	type t = {
 		mutable state: state;
-		shutdown_requested: bool;
+		mutable shutdown_requested: bool;
 		m: Mutex.t;
 		c: Condition.t;
 		mutable t: Thread.t option;
 	}
+
+	let get_state_locked t =
+		if t.shutdown_requested
+		then Shutdown_requested
+		else t.state
+
+	let get_state t =
+		Mutex.execute t.m
+			(fun () ->
+				get_state_locked t
+			)
+
+	let join t =
+		Mutex.execute t.m
+			(fun () ->
+				assert (t.state = Shutdown);
+				Opt.iter Thread.join t.t
+			)
+
+	let is_active t =
+		Mutex.execute t.m
+			(fun () ->
+				match get_state_locked t with
+					| Idle | Processing _ -> true
+					| Shutdown_requested | Shutdown -> false
+			)
+
+	let shutdown t =
+		Mutex.execute t.m
+			(fun () ->
+				if not t.shutdown_requested then begin
+					t.shutdown_requested <- true;
+					true (* success *)
+				end else false
+			)
+
+	let restart t =
+		Mutex.execute t.m
+			(fun () ->
+				if t.shutdown_requested && t.state <> Shutdown then begin
+					t.shutdown_requested <- false;
+					true (* success *)
+				end else false
+			)
+
 	let create () =
 		let t = {
 			state = Idle;
@@ -367,7 +414,10 @@ module Worker = struct
 		} in
 		let thread = Thread.create
 			(fun () ->
-				while not(Mutex.execute t.m (fun () -> t.shutdown_requested)) do
+				while not(Mutex.execute t.m (fun () ->
+					if t.shutdown_requested then t.state <- Shutdown;
+					t.shutdown_requested
+				)) do
 					Mutex.execute t.m (fun () -> t.state <- Idle);
 					let op, item = Queues.pop Per_VM_queues.queue in (* blocks here *)
 					debug "Queue.pop returned %s" (string_of_operation op);
@@ -391,9 +441,76 @@ module Worker = struct
 end
 
 module WorkerPool = struct
-	let start () =
-		let (_: Worker.t) = Worker.create () in
-		()
+
+	(* Store references to Worker.ts here *)
+	let pool = ref []
+	let m = Mutex.create ()
+
+	(* Used for diagnostics *)
+	let to_string_list () =
+		let open Worker in
+		Mutex.execute m
+			(fun () ->
+				List.map
+					(fun t ->
+						match Worker.get_state t with
+							| Idle -> "Idle"
+							| Processing op -> Printf.sprintf "Processing %s" (string_of_operation op)
+							| Shutdown_requested -> "Shutdown_requested"
+							| Shutdown -> "Shutdown"
+					) !pool
+			)
+
+	(* Compute the number of active threads ie those which will continue to operate *)
+	let count_active () =
+		Mutex.execute m
+			(fun () ->
+				List.map Worker.is_active !pool |> List.filter id |> List.length
+			)
+
+	let find_one f = List.fold_left (fun acc x -> acc || (f x)) false
+
+	(* Clean up any shutdown threads and remove them from the master list *)
+	let gc pool =
+		List.fold_left
+			(fun acc w ->
+				if Worker.get_state w = Worker.Shutdown then begin
+					Worker.join w;
+					acc
+				end else w :: acc) [] pool
+
+	let incr () =
+		debug "Adding a new worker to the thread pool";
+		Mutex.execute m
+			(fun () ->
+				pool := gc !pool;
+				if not(find_one Worker.restart !pool)
+				then pool := (Worker.create ()) :: !pool
+			)
+
+	let decr () =
+		debug "Removing a worker from the thread pool";
+		Mutex.execute m
+			(fun () ->
+				pool := gc !pool;
+				if not(find_one Worker.shutdown !pool)
+				then debug "There are no worker threads left to shutdown."
+			)
+
+	let start size =
+		for i = 1 to size do
+			incr ()
+		done
+
+	let set_size size =
+		let active = count_active () in
+		debug "XXX active = %d" active;
+		for i = 1 to max 0 (size - active) do
+			incr ()
+		done;
+		for i = 1 to max 0 (active - size) do
+			decr ()
+		done
 end
 
 let export_metadata id =
@@ -1097,6 +1214,13 @@ module HOST = struct
 				let module B = (val get_backend () : S) in
 				B.HOST.send_debug_keys keys |> return
 			) ()
+
+	let set_worker_pool_size _ dbg size =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				debug "HOST.set_worker_pool_size %d" size;
+				WorkerPool.set_size size |> return
+			) ()
 end
 
 module VM = struct
@@ -1287,4 +1411,11 @@ let set_backend m =
 	B.init ()
 
 let get_diagnostics _ _ () =
-	Per_VM_queues.to_string_list () |> return
+	([
+		"VM queues:"
+	] @ (
+		Per_VM_queues.to_string_list ()
+	) @ [
+		"Threads:"
+	] @ (WorkerPool.to_string_list ())
+	) |> return
