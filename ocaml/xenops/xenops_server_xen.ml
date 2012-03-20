@@ -449,7 +449,7 @@ module HOST = struct
 	let get_total_memory_mib () =
 		with_xc_and_xs
 			(fun xc xs ->
-				(Xenctrl.physinfo xc).Xenctrl.total_pages |> Int64.of_nativeint |> Int64.div 1024L |> Int64.div 1024L
+				Int64.div ((Xenctrl.physinfo xc).Xenctrl.total_pages |> Int64.of_nativeint) (Int64.mul 1024L 1024L)
 			)
 	let send_debug_keys keys =
 		with_xc_and_xs
