@@ -1113,6 +1113,8 @@ module VM = struct
 
 	let set_memory_dynamic_range _ dbg id min max = queue_operation dbg id (Atomic(VM_set_memory_dynamic_range (id, min, max))) |> return
 
+	let delay _ dbg id t = queue_operation dbg id (Atomic(VM_delay(id, t))) |> return
+
 	let start _ dbg id = queue_operation dbg id (VM_start id) |> return
 
 	let shutdown _ dbg id timeout = queue_operation dbg id (VM_poweroff (id, timeout)) |> return
