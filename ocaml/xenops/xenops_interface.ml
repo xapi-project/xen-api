@@ -356,6 +356,7 @@ module VM = struct
 	external set_memory_dynamic_range : debug_info -> Vm.id -> int64 -> int64 -> (Task.id option) * (error option) = ""
 	external stat: debug_info -> Vm.id -> ((Vm.t * Vm.state) option) * (error option) = ""
 	external list: debug_info -> unit -> ((Vm.t * Vm.state) list option) * (error option) = ""
+	external delay: debug_info -> Vm.id -> float -> (Task.id option) * (error option) = ""
 
 	external start: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
 	external shutdown: debug_info -> Vm.id -> float option -> (Task.id option) * (error option) = ""
