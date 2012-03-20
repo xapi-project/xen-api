@@ -344,26 +344,55 @@ module Per_VM_queues = struct
 				Queues.push_with_coalesce should_coalesce vm item queue;
 			) ()
 
-	let rec process_queue q =
-		let op, item = Queues.pop q in
-		debug "Queue.pop returned %s" (string_of_operation op);
-		begin
-			try
-				Debug.with_thread_associated
-					item.Xenops_task.dbg
-					(fun () ->
-						debug "Task %s reference %s: %s" item.Xenops_task.id item.Xenops_task.dbg (string_of_operation op);
-						Xenops_task.run item
-					) ()
-			with e ->
-				debug "Queue caught: %s" (Printexc.to_string e)
-		end;
-		Updates.add (Dynamic.Task item.Xenops_task.id) updates;
-		process_queue q
+end
 
+module Worker = struct
+	type state =
+		| Idle
+		| Processing of operation
+	type t = {
+		mutable state: state;
+		shutdown_requested: bool;
+		m: Mutex.t;
+		c: Condition.t;
+		mutable t: Thread.t option;
+	}
+	let create () =
+		let t = {
+			state = Idle;
+			shutdown_requested = false;
+			m = Mutex.create ();
+			c = Condition.create ();
+			t = None;
+		} in
+		let thread = Thread.create
+			(fun () ->
+				while not(Mutex.execute t.m (fun () -> t.shutdown_requested)) do
+					Mutex.execute t.m (fun () -> t.state <- Idle);
+					let op, item = Queues.pop Per_VM_queues.queue in (* blocks here *)
+					debug "Queue.pop returned %s" (string_of_operation op);
+					Mutex.execute t.m (fun () -> t.state <- Processing op);
+					begin
+						try
+							Debug.with_thread_associated
+								item.Xenops_task.dbg
+								(fun () ->
+									debug "Task %s reference %s: %s" item.Xenops_task.id item.Xenops_task.dbg (string_of_operation op);
+									Xenops_task.run item
+								) ()
+						with e ->
+							debug "Queue caught: %s" (Printexc.to_string e)
+					end;
+					Updates.add (Dynamic.Task item.Xenops_task.id) updates;
+				done
+			) () in
+		t.t <- Some thread;
+		t
+end
+
+module WorkerPool = struct
 	let start () =
-		let (_: Thread.t) = Thread.create
-			(Debug.with_thread_associated "queue" process_queue) queue in
+		let (_: Worker.t) = Worker.create () in
 		()
 end
 

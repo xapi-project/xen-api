@@ -191,7 +191,7 @@ let _ =
 
   Debug.with_thread_associated "main" (start sockets) Server.process;
   Xenops_server_plugin.Scheduler.start ();
-  Xenops_server.Per_VM_queues.start ();
+  Xenops_server.WorkerPool.start ();
   while true do
 	  Thread.delay 60.
   done
