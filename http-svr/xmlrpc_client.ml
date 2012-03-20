@@ -185,7 +185,6 @@ let transport_of_url =
 
 let with_transport transport f = match transport with
 	| Unix path ->
-		debug "Attempting to open %s" path;
 		let fd = Unixext.open_connection_unix_fd path in
 		finally
 			(fun () -> f fd)
