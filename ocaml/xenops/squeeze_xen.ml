@@ -242,7 +242,7 @@ let update_cooperative_flags cnx =
 let make_host ~verbose ~xc ~xs =
 	(* Wait for any scrubbing so that we don't end up with no immediately usable pages --
 	   this might cause something else to fail (eg domain builder?) *)
-	while (Xenctrl.physinfo xc).Xenctrl.scrub_pages |> Int64.of_nativeint |> Int64.div 1024L <> 0L do
+	while Int64.div ((Xenctrl.physinfo xc).Xenctrl.scrub_pages |> Int64.of_nativeint) 1024L <> 0L do
 		ignore(Unix.select [] [] [] 0.25)
 	done;
 
