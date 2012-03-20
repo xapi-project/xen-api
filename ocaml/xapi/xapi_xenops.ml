@@ -28,14 +28,7 @@ let filtered_platform_flags = ["acpi"; "apic"; "nx"; "pae"; "viridian";
                                "acpi_s3";"acpi_s4"; "mmio_size_mib"]
 
 let disk_of_vdi ~__context ~self =
-	try
-		let vdi = Db.VDI.get_record ~__context ~self in
-		let content_id =
-			if List.mem_assoc "content_id" vdi.API.vDI_other_config
-			then List.assoc "content_id" vdi.API.vDI_other_config
-			else vdi.API.vDI_location (* PR-1255 *) in
-		Some (VDI content_id)
-	with _ -> None
+	try Some (VDI (Db.VDI.get_location ~__context ~self)) with _ -> None
 
 let backend_of_network ~__context ~self =
 	let bridge = Db.Network.get_bridge ~__context ~self in
