@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 module L = Debug.Debugger(struct let name="license" end)
-open Vmopshelpers
 open Stringext
 
 let check_expiry ~__context ~host = 

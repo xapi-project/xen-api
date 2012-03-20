@@ -62,7 +62,6 @@ let watchdog f =
 	(* parent process blocks sigint and forward sigterm to child. *)
 	ignore(Unix.sigprocmask Unix.SIG_BLOCK [Sys.sigint]);
 	Sys.catch_break false;
-	Logs.append "watchdog" Log.Info "syslog:v6d_watchdog";
 
 	(* watchdog logic *)
 	let loginfo fmt = W.info fmt in

@@ -165,7 +165,7 @@ let signal_cdrom_event ~__context params =
 	  let vdi = List.hd vdis in
 	  debug "cdrom inserted notification in vdi %s" (Ref.string_of vdi);
 	  let vbds = Db.VDI.get_VBDs ~__context ~self:vdi in
-	  List.iter (fun vbd -> Xapi_vbd.refresh ~__context ~vbd ~vdi) vbds
+	  List.iter (fun vbd -> Xapi_xenops.vbd_insert ~__context ~self:vbd ~vdi) vbds
 	) else
 	  ()
 	in
@@ -535,7 +535,9 @@ let power_on ~__context ~host =
   if result <> "True" then failwith (Printf.sprintf "The host failed to power on.")
 
 let dmesg ~__context ~host =
-	Vmopshelpers.with_xc (fun xc -> Xenctrl.readconsolering xc)
+	let open Xenops_client in
+	let dbg = Context.string_of_task __context in
+	Client.HOST.get_console_data dbg |> success
 
 let dmesg_clear ~__context ~host =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ "dmesg_clear" ]))
@@ -544,7 +546,9 @@ let get_log ~__context ~host =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ "get_log" ]))
 
 let send_debug_keys ~__context ~host ~keys =
-  Vmopshelpers.with_xc (fun xc -> Xenctrl.send_debug_keys xc keys)
+	let open Xenops_client in
+	let dbg = Context.string_of_task __context in
+	Client.HOST.send_debug_keys dbg keys |> success
 
 let list_methods ~__context =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ "list_method" ]))

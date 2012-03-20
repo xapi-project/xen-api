@@ -19,14 +19,11 @@ V6D = v6d
 OCamlProgram($(V6D), $(V6FILES))
 OCamlDocProgram($(V6D), $(V6FILES))
 
-OCamlProgram(v6d-reopen-logs, v6d_reopen_logs ../fhs)
-
 .PHONY: install
 install: $(V6D)
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) $(V6D) $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/bin
-	$(IPROG) v6d-reopen-logs $(DESTDIR)$(OPTDIR)/bin
 
 .PHONY: clean
 clean:

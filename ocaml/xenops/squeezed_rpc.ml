@@ -120,13 +120,11 @@ module Rpc_internal = struct
     begin
       try
 	let pid = int_of_string (xs.Xs.read (path [ service; _pid ])) in
-	debug "Checking pid %d" pid;
 	Unix.kill pid 0;
       with _ ->
 	raise Server_not_registered
     end;
     let id = write_request xs service fn args in
-    debug "Written request using id: %s" id;
     ignore_string (Watch.wait_for ~xs (Watch.value_to_appear (path [ service; _rpc; _response; fn; id ])));
     let arg_keys = listdir xs (path [ service; _rpc; _response; fn; id ]) in
     let arg_vals = List.map (fun x -> xs.Xs.read (path [ service; _rpc; _response; fn; id; x ])) arg_keys in

@@ -14,14 +14,12 @@ NETWORKD_FILES = networkd network_utils network_interface network_server
 OCamlProgram($(NETWORKD), $(NETWORKD_FILES))
 OCamlDocProgram($(NETWORKD), $(NETWORKD_FILES))
 OCamlProgram($(NETWORK_TEST), ../fhs network_test network_interface)
-OCamlProgram(xcp-networkd-reopen-logs, ../fhs networkd_reopen_logs network_interface)
 
 .PHONY: install
 install:
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) $(NETWORKD) $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/bin
-	$(IPROG) xcp-networkd-reopen-logs $(DESTDIR)$(OPTDIR)/bin
 
 .PHONY: test
 test: $(NETWORK_TEST)

@@ -184,6 +184,7 @@ module Vm = struct
 		domids: int list;
 		consoles: console list;
 		memory_target: int64;
+		memory_actual: int64;
 		vcpu_target: int; (* actual number of vcpus *)
 		shadow_multiplier_target: float; (* actual setting *)
 		rtc_timeoffset: string;
@@ -322,6 +323,12 @@ module TASK = struct
 	external cancel: debug_info -> Task.id -> (unit option) * (error option) = ""
 end
 
+module HOST = struct
+	external get_console_data: debug_info -> (string option) * (error option) = ""
+	external get_total_memory_mib: debug_info -> (int64 option) * (error option) = ""
+	external send_debug_keys: debug_info -> string -> (unit option) * (error option) = ""
+end
+
 module VM = struct
 	external add: debug_info -> Vm.t -> (Vm.id option) * (error option) = ""
 	external remove: debug_info -> Vm.id -> (unit option) * (error option) = ""
@@ -333,7 +340,8 @@ module VM = struct
 	external pause: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
 	external unpause: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
 	external set_vcpus: debug_info -> Vm.id -> int -> (Task.id option) * (error option) = ""
-	external set_shadow_multiplier : debug_info -> Vm.id -> float -> (Task.id option) * (error option) = "" 
+	external set_shadow_multiplier : debug_info -> Vm.id -> float -> (Task.id option) * (error option) = ""
+	external set_memory_dynamic_range : debug_info -> Vm.id -> int64 -> int64 -> (Task.id option) * (error option) = ""
 	external stat: debug_info -> Vm.id -> ((Vm.t * Vm.state) option) * (error option) = ""
 	external list: debug_info -> unit -> ((Vm.t * Vm.state) list option) * (error option) = ""
 
@@ -374,9 +382,11 @@ module VIF = struct
 	external add: debug_info -> Vif.t -> (Vif.id option) * (error option) = ""
 	external plug: debug_info -> Vif.id -> (Task.id option) * (error option) = ""
 	external unplug: debug_info -> Vif.id -> bool -> (Task.id option) * (error option) = ""
+	external move: debug_info -> Vif.id -> Network.t -> (Task.id option) * (error option) = ""
 	external stat: debug_info -> Vif.id -> ((Vif.t * Vif.state) option) * (error option) = ""
 	external list: debug_info -> Vm.id -> ((Vif.t * Vif.state) list option) * (error option) = ""
 	external remove: debug_info -> Vif.id -> (unit option) * (error option) = ""
+	external set_carrier: debug_info -> Vif.id -> bool -> (Task.id option) * (error option) = ""
 end
 
 module UPDATES = struct

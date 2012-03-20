@@ -11,6 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+open Xenops_utils
+open Pervasiveext 
+open Fun
+
 let name = "xenopsd"
 
 let major_version = 0
@@ -23,7 +27,7 @@ let minor_version = 9
 *)
 let config_file = ref (Printf.sprintf "/etc/%s.conf" name)
 let pidfile = ref (Printf.sprintf "/var/run/%s.pid" name)
-let log_destination = ref "syslog:xenopsd"
+let log_destination = ref "syslog:daemon"
 let simulate = ref false
 let persist = ref true
 let daemon = ref false
@@ -34,11 +38,16 @@ let config_spec = [
 	"simulate", Config.Set_bool simulate;
 	"persist", Config.Set_bool persist;
 	"daemon", Config.Set_bool daemon;
+	"disable-logging-for", Config.String
+		(fun x ->
+			try
+				let open Stringext in
+				let modules = String.split_f String.isspace x in
+				List.iter Debug.disable modules
+			with e ->
+				error "Processing disabled-logging-for = %s: %s" x (Printexc.to_string e)
+		)
 ]
-
-open Xenops_utils
-open Pervasiveext 
-open Fun
 
 let read_config_file () =
 	let unknown_key k v = debug "Unknown key/value pairs: (%s, %s)" k v in
@@ -146,16 +155,10 @@ let start (domain_sock, forwarded_sock) process =
 		) () in
 	()
 
-(* val reopen_logs: unit -> unit *)
-let reopen_logs _ = 
-  debug "Reopening logfiles";
-  Logs.reopen ();
-  debug "Logfiles reopened";
-  []
-
 let _ = 
-  Logs.reset_all [ !log_destination ];
-  debug "xenopsd version %d.%d starting" major_version minor_version;
+	Debug.set_facility Syslog.Local5;
+
+	debug "xenopsd version %d.%d starting" major_version minor_version;
 
   Arg.parse (Arg.align [
 	       "-daemon", Arg.Set daemon, "Create a daemon";
@@ -167,8 +170,6 @@ let _ =
     (Printf.sprintf "Usage: %s [-daemon] [-pidfile filename]" name);
   read_config_file ();
 
-  Logs.reset_all [ !log_destination ];
-  Logs.set "http" Log.Debug [ "nil" ];
   dump_config_file ();
 
   Sys.set_signal Sys.sigpipe Sys.Signal_ignore;

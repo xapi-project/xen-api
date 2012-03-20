@@ -505,7 +505,7 @@ let update_metadata_in_xenopsd ~__context ~self =
 			then
 				let txt = create_metadata ~__context ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
 				if Hashtbl.mem metadata_cache id && (Hashtbl.find metadata_cache id = Some txt)
-				then debug "No need to update xenopsd: VM %s metadata has not changed" id
+				then ()
 				else begin
 					debug "VM %s metadata has changed: updating xenopsd" id;
 					info "xenops: VM.import_metadata %s" txt;
@@ -952,14 +952,18 @@ let unregister_task id =
 
 let update_task ~__context id =
 	try
-		let self = id_to_task_exn id in
+		let self = id_to_task_exn id in (* throws Not_found *)
 		let dbg = Context.string_of_task __context in
 		let task_t = Client.TASK.stat dbg id |> success in
 		match task_t.Task.result with
 			| Task.Pending x ->
 				Db.Task.set_progress ~__context ~self ~value:x
 			| _ -> ()
-	with e ->
+	with Not_found ->
+		(* Since this is called on all tasks, possibly after the task has been
+		   destroyed, it's safe to ignore a Not_found exception here. *)
+		()
+	| e ->
 		error "xenopsd event: Caught %s while updating task" (Printexc.to_string e)
 
 let rec events_watch ~__context from =
@@ -1085,6 +1089,13 @@ let with_shutting_down uuid f =
 (* XXX; PR-1255: this needs to be combined with the migration lock *)
 let is_shutting_down uuid = Hashtbl.mem shutting_down uuid
 
+(* If a xapi event thread is blocked, wake it up and cause it to re-register. This should be
+   called after updating Host.resident_VMs *)
+let trigger_xenapi_reregister =
+	ref (fun () ->
+		debug "No xapi event thread to wake up"
+	)
+
 (* XXX: PR-1255: this will be receiving too many events and we may wish to synchronise
    updates to the VM metadata and resident_on fields *)
 (* XXX: PR-1255: we also want to only listen for events on VMs and fields we care about *)
@@ -1093,35 +1104,56 @@ let events_from_xapi () =
     Server_helpers.exec_with_new_task "xapi_xenops"
 		(fun __context ->
 			let localhost = Helpers.get_localhost ~__context in
+			let token = ref "" in
 			while true do
 				try
 					Helpers.call_api_functions ~__context
 						(fun rpc session_id ->
-							XenAPI.Event.register ~rpc ~session_id ~classes:["VM"];
-							(* In case we miss events, update all VM metadata *)
-							List.iter
-								(fun vm ->
-									update_metadata_in_xenopsd ~__context ~self:vm |> ignore
-								) (Db.Host.get_resident_VMs ~__context ~self:localhost);
+							trigger_xenapi_reregister :=
+								(fun () ->
+									try
+										(* This causes Event.next () and Event.from () to return SESSION_INVALID *)
+										XenAPI.Session.logout ~rpc ~session_id
+									with
+										| Api_errors.Server_error(code, _) when code = Api_errors.session_invalid ->
+											debug "Event thead has already woken up"
+										| e ->
+											error "Waking up the xapi event thread: %s" (Printexc.to_string e)
+								);
+							(* We register for events on resident_VMs only *)
+							let classes = List.map (fun x -> Printf.sprintf "VM/%s" (Ref.string_of x)) (Db.Host.get_resident_VMs ~__context ~self:localhost) in
+							(* NB we re-use the old token so we don't get events we've already
+							   received BUT we will not necessarily receive events for the new VMs *)
+
 							while true do
-								let events = events_of_xmlrpc (XenAPI.Event.next ~rpc ~session_id) in
+								let from = XenAPI.Event.from ~rpc ~session_id ~classes ~token:!token ~timeout:60. |> event_from_of_xmlrpc in
 								List.iter
 									(function
 										| { ty = "vm"; reference = vm' } ->
 											let vm = Ref.of_string vm' in
 											Mutex.execute shutting_down_m
 												(fun () ->
-													if Db.VM.get_resident_on ~__context ~self:vm = localhost && not(is_shutting_down (id_of_vm ~__context ~self:vm)) then begin
+													let id = id_of_vm ~__context ~self:vm in
+													let resident_here = Db.VM.get_resident_on ~__context ~self:vm = localhost in
+													let shutting_down = is_shutting_down id in
+													debug "Event on VM %s; resident_here = %b; shutting_down = %b" id resident_here shutting_down;
+													if resident_here && not shutting_down then begin
 														update_metadata_in_xenopsd ~__context ~self:vm |> ignore
 													end
 												)
 										| _ -> ()
-									) events
+									) from.events;
+								token := string_of_token from.token;
 							done
 						)
-				with e ->
-					debug "Caught %s listening to events from xapi" (Printexc.to_string e);
-					Thread.delay 15.
+				with 
+					| Api_errors.Server_error(code, _) when code = Api_errors.session_invalid ->
+						debug "Woken event thread: updating list of event subscriptions"
+					| e ->
+						debug "Caught %s listening to events from xapi" (Printexc.to_string e);
+						(* Start from scratch *)
+						token := "";
+						Thread.delay 15.
 			done
 		)
 
@@ -1144,14 +1176,20 @@ let refresh_vm ~__context ~self =
 	Event.wait dbg ()
 
 (* After this function is called, locally-generated events will be reflected
-   in the xapi pool metadata. *)
+   in the xapi pool metadata. When this function returns we believe that the
+   VM state is in 'sync' with xenopsd and the pool master where by 'sync'
+   we mean that all changes will eventually be propagated or 'no events lost' *)
 let set_resident_on ~__context ~self =
 	let id = id_of_vm ~__context ~self in
 	debug "VM %s set_resident_on" id;
 	let localhost = Helpers.get_localhost ~__context in
 	Helpers.call_api_functions ~__context
 		(fun rpc session_id -> XenAPI.VM.atomic_set_resident_on rpc session_id self localhost);
-	refresh_vm ~__context ~self
+	refresh_vm ~__context ~self;
+	debug "Signalling xenapi event thread to re-register";
+	!trigger_xenapi_reregister ();
+	(* Any future XenAPI updates will trigger events, but we might have missed one so: *)
+	update_metadata_in_xenopsd ~__context ~self |> ignore
 
 let sync_with_task __context x =
 	let dbg = Context.string_of_task __context in
@@ -1211,6 +1249,13 @@ let set_shadow_multiplier ~__context ~self target =
 		| Exception Not_supported ->
 			(* The existing behaviour is to ignore this failure *)
 			error "VM.set_shadow_multiplier: not supported for PV domains"
+
+let set_memory_dynamic_range ~__context ~self min max =
+	let id = id_of_vm ~__context ~self in
+	debug "xenops: VM.set_memory_dynamic_range %s" id;
+	let dbg = Context.string_of_task __context in
+	Client.VM.set_memory_dynamic_range dbg id min max |> sync_with_task __context;
+	Event.wait dbg ()
 
 let start ~__context ~self paused =
 	let id = push_metadata_to_xenopsd ~__context ~self in
@@ -1455,3 +1500,14 @@ let vif_unplug ~__context ~self force =
 	Client.VIF.remove dbg vif.Vif.id |> success;
 	Event.wait dbg ();
 	assert (not(Db.VIF.get_currently_attached ~__context ~self))
+
+let vif_move ~__context ~self network =
+	let vm = Db.VIF.get_VM ~__context ~self in
+	assert_resident_on ~__context ~self:vm;
+	let vif = md_of_vif ~__context ~self in
+	info "xenops: VIF.move %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
+	let backend = backend_of_network ~__context ~self:network in
+	let dbg = Context.string_of_task __context in
+	Client.VIF.move dbg vif.Vif.id backend |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
+	Event.wait dbg ();
+	assert (Db.VIF.get_currently_attached ~__context ~self)

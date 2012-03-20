@@ -180,11 +180,7 @@ let balance_memory args =
   []
 
 (* val reopen_logs: unit -> unit *)
-let reopen_logs _ = 
-  debug "Reopening logfiles";
-  Logs.reopen ();
-  debug "Logfiles reopened";
-  []
+let reopen_logs _ = ()
 
 let function_table = [
   "echo", (fun x -> x);
@@ -194,7 +190,6 @@ let function_table = [
   _transfer_reservation_to_domain, transfer_reservation_to_domain;
   _delete_reservation, delete_reservation;
   _balance_memory, balance_memory;
-  _reopen_logs, reopen_logs;
 ]
 
 (** Called periodically to look for unbalanced memory and take corrective action *)
@@ -203,6 +198,8 @@ let idle_callback ~xc ~xs () =
   then Debug.with_thread_associated "auto-balance" (fun () -> Squeeze_xen.balance_memory ~xc ~xs) ()
   
 let _ = 
+	Debug.set_facility Syslog.Local5;
+
   let pidfile = ref default_pidfile in
   let daemonize = ref false in
  
@@ -214,13 +211,16 @@ let _ =
     (fun _ -> failwith "Invalid argument")
     "Usage: squeezed [-daemon] [-pidfile filename]";
 
-  Logs.reset_all [ log_file_path ];
   begin
     try Xapi_globs.read_external_config ()
     with e -> debug "Read global variables config from %s failed: %s. Continue with default setting." Xapi_globs.xapi_globs_conf (Printexc.to_string e)
   end;
   debug "Writing reserved-host-memory=%Ld KiB" Squeeze_xen.target_host_free_mem_kib;
-  with_xc_and_xs (fun _ xs -> xs.Xs.write (reserved_host_memory_path _service) (Int64.to_string Squeeze_xen.target_host_free_mem_kib));
+  let txt = Int64.to_string Squeeze_xen.target_host_free_mem_kib in
+  with_xc_and_xs (fun _ xs -> xs.Xs.write (reserved_host_memory_path _service) txt);
+  let path = reserved_host_memory_filename _service in
+  Unixext.mkdir_rec (Filename.dirname path) 0o755;
+  Unixext.write_string_to_file path txt;
 
   if !daemonize then Unixext.daemonize ();
 

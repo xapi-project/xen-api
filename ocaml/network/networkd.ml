@@ -13,7 +13,6 @@
  *)
 
 let name = "xcp-networkd"
-let log_file_path = Printf.sprintf "file:/var/log/%s.log" name
 
 open Pervasiveext
 open Fun
@@ -56,6 +55,7 @@ let handle_shutdown () =
 let _ =
 	let pidfile = ref "" in
 	let daemonize = ref false in
+	Debug.set_facility Syslog.Local5;
 
 	Arg.parse (Arg.align [
 			"-daemon", Arg.Set daemonize, "Create a daemon";
@@ -64,8 +64,6 @@ let _ =
 		(fun _ -> failwith "Invalid argument")
 		(Printf.sprintf "Usage: %s [-daemon] [-pidfile filename]" name);
 
-	Logs.reset_all [ log_file_path ];
-	Logs.set "http" Log.Debug ["nil"];
 	debug "%s" (String.concat ", " (Debug.get_all_debug_keys()));
 
 	Network_server.on_startup ();

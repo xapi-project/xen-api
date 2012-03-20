@@ -118,10 +118,7 @@ exception EndOfDeltas
 exception NotEnoughSpace
 
 (* Make informational output go to the syslog *)
-let initialise_logging () =
-  List.iter
-    (fun level -> Logs.append "block_device_io" level "syslog:xapi_block_device_io")
-    [Log.Info; Log.Warn; Log.Error]
+let initialise_logging () = Debug.set_facility Syslog.Local5
 
 (* --------------------------------------------- *)
 (* Functions to deal with layout of block device *)

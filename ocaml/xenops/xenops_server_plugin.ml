@@ -213,6 +213,11 @@ type progress_cb = float -> unit
 
 module type S = sig
 	val init: unit -> unit
+	module HOST : sig
+		val get_console_data: unit -> string
+		val get_total_memory_mib: unit -> int64
+		val send_debug_keys: string -> unit
+	end
 	module VM : sig
 		val create: Xenops_task.t -> Vm.t -> unit
 		val build: Xenops_task.t -> Vm.t -> Vbd.t list -> Vif.t list -> unit
@@ -223,6 +228,7 @@ module type S = sig
 		val unpause: Xenops_task.t -> Vm.t -> unit
 		val set_vcpus: Xenops_task.t -> Vm.t -> int -> unit
 		val set_shadow_multiplier: Xenops_task.t -> Vm.t -> float -> unit
+		val set_memory_dynamic_range: Xenops_task.t -> Vm.t -> int64 -> int64 -> unit
 		val request_shutdown: Xenops_task.t -> Vm.t -> shutdown_request -> float -> bool
 		val wait_shutdown: Xenops_task.t -> Vm.t -> shutdown_request -> float -> bool
 
@@ -262,6 +268,8 @@ module type S = sig
 	module VIF : sig
 		val plug: Xenops_task.t -> Vm.id -> Vif.t -> unit
 		val unplug: Xenops_task.t -> Vm.id -> Vif.t -> bool -> unit
+		val move: Xenops_task.t -> Vm.id -> Vif.t -> Network.t -> unit
+		val set_carrier: Xenops_task.t -> Vm.id -> Vif.t -> bool -> unit
 
 		val get_state: Vm.id -> Vif.t -> Vif.state
 

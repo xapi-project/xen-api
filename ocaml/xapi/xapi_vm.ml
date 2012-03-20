@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 open Printf
-open Vmopshelpers
 open Stringext
 open Pervasiveext
 open Xapi_vm_helpers
@@ -465,9 +464,7 @@ let checkpoint ~__context ~vm ~new_name =
 			(Printf.sprintf "VM.checkpoint %s" (Context.string_of_task __context))
 			(fun () ->
 				TaskHelper.set_cancellable ~__context;
-				Locking_helpers.with_lock vm
-					(fun token () -> Xapi_vm_snapshot.checkpoint ~__context ~vm ~new_name)
-					()
+				Xapi_vm_snapshot.checkpoint ~__context ~vm ~new_name
 			)
 	end
 
@@ -493,7 +490,6 @@ let provision ~__context ~vm =
 	Local_work_queue.wait_in_line Local_work_queue.long_running_queue
 	  (Printf.sprintf "VM.provision %s" (Context.string_of_task __context))
 	  (fun () ->
-	     Locking_helpers.with_lock vm (fun token () ->
 	(* This bit could be done in the guest: *)
 	debug "start: checking to see whether VM needs 'installing'";
 	Helpers.call_api_functions ~__context (fun rpc session_id ->
@@ -522,7 +518,6 @@ let provision ~__context ~vm =
 		   raise e
 	       end
 	     end)
-) ()
 	  )
 
 (** Sets the maximum number of VCPUs for a {b Halted} guest. *)
@@ -559,21 +554,73 @@ let set_VCPUs_number_live ~__context ~self ~nvcpu =
 	(* the overhead in case our level of conservativeness changes in future. *)
 	update_memory_overhead ~__context ~vm:self
 
-let add_to_VCPUs_params_live ~__context ~self ~key ~value = Locking_helpers.with_lock self (fun token () ->
-  add_to_VCPUs_params_live ~__context ~self ~key ~value
-) ()
+let add_to_VCPUs_params_live ~__context ~self ~key ~value =
+	raise (Api_errors.Server_error (Api_errors.not_implemented, [ "add_to_VCPUs_params_live" ]))
 
-let set_memory_dynamic_range ~__context ~self ~min ~max = Locking_helpers.with_lock self (fun token () ->
-	set_memory_dynamic_range ~__context ~self ~min ~max
-) ()
+(* Use set_memory_dynamic_range instead *)
+let set_memory_target_live ~__context ~self ~target = ()
 
-let set_memory_target_live ~__context ~self ~target = Locking_helpers.with_lock self (fun token () ->
-	set_memory_target_live ~__context ~self ~target
-) ()
+(** The default upper bound on the acceptable difference between *)
+(** actual memory usage and target memory usage when waiting for *)
+(** a running VM to reach its current memory target.             *)
+let wait_memory_target_tolerance_bytes = Int64.(mul 1L (mul 1024L 1024L))
 
-let wait_memory_target_live ~__context ~self = Locking_helpers.with_lock self (fun token () ->
-	wait_memory_target_live ~__context ~self ()
-) ()
+(** Returns true if (and only if) the   *)
+(** specified argument is a power of 2. *)
+let is_power_of_2 n =
+	(n > 1) && (n land (0 - n) = n)
+
+(** Waits for a running VM to reach its current memory target. *)
+(** This function waits until the following condition is true: *)
+(**                                                            *)
+(**     abs (memory_actual - memory_target) <= tolerance       *)
+(**                                                            *)
+(** If the task associated with this function is cancelled or  *)
+(** if the time-out counter exceeds its limit, this function   *)
+(** raises a server error and terminates.                      *)
+let wait_memory_target_live ~__context ~self =
+	let timeout_seconds = int_of_float !Xapi_globs.wait_memory_target_timeout in
+	let tolerance_bytes = wait_memory_target_tolerance_bytes in
+	let raise_error error =
+		raise (Api_errors.Server_error (error, [Ref.string_of (Context.get_task_id __context)])) in
+	let open Xenops_client in
+	let id = Xapi_xenops.id_of_vm ~__context ~self in
+	let dbg = Context.string_of_task __context in
+	let rec wait accumulated_wait_time_seconds =
+		if accumulated_wait_time_seconds > timeout_seconds
+			then raise_error Api_errors.vm_memory_target_wait_timeout;
+		if TaskHelper.is_cancelling ~__context
+			then raise_error Api_errors.task_cancelled;
+
+		(* Fetch up-to-date value of memory_actual and memory_target *)
+		let _, s = Client.VM.stat dbg id |> success in
+		let memory_target_bytes = s.Xenops_interface.Vm.memory_target in
+		let memory_actual_bytes = s.Xenops_interface.Vm.memory_actual in
+
+		let difference_bytes = Int64.abs (Int64.sub memory_actual_bytes memory_target_bytes) in
+		debug "memory_actual = %Ld; memory_target = %Ld; difference = %Ld %s tolerance (%Ld)" memory_actual_bytes memory_target_bytes difference_bytes (if difference_bytes <= tolerance_bytes then "<=" else ">") tolerance_bytes;
+		if difference_bytes <= tolerance_bytes then
+			(* The memory target has been reached: use the most *)
+			(* recent value of memory_actual to update the same *)
+			(* field within the VM's metrics record, presenting *)
+			(* a consistent view to the world.                  *)
+			let vm_metrics_ref = Db.VM.get_metrics ~__context ~self in
+			Db.VM_metrics.set_memory_actual ~__context ~self:vm_metrics_ref ~value:memory_actual_bytes
+		else begin
+			(* At exponentially increasing intervals, write  *)
+			(* a debug message saying how long we've waited: *)
+			if is_power_of_2 accumulated_wait_time_seconds then debug
+				"Waited %i second(s) for VM %s to reach \
+				its target = %Ld bytes; actual = %Ld bytes."
+				accumulated_wait_time_seconds id
+				memory_target_bytes memory_actual_bytes;
+			(* The memory target has not yet been reached: *)
+			(* wait for a while before repeating the test. *)
+			Thread.delay 1.0;
+			wait (accumulated_wait_time_seconds + 1)
+		end
+	in
+	wait 0
 
 let get_cooperative ~__context ~self =
   (* If the VM is not supposed to be capable of ballooning then return true *)
@@ -592,29 +639,47 @@ let set_HVM_shadow_multiplier ~__context ~self ~value =
 
 (** Sets the HVM shadow multiplier for a {b Running} VM. Runs on the slave. *)
 let set_shadow_multiplier_live ~__context ~self ~multiplier =
-	Locking_helpers.with_lock self
-		(fun token () ->
-			let power_state = Db.VM.get_power_state ~__context ~self in
-			if power_state <> `Running
-			then raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [Ref.string_of self; "running"; (Record_util.power_to_string power_state)]));
+	let power_state = Db.VM.get_power_state ~__context ~self in
+	if power_state <> `Running
+	then raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [Ref.string_of self; "running"; (Record_util.power_to_string power_state)]));
 
-			validate_HVM_shadow_multiplier multiplier;
+	validate_HVM_shadow_multiplier multiplier;
 
-			Xapi_xenops.set_shadow_multiplier ~__context ~self multiplier;
-			update_memory_overhead ~__context ~vm:self
-		) ()
+	Xapi_xenops.set_shadow_multiplier ~__context ~self multiplier;
+	update_memory_overhead ~__context ~vm:self
 
-let send_sysrq ~__context ~vm ~key = Locking_helpers.with_lock vm (fun token () ->
-  send_sysrq ~__context ~vm ~key
-) ()
+let set_memory_dynamic_range ~__context ~self ~min ~max = 
+	(* NB called in either `Halted or `Running states *)
+	let power_state = Db.VM.get_power_state ~__context ~self in
+	(* Check the range constraints *)
+	let constraints = 
+		if power_state = `Running 
+		then Vm_memory_constraints.get_live ~__context ~vm_ref:self 
+		else Vm_memory_constraints.get ~__context ~vm_ref:self in
+	let constraints = { constraints with Vm_memory_constraints.
+		dynamic_min = min;
+		target = min;
+		dynamic_max = max } in
+	Vm_memory_constraints.assert_valid_for_current_context
+		~__context ~vm:self ~constraints;
 
-let send_trigger ~__context ~vm ~trigger = Locking_helpers.with_lock vm (fun token () ->
-  send_trigger ~__context ~vm ~trigger
-) ()
+	(* memory_target is now unused but setting it equal *)
+	(* to dynamic_min avoids tripping validation code.  *)
+	Db.VM.set_memory_target ~__context ~self ~value:min;
+	Db.VM.set_memory_dynamic_min ~__context ~self ~value:min;
+	Db.VM.set_memory_dynamic_max ~__context ~self ~value:max;
 
-let get_boot_record ~__context ~self = Locking_helpers.with_lock self (fun token () ->
+	if power_state = `Running
+	then Xapi_xenops.set_memory_dynamic_range ~__context ~self min max
+
+let send_sysrq ~__context ~vm ~key =
+  raise (Api_errors.Server_error (Api_errors.not_implemented, [ "send_sysrq" ]))
+
+let send_trigger ~__context ~vm ~trigger =
+  raise (Api_errors.Server_error (Api_errors.not_implemented, [ "send_trigger" ]))
+
+let get_boot_record ~__context ~self =
   Helpers.get_boot_record ~__context ~self
-) ()
 
 let get_data_sources ~__context ~self = Monitor_rrds.query_possible_vm_dss (Db.VM.get_uuid ~__context ~self)
 
@@ -624,11 +689,9 @@ let query_data_source ~__context ~self ~data_source = Monitor_rrds.query_vm_dss 
 
 let forget_data_source_archives ~__context ~self ~data_source = Monitor_rrds.forget_vm_ds (Db.VM.get_uuid ~__context ~self) data_source
 
-
-let get_possible_hosts ~__context ~vm = Locking_helpers.with_lock vm (fun token () ->
+let get_possible_hosts ~__context ~vm =
   let snapshot = Db.VM.get_record ~__context ~self:vm in
   get_possible_hosts_for_vm ~__context ~vm ~snapshot
-) ()
 
 let get_allowed_VBD_devices ~__context ~vm = List.map (fun d -> string_of_int (Device_number.to_disk_number d)) (allowed_VBD_devices ~__context ~vm)
 let get_allowed_VIF_devices = allowed_VIF_devices
@@ -659,29 +722,20 @@ let csvm ~__context ~vm =
     NB function is related to Vmops.check_enough_memory.
  *)
 let maximise_memory ~__context ~self ~total ~approximate =
+	let r = Db.VM.get_record ~__context ~self in
+	let r = { r with API.vM_VCPUs_max = if approximate then 64L else r.API.vM_VCPUs_max } in
 
-  (* If being conservative then round the vcpus up to 64 and assume HVM (worst case) *)
-  let vcpus =
-    if approximate
-    then 64
-    else Int64.to_int (Db.VM.get_VCPUs_max ~__context ~self) in
-  let hvm = Helpers.will_boot_hvm ~__context ~self || approximate in
+	(* Need to find the maximum input value to this function so that it still evaluates
+       to true *)
+	let will_fit static_max =
+		let r = { r with API.vM_memory_static_max = static_max } in
+		let normal, shadow = Memory_check.vm_compute_start_memory ~__context ~policy:Memory_check.Static_max r in
+		Int64.add normal shadow <= total in
 
-  let ( /* ) = Int64.div and ( ** ) = Int64.mul in
-
-  let shadow_multiplier = Db.VM.get_HVM_shadow_multiplier ~__context ~self in
-  (* Need to find the maximum input value to this function so that it still evaluates
-     to true *)
-  let will_fit static_max =
-    let mem_kib = static_max /* 1024L in
-    debug "Checking: mem_kib=%Ld" mem_kib;
-    debug "          total  =%Ld" total;
-    (Memory.required_to_boot hvm vcpus mem_kib mem_kib shadow_multiplier) ** 1024L <= total in
-
-  let max = Helpers.bisect will_fit 0L total in
-  (* Round down to the nearest MiB boundary... there's a slight mismatch between the
-     boot_free_mem - sum(static_max) value and the results of querying the free pages in Xen.*)
-  (((max /* 1024L) /* 1024L) ** 1024L) ** 1024L
+	let max = Helpers.bisect will_fit 0L total in
+	(* Round down to the nearest MiB boundary... there's a slight mismatch between the
+       boot_free_mem - sum(static_max) value and the results of querying the free pages in Xen.*)
+	Int64.(mul (mul (div (div max 1024L) 1024L) 1024L) 1024L)
 
 (* In the master's forwarding layer with the global forwarding lock *)
 let atomic_set_resident_on ~__context ~vm ~host = assert false

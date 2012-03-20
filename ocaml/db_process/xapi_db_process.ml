@@ -24,8 +24,7 @@ let config = ref ""
 let iqn = ref ""
 let xmltostdout = ref false
 
-let init_logs() =
-  Logs.append "xapi-db-process" Log.Info "syslog:xapi_db_process"
+let init_logs() = Debug.set_facility Syslog.Local5
 
 let fatal_error s =
   print_string s;

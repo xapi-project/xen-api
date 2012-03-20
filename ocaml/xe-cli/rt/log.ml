@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -11,19 +11,14 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Small executable that sends a reopen-logs XML/RPC message to the licensing daemon *)
- 
-let socket = Filename.concat Fhs.vardir "v6"
 
-(* RPC function for communication with the v6 daemon *)
-let v6rpc xml = 
-	let open Xmlrpc_client in
-	XML_protocol.rpc ~srcstr:"v6d_reopen_logs" ~dststr:"v6d" ~transport:(Unix socket) ~http:(xmlrpc ~version:"1.0" "/") xml
+type level =
+| Error
+| Warn
+| Debug
+| Info
 
-let _ = 
-	try
-		let request = XMLRPC.To.methodCall "reopen-logs" [] in
-		ignore (v6rpc request)
-	with
-	| _ -> ()
+module D=Debug.Debugger(struct let name="rt" end)
 
+let log (fmt: ('a, unit, string, 'b) format4) =
+	Printf.kprintf (fun s -> D.info "%s" s) fmt

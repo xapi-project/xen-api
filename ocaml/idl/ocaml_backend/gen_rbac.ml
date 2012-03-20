@@ -33,7 +33,7 @@ let internal_role_local_root = "_local_root_"
 (* the output of this function is used as input by the automatic tests *)
 let writer_csv static_roles_permissions static_permissions_roles =
 	(Printf.sprintf "%s,PERMISSION/ROLE,%s\n"
-		(let t =Log.gettimestring () in (String.sub t 0 ((String.length t)-1)))
+		(let t =Debug.gettimestring () in (String.sub t 0 ((String.length t)-1)))
 		(* role titles are ordered by roles in roles_all *)
 		(List.fold_left (fun rr r->rr^r^",") "" Datamodel.roles_all)
 	)

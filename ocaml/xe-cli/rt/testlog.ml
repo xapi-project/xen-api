@@ -31,14 +31,11 @@ let string_of_result = function
 
 let test_status_flag = ref Success
 let ignore_errors = ref false
-let cmdlog = ref (Log.openstring Log.Debug)
 
-let get_log () = 
-  Log.get_strings !cmdlog
+let get_log () = []
 
 let reset_log () =
-  test_status_flag := Success;
-  cmdlog := (Log.openstring Log.Debug)
+  test_status_flag := Success
 
 let log level (fmt: ('a, unit, string, unit) format4) : 'a =
   if not !ignore_errors then begin
@@ -47,7 +44,7 @@ let log level (fmt: ('a, unit, string, unit) format4) : 'a =
     | Log.Warn,Success -> test_status_flag := Warning
     | _ -> ()
   end;
-  Log.log !cmdlog level fmt
+  Log.log fmt
 	
 let set_ignore_errors b = ignore_errors := b
 
@@ -271,7 +268,7 @@ let output_xenrt filename =
 let output_txt fname =
   let oc = open_out fname in
   Printf.fprintf oc "Test report\n";
-  Printf.fprintf oc "Time: %s\n" (Log.gettimestring ());
+  Printf.fprintf oc "Time: %s\n" (Debug.gettimestring ());
   Printf.fprintf oc "\n\n";
   
   let printtest t =
@@ -306,7 +303,7 @@ let output_txt fname =
     
 let register_test name test_type class_name description xapi_log pic =
   let log = List.rev (get_log ()) in
-  let timestamp = Log.gettimestring () in
+  let timestamp = Debug.gettimestring () in
   let vm=get_vm_name test_type in
   let picurl = testpicurl name vm in
   let pic = 

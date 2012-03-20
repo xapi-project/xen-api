@@ -1750,24 +1750,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				(fun () ->
 					forward_vm_op ~local_fn ~__context ~vm:self
 						(fun session_id rpc ->
-							let host = Db.VM.get_resident_on ~__context ~self in
-							(* This much memory should be available on the host: *)
-							let free_mem_b =
-								Memory_check.host_compute_free_memory_with_maximum_compression
-									~__context ~host None in
-							let free_mem_mib = Int64.to_int (Int64.div (Int64.div free_mem_b 1024L) 1024L) in
-
-							let bootrec = Helpers.get_boot_record ~__context ~self in
-							let vcpus = Int64.to_int bootrec.API.vM_VCPUs_max in
-							let static_max_mib = Memory.mib_of_bytes_used (bootrec.API.vM_memory_static_max) in
-							let oldmultiplier = bootrec.API.vM_HVM_shadow_multiplier in
-							let oldshadow = Int64.to_int (Memory.HVM.shadow_mib static_max_mib vcpus oldmultiplier) in
-							let newshadow = Int64.to_int (Memory.HVM.shadow_mib static_max_mib vcpus multiplier) in
-							let needed_mib = newshadow - oldshadow in
-
-							if free_mem_mib < needed_mib
-							then raise (Api_errors.Server_error(Api_errors.host_not_enough_free_memory, [ Int64.to_string (Memory.bytes_of_mib (Int64.of_int needed_mib)); Int64.to_string free_mem_b ]));
-
+							(* No need to perform a memory calculation here: the real code will tell us if the
+							   new value is too big. *)
 							Client.VM.set_shadow_multiplier_live rpc session_id self multiplier
 						)
 				)

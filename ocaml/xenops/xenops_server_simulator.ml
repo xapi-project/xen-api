@@ -29,6 +29,8 @@ module Domain = struct
 		built: bool;
 		vcpus: int;
 		shadow_multiplier: float;
+		memory_dynamic_min: int64;
+		memory_dynamic_max: int64;
 		qemu_created: bool;
 		suspended: bool;
 		vbds: Vbd.t list; (* maintained in reverse-plug order *)
@@ -83,6 +85,8 @@ let create_nolock vm () =
 			built = false;
 			vcpus = vm.Vm.vcpus;
 			shadow_multiplier = (match vm.Vm.ty with Vm.HVM { Vm.shadow_multiplier = x } -> x | _ -> 1.);
+			memory_dynamic_min = vm.Vm.memory_dynamic_min;
+			memory_dynamic_max = vm.Vm.memory_dynamic_max;
 			qemu_created = false;
 			suspended = false;
 			vifs = [];
@@ -162,6 +166,10 @@ let do_set_shadow_multiplier_nolock vm m () =
 	then raise (Exception Domain_not_built)	
 	else DB.write vm.Vm.id { d with Domain.shadow_multiplier = m }
 
+let do_set_memory_dynamic_range_nolock vm min max () =
+	let d = DB.read_exn vm.Vm.id in
+	DB.write vm.Vm.id { d with Domain.memory_dynamic_min = min; memory_dynamic_max = max }
+
 let add_vif vm vif () =
 	let d = DB.read_exn vm in
 	let existing_positions = List.map (fun vif -> vif.Vif.position) d.Domain.vifs in
@@ -185,6 +193,18 @@ let add_vbd (vm: Vm.id) (vbd: Vbd.t) () =
 		debug "VBD.plug %s.%s: Already exists" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
 		raise (Exception Already_exists)
 	end else DB.write vm { d with Domain.vbds = { vbd with Vbd.position = Some this_dn } :: d.Domain.vbds }
+
+let move_vif vm vif network () =
+	let d = DB.read_exn vm in
+	let this_one x = x.Vif.id = vif.Vif.id in
+	match List.filter this_one d.Domain.vifs with
+		| [ vif ] ->
+			let vifs = List.filter (fun x -> not(this_one x)) d.Domain.vifs in
+			let vif = { vif with Vif.backend = network } in
+			DB.write vm { d with Domain.vifs = vif :: vifs }
+		| [] ->
+			raise (Exception(Does_not_exist("VIF", Printf.sprintf "%s.%s" (fst vif.Vif.id) (snd vif.Vif.id))))
+		| _ -> assert false (* at most one *)
 
 let add_pci (vm: Vm.id) (pci: Pci.t) () =
 	debug "add_pci";
@@ -248,6 +268,12 @@ let remove_vif vm vif () =
 	then raise (Exception(Does_not_exist("VIF", Printf.sprintf "%s.%s" (fst vif.Vif.id) (snd vif.Vif.id))))
 	else DB.write vm { d with Domain.vifs = List.filter (fun x -> not (this_one x)) d.Domain.vifs }
 
+let set_carrier vm vif carrier () =
+	let d = DB.read_exn vm in
+	let this_one x = x.Vif.id = vif.Vif.id in
+	let vifs = List.map (fun vif -> { vif with Vif.carrier = if this_one vif then carrier else vif.Vif.carrier }) d.Domain.vifs in
+	DB.write vm { d with Domain.vifs = vifs }
+
 let remove_pci vm pci () =
 	let d = DB.read_exn vm in
 	let this_one x = x.Pci.id = pci.Pci.id in
@@ -270,7 +296,11 @@ let set_qos_vbd vm vbd () =
 	(* XXX *)
 	()
 
-	
+module HOST = struct
+	let get_console_data () = "Xen simulator"
+	let get_total_memory_mib () = Int64.mul 1024L 1024L (* 1 TiB *)
+	let send_debug_keys _ = ()
+end
 module VM = struct
 	let create _ vm = Mutex.execute m (create_nolock vm)
 	let destroy _ vm = Mutex.execute m (destroy_nolock vm)
@@ -278,6 +308,7 @@ module VM = struct
 	let unpause _ vm = Mutex.execute m (do_pause_unpause_nolock vm false)
 	let set_vcpus _ vm n = Mutex.execute m (do_set_vcpus_nolock vm n)
 	let set_shadow_multiplier _ vm n = Mutex.execute m (do_set_shadow_multiplier_nolock vm n)
+	let set_memory_dynamic_range _ vm min max = Mutex.execute m (do_set_memory_dynamic_range_nolock vm min max)
 	let build _ vm vbds vifs = Mutex.execute m (build_nolock vm vbds vifs)
 	let create_device_model _ vm _ = Mutex.execute m (create_device_model_nolock vm)
 	let destroy_device_model _ vm = Mutex.execute m (destroy_device_model_nolock vm)
@@ -327,6 +358,8 @@ end
 module VIF = struct
 	let plug _ vm vif = Mutex.execute m (add_vif vm vif)
 	let unplug _ vm vif _ = Mutex.execute m (remove_vif vm vif)
+	let move _ vm vif network = Mutex.execute m (move_vif vm vif network)
+	let set_carrier _ vm vif carrier = Mutex.execute m (set_carrier vm vif carrier)
 
 	let get_state vm vif = Mutex.execute m (vif_state vm vif)
 

@@ -200,14 +200,6 @@ let related_to_key = "related_to"
 (* Set to true on the P2V server template and the tools SR *)
 let xensource_internal = "xensource_internal"
 
-let logrot_max = ref (1024*16*1024)
-(* CA-12242: use this script because otherwise logrotate has a habit of closing its own fds *)
-(* logrotate is called without a stdin, and when it fork-and-execs gzip, it opens the src *)
-(* getting fd 0, opens the dest getting fd 3, then forks, then dups 0 to 0, dups 3 to 1 and *)
-(* then closes 0 and 3! *)
-let logrot_cmd = Filename.concat Fhs.libexecdir "logrotate.sh"
-let logrot_arg = [ ]
-
 (* Error codes for internal storage backends -- these have counterparts in sm.hg/drivers/XE_SR_ERRORCODES.xml *)
 let sm_error_ISODconfMissingLocation = 1000
 let sm_error_ISOMustHaveISOExtension = 1001
@@ -535,6 +527,9 @@ let upgrade_grace_file = Filename.concat Fhs.vardir "ugp"
 
 (** Where the ballooning daemon writes the initial overhead value *)
 let squeezed_reserved_host_memory = "/squeezed/reserved-host-memory"
+
+(** Where the ballooning daemon writes the initial overhead value *)
+let squeezed_reserved_host_memory_filename = "/var/run/squeezed/reserved-host-memory"
 
 (** Xenclient enabled *)
 let xenclient_enabled = false

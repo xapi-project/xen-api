@@ -233,19 +233,14 @@ let update_pifs ~__context host pifs =
 					let n = Netdev.network in
 					let ifs = List.flatten (List.map (fun bridge -> n.Netdev.intf_list bridge) bridges) in
 
-					let set_carrier xs vif =
+					let set_carrier vif =
 						if vif.Monitor.pv
 						then
-							let device =
-								let frontend = { Device_common.domid = vif.Monitor.domid; kind = Device_common.Vif; devid = vif.Monitor.devid } in
-								let backend = { Device_common.domid = 0; kind = Device_common.Vif; devid = vif.Monitor.devid } in
-								{ Device_common.backend = backend; frontend = frontend } in
-							Device.Vif.set_carrier ~xs device carrier in
+							let open Xenops_client in
+							let dbg = Context.string_of_task __context in
+							Client.VIF.set_carrier dbg vif.Monitor.vif carrier |> Xapi_xenops.sync __context in
 
-					Vmopshelpers.with_xs
-						(fun xs ->
-							List.iter (set_carrier xs) (List.filter_map Monitor.vif_device_of_string ifs)
-						)
+					List.iter set_carrier (List.filter_map Monitor.vif_device_of_string ifs)
 				with e ->
 					debug "Failed to update VIF carrier flags for PIF: %s" (ExnHelper.string_of_exn e)
 			end;

@@ -62,7 +62,6 @@ sig
 	val media_eject : xs:Xenstore.Xs.xsh -> device_number:Device_number.t -> int -> unit
 	val media_insert : xs:Xenstore.Xs.xsh -> device_number:Device_number.t
 	                -> params:string -> phystype:physty -> int -> unit
-	val media_refresh : xs:Xenstore.Xs.xsh -> device_number:Device_number.t -> params:string -> int -> unit
 	val media_is_ejected : xs:Xenstore.Xs.xsh -> device_number:Device_number.t -> int -> bool
 	val media_tray_is_locked : xs:Xenstore.Xs.xsh -> device_number:Device_number.t -> int -> bool
 
@@ -92,6 +91,7 @@ sig
 	       -> device
 	val set_carrier : xs:Xenstore.Xs.xsh -> device -> bool -> unit
 	val release : xs:Xenstore.Xs.xsh -> device -> unit
+	val move : xs:Xenstore.Xs.xsh -> device -> string -> unit
 end
 
 val clean_shutdown : xs:Xenstore.Xs.xsh -> device -> unit
