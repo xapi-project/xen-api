@@ -339,6 +339,7 @@ module HOST = struct
 	external get_console_data: debug_info -> (string option) * (error option) = ""
 	external get_total_memory_mib: debug_info -> (int64 option) * (error option) = ""
 	external send_debug_keys: debug_info -> string -> (unit option) * (error option) = ""
+	external set_worker_pool_size: debug_info -> int -> (unit option) * (error option) = ""
 end
 
 module VM = struct

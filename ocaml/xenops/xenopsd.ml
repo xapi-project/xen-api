@@ -31,6 +31,7 @@ let log_destination = ref "syslog:daemon"
 let simulate = ref false
 let persist = ref true
 let daemon = ref false
+let worker_pool_size = ref 4
 
 let config_spec = [
 	"pidfile", Config.Set_string pidfile;
@@ -46,7 +47,8 @@ let config_spec = [
 				List.iter Debug.disable modules
 			with e ->
 				error "Processing disabled-logging-for = %s: %s" x (Printexc.to_string e)
-		)
+		);
+	"worker-pool-size", Config.Set_int worker_pool_size;
 ]
 
 let read_config_file () =
@@ -191,7 +193,7 @@ let _ =
 
   Debug.with_thread_associated "main" (start sockets) Server.process;
   Xenops_server_plugin.Scheduler.start ();
-  Xenops_server.WorkerPool.start ();
+  Xenops_server.WorkerPool.start !worker_pool_size;
   while true do
 	  Thread.delay 60.
   done
