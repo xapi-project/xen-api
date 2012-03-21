@@ -392,18 +392,21 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 					let rc = Db.PIF.get_record ~__context ~self:pif in
 					let net_rc = Db.Network.get_record ~__context ~self:rc.API.pIF_network in
 					let bridge = net_rc.API.network_bridge in
-					let dhcp_options =
-						if rc.API.pIF_ip_configuration_mode = `DHCP then
-							determine_dhcp_options ~__context pif management_interface
-						else
-							[]
-					in
+					let persistent = is_dom0_interface rc in
+
+					(* Setup network infrastructure *)
 					let cleanup, bridge_config, interface_config = create_bridges ~__context rc net_rc in
 					List.iter (fun (name, force) -> Net.Bridge.destroy ~name ~force ()) cleanup;
+					let bridge_config = update_config bridge_config bridge
+						{(get_config bridge_config default_bridge bridge) with persistent_b=persistent} in
+					Net.Bridge.make_config ~config:bridge_config ();
+					Net.Interface.make_config ~config:interface_config ();
+
+					(* Configure management interface *)
 					let ipv4_conf, ipv4_gateway, dns =
 						match rc.API.pIF_ip_configuration_mode with
 						| `None -> None4, None, ([], [])
-						| `DHCP -> DHCP4 dhcp_options, None, ([], [])
+						| `DHCP -> DHCP4 (determine_dhcp_options ~__context pif management_interface), None, ([], [])
 						| `Static ->
 							let conf = (Static4 [
 								Unix.inet_addr_of_string rc.API.pIF_IP,
@@ -434,16 +437,10 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 							conf, gateway, dns
 					in
 					let ipv4_routes = determine_static_routes net_rc in
-					let persistent = is_dom0_interface rc in
 					let mtu = determine_mtu ~__context rc in
 					let (ethtool_settings, ethtool_offload) = determine_ethtool_settings net_rc.API.network_other_config in
-					let interface_config = update_config interface_config bridge
-						{(get_config interface_config default_interface bridge) with
-							ipv4_conf; ipv4_gateway; ipv4_routes; dns; ethtool_settings; ethtool_offload; mtu;
-							persistent_i=persistent} in
-					let bridge_config = update_config bridge_config bridge
-						{(get_config bridge_config default_bridge bridge) with persistent_b=persistent} in
-					Net.Bridge.make_config ~config:bridge_config ();
+					let interface_config = [bridge, {default_interface with ipv4_conf; ipv4_gateway;
+						ipv4_routes; dns; ethtool_settings; ethtool_offload; mtu; persistent_i=persistent}] in
 					Net.Interface.make_config ~config:interface_config ()
 				with Network_interface.RpcFailure (err, params) ->
 					let e = Printf.sprintf "%s [%s]" err (String.concat ", " (List.map (fun (k, v) -> k ^ " = " ^ v) params)) in
