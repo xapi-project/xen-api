@@ -23,6 +23,13 @@ open Fun
 module XenAPI = Client.Client
 open Xenops_interface
 
+let xenapi_of_xenops_power_state = function
+	| Some Running -> `Running
+	| Some Halted -> `Running (* reboot transient *)
+	| Some Suspended -> `Suspended
+	| Some Paused -> `Paused
+	| None -> `Halted
+
 (* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
 let filtered_platform_flags = ["acpi"; "apic"; "nx"; "pae"; "viridian";
                                "acpi_s3";"acpi_s4"; "mmio_size_mib"]
@@ -353,6 +360,7 @@ let create_metadata ~__context ~self =
 	}
 
 let id_of_vm ~__context ~self = Db.VM.get_uuid ~__context ~self
+let vm_of_id ~__context uuid = Db.VM.get_by_uuid ~__context ~uuid
 
 (* Serialise updates to the xenopsd metadata *)
 let metadata_m = Mutex.create ()
@@ -639,12 +647,7 @@ let update_vm ~__context id =
 					debug "xenopsd event = [ %s ]" (Opt.default "None" (Opt.map (fun (_, s) -> Vm.rpc_of_state s |> Jsonrpc.to_string) info));
 					debug "previous = [ %s ]" (Opt.default "None" (Opt.map (fun s -> Vm.rpc_of_state s |> Jsonrpc.to_string) previous));
 					if different (fun x -> x.power_state) then begin
-						let power_state = match (Opt.map (fun x -> (snd x).power_state) info) with
-							| Some Running -> `Running
-							| Some Halted -> `Running (* reboot transient *)
-							| Some Suspended -> `Suspended
-							| Some Paused -> `Paused
-							| None -> `Halted in
+						let power_state = xenapi_of_xenops_power_state (Opt.map (fun x -> (snd x).power_state) info) in
 						debug "xenopsd event: Updating VM %s power_state <- %s" id (Record_util.power_state_to_string power_state);
 						if power_state = `Suspended || power_state = `Halted then begin
 							detach_networks ~__context ~self;
@@ -1168,6 +1171,52 @@ let success_task dbg id =
 		raise (Exception x)
 	| Task.Pending _ -> failwith "task pending"
 
+(* Catch any uncaught xenops exceptions and transform into the most relevant XenAPI error.
+   We do not want a XenAPI client to see a raw xenopsd error. *)
+let transform_xenops_exn ~__context f =
+	let reraise code params =
+		error "Re-raising as %s [ %s ]" code (String.concat "; " params);
+		raise (Api_errors.Server_error(code, params)) in
+	let internal fmt = Printf.kprintf
+		(fun x ->
+			reraise Api_errors.internal_error [ x ]
+		) fmt in
+	try
+		f ()
+	with Exception e -> begin match e with
+		| Internal_error msg -> internal "xenopsd internal error: %s" msg
+		| Already_exists(thing, id) -> internal "Object with type %s and id %s already exists in xenopsd" thing id
+		| Does_not_exist(thing, id) -> internal "Object with type %s and id %s does not exist in xenopsd" thing id
+		| Unimplemented(fn) -> reraise Api_errors.not_implemented [ fn ]
+		| Domain_not_built -> internal "domain has not been built"
+		| Maximum_vcpus n -> internal "the maximum number of vcpus configured for this VM is currently: %d" n
+		| Bad_power_state(found, expected) ->
+			let f x = x |> (fun x -> Some x) |> xenapi_of_xenops_power_state |> Record_util.power_state_to_string in
+			let found = f found and expected = f expected in
+			reraise Api_errors.vm_bad_power_state [ expected; found ]
+		| Failed_to_acknowledge_shutdown_request ->
+			reraise Api_errors.vm_failed_shutdown_ack []
+		| Failed_to_shutdown(id, timeout) ->
+			reraise Api_errors.vm_shutdown_timeout [ vm_of_id ~__context id |> Ref.string_of; string_of_float timeout ]
+		| Device_is_connected ->
+			internal "Cannot remove device because it is connected to a VM"
+		| Device_not_connected ->
+			internal "Device is not connected"
+		| Device_detach_rejected(cls, id, msg) ->
+			reraise Api_errors.device_detach_rejected [ cls; id; msg ]
+		| Media_not_ejectable -> internal "the media in this drive cannot be ejected"
+		| Media_present -> internal "there is already media in this drive"
+		| Media_not_present -> internal "there is no media in this drive"
+		| No_bootable_device -> internal "there is no bootable device"
+		| Bootloader_error(code, params) -> reraise code params
+		| Ballooning_error(code, descr) -> internal "ballooning error: %s %s" code descr
+		| No_ballooning_service -> internal "squeezed is not running"
+		| IO_error -> reraise Api_errors.vdi_io_error ["I/O error saving VM suspend image"]
+		| Failed_to_contact_remote_service x -> internal "failed to contact: %s" x
+		| Hook_failed(script, reason, stdout, i) -> reraise Api_errors.xapi_hook_failed [ script; reason; stdout; i ]
+		| Not_enough_memory needed -> internal "there was not enough memory (needed %Ld bytes)" needed
+	end
+
 let refresh_vm ~__context ~self =
 	let id = id_of_vm ~__context ~self in
 	info "xenops: UPDATES.refresh_vm %s" id;
@@ -1204,190 +1253,233 @@ let assert_resident_on ~__context ~self =
 	assert (Db.VM.get_resident_on ~__context ~self = localhost)
 
 let pause ~__context ~self =
-	let id = id_of_vm ~__context ~self in
-	debug "xenops: VM.pause %s" id;
-	let dbg = Context.string_of_task __context in
-	Client.VM.pause dbg id |> sync_with_task __context;
-	Event.wait dbg ();
-	assert (Db.VM.get_power_state ~__context ~self = `Paused)
+	transform_xenops_exn ~__context
+		(fun () ->
+			let id = id_of_vm ~__context ~self in
+			debug "xenops: VM.pause %s" id;
+			let dbg = Context.string_of_task __context in
+			Client.VM.pause dbg id |> sync_with_task __context;
+			Event.wait dbg ();
+			assert (Db.VM.get_power_state ~__context ~self = `Paused)
+		)
 
 let unpause ~__context ~self =
-	let id = id_of_vm ~__context ~self in
-	debug "xenops: VM.unpause %s" id;
-	let dbg = Context.string_of_task __context in
-	Client.VM.unpause dbg id |> sync_with_task __context;
-	Event.wait dbg ();
-	assert (Db.VM.get_power_state ~__context ~self = `Running)
+	transform_xenops_exn ~__context
+		(fun () ->
+			let id = id_of_vm ~__context ~self in
+			debug "xenops: VM.unpause %s" id;
+			let dbg = Context.string_of_task __context in
+			Client.VM.unpause dbg id |> sync_with_task __context;
+			Event.wait dbg ();
+			assert (Db.VM.get_power_state ~__context ~self = `Running)
+		)
 
 let set_vcpus ~__context ~self n =
-	let id = id_of_vm ~__context ~self in
-	debug "xenops: VM.unpause %s" id;
-	let dbg = Context.string_of_task __context in
-	try
-		Client.VM.set_vcpus dbg id (Int64.to_int n) |> sync_with_task __context;
-		Db.VM.set_VCPUs_at_startup ~__context ~self ~value:n;
-		Event.wait dbg ();
-	with
-		| Exception (Maximum_vcpus n) ->
-			raise (Api_errors.Server_error(Api_errors.invalid_value, [
-				"VCPU values must satisfy: 0 < VCPUs ≤ VCPUs_max";
-				string_of_int n
-			]))
-		| Exception Not_supported ->
-			error "VM.set_VCPUs_number_live: HVM VMs cannot hotplug cpus";
-			raise (Api_errors.Server_error (Api_errors.operation_not_allowed,
-			["HVM VMs cannot hotplug CPUs"]))
+	transform_xenops_exn ~__context
+		(fun () ->
+			let id = id_of_vm ~__context ~self in
+			debug "xenops: VM.unpause %s" id;
+			let dbg = Context.string_of_task __context in
+			try
+				Client.VM.set_vcpus dbg id (Int64.to_int n) |> sync_with_task __context;
+				Db.VM.set_VCPUs_at_startup ~__context ~self ~value:n;
+				Event.wait dbg ();
+			with
+				| Exception (Maximum_vcpus n) ->
+					raise (Api_errors.Server_error(Api_errors.invalid_value, [
+						"VCPU values must satisfy: 0 < VCPUs ≤ VCPUs_max";
+						string_of_int n
+					]))
+				| Exception(Unimplemented _) ->
+					error "VM.set_VCPUs_number_live: HVM VMs cannot hotplug cpus";
+					raise (Api_errors.Server_error (Api_errors.operation_not_allowed,
+					["HVM VMs cannot hotplug CPUs"]))
+		)
 
 let set_shadow_multiplier ~__context ~self target =
-	let id = id_of_vm ~__context ~self in
-	debug "xenops: VM.set_shadow_multiplier %s" id;
-	let dbg = Context.string_of_task __context in
-	try
-		Client.VM.set_shadow_multiplier dbg id target |> sync_with_task __context;
-		Event.wait dbg ();
-	with
-		| Exception Not_supported ->
-			(* The existing behaviour is to ignore this failure *)
-			error "VM.set_shadow_multiplier: not supported for PV domains"
+	transform_xenops_exn ~__context
+		(fun () ->
+			let id = id_of_vm ~__context ~self in
+			debug "xenops: VM.set_shadow_multiplier %s" id;
+			let dbg = Context.string_of_task __context in
+			try
+				Client.VM.set_shadow_multiplier dbg id target |> sync_with_task __context;
+				Event.wait dbg ();
+			with
+				| Exception (Not_enough_memory needed) ->
+					let host = Db.VM.get_resident_on ~__context ~self in
+					let free_mem_b = Memory_check.host_compute_free_memory_with_maximum_compression ~__context ~host None in
+					raise (Api_errors.Server_error(Api_errors.host_not_enough_free_memory, [ Int64.to_string needed; Int64.to_string free_mem_b ]))
+				| Exception (Unimplemented _) ->
+					(* The existing behaviour is to ignore this failure *)
+					error "VM.set_shadow_multiplier: not supported for PV domains"
+		)
 
 let set_memory_dynamic_range ~__context ~self min max =
-	let id = id_of_vm ~__context ~self in
-	debug "xenops: VM.set_memory_dynamic_range %s" id;
-	let dbg = Context.string_of_task __context in
-	Client.VM.set_memory_dynamic_range dbg id min max |> sync_with_task __context;
-	Event.wait dbg ()
+	transform_xenops_exn ~__context
+		(fun () ->
+			let id = id_of_vm ~__context ~self in
+			debug "xenops: VM.set_memory_dynamic_range %s" id;
+			let dbg = Context.string_of_task __context in
+			Client.VM.set_memory_dynamic_range dbg id min max |> sync_with_task __context;
+			Event.wait dbg ()
+		)
 
 let start ~__context ~self paused =
-	let id = push_metadata_to_xenopsd ~__context ~self in
-	add_caches id;
-	attach_networks ~__context ~self;
-	info "xenops: VM.start %s" id;
-	let dbg = Context.string_of_task __context in
-	Client.VM.start dbg id |> sync_with_task __context;
-	if not paused then begin
-		info "xenops: VM.unpause %s" id;
-		Client.VM.unpause dbg id |> sync __context;
-	end;
-	set_resident_on ~__context ~self;
-	(* XXX: if the guest crashed or shutdown immediately then it may be offline now *)
-	assert (Db.VM.get_power_state ~__context ~self = (if paused then `Paused else `Running))
+	transform_xenops_exn ~__context
+		(fun () ->
+			let id = push_metadata_to_xenopsd ~__context ~self in
+			add_caches id;
+			attach_networks ~__context ~self;
+			info "xenops: VM.start %s" id;
+			let dbg = Context.string_of_task __context in
+			Client.VM.start dbg id |> sync_with_task __context;
+			if not paused then begin
+				info "xenops: VM.unpause %s" id;
+				Client.VM.unpause dbg id |> sync __context;
+			end;
+			set_resident_on ~__context ~self;
+			(* XXX: if the guest crashed or shutdown immediately then it may be offline now *)
+			assert (Db.VM.get_power_state ~__context ~self = (if paused then `Paused else `Running))
+		)
 
 let start ~__context ~self paused =
-	try
-		start ~__context ~self paused
-	with Exception (Bad_power_state(a, b)) ->
-		let power_state = function
-			| Running -> "Running"
-			| Halted -> "Halted"
-			| Suspended -> "Suspended"
-			| Paused -> "Paused" in
-		raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [ Ref.string_of self; power_state a; power_state b ]))
+	transform_xenops_exn ~__context
+		(fun () ->
+			try
+				start ~__context ~self paused
+			with Exception (Bad_power_state(a, b)) ->
+				let power_state = function
+					| Running -> "Running"
+					| Halted -> "Halted"
+					| Suspended -> "Suspended"
+					| Paused -> "Paused" in
+				raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [ Ref.string_of self; power_state a; power_state b ]))
+		)
 
 let reboot ~__context ~self timeout =
-	assert_resident_on ~__context ~self;
-	let id = id_of_vm ~__context ~self in
-	info "xenops: VM.reboot %s" id;
-	let dbg = Context.string_of_task __context in
-	Client.VM.reboot dbg id timeout |> sync_with_task __context;
-	Event.wait dbg ();
-	assert (Db.VM.get_power_state ~__context ~self = `Running)
+	transform_xenops_exn ~__context
+		(fun () ->
+			assert_resident_on ~__context ~self;
+			let id = id_of_vm ~__context ~self in
+			info "xenops: VM.reboot %s" id;
+			let dbg = Context.string_of_task __context in
+			Client.VM.reboot dbg id timeout |> sync_with_task __context;
+			Event.wait dbg ();
+			assert (Db.VM.get_power_state ~__context ~self = `Running)
+		)
 
 let shutdown ~__context ~self timeout =
-	assert_resident_on ~__context ~self;
-	let id = id_of_vm ~__context ~self in
-	with_shutting_down id
+	transform_xenops_exn ~__context
 		(fun () ->
-			info "xenops: VM.shutdown %s" id;
-			let dbg = Context.string_of_task __context in
-			Client.VM.shutdown dbg id timeout |> sync_with_task __context;
-			Event.wait dbg ();
-			remove_caches id;
-			assert (Db.VM.get_power_state ~__context ~self = `Halted);
-			(* force_state_reset called from the xenopsd event loop above *)
-			assert (Db.VM.get_resident_on ~__context ~self = Ref.null);
-			List.iter
-				(fun vbd ->
-					assert (not(Db.VBD.get_currently_attached ~__context ~self:vbd))
-				) (Db.VM.get_VBDs ~__context ~self)
+			assert_resident_on ~__context ~self;
+			let id = id_of_vm ~__context ~self in
+			with_shutting_down id
+				(fun () ->
+					info "xenops: VM.shutdown %s" id;
+					let dbg = Context.string_of_task __context in
+					Client.VM.shutdown dbg id timeout |> sync_with_task __context;
+					Event.wait dbg ();
+					remove_caches id;
+					assert (Db.VM.get_power_state ~__context ~self = `Halted);
+					(* force_state_reset called from the xenopsd event loop above *)
+					assert (Db.VM.get_resident_on ~__context ~self = Ref.null);
+					List.iter
+						(fun vbd ->
+							assert (not(Db.VBD.get_currently_attached ~__context ~self:vbd))
+						) (Db.VM.get_VBDs ~__context ~self)
+				)
 		)
 
 let suspend ~__context ~self =
-	assert_resident_on ~__context ~self;
-	let id = id_of_vm ~__context ~self in
-	let dbg = Context.string_of_task __context in
-	let vm_t, state = Client.VM.stat dbg id |> success in
-	(* XXX: this needs to be at boot time *)
-	let space_needed = Int64.(add (of_float (to_float vm_t.Vm.memory_static_max *. 1.2 *. 1.05)) 104857600L) in
-	let suspend_SR = Helpers.choose_suspend_sr ~__context ~vm:self in
-	let sm_config = [Xapi_globs._sm_vm_hint, id] in
-	Helpers.call_api_functions ~__context
-		(fun rpc session_id ->
-			let vdi =
-				XenAPI.VDI.create ~rpc ~session_id
-					~name_label:"Suspend image"
-					~name_description:"Suspend image"
-					~sR:suspend_SR ~virtual_size:space_needed
-					~sharable:false ~read_only:false ~_type:`suspend
-					~other_config:[] ~xenstore_data:[] ~sm_config ~tags:[] in
-			let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in
-			Db.VM.set_suspend_VDI ~__context ~self ~value:vdi;
-			try
-				info "xenops: VM.suspend %s to %s" id (disk |> rpc_of_disk |> Jsonrpc.to_string);
-				let dbg = Context.string_of_task __context in
-				Client.VM.suspend dbg id disk |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
-				Event.wait dbg ();
-				remove_caches id;
-				assert (Db.VM.get_power_state ~__context ~self = `Suspended);
-				assert (Db.VM.get_resident_on ~__context ~self = Ref.null);
-				(* XXX PR-1255: need to convert between 'domains' and lbr *)
-				let md = pull_metadata_from_xenopsd ~__context id in
-				match md.Metadata.domains with
-					| None ->
-						failwith "Suspended VM has no domain-specific metadata"
-					| Some x ->
-						Db.VM.set_last_booted_record ~__context ~self ~value:x;
-						debug "VM %s last_booted_record set to %s" (Ref.string_of self) x
-			with e ->
-				debug "Caught exception suspending VM: %s" (Printexc.to_string e);
-				XenAPI.VDI.destroy ~rpc ~session_id ~self:vdi;
-				Db.VM.set_suspend_VDI ~__context ~self ~value:Ref.null;
-				raise e
+	transform_xenops_exn ~__context
+		(fun () ->
+			assert_resident_on ~__context ~self;
+			let id = id_of_vm ~__context ~self in
+			let dbg = Context.string_of_task __context in
+			let vm_t, state = Client.VM.stat dbg id |> success in
+			(* XXX: this needs to be at boot time *)
+			let space_needed = Int64.(add (of_float (to_float vm_t.Vm.memory_static_max *. 1.2 *. 1.05)) 104857600L) in
+			let suspend_SR = Helpers.choose_suspend_sr ~__context ~vm:self in
+			let sm_config = [Xapi_globs._sm_vm_hint, id] in
+			Helpers.call_api_functions ~__context
+				(fun rpc session_id ->
+					let vdi =
+						XenAPI.VDI.create ~rpc ~session_id
+							~name_label:"Suspend image"
+							~name_description:"Suspend image"
+							~sR:suspend_SR ~virtual_size:space_needed
+							~sharable:false ~read_only:false ~_type:`suspend
+							~other_config:[] ~xenstore_data:[] ~sm_config ~tags:[] in
+					let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in
+					Db.VM.set_suspend_VDI ~__context ~self ~value:vdi;
+					try
+						info "xenops: VM.suspend %s to %s" id (disk |> rpc_of_disk |> Jsonrpc.to_string);
+						let dbg = Context.string_of_task __context in
+						Client.VM.suspend dbg id disk |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
+						Event.wait dbg ();
+						remove_caches id;
+						assert (Db.VM.get_power_state ~__context ~self = `Suspended);
+						assert (Db.VM.get_resident_on ~__context ~self = Ref.null);
+						(* XXX PR-1255: need to convert between 'domains' and lbr *)
+						let md = pull_metadata_from_xenopsd ~__context id in
+						match md.Metadata.domains with
+							| None ->
+								failwith "Suspended VM has no domain-specific metadata"
+							| Some x ->
+								Db.VM.set_last_booted_record ~__context ~self ~value:x;
+								debug "VM %s last_booted_record set to %s" (Ref.string_of self) x
+					with e ->
+						debug "Caught exception suspending VM: %s" (Printexc.to_string e);
+						XenAPI.VDI.destroy ~rpc ~session_id ~self:vdi;
+						Db.VM.set_suspend_VDI ~__context ~self ~value:Ref.null;
+						raise e
+				)
 		)
 
 let resume ~__context ~self ~start_paused ~force =
-	let vdi = Db.VM.get_suspend_VDI ~__context ~self in
-	let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in	
-	let id = push_metadata_to_xenopsd ~__context ~self in
-	add_caches id;
-	attach_networks ~__context ~self;
-	info "xenops: VM.resume %s from %s" id (disk |> rpc_of_disk |> Jsonrpc.to_string);
-	let dbg = Context.string_of_task __context in
-	Client.VM.resume dbg id disk |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
-	if not start_paused then begin
-		info "xenops: VM.unpause %s" id;
-		Client.VM.unpause dbg id |> success |> wait_for_task dbg |> success_task dbg |> ignore_task
-	end;
-	set_resident_on ~__context ~self;
-	assert (Db.VM.get_power_state ~__context ~self = if start_paused then `Paused else `Running);
-	Helpers.call_api_functions ~__context
-		(fun rpc session_id ->
-			XenAPI.VDI.destroy rpc session_id vdi
-		);
-	Db.VM.set_suspend_VDI ~__context ~self ~value:Ref.null
+	transform_xenops_exn ~__context
+		(fun () ->
+			let vdi = Db.VM.get_suspend_VDI ~__context ~self in
+			let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in	
+			let id = push_metadata_to_xenopsd ~__context ~self in
+			add_caches id;
+			attach_networks ~__context ~self;
+			info "xenops: VM.resume %s from %s" id (disk |> rpc_of_disk |> Jsonrpc.to_string);
+			let dbg = Context.string_of_task __context in
+			Client.VM.resume dbg id disk |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
+			if not start_paused then begin
+				info "xenops: VM.unpause %s" id;
+				Client.VM.unpause dbg id |> success |> wait_for_task dbg |> success_task dbg |> ignore_task
+			end;
+			set_resident_on ~__context ~self;
+			assert (Db.VM.get_power_state ~__context ~self = if start_paused then `Paused else `Running);
+			Helpers.call_api_functions ~__context
+				(fun rpc session_id ->
+					XenAPI.VDI.destroy rpc session_id vdi
+				);
+			Db.VM.set_suspend_VDI ~__context ~self ~value:Ref.null
+		)
 
 let s3suspend ~__context ~self =
-	let id = id_of_vm ~__context ~self in
-	let dbg = Context.string_of_task __context in
-	debug "xenops: VM.s3suspend %s" id;
-	Client.VM.s3suspend dbg id |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
-	Event.wait dbg ()
+	transform_xenops_exn ~__context
+		(fun () ->
+			let id = id_of_vm ~__context ~self in
+			let dbg = Context.string_of_task __context in
+			debug "xenops: VM.s3suspend %s" id;
+			Client.VM.s3suspend dbg id |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
+			Event.wait dbg ()
+		)
 
 let s3resume ~__context ~self =
-	let id = id_of_vm ~__context ~self in
-	let dbg = Context.string_of_task __context in
-	debug "xenops: VM.s3resume %s" id;
-	Client.VM.s3resume dbg id |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
-	Event.wait dbg ()
+	transform_xenops_exn ~__context
+		(fun () ->
+			let id = id_of_vm ~__context ~self in
+			let dbg = Context.string_of_task __context in
+			debug "xenops: VM.s3resume %s" id;
+			Client.VM.s3resume dbg id |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
+			Event.wait dbg ()
+		)
 
 let is_vm_running ~__context ~self =
 	let id = id_of_vm ~__context ~self in
@@ -1401,93 +1493,107 @@ let md_of_vbd ~__context ~self =
 	MD.of_vbd ~__context ~vm:(Db.VM.get_record ~__context ~self:vm) ~vbd:(Db.VBD.get_record ~__context ~self)
 
 let vbd_eject ~__context ~self =
-	let vm = Db.VBD.get_VM ~__context ~self in
-	assert_resident_on ~__context ~self:vm;
-	(* XXX: PR-1255: move the offline stuff to the master/message_forwarding? *)
-	if Db.VM.get_power_state ~__context ~self:vm = `Halted then begin
-		Db.VBD.set_empty ~__context ~self ~value:true;
-		Db.VBD.set_VDI ~__context ~self ~value:Ref.null
-	end else begin
-		let vbd = md_of_vbd ~__context ~self in
-		info "xenops: VBD.eject %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
-		let dbg = Context.string_of_task __context in
-		Client.VBD.eject dbg vbd.Vbd.id |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
-		Event.wait dbg ();
-		(* XXX: PR-1255: this is because a PV eject is an unplug, so the
-		   event is different *)
-		Db.VBD.set_empty ~__context ~self ~value:true;
-		Db.VBD.set_VDI ~__context ~self ~value:Ref.null		
-	end;
-	assert (Db.VBD.get_empty ~__context ~self);
-	assert (Db.VBD.get_VDI ~__context ~self = Ref.null)
-
+	transform_xenops_exn ~__context
+		(fun () ->
+			let vm = Db.VBD.get_VM ~__context ~self in
+			assert_resident_on ~__context ~self:vm;
+			(* XXX: PR-1255: move the offline stuff to the master/message_forwarding? *)
+			if Db.VM.get_power_state ~__context ~self:vm = `Halted then begin
+				Db.VBD.set_empty ~__context ~self ~value:true;
+				Db.VBD.set_VDI ~__context ~self ~value:Ref.null
+			end else begin
+				let vbd = md_of_vbd ~__context ~self in
+				info "xenops: VBD.eject %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
+				let dbg = Context.string_of_task __context in
+				Client.VBD.eject dbg vbd.Vbd.id |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
+				Event.wait dbg ();
+				(* XXX: PR-1255: this is because a PV eject is an unplug, so the
+				   event is different *)
+				Db.VBD.set_empty ~__context ~self ~value:true;
+				Db.VBD.set_VDI ~__context ~self ~value:Ref.null		
+			end;
+			assert (Db.VBD.get_empty ~__context ~self);
+			assert (Db.VBD.get_VDI ~__context ~self = Ref.null)
+		)
 
 let vbd_insert ~__context ~self ~vdi =
-	let vm = Db.VBD.get_VM ~__context ~self in
-	assert_resident_on ~__context ~self:vm;
-	(* XXX: PR-1255: move the offline stuff to the master/message_forwarding? *)
-	if Db.VM.get_power_state ~__context ~self:vm = `Halted then begin
-		Db.VBD.set_VDI ~__context ~self ~value:vdi;
-		Db.VBD.set_empty ~__context ~self ~value:false
-	end else begin
-		let vbd = md_of_vbd ~__context ~self in
-		let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in
-		info "xenops: VBD.insert %s.%s %s" (fst vbd.Vbd.id) (snd vbd.Vbd.id) (disk |> rpc_of_disk |> Jsonrpc.to_string);
-		let dbg = Context.string_of_task __context in
-		Client.VBD.insert dbg vbd.Vbd.id disk |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
-		Event.wait dbg ()
-	end;
-	assert (not(Db.VBD.get_empty ~__context ~self));
-	assert (Db.VBD.get_VDI ~__context ~self = vdi)
+	transform_xenops_exn ~__context
+		(fun () ->
+			let vm = Db.VBD.get_VM ~__context ~self in
+			assert_resident_on ~__context ~self:vm;
+			(* XXX: PR-1255: move the offline stuff to the master/message_forwarding? *)
+			if Db.VM.get_power_state ~__context ~self:vm = `Halted then begin
+				Db.VBD.set_VDI ~__context ~self ~value:vdi;
+				Db.VBD.set_empty ~__context ~self ~value:false
+			end else begin
+				let vbd = md_of_vbd ~__context ~self in
+				let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in
+				info "xenops: VBD.insert %s.%s %s" (fst vbd.Vbd.id) (snd vbd.Vbd.id) (disk |> rpc_of_disk |> Jsonrpc.to_string);
+				let dbg = Context.string_of_task __context in
+				Client.VBD.insert dbg vbd.Vbd.id disk |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
+				Event.wait dbg ()
+			end;
+			assert (not(Db.VBD.get_empty ~__context ~self));
+			assert (Db.VBD.get_VDI ~__context ~self = vdi)
+		)
 
 let vbd_plug ~__context ~self =
-	let vm = Db.VBD.get_VM ~__context ~self in
-	assert_resident_on ~__context ~self:vm;
-	let vbd = md_of_vbd ~__context ~self in
-	info "xenops: VBD.remove %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
-	let dbg = Context.string_of_task __context in
-	Client.VBD.remove dbg vbd.Vbd.id |> might_not_exist;
-	info "xenops: VBD.add %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
-	let id = Client.VBD.add dbg vbd |> success in
-	info "xenops: VBD.plug %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
-	Client.VBD.plug dbg id |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
-	Event.wait dbg ();
-	assert (Db.VBD.get_currently_attached ~__context ~self)
+	transform_xenops_exn ~__context
+		(fun () ->
+			let vm = Db.VBD.get_VM ~__context ~self in
+			assert_resident_on ~__context ~self:vm;
+			let vbd = md_of_vbd ~__context ~self in
+			info "xenops: VBD.remove %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
+			let dbg = Context.string_of_task __context in
+			Client.VBD.remove dbg vbd.Vbd.id |> might_not_exist;
+			info "xenops: VBD.add %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
+			let id = Client.VBD.add dbg vbd |> success in
+			info "xenops: VBD.plug %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
+			Client.VBD.plug dbg id |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
+			Event.wait dbg ();
+			assert (Db.VBD.get_currently_attached ~__context ~self)
+		)
 
 let vbd_unplug ~__context ~self force =
-	let vm = Db.VBD.get_VM ~__context ~self in
-	assert_resident_on ~__context ~self:vm;
-	let vbd = md_of_vbd ~__context ~self in
-	info "xenops: VBD.unplug %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
-	let dbg = Context.string_of_task __context in
-	begin
-		try
-			Client.VBD.unplug dbg vbd.Vbd.id force |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
-		with (Exception Device_detach_rejected) ->
-			raise (Api_errors.Server_error(Api_errors.device_detach_rejected, [ "VBD"; Ref.string_of self; "" ]))
-	end;
-	info "xenops: VBD.remove %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
-	Client.VBD.remove dbg vbd.Vbd.id |> success;
-	Event.wait dbg ();
-	assert (not(Db.VBD.get_currently_attached ~__context ~self))
+	transform_xenops_exn ~__context
+		(fun () ->
+			let vm = Db.VBD.get_VM ~__context ~self in
+			assert_resident_on ~__context ~self:vm;
+			let vbd = md_of_vbd ~__context ~self in
+			info "xenops: VBD.unplug %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
+			let dbg = Context.string_of_task __context in
+			begin
+				try
+					Client.VBD.unplug dbg vbd.Vbd.id force |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
+				with (Exception Device_detach_rejected(_, _, _)) ->
+					raise (Api_errors.Server_error(Api_errors.device_detach_rejected, [ "VBD"; Ref.string_of self; "" ]))
+			end;
+			info "xenops: VBD.remove %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
+			Client.VBD.remove dbg vbd.Vbd.id |> success;
+			Event.wait dbg ();
+			assert (not(Db.VBD.get_currently_attached ~__context ~self))
+		)
 
 let md_of_vif ~__context ~self =
 	let vm = Db.VIF.get_VM ~__context ~self in
 	MD.of_vif ~__context ~vm:(Db.VM.get_record ~__context ~self:vm) ~vif:(Db.VIF.get_record ~__context ~self)
 
 let vif_plug ~__context ~self =
-	let vm = Db.VIF.get_VM ~__context ~self in
-	assert_resident_on ~__context ~self:vm;
-	let vif = md_of_vif ~__context ~self in
-	info "xenops: VIF.eject %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
-	let dbg = Context.string_of_task __context in
-	Client.VIF.remove dbg vif.Vif.id |> might_not_exist;
-	info "xenops: VIF.add %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
-	let id = Client.VIF.add dbg vif |> success in
-	info "xenops: VIF.plug %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
-	Client.VIF.plug dbg id |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
-	Event.wait dbg ();
-	assert (Db.VIF.get_currently_attached ~__context ~self)
+	transform_xenops_exn ~__context
+		(fun () ->
+			let vm = Db.VIF.get_VM ~__context ~self in
+			assert_resident_on ~__context ~self:vm;
+			let vif = md_of_vif ~__context ~self in
+			info "xenops: VIF.eject %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
+			let dbg = Context.string_of_task __context in
+			Client.VIF.remove dbg vif.Vif.id |> might_not_exist;
+			info "xenops: VIF.add %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
+			let id = Client.VIF.add dbg vif |> success in
+			info "xenops: VIF.plug %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
+			Client.VIF.plug dbg id |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
+			Event.wait dbg ();
+			assert (Db.VIF.get_currently_attached ~__context ~self)
+		)
 
 let vif_set_locking_mode ~__context ~self =
 	let vm = Db.VIF.get_VM ~__context ~self in
@@ -1499,24 +1605,30 @@ let vif_set_locking_mode ~__context ~self =
 	Event.wait dbg ();
 
 let vif_unplug ~__context ~self force =
-	let vm = Db.VIF.get_VM ~__context ~self in
-	assert_resident_on ~__context ~self:vm;
-	let vif = md_of_vif ~__context ~self in
-	info "xenops: VIF.unplug %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
-	let dbg = Context.string_of_task __context in
-	Client.VIF.unplug dbg vif.Vif.id force |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
-	info "xenops: VIF.remove %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
-	Client.VIF.remove dbg vif.Vif.id |> success;
-	Event.wait dbg ();
-	assert (not(Db.VIF.get_currently_attached ~__context ~self))
+	transform_xenops_exn ~__context
+		(fun () ->
+			let vm = Db.VIF.get_VM ~__context ~self in
+			assert_resident_on ~__context ~self:vm;
+			let vif = md_of_vif ~__context ~self in
+			info "xenops: VIF.unplug %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
+			let dbg = Context.string_of_task __context in
+			Client.VIF.unplug dbg vif.Vif.id force |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
+			info "xenops: VIF.remove %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
+			Client.VIF.remove dbg vif.Vif.id |> success;
+			Event.wait dbg ();
+			assert (not(Db.VIF.get_currently_attached ~__context ~self))
+		)
 
 let vif_move ~__context ~self network =
-	let vm = Db.VIF.get_VM ~__context ~self in
-	assert_resident_on ~__context ~self:vm;
-	let vif = md_of_vif ~__context ~self in
-	info "xenops: VIF.move %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
-	let backend = backend_of_network ~__context ~self:network in
-	let dbg = Context.string_of_task __context in
-	Client.VIF.move dbg vif.Vif.id backend |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
-	Event.wait dbg ();
-	assert (Db.VIF.get_currently_attached ~__context ~self)
+	transform_xenops_exn ~__context
+		(fun () ->
+			let vm = Db.VIF.get_VM ~__context ~self in
+			assert_resident_on ~__context ~self:vm;
+			let vif = md_of_vif ~__context ~self in
+			info "xenops: VIF.move %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
+			let backend = backend_of_network ~__context ~self:network in
+			let dbg = Context.string_of_task __context in
+			Client.VIF.move dbg vif.Vif.id backend |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
+			Event.wait dbg ();
+			assert (Db.VIF.get_currently_attached ~__context ~self)
+		)

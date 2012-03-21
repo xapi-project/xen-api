@@ -29,15 +29,15 @@ type error =
 	| Internal_error of string
 	| Already_exists of string * string
 	| Does_not_exist of string * string
-	| Unimplemented
+	| Unimplemented of string
 	| Domain_not_built
 	| Maximum_vcpus of int
 	| Bad_power_state of power_state * power_state
 	| Failed_to_acknowledge_shutdown_request
-	| Failed_to_shutdown
+	| Failed_to_shutdown of string * float
 	| Device_is_connected
 	| Device_not_connected
-	| Device_detach_rejected
+	| Device_detach_rejected of string * string * string
 	| Media_not_ejectable
 	| Media_present
 	| Media_not_present
@@ -45,10 +45,7 @@ type error =
 	| Bootloader_error of string * (string list)
 	| Ballooning_error of string * string
 	| No_ballooning_service
-	| Not_supported
 	| IO_error
-	| VDI_not_found of string
-	| Caller_must_pass_file_descriptor
 	| Failed_to_contact_remote_service of string
 	| Hook_failed of string * string * string * string
 	| Not_enough_memory of int64
