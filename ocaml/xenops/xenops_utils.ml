@@ -139,7 +139,7 @@ module TypedTable = functor(I: ITEM) -> struct
 	let add (k: I.key) (x: t) =
 		if exists k then begin
 			debug "Key %s already exists" (k |> I.key |> filename_of_key);
-			raise (Exception Already_exists)
+			raise (Exception(Already_exists(I.namespace, k |> I.key |> filename_of_key)))
 		end else write k x
 
 	let remove (k: I.key) =

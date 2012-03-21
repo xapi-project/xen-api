@@ -73,7 +73,7 @@ let create_nolock vm () =
 	debug "Domain.create vm=%s" vm.Vm.id;
 	if DB.exists vm.Vm.id then begin
 		debug "VM.create_nolock %s: Already_exists" vm.Vm.id;
-		raise (Exception Already_exists)
+		raise (Exception(Already_exists("domain", vm.Vm.id)))
 	end else begin
 		let open Domain in
 		let domain = {
@@ -175,7 +175,7 @@ let add_vif vm vif () =
 	let existing_positions = List.map (fun vif -> vif.Vif.position) d.Domain.vifs in
 	if List.mem vif.Vif.position existing_positions then begin
 		debug "VIF.plug %s.%s: Already exists" (fst vif.Vif.id) (snd vif.Vif.id);
-		raise (Exception Already_exists)
+		raise (Exception(Already_exists("vif", string_of_int vif.Vif.position)))
 	end else DB.write vm { d with Domain.vifs = vif :: d.Domain.vifs }
 
 let add_vbd (vm: Vm.id) (vbd: Vbd.t) () =
@@ -191,7 +191,7 @@ let add_vbd (vm: Vm.id) (vbd: Vbd.t) () =
 	let this_dn = Opt.default next_dn vbd.Vbd.position in
 	if List.mem this_dn dns then begin
 		debug "VBD.plug %s.%s: Already exists" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
-		raise (Exception Already_exists)
+		raise (Exception(Already_exists("vbd", Device_number.to_debug_string this_dn)))
 	end else DB.write vm { d with Domain.vbds = { vbd with Vbd.position = Some this_dn } :: d.Domain.vbds }
 
 let move_vif vm vif network () =
@@ -212,7 +212,7 @@ let add_pci (vm: Vm.id) (pci: Pci.t) () =
 	let existing_positions = List.map (fun pci -> pci.Pci.position) d.Domain.pcis in
 	if List.mem pci.Pci.position existing_positions then begin
 		debug "PCI.plug %s.%s: Already exists" (fst pci.Pci.id) (snd pci.Pci.id);
-		raise (Exception Already_exists)
+		raise (Exception(Already_exists("pci", string_of_int pci.Pci.position)))
 	end else DB.write vm { d with Domain.pcis = pci :: d.Domain.pcis }
 
 let pci_state vm pci () =
