@@ -267,12 +267,7 @@ let rec create_bridges ~__context pif_rc net_rc =
 		create_vlan ~__context vlan @ bridge_config, interface_config
 	| `bond_pif bond ->
 		let bridge_config, interface_config = create_bond ~__context bond mtu in
-		let interface_config =
-			if Net.Bridge.get_kind () = Bridge then
-				(pif_rc.API.pIF_device, {default_interface with mtu}) :: interface_config
-			else
-				interface_config
-		in
+		let interface_config = (pif_rc.API.pIF_device, {default_interface with mtu}) :: interface_config in
 		bridge_config, interface_config
 	| `phy_pif  ->
 		if pif_rc.API.pIF_bond_slave_of <> Ref.null then

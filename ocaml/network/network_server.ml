@@ -341,11 +341,14 @@ module Interface = struct
 		update_config name {(get_config name) with persistent_i = value}
 
 	let make_config _ ?(conservative=false) ~config () =
+		(* Only attempt to configure interfaces that exist in the system *)
+		let all = get_all () () in
+		let config = List.filter (fun (name, _) -> List.mem name all) config in
+		(* Handle conservativeness *)
 		let config =
 			if conservative then
 				(* Do not touch physical interfaces that are already up, or non-persistent interfaces *)
 				let exclude =
-					let all = get_all () () in
 					List.filter (fun interface -> is_up () ~name:interface && is_physical () ~name:interface) all
 				in
 				debug "Not touching the following interfaces, which are already up: %s" (String.concat ", " exclude);
