@@ -391,7 +391,7 @@ module DEBUG = struct
 			end
 		| _ ->
 			debug "DEBUG.trigger cmd=%s Not_supported" cmd;
-			raise (Exception Not_supported)
+			raise (Exception(Unimplemented(cmd)))
 end
 
 let init () = ()
