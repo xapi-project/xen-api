@@ -824,7 +824,7 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			then raise (Exception Failed_to_acknowledge_shutdown_request);		
 			let remaining_timeout = max 0. (timeout -. (Unix.gettimeofday () -. start)) in
 			if not (B.VM.wait_shutdown t vm reason remaining_timeout)
-			then raise (Exception Failed_to_shutdown)
+			then raise (Exception(Failed_to_shutdown(id, timeout)))
 		| VM_s3suspend id ->
 			debug "VM.s3suspend %s" id;
 			B.VM.s3suspend t (VM_DB.read_exn id);

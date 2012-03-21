@@ -655,7 +655,7 @@ module VM = struct
 	) Newest
 
 	let set_vcpus task vm target = on_domain (fun xc xs _ _ di ->
-		if di.Xenctrl.hvm_guest then raise (Exception Not_supported);
+		if di.Xenctrl.hvm_guest then raise (Exception(Unimplemented("vcpu hotplug for HVM domains")));
 
 		let domid = di.Xenctrl.domid in
 		(* Returns the instantaneous CPU number from xenstore *)
@@ -678,12 +678,11 @@ module VM = struct
 			do
 				Device.Vcpu.set ~xs ~devid:i domid true
 			done
-		);
-		raise (Exception Unimplemented)
+		)
 	) Newest task vm
 
 	let set_shadow_multiplier task vm target = on_domain (fun xc xs _ _ di ->
-		if not di.Xenctrl.hvm_guest then raise (Exception Not_supported);
+		if not di.Xenctrl.hvm_guest then raise (Exception (Unimplemented "shadow_multiplier for PV domains"));
 		let domid = di.Xenctrl.domid in
 		let static_max_mib = Memory.mib_of_bytes_used vm.Vm.memory_static_max in
 		let newshadow = Int64.to_int (Memory.HVM.shadow_mib static_max_mib vm.Vm.vcpu_max target) in
@@ -1002,7 +1001,7 @@ module VM = struct
 								if not(request_shutdown task vm Suspend 30.)
 								then raise (Exception Failed_to_acknowledge_shutdown_request);
 								if not(wait_shutdown task vm Suspend 1200.)
-								then raise (Exception Failed_to_shutdown);
+								then raise (Exception(Failed_to_shutdown(vm.Vm.id, 1200.)));
 							);
 						(* Record the final memory usage of the domain so we know how
 						   much to allocate for the resume *)
@@ -1328,7 +1327,7 @@ module VBD = struct
 						debug "VM = %s; VBD = %s; Ignoring missing device" vm (id_of vbd)
 					| Device_common.Device_error(_, s) ->
 						debug "Caught Device_error: %s" s;
-						raise (Exception Device_detach_rejected)
+						raise (Exception(Device_detach_rejected("VBD", id_of vbd, s)))
 			)
 
 	let insert task vm vbd disk =
@@ -1494,7 +1493,7 @@ module VIF = struct
 							Device.Vif.add ~xs ~devid:vif.position
 								~netty:(match vif.backend with
 									| Network.Local x -> Netman.Vswitch x
-									| Network.Remote (_, _) -> failwith "Unsupported")
+									| Network.Remote (_, _) -> raise (Exception (Unimplemented "network driver domains")))
 								~mac:vif.mac ~carrier:vif.carrier ~mtu:vif.mtu
 								~rate:vif.rate ~backend_domid
 								~other_config:vif.other_config
@@ -1558,7 +1557,7 @@ module VIF = struct
 					let device = device_by_id xc xs vm Device_common.Vif Oldest (id_of vif) in
 					let bridge = match network with
 						| Network.Local x -> x
-						| Network.Remote (_, _) -> failwith "Unsupported" in
+						| Network.Remote (_, _) -> raise (Exception (Unimplemented("network driver domains"))) in
 
 					Device.Vif.move ~xs device bridge;
 
@@ -1869,6 +1868,6 @@ module DEBUG = struct
 							Xenctrl.domain_shutdown xc di.Xenctrl.domid Xenctrl.Halt
 				)
 		| _ ->
-			debug "DEBUG.trigger cmd=%s Not_supported" cmd;
-			raise (Exception Not_supported)
+			debug "DEBUG.trigger cmd=%s Unimplemented" cmd;
+			raise (Exception(Unimplemented(cmd)))
 end
