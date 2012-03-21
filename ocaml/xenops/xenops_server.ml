@@ -232,7 +232,7 @@ let updates =
 
 module StringMap = Map.Make(struct type t = string let compare = compare end)
 
-let push_with_coalesce should_coalesce item queue =
+let push_with_coalesce should_keep item queue =
 	(* [filter_with_memory p xs] returns elements [x \in xs] where [p (x_i, [x_0...x_i-1])] *)
 	let filter_with_memory p xs =
 		List.fold_left (fun (acc, xs) x -> xs :: acc, x :: xs) ([], []) xs
@@ -249,7 +249,7 @@ let push_with_coalesce should_coalesce item queue =
 	Queue.push item queue;
 	let queue' =
 		to_list queue
-	|> filter_with_memory (fun (this, prev) -> not (should_coalesce this) || not (List.mem this prev))
+	|> filter_with_memory (fun (this, prev) -> should_keep this prev)
 	|> of_list in
 	Queue.clear queue;
 	Queue.transfer queue' queue
@@ -292,11 +292,11 @@ module Queues = struct
 				qs.last_tag
 			)
 
-	let push_with_coalesce should_coalesce tag item qs =
+	let push_with_coalesce should_keep tag item qs =
 		Mutex.execute qs.m
 			(fun () ->
 				let q = if StringMap.mem tag qs.qs then StringMap.find tag qs.qs else Queue.create () in
-				push_with_coalesce should_coalesce item q;
+				push_with_coalesce should_keep item q;
 				qs.qs <- StringMap.add tag q qs.qs;
 				Condition.signal qs.c
 			)
@@ -315,36 +315,83 @@ module Queues = struct
 				let item = Queue.pop q in
 				(* remove empty queues from the whole mapping *)
 				qs.qs <- if Queue.is_empty q then StringMap.remove last_tag qs.qs else qs.qs;
-				item
+				last_tag, item
+			)
+
+	let transfer_tag tag a b =
+		Mutex.execute a.m
+			(fun () ->
+				Mutex.execute b.m
+					(fun () ->
+						if StringMap.mem tag a.qs then begin
+							b.qs <- StringMap.add tag (StringMap.find tag a.qs) b.qs;
+							a.qs <- StringMap.remove tag a.qs
+						end
+					)
 			)
 end
 
-module Per_VM_queues = struct
-	let queue : (operation * Xenops_task.t) Queues.t = Queues.create ()
+module Redirector = struct
+	(* When a thread is not actively processing a queue, items are placed here: *)
+	let default = Queues.create ()
 
-	let to_string_list () =
-		let tags = Queues.tags queue in
-		let last_tag = Queues.get_last_tag queue in
-		List.map
-			(fun tag ->
-				Printf.sprintf "%s: %s [ %s ]" tag (if tag = last_tag then "*" else " ") (String.concat ", " (List.rev (Queue.fold (fun acc (b, _) -> string_of_operation b :: acc) [] (Queues.get tag queue))))
-			) tags
+	(* When a thread is actively processing a queue, items are redirected to a thread-private queue *)
+	let overrides = ref StringMap.empty
+	let m = Mutex.create ()
 
-	let should_coalesce : (operation * Xenops_task.t -> bool) = function
-		| VM_check_state (_), _
-		| PCI_check_state (_), _
-		| VBD_check_state (_), _
-		| VIF_check_state (_), _ -> true
-		| _, _ -> false
+	let should_keep (op, _) prev = match op with
+		| VM_check_state (_)
+		| PCI_check_state (_)
+		| VBD_check_state (_)
+		| VIF_check_state (_) ->
+			let prev' = List.map fst prev in
+			not(List.mem op prev')
+		| _ -> true
 
-	let add vm item =
+	let push tag item =
 		Debug.with_thread_associated "queue"
 			(fun () ->
-				debug "Queue.push %s onto [ %s ]" (string_of_operation (fst item)) (String.concat ", " (List.rev (Queue.fold (fun acc (b, _) -> string_of_operation b :: acc) [] (Queues.get vm queue))));
-				Queues.push_with_coalesce should_coalesce vm item queue;
+				Mutex.execute m
+					(fun () ->
+						let q, redirected = if StringMap.mem tag !overrides then StringMap.find tag !overrides, true else default, false in
+						debug "Queue.push %s onto %s%s:[ %s ]" (string_of_operation (fst item)) (if redirected then "redirected " else "") tag (String.concat ", " (List.rev (Queue.fold (fun acc (b, _) -> string_of_operation b :: acc) [] (Queues.get tag q))));
+
+						Queues.push_with_coalesce should_keep tag item q
+					)
 			) ()
 
-end
+	let pop () =
+		let tag, item = Queues.pop default in
+		Mutex.execute m
+			(fun () ->
+				let q = Queues.create () in
+				Queues.transfer_tag tag default q;
+				overrides := StringMap.add tag q !overrides;
+				(* All items with [tag] will enter queue [q] *)
+				tag, q, item
+			)
+
+	let finished tag queue =
+		Mutex.execute m
+			(fun () ->
+				Queues.transfer_tag tag queue default;
+				overrides := StringMap.remove tag !overrides
+				(* All items with [tag] will enter the default queue *)
+			)
+
+	let to_string_list () =
+		Mutex.execute m
+			(fun () ->
+				let one queue =
+					let tags = Queues.tags queue in
+					let last_tag = Queues.get_last_tag queue in
+					List.map
+						(fun tag ->
+							Printf.sprintf "%s: %s [ %s ]" tag (if tag = last_tag then "*" else " ") (String.concat ", " (List.rev (Queue.fold (fun acc (b, _) -> string_of_operation b :: acc) [] (Queues.get tag queue))))
+						) tags in
+				List.concat (List.map one (default :: (List.map snd (StringMap.bindings !overrides))))
+			)
+end		
 
 module Worker = struct
 	type state =
@@ -419,7 +466,7 @@ module Worker = struct
 					t.shutdown_requested
 				)) do
 					Mutex.execute t.m (fun () -> t.state <- Idle);
-					let op, item = Queues.pop Per_VM_queues.queue in (* blocks here *)
+					let tag, queue, (op, item) = Redirector.pop () in (* blocks here *)
 					debug "Queue.pop returned %s" (string_of_operation op);
 					Mutex.execute t.m (fun () -> t.state <- Processing op);
 					begin
@@ -433,6 +480,7 @@ module Worker = struct
 						with e ->
 							debug "Queue caught: %s" (Printexc.to_string e)
 					end;
+					Redirector.finished tag queue;
 					Updates.add (Dynamic.Task item.Xenops_task.id) updates;
 				done
 			) () in
@@ -1020,7 +1068,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 
 let queue_operation dbg id op =
 	let task = Xenops_task.add dbg (fun t -> perform op t) in
-	Per_VM_queues.add id (op, task);
+	Redirector.push id (op, task);
 	task.Xenops_task.id
 
 let immediate_operation dbg id op =
@@ -1414,7 +1462,7 @@ let get_diagnostics _ _ () =
 	([
 		"VM queues:"
 	] @ (
-		Per_VM_queues.to_string_list ()
+		Redirector.to_string_list ()
 	) @ [
 		"Threads:"
 	] @ (WorkerPool.to_string_list ())
