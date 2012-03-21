@@ -255,44 +255,33 @@ let get_pif_type pif_rc =
 let rec create_bridges ~__context pif_rc net_rc =
 	let mtu = determine_mtu ~__context pif_rc in
 	let other_config = determine_other_config ~__context pif_rc net_rc in
-	let bridge_config, interface_config =
-		match get_pif_type pif_rc with
-		| `tunnel_pif _ ->
-			[net_rc.API.network_bridge, {default_bridge with bridge_mac=(Some pif_rc.API.pIF_MAC)}],
-			[]
-		| `vlan_pif vlan ->
-			let slave = Db.VLAN.get_tagged_PIF ~__context ~self:vlan in
-			let pif_rc = Db.PIF.get_record ~__context ~self:slave in
-			let net_rc = Db.Network.get_record ~__context ~self:pif_rc.API.pIF_network in
-			let bridge_config, interface_config =
-				if not (Net.Interface.is_up ~name:net_rc.API.network_bridge) then
-					create_bridges ~__context pif_rc net_rc
-				else
-					[], []
-			in
-			create_vlan ~__context vlan @ bridge_config, interface_config
-		| `bond_pif bond ->
-			let bridge_config, interface_config = create_bond ~__context bond mtu in
-			let interface_config =
-				if Net.Bridge.get_kind () = Bridge then
-					(pif_rc.API.pIF_device, {default_interface with mtu}) :: interface_config
-				else
-					interface_config
-			in
-			bridge_config, interface_config
-		| `phy_pif  ->
-			if pif_rc.API.pIF_bond_slave_of <> Ref.null then
-				destroy_bond ~__context ~force:true pif_rc.API.pIF_bond_slave_of;
-			let (ethtool_settings, ethtool_offload) =
-				determine_ethtool_settings pif_rc.API.pIF_other_config in
-			let ports = [pif_rc.API.pIF_device, {default_port with interfaces=[pif_rc.API.pIF_device]}] in
-			[net_rc.API.network_bridge, {default_bridge with ports; bridge_mac=(Some pif_rc.API.pIF_MAC); other_config}],
-			[pif_rc.API.pIF_device, {default_interface with mtu; ethtool_settings; ethtool_offload}]
-	in
-	let (ethtool_settings, ethtool_offload) = determine_ethtool_settings net_rc.API.network_other_config in
-	let interface_config = (net_rc.API.network_bridge, {default_interface with mtu; ethtool_settings; ethtool_offload}) ::
-		interface_config in
-	bridge_config, interface_config
+	match get_pif_type pif_rc with
+	| `tunnel_pif _ ->
+		[net_rc.API.network_bridge, {default_bridge with bridge_mac=(Some pif_rc.API.pIF_MAC)}],
+		[]
+	| `vlan_pif vlan ->
+		let slave = Db.VLAN.get_tagged_PIF ~__context ~self:vlan in
+		let pif_rc = Db.PIF.get_record ~__context ~self:slave in
+		let net_rc = Db.Network.get_record ~__context ~self:pif_rc.API.pIF_network in
+		let bridge_config, interface_config = create_bridges ~__context pif_rc net_rc in
+		create_vlan ~__context vlan @ bridge_config, interface_config
+	| `bond_pif bond ->
+		let bridge_config, interface_config = create_bond ~__context bond mtu in
+		let interface_config =
+			if Net.Bridge.get_kind () = Bridge then
+				(pif_rc.API.pIF_device, {default_interface with mtu}) :: interface_config
+			else
+				interface_config
+		in
+		bridge_config, interface_config
+	| `phy_pif  ->
+		if pif_rc.API.pIF_bond_slave_of <> Ref.null then
+			destroy_bond ~__context ~force:true pif_rc.API.pIF_bond_slave_of;
+		let (ethtool_settings, ethtool_offload) =
+			determine_ethtool_settings pif_rc.API.pIF_other_config in
+		let ports = [pif_rc.API.pIF_device, {default_port with interfaces=[pif_rc.API.pIF_device]}] in
+		[net_rc.API.network_bridge, {default_bridge with ports; bridge_mac=(Some pif_rc.API.pIF_MAC); other_config}],
+		[pif_rc.API.pIF_device, {default_interface with mtu; ethtool_settings; ethtool_offload}]
 
 let rec destroy_bridges ~__context ~force pif_rc bridge =
 	begin match get_pif_type pif_rc with
@@ -443,9 +432,12 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 					in
 					let ipv4_routes = determine_static_routes net_rc in
 					let persistent = is_dom0_interface rc in
+					let mtu = determine_mtu ~__context rc in
+					let (ethtool_settings, ethtool_offload) = determine_ethtool_settings net_rc.API.network_other_config in
 					let interface_config = update_config interface_config bridge
 						{(get_config interface_config default_interface bridge) with
-							ipv4_conf; ipv4_gateway; ipv4_routes; dns; persistent_i=persistent} in
+							ipv4_conf; ipv4_gateway; ipv4_routes; dns; ethtool_settings; ethtool_offload; mtu;
+							persistent_i=persistent} in
 					let bridge_config = update_config bridge_config bridge
 						{(get_config bridge_config default_bridge bridge) with persistent_b=persistent} in
 					Net.Bridge.make_config ~config:bridge_config ();
