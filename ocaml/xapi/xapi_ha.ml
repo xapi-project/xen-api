@@ -967,9 +967,11 @@ let attach_statefiles ~__context statevdis =
 
 	let paths = ref [] in
 	begin
+		let cur_vdi_str = ref "" in
 		try
 			List.iter
 				(fun vdi ->
+					cur_vdi_str := Ref.string_of vdi;
 					info "Attempting to permanently attach statefile VDI: %s" (Ref.string_of vdi);
 					paths := Static_vdis.permanent_vdi_attach ~__context ~vdi ~reason:Xha_statefile.reason:: !paths) statevdis
 		with e ->
@@ -980,7 +982,7 @@ let attach_statefiles ~__context statevdis =
 						(Printf.sprintf "detaching statefile: %s" (Ref.string_of vdi))
 						(fun () -> Static_vdis.permanent_vdi_detach ~__context ~vdi) ()
 				) statevdis;
-			raise e
+			raise  (Api_errors.Server_error(Api_errors.vdi_not_available, [!cur_vdi_str]))
 	end;
 	!paths
 
