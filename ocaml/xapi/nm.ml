@@ -151,9 +151,9 @@ let create_bond ~__context bond mtu =
 	let other_config = determine_other_config ~__context master_rc master_net_rc in
 
 	(* clean up bond slaves *)
+	let cleanup = List.map (fun (_, bridge) -> bridge, true) slave_devices_and_bridges in
 	let interface_config =
 		List.map (fun (device, bridge) ->
-			Net.Bridge.destroy ~force:true ~name:bridge ();
 			device, {default_interface with mtu}
 		) slave_devices_and_bridges
 	in
@@ -187,16 +187,14 @@ let create_bond ~__context bond mtu =
 
 	let ports = [port, {interfaces=(List.map (fun (device, _) -> device) slave_devices_and_bridges);
 		bond_properties=props; mac}] in
+	cleanup,
 	[master_net_rc.API.network_bridge, {default_bridge with ports; bridge_mac=(Some mac); other_config}],
 	interface_config
 
 let destroy_bond ~__context ~force bond =
 	let master = Db.Bond.get_master ~__context ~self:bond in
-	let bridge =
-		let network = Db.PIF.get_network ~__context ~self:master in
-		Db.Network.get_bridge ~__context ~self:network
-	in
-	Net.Bridge.destroy ~force ~name:bridge ()
+	let network = Db.PIF.get_network ~__context ~self:master in
+	[Db.Network.get_bridge ~__context ~self:network, force]
 
 let create_vlan ~__context vlan =
 	let master = Db.VLAN.get_untagged_PIF ~__context ~self:vlan in
@@ -221,7 +219,7 @@ let destroy_vlan ~__context vlan =
 		let network = Db.PIF.get_network ~__context ~self:master in
 		Db.Network.get_bridge ~__context ~self:network
 	in
-	Net.Bridge.destroy ~name:bridge ()
+	[bridge, false]
 
 let get_bond pif_rc =
 	match pif_rc.API.pIF_bond_master_of with
@@ -257,43 +255,52 @@ let rec create_bridges ~__context pif_rc net_rc =
 	let other_config = determine_other_config ~__context pif_rc net_rc in
 	match get_pif_type pif_rc with
 	| `tunnel_pif _ ->
+		[],
 		[net_rc.API.network_bridge, {default_bridge with bridge_mac=(Some pif_rc.API.pIF_MAC)}],
 		[]
 	| `vlan_pif vlan ->
 		let slave = Db.VLAN.get_tagged_PIF ~__context ~self:vlan in
 		let pif_rc = Db.PIF.get_record ~__context ~self:slave in
 		let net_rc = Db.Network.get_record ~__context ~self:pif_rc.API.pIF_network in
-		let bridge_config, interface_config = create_bridges ~__context pif_rc net_rc in
-		create_vlan ~__context vlan @ bridge_config, interface_config
+		let cleanup, bridge_config, interface_config = create_bridges ~__context pif_rc net_rc in
+		cleanup,
+		create_vlan ~__context vlan @ bridge_config,
+		interface_config
 	| `bond_pif bond ->
-		let bridge_config, interface_config = create_bond ~__context bond mtu in
+		let cleanup, bridge_config, interface_config = create_bond ~__context bond mtu in
 		let interface_config = (pif_rc.API.pIF_device, {default_interface with mtu}) :: interface_config in
-		bridge_config, interface_config
+		cleanup, bridge_config, interface_config
 	| `phy_pif  ->
-		if pif_rc.API.pIF_bond_slave_of <> Ref.null then
-			destroy_bond ~__context ~force:true pif_rc.API.pIF_bond_slave_of;
+		let cleanup =
+			if pif_rc.API.pIF_bond_slave_of <> Ref.null then
+				destroy_bond ~__context ~force:true pif_rc.API.pIF_bond_slave_of
+			else
+				[]
+		in
 		let (ethtool_settings, ethtool_offload) =
 			determine_ethtool_settings pif_rc.API.pIF_other_config in
 		let ports = [pif_rc.API.pIF_device, {default_port with interfaces=[pif_rc.API.pIF_device]}] in
+		cleanup,
 		[net_rc.API.network_bridge, {default_bridge with ports; bridge_mac=(Some pif_rc.API.pIF_MAC); other_config}],
 		[pif_rc.API.pIF_device, {default_interface with mtu; ethtool_settings; ethtool_offload}]
 
 let rec destroy_bridges ~__context ~force pif_rc bridge =
-	begin match get_pif_type pif_rc with
+	match get_pif_type pif_rc with
 	| `tunnel_pif _ ->
-		Net.Bridge.destroy ~name:bridge ()
+		[bridge, false]
 	| `vlan_pif vlan ->
-		destroy_vlan ~__context vlan;
+		let cleanup = destroy_vlan ~__context vlan in
 		let slave = Db.VLAN.get_tagged_PIF ~__context ~self:vlan in
 		let rc = Db.PIF.get_record ~__context ~self:slave in
 		if not rc.API.pIF_currently_attached then
 			let bridge = Db.Network.get_bridge ~__context ~self:rc.API.pIF_network in
-			destroy_bridges ~__context ~force rc bridge
+			(destroy_bridges ~__context ~force rc bridge) @ cleanup
+		else
+			cleanup
 	| `bond_pif bond ->
 		destroy_bond ~__context ~force bond
 	| `phy_pif  ->
-		Net.Bridge.destroy ~name:bridge ()
-	end
+		[bridge, false]
 
 (* Determine the gateway and DNS PIFs:
  * If one of the PIFs with IP has other_config:defaultroute=true, then
@@ -391,7 +398,8 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 						else
 							[]
 					in
-					let bridge_config, interface_config = create_bridges ~__context rc net_rc in
+					let cleanup, bridge_config, interface_config = create_bridges ~__context rc net_rc in
+					List.iter (fun (name, force) -> Net.Bridge.destroy ~name ~force ()) cleanup;
 					let ipv4_conf, ipv4_gateway, dns =
 						match rc.API.pIF_ip_configuration_mode with
 						| `None -> None4, None, ([], [])
@@ -500,7 +508,8 @@ let bring_pif_down ~__context ?(force=false) (pif: API.ref_PIF) =
 			if !use_networkd then
 				try
 					let bridge = Db.Network.get_bridge ~__context ~self:rc.API.pIF_network in
-					destroy_bridges ~__context ~force rc bridge;
+					let cleanup = destroy_bridges ~__context ~force rc bridge in
+					List.iter (fun (name, force) -> Net.Bridge.destroy ~name ~force ()) cleanup;
 					Net.Interface.set_persistent ~name:bridge ~value:false
 				with Network_interface.RpcFailure (err, params) ->
 					let e = Printf.sprintf "%s [%s]" err (String.concat ", " (List.map (fun (k, v) -> k ^ " = " ^ v) params)) in
