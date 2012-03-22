@@ -19,7 +19,6 @@ open Pervasiveext
 open Fun
 open Network_utils
 
-let socket = ref None
 let server = Http_svr.Server.empty ()
 
 let path = Filename.concat Fhs.vardir name
@@ -40,12 +39,17 @@ let xmlrpc_handler process req bio context =
 		Http_svr.response_unauthorised ~req (Printf.sprintf "Go away: %s" (Printexc.to_string e)) s
 
 let start path process =
+	Http_svr.Server.add_handler server Http.Post "/" (Http_svr.BufIO (xmlrpc_handler process));
+
 	Unixext.mkdir_safe (Filename.dirname path) 0o700;
 	Unixext.unlink_safe path;
 	let domain_sock = Http_svr.bind (Unix.ADDR_UNIX(path)) "unix_rpc" in
-	Http_svr.Server.add_handler server Http.Post "/" (Http_svr.BufIO (xmlrpc_handler process));
 	Http_svr.start server domain_sock;
-	socket := Some domain_sock;
+
+	let localhost = Unix.inet_addr_of_string "127.0.0.1" in
+	let localhost_sock = Http_svr.bind (Unix.ADDR_INET(localhost, 4094)) "inet-RPC" in
+	Http_svr.start server localhost_sock;
+
 	()
 
 let handle_shutdown () =
