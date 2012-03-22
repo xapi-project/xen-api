@@ -22,7 +22,7 @@ open Xenops_utils
 
 type t = {
 	id: string;
-	dbg: string; (* token sent by client *)
+	debug_info: string; (* token sent by client *)
 	mutable result: Task.result;
 	mutable subtasks: (string * Task.result) list;
 	f: t -> unit;
@@ -42,11 +42,10 @@ let next_task_id =
 		incr counter;
 		result
 
-(* XXX: when are these ever removed? *)
 let add dbg (f: t -> unit) =
 	let t = {
 		id = next_task_id ();
-		dbg = dbg;
+		debug_info = dbg;
 		result = Task.Pending 0.;
 		subtasks = [];
 		f = f;
@@ -88,7 +87,11 @@ let with_subtask t name f =
 		t.subtasks <- (name, Task.Failed (Internal_error (Printexc.to_string e))) :: t.subtasks;
 		raise e
 
-let list_locked () = SMap.bindings !tasks |> List.map snd
+let list () =
+	Mutex.execute m
+		(fun () ->
+			SMap.bindings !tasks |> List.map snd
+		)
 
 (* Remove the task from the id -> task mapping. NB any active thread will still continue. *)
 let destroy id =

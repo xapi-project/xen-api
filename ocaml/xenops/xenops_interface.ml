@@ -295,6 +295,7 @@ module Task = struct
 
 	type t = {
 		id: id;
+		debug_info: string;
 		result: result;
 		subtasks: (string * result) list;
 	}
@@ -320,6 +321,7 @@ module TASK = struct
 	external stat: debug_info -> Task.id -> (Task.t option) * (error option) = ""
 	external cancel: debug_info -> Task.id -> (unit option) * (error option) = ""
 	external destroy: debug_info -> Task.id -> (unit option) * (error option) = ""
+	external list: debug_info -> (Task.t list option) * (error option) = ""
 end
 
 module HOST = struct
