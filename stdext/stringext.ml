@@ -116,7 +116,7 @@ let rec split ?limit:(limit=(-1)) c s =
 
 let rtrim s =
   let n = String.length s in
-    if String.get s (n - 1) = '\n' then
+    if n > 0 && String.get s (n - 1) = '\n' then
       String.sub s 0 (n - 1)
     else
       s
