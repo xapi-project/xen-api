@@ -118,6 +118,12 @@ let string_of_operation x = x |> rpc_of_operation |> Jsonrpc.to_string
 
 module TASK = struct
 	open Xenops_task
+	let task x = {
+		Task.id = x.id;
+		debug_info = x.debug_info;
+		result = x.result;
+		subtasks = x.subtasks;
+	}
 	let cancel _ id dbg =
 		Mutex.execute m
 			(fun () ->
@@ -127,16 +133,11 @@ module TASK = struct
 	let stat' id =
 		Mutex.execute m
 			(fun () ->
-				let x = find_locked id in
-				{
-					Task.id = x.id;
-					Task.result = x.result;
-					Task.subtasks = x.subtasks;
-				}
+				find_locked id |> task
 			)
 	let stat _ dbg id = stat' id |> return
 	let destroy _ dbg id = destroy id |> return
-
+	let list _ dbg = list () |> List.map task |> return
 end
 
 module VM_DB = struct
@@ -475,9 +476,9 @@ module Worker = struct
 					begin
 						try
 							Debug.with_thread_associated
-								item.Xenops_task.dbg
+								item.Xenops_task.debug_info
 								(fun () ->
-									debug "Task %s reference %s: %s" item.Xenops_task.id item.Xenops_task.dbg (string_of_operation op);
+									debug "Task %s reference %s: %s" item.Xenops_task.id item.Xenops_task.debug_info (string_of_operation op);
 									Xenops_task.run item
 								) ()
 						with e ->
@@ -917,7 +918,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			(* We need to perform version exchange here *)
 			let is_localhost =
 				try
-					let q = query t.Xenops_task.dbg url in
+					let q = query t.Xenops_task.debug_info url in
 					debug "Remote system is: %s" (q |> Query.rpc_of_t |> Jsonrpc.to_string);
 					q.Query.instance_id = instance_id
 				with e ->
@@ -928,13 +929,13 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			Xenops_hooks.vm_pre_migrate ~reason:Xenops_hooks.reason__migrate_source ~id;
 
 			let module Remote = Xenops_interface.Client(struct let rpc = rpc ~srcstr:"xenops" ~dststr:"dst_xenops" url end) in
-			let id = Remote.VM.import_metadata t.Xenops_task.dbg (export_metadata id) |> success in
+			let id = Remote.VM.import_metadata t.Xenops_task.debug_info(export_metadata id) |> success in
 			debug "Received id = %s" id;
 			let suffix = Printf.sprintf "/memory/%s" id in
 			let memory_url = Http.Url.(set_uri url (get_uri url ^ suffix)) in
 			with_transport (transport_of_url memory_url)
 				(fun mfd ->
-					Http_client.rpc mfd (Xenops_migrate.http_put memory_url ~cookie:["instance_id", instance_id; "dbg", t.Xenops_task.dbg])
+					Http_client.rpc mfd (Xenops_migrate.http_put memory_url ~cookie:["instance_id", instance_id; "dbg", t.Xenops_task.debug_info])
 						(fun response _ ->
 							debug "XXX transmit memory";
 							perform_atomics [
@@ -1078,7 +1079,7 @@ let immediate_operation dbg id op =
 	let task = Xenops_task.add dbg (fun t -> perform op t) in
 	Debug.with_thread_associated dbg
 		(fun () ->
-			debug "Task %s reference %s: %s" task.Xenops_task.id task.Xenops_task.dbg (string_of_operation op);
+			debug "Task %s reference %s: %s" task.Xenops_task.id task.Xenops_task.debug_info (string_of_operation op);
 			Xenops_task.run task
 		) ();
 	match task.Xenops_task.result with
@@ -1432,20 +1433,16 @@ let internal_event_thread_body = Debug.with_thread_associated "events" (fun () -
 			(function
 				| Dynamic.Vm id ->
 					debug "Received an event on managed VM %s" id;
-					let (_: Task.id) = queue_operation dbg id (VM_check_state id) in
-					()
+					queue_operation dbg id (VM_check_state id) |> Xenops_task.destroy
 				| Dynamic.Vbd id ->
 					debug "Received an event on managed VBD %s.%s" (fst id) (snd id);
-					let (_: Task.id) = queue_operation dbg (VBD_DB.vm_of id) (VBD_check_state id) in
-					()
+					queue_operation dbg (VBD_DB.vm_of id) (VBD_check_state id) |> Xenops_task.destroy
 				| Dynamic.Vif id ->
 					debug "Received an event on managed VIF %s.%s" (fst id) (snd id);
-					let (_: Task.id) = queue_operation dbg (VIF_DB.vm_of id) (VIF_check_state id) in
-					()
+					queue_operation dbg (VIF_DB.vm_of id) (VIF_check_state id) |> Xenops_task.destroy
 				| Dynamic.Pci id ->
 					debug "Received an event on managed PCI %s.%s" (fst id) (snd id);
-					let (_: Task.id) = queue_operation dbg (PCI_DB.vm_of id) (PCI_check_state id) in
-					()
+					queue_operation dbg (PCI_DB.vm_of id) (PCI_check_state id) |> Xenops_task.destroy
 				| x ->
 					debug "Ignoring event on %s" (Jsonrpc.to_string (Dynamic.rpc_of_id x))
 			) updates;
