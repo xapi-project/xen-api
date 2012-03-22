@@ -42,6 +42,8 @@ let event_mutex = Mutex.create ()
 let in_memory_cache = ref []
 let in_memory_cache_mutex = Mutex.create ()
 let in_memory_cache_length = ref 0
+let in_memory_cache_length_max = 512
+let in_memory_cache_length_default = 256
 
 let class_to_string cls = 
   match cls with 
@@ -192,101 +194,128 @@ let start_message_hook_thread ~__context () =
 
 (********************************************************************)
 
+let cache_insert _ref message =
+	let timestamp = Date.to_float message.API.message_timestamp in
+	Mutex.execute in_memory_cache_mutex (fun () ->
+		in_memory_cache :=
+			(timestamp,_ref,message) :: !in_memory_cache ;
+
+		in_memory_cache_length :=
+			!in_memory_cache_length + 1 ;
+
+		if !in_memory_cache_length > in_memory_cache_length_max then begin
+			in_memory_cache := Listext.List.take
+				in_memory_cache_length_default
+				!in_memory_cache ;
+			in_memory_cache_length := in_memory_cache_length_default ;
+			debug "Pruning in-memory cache of messages: Length=%d (%d)"
+				!in_memory_cache_length
+				(List.length !in_memory_cache)
+		end)
+
+(** Write: write message to disk. Returns boolean indicating whether
+	message was written *)
+let write ~_ref ~message =
+	(* Check if a message with _ref has already been written *)
+	let message_exists () =
+		let file = (ref_symlink ()) ^ "/" ^ (Ref.string_of _ref) in
+		try Unix.access file [Unix.F_OK] ; true with _ -> false in
+	(* Make sure the directory is there *)
+	if not (Helpers.local_storage_exists ())
+	then false (* couldn't write message *)
+	else begin
+		Unixext.mkdir_safe message_dir 0o700;
+		let timestamp = ref (Date.to_float (message.API.message_timestamp)) in
+
+		if message_exists () then false (* Don't overwrite message with same ref *)
+		else try Mutex.execute event_mutex (fun () ->
+			let fd, basefilename, filename =
+				(* Try 10, no wait, 11 times to create message file *)
+				let rec doit n =
+					if n>10 then failwith "Couldn't create a file" else begin
+						let basefilename = timestamp_to_string !timestamp in
+						let filename = message_dir ^ "/" ^ basefilename in
+						try
+							let fd = Unix.openfile filename
+								[Unix.O_RDWR; Unix.O_CREAT; Unix.O_EXCL] 0o600 in
+							(* Set file's timestamp to message timestamp *)
+							Unix.utimes filename !timestamp !timestamp ;
+							fd, basefilename, filename
+						with _ -> begin
+							(* We may be copying messages from another
+							   pool, in which case we may have
+							   filename collision (unlikely, but
+							   possible). So increment the filename
+							   and try again, but leave the original
+							   timestamp in the message untouched. *)
+							timestamp := !timestamp +. 0.00001 ;
+							doit (n+1)
+						end
+					end
+				in doit 0
+			in
+
+			(* Write the message to file *)
+			let oc = Unix.out_channel_of_descr fd in
+			let output = Xmlm.make_output (`Channel oc) in
+			to_xml output _ref message;
+			close_out oc;
+
+			(* Message now written, let's symlink it in various places *)
+			let symlinks = symlinks _ref message basefilename in
+			List.iter (fun (dir,newpath) ->
+				Unixext.mkdir_rec dir 0o700;
+			  Unix.symlink filename newpath) symlinks
+		 ) ; true (* End of event_mutex *)
+		 with _ -> false
+	end
+
+(** create: Create a new message, and write to disk. Returns null ref
+	if write failed, or message ref otherwise. *)
 let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
-  debug "Message.create %s %Ld %s %s" name priority 
-    (class_to_string cls) obj_uuid;
-  
-  (if not (Encodings.UTF8_XML.is_valid body) then raise (Api_errors.Server_error (Api_errors.invalid_value, ["UTF8 expected"])));
-  (if not (check_uuid ~__context ~cls ~uuid:obj_uuid) then raise (Api_errors.Server_error (Api_errors.uuid_invalid, [class_to_string cls; obj_uuid])));
+	debug "Message.create %s %Ld %s %s" name priority
+		(class_to_string cls) obj_uuid;
 
-  let _ref = Ref.make () in
-  let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+	(if not (Encodings.UTF8_XML.is_valid body)
+	 then raise (Api_errors.Server_error
+					 (Api_errors.invalid_value, ["UTF8 expected"]))) ;
+	(if not (check_uuid ~__context ~cls ~uuid:obj_uuid)
+	 then raise (Api_errors.Server_error
+					 (Api_errors.uuid_invalid, [class_to_string cls; obj_uuid]))) ;
 
-  (* Make sure the directory is there *)
-  let local_storage_exists = Helpers.local_storage_exists() in
+	let _ref = Ref.make () in
+	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
 
-  if not local_storage_exists then
-    begin
+	let timestamp = Mutex.execute event_mutex (fun () ->
+		Unix.gettimeofday ()) in
 
-      (* If there's no local storage, emit a create event, but do nothing else. *)
-      (* For consistency, we might want to also emit a del event here too (since *)
-      (* the reference for the message will never be valid again) *)
-      
-      let message = {API.message_name=name;
-		     API.message_uuid=uuid;
-		     API.message_priority=priority;
-		     API.message_cls=cls;
-		     API.message_obj_uuid=obj_uuid;
-		     API.message_timestamp=Date.of_float (Unix.gettimeofday ());
-		     API.message_body=body;}
-      in
-      
-      let xml = API.To.message_t message in
-      Xapi_event.event_add ~snapshot:xml "message" "add" (Ref.string_of _ref);
-      let (_: bool) = (!queue_push) name (message_to_string (_ref,message)) in
-      (*Xapi_event.event_add ~snapshot:xml "message" "del" (Ref.string_of _ref);*)
-
-      (* Return a null reference *)
-      Ref.null	
-    end
-  else
-    begin
-      Unixext.mkdir_safe message_dir 0o700;
-      
-		Mutex.execute event_mutex 
-			(fun () -> 
-      let f,filename,basefilename,timestamp = 
-	let rec doit n =
-	  if n>10 then failwith "Couldn't create a file" else begin
-	    try
-	      let timestamp = Unix.gettimeofday () in
-	      let basefilename = timestamp_to_string timestamp in
-	      let filename = message_dir ^ "/" ^ basefilename in
-	      let f = Unix.openfile filename [Unix.O_RDWR; Unix.O_CREAT; Unix.O_EXCL] 0o600 in
-	      f,filename,basefilename,timestamp
-	    with _ -> doit (n+1)
-	  end
+	let message = {API.message_name=name;
+				   API.message_uuid=uuid;
+				   API.message_priority=priority;
+				   API.message_cls=cls;
+				   API.message_obj_uuid=obj_uuid;
+				   API.message_timestamp=Date.of_float timestamp;
+				   API.message_body=body;}
 	in
-	doit 0
-      in
 
-					let message = {
-						API.message_name=name;
-		     API.message_uuid=uuid;
-		     API.message_priority=priority;
-		     API.message_cls=cls;
-		     API.message_obj_uuid=obj_uuid;
-		     API.message_timestamp=Date.of_float timestamp;
-		     API.message_body=body;}
-      in
+	(* Write the message to disk *)
+	let was_written = write ~_ref ~message in
 
-					Mutex.execute in_memory_cache_mutex (fun () ->
-						in_memory_cache := (timestamp,_ref,message) :: !in_memory_cache;
-						in_memory_cache_length := !in_memory_cache_length + 1;
+	(* Insert a written message into in_memory_cache *)
+	(if was_written then cache_insert _ref message) ;
 
-						if !in_memory_cache_length > 512 then begin
-							in_memory_cache := Listext.List.take 256 !in_memory_cache;
-							in_memory_cache_length := 256;
-							debug "Pruning in-memory cache of messages: Length=%d (%d)" !in_memory_cache_length (List.length !in_memory_cache)
-						end);
+	(* Emit a create event (with the old event API). If the message
+	   hasn't been written, we may want to also emit a del even, for
+	   consistency (since the reference for the message will never be
+	   valid again. *)
+	let xml = API.To.message_t message in
+	Xapi_event.event_add ~snapshot:xml "message" "add" (Ref.string_of _ref);
+	let (_: bool) = (!queue_push) name (message_to_string (_ref,message)) in
+	(*Xapi_event.event_add ~snapshot:xml "message" "del" (Ref.string_of _ref);*)
 
-      let xml = API.To.message_t message in
-      Xapi_event.event_add ~snapshot:xml "message" "add" (Ref.string_of _ref);
-      let (_: bool) = (!queue_push) name (message_to_string (_ref,message)) in 
+	(* Return the message ref, or Ref.null if the message wasn't written *)
+	if was_written then _ref else Ref.null
 
-      let oc = Unix.out_channel_of_descr f in
-      let output = Xmlm.make_output (`Channel oc) in
-      to_xml output _ref message;
-      close_out oc;
-
-      (* Message now written, lets symlink it in various places *)
-      let symlinks = symlinks _ref message basefilename in
-      List.iter (fun (dir,newpath) ->
-	Unixext.mkdir_rec dir 0o700;
-								Unix.symlink filename newpath) symlinks);
-
-      _ref
-    end
       
 let deleted : (Date.iso8601 * API.ref_message) list ref = ref [Date.never, Ref.null]
 let ndeleted = ref 1
