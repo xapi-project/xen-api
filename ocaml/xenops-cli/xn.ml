@@ -261,9 +261,8 @@ let print_vm id =
 		_vm_pci_power_mgmt, if vm_t.pci_power_mgmt then "1" else "0";
 	] in
 
-	let transient = [ "# transient", string_of_bool vm_t.transient ] in
 	String.concat "\n" (List.map (fun (k, v) -> Printf.sprintf "%s=%s" k v)
-		(name @ boot @ vcpus @ memory @ vbds @ vifs @ pcis @ global_pci_opts @ transient))
+		(name @ boot @ vcpus @ memory @ vbds @ vifs @ pcis @ global_pci_opts))
 
 
 let add filename =
@@ -352,7 +351,6 @@ let add filename =
 				on_crash = [ Vm.Shutdown ];
 				on_shutdown = [ Vm.Shutdown ];
 				on_reboot = [ Vm.Start ];
-				transient = false;
 				pci_msitranslate = pci_msitranslate;
 				pci_power_mgmt = pci_power_mgmt;
 			} in

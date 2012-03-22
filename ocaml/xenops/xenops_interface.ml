@@ -163,7 +163,6 @@ module Vm = struct
 		on_crash: action list;
 		on_shutdown: action list;
 		on_reboot: action list;
-		transient: bool;
 		pci_msitranslate: bool;
 		pci_power_mgmt: bool;
 	}

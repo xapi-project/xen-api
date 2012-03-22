@@ -609,6 +609,17 @@ module WorkerPool = struct
 		done
 end
 
+(* Keep track of which VMs we're rebooting so we avoid transient glitches
+   where the power_state becomes Halted *)
+let rebooting_vms = ref []
+let rebooting_vms_m = Mutex.create ()
+let rebooting id f =
+	Mutex.execute rebooting_vms_m (fun () -> rebooting_vms := id :: !rebooting_vms);
+	finally f
+		(fun () -> Mutex.execute rebooting_vms_m (fun () -> rebooting_vms := List.filter (fun x -> x <> id) !rebooting_vms))
+let is_rebooting id =
+	Mutex.execute rebooting_vms_m (fun () -> List.mem id !rebooting_vms)
+
 let export_metadata id =
 	let module B = (val get_backend () : S) in
 	let vm_t = VM_DB.read_exn id in
@@ -688,7 +699,6 @@ let rec atomics_of_operation = function
 			(PCI_DB.pcis id |> pci_plug_order)
 		)
 	| VM_poweroff (id, timeout) ->
-		let vm_t = VM_DB.read_exn id in
 		let reason =
 			if timeout = None
 			then Xenops_hooks.reason__hard_shutdown
@@ -698,7 +708,7 @@ let rec atomics_of_operation = function
 		] @ (atomics_of_operation (VM_shutdown (id, timeout))
 		) @ [
 			VM_hook_script(id, Xenops_hooks.VM_post_destroy, reason)
-		] @ (if vm_t.Vm.transient then [ VM_remove id ] else [])
+		]
 	| VM_reboot (id, timeout) ->
 		let reason =
 			if timeout = None
@@ -937,7 +947,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			VM_DB.signal id			
 		| VM_reboot (id, timeout) ->
 			debug "VM.reboot %s" id;
-			perform_atomics (atomics_of_operation op) t;
+			rebooting id (fun () -> perform_atomics (atomics_of_operation op) t);
 			VM_DB.signal id
 		| VM_shutdown (id, timeout) ->
 			debug "VM.shutdown %s" id;
@@ -1058,8 +1068,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 						debug "VM %s rebooted too quickly; inserting delay" id;
 						[ Atomic (VM_delay (id, 15.)) ]
 					end else [] in
-					let restart = [ VM_shutdown (id, None); VM_start id; Atomic (VM_unpause id) ] in
-					delay @ restart
+					delay @ [ VM_reboot (id, None) ]
 			in
 			let operations = List.concat (List.map operations_of_action actions) in
 			List.iter (fun x -> perform x t) operations;
@@ -1337,6 +1346,8 @@ module VM = struct
 		let module B = (val get_backend () : S) in
 		let vm_t = VM_DB.read_exn x in
 		let state = B.VM.get_state vm_t in
+		(* If we're rebooting the VM then keep the power state running *)
+		let state = if is_rebooting x then { state with Vm.power_state = Running } else state in
 		vm_t, state
 	let stat _ dbg id =
 		Debug.with_thread_associated dbg (fun () -> return (stat' id)) ()

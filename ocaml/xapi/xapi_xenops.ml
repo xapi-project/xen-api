@@ -25,7 +25,7 @@ open Xenops_interface
 
 let xenapi_of_xenops_power_state = function
 	| Some Running -> `Running
-	| Some Halted -> `Running (* reboot transient *)
+	| Some Halted -> `Halted
 	| Some Suspended -> `Suspended
 	| Some Paused -> `Paused
 	| None -> `Halted
@@ -330,7 +330,6 @@ module MD = struct
 			on_crash = on_crash_behaviour vm.API.vM_actions_after_crash;
 			on_shutdown = on_normal_exit_behaviour vm.API.vM_actions_after_shutdown;
 			on_reboot = on_normal_exit_behaviour vm.API.vM_actions_after_reboot;
-			transient = true;
 			pci_msitranslate = pci_msitranslate;
 			pci_power_mgmt = false;
 		}		
@@ -506,6 +505,14 @@ let pull_metadata_from_xenopsd ~__context id =
 			Client.VM.remove dbg id |> success;
 			md)
 
+let delete_metadata_from_xenopsd ~__context id =
+	Mutex.execute metadata_m
+		(fun () ->
+			let dbg = Context.string_of_task __context in
+			info "xenops: VM.remove %s" id;
+			Client.VM.remove dbg id |> success
+		)
+
 let update_metadata_in_xenopsd ~__context ~self =
 	let id = id_of_vm ~__context ~self in
 	Mutex.execute metadata_m
@@ -656,6 +663,8 @@ let update_vm ~__context id =
 							Db.VM.set_ha_always_run ~__context ~self ~value:false;
 							Storage_access.reset ~__context ~vm:self;
 						end;
+						if power_state = `Halted
+						then delete_metadata_from_xenopsd ~__context id;
 						(* This will mark VBDs, VIFs as detached and clear resident_on
 						   if the VM has permenantly shutdown. *)
 						Xapi_vm_lifecycle.force_state_reset ~__context ~self ~value:power_state;
@@ -1027,7 +1036,6 @@ let manage_dom0 dbg =
 			on_crash = [];
 			on_shutdown = [];
 			on_reboot = [];
-			transient = false;
 			pci_msitranslate = true;
 			pci_power_mgmt = false;
 		} |> ignore;
