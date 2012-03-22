@@ -169,7 +169,6 @@ let create_vm id =
 		on_crash = [ Vm.Shutdown ];
 		on_shutdown = [ Vm.Shutdown ];
 		on_reboot = [ Vm.Start ];
-		transient = false;
 		pci_msitranslate = true;
 		pci_power_mgmt = false;
 	}
