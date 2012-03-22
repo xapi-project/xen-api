@@ -362,6 +362,10 @@ let create_metadata ~__context ~self =
 let id_of_vm ~__context ~self = Db.VM.get_uuid ~__context ~self
 let vm_of_id ~__context uuid = Db.VM.get_by_uuid ~__context ~uuid
 
+let vm_exists_in_xenopsd ~__context id =
+	let dbg = Context.string_of_task __context in
+	try Client.VM.stat dbg id |> success |> ignore; true with Exception(Does_not_exist(_, _)) -> false
+
 (* Serialise updates to the xenopsd metadata *)
 let metadata_m = Mutex.create ()
 
@@ -508,8 +512,7 @@ let update_metadata_in_xenopsd ~__context ~self =
 	Mutex.execute metadata_m
 		(fun () ->
 			let dbg = Context.string_of_task __context in
-			let all = Client.VM.list dbg () |> success |> List.map (fun (x, _) -> x.Vm.id) in
-			if List.mem id all
+			if vm_exists_in_xenopsd ~__context id
 			then
 				let txt = create_metadata ~__context ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
 				if Hashtbl.mem metadata_cache id && (Hashtbl.find metadata_cache id = Some txt)
@@ -1000,9 +1003,8 @@ let manage_dom0 ~__context =
 	(* Tell xenopsd to manage domain 0 *)
 	let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
 	let dbg = Context.string_of_task __context in
-	let in_xenopsd = Client.VM.list dbg () |> success |> List.map (fun (vm, _) -> vm.Vm.id) in
 	let open Vm in
-	if not(List.mem uuid in_xenopsd)
+	if not(vm_exists_in_xenopsd ~__context uuid)
 	then begin
 		info "Client.VM.add %s" uuid;
 		Client.VM.add dbg {
@@ -1364,6 +1366,8 @@ let reboot ~__context ~self timeout =
 			let id = id_of_vm ~__context ~self in
 			info "xenops: VM.reboot %s" id;
 			let dbg = Context.string_of_task __context in
+			(* Ensure we have the latest version of the VM metadata before the reboot *)
+			update_metadata_in_xenopsd ~__context ~self;
 			Client.VM.reboot dbg id timeout |> sync_with_task __context;
 			Event.wait dbg ();
 			assert (Db.VM.get_power_state ~__context ~self = `Running)
