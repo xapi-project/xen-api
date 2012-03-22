@@ -117,6 +117,7 @@ with rpc
 let string_of_operation x = x |> rpc_of_operation |> Jsonrpc.to_string
 
 module TASK = struct
+	open Xenops_task
 	let cancel _ id dbg =
 		Mutex.execute m
 			(fun () ->
@@ -134,6 +135,8 @@ module TASK = struct
 				}
 			)
 	let stat _ dbg id = stat' id |> return
+	let destroy _ dbg id = destroy id |> return
+
 end
 
 module VM_DB = struct

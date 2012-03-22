@@ -330,6 +330,7 @@ end
 module TASK = struct
 	external stat: debug_info -> Task.id -> (Task.t option) * (error option) = ""
 	external cancel: debug_info -> Task.id -> (unit option) * (error option) = ""
+	external destroy: debug_info -> Task.id -> (unit option) * (error option) = ""
 end
 
 module HOST = struct

@@ -49,16 +49,22 @@ let usage () =
 
 let dbg = "xn"
 
-let success_task id =
-	let t = Client.TASK.stat dbg id |> success in
-	match t.Task.result with
-	| Task.Completed _ -> t
-	| Task.Failed (Failed_to_contact_remote_service x) ->
-		Printf.printf "Failed to contact remote service on: %s\n" x;
-		Printf.printf "Check the address and credentials.\n";
-		exit 1;
-	| Task.Failed x -> failwith (Jsonrpc.to_string (rpc_of_error x))
-	| Task.Pending _ -> failwith "task pending"
+(* Grabs the result from a task and destroys it *)
+let success_task f id =
+	finally
+		(fun () ->
+			let t = Client.TASK.stat dbg id |> success in
+			match t.Task.result with
+				| Task.Completed _ -> f t
+				| Task.Failed (Failed_to_contact_remote_service x) ->
+					Printf.printf "Failed to contact remote service on: %s\n" x;
+					Printf.printf "Check the address and credentials.\n";
+					exit 1;
+				| Task.Failed x -> failwith (Jsonrpc.to_string (rpc_of_error x))
+				| Task.Pending _ -> failwith "task pending"
+		) (fun () ->
+			Client.TASK.destroy dbg id |> success
+		)
 
 let parse_source x = match List.filter (fun x -> x <> "") (String.split ':' x) with
 	| [ "phy"; path ] -> Some (Local path)
@@ -441,7 +447,7 @@ let export_metadata_xm x filename =
 let delay x t =
 	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.delay dbg vm.id t |> success |> wait_for_task dbg |> success_task |> ignore_task
+	Client.VM.delay dbg vm.id t |> success |> wait_for_task dbg |> success_task ignore_task
 
 let import_metadata filename =
 	let txt = Unixext.string_of_file filename in
@@ -451,44 +457,44 @@ let import_metadata filename =
 let start x paused =
 	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.start dbg vm.id |> success |> wait_for_task dbg |> success_task |> ignore_task;
+	Client.VM.start dbg vm.id |> success |> wait_for_task dbg |> success_task ignore_task;
 	if not paused
-	then Client.VM.unpause dbg vm.id |> success |> wait_for_task dbg |> success_task |> ignore_task
+	then Client.VM.unpause dbg vm.id |> success |> wait_for_task dbg |> success_task ignore_task
 
 let shutdown x timeout =
 	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.shutdown dbg vm.id timeout |> success |> wait_for_task dbg |> success_task
+	Client.VM.shutdown dbg vm.id timeout |> success |> wait_for_task dbg
 
 let pause x =
 	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.pause dbg vm.id |> success |> wait_for_task dbg |> success_task
+	Client.VM.pause dbg vm.id |> success |> wait_for_task dbg
 
 let unpause x =
 	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.unpause dbg vm.id |> success |> wait_for_task dbg |> success_task
+	Client.VM.unpause dbg vm.id |> success |> wait_for_task dbg
 
 let reboot x timeout =
 	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.reboot dbg vm.id timeout |> success |> wait_for_task dbg |> success_task
+	Client.VM.reboot dbg vm.id timeout |> success |> wait_for_task dbg
 
 let suspend x disk =
 	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.suspend dbg vm.id (Local disk) |> success |> wait_for_task dbg |> success_task
+	Client.VM.suspend dbg vm.id (Local disk) |> success |> wait_for_task dbg
 
 let resume x disk =
 	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.resume dbg vm.id (Local disk) |> success |> wait_for_task dbg |> success_task
+	Client.VM.resume dbg vm.id (Local disk) |> success |> wait_for_task dbg
 
 let migrate x url =
 	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.migrate dbg vm.id url |> success |> wait_for_task dbg |> success_task
+	Client.VM.migrate dbg vm.id url |> success |> wait_for_task dbg
 
 let trim limit str =
 	let l = String.length str in
@@ -584,12 +590,12 @@ let find_vbd id =
 
 let cd_eject id =
 	let vbd, _ = find_vbd id in
-	Client.VBD.eject dbg vbd.Vbd.id |> success |> wait_for_task dbg |> success_task
+	Client.VBD.eject dbg vbd.Vbd.id |> success |> wait_for_task dbg
 
 let cd_insert id disk =
 	let vbd, _ = find_vbd id in
 	let backend = parse_source disk |> Opt.unbox in
-	Client.VBD.insert dbg vbd.Vbd.id backend |> success |> wait_for_task dbg |> success_task
+	Client.VBD.insert dbg vbd.Vbd.id backend |> success |> wait_for_task dbg
 
 let rec events_watch from =
 	let events, next = Client.UPDATES.get dbg from None |> success in
@@ -654,7 +660,7 @@ let _ =
 	let args = Sys.argv |> Array.to_list |> List.tl in
 	let verbose = List.mem "-v" args in
 	let args = List.filter (fun x -> x <> "-v") args in
-	let task = if verbose then verbose_task else ignore_task in
+	let task = success_task (if verbose then verbose_task else ignore_task) in
 	match args with
 		| [ "help" ] | [] ->
 			usage ();

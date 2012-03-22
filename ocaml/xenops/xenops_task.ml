@@ -87,3 +87,12 @@ let with_subtask t name f =
 	with e ->
 		t.subtasks <- (name, Task.Failed (Internal_error (Printexc.to_string e))) :: t.subtasks;
 		raise e
+
+let list_locked () = SMap.bindings !tasks |> List.map snd
+
+(* Remove the task from the id -> task mapping. NB any active thread will still continue. *)
+let destroy id =
+	Mutex.execute m
+		(fun () ->
+			tasks := SMap.remove id !tasks
+		)
