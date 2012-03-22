@@ -11,12 +11,17 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+open Listext
+
+(** {2 Helper functions} *)
 
 module Unix = struct
 	include Unix
 	let inet_addr_of_rpc rpc = Unix.inet_addr_of_string (Rpc.string_of_rpc rpc)
 	let rpc_of_inet_addr inet = Rpc.rpc_of_string (Unix.string_of_inet_addr inet)
 end
+
+(** {2 Types} *)
 
 type iface = string
 type port = string
@@ -36,6 +41,86 @@ let duplex_of_string = function
 	| "full"    -> Duplex_full
 	| "half"    -> Duplex_half
 	| _         -> Duplex_unknown
+
+type interface_config_t = {
+	ipv4_conf: ipv4;
+	ipv4_gateway: Unix.inet_addr option;
+	ipv6_conf: ipv6;
+	ipv6_gateway: Unix.inet_addr option;
+	ipv4_routes: (Unix.inet_addr * int * Unix.inet_addr) list;
+	dns: Unix.inet_addr list * string list;
+	mtu: int;
+	ethtool_settings: (string * string) list;
+	ethtool_offload: (string * string) list;
+	persistent_i: bool;
+}
+type port_config_t = {
+	interfaces: iface list;
+	bond_properties: (string * string) list;
+	mac: string;
+}
+type bridge_config_t = {
+	ports: (port * port_config_t) list;
+	vlan: (bridge * int) option;
+	bridge_mac: string option;
+	other_config: (string * string) list;
+	persistent_b: bool;
+}
+type config_t = {
+	interface_config: (iface * interface_config_t) list;
+	bridge_config: (bridge * bridge_config_t) list;
+	gateway_interface: iface option;
+	dns_interface: iface option;
+}
+
+(** {2 Default configuration} *)
+
+let default_interface = {
+	ipv4_conf = None4;
+	ipv4_gateway = None;
+	ipv6_conf = None6;
+	ipv6_gateway = None;
+	ipv4_routes = [];
+	dns = [], [];
+	mtu = 1500;
+	ethtool_settings = [];
+	ethtool_offload = ["gro", "off"; "lro", "off"];
+	persistent_i = false;
+}
+let default_bridge = {
+	ports = [];
+	vlan = None;
+	bridge_mac = None;
+	other_config = [];
+	persistent_b = false;
+}
+let default_port = {
+	interfaces = [];
+	bond_properties = [];
+	mac = "";
+}
+
+(** {2 Configuration manipulation} *)
+
+let get_config config default name =
+	if List.mem_assoc name config = false then
+		default
+	else
+		List.assoc name config
+
+let remove_config config name =
+	if List.mem_assoc name config then
+		List.remove_assoc name config
+	else
+		config
+
+let update_config config name data =
+	if List.mem_assoc name config then begin
+		List.replace_assoc name data config
+	end else
+		(name, data) :: config
+
+(** {2 API functions} *)
 
 external reopen_logs: unit -> bool = ""
 external reset_state: unit -> unit = ""
