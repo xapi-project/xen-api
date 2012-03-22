@@ -35,37 +35,6 @@ let netmask_to_prefixlen netmask =
 
 type context = unit
 
-type interface_config_t = {
-	ipv4_conf: ipv4;
-	ipv4_gateway: Unix.inet_addr option;
-	ipv6_conf: ipv6;
-	ipv6_gateway: Unix.inet_addr option;
-	ipv4_routes: (Unix.inet_addr * int * Unix.inet_addr) list;
-	dns: Unix.inet_addr list * string list;
-	mtu: int;
-	ethtool_settings: (string * string) list;
-	ethtool_offload: (string * string) list;
-	persistent_i: bool;
-}
-and port_config_t = {
-	interfaces: iface list;
-	bond_properties: (string * string) list;
-	mac: string;
-}
-and bridge_config_t = {
-	ports: (port * port_config_t) list;
-	vlan: (bridge * int) option;
-	bridge_mac: string option;
-	other_config: (string * string) list;
-	persistent_b: bool;
-}
-and config_t = {
-	interface_config: (iface * interface_config_t) list;
-	bridge_config: (bridge * bridge_config_t) list;
-	gateway_interface: iface option;
-	dns_interface: iface option;
-} with rpc
-
 let empty_config = {interface_config = []; bridge_config = []; gateway_interface = None; dns_interface = None}
 let config : config_t ref = ref empty_config
 
@@ -142,24 +111,6 @@ let read_config () =
 		with _ ->
 			debug "Could not interpret the configuration in management.conf"
 
-let get_config config default name =
-	if List.mem_assoc name config = false then
-		default
-	else
-		List.assoc name config
-
-let remove_config config name =
-	if List.mem_assoc name config then
-		List.remove_assoc name config
-	else
-		config
-
-let update_config config name data =
-	if List.mem_assoc name config then begin
-		List.replace_assoc name data config
-	end else
-		(name, data) :: config
-
 let on_shutdown signal =
 	debug "xcp-networkd caught signal %d; performing cleanup actions." signal;
 	write_config ();
@@ -180,21 +131,8 @@ let reset_state _ () =
 	config := read_management_conf ()
 
 module Interface = struct
-	let default = {
-		ipv4_conf = None4;
-		ipv4_gateway = None;
-		ipv6_conf = None6;
-		ipv6_gateway = None;
-		ipv4_routes = [];
-		dns = [], [];
-		mtu = 1500;
-		ethtool_settings = [];
-		ethtool_offload = ["gro", "off"; "lro", "off"];
-		persistent_i = false;
-	}
-
 	let get_config name =
-		get_config !config.interface_config default name
+		get_config !config.interface_config default_interface name
 
 	let update_config name data =
 		config := {!config with interface_config = update_config !config.interface_config name data}
@@ -368,7 +306,7 @@ module Interface = struct
 	let set_ethtool_settings _ ~name ~params =
 		debug "Configuring ethtool settings for %s: %s" name
 			(String.concat ", " (List.map (fun (k, v) -> k ^ "=" ^ v) params));
-		let add_defaults = List.filter (fun (k, v) -> not (List.mem_assoc k params)) default.ethtool_settings in
+		let add_defaults = List.filter (fun (k, v) -> not (List.mem_assoc k params)) default_interface.ethtool_settings in
 		let params = params @ add_defaults in
 		update_config name {(get_config name) with ethtool_settings = params};
 		Ethtool.set_options name params
@@ -376,7 +314,7 @@ module Interface = struct
 	let set_ethtool_offload _ ~name ~params =
 		debug "Configuring ethtool offload settings for %s: %s" name
 			(String.concat ", " (List.map (fun (k, v) -> k ^ "=" ^ v) params));
-		let add_defaults = List.filter (fun (k, v) -> not (List.mem_assoc k params)) default.ethtool_offload in
+		let add_defaults = List.filter (fun (k, v) -> not (List.mem_assoc k params)) default_interface.ethtool_offload in
 		let params = params @ add_defaults in
 		update_config name {(get_config name) with ethtool_offload = params};
 		Ethtool.set_offload name params
@@ -428,18 +366,6 @@ module Interface = struct
 end
 
 module Bridge = struct
-	let default_bridge = {
-		ports = [];
-		vlan = None;
-		bridge_mac = None;
-		other_config = [];
-		persistent_b = false;
-	}
-	let default_port = {
-		interfaces = [];
-		bond_properties = [];
-		mac = "";
-	}
 	let kind = ref Openvswitch
 	let add_default = ref []
 
