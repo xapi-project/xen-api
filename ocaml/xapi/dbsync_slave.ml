@@ -274,9 +274,9 @@ let update_env __context sync_keys =
     Xapi_host_crashdump.resynchronise ~__context ~host:localhost;
   );
 
-  switched_sync Xapi_globs.sync_update_vms (fun () -> 
-    debug "updating VM states";
-    Xapi_xenops.initial_vm_resync ~__context;
+  switched_sync Xapi_globs.sync_update_xenopsd (fun () ->
+    debug "synchronising with xenopsd";
+    Xapi_xenops.on_xapi_restart ~__context;
   );
 
   switched_sync Xapi_globs.sync_pbds (fun () ->
