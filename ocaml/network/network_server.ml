@@ -199,6 +199,9 @@ module Interface = struct
 	let get_all _ () =
 		Sysfs.list ()
 
+	let exists _ ~name =
+		List.mem name (Sysfs.list ())
+
 	let get_mac _ ~name =
 		Ip.get_mac name
 
@@ -575,6 +578,30 @@ module Bridge = struct
 		| Openvswitch -> Ovs.bridge_to_ports name
 		| Bridge -> []
 
+	let get_all_ports _ ?(from_cache=false) () =
+		if from_cache then
+			let ports = List.concat (List.map (fun (_, {ports}) -> ports) !config.bridge_config) in
+			List.map (fun (port, {interfaces}) -> port, interfaces) ports
+		else
+			match !kind with
+			| Openvswitch -> List.concat (List.map Ovs.bridge_to_ports (Ovs.list_bridges ()))
+			| Bridge -> []
+
+	let get_bonds _ ~name =
+		match !kind with
+		| Openvswitch -> Ovs.bridge_to_ports name
+		| Bridge -> []
+
+	let get_all_bonds _ ?(from_cache=false) () =
+		if from_cache then
+			let ports = List.concat (List.map (fun (_, {ports}) -> ports) !config.bridge_config) in
+			let names = List.map (fun (port, {interfaces}) -> port, interfaces) ports in
+			List.filter (fun (_, ifs) -> List.length ifs > 1) names
+		else
+			match !kind with
+			| Openvswitch -> List.concat (List.map Ovs.bridge_to_ports (Ovs.list_bridges ()))
+			| Bridge -> []
+
 	let get_vlan _ ~name =
 		match !kind with
 		| Openvswitch -> Some (Ovs.bridge_to_vlan name)
@@ -605,8 +632,7 @@ module Bridge = struct
 				ignore (Ovs.create_port (List.hd interfaces) bridge)
 			end else begin
 				ignore (Ovs.create_bond name interfaces bridge mac);
-				List.iter (fun name -> Interface.bring_up () ~name) interfaces;
-				Interface.bring_up () ~name
+				List.iter (fun name -> Interface.bring_up () ~name) interfaces
 			end;
 			if List.mem bridge !add_default then begin
 				add_default_flows () bridge mac interfaces;
@@ -641,7 +667,11 @@ module Bridge = struct
 			ignore (Brctl.destroy_port bridge name)
 
 	let get_interfaces _ ~name =
-		["eth0"]
+		match !kind with
+		| Openvswitch ->
+			Ovs.bridge_to_interfaces name
+		| Bridge ->
+			Sysfs.bridge_to_interfaces name
 
 	let get_bond_properties _ ~bridge ~name =
 		[]

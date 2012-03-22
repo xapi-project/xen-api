@@ -46,6 +46,8 @@ open Rrd_shared
 module D=Debug.Debugger(struct let name="monitor" end)
 open D
 
+module Net = (val (Network.get_client ()) : Network.CLIENT)
+
 let timeslice = ref 5
 
 (** Cache memory/target values *)
@@ -239,6 +241,21 @@ let update_netdev doms =
 
 	Unixext.readfile_line f "/proc/net/dev";
 
+	let make_bond_info (name, interfaces) =
+		let devs = List.filter (fun (name', _) -> List.mem name' interfaces) !devs in
+		let eth_stat = {
+			rx_bytes = List.fold_left (fun ac (_, stat) -> Int64.add ac stat.rx_bytes) 0L devs;
+			rx_pkts = List.fold_left (fun ac (_, stat) -> Int64.add ac stat.rx_pkts) 0L devs;
+			rx_errors = List.fold_left (fun ac (_, stat) -> Int64.add ac stat.rx_errors) 0L devs;
+			tx_bytes = List.fold_left (fun ac (_, stat) -> Int64.add ac stat.tx_bytes) 0L devs;
+			tx_pkts = List.fold_left (fun ac (_, stat) -> Int64.add ac stat.tx_pkts) 0L devs;
+			tx_errors = List.fold_left (fun ac (_, stat) -> Int64.add ac stat.tx_errors) 0L devs;
+		} in
+		name, eth_stat
+	in
+	let bonds : (string * string list) list = Net.Bridge.get_all_bonds ~from_cache:true () in
+	devs := (List.map make_bond_info bonds) @ !devs;
+
 	let transform_taps () =
 		let newdevnames = List.setify (List.map fst !devs) in
 		let newdevs = List.map (fun name ->
@@ -288,13 +305,42 @@ let update_netdev doms =
 
 	List.fold_left (fun (dss,pifs) (dev,stat) ->
 		if not (String.startswith "vif" dev) then (
-			let vendor_id, device_id = Netdev.get_ids dev in
-			let speed, duplex = try Netdev.Link.get_status dev
-				with _ -> Netdev.Link.speed_unknown,
-					Netdev.Link.Duplex_unknown in
-			let pif_name="pif_"^dev in
-			let carrier = (try Netdev.get_carrier dev with _ -> false) in
-			let buspath = Netdev.get_pcibuspath dev in
+			let devs =
+				if List.mem_assoc dev bonds then
+					List.assoc dev bonds
+				else
+					[dev]
+			in
+			let vendor_id, device_id = if List.length devs = 1 then Netdev.get_ids dev else "", "" in
+			let speed, duplex =
+				let int_of_duplex = function
+					| Netdev.Link.Duplex_half -> 1
+					| Netdev.Link.Duplex_full -> 2
+					| Netdev.Link.Duplex_unknown -> 0
+				in
+				let duplex_of_int = function
+					| 1 -> Netdev.Link.Duplex_half
+					| 2 -> Netdev.Link.Duplex_full
+					| _ -> Netdev.Link.Duplex_unknown
+				in
+				let statuses = List.map (fun dev ->
+					let speed, duplex =
+						try
+							Netdev.Link.get_status dev
+						with _ ->
+							Netdev.Link.speed_unknown,
+							Netdev.Link.Duplex_unknown
+					in
+					Netdev.Link.int_of_speed speed, int_of_duplex duplex
+				) devs in
+				let speed, duplex =
+					List.fold_left (fun (speed, duplex) (speed', duplex') -> (speed + speed'), (min duplex duplex')) (0, 2) statuses
+				in
+				Netdev.Link.speed_of_int speed, duplex_of_int duplex
+			in
+			let pif_name = "pif_" ^ dev in
+			let carrier = List.fold_left (fun ac dev -> ac || (Net.Interface.is_connected ~name:dev)) false devs in
+			let buspath = if List.length devs = 1 then Netdev.get_pcibuspath dev else "" in
 			let pif = {
 				pif_name=dev;
 				pif_tx= -1.0;

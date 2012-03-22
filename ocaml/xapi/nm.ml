@@ -268,7 +268,8 @@ let rec create_bridges ~__context pif_rc net_rc =
 		create_vlan ~__context vlan
 	| `bond_pif bond ->
 		create_bond ~__context bond mtu;
-		Net.Interface.set_mtu ~name:pif_rc.API.pIF_device ~mtu;
+		if Net.Interface.exists ~name:pif_rc.API.pIF_device then
+			Net.Interface.set_mtu ~name:pif_rc.API.pIF_device ~mtu
 	| `phy_pif  ->
 		if pif_rc.API.pIF_bond_slave_of <> Ref.null then
 			destroy_bond ~__context ~force:true pif_rc.API.pIF_bond_slave_of;
