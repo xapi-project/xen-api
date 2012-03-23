@@ -128,7 +128,7 @@ module TASK = struct
 		result = x.result;
 		subtasks = x.subtasks;
 	}
-	let cancel _ id dbg =
+	let cancel _ dbg id =
 		Xenops_task.cancel id |> return
 	let stat' id =
 		Mutex.execute m
