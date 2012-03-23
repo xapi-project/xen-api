@@ -39,9 +39,16 @@ exception IFailure of import_failure
 open Xapi_vm_memory_constraints
 open Vm_memory_constraints
 
+type metadata_options = {
+	(* If true, don't create any database objects. *)
+	dry_run: bool;
+	(* If true, check that the VM can run on this host. *)
+	live: bool;
+}
+
 type import_type =
 	(* Import the metadata of a VM whose disks already exist. *)
-	| Metadata_import
+	| Metadata_import of metadata_options
 	(* Import a VM and stream its disks into the specified SR. *)
 	| Full_import of API.ref_SR
 
@@ -357,7 +364,7 @@ let handle_gm __context config rpc session_id (state: state) (x: obj) : unit =
 let handle_sr __context config rpc session_id (state: state) (x: obj) : unit =
 	let sr_record = API.From.sR_t "" x.snapshot in
 	match config.import_type with
-	| Metadata_import -> begin
+	| Metadata_import _ -> begin
 		(* Look up the existing SR record *)
 		try
 			let sr = Client.SR.get_by_uuid rpc session_id sr_record.API.sR_uuid in
@@ -407,7 +414,7 @@ let handle_vdi __context config rpc session_id (state: state) (x: obj) : unit =
 			warn "Found no ISO VDI with location = %s; attempting to eject" vdi_record.API.vDI_location
 	end else begin
 		match config.import_type with
-		| Metadata_import -> begin
+		| Metadata_import _ -> begin
 			(* PR-1255 need a content_id everywhere *)
 			let content_id =
 				if List.mem_assoc "content_id" vdi_record.API.vDI_other_config
@@ -470,7 +477,7 @@ let handle_net __context config rpc session_id (state: state) (x: obj) : unit =
 	let possibilities = Client.Network.get_by_name_label rpc session_id net_record.API.network_name_label in
 	let net =
 		match possibilities, config.import_type with
-		| [], Metadata_import ->
+		| [], Metadata_import _ ->
 			begin
 				(* Lookup by bridge name as fallback *)
 				let expr = "field \"bridge\"=\"" ^ net_record.API.network_bridge ^ "\"" in
@@ -521,7 +528,7 @@ let handle_gpu_group __context config rpc session_id (state: state) (x: obj) : u
 			group
 		with Not_found ->
 			match config.import_type with
-			| Metadata_import ->
+			| Metadata_import _ ->
 				(* In vm_metadata_only mode the GPU group must exist *)
 				let msg =
 					Printf.sprintf "Unable to find GPU group with matching GPU_types = '[%s]'"
@@ -832,17 +839,26 @@ let complete_import ~__context vmrefs =
 			TaskHelper.set_result ~__context [(API.To.ref_VM_set vmrefs)]
 	with e -> error "Caught exception completing import: %s" (ExnHelper.string_of_exn e); raise e
 
+let find_query_flag query key =
+	List.mem_assoc key query && (List.assoc key query = "true")
+
 (** Import metadata only *)
 let metadata_handler (req: Request.t) s _ =
 	debug "metadata_handler called";
 	Xapi_http.with_context "VM.metadata_import" req s
 		(fun __context -> Helpers.call_api_functions ~__context (fun rpc session_id ->
-			let full_restore =
-				List.mem_assoc "restore" req.Request.query && (List.assoc "restore" req.Request.query = "true") in
-			let force =
-				List.mem_assoc "force" req.Request.query && (List.assoc "force" req.Request.query = "true") in
-			info "VM.import_metadata: force = %b; full_restore = %b" force full_restore;
-			let config = { import_type = Metadata_import; full_restore = full_restore; force = force } in
+			let full_restore = find_query_flag req.Request.query "restore" in
+			let force = find_query_flag req.Request.query "force" in
+			let dry_run = find_query_flag req.Request.query "dry_run" in
+			let live = find_query_flag req.Request.query "live" in
+			info "VM.import_metadata: force = %b; full_restore = %b dry_run = %b; live = %b"
+				force full_restore dry_run live;
+			let metadata_options = {dry_run = dry_run; live = live} in
+			let config = {
+				import_type = Metadata_import metadata_options;
+				full_restore = full_restore;
+				force = force
+			} in
 			let headers = Http.http_200_ok ~keep_alive:false () @
 				[ Http.Hdr.task_id ^ ":" ^ (Ref.string_of (Context.get_task_id __context));
 				content_type ] in
@@ -887,10 +903,8 @@ let handler (req: Request.t) s _ =
 
 	debug "import handler";
 
-	let full_restore =
-		List.mem_assoc "restore" req.Request.query && (List.assoc "restore" req.Request.query = "true") in
-	let force =
-		List.mem_assoc "force" req.Request.query && (List.assoc "force" req.Request.query = "true") in
+	let full_restore = find_query_flag req.Request.query "restore" in
+	let force = find_query_flag req.Request.query "force" in
 
 	let all = req.Request.cookie @ req.Request.query in
 	let subtask_of =
