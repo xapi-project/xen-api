@@ -143,6 +143,35 @@ let assert_can_restore_backup rpc session_id (x: header) =
 		| None -> ())
 		(List.map get_mac_seed all_vms)
 
+(* The signature for a set of functions which we must provide to be able to import an object type. *)
+module type HandlerTools = sig
+	(* A type which represents how we should deal with the import of an object. *)
+	type precheck_t
+	(* Compare the state of the database with the metadata to be imported. *)
+	(* Returns a result which signals what we should do to import the metadata. *)
+	val precheck: Context.t -> config -> (XMLRPC.xmlrpc -> XMLRPC.xmlrpc) -> API.ref_session -> state -> obj -> precheck_t
+	(* Handle the result of the precheck function, but don't create any database objects. *)
+	(* Add objects to the state table if necessary, to keep track of what would have been imported.*)
+	val handle_dry_run: Context.t -> config -> (XMLRPC.xmlrpc -> XMLRPC.xmlrpc) -> API.ref_session -> state -> obj -> precheck_t -> unit
+	(* Handle the result of the check function, creating database objects if necessary. *)
+	(* For certain combinations of result and object type, this can be aliased to handle_dry_run. *)
+	val handle: Context.t -> config -> (XMLRPC.xmlrpc -> XMLRPC.xmlrpc) -> API.ref_session -> state -> obj -> precheck_t -> unit
+end
+
+(* Make a handler for a set of handler functions. *)
+module MakeHandler = functor (M: HandlerTools) -> struct
+	let handle __context config rpc session_id state obj =
+		let dry_run = match config.import_type with
+		| Metadata_import {dry_run = true; _} -> true
+		| _ -> false
+		in
+		let precheck_result = M.precheck __context config rpc session_id state obj in
+		if dry_run then
+			M.handle_dry_run __context config rpc session_id state obj precheck_result
+		else
+			M.handle __context config rpc session_id state obj precheck_result
+end
+
 (** Find the host with the same uuid as the one recorded in the snapshot *)
 let handle_host __context config rpc session_id (state: state) (x: obj) : unit =
 	let host_record = API.From.host_t "" x.snapshot in
