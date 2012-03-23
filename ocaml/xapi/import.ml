@@ -39,18 +39,21 @@ exception IFailure of import_failure
 open Xapi_vm_memory_constraints
 open Vm_memory_constraints
 
+type import_type =
+	(* Import the metadata of a VM whose disks already exist. *)
+	| Metadata_import
+	(* Import a VM and stream its disks into the specified SR. *)
+	| Full_import of API.ref_SR
+
 (** Allows the import to be customised *)
 type config =
 	{
-		(* SR into which to import the VDIs *)
-		sr: API.ref_SR;
+		(* Determines how to handle the import - see above. *)
+		import_type: import_type;
 		(* true if we want to restore as a perfect backup. Currently we preserve the
 		   interface MAC addresses but we still regenerate UUIDs (because we lack the
 		   internal APIs to keep them *)
 		full_restore: bool;
-		(* true if we are restoring VM metadata only; this assumes the VDIs already
-		   exist and just need referencing *)
-		vm_metadata_only: bool;
 		(* true if the user has provided '--force' *)
 		force: bool;
 	}
@@ -353,7 +356,8 @@ let handle_gm __context config rpc session_id (state: state) (x: obj) : unit =
     the SR then we will still try to match VDIs later (except CDROMs) *)
 let handle_sr __context config rpc session_id (state: state) (x: obj) : unit =
 	let sr_record = API.From.sR_t "" x.snapshot in
-	if config.vm_metadata_only then begin
+	match config.import_type with
+	| Metadata_import -> begin
 		(* Look up the existing SR record *)
 		try
 			let sr = Client.SR.get_by_uuid rpc session_id sr_record.API.sR_uuid in
@@ -365,10 +369,11 @@ let handle_sr __context config rpc session_id (state: state) (x: obj) : unit =
 			in
 			warn "Failed to find SR with UUID: %s content-type: %s %s"
 				sr_record.API.sR_uuid sr_record.API.sR_content_type msg;
-	end else begin
+	end
+	| Full_import sr -> begin
 		if sr_record.API.sR_content_type = "iso"
 		then () (* this one will be ejected *)
-		else state.table <- (x.cls, x.id, Ref.string_of config.sr) :: state.table
+		else state.table <- (x.cls, x.id, Ref.string_of sr) :: state.table
 	end
 
 let choose_one = function
@@ -401,7 +406,8 @@ let handle_vdi __context config rpc session_id (state: state) (x: obj) : unit =
 		| None ->
 			warn "Found no ISO VDI with location = %s; attempting to eject" vdi_record.API.vDI_location
 	end else begin
-		if config.vm_metadata_only then begin
+		match config.import_type with
+		| Metadata_import -> begin
 			(* PR-1255 need a content_id everywhere *)
 			let content_id =
 				if List.mem_assoc "content_id" vdi_record.API.vDI_other_config
@@ -440,17 +446,18 @@ let handle_vdi __context config rpc session_id (state: state) (x: obj) : unit =
 							raise (Api_errors.Server_error(Api_errors.vdi_location_missing, [ Ref.string_of sr; vdi_record.API.vDI_location ]))
 						else raise (Api_errors.Server_error(Api_errors.vdi_content_id_missing, [ content_id ]))
 					end
-			end else begin
-				(* Make a new VDI for streaming data into; adding task-id to sm-config on VDI.create so SM backend can see this is an import *)
-				let sr = lookup vdi_record.API.vDI_SR state.table in
-				let task_id = Ref.string_of (Context.get_task_id __context) in
-				let sm_config = List.filter (fun (k,_)->k<>Xapi_globs.import_task) vdi_record.API.vDI_sm_config in
-				let sm_config = (Xapi_globs.import_task, task_id)::sm_config in
-				let vdi = Client.VDI.create_from_record rpc session_id { vdi_record with API.vDI_SR = sr; API.vDI_sm_config = sm_config } in
-				state.cleanup <- (fun __context rpc session_id -> Client.VDI.destroy rpc session_id vdi) :: state.cleanup;
-				state.table <- (x.cls, x.id, Ref.string_of vdi) :: state.table
-			end
 		end
+		| Full_import _ -> begin
+			(* Make a new VDI for streaming data into; adding task-id to sm-config on VDI.create so SM backend can see this is an import *)
+			let sr = lookup vdi_record.API.vDI_SR state.table in
+			let task_id = Ref.string_of (Context.get_task_id __context) in
+			let sm_config = List.filter (fun (k,_)->k<>Xapi_globs.import_task) vdi_record.API.vDI_sm_config in
+			let sm_config = (Xapi_globs.import_task, task_id)::sm_config in
+			let vdi = Client.VDI.create_from_record rpc session_id { vdi_record with API.vDI_SR = sr; API.vDI_sm_config = sm_config } in
+			state.cleanup <- (fun __context rpc session_id -> Client.VDI.destroy rpc session_id vdi) :: state.cleanup;
+			state.table <- (x.cls, x.id, Ref.string_of vdi) :: state.table
+		end
+	end
 
 
 (** Lookup the network by name_label only. Previously we used UUID which worked if importing
@@ -462,8 +469,8 @@ let handle_net __context config rpc session_id (state: state) (x: obj) : unit =
 	let net_record = API.From.network_t "" x.snapshot in
 	let possibilities = Client.Network.get_by_name_label rpc session_id net_record.API.network_name_label in
 	let net =
-		match possibilities, config.vm_metadata_only with
-		| [], true ->
+		match possibilities, config.import_type with
+		| [], Metadata_import ->
 			begin
 				(* Lookup by bridge name as fallback *)
 				let expr = "field \"bridge\"=\"" ^ net_record.API.network_bridge ^ "\"" in
@@ -479,7 +486,7 @@ let handle_net __context config rpc session_id (state: state) (x: obj) : unit =
 					raise (Failure msg)
 				| (net, _) :: _ -> net
 			end
-		| [], false ->
+		| [], Full_import _ ->
 			(* In normal mode we attempt to create any networks which are missing *)
 			let net =
 				log_reraise ("failed to create Network with name_label " ^ net_record.API.network_name_label)
@@ -513,7 +520,8 @@ let handle_gpu_group __context config rpc session_id (state: state) (x: obj) : u
 			in
 			group
 		with Not_found ->
-			if config.vm_metadata_only then
+			match config.import_type with
+			| Metadata_import ->
 				(* In vm_metadata_only mode the GPU group must exist *)
 				let msg =
 					Printf.sprintf "Unable to find GPU group with matching GPU_types = '[%s]'"
@@ -521,7 +529,7 @@ let handle_gpu_group __context config rpc session_id (state: state) (x: obj) : u
 				in
 				error "%s" msg;
 				raise (Failure msg)
-			else
+			| Full_import _ ->
 				(* In normal mode we attempt to create any missing GPU groups *)
 				let group = log_reraise ("Unable to create GPU group with GPU_types = '[%s]'" ^
 					(String.concat "," gpu_group_record.API.gPU_group_GPU_types)) (fun value ->
@@ -834,7 +842,7 @@ let metadata_handler (req: Request.t) s _ =
 			let force =
 				List.mem_assoc "force" req.Request.query && (List.assoc "force" req.Request.query = "true") in
 			info "VM.import_metadata: force = %b; full_restore = %b" force full_restore;
-			let config = { sr = Ref.null; full_restore = full_restore; vm_metadata_only = true; force = force } in
+			let config = { import_type = Metadata_import; full_restore = full_restore; force = force } in
 			let headers = Http.http_200_ok ~keep_alive:false () @
 				[ Http.Hdr.task_id ^ ":" ^ (Ref.string_of (Context.get_task_id __context));
 				content_type ] in
@@ -953,7 +961,7 @@ let handler (req: Request.t) s _ =
 								in
 
 								debug "Importing %s" (if full_restore then "(as 'restore')" else "(as new VM)");
-								let config = { sr = sr; full_restore = full_restore; vm_metadata_only = false; force = force } in
+								let config = { import_type = Full_import sr; full_restore = full_restore; force = force } in
 
 								match req.Request.transfer_encoding, req.Request.content_length with
 								| Some x, _ ->
