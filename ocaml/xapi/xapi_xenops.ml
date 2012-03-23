@@ -942,26 +942,36 @@ let update_pci ~__context id =
 		error "xenopsd event: Caught %s while updating PCI" (Printexc.to_string e)
 
 let id_to_task_tbl = Hashtbl.create 10
-let id_to_task_tbl_m = Mutex.create ()
+let task_to_id_tbl = Hashtbl.create 10
+let task_tbl_m = Mutex.create ()
 
 let id_to_task_exn id =
-	Mutex.execute id_to_task_tbl_m
+	Mutex.execute task_tbl_m
 		(fun () ->
 			Hashtbl.find id_to_task_tbl id
 		)
 
+let task_to_id_exn task =
+	Mutex.execute task_tbl_m
+		(fun () ->
+			Hashtbl.find task_to_id_tbl task
+		)
+
 let register_task __context id =
 	let task = Context.get_task_id __context in
-	Mutex.execute id_to_task_tbl_m
+	Mutex.execute task_tbl_m
 		(fun () ->
-			Hashtbl.replace id_to_task_tbl id task
+			Hashtbl.replace id_to_task_tbl id task;
+			Hashtbl.replace task_to_id_tbl task id;
 		);
 	id
 
 let unregister_task id =
-	Mutex.execute id_to_task_tbl_m
+	Mutex.execute task_tbl_m
 		(fun () ->
-			Hashtbl.remove id_to_task_tbl id
+			let task = Hashtbl.find id_to_task_tbl id in
+			Hashtbl.remove id_to_task_tbl id;
+			Hashtbl.remove task_to_id_tbl task;
 		);
 	id
 
@@ -1661,3 +1671,13 @@ let vif_move ~__context ~self network =
 			Event.wait dbg ();
 			assert (Db.VIF.get_currently_attached ~__context ~self)
 		)
+
+let task_cancel ~__context ~self =
+	try
+		let id = task_to_id_exn self in
+		let dbg = Context.string_of_task __context in
+		info "xenops: TASK.cancel %s" id;
+		Client.TASK.cancel dbg id |> ignore; (* it might actually have completed, we don't care *)
+		true
+	with Not_found ->
+		false
