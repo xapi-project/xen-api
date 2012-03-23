@@ -25,6 +25,18 @@ type dhcp_options = [`set_gateway | `set_dns]
 type ipv4 = None4 | DHCP4 of dhcp_options list | Static4 of (Unix.inet_addr * int) list
 type ipv6 = None6 | DHCP6 of dhcp_options list | Autoconf6 | Static6 of (Unix.inet_addr * int) list
 
+type duplex = Duplex_unknown | Duplex_half | Duplex_full
+
+let string_of_duplex = function
+	| Duplex_unknown -> "unknown"
+	| Duplex_half    -> "half"
+	| Duplex_full    -> "full"
+
+let duplex_of_string = function
+	| "full"    -> Duplex_full
+	| "half"    -> Duplex_half
+	| _         -> Duplex_unknown
+
 external reopen_logs: unit -> bool = ""
 
 module Interface = struct
