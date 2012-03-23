@@ -36,5 +36,11 @@ let destroy ~__context ~self =
   Db.Task.destroy ~__context ~self
 
 let cancel ~__context ~task =
-  TaskHelper.assert_can_destroy ~__context task;
-        Db.Task.set_current_operations ~__context ~self:task ~value:[(Ref.string_of (Context.get_task_id __context)), `cancel]
+	let localhost = Helpers.get_localhost ~__context in
+	let forwarded_to = Db.Task.get_forwarded_to ~__context ~self:task in
+	if Db.is_valid_ref __context forwarded_to && (localhost <> forwarded_to)
+	then failwith (Printf.sprintf "Task.cancel not forwarded to the correct host (expecting %s but this is %s)"
+		(Db.Host.get_hostname ~__context ~self:forwarded_to) (Db.Host.get_hostname ~__context ~self:localhost)
+	);
+	TaskHelper.assert_can_destroy ~__context task;
+    Db.Task.set_current_operations ~__context ~self:task ~value:[(Ref.string_of (Context.get_task_id __context)), `cancel]
