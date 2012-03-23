@@ -561,7 +561,19 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	module Auth = Local.Auth
 	module Subject = Local.Subject
 	module Role = Local.Role
-	module Task = Local.Task
+	module Task = struct
+		include Local.Task
+
+		let cancel ~__context ~task =
+			let local_fn = cancel ~task in
+			let forwarded_to = Db.Task.get_forwarded_to ~__context ~self:task in
+			if Db.is_valid_ref __context forwarded_to
+			then do_op_on ~local_fn ~__context ~host:(Db.Task.get_forwarded_to ~__context ~self:task)
+				(fun session_id rpc ->
+					Client.Task.cancel rpc session_id task
+				)
+			else local_fn ~__context
+	end
 	module Event = Local.Event
 	module VMPP = Local.VMPP
 	module VM_appliance = struct
