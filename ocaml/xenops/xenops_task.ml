@@ -24,6 +24,7 @@ open Fun
 (* A task is associated with every running operation *)
 type t = {
 	id: string;                                    (* unique task id *)
+	ctime: float;                                  (* created timestamp *)
 	debug_info: string;                            (* token sent by client *)
 	mutable result: Task.result;                   (* current completion state *)
 	mutable subtasks: (string * Task.result) list; (* one level of "subtasks" *)
@@ -50,6 +51,7 @@ let next_task_id =
 let add dbg (f: t -> unit) =
 	let t = {
 		id = next_task_id ();
+		ctime = Unix.gettimeofday ();
 		debug_info = dbg;
 		result = Task.Pending 0.;
 		subtasks = [];
