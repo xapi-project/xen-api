@@ -29,6 +29,7 @@ type t = {
 	mutable result: Task.result;                   (* current completion state *)
 	mutable subtasks: (string * Task.result) list; (* one level of "subtasks" *)
 	f: t -> unit;                                  (* body of the function *)
+	m: Mutex.t;                                    (* protects cancelling state: *)
     mutable cancelling: bool;                      (* set by cancel *)
 	mutable cancel: (unit -> unit) list;           (* attempt to cancel [f] *)
 }
@@ -57,6 +58,7 @@ let add dbg (f: t -> unit) =
 		result = Task.Pending 0.;
 		subtasks = [];
 		f = f;
+		m = Mutex.create ();
 		cancelling = false;
 		cancel = [];
 	} in
@@ -114,25 +116,28 @@ let destroy id =
 
 let cancel id =
 	let t = Mutex.execute m (fun () -> find_locked id) in
-	t.cancelling <- true;
-	List.iter
-		(fun f ->
-			try
-				f ()
-			with e ->
-				debug "Task.cancel %s: ignore exception %s" id (Printexc.to_string e)
-		) t.cancel
+	Mutex.execute t.m
+		(fun () ->
+			t.cancelling <- true;
+			List.iter
+				(fun f ->
+					try
+						f ()
+					with e ->
+						debug "Task.cancel %s: ignore exception %s" id (Printexc.to_string e)
+				) t.cancel
+		)
 
 let raise_cancelled t = raise (Exception(Cancelled(t.id)))
 
-let check_cancelling t = if t.cancelling then raise_cancelled t
+let check_cancelling t = if Mutex.execute t.m (fun () -> t.cancelling) then raise_cancelled t
 
 let with_cancel t cancel_fn f =
-	t.cancel <- cancel_fn :: t.cancel;
+	Mutex.execute t.m (fun () -> t.cancel <- cancel_fn :: t.cancel);
 	finally
 		(fun () ->
 			check_cancelling t;
 			f ()
 		)
-		(fun () -> t.cancel <- List.tl t.cancel)
+		(fun () -> Mutex.execute t.m (fun () -> t.cancel <- List.tl t.cancel))
 
