@@ -116,17 +116,18 @@ let destroy id =
 
 let cancel id =
 	let t = Mutex.execute m (fun () -> find_locked id) in
-	Mutex.execute t.m
+	let callbacks = Mutex.execute t.m
 		(fun () ->
 			t.cancelling <- true;
-			List.iter
-				(fun f ->
-					try
-						f ()
-					with e ->
-						debug "Task.cancel %s: ignore exception %s" id (Printexc.to_string e)
-				) t.cancel
-		)
+			t.cancel
+		) in
+	List.iter
+		(fun f ->
+			try
+				f ()
+			with e ->
+				debug "Task.cancel %s: ignore exception %s" id (Printexc.to_string e)
+		) callbacks
 
 let raise_cancelled t = raise (Exception(Cancelled(t.id)))
 

@@ -19,6 +19,7 @@ open Listext
 open Pervasiveext
 open Xenstore
 
+open Xenops_helpers
 open Device_common
 
 module D = Debug.Debugger(struct let name = "xenops" end)
@@ -297,23 +298,26 @@ let shutdown_wait_for_ack (t: Xenops_task.t) ?(timeout=60.) ~xc ~xs domid req =
 	debug "VM = %s; domid = %d; Waiting for PV domain to acknowledge shutdown request" (Uuid.to_string uuid) domid;
 	let path = control_shutdown ~xs domid in
 	let cancel = cancel_path ~xs domid in
-	Xenops_task.with_cancel t (fun () -> xs.Xs.write cancel "")
+	finally
 		(fun () ->
-			(* If already shutdown then we continue *)
-			if not di.Xenctrl.shutdown
-			then match Watch.wait_for ~xs ~timeout (Watch.any_of [
-				`Ack, Watch.value_to_become path "";
-				`Gone, Watch.key_to_disappear path;
-				`Cancel, Watch.value_to_become cancel ""
-			]) with
-				| `Ack, _ ->
-					info "VM = %s; domid = %d; Domain acknowledged shutdown request" (Uuid.to_string uuid) domid;
-				| `Gone, _ ->
-					debug "VM = %s; domid = %d; Domain disappeared" (Uuid.to_string uuid) domid
-				| `Cancel, _ ->
-					debug "VM = %s; domid = %d; Operation cancelled" (Uuid.to_string uuid) domid;
-					Xenops_task.raise_cancelled t
-		)
+			Xenops_task.with_cancel t (fun () -> with_xs (fun xs -> xs.Xs.write cancel ""))
+				(fun () ->
+					(* If already shutdown then we continue *)
+					if not di.Xenctrl.shutdown
+					then match Watch.wait_for ~xs ~timeout (Watch.any_of [
+						`Ack, Watch.value_to_become path "";
+						`Gone, Watch.key_to_disappear path;
+						`Cancel, Watch.value_to_become cancel ""
+					]) with
+						| `Ack, _ ->
+							info "VM = %s; domid = %d; Domain acknowledged shutdown request" (Uuid.to_string uuid) domid;
+						| `Gone, _ ->
+							debug "VM = %s; domid = %d; Domain disappeared" (Uuid.to_string uuid) domid
+						| `Cancel, _ ->
+							debug "VM = %s; domid = %d; Operation cancelled" (Uuid.to_string uuid) domid;
+							Xenops_task.raise_cancelled t
+				)
+		) (fun () -> xs.Xs.rm cancel)
   end
 
 let sysrq ~xs domid key =
