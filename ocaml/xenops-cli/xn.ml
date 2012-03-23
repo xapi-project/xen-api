@@ -50,6 +50,13 @@ let usage () =
 
 let dbg = "xn"
 
+let success = function
+	| (_, Some x) ->
+		Printf.fprintf stderr "Exception: %s\n" (x |> rpc_of_error |> Jsonrpc.to_string);
+		exit 1
+	| (Some x, _) -> x
+	| None, None -> failwith "protocol error"
+
 (* Grabs the result from a task and destroys it *)
 let success_task f id =
 	finally
@@ -661,6 +668,9 @@ let task_list () =
 				) t.Task.subtasks
 		) all
 
+let task_cancel id =
+	Client.TASK.cancel dbg id |> success
+
 let slave () =
 	let copy a b =
 		let len = 1024 * 1024 in
@@ -766,6 +776,8 @@ let _ =
 			diagnostics ()
 		| [ "task-list" ] ->
 			task_list ()
+		| [ "task-cancel"; id ] ->
+			task_cancel id
 		| cmd :: _ ->
 			Printf.fprintf stderr "Unrecognised command: %s\n" cmd;
 			usage ();
