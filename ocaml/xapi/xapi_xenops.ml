@@ -598,7 +598,8 @@ module Event = struct
 			(fun () ->
 				while not t.finished do Condition.wait t.c t.m done
 			)
-	let wakeup id =
+	let wakeup dbg id =
+		Client.UPDATES.remove_barrier dbg id |> success;
 		let t = Mutex.execute active_m
 			(fun () ->
 				if not(Hashtbl.mem active id)
@@ -1003,7 +1004,7 @@ let rec events_watch ~__context from =
 				update_task ~__context id
 			| Barrier id ->
 				debug "barrier %d" id;
-				Event.wakeup id
+				Event.wakeup dbg id
 		) events;
 	events_watch ~__context next
 

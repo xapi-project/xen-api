@@ -406,6 +406,7 @@ end
 module UPDATES = struct
 	external get: debug_info -> int option -> int option -> (Dynamic.id list * int option) option * (error option) = ""
     external inject_barrier: debug_info -> int -> (unit option) * (error option) = ""
+	external remove_barrier: debug_info -> int -> (unit option) * (error option) = ""
 	external refresh_vm: debug_info -> Vm.id -> (unit option) * (error option) = ""
 end
 
