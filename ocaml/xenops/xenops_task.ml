@@ -30,7 +30,7 @@ type t = {
 	mutable subtasks: (string * Task.result) list; (* one level of "subtasks" *)
 	f: t -> unit;                                  (* body of the function *)
     mutable cancelling: bool;                      (* set by cancel *)
-	cancel: unit -> unit;                          (* attempt to cancel [f] *)
+	mutable cancel: (unit -> unit) list;           (* attempt to cancel [f] *)
 }
 
 module SMap = Map.Make(struct type t = string let compare = compare end)
@@ -58,7 +58,7 @@ let add dbg (f: t -> unit) =
 		subtasks = [];
 		f = f;
 		cancelling = false;
-		cancel = (fun () -> ());
+		cancel = [];
 	} in
 	Mutex.execute m
 		(fun () ->
@@ -115,8 +115,24 @@ let destroy id =
 let cancel id =
 	let t = Mutex.execute m (fun () -> find_locked id) in
 	t.cancelling <- true;
-	t.cancel ()
+	List.iter
+		(fun f ->
+			try
+				f ()
+			with e ->
+				debug "Task.cancel %s: ignore exception %s" id (Printexc.to_string e)
+		) t.cancel
 
-let check_cancelling t = if t.cancelling then raise (Exception(Cancelled(t.id)))
+let raise_cancelled t = raise (Exception(Cancelled(t.id)))
 
+let check_cancelling t = if t.cancelling then raise_cancelled t
+
+let with_cancel t cancel_fn f =
+	t.cancel <- cancel_fn :: t.cancel;
+	finally
+		(fun () ->
+			check_cancelling t;
+			f ()
+		)
+		(fun () -> t.cancel <- List.tl t.cancel)
 
