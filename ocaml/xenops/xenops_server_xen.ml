@@ -565,6 +565,7 @@ module VM = struct
 				let resuming = vmextra.VmExtra.suspend_memory_bytes <> 0L in
 				let min_kib = kib_of_bytes_used (if resuming then vmextra.VmExtra.suspend_memory_bytes else (vm.memory_dynamic_min +++ overhead_bytes)) in
 				let max_kib = kib_of_bytes_used (if resuming then vmextra.VmExtra.suspend_memory_bytes else (vm.memory_dynamic_max +++ overhead_bytes)) in
+				(* XXX: we would like to be able to cancel an in-progress with_reservation *)
 				Mem.with_reservation ~xc ~xs ~min:min_kib ~max:max_kib
 					(fun target_plus_overhead_kib reservation_id ->
 						DB.write k vmextra;
@@ -888,11 +889,11 @@ module VM = struct
 	let request_shutdown task vm reason ack_delay =
 		let reason = shutdown_reason reason in
 		on_domain
-			(fun xc xs vm task di ->
+			(fun xc xs task vm di ->
 				let domid = di.Xenctrl.domid in
 				try
 					Domain.shutdown ~xc ~xs domid reason;
-					Domain.shutdown_wait_for_ack ~timeout:ack_delay ~xc ~xs domid reason;
+					Domain.shutdown_wait_for_ack task ~timeout:ack_delay ~xc ~xs domid reason;
 					true
 				with Watch.Timeout _ ->
 					false

@@ -262,6 +262,8 @@ let hard_shutdown ~xc domid req =
 (** Return the path in xenstore watched by the PV shutdown driver *)
 let control_shutdown ~xs domid = xs.Xs.getdomainpath domid ^ "/control/shutdown"
 
+let cancel_path ~xs domid = Printf.sprintf "%s/tools/xenops/cancel" (xs.Xs.getdomainpath domid)
+
 (** Raised if a domain has vanished *)
 exception Domain_does_not_exist
 
@@ -286,7 +288,7 @@ let shutdown ~xc ~xs domid req =
 
 (** If domain is PV, signal it to shutdown. If the PV domain fails to respond then throw a Watch.Timeout exception.
 	All other exceptions imply the domain has disappeared. *)
-let shutdown_wait_for_ack ?(timeout=60.) ~xc ~xs domid req =
+let shutdown_wait_for_ack (t: Xenops_task.t) ?(timeout=60.) ~xc ~xs domid req =
   let di = Xenctrl.domain_getinfo xc domid in
   let uuid = get_uuid ~xc domid in
   if di.Xenctrl.hvm_guest then begin
@@ -294,14 +296,24 @@ let shutdown_wait_for_ack ?(timeout=60.) ~xc ~xs domid req =
   end else begin
 	debug "VM = %s; domid = %d; Waiting for PV domain to acknowledge shutdown request" (Uuid.to_string uuid) domid;
 	let path = control_shutdown ~xs domid in
-	(* If already shutdown then we continue *)
-	if not di.Xenctrl.shutdown
-	then match Watch.wait_for ~xs ~timeout (Watch.any_of [ `Ack, Watch.value_to_become path "";
-													  `Gone, Watch.key_to_disappear path ]) with
-	| `Ack, _ ->
-		  info "VM = %s; domid = %d; Domain acknowledged shutdown request" (Uuid.to_string uuid) domid;
-	| `Gone, _ ->
-		  debug "VM = %s; domid = %d; Domain disappeared" (Uuid.to_string uuid) domid
+	let cancel = cancel_path ~xs domid in
+	Xenops_task.with_cancel t (fun () -> xs.Xs.write cancel "")
+		(fun () ->
+			(* If already shutdown then we continue *)
+			if not di.Xenctrl.shutdown
+			then match Watch.wait_for ~xs ~timeout (Watch.any_of [
+				`Ack, Watch.value_to_become path "";
+				`Gone, Watch.key_to_disappear path;
+				`Cancel, Watch.value_to_become cancel ""
+			]) with
+				| `Ack, _ ->
+					info "VM = %s; domid = %d; Domain acknowledged shutdown request" (Uuid.to_string uuid) domid;
+				| `Gone, _ ->
+					debug "VM = %s; domid = %d; Domain disappeared" (Uuid.to_string uuid) domid
+				| `Cancel, _ ->
+					debug "VM = %s; domid = %d; Operation cancelled" (Uuid.to_string uuid) domid;
+					Xenops_task.raise_cancelled t
+		)
   end
 
 let sysrq ~xs domid key =
