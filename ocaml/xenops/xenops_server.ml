@@ -1451,6 +1451,14 @@ module UPDATES = struct
 				return ()
 			) ()
 
+	let remove_barrier _ dbg id =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				debug "UPDATES.remove_barrier %d" id;
+				Updates.remove (Dynamic.Barrier id) updates;
+				return ()
+			) ()
+
 	let refresh_vm _ dbg id =
 		Debug.with_thread_associated dbg
 			(fun () ->
