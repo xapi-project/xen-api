@@ -114,6 +114,12 @@ val pause: xc: Xenctrl.handle -> domid -> unit
 (** Unpause a domain *)
 val unpause: xc: Xenctrl.handle -> domid -> unit
 
+(** [set_action_request xs domid None] declares this domain is fully intact.
+	Any other string is a hint to the toolstack that the domain is still broken. *)
+val set_action_request: xs:Xenstore.Xs.xsh -> domid -> string option -> unit
+
+val get_action_request: xs:Xenstore.Xs.xsh -> domid -> string option
+
 (* val create_channels : xc:Xenctrl.handle -> domid -> int * int *)
 
 (** Builds a linux guest in a fresh domain created with 'make' *)
