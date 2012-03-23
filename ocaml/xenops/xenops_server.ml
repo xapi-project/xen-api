@@ -427,18 +427,25 @@ module Redirector = struct
 				(* All items with [tag] will enter the default queue *)
 			)
 
-	let to_string_list () =
-		Mutex.execute m
-			(fun () ->
-				let one queue =
-					let tags = Queues.tags queue in
-					let last_tag = Queues.get_last_tag queue in
-					List.map
-						(fun tag ->
-							Printf.sprintf "%s: %s [ %s ]" tag (if tag = last_tag then "*" else " ") (String.concat ", " (List.rev (Queue.fold (fun acc (b, _) -> string_of_operation b :: acc) [] (Queues.get tag queue))))
-						) tags in
-				List.concat (List.map one (default :: (List.map snd (StringMap.bindings !overrides))))
-			)
+	module Dump = struct
+		type q = {
+			tag: string;
+			items: operation list
+		} with rpc
+		type t = q list with rpc
+
+		let make () =
+			Mutex.execute m
+				(fun () ->
+					let one queue =
+						List.map
+							(fun t ->
+							{ tag = t; items = List.rev (Queue.fold (fun acc (b, _) -> b :: acc) [] (Queues.get t queue)) }
+							) (Queues.tags queue) in
+					List.concat (List.map one (default :: (List.map snd (StringMap.bindings !overrides))))
+				)
+
+	end
 end		
 
 module Worker = struct
@@ -542,20 +549,26 @@ module WorkerPool = struct
 	let pool = ref []
 	let m = Mutex.create ()
 
-	(* Used for diagnostics *)
-	let to_string_list () =
-		let open Worker in
-		Mutex.execute m
-			(fun () ->
-				List.map
-					(fun t ->
-						match Worker.get_state t with
-							| Idle -> "Idle"
-							| Processing op -> Printf.sprintf "Processing %s" (string_of_operation op)
-							| Shutdown_requested -> "Shutdown_requested"
-							| Shutdown -> "Shutdown"
-					) !pool
-			)
+
+	module Dump = struct
+		type w = {
+			state: string
+		} with rpc
+		type t = w list with rpc
+		let make () =
+			Mutex.execute m
+				(fun () ->
+					List.map
+						(fun t ->
+							let state = match Worker.get_state t with
+								| Worker.Idle -> "Idle"
+								| Worker.Processing op -> Printf.sprintf "Processing %s" (string_of_operation op)
+								| Worker.Shutdown_requested -> "Shutdown_requested"
+								| Worker.Shutdown -> "Shutdown" in
+							{ state = state }
+						) !pool
+				)
+	end
 
 	(* Compute the number of active threads ie those which will continue to operate *)
 	let count_active () =
@@ -1526,14 +1539,19 @@ let register_objects () =
 			List.iter VBD_DB.signal (VIF_DB.ids vm)
 		) (VM_DB.ids ())
 
+module Diagnostics = struct
+	type t = {
+		queues: Redirector.Dump.t;
+		workers: WorkerPool.Dump.t;
+		updates: Updates.Dump.t;
+	} with rpc
+
+	let make () = {
+		queues = Redirector.Dump.make ();
+		workers = WorkerPool.Dump.make ();
+		updates = Updates.Dump.make updates;
+	}
+end
+
 let get_diagnostics _ _ () =
-	([
-		"VM queues:"
-	] @ (
-		Redirector.to_string_list ()
-	) @ [
-		"Threads:"
-	] @ (WorkerPool.to_string_list ())
-	) @ (
-		Updates.to_string_list updates
-	) |> return
+	Diagnostics.make () |> Diagnostics.rpc_of_t |> Jsonrpc.to_string |> return

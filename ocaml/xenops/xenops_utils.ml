@@ -349,11 +349,18 @@ module Updates = struct
 				Condition.signal t.c
 			)
 
-	let to_string_list t =
-		Mutex.execute t.m
-			(fun () ->
-				U.fold (fun key v acc -> Printf.sprintf "%8d %s" v (key |> Dynamic.rpc_of_id |> Jsonrpc.to_string) :: acc) t.u []
-			)
+	module Dump = struct
+		type u = {
+			id: int;
+			v: string;
+		} with rpc
+		type t = u list with rpc
+		let make t =
+			Mutex.execute t.m
+				(fun () ->
+					U.fold (fun key v acc -> { id = v; v = (key |> Dynamic.rpc_of_id |> Jsonrpc.to_string) } :: acc) t.u []
+				)
+	end
 end
 
 
