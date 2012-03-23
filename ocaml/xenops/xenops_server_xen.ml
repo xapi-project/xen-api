@@ -1128,6 +1128,23 @@ module VM = struct
 						}
 			)
 
+	let set_domain_action_request vm request =
+		let uuid = uuid_of_vm vm in
+		with_xc_and_xs
+			(fun xc xs ->
+				match di_of_uuid ~xc ~xs Newest uuid with
+					| None -> raise (Exception(Does_not_exist("domain", vm.Vm.id)))
+					| Some di ->
+						Domain.set_action_request ~xs di.Xenctrl.domid (match request with
+							| None -> None
+							| Some Needs_poweroff -> Some "poweroff"
+							| Some Needs_reboot -> Some "reboot"
+							| _ ->
+								error "VM = %s; Unknown domain action requested. Will set to poweroff" vm.Vm.id;
+								Some "poweroff"
+						)
+			)
+
 	let get_domain_action_request vm =
 		let uuid = uuid_of_vm vm in
 		with_xc_and_xs
@@ -1142,7 +1159,14 @@ module VM = struct
 							| 2 -> Needs_suspend
 							| 3 -> Needs_crashdump
 							| _ -> Needs_poweroff) (* unexpected *)
-						else None
+						else begin match Domain.get_action_request ~xs d.Xenctrl.domid with
+							| Some "poweroff" -> Some Needs_poweroff
+							| Some "reboot" -> Some Needs_reboot
+							| Some x ->
+								error "VM = %s; Unknown domain action requested (%s). Will poweroff" vm.Vm.id x;
+								Some Needs_poweroff
+							| None -> None
+						end
 			)
 
 	let get_internal_state vm =
