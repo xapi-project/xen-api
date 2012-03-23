@@ -29,6 +29,7 @@ type t = {
 	mutable result: Task.result;                   (* current completion state *)
 	mutable subtasks: (string * Task.result) list; (* one level of "subtasks" *)
 	f: t -> unit;                                  (* body of the function *)
+    mutable cancelling: bool;                      (* set by cancel *)
 	cancel: unit -> unit;                          (* attempt to cancel [f] *)
 }
 
@@ -56,6 +57,7 @@ let add dbg (f: t -> unit) =
 		result = Task.Pending 0.;
 		subtasks = [];
 		f = f;
+		cancelling = false;
 		cancel = (fun () -> ());
 	} in
 	Mutex.execute m
@@ -109,3 +111,12 @@ let destroy id =
 		(fun () ->
 			tasks := SMap.remove id !tasks
 		)
+
+let cancel id =
+	let t = Mutex.execute m (fun () -> find_locked id) in
+	t.cancelling <- true;
+	t.cancel ()
+
+let check_cancelling t = if t.cancelling then raise (Exception(Cancelled(t.id)))
+
+

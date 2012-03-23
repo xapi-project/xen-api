@@ -765,6 +765,7 @@ let rec atomics_of_operation = function
 
 let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) : unit =
 	let module B = (val get_backend () : S) in
+	Xenops_task.check_cancelling t;
 	match op with
 		| VIF_plug id ->
 			debug "VIF.plug %s" (VIF_DB.string_of_id id);

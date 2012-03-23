@@ -49,6 +49,7 @@ type error =
 	| Failed_to_contact_remote_service of string
 	| Hook_failed of string * string * string * string
 	| Not_enough_memory of int64
+	| Cancelled of string
 
 type error_response = unit option * error option
 type string_response = string option * error option

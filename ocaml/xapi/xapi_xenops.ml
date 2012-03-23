@@ -1235,6 +1235,13 @@ let transform_xenops_exn ~__context f =
 		| Failed_to_contact_remote_service x -> internal "failed to contact: %s" x
 		| Hook_failed(script, reason, stdout, i) -> reraise Api_errors.xapi_hook_failed [ script; reason; stdout; i ]
 		| Not_enough_memory needed -> internal "there was not enough memory (needed %Ld bytes)" needed
+		| Cancelled id ->
+			let task =
+				try id_to_task_exn id
+				with _ ->
+					debug "xenopsd task id %s is not associated with a XenAPI task" id;
+					Ref.null in
+			reraise Api_errors.task_cancelled [ Ref.string_of task ]
 	end
 
 let refresh_vm ~__context ~self =
