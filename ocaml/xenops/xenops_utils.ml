@@ -17,7 +17,8 @@ open Stringext
 open Fun
 open Xenops_interface
 
-let ( |> ) a b = b a
+(******************************************************************************)
+(* Debug printing                                                             *)
 
 let service_name = "xenops"
 
@@ -44,6 +45,8 @@ let debug fmt = Printf.kprintf (fun x -> write_to_stdout x; D.debug "%s" x) fmt
 let warn fmt = Printf.kprintf (fun x -> write_to_stdout x; D.warn "%s" x) fmt
 let error fmt = Printf.kprintf (fun x -> write_to_stdout x; D.error "%s" x) fmt
 let info fmt = Printf.kprintf (fun x -> write_to_stdout x; D.info "%s" x) fmt
+
+(******************************************************************************)
 
 module Unix = struct
 	include Unix
@@ -73,6 +76,9 @@ module type ITEM = sig
 	type key
 	val key: key -> string list
 end
+
+(******************************************************************************)
+(* Metadata storage                                                           *)
 
 let root = "/var/run/" ^ service_name
 
@@ -149,6 +155,8 @@ module TypedTable = functor(I: ITEM) -> struct
 		end else delete k
 end
 
+(******************************************************************************)
+
 let halted_vm = {
 	Vm.power_state = Halted;
 	domids = [];
@@ -178,6 +186,175 @@ let unplugged_vif = {
 	kthread_pid = 0;
 	media_present = false;
 }
+
+(******************************************************************************)
+(* Object update tracking                                                     *)
+
+module IntMap = Map.Make(struct type t = int let compare = compare end)
+
+module Scheduler = struct
+	open Threadext
+	let schedule = ref IntMap.empty
+	let delay = Delay.make ()
+	let m = Mutex.create ()
+
+	type time =
+		| Absolute of int
+		| Delta of int
+
+	let now () = Unix.gettimeofday () |> ceil |> int_of_float
+
+	let one_shot time f =
+		let time = match time with
+			| Absolute x -> x
+			| Delta x -> now () + x in
+		Mutex.execute m
+			(fun () ->
+				let existing = 
+					if IntMap.mem time !schedule
+					then IntMap.find time !schedule
+					else [] in
+				schedule := IntMap.add time (f :: existing) !schedule;
+				Delay.signal delay
+			)
+
+	let process_expired () =
+		let t = now () in
+		let expired =
+			Mutex.execute m
+				(fun () ->
+					let expired, unexpired = IntMap.partition (fun t' _ -> t' < t) !schedule in
+					schedule := unexpired;
+					IntMap.fold (fun _ stuff acc -> acc @ stuff) expired [] |> List.rev) in
+		(* This might take a while *)
+		List.iter
+			(fun f ->
+				try
+					f ()
+				with e ->
+					debug "Scheduler ignoring exception: %s" (Printexc.to_string e)
+			) expired;
+		expired <> [] (* true if work was done *)
+
+	let rec main_loop () =
+		while process_expired () do () done;
+		let sleep_until =
+			Mutex.execute m
+				(fun () -> IntMap.min_binding !schedule |> fst) in
+		let seconds = now () - sleep_until in
+		debug "Scheduler sleep until %d (another %d seconds)" sleep_until seconds;
+		let (_: bool) = Delay.wait delay (float_of_int seconds) in
+		main_loop ()
+
+	let start () =
+		let (_: Thread.t) = Thread.create main_loop () in
+		()
+end
+
+module UpdateRecorder = functor(Ord: Map.OrderedType) -> struct
+	(* Map of thing -> last update counter *)
+	module M = Map.Make(struct
+		type t = Ord.t
+		let compare = compare
+	end)
+
+	type id = int
+
+	type t = {
+		map: int M.t;
+		next: id
+	}
+
+	let initial = 0
+
+	let empty = {
+		map = M.empty;
+		next = initial + 1;
+	}
+
+	let add x t = {
+		map = M.add x t.next t.map;
+		next = t.next + 1
+	}, t.next + 1
+
+	let remove x t = {
+		map = M.remove x t.map;
+		next = t.next + 1
+	}, t.next + 1
+
+	let get from t =
+		let before, after = M.partition (fun _ time -> time < from) t.map in
+		let xs, last = M.fold (fun key v (acc, m) -> key :: acc, max m v) after ([], from) in
+		(* NB 'xs' must be in order so 'Barrier' requests don't permute *)
+		List.rev xs, last + 1
+
+	let fold f t init = M.fold f t.map init
+end
+
+module Updates = struct
+	open Threadext
+
+	module U = UpdateRecorder(struct type t = Dynamic.id let compare = compare end)
+
+	type id = U.id
+
+	type t = {
+		mutable u: U.t;
+		c: Condition.t;
+		m: Mutex.t;
+	}
+
+	let empty () = {
+		u = U.empty;
+		c = Condition.create ();
+		m = Mutex.create ();
+	}
+
+	let get from timeout t =
+		let from = Opt.default U.initial from in
+		let cancel = ref false in
+		Opt.iter (fun timeout ->
+			Scheduler.one_shot (Scheduler.Delta timeout)
+				(fun () ->
+					Mutex.execute t.m
+						(fun () ->
+							cancel := true;
+							Condition.broadcast t.c
+						)
+				)
+		) timeout;
+		Mutex.execute t.m
+			(fun () ->
+				let current = ref ([], from) in
+				while fst !current = [] && not(!cancel) do
+					current := U.get from t.u;
+					if fst !current = [] then Condition.wait t.c t.m;
+				done;
+				fst !current, Some (snd !current)
+			)
+
+	let add x t =
+		Mutex.execute t.m
+			(fun () ->
+				let result, id = U.add x t.u in
+				t.u <- result;
+				Condition.broadcast t.c
+			)
+
+	let remove x t =
+		Mutex.execute t.m
+			(fun () ->
+				let result, id = U.remove x t.u in
+				t.u <- result;
+				Condition.signal t.c
+			)
+
+	let to_string_list t =
+		Mutex.execute t.m
+			(fun () ->
+				U.fold (fun key v acc -> Printf.sprintf "%8d %s" v (key |> Dynamic.rpc_of_id |> Jsonrpc.to_string) :: acc) t.u []
+			)
+end
 
 
 
