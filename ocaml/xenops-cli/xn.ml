@@ -654,7 +654,7 @@ let task_list () =
 	let all = Client.TASK.list dbg |> success in
 	List.iter
 		(fun t ->
-			Printf.printf "%-8s %-30s %s\n" t.Task.id t.Task.debug_info (t.Task.result |> Task.rpc_of_result |> Jsonrpc.to_string);
+			Printf.printf "%-8s %-12s %-30s %s\n" t.Task.id (t.Task.ctime |> Date.of_float |> Date.to_string) t.Task.debug_info (t.Task.result |> Task.rpc_of_result |> Jsonrpc.to_string);
 			List.iter
 				(fun (name, result) ->
 					Printf.printf "  |_ %-30s %s\n" name (result |> Task.rpc_of_result |> Jsonrpc.to_string)
