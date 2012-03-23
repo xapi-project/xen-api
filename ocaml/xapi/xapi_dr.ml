@@ -193,9 +193,8 @@ let assert_session_allows_dr ~session_id ~action =
 
 let recover_vms ~__context ~vms ~session_to ~force =
 	let config = {
-		Import.sr = Ref.null;
+		Import.import_type = Import.Metadata_import;
 		Import.full_restore = true;
-		Import.vm_metadata_only = true;
 		Import.force = force;
 	} in
 	let objects = create_import_objects ~__context ~vms in
