@@ -129,11 +129,7 @@ module TASK = struct
 		subtasks = x.subtasks;
 	}
 	let cancel _ id dbg =
-		Mutex.execute m
-			(fun () ->
-				let x = find_locked id in
-				x.cancel ()
-			) |> return
+		Xenops_task.cancel id |> return
 	let stat' id =
 		Mutex.execute m
 			(fun () ->
