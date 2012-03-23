@@ -229,6 +229,43 @@ let start_message_hook_thread ~__context () =
 
 (********************************************************************)
 
+let get_last_n dir n =
+	let cmp a b = compare
+		(float_of_string a)
+		(float_of_string b) (* oldest first, reverse later *)
+	and files = List.filter
+		(fun m -> try float_of_string m > 0.0 with _ -> false)
+		(Array.to_list (Sys.readdir dir))
+	and msg_of_file mf =
+		let fn = message_dir ^ "/" ^ mf in
+		let ic = open_in fn in
+		let xi = Xmlm.make_input (`Channel ic) in
+		let (_ref,msg) = Pervasiveext.finally
+			(fun () -> of_xml xi)
+			(fun () -> close_in ic) in
+		let ts = Date.to_float msg.API.message_timestamp in
+		(ts, _ref, msg)
+	in
+	List.rev_map msg_of_file
+		(Listext.List.take n
+			 (List.fast_sort cmp files))
+
+let repopulate_cache () = try
+	let msgs = get_last_n
+		message_dir
+		in_memory_cache_length_default in
+	let len = List.length msgs in
+	let n = Mutex.execute in_memory_cache_mutex
+		(fun () ->
+			in_memory_cache := msgs ;
+			in_memory_cache_length := len ;
+			!in_memory_cache_length
+		) in
+	debug "Repopulating in-memory cache of messages: Length=%d" n
+	with e ->
+		error "Exception '%s' in Xapi_message.repopulate_cache; cache left unchanged"
+			(ExnHelper.string_of_exn e)
+
 let cache_insert _ref message =
 	let timestamp = Date.to_float message.API.message_timestamp in
 	Mutex.execute in_memory_cache_mutex (fun () ->
