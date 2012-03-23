@@ -19,22 +19,26 @@ open Threadext
 open Pervasiveext
 open Xenops_interface
 open Xenops_utils
+open Fun
 
+(* A task is associated with every running operation *)
 type t = {
-	id: string;
-	debug_info: string; (* token sent by client *)
-	mutable result: Task.result;
-	mutable subtasks: (string * Task.result) list;
-	f: t -> unit;
-	cancel: unit -> unit;
+	id: string;                                    (* unique task id *)
+	debug_info: string;                            (* token sent by client *)
+	mutable result: Task.result;                   (* current completion state *)
+	mutable subtasks: (string * Task.result) list; (* one level of "subtasks" *)
+	f: t -> unit;                                  (* body of the function *)
+	cancel: unit -> unit;                          (* attempt to cancel [f] *)
 }
 
 module SMap = Map.Make(struct type t = string let compare = compare end)
-	
+
+(* Tasks are stored in an id -> t map *)
 let tasks = ref SMap.empty
 let m = Mutex.create ()
 let c = Condition.create ()
 
+(* [next_task_id ()] returns a fresh task id *)
 let next_task_id =
 	let counter = ref 0 in
 	fun () ->
@@ -42,6 +46,7 @@ let next_task_id =
 		incr counter;
 		result
 
+(* [add dbg f] creates a fresh [t], registers and returns it *)
 let add dbg (f: t -> unit) =
 	let t = {
 		id = next_task_id ();
@@ -57,6 +62,7 @@ let add dbg (f: t -> unit) =
 		);
 	t
 
+(* [run t] executes the task body, updating the fields of [t] *)
 let run item =
 	try
 		let start = Unix.gettimeofday () in
