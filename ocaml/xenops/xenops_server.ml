@@ -122,6 +122,7 @@ module TASK = struct
 	let task x = {
 		Task.id = x.id;
 		debug_info = x.debug_info;
+		ctime = x.ctime;
 		result = x.result;
 		subtasks = x.subtasks;
 	}
