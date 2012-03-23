@@ -192,8 +192,12 @@ let assert_session_allows_dr ~session_id ~action =
 					[action; "The supplied session does not have the required permissions for VM recovery."])))
 
 let recover_vms ~__context ~vms ~session_to ~force =
+	let metadata_options = {
+		Import.dry_run = false;
+		Import.live = false;
+	} in
 	let config = {
-		Import.import_type = Import.Metadata_import;
+		Import.import_type = Import.Metadata_import metadata_options;
 		Import.full_restore = true;
 		Import.force = force;
 	} in
