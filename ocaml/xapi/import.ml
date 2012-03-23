@@ -172,13 +172,25 @@ module MakeHandler = functor (M: HandlerTools) -> struct
 			M.handle __context config rpc session_id state obj precheck_result
 end
 
-(** Find the host with the same uuid as the one recorded in the snapshot *)
-let handle_host __context config rpc session_id (state: state) (x: obj) : unit =
-	let host_record = API.From.host_t "" x.snapshot in
-	let host =
-		try Client.Host.get_by_uuid rpc session_id host_record.API.host_uuid
-		with _ -> Ref.null in
-	state.table <- (x.cls, x.id, Ref.string_of host) :: state.table
+module Host : HandlerTools = struct
+	type precheck_t =
+		| Found_host of API.ref_host
+		| Found_no_host
+
+	let precheck __context config rpc session_id state x =
+		let host_record = API.From.host_t "" x.snapshot in
+		try Found_host (Db.Host.get_by_uuid __context host_record.API.host_uuid)
+		with _ -> Found_no_host
+
+	let handle_dry_run __context config rpc session_id state x precheck_result =
+		let host = match precheck_result with
+		| Found_host host' -> host'
+		| Found_no_host -> Ref.null
+		in
+		state.table <- (x.cls, x.id, Ref.string_of host) :: state.table
+
+	let handle = handle_dry_run
+end
 
 type import_action =
 	| Replace of API.ref_VM
@@ -721,10 +733,13 @@ let handle_vgpu __context config rpc session_id (state: state) (x: obj) : unit =
 		Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:vgpu_record.API.vGPU_currently_attached;
 	state.table <- (x.cls, x.id, Ref.string_of vgpu) :: state.table
 
+(** Create a handler for each object type. *)
+module HostHandler = MakeHandler(Host)
+
 (** Table mapping datamodel class names to handlers, in order we have to run them *)
 let handlers =
 	[
-		Datamodel._host, handle_host;
+		Datamodel._host, HostHandler.handle;
 		Datamodel._sr, handle_sr;
 		Datamodel._vdi, handle_vdi;
 		Datamodel._vm_guest_metrics, handle_gm;
