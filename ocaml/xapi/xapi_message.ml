@@ -124,6 +124,41 @@ let of_xml input =
     (Ref.of_string !_ref,!message) 
   with e -> log_backtrace (); debug "Caught exception: %s" (Printexc.to_string e); raise e
 
+let export_xml messages =
+	let size = 500 * (List.length messages) in
+	let buf = Buffer.create size in
+	let output = Xmlm.make_output (`Buffer buf) in
+	List.iter (function | r,m -> to_xml output r m) messages ;
+	Buffer.contents buf
+
+let import_xml xml_in =
+	let split_xml =
+		let ob = Buffer.create 600 in
+		(* let i = Xmlm.make_input (`String (0, xml)) in *)
+		let o = Xmlm.make_output (`Buffer ob) in
+		let rec pull xml_in o depth =
+			Xmlm.output o (Xmlm.peek xml_in);
+			match Xmlm.input xml_in with
+				| `El_start _ -> pull xml_in o (depth + 1)
+				| `El_end -> if depth = 1 then () else pull xml_in o (depth - 1)
+				| `Data _ -> pull xml_in o depth
+				| `Dtd _ -> pull xml_in o depth
+		in
+
+		let out = ref [] in
+		while not (Xmlm.eoi xml_in) do
+			pull xml_in o 0 ;
+			out := (Buffer.contents ob) :: !out ;
+			Buffer.clear ob
+		done ;
+		!out in
+
+	let rec loop = function
+		| [] -> []
+		| m :: ms ->
+			  let im = Xmlm.make_input (`String (0, m)) in
+			  (of_xml im) :: loop ms
+	in loop split_xml
 
 
 (********** Symlink functions *************)
