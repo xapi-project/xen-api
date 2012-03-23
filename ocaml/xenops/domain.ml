@@ -209,6 +209,10 @@ let make ~xc ~xs vm_info uuid =
 	
 		xs.Xs.writev (dom_path ^ "/bios-strings") vm_info.bios_strings;
 
+		(* If a toolstack sees a domain which it should own in this state then the
+		   domain is not completely setup and should be shutdown. *)
+		xs.Xs.write (dom_path ^ "/action-request") "poweroff";
+
 		xs.Xs.write (dom_path ^ "/control/platform-feature-multiprocessor-suspend") "1";
 
 		(* CA-30811: let the linux guest agent easily determine if this is a fresh domain even if
@@ -441,6 +445,18 @@ let pause ~xc domid =
 
 let unpause ~xc domid =
 	Xenctrl.domain_unpause xc domid
+
+let set_action_request ~xs domid x =
+	let path = xs.Xs.getdomainpath domid ^ "/action-request" in
+	match x with
+		| None -> xs.Xs.rm path
+		| Some v -> xs.Xs.write path v
+
+let get_action_request ~xs domid =
+	let path = xs.Xs.getdomainpath domid ^ "/action-request" in
+	try
+		Some (xs.Xs.read path)
+	with Xenbus.Xb.Noent -> None
 
 (** create store and console channels *)
 let create_channels ~xc uuid domid =

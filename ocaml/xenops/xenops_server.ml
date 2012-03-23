@@ -81,6 +81,7 @@ type atomic =
 	| VM_set_memory_dynamic_range of (Vm.id * int64 * int64)
 	| VM_pause of Vm.id
 	| VM_unpause of Vm.id
+	| VM_set_domain_action_request of (Vm.id * domain_action_request option)
 	| VM_create_device_model of (Vm.id * bool)
 	| VM_destroy_device_model of Vm.id
 	| VM_destroy of Vm.id
@@ -684,10 +685,14 @@ let rec atomics_of_operation = function
 			   condition causing an interrupt storm. *)
 		] @ (List.map (fun pci -> PCI_plug pci.Pci.id)
 			(PCI_DB.pcis id |> pci_plug_order)
-		)
+		) @ [
+			(* At this point the domain is considered survivable. *)
+			VM_set_domain_action_request(id, None)
+		]
 	| VM_shutdown (id, timeout) ->
 		(Opt.default [] (Opt.map (fun x -> [ VM_shutdown_domain(id, Halt, x) ]) timeout)
 		) @ [
+			(* At this point we have a shutdown domain (ie Needs_poweroff) *)
 			VM_destroy_device_model id;
 		] @ (List.map (fun vbd -> VBD_unplug (vbd.Vbd.id, true))
 			(VBD_DB.vbds id |> vbd_unplug_order)
@@ -737,7 +742,7 @@ let rec atomics_of_operation = function
 			VM_hook_script(id, Xenops_hooks.VM_pre_reboot, Xenops_hooks.reason__none)
 		] @ (atomics_of_operation (VM_start id)
 		) @ [
-			VM_unpause id
+			VM_unpause id;
 		]
 	| VM_suspend (id, data) ->
 		[
@@ -751,7 +756,11 @@ let rec atomics_of_operation = function
 		[
 			VM_create id;
 			VM_restore (id, data);
-		] @ (atomics_of_operation (VM_restore_devices id))
+		] @ (atomics_of_operation (VM_restore_devices id)
+		) @ [
+			(* At this point the domain is considered survivable. *)
+			VM_set_domain_action_request(id, None)			
+		]
 	| _ -> []
 
 let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) : unit =
@@ -870,6 +879,9 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			debug "VM.unpause %s" id;
 			B.VM.unpause t (VM_DB.read_exn id);
 			VM_DB.signal id
+		| VM_set_domain_action_request (id, dar) ->
+			debug "VM.set_domain_action_request %s %s" id (Opt.default "None" (Opt.map (fun x -> x |> rpc_of_domain_action_request |> Jsonrpc.to_string) dar));
+			B.VM.set_domain_action_request (VM_DB.read_exn id) dar
 		| VM_create_device_model (id, save_state) ->
 			debug "VM.create_device_model %s" id;
 			B.VM.create_device_model t (VM_DB.read_exn id) save_state
@@ -1046,7 +1058,8 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 						debug "Got VM.migrate_complete";
 						perform_atomics ([
 						] @ (atomics_of_operation (VM_restore_devices id)) @ [
-							(VM_unpause id) 
+							VM_unpause id;
+							VM_set_domain_action_request(id, None)
 						]) t;
 						success |> Jsonrpc.string_of_response
 					end else begin
