@@ -135,7 +135,7 @@ val build_hvm: xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> static_max_kib:Int64
 val build: xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> build_info -> domid -> domarch
 
 (** resume a domain either cooperative or not *)
-val resume: xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> hvm: bool -> cooperative: bool -> domid -> unit
+val resume: Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> hvm: bool -> cooperative: bool -> domid -> unit
 
 (** restore a PV domain into a fresh domain created with 'make' *)
 val pv_restore: xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> static_max_kib:Int64.t 
@@ -156,7 +156,7 @@ val restore: xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> build_info -> domid ->
 type suspend_flag = Live | Debug
 
 (** suspend a domain into the file descriptor *)
-val suspend: xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> hvm: bool -> domid
+val suspend: Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> hvm: bool -> domid
           -> Unix.file_descr -> suspend_flag list
           -> ?progress_callback: (float -> unit)
           -> (unit -> unit) -> unit

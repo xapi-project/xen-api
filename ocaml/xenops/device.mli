@@ -209,16 +209,16 @@ sig
 	val get_vnc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
 	val get_tc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
 
-	val signal : xs:Xenstore.Xs.xsh -> domid:Xenctrl.domid -> ?wait_for:string -> ?param:string
+	val signal : Xenops_task.t -> xs:Xenstore.Xs.xsh -> domid:Xenctrl.domid -> ?wait_for:string -> ?param:string
 	          -> string -> unit
 
 	val cmdline_of_info: info -> bool -> int -> string list
 
-	val start : xs:Xenstore.Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xenctrl.domid -> unit
-	val start_vnconly : xs:Xenstore.Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xenctrl.domid -> unit
-	val restore : xs:Xenstore.Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xenctrl.domid -> unit
-	val suspend : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
-	val resume : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
+	val start : Xenops_task.t -> xs:Xenstore.Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xenctrl.domid -> unit
+	val start_vnconly : Xenops_task.t -> xs:Xenstore.Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xenctrl.domid -> unit
+	val restore : Xenops_task.t -> xs:Xenstore.Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xenctrl.domid -> unit
+	val suspend : Xenops_task.t -> xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
+	val resume : Xenops_task.t -> xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
 	val stop : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
 end
 
