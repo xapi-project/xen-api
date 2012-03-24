@@ -105,12 +105,12 @@ let suspend_domain ~xc ~xs ~domid ~file =
 		in
 	let hvm = is_hvm ~xc domid in
 	let fd = Unix.openfile file [ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_EXCL ] 0o600 in
-	Domain.suspend xc xs hvm domid fd [] suspendfct;
+	Domain.suspend task xc xs hvm domid fd [] suspendfct;
 	Unix.close fd
 
 let suspend_domain_and_resume ~xc ~xs ~domid ~file ~cooperative =
 	suspend_domain ~xc ~xs ~domid ~file;
-	Domain.resume ~xc ~xs ~cooperative ~hvm:(is_hvm ~xc domid) domid
+	Domain.resume task ~xc ~xs ~cooperative ~hvm:(is_hvm ~xc domid) domid
 
 let suspend_domain_and_destroy ~xc ~xs ~domid ~file =
 	suspend_domain ~xc ~xs ~domid ~file;
@@ -341,7 +341,7 @@ let add_dm ~xs ~domid ~static_max_kib ~vcpus ~boot =
 
  	  Device.Dm.extras = []
  	} in
-	Device.Dm.start ~xs ~dmpath info domid
+	Device.Dm.start task ~xs ~dmpath info domid
 
 let add_ioport ~xc ~domid ~ioport_start ~ioport_end =
 	Domain.add_ioport ~xc domid ioport_start ioport_end
