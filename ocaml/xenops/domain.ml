@@ -264,8 +264,6 @@ let hard_shutdown ~xc domid req =
 (** Return the path in xenstore watched by the PV shutdown driver *)
 let control_shutdown ~xs domid = xs.Xs.getdomainpath domid ^ "/control/shutdown"
 
-let cancel_path ~xs domid = Printf.sprintf "%s/tools/xenops/cancel" (xs.Xs.getdomainpath domid)
-
 (** Raised if a domain has vanished *)
 exception Domain_does_not_exist
 
@@ -298,7 +296,7 @@ let shutdown_wait_for_ack (t: Xenops_task.t) ?(timeout=60.) ~xc ~xs domid req =
 	end else begin
 		debug "VM = %s; domid = %d; Waiting for PV domain to acknowledge shutdown request" (Uuid.to_string uuid) domid;
 		let path = control_shutdown ~xs domid in
-		let cancel = cancel_path ~xs domid in
+		let cancel = cancel_path_of_domain ~xs domid in
 		if cancellable_watch cancel [ Watch.value_to_become path ""] [ Watch.key_to_disappear path ] t ~xs ~timeout ()
 		then info "VM = %s; domid = %d; Domain acknowledged shutdown request" (Uuid.to_string uuid) domid
 		else debug "VM = %s; domid = %d; Domain disappeared" (Uuid.to_string uuid) domid
