@@ -1552,7 +1552,7 @@ let xenclient_specific ~xs info domid =
    "-M"; (if info.hvm then "xenfv" else "xenpv")] 
   @ sound_options
    
-let signal ~xs ~domid ?wait_for ?param cmd =
+let signal (task: Xenops_task.t) ~xs ~domid ?wait_for ?param cmd =
 	let cmdpath = device_model_path domid in
 	Xs.transaction xs (fun t ->
 		t.Xst.write (cmdpath ^ "/command") cmd;
@@ -1566,8 +1566,10 @@ let signal ~xs ~domid ?wait_for ?param cmd =
                (* MTC: The default timeout for this operation was 20mins, which is
                 * way too long for our software to recover successfully.
                 * Talk to Citrix about this
-                *) 
-		Watch.wait_for ~xs ~timeout:30. (Watch.value_to_become pw state)
+                *)
+		let cancel = cancel_path_of_domain ~xs domid in
+		let (_: bool) = cancellable_watch cancel [ Watch.value_to_become pw state ] [] task ~xs ~timeout:30. () in
+		()
 	| None -> ()
 
 let get_state ~xs domid =
@@ -1672,7 +1674,7 @@ let prepend_wrapper_args domid args =
 	(string_of_int domid) :: args
 
 (* Returns the allocated vnc port number *)
-let __start ~xs ~dmpath ?(timeout = !Xapi_globs.qemu_dm_ready_timeout) l domid =
+let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xapi_globs.qemu_dm_ready_timeout) l domid =
 	debug "Device.Dm.start domid=%d" domid;
 
 	(* Execute qemu-dm-wrapper, forwarding stdout to the syslog, with the key "qemu-dm-<domid>" *)
@@ -1693,10 +1695,14 @@ let __start ~xs ~dmpath ?(timeout = !Xapi_globs.qemu_dm_ready_timeout) l domid =
 	   block for 5s at a time *)
 	begin
 		let finished = ref false in
+		let watch = Watch.value_to_appear dm_ready |> Watch.map (fun _ -> ()) in
+		let cancel = cancel_path_of_domain ~xs domid in
 		let start = Unix.gettimeofday () in
 		while Unix.gettimeofday () -. start < timeout && not !finished do
+			Xenops_task.check_cancelling task;
 			try
-			  let state = Watch.wait_for ~xs ~timeout:5. (Watch.value_to_appear dm_ready) in
+				let (_: bool) = cancellable_watch cancel [ watch ] [] task ~xs ~timeout () in
+				let state = try xs.Xs.read dm_ready with _ -> "" in
 				if state = "running" 
 				then finished := true
 				else raise (Ioemu_failed (Printf.sprintf "qemu-dm state not running (%s)" state))
@@ -1716,22 +1722,22 @@ let __start ~xs ~dmpath ?(timeout = !Xapi_globs.qemu_dm_ready_timeout) l domid =
 	(* At this point we expect qemu to outlive us; we will never call waitpid *)	
 	Forkhelpers.dontwaitpid pid
 
-let start ~xs ~dmpath ?timeout info domid =
+let start (task: Xenops_task.t) ~xs ~dmpath ?timeout info domid =
 	let l = cmdline_of_info info false domid in
-	__start ~xs ~dmpath ?timeout l domid
-let restore ~xs ~dmpath ?timeout info domid =
+	__start task ~xs ~dmpath ?timeout l domid
+let restore (task: Xenops_task.t) ~xs ~dmpath ?timeout info domid =
 	let l = cmdline_of_info info true domid in
-	__start ~xs ~dmpath ?timeout l domid
+	__start task ~xs ~dmpath ?timeout l domid
 
-let start_vnconly ~xs ~dmpath ?timeout info domid =
+let start_vnconly (task: Xenops_task.t) ~xs ~dmpath ?timeout info domid =
 	let l = vnconly_cmdline ~info domid in
-	__start ~xs ~dmpath ?timeout l domid
+	__start task ~xs ~dmpath ?timeout l domid
 
 (* suspend/resume is a done by sending signals to qemu *)
-let suspend ~xs domid =
-	signal ~xs ~domid "save" ~wait_for:"paused"
-let resume ~xs domid =
-	signal ~xs ~domid "continue" ~wait_for:"running"
+let suspend (task: Xenops_task.t) ~xs domid =
+	signal task ~xs ~domid "save" ~wait_for:"paused"
+let resume (task: Xenops_task.t) ~xs domid =
+	signal task ~xs ~domid "continue" ~wait_for:"running"
 
 (* Called by every domain destroy, even non-HVM *)
 let stop ~xs domid  =

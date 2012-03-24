@@ -874,11 +874,11 @@ module VM = struct
 					Opt.iter
 						(fun stubdom_domid ->
 							Stubdom.build ~xc ~xs info di.Xenctrl.domid stubdom_domid;
-							Device.Dm.start_vnconly ~xs ~dmpath:_qemu_dm info stubdom_domid
+							Device.Dm.start_vnconly task ~xs ~dmpath:_qemu_dm info stubdom_domid
 						) (get_stubdom ~xs di.Xenctrl.domid);
 				| _ ->
 					(if saved_state then Device.Dm.restore else Device.Dm.start)
-						~xs ~dmpath:_qemu_dm info di.Xenctrl.domid
+						task ~xs ~dmpath:_qemu_dm info di.Xenctrl.domid
 		) (vmextra |> create_device_model_config);
 		match vm.Vm.ty with
 			| Vm.PV { vncterm = true; vncterm_ip = ip } -> Device.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
@@ -997,7 +997,7 @@ module VM = struct
 				let domid = di.Xenctrl.domid in
 				with_data ~xc ~xs task data true
 					(fun fd ->
-						Domain.suspend ~xc ~xs ~hvm ~progress_callback domid fd flags'
+						Domain.suspend task ~xc ~xs ~hvm ~progress_callback domid fd flags'
 							(fun () ->
 								if not(request_shutdown task vm Suspend 30.)
 								then raise (Exception Failed_to_acknowledge_shutdown_request);

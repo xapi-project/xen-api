@@ -750,12 +750,12 @@ let restore_common ~xc ~xs ~hvm ~store_port ~console_port ~vcpus ~extras domid f
 	);
 	store_mfn, console_mfn
 
-let resume ~xc ~xs ~hvm ~cooperative domid =
+let resume (task: Xenops_task.t) ~xc ~xs ~hvm ~cooperative domid =
 	if not cooperative
 	then failwith "Domain.resume works only for collaborative domains";
 	Xenctrl.domain_resume_fast xc domid;
 	resume_post ~xc	~xs domid;
-	if hvm then Device.Dm.resume ~xs domid
+	if hvm then Device.Dm.resume task ~xs domid
 
 let pv_restore ~xc ~xs ~static_max_kib ~target_kib ~vcpus domid fd =
 
@@ -846,7 +846,7 @@ type suspend_flag = Live | Debug
  * and is in charge to suspend the domain when called. the whole domain
  * context is saved to fd
  *)
-let suspend ~xc ~xs ~hvm domid fd flags ?(progress_callback = fun _ -> ()) do_suspend_callback =
+let suspend (task: Xenops_task.t) ~xc ~xs ~hvm domid fd flags ?(progress_callback = fun _ -> ()) do_suspend_callback =
 	let uuid = get_uuid ~xc domid in
 	debug "VM = %s; domid = %d; suspend live = %b" (Uuid.to_string uuid) domid (List.mem Live flags);
 	Io.write fd save_signature;
@@ -909,7 +909,7 @@ let suspend ~xc ~xs ~hvm domid fd flags ?(progress_callback = fun _ -> ()) do_su
 		do_suspend_callback ();
 		if hvm then (
 			debug "VM = %s; domid = %d; suspending qemu-dm" (Uuid.to_string uuid) domid;
-			Device.Dm.suspend ~xs domid;
+			Device.Dm.suspend task ~xs domid;
 		);
  		XenguestHelper.send cnx "done\n";
 
