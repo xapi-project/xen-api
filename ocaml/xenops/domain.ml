@@ -348,7 +348,7 @@ let destroy (task: Xenops_task.t) ?(preserve_xs_vm=false) ~xc ~xs domid =
 	List.iter 
 	  (fun device ->
 	     try
-	       Device.hard_shutdown ~xs device
+	       Device.hard_shutdown task ~xs device
 	     with e ->
 	       (* If this fails we may have a resource leak. We should prevent
 		  this from happening! *)

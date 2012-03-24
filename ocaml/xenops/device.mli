@@ -67,11 +67,11 @@ sig
 	val media_tray_is_locked : xs:Xenstore.Xs.xsh -> device_number:Device_number.t -> int -> bool
 
 	val clean_shutdown_async : xs:Xenstore.Xs.xsh -> device -> unit
-	val clean_shutdown_wait : xs:Xenstore.Xs.xsh -> device -> unit
+	val clean_shutdown_wait : Xenops_task.t -> xs:Xenstore.Xs.xsh -> device -> unit
 
 	(* For migration: *)
 	val hard_shutdown_request : xs:Xenstore.Xs.xsh -> device -> unit
-	val hard_shutdown_complete : xs:Xenstore.Xs.xsh -> device -> string Watch.t
+	val hard_shutdown_complete : xs:Xenstore.Xs.xsh -> device -> unit Watch.t
 	val hard_shutdown_wait : Xenops_task.t -> xs:Xenstore.Xs.xsh -> timeout:float -> device -> unit
 end
 
@@ -95,8 +95,8 @@ sig
 	val move : xs:Xenstore.Xs.xsh -> device -> string -> unit
 end
 
-val clean_shutdown : xs:Xenstore.Xs.xsh -> device -> unit
-val hard_shutdown  : xs:Xenstore.Xs.xsh -> device -> unit
+val clean_shutdown : Xenops_task.t -> xs:Xenstore.Xs.xsh -> device -> unit
+val hard_shutdown  : Xenops_task.t -> xs:Xenstore.Xs.xsh -> device -> unit
 
 val can_surprise_remove : xs:Xenstore.Xs.xsh -> device -> bool
 
