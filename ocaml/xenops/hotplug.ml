@@ -18,7 +18,7 @@ open Fun
 
 open Device_common
 open Xenstore
-open Xenstore_utils
+open Cancel_utils
 
 module D = Debug.Debugger(struct let name = "hotplug" end)
 open D
