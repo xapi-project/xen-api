@@ -18,7 +18,7 @@ open Stringext
 open Listext
 open Pervasiveext
 open Xenstore
-open Xenstore_utils
+open Cancel_utils
 
 open Xenops_helpers
 open Device_common

@@ -812,7 +812,7 @@ module VM = struct
 					| PV { boot = Indirect ( { devices = d :: _ } as i ) } ->
 						with_disk ~xc ~xs task d false
 							(fun dev ->
-								let b = Bootloader.extract ~bootloader:i.bootloader 
+								let b = Bootloader.extract task ~bootloader:i.bootloader 
 									~legacy_args:i.legacy_args ~extra_args:i.extra_args
 									~pv_bootloader_args:i.bootloader_args 
 									~disk:dev ~vm:vm.Vm.id () in

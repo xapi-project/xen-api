@@ -21,7 +21,7 @@ open Listext
 
 open Device_common
 open Xenstore
-open Xenstore_utils
+open Cancel_utils
 
 exception Ioemu_failed of string
 exception Ioemu_failed_dying

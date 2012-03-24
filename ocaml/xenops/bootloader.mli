@@ -35,7 +35,7 @@ type t = {
 }
 
 (** Extract the default kernel from the disk *)
-val extract: bootloader:string -> disk:string
+val extract: Xenops_task.t -> bootloader:string -> disk:string
 	-> ?legacy_args:string
 	-> ?extra_args:string
 	-> ?pv_bootloader_args:string

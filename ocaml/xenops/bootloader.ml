@@ -88,14 +88,14 @@ let parse_exception x =
 			raise (Bad_error x)
 
 (** Extract the default kernel using the -q option *)
-let extract ~bootloader ~disk ?(legacy_args="") ?(extra_args="") ?(pv_bootloader_args="") ~vm:vm_uuid () =
+let extract (task: Xenops_task.t) ~bootloader ~disk ?(legacy_args="") ?(extra_args="") ?(pv_bootloader_args="") ~vm:vm_uuid () =
 	if not(List.mem_assoc bootloader supported_bootloader_paths)
 	then raise (Unknown_bootloader bootloader);
 	let bootloader_path = List.assoc bootloader supported_bootloader_paths in
 	let cmdline = bootloader_args true extra_args legacy_args pv_bootloader_args disk vm_uuid in
 	debug "Bootloader commandline: %s %s\n" bootloader_path (String.concat " " cmdline);
 	try
-		let output, _ = Forkhelpers.execute_command_get_output bootloader_path cmdline in
+		let output, _ = Cancel_utils.cancellable_subprocess task bootloader_path cmdline in
 		parse_output output
 	with Forkhelpers.Spawn_internal_error(stderr, stdout, _) ->
 		parse_exception stderr
