@@ -324,24 +324,6 @@ let sysrq ~xs domid key =
 	let path = xs.Xs.getdomainpath domid ^ "/control/sysrq" in
 	xs.Xs.write path (String.make 1 key)
 
-(** Forcibly shuts down all VBD backends in parallel and returns when they have all
-    reported successful flushing.
-    extra_debug_paths is a list of xenstore paths which will also be watched
-    for manually checking the migrate synchronisation code.
- *)
-let hard_shutdown_all_vbds ~xc ~xs ?(extra_debug_paths = []) (devices: device list) = 
-	(* Tell them all to flush now *)
-	List.iter (Device.Vbd.hard_shutdown_request ~xs) devices;
-	(* If requested we watch additional debugging paths: *)
-	let debug_watches = List.map Watch.value_to_appear extra_debug_paths in
-	(* Wait for them all to acknowledge *)
-	try
-	  let watches = List.map (Device.Vbd.hard_shutdown_complete ~xs) devices in
-	  ignore(Watch.wait_for ~xs (Watch.all_of (watches @ debug_watches)));
-	with Watch.Timeout _ ->
-	  debug "Timeout waiting for backends to flush";
-	  raise Timeout_backend
-
 let destroy ?(preserve_xs_vm=false) ~xc ~xs domid =
 	let dom_path = xs.Xs.getdomainpath domid in
 	let uuid = get_uuid ~xc domid in

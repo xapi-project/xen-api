@@ -25,6 +25,7 @@ module Generic :
 sig
 	val rm_device_state : xs:Xenstore.Xs.xsh -> device -> unit
 	val exists : xs:Xenstore.Xs.xsh -> device -> bool
+
 end
 
 module Vbd :
@@ -71,7 +72,7 @@ sig
 	(* For migration: *)
 	val hard_shutdown_request : xs:Xenstore.Xs.xsh -> device -> unit
 	val hard_shutdown_complete : xs:Xenstore.Xs.xsh -> device -> string Watch.t
-
+	val hard_shutdown_wait : Xenops_task.t -> xs:Xenstore.Xs.xsh -> timeout:float -> device -> unit
 end
 
 module Vif :

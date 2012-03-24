@@ -1018,7 +1018,8 @@ module VM = struct
 						   even exist in the PV case) *)
 						let vbds = List.filter (fun vbd -> vbd.Vbd.backend <> None) d.VmExtra.vbds in
 						let devices = List.map (fun vbd -> vbd.Vbd.id |> snd |> device_by_id xc xs vm.id Device_common.Vbd Oldest) vbds in
-						Domain.hard_shutdown_all_vbds ~xc ~xs devices;
+						List.iter (Device.Vbd.hard_shutdown_request ~xs) devices;
+						List.iter (Device.Vbd.hard_shutdown_wait task ~xs ~timeout:30.) devices;
 						debug "VM = %s; domid = %d; Disk backends have all been flushed" vm.Vm.id domid;
 						List.iter (fun vbd -> match vbd.Vbd.backend with
 							| None (* can never happen due to 'filter' above *)
