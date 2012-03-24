@@ -149,6 +149,17 @@ let clean_shutdown_async ~xs (x: device) =
 		)
 	)
 
+let cancel_path ~xs device = backend_path_of_device ~xs device ^ "/tools/xenops/cancel"
+
+let cancellable_device_watch (task: Xenops_task.t) ~xs ~timeout (x: device) t =
+	let cancel = cancel_path ~xs x in
+	match Watch.wait_for ~xs ~timeout (Watch.any_of [
+		`OK, t;
+		`Cancel, Watch.value_to_become cancel ""
+	]) with
+		| `OK, x -> x
+		| `Cancel, _ -> Xenops_task.raise_cancelled task
+
 let unplug_watch ~xs (x: device) =
 	let path = Hotplug.path_written_by_hotplug_scripts x in
 	Watch.map (fun () -> "") (Watch.key_to_disappear path)
@@ -433,6 +444,9 @@ let hard_shutdown_request ~xs x = match shutdown_mode_of_device ~xs x with
 let hard_shutdown_complete ~xs x = match shutdown_mode_of_device ~xs x with
 	| Classic -> Generic.hard_shutdown_complete ~xs x
 	| ShutdownRequest -> shutdown_done ~xs x
+
+let hard_shutdown_wait (task: Xenops_task.t) ~xs ~timeout x =
+	Generic.cancellable_device_watch task ~xs ~timeout x (Watch.map (fun _ -> ()) (hard_shutdown_complete ~xs x))
 
 let release ~xs (x: device) =
 	debug "Device.Vbd.release %s" (string_of_device x);
