@@ -101,10 +101,6 @@ val shutdown_wait_for_ack: Xenops_task.t -> ?timeout:float -> xc:Xenctrl.handle 
 (** send a domain a sysrq *)
 val sysrq: xs:Xenstore.Xs.xsh -> domid -> char -> unit
 
-(** Forcibly close all VBD backends and wait for them to indicate they've flushed
-    (only used by the migrate code) *)
-val hard_shutdown_all_vbds: xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> ?extra_debug_paths:string list -> device list -> unit
-
 (** destroy a domain *)
 val destroy: ?preserve_xs_vm : bool -> xc: Xenctrl.handle -> xs:Xenstore.Xs.xsh -> domid -> unit
 
