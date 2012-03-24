@@ -823,7 +823,7 @@ module VM = struct
 								} in
 								make_build_info b.Bootloader.kernel_path builder_spec_info
 							) in
-			let arch = Domain.build ~xc ~xs build_info domid in
+			let arch = Domain.build task ~xc ~xs build_info domid in
 			Domain.cpuid_apply ~xc ~hvm:(will_be_hvm vm) domid;
 			debug "VM = %s; domid = %d; Domain built with architecture %s" vm.Vm.id domid (Domain.string_of_domarch arch);
 			let k = vm.Vm.id in
@@ -873,7 +873,7 @@ module VM = struct
 					if saved_state then failwith "Cannot resume with stubdom yet";
 					Opt.iter
 						(fun stubdom_domid ->
-							Stubdom.build ~xc ~xs info di.Xenctrl.domid stubdom_domid;
+							Stubdom.build task ~xc ~xs info di.Xenctrl.domid stubdom_domid;
 							Device.Dm.start_vnconly task ~xs ~dmpath:_qemu_dm info stubdom_domid
 						) (get_stubdom ~xs di.Xenctrl.domid);
 				| _ ->
@@ -1046,7 +1046,7 @@ module VM = struct
 				let domid = di.Xenctrl.domid in
 				with_data ~xc ~xs task data false
 					(fun fd ->
-						Domain.restore ~xc ~xs (* XXX progress_callback *) build_info domid fd
+						Domain.restore task ~xc ~xs (* XXX progress_callback *) build_info domid fd
 					)
 			) Newest task vm
 

@@ -69,12 +69,12 @@ let create_domain ~xc ~xs ~hvm =
 	printf "%u\n" domid
 
 let build_domain ~xc ~xs ~kernel ?(ramdisk=None) ~cmdline ~domid ~vcpus ~static_max_kib ~target_kib =
-	let (_: Domain.domarch) = Domain.build_linux xc xs static_max_kib target_kib
+	let (_: Domain.domarch) = Domain.build_linux task xc xs static_max_kib target_kib
 	                                             kernel cmdline ramdisk vcpus domid in
 	printf "built domain: %u\n" domid
 
 let build_hvm ~xc ~xs ~kernel ~domid ~vcpus ~static_max_kib ~target_kib =
-	let (_: Domain.domarch) = Domain.build_hvm xc xs static_max_kib target_kib 1.
+	let (_: Domain.domarch) = Domain.build_hvm task xc xs static_max_kib target_kib 1.
 	                                           vcpus kernel "0" 4 domid in
 	printf "built hvm domain: %u\n" domid
 
@@ -118,7 +118,7 @@ let suspend_domain_and_destroy ~xc ~xs ~domid ~file =
 
 let restore_domain ~xc ~xs ~domid ~vcpus ~static_max_kib ~target_kib ~file =
 	let fd = Unix.openfile file [ Unix.O_RDONLY ] 0o400 in
-	Domain.pv_restore ~xc ~xs domid ~static_max_kib ~target_kib ~vcpus fd;
+	Domain.pv_restore task ~xc ~xs domid ~static_max_kib ~target_kib ~vcpus fd;
 	Unix.close fd
 
 let balloon_domain ~xs ~domid ~mem_mib =
