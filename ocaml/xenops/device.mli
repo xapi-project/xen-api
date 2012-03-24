@@ -143,8 +143,8 @@ sig
 	       -> (int * int * int * int) list -> Xenctrl.domid -> int -> unit
 	val reset : xs:Xenstore.Xs.xsh -> dev -> unit
 	val bind : dev list -> unit
-	val plug : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> dev -> Xenctrl.domid -> unit
-	val unplug : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> dev -> Xenctrl.domid -> unit
+	val plug : Xenops_task.t -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> dev -> Xenctrl.domid -> unit
+	val unplug : Xenops_task.t -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> dev -> Xenctrl.domid -> unit
 	val list : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> Xenctrl.domid -> (int * dev) list
 end
 

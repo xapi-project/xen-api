@@ -198,7 +198,8 @@ let hard_shutdown_complete ~xs (x: device) = unplug_watch ~xs x
 
 let hard_shutdown (task: Xenops_task.t) ~xs (x: device) = 
 	hard_shutdown_request ~xs x;
-	ignore(Watch.wait_for ~xs (hard_shutdown_complete ~xs x));
+
+	let (_: bool) = cancellable_watch (cancel_path_of_device ~xs x) [ hard_shutdown_complete ~xs x ] [ ] task ~xs ~timeout:!Xapi_globs.hotplug_timeout () in
 	(* blow away the backend and error paths *)
 	debug "Device.Generic.hard_shutdown about to blow away backend and error paths";
 	rm_device_state ~xs x
@@ -1242,10 +1243,14 @@ let signal_device_model ~xc ~xs domid cmd parameter =
 				       Printf.sprintf "device-model/%d/parameter" domid, parameter ];
 	)
 
-let wait_device_model ~xc ~xs domid = 
+let wait_device_model (task: Xenops_task.t) ~xc ~xs domid = 
   let be_domid = 0 in
-  let answer = Watch.wait_for ~xs (Watch.value_to_appear (device_model_state_path xs be_domid domid)) in
-  xs.Xs.rm (device_model_state_path xs be_domid domid);
+  let path = device_model_state_path xs be_domid domid in
+  let watch = Watch.value_to_appear path |> Watch.map (fun _ -> ()) in
+  let cancel = cancel_path_of_domain ~xs domid in
+  let (_: bool) = cancellable_watch cancel [ watch ] [] task ~xs ~timeout:!Xapi_globs.hotplug_timeout () in
+  let answer = try xs.Xs.read path with _ -> "" in
+  xs.Xs.rm path;
   answer
 							
 (* Given a domid, return a list of [ X, (domain, bus, dev, func) ] where X indicates the order in
@@ -1268,14 +1273,14 @@ let list ~xc ~xs domid =
 	List.map (fun (_, y) -> (0, y)) (read_pcidir ~xc ~xs domid)
 
 
-let plug ~xc ~xs (domain, bus, dev, func) domid = 
+let plug (task: Xenops_task.t) ~xc ~xs (domain, bus, dev, func) domid = 
     let current = read_pcidir ~xc ~xs domid in
 	let next_idx = List.fold_left max (-1) (List.map fst current) + 1 in
 	
 	let pci = to_string (domain, bus, dev, func) in
 	signal_device_model ~xc ~xs domid "pci-ins" pci;
 
-	let () = match wait_device_model ~xc ~xs domid with
+	let () = match wait_device_model task ~xc ~xs domid with
 	| "pci-inserted" -> 
 		  (* success *)
 		  xs.Xs.write (device_model_pci_device_path xs 0 domid ^ "/dev-" ^ (string_of_int next_idx)) pci;
@@ -1284,14 +1289,14 @@ let plug ~xc ~xs (domain, bus, dev, func) domid =
 			(Printf.sprintf "Waiting for state=pci-inserted; got state=%s" x) in
 	Xenctrl.domain_assign_device xc domid (domain, bus, dev, func)
 
-let unplug ~xc ~xs (domain, bus, dev, func) domid = 
+let unplug (task: Xenops_task.t) ~xc ~xs (domain, bus, dev, func) domid = 
     let current = list ~xc ~xs domid in
 
 	let pci = to_string (domain, bus, dev, func) in
 	let idx = fst (List.find (fun x -> snd x = (domain, bus, dev, func)) current) in
 	signal_device_model ~xc ~xs domid "pci-rem" pci;
 
-	let () = match wait_device_model ~xc ~xs domid with
+	let () = match wait_device_model task ~xc ~xs domid with
 	| "pci-removed" -> 
 		  (* success *)
 		  xs.Xs.rm (device_model_pci_device_path xs 0 domid ^ "/dev-" ^ (string_of_int idx))
