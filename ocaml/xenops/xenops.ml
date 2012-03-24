@@ -18,6 +18,8 @@ open Device_common
 open Xenops_helpers
 open Xenstore
 
+let task = Xenops_task.add "xenops" (fun _ -> ())
+
 let print_xen_dmesg ~xc =
 	let s = Xenctrl.readconsolering xc in
 	printf "%s\n" s
@@ -93,7 +95,7 @@ let unpause_domain ~xc ~domid =
 	printf "unpaused domain: %u\n" domid
 
 let destroy_domain ~xc ~xs ~domid =
-	Domain.destroy xc xs domid
+	Domain.destroy task xc xs domid
 
 let suspend_domain ~xc ~xs ~domid ~file =
 	let suspendfct () =
@@ -112,7 +114,7 @@ let suspend_domain_and_resume ~xc ~xs ~domid ~file ~cooperative =
 
 let suspend_domain_and_destroy ~xc ~xs ~domid ~file =
 	suspend_domain ~xc ~xs ~domid ~file;
-	Domain.destroy xc xs domid
+	Domain.destroy task xc xs domid
 
 let restore_domain ~xc ~xs ~domid ~vcpus ~static_max_kib ~target_kib ~file =
 	let fd = Unix.openfile file [ Unix.O_RDONLY ] 0o400 in
@@ -270,7 +272,7 @@ let del_vbd ~xs ~domid ~backend_domid ~device_number ~phystype =
 	Device.clean_shutdown ~xs device
 
 let add_vif ~xs ~domid ~netty ~devid ~mac ~backend_domid =
-	ignore(Device.Vif.add ~xs ~devid ~netty ~mac ~carrier:true ~backend_domid domid)
+	ignore(Device.Vif.add task ~xs ~devid ~netty ~mac ~carrier:true ~backend_domid domid)
 
 let del_vif ~xs ~domid ~backend_domid ~devid =
 	let frontend = { domid = domid; kind = Vif; devid = devid } in
@@ -766,7 +768,7 @@ let _ = try
                 extra_private_keys = [];
                 backend_domid = backend_domid
             } in
-            let (_: device) = Device.Vbd.add ~xs ~hvm vbd domid in
+            let (_: device) = Device.Vbd.add task ~xs ~hvm vbd domid in
             ()
 		)
 	| "del_vbd" ->

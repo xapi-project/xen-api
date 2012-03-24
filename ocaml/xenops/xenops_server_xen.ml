@@ -165,7 +165,7 @@ let create_vbd_frontend ~xc ~xs task frontend_domid vdi =
 				backend_domid = backend_domid;
 			} in
 			let device = Xenops_task.with_subtask task "Vbd.add"
-				(fun () -> Device.Vbd.add ~xs ~hvm:false t frontend_domid) in
+				(fun () -> Device.Vbd.add task ~xs ~hvm:false t frontend_domid) in
 			Device device
 
 let block_device_of_vbd_frontend = function
@@ -623,7 +623,7 @@ module VM = struct
 		(* We need to clean up the stubdom before the primary otherwise we deadlock *)
 		Opt.iter
 			(fun stubdom_domid ->
-				Domain.destroy ~preserve_xs_vm:false ~xc ~xs stubdom_domid
+				Domain.destroy task ~preserve_xs_vm:false ~xc ~xs stubdom_domid
 			) (get_stubdom ~xs domid);
 
 		let vbds = Opt.default [] (Opt.map (fun d -> d.VmExtra.vbds) (DB.read vm.Vm.id)) in
@@ -636,7 +636,7 @@ module VM = struct
 			debug "VM = %s; domid = %d; will not have domain-level information preserved" vm.Vm.id di.Xenctrl.domid;
 			if DB.exists vm.Vm.id then DB.remove vm.Vm.id;
 		end;
-		Domain.destroy ~preserve_xs_vm:false ~xc ~xs domid;
+		Domain.destroy task ~preserve_xs_vm:false ~xc ~xs domid;
 		(* Detach any remaining disks *)
 		List.iter (fun vbd -> Storage.deactivate_and_detach task (Storage.id_of domid vbd.Vbd.id)) vbds
 	) Oldest
@@ -1300,7 +1300,7 @@ module VBD = struct
 					} in
 					let device =
 						Xenops_task.with_subtask task (Printf.sprintf "Vbd.add %s" (id_of vbd))
-							(fun () -> Device.Vbd.add ~xs ~hvm x frontend_domid) in
+							(fun () -> Device.Vbd.add task ~xs ~hvm x frontend_domid) in
 
 					(* NB now the frontend position has been resolved *)
 					let open Device_common in
@@ -1337,7 +1337,7 @@ module VBD = struct
 					Xenops_task.with_subtask task (Printf.sprintf "Vbd.clean_shutdown %s" (id_of vbd))
 						(fun () -> (if force then Device.hard_shutdown else Device.clean_shutdown) ~xs device);
 					Xenops_task.with_subtask task (Printf.sprintf "Vbd.release %s" (id_of vbd))
-						(fun () -> Device.Vbd.release ~xs device);
+						(fun () -> Device.Vbd.release task ~xs device);
 					(* If we have a qemu frontend, detach this too. *)
 					if List.mem_assoc vbd.Vbd.id vm_t.VmExtra.qemu_vbds then begin
 						let _, qemu_vbd = List.assoc vbd.Vbd.id vm_t.VmExtra.qemu_vbds in
@@ -1525,14 +1525,14 @@ module VIF = struct
 								~other_config:vif.other_config
 								~extra_private_keys:(id :: vif.extra_private_keys @ locking_mode)
 								frontend_domid in
-						let (_: Device_common.device) = create frontend_domid in
+						let (_: Device_common.device) = create task frontend_domid in
 
 						(* If qemu is in a different domain, then plug into it *)
 						let me = this_domid ~xs in
 						Opt.iter
 							(fun stubdom_domid ->
 								if vif.position < 4 && stubdom_domid <> me then begin
-									let device = create stubdom_domid in
+									let device = create task stubdom_domid in
 									let q = vif.position, Device device in
 									DB.write vm { vm_t with VmExtra.qemu_vifs = (vif.Vif.id, q) :: vm_t.VmExtra.qemu_vifs }
 								end
@@ -1554,7 +1554,7 @@ module VIF = struct
 						Xenops_task.with_subtask task (Printf.sprintf "Vif.hard_shutdown %s" (id_of vif))
 							(fun () -> (if force then Device.hard_shutdown else Device.clean_shutdown) ~xs device);
 						Xenops_task.with_subtask task (Printf.sprintf "Vif.release %s" (id_of vif))
-							(fun () -> Device.Vif.release ~xs device) in
+							(fun () -> Device.Vif.release task ~xs device) in
 					destroy device;
 
 					(* If we have a qemu frontend, detach this too. *)
