@@ -21,6 +21,7 @@ open Listext
 
 open Device_common
 open Xenstore
+open Xenstore_utils
 
 exception Ioemu_failed of string
 exception Ioemu_failed_dying
@@ -148,17 +149,6 @@ let clean_shutdown_async ~xs (x: device) =
 			t.Xst.write state_path (Xenbus_utils.string_of Xenbus_utils.Closing);
 		)
 	)
-
-let cancel_path ~xs device = backend_path_of_device ~xs device ^ "/tools/xenops/cancel"
-
-let cancellable_device_watch (task: Xenops_task.t) ~xs ~timeout (x: device) t =
-	let cancel = cancel_path ~xs x in
-	match Watch.wait_for ~xs ~timeout (Watch.any_of [
-		`OK, t;
-		`Cancel, Watch.value_to_become cancel ""
-	]) with
-		| `OK, x -> x
-		| `Cancel, _ -> Xenops_task.raise_cancelled task
 
 let unplug_watch ~xs (x: device) =
 	let path = Hotplug.path_written_by_hotplug_scripts x in
@@ -446,17 +436,18 @@ let hard_shutdown_complete ~xs x = match shutdown_mode_of_device ~xs x with
 	| ShutdownRequest -> shutdown_done ~xs x
 
 let hard_shutdown_wait (task: Xenops_task.t) ~xs ~timeout x =
-	Generic.cancellable_device_watch task ~xs ~timeout x (Watch.map (fun _ -> ()) (hard_shutdown_complete ~xs x))
+	let (_: bool) = cancellable_watch (cancel_path_of_device ~xs x) [ Watch.map (fun _ -> ()) (hard_shutdown_complete ~xs x) ] [] task ~xs ~timeout () in
+	()
 
-let release ~xs (x: device) =
+let release (task: Xenops_task.t) ~xs (x: device) =
 	debug "Device.Vbd.release %s" (string_of_device x);
 	(* Make sure blktap/blkback fire the udev remove event by deleting the
 	   backend now *)
 	Generic.safe_rm ~xs (backend_path_of_device ~xs x);
-	Hotplug.release ~xs x;
+	Hotplug.release task ~xs x;
 	(* As for add above, if the frontend is in dom0, we can wait for the frontend 
 	 * to unplug as well as the backend. CA-13506 *)
-	if x.frontend.domid = 0 then Hotplug.wait_for_frontend_unplug ~xs x
+	if x.frontend.domid = 0 then Hotplug.wait_for_frontend_unplug task ~xs x
 
 let free_device ~xs bus_type domid =
 	let disks = List.map
@@ -544,8 +535,8 @@ let add_async ~xs ~hvm x domid =
 	Generic.add_device ~xs device back front x.extra_private_keys;
 	device
 
-let add_wait ~xs device =
-	Hotplug.wait_for_plug ~xs device;
+let add_wait (task: Xenops_task.t) ~xs device =
+	Hotplug.wait_for_plug task ~xs device;
 	debug "Device.Vbd successfully added; device_is_online = %b" (Hotplug.device_is_online ~xs device);
 	(* 'Normally' we connect devices to other domains, and cannot know whether the
 	   device is 'available' from their userspace (or even if they have a userspace).
@@ -559,11 +550,11 @@ let add_wait ~xs device =
 	if device.frontend.domid = 0 then begin
 	  try
 	    (* CA-15605: clean up on dom0 block-attach failure *)
-	    Hotplug.wait_for_frontend_plug ~xs device;
+	    Hotplug.wait_for_frontend_plug task ~xs device;
 	  with Hotplug.Frontend_device_error _ as e ->
 	    debug "Caught Frontend_device_error: assuming it is safe to shutdown the backend";
 	    clean_shutdown ~xs device; (* assumes double-failure isn't possible *)
-	    release ~xs device;
+	    release task ~xs device;
 	    raise e
 	end;
 	device
@@ -571,7 +562,7 @@ let add_wait ~xs device =
 (* Add the VBD to the domain, When this command returns, the device is ready. (This isn't as
    concurrent as xend-- xend allocates loopdevices via hotplug in parallel and then
    performs a 'waitForDevices') *)
-let add ~xs ~hvm x domid =
+let add (task: Xenops_task.t) ~xs ~hvm x domid =
 	let device =
 		let result = ref None in
 		while !result = None do
@@ -583,7 +574,7 @@ let add ~xs ~hvm x domid =
 					Thread.delay 0.1
 				end else raise e (* permanent failure *)
 		done; Opt.unbox !result in
-	add_wait ~xs device
+	add_wait task ~xs device
 
 let qemu_media_change ~xs ~device_number domid _type params =
 	let devid = Device_number.to_xenstore_key device_number in
@@ -691,7 +682,7 @@ let hashchain_local_mac dev seed =
          take_byte 2 mac_data_2; |]
 
 
-let add ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) ?(protocol=Protocol_Native) ?(backend_domid=0) ?(other_config=[]) ?(extra_private_keys=[]) domid =
+let add (task: Xenops_task.t) ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) ?(protocol=Protocol_Native) ?(backend_domid=0) ?(other_config=[]) ?(extra_private_keys=[]) domid =
 	debug "Device.Vif.add domid=%d devid=%d mac=%s carrier=%b rate=%s other_config=[%s] extra_private_keys=[%s]" domid devid mac carrier
 	      (match rate with None -> "none" | Some (a, b) -> sprintf "(%Ld,%Ld)" a b)
 	      (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) other_config))
@@ -759,7 +750,7 @@ let add ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) ?(protocol=Protocol_Na
 	  (match rate with | None -> [] | Some(rate, timeslice) -> [ "rate", Int64.to_string rate; "timeslice", Int64.to_string timeslice ]) in
 
 	Generic.add_device ~xs device back front extra_private_keys;
-	Hotplug.wait_for_plug ~xs device;
+	Hotplug.wait_for_plug task ~xs device;
 	device
 
 let clean_shutdown = Generic.clean_shutdown
@@ -771,9 +762,9 @@ let set_carrier ~xs (x: device) carrier =
 	let disconnect_path = disconnect_path_of_device ~xs x in
 	xs.Xs.write disconnect_path (if carrier then "0" else "1")
 
-let release ~xs (x: device) =
+let release (task: Xenops_task.t) ~xs (x: device) =
 	debug "Device.Vif.release %s" (string_of_device x);
-	Hotplug.release ~xs x
+	Hotplug.release task ~xs x
 
 let move ~xs (x: device) bridge =
 	let xs_bridge_path = Hotplug.get_private_data_path_of_device x ^ "/bridge" in

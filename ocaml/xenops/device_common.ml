@@ -240,3 +240,4 @@ let protocol_of_string = function
 
 let qemu_save_path : (_, _, _) format = "/var/lib/xen/qemu-save.%d"
 let qemu_restore_path : (_, _, _) format = "/var/lib/xen/qemu-resume.%d"
+

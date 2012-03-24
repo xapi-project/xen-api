@@ -57,9 +57,9 @@ sig
 		backend_domid: int;
 	}
 
-	val add : xs:Xenstore.Xs.xsh -> hvm:bool -> t -> Xenctrl.domid -> device
+	val add : Xenops_task.t -> xs:Xenstore.Xs.xsh -> hvm:bool -> t -> Xenctrl.domid -> device
 
-	val release : xs:Xenstore.Xs.xsh -> device -> unit
+	val release : Xenops_task.t -> xs:Xenstore.Xs.xsh -> device -> unit
 	val media_eject : xs:Xenstore.Xs.xsh -> device_number:Device_number.t -> int -> unit
 	val media_insert : xs:Xenstore.Xs.xsh -> device_number:Device_number.t
 	                -> params:string -> phystype:physty -> int -> unit
@@ -83,7 +83,7 @@ sig
 	val random_local_mac: unit -> string
 	val hashchain_local_mac: int -> string -> string
 
-	val add : xs:Xenstore.Xs.xsh -> devid:int -> netty:Netman.netty
+	val add : Xenops_task.t -> xs:Xenstore.Xs.xsh -> devid:int -> netty:Netman.netty
 	       -> mac:string -> carrier:bool 
 	       -> ?mtu:int -> ?rate:(int64 * int64) option
 	       -> ?protocol:protocol -> ?backend_domid:Xenctrl.domid 
@@ -91,7 +91,7 @@ sig
 	       -> ?extra_private_keys:(string * string) list -> Xenctrl.domid
 	       -> device
 	val set_carrier : xs:Xenstore.Xs.xsh -> device -> bool -> unit
-	val release : xs:Xenstore.Xs.xsh -> device -> unit
+	val release : Xenops_task.t -> xs:Xenstore.Xs.xsh -> device -> unit
 	val move : xs:Xenstore.Xs.xsh -> device -> string -> unit
 end
 

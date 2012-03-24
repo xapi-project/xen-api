@@ -18,6 +18,7 @@ open Stringext
 open Listext
 open Pervasiveext
 open Xenstore
+open Xenstore_utils
 
 open Xenops_helpers
 open Device_common
@@ -290,41 +291,24 @@ let shutdown ~xc ~xs domid req =
 (** If domain is PV, signal it to shutdown. If the PV domain fails to respond then throw a Watch.Timeout exception.
 	All other exceptions imply the domain has disappeared. *)
 let shutdown_wait_for_ack (t: Xenops_task.t) ?(timeout=60.) ~xc ~xs domid req =
-  let di = Xenctrl.domain_getinfo xc domid in
-  let uuid = get_uuid ~xc domid in
-  if di.Xenctrl.hvm_guest then begin
-	debug "VM = %s; domid = %d; HVM guest with PV drivers: not expecting any acknowledgement" (Uuid.to_string uuid) domid;
-  end else begin
-	debug "VM = %s; domid = %d; Waiting for PV domain to acknowledge shutdown request" (Uuid.to_string uuid) domid;
-	let path = control_shutdown ~xs domid in
-	let cancel = cancel_path ~xs domid in
-	finally
-		(fun () ->
-			Xenops_task.with_cancel t (fun () -> with_xs (fun xs -> xs.Xs.write cancel ""))
-				(fun () ->
-					(* If already shutdown then we continue *)
-					if not di.Xenctrl.shutdown
-					then match Watch.wait_for ~xs ~timeout (Watch.any_of [
-						`Ack, Watch.value_to_become path "";
-						`Gone, Watch.key_to_disappear path;
-						`Cancel, Watch.value_to_become cancel ""
-					]) with
-						| `Ack, _ ->
-							info "VM = %s; domid = %d; Domain acknowledged shutdown request" (Uuid.to_string uuid) domid;
-						| `Gone, _ ->
-							debug "VM = %s; domid = %d; Domain disappeared" (Uuid.to_string uuid) domid
-						| `Cancel, _ ->
-							debug "VM = %s; domid = %d; Operation cancelled" (Uuid.to_string uuid) domid;
-							Xenops_task.raise_cancelled t
-				)
-		) (fun () -> xs.Xs.rm cancel)
-  end
+	let di = Xenctrl.domain_getinfo xc domid in
+	let uuid = get_uuid ~xc domid in
+	if di.Xenctrl.hvm_guest then begin
+		debug "VM = %s; domid = %d; HVM guest with PV drivers: not expecting any acknowledgement" (Uuid.to_string uuid) domid;
+	end else begin
+		debug "VM = %s; domid = %d; Waiting for PV domain to acknowledge shutdown request" (Uuid.to_string uuid) domid;
+		let path = control_shutdown ~xs domid in
+		let cancel = cancel_path ~xs domid in
+		if cancellable_watch cancel [ Watch.value_to_become path ""] [ Watch.key_to_disappear path ] t ~xs ~timeout ()
+		then info "VM = %s; domid = %d; Domain acknowledged shutdown request" (Uuid.to_string uuid) domid
+		else debug "VM = %s; domid = %d; Domain disappeared" (Uuid.to_string uuid) domid
+	end
 
 let sysrq ~xs domid key =
 	let path = xs.Xs.getdomainpath domid ^ "/control/sysrq" in
 	xs.Xs.write path (String.make 1 key)
 
-let destroy ?(preserve_xs_vm=false) ~xc ~xs domid =
+let destroy (task: Xenops_task.t) ?(preserve_xs_vm=false) ~xc ~xs domid =
 	let dom_path = xs.Xs.getdomainpath domid in
 	let uuid = get_uuid ~xc domid in
 	(* These are the devices with a frontend in [domid] and a well-formed backend
@@ -380,7 +364,7 @@ let destroy ?(preserve_xs_vm=false) ~xc ~xs domid =
 	List.iter (fun x ->
 		log_exn_continue ("waiting for hotplug for " ^ (string_of_device x))
 		                 (fun () ->
-			Hotplug.release ~xs x; released := x :: !released
+			Hotplug.release task ~xs x; released := x :: !released
 		                 ) ()
 		) all_devices;
 

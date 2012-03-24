@@ -14,7 +14,7 @@ OCAMLFLAGS    += -thread
 UseCamlp4(rpc-light.syntax, device_number xenops_utils xenops_server xenops_server_simulator xenops_migrate xenops_server_xen xenops_server_plugin domain device device_common xenops_hooks)
 UseCamlp4(rpc-light.idl, xenops_interface)
 
-LIBFILES = ../util/table xenops_helpers xenbus_utils xenguestHelper domain hotplug device io statdev netman memory device_common squeeze squeeze_xen squeezed_rpc squeezed_state squeezed_rpc device_number stubdom bootloader xenops_interface xenops_utils xenops_client xenops_server_plugin ../xapi/storage_interface ../xapi/vdi_automaton xenops_server xenops_migrate xenops_task xenops_hooks ionice xenops_server_xen xenops_server_simulator
+LIBFILES = ../util/table xenops_helpers xenstore_utils xenbus_utils xenguestHelper domain hotplug device io statdev netman memory device_common squeeze squeeze_xen squeezed_rpc squeezed_state squeezed_rpc device_number stubdom bootloader xenops_interface xenops_utils xenops_client xenops_server_plugin ../xapi/storage_interface ../xapi/vdi_automaton xenops_server xenops_migrate xenops_task xenops_hooks ionice xenops_server_xen xenops_server_simulator
 
 StaticCLibrary(statdev_stubs, statdev_stubs)
 OCamlLibraryClib(xenops, $(LIBFILES), statdev_stubs)
