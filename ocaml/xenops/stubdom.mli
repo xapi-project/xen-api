@@ -16,4 +16,4 @@ val memory_kib: int64
 
 val create: xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> Xenctrl.domid -> Xenctrl.domid
 
-val build: xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> Device.Dm.info -> Xenctrl.domid -> Xenctrl.domid -> unit
+val build: Xenops_task.t -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> Device.Dm.info -> Xenctrl.domid -> Xenctrl.domid -> unit

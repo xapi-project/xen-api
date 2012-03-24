@@ -12,6 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open Fun
+open Pervasiveext
 
 module D = Debug.Debugger(struct let name = "xenguesthelper" end)
 open D
@@ -79,6 +80,19 @@ let disconnect (_, _, r, w, pid) =
 	(* just in case *)
 	(try Unix.kill (Forkhelpers.getpid pid) Sys.sigterm with _ -> ());
 	ignore(Forkhelpers.waitpid pid)
+
+let with_connection (task: Xenops_task.t) domid (args: string list) (fds: (string * Unix.file_descr) list) f =
+	let t = connect domid args fds in
+	let cancel_cb () =
+		let _, _, _, _, pid = t in
+		try Unix.kill (Forkhelpers.getpid pid) Sys.sigkill with _ -> () in
+	finally
+		(fun () ->
+			Xenops_task.with_cancel task cancel_cb
+				(fun () ->
+					f t
+				)
+		) (fun () -> disconnect t)
 
 (** immediately write a command to the control channel *)
 let send (_, out, _, _, _) txt = output_string out txt; flush out
