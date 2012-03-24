@@ -1227,7 +1227,7 @@ module PCI = struct
 				Device.PCI.bind [ device ];
 				(* If the guest is HVM then we plug via qemu *)
 				if hvm
-				then Device.PCI.plug ~xc ~xs device frontend_domid
+				then Device.PCI.plug task ~xc ~xs device frontend_domid
 				else Device.PCI.add ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt [ device ] frontend_domid 0
 			) Newest vm
 
@@ -1237,7 +1237,7 @@ module PCI = struct
 			(fun xc xs frontend_domid hvm ->
 				try
 					if hvm
-					then Device.PCI.unplug ~xc ~xs device frontend_domid
+					then Device.PCI.unplug task ~xc ~xs device frontend_domid
 					else error "VM = %s; PCI.unplug for PV guests is unsupported" vm
 				with Not_found ->
 					debug "VM = %s; PCI.unplug %s.%s caught Not_found: assuming device is unplugged already" vm (fst pci.id) (snd pci.id)
