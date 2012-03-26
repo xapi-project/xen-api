@@ -426,27 +426,44 @@ end
 
 (** If we're restoring VM metadata only then lookup the SR by uuid. If we can't find
     the SR then we will still try to match VDIs later (except CDROMs) *)
-let handle_sr __context config rpc session_id (state: state) (x: obj) : unit =
-	let sr_record = API.From.sR_t "" x.snapshot in
-	match config.import_type with
-	| Metadata_import _ -> begin
-		(* Look up the existing SR record *)
-		try
-			let sr = Client.SR.get_by_uuid rpc session_id sr_record.API.sR_uuid in
+module SR : HandlerTools = struct
+	type precheck_t =
+		| Found_SR of API.ref_SR
+		| Found_no_SR
+		| Will_use_SR of API.ref_SR
+		| SR_not_needed
+
+	let precheck __context config rpc session_id state x =
+		let sr_record = API.From.sR_t "" x.snapshot in
+		match config.import_type with
+		| Metadata_import _ -> begin
+			(* Look up the existing SR record *)
+			try
+				let sr = Client.SR.get_by_uuid rpc session_id sr_record.API.sR_uuid in
+				Found_SR sr
+			with e ->
+				let msg = match sr_record.API.sR_content_type with
+				| "iso" -> "- will eject disk" (* Will be handled specially in handle_vdi *)
+				| _ -> "- will still try to find individual VDIs"
+				in
+				warn "Failed to find SR with UUID: %s content-type: %s %s"
+					sr_record.API.sR_uuid sr_record.API.sR_content_type msg;
+				Found_no_SR
+		end
+		| Full_import sr -> begin
+			if sr_record.API.sR_content_type = "iso"
+			then SR_not_needed (* this one will be ejected *)
+			else Will_use_SR sr
+		end
+
+	let handle_dry_run __context config rpc session_id state x precheck_result =
+		match precheck_result with
+		| Found_SR sr | Will_use_SR sr ->
 			state.table <- (x.cls, x.id, Ref.string_of sr) :: state.table
-		with e ->
-			let msg = match sr_record.API.sR_content_type with
-			| "iso" -> "- will eject disk" (* Will be handled specially in handle_vdi *)
-			| _ -> "- will still try to find individual VDIs"
-			in
-			warn "Failed to find SR with UUID: %s content-type: %s %s"
-				sr_record.API.sR_uuid sr_record.API.sR_content_type msg;
-	end
-	| Full_import sr -> begin
-		if sr_record.API.sR_content_type = "iso"
-		then () (* this one will be ejected *)
-		else state.table <- (x.cls, x.id, Ref.string_of sr) :: state.table
-	end
+		| Found_no_SR | SR_not_needed -> ()
+
+	let handle = handle_dry_run
+end
 
 let choose_one = function
 	| x :: [] -> Some x
@@ -759,6 +776,7 @@ let handle_vgpu __context config rpc session_id (state: state) (x: obj) : unit =
 
 (** Create a handler for each object type. *)
 module HostHandler = MakeHandler(Host)
+module SRHandler = MakeHandler(SR)
 module GuestMetricsHandler = MakeHandler(GuestMetrics)
 module VMHandler = MakeHandler(VM)
 
@@ -766,7 +784,7 @@ module VMHandler = MakeHandler(VM)
 let handlers =
 	[
 		Datamodel._host, HostHandler.handle;
-		Datamodel._sr, handle_sr;
+		Datamodel._sr, SRHandler.handle;
 		Datamodel._vdi, handle_vdi;
 		Datamodel._vm_guest_metrics, GuestMetricsHandler.handle;
 		Datamodel._vm, VMHandler.handle;
