@@ -158,8 +158,7 @@ let response_file ?mime_content_type s file =
 	let size = (Unix.LargeFile.stat file).Unix.LargeFile.st_size in
 	let mime_header = Opt.default [] (Opt.map (fun ty -> [ Hdr.content_type, ty ]) mime_content_type) in
 	let keep_alive = Http.Hdr.connection, "keep-alive" in
-	let disposition = Http.Hdr.content_disposition, "attachment; filename=\"" ^ file ^ "\"" in
-	let res = Http.Response.make ~version:"1.1" ~headers:(disposition :: keep_alive :: mime_header)
+	let res = Http.Response.make ~version:"1.1" ~headers:(keep_alive :: mime_header)
 		~length:size "200" "OK" in
 	Unixext.with_file file [ Unix.O_RDONLY ] 0
 		(fun f ->
