@@ -964,9 +964,14 @@ let register_task __context id =
 			Hashtbl.replace id_to_task_tbl id task;
 			Hashtbl.replace task_to_id_tbl task id;
 		);
+	(* Since we've bound the XenAPI Task to the xenopsd Task, and the xenopsd Task
+	   is cancellable, mark the XenAPI Task as cancellable too. *)
+	TaskHelper.set_cancellable ~__context;
 	id
 
-let unregister_task id =
+let unregister_task __context id =
+	(* The rest of the XenAPI Task won't be cancellable *)
+	TaskHelper.set_not_cancellable ~__context;
 	Mutex.execute task_tbl_m
 		(fun () ->
 			let task = Hashtbl.find id_to_task_tbl id in
@@ -1279,7 +1284,7 @@ let set_resident_on ~__context ~self =
 
 let sync_with_task __context x =
 	let dbg = Context.string_of_task __context in
-	x |> success |> register_task __context |> wait_for_task dbg |> unregister_task |> success_task ignore_task dbg
+	x |> success |> register_task __context |> wait_for_task dbg |> unregister_task __context |> success_task ignore_task dbg
 
 let sync __context x =
 	let dbg = Context.string_of_task __context in
