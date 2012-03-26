@@ -45,6 +45,7 @@ let rrd_updates = "/rrd_updates"                      (* ocaml/xapi/monitor_rrds
 let blob_uri = "/blob"                                (* ocaml/xapi/xapi_blob.ml *)
 let remotecmd_uri = "/remotecmd"                      (* ocaml/xapi/xapi_remotecmd.ml *)
 let message_rss_feed = "/rss"                         (* ocaml/xapi/xapi_message.ml *)
+let message_put_uri = "/messages"                     (* ocaml/xapi/xapi_message.ml *)
 let wlb_report_uri = "/wlb_report"                    (* ocaml/xapi/wlb_reports.ml *)
 let wlb_diagnostics_uri = "/wlb_diagnostics"          (* ocaml/xapi/wlb_reports.ml *)
 let audit_log_uri = "/audit_log"                      (* ocaml/xapi/audit.ml *)

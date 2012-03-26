@@ -599,3 +599,46 @@ let rss_handler (req: Http.Request.t) (bio: Buf_io.t) _ =
 			      (Int64.of_int (String.length body)) 
 			      ~version:"1.1" ~keep_alive:false ())@[Http.Hdr.content_type ^": application/rss+xml"]);
       ignore(Unix.write s body 0 (String.length body)))
+
+(** Handler for PUTing messages to a host.
+	Query params: { cls=<obj class>, uuid=<obj uuid> } *)
+let handler (req: Http.Request.t) fd _ =
+	let query = req.Http.Request.query in
+	req.Http.Request.close <- true ;
+	debug "Xapi_message.handler: receiving messages" ;
+
+	let check_query param =
+		if not (List.mem_assoc param query) then begin
+			error "Xapi_message.handler: HTTP request for message lacked %s parameter" param ;
+			Http_svr.headers fd (Http.http_400_badrequest ()) ;
+			failwith (Printf.sprintf "Xapi_message.handler: Missing %s parameter" param)
+		end in
+
+	(* Check query for required params *)
+	check_query "uuid" ; check_query "cls" ;
+
+	Xapi_http.with_context ~dummy:true "Xapi_message.handler" req fd
+		(fun __context -> try
+			(* Get and check query parameters *)
+			let uuid = List.assoc "uuid" query
+			and cls = List.assoc "cls" query in
+			let cls = try string_to_class cls with _ ->
+				failwith ("Xapi_message.handler: Bad class " ^ cls) in
+			if not (check_uuid ~__context ~cls ~uuid) then
+				failwith ("Xapi_message.handler: Bad uuid " ^ uuid) ;
+
+			(* Tell client we're good to receive *)
+			Http_svr.headers fd (Http.http_200_ok ()) ;
+
+			(* Read messages in, and write to filesystem *)
+			let xml_in = Xmlm.make_input
+				(`Channel (Unix.in_channel_of_descr fd)) in
+			let messages = import_xml xml_in in
+			List.iter (function (r,m) -> ignore (write r m)) messages ;
+
+			(* Flush cache and reload *)
+			repopulate_cache () ;
+
+			with e -> error "Xapi_message.handler: caught exception '%s'"
+				(ExnHelper.string_of_exn e)
+		)
