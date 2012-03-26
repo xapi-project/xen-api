@@ -411,16 +411,18 @@ CAMLprim value stub_xc_hvm_build_native(value xc_handle, value domid,
   unsigned long console_mfn=0;
 	int r;
 	struct flags f;
+	struct xc_hvm_build_args args;
 	get_flags(&f, _D(domid));
 
 	xch = _H(xc_handle);
 	configure_vcpus(xch, _D(domid), f);
 
+	args.mem_size = (uint64_t)Int_val(mem_max_mib) << 20;
+	args.mem_target = (uint64_t)Int_val(mem_start_mib) << 20;
+	args.image_file_name = image_name_c;
+
 	caml_enter_blocking_section ();
-	r = xc_hvm_build_target_mem(xch, _D(domid),
-	                            Int_val(mem_max_mib),
-	                            Int_val(mem_start_mib),
-	                            image_name_c);
+	r = xc_hvm_build(xch, _D(domid), &args);
 	caml_leave_blocking_section ();
 
 	free(image_name_c);
