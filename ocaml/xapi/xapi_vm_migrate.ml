@@ -14,10 +14,10 @@
 (**
  * @group Virtual-Machine Management
  *)
- 
+
 (** We only currently support within-pool live or dead migration.
    Unfortunately in the cross-pool case, two hosts must share the same SR and
-   co-ordinate tapdisk locking. We have not got code for this. 
+   co-ordinate tapdisk locking. We have not got code for this.
  *)
 
 open Pervasiveext
@@ -130,7 +130,9 @@ let migrate  ~__context ~vm ~dest ~live ~options =
 		let new_vm = XenAPI.VM.get_by_uuid remote_rpc session_id vm in
 		(* Signal the remote pool that we're done *)
 		XenAPI.VM.pool_migrate_complete remote_rpc session_id new_vm (Ref.of_string dest_host);
-		debug "Done"
+		debug "Done";
+		(* Send non-database metadata *)
+		Xapi_message.send_messages ~__context ~cls:`VM ~obj_uuid:vm ~session_id ~remote_address
 	with e ->
 		error "Caught %s: cleaning up" (Printexc.to_string e);
 		List.iter
