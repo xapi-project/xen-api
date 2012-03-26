@@ -37,9 +37,8 @@ let filtered_platform_flags = ["acpi"; "apic"; "nx"; "pae"; "viridian";
 let disk_of_vdi ~__context ~self =
 	try Some (VDI (Db.VDI.get_location ~__context ~self)) with _ -> None
 
-let backend_of_network ~__context ~self =
-	let bridge = Db.Network.get_bridge ~__context ~self in
-	Network.Local bridge (* PR-1255 *)
+let backend_of_network net =
+	Network.Local net.API.network_bridge (* PR-1255 *)
 
 let find f map default feature =
 	try f (List.assoc feature map)
@@ -204,7 +203,13 @@ module MD = struct
 			with _ ->
 				error "Failed to parse VIF.other_config:mtu; defaulting to 1500";
 				1500 in
-		let network_uuid = Db.Network.get_uuid ~__context ~self:vif.API.vIF_network in
+		let net = Db.Network.get_record ~__context ~self:vif.API.vIF_network in
+		let locking_mode = match vif.API.vIF_locking_mode, net.API.network_default_locking_mode with
+			| `network_default, `disabled -> Vif.Disabled
+			| `network_default, `unlocked -> Vif.Unlocked
+			| `locked, _ -> Vif.Locked { Vif.ipv4 = vif.API.vIF_ipv4_allowed; ipv6 = vif.API.vIF_ipv6_allowed }
+			| `unlocked, _ -> Vif.Unlocked
+			| `disabled, _ -> Vif.Disabled in
 		let open Vif in {
 			id = (vm.API.vM_uuid, vif.API.vIF_device);
 			position = int_of_string vif.API.vIF_device;
@@ -212,11 +217,12 @@ module MD = struct
 			carrier = true;
 			mtu = mtu;
 			rate = None;
-			backend = backend_of_network ~__context ~self:vif.API.vIF_network;
+			backend = backend_of_network net;
 			other_config = vif.API.vIF_other_config;
+			locking_mode = locking_mode;
 			extra_private_keys = [
                 "vif-uuid", vif.API.vIF_uuid;
-				"network-uuid", network_uuid
+				"network-uuid", net.API.network_uuid
 			]
 		}
 
@@ -833,7 +839,8 @@ let update_vbd ~__context (id: (string * string)) =
 										| Some (VDI x) ->
 											let vdi, _ = Storage_access.find_content ~__context x in
 											Db.VBD.set_VDI ~__context ~self:vbd ~value:vdi;
-											Db.VBD.set_empty ~__context ~self:vbd ~value:false
+											Db.VBD.set_empty ~__context ~self:vbd ~value:false;
+											Xapi_vdi.update_allowed_operations ~__context ~self:vdi;
 										| _ ->
 											error "I don't know what to do with this kind of VDI backend"
 								end else if vbd_r.API.vBD_type = `CD then begin
@@ -1632,6 +1639,18 @@ let vif_plug ~__context ~self =
 			assert (Db.VIF.get_currently_attached ~__context ~self)
 		)
 
+let vif_set_locking_mode ~__context ~self =
+	transform_xenops_exn ~__context
+		(fun () ->
+			let vm = Db.VIF.get_VM ~__context ~self in
+			assert_resident_on ~__context ~self:vm;
+			let vif = md_of_vif ~__context ~self in
+			info "xenops: VIF.set_locking_mode %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
+			let dbg = Context.string_of_task __context in
+			Client.VIF.set_locking_mode dbg vif.Vif.id vif.Vif.locking_mode |> sync_with_task __context;
+			Event.wait dbg ();
+		)
+
 let vif_unplug ~__context ~self force =
 	transform_xenops_exn ~__context
 		(fun () ->
@@ -1654,7 +1673,8 @@ let vif_move ~__context ~self network =
 			assert_resident_on ~__context ~self:vm;
 			let vif = md_of_vif ~__context ~self in
 			info "xenops: VIF.move %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
-			let backend = backend_of_network ~__context ~self:network in
+			let network = Db.Network.get_record ~__context ~self:network in
+			let backend = backend_of_network network in
 			let dbg = Context.string_of_task __context in
 			Client.VIF.move dbg vif.Vif.id backend |> sync_with_task __context;
 			Event.wait dbg ();

@@ -203,6 +203,7 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/bin/xapi-wait-init-complete
 @OPTDIR@/bin/xe-backup-metadata
 @OPTDIR@/bin/xe-edit-bootloader
+@OPTDIR@/bin/xe-get-network-backend
 @OPTDIR@/bin/xe-mount-iso-sr
 @OPTDIR@/bin/xe-restore-metadata
 @OPTDIR@/bin/xe-reset-networking
@@ -314,6 +315,7 @@ rm -rf $RPM_BUILD_ROOT
 /etc/xensource/bugtool/xenopsd.xml
 /etc/xensource/bugtool/xenopsd/stuff.xml
 @OPTDIR@/libexec/xn_diagnostics
+@OPTDIR@/libexec/setup-vif-rules
 
 %files v6d
 %defattr(-,root,root,-)

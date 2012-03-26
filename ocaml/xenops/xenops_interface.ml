@@ -256,6 +256,16 @@ module Vif = struct
 
 	type id = string * string
 
+	type locked_addresses = {
+		ipv4: string list;
+		ipv6: string list;
+	}
+
+	type locking_mode =
+		| Unlocked (* all traffic permitted *)
+		| Disabled (* no traffic permitted *)
+		| Locked of locked_addresses
+
 	type t = {
 		id: id;
 		position: int;
@@ -265,6 +275,7 @@ module Vif = struct
 		rate: (int64 * int64) option;
 		backend: Network.t;
 		other_config: (string * string) list;
+		locking_mode: locking_mode;
 		extra_private_keys: (string * string) list;
 	}
 
@@ -391,6 +402,7 @@ module VIF = struct
 	external list: debug_info -> Vm.id -> ((Vif.t * Vif.state) list option) * (error option) = ""
 	external remove: debug_info -> Vif.id -> (unit option) * (error option) = ""
 	external set_carrier: debug_info -> Vif.id -> bool -> (Task.id option) * (error option) = ""
+	external set_locking_mode: debug_info -> Vif.id -> Vif.locking_mode -> (Task.id option) * (error option) = ""
 end
 
 module UPDATES = struct

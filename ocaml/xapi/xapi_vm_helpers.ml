@@ -915,3 +915,4 @@ let consider_generic_bios_strings ~__context ~vm =
 		info "The VM's BIOS strings were not yet filled in. The VM is now made BIOS-generic.";
 		Db.VM.set_bios_strings ~__context ~self:vm ~value:Xapi_globs.generic_bios_strings
 	end
+

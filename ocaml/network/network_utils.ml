@@ -66,7 +66,7 @@ let call_script ?(log_successful_output=true) script args =
 		debug "Assuming script %s doesn't exist" script;
 		raise (RpcFailure ("SCRIPT_DOES_NOT_EXIST", ["script", script; "args", String.concat " " args]))
 	| Forkhelpers.Spawn_internal_error(stderr, stdout, Unix.WEXITED n)->
-		debug "%s %s exitted with code %d [stdout = '%s'; stderr = '%s']" script (String.concat " " args) n stdout stderr;
+		debug "%s %s exited with code %d [stdout = '%s'; stderr = '%s']" script (String.concat " " args) n stdout stderr;
 		raise (RpcFailure ("SCRIPT_ERROR", ["script", script; "args", String.concat " " args; "code",
 			string_of_int n; "stdout", stdout; "stderr", stderr]))
 
@@ -326,16 +326,25 @@ module Ip = struct
 
 	let flush_ip_addr ?(ipv6=false) dev =
 		let ipv6' = if ipv6 then ["-6"] else ["-4"] in
-		ignore (call(ipv6' @ ["addr"; "flush"; "dev"; dev]))
+		try
+			ignore (call(ipv6' @ ["addr"; "flush"; "dev"; dev]))
+		with _ -> ()
 
 	let route_show ?(version=V46) dev =
 		let v = string_of_version version in
 		call (v @ ["route"; "show"; "dev"; dev])
 
-	let set_gateway dev gateway =
+	let set_route ?network dev gateway =
 		try
-			ignore (call ["route"; "replace"; "default"; "via"; Unix.string_of_inet_addr gateway; "dev"; dev])
+			match network with
+			| None ->
+				ignore (call ["route"; "replace"; "default"; "via"; Unix.string_of_inet_addr gateway; "dev"; dev])
+			| Some (ip, prefixlen) ->
+				let addr = Printf.sprintf "%s/%d" (Unix.string_of_inet_addr ip) prefixlen in
+				ignore (call ["route"; "replace"; addr; "via"; Unix.string_of_inet_addr gateway; "dev"; dev])
 		with _ -> ()
+
+	let set_gateway dev gateway = set_route dev gateway
 
 	let vlan_name interface vlan =
 		Printf.sprintf "%s.%d" interface vlan
@@ -414,6 +423,35 @@ module Ovs = struct
 	let ofctl args =
 		call_script ovs_ofctl args
 
+	let port_to_interfaces name =
+		try
+			let raw = call ["get"; "port"; name; "interfaces"] in
+			let raw = String.rtrim raw in
+			if raw <> "[]" then
+				let raw_list = (String.split ',' (String.sub raw 1 (String.length raw - 2))) in
+				let uuids = List.map (String.strip String.isspace) raw_list in
+				List.map (fun uuid ->
+					let raw = String.rtrim (call ["get"; "interface"; uuid; "name"]) in
+					String.sub raw 1 (String.length raw - 2)) uuids
+			else
+				[]
+		with _ -> []
+
+	let bridge_to_ports name =
+		try
+			let ports = String.split '\n' (String.rtrim (call ["list-ports"; name])) in
+			List.map (fun port -> port, port_to_interfaces port) ports
+		with _ -> []
+
+	let bridge_to_interfaces name =
+		try
+			String.split '\n' (String.rtrim (call ["list-ifaces"; name]))
+		with _ -> []
+
+	let bridge_to_vlan name =
+		call ["br-to-parent"; name],
+		int_of_string (call ["br-to-vlan"; name])
+
 	let handle_vlan_bug_workaround override bridge =
 		(* This is a list of drivers that do support VLAN tx or rx acceleration, but
 		 * to which the VLAN bug workaround should not be applied. This could be
@@ -449,7 +487,7 @@ module Ovs = struct
 			with _ -> ());
 		) phy_interfaces
 
-	let create_bridge ?mac ~fail_mode vlan vlan_bug_workaround name =
+	let create_bridge ?mac ?external_id ?disable_in_band ~fail_mode vlan vlan_bug_workaround name =
 		let vlan_arg = match vlan with
 			| None -> []
 			| Some (parent, tag) ->
@@ -462,13 +500,34 @@ module Ovs = struct
 		in
 		let fail_mode_arg =
 			if vlan = None then ["--"; "set"; "bridge"; name; "fail_mode=" ^ fail_mode] else [] in
-		call (["--"; "--may-exist"; "add-br"; name] @ vlan_arg @ mac_arg @ fail_mode_arg)
+		let external_id_arg = match external_id with
+			| None -> []
+			| Some (key, value) ->
+				match vlan with
+				| None -> ["--"; "br-set-external-id"; name; key; value]
+				| Some (parent, _) -> ["--"; "br-set-external-id"; parent; key; value]
+		in
+		let disable_in_band_arg =
+			if vlan = None then
+				match disable_in_band with
+				| None -> []
+				| Some None -> ["--"; "remove"; "bridge"; name; "other_config"; "disable-in-band"]
+				| Some (Some dib) -> ["--"; "set"; "bridge"; name; "other_config:disable-in-band=" ^ dib]
+			else
+				[]
+		in
+		let vif_arg =
+			let existing_vifs = List.filter (fun iface -> not (Sysfs.is_physical iface)) (bridge_to_interfaces name) in
+			List.flatten (List.map (fun vif -> ["--"; "--may-exist"; "add-port"; name; vif]) existing_vifs)
+		in
+		call (["--"; "--if-exists"; "del-br"; name; "--"; "--may-exist"; "add-br"; name] @
+			vlan_arg @ mac_arg @ fail_mode_arg @ disable_in_band_arg @ external_id_arg @ vif_arg)
 
 	let destroy_bridge name =
 		call ["--"; "--if-exists"; "del-br"; name]
 
 	let list_bridges () =
-		String.split '\n' (call ["list-br"])
+		String.split '\n' (String.rtrim (call ["list-br"]))
 
 	let get_vlans name =
 		try
@@ -490,25 +549,11 @@ module Ovs = struct
 			List.map (fun (n, _) -> n) vlans_on_bridge
 		with _ -> []
 
-	let bridge_to_ports name =
-		try
-			String.split '\n' (String.rtrim (call ["list-ports"; name]))
-		with _ -> []
-
-	let bridge_to_interfaces name =
-		try
-			String.split '\n' (String.rtrim (call ["list-ifaces"; name]))
-		with _ -> []
-
-	let bridge_to_vlan name =
-		call ["br-to-parent"; name],
-		int_of_string (call ["br-to-vlan"; name])
-
 	let create_port name bridge =
 		call ["--"; "--may-exist"; "add-port"; bridge; name]
 
 	let create_bond name interfaces bridge mac =
-		call (["--"; "--fake-iface"; "--may-exist"; "add-bond"; bridge; name] @ interfaces @
+		call (["--"; "--may-exist"; "add-bond"; bridge; name] @ interfaces @
 			["--"; "set"; "port"; name; "MAC=\"" ^ (String.escaped mac) ^ "\""])
 
 	let destroy_port name =

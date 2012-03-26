@@ -55,3 +55,5 @@ val assert_vm_placement_preserves_ha_plan : __context:Context.t -> ?leaving:(API
 val assert_host_disable_preserves_ha_plan : __context:Context.t -> API.ref_host -> unit
 val assert_nfailures_change_preserves_ha_plan : __context:Context.t -> int -> unit
 val assert_new_vm_preserves_ha_plan : __context:Context.t -> API.ref_VM -> unit
+
+val consider_ha_policy : __context:Context.t -> vm:API.ref_VM -> unit

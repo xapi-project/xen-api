@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 64
+let schema_minor_vsn = 65
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -1051,7 +1051,7 @@ let _ =
     ~doc:"The specified CRL is corrupt or unreadable." ();
 
   error Api_errors.vmpp_has_vm []
-    ~doc:"There is at least on VM assigned to this protection policy." ();
+    ~doc:"There is at least one VM assigned to this protection policy." ();
   error Api_errors.vmpp_archive_more_frequent_than_backup []
     ~doc:"Archive more frequent than backup." ();
   error Api_errors.vm_assigned_to_protection_policy []
@@ -3269,7 +3269,7 @@ let task =
       field ~qualifier:DynamicRO ~ty:status_type "status" "current status of the task";
       field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:(Ref _session) "session" "the session that created the task";
       field ~qualifier:DynamicRO ~ty:(Ref _host) "resident_on" "the host on which the task is running";
-      field ~qualifier:DynamicRO ~ty:Float "progress" "if the task is still pending, this field contains the estimated fraction complete (0.-1.). If task has completed (successfully or unsuccessfully) this should be 1.";
+      field ~qualifier:DynamicRO ~ty:Float "progress" "This field contains the estimated fraction of the task which is complete. This field should not be used to determine whether the task is complete - for this the status field of the task should be used.";
       field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:Int "externalpid" "If the task has spawned a program, the field record the PID of the process that the task is waiting on. (-1 if no waiting completion of an external program )";
       field ~in_oss_since:None ~internal_deprecated_since:rel_boston ~internal_only:true ~qualifier:DynamicRO ~ty:Int "stunnelpid" "If the task has been forwarded, this field records the pid of the stunnel process spawned to manage the forwarding connection";
       field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:Bool "forwarded" "True if this task has been forwarded to a slave";
@@ -3415,9 +3415,27 @@ let pool_patch_precheck = call
 
 let pool_patch_clean = call
   ~name:"clean"
-  ~doc:"Removes the patch's files from all hosts in the pool, but does not remove the database entries"
+  ~doc:"Removes the patch's files from the server"
   ~in_oss_since:None
   ~in_product_since:rel_miami
+  ~params:[ Ref _pool_patch, "self", "The patch to clean up" ]
+  ~allowed_roles:_R_POOL_OP
+  ()
+
+let pool_patch_clean_on_host = call
+  ~name:"clean_on_host"
+  ~doc:"Removes the patch's files from the specified host"
+  ~in_oss_since:None
+  ~in_product_since:rel_tampa
+  ~params:[ Ref _pool_patch, "self", "The patch to clean up"; Ref _host, "host", "The host on which to clean the patch"  ]
+  ~allowed_roles:_R_POOL_OP
+  ()
+
+let pool_patch_pool_clean = call
+  ~name:"pool_clean"
+  ~doc:"Removes the patch's files from all hosts in the pool, but does not remove the database entries"
+  ~in_oss_since:None
+  ~in_product_since:rel_tampa
   ~params:[ Ref _pool_patch, "self", "The patch to clean up" ]
   ~allowed_roles:_R_POOL_OP
   ()
@@ -3454,7 +3472,7 @@ let pool_patch =
     ~descr:"Pool-wide patches"
     ~doccomments:[]
     ~messages_default_allowed_roles:_R_POOL_OP
-    ~messages:[pool_patch_apply; pool_patch_pool_apply; pool_patch_precheck; pool_patch_clean; pool_patch_destroy]
+    ~messages:[pool_patch_apply; pool_patch_pool_apply; pool_patch_precheck; pool_patch_clean; pool_patch_pool_clean; pool_patch_destroy; pool_patch_clean_on_host]
     ~contents:
     [ uid       ~in_oss_since:None _pool_patch;
       namespace ~name:"name" ~contents:(names None StaticRO) ();
@@ -4141,6 +4159,13 @@ let network_operations =
   Enum ("network_operations", 
 	[ "attaching", "Indicates this network is attaching to a VIF or PIF" ])
 
+let network_default_locking_mode =
+	Enum ("network_default_locking_mode", [
+		"unlocked", "Treat all VIFs on this network with locking_mode = 'default' as if they have locking_mode = 'unlocked'";
+		"disabled", "Treat all VIFs on this network with locking_mode = 'default' as if they have locking_mode = 'disabled'";
+	])
+
+
 let network_attach = call
   ~name:"attach"
   ~doc:"Makes the network immediately available on a particular host"
@@ -4183,12 +4208,24 @@ let network_create_new_blob = call
   ~allowed_roles:_R_POOL_OP
   ()
 
+let network_set_default_locking_mode = call
+	~name:"set_default_locking_mode"
+	~in_product_since:rel_tampa
+	~doc:"Set the default locking mode for VIFs attached to this network"
+	~params:[
+		Ref _network, "network", "The network";
+		network_default_locking_mode, "value", "The default locking mode for VIFs attached to this network.";
+	]
+	~allowed_roles:_R_POOL_OP
+	()
+
 (** A virtual network *)
 let network =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_network ~descr:"A virtual network" ~gen_events:true
       ~doccomments:[]
       ~messages_default_allowed_roles:_R_VM_ADMIN (* vm admins can create/destroy networks without PIFs *)
-      ~messages:[ network_attach; network_pool_introduce; network_create_new_blob ] ~contents: 
+      ~messages:[network_attach; network_pool_introduce; network_create_new_blob; network_set_default_locking_mode]
+      ~contents:
       ([
       uid _network;
       namespace ~name:"name" ~contents:(names ~writer_roles:_R_POOL_OP oss_since_303 RW) ();
@@ -4199,7 +4236,8 @@ let network =
       field ~writer_roles:_R_POOL_OP ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("folder",(_R_VM_OP));("XenCenter.CustomFields.*",(_R_VM_OP));("XenCenterCreateInProgress",(_R_VM_OP))];
       field ~in_oss_since:None ~qualifier:DynamicRO "bridge" "name of the bridge corresponding to this network on the local host";
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this network";
-      field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes"
+      field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes";
+      field ~qualifier:DynamicRO ~in_product_since:rel_tampa ~default_value:(Some (VEnum "unlocked")) ~ty:network_default_locking_mode "default_locking_mode" "The network will use this value to determine the behaviour of all VIFs where locking_mode = default";
        ])
      ()
 
@@ -4622,13 +4660,100 @@ let vif_operations =
 	  "unplug_force", "Attempting to forcibly unplug this VIF";
 	])
 
+let vif_locking_mode =
+	Enum ("vif_locking_mode", [
+		"network_default", "No specific configuration set - default network policy applies";
+		"locked", "Only traffic to a specific MAC and a list of IPv4 or IPv6 addresses is permitted";
+		"unlocked", "All traffic is permitted";
+		"disabled", "No traffic is permitted";
+	])
+
+let vif_set_locking_mode = call
+	~name:"set_locking_mode"
+	~in_product_since:rel_tampa
+	~doc:"Set the locking mode for this VIF"
+	~params:[
+		Ref _vif, "self", "The VIF whose locking mode will be set";
+		vif_locking_mode, "value", "The new locking mode for the VIF";
+	]
+	~allowed_roles:_R_POOL_OP
+	()
+
+let vif_set_ipv4_allowed = call
+	~name:"set_ipv4_allowed"
+	~in_product_since:rel_tampa
+	~doc:"Set the IPv4 addresses to which traffic on this VIF can be restricted"
+	~params:[
+		Ref _vif, "self", "The VIF which the IP addresses will be associated with";
+		Set String, "value", "The IP addresses which will be associated with the VIF";
+	]
+	~allowed_roles:_R_POOL_OP
+	()
+
+let vif_add_ipv4_allowed = call
+	~name:"add_ipv4_allowed"
+	~in_product_since:rel_tampa
+	~doc:"Associates an IPv4 address with this VIF"
+	~params:[
+		Ref _vif, "self", "The VIF which the IP address will be associated with";
+		String, "value", "The IP address which will be associated with the VIF";
+	]
+	~allowed_roles:_R_POOL_OP
+	()
+
+let vif_remove_ipv4_allowed = call
+	~name:"remove_ipv4_allowed"
+	~in_product_since:rel_tampa
+	~doc:"Removes an IPv4 address from this VIF"
+	~params:[
+		Ref _vif, "self", "The VIF from which the IP address will be removed";
+		String, "value", "The IP address which will be removed from the VIF";
+	]
+	~allowed_roles:_R_POOL_OP
+	()
+
+let vif_set_ipv6_allowed = call
+	~name:"set_ipv6_allowed"
+	~in_product_since:rel_tampa
+	~doc:"Set the IPv6 addresses to which traffic on this VIF can be restricted"
+	~params:[
+		Ref _vif, "self", "The VIF which the IP addresses will be associated with";
+		Set String, "value", "The IP addresses which will be associated with the VIF";
+	]
+	~allowed_roles:_R_POOL_OP
+	()
+
+let vif_add_ipv6_allowed = call
+	~name:"add_ipv6_allowed"
+	~in_product_since:rel_tampa
+	~doc:"Associates an IPv6 address with this VIF"
+	~params:[
+		Ref _vif, "self", "The VIF which the IP address will be associated with";
+		String, "value", "The IP address which will be associated with the VIF";
+	]
+	~allowed_roles:_R_POOL_OP
+	()
+
+let vif_remove_ipv6_allowed = call
+	~name:"remove_ipv6_allowed"
+	~in_product_since:rel_tampa
+	~doc:"Removes an IPv6 address from this VIF"
+	~params:[
+		Ref _vif, "self", "The VIF from which the IP address will be removed";
+		String, "value", "The IP address which will be removed from the VIF";
+	]
+	~allowed_roles:_R_POOL_OP
+	()
+
 (** A virtual network interface *)
 let vif =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vif ~descr:"A virtual network interface"
       ~gen_events:true
       ~doccomments:[] 
       ~messages_default_allowed_roles:_R_VM_ADMIN
-      ~messages:[vif_plug; vif_unplug; vif_unplug_force] ~contents:
+      ~messages:[vif_plug; vif_unplug; vif_unplug_force; vif_set_locking_mode;
+        vif_set_ipv4_allowed; vif_add_ipv4_allowed; vif_remove_ipv4_allowed; vif_set_ipv6_allowed; vif_add_ipv6_allowed; vif_remove_ipv6_allowed]
+      ~contents:
       ([ uid _vif;
        ] @ (allowed_and_current_operations vif_operations) @ [
 	 field ~qualifier:StaticRO "device" "order in which VIF backends are created by xapi";
@@ -4641,7 +4766,10 @@ let vif =
        ] @ device_status_fields @
 	 [ namespace ~name:"qos" ~contents:(qos "VIF") (); ] @
 	 [ field ~qualifier:DynamicRO ~ty:(Ref _vif_metrics) "metrics" "metrics associated with this VIF";
-	   field ~qualifier:DynamicRO ~in_product_since:rel_george ~default_value:(Some (VBool false)) ~ty:Bool "MAC_autogenerated" "true if the MAC was autogenerated; false indicates it was set manually"
+		 field ~qualifier:DynamicRO ~in_product_since:rel_george ~default_value:(Some (VBool false)) ~ty:Bool "MAC_autogenerated" "true if the MAC was autogenerated; false indicates it was set manually";
+		 field ~qualifier:DynamicRO ~in_product_since:rel_tampa ~default_value:(Some (VEnum "network_default")) ~ty:vif_locking_mode "locking_mode" "current locking mode of the VIF";
+		 field ~qualifier:DynamicRO ~in_product_since:rel_tampa ~default_value:(Some (VSet [])) ~ty:(Set (String)) "ipv4_allowed" "A list of IPv4 addresses which can be used to filter traffic passing through this VIF";
+		 field ~qualifier:DynamicRO ~in_product_since:rel_tampa ~default_value:(Some (VSet [])) ~ty:(Set (String)) "ipv6_allowed" "A list of IPv6 addresses which can be used to filter traffic passing through this VIF";
 	 ])
 	()
 

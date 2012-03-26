@@ -161,8 +161,8 @@ let clean_shutdown_wait (task: Xenops_task.t) ~xs (x: device) =
 		let error_path = error_path_of_device ~xs x in
 		let error = try xs.Xs.read error_path with _ -> "" in
 	    debug "Device.Generic.shutdown_common: read an error: %s" error;
-	    (* CA-14804: Delete the error node contents *)
-	    safe_rm ~xs error_path;
+	    (* After CA-14804 we deleted the error node *)
+		(* After CA-73099 we stopped doing that *)
 	    raise (Device_error (x, error)) in
 
 	let cancel = cancel_path_of_device ~xs x in
@@ -1028,6 +1028,7 @@ let add_noexn ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?(flrscript=None) pcide
 	Generic.add_device ~xs device (others @ xsdevs @ backendlist) frontendlist [];
 	()
 
+(* comment out while we sort out libxenlight
 let pci_info_of ~msitranslate ~pci_power_mgmt = function
     | domain, bus, dev, func ->
         {
@@ -1047,6 +1048,7 @@ let pci_info_of ~msitranslate ~pci_power_mgmt = function
             msitranslate = msitranslate = 1;
             power_mgmt = pci_power_mgmt = 1;
         }
+*)
 
 
 (* XXX: this will crash because of the logging policy within the
@@ -1073,6 +1075,7 @@ let release_libxl ~msitranslate ~pci_power_mgmt pcidevs domid =
 				raise e
 		) pcidevs
 *)
+
 (* XXX: we don't want to use the 'xl' command here because the "interface"
    isn't considered as stable as the C API *)
 let xl_pci cmd ?(msitranslate=0) ?(pci_power_mgmt=0) pcidevs domid =
@@ -1708,10 +1711,10 @@ let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xapi_globs.qemu_dm_re
 					| 0, Unix.WEXITED 0 -> () (* still running *)
 					| _, Unix.WEXITED n ->
 						error "qemu-dm: unexpected exit with code: %d" n;
-						raise (Ioemu_failed "qemu-dm exitted unexpectedly")
+						raise (Ioemu_failed "qemu-dm exited unexpectedly")
 					| _, (Unix.WSIGNALED n | Unix.WSTOPPED n) ->
 						error "qemu-dm: unexpected signal: %d" n;
-						raise (Ioemu_failed "qemu-dm exitted unexpectedly")
+						raise (Ioemu_failed "qemu-dm exited unexpectedly")
 				end
 		done
 	end;

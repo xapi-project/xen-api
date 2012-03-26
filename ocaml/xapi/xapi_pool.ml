@@ -90,6 +90,33 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 		end
 	in
 
+	(* CA-73264 Applied patches must match *) 
+	let assert_applied_patches_match () =
+		let get_patches patches get_pool_patch get_uuid =
+			let patch_refs = List.map (fun x -> get_pool_patch ~self:x) patches in
+			let patch_uuids = List.map (fun x -> get_uuid ~self:x) patch_refs in
+			patch_uuids in
+		let pool_patches = get_patches 
+			(Client.Host.get_patches ~rpc ~session_id ~self:(get_master ~rpc ~session_id)) 
+			(Client.Host_patch.get_pool_patch ~rpc ~session_id) 
+			(Client.Pool_patch.get_uuid ~rpc ~session_id) in
+		let host_patches = get_patches 
+			(Db.Host.get_patches ~__context ~self:(Helpers.get_localhost ~__context))
+			(Db.Host_patch.get_pool_patch ~__context) (Db.Pool_patch.get_uuid ~__context) in
+		let string_of_patches ps = (String.concat " " (List.map (fun patch -> patch) ps)) in
+		let set_difference a b = List.filter (fun x -> not(List.mem x b)) a in
+		let diff = (set_difference host_patches pool_patches) @ 
+			(set_difference pool_patches host_patches)in
+		if (List.length diff > 0) then begin
+			error "Pool.join failed because of patches mismatch";
+			error "Remote has %s" (string_of_patches pool_patches);
+			error "Local has %s" (string_of_patches host_patches);
+			raise (Api_errors.Server_error(Api_errors.pool_hosts_not_homogeneous,
+				[(Printf.sprintf "Patches applied differ: Remote has %s -- Local has %s" 
+				(string_of_patches pool_patches) (string_of_patches host_patches))]))
+		end
+	in
+
 	(* CP-700: Restrict pool.join if AD configuration of slave-to-be does not match *)
 	(* that of master of pool-to-join *)
 	let assert_external_auth_matches () =
@@ -319,7 +346,8 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 	assert_management_interface_is_physical ();
 	assert_external_auth_matches ();
 	assert_restrictions_match ();
-	assert_homogeneous_vswitch_configuration ()
+	assert_homogeneous_vswitch_configuration ();
+	assert_applied_patches_match ()
 
 let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) : API.ref_host =
 	let my_uuid = host.API.host_uuid in
@@ -475,14 +503,21 @@ let create_or_get_vdi_on_master __context rpc session_id (vdi_ref, vdi) : API.re
 
 let create_or_get_network_on_master __context rpc session_id (network_ref, network) : API.ref_network =
 	let my_bridge = network.API.network_bridge in
+	let is_physical = match network.API.network_PIFs with
+		| [] -> false
+		| hd :: _ -> Db.PIF.get_physical ~__context ~self:hd
+	in
+	let is_himn =
+		(List.mem_assoc Xapi_globs.is_host_internal_management_network network.API.network_other_config) &&
+		(List.assoc Xapi_globs.is_host_internal_management_network network.API.network_other_config = "true")
+	in
 
 	let new_network_ref =
-		if String.startswith "xenbr" my_bridge || my_bridge = "xenapi" then
+		if is_physical || is_himn then
 			(* Physical network or Host Internal Management Network:
 			 * try to join an existing network with the same bridge name, or create one.
-			 * This relies on the convention that PIFs with the same device name need to be connected.
-			 * Furthermore, there should be only one Host Internal Management Network in a pool, and it
-			 * should always have bridge name "xenapi". *)
+			 * This relies on the convention that physical PIFs with the same device name need to be connected.
+			 * Furthermore, there should be only one Host Internal Management Network in a pool. *)
 			try
 				let pool_networks = Client.Network.get_all_records ~rpc ~session_id in
 				let net_ref, _ = List.find (fun (_, net) -> net.API.network_bridge = my_bridge) pool_networks in
@@ -755,9 +790,8 @@ let eject ~__context ~host =
 			(* assumes that the management interface is either physical or a bond *)
 			if pif.API.pIF_bond_master_of <> [] then
 				let bond = List.hd pif.API.pIF_bond_master_of in
-				let slaves = Db.Bond.get_slaves ~__context ~self:bond in
-				let first_slave = List.hd slaves in
-				Db.PIF.get_device ~__context ~self:first_slave
+				let primary_slave = Db.Bond.get_primary_slave ~__context ~self:bond in
+				Db.PIF.get_device ~__context ~self:primary_slave
 			else
 				pif.API.pIF_device
 		in
@@ -1233,6 +1267,21 @@ let get_master_slaves_list ~__context =
 let get_slaves_list ~__context =
 	get_master_slaves_list_with_fn ~__context (fun master slaves -> slaves)
 
+(* destroy all subject not validated in external authentication *)
+let revalidate_subjects ~__context =
+	let revalidate_subject ~__context ~self =
+		let subj_id = Db.Subject.get_subject_identifier ~__context ~self in
+		debug "Revalidating subject %s" subj_id;
+		try
+			let open Auth_signature in
+			ignore((Extauth.Ext_auth.d()).query_subject_information subj_id)
+		with Not_found ->
+			debug "Destroying subject %s" subj_id;
+			Xapi_subject.destroy ~__context ~self in
+	let subjects_in_db = Db.Subject.get_all ~__context in
+	List.iter (fun subj -> revalidate_subject ~__context ~self:subj) subjects_in_db
+
+
 (* CP-719: Enables external auth/directory service across a whole pool; *)
 (* calling Host.enable_external_auth with the specified parameters in turn on each of the hosts in the pool
     * The call fails immediately if any of the pool hosts already have external auth enabled (must disable first)
@@ -1345,7 +1394,10 @@ let enable_external_auth ~__context ~pool ~config ~service_name ~auth_type =
 	end
 
 	else begin (* OK *)
-		debug "External authentication enabled for all hosts in the pool"
+		debug "External authentication enabled for all hosts in the pool";
+
+		(* CA-59647: remove subjects that do not belong to the new domain *)
+		revalidate_subjects ~__context;
 	end
 	)
 

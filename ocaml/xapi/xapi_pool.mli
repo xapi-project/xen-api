@@ -42,7 +42,7 @@ val create_or_get_vdi_on_master :
   (XMLRPC.xmlrpc -> XMLRPC.xmlrpc) ->
   API.ref_session -> [ `VDI ] Ref.t * API.vDI_t -> API.ref_VDI
 val create_or_get_network_on_master :
-  'a ->
+  Context.t ->
   (XMLRPC.xmlrpc -> XMLRPC.xmlrpc) ->
   API.ref_session -> 'b * API.network_t -> API.ref_network
 val create_or_get_pif_on_master :

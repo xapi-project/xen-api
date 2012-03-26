@@ -411,6 +411,11 @@ let assert_nfailures_change_preserves_ha_plan ~__context n =
 let assert_new_vm_preserves_ha_plan ~__context new_vm = 
   assert_configuration_change_preserves_ha_plan ~__context { no_configuration_change with new_vms_to_protect = [ new_vm ] }
 
+(* Used on VM.start, resume *)
+let consider_ha_policy ~__context ~vm =
+    if Db.VM.get_ha_restart_priority ~__context ~self:vm = Constants.ha_restart
+    then assert_new_vm_preserves_ha_plan ~__context vm
+
 (* If a VM fails to start then we remember this fact to avoid sending duplicate alerts. *)
 let restart_failed : (API.ref_VM, unit) Hashtbl.t = Hashtbl.create 10
 

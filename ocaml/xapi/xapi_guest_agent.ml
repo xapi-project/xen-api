@@ -15,6 +15,7 @@
     Note this only deals with relatively static data (like version numbers) and
     not dynamic performance data. *)
 
+open Fun
 open Stringext
 open Threadext
 
@@ -52,22 +53,47 @@ let memory =
     "data/meminfo_total", "total"
   ]
 
-(* One key is placed in the networks map per known IP address for a VIF.
-   This function is passed the directory listing of the 'attr' node. 
-   Each VIF will have a key like "N-ip" -> <ip address> where "N" is the
-   VIF number (with no prefix "eth"). *)
-let networks all_attr = 
-	List.fold_left (fun acc eth ->
-		if String.startswith "eth" eth then (
-			let n = String.sub eth 3 (String.length eth - 3) in
-			("attr/" ^ eth ^ "/ip", n ^ "/ip") :: acc
-		) else if String.startswith "xenbr" eth then (
-			let n = String.sub eth 5 (String.length eth - 5) in
-			("attr/" ^ eth ^ "/ip", n ^ "/ip") :: acc
-		) else (
-			acc
-		)
-	) [] all_attr
+(* This function is passed the 'attr' node and a function it can use to
+ * find the directory listing of sub-nodes. It will return a map where the
+ * keys are the xenstore paths of the VM's IP addresses, and the values are
+ * the intended keys which will go into the VM_guest_metrics.networks field.
+ * Example output for a single vif might be:
+ * attr/eth0/ip -> 0/ip
+ * attr/eth0/ipv6/0/addr -> 0/ipv6/0
+ * attr/eth0/ipv6/1/addr -> 0/ipv6/1
+ * *)
+let networks path (list: string -> string list) =
+	let extend base str = Printf.sprintf "%s/%s" base str in
+	(* Find all ipv6 addresses under a path. *)
+	let find_ipv6 path prefix = List.map
+		(fun str -> (extend (extend path str) "addr", extend prefix str))
+		(list path)
+	in
+	(* Find the ipv4 address under a path, and the ipv6 addresses if they exist. *)
+	let find_all_ips path prefix =
+		let ipv4 = (extend path "ip", extend prefix "ip") in
+		if List.mem "ipv6" (list path) then
+			ipv4 :: (find_ipv6 (extend path "ipv6") (extend prefix "ipv6"))
+		else
+			[ipv4]
+	in
+	(* Find all "ethn" or "xenbrn" under a path. *)
+	let find_eths path = List.fold_left
+		(fun acc eth ->
+			if String.startswith "eth" eth then
+				let n = String.sub eth 3 (String.length eth - 3) in
+				(extend path eth, n) :: acc
+			else if String.startswith "xenbr" eth then
+				let n = String.sub eth 5 (String.length eth - 5) in
+				(extend path eth, n) :: acc
+			else
+				acc)
+		[] (list path)
+	in
+	path
+		|> find_eths
+		|> List.map (fun (path, prefix) -> find_all_ips path prefix)
+		|> List.concat
 
 (* One key is placed in the other map per control/* key in xenstore. This
    catches keys like "feature-shutdown" "feature-hibernate" "feature-reboot"
@@ -91,14 +117,14 @@ let mutex = Mutex.create ()
     and 'list' reads a directory from xenstore. Both are relative to the guest's 
     domainpath. *)
 let all (lookup: string -> string option) (list: string -> string list) ~__context ~domid ~uuid =
-  let all_attr = list "/attr" and all_control = list "/control" in
+  let all_control = list "control" in
   let to_map kvpairs = List.concat (List.map (fun (xskey, mapkey) -> match lookup xskey with
     | Some xsval -> [ mapkey, xsval ]
     | None -> []) kvpairs) in
 
   let pv_drivers_version = to_map pv_drivers_version
   and os_version = to_map os_version
-  and networks = to_map (networks all_attr)
+  and networks = to_map (networks "attr" list)
   and other = to_map (other all_control)
   and memory = to_map memory
   and last_updated = Unix.gettimeofday () in

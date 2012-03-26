@@ -136,6 +136,28 @@ let vif_operation_to_string = function
   | `unplug -> "unplug"
   | `unplug_force -> "unplug_force"
 
+let vif_locking_mode_to_string = function
+	| `network_default -> "network_default"
+	| `locked -> "locked"
+	| `unlocked -> "unlocked"
+	| `disabled -> "disabled"
+
+let string_to_vif_locking_mode = function
+	| "network_default" -> `network_default
+	| "locked" -> `locked
+	| "unlocked" -> `unlocked
+	| "disabled" -> `disabled
+	| s -> raise (Record_failure ("Expected 'network_default', 'locked', 'unlocked', 'disabled', got "^s))
+
+let network_default_locking_mode_to_string = function
+	| `unlocked -> "unlocked"
+	| `disabled -> "disabled"
+
+let string_to_network_default_locking_mode = function
+	| "unlocked" -> `unlocked
+	| "disabled" -> `disabled
+	| s -> raise (Record_failure ("Expected 'unlocked' or 'disabled', got "^s))
+
 let vm_appliance_operation_to_string = function
   | `start -> "start"
   | `clean_shutdown -> "clean_shutdown"

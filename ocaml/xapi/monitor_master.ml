@@ -197,7 +197,7 @@ let update_pifs ~__context host pifs =
 	let db_pifs = Db.PIF.get_records_where ~__context
 		~expr:(And (Eq (Field "host", Literal (Ref.string_of host)),
 			Or (Eq (Field "physical", Literal "true"),
-				Not (Eq (Field "bond_slave_of", Literal (Ref.string_of Ref.null)))))) in
+				Not (Eq (Field "bond_master_of", Literal "()"))))) in
 	List.iter (fun (pifdev, pifrec) ->
 		begin try
 			let pif_stats = List.find (fun p -> p.pif_name = pifrec.API.pIF_device) pifs in
