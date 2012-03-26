@@ -642,3 +642,21 @@ let handler (req: Http.Request.t) fd _ =
 			with e -> error "Xapi_message.handler: caught exception '%s'"
 				(ExnHelper.string_of_exn e)
 		)
+
+(* Export messages and send to another host/pool over http. *)
+let send_messages ~__context ~cls ~obj_uuid ~session_id ~remote_address =
+	let msgs = get ~__context ~cls ~obj_uuid ~since:(Date.of_float 0.0) in
+	let body = export_xml msgs in
+	let query = [ "session_id", Ref.string_of session_id
+				; "cls", "VM"
+				; "uuid", obj_uuid ] in
+	let subtask_of = Context.string_of_task __context in
+	let request = Xapi_http.http_request ~subtask_of ~query ~body
+		Http.Put Constants.message_put_uri in
+	let open Xmlrpc_client in
+		let transport = SSL(SSL.make (), remote_address, !Xapi_globs.https_port) in
+		with_transport transport
+			(with_http request
+				 (fun (rsp, fd) ->
+					 if rsp.Http.Response.code <> "200"
+					 then error "Error transferring messages"))
