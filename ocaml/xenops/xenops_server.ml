@@ -1080,7 +1080,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 					end else vm.Vm.on_crash
 				| Some Needs_suspend ->
 					debug "VM %s has unexpectedly suspended" id;
-					[]
+					[ Vm.Shutdown ]
 				| None ->
 					debug "VM %s is not requesting any attention" id;
 					[] in
