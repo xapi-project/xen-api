@@ -396,23 +396,33 @@ module VM : HandlerTools = struct
 end
 
 (** Create the guest metrics *)
-let handle_gm __context config rpc session_id (state: state) (x: obj) : unit =
-	let gm_record = API.From.vM_guest_metrics_t "" x.snapshot in
-	let gm = Ref.make () in
-	Db.VM_guest_metrics.create ~__context
-		~ref:gm
-		~uuid:(Uuid.to_string (Uuid.make_uuid ()))
-		~os_version:gm_record.API.vM_guest_metrics_os_version
-		~pV_drivers_version:gm_record.API.vM_guest_metrics_PV_drivers_version
-		~pV_drivers_up_to_date:gm_record.API.vM_guest_metrics_PV_drivers_up_to_date
-		~memory:gm_record.API.vM_guest_metrics_memory
-		~disks:gm_record.API.vM_guest_metrics_disks
-		~networks:gm_record.API.vM_guest_metrics_networks
-		~other:gm_record.API.vM_guest_metrics_other
-		~last_updated:gm_record.API.vM_guest_metrics_last_updated
-		~other_config:gm_record.API.vM_guest_metrics_other_config
-		~live:gm_record.API.vM_guest_metrics_live;
-	state.table <- (x.cls, x.id, Ref.string_of gm) :: state.table
+module GuestMetrics : HandlerTools = struct
+	type precheck_t = OK
+
+	let precheck __context config rpc session_id state x = OK
+
+	let handle_dry_run __context config rpc session_id state x precheck_result =
+		let dummy_gm = Ref.make () in
+		state.table <- (x.cls, x.id, Ref.string_of dummy_gm) :: state.table
+
+	let handle __context config rpc session_id state x precheck_result =
+		let gm_record = API.From.vM_guest_metrics_t "" x.snapshot in
+		let gm = Ref.make () in
+		Db.VM_guest_metrics.create ~__context
+			~ref:gm
+			~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+			~os_version:gm_record.API.vM_guest_metrics_os_version
+			~pV_drivers_version:gm_record.API.vM_guest_metrics_PV_drivers_version
+			~pV_drivers_up_to_date:gm_record.API.vM_guest_metrics_PV_drivers_up_to_date
+			~memory:gm_record.API.vM_guest_metrics_memory
+			~disks:gm_record.API.vM_guest_metrics_disks
+			~networks:gm_record.API.vM_guest_metrics_networks
+			~other:gm_record.API.vM_guest_metrics_other
+			~last_updated:gm_record.API.vM_guest_metrics_last_updated
+			~other_config:gm_record.API.vM_guest_metrics_other_config
+			~live:gm_record.API.vM_guest_metrics_live;
+		state.table <- (x.cls, x.id, Ref.string_of gm) :: state.table
+end
 
 (** If we're restoring VM metadata only then lookup the SR by uuid. If we can't find
     the SR then we will still try to match VDIs later (except CDROMs) *)
@@ -749,6 +759,7 @@ let handle_vgpu __context config rpc session_id (state: state) (x: obj) : unit =
 
 (** Create a handler for each object type. *)
 module HostHandler = MakeHandler(Host)
+module GuestMetricsHandler = MakeHandler(GuestMetrics)
 module VMHandler = MakeHandler(VM)
 
 (** Table mapping datamodel class names to handlers, in order we have to run them *)
@@ -757,7 +768,7 @@ let handlers =
 		Datamodel._host, HostHandler.handle;
 		Datamodel._sr, handle_sr;
 		Datamodel._vdi, handle_vdi;
-		Datamodel._vm_guest_metrics, handle_gm;
+		Datamodel._vm_guest_metrics, GuestMetricsHandler.handle;
 		Datamodel._vm, VMHandler.handle;
 		Datamodel._network, handle_net;
 		Datamodel._gpu_group, handle_gpu_group;
