@@ -30,7 +30,10 @@ let cancel_path_of_domain ~xs domid = Printf.sprintf "%s/tools/xenops/cancel" (x
 let cancellable_watch cancel good_watches error_watches (task: Xenops_task.t) ~xs ~timeout () =
 	finally
 		(fun () ->
-			Xenops_task.with_cancel task (fun () -> with_xs (fun xs -> xs.Xs.write cancel ""))
+			Xenops_task.with_cancel task (fun () ->
+				info "Cancelling: xenstore-write %s" cancel;
+				with_xs (fun xs -> xs.Xs.write cancel "")
+			)
 				(fun () ->
 					match Watch.wait_for ~xs ~timeout (Watch.any_of
 						((
@@ -65,6 +68,7 @@ let cancellable_subprocess (task: Xenops_task.t) ?env ?stdin ?(syslog_stdout=NoS
 						Xenops_task.with_cancel task
 							(fun () ->
 								cancelled := true;
+								info "Cancelling: sending SIGKILL to %d" pid';
 								try Unix.kill pid' Sys.sigkill with _ -> ()
 							)
 							(fun () ->
