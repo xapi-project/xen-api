@@ -102,6 +102,11 @@ let find_in_export x export =
 	with Not_found ->
 		raise (IFailure (Failed_to_find_object x))
 
+let choose_one = function
+	| x :: [] -> Some x
+	| x :: _ -> Some x
+	| [] -> None
+
 (* Return the list of non-CDROM VDIs ie those which will be streamed-in *)
 let non_cdrom_vdis (x: header) =
 	let all_vbds = List.filter (fun x -> x.cls = Datamodel._vbd) x.objects in
@@ -464,11 +469,6 @@ module SR : HandlerTools = struct
 
 	let handle = handle_dry_run
 end
-
-let choose_one = function
-	| x :: [] -> Some x
-	| x :: _ -> Some x
-	| [] -> None
 
 (** If we're restoring VM metadata only then lookup the VDI by uuid.
     If restoring metadata only: lookup the VDI by location, falling back to content_id if available.
