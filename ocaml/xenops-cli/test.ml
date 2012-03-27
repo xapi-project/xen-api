@@ -337,6 +337,19 @@ let vm_test_start_shutdown _ =
 			Client.VM.shutdown dbg id None |> success |> wait_for_task |> success_task;
 		)
 
+let vm_test_parallel_start_shutdown _ =
+	let ints = Range.to_list (Range.make 0 100) |> List.map string_of_int in
+	let ids = List.map
+		(fun x ->
+			let vm = create_vm x in
+			success (Client.VM.add dbg vm)
+		) ints in
+	let tasks = List.map (fun id -> Client.VM.start dbg id |> success) ids in
+	List.iter (fun task -> task |> wait_for_task |> success_task) tasks;
+	let tasks = List.map (fun id -> Client.VM.shutdown dbg id None |> success) ids in
+	List.iter (fun task -> task |> wait_for_task |> success_task) tasks;
+	List.iter (fun id -> Client.VM.remove dbg id |> success) ids
+
 let vm_test_consoles _ =
 	()
 (*
@@ -678,6 +691,7 @@ let _ =
 			"vm_test_add_list_remove" >:: vm_test_add_list_remove;
 			"vm_remove_running" >:: vm_remove_running;
 			"vm_test_start_shutdown" >:: vm_test_start_shutdown;
+			"vm_test_parallel_start_shutdown" >:: vm_test_parallel_start_shutdown;
 			"vm_test_consoles" >:: vm_test_consoles;
 			"vm_test_reboot" >:: vm_test_reboot;
 			"vm_test_halt" >:: vm_test_halt;
