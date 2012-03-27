@@ -655,6 +655,10 @@ module VM = struct
 			) (get_stubdom ~xs di.Xenctrl.domid)
 	) Newest
 
+	let set_xsdata task vm xsdata = on_domain (fun xc xs _ _ di ->
+		Domain.set_xsdata ~xs di.Xenctrl.domid xsdata
+	) Newest task vm
+
 	let set_vcpus task vm target = on_domain (fun xc xs _ _ di ->
 		if di.Xenctrl.hvm_guest then raise (Exception(Unimplemented("vcpu hotplug for HVM domains")));
 
@@ -1100,6 +1104,8 @@ module VM = struct
 							this @ (List.concat (List.map (ls_lR root) subdirs)) in
 						let guest_agent =
 							[ "drivers"; "attr"; "data" ] |> List.map (ls_lR (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid)) |> List.concat in
+						let xsdata_state =
+							Domain.allowed_xsdata_prefixes |> List.map (ls_lR (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid)) |> List.concat in
 						let shadow_multiplier_target =
 							if not di.Xenctrl.hvm_guest
 							then 1.
@@ -1115,6 +1121,7 @@ module VM = struct
 							consoles = Opt.to_list vnc @ (Opt.to_list tc);
 							uncooperative_balloon_driver = uncooperative;
 							guest_agent = guest_agent;
+							xsdata_state = xsdata_state;
 							vcpu_target = begin match vme with
 								| Some x -> x.VmExtra.vcpus
 								| None -> 0
@@ -1705,6 +1712,7 @@ let all_domU_watches domid uuid =
 		sprintf "/local/domain/%d/console/vnc-port" domid;
 		sprintf "/local/domain/%d/console/tc-port" domid;
 		sprintf "/local/domain/%d/device" domid;
+		sprintf "/local/domain/%d/vm-data" domid;
 		sprintf "/vm/%s/rtc/timeoffset" uuid;
 	]
 

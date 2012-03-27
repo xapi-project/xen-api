@@ -188,6 +188,7 @@ module Vm = struct
 		rtc_timeoffset: string;
 		uncooperative_balloon_driver: bool;
 		guest_agent: (string * string) list;
+		xsdata_state: (string * string) list;
 		last_start_time: float;
 	}
 
@@ -353,6 +354,7 @@ module VM = struct
 	external destroy: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
 	external pause: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
 	external unpause: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
+	external set_xsdata: debug_info -> Vm.id -> (string * string) list -> (Task.id option) * (error option) = ""
 	external set_vcpus: debug_info -> Vm.id -> int -> (Task.id option) * (error option) = ""
 	external set_shadow_multiplier : debug_info -> Vm.id -> float -> (Task.id option) * (error option) = ""
 	external set_memory_dynamic_range : debug_info -> Vm.id -> int64 -> int64 -> (Task.id option) * (error option) = ""

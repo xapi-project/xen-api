@@ -60,6 +60,13 @@ type build_info = {
 
 type domid = int
 
+let allowed_xsdata_prefixes = [ "vm-data"; "FIST" ]
+
+let filtered_xsdata =
+	(* disallowed by default; allowed only if it has one of a set of prefixes *)
+	let allowed (x, _) = List.fold_left (||) false (List.map (fun p -> String.startswith (p ^ "/") x) allowed_xsdata_prefixes) in
+	List.filter allowed
+
 exception Restore_signature_mismatch
 exception Domain_build_failed
 exception Domain_restore_failed
@@ -206,7 +213,7 @@ let make ~xc ~xs vm_info uuid =
 			"name", name;
 		];
 
-		xs.Xs.writev dom_path vm_info.xsdata;
+		xs.Xs.writev dom_path (filtered_xsdata vm_info.xsdata);
 		xs.Xs.writev (dom_path ^ "/platform") vm_info.platformdata;
 	
 		xs.Xs.writev (dom_path ^ "/bios-strings") vm_info.bios_strings;
@@ -1137,3 +1144,9 @@ let set_memory_target ~xs domid mem_kib =
 	debug "domain %d set memory target to %Ld MiB" domid mem_mib
 
 
+let set_xsdata ~xs domid xsdata =
+	let dom_path = Printf.sprintf "/local/domain/%d" domid in
+	Xs.transaction xs (fun t ->
+		List.iter (fun x -> t.Xst.rm (dom_path ^ "/" ^ x)) allowed_xsdata_prefixes;
+		t.Xst.writev dom_path (filtered_xsdata xsdata);
+	)
