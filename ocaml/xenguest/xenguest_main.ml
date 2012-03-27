@@ -238,10 +238,10 @@ let linux_build_real domid mem_max_mib mem_start_mib image ramdisk cmdline featu
 		                    Nativeint.to_string console_mfn; proto ]
 	)
 
-let hvm_build_real domid mem_max_mib mem_start_mib image store_port console_port=
+let hvm_build_real domid mem_max_mib mem_start_mib mmio_size_mib image store_port console_port=
 	with_xenguest (fun xc ->
 		let store_mfn, console_mfn =
-			Xenguest.hvm_build xc domid mem_max_mib mem_start_mib image
+			Xenguest.hvm_build xc domid mem_max_mib mem_start_mib mmio_size_mib image
 			                   store_port console_port in
 		String.concat " " [Nativeint.to_string store_mfn;
 		                   Nativeint.to_string console_mfn]
@@ -264,14 +264,14 @@ let domain_restore_real fd domid store_port console_port hvm =
 
 (** fake operations *)
 let linux_build_fake domid mem_max_mib mem_start_mib image ramdisk cmdline features flags store_port console_port = "10 10 x86-32"
-let hvm_build_fake domid mem_max_mib mem_start_mib image store_port console_port = "2901 2901"
+let hvm_build_fake domid mem_max_mib mem_start_mib mmio_size_mib image store_port console_port = "2901 2901"
 let domain_save_fake fd domid x y flags hvm = Unix.sleep 1; ignore (suspend_callback domid); ""
 let domain_restore_fake fd domid store_port console_port hvm = "10 10"
 
 (** operation vector *)
 type ops = {
 	linux_build: int -> int -> int -> string -> string option -> string -> string -> int -> int -> int -> string;
-	hvm_build: int -> int -> int -> string -> int -> int -> string;
+	hvm_build: int -> int -> int -> int -> string -> int -> int -> string;
 	domain_save: Unix.file_descr -> int -> int -> int -> Xenguest.suspend_flags list -> bool -> string;
 	domain_restore: Unix.file_descr -> int -> int -> int -> bool -> string;
 }
@@ -292,6 +292,7 @@ let _ =
 	add_param "flags" "";
 	add_param "mem_max_mib" "maximum memory allocation / MiB";
 	add_param "mem_start_mib" "initial memory allocation / MiB";
+	add_param "mmio_size_mib" "MMIO hole size / MiB";
 	add_param "fork" "true to fork a background thread to capture stdout and stderr";
 
 	let fake = ref false in
@@ -408,11 +409,12 @@ let _ =
 		  let domid = int_of_string (get_param "domid")
 		  and mem_max_mib = int_of_string (get_param "mem_max_mib")
 		  and mem_start_mib = int_of_string (get_param "mem_start_mib")
+		  and mmio_size_mib = int_of_string (get_param "mmio_size_mib")
 		  and image = get_param "image"
 		  and store_port = int_of_string (get_param "store_port")
 	    and console_port = int_of_string (get_param "console_port") in
 
-		  with_logging (fun () -> ops.hvm_build domid mem_max_mib mem_start_mib image
+		  with_logging (fun () -> ops.hvm_build domid mem_max_mib mem_start_mib mmio_size_mib image
 			  store_port console_port)
 	      | Some "test" ->
 		  debug "test mode selected";
