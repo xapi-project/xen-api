@@ -334,14 +334,11 @@ module Interface = struct
 		let config = List.filter (fun (name, _) -> List.mem name all) config in
 		(* Handle conservativeness *)
 		let config =
-			if conservative then
-				(* Do not touch physical interfaces that are already up, or non-persistent interfaces *)
-				let exclude =
-					List.filter (fun interface -> is_up () ~name:interface && is_physical () ~name:interface) all
-				in
-				debug "Not touching the following interfaces, which are already up: %s" (String.concat ", " exclude);
-				List.filter (fun (name, interface) -> interface.persistent_i && (not (List.mem name exclude))) config
-			else
+			if conservative then begin
+				(* Do not touch non-persistent interfaces *)
+				debug "Only configuring persistent interfaces";
+				List.filter (fun (name, interface) -> interface.persistent_i) config
+			end else
 				config
 		in
 		debug "** Configuring the following interfaces: %s" (String.concat ", " (List.map (fun (name, _) -> name) config));
