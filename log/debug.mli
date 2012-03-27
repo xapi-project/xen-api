@@ -50,6 +50,9 @@ val disable : string -> unit
 val enable : string -> unit
 (** [enable brand] Enable all log output from the given [brand]. This function is idempotent. *)
 
+val log_to_stdout : unit -> unit
+(** [log_to_stdout ()] will echo all log output to stdout (not the default) *)
+
 module Debugger : functor (Brand : BRAND) ->
 sig
 

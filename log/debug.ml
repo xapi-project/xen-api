@@ -112,6 +112,9 @@ let gettimestring () =
 		tm.Unix.tm_hour tm.Unix.tm_min tm.Unix.tm_sec
 		(int_of_float (1000.0 *. msec))
 
+let print_debug = ref false
+let log_to_stdout () = print_debug := true
+
 module Debugger = functor(Brand: BRAND) -> struct
   let _ =
     Mutex.execute dkmutex (fun () -> 
@@ -138,11 +141,17 @@ module Debugger = functor(Brand: BRAND) -> struct
 				brand in
 		Printf.sprintf "[%s%.5s|%s] %s" (if include_time then gettimestring () else "") priority extra message
 
+
+
 	let output level priority (fmt: ('a, unit, string, 'b) format4) =
 		Printf.kprintf
 			(fun s ->
 				if not(is_disabled Brand.name) then begin
 					let msg = make_log_message false Brand.name priority s in
+
+					if !print_debug
+					then Printf.printf "%s\n%!" (make_log_message true Brand.name priority s);
+
 					Syslog.log (get_facility ()) level msg
 				end
 			) fmt
