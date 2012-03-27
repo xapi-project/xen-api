@@ -15,6 +15,9 @@ open Xenops_utils
 open Pervasiveext 
 open Fun
 
+module D = Debug.Debugger(struct let name = service_name end)
+open D
+
 let name = "xenopsd"
 
 let major_version = 0
@@ -88,12 +91,12 @@ let xmlrpc_handler process req bio context =
 		Http_svr.response_str req s str
 	with Xenops_utils.Exception e ->
 		let rpc = Xenops_interface.rpc_of_error_response (None, Some e) in
-		Xenops_utils.debug "Caught %s" (Jsonrpc.to_string rpc);
+		debug "Caught %s" (Jsonrpc.to_string rpc);
 		let str = Xmlrpc.string_of_response { Rpc.success = true; contents = rpc } in
 		Http_svr.response_str req s str
 	| e ->
-		Xenops_utils.debug "Caught %s" (Printexc.to_string e);
-		Xenops_utils.debug "Backtrace: %s" (Printexc.get_backtrace ());
+		debug "Caught %s" (Printexc.to_string e);
+		debug "Backtrace: %s" (Printexc.get_backtrace ());
 		Http_svr.response_unauthorised ~req (Printf.sprintf "Go away: %s" (Printexc.to_string e)) s
 
 
@@ -179,7 +182,9 @@ let _ =
   (* Accept connections before we have daemonized *)
   let sockets = prepare_sockets path in
 
-  if !daemon then Unixext.daemonize ();
+  if !daemon
+  then Unixext.daemonize ()
+  else Debug.log_to_stdout ();
 
   Unixext.mkdir_rec (Filename.dirname !pidfile) 0o755;
   Unixext.pidfile_write !pidfile;

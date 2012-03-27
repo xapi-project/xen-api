@@ -16,8 +16,10 @@ open Listext
 open Xenops_interface
 open Xenops_server_plugin
 open Xenops_utils
+open Fun
 
-let ( |> ) a b = b a
+module D = Debug.Debugger(struct let name = service_name end)
+open D
 
 module Domain = struct
 	type t = {

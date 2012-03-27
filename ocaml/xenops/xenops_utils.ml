@@ -17,36 +17,10 @@ open Stringext
 open Fun
 open Xenops_interface
 
-(******************************************************************************)
-(* Debug printing                                                             *)
-
 let service_name = "xenops"
 
 module D = Debug.Debugger(struct let name = service_name end)
-
-let print_debug = ref false
-
-let write_to_stdout x =
-	if !print_debug then begin
-		let time_of_float x =
-			let time = Unix.gmtime x in
-			Printf.sprintf "%04d%02d%02dT%02d:%02d:%02dZ"
-				(time.Unix.tm_year+1900)
-			(time.Unix.tm_mon+1)
-				time.Unix.tm_mday
-				time.Unix.tm_hour
-				time.Unix.tm_min
-				time.Unix.tm_sec in
-		Printf.printf "%s %s\n" (time_of_float (Unix.gettimeofday ())) x;
-		flush stdout
-	end
-
-let debug fmt = Printf.kprintf (fun x -> write_to_stdout x; D.debug "%s" x) fmt
-let warn fmt = Printf.kprintf (fun x -> write_to_stdout x; D.warn "%s" x) fmt
-let error fmt = Printf.kprintf (fun x -> write_to_stdout x; D.error "%s" x) fmt
-let info fmt = Printf.kprintf (fun x -> write_to_stdout x; D.info "%s" x) fmt
-
-(******************************************************************************)
+open D
 
 module Unix = struct
 	include Unix
