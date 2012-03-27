@@ -712,5 +712,7 @@ let on_startup () =
 		read_config ();
 		Bridge.make_config () ~conservative:true ~config:!config.bridge_config ();
 		Interface.make_config () ~conservative:true ~config:!config.interface_config ()
-	with _ -> ()
+	with e ->
+		debug "Error while configuring networks on startup: %s\n%s"
+			(Printexc.to_string e) (Printexc.get_backtrace ())
 
