@@ -165,31 +165,31 @@ let unplugged_vif = {
 (******************************************************************************)
 (* Object update tracking                                                     *)
 
-module IntMap = Map.Make(struct type t = int let compare = compare end)
+module Int64Map = Map.Make(struct type t = int64 let compare = compare end)
 
 module Scheduler = struct
 	open Threadext
-	let schedule = ref IntMap.empty
+	let schedule = ref Int64Map.empty
 	let delay = Delay.make ()
 	let m = Mutex.create ()
 
 	type time =
-		| Absolute of int
+		| Absolute of int64
 		| Delta of int
 
-	let now () = Unix.gettimeofday () |> ceil |> int_of_float
+	let now () = Unix.gettimeofday () |> ceil |> Int64.of_float
 
 	let one_shot time f =
 		let time = match time with
 			| Absolute x -> x
-			| Delta x -> now () + x in
+			| Delta x -> Int64.(add (of_int x) (now ())) in
 		Mutex.execute m
 			(fun () ->
 				let existing = 
-					if IntMap.mem time !schedule
-					then IntMap.find time !schedule
+					if Int64Map.mem time !schedule
+					then Int64Map.find time !schedule
 					else [] in
-				schedule := IntMap.add time (f :: existing) !schedule;
+				schedule := Int64Map.add time (f :: existing) !schedule;
 				Delay.signal delay
 			)
 
@@ -198,9 +198,9 @@ module Scheduler = struct
 		let expired =
 			Mutex.execute m
 				(fun () ->
-					let expired, unexpired = IntMap.partition (fun t' _ -> t' < t) !schedule in
+					let expired, unexpired = Int64Map.partition (fun t' _ -> t' <= t) !schedule in
 					schedule := unexpired;
-					IntMap.fold (fun _ stuff acc -> acc @ stuff) expired [] |> List.rev) in
+					Int64Map.fold (fun _ stuff acc -> acc @ stuff) expired [] |> List.rev) in
 		(* This might take a while *)
 		List.iter
 			(fun f ->
@@ -215,10 +215,15 @@ module Scheduler = struct
 		while process_expired () do () done;
 		let sleep_until =
 			Mutex.execute m
-				(fun () -> IntMap.min_binding !schedule |> fst) in
-		let seconds = now () - sleep_until in
-		debug "Scheduler sleep until %d (another %d seconds)" sleep_until seconds;
-		let (_: bool) = Delay.wait delay (float_of_int seconds) in
+				(fun () ->
+					try
+						Int64Map.min_binding !schedule |> fst
+					with Not_found ->
+						Int64.add 3600L (now ())
+				) in
+		let seconds = Int64.sub sleep_until (now ()) in
+		debug "Scheduler sleep until %Ld (another %Ld seconds)" sleep_until seconds;
+		let (_: bool) = Delay.wait delay (Int64.to_float seconds) in
 		main_loop ()
 
 	let start () =
@@ -291,6 +296,7 @@ module Updates = struct
 		Opt.iter (fun timeout ->
 			Scheduler.one_shot (Scheduler.Delta timeout)
 				(fun () ->
+					debug "Cancelling: Update.get after %d" timeout;
 					Mutex.execute t.m
 						(fun () ->
 							cancel := true;
@@ -303,7 +309,7 @@ module Updates = struct
 				let current = ref ([], from) in
 				while fst !current = [] && not(!cancel) do
 					current := U.get from t.u;
-					if fst !current = [] then Condition.wait t.c t.m;
+					if fst !current = [] && not(!cancel) then Condition.wait t.c t.m;
 				done;
 				fst !current, Some (snd !current)
 			)
