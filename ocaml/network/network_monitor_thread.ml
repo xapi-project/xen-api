@@ -21,6 +21,8 @@ open Stringext
 open Listext
 open Threadext
 
+let failed_again = ref false
+
 let rec monitor () =
 	(try
 		let devs = ref [] in
@@ -138,8 +140,15 @@ let rec monitor () =
 				dev, stat
 		) (!devs);
 
-		write_stats !devs
-	with e -> debug "Error while collecting stats: %s" (Printexc.to_string e); ());
+		write_stats !devs;
+		failed_again := false
+	with e ->
+		if not !failed_again then begin
+			failed_again := true;
+			debug "Error while collecting stats (suppressing further errors): %s\n%s"
+				(Printexc.to_string e) (Printexc.get_backtrace ())
+		end
+	);
 
 	Thread.delay interval;
 	monitor ()
