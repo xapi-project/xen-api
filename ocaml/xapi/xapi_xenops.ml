@@ -755,7 +755,7 @@ let update_vm ~__context id =
 													| x :: _ -> Some x
 													| _ -> None
 											end else None
-										) state.guest_agent in
+										) state.guest_agent |> Listext.List.setify in
 										results in
 									if different (fun x -> x.guest_agent) then begin
 										debug "xenopsd event: Updating VM %s domid %d guest_agent" id domid;
