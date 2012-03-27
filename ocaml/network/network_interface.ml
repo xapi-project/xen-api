@@ -26,6 +26,7 @@ type ipv4 = None4 | DHCP4 of dhcp_options list | Static4 of (Unix.inet_addr * in
 type ipv6 = None6 | DHCP6 of dhcp_options list | Autoconf6 | Static6 of (Unix.inet_addr * int) list
 
 external reopen_logs: unit -> bool = ""
+external reset_state: unit -> unit = ""
 
 module Interface = struct
 	external get_all : unit -> iface list = ""
