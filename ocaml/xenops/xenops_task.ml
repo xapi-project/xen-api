@@ -21,6 +21,9 @@ open Xenops_interface
 open Xenops_utils
 open Fun
 
+module D = Debug.Debugger(struct let name = service_name end)
+open D
+
 (* A task is associated with every running operation *)
 type t = {
 	id: string;                                    (* unique task id *)

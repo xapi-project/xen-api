@@ -15,8 +15,10 @@
 open Xenops_interface
 open Xenops_utils
 open Xenops_client
+open Fun
 
-let ( |> ) a b = b a
+module D = Debug.Debugger(struct let name = service_name end)
+open D
 
 let local_rpc call =
 	let open Xmlrpc_client in
