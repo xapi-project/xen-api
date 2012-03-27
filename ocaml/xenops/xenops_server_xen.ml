@@ -23,6 +23,9 @@ open Threadext
 open Stringext
 open Fun
 
+module D = Debug.Debugger(struct let name = service_name end)
+open D
+
 let _qemu_dm = "/opt/xensource/libexec/qemu-dm-wrapper"
 let _tune2fs = "/sbin/tune2fs"
 let _mkfs = "/sbin/mkfs"
