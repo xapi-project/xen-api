@@ -71,26 +71,14 @@ let read_management_conf () =
 		| "dhcp" | _ ->
 			DHCP4 [`set_gateway; `set_dns], None, ([], [])
 	in
-	let interface = {
-		ipv4_conf;
-		ipv4_gateway;
-		ipv6_conf = None6;
-		ipv6_gateway = None;
-		ipv4_routes = [];
-		dns;
-		mtu = 1500;
-		ethtool_settings = [];
-		ethtool_offload = ["gro", "off"; "lro", "off"];
-		persistent_i = true;
-	} in
-	let bridge = {
-		ports = [device, {interfaces = [device]; bond_properties = []; mac = ""}];
-		vlan = None;
-		bridge_mac = None;
-		other_config = [];
+	let phy_interface = {default_interface with persistent_i = true} in
+	let bridge_interface = {default_interface with ipv4_conf; ipv4_gateway; persistent_i = true} in
+	let bridge = {default_bridge with
+		ports = [device, {default_port with interfaces = [device]}];
 		persistent_b = true
 	} in
-	{interface_config = [bridge_name, interface]; bridge_config = [bridge_name, bridge];
+	{interface_config = [device, phy_interface; bridge_name, bridge_interface];
+		bridge_config = [bridge_name, bridge];
 		gateway_interface = Some bridge_name; dns_interface = Some bridge_name}
 
 let write_config () =
