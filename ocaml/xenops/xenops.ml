@@ -71,9 +71,9 @@ let build_domain ~xc ~xs ~kernel ?(ramdisk=None) ~cmdline ~domid ~vcpus ~static_
 	                                             kernel cmdline ramdisk vcpus domid in
 	printf "built domain: %u\n" domid
 
-let build_hvm ~xc ~xs ~kernel ~domid ~vcpus ~static_max_kib ~target_kib =
+let build_hvm ~xc ~xs ~kernel ~domid ~vcpus ~static_max_kib ~target_kib ~mmio_size_mib =
 	let (_: Domain.domarch) = Domain.build_hvm xc xs static_max_kib target_kib 1.
-	                                           vcpus kernel "0" 4 domid in
+	                                           vcpus kernel "0" 4 mmio_size_mib domid in
 	printf "built hvm domain: %u\n" domid
 
 let clean_shutdown_domain ~xal ~domid ~reason ~sync =
@@ -463,6 +463,7 @@ let do_cmd_parsing subcmd init_pos =
 	and vcpus = ref 0
 	and vcpu = ref (-1)
 	and kernel = ref "/boot/vmlinuz-2.6-xenU"
+	and mmio_size_mib = ref 0
 	and ramdisk = ref None
 	and cmdline = ref "root=/dev/sda1 ro"
 	and mem_max_kib = ref 262144
@@ -526,6 +527,7 @@ let do_cmd_parsing subcmd init_pos =
 	]
 	and hvm_build = [
 		"-kernel", Arg.Set_string kernel, "kernel to build with";
+		"-mmio-size", Arg.Set_int mmio_size_mib, "mmio hole size in MiB";
 	]
 	and normal_build = [
 		"-kernel", Arg.Set_string kernel, "kernel to build with";
@@ -668,7 +670,7 @@ let do_cmd_parsing subcmd init_pos =
                                else
                                        otherargs := x :: !otherargs
                        ) subcmd in
-		!domid, !backend_domid, !hvm, !vcpus, !vcpu, !kernel,
+		!domid, !backend_domid, !hvm, !vcpus, !vcpu, !kernel, !mmio_size_mib,
 		!ramdisk, !cmdline, Int64.of_int !mem_max_kib, Int64.of_int !mem_mib,
 		!pae, !apic, !acpi, !nx, !viridian, !verbose, !file,
 		!mode, !phystype, !params, !device_number, !dev_type, !devid, !mac, !pci,
@@ -685,7 +687,7 @@ let _ = try
         else "help", 0 in
 
     let subcmd = cmd_alias subcmd in
-	let domid, backend_domid, hvm, vcpus, vcpu, kernel, ramdisk, cmdline,
+	let domid, backend_domid, hvm, vcpus, vcpu, kernel, mmio_size_mib, ramdisk, cmdline,
                max_kib, mem_mib, pae, apic, acpi, nx, viridian, verbose, file, mode,
                phystype, params, device_number, dev_type, devid, mac, pci, reason, sysrq,
                script, sync, netty, weight, cap, bitmap, cooperative,
@@ -718,7 +720,7 @@ let _ = try
 			build_domain ~xc ~xs ~kernel ~ramdisk ~cmdline ~vcpus ~static_max_kib ~target_kib ~domid)
 	| "build_hvm"     ->
 		assert_domid (); assert_vcpus ();
-		with_xc_and_xs (fun xc xs -> build_hvm ~xc ~xs ~kernel ~vcpus ~static_max_kib ~target_kib ~domid)
+		with_xc_and_xs (fun xc xs -> build_hvm ~xc ~xs ~kernel ~vcpus ~static_max_kib ~target_kib ~mmio_size_mib ~domid)
 	| "setmaxmem"     ->
 		assert_domid ();
 		with_xc (fun xc -> Xenctrl.domain_setmaxmem xc domid max_kib) (* call takes pages *)

@@ -39,6 +39,7 @@ type build_hvm_info = {
 	shadow_multiplier: float;
 	timeoffset: string;
 	video_mib: int;
+	mmio_size_mib: int;
 }
 
 type build_pv_info = {
@@ -116,8 +117,8 @@ val build_linux: xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> static_max_kib:Int
 val build_hvm: xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> static_max_kib:Int64.t
             -> target_kib:Int64.t -> shadow_multiplier:float
             -> vcpus:int -> kernel:string
-            -> timeoffset:string -> video_mib:int -> domid
-            -> domarch
+            -> timeoffset:string -> video_mib:int
+            -> mmio_size_mib:int -> domid -> domarch
 
 (** Restore a domain using the info provided *)
 val build: xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> build_info -> domid -> domarch
