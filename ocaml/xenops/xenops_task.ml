@@ -17,6 +17,7 @@
 
 open Threadext
 open Pervasiveext
+open Listext
 open Xenops_interface
 open Xenops_utils
 open Fun
@@ -97,11 +98,12 @@ let find_locked id =
 let with_subtask t name f =
 	let start = Unix.gettimeofday () in
 	try
+		t.subtasks <- (name, Task.Pending 0.) :: t.subtasks;
 		let result = f () in
-		t.subtasks <- (name, Task.Completed (Unix.gettimeofday () -. start)) :: t.subtasks;
+		t.subtasks <- List.replace_assoc name (Task.Completed (Unix.gettimeofday () -. start)) t.subtasks;
 		result
 	with e ->
-		t.subtasks <- (name, Task.Failed (Internal_error (Printexc.to_string e))) :: t.subtasks;
+		t.subtasks <- List.replace_assoc name (Task.Failed (Internal_error (Printexc.to_string e))) t.subtasks;
 		raise e
 
 let list () =

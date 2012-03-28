@@ -453,7 +453,7 @@ end
 module Worker = struct
 	type state =
 		| Idle
-		| Processing of operation
+		| Processing of (operation * Xenops_task.t)
 		| Shutdown_requested
 		| Shutdown
 	type t = {
@@ -486,7 +486,7 @@ module Worker = struct
 		Mutex.execute t.m
 			(fun () ->
 				match get_state_locked t with
-					| Idle | Processing _ -> true
+					| Idle | Processing (_, _) -> true
 					| Shutdown_requested | Shutdown -> false
 			)
 
@@ -525,7 +525,7 @@ module Worker = struct
 					Mutex.execute t.m (fun () -> t.state <- Idle);
 					let tag, queue, (op, item) = Redirector.pop () in (* blocks here *)
 					debug "Queue.pop returned %s" (string_of_operation op);
-					Mutex.execute t.m (fun () -> t.state <- Processing op);
+					Mutex.execute t.m (fun () -> t.state <- Processing (op, item));
 					begin
 						try
 							Debug.with_thread_associated
@@ -553,8 +553,21 @@ module WorkerPool = struct
 
 
 	module Dump = struct
+		type task = {
+			id: string;
+			ctime: string;
+			debug_info: string;
+			subtasks: (string * string) list;
+		} with rpc
+		let of_task t = {
+				id = t.Xenops_task.id;
+				ctime = t.Xenops_task.ctime |> Date.of_float |> Date.to_string;
+				debug_info = t.Xenops_task.debug_info;
+				subtasks = List.map (fun (name, result) -> name, result |> Task.rpc_of_result |> Jsonrpc.to_string) t.Xenops_task.subtasks |> List.rev;
+			}
 		type w = {
-			state: string
+			state: string;
+			task: task option;
 		} with rpc
 		type t = w list with rpc
 		let make () =
@@ -562,12 +575,11 @@ module WorkerPool = struct
 				(fun () ->
 					List.map
 						(fun t ->
-							let state = match Worker.get_state t with
-								| Worker.Idle -> "Idle"
-								| Worker.Processing op -> Printf.sprintf "Processing %s" (string_of_operation op)
-								| Worker.Shutdown_requested -> "Shutdown_requested"
-								| Worker.Shutdown -> "Shutdown" in
-							{ state = state }
+							match Worker.get_state t with
+								| Worker.Idle -> { state = "Idle"; task = None }
+								| Worker.Processing (op, task) -> { state = Printf.sprintf "Processing %s" (string_of_operation op); task = Some (of_task task) }
+								| Worker.Shutdown_requested -> { state = "Shutdown_requested"; task = None }
+								| Worker.Shutdown -> { state = "Shutdown"; task = None }
 						) !pool
 				)
 	end
