@@ -52,6 +52,7 @@ let config_spec = [
 				error "Processing disabled-logging-for = %s: %s" x (Printexc.to_string e)
 		);
 	"worker-pool-size", Config.Set_int worker_pool_size;
+	"database-path", Config.Set_string Xenops_utils.root;
 ]
 
 let read_config_file () =
