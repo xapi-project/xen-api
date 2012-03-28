@@ -146,7 +146,8 @@ module TASK = struct
 				then Updates.add (Dynamic.Task id) updates
 			)
 	let stat _ dbg id = stat' id |> return
-	let destroy _ dbg id = destroy id; Updates.remove (Dynamic.Task id) updates |> return
+	let destroy' id = destroy id; Updates.remove (Dynamic.Task id) updates
+	let destroy _ dbg id = destroy' id |> return
 	let list _ dbg = list () |> List.map task |> return
 end
 
@@ -1173,6 +1174,7 @@ let queue_operation dbg id op =
 
 let immediate_operation dbg id op =
 	let task = Xenops_task.add dbg (fun t -> perform op t) in
+	TASK.destroy' task.Xenops_task.id;
 	Debug.with_thread_associated dbg
 		(fun () ->
 			debug "Task %s reference %s: %s" task.Xenops_task.id task.Xenops_task.debug_info (string_of_operation op);
@@ -1537,16 +1539,16 @@ let internal_event_thread_body = Debug.with_thread_associated "events" (fun () -
 			(function
 				| Dynamic.Vm id ->
 					debug "Received an event on managed VM %s" id;
-					queue_operation dbg id (VM_check_state id) |> Xenops_task.destroy
+					queue_operation dbg id (VM_check_state id) |> TASK.destroy'
 				| Dynamic.Vbd id ->
 					debug "Received an event on managed VBD %s.%s" (fst id) (snd id);
-					queue_operation dbg (VBD_DB.vm_of id) (VBD_check_state id) |> Xenops_task.destroy
+					queue_operation dbg (VBD_DB.vm_of id) (VBD_check_state id) |> TASK.destroy'
 				| Dynamic.Vif id ->
 					debug "Received an event on managed VIF %s.%s" (fst id) (snd id);
-					queue_operation dbg (VIF_DB.vm_of id) (VIF_check_state id) |> Xenops_task.destroy
+					queue_operation dbg (VIF_DB.vm_of id) (VIF_check_state id) |> TASK.destroy'
 				| Dynamic.Pci id ->
 					debug "Received an event on managed PCI %s.%s" (fst id) (snd id);
-					queue_operation dbg (PCI_DB.vm_of id) (PCI_check_state id) |> Xenops_task.destroy
+					queue_operation dbg (PCI_DB.vm_of id) (PCI_check_state id) |> TASK.destroy'
 				| x ->
 					debug "Ignoring event on %s" (Jsonrpc.to_string (Dynamic.rpc_of_id x))
 			) updates;

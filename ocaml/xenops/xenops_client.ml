@@ -14,6 +14,10 @@
 
 open Xenops_interface
 open Xmlrpc_client
+
+module D = Debug.Debugger(struct let name = "xenops_client" end)
+open D
+
 let default_path = "/var/xapi/xenopsd"
 let forwarded_path = default_path ^ ".forwarded"
 
@@ -65,6 +69,7 @@ let task_ended dbg id =
 
 let success_task dbg id =
 	let t = Client.TASK.stat dbg id |> success in
+	Client.TASK.destroy dbg id |> success;
 	match t.Task.result with
 	| Task.Completed _ -> t
 	| Task.Failed x -> raise (Exception x)
