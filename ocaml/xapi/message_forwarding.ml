@@ -321,7 +321,7 @@ let choose_pbd_for_sr ?(consider_unplugged_pbds=false) ~__context ~self () =
 	else
 		match pbds_to_consider with
 		| [] -> raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of self ]))
-		| l -> List.nth l (Random.int (List.length l))
+		| pdb :: _ -> pdb
 
 
 let loadbalance_host_operation ~__context ~hosts ~doc ~op (f: API.ref_host -> unit)  =
@@ -2805,21 +2805,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 		(* do op on a host that can view multiple SRs, if none is found, an
 		   exception of Not_found will be raised *)
-		let forward_sr_multiple_op ~local_fn ~__context ~srs op =
-			let hosts = Db.Host.get_all ~__context in
-			let filterfn host =
-				try
-					Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:srs ~host;
-					check_live ~__context host;
-					true
-				with
-				  _ -> false in
-			let possibles = List.filter filterfn hosts in
-			match possibles with
-			| [] -> raise Not_found
-			| l ->
-				  let host = List.nth l (Random.int (List.length l)) in
-				  do_op_on ~local_fn ~__context ~host op
+		let forward_sr_multiple_op ~local_fn ~__context ~srs ?(prefer_slaves=false) op =
+			let choose_fn ~host =
+				Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:srs ~host in
+			let host =
+				try Xapi_vm_helpers.choose_host ~__context ~choose_fn ~prefer_slaves ()
+				with _ -> raise Not_found in
+			do_op_on ~local_fn ~__context ~host op
 
 		let set_virtual_allocation ~__context ~self ~value =
 			Sm.assert_session_has_internal_sr_access ~__context ~sr:self;
@@ -3155,13 +3147,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			(* Try forward the request to a host which can have access to both source
 			   and destination SR. *)
 			let op session_id rpc = Client.VDI.copy rpc session_id vdi sr in
-			if src_sr = sr then
-				forward_vdi_op ~local_fn ~__context ~self:vdi op
-			else
-				try
-					SR.forward_sr_multiple_op ~local_fn ~__context ~srs:[src_sr; sr] op
-				with Not_found ->
-					forward_vdi_op ~local_fn ~__context ~self:vdi op
+			try
+				SR.forward_sr_multiple_op ~local_fn ~__context ~srs:[src_sr; sr] ~prefer_slaves:true op
+			with Not_found ->
+				SR.forward_sr_multiple_op ~local_fn ~__context ~srs:[src_sr] ~prefer_slaves:true op
 
 		let resize ~__context ~vdi ~size =
 			info "VDI.resize: VDI = '%s'; size = %Ld" (vdi_uuid ~__context vdi) size;
