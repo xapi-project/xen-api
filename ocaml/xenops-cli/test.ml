@@ -86,6 +86,7 @@ let wait_for_task id =
 
 let success_task id =
 	let t = Client.TASK.stat dbg id |> success in
+	Client.TASK.destroy dbg id |> success;
 	match t.Task.result with
 	| Task.Completed _ -> ()
 	| Task.Failed x -> failwith (Jsonrpc.to_string (rpc_of_error x))
@@ -93,6 +94,7 @@ let success_task id =
 
 let fail_not_built_task id =
 	let t = Client.TASK.stat dbg id |> success in
+	Client.TASK.destroy dbg id |> success;
 	match t.Task.result with
 	| Task.Completed _ -> failwith "task completed successfully: expected Domain_not_built"
 	| Task.Failed Domain_not_built -> ()
@@ -101,6 +103,7 @@ let fail_not_built_task id =
 
 let fail_max_vcpus_task id =
 	let t = Client.TASK.stat dbg id |> success in
+	Client.TASK.destroy dbg id |> success;
 	match t.Task.result with
 	| Task.Completed _ -> failwith "task completed successfully: expected Max_vcpus"
 	| Task.Failed (Maximum_vcpus _) -> ()
@@ -345,9 +348,15 @@ let vm_test_parallel_start_shutdown _ =
 			success (Client.VM.add dbg vm)
 		) ints in
 	let tasks = List.map (fun id -> Client.VM.start dbg id |> success) ids in
-	List.iter (fun task -> task |> wait_for_task |> success_task) tasks;
+	List.iter (fun task ->
+(*		Printf.fprintf stderr "Waiting for startup task %s\n" task; flush stderr; *)
+		task |> wait_for_task |> success_task) tasks;
+(*	Printf.fprintf stderr "Finished waiting for all VM.starts\n"; *)
 	let tasks = List.map (fun id -> Client.VM.shutdown dbg id None |> success) ids in
-	List.iter (fun task -> task |> wait_for_task |> success_task) tasks;
+	List.iter (fun task ->
+(*		Printf.fprintf stderr "Waiting for shutdown task %s\n" task; flush stderr; *)
+task |> wait_for_task |> success_task) tasks;
+(*	Printf.fprintf stderr "Finished waiting for all VM.shutdowns\n"; *)
 	List.iter (fun id -> Client.VM.remove dbg id |> success) ids
 
 let vm_test_consoles _ =
