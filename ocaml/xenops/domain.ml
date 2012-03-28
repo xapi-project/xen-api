@@ -38,6 +38,7 @@ type build_hvm_info = {
 	shadow_multiplier: float;
 	timeoffset: string;
 	video_mib: int;
+	mmio_size_mib: int;
 }
 
 type build_pv_info = {
@@ -534,7 +535,7 @@ let build_linux ~xc ~xs ~static_max_kib ~target_kib ~kernel ~cmdline ~ramdisk
 
 (** build hvm type of domain *)
 let build_hvm ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
-              ~kernel ~timeoffset ~video_mib domid =
+              ~kernel ~timeoffset ~video_mib ~mmio_size_mib domid =
 	assert_file_is_readable kernel;
 
 	(* Convert memory configuration values into the correct units. *)
@@ -568,6 +569,7 @@ let build_hvm ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
 	    "-image"; kernel;
 	    "-mem_max_mib"; Int64.to_string build_max_mib;
 	    "-mem_start_mib"; Int64.to_string build_start_mib;
+	    "-mmio_size_mib"; string_of_int mmio_size_mib;
 	    "-fork"; "true";
 	  ] [] in
 	let line = finally
@@ -622,7 +624,8 @@ let build ~xc ~xs info domid =
 	| BuildHVM hvminfo ->
 		build_hvm ~xc ~xs ~static_max_kib:info.memory_max ~target_kib:info.memory_target
 		          ~shadow_multiplier:hvminfo.shadow_multiplier ~vcpus:info.vcpus
-		          ~kernel:info.kernel ~timeoffset:hvminfo.timeoffset ~video_mib:hvminfo.video_mib domid
+		          ~kernel:info.kernel ~timeoffset:hvminfo.timeoffset ~video_mib:hvminfo.video_mib
+		          ~mmio_size_mib:hvminfo.mmio_size_mib domid
 	| BuildPV pvinfo   ->
 		build_linux ~xc ~xs ~static_max_kib:info.memory_max ~target_kib:info.memory_target
 		            ~kernel:info.kernel ~cmdline:pvinfo.cmdline ~ramdisk:pvinfo.ramdisk

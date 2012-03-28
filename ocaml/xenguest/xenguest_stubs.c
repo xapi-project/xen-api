@@ -397,7 +397,7 @@ static int hvm_build_set_params(xc_interface *xch, int domid,
 }
 
 CAMLprim value stub_xc_hvm_build_native(value xc_handle, value domid,
-    value mem_max_mib, value mem_start_mib, value image_name, value store_evtchn, value console_evtchn)
+    value mem_max_mib, value mem_start_mib, value mmio_size_mib, value image_name, value store_evtchn, value console_evtchn)
 {
 	CAMLparam5(xc_handle, domid, mem_max_mib, mem_start_mib, image_name);
 	CAMLxparam2(store_evtchn, console_evtchn);
@@ -411,16 +411,19 @@ CAMLprim value stub_xc_hvm_build_native(value xc_handle, value domid,
   unsigned long console_mfn=0;
 	int r;
 	struct flags f;
+	struct xc_hvm_build_args args;
 	get_flags(&f, _D(domid));
 
 	xch = _H(xc_handle);
 	configure_vcpus(xch, _D(domid), f);
 
+	args.mem_size = (uint64_t)Int_val(mem_max_mib) << 20;
+	args.mem_target = (uint64_t)Int_val(mem_start_mib) << 20;
+	args.mmio_size = (uint64_t)Int_val(mmio_size_mib) << 20;
+	args.image_file_name = image_name_c;
+
 	caml_enter_blocking_section ();
-	r = xc_hvm_build_target_mem(xch, _D(domid),
-	                            Int_val(mem_max_mib),
-	                            Int_val(mem_start_mib),
-	                            image_name_c);
+	r = xc_hvm_build(xch, _D(domid), &args);
 	caml_leave_blocking_section ();
 
 	free(image_name_c);
@@ -444,7 +447,7 @@ CAMLprim value stub_xc_hvm_build_native(value xc_handle, value domid,
 CAMLprim value stub_xc_hvm_build_bytecode(value * argv, int argn)
 {
 	return stub_xc_hvm_build_native(argv[0], argv[1], argv[2], argv[3],
-                                  argv[4], argv[5], argv[6]);
+                                  argv[4], argv[5], argv[6], argv[7]);
 }
 
 

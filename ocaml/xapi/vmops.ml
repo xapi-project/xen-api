@@ -222,18 +222,20 @@ let assert_kernel_is_whitelisted kernel =
     raise (Api_errors.Server_error (Api_errors.permission_denied, [
       (Printf.sprintf "illegal kernel path %s" kernel)]))
 
-let hvm_video_mib snapshot =
+let get_platform_value snapshot key default convert =
 	let platform = snapshot.API.vM_platform in
-	let default = 4 in (* MiB *)
-	if not(List.mem_assoc "videoram" platform)
+	if not(List.mem_assoc key platform)
 	then default
 	else
-		let v = List.assoc "videoram" platform in
+		let v = List.assoc key platform in
 		try
-			int_of_string v
+			convert v
 		with _ ->
-			error "Unknown videoram option: %s" v;
+			error "Unknown %s option: %s" key v;
 			default
+
+let hvm_video_mib snapshot = get_platform_value snapshot "videoram" 4 int_of_string
+let hvm_mmio_size_mib snapshot = get_platform_value snapshot "mmio_size_mib" 0 int_of_string
 
 (* Called on VM.start to populate kernel part of domain *)
 let create_kernel ~__context ~xc ~xs ~self domid snapshot =
@@ -251,10 +253,11 @@ let create_kernel ~__context ~xc ~xs ~self domid snapshot =
 		let kernel_path = Domain.hvmloader in
 		let shadow_multiplier = snapshot.API.vM_HVM_shadow_multiplier in
 		let video_mib = hvm_video_mib snapshot in
-		debug "build hvm \"%s\" vcpus:%d mem_max:%Ld mem_target:%Ld video_mib:%d MiB timeoffset:%s"
-		      kernel_path vcpus mem_max_kib mem_target_kib video_mib timeoffset;
+		let mmio_size_mib = hvm_mmio_size_mib snapshot in
+		debug "build hvm \"%s\" vcpus:%d mem_max:%Ld mem_target:%Ld video_mib:%d mmio_size_mib:%d MiB timeoffset:%s"
+		      kernel_path vcpus mem_max_kib mem_target_kib video_mib mmio_size_mib timeoffset;
 		let arch = Domain.build_hvm xc xs mem_max_kib mem_target_kib shadow_multiplier vcpus kernel_path
-		  timeoffset video_mib domid in
+		  timeoffset video_mib mmio_size_mib domid in
 		(* Since our shadow allocation might have been increased by Xen we need to 
 		   update the shadow_multiplier now. Nb. the last_boot_record wont 
 		   necessarily have the right value in! *)
