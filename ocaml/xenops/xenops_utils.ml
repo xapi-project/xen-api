@@ -14,6 +14,7 @@
 
 open Listext
 open Stringext
+open Pervasiveext
 open Fun
 open Xenops_interface
 
@@ -169,8 +170,14 @@ module Int64Map = Map.Make(struct type t = int64 let compare = compare end)
 
 module Scheduler = struct
 	open Threadext
+	type item = {
+		id: int;
+		name: string;
+		fn: unit -> unit
+	}
 	let schedule = ref Int64Map.empty
 	let delay = Delay.make ()
+	let next_id = ref 0
 	let m = Mutex.create ()
 
 	type time =
@@ -189,7 +196,7 @@ module Scheduler = struct
 			let now = now () in
 			Mutex.execute m
 				(fun () ->
-					Int64Map.fold (fun time xs acc -> List.map (fun (name, _) -> { time = Int64.sub time now; thing = name }) xs @ acc) !schedule []
+					Int64Map.fold (fun time xs acc -> List.map (fun i -> { time = Int64.sub time now; thing = i.name }) xs @ acc) !schedule []
 				)
 	end
 
@@ -197,14 +204,33 @@ module Scheduler = struct
 		let time = match time with
 			| Absolute x -> x
 			| Delta x -> Int64.(add (of_int x) (now ())) in
+		let id = Mutex.execute m
+			(fun () ->
+				let existing = 
+					if Int64Map.mem time !schedule
+					then Int64Map.find time !schedule
+					else [] in
+				let id = !next_id in
+				incr next_id;
+				let item = {
+					id = id;
+					name = name;
+					fn = f
+				} in
+				schedule := Int64Map.add time (item :: existing) !schedule;
+				Delay.signal delay;
+				id
+			) in
+		(time, id)
+
+	let cancel (time, id) =
 		Mutex.execute m
 			(fun () ->
 				let existing = 
 					if Int64Map.mem time !schedule
 					then Int64Map.find time !schedule
 					else [] in
-				schedule := Int64Map.add time ((name, f) :: existing) !schedule;
-				Delay.signal delay
+				schedule := Int64Map.add time (List.filter (fun i -> i.id <> id) existing) !schedule
 			)
 
 	let process_expired () =
@@ -217,9 +243,9 @@ module Scheduler = struct
 					Int64Map.fold (fun _ stuff acc -> acc @ stuff) expired [] |> List.rev) in
 		(* This might take a while *)
 		List.iter
-			(fun (_, f) ->
+			(fun i ->
 				try
-					f ()
+					i.fn ()
 				with e ->
 					debug "Scheduler ignoring exception: %s" (Printexc.to_string e)
 			) expired;
@@ -307,7 +333,7 @@ module Updates = struct
 	let get dbg from timeout t =
 		let from = Opt.default U.initial from in
 		let cancel = ref false in
-		Opt.iter (fun timeout ->
+		let id = Opt.map (fun timeout ->
 			Scheduler.one_shot (Scheduler.Delta timeout) dbg
 				(fun () ->
 					debug "Cancelling: Update.get after %d" timeout;
@@ -317,16 +343,19 @@ module Updates = struct
 							Condition.broadcast t.c
 						)
 				)
-		) timeout;
-		Mutex.execute t.m
+		) timeout in
+		finally
 			(fun () ->
-				let current = ref ([], from) in
-				while fst !current = [] && not(!cancel) do
-					current := U.get from t.u;
-					if fst !current = [] && not(!cancel) then Condition.wait t.c t.m;
-				done;
-				fst !current, Some (snd !current)
-			)
+				Mutex.execute t.m
+					(fun () ->
+						let current = ref ([], from) in
+						while fst !current = [] && not(!cancel) do
+							current := U.get from t.u;
+							if fst !current = [] && not(!cancel) then Condition.wait t.c t.m;
+						done;
+						fst !current, Some (snd !current)
+					)
+			) (fun () -> Opt.iter Scheduler.cancel id)
 
 	let add x t =
 		Mutex.execute t.m
