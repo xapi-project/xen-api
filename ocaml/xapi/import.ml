@@ -478,65 +478,93 @@ end
     If the SR cannot be found then we skip this VDI.
     If the SR can be found AND is an iso SR then we attempt to lookup the VDI by name_label
     If the SR can be found AND is not an iso SR then we attempt to create the VDI in it *)
-let handle_vdi __context config rpc session_id (state: state) (x: obj) : unit =
-	let vdi_record = API.From.vDI_t "" x.snapshot in
+module VDI : HandlerTools = struct
+	type precheck_t =
+		| Found_iso of API.ref_VDI
+		| Found_no_iso
+		| Found_disk of API.ref_VDI
+		| Found_no_disk of exn
+		| Skip
+		| Create of API.vDI_t
 
-	let original_sr = API.From.sR_t "" (find_in_export (Ref.string_of vdi_record.API.vDI_SR) state.export) in
-	if original_sr.API.sR_content_type = "iso" then begin
-		(* Best effort: locate a VDI in any shared ISO SR with a matching VDI.location *)
-		let iso_srs = List.filter (fun self -> Client.SR.get_content_type rpc session_id self = "iso"
-			&& Client.SR.get_type rpc session_id self <> "udev")
-			(Client.SR.get_all rpc session_id) in
-		match List.filter (fun (_, vdir) ->
-			vdir.API.vDI_location = vdi_record.API.vDI_location && (List.mem vdir.API.vDI_SR iso_srs))
-			(Client.VDI.get_all_records rpc session_id) |> choose_one with
-		| Some (vdi, _) ->
-			state.table <- (x.cls, x.id, Ref.string_of vdi) :: state.table
-		| None ->
-			warn "Found no ISO VDI with location = %s; attempting to eject" vdi_record.API.vDI_location
-	end else begin
-		match config.import_type with
-		| Metadata_import _ -> begin
-			(* PR-1255 need a content_id everywhere *)
-			let content_id =
-				if List.mem_assoc "content_id" vdi_record.API.vDI_other_config
-				then List.assoc "content_id" vdi_record.API.vDI_other_config
-				else vdi_record.API.vDI_location in
-			let find_by_sr_and_location () =
-				let sr = lookup vdi_record.API.vDI_SR state.table in
-				List.filter (fun (_, vdir) ->
-					vdir.API.vDI_location = vdi_record.API.vDI_location && vdir.API.vDI_SR = sr)
-					(Client.VDI.get_all_records rpc session_id) |> choose_one in
-			let find_by_content_id () =
-				try
-					debug "Looking up content_id = %s" content_id;
-					Some (Storage_access.find_content ~__context content_id)
-				with e ->
-					debug "Caught exception %s while looking up content_id" (ExnHelper.string_of_exn e);
-					None in
-			match (
-				if exists vdi_record.API.vDI_SR state.table
-				then match find_by_sr_and_location () with
-					| Some x -> Some x
-					| None -> find_by_content_id ()
-				else find_by_content_id ()
-			) with
-				| Some (vdi, _) ->
-					state.table <- (x.cls, x.id, Ref.string_of vdi) :: state.table
-				| None ->
-					error "Found no VDI with location = %s: %s" vdi_record.API.vDI_location
-						(if config.force
-						then "ignoring error because '--force' is set"
-						else "treating as fatal and abandoning import");
-					if not(config.force) then begin
-						if exists vdi_record.API.vDI_SR state.table
-						then
-							let sr = lookup vdi_record.API.vDI_SR state.table in
-							raise (Api_errors.Server_error(Api_errors.vdi_location_missing, [ Ref.string_of sr; vdi_record.API.vDI_location ]))
-						else raise (Api_errors.Server_error(Api_errors.vdi_content_id_missing, [ content_id ]))
+	let precheck __context config rpc session_id state x =
+		let vdi_record = API.From.vDI_t "" x.snapshot in
+
+		let original_sr = API.From.sR_t "" (find_in_export (Ref.string_of vdi_record.API.vDI_SR) state.export) in
+		if original_sr.API.sR_content_type = "iso" then begin
+			(* Best effort: locate a VDI in any shared ISO SR with a matching VDI.location *)
+			let iso_srs = List.filter (fun self -> Client.SR.get_content_type rpc session_id self = "iso"
+				&& Client.SR.get_type rpc session_id self <> "udev")
+				(Client.SR.get_all rpc session_id) in
+			match List.filter (fun (_, vdir) ->
+				vdir.API.vDI_location = vdi_record.API.vDI_location && (List.mem vdir.API.vDI_SR iso_srs))
+				(Client.VDI.get_all_records rpc session_id) |> choose_one with
+			| Some (vdi, _) ->
+				Found_iso vdi
+			| None ->
+				warn "Found no ISO VDI with location = %s; attempting to eject" vdi_record.API.vDI_location;
+				Found_no_iso
+		end else begin
+			match config.import_type with
+			| Metadata_import _ -> begin
+				(* PR-1255 need a content_id everywhere *)
+				let content_id =
+					if List.mem_assoc "content_id" vdi_record.API.vDI_other_config
+					then List.assoc "content_id" vdi_record.API.vDI_other_config
+					else vdi_record.API.vDI_location in
+				let find_by_sr_and_location () =
+					let sr = lookup vdi_record.API.vDI_SR state.table in
+					List.filter (fun (_, vdir) ->
+						vdir.API.vDI_location = vdi_record.API.vDI_location && vdir.API.vDI_SR = sr)
+						(Client.VDI.get_all_records rpc session_id) |> choose_one in
+				let find_by_content_id () =
+					try
+						debug "Looking up content_id = %s" content_id;
+						Some (Storage_access.find_content ~__context content_id)
+					with e ->
+						debug "Caught exception %s while looking up content_id" (ExnHelper.string_of_exn e);
+						None in
+				match (
+					if exists vdi_record.API.vDI_SR state.table
+					then match find_by_sr_and_location () with
+						| Some x -> Some x
+						| None -> find_by_content_id ()
+					else find_by_content_id ()
+				) with
+					| Some (vdi, _) -> Found_disk vdi
+					| None -> begin
+						error "Found no VDI with location = %s: %s" vdi_record.API.vDI_location
+							(if config.force
+							then "ignoring error because '--force' is set"
+							else "treating as fatal and abandoning import");
+						if config.force then Skip
+						else begin
+							if exists vdi_record.API.vDI_SR state.table
+							then
+								let sr = lookup vdi_record.API.vDI_SR state.table in
+								Found_no_disk (Api_errors.Server_error(Api_errors.vdi_location_missing, [ Ref.string_of sr; vdi_record.API.vDI_location ]))
+							else Found_no_disk (Api_errors.Server_error(Api_errors.vdi_content_id_missing, [ content_id ]))
+						end
 					end
+			end
+			| Full_import _ -> Create vdi_record
 		end
-		| Full_import _ -> begin
+
+	let handle_dry_run __context config rpc session_id state x precheck_result =
+		match precheck_result with
+		| Found_iso vdi | Found_disk vdi -> state.table <- (x.cls, x.id, Ref.string_of vdi) :: state.table
+		| Found_no_iso -> () (* VDI will be ejected. *)
+		| Found_no_disk e -> raise e
+		| Skip -> ()
+		| Create _ ->
+			let dummy_vdi = Ref.make () in
+			state.table <- (x.cls, x.id, Ref.string_of dummy_vdi) :: state.table
+
+	let handle __context config rpc session_id state x precheck_result =
+		match precheck_result with
+		| Found_iso _ | Found_no_iso | Found_disk _ | Found_no_disk _ | Skip ->
+			handle_dry_run __context config rpc session_id state x precheck_result
+		| Create vdi_record -> begin
 			(* Make a new VDI for streaming data into; adding task-id to sm-config on VDI.create so SM backend can see this is an import *)
 			let sr = lookup vdi_record.API.vDI_SR state.table in
 			let task_id = Ref.string_of (Context.get_task_id __context) in
@@ -546,8 +574,7 @@ let handle_vdi __context config rpc session_id (state: state) (x: obj) : unit =
 			state.cleanup <- (fun __context rpc session_id -> Client.VDI.destroy rpc session_id vdi) :: state.cleanup;
 			state.table <- (x.cls, x.id, Ref.string_of vdi) :: state.table
 		end
-	end
-
+end
 
 (** Lookup the network by name_label only. Previously we used UUID which worked if importing
     to the same host that originated the export but would fail if the network UUID had changed
@@ -777,6 +804,7 @@ let handle_vgpu __context config rpc session_id (state: state) (x: obj) : unit =
 (** Create a handler for each object type. *)
 module HostHandler = MakeHandler(Host)
 module SRHandler = MakeHandler(SR)
+module VDIHandler = MakeHandler(VDI)
 module GuestMetricsHandler = MakeHandler(GuestMetrics)
 module VMHandler = MakeHandler(VM)
 
@@ -785,7 +813,7 @@ let handlers =
 	[
 		Datamodel._host, HostHandler.handle;
 		Datamodel._sr, SRHandler.handle;
-		Datamodel._vdi, handle_vdi;
+		Datamodel._vdi, VDIHandler.handle;
 		Datamodel._vm_guest_metrics, GuestMetricsHandler.handle;
 		Datamodel._vm, VMHandler.handle;
 		Datamodel._network, handle_net;
