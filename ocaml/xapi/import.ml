@@ -581,10 +581,15 @@ end
     even if (from the user's PoV) the "backend network" had not. Since we don't model networks
     it seems less confusing to match on names: whether networks are the same or different is then
     under the control of the user. *)
-let handle_net __context config rpc session_id (state: state) (x: obj) : unit =
-	let net_record = API.From.network_t "" x.snapshot in
-	let possibilities = Client.Network.get_by_name_label rpc session_id net_record.API.network_name_label in
-	let net =
+module Net : HandlerTools = struct
+	type precheck_t =
+		| Found_net of API.ref_network
+		| Found_no_net of exn
+		| Create of API.network_t
+	
+	let precheck __context config rpc session_id state x =
+		let net_record = API.From.network_t "" x.snapshot in
+		let possibilities = Client.Network.get_by_name_label rpc session_id net_record.API.network_name_label in
 		match possibilities, config.import_type with
 		| [], Metadata_import _ ->
 			begin
@@ -599,11 +604,25 @@ let handle_net __context config rpc session_id (state: state) (x: obj) : unit =
 						net_record.API.network_name_label net_record.API.network_bridge
 					in
 					error "%s" msg;
-					raise (Failure msg)
-				| (net, _) :: _ -> net
+					Found_no_net (Failure msg)
+				| (net, _) :: _ -> Found_net net
 			end
-		| [], Full_import _ ->
-			(* In normal mode we attempt to create any networks which are missing *)
+		| [], Full_import _ -> Create net_record
+		| (n::ns), _ -> Found_net n
+
+	let handle_dry_run __context config rpc session_id state x precheck_result =
+		match precheck_result with
+		| Found_net net -> state.table <- (x.cls, x.id, Ref.string_of net) :: state.table
+		| Found_no_net e -> raise e
+		| Create _ ->
+			let dummy_net = Ref.make () in
+			state.table <- (x.cls, x.id, Ref.string_of dummy_net) :: state.table
+
+	let handle __context config rpc session_id state x precheck_result =
+		match precheck_result with
+		| Found_net _ | Found_no_net _ ->
+			handle_dry_run __context config rpc session_id state x precheck_result
+		| Create net_record ->
 			let net =
 				log_reraise ("failed to create Network with name_label " ^ net_record.API.network_name_label)
 				(fun value -> Client.Network.create_from_record rpc session_id value) net_record
@@ -615,12 +634,10 @@ let handle_net __context config rpc session_id (state: state) (x: obj) : unit =
 						with _ -> ());
 					Db.Network.add_to_other_config ~__context ~self:net ~key:Xapi_globs.import_task
 						~value:(Ref.string_of t));
-				state.cleanup <- (fun __context rpc session_id ->
-					Client.Network.destroy rpc session_id net) :: state.cleanup;
-				net
-		| (n::ns), _ -> n
-	in
-	state.table <- (x.cls, x.id, Ref.string_of net) :: state.table
+			state.cleanup <- (fun __context rpc session_id ->
+				Client.Network.destroy rpc session_id net) :: state.cleanup;
+			state.table <- (x.cls, x.id, Ref.string_of net) :: state.table
+end
 
 (** Lookup the GPU group by GPU_types only. Currently, the GPU_types field contains the prototype
  *  of just a single pGPU. We would probably have to extend this function once we support GPU groups
@@ -807,6 +824,7 @@ module SRHandler = MakeHandler(SR)
 module VDIHandler = MakeHandler(VDI)
 module GuestMetricsHandler = MakeHandler(GuestMetrics)
 module VMHandler = MakeHandler(VM)
+module NetworkHandler = MakeHandler(Net)
 
 (** Table mapping datamodel class names to handlers, in order we have to run them *)
 let handlers =
@@ -816,7 +834,7 @@ let handlers =
 		Datamodel._vdi, VDIHandler.handle;
 		Datamodel._vm_guest_metrics, GuestMetricsHandler.handle;
 		Datamodel._vm, VMHandler.handle;
-		Datamodel._network, handle_net;
+		Datamodel._network, NetworkHandler.handle;
 		Datamodel._gpu_group, handle_gpu_group;
 		Datamodel._vbd, handle_vbd;
 		Datamodel._vif, handle_vif;
