@@ -44,7 +44,7 @@ let dropnone x = List.filter_map (fun x -> x) x
 
 module type ITEM = sig
 	type t
-	val t_of_rpc: Rpc.t -> t
+    val t_of_rpc: Rpc.t -> t
 	val rpc_of_t: t -> Rpc.t
 	val namespace: string
 	type key
@@ -179,7 +179,21 @@ module Scheduler = struct
 
 	let now () = Unix.gettimeofday () |> ceil |> Int64.of_float
 
-	let one_shot time f =
+	module Dump = struct
+		type u = {
+			time: int64;
+			thing: string;
+		} with rpc
+		type t = u list with rpc
+		let make () =
+			let now = now () in
+			Mutex.execute m
+				(fun () ->
+					Int64Map.fold (fun time xs acc -> List.map (fun (name, _) -> { time = Int64.sub time now; thing = name }) xs @ acc) !schedule []
+				)
+	end
+
+	let one_shot time (name: string) f =
 		let time = match time with
 			| Absolute x -> x
 			| Delta x -> Int64.(add (of_int x) (now ())) in
@@ -189,7 +203,7 @@ module Scheduler = struct
 					if Int64Map.mem time !schedule
 					then Int64Map.find time !schedule
 					else [] in
-				schedule := Int64Map.add time (f :: existing) !schedule;
+				schedule := Int64Map.add time ((name, f) :: existing) !schedule;
 				Delay.signal delay
 			)
 
@@ -203,7 +217,7 @@ module Scheduler = struct
 					Int64Map.fold (fun _ stuff acc -> acc @ stuff) expired [] |> List.rev) in
 		(* This might take a while *)
 		List.iter
-			(fun f ->
+			(fun (_, f) ->
 				try
 					f ()
 				with e ->
@@ -290,11 +304,11 @@ module Updates = struct
 		m = Mutex.create ();
 	}
 
-	let get from timeout t =
+	let get dbg from timeout t =
 		let from = Opt.default U.initial from in
 		let cancel = ref false in
 		Opt.iter (fun timeout ->
-			Scheduler.one_shot (Scheduler.Delta timeout)
+			Scheduler.one_shot (Scheduler.Delta timeout) dbg
 				(fun () ->
 					debug "Cancelling: Update.get after %d" timeout;
 					Mutex.execute t.m

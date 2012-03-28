@@ -84,12 +84,12 @@ end
 (* Used to signal when work needs to be done on a VM *)
 let updates = Updates.empty ()
 
-let event_wait timeout p =
+let event_wait task timeout p =
 	let finished = ref false in
 	let success = ref false in
 	let event_id = ref None in
 	while not !finished do
-		let deltas, next_id = Updates.get !event_id timeout updates in
+		let deltas, next_id = Updates.get (Printf.sprintf "event_wait task %s" task.Xenops_task.id) !event_id timeout updates in
 		if deltas = [] then finished := true;
 		List.iter (fun d -> if p d then (success := true; finished := true)) deltas;
 		event_id := next_id;
@@ -907,7 +907,7 @@ module VM = struct
 			) Oldest task vm
 
 	let wait_shutdown task vm reason timeout =
-		event_wait (Some (timeout |> ceil |> int_of_float))
+		event_wait task (Some (timeout |> ceil |> int_of_float))
 			(function
 				| Dynamic.Vm id when id = vm.Vm.id ->
 					debug "EVENT on our VM: %s" id;
@@ -1680,7 +1680,7 @@ module VIF = struct
 end
 
 module UPDATES = struct
-	let get last timeout = Updates.get last timeout updates
+	let get last timeout = Updates.get "UPDATES.get" last timeout updates
 end
 
 let _introduceDomain = "@introduceDomain"

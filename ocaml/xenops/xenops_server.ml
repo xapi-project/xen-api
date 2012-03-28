@@ -1494,7 +1494,7 @@ module UPDATES = struct
 		Debug.with_thread_associated dbg
 			(fun () ->
 				(* debug "UPDATES.get %s %s" (Opt.default "None" (Opt.map string_of_int last)) (Opt.default "None" (Opt.map string_of_int timeout)); *)
-				let ids, next = Updates.get last timeout updates in
+				let ids, next = Updates.get dbg last timeout updates in
 				return (ids, next)
 			) ()
 
@@ -1577,12 +1577,14 @@ module Diagnostics = struct
 	type t = {
 		queues: Redirector.Dump.t;
 		workers: WorkerPool.Dump.t;
+		scheduler: Scheduler.Dump.t;
 		updates: Updates.Dump.t;
 	} with rpc
 
 	let make () = {
 		queues = Redirector.Dump.make ();
 		workers = WorkerPool.Dump.make ();
+		scheduler = Scheduler.Dump.make ();
 		updates = Updates.Dump.make updates;
 	}
 end
