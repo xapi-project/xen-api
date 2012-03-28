@@ -981,7 +981,12 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 				VM_DB.signal id
 			with e ->
 				debug "VM.start threw error: %s. Calling VM.destroy" (Printexc.to_string e);
-				perform_atomics [ VM_destroy id ] t;
+				begin
+					try
+						perform_atomics [ VM_destroy id ] t;
+					with Exception(Does_not_exist("domain", _)) ->
+						debug "Ignoring domain Does_not_exist during clean-up"
+				end;
 				raise e
 			end
 		| VM_poweroff (id, timeout) ->
