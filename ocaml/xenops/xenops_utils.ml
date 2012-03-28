@@ -54,7 +54,7 @@ end
 (******************************************************************************)
 (* Metadata storage                                                           *)
 
-let root = "/var/run/" ^ service_name
+let root = ref ("/var/run/" ^ service_name)
 
 let rec rm_rf f =
 	if not(Sys.is_directory f)
@@ -65,13 +65,13 @@ let rec rm_rf f =
 	end
 
 let empty_database () =
-	if Sys.file_exists root then rm_rf root;
-	Unixext.mkdir_rec root 0x0755
+	if Sys.file_exists !root then rm_rf !root;
+	Unixext.mkdir_rec !root 0x0755
 
 module TypedTable = functor(I: ITEM) -> struct
 	open I
 	type key = string list
-	let filename_of_key k = Printf.sprintf "%s/%s/%s" root I.namespace (String.concat "/" k)
+	let filename_of_key k = Printf.sprintf "%s/%s/%s" !root I.namespace (String.concat "/" k)
 	let paths_of_key k =
 		let prefixes, _ = List.fold_left
 			(fun (acc, prefix) element ->
