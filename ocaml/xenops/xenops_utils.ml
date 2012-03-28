@@ -55,7 +55,7 @@ end
 (******************************************************************************)
 (* Metadata storage                                                           *)
 
-let root = ref ("/var/run/" ^ service_name)
+let root = ref ("/var/run/nonpersistent/" ^ service_name)
 
 let rec rm_rf f =
 	if not(Sys.is_directory f)
