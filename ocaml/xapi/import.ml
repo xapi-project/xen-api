@@ -642,16 +642,21 @@ end
 (** Lookup the GPU group by GPU_types only. Currently, the GPU_types field contains the prototype
  *  of just a single pGPU. We would probably have to extend this function once we support GPU groups
  *  for multiple compatible GPU types. *)
-let handle_gpu_group __context config rpc session_id (state: state) (x: obj) : unit =
-	let gpu_group_record = API.From.gPU_group_t "" x.snapshot in
-	let group =
+module GPUGroup : HandlerTools = struct
+	type precheck_t =
+		| Found_GPU_group of API.ref_GPU_group
+		| Found_no_GPU_group of exn
+		| Create of API.gPU_group_t
+
+	let precheck __context config rpc session_id state x =
+		let gpu_group_record = API.From.gPU_group_t "" x.snapshot in
 		let groups = Client.GPU_group.get_all_records rpc session_id in
 		try
 			let group, _ =
 				List.find (fun (_, groupr) ->
 					groupr.API.gPU_group_GPU_types = gpu_group_record.API.gPU_group_GPU_types) groups
 			in
-			group
+			Found_GPU_group group
 		with Not_found ->
 			match config.import_type with
 			| Metadata_import _ ->
@@ -661,29 +666,44 @@ let handle_gpu_group __context config rpc session_id (state: state) (x: obj) : u
 						(String.concat "," gpu_group_record.API.gPU_group_GPU_types)
 				in
 				error "%s" msg;
-				raise (Failure msg)
+				Found_no_GPU_group (Failure msg)
 			| Full_import _ ->
 				(* In normal mode we attempt to create any missing GPU groups *)
-				let group = log_reraise ("Unable to create GPU group with GPU_types = '[%s]'" ^
-					(String.concat "," gpu_group_record.API.gPU_group_GPU_types)) (fun value ->
-						let group = Client.GPU_group.create ~rpc ~session_id
-							~name_label:value.API.gPU_group_name_label
-							~name_description:value.API.gPU_group_name_description
-							~other_config:value.API.gPU_group_other_config in
-						Db.GPU_group.set_GPU_types ~__context ~self:group ~value:value.API.gPU_group_GPU_types;
-						group
-					) gpu_group_record
-				in
-				(* Only add task flag to GPU groups which get created in this import *)
-				TaskHelper.operate_on_db_task ~__context (fun t ->
-					(try Db.GPU_group.remove_from_other_config ~__context ~self:group ~key:Xapi_globs.import_task
-					with _ -> ());
-				Db.GPU_group.add_to_other_config ~__context ~self:group ~key:Xapi_globs.import_task
-					~value:(Ref.string_of t));
-				state.cleanup <- (fun __context rpc session_id -> Client.GPU_group.destroy rpc session_id group) :: state.cleanup;
-				group
-	in
-	state.table <- (x.cls, x.id, Ref.string_of group) :: state.table
+				Create gpu_group_record
+
+	let handle_dry_run __context config rpc session_id state x precheck_result =
+		match precheck_result with
+		| Found_GPU_group group ->
+			state.table <- (x.cls, x.id, Ref.string_of group) :: state.table
+		| Found_no_GPU_group e -> raise e
+		| Create _ ->
+			let dummy_gpu_group = Ref.make () in
+			state.table <- (x.cls, x.id, Ref.string_of dummy_gpu_group) :: state.table
+
+	let handle __context config rpc session_id state x precheck_result =
+		match precheck_result with
+		| Found_GPU_group _ | Found_no_GPU_group _ ->
+			handle_dry_run __context config rpc session_id state x precheck_result
+		| Create gpu_group_record ->
+			let group = log_reraise ("Unable to create GPU group with GPU_types = '[%s]'" ^
+				(String.concat "," gpu_group_record.API.gPU_group_GPU_types)) (fun value ->
+					let group = Client.GPU_group.create ~rpc ~session_id
+						~name_label:value.API.gPU_group_name_label
+						~name_description:value.API.gPU_group_name_description
+						~other_config:value.API.gPU_group_other_config in
+					Db.GPU_group.set_GPU_types ~__context ~self:group ~value:value.API.gPU_group_GPU_types;
+					group
+				) gpu_group_record
+			in
+			(* Only add task flag to GPU groups which get created in this import *)
+			TaskHelper.operate_on_db_task ~__context (fun t ->
+				(try Db.GPU_group.remove_from_other_config ~__context ~self:group ~key:Xapi_globs.import_task
+				with _ -> ());
+			Db.GPU_group.add_to_other_config ~__context ~self:group ~key:Xapi_globs.import_task
+				~value:(Ref.string_of t));
+			state.cleanup <- (fun __context rpc session_id -> Client.GPU_group.destroy rpc session_id group) :: state.cleanup;
+			state.table <- (x.cls, x.id, Ref.string_of group) :: state.table
+end
 
 (** Create a new VBD record, add the reference to the table.
     The VM and VDI must already have been handled first.
@@ -825,6 +845,7 @@ module VDIHandler = MakeHandler(VDI)
 module GuestMetricsHandler = MakeHandler(GuestMetrics)
 module VMHandler = MakeHandler(VM)
 module NetworkHandler = MakeHandler(Net)
+module GPUGroupHandler = MakeHandler(GPUGroup)
 
 (** Table mapping datamodel class names to handlers, in order we have to run them *)
 let handlers =
@@ -835,7 +856,7 @@ let handlers =
 		Datamodel._vm_guest_metrics, GuestMetricsHandler.handle;
 		Datamodel._vm, VMHandler.handle;
 		Datamodel._network, NetworkHandler.handle;
-		Datamodel._gpu_group, handle_gpu_group;
+		Datamodel._gpu_group, GPUGroupHandler.handle;
 		Datamodel._vbd, handle_vbd;
 		Datamodel._vif, handle_vif;
 		Datamodel._vgpu, handle_vgpu;
