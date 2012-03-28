@@ -55,10 +55,10 @@ let with_block_attached_devices (__context: Context.t) rpc (session_id: API.ref_
 	loop [] vdis
 
 (** Return a URL suitable for passing to the sparse_dd process *)
-let import_vdi_url ~__context rpc session_id vdi =
+let import_vdi_url ~__context ?(prefer_slaves=false) rpc session_id vdi =
 	(* Find a suitable host for the SR containing the VDI *)
 	let sr = Db.VDI.get_SR ~__context ~self:vdi in
-	let host = Importexport.find_host_for_sr ~__context sr in
+	let host = Importexport.find_host_for_sr ~__context ~prefer_slaves sr in
 	let address = Db.Host.get_address ~__context ~self:host in
 	Printf.sprintf "https://%s%s?vdi=%s&session_id=%s" address Constants.import_raw_vdi_uri (Ref.string_of vdi) (Ref.string_of session_id)
 
@@ -214,7 +214,7 @@ let copy_vdi ~__context vdi_src vdi_dst =
 							Sparse_dd_wrapper.dd ~__context sparse device_src device_dst size
 						)
 					else
-						let remote_uri = import_vdi_url ~__context rpc session_id vdi_dst in
+						let remote_uri = import_vdi_url ~__context ~prefer_slaves:true rpc session_id vdi_dst in
 						debug "remote_uri = %s" remote_uri;
 						Sparse_dd_wrapper.dd ~__context sparse device_src remote_uri size
 				)
