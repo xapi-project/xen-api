@@ -23,6 +23,11 @@ let interval = 5. (* seconds *)
 let num_retries = 2
 let retry_delay = 0.5
 
+let magic = "xapistat"
+let magic_bytes = 8
+let checksum_bytes = 32
+let length_bytes = 8
+
 type iface_stats = {
 	tx_bytes: int64;  (* bytes emitted *)
 	tx_pkts: int64;   (* packets emitted *)
@@ -55,33 +60,42 @@ let default_stats = {
 
 type stats_t = (iface * iface_stats) list with rpc
 
-exception Read_failed
+exception Read_error
+exception Invalid_magic_string
+exception Invalid_checksum
+exception Invalid_length
 
 let write_stats stats =
-	let json = stats |> rpc_of_stats_t |> Jsonrpc.to_string in
-	let checksum = json |> Digest.string |> Digest.to_hex in
-	Unixext.write_string_to_file stats_file (checksum ^ "\n" ^ json)
+	let payload = stats |> rpc_of_stats_t |> Jsonrpc.to_string in
+	let checksum = payload |> Digest.string |> Digest.to_hex in
+	let length = String.length payload in
+	let data = Printf.sprintf "%s%s%08x%s" magic checksum length payload in
+	Unixext.write_string_to_file stats_file (data)
 
 let read_stats () =
 	let rec retry n =
 		try
-			let file = Unixext.string_of_file stats_file in
-			let index =
-				try String.index file '\n'
-				with Not_found -> raise Read_failed
+			let data = Unixext.string_of_file stats_file in
+			if String.sub data 0 magic_bytes <> magic then
+				raise Invalid_magic_string;
+			let checksum = String.sub data magic_bytes checksum_bytes in
+			let length =
+				try int_of_string ("0x" ^ (String.sub data (magic_bytes + checksum_bytes) length_bytes))
+				with _ -> raise Invalid_length
 			in
-			let checksum = String.sub file 0 index in
-			let json = String.sub_to_end file (index + 1) in
-			if json |> Digest.string |> Digest.to_hex <> checksum then
-				raise Read_failed
+			let payload = String.sub data (magic_bytes + checksum_bytes + length_bytes + 1) length in
+			if payload |> Digest.string |> Digest.to_hex <> checksum then
+				raise Invalid_checksum
 			else
-				json |> Jsonrpc.of_string |> stats_t_of_rpc
-		with Read_failed ->
+				payload |> Jsonrpc.of_string |> stats_t_of_rpc
+		with e ->
 			if n > 0 then begin
 				Thread.delay retry_delay;
 				retry (n - 1)
 			end else
-				raise Read_failed
+				match e with
+				| Invalid_magic_string | Invalid_length | Invalid_checksum -> raise e
+				| _ -> raise Read_error
 	in
 	retry num_retries
 
