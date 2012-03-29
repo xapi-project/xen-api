@@ -650,8 +650,6 @@ let update_vm ~__context id =
 						let a = Opt.map (fun x -> f (snd x)) info in
 						let b = Opt.map f previous in
 						a <> b in
-					debug "xenopsd event = [ %s ]" (Opt.default "None" (Opt.map (fun (_, s) -> Vm.rpc_of_state s |> Jsonrpc.to_string) info));
-					debug "previous = [ %s ]" (Opt.default "None" (Opt.map (fun s -> Vm.rpc_of_state s |> Jsonrpc.to_string) previous));
 					if different (fun x -> x.power_state) then begin
 						let power_state = xenapi_of_xenops_power_state (Opt.map (fun x -> (snd x).power_state) info) in
 						debug "xenopsd event: Updating VM %s power_state <- %s" id (Record_util.power_state_to_string power_state);
