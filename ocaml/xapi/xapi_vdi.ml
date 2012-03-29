@@ -71,7 +71,7 @@ let check_operation_error ~__context ha_enabled record _ref' op =
 
     let any_vbd p = List.fold_left (||) false (List.map p vbd_recs) in
     if not operation_can_be_performed_live && (any_vbd is_active)
-    then Some (Api_errors.vdi_in_use,[_ref])
+    then Some (Api_errors.vdi_in_use,[_ref; (Record_util.vdi_operation_to_string op)])
     else if any_vbd has_current_operation
     then Some (Api_errors.other_operation_in_progress, [ "VDI"; _ref ])
     else (
@@ -383,7 +383,7 @@ let destroy ~__context ~self =
        let r = Db.VBD.get_record_internal ~__context ~self:vbd in
        r.Db_actions.vBD_currently_attached || r.Db_actions.vBD_reserved) vbds in
     if attached_vbds<>[] then
-      raise (Api_errors.Server_error (Api_errors.vdi_in_use, []))
+      raise (Api_errors.Server_error (Api_errors.vdi_in_use, [(Ref.string_of self); "destroy" ]))
     else
       begin
           let open Storage_access in
