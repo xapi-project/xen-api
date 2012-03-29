@@ -711,24 +711,74 @@ end
     Note that any currently attached disk MUST be present, unless it's an HVM guest and a
     CDROM in which case we eject it anyway.
  *)
-let handle_vbd __context config rpc session_id (state: state) (x: obj) : unit =
-	let vbd_record = API.From.vBD_t "" x.snapshot in
+module VBD : HandlerTools = struct
+	type precheck_t =
+		| Found_VBD of API.ref_VBD
+		| Fail of exn
+		| Skip
+		| Create of API.vBD_t
 
-	let get_vbd () = Client.VBD.get_by_uuid rpc session_id vbd_record.API.vBD_uuid in
-	let vbd_exists () = try ignore (get_vbd ()); true with _ -> false in
+	let precheck __context config rpc session_id state x =
+		let vbd_record = API.From.vBD_t "" x.snapshot in
 
-	if config.full_restore && vbd_exists () then begin
-		let vbd = get_vbd () in
-		state.table <- (x.cls, x.id, Ref.string_of vbd) :: state.table;
-		state.table <- (x.cls, Ref.string_of vbd, Ref.string_of vbd) :: state.table
-	end else
-		let vm = log_reraise
-			("Failed to find VBD's VM: " ^ (Ref.string_of vbd_record.API.vBD_VM))
-			(lookup vbd_record.API.vBD_VM) state.table in
-		let vbd_record = { vbd_record with API.vBD_VM = vm } in
+		let get_vbd () = Client.VBD.get_by_uuid rpc session_id vbd_record.API.vBD_uuid in
+		let vbd_exists () = try ignore (get_vbd ()); true with _ -> false in
 
-		(* trivial helper function *)
-		let create_vbd vbd_record =
+		if config.full_restore && vbd_exists () then begin
+			let vbd = get_vbd () in
+			Found_VBD vbd
+		end else begin
+			let vm = log_reraise
+				("Failed to find VBD's VM: " ^ (Ref.string_of vbd_record.API.vBD_VM))
+				(lookup vbd_record.API.vBD_VM) state.table in
+			let vbd_record = { vbd_record with API.vBD_VM = vm } in
+			(* If the VBD is supposed to be attached to a PV guest (which doesn't support
+				 currently_attached empty drives) then throw a fatal error. *)
+			if vbd_record.API.vBD_currently_attached && not(exists vbd_record.API.vBD_VDI state.table) then begin
+				let original_vm = API.From.vM_t ""(find_in_export (Ref.string_of vm) state.export) in
+				(* It's only ok if it's a CDROM attached to an HVM guest *)
+				let has_booted_hvm =
+					let lbr =
+						try Helpers.parse_boot_record original_vm.API.vM_last_booted_record with _ -> original_vm
+					in
+					lbr.API.vM_HVM_boot_policy <> ""
+				in
+				if not(vbd_record.API.vBD_type = `CD && has_booted_hvm)
+				then raise (IFailure Attached_disks_not_found)
+			end;
+
+			match vbd_record.API.vBD_type, exists vbd_record.API.vBD_VDI state.table with
+			| `CD, false ->
+				if Db.VM.get_power_state ~__context ~self:vm = `Halted then
+					Create { vbd_record with API.vBD_VDI = Ref.null; API.vBD_empty = true }  (* eject *)
+				else
+					Create vbd_record
+			| `Disk, false -> begin
+				(* omit: cannot have empty disks *)
+				warn "Cannot import VM's disk: was it an .iso attached as a disk rather than CD?";
+				Skip
+			end
+			| _, true -> Create { vbd_record with API.vBD_VDI = lookup vbd_record.API.vBD_VDI state.table }
+		end
+
+	let handle_dry_run __context config rpc session_id state x precheck_result =
+		match precheck_result with
+		| Found_VBD vbd -> begin
+			state.table <- (x.cls, x.id, Ref.string_of vbd) :: state.table;
+			state.table <- (x.cls, Ref.string_of vbd, Ref.string_of vbd) :: state.table
+		end
+		| Fail e -> raise e
+		| Skip -> ()
+		| Create _ -> begin
+			let dummy_vbd = Ref.make () in
+			state.table <- (x.cls, x.id, Ref.string_of dummy_vbd) :: state.table
+		end
+
+	let handle __context config rpc session_id state x precheck_result =
+		match precheck_result with
+		| Found_VBD _ | Fail _ | Skip ->
+			handle_dry_run __context config rpc session_id state x precheck_result
+		| Create vbd_record -> begin
 			let vbd = log_reraise
 				"failed to create VBD"
 				(fun value ->
@@ -740,26 +790,9 @@ let handle_vbd __context config rpc session_id (state: state) (x: obj) : unit =
 			(* Now that we can import/export suspended VMs we need to preserve the
 			   currently_attached flag *)
 			Db.VBD.set_currently_attached ~__context ~self:vbd ~value:vbd_record.API.vBD_currently_attached;
-			state.table <- (x.cls, x.id, Ref.string_of vbd) :: state.table in
-
-		(* If the VBD is supposed to be attached to a PV guest (which doesn't support
-		   currently_attached empty drives) then throw a fatal error. *)
-		if vbd_record.API.vBD_currently_attached && not(exists vbd_record.API.vBD_VDI state.table) then begin
-			(* It's only ok if it's a CDROM attached to an HVM guest *)
-			if not(vbd_record.API.vBD_type = `CD && Helpers.has_booted_hvm ~__context ~self:vm)
-			then raise (IFailure Attached_disks_not_found)
-		end;
-
-		match vbd_record.API.vBD_type, exists vbd_record.API.vBD_VDI state.table with
-		| `CD, false ->
-			if Db.VM.get_power_state ~__context ~self:vm = `Halted then
-				create_vbd { vbd_record with API.vBD_VDI = Ref.null; API.vBD_empty = true }  (* eject *)
-			else
-				create_vbd vbd_record
-		| `Disk, false ->
-			(* omit: cannot have empty disks *)
-			warn "Cannot import VM's disk: was it an .iso attached as a disk rather than CD?"
-		| _, true -> create_vbd { vbd_record with API.vBD_VDI = lookup vbd_record.API.vBD_VDI state.table }
+			state.table <- (x.cls, x.id, Ref.string_of vbd) :: state.table
+		end
+end
 
 (** Create a new VIF record, add the reference to the table.
     The VM and Network must have already been handled first. *)
@@ -892,6 +925,7 @@ module GuestMetricsHandler = MakeHandler(GuestMetrics)
 module VMHandler = MakeHandler(VM)
 module NetworkHandler = MakeHandler(Net)
 module GPUGroupHandler = MakeHandler(GPUGroup)
+module VBDHandler = MakeHandler(VBD)
 module VIFHandler = MakeHandler(VIF)
 module VGPUHandler = MakeHandler(VGPU)
 
@@ -905,7 +939,7 @@ let handlers =
 		Datamodel._vm, VMHandler.handle;
 		Datamodel._network, NetworkHandler.handle;
 		Datamodel._gpu_group, GPUGroupHandler.handle;
-		Datamodel._vbd, handle_vbd;
+		Datamodel._vbd, VBDHandler.handle;
 		Datamodel._vif, VIFHandler.handle;
 		Datamodel._vgpu, VGPUHandler.handle;
 	]
