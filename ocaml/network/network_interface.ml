@@ -38,6 +38,7 @@ let duplex_of_string = function
 	| _         -> Duplex_unknown
 
 external reopen_logs: unit -> bool = ""
+external reset_state: unit -> unit = ""
 
 module Interface = struct
 	external get_all : unit -> iface list = ""

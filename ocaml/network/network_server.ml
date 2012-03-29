@@ -66,8 +66,8 @@ and config_t = {
 	dns_interface: iface option;
 } with rpc
 
-let config : config_t ref = ref {interface_config = []; bridge_config = [];
-	gateway_interface = None; dns_interface = None}
+let empty_config = {interface_config = []; bridge_config = []; gateway_interface = None; dns_interface = None}
+let config : config_t ref = ref empty_config
 
 let read_management_conf () =
 	let management_conf = Unixext.string_of_file (Xapi_globs.first_boot_dir ^ "data/management.conf") in
@@ -175,6 +175,9 @@ let reopen_logs _ () =
 		debug "Logfiles reopened";
 		true
 	with _ -> false
+
+let reset_state _ () =
+	config := read_management_conf ()
 
 module Interface = struct
 	let default = {
