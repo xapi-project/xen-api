@@ -98,7 +98,7 @@ let remote_db_conf_fragment_path = Filename.concat Fhs.etcdir "remote.db.conf"
 let simulator_config_file = ref "/etc/XenServer-simulator.conf"
 let pool_config_file = Filename.concat Fhs.etcdir "pool.conf"
 let cpu_info_file = Filename.concat Fhs.etcdir "boot_time_cpus"
-let initial_host_free_memory_file = "/var/run/xapi/boot_time_memory"
+let initial_host_free_memory_file = "/var/run/nonpersistent/xapi/boot_time_memory"
 let using_rrds = ref false
 
 let ready_file = ref ""
@@ -531,7 +531,7 @@ let upgrade_grace_file = Filename.concat Fhs.vardir "ugp"
 let squeezed_reserved_host_memory = "/squeezed/reserved-host-memory"
 
 (** Where the ballooning daemon writes the initial overhead value *)
-let squeezed_reserved_host_memory_filename = "/var/run/squeezed/reserved-host-memory"
+let squeezed_reserved_host_memory_filename = "/var/run/nonpersistent/squeezed/reserved-host-memory"
 
 (** Xenclient enabled *)
 let xenclient_enabled = false

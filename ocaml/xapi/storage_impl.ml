@@ -91,7 +91,7 @@ let debug (fmt: ('a, unit, string, unit) format4) = if !print_debug then log_to_
 let error (fmt: ('a, unit, string, unit) format4) = if !print_debug then log_to_stdout "error" fmt else D.error fmt
 let info  (fmt: ('a, unit, string, unit) format4) = if !print_debug then log_to_stdout "info" fmt else D.info fmt
 
-let host_state_path = ref "/var/run/xapi/storage.db"
+let host_state_path = ref "/var/run/nonpersistent/xapi/storage.db"
 
 module Dp = struct
 	type t = string with rpc
