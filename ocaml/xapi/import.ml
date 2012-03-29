@@ -763,44 +763,67 @@ let handle_vbd __context config rpc session_id (state: state) (x: obj) : unit =
 
 (** Create a new VIF record, add the reference to the table.
     The VM and Network must have already been handled first. *)
-let handle_vif __context config rpc session_id (state: state) (x: obj) : unit =
-	let vif_record = API.From.vIF_t "" x.snapshot in
+module VIF : HandlerTools = struct
+	type precheck_t =
+		| Found_VIF of API.ref_VIF
+		| Create of API.vIF_t
 
-	let get_vif () = Client.VIF.get_by_uuid rpc session_id vif_record.API.vIF_uuid in
-	let vif_exists () = try ignore (get_vif ()); true with _ -> false in
+	let precheck __context config rpc session_id state x =
+		let vif_record = API.From.vIF_t "" x.snapshot in
 
-	if config.full_restore && vif_exists () then begin
-		let vif = get_vif () in
-		state.table <- (x.cls, x.id, Ref.string_of vif) :: state.table;
-		state.table <- (x.cls, Ref.string_of vif, Ref.string_of vif) :: state.table
-	end else
+		let get_vif () = Client.VIF.get_by_uuid rpc session_id vif_record.API.vIF_uuid in
+		let vif_exists () = try ignore (get_vif ()); true with _ -> false in
 
-		(* If not restoring a full backup then blank the MAC so it is regenerated *)
-		let vif_record = { vif_record with API.vIF_MAC =
-			if config.full_restore then vif_record.API.vIF_MAC else "" } in
-		let vm = log_reraise
-			("Failed to find VIF's VM: " ^ (Ref.string_of vif_record.API.vIF_VM))
-			(lookup vif_record.API.vIF_VM) state.table in
-		let net = log_reraise
-			("Failed to find VIF's Network: " ^ (Ref.string_of vif_record.API.vIF_network))
-			(lookup vif_record.API.vIF_network) state.table in
-		let vif_record = { vif_record with
-			API.vIF_VM = vm;
-			API.vIF_network = net } in
-		let vif = log_reraise
-			"failed to create VIF"
-			(fun value ->
-				let vif = Client.VIF.create_from_record rpc session_id value in
-				if config.full_restore then Db.VIF.set_uuid ~__context ~self:vif ~value:value.API.vIF_uuid;
-				vif)
-			vif_record in
-		state.cleanup <- (fun __context rpc session_id -> Client.VIF.destroy rpc session_id vif) :: state.cleanup;
-		(* Now that we can import/export suspended VMs we need to preserve the
-		   currently_attached flag *)
-		if Db.VM.get_power_state ~__context ~self:vm <> `Halted
-		then Db.VIF.set_currently_attached ~__context ~self:vif ~value:vif_record.API.vIF_currently_attached;
+		if config.full_restore && vif_exists () then begin
+			let vif = get_vif () in
+			Found_VIF vif
+		end else
+			(* If not restoring a full backup then blank the MAC so it is regenerated *)
+			let vif_record = { vif_record with API.vIF_MAC =
+				if config.full_restore then vif_record.API.vIF_MAC else "" } in
+			let vm = log_reraise
+				("Failed to find VIF's VM: " ^ (Ref.string_of vif_record.API.vIF_VM))
+				(lookup vif_record.API.vIF_VM) state.table in
+			let net = log_reraise
+				("Failed to find VIF's Network: " ^ (Ref.string_of vif_record.API.vIF_network))
+				(lookup vif_record.API.vIF_network) state.table in
+			let vif_record = { vif_record with
+				API.vIF_VM = vm;
+				API.vIF_network = net } in
+			Create vif_record
 
-		state.table <- (x.cls, x.id, Ref.string_of vif) :: state.table
+	let handle_dry_run __context config rpc session_id state x precheck_result =
+		match precheck_result with
+		| Found_VIF vif -> begin
+			state.table <- (x.cls, x.id, Ref.string_of vif) :: state.table;
+			state.table <- (x.cls, Ref.string_of vif, Ref.string_of vif) :: state.table
+		end
+		| Create _ -> begin
+			let dummy_vif = Ref.make () in
+			state.table <- (x.cls, x.id, Ref.string_of dummy_vif) :: state.table
+		end
+
+	let handle __context config rpc session_id state x precheck_result =
+		match precheck_result with
+		| Found_VIF vif ->
+			handle_dry_run __context config rpc session_id state x precheck_result
+		| Create vif_record -> begin
+			let vif = log_reraise
+				"failed to create VIF"
+				(fun value ->
+					let vif = Client.VIF.create_from_record rpc session_id value in
+					if config.full_restore then Db.VIF.set_uuid ~__context ~self:vif ~value:value.API.vIF_uuid;
+					vif)
+				vif_record in
+			state.cleanup <- (fun __context rpc session_id -> Client.VIF.destroy rpc session_id vif) :: state.cleanup;
+			(* Now that we can import/export suspended VMs we need to preserve the
+				 currently_attached flag *)
+			if Db.VM.get_power_state ~__context ~self:vif_record.API.vIF_VM <> `Halted
+			then Db.VIF.set_currently_attached ~__context ~self:vif ~value:vif_record.API.vIF_currently_attached;
+
+			state.table <- (x.cls, x.id, Ref.string_of vif) :: state.table
+		end
+end
 
 (** Create a new VGPU record, add the reference to the table.
     The VM and GPU_group must have already been handled first. *)
@@ -846,6 +869,7 @@ module GuestMetricsHandler = MakeHandler(GuestMetrics)
 module VMHandler = MakeHandler(VM)
 module NetworkHandler = MakeHandler(Net)
 module GPUGroupHandler = MakeHandler(GPUGroup)
+module VIFHandler = MakeHandler(VIF)
 
 (** Table mapping datamodel class names to handlers, in order we have to run them *)
 let handlers =
@@ -858,7 +882,7 @@ let handlers =
 		Datamodel._network, NetworkHandler.handle;
 		Datamodel._gpu_group, GPUGroupHandler.handle;
 		Datamodel._vbd, handle_vbd;
-		Datamodel._vif, handle_vif;
+		Datamodel._vif, VIFHandler.handle;
 		Datamodel._vgpu, handle_vgpu;
 	]
 
