@@ -24,8 +24,6 @@ let message_get_since_for_events : (__context:Context.t -> float -> (float * (AP
 
 (** Limit the event queue to this many events: *)
 let max_stored_events = 500
-(** Limit the maximum age of an event in the event queue to this value in seconds: *)
-let max_event_age = 15. *. 60. (* 15 minutes *)
 
 (** Ordered list of events, newest first *)
 let queue = ref []
@@ -36,12 +34,35 @@ let highest_forgotten_id = ref (-1L)
 
 (** Types used to store user event subscriptions: ***********************************************)
 type subscription = 
-    | Class of string (** subscribe to all events for objects of this class *)
-    | All             (** subscribe to everything *)
+    | Class of string           (** subscribe to all events for objects of this class *)
+	| Object of string * string (** subscribe to all events for this specific object *)
+    | All                       (** subscribe to everything *)
 
-let subscription_of_string x = if x = "*" then All else Class (String.lowercase x)
+let subscription_of_string x = if x = "*" then All else match String.split ~limit:2 '/' x with
+	| [ cls ] -> Class (String.lowercase cls)
+	| [ cls; id ] -> Object(String.lowercase cls, id)
+	| _ ->
+		raise (Api_errors.Server_error(Api_errors.event_subscription_parse_failure, [ x ]))
 
-let event_matches subs ty = List.mem All subs || (List.mem (Class (String.lowercase ty)) subs)
+let any = List.fold_left (fun acc x -> acc || x) false
+
+(** [table_matches subs tbl]: true if at least one subscription from [subs] would select some events from [tbl] *)
+let table_matches subs tbl =
+	let tbl = String.lowercase tbl in
+	let matches = function
+		| All -> true
+		| Class x -> x = tbl
+		| Object (x, _) -> x = tbl in
+	any (List.map matches subs)
+
+(** [event_matches subs ev]: true if at least one subscription from [subs] selects for event [ev] *)
+let event_matches subs ev =
+	let tbl = String.lowercase ev.ty in
+	let matches = function
+		| All -> true
+		| Class x -> x = tbl
+		| Object (x, y) -> x = tbl && (y = ev.reference) in
+	any (List.map matches subs)
 
 (** Every session that calls 'register' gets a subscription*)
 type subscription_record = {
@@ -58,8 +79,7 @@ type subscription_record = {
 
 
 (** Thrown if the user requests events which we don't have because we've thrown
-    then away. This should only happen if the client (or network) becomes unresponsive
-    for the max_event_age interval or if more than max_stored_events are produced 
+    then away. This should only happen if more than max_stored_events are produced 
     between successive calls to Event.next (). The client should refresh all its state
     manually before calling Event.next () again.
 *)
@@ -74,42 +94,6 @@ let subscriptions = Hashtbl.create 10
 (* Lock protects the global event queue reference and the subscriptions hashtable *)
 let event_lock = Mutex.create ()
 let newevents = Condition.create ()
-
-(** This function takes a set of events (requested by the client) and removes
-    redundancies (like multiple Mods of the same object or Mod of a deleted object).
-    NB we cannot safely remove object Deletes because a client might receive the Add event
-    if one call and a Del event in a subsequent call.
-    NB events are stored in reverse order. *)
-let coalesce_events events = 
-	(* We're not trying to be super-efficient here, we scan the list multiple times. 
-	   Let's keep the queue short. *)
-	let refs_of_op op events = List.concat 
-		(List.map (function { op = op'; reference = reference } -> 
-			     if op = op' then [ reference ] else []) events) in
-
-	let dummy x = { x with op = Dummy } in
-
-	(* If an object has been deleted, remove any Modification events *)
-	let all_dead = refs_of_op Del events in
-	let events' = List.map (function { op = Mod; reference = reference } as x ->
-				 if List.mem reference all_dead 
-				 then dummy x else x
-				| x -> x) events in
-
-	(* If one Mod event has been seen, remove the rest (we keep the latest (ie 
-	   the first one in the list) since the list is reversed)) *)
-	let events' = List.rev (snd (List.fold_left 
-	  (fun (already_seen, acc) x -> 
-	     if x.op = Mod then
-	       let x = if List.mem x.reference already_seen then dummy x else x in
-	       x.reference :: already_seen, x :: acc
-	     else already_seen, x :: acc) ([], []) events')) in
-
-	(* For debugging we may wish to keep the dummy events so we can account for 
-	   every event ID. However normally we want to zap them. *)
-	let events' = List.filter (fun ev -> ev.op <> Dummy) events' in
-	(* debug "Removed %d redundant events" (List.length events - (List.length events')); *)
-	events'
 
 let event_add ?snapshot ty op reference  =
 
@@ -132,7 +116,7 @@ let event_add ?snapshot ty op reference  =
 
 		let matches_anything = Hashtbl.fold
 			(fun _ s acc ->
-				 if event_matches s.subs ty
+				 if event_matches s.subs ev
 				 then (s.cur_id <- get_current_event_number (); true)
 				 else acc) subscriptions false in
 		if matches_anything then begin
@@ -144,18 +128,12 @@ let event_add ?snapshot ty op reference  =
 			(* debug "Dropping event %s" (string_of_event ev) *)
 		end;
 		
-		(* Remove redundant events from the queue *)
-		(* queue := coalesce_events !queue;*)
-		
 		(* GC the events in the queue *)
-		let young, old = List.partition (fun ev -> ts -. ev.ts <= max_event_age) !queue in
-		let too_many = List.length young - max_stored_events in
-		let to_keep, to_drop = if too_many <= 0 then young, old
+		let too_many = List.length !queue - max_stored_events in
+		let to_keep, to_drop = if too_many <= 0 then !queue, []
 		  else
 		    (* Reverse-sort by ID and preserve the first 'max_stored_events' *)
-		    let lucky, unlucky = 
-		      List.chop max_stored_events (List.sort (fun a b -> compare b.id a.id) young) in
-		    lucky, old @ unlucky in
+		    List.chop max_stored_events (List.sort (fun a b -> compare b.id a.id) !queue) in
 		queue := to_keep;
 		(* Remember the highest ID of the list of events to drop *)
 		if to_drop <> [] then
@@ -191,14 +169,14 @@ let assert_subscribed ~__context =
 
 (** Register an interest in events generated on objects of class <class_name> *)
 let register ~__context ~classes = 
-	let subs = List.map subscription_of_string (List.map String.lowercase classes) in
+	let subs = List.map subscription_of_string classes in
 	let sub = get_subscription ~__context in
 	Mutex.execute sub.m (fun () -> sub.subs <- subs @ sub.subs)
 
 
 (** Unregister interest in events generated on objects of class <class_name> *)
 let unregister ~__context ~classes = 
-	let subs = List.map subscription_of_string (List.map String.lowercase classes) in
+	let subs = List.map subscription_of_string classes in
 	let sub = get_subscription ~__context in
 	Mutex.execute sub.m
 		(fun () -> sub.subs <- List.filter (fun x -> not(List.mem x subs)) sub.subs)
@@ -294,27 +272,21 @@ let rec next ~__context =
 	(* Are any of the new events interesting? *)
 	let events = events_read last_id end_id in
 	let subs = Mutex.execute subscription.m (fun () -> subscription.subs) in
-	let relevant = List.filter (fun ev -> event_matches subs ev.ty) events in
+	let relevant = List.filter (fun ev -> event_matches subs ev) events in
 	(* debug "number of relevant events = %d" (List.length relevant); *)
 	if relevant = [] then next ~__context 
 	else XMLRPC.To.array (List.map xmlrpc_of_event relevant)
 
 let from ~__context ~classes ~token ~timeout = 
 	let from, from_t = 
-		try 
-			match String.split ',' token with
-				| [from;from_t] -> 
-					(Int64.of_string from, float_of_string from_t)
-				| [""] -> (0L, 0.1)
-				| _ -> 
-					warn "Bad format passed to Event.from: %s" token;
-					failwith "Error"
-		with _ ->
-			(0L, 0.1)
-	in
+		try
+			token_of_string token
+		with e ->
+			warn "Failed to parse event.from token: %s (%s)" token (Printexc.to_string e);
+			raise (Api_errors.Server_error(Api_errors.event_from_token_parse_failure, [ token ])) in
 
 	(* Temporarily create a subscription for the duration of this call *)
-	let subs = List.map subscription_of_string (List.map String.lowercase classes) in
+	let subs = List.map subscription_of_string classes in
 	let sub = get_subscription ~__context in
 
 	sub.timeout <- Unix.gettimeofday () +. timeout;
@@ -331,14 +303,14 @@ let from ~__context ~classes ~token ~timeout =
 	in
 
 	let all_subs = Mutex.execute sub.m (fun () -> Hashtbl.fold (fun _ s acc -> s.subs @ acc) subscriptions []) in
-	let tables = List.filter (fun table -> event_matches all_subs table) all_event_tables in
+	let tables = List.filter (fun table -> table_matches all_subs table) all_event_tables in
 
 	let events_lost = ref [] in
 
 	let grab_range t =
 		let tableset = Db_cache_types.Database.tableset (Db_ref.get_database t) in
 		let (timestamp,messages) =
-			if event_matches all_subs "message" then (!message_get_since_for_events) ~__context sub.last_timestamp else (0.0, []) in
+			if table_matches all_subs "message" then (!message_get_since_for_events) ~__context sub.last_timestamp else (0.0, []) in
 		(timestamp, messages, tableset, List.fold_left
 			(fun acc table ->
 				 Db_cache_types.Table.fold_over_recent sub.last_generation
@@ -382,45 +354,33 @@ let from ~__context ~classes ~token ~timeout =
 	sub.last_generation <- last;
 	sub.last_timestamp <- timestamp;
 
-	let delevs = List.fold_left (fun acc (table, objref, dtime) ->
-									 if event_matches sub.subs table then begin
-										 let ev = {id=dtime;
-												   ts=0.0;
-												   ty=String.lowercase table;
-												   op=Del;
-												   reference=objref;
-												   snapshot=None} in
-										 ev::acc
-									 end else acc
-								) [] deletes in
+	let event_of op ?snapshot (table, objref, time) =
+		{
+			id=time;
+			ts=0.0;
+			ty=String.lowercase table;
+			op=op;
+			reference=objref;
+			snapshot=snapshot
+		} in
+	let delevs = List.fold_left (fun acc x ->
+		let ev = event_of Del x in
+		if event_matches sub.subs ev then ev::acc else acc
+	) [] deletes in
 
 	let modevs = List.fold_left (fun acc (table, objref, mtime) ->
-									 if event_matches sub.subs table then begin
-										 let serialiser = Eventgen.find_get_record table in
-										 let xml = serialiser ~__context ~self:objref () in
-										 let ev = { id=mtime;
-													ts=0.0;
-													ty=String.lowercase table;
-													op=Mod;
-													reference=objref;
-													snapshot=xml } in
-										 ev::acc
-									 end else acc
-								) delevs mods in
+		let serialiser = Eventgen.find_get_record table in
+		let xml = serialiser ~__context ~self:objref () in
+		let ev = event_of Mod ?snapshot:xml (table, objref, mtime) in
+		if event_matches sub.subs ev then ev::acc else acc
+	) delevs mods in
 
 	let createevs = List.fold_left (fun acc (table, objref, ctime) ->
-										if event_matches sub.subs table then begin
-											let serialiser = Eventgen.find_get_record table in
-											let xml = serialiser ~__context ~self:objref () in
-											let ev = { id=ctime;
-													   ts=0.0;
-													   ty=String.lowercase table;
-													   op=Add;
-													   reference=objref;
-													   snapshot=xml } in
-											ev::acc
-										end else acc
-								   ) modevs creates in
+		let serialiser = Eventgen.find_get_record table in
+		let xml = serialiser ~__context ~self:objref () in
+		let ev = event_of Add ?snapshot:xml (table, objref, ctime) in
+		if event_matches sub.subs ev then ev::acc else acc
+	) modevs creates in
 	
 	let message_events = List.fold_left (fun acc (_ref,message) ->
 											 let objref = Ref.string_of _ref in
@@ -434,23 +394,23 @@ let from ~__context ~classes ~token ~timeout =
 											 ev::acc) createevs messages in
 
 	let valid_ref_counts =
-        XMLRPC.To.structure
-            (Db_cache_types.TableSet.fold
-                (fun tablename _ _ table acc ->
-                    (String.lowercase tablename, XMLRPC.To.int
-                        (Db_cache_types.Table.fold
-                            (fun r _ _ _ acc -> Int32.add 1l acc) table 0l))::acc)
-                tableset [])
-	in
+        Db_cache_types.TableSet.fold
+            (fun tablename _ _ table acc ->
+                (String.lowercase tablename,
+                    (Db_cache_types.Table.fold
+                        (fun r _ _ _ acc -> Int32.add 1l acc) table 0l))::acc)
+            tableset [] in
 
 	let session = Context.get_session_id __context in
 
 	on_session_deleted session;
 
-	XMLRPC.To.structure [("events",XMLRPC.To.array (List.map xmlrpc_of_event message_events)); 
-						 ("valid_ref_counts",valid_ref_counts); 
-						 ("token",XMLRPC.To.string (Printf.sprintf "%Ld,%f" last timestamp))
-						]
+	let result = {
+		events = message_events;
+		valid_ref_counts = valid_ref_counts;
+		token = last, timestamp;
+	} in
+	xmlrpc_of_event_from result
 
 let get_current_id ~__context = Mutex.execute event_lock (fun () -> !id)
 
