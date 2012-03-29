@@ -480,7 +480,16 @@ module HOST = struct
 	let get_console_data () =
 		with_xc_and_xs
 			(fun xc xs ->
-				Xenctrl.readconsolering xc
+				let raw = Xenctrl.readconsolering xc in
+				(* There may be invalid XML characters in the buffer, so remove them *)
+				let is_printable chr =
+					let x = int_of_char chr in
+					x >= 0x20 && x <= 0x7e in
+				for i = 0 to String.length raw - 1 do
+					if not(is_printable raw.[i])
+					then raw.[i] <- ' '
+				done;
+				raw
 			)
 	let get_total_memory_mib () =
 		with_xc_and_xs
