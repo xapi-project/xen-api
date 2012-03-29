@@ -56,8 +56,8 @@ type pif = {
   pif_raw_tx: int64;
   pif_raw_rx: int64;
   pif_carrier: bool;
-  pif_speed: Netdev.Link.speed;
-  pif_duplex: Netdev.Link.duplex;
+  pif_speed: int;
+  pif_duplex: Network_interface.duplex;
   pif_pci_bus_path: string;
   pif_vendor_id: string;
   pif_device_id: string;

@@ -42,6 +42,7 @@ open Monitor_types
 open Monitor_rrds
 open Ds
 open Rrd_shared
+open Network_monitor
 
 module D=Debug.Debugger(struct let name="monitor" end)
 open D
@@ -174,14 +175,6 @@ let update_loadavg () =
 (*****************************************************)
 (* network related code                              *)
 (*****************************************************)
-type ethstats = {
-	mutable tx_bytes: int64;  (* bytes emitted *)
-	mutable tx_pkts: int64;   (* packets emitted *)
-	mutable tx_errors: int64; (* error emitted *)
-	mutable rx_bytes: int64;  (* bytes received *)
-	mutable rx_pkts: int64;   (* packets received *)
-	mutable rx_errors: int64; (* error received *)
-}
 
 type vif_device = {
 	pv: bool;
@@ -203,175 +196,59 @@ let string_of_vif_device x =
 	Printf.sprintf "%s%d.%d" (if x.pv then "vif" else "tap") x.domid x.devid
 
 let update_netdev doms =
-	let devs = ref [] in
-
-	let standardise_name name =
-		try
-			let (d1,d2) = Scanf.sscanf name "tap%d.%d"
-				(fun d1 d2 -> d1,d2) in
-			let newname = Printf.sprintf "vif%d.%d" d1 d2 in
-			newname
-		with _ -> name
-	in
-
-	let f line =
-		if String.contains line ':' then (
-			let flds = String.split_f (fun c -> c = ' ' || c = ':') line in
-			let flds = List.filter (fun field -> field <> "") flds in
-			let name = standardise_name (List.nth flds 0) in
-			let vs = List.map (fun i ->
-				try Int64.of_string (List.nth flds i) with _ -> 0L)
-				[ 1; 2; 3; 9; 10; 11; ] in
-			let eth_stat = {
-				rx_bytes = List.nth vs 0;
-				rx_pkts = List.nth vs 1;
-				rx_errors = List.nth vs 2;
-				tx_bytes = List.nth vs 3;
-				tx_pkts = List.nth vs 4;
-				tx_errors = List.nth vs 5;
+	let stats = Network_monitor.read_stats () in
+	List.fold_left (fun (dss, pifs) (dev, stat) ->
+		if not (String.startswith "vif" dev) then
+			let pif_name = "pif_" ^ dev in
+			let pif = {
+				pif_name = dev;
+				pif_tx = -1.0;
+				pif_rx = -1.0;
+				pif_raw_tx = 0L;
+				pif_raw_rx = 0L;
+				pif_carrier = stat.carrier;
+				pif_speed = stat.speed;
+				pif_duplex = stat.duplex;
+				pif_pci_bus_path = stat.pci_bus_path;
+				pif_vendor_id = stat.vendor_id;
+				pif_device_id = stat.device_id;
 			} in
-			(* CA-23291: no good can come of recording 'dummy' device stats *)
-			if not(String.startswith "dummy" name) &&
-				not(String.startswith "xenbr" name) &&
-				not(String.startswith "xapi" name) &&
-				not(String.startswith "eth" name && String.contains name '.')
-			then devs := (name,eth_stat) :: (!devs)
-		)
-	in
-
-	Unixext.readfile_line f "/proc/net/dev";
-
-	let make_bond_info (name, interfaces) =
-		let devs = List.filter (fun (name', _) -> List.mem name' interfaces) !devs in
-		let eth_stat = {
-			rx_bytes = List.fold_left (fun ac (_, stat) -> Int64.add ac stat.rx_bytes) 0L devs;
-			rx_pkts = List.fold_left (fun ac (_, stat) -> Int64.add ac stat.rx_pkts) 0L devs;
-			rx_errors = List.fold_left (fun ac (_, stat) -> Int64.add ac stat.rx_errors) 0L devs;
-			tx_bytes = List.fold_left (fun ac (_, stat) -> Int64.add ac stat.tx_bytes) 0L devs;
-			tx_pkts = List.fold_left (fun ac (_, stat) -> Int64.add ac stat.tx_pkts) 0L devs;
-			tx_errors = List.fold_left (fun ac (_, stat) -> Int64.add ac stat.tx_errors) 0L devs;
-		} in
-		name, eth_stat
-	in
-	let bonds : (string * string list) list = Net.Bridge.get_all_bonds ~from_cache:true () in
-	devs := (List.map make_bond_info bonds) @ !devs;
-
-	let transform_taps () =
-		let newdevnames = List.setify (List.map fst !devs) in
-		let newdevs = List.map (fun name ->
-			let devs = List.filter (fun (n,x) -> n=name) !devs in
-			let tot = List.fold_left (fun acc (_,b) ->
-				{rx_bytes = Int64.add acc.rx_bytes b.rx_bytes;
-				 rx_pkts = Int64.add acc.rx_pkts b.rx_pkts;
-				 rx_errors = Int64.add acc.rx_errors b.rx_errors;
-				 tx_bytes = Int64.add acc.tx_bytes b.tx_bytes;
-				 tx_pkts = Int64.add acc.tx_pkts b.tx_pkts;
-				 tx_errors = Int64.add acc.tx_errors b.tx_errors}) {rx_bytes=0L; rx_pkts=0L; rx_errors=0L; tx_bytes=0L; tx_pkts=0L; tx_errors=0L} devs
-			in
-			(name,tot)
-		) newdevnames
-		in
-		devs := newdevs
-	in
-
-	transform_taps ();
-
-	let vifs = List.fold_left (fun acc (vif,stat) ->
-		if String.startswith "vif" vif then (
-			try
-				let (d1, d2) = Scanf.sscanf vif "vif%d.%d"
-					(fun d1 d2 -> d1, d2) in
+			(Host, ds_make ~name:(pif_name ^ "_rx")
+				~description:("Bytes per second received on physical interface " ^ dev)
+				~value:(Rrd.VT_Int64 stat.rx_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true ()) ::
+			(Host, ds_make ~name:(pif_name ^ "_tx")
+				~description:("Bytes per second sent on physical interface " ^ dev)
+				~value:(Rrd.VT_Int64 stat.tx_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true ()) ::
+			(Host, ds_make ~name:(pif_name ^ "_rx_errors")
+				~description:("Receive errors per second on physical interface " ^ dev)
+				~value:(Rrd.VT_Int64 stat.rx_errors) ~ty:Rrd.Derive ~min:0.0 ~default:false ()) ::
+			(Host, ds_make ~name:(pif_name ^ "_tx_errors")
+				~description:("Transmit errors per second on physical interface " ^ dev)
+				~value:(Rrd.VT_Int64 stat.tx_errors) ~ty:Rrd.Derive ~min:0.0 ~default:false ()) ::
+			dss,
+			pif :: pifs
+		else
+			(try
+				let (d1, d2) = Scanf.sscanf dev "vif%d.%d" (fun d1 d2 -> d1, d2) in
 				let vif_name = Printf.sprintf "vif_%d" d2 in
 				(* Note: rx and tx are the wrong way round because from dom0 we see the vms backwards *)
-				let uuid=uuid_of_domid doms d1 in
-				(VM uuid,
-				ds_make ~name:(vif_name^"_tx")
-					~description:("Bytes per second transmitted on virtual interface number '"^(string_of_int d2)^"'")
-					~value:(Rrd.VT_Int64 stat.rx_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true ())::
-				(VM uuid,
-				ds_make ~name:(vif_name^"_rx")
-					~description:("Bytes per second received on virtual interface number '"^(string_of_int d2)^"'")
-					~value:(Rrd.VT_Int64 stat.tx_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true ())::
-				(VM uuid,
-				ds_make ~name:(vif_name^"_rx_errors")
-					~description:("Receive errors per second on virtual interface number '"^(string_of_int d2)^"'")
-					~value:(Rrd.VT_Int64 stat.tx_errors) ~ty:Rrd.Derive ~min:0.0 ~default:false ())::
-				(VM uuid,
-				ds_make ~name:(vif_name^"_tx_errors")
-					~description:("Transmit errors per second on virtual interface number '"^(string_of_int d2)^"'")
-					~value:(Rrd.VT_Int64 stat.rx_errors) ~ty:Rrd.Derive ~min:0.0 ~default:false ())::acc
-			with _ -> acc) else acc) [] (!devs)
-	in
-
-	List.fold_left (fun (dss,pifs) (dev,stat) ->
-		if not (String.startswith "vif" dev) then (
-			let devs =
-				if List.mem_assoc dev bonds then
-					List.assoc dev bonds
-				else
-					[dev]
-			in
-			let vendor_id, device_id = if List.length devs = 1 then Netdev.get_ids dev else "", "" in
-			let speed, duplex =
-				let int_of_duplex = function
-					| Netdev.Link.Duplex_half -> 1
-					| Netdev.Link.Duplex_full -> 2
-					| Netdev.Link.Duplex_unknown -> 0
-				in
-				let duplex_of_int = function
-					| 1 -> Netdev.Link.Duplex_half
-					| 2 -> Netdev.Link.Duplex_full
-					| _ -> Netdev.Link.Duplex_unknown
-				in
-				let statuses = List.map (fun dev ->
-					let speed, duplex =
-						try
-							Netdev.Link.get_status dev
-						with _ ->
-							Netdev.Link.speed_unknown,
-							Netdev.Link.Duplex_unknown
-					in
-					Netdev.Link.int_of_speed speed, int_of_duplex duplex
-				) devs in
-				let speed, duplex =
-					List.fold_left (fun (speed, duplex) (speed', duplex') -> (speed + speed'), (min duplex duplex')) (0, 2) statuses
-				in
-				Netdev.Link.speed_of_int speed, duplex_of_int duplex
-			in
-			let pif_name = "pif_" ^ dev in
-			let carrier = List.fold_left (fun ac dev -> ac || (Net.Interface.is_connected ~name:dev)) false devs in
-			let buspath = if List.length devs = 1 then Netdev.get_pcibuspath dev else "" in
-			let pif = {
-				pif_name=dev;
-				pif_tx= -1.0;
-				pif_rx= -1.0;
-				pif_raw_tx=0L;
-				pif_raw_rx=0L;
-				pif_carrier=carrier;
-				pif_speed=speed;
-				pif_duplex=duplex;
-				pif_pci_bus_path=buspath;
-				pif_vendor_id=vendor_id;
-				pif_device_id=device_id;
-			} in
-			((Host,
-			ds_make ~name:(pif_name^"_rx")
-				~description:("Bytes per second received on physical interface "^dev)
-				~value:(Rrd.VT_Int64 stat.rx_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true ())::
-			(Host,
-			ds_make ~name:(pif_name^"_tx")
-				~description:("Bytes per second sent on physical interface "^dev)
-				~value:(Rrd.VT_Int64 stat.tx_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true ())::
-			(Host,
-			ds_make ~name:(pif_name^"_rx_errors")
-				~description:("Receive errors per second on physical interface "^dev)
-				~value:(Rrd.VT_Int64 stat.rx_errors) ~ty:Rrd.Derive ~min:0.0 ~default:false ())::
-			(Host,
-			ds_make ~name:(pif_name^"_tx_errors")
-				~description:("Transmit errors per second on physical interface "^dev)
-				~value:(Rrd.VT_Int64 stat.tx_errors) ~ty:Rrd.Derive ~min:0.0 ~default:false ())::dss),pif::pifs)
-		else (dss,pifs)) (vifs,[]) (!devs)
-
+				let uuid = uuid_of_domid doms d1 in
+				(VM uuid, ds_make ~name:(vif_name ^ "_tx")
+					~description:("Bytes per second transmitted on virtual interface number '" ^ (string_of_int d2) ^ "'")
+					~value:(Rrd.VT_Int64 stat.rx_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true ()) ::
+				(VM uuid, ds_make ~name:(vif_name ^ "_rx")
+					~description:("Bytes per second received on virtual interface number '" ^ (string_of_int d2) ^ "'")
+					~value:(Rrd.VT_Int64 stat.tx_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true ()) ::
+				(VM uuid, ds_make ~name:(vif_name ^ "_rx_errors")
+					~description:("Receive errors per second on virtual interface number '" ^ (string_of_int d2) ^ "'")
+					~value:(Rrd.VT_Int64 stat.tx_errors) ~ty:Rrd.Derive ~min:0.0 ~default:false ()) ::
+				(VM uuid, ds_make ~name:(vif_name ^ "_tx_errors")
+					~description:("Transmit errors per second on virtual interface number '" ^ (string_of_int d2) ^ "'")
+					~value:(Rrd.VT_Int64 stat.rx_errors) ~ty:Rrd.Derive ~min:0.0 ~default:false ()) ::
+				dss
+			with _ -> dss),
+			pifs
+	) ([], []) stats
 
 (*****************************************************)
 (* disk related code                                 *)
