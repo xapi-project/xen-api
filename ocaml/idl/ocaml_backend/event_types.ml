@@ -11,6 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+open Stringext
+
 (** Types used to store events: *****************************************************************)
 type op = 
     | Add   (** Object has been created *)
@@ -26,6 +28,15 @@ type event = {
 	reference: string;
 	snapshot: XMLRPC.xmlrpc option;
 }
+
+type token = int64 * float (* last id, timestamp *)
+
+type event_from = {
+	events: event list;
+	valid_ref_counts: (string * int32) list;
+	token: token;
+}
+(** Return result of an events.from call *)
 
 open Printf
 open Pervasiveext
@@ -49,14 +60,35 @@ let xmlrpc_of_event ev =
        "ref", XMLRPC.To.string ev.reference;
     ] @ (default [] (may (fun x -> [ "snapshot", x ]) ev.snapshot)))
 
+let string_of_token (last, timestamp) = Printf.sprintf "%Ld,%f" last timestamp
+
+exception Failed_to_parse_token of string
+
+let token_of_string token =
+	match String.split ',' token with
+		| [from;from_t] -> 
+			(Int64.of_string from, float_of_string from_t)
+		| [""] -> (0L, 0.1)
+		| _ ->
+			raise (Failed_to_parse_token token)
+
+let xmlrpc_of_event_from x =
+	XMLRPC.To.structure
+		[
+			"events", XMLRPC.To.array (List.map xmlrpc_of_event x.events); 
+			"valid_ref_counts", XMLRPC.To.structure (List.map (fun (tbl, int) -> tbl, XMLRPC.To.int int) x.valid_ref_counts);
+			"token",XMLRPC.To.string (string_of_token x.token);
+		]
+
 exception Event_field_missing of string
+let find kvpairs x = 
+    if not(List.mem_assoc x kvpairs)
+    then raise (Event_field_missing x) else List.assoc x kvpairs
 
 (* Convert a single XMLRPC value containing an encoded event into the event record *)
 let event_of_xmlrpc x = 
   let kvpairs = XMLRPC.From.structure x in
-  let find x = 
-    if not(List.mem_assoc x kvpairs)
-    then raise (Event_field_missing x) else List.assoc x kvpairs in
+  let find = find kvpairs in
   { id = Int64.of_string (XMLRPC.From.string (find "id"));
     ts = float_of_string (XMLRPC.From.string (find "timestamp"));
     ty = XMLRPC.From.string (find "class");
@@ -67,3 +99,14 @@ let event_of_xmlrpc x =
 
 (* Convert an XMLRPC array of events into a list of event records *)
 let events_of_xmlrpc = XMLRPC.From.array event_of_xmlrpc
+
+let event_from_of_xmlrpc x =
+	let kvpairs = XMLRPC.From.structure x in
+	let find = find kvpairs in
+	{
+		events = events_of_xmlrpc (find "events");
+		valid_ref_counts = List.map (fun (tbl, int) -> tbl, XMLRPC.From.int int) (XMLRPC.From.structure (find "valid_ref_counts"));
+		token = token_of_string (XMLRPC.From.string (find "token"));
+	}
+
+		

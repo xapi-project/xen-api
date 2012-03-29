@@ -14,7 +14,9 @@
 open Stringext
 open Threadext
 open Pervasiveext
+open Fun
 open Client
+open Event_types
 open Quicktest_common
 
 let username = ref ""
@@ -31,7 +33,7 @@ let event_next_unblocking_test () =
   let () = Client.Event.register !rpc session_id [] in (* no events *)
   let m = Mutex.create () in
   let unblocked = ref false in
-  let (_: Thread.t) = Thread.create 
+  let (_: Thread.t) = Thread.create
     (fun () -> 
        begin 
 	 try ignore(Client.Event.next !rpc session_id) 
@@ -51,6 +53,122 @@ let event_next_unblocking_test () =
   if not (Mutex.execute m (fun () -> !unblocked))
   then failed test ""
   else success test
+
+let event_next_test session_id =
+	let test = make_test "Event.next test" 0 in
+	start test;
+	let () = Client.Event.register !rpc session_id [ "pool" ] in
+	let m = Mutex.create () in
+	let finished = ref false in
+	let pool = Client.Pool.get_all !rpc session_id |> List.hd in
+	let key = "event_next_test" in
+	begin try Client.Pool.remove_from_other_config !rpc session_id pool key with _ -> () end;
+	let (_: Thread.t) = Thread.create
+		(fun () ->
+			while not (Mutex.execute m (fun () -> !finished)) do
+				ignore (Client.Event.next !rpc session_id);
+				let oc = Client.Pool.get_other_config !rpc session_id pool in
+				if List.mem_assoc key oc && (List.assoc key oc) = "1"
+				then Mutex.execute m (fun () ->
+					debug test "got expected event";
+					finished := true;
+				)
+			done
+		) () in
+	Thread.delay 1.;
+	Client.Pool.add_to_other_config !rpc session_id pool key "1";
+	Thread.delay 1.;
+	if not(Mutex.execute m (fun () -> !finished))
+	then failed test "failed to see pool.other_config change"
+	else success test
+
+let event_from_test session_id =
+	let test = make_test "Event.from test" 0 in
+	start test;
+	let m = Mutex.create () in
+	let finished = ref false in
+	let pool = Client.Pool.get_all !rpc session_id |> List.hd in
+	let key = "event_next_test" in
+	begin try Client.Pool.remove_from_other_config !rpc session_id pool key with _ -> () end;
+	let (_: Thread.t) = Thread.create
+		(fun () ->
+			let token = ref "" in
+			while not (Mutex.execute m (fun () -> !finished)) do
+				let events = Client.Event.from !rpc session_id [ "pool" ] (!token) 10. |> event_from_of_xmlrpc in
+				token := string_of_token events.token;
+				let oc = Client.Pool.get_other_config !rpc session_id pool in
+				if List.mem_assoc key oc && (List.assoc key oc) = "1"
+				then Mutex.execute m (fun () ->
+					debug test (Printf.sprintf "got expected event (new token = %s)" !token);
+					finished := true;
+				);
+				()
+			done
+		) () in
+	Thread.delay 1.;
+	Client.Pool.add_to_other_config !rpc session_id pool key "1";
+	Thread.delay 1.;
+	if not(Mutex.execute m (fun () -> !finished))
+	then failed test "failed to see pool.other_config change"
+	else success test
+
+let object_level_event_test session_id =
+	let test = make_test "Event.from object-level test" 0 in
+	start test;
+	let m = Mutex.create () in
+	let finished = ref false in
+	let reported_failure = ref false in
+	(* Let's play with templates *)
+	let vms = Client.VM.get_all !rpc session_id in
+	if List.length vms < 2 then failwith "Test needs 2 VMs";
+	let vm_a = List.hd vms in
+	let vm_b = List.hd (List.tl vms) in
+	debug test (Printf.sprintf "watching %s" (Ref.string_of vm_a));
+	debug test (Printf.sprintf "ignoring %s" (Ref.string_of vm_b));
+	let key = "object_level_event_next" in
+	begin try Client.VM.remove_from_other_config !rpc session_id vm_a key with _ -> () end;
+	begin try Client.VM.remove_from_other_config !rpc session_id vm_b key with _ -> () end;
+
+	let (_: Thread.t) = Thread.create
+		(fun () ->
+			let token = ref "" in
+			while not (Mutex.execute m (fun () -> !finished)) do
+				let events = Client.Event.from !rpc session_id [ Printf.sprintf "vm/%s" (Ref.string_of vm_a) ] (!token) 10. |> event_from_of_xmlrpc in
+				List.iter
+					(fun event ->
+						if event.reference <> Ref.string_of vm_a then begin
+							debug test (Printf.sprintf "event on %s which we aren't watching" event.reference);
+							Mutex.execute m
+								(fun () ->
+									reported_failure := true;
+									failed test (Printf.sprintf "got unexpected event (new token = %s)" !token);
+									finished := true;
+								)
+						end
+					) events.events;
+				token := string_of_token events.token;
+				let oc = Client.VM.get_other_config !rpc session_id vm_a in
+				if List.mem_assoc key oc && (List.assoc key oc) = "1"
+				then Mutex.execute m (fun () ->
+					debug test (Printf.sprintf "got expected event (new token = %s)" !token);
+					finished := true;
+				);
+			done
+		) () in
+	Thread.delay 1.;
+	Client.VM.add_to_other_config !rpc session_id vm_b key "1";
+	Thread.delay 1.;
+	Client.VM.remove_from_other_config !rpc session_id vm_b key;
+	Client.VM.add_to_other_config !rpc session_id vm_a key "1";
+	Thread.delay 1.;
+	Mutex.execute m
+		(fun () ->
+			if not (!reported_failure) then begin
+				if !finished
+				then success test
+				else failed test "failed to see object-level event change"
+			end
+		)
 
 let all_srs_with_vdi_create session_id = 
   let all_srs : API.ref_SR list = Quicktest_storage.list_srs session_id in
@@ -621,6 +739,9 @@ let _ =
 				maybe_run_test "storage" (fun () -> Quicktest_storage.go s);
 				maybe_run_test "http" Quicktest_http.run_from_within_quicktest;
 				maybe_run_test "event" event_next_unblocking_test;
+				maybe_run_test "event" (fun () -> event_next_test s);
+				maybe_run_test "event" (fun () -> event_from_test s);
+				maybe_run_test "event" (fun () -> object_level_event_test s);
 				maybe_run_test "vdi" (fun () -> vdi_test s);
 				maybe_run_test "async" (fun () -> async_test s);
 				maybe_run_test "import" (fun () -> import_export_test s);
