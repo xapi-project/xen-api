@@ -33,7 +33,7 @@ OCamlProgram(memory_summary, memory_summary)
 OCamlProgram(freemem, freemem)
 OCamlProgram(squeezed, squeezed)
 OCamlDocProgram(squeezed, squeezed)
-OCamlProgram(squeezed_client, squeezed_client)
+OCamlProgram(squeezed_client, squeezed_client_main)
 OCamlProgram(xenopsd, xenopsd)
 OCamlDocProgram(xenopsd, xenopsd)
 
