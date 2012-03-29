@@ -1150,7 +1150,9 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 				| Needs_unplug -> Some (Atomic(VBD_unplug (id, true)))
 				| Needs_set_qos -> Some (Atomic(VBD_set_qos id)) in
 			let operations = List.filter_map operations_of_request (Opt.to_list request) in
-			List.iter (fun x -> perform x t) operations
+			List.iter (fun x -> perform x t) operations;
+			(* Needed (eg) to reflect a spontaneously-ejected CD *)
+			VBD_DB.signal id
 		| VIF_check_state id ->
 			debug "VIF.check_state %s" (VIF_DB.string_of_id id);
 			let vif_t = VIF_DB.read_exn id in
