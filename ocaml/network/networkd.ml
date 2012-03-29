@@ -72,9 +72,10 @@ let _ =
 	Logs.set "http" Log.Debug ["nil"];
 	debug "%s" (String.concat ", " (Debug.get_all_debug_keys()));
 
-	Network_server.on_startup ();
-
 	if !daemonize then Unixext.daemonize () else Network_utils.print_debug := true;
+
+	Network_server.on_startup ();
+	Network_monitor_thread.start ();
 
 	if !pidfile <> "" then begin
 		Unixext.mkdir_rec (Filename.dirname !pidfile) 0o755;
@@ -87,5 +88,4 @@ let _ =
 		Thread.delay 300.;
 		Network_server.on_timer ()
 	done
-
 

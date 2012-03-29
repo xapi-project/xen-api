@@ -202,11 +202,11 @@ let update_pifs ~__context host pifs =
 		begin try
 			let pif_stats = List.find (fun p -> p.pif_name = pifrec.API.pIF_device) pifs in
 			let carrier = pif_stats.pif_carrier in
-			let speed = Int64.of_int (Netdev.Link.int_of_speed pif_stats.pif_speed) in
+			let speed = Int64.of_int pif_stats.pif_speed in
 			let duplex = match pif_stats.pif_duplex with
-				| Netdev.Link.Duplex_full    -> true
-				| Netdev.Link.Duplex_half    -> false
-				| Netdev.Link.Duplex_unknown -> false
+				| Network_interface.Duplex_full    -> true
+				| Network_interface.Duplex_half    -> false
+				| Network_interface.Duplex_unknown -> false
 			in
 			let vendor = pif_stats.pif_vendor_id in
 			let device = pif_stats.pif_device_id in

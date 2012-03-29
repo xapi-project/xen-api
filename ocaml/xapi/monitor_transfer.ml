@@ -146,8 +146,8 @@ let marshall_pifs pifs =
 			XMLRPC.To.string (string_of_float pif.pif_tx);
 			XMLRPC.To.string (string_of_float pif.pif_rx);
 			XMLRPC.To.string (string_of_bool pif.pif_carrier);
-			XMLRPC.To.string (string_of_int (Netdev.Link.int_of_speed pif.pif_speed));
-			XMLRPC.To.string (Netdev.Link.string_of_duplex pif.pif_duplex);
+			XMLRPC.To.string (string_of_int pif.pif_speed);
+			XMLRPC.To.string (Network_interface.string_of_duplex pif.pif_duplex);
 			XMLRPC.To.string pif.pif_pci_bus_path;
 			XMLRPC.To.string pif.pif_vendor_id;
 			XMLRPC.To.string pif.pif_device_id;
@@ -163,8 +163,8 @@ let unmarshall_pifs xml =
 		 pif_raw_tx=0L;
 		 pif_raw_rx=0L; (* Ignore these, for RRD only *)
 		 pif_carrier=bool_of_string (XMLRPC.From.string carrier);
-		 pif_speed=Netdev.Link.speed_of_int (int_of_string (XMLRPC.From.string speed));
-		 pif_duplex=Netdev.Link.duplex_of_string (XMLRPC.From.string duplex);
+		 pif_speed=int_of_string (XMLRPC.From.string speed);
+		 pif_duplex=Network_interface.duplex_of_string (XMLRPC.From.string duplex);
 		 pif_pci_bus_path=XMLRPC.From.string pcibuspath;
 		 pif_vendor_id=XMLRPC.From.string vendor;
 		 pif_device_id=XMLRPC.From.string device}
