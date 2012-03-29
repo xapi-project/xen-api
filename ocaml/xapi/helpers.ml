@@ -241,20 +241,23 @@ let rolling_upgrade_in_progress ~__context =
 	with _ ->
 		false
 
+let parse_boot_record ~string:lbr =
+	try
+		begin
+			(* initially, try to parse lbr using new default sexpr format *)
+			API.From.vM_t "ret_val" (Xmlrpc_sexpr.sexpr_str_to_xmlrpc lbr)
+		end
+	with
+		(* xapi import/upgrade fallback: if sexpr parsing fails, try parsing using legacy xmlrpc format*)
+		Api_errors.Server_error (code,_) when code=Api_errors.field_type_error ->
+			begin
+				API.From.vM_t "ret_val" (Xml.parse_string lbr)
+			end
+
 (** Fetch the configuration the VM was booted with *)
 let get_boot_record_of_record ~__context ~string:lbr ~uuid:current_vm_uuid =
   try
-    try
-      begin
-        (* initially, try to parse lbr using new default sexpr format *)
-        API.From.vM_t "ret_val" (Xmlrpc_sexpr.sexpr_str_to_xmlrpc lbr)
-      end
-    with
-      (* xapi import/upgrade fallback: if sexpr parsing fails, try parsing using legacy xmlrpc format*)
-      Api_errors.Server_error (code,_) when code=Api_errors.field_type_error ->
-        begin
-          API.From.vM_t "ret_val" (Xml.parse_string lbr)
-        end
+    parse_boot_record lbr
   with e ->
     warn "Warning: exception '%s' parsing last booted record - returning current record instead" (ExnHelper.string_of_exn e);
       Db.VM.get_record ~__context ~self:(Db.VM.get_by_uuid ~__context ~uuid:current_vm_uuid)
