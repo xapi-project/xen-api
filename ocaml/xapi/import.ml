@@ -827,39 +827,62 @@ end
 
 (** Create a new VGPU record, add the reference to the table.
     The VM and GPU_group must have already been handled first. *)
-let handle_vgpu __context config rpc session_id (state: state) (x: obj) : unit =
-	let vgpu_record = API.From.vGPU_t "" x.snapshot in
+module VGPU : HandlerTools = struct
+	type precheck_t =
+		| Found_VGPU of API.ref_VGPU
+		| Create of API.vGPU_t
 
-	let get_vgpu () = Client.VGPU.get_by_uuid rpc session_id vgpu_record.API.vGPU_uuid in
-	let vgpu_exists () = try ignore (get_vgpu ()); true with _ -> false in
+	let precheck __context config rpc session_id state x =
+		let vgpu_record = API.From.vGPU_t "" x.snapshot in
 
-	if config.full_restore && vgpu_exists () then begin
-		let vgpu = get_vgpu () in
-		state.table <- (x.cls, x.id, Ref.string_of vgpu) :: state.table;
-		state.table <- (x.cls, Ref.string_of vgpu, Ref.string_of vgpu) :: state.table
-	end else
+		let get_vgpu () = Client.VGPU.get_by_uuid rpc session_id vgpu_record.API.vGPU_uuid in
+		let vgpu_exists () = try ignore (get_vgpu ()); true with _ -> false in
 
-	let vm = log_reraise
-		("Failed to find VGPU's VM: " ^ (Ref.string_of vgpu_record.API.vGPU_VM))
-		(lookup vgpu_record.API.vGPU_VM) state.table in
-	let group = log_reraise
-		("Failed to find VGPU's GPU group: " ^ (Ref.string_of vgpu_record.API.vGPU_GPU_group))
-		(lookup vgpu_record.API.vGPU_GPU_group) state.table in
-	let vgpu_record = { vgpu_record with
-		API.vGPU_VM = vm;
-		API.vGPU_GPU_group = group
-	} in
-	let vgpu = log_reraise "failed to create VGPU" (fun value ->
-		let vgpu = Client.VGPU.create ~rpc ~session_id ~vM:value.API.vGPU_VM ~gPU_group:value.API.vGPU_GPU_group
-			~device:value.API.vGPU_device ~other_config:value.API.vGPU_other_config in
-		if config.full_restore then Db.VGPU.set_uuid ~__context ~self:vgpu ~value:value.API.vGPU_uuid;
-		vgpu) vgpu_record
-	in
-	state.cleanup <- (fun __context rpc session_id -> Client.VGPU.destroy rpc session_id vgpu) :: state.cleanup;
-	(* Now that we can import/export suspended VMs we need to preserve the currently_attached flag *)
-	if Db.VM.get_power_state ~__context ~self:vm <> `Halted then
-		Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:vgpu_record.API.vGPU_currently_attached;
-	state.table <- (x.cls, x.id, Ref.string_of vgpu) :: state.table
+		if config.full_restore && vgpu_exists () then begin
+			let vgpu = get_vgpu () in
+			Found_VGPU vgpu
+		end else
+			let vm = log_reraise
+				("Failed to find VGPU's VM: " ^ (Ref.string_of vgpu_record.API.vGPU_VM))
+				(lookup vgpu_record.API.vGPU_VM) state.table in
+			let group = log_reraise
+				("Failed to find VGPU's GPU group: " ^ (Ref.string_of vgpu_record.API.vGPU_GPU_group))
+				(lookup vgpu_record.API.vGPU_GPU_group) state.table in
+			let vgpu_record = { vgpu_record with
+				API.vGPU_VM = vm;
+				API.vGPU_GPU_group = group
+			} in
+			Create vgpu_record
+
+	let handle_dry_run __context config rpc session_id state x precheck_result =
+		match precheck_result with
+		| Found_VGPU vgpu -> begin
+			state.table <- (x.cls, x.id, Ref.string_of vgpu) :: state.table;
+			state.table <- (x.cls, Ref.string_of vgpu, Ref.string_of vgpu) :: state.table
+		end
+		| Create _ -> begin
+			let dummy_vgpu = Ref.make () in
+			state.table <- (x.cls, x.id, Ref.string_of dummy_vgpu) :: state.table
+		end
+
+	let handle __context config rpc session_id state x precheck_result =
+		match precheck_result with
+		| Found_VGPU _ ->
+			handle_dry_run __context config rpc session_id state x precheck_result
+		| Create vgpu_record -> begin
+			let vgpu = log_reraise "failed to create VGPU" (fun value ->
+				let vgpu = Client.VGPU.create ~rpc ~session_id ~vM:value.API.vGPU_VM ~gPU_group:value.API.vGPU_GPU_group
+					~device:value.API.vGPU_device ~other_config:value.API.vGPU_other_config in
+				if config.full_restore then Db.VGPU.set_uuid ~__context ~self:vgpu ~value:value.API.vGPU_uuid;
+				vgpu) vgpu_record
+			in
+			state.cleanup <- (fun __context rpc session_id -> Client.VGPU.destroy rpc session_id vgpu) :: state.cleanup;
+			(* Now that we can import/export suspended VMs we need to preserve the currently_attached flag *)
+			if Db.VM.get_power_state ~__context ~self:vgpu_record.API.vGPU_VM <> `Halted then
+				Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:vgpu_record.API.vGPU_currently_attached;
+			state.table <- (x.cls, x.id, Ref.string_of vgpu) :: state.table
+		end
+end
 
 (** Create a handler for each object type. *)
 module HostHandler = MakeHandler(Host)
@@ -870,6 +893,7 @@ module VMHandler = MakeHandler(VM)
 module NetworkHandler = MakeHandler(Net)
 module GPUGroupHandler = MakeHandler(GPUGroup)
 module VIFHandler = MakeHandler(VIF)
+module VGPUHandler = MakeHandler(VGPU)
 
 (** Table mapping datamodel class names to handlers, in order we have to run them *)
 let handlers =
@@ -883,7 +907,7 @@ let handlers =
 		Datamodel._gpu_group, GPUGroupHandler.handle;
 		Datamodel._vbd, handle_vbd;
 		Datamodel._vif, VIFHandler.handle;
-		Datamodel._vgpu, handle_vgpu;
+		Datamodel._vgpu, VGPUHandler.handle;
 	]
 
 let update_snapshot_and_parent_links ~__context state =
