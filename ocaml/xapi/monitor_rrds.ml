@@ -176,23 +176,31 @@ let create_fresh_rrd use_min_max dss =
   let rrd = Rrd.rrd_create dss rras (Int64.of_int step) (Unix.gettimeofday()) in
   rrd
 
-let send_rrd address to_archive uuid rrd =
-  debug "Sending RRD for object uuid=%s archiving=%b to address: %s" uuid to_archive address;
-  let pool_secret = !Xapi_globs.pool_secret in
-  let request = Xapi_http.http_request ~cookie:[ "pool_secret", pool_secret ]
-    Http.Put (Constants.rrd_put_uri^"?uuid="^uuid^(if to_archive then "&archive=true" else "")) in
-  let open Xmlrpc_client in
-  let transport = SSL(SSL.make (), address, !Xapi_globs.https_port) in
-  with_transport transport
-	  (with_http request
-		  (fun (response, fd) ->
-			  try
-				  Rrd.to_fd rrd fd
-			  with e ->
-				  debug "Caught exception: %s" (ExnHelper.string_of_exn e);
-				  log_backtrace ();
-		  )
-	  )
+(** Send rrds to a remote host. If the host is on another pool, you
+    must pass the session_id parameter, and optionally the __context. *)
+let send_rrd ?__context ?session_id address to_archive uuid rrd =
+	debug "Sending RRD for object uuid=%s archiving=%b to address: %s"
+		uuid to_archive address;
+	let subtask_of = match __context with
+		| None -> None | Some c -> Some (Context.string_of_task c) in
+	let arch_query = if to_archive then ["archive", "true"] else [] in
+	let sid_query = match session_id with
+		| None -> [] | Some id -> [ "session_id", Ref.string_of id ] in
+	let query = sid_query @ arch_query @ [ "uuid", uuid ] in
+	let cookie = if sid_query = []
+		then [ "pool_secret", !Xapi_globs.pool_secret ] else [] in
+	let request = Xapi_http.http_request ~query ~cookie in
+	let request = match subtask_of with
+		| None -> request Http.Put Constants.rrd_put_uri
+		| Some subtask_of -> request ~subtask_of Http.Put Constants.rrd_put_uri in
+	let open Xmlrpc_client in
+		let transport = SSL(SSL.make (), address, !Xapi_globs.https_port) in
+		with_transport transport
+			(with_http request (fun (response, fd) ->
+				try Rrd.to_fd rrd fd
+				with e ->
+					debug "Caught exception: %s" (ExnHelper.string_of_exn e) ;
+					log_backtrace () ))
 
 (* never called with the mutex held *)
 let archive_rrd ?(save_stats_locally = Pool_role.is_master ()) uuid rrd =
@@ -323,19 +331,27 @@ let maybe_remove_rrd uuid =
     with _ -> ()
   end
 
-(** Migrate_push - used by the migrate code to push an RRD directly to a remote host 
-    without going via the master *)
-let migrate_push ~__context vm_uuid host =
-  let address = Db.Host.get_address ~__context ~self:host in
-  let rrdi = Mutex.execute mutex (fun () ->
-    let rrdi = Hashtbl.find vm_rrds vm_uuid in
-    debug "Sending RRD for VM uuid=%s to remote host for migrate" vm_uuid;
-    Hashtbl.remove vm_rrds vm_uuid;
-    rrdi) 
-  in
-  send_rrd address false vm_uuid rrdi.rrd
-    
-    
+(** Migrate_push - used by the migrate code to push an RRD directly to
+    a remote host without going via the master. If the host is on a
+    different pool, you must pass both the remote_address and
+    session_id parameters. *)
+let migrate_push ~__context ?remote_address ?session_id vm_uuid host =
+	let address = match remote_address with
+		| None -> Db.Host.get_address ~__context ~self:host
+		| Some a -> a in
+	let rrdi = Mutex.execute mutex (fun () ->
+		let rrdi = Hashtbl.find vm_rrds vm_uuid in
+		debug "Sending RRD for VM uuid=%s to remote host %s for migrate"
+			(Ref.string_of host)
+			vm_uuid;
+		Hashtbl.remove vm_rrds vm_uuid;
+		rrdi)
+	in
+	match session_id with
+		| None ->
+			  send_rrd ~__context address false vm_uuid rrdi.rrd
+		| Some session_id ->
+			  send_rrd ~__context ~session_id address false vm_uuid rrdi.rrd
 
 (** Push function to push the archived RRD to the appropriate host 
     (which might be us, in which case, pop it into the hashtbl *)
