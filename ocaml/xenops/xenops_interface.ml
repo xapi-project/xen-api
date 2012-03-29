@@ -43,8 +43,9 @@ type error =
 	| Media_not_present
 	| No_bootable_device
 	| Bootloader_error of string * (string list)
+	| Cannot_free_this_much_memory of (int64 * int64)
+	| Vms_failed_to_cooperate of string list
 	| Ballooning_error of string * string
-	| No_ballooning_service
 	| IO_error
 	| Failed_to_contact_remote_service of string
 	| Hook_failed of string * string * string * string
