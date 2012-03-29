@@ -713,7 +713,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 end
 
 let initialise () =
-	Unixext.mkdir_safe (Filename.dirname !host_state_path) 0o700;
+	Unixext.mkdir_rec (Filename.dirname !host_state_path) 0o700;
 	if Sys.file_exists !host_state_path then begin
 		info "Loading storage state from: %s" !host_state_path;
 		try
