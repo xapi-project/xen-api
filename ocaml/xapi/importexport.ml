@@ -215,6 +215,12 @@ let cleanup (x: cleanup_stack) =
 
 open Pervasiveext
 
+type vm_export_import = {
+	vm: API.ref_VM;
+	dry_run: bool;
+	live: bool;
+}
+
 (* Copy VM metadata to a remote pool *)
 let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address which =
 	let subtask_of = (Ref.string_of (Context.get_task_id __context)) in
@@ -223,7 +229,8 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address wh
 
 	let which = match which with
 		| `All -> "all=true"
-		| `Only vm -> Printf.sprintf "export_snapshots=false&ref=%s" (Ref.string_of vm) in
+		| `Only {vm=vm; dry_run=dry_run; live=live} ->
+			Printf.sprintf "export_snapshots=false&ref=%s&dry_run=%b&live=%b" (Ref.string_of vm) dry_run live in
 
 	Helpers.call_api_functions ~__context (fun my_rpc my_session_id ->
 		let get = Xapi_http.http_request ~version:"1.0" ~subtask_of
