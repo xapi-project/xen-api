@@ -18,6 +18,8 @@ open Threadext
 open Stringext
 open Listext
 
+module Net = (val (Network.get_client ()) : Network.CLIENT)
+
 module L = Debug.Debugger(struct let name="license" end)
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
@@ -853,6 +855,7 @@ let eject ~__context ~host =
 
 		write_first_boot_management_interface_configuration_file ();
 
+		Net.reset_state ();
 		Xapi_inventory.update Xapi_inventory._current_interfaces "";
 
 		debug "Pool.eject: deleting Host record (the point of no return)";
