@@ -155,7 +155,12 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		List.iter (fun (vdi,mirror_record) ->
 				Db.VDI.add_to_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key ~value:(Ref.string_of mirror_record.mr_remote_vdi_reference)) vdi_map;
 		
-		Importexport.remote_metadata_export_import ~__context ~rpc:remote_rpc ~session_id ~remote_address (`Only vm);
+		let vm_export_import = {
+			Importexport.vm = vm;
+			Importexport.dry_run = false;
+			Importexport.live = true;
+		} in
+		Importexport.remote_metadata_export_import ~__context ~rpc:remote_rpc ~session_id ~remote_address (`Only vm_export_import);
 		(* Migrate the VM *)
 		let open Xenops_client in
 		let vm' = Db.VM.get_uuid ~__context ~self:vm in
@@ -193,4 +198,9 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~options =
 		| Http.Url.Http { Http.Url.host = host }, _ -> host
 		| _, _ -> failwith (Printf.sprintf "Cannot extract foreign IP address from: %s" xenops) in
 	let remote_rpc = Helpers.make_remote_rpc remote_address in
-	Importexport.remote_metadata_export_import ~__context ~rpc:remote_rpc ~session_id ~remote_address (`Only vm)
+	let vm_export_import = {
+		Importexport.vm = vm;
+		Importexport.dry_run = true;
+		Importexport.live = live;
+	} in
+	Importexport.remote_metadata_export_import ~__context ~rpc:remote_rpc ~session_id ~remote_address (`Only vm_export_import)
