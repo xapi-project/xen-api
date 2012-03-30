@@ -133,9 +133,15 @@ let rec monitor () =
 					in
 					speed, duplex_of_int duplex
 				in
+				let nb_links = List.length devs in
 				let carrier = List.exists Sysfs.get_carrier devs in
+				let links_up = (if nb_links > 1 then
+					(Network_server.Bridge.get_links_up () dev)
+				  else
+					if carrier then 1 else 0)
+				in
 				let pci_bus_path = if List.length devs = 1 then Sysfs.get_pcibuspath dev else "" in
-				dev, {stat with carrier; speed; duplex; pci_bus_path; vendor_id; device_id}
+				dev, {stat with carrier; speed; duplex; pci_bus_path; vendor_id; device_id; nb_links; links_up}
 			end else
 				dev, stat
 		) (!devs);
