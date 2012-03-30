@@ -49,6 +49,7 @@ COMMON = \
 	../idl/api_lowlevel \
 	../network/network_interface \
 	../network/network \
+	../network/network_monitor \
 	nm \
 	xapi_mgmt_iface \
 	smint \
