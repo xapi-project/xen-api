@@ -74,6 +74,7 @@ type fail_mode = Standalone | Secure
 
 module Bridge = struct
 	external get_all : unit -> bridge list = ""
+	external get_links_up : name:string -> int = ""
 	external create : ?vlan:(bridge * int) ->
 		?mac:string -> ?other_config:(string * string) list -> name:bridge -> unit -> unit = ""
 	external destroy : ?force:bool -> name:bridge -> unit -> unit = ""

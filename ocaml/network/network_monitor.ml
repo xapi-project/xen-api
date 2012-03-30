@@ -41,6 +41,8 @@ type iface_stats = {
 	pci_bus_path: string;
 	vendor_id: string;
 	device_id: string;
+	nb_links: int;
+	links_up: int;
 } with rpc
 
 let default_stats = {
@@ -56,6 +58,8 @@ let default_stats = {
 	pci_bus_path = "";
 	vendor_id = "";
 	device_id = "";
+	nb_links = 0;
+	links_up = 0;
 }
 
 type stats_t = (iface * iface_stats) list with rpc

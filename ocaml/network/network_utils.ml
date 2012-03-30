@@ -29,10 +29,12 @@ let dhclient = "/sbin/dhclient"
 let sysctl = "/sbin/sysctl"
 let ovs_vsctl = "/usr/bin/ovs-vsctl"
 let ovs_ofctl = "/usr/bin/ovs-ofctl"
+let ovs_appctl = "/usr/bin/ovs-appctl"
 let ovs_vlan_bug_workaround = "/usr/sbin/ovs-vlan-bug-workaround"
 let brctl = "/usr/sbin/brctl"
 let modprobe = "/sbin/modprobe"
 let ethtool = "/sbin/ethtool"
+let bonding_dir = "/proc/net/bonding/"
 
 let debug (fmt: ('a , unit, string, unit) format4) =
 	let time_of_float x = 
@@ -427,12 +429,40 @@ module Sysctl = struct
 		write variable value'
 end
 
+module Proc = struct
+	let get_links_up name = 
+		try
+			let raw = Unixext.string_of_file (bonding_dir ^ name) in
+			let lines = String.split '\n' raw in
+			let check_lines lines =
+			let rec loop acc = function
+			  | [] -> acc
+			  | line1 :: line2 :: tail -> 
+				  if (String.startswith "Slave Interface:" line1) 
+					&& (String.startswith "MII Status:" line2) 
+					&& (String.endswith "up" line2) 
+				  then
+					loop (acc + 1) tail
+				  else
+					loop acc (line2 :: tail)
+			  | _ :: [] -> acc in
+			loop 0 lines in
+			check_lines lines
+		with e ->
+		  debug "Error: could not read %s." (bonding_dir ^ name);
+		  0
+
+end
+
 module Ovs = struct
 	let call args =
 		call_script ovs_vsctl ("--timeout=20" :: args)
 
 	let ofctl args =
 		call_script ovs_ofctl args
+
+	let appctl args =
+		call_script ovs_appctl args
 
 	let port_to_interfaces name =
 		try
@@ -462,6 +492,18 @@ module Ovs = struct
 	let bridge_to_vlan name =
 		call ["br-to-parent"; name],
 		int_of_string (call ["br-to-vlan"; name])
+
+	let get_links_up name =
+	  try 
+		let check_line line =
+		  if (String.startswith "slave" line) && (String.endswith "enabled" line) then 
+			1 else 0 in
+		let raw = appctl ["bond/show"; name] in
+		let lines = String.split '\n' raw in 
+		let nb_links = List.fold_left (fun acc line ->
+		  acc + (check_line line)) 0 lines in
+		nb_links
+	  with _ -> 0
 
 	let handle_vlan_bug_workaround override bridge =
 		(* This is a list of drivers that do support VLAN tx or rx acceleration, but
