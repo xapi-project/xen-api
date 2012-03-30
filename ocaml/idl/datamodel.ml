@@ -2928,7 +2928,7 @@ let names ?(writer_roles=None) ?(reader_roles=None) ?lifecycle in_oss_since qual
 			~default_value:(Some (VString "")) ?lifecycle in
 	[
 		field "label" "a human-readable name";
-		field "description" "a notes field containg human-readable description"
+		field "description" "a notes field containing human-readable description"
 	]
 
 let default_field_reader_roles = _R_ALL (* by default, all can read fields *)
@@ -7022,7 +7022,7 @@ let event =
     ~name:"register" 
     ~in_product_since:rel_rio
     ~params:[Set String, "classes", "register for events for the indicated classes"]
-    ~doc:"Registers this session with the event system.  Specifying the empty list will register for all classes."
+    ~doc:"Registers this session with the event system.  Specifying * as the desired class will register for all classes."
     ~allowed_roles:_R_ALL
     () in
   let unregister = call
