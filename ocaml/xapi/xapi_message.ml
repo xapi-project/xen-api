@@ -619,25 +619,36 @@ let handler (req: Http.Request.t) fd _ =
 
 	Xapi_http.with_context ~dummy:true "Xapi_message.handler" req fd
 		(fun __context -> try
-			(* Get and check query parameters *)
-			let uuid = List.assoc "uuid" query
-			and cls = List.assoc "cls" query in
-			let cls = try string_to_class cls with _ ->
-				failwith ("Xapi_message.handler: Bad class " ^ cls) in
-			if not (check_uuid ~__context ~cls ~uuid) then
-				failwith ("Xapi_message.handler: Bad uuid " ^ uuid) ;
+			(* Redirect if we're not master *)
+			if not (Pool_role.is_master ())
+			then
+				let url = Printf.sprintf "https://%s%s?%s"
+					(Pool_role.get_master_address ())
+					req.Http.Request.uri
+					(String.concat "&"
+						 (List.map (fun (a,b) -> a^"="^b) query)) in
+				Http_svr.headers fd (Http.http_302_redirect url) ;
 
-			(* Tell client we're good to receive *)
-			Http_svr.headers fd (Http.http_200_ok ()) ;
+			else
+				(* Get and check query parameters *)
+				let uuid = List.assoc "uuid" query
+				and cls = List.assoc "cls" query in
+				let cls = try string_to_class cls with _ ->
+					failwith ("Xapi_message.handler: Bad class " ^ cls) in
+				if not (check_uuid ~__context ~cls ~uuid) then
+					failwith ("Xapi_message.handler: Bad uuid " ^ uuid) ;
 
-			(* Read messages in, and write to filesystem *)
-			let xml_in = Xmlm.make_input
-				(`Channel (Unix.in_channel_of_descr fd)) in
-			let messages = import_xml xml_in in
-			List.iter (function (r,m) -> ignore (write r m)) messages ;
+				(* Tell client we're good to receive *)
+				Http_svr.headers fd (Http.http_200_ok ()) ;
 
-			(* Flush cache and reload *)
-			repopulate_cache () ;
+				(* Read messages in, and write to filesystem *)
+				let xml_in = Xmlm.make_input
+					(`Channel (Unix.in_channel_of_descr fd)) in
+				let messages = import_xml xml_in in
+				List.iter (function (r,m) -> ignore (write r m)) messages ;
+
+				(* Flush cache and reload *)
+				repopulate_cache () ;
 
 			with e -> error "Xapi_message.handler: caught exception '%s'"
 				(ExnHelper.string_of_exn e)
