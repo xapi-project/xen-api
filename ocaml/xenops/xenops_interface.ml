@@ -417,5 +417,6 @@ end
 
 module DEBUG = struct
 	external trigger: debug_info -> string -> string list -> (unit option) * (error option) = ""
+	external shutdown: debug_info -> unit -> (unit option) * (error option) = ""
 end
 

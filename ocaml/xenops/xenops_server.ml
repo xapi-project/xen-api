@@ -1030,7 +1030,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			then debug "This is a localhost migration.";
 			Xenops_hooks.vm_pre_migrate ~reason:Xenops_hooks.reason__migrate_source ~id;
 
-			let module Remote = Xenops_interface.Client(struct let rpc = rpc ~srcstr:"xenops" ~dststr:"dst_xenops" url end) in
+			let module Remote = Xenops_interface.Client(struct let rpc = xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" url end) in
 			let id = Remote.VM.import_metadata t.Xenops_task.debug_info(export_metadata id) |> success in
 			debug "Received id = %s" id;
 			let suffix = Printf.sprintf "/memory/%s" id in
@@ -1391,6 +1391,7 @@ module VM = struct
 		x.id
 	let add _ dbg x =
 		Debug.with_thread_associated dbg (fun () -> add' x |> return) ()
+
 	let remove _ dbg id = immediate_operation dbg id (Atomic(VM_remove id)) |> return
 
 	let stat' x =
@@ -1493,6 +1494,12 @@ module DEBUG = struct
 			(fun () ->
 				let module B = (val get_backend () : S) in
 				B.DEBUG.trigger cmd args |> return
+			) ()
+	let shutdown _ dbg () =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				debug "DEBUG.shutdown";
+				exit 0
 			) ()
 end
 

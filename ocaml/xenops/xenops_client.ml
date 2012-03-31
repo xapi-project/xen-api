@@ -12,28 +12,60 @@
  * GNU Lesser General Public License for more details.
  *)
 
+open Fun
 open Xenops_interface
 open Xmlrpc_client
 
 module D = Debug.Debugger(struct let name = "xenops_client" end)
 open D
+module E = Debug.Debugger(struct let name = "mscgen" end)
 
 let default_path = "/var/xapi/xenopsd"
 let forwarded_path = default_path ^ ".forwarded"
 
 let default_uri = "file:" ^ default_path
+let json_url = Printf.sprintf "file:%s.json" default_path |> Http.Url.of_string
 
-let ( |> ) a b = b a
+(* Use HTTP to frame RPC messages *)
+let http_rpc string_of_call response_of_string ~srcstr ~dststr url call =
+	E.debug "%s=>%s [label=\"%s\"];" srcstr dststr call.Rpc.name;
+	let req = string_of_call call in
+	let http_req =
+		Http.Request.make ~version:"1.1" ~frame:false ~keep_alive:false ?auth:(Http.Url.auth_of url) ~user_agent:"xenopsd" ~query:(Http.Url.get_query_params url) ~body:req Http.Post (Http.Url.get_uri url) in
+	Xmlrpc_client.with_transport (transport_of_url url)
+		(fun fd ->
+			Http_client.rpc ~use_fastpath:false fd http_req
+				(fun http_res fd ->
+					match http_res.Http.Response.content_length with
+						| Some l -> response_of_string (Unixext.really_read_string fd (Int64.to_int l))
+						| None -> failwith "Needs content-length"
+				)
+		)
 
-let http_request url meth =
-	Http.Request.make ~version:"1.1" ~keep_alive:false ?auth:(Http.Url.auth_of url) ~user_agent:"xenopsd" ~query:(Http.Url.get_query_params url) meth (Http.Url.get_uri url)
+let xml_http_rpc = http_rpc Xmlrpc.string_of_call Xmlrpc.response_of_string
+let json_http_rpc = http_rpc Jsonrpc.string_of_call Jsonrpc.response_of_string
 
-let rpc ~srcstr ~dststr url call =
+(* Use a binary 16-byte length to frame RPC messages *)
+let binary_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset") url (call: Rpc.call) : Rpc.response =
+	E.debug "%s=>%s [label=\"%s\"];" srcstr dststr call.Rpc.name;
 	let transport = transport_of_url url in
-	XMLRPC_protocol.rpc ~transport ~srcstr ~dststr ~http:(http_request url Http.Post) call
+	with_transport transport
+		(fun fd ->
+			let msg_buf = string_of_call call in
+			let len = Printf.sprintf "%016d" (String.length msg_buf) in
+			Unixext.really_write_string fd len;
+			Unixext.really_write_string fd msg_buf;
+			let len_buf = Unixext.really_read_string fd 16 in
+			let len = int_of_string len_buf in
+			let msg_buf = Unixext.really_read_string fd len in
+			let (response: Rpc.response) = response_of_string msg_buf in
+			response
+		)
 
-module IntClient = Client(struct let rpc = default_uri |> Http.Url.of_string |> rpc ~srcstr:"xenops" ~dststr:"xenops" end)
-module Client = Client(struct let rpc = default_uri |> Http.Url.of_string |> rpc ~srcstr:"xapi" ~dststr:"xenops" end)
+let marshal_binary_rpc = binary_rpc (fun x -> Marshal.to_string x []) (fun x -> Marshal.from_string x 0)
+let json_binary_rpc = binary_rpc Jsonrpc.string_of_call Jsonrpc.response_of_string
+
+module Client = Xenops_interface.Client(struct let rpc = json_binary_rpc ~srcstr:"xapi" ~dststr:"xenops" json_url end)
 
 exception Exception of error
 
@@ -49,7 +81,7 @@ let might_not_exist = function
 	| None, None -> failwith "protocol error"
 
 let query dbg url =
-	let module Remote = Xenops_interface.Client(struct let rpc = rpc url ~srcstr:"xenops" ~dststr:"dst_xenops" end) in
+	let module Remote = Xenops_interface.Client(struct let rpc = xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" url end) in
 	Remote.query dbg () |> success
 
 let event_wait dbg p =
