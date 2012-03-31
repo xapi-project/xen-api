@@ -35,6 +35,51 @@ let destroy ~__context ~self =
   Unixext.unlink_safe path;
   Db.Blob.destroy ~__context ~self
 
+(* Send blobs to a remote host on a different pool. uuid_map is a
+   map of remote blob uuids to local blob refs. *)
+let send_blobs ~__context ~remote_address ~session_id uuid_map =
+	let put_blob = function (new_ref, old_uuid) ->
+		let query = [ "session_id", Ref.string_of session_id
+		            ; "ref", Ref.string_of new_ref ] in
+		let subtask_of = Context.string_of_task __context in
+		let request = Xapi_http.http_request ~query ~subtask_of
+			Http.Put Constants.blob_uri in
+		let path = Xapi_globs.xapi_blob_location ^ "/" ^ old_uuid in
+		let open Xmlrpc_client in
+			let transport = SSL(SSL.make (), remote_address,
+			                    !Xapi_globs.https_port) in
+			with_transport transport
+				(with_http request (fun (response, put_fd) ->
+					let blob_fd = Unix.openfile path [Unix.O_RDONLY] 0o600 in
+					ignore (Pervasiveext.finally
+						(fun () -> Unixext.copy_file blob_fd put_fd)
+						(fun () -> Unix.close blob_fd)) ))
+		in
+		List.iter put_blob uuid_map
+
+(* Send a VMs blobs to a remote host on another pool, and destroy the
+   leftover blobs on this host. To be called from
+   Xapi_vm_migrate.migrate. *)
+let migrate_push ~__context ~rpc ~remote_address ~session_id ~old_vm ~new_vm =
+	let vm_blobs = Db.VM.get_blobs ~__context ~self:old_vm in
+		(* Create new blob objects on remote host, and return a map
+		   from new blob uuids to old blob refs *)
+		let uuid_map = List.map
+			(fun (_,self) ->
+				let name = Db.Blob.get_name_label ~__context ~self
+				and mime_type = Db.Blob.get_mime_type ~__context ~self
+				and old_uuid = Db.Blob.get_uuid ~__context ~self in
+				let new_ref = Client.Client.VM.create_new_blob
+					~rpc ~session_id ~vm:new_vm ~name ~mime_type in
+				(new_ref, old_uuid) )
+			vm_blobs
+		in
+		send_blobs ~__context ~remote_address ~session_id uuid_map ;
+		(* Now destroy old blobs *)
+		List.iter (fun (_,self) ->
+			destroy ~__context ~self:(Db.Blob.get_by_uuid ~__context ~uuid:self))
+			uuid_map
+
 exception Unknown_blob
 exception No_storage
 
