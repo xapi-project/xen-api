@@ -14,7 +14,8 @@
 (** Code to bring the database up-to-date when a host starts up.
  *  @group Main Loop and Start-up
  *)
- 
+
+open Fun
 open Stringext
 open Listext
 open Printf

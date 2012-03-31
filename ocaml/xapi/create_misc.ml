@@ -15,6 +15,7 @@
  * @group Database Operations
  *)
 
+open Fun
 open Xapi_vm_memory_constraints
 open Vm_memory_constraints
 open Printf

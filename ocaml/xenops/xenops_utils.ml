@@ -15,6 +15,7 @@
 open Listext
 open Stringext
 open Pervasiveext
+open Threadext
 open Fun
 open Xenops_interface
 
@@ -57,47 +58,47 @@ end
 
 let root = ref ("/var/run/nonpersistent/" ^ service_name)
 
-let rec rm_rf f =
-	if not(Sys.is_directory f)
-	then Unixext.unlink_safe f
-	else begin
-		List.iter rm_rf (List.map (Filename.concat f) (Array.to_list (Sys.readdir f)));
-		Unix.rmdir f
-	end
+module StringMap = Map.Make(struct type t = string let compare = compare end)
+type 'a fs =
+	| Dir of 'a fs StringMap.t ref
+	| Leaf of 'a
 
-let empty_database () =
-	if Sys.file_exists !root then rm_rf !root;
-	Unixext.mkdir_rec !root 0x0755
+module type FS = sig
+	val init: unit -> unit
+	val mkdir: string list -> unit
+	val read: string list -> Rpc.t option
+	val write: string list -> Rpc.t -> unit
+	val exists: string list -> bool
+	val rm: string list -> unit
+	val readdir: string list -> string list
+end
 
-module TypedTable = functor(I: ITEM) -> struct
-	open I
-	type key = string list
-	let filename_of_key k = Printf.sprintf "%s/%s/%s" !root I.namespace (String.concat "/" k)
-	let paths_of_key k =
-		let prefixes, _ = List.fold_left
-			(fun (acc, prefix) element ->
-				(element :: prefix) :: acc, element :: prefix
-			) ([], []) k in
-		List.map filename_of_key (List.map List.rev prefixes)
-	let read (k: I.key) =
-		let filename = k |> I.key |> filename_of_key in
+(* Return all the non-empty prefixes of a given string, in descending order by length.
+   prefixes_of [1; 2; 3] = [[1;2;3]; [1;2]; [1]] *)
+let prefixes_of k =
+	let prefixes, _ = List.fold_left
+		(fun (acc, prefix) element ->
+			(element :: prefix) :: acc, element :: prefix
+		) ([], []) k in
+	List.map List.rev prefixes
+
+module FileFS = struct
+	(** A directory tree containiign files, each of which contain strings *)
+
+	let filename_of k = Printf.sprintf "%s/%s" !root (String.concat "/" k)
+	let paths_of k = List.map filename_of (prefixes_of k)
+
+	let mkdir path = Unixext.mkdir_rec (filename_of path) 0o755
+	let read path =
 		try
-			Some (t_of_rpc (Jsonrpc.of_string (Unixext.string_of_file filename)))
-		with e ->
-			None
-	let read_exn (k: I.key) = match read k with
-		| Some x -> x
-		| None -> raise (Exception (Does_not_exist (I.namespace, I.key k |> String.concat "/")))
-	let write (k: I.key) (x: t) =
-		let filename = k |> I.key |> filename_of_key in
+			Some (filename_of path |> Unixext.string_of_file |> Jsonrpc.of_string)
+		with e -> None
+	let write path x =
+		let filename = filename_of path in
 		Unixext.mkdir_rec (Filename.dirname filename) 0o755;
-		let json = Jsonrpc.to_string (rpc_of_t x) in
-		debug "DB.write %s <- %s" filename json;
-		Unixext.write_string_to_file filename json
-	let exists (k: I.key) = Sys.file_exists (k |> I.key |> filename_of_key)
-	let delete (k: I.key) =
-		let key = I.key k in
-		(* If the parent directory is now empty, remove that too *)
+		Unixext.write_string_to_file filename (Jsonrpc.to_string x)
+	let exists path = Sys.file_exists (filename_of path)
+	let rm path =
 		List.iter
 			(fun path ->
 				if Sys.is_directory path then begin
@@ -109,24 +110,139 @@ module TypedTable = functor(I: ITEM) -> struct
 					debug "DB.delete %s" path;
 					Unix.unlink path;
 				end
-			) (paths_of_key key)
-		
-	let list (k: key) =
-		let filename = filename_of_key k in
+			) (paths_of path)
+	let readdir path =
+		let filename = filename_of path in
 		if Sys.file_exists filename
 		then Array.to_list (Sys.readdir filename)
 		else []
 
+	let init () = ()
+end
+
+module MemFS = struct
+	(** An in-memory tree of Rpc.t values *)
+
+	let root : Rpc.t fs ref = ref (Dir (ref StringMap.empty))
+	let m = Mutex.create ()
+	exception Not_dir
+	exception Not_file
+
+	let filename x = List.hd (List.rev x)
+	let dirname x = List.rev (List.tl (List.rev x))
+
+	(* return the Dir entry of a given path *)
+	let dir_locked path =
+		let rec aux path fs = match path, fs with
+			| [], Dir d -> d
+			| p :: ps, Dir d ->
+				if StringMap.mem p !d
+				then aux ps (StringMap.find p !d)
+				else begin
+					raise Not_dir
+				end
+			| _, Leaf _ -> begin
+				raise Not_dir
+			end in
+		aux path !root
+
+	let mkdir_locked path =
+		List.iter
+			(fun p ->
+				let dir = dir_locked (dirname p) in
+				if not(StringMap.mem (filename p) !dir)
+				then dir := StringMap.add (filename p) (Dir(ref StringMap.empty)) !dir
+			) (List.rev (prefixes_of path))
+
+	let mkdir path = Mutex.execute m (fun () -> mkdir_locked path)
+
+	let read path =
+		Mutex.execute m
+			(fun () ->
+				try
+					match StringMap.find (filename path) !(dir_locked (dirname path)) with
+						| Leaf x -> Some x
+						| Dir _ -> None
+				with _ -> None
+			)
+
+	let write path x =
+		Mutex.execute m
+			(fun () ->
+				(* debug "DB.write %s <- %s" (String.concat "/" path) x; *)
+				mkdir_locked (dirname path);
+				let dir = dir_locked (dirname path) in
+				dir := StringMap.add (filename path) (Leaf x) !dir
+			)
+	let exists path = Mutex.execute m (fun () -> try StringMap.mem (filename path) !(dir_locked (dirname path)) with _ -> false)
+	let readdir path = Mutex.execute m (fun () -> try StringMap.fold (fun x _ acc -> x :: acc) !(dir_locked path) [] with _ -> [])
+	let rm path =
+		Mutex.execute m
+			(fun () ->
+				List.iter
+					(fun p ->
+						let dir = dir_locked (dirname p) in
+						let deletable =
+							if StringMap.mem (filename p) !dir
+							then match StringMap.find (filename p) !dir with
+								| Dir child -> StringMap.is_empty !child
+								| Leaf _ -> true
+							else false in
+						if deletable then dir := StringMap.remove (filename p) !dir
+					) (prefixes_of path)
+			)
+
+	let init () = ()
+end
+
+let fs_backend = ref None
+let get_fs_backend () = match !fs_backend with
+  | Some x -> x
+  | None -> failwith "No backend implementation set"
+
+let set_fs_backend m =
+	fs_backend := m;
+	let module B = (val get_fs_backend () : FS) in
+	B.init ()
+
+module TypedTable = functor(I: ITEM) -> struct
+	open I
+	type key = string list
+	let of_key k = I.namespace :: k
+	let read (k: I.key) =
+		let module FS = (val get_fs_backend () : FS) in
+		let path = k |> I.key |> of_key in
+		Opt.map (fun x -> t_of_rpc x) (FS.read path)
+	let read_exn (k: I.key) = match read k with
+		| Some x -> x
+		| None -> raise (Exception (Does_not_exist (I.namespace, I.key k |> String.concat "/")))
+	let write (k: I.key) (x: t) =
+		let module FS = (val get_fs_backend () : FS) in
+		let path = k |> I.key |> of_key in
+		FS.write path (rpc_of_t x)
+	let exists (k: I.key) =
+		let module FS = (val get_fs_backend () : FS) in
+		FS.exists (k |> I.key |> of_key)
+	let delete (k: I.key) =
+		let module FS = (val get_fs_backend () : FS) in
+		FS.rm (k |> I.key |> of_key)
+
+	let list (k: key) =
+		let module FS = (val get_fs_backend () : FS) in
+		FS.readdir (k |> of_key)
+
 	let add (k: I.key) (x: t) =
 		if exists k then begin
-			debug "Key %s already exists" (k |> I.key |> filename_of_key);
-			raise (Exception(Already_exists(I.namespace, k |> I.key |> filename_of_key)))
+			let path = k |> I.key |> of_key |> String.concat "/" in
+			debug "Key %s already exists" path;
+			raise (Exception(Already_exists(I.namespace, path)))
 		end else write k x
 
 	let remove (k: I.key) =
 		if not(exists k) then begin
-			debug "Key %s does not exist" (k |> I.key |> filename_of_key);
-			raise (Exception(Does_not_exist(I.namespace, k |> I.key |> filename_of_key)))
+			let path = k |> I.key |> of_key |> String.concat "/" in
+			debug "Key %s does not exist" path;
+			raise (Exception(Does_not_exist(I.namespace, path)))
 		end else delete k
 end
 

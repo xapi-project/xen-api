@@ -738,5 +738,7 @@ let _ =
 			"ionice_output" >:: ionice_output;
 		] in
 
+	if !verbose then Debug.log_to_stdout ();
+
 	run_test_tt ~verbose:!verbose suite
 
