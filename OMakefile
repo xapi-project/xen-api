@@ -56,7 +56,7 @@ DIST=$(ROOT)/dist
 SDK=$(DESTDIR)/usr/share/doc/xapi
 SDKWWW=$(DESTDIR)/usr/share/doc/xapi/www
 
-CLEAN_OBJS = *.cmi *.cmo *.cmx *.cma *.cmxa *.annot *.run *.opt *.o *.a
+CLEAN_OBJS = *.cmi *.cmo *.cmx *.cma *.cmxa *.annot *.run *.opt *.o *.a *.cmt *.cmti
 export CLEAN_OBJS
 
 #.PHONY: clean
