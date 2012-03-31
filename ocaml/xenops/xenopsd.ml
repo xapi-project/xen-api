@@ -65,41 +65,81 @@ let read_config_file () =
 		debug "Read global variables successfully from %s" !config_file
 	end
 
-let dump_config_file () =
+let dump_config_file () : unit =
 	debug "pidfile = %s" !pidfile;
 	debug "log = %s" !log_destination;
 	debug "simulate = %b" !simulate;
 	debug "persist = %b" !persist;
-	debug "daemon = %b" !daemon
+	debug "daemon = %b" !daemon;
+	debug "worker-pool-size = %d" !worker_pool_size;
+	debug "database-path = %s" !Xenops_utils.root
 
-let socket = ref None
+let socket : Http_svr.socket option ref = ref None
 let server = Http_svr.Server.empty (Xenops_server.make_context ())
 
 let path = "/var/xapi/xenopsd"
 let forwarded_path = path  ^ ".forwarded" (* receive an authenticated fd from xapi *)
+let json_path = path ^ ".json"
 
 module Server = Xenops_interface.Server(Xenops_server)
 
-let xmlrpc_handler process req bio context =
-    let body = Http_svr.read_body req bio in
-    let s = Buf_io.fd_of bio in
-    let rpc = Xmlrpc.call_of_string body in
-	(* Xenops_utils.debug "Request: %s %s" rpc.Rpc.name (Jsonrpc.to_string (List.hd rpc.Rpc.params)); *)
+(* Marshal raised Exceptions as error_responses. This should eventually go into
+   the rpc-light.idl generated layer. *)
+let wrap f : Rpc.response =
 	try
-		let result = process context rpc in
-		(* Xenops_utils.debug "Response: success:%b %s" result.Rpc.success (Jsonrpc.to_string result.Rpc.contents); *)
-		let str = Xmlrpc.string_of_response result in
-		Http_svr.response_str req s str
-	with Xenops_utils.Exception e ->
-		let rpc = Xenops_interface.rpc_of_error_response (None, Some e) in
-		debug "Caught %s" (Jsonrpc.to_string rpc);
-		let str = Xmlrpc.string_of_response { Rpc.success = true; contents = rpc } in
-		Http_svr.response_str req s str
-	| e ->
-		debug "Caught %s" (Printexc.to_string e);
-		debug "Backtrace: %s" (Printexc.get_backtrace ());
-		Http_svr.response_unauthorised ~req (Printf.sprintf "Go away: %s" (Printexc.to_string e)) s
+		f ()
+	with
+		| Xenops_utils.Exception e ->
+			let rpc = Xenops_interface.rpc_of_error_response (None, Some e) in
+			{ Rpc.success = true; contents = rpc }
+		| e ->
+			let rpc = Xenops_interface.rpc_of_error_response (None, Some (Xenops_interface.Internal_error (Printexc.to_string e))) in
+			{ Rpc.success = true; contents = rpc }
 
+let srv_http_handler call_of_string string_of_response process req bio (context: Xenops_server.context) =
+	let body = Http_svr.read_body req bio in
+	let rpc = call_of_string body in
+	(* debug "Request: %s %s" rpc.Rpc.name (Jsonrpc.to_string (List.hd rpc.Rpc.params)); *)
+	let result = wrap (fun () -> process context rpc) in
+	(* debug "Response: success:%b %s" result.Rpc.success (Jsonrpc.to_string result.Rpc.contents); *)
+	let str = string_of_response result in
+	Http_svr.response_str req (Buf_io.fd_of bio) str
+
+let raw_http_handler call_of_string string_of_response process s (context: Xenops_server.context) =
+	let bio = Buf_io.of_fd s in
+	match Http_svr.request_of_bio bio with
+		| None -> Http_svr.response_forbidden s
+		| Some req -> srv_http_handler call_of_string string_of_response process req bio context
+
+(* Apply a binary message framing protocol where the first 16 bytes are an integer length
+   stored as an ASCII string *)
+let binary_handler call_of_string string_of_response process (* no req *) this_connection (context: Xenops_server.context) =
+	(* Read a 16 byte length encoded as a string *)
+	let len_buf = Unixext.really_read_string this_connection 16 in
+	let len = int_of_string len_buf in
+	let msg_buf = Unixext.really_read_string this_connection len in
+	let (request: Rpc.call) = call_of_string msg_buf in
+	let (result: Rpc.response) = wrap (fun () -> process context request) in
+	let msg_buf = string_of_response result in
+	let len_buf = Printf.sprintf "%016d" (String.length msg_buf) in
+	Unixext.really_write_string this_connection len_buf;
+	Unixext.really_write_string this_connection msg_buf
+
+let accept_forever sock f =
+	let (_: Thread.t) = Thread.create
+		(fun () ->
+			while true do
+				let this_connection, _ = Unix.accept sock in
+				let (_: Thread.t) = Thread.create
+					(fun () ->
+						finally
+							(fun () -> f this_connection)
+							(fun () -> Unix.close this_connection)
+					) () in
+				()
+			done
+		) () in
+	()
 
 let get_handler req bio _ =
 	let s = Buf_io.fd_of bio in
@@ -117,49 +157,48 @@ let prepare_sockets path =
 	Unix.bind forwarded_sock (Unix.ADDR_UNIX forwarded_path);
 	Unix.listen forwarded_sock 5;
 
-	domain_sock, forwarded_sock
+	(* Start receiving local binary messages *)
+	Unixext.unlink_safe json_path;
+	let json_sock = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
+	Unix.bind json_sock (Unix.ADDR_UNIX json_path);
+	Unix.listen json_sock 5;
 
-let start (domain_sock, forwarded_sock) process =
-    Http_svr.Server.add_handler server Http.Post "/" (Http_svr.BufIO (xmlrpc_handler process));
+	domain_sock, forwarded_sock, json_sock
+
+let start (domain_sock, forwarded_sock, json_sock) process =
+	Http_svr.Server.enable_fastpath server;
+    Http_svr.Server.add_handler server Http.Post "/" (Http_svr.BufIO (srv_http_handler Xmlrpc.call_of_string Xmlrpc.string_of_response process));
 	Http_svr.Server.add_handler server Http.Put  "/services/xenops/memory" (Http_svr.FdIO Xenops_server.VM.receive_memory);
     Http_svr.Server.add_handler server Http.Get "/" (Http_svr.BufIO get_handler);
     Http_svr.start server domain_sock;
 	socket := Some domain_sock;
 
-	let (_: Thread.t) = Thread.create
-		(fun () ->
-			debug "Listening on %s" forwarded_path;
-			(* XXX: need some error handling here *)
-			while true do
-				let msg_size = 16384 in
-				let buf = String.make msg_size '\000' in
-				debug "Calling Unix.accept()";
-				let this_connection, _ = Unix.accept forwarded_sock in
-				debug "Unix.accept() ok";
-				let (_: Thread.t) = Thread.create
-					(fun () ->
-						finally
-							(fun () ->
-								debug "Calling Unixext.recv_fd()";
-								let len, _, received_fd = Unixext.recv_fd this_connection buf 0 msg_size [] in
-								debug "Unixext.recv_fd ok (len = %d)" len;
-								finally
-									(fun () ->
-										let req = String.sub buf 0 len |> Jsonrpc.of_string |> Http.Request.t_of_rpc in
-										debug "Received request = [%s]\n%!" (req |> Http.Request.rpc_of_t |> Jsonrpc.to_string);
-										req.Http.Request.close <- true;
-										let context = {
-											Xenops_server.transferred_fd = Some received_fd
-										} in
-										let (_: bool) = Http_svr.handle_one server received_fd context req in
-										()
-									) (fun () -> Unix.close received_fd)
-							) (fun () -> Unix.close this_connection)
-					) () in
-				()
-			done
-		) () in
-	()
+	debug "Listening on %s" forwarded_path;
+	accept_forever forwarded_sock
+		(fun this_connection ->
+			let msg_size = 16384 in
+			let buf = String.make msg_size '\000' in
+			debug "Calling Unixext.recv_fd()";
+			let len, _, received_fd = Unixext.recv_fd this_connection buf 0 msg_size [] in
+			debug "Unixext.recv_fd ok (len = %d)" len;
+			finally
+				(fun () ->
+					let req = String.sub buf 0 len |> Jsonrpc.of_string |> Http.Request.t_of_rpc in
+					debug "Received request = [%s]\n%!" (req |> Http.Request.rpc_of_t |> Jsonrpc.to_string);
+					req.Http.Request.close <- true;
+					let context = {
+						Xenops_server.transferred_fd = Some received_fd
+					} in
+					let (_: bool) = Http_svr.handle_one server received_fd context req in
+					()
+				) (fun () -> Unix.close received_fd)
+		);
+	debug "Listening on %s" json_path;
+	accept_forever json_sock
+		(fun this_connection ->
+			let context = { Xenops_server.transferred_fd = None } in
+			binary_handler Jsonrpc.call_of_string Jsonrpc.string_of_response process (* no req *) this_connection context
+		)
 
 let _ = 
 	Debug.set_facility Syslog.Local5;
@@ -190,7 +229,10 @@ let _ =
   Unixext.mkdir_rec (Filename.dirname !pidfile) 0o755;
   Unixext.pidfile_write !pidfile;
 
-  if not(!persist) then Xenops_utils.empty_database ();
+  Xenops_utils.set_fs_backend
+	  (Some (if !persist
+	  then (module Xenops_utils.FileFS: Xenops_utils.FS)
+	  else (module Xenops_utils.MemFS: Xenops_utils.FS)));
 
   Xenops_server.register_objects();
   Xenops_server.set_backend
@@ -202,7 +244,10 @@ let _ =
   Xenops_utils.Scheduler.start ();
   Xenops_server.WorkerPool.start !worker_pool_size;
   while true do
-	  Thread.delay 60.
+	  try
+		  Thread.delay 60.
+	  with e ->
+		  debug "Thread.delay caught: %s" (Printexc.to_string e)
   done
 
 

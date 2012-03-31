@@ -17,6 +17,7 @@
  * console will be chosen) or a console object.
  *)
 
+open Fun
 open Http
 open Xenops_helpers
 
