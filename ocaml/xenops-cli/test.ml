@@ -24,12 +24,9 @@ open Fun
 
 open Xmlrpc_client
 
+
 let default_path = "/var/xapi/xenopsd"
 let transport = ref (Unix default_path)
-
-let rpc call =
-	XMLRPC_protocol.rpc ~transport:!transport
-		~http:(xmlrpc ~version:"1.0" "/") call
 
 open Xenops_interface
 open Xenops_client
@@ -83,6 +80,25 @@ let wait_for_task id =
 			false in 
 	event_wait finished;
 	id
+
+let verbose_timings = ref false
+
+let wait_for_tasks id =
+	let module StringSet = Set.Make(struct type t = string let compare = compare end) in
+	let ids = ref (List.fold_left (fun set x -> StringSet.add x set) StringSet.empty id) in
+	let event_id = ref None in
+	while not(StringSet.is_empty !ids) do
+		let deltas, next_id = Client.UPDATES.get dbg !event_id (Some 30) |> success in
+		if !verbose_timings
+		then (Printf.fprintf stderr "next_id = %s; deltas = %d" (Opt.default "None" (Opt.map string_of_int next_id)) (List.length deltas); flush stderr);
+		if !event_id = next_id then failwith (Printf.sprintf "next_id is unchanged: %s" (Opt.default "None" (Opt.map string_of_int next_id)));
+		if List.length deltas = 0 then failwith (Printf.sprintf "no deltas, next_id = %s" (Opt.default "None" (Opt.map string_of_int next_id)));
+		event_id := next_id;
+		List.iter (function
+			| Dynamic.Task id' -> if task_ended dbg id' then ids := StringSet.remove id' !ids
+			| _ -> ()
+		) deltas
+	done
 
 let success_task id =
 	let t = Client.TASK.stat dbg id |> success in
@@ -341,23 +357,36 @@ let vm_test_start_shutdown _ =
 		)
 
 let vm_test_parallel_start_shutdown _ =
-	let ints = Range.to_list (Range.make 0 100) |> List.map string_of_int in
+	let ints = Range.to_list (Range.make 0 1000) |> List.map string_of_int in
+	let t = Unix.gettimeofday () in
 	let ids = List.map
 		(fun x ->
 			let vm = create_vm x in
 			success (Client.VM.add dbg vm)
 		) ints in
-	let tasks = List.map (fun id -> Client.VM.start dbg id |> success) ids in
-	List.iter (fun task ->
-(*		Printf.fprintf stderr "Waiting for startup task %s\n" task; flush stderr; *)
-		task |> wait_for_task |> success_task) tasks;
-(*	Printf.fprintf stderr "Finished waiting for all VM.starts\n"; *)
+	if !verbose_timings
+	then (Printf.fprintf stderr "VM.adds took %.1f\n" (Unix.gettimeofday () -. t); flush stderr);
+	let t = Unix.gettimeofday () in
+	let tasks = List.map (fun id -> let id = Client.VM.start dbg id |> success in (* Printf.fprintf stderr "%s\n" id; flush stderr; *) id) ids in
+	wait_for_tasks tasks;
+	if !verbose_timings
+	then (Printf.fprintf stderr "Cleaning up tasks\n"; flush stderr);
+	List.iter success_task tasks;
+	if !verbose_timings
+	then (Printf.fprintf stderr "VM.starts took %.1f\n" (Unix.gettimeofday () -. t); flush stderr);
+	let t = Unix.gettimeofday () in
 	let tasks = List.map (fun id -> Client.VM.shutdown dbg id None |> success) ids in
-	List.iter (fun task ->
-(*		Printf.fprintf stderr "Waiting for shutdown task %s\n" task; flush stderr; *)
-task |> wait_for_task |> success_task) tasks;
-(*	Printf.fprintf stderr "Finished waiting for all VM.shutdowns\n"; *)
-	List.iter (fun id -> Client.VM.remove dbg id |> success) ids
+	wait_for_tasks tasks;
+	if !verbose_timings
+	then (Printf.fprintf stderr "Cleaning up tasks\n"; flush stderr);
+	List.iter success_task tasks;
+	if !verbose_timings
+	then (Printf.fprintf stderr "VM.shutdown took %.1f\n" (Unix.gettimeofday () -. t); flush stderr);
+	let t = Unix.gettimeofday () in
+	List.iter (fun id -> Client.VM.remove dbg id |> success) ids;
+	if !verbose_timings
+ 	then (Printf.fprintf stderr "VM.remove took %.1f\n" (Unix.gettimeofday () -. t); flush stderr);
+	()
 
 let vm_test_consoles _ =
 	()
@@ -668,25 +697,11 @@ let ionice_output _ =
 
 let _ =
 	let verbose = ref false in
-	let unix_path = ref "" in
-	let host_port = ref "" in
 
 	Arg.parse [
 		"-verbose", Arg.Unit (fun _ -> verbose := true), "Run in verbose mode";
-		"-tcp", Arg.Set_string host_port, "Connect via TCP to a host:port";
-		"-unix", Arg.Set_string unix_path, Printf.sprintf "Connect via a Unix domain socket (default %s)" default_path
 	] (fun x -> Printf.fprintf stderr "Ignoring argument: %s\n" x)
-		"Test via storage backend";
-
-	if !host_port <> "" && (!unix_path <> "") then failwith "Please supply either -tcp OR -unix";
-
-	if !host_port <> "" then begin
-		match String.split ~limit:2 ':' !host_port with
-			| [ host; port ] ->
-				transport := TCP(host, int_of_string port)
-			| _ -> failwith "Failed to parse host:port"
-	end;
-	if !unix_path <> "" then transport := Unix(!unix_path);
+		"Test xenopd service";
 
 	let suite = "xenops test" >::: 
 		[
