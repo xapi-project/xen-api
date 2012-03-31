@@ -77,8 +77,10 @@ let pool_migrate_complete ~__context ~vm ~host =
 	Xapi_xenops.refresh_vm ~__context ~self:vm
 
 let migrate  ~__context ~vm ~dest ~live ~options =
-	if not(!Xapi_globs.use_xenopsd)
-	then failwith "You must have /etc/xapi.conf:use_xenopsd=true";
+	if (not (Pool_features.is_enabled ~__context Features.Storage_motion)) then
+		raise (Api_errors.Server_error(Api_errors.license_restriction, []));
+	if not(!Xapi_globs.use_xenopsd) then
+		failwith "You must have /etc/xapi.conf:use_xenopsd=true";
 	(* Create mirrors of all the disks on the remote *)
 	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
 	let vdis = List.filter_map
