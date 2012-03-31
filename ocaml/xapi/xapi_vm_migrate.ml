@@ -126,15 +126,20 @@ let migrate  ~__context ~vm ~dest ~live ~options =
 		Importexport.remote_metadata_export_import ~__context ~rpc:remote_rpc ~session_id ~remote_address (`Only vm);
 		(* Migrate the VM *)
 		let open Xenops_client in
-		let vm = Db.VM.get_uuid ~__context ~self:vm in
-		XenopsAPI.VM.migrate task vm vdi_map xenops |> wait_for_task task |> success_task task |> ignore;
-		let new_vm = XenAPI.VM.get_by_uuid remote_rpc session_id vm in
+		let vm' = Db.VM.get_uuid ~__context ~self:vm in
+		XenopsAPI.VM.migrate task vm' xenops |> success |> wait_for_task task |> success_task task |> ignore;
+		let new_vm = XenAPI.VM.get_by_uuid remote_rpc session_id vm' in
+		(* Send non-database metadata *)
+		Xapi_message.send_messages ~__context ~cls:`VM ~obj_uuid:vm'
+			~session_id ~remote_address;
+		Monitor_rrds.migrate_push ~__context ~remote_address
+			~session_id vm' (Ref.of_string dest_host);
+		Xapi_blob.migrate_push ~__context ~rpc:remote_rpc
+			~remote_address ~session_id ~old_vm:vm ~new_vm ;
 		(* Signal the remote pool that we're done *)
 		XenAPI.VM.pool_migrate_complete remote_rpc session_id new_vm (Ref.of_string dest_host);
-		debug "Done";
-		(* Send non-database metadata *)
-		Xapi_message.send_messages ~__context ~cls:`VM ~obj_uuid:vm ~session_id ~remote_address ;
-		Monitor_rrds.migrate_push ~__context ~remote_address ~session_id vm (Ref.of_string dest_host);
+		(* And we're finished *)
+		debug "Migration complete";
 	with e ->
 		error "Caught %s: cleaning up" (Printexc.to_string e);
 		List.iter
