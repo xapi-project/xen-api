@@ -46,6 +46,7 @@ let usage () =
 	Printf.fprintf stderr "%s set-worker-pool-size <threads> - set the size of the worker pool\n" Sys.argv.(0);
 	Printf.fprintf stderr "%s diagnostics - display diagnostic information\n" Sys.argv.(0);
 	Printf.fprintf stderr "%s task-list - display the state of all known tasks\n" Sys.argv.(0);
+	Printf.fprintf stderr "%s shutdown - shutdown the xenops service\n" Sys.argv.(0);
 	()
 
 let dbg = "xn"
@@ -671,6 +672,9 @@ let task_list () =
 let task_cancel id =
 	Client.TASK.cancel dbg id |> success
 
+let debug_shutdown () =
+	Client.DEBUG.shutdown dbg () |> success
+
 let slave () =
 	let copy a b =
 		let len = 1024 * 1024 in
@@ -778,6 +782,8 @@ let _ =
 			task_list ()
 		| [ "task-cancel"; id ] ->
 			task_cancel id
+		| [ "shutdown" ] ->
+			debug_shutdown ()
 		| cmd :: _ ->
 			Printf.fprintf stderr "Unrecognised command: %s\n" cmd;
 			usage ();
