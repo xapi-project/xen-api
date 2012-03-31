@@ -14,7 +14,8 @@
 (**
  * @group Performance Monitoring
  *)
- 
+
+open Fun
 open Listext
 open Threadext
 open Monitor_types
