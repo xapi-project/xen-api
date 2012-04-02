@@ -151,6 +151,7 @@ module Interface = struct
 	external bring_down : name:iface -> unit = ""
 	external is_persistent : name:iface -> bool = ""
 	external set_persistent : name:iface -> value:bool -> unit = ""
+	external make_config : ?conservative:bool -> config:(iface * interface_config_t) list-> unit -> unit = ""
 end
 
 type kind = Openvswitch | Bridge
@@ -176,5 +177,6 @@ module Bridge = struct
 	external get_bond_properties : bridge:bridge -> name:string -> (string * string) list = ""
 	external set_bond_properties : bridge:bridge -> name:string -> params:(string * string) list -> unit = ""
 	external get_fail_mode : name:bridge -> fail_mode option = ""
+	external make_config : ?conservative:bool -> config:(bridge * bridge_config_t) list-> unit -> unit = ""
 end
 
