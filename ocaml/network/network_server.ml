@@ -695,6 +695,11 @@ module Bridge = struct
 		| Openvswitch ->
 			ignore (Ovs.set_bond_properties name params)
 		| Bridge ->
+			let params =
+				if List.mem_assoc "mode" params && List.assoc "mode" params = "lacp" then
+					List.replace_assoc "mode" "802.3ad" params
+				else params
+			in
 			Interface.bring_down () ~name;
 			Sysfs.set_bond_properties name params;
 			Interface.bring_up () ~name
