@@ -653,11 +653,13 @@ let export_metadata id =
 	let vm_t = VM_DB.read_exn id in
 	let vbds = VBD_DB.vbds id in
 	let vifs = VIF_DB.vifs id in
+	let pcis = PCI_DB.pcis id in
 	let domains = B.VM.get_internal_state vm_t in
 	{
 		Metadata.vm = vm_t;
 		vbds = vbds;
 		vifs = vifs;
+		pcis = pcis;
 		domains = Some domains;
 	} |> Metadata.rpc_of_t |> Jsonrpc.to_string
 
@@ -1460,8 +1462,10 @@ module VM = struct
 				let vm = add' md.Metadata.vm in
 				let vbds = List.map (fun x -> { x with Vbd.id = (vm, snd x.Vbd.id) }) md.Metadata.vbds in
 				let vifs = List.map (fun x -> { x with Vif.id = (vm, snd x.Vif.id) }) md.Metadata.vifs in
+				let pcis = List.map (fun x -> { x with Pci.id = (vm, snd x.Pci.id) }) md.Metadata.pcis in
 				let (_: Vbd.id list) = List.map VBD.add' vbds in
 				let (_: Vif.id list) = List.map VIF.add' vifs in
+				let (_: Pci.id list) = List.map PCI.add' pcis in
 				md.Metadata.domains |> Opt.iter (B.VM.set_internal_state (VM_DB.read_exn vm));
 				vm |> return
 			) ()
