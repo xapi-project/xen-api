@@ -44,9 +44,9 @@ export VARDIR ETCDIR OPTDIR PLUGINDIR HOOKSDIR INVENTORY VARPATCHDIR LIBEXECDIR 
 
 .PHONY: all
 all: version ocaml/fhs.ml
-	omake phase1
-	omake phase2
-	omake phase3
+	omake -j 8 phase1
+	omake -j 8 phase2
+	omake -j 8 phase3
 
 .PHONY: phase3
 phase3:
