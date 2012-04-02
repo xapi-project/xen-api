@@ -87,7 +87,7 @@ let read_stats () =
 				try int_of_string ("0x" ^ (String.sub data (magic_bytes + checksum_bytes) length_bytes))
 				with _ -> raise Invalid_length
 			in
-			let payload = String.sub data (magic_bytes + checksum_bytes + length_bytes + 1) length in
+			let payload = String.sub data (magic_bytes + checksum_bytes + length_bytes) length in
 			if payload |> Digest.string |> Digest.to_hex <> checksum then
 				raise Invalid_checksum
 			else
