@@ -101,6 +101,18 @@ let is_boot_file_whitelisted filename =
 
 let builder_of_vm ~__context ~vm timeoffset =
 	let open Vm in
+
+    let pci_emulations =
+        let s = try Some (List.assoc "mtc_pci_emulations" vm.API.vM_other_config) with _ -> None in
+        match s with
+            | None -> []
+            | Some x ->
+                try
+                    let l = String.split ',' x in
+                    List.map (String.strip String.isspace) l
+                with _ -> []
+    in
+
 	match Helpers.boot_method_of_vm ~__context ~vm with
 		| Helpers.HVM { Helpers.timeoffset = t } -> HVM {
 			hap = true;
@@ -118,7 +130,7 @@ let builder_of_vm ~__context ~vm timeoffset =
 			serial = Some (string vm.API.vM_platform "pty" "hvm_serial");
 			keymap = Some (string vm.API.vM_platform "en-us" "keymap");
 			vnc_ip = Some "0.0.0.0" (*None PR-1255*);
-			pci_emulations = [];
+			pci_emulations = pci_emulations;
 			pci_passthrough = false;
 			boot_order = string vm.API.vM_HVM_boot_params "cd" "order";
 			qemu_disk_cmdline = bool vm.API.vM_platform false "qemu_disk_cmdline";
