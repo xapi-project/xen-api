@@ -372,6 +372,7 @@ let create_metadata ~__context ~self =
 		vm = MD.of_vm ~__context (self, vm) vbds;
 		vbds = List.map (fun vbd -> MD.of_vbd ~__context ~vm ~vbd) vbds;
 		vifs = List.map (fun vif -> MD.of_vif ~__context ~vm ~vif) vifs;
+		pcis = MD.pcis_of_vm ~__context (self, vm);
 		domains = domains
 	}
 
