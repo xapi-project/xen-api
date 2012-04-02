@@ -99,7 +99,7 @@ let is_boot_file_whitelisted filename =
 		(* avoid ..-style attacks and other weird things *)
 	&&(safe_str filename)
 
-let builder_of_vm ~__context ~vm timeoffset =
+let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
 	let open Vm in
 
     let pci_emulations =
@@ -131,7 +131,7 @@ let builder_of_vm ~__context ~vm timeoffset =
 			keymap = Some (string vm.API.vM_platform "en-us" "keymap");
 			vnc_ip = Some "0.0.0.0" (*None PR-1255*);
 			pci_emulations = pci_emulations;
-			pci_passthrough = false;
+			pci_passthrough = pci_passthrough;
 			boot_order = string vm.API.vM_HVM_boot_params "cd" "order";
 			qemu_disk_cmdline = bool vm.API.vM_platform false "qemu_disk_cmdline";
 			qemu_stubdom = bool vm.API.vM_platform false "qemu_stubdom";
@@ -257,7 +257,12 @@ module MD = struct
 		let devs = List.sort compare (List.map (Pciops.pcidev_of_pci ~__context) (managed_pcis @ dependent_pcis)) in
 
 		(* The 'unmanaged' PCI devices are in the other_config key: *)
-		let other_pcidevs = Pciops.other_pcidevs_of_vm ~__context vm.API.vM_other_config in
+		let other_pcidevs =
+			try
+				Pciops.other_pcidevs_of_vm ~__context vm.API.vM_other_config
+			with Api_errors.Server_error(code, _) when code = Api_errors.rbac_permission_denied ->
+				error "No PCI devices will be passed-through: RBAC_PERMISSION_DENIED";
+				[] in
 		let unmanaged = List.flatten (List.map (fun (_, dev) -> dev) (Pciops.sort_pcidevs other_pcidevs)) in
 
 		let devs = devs @ unmanaged in
@@ -276,7 +281,7 @@ module MD = struct
 			})
 			(List.combine (Range.to_list (Range.make 0 (List.length devs))) devs)
 
-	let of_vm ~__context (vmref, vm) vbds =
+	let of_vm ~__context (vmref, vm) vbds pci_passthrough =
 		let on_crash_behaviour = function
 			| `preserve -> []
 			| `coredump_and_restart -> [ Vm.Coredump; Vm.Start ]
@@ -335,7 +340,7 @@ module MD = struct
 			xsdata = vm.API.vM_xenstore_data;
 			platformdata = platformdata;
 			bios_strings = vm.API.vM_bios_strings;
-			ty = builder_of_vm ~__context ~vm timeoffset;
+			ty = builder_of_vm ~__context ~vm timeoffset pci_passthrough;
 			suppress_spurious_page_faults = (try List.assoc "suppress-spurious-page-faults" vm.API.vM_other_config = "true" with _ -> false);
 			machine_address_size = (try Some(int_of_string (List.assoc "machine-address-size" vm.API.vM_other_config)) with _ -> None);
 			memory_static_max = vm.API.vM_memory_static_max;
@@ -368,11 +373,12 @@ let create_metadata ~__context ~self =
 		if vm.API.vM_power_state = `Suspended
 		then Some vm.API.vM_last_booted_record
 		else None in
+	let pcis = MD.pcis_of_vm ~__context (self, vm) in
 	let open Metadata in {
-		vm = MD.of_vm ~__context (self, vm) vbds;
+		vm = MD.of_vm ~__context (self, vm) vbds (pcis <> []);
 		vbds = List.map (fun vbd -> MD.of_vbd ~__context ~vm ~vbd) vbds;
 		vifs = List.map (fun vif -> MD.of_vif ~__context ~vm ~vif) vifs;
-		pcis = MD.pcis_of_vm ~__context (self, vm);
+		pcis = pcis;
 		domains = domains
 	}
 

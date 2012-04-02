@@ -1274,39 +1274,48 @@ let list ~xc ~xs domid =
 
 
 let plug (task: Xenops_task.t) ~xc ~xs (domain, bus, dev, func) domid = 
-    let current = read_pcidir ~xc ~xs domid in
-	let next_idx = List.fold_left max (-1) (List.map fst current) + 1 in
-	
-	let pci = to_string (domain, bus, dev, func) in
-	signal_device_model ~xc ~xs domid "pci-ins" pci;
+	try
+		let current = read_pcidir ~xc ~xs domid in
+		let next_idx = List.fold_left max (-1) (List.map fst current) + 1 in
 
-	let () = match wait_device_model task ~xc ~xs domid with
-	| "pci-inserted" -> 
-		  (* success *)
-		  xs.Xs.write (device_model_pci_device_path xs 0 domid ^ "/dev-" ^ (string_of_int next_idx)) pci;
-	| x ->
-		failwith
-			(Printf.sprintf "Waiting for state=pci-inserted; got state=%s" x) in
-	Xenctrl.domain_assign_device xc domid (domain, bus, dev, func)
+		let pci = to_string (domain, bus, dev, func) in
+		signal_device_model ~xc ~xs domid "pci-ins" pci;
 
-let unplug (task: Xenops_task.t) ~xc ~xs (domain, bus, dev, func) domid = 
-    let current = list ~xc ~xs domid in
+		let () = match wait_device_model task ~xc ~xs domid with
+			| "pci-inserted" -> 
+				(* success *)
+				xs.Xs.write (device_model_pci_device_path xs 0 domid ^ "/dev-" ^ (string_of_int next_idx)) pci;
+			| x ->
+				failwith
+					(Printf.sprintf "Waiting for state=pci-inserted; got state=%s" x) in
+		debug "Device.Pci.plug domid=%d Xenctrl.domain_assign_device" domid;
+		Xenctrl.domain_assign_device xc domid (domain, bus, dev, func)
+	with e ->
+		error "Device.Pci.plug: %s" (Printexc.to_string e);
+		raise e
 
-	let pci = to_string (domain, bus, dev, func) in
-	let idx = fst (List.find (fun x -> snd x = (domain, bus, dev, func)) current) in
-	signal_device_model ~xc ~xs domid "pci-rem" pci;
+let unplug (task: Xenops_task.t) ~xc ~xs (domain, bus, dev, func) domid =
+	try
+		let current = list ~xc ~xs domid in
 
-	let () = match wait_device_model task ~xc ~xs domid with
-	| "pci-removed" -> 
-		  (* success *)
-		  xs.Xs.rm (device_model_pci_device_path xs 0 domid ^ "/dev-" ^ (string_of_int idx))
-	| x ->
-		failwith (Printf.sprintf "Waiting for state=pci-removed; got state=%s" x)
-	in
-	(* CA-62028: tell the device to stop whatever it's doing *)
-	do_flr pci;
-	Xenctrl.domain_deassign_device xc domid (domain, bus, dev, func)
+		let pci = to_string (domain, bus, dev, func) in
+		let idx = fst (List.find (fun x -> snd x = (domain, bus, dev, func)) current) in
+		signal_device_model ~xc ~xs domid "pci-rem" pci;
 
+		let () = match wait_device_model task ~xc ~xs domid with
+			| "pci-removed" -> 
+				(* success *)
+				xs.Xs.rm (device_model_pci_device_path xs 0 domid ^ "/dev-" ^ (string_of_int idx))
+			| x ->
+				failwith (Printf.sprintf "Waiting for state=pci-removed; got state=%s" x)
+		in
+		(* CA-62028: tell the device to stop whatever it's doing *)
+		do_flr pci;
+		debug "Device.Pci.unplug domid=%d Xenctrl.domain_deassign_device" domid;
+		Xenctrl.domain_deassign_device xc domid (domain, bus, dev, func)
+	with e ->
+		error "Device.Pci.unplug: %s" (Printexc.to_string e);
+		raise e
 end
 
 module Vfs = struct
