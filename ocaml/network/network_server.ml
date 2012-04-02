@@ -476,6 +476,7 @@ module Bridge = struct
 					Interface.set_ipv4_conf () ~name:dev ~conf:None4;
 					Interface.bring_down () ~name:dev
 				) (Ovs.bridge_to_interfaces name);
+				Interface.set_ipv4_conf () ~name ~conf:None4;
 				ignore (Ovs.destroy_bridge name)
 			end else
 				debug "Not destroying bridge %s, because it has VLANs on top" name
@@ -501,6 +502,7 @@ module Bridge = struct
 					if String.startswith "eth" dev && String.contains dev '.' then
 						ignore (Ip.destroy_vlan dev)
 				) ifs;
+				Interface.set_ipv4_conf () ~name ~conf:None4;
 				ignore (Brctl.destroy_bridge name)
 			end else
 				debug "Not destroying bridge %s, because it has VLANs on top" name
