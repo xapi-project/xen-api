@@ -93,6 +93,10 @@ let valid_operations ~__context record _ref' : table =
 	set_errors Api_errors.sr_has_pbd [ _ref ] [ `destroy; `forget ]
   else ();
 
+	(* If the SR has no PBDs, destroy is not allowed. *)
+	if (Db.SR.get_PBDs ~__context ~self:_ref') = [] then
+		set_errors Api_errors.sr_no_pbds [_ref] [`destroy];
+
 	(* If the SR is not empty, destroy is not allowed. *)
 	if (Db.SR.get_VDIs ~__context ~self:_ref') <> [] then
 		set_errors Api_errors.sr_not_empty [] [`destroy];
