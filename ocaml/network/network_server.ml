@@ -340,29 +340,35 @@ module Interface = struct
 		debug "Making interface %s %spersistent" name (if value then "" else "non-");
 		update_config name {(get_config name) with persistent_i = value}
 
-	let restore_config () =
-		let all = get_all () () in
-		(* Do not touch physical interfaces that are already up *)
-		let exclude = List.filter (fun interface -> is_up () ~name:interface && is_physical () ~name:interface) all in
-		let persistent_config = List.filter (fun (name, interface) -> interface.persistent_i) !config.interface_config in
-		debug "Ensuring the following persistent interfaces are up: %s"
-			(String.concat ", " (List.map (fun (name, _) -> name) persistent_config));
-		List.iter (function (name, {ipv4_conf; ipv4_gateway; ipv6_conf; ipv6_gateway; ipv4_routes; dns=nameservers,domains; mtu;
-			ethtool_settings; ethtool_offload; _}) ->
-			if not (List.mem name exclude) then begin
-				(* best effort *)
-				(try configure_ipv4 name ipv4_conf with _ -> ());
-				(try match ipv4_gateway with None -> () | Some gateway -> configure_ipv4_gateway name gateway with _ -> ());
-				(try set_ipv6_conf () ~name ~conf:ipv6_conf with _ -> ());
-				(try match ipv6_gateway with None -> () | Some gateway -> set_ipv6_gateway () ~name ~address:gateway with _ -> ());
-				(try set_ipv4_routes () ~name ~routes:ipv4_routes with _ -> ());
-				(try configure_dns name nameservers domains with _ -> ());
-				(try set_mtu () ~name ~mtu with _ -> ());
-				(try bring_up () ~name with _ -> ());
-				(try set_ethtool_settings () ~name ~params:ethtool_settings with _ -> ());
-				(try set_ethtool_offload () ~name ~params:ethtool_offload with _ -> ())
-			end
-		) persistent_config
+	let make_config _ ?(conservative=false) ~config () =
+		let config =
+			if conservative then
+				(* Do not touch physical interfaces that are already up, or non-persistent interfaces *)
+				let exclude =
+					let all = get_all () () in
+					List.filter (fun interface -> is_up () ~name:interface && is_physical () ~name:interface) all
+				in
+				debug "Not touching the following interfaces, which are already up: %s" (String.concat ", " exclude);
+				List.filter (fun (name, interface) -> interface.persistent_i && (not (List.mem name exclude))) config
+			else
+				config
+		in
+		debug "** Configuring the following interfaces: %s" (String.concat ", " (List.map (fun (name, _) -> name) config));
+		let exec f = if conservative then (try f () with _ -> ()) else f () in
+		List.iter (function (name, ({ipv4_conf; ipv4_gateway; ipv6_conf; ipv6_gateway; ipv4_routes; dns=nameservers,domains; mtu;
+			ethtool_settings; ethtool_offload; _} as c)) ->
+			update_config name c;
+			exec (fun () -> if conservative then configure_ipv4 name ipv4_conf else set_ipv4_conf () name ipv4_conf);
+			exec (fun () -> match ipv4_gateway with None -> () | Some gateway -> configure_ipv4_gateway name gateway);
+			(try set_ipv6_conf () ~name ~conf:ipv6_conf with _ -> ());
+			(try match ipv6_gateway with None -> () | Some gateway -> set_ipv6_gateway () ~name ~address:gateway with _ -> ());
+			exec (fun () -> set_ipv4_routes () ~name ~routes:ipv4_routes);
+			exec (fun () -> configure_dns name nameservers domains);
+			exec (fun () -> set_mtu () ~name ~mtu);
+			exec (fun () -> bring_up () ~name);
+			exec (fun () -> set_ethtool_settings () ~name ~params:ethtool_settings);
+			exec (fun () -> set_ethtool_offload () ~name ~params:ethtool_offload)
+		) config;
 end
 
 module Bridge = struct
@@ -642,38 +648,46 @@ module Bridge = struct
 		debug "Making bridge %s %spersistent" name (if value then "" else "non-");
 		update_config name {(get_config name) with persistent_b = value}
 
-	let restore_config () =
+	let make_config _ ?(conservative=false) ~config () =
 		let vlans_go_last (_, {vlan=vlan_of_a}) (_, {vlan=vlan_of_b}) =
 			if vlan_of_a = None && vlan_of_b = None then 0
 			else if vlan_of_a <> None && vlan_of_b = None then 1
 			else if vlan_of_a = None && vlan_of_b <> None then -1
 			else 0
 		in
-		let persistent_config = List.filter (fun (name, bridge) -> bridge.persistent_b) !config.bridge_config in
-		debug "Ensuring the following persistent bridges are up: %s"
-			(String.concat ", " (List.map (fun (name, _) -> name) persistent_config));
-		let vlan_parents = List.filter_map (function
-			| (_, {vlan=Some (parent, _)}) ->
-				if not (List.mem_assoc parent persistent_config) then
-					Some (parent, List.assoc parent !config.bridge_config)
-				else
-					None
-			| _ -> None) persistent_config in
-		debug "Additionally ensuring the following VLAN parent bridges are up: %s"
-			(String.concat ", " (List.map (fun (name, _) -> name) vlan_parents));
-		let persistent_config = List.sort vlans_go_last (vlan_parents @ persistent_config) in
-		let current = get_all () () in
-		List.iter (function (bridge_name, {ports; vlan; bridge_mac; other_config; _}) ->
-			(* Do not try to recreate bridges that already exist *)
-			if not (List.mem bridge_name current) then begin
-				create () ?vlan ?mac:bridge_mac ~other_config ~name:bridge_name ();
-				List.iter (fun (port_name, {interfaces; bond_properties; mac}) ->
-					add_port () ~mac ~bridge:bridge_name ~name:port_name ~interfaces ();
-					if bond_properties <> [] then
-						set_bond_properties () ~bridge:bridge_name ~name:port_name ~params:bond_properties
-				) ports
-			end
-		) persistent_config
+		let config =
+			if conservative then begin
+				let persistent_config = List.filter (fun (name, bridge) -> bridge.persistent_b) config in
+				debug "Ensuring the following persistent bridges are up: %s"
+					(String.concat ", " (List.map (fun (name, _) -> name) persistent_config));
+				let vlan_parents = List.filter_map (function
+					| (_, {vlan=Some (parent, _)}) ->
+						if not (List.mem_assoc parent persistent_config) then
+							Some (parent, List.assoc parent config)
+						else
+							None
+					| _ -> None) persistent_config in
+				debug "Additionally ensuring the following VLAN parent bridges are up: %s"
+					(String.concat ", " (List.map (fun (name, _) -> name) vlan_parents));
+				let config = vlan_parents @ persistent_config in
+				(* Do not try to recreate bridges that already exist *)
+				let current = get_all () () in
+				List.filter (function (name, _) -> not (List.mem name current)) config
+			end else
+				config
+		in
+		let config = List.sort vlans_go_last config in
+		debug "** Configuring the following bridges: %s"
+			(String.concat ", " (List.map (fun (name, _) -> name) config));
+		List.iter (function (bridge_name, ({ports; vlan; bridge_mac; other_config; _} as c)) ->
+			update_config bridge_name c;
+			create () ?vlan ?mac:bridge_mac ~other_config ~name:bridge_name ();
+			List.iter (fun (port_name, {interfaces; bond_properties; mac}) ->
+				add_port () ~mac ~bridge:bridge_name ~name:port_name ~interfaces ();
+				if bond_properties <> [] then
+					set_bond_properties () ~bridge:bridge_name ~name:port_name ~params:bond_properties
+			) ports
+		) config
 end
 
 let on_startup () =
@@ -691,7 +705,7 @@ let on_startup () =
 	try
 		(* the following is best-effort *)
 		read_config ();
-		Bridge.restore_config ();
-		Interface.restore_config ()
+		Bridge.make_config () ~conservative:true ~config:!config.bridge_config ();
+		Interface.make_config () ~conservative:true ~config:!config.interface_config ()
 	with _ -> ()
 
