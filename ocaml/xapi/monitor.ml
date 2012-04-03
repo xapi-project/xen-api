@@ -59,6 +59,9 @@ let memory_targets_m = Mutex.create ()
 let uncooperative_domains: (int, unit) Hashtbl.t = Hashtbl.create 20
 let uncooperative_domains_m = Mutex.create ()
 
+(** Table for bonds status. *)
+let bonds_status : (string, (int * int)) Hashtbl.t = Hashtbl.create 10
+
 let string_of_domain_handle dh =
   Uuid.string_of_uuid (Uuid.uuid_of_int_array dh.Xenctrl.handle)
 
@@ -196,9 +199,29 @@ let string_of_vif_device x =
 	Printf.sprintf "%s%d.%d" (if x.pv then "vif" else "tap") x.domid x.devid
 
 let update_netdev doms =
+	let alert dev nb_links links_up nb_links_old links_up_old =
+	  Xapi_alert.add ~name:Api_messages.bond_status_changed ~priority:1L ~cls:`Host
+		~obj_uuid:(Helpers.get_localhost_uuid ())
+		~body:(Printf.sprintf "The status of %s changed: %d/%d up (was %d/%d)"
+				 dev links_up nb_links links_up_old nb_links_old) in 
 	let stats = Network_monitor.read_stats () in
 	List.fold_left (fun (dss, pifs) (dev, stat) ->
 		if not (String.startswith "vif" dev) then
+		  begin
+			if stat.nb_links > 1 then (* it is a bond *)
+			  if Hashtbl.mem bonds_status dev then
+				begin
+				  let (nb_links_old, links_up_old) = Hashtbl.find bonds_status dev in 
+				  if links_up_old <> stat.links_up then
+					begin
+					  debug "cp3406: %s nb_links %d up %d up_old %d" dev stat.nb_links
+						stat.links_up links_up_old;
+					  alert dev stat.nb_links stat.links_up nb_links_old links_up_old;
+					  Hashtbl.replace bonds_status dev (stat.nb_links,stat.links_up)
+					end
+				end
+			  else (* first time that we see the bond *)
+				Hashtbl.add bonds_status dev (stat.nb_links,stat.links_up);
 			let pif_name = "pif_" ^ dev in
 			let pif = {
 				pif_name = dev;
@@ -227,6 +250,7 @@ let update_netdev doms =
 				~value:(Rrd.VT_Int64 stat.tx_errors) ~ty:Rrd.Derive ~min:0.0 ~default:false ()) ::
 			dss,
 			pif :: pifs
+		  end
 		else
 			(try
 				let (d1, d2) = Scanf.sscanf dev "vif%d.%d" (fun d1 d2 -> d1, d2) in
