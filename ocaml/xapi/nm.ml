@@ -162,28 +162,34 @@ let create_bond ~__context bond mtu =
 	let mac = master_rc.API.pIF_MAC in
 
 	(* set bond properties *)
-	let hashing_algorithm =
-		if List.mem_assoc "hashing_algorithm" props then
-			List.assoc "hashing_algorithm" props
+	let props =
+		if List.length slaves > 1 then
+			let hashing_algorithm =
+				if List.mem_assoc "hashing_algorithm" props then
+					List.assoc "hashing_algorithm" props
+				else
+					"src_mac"
+			in
+			let props = [
+				"mode", Record_util.bond_mode_to_string mode;
+				"miimon", "100";
+				"downdelay", "200";
+				"updelay", "31000";
+				"use_carrier", "1";
+				"hashing-algorithm", hashing_algorithm
+			] in
+			let overrides = List.filter_map (fun (k, v) ->
+				if String.startswith "bond-" k then
+					Some ((String.sub_to_end k 5), v)
+				else
+					None
+			) master_rc.API.pIF_other_config in
+			(* add defaults for properties that are not overridden *)
+			(List.filter (fun (k, _) -> not (List.mem_assoc k overrides)) props) @ overrides
 		else
-			"src_mac"
+			(* Sometimes a "Bond" is not actually a bond... *)
+			[]
 	in
-	let props = [
-		"mode", Record_util.bond_mode_to_string mode;
-		"miimon", "100";
-		"downdelay", "200";
-		"updelay", "31000";
-		"use_carrier", "1";
-		"hashing-algorithm", hashing_algorithm
-	] in
-	let overrides = List.filter_map (fun (k, v) ->
-		if String.startswith "bond-" k then
-			Some ((String.sub_to_end k 5), v)
-		else
-			None
-	) master_rc.API.pIF_other_config in
-	(* add defaults for properties that are not overridden *)
-	let props = (List.filter (fun (k, _) -> not (List.mem_assoc k overrides)) props) @ overrides in
 
 	let ports = [port, {interfaces=(List.map (fun (device, _) -> device) slave_devices_and_bridges);
 		bond_properties=props; mac}] in
