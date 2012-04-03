@@ -42,7 +42,12 @@ open Vm_memory_constraints
 type metadata_options = {
 	(* If true, don't create any database objects. *)
 	dry_run: bool;
-	(* If true, check that the VM can run on this host. *)
+	(* If true, treat the import as if it is preparation for a live migration.
+	 * This has the following consequences:
+	 * - We must perform extra checks on the VM object - do we have enough memory? Are the CPU flags compatible? Is there an HA plan for it?
+	 * - If the migration is a dry run we don't need to check for VDIs, since VDI.mirror will have created them during a real migration.
+	 * - If the migration is for real, we will expect the VM export code on the source host to have mapped the VDI locations onto their
+	 *   mirrored counterparts which are present on this host. *)
 	live: bool;
 }
 
