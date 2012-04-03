@@ -224,7 +224,6 @@ module VM : HandlerTools = struct
 			let vm_uuid_exists () = try ignore (get_vm_by_uuid ()); true with _ -> false in
 			(* If full_restore is true then we want to keep the VM uuid - this may involve replacing an existing VM. *)
 			if config.full_restore && vm_uuid_exists () then begin
-				(* The existing VM cannot be replaced if it is running. *)
 				let vm = get_vm_by_uuid () in
 				(* The existing VM cannot be replaced if it is running. *)
 				(* If import is forced then skip the VM, else throw an error. *)
