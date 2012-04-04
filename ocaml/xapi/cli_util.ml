@@ -196,8 +196,8 @@ let server_error (code: string) (params: string list) sock =
   | None ->
     marshal sock (Command (Error(code, List.map ref_convert params)));
   | Some (e, l) ->
-    marshal sock (Command (PrintStderr e));
-    List.iter (fun pv -> marshal sock (Command (PrintStderr pv))) l;
+    marshal sock (Command (PrintStderr (e ^ "\n")));
+    List.iter (fun pv -> marshal sock (Command (PrintStderr (pv ^ "\n")))) l;
   end;
   marshal sock (Command (Exit 1))
 
