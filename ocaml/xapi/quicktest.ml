@@ -741,7 +741,7 @@ let _ =
 				maybe_run_test "event" event_next_unblocking_test;
 				maybe_run_test "event" (fun () -> event_next_test s);
 				maybe_run_test "event" (fun () -> event_from_test s);
-				maybe_run_test "event" (fun () -> object_level_event_test s);
+(*				maybe_run_test "event" (fun () -> object_level_event_test s);*)
 				maybe_run_test "vdi" (fun () -> vdi_test s);
 				maybe_run_test "async" (fun () -> async_test s);
 				maybe_run_test "import" (fun () -> import_export_test s);

@@ -98,8 +98,20 @@ let is_boot_file_whitelisted filename =
 		(* avoid ..-style attacks and other weird things *)
 	&&(safe_str filename)
 
-let builder_of_vm ~__context ~vm timeoffset =
+let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
 	let open Vm in
+
+    let pci_emulations =
+        let s = try Some (List.assoc "mtc_pci_emulations" vm.API.vM_other_config) with _ -> None in
+        match s with
+            | None -> []
+            | Some x ->
+                try
+                    let l = String.split ',' x in
+                    List.map (String.strip String.isspace) l
+                with _ -> []
+    in
+
 	match Helpers.boot_method_of_vm ~__context ~vm with
 		| Helpers.HVM { Helpers.timeoffset = t } -> HVM {
 			hap = true;
@@ -117,8 +129,8 @@ let builder_of_vm ~__context ~vm timeoffset =
 			serial = Some (string vm.API.vM_platform "pty" "hvm_serial");
 			keymap = Some (string vm.API.vM_platform "en-us" "keymap");
 			vnc_ip = Some "0.0.0.0" (*None PR-1255*);
-			pci_emulations = [];
-			pci_passthrough = false;
+			pci_emulations = pci_emulations;
+			pci_passthrough = pci_passthrough;
 			boot_order = string vm.API.vM_HVM_boot_params "cd" "order";
 			qemu_disk_cmdline = bool vm.API.vM_platform false "qemu_disk_cmdline";
 			qemu_stubdom = bool vm.API.vM_platform false "qemu_stubdom";
@@ -244,7 +256,12 @@ module MD = struct
 		let devs = List.sort compare (List.map (Pciops.pcidev_of_pci ~__context) (managed_pcis @ dependent_pcis)) in
 
 		(* The 'unmanaged' PCI devices are in the other_config key: *)
-		let other_pcidevs = Pciops.other_pcidevs_of_vm ~__context vm.API.vM_other_config in
+		let other_pcidevs =
+			try
+				Pciops.other_pcidevs_of_vm ~__context vm.API.vM_other_config
+			with Api_errors.Server_error(code, _) when code = Api_errors.rbac_permission_denied ->
+				error "No PCI devices will be passed-through: RBAC_PERMISSION_DENIED";
+				[] in
 		let unmanaged = List.flatten (List.map (fun (_, dev) -> dev) (Pciops.sort_pcidevs other_pcidevs)) in
 
 		let devs = devs @ unmanaged in
@@ -263,7 +280,7 @@ module MD = struct
 			})
 			(List.combine (Range.to_list (Range.make 0 (List.length devs))) devs)
 
-	let of_vm ~__context (vmref, vm) vbds =
+	let of_vm ~__context (vmref, vm) vbds pci_passthrough =
 		let on_crash_behaviour = function
 			| `preserve -> []
 			| `coredump_and_restart -> [ Vm.Coredump; Vm.Start ]
@@ -322,7 +339,7 @@ module MD = struct
 			xsdata = vm.API.vM_xenstore_data;
 			platformdata = platformdata;
 			bios_strings = vm.API.vM_bios_strings;
-			ty = builder_of_vm ~__context ~vm timeoffset;
+			ty = builder_of_vm ~__context ~vm timeoffset pci_passthrough;
 			suppress_spurious_page_faults = (try List.assoc "suppress-spurious-page-faults" vm.API.vM_other_config = "true" with _ -> false);
 			machine_address_size = (try Some(int_of_string (List.assoc "machine-address-size" vm.API.vM_other_config)) with _ -> None);
 			memory_static_max = vm.API.vM_memory_static_max;
@@ -355,10 +372,12 @@ let create_metadata ~__context ~self =
 		if vm.API.vM_power_state = `Suspended
 		then Some vm.API.vM_last_booted_record
 		else None in
+	let pcis = MD.pcis_of_vm ~__context (self, vm) in
 	let open Metadata in {
-		vm = MD.of_vm ~__context (self, vm) vbds;
+		vm = MD.of_vm ~__context (self, vm) vbds (pcis <> []);
 		vbds = List.map (fun vbd -> MD.of_vbd ~__context ~vm ~vbd) vbds;
 		vifs = List.map (fun vif -> MD.of_vif ~__context ~vm ~vif) vifs;
+		pcis = pcis;
 		domains = domains
 	}
 
@@ -367,6 +386,11 @@ let vm_of_id ~__context uuid = Db.VM.get_by_uuid ~__context ~uuid
 
 let vm_exists_in_xenopsd dbg id =
 	try Client.VM.stat dbg id |> ignore; true with Does_not_exist(_, _) -> false
+
+let string_of_exn = function
+	| Api_errors.Server_error(code, params) -> Printf.sprintf "%s [ %s ]" code (String.concat "; " params)
+	| Exception(e) -> e |> rpc_of_error |> Jsonrpc.to_string
+	| e -> Printexc.to_string e
 
 (* Serialise updates to the xenopsd metadata *)
 let metadata_m = Mutex.create ()
@@ -560,7 +584,21 @@ let detach_networks ~__context ~self =
 				Xapi_network.deregister_vif ~__context vif
 			) (Db.VM.get_VIFs ~__context ~self)
 	with e ->
-		error "Caught %s while detaching networks" (Printexc.to_string e)
+		error "Caught %s while detaching networks" (string_of_exn e)
+
+let with_networks_attached ~__context ~self f =
+	attach_networks ~__context ~self;
+	try
+		f ()
+	with e ->
+		info "Caught %s: detaching networks" (string_of_exn e);
+		begin
+			try
+				detach_networks ~__context ~self;
+			with e ->
+				error "Caught %s while detaching networks" (string_of_exn e)
+		end;
+		raise e
 
 (* Event handling:
    When we tell the xenopsd to start a VM, we wait for the task to complete.
@@ -622,6 +660,21 @@ module Event = struct
 					)
 			) t
 end
+
+let with_caches dbg id f =
+	add_caches id;
+	try
+		f ()
+	with e ->
+		error "Caught %s: removing caches" (string_of_exn e);
+		Event.wait dbg ();
+		begin
+			try
+				remove_caches id;
+			with e ->
+				error "Caught %s: while removing caches" (string_of_exn e)
+		end;
+		raise e
 
 (* Ignore events on VMs which are migrating away *)
 let migrating_away = Hashtbl.create 10
@@ -808,7 +861,7 @@ let update_vm ~__context id =
 					Xapi_vm_lifecycle.update_allowed_operations ~__context ~self;
 				end
 	with e ->
-		error "xenopsd event: Caught %s while updating VM: has this VM been removed while this host is offline?" (Printexc.to_string e)
+		error "xenopsd event: Caught %s while updating VM: has this VM been removed while this host is offline?" (string_of_exn e)
 
 let update_vbd ~__context (id: (string * string)) =
 	try
@@ -860,7 +913,7 @@ let update_vbd ~__context (id: (string * string)) =
 					Xapi_vbd_helpers.update_allowed_operations ~__context ~self:vbd
 				end
 	with e ->
-		error "xenopds event: Caught %s while updating VBD" (Printexc.to_string e)
+		error "xenopds event: Caught %s while updating VBD" (string_of_exn e)
 
 let update_vif ~__context id =
 	try
@@ -893,7 +946,7 @@ let update_vif ~__context id =
 					Xapi_vif_helpers.update_allowed_operations ~__context ~self:vif
 				end
 	with e ->
-		error "xenopsd event: Caught %s while updating VIF" (Printexc.to_string e)
+		error "xenopsd event: Caught %s while updating VIF" (string_of_exn e)
 
 let update_pci ~__context id =
 	try
@@ -946,7 +999,7 @@ let update_pci ~__context id =
 					Xenops_cache.update_pci id (Opt.map snd info);
 				end
 	with e ->
-		error "xenopsd event: Caught %s while updating PCI" (Printexc.to_string e)
+		error "xenopsd event: Caught %s while updating PCI" (string_of_exn e)
 
 let id_to_task_tbl = Hashtbl.create 10
 let task_to_id_tbl = Hashtbl.create 10
@@ -1001,7 +1054,7 @@ let update_task ~__context id =
 		   destroyed, it's safe to ignore a Not_found exception here. *)
 		()
 	| e ->
-		error "xenopsd event: Caught %s while updating task" (Printexc.to_string e)
+		error "xenopsd event: Caught %s while updating task" (string_of_exn e)
 
 let rec events_watch ~__context from =
 	let dbg = Context.string_of_task __context in
@@ -1103,7 +1156,7 @@ let on_xapi_restart ~__context =
 						Client.VM.shutdown dbg id None |> wait_for_task dbg |> ignore;
 						Client.VM.remove dbg id
 					with e ->
-						error "Failed to remove VM %s: %s" id (Printexc.to_string e)
+						error "Failed to remove VM %s: %s" id (string_of_exn e)
 				end
 		) (List.set_difference in_xenopsd in_db)
 
@@ -1114,7 +1167,7 @@ let events_from_xenopsd () =
 				try
 					events_watch ~__context None;
 				with e ->
-					error "event thread caught: %s" (Printexc.to_string e);
+					error "event thread caught: %s" (string_of_exn e);
 					Thread.delay 10.
 			done
 		)
@@ -1160,7 +1213,7 @@ let events_from_xapi () =
 										| Api_errors.Server_error(code, _) when code = Api_errors.session_invalid ->
 											debug "Event thead has already woken up"
 										| e ->
-											error "Waking up the xapi event thread: %s" (Printexc.to_string e)
+											error "Waking up the xapi event thread: %s" (string_of_exn e)
 								);
 							(* We register for events on resident_VMs only *)
 							let classes = List.map (fun x -> Printf.sprintf "VM/%s" (Ref.string_of x)) (Db.Host.get_resident_VMs ~__context ~self:localhost) in
@@ -1192,7 +1245,7 @@ let events_from_xapi () =
 					| Api_errors.Server_error(code, _) when code = Api_errors.session_invalid ->
 						debug "Woken event thread: updating list of event subscriptions"
 					| e ->
-						debug "Caught %s listening to events from xapi" (Printexc.to_string e);
+						debug "Caught %s listening to events from xapi" (string_of_exn e);
 						(* Start from scratch *)
 						token := "";
 						Thread.delay 15.
@@ -1392,20 +1445,40 @@ let set_memory_dynamic_range ~__context ~self min max =
 			Event.wait dbg ()
 		)
 
+let with_metadata_pushed_to_xenopsd ~__context ~self f =
+	let id = push_metadata_to_xenopsd ~__context ~self in
+	try
+		f id;
+		set_resident_on ~__context ~self;
+	with e ->
+		error "Caught %s: removing VM %s from xenopsd" (string_of_exn e) id;
+		begin
+			try
+				delete_metadata_from_xenopsd ~__context id;
+			with e ->
+				error "Caught %s while removing VM %s from metadata" (string_of_exn e) id
+		end;
+		raise e
+
 let start ~__context ~self paused =
+	let dbg = Context.string_of_task __context in
 	transform_xenops_exn ~__context
 		(fun () ->
-			let id = push_metadata_to_xenopsd ~__context ~self in
-			add_caches id;
-			attach_networks ~__context ~self;
-			info "xenops: VM.start %s" id;
-			let dbg = Context.string_of_task __context in
-			Client.VM.start dbg id |> sync_with_task __context;
-			if not paused then begin
-				info "xenops: VM.unpause %s" id;
-				Client.VM.unpause dbg id |> sync __context;
-			end;
-			set_resident_on ~__context ~self;
+			with_metadata_pushed_to_xenopsd ~__context ~self
+				(fun id ->
+					with_caches dbg id
+						(fun () ->
+							with_networks_attached ~__context ~self
+								(fun () ->
+									info "xenops: VM.start %s" id;
+									Client.VM.start dbg id |> sync_with_task __context;
+									if not paused then begin
+										info "xenops: VM.unpause %s" id;
+										Client.VM.unpause dbg id |> sync __context;
+									end;
+								)
+						)
+				);
 			(* XXX: if the guest crashed or shutdown immediately then it may be offline now *)
 			assert (Db.VM.get_power_state ~__context ~self = (if paused then `Paused else `Running))
 		)
@@ -1499,7 +1572,7 @@ let suspend ~__context ~self =
 								Db.VM.set_last_booted_record ~__context ~self ~value:x;
 								debug "VM %s last_booted_record set to %s" (Ref.string_of self) x
 					with e ->
-						debug "Caught exception suspending VM: %s" (Printexc.to_string e);
+						debug "Caught exception suspending VM: %s" (string_of_exn e);
 						XenAPI.VDI.destroy ~rpc ~session_id ~self:vdi;
 						Db.VM.set_suspend_VDI ~__context ~self ~value:Ref.null;
 						raise e
@@ -1507,21 +1580,26 @@ let suspend ~__context ~self =
 		)
 
 let resume ~__context ~self ~start_paused ~force =
+	let dbg = Context.string_of_task __context in
 	transform_xenops_exn ~__context
 		(fun () ->
 			let vdi = Db.VM.get_suspend_VDI ~__context ~self in
 			let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in	
-			let id = push_metadata_to_xenopsd ~__context ~self in
-			add_caches id;
-			attach_networks ~__context ~self;
-			info "xenops: VM.resume %s from %s" id (disk |> rpc_of_disk |> Jsonrpc.to_string);
-			let dbg = Context.string_of_task __context in
-			Client.VM.resume dbg id disk |> sync_with_task __context;
-			if not start_paused then begin
-				info "xenops: VM.unpause %s" id;
-				Client.VM.unpause dbg id |> sync_with_task __context;
-			end;
-			set_resident_on ~__context ~self;
+			with_metadata_pushed_to_xenopsd ~__context ~self
+				(fun id ->
+					with_caches dbg id
+						(fun () ->
+							with_networks_attached ~__context ~self
+								(fun () ->
+									info "xenops: VM.resume %s from %s" id (disk |> rpc_of_disk |> Jsonrpc.to_string);
+									Client.VM.resume dbg id disk |> sync_with_task __context;
+									if not start_paused then begin
+										info "xenops: VM.unpause %s" id;
+										Client.VM.unpause dbg id |> sync_with_task __context;
+									end;
+								)
+						)
+				);
 			assert (Db.VM.get_power_state ~__context ~self = if start_paused then `Paused else `Running);
 			Helpers.call_api_functions ~__context
 				(fun rpc session_id ->
