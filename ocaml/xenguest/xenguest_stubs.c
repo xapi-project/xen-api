@@ -65,6 +65,7 @@ struct flags {
   int apic;
   int acpi_s3;
   int acpi_s4;
+  uint64_t mmio_size_mib;
 };
 
 static int pasprintf(char **buf, const char *fmt, ...)
@@ -168,11 +169,12 @@ get_flags(struct flags *f, int domid)
   f->pae      = xenstore_get(domid, "pae");
   f->acpi_s4  = xenstore_get(domid, "acpi_s4");
   f->acpi_s3  = xenstore_get(domid, "acpi_s3");
+  f->mmio_size_mib = xenstore_get(domid, "mmio_size_mib");
 
   openlog("xenguest",LOG_NDELAY,LOG_DAEMON);
   syslog(LOG_INFO|LOG_DAEMON,"Determined the following parameters from xenstore:");
-  syslog(LOG_INFO|LOG_DAEMON,"vcpu/number:%d vcpu/weight:%d vcpu/cap:%d nx: %d viridian: %d apic: %d acpi: %d pae: %d acpi_s4: %d acpi_s3: %d",
-                f->vcpus,f->vcpu_weight,f->vcpu_cap,f->nx,f->viridian,f->apic,f->acpi,f->pae,f->acpi_s4,f->acpi_s3);
+  syslog(LOG_INFO|LOG_DAEMON,"vcpu/number:%d vcpu/weight:%d vcpu/cap:%d nx: %d viridian: %d apic: %d acpi: %d pae: %d acpi_s4: %d acpi_s3: %d mmio_size_mib: %ld",
+                f->vcpus,f->vcpu_weight,f->vcpu_cap,f->nx,f->viridian,f->apic,f->acpi,f->pae,f->acpi_s4,f->acpi_s3,f->mmio_size_mib);
   for (n = 0; n < f->vcpus; n++){
 	syslog(LOG_INFO|LOG_DAEMON,"vcpu/%d/affinity:%s", n, (f->vcpu_affinity[n])?f->vcpu_affinity[n]:"unset");
   }
@@ -411,16 +413,19 @@ CAMLprim value stub_xc_hvm_build_native(value xc_handle, value domid,
   unsigned long console_mfn=0;
 	int r;
 	struct flags f;
+	struct xc_hvm_build_args args;
 	get_flags(&f, _D(domid));
 
 	xch = _H(xc_handle);
 	configure_vcpus(xch, _D(domid), f);
 
+	args.mem_size = (uint64_t)Int_val(mem_max_mib) << 20;
+	args.mem_target = (uint64_t)Int_val(mem_start_mib) << 20;
+	args.mmio_size = f.mmio_size_mib << 20;
+	args.image_file_name = image_name_c;
+
 	caml_enter_blocking_section ();
-	r = xc_hvm_build_target_mem(xch, _D(domid),
-	                            Int_val(mem_max_mib),
-	                            Int_val(mem_start_mib),
-	                            image_name_c);
+	r = xc_hvm_build(xch, _D(domid), &args);
 	caml_leave_blocking_section ();
 
 	free(image_name_c);
