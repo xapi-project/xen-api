@@ -123,6 +123,7 @@ let update_config config name data =
 (** {2 API functions} *)
 
 external reopen_logs: unit -> bool = ""
+external clear_state: unit -> unit = ""
 external reset_state: unit -> unit = ""
 
 module Interface = struct

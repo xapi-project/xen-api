@@ -22,6 +22,8 @@ open Stringext
 open Fun
 open Db_filter_types
 
+module Net = (val (Network.get_client ()) : Network.CLIENT)
+
 let refresh_internal ~__context ~self =
 
 	let device = Db.PIF.get_device ~__context ~self in
@@ -616,6 +618,9 @@ let start_of_day_best_effort_bring_up () =
 		debug
 			"Configured network backend: %s"
 			(Netdev.string_of_kind Netdev.network.Netdev.kind);
+		(* Clear the state of the network daemon, before refreshing it by plugging
+		 * all physical PIFs and bonds. *)
+		Net.clear_state ();
 		Server_helpers.exec_with_new_task
 			"Bringing up physical PIFs"
 			(fun __context ->
