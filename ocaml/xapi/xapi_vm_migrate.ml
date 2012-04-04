@@ -127,7 +127,7 @@ let migrate  ~__context ~vm ~dest ~live ~options =
 		(* Migrate the VM *)
 		let open Xenops_client in
 		let vm' = Db.VM.get_uuid ~__context ~self:vm in
-		XenopsAPI.VM.migrate task vm' xenops |> success |> wait_for_task task |> success_task task |> ignore;
+		XenopsAPI.VM.migrate task vm' vdi_map xenops |> wait_for_task task |> success_task task |> ignore;
 		let new_vm = XenAPI.VM.get_by_uuid remote_rpc session_id vm' in
 		(* Send non-database metadata *)
 		Xapi_message.send_messages ~__context ~cls:`VM ~obj_uuid:vm'
