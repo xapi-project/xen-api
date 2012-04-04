@@ -354,8 +354,8 @@ struct
 		end >> in
 
 		let exnty_of_exn = 
-			let gen_mc (uid,ty) = <:match_case<
-				$uid:uid$ x -> Exception.$uid:uid$ x >> in
+			let gen_mc = function | (uid,Some _) -> <:match_case< $uid:uid$ x -> Exception.$uid:uid$ x >> 
+				| (uid,None) -> <:match_case< $uid:uid$ -> Exception.$uid:uid$ >> in
 			let generic = <:match_case<
 				e -> Exception.Internal_error (Printexc.to_string e) >> in
 			let ors = List.map gen_mc rev_exns in
@@ -364,8 +364,8 @@ struct
 		in
 		
 		let exn_of_exnty = 
-			let gen_mc (uid,ty) = <:match_case<
-				Exception.$uid:uid$ x -> $uid:uid$ x >> in
+			let gen_mc = function | (uid,Some _) -> <:match_case< Exception.$uid:uid$ x -> $uid:uid$ x >> 
+				| (uid,None) -> <:match_case< Exception.$uid:uid$ -> $uid:uid$ >> in
 			let ors = List.map gen_mc rev_exns in
 			<:str_item<
 			value exn_of_exnty x = match x with [ $Ast.mcOr_of_list ors$ ] >>
