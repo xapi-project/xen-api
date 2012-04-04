@@ -235,7 +235,14 @@ module Storage = struct
 
 	let success = function
 		| Success x -> x
-		| x -> failwith (Printf.sprintf "Storage operation returned: %s" (x |> rpc_of_result |> Jsonrpc.to_string))
+		| Failure f -> begin match f with
+			| Sr_not_attached -> failwith "Sr_not_attached"
+			| Vdi_does_not_exist -> failwith "Vdi_does_not_exist"
+			| Unimplemented -> failwith "Storage API unimplemented"
+			| Illegal_transition(src, dest) -> failwith (Printf.sprintf "Illegal VDI state transition: %s -> %s" (Vdi_automaton.string_of_state src) (Vdi_automaton.string_of_state dest))
+			| Backend_error(code, params) -> raise (Storage_backend_error(code, params))
+			| Internal_err x -> failwith x
+		end
 
 	let params = function
 		| Params p -> p
@@ -911,7 +918,7 @@ module VM = struct
 			| e ->
 				let m = Printf.sprintf "VM = %s; domid = %d; Bootloader error: %s" vm.Vm.id domid (Printexc.to_string e) in
 				debug "%s" m;
-				raise (Internal_error m)
+				raise e
 
 	let build task vm vbds vifs = on_domain (build_domain vm vbds vifs) Newest task vm
 
