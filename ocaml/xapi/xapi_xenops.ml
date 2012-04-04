@@ -912,7 +912,7 @@ let update_vbd ~__context (id: (string * string)) =
 					Xapi_vbd_helpers.update_allowed_operations ~__context ~self:vbd
 				end
 	with e ->
-		error "xenopds event: Caught %s while updating VBD" (string_of_exn e)
+		error "xenopsd event: Caught %s while updating VBD" (string_of_exn e)
 
 let update_vif ~__context id =
 	try
