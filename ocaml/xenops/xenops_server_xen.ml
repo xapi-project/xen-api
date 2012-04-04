@@ -286,7 +286,7 @@ let with_disk ~xc ~xs task disk write f = match disk with
 		let open Storage_interface in
 		let open Storage in
 		let sr, vdi = get_disk_by_name task path in
-		let dp = Client.DP.create "with_disk" "xenopsd" in
+		let dp = Client.DP.create "with_disk" (Printf.sprintf "xenopsd/task/%s" task.Xenops_task.id) in
 		finally
 			(fun () ->
 				let vdi = attach_and_activate task dp sr vdi write in
