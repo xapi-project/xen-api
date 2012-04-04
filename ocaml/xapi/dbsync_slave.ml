@@ -116,7 +116,7 @@ let record_host_memory_properties ~__context =
 	let total_memory_bytes =
 		let open Xenops_client in
 		let dbg = Context.string_of_task __context in
-		let mib = Client.HOST.get_total_memory_mib dbg |> success in
+		let mib = Client.HOST.get_total_memory_mib dbg in
 		Int64.mul 1024L (Int64.mul 1024L mib) in
 	let metrics = Db.Host.get_metrics ~__context ~self in
 	Db.Host_metrics.set_memory_total ~__context ~self:metrics ~value:total_memory_bytes;

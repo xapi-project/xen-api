@@ -27,7 +27,7 @@ let xenstore_test xs _ =
 		let (_: bool) = cancellable_watch "/test/cancel" [] [] task ~xs ~timeout:3. () in
 		raise Did_not_cancel
 	with
-		| Exception(Cancelled(_)) ->
+		| Cancelled(_) ->
 			(* success *)
 			()
 
@@ -38,7 +38,7 @@ let subprocess_test _ =
 		let (_, _) = cancellable_subprocess task "/bin/sleep" [ "3s" ] in
 		raise Did_not_cancel
 	with
-		| Exception(Cancelled(_)) ->
+		| Cancelled(_) ->
 			(* success *)
 			()
 

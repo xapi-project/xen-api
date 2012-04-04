@@ -36,7 +36,7 @@ let port_of_proxy __context console =
 			let open Xenops_client in
 			let id = Xapi_xenops.id_of_vm ~__context ~self:vm in
 			let dbg = Context.string_of_task __context in		
-			let _, s = Client.VM.stat dbg id |> success in
+			let _, s = Client.VM.stat dbg id in
 			let proto = match Db.Console.get_protocol __context console with
 				| `rfb -> Vm.Rfb
 				| `vt100 -> Vm.Vt100

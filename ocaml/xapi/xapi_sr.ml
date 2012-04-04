@@ -93,6 +93,9 @@ let valid_operations ~__context record _ref' : table =
 	set_errors Api_errors.sr_operation_not_supported [ _ref ] [ `destroy; `forget ]
   else ();
 
+	(* If the SR is not empty, destroy is not allowed. *)
+	if (Db.SR.get_VDIs ~__context ~self:_ref') <> [] then
+		set_errors Api_errors.sr_not_empty [] [`destroy];
 
   let safe_to_parallelise = [ ] in
   let current_ops = List.setify (List.map snd current_ops) in

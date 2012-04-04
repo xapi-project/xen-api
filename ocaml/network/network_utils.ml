@@ -64,11 +64,12 @@ let call_script ?(log_successful_output=true) script args =
 	| Unix.Unix_error (e, a, b) ->
 		debug "Caught unix error: %s [%s, %s]" (Unix.error_message e) a b;
 		debug "Assuming script %s doesn't exist" script;
-		raise (RpcFailure ("SCRIPT_DOES_NOT_EXIST", ["script", script; "args", String.concat " " args]))
+		raise (Internal_error "script does not exist") (*(RpcFailure ("SCRIPT_DOES_NOT_EXIST", ["script", script; "args", String.concat " " args]))*)
 	| Forkhelpers.Spawn_internal_error(stderr, stdout, Unix.WEXITED n)->
 		debug "%s %s exited with code %d [stdout = '%s'; stderr = '%s']" script (String.concat " " args) n stdout stderr;
-		raise (RpcFailure ("SCRIPT_ERROR", ["script", script; "args", String.concat " " args; "code",
-			string_of_int n; "stdout", stdout; "stderr", stderr]))
+		raise (Internal_error "script error")
+			(*(RpcFailure ("SCRIPT_ERROR", ["script", script; "args", String.concat " " args; "code",
+			string_of_int n; "stdout", stdout; "stderr", stderr]))*)
 
 module Sysfs = struct
 	let list () =
@@ -109,6 +110,17 @@ module Sysfs = struct
 			let devpath = Unix.readlink (getpath name "device") in
 			List.hd (List.rev (String.split '/' devpath))
 		with exn -> "N/A"
+
+	let get_pci_ids name =
+		let read_id_from path =
+			try
+				let l = read_one_line path in
+				(* trim 0x *)
+				String.sub l 2 (String.length l - 2)
+			with _ -> ""
+			in
+		read_id_from (getpath name "device/vendor"),
+		read_id_from (getpath name "device/device")
 
 	(** Returns the name of the driver for network device [dev] *)
 	let get_driver_name dev =
@@ -654,5 +666,37 @@ module Ethtool = struct
 	let set_offload name options =
 		if options <> [] then
 			ignore (call ("-K" :: name :: (List.concat (List.map (fun (k, v) -> [k; v]) options))))
+end
+
+module Bindings = struct
+	let control_socket () =
+		try
+			Unix.socket Unix.PF_INET Unix.SOCK_DGRAM 0
+		with
+		exn ->
+			try
+				Unix.socket Unix.PF_UNIX Unix.SOCK_DGRAM 0
+			with
+			exn ->
+				Unix.socket Unix.PF_INET6 Unix.SOCK_DGRAM 0
+
+	let with_fd f =
+		let fd = control_socket () in
+		let r = begin try
+			f fd
+		with
+		exn ->
+			Unix.close fd;
+			raise exn
+		end in
+		Unix.close fd;
+		r
+
+	external _get_status : Unix.file_descr -> string -> int * duplex = "stub_link_get_status"
+
+	(** Returns speed and duplex for a given network interface.
+	 *  Note: from kernel 2.6.33, this information is also present in sysfs. *)
+	let get_status name =
+		with_fd (fun fd -> _get_status fd name)
 end
 

@@ -436,6 +436,31 @@ let wrap fn =
 	with e -> (* never bubble up the error here *) 
 		D.debug "ignoring %s" (ExnHelper.string_of_exn e)
 
+(* Extra info required for the WLB audit report. *)
+let add_dummy_args __context action args =
+	match args with
+	| None -> args
+	| Some (str_names, xml_values) -> begin
+		let rec find_self str_names xml_values =
+			match str_names, xml_values with
+			| ("self"::_), (xml::_) -> xml
+			| (_::str_names'), (_::xml_values') -> find_self str_names' xml_values'
+			| _, _ -> raise Not_found
+		in
+		match action with
+		(* Add VDI info for VBD.destroy *)
+		| "VBD.destroy" -> begin
+			try
+				let vbd = API.From.ref_VBD "self" (find_self str_names xml_values) in
+				let vdi = DB_Action.VBD.get_VDI __context vbd in
+				Some (str_names@["VDI"], xml_values@[API.To.ref_VDI vdi])
+			with e ->
+				D.debug "couldn't get VDI ref for VBD: %s" (ExnHelper.string_of_exn e);
+				args
+		end
+		| _ -> args
+	end
+
 let sexpr_of __context session_id allowed_denied ok_error result_error ?args ?sexpr_of_args action permission =
   let result_error = 
 		if result_error = "" then result_error else ":"^result_error
@@ -452,7 +477,7 @@ let sexpr_of __context session_id allowed_denied ok_error result_error ?args ?se
     SExpr.String action::
     (SExpr.Node (
 			match sexpr_of_args with
-			| None -> (sexpr_of_parameters __context action args)
+			| None -> (let args' = add_dummy_args __context action args in sexpr_of_parameters __context action args')
 			| Some sexpr_of_args -> sexpr_of_args
 		 ))::
 		[]
@@ -484,7 +509,7 @@ let allowed_pre_fn ~__context ~action ?args () =
 		if (has_to_audit action)
 			(* for now, we only cache arg results for destroy actions *)
 			&& (Stringext.String.has_substr action ".destroy")
-		then Some(sexpr_of_parameters __context action args)
+		then let args' = add_dummy_args __context action args in Some(sexpr_of_parameters __context action args')
 		else None
 	with e -> 
 		D.debug "ignoring %s" (ExnHelper.string_of_exn e);

@@ -297,7 +297,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 							| Failure _ ->
 								result, vdi_t
 							| Success (Stat _ | Vdi _ | Vdis _ | String _)->
-								Failure (Internal_error (Printf.sprintf "VDI.attach type error, received: %s" (string_of_result result))), vdi_t in
+								Failure (Internal_err (Printf.sprintf "VDI.attach type error, received: %s" (string_of_result result))), vdi_t in
 								result, vdi_t
 							| Vdi_automaton.Activate ->
 								Impl.VDI.activate context ~task ~dp ~sr ~vdi, vdi_t
@@ -310,7 +310,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 					with e ->
 						error "dp:%s sr:%s vdi:%s op:%s error:%s backtrace:%s" dp sr vdi
 							(Vdi_automaton.string_of_op op) (Printexc.to_string e) (Printexc.get_backtrace ());
-						Failure (Internal_error (Printexc.to_string e)), vdi_t in
+						Failure (Internal_err (Printexc.to_string e)), vdi_t in
 				(* If the side-effects fail then we drive the dp state back to state_on_fail *)
 				let vdi_t =
 					if not(success result)
@@ -615,7 +615,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 				| Vdi_automaton.Activated _, Some params ->
 					Success (Params params)
 				| _ -> 
-					Failure (Internal_error (Printf.sprintf "sr: %s vdi: %s Datapath %s not attached" sr vdi dp))
+					Failure (Internal_err (Printf.sprintf "sr: %s vdi: %s Datapath %s not attached" sr vdi dp))
 	end
 
 	module SR = struct
@@ -650,7 +650,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 							Everything.to_file !host_state_path (Everything.make ());
 							Success Unit
 						| Success _ ->
-							Failure (Internal_error "SR.attach received a non-unit")
+							Failure (Internal_err "SR.attach received a non-unit")
 						| Failure _ as x -> x
 						end
 					| Some _ ->
@@ -687,7 +687,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 									VDI.locks_remove sr;
 									Success Unit
 								| Success _ ->
-									Failure (Internal_error "SR detach/destroy received a non-unit")
+									Failure (Internal_err "SR detach/destroy received a non-unit")
 								| Failure _ as x -> x
 								end
 							)
