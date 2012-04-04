@@ -81,6 +81,14 @@ let read_management_conf () =
 		bridge_config = [bridge_name, bridge];
 		gateway_interface = Some bridge_name; dns_interface = Some bridge_name}
 
+let legacy_management_interface_start () =
+	try
+		ignore (call_script "/etc/init.d/management-interface" ["start"]);
+		debug "Upgrade: brought up interfaces using the old script. Xapi will sync up soon."
+	with e ->
+		debug "Error while configuring the management interface using the old script: %s\n%s"
+			(Printexc.to_string e) (Printexc.get_backtrace ())
+
 let write_config () =
 	let config_json = !config |> rpc_of_config_t |> Jsonrpc.to_string in
 	Unixext.write_string_to_file config_file_path config_json
@@ -91,13 +99,18 @@ let read_config () =
 		config := config_json |> Jsonrpc.of_string |> config_t_of_rpc;
 		debug "Read configuration from networkd.db file."
 	with _ ->
-		(* No configuration file found. Assume first-boot and try to get the initial
-		 * network setup from the first-boot data written by the host installer. *)
-		try
-			config := read_management_conf ();
-			debug "Read configuration from management.conf file."
-		with _ ->
-			debug "Could not interpret the configuration in management.conf"
+		(* No configuration file found. *)
+		(* Perhaps it is an upgrade from the pre-networkd era. If network.dbcache exists, try to configure the
+		 * management interface using the old scripts. *)
+		if (try Unix.access (Filename.concat Fhs.vardir "network.dbcache") [Unix.F_OK]; true with _ -> false) then
+			legacy_management_interface_start ()
+		else
+			(* Try to get the initial network setup from the first-boot data written by the host installer. *)
+			try
+				config := read_management_conf ();
+				debug "Read configuration from management.conf file."
+			with _ ->
+				debug "Could not interpret the configuration in management.conf"
 
 let on_shutdown signal =
 	debug "xcp-networkd caught signal %d; performing cleanup actions." signal;
@@ -108,6 +121,9 @@ let on_timer () =
 	write_config ()
 
 let reopen_logs _ () = true
+
+let clear_state _ () =
+	config := empty_config
 
 let reset_state _ () =
 	config := read_management_conf ()
@@ -698,7 +714,10 @@ let on_startup () =
 		(* the following is best-effort *)
 		read_config ();
 		Bridge.make_config () ~conservative:true ~config:!config.bridge_config ();
-		Interface.make_config () ~conservative:true ~config:!config.interface_config ()
+		Interface.make_config () ~conservative:true ~config:!config.interface_config ();
+		(* If there is still a network.dbcache file, move it out of the way. *)
+		if (try Unix.access (Filename.concat Fhs.vardir "network.dbcache") [Unix.F_OK]; true with _ -> false) then
+			Unix.rename (Filename.concat Fhs.vardir "network.dbcache") (Filename.concat Fhs.vardir "network.dbcache.bak");
 	with e ->
 		debug "Error while configuring networks on startup: %s\n%s"
 			(Printexc.to_string e) (Printexc.get_backtrace ())
