@@ -42,6 +42,8 @@ let event_mutex = Mutex.create ()
 let in_memory_cache = ref []
 let in_memory_cache_mutex = Mutex.create ()
 let in_memory_cache_length = ref 0
+let in_memory_cache_length_max = 512
+let in_memory_cache_length_default = 256
 
 let class_to_string cls = 
   match cls with 
@@ -122,6 +124,41 @@ let of_xml input =
     (Ref.of_string !_ref,!message) 
   with e -> log_backtrace (); debug "Caught exception: %s" (Printexc.to_string e); raise e
 
+let export_xml messages =
+	let size = 500 * (List.length messages) in
+	let buf = Buffer.create size in
+	let output = Xmlm.make_output (`Buffer buf) in
+	List.iter (function | r,m -> to_xml output r m) messages ;
+	Buffer.contents buf
+
+let import_xml xml_in =
+	let split_xml =
+		let ob = Buffer.create 600 in
+		(* let i = Xmlm.make_input (`String (0, xml)) in *)
+		let o = Xmlm.make_output (`Buffer ob) in
+		let rec pull xml_in o depth =
+			Xmlm.output o (Xmlm.peek xml_in);
+			match Xmlm.input xml_in with
+				| `El_start _ -> pull xml_in o (depth + 1)
+				| `El_end -> if depth = 1 then () else pull xml_in o (depth - 1)
+				| `Data _ -> pull xml_in o depth
+				| `Dtd _ -> pull xml_in o depth
+		in
+
+		let out = ref [] in
+		while not (Xmlm.eoi xml_in) do
+			pull xml_in o 0 ;
+			out := (Buffer.contents ob) :: !out ;
+			Buffer.clear ob
+		done ;
+		!out in
+
+	let rec loop = function
+		| [] -> []
+		| m :: ms ->
+			  let im = Xmlm.make_input (`String (0, m)) in
+			  (of_xml im) :: loop ms
+	in loop split_xml
 
 
 (********** Symlink functions *************)
@@ -192,101 +229,165 @@ let start_message_hook_thread ~__context () =
 
 (********************************************************************)
 
-let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
-  debug "Message.create %s %Ld %s %s" name priority 
-    (class_to_string cls) obj_uuid;
-  
-  (if not (Encodings.UTF8_XML.is_valid body) then raise (Api_errors.Server_error (Api_errors.invalid_value, ["UTF8 expected"])));
-  (if not (check_uuid ~__context ~cls ~uuid:obj_uuid) then raise (Api_errors.Server_error (Api_errors.uuid_invalid, [class_to_string cls; obj_uuid])));
-
-  let _ref = Ref.make () in
-  let uuid = Uuid.to_string (Uuid.make_uuid ()) in
-
-  (* Make sure the directory is there *)
-  let local_storage_exists = Helpers.local_storage_exists() in
-
-  if not local_storage_exists then
-    begin
-
-      (* If there's no local storage, emit a create event, but do nothing else. *)
-      (* For consistency, we might want to also emit a del event here too (since *)
-      (* the reference for the message will never be valid again) *)
-      
-      let message = {API.message_name=name;
-		     API.message_uuid=uuid;
-		     API.message_priority=priority;
-		     API.message_cls=cls;
-		     API.message_obj_uuid=obj_uuid;
-		     API.message_timestamp=Date.of_float (Unix.gettimeofday ());
-		     API.message_body=body;}
-      in
-      
-      let xml = API.To.message_t message in
-      Xapi_event.event_add ~snapshot:xml "message" "add" (Ref.string_of _ref);
-      let (_: bool) = (!queue_push) name (message_to_string (_ref,message)) in
-      (*Xapi_event.event_add ~snapshot:xml "message" "del" (Ref.string_of _ref);*)
-
-      (* Return a null reference *)
-      Ref.null	
-    end
-  else
-    begin
-      Unixext.mkdir_safe message_dir 0o700;
-      
-		Mutex.execute event_mutex 
-			(fun () -> 
-      let f,filename,basefilename,timestamp = 
-	let rec doit n =
-	  if n>10 then failwith "Couldn't create a file" else begin
-	    try
-	      let timestamp = Unix.gettimeofday () in
-	      let basefilename = timestamp_to_string timestamp in
-	      let filename = message_dir ^ "/" ^ basefilename in
-	      let f = Unix.openfile filename [Unix.O_RDWR; Unix.O_CREAT; Unix.O_EXCL] 0o600 in
-	      f,filename,basefilename,timestamp
-	    with _ -> doit (n+1)
-	  end
+let get_last_n dir n =
+	let cmp a b = compare
+		(float_of_string a)
+		(float_of_string b) (* oldest first, reverse later *)
+	and files = List.filter
+		(fun m -> try float_of_string m > 0.0 with _ -> false)
+		(Array.to_list (Sys.readdir dir))
+	and msg_of_file mf =
+		let fn = message_dir ^ "/" ^ mf in
+		let ic = open_in fn in
+		let xi = Xmlm.make_input (`Channel ic) in
+		let (_ref,msg) = Pervasiveext.finally
+			(fun () -> of_xml xi)
+			(fun () -> close_in ic) in
+		let ts = Date.to_float msg.API.message_timestamp in
+		(ts, _ref, msg)
 	in
-	doit 0
-      in
+	List.rev_map msg_of_file
+		(Listext.List.take n
+			 (List.fast_sort cmp files))
 
-					let message = {
-						API.message_name=name;
-		     API.message_uuid=uuid;
-		     API.message_priority=priority;
-		     API.message_cls=cls;
-		     API.message_obj_uuid=obj_uuid;
-		     API.message_timestamp=Date.of_float timestamp;
-		     API.message_body=body;}
-      in
+let repopulate_cache () = try
+	let msgs = get_last_n
+		message_dir
+		in_memory_cache_length_default in
+	let len = List.length msgs in
+	let n = Mutex.execute in_memory_cache_mutex
+		(fun () ->
+			in_memory_cache := msgs ;
+			in_memory_cache_length := len ;
+			!in_memory_cache_length
+		) in
+	debug "Repopulating in-memory cache of messages: Length=%d" n
+	with e ->
+		error "Exception '%s' in Xapi_message.repopulate_cache; cache left unchanged"
+			(ExnHelper.string_of_exn e)
 
-					Mutex.execute in_memory_cache_mutex (fun () ->
-						in_memory_cache := (timestamp,_ref,message) :: !in_memory_cache;
-						in_memory_cache_length := !in_memory_cache_length + 1;
+let cache_insert _ref message =
+	let timestamp = Date.to_float message.API.message_timestamp in
+	Mutex.execute in_memory_cache_mutex (fun () ->
+		in_memory_cache :=
+			(timestamp,_ref,message) :: !in_memory_cache ;
 
-						if !in_memory_cache_length > 512 then begin
-							in_memory_cache := Listext.List.take 256 !in_memory_cache;
-							in_memory_cache_length := 256;
-							debug "Pruning in-memory cache of messages: Length=%d (%d)" !in_memory_cache_length (List.length !in_memory_cache)
-						end);
+		in_memory_cache_length :=
+			!in_memory_cache_length + 1 ;
 
-      let xml = API.To.message_t message in
-      Xapi_event.event_add ~snapshot:xml "message" "add" (Ref.string_of _ref);
-      let (_: bool) = (!queue_push) name (message_to_string (_ref,message)) in 
+		if !in_memory_cache_length > in_memory_cache_length_max then begin
+			in_memory_cache := Listext.List.take
+				in_memory_cache_length_default
+				!in_memory_cache ;
+			in_memory_cache_length := in_memory_cache_length_default ;
+			debug "Pruning in-memory cache of messages: Length=%d (%d)"
+				!in_memory_cache_length
+				(List.length !in_memory_cache)
+		end)
 
-      let oc = Unix.out_channel_of_descr f in
-      let output = Xmlm.make_output (`Channel oc) in
-      to_xml output _ref message;
-      close_out oc;
+(** Write: write message to disk. Returns boolean indicating whether
+	message was written *)
+let write ~_ref ~message =
+	(* Check if a message with _ref has already been written *)
+	let message_exists () =
+		let file = (ref_symlink ()) ^ "/" ^ (Ref.string_of _ref) in
+		try Unix.access file [Unix.F_OK] ; true with _ -> false in
+	(* Make sure the directory is there *)
+	if not (Helpers.local_storage_exists ())
+	then false (* couldn't write message *)
+	else begin
+		Unixext.mkdir_safe message_dir 0o700;
+		let timestamp = ref (Date.to_float (message.API.message_timestamp)) in
 
-      (* Message now written, lets symlink it in various places *)
-      let symlinks = symlinks _ref message basefilename in
-      List.iter (fun (dir,newpath) ->
-	Unixext.mkdir_rec dir 0o700;
-								Unix.symlink filename newpath) symlinks);
+		if message_exists () then false (* Don't overwrite message with same ref *)
+		else try Mutex.execute event_mutex (fun () ->
+			let fd, basefilename, filename =
+				(* Try 10, no wait, 11 times to create message file *)
+				let rec doit n =
+					if n>10 then failwith "Couldn't create a file" else begin
+						let basefilename = timestamp_to_string !timestamp in
+						let filename = message_dir ^ "/" ^ basefilename in
+						try
+							let fd = Unix.openfile filename
+								[Unix.O_RDWR; Unix.O_CREAT; Unix.O_EXCL] 0o600 in
+							(* Set file's timestamp to message timestamp *)
+							Unix.utimes filename !timestamp !timestamp ;
+							fd, basefilename, filename
+						with _ -> begin
+							(* We may be copying messages from another
+							   pool, in which case we may have
+							   filename collision (unlikely, but
+							   possible). So increment the filename
+							   and try again, but leave the original
+							   timestamp in the message untouched. *)
+							timestamp := !timestamp +. 0.00001 ;
+							doit (n+1)
+						end
+					end
+				in doit 0
+			in
 
-      _ref
-    end
+			(* Write the message to file *)
+			let oc = Unix.out_channel_of_descr fd in
+			let output = Xmlm.make_output (`Channel oc) in
+			to_xml output _ref message;
+			close_out oc;
+
+			(* Message now written, let's symlink it in various places *)
+			let symlinks = symlinks _ref message basefilename in
+			List.iter (fun (dir,newpath) ->
+				Unixext.mkdir_rec dir 0o700;
+			  Unix.symlink filename newpath) symlinks
+		 ) ; true (* End of event_mutex *)
+		 with _ -> false
+	end
+
+(** create: Create a new message, and write to disk. Returns null ref
+	if write failed, or message ref otherwise. *)
+let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
+	debug "Message.create %s %Ld %s %s" name priority
+		(class_to_string cls) obj_uuid;
+
+	(if not (Encodings.UTF8_XML.is_valid body)
+	 then raise (Api_errors.Server_error
+					 (Api_errors.invalid_value, ["UTF8 expected"]))) ;
+	(if not (check_uuid ~__context ~cls ~uuid:obj_uuid)
+	 then raise (Api_errors.Server_error
+					 (Api_errors.uuid_invalid, [class_to_string cls; obj_uuid]))) ;
+
+	let _ref = Ref.make () in
+	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+
+	let timestamp = Mutex.execute event_mutex (fun () ->
+		Unix.gettimeofday ()) in
+
+	let message = {API.message_name=name;
+				   API.message_uuid=uuid;
+				   API.message_priority=priority;
+				   API.message_cls=cls;
+				   API.message_obj_uuid=obj_uuid;
+				   API.message_timestamp=Date.of_float timestamp;
+				   API.message_body=body;}
+	in
+
+	(* Write the message to disk *)
+	let was_written = write ~_ref ~message in
+
+	(* Insert a written message into in_memory_cache *)
+	(if was_written then cache_insert _ref message) ;
+
+	(* Emit a create event (with the old event API). If the message
+	   hasn't been written, we may want to also emit a del even, for
+	   consistency (since the reference for the message will never be
+	   valid again. *)
+	let xml = API.To.message_t message in
+	Xapi_event.event_add ~snapshot:xml "message" "add" (Ref.string_of _ref);
+	let (_: bool) = (!queue_push) name (message_to_string (_ref,message)) in
+	(*Xapi_event.event_add ~snapshot:xml "message" "del" (Ref.string_of _ref);*)
+
+	(* Return the message ref, or Ref.null if the message wasn't written *)
+	if was_written then _ref else Ref.null
+
       
 let deleted : (Date.iso8601 * API.ref_message) list ref = ref [Date.never, Ref.null]
 let ndeleted = ref 1
@@ -449,7 +550,7 @@ let register_event_hook () =
 
 (* Query params: cls=VM etc, obj_uuid=<..>, min_priority. Returns the last
    days worth of messages as an RSS feed. *)  
-let handler (req: Http.Request.t) (bio: Buf_io.t) _ =
+let rss_handler (req: Http.Request.t) (bio: Buf_io.t) _ =
   let query = req.Http.Request.query in
   req.Http.Request.close <- true;
   debug "Message handler";
@@ -498,3 +599,75 @@ let handler (req: Http.Request.t) (bio: Buf_io.t) _ =
 			      (Int64.of_int (String.length body)) 
 			      ~version:"1.1" ~keep_alive:false ())@[Http.Hdr.content_type ^": application/rss+xml"]);
       ignore(Unix.write s body 0 (String.length body)))
+
+(** Handler for PUTing messages to a host.
+	Query params: { cls=<obj class>, uuid=<obj uuid> } *)
+let handler (req: Http.Request.t) fd _ =
+	let query = req.Http.Request.query in
+	req.Http.Request.close <- true ;
+	debug "Xapi_message.handler: receiving messages" ;
+
+	let check_query param =
+		if not (List.mem_assoc param query) then begin
+			error "Xapi_message.handler: HTTP request for message lacked %s parameter" param ;
+			Http_svr.headers fd (Http.http_400_badrequest ()) ;
+			failwith (Printf.sprintf "Xapi_message.handler: Missing %s parameter" param)
+		end in
+
+	(* Check query for required params *)
+	check_query "uuid" ; check_query "cls" ;
+
+	Xapi_http.with_context ~dummy:true "Xapi_message.handler" req fd
+		(fun __context -> try
+			(* Redirect if we're not master *)
+			if not (Pool_role.is_master ())
+			then
+				let url = Printf.sprintf "https://%s%s?%s"
+					(Pool_role.get_master_address ())
+					req.Http.Request.uri
+					(String.concat "&"
+						 (List.map (fun (a,b) -> a^"="^b) query)) in
+				Http_svr.headers fd (Http.http_302_redirect url) ;
+
+			else
+				(* Get and check query parameters *)
+				let uuid = List.assoc "uuid" query
+				and cls = List.assoc "cls" query in
+				let cls = try string_to_class cls with _ ->
+					failwith ("Xapi_message.handler: Bad class " ^ cls) in
+				if not (check_uuid ~__context ~cls ~uuid) then
+					failwith ("Xapi_message.handler: Bad uuid " ^ uuid) ;
+
+				(* Tell client we're good to receive *)
+				Http_svr.headers fd (Http.http_200_ok ()) ;
+
+				(* Read messages in, and write to filesystem *)
+				let xml_in = Xmlm.make_input
+					(`Channel (Unix.in_channel_of_descr fd)) in
+				let messages = import_xml xml_in in
+				List.iter (function (r,m) -> ignore (write r m)) messages ;
+
+				(* Flush cache and reload *)
+				repopulate_cache () ;
+
+			with e -> error "Xapi_message.handler: caught exception '%s'"
+				(ExnHelper.string_of_exn e)
+		)
+
+(* Export messages and send to another host/pool over http. *)
+let send_messages ~__context ~cls ~obj_uuid ~session_id ~remote_address =
+	let msgs = get ~__context ~cls ~obj_uuid ~since:(Date.of_float 0.0) in
+	let body = export_xml msgs in
+	let query = [ "session_id", Ref.string_of session_id
+				; "cls", "VM"
+				; "uuid", obj_uuid ] in
+	let subtask_of = Context.string_of_task __context in
+	let request = Xapi_http.http_request ~subtask_of ~query ~body
+		Http.Put Constants.message_put_uri in
+	let open Xmlrpc_client in
+		let transport = SSL(SSL.make (), remote_address, !Xapi_globs.https_port) in
+		with_transport transport
+			(with_http request
+				 (fun (rsp, fd) ->
+					 if rsp.Http.Response.code <> "200"
+					 then error "Error transferring messages"))

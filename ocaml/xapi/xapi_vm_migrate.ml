@@ -14,10 +14,10 @@
 (**
  * @group Virtual-Machine Management
  *)
- 
+
 (** We only currently support within-pool live or dead migration.
    Unfortunately in the cross-pool case, two hosts must share the same SR and
-   co-ordinate tapdisk locking. We have not got code for this. 
+   co-ordinate tapdisk locking. We have not got code for this.
  *)
 
 open Pervasiveext
@@ -57,6 +57,7 @@ let pool_migrate ~__context ~vm ~host ~options =
 			XenopsAPI.VM.migrate dbg vm' [] xenops_url |> wait_for_task dbg |> success_task dbg |> ignore;
 		);
 	Xapi_xenops.remove_caches vm';
+	Monitor_rrds.migrate_push ~__context vm' host;
 	(* We will have missed important events because we set resident_on late.
 	   This was deliberate: resident_on is used by the pool master to reserve
 	   memory. If we called 'atomic_set_resident_on' before the domain is
@@ -125,12 +126,20 @@ let migrate  ~__context ~vm ~dest ~live ~options =
 		Importexport.remote_metadata_export_import ~__context ~rpc:remote_rpc ~session_id ~remote_address (`Only vm);
 		(* Migrate the VM *)
 		let open Xenops_client in
-		let vm = Db.VM.get_uuid ~__context ~self:vm in
-		XenopsAPI.VM.migrate task vm vdi_map xenops |> wait_for_task task |> success_task task |> ignore;
-		let new_vm = XenAPI.VM.get_by_uuid remote_rpc session_id vm in
+		let vm' = Db.VM.get_uuid ~__context ~self:vm in
+		XenopsAPI.VM.migrate task vm' xenops |> success |> wait_for_task task |> success_task task |> ignore;
+		let new_vm = XenAPI.VM.get_by_uuid remote_rpc session_id vm' in
+		(* Send non-database metadata *)
+		Xapi_message.send_messages ~__context ~cls:`VM ~obj_uuid:vm'
+			~session_id ~remote_address;
+		Monitor_rrds.migrate_push ~__context ~remote_address
+			~session_id vm' (Ref.of_string dest_host);
+		Xapi_blob.migrate_push ~__context ~rpc:remote_rpc
+			~remote_address ~session_id ~old_vm:vm ~new_vm ;
 		(* Signal the remote pool that we're done *)
 		XenAPI.VM.pool_migrate_complete remote_rpc session_id new_vm (Ref.of_string dest_host);
-		debug "Done"
+		(* And we're finished *)
+		debug "Migration complete";
 	with e ->
 		error "Caught %s: cleaning up" (Printexc.to_string e);
 		List.iter
