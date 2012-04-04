@@ -354,7 +354,6 @@ let perform_wlb_request ?auth ?url ?enable_log ~meth ~params
         with          
         | Xml_parse_failure error -> "0" (* If it failed trying to get ResultCode, assume the call was successful *)
         in
-        debug "Code: %s Call: %s" code meth;
         if code <> "0" then
           (* Call failed, get error message and raise internal error *)
           let message =
