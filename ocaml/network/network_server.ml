@@ -484,8 +484,8 @@ module Bridge = struct
 				List.iter (fun dev ->
 					Interface.set_ipv4_conf () ~name:dev ~conf:None4;
 					Interface.bring_down () ~name:dev;
-					if Sysfs.is_bond_device dev then
-						Sysfs.remove_bond_master dev;
+					if Linux_bonding.is_bond_device dev then
+						Linux_bonding.remove_bond_master dev;
 					if String.startswith "eth" dev && String.contains dev '.' then
 						ignore (Ip.destroy_vlan dev)
 				) ifs;
@@ -568,10 +568,10 @@ module Bridge = struct
 				ignore (Brctl.create_port bridge name)
 			end else begin
 				if not (List.mem name (Sysfs.bridge_to_interfaces bridge)) then begin
-					Sysfs.add_bond_master name;
+					Linux_bonding.add_bond_master name;
 					if mac <> "" then Ip.set_mac name mac;
 					List.iter (fun name -> Interface.bring_down () ~name) interfaces;
-					List.iter (Sysfs.add_bond_slave name) interfaces
+					List.iter (Linux_bonding.add_bond_slave name) interfaces
 				end;
 				Interface.bring_up () ~name;
 				ignore (Brctl.create_port bridge name)
@@ -621,9 +621,7 @@ module Bridge = struct
 					List.replace_assoc "mode" "802.3ad" params
 				else params
 			in
-			Interface.bring_down () ~name;
-			Sysfs.set_bond_properties name params;
-			Interface.bring_up () ~name
+			Linux_bonding.set_bond_properties name params
 
 	let get_fail_mode _ ~name =
 		match !kind with
