@@ -437,8 +437,8 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 						Net.Interface.set_persistent ~name:bridge ~value:false;
 						Net.Bridge.set_persistent ~name:bridge ~value:false
 					end
-				with Network_interface.RpcFailure (err, params) ->
-					let e = Printf.sprintf "%s [%s]" err (String.concat ", " (List.map (fun (k, v) -> k ^ " = " ^ v) params)) in
+				with Network_interface.Internal_error str ->
+					let e = Printf.sprintf "%s" str in
 					error "Network configuration error: %s" e;
 					raise (Api_errors.Server_error(Api_errors.pif_configuration_error, [Ref.string_of pif; e]))
 				end
@@ -502,8 +502,8 @@ let bring_pif_down ~__context ?(force=false) (pif: API.ref_PIF) =
 					let bridge = Db.Network.get_bridge ~__context ~self:rc.API.pIF_network in
 					destroy_bridges ~__context ~force rc bridge;
 					Net.Interface.set_persistent ~name:bridge ~value:false
-				with Network_interface.RpcFailure (err, params) ->
-					let e = Printf.sprintf "%s [%s]" err (String.concat ", " (List.map (fun (k, v) -> k ^ " = " ^ v) params)) in
+				with Network_interface.Internal_error err ->
+					let e = Printf.sprintf "%s" err in
 					error "Network configuration error: %s" e;
 					raise (Api_errors.Server_error(Api_errors.pif_configuration_error, [Ref.string_of pif; e]))
 			else begin

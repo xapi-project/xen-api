@@ -130,7 +130,7 @@ let di_of_uuid ~xc ~xs domain_selection uuid =
 	if List.length oldest_first > 2
 	then warn "VM %s: there are %d domains (%s) with the same uuid: one or more have leaked" uuid' (List.length oldest_first) domid_list;
 	if domain_selection = Expect_only_one && (List.length oldest_first > 1)
-	then raise (Exception (Internal_error (Printf.sprintf "More than one domain with uuid (%s): %s" uuid' domid_list)));
+	then raise (Internal_error (Printf.sprintf "More than one domain with uuid (%s): %s" uuid' domid_list));
 	match (if domain_selection = Oldest then oldest_first else List.rev oldest_first) with
 		| [] -> None
 		| x :: [] ->
@@ -150,7 +150,7 @@ let create_vbd_frontend ~xc ~xs task frontend_domid vdi =
 	match domid_of_uuid ~xc ~xs Expect_only_one (Uuid.uuid_of_string backend_vm_id) with
 		| None ->
 			error "VM = %s; domid = %d; Failed to determine domid of backend VM id: %s" frontend_vm_id frontend_domid backend_vm_id;
-			raise (Exception(Does_not_exist("domain", backend_vm_id)))
+			raise (Does_not_exist("domain", backend_vm_id))
 		| Some backend_domid when backend_domid = frontend_domid ->
 			(* There's no need to use a PV disk if we're in the same domain *)
 			Name vdi.params
@@ -315,10 +315,10 @@ module Mem = struct
 					| [ needed; free ] ->
 						let needed = Memory.bytes_of_kib (Int64.of_string needed) in
 						let free = Memory.bytes_of_kib (Int64.of_string free) in
-						raise (Exception(Cannot_free_this_much_memory(needed, free)))
+						raise (Cannot_free_this_much_memory(needed, free))
 					| _ ->
 						error "Failed to parse cannot_free_this_much_memory_error (old ballooning daemon?)";
-						raise (Exception (Ballooning_error(code, descr)))
+						raise (Ballooning_error(code, descr))
 				end
 			| Squeezed_rpc.Error(code, descr) when code = Squeezed_rpc._error_domains_refused_to_cooperate_code ->
 				debug "Got error_domains_refused_to_cooperate_code from ballooning daemon";
@@ -326,12 +326,12 @@ module Mem = struct
 					(fun xc ->
 						let domids = List.map int_of_string (Stringext.String.split ',' descr) in
 						let vms = List.map (get_uuid ~xc) domids |> List.map Uuid.string_of_uuid in
-						raise (Exception (Vms_failed_to_cooperate(vms)))
+						raise (Vms_failed_to_cooperate(vms))
 					)
 			| Squeezed_rpc.Server_not_registered ->
 				error "The ballooning daemon is not running";
 				None (* Keep going anyway *)
-			| Squeezed_rpc.Error(code, descr) -> raise (Exception (Ballooning_error(code, descr)))
+			| Squeezed_rpc.Error(code, descr) -> raise (Ballooning_error(code, descr))
 
 	let do_login_exn ~xs =
 		let args = [ Squeezed_rpc._service_name, "xenopsd" ] in
@@ -454,7 +454,7 @@ let device_by_id xc xs vm kind domain_selection id =
 	match vm |> Uuid.uuid_of_string |> domid_of_uuid ~xc ~xs domain_selection with
 		| None ->
 			debug "VM = %s; does not exist in domain list" vm;
-			raise (Exception(Does_not_exist("domain", vm)))
+			raise (Does_not_exist("domain", vm))
 		| Some frontend_domid ->
 			let devices = Device_common.list_frontends ~xs frontend_domid in
 
@@ -468,7 +468,7 @@ let device_by_id xc xs vm kind domain_selection id =
 				List.assoc (Some id) (List.combine ids devices)
 			with Not_found ->
 				debug "VM = %s; domid = %d; Device is not active: kind = %s; id = %s; active devices = [ %s ]" vm frontend_domid (Device_common.string_of_kind kind) id (String.concat ", " (List.map (Opt.default "None") ids));
-				raise (Exception Device_not_connected)
+				raise (Device_not_connected)
 
 let set_stubdom ~xs domid domid' =
 	xs.Xs.write (Printf.sprintf "/local/domain/%d/stub-domid" domid) (string_of_int domid')
@@ -648,7 +648,7 @@ module VM = struct
 		with_xc_and_xs
 			(fun xc xs ->
 				match di_of_uuid ~xc ~xs domain_selection uuid with
-					| None -> raise (Exception(Does_not_exist("domain", vm.Vm.id)))
+					| None -> raise (Does_not_exist("domain", vm.Vm.id))
 					| Some di -> f xc xs task vm di
 			)
 
@@ -688,12 +688,12 @@ module VM = struct
 	) Oldest
 
 	let pause = on_domain (fun xc xs _ _ di ->
-		if di.Xenctrl.total_memory_pages = 0n then raise (Exception Domain_not_built);
+		if di.Xenctrl.total_memory_pages = 0n then raise (Domain_not_built);
 		Domain.pause ~xc di.Xenctrl.domid
 	) Newest
 
 	let unpause = on_domain (fun xc xs _ _ di ->
-		if di.Xenctrl.total_memory_pages = 0n then raise (Exception Domain_not_built);
+		if di.Xenctrl.total_memory_pages = 0n then raise (Domain_not_built);
 		Domain.unpause ~xc di.Xenctrl.domid;
 		Opt.iter
 			(fun stubdom_domid ->
@@ -706,7 +706,7 @@ module VM = struct
 	) Newest task vm
 
 	let set_vcpus task vm target = on_domain (fun xc xs _ _ di ->
-		if di.Xenctrl.hvm_guest then raise (Exception(Unimplemented("vcpu hotplug for HVM domains")));
+		if di.Xenctrl.hvm_guest then raise (Unimplemented("vcpu hotplug for HVM domains"));
 
 		let domid = di.Xenctrl.domid in
 		(* Returns the instantaneous CPU number from xenstore *)
@@ -733,7 +733,7 @@ module VM = struct
 	) Newest task vm
 
 	let set_shadow_multiplier task vm target = on_domain (fun xc xs _ _ di ->
-		if not di.Xenctrl.hvm_guest then raise (Exception (Unimplemented "shadow_multiplier for PV domains"));
+		if not di.Xenctrl.hvm_guest then raise (Unimplemented "shadow_multiplier for PV domains");
 		let domid = di.Xenctrl.domid in
 		let static_max_mib = Memory.mib_of_bytes_used vm.Vm.memory_static_max in
 		let newshadow = Int64.to_int (Memory.HVM.shadow_mib static_max_mib vm.Vm.vcpu_max target) in
@@ -742,7 +742,7 @@ module VM = struct
 		debug "VM = %s; domid = %d; Domain has %d MiB shadow; an increase of %d MiB requested" vm.Vm.id domid curshadow needed_mib;
 		if not(Domain.wait_xen_free_mem xc (Int64.mul (Int64.of_int needed_mib) 1024L)) then begin
 		    error "VM = %s; domid = %d; Failed waiting for Xen to free %d MiB: some memory is not properly accounted" vm.Vm.id domid needed_mib;
-			raise (Exception (Not_enough_memory (Memory.bytes_of_mib (Int64.of_int needed_mib))))
+			raise (Not_enough_memory (Memory.bytes_of_mib (Int64.of_int needed_mib)))
 		end;
 		debug "VM = %s; domid = %d; shadow_allocation_setto %d MiB" vm.Vm.id domid newshadow;
 		Xenctrl.shadow_allocation_set xc domid newshadow;
@@ -760,7 +760,7 @@ module VM = struct
 	   restored with the VM. *)
 	let create_device_model_config = function
 		| { VmExtra.build_info = None }
-		| { VmExtra.ty = None } -> raise (Exception Domain_not_built)
+		| { VmExtra.ty = None } -> raise (Domain_not_built)
 		| {
 			VmExtra.ty = Some ty; build_info = Some build_info;
 			vifs = vifs;
@@ -858,7 +858,7 @@ module VM = struct
 						} in
 						make_build_info direct.kernel builder_spec_info
 					| PV { boot = Indirect { devices = [] } } ->
-						raise (Exception No_bootable_device)
+						raise (No_bootable_device)
 					| PV { boot = Indirect ( { devices = d :: _ } as i ) } ->
 						with_disk ~xc ~xs task d false
 							(fun dev ->
@@ -895,23 +895,23 @@ module VM = struct
 			| Bootloader.Bad_sexpr x ->
 				let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Bad_sexpr %s" vm.Vm.id domid x in
 				debug "%s" m;
-				raise (Exception (Internal_error m))
+				raise (Internal_error m)
 			| Bootloader.Bad_error x ->
 				let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Bad_error %s" vm.Vm.id domid x in
 				debug "%s" m;
-				raise (Exception (Internal_error m))
+				raise (Internal_error m)
 			| Bootloader.Unknown_bootloader x ->
 				let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Unknown_bootloader %s" vm.Vm.id domid x in
 				debug "%s" m;
-				raise (Exception (Internal_error m))
+				raise (Internal_error m)
 			| Bootloader.Error_from_bootloader (a, b) ->
 				let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Error_from_bootloader (%s, [ %s ])" vm.Vm.id domid a (String.concat "; " b) in
 				debug "%s" m;
-				raise (Exception (Bootloader_error (a, b)))
+				raise (Bootloader_error (a, b))
 			| e ->
 				let m = Printf.sprintf "VM = %s; domid = %d; Bootloader error: %s" vm.Vm.id domid (Printexc.to_string e) in
 				debug "%s" m;
-				raise (Exception (Internal_error m))
+				raise (Internal_error m)
 
 	let build task vm vbds vifs = on_domain (build_domain vm vbds vifs) Newest task vm
 
@@ -1028,7 +1028,7 @@ module VM = struct
 												Unixext.fsync fd;
 											with Unix.Unix_error(Unix.EIO, _, _) ->
 												error "Caught EIO in fsync after suspend; suspend image may be corrupt";
-												raise (Exception IO_error)
+												raise (IO_error)
 										)
 								)
 						)
@@ -1050,9 +1050,9 @@ module VM = struct
 						Domain.suspend task ~xc ~xs ~hvm ~progress_callback domid fd flags'
 							(fun () ->
 								if not(request_shutdown task vm Suspend 30.)
-								then raise (Exception Failed_to_acknowledge_shutdown_request);
+								then raise (Failed_to_acknowledge_shutdown_request);
 								if not(wait_shutdown task vm Suspend 1200.)
-								then raise (Exception(Failed_to_shutdown(vm.Vm.id, 1200.)));
+								then raise (Failed_to_shutdown(vm.Vm.id, 1200.));
 							);
 						(* Record the final memory usage of the domain so we know how
 						   much to allocate for the resume *)
@@ -1089,7 +1089,7 @@ module VM = struct
 		let build_info = match DB.read_exn vm.Vm.id with
 			| { VmExtra.build_info = None } ->
 				error "VM = %s; No stored build_info: cannot safely restore" vm.Vm.id;
-				raise (Exception(Does_not_exist("build_info", vm.Vm.id)))
+				raise (Does_not_exist("build_info", vm.Vm.id))
 			| { VmExtra.build_info = Some x } -> x in
 		on_domain
 			(fun xc xs task vm di ->
@@ -1188,7 +1188,7 @@ module VM = struct
 		with_xc_and_xs
 			(fun xc xs ->
 				match di_of_uuid ~xc ~xs Newest uuid with
-					| None -> raise (Exception(Does_not_exist("domain", vm.Vm.id)))
+					| None -> raise (Does_not_exist("domain", vm.Vm.id))
 					| Some di ->
 						Domain.set_action_request ~xs di.Xenctrl.domid (match request with
 							| None -> None
@@ -1238,7 +1238,7 @@ let on_frontend f domain_selection frontend =
 	with_xc_and_xs
 		(fun xc xs ->
 			let frontend_di = match frontend |> Uuid.uuid_of_string |> di_of_uuid ~xc ~xs domain_selection with
-				| None -> raise (Exception (Does_not_exist ("domain", frontend)))
+				| None -> raise (Does_not_exist ("domain", frontend))
 				| Some x -> x in
 			f xc xs frontend_di.Xenctrl.domid frontend_di.Xenctrl.hvm_guest
 		)
@@ -1400,13 +1400,13 @@ module VBD = struct
 
 					deactivate_and_detach task device vbd;
 				with 
-					| Exception(Does_not_exist(_,_)) ->
+					| (Does_not_exist(_,_)) ->
 						debug "VM = %s; VBD = %s; Ignoring missing domain" vm (id_of vbd)
-					| Exception Device_not_connected ->
+					| Device_not_connected ->
 						debug "VM = %s; VBD = %s; Ignoring missing device" vm (id_of vbd)
 					| Device_common.Device_error(_, s) ->
 						debug "Caught Device_error: %s" s;
-						raise (Exception(Device_detach_rejected("VBD", id_of vbd, s)))
+						raise (Device_detach_rejected("VBD", id_of vbd, s))
 			)
 
 	let insert task vm vbd disk =
@@ -1496,8 +1496,8 @@ module VBD = struct
 						qos_target = qos_target
 					}
 				with
-					| Exception (Does_not_exist(_, _))
-					| Exception Device_not_connected ->
+					| (Does_not_exist(_, _))
+					| Device_not_connected ->
 						unplugged_vbd
 			)
 
@@ -1529,7 +1529,7 @@ module VIF = struct
 			| Network.Local _ -> this_domid ~xs
 			| Network.Remote (vm, _) ->
 				begin match vm |> Uuid.uuid_of_string |> domid_of_uuid ~xc ~xs Expect_only_one with
-					| None -> raise (Exception (Does_not_exist ("domain", vm)))
+					| None -> raise (Does_not_exist ("domain", vm))
 					| Some x -> x
 				end
 
@@ -1572,7 +1572,7 @@ module VIF = struct
 							Device.Vif.add ~xs ~devid:vif.position
 								~netty:(match vif.backend with
 									| Network.Local x -> Netman.Vswitch x
-									| Network.Remote (_, _) -> raise (Exception (Unimplemented "network driver domains")))
+									| Network.Remote (_, _) -> raise (Unimplemented "network driver domains"))
 								~mac:vif.mac ~carrier:vif.carrier ~mtu:vif.mtu
 								~rate:vif.rate ~backend_domid
 								~other_config:vif.other_config
@@ -1620,9 +1620,9 @@ module VIF = struct
 					end;
 
 				with
-					| Exception(Does_not_exist(_,_)) ->
+					| (Does_not_exist(_,_)) ->
 						debug "VM = %s; Ignoring missing domain" (id_of vif)
-					| Exception(Device_not_connected) ->
+					| (Device_not_connected) ->
 						debug "VM = %s; Ignoring missing device" (id_of vif)
 			);
 		()
@@ -1636,7 +1636,7 @@ module VIF = struct
 					let device = device_by_id xc xs vm Device_common.Vif Oldest (id_of vif) in
 					let bridge = match network with
 						| Network.Local x -> x
-						| Network.Remote (_, _) -> raise (Exception (Unimplemented("network driver domains"))) in
+						| Network.Remote (_, _) -> raise (Unimplemented("network driver domains")) in
 
 					Device.Vif.move ~xs device bridge;
 
@@ -1650,9 +1650,9 @@ module VIF = struct
 					end
 
 				with
-					| Exception(Does_not_exist(_,_)) ->
+					| (Does_not_exist(_,_)) ->
 						debug "VM = %s; Ignoring missing domain" (id_of vif)
-					| Exception(Device_not_connected) ->
+					| (Device_not_connected) ->
 						debug "VM = %s; Ignoring missing device" (id_of vif)
 			);
 		()
@@ -1665,9 +1665,9 @@ module VIF = struct
 					let device = device_by_id xc xs vm Device_common.Vif Newest (id_of vif) in
 					Device.Vif.set_carrier ~xs device carrier
 				with
-					| Exception(Does_not_exist(_,_)) ->
+					| (Does_not_exist(_,_)) ->
 						debug "VM = %s; Ignoring missing domain" (id_of vif)
-					| Exception(Device_not_connected) ->
+					| (Device_not_connected) ->
 						debug "VM = %s; Ignoring missing device" (id_of vif)
 			)
 
@@ -1706,8 +1706,8 @@ module VIF = struct
 						kthread_pid = kthread_pid
 					}
 				with
-					| Exception (Does_not_exist(_,_))
-					| Exception Device_not_connected ->
+					| (Does_not_exist(_,_))
+					| Device_not_connected ->
 						unplugged_vif
 			)
 
@@ -1934,7 +1934,7 @@ module DEBUG = struct
 			with_xc_and_xs
 				(fun xc xs ->
 					match di_of_uuid ~xc ~xs Newest uuid with
-						| None -> raise (Exception(Does_not_exist("domain", k)))			
+						| None -> raise (Does_not_exist("domain", k))
 						| Some di ->
 							Xenctrl.domain_shutdown xc di.Xenctrl.domid Xenctrl.Reboot
 				)
@@ -1943,11 +1943,11 @@ module DEBUG = struct
 			with_xc_and_xs
 				(fun xc xs ->
 					match di_of_uuid ~xc ~xs Newest uuid with
-						| None -> raise (Exception(Does_not_exist("domain", k)))
+						| None -> raise (Does_not_exist("domain", k))
 						| Some di ->
 							Xenctrl.domain_shutdown xc di.Xenctrl.domid Xenctrl.Halt
 				)
 		| _ ->
 			debug "DEBUG.trigger cmd=%s Unimplemented" cmd;
-			raise (Exception(Unimplemented(cmd)))
+			raise (Unimplemented(cmd))
 end

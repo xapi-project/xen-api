@@ -15,45 +15,36 @@
  * @group Xenops
  *)
 
-type ('a, 'b) result =
-	| Success of 'a
-	| Failure of 'b
-
 type power_state =
 	| Running
 	| Halted
 	| Suspended
 	| Paused
 
-type error =
-	| Internal_error of string
-	| Already_exists of string * string
-	| Does_not_exist of string * string
-	| Unimplemented of string
-	| Domain_not_built
-	| Maximum_vcpus of int
-	| Bad_power_state of power_state * power_state
-	| Failed_to_acknowledge_shutdown_request
-	| Failed_to_shutdown of string * float
-	| Device_is_connected
-	| Device_not_connected
-	| Device_detach_rejected of string * string * string
-	| Media_not_ejectable
-	| Media_present
-	| Media_not_present
-	| No_bootable_device
-	| Bootloader_error of string * (string list)
-	| Cannot_free_this_much_memory of (int64 * int64)
-	| Vms_failed_to_cooperate of string list
-	| Ballooning_error of string * string
-	| IO_error
-	| Failed_to_contact_remote_service of string
-	| Hook_failed of string * string * string * string
-	| Not_enough_memory of int64
-	| Cancelled of string
-
-type error_response = unit option * error option
-type string_response = string option * error option
+exception Already_exists of (string * string)
+exception Does_not_exist of (string * string)
+exception Unimplemented of string
+exception Domain_not_built
+exception Maximum_vcpus of int
+exception Bad_power_state of (power_state * power_state)
+exception Failed_to_acknowledge_shutdown_request
+exception Failed_to_shutdown of (string * float)
+exception Device_is_connected
+exception Device_not_connected
+exception Device_detach_rejected of (string * string * string)
+exception Media_not_ejectable
+exception Media_present
+exception Media_not_present
+exception No_bootable_device
+exception Bootloader_error of (string * (string list))
+exception Cannot_free_this_much_memory of (int64 * int64)
+exception Vms_failed_to_cooperate of string list
+exception Ballooning_error of (string * string)
+exception IO_error
+exception Failed_to_contact_remote_service of string
+exception Hook_failed of (string * string * string * string)
+exception Not_enough_memory of int64
+exception Cancelled of string
 
 type debug_info = string
 
@@ -66,8 +57,8 @@ module Query = struct
 		instance_id: string; (* Unique to this invocation of xenopsd *)
 	}
 end
-external query: debug_info -> unit -> (Query.t option * error option) = ""
-external get_diagnostics: debug_info -> unit -> (string option * error option) = ""
+external query: debug_info -> unit -> Query.t = ""
+external get_diagnostics: debug_info -> unit -> string = ""
 
 type disk =
 	| Local of string (** path to a local block device *)
@@ -304,7 +295,7 @@ module Task = struct
 	type result =
 		| Pending of float
 		| Completed of float
-		| Failed of error
+		| Failed of Rpc.t
 
 	type t = {
 		id: id;
@@ -332,91 +323,91 @@ module Dynamic = struct
 end
 
 module TASK = struct
-	external stat: debug_info -> Task.id -> (Task.t option) * (error option) = ""
-	external cancel: debug_info -> Task.id -> (unit option) * (error option) = ""
-	external destroy: debug_info -> Task.id -> (unit option) * (error option) = ""
-	external list: debug_info -> (Task.t list option) * (error option) = ""
+	external stat: debug_info -> Task.id -> Task.t = ""
+	external cancel: debug_info -> Task.id -> unit = ""
+	external destroy: debug_info -> Task.id -> unit = ""
+	external list: debug_info -> Task.t list = ""
 end
 
 module HOST = struct
-	external get_console_data: debug_info -> (string option) * (error option) = ""
-	external get_total_memory_mib: debug_info -> (int64 option) * (error option) = ""
-	external send_debug_keys: debug_info -> string -> (unit option) * (error option) = ""
-	external set_worker_pool_size: debug_info -> int -> (unit option) * (error option) = ""
+	external get_console_data: debug_info -> string = ""
+	external get_total_memory_mib: debug_info -> int64 = ""
+	external send_debug_keys: debug_info -> string -> unit = ""
+	external set_worker_pool_size: debug_info -> int -> unit = ""
 end
 
 module VM = struct
-	external add: debug_info -> Vm.t -> (Vm.id option) * (error option) = ""
-	external remove: debug_info -> Vm.id -> (unit option) * (error option) = ""
+	external add: debug_info -> Vm.t -> Vm.id = ""
+	external remove: debug_info -> Vm.id -> unit = ""
 
-	external create: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
-	external build: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
-	external create_device_model: debug_info -> Vm.id -> bool -> (Task.id option) * (error option) = ""
-	external destroy: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
-	external pause: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
-	external unpause: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
-	external set_xsdata: debug_info -> Vm.id -> (string * string) list -> (Task.id option) * (error option) = ""
-	external set_vcpus: debug_info -> Vm.id -> int -> (Task.id option) * (error option) = ""
-	external set_shadow_multiplier : debug_info -> Vm.id -> float -> (Task.id option) * (error option) = ""
-	external set_memory_dynamic_range : debug_info -> Vm.id -> int64 -> int64 -> (Task.id option) * (error option) = ""
-	external stat: debug_info -> Vm.id -> ((Vm.t * Vm.state) option) * (error option) = ""
-	external list: debug_info -> unit -> ((Vm.t * Vm.state) list option) * (error option) = ""
-	external delay: debug_info -> Vm.id -> float -> (Task.id option) * (error option) = ""
+	external migrate: debug_info -> Vm.id -> (string * string) list -> string -> Task.id = ""
 
-	external start: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
-	external shutdown: debug_info -> Vm.id -> float option -> (Task.id option) * (error option) = ""
-	external reboot: debug_info -> Vm.id -> float option -> (Task.id option) * (error option) = ""
-	external suspend: debug_info -> Vm.id -> disk -> (Task.id option) * (error option) = ""
-	external resume: debug_info -> Vm.id -> disk -> (Task.id option) * (error option) = ""
+	external create: debug_info -> Vm.id -> Task.id = ""
+	external build: debug_info -> Vm.id -> Task.id = ""
+	external create_device_model: debug_info -> Vm.id -> bool -> Task.id = ""
+	external destroy: debug_info -> Vm.id -> Task.id = ""
+	external pause: debug_info -> Vm.id -> Task.id = ""
+	external unpause: debug_info -> Vm.id -> Task.id = ""
+	external set_xsdata: debug_info -> Vm.id -> (string * string) list -> Task.id = ""
+	external set_vcpus: debug_info -> Vm.id -> int -> Task.id = ""
+	external set_shadow_multiplier : debug_info -> Vm.id -> float -> Task.id = ""
+	external set_memory_dynamic_range : debug_info -> Vm.id -> int64 -> int64 -> Task.id = ""
+	external stat: debug_info -> Vm.id -> (Vm.t * Vm.state) = ""
+	external list: debug_info -> unit -> (Vm.t * Vm.state) list = ""
+	external delay: debug_info -> Vm.id -> float -> Task.id = ""
 
-	external s3suspend: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
-	external s3resume: debug_info -> Vm.id -> (Task.id option) * (error option) = ""
+	external start: debug_info -> Vm.id -> Task.id = ""
+	external shutdown: debug_info -> Vm.id -> float option -> Task.id = ""
+	external reboot: debug_info -> Vm.id -> float option -> Task.id = ""
+	external suspend: debug_info -> Vm.id -> disk -> Task.id = ""
+	external resume: debug_info -> Vm.id -> disk -> Task.id = ""
 
-	external migrate: debug_info -> Vm.id -> string -> (Task.id option) * (error option) = ""
+	external s3suspend: debug_info -> Vm.id -> Task.id = ""
+	external s3resume: debug_info -> Vm.id -> Task.id = ""
 
-	external export_metadata: debug_info -> Vm.id -> (string option) * (error option) = ""
-	external import_metadata: debug_info -> string -> (Vm.id option) * (error option) = ""
+	external export_metadata: debug_info -> Vm.id -> string  = ""
+	external import_metadata: debug_info -> string -> Vm.id  = ""
 end
 
 module PCI = struct
-	external add: debug_info -> Pci.t -> (Pci.id option) * (error option) = ""
-	external remove: debug_info -> Pci.id -> (unit option) * (error option) = ""
-	external stat: debug_info -> Pci.id -> ((Pci.t * Pci.state) option) * (error option) = ""
-	external list: debug_info -> Vm.id -> ((Pci.t * Pci.state) list option) * (error option) = ""
+	external add: debug_info -> Pci.t -> Pci.id  = ""
+	external remove: debug_info -> Pci.id -> unit = ""
+	external stat: debug_info -> Pci.id -> (Pci.t * Pci.state) = ""
+	external list: debug_info -> Vm.id -> (Pci.t * Pci.state) list  = ""
 end
 
 module VBD = struct
-	external add: debug_info -> Vbd.t -> (Vbd.id option) * (error option) = ""
-	external plug: debug_info -> Vbd.id -> (Task.id option) * (error option) = ""
-	external unplug: debug_info -> Vbd.id -> bool -> (Task.id option) * (error option) = ""
-	external eject: debug_info -> Vbd.id -> (Task.id option) * (error option) = ""
-	external insert: debug_info -> Vbd.id -> disk -> (Task.id option) * (error option) = ""
-	external stat: debug_info -> Vbd.id -> ((Vbd.t * Vbd.state) option) * (error option) = ""
-	external list: debug_info -> Vm.id -> ((Vbd.t * Vbd.state) list option) * (error option) = ""
-	external remove: debug_info -> Vbd.id -> (unit option) * (error option) = ""
+	external add: debug_info -> Vbd.t -> Vbd.id = ""
+	external plug: debug_info -> Vbd.id -> Task.id = ""
+	external unplug: debug_info -> Vbd.id -> bool -> Task.id = ""
+	external eject: debug_info -> Vbd.id -> Task.id = ""
+	external insert: debug_info -> Vbd.id -> disk -> Task.id = ""
+	external stat: debug_info -> Vbd.id -> (Vbd.t * Vbd.state) = ""
+	external list: debug_info -> Vm.id -> (Vbd.t * Vbd.state) list  = ""
+	external remove: debug_info -> Vbd.id -> unit = ""
 end
 
 module VIF = struct
-	external add: debug_info -> Vif.t -> (Vif.id option) * (error option) = ""
-	external plug: debug_info -> Vif.id -> (Task.id option) * (error option) = ""
-	external unplug: debug_info -> Vif.id -> bool -> (Task.id option) * (error option) = ""
-	external move: debug_info -> Vif.id -> Network.t -> (Task.id option) * (error option) = ""
-	external stat: debug_info -> Vif.id -> ((Vif.t * Vif.state) option) * (error option) = ""
-	external list: debug_info -> Vm.id -> ((Vif.t * Vif.state) list option) * (error option) = ""
-	external remove: debug_info -> Vif.id -> (unit option) * (error option) = ""
-	external set_carrier: debug_info -> Vif.id -> bool -> (Task.id option) * (error option) = ""
-	external set_locking_mode: debug_info -> Vif.id -> Vif.locking_mode -> (Task.id option) * (error option) = ""
+	external add: debug_info -> Vif.t -> Vif.id = ""
+	external plug: debug_info -> Vif.id -> Task.id = ""
+	external unplug: debug_info -> Vif.id -> bool -> Task.id = ""
+	external move: debug_info -> Vif.id -> Network.t -> Task.id = ""
+	external stat: debug_info -> Vif.id -> (Vif.t * Vif.state) = ""
+	external list: debug_info -> Vm.id -> (Vif.t * Vif.state) list  = ""
+	external remove: debug_info -> Vif.id -> unit = ""
+	external set_carrier: debug_info -> Vif.id -> bool -> Task.id = ""
+	external set_locking_mode: debug_info -> Vif.id -> Vif.locking_mode -> Task.id = ""
 end
 
 module UPDATES = struct
-	external get: debug_info -> int option -> int option -> (Dynamic.id list * int option) option * (error option) = ""
-    external inject_barrier: debug_info -> int -> (unit option) * (error option) = ""
-	external remove_barrier: debug_info -> int -> (unit option) * (error option) = ""
-	external refresh_vm: debug_info -> Vm.id -> (unit option) * (error option) = ""
+	external get: debug_info -> int option -> int option -> Dynamic.id list * int option = ""
+    external inject_barrier: debug_info -> int -> unit = ""
+	external remove_barrier: debug_info -> int -> unit = ""
+	external refresh_vm: debug_info -> Vm.id -> unit = ""
 end
 
 module DEBUG = struct
-	external trigger: debug_info -> string -> string list -> (unit option) * (error option) = ""
-	external shutdown: debug_info -> unit -> (unit option) * (error option) = ""
+	external trigger: debug_info -> string -> string list -> unit = ""
+	external shutdown: debug_info -> unit -> unit = ""
 end
 

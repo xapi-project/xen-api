@@ -61,7 +61,7 @@ let read_localhost_info () =
 	let this_host_name = Helpers.get_hostname() in
 	let total_memory_mib =
 		let open Xenops_client in
-		Client.HOST.get_total_memory_mib "read_localhost_info" |> success in
+		Client.HOST.get_total_memory_mib "read_localhost_info" in
 
 	let dom0_static_max = 
 		(* Query the balloon driver to determine how much memory is available for domain 0. *)
@@ -500,7 +500,7 @@ let create_chipset_info ~__context =
 	let iommu =
 		let open Xenops_client in
 		let dbg = Context.string_of_task __context in
-		let xen_dmesg = Client.HOST.get_console_data dbg |> success in
+		let xen_dmesg = Client.HOST.get_console_data dbg in
 		if String.has_substr xen_dmesg "I/O virtualisation enabled" then
 			"true"
 		else if String.has_substr xen_dmesg "I/O virtualisation disabled" then
