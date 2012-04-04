@@ -286,7 +286,7 @@ let with_disk ~xc ~xs task disk write f = match disk with
 		let open Storage_interface in
 		let open Storage in
 		let sr, vdi = get_disk_by_name task path in
-		let dp = Client.DP.create "with_disk" "xenopsd" in
+		let dp = Client.DP.create "with_disk" (Printf.sprintf "xenopsd/task/%s" task.Xenops_task.id) in
 		finally
 			(fun () ->
 				let vdi = attach_and_activate task dp sr vdi write in
@@ -1806,6 +1806,13 @@ let watch_xenstore () =
 
 				watches := IntMap.remove domid !watches in
 
+			let cancel_domU_operations xs domid uuid =
+				(* Anyone blocked on a domain/device operation which won't happen because the domain
+				   just shutdown should be cancelled here. *)
+				debug "Cancelling watches for: domid %d" domid;
+				Cancel_utils.cancel_domain ~xs domid;
+				List.iter (Cancel_utils.cancel_device ~xs) (Device_common.list_frontends ~xs domid) in
+
 			let add_device_watch xs device =
 				let open Device_common in
 				debug "Adding watches for: %s" (string_of_device device);
@@ -1842,6 +1849,7 @@ let watch_xenstore () =
 								| false, true ->
 									add_domU_watches xs domid id
 								| true, false ->
+									cancel_domU_operations xs domid id;
 									remove_domU_watches xs domid id
 						end
 					) different;

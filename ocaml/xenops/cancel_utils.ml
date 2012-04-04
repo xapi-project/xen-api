@@ -27,12 +27,28 @@ let cancel_path_of_device ~xs device = backend_path_of_device ~xs device ^ "/too
 
 let cancel_path_of_domain ~xs domid = Printf.sprintf "%s/tools/xenops/cancel" (xs.Xs.getdomainpath domid)
 
+let exists ~xs path = try ignore(xs.Xs.read path); true with _ -> false
+let cancel_domain ~xs domid =
+	let path = cancel_path_of_domain ~xs domid in
+	if exists ~xs path then begin
+		info "Cancelling operation on domid: %d" domid;
+		xs.Xs.rm path
+	end
+
+let cancel_device ~xs device =
+	let path = cancel_path_of_device ~xs device in
+	if exists ~xs path then begin
+		info "Cancelling operation on device: %s" (Device_common.string_of_device device);
+		xs.Xs.rm path
+	end
+
 let cancellable_watch cancel good_watches error_watches (task: Xenops_task.t) ~xs ~timeout () =
 	finally
 		(fun () ->
+			xs.Xs.write cancel "";
 			Xenops_task.with_cancel task (fun () ->
 				info "Cancelling: xenstore-write %s" cancel;
-				with_xs (fun xs -> xs.Xs.write cancel "")
+				with_xs (fun xs -> xs.Xs.rm cancel)
 			)
 				(fun () ->
 					match Watch.wait_for ~xs ~timeout (Watch.any_of
@@ -41,7 +57,7 @@ let cancellable_watch cancel good_watches error_watches (task: Xenops_task.t) ~x
 						) @ (
 							List.map (fun w -> `Error, w) error_watches
 						) @ [
-							`Cancel, Watch.value_to_become cancel ""
+							`Cancel, Watch.key_to_disappear cancel
 						])
 					) with
 						| `OK, _ -> true
