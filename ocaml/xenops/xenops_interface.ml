@@ -45,6 +45,7 @@ exception Failed_to_contact_remote_service of string
 exception Hook_failed of (string * string * string * string)
 exception Not_enough_memory of int64
 exception Cancelled of string
+exception Storage_backend_error of (string * (string list))
 
 type debug_info = string
 

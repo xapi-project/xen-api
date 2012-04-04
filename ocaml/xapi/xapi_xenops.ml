@@ -1324,6 +1324,7 @@ let transform_xenops_exn ~__context f =
 					debug "xenopsd task id %s is not associated with a XenAPI task" id;
 					Ref.null in
 			reraise Api_errors.task_cancelled [ Ref.string_of task ]
+		| Storage_backend_error(code, params) -> reraise code params
 
 
 let refresh_vm ~__context ~self =
