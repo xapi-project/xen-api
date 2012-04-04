@@ -390,7 +390,6 @@ let vm_exists_in_xenopsd dbg id =
 
 let string_of_exn = function
 	| Api_errors.Server_error(code, params) -> Printf.sprintf "%s [ %s ]" code (String.concat "; " params)
-	| Exception(e) -> e |> rpc_of_error |> Jsonrpc.to_string
 	| e -> Printexc.to_string e
 
 (* Serialise updates to the xenopsd metadata *)
