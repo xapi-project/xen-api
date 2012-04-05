@@ -1901,13 +1901,12 @@ let vm_pool_migrate_complete = call
   ~allowed_roles:_R_VM_POWER_ADMIN
   ()
 
-let vm_migrate_receive = call
+let host_migrate_receive = call
   ~in_oss_since:None
   ~in_product_since:rel_tampa
   ~name:"migrate_receive"
   ~doc:"Prepare to receive a VM, returning a token which can be passed to VM.migrate."
   ~params:[Ref _host, "host", "The target host";
-           Ref _sr, "SR", "The target SR";
 		   Map(String, String), "options", "Extra configuration operations" ]
   ~result:(Map(String,String), "A value which should be passed to VM.migrate")
   ~allowed_roles:_R_VM_POWER_ADMIN
@@ -1993,7 +1992,7 @@ let vm_migrate = call
   ~in_product_since:rel_rio
   ~doc: "Migrate the VM to another host.  This can only be called when the specified VM is in the Running state."
   ~params:[Ref _vm, "vm", "The VM";
-           Map(String,String), "dest", "The result of a VM.migrate_receive call.";
+           Map(String,String), "dest", "The result of a Host.migrate_receive call.";
            Bool, "live", "Live migration";
            Map (String, String), "options", "Other parameters"]
   ~errs:[Api_errors.vm_bad_power_state]
@@ -2776,6 +2775,17 @@ let vdi_copy = call
   ~doc:"Make a fresh VDI in the specified SR and copy the supplied VDI's data to the new disk"
   ~result:(Ref _vdi, "The reference of the newly created VDI.")
   ~allowed_roles:_R_VM_ADMIN
+  ()
+
+let vdi_migrate = call
+  ~name:"migrate"
+  ~in_oss_since:None
+  ~in_product_since:rel_tampa
+  ~params:[ Ref _vdi, "vdi", "The VDI to migrate"
+		  ; Ref _sr, "sr", "The destination SR"
+		  ; Map (String, String), "options", "Other parameters" ]
+  ~doc:"Migrate a VDI, which may be attached to a running guest, to a different SR. The destination SR must be visible to the guest."
+  ~allowed_roles:_R_VM_POWER_ADMIN
   ()
 
 (* ------------------------------------------------------------------------------------------------------------
@@ -4057,6 +4067,7 @@ let host =
 		 host_sync_vlans;
 		 host_sync_tunnels;
 		 host_sync_pif_currently_attached;
+		 host_migrate_receive;
 		 ]
       ~contents:
         ([ uid _host;
@@ -5328,6 +5339,7 @@ let vdi =
 		 vdi_open_database;
 		 vdi_checksum;
 		 vdi_read_database_pool_uuid;
+		 vdi_migrate;
 		]
       ~contents:
       ([ uid _vdi;
@@ -6400,7 +6412,6 @@ let vm =
 		vm_send_sysrq; vm_send_trigger;
 		vm_maximise_memory;
 		vm_migrate;
-		vm_migrate_receive;
 		vm_get_boot_record;
 		vm_get_data_sources; vm_record_data_source; vm_query_data_source; vm_forget_data_source_archives;
 		assert_operation_valid vm_operations _vm _self;
