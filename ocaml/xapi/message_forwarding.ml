@@ -1594,10 +1594,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			update_vbd_operations ~__context ~vm;
 			update_vif_operations ~__context ~vm
 
-		let migrate_receive ~__context ~host ~sR ~options =
-			info "VM.migrate_receive: host = '%s'; SR = '%s'" (host_uuid ~__context host) (sr_uuid ~__context sR);
-			Local.VM.migrate_receive ~__context ~host ~sR ~options
-
 		let send_trigger ~__context ~vm ~trigger =
 			info "VM.send_trigger: VM = '%s'; trigger = '%s'" (vm_uuid ~__context vm) trigger;
 			let local_fn = Local.VM.send_trigger ~vm ~trigger in
@@ -2431,6 +2427,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let sync_pif_currently_attached ~__context ~host ~bridges =
 			info "Host.sync_pif_currently_attached: host = '%s'" (host_uuid ~__context host);
 			Local.Host.sync_pif_currently_attached ~__context ~host ~bridges
+
+		let migrate_receive ~__context ~host ~options =
+			info "Host.migrate_receive: host = '%s'" (host_uuid ~__context host);
+			Local.Host.migrate_receive ~__context ~host ~options
 	end
 
 	module Host_crashdump = struct

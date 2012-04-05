@@ -1901,13 +1901,12 @@ let vm_pool_migrate_complete = call
   ~allowed_roles:_R_VM_POWER_ADMIN
   ()
 
-let vm_migrate_receive = call
+let host_migrate_receive = call
   ~in_oss_since:None
   ~in_product_since:rel_tampa
   ~name:"migrate_receive"
   ~doc:"Prepare to receive a VM, returning a token which can be passed to VM.migrate."
   ~params:[Ref _host, "host", "The target host";
-           Ref _sr, "SR", "The target SR";
 		   Map(String, String), "options", "Extra configuration operations" ]
   ~result:(Map(String,String), "A value which should be passed to VM.migrate")
   ~allowed_roles:_R_VM_POWER_ADMIN
@@ -1993,7 +1992,7 @@ let vm_migrate = call
   ~in_product_since:rel_rio
   ~doc: "Migrate the VM to another host.  This can only be called when the specified VM is in the Running state."
   ~params:[Ref _vm, "vm", "The VM";
-           Map(String,String), "dest", "The result of a VM.migrate_receive call.";
+           Map(String,String), "dest", "The result of a Host.migrate_receive call.";
            Bool, "live", "Live migration";
            Map (String, String), "options", "Other parameters"]
   ~errs:[Api_errors.vm_bad_power_state]
@@ -4068,6 +4067,7 @@ let host =
 		 host_sync_vlans;
 		 host_sync_tunnels;
 		 host_sync_pif_currently_attached;
+		 host_migrate_receive;
 		 ]
       ~contents:
         ([ uid _host;
@@ -6415,7 +6415,6 @@ let vm =
 		vm_send_sysrq; vm_send_trigger;
 		vm_maximise_memory;
 		vm_migrate;
-		vm_migrate_receive;
 		vm_get_boot_record;
 		vm_get_data_sources; vm_record_data_source; vm_query_data_source; vm_forget_data_source_archives;
 		assert_operation_valid vm_operations _vm _self;

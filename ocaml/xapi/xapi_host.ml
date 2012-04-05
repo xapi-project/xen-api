@@ -1532,3 +1532,13 @@ let sync_pif_currently_attached ~__context ~host ~bridges =
 			end;
 		) pifs
 
+let migrate_receive ~__context ~host ~options =
+	let session_id = Ref.string_of (Context.get_session_id __context) in
+	let ip = Db.Host.get_address ~__context ~self:host in
+	let sm_url = Printf.sprintf "http://%s/services/SM?session_id=%s" ip session_id in
+	let xenops_url = Printf.sprintf "http://%s/services/xenops?session_id=%s" ip session_id in
+	[ Xapi_vm_migrate._sm, sm_url;
+	  Xapi_vm_migrate._host, Ref.string_of host;
+	  Xapi_vm_migrate._xenops, xenops_url;
+	  Xapi_vm_migrate._session_id, session_id;
+	]
