@@ -489,8 +489,6 @@ let set_mode ~__context ~self ~value =
 	if not !Nm.use_networkd then
 		refresh_pif_other_config ~__context ~self;
 
-	(* Need to set currently_attached to false, otherwise bring_pif_up does nothing... *)
-	Db.PIF.set_currently_attached ~__context ~self:master ~value:false;
 	Nm.bring_pif_up ~__context master
 
 let set_property ~__context ~self ~name ~value =
@@ -509,7 +507,5 @@ let set_property ~__context ~self ~name ~value =
 	if not !Nm.use_networkd then
 		refresh_pif_other_config ~__context ~self;
 
-	(* Need to set currently_attached to false, otherwise bring_pif_up does nothing... *)
 	let master = Db.Bond.get_master ~__context ~self in
-	Db.PIF.set_currently_attached ~__context ~self:master ~value:false;
 	Nm.bring_pif_up ~__context master
