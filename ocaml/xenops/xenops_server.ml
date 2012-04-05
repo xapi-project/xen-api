@@ -694,6 +694,9 @@ let vbd_plug_order vbds =
 
 let vbd_unplug_order vbds = List.rev (vbd_plug_order vbds)
 
+let vif_plug_order vifs =
+	List.sort (fun a b -> compare a.Vif.position b.Vif.position) vifs
+
 let pci_plug_order pcis =
 	List.sort (fun a b -> compare a.Pci.position b.Pci.position) pcis
 
@@ -706,7 +709,7 @@ let rec atomics_of_operation = function
 		] @ (List.map (fun vbd -> VBD_plug vbd.Vbd.id)
 			(VBD_DB.vbds id |> vbd_plug_order)
 		) @ (List.map (fun vif -> VIF_plug vif.Vif.id)
-			(VIF_DB.vifs id)
+			(VIF_DB.vifs id |> vif_plug_order)
 		) @ [
 			(* Unfortunately this has to be done after the vbd,vif 
 			   devices have been created since qemu reads xenstore keys
@@ -740,7 +743,7 @@ let rec atomics_of_operation = function
 		] @ (List.map (fun vbd -> VBD_plug vbd.Vbd.id)
 			(VBD_DB.vbds id |> vbd_plug_order)
 		) @ (List.map (fun vif -> VIF_plug vif.Vif.id)
-			(VIF_DB.vifs id)
+			(VIF_DB.vifs id |> vif_plug_order)
 		) @ [
 			(* Unfortunately this has to be done after the devices have been created since
 			   qemu reads xenstore keys in preference to its own commandline. After this is
