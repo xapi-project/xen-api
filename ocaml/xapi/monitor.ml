@@ -61,6 +61,16 @@ let uncooperative_domains_m = Mutex.create ()
 
 (** Table for bonds status. *)
 let bonds_status : (string, (int * int)) Hashtbl.t = Hashtbl.create 10
+let bonds_status_update : (string * int) list ref = ref []
+let bonds_status_update_m = Mutex.create ()
+
+let add_bond_status bond links_up = Mutex.execute bonds_status_update_m
+  (fun () -> bonds_status_update := !bonds_status_update @ [(bond,links_up)] )
+
+let copy_bonds_status () = Mutex.execute bonds_status_update_m
+  (fun () -> let l = List.map (fun (bond,links_up) -> (bond,links_up)) !bonds_status_update in
+			 bonds_status_update := [];
+			 l)
 
 let string_of_domain_handle dh =
   Uuid.string_of_uuid (Uuid.uuid_of_int_array dh.Xenctrl.handle)
@@ -214,14 +224,19 @@ let update_netdev doms =
 				  let (nb_links_old, links_up_old) = Hashtbl.find bonds_status dev in 
 				  if links_up_old <> stat.links_up then
 					begin
-					  debug "cp3406: %s nb_links %d up %d up_old %d" dev stat.nb_links
+					  info "Bonds status changed: %s nb_links %d up %d up_old %d" dev stat.nb_links
 						stat.links_up links_up_old;
 					  alert dev stat.nb_links stat.links_up nb_links_old links_up_old;
-					  Hashtbl.replace bonds_status dev (stat.nb_links,stat.links_up)
+					  Hashtbl.replace bonds_status dev (stat.nb_links,stat.links_up);
+					  add_bond_status dev stat.links_up
 					end
 				end
 			  else (* first time that we see the bond *)
-				Hashtbl.add bonds_status dev (stat.nb_links,stat.links_up);
+				begin
+				  info "New bonds status : %s nb_links %d up %d" dev stat.nb_links stat.links_up;
+				  Hashtbl.add bonds_status dev (stat.nb_links,stat.links_up);
+				  add_bond_status dev stat.links_up
+				end;
 			let pif_name = "pif_" ^ dev in
 			let pif = {
 				pif_name = dev;

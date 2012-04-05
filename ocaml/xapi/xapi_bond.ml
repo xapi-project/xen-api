@@ -362,7 +362,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 			~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null
 			~vLAN_master_of:Ref.null ~management:false ~other_config:[] ~disallow_unplug:false;
 		Db.Bond.create ~__context ~ref:bond ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~master:master ~other_config:[]
-			~primary_slave ~mode ~properties;
+			~primary_slave ~mode ~properties ~links_up:0L;
 
 		(* Set the PIF.bond_slave_of fields of the members.
 		 * The value of the Bond.slaves field is dynamically computed on request. *)
