@@ -2778,6 +2778,17 @@ let vdi_copy = call
   ~allowed_roles:_R_VM_ADMIN
   ()
 
+let vdi_migrate = call
+  ~name:"migrate"
+  ~in_oss_since:None
+  ~in_product_since:rel_tampa
+  ~params:[ Ref _vdi, "vdi", "The VDI to migrate"
+		  ; Ref _sr, "sr", "The destination SR"
+		  ; Map (String, String), "options", "Other parameters" ]
+  ~doc:"Migrate a VDI, which may be attached to a running guest, to a different SR. The destination SR must be visible to the guest."
+  ~allowed_roles:_R_VM_POWER_ADMIN
+  ()
+
 (* ------------------------------------------------------------------------------------------------------------
    VBDs
    ------------------------------------------------------------------------------------------------------------ *)
@@ -5331,6 +5342,7 @@ let vdi =
 		 vdi_open_database;
 		 vdi_checksum;
 		 vdi_read_database_pool_uuid;
+		 vdi_migrate;
 		]
       ~contents:
       ([ uid _vdi;
