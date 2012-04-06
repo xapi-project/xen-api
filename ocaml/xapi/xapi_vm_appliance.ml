@@ -25,7 +25,7 @@ module TaskSet = Set.Make(struct type t = API.ref_task let compare = compare end
 type appliance_operation = {
 	name : string;
 	vm_operation : (API.ref_VM -> (Xml.xml -> Xml.xml) -> API.ref_session -> API.ref_task);
-	required_state : [ `Halted | `Paused | `Running | `Suspended ];
+	required_state : API.vm_power_state;
 }
 
 let assert_operation_valid = Xapi_vm_appliance_lifecycle.assert_operation_valid
