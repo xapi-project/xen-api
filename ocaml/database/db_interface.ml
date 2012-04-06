@@ -12,6 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 
+type response =
+	| String of string
+	| Bigbuf of Bigbuffer.t
+
 (** A generic RPC interface *)
 module type RPC = sig 
 	
@@ -19,7 +23,7 @@ module type RPC = sig
 	val initialise : unit -> unit
 		
 	(** [rpc request] transmits [request] and receives a response *)
-	val rpc : string -> string
+	val rpc : string -> response
 end
 
 (** dictionary of regular fields x dictionary of associated set_ref values *)
