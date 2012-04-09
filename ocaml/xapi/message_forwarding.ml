@@ -1598,10 +1598,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			update_vbd_operations ~__context ~vm;
 			update_vif_operations ~__context ~vm
 
-		let migrate_receive ~__context ~host ~sR ~options =
-			info "VM.migrate_receive: host = '%s'; SR = '%s'" (host_uuid ~__context host) (sr_uuid ~__context sR);
-			Local.VM.migrate_receive ~__context ~host ~sR ~options
-
 		let send_trigger ~__context ~vm ~trigger =
 			info "VM.send_trigger: VM = '%s'; trigger = '%s'" (vm_uuid ~__context vm) trigger;
 			let local_fn = Local.VM.send_trigger ~vm ~trigger in
@@ -2435,6 +2431,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let sync_pif_currently_attached ~__context ~host ~bridges =
 			info "Host.sync_pif_currently_attached: host = '%s'" (host_uuid ~__context host);
 			Local.Host.sync_pif_currently_attached ~__context ~host ~bridges
+
+		let migrate_receive ~__context ~host ~options =
+			info "Host.migrate_receive: host = '%s'" (host_uuid ~__context host);
+			Local.Host.migrate_receive ~__context ~host ~options
 	end
 
 	module Host_crashdump = struct
@@ -3208,6 +3208,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				SR.forward_sr_multiple_op ~local_fn ~__context ~srs:[src_sr; sr] ~prefer_slaves:true op
 			with Not_found ->
 				SR.forward_sr_multiple_op ~local_fn ~__context ~srs:[src_sr] ~prefer_slaves:true op
+
+		let migrate ~__context ~vdi ~sr ~options =
+			info "VDI.migrate: VDI = '%s'; SR = '%s'" (vdi_uuid ~__context vdi) (sr_uuid ~__context sr);
+			Local.VDI.migrate ~__context ~vdi ~sr ~options
 
 		let resize ~__context ~vdi ~size =
 			info "VDI.resize: VDI = '%s'; size = %Ld" (vdi_uuid ~__context vdi) size;

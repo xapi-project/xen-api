@@ -207,3 +207,5 @@ ocaml/xenops/xenopsd
 xapi.spec
 
 ocaml/fhs.*
+/ocaml/sm-cli/smtest
+/ocaml/xenops/cancel_utils_test

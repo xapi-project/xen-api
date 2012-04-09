@@ -1142,6 +1142,13 @@ let vdi_copy printer rpc session_id params =
 	let newuuid = Client.VDI.get_uuid rpc session_id newvdi in
 	printer (Cli_printer.PList [newuuid])
 
+let vdi_migrate printer rpc session_id params =
+	let vdi = Client.VDI.get_by_uuid rpc session_id (List.assoc "uuid" params)
+	and sr = Client.SR.get_by_uuid rpc session_id (List.assoc "sr-uuid" params)
+	and options = [] (* no options implemented yet *)
+	in
+	Client.VDI.migrate rpc session_id vdi sr options
+
 let vdi_clone printer rpc session_id params =
 	let vdi = Client.VDI.get_by_uuid rpc session_id (List.assoc "uuid" params) in
 	let driver_params = read_map_params "driver-params" params in
@@ -2453,7 +2460,7 @@ let vm_migrate printer rpc session_id params =
 	   then we're using the new codepath *)
 	if List.mem_assoc "remote-address" params && (List.mem_assoc "remote-username" params)
 		&& (List.mem_assoc "remote-password" params) then begin
-			printer (Cli_printer.PMsg "Using the new cross-host, cross-SR, cross-pool, cross-everything codepath.");
+			printer (Cli_printer.PMsg "Using the new cross-host, cross-pool, cross-everything codepath.");
 			let ip = List.assoc "remote-address" params in
 			let remote_rpc xml =
 				let open Xmlrpc_client in
@@ -2477,20 +2484,10 @@ let vm_migrate printer rpc session_id params =
 							List.hd all
 						end in
 					printer (Cli_printer.PMsg (Printf.sprintf "Will migrate to remote host: %s" host_record.API.host_name_label));
-					let sr =
-						if List.mem_assoc "destination-sr-uuid" params
-						then Client.SR.get_by_uuid remote_rpc remote_session (List.assoc "destination-sr-uuid" params)
-						else
-							let pool = Client.Pool.get_all remote_rpc remote_session |> List.hd in
-							let sr = Client.Pool.get_default_SR remote_rpc remote_session pool in
-							(try ignore (Client.SR.get_uuid remote_rpc remote_session sr)
-							 with _ -> failwith "No destination SR specified and no default SR on remote pool");
-							sr in
-					printer (Cli_printer.PMsg (Printf.sprintf "Will migrate to remote SR: %s" (Client.SR.get_name_label remote_rpc remote_session sr)));
-					let token = Client.VM.migrate_receive remote_rpc remote_session host sr options in
+					let token = Client.Host.migrate_receive remote_rpc remote_session host options in
 					printer (Cli_printer.PMsg (Printf.sprintf "Received token: [ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ ":" ^ v) token))));
 					ignore(do_vm_op ~include_control_vms:true printer rpc session_id (fun vm -> Client.VM.migrate rpc session_id (vm.getref ()) token true options)
-						params ["host"; "host-uuid"; "host-name"; "live"; "encrypt"; "remote-address"; "remote-username"; "remote-password"; "destination-sr-uuid" ])
+						params ["host"; "host-uuid"; "host-name"; "live"; "encrypt"; "remote-address"; "remote-username"; "remote-password" ])
 				)
 				(fun () -> Client.Session.logout remote_rpc remote_session)
 		end else begin
