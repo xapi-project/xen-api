@@ -14,6 +14,7 @@
 
 open Client
 open Pervasiveext
+open Fun
 open Listext
 
 module D = Debug.Debugger(struct let name="xapi" end)
@@ -60,48 +61,28 @@ let create_action_list ~__context start vms =
 (* Return once none of the tasks have a `pending status. *)
 let wait_for_all_tasks ~rpc ~session_id ~tasks =
 	let classes = ["task"] in
-	let rec wait ~task_set ~registered =
-		if (TaskSet.is_empty task_set) then
-			(debug "Task set is empty - returning";
-			if registered then Client.Event.unregister ~rpc ~session_id ~classes else ())
-		else
-			(debug "Waiting for tasks [%s]"
-				(String.concat ";" (List.map (fun task -> Client.Task.get_uuid rpc session_id task ) (TaskSet.elements task_set)));
-			if registered then
-				(* Try to get all the task events - if events are lost we need to reregister. *)
-				try
-					let events = Event_types.events_of_xmlrpc (Client.Event.next ~rpc ~session_id) in
-					let records = List.map Event_helper.record_of_event events in
-					(* If any records indicate that a task is no longer pending, *)
-					(* remove that task from the set. *)
-					let pending_task_set = List.fold_left (fun task_set' record ->
-						match record with
-						| Event_helper.Task (t, Some t_rec) ->
-							if (TaskSet.mem t task_set') && (t_rec.API.task_status <> `pending) then
-								TaskSet.remove t task_set'
-							else
-								task_set'
-						| _ -> task_set') task_set records in
-					wait ~task_set:pending_task_set ~registered:true
-				with Api_errors.Server_error(code, _) when code = Api_errors.events_lost ->
-					(* Client.Event.next threw an exception. *)
-					debug "Caught EVENTS_LOST; reregistering";
-					Client.Event.unregister ~rpc ~session_id ~classes;
-					wait ~task_set ~registered:false
-			else
-				(debug "Not registered with event system - registering.";
-				Client.Event.register ~rpc ~session_id ~classes;
-				(* Check which tasks currently have status `pending - if none do then we can return. *)
-				(* We need to check task status after evey registration to avoid a race. *)
-				let pending_task_set = TaskSet.filter (fun task ->
-					let status = Client.Task.get_status ~rpc ~session_id ~self:task in
-					debug "Task %s has status %s" (Client.Task.get_uuid rpc session_id task) (Record_util.task_status_type_to_string status);
-					status = `pending) task_set in
-				wait ~task_set:pending_task_set ~registered:true))
+	let timeout = 5.0 in
+	let rec wait ~token ~task_set =
+		if TaskSet.is_empty task_set then ()
+		else begin
+			let open Event_types in
+			let event_from = Client.Event.from ~rpc ~session_id ~classes ~token ~timeout |> event_from_of_xmlrpc in
+			let records = List.map Event_helper.record_of_event event_from.events in
+			(* If any records indicate that a task is no longer pending, remove that task from the set. *)
+			let pending_task_set = List.fold_left (fun task_set' record ->
+				match record with
+				| Event_helper.Task (t, Some t_rec) ->
+					if (TaskSet.mem t task_set') && (t_rec.API.task_status <> `pending) then
+						TaskSet.remove t task_set'
+					else
+						task_set'
+				| _ -> task_set') task_set records in
+			wait ~token:(string_of_token event_from.token) ~task_set:pending_task_set
+		end
 	in
-	(* Generate a set containing all the tasks. *)
+	let token = "" in
 	let task_set = List.fold_left (fun task_set' task -> TaskSet.add task task_set') TaskSet.empty tasks in
-	wait ~task_set ~registered:false;
+	wait ~token ~task_set;
 	let failed_tasks = List.filter (fun task -> Client.Task.get_status ~rpc ~session_id ~self:task <> `success) tasks in
 	failed_tasks
 
