@@ -212,7 +212,7 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			) vdis;
 		raise e
 
-let assert_can_migrate  ~__context ~vm ~dest ~live ~options =
+let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let xenops = List.assoc _xenops dest in
 	let session_id = Ref.of_string (List.assoc _session_id dest) in
 	let remote_address = match Http.Url.of_string xenops with
