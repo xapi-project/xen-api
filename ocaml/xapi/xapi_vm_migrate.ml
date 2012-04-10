@@ -186,15 +186,3 @@ let migrate  ~__context ~vm ~dest ~live ~options =
 			) vdis;
 		raise e
 
-let migrate_receive ~__context ~host ~sR ~options =
-	let session_id = Ref.string_of (Context.get_session_id __context) in
-	let ip = Db.Host.get_address ~__context ~self:host in
-	let sm_url = Printf.sprintf "http://%s/services/SM?session_id=%s" ip session_id in
-	let sr = Db.SR.get_uuid ~__context ~self:sR in
-	let xenops_url = Printf.sprintf "http://%s/services/xenops?session_id=%s" ip session_id in
-	[ _sm, sm_url;
-	  _sr, sr;
-	  _host, Ref.string_of host;
-	  _xenops, xenops_url;
-	  _session_id, session_id;
-	]
