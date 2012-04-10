@@ -150,6 +150,7 @@ let bond_record rpc session_id bond =
           ~get_map:(fun () -> (x ()).API.bond_properties)
           ~set_in_map:(fun k v -> Client.Bond.set_property rpc session_id bond k v) ();
         make_field ~name:"primary-slave" ~get:(fun () -> get_uuid_from_ref (x ()).API.bond_primary_slave) ();
+		make_field ~name:"links-up" ~get:(fun () -> Int64.to_string (x ()).API.bond_links_up) ();
       ]
   }
 

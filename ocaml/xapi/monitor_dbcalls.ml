@@ -42,6 +42,7 @@ open Rrd_shared
 open Monitor_types
 open Stringext
 open Listext
+open Db_filter_types
 
 (** Called with the Rrd_shared mutex held *)
 (* This is the legacy update function that constructs a bunch of xml and
@@ -205,7 +206,7 @@ let pifs_and_memory_update_fn () =
   in
 
   (* Nb, this bit must not take much time to execute - we're holding the lock! *)
-  let (memories,host_memories,pifs) =
+  let (memories,host_memories,pifs,bonds) =
     Pervasiveext.finally (fun () ->
       let memories = 
 	try
@@ -220,6 +221,8 @@ let pifs_and_memory_update_fn () =
 	with e -> (error "Unexpected exn in memory computation: %s" (Printexc.to_string e); log_backtrace(); raise e)
       in
       let pifs = List.filter (fun pif -> StringSet.mem pif.pif_name !dirty_pifs) !pif_stats in
+	  (* let's copy the list to avoid blocking during the update *)
+	  let bonds = Monitor.copy_bonds_status () in
       let host_memories = if !dirty_host_memory then begin
 	try
 	  match !host_rrd with None -> None | Some rrdi ->
@@ -233,7 +236,7 @@ let pifs_and_memory_update_fn () =
 	with e -> (error "Unexpected exn in host computation: %s" (Printexc.to_string e); log_backtrace(); raise e)
       end else None
       in
-      (memories,host_memories,pifs))
+	  (memories,host_memories,pifs,bonds))
       (fun () -> 
 	dirty_pifs := StringSet.empty;
 	dirty_memory := StringSet.empty;
@@ -255,6 +258,17 @@ let pifs_and_memory_update_fn () =
 	let metrics = Db.Host.get_metrics ~__context ~self:localhost in
 	Db.Host_metrics.set_memory_total ~__context ~self:metrics ~value:total;
 	Db.Host_metrics.set_memory_free ~__context ~self:metrics ~value:free;	
+	List.iter (fun (bond,links_up) ->
+	  let my_bond_pifs = Db.PIF.get_records_where ~__context
+		~expr:(And (And (Eq (Field "host", Literal (Ref.string_of localhost)),
+						 Not (Eq (Field "bond_master_of", Literal "()"))),
+					Eq(Field "device", Literal bond))) in
+	  let my_bonds = List.map (fun (_, pif) -> List.hd pif.API.pIF_bond_master_of) my_bond_pifs in
+	  if(List.length my_bonds) <> 1 then
+		debug "Error: bond %s cannot be found" bond
+	  else
+		Db.Bond.set_links_up ~__context ~self:(List.hd my_bonds)
+		  ~value:(Int64.of_int links_up)) bonds
     )
 
 
@@ -263,7 +277,7 @@ let pifs_and_memory_update_fn () =
 let monitor_dbcall_thread () =
     while true do 
       Mutex.lock mutex;
-      while (StringSet.is_empty !dirty_memory) && (StringSet.is_empty !dirty_pifs) && (not !full_update) && (not !dirty_host_memory) do
+	  while (StringSet.is_empty !dirty_memory) && (StringSet.is_empty !dirty_pifs) && (not !full_update) && (not !dirty_host_memory) && ((List.length !Monitor.bonds_status_update) = 0) do
         Condition.wait condition mutex
       done;
       
