@@ -87,7 +87,7 @@ type mirror_record = {
 }
 
 
-let migrate  ~__context ~vm ~dest ~live ~options =
+let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	if not(!Xapi_globs.use_xenopsd)
 	then failwith "You must have /etc/xapi.conf:use_xenopsd=true";
 	(* Create mirrors of all the disks on the remote *)

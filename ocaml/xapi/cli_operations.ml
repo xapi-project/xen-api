@@ -2486,7 +2486,7 @@ let vm_migrate printer rpc session_id params =
 					printer (Cli_printer.PMsg (Printf.sprintf "Will migrate to remote host: %s" host_record.API.host_name_label));
 					let token = Client.Host.migrate_receive remote_rpc remote_session host options in
 					printer (Cli_printer.PMsg (Printf.sprintf "Received token: [ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ ":" ^ v) token))));
-					ignore(do_vm_op ~include_control_vms:true printer rpc session_id (fun vm -> Client.VM.migrate rpc session_id (vm.getref ()) token true options)
+					ignore(do_vm_op ~include_control_vms:true printer rpc session_id (fun vm -> Client.VM.migrate_send rpc session_id (vm.getref ()) token true [] [] options)
 						params ["host"; "host-uuid"; "host-name"; "live"; "encrypt"; "remote-address"; "remote-username"; "remote-password" ])
 				)
 				(fun () -> Client.Session.logout remote_rpc remote_session)

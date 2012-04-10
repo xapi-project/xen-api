@@ -50,7 +50,7 @@ let vm_operation_table =
     `data_source_op, "data_sources_op";
     `hard_reboot, "hard_reboot";
     `hard_shutdown, "hard_shutdown";
-    `migrate, "migrate";
+    `migrate_send, "migrate_send";
     `pause, "pause";
     `resume, "resume";
     `resume_on, "resume_on";
