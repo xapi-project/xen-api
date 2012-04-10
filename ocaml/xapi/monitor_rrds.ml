@@ -336,22 +336,33 @@ let maybe_remove_rrd uuid =
     different pool, you must pass both the remote_address and
     session_id parameters. *)
 let migrate_push ~__context ?remote_address ?session_id vm_uuid host =
-	let address = match remote_address with
-		| None -> Db.Host.get_address ~__context ~self:host
-		| Some a -> a in
-	let rrdi = Mutex.execute mutex (fun () ->
-		let rrdi = Hashtbl.find vm_rrds vm_uuid in
-		debug "Sending RRD for VM uuid=%s to remote host %s for migrate"
-			(Ref.string_of host)
-			vm_uuid;
-		Hashtbl.remove vm_rrds vm_uuid;
-		rrdi)
-	in
-	match session_id with
-		| None ->
-			  send_rrd ~__context address false vm_uuid rrdi.rrd
-		| Some session_id ->
-			  send_rrd ~__context ~session_id address false vm_uuid rrdi.rrd
+	try
+		let address = match remote_address with
+			| None -> Db.Host.get_address ~__context ~self:host
+			| Some a -> a in
+		let rrdi = Mutex.execute mutex (fun () ->
+			let rrdi = Hashtbl.find vm_rrds vm_uuid in
+			debug "Sending RRD for VM uuid=%s to remote host %s for migrate"
+				(Ref.string_of host)
+				vm_uuid;
+			Hashtbl.remove vm_rrds vm_uuid;
+			rrdi)
+		in
+		match session_id with
+			| None ->
+				  send_rrd ~__context address false vm_uuid rrdi.rrd
+			| Some session_id ->
+				  send_rrd ~__context ~session_id address false vm_uuid rrdi.rrd
+	with
+		| Not_found ->
+			  debug "VM %s RRDs not found on migrate! Continuing anyway..."
+				  vm_uuid ;
+			  log_backtrace ()
+		| e ->
+			  debug "Caught exception while trying to push VM %s RRDs: %s"
+				  vm_uuid
+				  (ExnHelper.string_of_exn e) ;
+			  log_backtrace ()
 
 (** Push function to push the archived RRD to the appropriate host 
     (which might be us, in which case, pop it into the hashtbl *)
