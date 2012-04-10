@@ -1987,13 +1987,15 @@ let vm_send_trigger = call
   ~allowed_roles:_R_POOL_ADMIN
   ()
 
-let vm_migrate = call
-  ~name: "migrate"
-  ~in_product_since:rel_rio
+let vm_migrate_send = call
+  ~name: "migrate_send"
+  ~in_product_since:rel_tampa
   ~doc: "Migrate the VM to another host.  This can only be called when the specified VM is in the Running state."
   ~params:[Ref _vm, "vm", "The VM";
            Map(String,String), "dest", "The result of a Host.migrate_receive call.";
            Bool, "live", "Live migration";
+		   Map (Ref _vdi, Ref _sr), "vdi_map", "Map of source VDI to destination SR";
+		   Map (Ref _vif, Ref _network), "vif_map", "Map of source VIF to destination network";
            Map (String, String), "options", "Other parameters"]
   ~errs:[Api_errors.vm_bad_power_state]
   ~hide_from_docs:true
@@ -6358,7 +6360,7 @@ let vm_operations =
 	    vm_cleanReboot; vm_hardShutdown; vm_stateReset; vm_hardReboot;
 	    vm_suspend; csvm; vm_resume; vm_resume_on;
 	    vm_pool_migrate;
-        vm_migrate;
+        vm_migrate_send;
 	    vm_get_boot_record; vm_send_sysrq; vm_send_trigger ]
 	@ [ "changing_memory_live", "Changing the memory settings";
 	    "awaiting_memory_live", "Waiting for the memory settings to change";
@@ -6414,7 +6416,7 @@ let vm =
 		vm_set_VCPUs_at_startup;
 		vm_send_sysrq; vm_send_trigger;
 		vm_maximise_memory;
-		vm_migrate;
+		vm_migrate_send;
 		vm_get_boot_record;
 		vm_get_data_sources; vm_record_data_source; vm_query_data_source; vm_forget_data_source_archives;
 		assert_operation_valid vm_operations _vm _self;
