@@ -649,13 +649,6 @@ let is_rebooting id =
 let export_metadata vdi_map id =
 	let module B = (val get_backend () : S) in
 
-	let remap_fn = function 
-		| VDI vdi -> 
-			if List.mem_assoc vdi vdi_map 
-			then (debug "Remapping VDI: %s -> %s" vdi (List.assoc vdi vdi_map); VDI (List.assoc vdi vdi_map))
-			else VDI vdi 
-		| x -> x in
-
 	let vm_t = VM_DB.read_exn id in
 
 	debug "Remapping bootloader VDIs";
@@ -670,18 +663,18 @@ let export_metadata vdi_map id =
 							| Vm.Direct x -> pv_info.Vm.boot
 							| Vm.Indirect pv_indirect_boot ->
 								Vm.Indirect { pv_indirect_boot with Vm.devices = 
-										List.map remap_fn pv_indirect_boot.Vm.devices } } } in
+										List.map (remap_vdi vdi_map) pv_indirect_boot.Vm.devices } } } in
 
 	let vbds = VBD_DB.vbds id in
 	let vifs = VIF_DB.vifs id in
 	let pcis = PCI_DB.pcis id in
-	let domains = B.VM.get_internal_state vm_t in
+	let domains = B.VM.get_internal_state vdi_map vm_t in
 
 
 	(* Remap VDIs *)
 	debug "Remapping normal VDIs";
 
-	let vbds = List.map (fun vbd -> {vbd with Vbd.backend = Opt.map remap_fn vbd.Vbd.backend}) vbds in
+	let vbds = List.map (fun vbd -> {vbd with Vbd.backend = Opt.map (remap_vdi vdi_map) vbd.Vbd.backend}) vbds in
 
 	{
 		Metadata.vm = vm_t;
