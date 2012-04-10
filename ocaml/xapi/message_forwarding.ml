@@ -1594,9 +1594,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			update_vbd_operations ~__context ~vm;
 			update_vif_operations ~__context ~vm
 
-		let assert_can_migrate ~__context ~vm ~dest ~live ~options =
+		let assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			info "VM.assert_can_migrate: VM = '%s'" (vm_uuid ~__context vm);
-			Local.VM.assert_can_migrate ~__context ~vm ~dest ~live ~options
+			Local.VM.assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options
 
 		let send_trigger ~__context ~vm ~trigger =
 			info "VM.send_trigger: VM = '%s'; trigger = '%s'" (vm_uuid ~__context vm) trigger;

@@ -2010,6 +2010,8 @@ let vm_assert_can_migrate = call
 		Ref _vm, "vm", "The VM";
 		Map(String,String), "dest", "The result of a VM.migrate_receive call.";
 		Bool, "live", "Live migration";
+		Map (Ref _vdi, Ref _sr), "vdi_map", "Map of source VDI to destination SR";
+		Map (Ref _vif, Ref _network), "vif_map", "Map of source VIF to destination network";
 		Map (String, String), "options", "Other parameters" ]
 	~allowed_roles:_R_VM_POWER_ADMIN
 	()
