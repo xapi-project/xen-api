@@ -113,7 +113,6 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				end
 			else None) vbds in
 	let task = Context.string_of_task __context in
-	let dest_sr = List.assoc _sr dest in
 	let dest_host = List.assoc _host dest in
 	let url = List.assoc _sm dest in
 	let xenops = List.assoc _xenops dest in
@@ -123,13 +122,35 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		| _, _ -> failwith (Printf.sprintf "Cannot extract foreign IP address from: %s" xenops) in
 	try
 		let remote_rpc = Helpers.make_remote_rpc remote_address in
+
+		let dest_default_sr_ref_uuid = 
+			try
+				let remote_pool = List.hd (XenAPI.Pool.get_all remote_rpc session_id) in
+				let remote_default_SR = XenAPI.Pool.get_default_SR remote_rpc session_id remote_pool in
+				let remote_default_SR_uuid = XenAPI.SR.get_uuid remote_rpc session_id remote_default_SR in
+				Some (remote_default_SR, remote_default_SR_uuid) 
+			with _ ->
+				None
+		in
+
 		let vdi_map = List.map
 			(fun (vdi, dp, location, sr, xenops_locator) ->
+				let (dest_sr_ref, dest_sr) = 
+					match List.mem_assoc vdi vdi_map, dest_default_sr_ref_uuid with
+						| true, _ ->
+							let dest_sr_ref = List.assoc vdi vdi_map in
+							let dest_sr = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
+							(dest_sr_ref, dest_sr)
+						| false, Some x ->
+							x
+						| false, None ->
+							failwith "No SR specified in VDI map and no default on destination"
+				in
+						
 				match SMAPI.Mirror.start ~task ~sr ~vdi:location ~dp ~url ~dest:dest_sr with
 					| Success (Vdi v) ->
 						debug "Local VDI %s mirrored to %s" location v.vdi;
 						debug "Executing remote scan to ensure VDI is known to xapi";
-						let dest_sr_ref = XenAPI.SR.get_by_uuid remote_rpc session_id dest_sr in
 						XenAPI.SR.scan remote_rpc session_id dest_sr_ref;
 						let query = Printf.sprintf "(field \"location\"=\"%s\") and (field \"SR\"=\"%s\")" v.vdi (Ref.string_of dest_sr_ref) in
 						let vdis = XenAPI.VDI.get_all_records_where remote_rpc session_id query in
