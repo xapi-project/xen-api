@@ -49,6 +49,28 @@ struct
 			return_type y
 		| t -> t
 
+	let find_version cur si =
+		match si with 
+			| <:str_item< value version = $version$ >> ->
+				let version = match version with
+					| Ast.ExStr (_,version) -> version
+					| _ -> failwith "Cannot parse version"
+				in
+				Some version
+			| _ -> cur
+
+	let add_version_rpc rpcs version =
+		let _loc = Ast.Loc.ghost in
+		match version with
+			| None -> rpcs
+			| Some _ -> 
+				Rpc { loc = _loc;
+				namespace = [];
+				fname = "get_version";
+				name = "get_version";
+				args = [ { MyRpcLight.kind=`Anonymous; ctyp = <:ctyp< unit >>} ];
+				rtype = <:ctyp< string >> }::rpcs
+
 	(* Find rpcs - any 'external' definitions in the module *)
 	let rec find_rpcs (cur,namespace) si = 
 		match si with
@@ -225,7 +247,7 @@ struct
 	(* Make the functor that generates server modules. The generated module will
 	   contain a single function - 'process' - which takes an Rpc.call and 
 	   unmarshals the arguments and passes them to the implementation module *)
-	let make_server_functor rpcs =
+	let make_server_functor version rpcs =
 		let gen_match_case rpc =
 			let _loc = rpc.loc in
 			let cap_name = String.capitalize rpc.fname in
@@ -245,18 +267,25 @@ struct
 					rpc.args)
 			in
 
-			let apply = MyRpcLight.list_foldi 
-				(fun accu e i ->
-	 				match e.MyRpcLight.kind with
-	 				| `Optional s -> <:expr< $accu$ ? $lid:s$ : params.$arg_path$.$lid:s$ >>
-	 				| `Named s -> <:expr< $accu$ ~ $lid:s$ : params.$arg_path$.$lid:s$ >>
-	 				| `Anonymous -> <:expr< $accu$ ($arg_path$.$lid:MyRpcLight.of_rpc 
-						(MyRpcLight.argi (i+1))$ $lid:MyRpcLight.argi (i+1)$) >>)
-				<:expr< $impl_path$.$lid:rpc.fname$ x >> 
-				rpc.args
+			let inner = 
+				let apply = MyRpcLight.list_foldi 
+					(fun accu e i ->
+	 					match e.MyRpcLight.kind with
+	 						| `Optional s -> <:expr< $accu$ ? $lid:s$ : params.$arg_path$.$lid:s$ >>
+	 						| `Named s -> <:expr< $accu$ ~ $lid:s$ : params.$arg_path$.$lid:s$ >>
+	 						| `Anonymous -> <:expr< $accu$ ($arg_path$.$lid:MyRpcLight.of_rpc 
+								(MyRpcLight.argi (i+1))$ $lid:MyRpcLight.argi (i+1)$) >>)
+					<:expr< $impl_path$.$lid:rpc.fname$ x >> 
+					rpc.args
+				in
+				let default = <:expr< $arg_path$.rpc_of_response ($apply$) >> in
+				
+				if rpc.fname = "get_version" 
+				then match version with Some v -> <:expr< $arg_path$.rpc_of_response ($str:v$) >> | None -> default
+				else default
+				
 			in
-
-			let inner = <:expr< $arg_path$.rpc_of_response ($apply$) >> in
+				
 			let outer = 
 				if has_names 
 				then <:expr< let params = $arg_path$.request_of_rpc arg in $inner$ >> 
@@ -273,6 +302,7 @@ struct
 	
 		let mcs = List.map gen_match_case rpcs in
 		let _loc = Ast.Loc.ghost in
+
 		<:str_item<
 			module Server = functor (Impl : Server_impl) -> struct
 				value process x call =
@@ -312,13 +342,20 @@ struct
 
 	AstFilters.register_str_item_filter begin fun si ->
 		let _loc = Ast.loc_of_str_item si in
-		let (rev_rpcs,_) = List.fold_left find_rpcs ([],[]) (Ast.list_of_str_item si []) in
+		let version = List.fold_left find_version None (Ast.list_of_str_item si []) in
+
+		let (orig_rev_rpcs,_) = List.fold_left find_rpcs ([],[]) (Ast.list_of_str_item si []) in
+
+		let rev_rpcs = add_version_rpc orig_rev_rpcs version in
+
 		let rev_exns = List.fold_left find_exns [] (Ast.list_of_str_item si []) in
 		let rev_exns = 
 			("Internal_error",Some <:ctyp< string >>) ::
 				("Message_param_count_mismatch",Some <:ctyp< (string * int * int) >>) :: 
 				("Unknown_RPC",Some <:ctyp< string >>) :: rev_exns in
 		let rpcs = List.rev rev_rpcs in
+		let orig_rpcs = List.rev orig_rev_rpcs in
+
 		let rec flatten_rpcs rpcs = 
 			List.flatten (List.map (function 
 				| Rpc r -> [r] 
@@ -387,8 +424,8 @@ struct
 			  make_args rpcs; 
 			  rpc_type;
 			  make_client rpcs;  
-			  make_server_sig rpcs;  
-			  make_server_functor flat_rpcs ] $ >>
+			  make_server_sig orig_rpcs;  
+			  make_server_functor version flat_rpcs ] $ >>
 		end
 
 end

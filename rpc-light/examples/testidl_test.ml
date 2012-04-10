@@ -20,6 +20,7 @@ module Client = Testidl.Client(struct let rpc = rpc end)
 
 let _ =
 	try
+		Printf.printf "version=%s\n" (Client.get_version ());
 		Printf.printf "1+2=%d\n" (Client.Foo.add 1 2);
 		Printf.printf "2+3=%d\n" (Client.Foo.add 2 3)
 	with Testidl.TestExn (i,j) ->
