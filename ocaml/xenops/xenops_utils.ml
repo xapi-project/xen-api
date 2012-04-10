@@ -494,5 +494,13 @@ module Updates = struct
 	end
 end
 
+let remap_vdi vdi_map = function 
+	| Xenops_interface.VDI vdi -> 
+		if List.mem_assoc vdi vdi_map 
+		then (debug "Remapping VDI: %s -> %s" vdi (List.assoc vdi vdi_map); VDI (List.assoc vdi vdi_map))
+		else VDI vdi 
+	| x -> x 
+
+
 
 
