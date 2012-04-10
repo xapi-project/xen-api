@@ -507,31 +507,23 @@ module VDI : HandlerTools = struct
 		end else begin
 			match config.import_type with
 			| Metadata_import _ -> begin
-				(* PR-1255 need a content_id everywhere *)
-				let content_id =
-					if List.mem_assoc "content_id" vdi_record.API.vDI_other_config
-					then List.assoc "content_id" vdi_record.API.vDI_other_config
-					else vdi_record.API.vDI_location in
+				let mapto =
+					if List.mem_assoc Constants.storage_migrate_vdi_map_key vdi_record.API.vDI_other_config
+					then Some (Ref.of_string (List.assoc Constants.storage_migrate_vdi_map_key vdi_record.API.vDI_other_config))
+					else None in
 				let find_by_sr_and_location () =
 					let sr = lookup vdi_record.API.vDI_SR state.table in
 					List.filter (fun (_, vdir) ->
 						vdir.API.vDI_location = vdi_record.API.vDI_location && vdir.API.vDI_SR = sr)
-						(Client.VDI.get_all_records rpc session_id) |> choose_one in
-				let find_by_content_id () =
-					try
-						debug "Looking up content_id = %s" content_id;
-						Some (Storage_access.find_content ~__context content_id)
-					with e ->
-						debug "Caught exception %s while looking up content_id" (ExnHelper.string_of_exn e);
-						None in
+						(Client.VDI.get_all_records rpc session_id) |> choose_one |> Opt.map fst in
 				match (
 					if exists vdi_record.API.vDI_SR state.table
 					then match find_by_sr_and_location () with
 						| Some x -> Some x
-						| None -> find_by_content_id ()
-					else find_by_content_id ()
+						| None -> mapto
+					else mapto
 				) with
-					| Some (vdi, _) -> Found_disk vdi
+					| Some vdi -> Found_disk vdi
 					| None -> begin
 						error "Found no VDI with location = %s: %s" vdi_record.API.vDI_location
 							(if config.force
@@ -543,7 +535,7 @@ module VDI : HandlerTools = struct
 							then
 								let sr = lookup vdi_record.API.vDI_SR state.table in
 								Found_no_disk (Api_errors.Server_error(Api_errors.vdi_location_missing, [ Ref.string_of sr; vdi_record.API.vDI_location ]))
-							else Found_no_disk (Api_errors.Server_error(Api_errors.vdi_content_id_missing, [ content_id ]))
+							else Found_no_disk (Api_errors.Server_error(Api_errors.vdi_content_id_missing, [ ]))
 						end
 					end
 			end
