@@ -463,10 +463,10 @@ module Bridge = struct
 			debug "%s" error;
 			failwith error
 
-	let get_links_up _ ~name = 
+	let get_bond_links_up _ ~name = 
 		match !kind with
-		| Openvswitch -> Ovs.get_links_up name
-		| Bridge -> Proc.get_links_up name
+		| Openvswitch -> Ovs.get_bond_links_up name
+		| Bridge -> Proc.get_bond_links_up name
 
 	let get_all _ () =
 		match !kind with

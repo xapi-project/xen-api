@@ -430,7 +430,7 @@ module Sysctl = struct
 end
 
 module Proc = struct
-	let get_links_up name = 
+	let get_bond_links_up name = 
 		try
 			let raw = Unixext.string_of_file (bonding_dir ^ name) in
 			let lines = String.split '\n' raw in
@@ -493,7 +493,7 @@ module Ovs = struct
 		call ["br-to-parent"; name],
 		int_of_string (call ["br-to-vlan"; name])
 
-	let get_links_up name =
+	let get_bond_links_up name =
 	  try 
 		let check_line line =
 		  if (String.startswith "slave" line) && (String.endswith "enabled" line) then 

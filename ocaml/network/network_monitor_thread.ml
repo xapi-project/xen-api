@@ -136,7 +136,7 @@ let rec monitor () =
 				let nb_links = List.length devs in
 				let carrier = List.exists Sysfs.get_carrier devs in
 				let links_up = (if nb_links > 1 then
-					(Network_server.Bridge.get_links_up () dev)
+					(Network_server.Bridge.get_bond_links_up () dev)
 				  else
 					if carrier then 1 else 0)
 				in

@@ -102,13 +102,3 @@ let vmpp_backup_failed = addMessage "VMPP_SNAPSHOT_FAILED" (*'The snapshot phase
 let vmpp_snapshot_archive_already_exists = addMessage "VMPP_SNAPSHOT_ARCHIVE_ALREADY_EXISTS" (*'Failed to archive the snapshot, it has already been archived on the specified target'*)
 
 let bond_status_changed = addMessage "BOND_STATUS_CHANGED" (* A link in a bond went down or came back up *)
-
-
-
-
-
-
-
-
-
-
