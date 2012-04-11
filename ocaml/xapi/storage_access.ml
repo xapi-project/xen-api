@@ -68,7 +68,7 @@ module Builtin_impl = struct
 		let create context ~task ~id = assert false
 		let destroy context ~task ~dp = assert false
 		let diagnostics context () = assert false
-		let params context ~task ~sr ~vdi ~dp = assert false
+		let attach_info context ~task ~sr ~vdi ~dp = assert false
 	end
 
 	module SR = struct
@@ -200,14 +200,18 @@ module Builtin_impl = struct
 
 		let attach context ~task ~dp ~sr ~vdi ~read_write =
 			try
-				let params =
+				let attach_info_v1 =
 					for_vdi ~task ~sr ~vdi "VDI.attach"
 						(fun device_config _type sr self ->
 							Sm.vdi_attach device_config _type sr self read_write
 						) in
+				let attach_info =
+					{ params = attach_info_v1.Smint.params;
+					  xenstore_data = attach_info_v1.Smint.xenstore_data; }
+				in
 				Mutex.execute vdi_read_write_m
 					(fun () -> Hashtbl.replace vdi_read_write (sr, vdi) read_write);
-				Success (Params params)
+				Success (Attach_info attach_info)
 			with Api_errors.Server_error(code, params) ->
 				Failure (Backend_error(code, params))
 
@@ -665,9 +669,9 @@ let expect_vdi f x = match x with
 	| Success (Vdi v) -> f v
 	| _ -> unexpected_result "Vdi _" x
 
-let expect_params f x = match x with
-	| Success (Params v) -> f v
-	| _ -> unexpected_result "Params _" x
+let expect_attach_info f x = match x with
+	| Success (Attach_info v) -> f v
+	| _ -> unexpected_result "Attach_info _" x
 
 let expect_unit f x = match x with
 	| Success Unit -> f ()
@@ -719,8 +723,8 @@ let reset ~__context ~vm =
 			Db.PBD.set_currently_attached ~__context ~self:pbd ~value:false;
 		) (System_domains.pbd_of_vm ~__context ~vm)
 
-(** [attach_and_activate __context vbd domid f] calls [f params] where
-    [params] is the result of attaching a VDI which is also activated.
+(** [attach_and_activate __context vbd domid f] calls [f attach_info] where
+    [attach_info] is the result of attaching a VDI which is also activated.
     This should be used everywhere except the migrate code, where we want fine-grained
     control of the ordering of attach/activate/deactivate/detach *)
 let attach_and_activate ~__context ~vbd ~domid ~hvm f =
@@ -728,11 +732,11 @@ let attach_and_activate ~__context ~vbd ~domid ~hvm f =
 	let result = on_vdi ~__context ~vbd ~domid
 		(fun rpc task dp sr vdi ->
 			let module C = Storage_interface.Client(struct let rpc = rpc end) in
-			expect_params
-				(fun path ->
+			expect_attach_info
+				(fun attach_info ->
 					expect_unit
 						(fun () ->
-							f path
+							f attach_info
 						) (C.VDI.activate task dp sr vdi)
 				) (C.VDI.attach task dp sr vdi read_write)
 		) in
@@ -860,7 +864,7 @@ let refresh_local_vdi_activations ~__context =
 						remember (sr, vdi) RW
 					| Success (Stat { superstate = Detached }) -> 
 						unlock_vdi (vdi_ref, vdi_rec)
-					| Success (Params _ | Vdi _ | Vdis _ | String _ | Unit)
+					| Success (Attach_info _ | Vdi _ | Vdis _ | String _ | Unit)
 					| Failure _ as r -> error "Unable to query state of VDI: %s, %s" vdi (string_of_result r)
 			else unlock_vdi (vdi_ref, vdi_rec)
 		) all_vdi_recs

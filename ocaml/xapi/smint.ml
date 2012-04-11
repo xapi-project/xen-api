@@ -68,6 +68,12 @@ type sr_driver_info = {
 	sr_driver_type : sm_type;
 }
 
+type attach_info = {
+	params : string;
+	xenstore_data : (string * string) list;
+}
+
+
 exception Backend_missing_field of string
 exception Backend_report_error of (int * string)
 exception Command_failed of (int * string * string (*stdout*) * string (*stderr*))
