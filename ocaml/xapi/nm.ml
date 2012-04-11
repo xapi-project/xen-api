@@ -68,8 +68,8 @@ let netmask_to_prefixlen netmask =
 		32 - (List.fold_left length 0 masks)
 	)
 
-let determine_mtu ~__context pif_rc =
-	let mtu = Int64.to_int (Db.Network.get_MTU ~__context ~self:pif_rc.API.pIF_network) in
+let determine_mtu pif_rc net_rc =
+	let mtu = Int64.to_int net_rc.API.network_MTU in
 	if List.mem_assoc "mtu" pif_rc.API.pIF_other_config then
 		let value = List.assoc "mtu" pif_rc.API.pIF_other_config in
 		try
@@ -251,7 +251,7 @@ let get_pif_type pif_rc =
 			| None -> `phy_pif
 
 let rec create_bridges ~__context pif_rc net_rc =
-	let mtu = determine_mtu ~__context pif_rc in
+	let mtu = determine_mtu pif_rc net_rc in
 	let other_config = determine_other_config ~__context pif_rc net_rc in
 	match get_pif_type pif_rc with
 	| `tunnel_pif _ ->
@@ -437,7 +437,7 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 							conf, gateway, dns
 					in
 					let ipv4_routes = determine_static_routes net_rc in
-					let mtu = determine_mtu ~__context rc in
+					let mtu = determine_mtu rc net_rc in
 					let (ethtool_settings, ethtool_offload) = determine_ethtool_settings net_rc.API.network_other_config in
 					let interface_config = [bridge, {default_interface with ipv4_conf; ipv4_gateway;
 						ipv4_routes; dns; ethtool_settings; ethtool_offload; mtu; persistent_i=persistent}] in
