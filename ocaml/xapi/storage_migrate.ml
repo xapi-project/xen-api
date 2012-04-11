@@ -258,7 +258,7 @@ let stop ~task ~sr ~vdi =
 		try List.find (fun x -> x.vdi = vdi) vdis
 		with Not_found -> failwith (Printf.sprintf "Local VDI %s not found" vdi) in
 	(* Disable mirroring on the local machine *)
-	let snapshot = Local.VDI.snapshot ~task ~sr ~vdi:local_vdi.vdi ~vdi_info:local_vdi ~params:[] |> success |> _vdi in
+	let snapshot = Local.VDI.snapshot ~task ~sr ~vdi:local_vdi.vdi ~vdi_info:local_vdi ~params:["mirror", "null"] |> success |> _vdi in
 	Local.VDI.destroy ~task ~sr ~vdi:snapshot.vdi |> success |> unit;
 	Success Unit
 
