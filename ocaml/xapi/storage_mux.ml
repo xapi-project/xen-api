@@ -83,9 +83,9 @@ module Mux = struct
 			fail_or combine (multicast (fun sr rpc ->
 				let module C = Client(struct let rpc = of_sr sr end) in
 				C.DP.diagnostics ()))
-		let params context ~task ~sr ~vdi ~dp =
+		let attach_info context ~task ~sr ~vdi ~dp =
 			let module C = Client(struct let rpc = of_sr sr end) in
-			C.DP.params ~task ~sr ~vdi ~dp
+			C.DP.attach_info ~task ~sr ~vdi ~dp
 			
 	end
 	module SR = struct

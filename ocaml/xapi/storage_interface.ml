@@ -35,7 +35,10 @@ type task = string
 
 (** The result of a successful VDI.attach: this information (eg) can be used to
 	connect a VBD backend to a VBD frontend *)
-type params = string
+type attach_info = {
+	params : string;
+	xenstore_data : (string * string) list;
+}
 
 (** Uniquely identifies the contents of a VDI *)
 type content_id = string
@@ -76,7 +79,7 @@ let string_of_stat_t (x: stat_t) = Jsonrpc.to_string (rpc_of_stat_t x)
 type success_t =
 	| Vdis of vdi_info list                    (** success (from SR.scan) *)
 	| Vdi of vdi_info                         (** success (from VDI.create) *)
-	| Params of params                        (** success (from VDI.attach) *)
+	| Attach_info of attach_info              (** success (from VDI.attach) *)
 	| String of string                        (** success (from DP.diagnostics, VDI.get_url) *)
 	| Unit                                    (** success *)
 	| Stat of stat_t                          (** success (from VDI.stat) *)
@@ -135,7 +138,7 @@ module DP = struct
 
 		
 	(** [params task id]: returns the params of the dp (the return value of VDI.attach) *)
-	external params: task:task -> sr:sr -> vdi:vdi -> dp:dp -> result = ""
+	external attach_info: task:task -> sr:sr -> vdi:vdi -> dp:dp -> result = ""
 
 	(** [diagnostics ()]: returns a printable set of diagnostic information,
 		typically including lists of all registered datapaths and their allocated
