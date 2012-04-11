@@ -163,7 +163,7 @@ let create_vbd_frontend ~xc ~xs task frontend_domid vdi =
 				dev_type = Device.Vbd.Disk;
 				unpluggable = true;
 				protocol = None;
-				extra_backend_keys = [];
+				extra_backend_keys = List.map (fun (k, v) -> "sm-data/" ^ k, v) (vdi.attach_info.Storage_interface.xenstore_data);
 				extra_private_keys = [];
 				backend_domid = backend_domid;
 			} in
