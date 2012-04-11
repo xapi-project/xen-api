@@ -44,9 +44,9 @@ let _vdis = function
 	| Vdis x -> x
 	| x -> failwith (Printf.sprintf "type-error, expected Vdis received %s" (x |> rpc_of_success_t |> Jsonrpc.to_string))
 
-let params = function
-	| Params x -> x
-	| x -> failwith (Printf.sprintf "type-error, expected Params received %s" (x |> rpc_of_success_t |> Jsonrpc.to_string))
+let attach_info = function
+	| Attach_info x -> x
+	| x -> failwith (Printf.sprintf "type-error, expected Attach_info received %s" (x |> rpc_of_success_t |> Jsonrpc.to_string))
 
 let unit = function
 	| Unit -> ()
@@ -56,7 +56,8 @@ let string = function
 	| String x -> x
 	| x -> failwith (Printf.sprintf "type-error, expected Unit received %s" (x |> rpc_of_success_t |> Jsonrpc.to_string))
 
-let tapdisk_of_path path =
+let tapdisk_of_attach_info attach_info =
+	let path = attach_info.params in
 	try 
 		match Tapctl.of_device (Tapctl.create ()) path with
 			| tapdev, _, _ -> Some tapdev
@@ -74,7 +75,8 @@ let tapdisk_of_path path =
 let with_activated_disk ~task ~sr ~vdi f =
 	let path =
 		Opt.map (fun vdi -> 
-			let path = Local.VDI.attach ~task ~dp:"migrate" ~sr ~vdi ~read_write:false |> success |> params in
+			let attach_info = Local.VDI.attach ~task ~dp:"migrate" ~sr ~vdi ~read_write:false |> success |> attach_info in
+			let path = attach_info.params in
 			Local.VDI.activate ~task ~dp:"migrate" ~sr ~vdi |> success |> unit;
 			path) vdi in
 	finally
@@ -204,9 +206,9 @@ let start ~task ~sr ~vdi ~dp ~url ~dest =
 		let request = Http.Request.make ~query:(Http.Url.get_query_params dest_url) ~user_agent:"smapiv2" Http.Put uri in
 		let transport = Xmlrpc_client.transport_of_url dest_url in
 		debug "Searching for data path: %s" dp;
-		let params = Local.DP.params ~task:"nbd" ~sr ~vdi ~dp |> success |> params in
+		let attach_info = Local.DP.attach_info ~task:"nbd" ~sr ~vdi ~dp |> success |> attach_info in
 		debug "Got it!";
-		ignore(match tapdisk_of_path params with 
+		ignore(match tapdisk_of_attach_info attach_info with 
 			| Some tapdev -> 
 				let pid = Tapctl.get_tapdisk_pid tapdev in
 				let path = Printf.sprintf "/var/run/blktap-control/nbdclient%d" pid in
@@ -298,7 +300,7 @@ let receive_start ~task ~sr ~vdi_info ~content_id ~similar =
 		on_fail := (fun () -> Local.VDI.destroy ~task ~sr ~vdi:leaf.vdi |> success |> unit) :: !on_fail;
 		debug "Created leaf for mirror receive: %s" leaf.vdi;
 		
-		let _ = Local.VDI.attach ~task ~dp:leaf_dp ~sr ~vdi:leaf.vdi ~read_write:true |> success |> params in
+		let _ = Local.VDI.attach ~task ~dp:leaf_dp ~sr ~vdi:leaf.vdi ~read_write:true |> success |> attach_info in
 		Local.VDI.activate ~task ~dp:leaf_dp ~sr ~vdi:leaf.vdi |> success |> unit;
 
 		let nearest = List.fold_left
@@ -365,8 +367,8 @@ let detach_hook ~sr ~vdi ~dp =
 
 let nbd_handler req s sr vdi dp =
 	debug "sr=%s vdi=%s dp=%s" sr vdi dp;
-	let params = Local.DP.params ~task:"nbd" ~sr ~vdi ~dp |> success |> params in
-	match tapdisk_of_path params with
+	let attach_info = Local.DP.attach_info ~task:"nbd" ~sr ~vdi ~dp |> success |> attach_info in
+	match tapdisk_of_attach_info attach_info with
 		| Some tapdev ->
 			let minor = Tapctl.get_minor tapdev in
 			let pid = Tapctl.get_tapdisk_pid tapdev in

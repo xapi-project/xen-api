@@ -47,7 +47,7 @@ val datapath_of_vbd: domid:int -> device:string -> Storage_interface.dp
 
 val expect_vdi: (Storage_interface.vdi_info -> 'a) -> Storage_interface.result -> 'a
 
-val expect_params: (Storage_interface.params -> 'a) -> Storage_interface.result -> 'a
+val expect_attach_info: (Storage_interface.attach_info -> 'a) -> Storage_interface.result -> 'a
 
 val expect_unit: (unit -> 'a) -> Storage_interface.result -> 'a
 
@@ -55,11 +55,11 @@ val expect_unit: (unit -> 'a) -> Storage_interface.result -> 'a
     domain, we expect it to lose all state. *)
 val reset: __context:Context.t -> vm:API.ref_VM -> unit
 
-(** [attach_and_activate __context vbd domid f] calls [f params] where
-    [params] is the result of attaching a VDI which is also activated.
+(** [attach_and_activate __context vbd domid f] calls [f attach_info] where
+    [attach_info] is the result of attaching a VDI which is also activated.
     This should be used everywhere except the migrate code, where we want fine-grained
     control of the ordering of attach/activate/deactivate/detach *)
-val attach_and_activate: __context:Context.t -> vbd:API.ref_VBD -> domid:int -> hvm:bool -> (Storage_interface.params -> 'a) -> 'a
+val attach_and_activate: __context:Context.t -> vbd:API.ref_VBD -> domid:int -> hvm:bool -> (Storage_interface.attach_info -> 'a) -> 'a
 
 (** [deactivate_and_detach __context vbd domid] idempotent function which ensures
     that any attached or activated VDI gets properly deactivated and detached. *)

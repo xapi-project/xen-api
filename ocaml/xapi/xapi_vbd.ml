@@ -46,7 +46,8 @@ let plug ~__context ~self =
 		debug "VBD.plug of loopback VBD '%s'" (Ref.string_of self);
 		let hvm = Helpers.has_booted_hvm ~__context ~self:vm in
 		Storage_access.attach_and_activate ~__context ~vbd:self ~domid ~hvm
-			(fun params ->
+			(fun attach_info ->
+				let params = attach_info.Storage_interface.params in
 				let prefix = "/dev/" in
 				let prefix_len = String.length prefix in
 				let path = String.sub params prefix_len (String.length params - prefix_len) in

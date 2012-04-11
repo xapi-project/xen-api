@@ -132,8 +132,8 @@ let test_attach_activate sr _ =
 		| Success (Vdi x) -> x
 		| x -> failwith (Printf.sprintf "Unexpected result: %s\n" (string_of_result x))	in
 	let dp = "test_attach_activate" in
-	let (_: string) = match Client.VDI.attach ~task ~sr ~dp ~vdi:vdi_info.vdi ~read_write:true with
-		| Success (Params x) -> x
+	let (_: Storage_interface.attach_info) = match Client.VDI.attach ~task ~sr ~dp ~vdi:vdi_info.vdi ~read_write:true with
+		| Success (Attach_info x) -> x
 		| x -> failwith (Printf.sprintf "Unexpected result: %s\n" (string_of_result x))	in
 	begin match Client.VDI.activate ~task ~sr ~dp ~vdi:vdi_info.vdi with
 		| Success Unit -> ()

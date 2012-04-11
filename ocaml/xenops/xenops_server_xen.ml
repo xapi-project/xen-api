@@ -44,7 +44,7 @@ with rpc
 
 type attached_vdi = {
 	domid: int;
-	params: string;
+	attach_info: Storage_interface.attach_info;
 }
 
 module VmExtra = struct
@@ -153,13 +153,13 @@ let create_vbd_frontend ~xc ~xs task frontend_domid vdi =
 			raise (Does_not_exist("domain", backend_vm_id))
 		| Some backend_domid when backend_domid = frontend_domid ->
 			(* There's no need to use a PV disk if we're in the same domain *)
-			Name vdi.params
+			Name vdi.attach_info.Storage_interface.params
 		| Some backend_domid ->
 			let t = {
 				Device.Vbd.mode = Device.Vbd.ReadOnly;
 				device_number = None; (* we don't mind *)
 				phystype = Device.Vbd.Phys;
-				params = vdi.params;
+				params = vdi.attach_info.Storage_interface.params;
 				dev_type = Device.Vbd.Disk;
 				unpluggable = true;
 				protocol = None;
@@ -244,9 +244,9 @@ module Storage = struct
 			| Internal_err x -> failwith x
 		end
 
-	let params = function
-		| Params p -> p
-		| x -> failwith (Printf.sprintf "Storage operation returned bad type. Expected Params; returned: %s" (x |> rpc_of_success_t |> Jsonrpc.to_string))
+	let attach_info = function
+		| Attach_info p -> p
+		| x -> failwith (Printf.sprintf "Storage operation returned bad type. Expected Attach_info; returned: %s" (x |> rpc_of_success_t |> Jsonrpc.to_string))
 
 	let unit = function
 		| Unit -> ()
@@ -262,11 +262,11 @@ module Storage = struct
 	let attach_and_activate task dp sr vdi read_write =
 		let result =
 			Xenops_task.with_subtask task (Printf.sprintf "VDI.attach %s" dp)
-				(fun () -> Client.VDI.attach "attach_and_activate" dp sr vdi read_write |> success |> params) in
+				(fun () -> Client.VDI.attach "attach_and_activate" dp sr vdi read_write |> success |> attach_info) in
 		Xenops_task.with_subtask task (Printf.sprintf "VDI.activate %s" dp)
 			(fun () -> Client.VDI.activate "attach_and_activate" dp sr vdi |> success |> unit);
 		(* XXX: we need to find out the backend domid *)
-		{ domid = 0; params = result }
+		{ domid = 0; attach_info = result }
 
 	let deactivate task dp sr vdi =
 		debug "Deactivating disk %s %s" sr vdi;
@@ -1314,9 +1314,9 @@ module VBD = struct
 	let attach_and_activate task xc xs frontend_domid vbd = function
 		| None ->
 			(* XXX: do something better with CDROMs *)
-			{ domid = this_domid ~xs; params = "" }
+			{ domid = this_domid ~xs; attach_info = { Storage_interface.params=""; xenstore_data=[]; } }
 		| Some (Local path) ->
-			{ domid = this_domid ~xs; params = path }
+			{ domid = this_domid ~xs; attach_info = { Storage_interface.params=path; xenstore_data=[]; } }
 		| Some (VDI path) ->
 			let sr, vdi = Storage.get_disk_by_name task path in
 			let dp = Storage.id_of frontend_domid vbd.id in
@@ -1349,7 +1349,7 @@ module VBD = struct
 						);
 						device_number = vbd.position;
 						phystype = Device.Vbd.Phys;
-						params = vdi.params;
+						params = vdi.attach_info.Storage_interface.params;
 						dev_type = (match vbd.ty with
 							| CDROM -> Device.Vbd.CDROM
 							| Disk -> Device.Vbd.Disk
@@ -1428,7 +1428,7 @@ module VBD = struct
 					let vdi = attach_and_activate task xc xs frontend_domid vbd (Some disk) in
 					let device_number = device_number_of_device device in
 					let phystype = Device.Vbd.Phys in
-					Device.Vbd.media_insert ~xs ~device_number ~params:vdi.params ~phystype frontend_domid
+					Device.Vbd.media_insert ~xs ~device_number ~params:vdi.attach_info.Storage_interface.params ~phystype frontend_domid
 				end
 			) Newest vm
 

@@ -105,12 +105,12 @@ let string_of_date x = Date.to_string (Date.of_float x)
 module Vdi = struct
 	(** Represents the information known about a VDI *)
 	type t = {
-		params: params option;    (** Some path when attached; None otherwise *)
+		attach_info :  attach_info option;    (** Some path when attached; None otherwise *)
 		dps: (Dp.t * Vdi_automaton.state) list; (** state of the VDI from each dp's PoV *)
 		leaked: Dp.t list;                        (** "leaked" dps *)
 	} with rpc
 	let empty () = {
-		params = None;
+		attach_info = None;
 		dps = [];
 		leaked = [];
 	}
@@ -148,7 +148,7 @@ module Vdi = struct
 		set_dp_state dp state' t
 
 	let to_string_list x =
-		let title = Printf.sprintf "%s (device=%s)" (Vdi_automaton.string_of_state (superstate x)) (Opt.default "None" (Opt.map (fun x -> "Some " ^ x) x.params)) in
+		let title = Printf.sprintf "%s (device=%s)" (Vdi_automaton.string_of_state (superstate x)) (Opt.default "None" (Opt.map (fun x -> "Some " ^ Jsonrpc.to_string (rpc_of_attach_info x)) x.attach_info)) in
 		let of_dp (dp, state) = Printf.sprintf "DP: %s: %s%s" dp (Vdi_automaton.string_of_state state) (if List.mem dp x.leaked then "  ** LEAKED" else "") in
 		title :: (List.map indent (List.map of_dp x.dps))
 end
@@ -291,8 +291,8 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 							let read_write = (ro_rw = Vdi_automaton.RW) in
 							let result = Impl.VDI.attach context ~task ~dp ~sr ~vdi ~read_write in
 							let result, vdi_t = match result with
-							| Success (Params x) ->
-								result, { vdi_t with Vdi.params = Some x }
+							| Success (Attach_info x) ->
+								result, { vdi_t with Vdi.attach_info = Some x }
 							| Success Unit
 							| Failure _ ->
 								result, vdi_t
@@ -342,7 +342,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 					(* NB this_op = attach but ops = [] because the disk is already attached *)
 					let result = match result, this_op with
 						| Success _, Vdi_automaton.Attach _ ->
-							Success (Params (Opt.unbox vdi_t.Vdi.params))
+							Success (Attach_info (Opt.unbox vdi_t.Vdi.attach_info))
 						| x, _ -> x in
 					
 					result, vdi_t
@@ -605,15 +605,15 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			let lines = [ "The following SRs are attached:" ] @ (List.map indent srs) @ [ "" ] @ errors in
 			Success (String (String.concat "" (List.map (fun x -> x ^ "\n") lines)))
 
-		let params context ~task ~sr ~vdi ~dp =
+		let attach_info context ~task ~sr ~vdi ~dp =
 			let srs = Host.list !Host.host in
 			let sr_state = List.assoc sr srs in
 			let vdi_state = Hashtbl.find sr_state.Sr.vdis vdi in
 			let dp_state = Vdi.get_dp_state dp vdi_state in
 			debug "Looking for dp: %s" dp;
-			match dp_state,vdi_state.Vdi.params with
-				| Vdi_automaton.Activated _, Some params ->
-					Success (Params params)
+			match dp_state,vdi_state.Vdi.attach_info with
+				| Vdi_automaton.Activated _, Some attach_info ->
+					Success (Attach_info attach_info)
 				| _ -> 
 					Failure (Internal_err (Printf.sprintf "sr: %s vdi: %s Datapath %s not attached" sr vdi dp))
 	end
@@ -769,8 +769,5 @@ let success = function
 		raise (Api_errors.Server_error(code, params))
 	| Failure f -> failwith (Printf.sprintf "Storage_interface.Failure %s" (f |> rpc_of_failure_t |> Jsonrpc.to_string))
 
-let params = function
-	| Params x -> x
-	| x -> failwith (Printf.sprintf "type-error, expected Params received %s" (x |> rpc_of_success_t |> Jsonrpc.to_string))
 
 

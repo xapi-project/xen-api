@@ -31,7 +31,7 @@ module Proxy = functor(RPC: RPC) -> struct
 		let create _ = Client.DP.create
 		let destroy _ = Client.DP.destroy
 		let diagnostics _ = Client.DP.diagnostics
-		let params _ = Client.DP.params
+		let attach_info _ = Client.DP.attach_info
 	end
 	module SR = struct
 		let attach _ = Client.SR.attach
