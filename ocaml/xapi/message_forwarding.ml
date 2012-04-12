@@ -3342,10 +3342,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 		(* Create and destroy are just db operations, no need to forward; *)
 		(* however, they can affect whether SR.destroy is allowed, so update SR.allowed_operations. *)
-		let create ~__context ~host ~sR ~device_config =
+		let create ~__context ~host ~sR ~device_config ~other_config =
 			info "PBD.create: SR = '%s'; host '%s'" (sr_uuid ~__context sR) (host_uuid ~__context host);
 			SR.with_sr_marked ~__context ~sr:sR ~doc:"PBD.create" ~op:`pbd_create
-				(fun () -> Local.PBD.create ~__context ~host ~sR ~device_config)
+				(fun () -> Local.PBD.create ~__context ~host ~sR ~device_config ~other_config)
 
 		let destroy ~__context ~self =
 			info "PBD.destroy: PBD '%s'" (pbd_uuid ~__context self);
