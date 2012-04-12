@@ -348,12 +348,28 @@ let perform_wlb_request ?auth ?url ?enable_log ~meth ~params
     debug "\n\n%s\n\n" (Xml.to_string response); 
     let inner_xml = retrieve_inner_xml meth response enable_log in
     result := Some (
-      try
-        handle_response inner_xml
-      with
-      | Xml_parse_failure error -> 
-        parse_result_code meth inner_xml (Xml.to_string response) 
-          error enable_log)
+      let code = 
+        try
+          data_from_leaf (descend_and_match ["ResultCode"] inner_xml)
+        with          
+        | Xml_parse_failure error -> "0" (* If it failed trying to get ResultCode, assume the call was successful *)
+        in
+        if code <> "0" then
+          (* Call failed, get error message and raise internal error *)
+          let message =
+            try
+              data_from_leaf (descend_and_match ["ErrorMessage"] inner_xml)
+            with
+            | Xml_parse_failure error -> ""
+            in raise_internal_error [code; message]
+        else
+          (* Call was successful, parse inner xml *)
+          try            
+            handle_response inner_xml
+          with
+          | Xml_parse_failure error -> 
+            parse_result_code meth inner_xml (Xml.to_string response) 
+              error enable_log)
   in
   wlb_request ~__context ~host ~port ~auth:auth' ~meth ~params
     ~timeout_key:Xapi_globs.wlb_timeout

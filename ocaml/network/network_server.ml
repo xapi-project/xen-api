@@ -88,12 +88,12 @@ let read_management_conf () =
 				else None
 			in
 			let nameservers =
-				if List.mem_assoc "DNS" args then
+				if List.mem_assoc "DNS" args && List.assoc "DNS" args <> "" then
 					List.map Unix.inet_addr_of_string (String.split ',' (List.assoc "DNS" args))
 				else []
 			in
 			let domains =
-				if List.mem_assoc "DOMAIN" args then
+				if List.mem_assoc "DOMAIN" args && List.assoc "DOMAIN" args <> "" then
 					String.split ' ' (List.assoc "DOMAIN" args)
 				else []
 			in
@@ -457,6 +457,11 @@ module Bridge = struct
 			debug "%s" error;
 			failwith error
 
+	let get_bond_links_up _ ~name = 
+		match !kind with
+		| Openvswitch -> Ovs.get_bond_links_up name
+		| Bridge -> Proc.get_bond_links_up name
+
 	let get_all _ () =
 		match !kind with
 		| Openvswitch -> Ovs.list_bridges ()
@@ -689,6 +694,11 @@ module Bridge = struct
 		| Openvswitch ->
 			ignore (Ovs.set_bond_properties name params)
 		| Bridge ->
+			let params =
+				if List.mem_assoc "mode" params && List.assoc "mode" params = "lacp" then
+					List.replace_assoc "mode" "802.3ad" params
+				else params
+			in
 			Interface.bring_down () ~name;
 			Sysfs.set_bond_properties name params;
 			Interface.bring_up () ~name

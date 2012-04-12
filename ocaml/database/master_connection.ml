@@ -112,10 +112,10 @@ let restart_on_connection_timeout = ref true
 
 exception Content_length_required
 
-let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : string = 
+let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : Db_interface.response = 
   let time_call_started = Unix.gettimeofday() in
   let write_ok = ref false in
-  let result = ref "" in
+  let result = ref (Db_interface.String "") in
   let surpress_no_timeout_logs = ref false in
   let backoff_delay = ref 2.0 in (* initial delay = 2s *)
   let update_backoff_delay () =
@@ -145,8 +145,16 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : string =
 				   and we'll be out of sync with the next request. *)
 				let res = match response.Http.Response.content_length with
 					| None -> raise Content_length_required
-					| Some l ->
-						with_timestamp (fun ()-> Unixext.really_read_string fd (Int64.to_int l)) in
+					| Some l -> begin
+						if (Int64.to_int l) <= Sys.max_string_length then
+							with_timestamp (fun () -> Db_interface.String (Unixext.really_read_string fd (Int64.to_int l)))
+						else
+							with_timestamp (fun () ->
+								let buf = Bigbuffer.make () in
+								Unixext.really_read_bigbuffer fd buf l;
+								Db_interface.Bigbuf buf)
+					end
+				in
 				write_ok := true;
 				result := res (* yippeee! return and exit from while loop *)
 			) fd
