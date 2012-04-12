@@ -45,12 +45,6 @@ val rpc: Rpc.call -> Rpc.response
     to device [userdevice] on domain [domid] *)
 val datapath_of_vbd: domid:int -> device:string -> Storage_interface.dp
 
-val expect_vdi: (Storage_interface.vdi_info -> 'a) -> Storage_interface.result -> 'a
-
-val expect_attach_info: (Storage_interface.attach_info -> 'a) -> Storage_interface.result -> 'a
-
-val expect_unit: (unit -> 'a) -> Storage_interface.result -> 'a
-
 (** [reset __context vm] declares that [vm] has reset and if it's a driver
     domain, we expect it to lose all state. *)
 val reset: __context:Context.t -> vm:API.ref_VM -> unit

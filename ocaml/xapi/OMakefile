@@ -42,7 +42,7 @@ OCamlProgram(monitor_fake_plugin, monitor_fake_plugin monitor_fake_common rrd)
 storage_interface.mli: storage_interface.ml vdi_automaton.cmi
 	ocamlfind ocamlc -package rpc-light.idl -syntax camlp4o -i $< > $@
 
-OCamlProgram(storage_impl_test, storage_interface vdi_automaton storage_impl storage_locks storage_impl_test)
+OCamlProgram(storage_impl_test, sparse_encoding sparse_dd_wrapper storage_migrate storage_interface vdi_automaton storage_impl storage_locks storage_impl_test)
 
 COMMON = \
 	xapi_templates \

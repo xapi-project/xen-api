@@ -76,36 +76,11 @@ type stat_t = {
 
 let string_of_stat_t (x: stat_t) = Jsonrpc.to_string (rpc_of_stat_t x)
 
-type success_t =
-	| Vdis of vdi_info list                    (** success (from SR.scan) *)
-	| Vdi of vdi_info                         (** success (from VDI.create) *)
-	| Attach_info of attach_info              (** success (from VDI.attach) *)
-	| String of string                        (** success (from DP.diagnostics, VDI.get_url) *)
-	| Unit                                    (** success *)
-	| Stat of stat_t                          (** success (from VDI.stat) *)
-
-let string_of_success (x: success_t) = Jsonrpc.to_string (rpc_of_success_t x)
-
-type failure_t =
-	| Sr_not_attached                         (** error: SR must be attached to access VDIs *)
-	| Vdi_does_not_exist                      (** error: the VDI is unknown *)
-	| Illegal_transition of Vdi_automaton.state * Vdi_automaton.state (** This operation implies an illegal state transition *)
-	| Backend_error of string * (string list) (** error: of the form SR_BACKEND_FAILURE *)
-	| Internal_err of string		          (** error: some unexpected internal error *)
-	| Unimplemented                           (** error: not implemented by backend *)
-
-let string_of_failure (x: failure_t) = Jsonrpc.to_string (rpc_of_failure_t x)
-
-(* Represents a common "result" type. Note this is only here as a way to wrap exceptions. *)
-type result =
-	| Success of success_t
-	| Failure of failure_t
-
-let string_of_result (x: result) = Jsonrpc.to_string (rpc_of_result x)
-
-let success = function
-	| Success _ -> true
-	| Failure _ -> false
+exception Sr_not_attached                         (** error: SR must be attached to access VDIs *)
+exception Vdi_does_not_exist                      (** error: the VDI is unknown *)
+exception Illegal_transition of (Vdi_automaton.state * Vdi_automaton.state) (** This operation implies an illegal state transition *)
+exception Backend_error of (string * (string list)) (** error: of the form SR_BACKEND_FAILURE *)
+exception Unimplemented                           (** error: not implemented by backend *)
 
 module Driver_info = struct
     type t = {
@@ -134,40 +109,40 @@ module DP = struct
 
 	(** [destroy task id]: frees any resources associated with [id] and destroys it.
 		This will typically do any needed VDI.detach, VDI.deactivate cleanup. *)
-	external destroy: task:task -> dp:dp -> allow_leak:bool -> result = ""
+	external destroy: task:task -> dp:dp -> allow_leak:bool -> unit = ""
 
 		
-	(** [params task id]: returns the params of the dp (the return value of VDI.attach) *)
-	external attach_info: task:task -> sr:sr -> vdi:vdi -> dp:dp -> result = ""
+	(** [attach_info task sr vdi dp]: returns the params of the dp (the return value of VDI.attach) *)
+	external attach_info: task:task -> sr:sr -> vdi:vdi -> dp:dp -> attach_info = ""
 
 	(** [diagnostics ()]: returns a printable set of diagnostic information,
 		typically including lists of all registered datapaths and their allocated
 		resources. *)
-	external diagnostics: unit -> result = ""
+	external diagnostics: unit -> string = ""
 end
 
 module SR = struct
 	(** Functions which attach/detach SRs *)
 
 	(** [attach task sr]: attaches the SR *)
-    external attach : task:task -> sr:sr -> device_config:(string * string) list -> result = ""
+    external attach : task:task -> sr:sr -> device_config:(string * string) list -> unit = ""
 
 	(** [detach task sr]: detaches the SR, first detaching and/or deactivating any
 		active VDIs. This may fail with Sr_not_attached, or any error from VDI.detach
 		or VDI.deactivate. *)
-    external detach : task:task -> sr:sr -> result = ""
+    external detach : task:task -> sr:sr -> unit = ""
 
 	(** [reset task sr]: declares that the SR has been completely reset, e.g. by
 		rebooting the VM hosting the SR backend. *)
-	external reset : task:task -> sr:sr ->  result = ""
+	external reset : task:task -> sr:sr ->  unit = ""
 
 	(** [destroy sr]: destroys (i.e. makes unattachable and unprobeable) the [sr],
 		first detaching and/or deactivating any active VDIs. This may fail with 
 		Sr_not_attached, or any error from VDI.detach or VDI.deactivate. *)
-	external destroy : task:task -> sr:sr -> result = ""
+	external destroy : task:task -> sr:sr -> unit = ""
 
 	(** [scan task sr] returns a list of VDIs contained within an attached SR *)
-	external scan: task:task -> sr:sr -> result = ""
+	external scan: task:task -> sr:sr -> vdi_info list = ""
 
 	(** [list task] returns the list of currently attached SRs *)
 	external list: task:task -> sr list = ""
@@ -180,59 +155,59 @@ module VDI = struct
 	(** [create task sr vdi_info params] creates a new VDI in [sr] using [vdi_info]. Some
         fields in the [vdi_info] may be modified (e.g. rounded up), so the function
         returns the vdi_info which was used. *)
-	external create : task:task -> sr:sr -> vdi_info:vdi_info -> params:(string*string) list -> result = ""
+	external create : task:task -> sr:sr -> vdi_info:vdi_info -> params:(string*string) list -> vdi_info = ""
 
 	(** [snapshot task sr vdi vdi_info params] creates a new VDI which is a snapshot of [vdi] in [sr] *)
-	external snapshot : task:task -> sr:sr -> vdi:vdi -> vdi_info:vdi_info -> params:(string*string) list -> result = ""
+	external snapshot : task:task -> sr:sr -> vdi:vdi -> vdi_info:vdi_info -> params:(string*string) list -> vdi_info = ""
 
 	(** [clone task sr vdi vdi_info params] creates a new VDI which is a clone of [vdi] in [sr] *)
-	external clone : task:task -> sr:sr -> vdi:vdi -> vdi_info:vdi_info -> params:(string*string) list -> result = ""
+	external clone : task:task -> sr:sr -> vdi:vdi -> vdi_info:vdi_info -> params:(string*string) list -> vdi_info = ""
 
     (** [destroy task sr vdi] removes [vdi] from [sr] *)
-    external destroy : task:task -> sr:sr -> vdi:vdi -> result = ""
+    external destroy : task:task -> sr:sr -> vdi:vdi -> unit = ""
 
 	(** [attach task dp sr vdi read_write] returns the [params] for a given
 		[vdi] in [sr] which can be written to if (but not necessarily only if) [read_write]
 		is true *)
-	external attach : task:task -> dp:dp -> sr:sr -> vdi:vdi -> read_write:bool -> result = ""
+	external attach : task:task -> dp:dp -> sr:sr -> vdi:vdi -> read_write:bool -> attach_info = ""
 
 	(** [activate task dp sr vdi] signals the desire to immediately use [vdi].
 		This client must have called [attach] on the [vdi] first. *)
-    external activate : task:task -> dp:dp -> sr:sr -> vdi:vdi -> result = ""
+    external activate : task:task -> dp:dp -> sr:sr -> vdi:vdi -> unit = ""
 
 	(** [stat task sr vdi ()] returns the state of the given VDI from the point of view of
         each dp as well as the overall superstate. *)
-	external stat: task:task -> sr:sr -> vdi:vdi -> unit -> result = ""
+	external stat: task:task -> sr:sr -> vdi:vdi -> unit -> stat_t = ""
 
 	(** [deactivate task dp sr vdi] signals that this client has stopped reading (and writing)
 		[vdi]. *)
-    external deactivate : task:task -> dp:dp -> sr:sr -> vdi:vdi -> result = ""
+    external deactivate : task:task -> dp:dp -> sr:sr -> vdi:vdi -> unit = ""
 
-	(** [detach task dp sr vdi] signals that this client no-longer needs the [params]
+	(** [detach task dp sr vdi] signals that this client no-longer needs the [attach_info]
 		to be valid. *)
-    external detach : task:task -> dp:dp -> sr:sr -> vdi:vdi -> result = ""
+    external detach : task:task -> dp:dp -> sr:sr -> vdi:vdi -> unit = ""
 
 	(** [copy task sr vdi url sr2] copies the data from [vdi] into a remote system [url]'s [sr2] *)
-	external copy : task:task -> sr:sr -> vdi:vdi -> url:string -> dest:sr -> dest_vdi:vdi -> result = ""
+	external copy : task:task -> sr:sr -> vdi:vdi -> url:string -> dest:sr -> dest_vdi:vdi -> vdi_info = ""
 
     (** [get_url task sr vdi] returns a URL suitable for accessing disk data directly. *)
-    external get_url : task:task -> sr:sr -> vdi:vdi -> result = ""
+    external get_url : task:task -> sr:sr -> vdi:vdi -> string = ""
 
 	(** [similar_content task sr vdi] returns a list of VDIs which have similar content to [vdi] *)
-	external similar_content : task:task -> sr:sr -> vdi:vdi -> result = ""
+	external similar_content : task:task -> sr:sr -> vdi:vdi -> vdi_info list = ""
 
 	(** [get_by_name task sr name] returns the vdi within [sr] with [name] *)
-	external get_by_name : task:task -> sr:sr -> name:string -> result = ""
+	external get_by_name : task:task -> sr:sr -> name:string -> vdi_info = ""
 
 	(** [set_content_id task sr vdi content_id] tells the storage backend that a VDI has an updated [content_id] *)
-	external set_content_id : task:task -> sr:sr -> vdi:vdi -> content_id:content_id -> result = ""
+	external set_content_id : task:task -> sr:sr -> vdi:vdi -> content_id:content_id -> unit = ""
 
     (** [compose task sr vdi1 vdi2] layers the updates from [vdi2] onto [vdi1], modifying [vdi2] *)
-    external compose : task:task -> sr:sr -> vdi1:vdi -> vdi2:vdi -> result = ""
+    external compose : task:task -> sr:sr -> vdi1:vdi -> vdi2:vdi -> unit = ""
 end
 
 (** [get_by_name task name] returns a vdi with [name] (which may be in any SR) *)
-external get_by_name : task:task -> name:string -> result = ""
+external get_by_name : task:task -> name:string -> vdi_info = ""
 
 type mirror_receive_result_vhd_t = {
 	mirror_vdi : vdi_info;
@@ -250,10 +225,10 @@ module Mirror = struct
 
 	(** [start task sr vdi url sr2] creates a VDI in remote [url]'s [sr2] and writes
 		data synchronously. It returns the id of the VDI.*)
-	external start : task:task -> sr:sr -> vdi:vdi -> dp:dp -> url:string -> dest:sr -> result = ""
+	external start : task:task -> sr:sr -> vdi:vdi -> dp:dp -> url:string -> dest:sr -> vdi_info = ""
 
 	(** [stop task sr vdi] stops mirroring local [vdi] *)
-	external stop : task:task -> sr:sr -> vdi:vdi -> result = ""
+	external stop : task:task -> sr:sr -> vdi:vdi -> unit = ""
 
 	external active : task:task -> sr:sr -> content_id list = ""
 

@@ -30,32 +30,6 @@ let rpc ~srcstr ~dststr url call =
 
 module Local = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"smapiv2" local_url end)
 
-let success = function
-	| Success x -> x
-	| Failure (Backend_error (code, params)) ->
-		raise (Api_errors.Server_error(code, params))
-	| Failure f -> failwith (Printf.sprintf "Storage_interface.Failure %s" (f |> rpc_of_failure_t |> Jsonrpc.to_string))
-
-let _vdi = function
-	| Vdi x -> x
-	| x -> failwith (Printf.sprintf "type-error, expected Vdi received %s" (x |> rpc_of_success_t |> Jsonrpc.to_string))
-
-let _vdis = function
-	| Vdis x -> x
-	| x -> failwith (Printf.sprintf "type-error, expected Vdis received %s" (x |> rpc_of_success_t |> Jsonrpc.to_string))
-
-let attach_info = function
-	| Attach_info x -> x
-	| x -> failwith (Printf.sprintf "type-error, expected Attach_info received %s" (x |> rpc_of_success_t |> Jsonrpc.to_string))
-
-let unit = function
-	| Unit -> ()
-	| x -> failwith (Printf.sprintf "type-error, expected Unit received %s" (x |> rpc_of_success_t |> Jsonrpc.to_string))
-
-let string = function
-	| String x -> x
-	| x -> failwith (Printf.sprintf "type-error, expected Unit received %s" (x |> rpc_of_success_t |> Jsonrpc.to_string))
-
 let tapdisk_of_attach_info attach_info =
 	let path = attach_info.params in
 	try 
@@ -75,17 +49,17 @@ let tapdisk_of_attach_info attach_info =
 let with_activated_disk ~task ~sr ~vdi f =
 	let path =
 		Opt.map (fun vdi -> 
-			let attach_info = Local.VDI.attach ~task ~dp:"migrate" ~sr ~vdi ~read_write:false |> success |> attach_info in
+			let attach_info = Local.VDI.attach ~task ~dp:"migrate" ~sr ~vdi ~read_write:false in
 			let path = attach_info.params in
-			Local.VDI.activate ~task ~dp:"migrate" ~sr ~vdi |> success |> unit;
+			Local.VDI.activate ~task ~dp:"migrate" ~sr ~vdi;
 			path) vdi in
 	finally
 		(fun () -> f path)
 		(fun () ->
 			Opt.iter
 				(fun vdi ->
-					Local.VDI.deactivate ~task ~dp:"migrate" ~sr ~vdi |> success |> unit;
-					Local.VDI.detach ~task ~dp:"migrate" ~sr ~vdi |> success |> unit)
+					Local.VDI.deactivate ~task ~dp:"migrate" ~sr ~vdi;
+					Local.VDI.detach ~task ~dp:"migrate" ~sr ~vdi)
 				vdi)
 
 let perform_cleanup_actions =
@@ -105,7 +79,7 @@ let copy' ~task ~sr ~vdi ~url ~dest ~dest_vdi =
 	if not(List.mem dest srs)
 	then failwith (Printf.sprintf "Remote SR %s not found" dest);
 
-	let vdis = Remote.SR.scan ~task ~sr:dest |> success |> _vdis in
+	let vdis = Remote.SR.scan ~task ~sr:dest in
 	let remote_vdi = 
 		try List.find (fun x -> x.vdi = dest_vdi) vdis 
 		with Not_found -> failwith (Printf.sprintf "Remote VDI %s not found" dest_vdi)
@@ -116,7 +90,7 @@ let copy' ~task ~sr ~vdi ~url ~dest ~dest_vdi =
 	debug "Dest content_id = %s" dest_content_id;
 
 	(* Find the local VDI *)
-	let vdis = Local.SR.scan ~task ~sr |> success |> _vdis in
+	let vdis = Local.SR.scan ~task ~sr in
 	let local_vdi =
 		try List.find (fun x -> x.vdi = vdi) vdis
 		with Not_found -> failwith (Printf.sprintf "Local VDI %s not found" vdi) in
@@ -129,7 +103,7 @@ let copy' ~task ~sr ~vdi ~url ~dest ~dest_vdi =
 		debug "Will copy into new remote VDI: %s (%s)" dest_vdi dest_vdi_url;
 
 		let base_vdi = 
-			try Some (Local.VDI.get_by_name ~task ~sr ~name:dest_content_id |> success |> _vdi).vdi
+			try Some (Local.VDI.get_by_name ~task ~sr ~name:dest_content_id).vdi
 			with e -> 
 				debug "Exception %s while finding local vdi with content_id=dest" (Printexc.to_string e);
 				None
@@ -144,9 +118,9 @@ let copy' ~task ~sr ~vdi ~url ~dest ~dest_vdi =
 					)
 			);
 		debug "Updating remote content_id";
-		Remote.VDI.set_content_id ~task ~sr:dest ~vdi:dest_vdi ~content_id:local_vdi.content_id |> success |> unit;
+		Remote.VDI.set_content_id ~task ~sr:dest ~vdi:dest_vdi ~content_id:local_vdi.content_id;
 		(* PR-1255: XXX: this is useful because we don't have content_ids by default *)
-		Local.VDI.set_content_id ~task ~sr ~vdi:local_vdi.vdi ~content_id:local_vdi.content_id |> success |> unit;
+		Local.VDI.set_content_id ~task ~sr ~vdi:local_vdi.vdi ~content_id:local_vdi.content_id;
 		remote_vdi
 	with e ->
 		error "Caught %s: performing cleanup actions" (Printexc.to_string e);
@@ -174,7 +148,7 @@ let find_active_local_mirror vdi =
 		None
 
 
-let copy ~task ~sr ~vdi ~url ~dest ~dest_vdi = Success (Vdi (copy' ~task ~sr ~vdi ~url ~dest ~dest_vdi))
+let copy ~task ~sr ~vdi ~url ~dest ~dest_vdi = copy' ~task ~sr ~vdi ~url ~dest ~dest_vdi
 
 let start ~task ~sr ~vdi ~dp ~url ~dest =
 	debug "Mirror.start sr:%s vdi:%s url:%s dest:%s" sr vdi url dest;
@@ -182,7 +156,7 @@ let start ~task ~sr ~vdi ~dp ~url ~dest =
 	let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
 
 	(* Find the local VDI *)
-	let vdis = Local.SR.scan ~task ~sr |> success |> _vdis in
+	let vdis = Local.SR.scan ~task ~sr in
 	let local_vdi =
 		try List.find (fun x -> x.vdi = vdi) vdis
 		with Not_found -> failwith (Printf.sprintf "Local VDI %s not found" vdi) in
@@ -190,7 +164,7 @@ let start ~task ~sr ~vdi ~dp ~url ~dest =
 	(* A list of cleanup actions to perform if the operation should fail. *)
 	let on_fail : (unit -> unit) list ref = ref [] in
 	try
-		let similar_vdis = Local.VDI.similar_content ~task ~sr ~vdi |> success |> _vdis in
+		let similar_vdis = Local.VDI.similar_content ~task ~sr ~vdi in
 		let similars = List.map (fun vdi -> vdi.content_id) similar_vdis in
 		debug "Similar VDIs to %s = [ %s ]" vdi (String.concat "; " (List.map (fun x -> Printf.sprintf "(vdi=%s,content_id=%s)" x.vdi x.content_id) vdis));
 		let result = 
@@ -206,7 +180,7 @@ let start ~task ~sr ~vdi ~dp ~url ~dest =
 		let request = Http.Request.make ~query:(Http.Url.get_query_params dest_url) ~user_agent:"smapiv2" Http.Put uri in
 		let transport = Xmlrpc_client.transport_of_url dest_url in
 		debug "Searching for data path: %s" dp;
-		let attach_info = Local.DP.attach_info ~task:"nbd" ~sr ~vdi ~dp |> success |> attach_info in
+		let attach_info = Local.DP.attach_info ~task:"nbd" ~sr ~vdi ~dp in
 		debug "Got it!";
 		ignore(match tapdisk_of_attach_info attach_info with 
 			| Some tapdev -> 
@@ -229,17 +203,17 @@ let start ~task ~sr ~vdi ~dp ~url ~dest =
 			| None ->
 				failwith "Not attached");
 		add_to_active_local_mirrors local_vdi.vdi url local_vdi.content_id mirror_dp;
-		let snapshot = Local.VDI.snapshot ~task ~sr ~vdi:local_vdi.vdi ~vdi_info:local_vdi ~params:["mirror", "nbd:" ^ dp] |> success |> _vdi in
-		on_fail := (fun () -> Local.VDI.destroy ~task ~sr ~vdi:snapshot.vdi |> success |> unit) :: !on_fail;
+		let snapshot = Local.VDI.snapshot ~task ~sr ~vdi:local_vdi.vdi ~vdi_info:local_vdi ~params:["mirror", "nbd:" ^ dp] in
+		on_fail := (fun () -> Local.VDI.destroy ~task ~sr ~vdi:snapshot.vdi) :: !on_fail;
 		(* Copy the snapshot to the remote *)
 		let new_parent = copy' ~task ~sr ~vdi:snapshot.vdi ~url ~dest ~dest_vdi:result.copy_diffs_to in
-		Remote.VDI.compose ~task ~sr:dest ~vdi1:result.copy_diffs_to ~vdi2:result.mirror_vdi.vdi |> success |> unit;
+		Remote.VDI.compose ~task ~sr:dest ~vdi1:result.copy_diffs_to ~vdi2:result.mirror_vdi.vdi;
 		debug "Local VDI %s == remote VDI %s" snapshot.vdi new_parent.vdi;
-		Success (Vdi result.mirror_vdi)
+		result.mirror_vdi
 	with e ->
 		error "Caught %s: performing cleanup actions" (Printexc.to_string e);
 		perform_cleanup_actions !on_fail;
-		Failure (Internal_err (Printexc.to_string e))
+		raise (Internal_error (Printexc.to_string e))
 
 (* XXX: PR-1255: copy the xenopsd 'raise Exception' pattern *)
 let start ~task ~sr ~vdi ~dp ~url ~dest =
@@ -247,20 +221,19 @@ let start ~task ~sr ~vdi ~dp ~url ~dest =
 		start ~task ~sr ~vdi ~dp ~url ~dest
 	with
 		| Api_errors.Server_error(code, params) ->
-			Failure(Backend_error(code, params))
+			raise (Backend_error(code, params))
 		| e ->
-			Failure(Internal_err(Printexc.to_string e))
+			raise (Internal_error(Printexc.to_string e))
 
 let stop ~task ~sr ~vdi =
 	(* Find the local VDI *)
-	let vdis = Local.SR.scan ~task ~sr |> success |> _vdis in
+	let vdis = Local.SR.scan ~task ~sr in
 	let local_vdi =
 		try List.find (fun x -> x.vdi = vdi) vdis
 		with Not_found -> failwith (Printf.sprintf "Local VDI %s not found" vdi) in
 	(* Disable mirroring on the local machine *)
-	let snapshot = Local.VDI.snapshot ~task ~sr ~vdi:local_vdi.vdi ~vdi_info:local_vdi ~params:["mirror", "null"] |> success |> _vdi in
-	Local.VDI.destroy ~task ~sr ~vdi:snapshot.vdi |> success |> unit;
-	Success Unit
+	let snapshot = Local.VDI.snapshot ~task ~sr ~vdi:local_vdi.vdi ~vdi_info:local_vdi ~params:["mirror", "null"] in
+	Local.VDI.destroy ~task ~sr ~vdi:snapshot.vdi
 
 (* XXX: PR-1255: copy the xenopsd 'raise Exception' pattern *)
 let stop ~task ~sr ~vdi =
@@ -268,9 +241,9 @@ let stop ~task ~sr ~vdi =
 		stop ~task ~sr ~vdi
 	with
 		| Api_errors.Server_error(code, params) ->
-			Failure(Backend_error(code, params))
+			raise (Backend_error(code, params))
 		| e ->
-			Failure(Internal_err(Printexc.to_string e))
+			raise (Internal_error(Printexc.to_string e))
 
 
 type receive_record = {
@@ -289,19 +262,19 @@ let active ~task ~sr =
 let receive_start ~task ~sr ~vdi_info ~content_id ~similar =
 	let on_fail : (unit -> unit) list ref = ref [] in
 
-	let vdis = Local.SR.scan ~task ~sr |> success |> _vdis in
+	let vdis = Local.SR.scan ~task ~sr in
 
 	let leaf_dp = Local.DP.create ~task ~id:(Uuid.string_of_uuid (Uuid.make_uuid ())) in
 
 	try
-		let dummy = Local.VDI.create ~task ~sr ~vdi_info ~params:[] |> success |> _vdi in
-		on_fail := (fun () -> Local.VDI.destroy ~task ~sr ~vdi:dummy.vdi |> success |> unit) :: !on_fail;
-		let leaf = Local.VDI.clone ~task ~sr ~vdi:dummy.vdi ~vdi_info ~params:[] |> success |> _vdi in
-		on_fail := (fun () -> Local.VDI.destroy ~task ~sr ~vdi:leaf.vdi |> success |> unit) :: !on_fail;
+		let dummy = Local.VDI.create ~task ~sr ~vdi_info ~params:[] in
+		on_fail := (fun () -> Local.VDI.destroy ~task ~sr ~vdi:dummy.vdi) :: !on_fail;
+		let leaf = Local.VDI.clone ~task ~sr ~vdi:dummy.vdi ~vdi_info ~params:[] in
+		on_fail := (fun () -> Local.VDI.destroy ~task ~sr ~vdi:leaf.vdi) :: !on_fail;
 		debug "Created leaf for mirror receive: %s" leaf.vdi;
 		
-		let _ = Local.VDI.attach ~task ~dp:leaf_dp ~sr ~vdi:leaf.vdi ~read_write:true |> success |> attach_info in
-		Local.VDI.activate ~task ~dp:leaf_dp ~sr ~vdi:leaf.vdi |> success |> unit;
+		let _ = Local.VDI.attach ~task ~dp:leaf_dp ~sr ~vdi:leaf.vdi ~read_write:true in
+		Local.VDI.activate ~task ~dp:leaf_dp ~sr ~vdi:leaf.vdi;
 
 		let nearest = List.fold_left
 			(fun acc content_id -> match acc with
@@ -317,10 +290,10 @@ let receive_start ~task ~sr ~vdi_info ~content_id ~similar =
 		let parent = match nearest with
 			| Some vdi ->
 				debug "Cloning VDI %s" vdi.vdi;
-				Local.VDI.clone ~task ~sr ~vdi:vdi.vdi ~vdi_info ~params:[] |> success |> _vdi
+				Local.VDI.clone ~task ~sr ~vdi:vdi.vdi ~vdi_info ~params:[]
 			| None ->
 				debug "Creating a blank remote VDI";
-				Local.VDI.create ~task ~sr ~vdi_info ~params:[] |> success |> _vdi 
+				Local.VDI.create ~task ~sr ~vdi_info ~params:[]
 		in
 
 		debug "Parent disk content_id=%s" parent.content_id;
@@ -348,7 +321,7 @@ let receive_start ~task ~sr ~vdi_info ~content_id ~similar =
 
 let receive_finalize ~task ~sr ~content_id =
 	let record = Hashtbl.find active_receive_mirrors content_id in
-	Local.DP.destroy ~task ~dp:record.leaf_dp ~allow_leak:true |> success |> unit
+	Local.DP.destroy ~task ~dp:record.leaf_dp ~allow_leak:true
 
 let receive_cancel ~task ~sr ~content_id = ()
 
@@ -367,7 +340,7 @@ let detach_hook ~sr ~vdi ~dp =
 
 let nbd_handler req s sr vdi dp =
 	debug "sr=%s vdi=%s dp=%s" sr vdi dp;
-	let attach_info = Local.DP.attach_info ~task:"nbd" ~sr ~vdi ~dp |> success |> attach_info in
+	let attach_info = Local.DP.attach_info ~task:"nbd" ~sr ~vdi ~dp in
 	match tapdisk_of_attach_info attach_info with
 		| Some tapdev ->
 			let minor = Tapctl.get_minor tapdev in
