@@ -833,6 +833,11 @@ let update_vm ~__context id =
 										debug "xenopsd event: Updating VM %s domid %d xsdata" id domid;
 										Db.VM.set_xenstore_data ~__context ~self ~value:state.xsdata_state
 									end;
+									if different (fun x -> x.memory_target) then begin
+										debug "xenopsd event: Updating VM %s domid %d memory target" id domid;
+										Mutex.execute Monitor.memory_targets_m (fun () -> 
+											Hashtbl.replace Monitor.memory_targets domid state.memory_target)
+									end;
 								) state.domids;
 						) info;
 					if different (fun x -> x.vcpu_target) then begin
