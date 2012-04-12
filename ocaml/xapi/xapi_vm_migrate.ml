@@ -225,8 +225,9 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			Db.VDI.add_to_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key ~value:(Ref.string_of mirror_record.mr_remote_vdi_reference)) vdi_map;
 
 		let xenops_vif_map = List.map (fun (vif,network) ->
-			let bridge : Xenops_interface.Network.t = Xenops_interface.Network.Local (XenAPI.Network.get_bridge remote_rpc session_id network) in
-			(Ref.string_of vif,bridge)) vif_map in
+			let bridge = Xenops_interface.Network.Local (XenAPI.Network.get_bridge remote_rpc session_id network) in
+			let device = Db.VIF.get_device ~__context ~self:vif in
+			(device,bridge)) vif_map in
 
 		List.iter (fun (vif,network) ->
 			Db.VIF.add_to_other_config ~__context ~self:vif ~key:Constants.storage_migrate_vif_map_key ~value:(Ref.string_of network)) vif_map;

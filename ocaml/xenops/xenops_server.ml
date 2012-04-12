@@ -659,7 +659,7 @@ let rebooting id f =
 let is_rebooting id =
 	Mutex.execute rebooting_vms_m (fun () -> List.mem id !rebooting_vms)
 
-let export_metadata vdi_map id =
+let export_metadata vdi_map vif_map id =
 	let module B = (val get_backend () : S) in
 
 	let vm_t = VM_DB.read_exn id in
@@ -679,7 +679,10 @@ let export_metadata vdi_map id =
 										List.map (remap_vdi vdi_map) pv_indirect_boot.Vm.devices } } } in
 
 	let vbds = VBD_DB.vbds id in
-	let vifs = VIF_DB.vifs id in
+	let vifs = List.map (fun vif -> match vif.Vif.id with (_,device) ->
+		if List.mem_assoc device vif_map
+		then (debug "Remapping VIF: %s" device; {vif with Vif.backend = (List.assoc device vif_map)})
+		else vif) (VIF_DB.vifs id) in
 	let pcis = PCI_DB.pcis id in
 	let domains = B.VM.get_internal_state vdi_map vm_t in
 
@@ -1070,7 +1073,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			Xenops_hooks.vm_pre_migrate ~reason:Xenops_hooks.reason__migrate_source ~id;
 
 			let module Remote = Xenops_interface.Client(struct let rpc = xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" url end) in
-			let id = Remote.VM.import_metadata t.Xenops_task.debug_info(export_metadata vdi_map id) in
+			let id = Remote.VM.import_metadata t.Xenops_task.debug_info(export_metadata vdi_map vif_map id) in
 			debug "Received id = %s" id;
 			let suffix = Printf.sprintf "/memory/%s" id in
 			let memory_url = Http.Url.(set_uri url (get_uri url ^ suffix)) in
@@ -1484,7 +1487,7 @@ module VM = struct
 
 	let migrate context dbg id vdi_map vif_map url = queue_operation dbg id (VM_migrate (id, vdi_map, vif_map, url))
 
-	let export_metadata _ dbg id = export_metadata [] id 
+	let export_metadata _ dbg id = export_metadata [] [] id
 
 	let import_metadata _ dbg s =
 		Debug.with_thread_associated dbg
