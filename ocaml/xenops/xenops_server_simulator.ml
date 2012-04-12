@@ -341,10 +341,11 @@ module VM = struct
 	let set_domain_action_request vm request = ()
 	let get_domain_action_request vm = Mutex.execute m (get_domain_action_request_nolock vm)
 
-	let get_internal_state vdi_map vm =
+	let get_internal_state vdi_map vif_map vm =
 		let state = Opt.unbox (DB.read vm.Vm.id) in
 		let vbds = List.map (fun vbd -> {vbd with Vbd.backend = Opt.map (remap_vdi vdi_map) vbd.Vbd.backend}) state.Domain.vbds in
-		{state with Domain.vbds = vbds} |> Domain.rpc_of_t |> Jsonrpc.to_string
+		let vifs = List.map (fun vif -> remap_vif vif_map vif) state.Domain.vifs in
+		{state with Domain.vbds = vbds; Domain.vifs = vifs} |> Domain.rpc_of_t |> Jsonrpc.to_string
 	let set_internal_state vm s =
 		DB.write vm.Vm.id (s |> Jsonrpc.of_string |> Domain.t_of_rpc)
 
