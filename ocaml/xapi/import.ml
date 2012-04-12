@@ -823,9 +823,13 @@ module VIF : HandlerTools = struct
 			let vm = log_reraise
 				("Failed to find VIF's VM: " ^ (Ref.string_of vif_record.API.vIF_VM))
 				(lookup vif_record.API.vIF_VM) state.table in
-			let net = log_reraise
-				("Failed to find VIF's Network: " ^ (Ref.string_of vif_record.API.vIF_network))
-				(lookup vif_record.API.vIF_network) state.table in
+			let net =
+				if List.mem_assoc Constants.storage_migrate_vif_map_key vif_record.API.vIF_other_config
+				then Ref.of_string (List.assoc Constants.storage_migrate_vif_map_key vif_record.API.vIF_other_config)
+				else
+					log_reraise
+						("Failed to find VIF's Network: " ^ (Ref.string_of vif_record.API.vIF_network))
+						(lookup vif_record.API.vIF_network) state.table in
 			let vif_record = { vif_record with
 				API.vIF_VM = vm;
 				API.vIF_network = net } in
