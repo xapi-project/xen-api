@@ -242,15 +242,14 @@ let create ~__context ~name_label ~name_description
 		read_only = read_only;
 		virtual_size = virtual_size;
 	} in
-    expect_vdi
-        (fun vi ->
-            if virtual_size < vi.virtual_size
-            then info "sr:%s vdi:%s requested virtual size %Ld < actual virtual size %Ld" (Ref.string_of sR) vi.vdi virtual_size vi.virtual_size;
-            newvdi ~__context ~sr:sR vi
-        ) (
-		let module C = Client(struct let rpc = rpc end) in
-		C.VDI.create ~task:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sR)
-			~vdi_info ~params:sm_config)
+	let module C = Client(struct let rpc = rpc end) in
+	let vi = C.VDI.create ~task:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sR)
+		~vdi_info ~params:sm_config in
+	if virtual_size < vi.virtual_size
+	then info "sr:%s vdi:%s requested virtual size %Ld < actual virtual size %Ld" (Ref.string_of sR) vi.vdi virtual_size vi.virtual_size;
+    newvdi ~__context ~sr:sR vi
+
+
 
 (* Make the database record only *)
 let introduce_dbonly  ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config  ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of =
@@ -354,9 +353,10 @@ let snapshot_and_clone call_f ~__context ~vdi ~driver_params =
 	  } in
 	  let sr' = Db.SR.get_uuid ~__context ~self:sR in
 	  let vdi' = Db.VDI.get_location ~__context ~self:vdi in
-	  expect_vdi (newvdi ~__context ~sr:sR)
-		  (call_f ~task:(Ref.string_of task) ~sr:sr'
-			  ~vdi:vdi' ~vdi_info  ~params:driver_params) in
+	  let new_vdi = call_f ~task:(Ref.string_of task) ~sr:sr'
+		  ~vdi:vdi' ~vdi_info  ~params:driver_params in
+	  newvdi ~__context ~sr:sR new_vdi
+  in
 
   (* While we don't have blkback support for pause/unpause we only do this
      for .vhd-based backends. *)
@@ -408,9 +408,8 @@ let destroy ~__context ~self =
           let open Storage_access in
           let open Storage_interface in
           let task = Context.get_task_id __context in
-          expect_unit (fun () -> ()) (
-			let module C = Client(struct let rpc = rpc end) in
-			C.VDI.destroy ~task:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sr) ~vdi:location);
+          let module C = Client(struct let rpc = rpc end) in
+		  C.VDI.destroy ~task:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sr) ~vdi:location;
 
 	(* destroy all the VBDs now rather than wait for the GC thread. This helps
 	   prevent transient glitches but doesn't totally prevent races. *)
@@ -580,13 +579,10 @@ let set_on_boot ~__context ~self ~value =
 	let sr' = Db.SR.get_uuid ~__context ~self:sr in
 	let vdi' = Db.VDI.get_location ~__context ~self in
 	let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
-	expect_vdi 
-		(fun newvdi ->
-			expect_unit (fun () -> ())
-				(C.VDI.destroy ~task:(Ref.string_of task) ~sr:sr' ~vdi:newvdi.vdi)
-		)
-		(C.VDI.clone ~task:(Ref.string_of task) ~sr:sr'
-			~vdi:vdi' ~vdi_info:default_vdi_info ~params:[]);
+	let newvdi = C.VDI.clone ~task:(Ref.string_of task) ~sr:sr'
+			~vdi:vdi' ~vdi_info:default_vdi_info ~params:[] in
+	C.VDI.destroy ~task:(Ref.string_of task) ~sr:sr' ~vdi:newvdi.vdi;
+
 	Db.VDI.set_on_boot ~__context ~self ~value
 
 let set_allow_caching ~__context ~self ~value =

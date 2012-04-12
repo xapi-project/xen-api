@@ -45,9 +45,17 @@ let of_sr sr =
 
 open Fun
 
-let multicast f = Hashtbl.fold (fun sr plugin acc -> (sr, f sr plugin.processor) :: acc) plugins []
+type 'a sm_result = SMSuccess of 'a | SMFailure of exn
 
-let partition = List.partition (success ++ snd)
+let multicast f = Hashtbl.fold (fun sr plugin acc -> (sr, try SMSuccess (f sr plugin.processor) with e -> SMFailure e) :: acc) plugins []
+
+let success = function | SMSuccess _ -> true | _ -> false
+
+let string_of_sm_result f = function 
+	| SMSuccess x -> Printf.sprintf "Success: %s" (f x)
+	| SMFailure e -> Printf.sprintf "Failure: %s" (Printexc.to_string e)
+
+let partition l = List.partition (success ++ snd) l
 
 let choose x = snd(List.hd x)
 
@@ -72,17 +80,23 @@ module Mux = struct
 		let create context ~task ~id = id (* XXX: is this pointless? *)
 		let destroy context ~task ~dp ~allow_leak =
 			(* Tell each plugin about this *)
-			fail_or choose (multicast (fun sr rpc ->
+			match fail_or choose (multicast (fun sr rpc ->
 				let module C = Client(struct let rpc = of_sr sr end) in
-				C.DP.destroy ~task ~dp ~allow_leak))
+				C.DP.destroy ~task ~dp ~allow_leak)) with
+				| SMSuccess x -> x
+				| SMFailure e -> raise e
+
 		let diagnostics context () =
 			let combine results =
 				let all = List.fold_left (fun acc (sr, result) ->
-					Printf.sprintf "For SR: %s" sr :: (string_of_result result) :: acc) [] results in
-				Success (String (String.concat "\n" all)) in
-			fail_or combine (multicast (fun sr rpc ->
+					(Printf.sprintf "For SR: %s" sr :: (string_of_sm_result (fun s -> s) result) :: acc)) [] results in
+				SMSuccess (String.concat "\n" all) in
+			match fail_or combine (multicast (fun sr rpc ->
 				let module C = Client(struct let rpc = of_sr sr end) in
-				C.DP.diagnostics ()))
+				C.DP.diagnostics ())) with
+				| SMSuccess x -> x
+				| SMFailure e -> raise e
+
 		let attach_info context ~task ~sr ~vdi ~dp =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.DP.attach_info ~task ~sr ~vdi ~dp
@@ -102,9 +116,9 @@ module Mux = struct
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.SR.scan ~task ~sr
 		let list context ~task =
-			List.fold_left (fun acc (sr, list) -> list @ acc) [] (multicast (fun sr rpc ->
+			List.fold_left (fun acc (sr, list) -> match list with SMSuccess l -> l @ acc | x -> acc) [] (multicast (fun sr rpc ->
 				let module C = Client(struct let rpc = of_sr sr end) in
-				C.SR.list ~task))
+				C.SR.list ~task)) 
 		let reset context ~task ~sr = assert false
 	end
 	module VDI = struct
@@ -165,12 +179,13 @@ module Mux = struct
                 let module C = Client(struct let rpc = of_sr sr end) in
                 C.VDI.get_by_name ~task ~sr ~name
             | [ name ] ->
-                success_or choose (multicast (fun sr rpc ->
+                (match success_or choose (multicast (fun sr rpc ->
                     let module C = Client(struct let rpc = of_sr sr end) in
                     C.VDI.get_by_name ~task ~sr ~name
-                ))
+                )) with SMSuccess x -> x
+					| SMFailure e -> raise e)
             | _ ->
-                Failure Vdi_does_not_exist
+                raise Vdi_does_not_exist
 
     module Mirror = struct
         let start context ~task ~sr ~vdi ~dp ~url ~dest = Storage_migrate.start ~task ~sr ~vdi ~dp ~url ~dest 

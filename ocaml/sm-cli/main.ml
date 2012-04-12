@@ -62,15 +62,11 @@ let _ =
 				) srs
 		| [ "sr-scan"; sr ] ->
 			if Array.length Sys.argv < 3 then usage_and_exit ();
-			begin match Client.SR.scan ~task ~sr with
-				| Success (Vdis vs) ->
-					List.iter
-						(fun v ->
-							Printf.printf "%s\n" (string_of_vdi_info v)
-						) vs
-				| x ->
-					Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)
-			end
+			let vs = Client.SR.scan ~task ~sr in
+			List.iter 
+				(fun v -> 
+					Printf.printf "%s\n" (string_of_vdi_info v)
+				) vs
 		| "vdi-create" :: sr :: args ->
 			if Array.length Sys.argv < 3 then usage_and_exit ();
 			let kvpairs = List.filter_map
@@ -101,83 +97,36 @@ let _ =
 					then Some (String.sub k l (String.length k - l), v)
 					else None) kvpairs in
 
-			begin match Client.VDI.create ~task ~sr ~vdi_info ~params with
-				| Success (Vdi v) ->
-					Printf.printf "%s\n" (string_of_vdi_info v)
-				| x ->
-					Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)
-			end
+			let v = Client.VDI.create ~task ~sr ~vdi_info ~params in
+			Printf.printf "%s\n" (string_of_vdi_info v)
 		| [ "vdi-destroy"; sr; vdi ] ->
-			begin match Client.VDI.destroy ~task ~sr ~vdi with
-				| Success Unit -> ()
-				| x ->
-					Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)
-			end
+			Client.VDI.destroy ~task ~sr ~vdi
 		| [ "vdi-get-by-name"; sr; name ] ->
-			begin match Client.VDI.get_by_name ~task ~sr ~name with
-				| Success (Vdi v) ->
-					Printf.printf "%s\n" (string_of_vdi_info v)
-				| x ->
-					Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)
-			end
+			let v = Client.VDI.get_by_name ~task ~sr ~name in
+			Printf.printf "%s\n" (string_of_vdi_info v)
 		| [ "vdi-get-by-name"; name ] ->
-			begin match Client.get_by_name ~task ~name with
-				| Success (Vdi v) ->
-					Printf.printf "%s\n" (string_of_vdi_info v)
-				| x ->
-					Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)
-			end
+			let v = Client.get_by_name ~task ~name in
+			Printf.printf "%s\n" (string_of_vdi_info v)
 		| [ "vdi-set-content-id"; sr; vdi; content_id ] ->
-			begin match Client.VDI.set_content_id ~task ~sr ~vdi~content_id with
-				| Success Unit ->
-					()
-				| x ->
-					Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)
-			end
+			Client.VDI.set_content_id ~task ~sr ~vdi~content_id
 		| [ "vdi-similar-content"; sr; vdi ] ->
-			begin match Client.VDI.similar_content ~task ~sr ~vdi with
-				| Success (Vdis vs) ->
-					List.iter
-						(fun v ->
-							Printf.printf "%s\n" (string_of_vdi_info v)
-						) vs
-				| x ->
-					Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)
-			end
+			let vs = Client.VDI.similar_content ~task ~sr ~vdi in
+			List.iter
+				(fun v ->
+					Printf.printf "%s\n" (string_of_vdi_info v)
+				) vs
 		| [ "vdi-compose"; sr; vdi1; vdi2 ] ->
-			begin match Client.VDI.compose ~task ~sr ~vdi1 ~vdi2 with
-				| Success Unit ->
-					()
-				| x ->
-					Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)
-			end
+			Client.VDI.compose ~task ~sr ~vdi1 ~vdi2
 		| [ "vdi-copy"; sr; vdi; url; dest; dest_vdi ] ->
-			begin match Client.VDI.copy ~task ~sr ~vdi ~url ~dest ~dest_vdi with
-				| Success (Vdi v) ->
-					Printf.printf "Created VDI %s\n" v.vdi
-				| x ->
-					Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)
-			end
+			let v = Client.VDI.copy ~task ~sr ~vdi ~url ~dest ~dest_vdi in
+			Printf.printf "Created VDI %s\n" v.vdi
 		| [ "vdi-get-url"; sr; vdi ] ->
-			begin match Client.VDI.get_url ~task ~sr ~vdi with
-				| Success (String x) ->
-					Printf.printf "%s\n" x
-				| x ->
-					Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)
-			end
+			let x = Client.VDI.get_url ~task ~sr ~vdi in
+			Printf.printf "%s\n" x
 		| [ "mirror-start"; sr; vdi; dp; url; dest ] ->
-			begin match Client.Mirror.start ~task ~sr ~vdi ~dp ~url ~dest with
-				| Success (Vdi v) ->
-					Printf.printf "Created VDI %s\n" v.vdi
-				| x ->
-					Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)
-			end
+			let v = Client.Mirror.start ~task ~sr ~vdi ~dp ~url ~dest in
+			Printf.printf "Created VDI %s\n" v.vdi
 		| [ "mirror-stop"; sr; vdi ] ->
-			begin match Client.Mirror.stop ~task ~sr ~vdi with
-				| Success Unit ->
-					()
-				| x ->
-					Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)
-			end
+			Client.Mirror.stop ~task ~sr ~vdi
 		| _ ->
 			usage_and_exit ()

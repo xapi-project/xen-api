@@ -117,6 +117,7 @@ OCAML_PHASE3_XEN = \
 	ocaml/xiu/xiu \
 	ocaml/xapi/quicktestbin \
 	ocaml/xapi/sparse_dd \
+	ocaml/xapi/storage_impl_test \
 	ocaml/xapi/monitor_fake_plugin \
 	ocaml/license/v6d \
 	ocaml/network/xcp-networkd
