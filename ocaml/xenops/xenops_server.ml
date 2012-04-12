@@ -679,12 +679,9 @@ let export_metadata vdi_map vif_map id =
 										List.map (remap_vdi vdi_map) pv_indirect_boot.Vm.devices } } } in
 
 	let vbds = VBD_DB.vbds id in
-	let vifs = List.map (fun vif -> match vif.Vif.id with (_,device) ->
-		if List.mem_assoc device vif_map
-		then (debug "Remapping VIF: %s" device; {vif with Vif.backend = (List.assoc device vif_map)})
-		else vif) (VIF_DB.vifs id) in
+	let vifs = List.map (fun vif -> remap_vif vif_map vif) (VIF_DB.vifs id) in
 	let pcis = PCI_DB.pcis id in
-	let domains = B.VM.get_internal_state vdi_map vm_t in
+	let domains = B.VM.get_internal_state vdi_map vif_map vm_t in
 
 
 	(* Remap VDIs *)
