@@ -809,7 +809,7 @@ let _ =
   error Api_errors.pbd_exists ["sr";"host";"pbd"]
     ~doc:"A PBD already exists connecting the SR to the host" ();
   error Api_errors.sr_has_pbd ["sr"] 
-    ~doc:"The SR is still connected to a host via a PBD. It cannot be destroyed." ();
+    ~doc:"The SR is still connected to a host via a PBD. It cannot be destroyed or forgotten." ();
   error Api_errors.sr_has_multiple_pbds [ "PBD" ]
     ~doc:"The SR.shared flag cannot be set to false while the SR remains connected to multiple hosts" ();
   error Api_errors.sr_requires_upgrade [ "SR" ]
