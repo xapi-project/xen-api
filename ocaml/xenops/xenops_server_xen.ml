@@ -1324,6 +1324,10 @@ module VBD = struct
 				else begin
 					let vdi = attach_and_activate task xc xs frontend_domid vbd vbd.backend in
 
+					let extra_backend_keys = List.fold_left (fun acc (k,v) ->
+						let k = "sm-data/" ^ k in
+						(k,v)::(List.remove_assoc k acc)) vbd.extra_backend_keys vdi.attach_info.Storage_interface.xenstore_data in
+
 					(* Remember the VBD id with the device *)
 					let id = _device_id Device_common.Vbd, id_of vbd in
 					let x = {
@@ -1340,7 +1344,7 @@ module VBD = struct
 						);
 						unpluggable = vbd.unpluggable;
 						protocol = None;
-						extra_backend_keys = vbd.extra_backend_keys;
+						extra_backend_keys;
 						extra_private_keys = id :: vbd.extra_private_keys;
 						backend_domid = vdi.domid
 					} in
