@@ -1755,11 +1755,12 @@ let vif_plug ~__context ~self =
 			let dbg = Context.string_of_task __context in
 			(try Client.VIF.remove dbg vif.Vif.id with Does_not_exist _ -> ());
 			info "xenops: VIF.add %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
-			let id = Client.VIF.add dbg vif in
-			info "xenops: VIF.plug %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
-			Client.VIF.plug dbg id |> sync_with_task __context;
-			Event.wait dbg ();
-			assert (Db.VIF.get_currently_attached ~__context ~self)
+			with_networks_attached ~__context ~self:vm (fun () ->
+				let id = Client.VIF.add dbg vif in
+				info "xenops: VIF.plug %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
+				Client.VIF.plug dbg id |> sync_with_task __context;
+				Event.wait dbg ();
+				assert (Db.VIF.get_currently_attached ~__context ~self))
 		)
 
 let vm_set_vm_data ~__context ~self =
@@ -1805,9 +1806,11 @@ let vif_move ~__context ~self network =
 			let network = Db.Network.get_record ~__context ~self:network in
 			let backend = backend_of_network network in
 			let dbg = Context.string_of_task __context in
-			Client.VIF.move dbg vif.Vif.id backend |> sync_with_task __context;
-			Event.wait dbg ();
-			assert (Db.VIF.get_currently_attached ~__context ~self)
+			(* Nb., at this point, the database shows the vif on the new network *)
+			with_networks_attached ~__context ~self:vm (fun () -> 
+				Client.VIF.move dbg vif.Vif.id backend |> sync_with_task __context;
+				Event.wait dbg ();
+				assert (Db.VIF.get_currently_attached ~__context ~self))
 		)
 
 let task_cancel ~__context ~self =
