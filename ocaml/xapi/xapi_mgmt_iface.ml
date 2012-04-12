@@ -24,13 +24,11 @@ open D
 let management_interface_server = ref None
 let management_m = Mutex.create ()
 
-let rewrite_management_interface_script = Filename.concat Fhs.libexecdir "rewrite-management-interface"
+let update_mh_info_script = Filename.concat Fhs.libexecdir "update-mh-info"
 
-let rewrite_management_interface interface =
-	(* XXX: probably should decompose this into Xapi_inventory.update <k> <v> and
-	   then a special hook script *)
-	let (_: string*string) = Forkhelpers.execute_command_get_output rewrite_management_interface_script [ interface ] in
-	Xapi_inventory.reread_inventory ()
+let update_mh_info interface =
+	let (_: string*string) = Forkhelpers.execute_command_get_output update_mh_info_script [ interface ] in
+	()
 
 let restart_stunnel () =
 	ignore(Forkhelpers.execute_command_get_output "/sbin/service" [ "xapissl"; "restart" ])
@@ -40,14 +38,15 @@ let stop () =
 	maybe Http_svr.stop !management_interface_server;
 	management_interface_server := None
 
-let change (interface, ip) =
-	stop ();
-	debug "Starting new server on IP: %s" ip;
-	let socket = Xapi_http.bind (Unix.ADDR_INET(Unix.inet_addr_of_string ip, Xapi_globs.http_port)) in
+(* Even though xapi listens on all IP addresses, there is still an interface appointed as
+ * _the_ management interface. Slaves in a pool use the IP address of this interface to connect
+ * the pool master. *)
+let start () =
+	debug "Starting new server (listening on all IPv4 addresses)";
+	let socket = Xapi_http.bind (Unix.ADDR_INET(Unix.inet_addr_any, Xapi_globs.http_port)) in
 	Http_svr.start Xapi_http.server socket;
 	management_interface_server := Some socket;
 
-	rewrite_management_interface interface;
 	debug "Restarting stunnel";
 	restart_stunnel ();
 
@@ -59,6 +58,25 @@ let change (interface, ip) =
 				Dbsync_master.set_master_ip ~__context;
 				Dbsync_master.refresh_console_urls ~__context)
 	end
+
+let change interface =
+	Xapi_inventory.update Xapi_inventory._management_interface interface;
+	update_mh_info interface
+
+let run interface =
+	Mutex.execute management_m (fun () ->
+		change interface;
+		if !management_interface_server = None then
+			start ()
+	)
+
+let shutdown () =
+	Mutex.execute management_m (fun () ->
+		change "";
+		stop ();
+		debug "Restarting stunnel";
+		restart_stunnel ();
+	)
 
 let management_ip_mutex = Mutex.create ()
 let management_ip_cond = Condition.create ()
@@ -102,22 +120,3 @@ let on_dom0_networking_change ~__context =
 	Mutex.execute management_ip_mutex
 		(fun () -> Condition.broadcast management_ip_cond)
 
-
-let change_ip interface ip = Mutex.execute management_m (fun () -> change (interface, ip))
-
-let rebind () = Mutex.execute management_m
-	(fun () ->
-		(* We must check to see if the IP address has changed *)
-		let interface = Xapi_inventory.lookup Xapi_inventory._management_interface in
-		match Helpers.get_management_ip_addr () with
-			| Some ip -> change (interface, ip)
-			| None -> failwith "Management interface has no IP address"
-	)
-
-let stop () = Mutex.execute management_m
-	(fun () ->
-		stop ();
-		rewrite_management_interface "";
-		debug "Restarting stunnel";
-		restart_stunnel ();
-	)
