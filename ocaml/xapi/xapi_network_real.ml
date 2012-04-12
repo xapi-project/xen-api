@@ -16,7 +16,6 @@ module D=Debug.Debugger(struct let name="xapi" end)
 open D
 
 open Xmlrpc_client
-open Xapi_network_types
 open Forkhelpers
 open Threadext
 open Pervasiveext

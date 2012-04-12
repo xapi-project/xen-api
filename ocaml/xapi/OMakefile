@@ -96,7 +96,6 @@ XAPI_MODULES = $(COMMON) \
 	xapi_db_upgrade \
 	xapi_fist \
 	xapi_udhcpd \
-	xapi_network_types \
 	xapi_network_real \
 	xapi_network \
 	xapi_network_attach_helpers \

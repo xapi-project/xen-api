@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 open Threadext
-open Xapi_network_types
 open Client
 
 module D=Debug.Debugger(struct let name="xapi" end)
