@@ -44,6 +44,7 @@ let read_management_conf () =
 	let args = List.map (fun s -> match (String.split '=' s) with k :: [v] -> k, String.strip ((=) '\'') v | _ -> "", "") args in
 	debug "Firstboot file management.conf has: %s" (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) args));
 	let device = List.assoc "LABEL" args in
+	Util_inventory.reread_inventory ();
 	let bridge_name = Util_inventory.lookup Util_inventory._management_interface in
 	debug "Management bridge in inventory file: %s" bridge_name;
 	let ipv4_conf, ipv4_gateway, dns =
