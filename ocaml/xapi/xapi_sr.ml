@@ -90,7 +90,7 @@ let valid_operations ~__context record _ref' : table =
   let all_pbds_attached_to_this_sr =
 	Db.PBD.get_records_where ~__context ~expr:(And(Eq(Field "SR", Literal _ref), Eq(Field "currently_attached", Literal "true"))) in
   if List.length all_pbds_attached_to_this_sr > 0 then
-	set_errors Api_errors.sr_operation_not_supported [ _ref ] [ `destroy; `forget ]
+	set_errors Api_errors.sr_has_pbd [ _ref ] [ `destroy; `forget ]
   else ();
 
 	(* If the SR is not empty, destroy is not allowed. *)
