@@ -1998,7 +1998,6 @@ let vm_migrate_send = call
 		   Map (Ref _vif, Ref _network), "vif_map", "Map of source VIF to destination network";
            Map (String, String), "options", "Other parameters"]
   ~errs:[Api_errors.vm_bad_power_state]
-  ~hide_from_docs:true
   ~allowed_roles:_R_VM_POWER_ADMIN
   ()
 
