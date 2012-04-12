@@ -334,30 +334,30 @@ let init_local_database () =
   (* We've just rebooted, so we clear the flag that stops the host being disabled during the reboot *)
   if !Xapi_globs.on_system_boot then Localdb.put Constants.host_disabled_until_reboot "false"
 
-let bring_up_management_if ~__context () = 
-  try
-    (* We require the configuration for the management interface to still exist in
-       /etc/sysconfig/network-scripts *)
-    let management_if = Xapi_inventory.lookup Xapi_inventory._management_interface in
-    (* Bring up the management interface synchronously *)
-    if management_if = "" 
-    then debug "No management interface defined"
-    else begin
-      match Helpers.get_management_ip_addr () with 
-      | Some "127.0.0.1" -> 
-	  debug "Received 127.0.0.1 as a management IP address; ignoring"
-      | Some ip ->
-	  debug "Management IP address is: %s" ip;
-	  Xapi_mgmt_iface.change_ip management_if ip;
-	  (* Make sure everyone is up to speed *)
-	  ignore (Thread.create (fun ()-> Server_helpers.exec_with_new_task "dom0 networking update" 
-        ~subtask_of:(Context.get_task_id __context)
-        (fun __context -> Xapi_mgmt_iface.on_dom0_networking_change ~__context)) ())
-      | None ->
-	  warn "Failed to acquire a management IP address"
-    end
-  with e ->
-    debug "Caught exception bringing up management interface: %s" (ExnHelper.string_of_exn e)
+let bring_up_management_if ~__context () =
+	try
+		(* We require the configuration for the management interface to still exist in
+		/etc/sysconfig/network-scripts *)
+		let management_if = Xapi_inventory.lookup Xapi_inventory._management_interface in
+		(* Bring up the management interface synchronously *)
+		if management_if = ""
+		then debug "No management interface defined"
+		else begin
+			match Helpers.get_management_ip_addr () with
+			| Some "127.0.0.1" ->
+				debug "Received 127.0.0.1 as a management IP address; ignoring"
+			| Some ip ->
+				debug "Management IP address is: %s" ip;
+				Xapi_mgmt_iface.change_ip management_if ip;
+				(* Make sure everyone is up to speed *)
+				ignore (Thread.create (fun () -> Server_helpers.exec_with_new_task "dom0 networking update"
+					~subtask_of:(Context.get_task_id __context)
+					(fun __context -> Xapi_mgmt_iface.on_dom0_networking_change ~__context)) ())
+			| None ->
+				warn "Failed to acquire a management IP address"
+		end
+	with e ->
+		debug "Caught exception bringing up management interface: %s" (ExnHelper.string_of_exn e)
 
 (** Assuming a management interface is defined, return the IP address. Note this
 	call may block for a long time. *)
