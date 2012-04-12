@@ -108,7 +108,7 @@ type operation =
 	| VM_suspend of (Vm.id * data)
 	| VM_resume of (Vm.id * data)
 	| VM_restore_devices of Vm.id
-	| VM_migrate of (Vm.id * (string * string) list * string)
+	| VM_migrate of (Vm.id * (string * string) list * (string * Network.t) list * string)
 	| VM_receive_memory of (Vm.id * Unix.file_descr)
 	| VM_check_state of Vm.id
 	| PCI_check_state of Pci.id
@@ -1051,7 +1051,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			debug "VM.resume %s" id;
 			perform_atomics (atomics_of_operation op) t;
 			VM_DB.signal id
-		| VM_migrate (id, vdi_map, url') ->
+		| VM_migrate (id, vdi_map, vif_map, url') ->
 			debug "VM.migrate %s -> %s" id url';
 			let open Xmlrpc_client in
 			let open Xenops_client in
@@ -1482,7 +1482,7 @@ module VM = struct
 	let s3suspend _ dbg id = queue_operation dbg id (Atomic(VM_s3suspend id))
 	let s3resume _ dbg id = queue_operation dbg id (Atomic(VM_s3resume id))
 
-	let migrate context dbg id vdi_map url = queue_operation dbg id (VM_migrate (id, vdi_map, url)) 
+	let migrate context dbg id vdi_map vif_map url = queue_operation dbg id (VM_migrate (id, vdi_map, vif_map, url))
 
 	let export_metadata _ dbg id = export_metadata [] id 
 
