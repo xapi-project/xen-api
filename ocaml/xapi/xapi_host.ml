@@ -138,12 +138,11 @@ let pif_update_dhcp_address ~__context ~self =
    | _ -> ()
 
 let signal_networking_change ~__context =
-  let host = Helpers.get_localhost ~__context in
-  let pifs = Db.Host.get_PIFs ~__context ~self:host in
-  List.iter (fun pif -> if Db.PIF.get_ip_configuration_mode ~__context ~self:pif = `DHCP then
-		   pif_update_dhcp_address ~__context ~self:pif
-  ) pifs;
-  Xapi_mgmt_iface.on_dom0_networking_change ~__context
+	let host = Helpers.get_localhost ~__context in
+	let pifs = Db.PIF.get_refs_where ~__context ~expr:(And (Eq (Field "host", Literal (Ref.string_of host)),
+		(Eq (Field "ip_configuration_mode", Literal "DHCP")))) in
+	List.iter (fun self -> pif_update_dhcp_address ~__context ~self) pifs;
+	Xapi_mgmt_iface.on_dom0_networking_change ~__context
 
 
 let signal_cdrom_event ~__context params =
@@ -755,7 +754,7 @@ let change_management_interface ~__context interface =
 	let addrs = Netdev.Addr.get interface in
 	if addrs = []
 	then raise (Api_errors.Server_error(Api_errors.interface_has_no_ip, [ interface ]));
-	Xapi_mgmt_iface.change_ip interface (Unix.string_of_inet_addr (fst (List.hd addrs)));
+	Xapi_mgmt_iface.run interface;
 	(* once the inventory file has been rewritten to specify new interface, sync up db with
 	   state of world.. *)
 	Xapi_mgmt_iface.on_dom0_networking_change ~__context
@@ -802,7 +801,7 @@ let management_disable ~__context =
   if Pool_role.is_slave ()
   then raise (Api_errors.Server_error (Api_errors.slave_requires_management_iface, []));
 
-  Xapi_mgmt_iface.stop ();
+  Xapi_mgmt_iface.shutdown ();
   (* Make sure all my PIFs are marked appropriately *)
   Xapi_pif.update_management_flags ~__context ~host:(Helpers.get_localhost ~__context)
 

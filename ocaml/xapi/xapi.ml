@@ -336,19 +336,16 @@ let init_local_database () =
 
 let bring_up_management_if ~__context () =
 	try
-		(* We require the configuration for the management interface to still exist in
-		/etc/sysconfig/network-scripts *)
 		let management_if = Xapi_inventory.lookup Xapi_inventory._management_interface in
-		(* Bring up the management interface synchronously *)
-		if management_if = ""
-		then debug "No management interface defined"
+		if management_if = "" then
+			debug "No management interface defined (management is disabled)"
 		else begin
+			Xapi_mgmt_iface.run management_if;
 			match Helpers.get_management_ip_addr () with
 			| Some "127.0.0.1" ->
 				debug "Received 127.0.0.1 as a management IP address; ignoring"
 			| Some ip ->
 				debug "Management IP address is: %s" ip;
-				Xapi_mgmt_iface.change_ip management_if ip;
 				(* Make sure everyone is up to speed *)
 				ignore (Thread.create (fun () -> Server_helpers.exec_with_new_task "dom0 networking update"
 					~subtask_of:(Context.get_task_id __context)
@@ -710,12 +707,6 @@ let server_init() =
     let domain_sock = Xapi_http.bind (Unix.ADDR_UNIX(Xapi_globs.unix_domain_socket)) in
     ignore(Http_svr.start Xapi_http.server domain_sock);
     in
-  let listen_localhost () =
-    (* Always listen on 127.0.0.1 *)
-    let localhost = Unix.inet_addr_of_string "127.0.0.1" in
-    let localhost_sock = Xapi_http.bind (Unix.ADDR_INET(localhost, Xapi_globs.http_port)) in
-    ignore(Http_svr.start Xapi_http.server localhost_sock);
-    in
 
   let print_server_starting_message() = debug "on_system_boot=%b pool_role=%s" !Xapi_globs.on_system_boot (Pool_role.string_of (Pool_role.get_role ())) in
 
@@ -837,7 +828,6 @@ let server_init() =
     "Registering http handlers", [], (fun () -> List.iter Xapi_http.add_handler common_http_handlers);
     "Registering master-only http handlers", [ Startup.OnlyMaster ], (fun () -> List.iter Xapi_http.add_handler master_only_http_handlers);
     "Listening unix socket", [], listen_unix_socket;
-    "Listening localhost", [], listen_localhost;
     "Metadata VDI liveness monitor", [ Startup.OnlyMaster; Startup.OnThread ], (fun () -> Redo_log_alert.loop ());
     "Checking HA configuration", [], start_ha;
 	"Checking for non-HA redo-log", [], start_redo_log;
