@@ -84,12 +84,11 @@ module Builtin_impl = struct
 					Sm.call_sm_functions ~__context ~sR:sr
 						(fun _ _type ->
 							try
-								Sm.sr_attach (Some (Context.get_task_id __context), device_config) _type sr;
-								Success Unit
+								Sm.sr_attach (Some (Context.get_task_id __context), device_config) _type sr
 							with e ->
 								let e' = ExnHelper.string_of_exn e in
 								error "SR.attach failed SR:%s error:%s" (Ref.string_of sr) e';
-								Failure (Internal_err e')
+								raise e
 						)
 				)
 		let detach context ~task ~sr =
@@ -100,12 +99,11 @@ module Builtin_impl = struct
 					Sm.call_sm_functions ~__context ~sR:sr
 						(fun device_config _type ->
 							try
-								Sm.sr_detach device_config _type sr;
-								Success Unit
+								Sm.sr_detach device_config _type sr
 							with e ->
 								let e' = ExnHelper.string_of_exn e in
 								error "SR.detach failed SR:%s error:%s" (Ref.string_of sr) e';
-								Failure (Storage_interface.Internal_err e')
+								raise e
 						)
 				)
 
@@ -119,15 +117,14 @@ module Builtin_impl = struct
 					Sm.call_sm_functions ~__context ~sR:sr
 						(fun device_config _type ->
 							try
-								Sm.sr_delete device_config _type sr;
-								Success Unit
+								Sm.sr_delete device_config _type sr
 							with
 								| Smint.Not_implemented_in_backend ->
-									Failure (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
+									raise (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
 								| e ->
 									let e' = ExnHelper.string_of_exn e in
 									error "SR.detach failed SR:%s error:%s" (Ref.string_of sr) e';
-									Failure (Storage_interface.Internal_err e')
+									raise e
 						)
 				)
 
@@ -162,17 +159,17 @@ module Builtin_impl = struct
 								Sm.sr_scan device_config _type sr;
 								let open Db_filter_types in
 								let vdis = Db.VDI.get_records_where ~__context ~expr:(Eq(Field "SR", Literal (Ref.string_of sr))) |> List.map snd in
-								Success (Vdis (List.map (vdi_info_of_vdi_rec __context sr') vdis))
+								List.map (vdi_info_of_vdi_rec __context sr') vdis
 							with
 								| Smint.Not_implemented_in_backend ->
-									Failure (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
+									raise (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
 								| Api_errors.Server_error(code, params) ->
 									error "SR.scan failed SR:%s code=%s params=[%s]" (Ref.string_of sr) code (String.concat "; " params);
-									Failure (Backend_error(code, params))
+									raise (Backend_error(code, params))
 								| e ->
 									let e' = ExnHelper.string_of_exn e in
 									error "SR.scan failed SR:%s error:%s" (Ref.string_of sr) e';
-									Failure (Storage_interface.Internal_err e')
+									raise e
 						)
 				)
 
@@ -211,9 +208,9 @@ module Builtin_impl = struct
 				in
 				Mutex.execute vdi_read_write_m
 					(fun () -> Hashtbl.replace vdi_read_write (sr, vdi) read_write);
-				Success (Attach_info attach_info)
+				attach_info
 			with Api_errors.Server_error(code, params) ->
-				Failure (Backend_error(code, params))
+				raise (Backend_error(code, params))
 
 		let activate context ~task ~dp ~sr ~vdi =
 			try
@@ -231,10 +228,9 @@ module Builtin_impl = struct
 						if List.mem Smint.Vdi_activate (Sm.capabilities_of_driver _type)
 						then Sm.vdi_activate device_config _type sr self read_write
 						else info "%s sr:%s does not support vdi_activate: doing nothing" dp (Ref.string_of sr)
-					);
-				Success Unit
+					)
 			with Api_errors.Server_error(code, params) ->
-				Failure (Backend_error(code, params))
+				raise (Backend_error(code, params))
 
 		let deactivate context ~task ~dp ~sr ~vdi =
 			try
@@ -249,10 +245,9 @@ module Builtin_impl = struct
 						if List.mem Smint.Vdi_activate (Sm.capabilities_of_driver _type)
 						then Sm.vdi_deactivate device_config _type sr self
 						else info "%s sr:%s does not support vdi_activate: doing nothing" dp (Ref.string_of sr)
-					);
-				Success Unit
+					)
 			with Api_errors.Server_error(code, params) ->
-				Failure (Backend_error(code, params))
+				raise (Backend_error(code, params))
 
 		let detach context ~task ~dp ~sr ~vdi =
 			try
@@ -261,10 +256,9 @@ module Builtin_impl = struct
 						Sm.vdi_detach device_config _type sr self
 					);
 				Mutex.execute vdi_read_write_m
-					(fun () -> Hashtbl.remove vdi_read_write (sr, vdi));
-				Success Unit
+					(fun () -> Hashtbl.remove vdi_read_write (sr, vdi))
 			with Api_errors.Server_error(code, params) ->
-				Failure (Backend_error(code, params))
+				raise (Backend_error(code, params))
 
 		let stat context ~task ~sr ~vdi () = assert false
 
@@ -275,7 +269,7 @@ module Builtin_impl = struct
 
 		let vdi_info_from_db ~__context self =
             let r = Db.VDI.get_record ~__context ~self in
-            Vdi {
+            {
                 vdi = r.API.vDI_location;
 				sr = Db.SR.get_uuid ~__context ~self:r.API.vDI_SR;
 				content_id = r.API.vDI_location; (* PR-1255 *)
@@ -309,10 +303,10 @@ module Builtin_impl = struct
 										vdi_info.metadata_of_pool vdi_info.is_a_snapshot
 										vdi_info.snapshot_time vdi_info.snapshot_of vdi_info.read_only
                                 ) in
-                        Success (newvdi ~__context vi)
+                        newvdi ~__context vi
                     )
             with Api_errors.Server_error(code, params) ->
-                Failure (Backend_error(code, params))
+                raise (Backend_error(code, params))
 
 		let snapshot_and_clone call_name call_f context ~task ~sr ~vdi ~vdi_info ~params =
 			try
@@ -340,10 +334,10 @@ module Builtin_impl = struct
 							(fun device_config _type sr self ->
 								Sm.vdi_update device_config _type sr self
 							);
-						Success (vdi_info_from_db ~__context self)
+						vdi_info_from_db ~__context self
 					)
             with Api_errors.Server_error(code, params) ->
-                Failure (Backend_error(code, params))
+                raise (Backend_error(code, params))
 
 		let snapshot = snapshot_and_clone "VDI.snapshot" Sm.vdi_snapshot
 		let clone = snapshot_and_clone "VDI.clone" Sm.vdi_clone
@@ -355,13 +349,12 @@ module Builtin_impl = struct
                         Sm.vdi_delete device_config _type sr self
                     );
                 Mutex.execute vdi_read_write_m
-                    (fun () -> Hashtbl.remove vdi_read_write (sr, vdi));
-                Success Unit
+                    (fun () -> Hashtbl.remove vdi_read_write (sr, vdi))
             with 
 				| Api_errors.Server_error(code, params) ->
-					Failure (Backend_error(code, params))
+					raise (Backend_error(code, params))
 				| No_VDI ->
-					Failure Vdi_does_not_exist
+					raise Vdi_does_not_exist
 
 		let get_by_name context ~task ~sr ~name =
 			info "VDI.get_by_name task:%s sr:%s name:%s" task sr name;
@@ -373,10 +366,10 @@ module Builtin_impl = struct
 						let _, vdi = find_content ~__context ~sr name in
 						let vi = SR.vdi_info_of_vdi_rec __context sr vdi in
 						debug "VDI.get_by_name returning successfully";
-						Success(Vdi vi)
+						vi
 					with e ->
 						error "VDI.get_by_name caught: %s" (Printexc.to_string e);
-						Failure Vdi_does_not_exist
+						raise Vdi_does_not_exist
 				)
 
 		let set_content_id context ~task ~sr ~vdi ~content_id =
@@ -386,8 +379,7 @@ module Builtin_impl = struct
                 (fun __context ->
 					let vdi, _ = find_vdi ~__context sr vdi in
 					Db.VDI.remove_from_other_config ~__context ~self:vdi ~key:"content_id";
-					Db.VDI.add_to_other_config ~__context ~self:vdi ~key:"content_id" ~value:content_id;
-					Success Unit
+					Db.VDI.add_to_other_config ~__context ~self:vdi ~key:"content_id" ~value:content_id
 				)
 
 		let similar_content context ~task ~sr ~vdi =
@@ -437,7 +429,7 @@ module Builtin_impl = struct
 					let _, vdi_rec = find_vdi ~__context sr vdi in
 					let vdis = explore 0 StringMap.empty vdi_rec.API.vDI_location |> invert |> IntMap.bindings |> List.map snd |> List.concat in
 					let vdi_recs = List.map (fun l -> StringMap.find l locations) vdis in
-					Success(Vdis(List.map (fun x -> SR.vdi_info_of_vdi_rec __context sr x) vdi_recs))
+					List.map (fun x -> SR.vdi_info_of_vdi_rec __context sr x) vdi_recs
 				)
 
 		let compose context ~task ~sr ~vdi1 ~vdi2 =
@@ -451,15 +443,14 @@ module Builtin_impl = struct
 							(fun device_config _type sr self ->
 								Sm.vdi_compose device_config _type sr vdi1 self
 							)
-					);
-				Success Unit
+					)
             with
 				| Smint.Not_implemented_in_backend ->
-					Failure Unimplemented
+					raise Unimplemented
 				| Api_errors.Server_error(code, params) ->
-					Failure (Backend_error(code, params))
+					raise (Backend_error(code, params))
 				| No_VDI ->
-					Failure Vdi_does_not_exist
+					raise Vdi_does_not_exist
 
 		let get_url context ~task ~sr ~vdi =
 			info "VDI.get_url task:%s sr:%s vdi:%s" task sr vdi;
@@ -473,8 +464,7 @@ module Builtin_impl = struct
 					(* XXX: leaked *)
 					let session_ref = XenAPI.Session.slave_login rpc localhost !Xapi_globs.pool_secret in
 					let vdi, _ = find_vdi ~__context sr vdi in
-					Success (String (Printf.sprintf "%s/%s/%s" ip (Ref.string_of session_ref) (Ref.string_of vdi)))
-				)
+					Printf.sprintf "%s/%s/%s" ip (Ref.string_of session_ref) (Ref.string_of vdi))
 
 		let copy context ~task ~sr ~vdi ~url ~dest = assert false
 	end
@@ -649,38 +639,6 @@ let start () =
 let datapath_of_vbd ~domid ~device =
 	Printf.sprintf "vbd/%d/%s" domid device
 
-let unexpected_result expected x = match x with
-	| Success _ ->
-		failwith (Printf.sprintf "Run-time type error. Expected %s; got: %s" expected (string_of_result x))
-	| Failure Unimplemented ->
-		failwith "Storage_access failed with Unimplemented"
-	| Failure Sr_not_attached ->
-		failwith "Storage_access failed with Sr_not_attached"
-	| Failure Vdi_does_not_exist ->
-		failwith "Storage_access failed with Vdi_does_not_exist"
-	| Failure (Backend_error(code, params)) ->
-		raise (Api_errors.Server_error(code, params))
-	| Failure (Internal_err x) ->
-		failwith (Printf.sprintf "Storage_access failed with: %s" x)
-	| Failure Illegal_transition(a, b) ->
-		failwith (Printf.sprintf "Storage_access failed with %s" (string_of_result x))
-
-let expect_vdi f x = match x with
-	| Success (Vdi v) -> f v
-	| _ -> unexpected_result "Vdi _" x
-
-let expect_attach_info f x = match x with
-	| Success (Attach_info v) -> f v
-	| _ -> unexpected_result "Attach_info _" x
-
-let expect_unit f x = match x with
-	| Success Unit -> f ()
-	| _ -> unexpected_result "()" x
-
-let expect_string f x = match x with
-	| Success (String x) -> f x
-	| _ -> unexpected_result "String" x
-
 let of_vbd ~__context ~vbd ~domid =
 	let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
 	let location = Db.VDI.get_location ~__context ~self:vdi in
@@ -699,10 +657,11 @@ let is_attached ~__context ~vbd ~domid  =
 	let rpc, task, dp, sr, vdi = of_vbd ~__context ~vbd ~domid in
 	let open Vdi_automaton in
 	let module C = Storage_interface.Client(struct let rpc = rpc end) in
-	match C.VDI.stat ~task ~sr ~vdi () with
-		| Success (Stat { superstate = Detached }) -> false
-		| Success _ -> true
-		| Failure _ as r -> error "Unable to query state of VDI: %s, %s" vdi (string_of_result r); false
+	try 
+		let x = C.VDI.stat ~task ~sr ~vdi () in
+		x.superstate <> Detached
+	with 
+		| e -> error "Unable to query state of VDI: %s, %s" vdi (Printexc.to_string e); false
 
 (** [on_vdi __context vbd domid f] calls [f rpc dp sr vdi] which is
     useful for executing Storage_interface.Client.VDI functions  *)
@@ -718,8 +677,7 @@ let reset ~__context ~vm =
 		(fun pbd ->
 			let sr = Db.SR.get_uuid ~__context ~self:(Db.PBD.get_SR ~__context ~self:pbd) in
 			info "Resetting all state associated with SR: %s" sr;
-			expect_unit (fun () -> ())
-				(Client.SR.reset (Ref.string_of task) sr);
+			Client.SR.reset (Ref.string_of task) sr;
 			Db.PBD.set_currently_attached ~__context ~self:pbd ~value:false;
 		) (System_domains.pbd_of_vm ~__context ~vm)
 
@@ -732,13 +690,9 @@ let attach_and_activate ~__context ~vbd ~domid ~hvm f =
 	let result = on_vdi ~__context ~vbd ~domid
 		(fun rpc task dp sr vdi ->
 			let module C = Storage_interface.Client(struct let rpc = rpc end) in
-			expect_attach_info
-				(fun attach_info ->
-					expect_unit
-						(fun () ->
-							f attach_info
-						) (C.VDI.activate task dp sr vdi)
-				) (C.VDI.attach task dp sr vdi read_write)
+			let attach_info = C.VDI.attach task dp sr vdi read_write in
+			C.VDI.activate task dp sr vdi;
+			f attach_info
 		) in
 	Qemu_blkfront.create ~__context ~self:vbd ~read_write hvm;
 	result
@@ -756,19 +710,16 @@ let deactivate_and_detach ~__context ~vbd ~domid ~unplug_frontends =
 	on_vdi ~__context ~vbd ~domid
 		(fun rpc task dp sr vdi ->
 			let module C = Storage_interface.Client(struct let rpc = rpc end) in
-			expect_unit (fun () -> ())
-				(C.DP.destroy task dp false)
+			C.DP.destroy task dp false
 		)
 
 
 let diagnostics ~__context =
-	expect_string (fun x -> x)
-		(Client.DP.diagnostics ())
+	Client.DP.diagnostics ()
 
 let dp_destroy ~__context dp allow_leak =
 	let task = Context.get_task_id __context in
-	expect_unit (fun () -> ())
-		(Client.DP.destroy (Ref.string_of task) dp allow_leak)
+	Client.DP.destroy (Ref.string_of task) dp allow_leak
 
 (* Set my PBD.currently_attached fields in the Pool database to match the local one *)
 let resynchronise_pbds ~__context ~pbds =
@@ -849,23 +800,25 @@ let refresh_local_vdi_activations ~__context =
 			let vdi = vdi_rec.API.vDI_location in
 			if List.mem sr srs
 			then
-				match Client.VDI.stat ~task ~sr ~vdi () with
-					| Success (Stat { superstate = Activated RO }) -> 
-						lock_vdi (vdi_ref, vdi_rec) RO;
-						remember (sr, vdi) RO
-					| Success (Stat { superstate = Activated RW }) -> 
-						lock_vdi (vdi_ref, vdi_rec) RW;
-						remember (sr, vdi) RW
-					| Success (Stat { superstate = Attached RO }) -> 
-						unlock_vdi (vdi_ref, vdi_rec);
-						remember (sr, vdi) RO
-					| Success (Stat { superstate = Attached RW }) -> 
-						unlock_vdi (vdi_ref, vdi_rec);
-						remember (sr, vdi) RW
-					| Success (Stat { superstate = Detached }) -> 
-						unlock_vdi (vdi_ref, vdi_rec)
-					| Success (Attach_info _ | Vdi _ | Vdis _ | String _ | Unit)
-					| Failure _ as r -> error "Unable to query state of VDI: %s, %s" vdi (string_of_result r)
+				try
+					let x = Client.VDI.stat ~task ~sr ~vdi () in
+					match x.superstate with 
+						| Activated RO ->
+							lock_vdi (vdi_ref, vdi_rec) RO;
+							remember (sr, vdi) RO
+						| Activated RW -> 
+							lock_vdi (vdi_ref, vdi_rec) RW;
+							remember (sr, vdi) RW
+						| Attached RO -> 
+							unlock_vdi (vdi_ref, vdi_rec);
+							remember (sr, vdi) RO
+						| Attached RW -> 
+							unlock_vdi (vdi_ref, vdi_rec);
+							remember (sr, vdi) RW
+						| Detached -> 
+							unlock_vdi (vdi_ref, vdi_rec)
+				with
+					| e -> error "Unable to query state of VDI: %s, %s" vdi (Printexc.to_string e)
 			else unlock_vdi (vdi_ref, vdi_rec)
 		) all_vdi_recs
 
@@ -887,13 +840,11 @@ let destroy_sr ~__context ~sr =
 	let pbd, pbd_t = Sm.get_my_pbd_for_sr __context sr in
 	bind ~__context ~pbd;
 	let task = Ref.string_of (Context.get_task_id __context) in
-	expect_unit (fun () -> ())
-		(Client.SR.attach task (Db.SR.get_uuid ~__context ~self:sr) pbd_t.API.pBD_device_config);
+	Client.SR.attach task (Db.SR.get_uuid ~__context ~self:sr) pbd_t.API.pBD_device_config;
 	(* The current backends expect the PBD to be temporarily set to currently_attached = true *)
 	Db.PBD.set_currently_attached ~__context ~self:pbd ~value:true;
 	Pervasiveext.finally (fun () ->
-		expect_unit (fun () -> ())
-			(Client.SR.destroy task (Db.SR.get_uuid ~__context ~self:sr)))
+		Client.SR.destroy task (Db.SR.get_uuid ~__context ~self:sr))
 		(fun () -> 
 			(* All PBDs are clearly currently_attached = false now *)
 			Db.PBD.set_currently_attached ~__context ~self:pbd ~value:false);

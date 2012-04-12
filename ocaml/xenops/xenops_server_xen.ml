@@ -233,28 +233,11 @@ module Storage = struct
 				)
 	end)
 
-	let success = function
-		| Success x -> x
-		| Failure f -> begin match f with
-			| Sr_not_attached -> failwith "Sr_not_attached"
-			| Vdi_does_not_exist -> failwith "Vdi_does_not_exist"
-			| Unimplemented -> failwith "Storage API unimplemented"
-			| Illegal_transition(src, dest) -> failwith (Printf.sprintf "Illegal VDI state transition: %s -> %s" (Vdi_automaton.string_of_state src) (Vdi_automaton.string_of_state dest))
+	let transform_exception f x =
+		try f x
+		with
 			| Backend_error(code, params) -> raise (Storage_backend_error(code, params))
-			| Internal_err x -> failwith x
-		end
-
-	let attach_info = function
-		| Attach_info p -> p
-		| x -> failwith (Printf.sprintf "Storage operation returned bad type. Expected Attach_info; returned: %s" (x |> rpc_of_success_t |> Jsonrpc.to_string))
-
-	let unit = function
-		| Unit -> ()
-		| x -> failwith (Printf.sprintf "Storage operation returned bad type. Expected Unit; returned: %s" (x |> rpc_of_success_t |> Jsonrpc.to_string))			
-
-	let vdi = function
-		| Vdi vdi -> vdi
-		| x -> failwith (Printf.sprintf "Storage operation returned bad type. Expected Vdi; returned: %s" (x |> rpc_of_success_t |> Jsonrpc.to_string))
+			| e -> raise e
 
 	(* Used to identify this VBD to the storage layer *)
 	let id_of frontend_domid vbd = Printf.sprintf "vbd/%d/%s" frontend_domid (snd vbd)
@@ -262,29 +245,30 @@ module Storage = struct
 	let attach_and_activate task dp sr vdi read_write =
 		let result =
 			Xenops_task.with_subtask task (Printf.sprintf "VDI.attach %s" dp)
-				(fun () -> Client.VDI.attach "attach_and_activate" dp sr vdi read_write |> success |> attach_info) in
+				(transform_exception (fun () -> Client.VDI.attach "attach_and_activate" dp sr vdi read_write)) in
+
 		Xenops_task.with_subtask task (Printf.sprintf "VDI.activate %s" dp)
-			(fun () -> Client.VDI.activate "attach_and_activate" dp sr vdi |> success |> unit);
+			(transform_exception (fun () -> Client.VDI.activate "attach_and_activate" dp sr vdi));
 		(* XXX: we need to find out the backend domid *)
 		{ domid = 0; attach_info = result }
 
 	let deactivate task dp sr vdi =
 		debug "Deactivating disk %s %s" sr vdi;
 		Xenops_task.with_subtask task (Printf.sprintf "VDI.deactivate %s" dp)
-			(fun () -> Client.VDI.deactivate "deactivate" dp sr vdi |> success |> unit)
+			(transform_exception (fun () -> Client.VDI.deactivate "deactivate" dp sr vdi))
 
 	let deactivate_and_detach task dp =
 		Xenops_task.with_subtask task (Printf.sprintf "DP.destroy %s" dp)
-			(fun () ->
-				Client.DP.destroy "deactivate_and_detach" dp false |> success |> unit)
+			(transform_exception (fun () ->
+				Client.DP.destroy "deactivate_and_detach" dp false))
 
 	let get_disk_by_name task path =
 		debug "Storage.get_disk_by_name %s" path;
 		Xenops_task.with_subtask task (Printf.sprintf "get_by_name %s" path)
-			(fun () ->
-				let vdi = Client.get_by_name "get_by_name" path |> success |> vdi in
+			(transform_exception (fun () ->
+				let vdi = Client.get_by_name "get_by_name" path in
 				vdi.sr, vdi.vdi
-			)
+			))
 end
 
 let with_disk ~xc ~xs task disk write f = match disk with

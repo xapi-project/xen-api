@@ -147,27 +147,24 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 							failwith "No SR specified in VDI map and no default on destination"
 				in
 						
-				match SMAPI.Mirror.start ~task ~sr ~vdi:location ~dp ~url ~dest:dest_sr with
-					| Success (Vdi v) ->
-						debug "Local VDI %s mirrored to %s" location v.vdi;
-						debug "Executing remote scan to ensure VDI is known to xapi";
-						XenAPI.SR.scan remote_rpc session_id dest_sr_ref;
-						let query = Printf.sprintf "(field \"location\"=\"%s\") and (field \"SR\"=\"%s\")" v.vdi (Ref.string_of dest_sr_ref) in
-						let vdis = XenAPI.VDI.get_all_records_where remote_rpc session_id query in
-
-						if List.length vdis <> 1 then error "Could not locate remote VDI: query='%s', length of results: %d" query (List.length vdis);
-
-						let remote_vdi_reference = fst (List.hd vdis) in
-						debug "Found remote vdi reference: %s" (Ref.string_of remote_vdi_reference);
-
-						(vdi, { mr_dp = dp;
-						        mr_vdi = location;
-								mr_sr = sr;
-								mr_local_xenops_locator = xenops_locator;
-								mr_remote_xenops_locator = Xapi_xenops.xenops_vdi_locator_of_strings dest_sr v.vdi;
-								mr_remote_vdi_reference = remote_vdi_reference; })
-					| x ->
-						failwith (Printf.sprintf "SMAPI.Mirror.start: %s" (rpc_of_result x |> Jsonrpc.to_string))
+				let v = SMAPI.Mirror.start ~task ~sr ~vdi:location ~dp ~url ~dest:dest_sr in
+				debug "Local VDI %s mirrored to %s" location v.vdi;
+				debug "Executing remote scan to ensure VDI is known to xapi";
+				XenAPI.SR.scan remote_rpc session_id dest_sr_ref;
+				let query = Printf.sprintf "(field \"location\"=\"%s\") and (field \"SR\"=\"%s\")" v.vdi (Ref.string_of dest_sr_ref) in
+				let vdis = XenAPI.VDI.get_all_records_where remote_rpc session_id query in
+				
+				if List.length vdis <> 1 then error "Could not locate remote VDI: query='%s', length of results: %d" query (List.length vdis);
+				
+				let remote_vdi_reference = fst (List.hd vdis) in
+				debug "Found remote vdi reference: %s" (Ref.string_of remote_vdi_reference);
+				
+				(vdi, { mr_dp = dp;
+				mr_vdi = location;
+				mr_sr = sr;
+				mr_local_xenops_locator = xenops_locator;
+				mr_remote_xenops_locator = Xapi_xenops.xenops_vdi_locator_of_strings dest_sr v.vdi;
+				mr_remote_vdi_reference = remote_vdi_reference; })
 			) vdis in
 		(* Move the xapi VM metadata *)
 
@@ -203,10 +200,7 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		List.iter
 			(fun (vdi, dp, location, sr, xenops_locator) ->
 				try
-					match SMAPI.Mirror.stop ~task ~sr ~vdi:location with
-						| Success Unit -> ()
-						| x ->
-							error "SMAPI.Mirror.stop: %s" (rpc_of_result x |> Jsonrpc.to_string)
+					SMAPI.Mirror.stop ~task ~sr ~vdi:location;
 				with e ->
 					error "SMAPI.Mirror.stop: %s" (Printexc.to_string e)
 			) vdis;
