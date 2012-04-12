@@ -38,7 +38,7 @@ start() {
 
 	${NETWORKD} -daemon -pidfile ${PID_FILE} >/dev/null 2>&1 </dev/null
 
-	MAX_RETRIES=30
+	MAX_RETRIES=100
 	RETRY=0
 	while [ ${RETRY} -lt ${MAX_RETRIES} ]; do
 		PID=$(cat ${PID_FILE} 2>/dev/null)
@@ -55,7 +55,7 @@ start() {
 	done
 	echo -n $"failed to start xcp-networkd."
 	failure $"failed to start xcp-networkd."
-	killproc networkd
+	killproc xcp-networkd
 	rm -f ${SUBSYS_FILE} ${PID_FILE}
 	echo
 	return 1
