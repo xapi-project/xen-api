@@ -337,9 +337,9 @@ let init_local_database () =
 let bring_up_management_if ~__context () =
 	try
 		let management_if = Xapi_inventory.lookup Xapi_inventory._management_interface in
-		if management_if = "" then
-			debug "No management interface defined (management is disabled)"
-		else begin
+		if management_if = "" then begin
+			debug "No management interface defined (management is disabled)";
+		end else begin
 			Xapi_mgmt_iface.run management_if;
 			match Helpers.get_management_ip_addr () with
 			| Some "127.0.0.1" ->
@@ -352,7 +352,9 @@ let bring_up_management_if ~__context () =
 					(fun __context -> Xapi_mgmt_iface.on_dom0_networking_change ~__context)) ())
 			| None ->
 				warn "Failed to acquire a management IP address"
-		end
+		end;
+		(* Start the Host Internal Management Network, if needed. *)
+		Xapi_network.check_himn ~__context
 	with e ->
 		debug "Caught exception bringing up management interface: %s" (ExnHelper.string_of_exn e)
 
@@ -931,7 +933,6 @@ let server_init() =
       (* CA-22417: bring up all non-bond slaves so that the SM backends can use storage NIC IP addresses (if the routing
 	 table happens to be right) *)
       "Best-effort bring up of physical NICs", [ Startup.NoExnRaising ], Xapi_pif.start_of_day_best_effort_bring_up;
-	  "Starting host internal management network", [ Startup.NoExnRaising ], Xapi_network_real.on_server_start;
       "initialising storage", [ Startup.NoExnRaising ],
                 (fun () -> Helpers.call_api_functions ~__context Create_storage.create_storage_localhost);
       (* CA-13878: make sure PBD plugging has happened before attempting to reboot any VMs *)

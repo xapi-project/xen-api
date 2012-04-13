@@ -802,6 +802,8 @@ let management_disable ~__context =
   then raise (Api_errors.Server_error (Api_errors.slave_requires_management_iface, []));
 
   Xapi_mgmt_iface.shutdown ();
+  Xapi_mgmt_iface.maybe_start_himn ();
+
   (* Make sure all my PIFs are marked appropriately *)
   Xapi_pif.update_management_flags ~__context ~host:(Helpers.get_localhost ~__context)
 

@@ -19,9 +19,12 @@ open D
 
 (** Keep track of the management interface server thread *)
 
+let himn_addr = ref None
+
 (* Stores a key into the table in Http_srv which identifies the server thread bound
 	 to the management IP. *)
 let management_interface_server = ref None
+let himn_only = ref false
 let management_m = Mutex.create ()
 
 let update_mh_info_script = Filename.concat Fhs.libexecdir "update-mh-info"
@@ -41,16 +44,25 @@ let stop () =
 (* Even though xapi listens on all IP addresses, there is still an interface appointed as
  * _the_ management interface. Slaves in a pool use the IP address of this interface to connect
  * the pool master. *)
-let start () =
-	debug "Starting new server (listening on all IPv4 addresses)";
-	let socket = Xapi_http.bind (Unix.ADDR_INET(Unix.inet_addr_any, Xapi_globs.http_port)) in
+let start ?addr () =
+	let addr =
+		match addr with
+		| None ->
+			debug "Starting new server (listening on all IPv4 addresses)";
+			Unix.inet_addr_any
+		| Some ip ->
+			debug "Starting new server (listening on HIMN only: %s)" ip;
+			himn_only := true;
+			Unix.inet_addr_of_string ip
+	in
+	let socket = Xapi_http.bind (Unix.ADDR_INET(addr, Xapi_globs.http_port)) in
 	Http_svr.start Xapi_http.server socket;
 	management_interface_server := Some socket;
 
 	debug "Restarting stunnel";
 	restart_stunnel ();
 
-	if Pool_role.is_master () then begin
+	if Pool_role.is_master () && addr = Unix.inet_addr_any then begin
 		(* NB if we synchronously bring up the management interface on a master with a blank
 		   database this can fail... this is ok because the database will be synchronised later *)
 		Server_helpers.exec_with_new_task "refreshing consoles"
@@ -66,6 +78,8 @@ let change interface =
 let run interface =
 	Mutex.execute management_m (fun () ->
 		change interface;
+		if !himn_only then
+			stop ();
 		if !management_interface_server = None then
 			start ()
 	)
@@ -76,6 +90,13 @@ let shutdown () =
 		stop ();
 		debug "Restarting stunnel";
 		restart_stunnel ();
+	)
+
+let maybe_start_himn ?addr () =
+	Mutex.execute management_m (fun () ->
+		Opt.iter (fun addr -> himn_addr := Some addr) addr;
+		if !management_interface_server = None then
+			Opt.iter (fun addr -> start ~addr ()) !himn_addr
 	)
 
 let management_ip_mutex = Mutex.create ()
