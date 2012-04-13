@@ -1316,7 +1316,9 @@ module VBD = struct
 		Device_number.of_xenstore_key d.Device_common.frontend.Device_common.devid
 
 	let plug task vm vbd =
-		let vm_t = DB.read_exn vm in
+		(* Dom0 doesn't have a vm_t - we don't need this currently, but when we have storage driver domains, 
+		   we will. Also this causes the SMRT tests to fail, as they demand the loopback VBDs *)
+		let vm_t = DB.read vm in 
 		on_frontend
 			(fun xc xs frontend_domid hvm ->
 				if vbd.backend = None && not hvm
@@ -1369,14 +1371,16 @@ module VBD = struct
 							end
 						| _, _, _ -> None in
 					(* Remember what we've just done *)
-					Opt.iter (fun q ->
-						DB.write vm { vm_t with VmExtra.qemu_vbds = (vbd.Vbd.id, q) :: vm_t.VmExtra.qemu_vbds }
-					) qemu_frontend
+					Opt.iter (fun vm_t -> 
+						Opt.iter (fun q ->
+							DB.write vm { vm_t with VmExtra.qemu_vbds = (vbd.Vbd.id, q) :: vm_t.VmExtra.qemu_vbds }
+						) qemu_frontend
+					) vm_t
 				end
 			) Newest vm
 
 	let unplug task vm vbd force =
-		let vm_t = DB.read_exn vm in
+		let vm_t = DB.read vm in
 		with_xc_and_xs
 			(fun xc xs ->
 				try
@@ -1389,12 +1393,13 @@ module VBD = struct
 					Xenops_task.with_subtask task (Printf.sprintf "Vbd.release %s" (id_of vbd))
 						(fun () -> Device.Vbd.release task ~xs device);
 					(* If we have a qemu frontend, detach this too. *)
-					if List.mem_assoc vbd.Vbd.id vm_t.VmExtra.qemu_vbds then begin
-						let _, qemu_vbd = List.assoc vbd.Vbd.id vm_t.VmExtra.qemu_vbds in
-						destroy_vbd_frontend ~xc ~xs task qemu_vbd;
-						DB.write vm { vm_t with VmExtra.qemu_vbds = List.remove_assoc vbd.Vbd.id vm_t.VmExtra.qemu_vbds }
-					end;
-
+					Opt.iter (fun vm_t -> 
+						if List.mem_assoc vbd.Vbd.id vm_t.VmExtra.qemu_vbds then begin
+							let _, qemu_vbd = List.assoc vbd.Vbd.id vm_t.VmExtra.qemu_vbds in
+							destroy_vbd_frontend ~xc ~xs task qemu_vbd;
+							DB.write vm { vm_t with VmExtra.qemu_vbds = List.remove_assoc vbd.Vbd.id vm_t.VmExtra.qemu_vbds }
+						end) vm_t;
+					
 					deactivate_and_detach task device vbd;
 				with 
 					| (Does_not_exist(_,_)) ->
@@ -1554,7 +1559,7 @@ module VIF = struct
 		]
 
 	let plug_exn task vm vif =
-		let vm_t = DB.read_exn vm in
+		let vm_t = DB.read vm in
 		on_frontend
 			(fun xc xs frontend_domid hvm ->
 				let backend_domid = backend_domid_of xc xs vif in
@@ -1579,21 +1584,23 @@ module VIF = struct
 
 						(* If qemu is in a different domain, then plug into it *)
 						let me = this_domid ~xs in
-						Opt.iter
-							(fun stubdom_domid ->
-								if vif.position < 4 && stubdom_domid <> me then begin
-									let device = create task stubdom_domid in
-									let q = vif.position, Device device in
-									DB.write vm { vm_t with VmExtra.qemu_vifs = (vif.Vif.id, q) :: vm_t.VmExtra.qemu_vifs }
-								end
-							) (get_stubdom ~xs frontend_domid);
+						Opt.iter (fun vm_t -> 
+							Opt.iter
+								(fun stubdom_domid ->
+									if vif.position < 4 && stubdom_domid <> me then begin
+										let device = create task stubdom_domid in
+										let q = vif.position, Device device in
+										DB.write vm { vm_t with VmExtra.qemu_vifs = (vif.Vif.id, q) :: vm_t.VmExtra.qemu_vifs }
+									end
+								) (get_stubdom ~xs frontend_domid)
+						) vm_t
 					)
 			) Newest vm
 
 	let plug task vm = plug_exn task vm
 
 	let unplug task vm vif force =
-		let vm_t = DB.read_exn vm in
+		let vm_t = DB.read vm in
 		with_xc_and_xs
 			(fun xc xs ->
 				try
@@ -1607,15 +1614,16 @@ module VIF = struct
 							(fun () -> Device.Vif.release task ~xs device) in
 					destroy device;
 
-					(* If we have a qemu frontend, detach this too. *)
-					if List.mem_assoc vif.Vif.id vm_t.VmExtra.qemu_vifs then begin
-						match (List.assoc vif.Vif.id vm_t.VmExtra.qemu_vifs) with
-							| _, Device device ->
-								destroy device;
-								DB.write vm { vm_t with VmExtra.qemu_vifs = List.remove_assoc vif.Vif.id vm_t.VmExtra.qemu_vifs }
-							| _, _ -> ()
-					end;
-
+					Opt.iter (fun vm_t -> 
+						(* If we have a qemu frontend, detach this too. *)
+						if List.mem_assoc vif.Vif.id vm_t.VmExtra.qemu_vifs then begin
+							match (List.assoc vif.Vif.id vm_t.VmExtra.qemu_vifs) with
+								| _, Device device ->
+									destroy device;
+									DB.write vm { vm_t with VmExtra.qemu_vifs = List.remove_assoc vif.Vif.id vm_t.VmExtra.qemu_vifs }
+								| _, _ -> ()
+						end;
+					) vm_t
 				with
 					| (Does_not_exist(_,_)) ->
 						debug "VM = %s; Ignoring missing domain" (id_of vif)
