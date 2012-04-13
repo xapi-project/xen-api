@@ -150,7 +150,10 @@ def call_backend_attach(driver, config):
     if xml[0] <> 0:
         raise "SM_BACKEND_FAILURE(%d, %s, %s)" % xml
     xmlrpc = xmlrpclib.loads(xml[1])
-    path = xmlrpc[0][0]
+    try:
+    	path = xmlrpc[0][0]['params']
+    except:
+	path = xmlrpc[0][0]
     return path
 
 def attach(vdi_uuid):
