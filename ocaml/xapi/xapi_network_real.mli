@@ -15,6 +15,9 @@
  * @group Networking
  *)
 
+(** Local IP address of the HIMN (if any) *)
+val himn_addr : string option ref
+
 (** Set-up a host internal management network *)
 val maybe_start : string -> (string * string) list -> unit
 

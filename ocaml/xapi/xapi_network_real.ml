@@ -20,6 +20,7 @@ open Forkhelpers
 open Threadext
 open Pervasiveext
 
+let himn_addr = ref None
 let server = ref None
 let m = Mutex.create ()
 
@@ -104,6 +105,7 @@ let maybe_start bridge other_config =
 		debug "Setting up repeater from %s:%d -> %s %s" ip port_to_forward address (if use_https address then "over SSL" else "plaintext");
 		(* Set the ip address of the bridge *)
 		ignore(Forkhelpers.execute_command_get_output "/sbin/ifconfig" [ bridge; ip; "up" ]);
+		himn_addr := Some ip;
 		ignore(Thread.create (fun () -> http_proxy address ip) ())
 	end
 
