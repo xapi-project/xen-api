@@ -14,7 +14,10 @@
 (** Controlling the management interface.
  *  @group Networking
  *)
- 
+
+(** Local IP address of the HIMN (if any) *)
+val himn_addr : string option ref
+
 (** Block until an IP address appears on the management interface *)
 val wait_for_management_ip : unit -> string
 
@@ -28,4 +31,7 @@ val run : string -> unit
 
 (** Stop the server thread listening on the management interface *)
 val shutdown : unit -> unit
+
+(** Start a server thread on the given HIMN address if the server is not yet running *)
+val maybe_start_himn : ?addr:string -> unit -> unit
 
