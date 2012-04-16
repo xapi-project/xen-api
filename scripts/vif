@@ -138,14 +138,14 @@ add_to_bridge()
         ;;
     esac
         
-    $setup_vif_rules $TYPE $DOMID $DEVID filter
+    $setup_vif_rules $TYPE $DOMID $DEVID filter         || logger -t scripts-vif "Failed to setup-vif-rules $TYPE $DOMID $DEVID filter"
 
     ${IP} link set "${dev}" up                          || logger -t scripts-vif "Failed to ip link set ${dev} up"
 }
 
 remove_from_bridge()
 {
-    $setup_vif_rules $TYPE $DOMID $DEVID clear
+    $setup_vif_rules $TYPE $DOMID $DEVID clear          || logger -t scripts-vif "Failed to setup-vif-rules $TYPE $SOMID $DEVID clear"
 
     case $NETWORK_MODE in
     bridge)
