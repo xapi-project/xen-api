@@ -35,37 +35,6 @@ let netmask_to_prefixlen netmask =
 
 type context = unit
 
-type interface_config_t = {
-	ipv4_conf: ipv4;
-	ipv4_gateway: Unix.inet_addr option;
-	ipv6_conf: ipv6;
-	ipv6_gateway: Unix.inet_addr option;
-	ipv4_routes: (Unix.inet_addr * int * Unix.inet_addr) list;
-	dns: Unix.inet_addr list * string list;
-	mtu: int;
-	ethtool_settings: (string * string) list;
-	ethtool_offload: (string * string) list;
-	persistent_i: bool;
-}
-and port_config_t = {
-	interfaces: iface list;
-	bond_properties: (string * string) list;
-	mac: string;
-}
-and bridge_config_t = {
-	ports: (port * port_config_t) list;
-	vlan: (bridge * int) option;
-	bridge_mac: string option;
-	other_config: (string * string) list;
-	persistent_b: bool;
-}
-and config_t = {
-	interface_config: (iface * interface_config_t) list;
-	bridge_config: (bridge * bridge_config_t) list;
-	gateway_interface: iface option;
-	dns_interface: iface option;
-} with rpc
-
 let empty_config = {interface_config = []; bridge_config = []; gateway_interface = None; dns_interface = None}
 let config : config_t ref = ref empty_config
 
@@ -102,26 +71,14 @@ let read_management_conf () =
 		| "dhcp" | _ ->
 			DHCP4 [`set_gateway; `set_dns], None, ([], [])
 	in
-	let interface = {
-		ipv4_conf;
-		ipv4_gateway;
-		ipv6_conf = None6;
-		ipv6_gateway = None;
-		ipv4_routes = [];
-		dns;
-		mtu = 1500;
-		ethtool_settings = [];
-		ethtool_offload = ["gro", "off"; "lro", "off"];
-		persistent_i = true;
-	} in
-	let bridge = {
-		ports = [device, {interfaces = [device]; bond_properties = []; mac = ""}];
-		vlan = None;
-		bridge_mac = None;
-		other_config = [];
+	let phy_interface = {default_interface with persistent_i = true} in
+	let bridge_interface = {default_interface with ipv4_conf; ipv4_gateway; persistent_i = true} in
+	let bridge = {default_bridge with
+		ports = [device, {default_port with interfaces = [device]}];
 		persistent_b = true
 	} in
-	{interface_config = [bridge_name, interface]; bridge_config = [bridge_name, bridge];
+	{interface_config = [device, phy_interface; bridge_name, bridge_interface];
+		bridge_config = [bridge_name, bridge];
 		gateway_interface = Some bridge_name; dns_interface = Some bridge_name}
 
 let write_config () =
@@ -141,24 +98,6 @@ let read_config () =
 			debug "Read configuration from management.conf file."
 		with _ ->
 			debug "Could not interpret the configuration in management.conf"
-
-let get_config config default name =
-	if List.mem_assoc name config = false then
-		default
-	else
-		List.assoc name config
-
-let remove_config config name =
-	if List.mem_assoc name config then
-		List.remove_assoc name config
-	else
-		config
-
-let update_config config name data =
-	if List.mem_assoc name config then begin
-		List.replace_assoc name data config
-	end else
-		(name, data) :: config
 
 let on_shutdown signal =
 	debug "xcp-networkd caught signal %d; performing cleanup actions." signal;
@@ -180,21 +119,8 @@ let reset_state _ () =
 	config := read_management_conf ()
 
 module Interface = struct
-	let default = {
-		ipv4_conf = None4;
-		ipv4_gateway = None;
-		ipv6_conf = None6;
-		ipv6_gateway = None;
-		ipv4_routes = [];
-		dns = [], [];
-		mtu = 1500;
-		ethtool_settings = [];
-		ethtool_offload = ["gro", "off"; "lro", "off"];
-		persistent_i = false;
-	}
-
 	let get_config name =
-		get_config !config.interface_config default name
+		get_config !config.interface_config default_interface name
 
 	let update_config name data =
 		config := {!config with interface_config = update_config !config.interface_config name data}
@@ -368,7 +294,7 @@ module Interface = struct
 	let set_ethtool_settings _ ~name ~params =
 		debug "Configuring ethtool settings for %s: %s" name
 			(String.concat ", " (List.map (fun (k, v) -> k ^ "=" ^ v) params));
-		let add_defaults = List.filter (fun (k, v) -> not (List.mem_assoc k params)) default.ethtool_settings in
+		let add_defaults = List.filter (fun (k, v) -> not (List.mem_assoc k params)) default_interface.ethtool_settings in
 		let params = params @ add_defaults in
 		update_config name {(get_config name) with ethtool_settings = params};
 		Ethtool.set_options name params
@@ -376,7 +302,7 @@ module Interface = struct
 	let set_ethtool_offload _ ~name ~params =
 		debug "Configuring ethtool offload settings for %s: %s" name
 			(String.concat ", " (List.map (fun (k, v) -> k ^ "=" ^ v) params));
-		let add_defaults = List.filter (fun (k, v) -> not (List.mem_assoc k params)) default.ethtool_offload in
+		let add_defaults = List.filter (fun (k, v) -> not (List.mem_assoc k params)) default_interface.ethtool_offload in
 		let params = params @ add_defaults in
 		update_config name {(get_config name) with ethtool_offload = params};
 		Ethtool.set_offload name params
@@ -402,44 +328,38 @@ module Interface = struct
 		debug "Making interface %s %spersistent" name (if value then "" else "non-");
 		update_config name {(get_config name) with persistent_i = value}
 
-	let restore_config () =
+	let make_config _ ?(conservative=false) ~config () =
+		(* Only attempt to configure interfaces that exist in the system *)
 		let all = get_all () () in
-		(* Do not touch physical interfaces that are already up *)
-		let exclude = List.filter (fun interface -> is_up () ~name:interface && is_physical () ~name:interface) all in
-		let persistent_config = List.filter (fun (name, interface) -> interface.persistent_i) !config.interface_config in
-		debug "Ensuring the following persistent interfaces are up: %s"
-			(String.concat ", " (List.map (fun (name, _) -> name) persistent_config));
-		List.iter (function (name, {ipv4_conf; ipv4_gateway; ipv6_conf; ipv6_gateway; ipv4_routes; dns=nameservers,domains; mtu;
-			ethtool_settings; ethtool_offload; _}) ->
-			if not (List.mem name exclude) then begin
-				(* best effort *)
-				(try configure_ipv4 name ipv4_conf with _ -> ());
-				(try match ipv4_gateway with None -> () | Some gateway -> configure_ipv4_gateway name gateway with _ -> ());
-				(try set_ipv6_conf () ~name ~conf:ipv6_conf with _ -> ());
-				(try match ipv6_gateway with None -> () | Some gateway -> set_ipv6_gateway () ~name ~address:gateway with _ -> ());
-				(try set_ipv4_routes () ~name ~routes:ipv4_routes with _ -> ());
-				(try configure_dns name nameservers domains with _ -> ());
-				(try set_mtu () ~name ~mtu with _ -> ());
-				(try bring_up () ~name with _ -> ());
-				(try set_ethtool_settings () ~name ~params:ethtool_settings with _ -> ());
-				(try set_ethtool_offload () ~name ~params:ethtool_offload with _ -> ())
-			end
-		) persistent_config
+		let config = List.filter (fun (name, _) -> List.mem name all) config in
+		(* Handle conservativeness *)
+		let config =
+			if conservative then begin
+				(* Do not touch non-persistent interfaces *)
+				debug "Only configuring persistent interfaces";
+				List.filter (fun (name, interface) -> interface.persistent_i) config
+			end else
+				config
+		in
+		debug "** Configuring the following interfaces: %s" (String.concat ", " (List.map (fun (name, _) -> name) config));
+		let exec f = if conservative then (try f () with _ -> ()) else f () in
+		List.iter (function (name, ({ipv4_conf; ipv4_gateway; ipv6_conf; ipv6_gateway; ipv4_routes; dns=nameservers,domains; mtu;
+			ethtool_settings; ethtool_offload; _} as c)) ->
+			update_config name c;
+			exec (fun () -> if conservative then configure_ipv4 name ipv4_conf else set_ipv4_conf () name ipv4_conf);
+			exec (fun () -> match ipv4_gateway with None -> () | Some gateway -> configure_ipv4_gateway name gateway);
+			(try set_ipv6_conf () ~name ~conf:ipv6_conf with _ -> ());
+			(try match ipv6_gateway with None -> () | Some gateway -> set_ipv6_gateway () ~name ~address:gateway with _ -> ());
+			exec (fun () -> set_ipv4_routes () ~name ~routes:ipv4_routes);
+			exec (fun () -> configure_dns name nameservers domains);
+			exec (fun () -> set_mtu () ~name ~mtu);
+			exec (fun () -> bring_up () ~name);
+			exec (fun () -> set_ethtool_settings () ~name ~params:ethtool_settings);
+			exec (fun () -> set_ethtool_offload () ~name ~params:ethtool_offload)
+		) config;
 end
 
 module Bridge = struct
-	let default_bridge = {
-		ports = [];
-		vlan = None;
-		bridge_mac = None;
-		other_config = [];
-		persistent_b = false;
-	}
-	let default_port = {
-		interfaces = [];
-		bond_properties = [];
-		mac = "";
-	}
 	let kind = ref Openvswitch
 	let add_default = ref []
 
@@ -549,6 +469,7 @@ module Bridge = struct
 					Interface.set_ipv4_conf () ~name:dev ~conf:None4;
 					Interface.bring_down () ~name:dev
 				) (Ovs.bridge_to_interfaces name);
+				Interface.set_ipv4_conf () ~name ~conf:None4;
 				ignore (Ovs.destroy_bridge name)
 			end else
 				debug "Not destroying bridge %s, because it has VLANs on top" name
@@ -574,6 +495,7 @@ module Bridge = struct
 					if String.startswith "eth" dev && String.contains dev '.' then
 						ignore (Ip.destroy_vlan dev)
 				) ifs;
+				Interface.set_ipv4_conf () ~name ~conf:None4;
 				ignore (Brctl.destroy_bridge name)
 			end else
 				debug "Not destroying bridge %s, because it has VLANs on top" name
@@ -726,38 +648,46 @@ module Bridge = struct
 		debug "Making bridge %s %spersistent" name (if value then "" else "non-");
 		update_config name {(get_config name) with persistent_b = value}
 
-	let restore_config () =
+	let make_config _ ?(conservative=false) ~config () =
 		let vlans_go_last (_, {vlan=vlan_of_a}) (_, {vlan=vlan_of_b}) =
 			if vlan_of_a = None && vlan_of_b = None then 0
 			else if vlan_of_a <> None && vlan_of_b = None then 1
 			else if vlan_of_a = None && vlan_of_b <> None then -1
 			else 0
 		in
-		let persistent_config = List.filter (fun (name, bridge) -> bridge.persistent_b) !config.bridge_config in
-		debug "Ensuring the following persistent bridges are up: %s"
-			(String.concat ", " (List.map (fun (name, _) -> name) persistent_config));
-		let vlan_parents = List.filter_map (function
-			| (_, {vlan=Some (parent, _)}) ->
-				if not (List.mem_assoc parent persistent_config) then
-					Some (parent, List.assoc parent !config.bridge_config)
-				else
-					None
-			| _ -> None) persistent_config in
-		debug "Additionally ensuring the following VLAN parent bridges are up: %s"
-			(String.concat ", " (List.map (fun (name, _) -> name) vlan_parents));
-		let persistent_config = List.sort vlans_go_last (vlan_parents @ persistent_config) in
-		let current = get_all () () in
-		List.iter (function (bridge_name, {ports; vlan; bridge_mac; other_config; _}) ->
-			(* Do not try to recreate bridges that already exist *)
-			if not (List.mem bridge_name current) then begin
-				create () ?vlan ?mac:bridge_mac ~other_config ~name:bridge_name ();
-				List.iter (fun (port_name, {interfaces; bond_properties; mac}) ->
-					add_port () ~mac ~bridge:bridge_name ~name:port_name ~interfaces ();
-					if bond_properties <> [] then
-						set_bond_properties () ~bridge:bridge_name ~name:port_name ~params:bond_properties
-				) ports
-			end
-		) persistent_config
+		let config =
+			if conservative then begin
+				let persistent_config = List.filter (fun (name, bridge) -> bridge.persistent_b) config in
+				debug "Ensuring the following persistent bridges are up: %s"
+					(String.concat ", " (List.map (fun (name, _) -> name) persistent_config));
+				let vlan_parents = List.filter_map (function
+					| (_, {vlan=Some (parent, _)}) ->
+						if not (List.mem_assoc parent persistent_config) then
+							Some (parent, List.assoc parent config)
+						else
+							None
+					| _ -> None) persistent_config in
+				debug "Additionally ensuring the following VLAN parent bridges are up: %s"
+					(String.concat ", " (List.map (fun (name, _) -> name) vlan_parents));
+				let config = vlan_parents @ persistent_config in
+				(* Do not try to recreate bridges that already exist *)
+				let current = get_all () () in
+				List.filter (function (name, _) -> not (List.mem name current)) config
+			end else
+				config
+		in
+		let config = List.sort vlans_go_last config in
+		debug "** Configuring the following bridges: %s"
+			(String.concat ", " (List.map (fun (name, _) -> name) config));
+		List.iter (function (bridge_name, ({ports; vlan; bridge_mac; other_config; _} as c)) ->
+			update_config bridge_name c;
+			create () ?vlan ?mac:bridge_mac ~other_config ~name:bridge_name ();
+			List.iter (fun (port_name, {interfaces; bond_properties; mac}) ->
+				add_port () ~mac ~bridge:bridge_name ~name:port_name ~interfaces ();
+				if bond_properties <> [] then
+					set_bond_properties () ~bridge:bridge_name ~name:port_name ~params:bond_properties
+			) ports
+		) config
 end
 
 let on_startup () =
@@ -775,7 +705,9 @@ let on_startup () =
 	try
 		(* the following is best-effort *)
 		read_config ();
-		Bridge.restore_config ();
-		Interface.restore_config ()
-	with _ -> ()
+		Bridge.make_config () ~conservative:true ~config:!config.bridge_config ();
+		Interface.make_config () ~conservative:true ~config:!config.interface_config ()
+	with e ->
+		debug "Error while configuring networks on startup: %s\n%s"
+			(Printexc.to_string e) (Printexc.get_backtrace ())
 

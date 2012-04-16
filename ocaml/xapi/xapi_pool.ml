@@ -313,27 +313,27 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 			raise (Api_errors.Server_error(Api_errors.operation_not_allowed, [error_msg])) in
 
 	let assert_homogeneous_vswitch_configuration () =
+		(* The network backend must be the same as the remote master's backend *)
+		let my_pool = Helpers.get_pool __context in
+		let my_backend = Netdev.string_of_kind Netdev.network.Netdev.kind in
+		let pool = List.hd (Client.Pool.get_all rpc session_id) in
+		let remote_master = Client.Pool.get_master ~rpc ~session_id ~self:pool in
+		let remote_masters_backend =
+			let v = Client.Host.get_software_version ~rpc ~session_id ~self:remote_master in
+			if not (List.mem_assoc "network_backend" v) then
+				Netdev.string_of_kind Netdev.Bridge
+			else
+				List.assoc "network_backend" v
+		in
+		if my_backend <> remote_masters_backend then
+			raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["Network backends differ"]));
+
 		match Netdev.network.Netdev.kind with
 		| Netdev.Vswitch ->
-			let my_pool = Helpers.get_pool __context in
 			let my_controller = Db.Pool.get_vswitch_controller ~__context ~self:my_pool in
-			let pool = List.hd (Client.Pool.get_all rpc session_id) in
 			let controller = Client.Pool.get_vswitch_controller ~rpc ~session_id ~self:pool in
 			if my_controller <> controller && my_controller <> "" then
-				raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["vswitch controller address differs"]));
-
-			(* The network backend must be the same as the remote master's backend *)
-			let my_backend = Netdev.string_of_kind Netdev.network.Netdev.kind in
-			let remote_master = Client.Pool.get_master ~rpc ~session_id ~self:pool in
-			let remote_masters_backend =
-				let v = Client.Host.get_software_version ~rpc ~session_id ~self:remote_master in
-				if not (List.mem_assoc "network_backend" v) then
-					Netdev.string_of_kind Netdev.Bridge
-				else
-					List.assoc "network_backend" v
-			in
-			if my_backend <> remote_masters_backend then
-				raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["Network backends differ"]));
+				raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["vswitch controller address differs"]))
 		| _ -> ()
 	in
 
