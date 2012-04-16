@@ -537,6 +537,13 @@ module Worker = struct
 							debug "Queue caught: %s" (Printexc.to_string e)
 					end;
 					Redirector.finished tag queue;
+					(* The task must have succeeded or failed. *)
+					begin match item.Xenops_task.result with
+						| Task.Pending _ ->
+							error "Task %s has been left in a Pending state" item.Xenops_task.id;
+							item.Xenops_task.result <- Task.Failed (Internal_error "Task left in Pending state" |> exnty_of_exn |> Exception.rpc_of_exnty)
+						| _ -> ()
+					end;
 					TASK.signal item.Xenops_task.id
 				done
 			) () in
