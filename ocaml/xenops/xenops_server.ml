@@ -138,11 +138,12 @@ module TASK = struct
 				find_locked id |> task
 			)
 	let signal id =
-		debug "TASK.signal %s" id;
 		Mutex.execute m
 			(fun () ->
-				if exists_locked id
-				then Updates.add (Dynamic.Task id) updates
+				if exists_locked id then begin
+					debug "TASK.signal %s = %s" id ((find_locked id).result |> Task.rpc_of_result |> Jsonrpc.to_string);
+					Updates.add (Dynamic.Task id) updates
+				end else debug "TASK.signal %s (object deleted)" id
 			)
 	let stat _ dbg id = stat' id 
 	let destroy' id = destroy id; Updates.remove (Dynamic.Task id) updates
@@ -1633,6 +1634,7 @@ module Diagnostics = struct
 		workers: WorkerPool.Dump.t;
 		scheduler: Scheduler.Dump.t;
 		updates: Updates.Dump.t;
+		tasks: WorkerPool.Dump.task list;
 	} with rpc
 
 	let make () = {
@@ -1640,6 +1642,7 @@ module Diagnostics = struct
 		workers = WorkerPool.Dump.make ();
 		scheduler = Scheduler.Dump.make ();
 		updates = Updates.Dump.make updates;
+		tasks = List.map WorkerPool.Dump.of_task (Xenops_task.list ());
 	}
 end
 
