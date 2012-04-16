@@ -35,7 +35,7 @@ open Record_util
 
 let all_ops : API.storage_operations_set = 
   [ `scan; `destroy; `forget; `plug; `unplug; `vdi_create; `vdi_destroy; `vdi_resize; `vdi_clone; `vdi_snapshot;
-    `vdi_introduce; `update ]
+    `vdi_introduce; `update; `pbd_create; `pbd_destroy ]
 
 let sm_cap_table = 
   [ `vdi_create, Smint.Vdi_create;
@@ -86,12 +86,16 @@ let valid_operations ~__context record _ref' : table =
       all_ops in
   set_errors Api_errors.sr_operation_not_supported [ _ref ] forbidden_by_backend;
 
-  (* CA-70294: if the SR has a PBD, destroy and forget operations are not allowed.*)
+  (* CA-70294: if the SR has any attached PBDs, destroy and forget operations are not allowed.*)
   let all_pbds_attached_to_this_sr =
 	Db.PBD.get_records_where ~__context ~expr:(And(Eq(Field "SR", Literal _ref), Eq(Field "currently_attached", Literal "true"))) in
   if List.length all_pbds_attached_to_this_sr > 0 then
-	set_errors Api_errors.sr_operation_not_supported [ _ref ] [ `destroy; `forget ]
+	set_errors Api_errors.sr_has_pbd [ _ref ] [ `destroy; `forget ]
   else ();
+
+	(* If the SR has no PBDs, destroy is not allowed. *)
+	if (Db.SR.get_PBDs ~__context ~self:_ref') = [] then
+		set_errors Api_errors.sr_no_pbds [_ref] [`destroy];
 
 	(* If the SR is not empty, destroy is not allowed. *)
 	if (Db.SR.get_VDIs ~__context ~self:_ref') <> [] then
