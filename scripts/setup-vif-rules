@@ -35,7 +35,7 @@ xenstore_read_cmd = "/usr/bin/xenstore-read"
 
 host_network_config = "/etc/xensource/network.conf"
 
-def get_host_network_config():
+def get_host_network_mode():
     f = open(host_network_config, "r")
     try:
         f.readline().strip()
