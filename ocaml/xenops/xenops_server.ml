@@ -138,6 +138,7 @@ module TASK = struct
 				find_locked id |> task
 			)
 	let signal id =
+		debug "TASK.signal %s" id;
 		Mutex.execute m
 			(fun () ->
 				if exists_locked id
@@ -166,6 +167,7 @@ module VM_DB = struct
 		List.combine vms states
 	let m = Mutex.create ()
 	let signal id =
+		debug "VM_DB.signal %s" id;
 		Mutex.execute m
 			(fun () ->
 				if exists id
@@ -200,6 +202,7 @@ module PCI_DB = struct
 		List.combine xs states
 	let m = Mutex.create ()
 	let signal id =
+		debug "PCI_DB.signal %s" (string_of_id id);
 		Mutex.execute m
 			(fun () ->
 				if exists id
@@ -234,6 +237,7 @@ module VBD_DB = struct
 		List.combine vbds' states
 	let m = Mutex.create ()
 	let signal id =
+		debug "VBD_DB.signal %s" (string_of_id id);
 		Mutex.execute m
 			(fun () ->
 				if exists id
@@ -267,6 +271,7 @@ module VIF_DB = struct
 		List.combine vifs' states
 	let m = Mutex.create ()
 	let signal id =
+		debug "VIF_DB.signal %s" (string_of_id id);
 		Mutex.execute m
 			(fun () ->
 				Updates.add (Dynamic.Vif id) updates
