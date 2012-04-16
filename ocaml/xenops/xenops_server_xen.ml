@@ -66,7 +66,7 @@ module VmExtra = struct
 		qemu_vbds: (Vbd.id * (int * qemu_frontend)) list;
 		qemu_vifs: (Vif.id * (int * qemu_frontend)) list;
 		vifs: Vif.t list;
-		last_create_time: float;
+		last_start_time: float;
 		pci_msitranslate: bool;
 		pci_power_mgmt: bool;
 	} with rpc
@@ -530,9 +530,7 @@ module VM = struct
 					match DB.read k with
 						| Some x ->
 							debug "VM = %s; reloading stored domain-level configuration" vm.Vm.id;
-							{ x with
-								VmExtra.last_create_time = Unix.gettimeofday ()
-							}
+							x
 						| None -> begin
 							debug "VM = %s; has no stored domain-level configuration, regenerating" vm.Vm.id;
 							let hvm = match vm.ty with HVM _ -> true | _ -> false in
@@ -591,7 +589,7 @@ module VM = struct
 								qemu_vbds = [];
 								qemu_vifs = [];
 								vifs = [];
-								last_create_time = Unix.gettimeofday ();
+								last_start_time = Unix.gettimeofday ();
 								pci_msitranslate = vm.Vm.pci_msitranslate;
 								pci_power_mgmt = vm.Vm.pci_power_mgmt;
 							}
@@ -1167,7 +1165,7 @@ module VM = struct
 							memory_actual = memory_actual;
 							rtc_timeoffset = rtc;
 							last_start_time = begin match vme with
-								| Some x -> x.VmExtra.last_create_time
+								| Some x -> x.VmExtra.last_start_time
 								| None -> 0.
 							end;
 							shadow_multiplier_target = shadow_multiplier_target;
