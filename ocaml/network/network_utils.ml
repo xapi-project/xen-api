@@ -573,7 +573,14 @@ module Ovs = struct
 			let existing_vifs = List.filter (fun iface -> not (Sysfs.is_physical iface)) (bridge_to_interfaces name) in
 			List.flatten (List.map (fun vif -> ["--"; "--may-exist"; "add-port"; name; vif]) existing_vifs)
 		in
-		call (["--"; "--if-exists"; "del-br"; name; "--"; "--may-exist"; "add-br"; name] @
+		let del_old_arg =
+			if vlan <> None then
+				(* This is to handle the case that a "real" bridge (not a "fake" VLAN bridge) already exists *)
+				["--"; "--if-exists"; "del-br"; name]
+			else
+				[]
+		in
+		call (del_old_arg @ ["--"; "--may-exist"; "add-br"; name] @
 			vlan_arg @ mac_arg @ fail_mode_arg @ disable_in_band_arg @ external_id_arg @ vif_arg)
 
 	let destroy_bridge name =
