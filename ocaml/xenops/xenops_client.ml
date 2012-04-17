@@ -78,6 +78,7 @@ let event_wait dbg p =
 	let finished = ref false in
 	let event_id = ref None in
 	while not !finished do
+		debug "Calling UPDATES.get %s %s 30" dbg (Opt.default "None" (Opt.map string_of_int !event_id));
 		let deltas, next_id = Client.UPDATES.get dbg !event_id (Some 30) in
 		List.iter (fun d -> print_delta d) deltas;
 		event_id := next_id;
