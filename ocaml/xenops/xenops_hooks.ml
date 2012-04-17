@@ -91,7 +91,7 @@ type script =
 	| VM_post_destroy
 with rpc
 
-let vm script reason id =
+let vm ~script ~reason ~id =
 	let script_name = match script with
 		| VM_pre_destroy  -> scriptname__vm_pre_destroy
 		| VM_pre_migrate  -> scriptname__vm_pre_migrate

@@ -848,7 +848,7 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 					B.VIF.set_locking_mode t (VIF_DB.vm_of id) (VIF_DB.read_exn id) mode;
 				) (fun () -> VIF_DB.signal id)
 		| VM_hook_script(id, script, reason) ->
-			Xenops_hooks.vm script id reason
+			Xenops_hooks.vm ~script ~reason ~id
 		| VBD_plug id ->
 			debug "VBD.plug %s" (VBD_DB.string_of_id id);
 			B.VBD.plug t (VBD_DB.vm_of id) (VBD_DB.read_exn id);
