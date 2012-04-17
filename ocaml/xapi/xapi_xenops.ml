@@ -1735,9 +1735,10 @@ let vbd_unplug ~__context ~self force =
 				with Device_detach_rejected(_, _, _) ->
 					raise (Api_errors.Server_error(Api_errors.device_detach_rejected, [ "VBD"; Ref.string_of self; "" ]))
 			end;
+			(* We need to make sure VBD.stat still works so: wait before calling VBD.remove *)
+			Event.wait dbg ();
 			info "xenops: VBD.remove %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
 			Client.VBD.remove dbg vbd.Vbd.id;
-			Event.wait dbg ();
 			assert (not(Db.VBD.get_currently_attached ~__context ~self))
 		)
 
@@ -1790,9 +1791,10 @@ let vif_unplug ~__context ~self force =
 			info "xenops: VIF.unplug %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
 			let dbg = Context.string_of_task __context in
 			Client.VIF.unplug dbg vif.Vif.id force |> sync_with_task __context;
+			(* We need to make sure VIF.stat still works so: wait before calling VIF.remove *)
+			Event.wait dbg ();
 			info "xenops: VIF.remove %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
 			Client.VIF.remove dbg vif.Vif.id;
-			Event.wait dbg ();
 			assert (not(Db.VIF.get_currently_attached ~__context ~self))
 		)
 
