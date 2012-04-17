@@ -1725,12 +1725,12 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
       implementation=No_fd Cli_operations.vdi_copy;
       flags=[];
     };
-   "vdi-migrate",
+   "vdi-pool-migrate",
     {
       reqd=["uuid"; "sr-uuid"];
       optn=[];
       help="Migrate a VDI to a specified SR, while the VDI is attached to a running guest.";
-      implementation=No_fd Cli_operations.vdi_migrate;
+      implementation=No_fd Cli_operations.vdi_pool_migrate;
       flags=[];
     };
    "vdi-clone",
