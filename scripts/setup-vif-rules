@@ -38,7 +38,7 @@ host_network_config = "/etc/xensource/network.conf"
 def get_host_network_mode():
     f = open(host_network_config, "r")
     try:
-        f.readline().strip()
+        return f.readline().strip()
     finally:
         f.close()
 
