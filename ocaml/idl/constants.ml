@@ -116,3 +116,6 @@ let path xs = "/" ^ (String.concat "/" xs)
 
 (* Used to identify remote VDIs that are mirrors. Stored in VDI.other_config *)
 let storage_migrate_vdi_map_key = "maps_to"
+
+(* Used to specify mapping of VIFs to networks on the remote machine. Stored in VIF.other_config *)
+let storage_migrate_vif_map_key = "maps_to"

@@ -85,7 +85,7 @@ module type S = sig
 		val set_domain_action_request: Vm.t -> domain_action_request option -> unit
 		val get_domain_action_request: Vm.t -> domain_action_request option
 
-		val get_internal_state: (string * string) list -> Vm.t -> string
+		val get_internal_state: (string * string) list -> (string * Network.t) list -> Vm.t -> string
 		val set_internal_state: Vm.t -> string -> unit
 
 		val minimum_reboot_delay: float
