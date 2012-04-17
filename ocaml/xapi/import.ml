@@ -550,7 +550,13 @@ module VDI : HandlerTools = struct
 		match precheck_result with
 		| Found_iso vdi | Found_disk vdi -> state.table <- (x.cls, x.id, Ref.string_of vdi) :: state.table
 		| Found_no_iso -> () (* VDI will be ejected. *)
-		| Found_no_disk e -> raise e
+		| Found_no_disk e -> begin
+			match config.import_type with
+			| Metadata_import {live=true} ->
+				(* We expect the disk to be missing during a live migration dry run. *)
+				debug "Ignoring missing disk %s - this will be mirrored during a real live migration." x.id
+			| _ -> raise e
+		end
 		| Skip -> ()
 		| Create _ ->
 			let dummy_vdi = Ref.make () in
@@ -558,8 +564,9 @@ module VDI : HandlerTools = struct
 
 	let handle __context config rpc session_id state x precheck_result =
 		match precheck_result with
-		| Found_iso _ | Found_no_iso | Found_disk _ | Found_no_disk _ | Skip ->
+		| Found_iso _ | Found_no_iso | Found_disk _ | Skip ->
 			handle_dry_run __context config rpc session_id state x precheck_result
+		| Found_no_disk e -> raise e
 		| Create vdi_record -> begin
 			(* Make a new VDI for streaming data into; adding task-id to sm-config on VDI.create so SM backend can see this is an import *)
 			let sr = lookup vdi_record.API.vDI_SR state.table in
