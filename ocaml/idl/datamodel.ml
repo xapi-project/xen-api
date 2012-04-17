@@ -2792,8 +2792,8 @@ let vdi_copy = call
   ~allowed_roles:_R_VM_ADMIN
   ()
 
-let vdi_migrate = call
-  ~name:"migrate"
+let vdi_pool_migrate = call
+  ~name:"pool_migrate"
   ~in_oss_since:None
   ~in_product_since:rel_tampa
   ~params:[ Ref _vdi, "vdi", "The VDI to migrate"
@@ -5357,7 +5357,7 @@ let vdi =
 		 vdi_open_database;
 		 vdi_checksum;
 		 vdi_read_database_pool_uuid;
-		 vdi_migrate;
+		 vdi_pool_migrate;
 		]
       ~contents:
       ([ uid _vdi;
