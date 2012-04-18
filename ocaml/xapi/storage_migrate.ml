@@ -319,11 +319,11 @@ let receive_start ~task ~sr ~vdi_info ~similar =
 		List.iter (fun op -> try op () with e -> debug "Caught exception in on_fail: %s" (Printexc.to_string e)) !on_fail;
 		raise e
 
-let receive_finalize ~task ~sr ~content_id =
-	let record = Hashtbl.find active_receive_mirrors content_id in
+let receive_finalize ~task ~sr ~vdi =
+	let record = Hashtbl.find active_receive_mirrors vdi in
 	Local.DP.destroy ~task ~dp:record.leaf_dp ~allow_leak:true
 
-let receive_cancel ~task ~sr ~content_id = ()
+let receive_cancel ~task ~sr ~vdi = ()
 
 
 let detach_hook ~sr ~vdi ~dp = 

@@ -524,15 +524,15 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 				task sr (String.concat "," similar);
 			Impl.Mirror.receive_start context ~task ~sr ~vdi_info ~similar
 
-		let receive_finalize context ~task ~sr ~content_id =
-			info "Mirror.receive_finalize task:%s sr:%s content_id:%s"
-				task sr content_id;
-			Impl.Mirror.receive_finalize context ~task ~sr ~content_id
+		let receive_finalize context ~task ~sr ~vdi =
+			info "Mirror.receive_finalize task:%s sr:%s vdi:%s"
+				task sr vdi;
+			Impl.Mirror.receive_finalize context ~task ~sr ~vdi
 
-		let receive_cancel context ~task ~sr ~content_id =
-			info "Mirror.receive_cancel task:%s sr:%s content_id:%s"
-				task sr content_id;
-			Impl.Mirror.receive_cancel context ~task ~sr ~content_id
+		let receive_cancel context ~task ~sr ~vdi =
+			info "Mirror.receive_cancel task:%s sr:%s vdi:%s"
+				task sr vdi;
+			Impl.Mirror.receive_cancel context ~task ~sr ~vdi
 
 				
 	end
