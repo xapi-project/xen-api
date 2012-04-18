@@ -515,9 +515,9 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			info "Mirror.stop task:%s sr:%s vdi:%s" task sr vdi;
 			Impl.Mirror.stop context ~task ~sr ~vdi
 
-		let active context ~task ~sr =
+		let list context ~task ~sr =
 			info "Mirror.active task:%s sr:%s" task sr;
-			Impl.Mirror.active context ~task ~sr 
+			Impl.Mirror.list context ~task ~sr 
 
 		let receive_start context ~task ~sr ~vdi_info ~content_id ~similar =
 			info "Mirror.receive_start task:%s sr:%s content_id:%s similar:[%s]" 

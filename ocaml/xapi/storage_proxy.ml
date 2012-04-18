@@ -66,9 +66,9 @@ module Proxy = functor(RPC: RPC) -> struct
 	module Mirror = struct
 		let start _ = Client.Mirror.start
 		let stop _ = Client.Mirror.stop
-		let active _ = Client.Mirror.active
 		let receive_start _ = Client.Mirror.receive_start
 		let receive_finalize _ = Client.Mirror.receive_finalize
 		let receive_cancel _ = Client.Mirror.receive_cancel
+		let list _ = Client.Mirror.list
 	end
 end
