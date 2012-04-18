@@ -168,7 +168,7 @@ let start ~task ~sr ~vdi ~dp ~url ~dest =
 		let similars = List.map (fun vdi -> vdi.content_id) similar_vdis in
 		debug "Similar VDIs to %s = [ %s ]" vdi (String.concat "; " (List.map (fun x -> Printf.sprintf "(vdi=%s,content_id=%s)" x.vdi x.content_id) vdis));
 		let result = 
-			match Remote.Mirror.receive_start ~task ~sr:dest ~vdi_info:local_vdi ~content_id:local_vdi.content_id ~similar:similars with
+			match Remote.Mirror.receive_start ~task ~sr:dest ~vdi_info:local_vdi ~similar:similars with
 				| Mirror.Vhd_mirror x -> x 
 		in
 		
@@ -259,7 +259,7 @@ let active_receive_mirrors : (string, receive_record) Hashtbl.t = Hashtbl.create
 let list ~task ~sr =
 	[]
 
-let receive_start ~task ~sr ~vdi_info ~content_id ~similar =
+let receive_start ~task ~sr ~vdi_info ~similar =
 	let on_fail : (unit -> unit) list ref = ref [] in
 
 	let vdis = Local.SR.scan ~task ~sr in
@@ -306,7 +306,7 @@ let receive_start ~task ~sr ~vdi_info ~content_id ~similar =
 			parent_vdi = parent.vdi;
 		} in
 
-		Hashtbl.replace active_receive_mirrors content_id record;
+		Hashtbl.replace active_receive_mirrors leaf.vdi record;
 		
 		let nearest_content_id = Opt.map (fun x -> x.content_id) nearest in
 
