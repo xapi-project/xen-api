@@ -285,4 +285,4 @@ val sync_tunnels : __context:Context.t -> host:API.ref_host -> unit
  *  The parameter [bridges] contains a list of bridge names reflecting all bridges that are up. *)
 val sync_pif_currently_attached : __context:Context.t -> host:API.ref_host -> bridges:string list -> unit
 
-val migrate_receive : __context:Context.t -> host:API.ref_host -> options:API.string_to_string_map -> API.string_to_string_map
+val migrate_receive : __context:Context.t -> host:API.ref_host -> network:API.ref_network -> options:API.string_to_string_map -> API.string_to_string_map
