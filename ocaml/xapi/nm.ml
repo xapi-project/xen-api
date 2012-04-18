@@ -399,6 +399,11 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 					let net_rc = Db.Network.get_record ~__context ~self:rc.API.pIF_network in
 					let bridge = net_rc.API.network_bridge in
 					let persistent = is_dom0_interface rc in
+					let dhcp_options =
+						if rc.API.pIF_ip_configuration_mode = `DHCP then
+							determine_dhcp_options ~__context pif management_interface
+						else []
+					in
 
 					(* Setup network infrastructure *)
 					let cleanup, bridge_config, interface_config = create_bridges ~__context rc net_rc in
@@ -412,7 +417,7 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 					let ipv4_conf, ipv4_gateway, dns =
 						match rc.API.pIF_ip_configuration_mode with
 						| `None -> None4, None, ([], [])
-						| `DHCP -> DHCP4 (determine_dhcp_options ~__context pif management_interface), None, ([], [])
+						| `DHCP -> DHCP4 dhcp_options, None, ([], [])
 						| `Static ->
 							let conf = (Static4 [
 								Unix.inet_addr_of_string rc.API.pIF_IP,
