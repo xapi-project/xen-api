@@ -242,7 +242,7 @@ module Mirror = struct
 	external stop : task:task -> sr:sr -> vdi:vdi -> unit = ""
 
 	(** Called on the receiving end *)
-	external receive_start : task:task -> sr:sr -> vdi_info:vdi_info -> content_id:content_id -> similar:Mirror.similars -> Mirror.mirror_receive_result = ""
+	external receive_start : task:task -> sr:sr -> vdi_info:vdi_info -> similar:Mirror.similars -> Mirror.mirror_receive_result = ""
 
 	external receive_finalize : task:task -> sr:sr -> content_id:content_id -> unit = ""
 
