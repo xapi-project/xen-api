@@ -985,7 +985,12 @@ let handle_all __context config rpc session_id (xs: obj list) =
 			debug "Importing %i %s(s)" (List.length instances) cls;
 			List.iter (fun x -> handler __context config rpc session_id state x) instances in
 		List.iter one_type handlers;
-		update_snapshot_and_parent_links ~__context state;
+		let dry_run = match config.import_type with
+		| Metadata_import {dry_run=true} -> true
+		| _ -> false
+		in
+		if not dry_run then
+			update_snapshot_and_parent_links ~__context state;
 		state
 	with e ->
 		error "Caught exception in import: %s" (ExnHelper.string_of_exn e);
