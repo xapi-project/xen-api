@@ -38,8 +38,8 @@ module State = struct
 	module Send_state = struct
 		type t = {
 			url : string;
-			vdi : string;
-			remote_dp : string;
+			dest_sr : sr;
+			remote_dp : dp;
 		} with rpc
 	end
 
@@ -66,8 +66,8 @@ module State = struct
 	let find vdi = op false (fun a -> try Some (Hashtbl.find a vdi) with _ -> None)
 	let remove vdi = op true (fun a ->	Hashtbl.remove a vdi)
 
-	let add_to_active_local_mirrors vdi url vdi remote_dp =
-		let open Send_state in add vdi $ Send {url; vdi; remote_dp}
+	let add_to_active_local_mirrors vdi url dest_sr remote_dp =
+		let open Send_state in add vdi $ Send {url; dest_sr; remote_dp}
 			
 	let add_to_active_receive_mirrors vdi dummy_vdi leaf_dp parent_vdi =
 		let open Receive_state in add vdi $ Receive {dummy_vdi; leaf_dp; parent_vdi}
@@ -239,7 +239,7 @@ let start ~task ~sr ~vdi ~dp ~url ~dest =
 							Unix.close control_fd)));
 			| None ->
 				failwith "Not attached");
-		State.add_to_active_local_mirrors local_vdi.vdi url local_vdi.content_id mirror_dp;
+		State.add_to_active_local_mirrors local_vdi.vdi url dest mirror_dp;
 		let snapshot = Local.VDI.snapshot ~task ~sr ~vdi:local_vdi.vdi ~vdi_info:local_vdi ~params:["mirror", "nbd:" ^ dp] in
 		on_fail := (fun () -> Local.VDI.destroy ~task ~sr ~vdi:snapshot.vdi) :: !on_fail;
 		(* Copy the snapshot to the remote *)
@@ -351,10 +351,7 @@ let detach_hook ~sr ~vdi ~dp =
 			Opt.iter (fun r -> 
 				let remote_url = Http.Url.of_string r.url in
 				let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
-				ignore(Remote.DP.destroy ~task:"Mirror-cleanup" ~dp:r.remote_dp ~allow_leak:false))
-	
-
-
+				Remote.Mirror.receive_finalize ~task:"Mirror-cleanup" ~sr:r.dest_sr ~vdi)
 
 let nbd_handler req s sr vdi dp =
 	debug "sr=%s vdi=%s dp=%s" sr vdi dp;
