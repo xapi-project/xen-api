@@ -145,7 +145,7 @@ add_to_bridge()
 
 remove_from_bridge()
 {
-    $setup_vif_rules $TYPE $DOMID $DEVID clear          || logger -t scripts-vif "Failed to setup-vif-rules $TYPE $SOMID $DEVID clear"
+    $setup_vif_rules $TYPE $DOMID $DEVID clear          || logger -t scripts-vif "Failed to setup-vif-rules $TYPE $DOMID $DEVID clear"
 
     case $NETWORK_MODE in
     bridge)
