@@ -2798,8 +2798,9 @@ let vdi_pool_migrate = call
   ~in_oss_since:None
   ~in_product_since:rel_tampa
   ~params:[ Ref _vdi, "vdi", "The VDI to migrate"
-		  ; Ref _sr, "sr", "The destination SR"
-		  ; Map (String, String), "options", "Other parameters" ]
+    ; Ref _sr, "sr", "The destination SR"
+    ; Ref _network, "network", "The network through which migration traffic should be sent."
+    ; Map (String, String), "options", "Other parameters" ]
   ~doc:"Migrate a VDI, which may be attached to a running guest, to a different SR. The destination SR must be visible to the guest."
   ~allowed_roles:_R_VM_POWER_ADMIN
   ()

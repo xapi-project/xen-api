@@ -3209,9 +3209,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			with Not_found ->
 				SR.forward_sr_multiple_op ~local_fn ~__context ~srs:[src_sr] ~prefer_slaves:true op
 
-		let pool_migrate ~__context ~vdi ~sr ~options =
-			info "VDI.pool_migrate: VDI = '%s'; SR = '%s'" (vdi_uuid ~__context vdi) (sr_uuid ~__context sr);
-			Local.VDI.pool_migrate ~__context ~vdi ~sr ~options
+		let pool_migrate ~__context ~vdi ~sr ~network ~options =
+			info "VDI.pool_migrate: VDI = '%s'; SR = '%s'; network = '%s'"
+				(vdi_uuid ~__context vdi) (sr_uuid ~__context sr) (network_uuid ~__context network);
+			Local.VDI.pool_migrate ~__context ~vdi ~sr ~network ~options
 
 		let resize ~__context ~vdi ~size =
 			info "VDI.resize: VDI = '%s'; size = %Ld" (vdi_uuid ~__context vdi) size;

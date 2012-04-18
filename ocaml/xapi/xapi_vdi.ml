@@ -529,7 +529,7 @@ let copy ~__context ~vdi ~sr =
       (fun rpc session_id -> Client.VDI.destroy rpc session_id dst);
       raise e
 
-let pool_migrate ~__context ~vdi ~sr ~options =
+let pool_migrate ~__context ~vdi ~sr ~network ~options =
 	raise (Api_errors.Server_error(Api_errors.not_implemented, [ "VDI.pool_migrate" ]))
 
 let force_unlock ~__context ~vdi = 

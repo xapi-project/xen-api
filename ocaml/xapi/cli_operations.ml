@@ -1145,9 +1145,15 @@ let vdi_copy printer rpc session_id params =
 let vdi_pool_migrate printer rpc session_id params =
 	let vdi = Client.VDI.get_by_uuid rpc session_id (List.assoc "uuid" params)
 	and sr = Client.SR.get_by_uuid rpc session_id (List.assoc "sr-uuid" params)
+	and network =
+		if List.mem_assoc "network-uuid" params then
+			Client.Network.get_by_uuid rpc session_id (List.assoc "network-uuid" params)
+		else
+			Server_helpers.exec_with_new_task ~session_id "Finding management network"
+				(fun __context -> Helpers.get_host_internal_management_network __context)
 	and options = [] (* no options implemented yet *)
 	in
-	Client.VDI.pool_migrate rpc session_id vdi sr options
+	Client.VDI.pool_migrate rpc session_id vdi sr network options
 
 let vdi_clone printer rpc session_id params =
 	let vdi = Client.VDI.get_by_uuid rpc session_id (List.assoc "uuid" params) in
