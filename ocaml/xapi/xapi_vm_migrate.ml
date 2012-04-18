@@ -178,7 +178,15 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			Importexport.dry_run = false;
 			Importexport.live = true;
 		} in
-		Importexport.remote_metadata_export_import ~__context ~rpc:remote_rpc ~session_id ~remote_address (`Only vm_export_import);
+		finally
+			(fun () ->
+				Importexport.remote_metadata_export_import ~__context
+					~rpc:remote_rpc ~session_id ~remote_address (`Only vm_export_import))
+			(fun () ->
+				(* Make sure we clean up the remote VDI mapping keys. *)
+				List.iter
+					(fun (vdi, _) -> Db.VDI.remove_from_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key)
+				 	vdi_map);
 		(* Migrate the VM *)
 		let open Xenops_client in
 		let vm' = Db.VM.get_uuid ~__context ~self:vm in
