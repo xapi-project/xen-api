@@ -209,19 +209,30 @@ end
 (** [get_by_name task name] returns a vdi with [name] (which may be in any SR) *)
 external get_by_name : task:task -> name:string -> vdi_info = ""
 
-type mirror_receive_result_vhd_t = {
-	mirror_vdi : vdi_info;
-	mirror_datapath : dp;
-	copy_diffs_from : content_id option;
-	copy_diffs_to : vdi;
-}
-		
-type mirror_receive_result = 
-	| Vhd_mirror of mirror_receive_result_vhd_t
-
-type similars = content_id list 
-
 module Mirror = struct
+
+	type mirror_receive_result_vhd_t = {
+		mirror_vdi : vdi_info;
+		mirror_datapath : dp;
+		copy_diffs_from : content_id option;
+		copy_diffs_to : vdi;
+	}
+			
+	type mirror_receive_result = 
+		| Vhd_mirror of mirror_receive_result_vhd_t
+			
+	type similars = content_id list 
+
+	type state = 
+		| Receiving
+		| Sending
+		| Failed
+
+	type status = {
+		vdi : vdi;
+		state : state; 
+	}
+			
 
 	(** [start task sr vdi url sr2] creates a VDI in remote [url]'s [sr2] and writes
 		data synchronously. It returns the id of the VDI.*)
@@ -230,13 +241,14 @@ module Mirror = struct
 	(** [stop task sr vdi] stops mirroring local [vdi] *)
 	external stop : task:task -> sr:sr -> vdi:vdi -> unit = ""
 
-	external active : task:task -> sr:sr -> content_id list = ""
-
 	(** Called on the receiving end *)
-	external receive_start : task:task -> sr:sr -> vdi_info:vdi_info -> content_id:content_id -> similar:similars -> mirror_receive_result = ""
+	external receive_start : task:task -> sr:sr -> vdi_info:vdi_info -> content_id:content_id -> similar:Mirror.similars -> Mirror.mirror_receive_result = ""
 
 	external receive_finalize : task:task -> sr:sr -> content_id:content_id -> unit = ""
 
 	external receive_cancel : task:task -> sr:sr -> content_id:content_id -> unit = ""
+
+	external list : task:task -> sr:sr -> Mirror.status list = ""
+
 
 end

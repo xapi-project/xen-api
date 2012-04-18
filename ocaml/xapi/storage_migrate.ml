@@ -169,13 +169,13 @@ let start ~task ~sr ~vdi ~dp ~url ~dest =
 		debug "Similar VDIs to %s = [ %s ]" vdi (String.concat "; " (List.map (fun x -> Printf.sprintf "(vdi=%s,content_id=%s)" x.vdi x.content_id) vdis));
 		let result = 
 			match Remote.Mirror.receive_start ~task ~sr:dest ~vdi_info:local_vdi ~content_id:local_vdi.content_id ~similar:similars with
-				| Vhd_mirror x -> x 
+				| Mirror.Vhd_mirror x -> x 
 		in
 		
 		(* Enable mirroring on the local machine *)
-		let mirror_dp = result.mirror_datapath in
+		let mirror_dp = result.Mirror.mirror_datapath in
 
-		let uri = (Printf.sprintf "/services/SM/nbd/%s/%s/%s" dest result.mirror_vdi.vdi mirror_dp) in
+		let uri = (Printf.sprintf "/services/SM/nbd/%s/%s/%s" dest result.Mirror.mirror_vdi.vdi mirror_dp) in
 		let dest_url = Http.Url.set_uri remote_url uri in
 		let request = Http.Request.make ~query:(Http.Url.get_query_params dest_url) ~user_agent:"smapiv2" Http.Put uri in
 		let transport = Xmlrpc_client.transport_of_url dest_url in
@@ -206,10 +206,10 @@ let start ~task ~sr ~vdi ~dp ~url ~dest =
 		let snapshot = Local.VDI.snapshot ~task ~sr ~vdi:local_vdi.vdi ~vdi_info:local_vdi ~params:["mirror", "nbd:" ^ dp] in
 		on_fail := (fun () -> Local.VDI.destroy ~task ~sr ~vdi:snapshot.vdi) :: !on_fail;
 		(* Copy the snapshot to the remote *)
-		let new_parent = copy' ~task ~sr ~vdi:snapshot.vdi ~url ~dest ~dest_vdi:result.copy_diffs_to in
-		Remote.VDI.compose ~task ~sr:dest ~vdi1:result.copy_diffs_to ~vdi2:result.mirror_vdi.vdi;
+		let new_parent = copy' ~task ~sr ~vdi:snapshot.vdi ~url ~dest ~dest_vdi:result.Mirror.copy_diffs_to in
+		Remote.VDI.compose ~task ~sr:dest ~vdi1:result.Mirror.copy_diffs_to ~vdi2:result.Mirror.mirror_vdi.vdi;
 		debug "Local VDI %s == remote VDI %s" snapshot.vdi new_parent.vdi;
-		result.mirror_vdi
+		result.Mirror.mirror_vdi
 	with e ->
 		error "Caught %s: performing cleanup actions" (Printexc.to_string e);
 		perform_cleanup_actions !on_fail;
@@ -256,7 +256,7 @@ type receive_record = {
 
 let active_receive_mirrors : (string, receive_record) Hashtbl.t = Hashtbl.create 10
 
-let active ~task ~sr =
+let list ~task ~sr =
 	[]
 
 let receive_start ~task ~sr ~vdi_info ~content_id ~similar =
@@ -310,8 +310,8 @@ let receive_start ~task ~sr ~vdi_info ~content_id ~similar =
 		
 		let nearest_content_id = Opt.map (fun x -> x.content_id) nearest in
 
-		Vhd_mirror {
-			mirror_vdi = leaf;
+		Mirror.Vhd_mirror {
+			Mirror.mirror_vdi = leaf;
 			mirror_datapath = leaf_dp;
 			copy_diffs_from = nearest_content_id;
 			copy_diffs_to = parent.vdi; }
