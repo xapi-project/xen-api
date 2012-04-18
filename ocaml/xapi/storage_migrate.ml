@@ -20,9 +20,66 @@ open Fun
 open Stringext
 open Pervasiveext
 open Xmlrpc_client
+open Threadext
 
 let local_url = Http.Url.(File { path = "/var/xapi/storage" }, { uri = "/"; query_params = [] })
 open Storage_interface
+
+module State = struct
+
+	module Receive_state = struct
+		type t = {
+			dummy_vdi : vdi;
+			leaf_dp : dp;
+			parent_vdi : vdi;
+		} with rpc
+	end
+
+	module Send_state = struct
+		type t = {
+			url : string;
+			vdi : string;
+			remote_dp : string;
+		} with rpc
+	end
+
+	type mirror = 
+		| Send of Send_state.t		
+		| Receive of Receive_state.t with rpc
+
+	type t = (string, mirror) Hashtbl.t with rpc
+
+	let active : t = Hashtbl.create 10
+	let loaded = ref false
+	let mutex = Mutex.create () 
+
+	let path = "/var/run/nonpersistent/storage_mirrors.json"
+
+	let to_string r = rpc_of_t r |> Jsonrpc.to_string
+	let of_string s = Jsonrpc.of_string s |> t_of_rpc
+			
+	let load () = try Unixext.string_of_file path |> of_string |> Hashtbl.iter (Hashtbl.replace active) with _ -> ()
+	let save () = to_string active |> Unixext.write_string_to_file path
+	let op s f = Mutex.execute mutex (fun () -> if not !loaded then load (); let r = f active in if s then save (); r)
+			 	
+	let add vdi s =	op true (fun a -> Hashtbl.replace a vdi s)
+	let find vdi = op false (fun a -> try Some (Hashtbl.find a vdi) with _ -> None)
+	let remove vdi = op true (fun a ->	Hashtbl.remove a vdi)
+
+	let add_to_active_local_mirrors vdi url vdi remote_dp =
+		let open Send_state in add vdi $ Send {url; vdi; remote_dp}
+			
+	let add_to_active_receive_mirrors vdi dummy_vdi leaf_dp parent_vdi =
+		let open Receive_state in add vdi $ Receive {dummy_vdi; leaf_dp; parent_vdi}
+
+	let find_active_local_mirror vdi =
+		Opt.Monad.bind (find vdi) (function | Send s -> Some s | _ -> None)
+
+	let find_active_receive_mirror vdi =
+		Opt.Monad.bind (find vdi) (function | Receive r -> Some r | _ -> None)
+
+end
+
 
 let rpc ~srcstr ~dststr url call =
 	XMLRPC_protocol.rpc ~transport:(transport_of_url url)
@@ -127,26 +184,6 @@ let copy' ~task ~sr ~vdi ~url ~dest ~dest_vdi =
 		perform_cleanup_actions !on_fail;
 		raise e
 
-type active_local_mirrors_t = {
-	alm_url : string;
-	alm_content_id : string;
-	alm_remote_dp : string;
-}
-
-let active_local_mirrors : (string, active_local_mirrors_t) Hashtbl.t = Hashtbl.create 10
-
-let add_to_active_local_mirrors vdi url content_id remote_dp =
-	Hashtbl.add active_local_mirrors vdi {alm_url=url; alm_content_id=content_id; alm_remote_dp=remote_dp;}
-
-let remove_from_active_local_mirrors vdi =
-	Hashtbl.remove active_local_mirrors vdi
-
-let find_active_local_mirror vdi =
-	try
-		Some (Hashtbl.find active_local_mirrors vdi)
-	with _ -> 
-		None
-
 
 let copy ~task ~sr ~vdi ~url ~dest ~dest_vdi = copy' ~task ~sr ~vdi ~url ~dest ~dest_vdi
 
@@ -202,7 +239,7 @@ let start ~task ~sr ~vdi ~dp ~url ~dest =
 							Unix.close control_fd)));
 			| None ->
 				failwith "Not attached");
-		add_to_active_local_mirrors local_vdi.vdi url local_vdi.content_id mirror_dp;
+		State.add_to_active_local_mirrors local_vdi.vdi url local_vdi.content_id mirror_dp;
 		let snapshot = Local.VDI.snapshot ~task ~sr ~vdi:local_vdi.vdi ~vdi_info:local_vdi ~params:["mirror", "nbd:" ^ dp] in
 		on_fail := (fun () -> Local.VDI.destroy ~task ~sr ~vdi:snapshot.vdi) :: !on_fail;
 		(* Copy the snapshot to the remote *)
@@ -246,16 +283,6 @@ let stop ~task ~sr ~vdi =
 			raise (Internal_error(Printexc.to_string e))
 
 
-type receive_record = {
-	leaf_vdi : vdi;
-	dummy_vdi : vdi;
-	leaf_dp : dp;
-
-	parent_vdi : vdi;
-}
-
-let active_receive_mirrors : (string, receive_record) Hashtbl.t = Hashtbl.create 10
-
 let list ~task ~sr =
 	[]
 
@@ -298,15 +325,7 @@ let receive_start ~task ~sr ~vdi_info ~similar =
 
 		debug "Parent disk content_id=%s" parent.content_id;
 		
-		let record = {
-			leaf_vdi = leaf.vdi;
-			dummy_vdi = dummy.vdi;
-			leaf_dp = leaf_dp;
-
-			parent_vdi = parent.vdi;
-		} in
-
-		Hashtbl.replace active_receive_mirrors leaf.vdi record;
+		State.add_to_active_receive_mirrors leaf.vdi dummy.vdi leaf_dp parent.vdi;
 		
 		let nearest_content_id = Opt.map (fun x -> x.content_id) nearest in
 
@@ -320,20 +339,19 @@ let receive_start ~task ~sr ~vdi_info ~similar =
 		raise e
 
 let receive_finalize ~task ~sr ~vdi =
-	let record = Hashtbl.find active_receive_mirrors vdi in
-	Local.DP.destroy ~task ~dp:record.leaf_dp ~allow_leak:true
+	let record = State.find_active_receive_mirror vdi in
+	let open State.Receive_state in Opt.iter (fun r -> Local.DP.destroy ~task ~dp:r.leaf_dp ~allow_leak:true) record
 
 let receive_cancel ~task ~sr ~vdi = ()
 
 
 let detach_hook ~sr ~vdi ~dp = 
-	match find_active_local_mirror vdi with
-		| Some alm ->
-			let remote_url = Http.Url.of_string alm.alm_url in
-			let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
-			ignore(Remote.DP.destroy ~task:"Mirror-cleanup" ~dp:alm.alm_remote_dp ~allow_leak:false)
-		| None ->
-			()
+	let open State.Send_state in
+	State.find_active_local_mirror vdi |> 
+			Opt.iter (fun r -> 
+				let remote_url = Http.Url.of_string r.url in
+				let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
+				ignore(Remote.DP.destroy ~task:"Mirror-cleanup" ~dp:r.remote_dp ~allow_leak:false))
 	
 
 
