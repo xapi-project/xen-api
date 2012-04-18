@@ -158,8 +158,8 @@ module Debug_print_impl = struct
 		let stop context ~task ~sr ~vdi = assert false
 		let list context ~task ~sr = assert false
 		let receive_start context ~task ~sr ~vdi_info ~similar = assert false
-		let receive_finalize context ~task ~sr ~content_id = assert false
-		let receive_cancel context ~task ~sr ~content_id = assert false
+		let receive_finalize context ~task ~sr ~vdi = assert false
+		let receive_cancel context ~task ~sr ~vdi = assert false
 	end
 		
 	module SR = struct
