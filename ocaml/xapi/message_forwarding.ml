@@ -2432,9 +2432,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			info "Host.sync_pif_currently_attached: host = '%s'" (host_uuid ~__context host);
 			Local.Host.sync_pif_currently_attached ~__context ~host ~bridges
 
-		let migrate_receive ~__context ~host ~options =
-			info "Host.migrate_receive: host = '%s'" (host_uuid ~__context host);
-			Local.Host.migrate_receive ~__context ~host ~options
+		let migrate_receive ~__context ~host ~network ~options =
+			info "Host.migrate_receive: host = '%s'; network = '%s'" (host_uuid ~__context host) (network_uuid ~__context network);
+			Local.Host.migrate_receive ~__context ~host ~network ~options
 	end
 
 	module Host_crashdump = struct

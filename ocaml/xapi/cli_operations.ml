@@ -2483,11 +2483,32 @@ let vm_migrate printer rpc session_id params =
 							printer (Cli_printer.PMsg "No host specified; I will choose automatically");
 							List.hd all
 						end in
-					printer (Cli_printer.PMsg (Printf.sprintf "Will migrate to remote host: %s" host_record.API.host_name_label));
-					let token = Client.Host.migrate_receive remote_rpc remote_session host options in
+					let network, network_record =
+						let all = Client.Network.get_all_records remote_rpc remote_session in
+						if List.mem_assoc "remote-network" params then begin
+							let x = List.assoc "remote-network" params in
+							try
+								List.find (fun (_, net) -> net.API.network_bridge = x || net.API.network_name_label = x || net.API.network_uuid = x) all
+							with Not_found ->
+								failwith (Printf.sprintf "Failed to find network: %s" x)
+						end else begin
+							printer (Cli_printer.PMsg "No network specified; I will try to find the remote host internal management network");
+							let management_networks = List.filter
+								(fun (_, net_record) ->
+									let other_config = net_record.API.network_other_config in
+									(List.mem_assoc Xapi_globs.is_host_internal_management_network other_config)
+									&& (List.assoc Xapi_globs.is_host_internal_management_network other_config = "true"))
+								all
+							in
+							match management_networks with
+							| net::_ -> net
+							| [] -> failwith (Printf.sprintf "No remote network specified, and no remote management network found")
+						end in
+					printer (Cli_printer.PMsg (Printf.sprintf "Will migrate to remote host: %s, using remote network: %s" host_record.API.host_name_label network_record.API.network_name_label));
+					let token = Client.Host.migrate_receive remote_rpc remote_session host network options in
 					printer (Cli_printer.PMsg (Printf.sprintf "Received token: [ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ ":" ^ v) token))));
 					ignore(do_vm_op ~include_control_vms:true printer rpc session_id (fun vm -> Client.VM.migrate_send rpc session_id (vm.getref ()) token true [] [] options)
-						params ["host"; "host-uuid"; "host-name"; "live"; "encrypt"; "remote-address"; "remote-username"; "remote-password" ])
+						params ["host"; "host-uuid"; "host-name"; "live"; "encrypt"; "remote-address"; "remote-username"; "remote-password"; "remote-network" ])
 				)
 				(fun () -> Client.Session.logout remote_rpc remote_session)
 		end else begin

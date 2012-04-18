@@ -1907,7 +1907,8 @@ let host_migrate_receive = call
   ~name:"migrate_receive"
   ~doc:"Prepare to receive a VM, returning a token which can be passed to VM.migrate."
   ~params:[Ref _host, "host", "The target host";
-		   Map(String, String), "options", "Extra configuration operations" ]
+    Ref _network, "network", "The network through which migration traffic should be received.";
+    Map(String, String), "options", "Extra configuration operations" ]
   ~result:(Map(String,String), "A value which should be passed to VM.migrate")
   ~allowed_roles:_R_VM_POWER_ADMIN
   ()
