@@ -453,7 +453,7 @@ let clone ~__context ~vdi ~driver_params =
 	try
 		let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
 		snapshot_and_clone C.VDI.clone ~__context ~vdi ~driver_params
-	with Smint.Not_implemented_in_backend ->
+	with Storage_interface.Unimplemented ->
     debug "Backend does not implement VDI clone: doing it ourselves";
 	let a = Db.VDI.get_record_internal ~__context ~self:vdi in
     let newvdi = create ~__context 

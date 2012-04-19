@@ -336,8 +336,11 @@ module Builtin_impl = struct
 							);
 						vdi_info_from_db ~__context self
 					)
-            with Api_errors.Server_error(code, params) ->
-                raise (Backend_error(code, params))
+            with 
+				| Api_errors.Server_error(code, params) ->
+					raise (Backend_error(code, params))
+				| Smint.Not_implemented_in_backend ->
+					raise Unimplemented
 
 		let snapshot = snapshot_and_clone "VDI.snapshot" Sm.vdi_snapshot
 		let clone = snapshot_and_clone "VDI.clone" Sm.vdi_clone
