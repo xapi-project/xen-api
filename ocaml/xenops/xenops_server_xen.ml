@@ -1840,7 +1840,7 @@ let watch_xenstore () =
 						(* The uuid is either in the new domains map or the old map. *)
 						let di = IntMap.find domid (if IntMap.mem domid domains' then domains' else !domains) in
 						let id = Uuid.uuid_of_int_array di.Xenctrl.handle |> Uuid.string_of_uuid in
-						if not (DB.exists id)
+						if domid > 0 && not (DB.exists id)
 						then debug "However domain %d is not managed by us: ignoring" domid
 						else begin
 							Updates.add (Dynamic.Vm id) updates;
