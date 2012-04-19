@@ -562,7 +562,7 @@ let record_boot_time_host_free_memory () =
 	if not (Unixext.file_exists Xapi_globs.initial_host_free_memory_file) then begin
 		try
 			let free_memory = calculate_boot_time_host_free_memory () in
-                        Unixext.mkdir_safe (Filename.dirname Xapi_globs.initial_host_free_memory_file) 0o700;
+                        Unixext.mkdir_rec (Filename.dirname Xapi_globs.initial_host_free_memory_file) 0o700;
 			Unixext.write_string_to_file
 				Xapi_globs.initial_host_free_memory_file
 				(Int64.to_string free_memory)
