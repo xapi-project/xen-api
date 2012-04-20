@@ -442,6 +442,10 @@ let _ =
     ~doc:"The operation you requested cannot be performed because the specified PIF does not allow unplug." ();
   error Api_errors.pif_has_no_network_configuration [ ]
     ~doc:"PIF has no IP configuration (mode curently set to 'none')" ();
+  error Api_errors.pif_has_no_v6_network_configuration [ ]
+    ~doc:"PIF has no IPv6 configuration (mode curently set to 'none')" ();
+  error Api_errors.pif_incompatible_primary_address_type [ ]
+    ~doc:"The primary address types are not compatible" ();
   error Api_errors.cannot_plug_bond_slave ["PIF"]
     ~doc:"This PIF is a bond slave and cannot be plugged." ();
   error Api_errors.cannot_add_vlan_to_bond_slave ["PIF"]
@@ -2398,6 +2402,15 @@ let host_management_disable = call ~flags:[`Session]
   ~allowed_roles:_R_POOL_OP
   ()
 
+let host_get_management_interface = call
+  ~lifecycle:[]
+  ~name:"get_management_interface"
+  ~doc:"Returns the management interface for the specified host"
+  ~params:[Ref _host, "host", "Which host's management interface is required"]
+  ~result:(Ref _pif, "The managment interface for the host")
+  ~allowed_roles:_R_POOL_OP
+  ()
+
 (* Simple host evacuate message for Miami.
    Not intended for HA *)
 
@@ -4037,6 +4050,7 @@ let host =
 		 host_management_reconfigure;
 		 host_local_management_reconfigure;
 		 host_management_disable;
+		 host_get_management_interface;
 		 host_get_system_status_capabilities;
 		 host_get_diagnostic_timing_stats;
 		 host_restart_agent;
@@ -4337,6 +4351,39 @@ let pif_reconfigure_ip = call
   ~allowed_roles:_R_POOL_OP
   ()
 
+let pif_ipv6_configuration_mode = Enum ("ipv6_configuration_mode",
+				      [ "None", "Do not acquire an IPv6 address";
+					"DHCP", "Acquire an IPv6 address by DHCP";
+					"Static", "Static IPv6 address configuration";
+				        "Autoconf", "Router assigned prefix delegation IPv6 allocation" ])
+
+let pif_reconfigure_ipv6 = call
+  ~name:"reconfigure_ipv6"
+  ~doc:"Reconfigure the IPv6 address settings for this interface"
+  ~params:[Ref _pif, "self", "the PIF object to reconfigure";
+	   pif_ipv6_configuration_mode, "mode", "whether to use dynamic/static/no-assignment";
+	   String, "IPv6", "the new IPv6 address (in <addr>/<prefix length> format)";
+	   String, "gateway", "the new gateway";
+	   String, "DNS", "the new DNS settings";
+	  ]
+  ~lifecycle:[]
+  ~allowed_roles:_R_POOL_OP
+  ()
+
+let pif_primary_address_type = Enum ("primary_address_type",
+				      [ "IPv4", "Primary address is the IPv4 address";
+					"IPv6", "Primary address is the IPv6 address" ])
+
+let pif_set_primary_address_type = call
+  ~name:"set_primary_address_type"
+  ~doc:"Change the primary address type used by this PIF"
+  ~params:[Ref _pif, "self", "the PIF object to reconfigure";
+	   pif_primary_address_type, "primary_address_type", "Whether to prefer IPv4 or IPv6 connections";
+	  ]
+  ~lifecycle:[]
+  ~allowed_roles:_R_POOL_OP
+  ()
+
 let pif_scan = call
   ~name:"scan"
   ~doc:"Scan for physical interfaces on a host and create PIF objects to represent them"
@@ -4384,7 +4431,11 @@ let pif_introduce_params first_rel =
     {param_type=Ref _vlan; param_name="VLAN_master_of"; param_doc=""; param_release=first_rel; param_default=None};
     {param_type=Bool; param_name="management"; param_doc=""; param_release=first_rel; param_default=None};
     {param_type=Map(String, String); param_name="other_config"; param_doc=""; param_release=first_rel; param_default=None};
-    {param_type=Bool; param_name="disallow_unplug"; param_doc=""; param_release=orlando_release; param_default=Some (VBool false)}
+    {param_type=Bool; param_name="disallow_unplug"; param_doc=""; param_release=orlando_release; param_default=Some (VBool false)};
+    {param_type=pif_ipv6_configuration_mode; param_name="ipv6_configuration_mode"; param_doc=""; param_release=boston_release; param_default=Some (VEnum "None")};
+    {param_type=(Set(String)); param_name="IPv6"; param_doc=""; param_release=boston_release; param_default=Some (VSet [])};
+    {param_type=String; param_name="ipv6_gateway"; param_doc=""; param_release=boston_release; param_default=Some (VString "")};
+    {param_type=pif_primary_address_type; param_name="primary_address_type"; param_doc=""; param_release=boston_release; param_default=Some (VEnum "IPv4")}
   ]
 
 (* PIF pool introduce is used to copy PIF records on pool join -- it's the PIF analogue of VDI.pool_introduce *)
@@ -4425,7 +4476,7 @@ let pif =
       ~gen_events:true
       ~doccomments:[] 
       ~messages_default_allowed_roles:_R_POOL_OP
-      ~messages:[pif_create_VLAN; pif_destroy; pif_reconfigure_ip; pif_scan; pif_introduce; pif_forget;
+      ~messages:[pif_create_VLAN; pif_destroy; pif_reconfigure_ip; pif_reconfigure_ipv6; pif_set_primary_address_type; pif_scan; pif_introduce; pif_forget;
 		pif_unplug; pif_plug; pif_pool_introduce;
 		pif_db_introduce; pif_db_forget
 		] ~contents:
@@ -4458,6 +4509,10 @@ let pif =
 	field ~in_product_since:rel_orlando ~default_value:(Some (VBool false)) ~ty:Bool "disallow_unplug" "Prevent this PIF from being unplugged; set this to notify the management tool-stack that the PIF has a special use and should not be unplugged under any circumstances (e.g. because you're running storage traffic over it)";
 	field ~in_oss_since:None ~ty:(Set(Ref _tunnel)) ~lifecycle:[Published, rel_cowley, "Indicates to which tunnel this PIF gives access"] ~qualifier:DynamicRO "tunnel_access_PIF_of" "Indicates to which tunnel this PIF gives access";
 	field ~in_oss_since:None ~ty:(Set(Ref _tunnel)) ~lifecycle:[Published, rel_cowley, "Indicates to which tunnel this PIF provides transport"] ~qualifier:DynamicRO "tunnel_transport_PIF_of" "Indicates to which tunnel this PIF provides transport";
+	field ~in_oss_since:None ~ty:pif_ipv6_configuration_mode ~lifecycle:[] ~qualifier:DynamicRO "ipv6_configuration_mode" "Sets if and how this interface gets an IPv6 address" ~default_value:(Some (VEnum "None"));
+	field ~in_oss_since:None ~ty:(Set(String)) ~lifecycle:[] ~qualifier:DynamicRO "IPv6" "IPv6 address" ~default_value:(Some (VSet []));
+	field ~in_oss_since:None ~ty:String ~lifecycle:[] ~qualifier:DynamicRO "ipv6_gateway" "IPv6 gateway" ~default_value:(Some (VString ""));
+	field ~in_oss_since:None ~ty:pif_primary_address_type ~lifecycle:[] ~qualifier:DynamicRO "primary_address_type" "Which protocol should define the primary address of this interface" ~default_value:(Some (VEnum "IPv4"));
       ]
 	()
 
