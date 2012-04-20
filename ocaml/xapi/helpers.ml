@@ -28,6 +28,8 @@ open Api_errors
 include Helper_hostname
 include Helper_process
 
+module Net = (val (Network.get_client ()) : Network.CLIENT)
+
 module D=Debug.Debugger(struct let name="helpers" end)
 open D
 
@@ -53,12 +55,25 @@ let checknull f =
   try f() with
       _ -> "<not in database>"
 
+let get_primary_ip_addr iface primary_address_type =
+	if iface = "" then
+		None
+	else
+		try
+			let addrs = match primary_address_type with
+				| `IPv4 -> Net.Interface.get_ipv4_addr ~name:iface
+				| `IPv6 -> Net.Interface.get_ipv6_addr ~name:iface
+			in
+			let addrs = List.map (fun (addr, _) -> Unix.string_of_inet_addr addr) addrs in
+			(* Filter out link-local addresses *)
+			let addrs = List.filter (fun addr -> String.sub addr 0 4 <> "fe80") addrs in
+			Some (List.hd addrs)
+		with _ -> None
+
 let get_management_ip_addr () =
-  try
-    let addrs = Netdev.Addr.get (Xapi_inventory.lookup Xapi_inventory._management_interface) in
-    let (addr,netmask) = List.hd addrs in
-      Some (Unix.string_of_inet_addr addr)
-  with e -> None
+	get_primary_ip_addr
+		(Xapi_inventory.lookup Xapi_inventory._management_interface)
+		(Record_util.primary_address_type_of_string (Xapi_inventory.lookup Xapi_inventory._management_address_type ~default:"ipv4"))
 
 let get_localhost_uuid () =
   Xapi_inventory.lookup Xapi_inventory._installation_uuid
@@ -619,7 +634,7 @@ let validate_ip_address str =
 
 (** Returns true if the supplied IP address looks like one of mine *)
 let this_is_my_address address =
-  let inet_addrs = Netdev.Addr.get (Xapi_inventory.lookup Xapi_inventory._management_interface) in
+  let inet_addrs = Net.Interface.get_ipv4_addr ~name:(Xapi_inventory.lookup Xapi_inventory._management_interface) in
   let addresses = List.map Unix.string_of_inet_addr (List.map fst inet_addrs) in
   List.mem address addresses
 
@@ -630,13 +645,25 @@ let get_live_hosts ~__context =
          let metrics = Db.Host.get_metrics ~__context ~self in
          try Db.Host_metrics.get_live ~__context ~self:metrics with _ -> false) hosts
 
-(** Return the first IPv4 address we find for a hostname *)
+let gethostbyname_family host family =
+  let throw_resolve_error() = failwith (Printf.sprintf "Couldn't resolve hostname: %s" host) in
+  let getaddr x = match x with Unix.ADDR_INET (addr, port) -> addr | _ -> failwith "Expected ADDR_INET" in
+  let he = Unix.getaddrinfo host "" [ Unix.AI_SOCKTYPE(Unix.SOCK_STREAM); Unix.AI_FAMILY(family) ] in
+  if List.length he = 0
+  then throw_resolve_error();
+  Unix.string_of_inet_addr (getaddr (List.hd he).Unix.ai_addr)
+
+(** Return the first address we find for a hostname *)
 let gethostbyname host =
   let throw_resolve_error() = failwith (Printf.sprintf "Couldn't resolve hostname: %s" host) in
-  let he = try Unix.gethostbyname host with _ -> throw_resolve_error() in
-  if Array.length he.Unix.h_addr_list = 0
-  then throw_resolve_error();
-  Unix.string_of_inet_addr he.Unix.h_addr_list.(0)
+  let pref = Record_util.primary_address_type_of_string
+      (Xapi_inventory.lookup Xapi_inventory._management_address_type) in 
+  try
+    gethostbyname_family host (if (pref == `IPv4) then Unix.PF_INET else Unix.PF_INET6)
+  with _ ->
+    (try
+      gethostbyname_family host (if (pref = `IPv4) then Unix.PF_INET6 else Unix.PF_INET)
+     with _ -> throw_resolve_error())
 
 (** Indicate whether VM.clone should be allowed on suspended VMs *)
 let clone_suspended_vm_enabled ~__context =

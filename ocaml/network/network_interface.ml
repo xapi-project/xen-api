@@ -12,6 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open Listext
+open Fun
 
 (** {2 Helper functions} *)
 
@@ -20,6 +21,31 @@ module Unix = struct
 	let inet_addr_of_rpc rpc = Unix.inet_addr_of_string (Rpc.string_of_rpc rpc)
 	let rpc_of_inet_addr inet = Rpc.rpc_of_string (Unix.string_of_inet_addr inet)
 end
+
+let netmask_to_prefixlen netmask =
+	Scanf.sscanf netmask "%d.%d.%d.%d" (fun a b c d ->
+		let rec length l x =
+			if x > 0 then
+				length (succ l) (x lsr 1)
+			else
+				l
+		in
+		let masks = List.map ((-) 255) [a; b; c; d] in
+		32 - (List.fold_left length 0 masks)
+	)
+
+let prefixlen_to_netmask len =
+	let mask l =
+		if l <= 0 then
+			0
+		else if l > 8 then
+			255
+		else
+			256 - (1 lsl (8 - l))
+	in
+	let lens = [len; len - 8; len - 16; len - 24] in
+	let masks = List.map (string_of_int ++ mask) lens in
+	String.concat "." masks
 
 (** {2 Types} *)
 

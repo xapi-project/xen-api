@@ -56,18 +56,6 @@ let reconfigure_pif ~__context (pif: API.ref_PIF) args =
 	| Forkhelpers.Spawn_internal_error(stderr, stdout, Unix.WEXITED n) ->
 		raise (Api_errors.Server_error(Api_errors.pif_configuration_error, [ Ref.string_of pif; stderr ]))
 
-let netmask_to_prefixlen netmask =
-	Scanf.sscanf netmask "%d.%d.%d.%d" (fun a b c d ->
-		let rec length l x =
-			if x > 0 then
-				length (succ l) (x lsr 1)
-			else
-				l
-		in
-		let masks = List.map ((-) 255) [a; b; c; d] in
-		32 - (List.fold_left length 0 masks)
-	)
-
 let determine_mtu pif_rc net_rc =
 	let mtu = Int64.to_int net_rc.API.network_MTU in
 	if List.mem_assoc "mtu" pif_rc.API.pIF_other_config then
