@@ -1452,6 +1452,24 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
       flags=[];
     };
 
+   "pif-reconfigure-ipv6",
+    {
+      reqd=["uuid"; "mode"];
+      optn=["IPv6"; "gateway"; "DNS"];
+      help="Reconfigure the IPv6 address settings on a PIF.";
+      implementation=No_fd Cli_operations.pif_reconfigure_ipv6;
+      flags=[];
+    };
+
+   "pif-set-primary-address-type",
+    {
+      reqd=["uuid"; "primary_address_type"];
+      optn=[];
+      help="Change the primary address type used by this PIF.";
+      implementation=No_fd Cli_operations.pif_set_primary_address_type;
+      flags=[];
+    };
+
    "pif-scan",
     { 
       reqd=["host-uuid"];
