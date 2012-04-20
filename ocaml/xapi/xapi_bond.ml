@@ -165,7 +165,8 @@ let move_management ~__context from_pif to_pif =
 	Nm.bring_pif_up ~__context ~management_interface:true to_pif;
 	let network = Db.PIF.get_network ~__context ~self:to_pif in
 	let bridge = Db.Network.get_bridge ~__context ~self:network in
-	Xapi_host.change_management_interface ~__context bridge;
+	let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self:to_pif in
+	Xapi_host.change_management_interface ~__context bridge primary_address_type;
 	Xapi_pif.update_management_flags ~__context ~host:(Helpers.get_localhost ~__context)
 
 let fix_bond ~__context ~bond =

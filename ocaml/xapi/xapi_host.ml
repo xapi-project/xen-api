@@ -22,6 +22,8 @@ open Db_filter_types
 open Create_misc
 open Workload_balancing
 
+module Net = (val (Network.get_client ()) : Network.CLIENT)
+
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
@@ -123,27 +125,45 @@ let assert_bacon_mode ~__context ~host =
 		raise (Api_errors.Server_error (Api_errors.host_in_use, [ selfref; "vbd"; List.hd (List.map Ref.string_of vbds) ]));
 	debug "Bacon test: VBDs OK"
 
-let pif_update_dhcp_address ~__context ~self =
-  let network = Db.PIF.get_network ~__context ~self in
-  let bridge = Db.Network.get_bridge ~__context ~self:network in
-  match Netdev.Addr.get bridge with
-   | (_addr,_netmask)::_ ->
-	   let addr = (Unix.string_of_inet_addr _addr) in
-	   let netmask = (Unix.string_of_inet_addr _netmask) in
-	   if addr <> Db.PIF.get_IP ~__context ~self || netmask <> Db.PIF.get_netmask ~__context ~self then begin
-	 debug "PIF %s bridge %s IP address changed: %s/%s" (Db.PIF.get_uuid ~__context ~self) bridge addr netmask;
-	 Db.PIF.set_IP ~__context ~self ~value:addr;
-	 Db.PIF.set_netmask ~__context ~self ~value:netmask
-	   end
-   | _ -> ()
+let pif_update_address ~__context ~self =
+	let network = Db.PIF.get_network ~__context ~self in
+	let bridge = Db.Network.get_bridge ~__context ~self:network in
+	begin
+		match Net.Interface.get_ipv4_addr bridge with
+		| (addr, plen) :: _ ->
+			let ip = Unix.string_of_inet_addr addr in
+			let netmask = Network_interface.prefixlen_to_netmask plen in
+			if ip <> Db.PIF.get_IP ~__context ~self || netmask <> Db.PIF.get_netmask ~__context ~self then begin
+				debug "PIF %s bridge %s IP address changed: %s/%s" (Db.PIF.get_uuid ~__context ~self) bridge ip netmask;
+				Db.PIF.set_IP ~__context ~self ~value:ip;
+				Db.PIF.set_netmask ~__context ~self ~value:netmask
+			end
+		| _ -> ()
+	end;
+	let ipv6_addr = Net.Interface.get_ipv6_addr ~name:bridge in
+	let ipv6_addr' = List.map (fun (addr, plen) -> Printf.sprintf "%s/%d" (Unix.string_of_inet_addr addr) plen) ipv6_addr in
+	if ipv6_addr' <> Db.PIF.get_IPv6 ~__context ~self then begin
+		debug "PIF %s bridge %s IPv6 address changed: %s" (Db.PIF.get_uuid ~__context ~self)
+			bridge (String.concat "; " ipv6_addr');
+		Db.PIF.set_IPv6 ~__context ~self ~value:ipv6_addr'
+	end
 
 let signal_networking_change ~__context =
 	let host = Helpers.get_localhost ~__context in
-	let pifs = Db.PIF.get_refs_where ~__context ~expr:(And (Eq (Field "host", Literal (Ref.string_of host)),
-		(Eq (Field "ip_configuration_mode", Literal "DHCP")))) in
-	List.iter (fun self -> pif_update_dhcp_address ~__context ~self) pifs;
+	let pifs = Db.PIF.get_refs_where ~__context ~expr:(
+		And (
+			Eq (Field "host", Literal (Ref.string_of host)),
+			Or (
+				Or (
+					(Eq (Field "ip_configuration_mode", Literal "DHCP")),
+					(Eq (Field "ipv6_configuration_mode", Literal "DHCP"))
+				),
+				(Eq (Field "ipv6_configuration_mode", Literal "Autoconf"))
+			)
+		)
+	) in
+	List.iter (fun self -> pif_update_address ~__context ~self) pifs;
 	Xapi_mgmt_iface.on_dom0_networking_change ~__context
-
 
 let signal_cdrom_event ~__context params =
   let find_vdi_name sr name =
@@ -749,12 +769,12 @@ let get_management_interface ~__context ~host =
 	| pif :: _ ->
 		pif
 
-let change_management_interface ~__context interface =
+let change_management_interface ~__context interface primary_address_type =
 	debug "Changing management interface";
-	let addrs = Netdev.Addr.get interface in
-	if addrs = []
-	then raise (Api_errors.Server_error(Api_errors.interface_has_no_ip, [ interface ]));
-	Xapi_mgmt_iface.run interface;
+	let addr = Helpers.get_primary_ip_addr interface primary_address_type in
+	if addr = None then
+		raise (Api_errors.Server_error(Api_errors.interface_has_no_ip, [ interface ]));
+	Xapi_mgmt_iface.run interface primary_address_type;
 	(* once the inventory file has been rewritten to specify new interface, sync up db with
 	   state of world.. *)
 	Xapi_mgmt_iface.on_dom0_networking_change ~__context
@@ -765,6 +785,7 @@ let local_management_reconfigure ~__context ~interface =
   if not !Xapi_globs.slave_emergency_mode
   then raise (Api_errors.Server_error (Api_errors.pool_not_in_emergency_mode, []));
   change_management_interface ~__context interface
+    (Record_util.primary_address_type_of_string (Xapi_inventory.lookup Xapi_inventory._management_address_type ~default:"ipv4"))
 
 let management_reconfigure ~__context ~pif =
   (* Disallow if HA is enabled *)
@@ -778,15 +799,26 @@ let management_reconfigure ~__context ~pif =
 
   let net = Db.PIF.get_network ~__context ~self:pif in
   let bridge = Db.Network.get_bridge ~__context ~self:net in
-
-  if Db.PIF.get_ip_configuration_mode ~__context ~self:pif = `None then
-	raise (Api_errors.Server_error(Api_errors.pif_has_no_network_configuration, []));
+  let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self:pif in
+  let mgmt_pif_option = try Some (get_management_interface ~__context ~host:(Helpers.get_localhost ~__context)) with _ -> None in
+  (match mgmt_pif_option with
+  | Some mgmt_pif -> (
+      let mgmt_address_type = Db.PIF.get_primary_address_type ~__context ~self:mgmt_pif in
+      if (primary_address_type <> mgmt_address_type) then
+	raise (Api_errors.Server_error(Api_errors.pif_incompatible_primary_address_type, [ ]));
+  
+      if primary_address_type==`IPv4 && Db.PIF.get_ip_configuration_mode ~__context ~self:pif = `None then
+	raise (Api_errors.Server_error(Api_errors.pif_has_no_network_configuration, []))
+      else if primary_address_type==`IPv6 && Db.PIF.get_ipv6_configuration_mode ~__context ~self:pif = `None then
+	raise (Api_errors.Server_error(Api_errors.pif_has_no_v6_network_configuration, []))
+     )
+  | None -> ());
 
   if Db.PIF.get_management ~__context ~self:pif
   then debug "PIF %s is already marked as a management PIF; taking no action" (Ref.string_of pif)
   else begin
 	Xapi_network.attach_internal ~management_interface:true ~__context ~self:net ();
-	change_management_interface ~__context bridge;
+	change_management_interface ~__context bridge primary_address_type;
 
 	Xapi_pif.update_management_flags ~__context ~host:(Helpers.get_localhost ~__context)
   end
