@@ -2081,6 +2081,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			info "Host.management_disable";
 			Local.Host.management_disable ~__context
 
+		let get_management_interface ~__context ~host = 
+			info "Host.get_management_interface: host = '%s'" (host_uuid ~__context host);
+			Local.Host.get_management_interface ~__context ~host
+
 		let disable ~__context ~host =
 			info "Host.disable: host = '%s'" (host_uuid ~__context host);
 			(* Block call if this would break our VM restart plan *)
@@ -2771,7 +2775,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
 			info "PIF.reconfigure_ip: PIF = '%s'; mode = '%s'; IP = '%s'; netmask = '%s'; gateway = '%s'; DNS = %s"
 				(pif_uuid ~__context self)
-				(match mode with `DHCP -> "DHCP" | `None -> "None" | `Static -> "Static") iP netmask gateway dNS;
+				(Record_util.ip_configuration_mode_to_string mode) iP netmask gateway dNS;
 
 			(*      let host = Db.PIF.get_host ~__context ~self in
 			        let pbds = Db.Host.get_PBDs ~__context ~self:host in
@@ -2804,6 +2808,42 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 						progress := Db.Task.get_progress ~__context ~self:task_id;
 						debug "Polling task %s progress" (Ref.string_of task_id)
 					done)
+
+    let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS = 
+      info "PIF.reconfigure_ipv6: PIF = '%s'; mode = '%s'; IPv6 = '%s'; gateway = '%s'; DNS = %s" 
+	(pif_uuid ~__context self)
+	(Record_util.ipv6_configuration_mode_to_string mode) iPv6 gateway dNS;
+
+      let local_fn = Local.PIF.reconfigure_ipv6 ~self ~mode ~iPv6 ~gateway ~dNS in
+      do_op_on ~local_fn ~__context ~host:(Db.PIF.get_host ~__context ~self) 
+	(fun session_id rpc -> 
+	  (* Reconfiguring the IPv6 will potentially kill the connection without causing
+	     this end to die quickly. To get around this, we spawn a new thread to do the
+	     work and monitor the status of the task, which will be completed on the slave.
+	     We ignore errors at the moment (only on slaves) *)
+	  let (_: Thread.t) = Thread.create (fun () -> 
+	    Client.PIF.reconfigure_ipv6 rpc session_id self mode iPv6 gateway dNS) () in
+	  let task_id = Context.get_task_id __context in
+	  let rec poll i =
+	    if i>300 then failwith "Failed to see host on network after timeout expired";
+	    Thread.delay 1.0;
+	    debug "Polling task %s progress" (Ref.string_of task_id);
+	    let progress = Db.Task.get_progress ~__context ~self:task_id in
+	    debug "progress=%f" progress;
+	    if progress=0.0 
+	    then poll (i+1) 
+	    else ()
+	  in
+	  poll 0)
+
+    let set_primary_address_type ~__context ~self ~primary_address_type = 
+      info "PIF.set_primary_address_type: PIF = '%s'; primary_address_type = '%s'"
+	(pif_uuid ~__context self)
+	(Record_util.primary_address_type_to_string primary_address_type);
+      let local_fn = Local.PIF.set_primary_address_type ~self ~primary_address_type in
+      do_op_on ~local_fn ~__context ~host:(Db.PIF.get_host ~__context ~self)
+	(fun session_id rpc -> Client.PIF.set_primary_address_type rpc session_id self primary_address_type)
+
 
 		let scan ~__context ~host =
 			info "PIF.scan: host = '%s'" (host_uuid ~__context host);

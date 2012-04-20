@@ -579,7 +579,11 @@ let create_or_get_pif_on_master __context rpc session_id (pif_ref, pif) : API.re
 				~vLAN_master_of:pif.API.pIF_VLAN_master_of
 				~management:pif.API.pIF_management
 				~other_config:pif.API.pIF_other_config
-				~disallow_unplug:pif.API.pIF_disallow_unplug in
+				~disallow_unplug:pif.API.pIF_disallow_unplug
+				~ipv6_configuration_mode:pif.API.pIF_ipv6_configuration_mode
+				~iPv6:pif.API.pIF_IPv6
+				~ipv6_gateway:pif.API.pIF_ipv6_gateway
+				~primary_address_type:pif.API.pIF_primary_address_type in
 
 	new_pif_ref
 
