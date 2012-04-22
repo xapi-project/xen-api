@@ -46,6 +46,20 @@ let xenops_vdi_locator ~__context ~self =
 let disk_of_vdi ~__context ~self =
 	try Some (VDI (xenops_vdi_locator ~__context ~self)) with _ -> None
 
+let vdi_of_disk ~__context x = match String.split ~limit:2 '/' x with
+		| [ sr_uuid; location ] ->
+			let open Db_filter_types in
+			let sr = Db.SR.get_by_uuid ~__context ~uuid:sr_uuid in
+			begin match Db.VDI.get_records_where ~__context ~expr:(And((Eq (Field "location", Literal location)),Eq (Field "SR", Literal (Ref.string_of sr)))) with
+				| x :: _ -> Some x
+				| _ ->
+					error "Failed to find VDI: %s" x;
+					None
+			end
+		| _ ->
+			error "Failed to parse VDI name: %s" x;
+			None
+
 let backend_of_network net =
 	Network.Local net.API.network_bridge (* PR-1255 *)
 
@@ -893,12 +907,14 @@ let update_vbd ~__context (id: (string * string)) =
 							debug "state.media_present = %b" state.media_present;
 							if state.plugged then begin
 								if state.media_present then begin
-									(* XXX PR-1255: I need to know the actual SR and VDI in use, not the content requested *)
 									match x.backend with
 										| Some (VDI x) ->
-											let vdi, _ = Storage_access.find_content ~__context x in
-											Db.VBD.set_VDI ~__context ~self:vbd ~value:vdi;
-											Db.VBD.set_empty ~__context ~self:vbd ~value:false
+											Opt.iter
+												(fun (vdi, _) ->
+													Db.VBD.set_VDI ~__context ~self:vbd ~value:vdi;
+													Db.VBD.set_empty ~__context ~self:vbd ~value:false;
+													Xapi_vdi.update_allowed_operations ~__context ~self:vdi;
+												) (vdi_of_disk ~__context x)
 										| _ ->
 											error "I don't know what to do with this kind of VDI backend"
 								end else if vbd_r.API.vBD_type = `CD then begin
