@@ -233,15 +233,11 @@ let start ~task ~sr ~vdi ~dp ~url ~dest =
 		let new_parent = copy' ~task ~sr ~vdi:snapshot.vdi ~url ~dest ~dest_vdi:result.copy_diffs_to in
 		Remote.VDI.compose ~task ~sr:dest ~vdi1:result.copy_diffs_to ~vdi2:result.mirror_vdi.vdi |> success |> unit;
 		debug "Local VDI %s == remote VDI %s" snapshot.vdi new_parent.vdi;
-		debug "Updating remote content_id";
-		Remote.VDI.set_content_id ~task ~sr:dest ~vdi:result.mirror_vdi.vdi ~content_id:local_vdi.content_id |> success |> unit;
-		(* PR-1255: XXX: this is useful because we don't have content_ids by default *)
-		Local.VDI.set_content_id ~task ~sr ~vdi:local_vdi.vdi ~content_id:local_vdi.content_id |> success |> unit;
 		Success (Vdi result.mirror_vdi)
 	with e ->
 		error "Caught %s: performing cleanup actions" (Printexc.to_string e);
 		perform_cleanup_actions !on_fail;
-		Failure (Internal_error (Printexc.to_string e))
+		Failure (Internal_err (Printexc.to_string e))
 
 (* XXX: PR-1255: copy the xenopsd 'raise Exception' pattern *)
 let start ~task ~sr ~vdi ~dp ~url ~dest =
@@ -251,7 +247,7 @@ let start ~task ~sr ~vdi ~dp ~url ~dest =
 		| Api_errors.Server_error(code, params) ->
 			Failure(Backend_error(code, params))
 		| e ->
-			Failure(Internal_error(Printexc.to_string e))
+			Failure(Internal_err(Printexc.to_string e))
 
 let stop ~task ~sr ~vdi =
 	(* Find the local VDI *)
@@ -272,7 +268,7 @@ let stop ~task ~sr ~vdi =
 		| Api_errors.Server_error(code, params) ->
 			Failure(Backend_error(code, params))
 		| e ->
-			Failure(Internal_error(Printexc.to_string e))
+			Failure(Internal_err(Printexc.to_string e))
 
 
 type receive_record = {

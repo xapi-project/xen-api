@@ -34,8 +34,17 @@ let xenapi_of_xenops_power_state = function
 let filtered_platform_flags = ["acpi"; "apic"; "nx"; "pae"; "viridian";
                                "acpi_s3";"acpi_s4"; "mmio_size_mib"]
 
+let xenops_vdi_locator_of_strings sr_uuid vdi_location =
+	Printf.sprintf "%s/%s" sr_uuid vdi_location
+
+let xenops_vdi_locator ~__context ~self =
+	let sr = Db.VDI.get_SR ~__context ~self in
+	let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
+	let vdi_location = Db.VDI.get_location ~__context ~self in
+	xenops_vdi_locator_of_strings sr_uuid vdi_location
+
 let disk_of_vdi ~__context ~self =
-	try Some (VDI (Db.VDI.get_location ~__context ~self)) with _ -> None
+	try Some (VDI (xenops_vdi_locator ~__context ~self)) with _ -> None
 
 let backend_of_network ~__context ~self =
 	let bridge = Db.Network.get_bridge ~__context ~self in
@@ -358,7 +367,7 @@ let id_of_vm ~__context ~self = Db.VM.get_uuid ~__context ~self
 let vm_of_id ~__context uuid = Db.VM.get_by_uuid ~__context ~uuid
 
 let vm_exists_in_xenopsd dbg id =
-	try Client.VM.stat dbg id |> success |> ignore; true with Exception(Does_not_exist(_, _)) -> false
+	try Client.VM.stat dbg id |> ignore; true with Does_not_exist(_, _) -> false
 
 (* Serialise updates to the xenopsd metadata *)
 let metadata_m = Mutex.create ()
@@ -487,7 +496,7 @@ let push_metadata_to_xenopsd ~__context ~self =
 		let txt = create_metadata ~__context ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
 		info "xenops: VM.import_metadata %s" txt;
 		let dbg = Context.string_of_task __context in
-		Client.VM.import_metadata dbg txt |> success;
+		Client.VM.import_metadata dbg txt;
 	)
 
 (* Unregisters a VM with xenopsd, and cleans up metadata and caches *)
@@ -496,9 +505,9 @@ let pull_metadata_from_xenopsd ~__context id =
 		(fun () ->
 			info "xenops: VM.export_metadata %s" id;
 			let dbg = Context.string_of_task __context in
-			let md = Client.VM.export_metadata dbg id |> success |> Jsonrpc.of_string |> Metadata.t_of_rpc in
+			let md = Client.VM.export_metadata dbg id |> Jsonrpc.of_string |> Metadata.t_of_rpc in
 			info "xenops: VM.remove %s" id;
-			Client.VM.remove dbg id |> success;
+			Client.VM.remove dbg id;
 			md)
 
 let delete_metadata_from_xenopsd ~__context id =
@@ -506,7 +515,7 @@ let delete_metadata_from_xenopsd ~__context id =
 		(fun () ->
 			let dbg = Context.string_of_task __context in
 			info "xenops: VM.remove %s" id;
-			Client.VM.remove dbg id |> success
+			Client.VM.remove dbg id
 		)
 
 let update_metadata_in_xenopsd ~__context ~self =
@@ -522,7 +531,7 @@ let update_metadata_in_xenopsd ~__context ~self =
 				else begin
 					debug "VM %s metadata has changed: updating xenopsd" id;
 					info "xenops: VM.import_metadata %s" txt;
-					let (_: Vm.id) = Client.VM.import_metadata dbg txt |> success in
+					let (_: Vm.id) = Client.VM.import_metadata dbg txt in
 					if Hashtbl.mem metadata_cache id
 					then Hashtbl.replace metadata_cache id (Some txt)
 				end
@@ -589,13 +598,13 @@ module Event = struct
 		let t = make () in
 		let id = register t in
 		debug "Client.UPDATES.inject_barrier %d" id;
-		Client.UPDATES.inject_barrier dbg id |> success;
+		Client.UPDATES.inject_barrier dbg id;
 		Mutex.execute t.m
 			(fun () ->
 				while not t.finished do Condition.wait t.c t.m done
 			)
 	let wakeup dbg id =
-		Client.UPDATES.remove_barrier dbg id |> success;
+		Client.UPDATES.remove_barrier dbg id;
 		let t = Mutex.execute active_m
 			(fun () ->
 				if not(Hashtbl.mem active id)
@@ -640,7 +649,7 @@ let update_vm ~__context id =
 			else
 				let previous = Xenops_cache.find_vm id in
 				let dbg = Context.string_of_task __context in
-				let info = try Some (Client.VM.stat dbg id |> success) with _ -> None in
+				let info = try Some (Client.VM.stat dbg id) with _ -> None in
 				if Opt.map snd info = previous
 				then debug "xenopsd event: ignoring event for VM %s: metadata has not changed" id
 				else begin
@@ -815,7 +824,7 @@ let update_vbd ~__context (id: (string * string)) =
 			else
 				let previous = Xenops_cache.find_vbd id in
 				let dbg = Context.string_of_task __context in
-				let info = try Some(Client.VBD.stat dbg id |> success) with _ -> None in
+				let info = try Some(Client.VBD.stat dbg id) with _ -> None in
 				if Opt.map snd info = previous
 				then debug "xenopsd event: ignoring event for VBD %s.%s: metadata has not changed" (fst id) (snd id)
 				else begin
@@ -866,7 +875,7 @@ let update_vif ~__context id =
 				let open Vif in
 				let previous = Xenops_cache.find_vif id in
 				let dbg = Context.string_of_task __context in
-				let info = try Some (Client.VIF.stat dbg id |> success) with _ -> None in
+				let info = try Some (Client.VIF.stat dbg id) with _ -> None in
 				if Opt.map snd info = previous
 				then debug "xenopsd event: ignoring event for VIF %s.%s: metadata has not changed" (fst id) (snd id)
 				else begin
@@ -899,7 +908,7 @@ let update_pci ~__context id =
 				let open Pci in
 				let previous = Xenops_cache.find_pci id in
 				let dbg = Context.string_of_task __context in
-				let info = try Some (Client.PCI.stat dbg id |> success) with _ -> None in
+				let info = try Some (Client.PCI.stat dbg id) with _ -> None in
 				if Opt.map snd info = previous
 				then debug "xenopsd event: ignoring event for PCI %s.%s: metadata has not changed" (fst id) (snd id)
 				else begin
@@ -982,7 +991,7 @@ let update_task ~__context id =
 	try
 		let self = id_to_task_exn id in (* throws Not_found *)
 		let dbg = Context.string_of_task __context in
-		let task_t = Client.TASK.stat dbg id |> success in
+		let task_t = Client.TASK.stat dbg id in
 		match task_t.Task.result with
 			| Task.Pending x ->
 				Db.Task.set_progress ~__context ~self ~value:x
@@ -996,7 +1005,7 @@ let update_task ~__context id =
 
 let rec events_watch ~__context from =
 	let dbg = Context.string_of_task __context in
-	let events, next = Client.UPDATES.get dbg from None |> success in
+	let events, next = Client.UPDATES.get dbg from None in
 	let open Dynamic in
 	List.iter
 		(function
@@ -1060,18 +1069,18 @@ let on_xapi_restart ~__context =
 	manage_dom0 dbg;
 	(* Destroy each active task in xenopsd, since the previous xapi
 	   is not able to do it. *)
-	let tasks = Client.TASK.list dbg |> success in
+	let tasks = Client.TASK.list dbg in
 	List.iter
 		(fun t ->
 			info "Deleting leaked xenopsd task %s (%s) (%s)" t.Task.id t.Task.debug_info (t.Task.result |> Task.rpc_of_result |> Jsonrpc.to_string);
-			Client.TASK.destroy dbg t.Task.id |> success
+			Client.TASK.destroy dbg t.Task.id
 		) tasks;
 	(* For each VM resident on this host, check if the xenopsd
 	   has forgotten about it: this means it has shut down *)
 	let localhost = Helpers.get_localhost ~__context in
 	let vms = Db.Host.get_resident_VMs ~__context ~self:localhost in
 	let in_db = List.map (fun self -> id_of_vm ~__context ~self) vms in
-	let in_xenopsd = Client.VM.list dbg () |> success |> List.map (fun (vm, _) -> vm.Vm.id) in
+	let in_xenopsd = Client.VM.list dbg () |> List.map (fun (vm, _) -> vm.Vm.id) in
 	List.iter add_caches in_xenopsd;
 	List.iter
 		(fun id ->
@@ -1091,8 +1100,8 @@ let on_xapi_restart ~__context =
 					try
 						info "VM %s is running here but isn't in the database: terminating" id;
 						let dbg = Context.string_of_task __context in
-						Client.VM.shutdown dbg id None |> success |> wait_for_task dbg |> ignore;
-						Client.VM.remove dbg id |> success
+						Client.VM.shutdown dbg id None |> wait_for_task dbg |> ignore;
+						Client.VM.remove dbg id
 					with e ->
 						error "Failed to remove VM %s: %s" id (Printexc.to_string e)
 				end
@@ -1193,14 +1202,18 @@ let events_from_xapi () =
 let success_task f dbg id =
 	finally
 		(fun () ->
-			let t = Client.TASK.stat dbg id |> success in
+			let t = Client.TASK.stat dbg id in
 			match t.Task.result with
 				| Task.Completed _ -> f t
-				| Task.Failed (Failed_to_contact_remote_service x) ->
-					failwith (Printf.sprintf "Failed to contact remote service on: %s\n" x)
-				| Task.Failed x ->
-					debug "%s: caught xenops exception: %s" dbg (rpc_of_error x |> Jsonrpc.to_string);
-					raise (Exception x)
+				| Task.Failed x -> 
+					let exn = exn_of_exnty (Exception.exnty_of_rpc x) in
+					begin match exn with 
+						| Failed_to_contact_remote_service x ->
+							failwith (Printf.sprintf "Failed to contact remote service on: %s\n" x)
+						| e -> 
+							debug "%s: caught xenops exception: %s" dbg (Jsonrpc.to_string x);
+							raise e
+					end
 				| Task.Pending _ -> failwith "task pending"
 		) (fun () -> Client.TASK.destroy dbg id)
 
@@ -1216,7 +1229,7 @@ let transform_xenops_exn ~__context f =
 		) fmt in
 	try
 		f ()
-	with Exception e -> begin match e with
+	with
 		| Internal_error msg -> internal "xenopsd internal error: %s" msg
 		| Already_exists(thing, id) -> internal "Object with type %s and id %s already exists in xenopsd" thing id
 		| Does_not_exist(thing, id) -> internal "Object with type %s and id %s does not exist in xenopsd" thing id
@@ -1259,13 +1272,13 @@ let transform_xenops_exn ~__context f =
 					debug "xenopsd task id %s is not associated with a XenAPI task" id;
 					Ref.null in
 			reraise Api_errors.task_cancelled [ Ref.string_of task ]
-	end
+
 
 let refresh_vm ~__context ~self =
 	let id = id_of_vm ~__context ~self in
 	info "xenops: UPDATES.refresh_vm %s" id;
 	let dbg = Context.string_of_task __context in
-	Client.UPDATES.refresh_vm dbg id |> success;
+	Client.UPDATES.refresh_vm dbg id;
 	Event.wait dbg ()
 
 (* After this function is called, locally-generated events will be reflected
@@ -1286,11 +1299,11 @@ let set_resident_on ~__context ~self =
 
 let sync_with_task __context x =
 	let dbg = Context.string_of_task __context in
-	x |> success |> register_task __context |> wait_for_task dbg |> unregister_task __context |> success_task ignore_task dbg
+	x |> register_task __context |> wait_for_task dbg |> unregister_task __context |> success_task ignore_task dbg
 
 let sync __context x =
 	let dbg = Context.string_of_task __context in
-	x |> success |> wait_for_task dbg |> success_task ignore_task dbg
+	x |> wait_for_task dbg |> success_task ignore_task dbg
 
 let assert_resident_on ~__context ~self =
 	let localhost = Helpers.get_localhost ~__context in
@@ -1339,12 +1352,12 @@ let set_vcpus ~__context ~self n =
 				Db.VM.set_VCPUs_at_startup ~__context ~self ~value:n;
 				Event.wait dbg ();
 			with
-				| Exception (Maximum_vcpus n) ->
+				| Maximum_vcpus n ->
 					raise (Api_errors.Server_error(Api_errors.invalid_value, [
 						"VCPU values must satisfy: 0 < VCPUs ≤ VCPUs_max";
 						string_of_int n
 					]))
-				| Exception(Unimplemented _) ->
+				| Unimplemented _ ->
 					error "VM.set_VCPUs_number_live: HVM VMs cannot hotplug cpus";
 					raise (Api_errors.Server_error (Api_errors.operation_not_allowed,
 					["HVM VMs cannot hotplug CPUs"]))
@@ -1360,11 +1373,11 @@ let set_shadow_multiplier ~__context ~self target =
 				Client.VM.set_shadow_multiplier dbg id target |> sync_with_task __context;
 				Event.wait dbg ();
 			with
-				| Exception (Not_enough_memory needed) ->
+				| Not_enough_memory needed ->
 					let host = Db.VM.get_resident_on ~__context ~self in
 					let free_mem_b = Memory_check.host_compute_free_memory_with_maximum_compression ~__context ~host None in
 					raise (Api_errors.Server_error(Api_errors.host_not_enough_free_memory, [ Int64.to_string needed; Int64.to_string free_mem_b ]))
-				| Exception (Unimplemented _) ->
+				| Unimplemented _ ->
 					(* The existing behaviour is to ignore this failure *)
 					error "VM.set_shadow_multiplier: not supported for PV domains"
 		)
@@ -1402,7 +1415,7 @@ let start ~__context ~self paused =
 		(fun () ->
 			try
 				start ~__context ~self paused
-			with Exception (Bad_power_state(a, b)) ->
+			with Bad_power_state(a, b) ->
 				let power_state = function
 					| Running -> "Running"
 					| Halted -> "Halted"
@@ -1453,7 +1466,7 @@ let suspend ~__context ~self =
 			assert_resident_on ~__context ~self;
 			let id = id_of_vm ~__context ~self in
 			let dbg = Context.string_of_task __context in
-			let vm_t, state = Client.VM.stat dbg id |> success in
+			let vm_t, state = Client.VM.stat dbg id in
 			(* XXX: this needs to be at boot time *)
 			let space_needed = Int64.(add (of_float (to_float vm_t.Vm.memory_static_max *. 1.2 *. 1.05)) 104857600L) in
 			let suspend_SR = Helpers.choose_suspend_sr ~__context ~vm:self in
@@ -1542,7 +1555,7 @@ let is_vm_running ~__context ~self =
 	let dbg = Context.string_of_task __context in
 	debug "xenops: VM.stat %s" id;
 	(* If the metadata is still present, VM is "Running" *)
-	try Client.VM.stat dbg id |> success |> ignore; true with _ -> false
+	try Client.VM.stat dbg id |> ignore; true with _ -> false
 
 let md_of_vbd ~__context ~self =
 	let vm = Db.VBD.get_VM ~__context ~self in
@@ -1601,9 +1614,9 @@ let vbd_plug ~__context ~self =
 			let vbd = md_of_vbd ~__context ~self in
 			info "xenops: VBD.remove %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
 			let dbg = Context.string_of_task __context in
-			Client.VBD.remove dbg vbd.Vbd.id |> might_not_exist;
+			(try Client.VBD.remove dbg vbd.Vbd.id with Does_not_exist _ -> ());
 			info "xenops: VBD.add %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
-			let id = Client.VBD.add dbg vbd |> success in
+			let id = Client.VBD.add dbg vbd in
 			info "xenops: VBD.plug %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
 			Client.VBD.plug dbg id |> sync_with_task __context;
 			Event.wait dbg ();
@@ -1621,11 +1634,11 @@ let vbd_unplug ~__context ~self force =
 			begin
 				try
 					Client.VBD.unplug dbg vbd.Vbd.id force |> sync_with_task __context;
-				with (Exception Device_detach_rejected(_, _, _)) ->
+				with Device_detach_rejected(_, _, _) ->
 					raise (Api_errors.Server_error(Api_errors.device_detach_rejected, [ "VBD"; Ref.string_of self; "" ]))
 			end;
 			info "xenops: VBD.remove %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
-			Client.VBD.remove dbg vbd.Vbd.id |> success;
+			Client.VBD.remove dbg vbd.Vbd.id;
 			Event.wait dbg ();
 			assert (not(Db.VBD.get_currently_attached ~__context ~self))
 		)
@@ -1642,9 +1655,9 @@ let vif_plug ~__context ~self =
 			let vif = md_of_vif ~__context ~self in
 			info "xenops: VIF.eject %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
 			let dbg = Context.string_of_task __context in
-			Client.VIF.remove dbg vif.Vif.id |> might_not_exist;
+			(try Client.VIF.remove dbg vif.Vif.id with Does_not_exist _ -> ());
 			info "xenops: VIF.add %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
-			let id = Client.VIF.add dbg vif |> success in
+			let id = Client.VIF.add dbg vif in
 			info "xenops: VIF.plug %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
 			Client.VIF.plug dbg id |> sync_with_task __context;
 			Event.wait dbg ();
@@ -1679,7 +1692,7 @@ let vif_unplug ~__context ~self force =
 			let dbg = Context.string_of_task __context in
 			Client.VIF.unplug dbg vif.Vif.id force |> sync_with_task __context;
 			info "xenops: VIF.remove %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
-			Client.VIF.remove dbg vif.Vif.id |> success;
+			Client.VIF.remove dbg vif.Vif.id;
 			Event.wait dbg ();
 			assert (not(Db.VIF.get_currently_attached ~__context ~self))
 		)

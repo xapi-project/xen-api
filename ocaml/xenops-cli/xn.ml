@@ -51,28 +51,25 @@ let usage () =
 
 let dbg = "xn"
 
-let success = function
-	| (_, Some x) ->
-		Printf.fprintf stderr "Exception: %s\n" (x |> rpc_of_error |> Jsonrpc.to_string);
-		exit 1
-	| (Some x, _) -> x
-	| None, None -> failwith "protocol error"
-
 (* Grabs the result from a task and destroys it *)
 let success_task f id =
 	finally
 		(fun () ->
-			let t = Client.TASK.stat dbg id |> success in
+			let t = Client.TASK.stat dbg id in
 			match t.Task.result with
 				| Task.Completed _ -> f t
-				| Task.Failed (Failed_to_contact_remote_service x) ->
-					Printf.printf "Failed to contact remote service on: %s\n" x;
-					Printf.printf "Check the address and credentials.\n";
-					exit 1;
-				| Task.Failed x -> failwith (Jsonrpc.to_string (rpc_of_error x))
+				| Task.Failed x ->
+					let exn = exn_of_exnty (Exception.exnty_of_rpc x) in
+					begin match exn with
+						| Failed_to_contact_remote_service x ->
+							Printf.printf "Failed to contact remote service on: %s\n" x;
+							Printf.printf "Check the address and credentials.\n";
+							exit 1;
+						| _ -> raise exn
+					end
 				| Task.Pending _ -> failwith "task pending"
 		) (fun () ->
-			Client.TASK.destroy dbg id |> success
+			Client.TASK.destroy dbg id
 		)
 
 let parse_source x = match List.filter (fun x -> x <> "") (String.split ':' x) with
@@ -233,7 +230,7 @@ let parse_vif vm_id (x, idx) =
 let print_vm id =
 	let open Xn_cfg_types in
 	let open Vm in
-	let vm_t, _ = Client.VM.stat dbg id |> success in
+	let vm_t, _ = Client.VM.stat dbg id in
 	let quote x = Printf.sprintf "'%s'" x in
 	let boot = match vm_t.ty with
 		| PV { boot = boot } ->
@@ -256,11 +253,11 @@ let print_vm id =
 	let vcpus = [ _vcpus, string_of_int vm_t.vcpus ] in
 	let bytes_to_mib x = Int64.div x (Int64.mul 1024L 1024L) in
 	let memory = [ _memory, vm_t.memory_static_max |> bytes_to_mib |> Int64.to_string ] in
-	let vbds = Client.VBD.list dbg id |> success |> List.map fst in
+	let vbds = Client.VBD.list dbg id |> List.map fst in
 	let vbds = [ _disk, Printf.sprintf "[ %s ]" (String.concat ", " (List.map (fun x -> Printf.sprintf "'%s'" (print_disk x)) vbds)) ] in
-	let vifs = Client.VIF.list dbg id |> success |> List.map fst in
+	let vifs = Client.VIF.list dbg id |> List.map fst in
 	let vifs = [ _vif, Printf.sprintf "[ %s ]" (String.concat ", " (List.map (fun x -> Printf.sprintf "'%s'" (print_vif x)) vifs)) ] in
-	let pcis = Client.PCI.list dbg id |> success |> List.map fst in
+	let pcis = Client.PCI.list dbg id |> List.map fst in
 	(* Sort into order based on position *)
 	let pcis = List.sort (fun a b -> compare a.Pci.position b.Pci.position) pcis in
 	let pcis = [ _pci, Printf.sprintf "[ %s ]" (String.concat ", " (List.map (fun x -> Printf.sprintf "'%s'" (print_pci x)) pcis)) ] in
@@ -362,17 +359,17 @@ let add filename =
 				pci_msitranslate = pci_msitranslate;
 				pci_power_mgmt = pci_power_mgmt;
 			} in
-			let (id: Vm.id) = success (Client.VM.add dbg vm) in
+			let (id: Vm.id) = Client.VM.add dbg vm in
 			let disks = if mem _disk then find _disk |> list string else [] in
-			let one x = x |> parse_disk id |> Client.VBD.add dbg |> success in
+			let one x = x |> parse_disk id |> Client.VBD.add dbg in
 			let (_: Vbd.id list) = List.map one disks in
 			let vifs = if mem _vif then find _vif |> list string else [] in
 			let vifs = List.combine vifs (Range.to_list (Range.make 0 (List.length vifs))) in
-			let one x = x |> parse_vif id |> Client.VIF.add dbg |> success in
+			let one x = x |> parse_vif id |> Client.VIF.add dbg in
 			let (_: Vif.id list) = List.map one vifs in
 			let pcis = if mem _pci then find _pci |> list string else [] in
 			let pcis = List.combine pcis (Range.to_list (Range.make 0 (List.length pcis))) in
-			let one x = x |> parse_pci id |> Client.PCI.add dbg |> success in
+			let one x = x |> parse_pci id |> Client.PCI.add dbg in
 			let (_: Pci.id list) = List.map one pcis in
 			Printf.printf "%s\n" id
 		)
@@ -385,7 +382,7 @@ let string_of_power_state = function
 
 let list_verbose () =
 	let open Vm in
-	let vms = success (Client.VM.list dbg ()) in
+	let vms = Client.VM.list dbg () in
 	List.iter
 		(fun (vm, state) ->
 			Printf.printf "%-45s%-5s\n"  vm.name (state.power_state |> string_of_power_state);
@@ -406,7 +403,7 @@ let list () =
 		let vcpus = string_of_int state.vcpu_target in
 		let state = state.Vm.power_state |> string_of_power_state in
 		line vm.name domid mem vcpus state "" in
-	let vms = success (Client.VM.list dbg ()) in
+	let vms = Client.VM.list dbg () in
 	let lines = header :: (List.map string_of_vm vms) in
 	List.iter (Printf.printf "%s\n") lines
 
@@ -441,11 +438,11 @@ let pp x =
 	x |> to_t |> flatten |> List.map to_string_list |> List.concat |> List.iter (Printf.printf "%s\n")
 
 let diagnostics () =
-	Client.get_diagnostics dbg () |> success |> Jsonrpc.of_string |> pp
+	Client.get_diagnostics dbg () |> Jsonrpc.of_string |> pp
 
 let find_by_name x =
 	let open Vm in
-	let all = success (Client.VM.list dbg ()) in
+	let all = Client.VM.list dbg () in
 	let this_one (y, _) = y.id = x || y.name = x in
 	try
 		List.find this_one all
@@ -456,22 +453,22 @@ let find_by_name x =
 let remove x =
 	let open Vm in
 	let vm, _ = find_by_name x in
-	let vbds = success (Client.VBD.list dbg vm.id) in
+	let vbds = Client.VBD.list dbg vm.id in
 	List.iter
 		(fun (vbd, _) ->
-			success (Client.VBD.remove dbg vbd.Vbd.id)
+			Client.VBD.remove dbg vbd.Vbd.id
 		) vbds;
-	let vifs = success (Client.VIF.list dbg vm.id) in
+	let vifs = Client.VIF.list dbg vm.id in
 	List.iter
 		(fun (vif, _) ->
-			success (Client.VIF.remove dbg vif.Vif.id)
+			Client.VIF.remove dbg vif.Vif.id
 		) vifs;
-	success (Client.VM.remove dbg vm.id)
+	Client.VM.remove dbg vm.id
 
 let export_metadata x filename =
 	let open Vm in
 	let vm, _ = find_by_name x in
-	let txt = Client.VM.export_metadata dbg vm.id |> success in
+	let txt = Client.VM.export_metadata dbg vm.id in
 	Unixext.write_string_to_file filename txt
 
 let export_metadata_xm x filename =
@@ -483,54 +480,54 @@ let export_metadata_xm x filename =
 let delay x t =
 	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.delay dbg vm.id t |> success |> wait_for_task dbg |> success_task ignore_task
+	Client.VM.delay dbg vm.id t |> wait_for_task dbg |> success_task ignore_task
 
 let import_metadata filename =
 	let txt = Unixext.string_of_file filename in
-	let id = Client.VM.import_metadata dbg txt |> success in
+	let id = Client.VM.import_metadata dbg txt in
 	Printf.printf "%s\n" id
 
 let start x paused =
 	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.start dbg vm.id |> success |> wait_for_task dbg |> success_task ignore_task;
+	Client.VM.start dbg vm.id |> wait_for_task dbg |> success_task ignore_task;
 	if not paused
-	then Client.VM.unpause dbg vm.id |> success |> wait_for_task dbg |> success_task ignore_task
+	then Client.VM.unpause dbg vm.id |> wait_for_task dbg |> success_task ignore_task
 
 let shutdown x timeout =
 	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.shutdown dbg vm.id timeout |> success |> wait_for_task dbg
+	Client.VM.shutdown dbg vm.id timeout |> wait_for_task dbg
 
 let pause x =
 	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.pause dbg vm.id |> success |> wait_for_task dbg
+	Client.VM.pause dbg vm.id |> wait_for_task dbg
 
 let unpause x =
 	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.unpause dbg vm.id |> success |> wait_for_task dbg
+	Client.VM.unpause dbg vm.id |> wait_for_task dbg
 
 let reboot x timeout =
 	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.reboot dbg vm.id timeout |> success |> wait_for_task dbg
+	Client.VM.reboot dbg vm.id timeout |> wait_for_task dbg
 
 let suspend x disk =
 	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.suspend dbg vm.id (Local disk) |> success |> wait_for_task dbg
+	Client.VM.suspend dbg vm.id (Local disk) |> wait_for_task dbg
 
 let resume x disk =
 	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.resume dbg vm.id (Local disk) |> success |> wait_for_task dbg
+	Client.VM.resume dbg vm.id (Local disk) |> wait_for_task dbg
 
 let migrate x url =
 	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.migrate dbg vm.id url |> success |> wait_for_task dbg
+	Client.VM.migrate dbg vm.id [] url |> wait_for_task dbg
 
 let trim limit str =
 	let l = String.length str in
@@ -540,7 +537,7 @@ let trim limit str =
 
 let vbd_list x =
 	let vm, _ = find_by_name x in
-	let vbds = success (Client.VBD.list dbg vm.Vm.id) in
+	let vbds = Client.VBD.list dbg vm.Vm.id in
 	let line id position mode ty plugged disk =
 		Printf.sprintf "%-10s %-8s %-4s %-5s %-7s %s" id position mode ty plugged disk in
 	let header = line "id" "position" "mode" "type" "plugged" "disk" in
@@ -586,16 +583,16 @@ let pci_add x idx bdf =
 		fn = fn;
 		msitranslate = None;
 		power_mgmt = None
-	} |> success in
+	} in
 	Printf.printf "%s.%s\n" (fst id) (snd id)
 
 let pci_remove x idx =
 	let vm, _ = find_by_name x in
-	Client.PCI.remove dbg (vm.Vm.id, idx) |> success
+	Client.PCI.remove dbg (vm.Vm.id, idx)
 
 let pci_list x =
 	let vm, _ = find_by_name x in
-	let pcis = success (Client.PCI.list dbg vm.Vm.id) in
+	let pcis = Client.PCI.list dbg vm.Vm.id in
 	let line id bdf =
 		Printf.sprintf "%-10s %-3s %-12s" id bdf in
 	let header = line "id" "pos" "bdf" in
@@ -616,7 +613,7 @@ let find_vbd id =
 			exit 1 in
 	let vm_id = fst vbd_id in
 	let vm, _ = find_by_name vm_id in
-	let vbds = success (Client.VBD.list dbg vm.Vm.id) in
+	let vbds = Client.VBD.list dbg vm.Vm.id in
 	let this_one (y, _) = snd y.Vbd.id = snd vbd_id in
 	try
 		List.find this_one vbds
@@ -626,15 +623,15 @@ let find_vbd id =
 
 let cd_eject id =
 	let vbd, _ = find_vbd id in
-	Client.VBD.eject dbg vbd.Vbd.id |> success |> wait_for_task dbg
+	Client.VBD.eject dbg vbd.Vbd.id |> wait_for_task dbg
 
 let cd_insert id disk =
 	let vbd, _ = find_vbd id in
 	let backend = parse_source disk |> Opt.unbox in
-	Client.VBD.insert dbg vbd.Vbd.id backend |> success |> wait_for_task dbg
+	Client.VBD.insert dbg vbd.Vbd.id backend |> wait_for_task dbg
 
 let rec events_watch from =
-	let events, next = Client.UPDATES.get dbg from None |> success in
+	let events, next = Client.UPDATES.get dbg from None in
 	let open Dynamic in
 	let lines = List.map
 		(function
@@ -656,10 +653,10 @@ let rec events_watch from =
 	events_watch next
 
 let set_worker_pool_size size =
-	Client.HOST.set_worker_pool_size dbg size |> success
+	Client.HOST.set_worker_pool_size dbg size
 
 let task_list () =
-	let all = Client.TASK.list dbg |> success in
+	let all = Client.TASK.list dbg in
 	List.iter
 		(fun t ->
 			Printf.printf "%-8s %-12s %-30s %s\n" t.Task.id (t.Task.ctime |> Date.of_float |> Date.to_string) t.Task.debug_info (t.Task.result |> Task.rpc_of_result |> Jsonrpc.to_string);
@@ -670,10 +667,10 @@ let task_list () =
 		) all
 
 let task_cancel id =
-	Client.TASK.cancel dbg id |> success
+	Client.TASK.cancel dbg id
 
 let debug_shutdown () =
-	Client.DEBUG.shutdown dbg () |> success
+	Client.DEBUG.shutdown dbg ()
 
 let slave () =
 	let copy a b =
@@ -701,7 +698,7 @@ let slave () =
 let verbose_task t =
 	let string_of_result = function
 		| Task.Completed t -> Printf.sprintf "%.2f" t
-		| Task.Failed x -> Printf.sprintf "Error: %s" (x |>rpc_of_error |> Jsonrpc.to_string)
+		| Task.Failed x -> Printf.sprintf "Error: %s" (x |> Jsonrpc.to_string)
 		| Task.Pending _ -> Printf.sprintf "Error: still pending" in
 	let rows = List.map (fun (name, result) -> [ name;  string_of_result result ]) t.Task.subtasks in
 	Table.print rows;

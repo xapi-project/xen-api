@@ -83,24 +83,11 @@ let json_path = path ^ ".json"
 
 module Server = Xenops_interface.Server(Xenops_server)
 
-(* Marshal raised Exceptions as error_responses. This should eventually go into
-   the rpc-light.idl generated layer. *)
-let wrap f : Rpc.response =
-	try
-		f ()
-	with
-		| Xenops_utils.Exception e ->
-			let rpc = Xenops_interface.rpc_of_error_response (None, Some e) in
-			{ Rpc.success = true; contents = rpc }
-		| e ->
-			let rpc = Xenops_interface.rpc_of_error_response (None, Some (Xenops_interface.Internal_error (Printexc.to_string e))) in
-			{ Rpc.success = true; contents = rpc }
-
 let srv_http_handler call_of_string string_of_response process req bio (context: Xenops_server.context) =
 	let body = Http_svr.read_body req bio in
 	let rpc = call_of_string body in
 	(* debug "Request: %s %s" rpc.Rpc.name (Jsonrpc.to_string (List.hd rpc.Rpc.params)); *)
-	let result = wrap (fun () -> process context rpc) in
+	let result = process context rpc in
 	(* debug "Response: success:%b %s" result.Rpc.success (Jsonrpc.to_string result.Rpc.contents); *)
 	let str = string_of_response result in
 	Http_svr.response_str req (Buf_io.fd_of bio) str
@@ -119,7 +106,7 @@ let binary_handler call_of_string string_of_response process (* no req *) this_c
 	let len = int_of_string len_buf in
 	let msg_buf = Unixext.really_read_string this_connection len in
 	let (request: Rpc.call) = call_of_string msg_buf in
-	let (result: Rpc.response) = wrap (fun () -> process context request) in
+	let (result: Rpc.response) = process context request in
 	let msg_buf = string_of_response result in
 	let len_buf = Printf.sprintf "%016d" (String.length msg_buf) in
 	Unixext.really_write_string this_connection len_buf;

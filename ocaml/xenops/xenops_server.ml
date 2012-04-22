@@ -36,13 +36,13 @@ let make_context () = {
 
 let instance_id = Uuid.string_of_uuid (Uuid.make_uuid ())
 
-let query _ _ _ = Some {
+let query _ _ _ = {
 	Query.name = "xenops";
 	vendor = "XCP";
 	version = "0.1";
 	features = [];
 	instance_id = instance_id;
-}, None
+}
 
 let backend = ref None
 let get_backend () = match !backend with
@@ -52,10 +52,8 @@ let get_backend () = match !backend with
 let ignore_exception msg f x =
 	try f x
 	with
-		| Exception error ->
-			debug "%s: ignoring exception: %s" msg (error |> rpc_of_error |> Jsonrpc.to_string)
 		| e ->
-			debug "%s: ignoring exception: %s" msg (Printexc.to_string e)
+			debug "%s: ignoring exception: %s" msg (e |> exnty_of_exn |> Exception.rpc_of_exnty |> Jsonrpc.to_string)
 
 let filter_prefix prefix xs =
 	List.filter_map
@@ -110,7 +108,7 @@ type operation =
 	| VM_suspend of (Vm.id * data)
 	| VM_resume of (Vm.id * data)
 	| VM_restore_devices of Vm.id
-	| VM_migrate of (Vm.id * string)
+	| VM_migrate of (Vm.id * (string * string) list * string)
 	| VM_receive_memory of (Vm.id * Unix.file_descr)
 	| VM_check_state of Vm.id
 	| PCI_check_state of Pci.id
@@ -133,7 +131,7 @@ module TASK = struct
 		subtasks = x.subtasks;
 	}
 	let cancel _ dbg id =
-		Xenops_task.cancel id |> return
+		Xenops_task.cancel id
 	let stat' id =
 		Mutex.execute m
 			(fun () ->
@@ -145,10 +143,10 @@ module TASK = struct
 				if exists_locked id
 				then Updates.add (Dynamic.Task id) updates
 			)
-	let stat _ dbg id = stat' id |> return
+	let stat _ dbg id = stat' id 
 	let destroy' id = destroy id; Updates.remove (Dynamic.Task id) updates
-	let destroy _ dbg id = destroy' id |> return
-	let list _ dbg = list () |> List.map task |> return
+	let destroy _ dbg id = destroy' id
+	let list _ dbg = list () |> List.map task
 end
 
 module VM_DB = struct
@@ -648,12 +646,16 @@ let rebooting id f =
 let is_rebooting id =
 	Mutex.execute rebooting_vms_m (fun () -> List.mem id !rebooting_vms)
 
-let export_metadata id =
+let export_metadata vdi_map id =
 	let module B = (val get_backend () : S) in
 	let vm_t = VM_DB.read_exn id in
 	let vbds = VBD_DB.vbds id in
 	let vifs = VIF_DB.vifs id in
 	let domains = B.VM.get_internal_state vm_t in
+
+	(* Remap VDIs *)
+	let vbds = List.map (fun vbd -> {vbd with Vbd.backend = Opt.map (function VDI vdi -> if List.mem_assoc vdi vdi_map then VDI (List.assoc vdi vdi_map) else VDI vdi | x -> x) vbd.Vbd.backend}) vbds in
+
 	{
 		Metadata.vm = vm_t;
 		vbds = vbds;
@@ -835,28 +837,28 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			if vm_state.Vm.power_state = Running
 			then
 				if vbd_state.Vbd.media_present && vbd_t.Vbd.backend <> Some disk
-				then raise (Exception Media_present)
+				then raise (Media_present)
 				else B.VBD.insert t (VBD_DB.vm_of id) vbd_t disk;
 			VBD_DB.write id { vbd_t with Vbd.backend = Some disk };
 			VBD_DB.signal id
 		| VBD_eject id ->
 			debug "VBD.eject %s" (VBD_DB.string_of_id id);
 			let vbd_t = VBD_DB.read_exn id in
-			if vbd_t.Vbd.ty = Vbd.Disk then raise (Exception (Media_not_ejectable));
+			if vbd_t.Vbd.ty = Vbd.Disk then raise (Media_not_ejectable);
 			let vm_state = B.VM.get_state (VM_DB.read_exn (VBD_DB.vm_of id)) in
 			let vbd_state = B.VBD.get_state (VBD_DB.vm_of id) vbd_t in
 			if vm_state.Vm.power_state = Running
 			then
 				if vbd_state.Vbd.media_present
 				then B.VBD.eject t (VBD_DB.vm_of id) vbd_t
-				else raise (Exception Media_not_present);			
+				else raise (Media_not_present);			
 			VBD_DB.write id { vbd_t with Vbd.backend = None };
 			VBD_DB.signal id
 		| VM_remove id ->
 			debug "VM.remove %s" id;
 			let power = (B.VM.get_state (VM_DB.read_exn id)).Vm.power_state in
 			begin match power with
-				| Running _ | Paused -> raise (Exception (Bad_power_state(power, Halted)))
+				| Running _ | Paused -> raise (Bad_power_state(power, Halted))
 				| Halted | Suspended ->
 					List.iter (fun vbd -> VBD_DB.remove vbd.Vbd.id) (VBD_DB.vbds id);
 					List.iter (fun vif -> VIF_DB.remove vif.Vif.id) (VIF_DB.vifs id);
@@ -878,7 +880,7 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			debug "VM.set_vcpus (%s, %d)" id n;
 			let vm_t = VM_DB.read_exn id in
 			if n > vm_t.Vm.vcpu_max
-			then raise (Exception (Maximum_vcpus vm_t.Vm.vcpu_max));
+			then raise (Maximum_vcpus vm_t.Vm.vcpu_max);
 			B.VM.set_vcpus t (VM_DB.read_exn id) n
 		| VM_set_shadow_multiplier (id, m) ->
 			debug "VM.set_shadow_multiplier (%s, %.2f)" id m;
@@ -922,10 +924,10 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			(* Spend at most the first minute waiting for a clean shutdown ack. This allows
 			   us to abort early. *)
 			if not (B.VM.request_shutdown t vm reason (min 60. timeout))
-			then raise (Exception Failed_to_acknowledge_shutdown_request);		
+			then raise (Failed_to_acknowledge_shutdown_request);		
 			let remaining_timeout = max 0. (timeout -. (Unix.gettimeofday () -. start)) in
 			if not (B.VM.wait_shutdown t vm reason remaining_timeout)
-			then raise (Exception(Failed_to_shutdown(id, timeout)))
+			then raise (Failed_to_shutdown(id, timeout))
 		| VM_s3suspend id ->
 			debug "VM.s3suspend %s" id;
 			B.VM.s3suspend t (VM_DB.read_exn id);
@@ -984,7 +986,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 				begin
 					try
 						perform_atomics [ VM_destroy id ] t;
-					with Exception(Does_not_exist("domain", _)) ->
+					with (Does_not_exist("domain", _)) ->
 						debug "Ignoring domain Does_not_exist during clean-up"
 				end;
 				raise e
@@ -1012,7 +1014,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			debug "VM.resume %s" id;
 			perform_atomics (atomics_of_operation op) t;
 			VM_DB.signal id
-		| VM_migrate (id, url') ->
+		| VM_migrate (id, vdi_map, url') ->
 			debug "VM.migrate %s -> %s" id url';
 			let open Xmlrpc_client in
 			let open Xenops_client in
@@ -1025,13 +1027,13 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 					q.Query.instance_id = instance_id
 				with e ->
 					debug "Failed to contact remote system on %s: is it running? (%s)" url' (Printexc.to_string e);
-					raise (Exception(Failed_to_contact_remote_service (url |> transport_of_url |> string_of_transport))) in
+					raise (Failed_to_contact_remote_service (url |> transport_of_url |> string_of_transport)) in
 			if is_localhost
 			then debug "This is a localhost migration.";
 			Xenops_hooks.vm_pre_migrate ~reason:Xenops_hooks.reason__migrate_source ~id;
 
 			let module Remote = Xenops_interface.Client(struct let rpc = xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" url end) in
-			let id = Remote.VM.import_metadata t.Xenops_task.debug_info(export_metadata id) |> success in
+			let id = Remote.VM.import_metadata t.Xenops_task.debug_info(export_metadata vdi_map id) in
 			debug "Received id = %s" id;
 			let suffix = Printf.sprintf "/memory/%s" id in
 			let memory_url = Http.Url.(set_uri url (get_uri url ^ suffix)) in
@@ -1191,7 +1193,7 @@ let immediate_operation dbg id op =
 		| Task.Pending _ -> assert false
 		| Task.Completed _ -> ()
 		| Task.Failed e ->
-			raise (Exception e)
+			raise (exn_of_exnty (Exception.exnty_of_rpc e))
 
 module PCI = struct
 	open Pci
@@ -1204,12 +1206,12 @@ module PCI = struct
 		let vm = DB.vm_of x.id in
 		if not (VM_DB.exists vm) then begin
 			debug "VM %s not managed by me" vm;
-			raise (Exception (Does_not_exist ("VM", vm)));
+			raise (Does_not_exist ("VM", vm));
 		end;
 		DB.write x.id x;
 		x.id
 	let add _ dbg x =
-		Debug.with_thread_associated dbg (fun () -> add' x |> return) ()
+		Debug.with_thread_associated dbg (fun () -> add' x) ()
 
 	let remove _ dbg id =
 		Debug.with_thread_associated dbg
@@ -1217,8 +1219,8 @@ module PCI = struct
 				debug "PCI.remove %s" (string_of_id id);
 				let module B = (val get_backend () : S) in
 				if (B.PCI.get_state (DB.vm_of id) (PCI_DB.read_exn id)).Pci.plugged
-				then raise (Exception Device_is_connected)
-				else return (DB.remove id)
+				then raise (Device_is_connected)
+				else (DB.remove id)
 			) ()
 
 	let stat' id =
@@ -1230,13 +1232,13 @@ module PCI = struct
 	let stat _ dbg id =
 		Debug.with_thread_associated dbg
 			(fun () ->
-				return (stat' id)) ()
+				(stat' id)) ()
 
 	let list _ dbg vm =
 		Debug.with_thread_associated dbg
 			(fun () ->
 				debug "PCI.list %s" vm;
-				DB.list vm |> return) ()
+				DB.list vm) ()
 end
 
 module VBD = struct
@@ -1250,27 +1252,27 @@ module VBD = struct
 		let vm = DB.vm_of x.id in
 		if not (VM_DB.exists vm) then begin
 			debug "VM %s not managed by me" vm;
-			raise (Exception (Does_not_exist("VM", vm)));
+			raise (Does_not_exist("VM", vm));
 		end;
 		DB.write x.id x;
 		x.id
 	let add _ dbg x =
 		Debug.with_thread_associated dbg
-			(fun () -> add' x |> return) ()
+			(fun () -> add' x ) ()
 
-	let plug _ dbg id = queue_operation dbg (DB.vm_of id) (Atomic(VBD_plug id)) |> return
-	let unplug _ dbg id force = queue_operation dbg (DB.vm_of id) (Atomic(VBD_unplug (id, force))) |> return
+	let plug _ dbg id = queue_operation dbg (DB.vm_of id) (Atomic(VBD_plug id))
+	let unplug _ dbg id force = queue_operation dbg (DB.vm_of id) (Atomic(VBD_unplug (id, force)))
 
-	let insert _ dbg id disk = queue_operation dbg (DB.vm_of id) (Atomic(VBD_insert(id, disk))) |> return
-	let eject _ dbg id = queue_operation dbg (DB.vm_of id) (Atomic(VBD_eject id)) |> return
+	let insert _ dbg id disk = queue_operation dbg (DB.vm_of id) (Atomic(VBD_insert(id, disk)))
+	let eject _ dbg id = queue_operation dbg (DB.vm_of id) (Atomic(VBD_eject id))
 	let remove _ dbg id =
 		Debug.with_thread_associated dbg
 			(fun () ->
 				debug "VBD.remove %s" (string_of_id id);
 				let module B = (val get_backend () : S) in
 				if (B.VBD.get_state (DB.vm_of id) (VBD_DB.read_exn id)).Vbd.plugged
-				then raise (Exception Device_is_connected)
-				else return (DB.remove id)
+				then raise (Device_is_connected)
+				else (DB.remove id)
 			) ()
 
 	let stat' id =
@@ -1282,13 +1284,13 @@ module VBD = struct
 	let stat _ dbg id =
 		Debug.with_thread_associated dbg
 			(fun () ->
-				return (stat' id)) ()
+				(stat' id)) ()
 
 	let list _ dbg vm =
 		Debug.with_thread_associated dbg
 			(fun () ->
 				debug "VBD.list %s" vm;
-				DB.list vm |> return) ()
+				DB.list vm) ()
 end
 
 module VIF = struct
@@ -1303,7 +1305,7 @@ module VIF = struct
 		let vm = DB.vm_of x.id in
 		if not (VM_DB.exists vm) then begin
 			debug "VM %s not managed by me" vm;
-			raise (Exception(Does_not_exist("VM", vm)));
+			raise (Does_not_exist("VM", vm));
 		end;
 		(* Generate MAC if necessary *)
 		let mac = match x.mac with
@@ -1313,13 +1315,13 @@ module VIF = struct
 		DB.write x.id { x with mac = mac };
 		x.id
 	let add _ dbg x =
-		Debug.with_thread_associated dbg (fun () -> add' x |> return) ()
+		Debug.with_thread_associated dbg (fun () -> add' x) ()
 
-	let plug _ dbg id = queue_operation dbg (DB.vm_of id) (Atomic (VIF_plug id)) |> return
-	let unplug _ dbg id force = queue_operation dbg (DB.vm_of id) (Atomic (VIF_unplug (id, force))) |> return
-	let move _ dbg id network = queue_operation dbg (DB.vm_of id) (Atomic (VIF_move (id, network))) |> return
-	let set_carrier _ dbg id carrier = queue_operation dbg (DB.vm_of id) (Atomic (VIF_set_carrier (id, carrier))) |> return
-	let set_locking_mode _ dbg id carrier = queue_operation dbg (DB.vm_of id) (Atomic (VIF_set_locking_mode (id, carrier))) |> return
+	let plug _ dbg id = queue_operation dbg (DB.vm_of id) (Atomic (VIF_plug id)) 
+	let unplug _ dbg id force = queue_operation dbg (DB.vm_of id) (Atomic (VIF_unplug (id, force))) 
+	let move _ dbg id network = queue_operation dbg (DB.vm_of id) (Atomic (VIF_move (id, network)))
+	let set_carrier _ dbg id carrier = queue_operation dbg (DB.vm_of id) (Atomic (VIF_set_carrier (id, carrier)))
+	let set_locking_mode _ dbg id carrier = queue_operation dbg (DB.vm_of id) (Atomic (VIF_set_locking_mode (id, carrier)))
 
 	let remove _ dbg id =
 		Debug.with_thread_associated dbg
@@ -1327,8 +1329,8 @@ module VIF = struct
 				debug "VIF.remove %s" (string_of_id id);
 				let module B = (val get_backend () : S) in
 				if (B.VIF.get_state (DB.vm_of id) (VIF_DB.read_exn id)).Vif.plugged
-				then raise (Exception Device_is_connected)
-				else return (DB.remove id)
+				then raise (Device_is_connected)
+				else (DB.remove id)
 			) ()
 
 	let stat' id =
@@ -1339,13 +1341,13 @@ module VIF = struct
 		vif_t, state
 	let stat _ dbg id =
 		Debug.with_thread_associated dbg
-			(fun () -> return (stat' id)) ()
+			(fun () -> (stat' id)) ()
 
 	let list _ dbg vm =
 		Debug.with_thread_associated dbg
 			(fun () ->
 				debug "VIF.list %s" vm;
-				DB.list vm |> return) ()
+				DB.list vm) ()
 end
 
 module HOST = struct
@@ -1354,14 +1356,14 @@ module HOST = struct
 			(fun () ->
 				debug "HOST.get_console_data";
 				let module B = (val get_backend () : S) in
-				B.HOST.get_console_data () |> return
+				B.HOST.get_console_data ()
 			) ()
 	let get_total_memory_mib _ dbg =
 		Debug.with_thread_associated dbg
 			(fun () ->
 				debug "HOST.get_total_memory_mib";
 				let module B = (val get_backend () : S) in
-				B.HOST.get_total_memory_mib () |> return
+				B.HOST.get_total_memory_mib ()
 			) ()
 
 	let send_debug_keys _ dbg keys =
@@ -1369,14 +1371,14 @@ module HOST = struct
 			(fun () ->
 				debug "HOST.send_debug_keys %s" keys;
 				let module B = (val get_backend () : S) in
-				B.HOST.send_debug_keys keys |> return
+				B.HOST.send_debug_keys keys
 			) ()
 
 	let set_worker_pool_size _ dbg size =
 		Debug.with_thread_associated dbg
 			(fun () ->
 				debug "HOST.set_worker_pool_size %d" size;
-				WorkerPool.set_size size |> return
+				WorkerPool.set_size size
 			) ()
 end
 
@@ -1390,9 +1392,9 @@ module VM = struct
 		DB.write x.id x;
 		x.id
 	let add _ dbg x =
-		Debug.with_thread_associated dbg (fun () -> add' x |> return) ()
+		Debug.with_thread_associated dbg (fun () -> add' x) ()
 
-	let remove _ dbg id = immediate_operation dbg id (Atomic(VM_remove id)) |> return
+	let remove _ dbg id = immediate_operation dbg id (Atomic(VM_remove id))
 
 	let stat' x =
 		debug "VM.stat %s" x;
@@ -1403,49 +1405,49 @@ module VM = struct
 		let state = if is_rebooting x then { state with Vm.power_state = Running } else state in
 		vm_t, state
 	let stat _ dbg id =
-		Debug.with_thread_associated dbg (fun () -> return (stat' id)) ()
+		Debug.with_thread_associated dbg (fun () -> (stat' id)) ()
 
 	let list _ dbg () =
-		Debug.with_thread_associated dbg (fun () -> DB.list () |> return) ()
+		Debug.with_thread_associated dbg (fun () -> DB.list ()) ()
 
-	let create _ dbg id = queue_operation dbg id (Atomic(VM_create id)) |> return
+	let create _ dbg id = queue_operation dbg id (Atomic(VM_create id))
 
-	let build _ dbg id = queue_operation dbg id (Atomic(VM_build id)) |> return
+	let build _ dbg id = queue_operation dbg id (Atomic(VM_build id))
 
-	let create_device_model _ dbg id save_state = queue_operation dbg id (Atomic(VM_create_device_model (id, save_state))) |> return
+	let create_device_model _ dbg id save_state = queue_operation dbg id (Atomic(VM_create_device_model (id, save_state)))
 
-	let destroy _ dbg id = queue_operation dbg id (Atomic(VM_destroy id)) |> return
+	let destroy _ dbg id = queue_operation dbg id (Atomic(VM_destroy id))
 
-	let pause _ dbg id = queue_operation dbg id (Atomic(VM_pause id)) |> return
+	let pause _ dbg id = queue_operation dbg id (Atomic(VM_pause id))
 
-	let unpause _ dbg id = queue_operation dbg id (Atomic(VM_unpause id)) |> return
+	let unpause _ dbg id = queue_operation dbg id (Atomic(VM_unpause id))
 
-	let set_xsdata _ dbg id xsdata = queue_operation dbg id (Atomic (VM_set_xsdata (id, xsdata))) |> return
+	let set_xsdata _ dbg id xsdata = queue_operation dbg id (Atomic (VM_set_xsdata (id, xsdata)))
 
-	let set_vcpus _ dbg id n = queue_operation dbg id (Atomic(VM_set_vcpus (id, n))) |> return
+	let set_vcpus _ dbg id n = queue_operation dbg id (Atomic(VM_set_vcpus (id, n)))
 
-	let set_shadow_multiplier _ dbg id n = queue_operation dbg id (Atomic(VM_set_shadow_multiplier (id, n))) |> return
+	let set_shadow_multiplier _ dbg id n = queue_operation dbg id (Atomic(VM_set_shadow_multiplier (id, n)))
 
-	let set_memory_dynamic_range _ dbg id min max = queue_operation dbg id (Atomic(VM_set_memory_dynamic_range (id, min, max))) |> return
+	let set_memory_dynamic_range _ dbg id min max = queue_operation dbg id (Atomic(VM_set_memory_dynamic_range (id, min, max)))
 
-	let delay _ dbg id t = queue_operation dbg id (Atomic(VM_delay(id, t))) |> return
+	let delay _ dbg id t = queue_operation dbg id (Atomic(VM_delay(id, t)))
 
-	let start _ dbg id = queue_operation dbg id (VM_start id) |> return
+	let start _ dbg id = queue_operation dbg id (VM_start id)
 
-	let shutdown _ dbg id timeout = queue_operation dbg id (VM_poweroff (id, timeout)) |> return
+	let shutdown _ dbg id timeout = queue_operation dbg id (VM_poweroff (id, timeout))
 
-	let reboot _ dbg id timeout = queue_operation dbg id (VM_reboot (id, timeout)) |> return
+	let reboot _ dbg id timeout = queue_operation dbg id (VM_reboot (id, timeout))
 
-	let suspend _ dbg id disk = queue_operation dbg id (VM_suspend (id, Disk disk)) |> return
+	let suspend _ dbg id disk = queue_operation dbg id (VM_suspend (id, Disk disk))
 
-	let resume _ dbg id disk = queue_operation dbg id (VM_resume (id, Disk disk)) |> return
+	let resume _ dbg id disk = queue_operation dbg id (VM_resume (id, Disk disk)) 
 
-	let s3suspend _ dbg id = queue_operation dbg id (Atomic(VM_s3suspend id)) |> return
-	let s3resume _ dbg id = queue_operation dbg id (Atomic(VM_s3resume id)) |> return
+	let s3suspend _ dbg id = queue_operation dbg id (Atomic(VM_s3suspend id))
+	let s3resume _ dbg id = queue_operation dbg id (Atomic(VM_s3resume id))
 
-	let migrate context dbg id url = queue_operation dbg id (VM_migrate (id, url)) |> return
+	let migrate context dbg id vdi_map url = queue_operation dbg id (VM_migrate (id, vdi_map, url)) 
 
-	let export_metadata _ dbg id = export_metadata id |> return
+	let export_metadata _ dbg id = export_metadata [] id 
 
 	let import_metadata _ dbg s =
 		Debug.with_thread_associated dbg
@@ -1463,7 +1465,7 @@ module VM = struct
 				let (_: Vbd.id list) = List.map VBD.add' vbds in
 				let (_: Vif.id list) = List.map VIF.add' vifs in
 				md.Metadata.domains |> Opt.iter (B.VM.set_internal_state (VM_DB.read_exn vm));
-				vm |> return
+				vm 
 			) ()
 
 	let receive_memory req s _ : unit =
@@ -1493,7 +1495,7 @@ module DEBUG = struct
 		Debug.with_thread_associated dbg
 			(fun () ->
 				let module B = (val get_backend () : S) in
-				B.DEBUG.trigger cmd args |> return
+				B.DEBUG.trigger cmd args 
 			) ()
 	let shutdown _ dbg () =
 		Debug.with_thread_associated dbg
@@ -1509,7 +1511,7 @@ module UPDATES = struct
 			(fun () ->
 				(* debug "UPDATES.get %s %s" (Opt.default "None" (Opt.map string_of_int last)) (Opt.default "None" (Opt.map string_of_int timeout)); *)
 				let ids, next = Updates.get dbg last timeout updates in
-				return (ids, next)
+				(ids, next)
 			) ()
 
 	let inject_barrier _ dbg id =
@@ -1517,7 +1519,7 @@ module UPDATES = struct
 			(fun () ->
 				debug "UPDATES.inject_barrier %d" id;
 				Updates.add (Dynamic.Barrier id) updates;
-				return ()
+				()
 			) ()
 
 	let remove_barrier _ dbg id =
@@ -1525,7 +1527,7 @@ module UPDATES = struct
 			(fun () ->
 				debug "UPDATES.remove_barrier %d" id;
 				Updates.remove (Dynamic.Barrier id) updates;
-				return ()
+				()
 			) ()
 
 	let refresh_vm _ dbg id =
@@ -1535,7 +1537,7 @@ module UPDATES = struct
 				VM_DB.signal id;
 				List.iter VBD_DB.signal (VBD_DB.ids id);
 				List.iter VIF_DB.signal (VIF_DB.ids id);
-				return ()
+				()
 			) ()
 end
 
@@ -1604,4 +1606,4 @@ module Diagnostics = struct
 end
 
 let get_diagnostics _ _ () =
-	Diagnostics.make () |> Diagnostics.rpc_of_t |> Jsonrpc.to_string |> return
+	Diagnostics.make () |> Diagnostics.rpc_of_t |> Jsonrpc.to_string 
