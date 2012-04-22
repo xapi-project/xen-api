@@ -46,9 +46,8 @@ let xenops_vdi_locator ~__context ~self =
 let disk_of_vdi ~__context ~self =
 	try Some (VDI (xenops_vdi_locator ~__context ~self)) with _ -> None
 
-let backend_of_network ~__context ~self =
-	let bridge = Db.Network.get_bridge ~__context ~self in
-	Network.Local bridge (* PR-1255 *)
+let backend_of_network net =
+	Network.Local net.API.network_bridge (* PR-1255 *)
 
 let find f map default feature =
 	try f (List.assoc feature map)
@@ -239,7 +238,7 @@ module MD = struct
 			carrier = true;
 			mtu = mtu;
 			rate = None;
-			backend = backend_of_network ~__context ~self:vif.API.vIF_network;
+			backend = backend_of_network net;
 			other_config = vif.API.vIF_other_config;
 			locking_mode = locking_mode;
 			extra_private_keys = [
@@ -1782,7 +1781,8 @@ let vif_move ~__context ~self network =
 			assert_resident_on ~__context ~self:vm;
 			let vif = md_of_vif ~__context ~self in
 			info "xenops: VIF.move %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
-			let backend = backend_of_network ~__context ~self:network in
+			let network = Db.Network.get_record ~__context ~self:network in
+			let backend = backend_of_network network in
 			let dbg = Context.string_of_task __context in
 			Client.VIF.move dbg vif.Vif.id backend |> sync_with_task __context;
 			Event.wait dbg ();
