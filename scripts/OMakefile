@@ -32,6 +32,7 @@ install:
 	$(IPROG) xapi-autostart-vms $(DESTDIR)$(BINDIR)
 	$(IPROG) udhcpd.skel $(DESTDIR)/var/xapi/udhcpd.skel  #### FHS_FIXME
 	$(IPROG) xapi.conf $(DESTDIR)$(XAPICONF)
+	$(IPROG) xenopsd.conf $(DESTDIR)$(ETCDIR)/xenopsd.conf
 	$(IPROG) log.conf $(DESTDIR)$(ETCDIR)/log.conf
 	$(IPROG) db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf
 	$(IPROG) rio.db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf.rio
