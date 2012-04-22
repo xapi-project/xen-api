@@ -8,12 +8,13 @@ OCAML_LINK_FLAGS+= $(XEN_OCAML_LINK_FLAGS) # $(XENLIGHT_LINK_FLAGS)
 
 CFLAGS          += $(XEN_CFLAGS)
 
-OCAMLPACKS     = threads xenctrl xenctrlext xenstore stdext log cdrom netdev # xenlight
+OCAMLPACKS    = xml-light2 cdrom sexpr log stunnel http-svr netdev xenctrl xenctrlext xenstore rpc-light # xenlight
 OCAMLFLAGS    += -thread
 
-UseCamlp4(rpc-light.syntax, device_number domain device)
+UseCamlp4(rpc-light.syntax, device_number xenops_server_simulator xenops_migrate xenops_server_xen xenops_server_plugin domain device)
+UseCamlp4(rpc-light.idl, xenops_interface)
 
-LIBFILES = table xenops_helpers xenbus_utils balloon xenguestHelper domain hotplug device io statdev xal netman memory watch device_common squeeze squeeze_xen squeezed_rpc squeezed_state squeezed_rpc device_number stubdom bootloader
+LIBFILES = table xenops_helpers xenbus_utils balloon xenguestHelper domain hotplug device io statdev xal netman memory watch device_common squeeze squeeze_xen squeezed_rpc squeezed_state squeezed_rpc device_number stubdom bootloader xenops_interface xenops_utils xenops_client xenops_server_plugin ../xapi/storage_interface ../xapi/vdi_automaton xenops_server xenops_migrate xenops_task xenops_server_xen xenops_server_simulator
 
 StaticCLibrary(statdev_stubs, statdev_stubs)
 OCamlLibraryClib(xenops, $(LIBFILES), statdev_stubs)
@@ -29,6 +30,8 @@ OCamlProgram(freemem, freemem)
 OCamlProgram(squeezed, squeezed)
 OCamlDocProgram(squeezed, squeezed)
 OCamlProgram(squeezed_client, squeezed_client)
+OCamlProgram(xenopsd, xenopsd)
+OCamlDocProgram(xenopsd, xenopsd)
 
 OCamlProgram(device_number_test, device_number_test device_number)
 
@@ -62,7 +65,7 @@ OCamlProgram(squeeze_test, squeeze_test squeeze_test_main)
 BIN_PROGS=list_domains squeezed_client
 DEBUG_PROGS=xs xal xenops watch_test memory_breakdown memory_summary
 SYMLINK_PROGS=destroy_domain shutdown_domain create_domain build_domain build_hvm add_vbd add_vif unpause_domain pause_domain suspend_domain restore_domain
-OTHER_PROGS=fence dbgring squeezed
+OTHER_PROGS=fence dbgring squeezed xenopsd
 
 .PHONY: allxenops
 allxenops: $(DEBUG_PROGS) $(BIN_PROGS) $(OTHER_PROGS)
@@ -71,13 +74,15 @@ allxenops: $(DEBUG_PROGS) $(BIN_PROGS) $(OTHER_PROGS)
 install:
 	mkdir -p $(DESTDIR)$(OPTDIR)/debug
 	cp -f $(DEBUG_PROGS) $(DESTDIR)$(OPTDIR)/debug
-	sh -c 'for i in $(SYMLINK_PROGS); do ln -nfs xenops $(DESTDIR)$(OPTDIR)/debug/$$i; done'
+	sh -c 'for i in $(SYMLINK_PROGS); do ln -nfs xenops $(DESTDIR)$(OPTDIR)/$$i; done'
 	mkdir -p $(DESTDIR)$(BINDIR)
 	$(IPROG) $(BIN_PROGS) $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) fence $(DESTDIR)$(LIBEXECDIR)/fence.bin
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) squeezed $(DESTDIR)$(LIBEXECDIR)
+	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) xenopsd $(DESTDIR)$(LIBEXECDIR)
 
 .PHONY: sdk-install
 sdk-install: install
