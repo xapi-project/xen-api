@@ -1543,6 +1543,36 @@ module VIF = struct
 			);
 		()
 
+	let move task vm vif network =
+		let vm_t = DB.read_exn vm in
+		with_xc_and_xs
+			(fun xc xs ->
+				try
+					(* If the device is gone then this is ok *)
+					let device = device_by_id xc xs vm Device_common.Vif Oldest (id_of vif) in
+					let bridge = match network with
+						| Network.Local x -> x
+						| Network.Remote (_, _) -> failwith "Unsupported" in
+
+					Device.Vif.move ~xs device bridge;
+
+					(* If we have a qemu frontend, detach this too. *)
+					if List.mem_assoc vif.Vif.id vm_t.VmExtra.qemu_vifs then begin
+						match (List.assoc vif.Vif.id vm_t.VmExtra.qemu_vifs) with
+							| _, Device device ->
+								Device.Vif.move ~xs device bridge;
+								DB.write vm { vm_t with VmExtra.qemu_vifs = List.remove_assoc vif.Vif.id vm_t.VmExtra.qemu_vifs }
+							| _, _ -> ()
+					end
+
+				with
+					| Exception(Does_not_exist(_,_)) ->
+						debug "VM = %s; Ignoring missing domain" (id_of vif)
+					| Exception(Device_not_connected) ->
+						debug "VM = %s; Ignoring missing device" (id_of vif)
+			);
+		()
+
 	let set_carrier task vm vif carrier =
 		with_xc_and_xs
 			(fun xc xs ->

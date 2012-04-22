@@ -760,6 +760,13 @@ let set_carrier ~xs (x: device) carrier =
 let release ~xs (x: device) =
 	debug "Device.Vif.release %s" (string_of_device x);
 	Hotplug.release ~xs x
+
+let move ~xs (x: device) bridge =
+	let xs_bridge_path = Hotplug.get_private_data_path_of_device x ^ "/bridge" in
+	xs.Xs.write xs_bridge_path bridge;
+	let domid = string_of_int x.frontend.domid in
+	let devid = string_of_int x.frontend.devid in
+	ignore (Forkhelpers.execute_command_get_output (Filename.concat Fhs.scriptsdir "vif") ["move"; "vif"; domid; devid])
 end
 
 (*****************************************************************************)

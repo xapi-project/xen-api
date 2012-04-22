@@ -392,6 +392,7 @@ module VIF = struct
 	external add: debug_info -> Vif.t -> (Vif.id option) * (error option) = ""
 	external plug: debug_info -> Vif.id -> (Task.id option) * (error option) = ""
 	external unplug: debug_info -> Vif.id -> bool -> (Task.id option) * (error option) = ""
+	external move: debug_info -> Vif.id -> Network.t -> (Task.id option) * (error option) = ""
 	external stat: debug_info -> Vif.id -> ((Vif.t * Vif.state) option) * (error option) = ""
 	external list: debug_info -> Vm.id -> ((Vif.t * Vif.state) list option) * (error option) = ""
 	external remove: debug_info -> Vif.id -> (unit option) * (error option) = ""

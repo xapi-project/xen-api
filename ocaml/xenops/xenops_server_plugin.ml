@@ -268,6 +268,7 @@ module type S = sig
 	module VIF : sig
 		val plug: Xenops_task.t -> Vm.id -> Vif.t -> unit
 		val unplug: Xenops_task.t -> Vm.id -> Vif.t -> bool -> unit
+		val move: Xenops_task.t -> Vm.id -> Vif.t -> Network.t -> unit
 		val set_carrier: Xenops_task.t -> Vm.id -> Vif.t -> bool -> unit
 		val set_locking_mode: Xenops_task.t -> Vm.id -> Vif.t -> Vif.locking_mode -> unit
 
