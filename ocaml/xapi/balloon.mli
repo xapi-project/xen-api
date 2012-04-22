@@ -11,19 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Small executable that sends a reopen-logs XML/RPC message to the licensing daemon *)
- 
-let socket = Filename.concat Fhs.vardir "v6"
-
-(* RPC function for communication with the v6 daemon *)
-let v6rpc xml = 
-	let open Xmlrpc_client in
-	XML_protocol.rpc ~transport:(Unix socket) ~http:(xmlrpc ~version:"1.0" "/") xml
-
-let _ = 
-	try
-		let request = XMLRPC.To.methodCall "reopen-logs" [] in
-		ignore (v6rpc request)
-	with
-	| _ -> ()
-
+val parse_proc_xen_balloon : unit -> (string * int64 option) list
+val _current_allocation : string
+val _requested_target : string
+val _low_mem_balloon : string
+val _high_mem_balloon : string

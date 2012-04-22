@@ -26,7 +26,7 @@ let default_path = Filename.concat Fhs.vardir "storage"
 let transport = ref (Unix default_path)
 
 let rpc call =
-	XMLRPC_protocol.rpc ~transport:!transport
+	XMLRPC_protocol.rpc ~srcstr:"sm-cli-test" ~dststr:"smapiv2" ~transport:!transport
 		~http:(xmlrpc ~version:"1.0" "/") call
 
 open Storage_interface
@@ -42,16 +42,11 @@ let usage_and_exit () =
 	exit 1
 
 let find_vdi_in_scan sr vdi =
-	match Client.SR.scan ~task ~sr with
-		| Success (Vdis results) ->
-			begin
-				try
-					Some (List.find (fun x -> x.vdi = vdi) results)
-				with Not_found ->
-					None
-			end
-		| x ->
-			failwith (Printf.sprintf "Unexpected result from SR.scan: %s\n" (string_of_result x))
+	let results = Client.SR.scan ~task ~sr in
+	try
+		Some (List.find (fun x -> x.vdi = vdi) results)
+	with Not_found ->
+		None
 
 let test_query sr _ = let (_: query_result) = Client.query () in ()
 
@@ -63,10 +58,12 @@ let test_scan_missing_vdi sr _ =
 		| None -> ()
 
 let test_destroy_missing_vdi sr _ =
-	begin match Client.VDI.destroy ~task ~sr ~vdi:missing_vdi with
-		| Failure Vdi_does_not_exist -> ()
-		| x -> failwith (Printf.sprintf "Unexpected result from VDI.destroy: %s\n" (string_of_result x))
-	end
+	try
+		Client.VDI.destroy ~task ~sr ~vdi:missing_vdi;
+		failwith "VDI.destroy unexpectedly succeeded"
+	with 
+		| Vdi_does_not_exist -> ()
+		| x -> failwith (Printf.sprintf "Unexpected result from VDI.destroy: %s\n" (Printexc.to_string x))
 
 let vdi_info_assert_equal vdi_info vdi_info' =
 	assert_equal ~msg:"name_label" ~printer:(fun x -> x) vdi_info.name_label vdi_info'.name_label;
@@ -91,6 +88,8 @@ let example_vdi_info =
 	let physical_utilisation = 0L in
 	{
 		vdi = "";
+		sr = "";
+		content_id = "";
 		name_label = name_label;
 		name_description = name_description;
 		ty = ty;
@@ -105,42 +104,27 @@ let example_vdi_info =
 
 let test_create_destroy sr _ =
 	let vdi_info = example_vdi_info in
-	let vdi_info' = begin match Client.VDI.create ~task ~sr ~vdi_info ~params:[] with
-		| Success (Vdi vdi_info') ->
-			vdi_info_assert_equal vdi_info vdi_info';
-			vdi_info'
-			(* sizes will be rounded up *)
-		| x -> failwith (Printf.sprintf "Unexpected result: %s\n" (string_of_result x))
-	end in
+	let vdi_info' = 
+		let vdi_info' = Client.VDI.create ~task ~sr ~vdi_info ~params:[] in
+		vdi_info_assert_equal vdi_info vdi_info';
+		vdi_info'
+	in
 	begin match find_vdi_in_scan sr vdi_info'.vdi with
 		| None -> failwith (Printf.sprintf "SR.scan failed to find vdi: %s" (string_of_vdi_info vdi_info'))
 		| Some vdi_info'' -> vdi_info_assert_equal vdi_info' vdi_info''
 	end;
-	begin match Client.VDI.destroy ~task ~sr ~vdi:vdi_info'.vdi with
-		| Success Unit -> ()
-		| x -> failwith (Printf.sprintf "Unexpected result: %s\n" (string_of_result x))
-	end;
+	Client.VDI.destroy ~task ~sr ~vdi:vdi_info'.vdi;
 	begin match find_vdi_in_scan sr vdi_info'.vdi with
 		| Some vdi_info''' -> failwith (Printf.sprintf "SR.scan found a VDI that was just deleted: %s" (string_of_vdi_info vdi_info'''))
 		| None -> ()
 	end
 
 let test_attach_activate sr _ =
-	let vdi_info = match Client.VDI.create ~task ~sr ~vdi_info:example_vdi_info ~params:[] with
-		| Success (Vdi x) -> x
-		| x -> failwith (Printf.sprintf "Unexpected result: %s\n" (string_of_result x))	in
+	let vdi_info = Client.VDI.create ~task ~sr ~vdi_info:example_vdi_info ~params:[] in
 	let dp = "test_attach_activate" in
-	let (_: string) = match Client.VDI.attach ~task ~sr ~dp ~vdi:vdi_info.vdi ~read_write:true with
-		| Success (Params x) -> x
-		| x -> failwith (Printf.sprintf "Unexpected result: %s\n" (string_of_result x))	in
-	begin match Client.VDI.activate ~task ~sr ~dp ~vdi:vdi_info.vdi with
-		| Success Unit -> ()
-		| x -> failwith (Printf.sprintf "Unexpected result: %s\n" (string_of_result x))
-	end;
-	begin match Client.VDI.destroy ~task ~sr ~vdi:vdi_info.vdi with
-		| Success Unit -> ()
-		| x -> failwith (Printf.sprintf "Unexpected result: %s\n" (string_of_result x))
-	end		
+	let _ = Client.VDI.attach ~task ~sr ~dp ~vdi:vdi_info.vdi ~read_write:true in
+	Client.VDI.activate ~task ~sr ~dp ~vdi:vdi_info.vdi;
+	Client.VDI.destroy ~task ~sr ~vdi:vdi_info.vdi
 
 let _ =
 	let verbose = ref false in

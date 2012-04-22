@@ -52,6 +52,13 @@ Group: System/Hypervisor
 %description squeezed
 This package contains the Xen virtual firmware (hvmloader)
 
+%package xenopsd
+Summary: The xenops daemon
+Group: System/Hypervisor
+
+%description xenopsd
+This package contains the xenops daemon.
+
 %package v6d
 Summary: The editions and features daemon
 Group: System/Hypervisor
@@ -105,6 +112,7 @@ cp $RPM_SOURCE_DIR/jquery* $RPM_BUILD_DIR/xapi-0.2/ocaml/idl
 
 %build
 COMPILE_JAVA=no %{__make}
+COMPILE_JAVA=no %{__make} test
 
 %install
 rm -rf %{buildroot}
@@ -127,6 +135,9 @@ rm -rf $RPM_BUILD_ROOT
 
 %post squeezed
 [ ! -x /sbin/chkconfig ] || chkconfig squeezed on
+
+%post xenopsd
+[ ! -x /sbin/chkconfig ] || chkconfig xenopsd on
 
 %post v6d
 [ ! -x /sbin/chkconfig ] || chkconfig --add v6d
@@ -175,7 +186,6 @@ rm -rf $RPM_BUILD_ROOT
 /etc/xapi.d/plugins/iovirt
 /etc/xensource/db.conf
 /etc/xensource/db.conf.rio
-/etc/xensource/log.conf
 /etc/xensource/master.d/01-example
 /etc/xensource/master.d/03-mpathalert-daemon
 /etc/xensource/pool.conf
@@ -188,7 +198,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/bin/mpathalert
 @OPTDIR@/bin/perfmon
 @OPTDIR@/bin/static-vdis
-@OPTDIR@/bin/v6d-reopen-logs
 @OPTDIR@/bin/xapi-autostart-vms
 @OPTDIR@/bin/xapi-db-process
 @OPTDIR@/bin/xapi-wait-init-complete
@@ -208,7 +217,6 @@ rm -rf $RPM_BUILD_ROOT
 /etc/xensource/bugtool/xapi/stuff.xml
 @OPTDIR@/libexec/sm_diagnostics
 @OPTDIR@/libexec/thread_diagnostics
-@OPTDIR@/libexec/fakeguestagent
 @OPTDIR@/libexec/InterfaceReconfigure.py
 @OPTDIR@/libexec/InterfaceReconfigure.pyo
 @OPTDIR@/libexec/InterfaceReconfigure.pyc
@@ -239,7 +247,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/link-vms-by-sr.py
 @OPTDIR@/libexec/link-vms-by-sr.pyo
 @OPTDIR@/libexec/link-vms-by-sr.pyc
-@OPTDIR@/libexec/logrotate.sh
 @OPTDIR@/libexec/logs-download
 @OPTDIR@/libexec/lw-force-domain-leave
 @OPTDIR@/libexec/mail-alarm
@@ -296,9 +303,19 @@ rm -rf $RPM_BUILD_ROOT
 %files squeezed
 %defattr(-,root,root,-)
 @OPTDIR@/libexec/squeezed
-/etc/logrotate.d/squeezed
 /etc/rc.d/init.d/squeezed
 @OPTDIR@/bin/squeezed_client
+
+%files xenopsd
+%defattr(-,root,root,-)
+@OPTDIR@/libexec/xenopsd
+/etc/rc.d/init.d/xenopsd
+/etc/xenopsd.conf
+@OPTDIR@/bin/xn
+/usr/bin/xn
+/etc/xensource/bugtool/xenopsd.xml
+/etc/xensource/bugtool/xenopsd/stuff.xml
+@OPTDIR@/libexec/xn_diagnostics
 
 %files v6d
 %defattr(-,root,root,-)
@@ -309,8 +326,6 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root,-)
 @OPTDIR@/libexec/xcp-networkd
 /etc/rc.d/init.d/xcp-networkd
-@OPTDIR@/bin/xcp-networkd-reopen-logs
-/etc/logrotate.d/xcp-networkd
 
 %files xenops
 %defattr(-,root,root,-)
@@ -335,7 +350,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/debug/unpause_domain
 @OPTDIR@/debug/vncproxy
 @OPTDIR@/debug/with-vdi
-@OPTDIR@/debug/xal
 @OPTDIR@/debug/xs
 
 %files www
@@ -393,7 +407,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/debug/perftest
 @OPTDIR@/debug/quicktest
 @OPTDIR@/debug/quicktestbin
-@OPTDIR@/debug/watch_test
 /cli-rt/*
 /etc/xapi.d/plugins/monitor_fake_plugin
 

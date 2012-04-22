@@ -26,6 +26,28 @@ let roundup x =
 	let quantum = 16384 in
 	((x + quantum + quantum - 1) / quantum) * quantum
 
+(* Set to true when we want machine-readable output *)
+let machine_readable = ref false 
+
+let debug (fmt: ('a , unit, string, unit) format4) =
+	if !machine_readable
+	then Printf.kprintf
+		(fun s ->
+			let open Sparse_encoding in
+			let x = { Chunk.start = 0L; data = s } in
+			Chunk.marshal Unix.stdout x
+		) fmt
+	else Printf.kprintf
+		(fun s -> 
+			Printf.printf "%s\n" s;
+			flush stdout
+		) fmt
+
+let close_output () =
+	let open Sparse_encoding in
+	if !machine_readable
+	then Chunk.marshal Unix.stdout { Chunk.start = 0L; data = "" }
+
 (** The copying routine has inputs and outputs which both look like a 
     Unix file-descriptor *)
 module type IO = sig
@@ -68,15 +90,21 @@ module DD(Input : IO)(Output : IO) = struct
 
 	(** [copy progress_cb bat sparse src dst size] copies blocks of data from [src] to [dst]
 	    where [bat] represents the allocated / dirty blocks in [src];
-	    where if prezeroed is true it means do scan for and skip over blocks of \000
+        where if [erase] is true it means erase all other blocks in the file;
+        where if [write_zeroes] is true it means scan for and skip over blocks of \000
 	    while calling [progress_cb] frequently to report the fraction complete
 	*)
-	let copy progress_cb bat prezeroed src dst blocksize size =
+	let copy progress_cb bat erase write_zeroes src dst blocksize size =
 		(* If [prezeroed] then nothing needs wiping; otherwise we wipe not(bat) *)
 		let empty = Bat.of_list [] and full = Bat.of_list [0L, size] in
 		let bat = Opt.default full bat in
-		let bat' = if prezeroed then empty else Bat.difference full bat in
-		let sizeof bat = Bat.fold_left (fun total (_, size) -> total +* size) 0L bat in 
+		let bat' = if erase then Bat.difference full bat else empty in
+		let sizeof bat = Bat.fold_left (fun total (_, size) -> total +* size) 0L bat in
+		let sizeof_bat = sizeof bat and sizeof_bat' = sizeof bat' in
+		debug "Data to be scanned: %Ld (%.0f/100 of total)" sizeof_bat
+			(100. *. (Int64.to_float sizeof_bat) /. (Int64.to_float size));
+		debug "Data to be erased: %Ld (%.0f/100 of total)" sizeof_bat'
+			(100. *. (Int64.to_float sizeof_bat;) /. (Int64.to_float size));
 		let total_work = sizeof bat +* (sizeof bat') in
 		let stats = { writes = 0; bytes = 0L } in
 		let with_stats f offset stats substr = 
@@ -91,7 +119,7 @@ module DD(Input : IO)(Output : IO) = struct
 				buf.[offset + i] <- '\000'
 			done in
 		(* Do any necessary pre-zeroing then do the real work *)
-		let sparse = if prezeroed then Some '\000' else None in
+		let sparse = if write_zeroes then None else Some '\000' in
 		fold bat sparse (Input.op src) blocksize size (with_stats copy) 
 			(fold bat' sparse input_zero blocksize size (with_stats copy) stats)
 end
@@ -135,9 +163,9 @@ module Network_writer = struct
 
 	let do_http_put f url =
 		let open Http.Url in
-		let uri = Http.Url.uri_of url in
+		let uri = Http.Url.get_uri url in
+		let query = Http.Url.get_query_params url in
 		let auth = Http.Url.auth_of url in
-		let uri, query = Http.parse_uri uri in
 		let request = { Http.Request.empty with
 			Http.Request.m = Http.Put;
 			uri = uri;
@@ -157,7 +185,7 @@ module Network_writer = struct
 			Xmlrpc_client.with_transport (Xmlrpc_client.transport_of_url url)
 				(fun fd -> Http_client.rpc fd request f)
 		with Http_client.Http_error("401", _) as e ->
-			Printf.printf "HTTP 401 Unauthorized\n";
+			debug "HTTP 401 Unauthorized\n";
 			raise e
 
 	let op stream stream_offset { buf = buf; offset = offset; len = len } =
@@ -179,16 +207,15 @@ module File_copy = DD(File_reader)(File_writer)
 module Network_copy = DD(File_reader)(Network_writer)
 
 (** [file_dd ?progress_cb ?size ?bat prezeroed src dst]
-    If [size] is not given, will assume a plain file and will use st_size from Unix.stat.
-    If [prezeroed] is false, will first explicitly write zeroes to all blocks not in [bat].
-    Will then write blocks from [src] into [dst], using the [bat]. If [prezeroed] will additionally
-    scan for zeroes within the allocated blocks.
+    If [size] is not given, will assume a plain file and will use st_size from Unix.stat
+	If [erase]: will erase other parts of the disk
+	If [write_zeroes]: will not scan for and skip zeroes
     If [dst] has the format:
        fd:X
     then data is written directly to file descriptor X in a chunked encoding. Otherwise
     it is written directly to the file referenced by [dst].
  *)     
-let file_dd ?(progress_cb = (fun _ -> ())) ?size ?bat prezeroed src dst = 
+let file_dd ?(progress_cb = (fun _ -> ())) ?size ?bat erase write_zeroes src dst = 
 	let size = match size with
 	| None -> (Unix.LargeFile.stat src).Unix.LargeFile.st_size 
 	| Some x -> x in
@@ -197,13 +224,13 @@ let file_dd ?(progress_cb = (fun _ -> ())) ?size ?bat prezeroed src dst =
 		(* Network copy *)
 		Network_writer.do_http_put
 		(fun _ ofd ->
-			Printf.printf "\nWriting chunked encoding to fd: %d\n" (Unixext.int_of_file_descr ofd);
-			let stats = Network_copy.copy progress_cb bat prezeroed ifd ofd blocksize size in
-			Printf.printf "\nSending final chunk\n";
+			debug "Writing chunked encoding to fd: %d" (Unixext.int_of_file_descr ofd);
+			let stats = Network_copy.copy progress_cb bat erase write_zeroes ifd ofd blocksize size in
+			debug "Sending final chunk";
 			Network_writer.close ofd;			
-			Printf.printf "Waiting for connection to close\n";
+			debug "Waiting for connection to close";
 			(try let tmp = " " in Unixext.really_read ofd tmp 0 1 with End_of_file -> ());
-			Printf.printf "Connection closed\n";
+			debug "Connection closed";
 			stats) (Http.Url.of_string dst)
 	end else begin
 		let ofd = Unix.openfile dst [ Unix.O_WRONLY; Unix.O_CREAT ] 0o600 in
@@ -211,8 +238,8 @@ let file_dd ?(progress_cb = (fun _ -> ())) ?size ?bat prezeroed src dst =
 		let (_: int64) = Unix.LargeFile.lseek ofd (size -* 1L) Unix.SEEK_SET in
 		let (_: int) = Unix.write ofd "\000" 0 1 in
 		let (_: int64) = Unix.LargeFile.lseek ofd 0L Unix.SEEK_SET in
-		Printf.printf "Copying\n";
-		File_copy.copy progress_cb bat prezeroed ifd ofd blocksize size
+		debug "Copying";
+		File_copy.copy progress_cb bat erase write_zeroes ifd ofd blocksize size
 	end 
 
 (** [make_random size zero nonzero] returns a string (of size [size]) and a BAT. Blocks not in the BAT
@@ -246,13 +273,15 @@ let test_dd (input, bat) ignore_bat prezeroed zero nonzero =
 	let size = String.length input in
 	let blocksize = Int64.of_int (size / 100) in
 	let output = String.make size (if prezeroed then zero else nonzero) in
+	let erase = not prezeroed in
+	let write_zeroes = not prezeroed in
 	try
 
-		let stats = String_copy.copy (fun _ -> ()) bat prezeroed input output blocksize (Int64.of_int size) in
+		let stats = String_copy.copy (fun _ -> ()) bat erase write_zeroes input output blocksize (Int64.of_int size) in
 		assert (String.compare input output = 0);
 		stats
 	with e ->
-		Printf.printf "Exception: %s" (Printexc.to_string e);
+		debug "Exception: %s" (Printexc.to_string e);
 		let make_visible x = 
 			for i = 0 to String.length x - 1 do
 				if x.[i] = '\000' 
@@ -268,7 +297,7 @@ let test_lots_of_strings () =
 	let n = 1000 and m = 100000 in
 	let writes = ref 0 and bytes = ref 0L in
 	for i = 0 to n do
-		if i mod 100 = 0 then (Printf.printf "i = %d\n" i; flush stdout);
+		if i mod 100 = 0 then (debug "i = %d" i; flush stdout);
 		List.iter (fun ignore_bat ->
 			List.iter (fun prezeroed ->
 				let stats = test_dd (make_random m '\000' 'a') ignore_bat prezeroed '\000' 'a' in
@@ -277,9 +306,9 @@ let test_lots_of_strings () =
 			) [ true; false ]
 		) [ true; false ]
 	done;
-	Printf.printf "Tested %d random strings of length %d using all 4 combinations of ignore_bat, prezeroed\n" n m;
-	Printf.printf "Total writes: %d\n" !writes;
-	Printf.printf "Total bytes: %Ld\n" !bytes
+	debug "Tested %d random strings of length %d using all 4 combinations of ignore_bat, prezeroed" n m;
+	debug "Total writes: %d" !writes;
+	debug "Total bytes: %Ld" !bytes
 
 (** [vhd_of_device path] returns (Some vhd) where 'vhd' is the vhd leaf backing a particular device [path] or None.
     [path] may either be a blktap2 device *or* a blkfront device backed by a blktap2 device. If the latter then
@@ -316,13 +345,13 @@ let vhd_of_device path =
 			| _, _, (Some (_, vhd)) -> Some vhd
 			| _, _, _ -> raise Not_found
 		with Tapctl.Not_blktap ->
-			Printf.printf "Device %s is not controlled by blktap\n" path;
+			debug "Device %s is not controlled by blktap" path;
 			None
 		| Tapctl.Not_a_device ->
-			Printf.printf "%s is not a device\n" path;
+			debug "%s is not a device" path;
 			None
 		| _ -> 
-			Printf.printf "Device %s has an unknown driver\n" path;
+			debug "Device %s has an unknown driver" path;
 			None in
 	find_underlying_tapdisk path |> Opt.default path |> tapdisk_of_path
 
@@ -330,8 +359,8 @@ let deref_symlinks path =
 	let rec inner seen_already path = 
 		if List.mem path seen_already
 		then failwith "Circular symlink";
-		let stats = Unix.lstat path in
-		if stats.Unix.st_kind = Unix.S_LNK
+		let stats = Unix.LargeFile.lstat path in
+		if stats.Unix.LargeFile.st_kind = Unix.S_LNK
 		then inner (path :: seen_already) (Unix.readlink path)
 		else path in
 	inner [] path
@@ -367,9 +396,6 @@ let bat vhd =
 (* Record when the binary started for performance measuring *)
 let start = Unix.gettimeofday ()
 
-(* Set to true when we want machine-readable output *)
-let machine_readable = ref false 
-
 (* Helper function to print nice progress info *)
 let progress_cb =
 	let last_percent = ref (-1) in
@@ -378,8 +404,8 @@ let progress_cb =
 		let new_percent = int_of_float (fraction *. 100.) in
 		if !last_percent <> new_percent then begin
 			if !machine_readable
-			then Printf.printf "Progress: %.0f\n" (fraction *. 100.)
-			else Printf.printf "\b\rProgress: %-60s (%d%%)" (String.make (int_of_float (fraction *. 60.)) '#') new_percent;
+			then debug "Progress: %.0f" (fraction *. 100.)
+			else debug "\b\rProgress: %-60s (%d%%)" (String.make (int_of_float (fraction *. 60.)) '#') new_percent;
 			flush stdout;
 		end;
 		last_percent := new_percent
@@ -391,7 +417,7 @@ let _ =
 		    "-src", Arg.String (fun x -> src := Some x), "source disk";
 		    "-dest", Arg.String (fun x -> dest := Some x), "destination disk";
 		    "-size", Arg.String (fun x -> size := Int64.of_string x), "number of bytes to copy";
-		    "-prezeroed", Arg.Set prezeroed, "assume the destination disk has been prezeroed";
+		    "-prezeroed", Arg.Set prezeroed, "assume the destination disk has been prezeroed (but not full of zeroes if [-base] is provided)";
 		    "-machine", Arg.Set machine_readable, "emit machine-readable output";
 		    "-test", Arg.Set test, "perform some unit tests"; ]
 	(fun x -> Printf.fprintf stderr "Warning: ignoring unexpected argument %s\n" x)
@@ -410,7 +436,7 @@ let _ =
 			      "";
 			      Printf.sprintf "%s -prezeroed      -src /dev/xvda -dest /dev/xvdb -size 1024" Sys.argv.(0);
 			      "  -- copy 1024 bytes from /dev/xvda to /dev/xvdb assuming that /dev/xvdb is completely";
-			      "     full of zeroes so there's no need to explicitly copy runs of zeroes.";
+			      "     full of zeroes so there's no need to explicitly erase other parts of the disk.";
 			      "";
 			      Printf.sprintf "%s                 -src /dev/xvda -dest /dev/xvdb -size 1024" Sys.argv.(0);
 			      "";
@@ -427,12 +453,12 @@ let _ =
 		exit 0
 	end;
 	if !src = None || !dest = None || !size = (-1L) then begin
-		Printf.fprintf stderr "Must have -src -dest and -size arguments\n";
+		debug "Must have -src -dest and -size arguments\n";
 		exit 1;
 	end;
 	let empty = Bat.of_list [] in
 
-	Printf.printf "src = %s; dest = %s; base = %s; size = %Ld\n" (Opt.default "None" !src) (Opt.default "None" !dest) (Opt.default "None" !base) !size;
+	debug "src = %s; dest = %s; base = %s; size = %Ld" (Opt.default "None" !src) (Opt.default "None" !dest) (Opt.default "None" !base) !size;
 	let size = Some !size in
 
 	(** [chain_of_device device] returns [None] if [device] is None.
@@ -445,7 +471,7 @@ let _ =
 		let vhd : string option = flatten (Opt.map vhd_of_device device) in
 		let chain : string list option = Opt.map chain_of_vhd vhd in
 		let option y = Opt.default "None" (Opt.map (fun x -> "Some " ^ x) y) in
-		Printf.printf "%s has chain: [ %s ]\n" (option device) (option (Opt.map (String.concat "; ") chain));
+		debug "%s has chain: [ %s ]" (option device) (option (Opt.map (String.concat "; ") chain));
 		chain in
 
 	let bat : Bat.t option =
@@ -460,15 +486,18 @@ let _ =
 			(* We need to copy blocks from: (base - src) + (src - base)
 			   ie. everything except for blocks from the shared nodes *)
 			let unshared = List.set_difference b s @ (List.set_difference s b) in
+			debug "Scanning for changes in: [ %s ]" (String.concat "; " unshared);
 			List.fold_left Bat.union empty (List.map bat unshared)
 		) src_chain
 	with e ->
-		Printf.printf "Caught exception: %s while calculating BAT. Ignoring all BAT information\n" (Printexc.to_string e);
+		debug "Caught exception: %s while calculating BAT. Ignoring all BAT information" (Printexc.to_string e);
 		None in
 
 	progress_cb 0.;
-	let stats = file_dd ~progress_cb ?size ?bat !prezeroed (Opt.unbox !src) (Opt.unbox !dest) in
-	Printf.printf "Time: %.2f seconds\n" (Unix.gettimeofday () -. start);
-	Printf.printf "\nNumber of writes: %d\n" stats.writes;
-	Printf.printf "Number of bytes: %Ld\n" stats.bytes
-
+	let erase = not !prezeroed in
+	let write_zeroes = not !prezeroed || !base <> None in
+	let stats = file_dd ~progress_cb ?size ?bat erase write_zeroes (Opt.unbox !src) (Opt.unbox !dest) in
+	debug "Time: %.2f seconds" (Unix.gettimeofday () -. start);
+	debug "Number of writes: %d" stats.writes;
+	debug "Number of bytes: %Ld" stats.bytes;
+	close_output ()

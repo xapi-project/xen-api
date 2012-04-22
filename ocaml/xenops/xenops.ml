@@ -18,6 +18,8 @@ open Device_common
 open Xenops_helpers
 open Xenstore
 
+let task = Xenops_task.add "xenops" (fun _ -> ())
+
 let print_xen_dmesg ~xc =
 	let s = Xenctrl.readconsolering xc in
 	printf "%s\n" s
@@ -67,34 +69,17 @@ let create_domain ~xc ~xs ~hvm =
 	printf "%u\n" domid
 
 let build_domain ~xc ~xs ~kernel ?(ramdisk=None) ~cmdline ~domid ~vcpus ~static_max_kib ~target_kib =
-	let (_: Domain.domarch) = Domain.build_linux xc xs static_max_kib target_kib
+	let (_: Domain.domarch) = Domain.build_linux task xc xs static_max_kib target_kib
 	                                             kernel cmdline ramdisk vcpus domid in
 	printf "built domain: %u\n" domid
 
 let build_hvm ~xc ~xs ~kernel ~domid ~vcpus ~static_max_kib ~target_kib =
-	let (_: Domain.domarch) = Domain.build_hvm xc xs static_max_kib target_kib 1.
+	let (_: Domain.domarch) = Domain.build_hvm task xc xs static_max_kib target_kib 1.
 	                                           vcpus kernel "0" 4 domid in
 	printf "built hvm domain: %u\n" domid
 
 let clean_shutdown_domain ~xal ~domid ~reason ~sync =
-  let xc = Xal.xc_of_ctx xal in
-  let xs = Xal.xs_of_ctx xal in
-  Domain.shutdown ~xs domid reason;
-  (* Wait for any necessary acknowledgement. If we get a Watch.Timeout _ then
-	 we abort early; otherwise we continue in Xal.wait_release below. *)
-  let acked = try Domain.shutdown_wait_for_ack ~xc ~xs domid reason; true with Watch.Timeout _ -> false in
-	if not acked then (
-		eprintf "domain %u didn't acknowledged shutdown\n" domid;
-	) else (
-		printf "shutdown domain: %u\n" domid;
-		if sync then
-			try
-				ignore (Xal.wait_release xal ~timeout:30. domid);
-				printf "domain shutdowned correctly\n"
-			with Xal.Timeout ->
-				eprintf "domain %u didn't shutdown\n" domid;
-				raise Xal.Timeout
-	)
+	failwith "Use 'xn' instead"
 
 let hard_shutdown_domain ~xc ~domid ~reason = Domain.hard_shutdown ~xc domid reason
 
@@ -110,7 +95,7 @@ let unpause_domain ~xc ~domid =
 	printf "unpaused domain: %u\n" domid
 
 let destroy_domain ~xc ~xs ~domid =
-	Domain.destroy xc xs domid
+	Domain.destroy task xc xs domid
 
 let suspend_domain ~xc ~xs ~domid ~file =
 	let suspendfct () =
@@ -120,26 +105,26 @@ let suspend_domain ~xc ~xs ~domid ~file =
 		in
 	let hvm = is_hvm ~xc domid in
 	let fd = Unix.openfile file [ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_EXCL ] 0o600 in
-	Domain.suspend xc xs hvm domid fd [] suspendfct;
+	Domain.suspend task xc xs hvm domid fd [] suspendfct;
 	Unix.close fd
 
 let suspend_domain_and_resume ~xc ~xs ~domid ~file ~cooperative =
 	suspend_domain ~xc ~xs ~domid ~file;
-	Domain.resume ~xc ~xs ~cooperative ~hvm:(is_hvm ~xc domid) domid
+	Domain.resume task ~xc ~xs ~cooperative ~hvm:(is_hvm ~xc domid) domid
 
 let suspend_domain_and_destroy ~xc ~xs ~domid ~file =
 	suspend_domain ~xc ~xs ~domid ~file;
-	Domain.destroy xc xs domid
+	Domain.destroy task xc xs domid
 
 let restore_domain ~xc ~xs ~domid ~vcpus ~static_max_kib ~target_kib ~file =
 	let fd = Unix.openfile file [ Unix.O_RDONLY ] 0o400 in
-	Domain.pv_restore ~xc ~xs domid ~static_max_kib ~target_kib ~vcpus fd;
+	Domain.pv_restore task ~xc ~xs domid ~static_max_kib ~target_kib ~vcpus fd;
 	Unix.close fd
 
 let balloon_domain ~xs ~domid ~mem_mib =
 	if mem_mib <= 16L then
 		failwith (sprintf "cannot balloon domain below 16Mb: %Ld requested" mem_mib);
-	Balloon.set_memory_target ~xs domid (Int64.mul mem_mib 1024L)
+	Domain.set_memory_target ~xs domid (Int64.mul mem_mib 1024L)
 
 let domain_get_uuid ~xc ~domid =
 	try
@@ -273,12 +258,6 @@ let list_devices ~xc ~xs =
 	let infos = List.map of_device devices in
 	print_table (header :: infos)
 
-let add_vbd ~xs ~hvm ~domid ~device_number ~phystype ~params ~backend_domid ~dev_type ~mode=
-	let phystype = Device.Vbd.physty_of_string phystype in
-	let dev_type = Device.Vbd.devty_of_string dev_type in
-	Device.Vbd.add ~xs ~hvm ~mode:(Device.Vbd.mode_of_string mode)
-	               ~device_number ~phystype ~params ~backend_domid ~dev_type domid
-
 let find_device ~xs (frontend: endpoint) (backend: endpoint) = 
   let all = list_devices_between ~xs backend.domid frontend.domid in
   match List.filter (fun x -> x.frontend = frontend) all with
@@ -290,16 +269,16 @@ let del_vbd ~xs ~domid ~backend_domid ~device_number ~phystype =
 	let frontend = { domid = domid; kind = Vbd; devid = devid } in
 	let backend = { domid = backend_domid; kind = Vbd; devid = devid } in
 	let device = find_device ~xs frontend backend in
-	Device.clean_shutdown ~xs device
+	Device.clean_shutdown task ~xs device
 
 let add_vif ~xs ~domid ~netty ~devid ~mac ~backend_domid =
-	ignore(Device.Vif.add ~xs ~devid ~netty ~mac ~carrier:true ~backend_domid domid)
+	ignore(Device.Vif.add task ~xs ~devid ~netty ~mac ~carrier:true ~backend_domid domid)
 
 let del_vif ~xs ~domid ~backend_domid ~devid =
 	let frontend = { domid = domid; kind = Vif; devid = devid } in
 	let backend = { domid = backend_domid; kind = Vif; devid = devid } in
 	let device = find_device ~xs frontend backend in
-	Device.clean_shutdown ~xs device
+	Device.clean_shutdown task ~xs device
 
 let pci_of_string x = Scanf.sscanf x "%04x:%02x:%02x.%1x" (fun a b c d -> (a, b, c, d))
 
@@ -311,11 +290,11 @@ let add_pci ~xc ~xs ~hvm ~domid ~devid ~pci =
 
 let plug_pci ~xc ~xs ~domid ~devid ~pci = 
 	let pcidev = pci_of_string pci in
-	Device.PCI.plug ~xc ~xs pcidev domid
+	Device.PCI.plug task ~xc ~xs pcidev domid
 
 let unplug_pci ~xc ~xs ~domid ~devid ~pci = 
 	let pcidev = pci_of_string pci in
-	Device.PCI.unplug ~xc ~xs pcidev domid
+	Device.PCI.unplug task ~xc ~xs pcidev domid
 
 let del_pci ~xc ~xs ~hvm ~domid ~devid ~pci =
 	let pcidevs = List.map (fun d -> 
@@ -341,7 +320,8 @@ let add_dm ~xs ~domid ~static_max_kib ~vcpus ~boot =
 	let info = {
  	  Device.Dm.memory = static_max_kib;
  	  Device.Dm.boot = boot;
- 	  Device.Dm.serial = "pty";
+ 	  Device.Dm.serial = Some "pty";
+	  Device.Dm.monitor = Some "pty";
  	  Device.Dm.vcpus = vcpus;
  	  Device.Dm.nics = [];
 	  Device.Dm.disks = [];
@@ -361,7 +341,7 @@ let add_dm ~xs ~domid ~static_max_kib ~vcpus ~boot =
 
  	  Device.Dm.extras = []
  	} in
-	Device.Dm.start ~xs ~dmpath info domid
+	Device.Dm.start task ~xs ~dmpath info domid
 
 let add_ioport ~xc ~domid ~ioport_start ~ioport_end =
 	Domain.add_ioport ~xc domid ioport_start ioport_end
@@ -477,7 +457,7 @@ let do_cmd_parsing subcmd init_pos =
 	and mode = ref ""
 	and phystype = ref ""
 	and params = ref ""
-	and device_number = ref (Device_number.make (Device_number.Xen(0, 0)))
+	and device_number = ref None
 	and dev_type = ref "disk"
 	and devid = ref 0
 	and reason = ref None
@@ -513,8 +493,6 @@ let do_cmd_parsing subcmd init_pos =
 		in
 
 	let common = [
-		"-debug", Arg.Unit (fun () -> Logs.set_default Log.Debug [ "stderr" ]),
-			  "enable debugging";
 		"-domid", Arg.Set_int domid, "Domain ID to be built";
 	]
 	and setmaxmem_args = [
@@ -545,7 +523,7 @@ let do_cmd_parsing subcmd init_pos =
 		"-mode", Arg.Set_string mode, "Vbd Mode";
 		"-phystype", Arg.Set_string phystype, "Vbd set physical type (file|phy)";
         "-params", Arg.Set_string params, "Vbd set params (i.e. block device)";
-		"-device-number", Arg.String (fun x -> device_number := (Device_number.of_string false x)), "Vbd set device_number";
+        "-virtual-device", Arg.String (fun x -> device_number := Some (Device_number.of_string false x)), "Expose as this virtual device in the guest (default autodetect)";
 		"-devtype", Arg.Set_string dev_type, "Vbd dev type";
 	]
 	and vif_args = [
@@ -736,7 +714,7 @@ let _ = try
 		match reason with
 		| None -> error "no shutdown reason specified"
 		| Some reason ->
-			with_xal (fun xal -> clean_shutdown_domain ~xal ~domid ~reason ~sync)
+			failwith "use 'xn' instead"
 		)
 	| "hard_shutdown_domain" -> (
 		assert_domid ();
@@ -778,10 +756,24 @@ let _ = try
 		assert_domid ();
 		with_xc_and_xs (fun xc xs ->
 			let hvm = is_domain_hvm xc domid in
-			ignore(add_vbd ~xs ~hvm ~domid ~device_number ~phystype ~params ~dev_type ~unpluggable:true ~mode ~backend_domid)
+			let vbd = {
+				Device.Vbd.mode = Device.Vbd.mode_of_string mode;
+                device_number = device_number;
+                phystype = Device.Vbd.physty_of_string phystype;
+                params = params;
+                dev_type = Device.Vbd.devty_of_string dev_type;
+                unpluggable = true;
+                protocol = None;
+                extra_backend_keys = [];
+                extra_private_keys = [];
+                backend_domid = backend_domid
+            } in
+            let (_: device) = Device.Vbd.add task ~xs ~hvm vbd domid in
+            ()
 		)
 	| "del_vbd" ->
 		assert_domid ();
+        let device_number = Opt.unbox device_number in
 		with_xs (fun xs -> del_vbd ~xs ~domid ~backend_domid ~device_number ~phystype)
 	| "add_vif" ->
 		assert_domid ();

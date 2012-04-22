@@ -32,12 +32,9 @@ let no_exn f x =
     debug "Ignoring exception: %s" (ExnHelper.string_of_exn exn)
 
 let rpc host_address xml =
-	let open Xmlrpc_client in
 	try
-		let transport = SSL(SSL.make (), host_address, !Xapi_globs.https_port) in
-		let http = xmlrpc ~version:"1.0" "/" in
-		XML_protocol.rpc ~transport ~http xml
-	with Connection_reset ->
+		Helpers.make_remote_rpc host_address xml
+	with Xmlrpc_client.Connection_reset ->
 		raise (Api_errors.Server_error(Api_errors.pool_joining_host_connection_failed, []))
 
 let get_master ~rpc ~session_id =
@@ -648,36 +645,6 @@ let update_non_vm_metadata ~__context ~rpc ~session_id =
 
 	()
 
-let update_vm_metadata ~__context ~rpc ~session_id ~master_address =
-	let subtask_of = (Ref.string_of (Context.get_task_id __context)) in
-
-	let open Xmlrpc_client in
-
-	Helpers.call_api_functions ~__context (fun my_rpc my_session_id ->
-		let get = Xapi_http.http_request ~version:"1.0" ~subtask_of
-			~cookie:["session_id", Ref.string_of my_session_id] ~keep_alive:false
-			Http.Get
-			(Printf.sprintf "%s?all=true" Constants.export_metadata_uri) in
-		let put = Xapi_http.http_request ~version:"1.0" ~subtask_of
-			~cookie:["session_id", Ref.string_of session_id] ~keep_alive:false
-			Http.Put
-			(Printf.sprintf "%s?restore=true" Constants.import_metadata_uri) in
-		debug "Piping HTTP %s to %s" (Http.Request.to_string get) (Http.Request.to_string put);
-		with_transport (Unix Xapi_globs.unix_domain_socket)
-			(with_http get
-				(fun (r, ifd) ->
-					let put = { put with Http.Request.content_length = r.Http.Response.content_length } in
-					with_transport (SSL (SSL.make (), master_address, !Xapi_globs.https_port))
-						(with_http put
-							(fun (_, ofd) ->
-								let (_: int64) = Unixext.copy_file ?limit:r.Http.Response.content_length ifd ofd in
-								()
-							)
-						)
-				)
-			)
-	)
-
 let join_common ~__context ~master_address ~master_username ~master_password ~force =
 	(* get hold of cluster secret - this is critical; if this fails whole pool join fails *)
 	(* Note: this is where the license restrictions are checked on the other side.. if we're trying to join
@@ -707,7 +674,7 @@ let join_common ~__context ~master_address ~master_username ~master_password ~fo
 		on with the join *)
 		try
 			update_non_vm_metadata ~__context ~rpc ~session_id;
-			update_vm_metadata ~__context ~rpc ~session_id ~master_address;
+			Importexport.remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address:master_address `All
 		with e ->
 			debug "Error whilst importing db objects into master; aborted: %s" (Printexc.to_string e);
 			warn "Error whilst importing db objects to master. The pool-join operation will continue, but some of the slave's VMs may not be available on the master.")

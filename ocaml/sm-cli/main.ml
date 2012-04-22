@@ -20,12 +20,12 @@ open Fun
 open Stringext
 open Xmlrpc_client
 
-let url = ref (Http.Url.File ({ Http.Url.path = Filename.concat Fhs.vardir "storage" }, "/"))
+let url = Http.Url.(ref (File { path = Filename.concat Fhs.vardir "storage" }, { uri = "/"; query_params = [] }))
 
 module RPC = struct
 let rpc call =
-	XMLRPC_protocol.rpc ~transport:(transport_of_url !url)
-		~http:(xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of !url) (Http.Url.uri_of !url)) call
+	XMLRPC_protocol.rpc ~transport:(transport_of_url !url) ~srcstr:"sm-cli" ~dststr:"smapiv2"
+		~http:(xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of !url) ~query:(Http.Url.get_query_params !url) (Http.Url.get_uri !url)) call
 end
 
 open Storage_interface
@@ -62,15 +62,11 @@ let _ =
 				) srs
 		| [ "sr-scan"; sr ] ->
 			if Array.length Sys.argv < 3 then usage_and_exit ();
-			begin match Client.SR.scan ~task ~sr with
-				| Success (Vdis vs) ->
-					List.iter
-						(fun v ->
-							Printf.printf "%s\n" (string_of_vdi_info v)
-						) vs
-				| x ->
-					Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)
-			end
+			let vs = Client.SR.scan ~task ~sr in
+			List.iter 
+				(fun v -> 
+					Printf.printf "%s\n" (string_of_vdi_info v)
+				) vs
 		| "vdi-create" :: sr :: args ->
 			if Array.length Sys.argv < 3 then usage_and_exit ();
 			let kvpairs = List.filter_map
@@ -80,6 +76,8 @@ let _ =
 			let find key = if List.mem_assoc key kvpairs then Some (List.assoc key kvpairs) else None in
 			let vdi_info = {
 				vdi = "";
+				sr = sr;
+				content_id = ""; (* PR-1255 *)
 				name_label = Opt.default "default name_label" (find "name_label");
 				name_description = Opt.default "default name_description" (find "name_description");
 				ty = Opt.default "user" (find "ty");
@@ -99,17 +97,36 @@ let _ =
 					then Some (String.sub k l (String.length k - l), v)
 					else None) kvpairs in
 
-			begin match Client.VDI.create ~task ~sr ~vdi_info ~params with
-				| Success (Vdi v) ->
-					Printf.printf "%s\n" (string_of_vdi_info v)
-				| x ->
-					Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)
-			end
+			let v = Client.VDI.create ~task ~sr ~vdi_info ~params in
+			Printf.printf "%s\n" (string_of_vdi_info v)
 		| [ "vdi-destroy"; sr; vdi ] ->
-			begin match Client.VDI.destroy ~task ~sr ~vdi with
-				| Success Unit -> ()
-				| x ->
-					Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)
-			end
+			Client.VDI.destroy ~task ~sr ~vdi
+		| [ "vdi-get-by-name"; sr; name ] ->
+			let v = Client.VDI.get_by_name ~task ~sr ~name in
+			Printf.printf "%s\n" (string_of_vdi_info v)
+		| [ "vdi-get-by-name"; name ] ->
+			let v = Client.get_by_name ~task ~name in
+			Printf.printf "%s\n" (string_of_vdi_info v)
+		| [ "vdi-set-content-id"; sr; vdi; content_id ] ->
+			Client.VDI.set_content_id ~task ~sr ~vdi~content_id
+		| [ "vdi-similar-content"; sr; vdi ] ->
+			let vs = Client.VDI.similar_content ~task ~sr ~vdi in
+			List.iter
+				(fun v ->
+					Printf.printf "%s\n" (string_of_vdi_info v)
+				) vs
+		| [ "vdi-compose"; sr; vdi1; vdi2 ] ->
+			Client.VDI.compose ~task ~sr ~vdi1 ~vdi2
+		| [ "vdi-copy"; sr; vdi; url; dest; dest_vdi ] ->
+			let v = Client.VDI.copy ~task ~sr ~vdi ~url ~dest ~dest_vdi in
+			Printf.printf "Created VDI %s\n" v.vdi
+		| [ "vdi-get-url"; sr; vdi ] ->
+			let x = Client.VDI.get_url ~task ~sr ~vdi in
+			Printf.printf "%s\n" x
+		| [ "mirror-start"; sr; vdi; dp; url; dest ] ->
+			let v = Client.Mirror.start ~task ~sr ~vdi ~dp ~url ~dest in
+			Printf.printf "Created VDI %s\n" v.vdi
+		| [ "mirror-stop"; sr; vdi ] ->
+			Client.Mirror.stop ~task ~sr ~vdi
 		| _ ->
 			usage_and_exit ()

@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -11,9 +11,14 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-val parse_proc_xen_balloon : unit -> (string * int64 option) list
-val set_memory_target : xs:Xenstore.Xs.xsh -> Xenstore.Xs.domid -> int64 -> unit
-val _current_allocation : string
-val _requested_target : string
-val _low_mem_balloon : string
-val _high_mem_balloon : string
+
+type level =
+| Error
+| Warn
+| Debug
+| Info
+
+module D=Debug.Debugger(struct let name="rt" end)
+
+let log (fmt: ('a, unit, string, 'b) format4) =
+	Printf.kprintf (fun s -> D.info "%s" s) fmt

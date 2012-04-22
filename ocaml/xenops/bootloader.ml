@@ -26,8 +26,27 @@ open Forkhelpers
 module D=Debug.Debugger(struct let name="bootloader" end)
 open D
 
+let pygrub_path = "/usr/bin/pygrub"
+let eliloader_path = "/usr/bin/eliloader"
+let supported_bootloader_paths = [
+	"pygrub", pygrub_path;
+	"eliloader", eliloader_path
+]
+let supported_bootloaders = List.map fst supported_bootloader_paths
 
-exception Error of string
+exception Bad_sexpr of string
+
+exception Bad_error of string
+
+exception Unknown_bootloader of string
+
+exception Error_from_bootloader of (string * (string list))
+
+type t = {
+  kernel_path: string;
+  initrd_path: string option;
+  kernel_args: string;
+}
 
 (** Helper function to generate a bootloader commandline *)
 let bootloader_args q extra_args legacy_args pv_bootloader_args image vm_uuid = 
@@ -43,16 +62,8 @@ let bootloader_args q extra_args legacy_args pv_bootloader_args image vm_uuid =
   ] @ pv_bootloader_args @ [
     image ]
 
-(** Parsed representation of bootloader's stdout, as used by xend (XXX: need HVM) *)
-type extracted_kernel = {
-  kernel_path: string;
-  initrd_path: string option;
-  kernel_args: string;
-}
-
 let parse_output x = 
   let sexpr = "(" ^ x ^ ")" in
-  let parse_failed = Error(Printf.sprintf "Expecting an s-expression; received: %s" sexpr) in
   let sexpr' = SExpr_TS.of_string sexpr in
   match sexpr' with
     (* linux (kernel /var/lib/xen/vmlinuz.y1Wmrp)(args 'root=/dev/sda1 ro') *)
@@ -60,35 +71,36 @@ let parse_output x =
     | SExpr.Node (SExpr.Symbol "linux" :: list) ->
 	let l = List.map (function
 	   | SExpr.Node [ SExpr.Symbol x; SExpr.Symbol y | SExpr.String y ] -> (x,y)
-	   | _                                                              -> raise parse_failed) list in
-	{ kernel_path = List.assoc "kernel" l;
-	  initrd_path = (try Some (List.assoc "ramdisk" l) with _ -> None);
-	  kernel_args = (try List.assoc "args" l with _ -> "") }
+	   | _ -> raise (Bad_sexpr sexpr)) list in
+	{
+		kernel_path = List.assoc "kernel" l;
+		initrd_path = (try Some (List.assoc "ramdisk" l) with _ -> None);
+		kernel_args = (try List.assoc "args" l with _ -> "") }
     | _ -> 
-	debug "Failed to parse: %s" sexpr;
-	raise parse_failed
+		debug "Failed to parse: %s" sexpr;
+		raise (Bad_sexpr sexpr)
 
 let parse_exception x = 
-  match Stringext.String.split '\n' x with
-  | code :: params -> raise (Api_errors.Server_error(code, params))
-  | _ -> failwith (Printf.sprintf "Failed to parse stderr output of bootloader: %s" x)
+	match Stringext.String.split '\n' x with
+		| code :: params -> raise (Error_from_bootloader (code, params))
+		| _ ->
+			debug "Failed to parse: %s" x;
+			raise (Bad_error x)
 
 (** Extract the default kernel using the -q option *)
-let extract_default_kernel bootloader disks legacy_args extra_args pv_bootloader_args vm_uuid =
-  let bootloader_path = List.assoc bootloader Xapi_globs.supported_bootloaders in
-  if List.length disks = 0 then
-    raise (Error("no bootable disk"));
-  if List.length disks > 1 then
-    raise (Error(Printf.sprintf "too many bootable disks (%d disks)" (List.length disks)));
-  let disk = List.hd disks in
-  let cmdline = bootloader_args true extra_args legacy_args pv_bootloader_args disk vm_uuid in
-  debug "Bootloader commandline: %s %s\n" bootloader_path (String.concat " " cmdline);
-  try
-	parse_output (Helpers.call_script ~log_successful_output:false bootloader_path cmdline)
-  with Forkhelpers.Spawn_internal_error(stderr, stdout, _) ->
-	  parse_exception stderr
+let extract (task: Xenops_task.t) ~bootloader ~disk ?(legacy_args="") ?(extra_args="") ?(pv_bootloader_args="") ~vm:vm_uuid () =
+	if not(List.mem_assoc bootloader supported_bootloader_paths)
+	then raise (Unknown_bootloader bootloader);
+	let bootloader_path = List.assoc bootloader supported_bootloader_paths in
+	let cmdline = bootloader_args true extra_args legacy_args pv_bootloader_args disk vm_uuid in
+	debug "Bootloader commandline: %s %s\n" bootloader_path (String.concat " " cmdline);
+	try
+		let output, _ = Cancel_utils.cancellable_subprocess task bootloader_path cmdline in
+		parse_output output
+	with Forkhelpers.Spawn_internal_error(stderr, stdout, _) ->
+		parse_exception stderr
 
-let delete_extracted_kernel x = 
+let delete x =
   Unix.unlink x.kernel_path;
   match x.initrd_path with
   | None -> ()

@@ -38,5 +38,6 @@ OCamlLibrary(fhs, fhs)
 	mpathalert \
 	multipathrt \
 	doc \
-	network
+	network \
+	xenops-cli
 

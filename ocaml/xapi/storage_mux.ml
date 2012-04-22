@@ -43,33 +43,29 @@ let of_sr sr =
 		raise (No_storage_plugin_for_sr sr)
 	end else (Hashtbl.find plugins sr).processor
 
-let domid_of_sr sr =
-	if not (Hashtbl.mem plugins sr) then begin
-		error "No storage plugin for SR: %s" sr;
-		raise (No_storage_plugin_for_sr sr)
-	end;
-	let uuid = (Hashtbl.find plugins sr).backend_domain in
-	try
-		Vmopshelpers.with_xc
-			(fun xc ->
-				let all = Xenctrl.domain_getinfolist xc 0 in
-				let di = List.find (fun x -> Uuid.to_string (Uuid.uuid_of_int_array x.Xenctrl.handle) = uuid) all in
-				di.Xenctrl.domid
-			)
-	with _ ->
-		failwith (Printf.sprintf "Failed to find domid of driver domain %s (SR %s)" uuid sr)
-
 open Fun
 
-let multicast f = Hashtbl.fold (fun sr plugin acc -> (sr, f plugin.processor) :: acc) plugins []
+type 'a sm_result = SMSuccess of 'a | SMFailure of exn
 
-let partition = List.partition (success ++ snd)
+let multicast f = Hashtbl.fold (fun sr plugin acc -> (sr, try SMSuccess (f sr plugin.processor) with e -> SMFailure e) :: acc) plugins []
+
+let success = function | SMSuccess _ -> true | _ -> false
+
+let string_of_sm_result f = function 
+	| SMSuccess x -> Printf.sprintf "Success: %s" (f x)
+	| SMFailure e -> Printf.sprintf "Failure: %s" (Printexc.to_string e)
+
+let partition l = List.partition (success ++ snd) l
 
 let choose x = snd(List.hd x)
 
 let fail_or f results =
 	let successes, errors = partition results in
 	if errors <> [] then choose errors else f successes
+
+let success_or f results =
+    let successes, errors = partition results in
+    if successes <> [] then f successes else f errors
 
 module Mux = struct
 	type context = Smint.request
@@ -84,17 +80,27 @@ module Mux = struct
 		let create context ~task ~id = id (* XXX: is this pointless? *)
 		let destroy context ~task ~dp ~allow_leak =
 			(* Tell each plugin about this *)
-			fail_or choose (multicast (fun rpc ->
-				let module C = Client(struct let rpc = rpc end) in
-				C.DP.destroy ~task ~dp ~allow_leak))
+			match fail_or choose (multicast (fun sr rpc ->
+				let module C = Client(struct let rpc = of_sr sr end) in
+				C.DP.destroy ~task ~dp ~allow_leak)) with
+				| SMSuccess x -> x
+				| SMFailure e -> raise e
+
 		let diagnostics context () =
 			let combine results =
 				let all = List.fold_left (fun acc (sr, result) ->
-					Printf.sprintf "For SR: %s" sr :: (string_of_result result) :: acc) [] results in
-				Success (String (String.concat "\n" all)) in
-			fail_or combine (multicast (fun rpc ->
-				let module C = Client(struct let rpc = rpc end) in
-				C.DP.diagnostics ()))
+					(Printf.sprintf "For SR: %s" sr :: (string_of_sm_result (fun s -> s) result) :: acc)) [] results in
+				SMSuccess (String.concat "\n" all) in
+			match fail_or combine (multicast (fun sr rpc ->
+				let module C = Client(struct let rpc = of_sr sr end) in
+				C.DP.diagnostics ())) with
+				| SMSuccess x -> x
+				| SMFailure e -> raise e
+
+		let attach_info context ~task ~sr ~vdi ~dp =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.DP.attach_info ~task ~sr ~vdi ~dp
+			
 	end
 	module SR = struct
 		let attach context ~task ~sr =
@@ -110,9 +116,9 @@ module Mux = struct
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.SR.scan ~task ~sr
 		let list context ~task =
-			List.fold_left (fun acc (sr, list) -> list @ acc) [] (multicast (fun rpc ->
-				let module C = Client(struct let rpc = rpc end) in
-				C.SR.list ~task))
+			List.fold_left (fun acc (sr, list) -> match list with SMSuccess l -> l @ acc | x -> acc) [] (multicast (fun sr rpc ->
+				let module C = Client(struct let rpc = of_sr sr end) in
+				C.SR.list ~task)) 
 		let reset context ~task ~sr = assert false
 	end
 	module VDI = struct
@@ -123,6 +129,12 @@ module Mux = struct
 		let stat context ~task ~sr ~vdi =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.stat ~task ~sr ~vdi
+        let snapshot context ~task ~sr ~vdi ~vdi_info ~params =
+            let module C = Client(struct let rpc = of_sr sr end) in
+            C.VDI.snapshot ~task ~sr ~vdi ~vdi_info ~params
+        let clone context ~task ~sr ~vdi ~vdi_info ~params =
+            let module C = Client(struct let rpc = of_sr sr end) in
+            C.VDI.clone ~task ~sr ~vdi ~vdi_info ~params
 		let destroy context ~task ~sr ~vdi =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.destroy ~task ~sr ~vdi
@@ -138,7 +150,52 @@ module Mux = struct
 		let detach context ~task ~dp ~sr ~vdi =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.detach ~task ~dp ~sr ~vdi
+        let get_by_name context ~task ~sr ~name =
+            let module C = Client(struct let rpc = of_sr sr end) in
+            C.VDI.get_by_name ~task ~sr ~name
+        let set_content_id context ~task ~sr ~vdi ~content_id =
+            let module C = Client(struct let rpc = of_sr sr end) in
+            C.VDI.set_content_id ~task ~sr ~vdi ~content_id
+        let similar_content context ~task ~sr ~vdi =
+            let module C = Client(struct let rpc = of_sr sr end) in
+            C.VDI.similar_content ~task ~sr ~vdi
+		let compose context ~task ~sr ~vdi1 ~vdi2 =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.VDI.compose ~task ~sr ~vdi1 ~vdi2
+        let copy context ~task ~sr ~vdi ~url ~dest = Storage_migrate.copy ~task ~sr ~vdi ~url ~dest
+        let get_url context ~task ~sr ~vdi =
+            let module C = Client(struct let rpc = of_sr sr end) in
+            C.VDI.get_url ~task ~sr ~vdi
+
 	end
+
+    let get_by_name context ~task ~name =
+        (* Assume it has either the format:
+           SR/VDI -- for a particular SR and VDI
+           content_id -- for a particular content *)
+        let open Stringext in
+        match List.filter (fun x -> x <> "") (String.split '/' name) with
+            | [ sr; name ] ->
+                let module C = Client(struct let rpc = of_sr sr end) in
+                C.VDI.get_by_name ~task ~sr ~name
+            | [ name ] ->
+                (match success_or choose (multicast (fun sr rpc ->
+                    let module C = Client(struct let rpc = of_sr sr end) in
+                    C.VDI.get_by_name ~task ~sr ~name
+                )) with SMSuccess x -> x
+					| SMFailure e -> raise e)
+            | _ ->
+                raise Vdi_does_not_exist
+
+    module Mirror = struct
+        let start context ~task ~sr ~vdi ~dp ~url ~dest = Storage_migrate.start ~task ~sr ~vdi ~dp ~url ~dest 
+        let stop context ~task ~sr ~vdi = Storage_migrate.stop ~task ~sr ~vdi
+		let active context = Storage_migrate.active
+		let receive_start context = Storage_migrate.receive_start
+		let receive_finalize context = Storage_migrate.receive_finalize
+		let receive_cancel context = Storage_migrate.receive_cancel
+    end	
+
 end
 
 module Server = Storage_interface.Server(Storage_impl.Wrapper(Mux))

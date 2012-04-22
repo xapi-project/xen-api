@@ -4,7 +4,7 @@ OCAMLPACKS    = str xml-light2 log netdev
 
 .SUBDIRS:geneva
 
-OCamlProgram(test_host, util test_host commands cliops parsers tests testlog networks)
+OCamlProgram(test_host, util test_host commands cliops parsers tests testlog log networks)
 OCamlProgram(gtclient, gtmessages gtcomms gtclient)
 OCamlProgram(gtserver_linux, gtmessages gtcomms gtlinuxops gtserver_linux)
 OCamlProgram(gtserver_win, gtmessages gtcomms gtwindowsops gtserver_win)
