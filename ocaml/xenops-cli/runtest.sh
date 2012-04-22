@@ -10,7 +10,7 @@ fi
 if [ -e ${PIDFILE} ]; then
   kill $(cat ${PIDFILE})
 fi
-rm -f /var/log/xenopsd/xenopsd.log
-./ocaml/xenops/xenopsd -pidfile ${PIDFILE} -simulate -clean -daemon
+rm -f /tmp/xenopsd.log
+./ocaml/xenops/xenopsd -config ocaml/xenops-cli/test.conf -daemon
 ./ocaml/xenops-cli/xenopstest
 
