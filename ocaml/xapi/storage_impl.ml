@@ -304,7 +304,9 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 							| Vdi_automaton.Deactivate ->
 								Impl.VDI.deactivate context ~task ~dp ~sr ~vdi, vdi_t
 							| Vdi_automaton.Detach ->
-								Impl.VDI.detach context ~task ~dp ~sr ~vdi, vdi_t
+								let result = Impl.VDI.detach context ~task ~dp ~sr ~vdi, vdi_t in
+								Storage_migrate.detach_hook ~sr ~vdi ~dp;
+								result
 					with e ->
 						error "dp:%s sr:%s vdi:%s op:%s error:%s backtrace:%s" dp sr vdi
 							(Vdi_automaton.string_of_op op) (Printexc.to_string e) (Printexc.get_backtrace ());
@@ -524,13 +526,34 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 		Impl.get_by_name context ~task ~name
 
 	module Mirror = struct
-		let start context ~task ~sr ~vdi ~url ~dest =
+		let start context ~task ~sr ~vdi ~dp ~url ~dest =
 			info "Mirror.start task:%s sr:%s vdi:%s url:%s dest:%s" task sr vdi url dest;
-			Impl.Mirror.start context ~task ~sr ~vdi ~url ~dest
+			Impl.Mirror.start context ~task ~sr ~vdi ~dp ~url ~dest
 
 		let stop context ~task ~sr ~vdi =
 			info "Mirror.stop task:%s sr:%s vdi:%s" task sr vdi;
 			Impl.Mirror.stop context ~task ~sr ~vdi
+
+		let active context ~task ~sr =
+			info "Mirror.active task:%s sr:%s" task sr;
+			Impl.Mirror.active context ~task ~sr 
+
+		let receive_start context ~task ~sr ~vdi_info ~content_id ~similar =
+			info "Mirror.receive_start task:%s sr:%s content_id:%s similar:[%s]" 
+				task sr content_id (String.concat "," similar);
+			Impl.Mirror.receive_start context ~task ~sr ~vdi_info ~content_id ~similar
+
+		let receive_finalize context ~task ~sr ~content_id =
+			info "Mirror.receive_finalize task:%s sr:%s content_id:%s"
+				task sr content_id;
+			Impl.Mirror.receive_finalize context ~task ~sr ~content_id
+
+		let receive_cancel context ~task ~sr ~content_id =
+			info "Mirror.receive_cancel task:%s sr:%s content_id:%s"
+				task sr content_id;
+			Impl.Mirror.receive_cancel context ~task ~sr ~content_id
+
+				
 	end
 
 	module DP = struct
@@ -581,6 +604,18 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			let errors = (if errors <> [] then "The following errors have been logged:" else "No errors have been logged.") :: errors in
 			let lines = [ "The following SRs are attached:" ] @ (List.map indent srs) @ [ "" ] @ errors in
 			Success (String (String.concat "" (List.map (fun x -> x ^ "\n") lines)))
+
+		let params context ~task ~sr ~vdi ~dp =
+			let srs = Host.list !Host.host in
+			let sr_state = List.assoc sr srs in
+			let vdi_state = Hashtbl.find sr_state.Sr.vdis vdi in
+			let dp_state = Vdi.get_dp_state dp vdi_state in
+			debug "Looking for dp: %s" dp;
+			match dp_state,vdi_state.Vdi.params with
+				| Vdi_automaton.Activated _, Some params ->
+					Success (Params params)
+				| _ -> 
+					Failure (Internal_error (Printf.sprintf "sr: %s vdi: %s Datapath %s not attached" sr vdi dp))
 	end
 
 	module SR = struct
@@ -718,3 +753,24 @@ module Local_domain_socket = struct
 		Opt.iter Http_svr.stop !socket;
 		socket := None
 end
+
+open Xmlrpc_client
+let local_url = Http.Url.(File { path = "/var/xapi/storage" }, { uri = "/"; query_params = [] })
+
+let rpc url call =
+	XMLRPC_protocol.rpc ~transport:(transport_of_url url)
+		~http:(xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of url) ~query:(Http.Url.get_query_params url) (Http.Url.get_uri url)) call
+
+module Local = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"smapiv2" local_url end)
+
+let success = function
+	| Success x -> x
+	| Failure (Backend_error (code, params)) ->
+		raise (Api_errors.Server_error(code, params))
+	| Failure f -> failwith (Printf.sprintf "Storage_interface.Failure %s" (f |> rpc_of_failure_t |> Jsonrpc.to_string))
+
+let params = function
+	| Params x -> x
+	| x -> failwith (Printf.sprintf "type-error, expected Params received %s" (x |> rpc_of_success_t |> Jsonrpc.to_string))
+
+

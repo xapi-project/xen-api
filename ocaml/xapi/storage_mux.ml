@@ -99,6 +99,10 @@ module Mux = struct
 			fail_or combine (multicast (fun sr rpc ->
 				let module C = Client(struct let rpc = of_sr sr end) in
 				C.DP.diagnostics ()))
+		let params context ~task ~sr ~vdi ~dp =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.DP.params ~task ~sr ~vdi ~dp
+			
 	end
 	module SR = struct
 		let attach context ~task ~sr =
@@ -185,8 +189,12 @@ module Mux = struct
                 Failure Vdi_does_not_exist
 
     module Mirror = struct
-        let start context ~task ~sr ~vdi ~url ~dest = Storage_migrate.start ~task ~sr ~vdi ~url ~dest
+        let start context ~task ~sr ~vdi ~dp ~url ~dest = Storage_migrate.start ~task ~sr ~vdi ~dp ~url ~dest 
         let stop context ~task ~sr ~vdi = Storage_migrate.stop ~task ~sr ~vdi
+		let active context = Storage_migrate.active
+		let receive_start context = Storage_migrate.receive_start
+		let receive_finalize context = Storage_migrate.receive_finalize
+		let receive_cancel context = Storage_migrate.receive_cancel
     end	
 
 end

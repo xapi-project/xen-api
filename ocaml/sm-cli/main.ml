@@ -151,8 +151,8 @@ let _ =
 				| x ->
 					Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)
 			end
-		| [ "vdi-copy"; sr; vdi; url; dest ] ->
-			begin match Client.VDI.copy ~task ~sr ~vdi ~url ~dest with
+		| [ "vdi-copy"; sr; vdi; url; dest; dest_vdi ] ->
+			begin match Client.VDI.copy ~task ~sr ~vdi ~url ~dest ~dest_vdi with
 				| Success (Vdi v) ->
 					Printf.printf "Created VDI %s\n" v.vdi
 				| x ->
@@ -165,8 +165,8 @@ let _ =
 				| x ->
 					Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)
 			end
-		| [ "mirror-start"; sr; vdi; url; dest ] ->
-			begin match Client.Mirror.start ~task ~sr ~vdi ~url ~dest with
+		| [ "mirror-start"; sr; vdi; dp; url; dest ] ->
+			begin match Client.Mirror.start ~task ~sr ~vdi ~dp ~url ~dest with
 				| Success (Vdi v) ->
 					Printf.printf "Created VDI %s\n" v.vdi
 				| x ->

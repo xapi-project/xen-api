@@ -68,6 +68,7 @@ module Builtin_impl = struct
 		let create context ~task ~id = assert false
 		let destroy context ~task ~dp = assert false
 		let diagnostics context () = assert false
+		let params context ~task ~sr ~vdi ~dp = assert false
 	end
 
 	module SR = struct
@@ -218,6 +219,10 @@ module Builtin_impl = struct
 						Hashtbl.find vdi_read_write (sr, vdi)) in
 				for_vdi ~task ~sr ~vdi "VDI.activate"
 					(fun device_config _type sr self ->
+						Server_helpers.exec_with_new_task "VDI.activate" ~subtask_of:(Ref.of_string task)
+							(fun __context ->
+								(if read_write 
+								then Db.VDI.remove_from_other_config ~__context ~self ~key:"content_id"));
 						(* If the backend doesn't advertise the capability then do nothing *)
 						if List.mem Smint.Vdi_activate (Sm.capabilities_of_driver _type)
 						then Sm.vdi_activate device_config _type sr self read_write
@@ -231,6 +236,11 @@ module Builtin_impl = struct
 			try
 				for_vdi ~task ~sr ~vdi "VDI.deactivate"
 					(fun device_config _type sr self ->
+						Server_helpers.exec_with_new_task "VDI.activate" ~subtask_of:(Ref.of_string task)
+							(fun __context ->
+								let other_config = Db.VDI.get_other_config ~__context ~self in
+								if not (List.mem_assoc "content_id" other_config)
+								then Db.VDI.add_to_other_config ~__context ~self ~key:"content_id" ~value:(Uuid.string_of_uuid (Uuid.make_uuid ())));
 						(* If the backend doesn't advertise the capability then do nothing *)
 						if List.mem Smint.Vdi_activate (Sm.capabilities_of_driver _type)
 						then Sm.vdi_deactivate device_config _type sr self
@@ -310,8 +320,18 @@ module Builtin_impl = struct
 							) in
 						(* PR-1255: modify clone, snapshot to take the same parameters as create? *)
 						let self, _ = find_vdi ~__context sr vi.Smint.vdi_info_location in
+						let clonee, _ = find_vdi ~__context sr vdi in
+						let content_id = 
+							try 
+								List.assoc "content_id" 
+									(Db.VDI.get_other_config ~__context ~self:clonee)
+							with _ ->
+								Uuid.string_of_uuid (Uuid.make_uuid ())
+						in
 						Db.VDI.set_name_label ~__context ~self ~value:vdi_info.name_label;
 						Db.VDI.set_name_description ~__context ~self ~value:vdi_info.name_description;
+						Db.VDI.remove_from_other_config ~__context ~self ~key:"content_id";
+						Db.VDI.add_to_other_config ~__context ~self ~key:"content_id" ~value:content_id;
 						for_vdi ~task ~sr ~vdi:vi.Smint.vdi_info_location "VDI.update"
 							(fun device_config _type sr self ->
 								Sm.vdi_update device_config _type sr self
@@ -458,8 +478,12 @@ module Builtin_impl = struct
 	let get_by_name context ~task ~name = assert false
 
 	module Mirror = struct
-		let start context ~task ~sr ~vdi ~url ~dest = assert false
+		let start context ~task ~sr ~vdi ~dp ~url ~dest = assert false
 		let stop context ~task ~sr ~vdi = assert false
+		let active context ~task ~sr = assert false
+		let receive_start context ~task ~sr ~vdi_info ~content_id ~similar = assert false
+		let receive_finalize context ~task ~sr ~content_id = assert false
+		let receive_cancel context ~task ~sr ~content_id = assert false
 	end
 end
 
@@ -618,8 +642,8 @@ let start () =
 
 (** [datapath_of_vbd domid userdevice] returns the name of the datapath which corresponds
     to device [userdevice] on domain [domid] *)
-let datapath_of_vbd ~domid ~userdevice =
-	Printf.sprintf "vbd/%d/%s" domid userdevice
+let datapath_of_vbd ~domid ~device =
+	Printf.sprintf "vbd/%d/%s" domid device
 
 let unexpected_result expected x = match x with
 	| Success _ ->
@@ -658,8 +682,11 @@ let of_vbd ~__context ~vbd ~domid =
 	let location = Db.VDI.get_location ~__context ~self:vdi in
 	let sr = Db.VDI.get_SR ~__context ~self:vdi in
 	let userdevice = Db.VBD.get_userdevice ~__context ~self:vbd in
+	let hvm = Helpers.will_boot_hvm ~__context ~self:(Db.VBD.get_VM ~__context ~self:vbd) in
 	let task = Context.get_task_id __context in
-	let dp = datapath_of_vbd ~domid ~userdevice in
+	let device_number = Device_number.of_string hvm userdevice in
+	let device = Device_number.to_linux_device device_number in
+	let dp = datapath_of_vbd ~domid ~device in
 	rpc, (Ref.string_of task), dp, (Db.SR.get_uuid ~__context ~self:sr), location
 
 (** [is_attached __context vbd] returns true if the [vbd] has an attached
