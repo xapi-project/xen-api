@@ -1,4 +1,4 @@
-OCAMLPACKS    = xml-light2 cdrom pciutil sexpr log stunnel http-svr rss xen-utils netdev tapctl vhd xenstore rpc-light
+OCAMLPACKS    = xml-light2 cdrom pciutil sexpr log stunnel http-svr rss xen-utils netdev tapctl vhd rpc-light
 OCAML_LIBS    = ../fhs ../util/version ../util/vm_memory_constraints ../util/sanitycheck ../util/stats \
 	../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server ../util/ocamltest
 OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
@@ -19,14 +19,14 @@ XENLIGHT_LINK_FLAGS=-cclib -luuid
 # (the same holds for OCaml packages)
 XEN_OCAML_LIBS = ../xenops/xenops ../auth/pam
 XEN_OCAMLINCLUDES =
-XEN_OCAMLPACKS = xenctrl xenctrlext xenstore cpuid # xenlight
+XEN_OCAMLPACKS = xenctrl xenctrlext xenstore xenstoreext cpuid # xenlight
 OCAML_CLIBS = $(XEN_OCAML_CLIBS) $(OCAML_CLIBS)
 OCAML_LINK_FLAGS = $(XEN_OCAML_LINK_FLAGS) $(OCAML_LINK_FLAGS) # $(XENLIGHT_LINK_FLAGS)
 CFLAGS = $(XEN_CFLAGS) $(CFLAGS)
 OCAMLINCLUDES = $(XEN_OCAMLINCLUDES) $(OCAMLINCLUDES)
 # xc.cma depends on uuid.cma
 OCAML_LIBS = $(OCAML_LIBS) $(XEN_OCAML_LIBS)
-OCAMLPACKS = $(XEN_OCAMLPACKS) $(OCAMLPACKS)
+OCAMLPACKS = $(OCAMLPACKS) $(XEN_OCAMLPACKS)
 
 # -----------------------------------------------------------------------
 # Build the server
