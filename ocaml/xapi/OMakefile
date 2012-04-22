@@ -210,7 +210,6 @@ XAPI_MODULES = $(COMMON) \
 	dbsync_master \
 	sync_networking \
 	storage_access \
-	events \
 	import_xva \
 	import \
 	import_raw_vdi \
