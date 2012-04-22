@@ -225,3 +225,6 @@ val set_memory_target : xs:Xenstore.Xs.xsh -> Xenstore.Xs.domid -> int64 -> unit
 
 val wait_xen_free_mem : xc:Xenctrl.handle -> ?maximum_wait_time_seconds:int -> int64 -> bool
 
+val allowed_xsdata_prefixes: string list
+
+val set_xsdata : xs:Xenstore.Xs.xsh -> domid -> (string * string) list -> unit
