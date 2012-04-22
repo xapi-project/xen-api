@@ -21,12 +21,12 @@ open Stringext
 open Pervasiveext
 open Xmlrpc_client
 
-let local_url = Http.Url.File ({ Http.Url.path = "/var/xapi/storage" }, "/")
+let local_url = Http.Url.(File { path = "/var/xapi/storage" }, { uri = "/"; query_params = [] })
 open Storage_interface
 
 let rpc url call =
 	XMLRPC_protocol.rpc ~transport:(transport_of_url url)
-		~http:(xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of url) (Http.Url.uri_of url)) call
+		~http:(xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of url) ~query:(Http.Url.get_query_params url) (Http.Url.get_uri url)) call
 
 module Local = Client(struct let rpc = rpc local_url end)
 
@@ -112,8 +112,8 @@ let copy' ~task ~sr ~vdi ~url ~dest =
 	let on_fail : (unit -> unit) list ref = ref [] in
 	try
 		on_fail := (fun () -> Remote.VDI.destroy ~task ~sr:dest ~vdi:dest_vdi.vdi |> success |> unit) :: !on_fail;
+		let dest_vdi_url = Http.Url.set_uri remote_url (Printf.sprintf "%s/data/%s/%s" (Http.Url.get_uri remote_url) dest dest_vdi.vdi) |> Http.Url.to_string in
 
-		let dest_vdi_url = Printf.sprintf "%s/data/%s/%s" url dest dest_vdi.vdi in
 		debug "Will copy into new remote VDI: %s (%s)" dest_vdi.vdi dest_vdi_url;
 
 		let base_vdi = Opt.map (fun x -> (fst x).vdi) nearest in
@@ -122,15 +122,7 @@ let copy' ~task ~sr ~vdi ~url ~dest =
 			(fun base_path ->
 				with_activated_disk ~task ~sr ~vdi:(Some vdi)
 					(fun src ->
-						let args = [
-							"-src"; Opt.unbox src;
-							"-dest"; dest_vdi_url;
-							"-size"; Int64.to_string dest_vdi.virtual_size;
-							"-prezeroed"
-						] @ (Opt.default [] (Opt.map (fun x -> [ "-base"; x ]) base_path)) in
-
-						let out, err = Forkhelpers.execute_command_get_output "/opt/xensource/libexec/sparse_dd" args in
-						debug "%s:%s" out err
+						Sparse_dd_wrapper.dd ?base:base_path true (Opt.unbox src) dest_vdi_url dest_vdi.virtual_size
 					)
 			);
 		debug "Updating remote content_id";
@@ -146,6 +138,7 @@ let copy' ~task ~sr ~vdi ~url ~dest =
 let copy ~task ~sr ~vdi ~url ~dest = Success (Vdi (copy' ~task ~sr ~vdi ~url ~dest))
 
 let start ~task ~sr ~vdi ~url ~dest =
+	debug "Mirror.start sr:%s vdi:%s url:%s dest:%s" sr vdi url dest;
 	let remote_url = Http.Url.of_string url in
 	let module Remote = Client(struct let rpc = rpc remote_url end) in
 

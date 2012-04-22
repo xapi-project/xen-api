@@ -95,10 +95,10 @@ let receive req s _ =
 	()
 
 let http_post url length body =
-	Http.Request.make ~version:"1.1" ?auth:(Http.Url.auth_of url) ~user_agent:"xenopsd" ~length ~body Http.Post (Http.Url.uri_of url)
+	Http.Request.make ~version:"1.1" ?auth:(Http.Url.auth_of url) ~user_agent:"xenopsd" ~length ~query:(Http.Url.get_query_params url) ~body Http.Post (Http.Url.get_uri url)
 
 let http_put url =
-	Http.Request.make ~version:"1.1" ~keep_alive:false ?auth:(Http.Url.auth_of url) ~user_agent:"xenopsd" Http.Put (Http.Url.uri_of url)
+	Http.Request.make ~version:"1.1" ~keep_alive:false ?auth:(Http.Url.auth_of url) ~user_agent:"xenopsd" ~query:(Http.Url.get_query_params url) Http.Put (Http.Url.get_uri url)
 
 let remote_rpc url rpc fd =
 	let body = rpc |> Jsonrpc.string_of_call in
