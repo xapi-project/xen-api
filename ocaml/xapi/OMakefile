@@ -158,7 +158,6 @@ XAPI_MODULES = $(COMMON) \
 	sparse_dd_wrapper \
 	vmopshelpers \
 	vm_config \
-	vmops \
 	pciops \
 	vgpuops \
 	memory_control \
