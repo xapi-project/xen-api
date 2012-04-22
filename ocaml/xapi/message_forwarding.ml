@@ -1140,6 +1140,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 						)
 				)
 
+
 		let start ~__context ~vm ~start_paused ~force =
 			info "VM.start: VM = '%s'" (vm_uuid ~__context vm);
 			let local_fn = Local.VM.start ~vm ~start_paused ~force in
@@ -1156,6 +1157,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 										(* no guarantee that the cached value is valid. In particular, *)
 										(* we must recalculate the value BEFORE creating the snapshot. *)
 										Xapi_vm_helpers.update_memory_overhead ~__context ~vm;
+										Xapi_vm_helpers.consider_generic_bios_strings ~__context ~vm;
 										let snapshot = Db.VM.get_record ~__context ~self:vm in
 										forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_start
 											(fun session_id rpc ->
@@ -1204,6 +1206,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 									(* no guarantee that the cached value is valid. In particular, *)
 									(* we must recalculate the value BEFORE creating the snapshot. *)
 									Xapi_vm_helpers.update_memory_overhead ~__context ~vm;
+									Xapi_vm_helpers.consider_generic_bios_strings ~__context ~vm;
 									let snapshot = Db.VM.get_record ~__context ~self:vm in
 									reserve_memory_for_vm ~__context ~vm ~host ~snapshot ~host_op:`vm_start
 										(fun () ->
