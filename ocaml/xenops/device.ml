@@ -150,43 +150,37 @@ let clean_shutdown_async ~xs (x: device) =
 		)
 	)
 
-let unplug_watch ~xs (x: device) =
-	let path = Hotplug.path_written_by_hotplug_scripts x in
-	Watch.map (fun () -> "") (Watch.key_to_disappear path)
+let unplug_watch ~xs (x: device) = Hotplug.path_written_by_hotplug_scripts x |> Watch.key_to_disappear
 let error_watch ~xs (x: device) = Watch.value_to_appear (error_path_of_device ~xs x)
 let frontend_closed ~xs (x: device) = Watch.map (fun () -> "") (Watch.value_to_become (frontend_path_of_device ~xs x ^ "/state") (Xenbus_utils.string_of Xenbus_utils.Closed))
 
-let clean_shutdown_wait ~xs (x: device) =
+let clean_shutdown_wait (task: Xenops_task.t) ~xs (x: device) =
 	debug "Device.Generic.clean_shutdown_wait %s" (string_of_device x);
 
-	let on_error error =
+	let on_error () =
+		let error_path = error_path_of_device ~xs x in
+		let error = try xs.Xs.read error_path with _ -> "" in
 	    debug "Device.Generic.shutdown_common: read an error: %s" error;
 	    (* After CA-14804 we deleted the error node *)
 		(* After CA-73099 we stopped doing that *)
 	    raise (Device_error (x, error)) in
 
-	match Watch.wait_for ~xs (Watch.any_of [
-		`Disconnected, frontend_closed ~xs x;
-		`Unplugged, unplug_watch ~xs x; 
-		`Failed, error_watch ~xs x;
-	]) with
-		| `Disconnected, _ ->
-			debug "Device.Generic.clean_shutdown: frontend changed to state 6";
-			safe_rm ~xs (frontend_path_of_device ~xs x);
-			begin match Watch.wait_for ~xs (Watch.any_of [
-				`Unplugged, unplug_watch ~xs x;
-				`Failed, error_watch ~xs x;
-			]) with
-				| `Unplugged, _ -> rm_device_state ~xs x
-				| `Failed, error -> on_error error
-			end
-		| `Unplugged, _ -> rm_device_state ~xs x
-		| `Failed, error -> on_error error
+	let cancel = cancel_path_of_device ~xs x in
+	let frontend_closed = Watch.map (fun _ -> ()) (frontend_closed ~xs x) in
+	let unplug = Watch.map (fun _ -> ()) (unplug_watch ~xs x) in
+	let error = Watch.map (fun _ -> ()) (error_watch ~xs x) in
+	if cancellable_watch cancel [ frontend_closed; unplug ] [ error ] task ~xs ~timeout:!Xapi_globs.hotplug_timeout ()
+	then begin
+		safe_rm ~xs (frontend_path_of_device ~xs x);
+		if cancellable_watch cancel [ unplug ] [ error ] task ~xs ~timeout:!Xapi_globs.hotplug_timeout ()
+		then rm_device_state ~xs x
+		else on_error ()
+	end else on_error ()
 
-let clean_shutdown ~xs (x: device) =
+let clean_shutdown (task: Xenops_task.t) ~xs (x: device) =
 	debug "Device.Generic.clean_shutdown %s" (string_of_device x);
 	clean_shutdown_async ~xs x;
-	clean_shutdown_wait ~xs x
+	clean_shutdown_wait task ~xs x
 
 let hard_shutdown_request ~xs (x: device) =
 	debug "Device.Generic.hard_shutdown_request %s" (string_of_device x);
@@ -202,7 +196,7 @@ let hard_shutdown_request ~xs (x: device) =
 
 let hard_shutdown_complete ~xs (x: device) = unplug_watch ~xs x
 
-let hard_shutdown ~xs (x: device) = 
+let hard_shutdown (task: Xenops_task.t) ~xs (x: device) = 
 	hard_shutdown_request ~xs x;
 	ignore(Watch.wait_for ~xs (hard_shutdown_complete ~xs x));
 	(* blow away the backend and error paths *)
@@ -378,35 +372,37 @@ let request_shutdown ~xs (x: device) (force: bool) =
     xs.Xs.write request_path request
 
 (** Return the event to wait for when the shutdown has completed *)
-let shutdown_done ~xs (x: device): string Watch.t = 
-    Watch.value_to_appear (backend_shutdown_done_path_of_device ~xs x)
+let shutdown_done ~xs (x: device): unit Watch.t =
+	Watch.value_to_appear (backend_shutdown_done_path_of_device ~xs x) |> Watch.map (fun _ -> ())
 
-
-let shutdown_request_clean_shutdown_wait ~xs (x: device) =
+let shutdown_request_clean_shutdown_wait (task: Xenops_task.t) ~xs (x: device) =
     debug "Device.Vbd.clean_shutdown_wait %s" (string_of_device x);
 
     (* Allow the domain to reject the request by writing to the error node *)
     let shutdown_done = shutdown_done ~xs x in
-    let error = Watch.value_to_appear (error_path_of_device ~xs x) in
-    match Watch.wait_for ~xs (Watch.any_of [ `OK, shutdown_done; `Failed, error ]) with
-		| `OK, _ ->
-			debug "Device.Vbd.shutdown_common: shutdown-done appeared";
-			(* Delete the trees (otherwise attempting to plug the device in again doesn't
-               work.) This also clears any stale error nodes. *)
-			Generic.rm_device_state ~xs x
-		| `Failed, error ->
-			(* After CA-14804 we would delete the error node *)
-			(* After CA-73099 we stopped doing that *)
-			debug "Device.Vbd.shutdown_common: read an error: %s" error;
-			raise (Device_error (x, error))
+    let error = Watch.value_to_appear (error_path_of_device ~xs x) |> Watch.map (fun _ -> ())  in
 
+	if cancellable_watch (cancel_path_of_device ~xs x) [ shutdown_done ] [ error ] task ~xs ~timeout:!Xapi_globs.hotplug_timeout ()
+	then begin
+		debug "Device.Vbd.shutdown_common: shutdown-done appeared";
+		(* Delete the trees (otherwise attempting to plug the device in again doesn't
+           work.) This also clears any stale error nodes. *)
+		Generic.rm_device_state ~xs x
+	end else begin
+		let error_path = error_path_of_device ~xs x in
+		let error = try xs.Xs.read error_path with _ -> "" in
+		(* CA-14804: Delete the error node contents *)
+		(* After CA-73099 we stopped doing that *)
+		debug "Device.Vbd.shutdown_common: read an error: %s" error;
+		raise (Device_error (x, error))
+	end
 
-let shutdown_request_hard_shutdown ~xs (x: device) = 
+let shutdown_request_hard_shutdown (task: Xenops_task.t) ~xs (x: device) = 
 	debug "Device.Vbd.hard_shutdown %s" (string_of_device x);
 	request_shutdown ~xs x true; (* force *)
 
 	(* We don't watch for error nodes *)
-	ignore_string (Watch.wait_for ~xs (shutdown_done ~xs x));
+	let (_: bool) = cancellable_watch (cancel_path_of_device ~xs x) [ shutdown_done ~xs x ] [] task ~xs ~timeout:!Xapi_globs.hotplug_timeout () in
 	Generic.rm_device_state ~xs x;
 
 	debug "Device.Vbd.hard_shutdown complete"
@@ -415,17 +411,17 @@ let clean_shutdown_async ~xs x = match shutdown_mode_of_device ~xs x with
 	| Classic -> Generic.clean_shutdown_async ~xs x
 	| ShutdownRequest -> request_shutdown ~xs x false (* normal *)
 
-let clean_shutdown_wait ~xs x = match shutdown_mode_of_device ~xs x with
-	| Classic -> Generic.clean_shutdown_wait ~xs x
-	| ShutdownRequest -> shutdown_request_clean_shutdown_wait ~xs x
+let clean_shutdown_wait (task: Xenops_task.t) ~xs x = match shutdown_mode_of_device ~xs x with
+	| Classic -> Generic.clean_shutdown_wait task ~xs x
+	| ShutdownRequest -> shutdown_request_clean_shutdown_wait task ~xs x
 
-let clean_shutdown ~xs x =
+let clean_shutdown (task: Xenops_task.t) ~xs x =
 	clean_shutdown_async ~xs x;
-	clean_shutdown_wait ~xs x
+	clean_shutdown_wait task ~xs x
 
-let hard_shutdown ~xs x = match shutdown_mode_of_device ~xs x with
-	| Classic -> Generic.hard_shutdown ~xs x
-	| ShutdownRequest -> shutdown_request_hard_shutdown ~xs x
+let hard_shutdown (task: Xenops_task.t) ~xs x = match shutdown_mode_of_device ~xs x with
+	| Classic -> Generic.hard_shutdown task ~xs x
+	| ShutdownRequest -> shutdown_request_hard_shutdown task ~xs x
 
 let hard_shutdown_request ~xs x = match shutdown_mode_of_device ~xs x with
 	| Classic -> Generic.hard_shutdown_request ~xs x
@@ -553,7 +549,7 @@ let add_wait (task: Xenops_task.t) ~xs device =
 	    Hotplug.wait_for_frontend_plug task ~xs device;
 	  with Hotplug.Frontend_device_error _ as e ->
 	    debug "Caught Frontend_device_error: assuming it is safe to shutdown the backend";
-	    clean_shutdown ~xs device; (* assumes double-failure isn't possible *)
+	    clean_shutdown task ~xs device; (* assumes double-failure isn't possible *)
 	    release task ~xs device;
 	    raise e
 	end;
@@ -1208,7 +1204,7 @@ let reset ~xs (x: dev) =
 	debug "Device.Pci.reset %s" devstr;
 	do_flr devstr
 
-let clean_shutdown ~xs (x: device) =
+let clean_shutdown (task: Xenops_task.t) ~xs (x: device) =
 	debug "Device.Pci.clean_shutdown %s" (string_of_device x);
 	let devs = enumerate_devs ~xs x in
 	Xenctrl.with_intf (fun xc ->
@@ -1220,9 +1216,9 @@ let clean_shutdown ~xs (x: device) =
 		with _ -> ());
 	()
 
-let hard_shutdown ~xs (x: device) =
+let hard_shutdown (task: Xenops_task.t) ~xs (x: device) =
 	debug "Device.Pci.hard_shutdown %s" (string_of_device x);
-	clean_shutdown ~xs x
+	clean_shutdown task ~xs x
 
 (* This is the global location where PCI device add/remove status is put. We should aim to use
    a per-device location to support parallel requests in future *)
@@ -1341,11 +1337,11 @@ let add ~xc ~xs ?(backend_domid=0) domid =
     );
 	()
 
-let hard_shutdown ~xs (x: device) =
+let hard_shutdown (task: Xenops_task.t) ~xs (x: device) =
 	debug "Device.Vfs.hard_shutdown %s" (string_of_device x);
 	()
 
-let clean_shutdown ~xs (x: device) =
+let clean_shutdown (task: Xenops_task.t) ~xs (x: device) =
 	debug "Device.Vfs.clean_shutdown %s" (string_of_device x);
 	()
 end
@@ -1373,11 +1369,11 @@ let add ~xc ~xs ?(backend_domid=0) ?(protocol=Protocol_Native) domid =
 	Generic.add_device ~xs device back front [];
 	()
 
-let hard_shutdown ~xs (x: device) =
+let hard_shutdown (task: Xenops_task.t) ~xs (x: device) =
 	debug "Device.Vfb.hard_shutdown %s" (string_of_device x);
 	()
 
-let clean_shutdown ~xs (x: device) =
+let clean_shutdown (task: Xenops_task.t) ~xs (x: device) =
 	debug "Device.Vfb.clean_shutdown %s" (string_of_device x);
 	()
 
@@ -1405,31 +1401,31 @@ let add ~xc ~xs ?(backend_domid=0) ?(protocol=Protocol_Native) domid =
 	Generic.add_device ~xs device back front []; 
 	()
 
-let hard_shutdown ~xs (x: device) =
+let hard_shutdown (task: Xenops_task.t) ~xs (x: device) =
 	debug "Device.Vkbd.hard_shutdown %s" (string_of_device x);
 	()
 
-let clean_shutdown ~xs (x: device) =
+let clean_shutdown (task: Xenops_task.t) ~xs (x: device) =
 	debug "Device.Vkbd.clean_shutdown %s" (string_of_device x);
 	()
 
 end
 
-let hard_shutdown ~xs (x: device) = match x.backend.kind with
-  | Vif -> Vif.hard_shutdown ~xs x
-  | Vbd | Tap -> Vbd.hard_shutdown ~xs x
-  | Pci -> PCI.hard_shutdown ~xs x
-  | Vfs -> Vfs.hard_shutdown ~xs x
-  | Vfb -> Vfb.hard_shutdown ~xs x
-  | Vkbd -> Vkbd.hard_shutdown ~xs x
+let hard_shutdown (task: Xenops_task.t) ~xs (x: device) = match x.backend.kind with
+  | Vif -> Vif.hard_shutdown task ~xs x
+  | Vbd | Tap -> Vbd.hard_shutdown task ~xs x
+  | Pci -> PCI.hard_shutdown task ~xs x
+  | Vfs -> Vfs.hard_shutdown task ~xs x
+  | Vfb -> Vfb.hard_shutdown task ~xs x
+  | Vkbd -> Vkbd.hard_shutdown task ~xs x
 
-let clean_shutdown ~xs (x: device) = match x.backend.kind with
-  | Vif -> Vif.clean_shutdown ~xs x
-  | Vbd | Tap -> Vbd.clean_shutdown ~xs x
-  | Pci -> PCI.clean_shutdown ~xs x
-  | Vfs -> Vfs.clean_shutdown ~xs x
-  | Vfb -> Vfb.clean_shutdown ~xs x
-  | Vkbd -> Vkbd.clean_shutdown ~xs x
+let clean_shutdown (task: Xenops_task.t) ~xs (x: device) = match x.backend.kind with
+  | Vif -> Vif.clean_shutdown task ~xs x
+  | Vbd | Tap -> Vbd.clean_shutdown task ~xs x
+  | Pci -> PCI.clean_shutdown task ~xs x
+  | Vfs -> Vfs.clean_shutdown task ~xs x
+  | Vfb -> Vfb.clean_shutdown task ~xs x
+  | Vkbd -> Vkbd.clean_shutdown task ~xs x
 
 
 let can_surprise_remove ~xs (x: device) = Generic.can_surprise_remove ~xs x

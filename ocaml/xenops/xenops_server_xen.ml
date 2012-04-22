@@ -196,11 +196,11 @@ let destroy_vbd_frontend ~xc ~xs task disk =
 						(fun () ->
 							Device.Vbd.clean_shutdown_async ~xs device;
 							try
-								Device.Vbd.clean_shutdown_wait ~xs device
+								Device.Vbd.clean_shutdown_wait task ~xs device
 							with Device_error(_, x) ->
 								debug "Caught transient Device_error %s" x;
 								close ();
-								Device.Vbd.clean_shutdown_wait ~xs device
+								Device.Vbd.clean_shutdown_wait task ~xs device
 						) (fun () -> close ())
 				)
 		
@@ -1335,7 +1335,7 @@ module VBD = struct
 					if force && (not (Device.can_surprise_remove ~xs device))
 					then debug "VM = %s; VBD = %s; Device is not surprise-removable" vm (id_of vbd); (* happens on normal shutdown too *)
 					Xenops_task.with_subtask task (Printf.sprintf "Vbd.clean_shutdown %s" (id_of vbd))
-						(fun () -> (if force then Device.hard_shutdown else Device.clean_shutdown) ~xs device);
+						(fun () -> (if force then Device.hard_shutdown else Device.clean_shutdown) task ~xs device);
 					Xenops_task.with_subtask task (Printf.sprintf "Vbd.release %s" (id_of vbd))
 						(fun () -> Device.Vbd.release task ~xs device);
 					(* If we have a qemu frontend, detach this too. *)
@@ -1552,7 +1552,7 @@ module VIF = struct
 					let destroy device =
 						(* NB different from the VBD case to make the test pass for now *)
 						Xenops_task.with_subtask task (Printf.sprintf "Vif.hard_shutdown %s" (id_of vif))
-							(fun () -> (if force then Device.hard_shutdown else Device.clean_shutdown) ~xs device);
+							(fun () -> (if force then Device.hard_shutdown else Device.clean_shutdown) task ~xs device);
 						Xenops_task.with_subtask task (Printf.sprintf "Vif.release %s" (id_of vif))
 							(fun () -> Device.Vif.release task ~xs device) in
 					destroy device;
