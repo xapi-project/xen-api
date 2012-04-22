@@ -186,3 +186,11 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			) vdis;
 		raise e
 
+let assert_can_migrate  ~__context ~vm ~dest ~live ~options =
+	let xenops = List.assoc _xenops dest in
+	let session_id = Ref.of_string (List.assoc _session_id dest) in
+	let remote_address = match Http.Url.of_string xenops with
+		| Http.Url.Http { Http.Url.host = host }, _ -> host
+		| _, _ -> failwith (Printf.sprintf "Cannot extract foreign IP address from: %s" xenops) in
+	let remote_rpc = Helpers.make_remote_rpc remote_address in
+	Importexport.remote_metadata_export_import ~__context ~rpc:remote_rpc ~session_id ~remote_address (`Only vm)
