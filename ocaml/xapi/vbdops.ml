@@ -75,8 +75,19 @@ let create_vbd ~__context ~xs ~hvm ~protocol domid self =
 
 	if empty then begin
 		if hvm then begin
-			let (_: Device_common.device) = Device.Vbd.add ~xs ~hvm ~mode ~phystype:Device.Vbd.File ~params:""
-				~device_number ~dev_type ~unpluggable ~protocol ~extra_private_keys:[ "ref", Ref.string_of self ] domid in
+			let vbd = {
+				Device.Vbd.mode = mode;
+				device_number = Some device_number;
+				phystype = Device.Vbd.File;
+				params = "";
+				dev_type = dev_type;
+				unpluggable = unpluggable;
+				protocol = if protocol = Device_common.Protocol_Native then None else Some protocol;
+				extra_backend_keys = [];
+				extra_private_keys = [ "ref", Ref.string_of self ];
+				backend_domid = 0
+			} in
+			let (_: Device_common.device) = Device.Vbd.add ~xs ~hvm vbd domid in
 			Db.VBD.set_device ~__context ~self ~value:(Device_number.to_linux_device device_number);
 			Db.VBD.set_currently_attached ~__context ~self ~value:true;			
 		end else info "domid: %d PV guests don't support the concept of an empty CD; skipping device" domid
@@ -99,8 +110,19 @@ let create_vbd ~__context ~xs ~hvm ~protocol domid self =
 				try
 					(* The backend can put useful stuff in here on vdi_attach *)
 					let extra_backend_keys = List.map (fun (k, v) -> "sm-data/" ^ k, v) (Db.VDI.get_xenstore_data ~__context ~self:vdi) in
-					let (_: Device_common.device) = Device.Vbd.add ~xs ~hvm ~mode ~phystype ~params
-						~device_number ~dev_type ~unpluggable ~protocol ~extra_backend_keys ~extra_private_keys:[ "ref", Ref.string_of self ] ~backend_domid domid in
+					let vbd = {
+						Device.Vbd.mode = mode;
+						device_number = Some device_number;
+						phystype = phystype;
+						params = params;
+						dev_type = dev_type;
+						unpluggable = unpluggable;
+						protocol = if protocol = Device_common.Protocol_Native then None else Some protocol;
+						extra_backend_keys = extra_backend_keys;
+						extra_private_keys = [ "ref", Ref.string_of self ];
+						backend_domid = backend_domid
+					} in
+					let (_: Device_common.device) = Device.Vbd.add ~xs ~hvm vbd domid in
 					Db.VBD.set_device ~__context ~self ~value:(Device_number.to_linux_device device_number);
 					Db.VBD.set_currently_attached ~__context ~self ~value:true;
 					debug "set_currently_attached to true for VBD uuid %s" (Db.VBD.get_uuid ~__context ~self)

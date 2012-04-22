@@ -34,19 +34,27 @@ type create_info = {
 	platformdata: (string * string) list;
 	bios_strings: (string * string) list;
 }
+val create_info_of_rpc: Rpc.t -> create_info
+val rpc_of_create_info: create_info -> Rpc.t
 
 type build_hvm_info = {
 	shadow_multiplier: float;
 	timeoffset: string;
 	video_mib: int;
 }
+val build_hvm_info_of_rpc: Rpc.t -> build_hvm_info
+val rpc_of_build_hvm_info: build_hvm_info -> Rpc.t
 
 type build_pv_info = {
 	cmdline: string;
 	ramdisk: string option;
 }
+val build_pv_info_of_rpc: Rpc.t -> build_pv_info
+val rpc_of_build_pv_info: build_pv_info -> Rpc.t
 
 type builder_spec_info = BuildHVM of build_hvm_info | BuildPV of build_pv_info
+val builder_spec_info_of_rpc: Rpc.t -> builder_spec_info
+val rpc_of_builder_spec_info: builder_spec_info -> Rpc.t
 
 type build_info = {
 	memory_max: int64;    (* memory max in kilobytes *)
@@ -55,6 +63,8 @@ type build_info = {
 	vcpus: int;           (* vcpus max *)
 	priv: builder_spec_info;
 }
+val build_info_of_rpc: Rpc.t -> build_info
+val rpc_of_build_info: build_info -> Rpc.t
 
 type domarch = Arch_HVM | Arch_native | Arch_X64 | Arch_X32
 
