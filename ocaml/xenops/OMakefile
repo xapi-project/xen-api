@@ -14,7 +14,7 @@ OCAMLFLAGS    += -thread
 UseCamlp4(rpc-light.syntax, device_number xenops_server xenops_server_simulator xenops_migrate xenops_server_xen xenops_server_plugin domain device device_common xenops_hooks)
 UseCamlp4(rpc-light.idl, xenops_interface)
 
-LIBFILES = table xenops_helpers xenbus_utils balloon xenguestHelper domain hotplug device io statdev xal netman memory watch device_common squeeze squeeze_xen squeezed_rpc squeezed_state squeezed_rpc device_number stubdom bootloader xenops_interface xenops_utils xenops_client xenops_server_plugin ../xapi/storage_interface ../xapi/vdi_automaton xenops_server xenops_migrate xenops_task xenops_hooks ionice xenops_server_xen xenops_server_simulator
+LIBFILES = table xenops_helpers xenbus_utils balloon xenguestHelper domain hotplug device io statdev netman memory watch device_common squeeze squeeze_xen squeezed_rpc squeezed_state squeezed_rpc device_number stubdom bootloader xenops_interface xenops_utils xenops_client xenops_server_plugin ../xapi/storage_interface ../xapi/vdi_automaton xenops_server xenops_migrate xenops_task xenops_hooks ionice xenops_server_xen xenops_server_simulator
 
 StaticCLibrary(statdev_stubs, statdev_stubs)
 OCamlLibraryClib(xenops, $(LIBFILES), statdev_stubs)
@@ -58,12 +58,11 @@ section
 	OCAMLPACKS = xenctrl xenstore
 	OCamlProgram(xs, xenstore_readdir)
 
-OCamlProgram(xal, xal_main)
 OCamlProgram(watch_test, watch_test)
 OCamlProgram(squeeze_test, squeeze_test squeeze_test_main)
 
 BIN_PROGS=list_domains squeezed_client
-DEBUG_PROGS=xs xal xenops watch_test memory_breakdown memory_summary
+DEBUG_PROGS=xs xenops watch_test memory_breakdown memory_summary
 SYMLINK_PROGS=destroy_domain shutdown_domain create_domain build_domain build_hvm add_vbd add_vif unpause_domain pause_domain suspend_domain restore_domain
 OTHER_PROGS=fence dbgring squeezed xenopsd
 

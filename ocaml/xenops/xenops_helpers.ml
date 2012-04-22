@@ -22,10 +22,6 @@ let with_xs f =
 	let xs = Xs.daemon_open () in
 	finally (fun () -> f xs) (fun () -> Xs.close xs)
 
-let with_xal f =
-	let xal = Xal.init () in
-	finally (fun () -> f xal) (fun () -> Xal.close xal)
-
 let with_xc_and_xs f =
 	Xenctrl.with_intf (fun xc -> with_xs (fun xs -> f xc xs))
 
