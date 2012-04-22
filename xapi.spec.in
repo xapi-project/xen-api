@@ -318,6 +318,7 @@ rm -rf $RPM_BUILD_ROOT
 /usr/bin/xn
 /etc/xensource/bugtool/xenopsd.xml
 /etc/xensource/bugtool/xenopsd/stuff.xml
+@BASE_PATH@/libexec/xn_diagnostics
 
 %files v6d
 %defattr(-,root,root,-)
