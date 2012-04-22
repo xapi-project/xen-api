@@ -1516,3 +1516,14 @@ let vif_unplug ~__context ~self force =
 	Client.VIF.remove dbg vif.Vif.id |> success;
 	Event.wait dbg ();
 	assert (not(Db.VIF.get_currently_attached ~__context ~self))
+
+let vif_move ~__context ~self network =
+	let vm = Db.VIF.get_VM ~__context ~self in
+	assert_resident_on ~__context ~self:vm;
+	let vif = md_of_vif ~__context ~self in
+	info "xenops: VIF.move %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
+	let backend = backend_of_network ~__context ~self:network in
+	let dbg = Context.string_of_task __context in
+	Client.VIF.move dbg vif.Vif.id backend |> success |> wait_for_task dbg |> success_task dbg |> ignore_task;
+	Event.wait dbg ();
+	assert (Db.VIF.get_currently_attached ~__context ~self)

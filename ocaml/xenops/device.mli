@@ -91,6 +91,7 @@ sig
 	       -> device
 	val set_carrier : xs:Xenstore.Xs.xsh -> device -> bool -> unit
 	val release : xs:Xenstore.Xs.xsh -> device -> unit
+	val move : xs:Xenstore.Xs.xsh -> device -> string -> unit
 end
 
 val clean_shutdown : xs:Xenstore.Xs.xsh -> device -> unit

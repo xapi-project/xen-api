@@ -194,6 +194,18 @@ let add_vbd (vm: Vm.id) (vbd: Vbd.t) () =
 		raise (Exception Already_exists)
 	end else DB.write vm { d with Domain.vbds = { vbd with Vbd.position = Some this_dn } :: d.Domain.vbds }
 
+let move_vif vm vif network () =
+	let d = DB.read_exn vm in
+	let this_one x = x.Vif.id = vif.Vif.id in
+	match List.filter this_one d.Domain.vifs with
+		| [ vif ] ->
+			let vifs = List.filter (fun x -> not(this_one x)) d.Domain.vifs in
+			let vif = { vif with Vif.backend = network } in
+			DB.write vm { d with Domain.vifs = vif :: vifs }
+		| [] ->
+			raise (Exception(Does_not_exist("VIF", Printf.sprintf "%s.%s" (fst vif.Vif.id) (snd vif.Vif.id))))
+		| _ -> assert false (* at most one *)
+
 let add_pci (vm: Vm.id) (pci: Pci.t) () =
 	debug "add_pci";
 	let d = DB.read_exn vm in
@@ -352,6 +364,7 @@ end
 module VIF = struct
 	let plug _ vm vif = Mutex.execute m (add_vif vm vif)
 	let unplug _ vm vif _ = Mutex.execute m (remove_vif vm vif)
+	let move _ vm vif network = Mutex.execute m (move_vif vm vif network)
 	let set_carrier _ vm vif carrier = Mutex.execute m (set_carrier vm vif carrier)
 	let set_locking_mode _ vm vif mode = Mutex.execute m (set_locking_mode vm vif mode)
 
