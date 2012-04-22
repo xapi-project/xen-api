@@ -734,11 +734,10 @@ module VBD : HandlerTools = struct
 			let vm = log_reraise
 				("Failed to find VBD's VM: " ^ (Ref.string_of vbd_record.API.vBD_VM))
 				(lookup vbd_record.API.vBD_VM) state.table in
-			let vbd_record = { vbd_record with API.vBD_VM = vm } in
 			(* If the VBD is supposed to be attached to a PV guest (which doesn't support
 				 currently_attached empty drives) then throw a fatal error. *)
 			if vbd_record.API.vBD_currently_attached && not(exists vbd_record.API.vBD_VDI state.table) then begin
-				let original_vm = API.From.vM_t ""(find_in_export (Ref.string_of vm) state.export) in
+				let original_vm = API.From.vM_t "" (find_in_export (Ref.string_of vbd_record.API.vBD_VM) state.export) in
 				(* It's only ok if it's a CDROM attached to an HVM guest *)
 				let has_booted_hvm =
 					let lbr =
@@ -750,6 +749,7 @@ module VBD : HandlerTools = struct
 				then raise (IFailure Attached_disks_not_found)
 			end;
 
+			let vbd_record = { vbd_record with API.vBD_VM = vm } in
 			match vbd_record.API.vBD_type, exists vbd_record.API.vBD_VDI state.table with
 			| `CD, false ->
 				if Db.VM.get_power_state ~__context ~self:vm = `Halted then
