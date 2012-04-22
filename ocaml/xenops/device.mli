@@ -43,16 +43,20 @@ sig
 	val string_of_devty : devty -> string
 	val devty_of_string : string -> devty
 
-	val add : xs:Xenstore.Xs.xsh -> hvm:bool -> mode:mode
-	       -> device_number:Device_number.t
-	       -> phystype:physty -> params:string
-	       -> dev_type:devty
-	       -> unpluggable:bool
-	       -> ?protocol:protocol
-	       -> ?extra_backend_keys:(string*string) list
-	       -> ?extra_private_keys:(string*string) list 
-	       -> ?backend_domid:Xenctrl.domid
-	       -> Xenctrl.domid -> device
+	type t = {
+		mode:mode;
+		device_number: Device_number.t option;
+		phystype: physty;
+		params: string;
+		dev_type: devty;
+		unpluggable: bool;
+		protocol: protocol option;
+		extra_backend_keys: (string * string) list;
+		extra_private_keys: (string * string) list;
+		backend_domid: int;
+	}
+
+	val add : xs:Xenstore.Xs.xsh -> hvm:bool -> t -> Xenctrl.domid -> device
 
 	val release : xs:Xenstore.Xs.xsh -> device -> unit
 	val media_eject : xs:Xenstore.Xs.xsh -> device_number:Device_number.t -> int -> unit
@@ -71,6 +75,10 @@ end
 module Vif :
 sig
 	exception Invalid_Mac of string
+
+	val xensource_mac: unit -> string
+	val random_local_mac: unit -> string
+	val hashchain_local_mac: int -> string -> string
 
 	val add : xs:Xenstore.Xs.xsh -> devid:int -> netty:Netman.netty
 	       -> mac:string -> carrier:bool 
@@ -156,10 +164,12 @@ sig
 	type disp_intf_opt =
 	    | Std_vga
 	    | Cirrus
+	val disp_intf_opt_of_rpc: Rpc.t -> disp_intf_opt
+	val rpc_of_disp_intf_opt: disp_intf_opt -> Rpc.t
 
 	type disp_opt =
 		| NONE
-		| VNC of disp_intf_opt * bool * int * string (* auto-allocate, port if previous false, keymap *)
+		| VNC of disp_intf_opt * string option * bool * int * string (* IP address, auto-allocate, port if previous false, keymap *)
 		| SDL of disp_intf_opt * string (* X11 display *)
 		| Passthrough of int option
 		| Intel of disp_intf_opt * int option
@@ -187,7 +197,7 @@ sig
 		oem_features: int option;
 		inject_sci: int option;
 		video_mib: int;
-	       
+
 		extras: (string * string option) list;
 	}
 

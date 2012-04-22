@@ -66,9 +66,7 @@ let add_device ~xs device backend_list frontend_list private_list =
 
 		begin try
 			ignore (t.Xst.read frontend_path);
-			if Xenbus_utils.of_string (t.Xst.read (frontend_path ^ "/state"))
-			   <> Xenbus_utils.Closed then
-				raise (Device_frontend_already_connected device)
+			raise (Device_frontend_already_connected device)
 		with Xenbus.Xb.Noent -> () end;
 
 		t.Xst.rm frontend_path;
@@ -435,20 +433,45 @@ let release ~xs (x: device) =
 	 * to unplug as well as the backend. CA-13506 *)
 	if x.frontend.domid = 0 then Hotplug.wait_for_frontend_unplug ~xs x
 
-(* Add the VBD to the domain, When this command returns, the device is ready. (This isn't as
-   concurrent as xend-- xend allocates loopdevices via hotplug in parallel and then
-   performs a 'waitForDevices') *)
-let add ~xs ~hvm ~mode ~device_number ~phystype ~params ~dev_type ~unpluggable
-        ?(protocol=Protocol_Native) ?extra_backend_keys ?(extra_private_keys=[]) ?(backend_domid=0) domid  =
+let free_device ~xs bus_type domid =
+	let disks = List.map
+		(fun x -> x.frontend.devid
+		|> Device_number.of_xenstore_key
+		|> Device_number.spec
+		|> (fun (_, disk, _) -> disk))
+		(Device_common.list_frontends ~xs domid) in
+	let next = List.fold_left max 0 disks + 1 in
+	bus_type, next, 0
+
+type t = {
+	mode:mode;
+	device_number: Device_number.t option;
+	phystype: physty;
+	params: string;
+	dev_type: devty;
+	unpluggable: bool;
+	protocol: protocol option;
+	extra_backend_keys: (string * string) list;
+	extra_private_keys: (string * string) list;
+	backend_domid: int;
+}
+
+let add_async ~xs ~hvm x domid =
 	let back_tbl = Hashtbl.create 16 and front_tbl = Hashtbl.create 16 in
-	let devid = Device_number.to_xenstore_key device_number in
+	let open Device_number in
+	(* If no device number is provided then autodetect a free one *)
+	let device_number = match x.device_number with
+		| Some x -> x
+		| None ->
+			make (free_device ~xs (if hvm then Ide else Xen) domid) in
+	let devid = to_xenstore_key device_number in
 	let device = 
-	  let backend = { domid = backend_domid; kind = Vbd; devid = devid } 
+	  let backend = { domid = x.backend_domid; kind = Vbd; devid = devid } 
 	  in  device_of_backend backend domid
 	in
 
 	debug "Device.Vbd.add (device_number=%s | params=%s | phystype=%s)"
-	  (Device_number.to_debug_string device_number) params (string_of_physty phystype);
+	  (to_debug_string device_number) x.params (string_of_physty x.phystype);
 	(* Notes:
 	   1. qemu accesses devices images itself and so needs the path of the original
               file (in params)
@@ -458,43 +481,45 @@ let add ~xs ~hvm ~mode ~device_number ~phystype ~params ~dev_type ~unpluggable
 	   4. in the future an HVM guest might support a mixture of both
 	*)
 
-	(match extra_backend_keys with
-	 | Some keys ->
-	     List.iter (fun (k, v) -> Hashtbl.add back_tbl k v) keys
-	 | None -> ());
+	List.iter (fun (k, v) -> Hashtbl.add back_tbl k v) x.extra_backend_keys;
 
 	Hashtbl.add_list front_tbl [
-		"backend-id", string_of_int backend_domid;
+		"backend-id", string_of_int x.backend_domid;
 		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
 		"virtual-device", string_of_int devid;
-		"device-type", if dev_type = CDROM then "cdrom" else "disk";
+		"device-type", if x.dev_type = CDROM then "cdrom" else "disk";
 	];
 	Hashtbl.add_list back_tbl [
 		"frontend-id", sprintf "%u" domid;
 		(* Prevents the backend hotplug scripts from running if the frontend disconnects.
 		   This allows the xenbus connection to re-establish itself *)
 		"online", "1";
-		"removable", if unpluggable then "1" else "0";
+		"removable", if x.unpluggable then "1" else "0";
 		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
-		"dev", Device_number.to_linux_device device_number;
-		"type", backendty_of_physty phystype;
-		"mode", string_of_mode mode;
-		"params", params;
+		"dev", to_linux_device device_number;
+		"type", backendty_of_physty x.phystype;
+		"mode", string_of_mode x.mode;
+		"params", x.params;
 	];
     (* We don't have PV drivers for HVM guests for CDROMs. We prevent
        blkback from successfully opening the device since this can
        prevent qemu CD eject (and subsequent vdi_deactivate) *)
-	if hvm && (dev_type = CDROM) then
+	if hvm && (x.dev_type = CDROM) then
 		Hashtbl.add back_tbl "no-physical-device" "";
 
-	if protocol <> Protocol_Native then
-		Hashtbl.add front_tbl "protocol" (string_of_protocol protocol);
+	Opt.iter
+		(fun protocol ->
+			Hashtbl.add front_tbl "protocol" (string_of_protocol protocol)
+		) x.protocol;
 
 	let back = Hashtbl.to_list back_tbl in
 	let front = Hashtbl.to_list front_tbl in
 
 
-	Generic.add_device ~xs device back front extra_private_keys;
+	Generic.add_device ~xs device back front x.extra_private_keys;
+	device
+
+let add_wait ~xs device =
 	Hotplug.wait_for_plug ~xs device;
 	(* 'Normally' we connect devices to other domains, and cannot know whether the
 	   device is 'available' from their userspace (or even if they have a userspace).
@@ -505,7 +530,7 @@ let add ~xs ~hvm ~mode ~device_number ~phystype ~params ~dev_type ~unpluggable
 	   to wait for this condition to make the template installers work.
 	   NB if the custom hotplug script fires this implies that the xenbus state
 	   reached "connected", so we don't have to check for that first. *)
-	if domid = 0 then begin
+	if device.frontend.domid = 0 then begin
 	  try
 	    (* CA-15605: clean up on dom0 block-attach failure *)
 	    Hotplug.wait_for_frontend_plug ~xs device;
@@ -513,23 +538,26 @@ let add ~xs ~hvm ~mode ~device_number ~phystype ~params ~dev_type ~unpluggable
 	    debug "Caught Frontend_device_error: assuming it is safe to shutdown the backend";
 	    clean_shutdown ~xs device; (* assumes double-failure isn't possible *)
 	    release ~xs device;
-		(* Attempt to diagnose the error: the error from blkback ("2 creating vbd structure")
-		   doesn't give much away. *)
-		if backend_domid = 0 && phystype = Phys then begin
-		  try
-			(* Speculatively query the physical device as if a CDROM *)
-			  match Cdrom.query_cdrom_drive_status params with
-			  | Cdrom.DISC_OK -> () (* nothing unusual here *)
-			  | x -> 
-					error "CDROM device %s: %s" params (Cdrom.string_of_cdrom_drive_status x);
-					raise Cdrom
-		  with 
-		  | Cdrom as e' -> raise e'
-		  | _ -> () (* assume it wasn't a CDROM *)
-		end;
 	    raise e
 	end;
 	device
+
+(* Add the VBD to the domain, When this command returns, the device is ready. (This isn't as
+   concurrent as xend-- xend allocates loopdevices via hotplug in parallel and then
+   performs a 'waitForDevices') *)
+let add ~xs ~hvm x domid =
+	let device =
+		let result = ref None in
+		while !result = None do
+			try
+				result := Some (add_async ~xs ~hvm x domid);
+			with Device_frontend_already_connected _ as e ->
+				if x.device_number = None then begin
+					debug "Temporary failure to allocte a device number; retrying";
+					Thread.delay 0.1
+				end else raise e (* permanent failure *)
+		done; Opt.unbox !result in
+	add_wait ~xs device
 
 let qemu_media_change ~xs ~device_number domid _type params =
 	let devid = Device_number.to_xenstore_key device_number in
@@ -540,7 +568,7 @@ let qemu_media_change ~xs ~device_number domid _type params =
 		"params",         params;
 	] in
 	Xs.transaction xs (fun t -> t.Xst.writev backend back_delta);
-	debug "Media changed"
+	debug "Media changed: params = %s" params
 
 let media_tray_is_locked ~xs ~device_number domid =
 	let devid = Device_number.to_xenstore_key device_number in
@@ -607,6 +635,41 @@ let check_mac mac =
         with _ ->
 		raise (Invalid_Mac mac)
 
+let xensource_oui = [ 0x00; 0x16; 0x3e ]
+
+let xensource_mac () =
+        let bytes = [0x00; 0x16; 0x3e] @ (List.map Random.int [0x80; 0x100; 0x100
+]) in
+        String.concat ":" (List.map (Printf.sprintf "%02x") bytes)
+
+let make_local_mac bytes =
+	(* make sure bit 1 (local) is set and bit 0 (unicast) is clear *)
+	bytes.(0) <- ((bytes.(0) lor 0x2) land (lnot 0x1));
+	Printf.sprintf "%02x:%02x:%02x:%02x:%02x:%02x"
+		bytes.(0) bytes.(1) bytes.(2) bytes.(3) bytes.(4) bytes.(5)
+
+(* Generate a completely random local MAC *)
+let random_local_mac () =
+	make_local_mac (Array.init 6 (fun i -> Random.int 0x100))
+
+let hashchain_local_mac dev seed =
+	let hash x = Digest.string x in
+	let rec chain n f acc =
+		if n = 0 then Digest.string acc
+		else chain (n-1) f (f acc) in
+	let hashed_seed = chain (dev*2) hash seed in
+	let mac_data_1 = hashed_seed in
+	let mac_data_2 = Digest.string hashed_seed in
+	let take_byte n s = Char.code (String.get s n) in
+	make_local_mac
+      [| take_byte 0 mac_data_1;
+         take_byte 1 mac_data_1;
+         take_byte 2 mac_data_1;
+         take_byte 3 mac_data_1;
+         take_byte 1 mac_data_2;
+         take_byte 2 mac_data_2; |]
+
+
 let add ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) ?(protocol=Protocol_Native) ?(backend_domid=0) ?(other_config=[]) ?(extra_private_keys=[]) domid =
 	debug "Device.Vif.add domid=%d devid=%d mac=%s carrier=%b rate=%s other_config=[%s] extra_private_keys=[%s]" domid devid mac carrier
 	      (match rate with None -> "none" | Some (a, b) -> sprintf "(%Ld,%Ld)" a b)
@@ -624,7 +687,7 @@ let add ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) ?(protocol=Protocol_Na
 		match rate with
 		| None                              -> []
 		| Some (kbytes_per_s, timeslice_us) ->
-			let (^*) = Int64.mul and (^/) = Int64.div in
+			let ( ^* ) = Int64.mul and ( ^/ ) = Int64.div in
 			let timeslice_us =
 				if timeslice_us > 0L then
 					timeslice_us
@@ -1362,11 +1425,12 @@ let max_emulated_nics = 8 (** Should be <= the hardcoded maximum number of emula
 type disp_intf_opt =
     | Std_vga
     | Cirrus
+with rpc
 
 (* Display output / keyboard input *)
 type disp_opt =
 	| NONE
-	| VNC of disp_intf_opt * bool * int * string (* auto-allocate, port if previous false, keymap *)
+	| VNC of disp_intf_opt * string option * bool * int * string (* IP address, auto-allocate, port if previous false, keymap *)
 	| SDL of disp_intf_opt * string (* X11 display *)
 	| Passthrough of int option
 	| Intel of disp_intf_opt * int option
@@ -1541,12 +1605,13 @@ let __start ~xs ~dmpath ~restore ?(timeout = !Xapi_globs.qemu_dm_ready_timeout) 
 		    (vga_type_opts @ dom0_input_opts), false		
 		| SDL (opts,x11name) ->
 		    ( [], false)
-		| VNC (disp_intf, auto, port, keymap) ->
+		| VNC (disp_intf, ip_addr_opt, auto, port, keymap) ->
+			let ip_addr = Opt.default "127.0.0.1" ip_addr_opt in
 		    let vga_type_opts = vga_type_opts disp_intf in
 		    let vnc_opts = 
 		      if auto
-		      then [ "-vncunused"; "-k"; keymap ]
-		      else [ "-vnc"; string_of_int port; "-k"; keymap ]
+		      then [ "-vncunused"; "-k"; keymap; "-vnc"; ip_addr ^ ":1" ]
+		      else [ "-vnc"; ip_addr ^ ":" ^ (string_of_int port); "-k"; keymap ]
 		    in
 		    (vga_type_opts @ vnc_opts), true
 		| Intel (opt,dom0_input) -> 
@@ -1571,7 +1636,7 @@ let __start ~xs ~dmpath ~restore ?(timeout = !Xapi_globs.qemu_dm_ready_timeout) 
 	   @ (if info.pci_passthrough then ["-priv"] else [])
 	   @ xenclient_specific_options
 	   @ (List.fold_left (fun l (k, v) -> ("-" ^ k) :: (match v with None -> l | Some v -> v :: l)) [] info.extras)
-	   @ [ "-monitor"; "pty"; "-vnc"; "127.0.0.1:1" ]
+	   @ [ "-monitor"; "pty" ]
 		in
 	(* Execute qemu-dm-wrapper, forwarding stdout to the syslog, with the key "qemu-dm-<domid>" *)
 	let syslog_stdout = Forkhelpers.Syslog_WithKey (Printf.sprintf "qemu-dm-%d" domid) in

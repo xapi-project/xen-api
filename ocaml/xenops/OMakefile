@@ -11,9 +11,9 @@ CFLAGS          += $(XEN_CFLAGS)
 OCAMLPACKS     = threads xenctrl xenctrlext xenstore stdext log cdrom netdev # xenlight
 OCAMLFLAGS    += -thread
 
-UseCamlp4(rpc-light.syntax, device_number)
+UseCamlp4(rpc-light.syntax, device_number domain device)
 
-LIBFILES = table xenops_helpers xenbus_utils balloon xenguestHelper domain hotplug device io statdev xal netman memory watch device_common squeeze squeeze_xen squeezed_rpc squeezed_state squeezed_rpc device_number stubdom
+LIBFILES = table xenops_helpers xenbus_utils balloon xenguestHelper domain hotplug device io statdev xal netman memory watch device_common squeeze squeeze_xen squeezed_rpc squeezed_state squeezed_rpc device_number stubdom bootloader
 
 StaticCLibrary(statdev_stubs, statdev_stubs)
 OCamlLibraryClib(xenops, $(LIBFILES), statdev_stubs)

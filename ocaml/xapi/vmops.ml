@@ -279,16 +279,36 @@ let create_kernel ~__context ~xc ~xs ~self domid snapshot =
 			       legacy_args = legacy_args;
 			       pv_bootloader_args = pv_bootloader_args;
 			       vdis = boot_vdis } ->
-	        if not (List.mem_assoc bootloader Xapi_globs.supported_bootloaders) then
-		  raise (Api_errors.Server_error(Api_errors.unknown_bootloader, [ Ref.string_of self; bootloader ]));
-
 		let kernel =
-		  Helpers.call_api_functions ~__context
-		    (fun rpc session_id ->
-		       Sm_fs_ops.with_block_attached_devices __context rpc session_id boot_vdis `RO
-			 (fun devices ->
-			    let vm_uuid = snapshot.API.vM_uuid in
-			    Bootloader.extract_default_kernel bootloader devices legacy_args extra_args pv_bootloader_args vm_uuid)) in
+			Helpers.call_api_functions ~__context
+				(fun rpc session_id ->
+					Sm_fs_ops.with_block_attached_devices __context rpc session_id boot_vdis `RO
+						(function
+							| [] -> raise (Api_errors.Server_error(Api_errors.bootloader_failed, [ Ref.string_of self; "No bootable disks" ]))
+							| disk :: [] ->
+								let vm_uuid = snapshot.API.vM_uuid in
+								let open Bootloader in
+								begin
+									try
+										extract ~bootloader ~disk ~legacy_args ~extra_args ~pv_bootloader_args ~vm:vm_uuid ()
+									with
+										| Error_from_bootloader(code, params) ->
+											info "Received error from bootloader: %s [ %s ]" code (String.concat ", " params);
+											raise (Api_errors.Server_error(code, params))
+										| Unknown_bootloader b ->
+											raise (Api_errors.Server_error(Api_errors.unknown_bootloader, [ Ref.string_of self; b ]))
+										| Bad_sexpr x ->
+											let msg = Printf.sprintf "Bootloader %s returned an invalid s-expression: %s" bootloader x in
+											error "%s" msg;
+											raise (Api_errors.Server_error(Api_errors.bootloader_failed, [ Ref.string_of self; msg ]))
+										| Bad_error x ->
+											let msg = Printf.sprintf "Bootloader %s returned an invalid error result: %s" bootloader x in
+											error "%s" msg;
+											raise (Api_errors.Server_error(Api_errors.bootloader_failed, [ Ref.string_of self; msg ]))
+								end
+							| _ -> raise (Api_errors.Server_error(Api_errors.bootloader_failed, [ Ref.string_of self; "Too many bootable disks" ]))
+						)
+				) in
 
 		debug "build linux \"%s\" \"%s\" vcpus:%d mem_max:%Ld mem_target:%Ld"
 		      kernel.Bootloader.kernel_path
@@ -299,16 +319,13 @@ let create_kernel ~__context ~xc ~xs ~self domid snapshot =
 		                   kernel.Bootloader.kernel_args
 		                   kernel.Bootloader.initrd_path
 		                   vcpus domid in
-		(* XXX: aim to use pygrub to detect when to HVM boot a guest *)
-		Bootloader.delete_extracted_kernel kernel;
+		Bootloader.delete kernel;
 		arch
 	) in
 	Db.VM.set_domarch ~__context ~self ~value:(Domain.string_of_domarch domarch)
 	with
 	| Domain.Could_not_read_file filename ->
 		raise (Api_errors.Server_error(Api_errors.bootloader_failed, [ Ref.string_of self; Printf.sprintf "Could not read file: %s" filename ]))
-	| Bootloader.Error x ->
-		raise (Api_errors.Server_error(Api_errors.bootloader_failed, [ Ref.string_of self; Printf.sprintf "Error from bootloader: %s" x ]))
 
 let general_domain_create_check ~__context ~vm ~snapshot =
     (* If guest will boot HVM check that this host has HVM capabilities *)
@@ -593,7 +610,7 @@ let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statef
 
 		(* Display and input devices are usually conflated *)
 		let disp,usb = 
-		  let default_disp_usb = (Device.Dm.VNC (vga, true, 0, vnc_keymap), ["tablet"]) in
+		  let default_disp_usb = (Device.Dm.VNC (vga, None, true, 0, vnc_keymap), ["tablet"]) in
 		  if Xapi_globs.xenclient_enabled then begin 
 		    try 
 		      match List.assoc "vga_mode" platform with
