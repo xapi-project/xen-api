@@ -554,7 +554,10 @@ module VDI : HandlerTools = struct
 			match config.import_type with
 			| Metadata_import {live=true} ->
 				(* We expect the disk to be missing during a live migration dry run. *)
-				debug "Ignoring missing disk %s - this will be mirrored during a real live migration." x.id
+				debug "Ignoring missing disk %s - this will be mirrored during a real live migration." x.id;
+				(* Create a dummy disk in the state table so the VBD import has a disk to look up. *)
+				let dummy_vdi = Ref.make () in
+				state.table <- (x.cls, x.id, Ref.string_of dummy_vdi) :: state.table
 			| _ -> raise e
 		end
 		| Skip -> ()
