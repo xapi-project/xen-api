@@ -116,6 +116,8 @@ with rpc
 
 let string_of_operation x = x |> rpc_of_operation |> Jsonrpc.to_string
 
+let updates = Updates.empty ()
+
 module TASK = struct
 	open Xenops_task
 	let task x = {
@@ -135,8 +137,14 @@ module TASK = struct
 			(fun () ->
 				find_locked id |> task
 			)
+	let signal id =
+		Mutex.execute m
+			(fun () ->
+				if exists_locked id
+				then Updates.add (Dynamic.Task id) updates
+			)
 	let stat _ dbg id = stat' id |> return
-	let destroy _ dbg id = destroy id |> return
+	let destroy _ dbg id = destroy id; Updates.remove (Dynamic.Task id) updates |> return
 	let list _ dbg = list () |> List.map task |> return
 end
 
@@ -155,6 +163,19 @@ module VM_DB = struct
 		let module B = (val get_backend () : S) in
 		let states = List.map B.VM.get_state vms in
 		List.combine vms states
+	let m = Mutex.create ()
+	let signal id =
+		Mutex.execute m
+			(fun () ->
+				if exists id
+				then Updates.add (Dynamic.Vm id) updates
+			)
+	let remove id =
+		Mutex.execute m
+			(fun () ->
+				Updates.remove (Dynamic.Vm id) updates;
+				remove id
+			)
 end
 
 module PCI_DB = struct
@@ -176,6 +197,19 @@ module PCI_DB = struct
 		let module B = (val get_backend () : S) in
 		let states = List.map (B.PCI.get_state vm) xs in
 		List.combine xs states
+	let m = Mutex.create ()
+	let signal id =
+		Mutex.execute m
+			(fun () ->
+				if exists id
+				then Updates.add (Dynamic.Pci id) updates
+			)
+	let remove id =
+		Mutex.execute m
+			(fun () ->
+				Updates.remove (Dynamic.Pci id) updates;
+				remove id
+			)
 end
 
 module VBD_DB = struct
@@ -197,6 +231,19 @@ module VBD_DB = struct
 		let module B = (val get_backend () : S) in
 		let states = List.map (B.VBD.get_state vm) vbds' in
 		List.combine vbds' states
+	let m = Mutex.create ()
+	let signal id =
+		Mutex.execute m
+			(fun () ->
+				if exists id
+				then Updates.add (Dynamic.Vbd id) updates
+			)
+	let remove id =
+		Mutex.execute m
+			(fun () ->
+				Updates.remove (Dynamic.Vbd id) updates;
+				remove id
+			)
 end
 
 module VIF_DB = struct
@@ -217,22 +264,19 @@ module VIF_DB = struct
 		let module B = (val get_backend () : S) in
 		let states = List.map (B.VIF.get_state vm) vifs' in
 		List.combine vifs' states
+	let m = Mutex.create ()
+	let signal id =
+		Mutex.execute m
+			(fun () ->
+				Updates.add (Dynamic.Vif id) updates
+			)
+	let remove id =
+		Mutex.execute m
+			(fun () ->
+				Updates.remove (Dynamic.Vif id) updates;
+				remove id
+			)
 end
-
-let updates =
-	let u = Updates.empty () in
-	Debug.with_thread_associated "updates"
-		(fun () ->
-			(* Make sure all objects are 'registered' with the updates system *)
-			(* XXX: when do they get unregistered again? *)
-			List.iter
-				(fun vm ->
-					Updates.add (Dynamic.Vm vm) u;
-					List.iter (fun vbd -> Updates.add (Dynamic.Vbd vbd) u) (VBD_DB.ids vm);
-					List.iter (fun vif -> Updates.add (Dynamic.Vif vif) u) (VIF_DB.ids vm)
-				) (VM_DB.ids ())
-		) ();
-	u
 
 module StringMap = Map.Make(struct type t = string let compare = compare end)
 
@@ -485,7 +529,7 @@ module Worker = struct
 							debug "Queue caught: %s" (Printexc.to_string e)
 					end;
 					Redirector.finished tag queue;
-					Updates.add (Dynamic.Task item.Xenops_task.id) updates;
+					TASK.signal item.Xenops_task.id
 				done
 			) () in
 		t.t <- Some thread;
@@ -692,47 +736,47 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 		| VIF_plug id ->
 			debug "VIF.plug %s" (VIF_DB.string_of_id id);
 			B.VIF.plug t (VIF_DB.vm_of id) (VIF_DB.read_exn id);
-			Updates.add (Dynamic.Vif id) updates
+			VIF_DB.signal id
 		| VIF_unplug (id, force) ->
 			debug "VIF.unplug %s" (VIF_DB.string_of_id id);
 			finally
 				(fun () ->
 					B.VIF.unplug t (VIF_DB.vm_of id) (VIF_DB.read_exn id) force;
-				) (fun () -> Updates.add (Dynamic.Vif id) updates)
+				) (fun () -> VIF_DB.signal id)
 		| VIF_move (id, network) ->
 			debug "VIF.move %s" (VIF_DB.string_of_id id);
 			finally
 				(fun () ->
 					B.VIF.move t (VIF_DB.vm_of id) (VIF_DB.read_exn id) network;
-				) (fun () -> Updates.add (Dynamic.Vif id) updates)
+				) (fun () -> VIF_DB.signal id)
 		| VIF_set_carrier (id, carrier) ->
 			debug "VIF.set_carrier %s %b" (VIF_DB.string_of_id id) carrier;
 			finally
 				(fun () ->
 					B.VIF.set_carrier t (VIF_DB.vm_of id) (VIF_DB.read_exn id) carrier;
-				) (fun () -> Updates.add (Dynamic.Vif id) updates)
+				) (fun () -> VIF_DB.signal id)
                 | VIF_set_locking_mode (id, mode) ->
 			debug "VIF.set_locking_mode %s %s" (VIF_DB.string_of_id id) (mode |> Vif.rpc_of_locking_mode |> Jsonrpc.to_string);
 			finally
 				(fun () ->
 					B.VIF.set_locking_mode t (VIF_DB.vm_of id) (VIF_DB.read_exn id) mode;
-				) (fun () -> Updates.add (Dynamic.Vif id) updates)
+				) (fun () -> VIF_DB.signal id)
 		| VM_hook_script(id, script, reason) ->
 			Xenops_hooks.vm script id reason
 		| VBD_plug id ->
 			debug "VBD.plug %s" (VBD_DB.string_of_id id);
 			B.VBD.plug t (VBD_DB.vm_of id) (VBD_DB.read_exn id);
-			Updates.add (Dynamic.Vbd id) updates
+			VBD_DB.signal id
 		| VBD_set_qos id ->
 			debug "VBD.set_qos %s" (VBD_DB.string_of_id id);
 			B.VBD.set_qos t (VBD_DB.vm_of id) (VBD_DB.read_exn id);
-			Updates.add (Dynamic.Vbd id) updates
+			VBD_DB.signal id
 		| VBD_unplug (id, force) ->
 			debug "VBD.unplug %s" (VBD_DB.string_of_id id);
 			finally
 				(fun () ->
 					B.VBD.unplug t (VBD_DB.vm_of id) (VBD_DB.read_exn id) force
-				) (fun () -> Updates.add (Dynamic.Vbd id) updates)
+				) (fun () -> VBD_DB.signal id)
 		| VBD_insert (id, disk) ->
 			(* NB this is also used to "refresh" ie signal a qemu that it should
 			   re-open a device, useful for when a physical CDROM is inserted into
@@ -747,7 +791,7 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 				then raise (Exception Media_present)
 				else B.VBD.insert t (VBD_DB.vm_of id) vbd_t disk;
 			VBD_DB.write id { vbd_t with Vbd.backend = Some disk };
-			Updates.add (Dynamic.Vbd id) updates
+			VBD_DB.signal id
 		| VBD_eject id ->
 			debug "VBD.eject %s" (VBD_DB.string_of_id id);
 			let vbd_t = VBD_DB.read_exn id in
@@ -760,7 +804,7 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 				then B.VBD.eject t (VBD_DB.vm_of id) vbd_t
 				else raise (Exception Media_not_present);			
 			VBD_DB.write id { vbd_t with Vbd.backend = None };
-			Updates.add (Dynamic.Vbd id) updates
+			VBD_DB.signal id
 		| VM_remove id ->
 			debug "VM.remove %s" id;
 			let power = (B.VM.get_state (VM_DB.read_exn id)).Vm.power_state in
@@ -775,11 +819,11 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 		| PCI_plug id ->
 			debug "PCI.plug %s" (PCI_DB.string_of_id id);
 			B.PCI.plug t (PCI_DB.vm_of id) (PCI_DB.read_exn id);
-			Updates.add (Dynamic.Pci id) updates;
+			PCI_DB.signal id
 		| PCI_unplug id ->
 			debug "PCI.unplug %s" (PCI_DB.string_of_id id);
 			B.PCI.unplug t (PCI_DB.vm_of id) (PCI_DB.read_exn id);
-			Updates.add (Dynamic.Pci id) updates;
+			PCI_DB.signal id
 		| VM_set_vcpus (id, n) ->
 			debug "VM.set_vcpus (%s, %d)" id n;
 			let vm_t = VM_DB.read_exn id in
@@ -789,19 +833,19 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 		| VM_set_shadow_multiplier (id, m) ->
 			debug "VM.set_shadow_multiplier (%s, %.2f)" id m;
 			B.VM.set_shadow_multiplier t (VM_DB.read_exn id) m;
-			Updates.add (Dynamic.Vm id) updates
+			VM_DB.signal id
 		| VM_set_memory_dynamic_range (id, min, max) ->
 			debug "VM.set_memory_dynamic_range (%s, %Ld, %Ld)" id min max;
 			B.VM.set_memory_dynamic_range t (VM_DB.read_exn id) min max;
-			Updates.add (Dynamic.Vm id) updates
+			VM_DB.signal id
 		| VM_pause id ->
 			debug "VM.pause %s" id;
 			B.VM.pause t (VM_DB.read_exn id);
-			Updates.add (Dynamic.Vm id) updates
+			VM_DB.signal id
 		| VM_unpause id ->
 			debug "VM.unpause %s" id;
 			B.VM.unpause t (VM_DB.read_exn id);
-			Updates.add (Dynamic.Vm id) updates
+			VM_DB.signal id
 		| VM_create_device_model (id, save_state) ->
 			debug "VM.create_device_model %s" id;
 			B.VM.create_device_model t (VM_DB.read_exn id) save_state
@@ -832,11 +876,11 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 		| VM_s3suspend id ->
 			debug "VM.s3suspend %s" id;
 			B.VM.s3suspend t (VM_DB.read_exn id);
-			Updates.add (Dynamic.Vm id) updates
+			VM_DB.signal id
 		| VM_s3resume id ->
 			debug "VM.s3resume %s" id;
 			B.VM.s3resume t (VM_DB.read_exn id);
-			Updates.add (Dynamic.Vm id) updates
+			VM_DB.signal id
 		| VM_save (id, flags, data) ->
 			debug "VM.save %s" id;
 			B.VM.save t progress_callback (VM_DB.read_exn id) flags data
@@ -858,7 +902,7 @@ let weight_of_atomic = function
 let progress_callback start len t y =
 	let new_progress = start +. (y *. len) in
 	t.Xenops_task.result <- Task.Pending new_progress;
-	Updates.add (Dynamic.Task t.Xenops_task.id) updates
+	TASK.signal t.Xenops_task.id
 
 let perform_atomics atomics t =
 	let total_weight = List.fold_left ( +. ) 0. (List.map weight_of_atomic atomics) in
@@ -881,7 +925,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			debug "VM.start %s" id;
 			begin try
 				perform_atomics (atomics_of_operation op) t;
-				Updates.add (Dynamic.Vm id) updates
+				VM_DB.signal id
 			with e ->
 				debug "VM.start threw error: %s. Calling VM.destroy" (Printexc.to_string e);
 				perform_atomics [ VM_destroy id ] t;
@@ -890,26 +934,26 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 		| VM_poweroff (id, timeout) ->
 			debug "VM.poweroff %s" id;
 			perform_atomics (atomics_of_operation op) t;
-			Updates.add (Dynamic.Vm id) updates
+			VM_DB.signal id			
 		| VM_reboot (id, timeout) ->
 			debug "VM.reboot %s" id;
 			perform_atomics (atomics_of_operation op) t;
-			Updates.add (Dynamic.Vm id) updates
+			VM_DB.signal id
 		| VM_shutdown (id, timeout) ->
 			debug "VM.shutdown %s" id;
 			perform_atomics (atomics_of_operation op) t;
-			Updates.add (Dynamic.Vm id) updates
+			VM_DB.signal id
 		| VM_suspend (id, data) ->
 			debug "VM.suspend %s" id;
 			perform_atomics (atomics_of_operation op) t;
-			Updates.add (Dynamic.Vm id) updates
+			VM_DB.signal id
 		| VM_restore_devices id -> (* XXX: this is delayed due to the 'attach'/'activate' behaviour *)
 			debug "VM_restore_devices %s" id;
 			perform_atomics (atomics_of_operation op) t;
 		| VM_resume (id, data) ->
 			debug "VM.resume %s" id;
 			perform_atomics (atomics_of_operation op) t;
-			Updates.add (Dynamic.Vm id) updates
+			VM_DB.signal id
 		| VM_migrate (id, url') ->
 			debug "VM.migrate %s -> %s" id url';
 			let open Xmlrpc_client in
@@ -954,7 +998,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 				if not is_localhost then [ VM_remove id ] else []
 			) in
 			perform_atomics atomics t;
-			Updates.add (Dynamic.Vm id) updates
+			VM_DB.signal id
 		| VM_receive_memory (id, s) ->
 			debug "VM.receive_memory %s" id;
 			let state = B.VM.get_state (VM_DB.read_exn id) in
@@ -1019,7 +1063,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			in
 			let operations = List.concat (List.map operations_of_action actions) in
 			List.iter (fun x -> perform x t) operations;
-			Updates.add (Dynamic.Vm id) updates
+			VM_DB.signal id
 		| PCI_check_state id ->
 			debug "PCI.check_state %s" (PCI_DB.string_of_id id);
 			let vif_t = PCI_DB.read_exn id in
@@ -1408,13 +1452,9 @@ module UPDATES = struct
 		Debug.with_thread_associated dbg
 			(fun () ->
 				debug "UPDATES.refresh_vm %s" id;
-				Updates.add (Dynamic.Vm id) updates;
-				List.iter
-					(fun x -> Updates.add (Dynamic.Vbd x.Vbd.id) updates)
-					(VBD_DB.vbds id);
-				List.iter
-					(fun x -> Updates.add (Dynamic.Vif x.Vif.id) updates)
-					(VIF_DB.vifs id);
+				VM_DB.signal id;
+				List.iter VBD_DB.signal (VBD_DB.ids id);
+				List.iter VIF_DB.signal (VIF_DB.ids id);
 				return ()
 			) ()
 end
@@ -1458,6 +1498,15 @@ let set_backend m =
 	let module B = (val get_backend () : S) in
 	B.init ()
 
+let register_objects () =
+	(* Make sure all objects are 'registered' with the updates system *)
+	List.iter
+		(fun vm ->
+			VM_DB.signal vm;
+			List.iter VBD_DB.signal (VBD_DB.ids vm);
+			List.iter VBD_DB.signal (VIF_DB.ids vm)
+		) (VM_DB.ids ())
+
 let get_diagnostics _ _ () =
 	([
 		"VM queues:"
@@ -1466,4 +1515,6 @@ let get_diagnostics _ _ () =
 	) @ [
 		"Threads:"
 	] @ (WorkerPool.to_string_list ())
+	) @ (
+		Updates.to_string_list updates
 	) |> return
