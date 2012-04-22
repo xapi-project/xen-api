@@ -22,7 +22,6 @@
 
 open Pervasiveext
 open Printf
-open Vmopshelpers
 
 module DD=Debug.Debugger(struct let name="xapi" end)
 open DD

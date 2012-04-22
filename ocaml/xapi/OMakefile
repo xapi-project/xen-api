@@ -87,7 +87,6 @@ XAPI_MODULES = $(COMMON) \
 	storage_impl \
 	storage_locks \
 	console \
-	xen_helpers \
 	importexport \
 	sparse_encoding \
 	create_storage \
@@ -155,7 +154,6 @@ XAPI_MODULES = $(COMMON) \
 	sm_fs_ops \
 	sparse_dd_wrapper \
 	vmopshelpers \
-	vm_config \
 	pciops \
 	vgpuops \
 	vbdops \
