@@ -283,6 +283,9 @@ let start_internal ~__context ~vm ~start_paused:paused ~force =
 let start ~__context ~vm ~start_paused ~force =
 	License_check.with_vm_license_check ~__context vm
 		(fun () ->
+			if Db.VM.get_ha_restart_priority ~__context ~self:vm = Constants.ha_restart
+			then Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
+
 			(if !Xapi_globs.use_xenopsd then start_xenopsd else start_internal) ~__context ~vm ~start_paused ~force
 		)
 
@@ -810,7 +813,6 @@ let suspend_internal  ~__context ~vm =
 	(fun () ->
 		Locking_helpers.with_lock vm
 		(fun token () ->
-			Db.VM.set_ha_always_run ~__context ~self:vm ~value:false;
 			Stats.time_this "VM suspend"
 			(fun () ->
 				let domid = Helpers.domid_of_vm ~__context ~self:vm in
@@ -840,7 +842,9 @@ let suspend_internal  ~__context ~vm =
 let suspend_xenopsd  ~__context ~vm =
 	Xapi_xenops.suspend ~__context ~self:vm
 
-let suspend ~__context = if !Xapi_globs.use_xenopsd then suspend_xenopsd ~__context else suspend_internal ~__context
+let suspend ~__context ~vm =
+	Db.VM.set_ha_always_run ~__context ~self:vm ~value:false;
+	(if !Xapi_globs.use_xenopsd then suspend_xenopsd else suspend_internal) ~__context ~vm
 
 let resume_internal ~__context ~vm ~start_paused ~force =
 	Local_work_queue.wait_in_line Local_work_queue.long_running_queue
@@ -854,8 +858,6 @@ let resume_internal ~__context ~vm ~start_paused ~force =
 					(fun xc xs ->
 						debug "resume: making sure the VM really is suspended";
 						assert_power_state_is ~__context ~vm ~expected:`Suspended;
-						if Db.VM.get_ha_restart_priority ~__context ~self:vm = Constants.ha_restart
-						then Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
 						let localhost = Helpers.get_localhost ~__context in
 						if not force then begin
 							debug "resume: checking the VM is compatible with this host";
@@ -891,6 +893,9 @@ let resume_xenopsd ~__context ~vm ~start_paused ~force =
 let resume ~__context ~vm ~start_paused ~force = 
 	License_check.with_vm_license_check ~__context vm
 		(fun () ->
+			if Db.VM.get_ha_restart_priority ~__context ~self:vm = Constants.ha_restart
+			then Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
+
 			(if !Xapi_globs.use_xenopsd then resume_xenopsd else resume_internal) ~__context ~vm ~start_paused ~force
 		)
 

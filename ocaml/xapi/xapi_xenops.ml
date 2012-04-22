@@ -572,8 +572,10 @@ let update_vm ~__context id =
 							| Some Paused -> `Paused
 							| None -> `Halted in
 						debug "xenopsd event: Updating VM %s power_state <- %s" id (Record_util.power_state_to_string power_state);
-						if power_state = `Suspended || power_state = `Halted
-						then detach_networks ~__context ~self;
+						if power_state = `Suspended || power_state = `Halted then begin
+							detach_networks ~__context ~self;
+							Db.VM.set_ha_always_run ~__context ~self ~value:false;
+						end;
 						(* This will mark VBDs, VIFs as detached and clear resident_on
 						   if the VM has permenantly shutdown. *)
 						Xapi_vm_lifecycle.force_state_reset ~__context ~self ~value:power_state;
