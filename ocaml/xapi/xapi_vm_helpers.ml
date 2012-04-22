@@ -1062,3 +1062,25 @@ let assert_can_be_recovered ~__context ~self ~session_to =
 		let sr = Db.SR.get_by_uuid ~__context ~uuid:sr_uuid in
 		raise (Api_errors.Server_error(Api_errors.vm_requires_sr,
 			[Ref.string_of self; Ref.string_of sr]))
+
+(* BIOS strings *)
+
+let copy_bios_strings ~__context ~vm ~host =
+	(* only allow to fill in BIOS strings if they are not yet set *)
+	let current_strings = Db.VM.get_bios_strings ~__context ~self:vm in
+	if List.length current_strings > 0 then
+		raise (Api_errors.Server_error(Api_errors.vm_bios_strings_already_set, []))
+	else begin
+		let bios_strings = Db.Host.get_bios_strings ~__context ~self:host in
+		Db.VM.set_bios_strings ~__context ~self:vm ~value:bios_strings;
+		(* also set the affinity field to push the VM to start on this host *)
+		Db.VM.set_affinity ~__context ~self:vm ~value:host
+	end
+
+let consider_generic_bios_strings ~__context ~vm =
+	(* check BIOS strings: set to generic values if empty *)
+	let bios_strings = Db.VM.get_bios_strings ~__context ~self:vm in
+	if bios_strings = [] then begin
+		info "The VM's BIOS strings were not yet filled in. The VM is now made BIOS-generic.";
+		Db.VM.set_bios_strings ~__context ~self:vm ~value:Xapi_globs.generic_bios_strings
+	end

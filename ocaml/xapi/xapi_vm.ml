@@ -232,18 +232,6 @@ let start_internal ~__context ~vm ~start_paused:paused ~force =
 						(* Xapi_vm_helpers.assert_can_boot_here not required *)
 						(* since the message_forwarding layer has already    *)
 						(* done it and it's very expensive on a slave.       *)
-						if Db.VM.get_ha_restart_priority ~__context ~self:vm = Constants.ha_restart
-						then
-						  begin
-							Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context vm;
-							Db.VM.set_ha_always_run ~__context ~self:vm ~value:true
-						  end;
-						(* check BIOS strings: set to generic values if empty *)
-						let bios_strings = Db.VM.get_bios_strings ~__context ~self:vm in
-						if bios_strings = [] then begin
-							info "The VM's BIOS strings were not yet filled in. The VM is now made BIOS-generic.";
-							Db.VM.set_bios_strings ~__context ~self:vm ~value:Xapi_globs.generic_bios_strings
-						end;
 
 						(* Invoke pre-start hook *)
 						Xapi_hooks.vm_pre_start ~__context ~reason:Xapi_hooks.reason__none ~vm;
@@ -1314,19 +1302,7 @@ let s3_resume ~__context ~vm =
     let domid = Helpers.domid_of_vm ~__context ~self:vm in
     with_xc (fun xc -> Domain.send_s3resume ~xc domid)) ()
 
-(* BIOS strings *)
-
-let copy_bios_strings ~__context ~vm ~host =
-	(* only allow to fill in BIOS strings if they are not yet set *)
-	let current_strings = Db.VM.get_bios_strings ~__context ~self:vm in
-	if List.length current_strings > 0 then
-		raise (Api_errors.Server_error(Api_errors.vm_bios_strings_already_set, []))
-	else begin
-		let bios_strings = Db.Host.get_bios_strings ~__context ~self:host in
-		Db.VM.set_bios_strings ~__context ~self:vm ~value:bios_strings;
-		(* also set the affinity field to push the VM to start on this host *)
-		Db.VM.set_affinity ~__context ~self:vm ~value:host
-	end
+let copy_bios_strings = Xapi_vm_helpers.copy_bios_strings
 
 let set_protection_policy ~__context ~self ~value =
 	if value <> Ref.null then begin
