@@ -829,7 +829,8 @@ let migrate  ~__context ~vm ~dest ~live ~options =
 							error "SMAPI.Mirror.stop: %s" (rpc_of_result x |> Jsonrpc.to_string)
 				with e ->
 					error "SMAPI.Mirror.stop: %s" (Printexc.to_string e)
-			) vdis
+			) vdis;
+		raise e
 
 let migrate_receive ~__context ~host ~sR ~options =
 	let session_id = Ref.string_of (Context.get_session_id __context) in

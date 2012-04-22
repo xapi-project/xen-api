@@ -135,9 +135,9 @@ module Network_writer = struct
 
 	let do_http_put f url =
 		let open Http.Url in
-		let uri = Http.Url.uri_of url in
+		let uri = Http.Url.get_uri url in
+		let query = Http.Url.get_query_params url in
 		let auth = Http.Url.auth_of url in
-		let uri, query = Http.parse_uri uri in
 		let request = { Http.Request.empty with
 			Http.Request.m = Http.Put;
 			uri = uri;
