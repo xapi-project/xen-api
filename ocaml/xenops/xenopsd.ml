@@ -186,6 +186,7 @@ let _ =
 
   if not(!persist) then Xenops_utils.empty_database ();
 
+  Xenops_server.register_objects();
   Xenops_server.set_backend
 	  (Some (if !simulate
 	  then (module Xenops_server_simulator: Xenops_server_plugin.S)

@@ -73,8 +73,10 @@ let run item =
 			debug "%s" (Printexc.get_backtrace ());
 			item.result <- Task.Failed (Internal_error (Printexc.to_string e))
 
+let exists_locked id = SMap.mem id !tasks
+
 let find_locked id =
-	if not (SMap.mem id !tasks) then raise (Exception(Does_not_exist("task", id)));
+	if not (exists_locked id) then raise (Exception(Does_not_exist("task", id)));
 	SMap.find id !tasks
 
 let with_subtask t name f =

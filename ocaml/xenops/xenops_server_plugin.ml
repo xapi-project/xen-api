@@ -114,6 +114,8 @@ module UpdateRecorder = functor(Ord: Map.OrderedType) -> struct
 		let xs, last = M.fold (fun key v (acc, m) -> key :: acc, max m v) after ([], from) in
 		(* NB 'xs' must be in order so 'Barrier' requests don't permute *)
 		List.rev xs, last + 1
+
+	let fold f t init = M.fold f t.map init
 end
 
 module Updates = struct
@@ -172,6 +174,12 @@ module Updates = struct
 				let result, id = U.remove x t.u in
 				t.u <- result;
 				Condition.signal t.c
+			)
+
+	let to_string_list t =
+		Mutex.execute t.m
+			(fun () ->
+				U.fold (fun key v acc -> Printf.sprintf "%8d %s" v (key |> Dynamic.rpc_of_id |> Jsonrpc.to_string) :: acc) t.u []
 			)
 end
 
