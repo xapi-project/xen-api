@@ -8,7 +8,7 @@ OCAML_LINK_FLAGS+= $(XEN_OCAML_LINK_FLAGS) # $(XENLIGHT_LINK_FLAGS)
 
 CFLAGS          += $(XEN_CFLAGS)
 
-OCAMLPACKS     = xml-light2 sexpr stunnel http-svr netdev rpc-light threads xenctrl xenstore xenctrlext xenstoreext stdext log cdrom netdev # xenlight
+OCAMLPACKS     = xml-light2 sexpr stunnel http-svr netdev rpc-light threads xenctrl xenstore xenctrlext xenstoreext stdext log cdrom netdev oUnit # xenlight
 OCAMLFLAGS    += -thread
 
 UseCamlp4(rpc-light.syntax, device_number xenops_utils xenops_server xenops_server_simulator xenops_migrate xenops_server_xen xenops_server_plugin domain device device_common xenops_hooks)
@@ -23,6 +23,8 @@ OCamlDocLibrary(xenops, $(LIBFILES))
 OCamlLibrary(xenops_client, xenops_interface device_number memory xenops_client ionice)
 
 OCAML_LIBS += ../util/version ../idl/ocaml_backend/common xenops
+
+OCamlProgram(cancel_utils_test, cancel_utils_test)
 
 OCamlProgram(list_domains, list_domains)
 OCamlDocProgram(list_domains, list_domains)
