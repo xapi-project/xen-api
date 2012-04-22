@@ -133,6 +133,10 @@ module DP = struct
 		This will typically do any needed VDI.detach, VDI.deactivate cleanup. *)
 	external destroy: task:task -> dp:dp -> allow_leak:bool -> result = ""
 
+		
+	(** [params task id]: returns the params of the dp (the return value of VDI.attach) *)
+	external params: task:task -> sr:sr -> vdi:vdi -> dp:dp -> result = ""
+
 	(** [diagnostics ()]: returns a printable set of diagnostic information,
 		typically including lists of all registered datapaths and their allocated
 		resources. *)
@@ -206,7 +210,7 @@ module VDI = struct
     external detach : task:task -> dp:dp -> sr:sr -> vdi:vdi -> result = ""
 
 	(** [copy task sr vdi url sr2] copies the data from [vdi] into a remote system [url]'s [sr2] *)
-	external copy : task:task -> sr:sr -> vdi:vdi -> url:string -> dest:sr -> result = ""
+	external copy : task:task -> sr:sr -> vdi:vdi -> url:string -> dest:sr -> dest_vdi:vdi -> result = ""
 
     (** [get_url task sr vdi] returns a URL suitable for accessing disk data directly. *)
     external get_url : task:task -> sr:sr -> vdi:vdi -> result = ""
@@ -227,13 +231,34 @@ end
 (** [get_by_name task name] returns a vdi with [name] (which may be in any SR) *)
 external get_by_name : task:task -> name:string -> result = ""
 
+type mirror_receive_result_vhd_t = {
+	mirror_vdi : vdi_info;
+	mirror_datapath : dp;
+	copy_diffs_from : content_id option;
+	copy_diffs_to : vdi;
+}
+		
+type mirror_receive_result = 
+	| Vhd_mirror of mirror_receive_result_vhd_t
+
+type similars = content_id list 
+
 module Mirror = struct
 
 	(** [start task sr vdi url sr2] creates a VDI in remote [url]'s [sr2] and writes
 		data synchronously. It returns the id of the VDI.*)
-	external start : task:task -> sr:sr -> vdi:vdi -> url:string -> dest:sr -> result = ""
+	external start : task:task -> sr:sr -> vdi:vdi -> dp:dp -> url:string -> dest:sr -> result = ""
 
 	(** [stop task sr vdi] stops mirroring local [vdi] *)
 	external stop : task:task -> sr:sr -> vdi:vdi -> result = ""
+
+	external active : task:task -> sr:sr -> content_id list = ""
+
+	(** Called on the receiving end *)
+	external receive_start : task:task -> sr:sr -> vdi_info:vdi_info -> content_id:content_id -> similar:similars -> mirror_receive_result = ""
+
+	external receive_finalize : task:task -> sr:sr -> content_id:content_id -> unit = ""
+
+	external receive_cancel : task:task -> sr:sr -> content_id:content_id -> unit = ""
 
 end

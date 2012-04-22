@@ -31,6 +31,7 @@ module Proxy = functor(RPC: RPC) -> struct
 		let create _ = Client.DP.create
 		let destroy _ = Client.DP.destroy
 		let diagnostics _ = Client.DP.diagnostics
+		let params _ = Client.DP.params
 	end
 	module SR = struct
 		let attach _ = Client.SR.attach
@@ -65,5 +66,9 @@ module Proxy = functor(RPC: RPC) -> struct
 	module Mirror = struct
 		let start _ = Client.Mirror.start
 		let stop _ = Client.Mirror.stop
+		let active _ = Client.Mirror.active
+		let receive_start _ = Client.Mirror.receive_start
+		let receive_finalize _ = Client.Mirror.receive_finalize
+		let receive_cancel _ = Client.Mirror.receive_cancel
 	end
 end
