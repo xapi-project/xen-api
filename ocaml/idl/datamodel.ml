@@ -2002,6 +2002,18 @@ let vm_migrate_send = call
   ~allowed_roles:_R_VM_POWER_ADMIN
   ()
 
+let vm_assert_can_migrate = call
+~name:"assert_can_migrate"
+	~in_product_since:rel_tampa
+	~doc:"Assert whether a VM can be migrated to the specified destination."
+	~params:[
+		Ref _vm, "vm", "The VM";
+		Map(String,String), "dest", "The result of a VM.migrate_receive call.";
+		Bool, "live", "Live migration";
+		Map (String, String), "options", "Other parameters" ]
+	~allowed_roles:_R_VM_POWER_ADMIN
+	()
+
 let vm_s3_suspend = call
   ~name: "s3_suspend"
   ~in_product_since:rel_midnight_ride
@@ -6417,6 +6429,7 @@ let vm =
 		vm_send_sysrq; vm_send_trigger;
 		vm_maximise_memory;
 		vm_migrate_send;
+		vm_assert_can_migrate;
 		vm_get_boot_record;
 		vm_get_data_sources; vm_record_data_source; vm_query_data_source; vm_forget_data_source_archives;
 		assert_operation_valid vm_operations _vm _self;
