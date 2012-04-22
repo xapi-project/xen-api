@@ -1,0 +1,3 @@
+<collect>
+<directory label="xenopsd_log">/var/log/xenopsd</directory>
+</collect>

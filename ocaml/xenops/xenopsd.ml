@@ -13,7 +13,7 @@
  *)
 let name = "xenopsd"
 let default_pidfile = Printf.sprintf "/var/run/%s.pid" name 
-let log_file_path = Printf.sprintf "file:/var/log/%s.log" name 
+let log_file_path = Printf.sprintf "file:/var/log/xenopsd/%s.log" name 
 
 open Xenops_utils
 open Pervasiveext 
@@ -124,6 +124,7 @@ let _ =
     (fun _ -> failwith "Invalid argument")
     (Printf.sprintf "Usage: %s [-daemon] [-pidfile filename]" name);
 
+  Unixext.mkdir_rec (Filename.dirname log_file_path) 0o755;
   Logs.reset_all (if !daemonize then [ log_file_path ] else [ "file:/dev/stdout" ]);
   Logs.set "http" Log.Debug [ "nil" ];
 
