@@ -52,11 +52,11 @@ let build ~xc ~xs info domid stubdom_domid =
 
     (* Point the stub domain at the guest *)
     debug "jjd27: pointing stubdom %d to guest %d" stubdom_domid domid;
-    Xenctrl.domain_set_target xc stubdom_domid domid;
+    Xenctrlext.domain_set_target xc stubdom_domid domid;
 
     (* Tell XenStore that the stubdom should have implicit privileges over the target domain *)
     debug "jjd27: telling XenStore that stubdom %d has target %d" stubdom_domid domid;
-    xs.Xs.set_target stubdom_domid domid;
+    Xenctrlext.Xsrawext.set_target stubdom_domid domid xs.Xs.con;
 
     (* Write the guest's domid into XenStore *)
     let path = xs.Xs.getdomainpath stubdom_domid in
