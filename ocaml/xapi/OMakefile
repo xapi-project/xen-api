@@ -61,7 +61,6 @@ COMMON = \
 #OCamlProgram(upload_receive, $(COMMON) fileupload upload_receive)
 
 OCamlProgram(quicktestbin, quicktest quicktest_common quicktest_ocamltest quicktest_storage quicktest_http quicktest_encodings quicktest_vm_placement vm_placement ../xenops/squeeze_test quicktest_vm_memory_constraints ../util/vm_memory_constraints quicktest_lifecycle)
-OCamlProgram(fakeguestagent, fakeguestagent)
 
 OCamlProgram(xenstore_copy, xenstore_dump xenstore_copy)
 
@@ -294,13 +293,10 @@ install:
 	mkdir -p $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) monitor_fake_plugin $(DESTDIR)$(PLUGINDIR)
 
-.PHONY: sdk-install
-sdk-install: install
-	mkdir -p $(DESTDIR)$(LIBEXECDIR)
-	cp fakeguestagent $(DESTDIR)$(LIBEXECDIR)/
-
 .PHONY: clean
 clean:
 	rm -rf $(CLEAN_OBJS) *.aux *.log *.fig xapi
-	rm -f binpack xapi_unit_test sparse_dd fakeguestagent monitor_fake_plugin rrddump quicktestbin
+	rm -f config_constants.ml
+	rm -f binpack xapi_unit_test sparse_dd monitor_fake_plugin rrddump quicktestbin
+
 
