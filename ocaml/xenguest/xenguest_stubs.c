@@ -413,19 +413,31 @@ CAMLprim value stub_xc_hvm_build_native(value xc_handle, value domid,
   unsigned long console_mfn=0;
 	int r;
 	struct flags f;
+	/* The xenguest interface changed and was backported to XCP: */
+#if defined(XENGUEST_HAS_HVM_BUILD_ARGS) || (__XEN_LATEST_INTERFACE_VERSION__ >= 0x00040200)
 	struct xc_hvm_build_args args;
+#endif
 	get_flags(&f, _D(domid));
 
 	xch = _H(xc_handle);
 	configure_vcpus(xch, _D(domid), f);
 
+#if defined(XENGUEST_HAS_HVM_BUILD_ARGS) || (__XEN_LATEST_INTERFACE_VERSION__ >= 0x00040200)
 	args.mem_size = (uint64_t)Int_val(mem_max_mib) << 20;
 	args.mem_target = (uint64_t)Int_val(mem_start_mib) << 20;
 	args.mmio_size = f.mmio_size_mib << 20;
 	args.image_file_name = image_name_c;
+#endif
 
 	caml_enter_blocking_section ();
+#if defined(XENGUEST_HAS_HVM_BUILD_ARGS) || (__XEN_LATEST_INTERFACE_VERSION__ >= 0x00040200)
 	r = xc_hvm_build(xch, _D(domid), &args);
+#else
+	r = xc_hvm_build_target_mem(xch, _D(domid),
+				    Int_val(mem_max_mib),
+				    Int_val(mem_start_mib),
+				    image_name_c);
+#endif
 	caml_leave_blocking_section ();
 
 	free(image_name_c);
