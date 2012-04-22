@@ -54,7 +54,7 @@ let pool_migrate ~__context ~vm ~host ~options =
 		(fun () ->
 			(* XXX: PR-1255: the live flag *)
 			info "xenops: VM.migrate %s to %s" vm' xenops_url;
-			XenopsAPI.VM.migrate dbg vm' xenops_url |> success |> wait_for_task dbg |> success_task dbg |> ignore;
+			XenopsAPI.VM.migrate dbg vm' [] xenops_url |> wait_for_task dbg |> success_task dbg |> ignore;
 		);
 	Xapi_xenops.remove_caches vm';
 	(* We will have missed important events because we set resident_on late.
@@ -86,6 +86,7 @@ let migrate  ~__context ~vm ~dest ~live ~options =
 			if not(Db.VBD.get_empty ~__context ~self:vbd)
 			then
 				let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
+				let xenops_locator = Xapi_xenops.xenops_vdi_locator ~__context ~self:vdi in
 				let location = Db.VDI.get_location ~__context ~self:vdi in
 				let device = Db.VBD.get_device ~__context ~self:vbd in
 				let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
@@ -97,7 +98,7 @@ let migrate  ~__context ~vm ~dest ~live ~options =
 					None
 				end else begin
 					let sr = Db.SR.get_uuid ~__context ~self:(Db.VDI.get_SR ~__context ~self:vdi) in
-					Some (dp, location, sr)
+					Some (dp, location, sr, xenops_locator)
 				end
 			else None) vbds in
 	let task = Context.string_of_task __context in
@@ -111,20 +112,21 @@ let migrate  ~__context ~vm ~dest ~live ~options =
 		| _, _ -> failwith (Printf.sprintf "Cannot extract foreign IP address from: %s" xenops) in
 	try
 		let remote_rpc = Helpers.make_remote_rpc remote_address in
-		List.iter
-			(fun (dp, location, sr) ->
+		let vdi_map = List.map
+			(fun (dp, location, sr, xenops_locator) ->
 				match SMAPI.Mirror.start ~task ~sr ~vdi:location ~dp ~url ~dest:dest_sr with
 					| Success (Vdi v) ->
-						debug "Local VDI %s mirrored to %s" location v.vdi
+						debug "Local VDI %s mirrored to %s" location v.vdi;
+						(xenops_locator, Xapi_xenops.xenops_vdi_locator_of_strings dest_sr v.vdi)
 					| x ->
 						failwith (Printf.sprintf "SMAPI.Mirror.start: %s" (rpc_of_result x |> Jsonrpc.to_string))
-			) vdis;
+			) vdis in
 		(* Move the xapi VM metadata *)
 		Importexport.remote_metadata_export_import ~__context ~rpc:remote_rpc ~session_id ~remote_address (`Only vm);
 		(* Migrate the VM *)
 		let open Xenops_client in
 		let vm = Db.VM.get_uuid ~__context ~self:vm in
-		XenopsAPI.VM.migrate task vm xenops |> success |> wait_for_task task |> success_task task |> ignore;
+		XenopsAPI.VM.migrate task vm vdi_map xenops |> wait_for_task task |> success_task task |> ignore;
 		let new_vm = XenAPI.VM.get_by_uuid remote_rpc session_id vm in
 		(* Signal the remote pool that we're done *)
 		XenAPI.VM.pool_migrate_complete remote_rpc session_id new_vm (Ref.of_string dest_host);
@@ -132,7 +134,7 @@ let migrate  ~__context ~vm ~dest ~live ~options =
 	with e ->
 		error "Caught %s: cleaning up" (Printexc.to_string e);
 		List.iter
-			(fun (dp, location, sr) ->
+			(fun (dp, location, sr, xenops_locator) ->
 				try
 					match SMAPI.Mirror.stop ~task ~sr ~vdi:location with
 						| Success Unit -> ()

@@ -80,19 +80,16 @@ let run item =
 		let duration = Unix.gettimeofday () -. start in
 		item.result <- Task.Completed duration;
 	with
-		| Exception e ->
-			debug "Caught exception while processing queue: %s" (e |> rpc_of_error |> Jsonrpc.to_string);
+		| e ->
+			let e = e |> exnty_of_exn |> Exception.rpc_of_exnty in
+			debug "Caught exception while processing queue: %s" (e |> Jsonrpc.to_string);
 			debug "%s" (Printexc.get_backtrace ());
 			item.result <- Task.Failed e
-		| e ->
-			debug "Caught exception while processing queue: %s" (Printexc.to_string e);
-			debug "%s" (Printexc.get_backtrace ());
-			item.result <- Task.Failed (Internal_error (Printexc.to_string e))
 
 let exists_locked id = SMap.mem id !tasks
 
 let find_locked id =
-	if not (exists_locked id) then raise (Exception(Does_not_exist("task", id)));
+	if not (exists_locked id) then raise (Does_not_exist("task", id));
 	SMap.find id !tasks
 
 let with_subtask t name f =
@@ -103,7 +100,7 @@ let with_subtask t name f =
 		t.subtasks <- List.replace_assoc name (Task.Completed (Unix.gettimeofday () -. start)) t.subtasks;
 		result
 	with e ->
-		t.subtasks <- List.replace_assoc name (Task.Failed (Internal_error (Printexc.to_string e))) t.subtasks;
+		t.subtasks <- List.replace_assoc name (Task.Failed (Exception.rpc_of_exnty (Exception.Internal_error (Printexc.to_string e)))) t.subtasks;
 		raise e
 
 let list () =
@@ -134,7 +131,7 @@ let cancel id =
 				debug "Task.cancel %s: ignore exception %s" id (Printexc.to_string e)
 		) callbacks
 
-let raise_cancelled t = raise (Exception(Cancelled(t.id)))
+let raise_cancelled t = raise (Cancelled(t.id))
 
 let check_cancelling t = if Mutex.execute t.m (fun () -> t.cancelling) then raise_cancelled t
 

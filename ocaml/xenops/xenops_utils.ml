@@ -33,15 +33,6 @@ end
 let all = List.fold_left (&&) true
 let any = List.fold_left (||) false
 
-let return x = Some x, None
-
-exception Exception of error
-
-let unwrap = function
-    | Some x, None -> x
-    | None, Some e -> raise (Exception e)
-    | _, _ -> failwith "protocol error"
-
 let dropnone x = List.filter_map (fun x -> x) x
 
 module type ITEM = sig
@@ -215,7 +206,7 @@ module TypedTable = functor(I: ITEM) -> struct
 		Opt.map (fun x -> t_of_rpc x) (FS.read path)
 	let read_exn (k: I.key) = match read k with
 		| Some x -> x
-		| None -> raise (Exception (Does_not_exist (I.namespace, I.key k |> String.concat "/")))
+		| None -> raise (Does_not_exist (I.namespace, I.key k |> String.concat "/"))
 	let write (k: I.key) (x: t) =
 		let module FS = (val get_fs_backend () : FS) in
 		let path = k |> I.key |> of_key in
@@ -235,14 +226,14 @@ module TypedTable = functor(I: ITEM) -> struct
 		if exists k then begin
 			let path = k |> I.key |> of_key |> String.concat "/" in
 			debug "Key %s already exists" path;
-			raise (Exception(Already_exists(I.namespace, path)))
+			raise (Already_exists(I.namespace, path))
 		end else write k x
 
 	let remove (k: I.key) =
 		if not(exists k) then begin
 			let path = k |> I.key |> of_key |> String.concat "/" in
 			debug "Key %s does not exist" path;
-			raise (Exception(Does_not_exist(I.namespace, path)))
+			raise (Does_not_exist(I.namespace, path))
 		end else delete k
 end
 

@@ -597,7 +597,7 @@ let wait_memory_target_live ~__context ~self =
 			then raise_error Api_errors.task_cancelled;
 
 		(* Fetch up-to-date value of memory_actual and memory_target *)
-		let _, s = Client.VM.stat dbg id |> success in
+		let _, s = Client.VM.stat dbg id in
 		let memory_target_bytes = s.Xenops_interface.Vm.memory_target in
 		let memory_actual_bytes = s.Xenops_interface.Vm.memory_actual in
 

@@ -65,7 +65,7 @@ let execute_hook ~script_name ~args ~reason =
 	     if i=exitcode_log_and_continue then
 	       debug "Hook '%s/%s' with args [ %s ] logged '%s'" script_name script (String.concat "; " args) (String.escaped stdout)
 	     else
-	       raise (Exception (Hook_failed(script_name^"/"^script, reason, stdout, string_of_int i)))
+	       raise (Hook_failed(script_name^"/"^script, reason, stdout, string_of_int i))
 		     )
       scripts
 

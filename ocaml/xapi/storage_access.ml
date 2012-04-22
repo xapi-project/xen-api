@@ -89,7 +89,7 @@ module Builtin_impl = struct
 							with e ->
 								let e' = ExnHelper.string_of_exn e in
 								error "SR.attach failed SR:%s error:%s" (Ref.string_of sr) e';
-								Failure (Internal_error e')
+								Failure (Internal_err e')
 						)
 				)
 		let detach context ~task ~sr =
@@ -105,7 +105,7 @@ module Builtin_impl = struct
 							with e ->
 								let e' = ExnHelper.string_of_exn e in
 								error "SR.detach failed SR:%s error:%s" (Ref.string_of sr) e';
-								Failure (Storage_interface.Internal_error e')
+								Failure (Storage_interface.Internal_err e')
 						)
 				)
 
@@ -127,7 +127,7 @@ module Builtin_impl = struct
 								| e ->
 									let e' = ExnHelper.string_of_exn e in
 									error "SR.detach failed SR:%s error:%s" (Ref.string_of sr) e';
-									Failure (Storage_interface.Internal_error e')
+									Failure (Storage_interface.Internal_err e')
 						)
 				)
 
@@ -172,7 +172,7 @@ module Builtin_impl = struct
 								| e ->
 									let e' = ExnHelper.string_of_exn e in
 									error "SR.scan failed SR:%s error:%s" (Ref.string_of sr) e';
-									Failure (Storage_interface.Internal_error e')
+									Failure (Storage_interface.Internal_err e')
 						)
 				)
 
@@ -656,7 +656,7 @@ let unexpected_result expected x = match x with
 		failwith "Storage_access failed with Vdi_does_not_exist"
 	| Failure (Backend_error(code, params)) ->
 		raise (Api_errors.Server_error(code, params))
-	| Failure (Internal_error x) ->
+	| Failure (Internal_err x) ->
 		failwith (Printf.sprintf "Storage_access failed with: %s" x)
 	| Failure Illegal_transition(a, b) ->
 		failwith (Printf.sprintf "Storage_access failed with %s" (string_of_result x))
