@@ -1267,6 +1267,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			update_vbd_operations ~__context ~vm;
 			update_vif_operations ~__context ~vm
 
+		let set_xenstore_data ~__context ~self ~value =
+			info "VM.set_xenstore_data: VM = '%s'" (vm_uuid ~__context self);
+			let local_fn = Local.VM.set_xenstore_data ~self ~value in
+			forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc -> Client.VM.set_xenstore_data rpc session_id self value)
+
 		let clean_shutdown ~__context ~vm =
 			info "VM.clean_shutdown: VM = '%s'" (vm_uuid ~__context vm);
 			let local_fn = Local.VM.clean_shutdown ~vm in

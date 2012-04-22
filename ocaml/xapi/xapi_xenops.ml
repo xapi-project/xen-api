@@ -286,10 +286,6 @@ module MD = struct
 					Some (int_of_string weight, int_of_string cap)
 				with _ -> None in
 			{ priority = priority; affinity = affinity } in
-		let xsdata = vm.API.vM_xenstore_data in
-		(* disallowed by default; allowed only if it has one of a set of prefixes *)
-		let allowed_xsdata (x, _) = List.fold_left (||) false (List.map (fun p -> String.startswith p x) [ "vm-data/"; "FIST/" ]) in
-		let xsdata = List.filter allowed_xsdata xsdata in
 
 		let platformdata =
 			let p = vm.API.vM_platform in
@@ -315,7 +311,7 @@ module MD = struct
 			id = vm.API.vM_uuid;
 			name = vm.API.vM_name_label;
 			ssidref = 0l;
-			xsdata = xsdata;
+			xsdata = vm.API.vM_xenstore_data;
 			platformdata = platformdata;
 			bios_strings = vm.API.vM_bios_strings;
 			ty = builder_of_vm ~__context ~vm timeoffset;
@@ -760,6 +756,10 @@ let update_vm ~__context id =
 									if different (fun x -> x.guest_agent) then begin
 										debug "xenopsd event: Updating VM %s domid %d guest_agent" id domid;
 										Xapi_guest_agent.all lookup list ~__context ~domid ~uuid:id
+									end;
+									if different (fun x -> x.xsdata_state) then begin
+										debug "xenopsd event: Updating VM %s domid %d xsdata" id domid;
+										Db.VM.set_xenstore_data ~__context ~self ~value:state.xsdata_state
 									end;
 								) state.domids;
 						) info;
@@ -1316,6 +1316,16 @@ let unpause ~__context ~self =
 			assert (Db.VM.get_power_state ~__context ~self = `Running)
 		)
 
+let set_xenstore_data ~__context ~self xsdata =
+	transform_xenops_exn ~__context
+		(fun () ->
+			let id = id_of_vm ~__context ~self in
+			debug "xenops: VM.unpause %s" id;
+			let dbg = Context.string_of_task __context in
+			Client.VM.set_xsdata dbg id xsdata |> sync_with_task __context;
+			Event.wait dbg ();
+		)
+
 let set_vcpus ~__context ~self n =
 	transform_xenops_exn ~__context
 		(fun () ->
@@ -1639,14 +1649,23 @@ let vif_plug ~__context ~self =
 			assert (Db.VIF.get_currently_attached ~__context ~self)
 		)
 
+let vm_set_vm_data ~__context ~self =
+	transform_xenops_exn ~__context
+		(fun () ->
+			()
+		)
+
 let vif_set_locking_mode ~__context ~self =
-	let vm = Db.VIF.get_VM ~__context ~self in
-	assert_resident_on ~__context ~self:vm;
-	let vif = md_of_vif ~__context ~self in
-	info "xenops: VIF.set_locking_mode %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
-	let dbg = Context.string_of_task __context in
-	Client.VIF.set_locking_mode dbg vif.Vif.id vif.Vif.locking_mode |> sync_with_task __context;
-	Event.wait dbg ();
+	transform_xenops_exn ~__context
+		(fun () ->
+			let vm = Db.VIF.get_VM ~__context ~self in
+			assert_resident_on ~__context ~self:vm;
+			let vif = md_of_vif ~__context ~self in
+			info "xenops: VIF.set_locking_mode %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
+			let dbg = Context.string_of_task __context in
+			Client.VIF.set_locking_mode dbg vif.Vif.id vif.Vif.locking_mode |> sync_with_task __context;
+			Event.wait dbg ();
+		)
 
 let vif_unplug ~__context ~self force =
 	transform_xenops_exn ~__context

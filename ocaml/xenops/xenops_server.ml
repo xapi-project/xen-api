@@ -76,6 +76,7 @@ type atomic =
 	| VM_remove of Vm.id
 	| PCI_plug of Pci.id
 	| PCI_unplug of Pci.id
+	| VM_set_xsdata of (Vm.id * (string * string) list)
 	| VM_set_vcpus of (Vm.id * int)
 	| VM_set_shadow_multiplier of (Vm.id * float)
 	| VM_set_memory_dynamic_range of (Vm.id * int64 * int64)
@@ -854,6 +855,9 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			debug "PCI.unplug %s" (PCI_DB.string_of_id id);
 			B.PCI.unplug t (PCI_DB.vm_of id) (PCI_DB.read_exn id);
 			PCI_DB.signal id
+		| VM_set_xsdata (id, xsdata) ->
+			debug "VM.set_xsdata (%s, [ %s ])" id (String.concat "; " (List.map (fun (k, v) -> k ^ ": " ^ v) xsdata));
+			B.VM.set_xsdata t (VM_DB.read_exn id) xsdata
 		| VM_set_vcpus (id, n) ->
 			debug "VM.set_vcpus (%s, %d)" id n;
 			let vm_t = VM_DB.read_exn id in
@@ -1390,6 +1394,8 @@ module VM = struct
 	let pause _ dbg id = queue_operation dbg id (Atomic(VM_pause id)) |> return
 
 	let unpause _ dbg id = queue_operation dbg id (Atomic(VM_unpause id)) |> return
+
+	let set_xsdata _ dbg id xsdata = queue_operation dbg id (Atomic (VM_set_xsdata (id, xsdata))) |> return
 
 	let set_vcpus _ dbg id n = queue_operation dbg id (Atomic(VM_set_vcpus (id, n))) |> return
 

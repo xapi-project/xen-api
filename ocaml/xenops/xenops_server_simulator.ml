@@ -36,6 +36,7 @@ module Domain = struct
 		vbds: Vbd.t list; (* maintained in reverse-plug order *)
 		vifs: Vif.t list;
 		pcis: Pci.t list;
+		xsdata: (string * string) list;
 		last_create_time: float;
 	} with rpc
 end
@@ -92,6 +93,7 @@ let create_nolock vm () =
 			vifs = [];
 			vbds = [];
 			pcis = [];
+			xsdata = vm.Vm.xsdata;
 			last_create_time = Unix.gettimeofday ();
 		} in
 		DB.write vm.Vm.id domain
@@ -153,6 +155,10 @@ let do_pause_unpause_nolock vm paused () =
 	if not d.Domain.built || (d.Domain.hvm && not(d.Domain.qemu_created))
 	then raise (Exception Domain_not_built)
 	else DB.write vm.Vm.id { d with Domain.paused = paused }
+
+let do_set_xsdata_nolock vm xsdata () =
+	let d = DB.read_exn vm.Vm.id in
+	DB.write vm.Vm.id { d with Domain.xsdata = xsdata }
 
 let do_set_vcpus_nolock vm n () =
 	let d = DB.read_exn vm.Vm.id in
@@ -312,6 +318,7 @@ module VM = struct
 	let destroy _ vm = Mutex.execute m (destroy_nolock vm)
 	let pause _ vm = Mutex.execute m (do_pause_unpause_nolock vm true)
 	let unpause _ vm = Mutex.execute m (do_pause_unpause_nolock vm false)
+	let set_xsdata _ vm xs = Mutex.execute m (do_set_xsdata_nolock vm xs)
 	let set_vcpus _ vm n = Mutex.execute m (do_set_vcpus_nolock vm n)
 	let set_shadow_multiplier _ vm n = Mutex.execute m (do_set_shadow_multiplier_nolock vm n)
 	let set_memory_dynamic_range _ vm min max = Mutex.execute m (do_set_memory_dynamic_range_nolock vm min max)

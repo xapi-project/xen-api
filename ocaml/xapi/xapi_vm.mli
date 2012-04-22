@@ -80,6 +80,7 @@ val assert_power_state_is :
 val assert_not_ha_protected : __context:Context.t -> vm:[ `VM ] Ref.t -> unit
 val pause : __context:Context.t -> vm:API.ref_VM -> unit
 val unpause : __context:Context.t -> vm:API.ref_VM -> unit
+val set_xenstore_data : __context:Context.t -> self:API.ref_VM -> value:(string * string) list -> unit
 val start :
   __context:Context.t ->
   vm:API.ref_VM -> start_paused:bool -> force:'a -> unit
