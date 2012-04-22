@@ -1,0 +1,32 @@
+OCAML_LIBS    =
+OCAMLINCLUDES = ../xenops
+OCAMLPACKS    = xml-light2 stdext stunnel log http-svr oUnit
+
+UseCamlp4(rpc-light.syntax, xn_cfg_types)
+
+section
+	OCAMLINCLUDES += .
+	OCAMLFLAGS = -dtypes -thread -warn-error F
+	COMMON_FILES = ../xenops/xenops_interface ../xenops/device_number ../xenops/xenops_client ../xenops/table
+	OCamlProgram(xenopstest, test $(COMMON_FILES))
+	OCamlDocProgram(xenopstest, test $(COMMON_FILES))
+
+	OCamlGeneratedFiles(xn_cfg_parser.ml xn_cfg_parser.mli xn_cfg_lexer.ml)
+
+	OCamlProgram(xn, xn xn_cfg_types xn_cfg_parser xn_cfg_lexer $(COMMON_FILES))
+	OCamlDocProgram(xn, xn xn_cfg_types xn_cfg_parser xn_cfg_lexer $(COMMON_FILES))
+
+.PHONY: install
+install:
+	mkdir -p $(BIN_PATH)
+	$(IPROG) xn $(BIN_PATH)
+	mkdir -p $(DESTDIR)/usr/bin
+	ln -sf $(BIN_DIR)/xn $(DESTDIR)/usr/bin/xn
+
+.PHONY: clean
+clean:
+	rm -f $(CLEAN_OBJS)
+	rm -f ./xenopstest
+
+
+

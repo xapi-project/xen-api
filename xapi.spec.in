@@ -52,6 +52,13 @@ Group: System/Hypervisor
 %description squeezed
 This package contains the Xen virtual firmware (hvmloader)
 
+%package xenopsd
+Summary: The xenops daemon
+Group: System/Hypervisor
+
+%description xenopsd
+This package contains the xenops daemon.
+
 %package v6d
 Summary: The editions and features daemon
 Group: System/Hypervisor
@@ -127,6 +134,9 @@ rm -rf $RPM_BUILD_ROOT
 
 %post squeezed
 [ ! -x /sbin/chkconfig ] || chkconfig squeezed on
+
+%post xenopsd
+[ ! -x /sbin/chkconfig ] || chkconfig xenopsd on
 
 %post v6d
 [ ! -x /sbin/chkconfig ] || chkconfig --add v6d
@@ -299,6 +309,13 @@ rm -rf $RPM_BUILD_ROOT
 /etc/logrotate.d/squeezed
 /etc/rc.d/init.d/squeezed
 @OPTDIR@/bin/squeezed_client
+
+%files xenopsd
+%defattr(-,root,root,-)
+@BASE_PATH@/libexec/xenopsd
+/etc/rc.d/init.d/xenopsd
+@BASE_PATH@/bin/xn
+/usr/bin/xn
 
 %files v6d
 %defattr(-,root,root,-)
