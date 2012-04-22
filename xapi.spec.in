@@ -316,6 +316,8 @@ rm -rf $RPM_BUILD_ROOT
 /etc/rc.d/init.d/xenopsd
 @BASE_PATH@/bin/xn
 /usr/bin/xn
+/etc/xensource/bugtool/xenopsd.xml
+/etc/xensource/bugtool/xenopsd/stuff.xml
 
 %files v6d
 %defattr(-,root,root,-)
