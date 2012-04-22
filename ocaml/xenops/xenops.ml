@@ -269,7 +269,7 @@ let del_vbd ~xs ~domid ~backend_domid ~device_number ~phystype =
 	let frontend = { domid = domid; kind = Vbd; devid = devid } in
 	let backend = { domid = backend_domid; kind = Vbd; devid = devid } in
 	let device = find_device ~xs frontend backend in
-	Device.clean_shutdown ~xs device
+	Device.clean_shutdown task ~xs device
 
 let add_vif ~xs ~domid ~netty ~devid ~mac ~backend_domid =
 	ignore(Device.Vif.add task ~xs ~devid ~netty ~mac ~carrier:true ~backend_domid domid)
@@ -278,7 +278,7 @@ let del_vif ~xs ~domid ~backend_domid ~devid =
 	let frontend = { domid = domid; kind = Vif; devid = devid } in
 	let backend = { domid = backend_domid; kind = Vif; devid = devid } in
 	let device = find_device ~xs frontend backend in
-	Device.clean_shutdown ~xs device
+	Device.clean_shutdown task ~xs device
 
 let pci_of_string x = Scanf.sscanf x "%04x:%02x:%02x.%1x" (fun a b c d -> (a, b, c, d))
 
