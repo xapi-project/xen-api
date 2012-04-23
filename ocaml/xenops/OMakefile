@@ -76,7 +76,7 @@ allxenops: $(DEBUG_PROGS) $(BIN_PROGS) $(OTHER_PROGS)
 install:
 	mkdir -p $(DESTDIR)$(OPTDIR)/debug
 	cp -f $(DEBUG_PROGS) $(DESTDIR)$(OPTDIR)/debug
-	sh -c 'for i in $(SYMLINK_PROGS); do ln -nfs xenops $(DESTDIR)$(OPTDIR)/$$i; done'
+	sh -c 'for i in $(SYMLINK_PROGS); do ln -nfs xenops $(DESTDIR)$(OPTDIR)/debug/$$i; done'
 	mkdir -p $(DESTDIR)$(BINDIR)
 	$(IPROG) $(BIN_PROGS) $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
