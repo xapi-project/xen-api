@@ -104,8 +104,10 @@ module Sysfs = struct
 		with _ -> false
 
 	let get_carrier name =
-		let i = int_of_string (read_one_line (getpath name "carrier")) in
-		match i with 1 -> true | 0 -> false | _ -> false
+		try
+			let i = int_of_string (read_one_line (getpath name "carrier")) in
+			match i with 1 -> true | 0 -> false | _ -> false
+		with _ -> false
 
 	let get_pcibuspath name =
 		try
