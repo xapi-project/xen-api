@@ -57,26 +57,31 @@ module State = struct
 
 	let to_string r = rpc_of_t r |> Jsonrpc.to_string
 	let of_string s = Jsonrpc.of_string s |> t_of_rpc
-			
+	let key_of (sr,vdi) = Printf.sprintf "%s/%s" sr vdi
+	let of_key key = match String.split '/' key with
+		| sr::rest -> (sr,String.concat "/" rest)
+		| _ -> failwith "Bad key"
+
 	let load () = try Unixext.string_of_file path |> of_string |> Hashtbl.iter (Hashtbl.replace active) with _ -> ()
 	let save () = to_string active |> Unixext.write_string_to_file path
 	let op s f = Mutex.execute mutex (fun () -> if not !loaded then load (); let r = f active in if s then save (); r)
-			 	
-	let add vdi s =	op true (fun a -> Hashtbl.replace a vdi s)
-	let find vdi = op false (fun a -> try Some (Hashtbl.find a vdi) with _ -> None)
-	let remove vdi = op true (fun a ->	Hashtbl.remove a vdi)
+	let map_of () =	op false (fun h -> Hashtbl.fold (fun k v acc -> (of_key k,v)::acc) h [])
 
-	let add_to_active_local_mirrors vdi url dest_sr remote_dp =
-		let open Send_state in add vdi $ Send {url; dest_sr; remote_dp}
+	let add key s =	op true (fun a -> Hashtbl.replace a key s)
+	let find key = op false (fun a -> try Some (Hashtbl.find a key) with _ -> None)
+	let remove key = op true (fun a ->	Hashtbl.remove a key)
+
+	let add_to_active_local_mirrors srvdi url dest_sr remote_dp =
+		let open Send_state in add (key_of srvdi) $ Send {url; dest_sr; remote_dp}
 			
-	let add_to_active_receive_mirrors vdi dummy_vdi leaf_dp parent_vdi =
-		let open Receive_state in add vdi $ Receive {dummy_vdi; leaf_dp; parent_vdi}
+	let add_to_active_receive_mirrors srvdi dummy_vdi leaf_dp parent_vdi =
+		let open Receive_state in add (key_of srvdi) $ Receive {dummy_vdi; leaf_dp; parent_vdi}
 
-	let find_active_local_mirror vdi =
-		Opt.Monad.bind (find vdi) (function | Send s -> Some s | _ -> None)
+	let find_active_local_mirror srvdi =
+		Opt.Monad.bind (find $ key_of srvdi) (function | Send s -> Some s | _ -> None)
 
-	let find_active_receive_mirror vdi =
-		Opt.Monad.bind (find vdi) (function | Receive r -> Some r | _ -> None)
+	let find_active_receive_mirror srvdi =
+		Opt.Monad.bind (find $ key_of srvdi) (function | Receive r -> Some r | _ -> None)
 
 end
 
@@ -239,7 +244,7 @@ let start ~task ~sr ~vdi ~dp ~url ~dest =
 							Unix.close control_fd)));
 			| None ->
 				failwith "Not attached");
-		State.add_to_active_local_mirrors local_vdi.vdi url dest mirror_dp;
+		State.add_to_active_local_mirrors (sr,local_vdi.vdi) url dest mirror_dp;
 		let snapshot = Local.VDI.snapshot ~task ~sr ~vdi:local_vdi.vdi ~vdi_info:local_vdi ~params:["mirror", "nbd:" ^ dp] in
 		on_fail := (fun () -> Local.VDI.destroy ~task ~sr ~vdi:snapshot.vdi) :: !on_fail;
 		(* Copy the snapshot to the remote *)
@@ -282,9 +287,15 @@ let stop ~task ~sr ~vdi =
 		| e ->
 			raise (Internal_error(Printexc.to_string e))
 
-
 let list ~task ~sr =
-	[]
+	let m = State.map_of () in
+	let m = List.filter (fun ((sr',_),_) -> sr'=sr) m in
+	List.map (fun ((_,vdi),s) -> 
+		let state = match s with 
+			| State.Send _ -> Mirror.Sending
+			| State.Receive _ -> Mirror.Receiving
+		in
+		{Mirror.vdi; state}) m
 
 let receive_start ~task ~sr ~vdi_info ~similar =
 	let on_fail : (unit -> unit) list ref = ref [] in
@@ -325,7 +336,7 @@ let receive_start ~task ~sr ~vdi_info ~similar =
 
 		debug "Parent disk content_id=%s" parent.content_id;
 		
-		State.add_to_active_receive_mirrors leaf.vdi dummy.vdi leaf_dp parent.vdi;
+		State.add_to_active_receive_mirrors (sr,leaf.vdi) dummy.vdi leaf_dp parent.vdi;
 		
 		let nearest_content_id = Opt.map (fun x -> x.content_id) nearest in
 
@@ -339,7 +350,7 @@ let receive_start ~task ~sr ~vdi_info ~similar =
 		raise e
 
 let receive_finalize ~task ~sr ~vdi =
-	let record = State.find_active_receive_mirror vdi in
+	let record = State.find_active_receive_mirror (sr,vdi) in
 	let open State.Receive_state in Opt.iter (fun r -> Local.DP.destroy ~task ~dp:r.leaf_dp ~allow_leak:true) record
 
 let receive_cancel ~task ~sr ~vdi = ()
@@ -347,7 +358,7 @@ let receive_cancel ~task ~sr ~vdi = ()
 
 let detach_hook ~sr ~vdi ~dp = 
 	let open State.Send_state in
-	State.find_active_local_mirror vdi |> 
+	State.find_active_local_mirror (sr,vdi) |> 
 			Opt.iter (fun r -> 
 				let remote_url = Http.Url.of_string r.url in
 				let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
