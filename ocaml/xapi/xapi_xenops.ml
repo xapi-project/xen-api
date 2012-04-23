@@ -32,7 +32,7 @@ let xenapi_of_xenops_power_state = function
 
 (* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
 let filtered_platform_flags = ["acpi"; "apic"; "nx"; "pae"; "viridian";
-                               "acpi_s3";"acpi_s4"; "mmio_size_mib"]
+                               "acpi_s3";"acpi_s4"; "mmio_size_mib"; "revision"; "device_id"]
 
 let xenops_vdi_locator_of_strings sr_uuid vdi_location =
 	Printf.sprintf "%s/%s" sr_uuid vdi_location

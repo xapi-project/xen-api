@@ -446,6 +446,8 @@ let viridian_key_name = "viridian"
 (* Viridian key value (set in new templates, in built-in templates on upgrade and when Orlando PV drivers up-to-date first detected) *)
 let default_viridian_key_value = "true"
 
+let device_id_key_name = "device_id"
+
 (* machine-address-size key-name/value; goes in other-config of RHEL5.2 template *)
 let machine_address_size_key_name = "machine-address-size"
 let machine_address_size_key_value = "36"
