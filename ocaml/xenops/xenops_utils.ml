@@ -1,0 +1,507 @@
+(*
+ * Copyright (C) Citrix Systems Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation; version 2.1 only. with the special
+ * exception on linking described in file LICENSE.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *)
+
+open Listext
+open Stringext
+open Pervasiveext
+open Threadext
+open Fun
+open Xenops_interface
+
+let service_name = "xenops"
+
+module D = Debug.Debugger(struct let name = service_name end)
+open D
+
+module Unix = struct
+	include Unix
+	let file_descr_of_rpc x = x |> Rpc.int_of_rpc |> Unixext.file_descr_of_int
+	let rpc_of_file_descr x = x |> Unixext.int_of_file_descr |> Rpc.rpc_of_int
+end
+
+let all = List.fold_left (&&) true
+let any = List.fold_left (||) false
+
+let dropnone x = List.filter_map (fun x -> x) x
+
+module type ITEM = sig
+	type t
+    val t_of_rpc: Rpc.t -> t
+	val rpc_of_t: t -> Rpc.t
+	val namespace: string
+	type key
+	val key: key -> string list
+end
+
+(******************************************************************************)
+(* Metadata storage                                                           *)
+
+let root = ref ("/var/run/nonpersistent/" ^ service_name)
+
+module StringMap = Map.Make(struct type t = string let compare = compare end)
+type 'a fs =
+	| Dir of 'a fs StringMap.t ref
+	| Leaf of 'a
+
+module type FS = sig
+	val init: unit -> unit
+	val mkdir: string list -> unit
+	val read: string list -> Rpc.t option
+	val write: string list -> Rpc.t -> unit
+	val exists: string list -> bool
+	val rm: string list -> unit
+	val readdir: string list -> string list
+end
+
+(* Return all the non-empty prefixes of a given string, in descending order by length.
+   prefixes_of [1; 2; 3] = [[1;2;3]; [1;2]; [1]] *)
+let prefixes_of k =
+	let prefixes, _ = List.fold_left
+		(fun (acc, prefix) element ->
+			(element :: prefix) :: acc, element :: prefix
+		) ([], []) k in
+	List.map List.rev prefixes
+
+module FileFS = struct
+	(** A directory tree containiign files, each of which contain strings *)
+
+	let filename_of k = Printf.sprintf "%s/%s" !root (String.concat "/" k)
+	let paths_of k = List.map filename_of (prefixes_of k)
+
+	let mkdir path = Unixext.mkdir_rec (filename_of path) 0o755
+	let read path =
+		try
+			Some (filename_of path |> Unixext.string_of_file |> Jsonrpc.of_string)
+		with e -> None
+	let write path x =
+		let filename = filename_of path in
+		Unixext.mkdir_rec (Filename.dirname filename) 0o755;
+		Unixext.write_string_to_file filename (Jsonrpc.to_string x)
+	let exists path = Sys.file_exists (filename_of path)
+	let rm path =
+		List.iter
+			(fun path ->
+				if Sys.is_directory path then begin
+					if Array.length (Sys.readdir path) = 0 then begin
+						debug "DB.delete %s" path;
+						Unix.rmdir path
+					end
+				end else begin
+					debug "DB.delete %s" path;
+					Unix.unlink path;
+				end
+			) (paths_of path)
+	let readdir path =
+		let filename = filename_of path in
+		if Sys.file_exists filename
+		then Array.to_list (Sys.readdir filename)
+		else []
+
+	let init () = ()
+end
+
+module MemFS = struct
+	(** An in-memory tree of Rpc.t values *)
+
+	let root : Rpc.t fs ref = ref (Dir (ref StringMap.empty))
+	let m = Mutex.create ()
+	exception Not_dir
+	exception Not_file
+
+	let filename x = List.hd (List.rev x)
+	let dirname x = List.rev (List.tl (List.rev x))
+
+	(* return the Dir entry of a given path *)
+	let dir_locked path =
+		let rec aux path fs = match path, fs with
+			| [], Dir d -> d
+			| p :: ps, Dir d ->
+				if StringMap.mem p !d
+				then aux ps (StringMap.find p !d)
+				else begin
+					raise Not_dir
+				end
+			| _, Leaf _ -> begin
+				raise Not_dir
+			end in
+		aux path !root
+
+	let mkdir_locked path =
+		List.iter
+			(fun p ->
+				let dir = dir_locked (dirname p) in
+				if not(StringMap.mem (filename p) !dir)
+				then dir := StringMap.add (filename p) (Dir(ref StringMap.empty)) !dir
+			) (List.rev (prefixes_of path))
+
+	let mkdir path = Mutex.execute m (fun () -> mkdir_locked path)
+
+	let read path =
+		Mutex.execute m
+			(fun () ->
+				try
+					match StringMap.find (filename path) !(dir_locked (dirname path)) with
+						| Leaf x -> Some x
+						| Dir _ -> None
+				with _ -> None
+			)
+
+	let write path x =
+		Mutex.execute m
+			(fun () ->
+				(* debug "DB.write %s <- %s" (String.concat "/" path) x; *)
+				mkdir_locked (dirname path);
+				let dir = dir_locked (dirname path) in
+				dir := StringMap.add (filename path) (Leaf x) !dir
+			)
+	let exists path = Mutex.execute m (fun () -> try StringMap.mem (filename path) !(dir_locked (dirname path)) with _ -> false)
+	let readdir path = Mutex.execute m (fun () -> try StringMap.fold (fun x _ acc -> x :: acc) !(dir_locked path) [] with _ -> [])
+	let rm path =
+		Mutex.execute m
+			(fun () ->
+				List.iter
+					(fun p ->
+						let dir = dir_locked (dirname p) in
+						let deletable =
+							if StringMap.mem (filename p) !dir
+							then match StringMap.find (filename p) !dir with
+								| Dir child -> StringMap.is_empty !child
+								| Leaf _ -> true
+							else false in
+						if deletable then dir := StringMap.remove (filename p) !dir
+					) (prefixes_of path)
+			)
+
+	let init () = ()
+end
+
+let fs_backend = ref None
+let get_fs_backend () = match !fs_backend with
+  | Some x -> x
+  | None -> failwith "No backend implementation set"
+
+let set_fs_backend m =
+	fs_backend := m;
+	let module B = (val get_fs_backend () : FS) in
+	B.init ()
+
+module TypedTable = functor(I: ITEM) -> struct
+	open I
+	type key = string list
+	let of_key k = I.namespace :: k
+	let read (k: I.key) =
+		let module FS = (val get_fs_backend () : FS) in
+		let path = k |> I.key |> of_key in
+		Opt.map (fun x -> t_of_rpc x) (FS.read path)
+	let read_exn (k: I.key) = match read k with
+		| Some x -> x
+		| None -> raise (Does_not_exist (I.namespace, I.key k |> String.concat "/"))
+	let write (k: I.key) (x: t) =
+		let module FS = (val get_fs_backend () : FS) in
+		let path = k |> I.key |> of_key in
+		FS.write path (rpc_of_t x)
+	let exists (k: I.key) =
+		let module FS = (val get_fs_backend () : FS) in
+		FS.exists (k |> I.key |> of_key)
+	let delete (k: I.key) =
+		let module FS = (val get_fs_backend () : FS) in
+		FS.rm (k |> I.key |> of_key)
+
+	let list (k: key) =
+		let module FS = (val get_fs_backend () : FS) in
+		FS.readdir (k |> of_key)
+
+	let add (k: I.key) (x: t) =
+		if exists k then begin
+			let path = k |> I.key |> of_key |> String.concat "/" in
+			debug "Key %s already exists" path;
+			raise (Already_exists(I.namespace, path))
+		end else write k x
+
+	let remove (k: I.key) =
+		if not(exists k) then begin
+			let path = k |> I.key |> of_key |> String.concat "/" in
+			debug "Key %s does not exist" path;
+			raise (Does_not_exist(I.namespace, path))
+		end else delete k
+end
+
+(******************************************************************************)
+
+let halted_vm = {
+	Vm.power_state = Halted;
+	domids = [];
+	consoles = [];
+	memory_target = 0L;
+	memory_actual = 0L;
+	vcpu_target = 0;
+	rtc_timeoffset = "";
+	uncooperative_balloon_driver = false;
+	guest_agent = [];
+	xsdata_state = [];
+	last_start_time = 0.;
+	shadow_multiplier_target = 1.;
+}
+
+let unplugged_pci = {
+	Pci.plugged = false;
+}
+
+let unplugged_vbd = {
+	Vbd.plugged = false;
+	qos_target = None;
+	media_present = false;
+}
+
+let unplugged_vif = {
+	Vif.plugged = false;
+	kthread_pid = 0;
+	media_present = false;
+}
+
+(******************************************************************************)
+(* Object update tracking                                                     *)
+
+module Int64Map = Map.Make(struct type t = int64 let compare = compare end)
+
+module Scheduler = struct
+	open Threadext
+	type item = {
+		id: int;
+		name: string;
+		fn: unit -> unit
+	}
+	let schedule = ref Int64Map.empty
+	let delay = Delay.make ()
+	let next_id = ref 0
+	let m = Mutex.create ()
+
+	type time =
+		| Absolute of int64
+		| Delta of int
+
+	let now () = Unix.gettimeofday () |> ceil |> Int64.of_float
+
+	module Dump = struct
+		type u = {
+			time: int64;
+			thing: string;
+		} with rpc
+		type t = u list with rpc
+		let make () =
+			let now = now () in
+			Mutex.execute m
+				(fun () ->
+					Int64Map.fold (fun time xs acc -> List.map (fun i -> { time = Int64.sub time now; thing = i.name }) xs @ acc) !schedule []
+				)
+	end
+
+	let one_shot time (name: string) f =
+		let time = match time with
+			| Absolute x -> x
+			| Delta x -> Int64.(add (of_int x) (now ())) in
+		let id = Mutex.execute m
+			(fun () ->
+				let existing = 
+					if Int64Map.mem time !schedule
+					then Int64Map.find time !schedule
+					else [] in
+				let id = !next_id in
+				incr next_id;
+				let item = {
+					id = id;
+					name = name;
+					fn = f
+				} in
+				schedule := Int64Map.add time (item :: existing) !schedule;
+				Delay.signal delay;
+				id
+			) in
+		(time, id)
+
+	let cancel (time, id) =
+		Mutex.execute m
+			(fun () ->
+				let existing = 
+					if Int64Map.mem time !schedule
+					then Int64Map.find time !schedule
+					else [] in
+				schedule := Int64Map.add time (List.filter (fun i -> i.id <> id) existing) !schedule
+			)
+
+	let process_expired () =
+		let t = now () in
+		let expired =
+			Mutex.execute m
+				(fun () ->
+					let expired, unexpired = Int64Map.partition (fun t' _ -> t' <= t) !schedule in
+					schedule := unexpired;
+					Int64Map.fold (fun _ stuff acc -> acc @ stuff) expired [] |> List.rev) in
+		(* This might take a while *)
+		List.iter
+			(fun i ->
+				try
+					i.fn ()
+				with e ->
+					debug "Scheduler ignoring exception: %s" (Printexc.to_string e)
+			) expired;
+		expired <> [] (* true if work was done *)
+
+	let rec main_loop () =
+		while process_expired () do () done;
+		let sleep_until =
+			Mutex.execute m
+				(fun () ->
+					try
+						Int64Map.min_binding !schedule |> fst
+					with Not_found ->
+						Int64.add 3600L (now ())
+				) in
+		let seconds = Int64.sub sleep_until (now ()) in
+		debug "Scheduler sleep until %Ld (another %Ld seconds)" sleep_until seconds;
+		let (_: bool) = Delay.wait delay (Int64.to_float seconds) in
+		main_loop ()
+
+	let start () =
+		let (_: Thread.t) = Thread.create main_loop () in
+		()
+end
+
+module UpdateRecorder = functor(Ord: Map.OrderedType) -> struct
+	(* Map of thing -> last update counter *)
+	module M = Map.Make(struct
+		type t = Ord.t
+		let compare = compare
+	end)
+
+	type id = int
+
+	type t = {
+		map: int M.t;
+		next: id
+	}
+
+	let initial = 0
+
+	let empty = {
+		map = M.empty;
+		next = initial + 1;
+	}
+
+	let add x t = {
+		map = M.add x t.next t.map;
+		next = t.next + 1
+	}, t.next + 1
+
+	let remove x t = {
+		map = M.remove x t.map;
+		next = t.next + 1
+	}, t.next + 1
+
+	let get from t =
+		(* [from] is the id of the most recent event already seen *)
+		let before, after = M.partition (fun _ time -> time <= from) t.map in
+		let xs, last = M.fold (fun key v (acc, m) -> key :: acc, max m v) after ([], from) in
+		(* NB 'xs' must be in order so 'Barrier' requests don't permute *)
+		List.rev xs, last
+
+	let fold f t init = M.fold f t.map init
+end
+
+module Updates = struct
+	open Threadext
+
+	module U = UpdateRecorder(struct type t = Dynamic.id let compare = compare end)
+
+	type id = U.id
+
+	type t = {
+		mutable u: U.t;
+		c: Condition.t;
+		m: Mutex.t;
+	}
+
+	let empty () = {
+		u = U.empty;
+		c = Condition.create ();
+		m = Mutex.create ();
+	}
+
+	let get dbg from timeout t =
+		let from = Opt.default U.initial from in
+		let cancel = ref false in
+		let id = Opt.map (fun timeout ->
+			Scheduler.one_shot (Scheduler.Delta timeout) dbg
+				(fun () ->
+					debug "Cancelling: Update.get after %d" timeout;
+					Mutex.execute t.m
+						(fun () ->
+							cancel := true;
+							Condition.broadcast t.c
+						)
+				)
+		) timeout in
+		finally
+			(fun () ->
+				Mutex.execute t.m
+					(fun () ->
+						let current = ref ([], from) in
+						while fst !current = [] && not(!cancel) do
+							current := U.get from t.u;
+							if fst !current = [] && not(!cancel) then Condition.wait t.c t.m;
+						done;
+						fst !current, Some (snd !current)
+					)
+			) (fun () -> Opt.iter Scheduler.cancel id)
+
+	let add x t =
+		Mutex.execute t.m
+			(fun () ->
+				let result, id = U.add x t.u in
+				t.u <- result;
+				Condition.broadcast t.c
+			)
+
+	let remove x t =
+		Mutex.execute t.m
+			(fun () ->
+				let result, id = U.remove x t.u in
+				t.u <- result;
+				Condition.signal t.c
+			)
+
+	module Dump = struct
+		type u = {
+			id: int;
+			v: string;
+		} with rpc
+		type t = u list with rpc
+		let make t =
+			Mutex.execute t.m
+				(fun () ->
+					U.fold (fun key v acc -> { id = v; v = (key |> Dynamic.rpc_of_id |> Jsonrpc.to_string) } :: acc) t.u []
+				)
+	end
+end
+
+let remap_vdi vdi_map = function 
+	| Xenops_interface.VDI vdi -> 
+		if List.mem_assoc vdi vdi_map 
+		then (debug "Remapping VDI: %s -> %s" vdi (List.assoc vdi vdi_map); VDI (List.assoc vdi vdi_map))
+		else VDI vdi 
+	| x -> x 
+
+
+
+

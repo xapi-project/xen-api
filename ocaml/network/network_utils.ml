@@ -66,11 +66,12 @@ let call_script ?(log_successful_output=true) script args =
 	| Unix.Unix_error (e, a, b) ->
 		debug "Caught unix error: %s [%s, %s]" (Unix.error_message e) a b;
 		debug "Assuming script %s doesn't exist" script;
-		raise (RpcFailure ("SCRIPT_DOES_NOT_EXIST", ["script", script; "args", String.concat " " args]))
+		raise (Internal_error "script does not exist") (*(RpcFailure ("SCRIPT_DOES_NOT_EXIST", ["script", script; "args", String.concat " " args]))*)
 	| Forkhelpers.Spawn_internal_error(stderr, stdout, Unix.WEXITED n)->
 		debug "%s %s exited with code %d [stdout = '%s'; stderr = '%s']" script (String.concat " " args) n stdout stderr;
-		raise (RpcFailure ("SCRIPT_ERROR", ["script", script; "args", String.concat " " args; "code",
-			string_of_int n; "stdout", stdout; "stderr", stderr]))
+		raise (Internal_error "script error")
+			(*(RpcFailure ("SCRIPT_ERROR", ["script", script; "args", String.concat " " args; "code",
+			string_of_int n; "stdout", stdout; "stderr", stderr]))*)
 
 module Sysfs = struct
 	let list () =

@@ -17,26 +17,23 @@ open D
 open Listext
 
 type vgpu = {
-	domid: int; (** current domain id of the VM *)
 	vgpu_ref: API.ref_VGPU;
 	gpu_group_ref: API.ref_GPU_group;
 	devid: int;
 	other_config: (string * string) list;
 }
 
-let vgpu_of_vgpu ~__context vm_r domid vgpu =
+let vgpu_of_vgpu ~__context vm_r vgpu =
 	let vgpu_r = Db.VGPU.get_record ~__context ~self:vgpu in
 	{
-		domid = domid;
 		vgpu_ref = vgpu;
 		gpu_group_ref = vgpu_r.API.vGPU_GPU_group;
 		devid = int_of_string vgpu_r.API.vGPU_device;
 		other_config = vgpu_r.API.vGPU_other_config
 	}
 
-let vgpus_of_vm ~__context ~vm domid =
-	let vm_r = Db.VM.get_record ~__context ~self:vm in
-	List.map (vgpu_of_vgpu ~__context vm_r domid) vm_r.API.vM_VGPUs
+let vgpus_of_vm ~__context vm_r =
+	List.map (vgpu_of_vgpu ~__context vm_r) vm_r.API.vM_VGPUs
 
 let create_vgpu ~__context ~vm vgpu available_pgpus pcis =
 	debug "Create vGPUs";
@@ -58,8 +55,8 @@ let create_vgpu ~__context ~vm vgpu available_pgpus pcis =
 		List.filter (fun g -> g <> pgpu) available_pgpus,
 		pci :: pcis
 
-let create_vgpus ~__context ~vm domid hvm =
-	let vgpus = vgpus_of_vm ~__context ~vm domid in
+let create_vgpus ~__context (vm, vm_r) hvm =
+	let vgpus = vgpus_of_vm ~__context vm_r in
 	if vgpus <> [] then begin
 		if not hvm then
 			raise (Api_errors.Server_error (Api_errors.feature_requires_hvm, ["GPU passthrough needs HVM"]));

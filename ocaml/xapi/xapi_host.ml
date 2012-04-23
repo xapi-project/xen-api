@@ -11,6 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+open Fun
 open Pervasiveext
 open Stringext
 open Listext
@@ -167,7 +168,7 @@ let signal_cdrom_event ~__context params =
 	  let vdi = List.hd vdis in
 	  debug "cdrom inserted notification in vdi %s" (Ref.string_of vdi);
 	  let vbds = Db.VDI.get_VBDs ~__context ~self:vdi in
-	  List.iter (fun vbd -> Xapi_vbd.refresh ~__context ~vbd ~vdi) vbds
+	  List.iter (fun vbd -> Xapi_xenops.vbd_insert ~__context ~self:vbd ~vdi) vbds
 	) else
 	  ()
 	in
@@ -537,7 +538,9 @@ let power_on ~__context ~host =
   if result <> "True" then failwith (Printf.sprintf "The host failed to power on.")
 
 let dmesg ~__context ~host =
-	Vmopshelpers.with_xc (fun xc -> Xenctrl.readconsolering xc)
+	let open Xenops_client in
+	let dbg = Context.string_of_task __context in
+	Client.HOST.get_console_data dbg
 
 let dmesg_clear ~__context ~host =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ "dmesg_clear" ]))
@@ -546,7 +549,9 @@ let get_log ~__context ~host =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ "get_log" ]))
 
 let send_debug_keys ~__context ~host ~keys =
-  Vmopshelpers.with_xc (fun xc -> Xenctrl.send_debug_keys xc keys)
+	let open Xenops_client in
+	let dbg = Context.string_of_task __context in
+	Client.HOST.send_debug_keys dbg keys
 
 let list_methods ~__context =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ "list_method" ]))
@@ -1527,3 +1532,13 @@ let sync_pif_currently_attached ~__context ~host ~bridges =
 			end;
 		) pifs
 
+let migrate_receive ~__context ~host ~network ~options =
+	let session_id = Ref.string_of (Context.get_session_id __context) in
+	let ip = Db.Host.get_address ~__context ~self:host in
+	let sm_url = Printf.sprintf "http://%s/services/SM?session_id=%s" ip session_id in
+	let xenops_url = Printf.sprintf "http://%s/services/xenops?session_id=%s" ip session_id in
+	[ Xapi_vm_migrate._sm, sm_url;
+	  Xapi_vm_migrate._host, Ref.string_of host;
+	  Xapi_vm_migrate._xenops, xenops_url;
+	  Xapi_vm_migrate._session_id, session_id;
+	]

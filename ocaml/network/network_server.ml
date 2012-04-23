@@ -107,13 +107,7 @@ let on_shutdown signal =
 let on_timer () =
 	write_config ()
 
-let reopen_logs _ () =
-	try
-		debug "Reopening logfiles";
-		Logs.reopen ();
-		debug "Logfiles reopened";
-		true
-	with _ -> false
+let reopen_logs _ () = true
 
 let reset_state _ () =
 	config := read_management_conf ()

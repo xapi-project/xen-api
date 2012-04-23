@@ -87,8 +87,16 @@ let storage_driver_domain_of_pbd ~__context ~pbd =
 			try
 				Db.VM.get_by_uuid ~__context ~uuid:v
 			with _ ->
-				failwith (Printf.sprintf "PBD %s has invalid %s key" (Ref.string_of pbd) storage_driver_domain_key)
+				error "PBD %s has invalid %s key: falling back to dom0" (Ref.string_of pbd) storage_driver_domain_key;
+				dom0
 	end else dom0
+
+let storage_driver_domain_of_pbd ~__context ~pbd =
+    let domain = storage_driver_domain_of_pbd ~__context ~pbd in
+    set_is_system_domain ~__context ~self:domain ~value:"true";
+    pbd_set_storage_driver_domain ~__context ~self:pbd ~value:(Ref.string_of domain);
+    vm_set_storage_driver_domain ~__context ~self:domain ~value:(Ref.string_of pbd);
+    domain
 
 let storage_driver_domain_of_vbd ~__context ~vbd =
 	let dom0 = Helpers.get_domain_zero ~__context in
@@ -144,7 +152,7 @@ let pingable ip () =
 
 let queryable ip port () =
 	let open Xmlrpc_client in
-	let rpc = XMLRPC_protocol.rpc ~transport:(TCP(ip, port)) ~http:(xmlrpc ~version:"1.0" "/") in
+	let rpc = XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"remote_smapiv2" ~transport:(TCP(ip, port)) ~http:(xmlrpc ~version:"1.0" "/") in
     try
 		let module C = Storage_interface.Client(struct let rpc = rpc end) in
         let q = C.query () in

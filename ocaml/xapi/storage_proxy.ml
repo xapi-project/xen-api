@@ -31,6 +31,7 @@ module Proxy = functor(RPC: RPC) -> struct
 		let create _ = Client.DP.create
 		let destroy _ = Client.DP.destroy
 		let diagnostics _ = Client.DP.diagnostics
+		let attach_info _ = Client.DP.attach_info
 	end
 	module SR = struct
 		let attach _ = Client.SR.attach
@@ -49,6 +50,25 @@ module Proxy = functor(RPC: RPC) -> struct
 		let stat _ = Client.VDI.stat
 
 		let create _ = Client.VDI.create
+		let snapshot _ = Client.VDI.snapshot
+		let clone _ = Client.VDI.clone
 		let destroy _ = Client.VDI.destroy
+		let get_by_name _ = Client.VDI.get_by_name
+		let set_content_id _ = Client.VDI.set_content_id
+		let similar_content _ = Client.VDI.similar_content
+		let compose _ = Client.VDI.compose
+		let copy _ = Client.VDI.copy
+        let get_url _ = Client.VDI.get_url
+	end
+
+	let get_by_name _ = Client.get_by_name
+
+	module Mirror = struct
+		let start _ = Client.Mirror.start
+		let stop _ = Client.Mirror.stop
+		let active _ = Client.Mirror.active
+		let receive_start _ = Client.Mirror.receive_start
+		let receive_finalize _ = Client.Mirror.receive_finalize
+		let receive_cancel _ = Client.Mirror.receive_cancel
 	end
 end

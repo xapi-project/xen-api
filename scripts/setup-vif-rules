@@ -33,6 +33,15 @@ ofctl = "/usr/bin/ovs-ofctl"
 
 xenstore_read_cmd = "/usr/bin/xenstore-read"
 
+host_network_config = "/etc/xensource/network.conf"
+
+def get_host_network_mode():
+    f = open(host_network_config, "r")
+    try:
+        return f.readline().strip()
+    finally:
+        f.close()
+
 def send_to_syslog(msg):
     pid = os.getpid()
     syslog.syslog("%s[%d] - %s" %(command_name, pid, msg))

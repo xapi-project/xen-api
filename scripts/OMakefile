@@ -13,10 +13,15 @@ install:
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) base-path $(DESTDIR)/etc/xapi.d
 	$(IPROG) sm_diagnostics $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) xn_diagnostics $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) thread_diagnostics $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) xn_diagnostics $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)$(ETCDIR)/bugtool/xapi
+	mkdir -p $(DESTDIR)$(ETCDIR)/bugtool/xenopsd
 	$(IDATA) bugtool-plugin/xapi.xml $(DESTDIR)$(ETCDIR)/bugtool
 	$(IDATA) bugtool-plugin/xapi/stuff.xml $(DESTDIR)$(ETCDIR)/bugtool/xapi
+	$(IDATA) bugtool-plugin/xenopsd.xml $(DESTDIR)$(ETCDIR)/bugtool
+	$(IDATA) bugtool-plugin/xenopsd/stuff.xml $(DESTDIR)$(ETCDIR)/bugtool/xenopsd
 	$(IPROG) fence $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xha-lc $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xapi-health-check $(DESTDIR)$(LIBEXECDIR)
@@ -28,6 +33,7 @@ install:
 	$(IPROG) xapi-autostart-vms $(DESTDIR)$(BINDIR)
 	$(IPROG) udhcpd.skel $(DESTDIR)/var/xapi/udhcpd.skel  #### FHS_FIXME
 	$(IPROG) xapi.conf $(DESTDIR)$(XAPICONF)
+	$(IPROG) xenopsd.conf $(DESTDIR)$(ETCDIR)/xenopsd.conf
 	$(IPROG) log.conf $(DESTDIR)$(ETCDIR)/log.conf
 	$(IPROG) db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf
 	$(IPROG) rio.db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf.rio
@@ -38,12 +44,11 @@ install:
 	$(IPROG) init.d-xapissl $(DESTDIR)/etc/rc.d/init.d/xapissl
 	$(IPROG) init.d-xapi-domains $(DESTDIR)/etc/rc.d/init.d/xapi-domains
 	$(IPROG) init.d-squeezed $(DESTDIR)/etc/rc.d/init.d/squeezed
+	$(IPROG) init.d-xenopsd $(DESTDIR)/etc/rc.d/init.d/xenopsd
 	$(IPROG) init.d-management-interface $(DESTDIR)/etc/rc.d/init.d/management-interface
 	$(IPROG) init.d-genptoken $(DESTDIR)/etc/rc.d/init.d/genptoken
-	$(IDATA) squeezed-logrotate $(DESTDIR)/etc/logrotate.d/squeezed
 	$(IPROG) xe-networkd $(DESTDIR)$(BINDIR)
 	$(IPROG) init.d-networkd $(DESTDIR)/etc/rc.d/init.d/xcp-networkd
-	$(IDATA) networkd-logrotate $(DESTDIR)/etc/logrotate.d/xcp-networkd
 	$(IPROG) init.d-v6d $(DESTDIR)/etc/rc.d/init.d/v6d
 	$(IDATA) v6d-logrotate $(DESTDIR)/etc/logrotate.d/v6d
 	mkdir -p $(DESTDIR)$(ETCDIR)/master.d

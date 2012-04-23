@@ -692,126 +692,6 @@ let choose_host_for_vm ~__context ~vm ~snapshot =
 
 type set_cpus_number_fn = __context:Context.t -> self:API.ref_VM -> int -> API.vM_t -> int64 -> unit
 
-let add_to_VCPUs_params_live ~__context ~self ~key ~value =
-	raise (Api_errors.Server_error (Api_errors.not_implemented, [ "add_to_VCPUs_params_live" ]))
-
-let set_memory_dynamic_range ~__context ~self ~min ~max = 
-	(* NB called in either `Halted or `Running states *)
-	let power_state = Db.VM.get_power_state ~__context ~self in
-	(* Check the range constraints *)
-	let constraints = 
-		if power_state = `Running 
-		then Vm_memory_constraints.get_live ~__context ~vm_ref:self 
-		else Vm_memory_constraints.get ~__context ~vm_ref:self in
-	let constraints = { constraints with Vm_memory_constraints.
-		dynamic_min = min;
-		target = min;
-		dynamic_max = max } in
-	Vm_memory_constraints.assert_valid_for_current_context
-		~__context ~vm:self ~constraints;
-
-	(* memory_target is now unused but setting it equal *)
-	(* to dynamic_min avoids tripping validation code.  *)
-	Db.VM.set_memory_target ~__context ~self ~value:min;
-	Db.VM.set_memory_dynamic_min ~__context ~self ~value:min;
-	Db.VM.set_memory_dynamic_max ~__context ~self ~value:max;
-
-	if power_state = `Running then begin
-		let domid = Helpers.domid_of_vm ~__context ~self in
-		Vmopshelpers.with_xc_and_xs
-			(fun xc xs ->
-				Domain.set_memory_dynamic_range ~xs
-					~min:(Int64.to_int (Int64.div min 1024L))
-					~max:(Int64.to_int (Int64.div max 1024L))
-					domid;
-				At_least_once_more.again Memory_control.async_balance_memory)
-	end
-
-(** Sets the current memory target for a running VM, to the given *)
-(** value (in bytes), rounded down to the nearest page boundary.  *)
-(** Writes the new target to the database and also to XenStore.   *)
-let set_memory_target_live ~__context ~self ~target = () (*
-	let bootrec = Helpers.get_boot_record ~__context ~self in
-	if not (Helpers.ballooning_enabled_for_vm ~__context bootrec) then
-		raise (Api_errors.Server_error (Api_errors.ballooning_disabled, []));
-	(* Round down the given target to the nearest page boundary. *)
-	let target = Memory.round_bytes_down_to_nearest_page_boundary target in
-	(* Make sure the new target is within the acceptable range. *)
-	let constraints = Vm_memory_constraints.get_live ~__context ~vm_ref:self in
-	let constraints = {constraints with Vm_memory_constraints.target = target} in
-	if not (Vm_memory_constraints.are_valid ~constraints) then raise (
-		Api_errors.Server_error (
-		Api_errors.memory_constraint_violation, ["invalid target"]));
-	(* We've been forwarded, so the VM is local to this machine. *)
-	let domid = Helpers.domid_of_vm ~__context ~self in
-	Db.VM.set_memory_target ~__context ~self ~value:target;
-	let target = Memory.kib_of_bytes_used target in
-	Vmopshelpers.with_xs (fun xs -> Balloon.set_memory_target ~xs domid target)
-*)
-
-(** The default upper bound on the acceptable difference between *)
-(** actual memory usage and target memory usage when waiting for *)
-(** a running VM to reach its current memory target.             *)
-let wait_memory_target_tolerance_bytes = Memory.bytes_of_mib 1L
-
-(** Returns true if (and only if) the   *)
-(** specified argument is a power of 2. *)
-let is_power_of_2 n =
-	(n > 1) && (n land (0 - n) = n)
-
-(** Waits for a running VM to reach its current memory target. *)
-(** This function waits until the following condition is true: *)
-(**                                                            *)
-(**     abs (memory_actual - memory_target) <= tolerance       *)
-(**                                                            *)
-(** If the task associated with this function is cancelled or  *)
-(** if the time-out counter exceeds its limit, this function   *)
-(** raises a server error and terminates.                      *)
-let wait_memory_target_live ~__context ~self
-		?(timeout_seconds = int_of_float !Xapi_globs.wait_memory_target_timeout)
-		?(tolerance_bytes = wait_memory_target_tolerance_bytes)
-		() =
-	let raise_error error =
-		raise (Api_errors.Server_error (error, [Ref.string_of (Context.get_task_id __context)])) in
-	let rec wait accumulated_wait_time_seconds =
-		if accumulated_wait_time_seconds > timeout_seconds
-			then raise_error Api_errors.vm_memory_target_wait_timeout;
-		if TaskHelper.is_cancelling ~__context
-			then raise_error Api_errors.task_cancelled;
-		(* Fetch up-to-date value of memory_actual via a hypercall to Xen. *)
-		let domain_id = Helpers.domid_of_vm ~__context ~self in
-		let domain_info = Vmopshelpers.with_xc (fun xc -> Xenctrl.domain_getinfo xc domain_id) in
-		let memory_actual_pages = Int64.of_nativeint domain_info.Xenctrl.total_memory_pages in
-		let memory_actual_kib = Xenctrl.pages_to_kib memory_actual_pages in 
-		let memory_actual_bytes = Memory.bytes_of_kib memory_actual_kib in
-		(* Fetch up-to-date value of target from xenstore. *)
-		let memory_target_kib = Int64.of_string (Vmopshelpers.with_xs (fun xs -> xs.Xs.read (xs.Xs.getdomainpath domain_id ^ "/memory/target"))) in
-		let memory_target_bytes = Memory.bytes_of_kib memory_target_kib in
-		let difference_bytes = Int64.abs (Int64.sub memory_actual_bytes memory_target_bytes) in
-		debug "memory_actual = %Ld; memory_target = %Ld; difference = %Ld %s tolerance (%Ld)" memory_actual_bytes memory_target_bytes difference_bytes (if difference_bytes <= tolerance_bytes then "<=" else ">") tolerance_bytes;
-		if difference_bytes <= tolerance_bytes then
-			(* The memory target has been reached: use the most *)
-			(* recent value of memory_actual to update the same *)
-			(* field within the VM's metrics record, presenting *)
-			(* a consistent view to the world.                  *)
-			let vm_metrics_ref = Db.VM.get_metrics ~__context ~self in
-			Db.VM_metrics.set_memory_actual ~__context ~self:vm_metrics_ref ~value:memory_actual_bytes
-		else begin
-			(* At exponentially increasing intervals, write  *)
-			(* a debug message saying how long we've waited: *)
-			if is_power_of_2 accumulated_wait_time_seconds then debug
-				"Waited %i second(s) for domain %i to reach \
-				its target = %Ld bytes; actual = %Ld bytes."
-				accumulated_wait_time_seconds domain_id
-				memory_target_bytes memory_actual_bytes;
-			(* The memory target has not yet been reached: *)
-			(* wait for a while before repeating the test. *)
-			Thread.delay 1.0;
-			wait (accumulated_wait_time_seconds + 1)
-		end
-	in
-	wait 0
-
 let validate_HVM_shadow_multiplier multiplier =
 	if multiplier < 1.
 	then invalid_value "multiplier" (string_of_float multiplier)
@@ -825,57 +705,6 @@ let set_HVM_shadow_multiplier ~__context ~self ~value =
 	Db.VM.set_HVM_shadow_multiplier ~__context ~self ~value;
 	update_memory_overhead ~__context ~vm:self
 
-(** Sets the HVM shadow multiplier for a {b Running} VM. Runs on the slave. *)
-let set_shadow_multiplier_live ~__context ~self ~multiplier =
-	if Db.VM.get_power_state ~__context ~self <> `Running
-	then failwith "assertion_failed: set_shadow_multiplier_live should only be \
-		called when the VM is Running";
-	validate_HVM_shadow_multiplier multiplier;
-	if Helpers.has_booted_hvm ~__context ~self then (
-		let bootrec = Helpers.get_boot_record ~__context ~self in
-		let domid = Helpers.domid_of_vm ~__context ~self in
-		let vcpus = Int64.to_int bootrec.API.vM_VCPUs_max in
-		let static_max_mib = Memory.mib_of_bytes_used (bootrec.API.vM_memory_static_max) in
-		let newshadow = Int64.to_int (Memory.HVM.shadow_mib static_max_mib vcpus multiplier) in
-
-		(* Make sure enough free memory exists *)
-		let host = Db.VM.get_resident_on ~__context ~self in
-		let free_mem_b =
-			Memory_check.host_compute_free_memory_with_maximum_compression
-				~__context ~host None in
-		let free_mem_mib = Int64.to_int (Int64.div (Int64.div free_mem_b 1024L) 1024L) in
-		let multiplier_to_record = Xenctrl.with_intf
-		  (fun xc ->
-		     let curshadow = Xenctrl.shadow_allocation_get xc domid in
-		     let needed_mib = newshadow - curshadow in
-		     debug "Domid %d has %d MiB shadow; an increase of %d MiB requested; host has %d MiB free"
-		       domid curshadow needed_mib free_mem_mib;
-		     if free_mem_mib < needed_mib
-		     then raise (Api_errors.Server_error(Api_errors.host_not_enough_free_memory, [ Int64.to_string (Memory.bytes_of_mib (Int64.of_int needed_mib)); Int64.to_string free_mem_b ]));
-		     if not(Memory.wait_xen_free_mem xc (Int64.mul (Int64.of_int needed_mib) 1024L)) then begin
-		       warn "Failed waiting for Xen to free %d MiB: some memory is not properly accounted" needed_mib;
-		       (* Dump stats here: *)
-		       let (_ : int64) =
-		         Memory_check.host_compute_free_memory_with_maximum_compression
-		           ~dump_stats:true ~__context ~host None in
-		       raise (Api_errors.Server_error(Api_errors.host_not_enough_free_memory, [ Int64.to_string (Memory.bytes_of_mib (Int64.of_int needed_mib)); Int64.to_string free_mem_b ]));
-		     end;
-		     debug "Setting domid %d's shadow memory to %d MiB" domid newshadow;
-		     Xenctrl.shadow_allocation_set xc domid newshadow;
-		     Memory.HVM.round_shadow_multiplier static_max_mib vcpus multiplier domid) in
-		Db.VM.set_HVM_shadow_multiplier ~__context ~self ~value:multiplier_to_record;
-		let newbootrec = { bootrec with API.vM_HVM_shadow_multiplier = multiplier_to_record } in
-		Helpers.set_boot_record ~__context ~self newbootrec;
-		update_memory_overhead ~__context ~vm:self;
-		()
-	) else
-		()
-
-let send_sysrq ~__context ~vm ~key =
-  raise (Api_errors.Server_error (Api_errors.not_implemented, [ "send_sysrq" ]))
-
-let send_trigger ~__context ~vm ~trigger =
-  raise (Api_errors.Server_error (Api_errors.not_implemented, [ "send_trigger" ]))
 
 let inclusive_range a b = Range.to_list (Range.make a (b + 1))
 let vbd_inclusive_range hvm a b =
@@ -981,6 +810,15 @@ let copy_guest_metrics ~__context ~vm =
 	with _ ->
 		Ref.null
 
+let start_delay ~__context ~vm =
+	let start_delay = Db.VM.get_start_delay ~__context ~self:vm in
+	Thread.delay (Int64.to_float start_delay)
+
+let shutdown_delay ~__context ~vm =
+	let shutdown_delay = Db.VM.get_shutdown_delay ~__context ~self:vm in
+	Thread.delay (Int64.to_float shutdown_delay)
+
+
 (* Populate last_boot_CPU_flags with the vendor and feature set of the given host's CPU. *)
 let populate_cpu_flags ~__context ~vm ~host =
 	let add_or_replace (key, value) values =
@@ -1062,3 +900,25 @@ let assert_can_be_recovered ~__context ~self ~session_to =
 		let sr = Db.SR.get_by_uuid ~__context ~uuid:sr_uuid in
 		raise (Api_errors.Server_error(Api_errors.vm_requires_sr,
 			[Ref.string_of self; Ref.string_of sr]))
+
+(* BIOS strings *)
+
+let copy_bios_strings ~__context ~vm ~host =
+	(* only allow to fill in BIOS strings if they are not yet set *)
+	let current_strings = Db.VM.get_bios_strings ~__context ~self:vm in
+	if List.length current_strings > 0 then
+		raise (Api_errors.Server_error(Api_errors.vm_bios_strings_already_set, []))
+	else begin
+		let bios_strings = Db.Host.get_bios_strings ~__context ~self:host in
+		Db.VM.set_bios_strings ~__context ~self:vm ~value:bios_strings;
+		(* also set the affinity field to push the VM to start on this host *)
+		Db.VM.set_affinity ~__context ~self:vm ~value:host
+	end
+
+let consider_generic_bios_strings ~__context ~vm =
+	(* check BIOS strings: set to generic values if empty *)
+	let bios_strings = Db.VM.get_bios_strings ~__context ~self:vm in
+	if bios_strings = [] then begin
+		info "The VM's BIOS strings were not yet filled in. The VM is now made BIOS-generic.";
+		Db.VM.set_bios_strings ~__context ~self:vm ~value:Xapi_globs.generic_bios_strings
+	end

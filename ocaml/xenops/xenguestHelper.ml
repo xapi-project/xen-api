@@ -11,6 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+open Fun
+open Pervasiveext
 
 module D = Debug.Debugger(struct let name = "xenguesthelper" end)
 open D
@@ -36,14 +38,14 @@ type t = in_channel * out_channel * Unix.file_descr * Unix.file_descr * Forkhelp
 
 (** Fork and run a xenguest helper with particular args, leaving 'fds' open 
     (in addition to internal control I/O fds) *)
-let connect (args: string list) (fds: (string * Unix.file_descr) list) : t =
+let connect domid (args: string list) (fds: (string * Unix.file_descr) list) : t =
 	debug "connect: args = [ %s ]" (String.concat " " args);
 	(* Need to send commands and receive responses from the
 	   slave process *)
 
 	let using_xiu = Xenctrl.is_fake () in
 
-	let last_log_file = "/tmp/xenguest.log" in
+	let last_log_file = Printf.sprintf "/tmp/xenguest.%d.log" domid in
 	(try Unix.unlink last_log_file with _ -> ());
 
 	let slave_to_server_w_uuid = Uuid.to_string (Uuid.make_uuid ()) in
@@ -78,6 +80,19 @@ let disconnect (_, _, r, w, pid) =
 	(* just in case *)
 	(try Unix.kill (Forkhelpers.getpid pid) Sys.sigterm with _ -> ());
 	ignore(Forkhelpers.waitpid pid)
+
+let with_connection (task: Xenops_task.t) domid (args: string list) (fds: (string * Unix.file_descr) list) f =
+	let t = connect domid args fds in
+	let cancel_cb () =
+		let _, _, _, _, pid = t in
+		try Unix.kill (Forkhelpers.getpid pid) Sys.sigkill with _ -> () in
+	finally
+		(fun () ->
+			Xenops_task.with_cancel task cancel_cb
+				(fun () ->
+					f t
+				)
+		) (fun () -> disconnect t)
 
 (** immediately write a command to the control channel *)
 let send (_, out, _, _, _) txt = output_string out txt; flush out
@@ -125,9 +140,17 @@ let rec non_debug_receive ?(debug_callback=(fun s -> debug "%s" s)) cnx = match 
 
 (* Dump memory statistics on failure *)
 let non_debug_receive ?debug_callback cnx = 
-  let debug_memory () = 
-    Xenctrl.with_intf (fun xc -> error "Memory F %Ld KiB S %Ld KiB T %Ld MiB" (Memory.get_free_memory_kib xc) (Memory.get_scrub_memory_kib xc) (Memory.get_total_memory_mib xc));
-  in
+	let debug_memory () = 
+		Xenctrl.with_intf (fun xc ->
+			let open Memory in
+			let open Int64 in
+			let open Xenctrl in
+			let p = Xenctrl.physinfo xc in
+			error "Memory F %Ld KiB S %Ld KiB T %Ld MiB"
+				(p.free_pages |> of_nativeint |> kib_of_pages)
+				(p.scrub_pages |> of_nativeint |> kib_of_pages)
+				(p.total_pages |> of_nativeint |> mib_of_pages_free)
+		) in
   try
     match non_debug_receive ?debug_callback cnx with
     | Error y as x -> 

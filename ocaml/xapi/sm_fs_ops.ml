@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 (* Make VDIs with ext2 filesystems on them *)
-open Vmopshelpers
 open Pervasiveext
 open Client
 open Printf
@@ -205,18 +204,22 @@ let copy_vdi ~__context vdi_src vdi_dst =
 
 		debug "Sm_fs_ops.copy_vdi: %s-copying %Ld%s preserving sparseness" (if local_copy then "locally" else "remotely") size (if sparse then "" else " NOT");
 
+		let progress_cb progress =
+			TaskHelper.exn_if_cancelling ~__context;
+			TaskHelper.operate_on_db_task ~__context
+				(fun self -> Db.Task.set_progress ~__context ~self ~value:progress) in
 		try
 			with_block_attached_device __context rpc session_id vdi_src `RO
 				(fun device_src ->
 					if local_copy
 					then with_block_attached_device __context rpc session_id vdi_dst `RW
 						(fun device_dst ->
-							Sparse_dd_wrapper.dd ~__context sparse device_src device_dst size
+							Sparse_dd_wrapper.dd ~progress_cb sparse device_src device_dst size
 						)
 					else
 						let remote_uri = import_vdi_url ~__context ~prefer_slaves:true rpc session_id vdi_dst in
 						debug "remote_uri = %s" remote_uri;
-						Sparse_dd_wrapper.dd ~__context sparse device_src remote_uri size
+						Sparse_dd_wrapper.dd ~progress_cb sparse device_src remote_uri size
 				)
 		with
 		| Unix.Unix_error(Unix.EIO, _, _) ->

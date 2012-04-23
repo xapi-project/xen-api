@@ -22,6 +22,7 @@ open Smint
 
 module D=Debug.Debugger(struct let name="sm_exec" end)
 open D
+module E=Debug.Debugger(struct let name="mscgen" end)
 
 let sm_daemon_dir = Filename.concat Fhs.vardir "sm"
 
@@ -178,10 +179,11 @@ let exec_xmlrpc ?context ?(needs_session=true) (ty : sm_type) (driver: string) (
 		let open Xmlrpc_client in
 		let http = xmlrpc ~version:"1.0" (Printf.sprintf "/%s" driver) in
 		let transport = Unix (daemon_path driver) in
-		XML_protocol.rpc ~transport ~http xml, ""
+		XML_protocol.rpc ~srcstr:"smapiv2" ~dststr:"smapiv1" ~transport ~http xml, ""
 	| Executable ->
 		let exe = cmd_name driver in
 		begin try
+			E.debug "smapiv2=>smapiv1 [label=\"%s\"];" call.cmd;
 			let output, stderr = Forkhelpers.execute_command_get_output exe [ Xml.to_string xml ] in
 			begin try
 				(Xml.parse_string output), stderr
@@ -267,6 +269,24 @@ let parse_sr_content_type (xml: Xml.xml) = XMLRPC.From.string xml
 let parse_string (xml: Xml.xml) = XMLRPC.From.string xml
 
 let parse_unit (xml: Xml.xml) = XMLRPC.From.nil xml
+
+let parse_attach_result (xml : Xml.xml) = 
+	let info = XMLRPC.From.structure xml in
+	let params = XMLRPC.From.string (safe_assoc "params" info) in
+	let xenstore_data = 
+		try
+			List.map (fun (x,y) -> (x,XMLRPC.From.string y))
+				(XMLRPC.From.structure (safe_assoc "xenstore_data" info))
+		with _ ->
+			[]
+	in
+	{
+		params=params;
+		xenstore_data = xenstore_data; 
+	}
+
+let parse_attach_result_legacy (xml : Xml.xml) = parse_string xml
+
 
 let parse_sr_get_driver_info driver ty (xml: Xml.xml) = 
   let info = XMLRPC.From.structure xml in

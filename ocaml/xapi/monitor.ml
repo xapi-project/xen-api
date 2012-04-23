@@ -191,6 +191,7 @@ let update_loadavg () =
 
 type vif_device = {
 	pv: bool;
+	vif: Xenops_interface.Vif.id;
 	domid: int;
 	devid: int;
 }
@@ -199,9 +200,12 @@ let vif_device_of_string x =
 	try
 		let ty = String.sub x 0 3 and params = String.sub_to_end x 3 in
 		let domid, devid = Scanf.sscanf params "%d.%d" (fun x y -> x,y) in
+		let di = Xenctrl.with_intf (fun xc -> Xenctrl.domain_getinfo xc domid) in
+		let uuid = Uuid.uuid_of_int_array di.Xenctrl.handle |> Uuid.to_string in
+		let vif = (uuid, string_of_int devid) in
 		match ty with
-		| "vif" -> Some { pv = true; domid = domid; devid = devid }
-		| "tap" -> Some { pv = false; domid = domid; devid = devid }
+		| "vif" -> Some { pv = true; vif = vif; domid = domid; devid = devid }
+		| "tap" -> Some { pv = false; vif = vif; domid = domid; devid = devid }
 		| _ -> failwith "bad device"
 	with _ -> None
 
@@ -556,3 +560,13 @@ let loop () =
 		                    (fun __context -> _loop __context xc)
 	)
 
+let on_restart () =
+	Mutex.execute Rrd_shared.mutex
+		(fun () ->
+			(* Explicitly dirty all VM memory values *)
+			let uuids = Vmopshelpers.with_xc
+				(fun xc -> List.map (fun di -> Uuid.to_string (Uuid.uuid_of_int_array di.Xenctrl.handle))
+					(Xenctrl.domain_getinfolist xc 0)) in
+			Rrd_shared.dirty_memory := List.fold_left (fun acc x -> Rrd_shared.StringSet.add x acc) Rrd_shared.StringSet.empty uuids;
+			Rrd_shared.dirty_host_memory := true;
+			Condition.broadcast Rrd_shared.condition)

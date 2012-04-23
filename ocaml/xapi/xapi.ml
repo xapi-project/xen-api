@@ -35,7 +35,7 @@ module W=Debug.Debugger(struct let name="watchdog" end)
 
 
 let check_control_domain () =
-  let domuuid = with_xc (fun xc -> Domain.get_uuid ~xc 0) in
+  let domuuid = with_xc (fun xc -> get_uuid ~xc 0) in
 	let domuuid = Uuid.to_string domuuid in
   let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
   if domuuid <> uuid then (
@@ -301,14 +301,7 @@ let on_master_restart ~__context =
   debug "master might have just restarted: refreshing non-persistent data in the master's database";
   Xapi_host_helpers.consider_enabling_host_request ~__context;
   debug "triggering an immediate refresh of non-persistent fields (eg memory)";
-  Mutex.execute Rrd_shared.mutex 
-    (fun () -> 
-       (* Explicitly dirty all VM memory values *)
-       let uuids = Vmopshelpers.with_xc 
-	 (fun xc -> List.map (fun di -> Uuid.to_string (Uuid.uuid_of_int_array di.Xenctrl.handle)) (Xenctrl.domain_getinfolist xc 0)) in
-       Rrd_shared.dirty_memory := List.fold_left (fun acc x -> Rrd_shared.StringSet.add x acc) Rrd_shared.StringSet.empty uuids;
-       Rrd_shared.dirty_host_memory := true; 
-       Condition.broadcast Rrd_shared.condition);
+  Monitor.on_restart ();
   (* To make the slave appear live we need to set the live flag AND send a heartbeat otherwise the master
      will mark the slave offline again before the regular heartbeat turns up. *)
   debug "sending an immediate heartbeat";
@@ -561,7 +554,7 @@ let calculate_boot_time_host_free_memory () =
 		host_free_pages + host_scrub_pages + domain0_total_pages in
 	let boot_time_host_free_kib =
 		Xenctrl.pages_to_kib (Int64.of_nativeint boot_time_host_free_pages) in
-	Memory.bytes_of_kib boot_time_host_free_kib
+	Int64.mul 1024L boot_time_host_free_kib
 
 (* Read the free memory on the host and record this in the db. This is used *)
 (* as the baseline for memory calculations in the message forwarding layer. *)
@@ -569,7 +562,7 @@ let record_boot_time_host_free_memory () =
 	if not (Unixext.file_exists Xapi_globs.initial_host_free_memory_file) then begin
 		try
 			let free_memory = calculate_boot_time_host_free_memory () in
-                        Unixext.mkdir_safe (Filename.dirname Xapi_globs.initial_host_free_memory_file) 0o700;
+                        Unixext.mkdir_rec (Filename.dirname Xapi_globs.initial_host_free_memory_file) 0o700;
 			Unixext.write_string_to_file
 				Xapi_globs.initial_host_free_memory_file
 				(Int64.to_string free_memory)
@@ -667,7 +660,7 @@ let master_only_http_handlers = [
 let common_http_handlers = [
   ("get_services", (Http_svr.FdIO Xapi_services.get_handler));
   ("post_services", (Http_svr.FdIO Xapi_services.post_handler));
-  ("connect_migrate", (Http_svr.FdIO Xapi_vm_migrate.handler));
+  ("put_services", (Http_svr.FdIO Xapi_services.put_handler));
   ("put_import", (Http_svr.FdIO Import.handler));
   ("put_import_metadata", (Http_svr.FdIO Import.metadata_handler));
   ("put_import_raw_vdi", (Http_svr.FdIO Import_raw_vdi.handler));
@@ -696,7 +689,8 @@ let common_http_handlers = [
   ("put_blob", (Http_svr.FdIO Xapi_blob.handler));
   (* disabled RSS feed for release; this is useful for developers, but not reqd for product.
      [the motivation for disabling it is that it simplifies security audit etc.] *)
-  (* ("get_message_rss_feed", Xapi_message.handler); *)
+  (* ("get_message_rss_feed", Xapi_message.rss_handler); *)
+  ("put_messages", (Http_svr.FdIO Xapi_message.handler));
   ("connect_remotecmd", (Http_svr.FdIO Xapi_remotecmd.handler));
   ("post_remote_stats", (Http_svr.BufIO remote_stats_handler));
   ("get_wlb_report", (Http_svr.BufIO Wlb_reports.report_handler));
@@ -824,7 +818,6 @@ let server_init() =
     Server_helpers.exec_with_new_task "server_init" (fun __context ->
     Startup.run ~__context [
     "Reading config file", [], (fun () -> Xapi_config.read_config !Xapi_globs.config_file);
-    "Reading log config file", [ Startup.NoExnRaising ], (fun () ->Xapi_config.read_log_config !Xapi_globs.log_config_file);
     "Reading external global variables definition", [ Startup.NoExnRaising ], Xapi_globs.read_external_config;
     "Initing stunnel path", [], Stunnel.init_stunnel_path;
     "XAPI SERVER STARTING", [], print_server_starting_message;
@@ -935,7 +928,6 @@ let server_init() =
       "pool db backup", [ Startup.OnlyMaster; Startup.OnThread ], Pool_db_backup.pool_db_backup_thread;
       "monitor", [ Startup.OnThread ], Monitor.loop;
       "monitor_dbcalls", [Startup.OnThread], Monitor_dbcalls.monitor_dbcall_thread;
-      "guest_agent_monitor", [ Startup.NoExnRaising ], Xapi_guest_agent.guest_metrics_liveness_thread;
       "touching ready file", [], (fun () -> Helpers.touch_file !Xapi_globs.ready_file);
        (* -- CRITICAL: this check must be performed before touching shared storage *)
       "Performing no-other-masters check", [ Startup.OnlyMaster ], check_no_other_masters;
@@ -953,7 +945,9 @@ let server_init() =
       "initialising storage", [ Startup.NoExnRaising ],
                 (fun () -> Helpers.call_api_functions ~__context Create_storage.create_storage_localhost);
       (* CA-13878: make sure PBD plugging has happened before attempting to reboot any VMs *)
-      "starting events thread", [], (fun () -> if not (!noevents) then ignore (Thread.create Events.listen_xal ()));
+      "listening to events from xenopsd", [], (fun () -> if not (!noevents) && (!Xapi_globs.use_xenopsd) then ignore (Thread.create Xapi_xenops.events_from_xenopsd ()));
+      "listening to events from xapi", [], (fun () -> if not (!noevents) && (!Xapi_globs.use_xenopsd) then ignore (Thread.create Xapi_xenops.events_from_xapi ()));
+
       "SR scanning", [ Startup.OnlyMaster; Startup.OnThread ], Xapi_sr.scanning_thread;
       "writing init complete", [], (fun () -> Helpers.touch_file !Xapi_globs.init_complete);
 (*      "Synchronising HA state with Pool", [ Startup.NoExnRaising ], Xapi_ha.synchronise_ha_state_with_pool; *)
@@ -1030,7 +1024,6 @@ let watchdog f =
 		(* parent process blocks sigint and forward sigterm to child. *)
 		ignore(Unix.sigprocmask Unix.SIG_BLOCK [Sys.sigint]);
 		Sys.catch_break false;
-		Logs.append "watchdog" Log.Info "syslog:xapi_watchdog";
 		
 		(* watchdog logic *)
 		let loginfo fmt = W.info fmt in
@@ -1195,6 +1188,8 @@ tolarence, the next tweak will be %f seconds away at the earliest."
 
 
 let _ =
+	Debug.set_facility Syslog.Local5;
+
 	init_args(); (* need to read args to find out whether to daemonize or not *)
 
   if !daemonize then

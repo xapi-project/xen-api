@@ -32,25 +32,6 @@ let register () =
   (* 10 mins if fist point there - to ensure rrd sync happens first *)
     if Xapi_fist.reduce_blob_sync_interval then 60.0 *. 10.0 else 7200. in
 
-  let logrotate_func () =
-    let dorotate = Mutex.execute Log.mutex 
-      (fun () ->
-	if !Log.filesize > !Xapi_globs.logrot_max then
-	  (Log.filesize := 0; true)
-	else 
-	  false)
-    in
-    if dorotate 
-    then 
-      try
-	info "xapi about to invoke logrotate";
-	let stdout, stderr = Forkhelpers.execute_command_get_output Xapi_globs.logrot_cmd Xapi_globs.logrot_arg in
-	info "Logrotate executed: stdout='%s' stderr='%s'" stdout stderr
-      with Forkhelpers.Spawn_internal_error(log,output,err) ->
-	error "Logrotate executed with error code: stdout='%s' stderr='%s'" output log;
-	()	
-  in
-  
   (* Heartbeat to show the queue is still running - will be more useful when there's less logging! *)
   let hb_timer = 3600.0 in (* one hour *)
   let hb_func () = debug "Periodic scheduler heartbeat" in
@@ -85,7 +66,6 @@ let register () =
     (Xapi_periodic_scheduler.Periodic !Xapi_globs.session_revalidation_interval) session_revalidation_delay session_revalidation_func;
   if master then Xapi_periodic_scheduler.add_to_queue "Trying to update subjects' info using external directory service (if any)" 
     (Xapi_periodic_scheduler.Periodic !Xapi_globs.update_all_subjects_interval) update_all_subjects_delay update_all_subjects_func;
-  Xapi_periodic_scheduler.add_to_queue "Logrotate" (Xapi_periodic_scheduler.Periodic !Xapi_globs.logrotate_check_interval) 120.0 logrotate_func;
   Xapi_periodic_scheduler.add_to_queue "Periodic scheduler heartbeat" (Xapi_periodic_scheduler.Periodic hb_timer) 240.0 hb_func;
   Xapi_periodic_scheduler.add_to_queue "Update monitor configuration" (Xapi_periodic_scheduler.Periodic 3600.0) 3600.0 Monitor_rrds.update_configuration_from_master
 

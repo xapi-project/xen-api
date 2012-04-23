@@ -1,12 +1,18 @@
+(** Disks are attached to particular bus types: *)
+type bus_type =
+	| Xen  (** A xen paravirtualised bus *)
+	| Scsi (** A SCSI bus *)
+	| Ide  (** An IDE bus *)
+
 (** A specification for a device number. There are more valid specifications than
     valid device numbers because of hardware and/or protocol limits. *)
-type spec = 
-	| Xen of int * int  (** A xen paravirtualised disk (disk num, partition num) *)
-	| Scsi of int * int (** A SCSI disk (disk num, partition num) *)
-	| Ide of int * int  (** An IDE disk (disk num, partition num) *)
+type spec = bus_type * int * int
 
 (** A valid device number *)
 type t
+
+val t_of_rpc: Rpc.t -> t
+val rpc_of_t: t -> Rpc.t
 
 (** [make spec] validates a given device number specification [spec] and returns
     a device number *)
