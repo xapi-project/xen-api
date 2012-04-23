@@ -273,9 +273,13 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address wh
 						raise (Api_errors.Server_error(Api_errors.task_cancelled, [ Ref.string_of remote_task ]))
 					| `pending ->
 						failwith "wait_for_task_completion failed; task is still pending"
-					| `failure ->
+					| `failure -> begin
 						let error_info = Client.Task.get_error_info rpc session_id remote_task in
-						failwith (Printf.sprintf "VM metadata import failed: %s" (String.concat " " error_info));
+						match error_info with
+						| code :: params when Hashtbl.mem Datamodel.errors code ->
+							raise (Api_errors.Server_error(code, params))
+						| _ -> failwith (Printf.sprintf "VM metadata import failed: %s" (String.concat " " error_info));
+					end
 					| `success ->
 						debug "Remote metadata import succeeded"
 			)
