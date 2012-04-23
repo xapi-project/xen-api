@@ -56,6 +56,9 @@ let check ~intra_pool_only ~session_id =
 		(List.hd (Db_actions.DB_Action.Pool.get_all ~__context)) in
 	      let address = Db_actions.DB_Action.Host.get_address ~__context ~self:master in
 	      raise (Api_errors.Server_error (Api_errors.host_is_slave,[address]));
+	  | Api_errors.Server_error(code, params) as e ->
+		  debug "Session check failed: unexpected exception %s %s" code (String.concat " " params);
+		  raise e
 	  | exn ->
 	      debug "Session check failed: unexpected exception '%s'" (Printexc.to_string exn);
 	      raise (Api_errors.Server_error (Api_errors.session_invalid,[Ref.string_of session_id]))

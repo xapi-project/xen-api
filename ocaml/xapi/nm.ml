@@ -453,8 +453,8 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 					let interface_config = [bridge, {default_interface with ipv4_conf; ipv4_gateway;
 						ipv4_routes; dns; ethtool_settings; ethtool_offload; mtu; persistent_i=persistent}] in
 					Net.Interface.make_config ~config:interface_config ()
-				with Network_interface.RpcFailure (err, params) ->
-					let e = Printf.sprintf "%s [%s]" err (String.concat ", " (List.map (fun (k, v) -> k ^ " = " ^ v) params)) in
+				with Network_interface.Internal_error str ->
+                                	let e = Printf.sprintf "%s" str in
 					error "Network configuration error: %s" e;
 					raise (Api_errors.Server_error(Api_errors.pif_configuration_error, [Ref.string_of pif; e]))
 				end
@@ -519,8 +519,8 @@ let bring_pif_down ~__context ?(force=false) (pif: API.ref_PIF) =
 					let cleanup = destroy_bridges ~__context ~force rc bridge in
 					List.iter (fun (name, force) -> Net.Bridge.destroy ~name ~force ()) cleanup;
 					Net.Interface.set_persistent ~name:bridge ~value:false
-				with Network_interface.RpcFailure (err, params) ->
-					let e = Printf.sprintf "%s [%s]" err (String.concat ", " (List.map (fun (k, v) -> k ^ " = " ^ v) params)) in
+				with Network_interface.Internal_error err ->
+					let e = Printf.sprintf "%s" err in
 					error "Network configuration error: %s" e;
 					raise (Api_errors.Server_error(Api_errors.pif_configuration_error, [Ref.string_of pif; e]))
 			else begin

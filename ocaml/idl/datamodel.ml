@@ -1889,6 +1889,30 @@ let vm_pool_migrate = call
   ~allowed_roles:_R_VM_POWER_ADMIN
   ()
 
+let vm_pool_migrate_complete = call
+  ~in_oss_since:None 
+  ~in_product_since:rel_tampa
+  ~name:"pool_migrate_complete"
+  ~doc:"Tell a destination host that migration is complete."
+  ~params:[Ref _vm, "vm", "The VM which has finished migrating";
+	   Ref _host, "host", "The target host" ]
+  ~hide_from_docs:true
+  ~pool_internal:false (* needed for cross-pool migrate too *)
+  ~allowed_roles:_R_VM_POWER_ADMIN
+  ()
+
+let host_migrate_receive = call
+  ~in_oss_since:None
+  ~in_product_since:rel_tampa
+  ~name:"migrate_receive"
+  ~doc:"Prepare to receive a VM, returning a token which can be passed to VM.migrate."
+  ~params:[Ref _host, "host", "The target host";
+    Ref _network, "network", "The network through which migration traffic should be received.";
+    Map(String, String), "options", "Extra configuration operations" ]
+  ~result:(Map(String,String), "A value which should be passed to VM.migrate")
+  ~allowed_roles:_R_VM_POWER_ADMIN
+  ()
+
 let set_vcpus_number_live = call
 	~name:"set_VCPUs_number_live"
 	~in_product_since:rel_rio
@@ -1964,18 +1988,33 @@ let vm_send_trigger = call
   ~allowed_roles:_R_POOL_ADMIN
   ()
 
-let vm_migrate = call
-  ~name: "migrate"
-  ~in_product_since:rel_rio
+let vm_migrate_send = call
+  ~name: "migrate_send"
+  ~in_product_since:rel_tampa
   ~doc: "Migrate the VM to another host.  This can only be called when the specified VM is in the Running state."
   ~params:[Ref _vm, "vm", "The VM";
-           String, "dest", "The destination host";
+           Map(String,String), "dest", "The result of a Host.migrate_receive call.";
            Bool, "live", "Live migration";
+		   Map (Ref _vdi, Ref _sr), "vdi_map", "Map of source VDI to destination SR";
+		   Map (Ref _vif, Ref _network), "vif_map", "Map of source VIF to destination network";
            Map (String, String), "options", "Other parameters"]
   ~errs:[Api_errors.vm_bad_power_state]
-  ~hide_from_docs:true
   ~allowed_roles:_R_VM_POWER_ADMIN
   ()
+
+let vm_assert_can_migrate = call
+~name:"assert_can_migrate"
+	~in_product_since:rel_tampa
+	~doc:"Assert whether a VM can be migrated to the specified destination."
+	~params:[
+		Ref _vm, "vm", "The VM";
+		Map(String,String), "dest", "The result of a VM.migrate_receive call.";
+		Bool, "live", "Live migration";
+		Map (Ref _vdi, Ref _sr), "vdi_map", "Map of source VDI to destination SR";
+		Map (Ref _vif, Ref _network), "vif_map", "Map of source VIF to destination network";
+		Map (String, String), "options", "Other parameters" ]
+	~allowed_roles:_R_VM_POWER_ADMIN
+	()
 
 let vm_s3_suspend = call
   ~name: "s3_suspend"
@@ -2752,6 +2791,18 @@ let vdi_copy = call
   ~doc:"Make a fresh VDI in the specified SR and copy the supplied VDI's data to the new disk"
   ~result:(Ref _vdi, "The reference of the newly created VDI.")
   ~allowed_roles:_R_VM_ADMIN
+  ()
+
+let vdi_pool_migrate = call
+  ~name:"pool_migrate"
+  ~in_oss_since:None
+  ~in_product_since:rel_tampa
+  ~params:[ Ref _vdi, "vdi", "The VDI to migrate"
+    ; Ref _sr, "sr", "The destination SR"
+    ; Ref _network, "network", "The network through which migration traffic should be sent."
+    ; Map (String, String), "options", "Other parameters" ]
+  ~doc:"Migrate a VDI, which may be attached to a running guest, to a different SR. The destination SR must be visible to the guest."
+  ~allowed_roles:_R_VM_POWER_ADMIN
   ()
 
 (* ------------------------------------------------------------------------------------------------------------
@@ -4033,6 +4084,7 @@ let host =
 		 host_sync_vlans;
 		 host_sync_tunnels;
 		 host_sync_pif_currently_attached;
+		 host_migrate_receive;
 		 ]
       ~contents:
         ([ uid _host;
@@ -5307,6 +5359,7 @@ let vdi =
 		 vdi_open_database;
 		 vdi_checksum;
 		 vdi_read_database_pool_uuid;
+		 vdi_pool_migrate;
 		]
       ~contents:
       ([ uid _vdi;
@@ -6322,7 +6375,7 @@ let vm_operations =
 	    vm_cleanReboot; vm_hardShutdown; vm_stateReset; vm_hardReboot;
 	    vm_suspend; csvm; vm_resume; vm_resume_on;
 	    vm_pool_migrate;
-            vm_migrate; 
+        vm_migrate_send;
 	    vm_get_boot_record; vm_send_sysrq; vm_send_trigger ]
 	@ [ "changing_memory_live", "Changing the memory settings";
 	    "awaiting_memory_live", "Waiting for the memory settings to change";
@@ -6356,7 +6409,8 @@ let vm =
 		vm_cleanReboot; vm_hardShutdown; vm_stateReset; vm_hardReboot; vm_suspend; csvm; vm_resume; 
 		vm_hardReboot_internal;
 		vm_resume_on; 
-		vm_pool_migrate; set_vcpus_number_live;
+		vm_pool_migrate; vm_pool_migrate_complete;
+		set_vcpus_number_live;
 		vm_add_to_VCPUs_params_live;
 		vm_set_ha_restart_priority;  (* updates the allowed-operations of the VM *)
 		vm_set_ha_always_run;        (* updates the allowed-operations of the VM *)
@@ -6377,7 +6431,8 @@ let vm =
 		vm_set_VCPUs_at_startup;
 		vm_send_sysrq; vm_send_trigger;
 		vm_maximise_memory;
-		vm_migrate;
+		vm_migrate_send;
+		vm_assert_can_migrate;
 		vm_get_boot_record;
 		vm_get_data_sources; vm_record_data_source; vm_query_data_source; vm_forget_data_source_archives;
 		assert_operation_valid vm_operations _vm _self;
@@ -6447,7 +6502,7 @@ let vm =
 	   the VM is in a suspended state *)
 	field ~in_oss_since:None ~internal_only:false ~in_product_since:rel_miami ~qualifier:DynamicRO ~ty:String "last_booted_record" "marshalled value containing VM record at time of last boot, updated dynamically to reflect the runtime state of the domain" ~default_value:(Some (VString ""));
 	field ~in_oss_since:None ~ty:String "recommendations" "An XML specification of recommended values and ranges for properties of this VM";
-	field ~in_oss_since:None ~ty:(Map(String, String)) ~in_product_since:rel_miami ~qualifier:RW "xenstore_data" "data to be inserted into the xenstore tree (/local/domain/<domid>/vm-data) after the VM is created." ~default_value:(Some (VMap []));
+	field ~effect:true ~in_oss_since:None ~ty:(Map(String, String)) ~in_product_since:rel_miami ~qualifier:RW "xenstore_data" "data to be inserted into the xenstore tree (/local/domain/<domid>/vm-data) after the VM is created." ~default_value:(Some (VMap []));
 	field ~writer_roles:_R_POOL_OP ~in_oss_since:None ~ty:Bool ~in_product_since:rel_orlando ~internal_deprecated_since:rel_boston ~qualifier:StaticRO "ha_always_run" "if true then the system will attempt to keep the VM running as much as possible." ~default_value:(Some (VBool false));
 	field ~writer_roles:_R_POOL_OP ~in_oss_since:None ~ty:String ~in_product_since:rel_orlando ~qualifier:StaticRO "ha_restart_priority" "has possible values: \"best-effort\" meaning \"try to restart this VM if possible but don't consider the Pool to be overcommitted if this is not possible\"; \"restart\" meaning \"this VM should be restarted\"; \"\" meaning \"do not try to restart this VM\"" ~default_value:(Some (VString ""));
 	field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO ~in_product_since:rel_orlando ~default_value:(Some (VBool false))          ~ty:Bool            "is_a_snapshot" "true if this is a snapshot. Snapshotted VMs can never be started, they are used only for cloning other VMs";
@@ -7709,6 +7764,7 @@ let http_actions = [
   ("get_blob", (Get, Constants.blob_uri, true, [String_query_arg "ref"], _R_READ_ONLY, []));
   ("put_blob", (Put, Constants.blob_uri, true, [String_query_arg "ref"], _R_VM_POWER_ADMIN, []));
   ("get_message_rss_feed", (Get, Constants.message_rss_feed, false, [], _R_POOL_ADMIN, []));  (* not enabled in xapi *)
+  ("put_messages", (Put, Constants.message_put_uri, false, [], _R_VM_POWER_ADMIN, []));
   ("connect_remotecmd", (Connect, Constants.remotecmd_uri, false, [], _R_POOL_ADMIN, []));
   ("post_remote_stats", (Post, Constants.remote_stats_uri, false, [], _R_POOL_ADMIN, []));  (* deprecated *)
   ("get_wlb_report", (Get, Constants.wlb_report_uri, true,

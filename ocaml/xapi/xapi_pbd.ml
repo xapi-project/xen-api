@@ -114,8 +114,7 @@ let plug ~__context ~self =
                 Storage_access.bind ~__context ~pbd:self;
 				let task = Ref.string_of (Context.get_task_id __context) in
 				let device_config = Db.PBD.get_device_config ~__context ~self in
-				Storage_access.expect_unit (fun () -> ())
-					(C.SR.attach task (Db.SR.get_uuid ~__context ~self:sr) device_config);
+				C.SR.attach task (Db.SR.get_uuid ~__context ~self:sr) device_config;
 				Db.PBD.set_currently_attached ~__context ~self ~value:true;
 			end
 
@@ -137,9 +136,6 @@ let unplug ~__context ~self =
 				if List.mem sr statefile_srs
 				then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []))
 			end;
-
-			(* Unplug any disks attached to me which have leaked *)
-			Attach_helpers.remove_all_leaked_vbds __context;
 
 			let vdis = get_active_vdis_by_pbd ~__context ~self in
 			let non_metadata_vdis = List.filter (fun vdi -> Db.VDI.get_type ~__context ~self:vdi <> `metadata) vdis in
@@ -165,8 +161,7 @@ let unplug ~__context ~self =
 					metadata_vdis_of_this_pool
 			end;
 			let task = Ref.string_of (Context.get_task_id __context) in
-			Storage_access.expect_unit (fun () -> ())
-				(C.SR.detach task (Db.SR.get_uuid ~__context ~self:sr));
+			C.SR.detach task (Db.SR.get_uuid ~__context ~self:sr);
             Storage_access.unbind ~__context ~pbd:self;
 			Db.PBD.set_currently_attached ~__context ~self ~value:false
 		end

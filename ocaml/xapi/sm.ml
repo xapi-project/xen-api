@@ -149,7 +149,11 @@ let vdi_delete dconf driver sr vdi =
 let vdi_attach dconf driver sr vdi writable =
   debug "vdi_attach" driver (sprintf "sr=%s vdi=%s writable=%b" (Ref.string_of sr) (Ref.string_of vdi) writable);
   let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi dconf "vdi_attach" [ sprintf "%b" writable ] in
-  Sm_exec.parse_string (Sm_exec.exec_xmlrpc (driver_type driver)  (driver_filename driver) call)
+  let result = (Sm_exec.exec_xmlrpc (driver_type driver)  (driver_filename driver) call) in
+  try
+	  Sm_exec.parse_attach_result result
+  with _ ->
+	  { params = Sm_exec.parse_attach_result_legacy result; xenstore_data = []; }
 
 let vdi_detach dconf driver sr vdi =
   debug "vdi_detach" driver (sprintf "sr=%s vdi=%s" (Ref.string_of sr) (Ref.string_of vdi));
@@ -171,7 +175,7 @@ let vdi_snapshot dconf driver driver_params sr vdi =
   let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi ~driver_params dconf "vdi_snapshot" [] in
   Sm_exec.parse_vdi_info (Sm_exec.exec_xmlrpc (driver_type driver)  (driver_filename driver) call)
 	
-let vdi_clone dconf driver driver_params context sr vdi =
+let vdi_clone dconf driver driver_params sr vdi =
   debug "vdi_clone" driver (sprintf "sr=%s vdi=%s driver_params=[%s]" (Ref.string_of sr) (Ref.string_of vdi) (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) driver_params)));
   let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi ~driver_params dconf "vdi_clone" [] in
   Sm_exec.parse_vdi_info (Sm_exec.exec_xmlrpc (driver_type driver)  (driver_filename driver) call)
@@ -190,6 +194,11 @@ let vdi_generate_config dconf driver sr vdi =
   debug "vdi_generate_config" driver (sprintf "sr=%s vdi=%s" (Ref.string_of sr) (Ref.string_of vdi));
   let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi dconf "vdi_generate_config" [] in
   Sm_exec.parse_string (Sm_exec.exec_xmlrpc (driver_type driver)  (driver_filename driver) call)
+
+let vdi_compose dconf driver sr vdi1 vdi2 =
+	debug "vdi_compose" driver (sprintf "sr=%s vdi1=%s vdi2=%s" (Ref.string_of sr) (Ref.string_of vdi1) (Ref.string_of vdi2));
+	let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi2 dconf "vdi_compose" [ Ref.string_of vdi1] in
+	Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_type driver) (driver_filename driver) call)
 
 let session_has_internal_sr_access ~__context ~sr = 
   let session_id = Context.get_session_id __context in

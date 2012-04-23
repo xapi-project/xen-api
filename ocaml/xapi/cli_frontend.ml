@@ -1147,7 +1147,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
    "vm-migrate",
     {
       reqd=[];
-      optn=["live"; "host"; "host-uuid"; "encrypt"; "force"];
+      optn=["live"; "host"; "host-uuid"; "remote-address"; "remote-username"; "remote-password"; "remote-network"; "destination-sr-uuid"; "encrypt"; "force"];
       help="Migrate the selected VM(s). The parameter '--live' will migrate the VM without shutting it down. The 'host' parameter matches can be either the name or the uuid of the host. The parameter '--encrypt' will encrypt the memory image transfer.";
       implementation=No_fd Cli_operations.vm_migrate;
       flags=[Standard; Vm_selectors];
@@ -1284,7 +1284,7 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
    "vm-export",
     {
       reqd=["filename"];
-      optn=["preserve-power-state"; "compress"];
+      optn=["preserve-power-state"; "compress"; "include-snapshots"];
       help="Export a VM to <filename>.";
       implementation=With_fd Cli_operations.vm_export;
       flags=[Standard; Vm_selectors];
@@ -1723,6 +1723,14 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
       optn=[];
       help="Copy a VDI to a specified SR.";
       implementation=No_fd Cli_operations.vdi_copy;
+      flags=[];
+    };
+   "vdi-pool-migrate",
+    {
+      reqd=["uuid"; "sr-uuid"];
+      optn=["network-uuid"];
+      help="Migrate a VDI to a specified SR, while the VDI is attached to a running guest.";
+      implementation=No_fd Cli_operations.vdi_pool_migrate;
       flags=[];
     };
    "vdi-clone",

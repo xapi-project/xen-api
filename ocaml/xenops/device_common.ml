@@ -18,16 +18,19 @@ open Pervasiveext
 open Xenstore
 
 type kind = Vif | Vbd | Tap | Pci | Vfs | Vfb | Vkbd
+with rpc
 
 type devid = int
 (** Represents one end of a device *)
-type endpoint = { domid: Xenctrl.domid; kind: kind; devid: int }
+type endpoint = { domid: int; kind: kind; devid: int }
+with rpc
 
 (** Represent a device as a pair of endpoints *)
 type device = { 
   frontend: endpoint;
   backend: endpoint
 }
+with rpc
 
 exception Device_frontend_already_connected of device
 exception Device_backend_vanished of device
@@ -80,6 +83,13 @@ let disconnect_path_of_device ~xs (x: device) =
 	sprintf "%s/device/%s/%d/disconnect"
 		(xs.Xs.getdomainpath x.frontend.domid)
 		(string_of_kind x.frontend.kind)
+		x.frontend.devid
+
+(** Where linux blkback writes its thread id. NB this won't work in a driver domain *)
+let kthread_pid_path_of_device ~xs (x: device) =
+	sprintf "%s/device/%s/%d/kthread-pid"
+		(xs.Xs.getdomainpath x.backend.domid)
+		(string_of_kind x.backend.kind)
 		x.frontend.devid
 
 (** Location of the backend error path *)
@@ -230,3 +240,4 @@ let protocol_of_string = function
 
 let qemu_save_path : (_, _, _) format = "/var/lib/xen/qemu-save.%d"
 let qemu_restore_path : (_, _, _) format = "/var/lib/xen/qemu-resume.%d"
+

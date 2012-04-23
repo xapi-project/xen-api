@@ -127,51 +127,6 @@ let clear_current_operations ~__context ~self =
 (** Check if the device string has the right form *)
 let valid_device dev = try ignore(int_of_string dev); true with _ -> false
 
-(* Type of a function which does the actual hotplug/ hotunplug *)
-type do_hotplug_fn = __context:Context.t -> vif:API.ref_VIF -> Locking_helpers.token -> unit
-
-let plug (dynamic_create: do_hotplug_fn) ~__context ~self =
-  let vm = Db.VIF.get_VM ~__context ~self in
-
-  (* Acquire an extra lock on the VM to prevent a race with the events thread*)
-  Locking_helpers.with_lock vm 
-    (fun token () ->
-       if not(Helpers.is_running ~__context ~self:vm) then begin
-	 error "Cannot hotplug because VM (%s) is not running" (Ref.string_of vm);
-	 let actual = Record_util.power_to_string (Db.VM.get_power_state ~__context ~self:vm) in
-	 let expected = Record_util.power_to_string `Running in
-	 raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, 
-					[Ref.string_of vm; expected; actual]))
-       end;
-       if Db.VIF.get_currently_attached ~__context ~self then begin
-	 error "Cannot hotplug because VIF (%s) is already attached to VM (%s)"
-	   (Ref.string_of self) (Ref.string_of vm);
-	 raise (Api_errors.Server_error(Api_errors.device_already_attached,
-					[Ref.string_of self]))
-       end;
-       dynamic_create ~__context ~vif:self token) ()
-
-let unplug (dynamic_destroy: do_hotplug_fn)  ~__context ~self =
-  let vm = Db.VIF.get_VM ~__context ~self in
-
-  (* Acquire an extra lock on the VM to prevent a race with the events thread*)
-  Locking_helpers.with_lock vm
-    (fun token () ->
-       if not(Helpers.is_running ~__context ~self:vm) then begin
-	 error "Cannot hot unplug because VM (%s) is not running" (Ref.string_of vm);
-	 let actual = Record_util.power_to_string (Db.VM.get_power_state ~__context ~self:vm) in
-	 let expected = Record_util.power_to_string `Running in
-	 raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, 
-					[Ref.string_of vm; expected; actual]))
-       end;
-       if not(Db.VIF.get_currently_attached ~__context ~self) then begin
-	 error "Cannot hot unplug because VIF (%s) is already detached from VM (%s)"
-	   (Ref.string_of self) (Ref.string_of vm);
-	 raise (Api_errors.Server_error(Api_errors.device_already_detached,
-					[Ref.string_of self]))
-       end;
-       dynamic_destroy ~__context ~vif:self token) ()
-
 let gen_mac(dev, seed) =
   let hash x = Digest.string x in
   let rec chain n f acc =

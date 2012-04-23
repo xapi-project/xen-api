@@ -18,7 +18,10 @@ open Xenstore
 
 let fs_backend_path = "/usr/sbin/fs-backend"
 
-let create ~xc ~xs (info: Device.Dm.info) domid =
+let memory_mib = 32L
+let memory_kib = Int64.mul 1024L memory_mib
+
+let create ~xc ~xs domid =
     let stubdom_name = Printf.sprintf "stubdom:%d" domid in
 	let stubdom_uuid = Uuid.make_uuid() in
     debug "jjd27: creating stubdom with name '%s' and uuid '%s'" stubdom_name (Uuid.to_string stubdom_uuid);
@@ -35,12 +38,13 @@ let create ~xc ~xs (info: Device.Dm.info) domid =
     debug "jjd27: created stubdom with domid %d" stubdom_domid;
 
     Domain.set_machine_address_size ~xc stubdom_domid (Some 32);
+	stubdom_domid
 
+let build (task: Xenops_task.t) ~xc ~xs info domid stubdom_domid =
     (* Now build it as a PV domain *)
-    let mib32 = Int64.mul 32L 1024L in
-    let (_: Domain.domarch) = Domain.build ~xc ~xs {
-        Domain.memory_max=mib32;
-        Domain.memory_target=mib32;
+    let (_: Domain.domarch) = Domain.build task ~xc ~xs {
+        Domain.memory_max=memory_kib;
+        Domain.memory_target=memory_kib;
         Domain.kernel="/usr/lib/xen/boot/ioemu-stubdom.gz";
         Domain.vcpus=1;
         Domain.priv=Domain.BuildPV {Domain.cmdline=""; Domain.ramdisk=None};
@@ -48,13 +52,11 @@ let create ~xc ~xs (info: Device.Dm.info) domid =
 
     (* Point the stub domain at the guest *)
     debug "jjd27: pointing stubdom %d to guest %d" stubdom_domid domid;
-	(* XXX: this binding is missing
-    Xenctrl.domain_set_target xc stubdom_domid domid; *)
+    Xenctrlext.domain_set_target xc stubdom_domid domid;
 
     (* Tell XenStore that the stubdom should have implicit privileges over the target domain *)
     debug "jjd27: telling XenStore that stubdom %d has target %d" stubdom_domid domid;
-	(* XXX: this command is missing
-    xs.Xs.set_target stubdom_domid domid; *)
+    Xenctrlext.Xsrawext.set_target stubdom_domid domid xs.Xs.con;
 
     (* Write the guest's domid into XenStore *)
     let path = xs.Xs.getdomainpath stubdom_domid in
@@ -67,10 +69,9 @@ let create ~xc ~xs (info: Device.Dm.info) domid =
     (* Write the qemu-dm command-line arguments into XenStore *)
 	let guest_uuid_str = Uuid.to_string (Domain.get_uuid xc domid) in
     let path = Printf.sprintf "/vm/%s/image/dmargs" guest_uuid_str in
-	(* XXX *)
-	let args = [] (* Device.Dm.cmdline info *) in
-    let args = List.tl (List.tl args) in
-    let args = List.filter (fun x -> x <> "-serial" && x <> "pty") args in
+	(* Remove any 'pty' references from the arguments: XXX why? *)
+	let info' = { info with Device.Dm.serial = None; monitor = None } in
+	let args = Device.Dm.cmdline_of_info info' false domid in
     xs.Xs.write path (String.concat " " args);
     debug "jjd27: written qemu-dm args into xenstore at %s: [%s]" path (String.concat " " args);
 
@@ -85,14 +86,14 @@ let create ~xc ~xs (info: Device.Dm.info) domid =
     (* Set the FS backend in XenStore for the stubdom to have access to the domain filesystem *)
     Device.Vfs.add ~xc ~xs stubdom_domid;
 
-    (* Add a vfb device to the stubdom and domain *)
-    List.iter (fun domid -> ignore (Device.Vfb.add ~xc ~xs domid)) [stubdom_domid; domid];
+	(* VFB is needed so we can see the framebuffer via the stubdom *)
+	Device.Vfb.add ~xc ~xs stubdom_domid;
 
-    (* Add a vkbd device to the stubdom and the guest *)
-    List.iter (fun domid -> ignore (Device.Vkbd.add ~xc ~xs domid)) [stubdom_domid; domid];
+	(* VKBD is needed for keyboard input via the stubdom *)
+	Device.Vkbd.add ~xc ~xs stubdom_domid;
 
 	(* XXX: 
     (* Add a place for qemu to record the dm state in XenStore, with appropriate permissions *)
     List.iter (fun domid -> Device.Dm.init ~xs ~domid) [stubdom_domid; domid];
 	*)
-    stubdom_domid
+

@@ -17,13 +17,15 @@ type kind = Vif | Vbd | Tap | Pci | Vfs | Vfb | Vkbd
 type devid = int
 
 (** Represents one end of a device *)
-type endpoint = { domid: Xenctrl.domid; kind: kind; devid: int }
+type endpoint = { domid: int; kind: kind; devid: int }
 
 (** Represent a device as a pair of endpoints *)
 type device = { 
   frontend: endpoint;
   backend: endpoint
 }
+val rpc_of_device: device -> Rpc.t
+val device_of_rpc: Rpc.t -> device
 
 exception Device_frontend_already_connected of device
 exception Device_backend_vanished of device
@@ -36,6 +38,7 @@ val backend_path : xs:Xenstore.Xs.xsh -> endpoint -> Xenctrl.domid -> string
 val backend_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
 val frontend_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
 val disconnect_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
+val kthread_pid_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
 val error_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
 val backend_error_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
 

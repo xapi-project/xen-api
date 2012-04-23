@@ -32,6 +32,8 @@
 *.gp
 *.spot
 *.spit
+*.cmt
+*.cmti
 *.so
 TAGS
 dist
@@ -198,6 +200,12 @@ ocaml/ptoken/genptoken
 ocaml/xenops/memory_breakdown
 ocaml/xenops/squeezed
 ocaml/xenops/squeezed_client
+ocaml/xenops-cli/xenopstest
+ocaml/xenops-cli/xn
+ocaml/xenops/xenopsd
+
 xapi.spec
 
 ocaml/fhs.*
+/ocaml/sm-cli/smtest
+/ocaml/xenops/cancel_utils_test

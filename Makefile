@@ -52,6 +52,10 @@ all: version ocaml/fhs.ml
 phase3:
 	omake phase3
 
+.PHONY: test
+test:
+	omake test
+
 .PHONY: install
 install:
 	omake install

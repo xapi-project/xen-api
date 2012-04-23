@@ -75,7 +75,14 @@ let make_rpc ~__context xml : XMLRPC.xmlrpc =
 		if Pool_role.is_master ()
 		then Unix(Xapi_globs.unix_domain_socket)
 		else SSL(SSL.make ~use_stunnel_cache:true (), Pool_role.get_master_address(), !Xapi_globs.https_port) in
-	XML_protocol.rpc ~transport ~http xml
+	XML_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http xml
+
+(* This one uses rpc-light *)
+let make_remote_rpc remote_address xml =
+	let open Xmlrpc_client in
+	let transport = SSL(SSL.make (), remote_address, !Xapi_globs.https_port) in
+	let http = xmlrpc ~version:"1.0" "/" in
+	XML_protocol.rpc ~srcstr:"xapi" ~dststr:"remote_xapi" ~transport ~http xml
 
 (** Log into pool master using the client code, call a function
     passing it the rpc function and session id, logout when finished. *)
@@ -122,7 +129,7 @@ let call_emergency_mode_functions hostname f =
 	let open Xmlrpc_client in
 	let transport = SSL(SSL.make (), hostname, !Xapi_globs.https_port) in
 	let http = xmlrpc ~version:"1.0" "/" in
-	let rpc = XML_protocol.rpc ~transport ~http in
+	let rpc = XML_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http in
   let session_id = Client.Client.Session.slave_local_login rpc !Xapi_globs.pool_secret in
   finally
     (fun () -> f rpc session_id)
@@ -234,20 +241,23 @@ let rolling_upgrade_in_progress ~__context =
 	with _ ->
 		false
 
+let parse_boot_record ~string:lbr =
+	try
+		begin
+			(* initially, try to parse lbr using new default sexpr format *)
+			API.From.vM_t "ret_val" (Xmlrpc_sexpr.sexpr_str_to_xmlrpc lbr)
+		end
+	with
+		(* xapi import/upgrade fallback: if sexpr parsing fails, try parsing using legacy xmlrpc format*)
+		Api_errors.Server_error (code,_) when code=Api_errors.field_type_error ->
+			begin
+				API.From.vM_t "ret_val" (Xml.parse_string lbr)
+			end
+
 (** Fetch the configuration the VM was booted with *)
 let get_boot_record_of_record ~__context ~string:lbr ~uuid:current_vm_uuid =
   try
-    try
-      begin
-        (* initially, try to parse lbr using new default sexpr format *)
-        API.From.vM_t "ret_val" (Xmlrpc_sexpr.sexpr_str_to_xmlrpc lbr)
-      end
-    with
-      (* xapi import/upgrade fallback: if sexpr parsing fails, try parsing using legacy xmlrpc format*)
-      Api_errors.Server_error (code,_) when code=Api_errors.field_type_error ->
-        begin
-          API.From.vM_t "ret_val" (Xml.parse_string lbr)
-        end
+    parse_boot_record lbr
   with e ->
     warn "Warning: exception '%s' parsing last booted record - returning current record instead" (ExnHelper.string_of_exn e);
       Db.VM.get_record ~__context ~self:(Db.VM.get_by_uuid ~__context ~uuid:current_vm_uuid)
@@ -342,12 +352,6 @@ let has_booted_hvm_of_record ~__context r =
   &&
     let boot_record = get_boot_record_of_record ~__context ~string:r.Db_actions.vM_last_booted_record ~uuid:r.Db_actions.vM_uuid in
     boot_record.API.vM_HVM_boot_policy <> ""
-
-let device_protocol_of_string domarch =
-    match Domain.domarch_of_string domarch with
-    | Domain.Arch_HVM | Domain.Arch_native -> Device_common.Protocol_Native
-    | Domain.Arch_X32                      -> Device_common.Protocol_X86_32
-    | Domain.Arch_X64                      -> Device_common.Protocol_X86_64
 
 let is_running ~__context ~self = Db.VM.get_domid ~__context ~self <> -1L
 

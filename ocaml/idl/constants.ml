@@ -45,6 +45,7 @@ let rrd_updates = "/rrd_updates"                      (* ocaml/xapi/monitor_rrds
 let blob_uri = "/blob"                                (* ocaml/xapi/xapi_blob.ml *)
 let remotecmd_uri = "/remotecmd"                      (* ocaml/xapi/xapi_remotecmd.ml *)
 let message_rss_feed = "/rss"                         (* ocaml/xapi/xapi_message.ml *)
+let message_put_uri = "/messages"                     (* ocaml/xapi/xapi_message.ml *)
 let wlb_report_uri = "/wlb_report"                    (* ocaml/xapi/wlb_reports.ml *)
 let wlb_diagnostics_uri = "/wlb_diagnostics"          (* ocaml/xapi/wlb_reports.ml *)
 let audit_log_uri = "/audit_log"                      (* ocaml/xapi/audit.ml *)
@@ -109,3 +110,9 @@ let pool_join_mem_target = "pool_join_memory_target"
 (* The unique static rbac ref for the pool-admin role in the roles table *)
 let rbac_pool_admin_uuid = "0165f154-ba3e-034e-6b27-5d271af109ba"
 
+let _services = "services"
+let _SM = "SM"
+let path xs = "/" ^ (String.concat "/" xs)
+
+(* Used to identify remote VDIs that are mirrors. Stored in VDI.other_config *)
+let storage_migrate_vdi_map_key = "maps_to"
