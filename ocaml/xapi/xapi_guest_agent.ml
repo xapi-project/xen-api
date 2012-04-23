@@ -53,6 +53,8 @@ let memory =
     "data/meminfo_total", "total"
   ]
 
+let device_id = [ "data/device_id", "device_id"]
+
 (* This function is passed the 'attr' node and a function it can use to
  * find the directory listing of sub-nodes. It will return a map where the
  * keys are the xenstore paths of the VM's IP addresses, and the values are
@@ -108,7 +110,7 @@ let other all_control =
     the results of these lookups differ *)
 
 type m = (string * string) list
-let cache : (int, (m*m*m*m*m*float)) Hashtbl.t = Hashtbl.create 20
+let cache : (int, (m*m*m*m*m*m*float)) Hashtbl.t = Hashtbl.create 20
 let memory_targets : (int, int64) Hashtbl.t = Hashtbl.create 20
 let dead_domains : IntSet.t ref = ref IntSet.empty
 let mutex = Mutex.create ()
@@ -124,6 +126,7 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 
   let pv_drivers_version = to_map pv_drivers_version
   and os_version = to_map os_version
+  and device_id = to_map device_id
   and networks = to_map (networks "attr" list)
   and other = to_map (other all_control)
   and memory = to_map memory
@@ -146,6 +149,7 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
     networks_cached,
     other_cached,
     memory_cached,
+    device_id_cached,
     last_updated_cached
   ) = Mutex.execute mutex (fun () -> try
        Hashtbl.find cache domid 
@@ -159,7 +163,7 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	dead_domains := IntSet.remove domid !dead_domains
       else
 	dead_domains := IntSet.add domid !dead_domains;
-      ([],[],[],[],[],0.0)) in
+      ([],[],[],[],[],[],0.0)) in
 
   (* Consider the data valid IF the data/updated key exists AND the pv_drivers_version map
      contains a major and minor version-- this prevents a migration mid-way through an update
@@ -175,7 +179,7 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
     && List.mem_assoc "minor" pv_drivers_version then begin
 
       (* Only if the data is valid, cache it (CA-20353) *)
-      Mutex.execute mutex (fun () -> Hashtbl.replace cache domid (pv_drivers_version,os_version,networks,other,memory,last_updated));
+      Mutex.execute mutex (fun () -> Hashtbl.replace cache domid (pv_drivers_version,os_version,networks,other,memory,device_id,last_updated));
 
       (* We update only if any actual data has changed *)
       if ( pv_drivers_version_cached <> pv_drivers_version 
@@ -184,7 +188,9 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	   ||
 	   networks_cached <> networks 
 	   ||
-	   other_cached <> other)
+	   other_cached <> other
+     ||
+     device_id_cached <> device_id)
 (* Nb. we're ignoring the memory updates as far as the VM_guest_metrics API object is concerned. We are putting them into an RRD instead *)
 (*	   ||
 	   memory_cached <> memory)*)
@@ -224,6 +230,18 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	  
 	  Db.VM_guest_metrics.set_last_updated ~__context ~self:gm ~value:(Date.of_float last_updated);
 	  
+    if(device_id_cached <> device_id) then begin
+      if(List.mem_assoc Xapi_globs.device_id_key_name device_id) then begin
+        let value = List.assoc Xapi_globs.device_id_key_name device_id in
+        let platform = Db.VM.get_platform ~__context ~self in
+        if not(List.mem_assoc Xapi_globs.device_id_key_name platform) then begin
+			    info "Setting VM %s platform:%s <- %s" (Ref.string_of self) Xapi_globs.device_id_key_name value;
+			    try
+				    Db.VM.add_to_platform ~__context ~self ~key:Xapi_globs.device_id_key_name ~value:value;
+			    with _ -> ()
+		    end
+      end
+    end;
 
 	  (* Update the 'up to date' flag afterwards *)
 	  let gmr = Db.VM_guest_metrics.get_record_internal ~__context ~self:gm in
