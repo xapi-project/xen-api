@@ -15,8 +15,10 @@ open Stringext
 open Pervasiveext
 open Threadext
 
-module D = Debug.Debugger(struct let name = "xapi" end)
+module D = Debug.Debugger(struct let name = "xmlrpc_client" end)
 open D
+
+module E = Debug.Debugger(struct let name = "mscgen" end)
 
 module Internal = struct
 	let set_stunnelpid_callback : (string option -> int -> unit) option ref = ref None
@@ -31,9 +33,9 @@ let connect ?session_id ?task_id ?subtask_of path =
 	Http.Request.make ~user_agent ~version:"1.0" ~keep_alive:true ~cookie ?subtask_of
 		Http.Connect path
 
-let xmlrpc ?frame ?version ?keep_alive ?task_id ?cookie ?length ?auth ?subtask_of ?body path =
+let xmlrpc ?frame ?version ?keep_alive ?task_id ?cookie ?length ?auth ?subtask_of ?query ?body path =
 	let headers = Opt.map (fun x -> [ Http.Hdr.task_id, x ]) task_id in
-	Http.Request.make ~user_agent ?frame ?version ?keep_alive ?cookie ?headers ?length ?auth ?subtask_of ?body
+	Http.Request.make ~user_agent ?frame ?version ?keep_alive ?cookie ?headers ?length ?auth ?subtask_of ?query ?body
 		Http.Post path
 
 (** Thrown when ECONNRESET is caught which suggests the remote crashed or restarted *)
@@ -172,14 +174,14 @@ let string_of_transport = function
 	| TCP (host, port) -> Printf.sprintf "TCP %s:%d" host port
 	| SSL (ssl, host, port) -> Printf.sprintf "SSL %s:%d %s" host port (SSL.to_string ssl)
 
-let transport_of_url =
+let transport_of_url (scheme, _) =
 	let open Http.Url in
-	function
-		| File ({ path = path }, _) -> Unix path
-		| Http ({ ssl = false } as h, _) ->
+	match scheme with
+		| File { path = path } -> Unix path
+		| Http ({ ssl = false } as h) ->
 			let port = Opt.default 80 h.port in
 			TCP(h.host, port)
-		| Http ({ ssl = true } as h, _) ->
+		| Http ({ ssl = true } as h) ->
 			let port = Opt.default 443 h.port in
 			SSL(SSL.make (), h.host, port)
 
@@ -264,6 +266,7 @@ module type FORMAT = sig
 	val response_of_file_descr: Unix.file_descr -> response
 	type request
 	val request_to_string: request -> string
+	val request_to_short_string: request -> string
 end
 
 module XML = struct
@@ -272,6 +275,7 @@ module XML = struct
 	let response_of_file_descr fd = Xml.parse_in (Unix.in_channel_of_descr fd)
 	type request = Xml.xml
 	let request_to_string = Xml.to_string
+	let request_to_short_string = Xml.to_string
 end
 
 module XMLRPC = struct
@@ -280,6 +284,7 @@ module XMLRPC = struct
 	let response_of_file_descr fd = Xmlrpc.response_of_in_channel (Unix.in_channel_of_descr fd)
 	type request = Rpc.call
 	let request_to_string x = Xmlrpc.string_of_call x
+	let request_to_short_string x = x.Rpc.name
 end
 
 module Protocol = functor(F: FORMAT) -> struct
@@ -293,7 +298,8 @@ module Protocol = functor(F: FORMAT) -> struct
 		with
 			| Unix.Unix_error(Unix.ECONNRESET, _, _) -> raise Connection_reset
 
-	let rpc ~transport ~http req =
+	let rpc ?(srcstr="unset") ?(dststr="unset") ~transport ~http req =
+		E.debug "%s=>%s [label=\"%s\"];" srcstr dststr (F.request_to_short_string req) ;
 		let body = F.request_to_string req in
 		let http = { http with Http.Request.body = Some body } in
 		with_transport transport (with_http http (curry2 read_response))

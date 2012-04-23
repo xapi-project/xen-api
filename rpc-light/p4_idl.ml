@@ -49,6 +49,28 @@ struct
 			return_type y
 		| t -> t
 
+	let find_version cur si =
+		match si with 
+			| <:str_item< value version = $version$ >> ->
+				let version = match version with
+					| Ast.ExStr (_,version) -> version
+					| _ -> failwith "Cannot parse version"
+				in
+				Some version
+			| _ -> cur
+
+	let add_version_rpc rpcs version =
+		let _loc = Ast.Loc.ghost in
+		match version with
+			| None -> rpcs
+			| Some _ -> 
+				Rpc { loc = _loc;
+				namespace = [];
+				fname = "get_version";
+				name = "get_version";
+				args = [ { MyRpcLight.kind=`Anonymous; ctyp = <:ctyp< unit >>} ];
+				rtype = <:ctyp< string >> }::rpcs
+
 	(* Find rpcs - any 'external' definitions in the module *)
 	let rec find_rpcs (cur,namespace) si = 
 		match si with
@@ -82,6 +104,19 @@ struct
 			in 
 			((Rpc rpc)::cur,namespace)
 		| _ -> (cur,namespace)
+			
+	let find_exns exns si =
+		match si with
+			| <:str_item< exception $ctyp$ >> ->
+			    begin
+					match ctyp with
+						| <:ctyp< $uid:uid$ of $ty$ >> ->
+							(uid,Some ty)::exns
+						| <:ctyp< $uid:uid$ >> ->
+							(uid,None)::exns
+				end
+			| _ -> 
+				exns
 
 	(* Create the Args module - this contains the of_rpc and to_rpc functions
 	   used to convert the arguments of the function call to Rpc.t type. It 
@@ -141,8 +176,8 @@ struct
 				if response.Rpc.success
 				then Args.$arg_path$.response_of_rpc response.Rpc.contents
 				else
-					let (msg,params) = failure_of_rpc response.Rpc.contents in
-					raise (RpcFailure (msg, params)) >>
+					let e = exn_of_exnty (Exception.exnty_of_rpc response.Rpc.contents) in
+					raise e >>
 		in
 
 		let gen_client_fun rpc =
@@ -212,7 +247,7 @@ struct
 	(* Make the functor that generates server modules. The generated module will
 	   contain a single function - 'process' - which takes an Rpc.call and 
 	   unmarshals the arguments and passes them to the implementation module *)
-	let make_server_functor rpcs =
+	let make_server_functor version rpcs =
 		let gen_match_case rpc =
 			let _loc = rpc.loc in
 			let cap_name = String.capitalize rpc.fname in
@@ -232,18 +267,25 @@ struct
 					rpc.args)
 			in
 
-			let apply = MyRpcLight.list_foldi 
-				(fun accu e i ->
-	 				match e.MyRpcLight.kind with
-	 				| `Optional s -> <:expr< $accu$ ? $lid:s$ : params.$arg_path$.$lid:s$ >>
-	 				| `Named s -> <:expr< $accu$ ~ $lid:s$ : params.$arg_path$.$lid:s$ >>
-	 				| `Anonymous -> <:expr< $accu$ ($arg_path$.$lid:MyRpcLight.of_rpc 
-						(MyRpcLight.argi (i+1))$ $lid:MyRpcLight.argi (i+1)$) >>)
-				<:expr< $impl_path$.$lid:rpc.fname$ x >> 
-				rpc.args
+			let inner = 
+				let apply = MyRpcLight.list_foldi 
+					(fun accu e i ->
+	 					match e.MyRpcLight.kind with
+	 						| `Optional s -> <:expr< $accu$ ? $lid:s$ : params.$arg_path$.$lid:s$ >>
+	 						| `Named s -> <:expr< $accu$ ~ $lid:s$ : params.$arg_path$.$lid:s$ >>
+	 						| `Anonymous -> <:expr< $accu$ ($arg_path$.$lid:MyRpcLight.of_rpc 
+								(MyRpcLight.argi (i+1))$ $lid:MyRpcLight.argi (i+1)$) >>)
+					<:expr< $impl_path$.$lid:rpc.fname$ x >> 
+					rpc.args
+				in
+				let default = <:expr< $arg_path$.rpc_of_response ($apply$) >> in
+				
+				if rpc.fname = "get_version" 
+				then match version with Some v -> <:expr< $arg_path$.rpc_of_response ($str:v$) >> | None -> default
+				else default
+				
 			in
-
-			let inner = <:expr< $arg_path$.rpc_of_response ($apply$) >> in
+				
 			let outer = 
 				if has_names 
 				then <:expr< let params = $arg_path$.request_of_rpc arg in $inner$ >> 
@@ -254,29 +296,27 @@ struct
 				  ($str:rpc.name$,$MyRpcLight.patt_list_of_list rpc.loc pattern_list$) -> 
 					$outer$ 
 				| ($str:rpc.name$,_) -> 
-					raise (RpcFailure ("MESSAGE_PARAMETER_COUNT_MISMATCH", 
-						[("func",$str:rpc.name$); 
-						 ("expected",$str:(string_of_int (List.length pattern_list))$); 
-						 ("received",string_of_int (List.length call.Rpc.params))])) 
+					raise (Message_param_count_mismatch ($str:rpc.name$,$`int:List.length pattern_list$,List.length call.Rpc.params))
 			>>
 		in
 	
 		let mcs = List.map gen_match_case rpcs in
 		let _loc = Ast.Loc.ghost in
+
 		<:str_item<
 			module Server = functor (Impl : Server_impl) -> struct
 				value process x call =
 					try
 						let contents = match (call.Rpc.name, call.Rpc.params) with
 							[ $Ast.mcOr_of_list mcs$ 
-							| (x,_) -> raise (RpcFailure ("Unknown RPC",[(x,"")]))]
+							| (x,_) -> raise (Unknown_RPC x)]
 
 						in { Rpc.success = True;
 						     Rpc.contents = contents; }
 					with
-						[ RpcFailure (x,y) -> 
+						[ e -> 
 							{ Rpc.success = False;
-							  Rpc.contents = rpc_of_failure (x,y); } ];
+							  Rpc.contents = Exception.rpc_of_exnty (exnty_of_exn e); } ];
 			end >>
 
 
@@ -287,6 +327,8 @@ struct
 		| <:str_item@_loc< module $foo$ = struct $sis$ end >> ->
 		  <:str_item< module $foo$ = struct $list:List.map filter_types (Ast.list_of_str_item sis [])$ end>>
 		| <:str_item@_loc< external $fname$ : $ctyp$ = $override$ >> ->
+		  <:str_item< >>
+		| <:str_item@_loc< exception $_$ >> ->
 		  <:str_item< >>
 		| _ -> si
 
@@ -300,22 +342,72 @@ struct
 
 	AstFilters.register_str_item_filter begin fun si ->
 		let _loc = Ast.loc_of_str_item si in
-		let (rev_rpcs,_) = List.fold_left find_rpcs ([],[]) (Ast.list_of_str_item si []) in
+		let version = List.fold_left find_version None (Ast.list_of_str_item si []) in
+
+		let (orig_rev_rpcs,_) = List.fold_left find_rpcs ([],[]) (Ast.list_of_str_item si []) in
+
+		let rev_rpcs = add_version_rpc orig_rev_rpcs version in
+
+		let rev_exns = List.fold_left find_exns [] (Ast.list_of_str_item si []) in
+		let rev_exns = 
+			("Internal_error",Some <:ctyp< string >>) ::
+				("Message_param_count_mismatch",Some <:ctyp< (string * int * int) >>) :: 
+				("Unknown_RPC",Some <:ctyp< string >>) :: rev_exns in
 		let rpcs = List.rev rev_rpcs in
+		let orig_rpcs = List.rev orig_rev_rpcs in
+
 		let rec flatten_rpcs rpcs = 
 			List.flatten (List.map (function 
 				| Rpc r -> [r] 
 				| Namespace (rs,rpcs) -> flatten_rpcs rpcs) rpcs)
 		in 
-		let failure_bits = 
-			let failure_ctyp = <:ctyp< (string * list (string * string)) >> in
+		let (tydecls,_) = List.fold_left
+			(fun (decls,i) (uid,ty) ->
+				let tyname = Printf.sprintf "__exn_ty%d" i in
+				match ty with
+					| Some ty -> 
+						(<:str_item< type $lid:tyname$ = $ty$; >> :: decls , i+1)
+					| None -> 
+						(decls,i+1)) ([],0) rev_exns in
+
+		let (exceptions,_) = List.fold_left
+			(fun (exns,i) (uid,ty) ->
+				let tyname = Printf.sprintf "__exn_ty%d" i in
+				match ty with
+					| Some ty ->
+						(<:str_item< exception $uid:uid$ of $lid:tyname$ >> :: exns, i+1)
+					| None ->
+						(<:str_item< exception $uid:uid$ >> :: exns, i+1)) ([],0) rev_exns in
+
+		let exnty = <:ctyp< [ $Ast.tyOr_of_list 
+			(List.map (fun (uid,ty) -> 
+				match ty with 
+					| Some ty -> <:ctyp< $uid:uid$ of $ty$ >>
+					| None -> <:ctyp< $uid:uid$ >>) rev_exns)$ ] >> in
+
+		let exns = <:str_item< module Exception = struct type exnty = $exnty$ ;
+			value $MyRpcLight.Rpc_of.gen_one ("exnty",[],exnty)$;
+			value $MyRpcLight.Of_rpc.gen_one ("exnty",[],exnty)$; 			
+		end >> in
+
+		let exnty_of_exn = 
+			let gen_mc = function | (uid,Some _) -> <:match_case< $uid:uid$ x -> Exception.$uid:uid$ x >> 
+				| (uid,None) -> <:match_case< $uid:uid$ -> Exception.$uid:uid$ >> in
+			let generic = <:match_case<
+				e -> Exception.Internal_error (Printexc.to_string e) >> in
+			let ors = List.map gen_mc rev_exns in
 			<:str_item<
-				type failure = $failure_ctyp$;
-				value $MyRpcLight.Rpc_of.gen_one ("failure",[],failure_ctyp)$;
-				value $MyRpcLight.Of_rpc.gen_one ("failure",[],failure_ctyp)$; 
-				exception RpcFailure of (string * list (string * string))
-			>> 
+			value exnty_of_exn x = match x with [ $Ast.mcOr_of_list (ors @ [generic])$ ] >>
 		in
+		
+		let exn_of_exnty = 
+			let gen_mc = function | (uid,Some _) -> <:match_case< Exception.$uid:uid$ x -> $uid:uid$ x >> 
+				| (uid,None) -> <:match_case< Exception.$uid:uid$ -> $uid:uid$ >> in
+			let ors = List.map gen_mc rev_exns in
+			<:str_item<
+			value exn_of_exnty x = match x with [ $Ast.mcOr_of_list ors$ ] >>
+		in
+		
 		let rpc_type =
 			let t = <:ctyp< Rpc.call -> Rpc.response >> in
 			let s = <:sig_item< value rpc: $typ:t$ >> in
@@ -324,12 +416,16 @@ struct
 		let flat_rpcs = flatten_rpcs rpcs in
 		let sis = Ast.list_of_str_item si [] in
 		<:str_item< $list: (List.map filter_types sis) @ 
-			[ failure_bits; 
+			  tydecls @
+			  exceptions @
+			[ exns; 
+			  exnty_of_exn;
+			  exn_of_exnty;
 			  make_args rpcs; 
 			  rpc_type;
 			  make_client rpcs;  
-			  make_server_sig rpcs;  
-			  make_server_functor flat_rpcs ] $ >>
+			  make_server_sig orig_rpcs;  
+			  make_server_functor version flat_rpcs ] $ >>
 		end
 
 end

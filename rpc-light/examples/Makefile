@@ -16,6 +16,10 @@ EXECS=$(foreach example, $(EXAMPLES), $(example).opt)
 .PHONY: all clean
 all: $(EXECS)
 
+testidl_test: testidl.ml testidl_test.ml
+	ocamlc -pp 'camlp4o /usr/lib/ocaml/type-conv/pa_type_conv.cmo ../p4_rpc.cmo ../p4_idl.cmo' -I .. rpc.cmo testidl.ml
+	ocamlc -I .. ../rpc.cmo testidl.cmo testidl_test.ml -o testidl_test
+
 %.opt: %.cmx
 	$(OCAMLOPT) -linkpkg -package $(PACKS) -o $@ $<
 

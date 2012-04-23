@@ -98,37 +98,48 @@ let test_url _ =
 	let open Http in
 	let open Http.Url in
 	begin match of_string "file:/var/xapi/storage" with
-		| File ({ path = "/var/xapi/storage" }, "/") -> ()
+		| File { path = "/var/xapi/storage" }, { uri = "/" } -> ()
 		| _ -> assert false
 	end;
 	begin match of_string "http://root:foo@localhost" with
-		| Http (t, "/") ->
+		| Http t, { uri = "/" } ->
 			assert (t.auth = Some(Basic("root", "foo")));
 			assert (t.ssl = false);
 			assert (t.host = "localhost");
 		| _ -> assert false
 	end;
 	begin match of_string "https://google.com/gmail" with
-		| Http (t, "/gmail") ->
+		| Http t, { uri = "/gmail" } ->
 			assert (t.ssl = true);
 			assert (t.host = "google.com");
 		| _ -> assert false
 	end;
 	begin match of_string "https://xapi.xen.org/services/SM" with
-		| Http (t, "/services/SM") ->
+		| Http t, { uri = "/services/SM" } ->
 			assert (t.ssl = true);
 			assert (t.host = "xapi.xen.org");
 		| _ -> assert false
 	end;
 	begin match of_string "https://root:foo@xapi.xen.org:1234/services/SM" with
-		| Http (t, "/services/SM") ->
+		| Http t, { uri = "/services/SM" } ->
 			assert (t.auth = Some(Basic("root", "foo")));
 			assert (t.port = Some 1234);
 			assert (t.ssl = true);
 			assert (t.host = "xapi.xen.org");
 		| _ -> assert false
+	end;
+	begin match of_string "https://xapi.xen.org/services/SM?foo=bar" with
+		| Http t, { uri = "/services/SM"; query_params = [ "foo", "bar" ] } ->
+			assert (t.ssl = true);
+			assert (t.host = "xapi.xen.org");			
+		| _ -> assert false
+	end;
+	begin
+		let u = of_string "https://xapi.xen.org/services/SM?foo=bar" in
+		let u' = set_uri u (get_uri u ^ "/data") in
+		let s = to_string u' in
+		assert (s = "https://xapi.xen.org/services/SM/data?foo=bar")
 	end
-
 let _ =
     let verbose = ref false in
     Arg.parse [

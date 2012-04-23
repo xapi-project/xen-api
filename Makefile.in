@@ -18,8 +18,9 @@ ifeq ($(HAVE_TYPECONV),type-conv)
 endif
 	$(MAKE) -C uuid
 	$(MAKE) -C stdext
-	$(MAKE) -C xenctrlext
 	$(MAKE) -C log
+	$(MAKE) -C xenctrlext
+	$(MAKE) -C xenstoreext
 	$(MAKE) -C stunnel
 	$(MAKE) -C pciutil
 	$(MAKE) -C close-and-exec
@@ -51,7 +52,6 @@ endif
 	$(MAKE) -C xml-light2 bins
 	$(MAKE) -C sexpr bins
 	$(MAKE) -C stdext bins
-	$(MAKE) -C xenctrlext bins
 	$(MAKE) -C close-and-exec bins
 
 STUBLIBDIR = $(OCAMLDESTDIR)/stublibs
@@ -63,6 +63,7 @@ install: $(STUBLIBDIR)
 	$(MAKE) -C uuid install
 	$(MAKE) -C stdext install
 	$(MAKE) -C xenctrlext install
+	$(MAKE) -C xenstoreext install
 	$(MAKE) -C log install
 	$(MAKE) -C stunnel install
 	$(MAKE) -C pciutil install
@@ -97,7 +98,6 @@ endif
 	$(MAKE) -C xml-light2 bininstall
 	$(MAKE) -C sexpr bininstall
 	$(MAKE) -C stdext bininstall
-	$(MAKE) -C xenctrlext bininstall
 	$(MAKE) -C close-and-exec bininstall
 	$(MAKE) -C forking_executioner bininstall
 
@@ -106,6 +106,7 @@ uninstall:
 	$(MAKE) -C uuid uninstall
 	$(MAKE) -C stdext uninstall
 	$(MAKE) -C xenctrlext uninstall
+	$(MAKE) -C xenstoreext uninstall
 	$(MAKE) -C log uninstall
 	$(MAKE) -C stunnel uninstall
 	$(MAKE) -C pciutil uninstall
@@ -141,7 +142,6 @@ endif
 	$(MAKE) -C xml-light2 binuninstall
 	$(MAKE) -C sexpr binuninstall
 	$(MAKE) -C stdext binuninstall
-	$(MAKE) -C xenctrlext binuninstall
 	$(MAKE) -C close-and-exec binuninstall
 	$(MAKE) -C forking_executioner binuninstall
 
@@ -150,6 +150,7 @@ doc:
 	$(MAKE) -C uuid doc
 	$(MAKE) -C stdext doc
 	$(MAKE) -C xenctrlext doc
+	$(MAKE) -C xenstoreext doc
 	$(MAKE) -C sexpr doc
 	$(MAKE) -C udev doc
 	$(MAKE) -C log doc
@@ -179,6 +180,7 @@ clean:
 	$(MAKE) -C camldm clean
 	$(MAKE) -C stdext clean
 	$(MAKE) -C xenctrlext clean
+	$(MAKE) -C xenstoreext clean
 	$(MAKE) -C log clean
 	$(MAKE) -C stunnel clean
 	$(MAKE) -C pciutil clean

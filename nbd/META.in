@@ -1,0 +1,5 @@
+version = "@VERSION@"
+description = "NBD client library"
+requires = "bitstring,stdext"
+archive(byte) = "nbd.cma"
+archive(native) = "nbd.cmxa"

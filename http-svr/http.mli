@@ -76,7 +76,7 @@ module Request : sig
 	val empty: t
 
 	(** [make] is the standard constructor for [t] *)
-	val make: ?frame:bool -> ?version:string -> ?keep_alive:bool -> ?accept:string -> ?cookie:(string*string) list -> ?length:int64 -> ?auth:authorization -> ?subtask_of:string -> ?body:string -> ?headers:(string*string) list -> ?content_type:string -> user_agent:string -> method_t -> string -> t
+	val make: ?frame:bool -> ?version:string -> ?keep_alive:bool -> ?accept:string -> ?cookie:(string*string) list -> ?length:int64 -> ?auth:authorization -> ?subtask_of:string -> ?body:string -> ?headers:(string*string) list -> ?content_type:string -> ?query:((string * string) list) -> user_agent:string -> method_t -> string -> t
 
 	(** [get_version t] returns the HTTP protocol version *)
 	val get_version: t -> string
@@ -177,14 +177,27 @@ module Url : sig
 	type file = {
 		path: string;
 	}
+	type scheme =
+		| Http of http
+		| File of file
+	type data = {
+		uri: string;
+		query_params: (string * string) list;
+	}
 
-	type t =
-		| Http of http * string
-		| File of file * string
+	type t = scheme * data
 
 	val of_string: string -> t
 
-	val uri_of: t -> string
+	val to_string: t -> string
+
+	val get_uri: t -> string
+
+	val set_uri: t -> string -> t
+
+	val get_query_params: t -> (string * string) list
+
+	val get_query: t -> string
 
 	val auth_of: t -> authorization option
 end

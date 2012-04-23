@@ -373,7 +373,7 @@ module Request = struct
 		body = None;
 	}
 
-	let make ?(frame=false) ?(version="1.0") ?(keep_alive=false) ?accept ?cookie ?length ?auth ?subtask_of ?body ?(headers=[]) ?content_type ~user_agent meth path = 
+	let make ?(frame=false) ?(version="1.0") ?(keep_alive=false) ?accept ?cookie ?length ?auth ?subtask_of ?body ?(headers=[]) ?content_type ?(query=[]) ~user_agent meth path = 
 		{ empty with
 			version = version;
 			frame = frame;
@@ -389,6 +389,7 @@ module Request = struct
 			additional_headers = headers;
 			body = body;
 			accept = accept;
+			query = query;
 		}
 
 	let get_version x = x.version
@@ -554,10 +555,15 @@ module Url = struct
 	type file = {
 		path: string;
 	}
+	type scheme =
+		| Http of http
+		| File of file
+	type data = {
+		uri: string;
+		query_params: (string * string) list;
+	}
 
-	type t =
-		| Http of http * string
-		| File of file * string
+	type t = scheme * data
 
 	let of_string url =
 		let host x = match String.split ':' x with
@@ -575,24 +581,47 @@ module Url = struct
 				end
 			| _ -> failwith (Printf.sprintf "Failed to parse username password host and port: %s" x) in
 		let reconstruct_uri uri = "/" ^ (String.concat "/" uri) in
-		let http_or_https ssl x uri =
+		let data_of_uri uri =
+			let uri, params = parse_uri (reconstruct_uri uri) in
+			{ uri = uri; query_params = params } in
+		let http_or_https ssl x =
 			let uname_password, host, port = uname_password_host_port x in
-			Http ({
-				host = host; port = port; auth = uname_password; ssl = ssl;
-			}, reconstruct_uri uri) in
+			let scheme = Http { host = host; port = port; auth = uname_password; ssl = ssl } in
+			scheme in
 		match String.split '/' url with
-			| "http:" :: "" :: x :: uri -> http_or_https false x uri
-			| "https:" :: "" :: x :: uri -> http_or_https true x uri
+			| "http:" :: "" :: x :: uri -> http_or_https false x, data_of_uri uri
+			| "https:" :: "" :: x :: uri -> http_or_https true x, data_of_uri uri
 			| "file:" :: uri ->
-				File ({ path = reconstruct_uri uri }, "/")
+				let uri, params = parse_uri (reconstruct_uri uri) in
+				File { path = uri }, { uri = "/"; query_params = params }
 			| x :: _ -> failwith (Printf.sprintf "Unknown scheme %s" x)
 			| _ -> failwith (Printf.sprintf "Failed to parse URL: %s" url)
 
-	let uri_of = function
-		| File (_, x) -> x
-		| Http (_, x) -> x
+	let data_to_string { uri = uri; query_params = params } =
+		let kvpairs x = String.concat "&" (List.map (fun (k, v) -> urlencode k ^ "=" ^ (urlencode v)) x) in
+		let params = if params = [] then "" else "?" ^ (kvpairs params) in
+		uri ^ params
 
-	let auth_of = function
-		| File (_, _) -> None
-		| Http ({ auth = auth }, _) -> auth
+	let to_string = function
+		| File { path = path }, data -> Printf.sprintf "file:%s%s" path (data_to_string data) (* XXX *)
+		| Http h, data ->
+			let userpassat = match h.auth with
+				| Some (Basic (username, password)) -> Printf.sprintf "%s:%s@" username password
+				| _ -> "" in
+			let colonport = match h.port with
+				| Some x -> Printf.sprintf ":%d" x
+				| _ -> "" in
+			Printf.sprintf "http%s://%s%s%s%s" (if h.ssl then "s" else "")
+				userpassat h.host colonport (data_to_string data)
+
+	let get_uri (scheme, data) = data.uri
+	let set_uri (scheme, data) u = (scheme, { data with uri = u })
+
+	let get_query_params (scheme, data) = data.query_params
+
+	let get_query (scheme, data) = data_to_string data
+
+	let auth_of (scheme, _) = match scheme with
+		| File _ -> None
+		| Http { auth = auth } -> auth
 end

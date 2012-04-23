@@ -16,8 +16,6 @@ PROGRAMS =
 
 all: $(INTF) $(LIBS)
 
-bins: $(PROGRAMS)
-
 libs: $(LIBS)
 
 xenctrlext.cmxa: libxenctrlext_stubs.a $(foreach obj,$(XENCTRLEXT_OBJS),$(obj).cmx)
@@ -53,17 +51,9 @@ install: $(LIBS) META
 	mkdir -p $(OCAMLDESTDIR)
 	ocamlfind install -destdir $(OCAMLDESTDIR) -ldconf ignore xenctrlext META $(INTF) $(LIBS) *.a *.so *.cmx $(SPOT)
 
-.PHONY: bininstall
-bininstall:
-	echo Nothing to install
-
 .PHONY: uninstall
 uninstall:
 	ocamlfind remove xenctrlext
-
-.PHONY: binuninstall
-binuninstall:
-	rm -f $(DESTDIR)$(LIBEXEC)$(PROGRAMS)
 
 .PHONY: doc
 doc: $(INTF)

@@ -53,7 +53,7 @@ val with_transport : transport -> (Unix.file_descr -> 'a) -> 'a
 val with_http : Http.Request.t -> (Http.Response.t * Unix.file_descr -> 'a) -> Unix.file_descr -> 'a
 
 (** Returns an HTTP.Request.t representing an XMLRPC request *)
-val xmlrpc: ?frame:bool -> ?version:string -> ?keep_alive:bool -> ?task_id:string -> ?cookie:(string*string) list -> ?length:int64 -> ?auth:Http.authorization -> ?subtask_of:string -> ?body:string -> string -> Http.Request.t
+val xmlrpc: ?frame:bool -> ?version:string -> ?keep_alive:bool -> ?task_id:string -> ?cookie:(string*string) list -> ?length:int64 -> ?auth:Http.authorization -> ?subtask_of:string -> ?query:((string * string) list) -> ?body:string -> string -> Http.Request.t
 
 (** Returns an HTTP.Request.t representing an HTTP CONNECT *)
 val connect: ?session_id:string -> ?task_id:string -> ?subtask_of:string -> string -> Http.Request.t
@@ -66,7 +66,7 @@ module XML_protocol : sig
 	val read_response : Http.Response.t -> Unix.file_descr -> Xml.xml
 
 	(** [rpc transport http xml] sends [xml] and returns the result *)
-	val rpc : transport:transport -> http:Http.Request.t -> Xml.xml -> Xml.xml
+	val rpc : ?srcstr:string -> ?dststr:string -> transport:transport -> http:Http.Request.t -> Xml.xml -> Xml.xml
 end
 
 module XMLRPC_protocol : sig
@@ -77,7 +77,7 @@ module XMLRPC_protocol : sig
 	val read_response : Http.Response.t -> Unix.file_descr -> Rpc.response
 
 	(** [rpc transport http call] sends [call] and returns the result *)
-	val rpc : transport:transport -> http:Http.Request.t -> Rpc.call -> Rpc.response
+	val rpc : ?srcstr:string -> ?dststr:string -> transport:transport -> http:Http.Request.t -> Rpc.call -> Rpc.response
 end
 
 module Internal : sig
