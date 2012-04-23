@@ -253,7 +253,12 @@ let bind inetaddr =
 
 let add_handler (name, handler) =
 
-  let action = List.assoc name Datamodel.http_actions in
+  let action =
+	  try List.assoc name Datamodel.http_actions
+	  with Not_found ->
+		  (* This should only affect developers: *)
+		  error "HTTP handler %s not registered in ocaml/idl/datamodel.ml" name;
+		  failwith (Printf.sprintf "Unregistered HTTP handler: %s" name) in
   let check_rbac = Rbac.is_rbac_enabled_for_http_action name in
 
 	let h = match handler with
