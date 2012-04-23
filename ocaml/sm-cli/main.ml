@@ -128,5 +128,9 @@ let _ =
 			Printf.printf "Created VDI %s\n" v.vdi
 		| [ "mirror-stop"; sr; vdi ] ->
 			Client.Mirror.stop ~task ~sr ~vdi
+		| [ "mirror-list"; sr ] ->
+			let list = Client.Mirror.list ~task ~sr in
+			List.iter (fun s ->
+				Printf.printf "%s: %s\n" s.Mirror.vdi (Storage_interface.Mirror.rpc_of_state s.Mirror.state |> Jsonrpc.to_string)) list
 		| _ ->
 			usage_and_exit ()
