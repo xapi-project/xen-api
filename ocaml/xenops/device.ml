@@ -16,6 +16,7 @@ open Printf
 open Stringext
 open Hashtblext
 open Pervasiveext
+open Fun
 open Listext
 
 open Device_common
@@ -817,8 +818,10 @@ end
 module PV_Vnc = struct
 
 let vncterm_wrapper = Xapi_globs.base_path ^ "/libexec/vncterm-wrapper"
+let vncterm_path = "/usr/lib/xen/bin/vncterm"
 
 let vnc_pid_path domid = sprintf "/local/domain/%d/vncterm-pid" domid
+let vnc_console_path domid = sprintf "/local/domain/%d/console" domid
 
 let pid ~xs domid =
 	try
@@ -827,13 +830,25 @@ let pid ~xs domid =
 	with _ ->
 		None
 
+(* Look up the commandline args for the vncterm pid; *)
+(* Check that they include the vncterm binary path and the xenstore console path for the supplied domid. *)
+let is_cmdline_valid domid pid =
+	let cmdline_path = Printf.sprintf "/proc/%d/cmdline" pid in
+	let cmdline = Unix.openfile cmdline_path [Unix.O_RDONLY] 0
+		|> Unixext.try_read_string
+		|> String.split '\000'
+	in
+	if (List.mem vncterm_path cmdline) && (List.mem (vnc_console_path domid) cmdline)
+	then true
+	else false
+
 let is_vncterm_running ~xs domid =
 	match pid ~xs domid with
 		| None -> false
 		| Some p ->
 			try
 				Unix.kill p 0;
-				true
+				is_cmdline_valid domid p
 			with _ -> false
 
 let get_vnc_port ~xs domid =
