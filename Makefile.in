@@ -41,6 +41,7 @@ ifeq ($(HAVE_DEVICE_MAPPER),1)
 endif
 	$(MAKE) -C forking_executioner
 	$(MAKE) -C xen-utils
+	$(MAKE) -C nbd
 
 ifeq ($(HAVE_XEN),1)
 	$(MAKE) -C netdev
@@ -87,6 +88,7 @@ ifeq ($(HAVE_DEVICE_MAPPER),1)
 endif
 	$(MAKE) -C forking_executioner install
 	$(MAKE) -C xen-utils install
+	$(MAKE) -C nbd install
 
 ifeq ($(HAVE_XEN),1)
 	$(MAKE) -C netdev install
@@ -130,6 +132,7 @@ ifeq ($(HAVE_DEVICE_MAPPER),1)
 endif
 	$(MAKE) -C forking_executioner uninstall
 	$(MAKE) -C xen-utils uninstall
+	$(MAKE) -C nbd uninstall
 
 ifeq ($(HAVE_XEN),1)
 	$(MAKE) -C netdev uninstall
@@ -169,6 +172,7 @@ doc:
 	$(MAKE) -C vhd doc
 	$(MAKE) -C tapctl doc
 	$(MAKE) -C xen-utils doc
+	$(MAKE) -C nbd doc
 
 .PHONY: test
 test:
@@ -196,6 +200,7 @@ clean:
 	$(MAKE) -C forking_executioner clean
 	$(MAKE) -C mlvm clean
 	$(MAKE) -C xen-utils clean
+	$(MAKE) -C nbd clean
 	$(MAKE) -C netdev clean
 	$(MAKE) -C cpuid clean
 	$(MAKE) -C vhd clean
