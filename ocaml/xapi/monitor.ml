@@ -169,7 +169,7 @@ let update_memory __context xc doms =
 		in
 		let other_ds = 
 		  try
-		    let (_,_,_,_,g_a_memory,_) = Mutex.execute Xapi_guest_agent.mutex (fun () ->
+		    let (_,_,_,_,g_a_memory,_,_) = Mutex.execute Xapi_guest_agent.mutex (fun () ->
 		      Hashtbl.find Xapi_guest_agent.cache domid) in
 		    let mem_free = Int64.of_string (List.assoc "free" g_a_memory) in
 		    Some (VM uuid,
