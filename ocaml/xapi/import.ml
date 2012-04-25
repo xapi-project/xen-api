@@ -42,7 +42,12 @@ open Vm_memory_constraints
 type metadata_options = {
 	(* If true, don't create any database objects. *)
 	dry_run: bool;
-	(* If true, check that the VM can run on this host. *)
+	(* If true, treat the import as if it is preparation for a live migration.
+	 * This has the following consequences:
+	 * - We must perform extra checks on the VM object - do we have enough memory? Are the CPU flags compatible? Is there an HA plan for it?
+	 * - If the migration is a dry run we don't need to check for VDIs, since VDI.mirror will have created them during a real migration.
+	 * - If the migration is for real, we will expect the VM export code on the source host to have mapped the VDI locations onto their
+	 *   mirrored counterparts which are present on this host. *)
 	live: bool;
 }
 
@@ -224,7 +229,6 @@ module VM : HandlerTools = struct
 			let vm_uuid_exists () = try ignore (get_vm_by_uuid ()); true with _ -> false in
 			(* If full_restore is true then we want to keep the VM uuid - this may involve replacing an existing VM. *)
 			if config.full_restore && vm_uuid_exists () then begin
-				(* The existing VM cannot be replaced if it is running. *)
 				let vm = get_vm_by_uuid () in
 				(* The existing VM cannot be replaced if it is running. *)
 				(* If import is forced then skip the VM, else throw an error. *)
@@ -546,7 +550,16 @@ module VDI : HandlerTools = struct
 		match precheck_result with
 		| Found_iso vdi | Found_disk vdi -> state.table <- (x.cls, x.id, Ref.string_of vdi) :: state.table
 		| Found_no_iso -> () (* VDI will be ejected. *)
-		| Found_no_disk e -> raise e
+		| Found_no_disk e -> begin
+			match config.import_type with
+			| Metadata_import {live=true} ->
+				(* We expect the disk to be missing during a live migration dry run. *)
+				debug "Ignoring missing disk %s - this will be mirrored during a real live migration." x.id;
+				(* Create a dummy disk in the state table so the VBD import has a disk to look up. *)
+				let dummy_vdi = Ref.make () in
+				state.table <- (x.cls, x.id, Ref.string_of dummy_vdi) :: state.table
+			| _ -> raise e
+		end
 		| Skip -> ()
 		| Create _ ->
 			let dummy_vdi = Ref.make () in
@@ -554,8 +567,9 @@ module VDI : HandlerTools = struct
 
 	let handle __context config rpc session_id state x precheck_result =
 		match precheck_result with
-		| Found_iso _ | Found_no_iso | Found_disk _ | Found_no_disk _ | Skip ->
+		| Found_iso _ | Found_no_iso | Found_disk _ | Skip ->
 			handle_dry_run __context config rpc session_id state x precheck_result
+		| Found_no_disk e -> raise e
 		| Create vdi_record -> begin
 			(* Make a new VDI for streaming data into; adding task-id to sm-config on VDI.create so SM backend can see this is an import *)
 			let sr = lookup vdi_record.API.vDI_SR state.table in
@@ -723,11 +737,10 @@ module VBD : HandlerTools = struct
 			let vm = log_reraise
 				("Failed to find VBD's VM: " ^ (Ref.string_of vbd_record.API.vBD_VM))
 				(lookup vbd_record.API.vBD_VM) state.table in
-			let vbd_record = { vbd_record with API.vBD_VM = vm } in
 			(* If the VBD is supposed to be attached to a PV guest (which doesn't support
 				 currently_attached empty drives) then throw a fatal error. *)
+			let original_vm = API.From.vM_t "" (find_in_export (Ref.string_of vbd_record.API.vBD_VM) state.export) in
 			if vbd_record.API.vBD_currently_attached && not(exists vbd_record.API.vBD_VDI state.table) then begin
-				let original_vm = API.From.vM_t ""(find_in_export (Ref.string_of vm) state.export) in
 				(* It's only ok if it's a CDROM attached to an HVM guest *)
 				let has_booted_hvm =
 					let lbr =
@@ -739,9 +752,10 @@ module VBD : HandlerTools = struct
 				then raise (IFailure Attached_disks_not_found)
 			end;
 
+			let vbd_record = { vbd_record with API.vBD_VM = vm } in
 			match vbd_record.API.vBD_type, exists vbd_record.API.vBD_VDI state.table with
 			| `CD, false ->
-				if Db.VM.get_power_state ~__context ~self:vm = `Halted then
+				if original_vm.API.vM_power_state <> `Suspended then
 					Create { vbd_record with API.vBD_VDI = Ref.null; API.vBD_empty = true }  (* eject *)
 				else
 					Create vbd_record
@@ -974,7 +988,12 @@ let handle_all __context config rpc session_id (xs: obj list) =
 			debug "Importing %i %s(s)" (List.length instances) cls;
 			List.iter (fun x -> handler __context config rpc session_id state x) instances in
 		List.iter one_type handlers;
-		update_snapshot_and_parent_links ~__context state;
+		let dry_run = match config.import_type with
+		| Metadata_import {dry_run=true} -> true
+		| _ -> false
+		in
+		if not dry_run then
+			update_snapshot_and_parent_links ~__context state;
 		state
 	with e ->
 		error "Caught exception in import: %s" (ExnHelper.string_of_exn e);

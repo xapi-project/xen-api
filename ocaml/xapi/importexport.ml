@@ -227,16 +227,20 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address wh
 
 	let open Xmlrpc_client in
 
-	let which = match which with
+	let local_export_request = match which with
 		| `All -> "all=true"
-		| `Only {vm=vm; dry_run=dry_run; live=live} ->
-			Printf.sprintf "export_snapshots=false&ref=%s&dry_run=%b&live=%b" (Ref.string_of vm) dry_run live in
+		| `Only {vm=vm} -> Printf.sprintf "export_snapshots=false&ref=%s" (Ref.string_of vm) in
+
+	let remote_import_request = match which with
+		| `All -> Printf.sprintf "%s?restore=true" Constants.import_metadata_uri
+		| `Only {vm=vm; live=live; dry_run=dry_run} ->
+			Printf.sprintf "%s?restore=true&live=%b&dry_run=%b" Constants.import_metadata_uri live dry_run in
 
 	Helpers.call_api_functions ~__context (fun my_rpc my_session_id ->
 		let get = Xapi_http.http_request ~version:"1.0" ~subtask_of
 			~cookie:["session_id", Ref.string_of my_session_id] ~keep_alive:false
 			Http.Get
-			(Printf.sprintf "%s?%s" Constants.export_metadata_uri which) in
+			(Printf.sprintf "%s?%s" Constants.export_metadata_uri local_export_request) in
 		let remote_task = Client.Task.create rpc session_id "VM metadata import" "" in
 		finally
 			(fun () ->
@@ -245,8 +249,7 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address wh
 						"session_id", Ref.string_of session_id;
 						"task_id", Ref.string_of remote_task
 					] ~keep_alive:false
-					Http.Put
-					(Printf.sprintf "%s?restore=true" Constants.import_metadata_uri) in
+					Http.Put remote_import_request in
 				debug "Piping HTTP %s to %s" (Http.Request.to_string get) (Http.Request.to_string put);
 				with_transport (Unix Xapi_globs.unix_domain_socket)
 					(with_http get
@@ -270,9 +273,13 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address wh
 						raise (Api_errors.Server_error(Api_errors.task_cancelled, [ Ref.string_of remote_task ]))
 					| `pending ->
 						failwith "wait_for_task_completion failed; task is still pending"
-					| `failure ->
+					| `failure -> begin
 						let error_info = Client.Task.get_error_info rpc session_id remote_task in
-						failwith (Printf.sprintf "VM metadata import failed: %s" (String.concat " " error_info));
+						match error_info with
+						| code :: params when Hashtbl.mem Datamodel.errors code ->
+							raise (Api_errors.Server_error(code, params))
+						| _ -> failwith (Printf.sprintf "VM metadata import failed: %s" (String.concat " " error_info));
+					end
 					| `success ->
 						debug "Remote metadata import succeeded"
 			)
