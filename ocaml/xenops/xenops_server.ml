@@ -108,7 +108,7 @@ type operation =
 	| VM_suspend of (Vm.id * data)
 	| VM_resume of (Vm.id * data)
 	| VM_restore_devices of Vm.id
-	| VM_migrate of (Vm.id * (string * string) list * string)
+	| VM_migrate of (Vm.id * (string * string) list * (string * Network.t) list * string)
 	| VM_receive_memory of (Vm.id * Unix.file_descr)
 	| VM_check_state of Vm.id
 	| PCI_check_state of Pci.id
@@ -659,7 +659,7 @@ let rebooting id f =
 let is_rebooting id =
 	Mutex.execute rebooting_vms_m (fun () -> List.mem id !rebooting_vms)
 
-let export_metadata vdi_map id =
+let export_metadata vdi_map vif_map id =
 	let module B = (val get_backend () : S) in
 
 	let vm_t = VM_DB.read_exn id in
@@ -679,9 +679,9 @@ let export_metadata vdi_map id =
 										List.map (remap_vdi vdi_map) pv_indirect_boot.Vm.devices } } } in
 
 	let vbds = VBD_DB.vbds id in
-	let vifs = VIF_DB.vifs id in
+	let vifs = List.map (fun vif -> remap_vif vif_map vif) (VIF_DB.vifs id) in
 	let pcis = PCI_DB.pcis id in
-	let domains = B.VM.get_internal_state vdi_map vm_t in
+	let domains = B.VM.get_internal_state vdi_map vif_map vm_t in
 
 
 	(* Remap VDIs *)
@@ -1051,7 +1051,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			debug "VM.resume %s" id;
 			perform_atomics (atomics_of_operation op) t;
 			VM_DB.signal id
-		| VM_migrate (id, vdi_map, url') ->
+		| VM_migrate (id, vdi_map, vif_map, url') ->
 			debug "VM.migrate %s -> %s" id url';
 			let open Xmlrpc_client in
 			let open Xenops_client in
@@ -1070,7 +1070,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			Xenops_hooks.vm_pre_migrate ~reason:Xenops_hooks.reason__migrate_source ~id;
 
 			let module Remote = Xenops_interface.Client(struct let rpc = xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" url end) in
-			let id = Remote.VM.import_metadata t.Xenops_task.debug_info(export_metadata vdi_map id) in
+			let id = Remote.VM.import_metadata t.Xenops_task.debug_info(export_metadata vdi_map vif_map id) in
 			debug "Received id = %s" id;
 			let suffix = Printf.sprintf "/memory/%s" id in
 			let memory_url = Http.Url.(set_uri url (get_uri url ^ suffix)) in
@@ -1482,9 +1482,9 @@ module VM = struct
 	let s3suspend _ dbg id = queue_operation dbg id (Atomic(VM_s3suspend id))
 	let s3resume _ dbg id = queue_operation dbg id (Atomic(VM_s3resume id))
 
-	let migrate context dbg id vdi_map url = queue_operation dbg id (VM_migrate (id, vdi_map, url)) 
+	let migrate context dbg id vdi_map vif_map url = queue_operation dbg id (VM_migrate (id, vdi_map, vif_map, url))
 
-	let export_metadata _ dbg id = export_metadata [] id 
+	let export_metadata _ dbg id = export_metadata [] [] id
 
 	let import_metadata _ dbg s =
 		Debug.with_thread_associated dbg
