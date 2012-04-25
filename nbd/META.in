@@ -3,3 +3,11 @@ description = "NBD client library"
 requires = "bitstring,stdext"
 archive(byte) = "nbd.cma"
 archive(native) = "nbd.cmxa"
+
+package "lwt" (
+		version = "@VERSION@"
+		description = "Lwt version of the NBD client library"
+		requires = "nbd,lwt,lwt.unix"
+		archive(byte) = "nbd_lwt.cma"
+		archive(native) = "nbd_lwt.cmxa"
+)
