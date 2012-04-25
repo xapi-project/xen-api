@@ -51,30 +51,14 @@ socket = a:TCP_NODELAY=1
 socket = l:TCP_NODELAY=1
 compression = zlib
 
-[localhost-xapi]
-accept = 127.0.0.1:443
-connect = 80
-cert = ${PEMFILE}
-ciphers = !SSLv2:RSA+AES256-SHA:RSA+AES128-SHA:RSA+RC4-SHA:RSA+RC4-MD5:RSA+DES-CBC3-SHA
-EOF
-
-    . @INVENTORY@
-    # Only if the management interface is set ask stunnel to bind to it
-    if [ -n "${MANAGEMENT_INTERFACE}" ] &&
-        [ "${MANAGEMENT_INTERFACE}" != "lo" ];
-    then
-        MGMT_IP=`mgmt_ip`
-        cat >> $SSLCONFFILE <<EOF
-
 [xapi]
-accept = ${MGMT_IP}:443
+accept = 443
 connect = 80
 cert = ${PEMFILE}
 ciphers = !SSLv2:RSA+AES256-SHA:RSA+AES128-SHA:RSA+RC4-SHA:RSA+RC4-MD5:RSA+DES-CBC3-SHA
 TIMEOUTclose = 0
 EOF
 
-    fi
     return
 }
 
