@@ -621,7 +621,14 @@ module VM = struct
 							let target_plus_overhead_bytes = bytes_of_kib target_plus_overhead_kib in
 							let target_bytes = target_plus_overhead_bytes --- overhead_bytes in
 							min vm.memory_dynamic_max target_bytes in
-						set_initial_target ~xs domid initial_target;
+						set_initial_target ~xs domid (Int64.div initial_target 1024L);
+
+						Int64.(
+							let min = to_int (div vm.memory_dynamic_min 1024L)
+							and max = to_int (div vm.memory_dynamic_max 1024L) in
+							Domain.set_memory_dynamic_range ~xc ~xs ~min ~max domid
+						);
+
 						if vm.suppress_spurious_page_faults
 						then Domain.suppress_spurious_page_faults ~xc domid;
 						Domain.set_machine_address_size ~xc domid vm.machine_address_size;
@@ -823,7 +830,7 @@ module VM = struct
 		let initial_target = get_initial_target ~xs domid in
 		let make_build_info kernel priv = {
 			Domain.memory_max = vm.memory_static_max /// 1024L;
-			memory_target = initial_target /// 1024L;
+			memory_target = initial_target;
 			kernel = kernel;
 			vcpus = vm.vcpu_max;
 			priv = priv;
@@ -1075,14 +1082,16 @@ module VM = struct
 			) Oldest task vm
 
 	let restore task progress_callback vm data =
-		let build_info = match DB.read_exn vm.Vm.id with
-			| { VmExtra.build_info = None } ->
-				error "VM = %s; No stored build_info: cannot safely restore" vm.Vm.id;
-				raise (Does_not_exist("build_info", vm.Vm.id))
-			| { VmExtra.build_info = Some x } -> x in
 		on_domain
 			(fun xc xs task vm di ->
 				let domid = di.Xenctrl.domid in
+				let build_info = match DB.read_exn vm.Vm.id with
+					| { VmExtra.build_info = None } ->
+						error "VM = %s; No stored build_info: cannot safely restore" vm.Vm.id;
+						raise (Does_not_exist("build_info", vm.Vm.id))
+					| { VmExtra.build_info = Some x } ->
+						let initial_target = get_initial_target ~xs domid in
+						{ x with Domain.memory_target = initial_target } in
 				with_data ~xc ~xs task data false
 					(fun fd ->
 						Domain.restore task ~xc ~xs (* XXX progress_callback *) build_info domid fd
