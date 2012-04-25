@@ -162,98 +162,6 @@ module Sysfs = struct
 		try
 			Array.to_list (Sys.readdir (getpath bridge "brif"))
 		with _ -> []
-
-	(** {2 NIC Bonding} *)
-
-	let bonding_masters = "/sys/class/net/bonding_masters"
-
-	let load_bonding_driver () =
-		debug "Loading bonding driver";
-		try
-			ignore (call_script modprobe ["bonding"]);
-			(* is_bond_device() uses the contents of sysfs_bonding_masters to work out which devices
-			 * have already been created. Unfortunately the driver creates "bond0" automatically at
-			 * modprobe init. Get rid of this now or our accounting will go wrong. *)
-			write_one_line bonding_masters "-bond0"
-		with _ ->
-			debug "Failed to load bonding driver"
-
-	let bonding_driver_loaded () =
-		try
-			Unix.access bonding_masters [Unix.F_OK];
-			true
-		with _ ->
-			false
-
-	let is_bond_device name =
-		try
-			List.exists ((=) name) (String.split ' ' (read_one_line bonding_masters))
-		with _ -> false
-
-	(** Ensures that a bond master device exists in the kernel. *)
-	let add_bond_master name =
-		if not (bonding_driver_loaded ()) then
-			load_bonding_driver ();
-		if is_bond_device name then
-			debug "Bond master %s already exists, not creating" name
-		else begin
-			debug "Adding bond master %s" name;
-			try
-				write_one_line bonding_masters ("+" ^ name)
-			with _ ->
-				debug "Failed to add bond master %s" name
-		end
-
-	(** No, Mr. Bond, I expect you to die. *)
-	let remove_bond_master name =
-		if is_bond_device name then begin
-			let rec destroy retries =
-				debug "Removing bond master %s (%d attempts remain)" name retries;
-				try
-					write_one_line bonding_masters ("-" ^ name)
-				with _ ->
-					if retries > 0 then
-						(Thread.delay 0.5; destroy (retries - 1))
-					else
-						debug "Failed to remove bond master %s" name
-			in
-			destroy 10
-		end else
-			debug "Bond master %s does not exist; cannot destroy it" name
-
-	let set_bond_properties master properties =
-		let known_props = ["mode"; "updelay"; "downdelay"; "miimon"; "use_carrier"] in
-		if is_bond_device master then begin
-			let set_prop (prop, value) =
-				try
-					debug "Setting %s=%s on bond %s" prop value master;
-					write_one_line (getpath master ("bonding/" ^ prop)) value
-				with _ ->
-					debug "Failed to set property \"%s\" on bond %s" prop master
-			in
-			List.iter set_prop (List.filter (fun (prop, _) -> List.mem prop known_props) properties)
-		end else
-			debug "Bond %s does not exist; cannot set properties" master
-
-	let add_bond_slave master slave =
-		if is_bond_device master then
-			try
-				debug "Adding slave %s to bond %s" slave master;
-				write_one_line (getpath master "bonding/slaves") ("+" ^ slave)
-			with _ ->
-				debug "Failed to add slave %s to bond %s" slave master
-		else
-			debug "Bond %s does not exist; cannot add slave" master
-
-	let remove_bond_slave master slave =
-		if is_bond_device master then
-			try
-				debug "Remove slave %s from bond %s" slave master;
-				write_one_line (getpath master "bonding/slaves") ("-" ^ slave)
-			with _ ->
-				debug "Failed to remove slave %s from bond %s" slave master
-		else
-			debug "Bond %s does not exist; cannot remove slave" master
 end
 
 module Ip = struct
@@ -373,6 +281,122 @@ module Ip = struct
 	let destroy_vlan name =
 		if List.mem name (Sysfs.list ()) then
 			ignore (call ["link"; "delete"; name])
+end
+
+module Linux_bonding = struct
+	let bonding_masters = "/sys/class/net/bonding_masters"
+
+	let load_bonding_driver () =
+		debug "Loading bonding driver";
+		try
+			ignore (call_script modprobe ["bonding"]);
+			(* is_bond_device() uses the contents of sysfs_bonding_masters to work out which devices
+			 * have already been created. Unfortunately the driver creates "bond0" automatically at
+			 * modprobe init. Get rid of this now or our accounting will go wrong. *)
+			Sysfs.write_one_line bonding_masters "-bond0"
+		with _ ->
+			debug "Failed to load bonding driver"
+
+	let bonding_driver_loaded () =
+		try
+			Unix.access bonding_masters [Unix.F_OK];
+			true
+		with _ ->
+			false
+
+	let is_bond_device name =
+		try
+			List.exists ((=) name) (String.split ' ' (Sysfs.read_one_line bonding_masters))
+		with _ -> false
+
+	(** Ensures that a bond master device exists in the kernel. *)
+	let add_bond_master name =
+		if not (bonding_driver_loaded ()) then
+			load_bonding_driver ();
+		if is_bond_device name then
+			debug "Bond master %s already exists, not creating" name
+		else begin
+			debug "Adding bond master %s" name;
+			try
+				Sysfs.write_one_line bonding_masters ("+" ^ name)
+			with _ ->
+				debug "Failed to add bond master %s" name
+		end
+
+	(** No, Mr. Bond, I expect you to die. *)
+	let remove_bond_master name =
+		if is_bond_device name then begin
+			let rec destroy retries =
+				debug "Removing bond master %s (%d attempts remain)" name retries;
+				try
+					Sysfs.write_one_line bonding_masters ("-" ^ name)
+				with _ ->
+					if retries > 0 then
+						(Thread.delay 0.5; destroy (retries - 1))
+					else
+						debug "Failed to remove bond master %s" name
+			in
+			destroy 10
+		end else
+			debug "Bond master %s does not exist; cannot destroy it" name
+
+	let known_props = ["mode"; "updelay"; "downdelay"; "miimon"; "use_carrier"]
+
+	let get_bond_properties master =
+		if is_bond_device master then begin
+			let get_prop prop =
+				try
+					Some (prop, Sysfs.read_one_line (Sysfs.getpath master ("bonding/" ^ prop)))
+				with _ ->
+					debug "Failed to get property \"%s\" on bond %s" prop master;
+					None
+			in
+			List.filter_map get_prop known_props
+		end else begin
+			debug "Bond %s does not exist; cannot get properties" master;
+			[]
+		end
+
+	let set_bond_properties master properties =
+		if is_bond_device master then begin
+			let current_props = get_bond_properties master in
+			(* Find out which properties are known, but different from the current state,
+			 * and only continue if there is at least one of those. *)
+			let props_to_update = List.filter (fun (prop, value) ->
+				not (List.mem (prop, value) current_props) && List.mem prop known_props) properties in
+			if props_to_update <> [] then
+				let set_prop (prop, value) =
+					try
+						debug "Setting %s=%s on bond %s" prop value master;
+						Sysfs.write_one_line (Sysfs.getpath master ("bonding/" ^ prop)) value
+					with _ ->
+						debug "Failed to set property \"%s\" on bond %s" prop master
+				in
+				Ip.link_set_down master;
+				List.iter set_prop props_to_update;
+				Ip.link_set_up master
+		end else
+			debug "Bond %s does not exist; cannot set properties" master
+
+	let add_bond_slave master slave =
+		if is_bond_device master then
+			try
+				debug "Adding slave %s to bond %s" slave master;
+				Sysfs.write_one_line (Sysfs.getpath master "bonding/slaves") ("+" ^ slave)
+			with _ ->
+				debug "Failed to add slave %s to bond %s" slave master
+		else
+			debug "Bond %s does not exist; cannot add slave" master
+
+	let remove_bond_slave master slave =
+		if is_bond_device master then
+			try
+				debug "Remove slave %s from bond %s" slave master;
+				Sysfs.write_one_line (Sysfs.getpath master "bonding/slaves") ("-" ^ slave)
+			with _ ->
+				debug "Failed to remove slave %s from bond %s" slave master
+		else
+			debug "Bond %s does not exist; cannot remove slave" master
 end
 
 module Dhclient = struct
