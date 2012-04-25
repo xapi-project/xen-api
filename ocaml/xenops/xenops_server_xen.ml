@@ -622,6 +622,13 @@ module VM = struct
 							let target_bytes = target_plus_overhead_bytes --- overhead_bytes in
 							min vm.memory_dynamic_max target_bytes in
 						set_initial_target ~xs domid initial_target;
+
+						Int64.(
+							let min = to_int (div vm.memory_dynamic_min 1024L)
+							and max = to_int (div vm.memory_dynamic_max 1024L) in
+							Domain.set_memory_dynamic_range ~xc ~xs ~min ~max domid
+						);
+
 						if vm.suppress_spurious_page_faults
 						then Domain.suppress_spurious_page_faults ~xc domid;
 						Domain.set_machine_address_size ~xc domid vm.machine_address_size;
