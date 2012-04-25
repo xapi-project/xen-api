@@ -257,7 +257,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/restore-sr-metadata.py
 @OPTDIR@/libexec/restore-sr-metadata.pyo
 @OPTDIR@/libexec/restore-sr-metadata.pyc
-@OPTDIR@/libexec/rewrite-management-interface
 @OPTDIR@/libexec/set-dom0-memory-target-from-packs
 @OPTDIR@/libexec/set-hostname
 @OPTDIR@/libexec/setup-vif-rules

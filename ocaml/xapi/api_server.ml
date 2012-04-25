@@ -104,16 +104,24 @@ let forward req body xml =
 let whitelist = List.map (fun (obj,msg) -> Datamodel_utils.wire_name ~sync:true obj msg) Datamodel.whitelist 
 let emergency_call_list = List.map (fun (obj,msg) -> Datamodel_utils.wire_name ~sync:true obj msg) Datamodel.emergency_calls
 
+let is_himn_req req =
+	match req.Http.Request.host with
+	| Some h ->
+		(match !Xapi_mgmt_iface.himn_addr with
+		| Some himn -> himn = h
+		| None -> false)
+	| None -> false
 
 (* This bit is called directly by the fake_rpc callback *)
 let callback1 is_json req fd body xml =
   let call,_ = XMLRPC.From.methodCall xml in
   (* We now have the body string, the xml and the call name, and can also tell *)
   (* if we're a master or slave and whether the call came in on the unix domain socket or the tcp socket *)
-  (* If we're a slave, and the call is from the unix domain socket, and the call *isn't* session.login_with_password, then forward *)
+  (* If we're a slave, and the call is from the unix domain socket or from the HIMN, and the call *isn't* *)
+  (* in the whitelist, then forward *)
   if !Xapi_globs.slave_emergency_mode && (not (List.mem call emergency_call_list)) 
   then raise !Xapi_globs.emergency_mode_error;
-  if ((not (Pool_role.is_master ()))  && (Context.is_unix_socket fd) && (not (List.mem call whitelist))) 
+  if ((not (Pool_role.is_master ())) && (Context.is_unix_socket fd || is_himn_req req) && (not (List.mem call whitelist)))
   then
     forward req body xml
   else
