@@ -1534,12 +1534,21 @@ let sync_pif_currently_attached ~__context ~host ~bridges =
 		) pifs
 
 let migrate_receive ~__context ~host ~network ~options =
-	let session_id = Ref.string_of (Context.get_session_id __context) in
+	let session_id = Context.get_session_id __context in
+	let session_rec = Db.Session.get_record ~__context ~self:session_id in
+	let new_session_id = Xapi_session.login_no_password ~__context ~uname:None ~host
+		~pool:session_rec.API.session_pool
+		~is_local_superuser:session_rec.API.session_is_local_superuser
+		~subject:session_rec.API.session_subject
+		~auth_user_sid:session_rec.API.session_auth_user_sid
+		~auth_user_name:session_rec.API.session_auth_user_name
+	 	~rbac_permissions:session_rec.API.session_rbac_permissions in
+	let new_session_id = (Ref.string_of new_session_id) in
 	let ip = Db.Host.get_address ~__context ~self:host in
-	let sm_url = Printf.sprintf "http://%s/services/SM?session_id=%s" ip session_id in
-	let xenops_url = Printf.sprintf "http://%s/services/xenops?session_id=%s" ip session_id in
+	let sm_url = Printf.sprintf "http://%s/services/SM?session_id=%s" ip new_session_id in
+	let xenops_url = Printf.sprintf "http://%s/services/xenops?session_id=%s" ip new_session_id in
 	[ Xapi_vm_migrate._sm, sm_url;
 	  Xapi_vm_migrate._host, Ref.string_of host;
 	  Xapi_vm_migrate._xenops, xenops_url;
-	  Xapi_vm_migrate._session_id, session_id;
+	  Xapi_vm_migrate._session_id, new_session_id;
 	]
