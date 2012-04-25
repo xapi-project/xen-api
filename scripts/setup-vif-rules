@@ -239,21 +239,20 @@ def main(vif_type, domid, devid, network_mode, action):
 
 def usage():
     print "Usage:"
-    print "%s vif_type domid devid network_mode action" % short_command_name
+    print "%s vif_type domid devid action" % short_command_name
     print ""
     print "vif_type: [vif|tap]"
     print "    The type of the vif for which rules will be created."
-    print "network_mode: [bridge|openvswitch]"
-    print "    The network mode of the host."
     print "action: [clear|filter]"
     print "    Specifies whether to create filtering rules for the vif, or to clear all rules associated with the vif."
 
 if __name__ == "__main__":
-    if len(sys.argv) != 6:
+    if len(sys.argv) != 5:
         usage()
         sys.exit(1)
     else:
-        vif_type, domid, devid, network_mode, action = sys.argv[1:6]
+        network_mode = get_host_network_mode ()
+        vif_type, domid, devid, action = sys.argv[1:5]
         send_to_syslog("Called with vif_type=%s, domid=%s, devid=%s, network_mode=%s, action=%s" %
             (vif_type, domid, devid, network_mode, action))
         main(vif_type, domid, devid, network_mode, action)
