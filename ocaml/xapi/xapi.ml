@@ -334,30 +334,29 @@ let init_local_database () =
   (* We've just rebooted, so we clear the flag that stops the host being disabled during the reboot *)
   if !Xapi_globs.on_system_boot then Localdb.put Constants.host_disabled_until_reboot "false"
 
-let bring_up_management_if ~__context () = 
-  try
-    (* We require the configuration for the management interface to still exist in
-       /etc/sysconfig/network-scripts *)
-    let management_if = Xapi_inventory.lookup Xapi_inventory._management_interface in
-    (* Bring up the management interface synchronously *)
-    if management_if = "" 
-    then debug "No management interface defined"
-    else begin
-      match Helpers.get_management_ip_addr () with 
-      | Some "127.0.0.1" -> 
-	  debug "Received 127.0.0.1 as a management IP address; ignoring"
-      | Some ip ->
-	  debug "Management IP address is: %s" ip;
-	  Xapi_mgmt_iface.change_ip management_if ip;
-	  (* Make sure everyone is up to speed *)
-	  ignore (Thread.create (fun ()-> Server_helpers.exec_with_new_task "dom0 networking update" 
-        ~subtask_of:(Context.get_task_id __context)
-        (fun __context -> Xapi_mgmt_iface.on_dom0_networking_change ~__context)) ())
-      | None ->
-	  warn "Failed to acquire a management IP address"
-    end
-  with e ->
-    debug "Caught exception bringing up management interface: %s" (ExnHelper.string_of_exn e)
+let bring_up_management_if ~__context () =
+	try
+		let management_if = Xapi_inventory.lookup Xapi_inventory._management_interface in
+		if management_if = "" then begin
+			debug "No management interface defined (management is disabled)";
+		end else begin
+			Xapi_mgmt_iface.run management_if;
+			match Helpers.get_management_ip_addr () with
+			| Some "127.0.0.1" ->
+				debug "Received 127.0.0.1 as a management IP address; ignoring"
+			| Some ip ->
+				debug "Management IP address is: %s" ip;
+				(* Make sure everyone is up to speed *)
+				ignore (Thread.create (fun () -> Server_helpers.exec_with_new_task "dom0 networking update"
+					~subtask_of:(Context.get_task_id __context)
+					(fun __context -> Xapi_mgmt_iface.on_dom0_networking_change ~__context)) ())
+			| None ->
+				warn "Failed to acquire a management IP address"
+		end;
+		(* Start the Host Internal Management Network, if needed. *)
+		Xapi_network.check_himn ~__context
+	with e ->
+		debug "Caught exception bringing up management interface: %s" (ExnHelper.string_of_exn e)
 
 (** Assuming a management interface is defined, return the IP address. Note this
 	call may block for a long time. *)
@@ -710,12 +709,6 @@ let server_init() =
     let domain_sock = Xapi_http.bind (Unix.ADDR_UNIX(Xapi_globs.unix_domain_socket)) in
     ignore(Http_svr.start Xapi_http.server domain_sock);
     in
-  let listen_localhost () =
-    (* Always listen on 127.0.0.1 *)
-    let localhost = Unix.inet_addr_of_string "127.0.0.1" in
-    let localhost_sock = Xapi_http.bind (Unix.ADDR_INET(localhost, Xapi_globs.http_port)) in
-    ignore(Http_svr.start Xapi_http.server localhost_sock);
-    in
 
   let print_server_starting_message() = debug "on_system_boot=%b pool_role=%s" !Xapi_globs.on_system_boot (Pool_role.string_of (Pool_role.get_role ())) in
 
@@ -837,7 +830,6 @@ let server_init() =
     "Registering http handlers", [], (fun () -> List.iter Xapi_http.add_handler common_http_handlers);
     "Registering master-only http handlers", [ Startup.OnlyMaster ], (fun () -> List.iter Xapi_http.add_handler master_only_http_handlers);
     "Listening unix socket", [], listen_unix_socket;
-    "Listening localhost", [], listen_localhost;
     "Metadata VDI liveness monitor", [ Startup.OnlyMaster; Startup.OnThread ], (fun () -> Redo_log_alert.loop ());
     "Checking HA configuration", [], start_ha;
 	"Checking for non-HA redo-log", [], start_redo_log;
@@ -941,7 +933,6 @@ let server_init() =
       (* CA-22417: bring up all non-bond slaves so that the SM backends can use storage NIC IP addresses (if the routing
 	 table happens to be right) *)
       "Best-effort bring up of physical NICs", [ Startup.NoExnRaising ], Xapi_pif.start_of_day_best_effort_bring_up;
-	  "Starting host internal management network", [ Startup.NoExnRaising ], Xapi_network_real.on_server_start;
       "initialising storage", [ Startup.NoExnRaising ],
                 (fun () -> Helpers.call_api_functions ~__context Create_storage.create_storage_localhost);
       (* CA-13878: make sure PBD plugging has happened before attempting to reboot any VMs *)

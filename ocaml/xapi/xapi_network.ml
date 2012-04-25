@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 open Threadext
-open Xapi_network_types
 open Client
 
 module D=Debug.Debugger(struct let name="xapi" end)
@@ -20,11 +19,39 @@ open D
 
 open Db_filter
 
+module Net = (val (Network.get_client ()) : Network.CLIENT)
+
 let create_internal_bridge ~bridge ~uuid =
 	debug "Creating internal bridge %s (uuid:%s)" bridge uuid;
 	let current = Netdev.network.Netdev.list () in
 	if not(List.mem bridge current) then Netdev.network.Netdev.add bridge ?uuid:(Some uuid);
 	if not(Netdev.Link.is_up bridge) then Netdev.Link.up bridge
+
+let set_himn_ip bridge other_config =
+	if not(List.mem_assoc "ip_begin" other_config) then
+		error "Cannot setup host internal management network: no other-config:ip_begin"
+	else begin
+		(* Set the ip address of the bridge *)
+		let ip = List.assoc "ip_begin" other_config in
+		ignore(Forkhelpers.execute_command_get_output "/sbin/ifconfig" [bridge; ip; "up"]);
+		Xapi_mgmt_iface.maybe_start_himn ~addr:ip ()
+	end
+
+let check_himn ~__context =
+	let nets = Db.Network.get_all_records ~__context in
+	let mnets =
+		List.filter (fun (_, n) ->
+			let oc = n.API.network_other_config in
+			(List.mem_assoc Xapi_globs.is_guest_installer_network oc)
+				&& (List.assoc Xapi_globs.is_guest_installer_network oc = "true")
+		) nets
+	in
+	match mnets with
+	| [] -> ()
+	| (_, rc) :: _ ->
+		let bridges = Net.Bridge.get_all () in
+		if List.mem rc.API.network_bridge bridges then
+			set_himn_ip rc.API.network_bridge rc.API.network_other_config
 
 let attach_internal ?(management_interface=false) ~__context ~self () =
 	let host = Helpers.get_localhost ~__context in
@@ -37,10 +64,10 @@ let attach_internal ?(management_interface=false) ~__context ~self () =
 	   brought up by call to interface-reconfigure. *)
 	if List.length(local_pifs) = 0 then create_internal_bridge ~bridge:net.API.network_bridge ~uuid:net.API.network_uuid;
 
-	(* Check if we're a guest-installer network: *)
+	(* Check if we're a Host-Internal Management Network (HIMN) (a.k.a. guest-installer network) *)
 	if (List.mem_assoc Xapi_globs.is_guest_installer_network net.API.network_other_config)
-		&& (List.assoc Xapi_globs.is_guest_installer_network net.API.network_other_config = "true")
-	then Xapi_network_real.maybe_start net.API.network_bridge net.API.network_other_config;
+		&& (List.assoc Xapi_globs.is_guest_installer_network net.API.network_other_config = "true") then
+		set_himn_ip net.API.network_bridge net.API.network_other_config;
 
 	(* Create the new PIF.
 	   NB if we're doing this as part of a management-interface-reconfigure then
@@ -52,7 +79,6 @@ let attach_internal ?(management_interface=false) ~__context ~self () =
 	) local_pifs
 
 let detach bridge_name =
-	Xapi_network_real.maybe_stop bridge_name;
 	if Netdev.network.Netdev.exists bridge_name then begin
 		List.iter (fun iface ->
 			D.warn "Untracked interface %s exists on bridge %s: deleting" iface bridge_name;

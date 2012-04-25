@@ -479,10 +479,6 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 			end;
 
 			Db.PIF.set_currently_attached ~__context ~self:pif ~value:true;
-			if Db.PIF.get_management ~__context ~self:pif then begin
-				debug "PIF %s is an existing management interface: rebinding and restarting server thread" uuid;
-				Xapi_mgmt_iface.rebind ()
-			end;
 
 			(* If the PIF is a bond slave, the bond master will now be down *)
 			begin match Db.PIF.get_bond_slave_of ~__context ~self:pif with

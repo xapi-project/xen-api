@@ -89,7 +89,6 @@ install:
 	$(IPROG) InterfaceReconfigure.py $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) InterfaceReconfigureBridge.py $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) InterfaceReconfigureVswitch.py $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) rewrite-management-interface $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) interface-visualise $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) logrotate.sh $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xapi-rolling-upgrade-miami $(DESTDIR)$(LIBEXECDIR)/xapi-rolling-upgrade
