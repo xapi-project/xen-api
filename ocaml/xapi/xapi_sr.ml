@@ -48,8 +48,6 @@ let sm_cap_table =
 
 type table = (API.storage_operations, ((string * (string list)) option)) Hashtbl.t
 
-let set_difference a b = List.filter (fun x -> not(List.mem x b)) a
-
 (** Returns a table of operations -> API error options (None if the operation would be ok) *)
 let valid_operations ~__context record _ref' : table = 
   let _ref = Ref.string_of _ref' in
@@ -109,7 +107,7 @@ let valid_operations ~__context record _ref' : table =
   if current_ops <> []
   then set_errors Api_errors.other_operation_in_progress
     [ "SR"; _ref; sr_operation_to_string (List.hd current_ops) ]
-    (set_difference all_ops safe_to_parallelise);
+    (List.set_difference all_ops safe_to_parallelise);
 
   let all_are_parallelisable = List.fold_left (&&) true 
     (List.map (fun op -> List.mem op safe_to_parallelise) current_ops) in
@@ -597,7 +595,7 @@ let assert_supports_database_replication ~__context ~sr =
 	if List.length connected_hosts < (List.length all_hosts) then begin
 		error "Cannot enable database replication to SR %s: some hosts lack a PBD: [ %s ]"
 			(Ref.string_of sr)
-			(String.concat "; " (List.map Ref.string_of (set_difference all_hosts connected_hosts)));
+			(String.concat "; " (List.map Ref.string_of (List.set_difference all_hosts connected_hosts)));
 		raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of sr ]))
 	end;
 	(* Check that each PBD is plugged in *)
