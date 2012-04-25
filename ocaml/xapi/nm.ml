@@ -377,92 +377,87 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 	with_local_lock (fun () ->
 		let uuid = Db.PIF.get_uuid ~__context ~self:pif in
 		let currently_attached = Db.PIF.get_currently_attached ~__context ~self:pif in
-		(* In the case of the management interface since we need to call out just to 
-		refresh the default gateway device setting *)
-		if currently_attached = false || management_interface then begin
-			debug "PIF %s has currently_attached set to %s%s; bringing up now" uuid
-				(string_of_bool currently_attached) 
-				(if management_interface then " and this is to be the new management interface" else "");
 
-			(* If the PIF is a bond master, the bond slaves will now go down *)
-			(* Interface-reconfigure in bridge mode requires us to set currently_attached to false here *)
-			begin match Db.PIF.get_bond_master_of ~__context ~self:pif with
-				| [] -> ()
-				| bond :: _ ->
-					let slaves = Db.Bond.get_slaves ~__context ~self:bond in
-					List.iter (fun self -> Db.PIF.set_currently_attached ~__context ~self ~value:false) slaves
-			end;
+		(* Call networkd even if currently_attached is false, just to update its state *)
+		debug "PIF %s has currently_attached set to %s%s; bringing up now" uuid
+			(string_of_bool currently_attached) 
+			(if management_interface then " and this is to be the new management interface" else "");
 
-			if !use_networkd then
-				begin try
-					let rc = Db.PIF.get_record ~__context ~self:pif in
-					let net_rc = Db.Network.get_record ~__context ~self:rc.API.pIF_network in
-					let bridge = net_rc.API.network_bridge in
-					let persistent = is_dom0_interface rc in
-					let dhcp_options =
-						if rc.API.pIF_ip_configuration_mode = `DHCP then
-							determine_dhcp_options ~__context pif management_interface
-						else []
-					in
+		(* If the PIF is a bond master, the bond slaves will now go down *)
+		(* Interface-reconfigure in bridge mode requires us to set currently_attached to false here *)
+		begin match Db.PIF.get_bond_master_of ~__context ~self:pif with
+			| [] -> ()
+			| bond :: _ ->
+				let slaves = Db.Bond.get_slaves ~__context ~self:bond in
+				List.iter (fun self -> Db.PIF.set_currently_attached ~__context ~self ~value:false) slaves
+		end;
 
-					(* Setup network infrastructure *)
-					let cleanup, bridge_config, interface_config = create_bridges ~__context rc net_rc in
-					List.iter (fun (name, force) -> Net.Bridge.destroy ~name ~force ()) cleanup;
-					let bridge_config = update_config bridge_config bridge
-						{(get_config bridge_config default_bridge bridge) with persistent_b=persistent} in
-					Net.Bridge.make_config ~config:bridge_config ();
-					Net.Interface.make_config ~config:interface_config ();
+		if !use_networkd then
+			begin try
+				let rc = Db.PIF.get_record ~__context ~self:pif in
+				let net_rc = Db.Network.get_record ~__context ~self:rc.API.pIF_network in
+				let bridge = net_rc.API.network_bridge in
+				let persistent = is_dom0_interface rc in
 
-					(* Configure management interface *)
-					let ipv4_conf, ipv4_gateway, dns =
-						match rc.API.pIF_ip_configuration_mode with
-						| `None -> None4, None, ([], [])
-						| `DHCP -> DHCP4 dhcp_options, None, ([], [])
-						| `Static ->
-							let conf = (Static4 [
-								Unix.inet_addr_of_string rc.API.pIF_IP,
-								netmask_to_prefixlen rc.API.pIF_netmask]) in
-							let gateway =
-								if rc.API.pIF_gateway <> "" then
-									Some (Unix.inet_addr_of_string rc.API.pIF_gateway)
-								else
-									None in
-							let dns =
-								if rc.API.pIF_DNS <> "" then begin
-									let nameservers = List.map Unix.inet_addr_of_string (String.split ',' rc.API.pIF_DNS) in
-									let domains =
-										if List.mem_assoc "domain" rc.API.pIF_other_config then
-											let domains = List.assoc "domain" rc.API.pIF_other_config in
-											try
-												String.split ',' domains
-											with _ ->
-												warn "Invalid DNS search domains: %s" domains;
-												[]
-										else
+				(* Setup network infrastructure *)
+				let cleanup, bridge_config, interface_config = create_bridges ~__context rc net_rc in
+				List.iter (fun (name, force) -> Net.Bridge.destroy ~name ~force ()) cleanup;
+				let bridge_config = update_config bridge_config bridge
+					{(get_config bridge_config default_bridge bridge) with persistent_b=persistent} in
+				Net.Bridge.make_config ~config:bridge_config ();
+				Net.Interface.make_config ~config:interface_config ();
+
+				(* Configure management interface *)
+				let ipv4_conf, ipv4_gateway, dns =
+					match rc.API.pIF_ip_configuration_mode with
+					| `None -> None4, None, ([], [])
+					| `DHCP -> DHCP4 (determine_dhcp_options ~__context pif management_interface), None, ([], [])
+					| `Static ->
+						let conf = (Static4 [
+							Unix.inet_addr_of_string rc.API.pIF_IP,
+							netmask_to_prefixlen rc.API.pIF_netmask]) in
+						let gateway =
+							if rc.API.pIF_gateway <> "" then
+								Some (Unix.inet_addr_of_string rc.API.pIF_gateway)
+							else
+								None in
+						let dns =
+							if rc.API.pIF_DNS <> "" then begin
+								let nameservers = List.map Unix.inet_addr_of_string (String.split ',' rc.API.pIF_DNS) in
+								let domains =
+									if List.mem_assoc "domain" rc.API.pIF_other_config then
+										let domains = List.assoc "domain" rc.API.pIF_other_config in
+										try
+											String.split ',' domains
+										with _ ->
+											warn "Invalid DNS search domains: %s" domains;
 											[]
-									in
-									nameservers, domains
-								end else
-									[], []
-							in
-							conf, gateway, dns
-					in
-					let ipv4_routes = determine_static_routes net_rc in
-					let mtu = determine_mtu rc net_rc in
-					let (ethtool_settings, ethtool_offload) = determine_ethtool_settings net_rc.API.network_other_config in
-					let interface_config = [bridge, {default_interface with ipv4_conf; ipv4_gateway;
-						ipv4_routes; dns; ethtool_settings; ethtool_offload; mtu; persistent_i=persistent}] in
-					Net.Interface.make_config ~config:interface_config ()
-				with Network_interface.Internal_error str ->
-                                	let e = Printf.sprintf "%s" str in
-					error "Network configuration error: %s" e;
-					raise (Api_errors.Server_error(Api_errors.pif_configuration_error, [Ref.string_of pif; e]))
-				end
-			else begin
-				let args = "up" :: (if management_interface then [ "--management" ] else []) in
-				reconfigure_pif ~__context pif args
-			end;
+									else
+										[]
+								in
+								nameservers, domains
+							end else
+								[], []
+						in
+						conf, gateway, dns
+				in
+				let ipv4_routes = determine_static_routes net_rc in
+				let mtu = determine_mtu rc net_rc in
+				let (ethtool_settings, ethtool_offload) = determine_ethtool_settings net_rc.API.network_other_config in
+				let interface_config = [bridge, {default_interface with ipv4_conf; ipv4_gateway;
+					ipv4_routes; dns; ethtool_settings; ethtool_offload; mtu; persistent_i=persistent}] in
+				Net.Interface.make_config ~config:interface_config ()
+			with Network_interface.Internal_error str ->
+				let e = Printf.sprintf "%s" str in
+				error "Network configuration error: %s" e;
+				raise (Api_errors.Server_error(Api_errors.pif_configuration_error, [Ref.string_of pif; e]))
+			end
+		else begin
+			let args = "up" :: (if management_interface then [ "--management" ] else []) in
+			reconfigure_pif ~__context pif args
+		end;
 
+		if currently_attached = false || management_interface then begin
 			warn "About to kill idle client stunnels";
 			(* The master_connection would otherwise try to take a broken stunnel from the cache *)
 			Stunnel_cache.flush ();
@@ -507,23 +502,21 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 let bring_pif_down ~__context ?(force=false) (pif: API.ref_PIF) =
 	with_local_lock (fun () ->
 		let rc = Db.PIF.get_record ~__context ~self:pif in
-		if rc.API.pIF_currently_attached = true then begin
-			debug "PIF %s has currently_attached set to true; bringing down now" rc.API.pIF_uuid;
-			if !use_networkd then
-				try
-					let bridge = Db.Network.get_bridge ~__context ~self:rc.API.pIF_network in
-					let cleanup = destroy_bridges ~__context ~force rc bridge in
-					List.iter (fun (name, force) -> Net.Bridge.destroy ~name ~force ()) cleanup;
-					Net.Interface.set_persistent ~name:bridge ~value:false
-				with Network_interface.Internal_error err ->
-					let e = Printf.sprintf "%s" err in
-					error "Network configuration error: %s" e;
-					raise (Api_errors.Server_error(Api_errors.pif_configuration_error, [Ref.string_of pif; e]))
-			else begin
-				reconfigure_pif ~__context pif [ "down" ];
-				update_inventory ~__context
-			end;
-			Db.PIF.set_currently_attached ~__context ~self:pif ~value:false;
-		end
+		debug "PIF %s has currently_attached set to true; bringing down now" rc.API.pIF_uuid;
+		if !use_networkd then
+			try
+				let bridge = Db.Network.get_bridge ~__context ~self:rc.API.pIF_network in
+				let cleanup = destroy_bridges ~__context ~force rc bridge in
+				List.iter (fun (name, force) -> Net.Bridge.destroy ~name ~force ()) cleanup;
+				Net.Interface.set_persistent ~name:bridge ~value:false
+			with Network_interface.Internal_error err ->
+				let e = Printf.sprintf "%s" err in
+				error "Network configuration error: %s" e;
+				raise (Api_errors.Server_error(Api_errors.pif_configuration_error, [Ref.string_of pif; e]))
+		else begin
+			reconfigure_pif ~__context pif [ "down" ];
+			update_inventory ~__context
+		end;
+		Db.PIF.set_currently_attached ~__context ~self:pif ~value:false;
 	)
 

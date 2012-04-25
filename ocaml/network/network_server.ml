@@ -82,6 +82,14 @@ let read_management_conf () =
 		bridge_config = [bridge_name, bridge];
 		gateway_interface = Some bridge_name; dns_interface = Some bridge_name}
 
+let legacy_management_interface_start () =
+	try
+		ignore (call_script "/etc/init.d/management-interface" ["start"]);
+		debug "Upgrade: brought up interfaces using the old script. Xapi will sync up soon."
+	with e ->
+		debug "Error while configuring the management interface using the old script: %s\n%s"
+			(Printexc.to_string e) (Printexc.get_backtrace ())
+
 let write_config () =
 	let config_json = !config |> rpc_of_config_t |> Jsonrpc.to_string in
 	Unixext.write_string_to_file config_file_path config_json
@@ -92,13 +100,18 @@ let read_config () =
 		config := config_json |> Jsonrpc.of_string |> config_t_of_rpc;
 		debug "Read configuration from networkd.db file."
 	with _ ->
-		(* No configuration file found. Assume first-boot and try to get the initial
-		 * network setup from the first-boot data written by the host installer. *)
-		try
-			config := read_management_conf ();
-			debug "Read configuration from management.conf file."
-		with _ ->
-			debug "Could not interpret the configuration in management.conf"
+		(* No configuration file found. *)
+		(* Perhaps it is an upgrade from the pre-networkd era. If network.dbcache exists, try to configure the
+		 * management interface using the old scripts. *)
+		if (try Unix.access (Filename.concat Fhs.vardir "network.dbcache") [Unix.F_OK]; true with _ -> false) then
+			legacy_management_interface_start ()
+		else
+			(* Try to get the initial network setup from the first-boot data written by the host installer. *)
+			try
+				config := read_management_conf ();
+				debug "Read configuration from management.conf file."
+			with _ ->
+				debug "Could not interpret the configuration in management.conf"
 
 let on_shutdown signal =
 	debug "xcp-networkd caught signal %d; performing cleanup actions." signal;
@@ -109,6 +122,9 @@ let on_timer () =
 	write_config ()
 
 let reopen_logs _ () = true
+
+let clear_state _ () =
+	config := empty_config
 
 let reset_state _ () =
 	config := read_management_conf ()
@@ -485,8 +501,8 @@ module Bridge = struct
 				List.iter (fun dev ->
 					Interface.set_ipv4_conf () ~name:dev ~conf:None4;
 					Interface.bring_down () ~name:dev;
-					if Sysfs.is_bond_device dev then
-						Sysfs.remove_bond_master dev;
+					if Linux_bonding.is_bond_device dev then
+						Linux_bonding.remove_bond_master dev;
 					if String.startswith "eth" dev && String.contains dev '.' then
 						ignore (Ip.destroy_vlan dev)
 				) ifs;
@@ -569,10 +585,10 @@ module Bridge = struct
 				ignore (Brctl.create_port bridge name)
 			end else begin
 				if not (List.mem name (Sysfs.bridge_to_interfaces bridge)) then begin
-					Sysfs.add_bond_master name;
+					Linux_bonding.add_bond_master name;
 					if mac <> "" then Ip.set_mac name mac;
 					List.iter (fun name -> Interface.bring_down () ~name) interfaces;
-					List.iter (Sysfs.add_bond_slave name) interfaces
+					List.iter (Linux_bonding.add_bond_slave name) interfaces
 				end;
 				Interface.bring_up () ~name;
 				ignore (Brctl.create_port bridge name)
@@ -622,9 +638,7 @@ module Bridge = struct
 					List.replace_assoc "mode" "802.3ad" params
 				else params
 			in
-			Interface.bring_down () ~name;
-			Sysfs.set_bond_properties name params;
-			Interface.bring_up () ~name
+			Linux_bonding.set_bond_properties name params
 
 	let get_fail_mode _ ~name =
 		match !kind with
@@ -701,7 +715,10 @@ let on_startup () =
 		(* the following is best-effort *)
 		read_config ();
 		Bridge.make_config () ~conservative:true ~config:!config.bridge_config ();
-		Interface.make_config () ~conservative:true ~config:!config.interface_config ()
+		Interface.make_config () ~conservative:true ~config:!config.interface_config ();
+		(* If there is still a network.dbcache file, move it out of the way. *)
+		if (try Unix.access (Filename.concat Fhs.vardir "network.dbcache") [Unix.F_OK]; true with _ -> false) then
+			Unix.rename (Filename.concat Fhs.vardir "network.dbcache") (Filename.concat Fhs.vardir "network.dbcache.bak");
 	with e ->
 		debug "Error while configuring networks on startup: %s\n%s"
 			(Printexc.to_string e) (Printexc.get_backtrace ())

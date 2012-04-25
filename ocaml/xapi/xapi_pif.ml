@@ -22,6 +22,8 @@ open Stringext
 open Fun
 open Db_filter_types
 
+module Net = (val (Network.get_client ()) : Network.CLIENT)
+
 let refresh_internal ~__context ~self =
 
 	let device = Db.PIF.get_device ~__context ~self in
@@ -606,16 +608,31 @@ let rec plug ~__context ~self =
 
 let calculate_pifs_required_at_start_of_day ~__context =
 	let localhost = Helpers.get_localhost ~__context in
+	(* Select all PIFs on the host that are not bond slaves, and are either bond master or
+	 * have IP configuration. The latter means that any VLAN or tunnel PIFs without IP address
+	 * are excluded. *)
 	Db.PIF.get_records_where ~__context
-		~expr:(And (And (Eq (Field "host", Literal (Ref.string_of localhost)),
-			Eq (Field "VLAN_master_of", Literal (Ref.string_of Ref.null))),
-			Eq (Field "bond_slave_of", Literal (Ref.string_of Ref.null))))
+		~expr:(
+			And (
+				And (
+					Eq (Field "host", Literal (Ref.string_of localhost)),
+					Eq (Field "bond_slave_of", Literal (Ref.string_of Ref.null))
+				),
+				Or (
+					Not (Eq (Field "bond_master_of", Literal (Ref.string_of Ref.null))),
+					Not (Eq (Field "ip_configuration_mode", Literal "None"))
+				)
+			)
+		)
 
 let start_of_day_best_effort_bring_up () =
 	begin
 		debug
 			"Configured network backend: %s"
 			(Netdev.string_of_kind Netdev.network.Netdev.kind);
+		(* Clear the state of the network daemon, before refreshing it by plugging
+		 * the most important PIFs (see above). *)
+		Net.clear_state ();
 		Server_helpers.exec_with_new_task
 			"Bringing up physical PIFs"
 			(fun __context ->
