@@ -72,7 +72,7 @@ let next_domid =
 
 let m = Mutex.create ()
 
-let create_nolock vm () =
+let create_nolock _ vm () =
 	debug "Domain.create vm=%s" vm.Vm.id;
 	if DB.exists vm.Vm.id then begin
 		debug "VM.create_nolock %s: Already_exists" vm.Vm.id;
@@ -316,7 +316,7 @@ module HOST = struct
 	let send_debug_keys _ = ()
 end
 module VM = struct
-	let create _ vm = Mutex.execute m (create_nolock vm)
+	let create _ memory_limit vm = Mutex.execute m (create_nolock memory_limit vm)
 	let destroy _ vm = Mutex.execute m (destroy_nolock vm)
 	let pause _ vm = Mutex.execute m (do_pause_unpause_nolock vm true)
 	let unpause _ vm = Mutex.execute m (do_pause_unpause_nolock vm false)
