@@ -228,6 +228,9 @@ module Dummy = struct
 						else 
 							None
 					| _ -> None) list)
+
+	let stats ctx t =
+		"{ \"name\": \"(null)\", \"secs\": [ 0, 0 ], \"images\": [  ], \"tap\": { \"minor\": 2, \"reqs\": [ 0, 0 ], \"kicks\": [ 0, 0 ] }, \"FIXME_enospc_redirect_count\": 0, \"nbd_mirror_failed\": 0 }"
 end
  		
 
@@ -337,6 +340,11 @@ let is_active ctx t =
 	match result with
 		| [(tapdev,state,Some _ )] -> true
 		| _ -> false
+
+let stats ctx t =
+	if ctx.dummy then Dummy.stats ctx t else begin
+		invoke_tap_ctl ctx "stats" (args t)
+	end
 
 (* We need to be able to check that a given device's major number corresponds to the right driver *)
 let read_proc_devices () : (int * string) list = 
