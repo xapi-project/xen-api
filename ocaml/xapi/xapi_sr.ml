@@ -533,17 +533,13 @@ let scan ~__context ~sr =
     let open Storage_interface in
 	let module C = Client(struct let rpc = rpc end) in
 	let sr' = Ref.string_of sr in
-	try
-		let vs = C.SR.scan ~task:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sr) in
-		let db_vdis = Db.VDI.get_records_where ~__context ~expr:(Eq(Field "SR", Literal sr')) in
-		update_vdis ~__context ~sr:sr db_vdis vs;
-		Db.SR.remove_from_other_config ~__context ~self:sr ~key:"dirty"
-	with 
-		| Backend_error(code, params) ->
-			raise (Api_errors.Server_error(code, params))
-		| x ->
-			error "Unexpected result from scanning SR %s: %s" sr' (Printexc.to_string x);
-			raise (Api_errors.Server_error(Api_errors.internal_error, [ "SR.scan"; sr'; Printexc.to_string x ]))
+	transform_storage_exn
+		(fun () ->
+			let vs = C.SR.scan ~task:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sr) in
+			let db_vdis = Db.VDI.get_records_where ~__context ~expr:(Eq(Field "SR", Literal sr')) in
+			update_vdis ~__context ~sr:sr db_vdis vs;
+			Db.SR.remove_from_other_config ~__context ~self:sr ~key:"dirty"
+		)
 
 let set_shared ~__context ~sr ~value =
   if value then
