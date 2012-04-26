@@ -261,6 +261,7 @@ let request_of_bio_exn_slow ic =
 	let task = ref None in
 	let subtask_of = ref None in
 	let content_type = ref None in
+	let host = ref None in
 	let user_agent = ref None in
 
 	content_length := -1L;
@@ -283,6 +284,7 @@ let request_of_bio_exn_slow ic =
 		let task_hdr = String.lowercase Http.Hdr.task_id in
 		let subtask_of_hdr = String.lowercase Http.Hdr.subtask_of in
 		let content_type_hdr = String.lowercase Http.Hdr.content_type in
+		let host_hdr = String.lowercase Http.Hdr.host in
 		let user_agent_hdr = String.lowercase Http.Hdr.user_agent in
 		let r = Buf_io.input_line ~timeout:Buf_io.infinite_timeout ic in
 		match String.split ~limit:2 ':' r with
@@ -298,6 +300,7 @@ let request_of_bio_exn_slow ic =
 					| k when k = task_hdr -> task := Some v; true
 					| k when k = subtask_of_hdr -> subtask_of := Some v; true
 					| k when k = content_type_hdr -> content_type := Some v; true
+					| k when k = host_hdr -> host := Some v; true
 					| k when k = user_agent_hdr -> user_agent := Some v; true
                     | k when k = connection_hdr ->
                         req.Request.close <- String.lowercase v = "close";
@@ -316,6 +319,7 @@ let request_of_bio_exn_slow ic =
 		task = !task;
 		subtask_of = !subtask_of;
 		content_type = !content_type;
+		host = !host;
 		user_agent = !user_agent;
 		additional_headers = headers;
 		accept = !accept;
@@ -367,6 +371,7 @@ let request_of_bio_exn bio =
 							| k when k = Http.Hdr.task_id -> { req with task = Some v }
 							| k when k = Http.Hdr.subtask_of -> { req with subtask_of = Some v }
 							| k when k = Http.Hdr.content_type -> { req with content_type = Some v }
+							| k when k = Http.Hdr.host -> { req with host = Some v }
 							| k when k = Http.Hdr.user_agent -> { req with user_agent = Some v }
 							| k when k = Http.Hdr.connection && String.lowercase v = "close" -> { req with close = true }
 							| k when k = Http.Hdr.connection && String.lowercase v = "keep-alive" -> { req with close = false }

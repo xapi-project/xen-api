@@ -69,6 +69,7 @@ module Hdr = struct
 	let subtask_of = "subtask-of"
 	let content_type = "content-type"
 	let content_length = "content-length"
+	let host = "host"
 	let user_agent = "user-agent"
 	let cookie = "cookie"
 	let transfer_encoding = "transfer-encoding"
@@ -347,6 +348,7 @@ module Request = struct
 		task: string option;
 		subtask_of: string option;
 		content_type: string option;
+		host: string option;
 		user_agent: string option;
 		mutable close: bool;
 		additional_headers: (string*string) list;
@@ -367,13 +369,14 @@ module Request = struct
 		task=None;
 		subtask_of=None;
 		content_type = None;
+		host = None;
 		user_agent = None;
 		close= true;
 		additional_headers=[];
 		body = None;
 	}
 
-	let make ?(frame=false) ?(version="1.0") ?(keep_alive=false) ?accept ?cookie ?length ?auth ?subtask_of ?body ?(headers=[]) ?content_type ?(query=[]) ~user_agent meth path = 
+	let make ?(frame=false) ?(version="1.0") ?(keep_alive=false) ?accept ?cookie ?length ?auth ?subtask_of ?body ?(headers=[]) ?content_type ?host ?(query=[]) ~user_agent meth path =
 		{ empty with
 			version = version;
 			frame = frame;
@@ -383,6 +386,7 @@ module Request = struct
 			content_length = length;
 			auth = auth;
 			content_type = content_type;
+			host = host;
 			user_agent = Some user_agent;
 			m = meth;
 			uri = path;
@@ -404,7 +408,7 @@ module Request = struct
                     { m = method_t_of_string m; frame = false; uri = uri; query = query;
                     content_length = None; transfer_encoding = None; accept = None;
                     version = version; cookie = []; auth = None; task = None;
-                    subtask_of = None; content_type = None; user_agent = None;
+                    subtask_of = None; content_type = None; host = None; user_agent = None;
                     close=false; additional_headers=[]; body = None }
                 | _ ->
                     error "Failed to parse: %s" x;
@@ -414,7 +418,7 @@ module Request = struct
 
 	let to_string x =
 		let kvpairs x = String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) x) in
-		Printf.sprintf "{ frame = %b; method = %s; uri = %s; query = [ %s ]; content_length = [ %s ]; transfer encoding = %s; version = %s; cookie = [ %s ]; task = %s; subtask_of = %s; content-type = %s; user_agent = %s }" 
+		Printf.sprintf "{ frame = %b; method = %s; uri = %s; query = [ %s ]; content_length = [ %s ]; transfer encoding = %s; version = %s; cookie = [ %s ]; task = %s; subtask_of = %s; content-type = %s; host = %s; user_agent = %s }" 
 			x.frame (string_of_method_t x.m) x.uri
 			(kvpairs x.query)
 			(default "" (may Int64.to_string x.content_length))
@@ -424,6 +428,7 @@ module Request = struct
 			(default "" x.task)
 			(default "" x.subtask_of)
 			(default "" x.content_type)
+			(default "" x.host)
 			(default "" x.user_agent)
 
 	let to_header_list x =
@@ -437,10 +442,11 @@ module Request = struct
 		let task = Opt.default [] (Opt.map (fun x -> [ Hdr.task_id ^ ": " ^ x ]) x.task) in
 		let subtask_of = Opt.default [] (Opt.map (fun x -> [ Hdr.subtask_of ^ ": " ^ x ]) x.subtask_of) in
 		let content_type = Opt.default [] (Opt.map (fun x -> [ Hdr.content_type ^": " ^ x ]) x.content_type) in
+		let host = Opt.default [] (Opt.map (fun x -> [ Hdr.host^": " ^ x ]) x.host) in
 		let user_agent = Opt.default [] (Opt.map (fun x -> [ Hdr.user_agent^": " ^ x ]) x.user_agent) in
 		let close = [ Hdr.connection ^": " ^ (if x.close then "close" else "keep-alive") ] in
 		[ Printf.sprintf "%s %s%s HTTP/%s" (string_of_method_t x.m) x.uri query x.version ]
-		@ cookie @ transfer_encoding @ accept @ content_length @ auth @ task @ subtask_of @ content_type @ user_agent @ close
+		@ cookie @ transfer_encoding @ accept @ content_length @ auth @ task @ subtask_of @ content_type @ host @ user_agent @ close
 		@ (List.map (fun (k, v) -> k ^ ":" ^ v) x.additional_headers)
 
 	let to_headers_and_body (x: t) =

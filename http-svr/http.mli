@@ -64,6 +64,7 @@ module Request : sig
 		task: string option;
 		subtask_of: string option;
 		content_type: string option;
+		host: string option;
 		user_agent: string option;
 		mutable close: bool;
 		additional_headers: (string*string) list;
@@ -76,7 +77,7 @@ module Request : sig
 	val empty: t
 
 	(** [make] is the standard constructor for [t] *)
-	val make: ?frame:bool -> ?version:string -> ?keep_alive:bool -> ?accept:string -> ?cookie:(string*string) list -> ?length:int64 -> ?auth:authorization -> ?subtask_of:string -> ?body:string -> ?headers:(string*string) list -> ?content_type:string -> ?query:((string * string) list) -> user_agent:string -> method_t -> string -> t
+	val make: ?frame:bool -> ?version:string -> ?keep_alive:bool -> ?accept:string -> ?cookie:(string*string) list -> ?length:int64 -> ?auth:authorization -> ?subtask_of:string -> ?body:string -> ?headers:(string*string) list -> ?content_type:string -> ?host:string -> ?query:((string * string) list) -> user_agent:string -> method_t -> string -> t
 
 	(** [get_version t] returns the HTTP protocol version *)
 	val get_version: t -> string
@@ -144,6 +145,7 @@ module Hdr : sig
 	(** Header used for task id *)
 	val task_id: string
 	val subtask_of: string
+	val host: string
 	(** Header used for User-Agent string *)
 	val user_agent: string
 	val content_type: string
