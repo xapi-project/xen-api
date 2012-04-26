@@ -502,6 +502,9 @@ let remap_vdi vdi_map = function
 		else VDI vdi 
 	| x -> x 
 
-
-
-
+let remap_vif vif_map vif =
+	let open Xenops_interface in
+	match vif.Vif.id with (_,device) ->
+		if List.mem_assoc device vif_map
+		then (debug "Remapping VIF: %s" device; {vif with Vif.backend = (List.assoc device vif_map)})
+		else vif

@@ -54,7 +54,7 @@ let pool_migrate ~__context ~vm ~host ~options =
 		(fun () ->
 			(* XXX: PR-1255: the live flag *)
 			info "xenops: VM.migrate %s to %s" vm' xenops_url;
-			XenopsAPI.VM.migrate dbg vm' [] xenops_url |> wait_for_task dbg |> success_task dbg |> ignore;
+			XenopsAPI.VM.migrate dbg vm' [] [] xenops_url |> wait_for_task dbg |> success_task dbg |> ignore;
 		);
 	Xapi_xenops.remove_caches vm';
 	Monitor_rrds.migrate_push ~__context vm' host;
@@ -175,7 +175,15 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			if List.mem_assoc Constants.storage_migrate_vdi_map_key other_config then
 				Db.VDI.remove_from_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key;
 			Db.VDI.add_to_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key ~value:(Ref.string_of mirror_record.mr_remote_vdi_reference)) vdi_map;
-		
+
+		let xenops_vif_map = List.map (fun (vif,network) ->
+			let bridge = Xenops_interface.Network.Local (XenAPI.Network.get_bridge remote_rpc session_id network) in
+			let device = Db.VIF.get_device ~__context ~self:vif in
+			(device,bridge)) vif_map in
+
+		List.iter (fun (vif,network) ->
+			Db.VIF.add_to_other_config ~__context ~self:vif ~key:Constants.storage_migrate_vif_map_key ~value:(Ref.string_of network)) vif_map;
+
 		let vm_export_import = {
 			Importexport.vm = vm;
 			Importexport.dry_run = false;
@@ -193,7 +201,7 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		(* Migrate the VM *)
 		let open Xenops_client in
 		let vm' = Db.VM.get_uuid ~__context ~self:vm in
-		XenopsAPI.VM.migrate task vm' xenops_vdi_map xenops |> wait_for_task task |> success_task task |> ignore;
+		XenopsAPI.VM.migrate task vm' xenops_vdi_map xenops_vif_map xenops |> wait_for_task task |> success_task task |> ignore;
 		let new_vm = XenAPI.VM.get_by_uuid remote_rpc session_id vm' in
 		(* Send non-database metadata *)
 		Xapi_message.send_messages ~__context ~cls:`VM ~obj_uuid:vm'
