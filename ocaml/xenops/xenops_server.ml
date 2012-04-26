@@ -87,7 +87,7 @@ type atomic =
 	| VM_create_device_model of (Vm.id * bool)
 	| VM_destroy_device_model of Vm.id
 	| VM_destroy of Vm.id
-	| VM_create of Vm.id
+	| VM_create of (Vm.id * int64 option)
 	| VM_build of Vm.id
 	| VM_shutdown_domain of (Vm.id * shutdown_request * float)
 	| VM_s3suspend of Vm.id
@@ -109,7 +109,7 @@ type operation =
 	| VM_resume of (Vm.id * data)
 	| VM_restore_devices of Vm.id
 	| VM_migrate of (Vm.id * (string * string) list * (string * Network.t) list * string)
-	| VM_receive_memory of (Vm.id * Unix.file_descr)
+	| VM_receive_memory of (Vm.id * int64 * Unix.file_descr)
 	| VM_check_state of Vm.id
 	| PCI_check_state of Pci.id
 	| VBD_check_state of Vbd.id
@@ -719,7 +719,7 @@ let rec atomics_of_operation = function
 	| VM_start id ->
 		[
 			VM_hook_script(id, Xenops_hooks.VM_pre_start, Xenops_hooks.reason__none);
-			VM_create id;
+			VM_create (id, None);
 			VM_build id;
 		] @ (List.map (fun vbd -> VBD_plug vbd.Vbd.id)
 			(VBD_DB.vbds id |> vbd_plug_order)
@@ -806,7 +806,7 @@ let rec atomics_of_operation = function
 		]
 	| VM_resume (id, data) ->
 		[
-			VM_create id;
+			VM_create (id, None);
 			VM_restore (id, data);
 		] @ (atomics_of_operation (VM_restore_devices id)
 		) @ [
@@ -947,9 +947,9 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 		| VM_destroy id ->
 			debug "VM.destroy %s" id;
 			B.VM.destroy t (VM_DB.read_exn id)
-		| VM_create id ->
-			debug "VM.create %s" id;
-			B.VM.create t (VM_DB.read_exn id)
+		| VM_create (id, memory_upper_bound) ->
+			debug "VM.create %s memory_upper_bound = %s" id (Opt.default "None" (Opt.map Int64.to_string memory_upper_bound));
+			B.VM.create t memory_upper_bound (VM_DB.read_exn id)
 		| VM_build id ->
 			debug "VM.build %s" id;
 			let vbds : Vbd.t list = VBD_DB.vbds id in
@@ -1053,6 +1053,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			VM_DB.signal id
 		| VM_migrate (id, vdi_map, vif_map, url') ->
 			debug "VM.migrate %s -> %s" id url';
+			let vm = VM_DB.read_exn id in
 			let open Xmlrpc_client in
 			let open Xenops_client in
 			let url = url' |> Http.Url.of_string in
@@ -1074,9 +1075,22 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			debug "Received id = %s" id;
 			let suffix = Printf.sprintf "/memory/%s" id in
 			let memory_url = Http.Url.(set_uri url (get_uri url ^ suffix)) in
+
+			(* CA-78365: set the memory dynamic range to a single value to stop ballooning. *)
+			let atomic = VM_set_memory_dynamic_range(id, vm.Vm.memory_dynamic_min, vm.Vm.memory_dynamic_min) in
+			let (_: unit) = perform_atomic ~subtask:(string_of_atomic atomic) ~progress_callback:(fun _ -> ()) atomic t in
+
+			(* Find out the VM's current memory_limit: this will be used to allocate memory on the receiver *)
+			let state = B.VM.get_state vm in
+			info "VM %s has memory_limit = %Ld" id state.Vm.memory_limit;
+
 			with_transport (transport_of_url memory_url)
 				(fun mfd ->
-					Http_client.rpc mfd (Xenops_migrate.http_put memory_url ~cookie:["instance_id", instance_id; "dbg", t.Xenops_task.debug_info])
+					Http_client.rpc mfd (Xenops_migrate.http_put memory_url ~cookie:[
+						"instance_id", instance_id;
+						"dbg", t.Xenops_task.debug_info;
+						"memory_limit", Int64.to_string state.Vm.memory_limit;
+					])
 						(fun response _ ->
 							debug "XXX transmit memory";
 							perform_atomics [
@@ -1096,7 +1110,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			) in
 			perform_atomics atomics t;
 			VM_DB.signal id
-		| VM_receive_memory (id, s) ->
+		| VM_receive_memory (id, memory_limit, s) ->
 			debug "VM.receive_memory %s" id;
 			let state = B.VM.get_state (VM_DB.read_exn id) in
 			debug "VM.receive_memory %s power_state = %s" id (state.Vm.power_state |> rpc_of_power_state |> Jsonrpc.to_string);
@@ -1104,7 +1118,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			response |> Http.Response.to_wire_string |> Unixext.really_write_string s;
 			debug "VM.receive_memory calling create";
 			perform_atomics [
-				VM_create id;
+				VM_create (id, Some memory_limit);
 				VM_restore (id, FD s);
 			] t;
 			debug "VM.receive_memory restore complete";
@@ -1447,7 +1461,7 @@ module VM = struct
 	let list _ dbg () =
 		Debug.with_thread_associated dbg (fun () -> DB.list ()) ()
 
-	let create _ dbg id = queue_operation dbg id (Atomic(VM_create id))
+	let create _ dbg id = queue_operation dbg id (Atomic(VM_create (id, None)))
 
 	let build _ dbg id = queue_operation dbg id (Atomic(VM_build id))
 
@@ -1509,6 +1523,7 @@ module VM = struct
 
 	let receive_memory req s _ : unit =
 		let dbg = List.assoc "dbg" req.Http.Request.cookie in
+		let memory_limit = List.assoc "memory_limit" req.Http.Request.cookie |> Int64.of_string in
 		let is_localhost, id = Debug.with_thread_associated dbg
 			(fun () ->
 				debug "VM.receive_memory";
@@ -1521,7 +1536,7 @@ module VM = struct
 				debug "VM.receive_memory id = %s is_localhost = %b" id is_localhost;
 				is_localhost, id
 			) () in
-		let op = VM_receive_memory(id, s) in
+		let op = VM_receive_memory(id, memory_limit, s) in
 		(* If it's a localhost migration then we're already in the queue *)
 		let open Xenops_client in
 		if is_localhost
