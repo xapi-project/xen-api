@@ -38,12 +38,11 @@ let vdi_of_req ~__context (req: Request.t) =
 	then Ref.of_string vdi 
 	else Db.VDI.get_by_uuid ~__context ~uuid:vdi
 
-let localhost_handler rpc session_id (req: Request.t) (s: Unix.file_descr) =
+let localhost_handler rpc session_id vdi (req: Request.t) (s: Unix.file_descr) =
   req.Request.close <- true;
   Xapi_http.with_context "Importing raw VDI" req s
     (fun __context ->
 	let all = req.Request.query @ req.Request.cookie in
-      let vdi = vdi_of_req ~__context req in
       let chunked = List.mem_assoc "chunked" all in
       let task_id = Context.get_task_id __context in
 	 debug "import_raw_vdi task_id = %s vdi = %s; chunked = %b" (Ref.string_of task_id) (Ref.string_of vdi) chunked;
@@ -84,7 +83,7 @@ let return_302_redirect (req: Request.t) s address =
 	debug "HTTP 302 redirect to: %s" url;
 	Http_svr.headers s headers
 
-let handler (req: Request.t) (s: Unix.file_descr) _ =
+let import vdi (req: Request.t) (s: Unix.file_descr) _ =
 	Xapi_http.assert_credentials_ok "VDI.import" ~http_action:"put_import_raw_vdi" req;
 
 	(* Perform the SR reachability check using a fresh context/task because
@@ -93,11 +92,10 @@ let handler (req: Request.t) (s: Unix.file_descr) _ =
 	(fun __context -> 
 		Helpers.call_api_functions ~__context 
 		(fun rpc session_id ->
-			let vdi = vdi_of_req ~__context req in
 			let sr = Db.VDI.get_SR ~__context ~self:vdi in
 			debug "Checking whether localhost can see SR: %s" (Ref.string_of sr);
 			if (Importexport.check_sr_availability ~__context sr)
-			then localhost_handler rpc session_id req s
+			then localhost_handler rpc session_id vdi req s
 			else 
 				let host = Importexport.find_host_for_sr ~__context sr in
 				let address = Db.Host.get_address ~__context ~self:host in
@@ -105,3 +103,13 @@ let handler (req: Request.t) (s: Unix.file_descr) _ =
 		)
        )
 
+
+let handler (req: Request.t) (s: Unix.file_descr) _ =
+	Xapi_http.assert_credentials_ok "VDI.import" ~http_action:"put_import_raw_vdi" req;
+
+	(* Using a fresh context/task because we don't want to complete the
+	   task in the forwarding case *)
+	Server_helpers.exec_with_new_task "VDI.import" 
+	(fun __context ->
+		import (vdi_of_req ~__context req) req s ()
+	)
