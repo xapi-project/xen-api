@@ -60,7 +60,7 @@ module type S = sig
 		val send_debug_keys: string -> unit
 	end
 	module VM : sig
-		val create: Xenops_task.t -> Vm.t -> unit
+		val create: Xenops_task.t -> int64 option -> Vm.t -> unit
 		val build: Xenops_task.t -> Vm.t -> Vbd.t list -> Vif.t list -> unit (* XXX cancel *)
 		val create_device_model: Xenops_task.t -> Vm.t -> bool -> unit
 		val destroy_device_model: Xenops_task.t -> Vm.t -> unit
