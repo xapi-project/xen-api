@@ -3,6 +3,48 @@ open Listext
 open Threadext
 open Forkhelpers
 
+(* Tapdisk stats *)
+module Stats = struct
+	module Tap = struct 
+		type t = {
+			minor: int;
+			reqs: (int64 * int64);
+			kicks: (int64 * int64);
+		} with rpc
+	end
+
+	module Driver = struct 
+		type t = {
+			ty : int;
+			name : string;
+		} with rpc
+
+		let rpc_of_t x = match (rpc_of_t x) with | Rpc.Dict x -> Rpc.Dict (List.map (function ("ty",y) -> ("type",y) | x -> x) x) | y -> y
+		let t_of_rpc rpc = t_of_rpc (match rpc with | Rpc.Dict x -> Rpc.Dict (List.map (function ("type",y) -> ("ty",y) | x -> x) x ) | y -> y) 
+
+	end
+
+	module Image = struct
+		type t = {
+			name : string;
+			hits : int64 * int64;
+			fail : int64 * int64;
+			driver : Driver.t
+		} with rpc
+	end
+		
+	type t = {
+		name : string;
+		secs : (int64 * int64);
+		images : Image.t list;
+		tap : Tap.t;
+		nbd_mirror_failed : int;
+	} with rpc
+end
+	
+	
+	
+	
 type tapdev = {
 	minor : int;
 	tapdisk_pid : int;
@@ -230,7 +272,14 @@ module Dummy = struct
 					| _ -> None) list)
 
 	let stats ctx t =
-		"{ \"name\": \"(null)\", \"secs\": [ 0, 0 ], \"images\": [  ], \"tap\": { \"minor\": 2, \"reqs\": [ 0, 0 ], \"kicks\": [ 0, 0 ] }, \"FIXME_enospc_redirect_count\": 0, \"nbd_mirror_failed\": 0 }"
+		let open Stats in 
+		{ name = "none";
+		  secs = 0L,0L;
+		  images = [];
+		  tap = { Tap.minor = t.minor;
+		          reqs = 0L,0L;
+				  kicks = 0L,0L; };
+		  nbd_mirror_failed = 0; }
 end
  		
 
@@ -343,7 +392,7 @@ let is_active ctx t =
 
 let stats ctx t =
 	if ctx.dummy then Dummy.stats ctx t else begin
-		invoke_tap_ctl ctx "stats" (args t)
+		Stats.t_of_rpc (Jsonrpc.of_string (invoke_tap_ctl ctx "stats" (args t)))
 	end
 
 (* We need to be able to check that a given device's major number corresponds to the right driver *)
