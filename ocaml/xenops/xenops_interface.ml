@@ -176,6 +176,7 @@ module Vm = struct
 		consoles: console list;
 		memory_target: int64;
 		memory_actual: int64;
+		memory_limit: int64;
 		vcpu_target: int; (* actual number of vcpus *)
 		shadow_multiplier_target: float; (* actual setting *)
 		rtc_timeoffset: string;
