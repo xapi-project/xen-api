@@ -833,9 +833,9 @@ let pid ~xs domid =
 (* Look up the commandline args for the vncterm pid; *)
 (* Check that they include the vncterm binary path and the xenstore console path for the supplied domid. *)
 let is_cmdline_valid domid pid =
-	let cmdline_path = Printf.sprintf "/proc/%d/cmdline" pid in
-	let cmdline = Unix.openfile cmdline_path [Unix.O_RDONLY] 0
-		|> Unixext.try_read_string
+	let cmdline =
+		Printf.sprintf "/proc/%d/cmdline" pid
+		|> Unixext.string_of_file
 		|> String.split '\000'
 	in
 	if (List.mem vncterm_path cmdline) && (List.mem (vnc_console_path domid) cmdline)
