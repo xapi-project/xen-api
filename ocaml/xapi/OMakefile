@@ -184,7 +184,6 @@ XAPI_MODULES = $(COMMON) \
 	monitor_rrds \
 	monitor_fake \
 	monitor_fake_common \
-	monitor \
 	rrd \
 	api_server \
 	create_misc \
