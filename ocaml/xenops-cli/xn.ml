@@ -497,12 +497,12 @@ let import_metadata filename =
 	let id = Client.VM.import_metadata dbg txt in
 	Printf.printf "%s\n" id
 
-let start x paused =
+let start x paused task =
 	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.start dbg vm.id |> wait_for_task dbg |> success_task ignore_task;
+	Client.VM.start dbg vm.id |> wait_for_task dbg |> task;
 	if not paused
-	then Client.VM.unpause dbg vm.id |> wait_for_task dbg |> success_task ignore_task
+	then Client.VM.unpause dbg vm.id |> wait_for_task dbg |> task
 
 let shutdown x timeout =
 	let open Vm in
@@ -740,9 +740,9 @@ let _ =
 		| [ "import-metadata"; filename ] ->
 			import_metadata filename
 		| [ "start"; id; "paused" ] ->
-			start id true
+			start id true task
 		| [ "start"; id ] ->
-			start id false
+			start id false task
 		| [ "pause"; id ] ->
 			pause id |> task
 		| [ "unpause"; id ] ->
