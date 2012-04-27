@@ -49,6 +49,7 @@ install:
 	$(IPROG) init.d-genptoken $(DESTDIR)/etc/rc.d/init.d/genptoken
 	$(IPROG) xe-networkd $(DESTDIR)$(BINDIR)
 	$(IPROG) init.d-networkd $(DESTDIR)/etc/rc.d/init.d/xcp-networkd
+	$(IPROG) init.d-rrdd $(DESTDIR)/etc/rc.d/init.d/xcp-rrdd
 	$(IPROG) init.d-v6d $(DESTDIR)/etc/rc.d/init.d/v6d
 	$(IDATA) v6d-logrotate $(DESTDIR)/etc/logrotate.d/v6d
 	mkdir -p $(DESTDIR)$(ETCDIR)/master.d

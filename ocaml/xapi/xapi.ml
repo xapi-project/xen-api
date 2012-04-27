@@ -921,8 +921,6 @@ let server_init() =
       "heartbeat thread", [ Startup.NoExnRaising; Startup.OnThread ], Db_gc.start_heartbeat_thread;
       "resynchronising HA state", [ Startup.NoExnRaising ], resynchronise_ha_state;
       "pool db backup", [ Startup.OnlyMaster; Startup.OnThread ], Pool_db_backup.pool_db_backup_thread;
-      "monitor", [ Startup.OnThread ], Monitor.loop;
-      "monitor_dbcalls", [Startup.OnThread], Monitor_dbcalls.monitor_dbcall_thread;
       "touching ready file", [], (fun () -> Helpers.touch_file !Xapi_globs.ready_file);
        (* -- CRITICAL: this check must be performed before touching shared storage *)
       "Performing no-other-masters check", [ Startup.OnlyMaster ], check_no_other_masters;
