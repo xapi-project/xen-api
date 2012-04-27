@@ -49,6 +49,7 @@ ocaml/auth/testauth
 ocaml/auth/testauthx
 ocaml/xapi/at_least_once_more
 ocaml/xapi/config_constants.ml
+ocaml/xapi/storage_impl_test
 ocaml/xapi/storage_interface.mli
 js/devweb/api.js
 ocaml/util/pciutil
