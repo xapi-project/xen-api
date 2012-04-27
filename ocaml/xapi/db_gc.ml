@@ -533,7 +533,7 @@ let send_one_heartbeat ~__context ?(shutting_down=false) rpc session_id =
   let localhost = Helpers.get_localhost ~__context in
   let time = Unix.gettimeofday () +. (if Xapi_fist.insert_clock_skew () then Xapi_globs.max_clock_skew *. 2. else 0.) in
   (* Transmit the list of uncooperative domains to the master *)
-  let uncooperative_domains = Monitor.get_uncooperative_domains () in
+  let uncooperative_domains = Rrdd.get_uncooperative_domains () in
 
   let stuff = 
     [ _time, string_of_float time;

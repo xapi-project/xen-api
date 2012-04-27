@@ -51,14 +51,6 @@ module Net = (val (Network.get_client ()) : Network.CLIENT)
 
 let timeslice = ref 5
 
-(** Cache memory/target values *)
-let memory_targets : (int, int64) Hashtbl.t = Hashtbl.create 20
-let memory_targets_m = Mutex.create ()
-
-(** Flags unco-operative domains *)
-let uncooperative_domains: (int, unit) Hashtbl.t = Hashtbl.create 20
-let uncooperative_domains_m = Mutex.create ()
-
 (** Table for bonds status. *)
 let bonds_status : (string, (int * int)) Hashtbl.t = Hashtbl.create 10
 let bonds_status_update : (string * int) list ref = ref []
@@ -72,18 +64,9 @@ let copy_bonds_status () = Mutex.execute bonds_status_update_m
 			 bonds_status_update := [];
 			 l)
 
-let string_of_domain_handle dh =
-  Uuid.string_of_uuid (Uuid.uuid_of_int_array dh.Xenctrl.handle)
-
 let uuid_of_domid domains domid = 
   try string_of_domain_handle (List.find (fun di -> di.Xenctrl.domid = domid) domains)
   with Not_found -> failwith (Printf.sprintf "Failed to find uuid corresponding to domid: %d" domid)
-
-let get_uncooperative_domains () = 
-  let domids = Mutex.execute uncooperative_domains_m (fun () -> Hashtbl.fold (fun domid _ acc -> domid::acc) uncooperative_domains []) in
-  let dis = Xenctrl.with_intf (fun xc -> Xenctrl.domain_getinfolist xc 0) in
-  let dis_uncoop = List.filter (fun di -> List.mem di.Xenctrl.domid domids) dis in
-  List.map string_of_domain_handle dis_uncoop
 
 (*****************************************************)
 (* cpu related code                                  *)
@@ -422,16 +405,7 @@ type last_vals = {
 }
 
 let last_cache_stats = ref None
-let cache_sr_uuid = ref None
-let cache_sr_lock = Mutex.create () 
 let cached_cache_dss = ref []
-
-(* Avoid a db lookup every 5 secs by caching the cache sr uuid. Set by xapi_host and dbsync_slave *)
-let set_cache_sr sr_uuid = 
-	Mutex.execute cache_sr_lock (fun () -> cache_sr_uuid := Some sr_uuid)
-
-let unset_cache_sr () =
-	Mutex.execute cache_sr_lock (fun () -> cache_sr_uuid := None)
 
 let tapdisk_cache_stats = Filename.concat Fhs.bindir "tapdisk-cache-stats"
 
@@ -489,7 +463,6 @@ let read_cache_stats timestamp =
 				dss
 			end else !cached_cache_dss
 
-      
 let read_all_dom0_stats __context =
   let handle_exn log f default =
     try f()
@@ -529,7 +502,6 @@ let read_all_dom0_stats __context =
       (all_stats,uuids,pifs,timestamp,my_rebooting_vms, my_paused_domain_uuids)
   ))
 
-  
 let do_monitor __context xc =
   Stats.time_this "monitor"
     (fun () ->
@@ -558,14 +530,3 @@ let loop () =
 		Server_helpers.exec_with_new_task "performance monitor"
 		                    (fun __context -> _loop __context xc)
 	)
-
-let on_restart () =
-	Mutex.execute Rrd_shared.mutex
-		(fun () ->
-			(* Explicitly dirty all VM memory values *)
-			let uuids = Vmopshelpers.with_xc
-				(fun xc -> List.map (fun di -> Uuid.to_string (Uuid.uuid_of_int_array di.Xenctrl.handle))
-					(Xenctrl.domain_getinfolist xc 0)) in
-			Rrd_shared.dirty_memory := List.fold_left (fun acc x -> Rrd_shared.StringSet.add x acc) Rrd_shared.StringSet.empty uuids;
-			Rrd_shared.dirty_host_memory := true;
-			Condition.broadcast Rrd_shared.condition)
