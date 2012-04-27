@@ -464,7 +464,7 @@ let current_uncooperative_domains = ref StringSet.empty
 let update_vm_cooperativeness ~__context = 
   (* Fetch the set of slave domain uuids which are currently uncooperative *)
   let domains = Mutex.execute host_table_m (fun () -> Hashtbl.fold (fun _ ds acc -> List.fold_left (fun acc x -> StringSet.add x acc) acc ds) host_uncooperative_domains_table StringSet.empty) in
-  let domains = List.fold_left (fun acc x -> StringSet.add x acc) domains (Monitor.get_uncooperative_domains ()) in
+  let domains = List.fold_left (fun acc x -> StringSet.add x acc) domains (Rrdd.get_uncooperative_domains ()) in
 
   (* New uncooperative domains: *)
   let uncooperative_domains = StringSet.diff domains !current_uncooperative_domains in
