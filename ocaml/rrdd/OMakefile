@@ -1,5 +1,5 @@
 OCAMLINCLUDES = .. interface
-OCAMLPACKS    = xml-light2 stunnel http-svr
+OCAMLPACKS    = xml-light2 stunnel http-svr xenctrl
 
 UseCamlp4(rpc-light.syntax, rrdd_server)
 
