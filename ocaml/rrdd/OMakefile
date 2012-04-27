@@ -1,0 +1,26 @@
+OCAMLINCLUDES = ..
+OCAMLPACKS    = xml-light2 stunnel http-svr
+
+UseCamlp4(rpc-light.idl, rrdd_interface)
+UseCamlp4(rpc-light.syntax, rrdd_server)
+
+RRDD_SERVER = rrdd_server
+RRDD_SERVER_FILES = rrdd_main rrdd_interface rrdd_server
+RRDD_TEST = rrdd_test
+RRDD_TEST_FILES = rrdd_test rrdd_interface
+
+OCamlProgram($(RRDD_SERVER), $(RRDD_SERVER_FILES))
+OCamlDocProgram($(RRDD_SERVER), $(RRDD_SERVER_FILES))
+OCamlProgram($(RRDD_TEST), $(RRDD_TEST_FILES))
+
+.PHONY: test
+test: $(RRDD_SERVER) $(RRDD_TEST)
+	killall $(RRDD_SERVER) || true
+	./$(RRDD_SERVER) -daemon
+	./$(RRDD_TEST)
+	killall $(RRDD_SERVER) || true
+
+.PHONY: clean
+clean:
+	rm -f *.cmi *.cmx *.cmo *.a *.cma *.run *.opt *.annot *.o *.orig *.spit *.spot *.omc
+	rm -f $(RRDD_SERVER) $(RRDD_TEST)
