@@ -15,5 +15,4 @@
 (* The framework requires type 'context' to be defined. *)
 type context = unit
 
-(* Definitions of extern functions declared in daemon_interface.ml. *)
-let hello _ name = Printf.sprintf "Hello, %s!" name
+let get_uncooperative_domains _ () = []

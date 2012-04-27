@@ -26,4 +26,4 @@ module Rpc =
 	(val (make_rpc (Filename.concat Fhs.vardir Rrdd_interface.name)) : Rrdd_interface.RPC)
 
 (* Make the RRDD interface available directly to anyone using this module.*)
-open Rrdd_interface.Client(Rpc)
+include Rrdd_interface.Client(Rpc)
