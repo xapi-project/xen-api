@@ -4,7 +4,7 @@ OCAML_LIBS    = ../fhs ../util/version ../util/vm_memory_constraints ../util/san
 OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
 	../autogen ../database/ \
 	../xenops ../xva ../util \
-	../auth ../license ../client_records ../rfb ../gpg ../network ..
+	../auth ../license ../client_records ../rfb ../gpg ../network ../rrdd/interface ..
 
 UseCamlp4(rpc-light.syntax, features rrd monitor_fake monitor_fake_common vdi_automaton storage_impl xapi_udhcpd storage_migrate xapi_services system_domains)
 UseCamlp4(rpc-light.idl, storage_interface)
@@ -268,7 +268,9 @@ XAPI_MODULES = $(COMMON) \
 	xapi_pci \
 	xapi_pgpu \
 	xapi_gpu_group \
-	xapi_vgpu
+	xapi_vgpu \
+	../rrdd/interface/rrdd_interface \
+	../rrdd/interface/rrdd
 
 OCamlProgram(xapi, xapi $(XAPI_MODULES))
 OCamlDocProgram(xapi, xapi $(XAPI_MODULES))

@@ -1,0 +1,9 @@
+OCAMLINCLUDES = $(ROOT)/ocaml
+OCAMLPACKS    = http-svr
+OCAML_LIBS    = 
+
+UseCamlp4(rpc-light.idl, rrdd_interface)
+
+.PHONY: clean
+clean:
+	rm -f *.annot *.cmi *.cmx *.o *.spot

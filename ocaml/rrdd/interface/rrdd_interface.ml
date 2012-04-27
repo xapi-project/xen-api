@@ -21,4 +21,4 @@
 let name = "xcp-rrdd"
 
 (* The interface is defined by extern function declarations. *)
-external hello : string -> string = ""
+external get_uncooperative_domains : unit -> string list = ""
