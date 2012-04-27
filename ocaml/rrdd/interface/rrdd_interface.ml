@@ -21,4 +21,13 @@
 let name = "xcp-rrdd"
 
 (* The interface is defined by extern function declarations. *)
+
+external add_to_uncooperative_domains : domid:int -> unit = ""
+external remove_from_uncooperative_domains : domid:int -> unit = ""
 external get_uncooperative_domains : unit -> string list = ""
+external is_domain_cooperative : domid:int -> bool = ""
+
+external update_vm_memory_target : domid:int -> target:int64 -> unit = ""
+
+external set_cache_sr : sr_uuid:string -> unit = ""
+external unset_cache_sr : unit -> unit = ""
