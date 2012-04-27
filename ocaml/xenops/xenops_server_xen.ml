@@ -612,7 +612,9 @@ module VM = struct
 				Mem.with_reservation ~xc ~xs ~min:min_kib ~max:max_kib
 					(fun target_plus_overhead_kib reservation_id ->
 						DB.write k vmextra;
-						let domid = Domain.make ~xc ~xs vmextra.VmExtra.create_info (uuid_of_vm vm) in
+						let domid = 
+							Xenops_task.with_subtask task "Domain.make"
+								(fun () -> Domain.make ~xc ~xs vmextra.VmExtra.create_info (uuid_of_vm vm)) in
 						Mem.transfer_reservation_to_domain ~xc ~xs ~domid reservation_id;
 						begin match vm.Vm.ty with
 							| Vm.HVM { Vm.qemu_stubdom = true } ->
@@ -872,7 +874,9 @@ module VM = struct
 								} in
 								make_build_info b.Bootloader.kernel_path builder_spec_info
 							) in
-			let arch = Domain.build task ~xc ~xs build_info domid in
+			let arch =
+				Xenops_task.with_subtask task "Domain.build"
+					(fun () -> Domain.build task ~xc ~xs build_info domid) in
 			Int64.(
 				let min = to_int (div vm.Vm.memory_dynamic_min 1024L)
 				and max = to_int (div vm.Vm.memory_dynamic_max 1024L) in
