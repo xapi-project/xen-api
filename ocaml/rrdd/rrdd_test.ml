@@ -30,7 +30,7 @@ let _ =
 	let open Printf in
 	printf "CLIENT: Begin.\n";
 	printf "CLIENT: Calling SERVER's hello with \"Foo\"...\n";
-	let reply = Client.hello "Foo" in
-	printf "CLIENT: SERVER replied with: \"%s\"\n" reply;
+	let _ = Client.get_uncooperative_domains () in
+	printf "CLIENT: SERVER replied.\n";
 	printf "CLIENT: End.\n"
 
