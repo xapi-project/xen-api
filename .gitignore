@@ -90,9 +90,13 @@ ocaml/idl/csharp_backend/autogen-gui
 ocaml/idl/csharp_backend/autogen-enterprise
 ocaml/idl/csharp_backend/*.dll
 ocaml/idl/csharp_backend/test.exe
+ocaml/rrdd/rrdd_client
+ocaml/rrdd/rrdd_server
+ocaml/rrdd/rrdd_test
 ocaml/templates/templateLexer.ml
 ocaml/templates/templateParser.ml
 ocaml/templates/templateParser.mli
+ocaml/xapi/storage_impl_test
 ocaml/util/version.ml
 
 stunnel-4.15/Makefile
