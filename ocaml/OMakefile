@@ -39,5 +39,6 @@ OCamlLibrary(fhs, fhs)
 	multipathrt \
 	doc \
 	network \
-	xenops-cli
-
+	xenops-cli \
+	network \
+	rrdd
