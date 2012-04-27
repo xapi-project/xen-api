@@ -198,6 +198,8 @@ let full_update_fn () =
  * in rrds, e.g. the PIF status) 
  *)
 let pifs_and_memory_update_fn () =
+()
+(* TODO FIXME XXX
   let value_to_int64 v =
     match v with 
       | Rrd.VT_Int64 x -> x
@@ -270,14 +272,15 @@ let pifs_and_memory_update_fn () =
 		Db.Bond.set_links_up ~__context ~self:(List.hd my_bonds)
 		  ~value:(Int64.of_int links_up)) bonds
     )
-
+*)
 
 
 
 let monitor_dbcall_thread () =
     while true do 
       Mutex.lock mutex;
-	  while (StringSet.is_empty !dirty_memory) && (StringSet.is_empty !dirty_pifs) && (not !full_update) && (not !dirty_host_memory) && ((List.length !Monitor.bonds_status_update) = 0) do
+	  while (StringSet.is_empty !dirty_memory) && (StringSet.is_empty !dirty_pifs) && (not !full_update) && (not !dirty_host_memory)
+		(*XXX FIXME && ((List.length !Monitor.bonds_status_update) = 0)*) do
         Condition.wait condition mutex
       done;
       

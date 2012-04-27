@@ -848,12 +848,9 @@ let update_vm ~__context id =
 									if different (fun x -> x.uncooperative_balloon_driver) then begin
 										try
 											debug "xenopsd event: Updating VM %s domid %d uncooperative_balloon_driver <- %b" id domid state.uncooperative_balloon_driver;
-											Mutex.execute Monitor.uncooperative_domains_m
-												(fun () ->
-													if state.uncooperative_balloon_driver
-													then Hashtbl.replace Monitor.uncooperative_domains domid ()
-													else Hashtbl.remove Monitor.uncooperative_domains domid
-												)
+											if state.uncooperative_balloon_driver
+											then Rrdd.add_to_uncooperative_domains ~domid
+											else Rrdd.remove_from_uncooperative_domains ~domid
 										with e ->
 											error "Caught %s: while updating VM %s unco-operative balloon driver flag" (Printexc.to_string e) id
 									end;
@@ -887,8 +884,7 @@ let update_vm ~__context id =
 									if different (fun x -> x.memory_target) then begin
 										try
 											debug "xenopsd event: Updating VM %s domid %d memory target" id domid;
-											Mutex.execute Monitor.memory_targets_m (fun () -> 
-												Hashtbl.replace Monitor.memory_targets domid state.memory_target)
+											Rrdd.update_vm_memory_target ~domid ~target:state.memory_target;
 										with e ->
 											error "Caught %s: while updating VM %s memory_target" (Printexc.to_string e) id
 									end;
