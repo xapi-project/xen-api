@@ -84,6 +84,7 @@ let add_device ~xs device backend_list frontend_list private_list =
 
 		t.Xst.mkdir hotplug_path;
 		t.Xst.setperms hotplug_path (device.backend.domid, Xsraw.PERM_NONE, []);
+		t.Xst.write (hotplug_path ^ "/plugging-in") "1";
 
 		t.Xst.writev frontend_path
 		             (("backend", backend_path) :: frontend_list);
@@ -571,7 +572,9 @@ let add (task: Xenops_task.t) ~xs ~hvm x domid =
 					Thread.delay 0.1
 				end else raise e (* permanent failure *)
 		done; Opt.unbox !result in
-	add_wait task ~xs device
+	(* No need to wait for the hotplug event *)
+	device
+(*	add_wait task ~xs device *)
 
 let qemu_media_change ~xs ~device_number domid _type params =
 	let devid = Device_number.to_xenstore_key device_number in

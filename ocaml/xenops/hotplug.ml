@@ -73,6 +73,10 @@ let hotplugged ~xs (x: device) =
 	debug "Checking to see whether %s" path;
 	try ignore(xs.Xs.read path); true with Xenbus.Xb.Noent -> false
 
+let plugging_in ~xs (x: device) =
+	let path = get_hotplug_path x ^ "/plugging-in" in
+	try ignore(xs.Xs.read path); true with Xenbus.Xb.Noent -> false
+
 (* The path in xenstore written to by the frontend hotplug scripts *)
 let frontend_status_node (x: device) = 
 	sprintf "%s/frontend/%s/%d/hotplug" (get_private_path x.frontend.domid) (string_of_kind x.frontend.kind) x.frontend.devid
@@ -104,7 +108,7 @@ let device_is_online ~xs (x: device) =
   | ( Vbd | Tap ) -> 
       if backend_request () 
       then not(backend_shutdown ())
-      else hotplugged ~xs x
+      else hotplugged ~xs x || plugging_in ~xs x
 
 let wait_for_plug (task: Xenops_task.t) ~xs (x: device) = 
   debug "Hotplug.wait_for_plug: %s" (string_of_device x);
