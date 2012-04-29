@@ -113,7 +113,7 @@ def create_bridge_rules(vif_name, config):
         do_chain_action(ebtables, "-A", "FORWARD", ["-o", vif_name, "-j", vif_chain])
         do_chain_action(ebtables, "-P", vif_chain, ["DROP"])
         # If the VIF is locked, we now need to create rules to allow valid traffic.
-        if config["locking_mode"] == "locked":
+        if locking_mode == "locked":
             mac = config["mac"]
             # We only support IPv4 multitenancy with bridge.
             ipv4_allowed = config["ipv4_allowed"]
