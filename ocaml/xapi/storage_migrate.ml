@@ -361,7 +361,7 @@ let receive_start ~task ~sr ~vdi_info ~similar =
 
 let receive_finalize ~task ~sr ~vdi =
 	let record = State.find_active_receive_mirror (sr,vdi) in
-	let open State.Receive_state in Opt.iter (fun r -> Local.DP.destroy ~task ~dp:r.leaf_dp ~allow_leak:true) record
+	let open State.Receive_state in Opt.iter (fun r -> Local.DP.destroy ~task ~dp:r.leaf_dp ~allow_leak:false) record
 
 let receive_cancel ~task ~sr ~vdi = ()
 
@@ -376,7 +376,7 @@ let detach_hook ~sr ~vdi ~dp =
 					debug "Calling receive_finalize";
 					Remote.Mirror.receive_finalize ~task:"Mirror-cleanup" ~sr:r.dest_sr ~vdi:r.mirror_vdi;
 					debug "Finished calling receive_finalize") () in
-				debug "Created thread %d to call receive finalize" (Thread.id t))
+				debug "Created thread %d to call receive finalize and dp destroy" (Thread.id t))
 
 let nbd_handler req s sr vdi dp =
 	debug "sr=%s vdi=%s dp=%s" sr vdi dp;
