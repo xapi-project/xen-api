@@ -22,15 +22,98 @@ open Stringext
 
 open Xmlrpc_client
 
-let default_path = Filename.concat Fhs.vardir "storage"
-let transport = ref (Unix default_path)
 
-let rpc call =
-	XMLRPC_protocol.rpc ~srcstr:"sm-cli-test" ~dststr:"smapiv2" ~transport:!transport
+let default_storage_path = Filename.concat Fhs.vardir "storage"
+let default_xapi_path = Filename.concat Fhs.vardir "xapi"
+let default_remote_storage_path = Filename.concat Fhs.vardir "storage"
+let default_remote_xapi_path = Filename.concat Fhs.vardir "xapi"
+
+let transport = ref (Unix default_storage_path)
+let xtransport = ref (Unix default_xapi_path)
+let rtransport = ref (Unix default_remote_storage_path)
+let rxtransport = ref (Unix default_remote_xapi_path)
+let session = ref ""
+let rsession = ref ""
+
+module I=struct
+        type t=int64 with rpc
+        let add=Int64.add
+        let sub=Int64.sub
+		let zero=Int64.zero
+end
+module Int64extentlist = ExtentlistSet.ExtentlistSet(I)
+
+type junk_t = (Int64extentlist.t * char) list
+
+let storage_rpc transport session call =
+	XMLRPC_protocol.rpc ~srcstr:"sm-cli-test" ~dststr:"smapi2_via_xapi" ~transport
+		~http:(xmlrpc ~version:"1.0" ~query:["session_id",session] "/services/SM") call
+
+let xapi_rpc transport call =
+	XML_protocol.rpc ~srcstr:"sm-cli-test" ~dststr:"xapi" ~transport
 		~http:(xmlrpc ~version:"1.0" "/") call
 
+let rpc = fun call -> storage_rpc !transport !session call
+let xrpc = fun call -> xapi_rpc !xtransport call
+let rrpc = fun call -> storage_rpc !rtransport !rsession call
+let rxrpc = fun call -> xapi_rpc !rxtransport call
+
+let do_nbd url sr vdi dp f =
+	let url = Http.Url.of_string url in
+ 	let path = (Printf.sprintf "/services/SM/nbd/%s/%s/%s" sr vdi dp) in
+	let dest_url = Http.Url.set_uri url path in
+	let request = Http.Request.make ~query:(Http.Url.get_query_params url) 
+		~user_agent:"smtest" Http.Put path in
+	let transport = Xmlrpc_client.transport_of_url dest_url in
+	with_transport transport (with_http request (fun (response, s) -> f s))
+
+exception Bad_junk
+
+(* Helpers *)
+let write_char fd c start len =
+	Printf.printf "write_char: %c sector:%Ld nsectors:%d\n%!" c start len;
+	if len*512 > Sys.max_string_length then failwith "len too large";
+	let s = String.make (len*512) c in
+	ignore(Nbd.write fd s (Int64.mul 512L start))
+		
+let write_junk fd size n current_junk =
+	let maxsize = (1024*2) (*Sys.max_string_length*) in
+	let maxsizeL = Int64.of_int maxsize in
+	let rec inner m cur =
+        if m=n then cur else
+            let char = Char.chr (Random.int 255) in
+            let start = Random.int64 (Int64.sub size maxsizeL) in
+            let len = Random.int maxsize in
+            write_char fd char start len;
+            let myextentlist = Int64extentlist.of_list [(start,Int64.of_int len)] in
+            inner (m+1) ((myextentlist,char)::(List.map (fun (extlist,c) -> (Int64extentlist.difference extlist myextentlist, c)) cur))
+	in
+	inner 0 current_junk
+		
+let check_junk fd junk =
+    let rec inner j =
+        match j with 
+            | (extentlist,c)::rest ->
+                List.iter (fun (start,len64) ->
+                    let len = 512 * (Int64.to_int len64) in
+                    let s = match Nbd.read fd (Int64.mul start 512L) (Int32.of_int len) with Some s -> s | None -> failwith "Failed to read" in
+                    let check = String.make len c in
+					Printf.printf "Checking %d at sector offset %Ld, size %Ld sectors\n" (Char.code c) start len64;
+                    if String.compare s check <> 0 then raise Bad_junk)
+					(Int64extentlist.to_list extentlist);
+                inner rest
+            | _ -> ()
+    in
+    inner junk
+
+
+		
+(**open Storage_interface*)
+module SMClient = Storage_interface.Client(struct let rpc = rpc end)
+module RSMClient = Storage_interface.Client(struct let rpc = rrpc end)
+module XapiClient = Client.Client
+
 open Storage_interface
-module Client = Storage_interface.Client(struct let rpc = rpc end)
 
 let task = "sm-test"
 
@@ -42,13 +125,13 @@ let usage_and_exit () =
 	exit 1
 
 let find_vdi_in_scan sr vdi =
-	let results = Client.SR.scan ~task ~sr in
+	let results = SMClient.SR.scan ~task ~sr in
 	try
 		Some (List.find (fun x -> x.vdi = vdi) results)
 	with Not_found ->
 		None
 
-let test_query sr _ = let (_: query_result) = Client.query () in ()
+let test_query sr _ = let (_: query_result) = SMClient.query () in ()
 
 let missing_vdi = "missing"
 
@@ -56,10 +139,10 @@ let test_scan_missing_vdi sr _ =
 	match find_vdi_in_scan sr missing_vdi with
 		| Some vdi -> failwith (Printf.sprintf "SR.scan found a VDI that was supposed to be missing: %s" (string_of_vdi_info vdi))
 		| None -> ()
-
+			
 let test_destroy_missing_vdi sr _ =
 	try
-		Client.VDI.destroy ~task ~sr ~vdi:missing_vdi;
+		SMClient.VDI.destroy ~task ~sr ~vdi:missing_vdi;
 		failwith "VDI.destroy unexpectedly succeeded"
 	with 
 		| Vdi_does_not_exist -> ()
@@ -105,7 +188,7 @@ let example_vdi_info =
 let test_create_destroy sr _ =
 	let vdi_info = example_vdi_info in
 	let vdi_info' = 
-		let vdi_info' = Client.VDI.create ~task ~sr ~vdi_info ~params:[] in
+		let vdi_info' = SMClient.VDI.create ~task ~sr ~vdi_info ~params:[] in
 		vdi_info_assert_equal vdi_info vdi_info';
 		vdi_info'
 	in
@@ -113,53 +196,149 @@ let test_create_destroy sr _ =
 		| None -> failwith (Printf.sprintf "SR.scan failed to find vdi: %s" (string_of_vdi_info vdi_info'))
 		| Some vdi_info'' -> vdi_info_assert_equal vdi_info' vdi_info''
 	end;
-	Client.VDI.destroy ~task ~sr ~vdi:vdi_info'.vdi;
+	SMClient.VDI.destroy ~task ~sr ~vdi:vdi_info'.vdi;
 	begin match find_vdi_in_scan sr vdi_info'.vdi with
 		| Some vdi_info''' -> failwith (Printf.sprintf "SR.scan found a VDI that was just deleted: %s" (string_of_vdi_info vdi_info'''))
 		| None -> ()
 	end
 
-let test_attach_activate sr _ =
-	let vdi_info = Client.VDI.create ~task ~sr ~vdi_info:example_vdi_info ~params:[] in
+let test_attach_activate url sr _ =
+	let vdi_info = SMClient.VDI.create ~task ~sr ~vdi_info:example_vdi_info ~params:[] in
 	let dp = "test_attach_activate" in
-	let _ = Client.VDI.attach ~task ~sr ~dp ~vdi:vdi_info.vdi ~read_write:true in
-	Client.VDI.activate ~task ~sr ~dp ~vdi:vdi_info.vdi;
-	Client.VDI.destroy ~task ~sr ~vdi:vdi_info.vdi
+	let _ = SMClient.VDI.attach ~task ~sr ~dp ~vdi:vdi_info.vdi ~read_write:true in
+	SMClient.VDI.activate ~task ~sr ~dp ~vdi:vdi_info.vdi;
+	do_nbd url sr vdi_info.vdi dp (fun s ->
+		let (size,_) = Nbd.negotiate s in
+		Printf.printf "size=%Ld\n" size;
+		let secsize = Int64.div size 512L in
+		let junk = write_junk s secsize 10 [(Int64extentlist.of_list [(0L,secsize)],Char.chr 0)] in
+		check_junk s junk;
+		let junk2 = 
+			let (e,c) = List.hd junk in 
+			let newc = if c='x' then 'y' else 'x' in
+			List.rev ((e,newc)::List.tl junk)
+		in
+		let success = try check_junk s junk2; false with _ -> true in
+		if success 
+		then Printf.printf "OK\n"
+		else Printf.printf "Not OK!\n"
+	);
+	SMClient.VDI.destroy ~task ~sr ~vdi:vdi_info.vdi
+
+let test_mirror_1 url sr rurl rsr _ =
+	let vdi_info = SMClient.VDI.create ~task ~sr ~vdi_info:example_vdi_info ~params:[] in
+	let dp = "test_attach_activate" in
+	ignore(SMClient.VDI.attach ~task ~sr ~dp ~vdi:vdi_info.vdi ~read_write:true);
+	SMClient.VDI.activate ~task ~sr ~dp ~vdi:vdi_info.vdi;
+	let junk = do_nbd url sr vdi_info.vdi dp (fun s ->
+		let (size,_) = Nbd.negotiate s in
+		Printf.printf "size=%Ld\n" size;
+		let secsize = Int64.div size 512L in
+		let junk = write_junk s secsize 10 [(Int64extentlist.of_list [(0L,secsize)],Char.chr 0)] in
+		check_junk s junk;
+		let junk2 = 
+			let (e,c) = List.hd junk in 
+			let newc = if c='x' then 'y' else 'x' in
+			List.rev ((e,newc)::List.tl junk)
+		in
+		let success = try check_junk s junk2; false with _ -> true in
+		(if success 
+		then Printf.printf "OK\n"
+		else Printf.printf "Not OK!\n");
+		junk		
+	) in
+
+	(* At this point, we have a VDI containing data with which we can mirror *)
+
+	let remote_vdi_info = SMClient.Mirror.start ~task ~sr ~vdi:vdi_info.vdi ~dp ~url:rurl ~dest:rsr in
+	let junk = do_nbd url sr vdi_info.vdi dp (fun s ->
+		let (size,_) = Nbd.negotiate s in
+		Printf.printf "size=%Ld\n" size;
+		let secsize = Int64.div size 512L in
+		let junk = write_junk s secsize 10 junk in
+		check_junk s junk;
+		let junk2 = 
+			let (e,c) = List.hd junk in 
+			let newc = if c='x' then 'y' else 'x' in
+			List.rev ((e,newc)::List.tl junk)
+		in
+		let success = try check_junk s junk2; false with _ -> true in
+		(if success 
+		then Printf.printf "OK\n"
+		else Printf.printf "Not OK!\n");
+		junk		
+	) in
+
+
+	
+	(*  *)
+
+	SMClient.VDI.deactivate ~task ~sr ~dp ~vdi:vdi_info.vdi;
+	SMClient.VDI.detach ~task ~sr ~dp ~vdi:vdi_info.vdi;
+	SMClient.VDI.destroy ~task ~sr ~vdi:vdi_info.vdi;
+	ignore(RSMClient.VDI.attach ~task ~sr:rsr ~dp ~vdi:remote_vdi_info.vdi ~read_write:true);
+	RSMClient.VDI.activate ~task ~sr:rsr ~dp ~vdi:remote_vdi_info.vdi;
+	do_nbd rurl rsr remote_vdi_info.vdi dp (fun s ->
+		let (size,_) = Nbd.negotiate s in
+		Printf.printf "Mirror VDI: size=%Ld\n" size;
+		check_junk s junk;
+		let junk2 = 
+			let (e,c) = List.hd junk in 
+			let newc = if c='x' then 'y' else 'x' in
+			List.rev ((e,newc)::List.tl junk)
+		in
+		let success = try check_junk s junk2; false with _ -> true in
+		if success 
+		then Printf.printf "Mirror VDI: OK\n"
+		else Printf.printf "Mirror VDI: Not OK!\n"
+	);
+	RSMClient.VDI.destroy ~task ~sr:rsr ~vdi:remote_vdi_info.vdi
 
 let _ =
 	let verbose = ref false in
 	let sr = ref "" in
-	let unix_path = ref "" in
-	let host_port = ref "" in
+	let rsr = ref "" in
+	let host = ref "localhost" in
+	let host2 = ref "localhost" in
+	let username = ref "root" in
+	let password = ref "xenroot" in
 
 	Arg.parse [
 		"-sr", Arg.Set_string sr, "Specify SR";
+		"-rsr", Arg.Set_string rsr, "Specify remote SR";
 		"-verbose", Arg.Unit (fun _ -> verbose := true), "Run in verbose mode";
-		"-tcp", Arg.Set_string host_port, "Connect via TCP to a host:port";
-		"-unix", Arg.Set_string unix_path, Printf.sprintf "Connect via a Unix domain socket (default %s)" default_path
+		"-host", Arg.Set_string host, "Host to connect to (defaults to localhost)";
+		"-host2", Arg.Set_string host2, "Second host to connect to for mirroring (can be the same as host1)";
+		"-username", Arg.Set_string username, "Xapi username";
+		"-password", Arg.Set_string password, "Xapi password";
 	] (fun x -> Printf.fprintf stderr "Ignoring argument: %s\n" x)
 		"Test via storage backend";
 
 	if !sr = "" then failwith "Please supply -sr argument";
 
-	if !host_port <> "" && (!unix_path <> "") then failwith "Please supply either -tcp OR -unix";
+	rxtransport := (TCP (!host2, 80));
+	rtransport := (TCP (!host2, 80));
 
-	if !host_port <> "" then begin
-		match String.split ~limit:2 ':' !host_port with
-			| [ host; port ] ->
-				transport := TCP(host, int_of_string port)
-			| _ -> failwith "Failed to parse host:port"
-	end;
-	if !unix_path <> "" then transport := Unix(!unix_path);
+	let localsession = XapiClient.Session.login_with_password xrpc !username !password "1.0" in
+	session := Ref.string_of localsession;
 
-	let suite = "Storage test" >::: 
-		[
-			"test_query" >:: (test_query !sr);
-			"test_scan_missing_vdi" >:: (test_scan_missing_vdi !sr);
-			"test_destroy_missing_vdi" >:: (test_destroy_missing_vdi !sr);
-			"test_create_destroy" >:: (test_create_destroy !sr);
-			"test_attach_activate" >:: (test_attach_activate !sr);
-		] in
+	let remotesession = XapiClient.Session.login_with_password rxrpc !username !password "1.0" in
+	rsession := Ref.string_of remotesession;
 
-	run_test_tt ~verbose:!verbose suite
+	let url = Printf.sprintf "http://%s/services/SM?session_id=%s" !host !session in
+	let rurl = Printf.sprintf "http://%s/services/SM?session_id=%s" !host2 !rsession in
+
+	Pervasiveext.finally (fun () -> 
+		let suite = "Storage test" >::: 
+			[
+				"test_query" >:: (test_query !sr);
+				"test_scan_missing_vdi" >:: (test_scan_missing_vdi !sr);
+				"test_destroy_missing_vdi" >:: (test_destroy_missing_vdi !sr);
+				"test_create_destroy" >:: (test_create_destroy !sr);
+				"test_attach_activate" >:: (test_attach_activate url !sr);
+				"test_mirror" >:: (test_mirror_1 url !sr rurl !rsr);
+			] in
+		
+		run_test_tt ~verbose:!verbose suite
+			) (fun () -> ())
 
