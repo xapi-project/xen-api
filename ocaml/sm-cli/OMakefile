@@ -1,6 +1,8 @@
-OCAML_LIBS    =
-OCAMLINCLUDES = ../xapi ..
-OCAMLPACKS    = xml-light2 stdext stunnel log http-svr oUnit
+OCAML_LIBS    = ../fhs ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client 
+OCAMLINCLUDES = .. ../xapi ../idl/ocaml_backend/ ../idl ../autogen 
+OCAMLPACKS    = xml-light2 stdext stunnel log http-svr oUnit rpc-light.syntax nbd 
+OCAMLFLAGS = -dtypes -thread -warn-error F -syntax camlp4o
+UseCamlp4(rpc-light.syntax, test)
 
 section
 	OCAMLINCLUDES += . 
