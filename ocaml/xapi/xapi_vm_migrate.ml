@@ -182,11 +182,15 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 					(not is_intra_pool) || (dest_sr <> sr)
 				in
 				
-				let v,remote_vdi_reference = 
+				let v,remote_vdi_reference,newdp = 
 					if not mirror then 
-						SMAPI.VDI.get_by_name ~task ~sr ~name:location,vdi 
+						SMAPI.VDI.get_by_name ~task ~sr ~name:location,vdi,"none"
 					else begin
-						let v = SMAPI.Mirror.start ~task ~sr ~vdi:location ~dp ~url ~dest:dest_sr in 
+						let newdp = Printf.sprintf "mirror_%s" dp in
+						ignore(SMAPI.VDI.attach ~task ~dp:newdp ~sr ~vdi:location ~read_write:true);
+						SMAPI.VDI.activate ~task ~dp:newdp ~sr ~vdi:location;
+
+						let v = SMAPI.Mirror.start ~task ~sr ~vdi:location ~dp:newdp ~url ~dest:dest_sr in 
 						debug "Local VDI %s mirrored to %s" location v.vdi;
 						debug "Executing remote scan to ensure VDI is known to xapi";
 						XenAPI.SR.scan remote_rpc session_id dest_sr_ref;
@@ -198,11 +202,11 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 						let remote_vdi_reference = fst (List.hd vdis) in
 						debug "Found remote vdi reference: %s" (Ref.string_of remote_vdi_reference);
 						
-						v,remote_vdi_reference
+						v,remote_vdi_reference,newdp
 					end
 				in
 
-				(vdi, { mr_dp = dp;
+				(vdi, { mr_dp = newdp;
 				mr_mirrored = mirror;
 				mr_vdi = location;
 				mr_sr = sr;
@@ -219,7 +223,13 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			if List.mem_assoc Constants.storage_migrate_vdi_map_key other_config then
 				Db.VDI.remove_from_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key;
 			Db.VDI.add_to_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key ~value:(Ref.string_of mirror_record.mr_remote_vdi_reference)) vdi_map;
-		
+
+		(* Wait for delay fist to disappear *)
+		while Xapi_fist.pause_storage_migrate () do
+			debug "Sleeping while fistpoint exists";
+			Thread.delay 5.0;
+		done;
+
 		if is_intra_pool 
 		then intra_pool_vdi_remap ~__context vm vdi_map
 		else inter_pool_metadata_transfer ~__context remote_rpc session_id remote_address vm vdi_map;
@@ -227,6 +237,12 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		(* Migrate the VM *)
 		let open Xenops_client in
 		let vm' = Db.VM.get_uuid ~__context ~self:vm in
+
+		(* Destroy the local datapaths - this allows the VDIs to properly detach, invoking the migrate_finalize calls *)
+		List.iter (fun (_ , mirror_record) -> 
+			if mirror_record.mr_mirrored 
+			then SMAPI.DP.destroy ~task ~dp:mirror_record.mr_dp ~allow_leak:false) vdi_map;
+		
 		XenopsAPI.VM.migrate task vm' xenops_vdi_map xenops |> wait_for_task task |> success_task task |> ignore;
 		let new_vm = XenAPI.VM.get_by_uuid remote_rpc session_id vm' in
 		(* Send non-database metadata *)
