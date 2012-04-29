@@ -78,6 +78,7 @@ let pool_migrate_complete ~__context ~vm ~host =
 	Xapi_xenops.refresh_vm ~__context ~self:vm
 
 type mirror_record = {
+	mr_mirrored : bool;
 	mr_dp : Storage_interface.dp;
 	mr_vdi : Storage_interface.vdi;
 	mr_sr : Storage_interface.sr;
@@ -85,6 +86,31 @@ type mirror_record = {
 	mr_remote_xenops_locator : string;
 	mr_remote_vdi_reference : API.ref_VDI;
 }
+
+let intra_pool_vdi_remap ~__context vm vdi_map =
+	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
+	List.iter (fun vbd ->
+		let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
+		if List.mem_assoc vdi vdi_map then
+			let mirror_record = List.assoc vdi vdi_map in
+			Db.VBD.set_VDI ~__context ~self:vbd ~value:mirror_record.mr_remote_vdi_reference) vbds
+
+
+let inter_pool_metadata_transfer ~__context remote_rpc session_id remote_address vm vdi_map =
+	let vm_export_import = {
+		Importexport.vm = vm;
+		Importexport.dry_run = false;
+		Importexport.live = true;
+	} in
+	finally
+		(fun () ->
+			Importexport.remote_metadata_export_import ~__context
+				~rpc:remote_rpc ~session_id ~remote_address (`Only vm_export_import))
+		(fun () ->
+			(* Make sure we clean up the remote VDI mapping keys. *)
+			List.iter
+				(fun (vdi, _) -> Db.VDI.remove_from_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key)
+				vdi_map)
 
 
 let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
@@ -120,6 +146,11 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let remote_address = match Http.Url.of_string xenops with
 		| Http.Url.Http { Http.Url.host = host }, _ -> host
 		| _, _ -> failwith (Printf.sprintf "Cannot extract foreign IP address from: %s" xenops) in
+
+	let is_intra_pool = 
+		try ignore(Db.Host.get_uuid ~__context ~self:(Ref.of_string dest_host)); true with _ -> false 
+	in
+
 	try
 		let remote_rpc = Helpers.make_remote_rpc remote_address in
 
@@ -146,20 +177,33 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 						| false, None ->
 							failwith "No SR specified in VDI map and no default on destination"
 				in
+
+				let mirror = 
+					(not is_intra_pool) || (dest_sr <> sr)
+				in
+				
+				let v,remote_vdi_reference = 
+					if not mirror then 
+						SMAPI.VDI.get_by_name ~task ~sr ~name:location,vdi 
+					else begin
+						let v = SMAPI.Mirror.start ~task ~sr ~vdi:location ~dp ~url ~dest:dest_sr in 
+						debug "Local VDI %s mirrored to %s" location v.vdi;
+						debug "Executing remote scan to ensure VDI is known to xapi";
+						XenAPI.SR.scan remote_rpc session_id dest_sr_ref;
+						let query = Printf.sprintf "(field \"location\"=\"%s\") and (field \"SR\"=\"%s\")" v.vdi (Ref.string_of dest_sr_ref) in
+						let vdis = XenAPI.VDI.get_all_records_where remote_rpc session_id query in
 						
-				let v = SMAPI.Mirror.start ~task ~sr ~vdi:location ~dp ~url ~dest:dest_sr in
-				debug "Local VDI %s mirrored to %s" location v.vdi;
-				debug "Executing remote scan to ensure VDI is known to xapi";
-				XenAPI.SR.scan remote_rpc session_id dest_sr_ref;
-				let query = Printf.sprintf "(field \"location\"=\"%s\") and (field \"SR\"=\"%s\")" v.vdi (Ref.string_of dest_sr_ref) in
-				let vdis = XenAPI.VDI.get_all_records_where remote_rpc session_id query in
-				
-				if List.length vdis <> 1 then error "Could not locate remote VDI: query='%s', length of results: %d" query (List.length vdis);
-				
-				let remote_vdi_reference = fst (List.hd vdis) in
-				debug "Found remote vdi reference: %s" (Ref.string_of remote_vdi_reference);
-				
+						if List.length vdis <> 1 then error "Could not locate remote VDI: query='%s', length of results: %d" query (List.length vdis);
+						
+						let remote_vdi_reference = fst (List.hd vdis) in
+						debug "Found remote vdi reference: %s" (Ref.string_of remote_vdi_reference);
+						
+						v,remote_vdi_reference
+					end
+				in
+
 				(vdi, { mr_dp = dp;
+				mr_mirrored = mirror;
 				mr_vdi = location;
 				mr_sr = sr;
 				mr_local_xenops_locator = xenops_locator;
@@ -176,20 +220,10 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				Db.VDI.remove_from_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key;
 			Db.VDI.add_to_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key ~value:(Ref.string_of mirror_record.mr_remote_vdi_reference)) vdi_map;
 		
-		let vm_export_import = {
-			Importexport.vm = vm;
-			Importexport.dry_run = false;
-			Importexport.live = true;
-		} in
-		finally
-			(fun () ->
-				Importexport.remote_metadata_export_import ~__context
-					~rpc:remote_rpc ~session_id ~remote_address (`Only vm_export_import))
-			(fun () ->
-				(* Make sure we clean up the remote VDI mapping keys. *)
-				List.iter
-					(fun (vdi, _) -> Db.VDI.remove_from_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key)
-				 	vdi_map);
+		if is_intra_pool 
+		then intra_pool_vdi_remap ~__context vm vdi_map
+		else inter_pool_metadata_transfer ~__context remote_rpc session_id remote_address vm vdi_map;
+
 		(* Migrate the VM *)
 		let open Xenops_client in
 		let vm' = Db.VM.get_uuid ~__context ~self:vm in

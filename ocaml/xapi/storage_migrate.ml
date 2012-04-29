@@ -40,6 +40,8 @@ module State = struct
 			url : string;
 			dest_sr : sr;
 			remote_dp : dp;
+			local_dp : dp;
+			mirror_vdi : vdi;
 		} with rpc
 	end
 
@@ -71,8 +73,8 @@ module State = struct
 	let find key = op false (fun a -> try Some (Hashtbl.find a key) with _ -> None)
 	let remove key = op true (fun a ->	Hashtbl.remove a key)
 
-	let add_to_active_local_mirrors srvdi url dest_sr remote_dp =
-		let open Send_state in add (key_of srvdi) $ Send {url; dest_sr; remote_dp}
+	let add_to_active_local_mirrors srvdi url dest_sr remote_dp local_dp mirror_vdi =
+		let open Send_state in add (key_of srvdi) $ Send {url; dest_sr; remote_dp; local_dp; mirror_vdi}
 			
 	let add_to_active_receive_mirrors srvdi dummy_vdi leaf_dp parent_vdi =
 		let open Receive_state in add (key_of srvdi) $ Receive {dummy_vdi; leaf_dp; parent_vdi}
@@ -244,7 +246,7 @@ let start ~task ~sr ~vdi ~dp ~url ~dest =
 							Unix.close control_fd)));
 			| None ->
 				failwith "Not attached");
-		State.add_to_active_local_mirrors (sr,local_vdi.vdi) url dest mirror_dp;
+		State.add_to_active_local_mirrors (sr,local_vdi.vdi) url dest mirror_dp dp result.Mirror.mirror_vdi.vdi;
 		let snapshot = Local.VDI.snapshot ~task ~sr ~vdi:local_vdi.vdi ~vdi_info:local_vdi ~params:["mirror", "nbd:" ^ dp] in
 		on_fail := (fun () -> Local.VDI.destroy ~task ~sr ~vdi:snapshot.vdi) :: !on_fail;
 		(* Copy the snapshot to the remote *)
@@ -291,11 +293,19 @@ let list ~task ~sr =
 	let m = State.map_of () in
 	let m = List.filter (fun ((sr',_),_) -> sr'=sr) m in
 	List.map (fun ((_,vdi),s) -> 
-		let state = match s with 
-			| State.Send _ -> Mirror.Sending
-			| State.Receive _ -> Mirror.Receiving
+		let state,failed = match s with 
+			| State.Send s -> 
+				let attach_info = Local.DP.attach_info ~task:"nbd" ~sr ~vdi ~dp:s.State.Send_state.local_dp in
+				let failed = match tapdisk_of_attach_info attach_info with
+					| Some tapdev ->
+						let stats = Tapctl.stats (Tapctl.create ()) tapdev in
+						stats.Tapctl.Stats.nbd_mirror_failed = 1
+					| None -> true in
+				(Mirror.Sending, failed)
+			| State.Receive _ -> 
+				(Mirror.Receiving, false)
 		in
-		{Mirror.vdi; state}) m
+		{Mirror.vdi; state; failed}) m
 
 let receive_start ~task ~sr ~vdi_info ~similar =
 	let on_fail : (unit -> unit) list ref = ref [] in
@@ -362,7 +372,11 @@ let detach_hook ~sr ~vdi ~dp =
 			Opt.iter (fun r -> 
 				let remote_url = Http.Url.of_string r.url in
 				let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
-				Remote.Mirror.receive_finalize ~task:"Mirror-cleanup" ~sr:r.dest_sr ~vdi)
+				let t = Thread.create (fun () ->
+					debug "Calling receive_finalize";
+					Remote.Mirror.receive_finalize ~task:"Mirror-cleanup" ~sr:r.dest_sr ~vdi:r.mirror_vdi;
+					debug "Finished calling receive_finalize") () in
+				debug "Created thread %d to call receive finalize" (Thread.id t))
 
 let nbd_handler req s sr vdi dp =
 	debug "sr=%s vdi=%s dp=%s" sr vdi dp;
