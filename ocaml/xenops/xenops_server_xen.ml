@@ -680,7 +680,11 @@ module VM = struct
 		end;
 		Domain.destroy task ~preserve_xs_vm:false ~xc ~xs domid;
 		(* Detach any remaining disks *)
-		List.iter (fun vbd -> Storage.deactivate_and_detach task (Storage.id_of domid vbd.Vbd.id)) vbds
+		List.iter (fun vbd -> 
+			try 
+				Storage.deactivate_and_detach task (Storage.id_of domid vbd.Vbd.id)
+			with e ->
+		        warn "Ignoring exception in VM.detroy: %s" (Printexc.to_string e)) vbds
 	) Oldest
 
 	let pause = on_domain (fun xc xs _ _ di ->
