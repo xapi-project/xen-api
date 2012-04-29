@@ -231,6 +231,7 @@ module Mirror = struct
 	type status = {
 		vdi : vdi;
 		state : state; 
+		failed : bool;
 	}
 			
 
