@@ -70,6 +70,8 @@ def get_locking_config(domid, devid):
     locking_mode = xenstore_read("/".join([private_path, "locking-mode"]))
     ipv4_allowed = xenstore_read("/".join([private_path, "ipv4-allowed"]))
     ipv6_allowed = xenstore_read("/".join([private_path, "ipv6-allowed"]))
+    send_to_syslog("Got locking config: MAC=%s; locking_mode=%s; ipv4_allowed=%s; ipv6_allowed=%s"
+                    % (mac, locking_mode, ipv4_allowed, ipv6_allowed))
     return {
         "mac": mac,
         "locking_mode": locking_mode,
