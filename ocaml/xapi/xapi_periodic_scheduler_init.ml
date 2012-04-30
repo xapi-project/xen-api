@@ -67,5 +67,5 @@ let register () =
   if master then Xapi_periodic_scheduler.add_to_queue "Trying to update subjects' info using external directory service (if any)" 
     (Xapi_periodic_scheduler.Periodic !Xapi_globs.update_all_subjects_interval) update_all_subjects_delay update_all_subjects_func;
   Xapi_periodic_scheduler.add_to_queue "Periodic scheduler heartbeat" (Xapi_periodic_scheduler.Periodic hb_timer) 240.0 hb_func;
-  Xapi_periodic_scheduler.add_to_queue "Update monitor configuration" (Xapi_periodic_scheduler.Periodic 3600.0) 3600.0 Monitor_rrds.update_configuration_from_master
+  Xapi_periodic_scheduler.add_to_queue "Update monitor configuration" (Xapi_periodic_scheduler.Periodic 3600.0) 3600.0 Monitor_master.update_configuration_from_master
 

@@ -182,7 +182,6 @@ XAPI_MODULES = $(COMMON) \
 	monitor_master \
 	rrd_shared \
 	monitor_dbcalls \
-	monitor_rrds \
 	monitor_fake \
 	monitor_fake_common \
 	rrd \
@@ -269,6 +268,7 @@ XAPI_MODULES = $(COMMON) \
 	xapi_pgpu \
 	xapi_gpu_group \
 	xapi_vgpu \
+	../rrdd/interface/data_source \
 	../rrdd/interface/rrdd_interface \
 	../rrdd/interface/rrdd
 
