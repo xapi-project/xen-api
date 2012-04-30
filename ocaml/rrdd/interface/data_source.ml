@@ -32,8 +32,7 @@ let to_key_value_map ds = [
 	"units", ds.units;
 ]
 
-(* FIXME XXX TODO *)
-let to_API_data_source (ds : t) (*v : float*) = let open API in {
+let to_API_data_source (ds : t) = let open API in {
 	data_source_name_label = ds.name;
 	data_source_name_description = ds.description;
 	data_source_enabled = ds.enabled;
@@ -41,5 +40,5 @@ let to_API_data_source (ds : t) (*v : float*) = let open API in {
 	data_source_units = ds.units;
 	data_source_min = ds.min;
 	data_source_max = ds.max;
-	data_source_value = 0. (*v*);
+	data_source_value = 0.;
 }

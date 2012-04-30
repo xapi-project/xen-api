@@ -31,6 +31,7 @@ open Pervasiveext
    open D
 *)
 
+type ds_owner = VM of string | Host | SR of string
 
 (** Data source types - see ds datatype *)									   
 type ds_type = Absolute | Gauge | Derive with rpc

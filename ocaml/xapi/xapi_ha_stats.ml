@@ -63,5 +63,5 @@ let all () = Mutex.execute m
        let all = Statefile_latency.get_all () @
 	 [ Heartbeat_latency.get ();
 	   Xapi_latency.get () ] in
-       List.map (fun x -> Rrd_shared.Host, x) all
+       List.map (fun x -> Rrd.Host, x) all
      end else [])
