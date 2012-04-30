@@ -96,7 +96,7 @@ let pool_migrate ~__context ~vm ~host ~options =
 		raise e
 	end;
 	Xapi_xenops.remove_caches vm';
-	Monitor_rrds.migrate_push ~__context vm' host;
+	Rrdd.migrate_rrd ~vm_uuid:vm' ~host_uuid:(Ref.string_of host) ();
 	(* We will have missed important events because we set resident_on late.
 	   This was deliberate: resident_on is used by the pool master to reserve
 	   memory. If we called 'atomic_set_resident_on' before the domain is
@@ -428,8 +428,8 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		List.iter (fun mirror ->
 			ignore(Storage_access.unregister_mirror mirror)) !mirrors;
 
-		Monitor_rrds.migrate_push ~__context ~remote_address
-			~session_id vm' (Ref.of_string dest_host);
+		Rrdd.migrate_rrd ~remote_address ~session_id:(Ref.string_of session_id)
+			~vm_uuid:vm' ~host_uuid:dest_host ();
 
 		if not is_intra_pool then begin
 			(* Send non-database metadata *)

@@ -245,7 +245,7 @@ let update_env __context sync_keys =
   end;
 
   (* Load the host rrd *)
-  Monitor_rrds.load_rrd ~__context (Helpers.get_localhost_uuid ()) true;
+  Rrdd.load_rrd ~uuid:(Helpers.get_localhost_uuid ()) ~is_host:true ();
 
   (* maybe record host memory properties in database *)
   switched_sync Xapi_globs.sync_record_host_memory_properties (fun () ->
