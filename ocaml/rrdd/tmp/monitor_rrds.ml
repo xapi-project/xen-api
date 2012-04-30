@@ -112,27 +112,6 @@ let rrd_of_gzip path =
 
 let use_min_max = ref false 
 
-let pass_through_pif_carrier = ref false
-
-let update_configuration_from_master () =
-  Server_helpers.exec_with_new_task "update_configuration_from_master" (fun __context -> 
-    let oc = Db.Pool.get_other_config ~__context ~self:(Helpers.get_pool ~__context) in
-    let new_use_min_max =  (List.mem_assoc Xapi_globs.create_min_max_in_new_VM_RRDs oc) && 
-      (List.assoc Xapi_globs.create_min_max_in_new_VM_RRDs oc = "true")
-    in
-	if !use_min_max <> new_use_min_max
-    then debug "Updating use_min_max: New value=%b" new_use_min_max;
-    use_min_max := new_use_min_max;
-
-    let carrier = (List.mem_assoc Xapi_globs.pass_through_pif_carrier oc) && 
-      (List.assoc Xapi_globs.pass_through_pif_carrier oc = "true") in
-	if !pass_through_pif_carrier <> carrier
-	then debug "Updating pass_through_pif_carrier: New value=%b" carrier;
-	pass_through_pif_carrier := carrier
-  )
-
-    
-
 (** Here is the only place where RRDs are created. The timescales are fixed. If other timescales
     are required, this could be done externally. The types of archives created are also fixed.
     Currently, we're making 4 timescales of 3 types of archive. This adds up to a total of
