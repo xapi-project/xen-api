@@ -84,13 +84,22 @@ let json_path = path ^ ".json"
 module Server = Xenops_interface.Server(Xenops_server)
 
 let srv_http_handler call_of_string string_of_response process req bio (context: Xenops_server.context) =
-	let body = Http_svr.read_body req bio in
-	let rpc = call_of_string body in
-	(* debug "Request: %s %s" rpc.Rpc.name (Jsonrpc.to_string (List.hd rpc.Rpc.params)); *)
-	let result = process context rpc in
-	(* debug "Response: success:%b %s" result.Rpc.success (Jsonrpc.to_string result.Rpc.contents); *)
-	let str = string_of_response result in
-	Http_svr.response_str req (Buf_io.fd_of bio) str
+	let handle bio =
+		let body = Http_svr.read_body req bio in
+		let rpc = call_of_string body in
+		(* debug "Request: %s %s" rpc.Rpc.name (Jsonrpc.to_string (List.hd rpc.Rpc.params)); *)
+		let result = process context rpc in
+		(* debug "Response: success:%b %s" result.Rpc.success (Jsonrpc.to_string result.Rpc.contents); *)
+		let str = string_of_response result in
+		Http_svr.response_str req (Buf_io.fd_of bio) str
+	in
+	match context.Xenops_server.transferred_fd with
+	| None ->
+		handle bio
+	| Some transferred_fd ->
+		handle (Buf_io.of_fd transferred_fd);
+		let response = Http.Response.make ~version:"1.1" "200" "OK" in
+		response |> Http.Response.to_wire_string |> Unixext.really_write_string (Buf_io.fd_of bio)
 
 let raw_http_handler call_of_string string_of_response process s (context: Xenops_server.context) =
 	let bio = Buf_io.of_fd s in
@@ -176,7 +185,7 @@ let start (domain_sock, forwarded_sock, json_sock) process =
 					let context = {
 						Xenops_server.transferred_fd = Some received_fd
 					} in
-					let (_: bool) = Http_svr.handle_one server received_fd context req in
+					let (_: bool) = Http_svr.handle_one server this_connection context req in
 					()
 				) (fun () -> Unix.close received_fd)
 		);
