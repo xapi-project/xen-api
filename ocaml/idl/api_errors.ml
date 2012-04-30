@@ -441,3 +441,5 @@ let cannot_destroy_disaster_recovery_task = "CANNOT_DESTROY_DISASTER_RECOVERY_TA
 let vm_is_part_of_an_appliance = "VM_IS_PART_OF_AN_APPLIANCE"
 let vm_to_import_is_not_newer_version = "VM_TO_IMPORT_IS_NOT_NEWER_VERSION"
 let suspend_vdi_replacement_is_not_identical = "SUSPEND_VDI_REPLACEMENT_IS_NOT_IDENTICAL"
+
+let vdi_needs_vm_for_migrate = "VDI_NEEDS_VM_FOR_MIGRATE"
