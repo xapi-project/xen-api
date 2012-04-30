@@ -1527,11 +1527,12 @@ module VM = struct
 				vm 
 			) ()
 
-	let receive_memory req s _ : unit =
+	let receive_memory req s context : unit =
 		let dbg = List.assoc "dbg" req.Http.Request.cookie in
 		let memory_limit = List.assoc "memory_limit" req.Http.Request.cookie |> Int64.of_string in
-		let is_localhost, id = Debug.with_thread_associated dbg
-			(fun () ->
+		Debug.with_thread_associated dbg
+		(fun () ->
+			let is_localhost, id = Debug.with_thread_associated dbg
 				debug "VM.receive_memory";
 				req.Http.Request.close <- true;
 				let remote_instance = List.assoc "instance_id" req.Http.Request.cookie in
@@ -1541,13 +1542,26 @@ module VM = struct
 				let id = bits |> List.rev |> List.hd in
 				debug "VM.receive_memory id = %s is_localhost = %b" id is_localhost;
 				is_localhost, id
-			) () in
-		let op = VM_receive_memory(id, memory_limit, s) in
-		(* If it's a localhost migration then we're already in the queue *)
-		let open Xenops_client in
-		if is_localhost
-			then immediate_operation dbg id op
-			else queue_operation dbg id op |> wait_for_task dbg |> success_task dbg |> ignore_task
+			in
+			match context.transferred_fd with
+			| Some transferred_fd ->
+				let op = VM_receive_memory(id, memory_limit, transferred_fd) in
+				(* If it's a localhost migration then we're already in the queue *)
+				let open Xenops_client in
+				let task =
+					if is_localhost then begin
+						immediate_operation dbg id op;
+						None
+					end else
+						Some (queue_operation dbg id op)
+				in
+				let response = Http.Response.make ?task ~version:"1.1" "200" "OK" in
+				response |> Http.Response.to_wire_string |> Unixext.really_write_string s;
+				Opt.iter (fun t -> t |> wait_for_task dbg |> ignore) task
+			| None ->
+				let response = Http.Response.make ~version:"1.1" "200" "OK" in
+				response |> Http.Response.to_wire_string |> Unixext.really_write_string s
+		) ()
 end
 
 module DEBUG = struct

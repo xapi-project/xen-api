@@ -59,21 +59,28 @@ let hand_over_connection req s path =
 				if written <> len then begin
 					error "Failed to transfer fd to %s" path;
 					Http_svr.headers s (Http.http_404_missing ~version:"1.0" ());
-					req.Http.Request.close <- true
-				end;
+					req.Http.Request.close <- true;
+					None
+				end else begin
+					let response = Http_client.response_of_fd control_fd in
+					match response with
+					| Some res -> res.Http.Response.task
+					| None -> None
+				end
 			)
 			(fun () -> Unix.close control_fd)
 	with e ->
 		error "Failed to transfer fd to %s: %s" path (Printexc.to_string e);
 		Http_svr.headers s (Http.http_404_missing ~version:"1.0" ());
-		req.Http.Request.close <- true
+		req.Http.Request.close <- true;
+		None
 
 let post_handler (req: Http.Request.t) s _ =
 	Xapi_http.with_context ~dummy:true "Querying services" req s
 		(fun __context ->
 			match String.split '/' req.Http.Request.uri with
 				| "" :: services :: "xenops" :: _ when services = _services ->
-					hand_over_connection req s "/var/xapi/xenopsd.forwarded"
+					ignore (hand_over_connection req s "/var/xapi/xenopsd.forwarded")
 				| [ ""; services; "SM" ] when services = _services ->
 					Storage_impl.Local_domain_socket.xmlrpc_handler Storage_mux.Server.process req (Buf_io.of_fd s) ()
 				| _ ->
@@ -95,7 +102,7 @@ let put_handler (req: Http.Request.t) s _ =
 		(fun __context ->
 			match String.split '/' req.Http.Request.uri with
 				| "" :: services :: "xenops" :: _ when services = _services ->
-					hand_over_connection req s "/var/xapi/xenopsd.forwarded"
+					ignore (hand_over_connection req s "/var/xapi/xenopsd.forwarded")
 				| [ ""; services; "SM"; "data"; sr; vdi ] when services = _services ->
 					let vdi, _ = Storage_access.find_vdi ~__context sr vdi in
 					Import_raw_vdi.import vdi req s ()
@@ -112,7 +119,7 @@ let get_handler (req: Http.Request.t) s _ =
 			debug "uri = %s" req.Http.Request.uri;
 			match String.split '/' req.Http.Request.uri with
 				| [ ""; services; "xenops" ] when services = _services ->
-					hand_over_connection req s (Filename.concat Fhs.vardir "xenopsd.forwarded")
+					ignore (hand_over_connection req s (Filename.concat Fhs.vardir "xenopsd.forwarded"))
 				| [ ""; services; "SM"; driver ] when services = _services ->
 					begin
 						try
