@@ -530,7 +530,12 @@ let copy ~__context ~vdi ~sr =
       raise e
 
 let pool_migrate ~__context ~vdi ~sr ~network ~options =
-	raise (Api_errors.Server_error(Api_errors.not_implemented, [ "VDI.pool_migrate" ]))
+	let localhost = Helpers.get_localhost ~__context in
+	(* inserted by message_forwarding *)
+	let vm = Ref.of_string (List.assoc "__internal__vm" options) in
+	Helpers.call_api_functions ~__context (fun rpc session_id -> 
+		let token = Client.Host.migrate_receive ~rpc ~session_id ~host:localhost ~network ~options in
+		Client.VM.migrate_send rpc session_id vm token true [ vdi, sr ] [] [])
 
 let force_unlock ~__context ~vdi = 
   raise (Api_errors.Server_error(Api_errors.message_deprecated,[]))
