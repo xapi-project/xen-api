@@ -1145,15 +1145,9 @@ let vdi_copy printer rpc session_id params =
 let vdi_pool_migrate printer rpc session_id params =
 	let vdi = Client.VDI.get_by_uuid rpc session_id (List.assoc "uuid" params)
 	and sr = Client.SR.get_by_uuid rpc session_id (List.assoc "sr-uuid" params)
-	and network =
-		if List.mem_assoc "network-uuid" params then
-			Client.Network.get_by_uuid rpc session_id (List.assoc "network-uuid" params)
-		else
-			Server_helpers.exec_with_new_task ~session_id "Finding management network"
-				(fun __context -> Helpers.get_host_internal_management_network __context)
 	and options = [] (* no options implemented yet *)
 	in
-	Client.VDI.pool_migrate rpc session_id vdi sr network options
+	Client.VDI.pool_migrate rpc session_id vdi sr options
 
 let vdi_clone printer rpc session_id params =
 	let vdi = Client.VDI.get_by_uuid rpc session_id (List.assoc "uuid" params) in
@@ -2498,17 +2492,15 @@ let vm_migrate printer rpc session_id params =
 							with Not_found ->
 								failwith (Printf.sprintf "Failed to find network: %s" x)
 						end else begin
-							printer (Cli_printer.PMsg "No network specified; I will try to find the remote host internal management network");
-							let management_networks = List.filter
-								(fun (_, net_record) ->
-									let other_config = net_record.API.network_other_config in
-									(List.mem_assoc Xapi_globs.is_host_internal_management_network other_config)
-									&& (List.assoc Xapi_globs.is_host_internal_management_network other_config = "true"))
-								all
-							in
-							match management_networks with
-							| net::_ -> net
-							| [] -> failwith (Printf.sprintf "No remote network specified, and no remote management network found")
+							printer (Cli_printer.PMsg "No network specified; I will try to find the remote host management network");
+							let pifs = host_record.API.host_PIFs in
+							let management_pifs = List.filter (fun pif -> 
+								Client.PIF.get_management remote_rpc remote_session pif) pifs in
+							if List.length management_pifs = 0 then 
+								failwith (Printf.sprintf "Could not find management PIF on host %s" (host_record.API.host_uuid));
+							let pif = List.hd management_pifs in
+							let net = Client.PIF.get_network remote_rpc remote_session pif in
+							(net, Client.Network.get_record remote_rpc remote_session net)
 						end in
 					printer (Cli_printer.PMsg (Printf.sprintf "Will migrate to remote host: %s, using remote network: %s" host_record.API.host_name_label network_record.API.network_name_label));
 					let token = Client.Host.migrate_receive remote_rpc remote_session host network options in
