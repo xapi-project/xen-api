@@ -529,10 +529,20 @@ let copy ~__context ~vdi ~sr =
       (fun rpc session_id -> Client.VDI.destroy rpc session_id dst);
       raise e
 
-let pool_migrate ~__context ~vdi ~sr ~network ~options =
+let pool_migrate ~__context ~vdi ~sr ~options =
 	let localhost = Helpers.get_localhost ~__context in
 	(* inserted by message_forwarding *)
 	let vm = Ref.of_string (List.assoc "__internal__vm" options) in
+
+	(* Need a network for the VM migrate *)
+	let management_if =
+		Xapi_inventory.lookup Xapi_inventory._management_interface in
+	let open Db_filter_types in
+	let networks = Db.Network.get_records_where ~__context ~expr:(Eq (Field "bridge", Literal management_if)) in
+	let network = match networks with
+		| (net,_)::_ -> net
+		| _ -> raise (Api_errors.Server_error(Api_errors.host_has_no_management_ip, []))
+	in
 	Helpers.call_api_functions ~__context (fun rpc session_id -> 
 		let token = Client.Host.migrate_receive ~rpc ~session_id ~host:localhost ~network ~options in
 		Client.VM.migrate_send rpc session_id vm token true [ vdi, sr ] [] [])
