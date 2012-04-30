@@ -27,6 +27,7 @@ module DD=Debug.Debugger(struct let name="xapi" end)
 open DD
 
 open Client
+open Xmlrpc_client
 
 
 let _sm = "SM"
@@ -86,32 +87,45 @@ type mirror_record = {
 	mr_remote_vdi_reference : API.ref_VDI;
 }
 
-
+let get_snapshots_vbds ~__context ~vm =
+  let rec aux acc cur = 
+    let parent = Db.VM.get_parent ~__context ~self:cur in
+    debug "get_snapshots %s" (Ref.string_of parent);
+    if parent = Ref.null then
+      acc
+    else
+      aux ((Db.VM.get_VBDs ~__context ~self:parent) @ acc) parent in
+  aux [] vm
+      
 let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	if not(!Xapi_globs.use_xenopsd)
 	then failwith "You must have /etc/xapi.conf:use_xenopsd=true";
 	(* Create mirrors of all the disks on the remote *)
 	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
-	let vdis = List.filter_map
-		(fun vbd ->
-			if not(Db.VBD.get_empty ~__context ~self:vbd)
-			then
-				let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
-				let xenops_locator = Xapi_xenops.xenops_vdi_locator ~__context ~self:vdi in
-				let location = Db.VDI.get_location ~__context ~self:vdi in
-				let device = Db.VBD.get_device ~__context ~self:vbd in
-				let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
-				let dp = Storage_access.datapath_of_vbd ~domid ~device in
-				(* XXX PR-1255: eject any CDROMs for now *)
-				if Db.VBD.get_type ~__context ~self:vbd = `CD then begin
-					info "Ejecting CD %s from %s" location (Ref.string_of vbd);
-					Xapi_xenops.vbd_eject ~__context ~self:vbd;
-					None
-				end else begin
-					let sr = Db.SR.get_uuid ~__context ~self:(Db.VDI.get_SR ~__context ~self:vdi) in
-					Some (vdi, dp, location, sr, xenops_locator)
-				end
-			else None) vbds in
+  let snapshots_vbds = get_snapshots_vbds ~__context ~vm in
+  debug "get_snapshots number %d" (List.length snapshots_vbds);
+  let vdi_filter vbd =
+		if not(Db.VBD.get_empty ~__context ~self:vbd)
+		then
+			let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
+			let xenops_locator = Xapi_xenops.xenops_vdi_locator ~__context ~self:vdi in
+			let location = Db.VDI.get_location ~__context ~self:vdi in
+			let device = Db.VBD.get_device ~__context ~self:vbd in
+			let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
+			let dp = Storage_access.datapath_of_vbd ~domid ~device in
+			(* XXX PR-1255: eject any CDROMs for now *)
+			if Db.VBD.get_type ~__context ~self:vbd = `CD then begin
+				info "Ejecting CD %s from %s" location (Ref.string_of vbd);
+				Xapi_xenops.vbd_eject ~__context ~self:vbd;
+				None
+			end else begin
+				let sr = Db.SR.get_uuid ~__context ~self:(Db.VDI.get_SR ~__context ~self:vdi) in
+				Some (vdi, dp, location, sr, xenops_locator)
+			end
+		else None in
+  let vdis = List.filter_map vdi_filter vbds in
+  let snapshots_vdis = List.filter_map vdi_filter snapshots_vbds in
+ 
 	let task = Context.string_of_task __context in
 	let dest_host = List.assoc _host dest in
 	let url = List.assoc _sm dest in
@@ -132,49 +146,52 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			with _ ->
 				None
 		in
-
-		let vdi_map = List.map
-			(fun (vdi, dp, location, sr, xenops_locator) ->
-				let (dest_sr_ref, dest_sr) = 
-					match List.mem_assoc vdi vdi_map, dest_default_sr_ref_uuid with
-						| true, _ ->
+    let vdi_copy_fun mirror (vdi, dp, location, sr, xenops_locator) =
+			let (dest_sr_ref, dest_sr) = 
+				match List.mem_assoc vdi vdi_map, dest_default_sr_ref_uuid with
+					| true, _ ->
 							let dest_sr_ref = List.assoc vdi vdi_map in
 							let dest_sr = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
 							(dest_sr_ref, dest_sr)
-						| false, Some x ->
+					| false, Some x ->
 							x
-						| false, None ->
+					| false, None ->
 							failwith "No SR specified in VDI map and no default on destination"
-				in
-						
-				let v = SMAPI.Mirror.start ~task ~sr ~vdi:location ~dp ~url ~dest:dest_sr in
-				debug "Local VDI %s mirrored to %s" location v.vdi;
-				debug "Executing remote scan to ensure VDI is known to xapi";
-				XenAPI.SR.scan remote_rpc session_id dest_sr_ref;
-				let query = Printf.sprintf "(field \"location\"=\"%s\") and (field \"SR\"=\"%s\")" v.vdi (Ref.string_of dest_sr_ref) in
-				let vdis = XenAPI.VDI.get_all_records_where remote_rpc session_id query in
-				
-				if List.length vdis <> 1 then error "Could not locate remote VDI: query='%s', length of results: %d" query (List.length vdis);
-				
-				let remote_vdi_reference = fst (List.hd vdis) in
-				debug "Found remote vdi reference: %s" (Ref.string_of remote_vdi_reference);
-				
-				(vdi, { mr_dp = dp;
-				mr_vdi = location;
-				mr_sr = sr;
-				mr_local_xenops_locator = xenops_locator;
-				mr_remote_xenops_locator = Xapi_xenops.xenops_vdi_locator_of_strings dest_sr v.vdi;
-				mr_remote_vdi_reference = remote_vdi_reference; })
-			) vdis in
+			in
+			
+			let v = if mirror then 
+          SMAPI.Mirror.start ~task ~sr ~vdi:location ~dp ~url ~dest:dest_sr
+        else
+          SMAPI.Mirror.copy_snapshot ~task ~sr ~vdi:location ~dp ~url ~dest:dest_sr in
+			debug "Local VDI %s mirrored to %s" location v.vdi;
+			debug "Executing remote scan to ensure VDI is known to xapi";
+			XenAPI.SR.scan remote_rpc session_id dest_sr_ref;
+			let query = Printf.sprintf "(field \"location\"=\"%s\") and (field \"SR\"=\"%s\")" v.vdi (Ref.string_of dest_sr_ref) in
+			let vdis = XenAPI.VDI.get_all_records_where remote_rpc session_id query in
+			
+			if List.length vdis <> 1 then error "Could not locate remote VDI: query='%s', length of results: %d" query (List.length vdis);
+			
+			let remote_vdi_reference = fst (List.hd vdis) in
+			debug "Found remote vdi reference: %s" (Ref.string_of remote_vdi_reference);
+			
+			(vdi, { mr_dp = dp;
+				      mr_vdi = location;
+				      mr_sr = sr;
+				      mr_local_xenops_locator = xenops_locator;
+				      mr_remote_xenops_locator = Xapi_xenops.xenops_vdi_locator_of_strings dest_sr v.vdi;
+				      mr_remote_vdi_reference = remote_vdi_reference; }) in
+
+		let vdi_map = List.map (vdi_copy_fun true) vdis in
+    let snapshots_map = List.map (vdi_copy_fun false) snapshots_vdis in
 		(* Move the xapi VM metadata *)
 
-		let xenops_vdi_map = List.map (fun (_, mirror_record) -> (mirror_record.mr_local_xenops_locator, mirror_record.mr_remote_xenops_locator)) vdi_map in
+		let xenops_vdi_map = List.map (fun (_, mirror_record) -> (mirror_record.mr_local_xenops_locator, mirror_record.mr_remote_xenops_locator)) (vdi_map @ snapshots_map) in
 		
 		List.iter (fun (vdi,mirror_record) ->
 			let other_config = Db.VDI.get_other_config ~__context ~self:vdi in
 			if List.mem_assoc Constants.storage_migrate_vdi_map_key other_config then
 				Db.VDI.remove_from_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key;
-			Db.VDI.add_to_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key ~value:(Ref.string_of mirror_record.mr_remote_vdi_reference)) vdi_map;
+			Db.VDI.add_to_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key ~value:(Ref.string_of mirror_record.mr_remote_vdi_reference)) (vdi_map @ snapshots_map);
 		
 		let vm_export_import = {
 			Importexport.vm = vm;
@@ -189,7 +206,7 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				(* Make sure we clean up the remote VDI mapping keys. *)
 				List.iter
 					(fun (vdi, _) -> Db.VDI.remove_from_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key)
-				 	vdi_map);
+				 	(vdi_map @ snapshots_map));
 		(* Migrate the VM *)
 		let open Xenops_client in
 		let vm' = Db.VM.get_uuid ~__context ~self:vm in

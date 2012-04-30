@@ -248,7 +248,8 @@ module Mirror = struct
 
 	external receive_cancel : task:task -> sr:sr -> vdi:vdi -> unit = ""
 
-	external list : task:task -> sr:sr -> Mirror.status list = ""
+	external copy_snapshot : task:task -> sr:sr -> vdi:vdi -> dp:dp -> url:string -> dest:sr -> vdi_info = ""
 
+	external list : task:task -> sr:sr -> Mirror.status list = ""
 
 end
