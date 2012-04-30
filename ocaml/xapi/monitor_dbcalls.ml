@@ -49,6 +49,8 @@ open Db_filter_types
  * copies it to the master to update all of the metrics objects. Not used
  * by default. *)
 let full_update_fn () =
+	()
+(* XXX TODO FIXME : temporarily disabled legacy RRD code
   let i64_of_float f =
     match classify_float f with
       | FP_nan -> 0L
@@ -56,8 +58,10 @@ let full_update_fn () =
       | _ -> Int64.of_float f
   in
 
-  let avg_rra_idx = !full_update_avg_rra_idx in
-  let last_rra_idx = !full_update_last_rra_idx in
+  let avg_rra_idx = Rrdd.Deprecated.get_full_update_avg_rra_idx () in
+  let last_rra_idx = Rrdd.Deprecated.get_full_update_last_rra_idx () in
+
+
   (* The following function constructs a bolus of data from the shared
      rrds in order to pass it over the wire to the master. There
      shouldn't be anything here that will take time to process, and by
@@ -189,6 +193,7 @@ let full_update_fn () =
 	ignore (Master_connection.execute_remote_fn (Xml.to_string_fmt (Monitor_transfer.marshall host_stats)) Constants.remote_stats_uri);
     )
 (* End of legacy function *)
+*)
 
 
 
@@ -275,8 +280,9 @@ let pifs_and_memory_update_fn () =
 *)
 
 
-
 let monitor_dbcall_thread () =
+	()
+(* TODO XXX FIXME : temporarily disabled the monitor db thread
     while true do 
       Mutex.lock mutex;
 	  while (StringSet.is_empty !dirty_memory) && (StringSet.is_empty !dirty_pifs) && (not !full_update) && (not !dirty_host_memory)
@@ -295,3 +301,4 @@ let monitor_dbcall_thread () =
 	debug "monitor_dbcall_thread would have died from: %s; restarting in 30s" (ExnHelper.string_of_exn e);
 	Thread.delay 30.
     done
+*)
