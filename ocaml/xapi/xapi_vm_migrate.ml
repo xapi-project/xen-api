@@ -88,23 +88,23 @@ type mirror_record = {
 }
 
 let get_snapshots_vbds ~__context ~vm =
-  let rec aux acc cur = 
-    let parent = Db.VM.get_parent ~__context ~self:cur in
-    debug "get_snapshots %s" (Ref.string_of parent);
-    if parent = Ref.null then
-      acc
-    else
-      aux ((Db.VM.get_VBDs ~__context ~self:parent) @ acc) parent in
-  aux [] vm
-      
+	let rec aux acc cur = 
+		let parent = Db.VM.get_parent ~__context ~self:cur in
+		debug "get_snapshots %s" (Ref.string_of parent);
+		if parent = Ref.null then
+			acc
+		else
+			aux ((Db.VM.get_VBDs ~__context ~self:parent) @ acc) parent in
+	aux [] vm
+
 let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	if not(!Xapi_globs.use_xenopsd)
 	then failwith "You must have /etc/xapi.conf:use_xenopsd=true";
 	(* Create mirrors of all the disks on the remote *)
 	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
-  let snapshots_vbds = get_snapshots_vbds ~__context ~vm in
-  debug "get_snapshots number %d" (List.length snapshots_vbds);
-  let vdi_filter vbd =
+	let snapshots_vbds = get_snapshots_vbds ~__context ~vm in
+	debug "get_snapshots number %d" (List.length snapshots_vbds);
+	let vdi_filter vbd =
 		if not(Db.VBD.get_empty ~__context ~self:vbd)
 		then
 			let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
@@ -123,9 +123,8 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				Some (vdi, dp, location, sr, xenops_locator)
 			end
 		else None in
-  let vdis = List.filter_map vdi_filter vbds in
-  let snapshots_vdis = List.filter_map vdi_filter snapshots_vbds in
- 
+	let vdis = List.filter_map vdi_filter vbds in
+	let snapshots_vdis = List.filter_map vdi_filter snapshots_vbds in
 	let task = Context.string_of_task __context in
 	let dest_host = List.assoc _host dest in
 	let url = List.assoc _sm dest in
@@ -146,7 +145,7 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			with _ ->
 				None
 		in
-    let vdi_copy_fun mirror (vdi, dp, location, sr, xenops_locator) =
+		let vdi_copy_fun mirror (vdi, dp, location, sr, xenops_locator) =
 			let (dest_sr_ref, dest_sr) = 
 				match List.mem_assoc vdi vdi_map, dest_default_sr_ref_uuid with
 					| true, _ ->
@@ -160,9 +159,9 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			in
 			
 			let v = if mirror then 
-          SMAPI.Mirror.start ~task ~sr ~vdi:location ~dp ~url ~dest:dest_sr
-        else
-          SMAPI.Mirror.copy_snapshot ~task ~sr ~vdi:location ~dp ~url ~dest:dest_sr in
+					SMAPI.Mirror.start ~task ~sr ~vdi:location ~dp ~url ~dest:dest_sr
+				else
+					SMAPI.Mirror.copy_snapshot ~task ~sr ~vdi:location ~dp ~url ~dest:dest_sr in
 			debug "Local VDI %s mirrored to %s" location v.vdi;
 			debug "Executing remote scan to ensure VDI is known to xapi";
 			XenAPI.SR.scan remote_rpc session_id dest_sr_ref;
@@ -182,7 +181,7 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				      mr_remote_vdi_reference = remote_vdi_reference; }) in
 
 		let vdi_map = List.map (vdi_copy_fun true) vdis in
-    let snapshots_map = List.map (vdi_copy_fun false) snapshots_vdis in
+		let snapshots_map = List.map (vdi_copy_fun false) snapshots_vdis in
 		(* Move the xapi VM metadata *)
 
 		let xenops_vdi_map = List.map (fun (_, mirror_record) -> (mirror_record.mr_local_xenops_locator, mirror_record.mr_remote_xenops_locator)) (vdi_map @ snapshots_map) in
