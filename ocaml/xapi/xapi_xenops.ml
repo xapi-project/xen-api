@@ -771,10 +771,22 @@ let update_vm ~__context id =
 						debug "xenopsd event: Updating VM %s consoles" id;
 						Opt.iter
 							(fun (_, state) ->
+								let localhost = Helpers.get_localhost ~__context in
+								let address = Db.Host.get_address ~__context ~self:localhost in
+								let uri = Printf.sprintf "https://%s%s" address Constants.console_uri in
+								let get_uri_from_location loc =
+									try
+										let n = String.index loc '?' in
+										String.sub loc 0 n
+									with Not_found -> loc
+								in
 								let current_protocols = List.map
-									(fun self -> Db.Console.get_protocol ~__context ~self |> to_xenops_console_protocol, self)
+									(fun self ->
+										(Db.Console.get_protocol ~__context ~self |> to_xenops_console_protocol,
+										Db.Console.get_location ~__context ~self |> get_uri_from_location),
+										self)
 									(Db.VM.get_consoles ~__context ~self) in
-								let new_protocols = List.map (fun c -> c.protocol, c) state.consoles in
+								let new_protocols = List.map (fun c -> (c.protocol, uri), c) state.consoles in
 								(* Destroy consoles that have gone away *)
 								List.iter
 									(fun protocol ->
@@ -783,15 +795,17 @@ let update_vm ~__context id =
 									) (List.set_difference (List.map fst current_protocols) (List.map fst new_protocols));
 								(* Create consoles that have appeared *)
 								List.iter
-									(fun protocol ->
-										let localhost = Helpers.get_localhost ~__context in
-										let address = Db.Host.get_address ~__context ~self:localhost in
+									(fun (protocol, _) ->
 										let ref = Ref.make () in
 										let uuid = Uuid.to_string (Uuid.make_uuid ()) in
-										let location = Printf.sprintf "https://%s%s?uuid=%s" address Constants.console_uri uuid in
+										let location = Printf.sprintf "%s?uuid=%s" uri uuid in
+										let port =
+											try Int64.of_int ((List.find (fun c -> c.protocol = protocol) state.consoles).port)
+											with Not_found -> -1L
+										in
 										Db.Console.create ~__context ~ref ~uuid
 											~protocol:(to_xenapi_console_protocol protocol) ~location ~vM:self
-											~other_config:[] ~port:(Int64.of_int (List.assoc protocol new_protocols).port)
+											~other_config:[] ~port
 									) (List.set_difference (List.map fst new_protocols) (List.map fst current_protocols));
 							) info;
 					end;
