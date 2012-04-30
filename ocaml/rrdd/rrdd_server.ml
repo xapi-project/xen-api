@@ -29,7 +29,7 @@ let push_rrd _ ~(vm_uuid : string) : unit = ()
 let remove_rrd _ ~(vm_uuid : string) : unit = ()
 (* Monitor_rrds.maybe_remove_rrd *)
 
-let migrate_rrd _ ?(remote_address : string option) ?(session_id : string option) ~(vm_uuid : string) ~(host_uuid : string) () : unit = ()
+let migrate_rrd _ ?(session_id : string option) ~(remote_address : string) ~(vm_uuid : string) ~(host_uuid : string) () : unit = ()
 (* Monitor_rrds.migrate_push *)
 
 let send_host_rrd_to_master _ () = ()
@@ -119,3 +119,12 @@ let set_cache_sr _ ~(sr_uuid : string) : unit =
 
 let unset_cache_sr _ () =
 	Mutex.execute cache_sr_lock (fun () -> cache_sr_uuid := None)
+
+
+module Deprecated = struct
+	let full_update_avg_rra_idx : int ref = ref (-1)
+	let full_update_last_rra_idx : int ref = ref (-1)
+
+	let get_full_update_avg_rra_idx _ () : int = !full_update_avg_rra_idx
+	let get_full_update_last_rra_idx _ () : int = !full_update_last_rra_idx
+end

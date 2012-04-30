@@ -6,7 +6,7 @@ OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
 	../xenops ../xva ../util \
 	../auth ../license ../client_records ../rfb ../gpg ../network ../rrdd/interface ..
 
-UseCamlp4(rpc-light.syntax, features rrd monitor_fake monitor_fake_common vdi_automaton storage_impl xapi_udhcpd storage_migrate)
+UseCamlp4(rpc-light.syntax, features monitor_fake_common vdi_automaton storage_impl xapi_udhcpd storage_migrate)
 UseCamlp4(rpc-light.idl, storage_interface)
 
 CFLAGS += -std=gnu99 -Wall -Werror -I$(shell ocamlc -where)
@@ -37,7 +37,7 @@ OCAMLPACKS = $(OCAMLPACKS) $(XEN_OCAMLPACKS)
 OCamlProgram(http_test, http_test)
 OCamlProgram(sparse_dd, sparse_dd sparse_encoding)
 OCamlProgram(show_bat, show_bat)
-OCamlProgram(monitor_fake_plugin, monitor_fake_plugin monitor_fake_common rrd)
+#OCamlProgram(monitor_fake_plugin, monitor_fake_plugin monitor_fake_common rrd)
 
 storage_interface.mli: storage_interface.ml vdi_automaton.cmi
 	ocamlfind ocamlc -package rpc-light.idl -syntax camlp4o -i $< > $@
@@ -64,7 +64,7 @@ OCamlProgram(quicktestbin, quicktest quicktest_common quicktest_ocamltest quickt
 
 OCamlProgram(xenstore_copy, xenstore_dump xenstore_copy)
 
-OCamlProgram(rrddump, rrddump rrd)
+#OCamlProgram(rrddump, rrddump rrd)
 
 XAPI_MODULES = $(COMMON) \
 	../util/table \
@@ -180,9 +180,7 @@ XAPI_MODULES = $(COMMON) \
 	monitor_master \
 	rrd_shared \
 	monitor_dbcalls \
-	monitor_fake \
 	monitor_fake_common \
-	rrd \
 	api_server \
 	create_misc \
 	xapi_host \
@@ -242,7 +240,6 @@ XAPI_MODULES = $(COMMON) \
 	xapi_message \
 	../idl/datamodel_schema \
 	debug_populate \
-	ds \
 	xapi_remotecmd \
 	redo_log_usage \
 	redo_log_alert \
@@ -263,6 +260,9 @@ XAPI_MODULES = $(COMMON) \
 	xapi_pgpu \
 	xapi_gpu_group \
 	xapi_vgpu \
+	../rrdd/interface/monitor_types \
+	../rrdd/interface/ds \
+	../rrdd/interface/rrd \
 	../rrdd/interface/data_source \
 	../rrdd/interface/rrdd_interface \
 	../rrdd/interface/rrdd

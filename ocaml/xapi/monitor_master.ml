@@ -306,6 +306,9 @@ let update_all ~__context host_stats =
 	) host_stats.registered
 
 let on_restart () =
+	()
+			(* TODO XXX FIXME temporarily disabled updating of dirty fields. should probably set them via xmlrpc in rrdd *)
+			(*
 	Mutex.execute Rrd_shared.mutex
 		(fun () ->
 			(* Explicitly dirty all VM memory values *)
@@ -315,6 +318,7 @@ let on_restart () =
 			Rrd_shared.dirty_memory := List.fold_left (fun acc x -> Rrd_shared.StringSet.add x acc) Rrd_shared.StringSet.empty uuids;
 			Rrd_shared.dirty_host_memory := true;
 			Condition.broadcast Rrd_shared.condition)
+			*)
 
 
 let handler (req: Http.Request.t) s _ = ()
@@ -328,3 +332,10 @@ let handler_host (req: Http.Request.t) s _ = ()
 
 let handler_rrd_updates (req: Http.Request.t) s _ = ()
 	(* Monitor_rrds.handler_host *)
+
+
+let migrate_rrd ~__context ?remote_address ?session_id ~vm_uuid ~host_uuid () =
+	let remote_address = match remote_address with
+		| None -> Db.Host.get_address ~__context ~self:(Ref.of_string host_uuid)
+		| Some a -> a
+	in Rrdd.migrate_rrd ~remote_address ?session_id ~vm_uuid ~host_uuid ()

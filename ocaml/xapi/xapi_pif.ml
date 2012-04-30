@@ -303,11 +303,16 @@ let db_forget ~__context ~self = Db.PIF.destroy ~__context ~self
 (* This signals the monitor thread to tell it that it should sync the database
  * with the current dom0 networking config. *)
 let mark_pif_as_dirty device =
+	()
+(* TODO XXX FIXME : temporarily disabled updating of dirty fields. should
+   probably set them via xmlrpc in rrdd *)
+(*
 	Threadext.Mutex.execute
 		(Rrd_shared.mutex)
 		(fun () ->
 			Rrd_shared.dirty_pifs := Rrd_shared.StringSet.add device (!Rrd_shared.dirty_pifs);
 			Condition.broadcast Rrd_shared.condition)
+*)
 
 (* Internal [introduce] is passed a pre-built table [t] *)
 let introduce_internal
