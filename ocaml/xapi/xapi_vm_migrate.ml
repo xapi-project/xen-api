@@ -98,7 +98,7 @@ let pool_migrate ~__context ~vm ~host ~options =
 		raise e
 	end;
 	Xapi_xenops.remove_caches vm';
-	Rrdd.migrate_rrd ~vm_uuid:vm' ~host_uuid:(Ref.string_of host) ();
+	Monitor_master.migrate_rrd ~__context ~vm_uuid:vm' ~host_uuid:(Ref.string_of host) ();
 	(* We will have missed important events because we set resident_on late.
 	   This was deliberate: resident_on is used by the pool master to reserve
 	   memory. If we called 'atomic_set_resident_on' before the domain is

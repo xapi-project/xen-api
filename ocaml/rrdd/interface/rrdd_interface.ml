@@ -25,7 +25,8 @@ let name = "xcp-rrdd"
 external load_rrd : uuid:string -> ?is_host:bool -> unit -> unit = ""
 external push_rrd : vm_uuid:string -> unit = ""
 external remove_rrd : vm_uuid:string -> unit = ""
-external migrate_rrd : ?remote_address:string -> ?session_id:string -> vm_uuid:string -> host_uuid:string -> unit -> unit = ""
+external migrate_rrd : ?session_id:string -> remote_address:string ->
+	vm_uuid:string -> host_uuid:string -> unit -> unit = ""
 external send_host_rrd_to_master : unit -> unit = ""
 external backup_rrds : ?save_stats_locally:bool -> unit -> unit = ""
 
@@ -50,3 +51,8 @@ external update_vm_memory_target : domid:int -> target:int64 -> unit = ""
 
 external set_cache_sr : sr_uuid:string -> unit = ""
 external unset_cache_sr : unit -> unit = ""
+
+module Deprecated = struct
+	external get_full_update_avg_rra_idx : unit -> int = ""
+	external get_full_update_last_rra_idx : unit -> int = ""
+end
