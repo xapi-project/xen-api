@@ -22,6 +22,25 @@ let name = "xcp-rrdd"
 
 (* The interface is defined by extern function declarations. *)
 
+external load_rrd : uuid:string -> ?is_host:bool -> unit -> unit = ""
+external push_rrd : vm_uuid:string -> unit = ""
+external remove_rrd : vm_uuid:string -> unit = ""
+external migrate_rrd : ?remote_address:string -> ?session_id:string -> vm_uuid:string -> host_uuid:string -> unit -> unit = ""
+external send_host_rrd_to_master : unit -> unit = ""
+external backup_rrds : ?save_stats_locally:bool -> unit -> unit = ""
+
+external add_host_ds : ds_name:string -> unit = ""
+external forget_host_ds : ds_name:string -> unit = ""
+external query_possible_host_dss : unit -> Data_source.t list = ""
+external query_host_ds : ds_name:string -> float = ""
+
+external add_vm_ds : vm_uuid:string -> ds_name:string -> unit = ""
+external forget_vm_ds : vm_uuid:string -> ds_name:string -> unit = ""
+external query_possible_vm_dss : vm_uuid:string -> Data_source.t list = ""
+external query_vm_ds : vm_uuid:string -> ds_name:string -> float = ""
+
+external update_use_min_max : value:bool -> unit = ""
+
 external add_to_uncooperative_domains : domid:int -> unit = ""
 external remove_from_uncooperative_domains : domid:int -> unit = ""
 external get_uncooperative_domains : unit -> string list = ""

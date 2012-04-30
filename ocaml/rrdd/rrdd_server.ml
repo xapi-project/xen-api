@@ -17,6 +17,66 @@ type context = unit
 
 open Threadext
 
+let backup_rrds _ ?(save_stats_locally : bool option) () : unit = ()
+(* Monitor_rrds.backup *)
+
+let load_rrd _ ~(uuid : string) ?(is_host : bool option) () : unit = ()
+(* Monitor_rrds.load_rrd *)
+
+let push_rrd _ ~(vm_uuid : string) : unit = ()
+(* Monitor_rrds.push_rrd *)
+
+let remove_rrd _ ~(vm_uuid : string) : unit = ()
+(* Monitor_rrds.maybe_remove_rrd *)
+
+let migrate_rrd _ ?(remote_address : string option) ?(session_id : string option) ~(vm_uuid : string) ~(host_uuid : string) () : unit = ()
+(* Monitor_rrds.migrate_push *)
+
+let send_host_rrd_to_master _ () = ()
+(* Monitor_rrds.send_host_rrd_to_master *)
+
+
+let add_host_ds _ ~(ds_name : string) : unit =
+	()
+	(* Monitor_rrds.add_host_ds *)
+
+let forget_host_ds _ ~(ds_name : string) : unit =
+	()
+	(* Monitor_rrds.forget_host_ds *)
+
+let query_possible_host_dss _ () : Data_source.t list =
+	[]
+	(* Monitor_rrds.query_possible_host_dss *)
+
+let query_host_ds _ ~(ds_name : string) : float =
+	-1.0
+	(* Monitor_rrds.query_host_dss *)
+
+
+let add_vm_ds _ ~(vm_uuid : string) ~(ds_name : string) : unit =
+	()
+	(* Monitor_rrds.add_vm_ds *)
+
+let forget_vm_ds _ ~(vm_uuid : string) ~(ds_name : string) : unit =
+	()
+	(* Monitor_rrds.forget_vm_ds *)
+
+let query_possible_vm_dss _ ~(vm_uuid : string) : Data_source.t list =
+	[]
+	(* Monitor_rrds.query_possible_vm_dss *)
+
+let query_vm_ds _ ~(vm_uuid : string) ~(ds_name : string) : float =
+	-1.0
+	(* Monitor_rrds.query_vm_dss *)
+
+
+let update_use_min_max _ ~(value : bool) : unit =
+	()
+(*
+    debug "Updating use_min_max: New value=%b" new_use_min_max;
+    use_min_max := new_use_min_max;
+*)
+
 (* Handle uncooperative domains. *)
 let uncooperative_domains: (int, unit) Hashtbl.t = Hashtbl.create 20
 let uncooperative_domains_m = Mutex.create ()

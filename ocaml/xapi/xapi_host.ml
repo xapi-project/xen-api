@@ -500,9 +500,9 @@ let shutdown_and_reboot_common ~__context ~host label description operation cmd 
 
   (* Push the Host RRD to the master. Note there are no VMs running here so we don't have to worry about them. *)
   if not(Pool_role.is_master ())
-  then Monitor_rrds.send_host_rrd_to_master ();
+  then Rrdd.send_host_rrd_to_master ();
   (* Also save the Host RRD to local disk for us to pick up when we return. Note there are no VMs running at this point. *)
-  Monitor_rrds.backup ();
+  Rrdd.backup_rrds ();
 
   (* This prevents anyone actually re-enabling us until after reboot *)
   Localdb.put Constants.host_disabled_until_reboot "true";
@@ -878,13 +878,13 @@ let compute_free_memory ~__context ~host =
 let compute_memory_overhead ~__context ~host =
 	Memory_check.host_compute_memory_overhead ~__context ~host
 
-let get_data_sources ~__context ~host = Monitor_rrds.query_possible_host_dss ()
+let get_data_sources ~__context ~host = List.map Data_source.to_API_data_source (Rrdd.query_possible_host_dss ())
 
-let record_data_source ~__context ~host ~data_source = Monitor_rrds.add_host_ds data_source
+let record_data_source ~__context ~host ~data_source = Rrdd.add_host_ds ~ds_name:data_source
 
-let query_data_source ~__context ~host ~data_source = Monitor_rrds.query_host_dss data_source
+let query_data_source ~__context ~host ~data_source = Rrdd.query_host_ds ~ds_name:data_source
 
-let forget_data_source_archives ~__context ~host ~data_source = Monitor_rrds.forget_host_ds data_source
+let forget_data_source_archives ~__context ~host ~data_source = Rrdd.forget_host_ds ~ds_name:data_source
 
 let tickle_heartbeat ~__context ~host ~stuff = Db_gc.tickle_heartbeat ~__context host stuff
 
@@ -916,7 +916,7 @@ let sync_data ~__context ~host =
 
 let backup_rrds ~__context ~host ~delay =
   Xapi_periodic_scheduler.add_to_queue "RRD backup" Xapi_periodic_scheduler.OneShot
-	delay (fun () -> Monitor_rrds.backup ~save_stats_locally:(Pool_role.is_master ()) ())
+	delay (fun () -> Rrdd.backup_rrds ~save_stats_locally:(Pool_role.is_master ()) ())
 
 let get_servertime ~__context ~host =
   Date.of_float (Unix.gettimeofday ())
