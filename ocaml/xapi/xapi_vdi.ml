@@ -379,7 +379,13 @@ let snapshot ~__context ~vdi ~driver_params =
 	let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
 	let newvdi = Storage_access.transform_storage_exn
 		(fun () ->
-			snapshot_and_clone C.VDI.snapshot ~__context ~vdi ~driver_params) in
+			try
+				snapshot_and_clone C.VDI.snapshot ~__context ~vdi ~driver_params
+			with Storage_interface.Unimplemented ->
+				(* CA-28598 *)
+				debug "Backend reported not implemented despite it offering the capability; assuming this is an LVHD upgrade issue";
+				raise (Api_errors.Server_error(Api_errors.sr_requires_upgrade, [ Ref.string_of (Db.VDI.get_SR ~__context ~self:vdi) ]))
+		) in
 	(* Record the fact this is a snapshot *)
  
 	(*(try Db.VDI.remove_from_other_config ~__context ~self:newvdi ~key:Xapi_globs.snapshot_of with _ -> ());
