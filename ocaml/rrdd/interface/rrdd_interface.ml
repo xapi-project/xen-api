@@ -22,13 +22,13 @@ let name = "xcp-rrdd"
 
 (* The interface is defined by extern function declarations. *)
 
-external load_rrd : uuid:string -> ?is_host:bool -> unit -> unit = ""
 external push_rrd : vm_uuid:string -> unit = ""
 external remove_rrd : vm_uuid:string -> unit = ""
 external migrate_rrd : ?session_id:string -> remote_address:string ->
 	vm_uuid:string -> host_uuid:string -> unit -> unit = ""
 external send_host_rrd_to_master : unit -> unit = ""
-external backup_rrds : ?save_stats_locally:bool -> unit -> unit = ""
+external backup_rrds : master_address:string -> ?save_stats_locally:bool ->
+	localhost_uuid:string -> unit -> unit = ""
 
 external add_host_ds : ds_name:string -> unit = ""
 external forget_host_ds : ds_name:string -> unit = ""
@@ -55,4 +55,7 @@ external unset_cache_sr : unit -> unit = ""
 module Deprecated = struct
 	external get_full_update_avg_rra_idx : unit -> int = ""
 	external get_full_update_last_rra_idx : unit -> int = ""
+	(* Could change timescale to sum type, e.g. Slow | Fast.*)
+	external load_rrd : master_address:string -> is_master:bool -> uuid:string ->
+		is_host:bool -> timescale:int -> unit -> unit = ""
 end

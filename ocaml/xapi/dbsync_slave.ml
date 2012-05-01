@@ -250,8 +250,9 @@ let update_env __context sync_keys =
     debug "Using xcp-network to setup networking"
   end;
 
-  (* Load the host rrd *)
-  Rrdd.load_rrd ~uuid:(Helpers.get_localhost_uuid ()) ~is_host:true ();
+	(* Load the host rrd *)
+	Rrdd_proxy.Deprecated.load_rrd ~__context
+		~uuid:(Helpers.get_localhost_uuid ()) ~is_host:true;
 
   (* maybe record host memory properties in database *)
   switched_sync Xapi_globs.sync_record_host_memory_properties (fun () ->

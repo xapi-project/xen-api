@@ -87,50 +87,10 @@ open Listext
 open Ds
 (*open Rrd_shared*) (* Nb this contains the mutex *)
 
-module D = Debug.Debugger(struct let name="monitor_rrds" end)
-open D
-
 let step = 5  
-
-let rrd_of_fd fd = 
-  let ic = Unix.in_channel_of_descr fd in
-  let input = Xmlm.make_input (`Channel ic) in
-  Rrd.from_xml input
-
-(** Helper function - path is the path to the file _without the extension .gz_ *)
-let rrd_of_gzip path =
-  let gz_path = path ^ ".gz" in
-  let gz_exists = try let (_: Unix.stats) = Unix.stat gz_path in true with _ -> false in
-  if gz_exists then begin
-    Unixext.with_file gz_path [ Unix.O_RDONLY ] 0o0
-      (fun fd -> Gzip.decompress_passive fd rrd_of_fd)
-  end else begin
-    (* If this fails, let the exception propagate *)
-    Unixext.with_file path [ Unix.O_RDONLY ] 0 rrd_of_fd
-  end
-
 
 let use_min_max = ref false 
 
-(** Here is the only place where RRDs are created. The timescales are fixed. If other timescales
-    are required, this could be done externally. The types of archives created are also fixed.
-    Currently, we're making 4 timescales of 3 types of archive. This adds up to a total of
-    (120+120+168+366)*3 doubles per field, and at 8 bytes per double this is a grand total
-    of 18k per field. For a VM with 2 VBDs, 2 VCPUs and 1 VIF, this adds up to 130k of data
-    per VM. This is the function where tuning could be done to change this. *)
-
-let timescales = 
-  if Xapi_fist.reduce_rra_times then 
-    (* These are purely for xenrt testing *)
-    [(120,1);
-     (20,12);
-     (15,24);
-     (10,36)]
-  else
-    [(120,1);     (* 120 values of interval 1 step (5 secs) = 10 mins *)
-     (120,12);    (* 120 values of interval 12 steps (1 min) = 2 hours *)
-     (168,720);   (* 168 values of interval 720 steps (1 hr) = 1 week *)
-     (366,17280)] (* 366 values of interval 17280 steps (1 day) = 1 yr *)
 
 let create_rras use_min_max =
   (* Create archives of type min, max and average and last *)
@@ -209,51 +169,8 @@ let archive_rrd ?(save_stats_locally = Pool_role.is_master ()) uuid rrd =
     send_rrd master_address true uuid rrd
   end
 
-(* This is where we add the update hook that updates the metrics classes every
-   so often. Called with the lock held. *)
-let add_update_hook ~__context rrd =
-  let host=Helpers.get_localhost ~__context in
-  let other_config = Db.Host.get_other_config ~__context ~self:host in
-  let timescale = 
-    try 
-      int_of_string (List.assoc Constants.rrd_update_interval other_config)
-    with _ -> 0 
-  in
-  (* Clear any existing ones *)
-  debug "clearing existing update hooks";
-  Array.iter (fun rra -> rra.Rrd.rra_updatehook <- None) rrd.Rrd.rrd_rras;
-  if timescale > 0 && timescale < 3 then (* Only allow timescales 1 and 2 - that is 5 seconds and 60 seconds respectively *)
-    begin
-      debug "Timescale OK";
-      let (n,ns) = List.nth timescales (timescale-1) in
-      debug "(n,ns)=(%d,%d)" n ns;
-      let rras = List.filter (fun (_,rra) -> rra.Rrd.rra_pdp_cnt=ns) (Array.to_list (Array.mapi (fun i x -> (i,x)) rrd.Rrd.rrd_rras)) in
-      try
-	debug "Found some RRAs (%d)" (List.length rras);
-	(* Add the update hook to the last RRA at this timescale to be updated. That way we know that all of the
-	   RRAs will have been updated when the hook is called. Last here means two things: the last RRA of this
-	   timescale, and also that it happens to be (coincidentally) the one with the CF_LAST consolidation function.
-	   We rely on this, as well as the first one being the CF_AVERAGE one *)
-	let (new_last_rra_idx, last_rra) = List.hd (List.rev rras) in
-	let (new_avg_rra_idx, avg_rra) = List.hd rras in
-	debug "Got rra - cf=%s row_cnt=%d pdp_cnt=%d" (Rrd.cf_type_to_string last_rra.Rrd.rra_cf) last_rra.Rrd.rra_row_cnt last_rra.Rrd.rra_pdp_cnt;
-	Rrdd_server.Deprecated.full_update_avg_rra_idx := new_avg_rra_idx;
-	Rrdd_server.Deprecated.full_update_last_rra_idx := new_last_rra_idx;
-	(* XXX FIXME TODO: temporarily disabled full_update and condition broadcast. *)
-	(*last_rra.Rrd.rra_updatehook <- Some (fun _ _ -> full_update := true; Condition.broadcast condition);*)
-      with _ -> ()
-    end
 
-let mutex = Mutex.create ()
 
-type rrd_info = {
-  rrd: Rrd.rrd;
-  mutable dss: Ds.ds list;
-}
-
-(* RRDs *)
-let vm_rrds : (string, rrd_info) Hashtbl.t = Hashtbl.create 32
-let host_rrd : rrd_info option ref = ref None
 
 (** Cleanup functions *)
 
@@ -266,42 +183,6 @@ let send_host_rrd_to_master () =
         let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrdi.rrd) in
         archive_rrd (Helpers.get_localhost_uuid ()) ~save_stats_locally:false rrd
     | None -> ()
-
-(** Cleanup - called on xapi exit. 
-    We save our host RRD and running VM RRDs on the local filesystem and pick them up when we restart. *)
-let backup ?(save_stats_locally=true) () =
-  debug "backup safe_stats_locally=%b" save_stats_locally;
-  let total_cycles = 5 in
-  let cycles_tried = ref 0 in
-  while !cycles_tried < total_cycles do
-    if Mutex.try_lock mutex then begin
-      cycles_tried := total_cycles;
-      let vrrds = 
-        try 
-          Hashtbl.fold (fun k v acc -> (k,v.rrd)::acc) vm_rrds []
-        with exn ->
-          Mutex.unlock mutex;
-          raise exn
-      in
-      Mutex.unlock mutex;
-      List.iter (fun (uuid,rrd) -> 
-                  debug "Backup: saving RRD for VM uuid=%s to local disk" uuid; 
-                  let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrd) in
-                  archive_rrd uuid ~save_stats_locally rrd) 
-        vrrds;
-      match !host_rrd with 
-        | Some rrdi -> 
-            debug "Backup: saving RRD for host to local disk";
-            let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrdi.rrd) in
-            archive_rrd (Helpers.get_localhost_uuid ()) ~save_stats_locally rrd
-        | None -> ()
-    end else begin
-      cycles_tried := 1 + !cycles_tried;
-      if !cycles_tried >= total_cycles
-      then debug "Could not acquire RRD lock, skipping RRD backup"
-      else Thread.delay 1.
-    end
-  done
 
 (** Maybe_remove_rrd - remove an RRD from the local filesystem, if it exists *)
 let maybe_remove_rrd uuid =
@@ -399,11 +280,6 @@ let pull_rrd_from_master ~__context uuid is_host =
 		  )
 	  )
 
-(** Only called from dbsync in two cases:
-    1. for the local host after a xapi restart or host restart
-    2. for running VMs after a xapi restart
-    Note we aren't called looking for running VMs after a host restart.
-    We assume that the RRDs were stored locally and fall back to asking the master if we can't find them. *)
 let load_rrd ~__context uuid is_host =
   try
     let rrd = 
