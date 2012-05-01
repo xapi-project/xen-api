@@ -536,6 +536,68 @@ module VM = struct
 	let get_initial_target ~xs domid =
 		Int64.of_string (xs.Xs.read (Printf.sprintf "/local/domain/%d/memory/initial-target" domid))
 
+	let generate_non_persistent_state xc xs vm =
+		let hvm = match vm.ty with HVM _ -> true | _ -> false in
+		(* XXX add per-vcpu information to the platform data *)
+		(* VCPU configuration *)
+		let pcpus = Xenctrlext.get_max_nr_cpus xc in							
+		let all_pcpus = pcpus |> Range.make 0 |> Range.to_list in
+		let all_vcpus = vm.vcpu_max |> Range.make 0 |> Range.to_list in
+		let masks = match vm.scheduler_params.affinity with
+			| [] ->
+				(* Every vcpu can run on every pcpu *)
+				List.map (fun _ -> all_pcpus) all_vcpus
+			| m :: ms ->
+				(* Treat the first as the template for the rest *)
+				let defaults = List.map (fun _ -> m) all_vcpus in
+				List.take vm.vcpu_max (m :: ms @ defaults) in
+		(* convert a mask into a binary string, one char per pCPU *)
+		let bitmap cpus: string = 
+			let cpus = List.filter (fun x -> x >= 0 && x < pcpus) cpus in
+			let result = String.make pcpus '0' in
+			List.iter (fun cpu -> result.[cpu] <- '1') cpus;
+			result in
+		let affinity = 
+			List.mapi (fun idx mask -> 
+				Printf.sprintf "vcpu/%d/affinity" idx, bitmap mask
+			) masks in
+		let weight = Opt.default [] (Opt.map
+			(fun (w, c) -> [
+				"vcpu/weight", string_of_int w;
+				"vcpu/cap", string_of_int c
+			])
+			vm.scheduler_params.priority
+		) in
+		let vcpus = [
+			"vcpu/number", string_of_int vm.vcpu_max;
+			"vcpu/current", string_of_int vm.vcpus;
+		] @ affinity @ weight in
+		let create_info = {
+			Domain.ssidref = vm.ssidref;
+			hvm = hvm;
+			hap = hvm;
+			name = vm.name;
+			xsdata = vm.xsdata;
+			platformdata = vm.platformdata @ vcpus;
+			bios_strings = vm.bios_strings;
+		} in
+		{
+			VmExtra.create_info = create_info;
+			vcpu_max = vm.vcpu_max;
+			vcpus = vm.vcpus;
+			shadow_multiplier = (match vm.Vm.ty with Vm.HVM { Vm.shadow_multiplier = sm } -> sm | _ -> 1.);
+			memory_static_max = vm.memory_static_max;
+			suspend_memory_bytes = 0L;
+			ty = None;
+			vbds = [];
+			qemu_vbds = [];
+			qemu_vifs = [];
+			vifs = [];
+			last_start_time = Unix.gettimeofday ();
+			pci_msitranslate = vm.Vm.pci_msitranslate;
+			pci_power_mgmt = vm.Vm.pci_power_mgmt;
+		}
+
 	let create_exn (task: Xenops_task.t) memory_upper_bound vm =
 		let k = vm.Vm.id in
 		with_xc_and_xs
@@ -547,69 +609,9 @@ module VM = struct
 							x.VmExtra.persistent, x.VmExtra.non_persistent
 						| None -> begin
 							debug "VM = %s; has no stored domain-level configuration, regenerating" vm.Vm.id;
-							let hvm = match vm.ty with HVM _ -> true | _ -> false in
-							(* XXX add per-vcpu information to the platform data *)
-							(* VCPU configuration *)
-							let pcpus = Xenctrlext.get_max_nr_cpus xc in							
-							let all_pcpus = pcpus |> Range.make 0 |> Range.to_list in
-							let all_vcpus = vm.vcpu_max |> Range.make 0 |> Range.to_list in
-							let masks = match vm.scheduler_params.affinity with
-								| [] ->
-									(* Every vcpu can run on every pcpu *)
-									List.map (fun _ -> all_pcpus) all_vcpus
-								| m :: ms ->
-									(* Treat the first as the template for the rest *)
-									let defaults = List.map (fun _ -> m) all_vcpus in
-									List.take vm.vcpu_max (m :: ms @ defaults) in
-							(* convert a mask into a binary string, one char per pCPU *)
-							let bitmap cpus: string = 
-								let cpus = List.filter (fun x -> x >= 0 && x < pcpus) cpus in
-								let result = String.make pcpus '0' in
-								List.iter (fun cpu -> result.[cpu] <- '1') cpus;
-								result in
-							let affinity = 
-								List.mapi (fun idx mask -> 
-									Printf.sprintf "vcpu/%d/affinity" idx, bitmap mask
-								) masks in
-							let weight = Opt.default [] (Opt.map
-								(fun (w, c) -> [
-									"vcpu/weight", string_of_int w;
-									"vcpu/cap", string_of_int c
-								])
-								vm.scheduler_params.priority
-							) in
-							let vcpus = [
-								"vcpu/number", string_of_int vm.vcpu_max;
-								"vcpu/current", string_of_int vm.vcpus;
-							] @ affinity @ weight in
-							let create_info = {
-								Domain.ssidref = vm.ssidref;
-								hvm = hvm;
-								hap = hvm;
-								name = vm.name;
-								xsdata = vm.xsdata;
-								platformdata = vm.platformdata @ vcpus;
-								bios_strings = vm.bios_strings;
-							} in
-							({
-								VmExtra.build_info = None;
-							},
-							{
-								VmExtra.create_info = create_info;
-								vcpu_max = vm.vcpu_max;
-								vcpus = vm.vcpus;
-								shadow_multiplier = (match vm.Vm.ty with Vm.HVM { Vm.shadow_multiplier = sm } -> sm | _ -> 1.);
-								memory_static_max = vm.memory_static_max;
-								suspend_memory_bytes = 0L;
-								ty = None;
-								vbds = [];
-								qemu_vbds = [];
-								qemu_vifs = [];
-								vifs = [];
-								last_start_time = Unix.gettimeofday ();
-								pci_msitranslate = vm.Vm.pci_msitranslate;
-								pci_power_mgmt = vm.Vm.pci_power_mgmt;
-							})
+							let persistent = { VmExtra.build_info = None; } in
+							let non_persistent = generate_non_persistent_state xc xs vm in
+							persistent, non_persistent
 						end in
 				let open Memory in
 				let overhead_bytes = compute_overhead non_persistent in
@@ -1297,14 +1299,16 @@ module VM = struct
 
 	let get_internal_state vdi_map vif_map vm =
 		let state = DB.read_exn vm.Vm.id in
-		let vbds = List.map (fun vbd -> {vbd with Vbd.backend = Opt.map (remap_vdi vdi_map) vbd.Vbd.backend}) state.VmExtra.non_persistent.VmExtra.vbds in
-		let vifs = List.map (fun vif -> remap_vif vif_map vif) state.VmExtra.non_persistent.VmExtra.vifs in
-		let non_persistent = {state.VmExtra.non_persistent with VmExtra.vbds = vbds; vifs = vifs} in
-		{state with VmExtra.non_persistent = non_persistent} |> VmExtra.rpc_of_t |> Jsonrpc.to_string
+		state.VmExtra.persistent |> VmExtra.rpc_of_persistent_t |> Jsonrpc.to_string
 
 	let set_internal_state vm state =
 		let k = vm.Vm.id in
-		DB.write k (state |> Jsonrpc.of_string |> VmExtra.t_of_rpc)
+		let persistent = state |> Jsonrpc.of_string |> VmExtra.persistent_t_of_rpc in
+		let non_persistent = match DB.read k with
+		| None -> with_xc_and_xs (fun xc xs -> generate_non_persistent_state xc xs vm)
+		| Some vmextra -> vmextra.VmExtra.non_persistent
+		in
+		DB.write k { VmExtra.persistent = persistent; VmExtra.non_persistent = non_persistent; }
 
 	let minimum_reboot_delay = 120.
 end
