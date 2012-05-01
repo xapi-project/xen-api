@@ -27,7 +27,8 @@ external push_rrd : master_address:string -> vm_uuid:string ->
 external remove_rrd : uuid:string -> unit = ""
 external migrate_rrd : ?session_id:string -> remote_address:string ->
 	vm_uuid:string -> host_uuid:string -> unit -> unit = ""
-external send_host_rrd_to_master : unit -> unit = ""
+external send_host_rrd_to_master : master_address:string ->
+	localhost_uuid:string -> unit = ""
 external backup_rrds : master_address:string -> ?save_stats_locally:bool ->
 	localhost_uuid:string -> unit -> unit = ""
 
