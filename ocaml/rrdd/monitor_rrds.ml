@@ -174,16 +174,6 @@ let archive_rrd ?(save_stats_locally = Pool_role.is_master ()) uuid rrd =
 
 (** Cleanup functions *)
 
-(* Called on host shutdown/reboot to send the Host RRD to the master for backup. Note all VMs will have
-   been shutdown by now. *)
-let send_host_rrd_to_master () = 
-  match !host_rrd with 
-    | Some rrdi -> 
-        debug "sending host RRD to master"; 
-        let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrdi.rrd) in
-        archive_rrd (Helpers.get_localhost_uuid ()) ~save_stats_locally:false rrd
-    | None -> ()
-
 (* Load an RRD from the local filesystem. Will return an RRD or throw an exception. *)
 let load_rrd_from_local_filesystem ~__context uuid =
   debug "Loading RRD from local filesystem for object uuid=%s" uuid;
@@ -605,69 +595,3 @@ let update_rrds ~__context timestamp dss uuids pifs rebooting_vms paused_vms =
   in
   
   List.iter (fun (uuid,rrd) -> debug "Sending back RRD for VM uuid=%s" uuid; archive_rrd uuid rrd.rrd) to_send_back
-      
-
-let query_possible_dss rrdi =
-  let enabled_dss = Rrd.ds_names rrdi.rrd in
-  List.map (fun ds -> {API.data_source_name_label=ds.ds_name;
-		       API.data_source_name_description=ds.ds_description;
-		       API.data_source_enabled=(List.mem ds.ds_name enabled_dss);
-		       API.data_source_standard=ds.ds_default;
-		       API.data_source_units=ds.ds_units;
-		       API.data_source_min=ds.ds_min;
-		       API.data_source_max=ds.ds_max;
-		       API.data_source_value=0.0;}) rrdi.dss
-
-let add_ds rrdi ds_name =
-  let ds = List.find (fun ds -> ds.ds_name=ds_name) rrdi.dss in
-  Rrd.rrd_add_ds rrdi.rrd (Rrd.ds_create ds.ds_name ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown)
-  
-let query_possible_vm_dss uuid =
-  Mutex.execute mutex (fun () ->
-    let rrdi = Hashtbl.find vm_rrds uuid in
-    query_possible_dss rrdi)
-
-let add_vm_ds uuid ds_name =
-  Mutex.execute mutex (fun () ->
-    let rrdi = Hashtbl.find vm_rrds uuid in
-    let rrd = add_ds rrdi ds_name in
-    Hashtbl.replace vm_rrds uuid {rrd=rrd; dss=rrdi.dss})
-
-let query_vm_dss uuid ds_name =
-  Mutex.execute mutex (fun () ->
-    let rrdi = Hashtbl.find vm_rrds uuid in
-    Rrd.query_named_ds rrdi.rrd ds_name Rrd.CF_Average)
-
-let forget_vm_ds uuid ds_name =
-  Mutex.execute mutex (fun () ->
-    let rrdi = Hashtbl.find vm_rrds uuid in
-    let rrd = rrdi.rrd in
-    Hashtbl.replace vm_rrds uuid {rrdi with rrd=Rrd.rrd_remove_ds rrd ds_name})
-
-let query_possible_host_dss () =
-  Mutex.execute mutex (fun () ->
-    match !host_rrd with
-      | None -> []
-      | Some rrdi -> query_possible_dss rrdi)
-
-let add_host_ds ds_name =
-  Mutex.execute mutex (fun () ->
-    match !host_rrd with
-      | None -> ()
-      | Some rrdi -> 
-	  let rrd = add_ds rrdi ds_name in
-	  host_rrd := Some {rrdi with rrd=rrd})
-
-let query_host_dss ds_name =
-  Mutex.execute mutex (fun () ->
-    match !host_rrd with
-      | None -> failwith "No DS!"
-      | Some rrdi -> 
-	  Rrd.query_named_ds rrdi.rrd ds_name Rrd.CF_Average)
-
-let forget_host_ds ds_name =
-  Mutex.execute mutex (fun () ->
-    match !host_rrd with
-      | None -> ()
-      | Some rrdi -> 
-	  host_rrd := Some {rrdi with rrd=Rrd.rrd_remove_ds rrdi.rrd ds_name})
