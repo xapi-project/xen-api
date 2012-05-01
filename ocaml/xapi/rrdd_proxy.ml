@@ -32,6 +32,28 @@ let handler_host (req: Http.Request.t) s _ = ()
 let handler_rrd_updates (req: Http.Request.t) s _ = ()
 	(* Monitor_rrds.handler_host *)
 
+let is_vm_on_localhost ~__context ~(vm_uuid : string) : bool =
+  let localhost = Helpers.get_localhost ~__context in
+	let vm = Db.VM.get_by_uuid ~__context ~uuid:vm_uuid in
+	let vm_host = Db.VM.get_resident_on ~__context ~self:vm in
+	localhost = vm_host
+
+let push_rrd ~__context ~(vm_uuid : string) : unit =
+	let master_address = Pool_role.get_master_address () in
+	let is_on_localhost = is_vm_on_localhost ~__context ~vm_uuid in
+	Rrdd.push_rrd ~master_address ~vm_uuid ~is_on_localhost
+
+let migrate_rrd ~__context ?remote_address ?session_id ~vm_uuid ~host_uuid () =
+	let remote_address = match remote_address with
+		| None -> Db.Host.get_address ~__context ~self:(Ref.of_string host_uuid)
+		| Some a -> a
+	in Rrdd.migrate_rrd ~remote_address ?session_id ~vm_uuid ~host_uuid ()
+
+let backup_rrds ?(save_stats_locally : bool option) () =
+	let master_address = Pool_role.get_master_address () in
+	let localhost_uuid = Helpers.get_localhost_uuid () in
+	Rrdd.backup_rrds ~master_address ?save_stats_locally ~localhost_uuid ()
+
 module Deprecated = struct
 	let get_timescale ~__context =
 		let host = Helpers.get_localhost ~__context in
@@ -46,14 +68,3 @@ module Deprecated = struct
 		Rrdd.Deprecated.load_rrd ~master_address ~is_master ~uuid ~is_host
 			~timescale ()
 end
-
-let backup_rrds ?(save_stats_locally : bool option) () =
-	let master_address = Pool_role.get_master_address () in
-	let localhost_uuid = Helpers.get_localhost_uuid () in
-	Rrdd.backup_rrds ~master_address ?save_stats_locally ~localhost_uuid ()
-
-let migrate_rrd ~__context ?remote_address ?session_id ~vm_uuid ~host_uuid () =
-	let remote_address = match remote_address with
-		| None -> Db.Host.get_address ~__context ~self:(Ref.of_string host_uuid)
-		| Some a -> a
-	in Rrdd.migrate_rrd ~remote_address ?session_id ~vm_uuid ~host_uuid ()

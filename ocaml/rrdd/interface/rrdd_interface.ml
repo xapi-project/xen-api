@@ -22,7 +22,8 @@ let name = "xcp-rrdd"
 
 (* The interface is defined by extern function declarations. *)
 
-external push_rrd : vm_uuid:string -> unit = ""
+external push_rrd : master_address:string -> vm_uuid:string ->
+	is_on_localhost:bool -> unit = ""
 external remove_rrd : vm_uuid:string -> unit = ""
 external migrate_rrd : ?session_id:string -> remote_address:string ->
 	vm_uuid:string -> host_uuid:string -> unit -> unit = ""

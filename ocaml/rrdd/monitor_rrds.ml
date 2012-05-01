@@ -227,24 +227,6 @@ let migrate_push ?session_id remote_address vm_uuid host =
 				  (ExnHelper.string_of_exn e) ;
 			  log_backtrace ()
 
-(** Push function to push the archived RRD to the appropriate host 
-    (which might be us, in which case, pop it into the hashtbl *)
-let push_rrd ~__context uuid =
-  try
-    let path = Xapi_globs.xapi_rrd_location ^ "/" ^ uuid in
-    let rrd = rrd_of_gzip path in
-    debug "Pushing RRD for VM uuid=%s" uuid;
-    let vm = Db.VM.get_by_uuid ~__context ~uuid in
-    let host = Db.VM.get_resident_on ~__context ~self:vm in
-    if host = Helpers.get_localhost ~__context then begin
-      Mutex.execute mutex (fun () -> Hashtbl.replace vm_rrds uuid {rrd=rrd; dss=[]}) 	      
-    end else begin
-      (* Host might be OpaqueRef:null, in which case we'll fail silently *)
-      let address = Db.Host.get_address ~__context ~self:host in
-      send_rrd address false uuid (Rrd.copy_rrd rrd)
-    end
-  with _ -> ()
-
 (* Load an RRD from the local filesystem. Will return an RRD or throw an exception. *)
 let load_rrd_from_local_filesystem ~__context uuid =
   debug "Loading RRD from local filesystem for object uuid=%s" uuid;
