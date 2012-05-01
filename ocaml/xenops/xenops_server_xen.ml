@@ -863,10 +863,14 @@ module VM = struct
 					| PV { boot = Indirect ( { devices = d :: _ } as i ) } ->
 						with_disk ~xc ~xs task d false
 							(fun dev ->
-								let b = Bootloader.extract task ~bootloader:i.bootloader 
-									~legacy_args:i.legacy_args ~extra_args:i.extra_args
-									~pv_bootloader_args:i.bootloader_args 
-									~disk:dev ~vm:vm.Vm.id () in
+								let b =
+									Xenops_task.with_subtask task "bootloader"
+										(fun () ->
+											Bootloader.extract task ~bootloader:i.bootloader 
+												~legacy_args:i.legacy_args ~extra_args:i.extra_args
+												~pv_bootloader_args:i.bootloader_args 
+												~disk:dev ~vm:vm.Vm.id ()
+										) in
 								kernel_to_cleanup := Some b;
 								let builder_spec_info = Domain.BuildPV {
 									Domain.cmdline = b.Bootloader.kernel_args;
