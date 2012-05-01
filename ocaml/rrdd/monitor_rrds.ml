@@ -87,10 +87,7 @@ open Listext
 open Ds
 (*open Rrd_shared*) (* Nb this contains the mutex *)
 
-let step = 5  
-
-let use_min_max = ref false 
-
+let step = 5
 
 let create_rras use_min_max =
   (* Create archives of type min, max and average and last *)
