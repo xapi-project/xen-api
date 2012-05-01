@@ -362,7 +362,7 @@ let ds_update rrd timestamp values transforms new_domid =
     end
 
 (** Update the rrd with named values rather than just an ordered array *)
-let ds_update_named rrd timestamp new_domid valuesandtransforms =
+let ds_update_named rrd timestamp ~new_domid valuesandtransforms =
   let identity x = x in
   let ds_names = Array.map (fun ds -> ds.ds_name) rrd.rrd_dss in
 (*  Array.iter (fun x -> debug "registered ds name: %s" x) ds_names;
