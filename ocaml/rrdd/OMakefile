@@ -1,14 +1,14 @@
-OCAML_LIBS    = $(ROOT)/ocaml/fhs
 OCAMLINCLUDES = $(ROOT)/ocaml $(ROOT)/ocaml/autogen interface \
 	$(ROOT)/ocaml/xapi $(ROOT)/ocaml/idl $(ROOT)/ocaml/idl/ocaml_backend
 # ocaml/xapi only needed for xapi_fist : should move xapi_first to libs
 OCAMLPACKS    = xml-light2 stunnel http-svr xenctrl
+OCAML_LIBS    = $(ROOT)/ocaml/fhs ../idl/ocaml_backend/xapi_client
 
 UseCamlp4(rpc-light.syntax, rrdd_server)
 
 RRDD_SERVER = rrdd_server
 RRDD_SERVER_FILES = rrdd_main interface/rrdd_interface interface/data_source \
-	rrdd_server ../xapi/xapi_fist
+	interface/rrd rrdd_server ../xapi/xapi_fist
 RRDD_TEST = rrdd_test
 RRDD_TEST_FILES = rrdd_test interface/rrdd_interface interface/data_source
 
