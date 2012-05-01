@@ -984,12 +984,10 @@ let update_pci ~__context id =
 				if Opt.map snd info = previous
 				then debug "xenopsd event: ignoring event for PCI %s.%s: metadata has not changed" (fst id) (snd id)
 				else begin
-					(* XXX: we resync all PCI devices at this point *)
-
-					(* This is what the DB thinks: *)
-					let pcis = Db.VM.get_attached_PCIs ~__context ~self:vm in
+					let pcis = Db.Host.get_PCIs ~__context ~self:localhost in
 					let pcirs = List.map (fun self -> self, Db.PCI.get_record ~__context ~self) pcis in
-					let pci, _ = List.find (fun (_, pcir) -> pcir.API.pCI_pci_id = (snd id) && pcir.API.pCI_host = localhost) pcirs in
+
+					let pci, _ = List.find (fun (_, pcir) -> pcir.API.pCI_pci_id = (snd id)) pcirs in
 
 					(* Assumption: a VM can have only one vGPU *)
 					let gpu =
