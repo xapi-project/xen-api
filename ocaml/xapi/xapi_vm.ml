@@ -437,7 +437,7 @@ let destroy  ~__context ~self =
 		(fun child -> try Db.VM.set_parent ~__context ~self:child ~value:parent with _ -> ())
 		(Db.VM.get_children ~__context ~self);
 
-	Rrdd.remove_rrd ~vm_uuid:(Db.VM.get_uuid ~__context ~self);
+	Rrdd.remove_rrd ~uuid:(Db.VM.get_uuid ~__context ~self);
 	destroy ~__context ~self
 
 (* Note: we don't need to call lock_vm around clone or copy. The lock_vm just takes the local
