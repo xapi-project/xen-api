@@ -1202,7 +1202,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					~obj_uuid:uuid
 					~body:message_body)
 			with _ -> ());
-			Rrdd.push_rrd ~vm_uuid:uuid
+			Rrdd_proxy.push_rrd ~__context ~vm_uuid:uuid
 
 		let start_on ~__context ~vm ~host ~start_paused ~force =
 			if Helpers.rolling_upgrade_in_progress ~__context
@@ -1252,7 +1252,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					~obj_uuid:(Db.VM.get_uuid ~__context ~self:vm)
 					~body:message_body)
 			with _ -> ());
-			Rrdd.push_rrd ~vm_uuid:(Db.VM.get_uuid ~__context ~self:vm)
+			Rrdd_proxy.push_rrd ~__context ~vm_uuid:(Db.VM.get_uuid ~__context ~self:vm)
 
 		let pause ~__context ~vm =
 			info "VM.pause: VM = '%s'" (vm_uuid ~__context vm);
@@ -1511,7 +1511,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			in
 			(try ignore(Xapi_message.create ~__context ~name:Api_messages.vm_resumed
 				~priority:1L ~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ());
-			Rrdd.push_rrd ~vm_uuid:(Db.VM.get_uuid ~__context ~self:vm)
+			Rrdd_proxy.push_rrd ~__context ~vm_uuid:(Db.VM.get_uuid ~__context ~self:vm)
 
 		let resume_on ~__context ~vm ~host ~start_paused ~force =
 			if Helpers.rolling_upgrade_in_progress ~__context
@@ -1542,7 +1542,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			in
 			(try ignore(Xapi_message.create ~__context ~name:Api_messages.vm_resumed
 				~priority:1L ~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ());
-			Rrdd.push_rrd ~vm_uuid:(Db.VM.get_uuid ~__context ~self:vm)
+			Rrdd_proxy.push_rrd ~__context ~vm_uuid:(Db.VM.get_uuid ~__context ~self:vm)
 
 		let pool_migrate_complete ~__context ~vm ~host =
 			info "VM.pool_migrate_complete: VM = '%s'; host = '%s'"
