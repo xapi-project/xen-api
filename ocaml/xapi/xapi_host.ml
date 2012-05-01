@@ -484,7 +484,7 @@ let shutdown_and_reboot_common ~__context ~host label description operation cmd 
 
   (* Push the Host RRD to the master. Note there are no VMs running here so we don't have to worry about them. *)
   if not(Pool_role.is_master ())
-  then Rrdd.send_host_rrd_to_master ();
+  then Rrdd_proxy.send_host_rrd_to_master ();
   (* Also save the Host RRD to local disk for us to pick up when we return. Note there are no VMs running at this point. *)
 	Rrdd_proxy.backup_rrds ();
 
