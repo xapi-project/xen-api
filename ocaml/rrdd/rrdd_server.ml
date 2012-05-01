@@ -34,36 +34,36 @@ let host_rrd : rrd_info option ref = ref None
 
 (** Send rrds to a remote host. If the host is on another pool, you
     must pass the session_id parameter, and optionally the __context. *)
-let send_rrd ?session_id address to_archive uuid rrd = ()
-(* FIXME: Surely this should not be sending to xapi?! *)
-(*
+let send_rrd ?(session_id : string option) ~(address : string)
+		~(to_archive : bool) ~(uuid : string) ~(rrd : Rrd.rrd) () =
 	debug "Sending RRD for object uuid=%s archiving=%b to address: %s"
 		uuid to_archive address;
 	let arch_query = if to_archive then ["archive", "true"] else [] in
 	let sid_query = match session_id with
-		| None -> [] | Some id -> ["session_id", Ref.string_of id] in
+		None -> [] | Some id -> ["session_id", id] in
 	let query = sid_query @ arch_query @ ["uuid", uuid] in
 	let cookie =
 		if sid_query = [] then ["pool_secret", !Xapi_globs.pool_secret] else [] in
 	let request =
-		Xapi_http.http_request ~query ~cookie Http.Put Constants.rrd_put_uri in
+		Http.Request.make ~user_agent:Xapi_globs.xapi_user_agent
+			~query ~cookie Http.Put Constants.rrd_put_uri in
 	let open Xmlrpc_client in
 	let transport = SSL(SSL.make (), address, !Xapi_globs.https_port) in
 	with_transport transport (
 		with_http request (fun (response, fd) ->
 			try Rrd.to_fd rrd fd
 			with e ->
-				debug "Caught exception: %s" (ExnHelper.string_of_exn e);
+				(*debug "Caught exception: %s" (ExnHelper.string_of_exn e);*)
 				log_backtrace ()
 		)
 	)
-*)
 
 let archive_rrd ~master_address ~save_stats_locally ~uuid rrd =
-	debug "Archiving RRD for object uuid=%s %s" uuid (if save_stats_locally then "to local disk" else "to remote master");
+	debug "Archiving RRD for object uuid=%s %s" uuid
+		(if save_stats_locally then "to local disk" else "to remote master");
 	if save_stats_locally then begin
 		try
-			(* Stash away the rrd onto disk *)
+			(* Stash away the rrd onto disk. *)
 			let exists =
 				try
 					let (_: Unix.stats) = Unix.stat Xapi_globs.xapi_blob_location in
@@ -75,7 +75,8 @@ let archive_rrd ~master_address ~save_stats_locally ~uuid rrd =
 				let base_filename = Xapi_globs.xapi_rrd_location ^ "/" ^ uuid in
 				Unixext.atomic_write_to_file (base_filename ^ ".gz") 0o644
 					(fun fd -> Gzip.compress fd (Rrd.to_fd rrd));
-				Unixext.unlink_safe base_filename (* If there's an uncompressed one hanging around, remove it *)
+				(* If there's an uncompressed one hanging around, remove it. *)
+				Unixext.unlink_safe base_filename
 			end else begin
 				debug "No local storage: not persisting RRDs"
 			end
@@ -87,7 +88,7 @@ let archive_rrd ~master_address ~save_stats_locally ~uuid rrd =
 		(* Stream it to the master to store, or maybe to a host in the migrate case *)
 		(*let master_address = Pool_role.get_master_address () in*)
 		debug "About to send";
-		send_rrd master_address true uuid rrd
+		send_rrd ~address:master_address ~to_archive:true ~uuid ~rrd ()
 	end
 
 let backup_rrds _ ~(master_address) ?(save_stats_locally = true)
@@ -286,8 +287,23 @@ module Deprecated = struct
 end
 
 
-let push_rrd _ ~(vm_uuid : string) : unit = ()
-(* Monitor_rrds.push_rrd *)
+(* Push function to push the archived RRD to the appropriate host
+ * (which might be us, in which case, pop it into the hashtbl. *)
+let push_rrd _ ~(master_address : string) ~(vm_uuid : string)
+		~(domid : int) ~(is_on_localhost : bool) : unit =
+	try
+		let path = Xapi_globs.xapi_rrd_location ^ "/" ^ vm_uuid in
+		let rrd = rrd_of_gzip path in
+		debug "Pushing RRD for VM uuid=%s" vm_uuid;
+		if is_on_localhost then
+			Mutex.execute mutex (fun _ ->
+				Hashtbl.replace vm_rrds vm_uuid {rrd; dss=[]; domid}
+			)
+		else
+			(* Host might be OpaqueRef:null, in which case we'll fail silently *)
+			send_rrd ~address:master_address ~to_archive:false ~uuid:vm_uuid
+				~rrd:(Rrd.copy_rrd rrd) ()
+	with _ -> ()
 
 let remove_rrd _ ~(vm_uuid : string) : unit = ()
 (* Monitor_rrds.maybe_remove_rrd *)
