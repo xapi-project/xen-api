@@ -8,7 +8,7 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU Lesser General Public License for more details.
  *)
 
@@ -23,17 +23,17 @@ open D
 let mutex = Mutex.create ()
 
 type rrd_info = {
-  rrd: Rrd.rrd;
-  mutable dss: Ds.ds list;
-  mutable domid: int;
+	rrd: Rrd.rrd;
+	mutable dss: Ds.ds list;
+	mutable domid: int;
 }
 
 (* RRDs *)
 let vm_rrds : (string, rrd_info) Hashtbl.t = Hashtbl.create 32
 let host_rrd : rrd_info option ref = ref None
 
-(** Send rrds to a remote host. If the host is on another pool, you
-    must pass the session_id parameter, and optionally the __context. *)
+(* Send rrds to a remote host. If the host is on another pool, you
+ * must pass the session_id parameter, and optionally the __context. *)
 let send_rrd ?(session_id : string option) ~(address : string)
 		~(to_archive : bool) ~(uuid : string) ~(rrd : Rrd.rrd) () =
 	debug "Sending RRD for object uuid=%s archiving=%b to address: %s"
@@ -245,11 +245,12 @@ module Deprecated = struct
 		end
 
 	(* DEPRECATED *)
-	(** Only called from dbsync in two cases:
-	    1. for the local host after a xapi restart or host restart
-	    2. for running VMs after a xapi restart
-	    Note we aren't called looking for running VMs after a host restart.
-	    We assume that the RRDs were stored locally and fall back to asking the master if we can't find them. *)
+	(* Only called from dbsync in two cases:
+	 * 1. For the local host after a xapi restart or host restart.
+	 * 2. For running VMs after a xapi restart.
+	 * Note we aren't called looking for running VMs after a host restart. We
+	 * assume that the RRDs were stored locally and fall back to asking the
+	 * master if we can't find them. *)
 	let load_rrd _ ~(master_address : string) ~(is_master : bool)
 			~(uuid : string) ~(domid : int) ~(is_host : bool) ~(timescale : int)
 			() : unit =
@@ -420,19 +421,18 @@ let query_vm_ds _ ~(vm_uuid : string) ~(ds_name : string) : float =
 		Rrd.query_named_ds rrdi.rrd ds_name Rrd.CF_Average
 	)
 
+let use_min_max = ref false
+
 let update_use_min_max _ ~(value : bool) : unit =
-	()
-(*
-    debug "Updating use_min_max: New value=%b" new_use_min_max;
-    use_min_max := new_use_min_max;
-*)
+	debug "Updating use_min_max: New value=%b" value;
+	use_min_max := value
 
 (* Handle uncooperative domains. *)
 let uncooperative_domains: (int, unit) Hashtbl.t = Hashtbl.create 20
 let uncooperative_domains_m = Mutex.create ()
 
 let string_of_domain_handle dh =
-  Uuid.string_of_uuid (Uuid.uuid_of_int_array dh.Xenctrl.handle)
+	Uuid.string_of_uuid (Uuid.uuid_of_int_array dh.Xenctrl.handle)
 
 let add_to_uncooperative_domains _ ~(domid : int) : unit =
 	Mutex.execute uncooperative_domains_m
