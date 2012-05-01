@@ -38,10 +38,10 @@ module Debug_print_impl = struct
 	type context = Smint.request
 	let query _ _ = assert false
 	module DP = struct
-		let create context ~task ~id = assert false
-		let destroy context ~task ~dp = assert false
+		let create context ~dbg ~id = assert false
+		let destroy context ~dbg ~dp = assert false
 		let diagnostics context () = assert false
-		let attach_info context ~task ~sr ~vdi ~dp = assert false
+		let attach_info context ~dbg ~sr ~vdi ~dp = assert false
 	end
 	module VDI = struct
 		let m = Mutex.create ()
@@ -50,9 +50,9 @@ module Debug_print_impl = struct
         let created = Hashtbl.create 10
 		let key_of sr vdi = Printf.sprintf "%s/%s" sr vdi
 
-		let stat context ~task ~sr ~vdi () = assert false
+		let stat context ~dbg ~sr ~vdi () = assert false
 
-        let create context ~task ~sr ~vdi_info ~params =
+        let create context ~dbg ~sr ~vdi_info ~params =
             let vdi = "newvdi" in
             let info =
                 if List.mem_assoc "toosmall" params
@@ -65,11 +65,11 @@ module Debug_print_impl = struct
                 );
             info
 
-		let snapshot context ~task ~sr ~vdi ~vdi_info ~params =
-			create context ~task ~sr ~vdi_info ~params
+		let snapshot context ~dbg ~sr ~vdi ~vdi_info ~params =
+			create context ~dbg ~sr ~vdi_info ~params
 		let clone = snapshot
 
-        let destroy context ~task ~sr ~vdi =
+        let destroy context ~dbg ~sr ~vdi =
             Mutex.execute m
                 (fun () ->
                     let key = key_of sr vdi in
@@ -84,7 +84,7 @@ module Debug_print_impl = struct
                     end
                 )
 
-		let attach context ~task ~dp ~sr ~vdi ~read_write =
+		let attach context ~dbg ~dp ~sr ~vdi ~read_write =
 			info "VDI.attach dp:%s sr:%s vdi:%s read_write:%b" dp sr vdi read_write;
 			if dp = "error"
 			then raise (Api_error("SR_BACKEND_FAILURE_test", [ "this"; "is"; "an"; "example" ]));
@@ -101,7 +101,7 @@ module Debug_print_impl = struct
 						end else Hashtbl.replace attached key ());
 				{ params="XXX"; xenstore_data=[] }
 			end
-		let activate context ~task ~dp ~sr ~vdi =
+		let activate context ~dbg ~dp ~sr ~vdi =
 			Mutex.execute m
 				(fun () ->
 					let key = key_of sr vdi in
@@ -114,7 +114,7 @@ module Debug_print_impl = struct
 
 		let working = ref false
 
-		let detach context ~task ~dp ~sr ~vdi =
+		let detach context ~dbg ~dp ~sr ~vdi =
 			if vdi = "error" && not(!working)
 			then raise (Api_error("SR_BACKEND_FAILURE_test", [ "this"; "is"; "an"; "example" ]));
 			if vdi = "error2" && not(!working)
@@ -130,7 +130,7 @@ module Debug_print_impl = struct
 						end else Hashtbl.remove attached key);
 				info "VDI.detach dp:%s sr:%s vdi:%s" dp sr vdi
 			end
-		let deactivate context ~task ~dp ~sr ~vdi =
+		let deactivate context ~dbg ~dp ~sr ~vdi =
 			Mutex.execute m
 				(fun () ->
 					let key = key_of sr vdi in
@@ -141,31 +141,31 @@ module Debug_print_impl = struct
 					end else Hashtbl.remove activated key);
 			info "VDI.deactivate dp:%s sr:%s vdi:%s" dp sr vdi
 
-		let copy_into context ~task ~sr ~vdi ~url ~dest = assert false
-        let get_url context ~task ~sr ~vdi = assert false
-		let compose context ~task ~sr ~vdi1 ~vdi2 = assert false
-		let set_content_id context ~task ~sr ~vdi ~content_id = assert false
-		let get_by_name context ~task ~sr ~name = assert false
-		let similar_content context ~task ~sr ~vdi = assert false
-		let copy context ~task ~sr ~vdi ~dp ~url ~dest = assert false
+		let copy_into context ~dbg ~sr ~vdi ~url ~dest = assert false
+        let get_url context ~dbg ~sr ~vdi = assert false
+		let compose context ~dbg ~sr ~vdi1 ~vdi2 = assert false
+		let set_content_id context ~dbg ~sr ~vdi ~content_id = assert false
+		let get_by_name context ~dbg ~sr ~name = assert false
+		let similar_content context ~dbg ~sr ~vdi = assert false
+		let copy context ~dbg ~sr ~vdi ~dp ~url ~dest = assert false
 
 	end
 
-	let get_by_name context ~task ~name = assert false
+	let get_by_name context ~dbg ~name = assert false
 
 	module Mirror = struct
-		let start context ~task ~sr ~vdi ~dp ~url ~dest = assert false
-		let stop context ~task ~sr ~vdi = assert false
-		let list context ~task ~sr = assert false
-		let receive_start context ~task ~sr ~vdi_info ~similar = assert false
-		let receive_finalize context ~task ~sr ~vdi = assert false
-		let receive_cancel context ~task ~sr ~vdi = assert false
+		let start context ~dbg ~sr ~vdi ~dp ~url ~dest = assert false
+		let stop context ~dbg ~sr ~vdi = assert false
+		let list context ~dbg ~sr = assert false
+		let receive_start context ~dbg ~sr ~vdi_info ~similar = assert false
+		let receive_finalize context ~dbg ~sr ~vdi = assert false
+		let receive_cancel context ~dbg ~sr ~vdi = assert false
 	end
 		
 	module SR = struct
-		let list context ~task = assert false
-		let scan context ~task ~sr = assert false
-		let attach context ~task ~sr ~device_config =
+		let list context ~dbg = assert false
+		let scan context ~dbg ~sr = assert false
+		let attach context ~dbg ~sr ~device_config =
 			info "SR.attach sr:%s" sr
 		let fail_if_anything_leaked () = 
 			Mutex.execute VDI.m
@@ -181,11 +181,11 @@ module Debug_print_impl = struct
 							inc_errors ();
 						) VDI.activated
 				)
-		let detach context ~task ~sr =
+		let detach context ~dbg ~sr =
 			info "SR.detach sr:%s" sr;
 			fail_if_anything_leaked ()
-		let reset context ~task ~sr = assert false
-		let destroy context ~task ~sr =
+		let reset context ~dbg ~sr = assert false
+		let destroy context ~dbg ~sr =
 			info "SR.destroy sr:%s" sr;
 			fail_if_anything_leaked ()
 
@@ -207,11 +207,11 @@ let use_inprocess_rpc = ref true
 
 let rpc call = if !use_inprocess_rpc then rpc_inprocess call else rpc_unix call
 
-let task = "task"
+let dbg = "dbg"
 
 module Client=Client(struct let rpc=rpc end)
 
-let datapath_of_id id = Client.DP.create ~task ~id
+let datapath_of_id id = Client.DP.create ~dbg ~id
 
 let expect expected f x =
 	if not(f x) then begin
@@ -257,31 +257,31 @@ let test_vdis sr : unit =
 		let dp = datapath_of_id id in
 		for i = 0 to iterations - 1 do
 			expect "_" (function _ -> true)
-				(Client.VDI.attach ~task ~dp ~sr ~vdi ~read_write:false);
+				(Client.VDI.attach ~dbg ~dp ~sr ~vdi ~read_write:false);
 			expect "Attached(RO) 1" (dp_is dp (Vdi_automaton.Attached Vdi_automaton.RO))
-				(Client.VDI.stat ~task ~sr ~vdi ());
+				(Client.VDI.stat ~dbg ~sr ~vdi ());
 			expect "() 2" (fun x -> x = ())
-				(Client.VDI.detach ~task ~dp ~sr ~vdi);
+				(Client.VDI.detach ~dbg ~dp ~sr ~vdi);
 			expect "Detached 3" (dp_is dp Vdi_automaton.Detached)
-				(Client.VDI.stat ~task ~sr ~vdi ());
+				(Client.VDI.stat ~dbg ~sr ~vdi ());
 			expect "()" (fun x -> x = ())
-				(Client.VDI.detach ~task ~dp ~sr ~vdi);
+				(Client.VDI.detach ~dbg ~dp ~sr ~vdi);
 			expect "Params _ 4" (function _ -> true)
-				(Client.VDI.attach ~task ~dp ~sr ~vdi ~read_write:false);
+				(Client.VDI.attach ~dbg ~dp ~sr ~vdi ~read_write:false);
 			expect "Attached(RO) 5" (dp_is dp (Vdi_automaton.Attached Vdi_automaton.RO))
-				(Client.VDI.stat ~task ~sr ~vdi ());
+				(Client.VDI.stat ~dbg ~sr ~vdi ());
 			expect "() 6" (fun x -> x = ())
-				(Client.VDI.activate ~task ~dp ~sr ~vdi);
+				(Client.VDI.activate ~dbg ~dp ~sr ~vdi);
 			expect "Activated(RO) 7" (dp_is dp (Vdi_automaton.Activated Vdi_automaton.RO))
-				(Client.VDI.stat ~task ~sr ~vdi ());
+				(Client.VDI.stat ~dbg ~sr ~vdi ());
 			expect "() 8" (fun x -> x = ())
-				(Client.VDI.deactivate ~task ~dp ~sr ~vdi);
+				(Client.VDI.deactivate ~dbg ~dp ~sr ~vdi);
 			expect "Attached(RO) 9" (dp_is dp (Vdi_automaton.Attached Vdi_automaton.RO))
-				(Client.VDI.stat ~task ~sr ~vdi ());
+				(Client.VDI.stat ~dbg ~sr ~vdi ());
 			expect "() 10" (fun x -> x = ())
-				(Client.VDI.detach ~task ~dp ~sr ~vdi);
+				(Client.VDI.detach ~dbg ~dp ~sr ~vdi);
 			expect "Detached 11" (dp_is dp Vdi_automaton.Detached)
-				(Client.VDI.stat ~task ~sr ~vdi ());
+				(Client.VDI.stat ~dbg ~sr ~vdi ());
 		done in
 	let vdis = Range.to_list (Range.make 0 num_vdis) in
 	let users = Range.to_list (Range.make 0 num_users) in
@@ -299,131 +299,131 @@ let test_vdis sr : unit =
 let leak dp sr activate vdi =
 	info "Leaking some attaches and activates";
 	expect "Params _" (function _ -> true)
-		(Client.VDI.attach ~task ~dp ~sr ~vdi ~read_write:true);
+		(Client.VDI.attach ~dbg ~dp ~sr ~vdi ~read_write:true);
 	if activate
 	then expect "()" (function () -> true)
-		(Client.VDI.activate ~task ~dp ~sr ~vdi)
+		(Client.VDI.activate ~dbg ~dp ~sr ~vdi)
 
 let test_sr sr =
 	let dp = datapath_of_id "pbd" in
 	expect "()" (fun x -> x = ())
-		(Client.SR.attach ~task ~sr ~device_config:[]);
+		(Client.SR.attach ~dbg ~sr ~device_config:[]);
 	test_vdis sr;
 	leak dp sr false "leaked";
 	leak dp sr true "leaked2";
 	info "About to SR.detach";
 	expect "()" (fun x -> x = ())
-		(Client.SR.detach ~task ~sr);
+		(Client.SR.detach ~dbg ~sr);
 	expect "()" (fun x -> x = ())
-		(Client.SR.attach ~task ~sr ~device_config:[]);
+		(Client.SR.attach ~dbg ~sr ~device_config:[]);
 	leak dp sr false "leaked";
 	leak dp sr true "leaked2";
 	info "About to logout";
 	expect "()" (fun x -> x = ())
-		(Client.DP.destroy ~task ~dp ~allow_leak:false);
+		(Client.DP.destroy ~dbg ~dp ~allow_leak:false);
 	info "About to SR.detach";
 	expect "()" (function () -> true)
-		(Client.SR.detach ~task ~sr);
+		(Client.SR.detach ~dbg ~sr);
 	(* About to check the error handling *)
 	let dp = datapath_of_id "error" in
 	expect "()" (fun x -> x = ())
-		(Client.SR.attach ~task ~sr ~device_config:[]);
+		(Client.SR.attach ~dbg ~sr ~device_config:[]);
 	debug "This VDI.attach should fail:";
 	expect "internal_error" internal_error
-		(fun () -> Client.VDI.attach ~task ~dp ~sr ~vdi:"leaked" ~read_write:true);
+		(fun () -> Client.VDI.attach ~dbg ~dp ~sr ~vdi:"leaked" ~read_write:true);
 	let dp = datapath_of_id "error2" in
 	debug "This VDI.attach should fail:";
 	expect "backend_error" backend_error
-		(fun () -> Client.VDI.attach ~task ~dp ~sr ~vdi:"leaked" ~read_write:true);
+		(fun () -> Client.VDI.attach ~dbg ~dp ~sr ~vdi:"leaked" ~read_write:true);
 	debug "Detaching and cleaning up";
 	expect "()" (fun x -> x = ())
-		(Client.SR.detach ~task ~sr)
+		(Client.SR.detach ~dbg ~sr)
 
 (* Check the VDI.stat function works *)
 let test_stat sr vdi = 
 	expect "()" (fun x -> x = ())
-		(Client.SR.attach ~task ~sr ~device_config:[]);
+		(Client.SR.attach ~dbg ~sr ~device_config:[]);
 	let dp1 = datapath_of_id "dp1" (* will be r/w *)
 	and dp2 = datapath_of_id "dp2" (* will be r/o *) in
 	expect "Params _" (function _ -> true)
-		(Client.VDI.attach ~task ~dp:dp1 ~sr ~vdi ~read_write:true);
+		(Client.VDI.attach ~dbg ~dp:dp1 ~sr ~vdi ~read_write:true);
 	(* dp1: Attached(RW) dp2: Detached superstate: Attached(RW) *)
 	expect "Attached(RW)" (dp_is dp1 (Vdi_automaton.Attached Vdi_automaton.RW))
-		(Client.VDI.stat ~task ~sr ~vdi ());
+		(Client.VDI.stat ~dbg ~sr ~vdi ());
 	expect "Attached(RW)" (function x -> x.superstate = Vdi_automaton.Attached Vdi_automaton.RW)
-		(Client.VDI.stat ~task ~sr ~vdi ());
+		(Client.VDI.stat ~dbg ~sr ~vdi ());
 	expect "Params _" (function _ -> true)
-		(Client.VDI.attach ~task ~dp:dp2 ~sr ~vdi ~read_write:false);
+		(Client.VDI.attach ~dbg ~dp:dp2 ~sr ~vdi ~read_write:false);
 	(* dp1: Attached(RW) dp2: Attached(RO) superstate: Attached(RW) *)
 	expect "Attached(RO)" (dp_is dp2 (Vdi_automaton.Attached Vdi_automaton.RO))
-		(Client.VDI.stat ~task ~sr ~vdi ());
+		(Client.VDI.stat ~dbg ~sr ~vdi ());
 	expect "Attached(RW)" (function x -> x.superstate = Vdi_automaton.Attached Vdi_automaton.RW)
-		(Client.VDI.stat ~task ~sr ~vdi ());
+		(Client.VDI.stat ~dbg ~sr ~vdi ());
 	expect "Illegal transition" (fun () ->
 		try 
-			Client.VDI.detach ~task ~dp:dp1 ~sr ~vdi;
+			Client.VDI.detach ~dbg ~dp:dp1 ~sr ~vdi;
 			false
 		with
 			| Illegal_transition(Vdi_automaton.Attached(Vdi_automaton.RW), Vdi_automaton.Attached(Vdi_automaton.RO)) -> true
 			| e -> false) ();
 	expect "()" (fun () -> true)
-		(Client.VDI.detach ~task ~dp:dp2 ~sr ~vdi);
+		(Client.VDI.detach ~dbg ~dp:dp2 ~sr ~vdi);
 	(* dp1: Attached(RW) dp2: Detached superstate: Attached(RW) *)
 	expect "Detached" (dp_is dp2 Vdi_automaton.Detached)
-		(Client.VDI.stat ~task ~sr ~vdi ());
+		(Client.VDI.stat ~dbg ~sr ~vdi ());
 	expect "Attached(RW)" (function x -> x.superstate = Vdi_automaton.Attached Vdi_automaton.RW)
-		(Client.VDI.stat ~task ~sr ~vdi ());
+		(Client.VDI.stat ~dbg ~sr ~vdi ());
 	expect "()" (fun x -> x = ())
-		(Client.VDI.detach ~task ~dp:dp1 ~sr ~vdi);
+		(Client.VDI.detach ~dbg ~dp:dp1 ~sr ~vdi);
 	(* dp1: Detached dp1: Detached superstate: Detached *)
 	expect "Detached" (function x -> x.superstate = Vdi_automaton.Detached)
-		(Client.VDI.stat ~task ~sr ~vdi ());
+		(Client.VDI.stat ~dbg ~sr ~vdi ());
 	expect "()" (fun x -> x = ())
-		(Client.SR.detach ~task ~sr)
+		(Client.SR.detach ~dbg ~sr)
 
 (* Manual cleanup with VDI.detach (fails) and then SR.detach (succeeds) *)
 let test_sr_detach_cleanup_errors_1 sr vdi =
 	Debug_print_impl.VDI.working := false;
 	expect "()" (fun x -> x = ())
-		(Client.SR.attach ~task ~sr ~device_config:[]);
+		(Client.SR.attach ~dbg ~sr ~device_config:[]);
 	let dp = datapath_of_id "datapath" in
 	leak dp sr true vdi;
 	expect "()" (fun x -> x = ())
-		(Client.VDI.deactivate ~task ~dp ~sr ~vdi);
+		(Client.VDI.deactivate ~dbg ~dp ~sr ~vdi);
 	if vdi = "error2"
 	then expect "backend_error in test_sr_detach_cleanup" backend_error
-		(fun () -> Client.VDI.detach ~task ~dp ~sr ~vdi)
+		(fun () -> Client.VDI.detach ~dbg ~dp ~sr ~vdi)
 	else expect "internal_error in test sr detach cleanup" internal_error
-		(fun () -> Client.VDI.detach ~task ~dp ~sr ~vdi);
+		(fun () -> Client.VDI.detach ~dbg ~dp ~sr ~vdi);
 	debug "Detaching and cleaning up";
 	Debug_print_impl.VDI.working := true;
 	(* Should succeed because the VDI.attach state will have been forgotten: FH2 *)
 	expect "()" (fun x -> x = ())
-		(Client.SR.detach ~task ~sr)
+		(Client.SR.detach ~dbg ~sr)
 
 let test_sr_detach_cleanup_errors_2 sr vdi =
 	Debug_print_impl.VDI.working := false;
 	expect "()" (fun x -> x = ())
-		(Client.SR.attach ~task ~sr ~device_config:[]);
+		(Client.SR.attach ~dbg ~sr ~device_config:[]);
 	let dp = datapath_of_id "datapath" in
 	leak dp sr true vdi;
 	if vdi = "error2"
 	then expect "backend_error" backend_error
-		(fun () -> Client.DP.destroy ~task ~dp ~allow_leak:false)
+		(fun () -> Client.DP.destroy ~dbg ~dp ~allow_leak:false)
 	else expect "internal_error" internal_error
-		(fun () -> Client.DP.destroy ~task ~dp ~allow_leak:false);
+		(fun () -> Client.DP.destroy ~dbg ~dp ~allow_leak:false);
 	Debug_print_impl.VDI.working := true;
 	debug "Attempting to attach RO (having failed a detach of a RW detach)";
 	expect "Params _" (function _ -> true)
-		(Client.VDI.attach ~task ~dp ~sr ~vdi ~read_write:false);
+		(Client.VDI.attach ~dbg ~dp ~sr ~vdi ~read_write:false);
 	debug "Detaching and cleaning up";
 	expect "()" (fun x -> x = ())
-		(Client.SR.detach ~task ~sr)
+		(Client.SR.detach ~dbg ~sr)
 
 let create_vdi_test sr =
     let dp = datapath_of_id "datapath" in
     expect "()" (fun x -> x = ())
-        (Client.SR.attach ~task ~sr ~device_config:[]);
+        (Client.SR.attach ~dbg ~sr ~device_config:[]);
 	let vdi_info = {
 		vdi = "";
 		sr = "";
@@ -440,13 +440,13 @@ let create_vdi_test sr =
 		metadata_of_pool = "";
 	} in
     expect "too_small_backend_error" too_small_backend_error
-        (fun () -> Client.VDI.create ~task ~sr ~vdi_info ~params:["toosmall", ""]);
-    let vdi = Client.VDI.create ~task ~sr ~vdi_info ~params:[] in
+        (fun () -> Client.VDI.create ~dbg ~sr ~vdi_info ~params:["toosmall", ""]);
+    let vdi = Client.VDI.create ~dbg ~sr ~vdi_info ~params:[] in
     expect "attach_info" (fun _ -> true) 
-		(Client.VDI.attach ~task ~dp ~sr ~vdi:vdi.vdi ~read_write:false);
+		(Client.VDI.attach ~dbg ~dp ~sr ~vdi:vdi.vdi ~read_write:false);
     debug "Detaching and cleaning up";
     expect "()" (fun x -> x = ())
-        (Client.SR.detach ~task ~sr)
+        (Client.SR.detach ~dbg ~sr)
 
 let _ =
 	Storage_impl.print_debug := true;

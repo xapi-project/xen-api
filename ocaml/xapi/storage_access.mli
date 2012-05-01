@@ -77,7 +77,7 @@ val is_attached: __context:Context.t -> vbd:API.ref_VBD -> domid:int -> bool
 (** [on_vdi __context vbd domid f] calls [f rpc dp sr vdi] which is
     useful for executing Storage_interface.Client.VDI functions, applying the
     standard convention mapping VBDs onto DPs *)
-val on_vdi: __context:Context.t -> vbd:API.ref_VBD -> domid:int -> ((Rpc.call -> Rpc.response) -> Storage_interface.task -> Storage_interface.dp -> Storage_interface.sr -> Storage_interface.vdi -> 'a) -> 'a
+val on_vdi: __context:Context.t -> vbd:API.ref_VBD -> domid:int -> ((Rpc.call -> Rpc.response) -> Storage_interface.debug_info -> Storage_interface.dp -> Storage_interface.sr -> Storage_interface.vdi -> 'a) -> 'a
 
 (** [resynchronise_pbds __context pbds] sets the currently_attached state of
     each of [pbd] to match the state of the storage layer. *)

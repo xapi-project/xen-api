@@ -31,7 +31,7 @@ end
 open Storage_interface
 module Client = Client(RPC)
 
-let task = "sm-cli"
+let dbg = "sm-cli"
 
 let usage_and_exit () =
 	Printf.fprintf stderr "Usage:\n";
@@ -55,14 +55,14 @@ let _ =
 	let args = List.filter (not ++ (String.startswith "url=")) args |> List.tl in
 	match args with
 		| [ "sr-list" ] ->
-			let srs = Client.SR.list ~task in
+			let srs = Client.SR.list ~dbg in
 			List.iter
 				(fun sr ->
 					Printf.printf "%s\n" sr
 				) srs
 		| [ "sr-scan"; sr ] ->
 			if Array.length Sys.argv < 3 then usage_and_exit ();
-			let vs = Client.SR.scan ~task ~sr in
+			let vs = Client.SR.scan ~dbg ~sr in
 			List.iter 
 				(fun v -> 
 					Printf.printf "%s\n" (string_of_vdi_info v)
@@ -97,36 +97,45 @@ let _ =
 					then Some (String.sub k l (String.length k - l), v)
 					else None) kvpairs in
 
-			let v = Client.VDI.create ~task ~sr ~vdi_info ~params in
+			let v = Client.VDI.create ~dbg ~sr ~vdi_info ~params in
 			Printf.printf "%s\n" (string_of_vdi_info v)
 		| [ "vdi-destroy"; sr; vdi ] ->
-			Client.VDI.destroy ~task ~sr ~vdi
+			Client.VDI.destroy ~dbg ~sr ~vdi
 		| [ "vdi-get-by-name"; sr; name ] ->
-			let v = Client.VDI.get_by_name ~task ~sr ~name in
+			let v = Client.VDI.get_by_name ~dbg ~sr ~name in
 			Printf.printf "%s\n" (string_of_vdi_info v)
 		| [ "vdi-get-by-name"; name ] ->
-			let v = Client.get_by_name ~task ~name in
+			let v = Client.get_by_name ~dbg ~name in
 			Printf.printf "%s\n" (string_of_vdi_info v)
 		| [ "vdi-set-content-id"; sr; vdi; content_id ] ->
-			Client.VDI.set_content_id ~task ~sr ~vdi~content_id
+			Client.VDI.set_content_id ~dbg ~sr ~vdi~content_id
 		| [ "vdi-similar-content"; sr; vdi ] ->
-			let vs = Client.VDI.similar_content ~task ~sr ~vdi in
+			let vs = Client.VDI.similar_content ~dbg ~sr ~vdi in
 			List.iter
 				(fun v ->
 					Printf.printf "%s\n" (string_of_vdi_info v)
 				) vs
 		| [ "vdi-compose"; sr; vdi1; vdi2 ] ->
-			Client.VDI.compose ~task ~sr ~vdi1 ~vdi2
+			Client.VDI.compose ~dbg ~sr ~vdi1 ~vdi2
 		| [ "vdi-copy-into"; sr; vdi; url; dest; dest_vdi ] ->
-			let v = Client.VDI.copy_into ~task ~sr ~vdi ~url ~dest ~dest_vdi in
+			let v = Client.VDI.copy_into ~dbg ~sr ~vdi ~url ~dest ~dest_vdi in
 			Printf.printf "Created VDI %s\n" v.vdi
 		| [ "vdi-get-url"; sr; vdi ] ->
-			let x = Client.VDI.get_url ~task ~sr ~vdi in
+			let x = Client.VDI.get_url ~dbg ~sr ~vdi in
 			Printf.printf "%s\n" x
 		| [ "mirror-start"; sr; vdi; dp; url; dest ] ->
-			let v = Client.Mirror.start ~task ~sr ~vdi ~dp ~url ~dest in
+			let v = Client.Mirror.start ~dbg ~sr ~vdi ~dp ~url ~dest in
 			Printf.printf "Created VDI %s\n" v.vdi
 		| [ "mirror-stop"; sr; vdi ] ->
-			Client.Mirror.stop ~task ~sr ~vdi
+			Client.Mirror.stop ~dbg ~sr ~vdi
+		| [ "mirror-list"; sr; ] ->
+			let list = Client.Mirror.list ~dbg ~sr in
+			let open Storage_interface.Mirror in
+			List.iter (fun status ->
+				Printf.printf "vdi: %s\nstatus: %s\nfailed: %b\n" 
+					status.vdi 
+					(match status.state with | Receiving -> "Receiving" | Sending -> "Sending" | Failed -> "Failed")
+					status.failed) list
+						
 		| _ ->
 			usage_and_exit ()
