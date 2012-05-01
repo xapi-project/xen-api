@@ -290,16 +290,26 @@ let add filename =
 					vncterm = true;
 					vncterm_ip = Some "0.0.0.0";
 					boot =
-						if mem _bootloader then Indirect {
-							bootloader = find _bootloader |> string;
-							extra_args = "";
-							legacy_args = "";
-							bootloader_args = "";
-							devices = [];
-						} else if mem _kernel then Direct {
-							kernel = find _kernel |> string;
-							cmdline = if mem _root then find _root |> string else "";
-							ramdisk = if mem _ramdisk then Some (find _ramdisk |> string) else None;
+						if mem _bootloader then
+							(* The convention is that the bootloader is run on the first disk *)
+							let disks = if mem _disk then find _disk |> list string |> List.rev else [] in
+							let devices = match List.map (parse_disk "") disks with
+								| { Vbd.backend = Some disk } :: _ ->
+									[ disk ]
+								| _ ->
+									Printf.fprintf stderr "The bootloader could not find a valid disk\n%!";
+									exit 1 in
+							Indirect {
+								bootloader = find _bootloader |> string;
+								extra_args = "";
+								legacy_args = "";
+								bootloader_args = "";
+								devices = devices;
+							}
+						else if mem _kernel then Direct {
+								kernel = find _kernel |> string;
+								cmdline = if mem _root then find _root |> string else "";
+								ramdisk = if mem _ramdisk then Some (find _ramdisk |> string) else None;
 						} else begin
 							List.iter (Printf.fprintf stderr "%s\n") [
 								"I couldn't determine how to start this VM.";
@@ -487,12 +497,12 @@ let import_metadata filename =
 	let id = Client.VM.import_metadata dbg txt in
 	Printf.printf "%s\n" id
 
-let start x paused =
+let start x paused task =
 	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.start dbg vm.id |> wait_for_task dbg |> success_task ignore_task;
+	Client.VM.start dbg vm.id |> wait_for_task dbg |> task;
 	if not paused
-	then Client.VM.unpause dbg vm.id |> wait_for_task dbg |> success_task ignore_task
+	then Client.VM.unpause dbg vm.id |> wait_for_task dbg |> task
 
 let shutdown x timeout =
 	let open Vm in
@@ -730,9 +740,9 @@ let _ =
 		| [ "import-metadata"; filename ] ->
 			import_metadata filename
 		| [ "start"; id; "paused" ] ->
-			start id true
+			start id true task
 		| [ "start"; id ] ->
-			start id false
+			start id false task
 		| [ "pause"; id ] ->
 			pause id |> task
 		| [ "unpause"; id ] ->

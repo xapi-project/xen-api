@@ -32,6 +32,7 @@ add)
           syslog "${XENBUS_PATH}: not writing physical-device because no-physical-device is present"
         fi
         xenstore-write "${HOTPLUG}/hotplug" "online"
+        xenstore-rm "${HOTPLUG}/plugging-in"
         xenstore-write "${HOTPLUG_STATUS}" "connected"
 	;;
 change)

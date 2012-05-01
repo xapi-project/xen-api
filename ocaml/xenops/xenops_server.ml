@@ -818,31 +818,30 @@ let rec atomics_of_operation = function
 let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) : unit =
 	let module B = (val get_backend () : S) in
 	Xenops_task.check_cancelling t;
+	let s = string_of_atomic op in
+	debug "perform_atomic: %s" s;
+	Xenops_task.with_subtask t s
+		(fun () ->
 	match op with
 		| VIF_plug id ->
-			debug "VIF.plug %s" (VIF_DB.string_of_id id);
 			B.VIF.plug t (VIF_DB.vm_of id) (VIF_DB.read_exn id);
 			VIF_DB.signal id
 		| VIF_unplug (id, force) ->
-			debug "VIF.unplug %s" (VIF_DB.string_of_id id);
 			finally
 				(fun () ->
 					B.VIF.unplug t (VIF_DB.vm_of id) (VIF_DB.read_exn id) force;
 				) (fun () -> VIF_DB.signal id)
 		| VIF_move (id, network) ->
-			debug "VIF.move %s" (VIF_DB.string_of_id id);
 			finally
 				(fun () ->
 					B.VIF.move t (VIF_DB.vm_of id) (VIF_DB.read_exn id) network;
 				) (fun () -> VIF_DB.signal id)
 		| VIF_set_carrier (id, carrier) ->
-			debug "VIF.set_carrier %s %b" (VIF_DB.string_of_id id) carrier;
 			finally
 				(fun () ->
 					B.VIF.set_carrier t (VIF_DB.vm_of id) (VIF_DB.read_exn id) carrier;
 				) (fun () -> VIF_DB.signal id)
-                | VIF_set_locking_mode (id, mode) ->
-			debug "VIF.set_locking_mode %s %s" (VIF_DB.string_of_id id) (mode |> Vif.rpc_of_locking_mode |> Jsonrpc.to_string);
+        | VIF_set_locking_mode (id, mode) ->
 			finally
 				(fun () ->
 					B.VIF.set_locking_mode t (VIF_DB.vm_of id) (VIF_DB.read_exn id) mode;
@@ -850,15 +849,12 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 		| VM_hook_script(id, script, reason) ->
 			Xenops_hooks.vm ~script ~reason ~id
 		| VBD_plug id ->
-			debug "VBD.plug %s" (VBD_DB.string_of_id id);
 			B.VBD.plug t (VBD_DB.vm_of id) (VBD_DB.read_exn id);
 			VBD_DB.signal id
 		| VBD_set_qos id ->
-			debug "VBD.set_qos %s" (VBD_DB.string_of_id id);
 			B.VBD.set_qos t (VBD_DB.vm_of id) (VBD_DB.read_exn id);
 			VBD_DB.signal id
 		| VBD_unplug (id, force) ->
-			debug "VBD.unplug %s" (VBD_DB.string_of_id id);
 			finally
 				(fun () ->
 					B.VBD.unplug t (VBD_DB.vm_of id) (VBD_DB.read_exn id) force
@@ -867,7 +863,6 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			(* NB this is also used to "refresh" ie signal a qemu that it should
 			   re-open a device, useful for when a physical CDROM is inserted into
 			   the host. *)
-			debug "VBD.insert %s" (VBD_DB.string_of_id id);
 			let vbd_t = VBD_DB.read_exn id in
 			let vm_state = B.VM.get_state (VM_DB.read_exn (VBD_DB.vm_of id)) in
 			let vbd_state = B.VBD.get_state (VBD_DB.vm_of id) vbd_t in
@@ -879,7 +874,6 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			VBD_DB.write id { vbd_t with Vbd.backend = Some disk };
 			VBD_DB.signal id
 		| VBD_eject id ->
-			debug "VBD.eject %s" (VBD_DB.string_of_id id);
 			let vbd_t = VBD_DB.read_exn id in
 			if vbd_t.Vbd.ty = Vbd.Disk then raise (Media_not_ejectable);
 			let vm_state = B.VM.get_state (VM_DB.read_exn (VBD_DB.vm_of id)) in
@@ -892,7 +886,6 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			VBD_DB.write id { vbd_t with Vbd.backend = None };
 			VBD_DB.signal id
 		| VM_remove id ->
-			debug "VM.remove %s" id;
 			let power = (B.VM.get_state (VM_DB.read_exn id)).Vm.power_state in
 			begin match power with
 				| Running _ | Paused -> raise (Bad_power_state(power, Halted))
@@ -903,55 +896,41 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 					VM_DB.remove id
 			end
 		| PCI_plug id ->
-			debug "PCI.plug %s" (PCI_DB.string_of_id id);
 			B.PCI.plug t (PCI_DB.vm_of id) (PCI_DB.read_exn id);
 			PCI_DB.signal id
 		| PCI_unplug id ->
-			debug "PCI.unplug %s" (PCI_DB.string_of_id id);
 			B.PCI.unplug t (PCI_DB.vm_of id) (PCI_DB.read_exn id);
 			PCI_DB.signal id
 		| VM_set_xsdata (id, xsdata) ->
-			debug "VM.set_xsdata (%s, [ %s ])" id (String.concat "; " (List.map (fun (k, v) -> k ^ ": " ^ v) xsdata));
 			B.VM.set_xsdata t (VM_DB.read_exn id) xsdata
 		| VM_set_vcpus (id, n) ->
-			debug "VM.set_vcpus (%s, %d)" id n;
 			let vm_t = VM_DB.read_exn id in
 			if n > vm_t.Vm.vcpu_max
 			then raise (Maximum_vcpus vm_t.Vm.vcpu_max);
 			B.VM.set_vcpus t (VM_DB.read_exn id) n
 		| VM_set_shadow_multiplier (id, m) ->
-			debug "VM.set_shadow_multiplier (%s, %.2f)" id m;
 			B.VM.set_shadow_multiplier t (VM_DB.read_exn id) m;
 			VM_DB.signal id
 		| VM_set_memory_dynamic_range (id, min, max) ->
-			debug "VM.set_memory_dynamic_range (%s, %Ld, %Ld)" id min max;
 			B.VM.set_memory_dynamic_range t (VM_DB.read_exn id) min max;
 			VM_DB.signal id
 		| VM_pause id ->
-			debug "VM.pause %s" id;
 			B.VM.pause t (VM_DB.read_exn id);
 			VM_DB.signal id
 		| VM_unpause id ->
-			debug "VM.unpause %s" id;
 			B.VM.unpause t (VM_DB.read_exn id);
 			VM_DB.signal id
 		| VM_set_domain_action_request (id, dar) ->
-			debug "VM.set_domain_action_request %s %s" id (Opt.default "None" (Opt.map (fun x -> x |> rpc_of_domain_action_request |> Jsonrpc.to_string) dar));
 			B.VM.set_domain_action_request (VM_DB.read_exn id) dar
 		| VM_create_device_model (id, save_state) ->
-			debug "VM.create_device_model %s" id;
 			B.VM.create_device_model t (VM_DB.read_exn id) save_state
 		| VM_destroy_device_model id ->
-			debug "VM.destroy_device_model %s" id;
 			B.VM.destroy_device_model t (VM_DB.read_exn id)
 		| VM_destroy id ->
-			debug "VM.destroy %s" id;
 			B.VM.destroy t (VM_DB.read_exn id)
 		| VM_create (id, memory_upper_bound) ->
-			debug "VM.create %s memory_upper_bound = %s" id (Opt.default "None" (Opt.map Int64.to_string memory_upper_bound));
 			B.VM.create t memory_upper_bound (VM_DB.read_exn id)
 		| VM_build id ->
-			debug "VM.build %s" id;
 			let vbds : Vbd.t list = VBD_DB.vbds id in
 			let vifs : Vif.t list = VIF_DB.vifs id in
 			B.VM.build t (VM_DB.read_exn id) vbds vifs
@@ -966,25 +945,20 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			if not (B.VM.wait_shutdown t vm reason remaining_timeout)
 			then raise (Failed_to_shutdown(id, timeout))
 		| VM_s3suspend id ->
-			debug "VM.s3suspend %s" id;
 			B.VM.s3suspend t (VM_DB.read_exn id);
 			VM_DB.signal id
 		| VM_s3resume id ->
-			debug "VM.s3resume %s" id;
 			B.VM.s3resume t (VM_DB.read_exn id);
 			VM_DB.signal id
 		| VM_save (id, flags, data) ->
-			debug "VM.save %s" id;
 			B.VM.save t progress_callback (VM_DB.read_exn id) flags data
 		| VM_restore (id, data) ->
-			debug "VM.restore %s" id;
 			if id |> VM_DB.exists |> not
 			then failwith (Printf.sprintf "%s doesn't exist" id);
 			B.VM.restore t progress_callback (VM_DB.read_exn id) data
 		| VM_delay (id, t) ->
-			debug "VM %s: waiting for %.2f before next VM action" id t;
 			Thread.delay t
-
+		)
 (* Used to divide up the progress (bar) amongst atomic operations *)
 let weight_of_atomic = function
 	| VM_save (_, _, _) -> 10.
