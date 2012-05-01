@@ -112,10 +112,10 @@ let plug ~__context ~self =
 				let sr = Db.PBD.get_SR ~__context ~self in
 				check_sharing_constraint ~__context ~self:sr;
                 Storage_access.bind ~__context ~pbd:self;
-				let task = Ref.string_of (Context.get_task_id __context) in
+				let dbg = Ref.string_of (Context.get_task_id __context) in
 				let device_config = Db.PBD.get_device_config ~__context ~self in
 				Storage_access.transform_storage_exn
-					(fun () -> C.SR.attach task (Db.SR.get_uuid ~__context ~self:sr) device_config);
+					(fun () -> C.SR.attach dbg (Db.SR.get_uuid ~__context ~self:sr) device_config);
 				Db.PBD.set_currently_attached ~__context ~self ~value:true;
 			end
 
@@ -161,9 +161,9 @@ let unplug ~__context ~self =
 						Xapi_vdi_helpers.disable_database_replication ~__context ~vdi)
 					metadata_vdis_of_this_pool
 			end;
-			let task = Ref.string_of (Context.get_task_id __context) in
+			let dbg = Ref.string_of (Context.get_task_id __context) in
 			Storage_access.transform_storage_exn
-				(fun () -> C.SR.detach task (Db.SR.get_uuid ~__context ~self:sr));
+				(fun () -> C.SR.detach dbg (Db.SR.get_uuid ~__context ~self:sr));
             Storage_access.unbind ~__context ~pbd:self;
 			Db.PBD.set_currently_attached ~__context ~self ~value:false
 		end

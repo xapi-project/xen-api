@@ -244,7 +244,7 @@ let create ~__context ~name_label ~name_description
 	} in
 	let module C = Client(struct let rpc = rpc end) in
 	let vi = transform_storage_exn
-		(fun () -> C.VDI.create ~task:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sR)
+		(fun () -> C.VDI.create ~dbg:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sR)
 			~vdi_info ~params:sm_config) in
 	if virtual_size < vi.virtual_size
 	then info "sr:%s vdi:%s requested virtual size %Ld < actual virtual size %Ld" (Ref.string_of sR) vi.vdi virtual_size vi.virtual_size;
@@ -355,7 +355,7 @@ let snapshot_and_clone call_f ~__context ~vdi ~driver_params =
 	  let sr' = Db.SR.get_uuid ~__context ~self:sR in
 	  let vdi' = Db.VDI.get_location ~__context ~self:vdi in
 	  (* We don't use transform_storage_exn because of the clone/copy fallback below *)
-	  let new_vdi = call_f ~task:(Ref.string_of task) ~sr:sr'
+	  let new_vdi = call_f ~dbg:(Ref.string_of task) ~sr:sr'
 		  ~vdi:vdi' ~vdi_info  ~params:driver_params in
 	  newvdi ~__context ~sr:sR new_vdi
   in
@@ -421,8 +421,9 @@ let destroy ~__context ~self =
           let module C = Client(struct let rpc = rpc end) in
 		  transform_storage_exn
 			  (fun () ->
-				  C.VDI.destroy ~task:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sr) ~vdi:location
+				  C.VDI.destroy ~dbg:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sr) ~vdi:location
 			  );
+
 	(* destroy all the VBDs now rather than wait for the GC thread. This helps
 	   prevent transient glitches but doesn't totally prevent races. *)
 	List.iter (fun vbd ->
@@ -621,10 +622,11 @@ let set_on_boot ~__context ~self ~value =
 	let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
 	transform_storage_exn
 		(fun () ->
-			let newvdi = C.VDI.clone ~task:(Ref.string_of task) ~sr:sr'
+			let newvdi = C.VDI.clone ~dbg:(Ref.string_of task) ~sr:sr'
 				~vdi:vdi' ~vdi_info:default_vdi_info ~params:[] in
-			C.VDI.destroy ~task:(Ref.string_of task) ~sr:sr' ~vdi:newvdi.vdi;
+			C.VDI.destroy ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:newvdi.vdi;
 		);
+
 	Db.VDI.set_on_boot ~__context ~self ~value
 
 let set_allow_caching ~__context ~self ~value =
