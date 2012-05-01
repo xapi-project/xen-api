@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) 2006-2012 Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -8,7 +8,7 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU Lesser General Public License for more details.
  *)
 (**
@@ -321,21 +321,3 @@ let on_restart () =
 			*)
 
 
-let handler (req: Http.Request.t) s _ = ()
-	(* Monitor_rrds.handler *)
-
-let receive_handler (req: Http.Request.t) (bio: Buf_io.t) _ = ()
-	(* Monitor_rrds.receieve_handler *)
-
-let handler_host (req: Http.Request.t) s _ = ()
-	(* Monitor_rrds.handler_host *)
-
-let handler_rrd_updates (req: Http.Request.t) s _ = ()
-	(* Monitor_rrds.handler_host *)
-
-
-let migrate_rrd ~__context ?remote_address ?session_id ~vm_uuid ~host_uuid () =
-	let remote_address = match remote_address with
-		| None -> Db.Host.get_address ~__context ~self:(Ref.of_string host_uuid)
-		| Some a -> a
-	in Rrdd.migrate_rrd ~remote_address ?session_id ~vm_uuid ~host_uuid ()
