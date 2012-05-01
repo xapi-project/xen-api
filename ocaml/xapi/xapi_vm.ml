@@ -709,7 +709,7 @@ let get_data_sources ~__context ~self =
 
 let record_data_source ~__context ~self ~data_source =
 	Rrdd.add_vm_ds ~vm_uuid:(Db.VM.get_uuid ~__context ~self)
-		~dom_id:(Int64.to_int (Db.VM.get_domid ~__context ~self))
+		~domid:(Int64.to_int (Db.VM.get_domid ~__context ~self))
 		~ds_name:data_source
 
 let query_data_source ~__context ~self ~data_source = Rrdd.query_vm_ds ~vm_uuid:(Db.VM.get_uuid ~__context ~self) ~ds_name:data_source
