@@ -40,6 +40,12 @@ let sort_pcidevs devs =
 		id, (List.map snd (List.filter (fun (x, _) -> x = id) devs))
 	) ids
 
+let of_string dev =
+	Scanf.sscanf dev "%d/%04x:%02x:%02x.%01x" (fun id a b c d -> (id, (a, b, c, d)))
+
+let to_string (id, (a, b, c, d)) =
+	Printf.sprintf "%d/%04x:%02x:%02x.%01x" id a b c d
+
 let other_pcidevs_of_vm ~__context other_config =
 	let devs =
 		try
@@ -50,10 +56,11 @@ let other_pcidevs_of_vm ~__context other_config =
 	in
 	let devs = List.fold_left (fun acc dev ->
 		try
-			Scanf.sscanf dev "%d/%04x:%02x:%02x.%01x" (fun id a b c d -> (id, (a, b, c, d))) :: acc
+			of_string dev :: acc
 		with _ -> acc
 	) [] devs in
 	if devs <> [] then begin
 		Rbac.assert_permission ~__context ~permission:Rbac_static.permission_internal_vm_plug_pcidevs;
 	end;
 	devs
+

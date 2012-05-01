@@ -262,12 +262,8 @@ module MD = struct
 		}
 
 	let pcis_of_vm ~__context (vmref, vm) =
-		(* The GPU PCI devices which xapi manages may have dependencies: *)
-		let hvm = vm.API.vM_HVM_boot_policy <> "" in
-		let managed_pcis = Vgpuops.create_vgpus ~__context (vmref, vm) hvm in
-		let dependent_pcis = List.setify (List.flatten
-			(List.map (fun pci -> Db.PCI.get_dependencies ~__context ~self:pci) managed_pcis)) in
-		let devs = List.sort compare (List.map (Pciops.pcidev_of_pci ~__context) (managed_pcis @ dependent_pcis)) in
+		let vgpu_pcidevs = Vgpuops.list_vgpus ~__context ~vm:vmref in
+		let devs = List.flatten (List.map (fun (_, dev) -> dev) (Pciops.sort_pcidevs vgpu_pcidevs)) in
 
 		(* The 'unmanaged' PCI devices are in the other_config key: *)
 		let other_pcidevs =
