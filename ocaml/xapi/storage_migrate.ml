@@ -403,3 +403,45 @@ let nbd_handler req s sr vdi dp =
 				(fun () -> Unix.close control_fd)
 		| None -> 
 			()
+
+let copy_snapshot ~task ~sr ~vdi ~dp ~url ~dest =
+	debug "copy_snapshot sr:%s vdi:%s url:%s dest:%s" sr vdi url dest;
+	let remote_url = Http.Url.of_string url in
+	let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
+	try
+	(* Find the local VDI *)
+		let vdis = Local.SR.scan ~task ~sr in
+		let local_vdi =
+			try List.find (fun x -> x.vdi = vdi) vdis
+			with Not_found -> failwith (Printf.sprintf "Local VDI %s not found" vdi) in
+		try
+			let similar_vdis = Local.VDI.similar_content ~task ~sr ~vdi in
+			let similars = List.map (fun vdi -> vdi.content_id) similar_vdis in
+			debug "Similar VDIs to %s = [ %s ]" vdi (String.concat "; " (List.map (fun x -> Printf.sprintf "(vdi=%s,content_id=%s)" x.vdi x.content_id) vdis));
+			let remote_vdis = Remote.SR.scan ~task ~sr:dest in
+			let nearest = List.fold_left
+				(fun acc content_id -> match acc with
+					| Some x -> acc
+					| None ->
+							try Some (List.find (fun vdi -> vdi.content_id = content_id) remote_vdis)
+							with Not_found -> None) None similars in
+
+			debug "Nearest VDI: content_id=%s vdi=%s"
+				(Opt.default "None" (Opt.map (fun x -> x.content_id) nearest))
+				(Opt.default "None" (Opt.map (fun x -> x.vdi) nearest));
+			let remote_base = match nearest with
+				| Some vdi ->
+						debug "Cloning VDI %s" vdi.vdi;
+						Remote.VDI.clone ~task ~sr:dest ~vdi:vdi.vdi ~vdi_info:local_vdi ~params:[]
+				| None ->
+						debug "Creating a blank remote VDI";
+						Remote.VDI.create ~task ~sr:dest ~vdi_info:local_vdi ~params:[] in
+			copy' ~task ~sr ~vdi ~url ~dest ~dest_vdi:remote_base.vdi
+		with e ->
+			error "Caught %s: copying snapshots vdi" (Printexc.to_string e);
+			raise (Internal_error (Printexc.to_string e))
+	with
+		| Api_errors.Server_error(code, params) ->
+			raise (Backend_error(code, params))
+		| e ->
+			raise (Internal_error(Printexc.to_string e))
