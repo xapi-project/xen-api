@@ -54,6 +54,11 @@ let migrate_rrd ~__context ?remote_address ?session_id ~vm_uuid ~host_uuid () =
 		| Some a -> a
 	in Rrdd.migrate_rrd ~remote_address ?session_id ~vm_uuid ~host_uuid ()
 
+let send_host_rrd_to_master () =
+	let master_address = Pool_role.get_master_address () in
+	let localhost_uuid = Helpers.get_localhost_uuid () in
+	Rrdd.send_host_rrd_to_master ~master_address ~localhost_uuid
+
 let backup_rrds ?(save_stats_locally : bool option) () =
 	let master_address = Pool_role.get_master_address () in
 	let localhost_uuid = Helpers.get_localhost_uuid () in
