@@ -486,7 +486,7 @@ let shutdown_and_reboot_common ~__context ~host label description operation cmd 
   if not(Pool_role.is_master ())
   then Rrdd.send_host_rrd_to_master ();
   (* Also save the Host RRD to local disk for us to pick up when we return. Note there are no VMs running at this point. *)
-  Rrdd.backup_rrds ();
+	Rrdd_proxy.backup_rrds ();
 
   (* This prevents anyone actually re-enabling us until after reboot *)
   Localdb.put Constants.host_disabled_until_reboot "true";
@@ -909,7 +909,7 @@ let sync_data ~__context ~host =
 
 let backup_rrds ~__context ~host ~delay =
   Xapi_periodic_scheduler.add_to_queue "RRD backup" Xapi_periodic_scheduler.OneShot
-	delay (fun () -> Rrdd.backup_rrds ~save_stats_locally:(Pool_role.is_master ()) ())
+	delay (fun () -> Rrdd_proxy.backup_rrds ~save_stats_locally:(Pool_role.is_master ()) ())
 
 let get_servertime ~__context ~host =
   Date.of_float (Unix.gettimeofday ())

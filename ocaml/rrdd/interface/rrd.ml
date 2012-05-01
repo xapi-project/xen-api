@@ -396,7 +396,7 @@ let rra_create cf row_cnt pdp_cnt xff =
     rra_xff=xff;
     rra_data=[| |]; (* defer creation of the data until we know how many dss we're storing *)
     rra_cdps=[| |]; (* defer creation of the data until we know how many dss we're storing *)
-    rra_updatehook=None;
+    rra_updatehook = None; (* DECPRECATED *)
   }
 
 let ds_create name ty ?(min=neg_infinity) ?(max=infinity) ?(mrhb=infinity) init =
