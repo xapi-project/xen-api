@@ -58,7 +58,7 @@ let send_rrd ?(session_id : string option) ~(address : string)
 		)
 	)
 
-let archive_rrd ~master_address ~save_stats_locally ~uuid rrd =
+let archive_rrd ~master_address ~save_stats_locally ~uuid ~rrd =
 	debug "Archiving RRD for object uuid=%s %s" uuid
 		(if save_stats_locally then "to local disk" else "to remote master");
 	if save_stats_locally then begin
@@ -111,13 +111,13 @@ let backup_rrds _ ~(master_address) ?(save_stats_locally = true)
 				(fun (uuid, rrd) ->
 					debug "Backup: saving RRD for VM uuid=%s to local disk" uuid;
 					let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrd) in
-					archive_rrd ~master_address ~save_stats_locally ~uuid rrd
+					archive_rrd ~master_address ~save_stats_locally ~uuid ~rrd
 				) vrrds;
 			match !host_rrd with
 			| Some rrdi ->
 				debug "Backup: saving RRD for host to local disk";
 				let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrdi.rrd) in
-				archive_rrd ~master_address ~save_stats_locally ~uuid:localhost_uuid rrd
+				archive_rrd ~master_address ~save_stats_locally ~uuid:localhost_uuid ~rrd
 			| None -> ()
 		end else begin
 			cycles_tried := 1 + !cycles_tried;
@@ -338,44 +338,87 @@ let migrate_rrd _ ?(session_id : string option) ~(remote_address : string)
 			vm_uuid (ExnHelper.string_of_exn e);*)
 		log_backtrace ()
 
+(* Called on host shutdown/reboot to send the Host RRD to the master for
+ * backup. Note all VMs will have been shutdown by now. *)
+let send_host_rrd_to_master _ ~(master_address : string)
+		~(localhost_uuid : string) =
+	match !host_rrd with
+	| Some rrdi ->
+		debug "sending host RRD to master";
+		let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrdi.rrd) in
+		archive_rrd ~master_address ~save_stats_locally:false ~uuid:localhost_uuid ~rrd
+	| None -> ()
 
-let send_host_rrd_to_master _ () = ()
-(* Monitor_rrds.send_host_rrd_to_master *)
-
+let add_ds ~rrdi ~ds_name =
+	let open Ds in
+	let ds = List.find (fun ds -> ds.ds_name = ds_name) rrdi.dss in
+	Rrd.rrd_add_ds rrdi.rrd
+		(Rrd.ds_create ds.ds_name ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown)
 
 let add_host_ds _ ~(ds_name : string) : unit =
-	()
-	(* Monitor_rrds.add_host_ds *)
+	Mutex.execute mutex (fun () ->
+		match !host_rrd with None -> () | Some rrdi ->
+		let rrd = add_ds ~rrdi ~ds_name in
+		host_rrd := Some {rrdi with rrd = rrd}
+	)
 
 let forget_host_ds _ ~(ds_name : string) : unit =
-	()
-	(* Monitor_rrds.forget_host_ds *)
+	Mutex.execute mutex (fun () ->
+		match !host_rrd with None -> () | Some rrdi ->
+		host_rrd := Some {rrdi with rrd = Rrd.rrd_remove_ds rrdi.rrd ds_name}
+	)
+
+let query_possible_dss rrdi =
+	let enabled_dss = Rrd.ds_names rrdi.rrd in
+	let open Ds in
+	let open Data_source in
+	List.map (fun ds -> {
+		name = ds.ds_name;
+		description = ds.ds_description;
+		enabled = List.mem ds.ds_name enabled_dss;
+		standard = ds.ds_default;
+		min = ds.ds_min;
+		max = ds.ds_max;
+		units = ds.ds_units;
+	}) rrdi.dss
 
 let query_possible_host_dss _ () : Data_source.t list =
-	[]
-	(* Monitor_rrds.query_possible_host_dss *)
+	Mutex.execute mutex (fun () ->
+		match !host_rrd with None -> [] | Some rrdi -> query_possible_dss rrdi
+	)
 
 let query_host_ds _ ~(ds_name : string) : float =
-	-1.0
-	(* Monitor_rrds.query_host_dss *)
-
+	Mutex.execute mutex (fun () ->
+		match !host_rrd with
+		| None -> failwith "No data source!"
+		| Some rrdi -> Rrd.query_named_ds rrdi.rrd ds_name Rrd.CF_Average
+	)
 
 let add_vm_ds _ ~(vm_uuid : string) ~(domid : int) ~(ds_name : string) : unit =
-	()
-	(* Monitor_rrds.add_vm_ds *)
+	Mutex.execute mutex (fun () ->
+		let rrdi = Hashtbl.find vm_rrds vm_uuid in
+		let rrd = add_ds rrdi ds_name in
+		Hashtbl.replace vm_rrds vm_uuid {rrd; dss = rrdi.dss; domid}
+	)
 
 let forget_vm_ds _ ~(vm_uuid : string) ~(ds_name : string) : unit =
-	()
-	(* Monitor_rrds.forget_vm_ds *)
+	Mutex.execute mutex (fun () ->
+		let rrdi = Hashtbl.find vm_rrds vm_uuid in
+		let rrd = rrdi.rrd in
+		Hashtbl.replace vm_rrds vm_uuid {rrdi with rrd = Rrd.rrd_remove_ds rrd ds_name}
+	)
 
 let query_possible_vm_dss _ ~(vm_uuid : string) : Data_source.t list =
-	[]
-	(* Monitor_rrds.query_possible_vm_dss *)
+	Mutex.execute mutex (fun () ->
+		let rrdi = Hashtbl.find vm_rrds vm_uuid in
+		query_possible_dss rrdi
+	)
 
 let query_vm_ds _ ~(vm_uuid : string) ~(ds_name : string) : float =
-	-1.0
-	(* Monitor_rrds.query_vm_dss *)
-
+	Mutex.execute mutex (fun () ->
+		let rrdi = Hashtbl.find vm_rrds vm_uuid in
+		Rrd.query_named_ds rrdi.rrd ds_name Rrd.CF_Average
+	)
 
 let update_use_min_max _ ~(value : bool) : unit =
 	()
