@@ -157,7 +157,6 @@ let load_rrd_from_local_filesystem uuid =
  * field, and at 8 bytes per double this is a grand total of 18k per field. For
  * a VM with 2 VBDs, 2 VCPUs and 1 VIF, this adds up to 130k of data per VM.
  * This is the function where tuning could be done to change this. *)
-
 let timescales =
 	(* These are purely for xenrt testing. *)
 	if Xapi_fist.reduce_rra_times then [
@@ -165,7 +164,7 @@ let timescales =
 		(20, 12);
 		(15, 24);
 		(10, 36);
-	] else[
+	] else [
 		(120,     1); (* 120 values of interval 1 step (5 secs) = 10 mins  *)
 		(120,    12); (* 120 values of interval 12 steps (1 min) = 2 hours *)
 		(168,   720); (* 168 values of interval 720 steps (1 hr) = 1 week  *)
@@ -300,11 +299,40 @@ let push_rrd _ ~(master_address : string) ~(vm_uuid : string)
 				~rrd:(Rrd.copy_rrd rrd) ()
 	with _ -> ()
 
-let remove_rrd _ ~(vm_uuid : string) : unit = ()
-(* Monitor_rrds.maybe_remove_rrd *)
+(** Remove an RRD from the local filesystem, if it exists. *)
+let remove_rrd _ ~(uuid : string) : unit =
+	let path = Xapi_globs.xapi_rrd_location ^ "/" ^ uuid in
+	let gz_path = path ^ ".gz" in
+	(try Unix.unlink path with _ -> ());
+	(try Unix.unlink gz_path with _ -> ())
 
-let migrate_rrd _ ?(session_id : string option) ~(remote_address : string) ~(vm_uuid : string) ~(host_uuid : string) () : unit = ()
-(* Monitor_rrds.migrate_push *)
+(* Migrate_push - used by the migrate code to push an RRD directly to
+ * a remote host without going via the master. If the host is on a
+ * different pool, you must pass both the remote_address and
+ * session_id parameters.
+ * Remote address is assumed to be valid, since it is set by monitor_master.
+ *)
+let migrate_rrd _ ?(session_id : string option) ~(remote_address : string)
+		~(vm_uuid : string) ~(host_uuid : string) () : unit =
+	try
+		let rrdi = Mutex.execute mutex (fun () ->
+			let rrdi = Hashtbl.find vm_rrds vm_uuid in
+			debug "Sending RRD for VM uuid=%s to remote host %s for migrate"
+				host_uuid vm_uuid;
+			Hashtbl.remove vm_rrds vm_uuid;
+			rrdi
+		) in
+		send_rrd ?session_id ~address:remote_address ~to_archive:false
+			~uuid:vm_uuid ~rrd:rrdi.rrd ()
+	with
+	| Not_found ->
+		debug "VM %s RRDs not found on migrate! Continuing anyway..." vm_uuid;
+		log_backtrace ()
+	| e ->
+		(*debug "Caught exception while trying to push VM %s RRDs: %s"
+			vm_uuid (ExnHelper.string_of_exn e);*)
+		log_backtrace ()
+
 
 let send_host_rrd_to_master _ () = ()
 (* Monitor_rrds.send_host_rrd_to_master *)

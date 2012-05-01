@@ -24,7 +24,7 @@ let name = "xcp-rrdd"
 
 external push_rrd : master_address:string -> vm_uuid:string ->
 	is_on_localhost:bool -> unit = ""
-external remove_rrd : vm_uuid:string -> unit = ""
+external remove_rrd : uuid:string -> unit = ""
 external migrate_rrd : ?session_id:string -> remote_address:string ->
 	vm_uuid:string -> host_uuid:string -> unit -> unit = ""
 external send_host_rrd_to_master : unit -> unit = ""

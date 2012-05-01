@@ -184,49 +184,6 @@ let send_host_rrd_to_master () =
         archive_rrd (Helpers.get_localhost_uuid ()) ~save_stats_locally:false rrd
     | None -> ()
 
-(** Maybe_remove_rrd - remove an RRD from the local filesystem, if it exists *)
-let maybe_remove_rrd uuid =
-  let path = Xapi_globs.xapi_rrd_location ^ "/" ^ uuid in
-  let gz_path = path ^ ".gz" in
-  begin 
-    try
-      Unix.unlink path
-    with _ -> ()
-  end;
-  begin
-    try
-      Unix.unlink gz_path
-    with _ -> ()
-  end
-
-(* Migrate_push - used by the migrate code to push an RRD directly to
- * a remote host without going via the master. If the host is on a
- * different pool, you must pass both the remote_address and
- * session_id parameters.
- * Remote address is assumed to be valid, since it is set by monitor_master.
- *)
-let migrate_push ?session_id remote_address vm_uuid host =
-	try
-		let rrdi = Mutex.execute mutex (fun () ->
-			let rrdi = Hashtbl.find vm_rrds vm_uuid in
-			debug "Sending RRD for VM uuid=%s to remote host %s for migrate"
-				(Ref.string_of host)
-				vm_uuid;
-			Hashtbl.remove vm_rrds vm_uuid;
-			rrdi)
-		in
-		send_rrd ~session_id remote_address false vm_uuid rrdi.rrd
-	with
-		| Not_found ->
-			  debug "VM %s RRDs not found on migrate! Continuing anyway..."
-				  vm_uuid ;
-			  log_backtrace ()
-		| e ->
-			  debug "Caught exception while trying to push VM %s RRDs: %s"
-				  vm_uuid
-				  (ExnHelper.string_of_exn e) ;
-			  log_backtrace ()
-
 (* Load an RRD from the local filesystem. Will return an RRD or throw an exception. *)
 let load_rrd_from_local_filesystem ~__context uuid =
   debug "Loading RRD from local filesystem for object uuid=%s" uuid;
