@@ -1591,6 +1591,7 @@ module UPDATES = struct
 				VM_DB.signal id;
 				List.iter VBD_DB.signal (VBD_DB.ids id);
 				List.iter VIF_DB.signal (VIF_DB.ids id);
+				List.iter PCI_DB.signal (PCI_DB.ids id);
 				()
 			) ()
 end
@@ -1640,7 +1641,8 @@ let register_objects () =
 		(fun vm ->
 			VM_DB.signal vm;
 			List.iter VBD_DB.signal (VBD_DB.ids vm);
-			List.iter VBD_DB.signal (VIF_DB.ids vm)
+			List.iter VBD_DB.signal (VIF_DB.ids vm);
+			List.iter PCI_DB.signal (PCI_DB.ids vm);
 		) (VM_DB.ids ())
 
 module Diagnostics = struct
