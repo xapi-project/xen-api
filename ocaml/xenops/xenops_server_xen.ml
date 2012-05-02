@@ -528,7 +528,7 @@ module VM = struct
 	let get_initial_target ~xs domid =
 		Int64.of_string (xs.Xs.read (Printf.sprintf "/local/domain/%d/memory/initial-target" domid))
 
-	let create_exn (task: Xenops_task.t) vm =
+	let create_exn (task: Xenops_task.t) memory_upper_bound vm =
 		let k = vm.Vm.id in
 		with_xc_and_xs
 			(fun xc xs ->
@@ -602,10 +602,18 @@ module VM = struct
 						end in
 				let open Memory in
 				let overhead_bytes = compute_overhead vmextra in
-				(* If we are resuming then we know exactly how much memory is needed *)
-				let resuming = vmextra.VmExtra.suspend_memory_bytes <> 0L in
-				let min_kib = kib_of_bytes_used (if resuming then vmextra.VmExtra.suspend_memory_bytes else (vm.memory_dynamic_min +++ overhead_bytes)) in
-				let max_kib = kib_of_bytes_used (if resuming then vmextra.VmExtra.suspend_memory_bytes else (vm.memory_dynamic_max +++ overhead_bytes)) in
+                let resuming = vmextra.VmExtra.suspend_memory_bytes <> 0L in
+				(* If we are resuming then we know exactly how much memory is needed. If we are
+				   live migrating then we will only know an upper bound. If we are starting from
+				   scratch then we have a free choice. *)
+				let min_bytes, max_bytes =
+					if resuming
+					then vmextra.VmExtra.suspend_memory_bytes, vmextra.VmExtra.suspend_memory_bytes
+					else match memory_upper_bound with
+						| Some x -> x, x
+						| None -> vm.memory_dynamic_min, vm.memory_dynamic_max in
+				let min_kib = kib_of_bytes_used (min_bytes +++ overhead_bytes)
+				and max_kib = kib_of_bytes_used (max_bytes +++ overhead_bytes) in
 				(* XXX: we would like to be able to cancel an in-progress with_reservation *)
 				Mem.with_reservation ~xc ~xs ~min:min_kib ~max:max_kib
 					(fun target_plus_overhead_kib reservation_id ->
@@ -628,12 +636,6 @@ module VM = struct
 							let target_bytes = target_plus_overhead_bytes --- overhead_bytes in
 							min vm.memory_dynamic_max target_bytes in
 						set_initial_target ~xs domid (Int64.div initial_target 1024L);
-
-						Int64.(
-							let min = to_int (div vm.memory_dynamic_min 1024L)
-							and max = to_int (div vm.memory_dynamic_max 1024L) in
-							Domain.set_memory_dynamic_range ~xc ~xs ~min ~max domid
-						);
 
 						if vm.suppress_spurious_page_faults
 						then Domain.suppress_spurious_page_faults ~xc domid;
@@ -760,6 +762,7 @@ module VM = struct
 			~min:(Int64.to_int (Int64.div min 1024L))
 			~max:(Int64.to_int (Int64.div max 1024L))
 			domid;
+		Mem.balance_memory ~xc ~xs
 	) Newest task vm
 
 	(* NB: the arguments which affect the qemu configuration must be saved and
@@ -880,6 +883,12 @@ module VM = struct
 								make_build_info b.Bootloader.kernel_path builder_spec_info
 							) in
 			let arch = Domain.build task ~xc ~xs build_info domid in
+			Int64.(
+				let min = to_int (div vm.Vm.memory_dynamic_min 1024L)
+				and max = to_int (div vm.Vm.memory_dynamic_max 1024L) in
+				Domain.set_memory_dynamic_range ~xc ~xs ~min ~max domid
+			);
+
 			Domain.cpuid_apply ~xc ~hvm:(will_be_hvm vm) domid;
 			debug "VM = %s; domid = %d; Domain built with architecture %s" vm.Vm.id domid (Domain.string_of_domarch arch);
 			let k = vm.Vm.id in
@@ -1051,6 +1060,7 @@ module VM = struct
 			(fun xc xs (task:Xenops_task.t) vm di ->
 				let hvm = di.Xenctrl.hvm_guest in
 				let domid = di.Xenctrl.domid in
+
 				with_data ~xc ~xs task data true
 					(fun fd ->
 						Domain.suspend task ~xc ~xs ~hvm ~progress_callback domid fd flags'
@@ -1102,10 +1112,22 @@ module VM = struct
 					| { VmExtra.build_info = Some x } ->
 						let initial_target = get_initial_target ~xs domid in
 						{ x with Domain.memory_target = initial_target } in
-				with_data ~xc ~xs task data false
-					(fun fd ->
-						Domain.restore task ~xc ~xs (* XXX progress_callback *) build_info domid fd
-					)
+				begin
+					try
+						with_data ~xc ~xs task data false
+							(fun fd ->
+								Domain.restore task ~xc ~xs (* XXX progress_callback *) build_info domid fd
+							);
+					with e ->
+						error "VM %s: restore failed: %s" vm.Vm.id (Printexc.to_string e);
+						raise e
+				end;
+
+				Int64.(
+					let min = to_int (div vm.Vm.memory_dynamic_min 1024L)
+					and max = to_int (div vm.Vm.memory_dynamic_max 1024L) in
+					Domain.set_memory_dynamic_range ~xc ~xs ~min ~max domid
+				);
 			) Newest task vm
 
 	let s3suspend =
@@ -1151,6 +1173,16 @@ module VM = struct
 							let kib = Xenctrl.pages_to_kib pages in 
 							Memory.bytes_of_kib kib in
 
+						let memory_limit =
+							(* The maximum amount of memory the domain can consume is the max of memory_actual
+							   and max_memory_pages (with our overheads subtracted). *)
+							let max_memory_bytes =
+								let overhead_bytes = Memory.bytes_of_mib (if di.Xenctrl.hvm_guest then Memory.HVM.xen_max_offset_mib else Memory.Linux.xen_max_offset_mib) in
+								let raw_bytes = Memory.bytes_of_pages (Int64.of_nativeint di.Xenctrl.max_memory_pages) in
+								Int64.sub raw_bytes overhead_bytes in
+							(* CA-31764: may be larger than static_max if maxmem has been increased to initial-reservation. *)
+							max memory_actual max_memory_bytes in
+
 						let rtc = try xs.Xs.read (Printf.sprintf "/vm/%s/rtc/timeoffset" (Uuid.string_of_uuid uuid)) with Xenbus.Xb.Noent -> "" in
 						let rec ls_lR root dir =
 							let this = try [ dir, xs.Xs.read (root ^ "/" ^ dir) ] with _ -> [] in
@@ -1182,6 +1214,7 @@ module VM = struct
 							end;
 							memory_target = memory_target;
 							memory_actual = memory_actual;
+							memory_limit = memory_limit;
 							rtc_timeoffset = rtc;
 							last_start_time = begin match vme with
 								| Some x -> x.VmExtra.last_start_time
