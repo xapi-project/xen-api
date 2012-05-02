@@ -190,6 +190,8 @@ module VDI = struct
 	(** [copy_into task sr vdi url sr2] copies the data from [vdi] into a remote system [url]'s [sr2] *)
 	external copy_into : task:task -> sr:sr -> vdi:vdi -> url:string -> dest:sr -> dest_vdi:vdi -> vdi_info = ""
 
+	external copy : task:task -> sr:sr -> vdi:vdi -> dp:dp -> url:string -> dest:sr -> vdi_info = ""
+
     (** [get_url task sr vdi] returns a URL suitable for accessing disk data directly. *)
     external get_url : task:task -> sr:sr -> vdi:vdi -> string = ""
 
@@ -248,8 +250,6 @@ module Mirror = struct
 	external receive_finalize : task:task -> sr:sr -> vdi:vdi -> unit = ""
 
 	external receive_cancel : task:task -> sr:sr -> vdi:vdi -> unit = ""
-
-	external copy_snapshot : task:task -> sr:sr -> vdi:vdi -> dp:dp -> url:string -> dest:sr -> vdi_info = ""
 
 	external list : task:task -> sr:sr -> Mirror.status list = ""
 

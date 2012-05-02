@@ -496,6 +496,10 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			info "VDI.copy_into task:%s sr:%s vdi:%s url:%s dest:%s" task sr vdi url dest;
 			Impl.VDI.copy_into context ~task ~sr ~vdi ~url ~dest
 
+		let copy context ~task ~sr ~vdi ~dp ~url ~dest =
+			info "VDI.copy task:%s sr:%s vdi:%s url:%s dest:%s" task sr vdi url dest;
+			Impl.VDI.copy context ~task ~sr ~vdi ~dp ~url ~dest
+
 		let get_url context ~task ~sr ~vdi =
 			info "VDI.get_url task:%s sr:%s vdi:%s" task sr vdi;
 			Impl.VDI.get_url context ~task ~sr ~vdi
@@ -518,10 +522,6 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 		let list context ~task ~sr =
 			info "Mirror.active task:%s sr:%s" task sr;
 			Impl.Mirror.list context ~task ~sr 
-
-		let copy_snapshot context ~task ~sr ~vdi ~dp ~url ~dest =
-			info "Mirror.copy_snapshot task:%s sr:%s vdi:%s url:%s dest:%s" task sr vdi url dest;
-			Impl.Mirror.copy_snapshot context ~task ~sr ~vdi ~dp ~url ~dest
 
 		let receive_start context ~task ~sr ~vdi_info ~similar =
 			info "Mirror.receive_start task:%s sr:%s similar:[%s]" 

@@ -147,7 +147,7 @@ module Debug_print_impl = struct
 		let set_content_id context ~task ~sr ~vdi ~content_id = assert false
 		let get_by_name context ~task ~sr ~name = assert false
 		let similar_content context ~task ~sr ~vdi = assert false
-		
+		let copy context ~task ~sr ~vdi ~dp ~url ~dest = assert false
 
 	end
 
@@ -157,7 +157,6 @@ module Debug_print_impl = struct
 		let start context ~task ~sr ~vdi ~dp ~url ~dest = assert false
 		let stop context ~task ~sr ~vdi = assert false
 		let list context ~task ~sr = assert false
-		let copy_snapshot context ~task ~sr ~vdi ~dp ~url ~dest = assert false
 		let receive_start context ~task ~sr ~vdi_info ~similar = assert false
 		let receive_finalize context ~task ~sr ~vdi = assert false
 		let receive_cancel context ~task ~sr ~vdi = assert false
