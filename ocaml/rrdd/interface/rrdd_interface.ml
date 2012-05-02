@@ -18,9 +18,15 @@
  * thread), used by RRD client (part of xapi).
  *)
 
+(* Daemon's name. *)
 let name = "xcp-rrdd"
 
+(* Full path to the file descriptor the daemon is listening on. *)
+let fd_path = Filename.concat Fhs.vardir name
+
 (* The interface is defined by extern function declarations. *)
+
+external has_vm_rrd : vm_uuid:string -> bool = ""
 
 external push_rrd : master_address:string -> vm_uuid:string ->
 	is_on_localhost:bool -> unit = ""

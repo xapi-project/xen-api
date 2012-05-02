@@ -16,20 +16,13 @@
 type context = unit
 
 open Threadext
+open Rrdd_shared
 
 module D = Debug.Debugger(struct let name="rrdd_server" end)
 open D
 
-let mutex = Mutex.create ()
-
-type rrd_info = {
-	rrd: Rrd.rrd;
-	mutable dss: Ds.ds list;
-}
-
-(* RRDs *)
-let vm_rrds : (string, rrd_info) Hashtbl.t = Hashtbl.create 32
-let host_rrd : rrd_info option ref = ref None
+let has_vm_rrd _ ~(vm_uuid : string) =
+	Mutex.execute mutex (fun _ -> Hashtbl.mem vm_rrds vm_uuid)
 
 (* Send rrds to a remote host. If the host is on another pool, you
  * must pass the session_id parameter, and optionally the __context. *)
@@ -126,29 +119,11 @@ let backup_rrds _ ~(master_address) ?(save_stats_locally = true)
 		end
 	done
 
-let rrd_of_fd fd =
-	let ic = Unix.in_channel_of_descr fd in
-	let input = Xmlm.make_input (`Channel ic) in
-	Rrd.from_xml input
-
-(** Helper function - path is the path to the file _without the extension .gz_ *)
-let rrd_of_gzip path =
-	let gz_path = path ^ ".gz" in
-	let gz_exists = try let (_: Unix.stats) = Unix.stat gz_path in true with _ -> false in
-	if gz_exists then begin
-		Unixext.with_file gz_path [ Unix.O_RDONLY ] 0o0
-			(fun fd -> Gzip.decompress_passive fd rrd_of_fd)
-	end else begin
-		(* If this fails, let the exception propagate *)
-		Unixext.with_file path [ Unix.O_RDONLY ] 0 rrd_of_fd
-	end
-
 (* Load an RRD from the local filesystem. Will return an RRD or throw an exception. *)
 let load_rrd_from_local_filesystem uuid =
 	debug "Loading RRD from local filesystem for object uuid=%s" uuid;
 	let path = Xapi_globs.xapi_rrd_location ^ "/" ^ uuid in
 	rrd_of_gzip path
-
 
 (* Here is the only place where RRDs are created. The timescales are fixed. If
  * other timescales are required, this could be done externally. The types of

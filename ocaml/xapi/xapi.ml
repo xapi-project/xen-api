@@ -680,7 +680,7 @@ let common_http_handlers = [
   ("put_pool_xml_db_sync", (Http_svr.FdIO Pool_db_backup.push_database_restore_handler));
   ("get_config_sync", (Http_svr.FdIO Config_file_sync.config_file_sync_handler));
   ("get_system_status", (Http_svr.FdIO System_status.handler));
-  ("get_vm_rrd", (Http_svr.FdIO Rrdd_proxy.handler));
+  ("get_vm_rrd", (Http_svr.FdIO Rrdd_proxy.get_vm_rrd_forwarder));
   ("put_rrd", (Http_svr.BufIO Rrdd_proxy.receive_handler));
   ("get_host_rrd", (Http_svr.FdIO Rrdd_proxy.handler_host));
   ("get_rrd_updates", (Http_svr.FdIO Rrdd_proxy.handler_rrd_updates));

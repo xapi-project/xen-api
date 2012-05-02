@@ -20,16 +20,91 @@
  * same-named methods in rrdd.
  *)
 
-let handler (req: Http.Request.t) s _ = ()
-	(* Monitor_rrds.handler *)
+module D = Debug.Debugger(struct let name="rrdd_proxy" end)
+open D
+
+(* Helper methods. Should probably be moved to the Http.Request module. *)
+let get_query_string_from_query ~(query : (string * string) list) : string =
+	String.concat "&" (List.map (fun (k, v) -> k ^ "=" ^ v) query)
+
+let get_query_string ~(req : Http.Request.t) : string =
+	get_query_string_from_query ~query:req.Http.Request.query
+
+let make_url_from_query ~(address : string) ~(uri : string)
+		~(query : (string * string) list) : string =
+	let query_string = get_query_string_from_query query in
+	Printf.sprintf "https://%s%s?%s" address uri query_string
+
+let make_url ~(address : string) ~(req : Http.Request.t) : string =
+	let open Http.Request in
+	make_url_from_query ~address ~uri:req.uri ~query:req.query
+(* End of helper methods. *)
+
+(* If the host contains the RRD for the requested VM then simply forward the
+ * HTTP request to rrdd_http_handler. Otherwise, we redirect to the host that
+ * contains the corresponding VM. The last resort is to unarchive the RRD on
+ * the master. The exact logic can be seen under "The logic." below.
+ *)
+let get_vm_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
+	debug "put_rrd_forwarder: start";
+	let query = req.Http.Request.query in
+	req.Http.Request.close <- true;
+	if not (List.mem_assoc "ref" query) && not (List.mem_assoc "uuid" query) then begin
+		error "HTTP request for RRD is missing the 'uuid' parameter.";
+		failwith "Bad request"
+	end;
+	let vm_uuid = List.assoc "uuid" query in
+	if Rrdd.has_vm_rrd ~vm_uuid then (
+		ignore (Xapi_services.hand_over_connection req s Rrdd_interface.fd_path)
+	) else (
+		Xapi_http.with_context ~dummy:true "Obtaining the RRD statistics" req s
+			(fun __context ->
+				let open Http.Request in
+				let unarchive_query_key = "rrd_unarchive" in
+				(* List of possible actions. *)
+				let read_at_owner owner =
+					let address = Db.Host.get_address ~__context ~self:owner in
+					let url = make_url ~address ~req in
+					Http_svr.headers s (Http.http_302_redirect url) in
+				let unarchive_at_master () =
+					let address = Pool_role.get_master_address () in
+					let query = (unarchive_query_key, "") :: query in
+					let url = make_url_from_query ~address ~uri:req.uri ~query in
+					Http_svr.headers s (Http.http_302_redirect url) in
+				let unarchive () =
+					let req = {req with uri = Constants.rrd_unarchive_uri} in
+					ignore (Xapi_services.hand_over_connection req s Rrdd_interface.fd_path) in
+				(* List of conditions involved. *)
+				let is_unarchive_request = List.mem_assoc unarchive_query_key query in
+				let is_master = Pool_role.is_master () in
+				let is_owner_online owner = Db.is_valid_ref __context owner in
+				let is_dbsync_request = List.mem_assoc "dbsync" query in
+				(* The logic. *)
+				if is_unarchive_request then unarchive ()
+				else (
+					let localhost_uuid = Helpers.get_localhost_uuid () in
+					let vm_ref = Db.VM.get_by_uuid ~__context ~uuid:vm_uuid in
+					let owner = Db.VM.get_resident_on ~__context ~self:vm_ref in
+					let owner_uuid = Ref.string_of owner in
+					let is_owner_localhost = (owner_uuid = localhost_uuid) in
+					if is_owner_localhost then (
+						if is_master then unarchive () else unarchive_at_master ()
+					) else (
+						if is_owner_online owner && not is_dbsync_request
+						then read_at_owner owner
+						else unarchive_at_master ()
+					)
+				)
+			)
+	)
 
 let receive_handler (req: Http.Request.t) (bio: Buf_io.t) _ = ()
 	(* Monitor_rrds.receieve_handler *)
 
-let handler_host (req: Http.Request.t) s _ = ()
+let handler_host (req: Http.Request.t) (s : Unix.file_descr) _ = ()
 	(* Monitor_rrds.handler_host *)
 
-let handler_rrd_updates (req: Http.Request.t) s _ = ()
+let handler_rrd_updates (req: Http.Request.t) (s : Unix.file_descr) _ = ()
 	(* Monitor_rrds.handler_host *)
 
 let is_vm_on_localhost ~__context ~(vm_uuid : string) : bool =
