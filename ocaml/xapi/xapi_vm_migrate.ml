@@ -130,7 +130,7 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
 	let snapshots_vbds = get_snapshots_vbds ~__context ~vm in
 	debug "get_snapshots number %d" (List.length snapshots_vbds);
-	let vdi_filter vbd =
+	let vdi_filter snapshot vbd =
 		if not(Db.VBD.get_empty ~__context ~self:vbd)
 		then
 			let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
@@ -141,16 +141,18 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			let dp = Storage_access.datapath_of_vbd ~domid ~device in
 			(* XXX PR-1255: eject any CDROMs for now *)
 			if Db.VBD.get_type ~__context ~self:vbd = `CD then begin
-				info "Ejecting CD %s from %s" location (Ref.string_of vbd);
-				Xapi_xenops.vbd_eject ~__context ~self:vbd;
+				if not snapshot then begin
+					info "Ejecting CD %s from %s" location (Ref.string_of vbd);
+					Xapi_xenops.vbd_eject ~__context ~self:vbd;
+				end;
 				None
 			end else begin
 				let sr = Db.SR.get_uuid ~__context ~self:(Db.VDI.get_SR ~__context ~self:vdi) in
 				Some (vdi, dp, location, sr, xenops_locator)
 			end
 		else None in
-	let vdis = List.filter_map vdi_filter vbds in
-	let snapshots_vdis = List.filter_map vdi_filter snapshots_vbds in
+	let vdis = List.filter_map (vdi_filter false) vbds in
+	let snapshots_vdis = List.filter_map (vdi_filter true) snapshots_vbds in
 	let task = Context.string_of_task __context in
 	let dest_host = List.assoc _host dest in
 	let url = List.assoc _sm dest in
