@@ -12,6 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open Device_common
+open Xenops_task
 
 exception Ioemu_failed of string
 exception Ioemu_failed_dying

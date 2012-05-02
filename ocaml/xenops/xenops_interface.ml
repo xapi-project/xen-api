@@ -15,6 +15,8 @@
  * @group Xenops
  *)
 
+let service_name = "xenops"
+
 type power_state =
 	| Running
 	| Halted

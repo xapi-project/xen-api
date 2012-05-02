@@ -17,6 +17,7 @@ open Xenops_interface
 open Xenops_utils
 open Cancel_utils
 open Xenstore
+open Xenops_task
 
 exception Did_not_cancel
 

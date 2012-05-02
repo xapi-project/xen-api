@@ -15,6 +15,7 @@
 module D = Debug.Debugger(struct let name = "xenops" end)
 open D
 open Xenstore
+open Xenops_task
 
 let fs_backend_path = "/usr/sbin/fs-backend"
 

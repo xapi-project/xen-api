@@ -22,6 +22,7 @@ open Cancel_utils
 
 open Xenops_helpers
 open Device_common
+open Xenops_task
 
 module D = Debug.Debugger(struct let name = "xenops" end)
 open D

@@ -66,6 +66,24 @@ type vdi_info = {
 
 let string_of_vdi_info (x: vdi_info) = Jsonrpc.to_string (rpc_of_vdi_info x)
 
+module Task = struct
+	type id = string
+
+	type result =
+		| Pending of float
+		| Completed of float
+		| Failed of Rpc.t
+
+	type t = {
+		id: id;
+		debug_info: string;
+		ctime: float;
+		result: result;
+		subtasks: (string * result) list;
+	}
+end
+
+
 (** Each VDI is associated with one or more "attached" or "activated" "datapaths". *)
 type dp = string
 
@@ -255,3 +273,12 @@ module Mirror = struct
 
 
 end
+
+
+
+(*module TASK = struct
+	external stat: debug_info -> Task.id -> Task.t = ""
+	external cancel: debug_info -> Task.id -> unit = ""
+	external destroy: debug_info -> Task.id -> unit = ""
+	external list: debug_info -> Task.t list = ""
+end*)

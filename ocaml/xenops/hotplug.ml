@@ -15,7 +15,7 @@
 open Printf
 open Stringext
 open Fun
-
+open Xenops_task
 open Device_common
 open Xenstore
 open Cancel_utils
