@@ -303,3 +303,106 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		Importexport.live = live;
 	} in
 	Importexport.remote_metadata_export_import ~__context ~rpc:remote_rpc ~session_id ~remote_address (`Only vm_export_import)
+
+
+(* Handling migrations from pre-Tampa hosts *)
+
+exception Failure
+
+(** Extra parameter added in rel_mnr: memory_required_kib which is the lowest
+   upper-bound on the amount of memory we know the domain will fit in. This
+   is also used as a neutral target value post-migrate.
+   If this is missing (e.g. during rolling upgrade from George) we fall back to *static_max*.
+ *)
+let _memory_required_kib = "memory_required_kib"
+
+(** HTTP handler to receive the live memory image *)
+let handler req fd _ =
+	let safe_lookup key list =
+		if not (List.mem_assoc key list) then begin
+			error "Failed to find key %s (list was [ %s ])"
+				key (String.concat "; " (List.map (fun (k, v) -> k ^ ", " ^ v) list));
+			Http_svr.headers fd (Http.http_403_forbidden ());
+			raise Failure
+		end else
+			List.assoc key list
+	in
+
+	(* find all the required references *)
+	let session_id = Ref.of_string (safe_lookup "session_id" req.Http.Request.cookie) in
+	let task_id = Ref.of_string (safe_lookup "task_id" req.Http.Request.cookie) in
+	let vm = Ref.of_string (safe_lookup "ref" req.Http.Request.query) in
+
+	Server_helpers.exec_with_forwarded_task ~session_id task_id ~origin:(Context.Http(req,fd)) (fun __context ->
+		let localhost = Helpers.get_localhost ~__context in
+
+		(* NB this parameter will be present except when we're doing a rolling upgrade. *)
+		let memory_required_kib = 
+			if List.mem_assoc _memory_required_kib req.Http.Request.query then
+				Int64.of_string (List.assoc _memory_required_kib req.Http.Request.query)
+			else
+				Memory.kib_of_bytes_used (Memory_check.vm_compute_migrate_memory __context vm)
+		in
+		try
+			Http_svr.headers fd (Http.http_200_ok ());
+
+			debug "memory_required_kib = %Ld" memory_required_kib;
+			let snapshot = Helpers.get_boot_record ~__context ~self:vm in
+			(* CA-31764: the transmitted memory value may actually be > static_max if maxmem on the remote was
+			   increased. If this happens we clip the target at static_max. If the domain has managed to
+			   allocate more than static_max (!) then it may not fit and the migrate will fail. *)
+			let target_kib =
+				Memory.kib_of_bytes_used (
+					let bytes = Memory.bytes_of_kib memory_required_kib in
+					if bytes > snapshot.API.vM_memory_static_max then begin
+						warn "memory_required_bytes = %Ld > memory_static_max = %Ld; clipping"
+							bytes snapshot.API.vM_memory_static_max;
+						snapshot.API.vM_memory_static_max
+					end else
+						bytes
+				)
+			in
+
+			(* Since the initial memory target is read from vM_memory_target in _resume_domain we must
+			   configure this to prevent the domain ballooning up and allocating more than target_kib
+			   of guest memory on unpause. *)
+			let snapshot = { snapshot with API.vM_memory_target = Memory.bytes_of_kib target_kib } in
+			let overhead_bytes = Memory_check.vm_compute_memory_overhead snapshot in
+			let free_memory_required_kib = Int64.add (Memory.kib_of_bytes_used overhead_bytes) memory_required_kib in
+			debug "overhead_bytes = %Ld; free_memory_required = %Ld KiB" overhead_bytes free_memory_required_kib;
+
+			let dbg = Context.string_of_task __context in
+			Xapi_xenops.transform_xenops_exn ~__context (fun () ->
+				Xapi_xenops.with_metadata_pushed_to_xenopsd ~__context ~upgrade:true ~self:vm (fun id ->
+					info "xenops: VM.receive_memory %s" id;
+					let uri = Printf.sprintf "/services/xenops/memory/%s" id in
+					let memory_limit = free_memory_required_kib |> Memory.bytes_of_kib |> Int64.to_string in
+					let req = Http.Request.make ~cookie:["dbg", dbg; "instance_id", "upgrade"; "memory_limit", memory_limit]
+						~user_agent:"xapi" Http.Put uri in
+					let path = "/var/xapi/xenopsd.forwarded" in
+					let response = Xapi_services.hand_over_connection req fd path in
+					match response with
+					| Some task ->
+						let open Xenops_client in
+						task |> wait_for_task dbg |> success_task dbg |> ignore
+					| None ->
+						debug "We did not get a task id to wait for!!"
+				) (* VM.resident_on is automatically set here *)
+			);
+			
+			(* We will have missed important events because we set resident_on late.
+			   This was deliberate: resident_on is used by the pool master to reserve
+			   memory. If we called 'atomic_set_resident_on' before the domain is
+			   transferred then we would have no record of the memory use. *)
+			Helpers.call_api_functions ~__context (fun rpc session_id ->
+				XenAPI.VM.pool_migrate_complete rpc session_id vm localhost
+			);
+
+			TaskHelper.set_progress ~__context 1.
+		with
+		| Api_errors.Server_error(code, params) ->
+			TaskHelper.failed ~__context(code, params)
+		| e ->
+			TaskHelper.failed ~__context (Api_errors.internal_error, [ ExnHelper.string_of_exn e ])
+    )
+
