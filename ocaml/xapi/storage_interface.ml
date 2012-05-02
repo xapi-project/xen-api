@@ -187,8 +187,8 @@ module VDI = struct
 		to be valid. *)
     external detach : task:task -> dp:dp -> sr:sr -> vdi:vdi -> unit = ""
 
-	(** [copy task sr vdi url sr2] copies the data from [vdi] into a remote system [url]'s [sr2] *)
-	external copy : task:task -> sr:sr -> vdi:vdi -> url:string -> dest:sr -> dest_vdi:vdi -> vdi_info = ""
+	(** [copy_into task sr vdi url sr2] copies the data from [vdi] into a remote system [url]'s [sr2] *)
+	external copy_into : task:task -> sr:sr -> vdi:vdi -> url:string -> dest:sr -> dest_vdi:vdi -> vdi_info = ""
 
     (** [get_url task sr vdi] returns a URL suitable for accessing disk data directly. *)
     external get_url : task:task -> sr:sr -> vdi:vdi -> string = ""

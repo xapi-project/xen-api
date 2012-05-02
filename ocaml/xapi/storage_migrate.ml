@@ -192,7 +192,7 @@ let copy' ~task ~sr ~vdi ~url ~dest ~dest_vdi =
 		raise e
 
 
-let copy ~task ~sr ~vdi ~url ~dest ~dest_vdi = copy' ~task ~sr ~vdi ~url ~dest ~dest_vdi
+let copy_into ~task ~sr ~vdi ~url ~dest ~dest_vdi = copy' ~task ~sr ~vdi ~url ~dest ~dest_vdi
 
 let start ~task ~sr ~vdi ~dp ~url ~dest =
 	debug "Mirror.start sr:%s vdi:%s url:%s dest:%s" sr vdi url dest;
