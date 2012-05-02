@@ -26,7 +26,7 @@
  * 4) xapi occasionally sends data to rrdd through rrdd's interface.
  *)
 
-(* A helper method for processing requests. *)
+(* A helper method for processing XMLRPC requests. *)
 let xmlrpc_handler process req bio context =
 	let body = Http_svr.read_body req bio in
 	let s = Buf_io.fd_of bio in
@@ -43,13 +43,13 @@ let xmlrpc_handler process req bio context =
 (* Bind the service interface to the server implementation. *)
 module Server = Rrdd_interface.Server(Rrdd_server)
 
-(* Full path to the file descriptor. *)
-let fd_path = Filename.concat Fhs.vardir Rrdd_interface.name
-
 (* Bind server to the file descriptor. *)
 let start fd_path process =
 	let server = Http_svr.Server.empty () in
+	let open Rrdd_http_handler in
 	Http_svr.Server.add_handler server Http.Post "/" (Http_svr.BufIO (xmlrpc_handler process));
+	Http_svr.Server.add_handler server Http.Post Constants.rrd_put_uri (Http_svr.FdIO get_vm_rrd_handler);
+	Http_svr.Server.add_handler server Http.Post Constants.rrd_unarchive_uri (Http_svr.FdIO unarchive_rrd_handler);
 	Unixext.mkdir_safe (Filename.dirname fd_path) 0o700;
 	Unixext.unlink_safe fd_path;
 	let domain_sock = Http_svr.bind (Unix.ADDR_UNIX(fd_path)) "unix_rpc" in
@@ -93,7 +93,7 @@ let _ =
 	end;
 
 	print_endline "daemon_main: starting server ..";
-	start fd_path Server.process;
+	start Rrdd_interface.fd_path Server.process;
 
 	while true do
 		Thread.delay 300.
