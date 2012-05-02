@@ -17,6 +17,7 @@ open Xenops_interface
 open Xenops_server_plugin
 open Xenops_utils
 open Fun
+open Xenops_task
 
 module D = Debug.Debugger(struct let name = service_name end)
 open D

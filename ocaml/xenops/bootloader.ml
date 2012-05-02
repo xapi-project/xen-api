@@ -22,6 +22,7 @@
 open Stringext
 open Pervasiveext
 open Forkhelpers
+open Xenops_task
 
 module D=Debug.Debugger(struct let name="bootloader" end)
 open D

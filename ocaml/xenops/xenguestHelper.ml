@@ -13,6 +13,7 @@
  *)
 open Fun
 open Pervasiveext
+open Xenops_task
 
 module D = Debug.Debugger(struct let name = "xenguesthelper" end)
 open D

@@ -17,6 +17,7 @@ open Stringext
 open Device_common
 open Xenops_helpers
 open Xenstore
+open Xenops_task
 
 let task = Xenops_task.add "xenops" (fun _ -> ())
 

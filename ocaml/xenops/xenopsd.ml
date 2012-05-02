@@ -15,7 +15,7 @@ open Xenops_utils
 open Pervasiveext 
 open Fun
 
-module D = Debug.Debugger(struct let name = service_name end)
+module D = Debug.Debugger(struct let name = Xenops_interface.service_name end)
 open D
 
 let name = "xenopsd"

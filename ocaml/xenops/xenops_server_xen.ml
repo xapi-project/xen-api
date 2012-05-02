@@ -22,6 +22,7 @@ open Listext
 open Threadext
 open Stringext
 open Fun
+open Xenops_task
 
 module D = Debug.Debugger(struct let name = service_name end)
 open D
