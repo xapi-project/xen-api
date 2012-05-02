@@ -1088,20 +1088,31 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 
 			with_transport (transport_of_url memory_url)
 				(fun mfd ->
-					Http_client.rpc mfd (Xenops_migrate.http_put memory_url ~cookie:[
+					let open Xenops_migrate in
+					let request = http_put memory_url ~cookie:[
 						"instance_id", instance_id;
 						"dbg", t.Xenops_task.debug_info;
 						"memory_limit", Int64.to_string state.Vm.memory_limit;
-					])
-						(fun response _ ->
-							debug "XXX transmit memory";
-							perform_atomics [
-								VM_save(id, [ Live ], FD mfd)
-							] t;
-							debug "XXX sending completed signal";
-							Xenops_migrate.send_complete url id mfd;
-							debug "XXX completed signal ok";
-						)
+					] in
+					request |> Http.Request.to_wire_string |> Unixext.really_write_string mfd;
+
+					begin match Handshake.recv mfd with
+						| Handshake.Success -> ()
+						| Handshake.Error msg ->
+							error "cannot transmit vm to host: %s" msg;
+					end;
+					debug "Synchronisation point 1";
+
+					perform_atomics [
+						VM_save(id, [ Live ], FD mfd)
+					] t;
+					debug "Synchronisation point 2";
+
+					Handshake.send ~verbose:true mfd Handshake.Success;
+					debug "Synchronisation point 3";
+
+					Handshake.recv_success mfd;
+					debug "Synchronisation point 4";
 				);
 			let atomics = [
 				VM_hook_script(id, Xenops_hooks.VM_pre_destroy, Xenops_hooks.reason__suspend);
@@ -1114,37 +1125,44 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			VM_DB.signal id
 		| VM_receive_memory (id, memory_limit, s) ->
 			debug "VM.receive_memory %s" id;
-			let state = B.VM.get_state (VM_DB.read_exn id) in
-			debug "VM.receive_memory %s power_state = %s" id (state.Vm.power_state |> rpc_of_power_state |> Jsonrpc.to_string);
-			let response = Http.Response.make ~version:"1.1" "200" "OK" in
-			response |> Http.Response.to_wire_string |> Unixext.really_write_string s;
+			let open Xenops_migrate in
+(*			let state = B.VM.get_state (VM_DB.read_exn id) in
+			debug "VM.receive_memory %s power_state = %s" id (state.Vm.power_state |> rpc_of_power_state |> Jsonrpc.to_string);*)
+
+			(try
+				Handshake.send s Handshake.Success
+			with e ->
+				Handshake.send s (Handshake.Error (Printexc.to_string e));
+				raise e
+			);
+			debug "Synchronisation point 1";
+
 			debug "VM.receive_memory calling create";
 			perform_atomics [
 				VM_create (id, Some memory_limit);
 				VM_restore (id, FD s);
 			] t;
 			debug "VM.receive_memory restore complete";
-			(* Receive the all-clear to unpause *)
-			(* We need to unmarshal the next HTTP request ourselves. *)
-			Xenops_migrate.serve_rpc s
-				(fun body ->
-					let call = Jsonrpc.call_of_string body in
-					let failure = Rpc.failure Rpc.Null in
-					let success = Rpc.success (Xenops_migrate.Receiver.rpc_of_state Xenops_migrate.Receiver.Completed) in
-					if call.Rpc.name = Xenops_migrate._complete then begin
-						debug "Got VM.migrate_complete";
-						perform_atomics ([
-						] @ (atomics_of_operation (VM_restore_devices id)) @ [
-							VM_unpause id;
-							VM_set_domain_action_request(id, None)
-						]) t;
-						success |> Jsonrpc.string_of_response
-					end else begin
-						debug "Something went wrong";
-						perform_atomics (atomics_of_operation (VM_shutdown (id, None))) t;
-						failure |> Jsonrpc.string_of_response
-					end
-				)
+			debug "Synchronisation point 2";
+
+			begin try
+				(* Receive the all-clear to unpause *)
+				Handshake.recv_success ~verbose:true s;
+				debug "Synchronisation point 3";
+
+				perform_atomics ([
+				] @ (atomics_of_operation (VM_restore_devices id)) @ [
+					VM_unpause id;
+					VM_set_domain_action_request(id, None)
+				]) t;
+
+				Handshake.send s Handshake.Success;
+				debug "Synchronisation point 4";
+			with e ->
+				debug "Something went wrong";
+				perform_atomics (atomics_of_operation (VM_shutdown (id, None))) t;
+				Handshake.send s (Handshake.Error (Printexc.to_string e))
+			end
 		| VM_check_state id ->
 			let vm = VM_DB.read_exn id in
 			let state = B.VM.get_state vm in
