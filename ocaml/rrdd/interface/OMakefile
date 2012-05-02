@@ -6,6 +6,5 @@ OCAML_LIBS    =
 UseCamlp4(rpc-light.syntax, rrd)
 UseCamlp4(rpc-light.idl, data_source rrdd_interface)
 
-.PHONY: clean
 clean:
 	rm -f *.annot *.cmi *.cmx *.o *.spot
