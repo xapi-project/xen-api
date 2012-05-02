@@ -55,6 +55,7 @@ module VmExtra = struct
 		information away and generate fresh data on the following 'create' *)
 	type persistent_t = {
 		build_info: Domain.build_info option;
+		ty: Vm.builder_info option;
 	} with rpc
 
 	type non_persistent_t = {
@@ -64,7 +65,6 @@ module VmExtra = struct
 		shadow_multiplier: float;
 		memory_static_max: int64;
 		suspend_memory_bytes: int64;
-		ty: Vm.builder_info option;
 		vbds: Vbd.t list; (* needed to regenerate qemu IDE config *)
 		qemu_vbds: (Vbd.id * (int * qemu_frontend)) list;
 		qemu_vifs: (Vif.id * (int * qemu_frontend)) list;
@@ -588,7 +588,6 @@ module VM = struct
 			shadow_multiplier = (match vm.Vm.ty with Vm.HVM { Vm.shadow_multiplier = sm } -> sm | _ -> 1.);
 			memory_static_max = vm.memory_static_max;
 			suspend_memory_bytes = 0L;
-			ty = None;
 			vbds = [];
 			qemu_vbds = [];
 			qemu_vifs = [];
@@ -609,7 +608,7 @@ module VM = struct
 							x.VmExtra.persistent, x.VmExtra.non_persistent
 						| None -> begin
 							debug "VM = %s; has no stored domain-level configuration, regenerating" vm.Vm.id;
-							let persistent = { VmExtra.build_info = None; } in
+							let persistent = { VmExtra.build_info = None; ty = None; } in
 							let non_persistent = generate_non_persistent_state xc xs vm in
 							persistent, non_persistent
 						end in
@@ -785,12 +784,12 @@ module VM = struct
 	   restored with the VM. *)
 	let create_device_model_config vmextra = match vmextra.VmExtra.persistent, vmextra.VmExtra.non_persistent with
 		| { VmExtra.build_info = None }, _
-		| _, { VmExtra.ty = None } -> raise (Domain_not_built)
+		| { VmExtra.ty = None }, _ -> raise (Domain_not_built)
 		| {
 			VmExtra.build_info = Some build_info;
+			ty = Some ty;
 		},{
-			VmExtra.ty = Some ty;
-			vifs = vifs;
+			VmExtra.vifs = vifs;
 			vbds = vbds;
 			qemu_vbds = qemu_vbds
 		} ->
@@ -914,9 +913,9 @@ module VM = struct
 			let d = DB.read_exn vm.Vm.id in
 			let persistent = {
 				VmExtra.build_info = Some build_info;
+				ty = Some vm.ty;
 			} and non_persistent = { d.VmExtra.non_persistent with
-				VmExtra.ty = Some vm.ty;
-				vbds = vbds;
+				VmExtra.vbds = vbds;
 				vifs = vifs;
 			} in
 			DB.write k {
