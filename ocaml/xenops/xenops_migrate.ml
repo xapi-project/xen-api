@@ -20,6 +20,7 @@ open Fun
 module D = Debug.Debugger(struct let name = service_name end)
 open D
 
+(*
 let local_rpc call =
 	let open Xmlrpc_client in
 	XMLRPC_protocol.rpc ~transport:(Unix "/var/xapi/xenopsd") ~http:(xmlrpc ~version:"1.0" "/") call
@@ -101,10 +102,10 @@ let receive req s _ =
 
 let http_post url length body =
 	Http.Request.make ~version:"1.1" ?auth:(Http.Url.auth_of url) ~user_agent:"xenopsd" ~length ~query:(Http.Url.get_query_params url) ~body Http.Post (Http.Url.get_uri url)
-
+*)
 let http_put ?(cookie=[]) url =
 	Http.Request.make ~version:"1.1" ~keep_alive:false ?auth:(Http.Url.auth_of url) ~user_agent:"xenopsd" ~query:(Http.Url.get_query_params url) ~cookie Http.Put (Http.Url.get_uri url)
-
+(*
 let remote_rpc url rpc fd =
 	let body = rpc |> Jsonrpc.string_of_call in
 	let length = body |> String.length |> Int64.of_int in
@@ -164,3 +165,65 @@ let serve_rpc s f =
 			let response = Http.Response.make ~version:"1.1" ~length ~body "500" "Not so good" in
 			response |> Http.Response.to_wire_string |> Unixext.really_write_string s
 		end
+*)
+
+exception Remote_failed of string
+
+(** Functions to synchronise between the sender and receiver via binary messages of the form:
+    00 00 -- success
+    11 22 <0x1122 bytes of data> -- failure, with error message
+    Used rather than the API for signalling between sender and receiver to avoid having to
+    go through the master and interact with locking. *)
+module Handshake = struct
+	type result =
+		| Success
+		| Error of string
+
+	let string_of_result = function
+		| Success -> "Success"
+		| Error x -> "Error: " ^ x
+
+	(** Receive a 'result' from the remote *)
+	let recv ?verbose:(verbose=false) (s: Unix.file_descr) : result =
+		let buf = String.make 2 '\000' in
+		if verbose then debug "Handshake.recv: about to read result code from remote.";
+		(try
+			Unixext.really_read s buf 0 (String.length buf)
+		with _ ->
+			raise (Remote_failed "unmarshalling result code from remote"));
+		if verbose then debug "Handshake.recv: finished reading result code from remote.";
+		let len = int_of_char buf.[0] lsl 8 lor (int_of_char buf.[1]) in
+		if len = 0
+		then Success
+		else begin
+			let msg = String.make len '\000' in
+			if verbose then debug "Handshake.recv: about to read error message from remote.";
+			(try Unixext.really_read s msg 0 len
+				with _ ->
+					raise (Remote_failed "unmarshalling error message from remote"));
+			if verbose then debug "Handshake.recv: finished reading error message from remote.";
+			Error msg
+		end
+
+	(** Expects to receive a success code from the server, throws an exception otherwise *)
+	let recv_success ?verbose (s: Unix.file_descr) : unit = match recv ?verbose s with
+		| Success -> ()
+		| Error x -> raise (Remote_failed ("error from remote: " ^ x))
+
+	(** Transmit a 'result' to the remote *)
+	let send ?verbose:(verbose=false) (s: Unix.file_descr) (r: result) =
+		let len = match r with
+			| Success -> 0
+			| Error msg -> String.length msg in
+		let buf = String.make (2 + len) '\000' in
+		buf.[0] <- char_of_int ((len lsr 8) land 0xff);
+		buf.[1] <- char_of_int ((len lsr 0) land 0xff);
+		(match r with
+			| Success -> ()
+			| Error msg -> String.blit msg 0 buf 2 len);
+		if verbose then debug "Handshake.send: about to write result to remote.";
+		if Unix.write s buf 0 (len + 2) <> len + 2
+		then raise (Remote_failed "writing result to remote");
+		if verbose then debug "Handshake.send: finished writing result to remote.";
+end
+
