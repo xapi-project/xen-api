@@ -88,14 +88,14 @@ type mirror_record = {
 }
 
 let get_snapshots_vbds ~__context ~vm =
-	let rec aux acc cur =
+	let rec aux acc nb_snapshots cur =
 		let parent = Db.VM.get_parent ~__context ~self:cur in
 		debug "get_snapshots %s" (Ref.string_of parent);
 		if parent = Ref.null then
-			acc
+			(acc,nb_snapshots)
 		else
-			aux ((Db.VM.get_VBDs ~__context ~self:parent) @ acc) parent in
-	aux [] vm
+			aux ((Db.VM.get_VBDs ~__context ~self:parent) @ acc) (nb_snapshots + 1) parent in
+	aux [] 0 vm
 
 let intra_pool_vdi_remap ~__context vm vdi_map =
 	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
@@ -128,8 +128,10 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	then failwith "You must have /etc/xapi.conf:use_xenopsd=true";
 	(* Create mirrors of all the disks on the remote *)
 	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
-	let snapshots_vbds = get_snapshots_vbds ~__context ~vm in
-	debug "get_snapshots number %d" (List.length snapshots_vbds);
+	let (snapshots_vbds,nb_snapshots) = get_snapshots_vbds ~__context ~vm in
+	debug "get_snapshots VMs %d VBDs %d" nb_snapshots (List.length snapshots_vbds);
+	if nb_snapshots > 1 then
+		raise (Api_errors.Server_error(Api_errors.vm_has_too_many_snapshots, []));
 	let vdi_filter snapshot vbd =
 		if not(Db.VBD.get_empty ~__context ~self:vbd)
 		then
