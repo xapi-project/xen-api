@@ -58,6 +58,7 @@ module Proxy = functor(RPC: RPC) -> struct
 		let similar_content _ = Client.VDI.similar_content
 		let compose _ = Client.VDI.compose
 		let copy_into _ = Client.VDI.copy_into
+		let copy _ = Client.VDI.copy
         let get_url _ = Client.VDI.get_url
 	end
 
@@ -69,7 +70,6 @@ module Proxy = functor(RPC: RPC) -> struct
 		let receive_start _ = Client.Mirror.receive_start
 		let receive_finalize _ = Client.Mirror.receive_finalize
 		let receive_cancel _ = Client.Mirror.receive_cancel
-		let copy_snapshot _ = Client.Mirror.copy_snapshot
 		let list _ = Client.Mirror.list
 	end
 end

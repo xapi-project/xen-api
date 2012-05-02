@@ -404,8 +404,8 @@ let nbd_handler req s sr vdi dp =
 		| None -> 
 			()
 
-let copy_snapshot ~task ~sr ~vdi ~dp ~url ~dest =
-	debug "copy_snapshot sr:%s vdi:%s url:%s dest:%s" sr vdi url dest;
+let copy ~task ~sr ~vdi ~dp ~url ~dest =
+	debug "copy sr:%s vdi:%s url:%s dest:%s" sr vdi url dest;
 	let remote_url = Http.Url.of_string url in
 	let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
 	try
