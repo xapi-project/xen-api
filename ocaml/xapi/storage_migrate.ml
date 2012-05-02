@@ -436,7 +436,10 @@ let copy ~task ~sr ~vdi ~dp ~url ~dest =
 				| None ->
 						debug "Creating a blank remote VDI";
 						Remote.VDI.create ~task ~sr:dest ~vdi_info:local_vdi ~params:[] in
-			copy' ~task ~sr ~vdi ~url ~dest ~dest_vdi:remote_base.vdi
+			let remote_copy = copy' ~task ~sr ~vdi ~url ~dest ~dest_vdi:remote_base.vdi in
+			let snapshot = Remote.VDI.snapshot ~task ~sr:dest ~vdi:remote_copy.vdi ~vdi_info:local_vdi ~params:[] in
+			Remote.VDI.destroy ~task ~sr:dest ~vdi:remote_copy.vdi;
+			snapshot
 		with e ->
 			error "Caught %s: copying snapshots vdi" (Printexc.to_string e);
 			raise (Internal_error (Printexc.to_string e))
