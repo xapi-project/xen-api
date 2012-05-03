@@ -159,10 +159,11 @@ module Mux = struct
         let similar_content context ~task ~sr ~vdi =
             let module C = Client(struct let rpc = of_sr sr end) in
             C.VDI.similar_content ~task ~sr ~vdi
+		let copy context ~task ~sr ~vdi ~dp ~url ~dest = Storage_migrate.copy ~task ~sr ~vdi ~dp ~url ~dest
 		let compose context ~task ~sr ~vdi1 ~vdi2 =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.compose ~task ~sr ~vdi1 ~vdi2
-        let copy context ~task ~sr ~vdi ~url ~dest = Storage_migrate.copy ~task ~sr ~vdi ~url ~dest
+        let copy_into context ~task ~sr ~vdi ~url ~dest = Storage_migrate.copy_into ~task ~sr ~vdi ~url ~dest
         let get_url context ~task ~sr ~vdi =
             let module C = Client(struct let rpc = of_sr sr end) in
             C.VDI.get_url ~task ~sr ~vdi

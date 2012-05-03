@@ -469,7 +469,8 @@ module Builtin_impl = struct
 					let vdi, _ = find_vdi ~__context sr vdi in
 					Printf.sprintf "%s/%s/%s" ip (Ref.string_of session_ref) (Ref.string_of vdi))
 
-		let copy context ~task ~sr ~vdi ~url ~dest = assert false
+		let copy_into context ~task ~sr ~vdi ~url ~dest = assert false
+		let copy context ~task ~sr ~vdi ~dp ~url ~dest = assert false
 	end
 
 	let get_by_name context ~task ~name = assert false
