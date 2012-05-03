@@ -83,8 +83,7 @@ let archive_rrd ~master_address ~save_stats_locally ~uuid ~rrd =
 		send_rrd ~address:master_address ~to_archive:true ~uuid ~rrd ()
 	end
 
-let backup_rrds _ ~(master_address) ?(save_stats_locally = true)
-		~(localhost_uuid : string) () : unit =
+let backup_rrds _ ~(master_address) ?(save_stats_locally = true) () : unit =
 	debug "backup safe_stats_locally=%b" save_stats_locally;
 	let total_cycles = 5 in
 	let cycles_tried = ref 0 in
@@ -315,8 +314,7 @@ let migrate_rrd _ ?(session_id : string option) ~(remote_address : string)
 
 (* Called on host shutdown/reboot to send the Host RRD to the master for
  * backup. Note all VMs will have been shutdown by now. *)
-let send_host_rrd_to_master _ ~(master_address : string)
-		~(localhost_uuid : string) =
+let send_host_rrd_to_master _ ~(master_address : string) =
 	match !host_rrd with
 	| Some rrdi ->
 		debug "sending host RRD to master";
