@@ -61,9 +61,9 @@ let rec add_value f = function
 		f "<value><nil/></value>"
 
 	| Int i  ->
-		f "<value>";
+		f "<value><int>";
 		f (Int64.to_string i);
-		f "</value>"
+		f "</int></value>"
 
 	| Bool b ->
 		f "<value><boolean>";
@@ -317,6 +317,7 @@ module Parser = struct
 
 	and basic_types ?callback accu input = function
 		| "int"
+		| "i8"
 		| "i4"     -> make_int    ?callback accu (get_data input)
 		| "boolean"-> make_bool   ?callback accu (get_data input)
 		| "double" -> make_float  ?callback accu (get_data input)
@@ -325,7 +326,7 @@ module Parser = struct
 		| "array"  -> make_enum   ?callback accu (data (of_xmls ?callback accu) input)
 		| "struct" -> make_dict   ?callback accu (members (fun name -> of_xml ?callback (name::accu)) input)
 		| "nil"    -> make_null   ?callback accu ()
-		| tag      -> parse_error (sprintf "open_tag(%s)" tag) "open_tag(int/i4/boolean/double/string/dateTime.iso8601/array/struct/nil)" input
+		| tag      -> parse_error (sprintf "open_tag(%s)" tag) "open_tag(int/i4/i8/boolean/double/string/dateTime.iso8601/array/struct/nil)" input
 
 	and of_xmls ?callback accu input =
 		let r = ref [] in
