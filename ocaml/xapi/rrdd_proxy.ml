@@ -57,7 +57,7 @@ let get_vm_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
 	if Rrdd.has_vm_rrd ~vm_uuid then (
 		ignore (Xapi_services.hand_over_connection req s Rrdd_interface.fd_path)
 	) else (
-		Xapi_http.with_context ~dummy:true "Obtaining the RRD statistics" req s
+		Xapi_http.with_context ~dummy:true "Obtaining VM RRD metrics." req s
 			(fun __context ->
 				let open Http.Request in
 				let unarchive_query_key = "rrd_unarchive" in
@@ -105,7 +105,7 @@ let get_host_rrd_forwarder (req: Http.Request.t) (s : Unix.file_descr) _ =
 	debug "get_host_rrd_forwarder";
 	let query = req.Http.Request.query in
 	req.Http.Request.close <- true;
-	Xapi_http.with_context ~dummy:true "Obtaining the Host RRD statistics" req s
+	Xapi_http.with_context ~dummy:true "Obtaining Host RRD metrics." req s
 		(fun __context ->
 			if List.mem_assoc "dbsync" query then ( (* Host initialising. *)
 				if not (List.mem_assoc "uuid" query) then (
@@ -123,8 +123,19 @@ let get_host_rrd_forwarder (req: Http.Request.t) (s : Unix.file_descr) _ =
 let receive_handler (req: Http.Request.t) (bio: Buf_io.t) _ = ()
 	(* Monitor_rrds.receieve_handler *)
 
-let handler_rrd_updates (req: Http.Request.t) (s : Unix.file_descr) _ = ()
-	(* Monitor_rrds.handler_host *)
+let handler_rrd_updates (req: Http.Request.t) (s : Unix.file_descr) _ =
+	(* This is commonly-called: not worth logging *)
+	let query = req.Http.Request.query in
+	req.Http.Request.close <- true;
+	Xapi_http.with_context ~dummy:true "Obtaining RRD updates." req s
+		(fun __context ->
+			if not (List.mem_assoc "start" query) then (
+				error "HTTP request for RRD updates is missing the 'start' parameter.";
+				Http_svr.headers s (Http.http_400_badrequest ())
+			) else (
+				ignore (Xapi_services.hand_over_connection req s Rrdd_interface.fd_path)
+			)
+		)
 
 let is_vm_on_localhost ~__context ~(vm_uuid : string) : bool =
   let localhost = Helpers.get_localhost ~__context in
@@ -145,13 +156,11 @@ let migrate_rrd ~__context ?remote_address ?session_id ~vm_uuid ~host_uuid () =
 
 let send_host_rrd_to_master () =
 	let master_address = Pool_role.get_master_address () in
-	let localhost_uuid = Helpers.get_localhost_uuid () in
-	Rrdd.send_host_rrd_to_master ~master_address ~localhost_uuid
+	Rrdd.send_host_rrd_to_master ~master_address
 
 let backup_rrds ?(save_stats_locally : bool option) () =
 	let master_address = Pool_role.get_master_address () in
-	let localhost_uuid = Helpers.get_localhost_uuid () in
-	Rrdd.backup_rrds ~master_address ?save_stats_locally ~localhost_uuid ()
+	Rrdd.backup_rrds ~master_address ?save_stats_locally ()
 
 module Deprecated = struct
 	let get_timescale ~__context =

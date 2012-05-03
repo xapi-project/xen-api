@@ -1,5 +1,6 @@
 OCAMLINCLUDES = $(ROOT)/ocaml $(ROOT)/ocaml/autogen interface \
-	$(ROOT)/ocaml/xapi $(ROOT)/ocaml/idl $(ROOT)/ocaml/idl/ocaml_backend
+	$(ROOT)/ocaml/xapi $(ROOT)/ocaml/idl $(ROOT)/ocaml/idl/ocaml_backend \
+	$(ROOT)/ocaml/util
 # ocaml/xapi only needed for xapi_fist : should move xapi_first to libs
 OCAMLPACKS    = xml-light2 stunnel http-svr xenctrl
 OCAML_LIBS    = $(ROOT)/ocaml/fhs ../idl/ocaml_backend/xapi_client

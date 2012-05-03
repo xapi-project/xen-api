@@ -180,48 +180,6 @@ let receive_handler (req: Http.Request.t) (bio: Buf_io.t) _ = ()
     )
 *)
 
-(** Get as a string an XML document representing the updates since the specified start time *)
-let get_host_stats ?(json=false) start interval cfopt host uuid =
-  Mutex.execute mutex (fun () ->
-    let prefixandrrds =
-      let vmsandrrds = Hashtbl.fold (fun k v acc -> (k,v)::acc) vm_rrds [] in
-      let vmsandrrds = match uuid with None -> vmsandrrds | Some uuid -> List.filter (fun (k,v) -> k=uuid) vmsandrrds in
-      let vm_rrds = List.map (fun (k,v) -> ("vm:"^k^":",v.rrd)) vmsandrrds in
-      if host then
-	match !host_rrd with
-	  | None -> vm_rrds
-	  | Some rrdi -> ("host:"^(Helpers.get_localhost_uuid ())^":",rrdi.rrd)::vm_rrds
-      else vm_rrds
-    in
-    Rrd.export ~json prefixandrrds start interval cfopt)
-
-let handler_rrd_updates (req: Http.Request.t) s _ =
-  (* This is commonly-called: not worth logging *)
-  let query = req.Http.Request.query in
-  req.Http.Request.close <- true;
-  Xapi_http.with_context ~dummy:true "Obtaining the Host RRD statistics" req s
-    (fun __context ->
-      if not(List.mem_assoc "start" query) then begin
-        let headers = Http.http_400_badrequest () in
-        Http_svr.headers s headers;
-        error "HTTP request for Host RRD statistics lacked the 'start' parameter"
-      end else begin
-        let start=Int64.of_string (List.assoc "start" query) in
-        let cfopt = try Some (Rrd.cf_type_of_string (List.assoc "cf" query)) with _ -> None in
-        let interval=try Int64.of_string (List.assoc "interval" query) with _ -> 0L in
-        let host=List.mem_assoc "host" query in
-        let uuid=try Some (List.assoc "vm_uuid" query) with _ -> None in
-        let json=List.mem_assoc "json" query in
-        let xml = get_host_stats ~json start interval cfopt host uuid in
-        let headers =
-	  (Http.http_200_ok_with_content
-	       (Int64.of_int (String.length xml))
-	       ~version:"1.1" ~keep_alive:false ())
-        in
-        let headers = if json then headers else (headers@[Http.Hdr.content_type ^ ": text/xml"]) in
-        Http_svr.headers s headers;
-        ignore(Unix.write s xml 0 (String.length xml))
-      end)
 
 let sent_clock_went_backwards_alert = ref false
 
