@@ -17,7 +17,7 @@ let unarchive_rrd_handler (req: Http.Request.t) (s : Unix.file_descr) _ =
 	Http_svr.headers s header_content;
 	Rrd.to_fd rrd s
 
-(* A handler for putting RRD data into the Http response.
+(* A handler for putting a VM's RRD data into the Http response.
  * The rrdd assumes that it has RRD for the vm_uuid, since xapi confirmed this
  * with rrdd over XMLRPC before forwarding the HTTP request --- see rrdd_proxy
  * in xapi.
@@ -31,14 +31,14 @@ let get_vm_rrd_handler (req: Http.Request.t) (s : Unix.file_descr) _ =
 	Http_svr.headers s (Http.http_200_ok ~version:"1.0" ~keep_alive:false ());
 	Rrd.to_fd rrd s
 
-(* TODO: document! *)
+(* A handler for putting the host's RRD data into the Http response. *)
 let get_host_rrd_handler (req: Http.Request.t) (s : Unix.file_descr) _ =
 	debug "get_host_rrd_handler: start";
 	let query = req.Http.Request.query in
-	let rrd = Mutex.execute mutex (fun () ->
-		debug "Received request for Host RRD";
+	let rrd = Mutex.execute mutex (fun _ ->
+		debug "Received request for Host RRD.";
 		Rrd.copy_rrd (match !host_rrd with
-			Some rrdi -> rrdi.rrd | None -> failwith "No host RRD available")
+			Some rrdi -> rrdi.rrd | None -> failwith "No host RRD available!")
 	) in
 	Http_svr.headers s
 		(Http.http_200_ok ~version:"1.0" ~keep_alive:false () @
