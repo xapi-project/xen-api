@@ -368,6 +368,7 @@ module VM = struct
 	external s3suspend: debug_info -> Vm.id -> Task.id = ""
 	external s3resume: debug_info -> Vm.id -> Task.id = ""
 
+	external generate_state_string: debug_info -> Vm.t -> string = ""
 	external export_metadata: debug_info -> Vm.id -> string  = ""
 	external import_metadata: debug_info -> string -> Vm.id  = ""
 end
