@@ -82,5 +82,24 @@ let get_rrd_updates_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
 	Http_svr.headers s headers;
 	ignore (Unix.write s reply 0 (String.length reply))
 
-(* TODO *)
-let put_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ = ()
+(* Reads RRD information sent from the client over HTTP through the file
+ * descriptor. The handler either archives the data, or updates the relevant
+ * field in the memory. If archiving, it is guaranteed by rrdd_proxy to be
+ * called on the master, and that the uuid represents a VM, not a host. *)
+let put_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
+	let query = req.Http.Request.query in
+	let uuid = List.assoc "uuid" query in
+	let is_host = bool_of_string (List.assoc "is_host" query) in
+	(* Tell the client that we are ready to receive the data. *)
+	Http_svr.headers s (Http.http_200_ok ());
+	let rrd = rrd_of_fd s in
+	(* By now, we know that the data represents a valid RRD. *)
+	if List.mem_assoc "archive" query then (
+		debug "Receiving RRD for archiving, type=%s."
+			(if is_host then "Host" else "VM uuid=" ^ uuid);
+		archive_rrd ~master_address:"localhost" ~save_stats_locally:true
+			~uuid ~rrd:(Rrd.copy_rrd rrd)
+	) else (
+		debug "Receiving RRD for resident VM uuid=%s. Replacing in hashtable." uuid;
+		Mutex.execute mutex (fun _ -> Hashtbl.replace vm_rrds uuid {rrd; dss = []})
+	)

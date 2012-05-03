@@ -38,6 +38,10 @@ let make_url_from_query ~(address : string) ~(uri : string)
 let make_url ~(address : string) ~(req : Http.Request.t) : string =
 	let open Http.Request in
 	make_url_from_query ~address ~uri:req.uri ~query:req.query
+
+let fail_req_with (s : Unix.file_descr) msg (http_err : unit -> string list) =
+	error msg;
+	Http_svr.headers s (http_err ())
 (* End of helper methods. *)
 
 (* If the host contains the RRD for the requested VM then simply forward the
@@ -49,18 +53,16 @@ let get_vm_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
 	debug "put_rrd_forwarder: start";
 	let query = req.Http.Request.query in
 	req.Http.Request.close <- true;
-	if not (List.mem_assoc "ref" query) && not (List.mem_assoc "uuid" query) then begin
-		error "HTTP request for RRD is missing the 'uuid' parameter.";
-		Http_svr.headers s (Http.http_400_badrequest ());
-	end;
 	let vm_uuid = List.assoc "uuid" query in
-	if Rrdd.has_vm_rrd ~vm_uuid then (
+	if not (List.mem_assoc "ref" query) && not (List.mem_assoc "uuid" query) then
+		fail_req_with s "get_vm_rrd: missing the 'uuid' parameter"
+			Http.http_400_badrequest
+	else if Rrdd.has_vm_rrd ~vm_uuid then (
 		ignore (Xapi_services.hand_over_connection req s Rrdd_interface.fd_path)
 	) else (
-		Xapi_http.with_context ~dummy:true "Obtaining VM RRD metrics." req s
+		Xapi_http.with_context ~dummy:true "Get VM RRD." req s
 			(fun __context ->
 				let open Http.Request in
-				let unarchive_query_key = "rrd_unarchive" in
 				(* List of possible actions. *)
 				let read_at_owner owner =
 					let address = Db.Host.get_address ~__context ~self:owner in
@@ -68,14 +70,14 @@ let get_vm_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
 					Http_svr.headers s (Http.http_302_redirect url) in
 				let unarchive_at_master () =
 					let address = Pool_role.get_master_address () in
-					let query = (unarchive_query_key, "") :: query in
+					let query = (Constants.rrd_unarchive, "") :: query in
 					let url = make_url_from_query ~address ~uri:req.uri ~query in
 					Http_svr.headers s (Http.http_302_redirect url) in
 				let unarchive () =
 					let req = {req with uri = Constants.rrd_unarchive_uri} in
 					ignore (Xapi_services.hand_over_connection req s Rrdd_interface.fd_path) in
 				(* List of conditions involved. *)
-				let is_unarchive_request = List.mem_assoc unarchive_query_key query in
+				let is_unarchive_request = List.mem_assoc Constants.rrd_unarchive query in
 				let is_master = Pool_role.is_master () in
 				let is_owner_online owner = Db.is_valid_ref __context owner in
 				let is_xapi_initialising = List.mem_assoc "dbsync" query in
@@ -105,12 +107,12 @@ let get_host_rrd_forwarder (req: Http.Request.t) (s : Unix.file_descr) _ =
 	debug "get_host_rrd_forwarder";
 	let query = req.Http.Request.query in
 	req.Http.Request.close <- true;
-	Xapi_http.with_context ~dummy:true "Obtaining Host RRD metrics." req s
+	Xapi_http.with_context ~dummy:true "Get Host RRD." req s
 		(fun __context ->
 			if List.mem_assoc "dbsync" query then ( (* Host initialising. *)
 				if not (List.mem_assoc "uuid" query) then (
-					error "HTTP request for RRD is missing the 'uuid' parameter.";
-					Http_svr.headers s (Http.http_400_badrequest ())
+					fail_req_with s "get_host_rrd: missing the 'uuid' parameter"
+						Http.http_400_badrequest
 				) else (
 					let req = {req with Http.Request.uri = Constants.rrd_unarchive_uri} in
 					ignore (Xapi_services.hand_over_connection req s Rrdd_interface.fd_path)
@@ -125,18 +127,53 @@ let get_rrd_updates_forwarder (req: Http.Request.t) (s : Unix.file_descr) _ =
 	(* Do not log this event, since commonly called. *)
 	let query = req.Http.Request.query in
 	req.Http.Request.close <- true;
-	Xapi_http.with_context ~dummy:true "Obtaining RRD updates." req s
+	Xapi_http.with_context ~dummy:true "Get RRD updates." req s
 		(fun __context ->
-			if not (List.mem_assoc "start" query) then (
-				error "HTTP request for RRD updates is missing the 'start' parameter.";
-				Http_svr.headers s (Http.http_400_badrequest ())
-			) else (
+			if List.mem_assoc "start" query then
 				ignore (Xapi_services.hand_over_connection req s Rrdd_interface.fd_path)
-			)
+			else
+				fail_req_with s "get_rrd_updates: missing the 'start' parameter"
+					Http.http_400_badrequest
 		)
 
-let put_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ = ()
-	(* Monitor_rrds.receieve_handler *)
+let is_host_uuid ~__context ~(uuid : string) : bool option =
+	try ignore (Db.VM.get_by_uuid ~__context ~uuid); Some false
+	with _ -> (
+		try ignore (Db.Host.get_by_uuid ~__context ~uuid); Some true
+		with _ -> None
+	)
+
+(* Forward the request for storing RRD. In case an archive is required, the
+ * request is redirected to the master. *)
+let put_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
+	debug "put_rrd_forwarder";
+	let query = req.Http.Request.query in
+	req.Http.Request.close <- true;
+	let has_uuid = List.mem_assoc "uuid" query in
+	let should_archive = List.mem_assoc "archive" query in
+	let is_master = Pool_role.is_master () in
+	if not has_uuid then (
+		fail_req_with s "put_rrd: missing the 'uuid' parameter"
+			Http.http_400_badrequest;
+	) else if should_archive && not is_master then (
+		let address = Pool_role.get_master_address () in
+		let url = make_url ~address ~req in
+		Http_svr.headers s (Http.http_302_redirect url)
+	) else Xapi_http.with_context ~dummy:true "Put VM RRD." req s
+		(fun __context ->
+			let uuid = List.assoc "uuid" query in
+			match is_host_uuid ~__context ~uuid, should_archive with
+			| None, _ ->
+				fail_req_with s "put_rrd: invalid 'uuid' parameter"
+					Http.http_404_missing
+			| Some true, false ->
+				fail_req_with s "put_rrd: cannot archive host RRD"
+					Http.http_400_badrequest
+			| Some is_host, _ ->
+				let is_host_key_val = "is_host", string_of_bool is_host in
+				let req = {req with Http.Request.query = is_host_key_val::query} in
+				ignore (Xapi_services.hand_over_connection req s Rrdd_interface.fd_path)
+		)
 
 let is_vm_on_localhost ~__context ~(vm_uuid : string) : bool =
   let localhost = Helpers.get_localhost ~__context in

@@ -129,56 +129,6 @@ let dirty_host_memory = ref false
 (** Receive handler, for RRDs being pushed onto us *)
 exception Invalid_RRD
 
-let receive_handler (req: Http.Request.t) (bio: Buf_io.t) _ = ()
-  debug "Monitor_rrds.receive_handler";
-  let query = req.Http.Request.query in
-  req.Http.Request.close <- true;
-  let fd = Buf_io.fd_of bio in (* fd only used for writing *)
-  if not(List.mem_assoc "uuid" query) then begin
-    error "HTTP request for RRD lacked 'uuid' parameter";
-    Http_svr.headers fd (Http.http_400_badrequest ());
-    failwith "Monitor_rrds.receive_handler: Bad request"
-  end;
-  Xapi_http.with_context ~dummy:true "Receiving VM rrd" req fd
-    (fun __context ->
-	let uuid = List.assoc "uuid" query in
-
-	(* Check to see if it's a valid uuid for a host or VM *)
-	let ty =
-	  begin
-	    try ignore(Db.VM.get_by_uuid ~__context ~uuid); VM uuid
-	    with _ -> begin
-	      try ignore(Db.Host.get_by_uuid ~__context ~uuid); Host
-	      with _ ->
-		Http_svr.headers fd (Http.http_404_missing ());
-		failwith (Printf.sprintf "Monitor_rrds.receive_handler: UUID %s neither host nor VM" uuid)
-	    end
-	  end
-	in
-	(* Tell client we're good to receive *)
-	Http_svr.headers fd (Http.http_200_ok ());
-
-	(* Now we know what sort of RRD it is, read it in and validate it *)
-	let rrd = rrd_of_fd fd in
-
-	(* By now we know it's a valid RRD *)
-	let to_archive = List.mem_assoc "archive" query in
-	if not to_archive
-	then begin
-	  match ty with
-	    | VM uuid ->
-		debug "Receiving RRD for resident VM uuid=%s. Replacing in hashtable" uuid;
-		Mutex.execute mutex (fun () -> Hashtbl.replace vm_rrds uuid {rrd=rrd; dss=[]})
-	    | _ -> raise Invalid_RRD
-	end else begin
-	  debug "Receiving RRD for archiving, type=%s"
-	    (match ty with Host -> "Host" | VM uuid -> Printf.sprintf "VM uuid=%s" uuid | _ -> "Unknown");
-	  archive_rrd uuid (Rrd.copy_rrd rrd)
-	end;
-
-    )
-
-
 let sent_clock_went_backwards_alert = ref false
 
 (* Updates all of the hosts rrds. We are passed a list of uuids that
