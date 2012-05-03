@@ -375,17 +375,20 @@ let determine_static_routes net_rc =
 
 let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 	with_local_lock (fun () ->
-		let uuid = Db.PIF.get_uuid ~__context ~self:pif in
-		let currently_attached = Db.PIF.get_currently_attached ~__context ~self:pif in
+		let rc = Db.PIF.get_record ~__context ~self:pif in
+		let net_rc = Db.Network.get_record ~__context ~self:rc.API.pIF_network in
+		let bridge = net_rc.API.network_bridge in
 
 		(* Call networkd even if currently_attached is false, just to update its state *)
-		debug "PIF %s has currently_attached set to %s%s; bringing up now" uuid
-			(string_of_bool currently_attached) 
+		debug "PIF %s has currently_attached set to %s%s; bringing up now" rc.API.pIF_uuid
+			(string_of_bool rc.API.pIF_currently_attached)
 			(if management_interface then " and this is to be the new management interface" else "");
+
+		let old_ip = try Net.Interface.get_ipv4_addr ~name:bridge with _ -> [] in
 
 		(* If the PIF is a bond master, the bond slaves will now go down *)
 		(* Interface-reconfigure in bridge mode requires us to set currently_attached to false here *)
-		begin match Db.PIF.get_bond_master_of ~__context ~self:pif with
+		begin match rc.API.pIF_bond_master_of with
 			| [] -> ()
 			| bond :: _ ->
 				let slaves = Db.Bond.get_slaves ~__context ~self:bond in
@@ -394,9 +397,6 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 
 		if !use_networkd then
 			begin try
-				let rc = Db.PIF.get_record ~__context ~self:pif in
-				let net_rc = Db.Network.get_record ~__context ~self:rc.API.pIF_network in
-				let bridge = net_rc.API.network_bridge in
 				let persistent = is_dom0_interface rc in
 
 				(* Setup network infrastructure *)
@@ -457,10 +457,17 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 			reconfigure_pif ~__context pif args
 		end;
 
-		if currently_attached = false || management_interface then begin
+		let new_ip = try Net.Interface.get_ipv4_addr ~name:bridge with _ -> [] in
+		if new_ip <> old_ip then begin
+			warn "An IP address of dom0 was changed";
 			warn "About to kill idle client stunnels";
 			(* The master_connection would otherwise try to take a broken stunnel from the cache *)
 			Stunnel_cache.flush ();
+			warn "About to forcibly reset the master connection";
+			Master_connection.force_connection_reset ()
+		end;
+
+		if rc.API.pIF_currently_attached = false || management_interface then begin
 			if management_interface then begin
 				warn "About to kill active client stunnels";
 				let stunnels =
@@ -469,14 +476,12 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 					List.filter (function Locking_helpers.Process("stunnel", _) -> true | _ -> false) all in
 				debug "Of which %d are stunnels" (List.length stunnels);
 				List.iter Locking_helpers.kill_resource stunnels;
-				warn "About to forcibly reset the master connection";
-				Master_connection.force_connection_reset ();
 			end;
 
 			Db.PIF.set_currently_attached ~__context ~self:pif ~value:true;
 
 			(* If the PIF is a bond slave, the bond master will now be down *)
-			begin match Db.PIF.get_bond_slave_of ~__context ~self:pif with
+			begin match rc.API.pIF_bond_slave_of with
 				| bond when bond = Ref.null -> ()
 				| bond ->
 					let master = Db.Bond.get_master ~__context ~self:bond in
@@ -485,11 +490,10 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 
 			(* sync MTU *)
 			(try
-				let device = Db.PIF.get_device ~__context ~self:pif in
-				let mtu = Int64.of_string (Netdev.get_mtu device) in
+				let mtu = Int64.of_string (Netdev.get_mtu rc.API.pIF_device) in
 				Db.PIF.set_MTU ~__context ~self:pif ~value:mtu
 			with _ ->
-				debug "could not update MTU field on PIF %s" uuid
+				debug "could not update MTU field on PIF %s" rc.API.pIF_uuid
 			);
 
 			Xapi_mgmt_iface.on_dom0_networking_change ~__context;
