@@ -158,7 +158,7 @@ module Deprecated = struct
 	(* Fetch an RRD from the master *)
 	let pull_rrd_from_master ~master_address ~uuid ~is_host =
 		let pool_secret = !Xapi_globs.pool_secret in
-		let uri = if is_host then Constants.host_rrd_uri else Constants.vm_rrd_uri in
+		let uri = if is_host then Constants.get_host_rrd_uri else Constants.get_vm_rrd_uri in
 		(* Add in "dbsync = true" to the query to make sure the master
 		 * doesn't try to redirect here! *)
 		let uri = uri ^ "?uuid=" ^ uuid ^ "&dbsync=true" in

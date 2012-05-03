@@ -51,7 +51,7 @@ let get_vm_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
 	req.Http.Request.close <- true;
 	if not (List.mem_assoc "ref" query) && not (List.mem_assoc "uuid" query) then begin
 		error "HTTP request for RRD is missing the 'uuid' parameter.";
-		failwith "Bad request"
+		Http_svr.headers s (Http.http_400_badrequest ());
 	end;
 	let vm_uuid = List.assoc "uuid" query in
 	if Rrdd.has_vm_rrd ~vm_uuid then (
@@ -98,11 +98,29 @@ let get_vm_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
 			)
 	)
 
+(* TODO: document! *)
+let get_host_rrd_forwarder (req: Http.Request.t) (s : Unix.file_descr) _ =
+	debug "get_host_rrd_forwarder";
+	let query = req.Http.Request.query in
+	req.Http.Request.close <- true;
+	Xapi_http.with_context ~dummy:true "Obtaining the Host RRD statistics" req s
+		(fun __context ->
+			(* This is only used by hosts when booting - not for public use! *)
+			if List.mem_assoc "dbsync" query then (
+				if not (List.mem_assoc "uuid" query) then (
+					error "HTTP request for RRD is missing the 'uuid' parameter.";
+					Http_svr.headers s (Http.http_400_badrequest ())
+				) else (
+					let req = {req with Http.Request.uri = Constants.rrd_unarchive_uri} in
+					ignore (Xapi_services.hand_over_connection req s Rrdd_interface.fd_path)
+				)
+			) else (
+				ignore (Xapi_services.hand_over_connection req s Rrdd_interface.fd_path)
+			)
+		)
+
 let receive_handler (req: Http.Request.t) (bio: Buf_io.t) _ = ()
 	(* Monitor_rrds.receieve_handler *)
-
-let handler_host (req: Http.Request.t) (s : Unix.file_descr) _ = ()
-	(* Monitor_rrds.handler_host *)
 
 let handler_rrd_updates (req: Http.Request.t) (s : Unix.file_descr) _ = ()
 	(* Monitor_rrds.handler_host *)
