@@ -124,8 +124,10 @@ let inter_pool_metadata_transfer ~__context remote_rpc session_id remote_address
 
 
 let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
-	if not(!Xapi_globs.use_xenopsd)
-	then failwith "You must have /etc/xapi.conf:use_xenopsd=true";
+	(* if (not (Pool_features.is_enabled ~__context Features.Storage_motion)) then *)
+	(* 	raise (Api_errors.Server_error(Api_errors.license_restriction, [])); *)
+	if not(!Xapi_globs.use_xenopsd)	then
+		failwith "You must have /etc/xapi.conf:use_xenopsd=true";
 	(* Create mirrors of all the disks on the remote *)
 	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
 	let (snapshots_vbds,nb_snapshots) = get_snapshots_vbds ~__context ~vm in
@@ -291,6 +293,8 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		raise e
 
 let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
+	(* if (not (Pool_features.is_enabled ~__context Features.Storage_motion)) then *)
+	(* 	raise (Api_errors.Server_error(Api_errors.license_restriction, [])); *)
 	let xenops = List.assoc _xenops dest in
 	let session_id = Ref.of_string (List.assoc _session_id dest) in
 	let remote_address = match Http.Url.of_string xenops with
