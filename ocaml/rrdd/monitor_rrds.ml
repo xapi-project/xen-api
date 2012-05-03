@@ -130,7 +130,6 @@ let dirty_host_memory = ref false
 exception Invalid_RRD
 
 let receive_handler (req: Http.Request.t) (bio: Buf_io.t) _ = ()
-(* TODO XXX FIXME
   debug "Monitor_rrds.receive_handler";
   let query = req.Http.Request.query in
   req.Http.Request.close <- true;
@@ -181,7 +180,6 @@ let receive_handler (req: Http.Request.t) (bio: Buf_io.t) _ = ()
 	end;
 
     )
-*)
 
 let sent_clock_went_backwards_alert = ref false
 
