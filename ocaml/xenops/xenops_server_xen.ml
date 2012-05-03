@@ -536,6 +536,39 @@ module VM = struct
 	let get_initial_target ~xs domid =
 		Int64.of_string (xs.Xs.read (Printf.sprintf "/local/domain/%d/memory/initial-target" domid))
 
+	(* Called from a xenops client if it needs to resume a VM that was suspended on a pre-xenopsd host. *)
+	let generate_state_string vm =
+		let open Memory in
+		let builder_spec_info =
+			match vm.ty with
+				| HVM hvm_info ->
+					Domain.BuildHVM {
+						Domain.shadow_multiplier = hvm_info.shadow_multiplier;
+						timeoffset = hvm_info.timeoffset;
+						video_mib = hvm_info.video_mib;
+					}
+				| PV { boot = Direct direct } ->
+					Domain.BuildPV {
+						Domain.cmdline = direct.cmdline;
+						ramdisk = direct.ramdisk;
+					}
+				| PV { boot = Indirect { devices = [] } } ->
+					raise (No_bootable_device)
+				| PV { boot = Indirect ( { devices = d :: _ } ) } ->
+					Domain.BuildPV {
+						Domain.cmdline = "";
+						ramdisk = None;
+					}
+		in
+		let build_info = {
+			Domain.memory_max = vm.memory_static_max /// 1024L;
+			memory_target = vm.memory_dynamic_min /// 1024L;
+			kernel = "";
+			vcpus = vm.vcpu_max;
+			priv = builder_spec_info;
+		} in
+		{ VmExtra.build_info = Some build_info; ty = Some vm.ty } |> VmExtra.rpc_of_persistent_t |> Jsonrpc.to_string
+
 	let generate_non_persistent_state xc xs vm =
 		let hvm = match vm.ty with HVM _ -> true | _ -> false in
 		(* XXX add per-vcpu information to the platform data *)
