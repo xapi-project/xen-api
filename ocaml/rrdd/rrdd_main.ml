@@ -49,7 +49,9 @@ let start fd_path process =
 	let open Rrdd_http_handler in
 	Http_svr.Server.add_handler server Http.Post "/" (Http_svr.BufIO (xmlrpc_handler process));
 	Http_svr.Server.add_handler server Http.Post Constants.get_vm_rrd_uri (Http_svr.FdIO get_vm_rrd_handler);
-	Http_svr.Server.add_handler server Http.Post Constants.rrd_put_uri (Http_svr.FdIO get_host_rrd_handler);
+	Http_svr.Server.add_handler server Http.Post Constants.get_host_rrd_uri (Http_svr.FdIO get_host_rrd_handler);
+	Http_svr.Server.add_handler server Http.Post Constants.get_rrd_updates_uri (Http_svr.FdIO get_rrd_updates_handler);
+	Http_svr.Server.add_handler server Http.Post Constants.put_rrd_uri (Http_svr.FdIO put_rrd_handler);
 	Http_svr.Server.add_handler server Http.Post Constants.rrd_unarchive_uri (Http_svr.FdIO unarchive_rrd_handler);
 	Unixext.mkdir_safe (Filename.dirname fd_path) 0o700;
 	Unixext.unlink_safe fd_path;

@@ -120,11 +120,9 @@ let get_host_rrd_forwarder (req: Http.Request.t) (s : Unix.file_descr) _ =
 			)
 		)
 
-let receive_handler (req: Http.Request.t) (bio: Buf_io.t) _ = ()
-	(* Monitor_rrds.receieve_handler *)
-
-let handler_rrd_updates (req: Http.Request.t) (s : Unix.file_descr) _ =
-	(* This is commonly-called: not worth logging *)
+(* Forward the request for obtaining RRD data updates to the RRDD HTTP handler. *)
+let get_rrd_updates_forwarder (req: Http.Request.t) (s : Unix.file_descr) _ =
+	(* Do not log this event, since commonly called. *)
 	let query = req.Http.Request.query in
 	req.Http.Request.close <- true;
 	Xapi_http.with_context ~dummy:true "Obtaining RRD updates." req s
@@ -140,6 +138,9 @@ let handler_rrd_updates (req: Http.Request.t) (s : Unix.file_descr) _ =
 let vm_uuid_to_domid ~__context ~(uuid : string) : int =
 	let vm = Db.VM.get_by_uuid ~__context ~uuid in
 	Int64.to_int (Db.VM.get_domid ~__context ~self:vm)
+
+let put_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ = ()
+	(* Monitor_rrds.receieve_handler *)
 
 let is_vm_on_localhost ~__context ~(vm_uuid : string) : bool =
   let localhost = Helpers.get_localhost ~__context in
