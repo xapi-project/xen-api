@@ -38,7 +38,7 @@ let send_rrd ?(session_id : string option) ~(address : string)
 		if sid_query = [] then ["pool_secret", !Xapi_globs.pool_secret] else [] in
 	let request =
 		Http.Request.make ~user_agent:Xapi_globs.xapi_user_agent
-			~query ~cookie Http.Put Constants.rrd_put_uri in
+			~query ~cookie Http.Put Constants.put_rrd_uri in
 	let open Xmlrpc_client in
 	let transport = SSL(SSL.make (), address, !Xapi_globs.https_port) in
 	with_transport transport (
