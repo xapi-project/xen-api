@@ -196,7 +196,10 @@ let set_xenstore_data ~__context ~self ~value =
 let start ~__context ~vm ~start_paused ~force =
 	License_check.with_vm_license_check ~__context vm
 		(fun () ->
-			if Db.VM.get_ha_restart_priority ~__context ~self:vm = Constants.ha_restart
+			let vmr = Db.VM.get_record ~__context ~self:vm in
+			Vgpuops.create_vgpus ~__context (vm, vmr) (Helpers.will_boot_hvm ~__context ~self:vm);
+
+			if vmr.API.vM_ha_restart_priority = Constants.ha_restart
 			then Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
 
 			Xapi_xenops.start ~__context ~self:vm start_paused

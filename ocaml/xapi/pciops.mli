@@ -31,3 +31,8 @@ val sort_pcidevs: ('a * 'b) list -> ('a * 'b list) list
 val other_pcidevs_of_vm :
   __context:Context.t -> (string * string) list -> (int * (int * int * int * int)) list
 
+(** Return the PCI device as a string, suitable for other_config *)
+val to_string: (int * (int * int * int * int)) -> string
+
+(** Return the PCI device as a tuple *)
+val of_string: string -> (int * (int * int * int * int))

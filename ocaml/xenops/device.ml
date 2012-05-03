@@ -817,9 +817,9 @@ let pid ~xs domid =
 (* Look up the commandline args for the vncterm pid; *)
 (* Check that they include the vncterm binary path and the xenstore console path for the supplied domid. *)
 let is_cmdline_valid domid pid =
-	let cmdline_path = Printf.sprintf "/proc/%d/cmdline" pid in
-	let cmdline = Unix.openfile cmdline_path [Unix.O_RDONLY] 0
-		|> Unixext.try_read_string
+	let cmdline =
+		Printf.sprintf "/proc/%d/cmdline" pid
+		|> Unixext.string_of_file
 		|> String.split '\000'
 	in
 	if (List.mem vncterm_path cmdline) && (List.mem (vnc_console_path domid) cmdline)
@@ -1286,6 +1286,27 @@ let list ~xc ~xs domid =
 	(* replace the sort index with the default '0' -- XXX must figure out whether this matters to anyone *)
 	List.map (fun (_, y) -> (0, y)) (read_pcidir ~xc ~xs domid)
 
+(* We explicitly add a device frontend in the hotplug case so the device watch code
+   can find the backend and monitor it. *)
+let ensure_device_frontend_exists ~xs backend_domid frontend_domid =
+	let frontend_path = Printf.sprintf "/local/domain/%d/device/pci/0" frontend_domid in
+	let backend_path = Printf.sprintf "/local/domain/%d/backend/pci/%d/0" backend_domid frontend_domid in
+
+	debug "adding PCI frontend: frontend_domid = %d; backend_domid = %d" frontend_domid backend_domid;
+	Xs.transaction xs (fun t ->
+		(* If the frontend already exists, no work to do *)
+		if try ignore(t.Xst.read (frontend_path ^ "backend")); true with _ -> false
+		then debug "PCI frontend already exists: no work to do"
+		else begin
+			t.Xst.mkdir frontend_path;
+			t.Xst.setperms frontend_path (frontend_domid, Xsraw.PERM_NONE, [ (backend_domid, Xsraw.PERM_READ) ]);
+			t.Xst.writev frontend_path [
+				"backend", backend_path;
+				"backend-id", string_of_int backend_domid;
+				"state", "1"
+			]
+		end
+	)
 
 let plug (task: Xenops_task.t) ~xc ~xs (domain, bus, dev, func) domid = 
 	try
@@ -1299,6 +1320,8 @@ let plug (task: Xenops_task.t) ~xc ~xs (domain, bus, dev, func) domid =
 			| "pci-inserted" -> 
 				(* success *)
 				xs.Xs.write (device_model_pci_device_path xs 0 domid ^ "/dev-" ^ (string_of_int next_idx)) pci;
+				(* Ensure a frontend exists so the device watching code can see it *)
+				ensure_device_frontend_exists ~xs 0 domid;
 			| x ->
 				failwith
 					(Printf.sprintf "Waiting for state=pci-inserted; got state=%s" x) in
