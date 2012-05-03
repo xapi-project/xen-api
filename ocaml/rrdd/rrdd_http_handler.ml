@@ -64,6 +64,8 @@ let get_host_stats ?(json = false) ~(start : int64) ~(interval : int64)
 		in
 		Rrd.export ~json prefixandrrds start interval cfopt)
 
+(* Writes XML/JSON representing the updates since the specified start time to
+ * the file descriptor that corresponds to the client HTTP connection. *)
 let get_rrd_updates_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
 	let query = req.Http.Request.query in
 	let start = Int64.of_string (List.assoc "start" query) in
@@ -72,8 +74,8 @@ let get_rrd_updates_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
 	let is_host = List.mem_assoc "host" query in
 	let uuid = try Some (List.assoc "vm_uuid" query) with _ -> None in
 	let json = List.mem_assoc "json" query in
-	let xml = get_host_stats ~json ~start ~interval ~cfopt ~is_host ?uuid () in
-	let headers = Http.http_200_ok_with_content (Int64.of_int (String.length xml))
+	let reply = get_host_stats ~json ~start ~interval ~cfopt ~is_host ?uuid () in
+	let headers = Http.http_200_ok_with_content (Int64.of_int (String.length reply))
 		~version:"1.1" ~keep_alive:false () in
 	let headers =
 		if json then headers else headers @ [Http.Hdr.content_type ^ ": text/xml"] in
@@ -82,4 +84,7 @@ let get_rrd_updates_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
 		"Access-Control-Allow-Headers: X-Requested-With";
 	] @ headers in
 	Http_svr.headers s headers;
-	ignore (Unix.write s xml 0 (String.length xml))
+	ignore (Unix.write s reply 0 (String.length reply))
+
+(* TODO *)
+let put_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ = ()
