@@ -980,7 +980,9 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			debug "VM.restore %s" id;
 			if id |> VM_DB.exists |> not
 			then failwith (Printf.sprintf "%s doesn't exist" id);
-			B.VM.restore t progress_callback (VM_DB.read_exn id) data
+			let vbds : Vbd.t list = VBD_DB.vbds id in
+			let vifs : Vif.t list = VIF_DB.vifs id in
+			B.VM.restore t progress_callback (VM_DB.read_exn id) vbds vifs data
 		| VM_delay (id, t) ->
 			debug "VM %s: waiting for %.2f before next VM action" id t;
 			Thread.delay t
