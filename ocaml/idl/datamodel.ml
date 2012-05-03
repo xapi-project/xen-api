@@ -2800,6 +2800,7 @@ let vdi_pool_migrate = call
   ~params:[ Ref _vdi, "vdi", "The VDI to migrate"
     ; Ref _sr, "sr", "The destination SR"
     ; Map (String, String), "options", "Other parameters" ]
+  ~result:(Ref _vdi, "The new reference of the migrated VDI.")
   ~doc:"Migrate a VDI, which may be attached to a running guest, to a different SR. The destination SR must be visible to the guest."
   ~allowed_roles:_R_VM_POWER_ADMIN
   ()
