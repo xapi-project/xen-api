@@ -75,7 +75,7 @@ module type S = sig
 		val wait_shutdown: Xenops_task.t -> Vm.t -> shutdown_request -> float -> bool
 
 		val save: Xenops_task.t -> progress_cb -> Vm.t -> flag list -> data -> unit
-		val restore: Xenops_task.t -> progress_cb -> Vm.t -> data -> unit
+		val restore: Xenops_task.t -> progress_cb -> Vm.t -> Vbd.t list -> Vif.t list -> data -> unit
 
 		val s3suspend: Xenops_task.t -> Vm.t -> unit
 		val s3resume: Xenops_task.t -> Vm.t -> unit

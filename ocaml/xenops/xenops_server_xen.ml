@@ -1127,11 +1127,13 @@ module VM = struct
 					)
 			) Oldest task vm
 
-	let restore task progress_callback vm data =
+	let restore task progress_callback vm vbds vifs data =
 		on_domain
 			(fun xc xs task vm di ->
 				let domid = di.Xenctrl.domid in
-				let build_info = match (DB.read_exn vm.Vm.id).VmExtra.persistent with
+				let k = vm.Vm.id in
+				let vmextra = DB.read_exn k in
+				let build_info = match vmextra.VmExtra.persistent with
 					| { VmExtra.build_info = None } ->
 						error "VM = %s; No stored build_info: cannot safely restore" vm.Vm.id;
 						raise (Does_not_exist("build_info", vm.Vm.id))
@@ -1159,6 +1161,13 @@ module VM = struct
 					and max = to_int (div vm.Vm.memory_dynamic_max 1024L) in
 					Domain.set_memory_dynamic_range ~xc ~xs ~min ~max domid
 				);
+				let non_persistent = { vmextra.VmExtra.non_persistent with
+					VmExtra.vbds = vbds;
+					vifs = vifs;
+				} in
+				DB.write k { vmextra with
+					VmExtra.non_persistent = non_persistent
+				}
 			) Newest task vm
 
 	let s3suspend =
