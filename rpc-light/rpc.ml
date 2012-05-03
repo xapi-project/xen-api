@@ -21,6 +21,7 @@ type t =
 	| Bool of bool
 	| Float of float
 	| String of string
+	| DateTime of string
 	| Enum of t list
 	| Dict of (string * t) list
 	| Null
@@ -35,6 +36,7 @@ let rec to_string t = match t with
 	| Bool b     -> sprintf "B(%b)" b
 	| Float f    -> sprintf "F(%g)" f
 	| String s   -> sprintf "S(%s)" s
+	| DateTime d -> sprintf "D(%s)" d
 	| Enum ts    -> sprintf "[%s]" (map_strings ";" to_string ts)
 	| Dict ts    -> sprintf "{%s}" (map_strings ";" (fun (s,t) -> sprintf "%s:%s" s (to_string t)) ts)
 	| Null       -> "N"
@@ -47,6 +49,7 @@ let rpc_of_int i = Int (Int64.of_int i)
 let rpc_of_bool b = Bool b
 let rpc_of_float f = Float f
 let rpc_of_string s = String s
+let rpc_of_dateTime d = DateTime d
 let rpc_of_unit () = Null
 
 let t_of_rpc x = x
@@ -68,6 +71,7 @@ let float_of_rpc = function
 	| String s -> float_of_string s
 	| _ -> failwith "float_of_rpc"
 let string_of_rpc = function String s -> s | _ -> failwith "string_of_rpc"
+let dateTime_of_rpc = function DateTime d -> d | _ -> failwith "dateTime_of_rpc"
 let unit_of_rpc = function Null -> () | _ -> failwith "unit_of_rpc"
 
 type callback = string list -> t -> unit

@@ -81,6 +81,11 @@ let rec add_value f = function
 		f (encode s);
 		f "</value>"
 
+	| DateTime d ->
+		f "<value><dateTime.iso8601>";
+		f d;
+		f "</dateTime.iso8601></value>"
+
 	| Enum l ->
 		f "<value><array><data>";
 		List.iter (add_value f) l;
@@ -295,6 +300,7 @@ module Parser = struct
 	let make_bool   = make (fun data -> Bool (if data = "1" then true else false))
 	let make_float  = make (fun data -> Float (float_of_string data))
 	let make_string = make (fun data -> String data)
+	let make_dateTime = make (fun data -> DateTime data)
 	let make_enum   = make (fun data -> Enum data)
 	let make_dict   = make (fun data -> Dict data)
 
@@ -315,10 +321,11 @@ module Parser = struct
 		| "boolean"-> make_bool   ?callback accu (get_data input)
 		| "double" -> make_float  ?callback accu (get_data input)
 		| "string" -> make_string ?callback accu (get_data input)
+		| "dateTime.iso8601" -> make_dateTime ?callback accu (get_data input)
 		| "array"  -> make_enum   ?callback accu (data (of_xmls ?callback accu) input)
 		| "struct" -> make_dict   ?callback accu (members (fun name -> of_xml ?callback (name::accu)) input)
 		| "nil"    -> make_null   ?callback accu ()
-		| tag      -> parse_error (sprintf "open_tag(%s)" tag) "open_tag(int/i4/boolean/double/string/array/struct/nil)" input
+		| tag      -> parse_error (sprintf "open_tag(%s)" tag) "open_tag(int/i4/boolean/double/string/dateTime.iso8601/array/struct/nil)" input
 
 	and of_xmls ?callback accu input =
 		let r = ref [] in

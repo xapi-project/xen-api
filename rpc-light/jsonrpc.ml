@@ -47,6 +47,7 @@ let rec to_fct t f =
 	| Bool b   -> f (string_of_bool b)
 	| Float r  -> f (Printf.sprintf "%f" r)
 	| String s -> f (escape_string s)
+	| DateTime d -> f (escape_string d)
 	| Null     -> f "null"
 	| Enum a   ->
 		f "[";
