@@ -376,17 +376,33 @@ open Xenops_interface
 open Xenops_client
 open Fun
 
+(* If a VM was suspended pre-xenopsd it won't have a last_booted_record of the format understood by xenopsd. *)
+(* If we can parse the last_booted_record according to the old syntax, update it before attempting to resume. *)
+let generate_xenops_state ~__context ~self ~vm ~vbds ~pcis =
+	try
+		let vm_to_resume = {
+			(Helpers.parse_boot_record vm.API.vM_last_booted_record) with
+			API.vM_VBDs = vm.API.vM_VBDs
+		} in
+		debug "Successfully parsed old last_booted_record format - translating to new format so that xenopsd can resume the VM.";
+		let md = MD.of_vm ~__context (self, vm_to_resume) vbds (pcis <> []) in
+		let dbg = Context.string_of_task __context in
+		Client.VM.generate_state_string dbg md
+	with Xml.Error _ ->
+		debug "last_booted_record is not of the old format, so we should be able to resume the VM.";
+		vm.API.vM_last_booted_record
+
 (* Create an instance of Metadata.t, suitable for uploading to the xenops service *)
 let create_metadata ~__context ~self =
 	let vm = Db.VM.get_record ~__context ~self in
 	let vbds = List.map (fun self -> Db.VBD.get_record ~__context ~self) vm.API.vM_VBDs in
 	let vifs = List.map (fun self -> Db.VIF.get_record ~__context ~self) vm.API.vM_VIFs in
-	(* XXX PR-1255: need to convert between 'domains' and last_boot_record *)
-	let domains =
-		if vm.API.vM_power_state = `Suspended
-		then Some vm.API.vM_last_booted_record
-		else None in
 	let pcis = MD.pcis_of_vm ~__context (self, vm) in
+	let domains =
+		(* For suspended VMs, we may need to translate the last_booted_record from the old format. *)
+		if vm.API.vM_power_state = `Suspended
+		then Some (generate_xenops_state ~__context ~self ~vm ~vbds ~pcis)
+		else None in
 	let open Metadata in {
 		vm = MD.of_vm ~__context (self, vm) vbds (pcis <> []);
 		vbds = List.map (fun vbd -> MD.of_vbd ~__context ~vm ~vbd) vbds;

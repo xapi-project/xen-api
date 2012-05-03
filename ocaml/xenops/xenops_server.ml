@@ -1500,6 +1500,10 @@ module VM = struct
 
 	let migrate context dbg id vdi_map vif_map url = queue_operation dbg id (VM_migrate (id, vdi_map, vif_map, url))
 
+	let generate_state_string _ dbg vm =
+		let module B = (val get_backend () : S) in
+		B.VM.generate_state_string vm
+
 	let export_metadata _ dbg id = export_metadata [] [] id
 
 	let import_metadata _ dbg s =
