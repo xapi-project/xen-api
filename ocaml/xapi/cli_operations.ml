@@ -1147,7 +1147,9 @@ let vdi_pool_migrate printer rpc session_id params =
 	and sr = Client.SR.get_by_uuid rpc session_id (List.assoc "sr-uuid" params)
 	and options = [] (* no options implemented yet *)
 	in
-	Client.VDI.pool_migrate rpc session_id vdi sr options
+	let newvdi = Client.VDI.pool_migrate rpc session_id vdi sr options in
+	let newuuid = Client.VDI.get_uuid rpc session_id newvdi in
+	printer (Cli_printer.PList [newuuid])
 
 let vdi_clone printer rpc session_id params =
 	let vdi = Client.VDI.get_by_uuid rpc session_id (List.assoc "uuid" params) in

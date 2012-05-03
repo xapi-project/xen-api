@@ -534,6 +534,15 @@ let pool_migrate ~__context ~vdi ~sr ~options =
 	(* inserted by message_forwarding *)
 	let vm = Ref.of_string (List.assoc "__internal__vm" options) in
 
+	(* Need vbd of vdi, to find new vdi's uuid *)
+	let vbds = Db.VDI.get_VBDs ~__context ~self:vdi in
+	let vbd = List.filter
+		(fun vbd -> (Db.VBD.get_VM ~__context ~self:vbd) = vm)
+		vbds in
+	let vbd = match vbd with
+		| v :: _ -> v
+		| _ -> raise (Api_errors.Server_error(Api_errors.vbd_missing, [])) in
+
 	(* Need a network for the VM migrate *)
 	let management_if =
 		Xapi_inventory.lookup Xapi_inventory._management_interface in
@@ -545,7 +554,8 @@ let pool_migrate ~__context ~vdi ~sr ~options =
 	in
 	Helpers.call_api_functions ~__context (fun rpc session_id -> 
 		let token = Client.Host.migrate_receive ~rpc ~session_id ~host:localhost ~network ~options in
-		Client.VM.migrate_send rpc session_id vm token true [ vdi, sr ] [] [])
+		Client.VM.migrate_send rpc session_id vm token true [ vdi, sr ] [] []) ;
+	Db.VBD.get_VDI ~__context ~self:vbd
 
 let force_unlock ~__context ~vdi = 
   raise (Api_errors.Server_error(Api_errors.message_deprecated,[]))
