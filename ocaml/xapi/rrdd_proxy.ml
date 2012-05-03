@@ -78,7 +78,7 @@ let get_vm_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
 				let is_unarchive_request = List.mem_assoc unarchive_query_key query in
 				let is_master = Pool_role.is_master () in
 				let is_owner_online owner = Db.is_valid_ref __context owner in
-				let is_dbsync_request = List.mem_assoc "dbsync" query in
+				let is_xapi_initialising = List.mem_assoc "dbsync" query in
 				(* The logic. *)
 				if is_unarchive_request then unarchive ()
 				else (
@@ -90,7 +90,7 @@ let get_vm_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
 					if is_owner_localhost then (
 						if is_master then unarchive () else unarchive_at_master ()
 					) else (
-						if is_owner_online owner && not is_dbsync_request
+						if is_owner_online owner && not is_xapi_initialising
 						then read_at_owner owner
 						else unarchive_at_master ()
 					)
@@ -98,15 +98,16 @@ let get_vm_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
 			)
 	)
 
-(* TODO: document! *)
+(* Forward the request for host RRD data to the RRDD HTTP handler. If the host
+ * is initialising, send the unarchive command to the host instead.
+ *)
 let get_host_rrd_forwarder (req: Http.Request.t) (s : Unix.file_descr) _ =
 	debug "get_host_rrd_forwarder";
 	let query = req.Http.Request.query in
 	req.Http.Request.close <- true;
 	Xapi_http.with_context ~dummy:true "Obtaining the Host RRD statistics" req s
 		(fun __context ->
-			(* This is only used by hosts when booting - not for public use! *)
-			if List.mem_assoc "dbsync" query then (
+			if List.mem_assoc "dbsync" query then ( (* Host initialising. *)
 				if not (List.mem_assoc "uuid" query) then (
 					error "HTTP request for RRD is missing the 'uuid' parameter.";
 					Http_svr.headers s (Http.http_400_badrequest ())
@@ -114,7 +115,7 @@ let get_host_rrd_forwarder (req: Http.Request.t) (s : Unix.file_descr) _ =
 					let req = {req with Http.Request.uri = Constants.rrd_unarchive_uri} in
 					ignore (Xapi_services.hand_over_connection req s Rrdd_interface.fd_path)
 				)
-			) else (
+			) else ( (* Normal request. *)
 				ignore (Xapi_services.hand_over_connection req s Rrdd_interface.fd_path)
 			)
 		)
