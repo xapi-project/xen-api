@@ -7892,12 +7892,12 @@ let http_actions = [
   ("put_vm_connect", (Put, Constants.vm_connect_uri, false, [], _R_POOL_ADMIN, []));
   ("get_system_status", (Get, Constants.system_status_uri, true,
 			 [String_query_arg "entries"; String_query_arg "output"], _R_POOL_OP, []));
-  ("get_vm_rrd", (Get, Constants.get_vm_rrd_uri, true, [String_query_arg "uuid"], _R_READ_ONLY, []));
-  ("put_rrd", (Put, Constants.rrd_put_uri, false, [], _R_POOL_ADMIN, []));
-  ("get_host_rrd", (Get, Constants.get_host_rrd_uri, true, [Bool_query_arg "json"], _R_READ_ONLY, []));
-  ("get_rrd_updates", (Get, Constants.rrd_updates, true,
-		       [Int64_query_arg "start"; String_query_arg "cf"; Int64_query_arg "interval";
-			Bool_query_arg "host"; String_query_arg "uuid"; Bool_query_arg "json"], _R_READ_ONLY, []));
+	(Constants.get_vm_rrd, (Get, Constants.get_vm_rrd_uri, true, [String_query_arg "uuid"], _R_READ_ONLY, []));
+	(Constants.get_host_rrd, (Get, Constants.get_host_rrd_uri, true, [Bool_query_arg "json"], _R_READ_ONLY, []));
+	(Constants.get_rrd_updates, (Get, Constants.get_rrd_updates, true,
+		[Int64_query_arg "start"; String_query_arg "cf"; Int64_query_arg "interval";
+		Bool_query_arg "host"; String_query_arg "uuid"; Bool_query_arg "json"], _R_READ_ONLY, []));
+  (Constants.put_rrd, (Put, Constants.put_rrd_uri, false, [], _R_POOL_ADMIN, []));
   ("get_blob", (Get, Constants.blob_uri, false, [], _R_READ_ONLY, []));
   ("put_blob", (Put, Constants.blob_uri, true, [String_query_arg "ref"], _R_VM_POWER_ADMIN, []));
   ("get_message_rss_feed", (Get, Constants.message_rss_feed, false, [], _R_POOL_ADMIN, []));  (* not enabled in xapi *)
