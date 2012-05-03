@@ -649,7 +649,7 @@ let common_http_handlers = [
   ("get_system_status", (Http_svr.FdIO System_status.handler));
   ("get_vm_rrd", (Http_svr.FdIO Rrdd_proxy.get_vm_rrd_forwarder));
   ("put_rrd", (Http_svr.BufIO Rrdd_proxy.receive_handler));
-  ("get_host_rrd", (Http_svr.FdIO Rrdd_proxy.handler_host));
+  ("get_host_rrd", (Http_svr.FdIO Rrdd_proxy.get_host_rrd_forwarder));
   ("get_rrd_updates", (Http_svr.FdIO Rrdd_proxy.handler_rrd_updates));
   ("get_blob", (Http_svr.FdIO Xapi_blob.handler));
   ("put_blob", (Http_svr.FdIO Xapi_blob.handler));
