@@ -632,6 +632,18 @@ let rpc call = Storage_mux.Server.process None call
 
 module Client = Client(struct let rpc = rpc end)
 
+let transform_storage_exn f =
+	try
+		f ()
+	with
+		| Backend_error(code, params) ->
+			error "Re-raising as %s [ %s ]" code (String.concat "; " params);
+			raise (Api_errors.Server_error(code, params))
+		| Api_errors.Server_error(code, params) as e -> raise e
+		| e ->
+			error "Re-raising as INTERNAL_ERROR [ %s ]" (Printexc.to_string e);
+			raise (Api_errors.Server_error(Api_errors.internal_error, [ Printexc.to_string e ]))
+
 let start () =
 	let open Storage_impl.Local_domain_socket in
 	start Xapi_globs.storage_unix_domain_socket Storage_mux.Server.process
@@ -657,14 +669,17 @@ let of_vbd ~__context ~vbd ~domid =
 (** [is_attached __context vbd] returns true if the [vbd] has an attached
     or activated datapath. *)
 let is_attached ~__context ~vbd ~domid  =
-	let rpc, task, dp, sr, vdi = of_vbd ~__context ~vbd ~domid in
-	let open Vdi_automaton in
-	let module C = Storage_interface.Client(struct let rpc = rpc end) in
-	try 
-		let x = C.VDI.stat ~task ~sr ~vdi () in
-		x.superstate <> Detached
-	with 
-		| e -> error "Unable to query state of VDI: %s, %s" vdi (Printexc.to_string e); false
+	transform_storage_exn
+		(fun () ->
+			let rpc, task, dp, sr, vdi = of_vbd ~__context ~vbd ~domid in
+			let open Vdi_automaton in
+			let module C = Storage_interface.Client(struct let rpc = rpc end) in
+			try 
+				let x = C.VDI.stat ~task ~sr ~vdi () in
+				x.superstate <> Detached
+			with 
+				| e -> error "Unable to query state of VDI: %s, %s" vdi (Printexc.to_string e); false
+		)
 
 (** [on_vdi __context vbd domid f] calls [f rpc dp sr vdi] which is
     useful for executing Storage_interface.Client.VDI functions  *)
@@ -672,48 +687,60 @@ let on_vdi ~__context ~vbd ~domid f =
 	let rpc, task, dp, sr, vdi = of_vbd ~__context ~vbd ~domid in
 	let module C = Storage_interface.Client(struct let rpc = rpc end) in
 	let dp = C.DP.create task dp in
-	f rpc task dp sr vdi
+	transform_storage_exn
+		(fun () ->
+			f rpc task dp sr vdi
+		)
 
 let reset ~__context ~vm =
 	let task = Context.get_task_id __context in
-	Opt.iter
-		(fun pbd ->
-			let sr = Db.SR.get_uuid ~__context ~self:(Db.PBD.get_SR ~__context ~self:pbd) in
-			info "Resetting all state associated with SR: %s" sr;
-			Client.SR.reset (Ref.string_of task) sr;
-			Db.PBD.set_currently_attached ~__context ~self:pbd ~value:false;
-		) (System_domains.pbd_of_vm ~__context ~vm)
+	transform_storage_exn
+		(fun () ->
+			Opt.iter
+				(fun pbd ->
+					let sr = Db.SR.get_uuid ~__context ~self:(Db.PBD.get_SR ~__context ~self:pbd) in
+					info "Resetting all state associated with SR: %s" sr;
+					Client.SR.reset (Ref.string_of task) sr;
+					Db.PBD.set_currently_attached ~__context ~self:pbd ~value:false;
+				) (System_domains.pbd_of_vm ~__context ~vm)
+		)
 
 (** [attach_and_activate __context vbd domid f] calls [f attach_info] where
     [attach_info] is the result of attaching a VDI which is also activated.
     This should be used everywhere except the migrate code, where we want fine-grained
     control of the ordering of attach/activate/deactivate/detach *)
 let attach_and_activate ~__context ~vbd ~domid ~hvm f =
-	let read_write = Db.VBD.get_mode ~__context ~self:vbd = `RW in
-	let result = on_vdi ~__context ~vbd ~domid
-		(fun rpc task dp sr vdi ->
-			let module C = Storage_interface.Client(struct let rpc = rpc end) in
-			let attach_info = C.VDI.attach task dp sr vdi read_write in
-			C.VDI.activate task dp sr vdi;
-			f attach_info
-		) in
-	Qemu_blkfront.create ~__context ~self:vbd ~read_write hvm;
-	result
+	transform_storage_exn
+		(fun () ->
+			let read_write = Db.VBD.get_mode ~__context ~self:vbd = `RW in
+			let result = on_vdi ~__context ~vbd ~domid
+				(fun rpc task dp sr vdi ->
+					let module C = Storage_interface.Client(struct let rpc = rpc end) in
+					let attach_info = C.VDI.attach task dp sr vdi read_write in
+					C.VDI.activate task dp sr vdi;
+					f attach_info
+				) in
+			Qemu_blkfront.create ~__context ~self:vbd ~read_write hvm;
+			result
+		)
 
 (** [deactivate_and_detach __context vbd domid] idempotent function which ensures
     that any attached or activated VDI gets properly deactivated and detached. *)
 let deactivate_and_detach ~__context ~vbd ~domid ~unplug_frontends =
-	(* Remove the qemu frontend first: this will not pass the deactivate/detach
-	   through to the backend so an SM backend failure won't cause us to leak
-	   a VBD. *)
-	if unplug_frontends
-	then Qemu_blkfront.destroy ~__context ~self:vbd;
-	(* It suffices to destroy the datapath: any attached or activated VDIs will be
-	   automatically detached and deactivated. *)
-	on_vdi ~__context ~vbd ~domid
-		(fun rpc task dp sr vdi ->
-			let module C = Storage_interface.Client(struct let rpc = rpc end) in
-			C.DP.destroy task dp false
+	transform_storage_exn
+		(fun () ->
+			(* Remove the qemu frontend first: this will not pass the deactivate/detach
+			   through to the backend so an SM backend failure won't cause us to leak
+			   a VBD. *)
+			if unplug_frontends
+			then Qemu_blkfront.destroy ~__context ~self:vbd;
+			(* It suffices to destroy the datapath: any attached or activated VDIs will be
+			   automatically detached and deactivated. *)
+			on_vdi ~__context ~vbd ~domid
+				(fun rpc task dp sr vdi ->
+					let module C = Storage_interface.Client(struct let rpc = rpc end) in
+					C.DP.destroy task dp false
+				)
 		)
 
 
@@ -721,8 +748,11 @@ let diagnostics ~__context =
 	Client.DP.diagnostics ()
 
 let dp_destroy ~__context dp allow_leak =
-	let task = Context.get_task_id __context in
-	Client.DP.destroy (Ref.string_of task) dp allow_leak
+	transform_storage_exn
+		(fun () ->
+			let task = Context.get_task_id __context in
+			Client.DP.destroy (Ref.string_of task) dp allow_leak
+		)
 
 (* Set my PBD.currently_attached fields in the Pool database to match the local one *)
 let resynchronise_pbds ~__context ~pbds =
@@ -840,15 +870,18 @@ let vbd_detach_order ~__context vbds = List.rev (vbd_attach_order ~__context vbd
 (* This is because the current backends want SR.attached <=> PBD.currently_attached=true.
    It would be better not to plug in the PBD, so that other API calls will be blocked. *)
 let destroy_sr ~__context ~sr =
-	let pbd, pbd_t = Sm.get_my_pbd_for_sr __context sr in
-	bind ~__context ~pbd;
-	let task = Ref.string_of (Context.get_task_id __context) in
-	Client.SR.attach task (Db.SR.get_uuid ~__context ~self:sr) pbd_t.API.pBD_device_config;
-	(* The current backends expect the PBD to be temporarily set to currently_attached = true *)
-	Db.PBD.set_currently_attached ~__context ~self:pbd ~value:true;
-	Pervasiveext.finally (fun () ->
-		Client.SR.destroy task (Db.SR.get_uuid ~__context ~self:sr))
-		(fun () -> 
-			(* All PBDs are clearly currently_attached = false now *)
-			Db.PBD.set_currently_attached ~__context ~self:pbd ~value:false);
-	unbind ~__context ~pbd
+	transform_storage_exn
+		(fun () ->
+			let pbd, pbd_t = Sm.get_my_pbd_for_sr __context sr in
+			bind ~__context ~pbd;
+			let task = Ref.string_of (Context.get_task_id __context) in
+			Client.SR.attach task (Db.SR.get_uuid ~__context ~self:sr) pbd_t.API.pBD_device_config;
+			(* The current backends expect the PBD to be temporarily set to currently_attached = true *)
+			Db.PBD.set_currently_attached ~__context ~self:pbd ~value:true;
+			Pervasiveext.finally (fun () ->
+				Client.SR.destroy task (Db.SR.get_uuid ~__context ~self:sr))
+				(fun () -> 
+					(* All PBDs are clearly currently_attached = false now *)
+					Db.PBD.set_currently_attached ~__context ~self:pbd ~value:false);
+			unbind ~__context ~pbd
+		)

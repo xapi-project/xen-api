@@ -57,6 +57,9 @@ val datapath_of_vbd: domid:int -> device:string -> Storage_interface.dp
     domain, we expect it to lose all state. *)
 val reset: __context:Context.t -> vm:API.ref_VM -> unit
 
+(** [transform_storage_exn f] runs [f], rethrowing any storage error as a nice XenAPI error *)
+val transform_storage_exn: (unit -> 'a) -> 'a
+
 (** [attach_and_activate __context vbd domid f] calls [f attach_info] where
     [attach_info] is the result of attaching a VDI which is also activated.
     This should be used everywhere except the migrate code, where we want fine-grained

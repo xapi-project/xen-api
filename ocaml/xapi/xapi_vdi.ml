@@ -243,11 +243,12 @@ let create ~__context ~name_label ~name_description
 		virtual_size = virtual_size;
 	} in
 	let module C = Client(struct let rpc = rpc end) in
-	let vi = C.VDI.create ~task:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sR)
-		~vdi_info ~params:sm_config in
+	let vi = transform_storage_exn
+		(fun () -> C.VDI.create ~task:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sR)
+			~vdi_info ~params:sm_config) in
 	if virtual_size < vi.virtual_size
 	then info "sr:%s vdi:%s requested virtual size %Ld < actual virtual size %Ld" (Ref.string_of sR) vi.vdi virtual_size vi.virtual_size;
-    newvdi ~__context ~sr:sR vi
+	newvdi ~__context ~sr:sR vi
 
 
 
@@ -353,6 +354,7 @@ let snapshot_and_clone call_f ~__context ~vdi ~driver_params =
 	  } in
 	  let sr' = Db.SR.get_uuid ~__context ~self:sR in
 	  let vdi' = Db.VDI.get_location ~__context ~self:vdi in
+	  (* We don't use transform_storage_exn because of the clone/copy fallback below *)
 	  let new_vdi = call_f ~task:(Ref.string_of task) ~sr:sr'
 		  ~vdi:vdi' ~vdi_info  ~params:driver_params in
 	  newvdi ~__context ~sr:sR new_vdi
@@ -375,20 +377,28 @@ let snapshot_and_clone call_f ~__context ~vdi ~driver_params =
 
 let snapshot ~__context ~vdi ~driver_params =
 	let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
-	let newvdi = snapshot_and_clone C.VDI.snapshot ~__context ~vdi ~driver_params in
-  (* Record the fact this is a snapshot *)
+	let newvdi = Storage_access.transform_storage_exn
+		(fun () ->
+			try
+				snapshot_and_clone C.VDI.snapshot ~__context ~vdi ~driver_params
+			with Storage_interface.Unimplemented ->
+				(* CA-28598 *)
+				debug "Backend reported not implemented despite it offering the capability; assuming this is an LVHD upgrade issue";
+				raise (Api_errors.Server_error(Api_errors.sr_requires_upgrade, [ Ref.string_of (Db.VDI.get_SR ~__context ~self:vdi) ]))
+		) in
+	(* Record the fact this is a snapshot *)
  
-  (*(try Db.VDI.remove_from_other_config ~__context ~self:newvdi ~key:Xapi_globs.snapshot_of with _ -> ());
-  (try Db.VDI.remove_from_other_config ~__context ~self:newvdi ~key:Xapi_globs.snapshot_time with _ -> ());
-  Db.VDI.add_to_other_config ~__context ~self:newvdi ~key:Xapi_globs.snapshot_of ~value:a.Db_actions.vDI_uuid;
-  Db.VDI.add_to_other_config ~__context ~self:newvdi ~key:Xapi_globs.snapshot_time ~value:(Date.to_string (Date.of_float (Unix.gettimeofday ())));*)
-  Db.VDI.set_is_a_snapshot ~__context ~self:newvdi ~value:true;
-  Db.VDI.set_snapshot_of ~__context ~self:newvdi ~value:vdi;
-  Db.VDI.set_snapshot_time ~__context ~self:newvdi ~value:(Date.of_float (Unix.gettimeofday ()));
+	(*(try Db.VDI.remove_from_other_config ~__context ~self:newvdi ~key:Xapi_globs.snapshot_of with _ -> ());
+	  (try Db.VDI.remove_from_other_config ~__context ~self:newvdi ~key:Xapi_globs.snapshot_time with _ -> ());
+	  Db.VDI.add_to_other_config ~__context ~self:newvdi ~key:Xapi_globs.snapshot_of ~value:a.Db_actions.vDI_uuid;
+	  Db.VDI.add_to_other_config ~__context ~self:newvdi ~key:Xapi_globs.snapshot_time ~value:(Date.to_string (Date.of_float (Unix.gettimeofday ())));*)
+	Db.VDI.set_is_a_snapshot ~__context ~self:newvdi ~value:true;
+	Db.VDI.set_snapshot_of ~__context ~self:newvdi ~value:vdi;
+	Db.VDI.set_snapshot_time ~__context ~self:newvdi ~value:(Date.of_float (Unix.gettimeofday ()));
 
-  update_allowed_operations ~__context ~self:newvdi;
-  update ~__context ~vdi:newvdi;
-  newvdi
+	update_allowed_operations ~__context ~self:newvdi;
+	update ~__context ~vdi:newvdi;
+	newvdi
 
 let destroy ~__context ~self =
 	let sr = Db.VDI.get_SR ~__context ~self in
@@ -409,8 +419,10 @@ let destroy ~__context ~self =
           let open Storage_interface in
           let task = Context.get_task_id __context in
           let module C = Client(struct let rpc = rpc end) in
-		  C.VDI.destroy ~task:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sr) ~vdi:location;
-
+		  transform_storage_exn
+			  (fun () ->
+				  C.VDI.destroy ~task:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sr) ~vdi:location
+			  );
 	(* destroy all the VBDs now rather than wait for the GC thread. This helps
 	   prevent transient glitches but doesn't totally prevent races. *)
 	List.iter (fun vbd ->
@@ -450,6 +462,8 @@ let generate_config ~__context ~host ~vdi =
        Sm.vdi_generate_config srconf srtype sr vdi) 
 
 let clone ~__context ~vdi ~driver_params =
+	Storage_access.transform_storage_exn
+		(fun () ->
 	try
 		let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
 		snapshot_and_clone C.VDI.clone ~__context ~vdi ~driver_params
@@ -489,6 +503,7 @@ let clone ~__context ~vdi ~driver_params =
        debug "Caught failure during copy, deleting VDI";
        destroy ~__context ~self:newvdi;
        raise e)
+		)
 
 let copy ~__context ~vdi ~sr =
   Xapi_vdi_helpers.assert_managed ~__context ~vdi;
@@ -579,10 +594,12 @@ let set_on_boot ~__context ~self ~value =
 	let sr' = Db.SR.get_uuid ~__context ~self:sr in
 	let vdi' = Db.VDI.get_location ~__context ~self in
 	let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
-	let newvdi = C.VDI.clone ~task:(Ref.string_of task) ~sr:sr'
-			~vdi:vdi' ~vdi_info:default_vdi_info ~params:[] in
-	C.VDI.destroy ~task:(Ref.string_of task) ~sr:sr' ~vdi:newvdi.vdi;
-
+	transform_storage_exn
+		(fun () ->
+			let newvdi = C.VDI.clone ~task:(Ref.string_of task) ~sr:sr'
+				~vdi:vdi' ~vdi_info:default_vdi_info ~params:[] in
+			C.VDI.destroy ~task:(Ref.string_of task) ~sr:sr' ~vdi:newvdi.vdi;
+		);
 	Db.VDI.set_on_boot ~__context ~self ~value
 
 let set_allow_caching ~__context ~self ~value =
