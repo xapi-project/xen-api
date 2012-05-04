@@ -193,25 +193,30 @@ let is_vm_on_localhost ~__context ~(vm_uuid : string) : bool =
 	let vm_host = Db.VM.get_resident_on ~__context ~self:vm in
 	localhost = vm_host
 
+let get_master_address_or_localhost () =
+	if Pool_role.is_master ()
+	then "localhost"
+	else Pool_role.get_master_address ()
+
+(* With this method, xapi tells rrdd who is the master ;) If rrdd is not
+ * running its monitoring loop yet, this starts it. The reason why this call
+ * is requires is because the monitoring loop that can request some RRDs to be
+ * archived on the master, which requires xapi's HTTP server to be running. *)
+let set_master ~__context : unit =
+	let is_master = Pool_role.is_master () in
+	let master_address = get_master_address_or_localhost () in
+	Rrdd.set_master ~is_master ~master_address
+
 let push_rrd ~__context ~(vm_uuid : string) : unit =
-	let master_address = Pool_role.get_master_address () in
 	let is_on_localhost = is_vm_on_localhost ~__context ~vm_uuid in
 	let domid = vm_uuid_to_domid ~__context ~uuid:vm_uuid in
-	Rrdd.push_rrd ~master_address ~vm_uuid ~domid ~is_on_localhost
+	Rrdd.push_rrd ~vm_uuid ~domid ~is_on_localhost
 
 let migrate_rrd ~__context ?remote_address ?session_id ~vm_uuid ~host_uuid () =
 	let remote_address = match remote_address with
 		| None -> Db.Host.get_address ~__context ~self:(Ref.of_string host_uuid)
 		| Some a -> a
 	in Rrdd.migrate_rrd ~remote_address ?session_id ~vm_uuid ~host_uuid ()
-
-let send_host_rrd_to_master () =
-	let master_address = Pool_role.get_master_address () in
-	Rrdd.send_host_rrd_to_master ~master_address
-
-let backup_rrds ?(save_stats_locally : bool option) () =
-	let master_address = Pool_role.get_master_address () in
-	Rrdd.backup_rrds ~master_address ?save_stats_locally ()
 
 module Deprecated = struct
 	let get_timescale ~__context =
@@ -221,14 +226,11 @@ module Deprecated = struct
 		with _ -> 0
 
 	let load_rrd ~__context ~uuid ~is_host =
-		let master_address = Pool_role.get_master_address () in
-		let is_master = Pool_role.is_master () in
 		let domid =
 			match is_host with
 			| true -> 0
 			| false -> vm_uuid_to_domid ~__context ~uuid
 		in
 		let timescale = get_timescale ~__context in
-		Rrdd.Deprecated.load_rrd ~master_address ~is_master ~uuid ~domid ~is_host
-			~timescale ()
+		Rrdd.Deprecated.load_rrd ~uuid ~domid ~is_host ~timescale ()
 end
