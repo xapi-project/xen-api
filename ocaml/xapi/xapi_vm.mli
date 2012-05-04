@@ -237,3 +237,5 @@ val recover : __context:Context.t -> self:API.ref_VM ->
 val set_suspend_VDI : __context:Context.t -> self:API.ref_VM ->
 	value:API.ref_VDI -> unit
 val set_appliance : __context:Context.t -> self:API.ref_VM -> value:API.ref_VM_appliance -> unit
+val import_convert : __context:Context.t -> _type:string -> username:string -> password:string ->
+	remote_config:(string * string) list -> unit

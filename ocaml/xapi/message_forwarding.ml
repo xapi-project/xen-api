@@ -1907,6 +1907,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let set_appliance ~__context ~self ~value =
 			info "VM.set_appliance: self = '%s'; value = '%s';" (vm_uuid ~__context self) (vm_appliance_uuid ~__context value);
 			Local.VM.set_appliance ~__context ~self ~value
+
+		let import_convert ~__context ~_type ~username ~password ~remote_config =
+			info "VM.import_convert: type = '%s'; remote_config = '%s;'"
+				_type (String.concat "," (List.map (fun (k,v) -> k ^ "=" ^ v) remote_config))
 	end
 
 	module VM_metrics = struct
