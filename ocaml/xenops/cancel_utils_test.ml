@@ -21,9 +21,11 @@ open Xenops_task
 
 exception Did_not_cancel
 
+let tasks = Xenops_task.empty ()
+
 let xenstore_test xs _ =
-	let task = Xenops_task.add "test" (fun _ -> ()) in
-	let (_: Thread.t) = Thread.create (fun () -> Thread.delay 1.; Xenops_task.cancel task.Xenops_task.id) () in
+	let task = Xenops_task.add tasks "test" (fun _ -> ()) in
+	let (_: Thread.t) = Thread.create (fun () -> Thread.delay 1.; Xenops_task.cancel tasks task.Xenops_task.id) () in
 	try
 		let (_: bool) = cancellable_watch "/test/cancel" [] [] task ~xs ~timeout:3. () in
 		raise Did_not_cancel
@@ -33,8 +35,8 @@ let xenstore_test xs _ =
 			()
 
 let subprocess_test _ =
-	let task = Xenops_task.add "test" (fun _ -> ()) in
-	let (_: Thread.t) = Thread.create (fun () -> Thread.delay 1.; Xenops_task.cancel task.Xenops_task.id) () in
+	let task = Xenops_task.add tasks "test" (fun _ -> ()) in
+	let (_: Thread.t) = Thread.create (fun () -> Thread.delay 1.; Xenops_task.cancel tasks task.Xenops_task.id) () in
 	try
 		let (_, _) = cancellable_subprocess task "/bin/sleep" [ "3s" ] in
 		raise Did_not_cancel

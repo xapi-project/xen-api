@@ -121,6 +121,7 @@ let string_of_operation x = x |> rpc_of_operation |> Jsonrpc.to_string
 
 module TASK = struct
 	open Xenops_task
+
 	let task x = {
 		Task.id = x.id;
 		debug_info = x.debug_info;
@@ -129,24 +130,24 @@ module TASK = struct
 		subtasks = x.subtasks;
 	}
 	let cancel _ dbg id =
-		Xenops_task.cancel id
+		Xenops_task.cancel tasks id
 	let stat' id =
-		Mutex.execute m
+		Mutex.execute tasks.m
 			(fun () ->
-				find_locked id |> task
+				find_locked tasks id |> task
 			)
 	let signal id =
-		Mutex.execute m
+		Mutex.execute tasks.m
 			(fun () ->
-				if exists_locked id then begin
-					debug "TASK.signal %s = %s" id ((find_locked id).result |> Task.rpc_of_result |> Jsonrpc.to_string);
+				if exists_locked tasks id then begin
+					debug "TASK.signal %s = %s" id ((find_locked tasks id).result |> Task.rpc_of_result |> Jsonrpc.to_string);
 					Updates.add (Dynamic.Task id) updates
 				end else debug "TASK.signal %s (object deleted)" id
 			)
 	let stat _ dbg id = stat' id 
-	let destroy' id = destroy id; Updates.remove (Dynamic.Task id) updates
+	let destroy' id = destroy tasks id; Updates.remove (Dynamic.Task id) updates
 	let destroy _ dbg id = destroy' id
-	let list _ dbg = list () |> List.map task
+	let list _ dbg = list tasks |> List.map task
 end
 
 module VM_DB = struct
@@ -1251,12 +1252,12 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 		| Some name -> Xenops_task.with_subtask t name (fun () -> one op)
 
 let queue_operation dbg id op =
-	let task = Xenops_task.add dbg (fun t -> perform op t) in
+	let task = Xenops_task.add tasks dbg (fun t -> perform op t) in
 	Redirector.push id (op, task);
 	task.Xenops_task.id
 
 let immediate_operation dbg id op =
-	let task = Xenops_task.add dbg (fun t -> perform op t) in
+	let task = Xenops_task.add tasks dbg (fun t -> perform op t) in
 	TASK.destroy' task.Xenops_task.id;
 	Debug.with_thread_associated dbg
 		(fun () ->
@@ -1702,7 +1703,7 @@ module Diagnostics = struct
 			workers = WorkerPool.Dump.make ();
 			scheduler = Updates.Scheduler.Dump.make ();
 			updates = Updates.Dump.make updates;
-			tasks = List.map WorkerPool.Dump.of_task (Xenops_task.list ());
+			tasks = List.map WorkerPool.Dump.of_task (Xenops_task.list tasks);
 			vm_actions = List.filter_map (fun id -> match VM_DB.read id with
 				| Some vm -> Some (id, B.VM.get_domain_action_request vm)
 				| None -> None

@@ -158,13 +158,21 @@ end
 
 module Sr = struct
 	(** Represents the state of an SR *)
+	type vdis = (string, Vdi.t) Hashtbl.t with rpc
+
 	type t = {
-		vdis: (string, Vdi.t) Hashtbl.t; (** All tracked VDIs *)
+		vdis: vdis; (** All tracked VDIs *)
+		tasks: Storage_task.tasks;
 		updates: Updates.t
-	} with rpc
+	}
+
+	let rpc_of_t t = rpc_of_vdis t.vdis
+	let t_of_rpc rpc = { vdis=vdis_of_rpc rpc; tasks = Storage_task.empty (); updates = Updates.empty () }
+		
 
 	let empty () = {
 		vdis = Hashtbl.create 10;
+		tasks = Storage_task.empty ();
 		updates = Updates.empty ();
 	}
 
@@ -696,25 +704,35 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			result = x.result;
 			subtasks = x.subtasks;
 		}
+		let with_sr sr f =
+			match Host.find sr !Host.host with
+				| None -> raise Sr_not_attached
+				| Some sr_t ->
+					f sr_t
+		let tasks_of_sr sr = with_sr sr (fun sr_t -> sr_t.Sr.tasks)
+
 		let cancel _ ~dbg ~sr ~task =
-			Storage_task.cancel task
-		let stat' task =
-			Mutex.execute m
+			Storage_task.cancel (tasks_of_sr sr) task
+		let stat' sr task =
+			let tasks = tasks_of_sr sr in
+			Mutex.execute tasks.m
 				(fun () ->
-					find_locked task |> t
+					find_locked tasks task |> t
 				)
-		let signal task =
-			Mutex.execute m
+		let signal sr task =
+			let tasks = tasks_of_sr sr in
+			Mutex.execute tasks.m
 				(fun () ->
-					if exists_locked task then begin
-						debug "TASK.signal %s = %s" task ((find_locked task).result |> Task.rpc_of_result |> Jsonrpc.to_string);
+					if exists_locked tasks task then begin
+						debug "TASK.signal %s = %s" task ((find_locked tasks task).result |> Task.rpc_of_result |> Jsonrpc.to_string);
 						failwith "Unimplemented"
 					end else debug "TASK.signal %s (object deleted)" task
 				)
-		let stat _ ~dbg ~sr ~task = stat' task
-		let destroy' ~task ~sr = destroy task (*Updates.remove (Dynamic.Task task) updates*)
+		let stat _ ~dbg ~sr ~task = stat' sr task
+		let destroy' ~task ~sr = with_sr sr (fun sr_t -> 
+			destroy sr_t.Sr.tasks task; Updates.remove (Dynamic.Task task) sr_t.Sr.updates)
 		let destroy _ ~dbg ~sr ~task = destroy' ~sr ~task
-		let list _ ~dbg ~sr = list () |> List.map t
+		let list _ ~dbg ~sr = list (tasks_of_sr sr) |> List.map t
 	end
 
 	module UPDATES = struct

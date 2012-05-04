@@ -35,6 +35,7 @@ module type INTERFACE = sig
 			| Pending of float
 			| Completed of float
 			| Failed of Rpc.t
+
 	end
 
 	(* The following stuff comes from rpc-light.idl *)
@@ -65,7 +66,7 @@ type t = {
 	mutable result: Interface.Task.result;                   (* current completion state *)
 	mutable subtasks: (string * Interface.Task.result) list; (* one level of "subtasks" *)
 	f: t -> unit;                                  (* body of the function *)
-	m: Mutex.t;                                    (* protects cancelling state: *)
+	tm: Mutex.t;                                   (* protects cancelling state: *)
     mutable cancelling: bool;                      (* set by cancel *)
 	mutable cancel: (unit -> unit) list;           (* attempt to cancel [f] *)
 }
@@ -73,9 +74,19 @@ type t = {
 module SMap = Map.Make(struct type t = string let compare = compare end)
 
 (* Tasks are stored in an id -> t map *)
-let tasks = ref SMap.empty
-let m = Mutex.create ()
-let c = Condition.create ()
+
+
+type tasks = {
+	tasks : t SMap.t ref;
+	m : Mutex.t;
+	c : Condition.t;
+}
+
+let empty () =
+	let tasks = ref SMap.empty in
+	let m = Mutex.create () in
+	let c = Condition.create () in
+	{ tasks; m; c }
 
 (* [next_task_id ()] returns a fresh task id *)
 let next_task_id =
@@ -86,7 +97,7 @@ let next_task_id =
 		result
 
 (* [add dbg f] creates a fresh [t], registers and returns it *)
-let add dbg (f: t -> unit) =
+let add tasks dbg (f: t -> unit) =
 	let t = {
 		id = next_task_id ();
 		ctime = Unix.gettimeofday ();
@@ -94,13 +105,13 @@ let add dbg (f: t -> unit) =
 		result = Interface.Task.Pending 0.;
 		subtasks = [];
 		f = f;
-		m = Mutex.create ();
+		tm = Mutex.create ();
 		cancelling = false;
 		cancel = [];
 	} in
-	Mutex.execute m
+	Mutex.execute tasks.m
 		(fun () ->
-			tasks := SMap.add t.id t !tasks
+			tasks.tasks := SMap.add t.id t !(tasks.tasks)
 		);
 	t
 
@@ -118,11 +129,11 @@ let run item =
 			debug "%s" (Printexc.get_backtrace ());
 			item.result <- Interface.Task.Failed e
 
-let exists_locked id = SMap.mem id !tasks
+let exists_locked tasks id = SMap.mem id !(tasks.tasks)
 
-let find_locked id =
-	if not (exists_locked id) then raise (Interface.Does_not_exist("task", id));
-	SMap.find id !tasks
+let find_locked tasks id =
+	if not (exists_locked tasks id) then raise (Interface.Does_not_exist("task", id));
+	SMap.find id !(tasks.tasks)
 
 let with_subtask t name f =
 	let start = Unix.gettimeofday () in
@@ -135,22 +146,22 @@ let with_subtask t name f =
 		t.subtasks <- List.replace_assoc name (Interface.Task.Failed (Interface.Exception.rpc_of_exnty (Interface.exnty_of_exn (Interface.Internal_error (Printexc.to_string e))))) t.subtasks;
 		raise e
 
-let list () =
-	Mutex.execute m
+let list tasks =
+	Mutex.execute tasks.m
 		(fun () ->
-			SMap.bindings !tasks |> List.map snd
+			SMap.bindings !(tasks.tasks) |> List.map snd
 		)
 
 (* Remove the task from the id -> task mapping. NB any active thread will still continue. *)
-let destroy id =
-	Mutex.execute m
+let destroy tasks id =
+	Mutex.execute tasks.m
 		(fun () ->
-			tasks := SMap.remove id !tasks
+			tasks.tasks := SMap.remove id !(tasks.tasks)
 		)
 
-let cancel id =
-	let t = Mutex.execute m (fun () -> find_locked id) in
-	let callbacks = Mutex.execute t.m
+let cancel tasks id =
+	let t = Mutex.execute tasks.m (fun () -> find_locked tasks id) in
+	let callbacks = Mutex.execute t.tm
 		(fun () ->
 			t.cancelling <- true;
 			t.cancel
@@ -165,15 +176,15 @@ let cancel id =
 
 let raise_cancelled t = raise (Interface.Cancelled(t.id))
 
-let check_cancelling t = if Mutex.execute t.m (fun () -> t.cancelling) then raise_cancelled t
+let check_cancelling t = if Mutex.execute t.tm (fun () -> t.cancelling) then raise_cancelled t
 
 let with_cancel t cancel_fn f =
-	Mutex.execute t.m (fun () -> t.cancel <- cancel_fn :: t.cancel);
+	Mutex.execute t.tm (fun () -> t.cancel <- cancel_fn :: t.cancel);
 	finally
 		(fun () ->
 			check_cancelling t;
 			f ()
 		)
-		(fun () -> Mutex.execute t.m (fun () -> t.cancel <- List.tl t.cancel))
+		(fun () -> Mutex.execute t.tm (fun () -> t.cancel <- List.tl t.cancel))
 
 end
