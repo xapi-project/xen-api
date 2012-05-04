@@ -395,7 +395,7 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 				Net.Bridge.make_config ~config:bridge_config ();
 				Net.Interface.make_config ~config:interface_config ();
 
-				(* Configure management interface *)
+				(* Configure IPv4 parameters and DNS *)
 				let ipv4_conf, ipv4_gateway, dns =
 					match rc.API.pIF_ip_configuration_mode with
 					| `None -> None4, None, ([], [])
@@ -430,9 +430,34 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 						conf, gateway, dns
 				in
 				let ipv4_routes = determine_static_routes net_rc in
+
+				(* Configure IPv6 parameters *)
+				let ipv6_conf, ipv6_gateway =
+					match rc.API.pIF_ipv6_configuration_mode with
+					| `None -> None6, None
+					| `DHCP -> DHCP6 [], None
+					| `Autoconf -> Autoconf6, None
+					| `Static ->
+						let addresses = List.filter_map (fun addr_and_prefixlen ->
+							try
+								let n = String.index addr_and_prefixlen '/' in
+								let addr = Unix.inet_addr_of_string (String.sub addr_and_prefixlen 0 n) in
+								let prefixlen = int_of_string (String.sub_to_end addr_and_prefixlen (n + 1)) in
+								Some (addr, prefixlen)
+							with _ -> None
+						) rc.API.pIF_IPv6 in
+						let conf = Static6 addresses in
+						let gateway =
+							if rc.API.pIF_ipv6_gateway <> "" then
+								Some (Unix.inet_addr_of_string rc.API.pIF_ipv6_gateway)
+							else
+								None in
+						conf, gateway
+				in
+
 				let mtu = determine_mtu rc net_rc in
 				let (ethtool_settings, ethtool_offload) = determine_ethtool_settings net_rc.API.network_other_config in
-				let interface_config = [bridge, {default_interface with ipv4_conf; ipv4_gateway;
+				let interface_config = [bridge, {ipv4_conf; ipv4_gateway; ipv6_conf; ipv6_gateway;
 					ipv4_routes; dns; ethtool_settings; ethtool_offload; mtu; persistent_i=persistent}] in
 				Net.Interface.make_config ~config:interface_config ()
 			with Network_interface.Internal_error str ->
