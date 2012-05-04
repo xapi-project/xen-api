@@ -389,14 +389,14 @@ let generate_xenops_state ~__context ~self ~vm ~vbds ~pcis =
 		vm.API.vM_last_booted_record
 
 (* Create an instance of Metadata.t, suitable for uploading to the xenops service *)
-let create_metadata ~__context ~self =
+let create_metadata ~__context ~upgrade ~self =
 	let vm = Db.VM.get_record ~__context ~self in
 	let vbds = List.map (fun self -> Db.VBD.get_record ~__context ~self) vm.API.vM_VBDs in
 	let vifs = List.map (fun self -> Db.VIF.get_record ~__context ~self) vm.API.vM_VIFs in
 	let pcis = MD.pcis_of_vm ~__context (self, vm) in
 	let domains =
 		(* For suspended VMs, we may need to translate the last_booted_record from the old format. *)
-		if vm.API.vM_power_state = `Suspended
+		if vm.API.vM_power_state = `Suspended || upgrade
 		then Some (generate_xenops_state ~__context ~self ~vm ~vbds ~pcis)
 		else None in
 	let open Metadata in {
@@ -539,9 +539,9 @@ let remove_caches id =
 			debug "VM %s: unregistering with cache (xenops cache size = %d; xapi cache size = %d)" id (Hashtbl.length Xenops_cache.cache) (Hashtbl.length metadata_cache);
 		)
 
-let push_metadata_to_xenopsd ~__context ~self =
+let push_metadata_to_xenopsd ~__context ~upgrade ~self =
 	Mutex.execute metadata_m (fun () ->
-		let txt = create_metadata ~__context ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
+		let txt = create_metadata ~__context ~upgrade ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
 		info "xenops: VM.import_metadata %s" txt;
 		let dbg = Context.string_of_task __context in
 		Client.VM.import_metadata dbg txt;
@@ -573,7 +573,7 @@ let update_metadata_in_xenopsd ~__context ~self =
 			let dbg = Context.string_of_task __context in
 			if vm_exists_in_xenopsd dbg id
 			then
-				let txt = create_metadata ~__context ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
+				let txt = create_metadata ~__context ~upgrade:false ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
 				if Hashtbl.mem metadata_cache id && (Hashtbl.find metadata_cache id = Some txt)
 				then ()
 				else begin
@@ -771,10 +771,22 @@ let update_vm ~__context id =
 						debug "xenopsd event: Updating VM %s consoles" id;
 						Opt.iter
 							(fun (_, state) ->
+								let localhost = Helpers.get_localhost ~__context in
+								let address = Db.Host.get_address ~__context ~self:localhost in
+								let uri = Printf.sprintf "https://%s%s" address Constants.console_uri in
+								let get_uri_from_location loc =
+									try
+										let n = String.index loc '?' in
+										String.sub loc 0 n
+									with Not_found -> loc
+								in
 								let current_protocols = List.map
-									(fun self -> Db.Console.get_protocol ~__context ~self |> to_xenops_console_protocol, self)
+									(fun self ->
+										(Db.Console.get_protocol ~__context ~self |> to_xenops_console_protocol,
+										Db.Console.get_location ~__context ~self |> get_uri_from_location),
+										self)
 									(Db.VM.get_consoles ~__context ~self) in
-								let new_protocols = List.map (fun c -> c.protocol, c) state.consoles in
+								let new_protocols = List.map (fun c -> (c.protocol, uri), c) state.consoles in
 								(* Destroy consoles that have gone away *)
 								List.iter
 									(fun protocol ->
@@ -783,15 +795,17 @@ let update_vm ~__context id =
 									) (List.set_difference (List.map fst current_protocols) (List.map fst new_protocols));
 								(* Create consoles that have appeared *)
 								List.iter
-									(fun protocol ->
-										let localhost = Helpers.get_localhost ~__context in
-										let address = Db.Host.get_address ~__context ~self:localhost in
+									(fun (protocol, _) ->
 										let ref = Ref.make () in
 										let uuid = Uuid.to_string (Uuid.make_uuid ()) in
-										let location = Printf.sprintf "https://%s%s?uuid=%s" address Constants.console_uri uuid in
+										let location = Printf.sprintf "%s?uuid=%s" uri uuid in
+										let port =
+											try Int64.of_int ((List.find (fun c -> c.protocol = protocol) state.consoles).port)
+											with Not_found -> -1L
+										in
 										Db.Console.create ~__context ~ref ~uuid
 											~protocol:(to_xenapi_console_protocol protocol) ~location ~vM:self
-											~other_config:[] ~port:(Int64.of_int (List.assoc protocol new_protocols).port)
+											~other_config:[] ~port
 									) (List.set_difference (List.map fst new_protocols) (List.map fst current_protocols));
 							) info;
 					end;
@@ -1475,8 +1489,8 @@ let set_memory_dynamic_range ~__context ~self min max =
 			Event.wait dbg ()
 		)
 
-let with_metadata_pushed_to_xenopsd ~__context ~self f =
-	let id = push_metadata_to_xenopsd ~__context ~self in
+let with_metadata_pushed_to_xenopsd ?(upgrade=false) ~__context ~self f =
+	let id = push_metadata_to_xenopsd ~__context ~upgrade ~self in
 	try
 		f id;
 		set_resident_on ~__context ~self;
