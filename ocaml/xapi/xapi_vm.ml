@@ -870,3 +870,6 @@ let set_appliance ~__context ~self ~value =
 		Xapi_vm_appliance.update_allowed_operations ~__context ~self:previous_value;
 	(* Update the VM's allowed operations - this will update the new appliance's operations, if valid. *)
 	update_allowed_operations __context self
+
+let import_convert ~__context ~_type ~username ~password ~remote_config =
+	()
