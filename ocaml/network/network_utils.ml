@@ -35,6 +35,7 @@ let brctl = "/usr/sbin/brctl"
 let modprobe = "/sbin/modprobe"
 let ethtool = "/sbin/ethtool"
 let bonding_dir = "/proc/net/bonding/"
+let dhcp6c = "/sbin/dhcp6c"
 
 let debug (fmt: ('a , unit, string, unit) format4) =
 	let time_of_float x = 
@@ -249,9 +250,12 @@ module Ip = struct
 		with _ -> ()
 
 	let flush_ip_addr ?(ipv6=false) dev =
-		let ipv6' = if ipv6 then ["-6"] else ["-4"] in
 		try
-			ignore (call(ipv6' @ ["addr"; "flush"; "dev"; dev]))
+			if ipv6 then begin
+				ignore (call(["-6"; "addr"; "flush"; "dev"; dev; "scope"; "global"]));
+				ignore (call(["-6"; "addr"; "flush"; "dev"; dev; "scope"; "site"]))
+			end else
+				ignore (call(["-4"; "addr"; "flush"; "dev"; dev]))
 		with _ -> ()
 
 	let route_show ?(version=V46) dev =
@@ -447,13 +451,20 @@ module Dhclient = struct
 end
 
 module Sysctl = struct
-	let write variable value =
-		call_script sysctl ["-q"; "-w"; variable ^ "=" ^ value]
+	let write value variable =
+		ignore (call_script sysctl ["-q"; "-w"; variable ^ "=" ^ value])
 
 	let set_ipv6_autoconf interface value =
-		let variable = "net.ipv6.conf." ^ interface ^ ".autoconf" in
-		let value' = if value then "1" else "0" in
-		write variable value'
+		try
+			let variables = [
+				"net.ipv6.conf." ^ interface ^ ".autoconf";
+				"net.ipv6.conf." ^ interface ^ ".accept_ra"
+			] in
+			let value' = if value then "1" else "0" in
+			List.iter (write value') variables
+		with
+		| e when value = true -> raise e
+		| _ -> ()
 end
 
 module Proc = struct
@@ -792,3 +803,13 @@ module Bindings = struct
 		with_fd (fun fd -> _get_status fd name)
 end
 
+module Dhcp6c = struct
+	let pid_file interface =
+		Printf.sprintf "/var/run/dhcp6c-%s.pid" interface
+
+	let start interface =
+		ignore (call_script dhcp6c [interface])
+
+	let stop interface =
+		ignore (call_script dhcp6c ["-r"; "all"; interface])
+end
