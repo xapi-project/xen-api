@@ -1544,7 +1544,19 @@ let migrate_receive ~__context ~host ~network ~options =
 		~auth_user_name:session_rec.API.session_auth_user_name
 	 	~rbac_permissions:session_rec.API.session_rbac_permissions in
 	let new_session_id = (Ref.string_of new_session_id) in
-	let ip = Db.Host.get_address ~__context ~self:host in
+	let pifs = Db.Network.get_PIFs ~__context ~self:network in
+	let pif = 
+		try List.find (fun x -> host = Db.PIF.get_host ~__context ~self:x) pifs
+		with Not_found ->
+			raise (Api_errors.Server_error(Api_errors.host_cannot_attach_network,[Ref.string_of host; Ref.string_of network]))
+	in
+	let ip = Db.PIF.get_IP ~__context ~self:pif in
+	if String.length ip = 0 then begin
+		match Db.PIF.get_ip_configuration_mode ~__context ~self:pif with
+			| `None -> raise (Api_errors.Server_error(Api_errors.pif_has_no_network_configuration,[Ref.string_of pif]))
+			| `DHCP -> raise (Api_errors.Server_error(Api_errors.interface_has_no_ip,[Ref.string_of pif]))
+			| _ -> failwith "No IP address on PIF"
+	end;
 	let sm_url = Printf.sprintf "http://%s/services/SM?session_id=%s" ip new_session_id in
 	let xenops_url = Printf.sprintf "http://%s/services/xenops?session_id=%s" ip new_session_id in
 	[ Xapi_vm_migrate._sm, sm_url;

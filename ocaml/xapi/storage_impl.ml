@@ -492,9 +492,13 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			info "VDI.compose task:%s sr:%s vdi1:%s vdi2:%s" task sr vdi1 vdi2;
 			Impl.VDI.compose context ~task ~sr ~vdi1 ~vdi2
 
-		let copy context ~task ~sr ~vdi ~url ~dest =
+		let copy_into context ~task ~sr ~vdi ~url ~dest =
+			info "VDI.copy_into task:%s sr:%s vdi:%s url:%s dest:%s" task sr vdi url dest;
+			Impl.VDI.copy_into context ~task ~sr ~vdi ~url ~dest
+
+		let copy context ~task ~sr ~vdi ~dp ~url ~dest =
 			info "VDI.copy task:%s sr:%s vdi:%s url:%s dest:%s" task sr vdi url dest;
-			Impl.VDI.copy context ~task ~sr ~vdi ~url ~dest
+			Impl.VDI.copy context ~task ~sr ~vdi ~dp ~url ~dest
 
 		let get_url context ~task ~sr ~vdi =
 			info "VDI.get_url task:%s sr:%s vdi:%s" task sr vdi;
@@ -515,24 +519,24 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			info "Mirror.stop task:%s sr:%s vdi:%s" task sr vdi;
 			Impl.Mirror.stop context ~task ~sr ~vdi
 
-		let active context ~task ~sr =
+		let list context ~task ~sr =
 			info "Mirror.active task:%s sr:%s" task sr;
-			Impl.Mirror.active context ~task ~sr 
+			Impl.Mirror.list context ~task ~sr 
 
-		let receive_start context ~task ~sr ~vdi_info ~content_id ~similar =
-			info "Mirror.receive_start task:%s sr:%s content_id:%s similar:[%s]" 
-				task sr content_id (String.concat "," similar);
-			Impl.Mirror.receive_start context ~task ~sr ~vdi_info ~content_id ~similar
+		let receive_start context ~task ~sr ~vdi_info ~similar =
+			info "Mirror.receive_start task:%s sr:%s similar:[%s]" 
+				task sr (String.concat "," similar);
+			Impl.Mirror.receive_start context ~task ~sr ~vdi_info ~similar
 
-		let receive_finalize context ~task ~sr ~content_id =
-			info "Mirror.receive_finalize task:%s sr:%s content_id:%s"
-				task sr content_id;
-			Impl.Mirror.receive_finalize context ~task ~sr ~content_id
+		let receive_finalize context ~task ~sr ~vdi =
+			info "Mirror.receive_finalize task:%s sr:%s vdi:%s"
+				task sr vdi;
+			Impl.Mirror.receive_finalize context ~task ~sr ~vdi
 
-		let receive_cancel context ~task ~sr ~content_id =
-			info "Mirror.receive_cancel task:%s sr:%s content_id:%s"
-				task sr content_id;
-			Impl.Mirror.receive_cancel context ~task ~sr ~content_id
+		let receive_cancel context ~task ~sr ~vdi =
+			info "Mirror.receive_cancel task:%s sr:%s vdi:%s"
+				task sr vdi;
+			Impl.Mirror.receive_cancel context ~task ~sr ~vdi
 
 				
 	end

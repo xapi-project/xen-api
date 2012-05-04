@@ -469,7 +469,8 @@ module Builtin_impl = struct
 					let vdi, _ = find_vdi ~__context sr vdi in
 					Printf.sprintf "%s/%s/%s" ip (Ref.string_of session_ref) (Ref.string_of vdi))
 
-		let copy context ~task ~sr ~vdi ~url ~dest = assert false
+		let copy_into context ~task ~sr ~vdi ~url ~dest = assert false
+		let copy context ~task ~sr ~vdi ~dp ~url ~dest = assert false
 	end
 
 	let get_by_name context ~task ~name = assert false
@@ -477,10 +478,10 @@ module Builtin_impl = struct
 	module Mirror = struct
 		let start context ~task ~sr ~vdi ~dp ~url ~dest = assert false
 		let stop context ~task ~sr ~vdi = assert false
-		let active context ~task ~sr = assert false
-		let receive_start context ~task ~sr ~vdi_info ~content_id ~similar = assert false
-		let receive_finalize context ~task ~sr ~content_id = assert false
-		let receive_cancel context ~task ~sr ~content_id = assert false
+		let list context ~task ~sr = assert false
+		let receive_start context ~task ~sr ~vdi_info ~similar = assert false
+		let receive_finalize context ~task ~sr ~vdi = assert false
+		let receive_cancel context ~task ~sr ~vdi = assert false
 	end
 end
 
