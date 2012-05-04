@@ -37,6 +37,7 @@ type shutdown_request =
 with rpc
 let string_of_shutdown_request x = x |> rpc_of_shutdown_request |> Jsonrpc.to_string
 
+let test = Updates.empty
 let string_of_disk d = d |> rpc_of_disk |> Jsonrpc.to_string
 type data =
 	| Disk of disk

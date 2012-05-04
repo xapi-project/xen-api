@@ -197,6 +197,30 @@ module Mux = struct
 		let receive_cancel context = Storage_migrate.receive_cancel
     end	
 
+	module TASK = struct
+		let stat context ~dbg ~sr ~task =
+	        let module C = Client(struct let rpc = of_sr sr end) in
+            C.TASK.stat ~dbg ~sr ~task
+					
+		let cancel context ~dbg ~sr ~task =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.TASK.cancel ~dbg ~sr ~task
+				
+		let destroy context ~dbg ~sr ~task =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.TASK.destroy ~dbg ~sr ~task
+
+		let list context ~dbg ~sr =
+			let module C = Client (struct let rpc = of_sr sr end) in
+			C.TASK.list ~dbg ~sr
+    end
+
+	module UPDATES = struct
+		let get context ~dbg ~sr ~from ~timeout =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.UPDATES.get ~dbg ~sr ~from ~timeout
+	end
+
 end
 
 module Server = Storage_interface.Server(Storage_impl.Wrapper(Mux))

@@ -69,6 +69,7 @@ open Threadext
 open Pervasiveext
 open Fun
 open Storage_interface
+open Storage_task
 
 let print_debug = ref false
 let log_to_stdout prefix (fmt: ('a , unit, string, unit) format4) =
@@ -159,11 +160,14 @@ module Sr = struct
 	(** Represents the state of an SR *)
 	type t = {
 		vdis: (string, Vdi.t) Hashtbl.t; (** All tracked VDIs *)
+		updates: Updates.t
 	} with rpc
 
 	let empty () = {
 		vdis = Hashtbl.create 10;
+		updates = Updates.empty ();
 	}
+
 	let m = Mutex.create ()
 	let find vdi sr = Mutex.execute m (fun () -> try Some (Hashtbl.find sr.vdis vdi) with Not_found -> None)
 	let replace vdi vdi_t sr =
@@ -681,6 +685,47 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			info "SR.destroy dbg:%s sr:%s" dbg sr;
 			detach_destroy_common context ~dbg ~sr Impl.SR.destroy			
 	end
+
+
+	module TASK = struct
+		open Storage_task
+		let t x = {
+			Task.id = x.id;
+			debug_info = x.debug_info;
+			ctime = x.ctime;
+			result = x.result;
+			subtasks = x.subtasks;
+		}
+		let cancel _ ~dbg ~sr ~task =
+			Storage_task.cancel task
+		let stat' task =
+			Mutex.execute m
+				(fun () ->
+					find_locked task |> t
+				)
+		let signal task =
+			Mutex.execute m
+				(fun () ->
+					if exists_locked task then begin
+						debug "TASK.signal %s = %s" task ((find_locked task).result |> Task.rpc_of_result |> Jsonrpc.to_string);
+						failwith "Unimplemented"
+					end else debug "TASK.signal %s (object deleted)" task
+				)
+		let stat _ ~dbg ~sr ~task = stat' task
+		let destroy' ~task ~sr = destroy task (*Updates.remove (Dynamic.Task task) updates*)
+		let destroy _ ~dbg ~sr ~task = destroy' ~sr ~task
+		let list _ ~dbg ~sr = list () |> List.map t
+	end
+
+	module UPDATES = struct
+		let get _ ~dbg ~sr ~from ~timeout =
+			match Host.find sr !Host.host with
+			| None -> raise Sr_not_attached
+			| Some sr_t ->
+				let ids, next = Updates.get dbg from timeout sr_t.Sr.updates in
+				(ids, next)
+	end
+
 end
 
 let initialise () =

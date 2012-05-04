@@ -15,6 +15,8 @@
  * @group Storage
  *)
 
+let service_name="storage"
+
 open Vdi_automaton
 
 type query_result = {
@@ -66,6 +68,17 @@ type vdi_info = {
 
 let string_of_vdi_info (x: vdi_info) = Jsonrpc.to_string (rpc_of_vdi_info x)
 
+(** Each VDI is associated with one or more "attached" or "activated" "datapaths". *)
+type dp = string
+
+type stat_t = {
+	superstate: Vdi_automaton.state;
+	dps: (string * Vdi_automaton.state) list;
+}
+
+
+let string_of_stat_t (x: stat_t) = Jsonrpc.to_string (rpc_of_stat_t x)
+
 module Task = struct
 	type id = string
 
@@ -83,22 +96,30 @@ module Task = struct
 	}
 end
 
+module Dynamic = struct
+	type id = 
+		| Task of Task.id
+		| Vdi of vdi
+(*		| Sr of sr*)
+		| Dp of dp
 
-(** Each VDI is associated with one or more "attached" or "activated" "datapaths". *)
-type dp = string
+	type t = 
+		| Task_t of Task.id * Task.t
+		| Vdi_t of vdi * vdi_info
+(*		| Sr_t of sr * unit*)
+		| Dp of dp * stat_t
+		
+end
 
-type stat_t = {
-	superstate: Vdi_automaton.state;
-	dps: (string * Vdi_automaton.state) list;
-}
 
-let string_of_stat_t (x: stat_t) = Jsonrpc.to_string (rpc_of_stat_t x)
 
 exception Sr_not_attached                         (** error: SR must be attached to access VDIs *)
 exception Vdi_does_not_exist                      (** error: the VDI is unknown *)
 exception Illegal_transition of (Vdi_automaton.state * Vdi_automaton.state) (** This operation implies an illegal state transition *)
 exception Backend_error of (string * (string list)) (** error: of the form SR_BACKEND_FAILURE *)
 exception Unimplemented                           (** error: not implemented by backend *)
+exception Does_not_exist of (string * string)
+exception Cancelled of string
 
 module Driver_info = struct
     type t = {
@@ -275,10 +296,16 @@ module Mirror = struct
 end
 
 
+module TASK = struct
+	external stat: dbg:debug_info -> sr:sr -> task:Task.id -> Task.t = ""
+	external cancel: dbg:debug_info -> sr:sr -> task:Task.id -> unit = ""
+	external destroy: dbg:debug_info -> sr:sr -> task:Task.id -> unit = ""
+	external list: dbg:debug_info -> sr:sr -> Task.t list = ""
+end
 
-(*module TASK = struct
-	external stat: debug_info -> Task.id -> Task.t = ""
-	external cancel: debug_info -> Task.id -> unit = ""
-	external destroy: debug_info -> Task.id -> unit = ""
-	external list: debug_info -> Task.t list = ""
-end*)
+module UPDATES = struct
+	external get: dbg:debug_info -> sr:sr -> from:int option -> timeout:int option -> Dynamic.id list * int option = ""
+(*    external inject_barrier: dbg:debug_info -> int -> unit = ""
+	external remove_barrier: dbg:debug_info -> int -> unit = ""
+	external refresh_vm: debug_info -> Vm.id -> unit = ""*)
+end
