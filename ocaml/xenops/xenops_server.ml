@@ -1171,6 +1171,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 						[ Atomic (VM_delay (id, 15.)) ]
 					end else [] in
 					delay @ [ VM_reboot (id, None) ]
+				| Vm.Pause    -> [ Atomic (VM_pause id) ]
 			in
 			let operations = List.concat (List.map operations_of_action actions) in
 			List.iter (fun x -> perform x t) operations;
