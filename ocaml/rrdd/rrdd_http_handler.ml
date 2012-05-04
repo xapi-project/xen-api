@@ -95,10 +95,9 @@ let put_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
 	let rrd = rrd_of_fd s in
 	(* By now, we know that the data represents a valid RRD. *)
 	if List.mem_assoc "archive" query then (
-		debug "Receiving RRD for archiving, type=%s."
+		debug "Receiving RRD on the master for archiving, type=%s."
 			(if is_host then "Host" else "VM uuid=" ^ uuid);
-		archive_rrd ~master_address:"localhost" ~save_stats_locally:true
-			~uuid ~rrd:(Rrd.copy_rrd rrd)
+		archive_rrd ~uuid ~rrd:(Rrd.copy_rrd rrd) ()
 	) else (
 		debug "Receiving RRD for resident VM uuid=%s. Replacing in hashtable." uuid;
 		Mutex.execute mutex (fun _ -> Hashtbl.replace vm_rrds uuid {rrd; dss = []})
