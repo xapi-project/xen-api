@@ -1153,11 +1153,11 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 				| Some Needs_crashdump ->
 					(* A VM which crashes too quickly should be shutdown *)
 					if run_time < 120. then begin
-						debug "VM %s ran too quickly (%.2f seconds); shutting down" id run_time;
+						warn "VM %s crashed too quickly after start (%.2f seconds); shutting down" id run_time;
 						[ Vm.Shutdown ]
 					end else vm.Vm.on_crash
 				| Some Needs_suspend ->
-					debug "VM %s has unexpectedly suspended" id;
+					warn "VM %s has unexpectedly suspended" id;
 					[ Vm.Shutdown ]
 				| None ->
 					debug "VM %s is not requesting any attention" id;
