@@ -229,28 +229,36 @@ module Interface = struct
 		match conf with
 		| None6 ->
 			if List.mem name (get_all () ()) then begin
-				if Dhclient.is_running ~ipv6:true name then
-					ignore (Dhclient.stop ~ipv6:true name);
-				ignore (Sysctl.set_ipv6_autoconf name false);
+				Dhcp6c.stop name;
+				Sysctl.set_ipv6_autoconf name false;
 				Ip.flush_ip_addr ~ipv6:true name
 			end
 		| DHCP6 options ->
-			if Dhclient.is_running ~ipv6:true name then
-				ignore (Dhclient.stop ~ipv6:true name);
-			ignore (Sysctl.set_ipv6_autoconf name false);
-			ignore (Dhclient.start ~ipv6:true name options)
+			Dhcp6c.stop name;
+			Sysctl.set_ipv6_autoconf name false;
+			Ip.flush_ip_addr ~ipv6:true name;
+			Dhcp6c.start name
 		| Autoconf6 ->
-			ignore (Sysctl.set_ipv6_autoconf name true);
-			Ip.link_set_down name;
-			Ip.link_set_up name
+			Dhcp6c.stop name;
+			Ip.flush_ip_addr ~ipv6:true name;
+			Sysctl.set_ipv6_autoconf name true;
+			if Ip.is_up name then begin
+				Ip.link_set_down name;
+				Ip.link_set_up name
+			end
 		| Static6 addrs ->
-			if Dhclient.is_running ~ipv6:true name then
-				ignore (Dhclient.stop ~ipv6:true name);
-			ignore (Sysctl.set_ipv6_autoconf name false);
+			Dhcp6c.stop name;
+			Sysctl.set_ipv6_autoconf name false;
+			Ip.flush_ip_addr ~ipv6:true name;
 			List.iter (Ip.set_ip_addr name) addrs
 
 	let get_ipv6_gateway _ ~name =
-		Some (Unix.inet_addr_of_string "fd::1")
+		let output = Ip.route_show ~version:Ip.V6 name in
+		try
+			let line = List.find (fun s -> String.startswith "default via" s) (String.split '\n' output) in
+			let addr = List.nth (String.split ' ' line) 2 in
+			Some (Unix.inet_addr_of_string addr)
+		with Not_found -> None
 
 	let set_ipv6_gateway _ ~name ~address =
 		debug "Configuring IPv6 gateway for %s: %s" name (Unix.string_of_inet_addr address);
