@@ -1173,11 +1173,11 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 				| Some Needs_crashdump ->
 					(* A VM which crashes too quickly should be shutdown *)
 					if run_time < 120. then begin
-						debug "VM %s ran too quickly (%.2f seconds); shutting down" id run_time;
+						warn "VM %s crashed too quickly after start (%.2f seconds); shutting down" id run_time;
 						[ Vm.Shutdown ]
 					end else vm.Vm.on_crash
 				| Some Needs_suspend ->
-					debug "VM %s has unexpectedly suspended" id;
+					warn "VM %s has unexpectedly suspended" id;
 					[ Vm.Shutdown ]
 				| None ->
 					debug "VM %s is not requesting any attention" id;
@@ -1191,6 +1191,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 						[ Atomic (VM_delay (id, 15.)) ]
 					end else [] in
 					delay @ [ VM_reboot (id, None) ]
+				| Vm.Pause    -> [ Atomic (VM_pause id) ]
 			in
 			let operations = List.concat (List.map operations_of_action actions) in
 			List.iter (fun x -> perform x t) operations;
@@ -1690,15 +1691,21 @@ module Diagnostics = struct
 		scheduler: Scheduler.Dump.t;
 		updates: Updates.Dump.t;
 		tasks: WorkerPool.Dump.task list;
+		vm_actions: (string * domain_action_request option) list;
 	} with rpc
 
-	let make () = {
-		queues = Redirector.Dump.make ();
-		workers = WorkerPool.Dump.make ();
-		scheduler = Scheduler.Dump.make ();
-		updates = Updates.Dump.make updates;
-		tasks = List.map WorkerPool.Dump.of_task (Xenops_task.list ());
-	}
+	let make () =
+		let module B = (val get_backend (): S) in {
+			queues = Redirector.Dump.make ();
+			workers = WorkerPool.Dump.make ();
+			scheduler = Scheduler.Dump.make ();
+			updates = Updates.Dump.make updates;
+			tasks = List.map WorkerPool.Dump.of_task (Xenops_task.list ());
+			vm_actions = List.filter_map (fun id -> match VM_DB.read id with
+				| Some vm -> Some (id, B.VM.get_domain_action_request vm)
+				| None -> None
+			) (VM_DB.ids ())
+		}
 end
 
 let get_diagnostics _ _ () =
