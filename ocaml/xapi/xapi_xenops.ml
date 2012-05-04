@@ -162,14 +162,16 @@ let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
 			) initrd in
 			PV {
 				boot = Direct { kernel = k; cmdline = ka; ramdisk = initrd };
-				framebuffer = false;
+				framebuffer = bool vm.API.vM_platform false "pvfb";
+				framebuffer_ip = Some "0.0.0.0"; (* None PR-1255 *)
 				vncterm = true;
 				vncterm_ip = Some "0.0.0.0" (*None PR-1255*);
 			}
 		| Helpers.IndirectPV { Helpers.bootloader = b; extra_args = e; legacy_args = l; pv_bootloader_args = p; vdis = vdis } ->
 			PV {
 				boot = Indirect { bootloader = b; extra_args = e; legacy_args = l; bootloader_args = p; devices = List.filter_map (fun x -> disk_of_vdi ~__context ~self:x) vdis };
-				framebuffer = false;
+				framebuffer = bool vm.API.vM_platform false "pvfb";
+				framebuffer_ip = Some "0.0.0.0"; (* None PR-1255 *)
 				vncterm = true;
 				vncterm_ip = Some "0.0.0.0" (*None PR-1255*);
 			}
@@ -1112,7 +1114,7 @@ let manage_dom0 dbg =
 			bios_strings = [];
 			ty = PV {
 				boot = Direct { kernel = ""; cmdline = ""; ramdisk = None };
-				framebuffer = false; vncterm = false; vncterm_ip = None 
+				framebuffer = false; framebuffer_ip = None; vncterm = false; vncterm_ip = None 
 			};
 			suppress_spurious_page_faults = false;
 			machine_address_size = None;

@@ -118,6 +118,7 @@ module Vm = struct
 	type pv_info = {
 		boot: pv_boot;
 		framebuffer: bool;
+		framebuffer_ip: string option;
 		vncterm: bool;
 		vncterm_ip: string option;
 	}
