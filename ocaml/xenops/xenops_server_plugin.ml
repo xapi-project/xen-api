@@ -75,7 +75,7 @@ module type S = sig
 		val wait_shutdown: Xenops_task.t -> Vm.t -> shutdown_request -> float -> bool
 
 		val save: Xenops_task.t -> progress_cb -> Vm.t -> flag list -> data -> unit
-		val restore: Xenops_task.t -> progress_cb -> Vm.t -> data -> unit
+		val restore: Xenops_task.t -> progress_cb -> Vm.t -> Vbd.t list -> Vif.t list -> data -> unit
 
 		val s3suspend: Xenops_task.t -> Vm.t -> unit
 		val s3resume: Xenops_task.t -> Vm.t -> unit
@@ -85,6 +85,7 @@ module type S = sig
 		val set_domain_action_request: Vm.t -> domain_action_request option -> unit
 		val get_domain_action_request: Vm.t -> domain_action_request option
 
+		val generate_state_string: Vm.t -> string
 		val get_internal_state: (string * string) list -> (string * Network.t) list -> Vm.t -> string
 		val set_internal_state: Vm.t -> string -> unit
 
