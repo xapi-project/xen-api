@@ -1653,15 +1653,21 @@ module Diagnostics = struct
 		scheduler: Scheduler.Dump.t;
 		updates: Updates.Dump.t;
 		tasks: WorkerPool.Dump.task list;
+		vm_actions: (string * domain_action_request option) list;
 	} with rpc
 
-	let make () = {
-		queues = Redirector.Dump.make ();
-		workers = WorkerPool.Dump.make ();
-		scheduler = Scheduler.Dump.make ();
-		updates = Updates.Dump.make updates;
-		tasks = List.map WorkerPool.Dump.of_task (Xenops_task.list ());
-	}
+	let make () =
+		let module B = (val get_backend (): S) in {
+			queues = Redirector.Dump.make ();
+			workers = WorkerPool.Dump.make ();
+			scheduler = Scheduler.Dump.make ();
+			updates = Updates.Dump.make updates;
+			tasks = List.map WorkerPool.Dump.of_task (Xenops_task.list ());
+			vm_actions = List.filter_map (fun id -> match VM_DB.read id with
+				| Some vm -> Some (id, B.VM.get_domain_action_request vm)
+				| None -> None
+			) (VM_DB.ids ())
+		}
 end
 
 let get_diagnostics _ _ () =
