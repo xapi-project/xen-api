@@ -292,7 +292,7 @@ module MD = struct
 
 	let of_vm ~__context (vmref, vm) vbds pci_passthrough =
 		let on_crash_behaviour = function
-			| `preserve -> []
+			| `preserve -> [ Vm.Pause ]
 			| `coredump_and_restart -> [ Vm.Coredump; Vm.Start ]
 			| `coredump_and_destroy -> [ Vm.Coredump; Vm.Shutdown ]
 			| `restart
