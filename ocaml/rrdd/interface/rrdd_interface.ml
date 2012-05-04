@@ -26,17 +26,17 @@ let fd_path = Filename.concat Fhs.vardir name
 
 (* The interface is defined by extern function declarations. *)
 
+external set_master : is_master:bool -> master_address:string -> unit = ""
+
 external has_vm_rrd : vm_uuid:string -> bool = ""
 
-external push_rrd : master_address:string -> vm_uuid:string ->
-	domid:int -> is_on_localhost:bool -> unit = ""
+external push_rrd : vm_uuid:string -> domid:int -> is_on_localhost:bool ->
+	unit = ""
 external remove_rrd : uuid:string -> unit = ""
 external migrate_rrd : ?session_id:string -> remote_address:string ->
 	vm_uuid:string -> host_uuid:string -> unit -> unit = ""
-external send_host_rrd_to_master : master_address:string ->
-	unit = ""
-external backup_rrds : master_address:string -> ?save_stats_locally:bool ->
-	unit -> unit = ""
+external send_host_rrd_to_master : unit -> unit = ""
+external backup_rrds : ?save_stats_locally:bool -> unit -> unit = ""
 
 external add_host_ds : ds_name:string -> unit = ""
 external forget_host_ds : ds_name:string -> unit = ""
@@ -64,6 +64,6 @@ module Deprecated = struct
 	external get_full_update_avg_rra_idx : unit -> int = ""
 	external get_full_update_last_rra_idx : unit -> int = ""
 	(* Could change timescale to sum type, e.g. Slow | Fast.*)
-	external load_rrd : master_address:string -> is_master:bool -> uuid:string ->
-		domid:int -> is_host:bool -> timescale:int -> unit -> unit = ""
+	external load_rrd : uuid:string -> domid:int -> is_host:bool ->
+		timescale:int -> unit -> unit = ""
 end
