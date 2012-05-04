@@ -389,14 +389,14 @@ let generate_xenops_state ~__context ~self ~vm ~vbds ~pcis =
 		vm.API.vM_last_booted_record
 
 (* Create an instance of Metadata.t, suitable for uploading to the xenops service *)
-let create_metadata ~__context ~self =
+let create_metadata ~__context ~upgrade ~self =
 	let vm = Db.VM.get_record ~__context ~self in
 	let vbds = List.map (fun self -> Db.VBD.get_record ~__context ~self) vm.API.vM_VBDs in
 	let vifs = List.map (fun self -> Db.VIF.get_record ~__context ~self) vm.API.vM_VIFs in
 	let pcis = MD.pcis_of_vm ~__context (self, vm) in
 	let domains =
 		(* For suspended VMs, we may need to translate the last_booted_record from the old format. *)
-		if vm.API.vM_power_state = `Suspended
+		if vm.API.vM_power_state = `Suspended || upgrade
 		then Some (generate_xenops_state ~__context ~self ~vm ~vbds ~pcis)
 		else None in
 	let open Metadata in {
@@ -539,9 +539,9 @@ let remove_caches id =
 			debug "VM %s: unregistering with cache (xenops cache size = %d; xapi cache size = %d)" id (Hashtbl.length Xenops_cache.cache) (Hashtbl.length metadata_cache);
 		)
 
-let push_metadata_to_xenopsd ~__context ~self =
+let push_metadata_to_xenopsd ~__context ~upgrade ~self =
 	Mutex.execute metadata_m (fun () ->
-		let txt = create_metadata ~__context ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
+		let txt = create_metadata ~__context ~upgrade ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
 		info "xenops: VM.import_metadata %s" txt;
 		let dbg = Context.string_of_task __context in
 		Client.VM.import_metadata dbg txt;
@@ -573,7 +573,7 @@ let update_metadata_in_xenopsd ~__context ~self =
 			let dbg = Context.string_of_task __context in
 			if vm_exists_in_xenopsd dbg id
 			then
-				let txt = create_metadata ~__context ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
+				let txt = create_metadata ~__context ~upgrade:false ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
 				if Hashtbl.mem metadata_cache id && (Hashtbl.find metadata_cache id = Some txt)
 				then ()
 				else begin
@@ -1489,8 +1489,8 @@ let set_memory_dynamic_range ~__context ~self min max =
 			Event.wait dbg ()
 		)
 
-let with_metadata_pushed_to_xenopsd ~__context ~self f =
-	let id = push_metadata_to_xenopsd ~__context ~self in
+let with_metadata_pushed_to_xenopsd ?(upgrade=false) ~__context ~self f =
+	let id = push_metadata_to_xenopsd ~__context ~upgrade ~self in
 	try
 		f id;
 		set_resident_on ~__context ~self;
