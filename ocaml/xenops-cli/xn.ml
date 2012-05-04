@@ -287,6 +287,7 @@ let add filename =
 			let builder_info = match pv with
 				| true -> PV {
 					framebuffer = false;
+					framebuffer_ip = Some "0.0.0.0";
 					vncterm = true;
 					vncterm_ip = Some "0.0.0.0";
 					boot =
