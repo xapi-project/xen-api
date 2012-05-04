@@ -1466,6 +1466,7 @@ let vm_import_convert = call
 		String, "type", "Type of the conversion";
 		String, "username", "Admin username on the host";
 		String, "password", "Password on the host";
+		Ref _sr, "sr", "The destination SR";
 		Map(String, String), "remote_config", "Remote configuration options"
 	]
 	~errs:[]
