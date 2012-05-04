@@ -85,10 +85,13 @@ module Builtin_impl = struct
 						(fun _ _type ->
 							try
 								Sm.sr_attach (Some (Context.get_task_id __context), device_config) _type sr
-							with e ->
-								let e' = ExnHelper.string_of_exn e in
-								error "SR.attach failed SR:%s error:%s" (Ref.string_of sr) e';
-								raise e
+							with
+								| Api_errors.Server_error(code, params) ->
+									raise (Backend_error(code, params))
+								| e ->
+									let e' = ExnHelper.string_of_exn e in
+									error "SR.attach failed SR:%s error:%s" (Ref.string_of sr) e';
+									raise e
 						)
 				)
 		let detach context ~task ~sr =
@@ -100,10 +103,13 @@ module Builtin_impl = struct
 						(fun device_config _type ->
 							try
 								Sm.sr_detach device_config _type sr
-							with e ->
-								let e' = ExnHelper.string_of_exn e in
-								error "SR.detach failed SR:%s error:%s" (Ref.string_of sr) e';
-								raise e
+							with
+								| Api_errors.Server_error(code, params) ->
+									raise (Backend_error(code, params))
+								| e ->
+									let e' = ExnHelper.string_of_exn e in
+									error "SR.detach failed SR:%s error:%s" (Ref.string_of sr) e';
+									raise e
 						)
 				)
 
@@ -121,6 +127,8 @@ module Builtin_impl = struct
 							with
 								| Smint.Not_implemented_in_backend ->
 									raise (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
+								| Api_errors.Server_error(code, params) ->
+									raise (Backend_error(code, params))
 								| e ->
 									let e' = ExnHelper.string_of_exn e in
 									error "SR.detach failed SR:%s error:%s" (Ref.string_of sr) e';
