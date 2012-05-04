@@ -191,6 +191,16 @@ module Debug_print_impl = struct
 
 	end
 
+	module TASK = struct
+		let stat context ~dbg ~sr ~task = assert false
+		let destroy context ~dbg ~sr ~task = assert false
+		let cancel context ~dbg ~sr ~task = assert false
+		let list context ~dbg ~sr = assert false
+	end
+
+	module UPDATES = struct
+		let get context ~dbg ~sr ~from ~timeout = assert false
+	end
 end
 
 

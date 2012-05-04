@@ -72,4 +72,15 @@ module Proxy = functor(RPC: RPC) -> struct
 		let receive_cancel _ = Client.Mirror.receive_cancel
 		let list _ = Client.Mirror.list
 	end
+
+	module TASK = struct
+		let stat _ = Client.TASK.stat
+		let cancel _ = Client.TASK.cancel
+		let destroy _ = Client.TASK.destroy
+		let list _ = Client.TASK.list
+	end
+
+	module UPDATES = struct
+		let get _ = Client.UPDATES.get
+	end
 end

@@ -119,8 +119,6 @@ with rpc
 
 let string_of_operation x = x |> rpc_of_operation |> Jsonrpc.to_string
 
-let updates = Updates.empty ()
-
 module TASK = struct
 	open Xenops_task
 	let task x = {
@@ -1692,7 +1690,7 @@ module Diagnostics = struct
 	type t = {
 		queues: Redirector.Dump.t;
 		workers: WorkerPool.Dump.t;
-		scheduler: Scheduler.Dump.t;
+		scheduler: Updates.Scheduler.Dump.t;
 		updates: Updates.Dump.t;
 		tasks: WorkerPool.Dump.task list;
 		vm_actions: (string * domain_action_request option) list;
@@ -1702,7 +1700,7 @@ module Diagnostics = struct
 		let module B = (val get_backend (): S) in {
 			queues = Redirector.Dump.make ();
 			workers = WorkerPool.Dump.make ();
-			scheduler = Scheduler.Dump.make ();
+			scheduler = Updates.Scheduler.Dump.make ();
 			updates = Updates.Dump.make updates;
 			tasks = List.map WorkerPool.Dump.of_task (Xenops_task.list ());
 			vm_actions = List.filter_map (fun id -> match VM_DB.read id with

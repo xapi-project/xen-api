@@ -237,7 +237,7 @@ let _ =
 	  else (module Xenops_server_xen: Xenops_server_plugin.S)));
 
   Debug.with_thread_associated "main" (start sockets) Server.process;
-  Xenops_utils.Scheduler.start ();
+  Xenops_task.Updates.Scheduler.start ();
   Xenops_server.WorkerPool.start !worker_pool_size;
   while true do
 	  try
