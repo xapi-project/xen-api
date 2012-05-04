@@ -909,6 +909,28 @@ let stop ~xs domid =
 
 end
 
+module Qemu = struct
+
+	(* Where qemu-dm-wrapper writes its pid *)
+	let qemu_pid_path domid = sprintf "/local/domain/%d/qemu-pid" domid
+
+	let pid ~xs domid =
+		try
+			let pid = xs.Xs.read (qemu_pid_path domid) in
+			Some (int_of_string pid)
+		with _ ->
+			None
+	let is_running ~xs domid =
+
+		match pid ~xs domid with
+			| None -> false
+			| Some p ->
+				try
+					Unix.kill p 0;
+					true
+				with _ -> false
+end
+
 module PCI = struct
 
 type t = {
@@ -1261,11 +1283,17 @@ let wait_device_model (task: Xenops_task.t) ~xc ~xs domid =
   let be_domid = 0 in
   let path = device_model_state_path xs be_domid domid in
   let watch = Watch.value_to_appear path |> Watch.map (fun _ -> ()) in
+  let shutdown = Watch.key_to_disappear (Qemu.qemu_pid_path domid) in
   let cancel = cancel_path_of_domain ~xs domid in
-  let (_: bool) = cancellable_watch cancel [ watch ] [] task ~xs ~timeout:!Xapi_globs.hotplug_timeout () in
-  let answer = try xs.Xs.read path with _ -> "" in
-  xs.Xs.rm path;
-  answer
+  let (_: bool) = cancellable_watch cancel [ watch; shutdown ] [] task ~xs ~timeout:!Xapi_globs.hotplug_timeout () in
+  if Qemu.is_running ~xs domid then begin
+	  let answer = try xs.Xs.read path with _ -> "" in
+	  xs.Xs.rm path;
+	  Some answer
+  end else begin
+	  info "wait_device_model: qemu has shutdown";
+	  None
+  end
 							
 (* Given a domid, return a list of [ X, (domain, bus, dev, func) ] where X indicates the order in
    which the device was plugged. *)
@@ -1317,14 +1345,14 @@ let plug (task: Xenops_task.t) ~xc ~xs (domain, bus, dev, func) domid =
 		signal_device_model ~xc ~xs domid "pci-ins" pci;
 
 		let () = match wait_device_model task ~xc ~xs domid with
-			| "pci-inserted" -> 
+			| Some "pci-inserted" -> 
 				(* success *)
 				xs.Xs.write (device_model_pci_device_path xs 0 domid ^ "/dev-" ^ (string_of_int next_idx)) pci;
 				(* Ensure a frontend exists so the device watching code can see it *)
 				ensure_device_frontend_exists ~xs 0 domid;
 			| x ->
 				failwith
-					(Printf.sprintf "Waiting for state=pci-inserted; got state=%s" x) in
+					(Printf.sprintf "Waiting for state=pci-inserted; got state=%s" (Opt.default "None" x)) in
 		debug "Device.Pci.plug domid=%d Xenctrl.domain_assign_device" domid;
 		Xenctrl.domain_assign_device xc domid (domain, bus, dev, func)
 	with e ->
@@ -1339,13 +1367,17 @@ let unplug (task: Xenops_task.t) ~xc ~xs (domain, bus, dev, func) domid =
 		let idx = fst (List.find (fun x -> snd x = (domain, bus, dev, func)) current) in
 		signal_device_model ~xc ~xs domid "pci-rem" pci;
 
-		let () = match wait_device_model task ~xc ~xs domid with
-			| "pci-removed" -> 
+		begin match wait_device_model task ~xc ~xs domid with
+			| Some "pci-removed" -> 
 				(* success *)
 				xs.Xs.rm (device_model_pci_device_path xs 0 domid ^ "/dev-" ^ (string_of_int idx))
-			| x ->
+			| None ->
+				(* qemu has shutdown *)
+				()
+			| Some x ->
 				failwith (Printf.sprintf "Waiting for state=pci-removed; got state=%s" x)
-		in
+		end;
+		xs.Xs.rm (device_model_pci_device_path xs 0 domid ^ "/dev-" ^ (string_of_int idx));
 		(* CA-62028: tell the device to stop whatever it's doing *)
 		do_flr pci;
 		debug "Device.Pci.unplug domid=%d Xenctrl.domain_deassign_device" domid;
@@ -1532,35 +1564,17 @@ type info = {
 	extras: (string * string option) list;
 }
 
-(* Where qemu-dm-wrapper writes its pid *)
-let qemu_pid_path domid = sprintf "/local/domain/%d/qemu-pid" domid
 
 (* Where qemu writes its state and is signalled *)
 let device_model_path domid = sprintf "/local/domain/0/device-model/%d" domid
 
-let pid ~xs domid =
-	try
-		let pid = xs.Xs.read (qemu_pid_path domid) in
-		Some (int_of_string pid)
-	with _ ->
-		None
-
-let is_qemu_running ~xs domid =
-	match pid ~xs domid with
-		| None -> false
-		| Some p ->
-			try
-				Unix.kill p 0;
-				true
-			with _ -> false
-
 let get_vnc_port ~xs domid =
-	if not (is_qemu_running ~xs domid)
+	if not (Qemu.is_running ~xs domid)
 	then None
 	else (try Some(int_of_string (xs.Xs.read (Generic.vnc_port_path domid))) with _ -> None)
 
 let get_tc_port ~xs domid =
-	if not (is_qemu_running ~xs domid)
+	if not (Qemu.is_running ~xs domid)
 	then None
 	else (try Some(int_of_string (xs.Xs.read (Generic.tc_port_path domid))) with _ -> None)
 
@@ -1787,8 +1801,8 @@ let resume (task: Xenops_task.t) ~xs domid =
 
 (* Called by every domain destroy, even non-HVM *)
 let stop ~xs domid  =
-	let qemu_pid_path = qemu_pid_path domid in
-	match (pid ~xs domid) with
+	let qemu_pid_path = Qemu.qemu_pid_path domid in
+	match (Qemu.pid ~xs domid) with
 		| None -> () (* nothing to do *)
 		| Some qemu_pid ->
 			debug "qemu-dm: stopping qemu-dm with SIGTERM (domid = %d)" domid;
@@ -1809,14 +1823,14 @@ end
 
 let get_vnc_port ~xs domid = 
 	(* Check whether a qemu exists for this domain *)
-	let qemu_exists = Dm.is_qemu_running ~xs domid in
+	let qemu_exists = Qemu.is_running ~xs domid in
 	if qemu_exists
 	then Dm.get_vnc_port ~xs domid
 	else PV_Vnc.get_vnc_port ~xs domid
 
 let get_tc_port ~xs domid = 
 	(* Check whether a qemu exists for this domain *)
-	let qemu_exists = Dm.is_qemu_running ~xs domid in
+	let qemu_exists = Qemu.is_running ~xs domid in
 	if qemu_exists
 	then Dm.get_tc_port ~xs domid
 	else PV_Vnc.get_tc_port ~xs domid

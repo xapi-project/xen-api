@@ -750,6 +750,8 @@ let rec atomics_of_operation = function
 			(VBD_DB.vbds id |> vbd_unplug_order)
 		) @ (List.map (fun vif -> VIF_unplug (vif.Vif.id, true))
 			(VIF_DB.vifs id)
+		) @ (List.map (fun pci -> PCI_unplug pci.Pci.id)
+			(PCI_DB.pcis id)
 		) @ [
 			VM_destroy id
 		]
