@@ -149,7 +149,7 @@ let request_shutdown_nolock vm reason () =
 let save_nolock vm _ data () =
 	DB.write vm.Vm.id { DB.read_exn vm.Vm.id with Domain.suspended = true }
 
-let restore_nolock vm data () =
+let restore_nolock vm vbds vifs data () =
 	DB.write vm.Vm.id { DB.read_exn vm.Vm.id with Domain.built = true }
 
 let do_pause_unpause_nolock vm paused () =
@@ -331,7 +331,7 @@ module VM = struct
 	let wait_shutdown _ vm reason timeout = true
 
 	let save _ cb vm flags data = Mutex.execute m (save_nolock vm flags data)
-	let restore _ cb vm data = Mutex.execute m (restore_nolock vm data)
+	let restore _ cb vm vbds vifs data = Mutex.execute m (restore_nolock vm vbds vifs data)
 
 	let s3suspend _ vm = ()
 	let s3resume _ vm = ()
@@ -341,6 +341,7 @@ module VM = struct
 	let set_domain_action_request vm request = ()
 	let get_domain_action_request vm = Mutex.execute m (get_domain_action_request_nolock vm)
 
+	let generate_state_string vm = ""
 	let get_internal_state vdi_map vif_map vm =
 		let state = Opt.unbox (DB.read vm.Vm.id) in
 		let vbds = List.map (fun vbd -> {vbd with Vbd.backend = Opt.map (remap_vdi vdi_map) vbd.Vbd.backend}) state.Domain.vbds in

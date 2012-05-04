@@ -980,7 +980,9 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			debug "VM.restore %s" id;
 			if id |> VM_DB.exists |> not
 			then failwith (Printf.sprintf "%s doesn't exist" id);
-			B.VM.restore t progress_callback (VM_DB.read_exn id) data
+			let vbds : Vbd.t list = VBD_DB.vbds id in
+			let vifs : Vif.t list = VIF_DB.vifs id in
+			B.VM.restore t progress_callback (VM_DB.read_exn id) vbds vifs data
 		| VM_delay (id, t) ->
 			debug "VM %s: waiting for %.2f before next VM action" id t;
 			Thread.delay t
@@ -1497,6 +1499,10 @@ module VM = struct
 	let s3resume _ dbg id = queue_operation dbg id (Atomic(VM_s3resume id))
 
 	let migrate context dbg id vdi_map vif_map url = queue_operation dbg id (VM_migrate (id, vdi_map, vif_map, url))
+
+	let generate_state_string _ dbg vm =
+		let module B = (val get_backend () : S) in
+		B.VM.generate_state_string vm
 
 	let export_metadata _ dbg id = export_metadata [] [] id
 

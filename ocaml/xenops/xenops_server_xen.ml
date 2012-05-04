@@ -48,20 +48,23 @@ type attached_vdi = {
 }
 
 module VmExtra = struct
-	(** Extra data we store per VM. This is preserved when the domain is
-		suspended so it can be re-used in the following 'create' which is
-		part of 'resume'. When a VM is shutdown for other reasons (eg reboot)
-		we throw this information away and generate fresh data on the
-		following 'create' *)
-	type t = {
-		create_info: Domain.create_info;
+	(** Extra data we store per VM. The persistent data is preserved when
+		the domain is suspended so it can be re-used in the following 'create'
+		which is part of 'resume'. The non-persistent data will be regenerated.
+		When a VM is shutdown for other reasons (eg reboot) we throw all this
+		information away and generate fresh data on the following 'create' *)
+	type persistent_t = {
 		build_info: Domain.build_info option;
+		ty: Vm.builder_info option;
+	} with rpc
+
+	type non_persistent_t = {
+		create_info: Domain.create_info;
 		vcpu_max: int;
 		vcpus: int;
 		shadow_multiplier: float;
 		memory_static_max: int64;
 		suspend_memory_bytes: int64;
-		ty: Vm.builder_info option;
 		vbds: Vbd.t list; (* needed to regenerate qemu IDE config *)
 		qemu_vbds: (Vbd.id * (int * qemu_frontend)) list;
 		qemu_vifs: (Vif.id * (int * qemu_frontend)) list;
@@ -69,6 +72,11 @@ module VmExtra = struct
 		last_start_time: float;
 		pci_msitranslate: bool;
 		pci_power_mgmt: bool;
+	} with rpc
+
+	type t = {
+		persistent: persistent_t;
+		non_persistent: non_persistent_t;
 	} with rpc
 end
 
@@ -528,87 +536,124 @@ module VM = struct
 	let get_initial_target ~xs domid =
 		Int64.of_string (xs.Xs.read (Printf.sprintf "/local/domain/%d/memory/initial-target" domid))
 
+	(* Called from a xenops client if it needs to resume a VM that was suspended on a pre-xenopsd host. *)
+	let generate_state_string vm =
+		let open Memory in
+		let builder_spec_info =
+			match vm.ty with
+				| HVM hvm_info ->
+					Domain.BuildHVM {
+						Domain.shadow_multiplier = hvm_info.shadow_multiplier;
+						timeoffset = hvm_info.timeoffset;
+						video_mib = hvm_info.video_mib;
+					}
+				| PV { boot = Direct direct } ->
+					Domain.BuildPV {
+						Domain.cmdline = direct.cmdline;
+						ramdisk = direct.ramdisk;
+					}
+				| PV { boot = Indirect { devices = [] } } ->
+					raise (No_bootable_device)
+				| PV { boot = Indirect ( { devices = d :: _ } ) } ->
+					Domain.BuildPV {
+						Domain.cmdline = "";
+						ramdisk = None;
+					}
+		in
+		let build_info = {
+			Domain.memory_max = vm.memory_static_max /// 1024L;
+			memory_target = vm.memory_dynamic_min /// 1024L;
+			kernel = "";
+			vcpus = vm.vcpu_max;
+			priv = builder_spec_info;
+		} in
+		{ VmExtra.build_info = Some build_info; ty = Some vm.ty } |> VmExtra.rpc_of_persistent_t |> Jsonrpc.to_string
+
+	let generate_non_persistent_state xc xs vm =
+		let hvm = match vm.ty with HVM _ -> true | _ -> false in
+		(* XXX add per-vcpu information to the platform data *)
+		(* VCPU configuration *)
+		let pcpus = Xenctrlext.get_max_nr_cpus xc in							
+		let all_pcpus = pcpus |> Range.make 0 |> Range.to_list in
+		let all_vcpus = vm.vcpu_max |> Range.make 0 |> Range.to_list in
+		let masks = match vm.scheduler_params.affinity with
+			| [] ->
+				(* Every vcpu can run on every pcpu *)
+				List.map (fun _ -> all_pcpus) all_vcpus
+			| m :: ms ->
+				(* Treat the first as the template for the rest *)
+				let defaults = List.map (fun _ -> m) all_vcpus in
+				List.take vm.vcpu_max (m :: ms @ defaults) in
+		(* convert a mask into a binary string, one char per pCPU *)
+		let bitmap cpus: string = 
+			let cpus = List.filter (fun x -> x >= 0 && x < pcpus) cpus in
+			let result = String.make pcpus '0' in
+			List.iter (fun cpu -> result.[cpu] <- '1') cpus;
+			result in
+		let affinity = 
+			List.mapi (fun idx mask -> 
+				Printf.sprintf "vcpu/%d/affinity" idx, bitmap mask
+			) masks in
+		let weight = Opt.default [] (Opt.map
+			(fun (w, c) -> [
+				"vcpu/weight", string_of_int w;
+				"vcpu/cap", string_of_int c
+			])
+			vm.scheduler_params.priority
+		) in
+		let vcpus = [
+			"vcpu/number", string_of_int vm.vcpu_max;
+			"vcpu/current", string_of_int vm.vcpus;
+		] @ affinity @ weight in
+		let create_info = {
+			Domain.ssidref = vm.ssidref;
+			hvm = hvm;
+			hap = hvm;
+			name = vm.name;
+			xsdata = vm.xsdata;
+			platformdata = vm.platformdata @ vcpus;
+			bios_strings = vm.bios_strings;
+		} in
+		{
+			VmExtra.create_info = create_info;
+			vcpu_max = vm.vcpu_max;
+			vcpus = vm.vcpus;
+			shadow_multiplier = (match vm.Vm.ty with Vm.HVM { Vm.shadow_multiplier = sm } -> sm | _ -> 1.);
+			memory_static_max = vm.memory_static_max;
+			suspend_memory_bytes = 0L;
+			vbds = [];
+			qemu_vbds = [];
+			qemu_vifs = [];
+			vifs = [];
+			last_start_time = Unix.gettimeofday ();
+			pci_msitranslate = vm.Vm.pci_msitranslate;
+			pci_power_mgmt = vm.Vm.pci_power_mgmt;
+		}
+
 	let create_exn (task: Xenops_task.t) memory_upper_bound vm =
 		let k = vm.Vm.id in
 		with_xc_and_xs
 			(fun xc xs ->
-				let vmextra =
+				let persistent, non_persistent =
 					match DB.read k with
 						| Some x ->
 							debug "VM = %s; reloading stored domain-level configuration" vm.Vm.id;
-							x
+							x.VmExtra.persistent, x.VmExtra.non_persistent
 						| None -> begin
 							debug "VM = %s; has no stored domain-level configuration, regenerating" vm.Vm.id;
-							let hvm = match vm.ty with HVM _ -> true | _ -> false in
-							(* XXX add per-vcpu information to the platform data *)
-							(* VCPU configuration *)
-							let pcpus = Xenctrlext.get_max_nr_cpus xc in							
-							let all_pcpus = pcpus |> Range.make 0 |> Range.to_list in
-							let all_vcpus = vm.vcpu_max |> Range.make 0 |> Range.to_list in
-							let masks = match vm.scheduler_params.affinity with
-								| [] ->
-									(* Every vcpu can run on every pcpu *)
-									List.map (fun _ -> all_pcpus) all_vcpus
-								| m :: ms ->
-									(* Treat the first as the template for the rest *)
-									let defaults = List.map (fun _ -> m) all_vcpus in
-									List.take vm.vcpu_max (m :: ms @ defaults) in
-							(* convert a mask into a binary string, one char per pCPU *)
-							let bitmap cpus: string = 
-								let cpus = List.filter (fun x -> x >= 0 && x < pcpus) cpus in
-								let result = String.make pcpus '0' in
-								List.iter (fun cpu -> result.[cpu] <- '1') cpus;
-								result in
-							let affinity = 
-								List.mapi (fun idx mask -> 
-									Printf.sprintf "vcpu/%d/affinity" idx, bitmap mask
-								) masks in
-							let weight = Opt.default [] (Opt.map
-								(fun (w, c) -> [
-									"vcpu/weight", string_of_int w;
-									"vcpu/cap", string_of_int c
-								])
-								vm.scheduler_params.priority
-							) in
-							let vcpus = [
-								"vcpu/number", string_of_int vm.vcpu_max;
-								"vcpu/current", string_of_int vm.vcpus;
-							] @ affinity @ weight in
-							let create_info = {
-								Domain.ssidref = vm.ssidref;
-								hvm = hvm;
-								hap = hvm;
-								name = vm.name;
-								xsdata = vm.xsdata;
-								platformdata = vm.platformdata @ vcpus;
-								bios_strings = vm.bios_strings;
-							} in {
-								VmExtra.create_info = create_info;
-								build_info = None;
-								vcpu_max = vm.vcpu_max;
-								vcpus = vm.vcpus;
-								shadow_multiplier = (match vm.Vm.ty with Vm.HVM { Vm.shadow_multiplier = sm } -> sm | _ -> 1.);
-								memory_static_max = vm.memory_static_max;
-								suspend_memory_bytes = 0L;
-								ty = None;
-								vbds = [];
-								qemu_vbds = [];
-								qemu_vifs = [];
-								vifs = [];
-								last_start_time = Unix.gettimeofday ();
-								pci_msitranslate = vm.Vm.pci_msitranslate;
-								pci_power_mgmt = vm.Vm.pci_power_mgmt;
-							}
+							let persistent = { VmExtra.build_info = None; ty = None; } in
+							let non_persistent = generate_non_persistent_state xc xs vm in
+							persistent, non_persistent
 						end in
 				let open Memory in
-				let overhead_bytes = compute_overhead vmextra in
-                let resuming = vmextra.VmExtra.suspend_memory_bytes <> 0L in
+				let overhead_bytes = compute_overhead non_persistent in
+                let resuming = non_persistent.VmExtra.suspend_memory_bytes <> 0L in
 				(* If we are resuming then we know exactly how much memory is needed. If we are
 				   live migrating then we will only know an upper bound. If we are starting from
 				   scratch then we have a free choice. *)
 				let min_bytes, max_bytes =
 					if resuming
-					then vmextra.VmExtra.suspend_memory_bytes, vmextra.VmExtra.suspend_memory_bytes
+					then non_persistent.VmExtra.suspend_memory_bytes, non_persistent.VmExtra.suspend_memory_bytes
 					else match memory_upper_bound with
 						| Some x -> x, x
 						| None -> vm.memory_dynamic_min, vm.memory_dynamic_max in
@@ -617,8 +662,11 @@ module VM = struct
 				(* XXX: we would like to be able to cancel an in-progress with_reservation *)
 				Mem.with_reservation ~xc ~xs ~min:min_kib ~max:max_kib
 					(fun target_plus_overhead_kib reservation_id ->
-						DB.write k vmextra;
-						let domid = Domain.make ~xc ~xs vmextra.VmExtra.create_info (uuid_of_vm vm) in
+						DB.write k {
+							VmExtra.persistent = persistent;
+							VmExtra.non_persistent = non_persistent
+						};
+						let domid = Domain.make ~xc ~xs non_persistent.VmExtra.create_info (uuid_of_vm vm) in
 						Mem.transfer_reservation_to_domain ~xc ~xs ~domid reservation_id;
 						begin match vm.Vm.ty with
 							| Vm.HVM { Vm.qemu_stubdom = true } ->
@@ -676,7 +724,7 @@ module VM = struct
 				Domain.destroy task ~preserve_xs_vm:false ~xc ~xs stubdom_domid
 			) (get_stubdom ~xs domid);
 
-		let vbds = Opt.default [] (Opt.map (fun d -> d.VmExtra.vbds) (DB.read vm.Vm.id)) in
+		let vbds = Opt.default [] (Opt.map (fun d -> d.VmExtra.non_persistent.VmExtra.vbds) (DB.read vm.Vm.id)) in
 
 		(* Normally we throw-away our domain-level information. If the domain
 		   has suspended then we preserve it. *)
@@ -767,13 +815,16 @@ module VM = struct
 
 	(* NB: the arguments which affect the qemu configuration must be saved and
 	   restored with the VM. *)
-	let create_device_model_config = function
-		| { VmExtra.build_info = None }
-		| { VmExtra.ty = None } -> raise (Domain_not_built)
+	let create_device_model_config vmextra = match vmextra.VmExtra.persistent, vmextra.VmExtra.non_persistent with
+		| { VmExtra.build_info = None }, _
+		| { VmExtra.ty = None }, _ -> raise (Domain_not_built)
 		| {
-			VmExtra.ty = Some ty; build_info = Some build_info;
-			vifs = vifs;
-			vbds = vbds; qemu_vbds = qemu_vbds
+			VmExtra.build_info = Some build_info;
+			ty = Some ty;
+		},{
+			VmExtra.vifs = vifs;
+			vbds = vbds;
+			qemu_vbds = qemu_vbds
 		} ->
 			let make ?(boot_order="cd") ?(serial="pty") ?(monitor="pty") 
 					?(nics=[])
@@ -893,11 +944,16 @@ module VM = struct
 			debug "VM = %s; domid = %d; Domain built with architecture %s" vm.Vm.id domid (Domain.string_of_domarch arch);
 			let k = vm.Vm.id in
 			let d = DB.read_exn vm.Vm.id in
-			DB.write k { d with
+			let persistent = {
 				VmExtra.build_info = Some build_info;
 				ty = Some vm.ty;
-				vbds = vbds;
+			} and non_persistent = { d.VmExtra.non_persistent with
+				VmExtra.vbds = vbds;
 				vifs = vifs;
+			} in
+			DB.write k {
+				VmExtra.persistent = persistent;
+				VmExtra.non_persistent = non_persistent;
 			}
 		) (fun () -> Opt.iter Bootloader.delete !kernel_to_cleanup)
 
@@ -1082,7 +1138,7 @@ module VM = struct
 
 						(* Empty drives should be ignored (since they don't
 						   even exist in the PV case) *)
-						let vbds = List.filter (fun vbd -> vbd.Vbd.backend <> None) d.VmExtra.vbds in
+						let vbds = List.filter (fun vbd -> vbd.Vbd.backend <> None) d.VmExtra.non_persistent.VmExtra.vbds in
 						let devices = List.map (fun vbd -> vbd.Vbd.id |> snd |> device_by_id xc xs vm.id Device_common.Vbd Oldest) vbds in
 						List.iter (Device.Vbd.hard_shutdown_request ~xs) devices;
 						List.iter (Device.Vbd.hard_shutdown_wait task ~xs ~timeout:30.) devices;
@@ -1095,17 +1151,22 @@ module VM = struct
 								Storage.deactivate task (Storage.id_of domid vbd.Vbd.id) sr vdi
 						) vbds;
 						debug "VM = %s; domid = %d; Storing final memory usage" vm.Vm.id domid;
-						DB.write k { d with
+						let non_persistent = { d.VmExtra.non_persistent with
 							VmExtra.suspend_memory_bytes = Memory.bytes_of_pages pages;
+						} in
+						DB.write k { d with
+							VmExtra.non_persistent = non_persistent;
 						}
 					)
 			) Oldest task vm
 
-	let restore task progress_callback vm data =
+	let restore task progress_callback vm vbds vifs data =
 		on_domain
 			(fun xc xs task vm di ->
 				let domid = di.Xenctrl.domid in
-				let build_info = match DB.read_exn vm.Vm.id with
+				let k = vm.Vm.id in
+				let vmextra = DB.read_exn k in
+				let build_info = match vmextra.VmExtra.persistent with
 					| { VmExtra.build_info = None } ->
 						error "VM = %s; No stored build_info: cannot safely restore" vm.Vm.id;
 						raise (Does_not_exist("build_info", vm.Vm.id))
@@ -1133,6 +1194,13 @@ module VM = struct
 					and max = to_int (div vm.Vm.memory_dynamic_max 1024L) in
 					Domain.set_memory_dynamic_range ~xc ~xs ~min ~max domid
 				);
+				let non_persistent = { vmextra.VmExtra.non_persistent with
+					VmExtra.vbds = vbds;
+					vifs = vifs;
+				} in
+				DB.write k { vmextra with
+					VmExtra.non_persistent = non_persistent
+				}
 			) Newest task vm
 
 	let s3suspend =
@@ -1158,7 +1226,7 @@ module VM = struct
 					| None ->
 						(* XXX: we need to store (eg) guest agent info *)
 						begin match vme with
-							| Some { VmExtra.suspend_memory_bytes = 0L } ->
+							| Some vmextra when vmextra.VmExtra.non_persistent.VmExtra.suspend_memory_bytes = 0L ->
 								halted_vm
 							| Some _ ->
 								{ halted_vm with Vm.power_state = Suspended }
@@ -1214,7 +1282,7 @@ module VM = struct
 							guest_agent = guest_agent;
 							xsdata_state = xsdata_state;
 							vcpu_target = begin match vme with
-								| Some x -> x.VmExtra.vcpus
+								| Some x -> x.VmExtra.non_persistent.VmExtra.vcpus
 								| None -> 0
 							end;
 							memory_target = memory_target;
@@ -1222,7 +1290,7 @@ module VM = struct
 							memory_limit = memory_limit;
 							rtc_timeoffset = rtc;
 							last_start_time = begin match vme with
-								| Some x -> x.VmExtra.last_start_time
+								| Some x -> x.VmExtra.non_persistent.VmExtra.last_start_time
 								| None -> 0.
 							end;
 							shadow_multiplier_target = shadow_multiplier_target;
@@ -1272,13 +1340,16 @@ module VM = struct
 
 	let get_internal_state vdi_map vif_map vm =
 		let state = DB.read_exn vm.Vm.id in
-		let vbds = List.map (fun vbd -> {vbd with Vbd.backend = Opt.map (remap_vdi vdi_map) vbd.Vbd.backend}) state.VmExtra.vbds in
-		let vifs = List.map (fun vif -> remap_vif vif_map vif) state.VmExtra.vifs in
-		{state with VmExtra.vbds=vbds; VmExtra.vifs=vifs } |> VmExtra.rpc_of_t |> Jsonrpc.to_string
+		state.VmExtra.persistent |> VmExtra.rpc_of_persistent_t |> Jsonrpc.to_string
 
 	let set_internal_state vm state =
 		let k = vm.Vm.id in
-		DB.write k (state |> Jsonrpc.of_string |> VmExtra.t_of_rpc)
+		let persistent = state |> Jsonrpc.of_string |> VmExtra.persistent_t_of_rpc in
+		let non_persistent = match DB.read k with
+		| None -> with_xc_and_xs (fun xc xs -> generate_non_persistent_state xc xs vm)
+		| Some vmextra -> vmextra.VmExtra.non_persistent
+		in
+		DB.write k { VmExtra.persistent = persistent; VmExtra.non_persistent = non_persistent; }
 
 	let minimum_reboot_delay = 120.
 end
@@ -1320,11 +1391,16 @@ module PCI = struct
 			(fun xc xs frontend_domid hvm ->
 				(* Make sure the backend defaults are set *)
 				let vm_t = DB.read_exn vm in
-				xs.Xs.write (Printf.sprintf "/local/domain/0/backend/pci/%d/0/msitranslate" frontend_domid) (if vm_t.VmExtra.pci_msitranslate then "1" else "0");
-				xs.Xs.write (Printf.sprintf "/local/domain/0/backend/pci/%d/0/power_mgmt" frontend_domid) (if vm_t.VmExtra.pci_power_mgmt then "1" else "0");
+				let non_persistent = vm_t.VmExtra.non_persistent in
+				xs.Xs.write
+					(Printf.sprintf "/local/domain/0/backend/pci/%d/0/msitranslate" frontend_domid)
+					(if non_persistent.VmExtra.pci_msitranslate then "1" else "0");
+				xs.Xs.write
+					(Printf.sprintf "/local/domain/0/backend/pci/%d/0/power_mgmt" frontend_domid)
+					(if non_persistent.VmExtra.pci_power_mgmt then "1" else "0");
 				(* Apply overrides (if provided) *)
-				let msitranslate = if (Opt.default vm_t.VmExtra.pci_msitranslate pci.msitranslate) then 1 else 0 in
-				let pci_power_mgmt = if (Opt.default vm_t.VmExtra.pci_power_mgmt pci.power_mgmt) then 1 else 0 in
+				let msitranslate = if (Opt.default non_persistent.VmExtra.pci_msitranslate pci.msitranslate) then 1 else 0 in
+				let pci_power_mgmt = if (Opt.default non_persistent.VmExtra.pci_power_mgmt pci.power_mgmt) then 1 else 0 in
 
 				Device.PCI.bind [ device ];
 				(* If the guest is HVM then we plug via qemu *)
@@ -1429,7 +1505,9 @@ module VBD = struct
 					(* Remember what we've just done *)
 					Opt.iter (fun vm_t -> 
 						Opt.iter (fun q ->
-							DB.write vm { vm_t with VmExtra.qemu_vbds = (vbd.Vbd.id, q) :: vm_t.VmExtra.qemu_vbds }
+							let non_persistent = { vm_t.VmExtra.non_persistent with
+								VmExtra.qemu_vbds = (vbd.Vbd.id, q) :: vm_t.VmExtra.non_persistent.VmExtra.qemu_vbds} in
+							DB.write vm { vm_t with VmExtra.non_persistent = non_persistent }
 						) qemu_frontend
 					) vm_t
 				end
@@ -1450,10 +1528,13 @@ module VBD = struct
 						(fun () -> Device.Vbd.release task ~xs device);
 					(* If we have a qemu frontend, detach this too. *)
 					Opt.iter (fun vm_t -> 
-						if List.mem_assoc vbd.Vbd.id vm_t.VmExtra.qemu_vbds then begin
-							let _, qemu_vbd = List.assoc vbd.Vbd.id vm_t.VmExtra.qemu_vbds in
+						let non_persistent = vm_t.VmExtra.non_persistent in
+						if List.mem_assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds then begin
+							let _, qemu_vbd = List.assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds in
 							destroy_vbd_frontend ~xc ~xs task qemu_vbd;
-							DB.write vm { vm_t with VmExtra.qemu_vbds = List.remove_assoc vbd.Vbd.id vm_t.VmExtra.qemu_vbds }
+							let non_persistent = { non_persistent with
+								VmExtra.qemu_vbds = List.remove_assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds } in
+							DB.write vm { vm_t with VmExtra.non_persistent = non_persistent }
 						end) vm_t;
 					
 					deactivate_and_detach task device vbd;
@@ -1646,7 +1727,9 @@ module VIF = struct
 									if vif.position < 4 && stubdom_domid <> me then begin
 										let device = create task stubdom_domid in
 										let q = vif.position, Device device in
-										DB.write vm { vm_t with VmExtra.qemu_vifs = (vif.Vif.id, q) :: vm_t.VmExtra.qemu_vifs }
+										let non_persistent = { vm_t.VmExtra.non_persistent with
+											VmExtra.qemu_vifs = (vif.Vif.id, q) :: vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs } in
+										DB.write vm { vm_t with VmExtra.non_persistent = non_persistent}
 									end
 								) (get_stubdom ~xs frontend_domid)
 						) vm_t
@@ -1672,11 +1755,13 @@ module VIF = struct
 
 					Opt.iter (fun vm_t -> 
 						(* If we have a qemu frontend, detach this too. *)
-						if List.mem_assoc vif.Vif.id vm_t.VmExtra.qemu_vifs then begin
-							match (List.assoc vif.Vif.id vm_t.VmExtra.qemu_vifs) with
+						if List.mem_assoc vif.Vif.id vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs then begin
+							match (List.assoc vif.Vif.id vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs) with
 								| _, Device device ->
 									destroy device;
-									DB.write vm { vm_t with VmExtra.qemu_vifs = List.remove_assoc vif.Vif.id vm_t.VmExtra.qemu_vifs }
+									let non_persistent = { vm_t.VmExtra.non_persistent with
+										VmExtra.qemu_vifs = List.remove_assoc vif.Vif.id vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs } in
+									DB.write vm { vm_t with VmExtra.non_persistent = non_persistent }
 								| _, _ -> ()
 						end;
 					) vm_t
@@ -1702,11 +1787,14 @@ module VIF = struct
 					Device.Vif.move ~xs device bridge;
 
 					(* If we have a qemu frontend, detach this too. *)
-					if List.mem_assoc vif.Vif.id vm_t.VmExtra.qemu_vifs then begin
-						match (List.assoc vif.Vif.id vm_t.VmExtra.qemu_vifs) with
+					let non_persistent = vm_t.VmExtra.non_persistent in
+					if List.mem_assoc vif.Vif.id non_persistent.VmExtra.qemu_vifs then begin
+						match (List.assoc vif.Vif.id non_persistent.VmExtra.qemu_vifs) with
 							| _, Device device ->
 								Device.Vif.move ~xs device bridge;
-								DB.write vm { vm_t with VmExtra.qemu_vifs = List.remove_assoc vif.Vif.id vm_t.VmExtra.qemu_vifs }
+								let non_persistent = { non_persistent with
+									VmExtra.qemu_vifs = List.remove_assoc vif.Vif.id non_persistent.VmExtra.qemu_vifs } in
+								DB.write vm { vm_t with VmExtra.non_persistent = non_persistent }
 							| _, _ -> ()
 					end
 
