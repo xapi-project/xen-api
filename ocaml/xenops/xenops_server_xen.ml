@@ -1270,10 +1270,11 @@ module VM = struct
 						end
 			)
 
-	let get_internal_state vdi_map vm =
+	let get_internal_state vdi_map vif_map vm =
 		let state = DB.read_exn vm.Vm.id in
 		let vbds = List.map (fun vbd -> {vbd with Vbd.backend = Opt.map (remap_vdi vdi_map) vbd.Vbd.backend}) state.VmExtra.vbds in
-		{state with VmExtra.vbds=vbds} |> VmExtra.rpc_of_t |> Jsonrpc.to_string
+		let vifs = List.map (fun vif -> remap_vif vif_map vif) state.VmExtra.vifs in
+		{state with VmExtra.vbds=vbds; VmExtra.vifs=vifs } |> VmExtra.rpc_of_t |> Jsonrpc.to_string
 
 	let set_internal_state vm state =
 		let k = vm.Vm.id in
