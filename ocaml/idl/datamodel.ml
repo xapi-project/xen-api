@@ -7459,7 +7459,7 @@ let vgpu =
 			{param_type=String; param_name="device"; param_doc=""; param_release=boston_release; param_default=Some (VString "0")};
 			{param_type=(Map (String, String)); param_name="other_config"; param_doc=""; param_release=boston_release; param_default=Some (VMap [])}
 		]
-		~result:(Ref _vgpu, "")
+		~result:(Ref _vgpu, "reference to the newly created object")
 		~allowed_roles:_R_POOL_OP
 		()
 	in
