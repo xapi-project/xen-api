@@ -20,7 +20,7 @@ open Xenstore
 open Xenops_task
 
 let tasks = Xenops_task.empty ()
-let task = Xenops_task.add tasks "xenops" (fun _ -> ())
+let task = Xenops_task.add tasks "xenops" (fun _ -> None)
 
 let print_xen_dmesg ~xc =
 	let s = Xenctrl.readconsolering xc in

@@ -698,7 +698,7 @@ let slave () =
 
 let verbose_task t =
 	let string_of_result = function
-		| Task.Completed t -> Printf.sprintf "%.2f" t
+		| Task.Completed t -> Printf.sprintf "%.2f" t.Task.duration
 		| Task.Failed x -> Printf.sprintf "Error: %s" (x |> Jsonrpc.to_string)
 		| Task.Pending _ -> Printf.sprintf "Error: still pending" in
 	let rows = List.map (fun (name, result) -> [ name;  string_of_result result ]) t.Task.subtasks in
