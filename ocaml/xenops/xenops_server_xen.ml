@@ -866,7 +866,9 @@ module VM = struct
 			) vifs in
 			match ty with
 				| PV { framebuffer = false } -> None
-				| PV { framebuffer = true } ->
+				| PV { framebuffer = true; framebuffer_ip=Some vnc_ip } ->
+					Some (make ~hvm:false ~vnc_ip ())
+				| PV { framebuffer = true; framebuffer_ip=None } ->
 					Some (make ~hvm:false ())
 				| HVM hvm_info ->
 					let disks = List.filter_map (fun vbd ->
@@ -997,9 +999,13 @@ module VM = struct
 							Stubdom.build task ~xc ~xs info di.Xenctrl.domid stubdom_domid;
 							Device.Dm.start_vnconly task ~xs ~dmpath:_qemu_dm info stubdom_domid
 						) (get_stubdom ~xs di.Xenctrl.domid);
-				| _ ->
+				| Vm.HVM { Vm.qemu_stubdom = false } ->
 					(if saved_state then Device.Dm.restore else Device.Dm.start)
 						task ~xs ~dmpath:_qemu_dm info di.Xenctrl.domid
+				| Vm.PV _ ->
+					Device.Vfb.add ~xc ~xs di.Xenctrl.domid;
+					Device.Vkbd.add ~xc ~xs di.Xenctrl.domid;
+					Device.Dm.start_vnconly task ~xs ~dmpath:_qemu_dm info di.Xenctrl.domid
 		) (vmextra |> create_device_model_config);
 		match vm.Vm.ty with
 			| Vm.PV { vncterm = true; vncterm_ip = ip } -> Device.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
