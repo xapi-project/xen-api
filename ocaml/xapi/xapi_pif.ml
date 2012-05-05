@@ -27,6 +27,8 @@ module Net = (val (Network.get_client ()) : Network.CLIENT)
 let refresh_internal ~__context ~self =
 
 	let device = Db.PIF.get_device ~__context ~self in
+	let network = Db.PIF.get_network ~__context ~self in
+	let bridge = Db.Network.get_bridge ~__context ~self:network in
 
 	(* Update the specified PIF field in the database, if
 	 * and only if a corresponding value can be read from
@@ -45,18 +47,18 @@ let refresh_internal ~__context ~self =
 						(print_value value);
 					set_field ~__context ~self ~value
 				end)
-			(Opt.of_exception (fun () -> get_value device)) in
+			(Opt.of_exception (fun () -> get_value ())) in
 
 	if Db.PIF.get_physical ~__context ~self then
 		maybe_update_database "MAC"
 			(Db.PIF.get_MAC)
 			(Db.PIF.set_MAC)
-			(Netdev.get_address)
+			(fun () -> Netdev.get_address device)
 			(id);
 	maybe_update_database "MTU"
 		(Db.PIF.get_MTU)
 		(Db.PIF.set_MTU)
-		(Int64.of_string ++ Netdev.get_mtu)
+		(fun () -> Int64.of_string (Netdev.get_mtu bridge))
 		(Int64.to_string)
 
 let refresh ~__context ~host ~self =
