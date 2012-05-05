@@ -268,12 +268,8 @@ module MD = struct
 		let devs = List.flatten (List.map (fun (_, dev) -> dev) (Pciops.sort_pcidevs vgpu_pcidevs)) in
 
 		(* The 'unmanaged' PCI devices are in the other_config key: *)
-		let other_pcidevs =
-			try
-				Pciops.other_pcidevs_of_vm ~__context vm.API.vM_other_config
-			with Api_errors.Server_error(code, _) when code = Api_errors.rbac_permission_denied ->
-				error "No PCI devices will be passed-through: RBAC_PERMISSION_DENIED";
-				[] in
+		let other_pcidevs = Pciops.other_pcidevs_of_vm ~__context vm.API.vM_other_config in
+
 		let unmanaged = List.flatten (List.map (fun (_, dev) -> dev) (Pciops.sort_pcidevs other_pcidevs)) in
 
 		let devs = devs @ unmanaged in

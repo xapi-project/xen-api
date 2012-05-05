@@ -6490,7 +6490,7 @@ let vm =
 		Published, rel_rio, "PCI bus path for pass-through devices";
 		Deprecated, rel_boston, "Field was never used"]
 		"PCI_bus" "PCI bus path for pass-through devices";
-	field  ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("folder",(_R_VM_OP));("XenCenter.CustomFields.*",(_R_VM_OP))];
+	field  ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:["pci", _R_POOL_ADMIN; ("folder",(_R_VM_OP));("XenCenter.CustomFields.*",(_R_VM_OP))];
 	field ~qualifier:DynamicRO ~ty:Int "domid" "domain ID (if available, -1 otherwise)";
 	field ~qualifier:DynamicRO ~in_oss_since:None ~ty:String "domarch" "Domain architecture (if available, null string otherwise)";
 	field ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Map(String, String)) "last_boot_CPU_flags" "describes the CPU flags on which the VM was last booted";
@@ -7798,5 +7798,4 @@ let public_http_actions_with_no_rbac_check =
 (* permissions not associated with any object message or field *)
 let extra_permissions = [
 	(extra_permission_task_destroy_any, _R_POOL_OP); (* only POOL_OP can destroy any tasks *)
-	("internal/vm.plug_pcidevs", _R_POOL_ADMIN); (* only POOL_ADMIN can execute xapi_vm.plug_pcidevs *)
 ]
