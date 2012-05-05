@@ -117,8 +117,8 @@ let _ =
 				) vs
 		| [ "vdi-compose"; sr; vdi1; vdi2 ] ->
 			Client.VDI.compose ~dbg ~sr ~vdi1 ~vdi2
-		| [ "vdi-copy-into"; sr; vdi; url; dest; dest_vdi ] ->
-			let v = Client.VDI.copy_into ~dbg ~sr ~vdi ~url ~dest ~dest_vdi in
+		| [ "mirror-copy-into"; sr; vdi; url; dest; dest_vdi ] ->
+			let v = Client.Mirror.copy_into ~dbg ~sr ~vdi ~url ~dest ~dest_vdi in
 			Printf.printf "Created VDI %s\n" v.vdi
 		| [ "vdi-get-url"; sr; vdi ] ->
 			let x = Client.VDI.get_url ~dbg ~sr ~vdi in

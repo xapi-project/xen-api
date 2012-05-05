@@ -215,7 +215,7 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 					SMAPI.VDI.activate ~dbg ~dp:newdp ~sr ~vdi:location;
 
 					let v = if snapshot then
-							SMAPI.VDI.copy ~dbg ~sr ~vdi:location ~dp:newdp ~url ~dest:dest_sr
+							SMAPI.Mirror.copy ~dbg ~sr ~vdi:location ~dp:newdp ~url ~dest:dest_sr
 						else
 							SMAPI.Mirror.start ~dbg ~sr ~vdi:location ~dp:newdp ~url ~dest:dest_sr in
 					debug "Local VDI %s mirrored to %s" location v.vdi;

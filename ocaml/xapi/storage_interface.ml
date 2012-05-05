@@ -224,11 +224,6 @@ module VDI = struct
 		to be valid. *)
     external detach : dbg:debug_info -> dp:dp -> sr:sr -> vdi:vdi -> unit = ""
 
-	(** [copy_into task sr vdi url sr2] copies the data from [vdi] into a remote system [url]'s [sr2] *)
-	external copy_into : dbg:debug_info -> sr:sr -> vdi:vdi -> url:string -> dest:sr -> dest_vdi:vdi -> vdi_info = ""
-
-	external copy : dbg:debug_info -> sr:sr -> vdi:vdi -> dp:dp -> url:string -> dest:sr -> vdi_info = ""
-
     (** [get_url task sr vdi] returns a URL suitable for accessing disk data directly. *)
     external get_url : dbg:debug_info -> sr:sr -> vdi:vdi -> string = ""
 
@@ -272,7 +267,11 @@ module Mirror = struct
 		state : state; 
 		failed : bool;
 	}
-			
+
+	(** [copy_into task sr vdi url sr2] copies the data from [vdi] into a remote system [url]'s [sr2] *)
+	external copy_into : dbg:debug_info -> sr:sr -> vdi:vdi -> url:string -> dest:sr -> dest_vdi:vdi -> vdi_info = ""
+
+	external copy : dbg:debug_info -> sr:sr -> vdi:vdi -> dp:dp -> url:string -> dest:sr -> vdi_info = ""
 
 	(** [start task sr vdi url sr2] creates a VDI in remote [url]'s [sr2] and writes
 		data synchronously. It returns the id of the VDI.*)

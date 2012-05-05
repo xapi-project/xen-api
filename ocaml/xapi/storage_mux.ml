@@ -159,11 +159,9 @@ module Mux = struct
         let similar_content context ~dbg ~sr ~vdi =
             let module C = Client(struct let rpc = of_sr sr end) in
             C.VDI.similar_content ~dbg ~sr ~vdi
-		let copy context ~dbg ~sr ~vdi ~dp ~url ~dest = Storage_migrate.copy ~dbg ~sr ~vdi ~dp ~url ~dest
 		let compose context ~dbg ~sr ~vdi1 ~vdi2 =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.compose ~dbg ~sr ~vdi1 ~vdi2
-        let copy_into context ~dbg ~sr ~vdi ~url ~dest = Storage_migrate.copy_into ~dbg ~sr ~vdi ~url ~dest
         let get_url context ~dbg ~sr ~vdi =
             let module C = Client(struct let rpc = of_sr sr end) in
             C.VDI.get_url ~dbg ~sr ~vdi
@@ -189,6 +187,8 @@ module Mux = struct
                 raise Vdi_does_not_exist
 
     module Mirror = struct
+		let copy context ~dbg ~sr ~vdi ~dp ~url ~dest = Storage_migrate.copy ~dbg ~sr ~vdi ~dp ~url ~dest
+        let copy_into context ~dbg ~sr ~vdi ~url ~dest = Storage_migrate.copy_into ~dbg ~sr ~vdi ~url ~dest
         let start context ~dbg ~sr ~vdi ~dp ~url ~dest = Storage_migrate.start ~dbg ~sr ~vdi ~dp ~url ~dest 
         let stop context ~dbg ~sr ~vdi = Storage_migrate.stop ~dbg ~sr ~vdi
 		let list context = Storage_migrate.list
