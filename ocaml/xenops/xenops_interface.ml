@@ -306,7 +306,7 @@ module Task = struct
 		result : async_result option
 	}
 
-	type result =
+	type state =
 		| Pending of float
 		| Completed of completion_t
 		| Failed of Rpc.t
@@ -315,8 +315,8 @@ module Task = struct
 		id: id;
 		debug_info: string;
 		ctime: float;
-		result: result;
-		subtasks: (string * result) list;
+		state: state;
+		subtasks: (string * state) list;
 	}
 end
 
@@ -415,7 +415,7 @@ module VIF = struct
 end
 
 module UPDATES = struct
-	external get: debug_info -> int option -> int option -> Dynamic.id list * int option = ""
+	external get: debug_info -> int option -> int option -> Dynamic.id list * int = ""
     external inject_barrier: debug_info -> int -> unit = ""
 	external remove_barrier: debug_info -> int -> unit = ""
 	external refresh_vm: debug_info -> Vm.id -> unit = ""

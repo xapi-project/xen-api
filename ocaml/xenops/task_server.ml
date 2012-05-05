@@ -41,7 +41,7 @@ module type INTERFACE = sig
 			result : async_result option
 		}
 				
-		type result =
+		type state =
 			| Pending of float
 			| Completed of completion_t
 			| Failed of Rpc.t
@@ -73,8 +73,8 @@ type t = {
 	id: string;                                    (* unique task id *)
 	ctime: float;                                  (* created timestamp *)
 	debug_info: string;                            (* token sent by client *)
-	mutable result: Interface.Task.result;         (* current completion state *)
-	mutable subtasks: (string * Interface.Task.result) list; (* one level of "subtasks" *)
+	mutable state: Interface.Task.state;         (* current completion state *)
+	mutable subtasks: (string * Interface.Task.state) list; (* one level of "subtasks" *)
 	f: t -> Interface.Task.async_result option;    (* body of the function *)
 	tm: Mutex.t;                                   (* protects cancelling state: *)
     mutable cancelling: bool;                      (* set by cancel *)
@@ -112,7 +112,7 @@ let add tasks dbg (f: t -> Interface.Task.async_result option) =
 		id = next_task_id ();
 		ctime = Unix.gettimeofday ();
 		debug_info = dbg;
-		result = Interface.Task.Pending 0.;
+		state = Interface.Task.Pending 0.;
 		subtasks = [];
 		f = f;
 		tm = Mutex.create ();
@@ -131,13 +131,13 @@ let run item =
 		let start = Unix.gettimeofday () in
 		let result = item.f item in
 		let duration = Unix.gettimeofday () -. start in
-		item.result <- Interface.Task.Completed { Interface.Task.duration; result }
+		item.state <- Interface.Task.Completed { Interface.Task.duration; result }
 	with
 		| e ->
 			let e = e |> Interface.exnty_of_exn |> Interface.Exception.rpc_of_exnty in
 			debug "Caught exception while processing queue: %s" (e |> Jsonrpc.to_string);
 			debug "%s" (Printexc.get_backtrace ());
-			item.result <- Interface.Task.Failed e
+			item.state <- Interface.Task.Failed e
 
 let exists_locked tasks id = SMap.mem id !(tasks.tasks)
 

@@ -91,7 +91,7 @@ module Task = struct
 		result : async_result option
 	}
 
-	type result =
+	type state =
 		| Pending of float
 		| Completed of completion_t
 		| Failed of Rpc.t
@@ -100,8 +100,8 @@ module Task = struct
 		id: id;
 		debug_info: string;
 		ctime: float;
-		result: result;
-		subtasks: (string * result) list;
+		state: state;
+		subtasks: (string * state) list;
 	}
 end
 
@@ -284,7 +284,7 @@ module Mirror = struct
 
 	(** [start task sr vdi url sr2] creates a VDI in remote [url]'s [sr2] and writes
 		data synchronously. It returns the id of the VDI.*)
-	external start : dbg:debug_info -> sr:sr -> vdi:vdi -> dp:dp -> url:string -> dest:sr -> vdi_info = ""
+	external start : dbg:debug_info -> sr:sr -> vdi:vdi -> dp:dp -> url:string -> dest:sr -> Task.id = ""
 
 	(** [stop task sr vdi] stops mirroring local [vdi] *)
 	external stop : dbg:debug_info -> sr:sr -> vdi:vdi -> unit = ""
@@ -310,5 +310,5 @@ module TASK = struct
 end
 
 module UPDATES = struct
-	external get: dbg:debug_info -> from:string -> timeout:int option -> Dynamic.id list * int option = ""
+	external get: dbg:debug_info -> from:string -> timeout:int option -> Dynamic.id list * string = ""
 end

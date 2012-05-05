@@ -225,7 +225,7 @@ let get dbg from timeout t =
 						current := U.get from t.u;
 						if fst !current = [] && not(!cancel) then Condition.wait t.c t.m;
 					done;
-					fst !current, Some (snd !current)
+					!current
 				)
 		) (fun () -> Opt.iter Scheduler.cancel id)
 

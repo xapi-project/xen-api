@@ -126,7 +126,7 @@ module TASK = struct
 		Task.id = x.id;
 		debug_info = x.debug_info;
 		ctime = x.ctime;
-		result = x.result;
+		state = x.state;
 		subtasks = x.subtasks;
 	}
 	let cancel _ dbg id =
@@ -140,7 +140,7 @@ module TASK = struct
 		Mutex.execute tasks.m
 			(fun () ->
 				if exists_locked tasks id then begin
-					debug "TASK.signal %s = %s" id ((find_locked tasks id).result |> Task.rpc_of_result |> Jsonrpc.to_string);
+					debug "TASK.signal %s = %s" id ((find_locked tasks id).state |> Task.rpc_of_state |> Jsonrpc.to_string);
 					Updates.add (Dynamic.Task id) updates
 				end else debug "TASK.signal %s (object deleted)" id
 			)
@@ -543,10 +543,10 @@ module Worker = struct
 					end;
 					Redirector.finished tag queue;
 					(* The task must have succeeded or failed. *)
-					begin match item.Xenops_task.result with
+					begin match item.Xenops_task.state with
 						| Task.Pending _ ->
 							error "Task %s has been left in a Pending state" item.Xenops_task.id;
-							item.Xenops_task.result <- Task.Failed (Internal_error "Task left in Pending state" |> exnty_of_exn |> Exception.rpc_of_exnty)
+							item.Xenops_task.state <- Task.Failed (Internal_error "Task left in Pending state" |> exnty_of_exn |> Exception.rpc_of_exnty)
 						| _ -> ()
 					end;
 					TASK.signal item.Xenops_task.id
@@ -574,7 +574,7 @@ module WorkerPool = struct
 				id = t.Xenops_task.id;
 				ctime = t.Xenops_task.ctime |> Date.of_float |> Date.to_string;
 				debug_info = t.Xenops_task.debug_info;
-				subtasks = List.map (fun (name, result) -> name, result |> Task.rpc_of_result |> Jsonrpc.to_string) t.Xenops_task.subtasks |> List.rev;
+				subtasks = List.map (fun (name, state) -> name, state |> Task.rpc_of_state |> Jsonrpc.to_string) t.Xenops_task.subtasks |> List.rev;
 			}
 		type w = {
 			state: string;
@@ -996,7 +996,7 @@ let weight_of_atomic = function
 
 let progress_callback start len t y =
 	let new_progress = start +. (y *. len) in
-	t.Xenops_task.result <- Task.Pending new_progress;
+	t.Xenops_task.state <- Task.Pending new_progress;
 	TASK.signal t.Xenops_task.id
 
 let perform_atomics atomics t =
@@ -1264,7 +1264,7 @@ let immediate_operation dbg id op =
 			debug "Task %s reference %s: %s" task.Xenops_task.id task.Xenops_task.debug_info (string_of_operation op);
 			Xenops_task.run task
 		) ();
-	match task.Xenops_task.result with
+	match task.Xenops_task.state with
 		| Task.Pending _ -> assert false
 		| Task.Completed _ -> ()
 		| Task.Failed e ->
@@ -1606,8 +1606,7 @@ module UPDATES = struct
 		Debug.with_thread_associated dbg
 			(fun () ->
 				(* debug "UPDATES.get %s %s" (Opt.default "None" (Opt.map string_of_int last)) (Opt.default "None" (Opt.map string_of_int timeout)); *)
-				let ids, next = Updates.get dbg last timeout updates in
-				(ids, next)
+				Updates.get dbg last timeout updates
 			) ()
 
 	let inject_barrier _ dbg id =
@@ -1665,7 +1664,7 @@ let internal_event_thread_body = Debug.with_thread_associated "events" (fun () -
 				| x ->
 					debug "Ignoring event on %s" (Jsonrpc.to_string (Dynamic.rpc_of_id x))
 			) updates;
-		id := next_id
+		id := Some next_id
 	done;
 	debug "Shutting down internal event thread"
 )

@@ -103,3 +103,14 @@ val dp_destroy: __context:Context.t -> string -> bool -> unit
 
 (** [destroy_sr __context sr] attempts to cleanup and destroy a given SR *)
 val destroy_sr: __context:Context.t -> sr:API.ref_SR -> unit
+
+
+val event_wait: Storage_interface.debug_info -> (Storage_interface.Dynamic.id -> bool) -> unit
+
+val task_ended : Storage_interface.debug_info -> Storage_interface.Task.id -> bool
+
+val success_task : Storage_interface.debug_info -> Storage_interface.Task.id -> Storage_interface.Task.t
+
+val wait_for_task : Storage_interface.debug_info -> Storage_interface.Task.id -> Storage_interface.Task.id
+
+val vdi_of_task : Storage_interface.debug_info -> Storage_interface.Task.t -> Storage_interface.vdi_info 

@@ -81,12 +81,12 @@ let event_wait dbg p =
 		debug "Calling UPDATES.get %s %s 30" dbg (Opt.default "None" (Opt.map string_of_int !event_id));
 		let deltas, next_id = Client.UPDATES.get dbg !event_id (Some 30) in
 		List.iter (fun d -> print_delta d) deltas;
-		event_id := next_id;
+		event_id := Some next_id;
 		List.iter (fun d -> if p d then finished := true) deltas;
 	done
 
 let task_ended dbg id =
-	match (Client.TASK.stat dbg id).Task.result with
+	match (Client.TASK.stat dbg id).Task.state with
 		| Task.Completed _
 		| Task.Failed _ -> true
 		| Task.Pending _ -> false
@@ -94,7 +94,7 @@ let task_ended dbg id =
 let success_task dbg id =
 	let t = Client.TASK.stat dbg id in
 	Client.TASK.destroy dbg id;
-	match t.Task.result with
+	match t.Task.state with
 	| Task.Completed _ -> t
 	| Task.Failed x -> raise (exn_of_exnty (Exception.exnty_of_rpc x))
 	| Task.Pending _ -> failwith "task pending"

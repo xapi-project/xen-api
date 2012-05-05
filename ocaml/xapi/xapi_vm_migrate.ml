@@ -217,7 +217,8 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 					let v = if snapshot then
 							SMAPI.Mirror.copy ~dbg ~sr ~vdi:location ~dp:newdp ~url ~dest:dest_sr
 						else
-							SMAPI.Mirror.start ~dbg ~sr ~vdi:location ~dp:newdp ~url ~dest:dest_sr in
+							let open Storage_access in
+							SMAPI.Mirror.start ~dbg ~sr ~vdi:location ~dp:newdp ~url ~dest:dest_sr |> wait_for_task dbg |> success_task dbg |> vdi_of_task dbg in
 					debug "Local VDI %s mirrored to %s" location v.vdi;
 					debug "Executing remote scan to ensure VDI is known to xapi";
 					XenAPI.SR.scan remote_rpc session_id dest_sr_ref;

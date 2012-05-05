@@ -62,7 +62,7 @@ let event_wait p =
 	let event_id = ref None in
 	while not !finished do
 		let deltas, next_id = Client.UPDATES.get dbg !event_id (Some 30) in
-		event_id := next_id;
+		event_id := Some next_id;
 		List.iter (fun d -> if p d then finished := true) deltas;
 	done
 
@@ -86,10 +86,9 @@ let wait_for_tasks id =
 	while not(StringSet.is_empty !ids) do
 		let deltas, next_id = Client.UPDATES.get dbg !event_id (Some 30) in
 		if !verbose_timings
-		then (Printf.fprintf stderr "next_id = %s; deltas = %d" (Opt.default "None" (Opt.map string_of_int next_id)) (List.length deltas); flush stderr);
-		if !event_id = next_id then failwith (Printf.sprintf "next_id is unchanged: %s" (Opt.default "None" (Opt.map string_of_int next_id)));
-		if List.length deltas = 0 then failwith (Printf.sprintf "no deltas, next_id = %s" (Opt.default "None" (Opt.map string_of_int next_id)));
-		event_id := next_id;
+		then (Printf.fprintf stderr "next_id = %d; deltas = %d" next_id (List.length deltas); flush stderr);
+		if List.length deltas = 0 then failwith (Printf.sprintf "no deltas, next_id = %d" next_id);
+		event_id := Some next_id;
 		List.iter (function
 			| Dynamic.Task id' -> if task_ended dbg id' then ids := StringSet.remove id' !ids
 			| _ -> ()
@@ -99,7 +98,7 @@ let wait_for_tasks id =
 let success_task id =
 	let t = Client.TASK.stat dbg id in
 	Client.TASK.destroy dbg id;
-	match t.Task.result with
+	match t.Task.state with
 	| Task.Completed _ -> ()
 	| Task.Failed x -> raise (exn_of_exnty (Exception.exnty_of_rpc x))
 	| Task.Pending _ -> failwith "task pending"
@@ -107,7 +106,7 @@ let success_task id =
 let fail_not_built_task id =
 	let t = Client.TASK.stat dbg id in
 	Client.TASK.destroy dbg id;
-	match t.Task.result with
+	match t.Task.state with
 	| Task.Completed _ -> failwith "task completed successfully: expected Domain_not_built"
 	| Task.Failed x -> 
 		let exn = exn_of_exnty (Exception.exnty_of_rpc x) in
@@ -120,7 +119,7 @@ let fail_not_built_task id =
 let fail_max_vcpus_task id =
 	let t = Client.TASK.stat dbg id in
 	Client.TASK.destroy dbg id;
-	match t.Task.result with
+	match t.Task.state with
 	| Task.Completed _ -> failwith "task completed successfully: expected Max_vcpus"
 	| Task.Failed x ->
 		let exn = exn_of_exnty (Exception.exnty_of_rpc x) in
