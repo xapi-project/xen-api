@@ -704,18 +704,24 @@ module VM = struct
 					| Some di -> f xc xs task vm di
 			)
 
+	let on_domain_if_exists f domain_selection (task: Xenops_task.t) vm =
+		try
+			on_domain f domain_selection task vm
+		with Does_not_exist("domain", _) ->
+			debug "Domain for VM %s does not exist: ignoring" vm.Vm.id
+
 	let log_exn_continue msg f x = try f x with e -> debug "Safely ignoring exception: %s while %s" (Printexc.to_string e) msg
 
-	let destroy_device_model = on_domain (fun xc xs task vm di ->
+	let destroy_device_model = on_domain_if_exists (fun xc xs task vm di ->
 		let domid = di.Xenctrl.domid in
 		log_exn_continue "Error stoping device-model, already dead ?"
-	        (fun () -> Device.Dm.stop ~xs domid) ();
+			(fun () -> Device.Dm.stop ~xs domid) ();
 		log_exn_continue "Error stoping vncterm, already dead ?"
-	        (fun () -> Device.PV_Vnc.stop ~xs domid) ();
+			(fun () -> Device.PV_Vnc.stop ~xs domid) ();
 		(* If qemu is in a different domain to storage, detach disks *)
 	) Oldest
 
-	let destroy = on_domain (fun xc xs task vm di ->
+	let destroy = on_domain_if_exists (fun xc xs task vm di ->
 		let domid = di.Xenctrl.domid in
 
 		(* We need to clean up the stubdom before the primary otherwise we deadlock *)
