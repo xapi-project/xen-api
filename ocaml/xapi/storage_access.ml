@@ -477,13 +477,13 @@ module Builtin_impl = struct
 					let vdi, _ = find_vdi ~__context sr vdi in
 					Printf.sprintf "%s/%s/%s" ip (Ref.string_of session_ref) (Ref.string_of vdi))
 
-		let copy_into context ~dbg ~sr ~vdi ~url ~dest = assert false
-		let copy context ~dbg ~sr ~vdi ~dp ~url ~dest = assert false
 	end
 
 	let get_by_name context ~dbg ~name = assert false
 
 	module Mirror = struct
+		let copy_into context ~dbg ~sr ~vdi ~url ~dest = assert false
+		let copy context ~dbg ~sr ~vdi ~dp ~url ~dest = assert false
 		let start context ~dbg ~sr ~vdi ~dp ~url ~dest = assert false
 		let stop context ~dbg ~sr ~vdi = assert false
 		let list context ~dbg ~sr = assert false

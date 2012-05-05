@@ -495,14 +495,6 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			info "VDI.compose dbg:%s sr:%s vdi1:%s vdi2:%s" dbg sr vdi1 vdi2;
 			Impl.VDI.compose context ~dbg ~sr ~vdi1 ~vdi2
 
-		let copy_into context ~dbg ~sr ~vdi ~url ~dest =
-			info "VDI.copy_into dbg:%s sr:%s vdi:%s url:%s dest:%s" dbg sr vdi url dest;
-			Impl.VDI.copy_into context ~dbg ~sr ~vdi ~url ~dest
-
-		let copy context ~dbg ~sr ~vdi ~dp ~url ~dest =
-			info "VDI.copy dbg:%s sr:%s vdi:%s url:%s dest:%s" dbg sr vdi url dest;
-			Impl.VDI.copy context ~dbg ~sr ~vdi ~dp ~url ~dest
-
 		let get_url context ~dbg ~sr ~vdi =
 			info "VDI.get_url dbg:%s sr:%s vdi:%s" dbg sr vdi;
 			Impl.VDI.get_url context ~dbg ~sr ~vdi
@@ -514,6 +506,14 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 		Impl.get_by_name context ~dbg ~name
 
 	module Mirror = struct
+		let copy_into context ~dbg ~sr ~vdi ~url ~dest =
+			info "Mirror.copy_into dbg:%s sr:%s vdi:%s url:%s dest:%s" dbg sr vdi url dest;
+			Impl.Mirror.copy_into context ~dbg ~sr ~vdi ~url ~dest
+
+		let copy context ~dbg ~sr ~vdi ~dp ~url ~dest =
+			info "Mirror.copy dbg:%s sr:%s vdi:%s url:%s dest:%s" dbg sr vdi url dest;
+			Impl.Mirror.copy context ~dbg ~sr ~vdi ~dp ~url ~dest
+
 		let start context ~dbg ~sr ~vdi ~dp ~url ~dest =
 			info "Mirror.start dbg:%s sr:%s vdi:%s url:%s dest:%s" dbg sr vdi url dest;
 			Impl.Mirror.start context ~dbg ~sr ~vdi ~dp ~url ~dest
