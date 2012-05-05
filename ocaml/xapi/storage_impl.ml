@@ -162,18 +162,10 @@ module Sr = struct
 
 	type t = {
 		vdis: vdis; (** All tracked VDIs *)
-		tasks: Storage_task.tasks;
-		updates: Updates.t
-	}
-
-	let rpc_of_t t = rpc_of_vdis t.vdis
-	let t_of_rpc rpc = { vdis=vdis_of_rpc rpc; tasks = Storage_task.empty (); updates = Updates.empty () }
-		
+	} with rpc
 
 	let empty () = {
 		vdis = Hashtbl.create 10;
-		tasks = Storage_task.empty ();
-		updates = Updates.empty ();
 	}
 
 	let m = Mutex.create ()
@@ -183,7 +175,6 @@ module Sr = struct
 	let list sr = Mutex.execute m (fun () -> Hashtbl.fold (fun k v acc -> (k, v) :: acc) sr.vdis [])
 	let remove vdi sr =
 		Mutex.execute m (fun () -> Hashtbl.remove sr.vdis vdi)
-
 	let to_string_list x =
 		Hashtbl.fold (fun vdi vdi_t acc-> (Printf.sprintf "VDI %s" vdi :: (List.map indent (Vdi.to_string_list vdi_t))) @ acc) x.vdis []
 end
@@ -704,23 +695,15 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			result = x.result;
 			subtasks = x.subtasks;
 		}
-		let with_sr sr f =
-			match Host.find sr !Host.host with
-				| None -> raise Sr_not_attached
-				| Some sr_t ->
-					f sr_t
-		let tasks_of_sr sr = with_sr sr (fun sr_t -> sr_t.Sr.tasks)
 
-		let cancel _ ~dbg ~sr ~task =
-			Storage_task.cancel (tasks_of_sr sr) task
-		let stat' sr task =
-			let tasks = tasks_of_sr sr in
+		let cancel _ ~dbg ~task =
+			Storage_task.cancel tasks task
+		let stat' task =
 			Mutex.execute tasks.m
 				(fun () ->
 					find_locked tasks task |> t
 				)
-		let signal sr task =
-			let tasks = tasks_of_sr sr in
+		let signal task =
 			Mutex.execute tasks.m
 				(fun () ->
 					if exists_locked tasks task then begin
@@ -728,20 +711,19 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 						failwith "Unimplemented"
 					end else debug "TASK.signal %s (object deleted)" task
 				)
-		let stat _ ~dbg ~sr ~task = stat' sr task
-		let destroy' ~task ~sr = with_sr sr (fun sr_t -> 
-			destroy sr_t.Sr.tasks task; Updates.remove (Dynamic.Task task) sr_t.Sr.updates)
-		let destroy _ ~dbg ~sr ~task = destroy' ~sr ~task
-		let list _ ~dbg ~sr = list (tasks_of_sr sr) |> List.map t
+		let stat _ ~dbg ~task = stat' task
+		let destroy' ~task = 
+			destroy tasks task;
+			Updates.remove (Dynamic.Task task) updates
+		let destroy _ ~dbg ~task = destroy' ~task
+		let list _ ~dbg = list tasks |> List.map t
 	end
 
 	module UPDATES = struct
-		let get _ ~dbg ~sr ~from ~timeout =
-			match Host.find sr !Host.host with
-			| None -> raise Sr_not_attached
-			| Some sr_t ->
-				let ids, next = Updates.get dbg from timeout sr_t.Sr.updates in
-				(ids, next)
+		let get _ ~dbg ~from ~timeout =
+			let from = int_of_string from in
+			let ids, next = Updates.get dbg (Some from) timeout updates in
+			(ids, next)
 	end
 
 end
