@@ -133,6 +133,7 @@ module Vm = struct
 		| Coredump
 		| Shutdown
 		| Start
+		| Pause
 
 	type scheduler_params = {
 		priority: (int * int) option; (* weight, cap *)
