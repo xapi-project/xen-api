@@ -1878,6 +1878,18 @@ end
 let _introduceDomain = "@introduceDomain"
 let _releaseDomain = "@releaseDomain"
 
+(* CA-76600: the rtc/timeoffset needs to be maintained over a migrate. *)
+let store_rtc_timeoffset vm timeoffset =
+	Opt.iter
+		(function { VmExtra.persistent; non_persistent } ->
+			match persistent with
+				| { VmExtra.ty = Some ( Vm.HVM hvm_info ) } ->
+					let persistent = { persistent with VmExtra.ty = Some (Vm.HVM { hvm_info with Vm.timeoffset = timeoffset }) } in
+					debug "VM = %s; rtc/timeoffset <- %s" vm timeoffset;
+					DB.write vm { VmExtra.persistent; non_persistent }
+				| _ -> ()
+		) (DB.read vm)
+
 module IntMap = Map.Make(struct type t = int let compare = compare end)
 module IntSet = Set.Make(struct type t = int let compare = compare end)
 
@@ -2061,8 +2073,15 @@ let watch_xenstore () =
 						look_for_different_devices (int_of_string frontend)
 					| "local" :: "domain" :: domid :: _ ->
 						fire_event_on_vm domid
-					| "vm" :: uuid :: _ ->
-						Updates.add (Dynamic.Vm uuid) updates
+					| "vm" :: uuid :: "rtc" :: "timeoffset" :: [] ->
+						let timeoffset = try Some (xs.Xs.read path) with _ -> None in
+						Opt.iter
+							(fun timeoffset ->
+								(* Store the rtc/timeoffset for migrate *)
+								store_rtc_timeoffset uuid timeoffset;
+								(* Tell the higher-level toolstack about this too *)
+								Updates.add (Dynamic.Vm uuid) updates
+							) timeoffset
 					| _  -> debug "Ignoring unexpected watch: %s" path
 			done
 		)
