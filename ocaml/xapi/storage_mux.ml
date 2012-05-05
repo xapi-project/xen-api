@@ -198,27 +198,14 @@ module Mux = struct
     end	
 
 	module TASK = struct
-		let stat context ~dbg ~sr ~task =
-	        let module C = Client(struct let rpc = of_sr sr end) in
-            C.TASK.stat ~dbg ~sr ~task
-					
-		let cancel context ~dbg ~sr ~task =
-			let module C = Client(struct let rpc = of_sr sr end) in
-			C.TASK.cancel ~dbg ~sr ~task
-				
-		let destroy context ~dbg ~sr ~task =
-			let module C = Client(struct let rpc = of_sr sr end) in
-			C.TASK.destroy ~dbg ~sr ~task
-
-		let list context ~dbg ~sr =
-			let module C = Client (struct let rpc = of_sr sr end) in
-			C.TASK.list ~dbg ~sr
+		let stat context ~dbg ~task = assert false
+		let cancel context ~dbg ~task = assert false				
+		let destroy context ~dbg ~task = assert false
+		let list context ~dbg = assert false
     end
 
 	module UPDATES = struct
-		let get context ~dbg ~sr ~from ~timeout =
-			let module C = Client(struct let rpc = of_sr sr end) in
-			C.UPDATES.get ~dbg ~sr ~from ~timeout
+		let get context ~dbg ~from ~timeout = assert false
 	end
 
 end

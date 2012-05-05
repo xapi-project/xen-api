@@ -100,13 +100,11 @@ module Dynamic = struct
 	type id = 
 		| Task of Task.id
 		| Vdi of vdi
-(*		| Sr of sr*)
 		| Dp of dp
 
 	type t = 
 		| Task_t of Task.id * Task.t
 		| Vdi_t of vdi * vdi_info
-(*		| Sr_t of sr * unit*)
 		| Dp of dp * stat_t
 		
 end
@@ -297,15 +295,12 @@ end
 
 
 module TASK = struct
-	external stat: dbg:debug_info -> sr:sr -> task:Task.id -> Task.t = ""
-	external cancel: dbg:debug_info -> sr:sr -> task:Task.id -> unit = ""
-	external destroy: dbg:debug_info -> sr:sr -> task:Task.id -> unit = ""
-	external list: dbg:debug_info -> sr:sr -> Task.t list = ""
+	external stat: dbg:debug_info -> task:Task.id -> Task.t = ""
+	external cancel: dbg:debug_info -> task:Task.id -> unit = ""
+	external destroy: dbg:debug_info -> task:Task.id -> unit = ""
+	external list: dbg:debug_info -> Task.t list = ""
 end
 
 module UPDATES = struct
-	external get: dbg:debug_info -> sr:sr -> from:int option -> timeout:int option -> Dynamic.id list * int option = ""
-(*    external inject_barrier: dbg:debug_info -> int -> unit = ""
-	external remove_barrier: dbg:debug_info -> int -> unit = ""
-	external refresh_vm: debug_info -> Vm.id -> unit = ""*)
+	external get: dbg:debug_info -> from:string -> timeout:int option -> Dynamic.id list * int option = ""
 end
