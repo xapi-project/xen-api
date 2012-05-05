@@ -76,15 +76,24 @@ type stat_t = {
 	dps: (string * Vdi_automaton.state) list;
 }
 
+type async_result_t = 
+	| Vdi_info of vdi_info
 
 let string_of_stat_t (x: stat_t) = Jsonrpc.to_string (rpc_of_stat_t x)
 
 module Task = struct
 	type id = string
 
+	type async_result = async_result_t
+
+	type completion_t = {
+		duration : float;
+		result : async_result option
+	}
+
 	type result =
 		| Pending of float
-		| Completed of float
+		| Completed of completion_t
 		| Failed of Rpc.t
 
 	type t = {

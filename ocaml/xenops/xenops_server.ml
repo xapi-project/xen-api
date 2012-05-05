@@ -1252,12 +1252,12 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 		| Some name -> Xenops_task.with_subtask t name (fun () -> one op)
 
 let queue_operation dbg id op =
-	let task = Xenops_task.add tasks dbg (fun t -> perform op t) in
+	let task = Xenops_task.add tasks dbg (fun t -> perform op t; None) in
 	Redirector.push id (op, task);
 	task.Xenops_task.id
 
 let immediate_operation dbg id op =
-	let task = Xenops_task.add tasks dbg (fun t -> perform op t) in
+	let task = Xenops_task.add tasks dbg (fun t -> perform op t; None) in
 	TASK.destroy' task.Xenops_task.id;
 	Debug.with_thread_associated dbg
 		(fun () ->

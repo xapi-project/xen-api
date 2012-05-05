@@ -299,9 +299,16 @@ end
 module Task = struct
 	type id = string
 
+	type async_result = unit
+		
+	type completion_t = {
+		duration : float;
+		result : async_result option
+	}
+
 	type result =
 		| Pending of float
-		| Completed of float
+		| Completed of completion_t
 		| Failed of Rpc.t
 
 	type t = {

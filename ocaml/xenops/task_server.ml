@@ -30,10 +30,20 @@ module type INTERFACE = sig
 
 	module Task : sig 
 		type id = string
+
+		type async_result
+
+		val rpc_of_async_result : async_result -> Rpc.t
+		val async_result_of_rpc : Rpc.t -> async_result
+
+		type completion_t = {
+			duration : float;
+			result : async_result option
+		}
 				
 		type result =
 			| Pending of float
-			| Completed of float
+			| Completed of completion_t
 			| Failed of Rpc.t
 
 	end
@@ -63,9 +73,9 @@ type t = {
 	id: string;                                    (* unique task id *)
 	ctime: float;                                  (* created timestamp *)
 	debug_info: string;                            (* token sent by client *)
-	mutable result: Interface.Task.result;                   (* current completion state *)
+	mutable result: Interface.Task.result;         (* current completion state *)
 	mutable subtasks: (string * Interface.Task.result) list; (* one level of "subtasks" *)
-	f: t -> unit;                                  (* body of the function *)
+	f: t -> Interface.Task.async_result option;    (* body of the function *)
 	tm: Mutex.t;                                   (* protects cancelling state: *)
     mutable cancelling: bool;                      (* set by cancel *)
 	mutable cancel: (unit -> unit) list;           (* attempt to cancel [f] *)
@@ -97,7 +107,7 @@ let next_task_id =
 		result
 
 (* [add dbg f] creates a fresh [t], registers and returns it *)
-let add tasks dbg (f: t -> unit) =
+let add tasks dbg (f: t -> Interface.Task.async_result option) =
 	let t = {
 		id = next_task_id ();
 		ctime = Unix.gettimeofday ();
@@ -119,9 +129,9 @@ let add tasks dbg (f: t -> unit) =
 let run item =
 	try
 		let start = Unix.gettimeofday () in
-		item.f item;
+		let result = item.f item in
 		let duration = Unix.gettimeofday () -. start in
-		item.result <- Interface.Task.Completed duration;
+		item.result <- Interface.Task.Completed { Interface.Task.duration; result }
 	with
 		| e ->
 			let e = e |> Interface.exnty_of_exn |> Interface.Exception.rpc_of_exnty in
@@ -140,7 +150,8 @@ let with_subtask t name f =
 	try
 		t.subtasks <- (name, Interface.Task.Pending 0.) :: t.subtasks;
 		let result = f () in
-		t.subtasks <- List.replace_assoc name (Interface.Task.Completed (Unix.gettimeofday () -. start)) t.subtasks;
+		let duration = Unix.gettimeofday () -. start in
+		t.subtasks <- List.replace_assoc name (Interface.Task.Completed {Interface.Task.duration; result=None}) t.subtasks;
 		result
 	with e ->
 		t.subtasks <- List.replace_assoc name (Interface.Task.Failed (Interface.Exception.rpc_of_exnty (Interface.exnty_of_exn (Interface.Internal_error (Printexc.to_string e))))) t.subtasks;
