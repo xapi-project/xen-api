@@ -1125,7 +1125,7 @@ let update_task ~__context id =
 		let self = id_to_task_exn id in (* throws Not_found *)
 		let dbg = Context.string_of_task __context in
 		let task_t = Client.TASK.stat dbg id in
-		match task_t.Task.result with
+		match task_t.Task.state with
 			| Task.Pending x ->
 				Db.Task.set_progress ~__context ~self ~value:x
 			| _ -> ()
@@ -1161,7 +1161,7 @@ let rec events_watch ~__context from =
 				debug "barrier %d" id;
 				Event.wakeup dbg id
 		) events;
-	events_watch ~__context next
+	events_watch ~__context (Some next)
 
 let manage_dom0 dbg =
 	(* Tell xenopsd to manage domain 0 *)
@@ -1205,7 +1205,7 @@ let on_xapi_restart ~__context =
 	let tasks = Client.TASK.list dbg in
 	List.iter
 		(fun t ->
-			info "Deleting leaked xenopsd task %s (%s) (%s)" t.Task.id t.Task.debug_info (t.Task.result |> Task.rpc_of_result |> Jsonrpc.to_string);
+			info "Deleting leaked xenopsd task %s (%s) (%s)" t.Task.id t.Task.debug_info (t.Task.state |> Task.rpc_of_state |> Jsonrpc.to_string);
 			Client.TASK.destroy dbg t.Task.id
 		) tasks;
 	(* Any VM marked as 'Suspended' in xenopsd is broken because the
@@ -1346,7 +1346,7 @@ let success_task f dbg id =
 	finally
 		(fun () ->
 			let t = Client.TASK.stat dbg id in
-			match t.Task.result with
+			match t.Task.state with
 				| Task.Completed _ -> f t
 				| Task.Failed x -> 
 					let exn = exn_of_exnty (Exception.exnty_of_rpc x) in

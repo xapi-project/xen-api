@@ -124,8 +124,8 @@ let _ =
 			let x = Client.VDI.get_url ~dbg ~sr ~vdi in
 			Printf.printf "%s\n" x
 		| [ "mirror-start"; sr; vdi; dp; url; dest ] ->
-			let v = Client.Mirror.start ~dbg ~sr ~vdi ~dp ~url ~dest in
-			Printf.printf "Created VDI %s\n" v.vdi
+			let task = Client.Mirror.start ~dbg ~sr ~vdi ~dp ~url ~dest in
+			Printf.printf "Task id: %s\n" task
 		| [ "mirror-stop"; sr; vdi ] ->
 			Client.Mirror.stop ~dbg ~sr ~vdi
 		| [ "mirror-list"; sr; ] ->

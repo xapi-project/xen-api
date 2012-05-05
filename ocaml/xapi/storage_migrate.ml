@@ -24,6 +24,7 @@ open Threadext
 
 let local_url = Http.Url.(File { path = "/var/xapi/storage" }, { uri = "/"; query_params = [] })
 open Storage_interface
+open Storage_task
 
 module State = struct
 
@@ -194,7 +195,7 @@ let copy' ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 
 let copy_into ~dbg ~sr ~vdi ~url ~dest ~dest_vdi = copy' ~dbg ~sr ~vdi ~url ~dest ~dest_vdi
 
-let start ~dbg ~sr ~vdi ~dp ~url ~dest =
+let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 	debug "Mirror.start sr:%s vdi:%s url:%s dest:%s" sr vdi url dest;
 	let remote_url = Http.Url.of_string url in
 	let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
@@ -261,14 +262,23 @@ let start ~dbg ~sr ~vdi ~dp ~url ~dest =
 
 (* XXX: PR-1255: copy the xenopsd 'raise Exception' pattern *)
 let start ~dbg ~sr ~vdi ~dp ~url ~dest =
-	try
-		start ~dbg ~sr ~vdi ~dp ~url ~dest
-	with
-		| Api_errors.Server_error(code, params) ->
-			raise (Backend_error(code, params))
-		| e ->
-			raise (Internal_error(Printexc.to_string e))
-
+	let task = Storage_task.add tasks dbg (fun task -> 
+		try
+			let result = start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest in
+			Some (Vdi_info result)
+		with
+			| Api_errors.Server_error(code, params) ->
+				raise (Backend_error(code, params))
+			| e ->
+				raise (Internal_error(Printexc.to_string e))) in
+	let _ = Thread.create 
+		(Debug.with_thread_associated dbg (fun () ->
+			Storage_task.run task;
+			signal task.Storage_task.id
+		)) () in
+	task.Storage_task.id
+		
+					
 let stop ~dbg ~sr ~vdi =
 	(* Find the local VDI *)
 	let vdis = Local.SR.scan ~dbg ~sr in

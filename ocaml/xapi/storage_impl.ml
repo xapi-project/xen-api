@@ -692,7 +692,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			Task.id = x.id;
 			debug_info = x.debug_info;
 			ctime = x.ctime;
-			result = x.result;
+			state = x.state;
 			subtasks = x.subtasks;
 		}
 
@@ -702,14 +702,6 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			Mutex.execute tasks.m
 				(fun () ->
 					find_locked tasks task |> t
-				)
-		let signal task =
-			Mutex.execute tasks.m
-				(fun () ->
-					if exists_locked tasks task then begin
-						debug "TASK.signal %s = %s" task ((find_locked tasks task).result |> Task.rpc_of_result |> Jsonrpc.to_string);
-						failwith "Unimplemented"
-					end else debug "TASK.signal %s (object deleted)" task
 				)
 		let stat _ ~dbg ~task = stat' task
 		let destroy' ~task = 
@@ -721,9 +713,9 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 
 	module UPDATES = struct
 		let get _ ~dbg ~from ~timeout =
-			let from = int_of_string from in
-			let ids, next = Updates.get dbg (Some from) timeout updates in
-			(ids, next)
+			let from = try Some (int_of_string from) with _ -> None in
+			let ids, next = Updates.get dbg from timeout updates in
+			(ids, string_of_int next)
 	end
 
 end

@@ -123,7 +123,7 @@ module type S = sig
 		val get_device_action_request: Vm.id -> Vif.t -> device_action_request option
 	end
 	module UPDATES : sig
-		val get: Updates.id option -> int option -> Dynamic.id list * Updates.id option
+		val get: Updates.id option -> int option -> Dynamic.id list * Updates.id 
 	end
 	module DEBUG : sig
 		val trigger: string -> string list -> unit
