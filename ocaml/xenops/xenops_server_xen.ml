@@ -56,6 +56,7 @@ module VmExtra = struct
 	type persistent_t = {
 		build_info: Domain.build_info option;
 		ty: Vm.builder_info option;
+		last_start_time: float;
 	} with rpc
 
 	type non_persistent_t = {
@@ -69,7 +70,6 @@ module VmExtra = struct
 		qemu_vbds: (Vbd.id * (int * qemu_frontend)) list;
 		qemu_vifs: (Vif.id * (int * qemu_frontend)) list;
 		vifs: Vif.t list;
-		last_start_time: float;
 		pci_msitranslate: bool;
 		pci_power_mgmt: bool;
 	} with rpc
@@ -567,7 +567,13 @@ module VM = struct
 			vcpus = vm.vcpu_max;
 			priv = builder_spec_info;
 		} in
-		{ VmExtra.build_info = Some build_info; ty = Some vm.ty } |> VmExtra.rpc_of_persistent_t |> Jsonrpc.to_string
+		{
+			VmExtra.build_info = Some build_info;
+			ty = Some vm.ty;
+			(* Earlier than the PV drivers update time, therefore
+			   any cached PV driver information will be kept. *)
+			last_start_time = 0.;
+		} |> VmExtra.rpc_of_persistent_t |> Jsonrpc.to_string
 
 	let generate_non_persistent_state xc xs vm =
 		let hvm = match vm.ty with HVM _ -> true | _ -> false in
@@ -625,7 +631,6 @@ module VM = struct
 			qemu_vbds = [];
 			qemu_vifs = [];
 			vifs = [];
-			last_start_time = Unix.gettimeofday ();
 			pci_msitranslate = vm.Vm.pci_msitranslate;
 			pci_power_mgmt = vm.Vm.pci_power_mgmt;
 		}
@@ -641,7 +646,7 @@ module VM = struct
 							x.VmExtra.persistent, x.VmExtra.non_persistent
 						| None -> begin
 							debug "VM = %s; has no stored domain-level configuration, regenerating" vm.Vm.id;
-							let persistent = { VmExtra.build_info = None; ty = None; } in
+							let persistent = { VmExtra.build_info = None; ty = None; last_start_time = Unix.gettimeofday ()} in
 							let non_persistent = generate_non_persistent_state xc xs vm in
 							persistent, non_persistent
 						end in
@@ -950,7 +955,7 @@ module VM = struct
 			debug "VM = %s; domid = %d; Domain built with architecture %s" vm.Vm.id domid (Domain.string_of_domarch arch);
 			let k = vm.Vm.id in
 			let d = DB.read_exn vm.Vm.id in
-			let persistent = {
+			let persistent = { d.VmExtra.persistent with
 				VmExtra.build_info = Some build_info;
 				ty = Some vm.ty;
 			} and non_persistent = { d.VmExtra.non_persistent with
@@ -1296,7 +1301,7 @@ module VM = struct
 							memory_limit = memory_limit;
 							rtc_timeoffset = rtc;
 							last_start_time = begin match vme with
-								| Some x -> x.VmExtra.non_persistent.VmExtra.last_start_time
+								| Some x -> x.VmExtra.persistent.VmExtra.last_start_time
 								| None -> 0.
 							end;
 							shadow_multiplier_target = shadow_multiplier_target;
