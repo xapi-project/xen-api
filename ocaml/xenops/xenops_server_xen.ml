@@ -721,7 +721,7 @@ module VM = struct
 		(* We need to clean up the stubdom before the primary otherwise we deadlock *)
 		Opt.iter
 			(fun stubdom_domid ->
-				Domain.destroy task ~preserve_xs_vm:false ~xc ~xs stubdom_domid
+				Domain.destroy task ~xc ~xs stubdom_domid
 			) (get_stubdom ~xs domid);
 
 		let vbds = Opt.default [] (Opt.map (fun d -> d.VmExtra.non_persistent.VmExtra.vbds) (DB.read vm.Vm.id)) in
@@ -734,7 +734,7 @@ module VM = struct
 			debug "VM = %s; domid = %d; will not have domain-level information preserved" vm.Vm.id di.Xenctrl.domid;
 			if DB.exists vm.Vm.id then DB.remove vm.Vm.id;
 		end;
-		Domain.destroy task ~preserve_xs_vm:false ~xc ~xs domid;
+		Domain.destroy task ~xc ~xs domid;
 		(* Detach any remaining disks *)
 		List.iter (fun vbd -> 
 			try 
