@@ -114,3 +114,13 @@ val success_task : Storage_interface.debug_info -> Storage_interface.Task.id -> 
 val wait_for_task : Storage_interface.debug_info -> Storage_interface.Task.id -> Storage_interface.Task.id
 
 val vdi_of_task : Storage_interface.debug_info -> Storage_interface.Task.t -> Storage_interface.vdi_info 
+
+val register_task : Context.t -> Storage_interface.Task.id -> Storage_interface.Task.id
+
+val unregister_task : Context.t -> Storage_interface.Task.id -> Storage_interface.Task.id
+
+val add_to_progress_map : Storage_interface.Task.id -> (float -> float) -> Storage_interface.Task.id
+
+val remove_from_progress_map : Storage_interface.Task.id -> Storage_interface.Task.id
+
+val events_from_sm : unit -> unit

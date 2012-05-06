@@ -84,7 +84,7 @@ let dd ?(progress_cb=(fun _ -> ())) ?base prezeroed =
 	dd_internal (function | Continuing x -> progress_cb x | _ -> ()) base prezeroed
 
 
-let start_dd ?(progress_cb=(fun _ -> ())) ?base prezeroed infile outfile size =
+let start ?(progress_cb=(fun _ -> ())) ?base prezeroed infile outfile size =
 	let m = Mutex.create () in
 	let c = Condition.create () in
 	let pid = ref None in
@@ -115,7 +115,7 @@ let start_dd ?(progress_cb=(fun _ -> ())) ?base prezeroed infile outfile size =
 		| _ ->
 			failwith "Unexpected error in start_dd"
 		
-let wait_dd (m,c,pid,finished,cancelled,exn) =
+let wait (m,c,pid,finished,cancelled,exn) =
 	Mutex.execute m (fun () ->
 		while (!finished = false) do
 			Condition.wait c m
@@ -125,7 +125,7 @@ let wait_dd (m,c,pid,finished,cancelled,exn) =
 		| Some exn -> raise exn
 		| None -> ()
 
-let cancel_dd (m,c,pid,finished,cancelled,exn) =
+let cancel (m,c,pid,finished,cancelled,exn) =
 	cancelled := true;
 	let pid = Forkhelpers.getpid pid in
 	try Unix.kill pid Sys.sigkill with _ -> () 

@@ -93,6 +93,11 @@ let rpc ~srcstr ~dststr url call =
 	XMLRPC_protocol.rpc ~transport:(transport_of_url url)
 		~srcstr ~dststr ~http:(xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of url) ~query:(Http.Url.get_query_params url) (Http.Url.get_uri url)) call
 
+let vdi_info x =
+	match x with 
+		| Some (Vdi_info v) -> v
+		| _ -> failwith "Runtime type error: expecting Vdi_info"
+
 module Local = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"smapiv2" local_url end)
 
 let tapdisk_of_attach_info attach_info =
@@ -133,7 +138,7 @@ let perform_cleanup_actions =
 			try f () with e -> error "Caught %s while performing cleanup actions" (Printexc.to_string e)
 		)
 
-let copy' ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
+let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 	let remote_url = Http.Url.of_string url in
 	let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
 
@@ -179,21 +184,28 @@ let copy' ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 			(fun base_path ->
 				with_activated_disk ~dbg ~sr ~vdi:(Some vdi)
 					(fun src ->
-						Sparse_dd_wrapper.dd ?base:base_path true (Opt.unbox src) dest_vdi_url remote_vdi.virtual_size
+						let dd = Sparse_dd_wrapper.start ?base:base_path true (Opt.unbox src) 
+							dest_vdi_url remote_vdi.virtual_size in
+						Storage_task.with_cancel task 
+							(fun () -> Sparse_dd_wrapper.cancel dd)
+							(fun () -> 
+								try Sparse_dd_wrapper.wait dd 
+								with Sparse_dd_wrapper.Cancelled -> Storage_task.raise_cancelled task)
 					)
 			);
 		debug "Updating remote content_id";
 		Remote.VDI.set_content_id ~dbg ~sr:dest ~vdi:dest_vdi ~content_id:local_vdi.content_id;
 		(* PR-1255: XXX: this is useful because we don't have content_ids by default *)
 		Local.VDI.set_content_id ~dbg ~sr ~vdi:local_vdi.vdi ~content_id:local_vdi.content_id;
-		remote_vdi
+		Some (Vdi_info remote_vdi)
 	with e ->
 		error "Caught %s: performing cleanup actions" (Printexc.to_string e);
 		perform_cleanup_actions !on_fail;
 		raise e
 
 
-let copy_into ~dbg ~sr ~vdi ~url ~dest ~dest_vdi = copy' ~dbg ~sr ~vdi ~url ~dest ~dest_vdi
+let copy_into ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi = 
+	copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi
 
 let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 	debug "Mirror.start sr:%s vdi:%s url:%s dest:%s" sr vdi url dest;
@@ -251,34 +263,16 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 		let snapshot = Local.VDI.snapshot ~dbg ~sr ~vdi:local_vdi.vdi ~vdi_info:local_vdi ~params:["mirror", "nbd:" ^ dp] in
 		on_fail := (fun () -> Local.VDI.destroy ~dbg ~sr ~vdi:snapshot.vdi) :: !on_fail;
 		(* Copy the snapshot to the remote *)
-		let new_parent = copy' ~dbg ~sr ~vdi:snapshot.vdi ~url ~dest ~dest_vdi:result.Mirror.copy_diffs_to in
+		let new_parent = Storage_task.with_subtask task "copy" (fun () -> 
+			copy' ~task ~dbg ~sr ~vdi:snapshot.vdi ~url ~dest ~dest_vdi:result.Mirror.copy_diffs_to) |> vdi_info in
 		Remote.VDI.compose ~dbg ~sr:dest ~vdi1:result.Mirror.copy_diffs_to ~vdi2:result.Mirror.mirror_vdi.vdi;
 		debug "Local VDI %s == remote VDI %s" snapshot.vdi new_parent.vdi;
-		result.Mirror.mirror_vdi
+		Some (Vdi_info result.Mirror.mirror_vdi)
 	with e ->
 		error "Caught %s: performing cleanup actions" (Printexc.to_string e);
 		perform_cleanup_actions !on_fail;
 		raise (Internal_error (Printexc.to_string e))
 
-(* XXX: PR-1255: copy the xenopsd 'raise Exception' pattern *)
-let start ~dbg ~sr ~vdi ~dp ~url ~dest =
-	let task = Storage_task.add tasks dbg (fun task -> 
-		try
-			let result = start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest in
-			Some (Vdi_info result)
-		with
-			| Api_errors.Server_error(code, params) ->
-				raise (Backend_error(code, params))
-			| e ->
-				raise (Internal_error(Printexc.to_string e))) in
-	let _ = Thread.create 
-		(Debug.with_thread_associated dbg (fun () ->
-			Storage_task.run task;
-			signal task.Storage_task.id
-		)) () in
-	task.Storage_task.id
-		
-					
 let stop ~dbg ~sr ~vdi =
 	(* Find the local VDI *)
 	let vdis = Local.SR.scan ~dbg ~sr in
@@ -419,7 +413,7 @@ let nbd_handler req s sr vdi dp =
 		| None -> 
 			()
 
-let copy ~dbg ~sr ~vdi ~dp ~url ~dest =
+let copy ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 	debug "copy sr:%s vdi:%s url:%s dest:%s" sr vdi url dest;
 	let remote_url = Http.Url.of_string url in
 	let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
@@ -451,10 +445,10 @@ let copy ~dbg ~sr ~vdi ~dp ~url ~dest =
 				| None ->
 						debug "Creating a blank remote VDI";
 						Remote.VDI.create ~dbg ~sr:dest ~vdi_info:local_vdi ~params:[] in
-			let remote_copy = copy' ~dbg ~sr ~vdi ~url ~dest ~dest_vdi:remote_base.vdi in
+			let remote_copy = copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi:remote_base.vdi |> vdi_info in
 			let snapshot = Remote.VDI.snapshot ~dbg ~sr:dest ~vdi:remote_copy.vdi ~vdi_info:local_vdi ~params:[] in
 			Remote.VDI.destroy ~dbg ~sr:dest ~vdi:remote_copy.vdi;
-			snapshot
+			Some (Vdi_info snapshot)
 		with e ->
 			error "Caught %s: copying snapshots vdi" (Printexc.to_string e);
 			raise (Internal_error (Printexc.to_string e))
@@ -463,3 +457,29 @@ let copy ~dbg ~sr ~vdi ~dp ~url ~dest =
 			raise (Backend_error(code, params))
 		| e ->
 			raise (Internal_error(Printexc.to_string e))
+
+
+let wrap ~dbg f =
+	let task = Storage_task.add tasks dbg (fun task -> 
+		try
+			f task
+		with
+			| Api_errors.Server_error(code, params) ->
+				raise (Backend_error(code, params))
+			| e ->
+				raise (Internal_error(Printexc.to_string e))) in
+	let _ = Thread.create 
+		(Debug.with_thread_associated dbg (fun () ->
+			Storage_task.run task;
+			signal task.Storage_task.id
+		)) () in
+	task.Storage_task.id
+		
+let start ~dbg ~sr ~vdi ~dp ~url ~dest = 
+	wrap ~dbg (fun task -> start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest)
+
+let copy ~dbg ~sr ~vdi ~dp ~url ~dest =
+	wrap ~dbg (fun task -> copy ~task ~dbg ~sr ~vdi ~dp ~url ~dest)
+
+let copy_into ~dbg ~sr ~vdi ~url ~dest ~dest_vdi = 
+	wrap ~dbg (fun task -> copy_into ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi)
