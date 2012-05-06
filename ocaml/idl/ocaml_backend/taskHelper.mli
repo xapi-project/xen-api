@@ -34,3 +34,10 @@ val failed : __context:Context.t -> string * string list -> unit
 val init : unit -> unit
 val rbac_assert_permission_fn : (__context:Context.t -> permission:Db_actions.role_t -> unit) option ref
 val assert_can_destroy :  ?ok_if_no_session_in_context:bool -> __context:Context.t ->  [ `task ] Ref.t -> unit
+
+type id = Sm of string | Xenops of string
+
+val id_to_task_exn : id -> API.ref_task
+val task_to_id_exn : API.ref_task -> id
+val register_task : Context.t -> id -> id
+val unregister_task : Context.t -> id -> id
