@@ -734,107 +734,128 @@ let update_vm ~__context id =
 						let a = Opt.map (fun x -> f (snd x)) info in
 						let b = Opt.map f previous in
 						a <> b in
+					(* Notes on error handling: if something fails we log and continue, to
+					   maximise the amount of state which is correctly synced. If something
+					   does fail then we may end up permanently out-of-sync until either a
+					   process restart or an event is generated. We may wish to periodically
+					   inject artificial events IF there has been an event sync failure? *)
 					if different (fun x -> x.power_state) then begin
-						let power_state = xenapi_of_xenops_power_state (Opt.map (fun x -> (snd x).power_state) info) in
-						debug "xenopsd event: Updating VM %s power_state <- %s" id (Record_util.power_state_to_string power_state);
-						if power_state = `Suspended || power_state = `Halted then begin
-							detach_networks ~__context ~self;
-							Db.VM.set_ha_always_run ~__context ~self ~value:false;
-							Storage_access.reset ~__context ~vm:self;
-						end;
-						if power_state = `Halted
-						then delete_metadata_from_xenopsd ~__context id;
-						(* This will mark VBDs, VIFs as detached and clear resident_on
-						   if the VM has permenantly shutdown. *)
-						Xapi_vm_lifecycle.force_state_reset ~__context ~self ~value:power_state;
+						try
+							let power_state = xenapi_of_xenops_power_state (Opt.map (fun x -> (snd x).power_state) info) in
+							debug "xenopsd event: Updating VM %s power_state <- %s" id (Record_util.power_state_to_string power_state);
+							if power_state = `Suspended || power_state = `Halted then begin
+								detach_networks ~__context ~self;
+								Storage_access.reset ~__context ~vm:self;
+							end;
+							if power_state = `Halted
+							then delete_metadata_from_xenopsd ~__context id;
+							(* This will mark VBDs, VIFs as detached and clear resident_on
+							   if the VM has permenantly shutdown. *)
+							Xapi_vm_lifecycle.force_state_reset ~__context ~self ~value:power_state;
+						with e ->
+							error "Caught %s: while updating VM %s power_state" (Printexc.to_string e) id
 					end;
 					if different (fun x -> x.domids) then begin
-						debug "xenopsd event: Updating VM %s domid" id;
-						Opt.iter
-							(fun (_, state) ->
-								Db.VM.set_domid ~__context ~self ~value:(List.hd state.domids |> Int64.of_int)
-							) info;
-						(* If this is a storage domain, attempt to plug the PBD *)
-						Opt.iter (fun pbd ->
-							let (_: Thread.t) = Thread.create (fun () ->
-								(* Don't block the database update thread *)
-								Xapi_pbd.plug ~__context ~self:pbd
-							) () in
-							()
-						) (System_domains.pbd_of_vm ~__context ~vm:self)
-
+						try
+							debug "xenopsd event: Updating VM %s domid" id;
+							Opt.iter
+								(fun (_, state) ->
+									Db.VM.set_domid ~__context ~self ~value:(List.hd state.domids |> Int64.of_int)
+								) info;
+							(* If this is a storage domain, attempt to plug the PBD *)
+							Opt.iter (fun pbd ->
+								let (_: Thread.t) = Thread.create (fun () ->
+									(* Don't block the database update thread *)
+									Xapi_pbd.plug ~__context ~self:pbd
+								) () in
+								()
+							) (System_domains.pbd_of_vm ~__context ~vm:self)
+						with e ->
+							error "Caught %s: while updating VM %s domids" (Printexc.to_string e) id
 					end;
 					(* consoles *)
 					if different (fun x -> x.consoles) then begin
-						debug "xenopsd event: Updating VM %s consoles" id;
-						Opt.iter
-							(fun (_, state) ->
-								let localhost = Helpers.get_localhost ~__context in
-								let address = Db.Host.get_address ~__context ~self:localhost in
-								let uri = Printf.sprintf "https://%s%s" address Constants.console_uri in
-								let get_uri_from_location loc =
-									try
-										let n = String.index loc '?' in
-										String.sub loc 0 n
-									with Not_found -> loc
-								in
-								let current_protocols = List.map
-									(fun self ->
-										(Db.Console.get_protocol ~__context ~self |> to_xenops_console_protocol,
-										Db.Console.get_location ~__context ~self |> get_uri_from_location),
-										self)
-									(Db.VM.get_consoles ~__context ~self) in
-								let new_protocols = List.map (fun c -> (c.protocol, uri), c) state.consoles in
-								(* Destroy consoles that have gone away *)
-								List.iter
-									(fun protocol ->
-										let self = List.assoc protocol current_protocols in
-										Db.Console.destroy ~__context ~self
-									) (List.set_difference (List.map fst current_protocols) (List.map fst new_protocols));
-								(* Create consoles that have appeared *)
-								List.iter
-									(fun (protocol, _) ->
-										let ref = Ref.make () in
-										let uuid = Uuid.to_string (Uuid.make_uuid ()) in
-										let location = Printf.sprintf "%s?uuid=%s" uri uuid in
-										let port =
-											try Int64.of_int ((List.find (fun c -> c.protocol = protocol) state.consoles).port)
-											with Not_found -> -1L
-										in
-										Db.Console.create ~__context ~ref ~uuid
-											~protocol:(to_xenapi_console_protocol protocol) ~location ~vM:self
-											~other_config:[] ~port
-									) (List.set_difference (List.map fst new_protocols) (List.map fst current_protocols));
-							) info;
+						try
+							debug "xenopsd event: Updating VM %s consoles" id;
+							Opt.iter
+								(fun (_, state) ->
+									let localhost = Helpers.get_localhost ~__context in
+									let address = Db.Host.get_address ~__context ~self:localhost in
+									let uri = Printf.sprintf "https://%s%s" address Constants.console_uri in
+									let get_uri_from_location loc =
+										try
+											let n = String.index loc '?' in
+											String.sub loc 0 n
+										with Not_found -> loc
+									in
+									let current_protocols = List.map
+										(fun self ->
+											(Db.Console.get_protocol ~__context ~self |> to_xenops_console_protocol,
+											Db.Console.get_location ~__context ~self |> get_uri_from_location),
+											self)
+										(Db.VM.get_consoles ~__context ~self) in
+									let new_protocols = List.map (fun c -> (c.protocol, uri), c) state.consoles in
+									(* Destroy consoles that have gone away *)
+									List.iter
+										(fun protocol ->
+											let self = List.assoc protocol current_protocols in
+											Db.Console.destroy ~__context ~self
+										) (List.set_difference (List.map fst current_protocols) (List.map fst new_protocols));
+									(* Create consoles that have appeared *)
+									List.iter
+										(fun (protocol, _) ->
+											let ref = Ref.make () in
+											let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+											let location = Printf.sprintf "%s?uuid=%s" uri uuid in
+											let port =
+												try Int64.of_int ((List.find (fun c -> c.protocol = protocol) state.consoles).port)
+												with Not_found -> -1L
+											in
+											Db.Console.create ~__context ~ref ~uuid
+												~protocol:(to_xenapi_console_protocol protocol) ~location ~vM:self
+												~other_config:[] ~port
+										) (List.set_difference (List.map fst new_protocols) (List.map fst current_protocols));
+								) info;
+						with e ->
+							error "Caught %s: while updating VM %s consoles" (Printexc.to_string e) id
 					end;
 					if different (fun x -> x.memory_target) then begin
-						Opt.iter
-							(fun (_, state) ->
-								debug "xenopsd event: Updating VM %s memory_target <- %Ld" id state.memory_target;
-								Db.VM.set_memory_target ~__context ~self ~value:state.memory_target
-							) info
+						try
+							Opt.iter
+								(fun (_, state) ->
+									debug "xenopsd event: Updating VM %s memory_target <- %Ld" id state.memory_target;
+									Db.VM.set_memory_target ~__context ~self ~value:state.memory_target
+								) info
+						with e ->
+							error "Caught %s: while updating VM %s consoles" (Printexc.to_string e) id
 					end;
 					if different (fun x -> x.rtc_timeoffset) then begin
-						Opt.iter
-							(fun (_, state) ->
-								debug "xenopsd event: Updating VM %s platform:timeoffset <- %s" id state.rtc_timeoffset;
-								let key = "timeoffset" in
-								(try Db.VM.remove_from_platform ~__context ~self ~key with _ -> ());
-								Db.VM.add_to_platform ~__context ~self ~key ~value:state.rtc_timeoffset;
-							) info
+						try
+							Opt.iter
+								(fun (_, state) ->
+									debug "xenopsd event: Updating VM %s platform:timeoffset <- %s" id state.rtc_timeoffset;
+									let key = "timeoffset" in
+									(try Db.VM.remove_from_platform ~__context ~self ~key with _ -> ());
+									Db.VM.add_to_platform ~__context ~self ~key ~value:state.rtc_timeoffset;
+								) info
+						with e ->
+							error "Caught %s: while updating VM %s rtc/timeoffset" (Printexc.to_string e) id
 					end;
 					Opt.iter
 						(fun (_, state) ->
 							List.iter
 								(fun domid ->
 									if different (fun x -> x.uncooperative_balloon_driver) then begin
-										debug "xenopsd event: Updating VM %s domid %d uncooperative_balloon_driver <- %b" id domid state.uncooperative_balloon_driver;
-										Mutex.execute Monitor.uncooperative_domains_m
-											(fun () ->
-												if state.uncooperative_balloon_driver
-												then Hashtbl.replace Monitor.uncooperative_domains domid ()
-												else Hashtbl.remove Monitor.uncooperative_domains domid
-											)
+										try
+											debug "xenopsd event: Updating VM %s domid %d uncooperative_balloon_driver <- %b" id domid state.uncooperative_balloon_driver;
+											Mutex.execute Monitor.uncooperative_domains_m
+												(fun () ->
+													if state.uncooperative_balloon_driver
+													then Hashtbl.replace Monitor.uncooperative_domains domid ()
+													else Hashtbl.remove Monitor.uncooperative_domains domid
+												)
+										with e ->
+											error "Caught %s: while updating VM %s unco-operative balloon driver flag" (Printexc.to_string e) id
 									end;
 									let lookup key =
 										if List.mem_assoc key state.guest_agent then Some (List.assoc key state.guest_agent) else None in
@@ -850,54 +871,72 @@ let update_vm ~__context id =
 										) state.guest_agent |> Listext.List.setify in
 										results in
 									if different (fun x -> x.guest_agent) then begin
-										debug "xenopsd event: Updating VM %s domid %d guest_agent" id domid;
-										Xapi_guest_agent.all lookup list ~__context ~domid ~uuid:id
+										try
+											debug "xenopsd event: Updating VM %s domid %d guest_agent" id domid;
+											Xapi_guest_agent.all lookup list ~__context ~domid ~uuid:id
+										with e ->
+											error "Caught %s: while updating VM %s guest_agent" (Printexc.to_string e) id
 									end;
 									if different (fun x -> x.xsdata_state) then begin
-										debug "xenopsd event: Updating VM %s domid %d xsdata" id domid;
-										Db.VM.set_xenstore_data ~__context ~self ~value:state.xsdata_state
+										try
+											debug "xenopsd event: Updating VM %s domid %d xsdata" id domid;
+											Db.VM.set_xenstore_data ~__context ~self ~value:state.xsdata_state
+										with e ->
+											error "Caught %s: while updating VM %s xsdata" (Printexc.to_string e) id
 									end;
 									if different (fun x -> x.memory_target) then begin
-										debug "xenopsd event: Updating VM %s domid %d memory target" id domid;
-										Mutex.execute Monitor.memory_targets_m (fun () -> 
-											Hashtbl.replace Monitor.memory_targets domid state.memory_target)
+										try
+											debug "xenopsd event: Updating VM %s domid %d memory target" id domid;
+											Mutex.execute Monitor.memory_targets_m (fun () -> 
+												Hashtbl.replace Monitor.memory_targets domid state.memory_target)
+										with e ->
+											error "Caught %s: while updating VM %s memory_target" (Printexc.to_string e) id
 									end;
 								) state.domids;
 						) info;
 					if different (fun x -> x.vcpu_target) then begin
 						Opt.iter
 							(fun (_, state) ->
-								debug "xenopsd event: Updating VM %s vcpu_target <- %d" id state.Vm.vcpu_target;
-								let metrics = Db.VM.get_metrics ~__context ~self in
-								Db.VM_metrics.set_VCPUs_number ~__context ~self:metrics ~value:(Int64.of_int state.Vm.vcpu_target);
+								try
+									debug "xenopsd event: Updating VM %s vcpu_target <- %d" id state.Vm.vcpu_target;
+									let metrics = Db.VM.get_metrics ~__context ~self in
+									Db.VM_metrics.set_VCPUs_number ~__context ~self:metrics ~value:(Int64.of_int state.Vm.vcpu_target);
+								with e ->
+									error "Caught %s: while updating VM %s VCPUs_number" (Printexc.to_string e) id
 							) info
 					end;
 					if different (fun x -> x.last_start_time) then begin
-						Opt.iter
-							(fun (_, state) ->
-								debug "xenopsd event: Updating VM %s last_start_time <- %s" id (Date.to_string (Date.of_float state.last_start_time));
-								let metrics = Db.VM.get_metrics ~__context ~self in
-								let start_time = Date.of_float state.last_start_time in
-								Db.VM_metrics.set_start_time ~__context ~self:metrics ~value:start_time;
-								begin
-									try
-										let gm = Db.VM.get_guest_metrics ~__context ~self in
-										let update_time = Db.VM_guest_metrics.get_last_updated ~__context ~self:gm in
-										if update_time < start_time then begin
-											debug "VM %s guest metrics update time (%s) < VM start time (%s): deleting"
-												id (Date.to_string update_time) (Date.to_string start_time);
-											Xapi_vm_helpers.delete_guest_metrics ~__context ~self
-										end
-									with _ -> () (* The guest metrics didn't exist *)
-								end
-							) info
+						try
+							Opt.iter
+								(fun (_, state) ->
+									debug "xenopsd event: Updating VM %s last_start_time <- %s" id (Date.to_string (Date.of_float state.last_start_time));
+									let metrics = Db.VM.get_metrics ~__context ~self in
+									let start_time = Date.of_float state.last_start_time in
+									Db.VM_metrics.set_start_time ~__context ~self:metrics ~value:start_time;
+									begin
+										try
+											let gm = Db.VM.get_guest_metrics ~__context ~self in
+											let update_time = Db.VM_guest_metrics.get_last_updated ~__context ~self:gm in
+											if update_time < start_time then begin
+												debug "VM %s guest metrics update time (%s) < VM start time (%s): deleting"
+													id (Date.to_string update_time) (Date.to_string start_time);
+												Xapi_vm_helpers.delete_guest_metrics ~__context ~self
+											end
+										with _ -> () (* The guest metrics didn't exist *)
+									end
+								) info
+						with e ->
+							error "Caught %s: while updating VM %s last_start_time" (Printexc.to_string e) id
 					end;
 					if different (fun x -> x.shadow_multiplier_target) then begin
-						Opt.iter
-							(fun (_, state) ->
-								debug "xenopsd event: Updating VM %s shadow_multiplier <- %.2f" id state.shadow_multiplier_target;
-								Db.VM.set_HVM_shadow_multiplier ~__context ~self ~value:state.shadow_multiplier_target
-							) info
+						try
+							Opt.iter
+								(fun (_, state) ->
+									debug "xenopsd event: Updating VM %s shadow_multiplier <- %.2f" id state.shadow_multiplier_target;
+									Db.VM.set_HVM_shadow_multiplier ~__context ~self ~value:state.shadow_multiplier_target
+								) info
+						with e ->
+							error "Caught %s: while updating VM %s HVM_shadow_multiplier" (Printexc.to_string e) id
 					end;
 					Xenops_cache.update_vm id (Opt.map snd info);
 					Xapi_vm_lifecycle.update_allowed_operations ~__context ~self;
