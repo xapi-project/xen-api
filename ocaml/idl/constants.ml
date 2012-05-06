@@ -100,13 +100,6 @@ let power_on_fn = "main"
 (* Key used in local storage to list local PBDs with should have currently_attached = true (on this boot) *)
 let local_currently_attached_pbds = "currently_attached_pbds"
 
-(* Key used in local db to preserve dom0 memory settings over a pool-join *)
-let pool_join_mem_stat_min = "pool_join_memory_static_min"
-let pool_join_mem_stat_max = "pool_join_memory_static_max"
-let pool_join_mem_dyn_min = "pool_join_memory_dynamic_min"
-let pool_join_mem_dyn_max = "pool_join_memory_dynamic_max"
-let pool_join_mem_target = "pool_join_memory_target"
-
 (* The unique static rbac ref for the pool-admin role in the roles table *)
 let rbac_pool_admin_uuid = "0165f154-ba3e-034e-6b27-5d271af109ba"
 
