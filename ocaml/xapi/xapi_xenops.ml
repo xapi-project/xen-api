@@ -739,7 +739,6 @@ let update_vm ~__context id =
 						debug "xenopsd event: Updating VM %s power_state <- %s" id (Record_util.power_state_to_string power_state);
 						if power_state = `Suspended || power_state = `Halted then begin
 							detach_networks ~__context ~self;
-							Db.VM.set_ha_always_run ~__context ~self ~value:false;
 							Storage_access.reset ~__context ~vm:self;
 						end;
 						if power_state = `Halted
