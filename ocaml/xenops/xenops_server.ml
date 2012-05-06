@@ -1582,7 +1582,7 @@ module VM = struct
 				response |> Http.Response.to_wire_string |> Unixext.really_write_string s;
 				Opt.iter (fun t -> t |> wait_for_task dbg |> ignore) task
 			| None ->
-				let response = Http.Response.make ~version:"1.1" "200" "OK" in
+				let response = Http.Response.make ~version:"1.1" "404" "File descriptor missing" in
 				response |> Http.Response.to_wire_string |> Unixext.really_write_string s
 		) ()
 end
