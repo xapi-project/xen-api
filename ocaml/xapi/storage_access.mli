@@ -119,8 +119,10 @@ val register_task : Context.t -> Storage_interface.Task.id -> Storage_interface.
 
 val unregister_task : Context.t -> Storage_interface.Task.id -> Storage_interface.Task.id
 
-val add_to_progress_map : Storage_interface.Task.id -> (float -> float) -> Storage_interface.Task.id
+val add_to_progress_map : (float -> float) -> Storage_interface.Task.id -> Storage_interface.Task.id
 
 val remove_from_progress_map : Storage_interface.Task.id -> Storage_interface.Task.id
 
 val events_from_sm : unit -> unit
+
+val task_cancel : __context:Context.t -> self:API.ref_task -> bool

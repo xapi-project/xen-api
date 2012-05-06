@@ -150,6 +150,7 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		if not(Db.VBD.get_empty ~__context ~self:vbd)
 		then
 			let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
+			let size = Db.VDI.get_virtual_size ~__context ~self:vdi in
 			let xenops_locator = Xapi_xenops.xenops_vdi_locator ~__context ~self:vdi in
 			let location = Db.VDI.get_location ~__context ~self:vdi in
 			let device = Db.VBD.get_device ~__context ~self:vbd in
@@ -164,11 +165,12 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				None
 			end else begin
 				let sr = Db.SR.get_uuid ~__context ~self:(Db.VDI.get_SR ~__context ~self:vdi) in
-				Some (vdi, dp, location, sr, xenops_locator)
+				Some (vdi, dp, location, sr, xenops_locator, size)
 			end
 		else None in
 	let vdis = List.filter_map (vdi_filter false) vbds in
 	let snapshots_vdis = List.filter_map (vdi_filter true) snapshots_vbds in
+	let total_size = List.fold_left (fun acc (_,_,_,_,_,sz) -> Int64.add acc sz) 0L (vdis @ snapshots_vdis) in
 	let dbg = Context.string_of_task __context in
 	let dest_host = List.assoc _host dest in
 	let url = List.assoc _sm dest in
@@ -194,7 +196,10 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			with _ ->
 				None
 		in
-    let vdi_copy_fun snapshot (vdi, dp, location, sr, xenops_locator) =
+
+		let so_far = ref 0L in
+
+    let vdi_copy_fun snapshot (vdi, dp, location, sr, xenops_locator, size) =
 			let (dest_sr_ref, dest_sr) =
 				match List.mem_assoc vdi vdi_map, dest_default_sr_ref_uuid with
 					| true, _ ->
@@ -219,7 +224,14 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 						else
 							SMAPI.Mirror.start ~dbg ~sr ~vdi:location ~dp:newdp ~url ~dest:dest_sr 
 					in
-					let v = let open Storage_access in task |> register_task __context |> wait_for_task dbg |> unregister_task __context |> success_task dbg |> vdi_of_task dbg in
+					let mapfn = 
+						let start = (Int64.to_float !so_far) /. (Int64.to_float total_size) in
+						let len = (Int64.to_float size) /. (Int64.to_float total_size) in
+						fun x -> start +. x *. len
+					in
+					let v = let open Storage_access in task |> register_task __context |> add_to_progress_map mapfn |> wait_for_task dbg |> remove_from_progress_map |> unregister_task __context |> success_task dbg |> vdi_of_task dbg in
+
+					so_far := Int64.add !so_far size;
 
 					debug "Local VDI %s mirrored to %s" location v.vdi;
 					debug "Executing remote scan to ensure VDI is known to xapi";
@@ -230,6 +242,7 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 					if List.length vdis <> 1 then error "Could not locate remote VDI: query='%s', length of results: %d" query (List.length vdis);
 
 					let remote_vdi_reference = fst (List.hd vdis) in
+
 					debug "Found remote vdi reference: %s" (Ref.string_of remote_vdi_reference);
 					v,remote_vdi_reference,newdp
 				end
@@ -298,7 +311,7 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	with e ->
 		error "Caught %s: cleaning up" (Printexc.to_string e);
 		List.iter
-			(fun (vdi, dp, location, sr, xenops_locator) ->
+			(fun (vdi, dp, location, sr, xenops_locator, size) ->
 				try
 					SMAPI.Mirror.stop ~dbg ~sr ~vdi:location;
 				with e ->

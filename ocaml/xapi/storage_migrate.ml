@@ -138,6 +138,11 @@ let perform_cleanup_actions =
 			try f () with e -> error "Caught %s while performing cleanup actions" (Printexc.to_string e)
 		)
 
+let progress_callback start len t y =
+	let new_progress = start +. (y *. len) in
+	t.Storage_task.state <- Task.Pending new_progress;
+	signal t.Storage_task.id
+
 let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 	let remote_url = Http.Url.of_string url in
 	let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
@@ -184,12 +189,12 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 			(fun base_path ->
 				with_activated_disk ~dbg ~sr ~vdi:(Some vdi)
 					(fun src ->
-						let dd = Sparse_dd_wrapper.start ?base:base_path true (Opt.unbox src) 
+						let dd = Sparse_dd_wrapper.start ~progress_cb:(progress_callback 0.05 0.9 task) ?base:base_path true (Opt.unbox src) 
 							dest_vdi_url remote_vdi.virtual_size in
 						Storage_task.with_cancel task 
 							(fun () -> Sparse_dd_wrapper.cancel dd)
 							(fun () -> 
-								try Sparse_dd_wrapper.wait dd 
+								try Sparse_dd_wrapper.wait dd
 								with Sparse_dd_wrapper.Cancelled -> Storage_task.raise_cancelled task)
 					)
 			);
