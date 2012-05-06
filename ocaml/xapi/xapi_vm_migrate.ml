@@ -50,12 +50,26 @@ let pool_migrate ~__context ~vm ~host ~options =
 	let xenops_url = Printf.sprintf "http://%s/services/xenops?session_id=%s" ip session_id in
 	let open Xenops_client in
 	let vm' = Db.VM.get_uuid ~__context ~self:vm in
-	Xapi_xenops.with_migrating_away vm'
-		(fun () ->
-			(* XXX: PR-1255: the live flag *)
-			info "xenops: VM.migrate %s to %s" vm' xenops_url;
-			XenopsAPI.VM.migrate dbg vm' [] [] xenops_url |> wait_for_task dbg |> success_task dbg |> ignore;
-		);
+	begin try
+		Xapi_xenops.with_migrating_away vm'
+			(fun () ->
+				(* XXX: PR-1255: the live flag *)
+				info "xenops: VM.migrate %s to %s" vm' xenops_url;
+				XenopsAPI.VM.migrate dbg vm' [] [] xenops_url |> wait_for_task dbg |> success_task dbg |> ignore
+			)
+	with e ->
+		error "xenops: VM.migrate %s: caught %s" vm' (Printexc.to_string e);
+		(* We do our best to tidy up the state left behind *)
+		let _, state = XenopsAPI.VM.stat dbg vm' in
+		if Xenops_interface.(state.Vm.power_state = Suspended) then begin
+			debug "xenops: %s: shutting down suspended VM" vm';
+			(* This will remove any traces, but the VM may still be 'suspended' *)
+			Xapi_xenops.shutdown ~__context ~self:vm None;
+			(* Remove the VM metadata from xenopsd *)
+			(try XenopsAPI.VM.remove dbg vm' with e -> debug "xenops: VM.remove %s: caught %s" vm' (Printexc.to_string e))
+		end;
+		raise e
+	end;
 	Xapi_xenops.remove_caches vm';
 	Monitor_rrds.migrate_push ~__context vm' host;
 	(* We will have missed important events because we set resident_on late.

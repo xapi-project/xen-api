@@ -56,6 +56,7 @@ module VmExtra = struct
 	type persistent_t = {
 		build_info: Domain.build_info option;
 		ty: Vm.builder_info option;
+		last_start_time: float;
 	} with rpc
 
 	type non_persistent_t = {
@@ -69,7 +70,6 @@ module VmExtra = struct
 		qemu_vbds: (Vbd.id * (int * qemu_frontend)) list;
 		qemu_vifs: (Vif.id * (int * qemu_frontend)) list;
 		vifs: Vif.t list;
-		last_start_time: float;
 		pci_msitranslate: bool;
 		pci_power_mgmt: bool;
 	} with rpc
@@ -567,7 +567,13 @@ module VM = struct
 			vcpus = vm.vcpu_max;
 			priv = builder_spec_info;
 		} in
-		{ VmExtra.build_info = Some build_info; ty = Some vm.ty } |> VmExtra.rpc_of_persistent_t |> Jsonrpc.to_string
+		{
+			VmExtra.build_info = Some build_info;
+			ty = Some vm.ty;
+			(* Earlier than the PV drivers update time, therefore
+			   any cached PV driver information will be kept. *)
+			last_start_time = 0.;
+		} |> VmExtra.rpc_of_persistent_t |> Jsonrpc.to_string
 
 	let generate_non_persistent_state xc xs vm =
 		let hvm = match vm.ty with HVM _ -> true | _ -> false in
@@ -625,7 +631,6 @@ module VM = struct
 			qemu_vbds = [];
 			qemu_vifs = [];
 			vifs = [];
-			last_start_time = Unix.gettimeofday ();
 			pci_msitranslate = vm.Vm.pci_msitranslate;
 			pci_power_mgmt = vm.Vm.pci_power_mgmt;
 		}
@@ -641,7 +646,7 @@ module VM = struct
 							x.VmExtra.persistent, x.VmExtra.non_persistent
 						| None -> begin
 							debug "VM = %s; has no stored domain-level configuration, regenerating" vm.Vm.id;
-							let persistent = { VmExtra.build_info = None; ty = None; } in
+							let persistent = { VmExtra.build_info = None; ty = None; last_start_time = Unix.gettimeofday ()} in
 							let non_persistent = generate_non_persistent_state xc xs vm in
 							persistent, non_persistent
 						end in
@@ -704,24 +709,30 @@ module VM = struct
 					| Some di -> f xc xs task vm di
 			)
 
+	let on_domain_if_exists f domain_selection (task: Xenops_task.t) vm =
+		try
+			on_domain f domain_selection task vm
+		with Does_not_exist("domain", _) ->
+			debug "Domain for VM %s does not exist: ignoring" vm.Vm.id
+
 	let log_exn_continue msg f x = try f x with e -> debug "Safely ignoring exception: %s while %s" (Printexc.to_string e) msg
 
-	let destroy_device_model = on_domain (fun xc xs task vm di ->
+	let destroy_device_model = on_domain_if_exists (fun xc xs task vm di ->
 		let domid = di.Xenctrl.domid in
 		log_exn_continue "Error stoping device-model, already dead ?"
-	        (fun () -> Device.Dm.stop ~xs domid) ();
+			(fun () -> Device.Dm.stop ~xs domid) ();
 		log_exn_continue "Error stoping vncterm, already dead ?"
-	        (fun () -> Device.PV_Vnc.stop ~xs domid) ();
+			(fun () -> Device.PV_Vnc.stop ~xs domid) ();
 		(* If qemu is in a different domain to storage, detach disks *)
 	) Oldest
 
-	let destroy = on_domain (fun xc xs task vm di ->
+	let destroy = on_domain_if_exists (fun xc xs task vm di ->
 		let domid = di.Xenctrl.domid in
 
 		(* We need to clean up the stubdom before the primary otherwise we deadlock *)
 		Opt.iter
 			(fun stubdom_domid ->
-				Domain.destroy task ~preserve_xs_vm:false ~xc ~xs stubdom_domid
+				Domain.destroy task ~xc ~xs stubdom_domid
 			) (get_stubdom ~xs domid);
 
 		let vbds = Opt.default [] (Opt.map (fun d -> d.VmExtra.non_persistent.VmExtra.vbds) (DB.read vm.Vm.id)) in
@@ -734,7 +745,7 @@ module VM = struct
 			debug "VM = %s; domid = %d; will not have domain-level information preserved" vm.Vm.id di.Xenctrl.domid;
 			if DB.exists vm.Vm.id then DB.remove vm.Vm.id;
 		end;
-		Domain.destroy task ~preserve_xs_vm:false ~xc ~xs domid;
+		Domain.destroy task ~xc ~xs domid;
 		(* Detach any remaining disks *)
 		List.iter (fun vbd -> 
 			try 
@@ -946,7 +957,7 @@ module VM = struct
 			debug "VM = %s; domid = %d; Domain built with architecture %s" vm.Vm.id domid (Domain.string_of_domarch arch);
 			let k = vm.Vm.id in
 			let d = DB.read_exn vm.Vm.id in
-			let persistent = {
+			let persistent = { d.VmExtra.persistent with
 				VmExtra.build_info = Some build_info;
 				ty = Some vm.ty;
 			} and non_persistent = { d.VmExtra.non_persistent with
@@ -1296,7 +1307,7 @@ module VM = struct
 							memory_limit = memory_limit;
 							rtc_timeoffset = rtc;
 							last_start_time = begin match vme with
-								| Some x -> x.VmExtra.non_persistent.VmExtra.last_start_time
+								| Some x -> x.VmExtra.persistent.VmExtra.last_start_time
 								| None -> 0.
 							end;
 							shadow_multiplier_target = shadow_multiplier_target;
@@ -1884,6 +1895,18 @@ end
 let _introduceDomain = "@introduceDomain"
 let _releaseDomain = "@releaseDomain"
 
+(* CA-76600: the rtc/timeoffset needs to be maintained over a migrate. *)
+let store_rtc_timeoffset vm timeoffset =
+	Opt.iter
+		(function { VmExtra.persistent; non_persistent } ->
+			match persistent with
+				| { VmExtra.ty = Some ( Vm.HVM hvm_info ) } ->
+					let persistent = { persistent with VmExtra.ty = Some (Vm.HVM { hvm_info with Vm.timeoffset = timeoffset }) } in
+					debug "VM = %s; rtc/timeoffset <- %s" vm timeoffset;
+					DB.write vm { VmExtra.persistent; non_persistent }
+				| _ -> ()
+		) (DB.read vm)
+
 module IntMap = Map.Make(struct type t = int let compare = compare end)
 module IntSet = Set.Make(struct type t = int let compare = compare end)
 
@@ -2067,8 +2090,15 @@ let watch_xenstore () =
 						look_for_different_devices (int_of_string frontend)
 					| "local" :: "domain" :: domid :: _ ->
 						fire_event_on_vm domid
-					| "vm" :: uuid :: _ ->
-						Updates.add (Dynamic.Vm uuid) updates
+					| "vm" :: uuid :: "rtc" :: "timeoffset" :: [] ->
+						let timeoffset = try Some (xs.Xs.read path) with _ -> None in
+						Opt.iter
+							(fun timeoffset ->
+								(* Store the rtc/timeoffset for migrate *)
+								store_rtc_timeoffset uuid timeoffset;
+								(* Tell the higher-level toolstack about this too *)
+								Updates.add (Dynamic.Vm uuid) updates
+							) timeoffset
 					| _  -> debug "Ignoring unexpected watch: %s" path
 			done
 		)
