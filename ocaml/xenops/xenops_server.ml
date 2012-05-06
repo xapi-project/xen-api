@@ -1161,8 +1161,10 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 				Handshake.send s Handshake.Success;
 				debug "Synchronisation point 4";
 			with e ->
-				debug "Something went wrong";
-				perform_atomics (atomics_of_operation (VM_shutdown (id, None))) t;
+				debug "Caught %s: cleaning up VM state" (Printexc.to_string e);
+				perform_atomics (atomics_of_operation (VM_shutdown (id, None)) @ [
+					VM_remove id
+				]) t;
 				Handshake.send s (Handshake.Error (Printexc.to_string e))
 			end
 		| VM_check_state id ->
