@@ -1169,6 +1169,16 @@ let on_xapi_restart ~__context =
 			info "Deleting leaked xenopsd task %s (%s) (%s)" t.Task.id t.Task.debug_info (t.Task.result |> Task.rpc_of_result |> Jsonrpc.to_string);
 			Client.TASK.destroy dbg t.Task.id
 		) tasks;
+	(* Any VM marked as 'Suspended' in xenopsd is broken because the
+	   suspend or migrate must have failed in the middle. Remove these. *)
+	List.iter
+		(fun (vm, state) ->
+			if state.Vm.power_state = Suspended then begin
+				info "VM %s is suspended: shutting down" vm.Vm.id;
+				Client.VM.shutdown dbg vm.Vm.id None |> wait_for_task dbg |> success_task dbg |> ignore;
+				Client.VM.remove dbg vm.Vm.id
+			end
+		) (Client.VM.list dbg ());
 	(* For each VM resident on this host, check if the xenopsd
 	   has forgotten about it: this means it has shut down *)
 	let localhost = Helpers.get_localhost ~__context in
