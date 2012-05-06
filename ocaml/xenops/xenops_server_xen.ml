@@ -656,12 +656,18 @@ module VM = struct
 				(* If we are resuming then we know exactly how much memory is needed. If we are
 				   live migrating then we will only know an upper bound. If we are starting from
 				   scratch then we have a free choice. *)
-				let min_bytes, max_bytes =
-					if resuming
-					then non_persistent.VmExtra.suspend_memory_bytes, non_persistent.VmExtra.suspend_memory_bytes
-					else match memory_upper_bound with
-						| Some x -> x, x
-						| None -> vm.memory_dynamic_min, vm.memory_dynamic_max in
+				let min_bytes, max_bytes = match memory_upper_bound with
+					| Some x ->
+						debug "VM = %s; using memory_upper_bound = %Ld" vm.Vm.id x;
+						x, x
+					| None ->
+						if resuming then begin
+							debug "VM = %s; using stored suspend_memory_bytes = %Ld" vm.Vm.id non_persistent.VmExtra.suspend_memory_bytes;
+							non_persistent.VmExtra.suspend_memory_bytes, non_persistent.VmExtra.suspend_memory_bytes
+						end else begin
+							debug "VM = %s; using memory_dynamic_min = %Ld and memory_dynamic_max = %Ld" vm.Vm.id vm.memory_dynamic_min vm.memory_dynamic_max;
+							vm.memory_dynamic_min, vm.memory_dynamic_max
+						end in
 				let min_kib = kib_of_bytes_used (min_bytes +++ overhead_bytes)
 				and max_kib = kib_of_bytes_used (max_bytes +++ overhead_bytes) in
 				(* XXX: we would like to be able to cancel an in-progress with_reservation *)
