@@ -114,7 +114,7 @@ module Dynamic = struct
 	type t = 
 		| Task_t of Task.id * Task.t
 		| Vdi_t of vdi * vdi_info
-		| Dp of dp * stat_t
+		| Dp_t of dp * stat_t
 		
 end
 
@@ -278,9 +278,9 @@ module Mirror = struct
 	}
 
 	(** [copy_into task sr vdi url sr2] copies the data from [vdi] into a remote system [url]'s [sr2] *)
-	external copy_into : dbg:debug_info -> sr:sr -> vdi:vdi -> url:string -> dest:sr -> dest_vdi:vdi -> vdi_info = ""
+	external copy_into : dbg:debug_info -> sr:sr -> vdi:vdi -> url:string -> dest:sr -> dest_vdi:vdi -> Task.id = ""
 
-	external copy : dbg:debug_info -> sr:sr -> vdi:vdi -> dp:dp -> url:string -> dest:sr -> vdi_info = ""
+	external copy : dbg:debug_info -> sr:sr -> vdi:vdi -> dp:dp -> url:string -> dest:sr -> Task.id = ""
 
 	(** [start task sr vdi url sr2] creates a VDI in remote [url]'s [sr2] and writes
 		data synchronously. It returns the id of the VDI.*)

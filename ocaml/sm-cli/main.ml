@@ -119,7 +119,7 @@ let _ =
 			Client.VDI.compose ~dbg ~sr ~vdi1 ~vdi2
 		| [ "mirror-copy-into"; sr; vdi; url; dest; dest_vdi ] ->
 			let v = Client.Mirror.copy_into ~dbg ~sr ~vdi ~url ~dest ~dest_vdi in
-			Printf.printf "Created VDI %s\n" v.vdi
+			Printf.printf "Created task %s\n" v
 		| [ "vdi-get-url"; sr; vdi ] ->
 			let x = Client.VDI.get_url ~dbg ~sr ~vdi in
 			Printf.printf "%s\n" x

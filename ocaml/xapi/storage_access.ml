@@ -696,6 +696,51 @@ let vdi_of_task dbg t =
 		| Task.Completed _ -> failwith "Runtime type error in vdi_of_task"
 		| _ -> failwith "Task not completed"
 
+let progress_map_tbl = Hashtbl.create 10
+let progress_map_m = Mutex.create ()
+let add_to_progress_map id f = Mutex.execute progress_map_m (fun () -> Hashtbl.add progress_map_tbl id f); id
+let remove_from_progress_map id = Mutex.execute progress_map_m (fun () -> Hashtbl.remove progress_map_tbl id); id
+let get_progress_map id = Mutex.execute progress_map_m (fun () -> try Hashtbl.find progress_map_tbl id with _ -> (fun x -> x))
+
+exception Not_an_sm_task
+let wrap id = TaskHelper.Sm id
+let unwrap x = match x with | TaskHelper.Sm id -> id | _ -> raise Not_an_sm_task
+let register_task __context id = TaskHelper.register_task __context (wrap id) |> unwrap
+let unregister_task __context id = TaskHelper.unregister_task __context (wrap id) |> unwrap
+
+let update_task ~__context id =
+	try
+		let self = TaskHelper.id_to_task_exn (TaskHelper.Sm id) in (* throws Not_found *)
+		let dbg = Context.string_of_task __context in
+		let task_t = Client.TASK.stat dbg id in
+		let map = get_progress_map id in
+		match task_t.Task.state with
+			| Task.Pending x ->
+				Db.Task.set_progress ~__context ~self ~value:(map x)
+			| _ -> ()
+	with Not_found ->
+		(* Since this is called on all tasks, possibly after the task has been
+		   destroyed, it's safe to ignore a Not_found exception here. *)
+		()
+	| e ->
+		error "storage event: Caught %s while updating task" (Printexc.to_string e)
+
+let rec events_watch ~__context from =
+	let dbg = Context.string_of_task __context in
+	let events, next = Client.UPDATES.get dbg from None in
+	let open Dynamic in
+	List.iter
+		(function
+			| Task id ->
+				debug "sm event on Task %s" id;
+				update_task ~__context id
+			| Vdi vdi -> 
+				debug "sm event on VDI %s: ignoring" vdi
+			| Dp dp ->
+				debug "sm event on DP %s: ignoring" dp
+		) events;
+	events_watch ~__context next
+
 let transform_storage_exn f =
 	try
 		f ()
@@ -707,6 +752,18 @@ let transform_storage_exn f =
 		| e ->
 			error "Re-raising as INTERNAL_ERROR [ %s ]" (Printexc.to_string e);
 			raise (Api_errors.Server_error(Api_errors.internal_error, [ Printexc.to_string e ]))
+
+let events_from_sm () =
+    Server_helpers.exec_with_new_task "sm_events"
+		(fun __context ->
+			while true do
+				try
+					events_watch ~__context "";
+				with e ->
+					error "event thread caught: %s" (Printexc.to_string e);
+					Thread.delay 10.
+			done
+		)
 
 let start () =
 	let open Storage_impl.Local_domain_socket in
