@@ -136,6 +136,18 @@ let _ =
 					status.vdi 
 					(match status.state with | Receiving -> "Receiving" | Sending -> "Sending" | Failed -> "Failed")
 					status.failed) list
-						
+		| [ "task-list" ] ->
+			let tasks = Client.TASK.list ~dbg in
+			let open Storage_interface.Task in
+
+			List.iter (fun t ->
+				Printf.printf "%-8s %-12s %-30s %s\n" t.Task.id (t.Task.ctime |> Date.of_float |> Date.to_string) t.Task.debug_info (t.Task.state |> Task.rpc_of_state |> Jsonrpc.to_string);
+				List.iter
+					(fun (name, state) ->
+						Printf.printf "  |_ %-30s %s\n" name (state |> Task.rpc_of_state |> Jsonrpc.to_string)
+					) t.Task.subtasks
+					) tasks
+		| ["task-cancel"; task ] ->
+			Client.TASK.cancel ~dbg ~task
 		| _ ->
 			usage_and_exit ()

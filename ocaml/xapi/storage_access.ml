@@ -698,7 +698,7 @@ let vdi_of_task dbg t =
 
 let progress_map_tbl = Hashtbl.create 10
 let progress_map_m = Mutex.create ()
-let add_to_progress_map id f = Mutex.execute progress_map_m (fun () -> Hashtbl.add progress_map_tbl id f); id
+let add_to_progress_map f id = Mutex.execute progress_map_m (fun () -> Hashtbl.add progress_map_tbl id f); id
 let remove_from_progress_map id = Mutex.execute progress_map_m (fun () -> Hashtbl.remove progress_map_tbl id); id
 let get_progress_map id = Mutex.execute progress_map_m (fun () -> try Hashtbl.find progress_map_tbl id with _ -> (fun x -> x))
 
@@ -754,16 +754,17 @@ let transform_storage_exn f =
 			raise (Api_errors.Server_error(Api_errors.internal_error, [ Printexc.to_string e ]))
 
 let events_from_sm () =
-    Server_helpers.exec_with_new_task "sm_events"
-		(fun __context ->
-			while true do
-				try
-					events_watch ~__context "";
-				with e ->
-					error "event thread caught: %s" (Printexc.to_string e);
-					Thread.delay 10.
-			done
-		)
+	ignore(Thread.create (fun () -> 
+		Server_helpers.exec_with_new_task "sm_events"
+			(fun __context ->
+				while true do
+					try
+						events_watch ~__context "";
+					with e ->
+						error "event thread caught: %s" (Printexc.to_string e);
+						Thread.delay 10.
+				done
+			)) ())
 
 let start () =
 	let open Storage_impl.Local_domain_socket in
@@ -1006,3 +1007,14 @@ let destroy_sr ~__context ~sr =
 					Db.PBD.set_currently_attached ~__context ~self:pbd ~value:false);
 			unbind ~__context ~pbd
 		)
+
+let task_cancel ~__context ~self =
+	try
+		let id = TaskHelper.task_to_id_exn self |> unwrap in
+		let dbg = Context.string_of_task __context in
+		info "storage_access: TASK.cancel %s" id;
+		Client.TASK.cancel dbg id |> ignore;
+		true
+	with 
+		| Not_found -> false
+		| Not_an_sm_task -> false
