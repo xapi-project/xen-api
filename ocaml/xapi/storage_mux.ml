@@ -186,16 +186,20 @@ module Mux = struct
             | _ ->
                 raise Vdi_does_not_exist
 
-    module Mirror = struct
-		let copy context ~dbg ~sr ~vdi ~dp ~url ~dest = Storage_migrate.copy ~dbg ~sr ~vdi ~dp ~url ~dest
-        let copy_into context ~dbg ~sr ~vdi ~url ~dest = Storage_migrate.copy_into ~dbg ~sr ~vdi ~url ~dest
-        let start context ~dbg ~sr ~vdi ~dp ~url ~dest = Storage_migrate.start ~dbg ~sr ~vdi ~dp ~url ~dest 
-        let stop context ~dbg ~sr ~vdi = Storage_migrate.stop ~dbg ~sr ~vdi
-		let list context = Storage_migrate.list
-		let receive_start context = Storage_migrate.receive_start
-		let receive_finalize context = Storage_migrate.receive_finalize
-		let receive_cancel context = Storage_migrate.receive_cancel
-    end	
+	module DATA = struct
+		let copy context = Storage_migrate.copy
+        let copy_into context = Storage_migrate.copy_into
+
+		module MIRROR = struct
+			let start context = Storage_migrate.start
+			let stop context = Storage_migrate.stop
+			let list context = Storage_migrate.list
+			let stat context = Storage_migrate.stat
+			let receive_start context = Storage_migrate.receive_start
+			let receive_finalize context = Storage_migrate.receive_finalize
+			let receive_cancel context = Storage_migrate.receive_cancel
+		end	
+	end
 
 	module TASK = struct
 		let stat context ~dbg ~task = assert false

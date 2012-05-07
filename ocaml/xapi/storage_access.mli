@@ -115,9 +115,15 @@ val wait_for_task : Storage_interface.debug_info -> Storage_interface.Task.id ->
 
 val vdi_of_task : Storage_interface.debug_info -> Storage_interface.Task.t -> Storage_interface.vdi_info 
 
+val mirror_of_task : Storage_interface.debug_info -> Storage_interface.Task.t -> Storage_interface.Mirror.id 
+
 val register_task : Context.t -> Storage_interface.Task.id -> Storage_interface.Task.id
 
 val unregister_task : Context.t -> Storage_interface.Task.id -> Storage_interface.Task.id
+
+val register_mirror : Context.t -> Storage_interface.Mirror.id -> Storage_interface.Mirror.id
+
+val unregister_mirror : Storage_interface.Mirror.id -> Storage_interface.Mirror.id
 
 val add_to_progress_map : (float -> float) -> Storage_interface.Task.id -> Storage_interface.Task.id
 

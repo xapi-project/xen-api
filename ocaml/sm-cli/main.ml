@@ -118,22 +118,24 @@ let _ =
 		| [ "vdi-compose"; sr; vdi1; vdi2 ] ->
 			Client.VDI.compose ~dbg ~sr ~vdi1 ~vdi2
 		| [ "mirror-copy-into"; sr; vdi; url; dest; dest_vdi ] ->
-			let v = Client.Mirror.copy_into ~dbg ~sr ~vdi ~url ~dest ~dest_vdi in
+			let v = Client.DATA.copy_into ~dbg ~sr ~vdi ~url ~dest ~dest_vdi in
 			Printf.printf "Created task %s\n" v
 		| [ "vdi-get-url"; sr; vdi ] ->
 			let x = Client.VDI.get_url ~dbg ~sr ~vdi in
 			Printf.printf "%s\n" x
 		| [ "mirror-start"; sr; vdi; dp; url; dest ] ->
-			let task = Client.Mirror.start ~dbg ~sr ~vdi ~dp ~url ~dest in
+			let task = Client.DATA.MIRROR.start ~dbg ~sr ~vdi ~dp ~url ~dest in
 			Printf.printf "Task id: %s\n" task
-		| [ "mirror-stop"; sr; vdi ] ->
-			Client.Mirror.stop ~dbg ~sr ~vdi
-		| [ "mirror-list"; sr; ] ->
-			let list = Client.Mirror.list ~dbg ~sr in
+		| [ "mirror-stop"; id ] ->
+			Client.DATA.MIRROR.stop ~dbg ~id
+		| [ "mirror-list"; ] ->
+			let list = Client.DATA.MIRROR.list ~dbg in
 			let open Storage_interface.Mirror in
-			List.iter (fun status ->
-				Printf.printf "vdi: %s\nstatus: %s\nfailed: %b\n" 
-					status.vdi 
+			List.iter (fun (id,status) ->
+				Printf.printf "id: %s\nlocal_vdi: %s\nremote_vdi: %s\nstatus: %s\nfailed: %b\n" 
+					id
+					status.local_vdi
+					status.remote_vdi
 					(match status.state with | Receiving -> "Receiving" | Sending -> "Sending" | Failed -> "Failed")
 					status.failed) list
 		| [ "task-list" ] ->

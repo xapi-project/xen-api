@@ -505,42 +505,46 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 		debug "get_by_name dbg:%s name:%s" dbg name;
 		Impl.get_by_name context ~dbg ~name
 
-	module Mirror = struct
+	module DATA = struct
 		let copy_into context ~dbg ~sr ~vdi ~url ~dest =
-			info "Mirror.copy_into dbg:%s sr:%s vdi:%s url:%s dest:%s" dbg sr vdi url dest;
-			Impl.Mirror.copy_into context ~dbg ~sr ~vdi ~url ~dest
+			info "DATA.copy_into dbg:%s sr:%s vdi:%s url:%s dest:%s" dbg sr vdi url dest;
+			Impl.DATA.copy_into context ~dbg ~sr ~vdi ~url ~dest
 
 		let copy context ~dbg ~sr ~vdi ~dp ~url ~dest =
-			info "Mirror.copy dbg:%s sr:%s vdi:%s url:%s dest:%s" dbg sr vdi url dest;
-			Impl.Mirror.copy context ~dbg ~sr ~vdi ~dp ~url ~dest
+			info "DATA.copy dbg:%s sr:%s vdi:%s url:%s dest:%s" dbg sr vdi url dest;
+			Impl.DATA.copy context ~dbg ~sr ~vdi ~dp ~url ~dest
 
-		let start context ~dbg ~sr ~vdi ~dp ~url ~dest =
-			info "Mirror.start dbg:%s sr:%s vdi:%s url:%s dest:%s" dbg sr vdi url dest;
-			Impl.Mirror.start context ~dbg ~sr ~vdi ~dp ~url ~dest
+		module MIRROR = struct
+			let start context ~dbg ~sr ~vdi ~dp ~url ~dest =
+				info "DATA.MIRROR.start dbg:%s sr:%s vdi:%s url:%s dest:%s" dbg sr vdi url dest;
+				Impl.DATA.MIRROR.start context ~dbg ~sr ~vdi ~dp ~url ~dest
+					
+			let stop context ~dbg ~id =
+				info "DATA.MIRROR.stop dbg:%s id:%s" dbg id;
+				Impl.DATA.MIRROR.stop context ~dbg ~id
+					
+			let list context ~dbg =
+				info "DATA.MIRROR.active dbg:%s" dbg;
+				Impl.DATA.MIRROR.list context ~dbg
 
-		let stop context ~dbg ~sr ~vdi =
-			info "Mirror.stop dbg:%s sr:%s vdi:%s" dbg sr vdi;
-			Impl.Mirror.stop context ~dbg ~sr ~vdi
+			let stat context ~dbg ~id =
+				info "DATA.MIRROR.stat dbg:%s id:%s" dbg id;
+				Impl.DATA.MIRROR.stat context ~dbg ~id
+					
+			let receive_start context ~dbg ~sr ~vdi_info ~id ~similar =
+				info "DATA.MIRROR.receive_start dbg:%s sr:%s id:%s similar:[%s]" 
+					dbg sr id (String.concat "," similar);
+				Impl.DATA.MIRROR.receive_start context ~dbg ~sr ~vdi_info ~id ~similar
+					
+			let receive_finalize context ~dbg ~id =
+				info "DATA.MIRROR.receive_finalize dbg:%s id:%s" dbg id;
+				Impl.DATA.MIRROR.receive_finalize context ~dbg ~id
+					
+			let receive_cancel context ~dbg ~id =
+				info "DATA.MIRROR.receive_cancel dbg:%s id:%s" dbg id;
+				Impl.DATA.MIRROR.receive_cancel context ~dbg ~id
 
-		let list context ~dbg ~sr =
-			info "Mirror.active dbg:%s sr:%s" dbg sr;
-			Impl.Mirror.list context ~dbg ~sr 
-
-		let receive_start context ~dbg ~sr ~vdi_info ~similar =
-			info "Mirror.receive_start dbg:%s sr:%s similar:[%s]" 
-				dbg sr (String.concat "," similar);
-			Impl.Mirror.receive_start context ~dbg ~sr ~vdi_info ~similar
-
-		let receive_finalize context ~dbg ~sr ~vdi =
-			info "Mirror.receive_finalize dbg:%s sr:%s vdi:%s"
-				dbg sr vdi;
-			Impl.Mirror.receive_finalize context ~dbg ~sr ~vdi
-
-		let receive_cancel context ~dbg ~sr ~vdi =
-			info "Mirror.receive_cancel dbg:%s sr:%s vdi:%s"
-				dbg sr vdi;
-			Impl.Mirror.receive_cancel context ~dbg ~sr ~vdi
-
+		end
 				
 	end
 

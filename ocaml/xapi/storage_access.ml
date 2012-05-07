@@ -481,15 +481,18 @@ module Builtin_impl = struct
 
 	let get_by_name context ~dbg ~name = assert false
 
-	module Mirror = struct
+	module DATA = struct
 		let copy_into context ~dbg ~sr ~vdi ~url ~dest = assert false
 		let copy context ~dbg ~sr ~vdi ~dp ~url ~dest = assert false
-		let start context ~dbg ~sr ~vdi ~dp ~url ~dest = assert false
-		let stop context ~dbg ~sr ~vdi = assert false
-		let list context ~dbg ~sr = assert false
-		let receive_start context ~dbg ~sr ~vdi_info ~similar = assert false
-		let receive_finalize context ~dbg ~sr ~vdi = assert false
-		let receive_cancel context ~dbg ~sr ~vdi = assert false
+		module MIRROR = struct
+			let start context ~dbg ~sr ~vdi ~dp ~url ~dest = assert false
+			let stop context ~dbg ~id = assert false
+			let list context ~dbg = assert false
+			let stat context ~dbg ~id = assert false
+			let receive_start context ~dbg ~sr ~vdi_info ~id ~similar = assert false
+			let receive_finalize context ~dbg ~id = assert false
+			let receive_cancel context ~dbg ~id = assert false
+		end
 	end
 
 	module TASK = struct
@@ -696,11 +699,25 @@ let vdi_of_task dbg t =
 		| Task.Completed _ -> failwith "Runtime type error in vdi_of_task"
 		| _ -> failwith "Task not completed"
 
+let mirror_of_task dbg t =
+	match t.Task.state with
+		| Task.Completed { Task.result = Some Mirror_id i } -> i
+		| Task.Completed _ -> failwith "Runtime type error in mirror_of_task"
+		| _ -> failwith "Task not complete"
+
 let progress_map_tbl = Hashtbl.create 10
+let mirror_task_tbl = Hashtbl.create 10
 let progress_map_m = Mutex.create ()
+
 let add_to_progress_map f id = Mutex.execute progress_map_m (fun () -> Hashtbl.add progress_map_tbl id f); id
 let remove_from_progress_map id = Mutex.execute progress_map_m (fun () -> Hashtbl.remove progress_map_tbl id); id
 let get_progress_map id = Mutex.execute progress_map_m (fun () -> try Hashtbl.find progress_map_tbl id with _ -> (fun x -> x))
+
+let register_mirror __context id = 
+	let task = Context.get_task_id __context in
+	Mutex.execute progress_map_m (fun () -> Hashtbl.add mirror_task_tbl id task); id
+let unregister_mirror id = Mutex.execute progress_map_m (fun () -> Hashtbl.remove mirror_task_tbl id); id
+let get_mirror_task id = Mutex.execute progress_map_m (fun () -> Hashtbl.find mirror_task_tbl id)
 
 exception Not_an_sm_task
 let wrap id = TaskHelper.Sm id
@@ -725,6 +742,21 @@ let update_task ~__context id =
 	| e ->
 		error "storage event: Caught %s while updating task" (Printexc.to_string e)
 
+let update_mirror ~__context id =
+	try 
+		let dbg = Context.string_of_task __context in 
+		let m = Client.DATA.MIRROR.stat dbg id in
+		if m.Mirror.failed 
+		then 
+			let task = get_mirror_task id in
+			Helpers.call_api_functions ~__context
+				(fun rpc session_id -> XenAPI.Task.cancel rpc session_id task)
+	with 
+		| Not_found -> ()
+		| Does_not_exist _ -> ()
+		| e -> 
+			error "storage event: Caught %s while updating mirror" (Printexc.to_string e)
+				
 let rec events_watch ~__context from =
 	let dbg = Context.string_of_task __context in
 	let events, next = Client.UPDATES.get dbg from None in
@@ -738,6 +770,9 @@ let rec events_watch ~__context from =
 				debug "sm event on VDI %s: ignoring" vdi
 			| Dp dp ->
 				debug "sm event on DP %s: ignoring" dp
+			| Mirror id ->
+				debug "sm event on mirror: %s" id;
+				update_mirror ~__context id
 		) events;
 	events_watch ~__context next
 

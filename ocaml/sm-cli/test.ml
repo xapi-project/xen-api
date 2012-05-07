@@ -250,7 +250,7 @@ let test_mirror_1 url sr rurl rsr _ =
 
 	(* At this point, we have a VDI containing data with which we can mirror *)
 
-	let task = SMClient.Mirror.start ~dbg ~sr ~vdi:vdi_info.vdi ~dp ~url:rurl ~dest:rsr in
+	let _ = SMClient.DATA.MIRROR.start ~dbg ~sr ~vdi:vdi_info.vdi ~dp ~url:rurl ~dest:rsr in
 	let remote_vdi_info = vdi_info in
 
 	let junk = do_nbd url sr vdi_info.vdi dp (fun s ->
