@@ -35,7 +35,9 @@ module Scheduler = struct
 
 	type time =
 		| Absolute of int64
-		| Delta of int
+		| Delta of int with rpc
+
+	type t = int64 * int with rpc
 
 	let now () = Unix.gettimeofday () |> ceil |> Int64.of_float
 

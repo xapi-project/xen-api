@@ -152,15 +152,18 @@ module Debug_print_impl = struct
 
 	let get_by_name context ~dbg ~name = assert false
 
-	module Mirror = struct
+	module DATA = struct
 		let copy context ~dbg ~sr ~vdi ~dp ~url ~dest = assert false
 		let copy_into context ~dbg ~sr ~vdi ~url ~dest = assert false
-		let start context ~dbg ~sr ~vdi ~dp ~url ~dest = assert false
-		let stop context ~dbg ~sr ~vdi = assert false
-		let list context ~dbg ~sr = assert false
-		let receive_start context ~dbg ~sr ~vdi_info ~similar = assert false
-		let receive_finalize context ~dbg ~sr ~vdi = assert false
-		let receive_cancel context ~dbg ~sr ~vdi = assert false
+		module MIRROR = struct
+			let start context ~dbg ~sr ~vdi ~dp ~url ~dest = assert false
+			let stop context ~dbg ~id = assert false
+			let list context ~dbg = assert false
+			let stat context ~dbg ~id = assert false
+			let receive_start context ~dbg ~sr ~vdi_info ~id ~similar = assert false
+			let receive_finalize context ~dbg ~id = assert false
+			let receive_cancel context ~dbg ~id = assert false
+		end
 	end
 		
 	module SR = struct

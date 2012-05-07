@@ -62,15 +62,18 @@ module Proxy = functor(RPC: RPC) -> struct
 
 	let get_by_name _ = Client.get_by_name
 
-	module Mirror = struct
-		let copy_into _ = Client.Mirror.copy_into
-		let copy _ = Client.Mirror.copy
-		let start _ = Client.Mirror.start
-		let stop _ = Client.Mirror.stop
-		let receive_start _ = Client.Mirror.receive_start
-		let receive_finalize _ = Client.Mirror.receive_finalize
-		let receive_cancel _ = Client.Mirror.receive_cancel
-		let list _ = Client.Mirror.list
+	module DATA = struct
+		let copy_into _ = Client.DATA.copy_into
+		let copy _ = Client.DATA.copy
+		module MIRROR = struct
+			let start _ = Client.DATA.MIRROR.start
+			let stop _ = Client.DATA.MIRROR.stop
+			let stat _ = Client.DATA.MIRROR.stat
+			let receive_start _ = Client.DATA.MIRROR.receive_start
+			let receive_finalize _ = Client.DATA.MIRROR.receive_finalize
+			let receive_cancel _ = Client.DATA.MIRROR.receive_cancel
+			let list _ = Client.DATA.MIRROR.list
+		end
 	end
 
 	module TASK = struct

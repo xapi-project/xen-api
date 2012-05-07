@@ -76,10 +76,41 @@ type stat_t = {
 	dps: (string * Vdi_automaton.state) list;
 }
 
+let string_of_stat_t (x: stat_t) = Jsonrpc.to_string (rpc_of_stat_t x)
+
+module Mirror = struct
+	type id = string
+
+	type state = 
+		| Receiving
+		| Sending
+		| Failed
+
+	type t = {
+		local_vdi : vdi;
+		remote_vdi : vdi;
+		state : state; 
+		failed : bool;
+	}
+
+	type mirror_receive_result_vhd_t = {
+		mirror_vdi : vdi_info;
+		mirror_datapath : dp;
+		copy_diffs_from : content_id option;
+		copy_diffs_to : vdi;
+	}
+			
+	type mirror_receive_result = 
+		| Vhd_mirror of mirror_receive_result_vhd_t
+			
+	type similars = content_id list 
+end
+
 type async_result_t = 
 	| Vdi_info of vdi_info
+	| Mirror_id of Mirror.id
 
-let string_of_stat_t (x: stat_t) = Jsonrpc.to_string (rpc_of_stat_t x)
+
 
 module Task = struct
 	type id = string
@@ -110,11 +141,13 @@ module Dynamic = struct
 		| Task of Task.id
 		| Vdi of vdi
 		| Dp of dp
+		| Mirror of Mirror.id
 
 	type t = 
 		| Task_t of Task.id * Task.t
 		| Vdi_t of vdi * vdi_info
 		| Dp_t of dp * stat_t
+		| Mirror_t of Mirror.id * Mirror.t
 		
 end
 
@@ -127,6 +160,7 @@ exception Backend_error of (string * (string list)) (** error: of the form SR_BA
 exception Unimplemented                           (** error: not implemented by backend *)
 exception Does_not_exist of (string * string)
 exception Cancelled of string
+
 
 module Driver_info = struct
     type t = {
@@ -252,51 +286,34 @@ end
 (** [get_by_name task name] returns a vdi with [name] (which may be in any SR) *)
 external get_by_name : dbg:debug_info -> name:string -> vdi_info = ""
 
-module Mirror = struct
-
-	type mirror_receive_result_vhd_t = {
-		mirror_vdi : vdi_info;
-		mirror_datapath : dp;
-		copy_diffs_from : content_id option;
-		copy_diffs_to : vdi;
-	}
-			
-	type mirror_receive_result = 
-		| Vhd_mirror of mirror_receive_result_vhd_t
-			
-	type similars = content_id list 
-
-	type state = 
-		| Receiving
-		| Sending
-		| Failed
-
-	type status = {
-		vdi : vdi;
-		state : state; 
-		failed : bool;
-	}
+module DATA = struct
 
 	(** [copy_into task sr vdi url sr2] copies the data from [vdi] into a remote system [url]'s [sr2] *)
 	external copy_into : dbg:debug_info -> sr:sr -> vdi:vdi -> url:string -> dest:sr -> dest_vdi:vdi -> Task.id = ""
 
 	external copy : dbg:debug_info -> sr:sr -> vdi:vdi -> dp:dp -> url:string -> dest:sr -> Task.id = ""
 
-	(** [start task sr vdi url sr2] creates a VDI in remote [url]'s [sr2] and writes
-		data synchronously. It returns the id of the VDI.*)
-	external start : dbg:debug_info -> sr:sr -> vdi:vdi -> dp:dp -> url:string -> dest:sr -> Task.id = ""
 
-	(** [stop task sr vdi] stops mirroring local [vdi] *)
-	external stop : dbg:debug_info -> sr:sr -> vdi:vdi -> unit = ""
-
-	(** Called on the receiving end *)
-	external receive_start : dbg:debug_info -> sr:sr -> vdi_info:vdi_info -> similar:Mirror.similars -> Mirror.mirror_receive_result = ""
-
-	external receive_finalize : dbg:debug_info -> sr:sr -> vdi:vdi -> unit = ""
-
-	external receive_cancel : dbg:debug_info -> sr:sr -> vdi:vdi -> unit = ""
-
-	external list : dbg:debug_info -> sr:sr -> Mirror.status list = ""
+	module MIRROR = struct
+		(** [start task sr vdi url sr2] creates a VDI in remote [url]'s [sr2] and writes
+			data synchronously. It returns the id of the VDI.*)
+		external start : dbg:debug_info -> sr:sr -> vdi:vdi -> dp:dp -> url:string -> dest:sr -> Task.id = ""
+			
+		(** [stop task sr vdi] stops mirroring local [vdi] *)
+		external stop : dbg:debug_info -> id:Mirror.id -> unit = ""
+			
+		external stat : dbg:debug_info -> id:Mirror.id -> Mirror.t = ""
+			
+		(** Called on the receiving end *)
+		external receive_start : dbg:debug_info -> sr:sr -> vdi_info:vdi_info -> id:Mirror.id -> similar:Mirror.similars -> 
+			Mirror.mirror_receive_result = ""
+			
+		external receive_finalize : dbg:debug_info -> id:Mirror.id -> unit = ""
+			
+		external receive_cancel : dbg:debug_info -> id:Mirror.id -> unit = ""
+			
+		external list : dbg:debug_info -> (Mirror.id * Mirror.t) list = ""
+	end
 
 
 end
