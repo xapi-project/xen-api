@@ -50,17 +50,12 @@ let other_pcidevs_of_vm ~__context other_config =
 	let devs =
 		try
 			let oc = List.assoc "pci" other_config in
-			debug "PCI devices from other-config:pci to attach: %s" oc;
 			String.split ',' oc
 		with Not_found -> []
 	in
-	let devs = List.fold_left (fun acc dev ->
+	List.fold_left (fun acc dev ->
 		try
 			of_string dev :: acc
 		with _ -> acc
-	) [] devs in
-	if devs <> [] then begin
-		Rbac.assert_permission ~__context ~permission:Rbac_static.permission_internal_vm_plug_pcidevs;
-	end;
-	devs
+	) [] devs
 

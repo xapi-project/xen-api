@@ -108,7 +108,7 @@ type operation =
 	| VM_suspend of (Vm.id * data)
 	| VM_resume of (Vm.id * data)
 	| VM_restore_devices of Vm.id
-	| VM_migrate of (Vm.id * (string * string) list * string)
+	| VM_migrate of (Vm.id * (string * string) list * (string * Network.t) list * string)
 	| VM_receive_memory of (Vm.id * int64 * Unix.file_descr)
 	| VM_check_state of Vm.id
 	| PCI_check_state of Pci.id
@@ -659,7 +659,7 @@ let rebooting id f =
 let is_rebooting id =
 	Mutex.execute rebooting_vms_m (fun () -> List.mem id !rebooting_vms)
 
-let export_metadata vdi_map id =
+let export_metadata vdi_map vif_map id =
 	let module B = (val get_backend () : S) in
 
 	let vm_t = VM_DB.read_exn id in
@@ -679,9 +679,9 @@ let export_metadata vdi_map id =
 										List.map (remap_vdi vdi_map) pv_indirect_boot.Vm.devices } } } in
 
 	let vbds = VBD_DB.vbds id in
-	let vifs = VIF_DB.vifs id in
+	let vifs = List.map (fun vif -> remap_vif vif_map vif) (VIF_DB.vifs id) in
 	let pcis = PCI_DB.pcis id in
-	let domains = B.VM.get_internal_state vdi_map vm_t in
+	let domains = B.VM.get_internal_state vdi_map vif_map vm_t in
 
 
 	(* Remap VDIs *)
@@ -750,6 +750,8 @@ let rec atomics_of_operation = function
 			(VBD_DB.vbds id |> vbd_unplug_order)
 		) @ (List.map (fun vif -> VIF_unplug (vif.Vif.id, true))
 			(VIF_DB.vifs id)
+		) @ (List.map (fun pci -> PCI_unplug pci.Pci.id)
+			(PCI_DB.pcis id)
 		) @ [
 			VM_destroy id
 		]
@@ -980,7 +982,9 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			debug "VM.restore %s" id;
 			if id |> VM_DB.exists |> not
 			then failwith (Printf.sprintf "%s doesn't exist" id);
-			B.VM.restore t progress_callback (VM_DB.read_exn id) data
+			let vbds : Vbd.t list = VBD_DB.vbds id in
+			let vifs : Vif.t list = VIF_DB.vifs id in
+			B.VM.restore t progress_callback (VM_DB.read_exn id) vbds vifs data
 		| VM_delay (id, t) ->
 			debug "VM %s: waiting for %.2f before next VM action" id t;
 			Thread.delay t
@@ -1051,7 +1055,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			debug "VM.resume %s" id;
 			perform_atomics (atomics_of_operation op) t;
 			VM_DB.signal id
-		| VM_migrate (id, vdi_map, url') ->
+		| VM_migrate (id, vdi_map, vif_map, url') ->
 			debug "VM.migrate %s -> %s" id url';
 			let vm = VM_DB.read_exn id in
 			let open Xmlrpc_client in
@@ -1071,7 +1075,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			Xenops_hooks.vm_pre_migrate ~reason:Xenops_hooks.reason__migrate_source ~id;
 
 			let module Remote = Xenops_interface.Client(struct let rpc = xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" url end) in
-			let id = Remote.VM.import_metadata t.Xenops_task.debug_info(export_metadata vdi_map id) in
+			let id = Remote.VM.import_metadata t.Xenops_task.debug_info(export_metadata vdi_map vif_map id) in
 			debug "Received id = %s" id;
 			let suffix = Printf.sprintf "/memory/%s" id in
 			let memory_url = Http.Url.(set_uri url (get_uri url ^ suffix)) in
@@ -1086,20 +1090,31 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 
 			with_transport (transport_of_url memory_url)
 				(fun mfd ->
-					Http_client.rpc mfd (Xenops_migrate.http_put memory_url ~cookie:[
+					let open Xenops_migrate in
+					let request = http_put memory_url ~cookie:[
 						"instance_id", instance_id;
 						"dbg", t.Xenops_task.debug_info;
 						"memory_limit", Int64.to_string state.Vm.memory_limit;
-					])
-						(fun response _ ->
-							debug "XXX transmit memory";
-							perform_atomics [
-								VM_save(id, [ Live ], FD mfd)
-							] t;
-							debug "XXX sending completed signal";
-							Xenops_migrate.send_complete url id mfd;
-							debug "XXX completed signal ok";
-						)
+					] in
+					request |> Http.Request.to_wire_string |> Unixext.really_write_string mfd;
+
+					begin match Handshake.recv mfd with
+						| Handshake.Success -> ()
+						| Handshake.Error msg ->
+							error "cannot transmit vm to host: %s" msg;
+					end;
+					debug "Synchronisation point 1";
+
+					perform_atomics [
+						VM_save(id, [ Live ], FD mfd)
+					] t;
+					debug "Synchronisation point 2";
+
+					Handshake.send ~verbose:true mfd Handshake.Success;
+					debug "Synchronisation point 3";
+
+					Handshake.recv_success mfd;
+					debug "Synchronisation point 4";
 				);
 			let atomics = [
 				VM_hook_script(id, Xenops_hooks.VM_pre_destroy, Xenops_hooks.reason__suspend);
@@ -1112,37 +1127,46 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			VM_DB.signal id
 		| VM_receive_memory (id, memory_limit, s) ->
 			debug "VM.receive_memory %s" id;
-			let state = B.VM.get_state (VM_DB.read_exn id) in
-			debug "VM.receive_memory %s power_state = %s" id (state.Vm.power_state |> rpc_of_power_state |> Jsonrpc.to_string);
-			let response = Http.Response.make ~version:"1.1" "200" "OK" in
-			response |> Http.Response.to_wire_string |> Unixext.really_write_string s;
+			let open Xenops_migrate in
+(*			let state = B.VM.get_state (VM_DB.read_exn id) in
+			debug "VM.receive_memory %s power_state = %s" id (state.Vm.power_state |> rpc_of_power_state |> Jsonrpc.to_string);*)
+
+			(try
+				Handshake.send s Handshake.Success
+			with e ->
+				Handshake.send s (Handshake.Error (Printexc.to_string e));
+				raise e
+			);
+			debug "Synchronisation point 1";
+
 			debug "VM.receive_memory calling create";
 			perform_atomics [
 				VM_create (id, Some memory_limit);
 				VM_restore (id, FD s);
 			] t;
 			debug "VM.receive_memory restore complete";
-			(* Receive the all-clear to unpause *)
-			(* We need to unmarshal the next HTTP request ourselves. *)
-			Xenops_migrate.serve_rpc s
-				(fun body ->
-					let call = Jsonrpc.call_of_string body in
-					let failure = Rpc.failure Rpc.Null in
-					let success = Rpc.success (Xenops_migrate.Receiver.rpc_of_state Xenops_migrate.Receiver.Completed) in
-					if call.Rpc.name = Xenops_migrate._complete then begin
-						debug "Got VM.migrate_complete";
-						perform_atomics ([
-						] @ (atomics_of_operation (VM_restore_devices id)) @ [
-							VM_unpause id;
-							VM_set_domain_action_request(id, None)
-						]) t;
-						success |> Jsonrpc.string_of_response
-					end else begin
-						debug "Something went wrong";
-						perform_atomics (atomics_of_operation (VM_shutdown (id, None))) t;
-						failure |> Jsonrpc.string_of_response
-					end
-				)
+			debug "Synchronisation point 2";
+
+			begin try
+				(* Receive the all-clear to unpause *)
+				Handshake.recv_success ~verbose:true s;
+				debug "Synchronisation point 3";
+
+				perform_atomics ([
+				] @ (atomics_of_operation (VM_restore_devices id)) @ [
+					VM_unpause id;
+					VM_set_domain_action_request(id, None)
+				]) t;
+
+				Handshake.send s Handshake.Success;
+				debug "Synchronisation point 4";
+			with e ->
+				debug "Caught %s: cleaning up VM state" (Printexc.to_string e);
+				perform_atomics (atomics_of_operation (VM_shutdown (id, None)) @ [
+					VM_remove id
+				]) t;
+				Handshake.send s (Handshake.Error (Printexc.to_string e))
+			end
 		| VM_check_state id ->
 			let vm = VM_DB.read_exn id in
 			let state = B.VM.get_state vm in
@@ -1153,11 +1177,11 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 				| Some Needs_crashdump ->
 					(* A VM which crashes too quickly should be shutdown *)
 					if run_time < 120. then begin
-						debug "VM %s ran too quickly (%.2f seconds); shutting down" id run_time;
+						warn "VM %s crashed too quickly after start (%.2f seconds); shutting down" id run_time;
 						[ Vm.Shutdown ]
 					end else vm.Vm.on_crash
 				| Some Needs_suspend ->
-					debug "VM %s has unexpectedly suspended" id;
+					warn "VM %s has unexpectedly suspended" id;
 					[ Vm.Shutdown ]
 				| None ->
 					debug "VM %s is not requesting any attention" id;
@@ -1171,6 +1195,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 						[ Atomic (VM_delay (id, 15.)) ]
 					end else [] in
 					delay @ [ VM_reboot (id, None) ]
+				| Vm.Pause    -> [ Atomic (VM_pause id) ]
 			in
 			let operations = List.concat (List.map operations_of_action actions) in
 			List.iter (fun x -> perform x t) operations;
@@ -1496,9 +1521,13 @@ module VM = struct
 	let s3suspend _ dbg id = queue_operation dbg id (Atomic(VM_s3suspend id))
 	let s3resume _ dbg id = queue_operation dbg id (Atomic(VM_s3resume id))
 
-	let migrate context dbg id vdi_map url = queue_operation dbg id (VM_migrate (id, vdi_map, url)) 
+	let migrate context dbg id vdi_map vif_map url = queue_operation dbg id (VM_migrate (id, vdi_map, vif_map, url))
 
-	let export_metadata _ dbg id = export_metadata [] id 
+	let generate_state_string _ dbg vm =
+		let module B = (val get_backend () : S) in
+		B.VM.generate_state_string vm
+
+	let export_metadata _ dbg id = export_metadata [] [] id
 
 	let import_metadata _ dbg s =
 		Debug.with_thread_associated dbg
@@ -1521,11 +1550,12 @@ module VM = struct
 				vm 
 			) ()
 
-	let receive_memory req s _ : unit =
+	let receive_memory req s context : unit =
 		let dbg = List.assoc "dbg" req.Http.Request.cookie in
 		let memory_limit = List.assoc "memory_limit" req.Http.Request.cookie |> Int64.of_string in
-		let is_localhost, id = Debug.with_thread_associated dbg
-			(fun () ->
+		Debug.with_thread_associated dbg
+		(fun () ->
+			let is_localhost, id = Debug.with_thread_associated dbg
 				debug "VM.receive_memory";
 				req.Http.Request.close <- true;
 				let remote_instance = List.assoc "instance_id" req.Http.Request.cookie in
@@ -1535,13 +1565,26 @@ module VM = struct
 				let id = bits |> List.rev |> List.hd in
 				debug "VM.receive_memory id = %s is_localhost = %b" id is_localhost;
 				is_localhost, id
-			) () in
-		let op = VM_receive_memory(id, memory_limit, s) in
-		(* If it's a localhost migration then we're already in the queue *)
-		let open Xenops_client in
-		if is_localhost
-			then immediate_operation dbg id op
-			else queue_operation dbg id op |> wait_for_task dbg |> success_task dbg |> ignore_task
+			in
+			match context.transferred_fd with
+			| Some transferred_fd ->
+				let op = VM_receive_memory(id, memory_limit, transferred_fd) in
+				(* If it's a localhost migration then we're already in the queue *)
+				let open Xenops_client in
+				let task =
+					if is_localhost then begin
+						immediate_operation dbg id op;
+						None
+					end else
+						Some (queue_operation dbg id op)
+				in
+				let response = Http.Response.make ?task ~version:"1.1" "200" "OK" in
+				response |> Http.Response.to_wire_string |> Unixext.really_write_string s;
+				Opt.iter (fun t -> t |> wait_for_task dbg |> ignore) task
+			| None ->
+				let response = Http.Response.make ~version:"1.1" "404" "File descriptor missing" in
+				response |> Http.Response.to_wire_string |> Unixext.really_write_string s
+		) ()
 end
 
 module DEBUG = struct
@@ -1652,15 +1695,21 @@ module Diagnostics = struct
 		scheduler: Scheduler.Dump.t;
 		updates: Updates.Dump.t;
 		tasks: WorkerPool.Dump.task list;
+		vm_actions: (string * domain_action_request option) list;
 	} with rpc
 
-	let make () = {
-		queues = Redirector.Dump.make ();
-		workers = WorkerPool.Dump.make ();
-		scheduler = Scheduler.Dump.make ();
-		updates = Updates.Dump.make updates;
-		tasks = List.map WorkerPool.Dump.of_task (Xenops_task.list ());
-	}
+	let make () =
+		let module B = (val get_backend (): S) in {
+			queues = Redirector.Dump.make ();
+			workers = WorkerPool.Dump.make ();
+			scheduler = Scheduler.Dump.make ();
+			updates = Updates.Dump.make updates;
+			tasks = List.map WorkerPool.Dump.of_task (Xenops_task.list ());
+			vm_actions = List.filter_map (fun id -> match VM_DB.read id with
+				| Some vm -> Some (id, B.VM.get_domain_action_request vm)
+				| None -> None
+			) (VM_DB.ids ())
+		}
 end
 
 let get_diagnostics _ _ () =

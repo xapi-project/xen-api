@@ -141,13 +141,13 @@ module Debug_print_impl = struct
 					end else Hashtbl.remove activated key);
 			info "VDI.deactivate dp:%s sr:%s vdi:%s" dp sr vdi
 
-		let copy context ~task ~sr ~vdi ~url ~dest = assert false
+		let copy_into context ~task ~sr ~vdi ~url ~dest = assert false
         let get_url context ~task ~sr ~vdi = assert false
 		let compose context ~task ~sr ~vdi1 ~vdi2 = assert false
 		let set_content_id context ~task ~sr ~vdi ~content_id = assert false
 		let get_by_name context ~task ~sr ~name = assert false
 		let similar_content context ~task ~sr ~vdi = assert false
-		
+		let copy context ~task ~sr ~vdi ~dp ~url ~dest = assert false
 
 	end
 
@@ -156,10 +156,10 @@ module Debug_print_impl = struct
 	module Mirror = struct
 		let start context ~task ~sr ~vdi ~dp ~url ~dest = assert false
 		let stop context ~task ~sr ~vdi = assert false
-		let active context ~task ~sr = assert false
-		let receive_start context ~task ~sr ~vdi_info ~content_id ~similar = assert false
-		let receive_finalize context ~task ~sr ~content_id = assert false
-		let receive_cancel context ~task ~sr ~content_id = assert false
+		let list context ~task ~sr = assert false
+		let receive_start context ~task ~sr ~vdi_info ~similar = assert false
+		let receive_finalize context ~task ~sr ~vdi = assert false
+		let receive_cancel context ~task ~sr ~vdi = assert false
 	end
 		
 	module SR = struct
