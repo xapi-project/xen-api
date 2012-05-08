@@ -59,11 +59,13 @@ module State = struct
 
 	type t = (string, mirror) Hashtbl.t with rpc
 
-	let active : t = Hashtbl.create 10
+	let active_send : t = Hashtbl.create 10
+	let active_recv : t = Hashtbl.create 10
 	let loaded = ref false
 	let mutex = Mutex.create () 
 
-	let path = "/var/run/nonpersistent/storage_mirrors.json"
+	let path send = Printf.sprintf "/var/run/nonpersistent/storage_mirrors_%s.json"
+		(if send then "send" else "recv")
 
 	let to_string r = rpc_of_t r |> Jsonrpc.to_string
 	let of_string s = Jsonrpc.of_string s |> t_of_rpc
@@ -72,30 +74,36 @@ module State = struct
 		| sr::rest -> (sr,String.concat "/" rest)
 		| _ -> failwith "Bad id"
 
-	let load () = try Unixext.string_of_file path |> of_string |> Hashtbl.iter (Hashtbl.replace active) with _ -> ()
-	let save () = to_string active |> Unixext.write_string_to_file path
-	let op s f = Mutex.execute mutex (fun () -> if not !loaded then load (); let r = f active in if s then save (); r)
-	let map_of () =	op false (fun h -> Hashtbl.fold (fun k v acc -> (k,v)::acc) h [])
+	let load () =
+		let load path hashtbl = Unixext.string_of_file path |> of_string |> Hashtbl.iter (Hashtbl.replace hashtbl) in
+		try load (path true) active_send; load (path false) active_recv with _ -> ()
+	let save () = 
+		to_string active_send |> Unixext.write_string_to_file (path true);
+		to_string active_recv |> Unixext.write_string_to_file (path false)
+	let op s f h = Mutex.execute mutex (fun () -> if not !loaded then load (); let r = f h in if s then save (); r)
+	let map_of () =	
+		let m1 = op false (fun h -> Hashtbl.fold (fun k v acc -> (k,v)::acc) h []) active_send in
+		op false (fun h -> Hashtbl.fold (fun k v acc -> (k,v)::acc) h m1) active_recv
 
-	let add id s =	op true (fun a -> Hashtbl.replace a id s)
-	let find id = op false (fun a -> try Some (Hashtbl.find a id) with _ -> None)
-	let remove id = op true (fun a ->	Hashtbl.remove a id)
+	let add id h s = op true (fun a -> Hashtbl.replace a id s) h
+	let find id h = op false (fun a -> try Some (Hashtbl.find a id) with _ -> None) h
+	let remove id h = op true (fun a ->	Hashtbl.remove a id) h
 
 	let add_to_active_local_mirrors id url dest_sr remote_dp local_dp mirror_vdi remote_url tapdev =
 		let open Send_state in 
 		let alm = {url; dest_sr; remote_dp; local_dp; mirror_vdi; remote_url; tapdev; failed=false; watchdog=None} in
-		add id $ Send alm; alm
+		add id active_send $ Send alm; alm
 			
 	let add_to_active_receive_mirrors id sr dummy_vdi leaf_vdi leaf_dp parent_vdi remote_vdi =
 		let open Receive_state in 
 		let arm = {sr; dummy_vdi; leaf_vdi; leaf_dp; parent_vdi; remote_vdi} in
-		add id $ Receive arm; arm
+		add id active_recv $ Receive arm; arm
 									  
 	let find_active_local_mirror id =
-		Opt.Monad.bind (find id) (function | Send s -> Some s | _ -> None)
+		Opt.Monad.bind (find id active_send) (function | Send s -> Some s | _ -> None)
 
 	let find_active_receive_mirror id =
-		Opt.Monad.bind (find id) (function | Receive r -> Some r | _ -> None)
+		Opt.Monad.bind (find id active_recv) (function | Receive r -> Some r | _ -> None)
 
 end
 
@@ -238,7 +246,8 @@ let stop ~dbg ~id =
 			Local.VDI.destroy ~dbg ~sr ~vdi:snapshot.vdi;
 			let remote_url = Http.Url.of_string alm.State.Send_state.remote_url in
 			let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
-			(try Remote.DATA.MIRROR.receive_cancel ~dbg ~id with _ -> ())
+			(try Remote.DATA.MIRROR.receive_cancel ~dbg ~id with _ -> ());
+			State.remove id State.active_send
 		| None ->
 			raise (Does_not_exist ("mirror",id))
 
@@ -357,9 +366,13 @@ let stat' dbg id s =
 	
 
 let stat ~dbg ~id =
-	let s = State.find id in
-	match s with | Some s -> stat' dbg id s | None -> raise (Does_not_exist ("mirror",id))
-
+	let s1 = State.find id State.active_recv in
+	let s2 = State.find id State.active_send in
+	match s1, s2 with 
+		| Some s, _
+		| _, Some s -> stat' dbg id s 
+		| _ -> raise (Does_not_exist ("mirror",id))
+	
 let list ~dbg =
 	let m = State.map_of () in
 	List.map (fun (id,s) -> 
@@ -423,7 +436,7 @@ let log_exn_and_continue s f =
 let receive_finalize ~dbg ~id =
 	let record = State.find_active_receive_mirror id in
 	let open State.Receive_state in Opt.iter (fun r -> Local.DP.destroy ~dbg ~dp:r.leaf_dp ~allow_leak:false) record;
-	State.remove id
+	State.remove id State.active_recv
 
 let receive_cancel ~dbg ~id =
 	let record = State.find_active_receive_mirror id in
@@ -433,7 +446,7 @@ let receive_cancel ~dbg ~id =
 			log_exn_and_continue "cancelling receive" (fun () -> Local.VDI.destroy ~dbg ~sr:r.sr ~vdi:v)
 		) [r.dummy_vdi; r.leaf_vdi; r.parent_vdi]
 	) record;
-	State.remove id
+	State.remove id State.active_recv
 
 let pre_deactivate_hook ~dbg ~dp ~sr ~vdi =
 	let open State.Send_state in
@@ -462,7 +475,7 @@ let post_detach_hook ~sr ~vdi ~dp =
 					log_exn_and_continue "in detach hook" 
 						(fun () -> Remote.DATA.MIRROR.receive_finalize ~dbg:"Mirror-cleanup" ~id);
 					debug "Finished calling receive_finalize";
-					State.remove id;
+					State.remove id State.active_send;
 					debug "Removed active local mirror: %s" id
 				) () in
 				Opt.iter (fun id -> Updates.Scheduler.cancel id) r.watchdog;
