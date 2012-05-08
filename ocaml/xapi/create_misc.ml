@@ -232,22 +232,20 @@ and create_domain_zero_guest_metrics_record ~__context ~domain_zero_metrics_ref 
 		~other_config:[];
 
 and create_domain_zero_default_memory_constraints host_info : Vm_memory_constraints.t =
-        try  
-	  let constraints = {
-	    static_min = Int64.of_string (Localdb.get Constants.pool_join_mem_stat_min);
-	    static_max = Int64.of_string (Localdb.get Constants.pool_join_mem_stat_max);
-	    dynamic_min = Int64.of_string (Localdb.get Constants.pool_join_mem_dyn_min);
-	    dynamic_max = Int64.of_string (Localdb.get Constants.pool_join_mem_dyn_max);
-	    target = Int64.of_string (Localdb.get Constants.pool_join_mem_target);
-	  } in
-	  Localdb.del Constants.pool_join_mem_stat_min;
-	  Localdb.del Constants.pool_join_mem_stat_max;
-	  Localdb.del Constants.pool_join_mem_dyn_min;
-	  Localdb.del Constants.pool_join_mem_dyn_max;
-	  Localdb.del Constants.pool_join_mem_target;
-	  constraints 
+	let static_min, static_max = calculate_domain_zero_memory_static_range host_info in
+	try
+		(* Look up the current domain zero record in xenopsd *)
+		let open Xenops_interface in
+		let open Xenops_client in
+		let vm, state = Client.VM.stat "dbsync" host_info.dom0_uuid in
+		{
+			static_min = static_min;
+			static_max = vm.Vm.memory_static_max;
+			dynamic_min = vm.Vm.memory_dynamic_min;
+			dynamic_max = vm.Vm.memory_dynamic_max;
+			target = state.Vm.memory_target;
+		}
 	with _ -> 
-	  let static_min, static_max = calculate_domain_zero_memory_static_range host_info in
 	  let target = static_min +++ (Int64.(mul 100L (mul 1024L 1024L))) in
 	  let target = if target > static_max then static_max else target in
 	  {

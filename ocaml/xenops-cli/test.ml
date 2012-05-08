@@ -153,6 +153,7 @@ let create_vm id =
 	let open Vm in
 	let _ = PV {
 		framebuffer = false;
+		framebuffer_ip = Some "0.0.0.0";
 		vncterm = true;
 		vncterm_ip = None;
 		Vm.boot = Indirect {

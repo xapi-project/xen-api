@@ -507,13 +507,23 @@ module Ovs = struct
 
 	let bridge_to_ports name =
 		try
-			let ports = String.split '\n' (String.rtrim (call ["list-ports"; name])) in
-			List.map (fun port -> port, port_to_interfaces port) ports
+			let ports = String.rtrim (call ["list-ports"; name]) in
+			let ports' =
+				if ports <> "" then
+					String.split '\n' ports
+				else
+					[]
+			in
+			List.map (fun port -> port, port_to_interfaces port) ports'
 		with _ -> []
 
 	let bridge_to_interfaces name =
 		try
-			String.split '\n' (String.rtrim (call ["list-ifaces"; name]))
+			let ifaces = String.rtrim (call ["list-ifaces"; name]) in
+			if ifaces <> "" then
+				String.split '\n' ifaces
+			else
+				[]
 		with _ -> []
 
 	let bridge_to_vlan name =
@@ -543,7 +553,7 @@ module Ovs = struct
 		let no_vlan_workaround_drivers = ["bonding"] in
 		let phy_interfaces =
 			try
-				let interfaces = String.split '\n' (String.rtrim (call ["list-ifaces"; bridge])) in
+				let interfaces = bridge_to_interfaces bridge in
 				List.filter Sysfs.is_physical interfaces
 			with _ -> []
 		in
@@ -614,14 +624,21 @@ module Ovs = struct
 		call ["--"; "--if-exists"; "del-br"; name]
 
 	let list_bridges () =
-		String.split '\n' (String.rtrim (call ["list-br"]))
+		let bridges = String.rtrim (call ["list-br"]) in
+		if bridges <> "" then
+			String.split '\n' bridges
+		else
+			[]
 
 	let get_vlans name =
 		try
 			let vlans_with_uuid =
 				let raw = call ["--bare"; "-f"; "table"; "--"; "--columns=name,_uuid"; "find"; "port"; "fake_bridge=true"] in
-				let lines = String.split '\n' (String.rtrim raw) in
-				List.map (fun line -> Scanf.sscanf line "%s %s" (fun a b-> a, b)) lines
+				if raw <> "" then
+					let lines = String.split '\n' (String.rtrim raw) in
+					List.map (fun line -> Scanf.sscanf line "%s %s" (fun a b-> a, b)) lines
+				else
+					[]
 			in
 			let bridge_ports =
 				let raw = call ["get"; "bridge"; name; "ports"] in

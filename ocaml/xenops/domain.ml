@@ -182,9 +182,17 @@ let make ~xc ~xs vm_info uuid =
 			t.Xst.mkdir dom_path;
 			t.Xst.setperms dom_path roperm;
 
-			t.Xst.rm vm_path;
-			t.Xst.mkdir vm_path;
-			t.Xst.setperms vm_path roperm;
+			(* The /vm path needs to be shared over a localhost migrate *)
+			let vm_exists = try ignore(t.Xst.read vm_path); true with _ -> false in
+			if not vm_exists then begin
+				t.Xst.mkdir vm_path;
+				t.Xst.setperms vm_path roperm;
+				t.Xst.writev vm_path [
+					"uuid", (Uuid.to_string uuid);
+					"name", name;
+				];
+			end;
+			t.Xst.write (Printf.sprintf "%s/domains/%d" vm_path domid) dom_path;
 
 			t.Xst.rm vss_path;
 			t.Xst.mkdir vss_path;
@@ -207,11 +215,6 @@ let make ~xc ~xs vm_info uuid =
 				t.Xst.setperms ent rwperm
 			) [ "device"; "error"; "drivers"; "control"; "attr"; "data"; "messages"; "vm-data" ];
 		);
-
-		xs.Xs.writev vm_path [
-			"uuid", (Uuid.to_string uuid);
-			"name", name;
-		];
 
 		xs.Xs.writev dom_path (filtered_xsdata vm_info.xsdata);
 		xs.Xs.writev (dom_path ^ "/platform") vm_info.platformdata;
@@ -313,7 +316,7 @@ let sysrq ~xs domid key =
 	let path = xs.Xs.getdomainpath domid ^ "/control/sysrq" in
 	xs.Xs.write path (String.make 1 key)
 
-let destroy (task: Xenops_task.t) ?(preserve_xs_vm=false) ~xc ~xs domid =
+let destroy (task: Xenops_task.t) ~xc ~xs domid =
 	let dom_path = xs.Xs.getdomainpath domid in
 	let uuid = get_uuid ~xc domid in
 	(* These are the devices with a frontend in [domid] and a well-formed backend
@@ -381,11 +384,23 @@ let destroy (task: Xenops_task.t) ?(preserve_xs_vm=false) ~xc ~xs domid =
 			(Uuid.to_string uuid) domid
 		      (string_of_device dev)) failed_devices;
 
-	(* Delete the /vm/<uuid> and /vss/<uuid> directories if they exists *)
-	if not preserve_xs_vm then (
-		begin try xs.Xs.rm (xs.Xs.read (dom_path ^ "/vm")) with _ -> () end;
-		begin try xs.Xs.rm (xs.Xs.read (dom_path ^ "/vss")) with _ -> () end;
-	);
+	(* Remove our reference to the /vm/<uuid> directory *)
+	let vm_path = try Some (xs.Xs.read (dom_path ^ "/vm")) with _ -> None in
+	Opt.iter (fun vm_path -> xs.Xs.rm (vm_path ^ "/domains/" ^ (string_of_int domid))) vm_path;
+
+	let vss_path = try Some (xs.Xs.read (dom_path ^ "/vss")) with _ -> None in
+	(* If there are no more references then remove /vm/<uuid> and /vss/<uuid> *)
+	Opt.iter (fun vm_path ->
+		let domains = List.filter (fun x -> x <> "") (xs.Xs.directory (vm_path ^ "/domains")) in
+		if domains = [] then begin
+			debug "xenstore-rm %s" vm_path;
+			xs.Xs.rm vm_path;
+			Opt.iter (fun vss_path ->
+				debug "xenstore-rm %s" vss_path;
+				xs.Xs.rm vss_path
+			) vss_path
+		end
+	) vm_path;
 
 	(* Delete the /local/domain/<domid> and all the backend device paths *)
 	debug "VM = %s; domid = %d; xenstore-rm %s" (Uuid.to_string uuid) domid dom_path;

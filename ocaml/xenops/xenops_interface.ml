@@ -118,6 +118,7 @@ module Vm = struct
 	type pv_info = {
 		boot: pv_boot;
 		framebuffer: bool;
+		framebuffer_ip: string option;
 		vncterm: bool;
 		vncterm_ip: string option;
 	}
@@ -132,6 +133,7 @@ module Vm = struct
 		| Coredump
 		| Shutdown
 		| Start
+		| Pause
 
 	type scheduler_params = {
 		priority: (int * int) option; (* weight, cap *)
@@ -343,7 +345,7 @@ module VM = struct
 	external add: debug_info -> Vm.t -> Vm.id = ""
 	external remove: debug_info -> Vm.id -> unit = ""
 
-	external migrate: debug_info -> Vm.id -> (string * string) list -> string -> Task.id = ""
+	external migrate: debug_info -> Vm.id -> (string * string) list -> (string * Network.t) list -> string -> Task.id = ""
 
 	external create: debug_info -> Vm.id -> Task.id = ""
 	external build: debug_info -> Vm.id -> Task.id = ""
@@ -368,6 +370,7 @@ module VM = struct
 	external s3suspend: debug_info -> Vm.id -> Task.id = ""
 	external s3resume: debug_info -> Vm.id -> Task.id = ""
 
+	external generate_state_string: debug_info -> Vm.t -> string = ""
 	external export_metadata: debug_info -> Vm.id -> string  = ""
 	external import_metadata: debug_info -> string -> Vm.id  = ""
 end

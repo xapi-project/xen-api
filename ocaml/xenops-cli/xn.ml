@@ -287,6 +287,7 @@ let add filename =
 			let builder_info = match pv with
 				| true -> PV {
 					framebuffer = false;
+					framebuffer_ip = Some "0.0.0.0";
 					vncterm = true;
 					vncterm_ip = Some "0.0.0.0";
 					boot =
@@ -527,7 +528,7 @@ let resume x disk =
 let migrate x url =
 	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.migrate dbg vm.id [] url |> wait_for_task dbg
+	Client.VM.migrate dbg vm.id [] [] url |> wait_for_task dbg
 
 let trim limit str =
 	let l = String.length str in

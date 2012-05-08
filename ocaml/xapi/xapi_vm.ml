@@ -228,6 +228,7 @@ let hard_reboot ~__context ~vm =
 		)
 
 let hard_shutdown ~__context ~vm =
+	Db.VM.set_ha_always_run ~__context ~self:vm ~value:false;
     if Db.VM.get_power_state ~__context ~self:vm = `Suspended then begin
 		debug "hard_shutdown: destroying any suspend VDI";
 		let vdi = Db.VM.get_suspend_VDI ~__context ~self:vm in
@@ -249,6 +250,7 @@ let clean_reboot ~__context ~vm =
 		)
 
 let clean_shutdown ~__context ~vm =
+	Db.VM.set_ha_always_run ~__context ~self:vm ~value:false;
 	Xapi_xenops.shutdown ~__context ~self:vm (Some 1200.0)
 
 (***************************************************************************************)
