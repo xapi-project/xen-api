@@ -713,11 +713,12 @@ let add_to_progress_map f id = Mutex.execute progress_map_m (fun () -> Hashtbl.a
 let remove_from_progress_map id = Mutex.execute progress_map_m (fun () -> Hashtbl.remove progress_map_tbl id); id
 let get_progress_map id = Mutex.execute progress_map_m (fun () -> try Hashtbl.find progress_map_tbl id with _ -> (fun x -> x))
 
-let register_mirror __context id = 
+let register_mirror __context vdi = 
 	let task = Context.get_task_id __context in
-	Mutex.execute progress_map_m (fun () -> Hashtbl.add mirror_task_tbl id task); id
-let unregister_mirror id = Mutex.execute progress_map_m (fun () -> Hashtbl.remove mirror_task_tbl id); id
-let get_mirror_task id = Mutex.execute progress_map_m (fun () -> Hashtbl.find mirror_task_tbl id)
+	debug "Registering mirror of vdi %s with task %s" vdi (Ref.string_of task);
+	Mutex.execute progress_map_m (fun () -> Hashtbl.add mirror_task_tbl vdi task); vdi
+let unregister_mirror vdi = Mutex.execute progress_map_m (fun () -> Hashtbl.remove mirror_task_tbl vdi); vdi
+let get_mirror_task vdi = Mutex.execute progress_map_m (fun () -> Hashtbl.find mirror_task_tbl vdi)
 
 exception Not_an_sm_task
 let wrap id = TaskHelper.Sm id
@@ -748,11 +749,17 @@ let update_mirror ~__context id =
 		let m = Client.DATA.MIRROR.stat dbg id in
 		if m.Mirror.failed 
 		then 
-			let task = get_mirror_task id in
+			debug "Mirror %s has failed" id;
+			let task = get_mirror_task m.Mirror.local_vdi in
+			debug "Mirror associated with task: %s" (Ref.string_of task);
+			(* Just to get a nice error message *)
+			Db.Task.remove_from_other_config ~__context ~self:task ~key:"mirror_failed";
+			Db.Task.add_to_other_config ~__context ~self:task ~key:"mirror_failed" ~value:m.Mirror.local_vdi;
 			Helpers.call_api_functions ~__context
 				(fun rpc session_id -> XenAPI.Task.cancel rpc session_id task)
 	with 
-		| Not_found -> ()
+		| Not_found -> 
+			debug "Couldn't find mirror id: %s" id
 		| Does_not_exist _ -> ()
 		| e -> 
 			error "storage event: Caught %s while updating mirror" (Printexc.to_string e)

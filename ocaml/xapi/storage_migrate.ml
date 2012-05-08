@@ -30,7 +30,9 @@ module State = struct
 
 	module Receive_state = struct
 		type t = {
+			sr : sr;
 			dummy_vdi : vdi;
+			leaf_vdi : vdi;
 			leaf_dp : dp;
 			parent_vdi : vdi;
 			remote_vdi : vdi;
@@ -45,6 +47,8 @@ module State = struct
 			local_dp : dp;
 			mirror_vdi : vdi;
 			remote_url : string;
+			tapdev : Tapctl.tapdev;
+			mutable failed : bool;
 			mutable watchdog : Updates.Scheduler.t option;
 		} with rpc
 	end
@@ -77,14 +81,14 @@ module State = struct
 	let find id = op false (fun a -> try Some (Hashtbl.find a id) with _ -> None)
 	let remove id = op true (fun a ->	Hashtbl.remove a id)
 
-	let add_to_active_local_mirrors id url dest_sr remote_dp local_dp mirror_vdi remote_url =
+	let add_to_active_local_mirrors id url dest_sr remote_dp local_dp mirror_vdi remote_url tapdev =
 		let open Send_state in 
-		let alm = {url; dest_sr; remote_dp; local_dp; mirror_vdi; remote_url; watchdog=None} in
+		let alm = {url; dest_sr; remote_dp; local_dp; mirror_vdi; remote_url; tapdev; failed=false; watchdog=None} in
 		add id $ Send alm; alm
 			
-	let add_to_active_receive_mirrors id dummy_vdi leaf_dp parent_vdi remote_vdi =
+	let add_to_active_receive_mirrors id sr dummy_vdi leaf_vdi leaf_dp parent_vdi remote_vdi =
 		let open Receive_state in 
-		let arm = {dummy_vdi; leaf_dp; parent_vdi; remote_vdi} in
+		let arm = {sr; dummy_vdi; leaf_vdi; leaf_dp; parent_vdi; remote_vdi} in
 		add id $ Receive arm; arm
 									  
 	let find_active_local_mirror id =
@@ -219,6 +223,25 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 let copy_into ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi = 
 	copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi
 
+let stop ~dbg ~id =
+	(* Find the local VDI *)
+	let alm = State.find_active_local_mirror id in
+	match alm with 
+		| Some alm -> 
+			let sr,vdi = State.of_id id in
+			let vdis = Local.SR.scan ~dbg ~sr in
+			let local_vdi =
+				try List.find (fun x -> x.vdi = vdi) vdis
+				with Not_found -> failwith (Printf.sprintf "Local VDI %s not found" vdi) in
+			(* Disable mirroring on the local machine *)
+			let snapshot = Local.VDI.snapshot ~dbg ~sr ~vdi:local_vdi.vdi ~vdi_info:local_vdi ~params:["mirror", "null"] in
+			Local.VDI.destroy ~dbg ~sr ~vdi:snapshot.vdi;
+			let remote_url = Http.Url.of_string alm.State.Send_state.remote_url in
+			let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
+			(try Remote.DATA.MIRROR.receive_cancel ~dbg ~id with _ -> ())
+		| None ->
+			raise (Does_not_exist ("mirror",id))
+
 let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 	debug "Mirror.start sr:%s vdi:%s url:%s dest:%s" sr vdi url dest;
 	let remote_url = Http.Url.of_string url in
@@ -253,7 +276,8 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 		debug "Searching for data path: %s" dp;
 		let attach_info = Local.DP.attach_info ~dbg:"nbd" ~sr ~vdi ~dp in
 		debug "Got it!";
-		ignore(match tapdisk_of_attach_info attach_info with 
+
+		let tapdev = match tapdisk_of_attach_info attach_info with 
 			| Some tapdev -> 
 				let pid = Tapctl.get_tapdisk_pid tapdev in
 				let path = Printf.sprintf "/var/run/blktap-control/nbdclient%d" pid in
@@ -271,26 +295,25 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 							end)
 						(fun () -> 
 							Unix.close control_fd)));
+				tapdev
 			| None ->
-				failwith "Not attached");
-		let alm = State.add_to_active_local_mirrors id url dest mirror_dp dp result.Mirror.mirror_vdi.vdi url in
+				failwith "Not attached"
+		in
+		let alm = State.add_to_active_local_mirrors id url dest mirror_dp dp result.Mirror.mirror_vdi.vdi url tapdev in
+
 		let snapshot = Local.VDI.snapshot ~dbg ~sr ~vdi:local_vdi.vdi ~vdi_info:local_vdi ~params:["mirror", "nbd:" ^ dp] in
 
 		begin
-			match tapdisk_of_attach_info attach_info with 
-				| Some tapdev -> 
-					let rec inner () =
-						debug "tapdisk watchdog";
-						let stats = Tapctl.stats (Tapctl.create ()) tapdev in
-						if stats.Tapctl.Stats.nbd_mirror_failed = 1 then
-							Updates.add (Dynamic.Mirror id) updates;
-						alm.State.Send_state.watchdog <- Some (Updates.Scheduler.one_shot (Updates.Scheduler.Delta 5) "tapdisk_watchdog" inner)
-					in inner ()
-				| None -> 
-					failwith "Not attached"
+			let rec inner () =
+				debug "tapdisk watchdog";
+				let stats = Tapctl.stats (Tapctl.create ()) tapdev in
+				if stats.Tapctl.Stats.nbd_mirror_failed = 1 then
+					Updates.add (Dynamic.Mirror id) updates;
+				alm.State.Send_state.watchdog <- Some (Updates.Scheduler.one_shot (Updates.Scheduler.Delta 5) "tapdisk_watchdog" inner)
+			in inner ()
 		end;
 
-		on_fail := (fun () -> Local.VDI.destroy ~dbg ~sr ~vdi:snapshot.vdi) :: !on_fail;
+		on_fail := (fun () -> stop ~dbg ~id) :: !on_fail;
 		(* Copy the snapshot to the remote *)
 		let new_parent = Storage_task.with_subtask task "copy" (fun () -> 
 			copy' ~task ~dbg ~sr ~vdi:snapshot.vdi ~url ~dest ~dest_vdi:result.Mirror.copy_diffs_to) |> vdi_info in
@@ -300,27 +323,9 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 		Some (Mirror_id id)
 	with e ->
 		error "Caught %s: performing cleanup actions" (Printexc.to_string e);
-		perform_cleanup_actions !on_fail;
+		(try stop dbg id; with _ -> ());
 		raise (Internal_error (Printexc.to_string e))
 
-let stop ~dbg ~id =
-	(* Find the local VDI *)
-	let alm = State.find_active_local_mirror id in
-	match alm with 
-		| Some alm -> 
-			let sr,vdi = State.of_id id in
-			let vdis = Local.SR.scan ~dbg ~sr in
-			let local_vdi =
-				try List.find (fun x -> x.vdi = vdi) vdis
-				with Not_found -> failwith (Printf.sprintf "Local VDI %s not found" vdi) in
-			(* Disable mirroring on the local machine *)
-			let snapshot = Local.VDI.snapshot ~dbg ~sr ~vdi:local_vdi.vdi ~vdi_info:local_vdi ~params:["mirror", "null"] in
-			Local.VDI.destroy ~dbg ~sr ~vdi:snapshot.vdi;
-			let remote_url = Http.Url.of_string alm.State.Send_state.remote_url in
-			let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
-			(try Remote.DATA.MIRROR.receive_cancel ~dbg ~id with _ -> ())
-		| None ->
-			raise (Does_not_exist ("mirror",id))
 
 (* XXX: PR-1255: copy the xenopsd 'raise Exception' pattern *)
 let stop ~dbg ~id =
@@ -339,16 +344,13 @@ let stat' dbg id s =
 		| Send s ->
 			let failed = 
 				try 
-					let attach_info = Local.DP.attach_info ~dbg ~sr ~vdi ~dp:s.Send_state.local_dp in
-					match tapdisk_of_attach_info attach_info with
-						| Some tapdev ->
-							let stats = Tapctl.stats (Tapctl.create ()) tapdev in
-							stats.Tapctl.Stats.nbd_mirror_failed = 1
-						| None -> true
+					let stats = Tapctl.stats (Tapctl.create ()) s.Send_state.tapdev in
+					stats.Tapctl.Stats.nbd_mirror_failed = 1
 				with e -> 
-					error "Caught exception checking sending state of vdi: %s exn: %s\n" vdi (Printexc.to_string e);
-					true
+					debug "Using cached copy of failure status";
+					s.Send_state.failed
 			in
+			s.Send_state.failed <- failed;
 			{Mirror.local_vdi=vdi; remote_vdi=s.Send_state.mirror_vdi; state=Mirror.Sending; failed}
 		| Receive r -> 
 			{Mirror.local_vdi=vdi; remote_vdi=r.Receive_state.remote_vdi; state=Mirror.Receiving; failed=false}
@@ -402,7 +404,7 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
 
 		debug "Parent disk content_id=%s" parent.content_id;
 		
-		ignore(State.add_to_active_receive_mirrors id dummy.vdi leaf_dp parent.vdi vdi_info.vdi);
+		ignore(State.add_to_active_receive_mirrors id sr dummy.vdi leaf.vdi leaf_dp parent.vdi vdi_info.vdi);
 		
 		let nearest_content_id = Opt.map (fun x -> x.content_id) nearest in
 
@@ -415,14 +417,40 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
 		List.iter (fun op -> try op () with e -> debug "Caught exception in on_fail: %s" (Printexc.to_string e)) !on_fail;
 		raise e
 
+let log_exn_and_continue s f =
+	try f () with e -> debug "Ignorning exception '%s' while %s" (Printexc.to_string e) s
+
 let receive_finalize ~dbg ~id =
 	let record = State.find_active_receive_mirror id in
-	let open State.Receive_state in Opt.iter (fun r -> Local.DP.destroy ~dbg ~dp:r.leaf_dp ~allow_leak:false) record
+	let open State.Receive_state in Opt.iter (fun r -> Local.DP.destroy ~dbg ~dp:r.leaf_dp ~allow_leak:false) record;
+	State.remove id
 
-let receive_cancel ~dbg ~id = ()
+let receive_cancel ~dbg ~id =
+	let record = State.find_active_receive_mirror id in
+	let open State.Receive_state in Opt.iter (fun r ->
+		log_exn_and_continue "cancelling receive" (fun () -> Local.DP.destroy ~dbg ~dp:r.leaf_dp ~allow_leak:false);
+		List.iter (fun v -> 
+			log_exn_and_continue "cancelling receive" (fun () -> Local.VDI.destroy ~dbg ~sr:r.sr ~vdi:v)
+		) [r.dummy_vdi; r.leaf_vdi; r.parent_vdi]
+	) record;
+	State.remove id
 
+let pre_deactivate_hook ~dbg ~dp ~sr ~vdi =
+	let open State.Send_state in
+	let id = State.id_of (sr,vdi) in
+	State.find_active_local_mirror id |> 
+			Opt.iter (fun s ->
+				try
+					Tapctl.pause (Tapctl.create ()) s.tapdev;
+					let stats = Tapctl.stats (Tapctl.create ()) s.tapdev in
+					s.failed <- stats.Tapctl.Stats.nbd_mirror_failed = 1
+				with e ->
+					error "Caught exception while finally checking mirror state: %s"
+						(Printexc.to_string e);
+					s.failed <- true
+			)
 
-let detach_hook ~sr ~vdi ~dp = 
+let post_detach_hook ~sr ~vdi ~dp = 
 	let open State.Send_state in
 	let id = State.id_of (sr,vdi) in
 	State.find_active_local_mirror id |> 
@@ -431,8 +459,12 @@ let detach_hook ~sr ~vdi ~dp =
 				let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
 				let t = Thread.create (fun () ->
 					debug "Calling receive_finalize";
-					Remote.DATA.MIRROR.receive_finalize ~dbg:"Mirror-cleanup" ~id;
-					debug "Finished calling receive_finalize") () in
+					log_exn_and_continue "in detach hook" 
+						(fun () -> Remote.DATA.MIRROR.receive_finalize ~dbg:"Mirror-cleanup" ~id);
+					debug "Finished calling receive_finalize";
+					State.remove id;
+					debug "Removed active local mirror: %s" id
+				) () in
 				Opt.iter (fun id -> Updates.Scheduler.cancel id) r.watchdog;
 				debug "Created thread %d to call receive finalize and dp destroy" (Thread.id t))
 
