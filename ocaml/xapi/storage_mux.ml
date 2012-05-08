@@ -173,7 +173,7 @@ module Mux = struct
            SR/VDI -- for a particular SR and VDI
            content_id -- for a particular content *)
         let open Stringext in
-        match List.filter (fun x -> x <> "") (String.split '/' name) with
+        match List.filter (fun x -> x <> "") (String.split ~limit:2 '/' name) with
             | [ sr; name ] ->
                 let module C = Client(struct let rpc = of_sr sr end) in
                 C.VDI.get_by_name ~dbg ~sr ~name
