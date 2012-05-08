@@ -1119,9 +1119,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 				VM_hook_script(id, Xenops_hooks.VM_pre_destroy, Xenops_hooks.reason__suspend);
 			] @ (atomics_of_operation (VM_shutdown (id, None))) @ [
 				VM_hook_script(id, Xenops_hooks.VM_post_destroy, Xenops_hooks.reason__suspend);
-			] @ (
-				if not is_localhost then [ VM_remove id ] else []
-			) in
+			] in
 			perform_atomics atomics t;
 			VM_DB.signal id
 		| VM_receive_memory (id, memory_limit, s) ->
