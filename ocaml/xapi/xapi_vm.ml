@@ -865,3 +865,40 @@ let set_appliance ~__context ~self ~value =
 		Xapi_vm_appliance.update_allowed_operations ~__context ~self:previous_value;
 	(* Update the VM's allowed operations - this will update the new appliance's operations, if valid. *)
 	update_allowed_operations __context self
+
+let import_convert ~__context ~_type ~username ~password ~sr ~remote_config =
+	let open Vpx in
+	let print_jobInstance (j : Vpx.jobInstance) =
+		debug "import_convert %Ld%% %s -> %s!\n" j.percentComplete (string_of_jobState j.state) (j.stateDesc) in
+	let rec loop call vpx_ip =
+		let response = vpxrpc vpx_ip call in
+		let jobInstance = Vpx.jobInstance_of_rpc response.Rpc.contents in
+		print_jobInstance jobInstance;
+		(match jobInstance.state with
+			| Created
+			| Queued
+			| Running -> Unix.sleep 1; loop call vpx_ip
+			| Completed
+			| Aborted
+			| UserAborted -> ()) in
+	debug "import_convert %s" (String.concat "; " (List.map (fun (k,v) -> (k ^ "," ^ v)) remote_config));
+	let vpx_ip = Xapi_plugins.call_plugin (Context.get_session_id __context) "conversion" "main" [] in
+	debug "import_convert %s" vpx_ip;
+	let xen_servicecred = { username = username; password = password } in
+	let r_cred = rpc_of_serviceCred xen_servicecred in
+	let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
+	debug "import_convert sr-uuid:%s" sr_uuid;
+	let importInfo = { Vpx.sRuuid = sr_uuid } in
+	let vmware_serverinfo = {
+		serverType = serverType_of_string _type;
+		hostname = (List.assoc "hostname" remote_config);
+		cred = {username = (List.assoc "username" remote_config); password = (List.assoc "password" remote_config)}} in
+	let jobInfo = {source = vmware_serverinfo; sourceVmUUID = "";
+			sourceVmName = (List.assoc "vm-name" remote_config); importInfo = importInfo } in
+	let r_jobInfo = rpc_of_jobInfo jobInfo in
+	let call = Rpc.call "job.create" [ r_cred; r_jobInfo ] in
+	let response = vpxrpc vpx_ip call in
+	let jobInstance = jobInstance_of_rpc response.Rpc.contents in
+	let r_jobId = Rpc.rpc_of_string jobInstance.id in
+	let call = Rpc.call "job.get" [ r_cred; r_jobId ] in
+	loop call vpx_ip

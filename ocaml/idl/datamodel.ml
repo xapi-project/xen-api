@@ -1458,6 +1458,21 @@ let vm_create_template = call
   ~allowed_roles:_R_VM_ADMIN
   ()
 
+let vm_import_convert = call
+	~name:"import_convert"
+  ~in_product_since:rel_tampa
+	~doc:"Import using a conversion service."
+	~params:[
+		String, "type", "Type of the conversion";
+		String, "username", "Admin username on the host";
+		String, "password", "Password on the host";
+		Ref _sr, "sr", "The destination SR";
+		Map(String, String), "remote_config", "Remote configuration options"
+	]
+	~errs:[]
+	~allowed_roles:_R_VM_ADMIN
+	()
+
 (* VM.Provision -- causes the template's disks to be instantiated *)
 
 let vm_provision = call
@@ -6456,6 +6471,7 @@ let vm =
 		vm_set_suspend_VDI;
 		vm_assert_can_be_recovered;
 		vm_recover;
+		vm_import_convert;
 		vm_set_appliance;
 		]
       ~contents:
