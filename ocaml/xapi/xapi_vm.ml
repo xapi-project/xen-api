@@ -881,21 +881,20 @@ let import_convert ~__context ~_type ~username ~password ~sr ~remote_config =
 			| Completed
 			| Aborted
 			| UserAborted -> ()) in
-	let config = Cli_operations.read_map_params "remote-config" remote_config in
-	debug "import_convert %s" (String.concat "; " (List.map (fun (k,v) -> (k ^ "," ^ v)) config));
+	debug "import_convert %s" (String.concat "; " (List.map (fun (k,v) -> (k ^ "," ^ v)) remote_config));
 	let vpx_ip = Xapi_plugins.call_plugin (Context.get_session_id __context) "conversion" "main" [] in
 	debug "import_convert %s" vpx_ip;
 	let xen_servicecred = { username = username; password = password } in
 	let r_cred = rpc_of_serviceCred xen_servicecred in
-  let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
-  debug "import_convert sr-uuid:%s" sr_uuid;
+	let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
+	debug "import_convert sr-uuid:%s" sr_uuid;
 	let importInfo = { Vpx.sRuuid = sr_uuid } in
 	let vmware_serverinfo = {
 		serverType = serverType_of_string _type;
-		hostname = (List.assoc "hostname" config);
-		cred = {username = (List.assoc "username" config); password = (List.assoc "password" config)}} in
+		hostname = (List.assoc "hostname" remote_config);
+		cred = {username = (List.assoc "username" remote_config); password = (List.assoc "password" remote_config)}} in
 	let jobInfo = {source = vmware_serverinfo; sourceVmUUID = "";
-			sourceVmName = (List.assoc "vm-name" config); importInfo = importInfo } in
+			sourceVmName = (List.assoc "vm-name" remote_config); importInfo = importInfo } in
 	let r_jobInfo = rpc_of_jobInfo jobInfo in
 	let call = Rpc.call "job.create" [ r_cred; r_jobInfo ] in
 	let response = vpxrpc vpx_ip call in
