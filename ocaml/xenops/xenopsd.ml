@@ -15,7 +15,7 @@ open Xenops_utils
 open Pervasiveext 
 open Fun
 
-module D = Debug.Debugger(struct let name = service_name end)
+module D = Debug.Debugger(struct let name = Xenops_interface.service_name end)
 open D
 
 let name = "xenopsd"
@@ -237,7 +237,7 @@ let _ =
 	  else (module Xenops_server_xen: Xenops_server_plugin.S)));
 
   Debug.with_thread_associated "main" (start sockets) Server.process;
-  Xenops_utils.Scheduler.start ();
+  Xenops_task.Updates.Scheduler.start ();
   Xenops_server.WorkerPool.start !worker_pool_size;
   while true do
 	  try

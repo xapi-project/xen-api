@@ -1081,51 +1081,18 @@ let update_pci ~__context id =
 	with e ->
 		error "xenopsd event: Caught %s while updating PCI" (string_of_exn e)
 
-let id_to_task_tbl = Hashtbl.create 10
-let task_to_id_tbl = Hashtbl.create 10
-let task_tbl_m = Mutex.create ()
-
-let id_to_task_exn id =
-	Mutex.execute task_tbl_m
-		(fun () ->
-			Hashtbl.find id_to_task_tbl id
-		)
-
-let task_to_id_exn task =
-	Mutex.execute task_tbl_m
-		(fun () ->
-			Hashtbl.find task_to_id_tbl task
-		)
-
-let register_task __context id =
-	let task = Context.get_task_id __context in
-	Mutex.execute task_tbl_m
-		(fun () ->
-			Hashtbl.replace id_to_task_tbl id task;
-			Hashtbl.replace task_to_id_tbl task id;
-		);
-	(* Since we've bound the XenAPI Task to the xenopsd Task, and the xenopsd Task
-	   is cancellable, mark the XenAPI Task as cancellable too. *)
-	TaskHelper.set_cancellable ~__context;
-	id
-
-let unregister_task __context id =
-	(* The rest of the XenAPI Task won't be cancellable *)
-	TaskHelper.set_not_cancellable ~__context;
-	Mutex.execute task_tbl_m
-		(fun () ->
-			let task = Hashtbl.find id_to_task_tbl id in
-			Hashtbl.remove id_to_task_tbl id;
-			Hashtbl.remove task_to_id_tbl task;
-		);
-	id
+exception Not_a_xenops_task
+let wrap id = TaskHelper.Xenops id
+let unwrap x = match x with | TaskHelper.Xenops id -> id | _ -> raise Not_a_xenops_task
+let register_task __context id = TaskHelper.register_task __context (wrap id) |> unwrap
+let unregister_task __context id = TaskHelper.unregister_task __context (wrap id) |> unwrap
 
 let update_task ~__context id =
 	try
-		let self = id_to_task_exn id in (* throws Not_found *)
+		let self = TaskHelper.id_to_task_exn (TaskHelper.Xenops id) in (* throws Not_found *)
 		let dbg = Context.string_of_task __context in
 		let task_t = Client.TASK.stat dbg id in
-		match task_t.Task.result with
+		match task_t.Task.state with
 			| Task.Pending x ->
 				Db.Task.set_progress ~__context ~self ~value:x
 			| _ -> ()
@@ -1161,7 +1128,7 @@ let rec events_watch ~__context from =
 				debug "barrier %d" id;
 				Event.wakeup dbg id
 		) events;
-	events_watch ~__context next
+	events_watch ~__context (Some next)
 
 let manage_dom0 dbg =
 	(* Tell xenopsd to manage domain 0 *)
@@ -1205,7 +1172,7 @@ let on_xapi_restart ~__context =
 	let tasks = Client.TASK.list dbg in
 	List.iter
 		(fun t ->
-			info "Deleting leaked xenopsd task %s (%s) (%s)" t.Task.id t.Task.debug_info (t.Task.result |> Task.rpc_of_result |> Jsonrpc.to_string);
+			info "Deleting leaked xenopsd task %s (%s) (%s)" t.Task.id t.Task.debug_info (t.Task.state |> Task.rpc_of_state |> Jsonrpc.to_string);
 			Client.TASK.destroy dbg t.Task.id
 		) tasks;
 	(* Any VM marked as 'Suspended' in xenopsd is broken because the
@@ -1346,7 +1313,7 @@ let success_task f dbg id =
 	finally
 		(fun () ->
 			let t = Client.TASK.stat dbg id in
-			match t.Task.result with
+			match t.Task.state with
 				| Task.Completed _ -> f t
 				| Task.Failed x -> 
 					let exn = exn_of_exnty (Exception.exnty_of_rpc x) in
@@ -1410,7 +1377,8 @@ let transform_xenops_exn ~__context f =
 		| Not_enough_memory needed -> internal "there was not enough memory (needed %Ld bytes)" needed
 		| Cancelled id ->
 			let task =
-				try id_to_task_exn id
+				try 
+					TaskHelper.id_to_task_exn (TaskHelper.Xenops id) 
 				with _ ->
 					debug "xenopsd task id %s is not associated with a XenAPI task" id;
 					Ref.null in
@@ -1888,10 +1856,11 @@ let vif_move ~__context ~self network =
 
 let task_cancel ~__context ~self =
 	try
-		let id = task_to_id_exn self in
+		let id = TaskHelper.task_to_id_exn self |> unwrap in
 		let dbg = Context.string_of_task __context in
 		info "xenops: TASK.cancel %s" id;
 		Client.TASK.cancel dbg id |> ignore; (* it might actually have completed, we don't care *)
 		true
-	with Not_found ->
-		false
+	with 
+		| Not_found -> false
+		| Not_a_xenops_task -> false

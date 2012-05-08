@@ -77,7 +77,7 @@ val is_attached: __context:Context.t -> vbd:API.ref_VBD -> domid:int -> bool
 (** [on_vdi __context vbd domid f] calls [f rpc dp sr vdi] which is
     useful for executing Storage_interface.Client.VDI functions, applying the
     standard convention mapping VBDs onto DPs *)
-val on_vdi: __context:Context.t -> vbd:API.ref_VBD -> domid:int -> ((Rpc.call -> Rpc.response) -> Storage_interface.task -> Storage_interface.dp -> Storage_interface.sr -> Storage_interface.vdi -> 'a) -> 'a
+val on_vdi: __context:Context.t -> vbd:API.ref_VBD -> domid:int -> ((Rpc.call -> Rpc.response) -> Storage_interface.debug_info -> Storage_interface.dp -> Storage_interface.sr -> Storage_interface.vdi -> 'a) -> 'a
 
 (** [resynchronise_pbds __context pbds] sets the currently_attached state of
     each of [pbd] to match the state of the storage layer. *)
@@ -103,3 +103,32 @@ val dp_destroy: __context:Context.t -> string -> bool -> unit
 
 (** [destroy_sr __context sr] attempts to cleanup and destroy a given SR *)
 val destroy_sr: __context:Context.t -> sr:API.ref_SR -> unit
+
+
+val event_wait: Storage_interface.debug_info -> (Storage_interface.Dynamic.id -> bool) -> unit
+
+val task_ended : Storage_interface.debug_info -> Storage_interface.Task.id -> bool
+
+val success_task : Storage_interface.debug_info -> Storage_interface.Task.id -> Storage_interface.Task.t
+
+val wait_for_task : Storage_interface.debug_info -> Storage_interface.Task.id -> Storage_interface.Task.id
+
+val vdi_of_task : Storage_interface.debug_info -> Storage_interface.Task.t -> Storage_interface.vdi_info 
+
+val mirror_of_task : Storage_interface.debug_info -> Storage_interface.Task.t -> Storage_interface.Mirror.id 
+
+val register_task : Context.t -> Storage_interface.Task.id -> Storage_interface.Task.id
+
+val unregister_task : Context.t -> Storage_interface.Task.id -> Storage_interface.Task.id
+
+val register_mirror : Context.t -> Storage_interface.Mirror.id -> Storage_interface.Mirror.id
+
+val unregister_mirror : Storage_interface.Mirror.id -> Storage_interface.Mirror.id
+
+val add_to_progress_map : (float -> float) -> Storage_interface.Task.id -> Storage_interface.Task.id
+
+val remove_from_progress_map : Storage_interface.Task.id -> Storage_interface.Task.id
+
+val events_from_sm : unit -> unit
+
+val task_cancel : __context:Context.t -> self:API.ref_task -> bool

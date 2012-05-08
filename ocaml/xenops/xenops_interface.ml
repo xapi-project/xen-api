@@ -15,6 +15,8 @@
  * @group Xenops
  *)
 
+let service_name = "xenops"
+
 type power_state =
 	| Running
 	| Halted
@@ -297,17 +299,24 @@ end
 module Task = struct
 	type id = string
 
-	type result =
+	type async_result = unit
+		
+	type completion_t = {
+		duration : float;
+		result : async_result option
+	}
+
+	type state =
 		| Pending of float
-		| Completed of float
+		| Completed of completion_t
 		| Failed of Rpc.t
 
 	type t = {
 		id: id;
 		debug_info: string;
 		ctime: float;
-		result: result;
-		subtasks: (string * result) list;
+		state: state;
+		subtasks: (string * state) list;
 	}
 end
 
@@ -406,7 +415,7 @@ module VIF = struct
 end
 
 module UPDATES = struct
-	external get: debug_info -> int option -> int option -> Dynamic.id list * int option = ""
+	external get: debug_info -> int option -> int option -> Dynamic.id list * int = ""
     external inject_barrier: debug_info -> int -> unit = ""
 	external remove_barrier: debug_info -> int -> unit = ""
 	external refresh_vm: debug_info -> Vm.id -> unit = ""

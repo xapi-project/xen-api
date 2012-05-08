@@ -65,15 +65,15 @@ module Builtin_impl = struct
     }
 
 	module DP = struct
-		let create context ~task ~id = assert false
-		let destroy context ~task ~dp = assert false
+		let create context ~dbg ~id = assert false
+		let destroy context ~dbg ~dp = assert false
 		let diagnostics context () = assert false
-		let attach_info context ~task ~sr ~vdi ~dp = assert false
+		let attach_info context ~dbg ~sr ~vdi ~dp = assert false
 	end
 
 	module SR = struct
-		let attach context ~task ~sr ~device_config =
-			Server_helpers.exec_with_new_task "SR.attach" ~subtask_of:(Ref.of_string task)
+		let attach context ~dbg ~sr ~device_config =
+			Server_helpers.exec_with_new_task "SR.attach" ~subtask_of:(Ref.of_string dbg)
 				(fun __context ->
 					let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
 
@@ -94,8 +94,8 @@ module Builtin_impl = struct
 									raise e
 						)
 				)
-		let detach context ~task ~sr =
-			Server_helpers.exec_with_new_task "SR.detach" ~subtask_of:(Ref.of_string task)
+		let detach context ~dbg ~sr =
+			Server_helpers.exec_with_new_task "SR.detach" ~subtask_of:(Ref.of_string dbg)
 				(fun __context ->
 					let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
 
@@ -113,10 +113,10 @@ module Builtin_impl = struct
 						)
 				)
 
-		let reset context ~task ~sr = assert false
+		let reset context ~dbg ~sr = assert false
 
-		let destroy context ~task ~sr = 
-			Server_helpers.exec_with_new_task "SR.destroy" ~subtask_of:(Ref.of_string task)
+		let destroy context ~dbg ~sr = 
+			Server_helpers.exec_with_new_task "SR.destroy" ~subtask_of:(Ref.of_string dbg)
 				(fun __context ->
 					let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
 
@@ -157,8 +157,8 @@ module Builtin_impl = struct
 				physical_utilisation = vdi_rec.API.vDI_physical_utilisation;
 			}
 
-		let scan context ~task ~sr:sr' =
-			Server_helpers.exec_with_new_task "SR.scan" ~subtask_of:(Ref.of_string task)
+		let scan context ~dbg ~sr:sr' =
+			Server_helpers.exec_with_new_task "SR.scan" ~subtask_of:(Ref.of_string dbg)
 				(fun __context ->
 					let sr = Db.SR.get_by_uuid ~__context ~uuid:sr' in
 					Sm.call_sm_functions ~__context ~sR:sr
@@ -182,13 +182,13 @@ module Builtin_impl = struct
 				)
 
 
-		let list context ~task = assert false
+		let list context ~dbg = assert false
 
 	end
 
 	module VDI = struct
-		let for_vdi ~task ~sr ~vdi op_name f =
-			Server_helpers.exec_with_new_task op_name ~subtask_of:(Ref.of_string task)
+		let for_vdi ~dbg ~sr ~vdi op_name f =
+			Server_helpers.exec_with_new_task op_name ~subtask_of:(Ref.of_string dbg)
 				(fun __context ->
 					let open Db_filter_types in
 					let self = find_vdi ~__context sr vdi |> fst in
@@ -203,10 +203,10 @@ module Builtin_impl = struct
 		let vdi_read_write_m = Mutex.create ()
 
 
-		let attach context ~task ~dp ~sr ~vdi ~read_write =
+		let attach context ~dbg ~dp ~sr ~vdi ~read_write =
 			try
 				let attach_info_v1 =
-					for_vdi ~task ~sr ~vdi "VDI.attach"
+					for_vdi ~dbg ~sr ~vdi "VDI.attach"
 						(fun device_config _type sr self ->
 							Sm.vdi_attach device_config _type sr self read_write
 						) in
@@ -220,15 +220,15 @@ module Builtin_impl = struct
 			with Api_errors.Server_error(code, params) ->
 				raise (Backend_error(code, params))
 
-		let activate context ~task ~dp ~sr ~vdi =
+		let activate context ~dbg ~dp ~sr ~vdi =
 			try
 				let read_write = Mutex.execute vdi_read_write_m
 					(fun () -> 
 						if not (Hashtbl.mem vdi_read_write (sr, vdi)) then error "VDI.activate: doesn't know if sr:%s vdi:%s is RO or RW" sr vdi;
 						Hashtbl.find vdi_read_write (sr, vdi)) in
-				for_vdi ~task ~sr ~vdi "VDI.activate"
+				for_vdi ~dbg ~sr ~vdi "VDI.activate"
 					(fun device_config _type sr self ->
-						Server_helpers.exec_with_new_task "VDI.activate" ~subtask_of:(Ref.of_string task)
+						Server_helpers.exec_with_new_task "VDI.activate" ~subtask_of:(Ref.of_string dbg)
 							(fun __context ->
 								(if read_write 
 								then Db.VDI.remove_from_other_config ~__context ~self ~key:"content_id"));
@@ -240,11 +240,11 @@ module Builtin_impl = struct
 			with Api_errors.Server_error(code, params) ->
 				raise (Backend_error(code, params))
 
-		let deactivate context ~task ~dp ~sr ~vdi =
+		let deactivate context ~dbg ~dp ~sr ~vdi =
 			try
-				for_vdi ~task ~sr ~vdi "VDI.deactivate"
+				for_vdi ~dbg ~sr ~vdi "VDI.deactivate"
 					(fun device_config _type sr self ->
-						Server_helpers.exec_with_new_task "VDI.activate" ~subtask_of:(Ref.of_string task)
+						Server_helpers.exec_with_new_task "VDI.activate" ~subtask_of:(Ref.of_string dbg)
 							(fun __context ->
 								let other_config = Db.VDI.get_other_config ~__context ~self in
 								if not (List.mem_assoc "content_id" other_config)
@@ -257,9 +257,9 @@ module Builtin_impl = struct
 			with Api_errors.Server_error(code, params) ->
 				raise (Backend_error(code, params))
 
-		let detach context ~task ~dp ~sr ~vdi =
+		let detach context ~dbg ~dp ~sr ~vdi =
 			try
-				for_vdi ~task ~sr ~vdi "VDI.detach"
+				for_vdi ~dbg ~sr ~vdi "VDI.detach"
 					(fun device_config _type sr self ->
 						Sm.vdi_detach device_config _type sr self
 					);
@@ -268,7 +268,7 @@ module Builtin_impl = struct
 			with Api_errors.Server_error(code, params) ->
 				raise (Backend_error(code, params))
 
-		let stat context ~task ~sr ~vdi () = assert false
+		let stat context ~dbg ~sr ~vdi () = assert false
 
         let require_uuid vdi_info =
             match vdi_info.Smint.vdi_info_uuid with
@@ -298,9 +298,9 @@ module Builtin_impl = struct
             let uuid = require_uuid vi in
             vdi_info_from_db ~__context (Db.VDI.get_by_uuid ~__context ~uuid)
 
-        let create context ~task ~sr ~vdi_info ~params =
+        let create context ~dbg ~sr ~vdi_info ~params =
             try
-                Server_helpers.exec_with_new_task "VDI.create" ~subtask_of:(Ref.of_string task)
+                Server_helpers.exec_with_new_task "VDI.create" ~subtask_of:(Ref.of_string dbg)
                     (fun __context ->
                         let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
                         let vi =
@@ -316,11 +316,11 @@ module Builtin_impl = struct
             with Api_errors.Server_error(code, params) ->
                 raise (Backend_error(code, params))
 
-		let snapshot_and_clone call_name call_f context ~task ~sr ~vdi ~vdi_info ~params =
+		let snapshot_and_clone call_name call_f context ~dbg ~sr ~vdi ~vdi_info ~params =
 			try
-				Server_helpers.exec_with_new_task call_name ~subtask_of:(Ref.of_string task)
+				Server_helpers.exec_with_new_task call_name ~subtask_of:(Ref.of_string dbg)
 					(fun __context ->
-						let vi = for_vdi ~task ~sr ~vdi call_name
+						let vi = for_vdi ~dbg ~sr ~vdi call_name
 							(fun device_config _type sr self ->
 								call_f device_config _type params sr self
 							) in
@@ -338,7 +338,7 @@ module Builtin_impl = struct
 						Db.VDI.set_name_description ~__context ~self ~value:vdi_info.name_description;
 						Db.VDI.remove_from_other_config ~__context ~self ~key:"content_id";
 						Db.VDI.add_to_other_config ~__context ~self ~key:"content_id" ~value:content_id;
-						for_vdi ~task ~sr ~vdi:vi.Smint.vdi_info_location "VDI.update"
+						for_vdi ~dbg ~sr ~vdi:vi.Smint.vdi_info_location "VDI.update"
 							(fun device_config _type sr self ->
 								Sm.vdi_update device_config _type sr self
 							);
@@ -353,9 +353,9 @@ module Builtin_impl = struct
 		let snapshot = snapshot_and_clone "VDI.snapshot" Sm.vdi_snapshot
 		let clone = snapshot_and_clone "VDI.clone" Sm.vdi_clone
 
-        let destroy context ~task ~sr ~vdi =
+        let destroy context ~dbg ~sr ~vdi =
             try
-                for_vdi ~task ~sr ~vdi "VDI.destroy"
+                for_vdi ~dbg ~sr ~vdi "VDI.destroy"
                     (fun device_config _type sr self ->
                         Sm.vdi_delete device_config _type sr self
                     );
@@ -367,10 +367,10 @@ module Builtin_impl = struct
 				| No_VDI ->
 					raise Vdi_does_not_exist
 
-		let get_by_name context ~task ~sr ~name =
-			info "VDI.get_by_name task:%s sr:%s name:%s" task sr name;
+		let get_by_name context ~dbg ~sr ~name =
+			info "VDI.get_by_name dbg:%s sr:%s name:%s" dbg sr name;
 			(* PR-1255: the backend should do this for us *)
-			 Server_helpers.exec_with_new_task "VDI.get_by_name" ~subtask_of:(Ref.of_string task)
+			 Server_helpers.exec_with_new_task "VDI.get_by_name" ~subtask_of:(Ref.of_string dbg)
                 (fun __context ->
 					(* PR-1255: the backend should do this for us *)
 					try
@@ -383,19 +383,19 @@ module Builtin_impl = struct
 						raise Vdi_does_not_exist
 				)
 
-		let set_content_id context ~task ~sr ~vdi ~content_id =
-			info "VDI.get_by_content task:%s sr:%s vdi:%s content_id:%s" task sr vdi content_id;
+		let set_content_id context ~dbg ~sr ~vdi ~content_id =
+			info "VDI.get_by_content dbg:%s sr:%s vdi:%s content_id:%s" dbg sr vdi content_id;
 			(* PR-1255: the backend should do this for us *)
-			 Server_helpers.exec_with_new_task "VDI.set_content_id" ~subtask_of:(Ref.of_string task)
+			 Server_helpers.exec_with_new_task "VDI.set_content_id" ~subtask_of:(Ref.of_string dbg)
                 (fun __context ->
 					let vdi, _ = find_vdi ~__context sr vdi in
 					Db.VDI.remove_from_other_config ~__context ~self:vdi ~key:"content_id";
 					Db.VDI.add_to_other_config ~__context ~self:vdi ~key:"content_id" ~value:content_id
 				)
 
-		let similar_content context ~task ~sr ~vdi =
-			info "VDI.similar_content task:%s sr:%s vdi:%s" task sr vdi;
-            Server_helpers.exec_with_new_task "VDI.similar_content" ~subtask_of:(Ref.of_string task)
+		let similar_content context ~dbg ~sr ~vdi =
+			info "VDI.similar_content dbg:%s sr:%s vdi:%s" dbg sr vdi;
+            Server_helpers.exec_with_new_task "VDI.similar_content" ~subtask_of:(Ref.of_string dbg)
                 (fun __context ->
 					(* PR-1255: the backend should do this for us. *)
 					let sr_ref = Db.SR.get_by_uuid ~__context ~uuid:sr in
@@ -443,14 +443,14 @@ module Builtin_impl = struct
 					List.map (fun x -> SR.vdi_info_of_vdi_rec __context sr x) vdi_recs
 				)
 
-		let compose context ~task ~sr ~vdi1 ~vdi2 =
-			info "VDI.compose task:%s sr:%s vdi1:%s vdi2:%s" task sr vdi1 vdi2;
+		let compose context ~dbg ~sr ~vdi1 ~vdi2 =
+			info "VDI.compose dbg:%s sr:%s vdi1:%s vdi2:%s" dbg sr vdi1 vdi2;
 			try
-				Server_helpers.exec_with_new_task "VDI.compose" ~subtask_of:(Ref.of_string task)
+				Server_helpers.exec_with_new_task "VDI.compose" ~subtask_of:(Ref.of_string dbg)
 					(fun __context ->
 						(* This call 'operates' on vdi2 *)
 						let vdi1 = find_vdi ~__context sr vdi1 |> fst in
-						for_vdi ~task ~sr ~vdi:vdi2 "VDI.activate"
+						for_vdi ~dbg ~sr ~vdi:vdi2 "VDI.activate"
 							(fun device_config _type sr self ->
 								Sm.vdi_compose device_config _type sr vdi1 self
 							)
@@ -463,11 +463,11 @@ module Builtin_impl = struct
 				| No_VDI ->
 					raise Vdi_does_not_exist
 
-		let get_url context ~task ~sr ~vdi =
-			info "VDI.get_url task:%s sr:%s vdi:%s" task sr vdi;
+		let get_url context ~dbg ~sr ~vdi =
+			info "VDI.get_url dbg:%s sr:%s vdi:%s" dbg sr vdi;
 			(* XXX: PR-1255: tapdisk shouldn't hardcode xapi urls *)
 			(* peer_ip/session_ref/vdi_ref *)
-			Server_helpers.exec_with_new_task "VDI.compose" ~subtask_of:(Ref.of_string task)
+			Server_helpers.exec_with_new_task "VDI.compose" ~subtask_of:(Ref.of_string dbg)
 				(fun __context ->
 					let ip = Helpers.get_management_ip_addr () |> Opt.unbox in
 					let rpc = Helpers.make_rpc ~__context in
@@ -477,19 +477,33 @@ module Builtin_impl = struct
 					let vdi, _ = find_vdi ~__context sr vdi in
 					Printf.sprintf "%s/%s/%s" ip (Ref.string_of session_ref) (Ref.string_of vdi))
 
-		let copy_into context ~task ~sr ~vdi ~url ~dest = assert false
-		let copy context ~task ~sr ~vdi ~dp ~url ~dest = assert false
 	end
 
-	let get_by_name context ~task ~name = assert false
+	let get_by_name context ~dbg ~name = assert false
 
-	module Mirror = struct
-		let start context ~task ~sr ~vdi ~dp ~url ~dest = assert false
-		let stop context ~task ~sr ~vdi = assert false
-		let list context ~task ~sr = assert false
-		let receive_start context ~task ~sr ~vdi_info ~similar = assert false
-		let receive_finalize context ~task ~sr ~vdi = assert false
-		let receive_cancel context ~task ~sr ~vdi = assert false
+	module DATA = struct
+		let copy_into context ~dbg ~sr ~vdi ~url ~dest = assert false
+		let copy context ~dbg ~sr ~vdi ~dp ~url ~dest = assert false
+		module MIRROR = struct
+			let start context ~dbg ~sr ~vdi ~dp ~url ~dest = assert false
+			let stop context ~dbg ~id = assert false
+			let list context ~dbg = assert false
+			let stat context ~dbg ~id = assert false
+			let receive_start context ~dbg ~sr ~vdi_info ~id ~similar = assert false
+			let receive_finalize context ~dbg ~id = assert false
+			let receive_cancel context ~dbg ~id = assert false
+		end
+	end
+
+	module TASK = struct
+		let stat context ~dbg ~task = assert false
+		let destroy context ~dbg ~task = assert false
+		let cancel context ~dbg ~task = assert false
+		let list context ~dbg = assert false
+	end
+
+	module UPDATES = struct
+		let get context ~dbg ~from ~timeout = assert false
 	end
 end
 
@@ -641,6 +655,134 @@ let rpc call = Storage_mux.Server.process None call
 
 module Client = Client(struct let rpc = rpc end)
 
+let print_delta d =
+	debug "Received update: %s" (Jsonrpc.to_string (Storage_interface.Dynamic.rpc_of_id d))
+
+let event_wait dbg p =
+	let finished = ref false in
+	let event_id = ref "" in
+	while not !finished do
+		debug "Calling UPDATES.get %s %s 30" dbg !event_id;
+		let deltas, next_id = Client.UPDATES.get dbg !event_id (Some 30) in
+		List.iter (fun d -> print_delta d) deltas;
+		event_id := next_id;
+		List.iter (fun d -> if p d then finished := true) deltas;
+	done
+
+let task_ended dbg id =
+	match (Client.TASK.stat dbg id).Task.state with
+		| Task.Completed _
+		| Task.Failed _ -> true
+		| Task.Pending _ -> false
+
+let success_task dbg id =
+	let t = Client.TASK.stat dbg id in
+	Client.TASK.destroy dbg id;
+	match t.Task.state with
+	| Task.Completed _ -> t
+	| Task.Failed x -> raise (exn_of_exnty (Exception.exnty_of_rpc x))
+	| Task.Pending _ -> failwith "task pending"
+
+let wait_for_task dbg id =
+	debug "Waiting for task id=%s to finish" id;
+	let finished = function
+		| Dynamic.Task id' ->
+			id = id' && (task_ended dbg id)
+		| _ ->
+			false in 
+	event_wait dbg finished;
+	id
+
+let vdi_of_task dbg t =
+	match t.Task.state with
+		| Task.Completed { Task.result = Some Vdi_info v } -> v
+		| Task.Completed _ -> failwith "Runtime type error in vdi_of_task"
+		| _ -> failwith "Task not completed"
+
+let mirror_of_task dbg t =
+	match t.Task.state with
+		| Task.Completed { Task.result = Some Mirror_id i } -> i
+		| Task.Completed _ -> failwith "Runtime type error in mirror_of_task"
+		| _ -> failwith "Task not complete"
+
+let progress_map_tbl = Hashtbl.create 10
+let mirror_task_tbl = Hashtbl.create 10
+let progress_map_m = Mutex.create ()
+
+let add_to_progress_map f id = Mutex.execute progress_map_m (fun () -> Hashtbl.add progress_map_tbl id f); id
+let remove_from_progress_map id = Mutex.execute progress_map_m (fun () -> Hashtbl.remove progress_map_tbl id); id
+let get_progress_map id = Mutex.execute progress_map_m (fun () -> try Hashtbl.find progress_map_tbl id with _ -> (fun x -> x))
+
+let register_mirror __context vdi = 
+	let task = Context.get_task_id __context in
+	debug "Registering mirror of vdi %s with task %s" vdi (Ref.string_of task);
+	Mutex.execute progress_map_m (fun () -> Hashtbl.add mirror_task_tbl vdi task); vdi
+let unregister_mirror vdi = Mutex.execute progress_map_m (fun () -> Hashtbl.remove mirror_task_tbl vdi); vdi
+let get_mirror_task vdi = Mutex.execute progress_map_m (fun () -> Hashtbl.find mirror_task_tbl vdi)
+
+exception Not_an_sm_task
+let wrap id = TaskHelper.Sm id
+let unwrap x = match x with | TaskHelper.Sm id -> id | _ -> raise Not_an_sm_task
+let register_task __context id = TaskHelper.register_task __context (wrap id) |> unwrap
+let unregister_task __context id = TaskHelper.unregister_task __context (wrap id) |> unwrap
+
+let update_task ~__context id =
+	try
+		let self = TaskHelper.id_to_task_exn (TaskHelper.Sm id) in (* throws Not_found *)
+		let dbg = Context.string_of_task __context in
+		let task_t = Client.TASK.stat dbg id in
+		let map = get_progress_map id in
+		match task_t.Task.state with
+			| Task.Pending x ->
+				Db.Task.set_progress ~__context ~self ~value:(map x)
+			| _ -> ()
+	with Not_found ->
+		(* Since this is called on all tasks, possibly after the task has been
+		   destroyed, it's safe to ignore a Not_found exception here. *)
+		()
+	| e ->
+		error "storage event: Caught %s while updating task" (Printexc.to_string e)
+
+let update_mirror ~__context id =
+	try 
+		let dbg = Context.string_of_task __context in 
+		let m = Client.DATA.MIRROR.stat dbg id in
+		if m.Mirror.failed 
+		then 
+			debug "Mirror %s has failed" id;
+			let task = get_mirror_task m.Mirror.local_vdi in
+			debug "Mirror associated with task: %s" (Ref.string_of task);
+			(* Just to get a nice error message *)
+			Db.Task.remove_from_other_config ~__context ~self:task ~key:"mirror_failed";
+			Db.Task.add_to_other_config ~__context ~self:task ~key:"mirror_failed" ~value:m.Mirror.local_vdi;
+			Helpers.call_api_functions ~__context
+				(fun rpc session_id -> XenAPI.Task.cancel rpc session_id task)
+	with 
+		| Not_found -> 
+			debug "Couldn't find mirror id: %s" id
+		| Does_not_exist _ -> ()
+		| e -> 
+			error "storage event: Caught %s while updating mirror" (Printexc.to_string e)
+				
+let rec events_watch ~__context from =
+	let dbg = Context.string_of_task __context in
+	let events, next = Client.UPDATES.get dbg from None in
+	let open Dynamic in
+	List.iter
+		(function
+			| Task id ->
+				debug "sm event on Task %s" id;
+				update_task ~__context id
+			| Vdi vdi -> 
+				debug "sm event on VDI %s: ignoring" vdi
+			| Dp dp ->
+				debug "sm event on DP %s: ignoring" dp
+			| Mirror id ->
+				debug "sm event on mirror: %s" id;
+				update_mirror ~__context id
+		) events;
+	events_watch ~__context next
+
 let transform_storage_exn f =
 	try
 		f ()
@@ -652,6 +794,19 @@ let transform_storage_exn f =
 		| e ->
 			error "Re-raising as INTERNAL_ERROR [ %s ]" (Printexc.to_string e);
 			raise (Api_errors.Server_error(Api_errors.internal_error, [ Printexc.to_string e ]))
+
+let events_from_sm () =
+	ignore(Thread.create (fun () -> 
+		Server_helpers.exec_with_new_task "sm_events"
+			(fun __context ->
+				while true do
+					try
+						events_watch ~__context "";
+					with e ->
+						error "event thread caught: %s" (Printexc.to_string e);
+						Thread.delay 10.
+				done
+			)) ())
 
 let start () =
 	let open Storage_impl.Local_domain_socket in
@@ -669,22 +824,22 @@ let of_vbd ~__context ~vbd ~domid =
 	let sr = Db.VDI.get_SR ~__context ~self:vdi in
 	let userdevice = Db.VBD.get_userdevice ~__context ~self:vbd in
 	let hvm = Helpers.will_boot_hvm ~__context ~self:(Db.VBD.get_VM ~__context ~self:vbd) in
-	let task = Context.get_task_id __context in
+	let dbg = Context.get_task_id __context in
 	let device_number = Device_number.of_string hvm userdevice in
 	let device = Device_number.to_linux_device device_number in
 	let dp = datapath_of_vbd ~domid ~device in
-	rpc, (Ref.string_of task), dp, (Db.SR.get_uuid ~__context ~self:sr), location
+	rpc, (Ref.string_of dbg), dp, (Db.SR.get_uuid ~__context ~self:sr), location
 
 (** [is_attached __context vbd] returns true if the [vbd] has an attached
     or activated datapath. *)
 let is_attached ~__context ~vbd ~domid  =
 	transform_storage_exn
 		(fun () ->
-			let rpc, task, dp, sr, vdi = of_vbd ~__context ~vbd ~domid in
+			let rpc, dbg, dp, sr, vdi = of_vbd ~__context ~vbd ~domid in
 			let open Vdi_automaton in
 			let module C = Storage_interface.Client(struct let rpc = rpc end) in
 			try 
-				let x = C.VDI.stat ~task ~sr ~vdi () in
+				let x = C.VDI.stat ~dbg ~sr ~vdi () in
 				x.superstate <> Detached
 			with 
 				| e -> error "Unable to query state of VDI: %s, %s" vdi (Printexc.to_string e); false
@@ -693,23 +848,23 @@ let is_attached ~__context ~vbd ~domid  =
 (** [on_vdi __context vbd domid f] calls [f rpc dp sr vdi] which is
     useful for executing Storage_interface.Client.VDI functions  *)
 let on_vdi ~__context ~vbd ~domid f =
-	let rpc, task, dp, sr, vdi = of_vbd ~__context ~vbd ~domid in
+	let rpc, dbg, dp, sr, vdi = of_vbd ~__context ~vbd ~domid in
 	let module C = Storage_interface.Client(struct let rpc = rpc end) in
-	let dp = C.DP.create task dp in
+	let dp = C.DP.create dbg dp in
 	transform_storage_exn
 		(fun () ->
-			f rpc task dp sr vdi
+			f rpc dbg dp sr vdi
 		)
 
 let reset ~__context ~vm =
-	let task = Context.get_task_id __context in
+	let dbg = Context.get_task_id __context in
 	transform_storage_exn
 		(fun () ->
 			Opt.iter
 				(fun pbd ->
 					let sr = Db.SR.get_uuid ~__context ~self:(Db.PBD.get_SR ~__context ~self:pbd) in
 					info "Resetting all state associated with SR: %s" sr;
-					Client.SR.reset (Ref.string_of task) sr;
+					Client.SR.reset (Ref.string_of dbg) sr;
 					Db.PBD.set_currently_attached ~__context ~self:pbd ~value:false;
 				) (System_domains.pbd_of_vm ~__context ~vm)
 		)
@@ -723,10 +878,10 @@ let attach_and_activate ~__context ~vbd ~domid ~hvm f =
 		(fun () ->
 			let read_write = Db.VBD.get_mode ~__context ~self:vbd = `RW in
 			let result = on_vdi ~__context ~vbd ~domid
-				(fun rpc task dp sr vdi ->
+				(fun rpc dbg dp sr vdi ->
 					let module C = Storage_interface.Client(struct let rpc = rpc end) in
-					let attach_info = C.VDI.attach task dp sr vdi read_write in
-					C.VDI.activate task dp sr vdi;
+					let attach_info = C.VDI.attach dbg dp sr vdi read_write in
+					C.VDI.activate dbg dp sr vdi;
 					f attach_info
 				) in
 			Qemu_blkfront.create ~__context ~self:vbd ~read_write hvm;
@@ -746,9 +901,9 @@ let deactivate_and_detach ~__context ~vbd ~domid ~unplug_frontends =
 			(* It suffices to destroy the datapath: any attached or activated VDIs will be
 			   automatically detached and deactivated. *)
 			on_vdi ~__context ~vbd ~domid
-				(fun rpc task dp sr vdi ->
+				(fun rpc dbg dp sr vdi ->
 					let module C = Storage_interface.Client(struct let rpc = rpc end) in
-					C.DP.destroy task dp false
+					C.DP.destroy dbg dp false
 				)
 		)
 
@@ -759,14 +914,14 @@ let diagnostics ~__context =
 let dp_destroy ~__context dp allow_leak =
 	transform_storage_exn
 		(fun () ->
-			let task = Context.get_task_id __context in
-			Client.DP.destroy (Ref.string_of task) dp allow_leak
+			let dbg = Context.get_task_id __context in
+			Client.DP.destroy (Ref.string_of dbg) dp allow_leak
 		)
 
 (* Set my PBD.currently_attached fields in the Pool database to match the local one *)
 let resynchronise_pbds ~__context ~pbds =
-	let task = Context.get_task_id __context in
-	let srs = Client.SR.list (Ref.string_of task) in
+	let dbg = Context.get_task_id __context in
+	let srs = Client.SR.list (Ref.string_of dbg) in
 	debug "Currently-attached SRs: [ %s ]" (String.concat "; " srs);
 	List.iter
 		(fun self ->
@@ -834,8 +989,8 @@ let refresh_local_vdi_activations ~__context =
 		Mutex.execute Builtin_impl.VDI.vdi_read_write_m
 			(fun () -> Hashtbl.replace Builtin_impl.VDI.vdi_read_write key (ro_rw = RW)) in
 
-	let task = Ref.string_of (Context.get_task_id __context) in
-	let srs = Client.SR.list task in
+	let dbg = Ref.string_of (Context.get_task_id __context) in
+	let srs = Client.SR.list dbg in
 	List.iter 
 		(fun (vdi_ref, vdi_rec) ->
 			let sr = Db.SR.get_uuid ~__context ~self:vdi_rec.API.vDI_SR in
@@ -843,7 +998,7 @@ let refresh_local_vdi_activations ~__context =
 			if List.mem sr srs
 			then
 				try
-					let x = Client.VDI.stat ~task ~sr ~vdi () in
+					let x = Client.VDI.stat ~dbg ~sr ~vdi () in
 					match x.superstate with 
 						| Activated RO ->
 							lock_vdi (vdi_ref, vdi_rec) RO;
@@ -883,14 +1038,25 @@ let destroy_sr ~__context ~sr =
 		(fun () ->
 			let pbd, pbd_t = Sm.get_my_pbd_for_sr __context sr in
 			bind ~__context ~pbd;
-			let task = Ref.string_of (Context.get_task_id __context) in
-			Client.SR.attach task (Db.SR.get_uuid ~__context ~self:sr) pbd_t.API.pBD_device_config;
+			let dbg = Ref.string_of (Context.get_task_id __context) in
+			Client.SR.attach dbg (Db.SR.get_uuid ~__context ~self:sr) pbd_t.API.pBD_device_config;
 			(* The current backends expect the PBD to be temporarily set to currently_attached = true *)
 			Db.PBD.set_currently_attached ~__context ~self:pbd ~value:true;
 			Pervasiveext.finally (fun () ->
-				Client.SR.destroy task (Db.SR.get_uuid ~__context ~self:sr))
+				Client.SR.destroy dbg (Db.SR.get_uuid ~__context ~self:sr))
 				(fun () -> 
 					(* All PBDs are clearly currently_attached = false now *)
 					Db.PBD.set_currently_attached ~__context ~self:pbd ~value:false);
 			unbind ~__context ~pbd
 		)
+
+let task_cancel ~__context ~self =
+	try
+		let id = TaskHelper.task_to_id_exn self |> unwrap in
+		let dbg = Context.string_of_task __context in
+		info "storage_access: TASK.cancel %s" id;
+		Client.TASK.cancel dbg id |> ignore;
+		true
+	with 
+		| Not_found -> false
+		| Not_an_sm_task -> false

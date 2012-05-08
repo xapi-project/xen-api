@@ -115,7 +115,7 @@ module XapiClient = Client.Client
 
 open Storage_interface
 
-let task = "sm-test"
+let dbg = "sm-test"
 
 let mib = Int64.mul 1024L 1024L
 
@@ -125,7 +125,7 @@ let usage_and_exit () =
 	exit 1
 
 let find_vdi_in_scan sr vdi =
-	let results = SMClient.SR.scan ~task ~sr in
+	let results = SMClient.SR.scan ~dbg ~sr in
 	try
 		Some (List.find (fun x -> x.vdi = vdi) results)
 	with Not_found ->
@@ -142,7 +142,7 @@ let test_scan_missing_vdi sr _ =
 			
 let test_destroy_missing_vdi sr _ =
 	try
-		SMClient.VDI.destroy ~task ~sr ~vdi:missing_vdi;
+		SMClient.VDI.destroy ~dbg ~sr ~vdi:missing_vdi;
 		failwith "VDI.destroy unexpectedly succeeded"
 	with 
 		| Vdi_does_not_exist -> ()
@@ -188,7 +188,7 @@ let example_vdi_info =
 let test_create_destroy sr _ =
 	let vdi_info = example_vdi_info in
 	let vdi_info' = 
-		let vdi_info' = SMClient.VDI.create ~task ~sr ~vdi_info ~params:[] in
+		let vdi_info' = SMClient.VDI.create ~dbg ~sr ~vdi_info ~params:[] in
 		vdi_info_assert_equal vdi_info vdi_info';
 		vdi_info'
 	in
@@ -196,17 +196,17 @@ let test_create_destroy sr _ =
 		| None -> failwith (Printf.sprintf "SR.scan failed to find vdi: %s" (string_of_vdi_info vdi_info'))
 		| Some vdi_info'' -> vdi_info_assert_equal vdi_info' vdi_info''
 	end;
-	SMClient.VDI.destroy ~task ~sr ~vdi:vdi_info'.vdi;
+	SMClient.VDI.destroy ~dbg ~sr ~vdi:vdi_info'.vdi;
 	begin match find_vdi_in_scan sr vdi_info'.vdi with
 		| Some vdi_info''' -> failwith (Printf.sprintf "SR.scan found a VDI that was just deleted: %s" (string_of_vdi_info vdi_info'''))
 		| None -> ()
 	end
 
 let test_attach_activate url sr _ =
-	let vdi_info = SMClient.VDI.create ~task ~sr ~vdi_info:example_vdi_info ~params:[] in
+	let vdi_info = SMClient.VDI.create ~dbg ~sr ~vdi_info:example_vdi_info ~params:[] in
 	let dp = "test_attach_activate" in
-	let _ = SMClient.VDI.attach ~task ~sr ~dp ~vdi:vdi_info.vdi ~read_write:true in
-	SMClient.VDI.activate ~task ~sr ~dp ~vdi:vdi_info.vdi;
+	let _ = SMClient.VDI.attach ~dbg ~sr ~dp ~vdi:vdi_info.vdi ~read_write:true in
+	SMClient.VDI.activate ~dbg ~sr ~dp ~vdi:vdi_info.vdi;
 	do_nbd url sr vdi_info.vdi dp (fun s ->
 		let (size,_) = Nbd.negotiate s in
 		Printf.printf "size=%Ld\n" size;
@@ -223,13 +223,13 @@ let test_attach_activate url sr _ =
 		then Printf.printf "OK\n"
 		else Printf.printf "Not OK!\n"
 	);
-	SMClient.VDI.destroy ~task ~sr ~vdi:vdi_info.vdi
+	SMClient.VDI.destroy ~dbg ~sr ~vdi:vdi_info.vdi
 
 let test_mirror_1 url sr rurl rsr _ =
-	let vdi_info = SMClient.VDI.create ~task ~sr ~vdi_info:example_vdi_info ~params:[] in
+	let vdi_info = SMClient.VDI.create ~dbg ~sr ~vdi_info:example_vdi_info ~params:[] in
 	let dp = "test_attach_activate" in
-	ignore(SMClient.VDI.attach ~task ~sr ~dp ~vdi:vdi_info.vdi ~read_write:true);
-	SMClient.VDI.activate ~task ~sr ~dp ~vdi:vdi_info.vdi;
+	ignore(SMClient.VDI.attach ~dbg ~sr ~dp ~vdi:vdi_info.vdi ~read_write:true);
+	SMClient.VDI.activate ~dbg ~sr ~dp ~vdi:vdi_info.vdi;
 	let junk = do_nbd url sr vdi_info.vdi dp (fun s ->
 		let (size,_) = Nbd.negotiate s in
 		Printf.printf "size=%Ld\n" size;
@@ -250,7 +250,9 @@ let test_mirror_1 url sr rurl rsr _ =
 
 	(* At this point, we have a VDI containing data with which we can mirror *)
 
-	let remote_vdi_info = SMClient.Mirror.start ~task ~sr ~vdi:vdi_info.vdi ~dp ~url:rurl ~dest:rsr in
+	let _ = SMClient.DATA.MIRROR.start ~dbg ~sr ~vdi:vdi_info.vdi ~dp ~url:rurl ~dest:rsr in
+	let remote_vdi_info = vdi_info in
+
 	let junk = do_nbd url sr vdi_info.vdi dp (fun s ->
 		let (size,_) = Nbd.negotiate s in
 		Printf.printf "size=%Ld\n" size;
@@ -273,11 +275,11 @@ let test_mirror_1 url sr rurl rsr _ =
 	
 	(*  *)
 
-	SMClient.VDI.deactivate ~task ~sr ~dp ~vdi:vdi_info.vdi;
-	SMClient.VDI.detach ~task ~sr ~dp ~vdi:vdi_info.vdi;
-	SMClient.VDI.destroy ~task ~sr ~vdi:vdi_info.vdi;
-	ignore(RSMClient.VDI.attach ~task ~sr:rsr ~dp ~vdi:remote_vdi_info.vdi ~read_write:true);
-	RSMClient.VDI.activate ~task ~sr:rsr ~dp ~vdi:remote_vdi_info.vdi;
+	SMClient.VDI.deactivate ~dbg ~sr ~dp ~vdi:vdi_info.vdi;
+	SMClient.VDI.detach ~dbg ~sr ~dp ~vdi:vdi_info.vdi;
+	SMClient.VDI.destroy ~dbg ~sr ~vdi:vdi_info.vdi;
+	ignore(RSMClient.VDI.attach ~dbg ~sr:rsr ~dp ~vdi:remote_vdi_info.vdi ~read_write:true);
+	RSMClient.VDI.activate ~dbg ~sr:rsr ~dp ~vdi:remote_vdi_info.vdi;
 	do_nbd rurl rsr remote_vdi_info.vdi dp (fun s ->
 		let (size,_) = Nbd.negotiate s in
 		Printf.printf "Mirror VDI: size=%Ld\n" size;
@@ -292,7 +294,7 @@ let test_mirror_1 url sr rurl rsr _ =
 		then Printf.printf "Mirror VDI: OK\n"
 		else Printf.printf "Mirror VDI: Not OK!\n"
 	);
-	RSMClient.VDI.destroy ~task ~sr:rsr ~vdi:remote_vdi_info.vdi
+	RSMClient.VDI.destroy ~dbg ~sr:rsr ~vdi:remote_vdi_info.vdi
 
 let _ =
 	let verbose = ref false in

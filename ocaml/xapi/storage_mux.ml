@@ -77,12 +77,12 @@ module Mux = struct
         features = [];
     }
 	module DP = struct
-		let create context ~task ~id = id (* XXX: is this pointless? *)
-		let destroy context ~task ~dp ~allow_leak =
+		let create context ~dbg ~id = id (* XXX: is this pointless? *)
+		let destroy context ~dbg ~dp ~allow_leak =
 			(* Tell each plugin about this *)
 			match fail_or choose (multicast (fun sr rpc ->
 				let module C = Client(struct let rpc = of_sr sr end) in
-				C.DP.destroy ~task ~dp ~allow_leak)) with
+				C.DP.destroy ~dbg ~dp ~allow_leak)) with
 				| SMSuccess x -> x
 				| SMFailure e -> raise e
 
@@ -97,80 +97,78 @@ module Mux = struct
 				| SMSuccess x -> x
 				| SMFailure e -> raise e
 
-		let attach_info context ~task ~sr ~vdi ~dp =
+		let attach_info context ~dbg ~sr ~vdi ~dp =
 			let module C = Client(struct let rpc = of_sr sr end) in
-			C.DP.attach_info ~task ~sr ~vdi ~dp
+			C.DP.attach_info ~dbg ~sr ~vdi ~dp
 			
 	end
 	module SR = struct
-		let attach context ~task ~sr =
+		let attach context ~dbg ~sr =
 			let module C = Client(struct let rpc = of_sr sr end) in
-			C.SR.attach ~task ~sr
-		let detach context ~task ~sr =
+			C.SR.attach ~dbg ~sr
+		let detach context ~dbg ~sr =
 			let module C = Client(struct let rpc = of_sr sr end) in
-			C.SR.detach ~task ~sr
-		let destroy context ~task ~sr =
+			C.SR.detach ~dbg ~sr
+		let destroy context ~dbg ~sr =
 			let module C = Client(struct let rpc = of_sr sr end) in
-			C.SR.destroy ~task ~sr
-		let scan context ~task ~sr =
+			C.SR.destroy ~dbg ~sr
+		let scan context ~dbg ~sr =
 			let module C = Client(struct let rpc = of_sr sr end) in
-			C.SR.scan ~task ~sr
-		let list context ~task =
+			C.SR.scan ~dbg ~sr
+		let list context ~dbg =
 			List.fold_left (fun acc (sr, list) -> match list with SMSuccess l -> l @ acc | x -> acc) [] (multicast (fun sr rpc ->
 				let module C = Client(struct let rpc = of_sr sr end) in
-				C.SR.list ~task)) 
-		let reset context ~task ~sr = assert false
+				C.SR.list ~dbg)) 
+		let reset context ~dbg ~sr = assert false
 	end
 	module VDI = struct
-		let create context ~task ~sr ~vdi_info ~params =
+		let create context ~dbg ~sr ~vdi_info ~params =
 			let module C = Client(struct let rpc = of_sr sr end) in
-			C.VDI.create ~task ~sr ~vdi_info ~params
+			C.VDI.create ~dbg ~sr ~vdi_info ~params
 
-		let stat context ~task ~sr ~vdi =
+		let stat context ~dbg ~sr ~vdi =
 			let module C = Client(struct let rpc = of_sr sr end) in
-			C.VDI.stat ~task ~sr ~vdi
-        let snapshot context ~task ~sr ~vdi ~vdi_info ~params =
+			C.VDI.stat ~dbg ~sr ~vdi
+        let snapshot context ~dbg ~sr ~vdi ~vdi_info ~params =
             let module C = Client(struct let rpc = of_sr sr end) in
-            C.VDI.snapshot ~task ~sr ~vdi ~vdi_info ~params
-        let clone context ~task ~sr ~vdi ~vdi_info ~params =
+            C.VDI.snapshot ~dbg ~sr ~vdi ~vdi_info ~params
+        let clone context ~dbg ~sr ~vdi ~vdi_info ~params =
             let module C = Client(struct let rpc = of_sr sr end) in
-            C.VDI.clone ~task ~sr ~vdi ~vdi_info ~params
-		let destroy context ~task ~sr ~vdi =
+            C.VDI.clone ~dbg ~sr ~vdi ~vdi_info ~params
+		let destroy context ~dbg ~sr ~vdi =
 			let module C = Client(struct let rpc = of_sr sr end) in
-			C.VDI.destroy ~task ~sr ~vdi
-		let attach context ~task ~dp ~sr ~vdi ~read_write =
+			C.VDI.destroy ~dbg ~sr ~vdi
+		let attach context ~dbg ~dp ~sr ~vdi ~read_write =
 			let module C = Client(struct let rpc = of_sr sr end) in
-			C.VDI.attach ~task ~dp ~sr ~vdi ~read_write
-		let activate context ~task ~dp ~sr ~vdi =
+			C.VDI.attach ~dbg ~dp ~sr ~vdi ~read_write
+		let activate context ~dbg ~dp ~sr ~vdi =
 			let module C = Client(struct let rpc = of_sr sr end) in
-			C.VDI.activate ~task ~dp ~sr ~vdi
-		let deactivate context ~task ~dp ~sr ~vdi =
+			C.VDI.activate ~dbg ~dp ~sr ~vdi
+		let deactivate context ~dbg ~dp ~sr ~vdi =
 			let module C = Client(struct let rpc = of_sr sr end) in
-			C.VDI.deactivate ~task ~dp ~sr ~vdi
-		let detach context ~task ~dp ~sr ~vdi =
+			C.VDI.deactivate ~dbg ~dp ~sr ~vdi
+		let detach context ~dbg ~dp ~sr ~vdi =
 			let module C = Client(struct let rpc = of_sr sr end) in
-			C.VDI.detach ~task ~dp ~sr ~vdi
-        let get_by_name context ~task ~sr ~name =
+			C.VDI.detach ~dbg ~dp ~sr ~vdi
+        let get_by_name context ~dbg ~sr ~name =
             let module C = Client(struct let rpc = of_sr sr end) in
-            C.VDI.get_by_name ~task ~sr ~name
-        let set_content_id context ~task ~sr ~vdi ~content_id =
+            C.VDI.get_by_name ~dbg ~sr ~name
+        let set_content_id context ~dbg ~sr ~vdi ~content_id =
             let module C = Client(struct let rpc = of_sr sr end) in
-            C.VDI.set_content_id ~task ~sr ~vdi ~content_id
-        let similar_content context ~task ~sr ~vdi =
+            C.VDI.set_content_id ~dbg ~sr ~vdi ~content_id
+        let similar_content context ~dbg ~sr ~vdi =
             let module C = Client(struct let rpc = of_sr sr end) in
-            C.VDI.similar_content ~task ~sr ~vdi
-		let copy context ~task ~sr ~vdi ~dp ~url ~dest = Storage_migrate.copy ~task ~sr ~vdi ~dp ~url ~dest
-		let compose context ~task ~sr ~vdi1 ~vdi2 =
+            C.VDI.similar_content ~dbg ~sr ~vdi
+		let compose context ~dbg ~sr ~vdi1 ~vdi2 =
 			let module C = Client(struct let rpc = of_sr sr end) in
-			C.VDI.compose ~task ~sr ~vdi1 ~vdi2
-        let copy_into context ~task ~sr ~vdi ~url ~dest = Storage_migrate.copy_into ~task ~sr ~vdi ~url ~dest
-        let get_url context ~task ~sr ~vdi =
+			C.VDI.compose ~dbg ~sr ~vdi1 ~vdi2
+        let get_url context ~dbg ~sr ~vdi =
             let module C = Client(struct let rpc = of_sr sr end) in
-            C.VDI.get_url ~task ~sr ~vdi
+            C.VDI.get_url ~dbg ~sr ~vdi
 
 	end
 
-    let get_by_name context ~task ~name =
+    let get_by_name context ~dbg ~name =
         (* Assume it has either the format:
            SR/VDI -- for a particular SR and VDI
            content_id -- for a particular content *)
@@ -178,24 +176,41 @@ module Mux = struct
         match List.filter (fun x -> x <> "") (String.split '/' name) with
             | [ sr; name ] ->
                 let module C = Client(struct let rpc = of_sr sr end) in
-                C.VDI.get_by_name ~task ~sr ~name
+                C.VDI.get_by_name ~dbg ~sr ~name
             | [ name ] ->
                 (match success_or choose (multicast (fun sr rpc ->
                     let module C = Client(struct let rpc = of_sr sr end) in
-                    C.VDI.get_by_name ~task ~sr ~name
+                    C.VDI.get_by_name ~dbg ~sr ~name
                 )) with SMSuccess x -> x
 					| SMFailure e -> raise e)
             | _ ->
                 raise Vdi_does_not_exist
 
-    module Mirror = struct
-        let start context ~task ~sr ~vdi ~dp ~url ~dest = Storage_migrate.start ~task ~sr ~vdi ~dp ~url ~dest 
-        let stop context ~task ~sr ~vdi = Storage_migrate.stop ~task ~sr ~vdi
-		let list context = Storage_migrate.list
-		let receive_start context = Storage_migrate.receive_start
-		let receive_finalize context = Storage_migrate.receive_finalize
-		let receive_cancel context = Storage_migrate.receive_cancel
-    end	
+	module DATA = struct
+		let copy context = Storage_migrate.copy
+        let copy_into context = Storage_migrate.copy_into
+
+		module MIRROR = struct
+			let start context = Storage_migrate.start
+			let stop context = Storage_migrate.stop
+			let list context = Storage_migrate.list
+			let stat context = Storage_migrate.stat
+			let receive_start context = Storage_migrate.receive_start
+			let receive_finalize context = Storage_migrate.receive_finalize
+			let receive_cancel context = Storage_migrate.receive_cancel
+		end	
+	end
+
+	module TASK = struct
+		let stat context ~dbg ~task = assert false
+		let cancel context ~dbg ~task = assert false				
+		let destroy context ~dbg ~task = assert false
+		let list context ~dbg = assert false
+    end
+
+	module UPDATES = struct
+		let get context ~dbg ~from ~timeout = assert false
+	end
 
 end
 

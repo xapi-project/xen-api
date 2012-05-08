@@ -15,6 +15,7 @@
 open Xenops_interface
 open Xenops_utils
 open Fun
+open Xenops_task
 
 type domain_action_request =
 	| Needs_poweroff
@@ -36,6 +37,7 @@ type shutdown_request =
 with rpc
 let string_of_shutdown_request x = x |> rpc_of_shutdown_request |> Jsonrpc.to_string
 
+let test = Updates.empty
 let string_of_disk d = d |> rpc_of_disk |> Jsonrpc.to_string
 type data =
 	| Disk of disk
@@ -121,7 +123,7 @@ module type S = sig
 		val get_device_action_request: Vm.id -> Vif.t -> device_action_request option
 	end
 	module UPDATES : sig
-		val get: Updates.id option -> int option -> Dynamic.id list * Updates.id option
+		val get: Updates.id option -> int option -> Dynamic.id list * Updates.id 
 	end
 	module DEBUG : sig
 		val trigger: string -> string list -> unit

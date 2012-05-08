@@ -44,5 +44,5 @@ let cancel ~__context ~task =
 	);
 	TaskHelper.assert_can_destroy ~__context task;
     Db.Task.set_current_operations ~__context ~self:task ~value:[(Ref.string_of (Context.get_task_id __context)), `cancel];
-	if not(Xapi_xenops.task_cancel ~__context ~self:task)
+	if not(Xapi_xenops.task_cancel ~__context ~self:task) && not(Storage_access.task_cancel ~__context ~self:task)
 	then info "Task.cancel is falling back to polling"

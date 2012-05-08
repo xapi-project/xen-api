@@ -15,6 +15,8 @@
  * @group Storage
  *)
 
+let service_name="storage"
+
 open Vdi_automaton
 
 type query_result = {
@@ -31,7 +33,7 @@ type sr = string
 type vdi = string
 
 (** Opaque identifier used by the client to identify a particular operation *)
-type task = string
+type debug_info = string
 
 (** The result of a successful VDI.attach: this information (eg) can be used to
 	connect a VBD backend to a VBD frontend *)
@@ -76,11 +78,89 @@ type stat_t = {
 
 let string_of_stat_t (x: stat_t) = Jsonrpc.to_string (rpc_of_stat_t x)
 
+module Mirror = struct
+	type id = string
+
+	type state = 
+		| Receiving
+		| Sending
+		| Failed
+
+	type t = {
+		local_vdi : vdi;
+		remote_vdi : vdi;
+		state : state; 
+		failed : bool;
+	}
+
+	type mirror_receive_result_vhd_t = {
+		mirror_vdi : vdi_info;
+		mirror_datapath : dp;
+		copy_diffs_from : content_id option;
+		copy_diffs_to : vdi;
+	}
+			
+	type mirror_receive_result = 
+		| Vhd_mirror of mirror_receive_result_vhd_t
+			
+	type similars = content_id list 
+end
+
+type async_result_t = 
+	| Vdi_info of vdi_info
+	| Mirror_id of Mirror.id
+
+
+
+module Task = struct
+	type id = string
+
+	type async_result = async_result_t
+
+	type completion_t = {
+		duration : float;
+		result : async_result option
+	}
+
+	type state =
+		| Pending of float
+		| Completed of completion_t
+		| Failed of Rpc.t
+
+	type t = {
+		id: id;
+		debug_info: string;
+		ctime: float;
+		state: state;
+		subtasks: (string * state) list;
+	}
+end
+
+module Dynamic = struct
+	type id = 
+		| Task of Task.id
+		| Vdi of vdi
+		| Dp of dp
+		| Mirror of Mirror.id
+
+	type t = 
+		| Task_t of Task.id * Task.t
+		| Vdi_t of vdi * vdi_info
+		| Dp_t of dp * stat_t
+		| Mirror_t of Mirror.id * Mirror.t
+		
+end
+
+
+
 exception Sr_not_attached                         (** error: SR must be attached to access VDIs *)
 exception Vdi_does_not_exist                      (** error: the VDI is unknown *)
 exception Illegal_transition of (Vdi_automaton.state * Vdi_automaton.state) (** This operation implies an illegal state transition *)
 exception Backend_error of (string * (string list)) (** error: of the form SR_BACKEND_FAILURE *)
 exception Unimplemented                           (** error: not implemented by backend *)
+exception Does_not_exist of (string * string)
+exception Cancelled of string
+
 
 module Driver_info = struct
     type t = {
@@ -105,15 +185,15 @@ module DP = struct
 	(** Functions which create/destroy (or register/unregister) dps *)
 
 	(** [create task id]: creates and returns a dp *)
-	external create: task:task -> id:string -> dp = ""
+	external create: dbg:debug_info -> id:string -> dp = ""
 
 	(** [destroy task id]: frees any resources associated with [id] and destroys it.
 		This will typically do any needed VDI.detach, VDI.deactivate cleanup. *)
-	external destroy: task:task -> dp:dp -> allow_leak:bool -> unit = ""
+	external destroy: dbg:debug_info -> dp:dp -> allow_leak:bool -> unit = ""
 
 		
 	(** [attach_info task sr vdi dp]: returns the params of the dp (the return value of VDI.attach) *)
-	external attach_info: task:task -> sr:sr -> vdi:vdi -> dp:dp -> attach_info = ""
+	external attach_info: dbg:debug_info -> sr:sr -> vdi:vdi -> dp:dp -> attach_info = ""
 
 	(** [diagnostics ()]: returns a printable set of diagnostic information,
 		typically including lists of all registered datapaths and their allocated
@@ -125,27 +205,27 @@ module SR = struct
 	(** Functions which attach/detach SRs *)
 
 	(** [attach task sr]: attaches the SR *)
-    external attach : task:task -> sr:sr -> device_config:(string * string) list -> unit = ""
+    external attach : dbg:debug_info -> sr:sr -> device_config:(string * string) list -> unit = ""
 
 	(** [detach task sr]: detaches the SR, first detaching and/or deactivating any
 		active VDIs. This may fail with Sr_not_attached, or any error from VDI.detach
 		or VDI.deactivate. *)
-    external detach : task:task -> sr:sr -> unit = ""
+    external detach : dbg:debug_info -> sr:sr -> unit = ""
 
 	(** [reset task sr]: declares that the SR has been completely reset, e.g. by
 		rebooting the VM hosting the SR backend. *)
-	external reset : task:task -> sr:sr ->  unit = ""
+	external reset : dbg:debug_info -> sr:sr ->  unit = ""
 
 	(** [destroy sr]: destroys (i.e. makes unattachable and unprobeable) the [sr],
 		first detaching and/or deactivating any active VDIs. This may fail with 
 		Sr_not_attached, or any error from VDI.detach or VDI.deactivate. *)
-	external destroy : task:task -> sr:sr -> unit = ""
+	external destroy : dbg:debug_info -> sr:sr -> unit = ""
 
 	(** [scan task sr] returns a list of VDIs contained within an attached SR *)
-	external scan: task:task -> sr:sr -> vdi_info list = ""
+	external scan: dbg:debug_info -> sr:sr -> vdi_info list = ""
 
 	(** [list task] returns the list of currently attached SRs *)
-	external list: task:task -> sr list = ""
+	external list: dbg:debug_info -> sr list = ""
 end
 
 module VDI = struct
@@ -155,103 +235,97 @@ module VDI = struct
 	(** [create task sr vdi_info params] creates a new VDI in [sr] using [vdi_info]. Some
         fields in the [vdi_info] may be modified (e.g. rounded up), so the function
         returns the vdi_info which was used. *)
-	external create : task:task -> sr:sr -> vdi_info:vdi_info -> params:(string*string) list -> vdi_info = ""
+	external create : dbg:debug_info -> sr:sr -> vdi_info:vdi_info -> params:(string*string) list -> vdi_info = ""
 
 	(** [snapshot task sr vdi vdi_info params] creates a new VDI which is a snapshot of [vdi] in [sr] *)
-	external snapshot : task:task -> sr:sr -> vdi:vdi -> vdi_info:vdi_info -> params:(string*string) list -> vdi_info = ""
+	external snapshot : dbg:debug_info -> sr:sr -> vdi:vdi -> vdi_info:vdi_info -> params:(string*string) list -> vdi_info = ""
 
 	(** [clone task sr vdi vdi_info params] creates a new VDI which is a clone of [vdi] in [sr] *)
-	external clone : task:task -> sr:sr -> vdi:vdi -> vdi_info:vdi_info -> params:(string*string) list -> vdi_info = ""
+	external clone : dbg:debug_info -> sr:sr -> vdi:vdi -> vdi_info:vdi_info -> params:(string*string) list -> vdi_info = ""
 
     (** [destroy task sr vdi] removes [vdi] from [sr] *)
-    external destroy : task:task -> sr:sr -> vdi:vdi -> unit = ""
+    external destroy : dbg:debug_info -> sr:sr -> vdi:vdi -> unit = ""
 
 	(** [attach task dp sr vdi read_write] returns the [params] for a given
 		[vdi] in [sr] which can be written to if (but not necessarily only if) [read_write]
 		is true *)
-	external attach : task:task -> dp:dp -> sr:sr -> vdi:vdi -> read_write:bool -> attach_info = ""
+	external attach : dbg:debug_info -> dp:dp -> sr:sr -> vdi:vdi -> read_write:bool -> attach_info = ""
 
 	(** [activate task dp sr vdi] signals the desire to immediately use [vdi].
 		This client must have called [attach] on the [vdi] first. *)
-    external activate : task:task -> dp:dp -> sr:sr -> vdi:vdi -> unit = ""
+    external activate : dbg:debug_info -> dp:dp -> sr:sr -> vdi:vdi -> unit = ""
 
 	(** [stat task sr vdi ()] returns the state of the given VDI from the point of view of
         each dp as well as the overall superstate. *)
-	external stat: task:task -> sr:sr -> vdi:vdi -> unit -> stat_t = ""
+	external stat: dbg:debug_info -> sr:sr -> vdi:vdi -> unit -> stat_t = ""
 
 	(** [deactivate task dp sr vdi] signals that this client has stopped reading (and writing)
 		[vdi]. *)
-    external deactivate : task:task -> dp:dp -> sr:sr -> vdi:vdi -> unit = ""
+    external deactivate : dbg:debug_info -> dp:dp -> sr:sr -> vdi:vdi -> unit = ""
 
 	(** [detach task dp sr vdi] signals that this client no-longer needs the [attach_info]
 		to be valid. *)
-    external detach : task:task -> dp:dp -> sr:sr -> vdi:vdi -> unit = ""
-
-	(** [copy_into task sr vdi url sr2] copies the data from [vdi] into a remote system [url]'s [sr2] *)
-	external copy_into : task:task -> sr:sr -> vdi:vdi -> url:string -> dest:sr -> dest_vdi:vdi -> vdi_info = ""
-
-	external copy : task:task -> sr:sr -> vdi:vdi -> dp:dp -> url:string -> dest:sr -> vdi_info = ""
+    external detach : dbg:debug_info -> dp:dp -> sr:sr -> vdi:vdi -> unit = ""
 
     (** [get_url task sr vdi] returns a URL suitable for accessing disk data directly. *)
-    external get_url : task:task -> sr:sr -> vdi:vdi -> string = ""
+    external get_url : dbg:debug_info -> sr:sr -> vdi:vdi -> string = ""
 
 	(** [similar_content task sr vdi] returns a list of VDIs which have similar content to [vdi] *)
-	external similar_content : task:task -> sr:sr -> vdi:vdi -> vdi_info list = ""
+	external similar_content : dbg:debug_info -> sr:sr -> vdi:vdi -> vdi_info list = ""
 
 	(** [get_by_name task sr name] returns the vdi within [sr] with [name] *)
-	external get_by_name : task:task -> sr:sr -> name:string -> vdi_info = ""
+	external get_by_name : dbg:debug_info -> sr:sr -> name:string -> vdi_info = ""
 
 	(** [set_content_id task sr vdi content_id] tells the storage backend that a VDI has an updated [content_id] *)
-	external set_content_id : task:task -> sr:sr -> vdi:vdi -> content_id:content_id -> unit = ""
+	external set_content_id : dbg:debug_info -> sr:sr -> vdi:vdi -> content_id:content_id -> unit = ""
 
     (** [compose task sr vdi1 vdi2] layers the updates from [vdi2] onto [vdi1], modifying [vdi2] *)
-    external compose : task:task -> sr:sr -> vdi1:vdi -> vdi2:vdi -> unit = ""
+    external compose : dbg:debug_info -> sr:sr -> vdi1:vdi -> vdi2:vdi -> unit = ""
 end
 
 (** [get_by_name task name] returns a vdi with [name] (which may be in any SR) *)
-external get_by_name : task:task -> name:string -> vdi_info = ""
+external get_by_name : dbg:debug_info -> name:string -> vdi_info = ""
 
-module Mirror = struct
+module DATA = struct
 
-	type mirror_receive_result_vhd_t = {
-		mirror_vdi : vdi_info;
-		mirror_datapath : dp;
-		copy_diffs_from : content_id option;
-		copy_diffs_to : vdi;
-	}
+	(** [copy_into task sr vdi url sr2] copies the data from [vdi] into a remote system [url]'s [sr2] *)
+	external copy_into : dbg:debug_info -> sr:sr -> vdi:vdi -> url:string -> dest:sr -> dest_vdi:vdi -> Task.id = ""
+
+	external copy : dbg:debug_info -> sr:sr -> vdi:vdi -> dp:dp -> url:string -> dest:sr -> Task.id = ""
+
+
+	module MIRROR = struct
+		(** [start task sr vdi url sr2] creates a VDI in remote [url]'s [sr2] and writes
+			data synchronously. It returns the id of the VDI.*)
+		external start : dbg:debug_info -> sr:sr -> vdi:vdi -> dp:dp -> url:string -> dest:sr -> Task.id = ""
 			
-	type mirror_receive_result = 
-		| Vhd_mirror of mirror_receive_result_vhd_t
+		(** [stop task sr vdi] stops mirroring local [vdi] *)
+		external stop : dbg:debug_info -> id:Mirror.id -> unit = ""
 			
-	type similars = content_id list 
-
-	type state = 
-		| Receiving
-		| Sending
-		| Failed
-
-	type status = {
-		vdi : vdi;
-		state : state; 
-		failed : bool;
-	}
+		external stat : dbg:debug_info -> id:Mirror.id -> Mirror.t = ""
 			
-
-	(** [start task sr vdi url sr2] creates a VDI in remote [url]'s [sr2] and writes
-		data synchronously. It returns the id of the VDI.*)
-	external start : task:task -> sr:sr -> vdi:vdi -> dp:dp -> url:string -> dest:sr -> vdi_info = ""
-
-	(** [stop task sr vdi] stops mirroring local [vdi] *)
-	external stop : task:task -> sr:sr -> vdi:vdi -> unit = ""
-
-	(** Called on the receiving end *)
-	external receive_start : task:task -> sr:sr -> vdi_info:vdi_info -> similar:Mirror.similars -> Mirror.mirror_receive_result = ""
-
-	external receive_finalize : task:task -> sr:sr -> vdi:vdi -> unit = ""
-
-	external receive_cancel : task:task -> sr:sr -> vdi:vdi -> unit = ""
-
-	external list : task:task -> sr:sr -> Mirror.status list = ""
+		(** Called on the receiving end *)
+		external receive_start : dbg:debug_info -> sr:sr -> vdi_info:vdi_info -> id:Mirror.id -> similar:Mirror.similars -> 
+			Mirror.mirror_receive_result = ""
+			
+		external receive_finalize : dbg:debug_info -> id:Mirror.id -> unit = ""
+			
+		external receive_cancel : dbg:debug_info -> id:Mirror.id -> unit = ""
+			
+		external list : dbg:debug_info -> (Mirror.id * Mirror.t) list = ""
+	end
 
 
+end
+
+
+module TASK = struct
+	external stat: dbg:debug_info -> task:Task.id -> Task.t = ""
+	external cancel: dbg:debug_info -> task:Task.id -> unit = ""
+	external destroy: dbg:debug_info -> task:Task.id -> unit = ""
+	external list: dbg:debug_info -> Task.t list = ""
+end
+
+module UPDATES = struct
+	external get: dbg:debug_info -> from:string -> timeout:int option -> Dynamic.id list * string = ""
 end

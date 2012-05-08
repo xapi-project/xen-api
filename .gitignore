@@ -210,3 +210,5 @@ xapi.spec
 ocaml/fhs.*
 /ocaml/sm-cli/smtest
 /ocaml/xenops/cancel_utils_test
+ocaml/xapi/storage_impl_test
+

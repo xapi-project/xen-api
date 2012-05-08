@@ -56,7 +56,7 @@ let success_task f id =
 	finally
 		(fun () ->
 			let t = Client.TASK.stat dbg id in
-			match t.Task.result with
+			match t.Task.state with
 				| Task.Completed _ -> f t
 				| Task.Failed x ->
 					let exn = exn_of_exnty (Exception.exnty_of_rpc x) in
@@ -649,9 +649,9 @@ let rec events_watch from =
 			| Barrier id ->
 				Printf.sprintf "Barrier %d" id
 		) events in
-	List.iter (fun x -> Printf.printf "%-8d %s\n" (Opt.unbox next) x) lines;
+	List.iter (fun x -> Printf.printf "%-8d %s\n" next x) lines;
 	flush stdout;
-	events_watch next
+	events_watch (Some next)
 
 let set_worker_pool_size size =
 	Client.HOST.set_worker_pool_size dbg size
@@ -660,10 +660,10 @@ let task_list () =
 	let all = Client.TASK.list dbg in
 	List.iter
 		(fun t ->
-			Printf.printf "%-8s %-12s %-30s %s\n" t.Task.id (t.Task.ctime |> Date.of_float |> Date.to_string) t.Task.debug_info (t.Task.result |> Task.rpc_of_result |> Jsonrpc.to_string);
+			Printf.printf "%-8s %-12s %-30s %s\n" t.Task.id (t.Task.ctime |> Date.of_float |> Date.to_string) t.Task.debug_info (t.Task.state |> Task.rpc_of_state |> Jsonrpc.to_string);
 			List.iter
-				(fun (name, result) ->
-					Printf.printf "  |_ %-30s %s\n" name (result |> Task.rpc_of_result |> Jsonrpc.to_string)
+				(fun (name, state) ->
+					Printf.printf "  |_ %-30s %s\n" name (state |> Task.rpc_of_state |> Jsonrpc.to_string)
 				) t.Task.subtasks
 		) all
 
@@ -697,14 +697,14 @@ let slave () =
 		) (fun () -> Unix.close fd)
 
 let verbose_task t =
-	let string_of_result = function
-		| Task.Completed t -> Printf.sprintf "%.2f" t
+	let string_of_state = function
+		| Task.Completed t -> Printf.sprintf "%.2f" t.Task.duration
 		| Task.Failed x -> Printf.sprintf "Error: %s" (x |> Jsonrpc.to_string)
 		| Task.Pending _ -> Printf.sprintf "Error: still pending" in
-	let rows = List.map (fun (name, result) -> [ name;  string_of_result result ]) t.Task.subtasks in
+	let rows = List.map (fun (name, state) -> [ name;  string_of_state state ]) t.Task.subtasks in
 	Table.print rows;
 	Printf.printf "\n";
-	Printf.printf "Overall: %s\n" (string_of_result t.Task.result)
+	Printf.printf "Overall: %s\n" (string_of_state t.Task.state)
 
 
 let _ =
