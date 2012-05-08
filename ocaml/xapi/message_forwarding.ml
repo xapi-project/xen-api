@@ -1544,7 +1544,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let local_fn = Local.VM.pool_migrate_complete ~vm ~host in
 			do_op_on ~local_fn ~__context ~host
 				(fun session_id rpc ->
-					Client.VM.pool_migrate_complete rpc session_id vm host)
+					Client.VM.pool_migrate_complete rpc session_id vm host);
+			update_vbd_operations ~__context ~vm;
+			update_vif_operations ~__context ~vm
 
 		let pool_migrate ~__context ~vm ~host ~options =
 			info "VM.pool_migrate: VM = '%s'; host = '%s'"
@@ -1590,9 +1592,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				(fun () ->
 					forward_vm_op ~local_fn ~__context ~vm
 						(fun session_id rpc -> Client.VM.migrate_send rpc session_id vm dest live vdi_map vif_map options)
-				);
-			update_vbd_operations ~__context ~vm;
-			update_vif_operations ~__context ~vm
+				)
 
 		let assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			info "VM.assert_can_migrate: VM = '%s'" (vm_uuid ~__context vm);

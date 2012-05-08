@@ -1786,7 +1786,7 @@ let format_message msg =
 let wrap_op printer pri rpc session_id op e =
 	let now = (Unix.gettimeofday ()) in
 	let result = op e in
-	let msgs = Client.Message.get ~rpc ~session_id ~cls:`VM ~obj_uuid:(safe_get_field (field_lookup e.fields "uuid")) ~since:(Date.of_float now) in
+	let msgs = try Client.Message.get ~rpc ~session_id ~cls:`VM ~obj_uuid:(safe_get_field (field_lookup e.fields "uuid")) ~since:(Date.of_float now) with _ -> [] in
 	List.iter (fun (ref,msg) ->
 		if msg.API.message_priority > pri
 		then printer (Cli_printer.PStderr (format_message msg ^ "\n"))) msgs;

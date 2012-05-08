@@ -56,7 +56,8 @@ let pool_migrate ~__context ~vm ~host ~options =
 				(* XXX: PR-1255: the live flag *)
 				info "xenops: VM.migrate %s to %s" vm' xenops_url;
 				XenopsAPI.VM.migrate dbg vm' [] [] xenops_url |> wait_for_task dbg |> success_task dbg |> ignore
-			)
+			);
+		(try XenopsAPI.VM.remove dbg vm' with e -> debug "xenops: VM.remove %s: caught %s" vm' (Printexc.to_string e))
 	with e ->
 		error "xenops: VM.migrate %s: caught %s" vm' (Printexc.to_string e);
 		(* We do our best to tidy up the state left behind *)
@@ -136,7 +137,6 @@ let inter_pool_metadata_transfer ~__context remote_rpc session_id remote_address
 				(fun (vdi, _) -> Db.VDI.remove_from_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key)
 				vdi_map)
 
-
 let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	if not(!Xapi_globs.use_xenopsd)
 	then failwith "You must have /etc/xapi.conf:use_xenopsd=true";
@@ -187,6 +187,7 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let mirrors = ref [] in
 	let remote_vdis = ref [] in
 	let new_dps = ref [] in
+	let vdis_to_destroy = ref [] in
 
 	let remote_rpc = Helpers.make_remote_rpc remote_address in
 
@@ -218,6 +219,7 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 							failwith "No SR specified in VDI map and no default on destination"
 				in
 			let mirror = (not is_intra_pool) || (dest_sr <> sr) in
+
 			let remote_vdi,remote_vdi_reference,newdp =
 				if not mirror then
 					location,vdi,"none"
@@ -240,6 +242,8 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 							SMAPI.DATA.MIRROR.start ~dbg ~sr ~vdi:location ~dp:newdp ~url ~dest:dest_sr 
 						end
 					in
+
+					vdis_to_destroy := vdi :: !vdis_to_destroy;
 
 					let task_result = 
 						task |> register_task __context 
@@ -343,6 +347,21 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			ignore(Storage_access.unregister_mirror mirror)) !mirrors;
 
 		debug "Migration complete";
+		Xapi_xenops.refresh_vm ~__context ~self:vm;
+
+		let localhost = Helpers.get_localhost ~__context in
+		if (Ref.of_string dest_host) != localhost then begin
+			try
+				XenopsAPI.VM.remove dbg vm'
+			with e ->
+				error "Caught %s while removing VM %s from metadata" (Printexc.to_string e) vm'
+		end;
+
+		Helpers.call_api_functions ~__context (fun rpc session_id -> 
+			List.iter (fun vdi -> 
+				XenAPI.VDI.destroy rpc session_id vdi) 
+				!vdis_to_destroy;
+			XenAPI.VM.destroy rpc session_id vm);
 	with e ->
 		error "Caught %s: cleaning up" (Printexc.to_string e);
 		let failed_vdi = ref None in
