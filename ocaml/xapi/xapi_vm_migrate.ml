@@ -413,14 +413,25 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let session_id = Ref.of_string (List.assoc _session_id dest) in
 	let remote_address = get_ip_from_url host in
 	let remote_master_address = get_ip_from_url master in
-	let remote_rpc = Helpers.make_remote_rpc remote_master_address in
-	let vm_export_import = {
-		Importexport.vm = vm;
-		Importexport.dry_run = true;
-		Importexport.live = live;
-	} in
-	Importexport.remote_metadata_export_import ~__context ~rpc:remote_rpc ~session_id ~remote_address (`Only vm_export_import)
 
+	let migration_type =
+		try
+			let dest_host = List.assoc _host dest in
+			let dest_host_ref = Ref.of_string dest_host in
+			ignore(Db.Host.get_uuid ~__context ~self:dest_host_ref);
+			`intra_pool dest_host_ref
+		with _ ->
+			let remote_rpc = Helpers.make_remote_rpc remote_master_address in
+			`cross_pool remote_rpc
+	in
+
+	match migration_type with
+	| `intra_pool host ->
+		let force = try bool_of_string (List.assoc "force" options) with _ -> false in
+		if (not force) && live then Xapi_vm_helpers.assert_vm_is_compatible ~__context ~vm ~host
+	| `cross_pool remote_rpc ->
+		(* Ignore vdi_map for now since we won't be doing any mirroring. *)
+		inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address ~vm ~vdi_map:[] ~dry_run:true ~live
 
 (* Handling migrations from pre-Tampa hosts *)
 
