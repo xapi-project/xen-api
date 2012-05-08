@@ -1274,9 +1274,9 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
 
    "vm-import",
    {
-     reqd=["filename"];
-     optn=["preserve"; "sr-uuid"; "force"];
-     help="Import a VM. If the option preserve=true is given then as many settings as possible are restored, including VIF MAC addresses. The default is to regenerate VIF MAC addresses. The VDIs will be imported into the Pool's default SR unless an override is provided. If the force option is given then any disk data checksum failures will be ignored.";
+			reqd=[];
+			optn=["filename"; "preserve"; "sr-uuid"; "force"; "host-username"; "host-password"; "type"; "remote-config"];
+			help="Import a VM. If type=ESXServer is given, it will import from a VMWare server and 'host-username', 'host-password' and 'remote-config' are required. Otherwise, it will import from a file, and 'filename' is required. If the option preserve=true is given then as many settings as possible are restored, including VIF MAC addresses. The default is to regenerate VIF MAC addresses. The VDIs will be imported into the Pool's default SR unless an override is provided. If the force option is given then any disk data checksum failures will be ignored.";
      implementation=With_fd Cli_operations.vm_import;
      flags=[Standard];
    };

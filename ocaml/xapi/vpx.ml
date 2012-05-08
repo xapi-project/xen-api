@@ -1,4 +1,5 @@
-let debug_ = ref false
+module D = Debug.Debugger(struct let name="xapi" end)
+open D
 
 type serverType = XenServer | ESXServer | VirtualCenter | HyperVServer
 type jobState = Created | Queued | Running | Completed | Aborted | UserAborted
@@ -20,19 +21,15 @@ type vmInstance = {
 }
 
 let rpc_type_error x structname expected =
-	if Rpc.get_debug () then
-		Printf.eprintf "Runtime error in '%s_of_rpc:got '%s' when '%s' was expected\n"
-			structname (Rpc.to_string x) expected;
-	raise (Rpc.Runtime_error (((expected, x))))
+	let msg = Printf.sprintf "'%s_of_rpc:got '%s' when '%s' was expected"
+		structname (Rpc.to_string x) expected in
+	raise (Api_errors.Server_error(Api_errors.xenapi_plugin_failure, [ "unexpected XMLRPC result"; msg ]))
 
 let get_dict dict key structname =
 	let error_key x =
-		if Rpc.get_debug ()then
-			Printf.eprintf
-				"Runtime error in '%s_of_rpc:caught exception '%s' while looking for key '%s'\n"
-				structname (Printexc.to_string x) key;
-	raise (Rpc.Runtime_exception
-		((("Looking for key " ^ key), ((Printexc.to_string x) ^ "\nin: " ^ (Rpc.to_string dict)))))
+		let msg = Printf.sprintf "'%s_of_rpc:caught exception '%s' while looking for key '%s' in '%s'\n"
+			structname (Printexc.to_string x) key (Rpc.to_string dict) in
+		raise (Api_errors.Server_error(Api_errors.xenapi_plugin_failure, [ "unexpected XMLRPC result"; msg ]))
 	in
 	match dict with
 		| Rpc.Dict assoc -> (try List.assoc key assoc with x -> error_key x)
@@ -63,6 +60,7 @@ let string_of_serverType = function
 	| HyperVServer -> "HyperVServer"
 
 let serverType_of_string = function
+	| "default"
 	| "XenServer" -> XenServer
 	| "ESXServer" -> ESXServer
 	| "VirtualCenter" -> VirtualCenter
@@ -252,6 +250,6 @@ let array_of_jobInstances_of_rpc lr =
 let vpxrpc ip call = 
 	let open Xmlrpc_client in
 	let transport = SSL(SSL.make (), ip, 443) in
-	if !debug_ then Printf.printf "call = %s\n%!" (Xmlrpc.string_of_call call);
+(*	debug "call = %s" (Xmlrpc.string_of_call call); *)
 	XMLRPC_protocol.rpc ~transport:transport 
 		~http:(xmlrpc ~version:"1.0" "/") call
