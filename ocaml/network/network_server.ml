@@ -701,19 +701,22 @@ end
 
 let on_startup () =
 	Bridge.determine_backend ();
-	(* Remove DNSDEV and GATEWAYDEV from Centos networking file, because the interfere
-	 * with this daemon. *)
-	(try
-		let file = String.rtrim (Unixext.string_of_file "/etc/sysconfig/network") in
-		let args = String.split '\n' file in
-		let args = List.map (fun s -> match (String.split '=' s) with k :: [v] -> k, v | _ -> "", "") args in
-		let args = List.filter (fun (k, v) -> k <> "DNSDEV" && k <> "GATEWAYDEV") args in
-		let s = String.concat "\n" (List.map (fun (k, v) -> k ^ "=" ^ v) args) ^ "\n" in
-		Unixext.write_string_to_file "/etc/sysconfig/network" s
-	with _ -> ());
+	let remove_centos_config () =
+		(* Remove DNSDEV and GATEWAYDEV from Centos networking file, because the interfere
+		 * with this daemon. *)
+		try
+			let file = String.rtrim (Unixext.string_of_file "/etc/sysconfig/network") in
+			let args = String.split '\n' file in
+			let args = List.map (fun s -> match (String.split '=' s) with k :: [v] -> k, v | _ -> "", "") args in
+			let args = List.filter (fun (k, v) -> k <> "DNSDEV" && k <> "GATEWAYDEV") args in
+			let s = String.concat "\n" (List.map (fun (k, v) -> k ^ "=" ^ v) args) ^ "\n" in
+			Unixext.write_string_to_file "/etc/sysconfig/network" s
+		with _ -> ()
+	in
 	try
 		(* the following is best-effort *)
 		read_config ();
+		remove_centos_config ();
 		Bridge.make_config () ~conservative:true ~config:!config.bridge_config ();
 		Interface.make_config () ~conservative:true ~config:!config.interface_config ();
 		(* If there is still a network.dbcache file, move it out of the way. *)
