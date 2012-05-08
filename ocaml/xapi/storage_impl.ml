@@ -295,10 +295,11 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 						| Vdi_automaton.Activate ->
 							Impl.VDI.activate context ~dbg ~dp ~sr ~vdi; vdi_t
 						| Vdi_automaton.Deactivate ->
+							Storage_migrate.pre_deactivate_hook ~dbg ~dp ~sr ~vdi;
 							Impl.VDI.deactivate context ~dbg ~dp ~sr ~vdi; vdi_t
 						| Vdi_automaton.Detach ->
 							Impl.VDI.detach context ~dbg ~dp ~sr ~vdi;
-							Storage_migrate.detach_hook ~sr ~vdi ~dp;
+							Storage_migrate.post_detach_hook ~sr ~vdi ~dp;
 							vdi_t
 					in
 					Sr.replace vdi new_vdi_t sr_t;

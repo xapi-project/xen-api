@@ -186,6 +186,7 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
 	let mirrors = ref [] in
 	let remote_vdis = ref [] in
+	let new_dps = ref [] in
 
 	let remote_rpc = Helpers.make_remote_rpc remote_address in
 
@@ -224,6 +225,7 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 					let newdp = Printf.sprintf "mirror_%s" dp in
 					ignore(SMAPI.VDI.attach ~dbg ~dp:newdp ~sr ~vdi:location ~read_write:true);
 					SMAPI.VDI.activate ~dbg ~dp:newdp ~sr ~vdi:location;
+					new_dps := newdp :: !new_dps;
 
 					let mapfn = 
 						let start = (Int64.to_float !so_far) /. (Int64.to_float total_size) in
@@ -233,8 +235,10 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
 					let task = if snapshot then
 							SMAPI.DATA.copy ~dbg ~sr ~vdi:location ~dp:newdp ~url ~dest:dest_sr 
-						else
+						else begin
+							ignore(Storage_access.register_mirror __context location);
 							SMAPI.DATA.MIRROR.start ~dbg ~sr ~vdi:location ~dp:newdp ~url ~dest:dest_sr 
+						end
 					in
 
 					let task_result = 
@@ -254,7 +258,6 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 						end	else begin 
 							let mirror_id = task_result |> mirror_of_task dbg in
 							mirrors := mirror_id :: !mirrors;
-							ignore(Storage_access.register_mirror __context mirror_id);
 							let m = SMAPI.DATA.MIRROR.stat ~dbg ~id:mirror_id in
 							m.Mirror.remote_vdi
 						end
@@ -366,11 +369,17 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				with e ->
 					error "Failure during cleanup: %s" (Printexc.to_string e)
 			) !remote_vdis;
+		List.iter (fun dp -> SMAPI.DP.destroy ~dbg ~dp ~allow_leak:false) !new_dps;
 		List.iter (fun mirror ->
 			ignore(Storage_access.unregister_mirror mirror)) !mirrors;
+		let task = Context.get_task_id __context in
+		let oc = Db.Task.get_other_config ~__context ~self:task in
+		if List.mem_assoc "mirror_failed" oc then
+			failed_vdi := Some (List.assoc "mirror_failed" oc);			
 		match !failed_vdi with
 			| Some loc -> 
 				let (vdi,_,_,_,_,_) = List.find (fun (_,_,loc',_,_,_) -> loc'=loc) vdis in
+				debug "Mirror failed for VDI: %s" loc;
 				raise (Api_errors.Server_error(Api_errors.mirror_failed,[Ref.string_of vdi]))
 			| None ->
 				raise e
