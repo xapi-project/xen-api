@@ -127,11 +127,11 @@ let intra_pool_vdi_remap ~__context vm vdi_map =
 			Db.VBD.set_VDI ~__context ~self:vbd ~value:mirror_record.mr_remote_vdi_reference) vbds
 
 
-let inter_pool_metadata_transfer ~__context remote_rpc session_id remote_address vm vdi_map =
+let inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address ~vm ~vdi_map ~dry_run ~live =
 	let vm_export_import = {
 		Importexport.vm = vm;
-		Importexport.dry_run = false;
-		Importexport.live = true;
+		Importexport.dry_run = dry_run;
+		Importexport.live = live;
 	} in
 	finally
 		(fun () ->
@@ -324,7 +324,7 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
 		if is_intra_pool 
 		then intra_pool_vdi_remap ~__context vm (snapshots_map @ vdi_map)
-		else inter_pool_metadata_transfer ~__context remote_rpc session_id remote_master_address vm (snapshots_map @ vdi_map);
+		else inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address:remote_master_address ~vm ~vdi_map:(snapshots_map @ vdi_map) ~dry_run:false ~live:true;
 
 		(* Migrate the VM *)
 		let open Xenops_client in
