@@ -274,8 +274,23 @@ let power_state_reset ~__context ~vm =
     let localhost = Helpers.get_localhost ~__context in
 	let resident = Db.VM.get_resident_on ~__context ~self:vm in
 	if resident = localhost then begin
-	    debug "VM.power_state_reset vm=%s resident_on=localhost;" (Ref.string_of vm);
-		raise (Api_errors.Server_error(Api_errors.domain_exists, [ Ref.string_of vm ]))
+		let open Xenops_interface in
+		let open Xenops_client in
+		let running =
+			try
+				let dbg = Context.string_of_task __context in
+				let id = Db.VM.get_uuid ~__context ~self:vm in
+				let _, s = Client.VM.stat dbg id in
+				if s.Vm.power_state = Running then begin
+					debug "VM.power_state_reset vm=%s xenopsd reports running;" (Ref.string_of vm);
+					true
+				end else begin
+					(* Delete the metadata from xenopsd *)
+					Xapi_xenops.delete_metadata_from_xenopsd ~__context id;
+					false
+				end
+			with _ -> false in
+		if running then raise (Api_errors.Server_error(Api_errors.domain_exists, [ Ref.string_of vm ]))
     end else begin
       (* If resident on another host, check if that host is alive: if so
 	 then refuse to perform the reset, since we have delegated state management
