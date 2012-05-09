@@ -43,6 +43,9 @@ let find_content ~__context ?sr name =
 			|| (List.mem_assoc "content_id" vdi_rec.API.vDI_other_config && (List.assoc "content_id" vdi_rec.API.vDI_other_config = name))
 		) all
 
+let redirect sr =
+	raise (Redirect (Some (Pool_role.get_master_address ())))
+
 module Builtin_impl = struct
 	(** xapi's builtin ability to call local SM plugins using the existing
 	    protocol. The code here should only call the SM functions and encapsulate
@@ -313,8 +316,9 @@ module Builtin_impl = struct
                                 ) in
                         newvdi ~__context vi
                     )
-            with Api_errors.Server_error(code, params) ->
-                raise (Backend_error(code, params))
+            with
+				| Api_errors.Server_error(code, params) -> raise (Backend_error(code, params))
+				| Sm.MasterOnly -> redirect sr
 
 		let snapshot_and_clone call_name call_f context ~dbg ~sr ~vdi ~vdi_info ~params =
 			try
@@ -349,6 +353,8 @@ module Builtin_impl = struct
 					raise (Backend_error(code, params))
 				| Smint.Not_implemented_in_backend ->
 					raise Unimplemented
+				| Sm.MasterOnly -> redirect sr
+
 
 		let snapshot = snapshot_and_clone "VDI.snapshot" Sm.vdi_snapshot
 		let clone = snapshot_and_clone "VDI.clone" Sm.vdi_clone
@@ -366,6 +372,7 @@ module Builtin_impl = struct
 					raise (Backend_error(code, params))
 				| No_VDI ->
 					raise Vdi_does_not_exist
+				| Sm.MasterOnly -> redirect sr
 
 		let get_by_name context ~dbg ~sr ~name =
 			info "VDI.get_by_name dbg:%s sr:%s name:%s" dbg sr name;
@@ -462,6 +469,7 @@ module Builtin_impl = struct
 					raise (Backend_error(code, params))
 				| No_VDI ->
 					raise Vdi_does_not_exist
+				| Sm.MasterOnly -> redirect sr
 
 		let get_url context ~dbg ~sr ~vdi =
 			info "VDI.get_url dbg:%s sr:%s vdi:%s" dbg sr vdi;
