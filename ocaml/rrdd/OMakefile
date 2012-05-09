@@ -35,6 +35,7 @@ RRDD_SERVER_FILES = \
 	rrdd_http_handler \
 	rrdd_server \
 	rrdd_monitor \
+	rrdd_xapi \
 	rrdd_main
 RRDD_TEST = rrdd_test
 RRDD_TEST_FILES = \
