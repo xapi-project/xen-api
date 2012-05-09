@@ -861,14 +861,6 @@ let weighted_random_choice weighted_items (* list of (item, integer) weight *) =
   let a, b = List.partition (fun (_, cumulative_weight) -> cumulative_weight <= w) cumulative in
   fst (List.hd b)
 
-let loadavg () =
-  let split_colon line =
-    List.filter (fun x -> x <> "") (List.map (String.strip String.isspace) (String.split ' ' line)) in
-  let all = Unixext.string_of_file "/proc/loadavg" in
-  try
-    float_of_string (List.hd (split_colon all))
-  with _ -> -1.
-
 let memusage () =
 	let memtotal, memfree, swaptotal, swapfree, buffers, cached =
 		ref None, ref None, ref None, ref None, ref None, ref None in
@@ -946,11 +938,6 @@ let copy_snapshot_metadata rpc session_id ?lookup_table ~src_record ~dst_ref =
 		~snapshot_of:(f src_record.API.vM_snapshot_of)
 		~snapshot_time:src_record.API.vM_snapshot_time
 		~transportable_snapshot_id:src_record.API.vM_transportable_snapshot_id
-
-(** Remove all entries in this table except the valid_keys *)
-let remove_other_keys table valid_keys =
-  let keys = Hashtbl.fold (fun k v acc -> k :: acc) table [] in
-  List.iter (fun k -> if not (List.mem k valid_keys) then Hashtbl.remove table k) keys
 
 let update_vswitch_controller ~__context ~host =
 	try call_api_functions ~__context (fun rpc session_id ->

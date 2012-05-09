@@ -1119,7 +1119,7 @@ let set_thread_queue_params () =
 			if now -. last_clock < !calm_down then last_decision else
 				let cpuload =
 					let upbound = (cpu_num +. 1.) *. 2. in
-					let loadavg = Helpers.loadavg () in
+					let loadavg = Rrdd_common.loadavg () in
 					(sqrt loadavg) /. (sqrt upbound) in
 				let memload = Helpers.memusage () in
 				let load = max cpuload memload in
