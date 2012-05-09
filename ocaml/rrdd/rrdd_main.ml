@@ -566,7 +566,6 @@ let read_all_dom0_stats xc =
 			[], []
 	in
 	let vcpus, uuids, domids = update_vcpus xc domains in
-	(* XXX TODO FIXME Xapi_guest_agent.sync_cache domids; *)
 	Hashtbl.remove_other_keys memory_targets domids;
 	Hashtbl.remove_other_keys uncooperative_domains domids;
 	let real_stats = List.concat [
@@ -589,7 +588,7 @@ let do_monitor xc =
 		(fun _ ->
 			let stats, uuids, pifs, timestamp, my_rebooting_vms, my_paused_vms =
 				read_all_dom0_stats xc in
-			(*TODO XXX FIXME Monitor_self.go ();*)
+			Rrdd_xapi.go ();
 			Rrdd_monitor.update_rrds timestamp stats uuids pifs my_rebooting_vms my_paused_vms
 		)
 
