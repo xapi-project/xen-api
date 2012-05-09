@@ -73,6 +73,7 @@ let start fd_path process =
 open Fun
 open Hashtblext
 open Listext
+open Pervasiveext
 open Stringext
 open Threadext
 open Network_monitor
@@ -80,6 +81,12 @@ open Rrdd_shared
 open Ds
 open Monitor_types
 open Rrd
+open Xenstore
+
+(* This function (and its clones) should probably be moved to xen-api-libs. *)
+let with_xs f =
+	let xs = Xs.daemon_open () in
+	finally (fun () -> f xs) (fun () -> Xs.close xs)
 
 (* module Net = (val (Network.get_client ()) : Network.CLIENT) *)
 
@@ -204,12 +211,8 @@ let update_memory xc doms =
 		in
 		let other_ds =
 			try
-(* TODO XXX FIXME
-				let _, _, _, _, g_a_memory, _ =
-					Mutex.execute Xapi_guest_agent.mutex (fun _ ->
-						Hashtbl.find Xapi_guest_agent.cache domid) in
-*)
-				let mem_free = Int64.of_string "" (* XXX (List.assoc "free" g_a_memory) *)in
+				let memfree_xs_key = Printf.sprintf "/local/domain/%d/data/meminfo_free" domid in
+				let mem_free = with_xs (fun xs -> Int64.of_string (xs.Xs.read memfree_xs_key)) in
 				Some (
 					VM uuid,
 					ds_make ~name:"memory_internal_free"
