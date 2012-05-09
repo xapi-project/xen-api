@@ -160,6 +160,7 @@ exception Backend_error of (string * (string list)) (** error: of the form SR_BA
 exception Unimplemented                           (** error: not implemented by backend *)
 exception Does_not_exist of (string * string)
 exception Cancelled of string
+exception Redirect of string option
 
 
 module Driver_info = struct
