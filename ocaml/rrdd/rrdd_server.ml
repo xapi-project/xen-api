@@ -272,10 +272,6 @@ let update_use_min_max _ ~(value : bool) : unit =
 	debug "Updating use_min_max: New value=%b" value;
 	use_min_max := value
 
-(* Handle uncooperative domains. *)
-let uncooperative_domains: (int, unit) Hashtbl.t = Hashtbl.create 20
-let uncooperative_domains_m = Mutex.create ()
-
 let string_of_domain_handle dh =
 	Uuid.string_of_uuid (Uuid.uuid_of_int_array dh.Xenctrl.handle)
 
@@ -298,16 +294,9 @@ let get_uncooperative_domains _ () : string list =
 	let dis_uncoop = List.filter (fun di -> List.mem di.Xenctrl.domid domids) dis in
 	List.map string_of_domain_handle dis_uncoop
 
-(** Cache memory/target values *)
-let memory_targets : (int, int64) Hashtbl.t = Hashtbl.create 20
-let memory_targets_m = Mutex.create ()
-
 let update_vm_memory_target _ ~(domid : int) ~(target : int64) : unit =
 	Mutex.execute memory_targets_m
 		(fun _ -> Hashtbl.replace memory_targets domid target)
-
-let cache_sr_uuid = ref None
-let cache_sr_lock = Mutex.create ()
 
 let set_cache_sr _ ~(sr_uuid : string) : unit =
 	Mutex.execute cache_sr_lock (fun () -> cache_sr_uuid := Some sr_uuid)
@@ -316,3 +305,19 @@ let unset_cache_sr _ () =
 	Mutex.execute cache_sr_lock (fun () -> cache_sr_uuid := None)
 
 
+
+module HA = struct
+	let enable_and_update _ ~(statefile_latencies : Rrd.Statefile_latency.t list)
+			~(heartbeat_latency : float) ~(xapi_latency : float) =
+		Mutex.execute Rrdd_ha_stats.m (fun _ ->
+			Rrdd_ha_stats.enabled := true;
+			Rrdd_ha_stats.Statefile_latency.all := statefile_latencies;
+			Rrdd_ha_stats.Heartbeat_latency.raw := Some heartbeat_latency;
+			Rrdd_ha_stats.Xapi_latency.raw      := Some xapi_latency
+		)
+
+	let disable _ () =
+		Mutex.execute Rrdd_ha_stats.m (fun _ ->
+			Rrdd_ha_stats.enabled := false
+		)
+end

@@ -59,6 +59,13 @@ external update_vm_memory_target : domid:int -> target:int64 -> unit = ""
 external set_cache_sr : sr_uuid:string -> unit = ""
 external unset_cache_sr : unit -> unit = ""
 
+module HA = struct
+	external enable_and_update :
+		statefile_latencies:Rrd.Statefile_latency.t list ->
+		heartbeat_latency:float -> xapi_latency:float -> unit = ""
+	external disable : unit -> unit = ""
+end
+
 module Deprecated = struct
 	external get_full_update_avg_rra_idx : unit -> int = ""
 	external get_full_update_last_rra_idx : unit -> int = ""
