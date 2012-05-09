@@ -153,7 +153,24 @@ let assert_can_restore_backup rpc session_id (x: header) =
 		| None -> ())
 		(List.map get_mac_seed all_vms)
 
-let assert_can_live_import __context rpc session_id vm_record = ()
+let assert_can_live_import __context rpc session_id vm_record =
+	let assert_memory_available () =
+		let host = Helpers.get_localhost ~__context in
+		let host_mem_available =
+			Memory_check.host_compute_free_memory_with_maximum_compression
+				~__context ~host None in
+		let main, shadow =
+			Memory_check.vm_compute_start_memory ~__context vm_record in
+		let mem_reqd_for_vm = Int64.add main shadow in
+		if host_mem_available < mem_reqd_for_vm then
+			raise (Api_errors.Server_error (
+				Api_errors.host_not_enough_free_memory,
+				[
+					Int64.to_string mem_reqd_for_vm;
+					Int64.to_string host_mem_available;
+				]))
+	in
+	assert_memory_available ()
 
 (* The signature for a set of functions which we must provide to be able to import an object type. *)
 module type HandlerTools = sig
