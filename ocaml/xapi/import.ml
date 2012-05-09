@@ -154,6 +154,11 @@ let assert_can_restore_backup rpc session_id (x: header) =
 		(List.map get_mac_seed all_vms)
 
 let assert_can_live_import __context rpc session_id vm_record =
+	let assert_licensed () =
+		if (not (Pool_features.is_enabled ~__context Features.Storage_motion)) then
+			raise (Api_errors.Server_error(Api_errors.license_restriction, []))
+	in
+
 	let assert_memory_available () =
 		let host = Helpers.get_localhost ~__context in
 		let host_mem_available =
@@ -170,6 +175,9 @@ let assert_can_live_import __context rpc session_id vm_record =
 					Int64.to_string host_mem_available;
 				]))
 	in
+
+	(* TODO: enable this! *)
+	if false then assert_licensed ();
 	assert_memory_available ()
 
 (* The signature for a set of functions which we must provide to be able to import an object type. *)
