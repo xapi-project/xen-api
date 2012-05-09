@@ -28,6 +28,7 @@ open D
 let driver_info_cache : (string, sr_driver_info) Hashtbl.t = Hashtbl.create 10
 
 exception Unknown_driver of string
+exception MasterOnly
 
 (** Scans the plugin directory and registers everything it finds there *)
 let register () = 
@@ -69,6 +70,11 @@ let sr_content_type_cache_m = Mutex.create ()
 
 let debug operation driver msg =
   debug "SM %s %s %s" driver operation msg
+
+let srmaster_only (_,dconf) =
+	let is_srmaster = try List.assoc "SRmaster" dconf = "true" with _ -> false in
+	if not is_srmaster 
+	then (warn "srmaster_only: Raising MasterOnly exception"; raise (Storage_interface.Redirect None))
 
 let sr_create dconf driver sr size =
   let call = Sm_exec.make_call ~sr_ref:sr dconf "sr_create" [ Int64.to_string size ] in
@@ -128,6 +134,7 @@ let sr_update dconf driver sr =
 
 let vdi_create dconf driver sr sm_config vdi_type size name_label name_description metadata_of_pool is_a_snapshot snapshot_time snapshot_of read_only =
   debug "vdi_create" driver (sprintf "sr=%s sm_config=[%s] type=[%s] size=%Ld" (Ref.string_of sr) (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) sm_config)) vdi_type size);
+	srmaster_only dconf;
   let call = Sm_exec.make_call ~sr_ref:sr ~vdi_sm_config:sm_config ~vdi_type dconf "vdi_create" [ sprintf "%Lu" size; name_label ; name_description; metadata_of_pool; string_of_bool is_a_snapshot; snapshot_time; snapshot_of; string_of_bool read_only ] in
   Sm_exec.parse_vdi_info (Sm_exec.exec_xmlrpc (driver_type driver)  (driver_filename driver) call)
 
@@ -143,6 +150,7 @@ let vdi_introduce dconf driver sr new_uuid sm_config location =
 
 let vdi_delete dconf driver sr vdi =
   debug "vdi_delete" driver (sprintf "sr=%s vdi=%s" (Ref.string_of sr) (Ref.string_of vdi));
+  srmaster_only dconf;
   let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi dconf "vdi_delete" [] in
   Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_type driver)  (driver_filename driver) call)
 
@@ -172,21 +180,25 @@ let vdi_deactivate dconf driver sr vdi =
 
 let vdi_snapshot dconf driver driver_params sr vdi =
   debug "vdi_snapshot" driver (sprintf "sr=%s vdi=%s driver_params=[%s]" (Ref.string_of sr) (Ref.string_of vdi) (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) driver_params)));
+  srmaster_only dconf;
   let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi ~driver_params dconf "vdi_snapshot" [] in
   Sm_exec.parse_vdi_info (Sm_exec.exec_xmlrpc (driver_type driver)  (driver_filename driver) call)
 	
 let vdi_clone dconf driver driver_params sr vdi =
   debug "vdi_clone" driver (sprintf "sr=%s vdi=%s driver_params=[%s]" (Ref.string_of sr) (Ref.string_of vdi) (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) driver_params)));
+  srmaster_only dconf;
   let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi ~driver_params dconf "vdi_clone" [] in
   Sm_exec.parse_vdi_info (Sm_exec.exec_xmlrpc (driver_type driver)  (driver_filename driver) call)
 
 let vdi_resize dconf driver sr vdi newsize =
   debug "vdi_resize" driver (sprintf "sr=%s vdi=%s newsize=%Ld" (Ref.string_of sr) (Ref.string_of vdi) newsize);
+  srmaster_only dconf;
   let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi dconf "vdi_resize" [ sprintf "%Lu" newsize ] in
   Sm_exec.parse_vdi_info (Sm_exec.exec_xmlrpc (driver_type driver)  (driver_filename driver) call)
 
 let vdi_resize_online dconf driver sr vdi newsize =
   debug "vdi_resize_online" driver (sprintf "sr=%s vdi=%s newsize=%Ld" (Ref.string_of sr) (Ref.string_of vdi) newsize);
+  srmaster_only dconf;
   let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi dconf "vdi_resize_online" [ sprintf "%Lu" newsize ] in
   Sm_exec.parse_vdi_info (Sm_exec.exec_xmlrpc (driver_type driver)  (driver_filename driver) call)
 
@@ -197,6 +209,7 @@ let vdi_generate_config dconf driver sr vdi =
 
 let vdi_compose dconf driver sr vdi1 vdi2 =
 	debug "vdi_compose" driver (sprintf "sr=%s vdi1=%s vdi2=%s" (Ref.string_of sr) (Ref.string_of vdi1) (Ref.string_of vdi2));
+	srmaster_only dconf;
 	let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi2 dconf "vdi_compose" [ Ref.string_of vdi1] in
 	Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_type driver) (driver_filename driver) call)
 
