@@ -34,6 +34,7 @@ let _xenops = "xenops"
 let _sr = "SR"
 let _host = "host"
 let _session_id = "session_id"
+let _master = "master"
 
 module XenAPI = Client
 module SMAPI = Storage_interface.Client(struct let rpc = Storage_migrate.rpc ~srcstr:"xapi" ~dststr:"smapiv2" Storage_migrate.local_url end)
@@ -42,6 +43,11 @@ module XenopsAPI = Xenops_client.Client
 open Storage_interface
 open Listext
 open Fun
+
+let get_ip_from_url url =
+	match Http.Url.of_string url with
+		| Http.Url.Http { Http.Url.host = host }, _ -> host
+		| _, _ -> failwith (Printf.sprintf "Cannot extract foreign IP address from: %s" url) 
 
 let pool_migrate ~__context ~vm ~host ~options =
 	let dbg = Context.string_of_task __context in
@@ -175,10 +181,10 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let dest_host = List.assoc _host dest in
 	let url = List.assoc _sm dest in
 	let xenops = List.assoc _xenops dest in
+	let master = List.assoc _master dest in
 	let session_id = Ref.of_string (List.assoc _session_id dest) in
-	let remote_address = match Http.Url.of_string xenops with
-		| Http.Url.Http { Http.Url.host = host }, _ -> host
-		| _, _ -> failwith (Printf.sprintf "Cannot extract foreign IP address from: %s" xenops) in
+	let remote_address = get_ip_from_url xenops in
+	let remote_master_address = get_ip_from_url master in
 
 	let is_intra_pool = 
 		try ignore(Db.Host.get_uuid ~__context ~self:(Ref.of_string dest_host)); true with _ -> false 
@@ -189,9 +195,7 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let new_dps = ref [] in
 	let vdis_to_destroy = ref [] in
 
-	let remote_rpc = Helpers.make_remote_rpc remote_address in
-
-
+	let remote_rpc = Helpers.make_remote_rpc remote_master_address in
 
 	try
 		let dest_default_sr_ref_uuid = 
@@ -320,7 +324,7 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
 		if is_intra_pool 
 		then intra_pool_vdi_remap ~__context vm (snapshots_map @ vdi_map)
-		else inter_pool_metadata_transfer ~__context remote_rpc session_id remote_address vm (snapshots_map @ vdi_map);
+		else inter_pool_metadata_transfer ~__context remote_rpc session_id remote_master_address vm (snapshots_map @ vdi_map);
 
 		(* Migrate the VM *)
 		let open Xenops_client in
@@ -335,11 +339,11 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		let new_vm = XenAPI.VM.get_by_uuid remote_rpc session_id vm' in
 		(* Send non-database metadata *)
 		Xapi_message.send_messages ~__context ~cls:`VM ~obj_uuid:vm'
-			~session_id ~remote_address;
+			~session_id ~remote_address:remote_master_address;
 		Monitor_rrds.migrate_push ~__context ~remote_address
 			~session_id vm' (Ref.of_string dest_host);
 		Xapi_blob.migrate_push ~__context ~rpc:remote_rpc
-			~remote_address ~session_id ~old_vm:vm ~new_vm ;
+			~remote_address:remote_master_address ~session_id ~old_vm:vm ~new_vm ;
 		(* Signal the remote pool that we're done *)
 		XenAPI.VM.pool_migrate_complete remote_rpc session_id new_vm (Ref.of_string dest_host);
 		(* And we're finished *)
@@ -361,7 +365,7 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			List.iter (fun vdi -> 
 				XenAPI.VDI.destroy rpc session_id vdi) 
 				!vdis_to_destroy;
-			XenAPI.VM.destroy rpc session_id vm);
+			if not is_intra_pool then XenAPI.VM.destroy rpc session_id vm);
 	with e ->
 		error "Caught %s: cleaning up" (Printexc.to_string e);
 		let failed_vdi = ref None in
@@ -404,12 +408,12 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				raise e
 					
 let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
-	let xenops = List.assoc _xenops dest in
+	let master = List.assoc _master dest in
+	let host = List.assoc _xenops dest in
 	let session_id = Ref.of_string (List.assoc _session_id dest) in
-	let remote_address = match Http.Url.of_string xenops with
-		| Http.Url.Http { Http.Url.host = host }, _ -> host
-		| _, _ -> failwith (Printf.sprintf "Cannot extract foreign IP address from: %s" xenops) in
-	let remote_rpc = Helpers.make_remote_rpc remote_address in
+	let remote_address = get_ip_from_url host in
+	let remote_master_address = get_ip_from_url master in
+	let remote_rpc = Helpers.make_remote_rpc remote_master_address in
 	let vm_export_import = {
 		Importexport.vm = vm;
 		Importexport.dry_run = true;
