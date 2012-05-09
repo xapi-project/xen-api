@@ -153,6 +153,8 @@ let assert_can_restore_backup rpc session_id (x: header) =
 		| None -> ())
 		(List.map get_mac_seed all_vms)
 
+let assert_can_live_import __context rpc session_id vm_record = ()
+
 (* The signature for a set of functions which we must provide to be able to import an object type. *)
 module type HandlerTools = sig
 	(* A type which represents how we should deal with the import of an object. *)
@@ -223,42 +225,53 @@ module VM : HandlerTools = struct
 			in
 			Default_template template
 		end else begin
-			(* Check for an existing VM with the same UUID - if one exists, what we do next *)
-			(* will depend on the state of the VM and whether the import is forced. *)
-			let get_vm_by_uuid () = Db.VM.get_by_uuid __context vm_record.API.vM_uuid in
-			let vm_uuid_exists () = try ignore (get_vm_by_uuid ()); true with _ -> false in
-			(* If full_restore is true then we want to keep the VM uuid - this may involve replacing an existing VM. *)
-			if config.full_restore && vm_uuid_exists () then begin
-				let vm = get_vm_by_uuid () in
-				(* The existing VM cannot be replaced if it is running. *)
-				(* If import is forced then skip the VM, else throw an error. *)
-				let power_state = Db.VM.get_power_state ~__context ~self:vm in
-				if power_state <> `Halted then begin
-					if config.force then
-						(debug "Forced import skipping VM %s as VM to replace was not halted." vm_record.API.vM_uuid; Skip)
-					else Fail (Api_errors.Server_error(Api_errors.vm_bad_power_state,
-						[
-							Ref.string_of vm;
-							Record_util.power_state_to_string `Halted;
-							Record_util.power_state_to_string power_state
-						]))
-				end else begin
-					(* The existing VM should not be replaced if the version to be imported is no newer, *)
-					(* unless the import is forced. *)
-					let existing_version = Db.VM.get_version ~__context ~self:vm in
-					let version_to_import = vm_record.API.vM_version in
-					if (existing_version >= version_to_import) && (config.force = false) then
-						Fail (Api_errors.Server_error(Api_errors.vm_to_import_is_not_newer_version,
+			let import_action =
+				(* Check for an existing VM with the same UUID - if one exists, what we do next *)
+				(* will depend on the state of the VM and whether the import is forced. *)
+				let get_vm_by_uuid () = Db.VM.get_by_uuid __context vm_record.API.vM_uuid in
+				let vm_uuid_exists () = try ignore (get_vm_by_uuid ()); true with _ -> false in
+				(* If full_restore is true then we want to keep the VM uuid - this may involve replacing an existing VM. *)
+				if config.full_restore && vm_uuid_exists () then begin
+					let vm = get_vm_by_uuid () in
+					(* The existing VM cannot be replaced if it is running. *)
+					(* If import is forced then skip the VM, else throw an error. *)
+					let power_state = Db.VM.get_power_state ~__context ~self:vm in
+					if power_state <> `Halted then begin
+						if config.force then
+							(debug "Forced import skipping VM %s as VM to replace was not halted." vm_record.API.vM_uuid; Skip)
+						else Fail (Api_errors.Server_error(Api_errors.vm_bad_power_state,
 							[
 								Ref.string_of vm;
-								Int64.to_string existing_version;
-								Int64.to_string version_to_import;
+								Record_util.power_state_to_string `Halted;
+								Record_util.power_state_to_string power_state
 							]))
-					else
-						Replace (vm, vm_record)
-				end
-			end else
-				Clean_import vm_record
+					end else begin
+						(* The existing VM should not be replaced if the version to be imported is no newer, *)
+						(* unless the import is forced. *)
+						let existing_version = Db.VM.get_version ~__context ~self:vm in
+						let version_to_import = vm_record.API.vM_version in
+						if (existing_version >= version_to_import) && (config.force = false) then
+							Fail (Api_errors.Server_error(Api_errors.vm_to_import_is_not_newer_version,
+								[
+									Ref.string_of vm;
+									Int64.to_string existing_version;
+									Int64.to_string version_to_import;
+								]))
+						else
+							Replace (vm, vm_record)
+					end
+				end else
+					Clean_import vm_record
+			in
+			match import_action with
+			| Replace (_, vm_record) | Clean_import vm_record ->
+					let live = match config.import_type with
+					| Metadata_import {live=live} -> live
+					| _ -> false
+					in
+					if live then assert_can_live_import __context rpc session_id vm_record;
+					import_action
+			| _ -> import_action
 		end
 
 	let handle_dry_run __context config rpc session_id state x precheck_result =
