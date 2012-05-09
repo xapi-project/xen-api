@@ -176,7 +176,6 @@ XAPI_MODULES = $(COMMON) \
 	xha_metadata_vdi \
 	xha_errno \
 	static_vdis \
-	monitor_self \
 	monitor_transfer \
 	monitor_master \
 	rrd_shared \
