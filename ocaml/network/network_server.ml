@@ -115,8 +115,7 @@ let read_config () =
 
 let on_shutdown signal =
 	debug "xcp-networkd caught signal %d; performing cleanup actions." signal;
-	write_config ();
-	exit 0
+	write_config ()
 
 let on_timer () =
 	write_config ()
