@@ -15,6 +15,19 @@
 module D = Debug.Debugger(struct let name="rrdd_shared" end)
 open D
 
+module StringSet = Set.Make(String)
+
+(* Handle uncooperative domains. *)
+let uncooperative_domains: (int, unit) Hashtbl.t = Hashtbl.create 20
+let uncooperative_domains_m = Mutex.create ()
+
+(** Cache memory/target values *)
+let memory_targets : (int, int64) Hashtbl.t = Hashtbl.create 20
+let memory_targets_m = Mutex.create ()
+
+let cache_sr_uuid : string option ref = ref None
+let cache_sr_lock = Mutex.create ()
+
 (* Store information about whether this host is a slave or a master. In the
  * former case, also store the address of the master. These values should be
  * set through Rrdd.set_master whenever xapi restarts. *)
