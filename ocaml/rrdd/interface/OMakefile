@@ -3,7 +3,7 @@ OCAMLINCLUDES = $(ROOT)/ocaml $(ROOT)/ocaml/autogen $(ROOT)/ocaml/idl \
 OCAMLPACKS    = http-svr xenctrl
 OCAML_LIBS    =
 
-UseCamlp4(rpc-light.syntax, rrd)
+UseCamlp4(rpc-light.syntax, rrd rrdd_fake_common)
 UseCamlp4(rpc-light.idl, data_source rrdd_interface)
 
 clean:
