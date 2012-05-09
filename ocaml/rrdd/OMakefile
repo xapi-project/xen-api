@@ -9,7 +9,7 @@ OCAMLINCLUDES = \
 	$(ROOT)/ocaml/xenops \
 	interface
 # ocaml/xapi only needed for xapi_fist : should move xapi_first to libs
-OCAMLPACKS = xml-light2 stunnel http-svr xenctrl xenctrlext
+OCAMLPACKS = xml-light2 stunnel http-svr xenctrl xenctrlext xenstore
 OCAML_LIBS = $(ROOT)/ocaml/fhs ../idl/ocaml_backend/xapi_client
 # ../xenops/xenops_client
 
