@@ -108,9 +108,20 @@ module State = struct
 end
 
 
-let rpc ~srcstr ~dststr url call =
-	XMLRPC_protocol.rpc ~transport:(transport_of_url url)
-		~srcstr ~dststr ~http:(xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of url) ~query:(Http.Url.get_query_params url) (Http.Url.get_uri url)) call
+let rec rpc ~srcstr ~dststr url call =
+	try 
+		XMLRPC_protocol.rpc ~transport:(transport_of_url url)
+			~srcstr ~dststr ~http:(xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of url) ~query:(Http.Url.get_query_params url) (Http.Url.get_uri url)) call
+	with | Redirect (Some ip) ->
+		let open Http.Url in
+		let newurl = match url with 
+			| (Http h, d) ->
+				(Http {h with host=ip}, d)
+			| (File f, d) ->
+				(Http {host=ip; auth=None; port=None; ssl=true}, d)
+		in
+		rpc ~srcstr ~dststr newurl call
+			
 
 let vdi_info x =
 	match x with 
@@ -288,16 +299,20 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 
 		let tapdev = match tapdisk_of_attach_info attach_info with 
 			| Some tapdev -> 
+				debug "Got tapdev";
 				let pid = Tapctl.get_tapdisk_pid tapdev in
 				let path = Printf.sprintf "/var/run/blktap-control/nbdclient%d" pid in
 				with_transport transport (with_http request (fun (response, s) ->
+					debug "Here inside the with_transport";
 					let control_fd = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
 					finally
 						(fun () ->
+							debug "Connecting to path: %s" path;
 							Unix.connect control_fd (Unix.ADDR_UNIX path);
 							let msg = dp in
 							let len = String.length msg in
 							let written = Unixext.send_fd control_fd msg 0 len [] s in
+							debug "Sent fd";
 							if written <> len then begin
 								error "Failed to transfer fd to %s" path;
 								failwith "foo"
@@ -308,9 +323,13 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 			| None ->
 				failwith "Not attached"
 		in
+		debug "Adding to active local mirrors: id=%s" id;
 		let alm = State.add_to_active_local_mirrors id url dest mirror_dp dp result.Mirror.mirror_vdi.vdi url tapdev in
+		debug "Added";
 
+		debug "About to snapshot";
 		let snapshot = Local.VDI.snapshot ~dbg ~sr ~vdi:local_vdi.vdi ~vdi_info:local_vdi ~params:["mirror", "nbd:" ^ dp] in
+		debug "Done!";
 
 		begin
 			let rec inner () =
