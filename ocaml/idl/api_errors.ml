@@ -447,3 +447,4 @@ let vdi_needs_vm_for_migrate = "VDI_NEEDS_VM_FOR_MIGRATE"
 let vm_has_too_many_snapshots = "VM_HAS_TOO_MANY_SNAPSHOTS"
 
 let mirror_failed = "MIRROR_FAILED"
+let too_many_storage_migrates = "TOO_MANY_STORAGE_MIGRATES"

@@ -22,6 +22,7 @@
 
 open Pervasiveext
 open Printf
+open Threadext
 
 module DD=Debug.Debugger(struct let name="xapi" end)
 open DD
@@ -35,6 +36,17 @@ let _sr = "SR"
 let _host = "host"
 let _session_id = "session_id"
 let _master = "master"
+
+let number = ref 0
+let nmutex = Mutex.create ()
+let with_migrate f =
+	Mutex.execute nmutex (fun () ->
+		if !number = 3 then raise (Api_errors.Server_error (Api_errors.too_many_storage_migrates,["3"]));
+		incr number);
+	finally f (fun () -> 
+		Mutex.execute nmutex (fun () ->			
+			decr number))
+	
 
 module XenAPI = Client
 module SMAPI = Storage_interface.Client(struct let rpc = Storage_migrate.rpc ~srcstr:"xapi" ~dststr:"smapiv2" Storage_migrate.local_url end)
@@ -146,7 +158,7 @@ let inter_pool_metadata_transfer ~__context remote_rpc session_id remote_address
 				(fun (vdi, _) -> Db.VDI.remove_from_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key)
 				vdi_map)
 
-let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
+let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	if not(!Xapi_globs.use_xenopsd)
 	then failwith "You must have /etc/xapi.conf:use_xenopsd=true";
 	(* Create mirrors of all the disks on the remote *)
@@ -423,6 +435,9 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				raise (Api_errors.Server_error(Api_errors.mirror_failed,[Ref.string_of vdi]))
 			| None ->
 				raise e
+
+let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
+	with_migrate (fun () -> migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options)
 					
 let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let master = List.assoc _master dest in
