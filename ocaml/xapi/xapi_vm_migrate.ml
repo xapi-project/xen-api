@@ -91,12 +91,15 @@ let pool_migrate ~__context ~vm ~host ~options =
 let pool_migrate_complete ~__context ~vm ~host =
 	let id = Db.VM.get_uuid ~__context ~self:vm in
 	debug "VM.pool_migrate_complete %s" id;
-	Helpers.call_api_functions ~__context
-		(fun rpc session_id ->
-			XenAPI.VM.atomic_set_resident_on rpc session_id vm host
-		);
-	Xapi_xenops.add_caches id;
-	Xapi_xenops.refresh_vm ~__context ~self:vm
+	let dbg = Context.string_of_task __context in
+	if Xapi_xenops.vm_exists_in_xenopsd dbg id then begin
+		Helpers.call_api_functions ~__context
+			(fun rpc session_id ->
+				XenAPI.VM.atomic_set_resident_on rpc session_id vm host
+			);
+		Xapi_xenops.add_caches id;
+		Xapi_xenops.refresh_vm ~__context ~self:vm
+	end
 
 type mirror_record = {
 	mr_mirrored : bool;
@@ -334,18 +337,32 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		List.iter (fun (_ , mirror_record) -> 
 			if mirror_record.mr_mirrored 
 			then SMAPI.DP.destroy ~dbg ~dp:mirror_record.mr_dp ~allow_leak:false) (snapshots_map @ vdi_map);
-		
-		XenopsAPI.VM.migrate dbg vm' xenops_vdi_map xenops_vif_map xenops |> wait_for_task dbg |> success_task dbg |> ignore;
+
+		(* It's acceptable for the VM not to exist at this point; shutdown commutes with storage migrate *)
+		begin
+			try
+				XenopsAPI.VM.migrate dbg vm' xenops_vdi_map xenops_vif_map xenops |> wait_for_task dbg |> success_task dbg |> ignore;
+			with
+				| Does_not_exist ("VM",x) as e ->
+					if x=vm' then () else raise e
+		end;
+
 		let new_vm = XenAPI.VM.get_by_uuid remote_rpc session_id vm' in
-		(* Send non-database metadata *)
-		Xapi_message.send_messages ~__context ~cls:`VM ~obj_uuid:vm'
-			~session_id ~remote_address:remote_master_address;
+
 		Monitor_rrds.migrate_push ~__context ~remote_address
 			~session_id vm' (Ref.of_string dest_host);
-		Xapi_blob.migrate_push ~__context ~rpc:remote_rpc
-			~remote_address:remote_master_address ~session_id ~old_vm:vm ~new_vm ;
-		(* Signal the remote pool that we're done *)
+
+		if not is_intra_pool then begin
+			(* Send non-database metadata *)
+			Xapi_message.send_messages ~__context ~cls:`VM ~obj_uuid:vm'
+				~session_id ~remote_address:remote_master_address;
+			Xapi_blob.migrate_push ~__context ~rpc:remote_rpc
+				~remote_address:remote_master_address ~session_id ~old_vm:vm ~new_vm ;
+			(* Signal the remote pool that we're done *)
+		end;
+		
 		XenAPI.VM.pool_migrate_complete remote_rpc session_id new_vm (Ref.of_string dest_host);
+		
 		(* And we're finished *)
 		List.iter (fun mirror ->
 			ignore(Storage_access.unregister_mirror mirror)) !mirrors;
