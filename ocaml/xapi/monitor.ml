@@ -123,7 +123,7 @@ let update_vcpus xc doms =
     
     try
       let dss = cpus 0 dss in
-      (dss, uuid::uuids, domid::domids)
+			(dss, (uuid,domid)::uuids, domid::domids)
     with exn ->
       (dss, uuids, domid::domids)
   ) ([],[],[]) doms
@@ -525,7 +525,7 @@ let read_all_dom0_stats __context =
 	handle_exn "update_vbds" (fun ()->update_vbds domains) [];
 	handle_exn "update_loadavg" (fun ()-> [ update_loadavg () ]) [];
 	handle_exn "update_memory" (fun ()->update_memory __context xc domains) []] in
-      let fake_stats = Monitor_fake.get_fake_stats uuids in
+			let fake_stats = Monitor_fake.get_fake_stats (List.map (fun (uuid,_) -> uuid) uuids) in
       let all_stats = Monitor_fake.combine_stats real_stats fake_stats in
       (all_stats,uuids,pifs,timestamp,my_rebooting_vms, my_paused_domain_uuids)
   ))
