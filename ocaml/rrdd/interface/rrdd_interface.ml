@@ -73,4 +73,5 @@ module Deprecated = struct
 	(* Could change timescale to sum type, e.g. Slow | Fast.*)
 	external load_rrd : uuid:string -> is_host:bool -> timescale:int -> unit ->
 		unit = ""
+	(* external get_host_rrd : unit -> rrd_info option = "" *)
 end

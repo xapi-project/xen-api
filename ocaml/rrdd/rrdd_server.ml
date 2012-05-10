@@ -135,6 +135,9 @@ module Deprecated = struct
 				end else Hashtbl.replace vm_rrds uuid {rrd; dss = []}
 			)
 		with _ -> ()
+
+	(* DEPRECATED *)
+	(* let get_host_rrd _ () = None *)
 end
 
 
