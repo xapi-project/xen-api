@@ -771,9 +771,6 @@ let get_management_interface ~__context ~host =
 
 let change_management_interface ~__context interface primary_address_type =
 	debug "Changing management interface";
-	let addr = Helpers.get_primary_ip_addr interface primary_address_type in
-	if addr = None then
-		raise (Api_errors.Server_error(Api_errors.interface_has_no_ip, [ interface ]));
 	Xapi_mgmt_iface.run interface primary_address_type;
 	(* once the inventory file has been rewritten to specify new interface, sync up db with
 	   state of world.. *)
