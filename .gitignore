@@ -176,6 +176,7 @@ ocaml/xenops/xenvm
 ocaml/xenops/xenvm-cmd
 ocaml/xenops/xs
 ocaml/xenstored/xenstored
+ocaml/xiu/libxenctrl_xiu.so
 ocaml/xiu/xiu
 ocaml/xsh/xsh
 ocaml/xsrpc/xsrpc
