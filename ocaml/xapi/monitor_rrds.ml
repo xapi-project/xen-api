@@ -345,9 +345,11 @@ let push_rrd ~__context uuid =
     let rrd = rrd_of_gzip path in
     debug "Pushing RRD for VM uuid=%s" uuid;
     let vm = Db.VM.get_by_uuid ~__context ~uuid in
+		let domid = Db.VM.get_domid ~__context ~self:vm in
     let host = Db.VM.get_resident_on ~__context ~self:vm in
     if host = Helpers.get_localhost ~__context then begin
-      Mutex.execute mutex (fun () -> Hashtbl.replace vm_rrds uuid {rrd=rrd; dss=[]}) 	      
+		Mutex.execute mutex (fun () -> Hashtbl.replace vm_rrds uuid
+			{rrd=rrd; dss=[]; domid=(Int64.to_int domid)})
     end else begin
       (* Host might be OpaqueRef:null, in which case we'll fail silently *)
       let address = Db.Host.get_address ~__context ~self:host in
@@ -422,8 +424,11 @@ let load_rrd ~__context uuid is_host =
 	  if is_host 
 	  then begin
 	    add_update_hook ~__context rrd;
-	    host_rrd := Some {rrd=rrd; dss=[]} 
-	  end else Hashtbl.replace vm_rrds uuid {rrd=rrd; dss=[]})
+			host_rrd := Some {rrd=rrd; dss=[]; domid=0}
+		end else
+			let vm = Db.VM.get_by_uuid ~__context ~uuid in
+			let domid = Db.VM.get_domid ~__context ~self:vm in
+			Hashtbl.replace vm_rrds uuid {rrd=rrd; dss=[]; domid=(Int64.to_int domid)})
   with _ -> ()
 
 (** Receive handler, for RRDs being pushed onto us *)
@@ -444,11 +449,14 @@ let receive_handler (req: Http.Request.t) (bio: Buf_io.t) =
 	let uuid = List.assoc "uuid" query in
 
 	(* Check to see if it's a valid uuid for a host or VM *)
-	let ty = 
+	let (ty,domid) =
 	  begin
-	    try ignore(Db.VM.get_by_uuid ~__context ~uuid); VM uuid
+			try
+				let vm = Db.VM.get_by_uuid ~__context ~uuid in
+				let domid = Db.VM.get_domid ~__context ~self:vm in
+				VM uuid,(Int64.to_int domid)
 	    with _ -> begin
-	      try ignore(Db.Host.get_by_uuid ~__context ~uuid); Host
+				try ignore(Db.Host.get_by_uuid ~__context ~uuid); Host,0
 	      with _ ->
 		Http_svr.headers fd (Http.http_404_missing ());
 		failwith (Printf.sprintf "Monitor_rrds.receive_handler: UUID %s neither host nor VM" uuid)
@@ -468,7 +476,7 @@ let receive_handler (req: Http.Request.t) (bio: Buf_io.t) =
 	  match ty with
 	    | VM uuid -> 
 		debug "Receiving RRD for resident VM uuid=%s. Replacing in hashtable" uuid;	  
-		Mutex.execute mutex (fun () -> Hashtbl.replace vm_rrds uuid {rrd=rrd; dss=[]})
+		Mutex.execute mutex (fun () -> Hashtbl.replace vm_rrds uuid {rrd=rrd; dss=[]; domid=domid})
 	    | _ -> raise Invalid_RRD	
 	end else begin
 	  debug "Receiving RRD for archiving, type=%s" 
@@ -637,7 +645,7 @@ let update_rrds ~__context timestamp dss uuids pifs rebooting_vms paused_vms =
 
 	let registered = Hashtbl.fold (fun k _ acc -> k::acc) vm_rrds [] in
 	let my_vms = uuids in
-	let gone_vms = List.filter (fun vm -> not (List.mem vm my_vms)) registered in
+	let gone_vms = List.filter (fun vm -> not (List.mem_assoc vm my_vms)) registered in
 	let to_send_back = List.map (fun uuid -> 
 	  let elt = (uuid,Hashtbl.find vm_rrds uuid) in
 	  elt) gone_vms in
@@ -652,7 +660,7 @@ let update_rrds ~__context timestamp dss uuids pifs rebooting_vms paused_vms =
 
 	List.iter (fun (uuid,_) ->  Hashtbl.remove vm_rrds uuid) to_send_back;
 
-	let do_vm vm_uuid =
+	let do_vm (vm_uuid,domid) =
 	  try
 	    let dss = List.filter_map (fun (ty,ds) -> match ty with | VM x -> if x=vm_uuid then Some ds else None | _ -> None) dss in
 
@@ -666,7 +674,7 @@ let update_rrds ~__context timestamp dss uuids pifs rebooting_vms paused_vms =
 		let rrd = 
 		  if List.length new_defaults > 0 then
 		    let rrd = List.fold_left (fun rrd ds -> Rrd.rrd_add_ds rrd (Rrd.ds_create ds.ds_name ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown)) rrdi.rrd new_defaults in
-		    Hashtbl.replace vm_rrds vm_uuid {rrd=rrd; dss=dss};
+				Hashtbl.replace vm_rrds vm_uuid {rrd=rrd; dss=dss; domid=domid};
 		    rrd
 		  else
 		    rrdi.rrd
@@ -691,16 +699,17 @@ let update_rrds ~__context timestamp dss uuids pifs rebooting_vms paused_vms =
 			dirty_memory := StringSet.add vm_uuid !dirty_memory;
 		  
 		  (* Now update the rras/dss *)
-		  Rrd.ds_update_named rrd timestamp 
+			Rrd.ds_update_named rrd timestamp (domid <> rrdi.domid)
 			  (List.map (fun ds -> (ds.ds_name,(ds.ds_value,ds.ds_pdp_transform_function))) dss);
 		  rrdi.dss <- dss;
+			rrdi.domid <- domid;
 		end
 	      with
 		| Not_found ->
 		    debug "Creating fresh RRD for VM uuid=%s" vm_uuid;
 
 		    let rrd = create_fresh_rrd (!use_min_max) dss in
-		    Hashtbl.replace vm_rrds vm_uuid {rrd=rrd; dss=dss}
+				Hashtbl.replace vm_rrds vm_uuid {rrd=rrd; dss=dss; domid=domid}
 		| e ->
 		    raise e
 	    end
@@ -727,7 +736,7 @@ let update_rrds ~__context timestamp dss uuids pifs rebooting_vms paused_vms =
 		  debug "Creating fresh RRD for localhost";
 		  let rrd = create_fresh_rrd true host_dss in (* Always always create localhost rrds with min/max enabled *)
 		  add_update_hook ~__context rrd;
-		  host_rrd := Some {rrd=rrd; dss=host_dss}
+			host_rrd := Some {rrd=rrd; dss=host_dss; domid=0}
 		end
 	    | Some rrdi -> 
 		rrdi.dss <- host_dss;
@@ -737,7 +746,7 @@ let update_rrds ~__context timestamp dss uuids pifs rebooting_vms paused_vms =
 		let rrd = 
 		  if List.length new_defaults > 0 then
 		    let rrd = List.fold_left (fun rrd ds -> Rrd.rrd_add_ds rrd (Rrd.ds_create ds.ds_name ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown)) rrdi.rrd new_defaults in
-		    host_rrd := Some {rrd=rrd; dss=host_dss};
+				host_rrd := Some {rrd=rrd; dss=host_dss; domid=0};
 		    rrd
 		  else
 		    rrdi.rrd
@@ -759,7 +768,7 @@ let update_rrds ~__context timestamp dss uuids pifs rebooting_vms paused_vms =
 		  dirty_host_memory := true
 		end;
 
-		Rrd.ds_update_named rrd timestamp 
+		Rrd.ds_update_named rrd timestamp false
 		  (List.map (fun ds -> (ds.ds_name,(ds.ds_value,ds.ds_pdp_transform_function))) host_dss)
 	end;
 
@@ -794,11 +803,11 @@ let query_possible_vm_dss uuid =
     let rrdi = Hashtbl.find vm_rrds uuid in
     query_possible_dss rrdi)
 
-let add_vm_ds uuid ds_name =
+let add_vm_ds uuid domid ds_name =
   Mutex.execute mutex (fun () ->
     let rrdi = Hashtbl.find vm_rrds uuid in
     let rrd = add_ds rrdi ds_name in
-    Hashtbl.replace vm_rrds uuid {rrd=rrd; dss=rrdi.dss})
+		Hashtbl.replace vm_rrds uuid {rrd=rrd; dss=rrdi.dss; domid=domid})
 
 let query_vm_dss uuid ds_name =
   Mutex.execute mutex (fun () ->
