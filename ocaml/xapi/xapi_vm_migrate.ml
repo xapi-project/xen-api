@@ -142,11 +142,11 @@ let intra_pool_vdi_remap ~__context vm vdi_map =
 			Db.VBD.set_VDI ~__context ~self:vbd ~value:mirror_record.mr_remote_vdi_reference) vbds
 
 
-let inter_pool_metadata_transfer ~__context remote_rpc session_id remote_address vm vdi_map =
+let inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address ~vm ~vdi_map ~dry_run ~live =
 	let vm_export_import = {
 		Importexport.vm = vm;
-		Importexport.dry_run = false;
-		Importexport.live = true;
+		Importexport.dry_run = dry_run;
+		Importexport.live = live;
 	} in
 	finally
 		(fun () ->
@@ -339,7 +339,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
 		if is_intra_pool 
 		then intra_pool_vdi_remap ~__context vm (snapshots_map @ vdi_map)
-		else inter_pool_metadata_transfer ~__context remote_rpc session_id remote_master_address vm (snapshots_map @ vdi_map);
+		else inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address:remote_master_address ~vm ~vdi_map:(snapshots_map @ vdi_map) ~dry_run:false ~live:true;
 
 		(* Migrate the VM *)
 		let open Xenops_client in
@@ -445,14 +445,25 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let session_id = Ref.of_string (List.assoc _session_id dest) in
 	let remote_address = get_ip_from_url host in
 	let remote_master_address = get_ip_from_url master in
-	let remote_rpc = Helpers.make_remote_rpc remote_master_address in
-	let vm_export_import = {
-		Importexport.vm = vm;
-		Importexport.dry_run = true;
-		Importexport.live = live;
-	} in
-	Importexport.remote_metadata_export_import ~__context ~rpc:remote_rpc ~session_id ~remote_address (`Only vm_export_import)
 
+	let migration_type =
+		try
+			let dest_host = List.assoc _host dest in
+			let dest_host_ref = Ref.of_string dest_host in
+			ignore(Db.Host.get_uuid ~__context ~self:dest_host_ref);
+			`intra_pool dest_host_ref
+		with _ ->
+			let remote_rpc = Helpers.make_remote_rpc remote_master_address in
+			`cross_pool remote_rpc
+	in
+
+	match migration_type with
+	| `intra_pool host ->
+		let force = try bool_of_string (List.assoc "force" options) with _ -> false in
+		if (not force) && live then Xapi_vm_helpers.assert_vm_is_compatible ~__context ~vm ~host
+	| `cross_pool remote_rpc ->
+		(* Ignore vdi_map for now since we won't be doing any mirroring. *)
+		inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address ~vm ~vdi_map:[] ~dry_run:true ~live
 
 (* Handling migrations from pre-Tampa hosts *)
 
