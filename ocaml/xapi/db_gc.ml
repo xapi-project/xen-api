@@ -205,10 +205,8 @@ let check_host_liveness ~__context =
 	end else begin
 	  if live then begin
 	    debug "Assuming host is offline since the heartbeat/metrics haven't been updated for %.2f seconds; setting live to false" (now -. host_time);
-	    Xapi_hooks.host_pre_declare_dead ~__context ~host ~reason:Xapi_hooks.reason__assume_failed;
 	    Db.Host_metrics.set_live ~__context ~self:hmetric ~value:false;
-	    Xapi_host_helpers.update_allowed_operations ~__context ~self:host;
-	    Xapi_hooks.host_post_declare_dead ~__context ~host ~reason:Xapi_hooks.reason__assume_failed;
+	    Xapi_host_helpers.update_allowed_operations ~__context ~self:host
 	  end
 	end;
 	(* Check for clock skew *)
