@@ -2504,11 +2504,20 @@ let vm_migrate printer rpc session_id params =
 							let net = Client.PIF.get_network remote_rpc remote_session pif in
 							(net, Client.Network.get_record remote_rpc remote_session net)
 						end in
+					let vdi_map = List.map (fun (vdi_uuid,sr_uuid) ->
+						let vdi = Client.VDI.get_by_uuid rpc session_id vdi_uuid in
+						let sr = Client.SR.get_by_uuid remote_rpc remote_session sr_uuid in
+						vdi,sr) (read_map_params "vdi" params) in
+					let vif_map = List.map (fun (vif_uuid,net_uuid) ->
+						let vif = Client.VIF.get_by_uuid rpc session_id vif_uuid in
+						let net = Client.Network.get_by_uuid remote_rpc remote_session net_uuid in
+						vif,net) (read_map_params "vif" params) in
+					let params = List.filter (fun (s,_) -> let start = String.sub s 0 4 in start <> "vif:" && start <> "vdi:") params in
 					printer (Cli_printer.PMsg (Printf.sprintf "Will migrate to remote host: %s, using remote network: %s" host_record.API.host_name_label network_record.API.network_name_label));
 					let token = Client.Host.migrate_receive remote_rpc remote_session host network options in
 					printer (Cli_printer.PMsg (Printf.sprintf "Received token: [ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ ":" ^ v) token))));
-					ignore(do_vm_op ~include_control_vms:true printer rpc session_id (fun vm -> Client.VM.migrate_send rpc session_id (vm.getref ()) token true [] [] options)
-						params ["host"; "host-uuid"; "host-name"; "live"; "encrypt"; "remote-address"; "remote-username"; "remote-password"; "remote-network" ])
+					ignore(do_vm_op ~include_control_vms:true printer rpc session_id (fun vm -> Client.VM.migrate_send rpc session_id (vm.getref ()) token true vdi_map vif_map options)
+						params ["host"; "host-uuid"; "host-name"; "live"; "encrypt"; "remote-address"; "remote-username"; "remote-password"; "remote-network"; "vdi"; "vif" ])
 				)
 				(fun () -> Client.Session.logout remote_rpc remote_session)
 		end else begin
