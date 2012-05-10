@@ -73,5 +73,5 @@ module Deprecated = struct
 	external get_full_update_last_rra_idx : unit -> int = ""
 	(* Could change timescale to sum type, e.g. Slow | Fast.*)
 	external load_rrd : uuid:string -> domid:int -> is_host:bool ->
-		timescale:int -> unit -> unit = ""
+		timescale:int -> unit = ""
 end

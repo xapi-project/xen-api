@@ -137,6 +137,9 @@ module Deprecated = struct
 					Hashtbl.replace vm_rrds uuid {rrd; dss = []; domid}
 			)
 		with _ -> ()
+
+	(* DEPRECATED *)
+	(* let get_host_rrd _ () = None *)
 end
 
 (* Push function to push the archived RRD to the appropriate host
