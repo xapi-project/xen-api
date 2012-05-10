@@ -88,6 +88,36 @@ let try_create_sr_from_record ~__context ~_type ~device_config ~dr_task ~sr_reco
 				List.iter (fun pbd -> Client.PBD.unplug ~rpc ~session_id ~self:pbd) pbds;
 				Client.SR.forget ~rpc ~session_id ~sr)
 
+(* Make a best-effort attempt to create an SR and associate it with the DR_task. *)
+(* If anything goes wrong, unplug all PBDs which were created, and forget the SR. *)
+let try_create_sr_from_record ~__context ~_type ~device_config ~dr_task ~sr_record =
+	let hosts = Db.Host.get_all ~__context in
+	Helpers.call_api_functions ~__context
+		(fun rpc session_id ->
+			(* Create the SR record. *)
+			debug "Introducing SR %s" sr_record.uuid;
+			let sr = Client.SR.introduce ~rpc ~session_id
+				~uuid:sr_record.uuid ~name_label:sr_record.name_label
+				~name_description:sr_record.name_description
+				~_type ~content_type:"" ~shared:true
+				~sm_config:[]
+			in
+			try
+				(* Create and plug PBDs. *)
+				List.iter (fun host ->
+					debug "Attaching SR %s to host %s" sr_record.uuid (Db.Host.get_name_label ~__context ~self:host);
+					let pbd = Client.PBD.create ~rpc ~session_id ~host ~sR:sr ~device_config ~other_config:[] in
+					Client.PBD.plug ~rpc ~session_id ~self:pbd) hosts;
+				(* Ensure the VDI records are in the database. *)
+				Client.SR.scan ~rpc ~session_id ~sr;
+				Db.SR.set_introduced_by ~__context ~self:sr ~value:dr_task
+			with e ->
+				(* Clean up if anything goes wrong. *)
+				warn "Could not successfully attach SR %s - caught %s" sr_record.uuid (Printexc.to_string e);
+				let pbds = Db.SR.get_PBDs ~__context ~self:sr in
+				List.iter (fun pbd -> Client.PBD.unplug ~rpc ~session_id ~self:pbd) pbds;
+				Client.SR.forget ~rpc ~session_id ~sr)
+
 (* Add SR records to the database. *)
 (* The SR records will have their introduced_by field set to the DR_task. *)
 let create ~__context ~_type ~device_config ~whitelist =
