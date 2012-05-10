@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D = Debug.Debugger(struct let name="rrdd_shared" end)
+module D = Debug.Debugger(struct let name = "rrdd_shared" end)
 open D
 
 module StringSet = Set.Make(String)
