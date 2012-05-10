@@ -40,7 +40,7 @@ let dirty_pifs = ref StringSet.empty
 let pif_stats : Monitor_types.pif list ref = ref []
 
 let sent_clock_went_backwards_alert = ref false
-(* XXX TODO Perform the following after every the blocking XMLRPC on the xapi
+(* XXX TODO Perform the following after every blocking XMLRPC on the xapi
  * side. The "pull" should also reset the flag in rrdd. *)
 (*
 			if not (!sent_clock_went_backwards_alert) then (

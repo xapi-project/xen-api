@@ -63,9 +63,9 @@ let localhost_uuid =
 	Util_inventory.lookup Util_inventory._installation_uuid
 
 type rrd_info = {
-	rrd: Rrd.rrd;
-	mutable dss: Ds.ds list;
-	mutable domid: int;
+	rrd : Rrd.rrd;
+	mutable dss : Ds.ds list;
+	mutable domid : int;
 }
 
 (* RRDs *)
