@@ -223,32 +223,26 @@ let generate_safe_param tag_name tag_value =
   Xml.to_string (Xml.Element(tag_name, [], [Xml.PCData tag_value])) 
 
 (* if the call has failed we should try and retrieve the result code and any error messages*)
-let parse_result_code meth xml_data response initial_error enable_log = 
-  let code = 
-    try 
-      data_from_leaf (descend_and_match ["ResultCode"] xml_data)
-    with 
-    | Xml_parse_failure error ->
-      raise_malformed_response' meth 
-        (sprintf "After failing to retrieve valid response, an error code\
+let parse_result_code meth xml_data response initial_error enable_log =
+	let code =
+		try
+			data_from_leaf (descend_and_match ["ResultCode"] xml_data)
+		with | Xml_parse_failure error ->
+			raise_malformed_response' meth
+			(sprintf "After failing to retrieve valid response, an error code\
 could not be found. Some data is missing or corrupt.
 Attempt retrieve valid response: (%s)
-Attempt to retrieve error code: (%s)" 
-          initial_error error)
-        (if enable_log
-        then 
-          response 
-        else 
-          "Logging output disabled for this call.") 
-  in
-  let message = 
-    try 
-      data_from_leaf (descend_and_match ["ErrorMessage"] xml_data)
-    with 
-    | Xml_parse_failure msg -> "" 
-  in
-  raise_internal_error [code; message]
-  
+Attempt to retrieve error code: (%s)"
+			initial_error error)
+			(if enable_log
+			then response
+			else "Logging output disabled for this call.") in
+	if (code != 0) then
+		let message =
+			try data_from_leaf (descend_and_match ["ErrorMessage"] xml_data)
+			with | Xml_parse_failure msg -> "" in
+		raise_internal_error [code; message]
+
 let retrieve_inner_xml meth response enable_log=
   try
     descend_and_match (path_to_inner meth) response
