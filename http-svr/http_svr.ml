@@ -494,7 +494,7 @@ let bind ?(listen_backlog=128) sockaddr name =
 	Unix.PF_UNIX
     | Unix.ADDR_INET(_,_) ->
 		debug "Establishing inet domain server";
-	Unix.PF_INET in
+	Unix.domain_of_sockaddr sockaddr in
   let sock = Unix.socket domain Unix.SOCK_STREAM 0 in
   (* Make sure exceptions cause the socket to be closed *)
   try
