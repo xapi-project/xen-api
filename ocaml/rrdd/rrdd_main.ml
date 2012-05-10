@@ -540,15 +540,15 @@ let read_cache_stats timestamp =
 			dss
 		end else !cached_cache_dss
 
+let handle_exn log f default =
+	try f ()
+	with e -> (
+		debug "Exception in '%s': %s. Defaulting this value." log (Printexc.to_string e);
+		default
+	)
+
 let read_all_dom0_stats xc =
-	let handle_exn log f default =
-		try f ()
-		with e ->
-			begin
-				debug "Exception in '%s': %s. Defaulting this value." log (Printexc.to_string e);
-				default
-			end
-	in
+	debug "read_all_dom0_stats";
 	let domains = Xenctrl.domain_getinfolist xc 0 in
 	let timestamp = Unix.gettimeofday () in
 	let my_rebooting_vms =
@@ -621,12 +621,13 @@ let _ =
 		(Printf.sprintf "Usage: %s [-daemon] [-pidfile filename]" Rrdd_interface.name);
 	debug "Arguments processed.";
 
-	if !daemonize then begin
+	if !daemonize then (
 		debug "Daemonizing ..";
 		Unixext.daemonize ()
-	end else begin
+	) else (
 		debug "Not daemonizing ..";
-	end;
+		Debug.log_to_stdout ()
+	);
 
 	if !pidfile <> "" then begin
 		debug "Storing process id into specified file ..";
@@ -639,9 +640,11 @@ let _ =
 
 	debug "Creating monitoring loop thread ..";
 	Debug.name_thread "monitor";
-	Xenctrl.with_intf (fun xc ->
-		ignore (Thread.create (fun _ -> monitor_loop xc) ())
-	);
+	ignore (Thread.create (fun _ ->
+		Xenctrl.with_intf (fun xc ->
+			monitor_loop xc
+		)
+	) ());
 
 	while true do
 		Thread.delay 300.
