@@ -26,6 +26,7 @@ let fd_path = Filename.concat Fhs.vardir name
 
 (* The interface is defined by extern function declarations. *)
 
+(* This information should probably be obtained from the file system instead. *)
 external set_master : is_master:bool -> master_address:string -> unit = ""
 
 external has_vm_rrd : vm_uuid:string -> bool = ""

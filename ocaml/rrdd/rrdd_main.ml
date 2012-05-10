@@ -480,12 +480,13 @@ type last_vals = {
 let last_cache_stats = ref None
 let cached_cache_dss = ref []
 
-let tapdisk_cache_stats = Filename.concat Fhs.bindir "tapdisk-cache-stats"
+let tapdisk_cache_stats : string = Filename.concat Fhs.bindir "tapdisk-cache-stats"
 
 let read_cache_stats timestamp =
-	let cache_sr_opt = Mutex.execute cache_sr_lock (fun () -> !cache_sr_uuid) in
+	let cache_sr_opt = Mutex.execute cache_sr_lock (fun _ -> !cache_sr_uuid) in
 	let do_read cache_sr =
-		let (cache_stats_out,err) =
+		debug "do_read: %s %s" tapdisk_cache_stats cache_sr;
+		let cache_stats_out, err =
 			Forkhelpers.execute_command_get_output tapdisk_cache_stats [cache_sr] in
 		let assoc_list =
 			List.filter_map (fun line ->
@@ -548,7 +549,6 @@ let handle_exn log f default =
 	)
 
 let read_all_dom0_stats xc =
-	debug "read_all_dom0_stats";
 	let domains = Xenctrl.domain_getinfolist xc 0 in
 	let timestamp = Unix.gettimeofday () in
 	let my_rebooting_vms =
@@ -569,15 +569,15 @@ let read_all_dom0_stats xc =
 	Hashtbl.remove_other_keys memory_targets domids;
 	Hashtbl.remove_other_keys uncooperative_domains domids;
 	let real_stats = List.concat [
-		handle_exn "ha_stats" (fun () -> Rrdd_ha_stats.all ()) [];
-		handle_exn "read_mem_metrics" (fun ()->read_mem_metrics xc) [];
+		handle_exn "ha_stats" (fun _ -> Rrdd_ha_stats.all ()) [];
+		handle_exn "read_mem_metrics" (fun _ -> read_mem_metrics xc) [];
 		vcpus;
 		vifs;
 		handle_exn "cache_stats" (fun _ -> read_cache_stats timestamp) [];
 		handle_exn "update_pcpus" (fun _-> update_pcpus xc) [];
-		handle_exn "update_vbds" (fun _-> update_vbds domains) [];
-		handle_exn "update_loadavg" (fun _-> [update_loadavg ()]) [];
-		handle_exn "update_memory" (fun _-> update_memory xc domains) []
+		handle_exn "update_vbds" (fun _ -> update_vbds domains) [];
+		handle_exn "update_loadavg" (fun _ -> [update_loadavg ()]) [];
+		handle_exn "update_memory" (fun _ -> update_memory xc domains) []
 	] in
 	let fake_stats = Rrdd_fake.get_fake_stats uuids in
 	let all_stats = Rrdd_fake.combine_stats real_stats fake_stats in
@@ -588,7 +588,7 @@ let do_monitor xc =
 		(fun _ ->
 			let stats, uuids, pifs, timestamp, my_rebooting_vms, my_paused_vms =
 				read_all_dom0_stats xc in
-			Rrdd_xapi.go ();
+			Rrdd_stats.print_snapshot ();
 			Rrdd_monitor.update_rrds timestamp stats uuids pifs my_rebooting_vms my_paused_vms
 		)
 
