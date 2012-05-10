@@ -22,6 +22,7 @@
 
 open Pervasiveext
 open Printf
+open Threadext
 
 module DD=Debug.Debugger(struct let name="xapi" end)
 open DD
@@ -35,6 +36,17 @@ let _sr = "SR"
 let _host = "host"
 let _session_id = "session_id"
 let _master = "master"
+
+let number = ref 0
+let nmutex = Mutex.create ()
+let with_migrate f =
+	Mutex.execute nmutex (fun () ->
+		if !number = 3 then raise (Api_errors.Server_error (Api_errors.too_many_storage_migrates,["3"]));
+		incr number);
+	finally f (fun () -> 
+		Mutex.execute nmutex (fun () ->			
+			decr number))
+	
 
 module XenAPI = Client
 module SMAPI = Storage_interface.Client(struct let rpc = Storage_migrate.rpc ~srcstr:"xapi" ~dststr:"smapiv2" Storage_migrate.local_url end)
@@ -91,12 +103,15 @@ let pool_migrate ~__context ~vm ~host ~options =
 let pool_migrate_complete ~__context ~vm ~host =
 	let id = Db.VM.get_uuid ~__context ~self:vm in
 	debug "VM.pool_migrate_complete %s" id;
-	Helpers.call_api_functions ~__context
-		(fun rpc session_id ->
-			XenAPI.VM.atomic_set_resident_on rpc session_id vm host
-		);
-	Xapi_xenops.add_caches id;
-	Xapi_xenops.refresh_vm ~__context ~self:vm
+	let dbg = Context.string_of_task __context in
+	if Xapi_xenops.vm_exists_in_xenopsd dbg id then begin
+		Helpers.call_api_functions ~__context
+			(fun rpc session_id ->
+				XenAPI.VM.atomic_set_resident_on rpc session_id vm host
+			);
+		Xapi_xenops.add_caches id;
+		Xapi_xenops.refresh_vm ~__context ~self:vm
+	end
 
 type mirror_record = {
 	mr_mirrored : bool;
@@ -143,7 +158,7 @@ let inter_pool_metadata_transfer ~__context remote_rpc session_id remote_address
 				(fun (vdi, _) -> Db.VDI.remove_from_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key)
 				vdi_map)
 
-let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
+let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	if not(!Xapi_globs.use_xenopsd)
 	then failwith "You must have /etc/xapi.conf:use_xenopsd=true";
 	(* Create mirrors of all the disks on the remote *)
@@ -334,18 +349,32 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		List.iter (fun (_ , mirror_record) -> 
 			if mirror_record.mr_mirrored 
 			then SMAPI.DP.destroy ~dbg ~dp:mirror_record.mr_dp ~allow_leak:false) (snapshots_map @ vdi_map);
-		
-		XenopsAPI.VM.migrate dbg vm' xenops_vdi_map xenops_vif_map xenops |> wait_for_task dbg |> success_task dbg |> ignore;
+
+		(* It's acceptable for the VM not to exist at this point; shutdown commutes with storage migrate *)
+		begin
+			try
+				XenopsAPI.VM.migrate dbg vm' xenops_vdi_map xenops_vif_map xenops |> wait_for_task dbg |> success_task dbg |> ignore;
+			with
+				| Does_not_exist ("VM",x) as e ->
+					if x=vm' then () else raise e
+		end;
+
 		let new_vm = XenAPI.VM.get_by_uuid remote_rpc session_id vm' in
-		(* Send non-database metadata *)
-		Xapi_message.send_messages ~__context ~cls:`VM ~obj_uuid:vm'
-			~session_id ~remote_address:remote_master_address;
+
 		Monitor_rrds.migrate_push ~__context ~remote_address
 			~session_id vm' (Ref.of_string dest_host);
-		Xapi_blob.migrate_push ~__context ~rpc:remote_rpc
-			~remote_address:remote_master_address ~session_id ~old_vm:vm ~new_vm ;
-		(* Signal the remote pool that we're done *)
+
+		if not is_intra_pool then begin
+			(* Send non-database metadata *)
+			Xapi_message.send_messages ~__context ~cls:`VM ~obj_uuid:vm'
+				~session_id ~remote_address:remote_master_address;
+			Xapi_blob.migrate_push ~__context ~rpc:remote_rpc
+				~remote_address:remote_master_address ~session_id ~old_vm:vm ~new_vm ;
+			(* Signal the remote pool that we're done *)
+		end;
+		
 		XenAPI.VM.pool_migrate_complete remote_rpc session_id new_vm (Ref.of_string dest_host);
+		
 		(* And we're finished *)
 		List.iter (fun mirror ->
 			ignore(Storage_access.unregister_mirror mirror)) !mirrors;
@@ -406,6 +435,9 @@ let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				raise (Api_errors.Server_error(Api_errors.mirror_failed,[Ref.string_of vdi]))
 			| None ->
 				raise e
+
+let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
+	with_migrate (fun () -> migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options)
 					
 let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let master = List.assoc _master dest in
