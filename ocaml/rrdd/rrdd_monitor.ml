@@ -6,7 +6,7 @@ open Rrd
 open Ds
 open Monitor_types
 
-module D = Debug.Debugger(struct let name="rrdd_monitor" end)
+module D = Debug.Debugger(struct let name = "rrdd_monitor" end)
 open D
 
 let create_rras use_min_max =
@@ -57,7 +57,7 @@ let sent_clock_went_backwards_alert = ref false
  * domain has gone and we stream the RRD to the master. We also have a
  * list of the currently rebooting VMs to ensure we don't accidentally
  * archive the RRD. *)
-let update_rrds timestamp dss uuids pifs rebooting_vms paused_vms =
+let update_rrds timestamp dss (uuid_domids : (string * int) list) pifs rebooting_vms paused_vms =
 	(* Here we do the synchronising between the dom0 view of the world
 		 and our Hashtbl. By the end of this execute block, the Hashtbl
 		 correctly represents the world *)
@@ -72,8 +72,7 @@ let update_rrds timestamp dss uuids pifs rebooting_vms paused_vms =
 			sent_clock_went_backwards_alert := false;
 		);
 		let registered = Hashtbl.fold_keys vm_rrds in
-		let my_vms = uuids in
-		let gone_vms = List.filter (fun vm -> not (List.mem_assoc vm my_vms)) registered in
+		let gone_vms = List.filter (fun vm -> not (List.mem_assoc vm uuid_domids)) registered in
 		let to_send_back = List.map (fun uuid -> uuid, Hashtbl.find vm_rrds uuid) gone_vms in
 		(* Don't send back rebooting VMs! *)
 		let to_send_back = List.filter (fun (uuid, _) ->
@@ -134,7 +133,7 @@ let update_rrds timestamp dss uuids pifs rebooting_vms paused_vms =
 				(*debug "Error: caught exception %s" (ExnHelper.string_of_exn e);*)
 				log_backtrace ()
 		in
-		List.iter do_vm uuids;
+		List.iter do_vm uuid_domids;
 		(* Check to see if any of the PIFs have changed *)
 		if pifs <> !pif_stats then
 			List.iter (fun pif ->
