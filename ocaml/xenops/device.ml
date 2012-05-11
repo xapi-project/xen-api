@@ -46,10 +46,12 @@ let vnc_port_path domid = sprintf "/local/domain/%d/console/vnc-port" domid
 
 let tc_port_path domid = sprintf "/local/domain/%d/console/tc-port" domid
 
-(* this transactionally hvm:bool
-           -> add entries to add a device
-   specified by backend and frontend *)
+(* Oxenstored's transaction conflict algorithm will cause parallel but separate device
+   creation transactions to abort and retry, leading to livelock while starting lots of
+   VMs. Work around this by serialising these transactions for now. *)
+let device_serialise_m = Mutex.create ()
 let add_device ~xs device backend_list frontend_list private_list =
+	Threadext.Mutex.execute device_serialise_m (fun () ->
 
 	let frontend_path = frontend_path_of_device ~xs device
 	and backend_path = backend_path_of_device ~xs device
@@ -94,6 +96,7 @@ let add_device ~xs device backend_list frontend_list private_list =
 		t.Xst.mkdir private_data_path;
 		t.Xst.setperms private_data_path (device.backend.domid, Xsraw.PERM_NONE, []);
 		t.Xst.writev private_data_path private_list;
+	)
 	)
 
 let safe_rm ~xs path =
