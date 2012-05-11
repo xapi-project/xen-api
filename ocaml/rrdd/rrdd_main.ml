@@ -29,6 +29,9 @@
 module D = Debug.Debugger(struct let name = "rrdd_main" end)
 open D
 
+open Fun
+open Pervasiveext
+
 (* A helper method for processing XMLRPC requests. *)
 let xmlrpc_handler process req bio context =
 	let body = Http_svr.read_body req bio in
@@ -46,34 +49,60 @@ let xmlrpc_handler process req bio context =
 (* Bind the service interface to the server implementation. *)
 module Server = Rrdd_interface.Server(Rrdd_server)
 
+(* A helper function for processing HTTP requests on a socket. *)
+let accept_forever sock f =
+	ignore (Thread.create (fun _ ->
+		while true do
+			let this_connection, _ = Unix.accept sock in
+			ignore (Thread.create (fun _ ->
+				finally
+					(fun _ -> f this_connection)
+					(fun _ -> Unix.close this_connection)
+			) ())
+		done
+	) ())
+
 (* Bind server to the file descriptor. *)
-let start fd_path process =
+let start (xmlrpc_path, http_fwd_path) process =
 	let server = Http_svr.Server.empty () in
 	let open Rrdd_http_handler in
 	Http_svr.Server.add_handler server Http.Post "/" (Http_svr.BufIO (xmlrpc_handler process));
-	Http_svr.Server.add_handler server Http.Post Constants.get_vm_rrd_uri (Http_svr.FdIO get_vm_rrd_handler);
-	Http_svr.Server.add_handler server Http.Post Constants.get_host_rrd_uri (Http_svr.FdIO get_host_rrd_handler);
-	Http_svr.Server.add_handler server Http.Post Constants.get_rrd_updates_uri (Http_svr.FdIO get_rrd_updates_handler);
-	Http_svr.Server.add_handler server Http.Post Constants.put_rrd_uri (Http_svr.FdIO put_rrd_handler);
+	Http_svr.Server.add_handler server Http.Get Constants.get_vm_rrd_uri (Http_svr.FdIO get_vm_rrd_handler);
+	Http_svr.Server.add_handler server Http.Get Constants.get_host_rrd_uri (Http_svr.FdIO get_host_rrd_handler);
+	Http_svr.Server.add_handler server Http.Get Constants.get_rrd_updates_uri (Http_svr.FdIO get_rrd_updates_handler);
+	Http_svr.Server.add_handler server Http.Put Constants.put_rrd_uri (Http_svr.FdIO put_rrd_handler);
 	Http_svr.Server.add_handler server Http.Post Constants.rrd_unarchive_uri (Http_svr.FdIO unarchive_rrd_handler);
-	Unixext.mkdir_safe (Filename.dirname fd_path) 0o700;
-	Unixext.unlink_safe fd_path;
-	let domain_sock = Http_svr.bind (Unix.ADDR_UNIX(fd_path)) "unix_rpc" in
-	Http_svr.start server domain_sock;
-	(* Only needed when binding the HTTP server to localhost. *)
-	(*
-	let localhost = Unix.inet_addr_of_string "127.0.0.1" in
-	let localhost_sock = Http_svr.bind (Unix.ADDR_INET(localhost, 4094)) "inet-RPC" in
-	Http_svr.start server localhost_sock;
-	*)
+	Unixext.mkdir_safe (Filename.dirname xmlrpc_path) 0o700;
+	Unixext.unlink_safe xmlrpc_path;
+	let xmlrpc_socket = Http_svr.bind (Unix.ADDR_UNIX xmlrpc_path) "unix_rpc" in
+	Http_svr.start server xmlrpc_socket;
+
+	Unixext.unlink_safe http_fwd_path;
+	let http_fwd_socket = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
+	Unix.bind http_fwd_socket (Unix.ADDR_UNIX http_fwd_path);
+	Unix.listen http_fwd_socket 5;
+	accept_forever http_fwd_socket (fun this_connection ->
+		let msg_size = 16384 in
+		let buf = String.make msg_size '\000' in
+		debug "Calling Unixext.recv_fd()";
+		let len, _, received_fd = Unixext.recv_fd this_connection buf 0 msg_size [] in
+		debug "Unixext.recv_fd ok (len = %d)" len;
+		finally
+			(fun _ ->
+				let req = String.sub buf 0 len |> Jsonrpc.of_string |> Http.Request.t_of_rpc in
+				debug "Received request = [%s]\n%!" (req |> Http.Request.rpc_of_t |> Jsonrpc.to_string);
+				req.Http.Request.close <- true;
+				ignore_bool (Http_svr.handle_one server received_fd () req)
+			)
+			(fun _ -> Unix.close received_fd)
+	);
+
 	()
 
 (* Monitoring code --- START. *)
 
-open Fun
 open Hashtblext
 open Listext
-open Pervasiveext
 open Stringext
 open Threadext
 open Network_monitor
@@ -636,7 +665,7 @@ let _ =
 	end;
 
 	debug "Starting server ..";
-	start Rrdd_interface.fd_path Server.process;
+	start (Rrdd_interface.xmlrpc_path, Rrdd_interface.http_fwd_path) Server.process;
 
 	debug "Creating monitoring loop thread ..";
 	Debug.name_thread "monitor";

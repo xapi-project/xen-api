@@ -7758,7 +7758,7 @@ let http_actions = [
 			 [String_query_arg "entries"; String_query_arg "output"], _R_POOL_OP, []));
 	(Constants.get_vm_rrd, (Get, Constants.get_vm_rrd_uri, true, [String_query_arg "uuid"], _R_READ_ONLY, []));
 	(Constants.get_host_rrd, (Get, Constants.get_host_rrd_uri, true, [Bool_query_arg "json"], _R_READ_ONLY, []));
-	(Constants.get_rrd_updates, (Get, Constants.get_rrd_updates, true,
+	(Constants.get_rrd_updates, (Get, Constants.get_rrd_updates_uri, true,
 		[Int64_query_arg "start"; String_query_arg "cf"; Int64_query_arg "interval";
 		Bool_query_arg "host"; String_query_arg "uuid"; Bool_query_arg "json"], _R_READ_ONLY, []));
   (Constants.put_rrd, (Put, Constants.put_rrd_uri, false, [], _R_POOL_ADMIN, []));

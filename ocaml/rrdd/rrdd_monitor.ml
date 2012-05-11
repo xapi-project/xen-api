@@ -6,7 +6,7 @@ open Rrd
 open Ds
 open Monitor_types
 
-module D = Debug.Debugger(struct let name="rrdd_monitor" end)
+module D = Debug.Debugger(struct let name = "rrdd_monitor" end)
 open D
 
 let create_rras use_min_max =
