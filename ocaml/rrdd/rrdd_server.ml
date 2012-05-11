@@ -106,7 +106,7 @@ module Deprecated = struct
 	 * assume that the RRDs were stored locally and fall back to asking the
 	 * master if we can't find them. *)
 	let load_rrd _ ~(uuid : string) ~(domid : int) ~(is_host : bool)
-			~(timescale : int) () : unit =
+			~(timescale : int) : unit =
 		try
 			let rrd =
 				try
