@@ -156,10 +156,10 @@ module Debugger = functor(Brand: BRAND) -> struct
 				end
 			) fmt
     
-	let debug fmt = output Syslog.Info "debug" fmt
-	let warn fmt = output Syslog.Info "warn" fmt
+	let debug fmt = output Syslog.Debug "debug" fmt
+	let warn fmt = output Syslog.Warning "warn" fmt
 	let info fmt = output Syslog.Info "info" fmt
-	let error fmt = output Syslog.Info "error" fmt
+	let error fmt = output Syslog.Err "error" fmt
 	let audit ?(raw=false) (fmt: ('a, unit, string, 'b) format4) =
 		Printf.kprintf
 			(fun s ->
