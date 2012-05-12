@@ -315,8 +315,8 @@ let from ~__context ~classes ~token ~timeout =
 			(fun acc table ->
 				 Db_cache_types.Table.fold_over_recent sub.last_generation
 					 (fun ctime mtime dtime objref (creates,mods,deletes,last) ->
-						  info "last_generation=%Ld cur_id=%Ld" sub.last_generation sub.cur_id;
-						  info "ctime: %Ld mtime:%Ld dtime:%Ld objref:%s" ctime mtime dtime objref;
+						  debug "last_generation=%Ld cur_id=%Ld" sub.last_generation sub.cur_id;
+						  debug "ctime: %Ld mtime:%Ld dtime:%Ld objref:%s" ctime mtime dtime objref;
 						  let last = max last (max mtime dtime) in (* mtime guaranteed to always be larger than ctime *)
 						  if dtime > 0L then begin
 							  if ctime > sub.last_generation then
