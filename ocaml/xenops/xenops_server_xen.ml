@@ -722,6 +722,34 @@ module VM = struct
 		with Does_not_exist("domain", _) ->
 			debug "Domain for VM %s does not exist: ignoring" vm.Vm.id
 
+	let add vm =
+		with_xc_and_xs
+			(fun xc xs ->
+				match di_of_uuid ~xc ~xs Newest (uuid_of_vm vm) with
+					| None -> () (* Domain doesn't exist so no setup required *)
+					| Some di ->
+						debug "VM %s exists with domid=%d; checking whether xenstore is intact" vm.Vm.id di.Xenctrl.domid;
+						(* Minimal set of keys and values expected by tools like xentop (CA-24231) *)
+						let minimal_local_kvs = [
+							"name", vm.Vm.name;
+							"domid", string_of_int di.Xenctrl.domid;
+							"vm", "/vm/" ^ vm.Vm.id;
+							"memory/dynamic-min", Int64.(to_string (div vm.Vm.memory_dynamic_min 1024L));
+							"memory/dynamic-max", Int64.(to_string (div vm.Vm.memory_dynamic_max 1024L))
+						] |> List.map (fun (k, v) -> Printf.sprintf "/local/domain/%d/%s" di.Xenctrl.domid k, v) in
+						let minimal_vm_kvs = [
+							"uuid", vm.Vm.id;
+							"name", vm.Vm.name
+						] |> List.map (fun (k, v) -> Printf.sprintf "/vm/%s/%s" vm.Vm.id k, v) in
+						List.iter
+							(fun (k, v) ->
+								if try ignore(xs.Xs.read k); false with _ -> true then begin
+									debug "xenstore-write %s <- %s" k v;
+									xs.Xs.write k v
+								end
+							) (minimal_local_kvs @ minimal_vm_kvs)
+			)
+
 	let log_exn_continue msg f x = try f x with e -> debug "Safely ignoring exception: %s while %s" (Printexc.to_string e) msg
 
 	let destroy_device_model = on_domain_if_exists (fun xc xs task vm di ->
@@ -2111,6 +2139,19 @@ let watch_xenstore () =
 		)
 
 let init () =
+	(* XXX: is this completely redundant now? The Citrix PV drivers don't need this any more *)
+	(* Special XS entry looked for by the XenSource PV drivers (see xenagentd.hg:src/xad.c) *)
+	let xe_key = "/mh/XenSource-TM_XenEnterprise-TM" in
+	let xe_val = "XenSource(TM) and XenEnterprise(TM) are registered trademarks of XenSource Inc." in
+
+	with_xc_and_xs
+		(fun xc xs ->
+			Xs.transaction xs (fun t ->
+				t.Xst.write xe_key xe_val;
+				t.Xst.setperms xe_key (0, Xsraw.PERM_READ, [])
+			)
+		);
+
 	let (_: Thread.t) = Thread.create
 		(fun () ->
 			while true do

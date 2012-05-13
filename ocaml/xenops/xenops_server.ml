@@ -1463,6 +1463,8 @@ module VM = struct
 	let add' x =
 		debug "VM.add %s" (Jsonrpc.to_string (rpc_of_t x));
 		DB.write x.id x;
+		let module B = (val get_backend () : S) in
+		B.VM.add x;
 		x.id
 	let add _ dbg x =
 		Debug.with_thread_associated dbg (fun () -> add' x) ()
