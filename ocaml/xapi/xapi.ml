@@ -23,7 +23,6 @@ open Pervasiveext
 open Listext
 open Auth_signature
 open Extauth
-open Xenstore
 open Db_filter_types
 
 module D=Debug.Debugger(struct let name="xapi" end)
@@ -32,16 +31,6 @@ let info s = info s; debug s (* write info to both info and debug log *)
 
 module L=Debug.Debugger(struct let name="license" end)
 module W=Debug.Debugger(struct let name="watchdog" end)
-
-
-let check_control_domain () =
-  let domuuid = with_xc (fun xc -> get_uuid ~xc 0) in
-	let domuuid = Uuid.to_string domuuid in
-  let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
-  if domuuid <> uuid then (
-    info "dom0 uuid mismatch with inventory -- setting it the proper value";
-    with_xc (fun xc -> Xenctrl.domain_sethandle xc 0 uuid)
-  )
 
 (** Perform some startup sanity checks. Note that we nolonger look for processes using 'ps':
     instead we rely on the init.d scripts to start other services. *)
@@ -796,7 +785,6 @@ let server_init() =
 	"Loading DHCP leases", [], Xapi_udhcpd.init;
     "Reading pool secret", [], Helpers.get_pool_secret;
     "Logging xapi version info", [], Xapi_config.dump_config;
-    "Checking control domain", [], check_control_domain;
     "Setting signal handlers", [], signals_handling;
     "Initialising random number generator", [], random_setup;
     "Running startup check", [], startup_check;
