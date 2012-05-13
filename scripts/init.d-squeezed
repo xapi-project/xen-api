@@ -34,7 +34,10 @@ ulimit -c unlimited
 
 start() {
 	echo -n $"Starting the memory ballooning daemon: "
-	
+
+	# XXX: remove when domain 0 advertises ballooning via guest agent
+	xenstore-write /local/domain/0/control/feature-balloon 1
+
 	if [ -e ${SUBSYS_FILE} ]; then
 		if [ -e ${PID_FILE} ] && [ -e /proc/`cat ${PID_FILE}` ]; then
 			echo -n $"cannot start squeezed: already running."

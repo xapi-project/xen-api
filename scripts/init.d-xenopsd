@@ -29,7 +29,11 @@ ulimit -c unlimited
 
 start() {
 	echo -n $"Starting the $NAME daemon: "
-	
+
+	# This init.d script is only used on the XCP 'appliance' so we assume
+	# we have the shutdown-request ability in the dom0 kernel
+	xenstore-write /local/domain/0/control/feature-shutdown-request 1
+
 	if [ -e ${SUBSYS_FILE} ]; then
 		if [ -e ${PID_FILE} ] && [ -e /proc/`cat ${PID_FILE}` ]; then
 			echo -n $"cannot start $NAME: already running."
