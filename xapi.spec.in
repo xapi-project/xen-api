@@ -315,6 +315,7 @@ rm -rf $RPM_BUILD_ROOT
 /etc/xensource/bugtool/xenopsd.xml
 /etc/xensource/bugtool/xenopsd/stuff.xml
 @OPTDIR@/libexec/xn_diagnostics
+@OPTDIR@/libexec/domain_sethandle
 
 %files v6d
 %defattr(-,root,root,-)
