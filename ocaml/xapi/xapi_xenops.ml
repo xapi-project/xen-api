@@ -992,7 +992,10 @@ let update_vbd ~__context (id: (string * string)) =
 							end
 						) info;
 					Xenops_cache.update_vbd id (Opt.map snd info);
-					Xapi_vbd_helpers.update_allowed_operations ~__context ~self:vbd
+					Xapi_vbd_helpers.update_allowed_operations ~__context ~self:vbd;
+					if not (Db.VBD.get_empty ~__context ~self:vbd) then
+						let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
+						Xapi_vdi.update_allowed_operations ~__context ~self:vdi
 				end
 	with e ->
 		error "xenopsd event: Caught %s while updating VBD" (string_of_exn e)
