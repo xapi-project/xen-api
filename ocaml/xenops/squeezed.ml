@@ -32,11 +32,13 @@ let config_file = ref (Printf.sprintf "/etc/%s.conf" name)
 let pidfile = ref (Printf.sprintf "/var/run/%s.pid" name)
 let log_destination = ref "syslog:daemon"
 let daemon = ref false
+let balance_check_interval = ref 10.
 
 let config_spec = [
 	"pidfile", Config.Set_string pidfile;
 	"log", Config.Set_string log_destination;
 	"daemon", Config.Set_bool daemon;
+	"balance-check-interval", Config.Set_float balance_check_interval;
 	"disable-logging-for", Config.String
 		(fun x ->
 			try
@@ -329,7 +331,7 @@ let _ =
   Unixext.mkdir_rec (Filename.dirname !pidfile) 0o755;
   Unixext.pidfile_write !pidfile;
 
-	debug "Starting daemon listening on %s with idle_timeout = %.0f" _service !Xapi_globs.squeezed_balance_check_interval;
+	debug "Starting daemon listening on %s with idle_timeout = %.0f" _service !balance_check_interval;
 
 	let module Server = Memory_interface.Server(Memory_server) in
 	Debug.with_thread_associated "main" (start sockets) Server.process;
