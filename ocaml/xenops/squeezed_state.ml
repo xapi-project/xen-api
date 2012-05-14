@@ -29,9 +29,6 @@ let state_path service = path [ ""; service; "state" ]
 (** Path in xenstore where the deamon puts the amount of host memory it needs to keep eg for lowmem_emergency_pool *)
 let reserved_host_memory_path service = path [ ""; service; "reserved-host-memory" ]
 
-(** Path in the filesystem where the deamon puts the amount of host memory it needs to keep eg for lowmem_emergency_pool *)
-let reserved_host_memory_filename service = Printf.sprintf "/var/run/%s/reserved-host-memory" service
-
 (** Path where a specific reservation is stored *)
 let reservation_path service session_id reservation_id = path [ ""; service; "state"; session_id; reservation_id ]
 

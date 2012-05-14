@@ -137,12 +137,6 @@ let _ =
     try Xapi_globs.read_external_config ()
     with e -> debug "Read global variables config from %s failed: %s. Continue with default setting." Xapi_globs.xapi_globs_conf (Printexc.to_string e)
   end;
-  debug "Writing reserved-host-memory=%Ld KiB" Squeeze_xen.target_host_free_mem_kib;
-  let txt = Int64.to_string Squeeze_xen.target_host_free_mem_kib in
-  with_xc_and_xs (fun _ xs -> xs.Xs.write (reserved_host_memory_path _service) txt);
-  let path = reserved_host_memory_filename _service in
-  Unixext.mkdir_rec (Filename.dirname path) 0o755;
-  Unixext.write_string_to_file path txt;
 
 	(* Accept connections before we have daemonized *)
 	let sockets = prepare_sockets path in
