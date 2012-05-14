@@ -528,12 +528,6 @@ let event_hook_auth_on_xapi_initialize_succeeded = ref false
 (** Directory used by the v6 license policy engine for caching *)
 let upgrade_grace_file = Filename.concat Fhs.vardir "ugp"
 
-(** Where the ballooning daemon writes the initial overhead value *)
-let squeezed_reserved_host_memory = "/squeezed/reserved-host-memory"
-
-(** Where the ballooning daemon writes the initial overhead value *)
-let squeezed_reserved_host_memory_filename = "/var/run/nonpersistent/squeezed/reserved-host-memory"
-
 (** Xenclient enabled *)
 let xenclient_enabled = false
 
