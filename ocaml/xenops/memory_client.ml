@@ -42,5 +42,5 @@ let binary_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="uns
 
 let json_binary_rpc = binary_rpc Jsonrpc.string_of_call Jsonrpc.response_of_string
 
-module Client = Xenops_interface.Client(struct let rpc = json_binary_rpc ~srcstr:"xenops" ~dststr:"squeezed" json_url end)
+module Client = Memory_interface.Client(struct let rpc = json_binary_rpc ~srcstr:"xenops" ~dststr:"squeezed" json_url end)
 
