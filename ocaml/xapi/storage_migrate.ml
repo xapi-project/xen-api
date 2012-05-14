@@ -23,6 +23,8 @@ open Xmlrpc_client
 open Threadext
 
 let local_url = Http.Url.(File { path = "/var/xapi/storage" }, { uri = "/"; query_params = [] })
+let remote_url ip = Http.Url.(Http { host=ip; auth=None; port=None; ssl=true }, { uri = "/services/SM"; query_params=["pool_secret",!Xapi_globs.pool_secret] } )
+
 open Storage_interface
 open Storage_task
 
@@ -109,19 +111,31 @@ end
 
 
 let rec rpc ~srcstr ~dststr url call =
-	try 
-		XMLRPC_protocol.rpc ~transport:(transport_of_url url)
-			~srcstr ~dststr ~http:(xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of url) ~query:(Http.Url.get_query_params url) (Http.Url.get_uri url)) call
-	with | Redirect (Some ip) ->
-		let open Http.Url in
-		let newurl = match url with 
-			| (Http h, d) ->
-				(Http {h with host=ip}, d)
-			| (File f, d) ->
-				(Http {host=ip; auth=None; port=None; ssl=true}, d)
-		in
-		rpc ~srcstr ~dststr newurl call
-			
+	let result = XMLRPC_protocol.rpc ~transport:(transport_of_url url)
+		~srcstr ~dststr ~http:(xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of url) ~query:(Http.Url.get_query_params url) (Http.Url.get_uri url)) call
+	in
+	if not result.Rpc.success then begin
+		debug "Got failure: checking for redirect";
+		debug "Call was: %s" (Rpc.string_of_call call);
+		debug "result.contents: %s" (Jsonrpc.to_string result.Rpc.contents);
+		match Storage_interface.Exception.exnty_of_rpc result.Rpc.contents with
+				| Storage_interface.Exception.Redirect (Some ip) ->
+					let open Http.Url in
+					let newurl = 
+						match url with
+							| (Http h, d) ->
+								(Http {h with host=ip}, d)
+							| _ ->
+								remote_url ip in
+					debug "Redirecting to ip: %s" ip;
+					let r = rpc ~srcstr ~dststr newurl call in
+					debug "Successfully redirected. Returning";
+					r
+				| _ -> 
+					debug "Not a redirect";
+					result
+		end
+	else result
 
 let vdi_info x =
 	match x with 
