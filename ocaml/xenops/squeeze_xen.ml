@@ -381,7 +381,7 @@ let make_host ~verbose ~xc ~xs =
 		) in
 
 	(* Sum up the 'reservations' which exist separately from domains *)
-	let non_domain_reservations = Squeezed_state.total_reservations xs Squeezed_rpc._service in
+	let non_domain_reservations = Squeezed_state.total_reservations xs Squeezed_state._service in
 	if verbose && non_domain_reservations <> 0L
 	then debug "Total non-domain reservations = %Ld" non_domain_reservations;
 	reserved_kib := Int64.add !reserved_kib non_domain_reservations;

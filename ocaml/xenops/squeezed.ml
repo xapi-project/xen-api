@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 open Pervasiveext 
-open Squeezed_rpc
 open Squeezed_state
 open Xenops_helpers
 open Xenstore

@@ -16,7 +16,6 @@
  *)
 
 open Memory_interface
-open Squeezed_rpc
 open Squeezed_state
 open Xenops_helpers
 open Xenstore
