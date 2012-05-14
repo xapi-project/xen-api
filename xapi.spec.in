@@ -304,7 +304,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/squeezed
 /etc/rc.d/init.d/squeezed
 /etc/xenopsd.conf
-@OPTDIR@/bin/squeezed_client
 
 %files xenopsd
 %defattr(-,root,root,-)
