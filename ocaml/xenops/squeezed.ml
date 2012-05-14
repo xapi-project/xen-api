@@ -158,6 +158,7 @@ let _ =
 	Debug.with_thread_associated "main" (start sockets) Server.process;
 
 	Memory_server.start_balance_thread balance_check_interval;
+	Squeeze_xen.Domain.start_watch_xenstore_thread ();
 
 	while true do
 		try
