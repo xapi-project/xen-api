@@ -41,7 +41,7 @@ exception Bad_error of string
 
 exception Unknown_bootloader of string
 
-exception Error_from_bootloader of (string * (string list))
+exception Error_from_bootloader of string
 
 type t = {
   kernel_path: string;
@@ -81,12 +81,12 @@ let parse_output x =
 		debug "Failed to parse: %s" sexpr;
 		raise (Bad_sexpr sexpr)
 
-let parse_exception x = 
-	match Stringext.String.split '\n' x with
-		| code :: params -> raise (Error_from_bootloader (code, params))
-		| _ ->
-			debug "Failed to parse: %s" x;
-			raise (Bad_error x)
+let parse_exception x =
+	debug "Bootloader failed: %s" x;
+	let lines = String.split '\n' x in
+	(* Since the error is a python stack trace, the last-but-one line tends to be the most useful. *)
+	let err = try List.nth (List.rev lines) 1 with _ -> raise (Bad_error x) in
+	raise (Error_from_bootloader err)
 
 (** Extract the default kernel using the -q option *)
 let extract (task: Xenops_task.t) ~bootloader ~disk ?(legacy_args="") ?(extra_args="") ?(pv_bootloader_args="") ~vm:vm_uuid () =
