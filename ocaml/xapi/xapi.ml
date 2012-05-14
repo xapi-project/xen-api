@@ -23,7 +23,6 @@ open Pervasiveext
 open Listext
 open Auth_signature
 open Extauth
-open Xenstore
 open Db_filter_types
 
 module D=Debug.Debugger(struct let name="xapi" end)
@@ -32,16 +31,6 @@ let info s = info s; debug s (* write info to both info and debug log *)
 
 module L=Debug.Debugger(struct let name="license" end)
 module W=Debug.Debugger(struct let name="watchdog" end)
-
-
-let check_control_domain () =
-  let domuuid = with_xc (fun xc -> get_uuid ~xc 0) in
-	let domuuid = Uuid.to_string domuuid in
-  let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
-  if domuuid <> uuid then (
-    info "dom0 uuid mismatch with inventory -- setting it the proper value";
-    with_xc (fun xc -> Xenctrl.domain_sethandle xc 0 uuid)
-  )
 
 (** Perform some startup sanity checks. Note that we nolonger look for processes using 'ps':
     instead we rely on the init.d scripts to start other services. *)
@@ -169,30 +158,6 @@ let signals_handling () =
   Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
   Sys.catch_break false;
   Sys.set_signal Sys.sigint (Sys.Signal_handle cleanup_handler)
-
-let domain0_setup () =
-  with_xc_and_xs (fun xc xs ->
-    let already_setup = try ignore(xs.Xs.read "/local/domain/0/name"); true with _ -> false in
-    if not already_setup then begin
-	     (* Write an initial neutral target in for domain 0 *)
-	     let di = Xenctrl.domain_getinfo xc 0 in
-	     let memory_actual_kib = Xenctrl.pages_to_kib (Int64.of_nativeint di.Xenctrl.total_memory_pages) in
-	     (* Find domain 0's UUID *)
-	     let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
-	     (* setup xenstore domain 0 for blktap, xentop (CA-24231) *)
-	     xs.Xs.writev "/local/domain/0" [ "name", "Domain-0"; "domid", "0"; "vm", "/vm/" ^ uuid ];
-	     xs.Xs.write "/local/domain/0/memory/target" (Int64.to_string memory_actual_kib);
-	     (* XXX: remove when domain 0 gets the same script as the linux domUs *)
-	     xs.Xs.write "/local/domain/0/control/feature-balloon" "1";
-	     
-	     xs.Xs.writev ("/vm/" ^ uuid) [ "uuid", uuid; "name", "Domain-0" ];
-	     (* add special key demanded by the PV drivers *)
-	     Xs.transaction xs (fun t ->
-				  t.Xst.write Xapi_globs.xe_key Xapi_globs.xe_val;
-				  t.Xst.setperms Xapi_globs.xe_key (0, Xsraw.PERM_READ, [])
-			       )
-    end
-          )
 
 let random_setup () =
   Random.self_init ();
@@ -820,9 +785,7 @@ let server_init() =
 	"Loading DHCP leases", [], Xapi_udhcpd.init;
     "Reading pool secret", [], Helpers.get_pool_secret;
     "Logging xapi version info", [], Xapi_config.dump_config;
-    "Checking control domain", [], check_control_domain;
     "Setting signal handlers", [], signals_handling;
-    "Setting up domain 0 xenstore keys", [], domain0_setup;
     "Initialising random number generator", [], random_setup;
     "Running startup check", [], startup_check;
     "Registering SR plugins", [Startup.OnlyMaster], Sm.register;
