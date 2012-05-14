@@ -758,11 +758,11 @@ let update_mirror ~__context id =
 		if m.Mirror.failed 
 		then 
 			debug "Mirror %s has failed" id;
-			let task = get_mirror_task m.Mirror.local_vdi in
+			let task = get_mirror_task m.Mirror.source_vdi in
 			debug "Mirror associated with task: %s" (Ref.string_of task);
 			(* Just to get a nice error message *)
 			Db.Task.remove_from_other_config ~__context ~self:task ~key:"mirror_failed";
-			Db.Task.add_to_other_config ~__context ~self:task ~key:"mirror_failed" ~value:m.Mirror.local_vdi;
+			Db.Task.add_to_other_config ~__context ~self:task ~key:"mirror_failed" ~value:m.Mirror.source_vdi;
 			Helpers.call_api_functions ~__context
 				(fun rpc session_id -> XenAPI.Task.cancel rpc session_id task)
 	with 
