@@ -31,10 +31,6 @@ ulimit -c unlimited
 start() {
 	echo -n $"Starting xapi: "
 
-    # This init.d script is only used on the XCP 'appliance' so we assume
-    # we have the shutdown-request ability in the dom0 kernel
-    xenstore-write /local/domain/0/control/feature-shutdown-request 1
-
 	# clear out any old xapi coredumps
 	rm -rf /var/xapi/debug
 
