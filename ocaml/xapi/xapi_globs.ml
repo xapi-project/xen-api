@@ -607,9 +607,6 @@ let master_connection_default_timeout = ref 10.
 
 let qemu_dm_ready_timeout = ref 300.
 
-(* seconds per balancing check *)
-let squeezed_balance_check_interval = ref 10.
-
 (* Time we allow for the hotplug scripts to run before we assume something bad
    has happened and abort *)
 let hotplug_timeout = ref 300.
@@ -717,8 +714,6 @@ let xapi_globs_spec =
 	  Config.Set_float master_connection_default_timeout;
 	  "qemu_dm_ready_timeout",
 	  Config.Set_float qemu_dm_ready_timeout;
-	  "squeezed_balance_check_interval",
-	  Config.Set_float squeezed_balance_check_interval;
 	  "hotplug_timeout",
 	  Config.Set_float hotplug_timeout;
 	  "pif_reconfigure_ip_timeout",
