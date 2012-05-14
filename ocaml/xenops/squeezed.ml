@@ -11,14 +11,57 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-let default_pidfile = "/var/run/squeezed.pid" 
-let log_file_path = "file:/var/log/squeezed.log" 
-
 open Pervasiveext 
 open Squeezed_rpc
 open Squeezed_state
 open Xenops_helpers
 open Xenstore
+
+module D = Debug.Debugger(struct let name = Memory_interface.service_name end)
+open D
+
+let name = "squeezed"
+
+(* Server configuration. We have built-in (hopefully) sensible defaults,
+   together with command-line arguments and a configuration file. They
+   are applied in order: (latest takes precedence)
+      defaults < arguments < config file
+*)
+let config_file = ref (Printf.sprintf "/etc/%s.conf" name)
+let pidfile = ref (Printf.sprintf "/var/run/%s.pid" name)
+let log_destination = ref "syslog:daemon"
+let daemon = ref false
+
+let config_spec = [
+	"pidfile", Config.Set_string pidfile;
+	"log", Config.Set_string log_destination;
+	"daemon", Config.Set_bool daemon;
+	"disable-logging-for", Config.String
+		(fun x ->
+			try
+				let open Stringext in
+				let modules = String.split_f String.isspace x in
+				List.iter Debug.disable modules
+			with e ->
+				error "Processing disabled-logging-for = %s: %s" x (Printexc.to_string e)
+		);
+]
+
+let read_config_file () =
+	let unknown_key k v = debug "Unknown key/value pairs: (%s, %s)" k v in
+	if Sys.file_exists !config_file then begin
+		(* Will raise exception if config is mis-formatted. It's up to the
+		  caller to inspect and handle the failure.
+		*)
+		Config.read !config_file config_spec unknown_key;
+		debug "Read global variables successfully from %s" !config_file
+	end
+
+let dump_config_file () : unit =
+	debug "pidfile = %s" !pidfile;
+	debug "log = %s" !log_destination;
+	debug "daemon = %b" !daemon
+
 
 (* We assume only one instance of a named service logs in at a time and therefore can use
    the service name as a session_id. *)
@@ -200,16 +243,19 @@ let idle_callback ~xc ~xs () =
 let _ = 
 	Debug.set_facility Syslog.Local5;
 
-  let pidfile = ref default_pidfile in
   let daemonize = ref false in
  
   Arg.parse (Arg.align [
-	       "-debug", Arg.Set print_debug, Printf.sprintf "Set debug to stdout rather than log file (default %s)" log_file_path;
 	       "-daemon", Arg.Set daemonize, "Create a daemon";
 	       "-pidfile", Arg.Set_string pidfile, Printf.sprintf "Set the pid file (default \"%s\")" !pidfile;
+		"-config", Arg.Set_string config_file, Printf.sprintf "Read configuration from the specified config file (default \"%s\")" !config_file;
 	     ])
     (fun _ -> failwith "Invalid argument")
-    "Usage: squeezed [-daemon] [-pidfile filename]";
+    "Usage: squeezed [-daemon] [-pidfile filename] [-config filename]";
+
+	read_config_file ();
+
+	dump_config_file ();
 
   begin
     try Xapi_globs.read_external_config ()
