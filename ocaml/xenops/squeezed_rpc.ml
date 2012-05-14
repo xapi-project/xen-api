@@ -60,27 +60,8 @@ let _error_unknown_function_code = "1"
 let _error_exception_code = "2"
 let _error_missing_argument_code = "3"
 
-let print_debug = ref false
-
 module D = Debug.Debugger(struct let name = "xenstore-rpc" end)
 open D
-
-let debug (fmt: ('a , unit, string, unit) format4) =
-  let time_of_float x = 
-    let time = Unix.gmtime x in
-    Printf.sprintf "%04d%02d%02dT%02d:%02d:%02dZ"
-      (time.Unix.tm_year+1900)
-      (time.Unix.tm_mon+1)
-      time.Unix.tm_mday
-      time.Unix.tm_hour
-      time.Unix.tm_min
-      time.Unix.tm_sec in
-  if !print_debug 
-  then Printf.kprintf
-    (fun s -> 
-       Printf.printf "%s %s\n" (time_of_float (Unix.gettimeofday ()))  s; 
-       flush stdout) fmt
-  else Printf.kprintf (fun s -> debug "%s" s) fmt
 
 let path = List.fold_left Filename.concat "/"
 

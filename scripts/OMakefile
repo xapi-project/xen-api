@@ -34,6 +34,7 @@ install:
 	$(IPROG) udhcpd.skel $(DESTDIR)/var/xapi/udhcpd.skel  #### FHS_FIXME
 	$(IDATA) xapi.conf $(DESTDIR)$(XAPICONF)
 	$(IDATA) xenopsd.conf $(DESTDIR)/etc/xenopsd.conf
+	$(IDATA) squeezed.conf $(DESTDIR)/etc/squeezed.conf
 	$(IPROG) log.conf $(DESTDIR)$(ETCDIR)/log.conf
 	$(IPROG) db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf
 	$(IPROG) rio.db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf.rio

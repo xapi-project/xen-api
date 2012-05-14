@@ -14,8 +14,10 @@
 open Squeezed_rpc
 open Xenops_helpers
 
+module D = Debug.Debugger(struct let name = Memory_interface.service_name end)
+open D
+
 let _ = 
-  print_debug := true;
 
   if Array.length Sys.argv < 2 then begin
     Printf.fprintf stderr "%s <fn name> [key=val]\n" Sys.argv.(0);
