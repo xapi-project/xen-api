@@ -379,11 +379,12 @@ let stop ~dbg ~id =
 		| e ->
 			raise (Internal_error(Printexc.to_string e))
 
-let stat' dbg id s =
-	let open State in 
-	let (sr,vdi) = of_id id in
-	match s with 
-		| Send s ->
+let stat ~dbg ~id =
+	let s1 = State.find id State.active_recv in
+	let s2 = State.find id State.active_send in
+	let open State in
+	let failed = match s2 with
+		| Some (Send s) ->
 			let failed = 
 				try 
 					let stats = Tapctl.stats (Tapctl.create ()) s.Send_state.tapdev in
@@ -393,23 +394,26 @@ let stat' dbg id s =
 					s.Send_state.failed
 			in
 			s.Send_state.failed <- failed;
-			{Mirror.local_vdi=vdi; remote_vdi=s.Send_state.mirror_vdi; state=Mirror.Sending; failed}
-		| Receive r -> 
-			{Mirror.local_vdi=vdi; remote_vdi=r.Receive_state.remote_vdi; state=Mirror.Receiving; failed=false}
-	
-
-let stat ~dbg ~id =
-	let s1 = State.find id State.active_recv in
-	let s2 = State.find id State.active_send in
-	match s1, s2 with 
-		| Some s, _
-		| _, Some s -> stat' dbg id s 
-		| _ -> raise (Does_not_exist ("mirror",id))
+			failed
+		| _ -> false
+	in
+	let open Mirror in
+	let state = match (s1,s2) with 
+		| (Some _, Some _) -> [Sending; Receiving] 
+		| (Some _, None) -> [Receiving]
+		| (None, Some _) -> [Sending]
+		| (None, None) -> raise (Does_not_exist ("mirror",id))
+	in
+	let (sr,vdi) = of_id id in
+	let src = match (s1,s2) with | (Some (Receive x), _) -> x.Receive_state.remote_vdi | (_,Some (Send x)) -> x.Send_state.mirror_vdi | _ -> failwith "Invalid" in
+	let dst = match (s1,s2) with | (Some (Receive x), _) -> x.Receive_state.leaf_vdi | (_,Some (Send x)) -> vdi | _ -> failwith "Invalid" in
+	{ Mirror.source_vdi = src; dest_vdi = dst; state; failed; }
 	
 let list ~dbg =
 	let m = State.map_of () in
-	List.map (fun (id,s) -> 
-		(id,stat' dbg id s)) m
+	let ids = List.map fst m |> Listext.List.setify in
+	List.map (fun id ->
+		(id,stat dbg id)) ids
 
 let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
 	let on_fail : (unit -> unit) list ref = ref [] in

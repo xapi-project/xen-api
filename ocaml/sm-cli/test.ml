@@ -268,7 +268,7 @@ let test_mirror_1 url sr rurl rsr _ =
 	in
 	
 	let mirror = SMClient.DATA.MIRROR.stat ~dbg ~id:mirror_id in
-	let remote_vdi = mirror.Mirror.remote_vdi in
+	let remote_vdi = mirror.Mirror.dest_vdi in
 
 	let junk = do_nbd url sr vdi_info.vdi dp (fun s ->
 		let (size,_) = Nbd.negotiate s in
