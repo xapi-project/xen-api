@@ -132,11 +132,11 @@ let _ =
 			let list = Client.DATA.MIRROR.list ~dbg in
 			let open Storage_interface.Mirror in
 			List.iter (fun (id,status) ->
-				Printf.printf "id: %s\nlocal_vdi: %s\nremote_vdi: %s\nstatus: %s\nfailed: %b\n" 
+				Printf.printf "id: %s\nsrc_vdi: %s\ndest_vdi: %s\nstatus: %s\nfailed: %b\n" 
 					id
-					status.local_vdi
-					status.remote_vdi
-					(match status.state with | Receiving -> "Receiving" | Sending -> "Sending" | Failed -> "Failed")
+					status.source_vdi
+					status.dest_vdi
+					(String.concat "," (List.map (fun s -> match s with | Receiving -> "Receiving" | Sending -> "Sending") status.state))
 					status.failed) list
 		| [ "task-list" ] ->
 			let tasks = Client.TASK.list ~dbg in

@@ -282,7 +282,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 							let mirror_id = task_result |> mirror_of_task dbg in
 							mirrors := mirror_id :: !mirrors;
 							let m = SMAPI.DATA.MIRROR.stat ~dbg ~id:mirror_id in
-							m.Mirror.remote_vdi
+							m.Mirror.dest_vdi
 						end
 					in
 
@@ -403,7 +403,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				try
 					let m = SMAPI.DATA.MIRROR.stat ~dbg ~id:mirror in
 					if m.Mirror.failed 
-					then failed_vdi := Some m.Mirror.local_vdi;
+					then failed_vdi := Some m.Mirror.source_vdi;
 					SMAPI.DATA.MIRROR.stop ~dbg ~id:mirror;
 				with e ->
 					error "Failure during cleanup: %s" (Printexc.to_string e)

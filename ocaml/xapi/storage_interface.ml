@@ -84,12 +84,11 @@ module Mirror = struct
 	type state = 
 		| Receiving
 		| Sending
-		| Failed
 
 	type t = {
-		local_vdi : vdi;
-		remote_vdi : vdi;
-		state : state; 
+		source_vdi : vdi;
+		dest_vdi : vdi;
+		state : state list; 
 		failed : bool;
 	}
 

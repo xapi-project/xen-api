@@ -74,7 +74,7 @@ let debug operation driver msg =
 let srmaster_only (_,dconf) =
 	let is_srmaster = try List.assoc "SRmaster" dconf = "true" with _ -> false in
 	if not is_srmaster 
-	then (warn "srmaster_only: Raising MasterOnly exception"; raise (Storage_interface.Redirect None))
+	then (warn "srmaster_only: Raising MasterOnly exception"; raise MasterOnly)
 
 let sr_create dconf driver sr size =
   let call = Sm_exec.make_call ~sr_ref:sr dconf "sr_create" [ Int64.to_string size ] in
