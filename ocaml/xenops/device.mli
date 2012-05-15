@@ -26,7 +26,7 @@ module Generic :
 sig
 	val rm_device_state : xs:Xenstore.Xs.xsh -> device -> unit
 	val exists : xs:Xenstore.Xs.xsh -> device -> bool
-
+	val get_private_key: xs:Xenstore.Xs.xsh -> device -> string -> string
 end
 
 module Vbd :
