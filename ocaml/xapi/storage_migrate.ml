@@ -405,8 +405,8 @@ let stat ~dbg ~id =
 		| (None, None) -> raise (Does_not_exist ("mirror",id))
 	in
 	let (sr,vdi) = of_id id in
-	let src = match (s1,s2) with | (Some (Receive x), _) -> x.Receive_state.remote_vdi | (_,Some (Send x)) -> x.Send_state.mirror_vdi | _ -> failwith "Invalid" in
-	let dst = match (s1,s2) with | (Some (Receive x), _) -> x.Receive_state.leaf_vdi | (_,Some (Send x)) -> vdi | _ -> failwith "Invalid" in
+	let src = match (s1,s2) with | (Some (Receive x), _) -> x.Receive_state.remote_vdi | (_,Some (Send x)) -> vdi | _ -> failwith "Invalid" in
+	let dst = match (s1,s2) with | (Some (Receive x), _) -> x.Receive_state.leaf_vdi | (_,Some (Send x)) -> x.Send_state.mirror_vdi | _ -> failwith "Invalid" in
 	{ Mirror.source_vdi = src; dest_vdi = dst; state; failed; }
 	
 let list ~dbg =
