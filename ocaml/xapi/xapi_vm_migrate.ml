@@ -392,7 +392,9 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
 		Helpers.call_api_functions ~__context (fun rpc session_id -> 
 			List.iter (fun vdi -> 
-				XenAPI.VDI.destroy rpc session_id vdi) 
+				if not (Xapi_fist.storage_motion_keep_vdi ()) 
+				then XenAPI.VDI.destroy rpc session_id vdi
+				else debug "Not destroying vdi: %s due to fist point" (Ref.string_of vdi))
 				!vdis_to_destroy;
 			if not is_intra_pool then XenAPI.VM.destroy rpc session_id vm);
 	with e ->
