@@ -323,21 +323,24 @@ module Mem = struct
 						let vms = List.map (get_uuid ~xc) domids |> List.map Uuid.string_of_uuid in
 						raise (Vms_failed_to_cooperate(vms))
 					)
+			| Unix.Unix_error(Unix.ECONNREFUSED, "connect", _) ->
+				info "ECONNREFUSED talking to squeezed: assuming it has been switched off";
+				None
 	open Memory_client
 	let do_login dbg = wrap (fun () -> Client.login dbg "xenopsd")
 
-	(** Maintain a cached login session with the ballooning service; return the cached value on demand *)
+	(* Each "login" causes all unused reservations to be freed, therefore we log in once *)
+	let cached_session_id = ref None
+	let cached_session_id_m = Mutex.create ()
 	let get_session_id =
-		let session_id = ref None in
-		let m = Mutex.create () in
 		fun dbg ->
-			Mutex.execute m
+			Mutex.execute cached_session_id_m
 				(fun () ->
-					match !session_id with
+					match !cached_session_id with
 						| Some x -> x
 						| None ->
 							let s = do_login dbg in
-							session_id := Some s;
+							cached_session_id := Some s;
 							s
 				)
 
@@ -408,8 +411,16 @@ module Mem = struct
 	let transfer_reservation_to_domain_exn dbg domid (reservation_id, amount) =
 		match get_session_id dbg with
 			| Some session_id ->
-				Client.transfer_reservation_to_domain dbg session_id reservation_id domid;
-			| None ->
+				begin
+					try
+						Client.transfer_reservation_to_domain dbg session_id reservation_id domid
+					with Unix.Unix_error(Unix.ECONNREFUSED, "connect", _) ->
+						(* This happens when someone manually runs 'service squeezed stop' *)
+						Mutex.execute cached_session_id_m (fun () -> cached_session_id := None);
+						error "Ballooning daemon has disappeared. Manually setting domain maxmem for domid = %d to %Ld KiB" domid amount;
+						Xenctrl.with_intf (fun xc -> Xenctrl.domain_setmaxmem xc domid amount);
+				end
+ 			| None ->
 				info "No ballooning daemon. Manually setting domain maxmem for domid = %d to %Ld KiB" domid amount;
 				Xenctrl.with_intf (fun xc -> Xenctrl.domain_setmaxmem xc domid amount)
 
