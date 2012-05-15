@@ -355,8 +355,8 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			try
 				XenopsAPI.VM.migrate dbg vm' xenops_vdi_map xenops_vif_map xenops |> wait_for_task dbg |> success_task dbg |> ignore;
 			with
-				| Does_not_exist ("VM",x) as e ->
-					if x=vm' then () else raise e
+				| Xenops_interface.Does_not_exist ("VM",_) ->
+					()	
 		end;
 
 		let new_vm = XenAPI.VM.get_by_uuid remote_rpc session_id vm' in
