@@ -99,6 +99,15 @@ let add_device ~xs device backend_list frontend_list private_list =
 	)
 	)
 
+let get_private_key ~xs device x =
+	let private_data_path = Hotplug.get_private_data_path_of_device device in
+	let key = private_data_path ^ "/" ^x in
+	try
+		xs.Xs.read key
+	with e ->
+		error "read %s: Noent" key;
+		raise e
+
 let safe_rm ~xs path =
   try 
     debug "xenstore-rm %s" path;
