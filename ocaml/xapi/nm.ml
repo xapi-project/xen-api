@@ -149,6 +149,7 @@ let create_bond ~__context bond mtu =
 	let props = Db.Bond.get_properties ~__context ~self:bond in
 	let mode = Db.Bond.get_mode ~__context ~self:bond in
 	let other_config = determine_other_config ~__context master_rc master_net_rc in
+	let persistent_b = is_dom0_interface master_rc in
 
 	(* clean up bond slaves *)
 	let cleanup = List.map (fun (_, bridge) -> bridge, true) slave_devices_and_bridges in
@@ -194,7 +195,8 @@ let create_bond ~__context bond mtu =
 	let ports = [port, {interfaces=(List.map (fun (device, _) -> device) slave_devices_and_bridges);
 		bond_properties=props; mac}] in
 	cleanup,
-	[master_net_rc.API.network_bridge, {default_bridge with ports; bridge_mac=(Some mac); other_config}],
+	[master_net_rc.API.network_bridge, {default_bridge with ports; bridge_mac=(Some mac); other_config;
+		persistent_b}],
 	interface_config
 
 let destroy_bond ~__context ~force bond =
@@ -215,9 +217,11 @@ let create_vlan ~__context vlan =
 	let other_config = determine_other_config ~__context master_rc master_network_rc in
 	let other_config = List.replace_assoc "network-uuids"
 		(master_network_rc.API.network_uuid ^ ";" ^ slave_network_rc.API.network_uuid) other_config in
+	let persistent_b = is_dom0_interface master_rc in
 
 	[master_network_rc.API.network_bridge,
-		{default_bridge with vlan=(Some (slave_network_rc.API.network_bridge, tag)); other_config}]
+		{default_bridge with vlan=(Some (slave_network_rc.API.network_bridge, tag)); other_config;
+		persistent_b}]
 
 let destroy_vlan ~__context vlan =
 	let master = Db.VLAN.get_untagged_PIF ~__context ~self:vlan in
@@ -259,10 +263,11 @@ let get_pif_type pif_rc =
 let rec create_bridges ~__context pif_rc net_rc =
 	let mtu = determine_mtu pif_rc net_rc in
 	let other_config = determine_other_config ~__context pif_rc net_rc in
+	let persistent_b = is_dom0_interface pif_rc in
 	match get_pif_type pif_rc with
 	| `tunnel_pif _ ->
 		[],
-		[net_rc.API.network_bridge, {default_bridge with bridge_mac=(Some pif_rc.API.pIF_MAC)}],
+		[net_rc.API.network_bridge, {default_bridge with bridge_mac=(Some pif_rc.API.pIF_MAC); persistent_b}],
 		[]
 	| `vlan_pif vlan ->
 		let slave = Db.VLAN.get_tagged_PIF ~__context ~self:vlan in
@@ -287,7 +292,8 @@ let rec create_bridges ~__context pif_rc net_rc =
 			determine_ethtool_settings pif_rc.API.pIF_other_config in
 		let ports = [pif_rc.API.pIF_device, {default_port with interfaces=[pif_rc.API.pIF_device]}] in
 		cleanup,
-		[net_rc.API.network_bridge, {default_bridge with ports; bridge_mac=(Some pif_rc.API.pIF_MAC); other_config}],
+		[net_rc.API.network_bridge, {default_bridge with ports; bridge_mac=(Some pif_rc.API.pIF_MAC);
+			other_config; persistent_b}],
 		[pif_rc.API.pIF_device, {default_interface with mtu; ethtool_settings; ethtool_offload}]
 
 let rec destroy_bridges ~__context ~force pif_rc bridge =
@@ -402,8 +408,6 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 				(* Setup network infrastructure *)
 				let cleanup, bridge_config, interface_config = create_bridges ~__context rc net_rc in
 				List.iter (fun (name, force) -> Net.Bridge.destroy ~name ~force ()) cleanup;
-				let bridge_config = update_config bridge_config bridge
-					{(get_config bridge_config default_bridge bridge) with persistent_b=persistent} in
 				Net.Bridge.make_config ~config:bridge_config ();
 				Net.Interface.make_config ~config:interface_config ();
 
