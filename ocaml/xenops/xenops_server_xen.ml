@@ -67,7 +67,6 @@ module VmExtra = struct
 		shadow_multiplier: float;
 		memory_static_max: int64;
 		suspend_memory_bytes: int64;
-		vbds: Vbd.t list; (* needed to regenerate qemu IDE config *)
 		qemu_vbds: (Vbd.id * (int * qemu_frontend)) list;
 		qemu_vifs: (Vif.id * (int * qemu_frontend)) list;
 		vifs: Vif.t list;
@@ -266,11 +265,11 @@ module Storage = struct
 		Xenops_task.with_subtask task (Printf.sprintf "VDI.deactivate %s" dp)
 			(transform_exception (fun () -> Client.VDI.deactivate "deactivate" dp sr vdi))
 
-	let deactivate_and_detach task dp =
+	let dp_destroy task dp =
 		Xenops_task.with_subtask task (Printf.sprintf "DP.destroy %s" dp)
 			(transform_exception (fun () ->
 				try 
-					Client.DP.destroy "deactivate_and_detach" dp false
+					Client.DP.destroy "dp_destroy" dp false
 			    with e ->
 					(* Backends aren't supposed to return exceptions on deactivate/detach, but they
 					   frequently do. Log and ignore *)
@@ -306,57 +305,41 @@ let with_disk ~xc ~xs task disk write f = match disk with
 						destroy_vbd_frontend ~xc ~xs task device
 					)
 			)
-			(fun () -> deactivate_and_detach task dp)
+			(fun () -> dp_destroy task dp)
 
 module Mem = struct
-	let call_daemon xs fn args = Squeezed_rpc.Rpc.client ~xs ~service:Squeezed_rpc._service ~fn ~args
-	let ignore_results (_: (string * string) list) = ()
-
 	let wrap f =
 		try Some (f ())
 		with
-			| Squeezed_rpc.Error(code, descr) when code = Squeezed_rpc._error_cannot_free_this_much_memory_code ->
-				debug "Got error_cannot_free_this_much_memory(%s) from ballooning daemon" descr;
-				begin match Stringext.String.split ',' descr with
-					| [ needed; free ] ->
-						let needed = Memory.bytes_of_kib (Int64.of_string needed) in
-						let free = Memory.bytes_of_kib (Int64.of_string free) in
-						raise (Cannot_free_this_much_memory(needed, free))
-					| _ ->
-						error "Failed to parse cannot_free_this_much_memory_error (old ballooning daemon?)";
-						raise (Ballooning_error(code, descr))
-				end
-			| Squeezed_rpc.Error(code, descr) when code = Squeezed_rpc._error_domains_refused_to_cooperate_code ->
+			| Memory_interface.Cannot_free_this_much_memory(needed, free) ->
+				let needed = Memory.bytes_of_kib needed in
+				let free = Memory.bytes_of_kib free in
+				raise (Cannot_free_this_much_memory(needed, free))
+			| Memory_interface.Domains_refused_to_cooperate domids ->
 				debug "Got error_domains_refused_to_cooperate_code from ballooning daemon";
 				Xenctrl.with_intf
 					(fun xc ->
-						let domids = List.map int_of_string (Stringext.String.split ',' descr) in
 						let vms = List.map (get_uuid ~xc) domids |> List.map Uuid.string_of_uuid in
 						raise (Vms_failed_to_cooperate(vms))
 					)
-			| Squeezed_rpc.Server_not_registered ->
-				error "The ballooning daemon is not running";
-				None (* Keep going anyway *)
-			| Squeezed_rpc.Error(code, descr) -> raise (Ballooning_error(code, descr))
+			| Unix.Unix_error(Unix.ECONNREFUSED, "connect", _) ->
+				info "ECONNREFUSED talking to squeezed: assuming it has been switched off";
+				None
+	open Memory_client
+	let do_login dbg = wrap (fun () -> Client.login dbg "xenopsd")
 
-	let do_login_exn ~xs =
-		let args = [ Squeezed_rpc._service_name, "xenopsd" ] in
-		let results = call_daemon xs Squeezed_rpc._login args in
-		List.assoc Squeezed_rpc._session_id results
-	let do_login ~xs = wrap (fun () -> do_login_exn ~xs)
-
-	(** Maintain a cached login session with the ballooning service; return the cached value on demand *)
+	(* Each "login" causes all unused reservations to be freed, therefore we log in once *)
+	let cached_session_id = ref None
+	let cached_session_id_m = Mutex.create ()
 	let get_session_id =
-		let session_id = ref None in
-		let m = Mutex.create () in
-		fun ~xs ->
-			Mutex.execute m
+		fun dbg ->
+			Mutex.execute cached_session_id_m
 				(fun () ->
-					match !session_id with
+					match !cached_session_id with
 						| Some x -> x
 						| None ->
-							let s = do_login ~xs in
-							session_id := Some s;
+							let s = do_login dbg in
+							cached_session_id := Some s;
 							s
 				)
 
@@ -372,10 +355,8 @@ module Mem = struct
 			try
 				f ()
 			with
-				| Squeezed_rpc.Error(code, descr) as e when
-					false
-					|| code = Squeezed_rpc._error_domains_refused_to_cooperate_code
-					|| code = Squeezed_rpc._error_cannot_free_this_much_memory_code ->
+				| Memory_interface.Domains_refused_to_cooperate _
+				| Memory_interface.Cannot_free_this_much_memory(_, _) as e ->
 				let now = Unix.gettimeofday () in
 				if now -. start > timeout then raise e else begin
 					debug "Sleeping %.0f before retrying" interval;
@@ -385,70 +366,71 @@ module Mem = struct
 		loop ()
 
 	(** Reserve a particular amount of memory and return a reservation id *)
-	let reserve_memory_range_exn ~xc ~xs ~min ~max =
+	let reserve_memory_range_exn dbg min max =
 		Opt.map
 			(fun session_id ->
-				let reserved_memory, reservation_id =
+				let reservation_id, reserved_memory  =
 					retry
 						(fun () ->
 							debug "Requesting a host memory reservation between %Ld and %Ld" min max;
-							let args = [ Squeezed_rpc._session_id, session_id; Squeezed_rpc._min, Int64.to_string min; Squeezed_rpc._max, Int64.to_string max ] in
-							let results = call_daemon xs Squeezed_rpc._reserve_memory_range args in
-							let kib = List.assoc Squeezed_rpc._kib results
-							and reservation_id = List.assoc Squeezed_rpc._reservation_id results in
-							debug "Memory reservation size = %s (reservation_id = %s)" kib reservation_id;
-							Int64.of_string kib, reservation_id
+							let reservation_id, kib = Client.reserve_memory_range dbg session_id min max in
+							debug "Memory reservation size = %Ld (reservation_id = %s)" kib reservation_id;
+							reservation_id, kib
 						)
 				in
 				(* Post condition: *)
 				assert (reserved_memory >= min);
 				assert (reserved_memory <= max);
 				reserved_memory, (reservation_id, reserved_memory)
-			) (get_session_id ~xs)
+			) (get_session_id dbg)
 
-	let reserve_memory_range ~xc ~xs ~min ~max : (int64 * (string * int64)) option =
-		wrap (fun () -> reserve_memory_range_exn ~xc ~xs ~min ~max) |> Opt.join
+	let reserve_memory_range dbg min max : (int64 * (string * int64)) option =
+		wrap (fun () -> reserve_memory_range_exn dbg min max) |> Opt.join
 
 	(** Delete a reservation given by [reservation_id] *)
-	let delete_reservation_exn ~xs (reservation_id, _) =
+	let delete_reservation_exn dbg (reservation_id, _) =
 		Opt.map
 			(fun session_id ->
 				debug "delete_reservation %s" reservation_id;
-				let args = [ Squeezed_rpc._session_id, session_id; Squeezed_rpc._reservation_id, reservation_id ] in
-				ignore_results (call_daemon xs Squeezed_rpc._delete_reservation args)
-			) (get_session_id ~xs)
-	let delete_reservation ~xs r =
-		let (_: unit option option) = wrap (fun () -> delete_reservation_exn ~xs r) in
+				Client.delete_reservation dbg session_id reservation_id
+			) (get_session_id dbg)
+	let delete_reservation dbg r =
+		let (_: unit option option) = wrap (fun () -> delete_reservation_exn dbg r) in
 		()
 
 	(** Reserves memory, passes the id to [f] and cleans up afterwards. If the user
 		wants to keep the memory, then call [transfer_reservation_to_domain]. *)
-	let with_reservation ~xc ~xs ~min ~max f =
-		let amount, id = Opt.default (min, ("none", min)) (reserve_memory_range ~xc ~xs ~min ~max) in
+	let with_reservation dbg min max f =
+		let amount, id = Opt.default (min, ("none", min)) (reserve_memory_range dbg min max) in
 		finally
 			(fun () -> f amount id)
-			(fun () -> delete_reservation ~xs id)
+			(fun () -> delete_reservation dbg id)
 
 	(** Transfer this 'reservation' to the given domain id *)
-	let transfer_reservation_to_domain_exn ~xc ~xs ~domid (reservation_id, amount) =
-		match get_session_id ~xs with
+	let transfer_reservation_to_domain_exn dbg domid (reservation_id, amount) =
+		match get_session_id dbg with
 			| Some session_id ->
-				let uuid = get_uuid ~xc domid in
-				debug "VM = %s; domid = %d; transfer_reservation_to_domain %s" (Uuid.to_string uuid) domid reservation_id;
-				let args = [ Squeezed_rpc._session_id, session_id; Squeezed_rpc._reservation_id, reservation_id; Squeezed_rpc._domid, string_of_int domid ] in
-				ignore_results (call_daemon xs Squeezed_rpc._transfer_reservation_to_domain args)
-			| None ->
+				begin
+					try
+						Client.transfer_reservation_to_domain dbg session_id reservation_id domid
+					with Unix.Unix_error(Unix.ECONNREFUSED, "connect", _) ->
+						(* This happens when someone manually runs 'service squeezed stop' *)
+						Mutex.execute cached_session_id_m (fun () -> cached_session_id := None);
+						error "Ballooning daemon has disappeared. Manually setting domain maxmem for domid = %d to %Ld KiB" domid amount;
+						Xenctrl.with_intf (fun xc -> Xenctrl.domain_setmaxmem xc domid amount);
+				end
+ 			| None ->
 				info "No ballooning daemon. Manually setting domain maxmem for domid = %d to %Ld KiB" domid amount;
-				Xenctrl.domain_setmaxmem xc domid amount
+				Xenctrl.with_intf (fun xc -> Xenctrl.domain_setmaxmem xc domid amount)
 
-	let transfer_reservation_to_domain ~xc ~xs ~domid r =
-		let (_: unit option) = wrap (fun () -> transfer_reservation_to_domain_exn ~xc ~xs ~domid r) in
+	let transfer_reservation_to_domain dbg domid r =
+		let (_: unit option) = wrap (fun () -> transfer_reservation_to_domain_exn dbg domid r) in
 		()
 
 	(** After an event which frees memory (eg a domain destruction), perform a one-off memory rebalance *)
-	let balance_memory ~xc ~xs =
+	let balance_memory dbg =
 		debug "rebalance_memory";
-		ignore_results (call_daemon xs Squeezed_rpc._balance_memory [])
+		Client.balance_memory dbg
 
 end
 
@@ -475,6 +457,11 @@ let device_by_id xc xs vm kind domain_selection id =
 			with Not_found ->
 				debug "VM = %s; domid = %d; Device is not active: kind = %s; id = %s; active devices = [ %s ]" vm frontend_domid (Device_common.string_of_kind kind) id (String.concat ", " (List.map (Opt.default "None") ids));
 				raise (Device_not_connected)
+
+(* Extra keys to store in VBD backends to allow us to deactivate VDIs: *)
+type backend = disk option with rpc
+let _vdi_id = "vdi-id"
+let _dp_id = "dp-id"
 
 let set_stubdom ~xs domid domid' =
 	xs.Xs.write (Printf.sprintf "/local/domain/%d/stub-domid" domid) (string_of_int domid')
@@ -628,7 +615,6 @@ module VM = struct
 			shadow_multiplier = (match vm.Vm.ty with Vm.HVM { Vm.shadow_multiplier = sm } -> sm | _ -> 1.);
 			memory_static_max = vm.memory_static_max;
 			suspend_memory_bytes = 0L;
-			vbds = [];
 			qemu_vbds = [];
 			qemu_vifs = [];
 			vifs = [];
@@ -672,20 +658,20 @@ module VM = struct
 				let min_kib = kib_of_bytes_used (min_bytes +++ overhead_bytes)
 				and max_kib = kib_of_bytes_used (max_bytes +++ overhead_bytes) in
 				(* XXX: we would like to be able to cancel an in-progress with_reservation *)
-				Mem.with_reservation ~xc ~xs ~min:min_kib ~max:max_kib
+				Mem.with_reservation task.Xenops_task.debug_info min_kib max_kib
 					(fun target_plus_overhead_kib reservation_id ->
 						DB.write k {
 							VmExtra.persistent = persistent;
 							VmExtra.non_persistent = non_persistent
 						};
 						let domid = Domain.make ~xc ~xs non_persistent.VmExtra.create_info (uuid_of_vm vm) in
-						Mem.transfer_reservation_to_domain ~xc ~xs ~domid reservation_id;
+						Mem.transfer_reservation_to_domain task.Xenops_task.debug_info domid reservation_id;
 						begin match vm.Vm.ty with
 							| Vm.HVM { Vm.qemu_stubdom = true } ->
-								Mem.with_reservation ~xc ~xs ~min:Stubdom.memory_kib ~max:Stubdom.memory_kib
+								Mem.with_reservation task.Xenops_task.debug_info Stubdom.memory_kib Stubdom.memory_kib
 									(fun _ reservation_id ->
 										let stubdom_domid = Stubdom.create ~xc ~xs domid in
-										Mem.transfer_reservation_to_domain ~xc ~xs ~domid:stubdom_domid reservation_id;
+										Mem.transfer_reservation_to_domain task.Xenops_task.debug_info stubdom_domid reservation_id;
 										set_stubdom ~xs domid stubdom_domid;
 									)
 							| _ ->
@@ -770,7 +756,9 @@ module VM = struct
 				Domain.destroy task ~xc ~xs stubdom_domid
 			) (get_stubdom ~xs domid);
 
-		let vbds = Opt.default [] (Opt.map (fun d -> d.VmExtra.non_persistent.VmExtra.vbds) (DB.read vm.Vm.id)) in
+		let devices = Device_common.list_frontends ~xs domid in
+		let vbds = List.filter (fun device -> Device_common.(device.frontend.kind = Vbd)) devices in
+		let dps = List.map (fun device -> Device.Generic.get_private_key ~xs device _dp_id) vbds in
 
 		(* Normally we throw-away our domain-level information. If the domain
 		   has suspended then we preserve it. *)
@@ -782,11 +770,11 @@ module VM = struct
 		end;
 		Domain.destroy task ~xc ~xs domid;
 		(* Detach any remaining disks *)
-		List.iter (fun vbd -> 
+		List.iter (fun dp -> 
 			try 
-				Storage.deactivate_and_detach task (Storage.id_of domid vbd.Vbd.id)
+				Storage.dp_destroy task dp
 			with e ->
-		        warn "Ignoring exception in VM.destroy: %s" (Printexc.to_string e)) vbds
+		        warn "Ignoring exception in VM.destroy: %s" (Printexc.to_string e)) dps
 	) Oldest
 
 	let pause = on_domain (fun xc xs _ _ di ->
@@ -856,12 +844,12 @@ module VM = struct
 			~min:(Int64.to_int (Int64.div min 1024L))
 			~max:(Int64.to_int (Int64.div max 1024L))
 			domid;
-		Mem.balance_memory ~xc ~xs
+		Mem.balance_memory task.Xenops_task.debug_info
 	) Newest task vm
 
 	(* NB: the arguments which affect the qemu configuration must be saved and
 	   restored with the VM. *)
-	let create_device_model_config vmextra = match vmextra.VmExtra.persistent, vmextra.VmExtra.non_persistent with
+	let create_device_model_config vbds vmextra = match vmextra.VmExtra.persistent, vmextra.VmExtra.non_persistent with
 		| { VmExtra.build_info = None }, _
 		| { VmExtra.ty = None }, _ -> raise (Domain_not_built)
 		| {
@@ -869,7 +857,6 @@ module VM = struct
 			ty = Some ty;
 		},{
 			VmExtra.vifs = vifs;
-			vbds = vbds;
 			qemu_vbds = qemu_vbds
 		} ->
 			let make ?(boot_order="cd") ?(serial="pty") ?(monitor="pty") 
@@ -996,8 +983,7 @@ module VM = struct
 				VmExtra.build_info = Some build_info;
 				ty = Some vm.ty;
 			} and non_persistent = { d.VmExtra.non_persistent with
-				VmExtra.vbds = vbds;
-				vifs = vifs;
+				VmExtra.vifs = vifs;
 			} in
 			DB.write k {
 				VmExtra.persistent = persistent;
@@ -1034,7 +1020,7 @@ module VM = struct
 
 	let build task vm vbds vifs = on_domain (build_domain vm vbds vifs) Newest task vm
 
-	let create_device_model_exn saved_state xc xs task vm di =
+	let create_device_model_exn vbds saved_state xc xs task vm di =
 		let vmextra = DB.read_exn vm.Vm.id in
 		Opt.iter (fun info ->
 			match vm.Vm.ty with
@@ -1052,12 +1038,12 @@ module VM = struct
 					Device.Vfb.add ~xc ~xs di.Xenctrl.domid;
 					Device.Vkbd.add ~xc ~xs di.Xenctrl.domid;
 					Device.Dm.start_vnconly task ~xs ~dmpath:_qemu_dm info di.Xenctrl.domid
-		) (vmextra |> create_device_model_config);
+		) (create_device_model_config vbds vmextra);
 		match vm.Vm.ty with
 			| Vm.PV { vncterm = true; vncterm_ip = ip } -> Device.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
 			| _ -> ()
 
-	let create_device_model task vm saved_state = on_domain (create_device_model_exn saved_state) Newest task vm
+	let create_device_model task vm vbds saved_state = on_domain (create_device_model_exn vbds saved_state) Newest task vm
 
 	let request_shutdown task vm reason ack_delay =
 		let reason = shutdown_reason reason in
@@ -1188,19 +1174,20 @@ module VM = struct
 						let k = vm.Vm.id in
 						let d = DB.read_exn vm.Vm.id in
 
-						(* Empty drives should be ignored (since they don't
-						   even exist in the PV case) *)
-						let vbds = List.filter (fun vbd -> vbd.Vbd.backend <> None) d.VmExtra.non_persistent.VmExtra.vbds in
-						let devices = List.map (fun vbd -> vbd.Vbd.id |> snd |> device_by_id xc xs vm.id Device_common.Vbd Oldest) vbds in
-						List.iter (Device.Vbd.hard_shutdown_request ~xs) devices;
-						List.iter (Device.Vbd.hard_shutdown_wait task ~xs ~timeout:30.) devices;
+						let devices = Device_common.list_frontends ~xs domid in
+						let vbds = List.filter (fun device -> Device_common.(device.frontend.kind = Vbd)) devices in
+						List.iter (Device.Vbd.hard_shutdown_request ~xs) vbds;
+						List.iter (Device.Vbd.hard_shutdown_wait task ~xs ~timeout:30.) vbds;
 						debug "VM = %s; domid = %d; Disk backends have all been flushed" vm.Vm.id domid;
-						List.iter (fun vbd -> match vbd.Vbd.backend with
-							| None (* can never happen due to 'filter' above *)
-							| Some (Local _) -> ()
-							| Some (VDI path) ->
-								let sr, vdi = Storage.get_disk_by_name task path in
-								Storage.deactivate task (Storage.id_of domid vbd.Vbd.id) sr vdi
+						List.iter (fun device ->
+							let backend = Device.Generic.get_private_key ~xs device _vdi_id |> Jsonrpc.of_string |> backend_of_rpc in
+							let dp = Device.Generic.get_private_key ~xs device _dp_id in
+							match backend with
+								| None (* can never happen due to 'filter' above *)
+								| Some (Local _) -> ()
+								| Some (VDI path) ->
+									let sr, vdi = Storage.get_disk_by_name task path in
+									Storage.deactivate task dp sr vdi
 						) vbds;
 						debug "VM = %s; domid = %d; Storing final memory usage" vm.Vm.id domid;
 						let non_persistent = { d.VmExtra.non_persistent with
@@ -1247,8 +1234,7 @@ module VM = struct
 					Domain.set_memory_dynamic_range ~xc ~xs ~min ~max domid
 				);
 				let non_persistent = { vmextra.VmExtra.non_persistent with
-					VmExtra.vbds = vbds;
-					vifs = vifs;
+					VmExtra.vifs = vifs;
 				} in
 				DB.write k { vmextra with
 					VmExtra.non_persistent = non_persistent
@@ -1492,10 +1478,6 @@ module VBD = struct
 
 	let frontend_domid_of_device device = device.Device_common.frontend.Device_common.domid
 
-	let deactivate_and_detach task device vbd =
-		let dp = Storage.id_of (frontend_domid_of_device device) vbd.id in
-		Storage.deactivate_and_detach task dp
-
 	let device_number_of_device d =
 		Device_number.of_xenstore_key d.Device_common.frontend.Device_common.devid
 
@@ -1515,7 +1497,10 @@ module VBD = struct
 						(k,v)::(List.remove_assoc k acc)) vbd.extra_backend_keys vdi.attach_info.Storage_interface.xenstore_data in
 
 					(* Remember the VBD id with the device *)
-					let id = _device_id Device_common.Vbd, id_of vbd in
+					let vbd_id = _device_id Device_common.Vbd, id_of vbd in
+					(* Remember the VDI with the device (for later deactivation) *)
+					let vdi_id = _vdi_id, vbd.backend |> rpc_of_backend |> Jsonrpc.to_string in
+					let dp_id = _dp_id, Storage.id_of frontend_domid vbd.Vbd.id in
 					let x = {
 						Device.Vbd.mode = (match vbd.mode with
 							| ReadOnly -> Device.Vbd.ReadOnly 
@@ -1531,7 +1516,7 @@ module VBD = struct
 						unpluggable = vbd.unpluggable;
 						protocol = None;
 						extra_backend_keys;
-						extra_private_keys = id :: vbd.extra_private_keys;
+						extra_private_keys = dp_id :: vdi_id :: vbd_id :: vbd.extra_private_keys;
 						backend_domid = vdi.domid
 					} in
 					let device =
@@ -1588,8 +1573,7 @@ module VBD = struct
 								VmExtra.qemu_vbds = List.remove_assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds } in
 							DB.write vm { vm_t with VmExtra.non_persistent = non_persistent }
 						end) vm_t;
-					
-					deactivate_and_detach task device vbd;
+					Storage.dp_destroy task (Storage.id_of (frontend_domid_of_device device) vbd.Vbd.id)
 				with 
 					| (Does_not_exist(_,_)) ->
 						debug "VM = %s; VBD = %s; Ignoring missing domain" vm (id_of vbd)
@@ -1625,7 +1609,7 @@ module VBD = struct
 					let device_number = device_number_of_device device in
 					Device.Vbd.media_eject ~xs ~device_number frontend_domid;
 				end;
-				deactivate_and_detach task device vbd;
+				Storage.dp_destroy task (Storage.id_of (frontend_domid_of_device device) vbd.Vbd.id)
 			) Oldest vm
 
 	let ionice qos pid =
