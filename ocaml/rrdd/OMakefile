@@ -15,8 +15,8 @@ OCAML_LIBS = $(ROOT)/ocaml/fhs ../idl/ocaml_backend/xapi_client
 
 UseCamlp4(rpc-light.syntax, rrdd_server)
 
-RRDD_SERVER = rrdd_server
-RRDD_SERVER_FILES = \
+RRDD = xcp-rrdd
+RRDD_FILES = \
 	../network/network_interface \
 	../network/network_monitor \
 	../util/stats \
@@ -46,17 +46,17 @@ RRDD_TEST_FILES = \
 
 .SUBDIRS: interface
 
-OCamlProgram($(RRDD_SERVER), $(RRDD_SERVER_FILES))
-OCamlDocProgram($(RRDD_SERVER), $(RRDD_SERVER_FILES))
+OCamlProgram($(RRDD), $(RRDD_FILES))
+OCamlDocProgram($(RRDD), $(RRDD_FILES))
 OCamlProgram($(RRDD_TEST), $(RRDD_TEST_FILES))
 
 .PHONY: test
-test: $(RRDD_SERVER) $(RRDD_TEST)
-	killall $(RRDD_SERVER) || true
-	./$(RRDD_SERVER) -daemon
+test: $(RRDD) $(RRDD_TEST)
+	killall $(RRDD) || true
+	./$(RRDD) -daemon
 	./$(RRDD_TEST)
-	killall $(RRDD_SERVER) || true
+	killall $(RRDD) || true
 
 clean:
 	rm -f *.cmi *.cmx *.cmo *.a *.cma *.run *.opt *.annot *.o *.orig *.spit *.spot *.omc
-	rm -f $(RRDD_SERVER) $(RRDD_TEST)
+	rm -f $(RRDD) $(RRDD_TEST)
