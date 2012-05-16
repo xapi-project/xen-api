@@ -73,9 +73,10 @@ let pool_migrate ~__context ~vm ~host ~options =
 			(fun () ->
 				(* XXX: PR-1255: the live flag *)
 				info "xenops: VM.migrate %s to %s" vm' xenops_url;
-				XenopsAPI.VM.migrate dbg vm' [] [] xenops_url |> wait_for_task dbg |> success_task dbg |> ignore
+				XenopsAPI.VM.migrate dbg vm' [] [] xenops_url |> wait_for_task dbg |> success_task dbg |> ignore;
+				(try XenopsAPI.VM.remove dbg vm' with e -> debug "xenops: VM.remove %s: caught %s" vm' (Printexc.to_string e));
+				Xapi_xenops.Event.wait dbg ()
 			);
-		(try XenopsAPI.VM.remove dbg vm' with e -> debug "xenops: VM.remove %s: caught %s" vm' (Printexc.to_string e))
 	with e ->
 		error "xenops: VM.migrate %s: caught %s" vm' (Printexc.to_string e);
 		(* We do our best to tidy up the state left behind *)
@@ -357,13 +358,28 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		(* It's acceptable for the VM not to exist at this point; shutdown commutes with storage migrate *)
 		begin
 			try
-				XenopsAPI.VM.migrate dbg vm' xenops_vdi_map xenops_vif_map xenops |> wait_for_task dbg |> success_task dbg |> ignore;
+				Xapi_xenops.with_migrating_away vm'
+					(fun () ->
+						XenopsAPI.VM.migrate dbg vm' xenops_vdi_map xenops_vif_map xenops |> wait_for_task dbg |> success_task dbg |> ignore;
+						(try XenopsAPI.VM.remove dbg vm' with e -> debug "Caught %s while removing VM %s from metadata" (Printexc.to_string e) vm');
+						Xapi_xenops.Event.wait dbg ())
+							
 			with
 				| Xenops_interface.Does_not_exist ("VM",_) ->
 					()	
 		end;
 
+		debug "Migration complete";
+
+		Xapi_xenops.refresh_vm ~__context ~self:vm;
+
 		let new_vm = XenAPI.VM.get_by_uuid remote_rpc session_id vm' in
+
+		XenAPI.VM.pool_migrate_complete remote_rpc session_id new_vm (Ref.of_string dest_host);
+		
+		(* And we're finished *)
+		List.iter (fun mirror ->
+			ignore(Storage_access.unregister_mirror mirror)) !mirrors;
 
 		Monitor_rrds.migrate_push ~__context ~remote_address
 			~session_id vm' (Ref.of_string dest_host);
@@ -377,23 +393,6 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			(* Signal the remote pool that we're done *)
 		end;
 		
-		XenAPI.VM.pool_migrate_complete remote_rpc session_id new_vm (Ref.of_string dest_host);
-		
-		(* And we're finished *)
-		List.iter (fun mirror ->
-			ignore(Storage_access.unregister_mirror mirror)) !mirrors;
-
-		debug "Migration complete";
-		Xapi_xenops.refresh_vm ~__context ~self:vm;
-
-		let localhost = Helpers.get_localhost ~__context in
-		if (Ref.of_string dest_host) != localhost then begin
-			try
-				XenopsAPI.VM.remove dbg vm'
-			with e ->
-				error "Caught %s while removing VM %s from metadata" (Printexc.to_string e) vm'
-		end;
-
 		Helpers.call_api_functions ~__context (fun rpc session_id -> 
 			List.iter (fun vdi -> 
 				if not (Xapi_fist.storage_motion_keep_vdi ()) 
