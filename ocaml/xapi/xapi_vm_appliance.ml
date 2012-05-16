@@ -82,9 +82,7 @@ let wait_for_all_tasks ~rpc ~session_id ~tasks =
 	in
 	let token = "" in
 	let task_set = List.fold_left (fun task_set' task -> TaskSet.add task task_set') TaskSet.empty tasks in
-	wait ~token ~task_set;
-	let failed_tasks = List.filter (fun task -> Client.Task.get_status ~rpc ~session_id ~self:task <> `success) tasks in
-	failed_tasks
+	wait ~token ~task_set
 
 (* Run the given operation on all VMs in the list, and record the tasks created. *)
 (* Return once all the tasks have completed, with a list of VMs which threw an exception. *)
@@ -96,10 +94,7 @@ let run_operation_on_vms ~__context operation vms =
 				(task::tasks, failed_vms)
 			with e ->
 				(tasks, vm::failed_vms)) ([], []) vms in
-		let failed_tasks = wait_for_all_tasks ~rpc ~session_id ~tasks in
-	(* These two values could be used to determine which VMs have failed without having to check at the end. *)
-		ignore (failed_vms, failed_tasks);
-		())
+		wait_for_all_tasks ~rpc ~session_id ~tasks)
 
 let perform_operation ~__context ~self ~operation ~ascending_priority =
 	let appliance_uuid = (Db.VM_appliance.get_uuid ~__context ~self) in
