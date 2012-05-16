@@ -19,7 +19,7 @@
 val himn_addr : string option ref
 
 (** Block until an IP address appears on the management interface *)
-val wait_for_management_ip : unit -> string
+val wait_for_management_ip : __context:Context.t -> string
 
 (** Called anywhere we suspect dom0's networking (hostname, IP address) has been changed
     underneath us (eg by dhclient) *)

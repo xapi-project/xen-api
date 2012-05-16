@@ -19,9 +19,12 @@ open Stringext
 open Listext
 open Threadext
 
+module D = Debug.Debugger(struct let name = "network_monitor" end)
+open D
+
 let failed_again = ref false
 
-let rec monitor () =
+let rec monitor dbg () =
 	let open Network_interface in
 	let open Network_monitor in
 	(try
@@ -74,7 +77,7 @@ let rec monitor () =
 			} in
 			name, eth_stat
 		in
-		let bonds : (string * string list) list = Network_server.Bridge.get_all_bonds () ~from_cache:true () in
+		let bonds : (string * string list) list = Network_server.Bridge.get_all_bonds () dbg ~from_cache:true () in
 		devs := (List.map make_bond_info bonds) @ !devs;
 
 		let transform_taps () =
@@ -136,11 +139,11 @@ let rec monitor () =
 				let nb_links = List.length devs in
 				let carrier = List.exists Sysfs.get_carrier devs in
 				let get_interfaces name =
-					let bonds = Network_server.Bridge.get_all_bonds () ~from_cache:true () in
+					let bonds = Network_server.Bridge.get_all_bonds () dbg ~from_cache:true () in
 					let interfaces = (try List.assoc dev bonds with _ -> []) in
 					interfaces in
 				let (links_up,interfaces) = (if nb_links > 1 then
-						(Network_server.Bridge.get_bond_links_up () dev, get_interfaces dev)
+						(Network_server.Bridge.get_bond_links_up () dbg dev, get_interfaces dev)
 					else
 						((if carrier then 1 else 0), [dev]))
 				in
@@ -161,7 +164,7 @@ let rec monitor () =
 	);
 
 	Thread.delay interval;
-	monitor ()
+	monitor dbg ()
 
 let watcher_m = Mutex.create ()
 let watcher_pid = ref None
@@ -199,10 +202,13 @@ let ip_watcher () =
 	loop ()
 
 let start () =
-	debug "Starting network monitor";
-	let (_ : Thread.t) = Thread.create monitor () in
-	let (_ : Thread.t) = Thread.create ip_watcher () in
-	()
+	let dbg = "monitor_thread" in
+	Debug.with_thread_associated dbg (fun () ->
+		debug "Starting network monitor";
+		let (_ : Thread.t) = Thread.create (monitor dbg) () in
+		let (_ : Thread.t) = Thread.create ip_watcher () in
+		()
+	) ()
 
 let stop () =
 	Mutex.execute watcher_m (fun () ->

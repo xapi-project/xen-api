@@ -17,11 +17,8 @@ open Stringext
 open Fun
 open Network_interface
 
-let service_name = "network"
-
-module D = Debug.Debugger(struct let name = service_name end)
-
-let print_debug = ref false
+module D = Debug.Debugger(struct let name = "network_utils" end)
+open D
 
 let iproute2 = "/sbin/ip"
 let resolv_conf = "/etc/resolv.conf"
@@ -36,23 +33,6 @@ let modprobe = "/sbin/modprobe"
 let ethtool = "/sbin/ethtool"
 let bonding_dir = "/proc/net/bonding/"
 let dhcp6c = "/sbin/dhcp6c"
-
-let debug (fmt: ('a , unit, string, unit) format4) =
-	let time_of_float x = 
-		let time = Unix.gmtime x in
-		Printf.sprintf "%04d%02d%02dT%02d:%02d:%02dZ"
-			(time.Unix.tm_year+1900)
-			(time.Unix.tm_mon+1)
-			time.Unix.tm_mday
-			time.Unix.tm_hour
-			time.Unix.tm_min
-			time.Unix.tm_sec in
-	if !print_debug 
-	then Printf.kprintf
-		(fun s -> 
-			Printf.printf "%s %s\n" (time_of_float (Unix.gettimeofday ()))  s; 
-			flush stdout) fmt
-	else Printf.kprintf (fun s -> D.debug "%s" s) fmt
 
 let call_script ?(log_successful_output=true) script args =
 	try

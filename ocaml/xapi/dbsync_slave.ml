@@ -32,14 +32,14 @@ let ( -- ) = Int64.sub
 let ( ** ) = Int64.mul
 let ( // ) = Int64.div
 
-let get_my_ip_addr() =
-  match (Helpers.get_management_ip_addr()) with
+let get_my_ip_addr ~__context =
+  match (Helpers.get_management_ip_addr ~__context) with
       Some ip -> ip
     | None -> (error "Cannot read IP address. Check the control interface has an IP address"; "")
 
 
 let create_localhost ~__context info =
-  let ip = get_my_ip_addr () in
+  let ip = get_my_ip_addr ~__context in
   let me = try Some (Db.Host.get_by_uuid ~__context ~uuid:info.uuid) with _ -> None in
   (* me = None on firstboot only *)
   if me = None
@@ -85,7 +85,7 @@ let refresh_localhost_info ~__context info =
     Db.Host.set_hostname ~__context ~self:host ~value:info.hostname;
     let caps = String.split ' ' (Xenctrl.with_intf (fun xc -> Xenctrl.version_capabilities xc)) in
     Db.Host.set_capabilities ~__context ~self:host ~value:caps;
-    Db.Host.set_address ~__context ~self:host ~value:(get_my_ip_addr());
+    Db.Host.set_address ~__context ~self:host ~value:(get_my_ip_addr ~__context);
 
     let boot_time_key = "boot_time" in
     let boot_time_value = string_of_float (Date.to_float (get_start_time ())) in
