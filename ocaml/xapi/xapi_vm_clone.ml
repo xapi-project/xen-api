@@ -27,7 +27,7 @@ let delete_disks rpc session_id disks =
 				   else debug "Not destroying CD VDI: %s" (Ref.string_of vdi)
 			  ) disks
 
-let wait_for_clone ?progress_minmax ~__context task =
+let wait_for_subtask ?progress_minmax ~__context task =
 	Helpers.call_api_functions ~__context (fun rpc session ->
 	let refresh_session = Xapi_session.consider_touching_session rpc session in
 	let main_task = Context.get_task_id __context in
@@ -91,9 +91,14 @@ let wait_for_clone ?progress_minmax ~__context task =
 	done;
 	debug "Finished listening for events relating to tasks %s and %s" (Ref.string_of task) (Ref.string_of main_task);
 
-	let result = Db_actions.DB_Action.Task.get_result ~__context ~self:task in
-	let vdiref = API.From.ref_VDI "" (Xml.parse_string result) in
-	vdiref)
+	Db_actions.DB_Action.Task.get_result ~__context ~self:task)
+
+
+let wait_for_clone ?progress_minmax ~__context task =
+	let result = wait_for_subtask ?progress_minmax ~__context task in
+	let result = Xml.parse_string result in
+	let vdiref = API.From.ref_VDI "" result in
+	vdiref
 
 (* Clone code is parameterised over this so it can be shared with copy *)
 type disk_op_t =
