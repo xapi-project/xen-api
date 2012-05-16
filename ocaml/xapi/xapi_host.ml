@@ -128,8 +128,9 @@ let assert_bacon_mode ~__context ~host =
 let pif_update_address ~__context ~self =
 	let network = Db.PIF.get_network ~__context ~self in
 	let bridge = Db.Network.get_bridge ~__context ~self:network in
+	let dbg = Context.string_of_task __context in
 	begin
-		match Net.Interface.get_ipv4_addr bridge with
+		match Net.Interface.get_ipv4_addr dbg bridge with
 		| (addr, plen) :: _ ->
 			let ip = Unix.string_of_inet_addr addr in
 			let netmask = Network_interface.prefixlen_to_netmask plen in
@@ -140,7 +141,7 @@ let pif_update_address ~__context ~self =
 			end
 		| _ -> ()
 	end;
-	let ipv6_addr = Net.Interface.get_ipv6_addr ~name:bridge in
+	let ipv6_addr = Net.Interface.get_ipv6_addr dbg ~name:bridge in
 	let ipv6_addr' = List.map (fun (addr, plen) -> Printf.sprintf "%s/%d" (Unix.string_of_inet_addr addr) plen) ipv6_addr in
 	if ipv6_addr' <> Db.PIF.get_IPv6 ~__context ~self then begin
 		debug "PIF %s bridge %s IPv6 address changed: %s" (Db.PIF.get_uuid ~__context ~self)
@@ -1588,7 +1589,8 @@ let migrate_receive ~__context ~host ~network ~options =
 	end;
 	let sm_url = Printf.sprintf "http://%s/services/SM?session_id=%s" ip new_session_id in
 	let xenops_url = Printf.sprintf "http://%s/services/xenops?session_id=%s" ip new_session_id in
-	let master_address = try Pool_role.get_master_address () with Pool_role.This_host_is_a_master -> Opt.unbox (Helpers.get_management_ip_addr ()) in
+	let master_address = try Pool_role.get_master_address () with Pool_role.This_host_is_a_master ->
+		Opt.unbox (Helpers.get_management_ip_addr ~__context) in
 
 	let master_url = Printf.sprintf "http://%s/" master_address in
 	[ Xapi_vm_migrate._sm, sm_url;

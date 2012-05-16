@@ -55,14 +55,15 @@ let checknull f =
   try f() with
       _ -> "<not in database>"
 
-let get_primary_ip_addr iface primary_address_type =
+let get_primary_ip_addr ~__context iface primary_address_type =
 	if iface = "" then
 		None
 	else
 		try
+			let dbg = Context.string_of_task __context in
 			let addrs = match primary_address_type with
-				| `IPv4 -> Net.Interface.get_ipv4_addr ~name:iface
-				| `IPv6 -> Net.Interface.get_ipv6_addr ~name:iface
+				| `IPv4 -> Net.Interface.get_ipv4_addr dbg ~name:iface
+				| `IPv6 -> Net.Interface.get_ipv6_addr dbg ~name:iface
 			in
 			let addrs = List.map (fun (addr, _) -> Unix.string_of_inet_addr addr) addrs in
 			(* Filter out link-local addresses *)
@@ -70,8 +71,8 @@ let get_primary_ip_addr iface primary_address_type =
 			Some (List.hd addrs)
 		with _ -> None
 
-let get_management_ip_addr () =
-	get_primary_ip_addr
+let get_management_ip_addr ~__context =
+	get_primary_ip_addr ~__context
 		(Xapi_inventory.lookup Xapi_inventory._management_interface)
 		(Record_util.primary_address_type_of_string (Xapi_inventory.lookup Xapi_inventory._management_address_type ~default:"ipv4"))
 
@@ -633,8 +634,9 @@ let validate_ip_address str =
 	with _ -> None
 
 (** Returns true if the supplied IP address looks like one of mine *)
-let this_is_my_address address =
-  let inet_addrs = Net.Interface.get_ipv4_addr ~name:(Xapi_inventory.lookup Xapi_inventory._management_interface) in
+let this_is_my_address ~__context address =
+  let dbg = Context.string_of_task __context in
+  let inet_addrs = Net.Interface.get_ipv4_addr dbg ~name:(Xapi_inventory.lookup Xapi_inventory._management_interface) in
   let addresses = List.map Unix.string_of_inet_addr (List.map fst inet_addrs) in
   List.mem address addresses
 

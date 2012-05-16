@@ -41,7 +41,7 @@ let create_pool_record ~__context =
 
 let set_master_ip ~__context =
   let ip =
-    match (Helpers.get_management_ip_addr()) with
+    match (Helpers.get_management_ip_addr ~__context) with
 	Some ip -> ip
       | None ->
 	  (error "Cannot read master IP address. Check the control interface has an IP address"; "") in

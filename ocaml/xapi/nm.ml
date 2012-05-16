@@ -369,6 +369,7 @@ let determine_static_routes net_rc =
 
 let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 	with_local_lock (fun () ->
+		let dbg = Context.string_of_task __context in
 		let rc = Db.PIF.get_record ~__context ~self:pif in
 		let net_rc = Db.Network.get_record ~__context ~self:rc.API.pIF_network in
 		let bridge = net_rc.API.network_bridge in
@@ -378,7 +379,7 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 			(string_of_bool rc.API.pIF_currently_attached)
 			(if management_interface then " and this is to be the new management interface" else "");
 
-		let old_ip = try Net.Interface.get_ipv4_addr ~name:bridge with _ -> [] in
+		let old_ip = try Net.Interface.get_ipv4_addr dbg ~name:bridge with _ -> [] in
 
 		(* If the PIF is a bond master, the bond slaves will now go down *)
 		(* Interface-reconfigure in bridge mode requires us to set currently_attached to false here *)
@@ -400,9 +401,9 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 
 				(* Setup network infrastructure *)
 				let cleanup, bridge_config, interface_config = create_bridges ~__context rc net_rc in
-				List.iter (fun (name, force) -> Net.Bridge.destroy ~name ~force ()) cleanup;
-				Net.Bridge.make_config ~config:bridge_config ();
-				Net.Interface.make_config ~config:interface_config ();
+				List.iter (fun (name, force) -> Net.Bridge.destroy dbg ~name ~force ()) cleanup;
+				Net.Bridge.make_config dbg ~config:bridge_config ();
+				Net.Interface.make_config dbg ~config:interface_config ();
 
 				(* Configure IPv4 parameters and DNS *)
 				let ipv4_conf, ipv4_gateway, dns =
@@ -468,7 +469,7 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 				let (ethtool_settings, ethtool_offload) = determine_ethtool_settings net_rc.API.network_other_config in
 				let interface_config = [bridge, {ipv4_conf; ipv4_gateway; ipv6_conf; ipv6_gateway;
 					ipv4_routes; dns; ethtool_settings; ethtool_offload; mtu; persistent_i=persistent}] in
-				Net.Interface.make_config ~config:interface_config ()
+				Net.Interface.make_config dbg ~config:interface_config ()
 			with Network_interface.Internal_error str ->
 				let e = Printf.sprintf "%s" str in
 				error "Network configuration error: %s" e;
@@ -479,7 +480,7 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 			reconfigure_pif ~__context pif args
 		end;
 
-		let new_ip = try Net.Interface.get_ipv4_addr ~name:bridge with _ -> [] in
+		let new_ip = try Net.Interface.get_ipv4_addr dbg ~name:bridge with _ -> [] in
 		if new_ip <> old_ip then begin
 			warn "An IP address of dom0 was changed";
 			warn "About to kill idle client stunnels";
@@ -527,14 +528,15 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 
 let bring_pif_down ~__context ?(force=false) (pif: API.ref_PIF) =
 	with_local_lock (fun () ->
+		let dbg = Context.string_of_task __context in
 		let rc = Db.PIF.get_record ~__context ~self:pif in
 		debug "PIF %s has currently_attached set to true; bringing down now" rc.API.pIF_uuid;
 		if !use_networkd then
 			try
 				let bridge = Db.Network.get_bridge ~__context ~self:rc.API.pIF_network in
 				let cleanup = destroy_bridges ~__context ~force rc bridge in
-				List.iter (fun (name, force) -> Net.Bridge.destroy ~name ~force ()) cleanup;
-				Net.Interface.set_persistent ~name:bridge ~value:false
+				List.iter (fun (name, force) -> Net.Bridge.destroy dbg ~name ~force ()) cleanup;
+				Net.Interface.set_persistent dbg ~name:bridge ~value:false
 			with Network_interface.Internal_error err ->
 				let e = Printf.sprintf "%s" err in
 				error "Network configuration error: %s" e;
