@@ -43,6 +43,7 @@ let xmlrpc_handler process req bio context =
 let start_server path process =
 	Http_svr.Server.add_handler server Http.Post "/" (Http_svr.BufIO (xmlrpc_handler process));
 
+	debug "Listening on %s" path;
 	Unixext.mkdir_safe (Filename.dirname path) 0o700;
 	Unixext.unlink_safe path;
 	let domain_sock = Http_svr.bind (Unix.ADDR_UNIX(path)) "unix_rpc" in
@@ -73,6 +74,9 @@ let _ =
 	let pidfile = ref "" in
 	let daemonize = ref false in
 	Debug.set_facility Syslog.Local5;
+
+	(* We should make the following configurable *)
+	Debug.disable "http";
 
 	Arg.parse (Arg.align [
 			"-daemon", Arg.Set daemonize, "Create a daemon";
