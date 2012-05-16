@@ -629,7 +629,7 @@ module Bridge = struct
 	let get_vlan _ dbg ~name =
 		Debug.with_thread_associated dbg (fun () ->
 			match !kind with
-			| Openvswitch -> Some (Ovs.bridge_to_vlan name)
+			| Openvswitch -> Ovs.bridge_to_vlan name
 			| Bridge -> None
 		) ()
 
