@@ -1462,6 +1462,9 @@ let set_vcpus ~__context ~self n =
 			try
 				Client.VM.set_vcpus dbg id (Int64.to_int n) |> sync_with_task __context;
 				Db.VM.set_VCPUs_at_startup ~__context ~self ~value:n;
+				let metrics = Db.VM.get_metrics ~__context ~self in
+				if metrics <> Ref.null then
+					Db.VM_metrics.set_VCPUs_number ~__context ~self:metrics ~value:n;
 				Event.wait dbg ();
 			with
 				| Maximum_vcpus n ->
