@@ -220,7 +220,7 @@ let operation (obj: obj) (x: message) =
 			else 
 				[
 					Printf.sprintf "%s \"%s\";"
-					(if may_be_side_effecting x then "ApiLogSideEffect.info" else "ApiLogRead.info")
+					(if may_be_side_effecting x then "ApiLogSideEffect.debug" else "ApiLogRead.debug")
 					wire_name
 				] in
 
