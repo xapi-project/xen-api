@@ -30,7 +30,7 @@ type appliance_operation = {
 
 let assert_operation_valid = Xapi_vm_appliance_lifecycle.assert_operation_valid
 
-let update_allowed_operations =	Xapi_vm_appliance_lifecycle.update_allowed_operations
+let update_allowed_operations = Xapi_vm_appliance_lifecycle.update_allowed_operations
 
 let create ~__context ~name_label ~name_description =
 	let uuid = Uuid.make_uuid () in
@@ -108,7 +108,7 @@ let wait_for_all_tasks ~rpc ~session_id ~tasks =
 (* Run the given operation on all VMs in the list, and record the tasks created. *)
 (* Return once all the tasks have completed, with a list of VMs which threw an exception. *)
 let run_operation_on_vms ~__context operation vms =
-	Helpers.call_api_functions ~__context (fun rpc session_id -> 
+	Helpers.call_api_functions ~__context (fun rpc session_id ->
 		let (tasks, failed_vms) = List.fold_left (fun (tasks, failed_vms) vm ->
 			try
 				let task = operation vm rpc session_id in
