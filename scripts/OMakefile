@@ -47,7 +47,6 @@ install:
 	$(IPROG) init.d-xenopsd $(DESTDIR)/etc/rc.d/init.d/xenopsd
 	$(IPROG) init.d-management-interface $(DESTDIR)/etc/rc.d/init.d/management-interface
 	$(IPROG) init.d-genptoken $(DESTDIR)/etc/rc.d/init.d/genptoken
-	$(IPROG) xe-networkd $(DESTDIR)$(BINDIR)
 	$(IPROG) init.d-networkd $(DESTDIR)/etc/rc.d/init.d/xcp-networkd
 	$(IPROG) init.d-v6d $(DESTDIR)/etc/rc.d/init.d/v6d
 	$(IDATA) v6d-logrotate $(DESTDIR)/etc/logrotate.d/v6d

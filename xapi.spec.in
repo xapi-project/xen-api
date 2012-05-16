@@ -212,7 +212,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/bin/xe-toolstack-restart
 @OPTDIR@/bin/xe-xentrace
 @OPTDIR@/bin/xsh
-@OPTDIR@/bin/xe-networkd
 /etc/xensource/bugtool/xapi.xml
 /etc/xensource/bugtool/xapi/stuff.xml
 @OPTDIR@/libexec/sm_diagnostics
