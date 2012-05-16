@@ -226,6 +226,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		let so_far = ref 0L in
 
 		let vdi_copy_fun snapshot (vdi, dp, location, sr, xenops_locator, size) =
+			TaskHelper.exn_if_cancelling ~__context;
 			let open Storage_access in 
 			let (dest_sr_ref, dest_sr) =
 				match List.mem_assoc vdi vdi_map, dest_default_sr_ref_uuid with
@@ -337,6 +338,8 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			debug "Sleeping while fistpoint exists";
 			Thread.delay 5.0;
 		done;
+
+		TaskHelper.exn_if_cancelling ~__context;
 
 		if is_intra_pool 
 		then intra_pool_vdi_remap ~__context vm (snapshots_map @ vdi_map)
