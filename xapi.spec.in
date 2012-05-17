@@ -359,7 +359,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/debug/memory_summary
 @OPTDIR@/debug/pause_domain
 @OPTDIR@/debug/restore_domain
-@OPTDIR@/debug/rrddump
 @OPTDIR@/debug/shutdown_domain
 @OPTDIR@/debug/sm_stress
 @OPTDIR@/debug/suspend_domain
@@ -424,7 +423,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/debug/quicktest
 @OPTDIR@/debug/quicktestbin
 /cli-rt/*
-/etc/xapi.d/plugins/monitor_fake_plugin
 
 %files client-devel
 %defattr(-,root,root,-)
