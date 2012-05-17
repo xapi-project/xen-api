@@ -208,11 +208,10 @@ module Bridge = struct
 	external is_persistent : debug_info -> name:bridge -> bool = ""
 	external set_persistent : debug_info -> name:bridge -> value:bool -> unit = ""
 	external get_vlan : debug_info -> name:bridge -> (bridge * int) option = ""
-	external add_port : debug_info -> ?mac:string -> bridge:bridge -> name:port -> interfaces:iface list -> unit -> unit = ""
+	external add_port : debug_info -> ?mac:string -> bridge:bridge -> name:port -> interfaces:iface list ->
+		?bond_properties:(string * string) list -> unit -> unit = ""
 	external remove_port : debug_info -> bridge:bridge -> name:port -> unit = ""
 	external get_interfaces : debug_info -> name:bridge -> iface list = ""
-	external get_bond_properties : debug_info -> bridge:bridge -> name:string -> (string * string) list = ""
-	external set_bond_properties : debug_info -> bridge:bridge -> name:string -> params:(string * string) list -> unit = ""
 	external get_fail_mode : debug_info -> name:bridge -> fail_mode option = ""
 	external make_config : debug_info -> ?conservative:bool -> config:(bridge * bridge_config_t) list-> unit -> unit = ""
 end
