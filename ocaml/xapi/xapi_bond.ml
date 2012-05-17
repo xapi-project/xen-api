@@ -229,7 +229,7 @@ let requirements_of_mode = function
 	| `lacp -> [
 			{
 				name = "hashing_algorithm";
-				default_value = "src_mac";
+				default_value = "tcpudp_ports";
 				is_valid_value = (fun str -> List.mem str ["src_mac"; "tcpudp_ports"]);
 			};
 		]
