@@ -47,6 +47,14 @@ let prefixlen_to_netmask len =
 	let masks = List.map (string_of_int ++ mask) lens in
 	String.concat "." masks
 
+(** {2 Exceptions} *)
+
+exception Script_missing of string
+exception Script_error of (string * string) list
+exception Read_error of string
+exception Write_error of string
+exception Not_implemented
+
 (** {2 Types} *)
 
 type debug_info = string
