@@ -73,9 +73,10 @@ let pool_migrate ~__context ~vm ~host ~options =
 			(fun () ->
 				(* XXX: PR-1255: the live flag *)
 				info "xenops: VM.migrate %s to %s" vm' xenops_url;
-				XenopsAPI.VM.migrate dbg vm' [] [] xenops_url |> wait_for_task dbg |> success_task dbg |> ignore
+				XenopsAPI.VM.migrate dbg vm' [] [] xenops_url |> wait_for_task dbg |> success_task dbg |> ignore;
+				(try XenopsAPI.VM.remove dbg vm' with e -> debug "xenops: VM.remove %s: caught %s" vm' (Printexc.to_string e));
+				Xapi_xenops.Event.wait dbg ()
 			);
-		(try XenopsAPI.VM.remove dbg vm' with e -> debug "xenops: VM.remove %s: caught %s" vm' (Printexc.to_string e))
 	with e ->
 		error "xenops: VM.migrate %s: caught %s" vm' (Printexc.to_string e);
 		(* We do our best to tidy up the state left behind *)
@@ -357,13 +358,28 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		(* It's acceptable for the VM not to exist at this point; shutdown commutes with storage migrate *)
 		begin
 			try
-				XenopsAPI.VM.migrate dbg vm' xenops_vdi_map xenops_vif_map xenops |> wait_for_task dbg |> success_task dbg |> ignore;
+				Xapi_xenops.with_migrating_away vm'
+					(fun () ->
+						XenopsAPI.VM.migrate dbg vm' xenops_vdi_map xenops_vif_map xenops |> wait_for_task dbg |> success_task dbg |> ignore;
+						(try XenopsAPI.VM.remove dbg vm' with e -> debug "Caught %s while removing VM %s from metadata" (Printexc.to_string e) vm');
+						Xapi_xenops.Event.wait dbg ())
+							
 			with
 				| Xenops_interface.Does_not_exist ("VM",_) ->
 					()	
 		end;
 
+		debug "Migration complete";
+
+		Xapi_xenops.refresh_vm ~__context ~self:vm;
+
 		let new_vm = XenAPI.VM.get_by_uuid remote_rpc session_id vm' in
+
+		XenAPI.VM.pool_migrate_complete remote_rpc session_id new_vm (Ref.of_string dest_host);
+		
+		(* And we're finished *)
+		List.iter (fun mirror ->
+			ignore(Storage_access.unregister_mirror mirror)) !mirrors;
 
 		Monitor_rrds.migrate_push ~__context ~remote_address
 			~session_id vm' (Ref.of_string dest_host);
@@ -377,30 +393,39 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			(* Signal the remote pool that we're done *)
 		end;
 		
-		XenAPI.VM.pool_migrate_complete remote_rpc session_id new_vm (Ref.of_string dest_host);
-		
-		(* And we're finished *)
-		List.iter (fun mirror ->
-			ignore(Storage_access.unregister_mirror mirror)) !mirrors;
-
-		debug "Migration complete";
-		Xapi_xenops.refresh_vm ~__context ~self:vm;
-
-		let localhost = Helpers.get_localhost ~__context in
-		if (Ref.of_string dest_host) != localhost then begin
-			try
-				XenopsAPI.VM.remove dbg vm'
-			with e ->
-				error "Caught %s while removing VM %s from metadata" (Printexc.to_string e) vm'
-		end;
+		let vbds = List.map (fun vbd -> (vbd,Db.VBD.get_record ~__context ~self:vbd)) (Db.VM.get_VBDs ~__context ~self:vm) in
 
 		Helpers.call_api_functions ~__context (fun rpc session_id -> 
 			List.iter (fun vdi -> 
 				if not (Xapi_fist.storage_motion_keep_vdi ()) 
-				then XenAPI.VDI.destroy rpc session_id vdi
-				else debug "Not destroying vdi: %s due to fist point" (Ref.string_of vdi))
+				then begin
+					(* In a cross-pool migrate, due to the Xapi_xenops.with_migrating_away call above, 
+					   the VBDs are left 'currently-attached=true', because they haven't been resynced
+					   by the destination host.
+
+					   Look for VBDs in this state (there shouldn't be any for intra-pool) and destroy
+					   them 
+					*)
+					let matching_vbd = 
+						try Some (List.find (fun (vbd,vbd_r) -> vbd_r.API.vBD_VDI = vdi && vbd_r.API.vBD_currently_attached) vbds) with _ -> None
+					in
+					Opt.iter (fun (vbd,_) ->  
+						if is_intra_pool then
+							error "VBD unexpectedly currently-attached! not deleting"
+						else begin
+							debug "VBD exists that is currently attached (vbd_uuid=%s vdi_uuid=%s is_intra_pool=%b)"
+								(Db.VBD.get_uuid ~__context ~self:vbd)
+								(Db.VDI.get_uuid ~__context ~self:vdi)
+								is_intra_pool;
+							Db.VBD.destroy ~__context ~self:vbd
+						end) matching_vbd;
+					XenAPI.VDI.destroy rpc session_id vdi
+				end else debug "Not destroying vdi: %s due to fist point" (Ref.string_of vdi))
 				!vdis_to_destroy;
-			if not is_intra_pool then XenAPI.VM.destroy rpc session_id vm);
+			if not is_intra_pool then begin
+				info "Destroying VM record";
+				Db.VM.destroy ~__context ~self:vm
+			end);
 	with e ->
 		error "Caught %s: cleaning up" (Printexc.to_string e);
 		let failed_vdi = ref None in
