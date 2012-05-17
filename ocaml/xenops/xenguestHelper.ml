@@ -147,6 +147,7 @@ let non_debug_receive ?debug_callback cnx =
 			let open Int64 in
 			let open Xenctrl in
 			let p = Xenctrl.physinfo xc in
+			let open Xenctrl.Phys_info in
 			error "Memory F %Ld KiB S %Ld KiB T %Ld MiB"
 				(p.free_pages |> of_nativeint |> kib_of_pages)
 				(p.scrub_pages |> of_nativeint |> kib_of_pages)
