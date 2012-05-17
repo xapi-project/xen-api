@@ -177,6 +177,7 @@ module Builtin_impl = struct
 								| Api_errors.Server_error(code, params) ->
 									error "SR.scan failed SR:%s code=%s params=[%s]" (Ref.string_of sr) code (String.concat "; " params);
 									raise (Backend_error(code, params))
+								| Sm.MasterOnly -> redirect sr
 								| e ->
 									let e' = ExnHelper.string_of_exn e in
 									error "SR.scan failed SR:%s error:%s" (Ref.string_of sr) e';
