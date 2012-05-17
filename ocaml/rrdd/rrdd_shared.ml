@@ -17,6 +17,12 @@ open D
 
 module StringSet = Set.Make(String)
 
+(* Monitoring state. *)
+let dirty_host_memory = ref false
+let dirty_memory = ref StringSet.empty
+let dirty_pifs = ref StringSet.empty
+let pif_stats : Monitor_types.pif list ref = ref []
+
 (* Handle uncooperative domains. *)
 let uncooperative_domains: (int, unit) Hashtbl.t = Hashtbl.create 20
 let uncooperative_domains_m = Mutex.create ()

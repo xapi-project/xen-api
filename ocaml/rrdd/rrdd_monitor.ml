@@ -34,11 +34,6 @@ let create_fresh_rrd use_min_max dss =
 	let rrd = Rrd.rrd_create dss rras (Int64.of_int step) (Unix.gettimeofday()) in
 	rrd
 
-let dirty_host_memory = ref false
-let dirty_memory = ref StringSet.empty
-let dirty_pifs = ref StringSet.empty
-let pif_stats : Monitor_types.pif list ref = ref []
-
 let sent_clock_went_backwards_alert = ref false
 (* XXX TODO Perform the following after every blocking XMLRPC on the xapi
  * side. The "pull" should also reset the flag in rrdd. *)
