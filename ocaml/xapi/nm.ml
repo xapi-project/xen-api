@@ -130,7 +130,7 @@ let create_bond ~__context bond mtu =
 				if List.mem_assoc "hashing_algorithm" props then
 					List.assoc "hashing_algorithm" props
 				else
-					"src_mac"
+					""
 			in
 			let props = [
 				"mode", Record_util.bond_mode_to_string mode;
