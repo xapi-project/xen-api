@@ -50,6 +50,11 @@ OCamlProgram($(RRDD), $(RRDD_FILES))
 OCamlDocProgram($(RRDD), $(RRDD_FILES))
 OCamlProgram($(RRDD_TEST), $(RRDD_TEST_FILES))
 
+.PHONY: install
+install:
+	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) $(RRDD) $(DESTDIR)$(LIBEXECDIR)
+
 .PHONY: test
 test: $(RRDD) $(RRDD_TEST)
 	killall $(RRDD) || true
