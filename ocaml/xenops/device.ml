@@ -1250,7 +1250,7 @@ let clean_shutdown (task: Xenops_task.t) ~xs (x: device) =
 	let devs = enumerate_devs ~xs x in
 	Xenctrl.with_intf (fun xc ->
 		let hvm =
-			try (Xenctrl.domain_getinfo xc x.frontend.domid).Xenctrl.hvm_guest
+			try (Xenctrl.domain_getinfo xc x.frontend.domid).Xenctrl.Domain_info.hvm_guest
 			with _ -> false
 			in
 		try release ~xc ~xs ~hvm devs x.frontend.domid x.frontend.devid

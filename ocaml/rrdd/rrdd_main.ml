@@ -144,7 +144,7 @@ let copy_bonds_status () =
 let uuid_of_domid domains domid =
 	try
 		Rrdd_server.string_of_domain_handle
-			(List.find (fun di -> di.Xenctrl.domid = domid) domains)
+			(List.find (fun di -> di.Xenctrl.Domain_info.domid = domid) domains)
 	with Not_found ->
 		failwith (Printf.sprintf "Failed to find uuid corresponding to domid: %d" domid)
 
@@ -156,9 +156,10 @@ let uuid_of_domid domains domid =
  * of the VMs present on this host. *)
 let update_vcpus xc doms =
 	List.fold_left (fun (dss, uuids, domids) dom ->
-		let domid = dom.Xenctrl.domid in
-		let maxcpus = dom.Xenctrl.max_vcpu_id + 1 in
-		let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xenctrl.handle) in
+		let open Xenctrl.Domain_info in
+		let domid = dom.domid in
+		let maxcpus = dom.max_vcpu_id + 1 in
+		let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.handle) in
 
 		let rec cpus i dss =
 			if i>=maxcpus then dss else
@@ -167,7 +168,7 @@ let update_vcpus xc doms =
 				ds_make
 					~name:(Printf.sprintf "cpu%d" i)
 					~description:(Printf.sprintf "CPU%d usage" i)
-					~value:(Rrd.VT_Float ((Int64.to_float vcpuinfo.Xenctrl.cputime) /. 1.0e9))
+					~value:(Rrd.VT_Float ((Int64.to_float vcpuinfo.Xenctrl.Vcpu_info.cputime) /. 1.0e9))
 					~ty:Rrd.Derive ~default:true ~min:0.0 ~max:1.0())::dss)
 		in
 
@@ -199,7 +200,7 @@ let update_pcpus xc =
 	let len = Array.length !physcpus in
 	let newinfos = if len = 0 then (
 		let physinfo = Xenctrl.physinfo xc in
-		let pcpus = physinfo.Xenctrl.nr_cpus in
+		let pcpus = physinfo.Xenctrl.Phys_info.nr_cpus in
 		physcpus := if pcpus > 0 then (Array.make pcpus 0L) else [| |];
 		Xenctrl.pcpu_info xc pcpus
 	) else (
@@ -216,10 +217,11 @@ let update_pcpus xc =
 
 let update_memory xc doms =
 	List.fold_left (fun acc dom ->
-		let domid = dom.Xenctrl.domid in
-		let kib = Xenctrl.pages_to_kib (Int64.of_nativeint dom.Xenctrl.total_memory_pages) in
+		let open Xenctrl.Domain_info in
+		let domid = dom.domid in
+		let kib = Xenctrl.pages_to_kib (Int64.of_nativeint dom.total_memory_pages) in
 		let memory = Int64.mul kib 1024L in
-		let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xenctrl.handle) in
+		let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.handle) in
 		let main_mem_ds = (
 			VM uuid,
 			ds_make ~name:"memory" ~description:"Memory currently allocated to VM"
@@ -274,7 +276,7 @@ let vif_device_of_string x =
 		let ty = String.sub x 0 3 and params = String.sub_to_end x 3 in
 		let domid, devid = Scanf.sscanf params "%d.%d" (fun x y -> x,y) in
 		let di = Xenctrl.with_intf (fun xc -> Xenctrl.domain_getinfo xc domid) in
-		let uuid = Uuid.uuid_of_int_array di.Xenctrl.handle |> Uuid.to_string in
+		let uuid = Uuid.uuid_of_int_array di.Xenctrl.Domain_info.handle |> Uuid.to_string in
 		let vif = (uuid, string_of_int devid) in
 		match ty with
 		| "vif" -> Some { pv = true; vif = vif; domid = domid; devid = devid }
@@ -455,8 +457,8 @@ let previous_live_words = ref 0
 
 let read_mem_metrics xc =
 	let physinfo = Xenctrl.physinfo xc in
-	let total_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.total_pages)
-	and free_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.free_pages) in
+	let total_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.Phys_info.total_pages)
+	and free_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.Phys_info.free_pages) in
 	let gcstat =
 		if !Xapi_globs.xapi_gc_debug then (
 			if !previous_oldness > 5 then (
@@ -582,9 +584,10 @@ let read_all_dom0_stats xc =
 	let timestamp = Unix.gettimeofday () in
 	let my_rebooting_vms =
 		StringSet.fold (fun uuid acc -> uuid::acc) !rebooting_vms [] in
+	let open Xenctrl.Domain_info in
 	let uuid_of_domain d =
-		Uuid.to_string (Uuid.uuid_of_int_array (d.Xenctrl.handle)) in
-	let domain_paused d = d.Xenctrl.paused in
+		Uuid.to_string (Uuid.uuid_of_int_array (d.handle)) in
+	let domain_paused d = d.paused in
 	let my_paused_domain_uuids =
 		List.map uuid_of_domain (List.filter domain_paused domains) in
 	let vifs, pifs =

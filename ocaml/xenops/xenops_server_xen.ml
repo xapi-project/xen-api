@@ -108,7 +108,7 @@ let event_wait task timeout p =
 let this_domid ~xs = int_of_string (xs.Xs.read "domid")
 
 let uuid_of_vm vm = Uuid.uuid_of_string vm.Vm.id
-let uuid_of_di di = Uuid.uuid_of_int_array di.Xenctrl.handle
+let uuid_of_di di = Uuid.uuid_of_int_array di.Xenctrl.Domain_info.handle
 
 (* During a live migrate, there will be multiple domains with the same uuid.
    The convention is: we construct things on the newest domain (e.g. VBD.plug)
@@ -121,9 +121,9 @@ type domain_selection =
 	| Expect_only_one
 
 let di_of_uuid ~xc ~xs domain_selection uuid =
-	let open Xenctrl in
+	let open Xenctrl.Domain_info in
 	let uuid' = Uuid.string_of_uuid uuid in
-	let all = domain_getinfolist xc 0 in
+	let all = Xenctrl.domain_getinfolist xc 0 in
 	let possible = List.filter (fun x -> uuid_of_di x = uuid) all in
 	let oldest_first = List.sort
 		(fun a b ->
@@ -149,7 +149,7 @@ let di_of_uuid ~xc ~xs domain_selection uuid =
 			Some x
 
 let domid_of_uuid ~xc ~xs domain_selection uuid =
-	Opt.map (fun di -> di.Xenctrl.domid) (di_of_uuid ~xc ~xs domain_selection uuid)
+	Opt.map (fun di -> di.Xenctrl.Domain_info.domid) (di_of_uuid ~xc ~xs domain_selection uuid)
 
 let get_uuid ~xc domid = uuid_of_di (Xenctrl.domain_getinfo xc domid)
 
@@ -501,7 +501,7 @@ module HOST = struct
 		with_xc_and_xs
 			(fun xc xs ->
 				let pages_per_mib = 256L in
-				Int64.(div ((Xenctrl.physinfo xc).Xenctrl.total_pages |> of_nativeint) pages_per_mib)
+				Int64.(div ((Xenctrl.physinfo xc).Xenctrl.Phys_info.total_pages |> of_nativeint) pages_per_mib)
 			)
 	let send_debug_keys keys =
 		with_xc_and_xs
@@ -724,8 +724,10 @@ module VM = struct
 
 	let log_exn_continue msg f x = try f x with e -> debug "Safely ignoring exception: %s while %s" (Printexc.to_string e) msg
 
+	open Xenctrl.Domain_info
+
 	let destroy_device_model = on_domain_if_exists (fun xc xs task vm di ->
-		let domid = di.Xenctrl.domid in
+		let domid = di.domid in
 		log_exn_continue "Error stoping device-model, already dead ?"
 			(fun () -> Device.Dm.stop ~xs domid) ();
 		log_exn_continue "Error stoping vncterm, already dead ?"
@@ -734,7 +736,7 @@ module VM = struct
 	) Oldest
 
 	let destroy = on_domain_if_exists (fun xc xs task vm di ->
-		let domid = di.Xenctrl.domid in
+		let domid = di.domid in
 
 		(* We need to clean up the stubdom before the primary otherwise we deadlock *)
 		Opt.iter
@@ -746,10 +748,10 @@ module VM = struct
 
 		(* Normally we throw-away our domain-level information. If the domain
 		   has suspended then we preserve it. *)
-		if di.Xenctrl.shutdown && (Domain.shutdown_reason_of_int di.Xenctrl.shutdown_code = Domain.Suspend)
-		then debug "VM = %s; domid = %d; domain has suspended; preserving domain-level information" vm.Vm.id di.Xenctrl.domid
+		if di.shutdown && (Domain.shutdown_reason_of_int di.shutdown_code = Domain.Suspend)
+		then debug "VM = %s; domid = %d; domain has suspended; preserving domain-level information" vm.Vm.id di.domid
 		else begin
-			debug "VM = %s; domid = %d; will not have domain-level information preserved" vm.Vm.id di.Xenctrl.domid;
+			debug "VM = %s; domid = %d; will not have domain-level information preserved" vm.Vm.id di.domid;
 			if DB.exists vm.Vm.id then DB.remove vm.Vm.id;
 		end;
 		Domain.destroy task ~xc ~xs domid;
@@ -762,27 +764,27 @@ module VM = struct
 	) Oldest
 
 	let pause = on_domain (fun xc xs _ _ di ->
-		if di.Xenctrl.total_memory_pages = 0n then raise (Domain_not_built);
-		Domain.pause ~xc di.Xenctrl.domid
+		if di.total_memory_pages = 0n then raise (Domain_not_built);
+		Domain.pause ~xc di.domid
 	) Newest
 
 	let unpause = on_domain (fun xc xs _ _ di ->
-		if di.Xenctrl.total_memory_pages = 0n then raise (Domain_not_built);
-		Domain.unpause ~xc di.Xenctrl.domid;
+		if di.total_memory_pages = 0n then raise (Domain_not_built);
+		Domain.unpause ~xc di.domid;
 		Opt.iter
 			(fun stubdom_domid ->
 				Domain.unpause ~xc stubdom_domid
-			) (get_stubdom ~xs di.Xenctrl.domid)
+			) (get_stubdom ~xs di.domid)
 	) Newest
 
 	let set_xsdata task vm xsdata = on_domain (fun xc xs _ _ di ->
-		Domain.set_xsdata ~xs di.Xenctrl.domid xsdata
+		Domain.set_xsdata ~xs di.domid xsdata
 	) Newest task vm
 
 	let set_vcpus task vm target = on_domain (fun xc xs _ _ di ->
-		if di.Xenctrl.hvm_guest then raise (Unimplemented("vcpu hotplug for HVM domains"));
+		if di.hvm_guest then raise (Unimplemented("vcpu hotplug for HVM domains"));
 
-		let domid = di.Xenctrl.domid in
+		let domid = di.domid in
 		(* Returns the instantaneous CPU number from xenstore *)
 		let current =
 			let n = ref (-1) in
@@ -807,8 +809,8 @@ module VM = struct
 	) Newest task vm
 
 	let set_shadow_multiplier task vm target = on_domain (fun xc xs _ _ di ->
-		if not di.Xenctrl.hvm_guest then raise (Unimplemented "shadow_multiplier for PV domains");
-		let domid = di.Xenctrl.domid in
+		if not di.hvm_guest then raise (Unimplemented "shadow_multiplier for PV domains");
+		let domid = di.domid in
 		let static_max_mib = Memory.mib_of_bytes_used vm.Vm.memory_static_max in
 		let newshadow = Int64.to_int (Memory.HVM.shadow_mib static_max_mib vm.Vm.vcpu_max target) in
 		let curshadow = Xenctrl.shadow_allocation_get xc domid in
@@ -823,7 +825,7 @@ module VM = struct
 	) Newest task vm
 
 	let set_memory_dynamic_range task vm min max = on_domain (fun xc xs _ _ di ->
-		let domid = di.Xenctrl.domid in
+		let domid = di.domid in
 		Domain.set_memory_dynamic_range ~xc ~xs
 			~min:(Int64.to_int (Int64.div min 1024L))
 			~max:(Int64.to_int (Int64.div max 1024L))
@@ -979,7 +981,7 @@ module VM = struct
 
 
 	let build_domain vm vbds vifs xc xs task _ di =
-		let domid = di.Xenctrl.domid in
+		let domid = di.domid in
 		try
 			build_domain_exn xc xs domid task vm vbds vifs
 		with
@@ -1014,19 +1016,19 @@ module VM = struct
 					if saved_state then failwith "Cannot resume with stubdom yet";
 					Opt.iter
 						(fun stubdom_domid ->
-							Stubdom.build task ~xc ~xs info di.Xenctrl.domid stubdom_domid;
+							Stubdom.build task ~xc ~xs info di.domid stubdom_domid;
 							Device.Dm.start_vnconly task ~xs ~dmpath:_qemu_dm info stubdom_domid
-						) (get_stubdom ~xs di.Xenctrl.domid);
+						) (get_stubdom ~xs di.domid);
 				| Vm.HVM { Vm.qemu_stubdom = false } ->
 					(if saved_state then Device.Dm.restore else Device.Dm.start)
-						task ~xs ~dmpath:_qemu_dm info di.Xenctrl.domid
+						task ~xs ~dmpath:_qemu_dm info di.domid
 				| Vm.PV _ ->
-					Device.Vfb.add ~xc ~xs di.Xenctrl.domid;
-					Device.Vkbd.add ~xc ~xs di.Xenctrl.domid;
-					Device.Dm.start_vnconly task ~xs ~dmpath:_qemu_dm info di.Xenctrl.domid
+					Device.Vfb.add ~xc ~xs di.domid;
+					Device.Vkbd.add ~xc ~xs di.domid;
+					Device.Dm.start_vnconly task ~xs ~dmpath:_qemu_dm info di.domid
 		) (vmextra |> create_device_model_config);
 		match vm.Vm.ty with
-			| Vm.PV { vncterm = true; vncterm_ip = ip } -> Device.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
+			| Vm.PV { vncterm = true; vncterm_ip = ip } -> Device.PV_Vnc.start ~xs ?ip di.domid
 			| _ -> ()
 
 	let create_device_model task vm saved_state = on_domain (create_device_model_exn saved_state) Newest task vm
@@ -1035,7 +1037,7 @@ module VM = struct
 		let reason = shutdown_reason reason in
 		on_domain
 			(fun xc xs task vm di ->
-				let domid = di.Xenctrl.domid in
+				let domid = di.domid in
 				try
 					Domain.shutdown ~xc ~xs domid reason;
 					Domain.shutdown_wait_for_ack task ~timeout:ack_delay ~xc ~xs domid reason;
@@ -1049,7 +1051,7 @@ module VM = struct
 			(function
 				| Dynamic.Vm id when id = vm.Vm.id ->
 					debug "EVENT on our VM: %s" id;
-					on_domain (fun xc xs _ vm di -> di.Xenctrl.shutdown) Oldest task vm
+					on_domain (fun xc xs _ vm di -> di.shutdown) Oldest task vm
 				| Dynamic.Vm id ->
 					debug "EVENT on other VM: %s" id;
 					false
@@ -1138,8 +1140,8 @@ module VM = struct
 				) flags in
 		on_domain
 			(fun xc xs (task:Xenops_task.t) vm di ->
-				let hvm = di.Xenctrl.hvm_guest in
-				let domid = di.Xenctrl.domid in
+				let hvm = di.hvm_guest in
+				let domid = di.domid in
 
 				with_data ~xc ~xs task data true
 					(fun fd ->
@@ -1153,7 +1155,7 @@ module VM = struct
 						(* Record the final memory usage of the domain so we know how
 						   much to allocate for the resume *)
 						let di = Xenctrl.domain_getinfo xc domid in
-						let pages = Int64.of_nativeint di.Xenctrl.total_memory_pages in
+						let pages = Int64.of_nativeint di.total_memory_pages in
 						debug "VM = %s; domid = %d; Final memory usage of the domain = %Ld pages" vm.Vm.id domid pages;
 						(* Flush all outstanding disk blocks *)
 
@@ -1187,7 +1189,7 @@ module VM = struct
 	let restore task progress_callback vm vbds vifs data =
 		on_domain
 			(fun xc xs task vm di ->
-				let domid = di.Xenctrl.domid in
+				let domid = di.domid in
 				let k = vm.Vm.id in
 				let vmextra = DB.read_exn k in
 				let build_info = match vmextra.VmExtra.persistent with
@@ -1206,9 +1208,9 @@ module VM = struct
 					with e ->
 						error "VM %s: restore failed: %s" vm.Vm.id (Printexc.to_string e);
 						(* As of xen-unstable.hg 779c0ef9682 libxenguest will destroy the domain on failure *)
-						if try ignore(Xenctrl.domain_getinfo xc di.Xenctrl.domid); false with _ -> true then begin
-							debug "VM %s: libxenguest has destroyed domid %d; cleaning up xenstore for consistency" vm.Vm.id di.Xenctrl.domid;
-							Domain.destroy task ~xc ~xs di.Xenctrl.domid;
+						if try ignore(Xenctrl.domain_getinfo xc di.domid); false with _ -> true then begin
+							debug "VM %s: libxenguest has destroyed domid %d; cleaning up xenstore for consistency" vm.Vm.id di.domid;
+							Domain.destroy task ~xc ~xs di.domid;
 						end;
 						raise e
 				end;
@@ -1231,14 +1233,14 @@ module VM = struct
 		(* XXX: TODO: monitor the guest's response; track the s3 state *)
 		on_domain
 			(fun xc xs task vm di ->
-				Domain.shutdown ~xc ~xs di.Xenctrl.domid Domain.S3Suspend
+				Domain.shutdown ~xc ~xs di.domid Domain.S3Suspend
 			) Newest
 
 	let s3resume =
 		(* XXX: TODO: monitor the guest's response; track the s3 state *)
 		on_domain
 			(fun xc xs task vm di ->
-				Domain.send_s3resume ~xc di.Xenctrl.domid
+				Domain.send_s3resume ~xc di.domid
 			) Newest
 
 	let get_state vm =
@@ -1259,14 +1261,14 @@ module VM = struct
 						end
 					| Some di ->
 						let vnc = Opt.map (fun port -> { Vm.protocol = Vm.Rfb; port = port })
-							(Device.get_vnc_port ~xs di.Xenctrl.domid) in
+							(Device.get_vnc_port ~xs di.domid) in
 						let tc = Opt.map (fun port -> { Vm.protocol = Vm.Vt100; port = port })
-							(Device.get_tc_port ~xs di.Xenctrl.domid) in
-						let local x = Printf.sprintf "/local/domain/%d/%s" di.Xenctrl.domid x in
+							(Device.get_tc_port ~xs di.domid) in
+						let local x = Printf.sprintf "/local/domain/%d/%s" di.domid x in
 						let uncooperative = try ignore_string (xs.Xs.read (local "memory/uncooperative")); true with Xenbus.Xb.Noent -> false in
 						let memory_target = try xs.Xs.read (local "memory/target") |> Int64.of_string |> Int64.mul 1024L with Xenbus.Xb.Noent -> 0L in
 						let memory_actual =
-							let pages = Int64.of_nativeint di.Xenctrl.total_memory_pages in
+							let pages = Int64.of_nativeint di.total_memory_pages in
 							let kib = Xenctrl.pages_to_kib pages in 
 							Memory.bytes_of_kib kib in
 
@@ -1274,8 +1276,8 @@ module VM = struct
 							(* The maximum amount of memory the domain can consume is the max of memory_actual
 							   and max_memory_pages (with our overheads subtracted). *)
 							let max_memory_bytes =
-								let overhead_bytes = Memory.bytes_of_mib (if di.Xenctrl.hvm_guest then Memory.HVM.xen_max_offset_mib else Memory.Linux.xen_max_offset_mib) in
-								let raw_bytes = Memory.bytes_of_pages (Int64.of_nativeint di.Xenctrl.max_memory_pages) in
+								let overhead_bytes = Memory.bytes_of_mib (if di.hvm_guest then Memory.HVM.xen_max_offset_mib else Memory.Linux.xen_max_offset_mib) in
+								let raw_bytes = Memory.bytes_of_pages (Int64.of_nativeint di.max_memory_pages) in
 								Int64.sub raw_bytes overhead_bytes in
 							(* CA-31764: may be larger than static_max if maxmem has been increased to initial-reservation. *)
 							max memory_actual max_memory_bytes in
@@ -1286,21 +1288,21 @@ module VM = struct
 							let subdirs = try List.map (fun x -> dir ^ "/" ^ x) (xs.Xs.directory (root ^ "/" ^ dir)) with _ -> [] in
 							this @ (List.concat (List.map (ls_lR root) subdirs)) in
 						let guest_agent =
-							[ "drivers"; "attr"; "data"; "control" ] |> List.map (ls_lR (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid)) |> List.concat in
+							[ "drivers"; "attr"; "data"; "control" ] |> List.map (ls_lR (Printf.sprintf "/local/domain/%d" di.domid)) |> List.concat in
 						let xsdata_state =
-							Domain.allowed_xsdata_prefixes |> List.map (ls_lR (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid)) |> List.concat in
+							Domain.allowed_xsdata_prefixes |> List.map (ls_lR (Printf.sprintf "/local/domain/%d" di.domid)) |> List.concat in
 						let shadow_multiplier_target =
-							if not di.Xenctrl.hvm_guest
+							if not di.hvm_guest
 							then 1.
 							else
 								let static_max_mib = Memory.mib_of_bytes_used vm.Vm.memory_static_max in
 								let default_shadow_mib = Memory.HVM.shadow_mib static_max_mib vm.Vm.vcpu_max 1. in
 								let actual_shadow_mib =
-									Int64.of_int (Xenctrl.shadow_allocation_get xc di.Xenctrl.domid) in
+									Int64.of_int (Xenctrl.shadow_allocation_get xc di.domid) in
 								(Int64.to_float actual_shadow_mib) /. (Int64.to_float default_shadow_mib) in
 						{
-							Vm.power_state = if di.Xenctrl.paused then Paused else Running;
-							domids = [ di.Xenctrl.domid ];
+							Vm.power_state = if di.paused then Paused else Running;
+							domids = [ di.domid ];
 							consoles = Opt.to_list vnc @ (Opt.to_list tc);
 							uncooperative_balloon_driver = uncooperative;
 							guest_agent = guest_agent;
@@ -1328,7 +1330,7 @@ module VM = struct
 				match di_of_uuid ~xc ~xs Newest uuid with
 					| None -> raise (Does_not_exist("domain", vm.Vm.id))
 					| Some di ->
-						Domain.set_action_request ~xs di.Xenctrl.domid (match request with
+						Domain.set_action_request ~xs di.domid (match request with
 							| None -> None
 							| Some Needs_poweroff -> Some "poweroff"
 							| Some Needs_reboot -> Some "reboot"
@@ -1345,14 +1347,14 @@ module VM = struct
 				match di_of_uuid ~xc ~xs Newest uuid with
 					| None -> Some Needs_poweroff
 					| Some d ->
-						if d.Xenctrl.shutdown
-						then Some (match d.Xenctrl.shutdown_code with
+						if d.shutdown
+						then Some (match d.shutdown_code with
 							| 0 -> Needs_poweroff
 							| 1 -> Needs_reboot
 							| 2 -> Needs_suspend
 							| 3 -> Needs_crashdump
 							| _ -> Needs_poweroff) (* unexpected *)
-						else begin match Domain.get_action_request ~xs d.Xenctrl.domid with
+						else begin match Domain.get_action_request ~xs d.domid with
 							| Some "poweroff" -> Some Needs_poweroff
 							| Some "reboot" -> Some Needs_reboot
 							| Some x ->
@@ -1384,7 +1386,8 @@ let on_frontend f domain_selection frontend =
 			let frontend_di = match frontend |> Uuid.uuid_of_string |> di_of_uuid ~xc ~xs domain_selection with
 				| None -> raise (Does_not_exist ("domain", frontend))
 				| Some x -> x in
-			f xc xs frontend_di.Xenctrl.domid frontend_di.Xenctrl.hvm_guest
+			let open Xenctrl.Domain_info in
+			f xc xs frontend_di.domid frontend_di.hvm_guest
 		)
 
 module PCI = struct
@@ -1861,7 +1864,7 @@ module VIF = struct
                 ignore (run (Filename.concat Fhs.libexecdir "setup-vif-rules") ["vif"; domid; devid; "filter"]);
                 (* Update rules for the tap device if the VM has booted HVM with no PV drivers. *)
 				let di = Xenctrl.domain_getinfo xc device.frontend.domid in
-				if di.Xenctrl.hvm_guest
+				if di.Xenctrl.Domain_info.hvm_guest
 				then ignore (run (Filename.concat Fhs.libexecdir "setup-vif-rules") ["tap"; domid; devid; "filter"])
 			)
 
@@ -1919,7 +1922,7 @@ module IntSet = Set.Make(struct type t = int let compare = compare end)
 
 let list_domains xc =
 	let dis = Xenctrl.domain_getinfolist xc 0 in
-	let ids = List.map (fun x -> x.Xenctrl.domid) dis in
+	let ids = List.map (fun x -> x.Xenctrl.Domain_info.domid) dis in
 	List.fold_left (fun map (k, v) -> IntMap.add k v map) IntMap.empty (List.combine ids dis)
 
 
@@ -1928,8 +1931,9 @@ let domain_looks_different a b = match a, b with
 	| Some _, None -> true
 	| None, None -> false
 	| Some a', Some b' ->
-		a'.Xenctrl.shutdown <> b'.Xenctrl.shutdown
-		|| (a'.Xenctrl.shutdown && b'.Xenctrl.shutdown && (a'.Xenctrl.shutdown_code <> b'.Xenctrl.shutdown_code))
+		let open Xenctrl.Domain_info in
+		a'.shutdown <> b'.shutdown
+		|| (a'.shutdown && b'.shutdown && (a'.shutdown_code <> b'.shutdown_code))
 
 let list_different_domains a b =
 	let c = IntMap.merge (fun _ a b -> if domain_looks_different a b then Some () else None) a b in
@@ -2018,16 +2022,17 @@ let watch_xenstore () =
 				let different = list_different_domains !domains domains' in
 				List.iter
 					(fun domid ->
+						let open Xenctrl.Domain_info in
 						debug "Domain %d may have changed state" domid;
 						(* The uuid is either in the new domains map or the old map. *)
 						let di = IntMap.find domid (if IntMap.mem domid domains' then domains' else !domains) in
-						let id = Uuid.uuid_of_int_array di.Xenctrl.handle |> Uuid.string_of_uuid in
+						let id = Uuid.uuid_of_int_array di.handle |> Uuid.string_of_uuid in
 						if domid > 0 && not (DB.exists id)
 						then debug "However domain %d is not managed by us: ignoring" domid
 						else begin
 							Updates.add (Dynamic.Vm id) updates;
 							(* A domain is 'running' if we know it has not shutdown *)
-							let running = IntMap.mem domid domains' && (not (IntMap.find domid domains').Xenctrl.shutdown) in
+							let running = IntMap.mem domid domains' && (not (IntMap.find domid domains').shutdown) in
 							match IntMap.mem domid !watches, running with
 								| true, true -> () (* still running, nothing to do *)
 								| false, false -> () (* still offline, nothing to do *)
@@ -2056,13 +2061,15 @@ let watch_xenstore () =
 			xs.Xs.watch _releaseDomain "";
 			look_for_different_domains ();
 
+			let open Xenctrl.Domain_info in
+
 			let fire_event_on_vm domid =
 				let d = int_of_string domid in
 				if not(IntMap.mem d !domains)
 				then debug "Ignoring watch on shutdown domain %d" d
 				else
 					let di = IntMap.find d !domains in
-					let id = Uuid.uuid_of_int_array di.Xenctrl.handle |> Uuid.string_of_uuid in
+					let id = Uuid.uuid_of_int_array di.handle |> Uuid.string_of_uuid in
 					Updates.add (Dynamic.Vm id) updates in
 
 			let fire_event_on_device domid kind devid =
@@ -2071,7 +2078,7 @@ let watch_xenstore () =
 				then debug "Ignoring watch on shutdown domain %d" d
 				else
 					let di = IntMap.find d !domains in
-					let id = Uuid.uuid_of_int_array di.Xenctrl.handle |> Uuid.string_of_uuid in
+					let id = Uuid.uuid_of_int_array di.handle |> Uuid.string_of_uuid in
 					let update = match kind with
 						| "vbd" ->
 							let devid' = devid |> int_of_string |> Device_number.of_xenstore_key |> Device_number.to_linux_device in
@@ -2128,6 +2135,8 @@ let init () =
 	()
 
 module DEBUG = struct
+	open Xenctrl.Domain_info
+
 	let trigger cmd args = match cmd, args with
 		| "reboot", [ k ] ->
 			let uuid = Uuid.uuid_of_string k in
@@ -2136,7 +2145,7 @@ module DEBUG = struct
 					match di_of_uuid ~xc ~xs Newest uuid with
 						| None -> raise (Does_not_exist("domain", k))
 						| Some di ->
-							Xenctrl.domain_shutdown xc di.Xenctrl.domid Xenctrl.Reboot
+							Xenctrl.domain_shutdown xc di.domid Xenctrl.Reboot
 				)
 		| "halt", [ k ] ->
 			let uuid = Uuid.uuid_of_string k in
@@ -2145,7 +2154,7 @@ module DEBUG = struct
 					match di_of_uuid ~xc ~xs Newest uuid with
 						| None -> raise (Does_not_exist("domain", k))
 						| Some di ->
-							Xenctrl.domain_shutdown xc di.Xenctrl.domid Xenctrl.Halt
+							Xenctrl.domain_shutdown xc di.domid Xenctrl.Halt
 				)
 		| _ ->
 			debug "DEBUG.trigger cmd=%s Unimplemented" cmd;
