@@ -435,7 +435,7 @@ let destroy  ~__context ~self =
 		(fun child -> try Db.VM.set_parent ~__context ~self:child ~value:parent with _ -> ())
 		(Db.VM.get_children ~__context ~self);
 
-	Monitor_rrds.maybe_remove_rrd (Db.VM.get_uuid ~__context ~self);
+	Rrdd.remove_rrd ~uuid:(Db.VM.get_uuid ~__context ~self);
 	destroy ~__context ~self
 
 (* Note: we don't need to call lock_vm around clone or copy. The lock_vm just takes the local
@@ -647,16 +647,16 @@ let wait_memory_target_live ~__context ~self =
 	wait 0
 
 let get_cooperative ~__context ~self =
-  (* If the VM is not supposed to be capable of ballooning then return true *)
-  let vm_r = Db.VM.get_record ~__context ~self in
-  if not(Helpers.ballooning_enabled_for_vm ~__context vm_r) then begin
-    info "VM %s (%s) is co-operative because it does not support ballooning" (Ref.string_of self) vm_r.API.vM_name_label;
-    true
-  end else begin
-    (* Otherwise see if the squeezer has concluded the domain is uncooperative *)
-    let domid = Int64.to_int vm_r.API.vM_domid in
-    Mutex.execute Monitor.uncooperative_domains_m (fun () -> not(Hashtbl.mem Monitor.uncooperative_domains domid))
-  end
+	(* If the VM is not supposed to be capable of ballooning then return true *)
+	let vm_r = Db.VM.get_record ~__context ~self in
+	if not(Helpers.ballooning_enabled_for_vm ~__context vm_r) then begin
+		info "VM %s (%s) is co-operative because it does not support ballooning" (Ref.string_of self) vm_r.API.vM_name_label;
+		true
+	end else begin
+		(* Otherwise see if the squeezer has concluded the domain is uncooperative *)
+		let domid = Int64.to_int vm_r.API.vM_domid in
+		Rrdd.is_domain_cooperative ~domid
+	end
 
 let set_HVM_shadow_multiplier ~__context ~self ~value =
 	set_HVM_shadow_multiplier ~__context ~self ~value
@@ -705,13 +705,14 @@ let send_trigger ~__context ~vm ~trigger =
 let get_boot_record ~__context ~self =
   Helpers.get_boot_record ~__context ~self
 
-let get_data_sources ~__context ~self = Monitor_rrds.query_possible_vm_dss (Db.VM.get_uuid ~__context ~self)
+let get_data_sources ~__context ~self =
+	List.map Data_source.to_API_data_source (Rrdd.query_possible_vm_dss ~vm_uuid:(Db.VM.get_uuid ~__context ~self))
 
-let record_data_source ~__context ~self ~data_source = Monitor_rrds.add_vm_ds (Db.VM.get_uuid ~__context ~self) data_source
+let record_data_source ~__context ~self ~data_source = Rrdd.add_vm_ds ~vm_uuid:(Db.VM.get_uuid ~__context ~self) ~ds_name:data_source
 
-let query_data_source ~__context ~self ~data_source = Monitor_rrds.query_vm_dss (Db.VM.get_uuid ~__context ~self) data_source
+let query_data_source ~__context ~self ~data_source = Rrdd.query_vm_ds ~vm_uuid:(Db.VM.get_uuid ~__context ~self) ~ds_name:data_source
 
-let forget_data_source_archives ~__context ~self ~data_source = Monitor_rrds.forget_vm_ds (Db.VM.get_uuid ~__context ~self) data_source
+let forget_data_source_archives ~__context ~self ~data_source = Rrdd.forget_vm_ds ~vm_uuid:(Db.VM.get_uuid ~__context ~self) ~ds_name:data_source
 
 let get_possible_hosts ~__context ~vm =
   let snapshot = Db.VM.get_record ~__context ~self:vm in

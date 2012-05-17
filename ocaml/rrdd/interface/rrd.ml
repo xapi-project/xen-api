@@ -25,14 +25,15 @@ open Listext
 open Pervasiveext
 
 (* We're not currently printing any debug data in this module. This is commented out
-   so that we can link a standalone binary with this without bringing in logs 
+   so that we can link a standalone binary with this without bringing in logs
 
    module D=Debug.Debugger(struct let name="rrd" end)
    open D
 *)
 
+type ds_owner = VM of string | Host | SR of string
 
-(** Data source types - see ds datatype *)									   
+(** Data source types - see ds datatype *)
 type ds_type = Absolute | Gauge | Derive with rpc
 
 (** Consolidation function - see RRA datatype *)
@@ -44,8 +45,8 @@ type ds_value_type = VT_Float of float | VT_Int64 of int64 | VT_Unknown with rpc
 (* utility *)
 let isnan x = match classify_float x with | FP_nan -> true | _ -> false
 
-let cf_type_of_string s = 
-  match s with 
+let cf_type_of_string s =
+  match s with
     | "AVERAGE" -> CF_Average 
     | "MIN" -> CF_Min 
     | "MAX" -> CF_Max 
@@ -389,7 +390,7 @@ let rra_create cf row_cnt pdp_cnt xff =
     rra_xff=xff;
     rra_data=[| |]; (* defer creation of the data until we know how many dss we're storing *)
     rra_cdps=[| |]; (* defer creation of the data until we know how many dss we're storing *)
-    rra_updatehook=None;
+    rra_updatehook = None; (* DECPRECATED *)
   }
 
 let ds_create name ty ?(min=neg_infinity) ?(max=infinity) ?(mrhb=infinity) init =
@@ -934,3 +935,7 @@ let _ =
   let s = to_string rrd in
   Printf.fprintf oc "%s" s;
 *)
+
+module Statefile_latency = struct
+	type t = {id: string; latency: float option} with rpc
+end

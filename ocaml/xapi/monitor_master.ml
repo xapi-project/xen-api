@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) 2006-2012 Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -8,7 +8,7 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU Lesser General Public License for more details.
  *)
 (**
@@ -23,6 +23,21 @@ open Db_filter_types
 
 module D=Debug.Debugger(struct let name="monitormaster" end)
 open D
+
+let pass_through_pif_carrier = ref false
+
+let update_configuration_from_master () =
+	Server_helpers.exec_with_new_task "update_configuration_from_master" (fun __context ->
+		let oc = Db.Pool.get_other_config ~__context ~self:(Helpers.get_pool ~__context) in
+		let new_use_min_max = (List.mem_assoc Xapi_globs.create_min_max_in_new_VM_RRDs oc) &&
+			(List.assoc Xapi_globs.create_min_max_in_new_VM_RRDs oc = "true") in
+		Rrdd.update_use_min_max ~value:new_use_min_max;
+		let carrier = (List.mem_assoc Xapi_globs.pass_through_pif_carrier oc) &&
+			(List.assoc Xapi_globs.pass_through_pif_carrier oc = "true") in
+		if !pass_through_pif_carrier <> carrier
+		then debug "Updating pass_through_pif_carrier: New value=%b" carrier;
+		pass_through_pif_carrier := carrier
+	)
 
 (***************** settings stuffs *)
 let set_vm_metrics ~__context ~vm ~memory ~cpus =
@@ -214,7 +229,7 @@ let update_pifs ~__context host pifs =
 			let pcibuspath = pif_stats.pif_pci_bus_path in
 
 			(* 1. Update corresponding VIF carrier flags *)
-			if !Monitor_rrds.pass_through_pif_carrier then begin
+			if !pass_through_pif_carrier then begin
 				try
 					(* Go from physical interface -> bridge -> vif devices.
 					 * Do this for the physical network and any VLANs/tunnels on top of it. *)
@@ -233,7 +248,8 @@ let update_pifs ~__context host pifs =
 						(network :: vlan_networks @ tunnel_networks) in
 					let n = Netdev.network in
 					let ifs = List.flatten (List.map (fun bridge -> n.Netdev.intf_list bridge) bridges) in
-
+					ignore(ifs)
+(* FIXME XXX TODO
 					let set_carrier vif =
 						if vif.Monitor.pv
 						then
@@ -242,6 +258,7 @@ let update_pifs ~__context host pifs =
 							Client.VIF.set_carrier dbg vif.Monitor.vif carrier |> Xapi_xenops.sync __context in
 
 					List.iter set_carrier (List.filter_map Monitor.vif_device_of_string ifs)
+*)
 				with e ->
 					debug "Failed to update VIF carrier flags for PIF: %s" (ExnHelper.string_of_exn e)
 			end;
@@ -287,3 +304,20 @@ let update_all ~__context host_stats =
 	  with e ->
 	    debug "Caught exception: '%s' (uuid=%s)" (Printexc.to_string e) uuid
 	) host_stats.registered
+
+let on_restart () =
+	()
+			(* TODO XXX FIXME temporarily disabled updating of dirty fields. should probably set them via xmlrpc in rrdd *)
+			(*
+	Mutex.execute Rrd_shared.mutex
+		(fun () ->
+			(* Explicitly dirty all VM memory values *)
+			let uuids = Vmopshelpers.with_xc
+				(fun xc -> List.map (fun di -> Uuid.to_string (Uuid.uuid_of_int_array di.Xenctrl.handle))
+					(Xenctrl.domain_getinfolist xc 0)) in
+			Rrd_shared.dirty_memory := List.fold_left (fun acc x -> Rrd_shared.StringSet.add x acc) Rrd_shared.StringSet.empty uuids;
+			Rrd_shared.dirty_host_memory := true;
+			Condition.broadcast Rrd_shared.condition)
+			*)
+
+

@@ -301,7 +301,7 @@ let on_master_restart ~__context =
   debug "master might have just restarted: refreshing non-persistent data in the master's database";
   Xapi_host_helpers.consider_enabling_host_request ~__context;
   debug "triggering an immediate refresh of non-persistent fields (eg memory)";
-  Monitor.on_restart ();
+  Monitor_master.on_restart ();
   (* To make the slave appear live we need to set the live flag AND send a heartbeat otherwise the master
      will mark the slave offline again before the regular heartbeat turns up. *)
   debug "sending an immediate heartbeat";
@@ -680,10 +680,10 @@ let common_http_handlers = [
   ("put_pool_xml_db_sync", (Http_svr.FdIO Pool_db_backup.push_database_restore_handler));
   ("get_config_sync", (Http_svr.FdIO Config_file_sync.config_file_sync_handler));
   ("get_system_status", (Http_svr.FdIO System_status.handler));
-  ("get_vm_rrd", (Http_svr.FdIO Monitor_rrds.handler));
-  ("put_rrd", (Http_svr.BufIO Monitor_rrds.receive_handler));
-  ("get_host_rrd", (Http_svr.FdIO Monitor_rrds.handler_host));
-  ("get_rrd_updates", (Http_svr.FdIO Monitor_rrds.handler_rrd_updates));
+  (Constants.get_vm_rrd, (Http_svr.FdIO Rrdd_proxy.get_vm_rrd_forwarder));
+  (Constants.get_host_rrd, (Http_svr.FdIO Rrdd_proxy.get_host_rrd_forwarder));
+  (Constants.get_rrd_updates, (Http_svr.FdIO Rrdd_proxy.get_rrd_updates_forwarder));
+  (Constants.put_rrd, (Http_svr.FdIO Rrdd_proxy.put_rrd_forwarder));
   ("get_blob", (Http_svr.FdIO Xapi_blob.handler));
   ("put_blob", (Http_svr.FdIO Xapi_blob.handler));
   (* disabled RSS feed for release; this is useful for developers, but not reqd for product.
@@ -914,15 +914,13 @@ let server_init() =
       "Synchronising bonds on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_bonds_from_master ~__context;
       "Synchronising VLANs on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_vlans_from_master ~__context;
       "Synchronising tunnels on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_tunnels_from_master ~__context;
-      "Initialise monitor configuration", [], Monitor_rrds.update_configuration_from_master;
+      "Initialise monitor configuration", [], Monitor_master.update_configuration_from_master;
       "Initialising licensing", [], handle_licensing;
       "control domain memory", [ Startup.OnThread ], control_domain_memory;
       "message_hook_thread", [ Startup.NoExnRaising ], (Xapi_message.start_message_hook_thread ~__context);
       "heartbeat thread", [ Startup.NoExnRaising; Startup.OnThread ], Db_gc.start_heartbeat_thread;
       "resynchronising HA state", [ Startup.NoExnRaising ], resynchronise_ha_state;
       "pool db backup", [ Startup.OnlyMaster; Startup.OnThread ], Pool_db_backup.pool_db_backup_thread;
-      "monitor", [ Startup.OnThread ], Monitor.loop;
-      "monitor_dbcalls", [Startup.OnThread], Monitor_dbcalls.monitor_dbcall_thread;
       "touching ready file", [], (fun () -> Helpers.touch_file !Xapi_globs.ready_file);
        (* -- CRITICAL: this check must be performed before touching shared storage *)
       "Performing no-other-masters check", [ Startup.OnlyMaster ], check_no_other_masters;
@@ -1150,7 +1148,7 @@ let set_thread_queue_params () =
 			if now -. last_clock < !calm_down then last_decision else
 				let cpuload =
 					let upbound = (cpu_num +. 1.) *. 2. in
-					let loadavg = Helpers.loadavg () in
+					let loadavg = Rrdd_common.loadavg () in
 					(sqrt loadavg) /. (sqrt upbound) in
 				let memload = Helpers.memusage () in
 				let load = max cpuload memload in

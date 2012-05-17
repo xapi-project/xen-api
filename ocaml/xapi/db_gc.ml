@@ -464,7 +464,7 @@ let current_uncooperative_domains = ref StringSet.empty
 let update_vm_cooperativeness ~__context = 
   (* Fetch the set of slave domain uuids which are currently uncooperative *)
   let domains = Mutex.execute host_table_m (fun () -> Hashtbl.fold (fun _ ds acc -> List.fold_left (fun acc x -> StringSet.add x acc) acc ds) host_uncooperative_domains_table StringSet.empty) in
-  let domains = List.fold_left (fun acc x -> StringSet.add x acc) domains (Monitor.get_uncooperative_domains ()) in
+  let domains = List.fold_left (fun acc x -> StringSet.add x acc) domains (Rrdd.get_uncooperative_domains ()) in
 
   (* New uncooperative domains: *)
   let uncooperative_domains = StringSet.diff domains !current_uncooperative_domains in
@@ -533,7 +533,7 @@ let send_one_heartbeat ~__context ?(shutting_down=false) rpc session_id =
   let localhost = Helpers.get_localhost ~__context in
   let time = Unix.gettimeofday () +. (if Xapi_fist.insert_clock_skew () then Xapi_globs.max_clock_skew *. 2. else 0.) in
   (* Transmit the list of uncooperative domains to the master *)
-  let uncooperative_domains = Monitor.get_uncooperative_domains () in
+  let uncooperative_domains = Rrdd.get_uncooperative_domains () in
 
   let stuff = 
     [ _time, string_of_float time;

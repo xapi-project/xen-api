@@ -26,13 +26,8 @@
 
 module StringSet = Set.Make(String)
 
-type rrd_info = { 
-  rrd: Rrd.rrd;
-  mutable dss: Ds.ds list; 
-}
-
 (* strings are uuids *)
-type ds_type = VM of string | Host | SR of string
+(*type ds_type = VM of string | Host | SR of string*)
 
 (* Mutex to protect the shared data.
  *
@@ -40,31 +35,28 @@ type ds_type = VM of string | Host | SR of string
  * of a DB call will be resetting the 'dirty' status below, requiring acquisition
  * of this lock, resulting in a deadlock! 
  *) 
+(*
 let mutex = Mutex.create ()
-
-(* RRDs *)		  
-let vm_rrds : (string, rrd_info) Hashtbl.t = Hashtbl.create 32
-let host_rrd : rrd_info option ref = ref None
+*)
 
 (** A cache of the PIF stats to ensure that PIF updates send the correct info *)
-let pif_stats : Monitor_types.pif list ref = ref [] 
+(*let pif_stats : Monitor_types.pif list ref = ref []*)
 
 (** Dirty memory *)
-let dirty_memory = ref StringSet.empty
+(*let dirty_memory = ref StringSet.empty*)
 
 (** Dirty PIFs *)
-let dirty_pifs = ref StringSet.empty
+(*let dirty_pifs = ref StringSet.empty*)
 
 (** Full update required - this is the one that happens every 60 secs / 5 secs / never *)
+(*
 let full_update = ref false
 let full_update_avg_rra_idx = ref (-1)
 let full_update_last_rra_idx = ref (-1)
+*)
 
 (** Dirty host memory - host memory has changed *)
-let dirty_host_memory = ref false
+(*let dirty_host_memory = ref false*)
 
 (** Condition variable - used to signal that a db update is required *)
-let condition = Condition.create ()
-
-
-
+(*let condition = Condition.create ()*)
