@@ -118,9 +118,10 @@ let sr_probe dconf driver sr_sm_config =
     raise (Api_errors.Server_error (Api_errors.sr_backend_failure, [ ("Operation 'sr_probe' not supported by this SR type"); ""; ""]))
 
 let sr_scan dconf driver sr = 
-  debug "sr_scan" driver (sprintf "sr=%s" (Ref.string_of sr));
-  let call = Sm_exec.make_call ~sr_ref:sr dconf "sr_scan" [] in
-  Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_type driver)  (driver_filename driver) call)
+	debug "sr_scan" driver (sprintf "sr=%s" (Ref.string_of sr));
+	srmaster_only dconf;
+	let call = Sm_exec.make_call ~sr_ref:sr dconf "sr_scan" [] in
+	Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_type driver)  (driver_filename driver) call)
 
 let sr_content_type dconf driver sr =
   debug "sr_content_type" driver (sprintf "sr=%s" (Ref.string_of sr));
