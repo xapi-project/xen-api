@@ -361,7 +361,7 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 				List.iter (fun self -> Db.PIF.set_currently_attached ~__context ~self ~value:false) slaves
 		end;
 
-		begin try
+		Network.transform_networkd_exn pif (fun () ->
 			let persistent = is_dom0_interface rc in
 			let dhcp_options =
 				if rc.API.pIF_ip_configuration_mode = `DHCP then
@@ -440,11 +440,7 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 			let interface_config = [bridge, {ipv4_conf; ipv4_gateway; ipv6_conf; ipv6_gateway;
 				ipv4_routes; dns; ethtool_settings; ethtool_offload; mtu; persistent_i=persistent}] in
 			Net.Interface.make_config dbg ~config:interface_config ()
-		with Network_interface.Internal_error str ->
-			let e = Printf.sprintf "%s" str in
-			error "Network configuration error: %s" e;
-			raise (Api_errors.Server_error(Api_errors.pif_configuration_error, [Ref.string_of pif; e]))
-		end;
+		);
 
 		let new_ip = try Net.Interface.get_ipv4_addr dbg ~name:bridge with _ -> [] in
 		if new_ip <> old_ip then begin
@@ -491,7 +487,7 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 
 let bring_pif_down ~__context ?(force=false) (pif: API.ref_PIF) =
 	with_local_lock (fun () ->
-		try
+		Network.transform_networkd_exn pif (fun () ->
 			let dbg = Context.string_of_task __context in
 			let rc = Db.PIF.get_record ~__context ~self:pif in
 			debug "Making sure that PIF %s down" rc.API.pIF_uuid;
@@ -502,9 +498,6 @@ let bring_pif_down ~__context ?(force=false) (pif: API.ref_PIF) =
 			Net.Interface.set_persistent dbg ~name:bridge ~value:false;
 
 			Db.PIF.set_currently_attached ~__context ~self:pif ~value:false
-		with Network_interface.Internal_error err ->
-			let e = Printf.sprintf "%s" err in
-			error "Network configuration error: %s" e;
-			raise (Api_errors.Server_error(Api_errors.pif_configuration_error, [Ref.string_of pif; e]))
+		)
 	)
 

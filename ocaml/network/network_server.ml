@@ -470,7 +470,7 @@ module Bridge = struct
 		Debug.with_thread_associated dbg (fun () ->
 			match !kind with
 			| Openvswitch -> Ovs.list_bridges ()
-			| Bridge -> []
+			| Bridge -> raise Not_implemented
 		) ()
 
 	let create _ dbg ?vlan ?mac ?(other_config=[]) ~name () =
@@ -593,7 +593,7 @@ module Bridge = struct
 		Debug.with_thread_associated dbg (fun () ->
 			match !kind with
 			| Openvswitch -> Ovs.bridge_to_ports name
-			| Bridge -> []
+			| Bridge -> raise Not_implemented
 		) ()
 
 	let get_all_ports _ dbg ?(from_cache=false) () =
@@ -604,14 +604,14 @@ module Bridge = struct
 			else
 				match !kind with
 				| Openvswitch -> List.concat (List.map Ovs.bridge_to_ports (Ovs.list_bridges ()))
-				| Bridge -> []
+				| Bridge -> raise Not_implemented
 		) ()
 
 	let get_bonds _ dbg ~name =
 		Debug.with_thread_associated dbg (fun () ->
 			match !kind with
 			| Openvswitch -> Ovs.bridge_to_ports name
-			| Bridge -> []
+			| Bridge -> raise Not_implemented
 		) ()
 
 	let get_all_bonds _ dbg ?(from_cache=false) () =
@@ -623,14 +623,14 @@ module Bridge = struct
 			else
 				match !kind with
 				| Openvswitch -> List.concat (List.map Ovs.bridge_to_ports (Ovs.list_bridges ()))
-				| Bridge -> []
+				| Bridge -> raise Not_implemented
 		) ()
 
 	let get_vlan _ dbg ~name =
 		Debug.with_thread_associated dbg (fun () ->
 			match !kind with
 			| Openvswitch -> Ovs.bridge_to_vlan name
-			| Bridge -> None
+			| Bridge -> raise Not_implemented
 		) ()
 
 	let add_default_flows _ dbg bridge mac interfaces =
@@ -709,7 +709,7 @@ module Bridge = struct
 
 	let get_bond_properties _ dbg ~bridge ~name =
 		Debug.with_thread_associated dbg (fun () ->
-			[]
+			raise Not_implemented
 		) ()
 
 	let set_bond_properties _ dbg ~bridge ~name ~params =
@@ -746,7 +746,7 @@ module Bridge = struct
 				| "secure" -> Some Secure
 				| _ -> None
 				end
-			| Bridge -> None
+			| Bridge -> raise Not_implemented
 		) ()
 
 	let is_persistent _ dbg ~name =

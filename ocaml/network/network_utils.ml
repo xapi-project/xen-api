@@ -47,12 +47,12 @@ let call_script ?(log_successful_output=false) script args =
 	| Unix.Unix_error (e, a, b) ->
 		error "Caught unix error: %s [%s, %s]" (Unix.error_message e) a b;
 		error "Assuming script %s doesn't exist" script;
-		raise (Internal_error "script does not exist") (*(RpcFailure ("SCRIPT_DOES_NOT_EXIST", ["script", script; "args", String.concat " " args]))*)
+		raise (Script_missing script)
 	| Forkhelpers.Spawn_internal_error(stderr, stdout, Unix.WEXITED n)->
-		error "Call '%s %s' exited with code %d [stdout = '%s'; stderr = '%s']" script (String.concat " " args) n stdout stderr;
-		raise (Internal_error "script error")
-			(*(RpcFailure ("SCRIPT_ERROR", ["script", script; "args", String.concat " " args; "code",
-			string_of_int n; "stdout", stdout; "stderr", stderr]))*)
+		error "Call '%s %s' exited with code %d [stdout = '%s'; stderr = '%s']" script
+			(String.concat " " args) n stdout stderr;
+		raise (Script_error ["script", script; "args", String.concat " " args; "code",
+			string_of_int n; "stdout", stdout; "stderr", stderr])
 
 module Sysfs = struct
 	let list () =
@@ -68,14 +68,14 @@ module Sysfs = struct
 			let result = input_line inchan in
 			close_in inchan;
 			result
-		with exn -> close_in inchan; raise exn
+		with exn -> close_in inchan; raise (Read_error file)
 
 	let write_one_line file l =
 		let outchan = open_out file in
 		try
 			output_string outchan (l ^ "\n");
 			close_out outchan
-		with exn -> close_out outchan; raise exn
+		with exn -> close_out outchan; raise (Write_error file)
 
 	let is_physical name =
 		try
@@ -780,7 +780,9 @@ module Bindings = struct
 	(** Returns speed and duplex for a given network interface.
 	 *  Note: from kernel 2.6.33, this information is also present in sysfs. *)
 	let get_status name =
-		with_fd (fun fd -> _get_status fd name)
+		try
+			with_fd (fun fd -> _get_status fd name)
+		with _ -> raise (Read_error "stub_link_get_status")
 end
 
 module Dhcp6c = struct
