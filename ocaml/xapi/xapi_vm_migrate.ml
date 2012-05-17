@@ -393,13 +393,39 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			(* Signal the remote pool that we're done *)
 		end;
 		
+		let vbds = List.map (fun vbd -> (vbd,Db.VBD.get_record ~__context ~self:vbd)) (Db.VM.get_VBDs ~__context ~self:vm) in
+
 		Helpers.call_api_functions ~__context (fun rpc session_id -> 
 			List.iter (fun vdi -> 
 				if not (Xapi_fist.storage_motion_keep_vdi ()) 
-				then XenAPI.VDI.destroy rpc session_id vdi
-				else debug "Not destroying vdi: %s due to fist point" (Ref.string_of vdi))
+				then begin
+					(* In a cross-pool migrate, due to the Xapi_xenops.with_migrating_away call above, 
+					   the VBDs are left 'currently-attached=true', because they haven't been resynced
+					   by the destination host.
+
+					   Look for VBDs in this state (there shouldn't be any for intra-pool) and destroy
+					   them 
+					*)
+					let matching_vbd = 
+						try Some (List.find (fun (vbd,vbd_r) -> vbd_r.API.vBD_VDI = vdi && vbd_r.API.vBD_currently_attached) vbds) with _ -> None
+					in
+					Opt.iter (fun (vbd,_) ->  
+						if is_intra_pool then
+							error "VBD unexpectedly currently-attached! not deleting"
+						else begin
+							debug "VBD exists that is currently attached (vbd_uuid=%s vdi_uuid=%s is_intra_pool=%b)"
+								(Db.VBD.get_uuid ~__context ~self:vbd)
+								(Db.VDI.get_uuid ~__context ~self:vdi)
+								is_intra_pool;
+							Db.VBD.destroy ~__context ~self:vbd
+						end) matching_vbd;
+					XenAPI.VDI.destroy rpc session_id vdi
+				end else debug "Not destroying vdi: %s due to fist point" (Ref.string_of vdi))
 				!vdis_to_destroy;
-			if not is_intra_pool then XenAPI.VM.destroy rpc session_id vm);
+			if not is_intra_pool then begin
+				info "Destroying VM record";
+				Db.VM.destroy ~__context ~self:vm
+			end);
 	with e ->
 		error "Caught %s: cleaning up" (Printexc.to_string e);
 		let failed_vdi = ref None in
