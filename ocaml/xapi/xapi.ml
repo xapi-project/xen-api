@@ -512,10 +512,11 @@ let resynchronise_ha_state () =
 let calculate_boot_time_host_free_memory () =
 	let ( + ) = Nativeint.add in
 	let host_info = with_xc (fun xc -> Xenctrl.physinfo xc) in
-	let host_free_pages = host_info.Xenctrl.free_pages in
-	let host_scrub_pages = host_info.Xenctrl.scrub_pages in
+	let open Xenctrl.Phys_info in
+	let host_free_pages = host_info.free_pages in
+	let host_scrub_pages = host_info.scrub_pages in
 	let domain0_info = with_xc (fun xc -> Xenctrl.domain_getinfo xc 0) in
-	let domain0_total_pages = domain0_info.Xenctrl.total_memory_pages in
+	let domain0_total_pages = domain0_info.Xenctrl.Domain_info.total_memory_pages in
 	let boot_time_host_free_pages =
 		host_free_pages + host_scrub_pages + domain0_total_pages in
 	let boot_time_host_free_kib =
