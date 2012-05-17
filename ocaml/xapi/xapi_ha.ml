@@ -1400,8 +1400,6 @@ let enable __context heartbeat_srs configuration =
 		if not alive then raise (Api_errors.Server_error(Api_errors.host_offline, [ Ref.string_of host ]))
 	) (Db.Host.get_all ~__context);
 
-	(* let set_difference a b = List.filter (fun x -> not(List.mem x b)) a in *)
-
 	(* Steps from 8.7 Enabling HA in Marathon spec:
 	 * 1. Bring up state file VDI(s)
 	 * 2. Clear the flag "can not be master and no VM failover decision on next boot"

@@ -15,6 +15,7 @@
    * @group Host Management
 *)
 
+open Listext
 open Pervasiveext
 open Stringext
 open Xapi_support
@@ -45,8 +46,6 @@ let delete_crashdump_dir filename =
 		error "Caught exception while deleting crashdump at path %s (%s)" filename (ExnHelper.string_of_exn e);
 		raise e
 
-let set_difference a b = List.filter (fun x -> not(List.mem x b)) a
-
 (* Called once on host boot to resync the crash directory with the database *)
 let resynchronise ~__context ~host =
 	debug "Xapi_host_crashdump.resynchronise";
@@ -61,8 +60,8 @@ let resynchronise ~__context ~host =
 			stat.Unix.st_kind = Unix.S_DIR (*only directories are marked as crashdumps*)
 		)
 		(try Array.to_list (Sys.readdir crash_dir) with _ -> []) in
-	let gone_away = set_difference db_filenames real_filenames
-	and arrived = set_difference real_filenames db_filenames in
+	let gone_away = List.set_difference db_filenames real_filenames
+	and arrived = List.set_difference real_filenames db_filenames in
 
 	let was_shutdown_cleanly = try bool_of_string (Localdb.get Constants.host_restarted_cleanly) with _ -> false in
 	Localdb.put Constants.host_restarted_cleanly "false";

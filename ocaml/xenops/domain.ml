@@ -88,8 +88,6 @@ let log_exn_continue msg f x = try f x with e -> debug "Safely ignoring exceptio
 
 let log_exn_rm ~xs x = log_exn_continue ("xenstore-rm " ^ x) xs.Xs.rm x
 
-let set_difference a b = List.filter (fun x -> not(List.mem x b)) a
-
 let assert_file_is_readable filename = 
 	try Unix.access filename [ Unix.F_OK; Unix.R_OK ]
 	with _ ->

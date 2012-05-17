@@ -122,9 +122,8 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 			(Db.Host.get_patches ~__context ~self:(Helpers.get_localhost ~__context))
 			(Db.Host_patch.get_pool_patch ~__context) (Db.Pool_patch.get_uuid ~__context) in
 		let string_of_patches ps = (String.concat " " (List.map (fun patch -> patch) ps)) in
-		let set_difference a b = List.filter (fun x -> not(List.mem x b)) a in
-		let diff = (set_difference host_patches pool_patches) @ 
-			(set_difference pool_patches host_patches)in
+		let diff = (List.set_difference host_patches pool_patches) @ 
+			(List.set_difference pool_patches host_patches)in
 		if (List.length diff > 0) then begin
 			error "Pool.join failed because of patches mismatch";
 			error "Remote has %s" (string_of_patches pool_patches);

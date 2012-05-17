@@ -26,8 +26,6 @@ let all_ops : API.vif_operations_set = [ `attach; `plug; `unplug ]
 
 type table = (API.vif_operations, ((string * (string list)) option)) Hashtbl.t
 
-let set_difference a b = List.filter (fun x -> not(List.mem x b)) a
-
 (** Returns a table of operations -> API error options (None if the operation would be ok) *)
 let valid_operations ~__context record _ref' : table = 
   let _ref = Ref.string_of _ref' in
