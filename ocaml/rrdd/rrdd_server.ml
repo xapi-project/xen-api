@@ -15,6 +15,9 @@
 (* The framework requires type 'context' to be defined. *)
 type context = unit
 
+open Listext
+open Pervasiveext
+open Stringext
 open Threadext
 open Rrdd_shared
 
@@ -140,6 +143,148 @@ module Deprecated = struct
 
 	(* DEPRECATED *)
 	(* let get_host_rrd _ () = None *)
+	let i64_of_float f =
+		match classify_float f with
+		| FP_nan -> 0L
+		| FP_infinite -> 0L
+		| _ -> Int64.of_float f
+
+	let get_host_stats _ () =
+		let open Monitor_types in
+		let avg_rra_idx = !Deprecated.full_update_avg_rra_idx in
+		let last_rra_idx = !Deprecated.full_update_last_rra_idx in
+		(* The following function constructs a bolus of data from the shared
+		 * rrds in order to pass it over the wire to the master. There
+		 * shouldn't be anything here that will take time to process, and by
+		 * the end of the function all of the dirty bits should be marked as
+		 * clean. Whatever happens, we need to unlock the mutex at the end of
+		 * this! *)
+		let host_stats =
+			finally (fun _ ->
+				(* We go through the vm rrds and regenerate a host_stats structure *)
+				let rrd = match !host_rrd with Some r -> r.rrd | None -> failwith "No host rrd!" in
+				let timestamp = rrd.Rrd.last_updated in
+				let total_kib, free_kib, pcpus, pifs =
+					match !host_rrd with
+					| None -> (0L, 0L, {pcpus_usage = [||]}, [])
+					| Some rrdi ->
+						let rrd = rrdi.rrd in
+						let values = Rrd.get_last_values rrd avg_rra_idx in
+						let lastvalues = Rrd.get_last_values rrd last_rra_idx in
+						let total_kib = try i64_of_float (List.assoc "memory_total_kib" lastvalues) with _ -> 0L in
+						let free_kib = try i64_of_float (List.assoc "memory_free_kib" lastvalues) with _ -> 0L in
+						let cpus = List.sort (fun (c1, _) (c2, _) ->
+							let n1 = Scanf.sscanf c1 "cpu%d" (fun n -> n) in
+							let n2 = Scanf.sscanf c2 "cpu%d" (fun n -> n) in
+							compare n1 n2) (List.filter (fun (s, _) -> String.startswith "cpu" s) values)
+						in
+						let cpus = Array.of_list (List.map (fun (n, v) -> v) cpus) in
+						let pifs = List.filter (fun (n1, _) -> String.startswith "pif_" n1) values in
+						let pif_names = List.setify (List.map (fun (s, _) -> List.nth (String.split '_' s) 1) pifs) in
+						let pifs = List.filter_map (fun name ->
+							try
+								let pif_stats = List.find (fun pif -> pif.pif_name = name) !pif_stats in
+								Some {pif_stats with
+									pif_tx = List.assoc ("pif_" ^ name ^ "_tx") values;
+									pif_rx = List.assoc ("pif_" ^ name ^ "_rx") values;
+								}
+							with _ -> None) pif_names
+						in
+						(total_kib, free_kib, {pcpus_usage = cpus}, pifs)
+				in
+				let kvs = Hashtbl.fold (fun k v acc -> (k, Rrd.get_last_values v.rrd avg_rra_idx)::acc) vm_rrds [] in
+				let vbdss = List.map (
+					fun (uuid, values) ->
+						let vbds = List.filter (fun (s, _) -> String.startswith "vbd_" s) values in
+						let vbds_devices = List.setify (List.map (fun (s, _) -> List.nth (String.split '_' s) 1) vbds) in
+						let vbds = List.filter_map (fun device ->
+							try
+								(* NB we only get stats from PV devices *)
+								let device_id = Device_number.to_xenstore_key (Device_number.of_string false device) in
+								let read = List.assoc ("vbd_" ^ device ^ "_read") values in
+								let write = List.assoc ("vbd_" ^ device ^ "_write") values in
+								Some (uuid, {
+									vbd_device_id = device_id;
+									vbd_io_read = read;
+									vbd_io_write = write;
+									vbd_raw_io_read = 0L;
+									vbd_raw_io_write = 0L
+								})
+							with _ ->
+								error "Bizarre error in monitor_rrds.ml - key dump: ";
+								List.iter (fun (k, v) -> error "key: %s" k) vbds;
+								None
+						) vbds_devices in
+						vbds
+				) kvs in
+				let vbds = List.flatten vbdss in
+				let vifss = List.map (fun (uuid, values) ->
+					let vifs = List.filter (fun (s, _) -> String.startswith "vif_" s) values in
+					let vif_devices = List.setify (List.map (fun (s, _) -> List.nth (String.split '_' s) 1) vifs) in
+					let vifs = List.map (fun device ->
+						let dev = int_of_string device in
+						let name="" in
+						let tx = List.assoc ("vif_" ^ device ^ "_tx") values in
+						let rx = List.assoc ("vif_" ^ device ^ "_rx") values in
+						(uuid, {
+							vif_n = dev;
+							vif_name = name;
+							vif_tx = tx;
+							vif_rx = rx;
+							vif_raw_tx = 0L;
+							vif_raw_rx = 0L;
+							vif_raw_tx_err = 0L;
+							vif_raw_rx_err = 0L;
+						})
+					) vif_devices in
+					vifs
+				) kvs in
+				let vifs = List.flatten vifss in
+				let vcpus = List.map (fun (uuid, values) ->
+					let vcpus = List.filter (fun (s, _) -> String.startswith "cpu" s) values in
+					let cpunums = List.map (fun (s, v) -> (Scanf.sscanf s "cpu%d" (fun x -> x), v)) vcpus in
+					(uuid, {
+						vcpu_sumcpus = 0.0;
+						vcpu_vcpus = Array.of_list (List.map snd (List.sort (fun a b -> compare (fst a) (fst b)) cpunums));
+						vcpu_rawvcpus = [||];
+						vcpu_cputime = 0L
+					})
+				) kvs in
+				let mem = [] in (* This gets updated below instead *)
+				let registered = List.map fst kvs in
+				(* Now clear all the dirty bits *)
+				dirty_memory := StringSet.empty;
+				dirty_pifs := StringSet.empty;
+				Deprecated.full_update := false;
+				dirty_host_memory := false;
+				{
+					host_ref = Ref.null;
+					timestamp;
+					total_kib;
+					free_kib;
+					pifs;
+					pcpus;
+					vbds;
+					vifs;
+					vcpus;
+					mem;
+					registered;
+				}
+			) (fun _ -> Mutex.unlock mutex)
+		in
+		ignore (host_stats)
+		(*
+		(* This is the bit that might block for some time, but by now we've released the mutex *)
+		Server_helpers.exec_with_new_task "updating host stats" (fun __context ->
+			let host = Helpers.get_localhost ~__context in
+			let host_stats = {host_stats with host_ref = host} in
+			if Pool_role.is_master () then
+				Monitor_master.update_all ~__context host_stats (* read stats locally and update locally *)
+			else
+				let host_stats_s = Xml.to_string_fmt (Monitor_transfer.marshall host_stats) in
+				ignore (Master_connection.execute_remote_fn host_stats_s Constants.remote_stats_uri)
+		)
+		*)
 end
 
 (* Push function to push the archived RRD to the appropriate host
