@@ -647,17 +647,13 @@ module Ovs = struct
 	let create_port name bridge =
 		vsctl ~log:true ["--"; "--may-exist"; "add-port"; bridge; name]
 
-	let create_bond name interfaces bridge mac =
-		vsctl ~log:true (["--"; "--may-exist"; "add-bond"; bridge; name] @ interfaces @
-			["--"; "set"; "port"; name; "MAC=\"" ^ (String.escaped mac) ^ "\""])
-
 	let destroy_port name =
 		vsctl ~log:true ["--"; "--with-iface"; "--if-exists"; "del-port"; name]
 
 	let port_to_bridge name =
 		vsctl ~log:true ["port-to-br"; name]
 
-	let set_bond_properties name properties =
+	let make_bond_properties name properties =
 		let known_props = ["mode"; "hashing-algorithm"; "updelay"; "downdelay"; "miimon"; "use_carrier"] in
 		let mode_args =
 			let mode = if List.mem_assoc "mode" properties then List.assoc "mode" properties else "balance-slb" in
@@ -666,8 +662,8 @@ module Ovs = struct
 				(if halgo = "src_mac" then ["bond_mode=balance-slb"]
 				else if halgo = "tcpudp_ports" then ["bond_mode=balance-tcp"]
 				else begin
-					debug "bond %s has invalid bond-hashing-algorithm '%s'" name halgo;
-					["bond_mode=balance-slb"]
+					debug "bond %s has invalid bond-hashing-algorithm '%s'; defaulting to balance-tcp" name halgo;
+					["bond_mode=balance-tcp"]
 				end)
 			else
 				["lacp=off"; "bond_mode=" ^ mode]
@@ -691,8 +687,12 @@ module Ovs = struct
 			if List.mem k known_props then None
 			else Some (Printf.sprintf "other-config:\"%s\"=\"%s\"" (String.escaped ("bond-" ^ k)) (String.escaped v))
 		) properties in
-		let args = ["--"; "set"; "port"; name] @ mode_args @ extra_args @ other_args in
-		vsctl ~log:true args
+		mode_args @ extra_args @ other_args
+
+	let create_bond name interfaces bridge mac properties =
+		let args = make_bond_properties name properties in
+		vsctl ~log:true (["--"; "--may-exist"; "add-bond"; bridge; name] @ interfaces @
+			["--"; "set"; "port"; name; "MAC=\"" ^ (String.escaped mac) ^ "\""] @ args)
 
 	let get_fail_mode bridge =
 		vsctl ["get-fail-mode"; bridge]

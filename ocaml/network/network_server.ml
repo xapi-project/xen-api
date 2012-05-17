@@ -640,7 +640,7 @@ module Bridge = struct
 			| Bridge -> ()
 		) ()
 
-	let add_port _ dbg ?(mac="") ~bridge ~name ~interfaces () =
+	let add_port _ dbg ?(mac="") ~bridge ~name ~interfaces ?(bond_properties=[]) () =
 		Debug.with_thread_associated dbg (fun () ->
 			let config = get_config bridge in
 			let ports =
@@ -649,7 +649,7 @@ module Bridge = struct
 				else
 					config.ports
 			in
-			let ports = (name, {default_port with interfaces; mac}) :: ports in
+			let ports = (name, {interfaces; mac; bond_properties}) :: ports in
 			update_config bridge {config with ports};
 			debug "Adding port %s to bridge %s with interfaces %s%s" name bridge
 				(String.concat ", " interfaces)
@@ -660,7 +660,7 @@ module Bridge = struct
 					List.iter (fun name -> Interface.bring_up () dbg ~name) interfaces;
 					ignore (Ovs.create_port (List.hd interfaces) bridge)
 				end else begin
-					ignore (Ovs.create_bond name interfaces bridge mac);
+					ignore (Ovs.create_bond name interfaces bridge mac bond_properties);
 					List.iter (fun name -> Interface.bring_up () dbg ~name) interfaces
 				end;
 				if List.mem bridge !add_default then begin
@@ -676,7 +676,13 @@ module Bridge = struct
 						Linux_bonding.add_bond_master name;
 						if mac <> "" then Ip.set_mac name mac;
 						List.iter (fun name -> Interface.bring_down () dbg ~name) interfaces;
-						List.iter (Linux_bonding.add_bond_slave name) interfaces
+						List.iter (Linux_bonding.add_bond_slave name) interfaces;
+						let bond_properties =
+							if List.mem_assoc "mode" bond_properties && List.assoc "mode" bond_properties = "lacp" then
+								List.replace_assoc "mode" "802.3ad" bond_properties
+							else bond_properties
+						in
+						Linux_bonding.set_bond_properties name bond_properties
 					end;
 					Interface.bring_up () dbg ~name;
 					ignore (Brctl.create_port bridge name)
@@ -705,36 +711,6 @@ module Bridge = struct
 				Ovs.bridge_to_interfaces name
 			| Bridge ->
 				Sysfs.bridge_to_interfaces name
-		) ()
-
-	let get_bond_properties _ dbg ~bridge ~name =
-		Debug.with_thread_associated dbg (fun () ->
-			raise Not_implemented
-		) ()
-
-	let set_bond_properties _ dbg ~bridge ~name ~params =
-		Debug.with_thread_associated dbg (fun () ->
-			debug "Setting bond properties on port %s of bridge %s: %s" name bridge
-				(String.concat ", " (List.map (fun (k, v) -> k ^ "=" ^ v) params));
-			let config = get_config bridge in
-			let port, ports =
-				if List.mem_assoc name config.ports then
-					List.assoc name config.ports, List.remove_assoc name config.ports
-				else
-					default_port, config.ports
-			in
-			let ports = (name, {port with bond_properties = params}) :: ports in
-			update_config bridge {config with ports};
-			match !kind with
-			| Openvswitch ->
-				ignore (Ovs.set_bond_properties name params)
-			| Bridge ->
-				let params =
-					if List.mem_assoc "mode" params && List.assoc "mode" params = "lacp" then
-						List.replace_assoc "mode" "802.3ad" params
-					else params
-				in
-				Linux_bonding.set_bond_properties name params
 		) ()
 
 	let get_fail_mode _ dbg ~name =
@@ -796,9 +772,7 @@ module Bridge = struct
 				update_config bridge_name c;
 				create () dbg ?vlan ?mac:bridge_mac ~other_config ~name:bridge_name ();
 				List.iter (fun (port_name, {interfaces; bond_properties; mac}) ->
-					add_port () dbg ~mac ~bridge:bridge_name ~name:port_name ~interfaces ();
-					if bond_properties <> [] then
-						set_bond_properties () dbg ~bridge:bridge_name ~name:port_name ~params:bond_properties
+					add_port () dbg ~mac ~bridge:bridge_name ~name:port_name ~interfaces ~bond_properties ()
 				) ports
 			) config
 		) ()
