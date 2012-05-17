@@ -22,7 +22,7 @@ let all_the_rest = ref false
 
 let xc_handle = Xenctrl.interface_open() 
 
-let hashtbl_of_domaininfo (x: Xenctrl.domaininfo) : (string, string) Hashtbl.t = 
+let hashtbl_of_domaininfo (x : Xenctrl.Domain_info.t) : (string, string) Hashtbl.t =
   let table = Hashtbl.create 10 in
 
   let pages_to_string_bytes    x = Int64.to_string (Memory.bytes_of_pages    (Int64.of_nativeint (x))) in
@@ -30,28 +30,29 @@ let hashtbl_of_domaininfo (x: Xenctrl.domaininfo) : (string, string) Hashtbl.t =
   let pages_to_string_pages    x = Int64.to_string (                         (Int64.of_nativeint (x))) in
 
   let int = string_of_int and int64 = Int64.to_string and int32 = Int32.to_string in
-  Hashtbl.add table "id" (int x.Xenctrl.domid);
+  let open Xenctrl.Domain_info in
+  Hashtbl.add table "id" (int x.domid);
   let state = let bool ch = function true -> ch | _ -> " " in
-  (bool "D" x.Xenctrl.dying) ^ (bool "S" x.Xenctrl.shutdown) ^ 
-  (bool "P" x.Xenctrl.paused) ^ (bool "B" x.Xenctrl.blocked) ^ 
-  (bool "R" x.Xenctrl.running) ^ (bool "H" x.Xenctrl.hvm_guest) in
+  (bool "D" x.dying) ^ (bool "S" x.shutdown) ^
+  (bool "P" x.paused) ^ (bool "B" x.blocked) ^
+  (bool "R" x.running) ^ (bool "H" x.hvm_guest) in
   Hashtbl.add table "state" state;
-  Hashtbl.add table "shutdown code" (int x.Xenctrl.shutdown_code);
-  Hashtbl.add table "tot bytes" (pages_to_string_bytes    x.Xenctrl.total_memory_pages);
-  Hashtbl.add table "tot pages" (pages_to_string_pages    x.Xenctrl.total_memory_pages);
-  Hashtbl.add table "tot MiB"   (pages_to_string_mib_used x.Xenctrl.total_memory_pages);
-  Hashtbl.add table "max bytes" (if x.Xenctrl.domid = 0 then "N/A" else (pages_to_string_bytes    x.Xenctrl.max_memory_pages));
-  Hashtbl.add table "max pages" (if x.Xenctrl.domid = 0 then "N/A" else (pages_to_string_pages    x.Xenctrl.max_memory_pages));
-  Hashtbl.add table "max MiB"   (if x.Xenctrl.domid = 0 then "N/A" else (pages_to_string_mib_used x.Xenctrl.max_memory_pages));
-  Hashtbl.add table "sif" (int64 x.Xenctrl.shared_info_frame);
-  Hashtbl.add table "cpu time" (int64 x.Xenctrl.cpu_time);
-  Hashtbl.add table "vcpus online" (int x.Xenctrl.nr_online_vcpus);
-  Hashtbl.add table "max vcpu id" (int x.Xenctrl.max_vcpu_id);
-  Hashtbl.add table "ssidref" (int32 x.Xenctrl.ssidref);
-  Hashtbl.add table "uuid" (Uuid.to_string (Uuid.uuid_of_int_array x.Xenctrl.handle));
+  Hashtbl.add table "shutdown code" (int x.shutdown_code);
+  Hashtbl.add table "tot bytes" (pages_to_string_bytes    x.total_memory_pages);
+  Hashtbl.add table "tot pages" (pages_to_string_pages    x.total_memory_pages);
+  Hashtbl.add table "tot MiB"   (pages_to_string_mib_used x.total_memory_pages);
+  Hashtbl.add table "max bytes" (if x.domid = 0 then "N/A" else (pages_to_string_bytes    x.max_memory_pages));
+  Hashtbl.add table "max pages" (if x.domid = 0 then "N/A" else (pages_to_string_pages    x.max_memory_pages));
+  Hashtbl.add table "max MiB"   (if x.domid = 0 then "N/A" else (pages_to_string_mib_used x.max_memory_pages));
+  Hashtbl.add table "sif" (int64 x.shared_info_frame);
+  Hashtbl.add table "cpu time" (int64 x.cpu_time);
+  Hashtbl.add table "vcpus online" (int x.nr_online_vcpus);
+  Hashtbl.add table "max vcpu id" (int x.max_vcpu_id);
+  Hashtbl.add table "ssidref" (int32 x.ssidref);
+  Hashtbl.add table "uuid" (Uuid.to_string (Uuid.uuid_of_int_array x.handle));
   (* Ask for shadow allocation separately *)
   let shadow_mib =
-    try Some (Int64.of_int (Xenctrl.shadow_allocation_get xc_handle x.Xenctrl.domid))
+    try Some (Int64.of_int (Xenctrl.shadow_allocation_get xc_handle x.domid))
     with _ -> None in
   let shadow_bytes = may Memory.bytes_of_mib shadow_mib in
   let shadow_pages = may Memory.pages_of_mib shadow_mib in
