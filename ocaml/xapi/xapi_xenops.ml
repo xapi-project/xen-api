@@ -1138,9 +1138,10 @@ let rec events_watch ~__context from =
 
 let manage_dom0 dbg =
 	(* Tell xenopsd to manage domain 0 *)
+	let open Xenctrl.Domain_info in
 	let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
 	let di = Vmopshelpers.with_xc (fun xc -> Xenctrl.domain_getinfo xc 0) in
-	let memory_actual_bytes = Xenctrl.pages_to_kib Int64.(mul (of_nativeint di.Xenctrl.total_memory_pages) 1024L) in
+	let memory_actual_bytes = Xenctrl.pages_to_kib Int64.(mul (of_nativeint di.total_memory_pages) 1024L) in
 	let open Vm in
 	if not(vm_exists_in_xenopsd dbg uuid)
 	then begin
