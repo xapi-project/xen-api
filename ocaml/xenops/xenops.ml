@@ -27,23 +27,24 @@ let print_xen_dmesg ~xc =
 	printf "%s\n" s
 
 let print_xen_physinfo ~xc =
+	let open Xenctrl.Phys_info in
 	let physinfo = Xenctrl.physinfo xc in
-	let totalmib = Xenctrl.pages_to_mib (Int64.of_nativeint physinfo.Xenctrl.total_pages)
-	and freemib = Xenctrl.pages_to_mib (Int64.of_nativeint physinfo.Xenctrl.free_pages)
-	and scrubmib = Xenctrl.pages_to_mib (Int64.of_nativeint physinfo.Xenctrl.scrub_pages) in
-	printf "nr_cpus = %d\n" physinfo.Xenctrl.nr_cpus;
-	printf "threads_per_core = %d\n" physinfo.Xenctrl.threads_per_core;
-	printf "cores_per_socket = %d\n" physinfo.Xenctrl.cores_per_socket;
-	(*printf "sockets_per_node = %d\n" physinfo.Xenctrl.sockets_per_node;*)
-	(*printf "nr_nodes = %d\n" physinfo.Xenctrl.nr_nodes;*)
-	printf "cpu_khz = %d\n" physinfo.Xenctrl.cpu_khz;
-	printf "total_pages = %s (%Ld Mb)\n" (Nativeint.to_string physinfo.Xenctrl.total_pages) totalmib;
-	printf "free_pages = %s (%Ld Mb)\n" (Nativeint.to_string physinfo.Xenctrl.free_pages) freemib;
-	printf "scrub_pages = %s (%Ld Mb)\n" (Nativeint.to_string physinfo.Xenctrl.scrub_pages) scrubmib
+	let totalmib = Xenctrl.pages_to_mib (Int64.of_nativeint physinfo.total_pages)
+	and freemib = Xenctrl.pages_to_mib (Int64.of_nativeint physinfo.free_pages)
+	and scrubmib = Xenctrl.pages_to_mib (Int64.of_nativeint physinfo.scrub_pages) in
+	printf "nr_cpus = %d\n" physinfo.nr_cpus;
+	printf "threads_per_core = %d\n" physinfo.threads_per_core;
+	printf "cores_per_socket = %d\n" physinfo.cores_per_socket;
+	(*printf "sockets_per_node = %d\n" physinfo.sockets_per_node;*)
+	(*printf "nr_nodes = %d\n" physinfo.nr_nodes;*)
+	printf "cpu_khz = %d\n" physinfo.cpu_khz;
+	printf "total_pages = %s (%Ld Mb)\n" (Nativeint.to_string physinfo.total_pages) totalmib;
+	printf "free_pages = %s (%Ld Mb)\n" (Nativeint.to_string physinfo.free_pages) freemib;
+	printf "scrub_pages = %s (%Ld Mb)\n" (Nativeint.to_string physinfo.scrub_pages) scrubmib
 
 let print_pcpus_info ~xc =
 	let physinfo = Xenctrl.physinfo xc in
-	let infos = Xenctrl.pcpu_info xc (physinfo.Xenctrl.nr_cpus) in
+	let infos = Xenctrl.pcpu_info xc (physinfo.Xenctrl.Phys_info.nr_cpus) in
 	Array.iteri (fun i info -> printf "cpu: %d  usage: %Ld\n" i info) infos
 
 let debugkeys ~xc args =
@@ -54,7 +55,7 @@ let debugkeys ~xc args =
 	) args
 
 let is_hvm ~xc domid =
-	(Xenctrl.domain_getinfo xc domid).Xenctrl.hvm_guest
+	(Xenctrl.domain_getinfo xc domid).Xenctrl.Domain_info.hvm_guest
 
 let create_domain ~xc ~xs ~hvm =
 	let uuid = Uuid.make_uuid () in
@@ -131,7 +132,7 @@ let balloon_domain ~xs ~domid ~mem_mib =
 let domain_get_uuid ~xc ~domid =
 	try
 		let h = Xenctrl.domain_getinfo xc domid in
-		let uuid = Uuid.to_string (Uuid.uuid_of_int_array h.Xenctrl.handle) in
+		let uuid = Uuid.to_string (Uuid.uuid_of_int_array h.Xenctrl.Domain_info.handle) in
 		printf "%s\n" uuid
 	with _ ->
 		()
@@ -150,26 +151,27 @@ let list_domains ~xc ~verbose =
 		else
 			[ "id"; "state"; "cpu_time"; "uuid" ]
 		in
-	let sl_of_domaininfo (x: Xenctrl.domaininfo) : string list =
+	let open Xenctrl.Domain_info in
+	let sl_of_domaininfo (x : Xenctrl.Domain_info.t) : string list =
 		let page_to_mib pages =
 			Nativeint.to_string (Nativeint.div pages (Nativeint.of_int 256)) in
 		let int = string_of_int and int64 = Int64.to_string and int32 = Int32.to_string in
-		let domid = int x.Xenctrl.domid in
+		let domid = int x.domid in
 		(* Can more than one flag be true at a time? *)
 		let state =
 			let bool ch = function true -> ch | _ -> " " in
-			(bool "D" x.Xenctrl.dying) ^ (bool "S" x.Xenctrl.shutdown) ^
-			(bool "P" x.Xenctrl.paused) ^ (bool "B" x.Xenctrl.blocked) ^
-			(bool "R" x.Xenctrl.running) ^ (bool "H" x.Xenctrl.hvm_guest) in
-		let shutdown_code     = int x.Xenctrl.shutdown_code in
-		let tot_memory_mib    = page_to_mib x.Xenctrl.total_memory_pages in
-		let max_memory_mib    = page_to_mib x.Xenctrl.max_memory_pages in
-		let shared_info_frame = int64 x.Xenctrl.shared_info_frame in
-		let cpu_time          = int64 x.Xenctrl.cpu_time in
-		let nr_online_vcpus   = int x.Xenctrl.nr_online_vcpus in
-		let max_vcpu_id       = int x.Xenctrl.max_vcpu_id in
-		let ssidref           = int32 x.Xenctrl.ssidref in
-		let handle            = Uuid.to_string (Uuid.uuid_of_int_array x.Xenctrl.handle) in
+			(bool "D" x.dying) ^ (bool "S" x.shutdown) ^
+			(bool "P" x.paused) ^ (bool "B" x.blocked) ^
+			(bool "R" x.running) ^ (bool "H" x.hvm_guest) in
+		let shutdown_code     = int x.shutdown_code in
+		let tot_memory_mib    = page_to_mib x.total_memory_pages in
+		let max_memory_mib    = page_to_mib x.max_memory_pages in
+		let shared_info_frame = int64 x.shared_info_frame in
+		let cpu_time          = int64 x.cpu_time in
+		let nr_online_vcpus   = int x.nr_online_vcpus in
+		let max_vcpu_id       = int x.max_vcpu_id in
+		let ssidref           = int32 x.ssidref in
+		let handle            = Uuid.to_string (Uuid.uuid_of_int_array x.handle) in
 
 		if verbose then
 			[ domid; state; shutdown_code; tot_memory_mib; max_memory_mib;
@@ -247,7 +249,7 @@ let list_devices ~xc ~xs =
 	let of_device (d: device) : string list =
 		device_state_to_sl (stat ~xs d) in
 	let l = Xenctrl.domain_getinfolist xc 0 in
-	let domids = List.map (fun x -> x.Xenctrl.domid) l in
+	let domids = List.map (fun x -> x.Xenctrl.Domain_info.domid) l in
 	let devices =
 		Listext.List.setify (
 			List.concat (
@@ -364,27 +366,29 @@ let del_irq ~xc ~domid ~irq =
 	Domain.del_irq ~xc domid irq
 
 let sched_domain ~xc ~domid ~weight ~cap =
+	let open Xenctrl.Sched_control in
 	if Xenctrl.sched_id xc <> 5 then
 		failwith "not using credit scheduler";
 	match weight, cap with
-	| Some wei, Some cap ->
+	| Some weight, Some cap ->
 		Xenctrl.sched_credit_domain_set xc domid
-		                           { Xenctrl.weight = wei; Xenctrl.cap = cap }
+		                           { weight ; cap }
 	| None, Some cap     ->
 		let old = Xenctrl.sched_credit_domain_get xc domid in
 		Xenctrl.sched_credit_domain_set xc domid
-		               { old with Xenctrl.cap = cap }
-	| Some wei, None     ->
+		               { old with cap }
+	| Some weight, None     ->
 		let old = Xenctrl.sched_credit_domain_get xc domid in
 		Xenctrl.sched_credit_domain_set xc domid
-		               { old with Xenctrl.weight = wei }
+		               { old with weight }
 	| None, None         -> ()
 
 let sched_domain_get ~xc ~domid =
+	let open Xenctrl.Sched_control in
 	if Xenctrl.sched_id xc <> 5 then
 		failwith "not using credit scheduler";
 	let params = Xenctrl.sched_credit_domain_get xc domid in
-	params.Xenctrl.weight, params.Xenctrl.cap
+	params.weight, params.cap
 
 
 let affinity_set ~xc ~domid ~vcpu ~bitmap =
@@ -672,7 +676,7 @@ let _ = try
                boot, ioport_start, ioport_end, iomem_start, iomem_end, irq,
                slot, timeout, otherargs, allcommands = do_cmd_parsing subcmd init_pos in
 
-	let is_domain_hvm xc domid = (Xenctrl.domain_getinfo xc domid).Xenctrl.hvm_guest in
+	let is_domain_hvm xc domid = (Xenctrl.domain_getinfo xc domid).Xenctrl.Domain_info.hvm_guest in
 
 	(* Aliases *)
 	let target_kib = max_kib in

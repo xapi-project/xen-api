@@ -37,15 +37,17 @@ let _ =
 
 	  let physinfo = Xenctrl.physinfo xc in
 	  let one_page = 4096L in
-	  let total_pages = Int64.of_nativeint physinfo.Xenctrl.total_pages in
-	  let free_pages = Int64.of_nativeint physinfo.Xenctrl.free_pages +*
-	    (Int64.of_nativeint physinfo.Xenctrl.scrub_pages) in
+	  let open Xenctrl.Phys_info in
+	  let total_pages = Int64.of_nativeint physinfo.total_pages in
+	  let free_pages = Int64.of_nativeint physinfo.free_pages +*
+	    (Int64.of_nativeint physinfo.scrub_pages) in
 	  
 	  let domains = Xenctrl.domain_getinfolist xc 0 in
+	  let open Xenctrl.Domain_info in
 	  let domains = List.map
 	    (fun di ->
-	       di.Xenctrl.domid,
-	       Int64.of_nativeint di.Xenctrl.total_memory_pages
+	       di.domid,
+	       Int64.of_nativeint di.total_memory_pages
 	    )
 	    domains
 	  in
