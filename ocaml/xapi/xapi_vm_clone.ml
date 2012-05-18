@@ -179,7 +179,7 @@ let snapshot_metadata ~__context ~vm ~is_a_snapshot =
 		""
 
 (* return a new VM record, in appropriate power state and having the good metrics. *)
-let copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state =
+let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~new_power_state =
 	let task_id = Ref.string_of (Context.get_task_id __context) in
 	let uuid = Uuid.make_uuid () in
 	let ref = Ref.make () in
@@ -269,7 +269,9 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state =
 		~is_a_snapshot: is_a_snapshot
 		~snapshot_of:(if is_a_snapshot then vm else Ref.null)
 		~snapshot_time:(if is_a_snapshot then Date.of_float (Unix.gettimeofday ()) else Date.never)
-		~snapshot_info:(snapshot_info ~power_state ~is_a_snapshot)
+		~snapshot_info:(match snapshot_info_record with
+				None -> (snapshot_info ~power_state ~is_a_snapshot)
+			| Some s -> s)
 		~snapshot_metadata:(snapshot_metadata ~__context ~vm ~is_a_snapshot)
 		~transportable_snapshot_id:""
 		~parent
@@ -339,7 +341,7 @@ let make_driver_params () =
 	[Xapi_globs._sm_epoch_hint, Uuid.to_string (Uuid.make_uuid())]
 
 (* NB this function may be called when the VM is suspended for copy/clone operations. Snapshot can be done in live.*)
-let clone disk_op ~__context ~vm ~new_name =
+let clone ?(snapshot_info_record) disk_op ~__context ~vm ~new_name =
 	Helpers.call_api_functions ~__context (fun rpc session_id ->
 		let task_id = Ref.string_of (Context.get_task_id __context) in
 		let vbds = Db.VM.get_VBDs ~__context ~self:vm in
@@ -367,7 +369,7 @@ let clone disk_op ~__context ~vm ~new_name =
 		begin try 
 			
 			(* create the VM record *)
-			let ref, uuid = copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state in
+			let ref, uuid = copy_vm_record ?snapshot_info_record ~__context ~vm ~disk_op ~new_name ~new_power_state in
 				
 			(* copy every VBD using the new VDI as backend                                *)
 			(* if this fails halfway through, delete the VM and the VDIs, but don't worry *)
