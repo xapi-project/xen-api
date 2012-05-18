@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+   <methodResponse><params><param><value>
+      <struct><member><name>Status</name><value>Failure</value></member>
+              <member><name>ErrorDescription</name><value><array>
+                 <data><value>Backend_error</value>
+                       <value><array>
+                          <data><value>SR_BACKEND_FAILURE</value>
+                                <value><array>
+                                   <data><value>non-zero exit</value>
+                                         <value></value>
+                                         <value>Traceback (most recent call last):   File &quot;/opt/xensource/sm/LVMSR&quot;, line 1970, in ?     SRCommand.run(LVHDSR, DRIVER_INFO)   File &quot;/opt/xensource/sm/SRCommand.py&quot;, line 278, in run     ret = cmd.run(sr)   File &quot;/opt/xensource/sm/SRCommand.py&quot;, line 95, in run     return self._run_locked(sr)   File &quot;/opt/xensource/sm/SRCommand.py&quot;, line 142, in _run_locked     return self._run(sr, target)   File &quot;/opt/xensource/sm/SRCommand.py&quot;, line 258, in _run     return sr.detach(self.params['sr_uuid'])   File &quot;/opt/xensource/sm/L
+                                         </value>
+                                   </data>
+                                </array></value>
+                          </data>
+                        </array></value>
+                 </data>
+              </array></value></member>
+      </struct>
+   </value></param></params></methodReponse>
+
