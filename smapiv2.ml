@@ -3,9 +3,9 @@ open Types
 let api =
   let vdi_info =
     Type.(Struct(
-      ( "vdi", Basic String, "The unique id of this VDI" ),
-      [ "sr", Basic String, "The SR containing this VDI";
-	"content_id", Basic String, "The unique id of the VDI contents. If two VDIs have the same content_id then they must have the same data inside";
+      ( "vdi", Name "vdi", "The unique id of this VDI" ),
+      [ "sr", Name "sr", "The SR containing this VDI";
+	"content_id", Name "content_id", "The unique id of the VDI contents. If two VDIs have the same content_id then they must have the same data inside";
 	"name_label", Basic String, "Human-readable name of the VDI";
 	"name_description", Basic String, "Human-readable description of the VDI";
 	"ty", Basic String, "Used by a toolstack to remember why a VDI was created";
@@ -28,6 +28,11 @@ let api =
     ty = Type.(Basic String);
     description = "The Virtual Disk Image to operate on";
   } in
+  let attach_info =
+	  Type.(Struct(
+		  ( "params", Basic String, "The xenstore backend params key"),
+		  [ "xenstore_data", Dict(String, Basic String), "Additional xenstore backend device keys" ]
+	  )) in
   let vdi_info' = {
     Arg.name = "vdi_info";
 (*    ty = vdi_info; *)
@@ -44,10 +49,25 @@ let api =
     title = "Storage Manager";
     description = "The Storage Manager (SM) is responsible for all storage operations on an XCP host. It organises Virtual Disk Images (VDIs) into homogenous collections known as Storage Repositories (SRs) where each collection is stored in a specific format (e.g. .vhd files on NFS, raw LUN on a iSCSI/FC storage array). The Storage Manager API (SMAPI) provides a simple abstract interface which allows the toolstack to create, destroy, snapshot, clone, resize etc VDIs within SRs";
     exn_decls = [];
-    type_decls = [ { TyDecl.name = "vdi_info";
-		     description = "All per-VDI properties";
-		     ty = vdi_info
-		   } ];
+    type_decls = [
+		{
+			TyDecl.name = "vdi";
+			description = "Primary key for a Virtual Disk Image (e.g. path on a storage system)";
+			ty = Type.(Basic String);
+		}; {
+			TyDecl.name = "sr";
+			description = "Primary key for a Storage Repository (e.g. a UUID)";
+			ty = Type.(Basic String);
+		}; {
+			TyDecl.name = "content_id";
+			description = "Identifies the contents (i.e. bytes with) a VDI. Two VDIs with the same content_id must have the same content.";
+			ty = Type.(Basic String);
+		}; {
+			TyDecl.name = "vdi_info";
+			description = "All per-VDI properties";
+			ty = vdi_info
+		};
+	];
     interfaces =
       [
 	{
@@ -283,7 +303,11 @@ let api =
 		sr;
 	      ];
 	      outputs = [
-		(* XXX: vdi_info list *)
+			  {
+				  Arg.name = "vdis";
+				  ty = Type.(Array (Name "vdi_info"));
+				  description = "List of all the visible VDIs in the SR";
+			  }
 	      ];
 	    }
 	  ]
@@ -333,37 +357,6 @@ let api =
 		  description = "A string containing loggable human-readable diagnostics information";
 		}
 	      ];
-	    }
-	  ]
-	}; {
-	  Interface.name = "Mirror";
-	  description = "Operations which act on disk mirrors.";
-	  type_decls = [];
-	  methods = [
-	    {
-	      Method.name = "start";
-	      description = "[start task sr vdi url sr2] creates a VDI in remote [url]'s [sr2] and writes data synchronously. It returns the id of the VDI.";
-	      inputs = [
-		sr;
-		vdi;
-		{ Arg.name = "url";
-		  ty = Type.(Basic String);
-		  description = "The URL to mirror the VDI to";
-		};
-		{ sr with Arg.name = "dest" }
-	      ];
-	      outputs = [
-		{ vdi with Arg.name = "new_vdi" }
-	      ];	      
-	    }; {
-	      Method.name = "stop";
-	      description = "[stop task sr vdi] stops mirroring local [vdi]";
-	      inputs = [
-		sr;
-		vdi;
-	      ];
-	      outputs = [
-	      ];	      
 	    }
 	  ]
 	}

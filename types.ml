@@ -537,6 +537,7 @@ module To_rpclight = struct
     add (sprintf "@.@]")
 end
 
+(*
 let to_json x =
   let of_arg_list args =
     `Assoc (List.map (fun arg -> arg.Arg.name, `String (Type.dbus_of_t [] arg.Arg.ty)) args) in
@@ -562,6 +563,7 @@ let to_json x =
     ] in
   let json = of_interfaces x in
   Yojson.Basic.to_string json
+*)
 
 module To_dbus = struct
   let of_arg env is_in arg add =
