@@ -33,7 +33,6 @@ module DBCacheRemoteListener = struct
 		(* update_lengths xml resp; *)
 		(* let s = Xml.to_string_fmt resp  in *)
 		(* debug "Resp [Len = %d]: %s" (String.length s) s; *)
-		debug "Call succeeded";
 		resp
 			
 	let failure exn_name xml =
@@ -44,7 +43,6 @@ module DBCacheRemoteListener = struct
 					[XMLRPC.To.string exn_name;
 					xml]] in
 		(* update_lengths xml resp; *)
-		debug "Call failed";
 		resp
 			
 	module DBCache : Db_interface.DB_ACCESS = Db_cache_impl
@@ -63,7 +61,6 @@ module DBCacheRemoteListener = struct
 				| _ -> raise DBCacheListenerInvalidMessageReceived in
 		let t = Db_backend.make () in
 		try
-			debug "Received [total=%d rx=%d tx=%d] %s" !calls_processed !total_recv_len !total_transmit_len fn_name;
 			match fn_name with
 					"get_table_from_ref" ->
 						let s = unmarshall_get_table_from_ref_args args in
