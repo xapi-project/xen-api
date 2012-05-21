@@ -45,6 +45,54 @@ if $(not $(defined-env DESTDIR))
   DESTDIR = 
   export
 
+
+if $(not $(defined-env VARDIR))
+  VARDIR=/var/xapi
+  export
+if $(not $(defined-env VARPATCHDIR))
+  VARPATCHDIR=/var/patch
+  export
+if $(not $(defined-env ETCDIR))
+  ETCDIR=/etc/xensource
+  export
+if $(not $(defined-env OPTDIR))
+  OPTDIR=/opt/xensource
+  export
+if $(not $(defined-env PLUGINDIR))
+  PLUGINDIR=/etc/xapi.d/plugins
+  export
+if $(not $(defined-env HOOKSDIR))
+  HOOKSDIR=/etc/xapi.d
+  export
+if $(not $(defined-env INVENTORY))
+  INVENTORY=/etc/xensource-inventory
+  export
+if $(not $(defined-env XAPICONF))
+  XAPICONF=/etc/xapi.conf
+  export
+if $(not $(defined-env LIBEXECDIR))
+  LIBEXECDIR=/opt/xensource/libexec
+  export
+if $(not $(defined-env SCRIPTSDIR))
+  SCRIPTSDIR=/etc/xensource/scripts
+  export
+if $(not $(defined-env SHAREDIR))
+  SHAREDIR=/opt/xensource
+  export
+if $(not $(defined-env WEBDIR))
+  WEBDIR=/opt/xensource/www
+  export
+if $(not $(defined-env XHADIR))
+  XHADIR=/opt/xensource/xha
+  export
+if $(not $(defined-env BINDIR))
+  BINDIR=/opt/xensource/bin
+  export
+if $(not $(defined-env SBINDIR))
+  SBINDIR=/opt/xensource/bin
+  export
+
+
 XEN_CFLAGS=-I$(XEN_ROOT)/usr/include
 XEN_OCAML_LINK_FLAGS=-cclib -L$(XEN_ROOT)/usr/$(LIBDIR)
 XEN_OCAML_CLIBS=
