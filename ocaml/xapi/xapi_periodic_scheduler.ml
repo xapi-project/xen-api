@@ -31,7 +31,6 @@ let (queue : (t Ipq.t)) = Ipq.create 50
 let lock = Mutex.create ()
 
 let add_to_queue ?(signal=true) name ty start newfunc =
-  debug "Adding function %s to queue, start=%f, type=%s" name start (match ty with OneShot -> "OneShot" | Periodic x -> Printf.sprintf "Periodic(%f)" x);
   Mutex.execute lock (fun () ->
     Ipq.add queue { Ipq.ev={ func=newfunc; ty=ty; name=name}; Ipq.time=((Unix.gettimeofday ()) +. start) });
   if signal then Delay.signal delay
@@ -39,7 +38,6 @@ let add_to_queue ?(signal=true) name ty start newfunc =
 let remove_from_queue name =
 	let index = Ipq.find_p queue (fun {name=n} -> name = n) in
 	if index > -1 then begin
-		debug "Removing function %s from queue" name;
 		Ipq.remove queue index
 	end
   
@@ -62,7 +60,7 @@ let loop () =
 		| OneShot -> ()
 		| Periodic timer -> add_to_queue ~signal:false todo.name todo.ty timer todo.func
 	    end else begin
-	      debug "Sleeping until next event (%f seconds)" (next.Ipq.time -. now +. 0.001);
+	      (* Sleep until next event. *)
 	      ignore(Delay.wait delay (next.Ipq.time -. now +. 0.001))
 	    end
 	  end
