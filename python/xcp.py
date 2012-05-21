@@ -43,3 +43,17 @@ class UnmarshalException(Exception):
         self.thing = thing
         self.ty = ty
         self.desc = desc
+
+class TypeError(Exception):
+    def __init__(self, expected, actual):
+        self.expected = expected
+        self.actual = actual
+    def __str__(self):
+        return "TypeError expected=%s actual=%s" % (self.expected, self.actual)
+
+def is_long(x):
+    try:
+        long(x)
+        return True
+    except:
+        return False

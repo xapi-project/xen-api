@@ -267,17 +267,21 @@ module To_python = struct
     let open Type in
     let open Printf in
     let raise_type_error =
-      Line (sprintf "raise (Type_error(\"%s\", repr(%s)))" (Type.ocaml_of_t ty) v) in
+      Line (sprintf "raise (TypeError(\"%s\", repr(%s)))" (Type.ocaml_of_t ty) v) in
     match ty with
-      | Basic b ->
-	let python_of_basic = function
-	  | Int64   -> "0L"
-	  | String  -> "\"\""
-	  | Double  -> "1.1"
-	  | Boolean -> "True" in
-	[ Line (sprintf "if type(%s) <> type(%s):" v (python_of_basic b));
-	  Block [ raise_type_error ]
-	]
+		| Basic b ->
+			let python_of_basic = function
+				| Int64   -> "0L"
+				| String  -> "\"\""
+				| Double  -> "1.1"
+				| Boolean -> "True" in
+			[
+				Line (match b with
+					| Int64 -> sprintf "if not(is_long(%s)):" v
+					| b     -> sprintf "if type(%s) <> type(%s):"       v (python_of_basic b)
+				);
+				Block [ raise_type_error ]
+			]
       | Struct (hd, tl) ->
 	let member (name, ty, descr) =
 	  typecheck env ty (sprintf "%s['%s']" v name) in
@@ -395,32 +399,34 @@ module To_python = struct
   let skeleton_of_interface = skeleton_of_interface true "skeleton"
 
   let server_of_interface env i =
-    let open Printf in
-    let typecheck_method_wrapper m =
-      let extract_input arg =
-	[ Line (sprintf "if not(args.has_key('%s')):" arg.Arg.name);
-	  Block [ Line (sprintf "raise UnmarshalException('argument missing', '%s', '')" arg.Arg.name) ];
-	  Line (sprintf "%s = args[\"%s\"]" arg.Arg.name arg.Arg.name) ]
-	  @ (typecheck env arg.Arg.ty arg.Arg.name) in
-      let check_output arg =
-	typecheck env arg.Arg.ty (sprintf "results[\"%s\"]" arg.Arg.name) in
-      [ Line (sprintf "def %s(self, args):" m.Method.name);
-	Block ([
-	  Line "\"\"\"type-check inputs, call implementation, type-check outputs and return\"\"\"";
-	  Line "if type(args) <> type({}):";
-	  Block [
-	    Line "raise (UnmarshalException('arguments', 'dict', repr(args)))"
-	  ]
-	] @ (
-	  List.concat (List.map extract_input m.Method.inputs)
-	) @ [
-	  Line (sprintf "results = self._impl.%s(%s)" m.Method.name (String.concat ", " (List.map (fun x -> x.Arg.name) m.Method.inputs)))
-	] @ (
-	  List.concat (List.map check_output m.Method.outputs)
-	) @ [
-	  Line "return results"
-	])
-      ] in    
+      let open Printf in
+      let typecheck_method_wrapper m =
+		  let extract_input arg =
+			  [ Line (sprintf "if not(args.has_key('%s')):" arg.Arg.name);
+			  Block [ Line (sprintf "raise UnmarshalException('argument missing', '%s', '')" arg.Arg.name) ];
+			  Line (sprintf "%s = args[\"%s\"]" arg.Arg.name arg.Arg.name) ]
+			  @ (typecheck env arg.Arg.ty arg.Arg.name) in
+		  let check_output arg =
+			  (* The ocaml rpc-light doesn't actually support named results, instead we
+				 have single anonymous results only. *)
+			  typecheck env arg.Arg.ty "results" in
+		  [ Line (sprintf "def %s(self, args):" m.Method.name);
+		  Block ([
+			  Line "\"\"\"type-check inputs, call implementation, type-check outputs and return\"\"\"";
+			  Line "if type(args) <> type({}):";
+			  Block [
+				  Line "raise (UnmarshalException('arguments', 'dict', repr(args)))"
+			  ]
+		  ] @ (
+			  List.concat (List.map extract_input m.Method.inputs)
+		  ) @ [
+			  Line (sprintf "results = self._impl.%s(%s)" m.Method.name (String.concat ", " (List.map (fun x -> x.Arg.name) m.Method.inputs)))
+		  ] @ (
+			  List.concat (List.map check_output m.Method.outputs)
+		  ) @ [
+			  Line "return results"
+		  ])
+		  ] in    
     let dispatch_method first m =
       [ Line (sprintf "%sif method == \"%s.%s\":" (if first then "" else "el") i.Interface.name m.Method.name);
 	Block [ Line (sprintf "return success(self.%s(args))" m.Method.name) ]
@@ -461,7 +467,7 @@ module To_python = struct
 
   let of_interfaces env i =
     let open Printf in
-    [ Line "from xcp import log, UnknownMethod, UnimplementedException, InternalError, UnmarshalException, success";
+    [ Line "from xcp import log, UnknownMethod, UnimplementedException, InternalError, UnmarshalException, TypeError, success, is_long";
       Line "import traceback";
     ] @ (
       List.fold_left (fun acc i -> acc @
