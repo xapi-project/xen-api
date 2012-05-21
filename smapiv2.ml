@@ -144,9 +144,11 @@ let api =
 		}
 	      ];
 	      outputs = [
-		{ Arg.name = "params";
-		  ty = Type.(Basic String);
-		  description = "xenstore backend params key";
+		{ Arg.name = "device";
+		  ty = Type.(Struct(("params", Basic String, "blkback params key"), [
+			  "xenstore_data", Dict(String, Basic String), "additional backend configuration for xenstore-data/"
+		  ]));
+		  description = "backend device configuration";
 		}
 	      ];
 	    }; {
