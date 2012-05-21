@@ -17,7 +17,7 @@
                        <member><name>virtual_size</name><value>0</value></member>
                        <member><name>physical_utilisation</name><value>0</value></member>
                </struct></value></member>
-             <member><name>params</name><value></value></member>
+             <member><name>params</name><value><struct></struct></value></member>
      </struct>
    </value></param></params>
 </methodCall>
