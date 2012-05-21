@@ -158,7 +158,7 @@ let _ =
     );
   List.iter
     (fun api ->
-     with_file (Printf.sprintf "doc/%s.py" api.Interfaces.name)
+     with_file (Printf.sprintf "python/%s.py" api.Interfaces.name)
        (fun oc ->
 	 let idents, api = resolve_refs_in_api api in
 	 output_string oc (Types.To_python.of_interfaces idents api |> Types.To_python.string_of_ts)
