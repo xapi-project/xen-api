@@ -186,9 +186,6 @@ let create_new_blob ~__context ~network ~name ~mime_type =
 
 let set_default_locking_mode ~__context ~network ~value =
 	if (value = `disabled) then begin
-		(* Allow unlicensed users to set default_locking_mode = `unlocked, i.e. turn the feature off. *)
-		if not(Pool_features.is_enabled ~__context Features.VIF_locking) then
-			raise (Api_errors.Server_error(Api_errors.license_restriction, []));
 		(* Don't allow locking of a network if a vswitch controller is present. *)
 		Helpers.assert_vswitch_controller_not_active ~__context
 	end;

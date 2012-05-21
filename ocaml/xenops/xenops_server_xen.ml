@@ -1748,6 +1748,11 @@ module VIF = struct
 			_locking_mode, "disabled";
 		]
 
+	let disconnect_flag device mode =
+		let path = Hotplug.vif_disconnect_path device in
+		let flag = match mode with Xenops_interface.Vif.Disabled -> "1" | _ -> "0" in
+		path, flag
+
 	let plug_exn task vm vif =
 		let vm_t = DB.read vm in
 		on_frontend
@@ -1770,7 +1775,9 @@ module VIF = struct
 								~other_config:vif.other_config
 								~extra_private_keys:(id :: vif.extra_private_keys @ locking_mode)
 								frontend_domid in
-						let (_: Device_common.device) = create task frontend_domid in
+						let device = create task frontend_domid in
+						let disconnect_path, flag = disconnect_flag device vif.locking_mode in
+						xs.Xs.write disconnect_path flag;
 
 						(* If qemu is in a different domain, then plug into it *)
 						let me = this_domid ~xs in
@@ -1883,7 +1890,8 @@ module VIF = struct
 				(* Delete the old keys *)
 				List.iter (fun x -> xs.Xs.rm (path ^ "/" ^ x)) locking_mode_keys;
 				List.iter (fun (x, y) -> xs.Xs.write (path ^ "/" ^ x) y) (xenstore_of_locking_mode mode);
-
+				let disconnect_path, flag = disconnect_flag device mode in
+				xs.Xs.write disconnect_path flag;
 
 				let domid = string_of_int device.frontend.domid in
 				let devid = string_of_int device.frontend.devid in
