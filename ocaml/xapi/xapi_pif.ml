@@ -621,7 +621,7 @@ let calculate_pifs_required_at_start_of_day ~__context =
 					Eq (Field "bond_slave_of", Literal (Ref.string_of Ref.null))
 				),
 				Or (
-					Not (Eq (Field "bond_master_of", Literal (Ref.string_of Ref.null))),
+					Not (Eq (Field "bond_master_of", Literal "()")),
 					Not (Eq (Field "ip_configuration_mode", Literal "None"))
 				)
 			)
