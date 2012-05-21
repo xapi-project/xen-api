@@ -28,7 +28,8 @@ module StringSet = Set.Make(String)
 
 type rrd_info = { 
   rrd: Rrd.rrd;
-  mutable dss: Ds.ds list; 
+	mutable dss: Ds.ds list;
+	mutable domid: int;
 }
 
 (* strings are uuids *)
