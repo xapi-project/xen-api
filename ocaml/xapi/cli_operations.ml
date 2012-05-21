@@ -2512,7 +2512,8 @@ let vm_migrate printer rpc session_id params =
 						let vif = Client.VIF.get_by_uuid rpc session_id vif_uuid in
 						let net = Client.Network.get_by_uuid remote_rpc remote_session net_uuid in
 						vif,net) (read_map_params "vif" params) in
-					let params = List.filter (fun (s,_) -> let start = String.sub s 0 4 in start <> "vif:" && start <> "vdi:") params in
+					let params = List.filter (fun (s,_) -> if String.length s < 5 then true 
+						else let start = String.sub s 0 4 in start <> "vif:" && start <> "vdi:") params in
 					printer (Cli_printer.PMsg (Printf.sprintf "Will migrate to remote host: %s, using remote network: %s" host_record.API.host_name_label network_record.API.network_name_label));
 					let token = Client.Host.migrate_receive remote_rpc remote_session host network options in
 					printer (Cli_printer.PMsg (Printf.sprintf "Received token: [ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ ":" ^ v) token))));
