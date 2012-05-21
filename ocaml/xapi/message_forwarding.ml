@@ -3198,6 +3198,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 		let copy ~__context ~vdi ~sr =
 			info "VDI.copy: VDI = '%s'; SR = '%s'" (vdi_uuid ~__context vdi) (sr_uuid ~__context sr);
+			Xapi_vdi.assert_operation_valid ~__context ~self:vdi ~op:`copy;
 			let local_fn = Local.VDI.copy ~vdi ~sr in
 			let src_sr = Db.VDI.get_SR ~__context ~self:vdi in
 			(* No need to lock the VDI because the VBD.plug will do that for us *)
