@@ -1651,23 +1651,24 @@ let get_state ~xs domid =
 	try Some (xs.Xs.read statepath)
 	with _ -> None
 
-let cmdline_of_disp disp =
+let cmdline_of_disp info =
 	let vga_type_opts x = 
 	  match x with
 	    | Std_vga -> ["-std-vga"]
 	    | Cirrus -> []
 	in
+	let videoram_opt = ["-videoram"; string_of_int info.video_mib] in
 	let dom0_input_opts x =
 	  (maybe_with_default [] (fun i -> ["-dom0-input"; string_of_int i]) x)
 	in
 	let disp_options, wait_for_port =
-		match disp with
+		match info.disp with
 		| NONE -> 
 		    ([], false)
 		| Passthrough dom0_input -> 
 		    let vga_type_opts = ["-vga-passthrough"] in
 		    let dom0_input_opts = dom0_input_opts dom0_input in
-		    (vga_type_opts @ dom0_input_opts), false		
+				(vga_type_opts @ dom0_input_opts), false
 		| SDL (opts,x11name) ->
 		    ( [], false)
 		| VNC (disp_intf, ip_addr_opt, auto, port, keymap) ->
@@ -1678,11 +1679,11 @@ let cmdline_of_disp disp =
 		      then [ "-vncunused"; "-k"; keymap; "-vnc"; ip_addr ^ ":1" ]
 		      else [ "-vnc"; ip_addr ^ ":" ^ (string_of_int port); "-k"; keymap ]
 		    in
-		    (vga_type_opts @ vnc_opts), true
+				(vga_type_opts @ videoram_opt @ vnc_opts), true
 		| Intel (opt,dom0_input) -> 
 		    let vga_type_opts = vga_type_opts opt in
 		    let dom0_input_opts = dom0_input_opts dom0_input in
-		    (["-intel"] @ vga_type_opts @ dom0_input_opts), false
+				(["-intel"] @ vga_type_opts @ videoram_opt @ dom0_input_opts), false
 	in
 	disp_options, wait_for_port
 
@@ -1718,7 +1719,7 @@ let cmdline_of_info info restore domid =
 	]) info.disks in
 
 	let restorefile = sprintf qemu_restore_path domid in
-	let disp_options, wait_for_port = cmdline_of_disp info.disp in
+	let disp_options, wait_for_port = cmdline_of_disp info in
 
 	[
 		"-d"; string_of_int domid;
@@ -1736,7 +1737,7 @@ let cmdline_of_info info restore domid =
 
 
 let vnconly_cmdline ~info ?(extras=[]) domid =
-    let disp_options, _ = cmdline_of_disp info.disp in
+	let disp_options, _ = cmdline_of_disp info in
 	[
 		"-d"; string_of_int domid;
 		"-M"; "xenpv"; ] (* the stubdom is a PV guest *)
