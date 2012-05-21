@@ -1026,10 +1026,10 @@ module VM = struct
 				let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Unknown_bootloader %s" vm.Vm.id domid x in
 				debug "%s" m;
 				raise (Internal_error m)
-			| Bootloader.Error_from_bootloader (a, b) ->
-				let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Error_from_bootloader (%s, [ %s ])" vm.Vm.id domid a (String.concat "; " b) in
+			| Bootloader.Error_from_bootloader x ->
+				let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Error_from_bootloader %s" vm.Vm.id domid x in
 				debug "%s" m;
-				raise (Bootloader_error (a, b))
+				raise (Bootloader_error (vm.Vm.id, x))
 			| e ->
 				let m = Printf.sprintf "VM = %s; domid = %d; Bootloader error: %s" vm.Vm.id domid (Printexc.to_string e) in
 				debug "%s" m;
