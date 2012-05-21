@@ -92,6 +92,11 @@ let move_vlan ~__context host new_slave old_vlan =
 	let network = Db.PIF.get_network ~__context ~self:old_master in
 	let plugged = Db.PIF.get_currently_attached ~__context ~self:old_master in
 
+	if plugged then begin
+		debug "Unplugging old VLAN";
+		Nm.bring_pif_down ~__context old_master
+	end;
+
 	(* Only create new objects if the tag does not yet exist *)
 	let new_vlan, new_master =
 		let existing_vlans = Db.PIF.get_VLAN_slave_of ~__context ~self:new_slave in
