@@ -48,7 +48,45 @@ let api =
     Interfaces.name = "storage";
     title = "Storage Manager";
     description = "The Storage Manager (SM) is responsible for all storage operations on an XCP host. It organises Virtual Disk Images (VDIs) into homogenous collections known as Storage Repositories (SRs) where each collection is stored in a specific format (e.g. .vhd files on NFS, raw LUN on a iSCSI/FC storage array). The Storage Manager API (SMAPI) provides a simple abstract interface which allows the toolstack to create, destroy, snapshot, clone, resize etc VDIs within SRs";
-    exn_decls = [];
+    exn_decls = [
+		{
+			TyDecl.name = "Sr_not_attached";
+			description = "An SR must be attached in order to access VDIs";
+			ty = Type.Unit
+		}; {
+			TyDecl.name = "Vdi_does_not_exist";
+			description = "The specified VDI could not be found in the SR";
+			ty = Type.Unit
+		}; {
+			TyDecl.name = "Illegal_transition";
+			description = "The requested VDI state transition is invalid";
+			ty = Type.(Pair(Basic String, Basic String))
+		}; {
+			TyDecl.name = "Backend_error";
+			description = "A backend-specific error occurred";
+			ty = Type.(Pair(Basic String, Array (Basic String)));
+		}; {
+			TyDecl.name = "Unimplemented";
+			description = "The operation has not been implemented";
+			ty = Type.Unit;
+		}; {
+			TyDecl.name = "Does_not_exist";
+			description = "The object does not exist";
+			ty = Type.(Pair(Basic String, Basic String));
+		}; {
+			TyDecl.name = "Cancelled";
+			description = "The task has been asynchronously cancelled";
+			ty = Type.(Basic String);
+		}; {
+			TyDecl.name = "Redirect";
+			description = "The request should be resent to this address";
+			ty = Type.(Basic String);
+		}; {
+			TyDecl.name = "Sr_attached";
+			description = "The operation cannot be performed because the SR is still attached";
+			ty = Type.Unit
+		}
+	];
     type_decls = [
 		{
 			TyDecl.name = "vdi";
