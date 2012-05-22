@@ -516,43 +516,48 @@ let destroy ~__context ~self =
 		(fun rpc session_id ->
 			Client.Client.VLAN.destroy rpc session_id vlan)
 
+let is_valid_ip addr =
+	try ignore (Unix.inet_addr_of_string addr); true with _ -> false
+
 let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
 	assert_no_protection_enabled ~__context ~self;
 		
-	let assert_is_valid param value =
-	  try ignore (Unix.inet_addr_of_string value); true
-	  with _ -> raise (Api_errors.Server_error (Api_errors.invalid_ip_address_specified, [ param ])) in
+	if gateway <> "" && (not (is_valid_ip gateway)) then
+		raise (Api_errors.Server_error (Api_errors.invalid_ip_address_specified, ["gateway"]));
 
-	if gateway <> "" && (not (assert_is_valid "gateway" gateway))
-	then raise (Api_errors.Server_error
-		      (Api_errors.invalid_ip_address_specified, [ "gateway" ]));
-
-	(* If we have an IPv6 address, must have a valid prefix length *)
-	if iPv6 <>""
-	then begin
-	  try let index = String.index iPv6 '/' in
-	  begin
-	    let addr = String.sub iPv6 0 index in
-	    let prefix_len = String.sub iPv6 (index + 1) ((String.length iPv6) - index - 1) in
-	    if (not (assert_is_valid "iPv6" addr)) then raise (Api_errors.Server_error
- 								  (Api_errors.invalid_ip_address_specified, [ "IPv6" ]));
-            try let pl_int = int_of_string(prefix_len) in
-	    if (pl_int < 0 or pl_int > 128) then raise (Api_errors.Server_error
-			  (Api_errors.invalid_ip_address_specified, [ "Prefix length must be between 0 and 128" ]));
-	    with _ -> raise (Api_errors.Server_error
-			     (Api_errors.invalid_ip_address_specified, [ Printf.sprintf "Cannot parse prefix length '%s'" prefix_len ]));
-	  end;
-	  with Not_found -> raise (Api_errors.Server_error 
-			     (Api_errors.invalid_ip_address_specified, [ "Prefix length must be specified (format: <ipv6>/<prefix>" ]));
-
+	(* If we have an IPv6 address, check that it is valid and a prefix length is specified *)
+	if iPv6 <> "" then begin
+		let index =
+			try
+				String.index iPv6 '/'
+			with Not_found ->
+				let msg = "Prefix length must be specified (format: <ipv6>/<prefix>" in
+				raise (Api_errors.Server_error
+					(Api_errors.invalid_ip_address_specified, [msg]))
+		in
+		let addr = String.sub iPv6 0 index in
+		let prefix_len = String.sub iPv6 (index + 1) ((String.length iPv6) - index - 1) in
+		if not (is_valid_ip addr) then
+			raise (Api_errors.Server_error (Api_errors.invalid_ip_address_specified, ["IPv6"]));
+		let pl_int =
+			try
+				int_of_string prefix_len
+			with _ ->
+				let msg = Printf.sprintf "Cannot parse prefix length '%s'" prefix_len in
+				raise (Api_errors.Server_error
+					(Api_errors.invalid_ip_address_specified, [msg]))
+		in
+		if (pl_int < 0 or pl_int > 128) then
+			raise (Api_errors.Server_error
+				(Api_errors.invalid_ip_address_specified, ["Prefix length must be between 0 and 128"]))
 	end;
 
 	(* Management iface must have an address for the primary address type *)
-	let management=Db.PIF.get_management ~__context ~self in
-	let primary_address_type=Db.PIF.get_primary_address_type ~__context ~self in
-	if management && mode == `None && primary_address_type=`IPv6
-	then raise (Api_errors.Server_error
-		(Api_errors.pif_is_management_iface, [ Ref.string_of self ]));
+	let management = Db.PIF.get_management ~__context ~self in
+	let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self in
+	if management && mode = `None && primary_address_type = `IPv6 then
+		raise (Api_errors.Server_error
+			(Api_errors.pif_is_management_iface, [ Ref.string_of self ]));
 
 	(* Set the values in the DB *)
 	Db.PIF.set_ipv6_configuration_mode ~__context ~self ~value:mode;
@@ -560,8 +565,7 @@ let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
 	Db.PIF.set_IPv6 ~__context ~self ~value:[iPv6];
 	if dNS <> "" then Db.PIF.set_DNS ~__context ~self ~value:dNS;
 
-	if Db.PIF.get_currently_attached ~__context ~self
-	then begin
+	if Db.PIF.get_currently_attached ~__context ~self then begin
 		debug
 			"PIF %s is currently_attached and the configuration has changed; calling out to reconfigure"
 			(Db.PIF.get_uuid ~__context ~self);
@@ -573,15 +577,13 @@ let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
 let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
 	assert_no_protection_enabled ~__context ~self;
 
-	let assert_is_valid ip_addr =
-		try ignore (Unix.inet_addr_of_string ip_addr); true with _ -> false in
 	if mode=`Static
 	then begin
 		(* require these parameters if mode is static *)
-		if not (assert_is_valid iP)
+		if not (is_valid_ip iP)
 		then raise (Api_errors.Server_error
 			(Api_errors.invalid_ip_address_specified, [ "IP" ]));
-		if not (assert_is_valid netmask)
+		if not (is_valid_ip netmask)
 		then raise (Api_errors.Server_error
 			(Api_errors.invalid_ip_address_specified, [ "netmask" ]));
 	end;
@@ -589,7 +591,7 @@ let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
 	 * then check they contain valid IP address *)
 	List.iter
 		(fun (param,value)->
-			if value <> "" && (not (assert_is_valid value))
+			if value <> "" && (not (is_valid_ip value))
 			then raise (Api_errors.Server_error
 				(Api_errors.invalid_ip_address_specified, [ param ])))
 		["IP",iP; "netmask",netmask; "gateway",gateway];
