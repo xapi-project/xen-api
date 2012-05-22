@@ -169,6 +169,7 @@ module Debug_print_impl = struct
 	module SR = struct
 		let list context ~dbg = assert false
 		let scan context ~dbg ~sr = assert false
+		let create context ~dbg ~sr ~device_config ~physical_size = assert false
 		let attach context ~dbg ~sr ~device_config =
 			info "SR.attach sr:%s" sr
 		let fail_if_anything_leaked () = 

@@ -161,7 +161,7 @@ exception Unimplemented                           (** error: not implemented by 
 exception Does_not_exist of (string * string)
 exception Cancelled of string
 exception Redirect of string option
-
+exception Sr_attached
 
 module Driver_info = struct
     type t = {
@@ -203,7 +203,10 @@ module DP = struct
 end
 
 module SR = struct
-	(** Functions which attach/detach SRs *)
+	(** Functions which manipulate SRs *)
+
+	(** [create dbg sr device_config physical_size] creates an sr with id [sr] *)
+	external create : dbg:debug_info -> sr:sr -> device_config:(string * string) list -> physical_size:int64 -> unit = ""
 
 	(** [attach task sr]: attaches the SR *)
     external attach : dbg:debug_info -> sr:sr -> device_config:(string * string) list -> unit = ""

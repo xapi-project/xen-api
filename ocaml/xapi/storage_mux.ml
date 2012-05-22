@@ -103,6 +103,9 @@ module Mux = struct
 			
 	end
 	module SR = struct
+		let create context ~dbg ~sr ~device_config ~physical_size =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.SR.create ~dbg ~sr ~device_config ~physical_size
 		let attach context ~dbg ~sr =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.SR.attach ~dbg ~sr
