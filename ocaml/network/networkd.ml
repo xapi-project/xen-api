@@ -37,7 +37,7 @@ let xmlrpc_handler process req bio context =
 		Network_utils.debug "Backtrace: %s" (Printexc.get_backtrace ());
 		Http_svr.response_unauthorised ~req (Printf.sprintf "Go away: %s" (Printexc.to_string e)) s
 
-let start path process =
+let start_server path process =
 	Http_svr.Server.add_handler server Http.Post "/" (Http_svr.BufIO (xmlrpc_handler process));
 
 	Unixext.mkdir_safe (Filename.dirname path) 0o700;
@@ -51,9 +51,19 @@ let start path process =
 
 	()
 
+let start () =
+	Network_monitor_thread.start ();
+	Network_server.on_startup ();
+	start_server path Server.process
+
+let stop signal =
+	Network_server.on_shutdown signal;
+	Network_monitor_thread.stop ();
+	exit 0
+
 let handle_shutdown () =
-	Sys.set_signal Sys.sigterm (Sys.Signal_handle Network_server.on_shutdown);
-	Sys.set_signal Sys.sigint (Sys.Signal_handle Network_server.on_shutdown);
+	Sys.set_signal Sys.sigterm (Sys.Signal_handle stop);
+	Sys.set_signal Sys.sigint (Sys.Signal_handle stop);
 	Sys.set_signal Sys.sigpipe Sys.Signal_ignore
 
 let _ =
@@ -72,16 +82,13 @@ let _ =
 
 	if !daemonize then Unixext.daemonize () else Network_utils.print_debug := true;
 
-	Network_server.on_startup ();
-	Network_monitor_thread.start ();
-
 	if !pidfile <> "" then begin
 		Unixext.mkdir_rec (Filename.dirname !pidfile) 0o755;
 		Unixext.pidfile_write !pidfile;
 	end;
 
 	handle_shutdown ();
-	start path Server.process;
+	start ();
 	while true do
 		Thread.delay 300.;
 		Network_server.on_timer ()

@@ -3515,6 +3515,24 @@ let pif_reconfigure_ip printer rpc session_id params =
 	let dns = read_optional_case_insensitive "DNS" in
 	let () = Client.PIF.reconfigure_ip rpc session_id pif mode ip netmask gateway dns in ()
 
+let pif_reconfigure_ipv6 printer rpc session_id params =
+	let read_optional_case_insensitive key =
+		let lower_case_params = List.map (fun (k,v)->(String.lowercase k,v)) params in
+		let lower_case_key = String.lowercase key in
+		List.assoc_default lower_case_key lower_case_params "" in
+
+	let pif = Client.PIF.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+	let mode = Record_util.ipv6_configuration_mode_of_string (List.assoc "mode" params) in
+	let ipv6 = read_optional_case_insensitive "IPv6" in
+	let gateway = List.assoc_default "gateway" params "" in
+	let dns = read_optional_case_insensitive "DNS" in
+	let () = Client.PIF.reconfigure_ipv6 rpc session_id pif mode ipv6 gateway dns in ()
+
+let pif_set_primary_address_type printer rpc session_id params =
+	let pif = Client.PIF.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+	let address_type = Record_util.primary_address_type_of_string (List.assoc "primary_address_type" params) in
+	let () = Client.PIF.set_primary_address_type rpc session_id pif address_type in ()
+
 let pif_unplug printer rpc session_id params =
 	let pif = Client.PIF.get_by_uuid rpc session_id (List.assoc "uuid" params) in
 	let () = Client.PIF.unplug rpc session_id pif in ()

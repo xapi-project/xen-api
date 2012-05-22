@@ -26,6 +26,7 @@ let inventory_filename = Util_globs_inventory.inventory_filename
 let _installation_uuid		= "INSTALLATION_UUID"
 let _control_domain_uuid	= "CONTROL_DOMAIN_UUID"
 let _management_interface	= "MANAGEMENT_INTERFACE"
+let _management_address_type	= "MANAGEMENT_ADDRESS_TYPE"
 let _build_number           = "BUILD_NUMBER"
 
 (* Optional keys: *)
@@ -47,6 +48,7 @@ let minimum_default_entries () =
   [ _installation_uuid, host_uuid;
     _control_domain_uuid, dom0_uuid;
     _management_interface, "";
+    _management_address_type, "IPv4";
     _build_number, "0" ]
 
 (* trim any quotes off the ends *)
