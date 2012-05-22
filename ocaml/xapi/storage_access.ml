@@ -516,94 +516,6 @@ module Builtin_impl = struct
 	end
 end
 
-module Qemu_blkfront = struct
-	(** If the qemu is in a different domain to the storage backend, a blkfront is
-		needed to exposes disks to guests so the emulated interfaces work. *)
-
-	let get_qemu_vm ~__context ~vm = Helpers.get_domain_zero ~__context
-
-	let needed ~__context ~self hvm =
-		not(Db.VBD.get_empty ~__context ~self) && begin
-            let userdevice = Db.VBD.get_userdevice ~__context ~self in
-            let device_number = Device_number.of_string hvm userdevice in
-            match Device_number.spec device_number with
-                | Device_number.Ide, n, _ when n < 4 -> true
-                | _ -> false
-		end
-
-	(* If we have a shared VDI (eg CDROM) we don't share the blkfront
-	   to simplify the accounting. We use the other_config:related_to key
-	   to distinguish the different VBDs. *)
-	let vbd_opt ~__context ~self =
-		let vdi = Db.VBD.get_VDI ~__context ~self in
-		let user_vm = Db.VBD.get_VM ~__context ~self in
-		let vm = get_qemu_vm ~__context ~vm:user_vm in
-		if Db.is_valid_ref __context vdi
-		then begin
-			match List.filter (fun other ->
-				try
-					let vbd_r = Db.VBD.get_record ~__context ~self:other in
-					true
-					&& vbd_r.API.vBD_VM = vm
-							&& (List.mem_assoc Xapi_globs.related_to_key vbd_r.API.vBD_other_config)
-							&& (List.assoc Xapi_globs.related_to_key vbd_r.API.vBD_other_config = Ref.string_of self)
-				with _ -> false (* the VBD may be destroyed concurrently *)
-			) (Db.VDI.get_VBDs ~__context ~self:vdi) with
-				| vbd :: _ -> Some vbd
-				| [] -> None
-		end else None
-
-	let create ~__context ~self ~read_write hvm =
-		match vbd_opt ~__context ~self with
-			| Some vbd ->
-				if not (Db.VBD.get_currently_attached ~__context ~self:vbd)
-				then Helpers.call_api_functions ~__context
-					(fun rpc session_id -> XenAPI.VBD.plug rpc session_id vbd)
-			| None ->
-				let vdi = Db.VBD.get_VDI ~__context ~self in
-				let user_vm = Db.VBD.get_VM ~__context ~self in
-				let vm = get_qemu_vm ~__context ~vm:user_vm in
-				if needed ~__context ~self hvm
-				then Helpers.call_api_functions ~__context
-					(fun rpc session_id ->
-						let mode = if read_write then `RW else `RO in
-						let vbd = XenAPI.VBD.create
-							~rpc ~session_id ~vM:vm ~vDI:vdi
-							~other_config:[ Xapi_globs.related_to_key, Ref.string_of self ]
-							~userdevice:"autodetect" ~bootable:false ~mode
-							~_type:`Disk ~empty:false ~unpluggable:true
-							~qos_algorithm_type:"" ~qos_algorithm_params:[] in
-						XenAPI.VBD.plug rpc session_id vbd
-					)
-
-	let path_opt ~__context ~self =
-		let vbd = vbd_opt ~__context ~self in
-		let path_of vbd = "/dev/" ^ (Db.VBD.get_device ~__context ~self:vbd) in
-		Opt.map path_of vbd
-
-	let on_vbd ~__context ~self f =
-		let vbd = vbd_opt ~__context ~self in
-		Opt.iter
-            (fun vbd ->
-                Helpers.call_api_functions ~__context
-                    (fun rpc session_id -> f rpc session_id vbd)
-            ) vbd
-
-	let unplug_nowait ~__context ~self =
-		on_vbd ~__context ~self
-			(fun rpc session_id vbd ->
-				try XenAPI.VBD.unplug rpc session_id vbd
-				with _ -> ()
-			)
-		
-	let destroy ~__context ~self =
-		on_vbd ~__context ~self
-			(fun rpc session_id vbd ->
-                Attach_helpers.safe_unplug rpc session_id vbd;
-                XenAPI.VBD.destroy rpc session_id vbd
-            )
-end
-
 module type SERVER = sig
     val process : Smint.request -> Rpc.call -> Rpc.response
 end
@@ -886,27 +798,20 @@ let attach_and_activate ~__context ~vbd ~domid ~hvm f =
 	transform_storage_exn
 		(fun () ->
 			let read_write = Db.VBD.get_mode ~__context ~self:vbd = `RW in
-			let result = on_vdi ~__context ~vbd ~domid
+			on_vdi ~__context ~vbd ~domid
 				(fun rpc dbg dp sr vdi ->
 					let module C = Storage_interface.Client(struct let rpc = rpc end) in
 					let attach_info = C.VDI.attach dbg dp sr vdi read_write in
 					C.VDI.activate dbg dp sr vdi;
 					f attach_info
-				) in
-			Qemu_blkfront.create ~__context ~self:vbd ~read_write hvm;
-			result
+				)
 		)
 
 (** [deactivate_and_detach __context vbd domid] idempotent function which ensures
     that any attached or activated VDI gets properly deactivated and detached. *)
-let deactivate_and_detach ~__context ~vbd ~domid ~unplug_frontends =
+let deactivate_and_detach ~__context ~vbd ~domid =
 	transform_storage_exn
 		(fun () ->
-			(* Remove the qemu frontend first: this will not pass the deactivate/detach
-			   through to the backend so an SM backend failure won't cause us to leak
-			   a VBD. *)
-			if unplug_frontends
-			then Qemu_blkfront.destroy ~__context ~self:vbd;
 			(* It suffices to destroy the datapath: any attached or activated VDIs will be
 			   automatically detached and deactivated. *)
 			on_vdi ~__context ~vbd ~domid

@@ -19,17 +19,6 @@ val start: unit -> unit
 (** once [start ()] returns the storage service is listening for requests on
     its unix domain socket. *)
 
-module Qemu_blkfront: sig
-
-	(** [path_opt __context self] returns [Some path] where [path] names the
-        storage device in the qemu domain, or [None] if there is no path *)
-	val path_opt: __context:Context.t -> self:API.ref_VBD -> string option
-
-	val unplug_nowait: __context:Context.t -> self:API.ref_VBD -> unit
-
-	val destroy: __context:Context.t -> self:API.ref_VBD -> unit
-end
-
 (** [find_vdi __context sr vdi] returns the XenAPI VDI ref associated
 	with (sr, vdi) *)
 val find_vdi: __context:Context.t -> Storage_interface.sr -> Storage_interface.vdi -> API.ref_VDI * API.vDI_t
@@ -68,7 +57,7 @@ val attach_and_activate: __context:Context.t -> vbd:API.ref_VBD -> domid:int -> 
 
 (** [deactivate_and_detach __context vbd domid] idempotent function which ensures
     that any attached or activated VDI gets properly deactivated and detached. *)
-val deactivate_and_detach: __context:Context.t -> vbd:API.ref_VBD -> domid:int -> unplug_frontends:bool -> unit
+val deactivate_and_detach: __context:Context.t -> vbd:API.ref_VBD -> domid:int -> unit
 
 (** [is_attached __context vbd] returns true if the [vbd] has an attached
     or activated datapath. *)
