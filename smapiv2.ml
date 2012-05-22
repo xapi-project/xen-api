@@ -108,6 +108,36 @@ let api =
 	];
     interfaces =
       [
+		  {
+			  Interface.name = "Query";
+			  description = "Discover properties of this implementation";
+			  type_decls = [
+				  {
+					  TyDecl.name = "query_result";
+					  description = "properties of this implementation";
+					  ty = Type.(Struct( ("name", Basic String, "short name"), [
+						  "vendor", Basic String, "entity which produced this implementation";
+						  "version", Basic String, "version";
+						  "features", Array (Basic String), "features supported by this plugin"
+					  ]))
+				  }
+			  ];
+			  methods = [
+				  {
+					  Method.name = "query";
+					  description = "Query the implementation and return its properties";
+					  inputs = [];
+					  outputs = [
+						  {
+							  Arg.name = "query_result";
+							  ty = Type.Name "query_result";
+							  description = "The properies of this implementation"
+						  }
+					  ]
+				  }
+			  ]
+		  };
+
 	{
 	  Interface.name = "VDI";
 	  description = "Operations which operate on Virtual Disk Images";
