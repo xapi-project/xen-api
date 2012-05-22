@@ -27,7 +27,8 @@ let create_internal ~__context ~host ~tagged_PIF ~tag ~network ~device =
 		~device ~device_name:device ~network ~host ~mAC:vlan_mac ~mTU ~vLAN:tag ~metrics
 		~physical:false ~currently_attached:false
 		~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null
-		~vLAN_master_of:vlan ~management:false ~other_config:[] ~disallow_unplug:false;
+		~vLAN_master_of:vlan ~management:false ~other_config:[] ~disallow_unplug:false
+		~ipv6_configuration_mode:`None ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type:`IPv4;
 
 	let () = Db.VLAN.create ~__context ~ref:vlan ~uuid:vlan_uuid ~tagged_PIF ~untagged_PIF ~tag ~other_config:[] in
 	vlan, untagged_PIF

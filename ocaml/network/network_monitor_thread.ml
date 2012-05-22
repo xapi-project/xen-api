@@ -12,9 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Network_interface
 open Network_utils
-open Network_monitor
 
 open Fun
 open Stringext
@@ -24,6 +22,8 @@ open Threadext
 let failed_again = ref false
 
 let rec monitor () =
+	let open Network_interface in
+	let open Network_monitor in
 	(try
 		let devs = ref [] in
 
@@ -163,8 +163,51 @@ let rec monitor () =
 	Thread.delay interval;
 	monitor ()
 
+let watcher_m = Mutex.create ()
+let watcher_pid = ref None
+
+let xapirpc xml =
+	let open Xmlrpc_client in
+	XML_protocol.rpc ~transport:(Unix (Filename.concat Fhs.vardir "xapi")) ~http:(xmlrpc ~version:"1.0" "/") xml
+
+let signal_networking_change () =
+	let module XenAPI = Client.Client in
+	let session = XenAPI.Session.slave_local_login_with_password ~rpc:xapirpc ~uname:"" ~pwd:"" in
+	Pervasiveext.finally
+		(fun () -> XenAPI.Host.signal_networking_change xapirpc session)
+		(fun () -> XenAPI.Session.local_logout xapirpc session)
+
+let ip_watcher () =
+	let cmd = Network_utils.iproute2 in
+	(* Only monitor IPv6 addresses at the moment *)
+	let args = ["-6"; "monitor"; "address"] in
+	let readme, writeme = Unix.pipe () in
+	Mutex.execute watcher_m (fun () ->
+		watcher_pid := Some (Forkhelpers.safe_close_and_exec ~env:(Unix.environment ()) None (Some writeme) None [] cmd args)
+	);
+	Unix.close writeme;
+	let in_channel = Unix.in_channel_of_descr readme in
+	debug "Started IPv6 watcher thread";
+	let rec loop () =
+		let line = input_line in_channel in
+		(* Do not send events for link-local IPv6 addresses *)
+		if String.has_substr line "inet" && not (String.has_substr line "inet6 fe80") then begin
+			signal_networking_change ()
+		end;
+		loop ()
+	in
+	loop ()
+
 let start () =
 	debug "Starting network monitor";
 	let (_ : Thread.t) = Thread.create monitor () in
+	let (_ : Thread.t) = Thread.create ip_watcher () in
 	()
+
+let stop () =
+	Mutex.execute watcher_m (fun () ->
+		match !watcher_pid with
+		| None -> ()
+		| Some pid -> Unix.kill (Forkhelpers.getpid pid) Sys.sigterm
+	)
 

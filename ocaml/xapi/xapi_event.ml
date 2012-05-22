@@ -315,8 +315,6 @@ let from ~__context ~classes ~token ~timeout =
 			(fun acc table ->
 				 Db_cache_types.Table.fold_over_recent sub.last_generation
 					 (fun ctime mtime dtime objref (creates,mods,deletes,last) ->
-						  info "last_generation=%Ld cur_id=%Ld" sub.last_generation sub.cur_id;
-						  info "ctime: %Ld mtime:%Ld dtime:%Ld objref:%s" ctime mtime dtime objref;
 						  let last = max last (max mtime dtime) in (* mtime guaranteed to always be larger than ctime *)
 						  if dtime > 0L then begin
 							  if ctime > sub.last_generation then
@@ -337,8 +335,6 @@ let from ~__context ~classes ~token ~timeout =
 		if List.length creates = 0 && List.length mods = 0 && List.length deletes = 0 && List.length messages = 0 && Unix.gettimeofday () < sub.timeout
 		then
 			(
-				debug "Waiting more: timeout=%f now=%f" sub.timeout (Unix.gettimeofday ());
-				
 				sub.last_generation <- last; (* Cur_id was bumped, but nothing relevent fell out of the db. Therefore the *)
 				sub.last_timestamp <- timestamp;
 				sub.cur_id <- last; (* last id the client got is equivalent to the current one *)

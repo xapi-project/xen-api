@@ -19,7 +19,7 @@ exception Bad_sexpr of string
 exception Bad_error of string
 
 (** Raised when the bootloader returns an error *)
-exception Error_from_bootloader of (string * (string list))
+exception Error_from_bootloader of string
 
 (** Raised when an unknown bootloader is used *)
 exception Unknown_bootloader of string

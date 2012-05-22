@@ -84,8 +84,11 @@ val _dom0_mem : string
 (** UUID of the control domain (dom0) *)
 val _control_domain_uuid : string
 
-(** UUID of the management PIF *)
+(** Interface name of the management PIF *)
 val _management_interface : string
+
+(** Primary address type of the management PIF *)
+val _management_address_type : string
 
 (* Keys defined in Miami *)
 (** OEM manufacturer name *)

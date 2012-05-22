@@ -83,10 +83,6 @@ let emergency_mode_error = ref (Api_errors.Server_error(Api_errors.host_still_bo
 
 let http_realm = "xapi"
 
-(* Special XS entry looked for by the XenSource PV drivers (see xenagentd.hg:src/xad.c) *)
-let xe_key = "/mh/XenSource-TM_XenEnterprise-TM"
-let xe_val = "XenSource(TM) and XenEnterprise(TM) are registered trademarks of XenSource Inc."
-
 (* Base path and some of its immediate dependencies. *)
 let xe_path = Filename.concat Fhs.bindir "xe"
 let sm_dir = Filename.concat Fhs.optdir "sm"

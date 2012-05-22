@@ -282,7 +282,8 @@ let pool_introduce
 		~mAC ~mTU ~vLAN ~physical
 		~ip_configuration_mode ~iP ~netmask ~gateway
 		~dNS ~bond_slave_of ~vLAN_master_of ~management
-		~other_config ~disallow_unplug =
+		~other_config ~disallow_unplug ~ipv6_configuration_mode
+		~iPv6 ~ipv6_gateway ~primary_address_type =
 	let pif_ref = Ref.make () in
 	let metrics = make_pif_metrics ~__context in
 	let () =
@@ -293,7 +294,8 @@ let pool_introduce
 			~physical ~currently_attached:false
 			~ip_configuration_mode ~iP ~netmask ~gateway ~dNS
 			~bond_slave_of:Ref.null ~vLAN_master_of ~management
-			~other_config ~disallow_unplug in
+			~other_config ~disallow_unplug ~ipv6_configuration_mode
+			~iPv6 ~ipv6_gateway ~primary_address_type in
 	pif_ref
 
 let db_introduce = pool_introduce
@@ -337,7 +339,8 @@ let introduce_internal
 		~mTU ~vLAN ~metrics ~physical ~currently_attached:false
 		~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:""
 		~dNS:"" ~bond_slave_of:Ref.null ~vLAN_master_of ~management:false
-		~other_config:[] ~disallow_unplug:false in
+		~other_config:[] ~disallow_unplug:false ~ipv6_configuration_mode:`None
+	        ~iPv6:[] ~ipv6_gateway:"" ~primary_address_type:`IPv4 in
 
 	(* If I'm a pool slave and this pif represents my management
 	 * interface then leave it alone: if the interface goes down
@@ -513,18 +516,74 @@ let destroy ~__context ~self =
 		(fun rpc session_id ->
 			Client.Client.VLAN.destroy rpc session_id vlan)
 
+let is_valid_ip addr =
+	try ignore (Unix.inet_addr_of_string addr); true with _ -> false
+
+let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
+	assert_no_protection_enabled ~__context ~self;
+		
+	if gateway <> "" && (not (is_valid_ip gateway)) then
+		raise (Api_errors.Server_error (Api_errors.invalid_ip_address_specified, ["gateway"]));
+
+	(* If we have an IPv6 address, check that it is valid and a prefix length is specified *)
+	if iPv6 <> "" then begin
+		let index =
+			try
+				String.index iPv6 '/'
+			with Not_found ->
+				let msg = "Prefix length must be specified (format: <ipv6>/<prefix>" in
+				raise (Api_errors.Server_error
+					(Api_errors.invalid_ip_address_specified, [msg]))
+		in
+		let addr = String.sub iPv6 0 index in
+		let prefix_len = String.sub iPv6 (index + 1) ((String.length iPv6) - index - 1) in
+		if not (is_valid_ip addr) then
+			raise (Api_errors.Server_error (Api_errors.invalid_ip_address_specified, ["IPv6"]));
+		let pl_int =
+			try
+				int_of_string prefix_len
+			with _ ->
+				let msg = Printf.sprintf "Cannot parse prefix length '%s'" prefix_len in
+				raise (Api_errors.Server_error
+					(Api_errors.invalid_ip_address_specified, [msg]))
+		in
+		if (pl_int < 0 or pl_int > 128) then
+			raise (Api_errors.Server_error
+				(Api_errors.invalid_ip_address_specified, ["Prefix length must be between 0 and 128"]))
+	end;
+
+	(* Management iface must have an address for the primary address type *)
+	let management = Db.PIF.get_management ~__context ~self in
+	let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self in
+	if management && mode = `None && primary_address_type = `IPv6 then
+		raise (Api_errors.Server_error
+			(Api_errors.pif_is_management_iface, [ Ref.string_of self ]));
+
+	(* Set the values in the DB *)
+	Db.PIF.set_ipv6_configuration_mode ~__context ~self ~value:mode;
+	Db.PIF.set_ipv6_gateway ~__context ~self ~value:gateway;
+	Db.PIF.set_IPv6 ~__context ~self ~value:[iPv6];
+	if dNS <> "" then Db.PIF.set_DNS ~__context ~self ~value:dNS;
+
+	if Db.PIF.get_currently_attached ~__context ~self then begin
+		debug
+			"PIF %s is currently_attached and the configuration has changed; calling out to reconfigure"
+			(Db.PIF.get_uuid ~__context ~self);
+		Db.PIF.set_currently_attached ~__context ~self ~value:false;
+		Nm.bring_pif_up ~__context ~management_interface:management self;
+	end;
+	mark_pif_as_dirty (Db.PIF.get_device ~__context ~self)
+
 let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
 	assert_no_protection_enabled ~__context ~self;
 
-	let assert_is_valid ip_addr =
-		try ignore (Unix.inet_addr_of_string ip_addr); true with _ -> false in
 	if mode=`Static
 	then begin
 		(* require these parameters if mode is static *)
-		if not (assert_is_valid iP)
+		if not (is_valid_ip iP)
 		then raise (Api_errors.Server_error
 			(Api_errors.invalid_ip_address_specified, [ "IP" ]));
-		if not (assert_is_valid netmask)
+		if not (is_valid_ip netmask)
 		then raise (Api_errors.Server_error
 			(Api_errors.invalid_ip_address_specified, [ "netmask" ]));
 	end;
@@ -532,7 +591,7 @@ let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
 	 * then check they contain valid IP address *)
 	List.iter
 		(fun (param,value)->
-			if value <> "" && (not (assert_is_valid value))
+			if value <> "" && (not (is_valid_ip value))
 			then raise (Api_errors.Server_error
 				(Api_errors.invalid_ip_address_specified, [ param ])))
 		["IP",iP; "netmask",netmask; "gateway",gateway];
@@ -541,8 +600,9 @@ let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
 	 *)
 	(* If this is a management PIF, make sure the IP config mode isn't None *)
 	let management=Db.PIF.get_management ~__context ~self in
+	let primary_address_type=Db.PIF.get_primary_address_type ~__context ~self in
 
-	if management && mode == `None
+	if management && mode == `None && primary_address_type=`IPv4
 	then raise (Api_errors.Server_error
 		(Api_errors.pif_is_management_iface, [ Ref.string_of self ]));
 
@@ -550,7 +610,10 @@ let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
 	Db.PIF.set_IP ~__context ~self ~value:iP;
 	Db.PIF.set_netmask ~__context ~self ~value:netmask;
 	Db.PIF.set_gateway ~__context ~self ~value:gateway;
-	Db.PIF.set_DNS ~__context ~self ~value:dNS;
+	if dNS <> ""
+	then begin
+	    Db.PIF.set_DNS ~__context ~self ~value:dNS;
+	end;
 	if Db.PIF.get_currently_attached ~__context ~self
 	then begin
 		debug
@@ -564,6 +627,15 @@ let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
 	 * a PIF.reconfigure_ip to set mode=dhcp, but you have already
 	 * got an IP on the dom0 device (e.g. because it's a management
 	 * i/f that was brought up independently by init scripts) *)
+	mark_pif_as_dirty (Db.PIF.get_device ~__context ~self)
+
+let set_primary_address_type ~__context ~self ~primary_address_type =
+	assert_no_protection_enabled ~__context ~self;
+
+	let management=Db.PIF.get_management ~__context ~self in
+	if management then raise (Api_errors.Server_error(Api_errors.pif_is_management_iface, [ Ref.string_of self ]));
+
+	Db.PIF.set_primary_address_type ~__context ~self ~value:primary_address_type;
 	mark_pif_as_dirty (Db.PIF.get_device ~__context ~self)
 
 let rec unplug ~__context ~self =
@@ -621,7 +693,7 @@ let calculate_pifs_required_at_start_of_day ~__context =
 					Eq (Field "bond_slave_of", Literal (Ref.string_of Ref.null))
 				),
 				Or (
-					Not (Eq (Field "bond_master_of", Literal (Ref.string_of Ref.null))),
+					Not (Eq (Field "bond_master_of", Literal "()")),
 					Not (Eq (Field "ip_configuration_mode", Literal "None"))
 				)
 			)

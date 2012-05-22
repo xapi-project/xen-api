@@ -941,7 +941,8 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			B.VM.set_domain_action_request (VM_DB.read_exn id) dar
 		| VM_create_device_model (id, save_state) ->
 			debug "VM.create_device_model %s" id;
-			B.VM.create_device_model t (VM_DB.read_exn id) save_state
+			let vbds : Vbd.t list = VBD_DB.vbds id in
+			B.VM.create_device_model t (VM_DB.read_exn id) vbds save_state
 		| VM_destroy_device_model id ->
 			debug "VM.destroy_device_model %s" id;
 			B.VM.destroy_device_model t (VM_DB.read_exn id)
@@ -1463,6 +1464,8 @@ module VM = struct
 	let add' x =
 		debug "VM.add %s" (Jsonrpc.to_string (rpc_of_t x));
 		DB.write x.id x;
+		let module B = (val get_backend () : S) in
+		B.VM.add x;
 		x.id
 	let add _ dbg x =
 		Debug.with_thread_associated dbg (fun () -> add' x) ()

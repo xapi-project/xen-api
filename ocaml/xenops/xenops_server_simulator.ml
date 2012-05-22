@@ -317,6 +317,7 @@ module HOST = struct
 	let send_debug_keys _ = ()
 end
 module VM = struct
+	let add vm = ()
 	let create _ memory_limit vm = Mutex.execute m (create_nolock memory_limit vm)
 	let destroy _ vm = Mutex.execute m (destroy_nolock vm)
 	let pause _ vm = Mutex.execute m (do_pause_unpause_nolock vm true)
@@ -326,7 +327,7 @@ module VM = struct
 	let set_shadow_multiplier _ vm n = Mutex.execute m (do_set_shadow_multiplier_nolock vm n)
 	let set_memory_dynamic_range _ vm min max = Mutex.execute m (do_set_memory_dynamic_range_nolock vm min max)
 	let build _ vm vbds vifs = Mutex.execute m (build_nolock vm vbds vifs)
-	let create_device_model _ vm _ = Mutex.execute m (create_device_model_nolock vm)
+	let create_device_model _ vm vbds _ = Mutex.execute m (create_device_model_nolock vm)
 	let destroy_device_model _ vm = Mutex.execute m (destroy_device_model_nolock vm)
 	let request_shutdown _ vm reason ack_delay = Mutex.execute m (request_shutdown_nolock vm reason)
 	let wait_shutdown _ vm reason timeout = true

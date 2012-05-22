@@ -250,8 +250,25 @@ let test_mirror_1 url sr rurl rsr _ =
 
 	(* At this point, we have a VDI containing data with which we can mirror *)
 
-	let _ = SMClient.DATA.MIRROR.start ~dbg ~sr ~vdi:vdi_info.vdi ~dp ~url:rurl ~dest:rsr in
-	let remote_vdi_info = vdi_info in
+	let task = SMClient.DATA.MIRROR.start ~dbg ~sr ~vdi:vdi_info.vdi ~dp ~url:rurl ~dest:rsr in
+	
+	let finished = function 
+		| Task.Pending _ -> false
+		| _ -> true
+	in
+
+	while not (finished (SMClient.TASK.stat ~dbg ~task).Task.state) do
+		Thread.delay 5.0;
+	done;
+
+	let task = SMClient.TASK.stat ~dbg ~task in
+	let mirror_id = match task.Task.state with
+		| Task.Completed { Task.result=Some (Mirror_id m) } -> m
+		| _ -> failwith "Mirror failed" 
+	in
+	
+	let mirror = SMClient.DATA.MIRROR.stat ~dbg ~id:mirror_id in
+	let remote_vdi = mirror.Mirror.dest_vdi in
 
 	let junk = do_nbd url sr vdi_info.vdi dp (fun s ->
 		let (size,_) = Nbd.negotiate s in
@@ -278,9 +295,9 @@ let test_mirror_1 url sr rurl rsr _ =
 	SMClient.VDI.deactivate ~dbg ~sr ~dp ~vdi:vdi_info.vdi;
 	SMClient.VDI.detach ~dbg ~sr ~dp ~vdi:vdi_info.vdi;
 	SMClient.VDI.destroy ~dbg ~sr ~vdi:vdi_info.vdi;
-	ignore(RSMClient.VDI.attach ~dbg ~sr:rsr ~dp ~vdi:remote_vdi_info.vdi ~read_write:true);
-	RSMClient.VDI.activate ~dbg ~sr:rsr ~dp ~vdi:remote_vdi_info.vdi;
-	do_nbd rurl rsr remote_vdi_info.vdi dp (fun s ->
+	ignore(RSMClient.VDI.attach ~dbg ~sr:rsr ~dp ~vdi:remote_vdi ~read_write:true);
+	RSMClient.VDI.activate ~dbg ~sr:rsr ~dp ~vdi:remote_vdi;
+	do_nbd rurl rsr remote_vdi dp (fun s ->
 		let (size,_) = Nbd.negotiate s in
 		Printf.printf "Mirror VDI: size=%Ld\n" size;
 		check_junk s junk;
@@ -294,7 +311,7 @@ let test_mirror_1 url sr rurl rsr _ =
 		then Printf.printf "Mirror VDI: OK\n"
 		else Printf.printf "Mirror VDI: Not OK!\n"
 	);
-	RSMClient.VDI.destroy ~dbg ~sr:rsr ~vdi:remote_vdi_info.vdi
+	RSMClient.VDI.destroy ~dbg ~sr:rsr ~vdi:remote_vdi
 
 let _ =
 	let verbose = ref false in

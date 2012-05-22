@@ -177,6 +177,7 @@ module Builtin_impl = struct
 								| Api_errors.Server_error(code, params) ->
 									error "SR.scan failed SR:%s code=%s params=[%s]" (Ref.string_of sr) code (String.concat "; " params);
 									raise (Backend_error(code, params))
+								| Sm.MasterOnly -> redirect sr
 								| e ->
 									let e' = ExnHelper.string_of_exn e in
 									error "SR.scan failed SR:%s error:%s" (Ref.string_of sr) e';
@@ -758,11 +759,11 @@ let update_mirror ~__context id =
 		if m.Mirror.failed 
 		then 
 			debug "Mirror %s has failed" id;
-			let task = get_mirror_task m.Mirror.local_vdi in
+			let task = get_mirror_task m.Mirror.source_vdi in
 			debug "Mirror associated with task: %s" (Ref.string_of task);
 			(* Just to get a nice error message *)
 			Db.Task.remove_from_other_config ~__context ~self:task ~key:"mirror_failed";
-			Db.Task.add_to_other_config ~__context ~self:task ~key:"mirror_failed" ~value:m.Mirror.local_vdi;
+			Db.Task.add_to_other_config ~__context ~self:task ~key:"mirror_failed" ~value:m.Mirror.source_vdi;
 			Helpers.call_api_functions ~__context
 				(fun rpc session_id -> XenAPI.Task.cancel rpc session_id task)
 	with 

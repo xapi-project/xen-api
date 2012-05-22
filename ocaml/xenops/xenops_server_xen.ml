@@ -67,7 +67,6 @@ module VmExtra = struct
 		shadow_multiplier: float;
 		memory_static_max: int64;
 		suspend_memory_bytes: int64;
-		vbds: Vbd.t list; (* needed to regenerate qemu IDE config *)
 		qemu_vbds: (Vbd.id * (int * qemu_frontend)) list;
 		qemu_vifs: (Vif.id * (int * qemu_frontend)) list;
 		vifs: Vif.t list;
@@ -266,11 +265,11 @@ module Storage = struct
 		Xenops_task.with_subtask task (Printf.sprintf "VDI.deactivate %s" dp)
 			(transform_exception (fun () -> Client.VDI.deactivate "deactivate" dp sr vdi))
 
-	let deactivate_and_detach task dp =
+	let dp_destroy task dp =
 		Xenops_task.with_subtask task (Printf.sprintf "DP.destroy %s" dp)
 			(transform_exception (fun () ->
 				try 
-					Client.DP.destroy "deactivate_and_detach" dp false
+					Client.DP.destroy "dp_destroy" dp false
 			    with e ->
 					(* Backends aren't supposed to return exceptions on deactivate/detach, but they
 					   frequently do. Log and ignore *)
@@ -306,7 +305,7 @@ let with_disk ~xc ~xs task disk write f = match disk with
 						destroy_vbd_frontend ~xc ~xs task device
 					)
 			)
-			(fun () -> deactivate_and_detach task dp)
+			(fun () -> dp_destroy task dp)
 
 module Mem = struct
 	let call_daemon xs fn args = Squeezed_rpc.Rpc.client ~xs ~service:Squeezed_rpc._service ~fn ~args
@@ -476,6 +475,11 @@ let device_by_id xc xs vm kind domain_selection id =
 				debug "VM = %s; domid = %d; Device is not active: kind = %s; id = %s; active devices = [ %s ]" vm frontend_domid (Device_common.string_of_kind kind) id (String.concat ", " (List.map (Opt.default "None") ids));
 				raise (Device_not_connected)
 
+(* Extra keys to store in VBD backends to allow us to deactivate VDIs: *)
+type backend = disk option with rpc
+let _vdi_id = "vdi-id"
+let _dp_id = "dp-id"
+
 let set_stubdom ~xs domid domid' =
 	xs.Xs.write (Printf.sprintf "/local/domain/%d/stub-domid" domid) (string_of_int domid')
 
@@ -628,7 +632,6 @@ module VM = struct
 			shadow_multiplier = (match vm.Vm.ty with Vm.HVM { Vm.shadow_multiplier = sm } -> sm | _ -> 1.);
 			memory_static_max = vm.memory_static_max;
 			suspend_memory_bytes = 0L;
-			vbds = [];
 			qemu_vbds = [];
 			qemu_vifs = [];
 			vifs = [];
@@ -722,6 +725,34 @@ module VM = struct
 		with Does_not_exist("domain", _) ->
 			debug "Domain for VM %s does not exist: ignoring" vm.Vm.id
 
+	let add vm =
+		with_xc_and_xs
+			(fun xc xs ->
+				match di_of_uuid ~xc ~xs Newest (uuid_of_vm vm) with
+					| None -> () (* Domain doesn't exist so no setup required *)
+					| Some di ->
+						debug "VM %s exists with domid=%d; checking whether xenstore is intact" vm.Vm.id di.Xenctrl.domid;
+						(* Minimal set of keys and values expected by tools like xentop (CA-24231) *)
+						let minimal_local_kvs = [
+							"name", vm.Vm.name;
+							"domid", string_of_int di.Xenctrl.domid;
+							"vm", "/vm/" ^ vm.Vm.id;
+							"memory/dynamic-min", Int64.(to_string (div vm.Vm.memory_dynamic_min 1024L));
+							"memory/dynamic-max", Int64.(to_string (div vm.Vm.memory_dynamic_max 1024L))
+						] |> List.map (fun (k, v) -> Printf.sprintf "/local/domain/%d/%s" di.Xenctrl.domid k, v) in
+						let minimal_vm_kvs = [
+							"uuid", vm.Vm.id;
+							"name", vm.Vm.name
+						] |> List.map (fun (k, v) -> Printf.sprintf "/vm/%s/%s" vm.Vm.id k, v) in
+						List.iter
+							(fun (k, v) ->
+								if try ignore(xs.Xs.read k); false with _ -> true then begin
+									debug "xenstore-write %s <- %s" k v;
+									xs.Xs.write k v
+								end
+							) (minimal_local_kvs @ minimal_vm_kvs)
+			)
+
 	let log_exn_continue msg f x = try f x with e -> debug "Safely ignoring exception: %s while %s" (Printexc.to_string e) msg
 
 	let destroy_device_model = on_domain_if_exists (fun xc xs task vm di ->
@@ -742,7 +773,9 @@ module VM = struct
 				Domain.destroy task ~xc ~xs stubdom_domid
 			) (get_stubdom ~xs domid);
 
-		let vbds = Opt.default [] (Opt.map (fun d -> d.VmExtra.non_persistent.VmExtra.vbds) (DB.read vm.Vm.id)) in
+		let devices = Device_common.list_frontends ~xs domid in
+		let vbds = List.filter (fun device -> Device_common.(device.frontend.kind = Vbd)) devices in
+		let dps = List.map (fun device -> Device.Generic.get_private_key ~xs device _dp_id) vbds in
 
 		(* Normally we throw-away our domain-level information. If the domain
 		   has suspended then we preserve it. *)
@@ -754,11 +787,11 @@ module VM = struct
 		end;
 		Domain.destroy task ~xc ~xs domid;
 		(* Detach any remaining disks *)
-		List.iter (fun vbd -> 
+		List.iter (fun dp -> 
 			try 
-				Storage.deactivate_and_detach task (Storage.id_of domid vbd.Vbd.id)
+				Storage.dp_destroy task dp
 			with e ->
-		        warn "Ignoring exception in VM.destroy: %s" (Printexc.to_string e)) vbds
+		        warn "Ignoring exception in VM.destroy: %s" (Printexc.to_string e)) dps
 	) Oldest
 
 	let pause = on_domain (fun xc xs _ _ di ->
@@ -833,7 +866,7 @@ module VM = struct
 
 	(* NB: the arguments which affect the qemu configuration must be saved and
 	   restored with the VM. *)
-	let create_device_model_config vmextra = match vmextra.VmExtra.persistent, vmextra.VmExtra.non_persistent with
+	let create_device_model_config vbds vmextra = match vmextra.VmExtra.persistent, vmextra.VmExtra.non_persistent with
 		| { VmExtra.build_info = None }, _
 		| { VmExtra.ty = None }, _ -> raise (Domain_not_built)
 		| {
@@ -841,7 +874,6 @@ module VM = struct
 			ty = Some ty;
 		},{
 			VmExtra.vifs = vifs;
-			vbds = vbds;
 			qemu_vbds = qemu_vbds
 		} ->
 			let make ?(boot_order="cd") ?(serial="pty") ?(monitor="pty") 
@@ -968,8 +1000,7 @@ module VM = struct
 				VmExtra.build_info = Some build_info;
 				ty = Some vm.ty;
 			} and non_persistent = { d.VmExtra.non_persistent with
-				VmExtra.vbds = vbds;
-				vifs = vifs;
+				VmExtra.vifs = vifs;
 			} in
 			DB.write k {
 				VmExtra.persistent = persistent;
@@ -995,10 +1026,10 @@ module VM = struct
 				let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Unknown_bootloader %s" vm.Vm.id domid x in
 				debug "%s" m;
 				raise (Internal_error m)
-			| Bootloader.Error_from_bootloader (a, b) ->
-				let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Error_from_bootloader (%s, [ %s ])" vm.Vm.id domid a (String.concat "; " b) in
+			| Bootloader.Error_from_bootloader x ->
+				let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Error_from_bootloader %s" vm.Vm.id domid x in
 				debug "%s" m;
-				raise (Bootloader_error (a, b))
+				raise (Bootloader_error (vm.Vm.id, x))
 			| e ->
 				let m = Printf.sprintf "VM = %s; domid = %d; Bootloader error: %s" vm.Vm.id domid (Printexc.to_string e) in
 				debug "%s" m;
@@ -1006,7 +1037,7 @@ module VM = struct
 
 	let build task vm vbds vifs = on_domain (build_domain vm vbds vifs) Newest task vm
 
-	let create_device_model_exn saved_state xc xs task vm di =
+	let create_device_model_exn vbds saved_state xc xs task vm di =
 		let vmextra = DB.read_exn vm.Vm.id in
 		Opt.iter (fun info ->
 			match vm.Vm.ty with
@@ -1024,12 +1055,12 @@ module VM = struct
 					Device.Vfb.add ~xc ~xs di.Xenctrl.domid;
 					Device.Vkbd.add ~xc ~xs di.Xenctrl.domid;
 					Device.Dm.start_vnconly task ~xs ~dmpath:_qemu_dm info di.Xenctrl.domid
-		) (vmextra |> create_device_model_config);
+		) (create_device_model_config vbds vmextra);
 		match vm.Vm.ty with
 			| Vm.PV { vncterm = true; vncterm_ip = ip } -> Device.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
 			| _ -> ()
 
-	let create_device_model task vm saved_state = on_domain (create_device_model_exn saved_state) Newest task vm
+	let create_device_model task vm vbds saved_state = on_domain (create_device_model_exn vbds saved_state) Newest task vm
 
 	let request_shutdown task vm reason ack_delay =
 		let reason = shutdown_reason reason in
@@ -1160,19 +1191,20 @@ module VM = struct
 						let k = vm.Vm.id in
 						let d = DB.read_exn vm.Vm.id in
 
-						(* Empty drives should be ignored (since they don't
-						   even exist in the PV case) *)
-						let vbds = List.filter (fun vbd -> vbd.Vbd.backend <> None) d.VmExtra.non_persistent.VmExtra.vbds in
-						let devices = List.map (fun vbd -> vbd.Vbd.id |> snd |> device_by_id xc xs vm.id Device_common.Vbd Oldest) vbds in
-						List.iter (Device.Vbd.hard_shutdown_request ~xs) devices;
-						List.iter (Device.Vbd.hard_shutdown_wait task ~xs ~timeout:30.) devices;
+						let devices = Device_common.list_frontends ~xs domid in
+						let vbds = List.filter (fun device -> Device_common.(device.frontend.kind = Vbd)) devices in
+						List.iter (Device.Vbd.hard_shutdown_request ~xs) vbds;
+						List.iter (Device.Vbd.hard_shutdown_wait task ~xs ~timeout:30.) vbds;
 						debug "VM = %s; domid = %d; Disk backends have all been flushed" vm.Vm.id domid;
-						List.iter (fun vbd -> match vbd.Vbd.backend with
-							| None (* can never happen due to 'filter' above *)
-							| Some (Local _) -> ()
-							| Some (VDI path) ->
-								let sr, vdi = Storage.get_disk_by_name task path in
-								Storage.deactivate task (Storage.id_of domid vbd.Vbd.id) sr vdi
+						List.iter (fun device ->
+							let backend = Device.Generic.get_private_key ~xs device _vdi_id |> Jsonrpc.of_string |> backend_of_rpc in
+							let dp = Device.Generic.get_private_key ~xs device _dp_id in
+							match backend with
+								| None (* can never happen due to 'filter' above *)
+								| Some (Local _) -> ()
+								| Some (VDI path) ->
+									let sr, vdi = Storage.get_disk_by_name task path in
+									Storage.deactivate task dp sr vdi
 						) vbds;
 						debug "VM = %s; domid = %d; Storing final memory usage" vm.Vm.id domid;
 						let non_persistent = { d.VmExtra.non_persistent with
@@ -1219,8 +1251,7 @@ module VM = struct
 					Domain.set_memory_dynamic_range ~xc ~xs ~min ~max domid
 				);
 				let non_persistent = { vmextra.VmExtra.non_persistent with
-					VmExtra.vbds = vbds;
-					vifs = vifs;
+					VmExtra.vifs = vifs;
 				} in
 				DB.write k { vmextra with
 					VmExtra.non_persistent = non_persistent
@@ -1464,10 +1495,6 @@ module VBD = struct
 
 	let frontend_domid_of_device device = device.Device_common.frontend.Device_common.domid
 
-	let deactivate_and_detach task device vbd =
-		let dp = Storage.id_of (frontend_domid_of_device device) vbd.id in
-		Storage.deactivate_and_detach task dp
-
 	let device_number_of_device d =
 		Device_number.of_xenstore_key d.Device_common.frontend.Device_common.devid
 
@@ -1487,7 +1514,10 @@ module VBD = struct
 						(k,v)::(List.remove_assoc k acc)) vbd.extra_backend_keys vdi.attach_info.Storage_interface.xenstore_data in
 
 					(* Remember the VBD id with the device *)
-					let id = _device_id Device_common.Vbd, id_of vbd in
+					let vbd_id = _device_id Device_common.Vbd, id_of vbd in
+					(* Remember the VDI with the device (for later deactivation) *)
+					let vdi_id = _vdi_id, vbd.backend |> rpc_of_backend |> Jsonrpc.to_string in
+					let dp_id = _dp_id, Storage.id_of frontend_domid vbd.Vbd.id in
 					let x = {
 						Device.Vbd.mode = (match vbd.mode with
 							| ReadOnly -> Device.Vbd.ReadOnly 
@@ -1503,7 +1533,7 @@ module VBD = struct
 						unpluggable = vbd.unpluggable;
 						protocol = None;
 						extra_backend_keys;
-						extra_private_keys = id :: vbd.extra_private_keys;
+						extra_private_keys = dp_id :: vdi_id :: vbd_id :: vbd.extra_private_keys;
 						backend_domid = vdi.domid
 					} in
 					let device =
@@ -1560,8 +1590,7 @@ module VBD = struct
 								VmExtra.qemu_vbds = List.remove_assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds } in
 							DB.write vm { vm_t with VmExtra.non_persistent = non_persistent }
 						end) vm_t;
-					
-					deactivate_and_detach task device vbd;
+					Storage.dp_destroy task (Storage.id_of (frontend_domid_of_device device) vbd.Vbd.id)
 				with 
 					| (Does_not_exist(_,_)) ->
 						debug "VM = %s; VBD = %s; Ignoring missing domain" vm (id_of vbd)
@@ -1597,7 +1626,7 @@ module VBD = struct
 					let device_number = device_number_of_device device in
 					Device.Vbd.media_eject ~xs ~device_number frontend_domid;
 				end;
-				deactivate_and_detach task device vbd;
+				Storage.dp_destroy task (Storage.id_of (frontend_domid_of_device device) vbd.Vbd.id)
 			) Oldest vm
 
 	let ionice qos pid =
@@ -1719,6 +1748,11 @@ module VIF = struct
 			_locking_mode, "disabled";
 		]
 
+	let disconnect_flag device mode =
+		let path = Hotplug.vif_disconnect_path device in
+		let flag = match mode with Xenops_interface.Vif.Disabled -> "1" | _ -> "0" in
+		path, flag
+
 	let plug_exn task vm vif =
 		let vm_t = DB.read vm in
 		on_frontend
@@ -1741,7 +1775,9 @@ module VIF = struct
 								~other_config:vif.other_config
 								~extra_private_keys:(id :: vif.extra_private_keys @ locking_mode)
 								frontend_domid in
-						let (_: Device_common.device) = create task frontend_domid in
+						let device = create task frontend_domid in
+						let disconnect_path, flag = disconnect_flag device vif.locking_mode in
+						xs.Xs.write disconnect_path flag;
 
 						(* If qemu is in a different domain, then plug into it *)
 						let me = this_domid ~xs in
@@ -1854,7 +1890,8 @@ module VIF = struct
 				(* Delete the old keys *)
 				List.iter (fun x -> xs.Xs.rm (path ^ "/" ^ x)) locking_mode_keys;
 				List.iter (fun (x, y) -> xs.Xs.write (path ^ "/" ^ x) y) (xenstore_of_locking_mode mode);
-
+				let disconnect_path, flag = disconnect_flag device mode in
+				xs.Xs.write disconnect_path flag;
 
 				let domid = string_of_int device.frontend.domid in
 				let devid = string_of_int device.frontend.devid in
@@ -2111,6 +2148,19 @@ let watch_xenstore () =
 		)
 
 let init () =
+	(* XXX: is this completely redundant now? The Citrix PV drivers don't need this any more *)
+	(* Special XS entry looked for by the XenSource PV drivers (see xenagentd.hg:src/xad.c) *)
+	let xe_key = "/mh/XenSource-TM_XenEnterprise-TM" in
+	let xe_val = "XenSource(TM) and XenEnterprise(TM) are registered trademarks of XenSource Inc." in
+
+	with_xc_and_xs
+		(fun xc xs ->
+			Xs.transaction xs (fun t ->
+				t.Xst.write xe_key xe_val;
+				t.Xst.setperms xe_key (0, Xsraw.PERM_READ, [])
+			)
+		);
+
 	let (_: Thread.t) = Thread.create
 		(fun () ->
 			while true do
