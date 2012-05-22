@@ -170,7 +170,8 @@ let move_management ~__context from_pif to_pif =
 	Nm.bring_pif_up ~__context ~management_interface:true to_pif;
 	let network = Db.PIF.get_network ~__context ~self:to_pif in
 	let bridge = Db.Network.get_bridge ~__context ~self:network in
-	Xapi_host.change_management_interface ~__context bridge;
+	let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self:to_pif in
+	Xapi_host.change_management_interface ~__context bridge primary_address_type;
 	Xapi_pif.update_management_flags ~__context ~host:(Helpers.get_localhost ~__context)
 
 let fix_bond ~__context ~bond =
@@ -365,7 +366,8 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 			~device ~device_name ~network ~host ~mAC ~mTU:(-1L) ~vLAN:(-1L) ~metrics:Ref.null
 			~physical:false ~currently_attached:false
 			~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null
-			~vLAN_master_of:Ref.null ~management:false ~other_config:[] ~disallow_unplug:false;
+			~vLAN_master_of:Ref.null ~management:false ~other_config:[] ~disallow_unplug:false
+			~ipv6_configuration_mode:`None ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type:`IPv4;
 		Db.Bond.create ~__context ~ref:bond ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~master:master ~other_config:[]
 			~primary_slave ~mode ~properties ~links_up:0L;
 

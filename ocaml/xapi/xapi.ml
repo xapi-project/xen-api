@@ -302,10 +302,12 @@ let init_local_database () =
 let bring_up_management_if ~__context () =
 	try
 		let management_if = Xapi_inventory.lookup Xapi_inventory._management_interface in
+		let management_address_type = Record_util.primary_address_type_of_string
+			(Xapi_inventory.lookup Xapi_inventory._management_address_type) in
 		if management_if = "" then begin
 			debug "No management interface defined (management is disabled)";
 		end else begin
-			Xapi_mgmt_iface.run management_if;
+			Xapi_mgmt_iface.run management_if management_address_type;
 			match Helpers.get_management_ip_addr () with
 			| Some "127.0.0.1" ->
 				debug "Received 127.0.0.1 as a management IP address; ignoring"

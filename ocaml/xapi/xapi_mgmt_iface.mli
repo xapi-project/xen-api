@@ -27,7 +27,7 @@ val on_dom0_networking_change : __context:Context.t -> unit
 
 (** Ensure the server thread listening on the management interface, and
  *  update the inventory file with the given interface (used for management traffic). *)
-val run : string -> unit
+val run : string -> [< `IPv4 | `IPv6 ] -> unit
 
 (** Stop the server thread listening on the management interface *)
 val shutdown : unit -> unit

@@ -368,6 +368,30 @@ let ip_configuration_mode_of_string m =
   | "static" -> `Static
   | s        -> raise (Record_failure ("Expected 'dhcp','none' or 'static', got "^s))
 
+let ipv6_configuration_mode_to_string = function
+  | `None -> "None"
+  | `DHCP -> "DHCP"
+  | `Static -> "Static"
+  | `Autoconf -> "Autoconf"
+
+let ipv6_configuration_mode_of_string m =
+  match String.lowercase m with
+  | "dhcp"   -> `DHCP
+  | "none"   -> `None
+  | "static" -> `Static
+  | "autoconf" -> `Autoconf
+  | s        -> raise (Record_failure ("Expected 'dhcp','none' 'autoconf' or 'static', got "^s))
+
+let primary_address_type_to_string = function
+  | `IPv4 -> "IPv4"
+  | `IPv6 -> "IPv6"
+
+let primary_address_type_of_string m =
+  match String.lowercase m with
+  | "ipv4"   -> `IPv4
+  | "ipv6"   -> `IPv6
+  | s        -> raise (Record_failure ("Expected 'ipv4' or 'ipv6', got "^s))
+
 let bond_mode_to_string = function
 	| `balanceslb -> "balance-slb"
 	| `activebackup -> "active-backup"

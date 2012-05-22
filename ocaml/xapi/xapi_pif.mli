@@ -68,7 +68,11 @@ val db_introduce :
   vLAN_master_of:[ `VLAN ] Ref.t ->
   management:bool ->
   other_config:(string * string) list ->
-  disallow_unplug:bool -> [ `PIF ] Ref.t
+  disallow_unplug:bool ->
+  ipv6_configuration_mode:[< `DHCP | `None | `Static | `Autoconf ] ->
+  iPv6:string list ->
+  ipv6_gateway:string ->
+  primary_address_type:[< `IPv4 | `IPv6 ] -> [ `PIF ] Ref.t
   
 (** Perform a database delete of the PIF record on the pool master. *)
 val db_forget : __context:Context.t -> self:[ `PIF ] Ref.t -> unit
@@ -104,6 +108,19 @@ val reconfigure_ip :
   self:API.ref_PIF ->
   mode:[< `DHCP | `None | `Static > `None `Static ] ->
   iP:string -> netmask:string -> gateway:string -> dNS:string -> unit
+  
+(** Change the IPv6 configuration of a PIF *)
+val reconfigure_ipv6 :
+  __context:Context.t ->
+  self:API.ref_PIF ->
+  mode:[< `DHCP | `None | `Static | `Autoconf > `None `Static ] ->
+  iPv6:string -> gateway:string -> dNS:string -> unit
+  
+(** Change the primary address type between IPv4 and IPv6 *)
+val set_primary_address_type :
+  __context:Context.t ->
+  self:API.ref_PIF ->
+  primary_address_type:[`IPv4 | `IPv6 ] -> unit
   
 (** Attempt to bring down the PIF: disconnect the underlying network interface from
  *  its bridge and disable the interface. *)
@@ -164,7 +181,11 @@ val pool_introduce :
   vLAN_master_of:[ `VLAN ] Ref.t ->
   management:bool ->
   other_config:(string * string) list ->
-  disallow_unplug:bool -> [ `PIF ] Ref.t
+  disallow_unplug:bool -> 
+  ipv6_configuration_mode:[< `DHCP | `None | `Static | `Autoconf ] ->
+  iPv6:string list ->
+  ipv6_gateway:string ->
+  primary_address_type:[< `IPv4 | `IPv6 ] -> [ `PIF ] Ref.t
 
 (** Create a new PIF record with the given details. Also create a network for the
  *  new PIF, or reuses an existing one if the name matches the convention prescribed

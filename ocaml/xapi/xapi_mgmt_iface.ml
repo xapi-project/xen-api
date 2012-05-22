@@ -44,13 +44,13 @@ let stop () =
 (* Even though xapi listens on all IP addresses, there is still an interface appointed as
  * _the_ management interface. Slaves in a pool use the IP address of this interface to connect
  * the pool master. *)
-let start ?addr () =
+let start ?addr ~primary_address_type () =
+	debug "Starting new server";
 	let addr =
-		match addr with
-		| None ->
-			debug "Starting new server (listening on all IPv4 addresses)";
-			Unix.inet_addr_any
-		| Some ip ->
+		match addr, primary_address_type with
+		| None, `IPv4 -> Unix.inet_addr_any
+		| None, `IPv6 -> Unix.inet6_addr_any
+		| Some ip, _ ->
 			debug "Starting new server (listening on HIMN only: %s)" ip;
 			himn_only := true;
 			Unix.inet_addr_of_string ip
@@ -62,7 +62,7 @@ let start ?addr () =
 	debug "Restarting stunnel";
 	restart_stunnel ();
 
-	if Pool_role.is_master () && addr = Unix.inet_addr_any then begin
+	if Pool_role.is_master () && (addr = Unix.inet_addr_any || addr = Unix.inet6_addr_any) then begin
 		(* NB if we synchronously bring up the management interface on a master with a blank
 		   database this can fail... this is ok because the database will be synchronised later *)
 		Server_helpers.exec_with_new_task "refreshing consoles"
@@ -71,22 +71,24 @@ let start ?addr () =
 				Dbsync_master.refresh_console_urls ~__context)
 	end
 
-let change interface =
+let change interface primary_address_type =
 	Xapi_inventory.update Xapi_inventory._management_interface interface;
+	Xapi_inventory.update Xapi_inventory._management_address_type
+		(Record_util.primary_address_type_to_string primary_address_type);
 	update_mh_info interface
 
-let run interface =
+let run interface primary_address_type =
 	Mutex.execute management_m (fun () ->
-		change interface;
+		change interface primary_address_type;
 		if !himn_only then
 			stop ();
 		if !management_interface_server = None then
-			start ()
+			start ~primary_address_type ()
 	)
 
 let shutdown () =
 	Mutex.execute management_m (fun () ->
-		change "";
+		change "" `IPv4;
 		stop ();
 		debug "Restarting stunnel";
 		restart_stunnel ();
@@ -96,7 +98,7 @@ let maybe_start_himn ?addr () =
 	Mutex.execute management_m (fun () ->
 		Opt.iter (fun addr -> himn_addr := Some addr) addr;
 		if !management_interface_server = None then
-			Opt.iter (fun addr -> start ~addr ()) !himn_addr
+			Opt.iter (fun addr -> start ~addr ~primary_address_type:`IPv4 ()) !himn_addr
 	)
 
 let management_ip_mutex = Mutex.create ()

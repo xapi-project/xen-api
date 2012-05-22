@@ -357,25 +357,25 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	 * its management interface, we can lose connection with the slave.
 	 * This function catches any "host cannot be contacted" exceptions during such calls and polls
 	 * periodically to see whether the operation has completed on the slave. *)
-	let tolerate_connection_loss fn success =
+	let tolerate_connection_loss fn success timeout =
 		try
 			fn ()
 		with
-		  Api_errors.Server_error (ercode, params) when ercode=Api_errors.cannot_contact_host ->
-			  debug "Lost connection with slave during call (expected). Waiting for slave to come up again.";
-			  let num_retries = 30 in
-			  let time_between_retries = 1. (* seconds *) in
-			  let rec poll i =
-				  match i with
-				  | 0 -> raise (Api_errors.Server_error (ercode, params)) (* give up and re-raise exn *)
-				  | i ->
-					    begin
-						    match success () with
-						    | Some result -> debug "Slave is back and has completed the operation!"; result (* success *)
-						    | None -> Thread.delay time_between_retries; poll (i-1)
-					    end
-			  in
-			  poll num_retries
+		| Api_errors.Server_error (ercode, params) when ercode=Api_errors.cannot_contact_host ->
+			debug "Lost connection with slave during call (expected). Waiting for slave to come up again.";
+			let time_between_retries = 1. (* seconds *) in
+			let num_retries = int_of_float (timeout /. time_between_retries) in
+			let rec poll i =
+				match i with
+				| 0 -> raise (Api_errors.Server_error (ercode, params)) (* give up and re-raise exn *)
+				| i ->
+					begin
+						match success () with
+						| Some result -> debug "Slave is back and has completed the operation!"; result (* success *)
+						| None -> Thread.delay time_between_retries; poll (i-1)
+					end
+			in
+			poll num_retries
 
 	let add_brackets s =
 		if s = "" then
@@ -2075,11 +2075,15 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let local_fn = Local.Host.management_reconfigure ~pif in
 			let fn () =
 				do_op_on ~local_fn ~__context ~host:(Db.PIF.get_host ~__context ~self:pif) (fun session_id rpc -> Client.Host.management_reconfigure rpc session_id pif) in
-			tolerate_connection_loss fn success
+			tolerate_connection_loss fn success 30.
 
 		let management_disable ~__context =
 			info "Host.management_disable";
 			Local.Host.management_disable ~__context
+
+		let get_management_interface ~__context ~host = 
+			info "Host.get_management_interface: host = '%s'" (host_uuid ~__context host);
+			Local.Host.get_management_interface ~__context ~host
 
 		let disable ~__context ~host =
 			info "Host.disable: host = '%s'" (host_uuid ~__context host);
@@ -2701,7 +2705,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			in
 			let fn () =
 				do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Bond.create rpc session_id network members mAC mode properties) in
-			tolerate_connection_loss fn success
+			tolerate_connection_loss fn success 30.
 
 		let destroy ~__context ~self =
 			info "Bond.destroy: bond = '%s'" (bond_uuid ~__context self);
@@ -2719,7 +2723,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			in
 			let local_fn = Local.Bond.destroy ~self in
 			let fn () = do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Bond.destroy rpc session_id self) in
-			tolerate_connection_loss fn success
+			tolerate_connection_loss fn success 30.
 
 		let set_mode ~__context ~self ~value =
 			info "Bond.set_mode: bond = '%s'; value = '%s'" (bond_uuid ~__context self) (Record_util.bond_mode_to_string value);
@@ -2771,7 +2775,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
 			info "PIF.reconfigure_ip: PIF = '%s'; mode = '%s'; IP = '%s'; netmask = '%s'; gateway = '%s'; DNS = %s"
 				(pif_uuid ~__context self)
-				(match mode with `DHCP -> "DHCP" | `None -> "None" | `Static -> "Static") iP netmask gateway dNS;
+				(Record_util.ip_configuration_mode_to_string mode) iP netmask gateway dNS;
 
 			(*      let host = Db.PIF.get_host ~__context ~self in
 			        let pbds = Db.Host.get_PBDs ~__context ~self:host in
@@ -2804,6 +2808,33 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 						progress := Db.Task.get_progress ~__context ~self:task_id;
 						debug "Polling task %s progress" (Ref.string_of task_id)
 					done)
+
+		let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
+			info "PIF.reconfigure_ipv6: PIF = '%s'; mode = '%s'; IPv6 = '%s'; gateway = '%s'; DNS = %s"
+				(pif_uuid ~__context self)
+				(Record_util.ipv6_configuration_mode_to_string mode) iPv6 gateway dNS;
+			let host = Db.PIF.get_host ~__context ~self in
+			let local_fn = Local.PIF.reconfigure_ipv6 ~self ~mode ~iPv6 ~gateway ~dNS in
+			let task = Context.get_task_id __context in
+			let success () =
+				let status = Db.Task.get_status ~__context ~self:task in
+				if status <> `pending then
+					Some ()
+				else
+					None
+			in
+			let fn () =
+				do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
+					Client.PIF.reconfigure_ipv6 rpc session_id self mode iPv6 gateway dNS) in
+			tolerate_connection_loss fn success !Xapi_globs.pif_reconfigure_ip_timeout
+
+		let set_primary_address_type ~__context ~self ~primary_address_type = 
+			info "PIF.set_primary_address_type: PIF = '%s'; primary_address_type = '%s'"
+				(pif_uuid ~__context self)
+				(Record_util.primary_address_type_to_string primary_address_type);
+			let local_fn = Local.PIF.set_primary_address_type ~self ~primary_address_type in
+			do_op_on ~local_fn ~__context ~host:(Db.PIF.get_host ~__context ~self)
+				(fun session_id rpc -> Client.PIF.set_primary_address_type rpc session_id self primary_address_type)
 
 		let scan ~__context ~host =
 			info "PIF.scan: host = '%s'" (host_uuid ~__context host);

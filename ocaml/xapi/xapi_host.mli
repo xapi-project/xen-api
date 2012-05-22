@@ -115,7 +115,7 @@ val syslog_reconfigure : __context:Context.t -> host:'a -> unit
 (** {2 Management Interface} *)
 
 val get_management_interface : __context:Context.t -> host:API.ref_host -> API.ref_PIF
-val change_management_interface : __context:Context.t -> string -> unit
+val change_management_interface : __context:Context.t -> string -> [ `IPv4 | `IPv6 ] -> unit
 val local_management_reconfigure :
   __context:Context.t -> interface:string -> unit
 val management_reconfigure :

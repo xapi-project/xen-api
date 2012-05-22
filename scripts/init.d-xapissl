@@ -28,8 +28,9 @@ XAPISSL_LOCK="/var/lock/xapissl"
 [ $(which stunnel4) ] && STUNNEL=$(which stunnel4)
 [ -z ${STUNNEL} ] && STUNNEL=$(which stunnel)
 
+. @INVENTORY@
+
 mgmt_ip() {
-    . @INVENTORY@
     if [ -n "${MANAGEMENT_INTERFACE}" ] &&
         [ "${MANAGEMENT_INTERFACE}" != "lo" ];
     then
@@ -37,6 +38,12 @@ mgmt_ip() {
             sed -ne 's/.*inet addr:\([^ ]*\).*/\1/p'
     fi
 }
+
+if [ -n "${MANAGEMENT_ADDRESS_TYPE}" ] && [ "${MANAGEMENT_ADDRESS_TYPE}" == "IPv6" ]; then
+	ACCEPT=:::443
+else
+	ACCEPT=443
+fi
 
 # Write out the stunnel config file. This requires the management
 # interface, so it's done here rather than written statically.
@@ -52,7 +59,7 @@ socket = l:TCP_NODELAY=1
 compression = zlib
 
 [xapi]
-accept = 443
+accept = ${ACCEPT}
 connect = 80
 cert = ${PEMFILE}
 ciphers = !SSLv2:RSA+AES256-SHA:RSA+AES128-SHA:RSA+RC4-SHA:RSA+RC4-MD5:RSA+DES-CBC3-SHA
