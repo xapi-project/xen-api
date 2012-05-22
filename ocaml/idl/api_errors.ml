@@ -216,6 +216,8 @@ let sr_operation_not_supported = "SR_OPERATION_NOT_SUPPORTED"
 let sr_not_sharable = "SR_NOT_SHARABLE"
 let sr_indestructible = "SR_INDESTRUCTIBLE"
 
+let sm_plugin_communication_failure = "SM_PLUGIN_COMMUNICATION_FAILURE"
+
 let pbd_exists = "PBD_EXISTS"
 
 let not_implemented = "NOT_IMPLEMENTED"

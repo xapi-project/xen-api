@@ -855,6 +855,9 @@ let _ =
     ~doc:"The PBD could not be plugged because the SR is in use by another host and is not marked as sharable." ();
   error Api_errors.sr_indestructible ["sr"]
     ~doc:"The SR could not be destroyed, as the 'indestructible' flag was set on it." ();
+
+  error Api_errors.sm_plugin_communication_failure ["sm"]
+    ~doc:"The SM plugin did not respond to a query." ();
     
   error Api_errors.device_already_attached ["device"] 
     ~doc:"The device is already attached to a VM" ();

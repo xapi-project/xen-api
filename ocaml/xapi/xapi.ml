@@ -790,7 +790,7 @@ let server_init() =
     "Setting signal handlers", [], signals_handling;
     "Initialising random number generator", [], random_setup;
     "Running startup check", [], startup_check;
-    "Registering SR plugins", [Startup.OnlyMaster], Sm.register;
+    "Registering SMAPIv1 plugins", [Startup.OnlyMaster], Sm.register;
 	"Initialising SM state", [], Storage_impl.initialise;
 	"Starting SM internal event service", [], Storage_task.Updates.Scheduler.start;
 	"Starting SM service", [], Storage_access.start;
