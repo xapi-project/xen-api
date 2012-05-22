@@ -334,6 +334,16 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 		| _ -> ()
 	in
 
+	let assert_homogeneous_primary_address_type () =
+	  let mgmt_iface = Xapi_host.get_management_interface ~__context ~host:(Helpers.get_localhost ~__context) in
+	  let mgmt_addr_type = Db.PIF.get_primary_address_type ~__context ~self:mgmt_iface in
+	  let master = get_master rpc session_id in
+	  let master_mgmt_iface = Client.Host.get_management_interface rpc session_id master in
+          let master_addr_type = Client.PIF.get_primary_address_type rpc session_id master_mgmt_iface in
+	  if (mgmt_addr_type <> master_addr_type) then
+	    raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["Primary address type differs"]));
+	in
+
 	(* call pre-join asserts *)
 	assert_management_interface_exists ();
 	ha_is_not_enable_on_me ();
@@ -349,7 +359,8 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 	assert_external_auth_matches ();
 	assert_restrictions_match ();
 	assert_homogeneous_vswitch_configuration ();
-	assert_applied_patches_match ()
+	assert_applied_patches_match ();
+	assert_homogeneous_primary_address_type ()
 
 let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) : API.ref_host =
 	let my_uuid = host.API.host_uuid in
@@ -579,7 +590,11 @@ let create_or_get_pif_on_master __context rpc session_id (pif_ref, pif) : API.re
 				~vLAN_master_of:pif.API.pIF_VLAN_master_of
 				~management:pif.API.pIF_management
 				~other_config:pif.API.pIF_other_config
-				~disallow_unplug:pif.API.pIF_disallow_unplug in
+				~disallow_unplug:pif.API.pIF_disallow_unplug
+				~ipv6_configuration_mode:pif.API.pIF_ipv6_configuration_mode
+				~iPv6:pif.API.pIF_IPv6
+				~ipv6_gateway:pif.API.pIF_ipv6_gateway
+				~primary_address_type:pif.API.pIF_primary_address_type in
 
 	new_pif_ref
 
@@ -806,6 +821,9 @@ let eject ~__context ~host =
 		let write_first_boot_management_interface_configuration_file () =
 			let bridge = Xapi_pif.bridge_naming_convention management_device in
 			Xapi_inventory.update Xapi_inventory._management_interface bridge;
+			let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self:management_pif in
+			Xapi_inventory.update Xapi_inventory._management_address_type
+			  (Record_util.primary_address_type_to_string primary_address_type);
 			let configuration_file_contents = begin
 				"LABEL='" ^ management_device ^ "'\nMODE=" ^ mode ^
 				if mode = "static" then

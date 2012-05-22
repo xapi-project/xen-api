@@ -251,6 +251,10 @@ let pif_record rpc session_id pif =
 	make_field ~name:"IP"           ~get:(fun () -> (x ()).API.pIF_IP) ();
 	make_field ~name:"netmask"      ~get:(fun () -> (x ()).API.pIF_netmask) ();
 	make_field ~name:"gateway"      ~get:(fun () -> (x ()).API.pIF_gateway) ();
+	make_field ~name:"IPv6-configuration-mode" ~get:(fun () -> Record_util.ipv6_configuration_mode_to_string (x ()).API.pIF_ipv6_configuration_mode) ();
+	make_field ~name:"IPv6"           ~get:(fun () -> String.concat "; " (x ()).API.pIF_IPv6) ();
+	make_field ~name:"IPv6-gateway"      ~get:(fun () -> (x ()).API.pIF_ipv6_gateway) ();
+	make_field ~name:"primary-address-type" ~get:(fun () -> Record_util.primary_address_type_to_string (x ()).API.pIF_primary_address_type) ();
 	make_field ~name:"DNS"          ~get:(fun () -> (x ()).API.pIF_DNS) ();
 	make_field ~name:"io_read_kbs" ~get:(fun () -> 
 	  try 

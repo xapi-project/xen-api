@@ -66,6 +66,9 @@ _xe()
 				if [ "${OLDSTYLE_WORDS[1]}" == "pif-reconfigure-ip" ]; then
 					IFS=$'\n,'
 					COMPREPLY=( $(compgen -W "dhcp ,static ,none" -- ${value}) )
+				elif [ "${COMP_WORDS[1]}" == "pif-reconfigure-ipv6" ]; then
+					IFS=$'\n,'
+					COMPREPLY=( $(compgen -W "dhcp ,static ,none ,autoconf" -- ${value}) )
 				elif [ "${OLDSTYLE_WORDS[1]}" == "bond-set-mode" ] || [ "${OLDSTYLE_WORDS[1]}" == "bond-create" ]; then
 					IFS=$'\n,'
 					COMPREPLY=( $(compgen -W "balance-slb ,active-backup ,lacp " -- ${value}) )
@@ -73,6 +76,13 @@ _xe()
 				return 0
 				;;
 
+			primary_address_type)
+				if [ "${COMP_WORDS[1]}" == "pif-set-primary-address-type" ]; then
+					IFS=$'\n,'
+					COMPREPLY=( $(compgen -W "ipv4 ,ipv6" -- ${value}) )
+				fi
+				return 0
+				;;
 			uuid)
 				case "${OLDSTYLE_WORDS[1]}" in
 					diagnostic-vm-status) cmd=vm-list;;

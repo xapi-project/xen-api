@@ -174,7 +174,7 @@ let operation (obj: obj) (x: message) =
     @ (
       List.map
 	(fun (param_count, default_param) ->
-	   let param_name = default_param.DT.param_name in
+	   let param_name = OU.ocaml_of_record_name default_param.DT.param_name in
 	   let param_type = OU.alias_of_ty default_param.DT.param_type in
 	   let try_and_get_default = Printf.sprintf "Server_helpers.nth %d default_args" param_count in
 	   let default_value =
