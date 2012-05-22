@@ -63,7 +63,7 @@ let unplug ~__context ~self =
 	if System_domains.storage_driver_domain_of_vbd ~__context ~vbd:self = vm && not force_loopback_vbd then begin
 		debug "VBD.unplug of loopback VBD '%s'" (Ref.string_of self);
 		let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
-		Storage_access.deactivate_and_detach ~__context ~vbd:self ~domid ~unplug_frontends:true;
+		Storage_access.deactivate_and_detach ~__context ~vbd:self ~domid;
 		Db.VBD.set_currently_attached ~__context ~self ~value:false
 	end
 	else Xapi_xenops.vbd_unplug ~__context ~self false
