@@ -56,18 +56,6 @@ let reconfigure_pif ~__context (pif: API.ref_PIF) args =
 	| Forkhelpers.Spawn_internal_error(stderr, stdout, Unix.WEXITED n) ->
 		raise (Api_errors.Server_error(Api_errors.pif_configuration_error, [ Ref.string_of pif; stderr ]))
 
-let netmask_to_prefixlen netmask =
-	Scanf.sscanf netmask "%d.%d.%d.%d" (fun a b c d ->
-		let rec length l x =
-			if x > 0 then
-				length (succ l) (x lsr 1)
-			else
-				l
-		in
-		let masks = List.map ((-) 255) [a; b; c; d] in
-		32 - (List.fold_left length 0 masks)
-	)
-
 let determine_mtu pif_rc net_rc =
 	let mtu = Int64.to_int net_rc.API.network_MTU in
 	if List.mem_assoc "mtu" pif_rc.API.pIF_other_config then
@@ -149,6 +137,7 @@ let create_bond ~__context bond mtu =
 	let props = Db.Bond.get_properties ~__context ~self:bond in
 	let mode = Db.Bond.get_mode ~__context ~self:bond in
 	let other_config = determine_other_config ~__context master_rc master_net_rc in
+	let persistent_b = is_dom0_interface master_rc in
 
 	(* clean up bond slaves *)
 	let cleanup = List.map (fun (_, bridge) -> bridge, true) slave_devices_and_bridges in
@@ -194,7 +183,8 @@ let create_bond ~__context bond mtu =
 	let ports = [port, {interfaces=(List.map (fun (device, _) -> device) slave_devices_and_bridges);
 		bond_properties=props; mac}] in
 	cleanup,
-	[master_net_rc.API.network_bridge, {default_bridge with ports; bridge_mac=(Some mac); other_config}],
+	[master_net_rc.API.network_bridge, {default_bridge with ports; bridge_mac=(Some mac); other_config;
+		persistent_b}],
 	interface_config
 
 let destroy_bond ~__context ~force bond =
@@ -215,9 +205,11 @@ let create_vlan ~__context vlan =
 	let other_config = determine_other_config ~__context master_rc master_network_rc in
 	let other_config = List.replace_assoc "network-uuids"
 		(master_network_rc.API.network_uuid ^ ";" ^ slave_network_rc.API.network_uuid) other_config in
+	let persistent_b = is_dom0_interface master_rc in
 
 	[master_network_rc.API.network_bridge,
-		{default_bridge with vlan=(Some (slave_network_rc.API.network_bridge, tag)); other_config}]
+		{default_bridge with vlan=(Some (slave_network_rc.API.network_bridge, tag)); other_config;
+		persistent_b}]
 
 let destroy_vlan ~__context vlan =
 	let master = Db.VLAN.get_untagged_PIF ~__context ~self:vlan in
@@ -259,10 +251,11 @@ let get_pif_type pif_rc =
 let rec create_bridges ~__context pif_rc net_rc =
 	let mtu = determine_mtu pif_rc net_rc in
 	let other_config = determine_other_config ~__context pif_rc net_rc in
+	let persistent_b = is_dom0_interface pif_rc in
 	match get_pif_type pif_rc with
 	| `tunnel_pif _ ->
 		[],
-		[net_rc.API.network_bridge, {default_bridge with bridge_mac=(Some pif_rc.API.pIF_MAC)}],
+		[net_rc.API.network_bridge, {default_bridge with bridge_mac=(Some pif_rc.API.pIF_MAC); persistent_b}],
 		[]
 	| `vlan_pif vlan ->
 		let slave = Db.VLAN.get_tagged_PIF ~__context ~self:vlan in
@@ -287,7 +280,8 @@ let rec create_bridges ~__context pif_rc net_rc =
 			determine_ethtool_settings pif_rc.API.pIF_other_config in
 		let ports = [pif_rc.API.pIF_device, {default_port with interfaces=[pif_rc.API.pIF_device]}] in
 		cleanup,
-		[net_rc.API.network_bridge, {default_bridge with ports; bridge_mac=(Some pif_rc.API.pIF_MAC); other_config}],
+		[net_rc.API.network_bridge, {default_bridge with ports; bridge_mac=(Some pif_rc.API.pIF_MAC);
+			other_config; persistent_b}],
 		[pif_rc.API.pIF_device, {default_interface with mtu; ethtool_settings; ethtool_offload}]
 
 let rec destroy_bridges ~__context ~force pif_rc bridge =
@@ -398,20 +392,23 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 		if !use_networkd then
 			begin try
 				let persistent = is_dom0_interface rc in
+				let dhcp_options =
+					if rc.API.pIF_ip_configuration_mode = `DHCP then
+						determine_dhcp_options ~__context pif management_interface
+					else []
+				in
 
 				(* Setup network infrastructure *)
 				let cleanup, bridge_config, interface_config = create_bridges ~__context rc net_rc in
 				List.iter (fun (name, force) -> Net.Bridge.destroy ~name ~force ()) cleanup;
-				let bridge_config = update_config bridge_config bridge
-					{(get_config bridge_config default_bridge bridge) with persistent_b=persistent} in
 				Net.Bridge.make_config ~config:bridge_config ();
 				Net.Interface.make_config ~config:interface_config ();
 
-				(* Configure management interface *)
+				(* Configure IPv4 parameters and DNS *)
 				let ipv4_conf, ipv4_gateway, dns =
 					match rc.API.pIF_ip_configuration_mode with
 					| `None -> None4, None, ([], [])
-					| `DHCP -> DHCP4 (determine_dhcp_options ~__context pif management_interface), None, ([], [])
+					| `DHCP -> DHCP4 dhcp_options, None, ([], [])
 					| `Static ->
 						let conf = (Static4 [
 							Unix.inet_addr_of_string rc.API.pIF_IP,
@@ -442,9 +439,34 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 						conf, gateway, dns
 				in
 				let ipv4_routes = determine_static_routes net_rc in
+
+				(* Configure IPv6 parameters *)
+				let ipv6_conf, ipv6_gateway =
+					match rc.API.pIF_ipv6_configuration_mode with
+					| `None -> None6, None
+					| `DHCP -> DHCP6 [], None
+					| `Autoconf -> Autoconf6, None
+					| `Static ->
+						let addresses = List.filter_map (fun addr_and_prefixlen ->
+							try
+								let n = String.index addr_and_prefixlen '/' in
+								let addr = Unix.inet_addr_of_string (String.sub addr_and_prefixlen 0 n) in
+								let prefixlen = int_of_string (String.sub_to_end addr_and_prefixlen (n + 1)) in
+								Some (addr, prefixlen)
+							with _ -> None
+						) rc.API.pIF_IPv6 in
+						let conf = Static6 addresses in
+						let gateway =
+							if rc.API.pIF_ipv6_gateway <> "" then
+								Some (Unix.inet_addr_of_string rc.API.pIF_ipv6_gateway)
+							else
+								None in
+						conf, gateway
+				in
+
 				let mtu = determine_mtu rc net_rc in
 				let (ethtool_settings, ethtool_offload) = determine_ethtool_settings net_rc.API.network_other_config in
-				let interface_config = [bridge, {default_interface with ipv4_conf; ipv4_gateway;
+				let interface_config = [bridge, {ipv4_conf; ipv4_gateway; ipv6_conf; ipv6_gateway;
 					ipv4_routes; dns; ethtool_settings; ethtool_offload; mtu; persistent_i=persistent}] in
 				Net.Interface.make_config ~config:interface_config ()
 			with Network_interface.Internal_error str ->

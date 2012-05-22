@@ -2512,7 +2512,8 @@ let vm_migrate printer rpc session_id params =
 						let vif = Client.VIF.get_by_uuid rpc session_id vif_uuid in
 						let net = Client.Network.get_by_uuid remote_rpc remote_session net_uuid in
 						vif,net) (read_map_params "vif" params) in
-					let params = List.filter (fun (s,_) -> let start = String.sub s 0 4 in start <> "vif:" && start <> "vdi:") params in
+					let params = List.filter (fun (s,_) -> if String.length s < 5 then true 
+						else let start = String.sub s 0 4 in start <> "vif:" && start <> "vdi:") params in
 					printer (Cli_printer.PMsg (Printf.sprintf "Will migrate to remote host: %s, using remote network: %s" host_record.API.host_name_label network_record.API.network_name_label));
 					let token = Client.Host.migrate_receive remote_rpc remote_session host network options in
 					printer (Cli_printer.PMsg (Printf.sprintf "Received token: [ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ ":" ^ v) token))));
@@ -3513,6 +3514,24 @@ let pif_reconfigure_ip printer rpc session_id params =
 	let gateway = List.assoc_default "gateway" params "" in
 	let dns = read_optional_case_insensitive "DNS" in
 	let () = Client.PIF.reconfigure_ip rpc session_id pif mode ip netmask gateway dns in ()
+
+let pif_reconfigure_ipv6 printer rpc session_id params =
+	let read_optional_case_insensitive key =
+		let lower_case_params = List.map (fun (k,v)->(String.lowercase k,v)) params in
+		let lower_case_key = String.lowercase key in
+		List.assoc_default lower_case_key lower_case_params "" in
+
+	let pif = Client.PIF.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+	let mode = Record_util.ipv6_configuration_mode_of_string (List.assoc "mode" params) in
+	let ipv6 = read_optional_case_insensitive "IPv6" in
+	let gateway = List.assoc_default "gateway" params "" in
+	let dns = read_optional_case_insensitive "DNS" in
+	let () = Client.PIF.reconfigure_ipv6 rpc session_id pif mode ipv6 gateway dns in ()
+
+let pif_set_primary_address_type printer rpc session_id params =
+	let pif = Client.PIF.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+	let address_type = Record_util.primary_address_type_of_string (List.assoc "primary_address_type" params) in
+	let () = Client.PIF.set_primary_address_type rpc session_id pif address_type in ()
 
 let pif_unplug printer rpc session_id params =
 	let pif = Client.PIF.get_by_uuid rpc session_id (List.assoc "uuid" params) in

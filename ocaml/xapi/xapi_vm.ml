@@ -200,8 +200,10 @@ let start ~__context ~vm ~start_paused ~force =
 			Vgpuops.create_vgpus ~__context (vm, vmr) (Helpers.will_boot_hvm ~__context ~self:vm);
 
 			if vmr.API.vM_ha_restart_priority = Constants.ha_restart
-			then Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
-
+			then begin
+				Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context vm;
+				Db.VM.set_ha_always_run ~__context ~self:vm ~value:true
+			end;
 			Xapi_xenops.start ~__context ~self:vm start_paused
 		)
 
@@ -707,7 +709,7 @@ let get_boot_record ~__context ~self =
 
 let get_data_sources ~__context ~self = Monitor_rrds.query_possible_vm_dss (Db.VM.get_uuid ~__context ~self)
 
-let record_data_source ~__context ~self ~data_source = Monitor_rrds.add_vm_ds (Db.VM.get_uuid ~__context ~self) data_source
+let record_data_source ~__context ~self ~data_source = Monitor_rrds.add_vm_ds (Db.VM.get_uuid ~__context ~self) (Int64.to_int (Db.VM.get_domid ~__context ~self)) data_source
 
 let query_data_source ~__context ~self ~data_source = Monitor_rrds.query_vm_dss (Db.VM.get_uuid ~__context ~self) data_source
 

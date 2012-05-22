@@ -68,6 +68,9 @@ let path_written_by_hotplug_scripts (x: device) = match x.backend.kind with
 			x.backend.domid (string_of_kind x.backend.kind) x.frontend.domid x.frontend.devid
 	| k -> failwith (Printf.sprintf "No xenstore interface for this kind of device: %s" (string_of_kind k))
 
+let vif_disconnect_path (x: device) =
+	sprintf "/local/domain/%d/device/vif/%d/disconnect" x.frontend.domid x.frontend.devid
+
 let hotplugged ~xs (x: device) =
 	let path = path_written_by_hotplug_scripts x in
 	debug "Checking to see whether %s" path;

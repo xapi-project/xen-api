@@ -1364,7 +1364,9 @@ let transform_xenops_exn ~__context f =
 		| Media_present -> internal "there is already media in this drive"
 		| Media_not_present -> internal "there is no media in this drive"
 		| No_bootable_device -> internal "there is no bootable device"
-		| Bootloader_error(code, params) -> reraise code params
+		| Bootloader_error (uuid, msg) ->
+			let vm = Db.VM.get_by_uuid ~__context ~uuid in
+			reraise Api_errors.bootloader_failed [Ref.string_of vm; msg]
 		| Cannot_free_this_much_memory(needed, free) ->
 			reraise Api_errors.host_not_enough_free_memory [ Int64.to_string needed; Int64.to_string free ]
 		| Vms_failed_to_cooperate vms ->
@@ -1462,6 +1464,9 @@ let set_vcpus ~__context ~self n =
 			try
 				Client.VM.set_vcpus dbg id (Int64.to_int n) |> sync_with_task __context;
 				Db.VM.set_VCPUs_at_startup ~__context ~self ~value:n;
+				let metrics = Db.VM.get_metrics ~__context ~self in
+				if metrics <> Ref.null then
+					Db.VM_metrics.set_VCPUs_number ~__context ~self:metrics ~value:n;
 				Event.wait dbg ();
 			with
 				| Maximum_vcpus n ->

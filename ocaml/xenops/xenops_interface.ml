@@ -38,7 +38,7 @@ exception Media_not_ejectable
 exception Media_present
 exception Media_not_present
 exception No_bootable_device
-exception Bootloader_error of (string * (string list))
+exception Bootloader_error of (string * string)
 exception Cannot_free_this_much_memory of (int64 * int64)
 exception Vms_failed_to_cooperate of string list
 exception Ballooning_error of (string * string)

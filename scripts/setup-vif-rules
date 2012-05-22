@@ -70,6 +70,8 @@ def get_locking_config(domid, devid):
     locking_mode = xenstore_read("/".join([private_path, "locking-mode"]))
     ipv4_allowed = xenstore_read("/".join([private_path, "ipv4-allowed"]))
     ipv6_allowed = xenstore_read("/".join([private_path, "ipv6-allowed"]))
+    send_to_syslog("Got locking config: MAC=%s; locking_mode=%s; ipv4_allowed=%s; ipv6_allowed=%s"
+                    % (mac, locking_mode, ipv4_allowed, ipv6_allowed))
     return {
         "mac": mac,
         "locking_mode": locking_mode,
@@ -111,7 +113,7 @@ def create_bridge_rules(vif_name, config):
         do_chain_action(ebtables, "-A", "FORWARD", ["-o", vif_name, "-j", vif_chain])
         do_chain_action(ebtables, "-P", vif_chain, ["DROP"])
         # If the VIF is locked, we now need to create rules to allow valid traffic.
-        if config["locking_mode"] == "locked":
+        if locking_mode == "locked":
             mac = config["mac"]
             # We only support IPv4 multitenancy with bridge.
             ipv4_allowed = config["ipv4_allowed"]
