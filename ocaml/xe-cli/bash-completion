@@ -386,19 +386,14 @@ set_completions_for_params()
 
 set_completions()
 {
-        # Replace non-escaped commas with newlines, then replace escaped commas with regular commas.
-        # TODO: Use perl with negative lookbehind, instead of sed with FNORD.
-        #local words=$( echo "$1" | perl -ne 's/(?<!\\),/\n/g && s/\\,/,/g && print' )
-        local words=$( echo "$1" | sed -e 's/\\,/FNORD/g' -e 's/,/\n/g' -e 's/FNORD/,/g' )
+        # Replace each sequence of non-escaped commas with a newline, then de-escape commas and backslashes.
+        local words=$( echo "$1" | sed -re 's/(^|[^\])((\\\\)*),,*/\1\2\n/g' -e 's/\\,/,/g' -e 's/\\\\/\\/g' )
         local prefix="$2"
         # TODO: Stop changing IFS.
         local IFS=$'\n'
         local word=
         COMPREPLY=()
         for word in $words; do
-                if [[ -z "$word" ]]; then
-                        continue
-                fi
                 # TODO: Do not generate space/tab suffixes, which have to be removed here.
                 local word=$( echo "$word" | sed -e 's/[ \t]$//')
                 if [[ "$word" = "$prefix"* ]]; then
