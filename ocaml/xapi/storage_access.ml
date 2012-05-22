@@ -75,6 +75,27 @@ module SMAPIv1 = struct
 	end
 
 	module SR = struct
+		let create context ~dbg ~sr ~device_config ~physical_size =
+			Server_helpers.exec_with_new_task "SR.create" ~subtask_of:(Ref.of_string dbg)
+				(fun __context ->
+					let subtask_of = Some (Context.get_task_id __context) in
+					let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
+					let device_config = (Sm.sm_master true) :: device_config in
+					Sm.call_sm_functions ~__context ~sR:sr
+						(fun _ _type ->
+							try
+								Sm.sr_create (subtask_of, device_config) _type sr physical_size
+							with
+								| Smint.Not_implemented_in_backend ->
+									error "SR.create failed SR:%s Not_implemented_in_backend" (Ref.string_of sr);
+									raise (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
+								| e ->
+									let e' = ExnHelper.string_of_exn e in
+									error "SR.create failed SR:%s error:%s" (Ref.string_of sr) e';
+									raise e
+						)
+				)
+
 		let attach context ~dbg ~sr ~device_config =
 			Server_helpers.exec_with_new_task "SR.attach" ~subtask_of:(Ref.of_string dbg)
 				(fun __context ->
@@ -966,6 +987,16 @@ let vbd_attach_order ~__context vbds =
 	rw @ ro
 
 let vbd_detach_order ~__context vbds = List.rev (vbd_attach_order ~__context vbds)
+
+let create_sr ~__context ~sr ~physical_size =
+	transform_storage_exn
+		(fun () ->
+			let pbd, pbd_t = Sm.get_my_pbd_for_sr __context sr in
+			bind ~__context ~pbd;
+			let dbg = Ref.string_of (Context.get_task_id __context) in
+			Client.SR.create dbg (Db.SR.get_uuid ~__context ~self:sr) pbd_t.API.pBD_device_config physical_size;
+			unbind ~__context ~pbd
+		)
 
 (* This is because the current backends want SR.attached <=> PBD.currently_attached=true.
    It would be better not to plug in the PBD, so that other API calls will be blocked. *)

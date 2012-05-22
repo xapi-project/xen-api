@@ -628,6 +628,17 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 							Impl.SR.scan context ~dbg ~sr
 				)
 
+		let create context ~dbg ~sr ~device_config ~physical_size =
+			with_sr sr
+				(fun () ->
+					match Host.find sr !Host.host with
+						| None ->
+							Impl.SR.create context ~dbg ~sr ~device_config ~physical_size
+						| Some _ ->
+							error "SR %s is already attached" sr;
+							raise Sr_attached
+				)
+
 		let attach context ~dbg ~sr ~device_config =
 			info "SR.attach dbg:%s sr:%s device_config:[%s]" dbg sr (String.concat "; " (List.map (fun (k, v) -> k ^ ":" ^ v) device_config));
 			with_sr sr

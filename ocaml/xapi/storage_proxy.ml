@@ -34,6 +34,7 @@ module Proxy = functor(RPC: RPC) -> struct
 		let attach_info _ = Client.DP.attach_info
 	end
 	module SR = struct
+		let create _ = Client.SR.create
 		let attach _ = Client.SR.attach
 		let detach _ = Client.SR.detach
 		let reset _ = Client.SR.reset

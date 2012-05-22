@@ -330,20 +330,6 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
 			~name_description ~_type ~content_type ~shared ~sm_config
 	in 
 
-	begin
-		try 
-			let subtask_of = Some (Context.get_task_id __context) in
-			Sm.sr_create (subtask_of, Sm.sm_master true :: device_config) _type sr_ref physical_size;
-		with
-		| Smint.Not_implemented_in_backend ->
-				Db.SR.destroy ~__context ~self:sr_ref;
-				raise (Api_errors.Server_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr_ref ]))
-
-		| e -> 
-				Db.SR.destroy ~__context ~self:sr_ref;
-				raise e
-	end;
-
 	let pbds =
 		if shared then
 			let create_on_host host =
@@ -357,6 +343,14 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
 		else
 			[Xapi_pbd.create_thishost ~__context ~sR:sr_ref ~device_config ~currently_attached:false ]
 	in
+	begin
+		try
+			Storage_access.create_sr ~__context ~sr:sr_ref ~physical_size
+		with e ->
+			Db.SR.destroy ~__context ~self:sr_ref;
+			List.iter (fun pbd -> Db.PBD.destroy ~__context ~self:pbd) pbds;
+			raise e
+	end;
 	Helpers.call_api_functions ~__context
 		(fun rpc session_id ->
 			List.iter
