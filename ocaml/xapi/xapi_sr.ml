@@ -256,8 +256,6 @@ let scanning_thread () =
 let introduce  ~__context ~uuid ~name_label
     ~name_description ~_type ~content_type ~shared ~sm_config =
   let _type = String.lowercase _type in
-  if not(List.mem _type (Sm.supported_drivers ()))
-  then raise (Api_errors.Server_error(Api_errors.sr_unknown_driver, [ _type ]));
   let uuid = if uuid="" then Uuid.to_string (Uuid.make_uuid()) else uuid in (* fill in uuid if none specified *)
   let sr_ref = Ref.make () in
     (* Create SR record in DB *)
@@ -306,9 +304,6 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
 		~_type ~content_type ~shared ~sm_config =
 	Helpers.assert_rolling_upgrade_not_in_progress ~__context ;
 	debug "SR.create name_label=%s sm_config=[ %s ]" name_label (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
-	let _type = String.lowercase _type in
-	if not(List.mem _type (Sm.supported_drivers ()))
-		then raise (Api_errors.Server_error(Api_errors.sr_unknown_driver, [ _type ]));
 	(* This breaks the udev SR which doesn't support sr_probe *)
 (*
 	let probe_result = probe ~__context ~host ~device_config ~_type ~sm_config in

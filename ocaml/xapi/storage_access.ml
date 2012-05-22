@@ -46,7 +46,7 @@ let find_content ~__context ?sr name =
 let redirect sr =
 	raise (Redirect (Some (Pool_role.get_master_address ())))
 
-module Builtin_impl = struct
+module SMAPIv1 = struct
 	(** xapi's builtin ability to call local SM plugins using the existing
 	    protocol. The code here should only call the SM functions and encapsulate
 	    the return or error properly. It should not perform side-effects on
@@ -520,12 +520,16 @@ module type SERVER = sig
     val process : Smint.request -> Rpc.call -> Rpc.response
 end
 
-let make_local _ =
-    (module Server(Builtin_impl) : SERVER)
+let make_smapiv1 _ =
+    (module Server(SMAPIv1) : SERVER)
 
-let make_remote host path =
+let make_smapiv2_tcp host path =
 	let open Xmlrpc_client in
     (module Server(Storage_proxy.Proxy(struct let rpc call = XMLRPC_protocol.rpc ~srcstr:"smapiv2" ~dststr:"smapiv1" ~transport:(TCP(host, 8080)) ~http:(xmlrpc ~version:"1.0" path) call end)) : SERVER)
+
+let make_smapiv2_unix path =
+	let open Xmlrpc_client in
+    (module Server(Storage_proxy.Proxy(struct let rpc call = XMLRPC_protocol.rpc ~srcstr:"smapiv2" ~dststr:"smapiv2" ~transport:(Unix path) ~http:(xmlrpc ~version:"1.0" "/") call end)) : SERVER)
 
 let bind ~__context ~pbd =
     (* Start the VM if necessary, record its uuid *)
@@ -556,14 +560,32 @@ let bind ~__context ~pbd =
         info "PBD %s driver domain uuid:%s ip:%s" (Ref.string_of pbd) uuid ip;
         if not(System_domains.wait_for (System_domains.pingable ip))
         then failwith (Printf.sprintf "PBD %s driver domain %s is not responding to IP ping" (Ref.string_of pbd) (Ref.string_of driver));
-        if not(System_domains.wait_for (System_domains.queryable ip 8080))
+        if not(System_domains.wait_for (System_domains.queryable (Xmlrpc_client.TCP(ip, 8080))))
         then failwith (Printf.sprintf "PBD %s driver domain %s is not responding to XMLRPC query" (Ref.string_of pbd) (Ref.string_of driver));
         ip in
     let sr = Db.PBD.get_SR ~__context ~self:pbd in
-    let path = Constants.path [ Constants._services; Constants._SM; Db.SR.get_type ~__context ~self:sr ] in
-
+	let ty = Db.SR.get_type ~__context ~self:sr in
+    let path = Constants.path [ Constants._services; Constants._SM; ty ] in
     let dom0 = Helpers.get_domain_zero ~__context in
-    let module Impl = (val (if driver = dom0 then make_local path else make_remote (ip_of driver) path): SERVER) in
+	(* Look for an SMAPIv1 plugin first *)
+	let module Impl = (val (
+		if driver = dom0 then begin
+			if List.mem ty (Sm.supported_drivers ())
+			then make_smapiv1 (Constants.path [ Constants._services; Constants._SM; ty ])
+			else begin
+				let socket = Filename.concat Fhs.vardir (Printf.sprintf "sm/%s" ty) in
+				if not(Sys.file_exists socket) then begin
+					error "SM plugin unix domain socket does not exist: %s" socket;
+					raise (Api_errors.Server_error(Api_errors.sr_unknown_driver, [ ty ]));
+				end;
+				if not(System_domains.queryable (Xmlrpc_client.Unix socket) ()) then begin
+					error "SM plugin did not respond to a query on: %s" socket;
+					raise (Api_errors.Server_error(Api_errors.sm_plugin_communication_failure, [ ty ]));
+				end;
+				make_smapiv2_unix socket
+			end
+		end else make_smapiv2_tcp (ip_of driver) path
+	) : SERVER) in
     let sr = Db.SR.get_uuid ~__context ~self:(Db.PBD.get_SR ~__context ~self:pbd) in
     info "SR %s will be implemented by %s in VM %s" sr path (Ref.string_of driver);
     Storage_mux.register sr (Impl.process (Some path)) uuid
@@ -900,8 +922,8 @@ let refresh_local_vdi_activations ~__context =
 		end in
 	let remember key ro_rw = 
 		(* The module above contains a hashtable of R/O vs R/W-ness *)
-		Mutex.execute Builtin_impl.VDI.vdi_read_write_m
-			(fun () -> Hashtbl.replace Builtin_impl.VDI.vdi_read_write key (ro_rw = RW)) in
+		Mutex.execute SMAPIv1.VDI.vdi_read_write_m
+			(fun () -> Hashtbl.replace SMAPIv1.VDI.vdi_read_write key (ro_rw = RW)) in
 
 	let dbg = Ref.string_of (Context.get_task_id __context) in
 	let srs = Client.SR.list dbg in
