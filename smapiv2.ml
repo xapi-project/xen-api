@@ -330,6 +330,22 @@ let api =
 	  description = "Operations which act on Storage Repositories";
 	  type_decls = [];
 	  methods = [
+		  {
+			  Method.name = "create";
+			  description = "[create task sr device_config physical_size]: creates a fresh SR";
+			  inputs = [
+				  sr;
+				  { Arg.name = "device_config";
+				  ty = Type.(Dict(String, Basic String));
+				  description = "Host-local SR configuration (e.g. address information)";
+				  };
+				  { Arg.name = "physical_size";
+				  ty = Type.(Basic Int64);
+				  description = "Requested maximum size of the SR (bytes)"
+				  }
+			  ];
+			  outputs = []
+		  };
 	    {
 	      Method.name = "attach";
 	      description = "[attach task sr]: attaches the SR";
