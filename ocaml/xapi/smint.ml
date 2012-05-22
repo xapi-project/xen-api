@@ -52,8 +52,6 @@ let all_capabilities =
     Vdi_resize_online
   ]
 
-type sm_type = Executable | Daemon
-
 type sr_driver_info = {
         sr_driver_filename: string;
 	sr_driver_name: string;
@@ -65,7 +63,6 @@ type sr_driver_info = {
 	sr_driver_capabilities: capability list;
 	sr_driver_text_capabilities: string list;
 	sr_driver_configuration: (string * string) list;
-	sr_driver_type : sm_type;
 }
 
 type attach_info = {
@@ -92,6 +89,3 @@ type request = string option
 let string_of_request = function
 	| Some x -> Printf.sprintf "Some %s" x
 	| None -> "None"
-
-
-
