@@ -25,29 +25,33 @@ def log(txt):
 def success(result):
     return { "Status": "Success", "Value": result }
 
-class UnknownMethod(Exception):
-    def __init__(self, name):
+class Rpc_light_failure(Exception):
+    def __init__(self, name, args):
         self.name = name
+        self.args = args
+    def failure(self):
+        return { 'Status': 'Failure',
+                 'ErrorDescription': [ self.name, list(self.args) ] }
 
-class UnimplementedException(Exception):
+class UnknownMethod(Rpc_light_failure):
+    def __init__(self, name):
+        Rpc_light_failure.__init__(self, "UnknownMethod", [ name ])
+
+class UnimplementedException(Rpc_light_failure):
     def __init__(self, cls, name):
-        self.cls = cls
-        self.name
+        Rpc_light_failure.__init__(self, "UnimplementedException", [ cls, name ])
 
-class InternalError(Exception):
+class InternalError(Rpc_light_failure):
     def __init__(self, error):
-        self.error = error
+        Rpc_light_failure.__init__(self, "InternalError", [ error ])
 
-class UnmarshalException(Exception):
+class UnmarshalException(Rpc_light_failure):
     def __init__(self, thing, ty, desc):
-        self.thing = thing
-        self.ty = ty
-        self.desc = desc
+        Rpc_light_failure.__init__(self, "UnmarshalException", [ thing, ty, desc ])
 
-class TypeError(Exception):
+class TypeError(Rpc_light_failure):
     def __init__(self, expected, actual):
-        self.expected = expected
-        self.actual = actual
+        Rpc_light_failure.__init__(self, "TypeError", [ expected, actual ])
     def __str__(self):
         return "TypeError expected=%s actual=%s" % (self.expected, self.actual)
 
