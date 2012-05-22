@@ -354,6 +354,25 @@ module To_python = struct
       | Pair (a, b) ->
 	"[]"
 
+  let exn_decl env e =
+	  let open Printf in
+	  let rec unpair = function
+		  | Type.Pair(a, b) -> unpair a @ (unpair b)
+		  | Type.Name x -> unpair((List.assoc x env).Ident.ty)
+		  | t -> [ t ] in
+	  let args = unpair e.TyDecl.ty in
+	  let names = List.fold_left (fun (i, acc) _ -> (i + 1, sprintf "arg_%d" i :: acc)) (0, []) args |> snd |> List.rev in
+	  [ Line (sprintf "class %s(Rpc_light_failure):" e.TyDecl.name);
+	    Block ([
+			Line (sprintf "def __init__(self%s):" (String.concat "" (List.map (fun x -> ", " ^ x) names)));
+			Block (
+				[ Line (sprintf "Rpc_light_failure.__init__(self, \"%s\", [ %s ])" e.TyDecl.name (String.concat ", " names))
+				] @ (List.concat (List.map (fun (ty, v) -> typecheck env ty v) (List.combine args names))
+				) @ (List.map (fun v -> Line (sprintf "self.%s = %s" v v)) names)
+			)
+		])
+	  ]
+
   let skeleton_method unimplemented env i m =
     let open Printf in
     [ Line (sprintf "def %s(self%s):" m.Method.name (String.concat "" (List.map (fun x -> ", " ^ x) (List.map (fun x -> x.Arg.name) m.Method.inputs))));
@@ -467,9 +486,11 @@ module To_python = struct
 
   let of_interfaces env i =
     let open Printf in
-    [ Line "from xcp import log, UnknownMethod, UnimplementedException, InternalError, UnmarshalException, TypeError, success, is_long";
+    [ Line "from xcp import *";
       Line "import traceback";
     ] @ (
+		List.concat (List.map (exn_decl env) i.Interfaces.exn_decls)
+	) @ (
       List.fold_left (fun acc i -> acc @
       (server_of_interface env i) @ (skeleton_of_interface env i) @ (test_impl_of_interface env i)
       ) [] i.Interfaces.interfaces
