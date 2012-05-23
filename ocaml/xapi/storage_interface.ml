@@ -146,7 +146,7 @@ end
 
 
 
-exception Sr_not_attached                         (** error: SR must be attached to access VDIs *)
+exception Sr_not_attached of string               (** error: SR must be attached to access VDIs *)
 exception Vdi_does_not_exist                      (** error: the VDI is unknown *)
 exception Illegal_transition of (Vdi_automaton.state * Vdi_automaton.state) (** This operation implies an illegal state transition *)
 exception Backend_error of (string * (string list)) (** error: of the form SR_BACKEND_FAILURE *)
