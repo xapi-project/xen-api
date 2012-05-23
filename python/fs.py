@@ -66,7 +66,7 @@ metadata_suffix = ".xml"
 class Query(Query_skeleton):
     def __init__(self):
         Query_skeleton.__init__(self)
-    def query(self):
+    def query(self, dbg):
         return { "name": "RawFiles",
                  "vendor": "XCP",
                  "version": "0.1",
