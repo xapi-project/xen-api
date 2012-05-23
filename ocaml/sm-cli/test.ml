@@ -323,6 +323,7 @@ let _ =
 	let password = ref "xenroot" in
 
 	Arg.parse [
+		"-socket", Arg.String (fun s -> transport := Unix s), "Unix domain socket for local SMAPIv2";
 		"-sr", Arg.Set_string sr, "Specify SR";
 		"-rsr", Arg.Set_string rsr, "Specify remote SR";
 		"-verbose", Arg.Unit (fun _ -> verbose := true), "Run in verbose mode";
