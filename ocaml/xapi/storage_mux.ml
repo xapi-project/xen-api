@@ -189,7 +189,7 @@ module Mux = struct
                 )) with SMSuccess x -> x
 					| SMFailure e -> raise e)
             | _ ->
-                raise Vdi_does_not_exist
+                raise (Vdi_does_not_exist name)
 
 	module DATA = struct
 		let copy context = Storage_migrate.copy

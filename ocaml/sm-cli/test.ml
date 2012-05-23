@@ -145,7 +145,7 @@ let test_destroy_missing_vdi sr _ =
 		SMClient.VDI.destroy ~dbg ~sr ~vdi:missing_vdi;
 		failwith "VDI.destroy unexpectedly succeeded"
 	with 
-		| Vdi_does_not_exist -> ()
+		| Vdi_does_not_exist(_) -> ()
 		| x -> failwith (Printf.sprintf "Unexpected result from VDI.destroy: %s\n" (Printexc.to_string x))
 
 let vdi_info_assert_equal vdi_info vdi_info' =
