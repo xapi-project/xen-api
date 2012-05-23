@@ -95,7 +95,7 @@ class SR(SR_skeleton):
         paths[sr] = path
     def detach(self, sr):
         if not sr in paths:
-            raise Sr_not_attached()
+            raise Sr_not_attached(sr)
         del paths[sr]
     def destroy(self, sr):
         pass

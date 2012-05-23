@@ -52,7 +52,7 @@ let api =
 		{
 			TyDecl.name = "Sr_not_attached";
 			description = "An SR must be attached in order to access VDIs";
-			ty = Type.Unit
+			ty = Type.(Basic String)
 		}; {
 			TyDecl.name = "Vdi_does_not_exist";
 			description = "The specified VDI could not be found in the SR";
