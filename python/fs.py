@@ -148,24 +148,28 @@ class VDI(VDI_skeleton):
         """Operations which operate on Virtual Disk Images"""
         raise Unimplemented("VDI.clone")
     def destroy(self, dbg, sr, vdi):
+        if not sr in paths:
+            raise Sr_not_attached(sr)
         root = paths[sr]
         if not (os.path.exists(path_of_vdi(root, vdi) + disk_suffix)):
             raise Vdi_does_not_exist(vdi)
         run(dbg, "rm -f %s%s" % (path_of_vdi(root, vdi), disk_suffix))
         run(dbg, "rm -f %s%s" % (path_of_vdi(root, vdi), metadata_suffix))
     def attach(self, dbg, dp, sr, vdi, read_write):
+        root = paths[sr]
         path = path_of_vdi(root, vdi) + disk_suffix
         loop = self.device.add(root, dbg, path)
         log("loop = %s" % repr(loop))
         return { "params": loop,
-                 "xenstore_data": [] }
+                 "xenstore_data": {} }
     def activate(self, dbg, dp, sr, vdi):
         pass
     def deactivate(self, dbg, dp, sr, vdi):
         pass
     def detach(self, dbg, dp, sr, vdi):
+        root = paths[sr]
         path = path_of_vdi(root, vdi) + disk_suffix
-        self.device.remove(dbg, path)
+        self.device.remove(root, dbg, path)
         
 if __name__ == "__main__":
     from optparse import OptionParser
