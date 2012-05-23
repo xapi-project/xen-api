@@ -150,12 +150,13 @@ let pingable ip () =
 		true
 	with _ -> false
 
-let queryable transport () =
+let queryable ~__context transport () =
 	let open Xmlrpc_client in
+	let dbg = Context.string_of_task __context in
 	let rpc = XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"remote_smapiv2" ~transport ~http:(xmlrpc ~version:"1.0" "/") in
     try
 		let module C = Storage_interface.Client(struct let rpc = rpc end) in
-        let q = C.query () in
+        let q = C.Query.query ~dbg in
         info "%s:%s:%s at %s" q.Storage_interface.name q.Storage_interface.vendor q.Storage_interface.version (string_of_transport transport);
         true
     with e ->

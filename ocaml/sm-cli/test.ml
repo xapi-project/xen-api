@@ -131,7 +131,7 @@ let find_vdi_in_scan sr vdi =
 	with Not_found ->
 		None
 
-let test_query sr _ = let (_: query_result) = SMClient.query () in ()
+let test_query sr _ = let (_: query_result) = SMClient.Query.query ~dbg in ()
 
 let missing_vdi = "missing"
 

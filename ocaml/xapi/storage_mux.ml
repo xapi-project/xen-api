@@ -70,12 +70,14 @@ let success_or f results =
 module Mux = struct
 	type context = Smint.request
 
-    let query context () = {
-        name = "storage multiplexor";
-        vendor = "XCP";
-        version = "0.1";
-        features = [];
-    }
+	module Query = struct
+		let query context ~dbg = {
+			name = "storage multiplexor";
+			vendor = "XCP";
+			version = "0.1";
+			features = [];
+		}
+	end
 	module DP = struct
 		let create context ~dbg ~id = id (* XXX: is this pointless? *)
 		let destroy context ~dbg ~dp ~allow_leak =

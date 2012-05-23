@@ -252,7 +252,9 @@ end
 module Wrapper = functor(Impl: Server_impl) -> struct
 	type context = Smint.request
 
-	let query = Impl.query
+	module Query = struct
+		let query = Impl.Query.query
+	end
 
 	module VDI = struct
 		type vdi_locks = (string, unit) Storage_locks.t

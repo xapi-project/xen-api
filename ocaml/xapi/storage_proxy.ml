@@ -26,7 +26,9 @@ module Proxy = functor(RPC: RPC) -> struct
 
 	module Client = Client(RPC)
 
-    let query _ = Client.query
+	module Query = struct
+		let query _ = Client.Query.query
+	end
 	module DP = struct
 		let create _ = Client.DP.create
 		let destroy _ = Client.DP.destroy
