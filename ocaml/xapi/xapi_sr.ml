@@ -68,10 +68,13 @@ let valid_operations ~__context record _ref' : table =
 
   (* First consider the backend SM capabilities *)
   let sm_caps = 
-    try
-      Sm.capabilities_of_driver record.Db_actions.sR_type
-    with Sm.Unknown_driver _ -> []
+      try
+		  Sm.capabilities_of_driver record.Db_actions.sR_type
+      with Sm.Unknown_driver _ ->
+		  (* then look to see if this supports the SMAPIv2 *)
+		  Smint.parse_capabilities (Storage_mux.capabilities_of_sr _ref)
   in
+  info "SR %s has capabilities: [ %s ]" _ref (String.concat ", " (List.map Smint.string_of_capability sm_caps));
 
   (* Then filter out the operations we don't want to see for the magic tools SR *)
   let sm_caps = 

@@ -22,6 +22,7 @@ open Storage_interface
 type plugin = {
 	processor: processor;
 	backend_domain: string;
+	capabilities: string list;
 }
 let plugins : (sr, plugin) Hashtbl.t = Hashtbl.create 10
 
@@ -31,8 +32,18 @@ let debug_printer rpc call =
 	debug "Rpc.response = %s" (Xmlrpc.string_of_response result);
 	result
 
-let register sr m d = Hashtbl.replace plugins sr { processor = debug_printer m; backend_domain = d }
+let register sr m d =
+	let open Storage_interface in
+	let module Client = Client(struct let rpc = debug_printer m end) in
+	let info = Client.Query.query ~dbg:"mux" in
+	Hashtbl.replace plugins sr { processor = debug_printer m; backend_domain = d; capabilities = info.features }
+
 let unregister sr = Hashtbl.remove plugins sr
+
+let capabilities_of_sr sr =
+	try
+		(Hashtbl.find plugins sr).capabilities
+	with _ -> []
 
 exception No_storage_plugin_for_sr of string
 

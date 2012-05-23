@@ -112,11 +112,17 @@ let plug ~__context ~self =
 				let sr = Db.PBD.get_SR ~__context ~self in
 				check_sharing_constraint ~__context ~self:sr;
                 Storage_access.bind ~__context ~pbd:self;
+
 				let dbg = Ref.string_of (Context.get_task_id __context) in
 				let device_config = Db.PBD.get_device_config ~__context ~self in
 				Storage_access.transform_storage_exn
 					(fun () -> C.SR.attach dbg (Db.SR.get_uuid ~__context ~self:sr) device_config);
 				Db.PBD.set_currently_attached ~__context ~self ~value:true;
+
+				debug "XXX update allowed ops";
+				(* When the plugin is registered it is possible to query the capabilities.
+				   Now is a good time to recompute the allowed-operations. *)
+				Xapi_sr_operations.update_allowed_operations ~__context ~self:sr
 			end
 
 let unplug ~__context ~self =
@@ -165,7 +171,9 @@ let unplug ~__context ~self =
 			Storage_access.transform_storage_exn
 				(fun () -> C.SR.detach dbg (Db.SR.get_uuid ~__context ~self:sr));
             Storage_access.unbind ~__context ~pbd:self;
-			Db.PBD.set_currently_attached ~__context ~self ~value:false
+			Db.PBD.set_currently_attached ~__context ~self ~value:false;
+
+			Xapi_sr_operations.update_allowed_operations ~__context ~self:sr;
 		end
 
 let destroy ~__context ~self =
