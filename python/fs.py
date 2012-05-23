@@ -80,6 +80,8 @@ class SR(SR_skeleton):
     def __init__(self):
         SR_skeleton.__init__(self)
 
+    def list(self):
+        return paths.keys()
     def create(self, sr, device_config, physical_size):
         """Operations which act on Storage Repositories"""
         raise UnimplementedException("SR", "create")
