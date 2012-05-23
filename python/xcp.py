@@ -40,7 +40,7 @@ class Rpc_light_failure(Exception):
 
 class InternalError(Rpc_light_failure):
     def __init__(self, error):
-        Rpc_light_failure.__init__(self, "InternalError", [ error ])
+        Rpc_light_failure.__init__(self, "Internal_error", [ error ])
 
 class UnmarshalException(InternalError):
     def __init__(self, thing, ty, desc):
