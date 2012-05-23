@@ -48,6 +48,13 @@ let sm_cap_table =
 
 type table = (API.storage_operations, ((string * (string list)) option)) Hashtbl.t
 
+let capabilities_of_sr record =
+    try
+		Sm.capabilities_of_driver record.Db_actions.sR_type
+    with Sm.Unknown_driver _ ->
+		(* then look to see if this supports the SMAPIv2 *)
+		Smint.parse_capabilities (Storage_mux.capabilities_of_sr record.Db_actions.sR_uuid)
+
 (** Returns a table of operations -> API error options (None if the operation would be ok) *)
 let valid_operations ~__context record _ref' : table = 
   let _ref = Ref.string_of _ref' in
@@ -67,13 +74,8 @@ let valid_operations ~__context record _ref' : table =
   *)
 
   (* First consider the backend SM capabilities *)
-  let sm_caps = 
-      try
-		  Sm.capabilities_of_driver record.Db_actions.sR_type
-      with Sm.Unknown_driver _ ->
-		  (* then look to see if this supports the SMAPIv2 *)
-		  Smint.parse_capabilities (Storage_mux.capabilities_of_sr record.Db_actions.sR_uuid)
-  in
+  let sm_caps = capabilities_of_sr record in
+
   info "SR %s has capabilities: [ %s ]" _ref (String.concat ", " (List.map Smint.string_of_capability sm_caps));
 
   (* Then filter out the operations we don't want to see for the magic tools SR *)
