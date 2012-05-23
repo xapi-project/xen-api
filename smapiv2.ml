@@ -68,7 +68,7 @@ let api =
 		}; {
 			TyDecl.name = "Unimplemented";
 			description = "The operation has not been implemented";
-			ty = Type.Unit;
+			ty = Type.(Basic String);
 		}; {
 			TyDecl.name = "Does_not_exist";
 			description = "The object does not exist";

@@ -381,7 +381,7 @@ module To_python = struct
       ] @ (
 	if unimplemented
 
-	then [ Line (sprintf "raise UnimplementedException(\"%s\", \"%s\")" i.Interface.name m.Method.name) ]
+	then [ Line (sprintf "raise Unimplemented(\"%s.%s\")" i.Interface.name m.Method.name) ]
 	else ([
 	  Line "result = {}";
 	] @ (
@@ -521,6 +521,7 @@ module To_python = struct
 	    Line "try:";
 	    Block [
 	      Line "# A declared (expected) failure will have a .failure() method";
+			Line "log(\"returning %s\" % (repr(e.failure())))";
 	      Line "return e.failure()"
 	    ];
 	    Line "except:";

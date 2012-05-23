@@ -84,7 +84,7 @@ class SR(SR_skeleton):
         return paths.keys()
     def create(self, sr, device_config, physical_size):
         """Operations which act on Storage Repositories"""
-        raise UnimplementedException("SR", "create")
+        raise Unimplemented("SR.create")
     def attach(self, sr, device_config):
         path = device_config["path"]
         if not(os.path.exists(path)):
@@ -96,7 +96,7 @@ class SR(SR_skeleton):
         pass
     def reset(self, sr):
         """Operations which act on Storage Repositories"""
-        raise UnimplementedException("SR", "reset")
+        raise Unimplemented("SR.reset")
     def scan(self, sr):
         global root
         log("scanning")
@@ -131,10 +131,10 @@ class VDI(VDI_skeleton):
             return vdi_info
     def snapshot(self, sr, vdi, vdi_info, params):
         """Operations which operate on Virtual Disk Images"""
-        raise UnimplementedException("VDI", "snapshot")
+        raise Unimplemented("VDI.snapshot")
     def clone(self, sr, vdi, vdi_info, params):
         """Operations which operate on Virtual Disk Images"""
-        raise UnimplementedException("VDI", "clone")
+        raise Unimplemented("VDI.clone")
     def destroy(self, sr, vdi):
         root = paths[sr]
         if not (os.path.exists(path_of_vdi(root, vdi) + disk_suffix)):

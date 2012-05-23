@@ -30,30 +30,30 @@ class Rpc_light_failure(Exception):
         self.name = name
         self.args = args
     def failure(self):
+        # rpc-light marshals a single result differently to a list of results
+        args = list(self.args)
+        marshalled_args = args
+        if len(args) == 1:
+            marshalled_args = args[0]
         return { 'Status': 'Failure',
-                 'ErrorDescription': [ self.name, list(self.args) ] }
-
-class UnknownMethod(Rpc_light_failure):
-    def __init__(self, name):
-        Rpc_light_failure.__init__(self, "UnknownMethod", [ name ])
-
-class UnimplementedException(Rpc_light_failure):
-    def __init__(self, cls, name):
-        Rpc_light_failure.__init__(self, "UnimplementedException", [ cls, name ])
+                 'ErrorDescription': [ self.name, marshalled_args ] }
 
 class InternalError(Rpc_light_failure):
     def __init__(self, error):
         Rpc_light_failure.__init__(self, "InternalError", [ error ])
 
-class UnmarshalException(Rpc_light_failure):
+class UnmarshalException(InternalError):
     def __init__(self, thing, ty, desc):
-        Rpc_light_failure.__init__(self, "UnmarshalException", [ thing, ty, desc ])
+        InternalError.__init__(self, "UnmarshalException thing=%s ty=%s desc=%s" % (thing, ty, desc))
 
-class TypeError(Rpc_light_failure):
+class TypeError(InternalError):
     def __init__(self, expected, actual):
-        Rpc_light_failure.__init__(self, "TypeError", [ expected, actual ])
-    def __str__(self):
-        return "TypeError expected=%s actual=%s" % (self.expected, self.actual)
+        InternalError.__init__(self, "TypeError expected=%s actual=%s" % (expected, actual))
+
+class UnknownMethod(InternalError):
+    def __init__(self, name):
+        InternalError.__init__(self, "Unknown method %s" % name)
+
 
 def is_long(x):
     try:
