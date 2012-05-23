@@ -97,13 +97,14 @@ class RequestHandler(SimpleXMLRPCRequestHandler):
 class UnixServer(UnixStreamServer, SimpleXMLRPCDispatcher):
     def __init__(self, addr, requestHandler=RequestHandler):
         self.logRequests = 0
-        os.unlink(addr)
+        if os.path.exists(addr):
+            os.unlink(addr)
         SimpleXMLRPCDispatcher.__init__(self)
         UnixStreamServer.__init__(self, addr, requestHandler)
 
 class TCPServer(SimpleXMLRPCServer):
     def __init__(self, ip, port):
-        SimpleXMLRPCServer.__init__(self, (ip, port), requestHandler=RequestHandler)
+        SimpleXMLRPCServer.__init__(self, (ip, port), requestHandler=RequestHandler, allow_none=True)
     def server_bind(self):
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         SimpleXMLRPCServer.server_bind(self)
@@ -121,3 +122,13 @@ def _bare_address_string(self):
 BaseHTTPServer.BaseHTTPRequestHandler.address_string = \
         _bare_address_string
 
+# This is a hack to allow_none by default, which only became settable in
+# python 2.5's SimpleXMLRPCServer
+
+import xmlrpclib
+
+original_dumps = xmlrpclib.dumps
+def dumps(params, methodname=None, methodresponse=None, encoding=None,
+          allow_none=1):
+    return original_dumps(params, methodname, methodresponse, encoding, allow_none)
+xmlrpclib.dumps = dumps
