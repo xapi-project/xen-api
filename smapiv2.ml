@@ -56,7 +56,7 @@ let api =
 		}; {
 			TyDecl.name = "Vdi_does_not_exist";
 			description = "The specified VDI could not be found in the SR";
-			ty = Type.Unit
+			ty = Type.(Basic String)
 		}; {
 			TyDecl.name = "Illegal_transition";
 			description = "The requested VDI state transition is invalid";
@@ -84,7 +84,7 @@ let api =
 		}; {
 			TyDecl.name = "Sr_attached";
 			description = "The operation cannot be performed because the SR is still attached";
-			ty = Type.Unit
+			ty = Type.(Basic String)
 		}
 	];
     type_decls = [

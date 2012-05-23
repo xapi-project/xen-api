@@ -85,7 +85,7 @@ class SR(SR_skeleton):
     def create(self, sr, device_config, physical_size):
         path = device_config["path"]
         if path in paths:
-            raise (Sr_attached ())
+            raise (Sr_attached(sr))
         if not(os.path.exists(path)):
             raise Backend_error("SR directory doesn't exist", [ path ])
     def attach(self, sr, device_config):
