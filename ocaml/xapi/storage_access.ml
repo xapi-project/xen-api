@@ -395,7 +395,7 @@ module SMAPIv1 = struct
 				| Api_errors.Server_error(code, params) ->
 					raise (Backend_error(code, params))
 				| No_VDI ->
-					raise Vdi_does_not_exist
+					raise (Vdi_does_not_exist vdi)
 				| Sm.MasterOnly -> redirect sr
 
 		let get_by_name context ~dbg ~sr ~name =
@@ -411,7 +411,7 @@ module SMAPIv1 = struct
 						vi
 					with e ->
 						error "VDI.get_by_name caught: %s" (Printexc.to_string e);
-						raise Vdi_does_not_exist
+						raise (Vdi_does_not_exist name)
 				)
 
 		let set_content_id context ~dbg ~sr ~vdi ~content_id =
@@ -492,7 +492,7 @@ module SMAPIv1 = struct
 				| Api_errors.Server_error(code, params) ->
 					raise (Backend_error(code, params))
 				| No_VDI ->
-					raise Vdi_does_not_exist
+					raise (Vdi_does_not_exist vdi1)
 				| Sm.MasterOnly -> redirect sr
 
 		let get_url context ~dbg ~sr ~vdi =
