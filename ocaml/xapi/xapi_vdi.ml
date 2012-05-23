@@ -45,7 +45,8 @@ let check_operation_error ~__context ha_enabled record _ref' op =
   else 
     (* check to see whether it's a local cd drive *)
     let sr = Db.VDI.get_SR ~__context ~self:_ref' in
-    let srtype = Db.SR.get_type ~__context ~self:sr in
+	let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
+    let srtype = sr_record.Db_actions.sR_type in
     let is_tools_sr = Helpers.is_tools_sr ~__context ~sr in
 
     (* check to see whether VBDs exist which are using this VDI *)
@@ -69,6 +70,8 @@ let check_operation_error ~__context ha_enabled record _ref' op =
 
     (* NB RO vs RW sharing checks are done in xapi_vbd.ml *)
 
+	let sm_caps = Xapi_sr_operations.capabilities_of_sr sr_record in
+
     let any_vbd p = List.fold_left (||) false (List.map p vbd_recs) in
     if not operation_can_be_performed_live && (any_vbd is_active)
     then Some (Api_errors.vdi_in_use,[_ref; (Record_util.vdi_operation_to_string op)])
@@ -86,29 +89,29 @@ let check_operation_error ~__context ha_enabled record _ref' op =
 	      if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 	      then Some (Api_errors.ha_is_enabled, [])
 	      else
-		if not (List.mem Smint.Vdi_delete (Sm.capabilities_of_driver srtype))
+		if not (List.mem Smint.Vdi_delete sm_caps)
 		then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 		else None
       | `resize ->
 	  if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 	  then Some (Api_errors.ha_is_enabled, [])
 	  else 
-	    if not (List.mem Smint.Vdi_resize (Sm.capabilities_of_driver srtype)) 
+	    if not (List.mem Smint.Vdi_resize sm_caps)
 	    then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 	    else None
       | `update ->
-	  if not (List.mem Smint.Vdi_update (Sm.capabilities_of_driver srtype)) then
+	  if not (List.mem Smint.Vdi_update sm_caps) then
 	    Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 	  else None
       | `resize_online ->
 	  if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 	  then Some (Api_errors.ha_is_enabled, [])
 	  else 
-	    if not (List.mem Smint.Vdi_resize_online (Sm.capabilities_of_driver srtype)) 
+	    if not (List.mem Smint.Vdi_resize_online sm_caps)
 	    then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 	    else None
       | `generate_config ->
-	  if not (List.mem Smint.Vdi_generate_config (Sm.capabilities_of_driver srtype)) then
+	  if not (List.mem Smint.Vdi_generate_config sm_caps) then
 	    Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 	  else None	    
 	  | `snapshot when record.Db_actions.vDI_sharable ->
