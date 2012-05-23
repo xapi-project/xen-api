@@ -161,6 +161,9 @@ external reopen_logs: unit -> bool = ""
 external clear_state: unit -> unit = ""
 external reset_state: unit -> unit = ""
 
+external set_gateway_interface: debug_info -> name:iface -> unit = ""
+external set_dns_interface: debug_info -> name:iface -> unit = ""
+
 module Interface = struct
 	external get_all : debug_info -> unit -> iface list = ""
 	external exists : debug_info -> name:iface -> bool = ""

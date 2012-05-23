@@ -122,6 +122,12 @@ let clear_state _ () =
 let reset_state _ () =
 	config := read_management_conf ()
 
+let set_gateway_interface _ dbg ~name =
+	config := {!config with gateway_interface = Some name}
+
+let set_dns_interface _ dbg ~name =
+	config := {!config with dns_interface = Some name}
+
 module Interface = struct
 	let get_config name =
 		get_config !config.interface_config default_interface name
