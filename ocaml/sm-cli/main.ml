@@ -22,10 +22,15 @@ open Xmlrpc_client
 
 let url = Http.Url.(ref (File { path = Filename.concat Fhs.vardir "storage" }, { uri = "/"; query_params = [] }))
 
+let verbose = ref false
+
 module RPC = struct
-let rpc call =
-	XMLRPC_protocol.rpc ~transport:(transport_of_url !url) ~srcstr:"sm-cli" ~dststr:"smapiv2"
-		~http:(xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of !url) ~query:(Http.Url.get_query_params !url) (Http.Url.get_uri !url)) call
+	let rpc call =
+		let response = XMLRPC_protocol.rpc ~transport:(transport_of_url !url) ~srcstr:"sm-cli" ~dststr:"smapiv2"
+			~http:(xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of !url) ~query:(Http.Url.get_query_params !url) (Http.Url.get_uri !url)) call in
+		if !verbose
+		then Printf.fprintf stderr "Received: %s\n%!" (Xmlrpc.string_of_response response);
+		response
 end
 
 open Storage_interface
@@ -37,6 +42,7 @@ let usage_and_exit () =
 	Printf.fprintf stderr "Usage:\n";
 	Printf.fprintf stderr "  %s query\n" Sys.argv.(0);
 	Printf.fprintf stderr "  %s sr-create <SR> key_1=val_1 ... key_n=val_n\n" Sys.argv.(0);
+	Printf.fprintf stderr "  %s sr-attach <SR> key_1=val_1 ... key_n=val_n\n" Sys.argv.(0);
 	Printf.fprintf stderr "  %s sr-list\n" Sys.argv.(0);
 	Printf.fprintf stderr "  %s sr-scan <SR>\n" Sys.argv.(0);
 	Printf.fprintf stderr "  %s vdi-create <SR> key_1=val_1 ... key_n=val_n\n" Sys.argv.(0);
@@ -60,6 +66,8 @@ let _ =
 			| _ -> ()
 	end;
 	let args = List.filter (not ++ (String.startswith "url=")) args |> List.tl in
+	verbose := List.mem "-v" args;
+	let args = List.filter (not ++ ((=) "-v")) args in
 	match args with
 		| [ "query" ] ->
 			let q = Client.Query.query ~dbg in
@@ -67,6 +75,9 @@ let _ =
 		| "sr-create" :: sr :: device_config ->
 			let device_config = kvpairs device_config in
 			Client.SR.create ~dbg ~sr ~device_config ~physical_size:0L
+		| "sr-attach" :: sr :: device_config ->
+			let device_config = kvpairs device_config in
+			Client.SR.attach ~dbg ~sr ~device_config
 		| [ "sr-list" ] ->
 			let srs = Client.SR.list ~dbg in
 			List.iter
