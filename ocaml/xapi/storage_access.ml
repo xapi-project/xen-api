@@ -60,12 +60,14 @@ module SMAPIv1 = struct
 
 	type context = Smint.request
 
-    let query context () = {
-        name = "SMAPIv1 adapter";
-        vendor = "XCP";
-        version = "0.1";
-        features = [];
-    }
+	module Query = struct
+		let query context ~dbg = {
+			name = "SMAPIv1 adapter";
+			vendor = "XCP";
+			version = "0.1";
+			features = [];
+		}
+	end
 
 	module DP = struct
 		let create context ~dbg ~id = assert false
@@ -581,7 +583,7 @@ let bind ~__context ~pbd =
         info "PBD %s driver domain uuid:%s ip:%s" (Ref.string_of pbd) uuid ip;
         if not(System_domains.wait_for (System_domains.pingable ip))
         then failwith (Printf.sprintf "PBD %s driver domain %s is not responding to IP ping" (Ref.string_of pbd) (Ref.string_of driver));
-        if not(System_domains.wait_for (System_domains.queryable (Xmlrpc_client.TCP(ip, 8080))))
+        if not(System_domains.wait_for (System_domains.queryable ~__context (Xmlrpc_client.TCP(ip, 8080))))
         then failwith (Printf.sprintf "PBD %s driver domain %s is not responding to XMLRPC query" (Ref.string_of pbd) (Ref.string_of driver));
         ip in
     let sr = Db.PBD.get_SR ~__context ~self:pbd in
@@ -599,7 +601,7 @@ let bind ~__context ~pbd =
 					error "SM plugin unix domain socket does not exist: %s" socket;
 					raise (Api_errors.Server_error(Api_errors.sr_unknown_driver, [ ty ]));
 				end;
-				if not(System_domains.queryable (Xmlrpc_client.Unix socket) ()) then begin
+				if not(System_domains.queryable ~__context (Xmlrpc_client.Unix socket) ()) then begin
 					error "SM plugin did not respond to a query on: %s" socket;
 					raise (Api_errors.Server_error(Api_errors.sm_plugin_communication_failure, [ ty ]));
 				end;

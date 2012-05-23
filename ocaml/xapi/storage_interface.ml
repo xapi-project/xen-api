@@ -19,13 +19,6 @@ let service_name="storage"
 
 open Vdi_automaton
 
-type query_result = {
-    name: string;
-    vendor: string;
-    version: string;
-    features: string list;
-}
-
 (** Primary key identifying the SR *)
 type sr = string
 
@@ -179,8 +172,17 @@ module Driver_info = struct
     type ts = t list
 end
 
-(** [query ()] returns information about this storage driver *)
-external query: unit -> query_result = ""
+type query_result = {
+	name: string;
+	vendor: string;
+	version: string;
+	features: string list;
+}
+
+module Query = struct
+	(** [query ()] returns information about this storage driver *)
+	external query: dbg:string -> query_result = ""
+end
 
 module DP = struct
 	(** Functions which create/destroy (or register/unregister) dps *)

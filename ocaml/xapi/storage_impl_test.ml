@@ -36,7 +36,9 @@ exception Api_error of string * (string list)
 
 module Debug_print_impl = struct
 	type context = Smint.request
-	let query _ _ = assert false
+	module Query = struct
+		let query context ~dbg = assert false
+	end
 	module DP = struct
 		let create context ~dbg ~id = assert false
 		let destroy context ~dbg ~dp = assert false

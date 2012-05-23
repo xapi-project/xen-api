@@ -56,7 +56,7 @@ let _ =
 	let args = List.filter (not ++ (String.startswith "url=")) args |> List.tl in
 	match args with
 		| [ "query" ] ->
-			let q = Client.Query.query () in
+			let q = Client.Query.query ~dbg in
 			Printf.printf "%s\n" (q |> rpc_of_query_result |> Jsonrpc.to_string)
 		| [ "sr-list" ] ->
 			let srs = Client.SR.list ~dbg in
