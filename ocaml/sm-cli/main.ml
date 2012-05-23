@@ -36,11 +36,17 @@ let dbg = "sm-cli"
 let usage_and_exit () =
 	Printf.fprintf stderr "Usage:\n";
 	Printf.fprintf stderr "  %s query\n" Sys.argv.(0);
+	Printf.fprintf stderr "  %s sr-create <SR> key_1=val_1 ... key_n=val_n\n" Sys.argv.(0);
 	Printf.fprintf stderr "  %s sr-list\n" Sys.argv.(0);
 	Printf.fprintf stderr "  %s sr-scan <SR>\n" Sys.argv.(0);
 	Printf.fprintf stderr "  %s vdi-create <SR> key_1=val_1 ... key_n=val_n\n" Sys.argv.(0);
 	Printf.fprintf stderr "  %s vdi-destroy <SR> <VDI>\n" Sys.argv.(0);
 	exit 1
+
+let kvpairs = List.filter_map
+	(fun x -> match String.split ~limit:2 '=' x with
+		| [k; v] -> Some (k, v)
+		| _ -> None)
 
 let _ =
 	if Array.length Sys.argv < 2 then usage_and_exit ();
@@ -58,6 +64,9 @@ let _ =
 		| [ "query" ] ->
 			let q = Client.Query.query ~dbg in
 			Printf.printf "%s\n" (q |> rpc_of_query_result |> Jsonrpc.to_string)
+		| "sr-create" :: sr :: device_config ->
+			let device_config = kvpairs device_config in
+			Client.SR.create ~dbg ~sr ~device_config ~physical_size:0L
 		| [ "sr-list" ] ->
 			let srs = Client.SR.list ~dbg in
 			List.iter
@@ -73,10 +82,7 @@ let _ =
 				) vs
 		| "vdi-create" :: sr :: args ->
 			if Array.length Sys.argv < 3 then usage_and_exit ();
-			let kvpairs = List.filter_map
-				(fun x -> match String.split ~limit:2 '=' x with
-					| [k; v] -> Some (k, v)
-					| _ -> None) args in
+			let kvpairs = kvpairs args in
 			let find key = if List.mem_assoc key kvpairs then Some (List.assoc key kvpairs) else None in
 			let vdi_info = {
 				vdi = "";
