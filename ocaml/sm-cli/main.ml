@@ -35,6 +35,7 @@ let dbg = "sm-cli"
 
 let usage_and_exit () =
 	Printf.fprintf stderr "Usage:\n";
+	Printf.fprintf stderr "  %s query\n" Sys.argv.(0);
 	Printf.fprintf stderr "  %s sr-list\n" Sys.argv.(0);
 	Printf.fprintf stderr "  %s sr-scan <SR>\n" Sys.argv.(0);
 	Printf.fprintf stderr "  %s vdi-create <SR> key_1=val_1 ... key_n=val_n\n" Sys.argv.(0);
@@ -54,6 +55,9 @@ let _ =
 	end;
 	let args = List.filter (not ++ (String.startswith "url=")) args |> List.tl in
 	match args with
+		| [ "query" ] ->
+			let q = Client.Query.query () in
+			Printf.printf "%s\n" (q |> rpc_of_query_result |> Jsonrpc.to_string)
 		| [ "sr-list" ] ->
 			let srs = Client.SR.list ~dbg in
 			List.iter
