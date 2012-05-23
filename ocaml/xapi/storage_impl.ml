@@ -315,7 +315,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 
 		let perform_nolock context ~dbg ~dp ~sr ~vdi this_op =
 			match Host.find sr !Host.host with
-			| None -> raise Sr_not_attached
+			| None -> raise (Sr_not_attached sr)
 			| Some sr_t ->
 				let vdi_t = Opt.default (Vdi.empty ()) (Sr.find vdi sr_t) in
 				let vdi_t = 
@@ -356,7 +356,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 		(* Attempt to remove a possibly-active datapath associated with [vdi] *)
 		let destroy_datapath_nolock context ~dbg ~dp ~sr ~vdi ~allow_leak =
 			match Host.find sr !Host.host with
-			| None -> raise Sr_not_attached
+			| None -> raise (Sr_not_attached sr)
 			| Some sr_t ->
 				Opt.iter (fun vdi_t -> 
 					let current_state = Vdi.get_dp_state dp vdi_t in
@@ -428,7 +428,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			with_vdi sr vdi
 				(fun () ->
 					match Host.find sr !Host.host with
-					| None -> raise Sr_not_attached
+					| None -> raise (Sr_not_attached sr)
 					| Some sr_t ->
 						let vdi_t = Opt.default (Vdi.empty ()) (Sr.find vdi sr_t) in
 						{
@@ -560,7 +560,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 		let destroy_sr context ~dbg ~dp ~sr ~allow_leak vdi_already_locked =
 			(* Every VDI in use by this session should be detached and deactivated *)
 			match Host.find sr !Host.host with
-			| None -> [ Sr_not_attached ]
+			| None -> [ Sr_not_attached sr ]
 			| Some sr_t ->
 				let vdis = Sr.list sr_t in
 				List.fold_left (fun acc (vdi, vdi_t) ->
@@ -625,7 +625,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			with_sr sr
 				(fun () ->
 					match Host.find sr !Host.host with
-						| None -> raise Sr_not_attached
+						| None -> raise (Sr_not_attached sr)
 						| Some _ ->
 							Impl.SR.scan context ~dbg ~sr
 				)
@@ -666,7 +666,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			with_sr sr
 				(fun () ->
 					match Host.find sr !Host.host with
-					| None -> raise Sr_not_attached
+					| None -> raise (Sr_not_attached sr)
 					| Some sr_t ->
 						VDI.with_all_vdis sr
 							(fun () ->
