@@ -94,6 +94,8 @@ class SR(SR_skeleton):
             raise Backend_error("SR directory doesn't exist", [ path ])
         paths[sr] = path
     def detach(self, sr):
+        if not sr in paths:
+            raise Sr_not_attached()
         del paths[sr]
     def destroy(self, sr):
         pass
