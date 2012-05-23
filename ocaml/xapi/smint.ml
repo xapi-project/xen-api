@@ -52,6 +52,39 @@ let all_capabilities =
     Vdi_resize_online
   ]
 
+let string_to_capability_table = [
+	"SR_PROBE",       Sr_probe;
+	"SR_UPDATE",      Sr_update;
+	"SR_SUPPORTS_LOCAL_CACHING", Sr_supports_local_caching;
+	"SR_METADATA",    Sr_metadata;
+	"VDI_CREATE",     Vdi_create;
+	"VDI_DELETE",     Vdi_delete;
+	"VDI_ATTACH",     Vdi_attach;
+	"VDI_DETACH",     Vdi_detach; 
+	"VDI_RESIZE",     Vdi_resize;
+	"VDI_RESIZE_ONLINE",Vdi_resize_online;
+	"VDI_CLONE",      Vdi_clone;
+	"VDI_SNAPSHOT",   Vdi_snapshot;
+	"VDI_ACTIVATE",   Vdi_activate;
+	"VDI_DEACTIVATE", Vdi_deactivate;
+	"VDI_UPDATE",     Vdi_update;
+	"VDI_INTRODUCE",  Vdi_introduce;
+	"VDI_GENERATE_CONFIG", Vdi_generate_config;
+	"VDI_RESET_ON_BOOT", Vdi_reset_on_boot;
+]
+let capability_to_string_table = List.map (fun (k, v) -> v, k) string_to_capability_table
+
+let string_of_capability x = List.assoc x capability_to_string_table
+
+let parse_capabilities strings =
+	(* Parse the capabilities *)
+	List.iter (fun s -> 
+	    if not(List.mem s (List.map fst string_to_capability_table))
+	    then debug "SR.capabilities: unknown capability %s" s) strings;
+	let text_capabilities = List.filter (fun s -> List.mem s (List.map fst string_to_capability_table)) strings in
+	List.map (fun key -> List.assoc key string_to_capability_table) text_capabilities
+
+
 type sr_driver_info = {
         sr_driver_filename: string;
 	sr_driver_name: string;

@@ -2866,7 +2866,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				(fun self ->
 					if Db.is_valid_ref __context self then begin
 						Db.SR.remove_from_current_operations ~__context ~self ~key:task_id;
-						Xapi_sr.update_allowed_operations ~__context ~self;
+						Xapi_sr_operations.update_allowed_operations ~__context ~self;
 						Early_wakeup.broadcast (Datamodel._sr, Ref.string_of self);
 					end)
 				sr
@@ -2876,9 +2876,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			debug "Marking SR for %s (task=%s)" doc task_id;
 			log_exn ~doc:("marking SR for " ^ doc)
 				(fun self ->
-					Xapi_sr.assert_operation_valid ~__context ~self ~op;
+					Xapi_sr_operations.assert_operation_valid ~__context ~self ~op;
 					Db.SR.add_to_current_operations ~__context ~self ~key:task_id ~value:op;
-					Xapi_sr.update_allowed_operations ~__context ~self) sr
+					Xapi_sr_operations.update_allowed_operations ~__context ~self) sr
 
 		let with_sr_marked ~__context ~sr ~doc ~op f =
 			retry_with_global_lock ~__context ~doc (fun () -> mark_sr ~__context ~sr ~doc ~op);

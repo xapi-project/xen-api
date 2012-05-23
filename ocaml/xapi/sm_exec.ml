@@ -287,34 +287,11 @@ let parse_sr_get_driver_info driver (xml: Xml.xml) =
   and copyright = XMLRPC.From.string (safe_assoc "copyright" info)
   and driver_version = XMLRPC.From.string (safe_assoc "driver_version" info)
   and required_api_version = XMLRPC.From.string (safe_assoc "required_api_version" info) in
-  
-  (* Parse the capabilities *)
-  let lookup_table = 
-    [ "SR_PROBE",       Sr_probe;
-      "SR_UPDATE",      Sr_update;
-	  "SR_SUPPORTS_LOCAL_CACHING", Sr_supports_local_caching;
-      "SR_METADATA",    Sr_metadata;
-      "VDI_CREATE",     Vdi_create;
-      "VDI_DELETE",     Vdi_delete;
-      "VDI_ATTACH",     Vdi_attach;
-      "VDI_DETACH",     Vdi_detach; 
-      "VDI_RESIZE",     Vdi_resize;
-      "VDI_RESIZE_ONLINE",Vdi_resize_online;
-      "VDI_CLONE",      Vdi_clone;
-      "VDI_SNAPSHOT",   Vdi_snapshot;
-      "VDI_ACTIVATE",   Vdi_activate;
-      "VDI_DEACTIVATE", Vdi_deactivate;
-      "VDI_UPDATE",     Vdi_update;
-      "VDI_INTRODUCE",  Vdi_introduce;
-      "VDI_GENERATE_CONFIG", Vdi_generate_config;
-	  "VDI_RESET_ON_BOOT", Vdi_reset_on_boot;
-    ] in
+
   let strings = XMLRPC.From.array XMLRPC.From.string (safe_assoc "capabilities" info) in
-  List.iter (fun s -> 
-	       if not(List.mem s (List.map fst lookup_table))
-	       then debug "SR.capabilities: unknown capability %s" s) strings;
-  let text_capabilities = List.filter (fun s -> List.mem s (List.map fst lookup_table)) strings in
-  let capabilities = List.map (fun key -> safe_assoc key lookup_table) text_capabilities in
+  
+  let capabilities = Smint.parse_capabilities strings in
+  let text_capabilities = List.map Smint.string_of_capability capabilities in
   
   (* Parse the driver options *)
   let configuration = 
