@@ -83,12 +83,15 @@ class SR(SR_skeleton):
     def list(self):
         return paths.keys()
     def create(self, sr, device_config, physical_size):
-        """Operations which act on Storage Repositories"""
-        raise Unimplemented("SR.create")
+        path = device_config["path"]
+        if path in paths:
+            raise (Sr_attached ())
+        if not(os.path.exists(path)):
+            raise Backend_error("SR directory doesn't exist", [ path ])
     def attach(self, sr, device_config):
         path = device_config["path"]
         if not(os.path.exists(path)):
-            raise BackendError("SR directory doesn't exist", [ path ])
+            raise Backend_error("SR directory doesn't exist", [ path ])
         paths[sr] = path
     def detach(self, sr):
         del paths[sr]
