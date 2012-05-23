@@ -197,6 +197,26 @@ module Interfaces = struct
   }
 end
 
+let prepend_dbg i =
+	let debug_info = {
+		TyDecl.name = "debug_info";
+		description = "Debug context from the caller";
+		ty = Type.(Basic String)
+	} in
+	let dbg = {
+		Arg.name = "dbg";
+		description = "Debug context from the caller";
+		ty = Type.(Name "debug_info")
+	} in
+	let of_interface i =
+		let of_method m =
+			{m with Method.inputs = dbg :: m.Method.inputs } in
+		{i with Interface.methods = List.map of_method i.Interface.methods} in
+	{i with 
+		Interfaces.interfaces = List.map of_interface i.Interfaces.interfaces;
+		type_decls = debug_info :: i.Interfaces.type_decls
+	}
+
 (* Construct a global list of Ident.t, and convert all type_decls into
    Name <ident>. Once we have a global view of all types, we can resolve
    references in a second pass. *)

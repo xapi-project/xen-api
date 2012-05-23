@@ -139,6 +139,8 @@ let _ =
     Xenops.api;
     Memory.api;
   ] in
+  (* Prepend the debug_info argument *)
+  let apis = List.map Types.prepend_dbg apis in
   let pages = List.map page_of_api apis in
 
   List.iter
