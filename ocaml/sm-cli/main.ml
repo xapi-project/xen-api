@@ -48,6 +48,10 @@ let usage_and_exit () =
 	Printf.fprintf stderr "  %s sr-scan <SR>\n" Sys.argv.(0);
 	Printf.fprintf stderr "  %s vdi-create <SR> key_1=val_1 ... key_n=val_n\n" Sys.argv.(0);
 	Printf.fprintf stderr "  %s vdi-destroy <SR> <VDI>\n" Sys.argv.(0);
+	Printf.fprintf stderr "  %s vdi-attach <DP> <SR> <VDI> <RW>\n" Sys.argv.(0);
+	Printf.fprintf stderr "  %s vdi-detach <DP> <SR> <VDI>\n" Sys.argv.(0);
+	Printf.fprintf stderr "  %s vdi-activate <DP> <SR> <VDI>\n" Sys.argv.(0);
+	Printf.fprintf stderr "  %s vdi-deactivate <DP> <SR> <VDI>\n" Sys.argv.(0);
 	exit 1
 
 let kvpairs = List.filter_map
@@ -125,6 +129,15 @@ let _ =
 			Printf.printf "%s\n" (string_of_vdi_info v)
 		| [ "vdi-destroy"; sr; vdi ] ->
 			Client.VDI.destroy ~dbg ~sr ~vdi
+		| [ "vdi-attach"; dp; sr; vdi; rw ] ->
+			let x = Client.VDI.attach ~dbg ~dp ~sr ~vdi ~read_write:(String.lowercase rw = "rw") in
+			Printf.printf "%s\n" (x |> rpc_of_attach_info |> Jsonrpc.to_string)
+		| [ "vdi-detach"; dp; sr; vdi ] ->
+			Client.VDI.detach ~dbg ~dp ~sr ~vdi
+		| [ "vdi-activate"; dp; sr; vdi ] ->
+			Client.VDI.activate ~dbg ~dp ~sr ~vdi
+		| [ "vdi-deactivate"; dp; sr; vdi ] ->
+			Client.VDI.deactivate ~dbg ~dp ~sr ~vdi
 		| [ "vdi-get-by-name"; sr; name ] ->
 			let v = Client.VDI.get_by_name ~dbg ~sr ~name in
 			Printf.printf "%s\n" (string_of_vdi_info v)
