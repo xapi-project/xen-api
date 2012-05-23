@@ -24,18 +24,6 @@ open D
 
 let config_file_path = Filename.concat Fhs.vardir "networkd.db"
 
-let netmask_to_prefixlen netmask =
-	let s = Unix.string_of_inet_addr netmask in
-	Scanf.sscanf s "%d.%d.%d.%d" (fun a b c d ->
-		let rec length l x =
-			if x > 0 then
-				length (succ l) (x lsr 1)
-			else
-				l
-		in
-		List.fold_left length 0 [a; b; c; d]
-	)
-
 type context = unit
 
 let empty_config = {interface_config = []; bridge_config = []; gateway_interface = None; dns_interface = None}
@@ -54,7 +42,7 @@ let read_management_conf () =
 		match List.assoc "MODE" args with
 		| "static" ->
 			let ip = List.assoc "IP" args |> Unix.inet_addr_of_string in
-			let prefixlen = List.assoc "NETMASK" args |> Unix.inet_addr_of_string |> netmask_to_prefixlen in
+			let prefixlen = List.assoc "NETMASK" args |> netmask_to_prefixlen in
 			let gateway =
 				if List.mem_assoc "GATEWAY" args then
 					Some (List.assoc "GATEWAY" args |> Unix.inet_addr_of_string)
