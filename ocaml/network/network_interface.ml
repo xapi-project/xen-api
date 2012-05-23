@@ -62,8 +62,8 @@ type iface = string
 type port = string
 type bridge = string
 type dhcp_options = [`set_gateway | `set_dns]
-type ipv4 = None4 | DHCP4 of dhcp_options list | Static4 of (Unix.inet_addr * int) list
-type ipv6 = None6 | DHCP6 of dhcp_options list | Autoconf6 | Static6 of (Unix.inet_addr * int) list
+type ipv4 = None4 | DHCP4 | Static4 of (Unix.inet_addr * int) list
+type ipv6 = None6 | DHCP6 | Autoconf6 | Static6 of (Unix.inet_addr * int) list
 
 type duplex = Duplex_unknown | Duplex_half | Duplex_full
 
