@@ -281,7 +281,7 @@ let rec destroy_bridges ~__context ~force pif_rc bridge =
  * If there are none, then pick the management interface. If there is no management
  * interface, pick a random PIF.
  * Similarly for the DNS PIF, but with other_config:peerdns. *)
-let determine_dhcp_options ~__context pif management_interface =
+let is_gateway_and_dns_pifs ~__context pif management_interface =
 	let localhost = Helpers.get_localhost ~__context in
 	let ip_pifs = Db.PIF.get_records_where ~__context
 		~expr:(And (Eq (Field "host", Literal (Ref.string_of localhost)),
@@ -328,8 +328,7 @@ let determine_dhcp_options ~__context pif management_interface =
 					warn "no DNS PIF found - choosing %s" r.API.pIF_device;
 					p
 	in
-	(if pif = gateway_pif then [`set_gateway] else []) @
-	(if pif = dns_pif then [`set_dns] else [])
+	gateway_pif = pif, dns_pif = pif
 
 let determine_static_routes net_rc =
 	if List.mem_assoc "static-routes" net_rc.API.network_other_config then
@@ -363,11 +362,12 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 
 		Network.transform_networkd_exn pif (fun () ->
 			let persistent = is_dom0_interface rc in
-			let dhcp_options =
+		(*	let dhcp_options =
 				if rc.API.pIF_ip_configuration_mode = `DHCP then
 					determine_dhcp_options ~__context pif management_interface
 				else []
-			in
+			in*)
+			let is_gateway_pif, is_dns_pif = is_gateway_and_dns_pifs ~__context pif management_interface in
 
 			(* Setup network infrastructure *)
 			let cleanup, bridge_config, interface_config = create_bridges ~__context rc net_rc in
@@ -379,7 +379,7 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 			let ipv4_conf, ipv4_gateway, dns =
 				match rc.API.pIF_ip_configuration_mode with
 				| `None -> None4, None, ([], [])
-				| `DHCP -> DHCP4 dhcp_options, None, ([], [])
+				| `DHCP -> DHCP4, None, ([], [])
 				| `Static ->
 					let conf = (Static4 [
 						Unix.inet_addr_of_string rc.API.pIF_IP,
@@ -415,7 +415,7 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 			let ipv6_conf, ipv6_gateway =
 				match rc.API.pIF_ipv6_configuration_mode with
 				| `None -> None6, None
-				| `DHCP -> DHCP6 [], None
+				| `DHCP -> DHCP6, None
 				| `Autoconf -> Autoconf6, None
 				| `Static ->
 					let addresses = List.filter_map (fun addr_and_prefixlen ->
@@ -435,6 +435,10 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 					conf, gateway
 			in
 
+			if is_gateway_pif then
+				Net.set_gateway_interface dbg ~name:bridge;
+			if is_dns_pif then
+				Net.set_dns_interface dbg ~name:bridge;
 			let mtu = determine_mtu rc net_rc in
 			let (ethtool_settings, ethtool_offload) = determine_ethtool_settings net_rc.API.network_other_config in
 			let interface_config = [bridge, {ipv4_conf; ipv4_gateway; ipv6_conf; ipv6_gateway;

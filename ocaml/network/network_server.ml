@@ -61,7 +61,7 @@ let read_management_conf () =
 			let dns = nameservers, domains in
 			Static4 [ip, prefixlen], gateway, dns
 		| "dhcp" | _ ->
-			DHCP4 [`set_gateway; `set_dns], None, ([], [])
+			DHCP4, None, ([], [])
 	in
 	let phy_interface = {default_interface with persistent_i = true} in
 	let bridge_interface = {default_interface with ipv4_conf; ipv4_gateway; persistent_i = true} in
@@ -163,52 +163,45 @@ module Interface = struct
 			Ip.get_ipv4 name
 		) ()
 
-	let configure_ipv4 name conf =
-		debug "Configuring IPv4 address for %s: %s" name (conf |> rpc_of_ipv4 |> Jsonrpc.to_string);
-		match conf with
-		| None4 ->
-			if List.mem name (Sysfs.list ()) then begin
-				if Dhclient.is_running name then
-					ignore (Dhclient.stop name);
-				Ip.flush_ip_addr name
-			end
-		| DHCP4 options ->
-			let options =
-				if !config.gateway_interface = None || !config.gateway_interface = Some name then
-					options
-				else begin
-					debug "%s is not the default gateway interface" name;
-					List.filter ((<>) `set_gateway) options
-				end
-			in
-			let options =
-				if !config.dns_interface = None || !config.dns_interface = Some name then
-					options
-				else begin
-					debug "%s is not the DNS interface" name;
-					List.filter ((<>) `set_dns) options
-				end
-			in
-			if Dhclient.is_running name then
-				ignore (Dhclient.stop name);
-			ignore (Dhclient.start name options)
-		| Static4 addrs ->
-			if Dhclient.is_running name then
-				ignore (Dhclient.stop name);
-			Ip.flush_ip_addr name;
-			List.iter (Ip.set_ip_addr name) addrs
-
 	let set_ipv4_conf _ dbg ~name ~conf =
 		Debug.with_thread_associated dbg (fun () ->
+			debug "Configuring IPv4 address for %s: %s" name (conf |> rpc_of_ipv4 |> Jsonrpc.to_string);
 			update_config name {(get_config name) with ipv4_conf = conf};
-			(match conf with
-			| DHCP4 options ->
-				if List.mem `set_gateway options then
-					config := {!config with gateway_interface = Some name};
-				if List.mem `set_dns options then
-					config := {!config with dns_interface = Some name};
-			| _ -> ());
-			configure_ipv4 name conf
+			match conf with
+			| None4 ->
+				if List.mem name (Sysfs.list ()) then begin
+					if Dhclient.is_running name then
+						ignore (Dhclient.stop name);
+					Ip.flush_ip_addr name
+				end
+			| DHCP4 ->
+				let gateway =
+					if !config.gateway_interface = None || !config.gateway_interface = Some name then begin
+						debug "%s is the default gateway interface" name;
+						[`set_gateway]
+					end else begin
+						debug "%s is NOT the default gateway interface" name;
+						[]
+					end
+				in
+				let dns =
+					if !config.dns_interface = None || !config.dns_interface = Some name then begin
+						debug "%s is the DNS interface" name;
+						[`set_dns]
+					end else begin
+						debug "%s is NOT the DNS interface" name;
+						[]
+					end
+				in
+				let options = gateway @ dns in
+				if Dhclient.is_running name then
+					ignore (Dhclient.stop name);
+				ignore (Dhclient.start name options)
+			| Static4 addrs ->
+				if Dhclient.is_running name then
+					ignore (Dhclient.stop name);
+				Ip.flush_ip_addr name;
+				List.iter (Ip.set_ip_addr name) addrs
 		) ()
 
 	let get_ipv4_gateway _ dbg ~name =
@@ -221,18 +214,15 @@ module Interface = struct
 			with Not_found -> None
 		) ()
 
-	let configure_ipv4_gateway name address =
-		debug "Configuring IPv4 gateway for %s: %s" name (Unix.string_of_inet_addr address);
-		if !config.gateway_interface = None || !config.gateway_interface = Some name then
-			Ip.set_gateway name address
-		else
-			debug "%s is not the default gateway interface" name
-
 	let set_ipv4_gateway _ dbg ~name ~address =
 		Debug.with_thread_associated dbg (fun () ->
+			debug "Configuring IPv4 gateway for %s: %s" name (Unix.string_of_inet_addr address);
 			update_config name {(get_config name) with ipv4_gateway = Some address};
-			config := {!config with gateway_interface = Some name};
-			configure_ipv4_gateway name address
+			if !config.gateway_interface = None || !config.gateway_interface = Some name then begin
+				debug "%s is the default gateway interface" name;
+				Ip.set_gateway name address
+			end else
+				debug "%s is NOT the default gateway interface" name
 		) ()
 
 	let get_ipv6_addr _ dbg ~name =
@@ -251,7 +241,7 @@ module Interface = struct
 					Sysctl.set_ipv6_autoconf name false;
 					Ip.flush_ip_addr ~ipv6:true name
 				end
-			| DHCP6 options ->
+			| DHCP6 ->
 				Dhcp6c.stop name;
 				Sysctl.set_ipv6_autoconf name false;
 				Ip.flush_ip_addr ~ipv6:true name;
@@ -285,7 +275,11 @@ module Interface = struct
 		Debug.with_thread_associated dbg (fun () ->
 			debug "Configuring IPv6 gateway for %s: %s" name (Unix.string_of_inet_addr address);
 			update_config name {(get_config name) with ipv6_gateway = Some address};
-			Ip.set_gateway name address
+			if !config.gateway_interface = None || !config.gateway_interface = Some name then begin
+				debug "%s is the default gateway interface" name;
+				Ip.set_gateway name address
+			end else
+				debug "%s is NOT the default gateway interface" name
 		) ()
 
 	let set_ipv4_routes _ dbg ~name ~routes =
@@ -311,24 +305,21 @@ module Interface = struct
 			List.rev nameservers, domains
 		) ()
 
-	let configure_dns name nameservers domains =
-		if (nameservers <> [] || domains <> []) then begin
-			debug "Configuring DNS for %s: nameservers: %s; domains: %s" name
-				(String.concat ", " (List.map Unix.string_of_inet_addr nameservers)) (String.concat ", " domains);
-			if (!config.dns_interface = None || !config.dns_interface = Some name) then
-				let domains' = if domains <> [] then ["search " ^ (String.concat " " domains)] else [] in
-				let nameservers' = List.map (fun ip -> "nameserver " ^ (Unix.string_of_inet_addr ip)) nameservers in
-				let lines = domains' @ nameservers' in
-				Unixext.write_string_to_file resolv_conf ((String.concat "\n" lines) ^ "\n")
-			else
-				debug "%s is not the DNS interface" name
-		end
-
 	let set_dns _ dbg ~name ~nameservers ~domains =
 		Debug.with_thread_associated dbg (fun () ->
 			update_config name {(get_config name) with dns = nameservers, domains};
-			config := {!config with dns_interface = Some name};
-			configure_dns name nameservers domains
+			if (nameservers <> [] || domains <> []) then begin
+				debug "Configuring DNS for %s: nameservers: %s; domains: %s" name
+					(String.concat ", " (List.map Unix.string_of_inet_addr nameservers)) (String.concat ", " domains);
+				if (!config.dns_interface = None || !config.dns_interface = Some name) then begin
+					debug "%s is the DNS interface" name;
+					let domains' = if domains <> [] then ["search " ^ (String.concat " " domains)] else [] in
+					let nameservers' = List.map (fun ip -> "nameserver " ^ (Unix.string_of_inet_addr ip)) nameservers in
+					let lines = domains' @ nameservers' in
+					Unixext.write_string_to_file resolv_conf ((String.concat "\n" lines) ^ "\n")
+				end else
+					debug "%s is NOT the DNS interface" name
+			end
 		) ()
 
 	let get_mtu _ dbg ~name =
@@ -415,12 +406,14 @@ module Interface = struct
 			List.iter (function (name, ({ipv4_conf; ipv4_gateway; ipv6_conf; ipv6_gateway; ipv4_routes; dns=nameservers,domains; mtu;
 				ethtool_settings; ethtool_offload; _} as c)) ->
 				update_config name c;
-				exec (fun () -> if conservative then configure_ipv4 name ipv4_conf else set_ipv4_conf () dbg name ipv4_conf);
-				exec (fun () -> match ipv4_gateway with None -> () | Some gateway -> configure_ipv4_gateway name gateway);
+				exec (fun () -> set_ipv4_conf () dbg ~name ~conf:ipv4_conf);
+				exec (fun () -> match ipv4_gateway with None -> () | Some gateway ->
+					set_ipv4_gateway () dbg ~name ~address:gateway);
 				(try set_ipv6_conf () dbg ~name ~conf:ipv6_conf with _ -> ());
-				(try match ipv6_gateway with None -> () | Some gateway -> set_ipv6_gateway () dbg ~name ~address:gateway with _ -> ());
+				(try match ipv6_gateway with None -> () | Some gateway ->
+					set_ipv6_gateway () dbg ~name ~address:gateway with _ -> ());
 				exec (fun () -> set_ipv4_routes () dbg ~name ~routes:ipv4_routes);
-				exec (fun () -> configure_dns name nameservers domains);
+				exec (fun () -> set_dns () dbg ~name ~nameservers ~domains);
 				exec (fun () -> set_mtu () dbg ~name ~mtu);
 				exec (fun () -> bring_up () dbg ~name);
 				exec (fun () -> set_ethtool_settings () dbg ~name ~params:ethtool_settings);
