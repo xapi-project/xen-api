@@ -70,7 +70,14 @@ class Query(Query_skeleton):
         return { "name": "RawFiles",
                  "vendor": "XCP",
                  "version": "0.1",
-                 "features": []
+                 "features": [
+                feature_vdi_create,
+                feature_vdi_delete,
+                feature_vdi_attach,
+                feature_vdi_detach,
+                feature_vdi_activate,
+                feature_vdi_deactivate
+                ]
                  }
 
 # Store a mapping from attached SR -> path
@@ -95,8 +102,9 @@ class SR(SR_skeleton):
         paths[sr] = path
     def detach(self, dbg, sr):
         if not sr in paths:
-            raise Sr_not_attached(sr)
-        del paths[sr]
+            log("SR isn't attached, returning success")
+        else:
+            del paths[sr]
     def destroy(self, dbg, sr):
         pass
     def reset(self, dbg, sr):
