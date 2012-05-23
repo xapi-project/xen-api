@@ -638,7 +638,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 							Impl.SR.create context ~dbg ~sr ~device_config ~physical_size
 						| Some _ ->
 							error "SR %s is already attached" sr;
-							raise Sr_attached
+							raise (Sr_attached sr)
 				)
 
 		let attach context ~dbg ~sr ~device_config =

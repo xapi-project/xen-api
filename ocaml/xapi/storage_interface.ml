@@ -153,7 +153,7 @@ exception Backend_error of (string * (string list)) (** error: of the form SR_BA
 exception Does_not_exist of (string * string)
 exception Cancelled of string
 exception Redirect of string option
-exception Sr_attached
+exception Sr_attached of string
 
 exception Unimplemented of string
 
