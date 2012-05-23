@@ -43,6 +43,7 @@ let usage_and_exit () =
 	Printf.fprintf stderr "  %s query\n" Sys.argv.(0);
 	Printf.fprintf stderr "  %s sr-create <SR> key_1=val_1 ... key_n=val_n\n" Sys.argv.(0);
 	Printf.fprintf stderr "  %s sr-attach <SR> key_1=val_1 ... key_n=val_n\n" Sys.argv.(0);
+	Printf.fprintf stderr "  %s sr-detach <SR>\n" Sys.argv.(0);
 	Printf.fprintf stderr "  %s sr-list\n" Sys.argv.(0);
 	Printf.fprintf stderr "  %s sr-scan <SR>\n" Sys.argv.(0);
 	Printf.fprintf stderr "  %s vdi-create <SR> key_1=val_1 ... key_n=val_n\n" Sys.argv.(0);
@@ -78,6 +79,8 @@ let _ =
 		| "sr-attach" :: sr :: device_config ->
 			let device_config = kvpairs device_config in
 			Client.SR.attach ~dbg ~sr ~device_config
+		| "sr-detach" :: [ sr ] ->
+			Client.SR.detach ~dbg ~sr
 		| [ "sr-list" ] ->
 			let srs = Client.SR.list ~dbg in
 			List.iter
