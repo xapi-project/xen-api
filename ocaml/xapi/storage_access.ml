@@ -376,7 +376,7 @@ module SMAPIv1 = struct
 				| Api_errors.Server_error(code, params) ->
 					raise (Backend_error(code, params))
 				| Smint.Not_implemented_in_backend ->
-					raise Unimplemented
+					raise (Unimplemented call_name)
 				| Sm.MasterOnly -> redirect sr
 
 
@@ -488,7 +488,7 @@ module SMAPIv1 = struct
 					)
             with
 				| Smint.Not_implemented_in_backend ->
-					raise Unimplemented
+					raise (Unimplemented "VDI.compose")
 				| Api_errors.Server_error(code, params) ->
 					raise (Backend_error(code, params))
 				| No_VDI ->

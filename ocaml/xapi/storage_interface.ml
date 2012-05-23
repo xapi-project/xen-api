@@ -150,11 +150,13 @@ exception Sr_not_attached                         (** error: SR must be attached
 exception Vdi_does_not_exist                      (** error: the VDI is unknown *)
 exception Illegal_transition of (Vdi_automaton.state * Vdi_automaton.state) (** This operation implies an illegal state transition *)
 exception Backend_error of (string * (string list)) (** error: of the form SR_BACKEND_FAILURE *)
-exception Unimplemented                           (** error: not implemented by backend *)
 exception Does_not_exist of (string * string)
 exception Cancelled of string
 exception Redirect of string option
 exception Sr_attached
+
+exception Unimplemented of string
+
 
 module Driver_info = struct
     type t = {
