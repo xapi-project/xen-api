@@ -62,10 +62,15 @@ module SMAPIv1 = struct
 
 	module Query = struct
 		let query context ~dbg = {
+			driver = "storage_access";
 			name = "SMAPIv1 adapter";
+			description = "Allows legacy SMAPIv1 adapters to expose an SMAPIv2 interface";
 			vendor = "XCP";
-			version = "0.1";
+			copyright = "see the source code";
+			version = "2.0";
+			required_api_version = "2.0";
 			features = [];
+			configuration = []
 		}
 	end
 
@@ -888,7 +893,7 @@ let resynchronise_pbds ~__context ~pbds =
 			let value = List.mem sr srs in
 			debug "Setting PBD %s currently_attached <- %b" (Ref.string_of self) value;
 			try
-				if value then bind ~__context ~pbd:self;
+				if value then (let (_:query_result) = bind ~__context ~pbd:self in ());
 				Db.PBD.set_currently_attached ~__context ~self ~value
 			with e ->
 				(* Unchecked this will block the dbsync code *)
@@ -1000,7 +1005,7 @@ let create_sr ~__context ~sr ~physical_size =
 	transform_storage_exn
 		(fun () ->
 			let pbd, pbd_t = Sm.get_my_pbd_for_sr __context sr in
-			bind ~__context ~pbd;
+			let (_ : query_result) = bind ~__context ~pbd in
 			let dbg = Ref.string_of (Context.get_task_id __context) in
 			Client.SR.create dbg (Db.SR.get_uuid ~__context ~self:sr) pbd_t.API.pBD_device_config physical_size;
 			unbind ~__context ~pbd
@@ -1012,7 +1017,7 @@ let destroy_sr ~__context ~sr =
 	transform_storage_exn
 		(fun () ->
 			let pbd, pbd_t = Sm.get_my_pbd_for_sr __context sr in
-			bind ~__context ~pbd;
+			let (_ : query_result) = bind ~__context ~pbd in
 			let dbg = Ref.string_of (Context.get_task_id __context) in
 			Client.SR.attach dbg (Db.SR.get_uuid ~__context ~self:sr) pbd_t.API.pBD_device_config;
 			(* The current backends expect the PBD to be temporarily set to currently_attached = true *)

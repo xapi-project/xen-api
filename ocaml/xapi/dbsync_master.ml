@@ -242,7 +242,7 @@ let update_env __context =
      in the db for cancelling *)
   Cancel_tasks.cancel_tasks_on_host ~__context ~host_opt:None;
   (* Update the SM plugin table *)
-  Xapi_sm.resync_plugins ~__context;
+  Xapi_sm.on_xapi_start ~__context;
 
   create_missing_vlan_records ~__context;
   create_tools_sr_noexn __context;

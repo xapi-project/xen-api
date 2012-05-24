@@ -98,6 +98,18 @@ type sr_driver_info = {
 	sr_driver_configuration: (string * string) list;
 }
 
+let query_result_of_sr_driver_info x = {
+	Storage_interface.driver = x.sr_driver_filename;
+	name = x.sr_driver_name;
+	description = x.sr_driver_description;
+	vendor = x.sr_driver_vendor;
+	copyright = x.sr_driver_copyright;
+	version = x.sr_driver_version;
+	required_api_version = x.sr_driver_required_api_version;
+	features = x.sr_driver_text_capabilities;
+	configuration = x.sr_driver_configuration
+}
+
 type attach_info = {
 	params : string;
 	xenstore_data : (string * string) list;

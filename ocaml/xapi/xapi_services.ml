@@ -22,22 +22,11 @@ open Stringext
 open Pervasiveext
 open Constants
 
-let convert_driver_info x =
-	let open Smint in {
-		Storage_interface.Driver_info.uri = path [ _services; _SM; x.sr_driver_filename ];
-		name = x.sr_driver_name;
-		description = x.sr_driver_description;
-		vendor = x.sr_driver_vendor;
-		copyright = x.sr_driver_copyright;
-		version = x.sr_driver_version;
-		required_api_version = x.sr_driver_required_api_version;
-		capabilities = x.sr_driver_text_capabilities;
-		configuration = x.sr_driver_configuration
-	}
+type driver_list = Storage_interface.query_result list with rpc
 
 let list_sm_drivers ~__context =
-	let all = List.map (convert_driver_info ++ Sm.info_of_driver) (Sm.supported_drivers ()) in
-	Storage_interface.Driver_info.rpc_of_ts all
+	let all = List.map (Smint.query_result_of_sr_driver_info ++ Sm.info_of_driver) (Sm.supported_drivers ()) in
+	rpc_of_driver_list all
 
 let respond req rpc s =
 	let txt = Jsonrpc.to_string rpc in
@@ -123,7 +112,7 @@ let get_handler (req: Http.Request.t) s _ =
 				| [ ""; services; "SM"; driver ] when services = _services ->
 					begin
 						try
-							respond req (Storage_interface.Driver_info.rpc_of_t (convert_driver_info (Sm.info_of_driver driver))) s
+							respond req (Storage_interface.rpc_of_query_result (Smint.query_result_of_sr_driver_info (Sm.info_of_driver driver))) s
 						with _ ->
 							Http_svr.headers s (Http.http_404_missing ~version:"1.0" ());
 							req.Http.Request.close <- true
@@ -133,10 +122,15 @@ let get_handler (req: Http.Request.t) s _ =
 					respond req rpc s
 				| [ ""; services ] when services = _services ->
 					let q = {
-						Storage_interface.name = "XCP";
-						vendor = "xen.org";
-						version = "0.1";
+						Storage_interface.driver = "mux";
+						name = "storage multiplexor";
+						description = "forwards calls to other plugins";
+						vendor = "XCP";
+						copyright = "see the source code";
+						version = "2.0";
+						required_api_version = "2.0";
 						features = List.map (fun x -> path [_services; x]) [ _SM ];
+						configuration = []
 					} in
 					respond req (Storage_interface.rpc_of_query_result q) s
 				| _ ->
