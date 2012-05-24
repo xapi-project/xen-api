@@ -86,7 +86,7 @@ let parse_capabilities strings =
 
 
 type sr_driver_info = {
-        sr_driver_filename: string;
+    sr_driver_filename: string;
 	sr_driver_name: string;
 	sr_driver_description: string;
 	sr_driver_vendor: string;
