@@ -67,9 +67,13 @@ class Query(Query_skeleton):
     def __init__(self):
         Query_skeleton.__init__(self)
     def query(self, dbg):
-        return { "name": "RawFiles",
+        return { "driver": "fs",
+                 "name": "filesystem SR",
+                 "description": "VDIs are stored as files in an existing filesystem",
                  "vendor": "XCP",
-                 "version": "0.1",
+                 "copyright": "see the source code",
+                 "version": "2.0",
+                 "required_api_version": "2.0",
                  "features": [
                 feature_vdi_create,
                 feature_vdi_delete,
@@ -77,7 +81,8 @@ class Query(Query_skeleton):
                 feature_vdi_detach,
                 feature_vdi_activate,
                 feature_vdi_deactivate
-                ]
+                ],
+                 "configuration": { "path": "filesystem path where the VDIs are stored" }
                  }
 
 # Store a mapping from attached SR -> path

@@ -115,10 +115,15 @@ let api =
 				  {
 					  TyDecl.name = "query_result";
 					  description = "properties of this implementation";
-					  ty = Type.(Struct( ("name", Basic String, "short name"), [
+					  ty = Type.(Struct( ("driver", Basic String, "driver, used in the XenAPI as SR.type"), [
+						  "name", Basic String, "short name";
+						  "description", Basic String, "description";
 						  "vendor", Basic String, "entity which produced this implementation";
+						  "copyright", Basic String, "copyright";
 						  "version", Basic String, "version";
-						  "features", Array (Basic String), "features supported by this plugin"
+						  "required_api_version", Basic String, "minimum required API version";
+						  "features", Array (Basic String), "features supported by this plugin";
+						  "configuration", Dict(String, Basic String), "key/description pairs describing required device_config parameters"
 					  ]))
 				  }
 			  ];
