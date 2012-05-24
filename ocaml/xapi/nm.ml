@@ -202,6 +202,7 @@ let create_vlan ~__context vlan =
 	let slave_network_rc = Db.Network.get_record ~__context ~self:slave_rc.API.pIF_network in
 
 	let tag = Int64.to_int (Db.VLAN.get_tag ~__context ~self:vlan) in
+	let mac = slave_rc.API.pIF_MAC in
 	let other_config = determine_other_config ~__context master_rc master_network_rc in
 	let other_config = List.replace_assoc "network-uuids"
 		(master_network_rc.API.network_uuid ^ ";" ^ slave_network_rc.API.network_uuid) other_config in
@@ -209,7 +210,7 @@ let create_vlan ~__context vlan =
 
 	[master_network_rc.API.network_bridge,
 		{default_bridge with vlan=(Some (slave_network_rc.API.network_bridge, tag)); other_config;
-		persistent_b}]
+		bridge_mac=(Some mac); persistent_b}]
 
 let destroy_vlan ~__context vlan =
 	let master = Db.VLAN.get_untagged_PIF ~__context ~self:vlan in
