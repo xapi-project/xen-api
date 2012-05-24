@@ -217,6 +217,12 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
 			(fun (k,v) -> k <> Xapi_globs.default_template_key && k <> Xapi_globs.xensource_internal)
 			other_config
 	in
+	(* Preserve the name_label of the base template in other_config. *)
+	let other_config =
+		if all.Db_actions.vM_is_a_template && not(List.mem_assoc Xapi_globs.base_template_name_key other_config)
+		then (Xapi_globs.base_template_name_key, all.Db_actions.vM_name_label) :: other_config
+		else other_config
+	in
 	(* Copy the old metrics if available, otherwise generate a fresh one *)
 	let m =
 		if Db.is_valid_ref __context all.Db_actions.vM_metrics
