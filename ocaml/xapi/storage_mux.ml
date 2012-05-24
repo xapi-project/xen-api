@@ -22,7 +22,7 @@ open Storage_interface
 type plugin = {
 	processor: processor;
 	backend_domain: string;
-	capabilities: string list;
+	query_result: query_result;
 }
 let plugins : (sr, plugin) Hashtbl.t = Hashtbl.create 10
 
@@ -36,14 +36,17 @@ let register sr m d =
 	let open Storage_interface in
 	let module Client = Client(struct let rpc = debug_printer m end) in
 	let info = Client.Query.query ~dbg:"mux" in
-	Hashtbl.replace plugins sr { processor = debug_printer m; backend_domain = d; capabilities = info.features }
+	Hashtbl.replace plugins sr { processor = debug_printer m; backend_domain = d; query_result = info };
+	info
 
 let unregister sr = Hashtbl.remove plugins sr
 
-let capabilities_of_sr sr =
+let query_result_of_sr sr =
 	try
-		(Hashtbl.find plugins sr).capabilities
-	with _ -> []
+		Some (Hashtbl.find plugins sr).query_result
+	with _ -> None
+
+let capabilities_of_sr sr = Opt.default [] (Opt.map (fun x -> x.features) (query_result_of_sr sr))
 
 exception No_storage_plugin_for_sr of string
 
@@ -83,10 +86,15 @@ module Mux = struct
 
 	module Query = struct
 		let query context ~dbg = {
+			driver = "mux";
 			name = "storage multiplexor";
+			description = "forwards calls to other plugins";
 			vendor = "XCP";
-			version = "0.1";
+			copyright = "see the source code";
+			version = "2.0";
+			required_api_version = "2.0";
 			features = [];
+			configuration = []
 		}
 	end
 	module DP = struct

@@ -157,28 +157,16 @@ exception Sr_attached of string
 
 exception Unimplemented of string
 
-
-module Driver_info = struct
-    type t = {
-        uri: string;
-        name: string;
-        description: string;
-        vendor: string;
-        copyright: string;
-        version: string;
-        required_api_version: string;
-        capabilities: string list;
-        configuration: (string * string) list;
-    }
-
-    type ts = t list
-end
-
 type query_result = {
+	driver: string;
 	name: string;
+	description: string;
 	vendor: string;
+	copyright: string;
 	version: string;
+	required_api_version: string;
 	features: string list;
+	configuration: (string * string) list;
 }
 
 module Query = struct

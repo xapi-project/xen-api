@@ -122,6 +122,10 @@ let check_operation_error ~__context ha_enabled record _ref' op =
 	  if List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 	  then Some (Api_errors.operation_not_allowed, ["VDI containing HA statefile or redo log cannot be copied (check the VDI's allowed operations)."])
 	  else None
+	  | `clone ->
+	      if not (List.mem Smint.Vdi_clone sm_caps)
+	      then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
+	      else None
       | _ -> None
     )
 

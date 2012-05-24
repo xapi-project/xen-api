@@ -29,7 +29,7 @@ val find_content: __context:Context.t -> ?sr:Storage_interface.sr -> Storage_int
 
 (** [bind __context pbd] causes the storage_access module to choose the most
         appropriate driver implementation for the given [pbd] *)
-val bind: __context:Context.t -> pbd:API.ref_PBD -> unit
+val bind: __context:Context.t -> pbd:API.ref_PBD -> Storage_interface.query_result
 
 (** [unbind __context pbd] causes the storage access module to forget the association
     between [pbd] and driver implementation *)
