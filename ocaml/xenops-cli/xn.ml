@@ -431,6 +431,7 @@ let pp x =
 		| Bool x -> [ Line (Printf.sprintf "%b" x) ]
 		| Float x -> [ Line (Printf.sprintf "%g" x) ]
 		| String x -> [ Line x ]
+		| DateTime x -> [ Line x ]
 		| Enum [] -> [ Line "[]" ]
 		| Enum xs -> [ Line "["; Block (List.concat (List.map to_t xs)); Line "]" ]
 		| Dict [] -> [ Line "{}" ]
