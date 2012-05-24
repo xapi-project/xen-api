@@ -13,6 +13,7 @@
  *)
 
 open Xmlrpc_client
+open Network_interface
 
 module D=Debug.Debugger(struct let name="network" end)
 open D
@@ -21,13 +22,38 @@ let make_rpc path  =
 	let module Rpc = struct
 		let transport = ref (Unix path)
 		let rpc call =
-			XMLRPC_protocol.rpc ~srcstr:"xapi?" ~dststr:"networkd" ~transport:!transport ~http:(xmlrpc ~version:"1.0" "/") call
+			XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"networkd" ~transport:!transport ~http:(xmlrpc ~version:"1.0" "/") call
 	end in
-	(module Rpc : Network_interface.RPC)
+	(module Rpc : RPC)
 
-module Rpc = (val (make_rpc (Filename.concat Fhs.vardir "xcp-networkd")) : Network_interface.RPC)
-module type CLIENT = module type of Network_interface.Client(Rpc)
+module Rpc = (val (make_rpc (Filename.concat Fhs.vardir "xcp-networkd")) : RPC)
+module type CLIENT = module type of Client(Rpc)
 
 let get_client () =
-	(module Network_interface.Client(Rpc): CLIENT)
+	(module Client(Rpc): CLIENT)
+
+(* Catch any uncaught networkd exceptions and transform into the most relevant XenAPI error.
+   We do not want a XenAPI client to see a raw network error. *)
+let transform_networkd_exn pif f =
+	let reraise code params =
+		error "Re-raising as %s [ %s ]" code (String.concat "; " params);
+		raise (Api_errors.Server_error(code, params)) in
+	try
+		f ()
+	with
+	| Script_missing script ->
+		let e = Printf.sprintf "script %s missing" script in
+		reraise Api_errors.pif_configuration_error [Ref.string_of pif; e]
+	| Script_error params ->
+		let e = Printf.sprintf "script error [%s]" (String.concat ", "
+			(List.map (fun (k, v) -> k ^ " = " ^ v) params)) in
+		reraise Api_errors.pif_configuration_error [Ref.string_of pif; e]
+	| Read_error file | Write_error file ->
+		let e = "failed to access file " ^ file in
+		reraise Api_errors.pif_configuration_error [Ref.string_of pif; e]
+	| Not_implemented ->
+		let e = "networkd function not implemented" in
+		reraise Api_errors.pif_configuration_error [Ref.string_of pif; e]
+	| _ ->
+		reraise Api_errors.pif_configuration_error [Ref.string_of pif; ""]
 

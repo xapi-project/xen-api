@@ -1176,7 +1176,7 @@ let commit_new_master ~__context ~address =
 		(fun () ->
 			(* NB we might not be in emergency mode yet, so not identical to
 			   Xapi_pool.emergency_reset_master *)
-			if Helpers.this_is_my_address address
+			if Helpers.this_is_my_address ~__context address
 			then Xapi_pool_transition.become_master ()
 			else Xapi_pool_transition.become_another_masters_slave address)
 

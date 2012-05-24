@@ -49,7 +49,8 @@ let check_himn ~__context =
 	match mnets with
 	| [] -> ()
 	| (_, rc) :: _ ->
-		let bridges = Net.Bridge.get_all () in
+		let dbg = Context.string_of_task __context in
+		let bridges = Net.Bridge.get_all dbg () in
 		if List.mem rc.API.network_bridge bridges then
 			set_himn_ip rc.API.network_bridge rc.API.network_other_config
 
