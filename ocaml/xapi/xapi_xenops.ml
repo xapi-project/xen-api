@@ -1020,7 +1020,16 @@ let update_vif ~__context id =
 					Opt.iter
 						(fun (_, state) ->
 							if not state.plugged
-							then Xapi_network.deregister_vif ~__context vif;
+							then Xapi_network.deregister_vif ~__context vif
+							else begin
+								(* sync MTU *)
+								try
+									let device = "vif" ^ (Int64.to_string (Db.VM.get_domid ~__context ~self:vm)) ^ "." ^ (snd id) in
+									let mtu = Int64.of_string (Netdev.get_mtu device) in
+									Db.VIF.set_MTU ~__context ~self:vif ~value:mtu
+								with _ ->
+									debug "could not update MTU field on VIF %s.%s" (fst id) (snd id)
+							end;
 							debug "xenopsd event: Updating VIF %s.%s currently_attached <- %b" (fst id) (snd id) state.plugged;
 							Db.VIF.set_currently_attached ~__context ~self:vif ~value:state.plugged
 						) info;
