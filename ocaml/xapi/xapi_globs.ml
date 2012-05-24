@@ -190,6 +190,7 @@ let tools_sr_dir = Filename.concat Fhs.sharedir "packages/iso"
 
 let default_template_key = "default_template"
 let linux_template_key = "linux_template"
+let base_template_name_key = "base_template_name"
 
 (* Keys to explain the presence of dom0 block-attached VBDs: *)
 let vbd_task_key = "task_id"
