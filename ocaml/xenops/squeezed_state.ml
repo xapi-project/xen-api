@@ -11,17 +11,23 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Squeezed_rpc 
 open Xenstore
+
+module D = Debug.Debugger(struct let name = Memory_interface.service_name end)
+open D
+
+let _service = "squeezed"
+
+let listdir xs path = try List.filter (fun x -> x <> "") (xs.Xs.directory path) with Xenbus.Xb.Noent -> []
+let xs_read xs path = try xs.Xs.read path with Xenbus.Xb.Noent as e -> begin debug "xenstore-read %s returned ENOENT" path; raise e end
+
+let path = String.concat "/"
 
 (** Path in xenstore where the daemon stores state, specifically reservations *)
 let state_path service = path [ ""; service; "state" ]
 
 (** Path in xenstore where the deamon puts the amount of host memory it needs to keep eg for lowmem_emergency_pool *)
 let reserved_host_memory_path service = path [ ""; service; "reserved-host-memory" ]
-
-(** Path in the filesystem where the deamon puts the amount of host memory it needs to keep eg for lowmem_emergency_pool *)
-let reserved_host_memory_filename service = Printf.sprintf "/var/run/%s/reserved-host-memory" service
 
 (** Path where a specific reservation is stored *)
 let reservation_path service session_id reservation_id = path [ ""; service; "state"; session_id; reservation_id ]

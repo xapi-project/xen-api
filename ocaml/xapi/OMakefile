@@ -202,6 +202,8 @@ XAPI_MODULES = $(COMMON) \
 	ipq \
 	xapi_periodic_scheduler \
 	xapi_periodic_scheduler_init \
+	../xenops/memory_client \
+	../xenops/memory_interface \
 	dbsync \
 	dbsync_slave \
 	dbsync_master \
