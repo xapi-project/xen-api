@@ -434,6 +434,8 @@ let destroy ~__context ~self =
 			  (fun () ->
 				  C.VDI.destroy ~dbg:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sr) ~vdi:location
 			  );
+		  if Db.is_valid_ref __context self
+		  then Db.VDI.destroy ~__context ~self;
 
 	(* destroy all the VBDs now rather than wait for the GC thread. This helps
 	   prevent transient glitches but doesn't totally prevent races. *)
