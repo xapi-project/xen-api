@@ -171,10 +171,13 @@ let snapshot_with_quiesce ~__context ~vm ~new_name =
 let checkpoint ~__context ~vm ~new_name =
 	Xapi_vmpp.show_task_in_xencenter ~__context ~vm;
 	let power_state = Db.VM.get_power_state ~__context ~self:vm in
+	let snapshot_info = ref [] in
 		(* live-suspend the VM if the VM is running *)
 		if power_state = `Running
 		then begin
 			try
+				(* Save the state of the vm *)
+				snapshot_info := Xapi_vm_clone.snapshot_info ~power_state ~is_a_snapshot:true;
 				(* suspend the VM *)
 				Xapi_xenops.suspend ~__context ~self:vm;
 			with
@@ -185,7 +188,7 @@ let checkpoint ~__context ~vm ~new_name =
 		(* snapshot the disks and the suspend VDI *)
 		let snap =
 			if not (TaskHelper.is_cancelling ~__context) then begin
-				try Some (Xapi_vm_clone.clone Xapi_vm_clone.Disk_op_checkpoint ~__context ~vm ~new_name)
+				try Some (Xapi_vm_clone.clone Xapi_vm_clone.Disk_op_checkpoint ~__context ~vm ~new_name ~snapshot_info_record:!snapshot_info)
 				with Api_errors.Server_error (x, []) when x=Api_errors.task_cancelled -> None
 			end else
 				None in
