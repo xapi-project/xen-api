@@ -577,7 +577,11 @@ module Ovs = struct
 		in
 		let mac_arg = match mac with
 			| None -> []
-			| Some mac -> ["--"; "set"; "bridge"; name; Printf.sprintf "other-config:hwaddr=\"%s\"" (String.escaped mac)]
+			| Some mac ->
+				if vlan = None then
+					["--"; "set"; "bridge"; name; Printf.sprintf "other-config:hwaddr=\"%s\"" (String.escaped mac)]
+				else
+					["--"; "set"; "interface"; name; Printf.sprintf "MAC=\"%s\"" (String.escaped mac)]
 		in
 		let fail_mode_arg =
 			if vlan = None then ["--"; "set"; "bridge"; name; "fail_mode=" ^ fail_mode] else [] in
