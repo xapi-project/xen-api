@@ -102,7 +102,7 @@ val preconfigure_ha :
   metadata_vdi:[ `VDI ] Ref.t -> generation:string -> unit
 val ha_join_liveset : __context:'a -> host:'b Ref.t -> unit
 val propose_new_master : __context:'a -> address:string -> manual:'b -> unit
-val commit_new_master : __context:'a -> address:string -> unit
+val commit_new_master : __context:Context.t -> address:string -> unit
 val abort_new_master : __context:'a -> address:string -> unit
 val update_master : __context:'a -> host:'b -> master_address:'c -> 'd
 val emergency_ha_disable : __context:'a -> unit

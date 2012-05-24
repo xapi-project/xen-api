@@ -104,12 +104,12 @@ let maybe_start_himn ?addr () =
 let management_ip_mutex = Mutex.create ()
 let management_ip_cond = Condition.create ()
 
-let wait_for_management_ip () =
-	let ip = ref (match Helpers.get_management_ip_addr () with Some x -> x | None -> "") in
+let wait_for_management_ip ~__context =
+	let ip = ref (match Helpers.get_management_ip_addr ~__context with Some x -> x | None -> "") in
 	Mutex.execute management_ip_mutex
 		(fun () -> begin while !ip = "" do
 			Condition.wait management_ip_cond management_ip_mutex;
-			ip := (match Helpers.get_management_ip_addr () with Some x -> x | None -> "")
+			ip := (match Helpers.get_management_ip_addr ~__context with Some x -> x | None -> "")
 		done; end);
 	!ip
 
@@ -125,7 +125,7 @@ let on_dom0_networking_change ~__context =
 		debug "Changing Host.hostname in database to: %s" new_hostname;
 		Db.Host.set_hostname ~__context ~self:localhost ~value:new_hostname
 	end;
-	begin match Helpers.get_management_ip_addr () with
+	begin match Helpers.get_management_ip_addr ~__context with
 		| Some ip ->
 			if Db.Host.get_address ~__context ~self:localhost <> ip then begin
 				debug "Changing Host.address in database to: %s" ip;

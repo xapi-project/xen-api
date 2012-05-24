@@ -229,7 +229,7 @@ let requirements_of_mode = function
 	| `lacp -> [
 			{
 				name = "hashing_algorithm";
-				default_value = "src_mac";
+				default_value = "tcpudp_ports";
 				is_valid_value = (fun str -> List.mem str ["src_mac"; "tcpudp_ports"]);
 			};
 		]
@@ -263,20 +263,6 @@ let add_defaults requirements properties =
 			if property_is_present requirement then acc
 			else (requirement.name, requirement.default_value)::acc)
 		properties requirements
-
-(* Temporary measure for compatibility with current interface-reconfigure.
- * Remove once interface-reconfigure has been updated to recognise bond.mode and bond.properties. *)
-let refresh_pif_other_config ~__context ~self =
-	let master = Db.Bond.get_master ~__context ~self in
-	let mode = Db.Bond.get_mode ~__context ~self in
-	let properties = Db.Bond.get_properties ~__context ~self in
-
-	Db.PIF.remove_from_other_config ~__context ~self:master ~key:"bond-mode";
-	Db.PIF.remove_from_other_config ~__context ~self:master ~key:"bond-hashing-algorithm";
-
-	Db.PIF.add_to_other_config ~__context ~self:master ~key:"bond-mode" ~value:(Record_util.bond_mode_to_string mode);
-	if List.mem_assoc "hashing_algorithm" properties then
-		Db.PIF.add_to_other_config ~__context ~self:master ~key:"bond-hashing-algorithm" ~value:(List.assoc "hashing_algorithm" properties)
 
 let create ~__context ~network ~members ~mAC ~mode ~properties =
 	let host = Db.PIF.get_host ~__context ~self:(List.hd members) in
@@ -377,11 +363,6 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 
 		(* Copy the IP configuration of the primary member to the master *)
 		copy_configuration ~__context primary_slave master;
-
-		if not !Nm.use_networkd then
-			(* Temporary measure for compatibility with current interface-reconfigure.
-			 * Remove once interface-reconfigure has been updated to recognise bond.mode and bond.properties. *)
-			refresh_pif_other_config ~__context ~self:bond;
 
 		begin match management_pif with
 		| Some management_pif ->
@@ -493,9 +474,6 @@ let set_mode ~__context ~self ~value =
 	in
 	Db.Bond.set_properties ~__context ~self ~value:properties;
 
-	if not !Nm.use_networkd then
-		refresh_pif_other_config ~__context ~self;
-
 	Nm.bring_pif_up ~__context master
 
 let set_property ~__context ~self ~name ~value =
@@ -510,9 +488,6 @@ let set_property ~__context ~self ~name ~value =
 	in
 	let properties = (name, value)::properties in
 	Db.Bond.set_properties ~__context ~self ~value:properties;
-
-	if not !Nm.use_networkd then
-		refresh_pif_other_config ~__context ~self;
 
 	let master = Db.Bond.get_master ~__context ~self in
 	Nm.bring_pif_up ~__context master
