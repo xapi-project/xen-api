@@ -19,6 +19,7 @@ type t =
   | Bool of bool
   | Float of float
   | String of string
+  | DateTime of string
   | Enum of t list
   | Dict of (string * t) list
   | Null
@@ -44,6 +45,9 @@ val rpc_of_float : float -> t
 
 val string_of_rpc : t -> string
 val rpc_of_string : string -> t
+
+val dateTime_of_rpc : t -> string
+val rpc_of_dateTime : string -> t
 
 val t_of_rpc : t -> t
 val rpc_of_t : t -> t
