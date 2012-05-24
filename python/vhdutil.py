@@ -18,19 +18,13 @@
 import os
 import util
 import errno
-import zlib
 
-
-MAX_VHD_JOURNAL_SIZE = 6 * 1024 * 1024 # 2MB VHD block size, max 2TB VHD size
 MAX_CHAIN_SIZE = 30 # max VHD parent chain size
 VHD_UTIL = "/usr/bin/vhd-util"
 OPT_LOG_ERR = "--debug"
 VHD_BLOCK_SIZE = 2 * 1024 * 1024
 VHD_FOOTER_SIZE = 512
  
-# lock to lock the entire SR for short ops
-LOCK_TYPE_SR = "sr"
-
 VDI_TYPE_VHD = 'vhd'
 VDI_TYPE_RAW = 'aio'
 
@@ -116,14 +110,6 @@ def getVHDInfo(path, extractUuidFunction, includeParent = True):
     vhdInfo.hidden = int(fields[nextIndex].replace("hidden: ", ""))
     vhdInfo.path = path
     return vhdInfo
-
-def getVHDInfoLVM(lvName, extractUuidFunction, vgName):
-    """Get the VHD info. This function does not require the container LV to be
-    active, but uses lvs & vgs"""
-    vhdInfo = None
-    cmd = [VHD_UTIL, "scan", "-f", "-l", vgName, "-m", lvName]
-    ret = ioretry(cmd)
-    return _parseVHDInfo(ret, extractUuidFunction)
 
 def getAllVHDs(pattern, extractUuidFunction, vgName = None, \
         parentsOnly = False):
@@ -228,11 +214,6 @@ def getDepth(path):
     if text.startswith("chain depth:"):
         depth = int(text.split(':')[1].strip())
     return depth
-
-def getBlockBitmap(path):
-    cmd = [VHD_UTIL, "read", OPT_LOG_ERR, "-B", "-n", path]
-    text = ioretry(cmd)
-    return zlib.compress(text)
 
 def coalesce(path):
     cmd = [VHD_UTIL, "coalesce", OPT_LOG_ERR, "-n", path]
