@@ -56,6 +56,10 @@ open Storage_interface
 open Listext
 open Fun
 
+let assert_licensed_storage_motion ~__context =
+	if (not (Pool_features.is_enabled ~__context Features.Storage_motion)) then
+		raise (Api_errors.Server_error(Api_errors.license_restriction, []))
+
 let get_ip_from_url url =
 	match Http.Url.of_string url with
 		| Http.Url.Http { Http.Url.host = host }, _ -> host
@@ -468,9 +472,12 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				raise e
 
 let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
+	assert_licensed_storage_motion ~__context ;
 	with_migrate (fun () -> migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options)
 					
 let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
+	assert_licensed_storage_motion ~__context ;
+
 	let master = List.assoc _master dest in
 	let host = List.assoc _xenops dest in
 	let session_id = Ref.of_string (List.assoc _session_id dest) in

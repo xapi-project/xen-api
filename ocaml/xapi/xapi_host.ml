@@ -1564,6 +1564,8 @@ let sync_pif_currently_attached ~__context ~host ~bridges =
 		) pifs
 
 let migrate_receive ~__context ~host ~network ~options =
+	Xapi_vm_migrate.assert_licensed_storage_motion ~__context ;
+
 	let session_id = Context.get_session_id __context in
 	let session_rec = Db.Session.get_record ~__context ~self:session_id in
 	let new_session_id = Xapi_session.login_no_password ~__context ~uname:None ~host
