@@ -528,12 +528,6 @@ let event_hook_auth_on_xapi_initialize_succeeded = ref false
 (** Directory used by the v6 license policy engine for caching *)
 let upgrade_grace_file = Filename.concat Fhs.vardir "ugp"
 
-(** Where the ballooning daemon writes the initial overhead value *)
-let squeezed_reserved_host_memory = "/squeezed/reserved-host-memory"
-
-(** Where the ballooning daemon writes the initial overhead value *)
-let squeezed_reserved_host_memory_filename = "/var/run/nonpersistent/squeezed/reserved-host-memory"
-
 (** Xenclient enabled *)
 let xenclient_enabled = false
 
@@ -606,9 +600,6 @@ let master_connection_retry_timeout = ref (-1.)
 let master_connection_default_timeout = ref 10.
 
 let qemu_dm_ready_timeout = ref 300.
-
-(* seconds per balancing check *)
-let squeezed_balance_check_interval = ref 10.
 
 (* Time we allow for the hotplug scripts to run before we assume something bad
    has happened and abort *)
@@ -717,8 +708,6 @@ let xapi_globs_spec =
 	  Config.Set_float master_connection_default_timeout;
 	  "qemu_dm_ready_timeout",
 	  Config.Set_float qemu_dm_ready_timeout;
-	  "squeezed_balance_check_interval",
-	  Config.Set_float squeezed_balance_check_interval;
 	  "hotplug_timeout",
 	  Config.Set_float hotplug_timeout;
 	  "pif_reconfigure_ip_timeout",

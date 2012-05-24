@@ -308,54 +308,38 @@ let with_disk ~xc ~xs task disk write f = match disk with
 			(fun () -> dp_destroy task dp)
 
 module Mem = struct
-	let call_daemon xs fn args = Squeezed_rpc.Rpc.client ~xs ~service:Squeezed_rpc._service ~fn ~args
-	let ignore_results (_: (string * string) list) = ()
-
 	let wrap f =
 		try Some (f ())
 		with
-			| Squeezed_rpc.Error(code, descr) when code = Squeezed_rpc._error_cannot_free_this_much_memory_code ->
-				debug "Got error_cannot_free_this_much_memory(%s) from ballooning daemon" descr;
-				begin match Stringext.String.split ',' descr with
-					| [ needed; free ] ->
-						let needed = Memory.bytes_of_kib (Int64.of_string needed) in
-						let free = Memory.bytes_of_kib (Int64.of_string free) in
-						raise (Cannot_free_this_much_memory(needed, free))
-					| _ ->
-						error "Failed to parse cannot_free_this_much_memory_error (old ballooning daemon?)";
-						raise (Ballooning_error(code, descr))
-				end
-			| Squeezed_rpc.Error(code, descr) when code = Squeezed_rpc._error_domains_refused_to_cooperate_code ->
+			| Memory_interface.Cannot_free_this_much_memory(needed, free) ->
+				let needed = Memory.bytes_of_kib needed in
+				let free = Memory.bytes_of_kib free in
+				raise (Cannot_free_this_much_memory(needed, free))
+			| Memory_interface.Domains_refused_to_cooperate domids ->
 				debug "Got error_domains_refused_to_cooperate_code from ballooning daemon";
 				Xenctrl.with_intf
 					(fun xc ->
-						let domids = List.map int_of_string (Stringext.String.split ',' descr) in
 						let vms = List.map (get_uuid ~xc) domids |> List.map Uuid.string_of_uuid in
 						raise (Vms_failed_to_cooperate(vms))
 					)
-			| Squeezed_rpc.Server_not_registered ->
-				error "The ballooning daemon is not running";
-				None (* Keep going anyway *)
-			| Squeezed_rpc.Error(code, descr) -> raise (Ballooning_error(code, descr))
+			| Unix.Unix_error(Unix.ECONNREFUSED, "connect", _) ->
+				info "ECONNREFUSED talking to squeezed: assuming it has been switched off";
+				None
+	open Memory_client
+	let do_login dbg = wrap (fun () -> Client.login dbg "xenopsd")
 
-	let do_login_exn ~xs =
-		let args = [ Squeezed_rpc._service_name, "xenopsd" ] in
-		let results = call_daemon xs Squeezed_rpc._login args in
-		List.assoc Squeezed_rpc._session_id results
-	let do_login ~xs = wrap (fun () -> do_login_exn ~xs)
-
-	(** Maintain a cached login session with the ballooning service; return the cached value on demand *)
+	(* Each "login" causes all unused reservations to be freed, therefore we log in once *)
+	let cached_session_id = ref None
+	let cached_session_id_m = Mutex.create ()
 	let get_session_id =
-		let session_id = ref None in
-		let m = Mutex.create () in
-		fun ~xs ->
-			Mutex.execute m
+		fun dbg ->
+			Mutex.execute cached_session_id_m
 				(fun () ->
-					match !session_id with
+					match !cached_session_id with
 						| Some x -> x
 						| None ->
-							let s = do_login ~xs in
-							session_id := Some s;
+							let s = do_login dbg in
+							cached_session_id := Some s;
 							s
 				)
 
@@ -371,10 +355,8 @@ module Mem = struct
 			try
 				f ()
 			with
-				| Squeezed_rpc.Error(code, descr) as e when
-					false
-					|| code = Squeezed_rpc._error_domains_refused_to_cooperate_code
-					|| code = Squeezed_rpc._error_cannot_free_this_much_memory_code ->
+				| Memory_interface.Domains_refused_to_cooperate _
+				| Memory_interface.Cannot_free_this_much_memory(_, _) as e ->
 				let now = Unix.gettimeofday () in
 				if now -. start > timeout then raise e else begin
 					debug "Sleeping %.0f before retrying" interval;
@@ -384,70 +366,71 @@ module Mem = struct
 		loop ()
 
 	(** Reserve a particular amount of memory and return a reservation id *)
-	let reserve_memory_range_exn ~xc ~xs ~min ~max =
+	let reserve_memory_range_exn dbg min max =
 		Opt.map
 			(fun session_id ->
-				let reserved_memory, reservation_id =
+				let reservation_id, reserved_memory  =
 					retry
 						(fun () ->
 							debug "Requesting a host memory reservation between %Ld and %Ld" min max;
-							let args = [ Squeezed_rpc._session_id, session_id; Squeezed_rpc._min, Int64.to_string min; Squeezed_rpc._max, Int64.to_string max ] in
-							let results = call_daemon xs Squeezed_rpc._reserve_memory_range args in
-							let kib = List.assoc Squeezed_rpc._kib results
-							and reservation_id = List.assoc Squeezed_rpc._reservation_id results in
-							debug "Memory reservation size = %s (reservation_id = %s)" kib reservation_id;
-							Int64.of_string kib, reservation_id
+							let reservation_id, kib = Client.reserve_memory_range dbg session_id min max in
+							debug "Memory reservation size = %Ld (reservation_id = %s)" kib reservation_id;
+							reservation_id, kib
 						)
 				in
 				(* Post condition: *)
 				assert (reserved_memory >= min);
 				assert (reserved_memory <= max);
 				reserved_memory, (reservation_id, reserved_memory)
-			) (get_session_id ~xs)
+			) (get_session_id dbg)
 
-	let reserve_memory_range ~xc ~xs ~min ~max : (int64 * (string * int64)) option =
-		wrap (fun () -> reserve_memory_range_exn ~xc ~xs ~min ~max) |> Opt.join
+	let reserve_memory_range dbg min max : (int64 * (string * int64)) option =
+		wrap (fun () -> reserve_memory_range_exn dbg min max) |> Opt.join
 
 	(** Delete a reservation given by [reservation_id] *)
-	let delete_reservation_exn ~xs (reservation_id, _) =
+	let delete_reservation_exn dbg (reservation_id, _) =
 		Opt.map
 			(fun session_id ->
 				debug "delete_reservation %s" reservation_id;
-				let args = [ Squeezed_rpc._session_id, session_id; Squeezed_rpc._reservation_id, reservation_id ] in
-				ignore_results (call_daemon xs Squeezed_rpc._delete_reservation args)
-			) (get_session_id ~xs)
-	let delete_reservation ~xs r =
-		let (_: unit option option) = wrap (fun () -> delete_reservation_exn ~xs r) in
+				Client.delete_reservation dbg session_id reservation_id
+			) (get_session_id dbg)
+	let delete_reservation dbg r =
+		let (_: unit option option) = wrap (fun () -> delete_reservation_exn dbg r) in
 		()
 
 	(** Reserves memory, passes the id to [f] and cleans up afterwards. If the user
 		wants to keep the memory, then call [transfer_reservation_to_domain]. *)
-	let with_reservation ~xc ~xs ~min ~max f =
-		let amount, id = Opt.default (min, ("none", min)) (reserve_memory_range ~xc ~xs ~min ~max) in
+	let with_reservation dbg min max f =
+		let amount, id = Opt.default (min, ("none", min)) (reserve_memory_range dbg min max) in
 		finally
 			(fun () -> f amount id)
-			(fun () -> delete_reservation ~xs id)
+			(fun () -> delete_reservation dbg id)
 
 	(** Transfer this 'reservation' to the given domain id *)
-	let transfer_reservation_to_domain_exn ~xc ~xs ~domid (reservation_id, amount) =
-		match get_session_id ~xs with
+	let transfer_reservation_to_domain_exn dbg domid (reservation_id, amount) =
+		match get_session_id dbg with
 			| Some session_id ->
-				let uuid = get_uuid ~xc domid in
-				debug "VM = %s; domid = %d; transfer_reservation_to_domain %s" (Uuid.to_string uuid) domid reservation_id;
-				let args = [ Squeezed_rpc._session_id, session_id; Squeezed_rpc._reservation_id, reservation_id; Squeezed_rpc._domid, string_of_int domid ] in
-				ignore_results (call_daemon xs Squeezed_rpc._transfer_reservation_to_domain args)
-			| None ->
+				begin
+					try
+						Client.transfer_reservation_to_domain dbg session_id reservation_id domid
+					with Unix.Unix_error(Unix.ECONNREFUSED, "connect", _) ->
+						(* This happens when someone manually runs 'service squeezed stop' *)
+						Mutex.execute cached_session_id_m (fun () -> cached_session_id := None);
+						error "Ballooning daemon has disappeared. Manually setting domain maxmem for domid = %d to %Ld KiB" domid amount;
+						Xenctrl.with_intf (fun xc -> Xenctrl.domain_setmaxmem xc domid amount);
+				end
+ 			| None ->
 				info "No ballooning daemon. Manually setting domain maxmem for domid = %d to %Ld KiB" domid amount;
-				Xenctrl.domain_setmaxmem xc domid amount
+				Xenctrl.with_intf (fun xc -> Xenctrl.domain_setmaxmem xc domid amount)
 
-	let transfer_reservation_to_domain ~xc ~xs ~domid r =
-		let (_: unit option) = wrap (fun () -> transfer_reservation_to_domain_exn ~xc ~xs ~domid r) in
+	let transfer_reservation_to_domain dbg domid r =
+		let (_: unit option) = wrap (fun () -> transfer_reservation_to_domain_exn dbg domid r) in
 		()
 
 	(** After an event which frees memory (eg a domain destruction), perform a one-off memory rebalance *)
-	let balance_memory ~xc ~xs =
+	let balance_memory dbg =
 		debug "rebalance_memory";
-		ignore_results (call_daemon xs Squeezed_rpc._balance_memory [])
+		Client.balance_memory dbg
 
 end
 
@@ -675,20 +658,20 @@ module VM = struct
 				let min_kib = kib_of_bytes_used (min_bytes +++ overhead_bytes)
 				and max_kib = kib_of_bytes_used (max_bytes +++ overhead_bytes) in
 				(* XXX: we would like to be able to cancel an in-progress with_reservation *)
-				Mem.with_reservation ~xc ~xs ~min:min_kib ~max:max_kib
+				Mem.with_reservation task.Xenops_task.debug_info min_kib max_kib
 					(fun target_plus_overhead_kib reservation_id ->
 						DB.write k {
 							VmExtra.persistent = persistent;
 							VmExtra.non_persistent = non_persistent
 						};
 						let domid = Domain.make ~xc ~xs non_persistent.VmExtra.create_info (uuid_of_vm vm) in
-						Mem.transfer_reservation_to_domain ~xc ~xs ~domid reservation_id;
+						Mem.transfer_reservation_to_domain task.Xenops_task.debug_info domid reservation_id;
 						begin match vm.Vm.ty with
 							| Vm.HVM { Vm.qemu_stubdom = true } ->
-								Mem.with_reservation ~xc ~xs ~min:Stubdom.memory_kib ~max:Stubdom.memory_kib
+								Mem.with_reservation task.Xenops_task.debug_info Stubdom.memory_kib Stubdom.memory_kib
 									(fun _ reservation_id ->
 										let stubdom_domid = Stubdom.create ~xc ~xs domid in
-										Mem.transfer_reservation_to_domain ~xc ~xs ~domid:stubdom_domid reservation_id;
+										Mem.transfer_reservation_to_domain task.Xenops_task.debug_info stubdom_domid reservation_id;
 										set_stubdom ~xs domid stubdom_domid;
 									)
 							| _ ->
@@ -861,7 +844,7 @@ module VM = struct
 			~min:(Int64.to_int (Int64.div min 1024L))
 			~max:(Int64.to_int (Int64.div max 1024L))
 			domid;
-		Mem.balance_memory ~xc ~xs
+		Mem.balance_memory task.Xenops_task.debug_info
 	) Newest task vm
 
 	(* NB: the arguments which affect the qemu configuration must be saved and

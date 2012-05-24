@@ -140,11 +140,11 @@ let record_host_memory_properties ~__context =
 				total_memory_bytes -- boot_memory_bytes in
 			let nonobvious_overhead_memory_kib = 
 				try
-					Int64.of_string (Unixext.string_of_file Xapi_globs.squeezed_reserved_host_memory_filename)
+					Memory_client.Client.get_host_reserved_memory "dbsync"
 				with e ->
-					error "Failed to read %s: \
+					error "Failed to contact ballooning service: \
 						host memory overhead may be too small (%s)"
-						Xapi_globs.squeezed_reserved_host_memory_filename (Printexc.to_string e);
+						(Printexc.to_string e);
 					0L
 			in
 			let nonobvious_overhead_memory_bytes =
