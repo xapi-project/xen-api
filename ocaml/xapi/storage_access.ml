@@ -478,7 +478,7 @@ module Builtin_impl = struct
 			(* peer_ip/session_ref/vdi_ref *)
 			Server_helpers.exec_with_new_task "VDI.compose" ~subtask_of:(Ref.of_string dbg)
 				(fun __context ->
-					let ip = Helpers.get_management_ip_addr () |> Opt.unbox in
+					let ip = Helpers.get_management_ip_addr ~__context |> Opt.unbox in
 					let rpc = Helpers.make_rpc ~__context in
 					let localhost = Helpers.get_localhost ~__context in
 					(* XXX: leaked *)

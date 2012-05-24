@@ -18,6 +18,9 @@ open Pervasiveext
 open Fun
 open Network_utils
 
+module D = Debug.Debugger(struct let name = "networkd" end)
+open D
+
 let server = Http_svr.Server.empty ()
 
 let path = Filename.concat Fhs.vardir name
@@ -33,13 +36,14 @@ let xmlrpc_handler process req bio context =
 		let str = Xmlrpc.string_of_response result in
 		Http_svr.response_str req s str
 	with e ->
-		Network_utils.debug "Caught %s" (Printexc.to_string e);
-		Network_utils.debug "Backtrace: %s" (Printexc.get_backtrace ());
+		debug "Caught %s" (Printexc.to_string e);
+		debug "Backtrace: %s" (Printexc.get_backtrace ());
 		Http_svr.response_unauthorised ~req (Printf.sprintf "Go away: %s" (Printexc.to_string e)) s
 
 let start_server path process =
 	Http_svr.Server.add_handler server Http.Post "/" (Http_svr.BufIO (xmlrpc_handler process));
 
+	debug "Listening on %s" path;
 	Unixext.mkdir_safe (Filename.dirname path) 0o700;
 	Unixext.unlink_safe path;
 	let domain_sock = Http_svr.bind (Unix.ADDR_UNIX(path)) "unix_rpc" in
@@ -71,6 +75,9 @@ let _ =
 	let daemonize = ref false in
 	Debug.set_facility Syslog.Local5;
 
+	(* We should make the following configurable *)
+	Debug.disable "http";
+
 	Arg.parse (Arg.align [
 			"-daemon", Arg.Set daemonize, "Create a daemon";
 			"-pidfile", Arg.Set_string pidfile, Printf.sprintf "Set the pid file (default \"%s\")" !pidfile;
@@ -80,7 +87,10 @@ let _ =
 
 	debug "%s" (String.concat ", " (Debug.get_all_debug_keys()));
 
-	if !daemonize then Unixext.daemonize () else Network_utils.print_debug := true;
+	if !daemonize then
+		Unixext.daemonize ()
+	else
+		Debug.log_to_stdout ();
 
 	if !pidfile <> "" then begin
 		Unixext.mkdir_rec (Filename.dirname !pidfile) 0o755;
@@ -88,7 +98,7 @@ let _ =
 	end;
 
 	handle_shutdown ();
-	start ();
+	Debug.with_thread_associated "main" start ();
 	while true do
 		Thread.delay 300.;
 		Network_server.on_timer ()

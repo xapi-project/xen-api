@@ -308,7 +308,7 @@ let bring_up_management_if ~__context () =
 			debug "No management interface defined (management is disabled)";
 		end else begin
 			Xapi_mgmt_iface.run management_if management_address_type;
-			match Helpers.get_management_ip_addr () with
+			match Helpers.get_management_ip_addr ~__context with
 			| Some "127.0.0.1" ->
 				debug "Received 127.0.0.1 as a management IP address; ignoring"
 			| Some ip ->
@@ -327,10 +327,10 @@ let bring_up_management_if ~__context () =
 
 (** Assuming a management interface is defined, return the IP address. Note this
 	call may block for a long time. *)
-let wait_for_management_ip_address () =
+let wait_for_management_ip_address ~__context =
 	debug "Attempting to acquire a management IP address";
 	Xapi_host.set_emergency_mode_error Api_errors.host_has_no_management_ip [];
-	let ip = Xapi_mgmt_iface.wait_for_management_ip () in
+	let ip = Xapi_mgmt_iface.wait_for_management_ip ~__context in
 	debug "Acquired management IP address: %s" ip;
 	Xapi_host.set_emergency_mode_error Api_errors.host_still_booting [];
 	(* Check whether I am my own slave. *)
@@ -835,7 +835,7 @@ let server_init() =
         let finished = ref false in
         while not(!finished) do
           (* Grab the management IP address (wait forever for it if necessary) *)
-          let ip = wait_for_management_ip_address () in
+          let ip = wait_for_management_ip_address ~__context in
 
           debug "Attempting to communicate with master";
           (* Try to say hello to the pool *)
@@ -923,7 +923,7 @@ let server_init() =
       let management_if = Xapi_inventory.lookup Xapi_inventory._management_interface in
       if management_if <> "" then (
 	debug "Waiting forever for the management interface to gain an IP address";
-	let ip = wait_for_management_ip_address () in
+	let ip = wait_for_management_ip_address ~__context in
 	debug "Management interface got IP address: %s; attempting to re-plug any unplugged PBDs" ip;
 	Helpers.call_api_functions ~__context (fun rpc session_id -> 
 	       Create_storage.plug_unplugged_pbds __context rpc session_id)

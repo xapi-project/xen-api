@@ -31,5 +31,3 @@ val with_local_lock : (unit -> 'a) -> 'a
 (** [is_dom0_interface pif_r] returns true if pif_r is a network interface 
 	which has a dom0 endpoint *)
 val is_dom0_interface : API.pIF_t -> bool
-
-val use_networkd : bool ref
