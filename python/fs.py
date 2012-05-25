@@ -98,6 +98,14 @@ def highest_id(xs):
             pass
     return highest
 
+def unlink_safe(path):
+    try:
+        os.unlink(path)
+        log("os.unlink %s OK" % path)
+    except Exception, e:
+        log("os.unlink %s: %s" % (path, str(e)))
+
+
 class Repo:
     """Encapsulates all relevant SR operations
 
@@ -149,6 +157,20 @@ data/ files are referenced directly by a metadata/ file.
             if vdi_info["data"] not in self.data:
                 log("WARNING: vdi %s has data %s but this does not exist" % (vdi_info["vdi"], vdi_info["data"]))
 
+    def get_deletable(self):
+        """Return a set of the data blobs which are not reachable from
+        any of the VDIs """
+        reachable = set()
+        for vdi_info in self.metadata.values():
+            x = vdi_info["data"]
+            while x not in reachable:
+                reachable.add(x)
+                info = self.data[x]
+                if "parent" in info:
+                    x = info["parent"]
+        all = set(self.data.keys())
+        return all.difference(reachable)
+
     def make_fresh_metadata_name(self, vdi_info):
         # To make this vaguely human-readable, sanitise the first 32 chars of the
         # VDI's name and then add a numerical suffix to make unique.
@@ -175,9 +197,7 @@ data/ files are referenced directly by a metadata/ file.
     def metadata_path_of_vdi(self, vdi):
         return self.path + "/" + metadata_dir + "/" + vdi + metadata_suffix
 
-    def data_path_of_vdi(self, vdi):
-        vdi_info = self.metadata[vdi]
-        key = vdi_info["data"]
+    def data_path_of_key(self, key):
         data = self.data[key]
         if data["type"] == "raw":
             return self.path + "/" + data_dir + "/" + key + raw_suffix
@@ -185,6 +205,11 @@ data/ files are referenced directly by a metadata/ file.
             return self.path + "/" + data_dir + "/" + key + vhd_suffix
         else:
             raise (Vdi_does_not_exist(vdi))
+
+    def data_path_of_vdi(self, vdi):
+        vdi_info = self.metadata[vdi]
+        key = vdi_info["data"]
+        return self.data_path_of_key(key)
 
     def update_vdi_info(self, vdi, vdi_info):
         f = open(self.metadata_path_of_vdi(vdi), "w")
@@ -221,10 +246,15 @@ data/ files are referenced directly by a metadata/ file.
         return vdi_info
 
     def destroy(self, vdi):
-        data = self.data_path_of_vdi(vdi)
         meta = self.metadata_path_of_vdi(vdi)
-        unlink_safe(data)
         unlink_safe(meta)
+        del self.metadata[vdi]
+        deletable = self.get_deletable()
+        for x in deletable:
+            log("Data %s is unreachable now" % x)
+            path = self.data_path_of_key(x)
+            unlink_safe(path)
+            del self.data[x]
 
     def clone(self, vdi, vdi_info, params):
         parent = self.data_path_of_vdi(vdi)
@@ -284,13 +314,6 @@ class SR(SR_skeleton):
         if not sr in repos:
             raise Sr_not_attached(sr)
         return repos[sr].metadata.values()
-
-def unlink_safe(path):
-    try:
-        os.unlink(path)
-        log("os.unlink %s OK" % path)
-    except Exception, e:
-        log("os.unlink %s: %s" % (path, str(e)))
 
 class VDI(VDI_skeleton):
     def __init__(self):
