@@ -138,8 +138,10 @@ data/ files are referenced directly by a metadata/ file.
         for name in os.listdir(data_path):
             if name.endswith(raw_suffix):
                 self.data[name[0:-len(raw_suffix)]] = { "type": "raw" }
-            if name.endswith(vhd_suffix):
-                self.data[name[0:-len(vhd_suffix)]] = { "type": "vhd" }
+        all = vhdutil.list(data_path + "/*.vhd")
+        for name in all.keys():
+            log("data[%s] = %s" % (name, repr(all[name])))
+            self.data[name] = all[name]
         self._data_highest_id = highest_id(self.data.keys()) + 1L
 
         # Integrity check: each metadata record should point to a data record

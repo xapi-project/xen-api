@@ -91,9 +91,7 @@ def getVHDInfo(path, extractUuidFunction, includeParent = True):
     """Get the VHD info. The parent info may optionally be omitted: vhd-util
     tries to verify the parent by opening it, which results in error if the VHD
     resides on an inactive LV"""
-    opts = "-vsf"
-    if includeParent:
-        opts += "p"
+    opts = "-vsfp"
     cmd = [VHD_UTIL, "query", OPT_LOG_ERR, opts, "-n", path]
     ret = ioretry(cmd)
     fields = ret.strip().split('\n')
@@ -102,30 +100,13 @@ def getVHDInfo(path, extractUuidFunction, includeParent = True):
     vhdInfo.sizeVirt = int(fields[0]) * 1024 * 1024
     vhdInfo.sizePhys = int(fields[1])
     nextIndex = 2
-    if includeParent:
-        if fields[nextIndex].find("no parent") == -1:
-            vhdInfo.parentPath = fields[nextIndex]
-            vhdInfo.parentUuid = extractUuidFunction(fields[nextIndex])
-        nextIndex += 1
+    if fields[nextIndex].find("no parent") == -1:
+        vhdInfo.parentPath = fields[nextIndex]
+        vhdInfo.parentUuid = extractUuidFunction(fields[nextIndex])
+    nextIndex += 1
     vhdInfo.hidden = int(fields[nextIndex].replace("hidden: ", ""))
     vhdInfo.path = path
     return vhdInfo
-
-def getAllVHDs(pattern, extractUuidFunction, vgName = None, \
-        parentsOnly = False):
-    vhds = dict()
-    cmd = [VHD_UTIL, "scan", "-f", "-c", "-m", pattern]
-    if vgName:
-        cmd.append("-l")
-        cmd.append(vgName)
-    if parentsOnly:
-        cmd.append("-a")
-    ret = ioretry(cmd)
-    for line in ret.split('\n'):
-        vhdInfo = _parseVHDInfo(line, extractUuidFunction)
-        if vhdInfo:
-            vhds[vhdInfo.uuid] = vhdInfo
-    return vhds
 
 def getParentChain(lvName, extractUuidFunction, vgName):
     """Get the chain of all VHD parents of 'path'. Safe to call for raw VDI's
@@ -268,44 +249,35 @@ def revert(path, jFile):
     cmd = [VHD_UTIL, "revert", OPT_LOG_ERR, "-n", path, "-j", jFile]
     ioretry(cmd)
 
-def _parseVHDInfo(line, extractUuidFunction):
-    vhdInfo = None
+def vhd_info_of_string(line):
     valueMap = line.split()
     if len(valueMap) < 1 or valueMap[0].find("vhd=") == -1:
         return None
+    info = {}
     for keyval in valueMap:
         (key, val) = keyval.split('=')
         if key == "vhd":
-            uuid = extractUuidFunction(val)
-            if not uuid:
-                util.SMlog("***** malformed output, no UUID: %s" % valueMap)
-                return None
-            vhdInfo = VHDInfo(uuid)
-            vhdInfo.path = val
+            info["name"] = val[0:-len(".vhd")]
         elif key == "scan-error":
-            vhdInfo.error = line
             util.SMlog("***** VHD scan error: %s" % line)
-            break
+            return None
         elif key == "capacity":
-            vhdInfo.sizeVirt = int(val)
+            info["virt"] = int(val)
         elif key == "size":
-            vhdInfo.sizePhys = int(val)
+            info["phys"] = int(val)
         elif key == "hidden":
-            vhdInfo.hidden = int(val)
+            info["hidden"] = int(val)
         elif key == "parent" and val != "none":
-            vhdInfo.parentPath = val
-            vhdInfo.parentUuid = extractUuidFunction(val)
-    return vhdInfo
+            info["parent"] = val[0:-len(".vhd")]
+    return info
 
-def _getVHDParentNoCheck(path):
-    cmd = ["vhd-util", "read", "-p", "-n", "%s" % path]
-    text = util.pread(cmd)
-    util.SMlog(text)
-    for line in text.split('\n'):
-        if line.find("decoded name :") != -1:
-            val = line.split(':')[1].strip()
-            vdi = val.replace("--", "-")[-40:]
-            if vdi[1:].startswith("LV-"):
-                vdi = vdi[1:]
-            return vdi
-    return None
+def list(pattern):
+    vhds = {}
+    cmd = [VHD_UTIL, "scan", "-f", "-c", "-m", pattern]
+    ret = ioretry(cmd)
+    for line in ret.split('\n'):
+        info = vhd_info_of_string(line)
+        if info:
+            vhds[info["name"]] = info
+    return vhds
+
