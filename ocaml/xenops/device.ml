@@ -1749,7 +1749,7 @@ let prepend_wrapper_args domid args =
 
 (* Returns the allocated vnc port number *)
 let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xapi_globs.qemu_dm_ready_timeout) l domid =
-	debug "Device.Dm.start domid=%d" domid;
+	debug "Device.Dm.start domid=%d args: [%s]" domid (String.concat " " l);
 
 	(* Execute qemu-dm-wrapper, forwarding stdout to the syslog, with the key "qemu-dm-<domid>" *)
 	let syslog_stdout = Forkhelpers.Syslog_WithKey (Printf.sprintf "qemu-dm-%d" domid) in
