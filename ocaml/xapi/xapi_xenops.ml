@@ -15,6 +15,8 @@
 module D=Debug.Debugger(struct let name="xenops" end)
 open D
 
+module Net = (val (Network.get_client ()) : Network.CLIENT)
+
 open Stringext
 open Listext
 open Threadext
@@ -1025,8 +1027,9 @@ let update_vif ~__context id =
 								(* sync MTU *)
 								try
 									let device = "vif" ^ (Int64.to_string (Db.VM.get_domid ~__context ~self:vm)) ^ "." ^ (snd id) in
-									let mtu = Int64.of_string (Netdev.get_mtu device) in
-									Db.VIF.set_MTU ~__context ~self:vif ~value:mtu
+									let dbg = Context.string_of_task __context in
+									let mtu = Net.Interface.get_mtu dbg ~name:device in
+									Db.VIF.set_MTU ~__context ~self:vif ~value:(Int64.of_int mtu)
 								with _ ->
 									debug "could not update MTU field on VIF %s.%s" (fst id) (snd id)
 							end;
