@@ -60,7 +60,10 @@ let create_action_list ~__context start vms =
 
 (* Return once none of the tasks have a `pending status. *)
 let wait_for_all_tasks ~rpc ~session_id ~tasks =
-	let classes = ["task"] in
+	let classes = List.map
+		(fun task -> Printf.sprintf "task/%s" (Ref.string_of task))
+		tasks
+	in
 	let timeout = 5.0 in
 	let rec wait ~token ~task_set =
 		if TaskSet.is_empty task_set then ()
