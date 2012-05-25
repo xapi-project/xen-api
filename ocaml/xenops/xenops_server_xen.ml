@@ -69,7 +69,6 @@ module VmExtra = struct
 		suspend_memory_bytes: int64;
 		qemu_vbds: (Vbd.id * (int * qemu_frontend)) list;
 		qemu_vifs: (Vif.id * (int * qemu_frontend)) list;
-		vifs: Vif.t list;
 		pci_msitranslate: bool;
 		pci_power_mgmt: bool;
 	} with rpc
@@ -617,7 +616,6 @@ module VM = struct
 			suspend_memory_bytes = 0L;
 			qemu_vbds = [];
 			qemu_vifs = [];
-			vifs = [];
 			pci_msitranslate = vm.Vm.pci_msitranslate;
 			pci_power_mgmt = vm.Vm.pci_power_mgmt;
 		}
@@ -849,15 +847,14 @@ module VM = struct
 
 	(* NB: the arguments which affect the qemu configuration must be saved and
 	   restored with the VM. *)
-	let create_device_model_config vbds vmextra = match vmextra.VmExtra.persistent, vmextra.VmExtra.non_persistent with
+	let create_device_model_config vbds vifs vmextra = match vmextra.VmExtra.persistent, vmextra.VmExtra.non_persistent with
 		| { VmExtra.build_info = None }, _
 		| { VmExtra.ty = None }, _ -> raise (Domain_not_built)
 		| {
 			VmExtra.build_info = Some build_info;
 			ty = Some ty;
 		},{
-			VmExtra.vifs = vifs;
-			qemu_vbds = qemu_vbds
+			VmExtra.qemu_vbds = qemu_vbds
 		} ->
 			let make ?(boot_order="cd") ?(serial="pty") ?(monitor="pty") 
 					?(nics=[])
@@ -982,12 +979,10 @@ module VM = struct
 			let persistent = { d.VmExtra.persistent with
 				VmExtra.build_info = Some build_info;
 				ty = Some vm.ty;
-			} and non_persistent = { d.VmExtra.non_persistent with
-				VmExtra.vifs = vifs;
 			} in
 			DB.write k {
 				VmExtra.persistent = persistent;
-				VmExtra.non_persistent = non_persistent;
+				VmExtra.non_persistent = d.VmExtra.non_persistent;
 			}
 		) (fun () -> Opt.iter Bootloader.delete !kernel_to_cleanup)
 
@@ -1020,7 +1015,7 @@ module VM = struct
 
 	let build task vm vbds vifs = on_domain (build_domain vm vbds vifs) Newest task vm
 
-	let create_device_model_exn vbds saved_state xc xs task vm di =
+	let create_device_model_exn vbds vifs saved_state xc xs task vm di =
 		let vmextra = DB.read_exn vm.Vm.id in
 		Opt.iter (fun info ->
 			match vm.Vm.ty with
@@ -1038,12 +1033,12 @@ module VM = struct
 					Device.Vfb.add ~xc ~xs di.Xenctrl.domid;
 					Device.Vkbd.add ~xc ~xs di.Xenctrl.domid;
 					Device.Dm.start_vnconly task ~xs ~dmpath:_qemu_dm info di.Xenctrl.domid
-		) (create_device_model_config vbds vmextra);
+		) (create_device_model_config vbds vifs vmextra);
 		match vm.Vm.ty with
 			| Vm.PV { vncterm = true; vncterm_ip = ip } -> Device.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
 			| _ -> ()
 
-	let create_device_model task vm vbds saved_state = on_domain (create_device_model_exn vbds saved_state) Newest task vm
+	let create_device_model task vm vbds vifs saved_state = on_domain (create_device_model_exn vbds vifs saved_state) Newest task vm
 
 	let request_shutdown task vm reason ack_delay =
 		let reason = shutdown_reason reason in
@@ -1232,13 +1227,7 @@ module VM = struct
 					let min = to_int (div vm.Vm.memory_dynamic_min 1024L)
 					and max = to_int (div vm.Vm.memory_dynamic_max 1024L) in
 					Domain.set_memory_dynamic_range ~xc ~xs ~min ~max domid
-				);
-				let non_persistent = { vmextra.VmExtra.non_persistent with
-					VmExtra.vifs = vifs;
-				} in
-				DB.write k { vmextra with
-					VmExtra.non_persistent = non_persistent
-				}
+				)
 			) Newest task vm
 
 	let s3suspend =
