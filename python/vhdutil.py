@@ -222,10 +222,6 @@ def create(size, path):
     cmd = [TAPDISK_UTIL, "query", "vhd", "-v", path]
     return long(ioretry(cmd)) * mb
 
-def make_leaf(child, parent):
-    cmd = [TAPDISK_UTIL, "snapshot", "vhd", child, parent]
-    ioretry(cmd)
-
 def snapshot(path, parent, parentRaw, msize = 0, checkEmpty = True):
     cmd = [VHD_UTIL, "snapshot", OPT_LOG_ERR, "-n", path, "-p", parent]
     if parentRaw:
@@ -253,7 +249,7 @@ def vhd_info_of_string(line):
     valueMap = line.split()
     if len(valueMap) < 1 or valueMap[0].find("vhd=") == -1:
         return None
-    info = {}
+    info = { "type": "vhd" }
     for keyval in valueMap:
         (key, val) = keyval.split('=')
         if key == "vhd":
@@ -281,3 +277,7 @@ def list(pattern):
             vhds[info["name"]] = info
     return vhds
 
+def make_leaf(child, parent):
+    cmd = [TAPDISK_UTIL, "snapshot", "vhd", child, parent]
+    ioretry(cmd)
+    return list(child).values()[0]

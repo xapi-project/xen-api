@@ -231,12 +231,10 @@ data/ files are referenced directly by a metadata/ file.
 
         # Create two vhd leaves whose parent is [vdi]
         left = self.make_fresh_data_name()
-        vhdutil.make_leaf(self.path + "/" + data_dir + "/" + left + vhd_suffix, parent)
-        self.data[left] = { "type": "vhd" }
+        self.data[left] = vhdutil.make_leaf(self.path + "/" + data_dir + "/" + left + vhd_suffix, parent)
 
         right = self.make_fresh_data_name()
-        vhdutil.make_leaf(self.path + "/" + data_dir + "/" + right + vhd_suffix, parent)
-        self.data[right] = { "type": "vhd" }
+        self.data[right] = vhdutil.make_leaf(self.path + "/" + data_dir + "/" + right + vhd_suffix, parent)
 
         # Remap the original [vdi]'s location to point to the first leaf's path
         parent_info = self.metadata[vdi]
