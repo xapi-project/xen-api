@@ -241,6 +241,10 @@ def create(size, path):
     cmd = [TAPDISK_UTIL, "query", "vhd", "-v", path]
     return long(ioretry(cmd)) * mb
 
+def make_leaf(child, parent):
+    cmd = [TAPDISK_UTIL, "snapshot", "vhd", child, parent]
+    ioretry(cmd)
+
 def snapshot(path, parent, parentRaw, msize = 0, checkEmpty = True):
     cmd = [VHD_UTIL, "snapshot", OPT_LOG_ERR, "-n", path, "-p", parent]
     if parentRaw:

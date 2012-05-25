@@ -57,15 +57,6 @@ class Loop:
         loop = self._find(root, dbg, path)
         run(dbg, "losetup -d %s" % loop)
 
-# [path_of_vdi vdi] returns the path in the local filesystem corresponding
-# to vdi location [vdi]
-def path_of_vdi(root, vdi):
-    return root + "/" + vdi
-
-raw_suffix = ".raw"
-vhd_suffix = ".vhd"
-metadata_suffix = ".xml"
-
 class Query(Query_skeleton):
     def __init__(self):
         Query_skeleton.__init__(self)
@@ -83,53 +74,193 @@ class Query(Query_skeleton):
                 feature_vdi_attach,
                 feature_vdi_detach,
                 feature_vdi_activate,
-                feature_vdi_deactivate
+                feature_vdi_deactivate,
+                feature_vdi_clone
                 ],
                  "configuration": { "path": "filesystem path where the VDIs are stored" }
                  }
 
-class Metadata:
-    """Stores in memory all relevant SR metadata"""
+raw_suffix = ".raw"
+vhd_suffix = ".vhd"
+metadata_suffix = ".xml"
 
+metadata_dir = "metadata"
+data_dir = "data"
+
+def highest_id(xs):
+    highest = 0L
+    for x in xs:
+        try:
+            y = long(x)
+            if y > highest:
+                highest = y
+        except:
+            pass
+    return highest
+
+class Repo:
+    """Encapsulates all relevant SR operations
+
+The on-disk structure looks like this:
+
+<root>/metadata/name.xml    -- VDI metadata for a disk with name "name"
+<root>/metadata/name.1.xml  -- VDI metadata for another disk with name "name"
+
+<root>/data/1.vhd           -- vhd format disk (parent or leaf)
+<root>/data/2.vhd           -- vhd format disk (parent or leaf)
+<root>/data/3.raw           -- raw format disk
+
+There is an injective relationship between metadata/ files and data/
+i.e. all metadata/ files reference exactly one data/ file but not all
+data/ files are referenced directly by a metadata/ file.
+"""
     def __init__(self, path):
         self.path = path
-        self.vdi_info = {}
-        highest_id = 0
-        for name in os.listdir(path):
+        # Load the metadata first
+        self.metadata = {}
+        metadata_path = path + "/" + metadata_dir
+        if not (os.path.exists(metadata_path)):
+            os.mkdir(metadata_path)
+        for name in os.listdir(metadata_path):
             if name.endswith(metadata_suffix):
-                md = path + "/" + name
+                md = metadata_path + "/" + name
                 f = open(md, "r")
                 try:
                     vdi_info = xmlrpclib.loads(f.read())[0][0]
-                    log("vdi_info = %s" % repr(vdi_info))
-                    vdi_id = name[0:-(len(metadata_suffix))]
-                    self.vdi_info[vdi_id] = vdi_info
-                    try:
-                        if long(vdi_id) > highest_id:
-                            highest_id = long(vdi_id)
-                    except:
-                        pass
+                    self.metadata[name[0:-len(metadata_suffix)]] = vdi_info
                 finally:
                     f.close()
-        self._highest_id = highest_id
+        # Load data about the data second
+        self.data = {}
+        data_path = path + "/" + data_dir
+        if not(os.path.exists(data_path)):
+            os.mkdir(data_path)
+        for name in os.listdir(data_path):
+            if name.endswith(raw_suffix):
+                self.data[name[0:-len(raw_suffix)]] = { "type": "raw" }
+            if name.endswith(vhd_suffix):
+                self.data[name[0:-len(vhd_suffix)]] = { "type": "vhd" }
+        self._data_highest_id = highest_id(self.data.keys()) + 1L
 
-    def make_fresh_vdi_name(self):
-        name = str(self._highest_id)
-        self._highest_id = self._highest_id + 1
+        # Integrity check: each metadata record should point to a data record
+        for vdi_info in self.metadata.values():
+            if vdi_info["data"] not in self.data:
+                log("WARNING: vdi %s has data %s but this does not exist" % (vdi_info["vdi"], vdi_info["data"]))
+
+    def make_fresh_metadata_name(self, vdi_info):
+        # To make this vaguely human-readable, sanitise the first 32 chars of the
+        # VDI's name and then add a numerical suffix to make unique.
+        name = vdi_info["name_label"]
+        if len(name) > 32:
+            # arbitrary cut-off
+            name = name[0:32]
+        valid = '_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+        name = ''.join(c for c in name if c in valid)
+        taken = self.metadata.keys()
+        if name not in taken:
+            return name
+        else:
+            superstrings = filter(lambda x:x.startswith(name + "."), taken)
+            suffixes = map(lambda x:x[len(name) + 1:], superstrings)
+            suffix = highest_id(suffixes) + 1L
+            return "%s.%Ld" % (name, suffix)
+
+    def make_fresh_data_name(self):
+        name = str(self._data_highest_id)
+        self._data_highest_id = self._data_highest_id + 1
         return name
 
-# A map from attached SR -> Metadata instance
-metadata = {}
+    def metadata_path_of_vdi(self, vdi):
+        return self.path + "/" + metadata_dir + "/" + vdi + metadata_suffix
+
+    def data_path_of_vdi(self, vdi):
+        vdi_info = self.metadata[vdi]
+        key = vdi_info["data"]
+        data = self.data[key]
+        if data["type"] == "raw":
+            return self.path + "/" + data_dir + "/" + key + raw_suffix
+        elif data["type"] == "vhd":
+            return self.path + "/" + data_dir + "/" + key + vhd_suffix
+        else:
+            raise (Vdi_does_not_exist(vdi))
+
+    def update_vdi_info(self, vdi, vdi_info):
+        f = open(self.metadata_path_of_vdi(vdi), "w")
+        try:
+            try:
+                f.write(xmlrpclib.dumps((vdi_info,), allow_none=True))
+                self.metadata[vdi] = vdi_info
+            except Exception, e:
+                log("Exception writing metadata: %s" % (str(e)))
+        finally:
+            f.close()
+
+    def create(self, vdi_info, params):
+        vdi = self.make_fresh_metadata_name(vdi_info)
+        vdi_info["vdi"] = vdi
+
+        data = self.make_fresh_data_name()
+        vdi_info["data"] = data
+
+        stem = self.path + "/" + data_dir + "/" + data
+        virtual_size = long(vdi_info["virtual_size"])
+        if "type" in params and params["type"] == "raw":
+            f = open(stem + raw_suffix, "wc")
+            try:
+                f.truncate(virtual_size)
+                self.data[data] = { "type": "raw" }
+            finally:
+                f.close()
+        else:
+            vdi_info["virtual_size"] = vhdutil.create(virtual_size, stem + vhd_suffix)
+            self.data[data] = { "type": "vhd" }
+
+        self.update_vdi_info(vdi, vdi_info)
+        return vdi_info
+
+    def destroy(self, vdi):
+        data = self.data_path_of_vdi(vdi)
+        meta = self.metadata_path_of_vdi(vdi)
+        unlink_safe(data)
+        unlink_safe(meta)
+
+    def clone(self, vdi, vdi_info, params):
+        parent = self.data_path_of_vdi(vdi)
+
+        # Create two vhd leaves whose parent is [vdi]
+        left = self.make_fresh_data_name()
+        vhdutil.make_leaf(self.path + "/" + data_dir + "/" + left + vhd_suffix, parent)
+        self.data[left] = { "type": "vhd" }
+
+        right = self.make_fresh_data_name()
+        vhdutil.make_leaf(self.path + "/" + data_dir + "/" + right + vhd_suffix, parent)
+        self.data[right] = { "type": "vhd" }
+
+        # Remap the original [vdi]'s location to point to the first leaf's path
+        parent_info = self.metadata[vdi]
+        parent_info["data"] = left
+        self.update_vdi_info(vdi, parent_info)
+
+        # The cloned vdi's location points to the second leaf's path
+        clone = self.make_fresh_metadata_name(vdi_info)
+        vdi_info["vdi"] = clone
+        vdi_info["data"] = right
+        self.update_vdi_info(clone, vdi_info)
+
+        return vdi_info
+
+# A map from attached SR reference -> Repo instance
+repos = {}
 
 class SR(SR_skeleton):
     def __init__(self):
         SR_skeleton.__init__(self)
 
     def list(self, dbg):
-        return metadata.keys()
+        return repos.keys()
     def create(self, dbg, sr, device_config, physical_size):
         path = device_config["path"]
-        if path in metadata:
+        if path in repos:
             raise (Sr_attached(sr))
         if not(os.path.exists(path)):
             raise Backend_error("SR directory doesn't exist", [ path ])
@@ -137,22 +268,22 @@ class SR(SR_skeleton):
         path = device_config["path"]
         if not(os.path.exists(path)):
             raise Backend_error("SR directory doesn't exist", [ path ])
-        metadata[sr] = Metadata(path)
+        repos[sr] = Repo(path)
 
     def detach(self, dbg, sr):
-        if not sr in metadata:
+        if not sr in repos:
             log("SR isn't attached, returning success")
         else:
-            del metadata[sr]
+            del repos[sr]
     def destroy(self, dbg, sr):
         pass
     def reset(self, dbg, sr):
         """Operations which act on Storage Repositories"""
         raise Unimplemented("SR.reset")
     def scan(self, dbg, sr):
-        if not sr in metadata:
+        if not sr in repos:
             raise Sr_not_attached(sr)
-        return metadata[sr].vdi_info.values()
+        return repos[sr].metadata.values()
 
 def unlink_safe(path):
     try:
@@ -167,53 +298,24 @@ class VDI(VDI_skeleton):
         self.device = Loop()
 
     def create(self, dbg, sr, vdi_info, params):
-        if not sr in metadata:
+        if not sr in repos:
             raise Sr_not_attached(sr)
-        filename = metadata[sr].make_fresh_vdi_name()
-        root = metadata[sr].path
+        return repos[sr].create(vdi_info, params)
 
-        virtual_size = long(vdi_info["virtual_size"])
-        stem = path_of_vdi(root, filename)
-        if "type" in params and params["type"] == "raw":
-            f = open(stem + raw_suffix, "wc")
-            try:
-                f.truncate(virtual_size)
-            finally:
-                f.close()
-        else:
-            vdi_info["virtual_size"] = vhdutil.create(virtual_size, stem + vhd_suffix)
-
-        vdi_info["vdi"] = filename
-        f = open(stem + metadata_suffix, "w")
-        try:
-            try:
-                f.write(xmlrpclib.dumps((vdi_info,), allow_none=True))
-                metadata[sr].vdi_info[filename] = vdi_info
-            except Exception, e:
-                log("Exception writing metadata: %s" % (str(e)))
-        finally:
-            f.close()
-            return vdi_info
     def snapshot(self, dbg, sr, vdi, vdi_info, params):
         """Operations which operate on Virtual Disk Images"""
         raise Unimplemented("VDI.snapshot")
     def clone(self, dbg, sr, vdi, vdi_info, params):
-        """Operations which operate on Virtual Disk Images"""
-        raise Unimplemented("VDI.clone")
-    def destroy(self, dbg, sr, vdi):
-        if not sr in metadata:
+        """Create a writable clone of a VDI"""
+        if not sr in repos:
             raise Sr_not_attached(sr)
-        root = metadata[sr].path
-        
-        stem = path_of_vdi(root, vdi)
-        if not (os.path.exists(stem + raw_suffix)) and not(os.path.exists(stem + vhd_suffix)):
-            raise Vdi_does_not_exist(vdi)
-        del metadata[sr].vdi_info[vdi]
-        unlink_safe(stem + vhd_suffix)
-        unlink_safe(stem + raw_suffix)
-        unlink_safe(stem + metadata_suffix)
+        return repos[sr].clone(vdi, vdi_info, params)
+    def destroy(self, dbg, sr, vdi):
+        if not sr in repos:
+            raise Sr_not_attached(sr)
+        repos[sr].destroy(vdi)
     def attach(self, dbg, dp, sr, vdi, read_write):
-        root = metadata[sr].path
+        root = repos[sr].path
         path = path_of_vdi(root, vdi) + disk_suffix
         loop = self.device.add(root, dbg, path)
         log("loop = %s" % repr(loop))
