@@ -19,6 +19,7 @@ service v6d stop
 service squeezed stop
 service perfmon stop
 service xenopsd stop
+service xcp-rrdd stop
 [ -e /tmp/do-not-use-networkd ] || service xcp-networkd stop
 service fe stop
 if [ $POOLCONF == "master" ]; then
@@ -32,6 +33,7 @@ if [ $POOLCONF == "master" ]; then
 fi
 service fe start
 [ -e /tmp/do-not-use-networkd ] || service xcp-networkd start
+service xcp-rrdd start
 service xenopsd start
 service perfmon start
 service squeezed start
