@@ -161,7 +161,13 @@ class VDI(VDI_skeleton):
             raise Sr_not_attached(sr)
         filename = metadata[sr].make_fresh_vdi_name()
         root = metadata[sr].path
-        run(dbg, "dd if=/dev/zero of=%s%s bs=1 count=0 seek=%s" % (path_of_vdi(root, filename), disk_suffix, vdi_info["virtual_size"]))
+
+        f = open(path_of_vdi(root, filename) + disk_suffix, "wc")
+        try:
+            f.truncate(long(vdi_info["virtual_size"]))
+        finally:
+            f.close()
+
         vdi_info["vdi"] = filename
         f = open(path_of_vdi(root, filename) + metadata_suffix, "w")
         try:
