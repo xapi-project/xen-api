@@ -219,15 +219,27 @@ def coalesce(path):
     cmd = [VHD_UTIL, "coalesce", OPT_LOG_ERR, "-n", path]
     ioretry(cmd)
 
-def create(path, size, static, msize = 0):
-    size_mb = size / 1024 /1024
-    cmd = [VHD_UTIL, "create", OPT_LOG_ERR, "-n", path, "-s", str(size_mb)]
-    if static:
-        cmd.append("-r")
-    if msize:
-        cmd.append("-S")
-        cmd.append(str(msize))
+TAPDISK_UTIL = '/usr/sbin/td-util'
+
+MAX_DISK_MB = 2 * 1024 * 1024
+MAX_DISK_METADATA = 4092
+VHD_SIZE_INC = 2 * 1024 * 1024
+
+def create(size, path):
+    assert (type(size) == type(0L))
+
+    overhead = calcOverheadFull(size)
+
+    mb = 1024L * 1024L
+    size_mb = util.roundup(VHD_SIZE_INC, size) / mb
+    if size_mb < 1 or (size_mb + (overhead / mb)) >= MAX_DISK_MB:
+        raise 'VDI size must be between 1 MB and %d MB' % ((MAX_DISK_MB - MAX_DISK_METADATA) - 1)
+
+    cmd = [TAPDISK_UTIL, "create", "vhd", str(size_mb), path]
     ioretry(cmd)
+
+    cmd = [TAPDISK_UTIL, "query", "vhd", "-v", path]
+    return long(ioretry(cmd)) * mb
 
 def snapshot(path, parent, parentRaw, msize = 0, checkEmpty = True):
     cmd = [VHD_UTIL, "snapshot", OPT_LOG_ERR, "-n", path, "-p", parent]

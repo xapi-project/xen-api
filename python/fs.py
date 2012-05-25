@@ -23,6 +23,8 @@ import os, sys, commands, xmlrpclib
 import xcp
 from storage import *
 
+import vhdutil
+
 # [run dbg cmd] executes [cmd], throwing a BackendError if exits with
 # a non-zero exit code.
 def run(dbg, cmd):
@@ -60,7 +62,8 @@ class Loop:
 def path_of_vdi(root, vdi):
     return root + "/" + vdi
 
-disk_suffix = ".raw"
+raw_suffix = ".raw"
+vhd_suffix = ".vhd"
 metadata_suffix = ".xml"
 
 class Query(Query_skeleton):
@@ -94,8 +97,8 @@ class Metadata:
         highest_id = 0
         for name in os.listdir(path):
             if name.endswith(metadata_suffix):
-                path = path + "/" + name
-                f = open(path, "r")
+                md = path + "/" + name
+                f = open(md, "r")
                 try:
                     vdi_info = xmlrpclib.loads(f.read())[0][0]
                     log("vdi_info = %s" % repr(vdi_info))
@@ -151,6 +154,13 @@ class SR(SR_skeleton):
             raise Sr_not_attached(sr)
         return metadata[sr].vdi_info.values()
 
+def unlink_safe(path):
+    try:
+        os.unlink(path)
+        log("os.unlink %s OK" % path)
+    except Exception, e:
+        log("os.unlink %s: %s" % (path, str(e)))
+
 class VDI(VDI_skeleton):
     def __init__(self):
         VDI_skeleton.__init__(self)
@@ -162,14 +172,19 @@ class VDI(VDI_skeleton):
         filename = metadata[sr].make_fresh_vdi_name()
         root = metadata[sr].path
 
-        f = open(path_of_vdi(root, filename) + disk_suffix, "wc")
-        try:
-            f.truncate(long(vdi_info["virtual_size"]))
-        finally:
-            f.close()
+        virtual_size = long(vdi_info["virtual_size"])
+        stem = path_of_vdi(root, filename)
+        if "type" in params and params["type"] == "raw":
+            f = open(stem + raw_suffix, "wc")
+            try:
+                f.truncate(virtual_size)
+            finally:
+                f.close()
+        else:
+            vdi_info["virtual_size"] = vhdutil.create(virtual_size, stem + vhd_suffix)
 
         vdi_info["vdi"] = filename
-        f = open(path_of_vdi(root, filename) + metadata_suffix, "w")
+        f = open(stem + metadata_suffix, "w")
         try:
             try:
                 f.write(xmlrpclib.dumps((vdi_info,), allow_none=True))
@@ -189,11 +204,14 @@ class VDI(VDI_skeleton):
         if not sr in metadata:
             raise Sr_not_attached(sr)
         root = metadata[sr].path
-        if not (os.path.exists(path_of_vdi(root, vdi) + disk_suffix)):
+        
+        stem = path_of_vdi(root, vdi)
+        if not (os.path.exists(stem + raw_suffix)) and not(os.path.exists(stem + vhd_suffix)):
             raise Vdi_does_not_exist(vdi)
         del metadata[sr].vdi_info[vdi]
-        run(dbg, "rm -f %s%s" % (path_of_vdi(root, vdi), disk_suffix))
-        run(dbg, "rm -f %s%s" % (path_of_vdi(root, vdi), metadata_suffix))
+        unlink_safe(stem + vhd_suffix)
+        unlink_safe(stem + raw_suffix)
+        unlink_safe(stem + metadata_suffix)
     def attach(self, dbg, dp, sr, vdi, read_write):
         root = metadata[sr].path
         path = path_of_vdi(root, vdi) + disk_suffix
