@@ -85,18 +85,48 @@ class Query(Query_skeleton):
                  "configuration": { "path": "filesystem path where the VDIs are stored" }
                  }
 
-# Store a mapping from attached SR -> path
-paths = {}
+class Metadata:
+    """Stores in memory all relevant SR metadata"""
+
+    def __init__(self, path):
+        self.path = path
+        self.vdi_info = {}
+        highest_id = 0
+        for name in os.listdir(path):
+            if name.endswith(metadata_suffix):
+                path = path + "/" + name
+                f = open(path, "r")
+                try:
+                    vdi_info = xmlrpclib.loads(f.read())[0][0]
+                    log("vdi_info = %s" % repr(vdi_info))
+                    vdi_id = name[0:-(len(metadata_suffix))]
+                    self.vdi_info[vdi_id] = vdi_info
+                    try:
+                        if long(vdi_id) > highest_id:
+                            highest_id = long(vdi_id)
+                    except:
+                        pass
+                finally:
+                    f.close()
+        self._highest_id = highest_id
+
+    def make_fresh_vdi_name(self):
+        name = str(self._highest_id)
+        self._highest_id = self._highest_id + 1
+        return name
+
+# A map from attached SR -> Metadata instance
+metadata = {}
 
 class SR(SR_skeleton):
     def __init__(self):
         SR_skeleton.__init__(self)
 
     def list(self, dbg):
-        return paths.keys()
+        return metadata.keys()
     def create(self, dbg, sr, device_config, physical_size):
         path = device_config["path"]
-        if path in paths:
+        if path in metadata:
             raise (Sr_attached(sr))
         if not(os.path.exists(path)):
             raise Backend_error("SR directory doesn't exist", [ path ])
@@ -104,34 +134,22 @@ class SR(SR_skeleton):
         path = device_config["path"]
         if not(os.path.exists(path)):
             raise Backend_error("SR directory doesn't exist", [ path ])
-        paths[sr] = path
+        metadata[sr] = Metadata(path)
+
     def detach(self, dbg, sr):
-        if not sr in paths:
+        if not sr in metadata:
             log("SR isn't attached, returning success")
         else:
-            del paths[sr]
+            del metadata[sr]
     def destroy(self, dbg, sr):
         pass
     def reset(self, dbg, sr):
         """Operations which act on Storage Repositories"""
         raise Unimplemented("SR.reset")
     def scan(self, dbg, sr):
-        if not sr in paths:
+        if not sr in metadata:
             raise Sr_not_attached(sr)
-        log("scanning")
-        results = []
-        root = paths[sr]
-        for name in os.listdir(root):
-            if name.endswith(metadata_suffix):
-                path = root + "/" + name
-                f = open(path, "r")
-                try:
-                    vdi_info = xmlrpclib.loads(f.read())[0][0]
-                    log("vdi_info = %s" % repr(vdi_info))
-                    results.append(vdi_info)
-                finally:
-                    f.close()
-        return results
+        return metadata[sr].vdi_info.values()
 
 class VDI(VDI_skeleton):
     def __init__(self):
@@ -139,16 +157,17 @@ class VDI(VDI_skeleton):
         self.device = Loop()
 
     def create(self, dbg, sr, vdi_info, params):
-        if not sr in paths:
+        if not sr in metadata:
             raise Sr_not_attached(sr)
-        filename = run(dbg, "uuidgen")
-        root = paths[sr]
+        filename = metadata[sr].make_fresh_vdi_name()
+        root = metadata[sr].path
         run(dbg, "dd if=/dev/zero of=%s%s bs=1 count=0 seek=%s" % (path_of_vdi(root, filename), disk_suffix, vdi_info["virtual_size"]))
         vdi_info["vdi"] = filename
         f = open(path_of_vdi(root, filename) + metadata_suffix, "w")
         try:
             try:
                 f.write(xmlrpclib.dumps((vdi_info,), allow_none=True))
+                metadata[sr].vdi_info[filename] = vdi_info
             except Exception, e:
                 log("Exception writing metadata: %s" % (str(e)))
         finally:
@@ -161,15 +180,16 @@ class VDI(VDI_skeleton):
         """Operations which operate on Virtual Disk Images"""
         raise Unimplemented("VDI.clone")
     def destroy(self, dbg, sr, vdi):
-        if not sr in paths:
+        if not sr in metadata:
             raise Sr_not_attached(sr)
-        root = paths[sr]
+        root = metadata[sr].path
         if not (os.path.exists(path_of_vdi(root, vdi) + disk_suffix)):
             raise Vdi_does_not_exist(vdi)
+        del metadata[sr].vdi_info[vdi]
         run(dbg, "rm -f %s%s" % (path_of_vdi(root, vdi), disk_suffix))
         run(dbg, "rm -f %s%s" % (path_of_vdi(root, vdi), metadata_suffix))
     def attach(self, dbg, dp, sr, vdi, read_write):
-        root = paths[sr]
+        root = metadata[sr].path
         path = path_of_vdi(root, vdi) + disk_suffix
         loop = self.device.add(root, dbg, path)
         log("loop = %s" % repr(loop))
@@ -180,7 +200,7 @@ class VDI(VDI_skeleton):
     def deactivate(self, dbg, dp, sr, vdi):
         pass
     def detach(self, dbg, dp, sr, vdi):
-        root = paths[sr]
+        root = metadata[sr].path
         path = path_of_vdi(root, vdi) + disk_suffix
         self.device.remove(root, dbg, path)
         
