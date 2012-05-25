@@ -942,7 +942,8 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 		| VM_create_device_model (id, save_state) ->
 			debug "VM.create_device_model %s" id;
 			let vbds : Vbd.t list = VBD_DB.vbds id in
-			B.VM.create_device_model t (VM_DB.read_exn id) vbds save_state
+			let vifs : Vif.t list = VIF_DB.vifs id in
+			B.VM.create_device_model t (VM_DB.read_exn id) vbds vifs save_state
 		| VM_destroy_device_model id ->
 			debug "VM.destroy_device_model %s" id;
 			B.VM.destroy_device_model t (VM_DB.read_exn id)
