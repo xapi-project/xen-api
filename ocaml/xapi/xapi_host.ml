@@ -439,12 +439,14 @@ let evacuate ~__context ~host =
 	let task = Context.get_task_id __context in
 	begin
 		let plans = compute_evacuation_plan ~__context ~host in
-		(* Check there are no errors in this list *)
-		Hashtbl.iter (fun vm plan ->
+		(* Check there are no errors in this list; if there are any, raise error *)
+		let errors = Hashtbl.fold (fun vm plan acc ->
 			match plan with
-				| Error(code, params) -> raise (Api_errors.Server_error(code, params))
-				| _ -> ())
-			plans;
+				| Error(code, params) ->  (Printf.sprintf "\n%s (%s): %s" (Db.VM.get_uuid ~__context ~self:vm) (Db.VM.get_name_label ~__context ~self:vm) code) :: acc
+				| _ -> acc) plans []
+		in
+		if errors <> []
+			then raise (Api_errors.Server_error (Api_errors.cannot_evacuate_host, [ String.concat "" errors ]));
 
 		(* Do it *)
 		let individual_progress = 1.0 /. float (Hashtbl.length plans) in
