@@ -23,7 +23,7 @@ import os, sys, commands, xmlrpclib
 import xcp
 from storage import *
 
-import vhdutil
+import vhdutil, tapdisk
 
 # [run dbg cmd] executes [cmd], throwing a BackendError if exits with
 # a non-zero exit code.
@@ -151,6 +151,28 @@ data/ files are referenced directly by a metadata/ file.
             log("data[%s] = %s" % (name, repr(all[name])))
             self.data[name] = all[name]
         self._data_highest_id = highest_id(self.data.keys()) + 1L
+        # Query running tapdisks. We assume that all tapdisks in this domain
+        # reference this SR.
+        self.tapdisks = {}
+        for tap in tapdisk.list():
+            if not tap.file:
+                log("%s has no file open: detaching and freeing" % str(tap))
+                tap.detach()
+                tap.free()
+            else:
+                ty, path = tap.file
+                if path.startswith(data_path):
+                    filename = os.path.basename(path)
+                    if ty == "raw":
+                        name = filename[0:-len(raw_suffix)]
+                        log("%s open by %s" % (name, str(tap)))
+                        self.tapdisks[name] = tap
+                    elif ty == "vhd":
+                        name = filename[0:-len(vhd_suffix)]
+                        log("%s open by %s" % (name, str(tap)))
+                        self.tapdisks[name] = tap
+                    else:
+                        log("Unknown tapdisk type: %s" % ty)
 
         # Integrity check: each metadata record should point to a data record
         for vdi_info in self.metadata.values():

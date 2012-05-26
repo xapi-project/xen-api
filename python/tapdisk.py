@@ -2,7 +2,7 @@ import util, errno
 
 TAP_CTL="/usr/sbin/tap-ctl"
 
-class Control:
+class Tapdisk:
     def __init__(self, minor = None, pid = None, file = None):
         if minor == None:
             minor = self._allocate()
@@ -12,6 +12,9 @@ class Control:
         self.minor = minor
         self.pid = pid
         self.file = file
+
+    def __str__(self):
+        return "Tapdisk(minor=%s, pid=%s, file=%s)" % (str(self.minor), str(self.pid), repr(self.file))
 
     def _allocate(self):
         cmd = [TAP_CTL, "allocate"]
@@ -44,7 +47,10 @@ class Control:
         cmd = [TAP_CTL, "free", "-m", str(self.minor)]
         util.pread2(cmd)
 
-def list():
+def list(path = None):
+    """Return a list of all the tapdisks on a system (if path == None) or
+       only those which have opened a file in a particular directory tree
+       (if path == "/some/tree")."""
     cmd = [TAP_CTL, "list"]
     output = util.ioretry(lambda: util.pread2(cmd), errlist = [errno.EPROTO, errno.ENOENT])
     results = []
@@ -77,6 +83,7 @@ def list():
             else:
                 util.SMlog("Ignoring unexpected tap-ctl output: %s" % repr(field))
         if minor or pid:
-            c = Control(minor = minor, pid = pid, file = file)
-            results.append(c)
+            if not path or (file and file[1].startswith(path)):
+                c = Tapdisk(minor = minor, pid = pid, file = file)
+                results.append(c)
     return results
