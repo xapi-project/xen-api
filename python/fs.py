@@ -35,28 +35,6 @@ def run(dbg, cmd):
     log("%s: %s" % (dbg, cmd))
     return output
 
-# Use Linux "losetup" to create block devices from files
-class Loop:
-    # [_find dbg path] returns the loop device associated with [path]
-    def _find(self, root, dbg, path):
-        for line in run(dbg, "losetup -a").split("\n"):
-            line = line.strip()
-            if line <> "":
-                bits = line.split()
-                loop = bits[0][0:-1]
-                this_path = bits[2][1:-1]
-                if this_path == path:
-                    return loop
-        return None
-    # [add dbg path] creates a new loop device for [path] and returns it
-    def add(self, root, dbg, path):
-        run(dbg, "losetup -f %s" % path)
-        return self._find(root, dbg, path)
-    # [remove dbg path] removes the loop device associated with [path]
-    def remove(self, root, dbg, path):
-        loop = self._find(root, dbg, path)
-        run(dbg, "losetup -d %s" % loop)
-
 class Query(Query_skeleton):
     def __init__(self):
         Query_skeleton.__init__(self)
@@ -340,7 +318,6 @@ class SR(SR_skeleton):
 class VDI(VDI_skeleton):
     def __init__(self):
         VDI_skeleton.__init__(self)
-        self.device = Loop()
 
     def create(self, dbg, sr, vdi_info, params):
         if not sr in repos:
@@ -362,9 +339,9 @@ class VDI(VDI_skeleton):
     def attach(self, dbg, dp, sr, vdi, read_write):
         root = repos[sr].path
         path = path_of_vdi(root, vdi) + disk_suffix
-        loop = self.device.add(root, dbg, path)
+        device = "/dev/null"
         log("loop = %s" % repr(loop))
-        return { "params": loop,
+        return { "params": device,
                  "xenstore_data": {} }
     def activate(self, dbg, dp, sr, vdi):
         pass
@@ -373,7 +350,6 @@ class VDI(VDI_skeleton):
     def detach(self, dbg, dp, sr, vdi):
         root = metadata[sr].path
         path = path_of_vdi(root, vdi) + disk_suffix
-        self.device.remove(root, dbg, path)
         
 if __name__ == "__main__":
     from optparse import OptionParser

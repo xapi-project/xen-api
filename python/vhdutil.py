@@ -19,37 +19,11 @@ import os
 import util
 import errno
 
-MAX_CHAIN_SIZE = 30 # max VHD parent chain size
 VHD_UTIL = "/usr/bin/vhd-util"
 OPT_LOG_ERR = "--debug"
 VHD_BLOCK_SIZE = 2 * 1024 * 1024
 VHD_FOOTER_SIZE = 512
  
-VDI_TYPE_VHD = 'vhd'
-VDI_TYPE_RAW = 'aio'
-
-FILE_EXTN_VHD = ".vhd"
-FILE_EXTN_RAW = ".raw"
-FILE_EXTN = {
-        VDI_TYPE_VHD: FILE_EXTN_VHD,
-        VDI_TYPE_RAW: FILE_EXTN_RAW
-}
-
-
-class VHDInfo:
-    uuid = ""
-    path = ""
-    sizeVirt = -1
-    sizePhys = -1
-    hidden = False
-    parentUuid = ""
-    parentPath = ""
-    error = 0
-
-    def __init__(self, uuid):
-        self.uuid = uuid
-
-
 def calcOverheadEmpty(virtual_size):
     """Calculate the VHD space overhead (metadata size) for an empty VDI of
     size virtual_size"""
@@ -80,121 +54,9 @@ def calcOverheadFull(virtual_size):
     (this includes bitmaps, which constitute the bulk of the overhead)"""
     return calcOverheadEmpty(virtual_size) + calcOverheadBitmap(virtual_size)
 
-def fullSizeVHD(virtual_size):
-    return virtual_size + calcOverheadFull(virtual_size)
-
 def ioretry(cmd):
     return util.ioretry(lambda: util.pread2(cmd),
             errlist = [errno.EIO, errno.EAGAIN])
-
-def getVHDInfo(path, extractUuidFunction, includeParent = True):
-    """Get the VHD info. The parent info may optionally be omitted: vhd-util
-    tries to verify the parent by opening it, which results in error if the VHD
-    resides on an inactive LV"""
-    opts = "-vsfp"
-    cmd = [VHD_UTIL, "query", OPT_LOG_ERR, opts, "-n", path]
-    ret = ioretry(cmd)
-    fields = ret.strip().split('\n')
-    uuid = extractUuidFunction(path)
-    vhdInfo = VHDInfo(uuid)
-    vhdInfo.sizeVirt = int(fields[0]) * 1024 * 1024
-    vhdInfo.sizePhys = int(fields[1])
-    nextIndex = 2
-    if fields[nextIndex].find("no parent") == -1:
-        vhdInfo.parentPath = fields[nextIndex]
-        vhdInfo.parentUuid = extractUuidFunction(fields[nextIndex])
-    nextIndex += 1
-    vhdInfo.hidden = int(fields[nextIndex].replace("hidden: ", ""))
-    vhdInfo.path = path
-    return vhdInfo
-
-def getParentChain(lvName, extractUuidFunction, vgName):
-    """Get the chain of all VHD parents of 'path'. Safe to call for raw VDI's
-    as well"""
-    chain = dict()
-    vdis = getAllVHDs(lvName, extractUuidFunction, vgName, True)
-    for uuid, vdi in vdis.iteritems():
-        chain[uuid] = vdi.path
-    #util.SMlog("Parent chain for %s: %s" % (lvName, chain))
-    return chain
-
-def getParent(path, extractUuidFunction):
-    cmd = [VHD_UTIL, "query", OPT_LOG_ERR, "-p", "-n", path]
-    ret = ioretry(cmd)
-    if ret.find("query failed") != -1 or ret.find("Failed opening") != -1:
-        raise util.SMException("VHD query returned %s" % ret)
-    if ret.find("no parent") != -1:
-        return None
-    return extractUuidFunction(ret)
-
-def setParent(path, parentPath, parentRaw):
-    realPPath = util.get_real_path(parentPath)
-    cmd = [VHD_UTIL, "modify", OPT_LOG_ERR, "-p", realPPath, "-n", path]
-    if parentRaw:
-        cmd.append("-m")
-    ioretry(cmd)
-
-def getHidden(path):
-    cmd = [VHD_UTIL, "query", OPT_LOG_ERR, "-f", "-n", path]
-    ret = ioretry(cmd)
-    hidden = int(ret.split(':')[-1].strip())
-    return hidden
-
-def setHidden(path, hidden = True):
-    opt = "1"
-    if not hidden:
-        opt = "0"
-    cmd = [VHD_UTIL, "set", OPT_LOG_ERR, "-n", path, "-f", "hidden", "-v", opt]
-    ret = ioretry(cmd)
-
-def getSizeVirt(path):
-    cmd = [VHD_UTIL, "query", OPT_LOG_ERR, "-v", "-n", path]
-    ret = ioretry(cmd)
-    size = long(ret) * 1024 * 1024
-    return size
-
-def setSizeVirt(path, size, jFile):
-    "resize VHD offline"
-    size_mb = size / 1024 /1024
-    cmd = [VHD_UTIL, "resize", OPT_LOG_ERR, "-s", str(size_mb), "-n", path,
-            "-j", jFile]
-    ioretry(cmd)
-
-def setSizeVirtFast(path, size):
-    "resize VHD online"
-    size_mb = size / 1024 /1024
-    cmd = [VHD_UTIL, "resize", OPT_LOG_ERR, "-s", str(size_mb), "-n", path, "-f"]
-    ioretry(cmd)
-
-def getMaxResizeSize(path):
-    """get the max virtual size for fast resize"""
-    cmd = [VHD_UTIL, "query", OPT_LOG_ERR, "-S", "-n", path]
-    ret = ioretry(cmd)
-    return int(ret)
-
-def getSizePhys(path):
-    cmd = [VHD_UTIL, "query", OPT_LOG_ERR, "-s", "-n", path]
-    ret = ioretry(cmd)
-    return int(ret)
-
-def setSizePhys(path, size):
-    "set physical utilisation (applicable to VHD's on fixed-size files)"
-    cmd = [VHD_UTIL, "modify", OPT_LOG_ERR, "-s", str(size), "-n", path]
-    ioretry(cmd)
-
-def killData(path):
-    "zero out the disk (kill all data inside the VHD file)"
-    cmd = [VHD_UTIL, "modify", OPT_LOG_ERR, "-z", "-n", path]
-    ioretry(cmd)
-
-def getDepth(path):
-    "get the VHD parent chain depth"
-    cmd = [VHD_UTIL, "query", OPT_LOG_ERR, "-d", "-n", path]
-    text = ioretry(cmd)
-    depth = -1
-    if text.startswith("chain depth:"):
-        depth = int(text.split(':')[1].strip())
-    return depth
 
 def coalesce(path):
     cmd = [VHD_UTIL, "coalesce", OPT_LOG_ERR, "-n", path]
@@ -221,29 +83,6 @@ def create(size, path):
 
     cmd = [TAPDISK_UTIL, "query", "vhd", "-v", path]
     return long(ioretry(cmd)) * mb
-
-def snapshot(path, parent, parentRaw, msize = 0, checkEmpty = True):
-    cmd = [VHD_UTIL, "snapshot", OPT_LOG_ERR, "-n", path, "-p", parent]
-    if parentRaw:
-        cmd.append("-m")
-    if msize:
-        cmd.append("-S")
-        cmd.append(str(msize))
-    if not checkEmpty:
-        cmd.append("-e")
-    text = ioretry(cmd)
-
-def check(path):
-    cmd = [VHD_UTIL, "check", OPT_LOG_ERR, "-n", path]
-    try:
-        ioretry(cmd)
-        return True
-    except util.CommandException:
-        return False
-
-def revert(path, jFile):
-    cmd = [VHD_UTIL, "revert", OPT_LOG_ERR, "-n", path, "-j", jFile]
-    ioretry(cmd)
 
 def vhd_info_of_string(line):
     valueMap = line.split()
