@@ -14,7 +14,7 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-# Example storage backend using SMAPIv2 using raw files and Linux losetup
+# Example storage backend using SMAPIv2
 
 # WARNING: this API is considered to be unstable and may be changed at-will
 
@@ -23,7 +23,7 @@ import os, sys, commands, xmlrpclib
 import xcp
 from storage import *
 
-import vhdutil, tapdisk
+import vhd, tapdisk
 
 # [run dbg cmd] executes [cmd], throwing a BackendError if exits with
 # a non-zero exit code.
@@ -124,7 +124,7 @@ data/ files are referenced directly by a metadata/ file.
         for name in os.listdir(data_path):
             if name.endswith(raw_suffix):
                 self.data[name[0:-len(raw_suffix)]] = { "type": "raw" }
-        all = vhdutil.list(data_path + "/*.vhd")
+        all = vhd.list(data_path + "/*.vhd")
         for name in all.keys():
             log("data[%s] = %s" % (name, repr(all[name])))
             self.data[name] = all[name]
@@ -239,7 +239,7 @@ data/ files are referenced directly by a metadata/ file.
             finally:
                 f.close()
         else:
-            vdi_info["virtual_size"] = vhdutil.create(virtual_size, stem + vhd_suffix)
+            vdi_info["virtual_size"] = vhd.create(virtual_size, stem + vhd_suffix)
             self.data[data] = { "type": "vhd" }
 
         self.update_vdi_info(vdi, vdi_info)
@@ -261,10 +261,10 @@ data/ files are referenced directly by a metadata/ file.
 
         # Create two vhd leaves whose parent is [vdi]
         left = self.make_fresh_data_name()
-        self.data[left] = vhdutil.make_leaf(self.path + "/" + data_dir + "/" + left + vhd_suffix, parent)
+        self.data[left] = vhd.make_leaf(self.path + "/" + data_dir + "/" + left + vhd_suffix, parent)
 
         right = self.make_fresh_data_name()
-        self.data[right] = vhdutil.make_leaf(self.path + "/" + data_dir + "/" + right + vhd_suffix, parent)
+        self.data[right] = vhd.make_leaf(self.path + "/" + data_dir + "/" + right + vhd_suffix, parent)
 
         # Remap the original [vdi]'s location to point to the first leaf's path
         parent_info = self.metadata[vdi]
@@ -278,6 +278,38 @@ data/ files are referenced directly by a metadata/ file.
         self.update_vdi_info(clone, vdi_info)
 
         return vdi_info
+
+    def attach(self, vdi, read_write):
+        md = self.metadata[vdi]
+        data = md["data"]
+        if data in self.tapdisks:
+            raise Backend_error("VDI_ALREADY_ATTACHED", [ vdi ])
+        self.tapdisks[data] = tapdisk.Tapdisk()
+        device = self.tapdisks[data].get_device()
+        return { "params": device,
+                 "xenstore_data": {} }
+
+    def activate(self, vdi):
+        md = self.metadata[vdi]
+        data = md["data"]
+        if data not in self.tapdisks:
+            raise Backend_error("VDI_NOT_ATTACHED", [ vdi ])
+        self.tapdisks[data].open(self.data[data]["type"], self.data_path_of_key(data))
+
+    def deactivate(self, vdi):
+        md = self.metadata[vdi]
+        data = md["data"]
+        if data not in self.tapdisks:
+            raise Backend_error("VDI_NOT_ATTACHED", [ vdi ])
+        self.tapdisks[data].close()
+
+    def detach(self, vdi):
+        md = self.metadata[vdi]
+        data = md["data"]
+        if data not in self.tapdisks:
+            raise Backend_error("VDI_NOT_ATTACHED", [ vdi ])
+        self.tapdisks[data].detach()
+        self.tapdisks[data].free()
 
 # A map from attached SR reference -> Repo instance
 repos = {}
@@ -337,19 +369,21 @@ class VDI(VDI_skeleton):
             raise Sr_not_attached(sr)
         repos[sr].destroy(vdi)
     def attach(self, dbg, dp, sr, vdi, read_write):
-        root = repos[sr].path
-        path = path_of_vdi(root, vdi) + disk_suffix
-        device = "/dev/null"
-        log("loop = %s" % repr(loop))
-        return { "params": device,
-                 "xenstore_data": {} }
+        if not sr in repos:
+            raise Sr_not_attached(sr)
+        return repos[sr].attach(vdi, read_write)
     def activate(self, dbg, dp, sr, vdi):
-        pass
+        if not sr in repos:
+            raise Sr_not_attached(sr)
+        return repos[sr].activate(vdi)
     def deactivate(self, dbg, dp, sr, vdi):
-        pass
+        if not sr in repos:
+            raise Sr_not_attached(sr)
+        return repos[sr].deactivate(vdi)
     def detach(self, dbg, dp, sr, vdi):
-        root = metadata[sr].path
-        path = path_of_vdi(root, vdi) + disk_suffix
+        if not sr in repos:
+            raise Sr_not_attached(sr)
+        return repos[sr].detach(vdi)
         
 if __name__ == "__main__":
     from optparse import OptionParser
