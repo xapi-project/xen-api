@@ -486,7 +486,6 @@ module To_python = struct
 	Line "def _dispatch(self, method, params):";
 	Block ([
 	  Line "\"\"\"type check inputs, call implementation, type check outputs and return\"\"\"";
-	  Line "log(\"method = %s params = %s\" % (method, repr(params)))";
 	  Line "args = params[0]";
 	] @ (List.concat (first_is_special dispatch_method i.Interface.methods)))
       ])
