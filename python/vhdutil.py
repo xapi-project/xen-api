@@ -281,3 +281,4 @@ def make_leaf(child, parent):
     cmd = [TAPDISK_UTIL, "snapshot", "vhd", child, parent]
     ioretry(cmd)
     return list(child).values()[0]
+

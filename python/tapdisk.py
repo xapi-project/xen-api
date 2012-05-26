@@ -3,14 +3,15 @@ import util, errno
 TAP_CTL="/usr/sbin/tap-ctl"
 
 class Control:
-    def __init__(self, minor = None, pid = None):
+    def __init__(self, minor = None, pid = None, file = None):
         if minor == None:
             minor = self._allocate()
         if pid == None:
             pid = self._spawn()
             self._attach(minor, pid)
-        self.minor = str(minor)
-        self.pid = str(pid)
+        self.minor = minor
+        self.pid = pid
+        self.file = file
 
     def _allocate(self):
         cmd = [TAP_CTL, "allocate"]
@@ -22,23 +23,25 @@ class Control:
         return line.strip()
 
     def _attach(self, minor, pid):
-        cmd = [TAP_CTL, "attach", "-m", minor, "-p", pid]
+        cmd = [TAP_CTL, "attach", "-m", str(minor), "-p", str(pid)]
         util.pread2(cmd)
 
     def open(self, ty, path):
-        cmd = [TAP_CTL, "open", "-m", self.minor, "-p", self.pid, "-a", "%s:%s" % (ty, path)]
+        cmd = [TAP_CTL, "open", "-m", str(self.minor), "-p", str(self.pid), "-a", "%s:%s" % (ty, path)]
         util.pread2(cmd)
+        self.file = (ty, path)
 
     def close(self):
-        cmd = [TAP_CTL, "close", "-m", self.minor, "-p", self.pid]
+        cmd = [TAP_CTL, "close", "-m", str(self.minor), "-p", str(self.pid)]
         util.pread2(cmd)
+        self.file = None
 
     def detach(self):
-        cmd = [TAP_CTL, "detach", "-m", self.minor, "-p", self.pid]
+        cmd = [TAP_CTL, "detach", "-m", str(self.minor), "-p", str(self.pid)]
         util.pread2(cmd)
 
     def free(self):
-        cmd = [TAP_CTL, "free", "-m", self.minor]
+        cmd = [TAP_CTL, "free", "-m", str(self.minor)]
         util.pread2(cmd)
 
 def list():
@@ -55,7 +58,10 @@ def list():
 
         minor = None
         pid = None
-        for field in line.rstrip().split(' ', 3):
+        file = None
+        # pid=16775 minor=0 state=0 args=vhd:/foo/data/108.vhd
+        # line = [minor=1]
+        for field in line.rstrip().split(' '):
             bits = field.split('=')
             if len(bits) == 2:
                 key, val = field.split('=')
@@ -64,10 +70,13 @@ def list():
                     pid = int(val, 10)
                 elif key == "minor":
                     minor = int(val, 10)
+                elif key == "args":
+                    x = val.split(":", 2)
+                    file = (x[0], x[1])
 
             else:
                 util.SMlog("Ignoring unexpected tap-ctl output: %s" % repr(field))
         if minor or pid:
-            c = Control(minor = minor, pid = pid)
+            c = Control(minor = minor, pid = pid, file = file)
             results.append(c)
     return results
