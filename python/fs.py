@@ -25,16 +25,6 @@ from storage import *
 
 import vhd, tapdisk
 
-# [run dbg cmd] executes [cmd], throwing a BackendError if exits with
-# a non-zero exit code.
-def run(dbg, cmd):
-    code, output = commands.getstatusoutput(cmd)
-    if code <> 0:
-        log("%s: %s exitted with code %d: %s" % (dbg, cmd, code, output))
-        raise (BackendError("command failed", [ str(code), output ]))
-    log("%s: %s" % (dbg, cmd))
-    return output
-
 class Query(Query_skeleton):
     def __init__(self):
         Query_skeleton.__init__(self)
