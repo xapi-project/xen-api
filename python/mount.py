@@ -21,6 +21,7 @@ import errno
 MOUNT_NFS = "/sbin/mount.nfs"
 UMOUNT = "/bin/umount"
 MTAB = "/etc/mtab"
+MKDIR = "/bin/mkdir"
 
 class Mount:
     def __init__(self, remote, local):
@@ -29,6 +30,8 @@ class Mount:
 
     def mount(self):
         cmd = [ MOUNT_NFS, self.remote, self.local ]
+        if not(os.path.exists(self.local)):
+            util.pread([ MKDIR, "-p", self.local ])
         util.pread2(cmd)
 
     def umount(self):

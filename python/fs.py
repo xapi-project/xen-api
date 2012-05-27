@@ -23,7 +23,7 @@ import os, sys, commands, xmlrpclib
 import xcp
 from storage import *
 
-import vhd, tapdisk
+import vhd, tapdisk, mount, util
 
 class Query(Query_skeleton):
     def __init__(self):
@@ -45,7 +45,9 @@ class Query(Query_skeleton):
                 feature_vdi_deactivate,
                 feature_vdi_clone
                 ],
-                 "configuration": { "path": "filesystem path where the VDIs are stored" }
+                 "configuration": { "path": "local filesystem path where the VDIs are stored",
+                                    "server": "remote server exporting VDIs",
+                                    "serverpath": "path on the remote server" }
                  }
 
 raw_suffix = ".raw"
@@ -304,6 +306,12 @@ data/ files are referenced directly by a metadata/ file.
 # A map from attached SR reference -> Repo instance
 repos = {}
 
+# A map from attached SR reference -> device_config parameters
+sr_device_config = {}
+
+# Location where we'll mount temporary filesystems
+var_run = "/var/run/nonpersistent/fs"
+
 class SR(SR_skeleton):
     def __init__(self):
         SR_skeleton.__init__(self)
@@ -311,22 +319,52 @@ class SR(SR_skeleton):
     def list(self, dbg):
         return repos.keys()
     def create(self, dbg, sr, device_config, physical_size):
-        path = device_config["path"]
-        if path in repos:
+        if sr in repos:
             raise (Sr_attached(sr))
-        if not(os.path.exists(path)):
-            raise Backend_error("SR directory doesn't exist", [ path ])
+        if "path" in device_config:
+            path = device_config["path"]
+            if not(os.path.exists(path)):
+                raise Backend_error("SR directory doesn't exist", [ path ])
+        elif "server" in device_config and "serverpath" in device_config:
+            remote = "%s:%s" % (device_config["server"], device_config["serverpath"])
+            # XXX check remote service exists
     def attach(self, dbg, sr, device_config):
-        path = device_config["path"]
-        if not(os.path.exists(path)):
-            raise Backend_error("SR directory doesn't exist", [ path ])
+        path = None
+        if "path" in device_config:
+            path = device_config["path"]
+            if not(os.path.exists(path)):
+                raise Backend_error("SR directory doesn't exist", [ path ])
+        elif "server" in device_config and "serverpath" in device_config:
+            remote = "%s:%s" % (device_config["server"], device_config["serverpath"])
+            for m in mount.list(var_run):
+                if m.remote == remote:
+                    path = m.local
+                    break
+            if not path:
+                m = mount.Mount(remote, var_run + "/" + sr)
+                m.mount()
+                path = m.local
+        else:
+            raise Backend_error("#needabettererror", [ "bad device config" ])
         repos[sr] = Repo(path)
+        sr_device_config[sr] = device_config
 
     def detach(self, dbg, sr):
         if not sr in repos:
             log("SR isn't attached, returning success")
         else:
+            device_config = sr_device_config[sr]
+            if "path" in device_config:
+                pass
+            elif "server" in device_config and "serverpath" in device_config:
+                remote = "%s:%s" % (device_config["server"], device_config["serverpath"])
+                for m in mount.list(var_run):
+                    if m.remote == remote:
+                        m.umount()
+            else:
+                assert False # see attach above
             del repos[sr]
+            del sr_device_config[sr]
     def destroy(self, dbg, sr):
         pass
     def reset(self, dbg, sr):
