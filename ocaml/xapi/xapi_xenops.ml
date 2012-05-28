@@ -234,15 +234,16 @@ module MD = struct
 		}
 
 	let of_vif ~__context ~vm ~vif =
+		let net = Db.Network.get_record ~__context ~self:vif.API.vIF_network in
+		let net_mtu = Int64.to_int (net.API.network_MTU) in
 		let mtu =
 			try
 				if List.mem_assoc "mtu" vif.API.vIF_other_config
 				then List.assoc "mtu" vif.API.vIF_other_config |> int_of_string
-				else 1500
+				else net_mtu
 			with _ ->
-				error "Failed to parse VIF.other_config:mtu; defaulting to 1500";
-				1500 in
-		let net = Db.Network.get_record ~__context ~self:vif.API.vIF_network in
+				error "Failed to parse VIF.other_config:mtu; defaulting to network.mtu";
+				net_mtu in
 		let locking_mode = match vif.API.vIF_locking_mode, net.API.network_default_locking_mode with
 			| `network_default, `disabled -> Vif.Disabled
 			| `network_default, `unlocked -> Vif.Unlocked
