@@ -16,6 +16,7 @@ let api =
 	"read_only", Basic Boolean, "If true then this VDI is stored on read-only media";
 	"virtual_size", Basic Int64, "Size of the VDI from the perspective of a VM (in bytes)";
 	"physical_utilisation", Basic Int64, "Amount of space currently being consumed on the physical storage media";
+	"persistent", Basic Boolean, "If true then disk modifications are preserved over VM reboot and shutdown";
       ]
     )) in
   let sr = {
@@ -195,6 +196,24 @@ let api =
 	    }; {
 	      Method.name = "destroy";
 	      description = "[destroy task sr vdi] removes [vdi] from [sr]";
+	      inputs = [
+		sr;
+		vdi;
+	      ];
+	      outputs = [
+	      ];
+	    }; {
+	      Method.name = "epoch_begin";
+	      description = "[epoch_begin task sr vdi] signals that VDI is about to be connected to a fresh (started, rebooted) VM.";
+	      inputs = [
+		sr;
+		vdi;
+	      ];
+	      outputs = [
+	      ];
+	    }; {
+	      Method.name = "epoch_end";
+	      description = "[epoch_end task sr vdi] signals that VDI is about to be disconnected from a shutting-down/rebooting VM.";
 	      inputs = [
 		sr;
 		vdi;

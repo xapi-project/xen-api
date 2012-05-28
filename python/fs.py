@@ -43,7 +43,8 @@ class Query(Query_skeleton):
                 feature_vdi_detach,
                 feature_vdi_activate,
                 feature_vdi_deactivate,
-                feature_vdi_clone
+                feature_vdi_clone,
+                feature_vdi_reset_on_boot
                 ],
                  "configuration": { "path": "local filesystem path where the VDIs are stored",
                                     "server": "remote server exporting VDIs",
@@ -271,6 +272,49 @@ data/ files are referenced directly by a metadata/ file.
 
         return vdi_info
 
+    def set_persistent(self, vdi, persistent):
+        meta = self.metadata[vdi]
+
+        if meta["persistent"] and not persistent:
+            # We need to make a fresh vhd leaf
+            parent = self.data_path_of_vdi(vdi)
+
+            leaf = self.make_fresh_data_name()
+            self.data[leaf] = vhd.make_leaf(self.path + "/" + data_dir + "/" + leaf + vhd_suffix, parent)
+
+            # Remap the original [vdi]'s location to point to the new leaf
+            meta["data"] = leaf
+
+        meta["persistent"] = persistent
+        self.update_vdi_info(vdi, meta)
+
+    def maybe_reset(self, vdi):
+        meta = self.metadata[vdi]
+        if not(meta["persistent"]):
+            # we throw away updates to the leaf
+            leaf = meta["data"]
+            leaf_info = self.data[leaf]
+            new_leaf = self.make_fresh_data_name()
+            if "parent" in leaf_info:
+                # Create a new leaf
+                child = self.path + "/" + data_dir + "/" + new_leaf + vhd_suffix
+                parent = self.path + "/" + data_dir + "/" + leaf_info["parent"] + vhd_suffix
+                self.data[new_leaf] = vhd.make_leaf(child, parent)
+                meta["data"] = new_leaf
+                self.update_vdi_info(vdi, meta)
+            else:
+                # Recreate a whole blank disk
+                new_info = self.create(meta, leaf_info)
+                meta["data"] = new_info["data"]
+                self.update_vdi_info(vdi, meta)
+                self.destroy(new_info["vdi"])
+
+    def epoch_begin(self, vdi):
+        self.maybe_reset(vdi)
+
+    def epoch_end(self, vdi):
+        self.maybe_reset(vdi)
+
     def attach(self, vdi, read_write):
         md = self.metadata[vdi]
         data = md["data"]
@@ -396,6 +440,18 @@ class VDI(VDI_skeleton):
         if not sr in repos:
             raise Sr_not_attached(sr)
         repos[sr].destroy(vdi)
+    def set_persistent(self, dbg, sr, vdi, persistent):
+        if not sr in repos:
+            raise Sr_not_attached(sr)
+        repos[sr].set_persistent(vdi, persistent)
+    def epoch_begin(self, dbg, sr, vdi):
+        if not sr in repos:
+            raise Sr_not_attached(sr)
+        repos[sr].epoch_begin(vdi)
+    def epoch_end(self, dbg, sr, vdi):
+        if not sr in repos:
+            raise Sr_not_attached(sr)
+        repos[sr].epoch_end(vdi)
     def attach(self, dbg, dp, sr, vdi, read_write):
         if not sr in repos:
             raise Sr_not_attached(sr)
