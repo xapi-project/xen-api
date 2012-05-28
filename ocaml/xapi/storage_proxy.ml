@@ -45,10 +45,12 @@ module Proxy = functor(RPC: RPC) -> struct
 		let list _ = Client.SR.list
 	end
 	module VDI = struct
+		let epoch_begin _ = Client.VDI.epoch_begin
 		let attach _ = Client.VDI.attach
 		let activate _ = Client.VDI.activate
 		let deactivate _ = Client.VDI.deactivate
 		let detach _ = Client.VDI.detach
+		let epoch_end _ = Client.VDI.epoch_end
 
 		let stat _ = Client.VDI.stat
 
@@ -56,6 +58,7 @@ module Proxy = functor(RPC: RPC) -> struct
 		let snapshot _ = Client.VDI.snapshot
 		let clone _ = Client.VDI.clone
 		let destroy _ = Client.VDI.destroy
+		let set_persistent _ = Client.VDI.set_persistent
 		let get_by_name _ = Client.VDI.get_by_name
 		let set_content_id _ = Client.VDI.set_content_id
 		let similar_content _ = Client.VDI.similar_content

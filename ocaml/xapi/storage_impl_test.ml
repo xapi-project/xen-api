@@ -86,6 +86,10 @@ module Debug_print_impl = struct
                     end
                 )
 
+		let epoch_begin context ~dbg ~sr ~vdi = ()
+
+		let set_persistent context ~dbg ~sr ~vdi ~persistent = ()
+
 		let attach context ~dbg ~dp ~sr ~vdi ~read_write =
 			info "VDI.attach dp:%s sr:%s vdi:%s read_write:%b" dp sr vdi read_write;
 			if dp = "error"
@@ -115,6 +119,8 @@ module Debug_print_impl = struct
 			info "VDI.activate dp:%s sr:%s vdi:%s" dp sr vdi
 
 		let working = ref false
+
+		let epoch_end context ~dbg ~sr ~vdi = ()
 
 		let detach context ~dbg ~dp ~sr ~vdi =
 			if vdi = "error" && not(!working)
@@ -455,6 +461,7 @@ let create_vdi_test sr =
         read_only = false;
         physical_utilisation = 10L;
 		metadata_of_pool = "";
+		persistent = true;
 	} in
     expect "too_small_backend_error" too_small_backend_error
         (fun () -> Client.VDI.create ~dbg ~sr ~vdi_info ~params:["toosmall", ""]);

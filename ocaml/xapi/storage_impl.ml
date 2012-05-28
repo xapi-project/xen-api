@@ -404,6 +404,15 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			| [] -> next ()
 			| f :: fs -> raise f
 
+		let epoch_begin context ~dbg ~sr ~vdi =
+			info "VDI.epoch_begin dbg:%s sr:%s vdi:%s" dbg sr vdi;
+			with_vdi sr vdi
+				(fun () ->
+					remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi Vdi.leaked
+						(fun () ->
+							Impl.VDI.epoch_begin context ~dbg ~sr ~vdi
+						))
+
 		let attach context ~dbg ~dp ~sr ~vdi ~read_write =
 			info "VDI.attach dbg:%s dp:%s sr:%s vdi:%s read_write:%b" dbg dp sr vdi read_write;
 			with_vdi sr vdi
@@ -453,6 +462,15 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 						(fun () ->
 							ignore (perform_nolock context ~dbg ~dp ~sr ~vdi Vdi_automaton.Detach)))
 
+		let epoch_end context ~dbg ~sr ~vdi =
+			info "VDI.epoch_end dbg:%s sr:%s vdi:%s" dbg sr vdi;
+			with_vdi sr vdi
+				(fun () ->
+					remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi Vdi.leaked
+						(fun () ->
+							Impl.VDI.epoch_end context ~dbg ~sr ~vdi
+						))
+
         let create context ~dbg ~sr ~vdi_info ~params =
             info "VDI.create dbg:%s sr:%s vdi_info:%s params:%s" dbg sr (string_of_vdi_info vdi_info) (String.concat "; " (List.map (fun (k, v) -> k ^ ":" ^ v) params));
             let result = Impl.VDI.create context ~dbg ~sr ~vdi_info ~params in
@@ -481,6 +499,14 @@ module Wrapper = functor(Impl: Server_impl) -> struct
                             Impl.VDI.destroy context ~dbg ~sr ~vdi
                         )
                 )
+
+		let set_persistent context ~dbg ~sr ~vdi ~persistent =
+			info "VDI.set_persistent dbg:%s sr:%s vdi:%s persistent:%b" dbg sr vdi persistent;
+			with_vdi sr vdi
+				(fun () ->
+					Impl.VDI.set_persistent context ~dbg ~sr ~vdi ~persistent
+				)
+
 
 		let get_by_name context ~dbg ~sr ~name =
 			info "VDI.get_by_name dbg:%s sr:%s name:%s" dbg sr name;

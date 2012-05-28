@@ -57,6 +57,7 @@ type vdi_info = {
     virtual_size: int64;
     physical_utilisation: int64;
     (* xenstore_data: workaround via XenAPI *)
+	persistent: bool;
 }
 
 let string_of_vdi_info (x: vdi_info) = Jsonrpc.to_string (rpc_of_vdi_info x)
@@ -242,6 +243,13 @@ module VDI = struct
     (** [destroy task sr vdi] removes [vdi] from [sr] *)
     external destroy : dbg:debug_info -> sr:sr -> vdi:vdi -> unit = ""
 
+	(** [set_persistent dbg sr vdi persistent] sets [vdi]'s persistent flag to [persistent] *)
+	external set_persistent : dbg:debug_info -> sr:sr -> vdi:vdi -> persistent:bool -> unit = ""
+
+	(** [epoch_begin sr vdi] declares that [vdi] is about to be added to a starting/rebooting VM.
+        This is not called over suspend/resume or migrate. *)
+	external epoch_begin : dbg:debug_info -> sr:sr -> vdi:vdi -> unit = ""
+
 	(** [attach task dp sr vdi read_write] returns the [params] for a given
 		[vdi] in [sr] which can be written to if (but not necessarily only if) [read_write]
 		is true *)
@@ -262,6 +270,10 @@ module VDI = struct
 	(** [detach task dp sr vdi] signals that this client no-longer needs the [attach_info]
 		to be valid. *)
     external detach : dbg:debug_info -> dp:dp -> sr:sr -> vdi:vdi -> unit = ""
+
+	(** [epoch_end sr vdi] declares that [vdi] is about to be removed from a shutting down/rebooting VM.
+        This is not called over suspend/resume or migrate. *)
+	external epoch_end : dbg:debug_info -> sr:sr -> vdi:vdi -> unit = ""
 
     (** [get_url task sr vdi] returns a URL suitable for accessing disk data directly. *)
     external get_url : dbg:debug_info -> sr:sr -> vdi:vdi -> string = ""

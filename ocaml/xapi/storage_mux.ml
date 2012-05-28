@@ -162,6 +162,12 @@ module Mux = struct
 		let destroy context ~dbg ~sr ~vdi =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.destroy ~dbg ~sr ~vdi
+		let set_persistent context ~dbg ~sr ~vdi ~persistent =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.VDI.set_persistent ~dbg ~sr ~vdi ~persistent
+		let epoch_begin context ~dbg ~sr ~vdi =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.VDI.epoch_begin ~dbg ~sr ~vdi
 		let attach context ~dbg ~dp ~sr ~vdi ~read_write =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.attach ~dbg ~dp ~sr ~vdi ~read_write
@@ -174,6 +180,9 @@ module Mux = struct
 		let detach context ~dbg ~dp ~sr ~vdi =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.detach ~dbg ~dp ~sr ~vdi
+		let epoch_end context ~dbg ~sr ~vdi =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.VDI.epoch_end ~dbg ~sr ~vdi
         let get_by_name context ~dbg ~sr ~name =
             let module C = Client(struct let rpc = of_sr sr end) in
             C.VDI.get_by_name ~dbg ~sr ~name

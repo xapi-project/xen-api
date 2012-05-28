@@ -156,7 +156,8 @@ let vdi_info_assert_equal vdi_info vdi_info' =
 	assert_equal ~msg:"is_a_snapshot" ~printer:string_of_bool vdi_info.is_a_snapshot vdi_info'.is_a_snapshot;
 	assert_equal ~msg:"snapshot_time" ~printer:(fun x -> x) vdi_info.snapshot_time vdi_info'.snapshot_time;
 	assert_equal ~msg:"snapshot_of" ~printer:(fun x -> x) vdi_info.snapshot_of vdi_info'.snapshot_of;
-	assert_equal ~msg:"read_only" ~printer:string_of_bool vdi_info.read_only vdi_info'.read_only
+	assert_equal ~msg:"read_only" ~printer:string_of_bool vdi_info.read_only vdi_info'.read_only;
+	assert_equal ~msg:"persistent" ~printer:string_of_bool vdi_info.persistent vdi_info'.persistent
 
 let example_vdi_info =
 	let name_label = "test_name_label" in
@@ -183,6 +184,7 @@ let example_vdi_info =
 		read_only = read_only;
 		virtual_size = virtual_size;
 		physical_utilisation = physical_utilisation;
+		persistent = true;
 	}
 
 let test_create_destroy sr _ =
