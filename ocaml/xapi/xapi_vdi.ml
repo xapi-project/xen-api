@@ -223,7 +223,8 @@ let default_vdi_info =
 		snapshot_of = "";
 		read_only = false;
 		virtual_size = 0L;
-		physical_utilisation = 0L
+		physical_utilisation = 0L;
+		persistent = true;
 	}
 
 let create ~__context ~name_label ~name_description
@@ -624,9 +625,10 @@ let set_metadata_of_pool ~__context ~self ~value =
 
 let set_on_boot ~__context ~self ~value =
 	let sr = Db.VDI.get_SR ~__context ~self in
-	let ty = Db.SR.get_type ~__context ~self:sr in
-	let caps = Sm.capabilities_of_driver ty in
-	if not (List.mem Smint.Vdi_reset_on_boot caps) then 
+	let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
+	let sm_caps = Xapi_sr_operations.capabilities_of_sr sr_record in
+
+	if not (List.mem Smint.Vdi_reset_on_boot sm_caps) then 
 		raise (Api_errors.Server_error(Api_errors.sr_operation_not_supported,[Ref.string_of sr]));
 	Sm.assert_pbd_is_plugged ~__context ~sr;
 
@@ -638,9 +640,7 @@ let set_on_boot ~__context ~self ~value =
 	let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
 	transform_storage_exn
 		(fun () ->
-			let newvdi = C.VDI.clone ~dbg:(Ref.string_of task) ~sr:sr'
-				~vdi:vdi' ~vdi_info:default_vdi_info ~params:[] in
-			C.VDI.destroy ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:newvdi.vdi;
+			C.VDI.set_persistent ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:vdi' ~persistent:(value = `persist)
 		);
 
 	Db.VDI.set_on_boot ~__context ~self ~value

@@ -186,6 +186,7 @@ module SMAPIv1 = struct
 				read_only = vdi_rec.API.vDI_read_only;
 				virtual_size = vdi_rec.API.vDI_virtual_size;
 				physical_utilisation = vdi_rec.API.vDI_physical_utilisation;
+				persistent = vdi_rec.API.vDI_on_boot = `persist;
 			}
 
 		let scan context ~dbg ~sr:sr' =
@@ -234,6 +235,7 @@ module SMAPIv1 = struct
 		let vdi_read_write = Hashtbl.create 10
 		let vdi_read_write_m = Mutex.create ()
 
+		let epoch_begin context ~dbg ~sr ~vdi = ()
 
 		let attach context ~dbg ~dp ~sr ~vdi ~read_write =
 			try
@@ -300,6 +302,8 @@ module SMAPIv1 = struct
 			with Api_errors.Server_error(code, params) ->
 				raise (Backend_error(code, params))
 
+		let epoch_end context ~dbg ~sr ~vdi = ()
+
 		let stat context ~dbg ~sr ~vdi () = assert false
 
         let require_uuid vdi_info =
@@ -323,6 +327,7 @@ module SMAPIv1 = struct
                 read_only = r.API.vDI_read_only;
                 virtual_size = r.API.vDI_virtual_size;
                 physical_utilisation = r.API.vDI_physical_utilisation;
+				persistent = r.API.vDI_on_boot = `persist;
             }
 
         let newvdi ~__context vi =
@@ -401,6 +406,27 @@ module SMAPIv1 = struct
 					raise (Backend_error(code, params))
 				| No_VDI ->
 					raise (Vdi_does_not_exist vdi)
+				| Sm.MasterOnly -> redirect sr
+
+		let set_persistent context ~dbg ~sr ~vdi ~persistent =
+            try
+                Server_helpers.exec_with_new_task "VDI.set_persistent" ~subtask_of:(Ref.of_string dbg)
+                    (fun __context ->
+						if not persistent then begin
+							info "VDI.set_persistent: calling VDI.clone and VDI.destroy to make an empty vhd-leaf";
+							let location = for_vdi ~dbg ~sr ~vdi "VDI.clone"
+								(fun device_config _type sr self ->
+									let vi = Sm.vdi_clone device_config _type [] sr self in
+									vi.Smint.vdi_info_location
+								) in
+							for_vdi ~dbg ~sr ~vdi:location "VDI.destroy"
+								(fun device_config _type sr self ->
+									Sm.vdi_delete device_config _type sr self
+								)
+						end
+					)
+            with
+				| Api_errors.Server_error(code, params) -> raise (Backend_error(code, params))
 				| Sm.MasterOnly -> redirect sr
 
 		let get_by_name context ~dbg ~sr ~name =

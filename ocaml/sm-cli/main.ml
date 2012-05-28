@@ -115,7 +115,8 @@ let _ =
 				snapshot_of = Opt.default "" (find "snapshot_of");
 				read_only = Opt.default false (Opt.map bool_of_string (find "read_only"));
 				virtual_size = Opt.default 1L (Opt.map Int64.of_string (find "virtual_size"));
-				physical_utilisation = 0L
+				physical_utilisation = 0L;
+				persistent = true;
 			} in
 			let params = List.filter_map
 				(fun (k, v) ->
