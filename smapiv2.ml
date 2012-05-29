@@ -203,6 +203,19 @@ let api =
 	      outputs = [
 	      ];
 	    }; {
+	      Method.name = "stat";
+	      description = "[stat task sr vdi] returns metadata associated with VDI [vdi] in SR [sr].";
+	      inputs = [
+		sr;
+			  vdi;
+	      ];
+	      outputs = [
+		{ Arg.name = "vdi_info";
+		  ty = vdi_info;
+		  description = "VDI metadata";
+		}
+	      ];
+	    }; {
 	      Method.name = "epoch_begin";
 	      description = "[epoch_begin task sr vdi] signals that VDI is about to be connected to a fresh (started, rebooted) VM.";
 	      inputs = [
