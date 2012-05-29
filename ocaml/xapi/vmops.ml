@@ -39,7 +39,7 @@ type api_access = InternalNetwork | FirstNetwork
 
 (* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
 let filtered_platform_flags = ["acpi"; "apic"; "nx"; "pae"; "viridian";
-                               "acpi_s3";"acpi_s4"]
+                               "acpi_s3";"acpi_s4";"tsc_mode"]
 
 let set_difference a b = List.filter (fun x -> not(List.mem x b)) a
 
