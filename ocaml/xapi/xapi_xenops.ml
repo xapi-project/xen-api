@@ -15,6 +15,8 @@
 module D=Debug.Debugger(struct let name="xenops" end)
 open D
 
+module Net = (val (Network.get_client ()) : Network.CLIENT)
+
 open Stringext
 open Listext
 open Threadext
@@ -232,15 +234,16 @@ module MD = struct
 		}
 
 	let of_vif ~__context ~vm ~vif =
+		let net = Db.Network.get_record ~__context ~self:vif.API.vIF_network in
+		let net_mtu = Int64.to_int (net.API.network_MTU) in
 		let mtu =
 			try
 				if List.mem_assoc "mtu" vif.API.vIF_other_config
 				then List.assoc "mtu" vif.API.vIF_other_config |> int_of_string
-				else 1500
+				else net_mtu
 			with _ ->
-				error "Failed to parse VIF.other_config:mtu; defaulting to 1500";
-				1500 in
-		let net = Db.Network.get_record ~__context ~self:vif.API.vIF_network in
+				error "Failed to parse VIF.other_config:mtu; defaulting to network.mtu";
+				net_mtu in
 		let locking_mode = match vif.API.vIF_locking_mode, net.API.network_default_locking_mode with
 			| `network_default, `disabled -> Vif.Disabled
 			| `network_default, `unlocked -> Vif.Unlocked
@@ -1023,7 +1026,17 @@ let update_vif ~__context id =
 					Opt.iter
 						(fun (_, state) ->
 							if not state.plugged
-							then Xapi_network.deregister_vif ~__context vif;
+							then Xapi_network.deregister_vif ~__context vif
+							else begin
+								(* sync MTU *)
+								try
+									let device = "vif" ^ (Int64.to_string (Db.VM.get_domid ~__context ~self:vm)) ^ "." ^ (snd id) in
+									let dbg = Context.string_of_task __context in
+									let mtu = Net.Interface.get_mtu dbg ~name:device in
+									Db.VIF.set_MTU ~__context ~self:vif ~value:(Int64.of_int mtu)
+								with _ ->
+									debug "could not update MTU field on VIF %s.%s" (fst id) (snd id)
+							end;
 							debug "xenopsd event: Updating VIF %s.%s currently_attached <- %b" (fst id) (snd id) state.plugged;
 							Db.VIF.set_currently_attached ~__context ~self:vif ~value:state.plugged
 						) info;
