@@ -34,7 +34,9 @@ let update_mh_info interface =
 	()
 
 let restart_stunnel () =
-	ignore(Forkhelpers.execute_command_get_output "/sbin/service" [ "xapissl"; "restart" ])
+	let (_ : Thread.t) = Thread.create (fun () ->
+		Forkhelpers.execute_command_get_output "/sbin/service" [ "xapissl"; "restart" ]) () in
+	()
 
 let stop () =
 	debug "Shutting down the old management interface (if any)";
