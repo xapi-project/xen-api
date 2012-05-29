@@ -486,6 +486,10 @@ module Wrapper = functor(Impl: Server_impl) -> struct
                         )
                 )
 
+		let stat context ~dbg ~sr ~vdi =
+			info "VDI.stat dbg:%s sr:%s vdi:%s" dbg sr vdi;
+			Impl.VDI.stat context ~dbg ~sr ~vdi
+
 		let set_persistent context ~dbg ~sr ~vdi ~persistent =
 			info "VDI.set_persistent dbg:%s sr:%s vdi:%s persistent:%b" dbg sr vdi persistent;
 			with_vdi sr vdi

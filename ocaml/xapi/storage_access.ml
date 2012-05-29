@@ -407,6 +407,19 @@ module SMAPIv1 = struct
 					raise (Vdi_does_not_exist vdi)
 				| Sm.MasterOnly -> redirect sr
 
+		let stat context ~dbg ~sr ~vdi =
+			try
+				Server_helpers.exec_with_new_task "VDI.stat" ~subtask_of:(Ref.of_string dbg)
+					(fun __context ->
+						for_vdi ~dbg ~sr ~vdi "VDI.stat"
+							(fun device_config _type _ self ->
+								SR.vdi_info_of_vdi_rec __context sr (Db.VDI.get_record ~__context ~self)
+							)
+					)
+			with e ->
+				error "VDI.stat caught: %s" (Printexc.to_string e);
+				raise (Vdi_does_not_exist vdi)
+
 		let set_persistent context ~dbg ~sr ~vdi ~persistent =
             try
                 Server_helpers.exec_with_new_task "VDI.set_persistent" ~subtask_of:(Ref.of_string dbg)

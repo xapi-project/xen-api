@@ -247,6 +247,9 @@ module VDI = struct
     (** [destroy task sr vdi] removes [vdi] from [sr] *)
     external destroy : dbg:debug_info -> sr:sr -> vdi:vdi -> unit = ""
 
+	(** [stat dbg sr vdi] returns information about VDI [vdi] in SR [sr] *)
+	external stat : dbg:debug_info -> sr:sr -> vdi:vdi -> vdi_info = ""
+
 	(** [set_persistent dbg sr vdi persistent] sets [vdi]'s persistent flag to [persistent] *)
 	external set_persistent : dbg:debug_info -> sr:sr -> vdi:vdi -> persistent:bool -> unit = ""
 
