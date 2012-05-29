@@ -357,6 +357,7 @@ data/ files are referenced directly by a metadata/ file.
             raise Backend_error("VDI_NOT_ATTACHED", [ vdi ])
         self.tapdisks[data].detach()
         self.tapdisks[data].free()
+        del self.tapdisks[data]
 
 # A map from attached SR reference -> Repo instance
 repos = {}
