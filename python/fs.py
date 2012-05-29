@@ -105,8 +105,11 @@ data/ files are referenced directly by a metadata/ file.
                 md = metadata_path + "/" + name
                 f = open(md, "r")
                 try:
-                    vdi_info = xmlrpclib.loads(f.read())[0][0]
-                    self.metadata[name[0:-len(metadata_suffix)]] = vdi_info
+                    try:
+                        vdi_info = xmlrpclib.loads(f.read())[0][0]
+                        self.metadata[name[0:-len(metadata_suffix)]] = vdi_info
+                    except:
+                        log("%s is corrupt: ignoring" % md)
                 finally:
                     f.close()
         # Load data about the data second
