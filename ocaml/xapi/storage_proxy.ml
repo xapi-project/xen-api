@@ -34,6 +34,7 @@ module Proxy = functor(RPC: RPC) -> struct
 		let destroy _ = Client.DP.destroy
 		let diagnostics _ = Client.DP.diagnostics
 		let attach_info _ = Client.DP.attach_info
+		let stat_vdi _ = Client.DP.stat_vdi
 	end
 	module SR = struct
 		let create _ = Client.SR.create
@@ -51,8 +52,6 @@ module Proxy = functor(RPC: RPC) -> struct
 		let deactivate _ = Client.VDI.deactivate
 		let detach _ = Client.VDI.detach
 		let epoch_end _ = Client.VDI.epoch_end
-
-		let stat _ = Client.VDI.stat
 
 		let create _ = Client.VDI.create
 		let snapshot _ = Client.VDI.snapshot

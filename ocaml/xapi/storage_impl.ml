@@ -432,20 +432,6 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 						(fun () ->
 							ignore(perform_nolock context ~dbg ~dp ~sr ~vdi Vdi_automaton.Activate)))
 
-		let stat context ~dbg ~sr ~vdi () =
-			info "VDI.stat dbg:%s sr:%s vdi:%s" dbg sr vdi;
-			with_vdi sr vdi
-				(fun () ->
-					match Host.find sr !Host.host with
-					| None -> raise (Sr_not_attached sr)
-					| Some sr_t ->
-						let vdi_t = Opt.default (Vdi.empty ()) (Sr.find vdi sr_t) in
-						{
-							superstate = Vdi.superstate vdi_t;
-							dps = List.map (fun dp -> dp, Vdi.get_dp_state dp vdi_t) (Vdi.dps vdi_t)
-						}
-				)
-
 		let deactivate context ~dbg ~dp ~sr ~vdi =
 			info "VDI.deactivate dbg:%s dp:%s sr:%s vdi:%s" dbg dp sr vdi;
 			with_vdi sr vdi
@@ -637,6 +623,22 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 					attach_info
 				| _ -> 
 					raise (Internal_error (Printf.sprintf "sr: %s vdi: %s Datapath %s not attached" sr vdi dp))
+
+
+		let stat_vdi context ~dbg ~sr ~vdi () =
+			info "DP.stat_vdi dbg:%s sr:%s vdi:%s" dbg sr vdi;
+			VDI.with_vdi sr vdi
+				(fun () ->
+					match Host.find sr !Host.host with
+					| None -> raise (Sr_not_attached sr)
+					| Some sr_t ->
+						let vdi_t = Opt.default (Vdi.empty ()) (Sr.find vdi sr_t) in
+						{
+							superstate = Vdi.superstate vdi_t;
+							dps = List.map (fun dp -> dp, Vdi.get_dp_state dp vdi_t) (Vdi.dps vdi_t)
+						}
+				)
+
 	end
 
 	module SR = struct

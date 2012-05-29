@@ -79,6 +79,7 @@ module SMAPIv1 = struct
 		let destroy context ~dbg ~dp = assert false
 		let diagnostics context () = assert false
 		let attach_info context ~dbg ~sr ~vdi ~dp = assert false
+		let stat_vdi context ~dbg ~sr ~vdi = assert false
 	end
 
 	module SR = struct
@@ -303,8 +304,6 @@ module SMAPIv1 = struct
 				raise (Backend_error(code, params))
 
 		let epoch_end context ~dbg ~sr ~vdi = ()
-
-		let stat context ~dbg ~sr ~vdi () = assert false
 
         let require_uuid vdi_info =
             match vdi_info.Smint.vdi_info_uuid with
@@ -836,7 +835,7 @@ let is_attached ~__context ~vbd ~domid  =
 			let open Vdi_automaton in
 			let module C = Storage_interface.Client(struct let rpc = rpc end) in
 			try 
-				let x = C.VDI.stat ~dbg ~sr ~vdi () in
+				let x = C.DP.stat_vdi ~dbg ~sr ~vdi () in
 				x.superstate <> Detached
 			with 
 				| e -> error "Unable to query state of VDI: %s, %s" vdi (Printexc.to_string e); false
@@ -994,7 +993,7 @@ let refresh_local_vdi_activations ~__context =
 			if List.mem sr srs
 			then
 				try
-					let x = Client.VDI.stat ~dbg ~sr ~vdi () in
+					let x = Client.DP.stat_vdi ~dbg ~sr ~vdi () in
 					match x.superstate with 
 						| Activated RO ->
 							lock_vdi (vdi_ref, vdi_rec) RO;

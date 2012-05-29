@@ -65,12 +65,12 @@ let string_of_vdi_info (x: vdi_info) = Jsonrpc.to_string (rpc_of_vdi_info x)
 (** Each VDI is associated with one or more "attached" or "activated" "datapaths". *)
 type dp = string
 
-type stat_t = {
+type dp_stat_t = {
 	superstate: Vdi_automaton.state;
 	dps: (string * Vdi_automaton.state) list;
 }
 
-let string_of_stat_t (x: stat_t) = Jsonrpc.to_string (rpc_of_stat_t x)
+let string_of_dp_stat_t (x: dp_stat_t) = Jsonrpc.to_string (rpc_of_dp_stat_t x)
 
 module Mirror = struct
 	type id = string
@@ -140,7 +140,7 @@ module Dynamic = struct
 	type t = 
 		| Task_t of Task.id * Task.t
 		| Vdi_t of vdi * vdi_info
-		| Dp_t of dp * stat_t
+		| Dp_t of dp * dp_stat_t
 		| Mirror_t of Mirror.id * Mirror.t
 		
 end
@@ -193,6 +193,10 @@ module DP = struct
 		typically including lists of all registered datapaths and their allocated
 		resources. *)
 	external diagnostics: unit -> string = ""
+
+	(** [stat_vdi task sr vdi ()] returns the state of the given VDI from the point of view of
+        each dp as well as the overall superstate. *)
+	external stat_vdi: dbg:debug_info -> sr:sr -> vdi:vdi -> unit -> dp_stat_t = ""
 end
 
 module SR = struct
@@ -258,10 +262,6 @@ module VDI = struct
 	(** [activate task dp sr vdi] signals the desire to immediately use [vdi].
 		This client must have called [attach] on the [vdi] first. *)
     external activate : dbg:debug_info -> dp:dp -> sr:sr -> vdi:vdi -> unit = ""
-
-	(** [stat task sr vdi ()] returns the state of the given VDI from the point of view of
-        each dp as well as the overall superstate. *)
-	external stat: dbg:debug_info -> sr:sr -> vdi:vdi -> unit -> stat_t = ""
 
 	(** [deactivate task dp sr vdi] signals that this client has stopped reading (and writing)
 		[vdi]. *)

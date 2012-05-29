@@ -121,6 +121,10 @@ module Mux = struct
 		let attach_info context ~dbg ~sr ~vdi ~dp =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.DP.attach_info ~dbg ~sr ~vdi ~dp
+
+		let stat_vdi context ~dbg ~sr ~vdi =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.DP.stat_vdi ~dbg ~sr ~vdi
 			
 	end
 	module SR = struct
@@ -149,10 +153,6 @@ module Mux = struct
 		let create context ~dbg ~sr ~vdi_info ~params =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.create ~dbg ~sr ~vdi_info ~params
-
-		let stat context ~dbg ~sr ~vdi =
-			let module C = Client(struct let rpc = of_sr sr end) in
-			C.VDI.stat ~dbg ~sr ~vdi
         let snapshot context ~dbg ~sr ~vdi ~vdi_info ~params =
             let module C = Client(struct let rpc = of_sr sr end) in
             C.VDI.snapshot ~dbg ~sr ~vdi ~vdi_info ~params
