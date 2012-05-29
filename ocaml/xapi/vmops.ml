@@ -371,6 +371,12 @@ let create ~__context ~xc ~xs ~self (snapshot: API.vM_t) ~reservation_id () =
 			List.filter (fun (k, v) -> List.mem k filtered_platform_flags) p
 		else p
 	in
+	(* Filter out invalid tsc_modes *)
+	let platformdata =
+		List.filter
+			(fun (k, v) -> k <> "tsc_mode" || List.mem v ["0"; "1"; "2"; "3"])
+			platformdata
+	in
 	(* XXX: add extra configuration info to the platform/ map for now.
 	   Eventually we'll put this somewhere where the guest can't see it. *)
 	let platformdata = platformdata @ ( vcpu_configuration snapshot ) in
