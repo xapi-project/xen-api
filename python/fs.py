@@ -208,13 +208,16 @@ data/ files are referenced directly by a metadata/ file.
         return self.data_path_of_key(key)
 
     def update_vdi_info(self, vdi, vdi_info):
-        f = open(self.metadata_path_of_vdi(vdi), "w")
+        path = self.metadata_path_of_vdi(vdi)
+        f = open(path, "w")
         try:
             try:
                 f.write(xmlrpclib.dumps((vdi_info,), allow_none=True))
                 self.metadata[vdi] = vdi_info
             except Exception, e:
                 log("Exception writing metadata: %s" % (str(e)))
+                # remove corrupt file
+                os.path.unlink(path)
         finally:
             f.close()
 
