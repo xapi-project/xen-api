@@ -116,15 +116,15 @@ let fail_not_built_task id =
 		end
 	| Task.Pending _ -> failwith "task pending"
 
-let fail_max_vcpus_task id =
+let fail_invalid_vcpus_task id =
 	let t = Client.TASK.stat dbg id in
 	Client.TASK.destroy dbg id;
 	match t.Task.state with
-	| Task.Completed _ -> failwith "task completed successfully: expected Max_vcpus"
+	| Task.Completed _ -> failwith "task completed successfully: expected Invalid_vcpus"
 	| Task.Failed x ->
 		let exn = exn_of_exnty (Exception.exnty_of_rpc x) in
 		begin match exn with 
-			| Maximum_vcpus _ -> ()
+			| Invalid_vcpus _ -> ()
 			| _ -> raise exn
 		end
 	| Task.Pending _ -> failwith "task pending"
@@ -333,7 +333,8 @@ let vm_test_build_vcpus _ =
 			let state = Client.VM.stat dbg id |> snd in
 			if state.Vm.vcpu_target <> 2
 			then failwith (Printf.sprintf "vcpu_target %d <> 2" state.Vm.vcpu_target);
-			Client.VM.set_vcpus dbg id 4 |> wait_for_task |> fail_max_vcpus_task;
+			Client.VM.set_vcpus dbg id 4 |> wait_for_task |> fail_invalid_vcpus_task;
+			Client.VM.set_vcpus dbg id 0 |> wait_for_task |> fail_invalid_vcpus_task;
 			Client.VM.destroy dbg id |> wait_for_task |> success_task;
 		)
 
