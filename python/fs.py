@@ -246,16 +246,19 @@ data/ files are referenced directly by a metadata/ file.
         self.update_vdi_info(vdi, vdi_info)
         return vdi_info
 
-    def destroy(self, vdi):
-        meta = self.metadata_path_of_vdi(vdi)
-        unlink_safe(meta)
-        del self.metadata[vdi]
+    def gc(self):
         deletable = self.get_deletable()
         for x in deletable:
             log("Data %s is unreachable now" % x)
             path = self.data_path_of_key(x)
             unlink_safe(path)
             del self.data[x]
+
+    def destroy(self, vdi):
+        meta = self.metadata_path_of_vdi(vdi)
+        unlink_safe(meta)
+        del self.metadata[vdi]
+        self.gc()
 
     def clone(self, vdi, vdi_info, params):
         parent = self.data_path_of_vdi(vdi)
@@ -313,6 +316,7 @@ data/ files are referenced directly by a metadata/ file.
                 self.data[new_leaf] = vhd.make_leaf(child, parent)
                 meta["data"] = new_leaf
                 self.update_vdi_info(vdi, meta)
+                self.gc()
             else:
                 # Recreate a whole blank disk
                 new_info = self.create(meta, leaf_info)
