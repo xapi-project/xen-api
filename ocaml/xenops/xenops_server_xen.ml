@@ -289,11 +289,11 @@ module Storage = struct
 
 	let get_disk_by_name task path =
 		debug "Storage.get_disk_by_name %s" path;
-		Xenops_task.with_subtask task (Printf.sprintf "get_by_name %s" path)
-			(transform_exception (fun () ->
-				let vdi = Client.get_by_name "get_by_name" path in
-				vdi.sr, vdi.vdi
-			))
+		match String.split ~limit:2 '/' path with
+			| [ sr; vdi ] -> sr, vdi
+			| _ ->
+				error "Failed to parse VDI name %s (expected SR/VDI)" path;
+				raise (Storage_interface.Vdi_does_not_exist path)
 end
 
 let with_disk ~xc ~xs task disk write f = match disk with
