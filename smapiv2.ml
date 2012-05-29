@@ -216,6 +216,19 @@ let api =
 		}
 	      ];
 	    }; {
+	      Method.name = "set_persistent";
+	      description = "[set_persistent task sr vdi persistent] configures whether a VDI's contents should be persisted across epochs";
+	      inputs = [
+		sr;
+		vdi;
+		{ Arg.name = "persistent";
+		  ty = Type.(Basic Boolean);
+		  description = "New value of the VDI persistent field";
+		}
+	      ];
+	      outputs = [
+	      ];
+	    }; {
 	      Method.name = "epoch_begin";
 	      description = "[epoch_begin task sr vdi] signals that VDI is about to be connected to a fresh (started, rebooted) VM.";
 	      inputs = [
