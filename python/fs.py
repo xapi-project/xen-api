@@ -280,6 +280,9 @@ data/ files are referenced directly by a metadata/ file.
 
         return vdi_info
 
+    def stat(self, vdi):
+        return self.metadata[vdi]
+
     def set_persistent(self, vdi, persistent):
         meta = self.metadata[vdi]
 
@@ -448,6 +451,10 @@ class VDI(VDI_skeleton):
         if not sr in repos:
             raise Sr_not_attached(sr)
         repos[sr].destroy(vdi)
+    def stat(self, dbg, sr, vdi):
+        if not sr in repos:
+            raise Sr_not_attached(sr)
+        repos[sr].stat(vdi)
     def set_persistent(self, dbg, sr, vdi, persistent):
         if not sr in repos:
             raise Sr_not_attached(sr)
