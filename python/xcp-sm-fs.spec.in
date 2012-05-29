@@ -1,0 +1,54 @@
+# -*- rpm-spec -*-
+
+Summary: xcp-sm-fs - Filesystem storage backend for XCP
+Name:    xcp-sm-fs
+Version: 0.9
+Release: @RPM_RELEASE@
+Group:   System/Hypervisor
+License: BSD
+URL:  http://www.xen.org
+Source0: xcp-sm-fs-%{version}.tar.bz2
+BuildRoot: %{_tmppath}/%{name}-%{version}-root
+BuildRequires: ocaml omake ocaml-findlib ocaml-xmlm ocaml-type-conv ocaml-xmlm-devel
+
+%description
+Manages VM Virtual Disk Images (VDIs) for XCP, where each VDI corresponds to a set of
+raw or vhd-format disks on a filesystem somewhere. The filesystem may be local or remote.
+
+%prep 
+%setup -q
+
+%build
+%{__make}
+
+%install
+rm -rf %{buildroot}
+
+DESTDIR=$RPM_BUILD_ROOT %{__make} install
+DESTDIR=$RPM_BUILD_ROOT %{__make} sdk-install
+
+%clean
+rm -rf $RPM_BUILD_ROOT
+
+%post
+[ ! -x /sbin/chkconfig ] || chkconfig --add xcp-sm-fs
+
+%files
+%defattr(-,root,root,-)
+/root/fs/fs.py
+/root/fs/mount.py
+/root/fs/storage.py
+/root/fs/tapdisk.py
+/root/fs/util.py
+/root/fs/vhd.py
+/root/fs/xcp.py
+
+%changelog
+
+
+
+
+
+
+
+
