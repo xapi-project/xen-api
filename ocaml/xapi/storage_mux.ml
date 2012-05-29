@@ -162,6 +162,9 @@ module Mux = struct
 		let destroy context ~dbg ~sr ~vdi =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.destroy ~dbg ~sr ~vdi
+		let stat context ~dbg ~sr ~vdi =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.VDI.stat ~dbg ~sr ~vdi
 		let set_persistent context ~dbg ~sr ~vdi ~persistent =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.set_persistent ~dbg ~sr ~vdi ~persistent
