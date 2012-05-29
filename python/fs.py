@@ -232,7 +232,9 @@ data/ files are referenced directly by a metadata/ file.
             finally:
                 f.close()
         else:
-            vdi_info["virtual_size"] = vhd.create(virtual_size, stem + vhd_suffix)
+            # xmlrpclib will reject longs which are > 32 bits since it will try
+            # to marshal them as XMLRPC integers.
+            vdi_info["virtual_size"] = str(vhd.create(virtual_size, stem + vhd_suffix))
             self.data[data] = { "type": "vhd" }
 
         self.update_vdi_info(vdi, vdi_info)
