@@ -25,6 +25,12 @@ def log(txt):
 def success(result):
     return { "Status": "Success", "Value": result }
 
+class MissingDependency(Exception):
+    def __init__(self, missing):
+        self.missing = missing
+    def __str__(self):
+        return "There is a missing dependency: %s not found" % self.missing
+
 class Rpc_light_failure(Exception):
     def __init__(self, name, args):
         self.name = name

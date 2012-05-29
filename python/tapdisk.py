@@ -14,9 +14,14 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-import util, errno
+import util, errno, os.path
+from xcp import log, MissingDependency
 
 TAP_CTL="/usr/sbin/tap-ctl"
+
+if not(os.path.exists(TAP_CTL)):
+    log("%s does not exist: do you need to install tapdisk/blktap?" % TAP_CTL)
+    raise MissingDependency(TAP_CTL)
 
 class Tapdisk:
     def __init__(self, minor = None, pid = None, file = None):
@@ -100,7 +105,7 @@ def list(path = None):
                     file = (x[0], x[1])
 
             else:
-                util.SMlog("Ignoring unexpected tap-ctl output: %s" % repr(field))
+                log("Ignoring unexpected tap-ctl output: %s" % repr(field))
         if minor or pid:
             if not path or (file and file[1].startswith(path)):
                 c = Tapdisk(minor = minor, pid = pid, file = file)

@@ -15,13 +15,29 @@
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 import os
-import util
-import errno
+import util, errno, os.path
+from xcp import log, MissingDependency
 
 MOUNT_NFS = "/sbin/mount.nfs"
 UMOUNT = "/bin/umount"
 MTAB = "/etc/mtab"
 MKDIR = "/bin/mkdir"
+
+if not(os.path.exists(MOUNT_NFS)):
+    log("%s does not exist: do you need to install nfs-utils?" % MOUNT_NFS)
+    raise MissingDependency(MOUNT_NFS)
+
+if not(os.path.exists(UMOUNT)):
+    log("%s does not exist: do you need to install util-linux?" % UMOUNT)
+    raise MissingDependency(UMOUNT)
+
+if not(os.path.exists(MTAB)):
+    log("%s does not exist: this environment is too strange?" % MTAB)
+    raise MissingDependency(MTAB)
+
+if not(os.path.exists(MKDIR)):
+    log("%s does not exist: do you need to install coreutils?" % MKDIR)
+    raise MissingDependency(MKDIR)
 
 class Mount:
     def __init__(self, remote, local):
