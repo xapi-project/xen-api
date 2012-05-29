@@ -44,6 +44,7 @@ module Debug_print_impl = struct
 		let destroy context ~dbg ~dp = assert false
 		let diagnostics context () = assert false
 		let attach_info context ~dbg ~sr ~vdi ~dp = assert false
+		let stat_vdi context ~dbg ~sr ~vdi () = assert false
 	end
 	module VDI = struct
 		let m = Mutex.create ()
@@ -51,8 +52,6 @@ module Debug_print_impl = struct
 		let activated = Hashtbl.create 10
         let created = Hashtbl.create 10
 		let key_of sr vdi = Printf.sprintf "%s/%s" sr vdi
-
-		let stat context ~dbg ~sr ~vdi () = assert false
 
         let create context ~dbg ~sr ~vdi_info ~params =
             let vdi = "newvdi" in
@@ -282,29 +281,29 @@ let test_vdis sr : unit =
 			expect "_" (function _ -> true)
 				(Client.VDI.attach ~dbg ~dp ~sr ~vdi ~read_write:false);
 			expect "Attached(RO) 1" (dp_is dp (Vdi_automaton.Attached Vdi_automaton.RO))
-				(Client.VDI.stat ~dbg ~sr ~vdi ());
+				(Client.DP.stat_vdi ~dbg ~sr ~vdi ());
 			expect "() 2" (fun x -> x = ())
 				(Client.VDI.detach ~dbg ~dp ~sr ~vdi);
 			expect "Detached 3" (dp_is dp Vdi_automaton.Detached)
-				(Client.VDI.stat ~dbg ~sr ~vdi ());
+				(Client.DP.stat_vdi ~dbg ~sr ~vdi ());
 			expect "()" (fun x -> x = ())
 				(Client.VDI.detach ~dbg ~dp ~sr ~vdi);
 			expect "Params _ 4" (function _ -> true)
 				(Client.VDI.attach ~dbg ~dp ~sr ~vdi ~read_write:false);
 			expect "Attached(RO) 5" (dp_is dp (Vdi_automaton.Attached Vdi_automaton.RO))
-				(Client.VDI.stat ~dbg ~sr ~vdi ());
+				(Client.DP.stat_vdi ~dbg ~sr ~vdi ());
 			expect "() 6" (fun x -> x = ())
 				(Client.VDI.activate ~dbg ~dp ~sr ~vdi);
 			expect "Activated(RO) 7" (dp_is dp (Vdi_automaton.Activated Vdi_automaton.RO))
-				(Client.VDI.stat ~dbg ~sr ~vdi ());
+				(Client.DP.stat_vdi ~dbg ~sr ~vdi ());
 			expect "() 8" (fun x -> x = ())
 				(Client.VDI.deactivate ~dbg ~dp ~sr ~vdi);
 			expect "Attached(RO) 9" (dp_is dp (Vdi_automaton.Attached Vdi_automaton.RO))
-				(Client.VDI.stat ~dbg ~sr ~vdi ());
+				(Client.DP.stat_vdi ~dbg ~sr ~vdi ());
 			expect "() 10" (fun x -> x = ())
 				(Client.VDI.detach ~dbg ~dp ~sr ~vdi);
 			expect "Detached 11" (dp_is dp Vdi_automaton.Detached)
-				(Client.VDI.stat ~dbg ~sr ~vdi ());
+				(Client.DP.stat_vdi ~dbg ~sr ~vdi ());
 		done in
 	let vdis = Range.to_list (Range.make 0 num_vdis) in
 	let users = Range.to_list (Range.make 0 num_users) in
@@ -362,7 +361,7 @@ let test_sr sr =
 	expect "()" (fun x -> x = ())
 		(Client.SR.detach ~dbg ~sr)
 
-(* Check the VDI.stat function works *)
+(* Check the DP.stat_vdi function works *)
 let test_stat sr vdi = 
 	expect "()" (fun x -> x = ())
 		(Client.SR.attach ~dbg ~sr ~device_config:[]);
@@ -372,16 +371,16 @@ let test_stat sr vdi =
 		(Client.VDI.attach ~dbg ~dp:dp1 ~sr ~vdi ~read_write:true);
 	(* dp1: Attached(RW) dp2: Detached superstate: Attached(RW) *)
 	expect "Attached(RW)" (dp_is dp1 (Vdi_automaton.Attached Vdi_automaton.RW))
-		(Client.VDI.stat ~dbg ~sr ~vdi ());
+		(Client.DP.stat_vdi ~dbg ~sr ~vdi ());
 	expect "Attached(RW)" (function x -> x.superstate = Vdi_automaton.Attached Vdi_automaton.RW)
-		(Client.VDI.stat ~dbg ~sr ~vdi ());
+		(Client.DP.stat_vdi ~dbg ~sr ~vdi ());
 	expect "Params _" (function _ -> true)
 		(Client.VDI.attach ~dbg ~dp:dp2 ~sr ~vdi ~read_write:false);
 	(* dp1: Attached(RW) dp2: Attached(RO) superstate: Attached(RW) *)
 	expect "Attached(RO)" (dp_is dp2 (Vdi_automaton.Attached Vdi_automaton.RO))
-		(Client.VDI.stat ~dbg ~sr ~vdi ());
+		(Client.DP.stat_vdi ~dbg ~sr ~vdi ());
 	expect "Attached(RW)" (function x -> x.superstate = Vdi_automaton.Attached Vdi_automaton.RW)
-		(Client.VDI.stat ~dbg ~sr ~vdi ());
+		(Client.DP.stat_vdi ~dbg ~sr ~vdi ());
 	expect "Illegal transition" (fun () ->
 		try 
 			Client.VDI.detach ~dbg ~dp:dp1 ~sr ~vdi;
@@ -393,14 +392,14 @@ let test_stat sr vdi =
 		(Client.VDI.detach ~dbg ~dp:dp2 ~sr ~vdi);
 	(* dp1: Attached(RW) dp2: Detached superstate: Attached(RW) *)
 	expect "Detached" (dp_is dp2 Vdi_automaton.Detached)
-		(Client.VDI.stat ~dbg ~sr ~vdi ());
+		(Client.DP.stat_vdi ~dbg ~sr ~vdi ());
 	expect "Attached(RW)" (function x -> x.superstate = Vdi_automaton.Attached Vdi_automaton.RW)
-		(Client.VDI.stat ~dbg ~sr ~vdi ());
+		(Client.DP.stat_vdi ~dbg ~sr ~vdi ());
 	expect "()" (fun x -> x = ())
 		(Client.VDI.detach ~dbg ~dp:dp1 ~sr ~vdi);
 	(* dp1: Detached dp1: Detached superstate: Detached *)
 	expect "Detached" (function x -> x.superstate = Vdi_automaton.Detached)
-		(Client.VDI.stat ~dbg ~sr ~vdi ());
+		(Client.DP.stat_vdi ~dbg ~sr ~vdi ());
 	expect "()" (fun x -> x = ())
 		(Client.SR.detach ~dbg ~sr)
 
