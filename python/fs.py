@@ -492,33 +492,68 @@ class VDI(VDI_skeleton):
 if __name__ == "__main__":
     from optparse import OptionParser
 
+    settings = {
+        "log": "stdout:",
+        "port": None,
+        "ip": None,
+        "socket": "/var/xapi/sm/fs",
+        "daemon": False,
+        "config": "/etc/xcp-sm-fs.conf"
+        }
+
     parser = OptionParser()
     parser.add_option("-l", "--log", dest="logfile", help="log to LOG", metavar="LOG")
     parser.add_option("-p", "--port", dest="port", help="listen on PORT", metavar="PORT")
     parser.add_option("-i", "--ip-addr", dest="ip", help="listen on IP", metavar="IP")
     parser.add_option("-s", "--socket", dest="socket", help="listen on Unix domain socket", metavar="SOCK")
     parser.add_option("-d", "--daemon", action="store_true", dest="daemon", help="run as a background daemon", metavar="DAEMON")
+    parser.add_option("-c", "--config", dest="config", help="read options from a config file", metavar="CONFIG")
     (options, args) = parser.parse_args()
-    if options.logfile:
-        from xcp import reopenlog
-        reopenlog(options.logfile)
-    tcp = options.ip and options.port
-    unix = options.socket
+
+    # Read base options from the config file, allow command-line to override
+    if options.config:
+        settings["config"]= options.config
+
+    if os.path.exists(settings["config"]):
+        config_parser = ConfigParser.ConfigParser()
+        config_parser.read(settings["config"])
+        for setting in settigs:
+            try:
+                config[settings] = config_parser.get("global", setting)
+            except:
+                pass
+
+    for setting in settings:
+        if setting in options:
+            config[setting] = options[setting]
+
+    if settings["log"] == "syslog:":
+        xcp.use_syslog = True
+        xcp.reopenlog(None)
+    elif settings["log"] == "stdout:":
+        xcp.use_syslog = False
+        xcp.reopenlog("stdout:")
+    else:
+        xcp.use_syslog = False
+        xcp.reopenlog(settings["log"])
+
+    tcp = settings["ip"] and settings["port"]
+    unix = settings["socket"]
     if not tcp and not unix:
         print >>sys.stderr, "Need an --ip-addr and --port or a --socket. Use -h for help"
         sys.exit(1)
 
-    if options.daemon:
+    if settings["daemon"]:
         log("daemonising")
         xcp.daemonize()
 
     server = None
     if tcp:
-        log("will listen on %s:%d" % (ip, port))
-        server = xcp.TCPServer(ip, port)
+        log("will listen on %s:%d" % (settings["ip"], settings["port"]))
+        server = xcp.TCPServer(settings["ip"], settings["port"])
     else:
-        log("will listen on %s" % options.socket)
-        server = xcp.UnixServer(options.socket)
+        log("will listen on %s" % settings["socket"])
+        server = xcp.UnixServer(settings["socket"])
 
     server.register_introspection_functions() # for debugging
     server.register_instance(storage_server_dispatcher(Query = Query_server_dispatcher(Query()), VDI = VDI_server_dispatcher(VDI()), SR = SR_server_dispatcher(SR())))

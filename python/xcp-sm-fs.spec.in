@@ -41,6 +41,7 @@ rm -rf $RPM_BUILD_ROOT
 /usr/lib/xcp-sm-fs/vhd.py*
 /usr/lib/xcp-sm-fs/xcp.py*
 /usr/bin/xcp-sm-fs
+/etc/xcp-sm-fs.conf
 
 %changelog
 

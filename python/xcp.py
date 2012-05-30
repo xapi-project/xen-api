@@ -1,21 +1,25 @@
 #!/usr/bin/env python
 
-import os, sys, time, socket, traceback
+import os, sys, time, socket, traceback, syslog
 
 log_f = os.fdopen(os.dup(sys.stdout.fileno()), "aw")
 pid = None
+use_syslog = False
 
 def reopenlog(log_file):
     global log_f
     if log_f:
         log_f.close()
-    if log_file:
+    if log_file and log_file <> "stdout:":
         log_f = open(log_file, "aw")
-    else:
+    elif log_file and log_file == "stdout:":
         log_f = os.fdopen(os.dup(sys.stdout.fileno()), "aw")
 
 def log(txt):
-    global log_f, pid
+    global log_f, pid, use_syslog
+    if use_syslog:
+        syslog.syslog(txt)
+        return
     if not pid:
         pid = os.getpid()
     t = time.strftime("%Y%m%dT%H:%M:%SZ", time.gmtime())
