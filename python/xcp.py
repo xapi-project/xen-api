@@ -78,8 +78,8 @@ def daemonize():
         try:
             if os.fork() > 0:
                 # parent
-                sys.exit(0)
-        except Exception, e:
+                os._exit(0)
+        except OSError, e:
             print >>sys.stderr, "fork() failed: %s" % e
             traceback.print_exc()
             raise
