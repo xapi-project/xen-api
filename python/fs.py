@@ -510,23 +510,25 @@ if __name__ == "__main__":
     parser.add_option("-d", "--daemon", action="store_true", dest="daemon", help="run as a background daemon", metavar="DAEMON")
     parser.add_option("-c", "--config", dest="config", help="read options from a config file", metavar="CONFIG")
     (options, args) = parser.parse_args()
+    options = options.__dict__
 
     # Read base options from the config file, allow command-line to override
-    if options.config:
-        settings["config"]= options.config
+    if "config" in options and options["config"]:
+        settings["config"]= options["config"]
 
     if os.path.exists(settings["config"]):
+        log("Reading config file: %s" % (settings["config"]))
         config_parser = ConfigParser.ConfigParser()
         config_parser.read(settings["config"])
-        for setting in settigs:
+        for setting in settings:
             try:
-                config[settings] = config_parser.get("global", setting)
+                settings[settings] = config_parser.get("global", setting)
             except:
                 pass
 
     for setting in settings:
-        if setting in options:
-            config[setting] = options[setting]
+        if setting in options and options[setting]:
+            settings[setting] = options[setting]
 
     if settings["log"] == "syslog:":
         xcp.use_syslog = True
