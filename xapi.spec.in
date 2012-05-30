@@ -24,6 +24,16 @@ Group: System/Hypervisor
 %description core
 This package contains the xapi toolstack.
 
+%package backend-udev
+Summary: The udev rules and scripts needed by a network/block driver domain
+Group: System/Hypervisor
+Requires: util-linux ethtool bridge-utils iproute
+# + openvswitch
+# + a package with xenstore-{ls,read,write}
+
+%description backend-udev
+The udev rules are triggered by blkback/netback and implement part of the disk/network hotplug protocol. All driver domains must install this package (or a similar one)
+
 %package xe
 Summary: The xapi toolstack CLI
 Group: System/Hypervisor
@@ -160,10 +170,6 @@ rm -rf $RPM_BUILD_ROOT
 /etc/rc.d/init.d/genptoken
 /etc/sysconfig/perfmon
 /etc/sysconfig/xapi
-/etc/udev/rules.d/xen-backend.rules
-/etc/udev/rules.d/xen-frontend.rules
-/etc/udev/xen-backend.rules
-/etc/udev/xen-frontend.rules
 /etc/xapi.d/base-path
 /etc/xapi.d/plugins/DRAC.py
 /etc/xapi.d/plugins/DRAC.pyo
@@ -189,10 +195,6 @@ rm -rf $RPM_BUILD_ROOT
 /etc/xensource/master.d/01-example
 /etc/xensource/master.d/03-mpathalert-daemon
 /etc/xensource/pool.conf
-/etc/xensource/scripts/block-frontend
-/etc/xensource/scripts/tap
-/etc/xensource/scripts/vif
-/etc/xensource/scripts/block
 @OPTDIR@/bin/fix_firewall.sh
 @OPTDIR@/bin/list_domains
 @OPTDIR@/bin/mpathalert
@@ -258,7 +260,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/restore-sr-metadata.pyc
 @OPTDIR@/libexec/set-dom0-memory-target-from-packs
 @OPTDIR@/libexec/set-hostname
-@OPTDIR@/libexec/setup-vif-rules
 @OPTDIR@/libexec/shell.py
 @OPTDIR@/libexec/shell.pyo
 @OPTDIR@/libexec/shell.pyc
@@ -290,6 +291,18 @@ rm -rf $RPM_BUILD_ROOT
 /var/xapi/udhcpd.skel
 @OPTDIR@/debug/rbac_static.csv
 /etc/xapi.d/host-post-declare-dead/10resetvdis
+
+%files backend-udev
+%defattr(-,root,root,-)
+/etc/udev/rules.d/xen-backend.rules
+/etc/udev/rules.d/xen-frontend.rules
+/etc/udev/xen-backend.rules
+/etc/udev/xen-frontend.rules
+/etc/xensource/scripts/block-frontend
+/etc/xensource/scripts/tap
+/etc/xensource/scripts/vif
+/etc/xensource/scripts/block
+@OPTDIR@/libexec/setup-vif-rules
 
 %files xe
 %defattr(-,root,root,-)
