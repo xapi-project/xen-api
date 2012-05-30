@@ -84,6 +84,8 @@ function cleanup {
       rmdir ${mnt}
    fi
 
+   kpartx -d ${device}
+
    if [ ! -z "${vbd_uuid}" ]; then
       echo -n "Unplugging VBD: "
       ${XE} vbd-unplug uuid=${vbd_uuid} timeout=20
@@ -185,12 +187,15 @@ if [ ! -b ${device} ]; then
   exit 1
 fi
 
-echo -n "Waiting for ${device}${device_number}: "
+kpartx -av ${device}
+mapped_device="/dev/mapper/${vdi_uuid}"
+
+echo -n "Waiting for ${mapped_device}${device_number}: "
 found_device=0
 
 for ((i=0; i<5; i++)); do
    echo -n '.'
-   if [ -b ${device}${device_number} ]; then
+   if [ -b ${mapped_device}${device_number} ]; then
       found_device=1
       echo ' done'
       break
@@ -199,7 +204,7 @@ for ((i=0; i<5; i++)); do
 done
 
 if [ ${found_device} -eq 0 ]; then
-   echo Device ${device}${device_number} not found.
+   echo Device ${mapped_device}${device_number} not found.
    echo You must specify the correct partition number with -p
    cleanup
    exit 1
@@ -209,13 +214,13 @@ echo -n "Mounting filesystem: "
 mnt=/var/run/fix-grub-${vdi_uuid}
 mkdir -p ${mnt}
 
-mount ${device}${device_number} ${mnt} > /dev/null 2>&1
+mount ${mapped_device}${device_number} ${mnt} > /dev/null 2>&1
 
 if [ $? -ne 0 ]; then
   echo " failed"
   echo Partitions in the VDI are:
   echo
-  ls -la ${device}*
+  ls -la ${mapped_device}*
   echo
   echo You can use the -p option to specify a partition number to mount.
   cleanup
