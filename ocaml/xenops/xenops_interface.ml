@@ -27,7 +27,7 @@ exception Already_exists of (string * string)
 exception Does_not_exist of (string * string)
 exception Unimplemented of string
 exception Domain_not_built
-exception Maximum_vcpus of int
+exception Invalid_vcpus of int
 exception Bad_power_state of (power_state * power_state)
 exception Failed_to_acknowledge_shutdown_request
 exception Failed_to_shutdown of (string * float)
