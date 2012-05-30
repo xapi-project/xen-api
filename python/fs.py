@@ -491,6 +491,7 @@ class VDI(VDI_skeleton):
         
 if __name__ == "__main__":
     from optparse import OptionParser
+    import ConfigParser
 
     settings = {
         "log": "stdout:",
