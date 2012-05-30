@@ -194,9 +194,7 @@ module Interface = struct
 					end
 				in
 				let options = gateway @ dns in
-				if Dhclient.is_running name then
-					ignore (Dhclient.stop name);
-				ignore (Dhclient.start name options)
+				Dhclient.ensure_running name options
 			| Static4 addrs ->
 				if Dhclient.is_running name then
 					ignore (Dhclient.stop name);

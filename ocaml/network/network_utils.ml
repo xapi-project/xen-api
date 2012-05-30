@@ -396,13 +396,20 @@ module Dhclient = struct
 		let ipv6' = if ipv6 then "6" else "" in
 		Filename.concat Fhs.vardir (Printf.sprintf "dhclient%s-%s.conf" ipv6' interface)
 
-	let write_conf_file ?(ipv6=false) interface options =
+	let generate_conf ?(ipv6=false) interface options =
 		let minimal = ["subnet-mask"; "broadcast-address"; "time-offset"; "host-name"; "nis-domain";
 			"nis-servers"; "ntp-servers"; "interface-mtu"] in
 		let set_gateway = if List.mem `set_gateway options then ["routers"] else [] in
 		let set_dns = if List.mem `set_dns options then ["domain-name"; "domain-name-servers"] else [] in
 		let request = minimal @ set_gateway @ set_dns in
-		let conf = Printf.sprintf "interface \"%s\" {\n  request %s;\n}\n" interface (String.concat ", " request) in
+		Printf.sprintf "interface \"%s\" {\n  request %s;\n}\n" interface (String.concat ", " request)
+
+	let read_conf_file ?(ipv6=false) interface =
+		let file = conf_file ~ipv6 interface in
+		try Some (Unixext.string_of_file file) with _ -> None
+
+	let write_conf_file ?(ipv6=false) interface options =
+		let conf = generate_conf ~ipv6 interface options in
 		Unixext.write_string_to_file (conf_file ~ipv6 interface) conf
 
 	let start ?(ipv6=false) interface options =
@@ -428,6 +435,20 @@ module Dhclient = struct
 			true
 		with Unix.Unix_error _ ->
 			false
+
+	let ensure_running ?(ipv6=false) interface options =
+		if not(is_running ~ipv6 interface) then
+			(* dhclient is not running, so we need to start it. *)
+			ignore (start ~ipv6 interface options)
+		else begin
+			(* dhclient is running - if the config has changed, update the config file and restart. *)
+			let current_conf = read_conf_file ~ipv6 interface in
+			let new_conf = generate_conf ~ipv6 interface options in
+			if current_conf <> (Some new_conf) then begin
+				ignore (stop ~ipv6 interface);
+				ignore (start ~ipv6 interface options)
+			end
+		end
 end
 
 module Sysctl = struct
