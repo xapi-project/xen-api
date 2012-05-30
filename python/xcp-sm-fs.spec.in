@@ -33,13 +33,14 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root,-)
-/root/fs/fs.py*
-/root/fs/mount.py*
-/root/fs/storage.py*
-/root/fs/tapdisk.py*
-/root/fs/util.py*
-/root/fs/vhd.py*
-/root/fs/xcp.py*
+/usr/lib/xcp-sm-fs/fs.py*
+/usr/lib/xcp-sm-fs/mount.py*
+/usr/lib/xcp-sm-fs/storage.py*
+/usr/lib/xcp-sm-fs/tapdisk.py*
+/usr/lib/xcp-sm-fs/util.py*
+/usr/lib/xcp-sm-fs/vhd.py*
+/usr/lib/xcp-sm-fs/xcp.py*
+/usr/bin/xcp-sm-fs
 
 %changelog
 

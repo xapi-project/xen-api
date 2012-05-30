@@ -1,5 +1,4 @@
 DESTDIR?=
-PYPATH=/root/fs
 
 INSTALL=install
 MKDIR=mkdir
@@ -27,6 +26,8 @@ toplevel: types.cmo smapiv2.cmo xenops.cmo memory.cmo
 %.cmo: %.ml
 	${OCAMLFIND} ocamlc -package xmlm,stdext -c -g $<
 
+PYPATH=/usr/lib/xcp-sm-fs
+
 .PHONY: install
 install: idl
 	./idl
@@ -38,6 +39,8 @@ install: idl
 	${INSTALL} python/util.py ${DESTDIR}${PYPATH}
 	${INSTALL} python/vhd.py ${DESTDIR}${PYPATH}
 	${INSTALL} python/xcp.py ${DESTDIR}${PYPATH}
+	${MKDIR} -p ${DESTDIR}/usr/bin
+	${INSTALL} python/xcp-sm-fs ${DESTDIR}/usr/bin/xcp-sm-fs
 
 .PHONY: python/xcp-sm-fs.spec
 python/xcp-sm-fs.spec: python/xcp-sm-fs.spec.in
