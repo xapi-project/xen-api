@@ -109,7 +109,9 @@ class UnixServer(UnixStreamServer, SimpleXMLRPCDispatcher):
         self.logRequests = 0
         if os.path.exists(addr):
             os.unlink(addr)
-        os.makedirs(os.path.dirname(addr))
+        dir = os.path.dirname(addr)
+        if not(os.path.exists(dir)):
+            os.makedirs(dir)
         SimpleXMLRPCDispatcher.__init__(self)
         UnixStreamServer.__init__(self, addr, requestHandler)
 

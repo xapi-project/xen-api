@@ -224,14 +224,3 @@ def ismount(path):
     if ino1 == ino2:
         return True     # path/.. is the same i-node as path
     return False
-
-def makedirs(name, mode=0777):
-    head, tail = os.path.split(name)
-    if not tail:
-        head, tail = os.path.split(head)
-    if head and tail and not pathexists(head):
-        makedirs(head, mode)
-        if tail == os.curdir:
-            return
-    os.mkdir(name, mode)
-
