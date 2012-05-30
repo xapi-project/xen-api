@@ -522,7 +522,7 @@ if __name__ == "__main__":
         config_parser.read(settings["config"])
         for setting in settings:
             try:
-                settings[settings] = config_parser.get("global", setting)
+                settings[setting] = config_parser.get("global", setting)
             except:
                 pass
 
