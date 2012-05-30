@@ -19,13 +19,11 @@ raw or vhd-format disks on a filesystem somewhere. The filesystem may be local o
 %setup -q
 
 %build
-%{__make}
 
 %install
 rm -rf %{buildroot}
 
 DESTDIR=$RPM_BUILD_ROOT %{__make} install
-DESTDIR=$RPM_BUILD_ROOT %{__make} sdk-install
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -35,13 +33,13 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root,-)
-/root/fs/fs.py
-/root/fs/mount.py
-/root/fs/storage.py
-/root/fs/tapdisk.py
-/root/fs/util.py
-/root/fs/vhd.py
-/root/fs/xcp.py
+/root/fs/fs.py*
+/root/fs/mount.py*
+/root/fs/storage.py*
+/root/fs/tapdisk.py*
+/root/fs/util.py*
+/root/fs/vhd.py*
+/root/fs/xcp.py*
 
 %changelog
 
