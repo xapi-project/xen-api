@@ -84,6 +84,15 @@ let success_or f results =
 module Mux = struct
 	type context = Smint.request
 
+	let forall f =
+        let combine results =
+            let all = List.fold_left (fun acc (sr, result) ->
+                (Printf.sprintf "For SR: %s" sr :: (string_of_sm_result (fun s -> s) result) :: acc)) [] results in
+            SMSuccess (String.concat "\n" all) in
+        match fail_or combine (multicast f) with
+			| SMSuccess x -> x
+			| SMFailure e -> raise e
+
 	module Query = struct
 		let query context ~dbg = {
 			driver = "mux";
@@ -96,6 +105,11 @@ module Mux = struct
 			features = [];
 			configuration = []
 		}
+		let diagnostics context ~dbg =
+			forall (fun sr rpc ->
+				let module C = Client(struct let rpc = of_sr sr end) in
+				C.Query.diagnostics dbg
+			)
 	end
 	module DP = struct
 		let create context ~dbg ~id = id (* XXX: is this pointless? *)
@@ -108,15 +122,10 @@ module Mux = struct
 				| SMFailure e -> raise e
 
 		let diagnostics context () =
-			let combine results =
-				let all = List.fold_left (fun acc (sr, result) ->
-					(Printf.sprintf "For SR: %s" sr :: (string_of_sm_result (fun s -> s) result) :: acc)) [] results in
-				SMSuccess (String.concat "\n" all) in
-			match fail_or combine (multicast (fun sr rpc ->
+			forall (fun sr rpc ->
 				let module C = Client(struct let rpc = of_sr sr end) in
-				C.DP.diagnostics ())) with
-				| SMSuccess x -> x
-				| SMFailure e -> raise e
+				C.DP.diagnostics ()
+			)
 
 		let attach_info context ~dbg ~sr ~vdi ~dp =
 			let module C = Client(struct let rpc = of_sr sr end) in
