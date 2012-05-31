@@ -499,7 +499,8 @@ if __name__ == "__main__":
         "ip": None,
         "socket": "/var/xapi/sm/fs",
         "daemon": False,
-        "config": "/etc/xcp-sm-fs.conf"
+        "config": "/etc/xcp-sm-fs.conf",
+        "pidfile": "/var/run/xcp-sm-fs.pid"
         }
 
     parser = OptionParser()
@@ -549,6 +550,11 @@ if __name__ == "__main__":
     if settings["daemon"]:
         log("daemonising")
         xcp.daemonize()
+    pidfile = open(settings["pidfile"], "w")
+    try:
+        pidfile.write(str(os.getpid()))
+    finally:
+        pidfile.close()
 
     server = None
     if tcp:

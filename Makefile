@@ -43,6 +43,8 @@ install: idl
 	${INSTALL} python/xcp-sm-fs ${DESTDIR}/usr/bin/xcp-sm-fs
 	${MKDIR} -p ${DESTDIR}/etc
 	${INSTALL} python/xcp-sm-fs.conf ${DESTDIR}/etc/xcp-sm-fs.conf
+	${MKDIR} -p ${DESTDIR}/etc/rc.d/init.d
+	${INSTALL} python/init.d-xcp-sm-fs ${DESTDIR}/etc/rc.d/init.d/xcp-sm-fs
 
 .PHONY: python/xcp-sm-fs.spec
 python/xcp-sm-fs.spec: python/xcp-sm-fs.spec.in

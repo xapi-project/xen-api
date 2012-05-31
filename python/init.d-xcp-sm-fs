@@ -1,0 +1,92 @@
+#! /bin/bash
+#
+# xcp-sm-fs          Start/Stop the XCP filesystem storage backend
+#
+# chkconfig: 2345 23 77
+# description: Storage backend which stores disks in local or remote files
+# processname: xcp-sm-fs
+# config: /etc/xcp-sm-fs.conf
+# pidfile: /var/run/xcp-sm-fs.pid
+
+# Source function library.
+. /etc/init.d/functions
+
+if [ -f /etc/sysconfig/xcp-sm-fs ]; then
+  . /etc/sysconfig/xcp-sm-fs
+fi
+
+start() {
+	echo -n $"Starting xcp-sm-fs: "
+
+	/usr/bin/xcp-sm-fs
+	RETVAL=$?
+
+	if [ $RETVAL -eq 0 ]; then
+		touch /var/lock/subsys/xcp-sm-fs
+		echo -n $"OK"
+		success $"OK"
+		echo
+		return 0
+	else
+		echo -n $"failed to start xcp-sm-fs."
+		failure $"failed to start xcp-sm-fs."
+		killproc xcp-sm-fs
+		rm -f /var/lock/subsys/xcp-sm-fs /var/run/xcp-sm-fs.pid
+		echo
+		return 1
+	fi
+}
+
+stop() {
+	echo -n $"Stopping xcp-sm-fs: "
+    if [ ! -e /var/lock/subsys/xcp-sm-fs ]; then
+	    echo -n $"cannot stop xcp-sm-fs: xcp-sm-fs is not running."
+	    failure $"cannot stop xcp-sm-fs: xcp-sm-fs is not running."
+	    echo
+	    return 1;
+	fi
+	killproc xcp-sm-fs
+	RETVAL=$?
+	if [ $RETVAL -eq 0 ]; then
+	    logger "xcp-sm-fs stopped forcibly"
+	    success $"xcp-sm-fs stopped successfully"
+	    echo
+	    rm -f /var/run/xcp-sm-fs.pid /var/lock/subsys/xcp-sm-fs
+	else
+	    logger "failed to stop xcp-sm-fs"
+	    failure $"failed to stop xcp-sm-fs"
+	    echo
+	fi
+
+	return $RETVAL
+}
+
+rhstatus() {
+	status xcp-sm-fs
+}
+
+restart() {
+	stop
+	start
+}
+
+case "$1" in
+  start)
+	start
+	;;
+  stop)
+	stop
+	;;
+  restart)
+	restart
+	;;
+  status)
+	rhstatus
+	;;
+  condrestart)
+	[ -f /var/lock/subsys/xcp-sm-fs ] && restart || :
+	;;
+  *)
+	echo $"Usage: $0 {start|stop|status|restart|condrestart}"
+	exit 1
+esac

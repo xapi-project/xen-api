@@ -10,6 +10,7 @@ URL:  http://www.xen.org
 Source0: xcp-sm-fs-%{version}.tar.bz2
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
 BuildRequires: ocaml omake ocaml-findlib ocaml-xmlm ocaml-type-conv ocaml-xmlm-devel
+BuildArch: noarch
 
 %description
 Manages VM Virtual Disk Images (VDIs) for XCP, where each VDI corresponds to a set of
