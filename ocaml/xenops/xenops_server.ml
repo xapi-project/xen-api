@@ -379,7 +379,8 @@ module Queues = struct
 					(fun () ->
 						if StringMap.mem tag a.qs then begin
 							b.qs <- StringMap.add tag (StringMap.find tag a.qs) b.qs;
-							a.qs <- StringMap.remove tag a.qs
+							a.qs <- StringMap.remove tag a.qs;
+							Condition.signal b.c
 						end
 					)
 			)
