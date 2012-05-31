@@ -415,16 +415,24 @@ module Redirector = struct
 					)
 			) ()
 
-	let pop () =
-		let tag, item = Queues.pop default in
-		Mutex.execute m
-			(fun () ->
-				let q = Queues.create () in
-				Queues.transfer_tag tag default q;
-				overrides := StringMap.add tag q !overrides;
-				(* All items with [tag] will enter queue [q] *)
-				tag, q, item
-			)
+	let pop =
+		(* We must prevent worker threads all calling Queues.pop before we've
+		   successfully put the redirection in place. Otherwise we end up with
+		   parallel threads operating on the same VM. *)
+		let n = Mutex.create () in
+		fun () ->
+			Mutex.execute n
+				(fun () ->
+					let tag, item = Queues.pop default in
+					Mutex.execute m
+						(fun () ->
+							let q = Queues.create () in
+							Queues.transfer_tag tag default q;
+							overrides := StringMap.add tag q !overrides;
+							(* All items with [tag] will enter queue [q] *)
+							tag, q, item
+						)
+				)
 
 	let finished tag queue =
 		Mutex.execute m
