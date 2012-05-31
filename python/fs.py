@@ -50,6 +50,8 @@ class Query(Query_skeleton):
                                     "server": "remote server exporting VDIs",
                                     "serverpath": "path on the remote server" }
                  }
+    def diagnostics(self, dbg):
+        return "No diagnostics"
 
 raw_suffix = ".raw"
 vhd_suffix = ".vhd"
