@@ -74,6 +74,10 @@ lib-uninstall:
 sdk-install: doc
 	omake sdk-install
 
+.PHONY: noarch-install
+noarch-install: doc
+	omake noarch-install
+
 .PHONY: clean
 clean:
 	omake clean
@@ -139,23 +143,27 @@ ocaml/fhs.ml :
 .PHONY: clean
  clean:
 
-.PHONY: xapi.spec
 xapi.spec: xapi.spec.in
+noarch.spec: noarch.spec.in
+
+%.spec: %.spec.in
 	sed -e 's/@RPM_RELEASE@/$(shell git rev-list HEAD | wc -l)/g' < $< > $@
 	sed -i "s!@OPTDIR@!${OPTDIR}!g" $@
 
 .PHONY: srpm
-srpm: xapi.spec
+srpm: xapi.spec noarch.spec
 	mkdir -p $(RPM_SOURCESDIR) $(RPM_SPECSDIR) $(RPM_SRPMSDIR)
 	while ! [ -d .git ]; do cd ..; done; \
 	git archive --prefix=xapi-0.2/ --format=tar HEAD | bzip2 -z > $(RPM_SOURCESDIR)/xapi-0.2.tar.bz2 # xen-api/Makefile
+	git archive --prefix=xapi-noarch-0.2/ --format=tar HEAD | bzip2 -z > $(RPM_SOURCESDIR)/xapi-noarch-0.2.tar.bz2 # xen-api/Makefile
 	cp $(JQUERY) $(JQUERY_TREEVIEW) $(RPM_SOURCESDIR)
 	make -C $(REPO) version
 	rm -f $(RPM_SOURCESDIR)/xapi-version.patch
 	(cd $(REPO); diff -u /dev/null ocaml/util/version.ml > $(RPM_SOURCESDIR)/xapi-version.patch) || true
-	cp -f xapi.spec $(RPM_SPECSDIR)/
-	chown root.root $(RPM_SPECSDIR)/xapi.spec || true
+	cp -f xapi.spec noarch.spec $(RPM_SPECSDIR)/
+	chown root.root $(RPM_SPECSDIR)/xapi.spec $(RPM_SPECSDIR)/noarch.spec || true
 	$(RPMBUILD) -bs --nodeps $(RPM_SPECSDIR)/xapi.spec
+	$(RPMBUILD) -bs --nodeps $(RPM_SPECSDIR)/noarch.spec
 
 
 .PHONY: build
