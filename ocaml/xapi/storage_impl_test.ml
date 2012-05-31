@@ -38,6 +38,7 @@ module Debug_print_impl = struct
 	type context = Smint.request
 	module Query = struct
 		let query context ~dbg = assert false
+		let diagnostics context ~dbg = assert false
 	end
 	module DP = struct
 		let create context ~dbg ~id = assert false

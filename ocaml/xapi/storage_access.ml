@@ -72,6 +72,9 @@ module SMAPIv1 = struct
 			features = [];
 			configuration = []
 		}
+
+		let diagnostics context ~dbg =
+			"No diagnostics are available for SMAPIv1 plugins"
 	end
 
 	module DP = struct
@@ -911,7 +914,13 @@ let deactivate_and_detach ~__context ~vbd ~domid =
 
 
 let diagnostics ~__context =
-	Client.DP.diagnostics ()
+	let dbg = Context.get_task_id __context |> Ref.string_of in
+	String.concat "\n" [
+		"DataPath information:";
+		Client.DP.diagnostics ();
+		"Backend information:";
+		Client.Query.diagnostics dbg
+	]
 
 let dp_destroy ~__context dp allow_leak =
 	transform_storage_exn

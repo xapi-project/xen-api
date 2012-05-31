@@ -254,6 +254,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 
 	module Query = struct
 		let query = Impl.Query.query
+		let diagnostics = Impl.Query.diagnostics
 	end
 
 	module VDI = struct
