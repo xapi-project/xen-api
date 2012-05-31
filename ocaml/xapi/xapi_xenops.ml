@@ -334,6 +334,12 @@ module MD = struct
 		let platformdata =
 			("timeoffset", timeoffset) ::
 				(List.filter (fun (key, _) -> key <> "timeoffset") platformdata) in
+		(* Filter out invalid TSC modes. *)
+		let platformdata =
+			List.filter
+				(fun (k, v) -> if k = "tsc_mode" && not(List.mem v ["0"; "1"; "2"; "3"]) then false else true)
+				platformdata
+		in
 
 		let pci_msitranslate = true in (* default setting *)
 		(* CA-55754: allow VM.other_config:msitranslate to override the bus-wide setting *)
