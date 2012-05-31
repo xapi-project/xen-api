@@ -95,8 +95,8 @@ let valid_operations ~__context record _ref' : table =
 	if (Db.SR.get_PBDs ~__context ~self:_ref') = [] then
 		set_errors Api_errors.sr_no_pbds [_ref] [`destroy];
 
-	(* If the SR is not empty, destroy is not allowed. *)
-	if (Db.SR.get_VDIs ~__context ~self:_ref') <> [] then
+	(* If the SR contains any managed VDIs, destroy is not allowed. *)
+	if (Db.VDI.get_records_where ~__context ~expr:(And(Eq(Field "SR", Literal _ref), Eq(Field "managed", Literal "true")))) <> [] then
 		set_errors Api_errors.sr_not_empty [] [`destroy];
 
   let safe_to_parallelise = [ ] in
