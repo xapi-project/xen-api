@@ -485,44 +485,6 @@ let api =
 	      ];
 	    }
 	  ]
-	}; {
-	  Interface.name = "DP";
-	  description = "Operations which act on DataPaths";
-	  type_decls = [];
-	  methods = [
-	    {
-	      Method.name = "create";
-	      description = "[create task id]: creates and returns a dp";
-	      inputs = [
-		{ Arg.name = "id";
-		  ty = Type.(Basic String);
-		  description = "Human-readable DataPath name, for logging and diagnostics";
-		}
-	      ];
-	      outputs = [
-		{ Arg.name = "id";
-		  ty = Type.(Basic String);
-		  description = "Abstract DataPath identifier";
-		}
-	      ];
-	    }; {
-	      Method.name = "destroy";
-	      description = "[destroy task id]: frees any resources associated with [id] and destroys it. This will typically do any needed VDI.detach, VDI.deactivate cleanup.";
-	      inputs = [
-		{ Arg.name = "id";
-		  ty = Type.(Basic String);
-		  description = "Abstract DataPath identifier";
-		}; {
-		  Arg.name = "allow_leak";
-		  ty = Type.(Basic Boolean);
-		  description = "If true then a failure will be logged but the call will not fail";
-		}
-	      ];
-	      outputs = [
-	      ];
-
-	    }
-	  ]
 	}
       ]
   }
