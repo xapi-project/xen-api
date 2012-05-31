@@ -194,6 +194,21 @@ let api =
 		}
 	      ];
 	    }; {
+	      Method.name = "snapshot";
+	      description = "[snapshot task sr vdi vdi_info params] creates a new VDI which is a readonly snapshot of [vdi] in [sr]";
+	      inputs = [
+		sr;
+		vdi;
+		vdi_info';
+		params;
+	      ];
+	      outputs = [
+		{ Arg.name = "new_vdi";
+		  ty = vdi_info;
+		  description = "[clone task sr vdi vdi_info params] creates a new VDI which is a clone of [vdi] in [sr]";
+		}
+	      ];
+	    }; {
 	      Method.name = "destroy";
 	      description = "[destroy task sr vdi] removes [vdi] from [sr]";
 	      inputs = [
