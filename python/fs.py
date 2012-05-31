@@ -25,34 +25,6 @@ from storage import *
 
 import vhd, tapdisk, mount, util
 
-class Query(Query_skeleton):
-    def __init__(self):
-        Query_skeleton.__init__(self)
-    def query(self, dbg):
-        return { "driver": "fs",
-                 "name": "filesystem SR",
-                 "description": "VDIs are stored as files in an existing filesystem",
-                 "vendor": "XCP",
-                 "copyright": "see the source code",
-                 "version": "2.0",
-                 "required_api_version": "2.0",
-                 "features": [
-                feature_vdi_create,
-                feature_vdi_delete,
-                feature_vdi_attach,
-                feature_vdi_detach,
-                feature_vdi_activate,
-                feature_vdi_deactivate,
-                feature_vdi_clone,
-                feature_vdi_reset_on_boot
-                ],
-                 "configuration": { "path": "local filesystem path where the VDIs are stored",
-                                    "server": "remote server exporting VDIs",
-                                    "serverpath": "path on the remote server" }
-                 }
-    def diagnostics(self, dbg):
-        return "No diagnostics"
-
 raw_suffix = ".raw"
 vhd_suffix = ".vhd"
 metadata_suffix = ".xml"
@@ -377,6 +349,64 @@ sr_device_config = {}
 
 # Location where we'll mount temporary filesystems
 var_run = "/var/run/nonpersistent/fs"
+
+class Query(Query_skeleton):
+    def __init__(self):
+        Query_skeleton.__init__(self)
+    def query(self, dbg):
+        return { "driver": "fs",
+                 "name": "filesystem SR",
+                 "description": "VDIs are stored as files in an existing filesystem",
+                 "vendor": "XCP",
+                 "copyright": "see the source code",
+                 "version": "2.0",
+                 "required_api_version": "2.0",
+                 "features": [
+                feature_vdi_create,
+                feature_vdi_delete,
+                feature_vdi_attach,
+                feature_vdi_detach,
+                feature_vdi_activate,
+                feature_vdi_deactivate,
+                feature_vdi_clone,
+                feature_vdi_reset_on_boot
+                ],
+                 "configuration": { "path": "local filesystem path where the VDIs are stored",
+                                    "server": "remote server exporting VDIs",
+                                    "serverpath": "path on the remote server" }
+                 }
+    def diagnostics(self, dbg):
+        lines = []
+        for sr in repos.keys():
+            r = repos[sr]
+            vdis = {} # vdi to idx
+            ds = {} # data to idx
+            # Represent each VDI as a record
+            lines = lines + [
+                "digraph %s {" % sr,
+                "node [shape=record];"
+                ]
+            idx = 0
+            for vdi in r.metadata.keys():
+                vdis[vdi] = idx
+                lines.append("%s [label=\"%s\"];" % (str(idx), r.metadata[vdi]["name_label"]))
+                idx = idx + 1
+            lines.append("node [shape=circle];")
+            for d in r.data.keys():
+                ds[d] = idx
+                lines.append("%s [label=\"%s\"];" % (str(idx), str(d)))
+                idx = idx + 1
+            for vdi in r.metadata.keys():
+                lines.append("%s -> %s;" % (vdis[vdi], ds[r.metadata[vdi]["data"]]))
+            for d in r.data.keys():
+                data = r.data[d]
+                if "parent" in data:
+                    lines.append("%s -> %s;" % (ds[d], ds[data["parent"]]))
+            lines = lines + [
+                "}"
+                ]
+        return "\n".join(lines)
+
 
 class SR(SR_skeleton):
     def __init__(self):
