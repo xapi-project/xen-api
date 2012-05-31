@@ -140,6 +140,17 @@ let api =
 							  description = "The properies of this implementation"
 						  }
 					  ]
+				  }; {
+					  Method.name = "diagnostics";
+					  description = "[diagnostics ()]: returns a printable set of backend diagnostic information.";
+					  inputs = [
+					  ];
+					  outputs = [
+						  { Arg.name = "diagnostics";
+						  ty = Type.(Basic String);
+						  description = "A string containing loggable human-readable diagnostics information";
+						  }
+					  ];
 				  }
 			  ]
 		  };
@@ -509,17 +520,7 @@ let api =
 	      ];
 	      outputs = [
 	      ];
-	    }; {
-	      Method.name = "diagnostics";
-	      description = "[diagnostics ()]: returns a printable set of diagnostic information, typically including lists of all registered datapaths and their allocated resources.";
-	      inputs = [
-	      ];
-	      outputs = [
-		{ Arg.name = "diagnostics";
-		  ty = Type.(Basic String);
-		  description = "A string containing loggable human-readable diagnostics information";
-		}
-	      ];
+
 	    }
 	  ]
 	}
