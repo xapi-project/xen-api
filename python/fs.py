@@ -283,6 +283,10 @@ data/ files are referenced directly by a metadata/ file.
 
         return vdi_info
 
+    def snapshot(self, vdi, vdi_info, params):
+        # We use the same implementation as "clone"
+        return self.clone(vdi, vdi_info, params)
+
     def stat(self, vdi):
         return self.metadata[vdi]
 
@@ -452,6 +456,11 @@ class VDI(VDI_skeleton):
         if not sr in repos:
             raise Sr_not_attached(sr)
         return repos[sr].clone(vdi, vdi_info, params)
+    def snapshot(self, dbg, sr, vdi, vdi_info, params):
+        """Create a read/only snapshot of a VDI"""
+        if not sr in repos:
+            raise Sr_not_attached(sr)
+        return repos[sr].snapshot(vdi, vdi_info, params)
     def destroy(self, dbg, sr, vdi):
         if not sr in repos:
             raise Sr_not_attached(sr)
