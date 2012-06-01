@@ -543,7 +543,21 @@ if __name__ == "__main__":
         "config": "/etc/xcp-sm-fs.conf",
         "pidfile": "/var/run/xcp-sm-fs.pid"
         }
+    string_t = lambda x:x
+    int_t = lambda x:int(x)
+    bool_t = lambda x:x == "True"
+    types = {
+        "log": string_t,
+        "port": int_t,
+        "ip": string_t,
+        "socket": string_t,
+        "daemon": bool_t,
+        "config": string_t,
+        "pidfile": string_t
+    }
 
+    log("settings = %s" % repr(settings))
+    
     parser = OptionParser()
     parser.add_option("-l", "--log", dest="logfile", help="log to LOG", metavar="LOG")
     parser.add_option("-p", "--port", dest="port", help="listen on PORT", metavar="PORT")
@@ -562,16 +576,16 @@ if __name__ == "__main__":
         log("Reading config file: %s" % (settings["config"]))
         config_parser = ConfigParser.ConfigParser()
         config_parser.read(settings["config"])
-        for setting in settings:
-            try:
-                settings[setting] = config_parser.get("global", setting)
-            except:
-                pass
+        for (setting, value) in config_parser.items("global"):
+            if setting in settings:
+                settings[setting] = types[setting](value)
+                log("config settings[%s] <- %s" % (setting, repr(settings[setting])))
 
     for setting in settings:
         if setting in options and options[setting]:
-            settings[setting] = options[setting]
-
+            settings[setting] = types[setting](options[setting])
+            log("option settings[%s] <- %s" % (setting, repr(settings[setting])))
+            
     if settings["log"] == "syslog:":
         xcp.use_syslog = True
         xcp.reopenlog(None)
@@ -588,7 +602,7 @@ if __name__ == "__main__":
         print >>sys.stderr, "Need an --ip-addr and --port or a --socket. Use -h for help"
         sys.exit(1)
 
-    if settings["daemon"] == False:
+    if settings["daemon"]:
         log("daemonising")
         xcp.daemonize()
     pidfile = open(settings["pidfile"], "w")
