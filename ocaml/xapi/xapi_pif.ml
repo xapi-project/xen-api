@@ -682,7 +682,7 @@ let rec plug ~__context ~self =
 
 let calculate_pifs_required_at_start_of_day ~__context =
 	let localhost = Helpers.get_localhost ~__context in
-	(* Select all PIFs on the host that are not bond slaves, and are either bond master or
+	(* Select all PIFs on the host that are not bond slaves, and are physical, or bond master, or
 	 * have IP configuration. The latter means that any VLAN or tunnel PIFs without IP address
 	 * are excluded. *)
 	Db.PIF.get_records_where ~__context
@@ -692,8 +692,9 @@ let calculate_pifs_required_at_start_of_day ~__context =
 					Eq (Field "host", Literal (Ref.string_of localhost)),
 					Eq (Field "bond_slave_of", Literal (Ref.string_of Ref.null))
 				),
-				Or (
+				Or (Or (
 					Not (Eq (Field "bond_master_of", Literal "()")),
+					Eq (Field "physical", Literal "true")),
 					Not (Eq (Field "ip_configuration_mode", Literal "None"))
 				)
 			)
