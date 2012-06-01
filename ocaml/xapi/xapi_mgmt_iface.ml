@@ -127,6 +127,8 @@ let on_dom0_networking_change ~__context =
 		debug "Changing Host.hostname in database to: %s" new_hostname;
 		Db.Host.set_hostname ~__context ~self:localhost ~value:new_hostname
 	end;
+	if Db.Host.get_name_label ~__context ~self:localhost = "localhost.localdomain" then
+		Db.Host.set_name_label ~__context ~self:localhost ~value:new_hostname;
 	begin match Helpers.get_management_ip_addr ~__context with
 		| Some ip ->
 			if Db.Host.get_address ~__context ~self:localhost <> ip then begin
