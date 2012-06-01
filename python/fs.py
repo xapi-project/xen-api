@@ -588,7 +588,7 @@ if __name__ == "__main__":
         print >>sys.stderr, "Need an --ip-addr and --port or a --socket. Use -h for help"
         sys.exit(1)
 
-    if settings["daemon"]:
+    if settings["daemon"] == False:
         log("daemonising")
         xcp.daemonize()
     pidfile = open(settings["pidfile"], "w")
@@ -599,8 +599,8 @@ if __name__ == "__main__":
 
     server = None
     if tcp:
-        log("will listen on %s:%d" % (settings["ip"], settings["port"]))
-        server = xcp.TCPServer(settings["ip"], settings["port"])
+        log("will listen on %s:%d" % (settings["ip"], int(settings["port"])))
+        server = xcp.TCPServer(settings["ip"], int(settings["port"]))
     else:
         log("will listen on %s" % settings["socket"])
         server = xcp.UnixServer(settings["socket"])

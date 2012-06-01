@@ -117,9 +117,9 @@ class UnixServer(UnixStreamServer, SimpleXMLRPCDispatcher):
 
 class TCPServer(SimpleXMLRPCServer):
     def __init__(self, ip, port):
-        SimpleXMLRPCServer.__init__(self, (ip, port), requestHandler=RequestHandler, allow_none=True)
+        SimpleXMLRPCServer.__init__(self, (ip, port), requestHandler=RequestHandler)
     def server_bind(self):
-        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
         SimpleXMLRPCServer.server_bind(self)
 
 # This is a hack to patch slow socket.getfqdn calls that
