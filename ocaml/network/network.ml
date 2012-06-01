@@ -21,8 +21,28 @@ open D
 let make_rpc path  =
 	let module Rpc = struct
 		let transport = ref (Unix path)
-		let rpc call =
-			XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"networkd" ~transport:!transport ~http:(xmlrpc ~version:"1.0" "/") call
+		let retrying = ref false
+		let rec rpc call =
+			try
+				let response =
+					XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"networkd" ~transport:!transport
+						~http:(xmlrpc ~version:"1.0" "/") call in
+				if !retrying then begin
+					debug "Successfully communicated with service at %s after retrying!" path;
+					retrying := false
+				end;
+				response
+			with Unix.Unix_error (code, _, _) as e ->
+				if code = Unix.ECONNREFUSED || code = Unix.ENOENT then begin
+					if not !retrying then
+						error "Could not reach the service at %s. Retrying every second (suppressing further logging)..." path;
+					Thread.delay 1.;
+					retrying := true;
+					rpc call
+				end else begin
+					retrying := false;
+					raise e
+				end
 	end in
 	(module Rpc : RPC)
 
@@ -54,6 +74,7 @@ let transform_networkd_exn pif f =
 	| Not_implemented ->
 		let e = "networkd function not implemented" in
 		reraise Api_errors.pif_configuration_error [Ref.string_of pif; e]
-	| _ ->
+	| e ->
+		error "Caught %s while trying to talk to xcp-networkd" (ExnHelper.string_of_exn e);
 		reraise Api_errors.pif_configuration_error [Ref.string_of pif; ""]
 
