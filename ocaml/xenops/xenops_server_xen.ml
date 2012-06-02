@@ -261,15 +261,20 @@ module Storage = struct
 				Client.VDI.epoch_end task.Xenops_task.debug_info sr vdi
 			) ()
 
-	let attach_and_activate task dp sr vdi read_write =
+	let attach_and_activate ~xc ~xs task vm dp sr vdi read_write =
 		let result =
 			Xenops_task.with_subtask task (Printf.sprintf "VDI.attach %s" dp)
 				(transform_exception (fun () -> Client.VDI.attach "attach_and_activate" dp sr vdi read_write)) in
 
 		Xenops_task.with_subtask task (Printf.sprintf "VDI.activate %s" dp)
 			(transform_exception (fun () -> Client.VDI.activate "attach_and_activate" dp sr vdi));
-		(* XXX: we need to find out the backend domid *)
-		{ domid = 0; attach_info = result }
+		let backend = Xenops_task.with_subtask task (Printf.sprintf "Policy.get_backend_vm %s %s %s" vm sr vdi)
+			(transform_exception (fun () -> Client.Policy.get_backend_vm "attach_and_activate" vm sr vdi)) in
+		match domid_of_uuid ~xc ~xs Newest (Uuid.uuid_of_string backend) with
+			| None ->
+				failwith (Printf.sprintf "Driver domain disapppeared: %s" backend)
+			| Some domid ->
+				{ domid = domid; attach_info = result }
 
 	let deactivate task dp sr vdi =
 		debug "Deactivating disk %s %s" sr vdi;
@@ -305,8 +310,9 @@ let with_disk ~xc ~xs task disk write f = match disk with
 		let dp = Client.DP.create "with_disk" (Printf.sprintf "xenopsd/task/%s" task.Xenops_task.id) in
 		finally
 			(fun () ->
-				let vdi = attach_and_activate task dp sr vdi write in
 				let frontend_domid = this_domid ~xs in
+				let frontend_vm = get_uuid ~xc frontend_domid |> Uuid.to_string in
+				let vdi = attach_and_activate ~xc ~xs task frontend_vm dp sr vdi write in
 				let device = create_vbd_frontend ~xc ~xs task frontend_domid vdi in
 				finally
 					(fun () ->
@@ -1475,7 +1481,8 @@ module VBD = struct
 		| Some (VDI path) ->
 			let sr, vdi = Storage.get_disk_by_name task path in
 			let dp = Storage.id_of frontend_domid vbd.id in
-			Storage.attach_and_activate task dp sr vdi (vbd.mode = ReadWrite)
+			let vm = fst vbd.id in
+			Storage.attach_and_activate ~xc ~xs task vm dp sr vdi (vbd.mode = ReadWrite)
 
 	let frontend_domid_of_device device = device.Device_common.frontend.Device_common.domid
 

@@ -69,6 +69,10 @@ module Proxy = functor(RPC: RPC) -> struct
 
 	let get_by_name _ = Client.get_by_name
 
+	module Policy = struct
+		let get_backend_vm _ = Client.Policy.get_backend_vm
+	end
+
 	module DATA = struct
 		let copy_into _ = Client.DATA.copy_into
 		let copy _ = Client.DATA.copy

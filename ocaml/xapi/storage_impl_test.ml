@@ -206,6 +206,10 @@ module Debug_print_impl = struct
 
 	end
 
+	module Policy = struct
+		let get_backend_vm context ~dbg ~vm ~sr ~vdi = assert false
+	end
+
 	module TASK = struct
 		let stat context ~dbg ~task = assert false
 		let destroy context ~dbg ~task = assert false

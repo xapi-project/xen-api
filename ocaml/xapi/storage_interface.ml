@@ -332,6 +332,9 @@ module DATA = struct
 
 end
 
+module Policy = struct
+	external get_backend_vm: dbg:debug_info -> vm:string -> sr:sr -> vdi:vdi -> string = ""
+end
 
 module TASK = struct
 	external stat: dbg:debug_info -> task:Task.id -> Task.t = ""
