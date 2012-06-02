@@ -115,8 +115,10 @@ def create_bridge_rules(vif_name, config):
         # If the VIF is locked, we now need to create rules to allow valid traffic.
         if locking_mode == "locked":
             mac = config["mac"]
-            # We only support IPv4 multitenancy with bridge.
+            # We only fully support IPv4 multitenancy with bridge.
+            # We allow all IPv6 traffic if any IPv6 addresses are associated with the VIF.
             ipv4_allowed = config["ipv4_allowed"]
+            ipv6_allowed = config["ipv6_allowed"]
             # Accept all traffic going to the VM.
             do_chain_action(ebtables, "-A", vif_chain, ["-o", vif_name, "-j", "ACCEPT"])
             # Drop everything not coming from the correct MAC.
@@ -129,6 +131,9 @@ def create_bridge_rules(vif_name, config):
                 do_chain_action(ebtables, "-A", vif_chain, ["-p", "ARP", "-i", vif_name, "--arp-opcode", "Reply", "--arp-ip-src", ipv4, "--arp-mac-src", mac, "-j", "ACCEPT"])
                 # Accept IP travelling from known IP addresses.
                 do_chain_action(ebtables, "-A", vif_chain, ["-p", "IPv4", "-i", vif_name, "--ip-src", ipv4, "-j", "ACCEPT"])
+            if ipv6_allowed != []:
+                # Accept all IPv6 traffic.
+                do_chain_action(ebtables, "-A", vif_chain, ["-p", "IPv6", "-i", vif_name, "-j", "ACCEPT"])
 
 def acquire_lock(path):
     lock_file = open(path, 'w')
