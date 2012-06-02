@@ -337,7 +337,7 @@ module MD = struct
 		(* Filter out invalid TSC modes. *)
 		let platformdata =
 			List.filter
-				(fun (k, v) -> if k = "tsc_mode" && not(List.mem v ["0"; "1"; "2"; "3"]) then false else true)
+				(fun (k, v) -> k <> "tsc_mode" || List.mem v ["0"; "1"; "2"; "3"])
 				platformdata
 		in
 
