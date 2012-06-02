@@ -736,6 +736,10 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			detach_destroy_common context ~dbg ~sr Impl.SR.destroy			
 	end
 
+	module Policy = struct
+		let get_backend_vm context ~dbg ~vm ~sr ~vdi =
+			Impl.Policy.get_backend_vm context ~dbg ~vm ~sr ~vdi
+	end
 
 	module TASK = struct
 		open Storage_task

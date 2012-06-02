@@ -246,6 +246,14 @@ module Mux = struct
 		end	
 	end
 
+	module Policy = struct
+		let get_backend_vm context ~dbg ~vm ~sr ~vdi =
+			if not(Hashtbl.mem plugins sr) then begin
+				error "No registered plugin for sr = %s" sr;
+				raise (No_storage_plugin_for_sr sr)				
+			end else (Hashtbl.find plugins sr).backend_domain
+	end
+
 	module TASK = struct
 		let stat context ~dbg ~task = assert false
 		let cancel context ~dbg ~task = assert false				
