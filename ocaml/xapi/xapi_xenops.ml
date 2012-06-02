@@ -34,7 +34,8 @@ let xenapi_of_xenops_power_state = function
 
 (* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
 let filtered_platform_flags = ["acpi"; "apic"; "nx"; "pae"; "viridian";
-                               "acpi_s3";"acpi_s4"; "mmio_size_mib"; "revision"; "device_id"]
+                               "acpi_s3";"acpi_s4"; "mmio_size_mib"; "revision"; "device_id";
+                               "tsc_mode"]
 
 let xenops_vdi_locator_of_strings sr_uuid vdi_location =
 	Printf.sprintf "%s/%s" sr_uuid vdi_location
@@ -333,6 +334,12 @@ module MD = struct
 		let platformdata =
 			("timeoffset", timeoffset) ::
 				(List.filter (fun (key, _) -> key <> "timeoffset") platformdata) in
+		(* Filter out invalid TSC modes. *)
+		let platformdata =
+			List.filter
+				(fun (k, v) -> k <> "tsc_mode" || List.mem v ["0"; "1"; "2"; "3"])
+				platformdata
+		in
 
 		let pci_msitranslate = true in (* default setting *)
 		(* CA-55754: allow VM.other_config:msitranslate to override the bus-wide setting *)
