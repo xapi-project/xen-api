@@ -594,7 +594,7 @@ let make_smapiv1 _ =
 
 let make_smapiv2_tcp host path =
 	let open Xmlrpc_client in
-    (module Server(Storage_proxy.Proxy(struct let rpc call = XMLRPC_protocol.rpc ~srcstr:"smapiv2" ~dststr:"smapiv1" ~transport:(TCP(host, 8080)) ~http:(xmlrpc ~version:"1.0" path) call end)) : SERVER)
+    (module Server(Storage_proxy.Proxy(struct let rpc call = XMLRPC_protocol.rpc ~srcstr:"smapiv2" ~dststr:"smapiv1" ~transport:(TCP(host, 80)) ~http:(xmlrpc ~version:"1.0" path) call end)) : SERVER)
 
 let make_smapiv2_unix path =
 	let open Xmlrpc_client in
@@ -629,7 +629,7 @@ let bind ~__context ~pbd =
         info "PBD %s driver domain uuid:%s ip:%s" (Ref.string_of pbd) uuid ip;
         if not(System_domains.wait_for (System_domains.pingable ip))
         then failwith (Printf.sprintf "PBD %s driver domain %s is not responding to IP ping" (Ref.string_of pbd) (Ref.string_of driver));
-        if not(System_domains.wait_for (System_domains.queryable ~__context (Xmlrpc_client.TCP(ip, 8080))))
+        if not(System_domains.wait_for (System_domains.queryable ~__context (Xmlrpc_client.TCP(ip, 80))))
         then failwith (Printf.sprintf "PBD %s driver domain %s is not responding to XMLRPC query" (Ref.string_of pbd) (Ref.string_of driver));
         ip in
     let sr = Db.PBD.get_SR ~__context ~self:pbd in
