@@ -163,7 +163,7 @@ let create_vbd_frontend ~xc ~xs task frontend_domid vdi =
 			Name vdi.attach_info.Storage_interface.params
 		| Some backend_domid ->
 			let t = {
-				Device.Vbd.mode = Device.Vbd.ReadOnly;
+				Device.Vbd.mode = Device.Vbd.ReadWrite;
 				device_number = None; (* we don't mind *)
 				phystype = Device.Vbd.Phys;
 				params = vdi.attach_info.Storage_interface.params;
@@ -190,28 +190,11 @@ let destroy_vbd_frontend ~xc ~xs task disk =
 		| Device device ->
 			Xenops_task.with_subtask task "Vbd.clean_shutdown"
 				(fun () ->
-					let open Device_common in
-					let me = this_domid ~xs in
-					(* To avoid having two codepaths: a 99% "normal" codepath and a 1%
-					   "transient failure" codepath we deliberately trigger a "transient
-					   failure" in 100% of cases by opening the device ourselves.
-					   NB this only works when we're in the same domain as the frontend. *)
-					let f = ref (
-						if device.frontend.domid = me
-						then Some (Unix.openfile (block_device_of_vbd_frontend disk) [ Unix.O_RDONLY ] 0o0)
-						else None
-					) in
-					let close () = Opt.iter (fun fd -> Unix.close fd; f := None) !f in
-					finally
-						(fun () ->
-							Device.Vbd.clean_shutdown_async ~xs device;
-							try
-								Device.Vbd.clean_shutdown_wait task ~xs device
-							with Device_error(_, x) ->
-								debug "Caught transient Device_error %s" x;
-								close ();
-								Device.Vbd.clean_shutdown_wait task ~xs device
-						) (fun () -> close ())
+					(* Outstanding requests may cause a transient 'refusing to close'
+					   but this can be safely ignored because we're controlling the
+					   frontend and all users of it. *)
+					Device.Vbd.clean_shutdown_async ~xs device;
+					Device.Vbd.clean_shutdown_wait task ~xs ~ignore_transients:true device
 				)
 		
 

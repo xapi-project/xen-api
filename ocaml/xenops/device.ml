@@ -167,7 +167,7 @@ let unplug_watch ~xs (x: device) = Hotplug.path_written_by_hotplug_scripts x |> 
 let error_watch ~xs (x: device) = Watch.value_to_appear (error_path_of_device ~xs x)
 let frontend_closed ~xs (x: device) = Watch.map (fun () -> "") (Watch.value_to_become (frontend_path_of_device ~xs x ^ "/state") (Xenbus_utils.string_of Xenbus_utils.Closed))
 
-let clean_shutdown_wait (task: Xenops_task.t) ~xs (x: device) =
+let clean_shutdown_wait (task: Xenops_task.t) ~xs ~ignore_transients (x: device) =
 	debug "Device.Generic.clean_shutdown_wait %s" (string_of_device x);
 
 	let on_error () =
@@ -176,16 +176,18 @@ let clean_shutdown_wait (task: Xenops_task.t) ~xs (x: device) =
 	    debug "Device.Generic.shutdown_common: read an error: %s" error;
 	    (* After CA-14804 we deleted the error node *)
 		(* After CA-73099 we stopped doing that *)
+		(* ... but in the case of a "managed" domain,
+		   this transient should be ignored anyway *)
 	    raise (Device_error (x, error)) in
 
 	let cancel = cancel_path_of_device ~xs x in
 	let frontend_closed = Watch.map (fun _ -> ()) (frontend_closed ~xs x) in
 	let unplug = Watch.map (fun _ -> ()) (unplug_watch ~xs x) in
 	let error = Watch.map (fun _ -> ()) (error_watch ~xs x) in
-	if cancellable_watch cancel [ frontend_closed; unplug ] [ error ] task ~xs ~timeout:!Xapi_globs.hotplug_timeout ()
+	if cancellable_watch cancel [ frontend_closed; unplug ] (if ignore_transients then [] else [ error ]) task ~xs ~timeout:!Xapi_globs.hotplug_timeout ()
 	then begin
 		safe_rm ~xs (frontend_path_of_device ~xs x);
-		if cancellable_watch cancel [ unplug ] [ error ] task ~xs ~timeout:!Xapi_globs.hotplug_timeout ()
+		if cancellable_watch cancel [ unplug ] (if ignore_transients then [] else [ error ]) task ~xs ~timeout:!Xapi_globs.hotplug_timeout ()
 		then rm_device_state ~xs x
 		else on_error ()
 	end else on_error ()
@@ -193,7 +195,7 @@ let clean_shutdown_wait (task: Xenops_task.t) ~xs (x: device) =
 let clean_shutdown (task: Xenops_task.t) ~xs (x: device) =
 	debug "Device.Generic.clean_shutdown %s" (string_of_device x);
 	clean_shutdown_async ~xs x;
-	clean_shutdown_wait task ~xs x
+	clean_shutdown_wait task ~xs ~ignore_transients:false x
 
 let hard_shutdown_request ~xs (x: device) =
 	debug "Device.Generic.hard_shutdown_request %s" (string_of_device x);
@@ -389,14 +391,14 @@ let request_shutdown ~xs (x: device) (force: bool) =
 let shutdown_done ~xs (x: device): unit Watch.t =
 	Watch.value_to_appear (backend_shutdown_done_path_of_device ~xs x) |> Watch.map (fun _ -> ())
 
-let shutdown_request_clean_shutdown_wait (task: Xenops_task.t) ~xs (x: device) =
+let shutdown_request_clean_shutdown_wait (task: Xenops_task.t) ~xs ~ignore_transients (x: device) =
     debug "Device.Vbd.clean_shutdown_wait %s" (string_of_device x);
 
     (* Allow the domain to reject the request by writing to the error node *)
     let shutdown_done = shutdown_done ~xs x in
     let error = Watch.value_to_appear (error_path_of_device ~xs x) |> Watch.map (fun _ -> ())  in
 
-	if cancellable_watch (cancel_path_of_device ~xs x) [ shutdown_done ] [ error ] task ~xs ~timeout:!Xapi_globs.hotplug_timeout ()
+	if cancellable_watch (cancel_path_of_device ~xs x) [ shutdown_done ] (if ignore_transients then [] else [ error ]) task ~xs ~timeout:!Xapi_globs.hotplug_timeout ()
 	then begin
 		debug "Device.Vbd.shutdown_common: shutdown-done appeared";
 		(* Delete the trees (otherwise attempting to plug the device in again doesn't
@@ -425,13 +427,13 @@ let clean_shutdown_async ~xs x = match shutdown_mode_of_device ~xs x with
 	| Classic -> Generic.clean_shutdown_async ~xs x
 	| ShutdownRequest -> request_shutdown ~xs x false (* normal *)
 
-let clean_shutdown_wait (task: Xenops_task.t) ~xs x = match shutdown_mode_of_device ~xs x with
-	| Classic -> Generic.clean_shutdown_wait task ~xs x
-	| ShutdownRequest -> shutdown_request_clean_shutdown_wait task ~xs x
+let clean_shutdown_wait (task: Xenops_task.t) ~xs ~ignore_transients x = match shutdown_mode_of_device ~xs x with
+	| Classic -> Generic.clean_shutdown_wait task ~xs ~ignore_transients x
+	| ShutdownRequest -> shutdown_request_clean_shutdown_wait task ~xs ~ignore_transients x
 
 let clean_shutdown (task: Xenops_task.t) ~xs x =
 	clean_shutdown_async ~xs x;
-	clean_shutdown_wait task ~xs x
+	clean_shutdown_wait task ~xs ~ignore_transients:false x
 
 let hard_shutdown (task: Xenops_task.t) ~xs x = match shutdown_mode_of_device ~xs x with
 	| Classic -> Generic.hard_shutdown task ~xs x
