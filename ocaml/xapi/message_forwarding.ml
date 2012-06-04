@@ -1152,6 +1152,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 						)
 				)
 
+		let query_services ~__context ~self =
+			info "VM.query_services: VM = '%s'" (vm_uuid ~__context self);
+			with_vm_operation ~__context ~self ~doc:"VM.query_services" ~op:`query_services
+				(fun () ->
+					Local.VM.query_services ~__context ~self
+				)
 
 		let start ~__context ~vm ~start_paused ~force =
 			info "VM.start: VM = '%s'" (vm_uuid ~__context vm);
