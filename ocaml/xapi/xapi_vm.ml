@@ -921,3 +921,6 @@ let import_convert ~__context ~_type ~username ~password ~sr ~remote_config =
 	let r_jobId = Rpc.rpc_of_string jobInstance.id in
 	let call = Rpc.call "job.get" [ r_cred; r_jobId ] in
 	loop call vpx_ip
+
+let query_services ~__context ~self =
+	raise (Api_errors.Server_error(Api_errors.not_implemented, [ "query_services" ]))
