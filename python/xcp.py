@@ -116,8 +116,8 @@ class UnixServer(UnixStreamServer, SimpleXMLRPCDispatcher):
         UnixStreamServer.__init__(self, addr, requestHandler)
 
 class TCPServer(SimpleXMLRPCServer):
-    def __init__(self, ip, port):
-        SimpleXMLRPCServer.__init__(self, (ip, port), requestHandler=RequestHandler)
+    def __init__(self, ip, port, requestHandler=RequestHandler):
+        SimpleXMLRPCServer.__init__(self, (ip, port), requestHandler=requestHandler)
     def server_bind(self):
         self.socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
         SimpleXMLRPCServer.server_bind(self)

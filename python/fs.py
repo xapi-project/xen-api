@@ -529,7 +529,48 @@ class VDI(VDI_skeleton):
         if not sr in repos:
             raise Sr_not_attached(sr)
         return repos[sr].detach(vdi)
-        
+
+whitelist = [
+    "jQuery-Visualize/js/excanvas.js",
+    "jQuery-Visualize/js/visualize.jQuery.js",
+    "jQuery-Visualize/css/visualize.css",
+    "jQuery-Visualize/css/visualize-light.css",
+    "mobile.html"
+    ]
+rewrites = {
+    "": "mobile.html"
+}
+wwwroot = None
+class RequestHandler(xcp.RequestHandler):
+    def do_GET(self):
+        log("foo %s %s" % (repr(self), self.path))
+        response = None
+        path = self.path
+        path = path.strip("/")
+        if path in rewrites:
+            path = rewrites[path]
+        if path not in whitelist:
+            log("%s not in whitelist: 404" % path)
+            self.report_404()
+        else:
+            if wwwroot:
+                path = wwwroot + path
+            size = os.stat(path).st_size
+            f = open(path, "r")
+            try:
+                self.send_response(200)
+                if self.path.endswith(".html"):
+                    self.send_header("Content-type", "text/html")
+                elif self.path.endswith(".css"):
+                    self.send_header("Content-type", "text/css")
+                if self.path.endswith(".js"):
+                    self.send_header("Content-type", "application/x-javascript")
+                self.send_header("Content-length", str(size))
+                self.end_headers()
+                self.wfile.write(f.read())
+            finally:
+                f.close()
+
 if __name__ == "__main__":
     from optparse import OptionParser
     import ConfigParser
@@ -541,7 +582,8 @@ if __name__ == "__main__":
         "socket": "/var/xapi/sm/fs",
         "daemon": False,
         "config": "/etc/xcp-sm-fs.conf",
-        "pidfile": "/var/run/xcp-sm-fs.pid"
+        "pidfile": "./xcp-sm-fs.pid",
+        "www": "../js/",
         }
     string_t = lambda x:x
     int_t = lambda x:int(x)
@@ -553,7 +595,8 @@ if __name__ == "__main__":
         "socket": string_t,
         "daemon": bool_t,
         "config": string_t,
-        "pidfile": string_t
+        "pidfile": string_t,
+        "www": string_t,
     }
 
     log("settings = %s" % repr(settings))
@@ -611,13 +654,15 @@ if __name__ == "__main__":
     finally:
         pidfile.close()
 
+    wwwroot = settings["www"]
+
     server = None
     if tcp:
         log("will listen on %s:%d" % (settings["ip"], int(settings["port"])))
-        server = xcp.TCPServer(settings["ip"], int(settings["port"]))
+        server = xcp.TCPServer(settings["ip"], int(settings["port"]), requestHandler=RequestHandler)
     else:
         log("will listen on %s" % settings["socket"])
-        server = xcp.UnixServer(settings["socket"])
+        server = xcp.UnixServer(settings["socket"], requestHandler=RequestHandler)
 
     server.register_introspection_functions() # for debugging
     server.register_instance(storage_server_dispatcher(Query = Query_server_dispatcher(Query()), VDI = VDI_server_dispatcher(VDI()), SR = SR_server_dispatcher(SR())))

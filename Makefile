@@ -45,6 +45,13 @@ install: idl
 	${INSTALL} python/xcp-sm-fs.conf ${DESTDIR}/etc/xcp-sm-fs.conf
 	${MKDIR} -p ${DESTDIR}/etc/rc.d/init.d
 	${INSTALL} python/init.d-xcp-sm-fs ${DESTDIR}/etc/rc.d/init.d/xcp-sm-fs
+	${MKDIR} -p ${DESTDIR}${PYPATH}/js/jQuery-Visualize/js
+	${INSTALL} js/jQuery-Visualize/js/excanvas.js ${DESTDIR}${PYPATH}/js/jQuery-Visualize/js
+	${INSTALL} js/jQuery-Visualize/js/visualize.jQuery.js ${DESTDIR}${PYPATH}/js/jQuery-Visualize/js
+	${MKDIR} -p ${DESTDIR}${PYPATH}/js/jQuery-Visualize/css
+	${INSTALL} js/jQuery-Visualize/css/visualize.css ${DESTDIR}/${PYPATH}/js/jQuery-Visualize/css
+	${INSTALL} js/jQuery-Visualize/css/visualize-light.css ${DESTDIR}/${PYPATH}/js/jQuery-Visualize/css
+	${INSTALL} js/mobile.html ${DESTDIR}/${PYPATH}/js
 
 .PHONY: python/xcp-sm-fs.spec
 python/xcp-sm-fs.spec: python/xcp-sm-fs.spec.in

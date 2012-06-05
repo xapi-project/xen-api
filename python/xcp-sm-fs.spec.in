@@ -40,6 +40,9 @@ rm -rf $RPM_BUILD_ROOT
 /usr/lib/xcp-sm-fs/util.py*
 /usr/lib/xcp-sm-fs/vhd.py*
 /usr/lib/xcp-sm-fs/xcp.py*
+/usr/lib/xcp-sm-fs/js/jQuery-Visualize/js/*
+/usr/lib/xcp-sm-fs/js/jQuery-Visualize/css/*
+/usr/lib/xcp-sm-fs/js/mobile.html
 /usr/bin/xcp-sm-fs
 /etc/xcp-sm-fs.conf
 /etc/rc.d/init.d/xcp-sm-fs
