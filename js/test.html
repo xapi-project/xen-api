@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>p { color:red; }</style>
+  <script src="http://code.jquery.com/jquery-latest.js"></script>
+
+	<link href="css/basic.css" type="text/css" rel="stylesheet" />
+	<script type="text/javascript" src="EnhanceJS/enhance.js"></script>		
+	<script type="text/javascript">
+		// Run capabilities test
+		enhance({
+			loadScripts: [
+				'jQuery-Visualize/js/excanvas.js',
+				'jQuery-Visualize/js/visualize.jQuery.js',
+                                'test.js',
+			],
+			loadStyles: [
+				'jQuery-Visualize/css/visualize.css',
+				'jQuery-Visualize/css/visualize-light.css'
+			]	
+		});
+    </script>
+</head>
+<body>
+<table>
+	<caption>Space usage</caption>
+	<thead>
+		<tr>
+			<td></td>
+			<th scope="col">MiB</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr>
+			<th scope="row">Used</th>
+			<td>30</td>
+		</tr>
+		<tr>
+			<th scope="row">Other</th>
+			<td>20</td>
+		</tr>
+		<tr>
+			<th scope="row">Free</th>
+			<td>10</td>
+		</tr>
+	</tbody>
+</table>	
+</body>
+</html>
