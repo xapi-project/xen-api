@@ -1,0 +1,203 @@
+<!DOCTYPE html> 
+<html> 
+	<head> 
+	<title>Page Title</title> 
+	
+	<meta name="viewport" content="width=device-width, initial-scale=1"> 
+
+	<link rel="stylesheet" href="http://code.jquery.com/mobile/1.1.0/jquery.mobile-1.1.0.min.css" />
+	<script src="http://code.jquery.com/jquery-1.7.1.min.js"></script>
+	<script src="http://code.jquery.com/mobile/1.1.0/jquery.mobile-1.1.0.min.js"></script>
+
+	<script type="text/javascript" src="jQuery-Visualize/js/excanvas.js"></script>		
+	<script type="text/javascript" src="jQuery-Visualize/js/visualize.jQuery.js"></script>
+	<link href="jQuery-Visualize/css/visualize.css" type="text/css" rel="stylesheet" />
+	<link href="jQuery-Visualize/css/visualize-light.css" type="text/css" rel="stylesheet" />
+<script>
+$(function(){
+ $('#space').visualize({type: 'pie', height: '300px', width: '350px', pieMargin: 0});
+ $('#space').hide();
+ $('#iops').visualize({type: 'line', appendKey: false });
+ $('#iops').hide();
+});
+</script>
+</head> 
+
+<body> 
+
+<!-- Start of first page -->
+<div data-role="page" id="foo">
+
+	<div data-role="header">
+		<h1>Dave's Driver Domain Dashboard (mobile edition)</h1>
+	</div><!-- /header -->
+
+	<div data-role="content">	
+
+<div data-role="collapsible" data-theme="e" data-content-theme="e" data-collapsed="true">
+<h3>Alerts</h3>
+		<ul data-role="listview" data-theme="d" data-divider-theme="d">
+			<li data-role="list-divider">Friday, 1st June, 2012 <span class="ui-li-count">2</span></li>
+			<li><a href="index.html">
+				
+					<h3>Coalesce interrupted</h3>
+					<p><strong>A background coalesce operation was cancelled.</strong></p>
+					<p>A coalesce is needed to free unused storage space.</p>
+					<p class="ui-li-aside"><strong>6:24</strong>PM</p>
+				
+			</a></li>
+			<li><a href="index.html">
+				
+				<h3>Critical update available</h3>
+				<p><strong>A critical update must be installed</strong></p>
+				<p>Please install the update and then reboot this driver domain. All VM I/O operations will be paused for approximately 30s.</p>
+				<p class="ui-li-aside"><strong>9:18</strong>AM</p>
+				
+			</a></li>
+			<li data-role="list-divider">Monday, 28 May, 2012 <span class="ui-li-count">1</span></li>
+			<li><a href="index.html">
+				<h3>Low disk space</h3>
+				<p><strong>The storage array has less than 5GB of space</strong></p>
+				<p>Please allocate more disk space on the storage array or archive some data to free some space.</p>
+				<p class="ui-li-aside"><strong>4:48</strong>PM</p>
+			</a></li>
+		</ul>
+
+</div>
+
+<div data-role="collapsible" data-theme="b" data-content-theme="b" data-collapsed="false">
+   <h3>Monitor performance</h3>
+<div class="ui-grid-a">
+	<div class="ui-block-a">
+<table id="space">
+	<caption>Physical space usage</caption>
+	<thead>
+		<tr>
+			<td></td>
+			<th scope="col">MiB</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr>
+			<th scope="row">Used</th>
+			<td>30</td>
+		</tr>
+		<tr>
+			<th scope="row">Other</th>
+			<td>20</td>
+		</tr>
+		<tr>
+			<th scope="row">Free</th>
+			<td>10</td>
+		</tr>
+	</tbody>
+</table>
+	</div>
+	<div class="ui-block-b">
+
+<table id="iops">
+	<caption>Total IOPS</caption>
+	<thead>
+		<tr>
+			<td></td>
+			<th scope="col">11:00</th>
+			<th scope="col">12:00</th>
+			<th scope="col">13:00</th>
+			<th scope="col">14:00</th>
+			<th scope="col">15:00</th>
+			<th scope="col">16:00</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr>
+			<td>190</td>
+			<td>160</td>
+			<td>40</td>
+			<td>120</td>
+			<td>30</td>
+			<td>70</td>
+		</tr>
+	</tbody>
+</table>
+	</div>
+</div><!-- /grid-a -->
+
+</div>
+
+<div data-role="collapsible" data-theme="b" data-content-theme="b" data-collapsed="true">
+   <h3>Enable features</h3>
+<p>
+<form action="form.php" method="post">
+			<div data-role="fieldcontain">
+				<label for="slider2">IntelliCache (RAM):</label>
+				<select name="slider2" id="slider2" data-role="slider">
+					<option value="off">Off</option>
+					<option value="on">On</option>
+				</select>
+			</div>
+			<div data-role="fieldcontain">
+				<label for="slider2">IntelliCache (Disk):</label>
+				<select name="slider2" id="slider2" data-role="slider">
+					<option value="off">Off</option>
+					<option value="on">On</option>
+				</select>
+			</div>
+			<div data-role="fieldcontain">
+				<label for="slider2">Array copy offload:</label>
+				<select name="slider2" id="slider2" data-role="slider">
+					<option value="off">Off</option>
+					<option value="on">On</option>
+				</select>
+			</div>
+
+		</div>
+</form>
+
+</p>
+</div>
+
+
+
+	<div data-role="footer">
+	  <h4>xcp-sm-fs version 1.0</h4>
+	</div><!-- /footer -->
+</div><!-- /page -->
+
+
+<!-- Start of second page -->
+<div data-role="page" id="bar">
+
+	<div data-role="header">
+		<h1>Bar</h1>
+	</div><!-- /header -->
+
+	<div data-role="content">	
+		<p>I'm the second in the source order so I'm hidden when the page loads. I'm just shown if a link that references my ID is beeing clicked.</p>		
+		<p><a href="#foo">Back to foo</a></p>	
+	</div><!-- /content -->
+
+	<div data-role="footer">
+		<h4>Page Footer</h4>
+	</div><!-- /footer -->
+</div><!-- /page -->
+
+<!-- Start of third page: #popup -->
+<div data-role="page" id="popup">
+
+	<div data-role="header" data-theme="e">
+		<h1>Dialog</h1>
+	</div><!-- /header -->
+
+	<div data-role="content" data-theme="d">	
+		<h2>Popup</h2>
+		<p>I have an id of "popup" on my page container and only look like a dialog because the link to me had a <code>data-rel="dialog"</code> attribute which gives me this inset look and a <code>data-transition="pop"</code> attribute to change the transition to pop. Without this, I'd be styled as a normal page.</p>		
+		<p><a href="#foo" data-rel="back" data-role="button" data-inline="true" data-icon="back">Back to page "one"</a></p>	
+	</div><!-- /content -->
+	
+	<div data-role="footer">
+		<h4>Page Footer</h4>
+	</div><!-- /footer -->
+</div><!-- /page popup -->
+
+</body>
+</html>
