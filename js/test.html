@@ -2,24 +2,20 @@
 <html>
 <head>
   <style>p { color:red; }</style>
-  <script src="http://code.jquery.com/jquery-latest.js"></script>
+  <script src="jQuery/jquery.min.js"></script>
 
-	<link href="css/basic.css" type="text/css" rel="stylesheet" />
-	<script type="text/javascript" src="EnhanceJS/enhance.js"></script>		
-	<script type="text/javascript">
-		// Run capabilities test
-		enhance({
-			loadScripts: [
-				'jQuery-Visualize/js/excanvas.js',
-				'jQuery-Visualize/js/visualize.jQuery.js',
-                                'test.js',
-			],
-			loadStyles: [
-				'jQuery-Visualize/css/visualize.css',
-				'jQuery-Visualize/css/visualize-light.css'
-			]	
-		});
-    </script>
+	<link href="jQuery-Visualize/css/basic.css" type="text/css" rel="stylesheet" />
+	<script type="text/javascript" src="jQuery-Visualize/js/excanvas.js"></script>		
+	<script type="text/javascript" src="jQuery-Visualize/js/visualize.jQuery.js"></script>
+
+	<link href="jQuery-Visualize/css/visualize.css" type="text/css" rel="stylesheet" />
+	<link href="jQuery-Visualize/css/visualize-dark.css" type="text/css" rel="stylesheet" />
+<script>
+$(function(){
+ $('table').visualize({type: 'pie', height: '200px', width: '250px'});
+    $('table').hide();
+});
+</script>
 </head>
 <body>
 <table>
