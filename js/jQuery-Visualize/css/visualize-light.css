@@ -9,8 +9,8 @@ th { background-color:#f4f4f4; }
 caption { font-size: 1.5em;  }
 
 /*visualize extension styles*/
-.visualize { margin: 60px 0 0 30px; padding: 70px 40px 90px; background: #ccc url(../images/chartbg-vanilla.png) top repeat-x; border: 1px solid #ddd; -moz-border-radius: 12px; -webkit-border-radius: 12px; border-radius: 12px; }
-.visualize canvas { border: 1px solid #aaa; margin: -1px; background: #fff; }
+.visualize { margin: 60px 0 0 30px; padding: 70px 40px 90px; background: #fff; border: 1px solid #ddd; -moz-border-radius: 0px; -webkit-border-radius: 0px; border-radius: 0px; }
+.visualize canvas { border: 1px solid #fff; margin: -1px; background: #fff; }
 .visualize-labels-x, .visualize-labels-y { top: 70px; left: 40px; z-index: 100; }
 .visualize-pie .visualize-labels { position: absolute; top: 70px; left: 40px; }
 .visualize-labels-x li span.label, .visualize-labels-y li span.label { color: #444; font-size: 1.3em; padding-right: 5px; }
