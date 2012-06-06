@@ -52,6 +52,7 @@ let usage_and_exit () =
 	Printf.fprintf stderr "  %s vdi-detach <DP> <SR> <VDI>\n" Sys.argv.(0);
 	Printf.fprintf stderr "  %s vdi-activate <DP> <SR> <VDI>\n" Sys.argv.(0);
 	Printf.fprintf stderr "  %s vdi-deactivate <DP> <SR> <VDI>\n" Sys.argv.(0);
+	Printf.fprintf stderr "  %s GET <uri>\n" Sys.argv.(0);
 	exit 1
 
 let kvpairs = List.filter_map
@@ -189,5 +190,17 @@ let _ =
 					) tasks
 		| ["task-cancel"; task ] ->
 			Client.TASK.cancel ~dbg ~task
+		| ["GET"; uri ] ->
+			Xmlrpc_client.with_transport (transport_of_url !url)
+				(fun fd ->
+					Http_client.rpc fd (Http.Request.make ~version:"1.0" ~keep_alive:false ~user_agent:"smcli" ~body:"" Http.Get uri)
+						(fun response fd ->
+							if response.Http.Response.code <> "200" then begin
+								Printf.fprintf stderr "%s\n" (Http.Response.to_string response);
+								exit 1;
+							end;
+							ignore(Unixext.copy_file ?limit:response.Http.Response.content_length fd Unix.stdout)
+						)
+				)
 		| _ ->
 			usage_and_exit ()
