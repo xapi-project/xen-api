@@ -64,12 +64,40 @@ let hand_over_connection req s path =
 		req.Http.Request.close <- true;
 		None
 
+let http_proxy_to req from addr =
+	let s = Unix.socket (Unix.domain_of_sockaddr addr) Unix.SOCK_STREAM 0 in
+	finally
+		(fun () ->
+			let () =
+				try
+					Unix.connect s addr;
+				with e ->
+					error "Failed to proxy HTTP request to: %s" (match addr with
+						| Unix.ADDR_UNIX path -> "UNIX:" ^ path
+						| Unix.ADDR_INET(ip, port) -> "IP:" ^ (Unix.string_of_inet_addr ip) ^ ":" ^ (string_of_int port)
+					);
+					Http_svr.headers from (Http.http_404_missing ~version:"1.0" ());
+					raise e in
+			Http_proxy.one req from s)
+		(fun () -> Unix.close s)
+
+let http_proxy_to_plugin req from name =
+	let path = Filename.concat Fhs.vardir (Printf.sprintf "plugin/%s" name) in
+	if not (Sys.file_exists path) then begin
+		req.Http.Request.close <- true;
+		error "There is no Unix domain socket %s for plugin %s" path name;
+		Http_svr.headers from (Http.http_404_missing ~version:"1.0" ())
+	end else
+		http_proxy_to req from (Unix.ADDR_UNIX path)
+
 let post_handler (req: Http.Request.t) s _ =
 	Xapi_http.with_context ~dummy:true "Querying services" req s
 		(fun __context ->
 			match String.split '/' req.Http.Request.uri with
 				| "" :: services :: "xenops" :: _ when services = _services ->
 					ignore (hand_over_connection req s "/var/xapi/xenopsd.forwarded")
+				| "" :: services :: "plugin" :: name :: _ when services = _services ->
+					http_proxy_to_plugin req s name
 				| [ ""; services; "SM" ] when services = _services ->
 					Storage_impl.Local_domain_socket.xmlrpc_handler Storage_mux.Server.process req (Buf_io.of_fd s) ()
 				| _ ->
@@ -92,6 +120,8 @@ let put_handler (req: Http.Request.t) s _ =
 			match String.split '/' req.Http.Request.uri with
 				| "" :: services :: "xenops" :: _ when services = _services ->
 					ignore (hand_over_connection req s "/var/xapi/xenopsd.forwarded")
+				| "" :: services :: "plugin" :: name :: _ when services = _services ->
+					http_proxy_to_plugin req s name
 				| [ ""; services; "SM"; "data"; sr; vdi ] when services = _services ->
 					let vdi, _ = Storage_access.find_vdi ~__context sr vdi in
 					Import_raw_vdi.import vdi req s ()
@@ -107,8 +137,10 @@ let get_handler (req: Http.Request.t) s _ =
 		(fun __context ->
 			debug "uri = %s" req.Http.Request.uri;
 			match String.split '/' req.Http.Request.uri with
-				| [ ""; services; "xenops" ] when services = _services ->
+				| "" :: services :: "xenops" :: _ when services = _services ->
 					ignore (hand_over_connection req s (Filename.concat Fhs.vardir "xenopsd.forwarded"))
+				| "" :: services :: "plugin" :: name :: _ when services = _services ->
+					http_proxy_to_plugin req s name
 				| [ ""; services; "SM"; driver ] when services = _services ->
 					begin
 						try
