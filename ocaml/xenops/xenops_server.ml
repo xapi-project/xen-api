@@ -926,8 +926,8 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 		| VM_set_vcpus (id, n) ->
 			debug "VM.set_vcpus (%s, %d)" id n;
 			let vm_t = VM_DB.read_exn id in
-			if n > vm_t.Vm.vcpu_max
-			then raise (Maximum_vcpus vm_t.Vm.vcpu_max);
+			if n <= 0 || n > vm_t.Vm.vcpu_max
+			then raise (Invalid_vcpus vm_t.Vm.vcpu_max);
 			B.VM.set_vcpus t (VM_DB.read_exn id) n
 		| VM_set_shadow_multiplier (id, m) ->
 			debug "VM.set_shadow_multiplier (%s, %.2f)" id m;
