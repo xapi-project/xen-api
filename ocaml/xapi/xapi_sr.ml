@@ -406,10 +406,10 @@ let destroy  ~__context ~sr =
 	let vdis = Db.SR.get_VDIs ~__context ~self:sr in
 	let sm_cfg = Db.SR.get_sm_config ~__context ~self:sr in
 
-	Db.SR.destroy ~__context ~self:sr;
 	Xapi_secret.clean_out_passwds ~__context sm_cfg;
 	List.iter (fun self -> Xapi_pbd.destroy ~__context ~self) pbds;
-	List.iter (fun vdi ->  Db.VDI.destroy ~__context ~self:vdi) vdis
+	List.iter (fun vdi ->  Db.VDI.destroy ~__context ~self:vdi) vdis;
+	Db.SR.destroy ~__context ~self:sr
 
 let update ~__context ~sr =
   Sm.assert_pbd_is_plugged ~__context ~sr;
