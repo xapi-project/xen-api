@@ -1,6 +1,6 @@
 include ../config.mk
 
-OBJS = radix_tree server_io buf_io http http_svr http_client test_server test_client xMLRPC xmlrpc_client ws_helpers
+OBJS = radix_tree server_io buf_io http http_svr http_client test_server test_client xMLRPC xmlrpc_client ws_helpers http_proxy
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = http_svr.cma http_svr.cmxa
 PROGRAMS = test_server radix_tree http_test
