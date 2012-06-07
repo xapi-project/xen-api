@@ -551,7 +551,12 @@ class RequestHandler(xcp.RequestHandler):
             path = rewrites[path]
         if path not in whitelist:
             log("%s not in whitelist: 404" % path)
-            self.report_404()
+            self.send_response(404)
+            self.end_headers()
+
+            # shut down the connection
+            self.wfile.flush()
+            self.connection.shutdown(1)
         else:
             if wwwroot:
                 path = wwwroot + path
@@ -568,6 +573,9 @@ class RequestHandler(xcp.RequestHandler):
                 self.send_header("Content-length", str(size))
                 self.end_headers()
                 self.wfile.write(f.read())
+                # shut down the connection
+                self.wfile.flush()
+                self.connection.shutdown(1)
             finally:
                 f.close()
 
