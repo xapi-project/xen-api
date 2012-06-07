@@ -19,9 +19,23 @@ wsproxy : $(foreach obj,$(OBJS),$(obj).cmx)
 %.cmx: %.ml %.cmi
 	$(OCAMLFIND) $(OCAMLOPT) $(OCAMLOPTFLAGS) $(RPCLIGHTFLAGS) -c -thread -I ../rpc-light -I ../stdext -I ../log -I ../stunnel -o $@ $<
 
-.PHONY: clean
+.PHONY: clean install
 clean:
 	rm -f *.annot *.o *~ *.cmi *.cmx *.cmo wsproxy
+
+install: wsproxy
+	install -D wsproxy $(DESTDIR)/opt/xensource/libexec/wsproxy
+
+RPM_SOURCESDIR ?= /usr/src/redhat/SOURCES
+RPM_SRPMSDIR ?= /usr/src/redhat/SRPMS
+
+wsproxy.spec: wsproxy.spec.in
+	sed -e 's/@RPM_RELEASE@/$(shell git rev-list HEAD | wc -l)/g' < $< > $@
+
+srpm: wsproxy.spec
+	mkdir -p $(RPM_SOURCESDIR)
+	git archive --prefix=wsproxy-0/ --format=tar HEAD | bzip2 -z > $(RPM_SOURCESDIR)/wsproxy.tar.bz2
+	rpmbuild -bs --nodeps --define "_sourcedir ${RPM_SOURCESDIR}" --define "_srcrpmdir ${RPM_SRPMSDIR}" wsproxy.spec
 
 helpers.cmo: helpers.cmi
 helpers.cmx: helpers.cmi

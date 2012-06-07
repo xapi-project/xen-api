@@ -1,0 +1,35 @@
+# -*- rpm-spec -*-
+
+Summary: Websockets proxy for VNC traffic
+Name:    wsproxy
+Version: 0
+Release: @RPM_RELEASE@
+Group:   Development/Other
+License: LGPL+linking exception
+URL:  https://github.com/jonludlam/wsproxy
+Source0: wsproxy.tar.bz2
+BuildRoot: %{_tmppath}/%{name}-%{version}-root
+BuildRequires: ocaml, ocaml-findlib, ocaml-camlp4, ocaml-lwt-devel
+
+%description
+Websockets proxy for VNC traffic
+
+%prep 
+%setup -q
+%build
+mkdir $RPM_BUILD_ROOT
+DESTDIR=$RPM_BUILD_ROOT %{__make}
+
+%install
+rm -rf %{buildroot}
+
+DESTDIR=$RPM_BUILD_ROOT %{__make} install
+
+%clean
+rm -rf $RPM_BUILD_ROOT
+
+%files
+%defattr(-,root,root,-)
+   /opt/xensource/libexec/wsproxy
+
+%changelog
