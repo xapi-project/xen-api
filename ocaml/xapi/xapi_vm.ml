@@ -560,9 +560,6 @@ let set_VCPUs_max ~__context ~self ~value =
 
 (** Sets the number of startup VCPUs for a {b Halted} guest. *)
 let set_VCPUs_at_startup ~__context ~self ~value =
-	if Db.VM.get_power_state ~__context ~self <> `Halted
-	then failwith "assertion_failed: set_VCPUs_at_startup should only be \
-		called when the VM is Halted";
 	let vcpus_max = Db.VM.get_VCPUs_max ~__context ~self in
 	if value < 1L || value > vcpus_max then invalid_value
 		"VCPU values must satisfy: 0 < VCPUs_at_startup ≤ VCPUs_max"
