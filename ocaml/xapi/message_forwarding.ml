@@ -1640,9 +1640,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let set_VCPUs_at_startup ~__context ~self ~value =
 			info "VM.set_VCPUs_at_startup: self = %s; value = %Ld"
 				(vm_uuid ~__context self) value;
-			with_vm_operation ~__context ~self ~doc:"VM.set_VCPUs_at_startup"
-				~op:`changing_VCPUs
-				(fun () -> Local.VM.set_VCPUs_at_startup ~__context ~self ~value)
+			Local.VM.set_VCPUs_at_startup ~__context ~self ~value
 
 		let compute_memory_overhead ~__context ~vm =
 			info "VM.compute_memory_overhead: vm = '%s'"
