@@ -35,6 +35,9 @@ val bind: __context:Context.t -> pbd:API.ref_PBD -> Storage_interface.query_resu
     between [pbd] and driver implementation *)
 val unbind: __context:Context.t -> pbd:API.ref_PBD -> unit
 
+(** [make_service uuid type] returns the service record for a storage driver *)
+val make_service: string -> string -> System_domains.service
+
 (** RPC function for calling the main storage multiplexor *)
 val rpc: Rpc.call -> Rpc.response
 
