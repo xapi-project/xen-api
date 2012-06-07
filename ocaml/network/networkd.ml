@@ -87,11 +87,6 @@ let _ =
 
 	debug "%s" (String.concat ", " (Debug.get_all_debug_keys()));
 
-	if !daemonize then
-		Unixext.daemonize ()
-	else
-		Debug.log_to_stdout ();
-
 	if !pidfile <> "" then begin
 		Unixext.mkdir_rec (Filename.dirname !pidfile) 0o755;
 		Unixext.pidfile_write !pidfile;
@@ -99,6 +94,12 @@ let _ =
 
 	handle_shutdown ();
 	Debug.with_thread_associated "main" start ();
+
+	if !daemonize then
+		Unixext.daemonize ()
+	else
+		Debug.log_to_stdout ();
+
 	while true do
 		Thread.delay 300.;
 		Network_server.on_timer ()
