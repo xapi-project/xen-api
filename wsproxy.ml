@@ -77,6 +77,9 @@ let handler sock msg =
     | [protocol;ty;sport] ->
       let port = int_of_string sport in
       proxy sock protocol ty port
+	| [protocol;sport] ->
+		let port = int_of_string sport in
+		proxy sock protocol "hybi10" port
     | _ -> 
       Lwt_unix.close sock
 
