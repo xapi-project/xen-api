@@ -559,7 +559,7 @@ class RequestHandler(xcp.RequestHandler):
             self.connection.shutdown(1)
         else:
             if wwwroot:
-                path = wwwroot + path
+                path = os.path.join(wwwroot, path)
             size = os.stat(path).st_size
             f = open(path, "r")
             try:
