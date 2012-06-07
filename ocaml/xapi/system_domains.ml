@@ -15,6 +15,8 @@
  * @group Helper functions for handling system domains
  *)
 
+open Threadext
+
 module D=Debug.Debugger(struct let name="system_domains" end)
 open D
 
@@ -152,13 +154,67 @@ let pingable ip () =
 
 let queryable ~__context transport () =
 	let open Xmlrpc_client in
-	let dbg = Context.string_of_task __context in
 	let rpc = XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"remote_smapiv2" ~transport ~http:(xmlrpc ~version:"1.0" "/") in
+	let listMethods = Rpc.call "system.listMethods" [] in
     try
-		let module C = Storage_interface.Client(struct let rpc = rpc end) in
-        let q = C.Query.query ~dbg in
-        info "%s:%s:%s at %s" q.Storage_interface.name q.Storage_interface.vendor q.Storage_interface.version (string_of_transport transport);
-        true
+		let _ = rpc listMethods in
+		info "XMLRPC service found at %s" (string_of_transport transport);
+		true
     with e ->
 		debug "Temporary failure querying storage service on %s: %s" (string_of_transport transport) (Printexc.to_string e);
 		false
+
+let ip_of ~__context driver =
+    (* Find the VIF on the Host internal management network *)
+    let vifs = Db.VM.get_VIFs ~__context ~self:driver in
+    let hin = Helpers.get_host_internal_management_network ~__context in
+    let ip =
+        let vif =
+            try
+                List.find (fun vif -> Db.VIF.get_network ~__context ~self:vif = hin) vifs
+            with Not_found -> failwith (Printf.sprintf "driver domain %s has no VIF on host internal management network" (Ref.string_of driver)) in
+        match Xapi_udhcpd.get_ip ~__context vif with
+            | Some (a, b, c, d) -> Printf.sprintf "%d.%d.%d.%d" a b c d
+            | None -> failwith (Printf.sprintf "driver domain %s has no IP on the host internal management network" (Ref.string_of driver)) in
+
+    info "driver domain uuid:%s ip:%s" (Db.VM.get_uuid ~__context ~self:driver) ip;
+    if not(wait_for (pingable ip))
+    then failwith (Printf.sprintf "driver domain %s is not responding to IP ping" (Ref.string_of driver));
+    if not(wait_for (queryable ~__context (Xmlrpc_client.TCP(ip, 80))))
+    then failwith (Printf.sprintf "driver domain %s is not responding to XMLRPC query" (Ref.string_of driver));
+    ip
+
+type service = {
+	uuid: string;
+	ty: string;
+	instance: string;
+	url: string;
+} with rpc
+
+type services = service list with rpc
+
+let service_to_sockaddr = Hashtbl.create 10
+let service_to_sockaddr_m = Mutex.create ()
+
+let register_service service sockaddr =
+	Mutex.execute service_to_sockaddr_m
+		(fun () ->
+			Hashtbl.replace service_to_sockaddr service sockaddr
+		)
+let unregister_service service =
+	Mutex.execute service_to_sockaddr_m
+		(fun () ->
+			Hashtbl.remove service_to_sockaddr service
+		)
+
+let get_service service =
+	Mutex.execute service_to_sockaddr_m
+		(fun () ->
+			try Some(Hashtbl.find service_to_sockaddr service) with Not_found -> None
+		)
+
+let list_services () =
+	Mutex.execute service_to_sockaddr_m
+		(fun () ->
+			Hashtbl.fold (fun service _ acc -> service :: acc) service_to_sockaddr []
+		)
