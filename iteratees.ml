@@ -94,7 +94,6 @@ module Iteratee (IO : Monad) = struct
     let rec step st = 
       match st with
 	| Chunk s ->
-	  Printf.printf "Iteratee.writer (%s): writing '%s'" name s;
 	  IO.bind (really_write s) 
 	    (fun () -> IO.return (IE_cont (None, step), Chunk ""))
 	| Eof _ ->
@@ -277,26 +276,20 @@ module Iteratee (IO : Monad) = struct
 
   let modify f =
     let rec step k s =
-      Printf.printf "step\n%!";
       match s with
 	| Chunk c ->
-	  Printf.printf "modify: got '%s'\n%!" c;
 	  let s = try f c with e -> Printf.printf "got exception %s\n%!" (Printexc.to_string e); raise e in
-	  Printf.printf "modified: got '%s'\n%!" s;
 	  IO.bind (k (Chunk s)) (fun i ->
 	    match i with
 	      | (IE_cont (None, f), s) -> IO.return (IE_cont (None, step f), s)
 	      | (IE_cont (err, f), s) -> IO.return (IE_cont (err, step f), s)
 	      | (i, s) -> IO.return (IE_done i, s))
 	| Eof _ ->
-	  Printf.printf "EOF!?\n%!";
 	  IO.bind (k s) (fun (i,_) -> IO.return (IE_done i, s))
     in fun s -> match s with
       | IE_cont (None, k) -> 
-	Printf.printf "Modify; in this match case\n%!";
 	IE_cont (None, step k)
       | IE_cont (Some _, _) ->
-	Printf.printf "Modify; in the second match case\n%!";
 	return s	  
       | IE_done _ -> return s
 

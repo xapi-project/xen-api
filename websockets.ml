@@ -76,10 +76,8 @@ module Wsprotocol (IO : Iteratees.Monad) = struct
 	    else 
 	      if not (op land 0x80 = 0x80)
 	      then begin
-		Printf.printf "Got unfinished frame: acc=%s str=%s\n" acc real_str;
 		inner (acc ^ real_str) s 
 	      end else begin
-		Printf.printf "Got final frame: acc=%s str=%s\n" acc real_str;
 		liftI (IO.bind (k (Iteratees.Chunk (acc ^ real_str))) (fun (i, _) ->
 		  IO.return (wsunframe i)))
 	      end
@@ -92,16 +90,9 @@ module Wsprotocol (IO : Iteratees.Monad) = struct
       | IE_cont (None, k) ->
 	begin    
 	  heads "\x00" >>= fun n ->
-	  (if n=0
-	   then Printf.printf "waa\n%!");
-	  break ((=) '\xff') >>= fun str -> 
+      break ((=) '\xff') >>= fun str -> 
 	  drop 1 >>= fun () -> 
-	  Printf.printf "Unframe: got: '%s'\n%!" str;
-	  List.iter (fun c -> Printf.printf "'%c' (%d)" c (Char.code c)) (Stringext.String.explode str);
-	  liftI (IO.bind (
-	    Printf.printf "before...\n%!";
-	    let res = k (Iteratees.Chunk str) in 
-	    Printf.printf "here...\n%!"; res) (fun (i,_) ->
+	  liftI (IO.bind (k (Iteratees.Chunk str)) (fun (i,_) ->
 	    IO.return (wsunframe_old i)))
 	end
       | _ -> return s
