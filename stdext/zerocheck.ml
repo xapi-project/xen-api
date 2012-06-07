@@ -31,7 +31,7 @@ type substring = {
 	len: int
 }
 
-let fold_over_nonzeros x len roundup f initial = 
+let fold_over_nonzeros x len rounddown roundup f initial = 
 	let rec inner acc offset = 
 		if offset = len then acc
 		else
@@ -42,6 +42,7 @@ let fold_over_nonzeros x len roundup f initial =
 			| None -> len
 			| Some e -> e in
 			let e = min len (roundup e) in
+			let s = max 0 (rounddown s) in
 			inner (f acc { buf = x; offset = s; len = e - s }) e in
 	inner initial 0
 

@@ -33,8 +33,9 @@ type substring = {
 	len: int
 }
 
-(** [fold_over_nonzeros buf len roundup f initial] folds [f] over all 
+(** [fold_over_nonzeros buf len rounddown roundup f initial] folds [f] over all 
     (start, length) pairs of non-zero data in string [buf] up to [len]. 
-    The end offset of each pair is rounded up with [roundup] (e.g. to 
+	The start of each pair is rounded down with [rounddown] and 
+    the end offset of each pair is rounded up with [roundup] (e.g. to 
     potential block boudaries. *)
-val fold_over_nonzeros: string -> int -> (int -> int) -> ('a -> substring -> 'a) -> 'a -> 'a
+val fold_over_nonzeros: string -> int -> (int -> int) -> (int -> int) -> ('a -> substring -> 'a) -> 'a -> 'a
