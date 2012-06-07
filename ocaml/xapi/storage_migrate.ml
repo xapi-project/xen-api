@@ -217,7 +217,8 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 	let on_fail : (unit -> unit) list ref = ref [] in
 
 	try
-		let dest_vdi_url = Http.Url.set_uri remote_url (Printf.sprintf "%s/data/%s/%s" (Http.Url.get_uri remote_url) dest dest_vdi) |> Http.Url.to_string in
+		let dp = Uuid.string_of_uuid (Uuid.make_uuid ()) in
+		let dest_vdi_url = Http.Url.set_uri remote_url (Printf.sprintf "%s/nbd/%s/%s/%s" (Http.Url.get_uri remote_url) dest dest_vdi dp) |> Http.Url.to_string in
 
 		debug "Will copy into new remote VDI: %s (%s)" dest_vdi dest_vdi_url;
 
@@ -228,20 +229,30 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 				None
 		in
 
-		debug "Will base our copy from: %s" (Opt.default "None" base_vdi);
-		with_activated_disk ~dbg ~sr ~vdi:base_vdi
-			(fun base_path ->
-				with_activated_disk ~dbg ~sr ~vdi:(Some vdi)
-					(fun src ->
-						let dd = Sparse_dd_wrapper.start ~progress_cb:(progress_callback 0.05 0.9 task) ?base:base_path true (Opt.unbox src) 
-							dest_vdi_url remote_vdi.virtual_size in
-						Storage_task.with_cancel task 
-							(fun () -> Sparse_dd_wrapper.cancel dd)
-							(fun () -> 
-								try Sparse_dd_wrapper.wait dd
-								with Sparse_dd_wrapper.Cancelled -> Storage_task.raise_cancelled task)
-					)
-			);
+		debug "Activating datapath on remote";
+
+		Pervasiveext.finally (fun () -> 
+			ignore(Remote.VDI.attach ~dbg ~sr:dest ~vdi:dest_vdi ~dp ~read_write:true);
+			Remote.VDI.activate ~dbg ~dp ~sr:dest ~vdi:dest_vdi;
+			
+			debug "Will base our copy from: %s" (Opt.default "None" base_vdi);
+			with_activated_disk ~dbg ~sr ~vdi:base_vdi
+				(fun base_path ->
+					with_activated_disk ~dbg ~sr ~vdi:(Some vdi)
+						(fun src ->
+							let dd = Sparse_dd_wrapper.start ~progress_cb:(progress_callback 0.05 0.9 task) ?base:base_path true (Opt.unbox src) 
+								dest_vdi_url remote_vdi.virtual_size in
+							Storage_task.with_cancel task 
+								(fun () -> Sparse_dd_wrapper.cancel dd)
+								(fun () -> 
+									try Sparse_dd_wrapper.wait dd
+									with Sparse_dd_wrapper.Cancelled -> Storage_task.raise_cancelled task)
+						)
+				);
+			)
+			(fun () -> 
+				Remote.DP.destroy ~dbg ~dp ~allow_leak:false);
+
 		debug "Updating remote content_id";
 		Remote.VDI.set_content_id ~dbg ~sr:dest ~vdi:dest_vdi ~content_id:local_vdi.content_id;
 		(* PR-1255: XXX: this is useful because we don't have content_ids by default *)
@@ -526,7 +537,7 @@ let nbd_handler req s sr vdi dp =
 			let minor = Tapctl.get_minor tapdev in
 			let pid = Tapctl.get_tapdisk_pid tapdev in
 			let path = Printf.sprintf "/var/run/blktap-control/nbdserver%d.%d" pid minor in
-			Http_svr.headers s (Http.http_200_ok ());
+			Http_svr.headers s (Http.http_200_ok () @ ["Transfer-encoding: nbd"]);
 			let control_fd = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
 			finally
 				(fun () ->
