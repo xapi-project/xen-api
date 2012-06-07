@@ -7,6 +7,7 @@ open Fun
 open Listext
 open Zerocheck
 open Xenstore
+open Xmlrpc_client
 
 let ( +* ) = Int64.add
 let ( -* ) = Int64.sub
@@ -22,9 +23,11 @@ exception ShortWrite of int (* offset *) * int (* expected *) * int (* actual *)
 (* Consider a tunable quantum of non-zero'ness such that if we encounter
    a non-zero, we know we're going to incur the penalty of a seek/write
    and we may as well write a sizeable chunk at a time. *)
+let quantum = 16384 
 let roundup x = 
-	let quantum = 16384 in
 	((x + quantum + quantum - 1) / quantum) * quantum
+let rounddown x = 
+	(x / quantum) * quantum
 
 (* Set to true when we want machine-readable output *)
 let machine_readable = ref false 
@@ -82,7 +85,7 @@ module DD(Input : IO)(Output : IO) = struct
 		let do_block acc (offset, this_chunk) =
 			input_op offset { buf = buf; offset = 0; len = Int64.to_int this_chunk };
 			begin match sparse with
-			| Some zero -> fold_over_nonzeros buf (Int64.to_int this_chunk) roundup (f offset) acc
+			| Some zero -> fold_over_nonzeros buf (Int64.to_int this_chunk) rounddown roundup (f offset) acc
 			| None -> f offset acc { buf = buf; offset = 0; len = Int64.to_int this_chunk }
 			end in
 		(* For each entry from the BAT, copy it as a sequence of sub-blocks *)
@@ -156,6 +159,16 @@ module File_writer = struct
 		then raise (ShortWrite(offset, len, n))
 end
 
+module Nbd_writer = struct
+	type t = Unix.file_descr
+
+	let op fd off { buf = buf; offset = offset; len = len } =
+		debug "off=%Ld buf offset=%d len=%d" off offset len;
+		let copy = String.create len in
+		String.blit buf offset copy 0 len;
+		ignore(Nbd.write fd copy off)
+end
+
 (** Marshals data across the network in chunks *)
 module Network_writer = struct
 	open Sparse_encoding
@@ -184,9 +197,14 @@ module Network_writer = struct
 		try
 			Xmlrpc_client.with_transport (Xmlrpc_client.transport_of_url url)
 				(fun fd -> Http_client.rpc fd request f)
-		with Http_client.Http_error("401", _) as e ->
-			debug "HTTP 401 Unauthorized\n";
-			raise e
+		with 
+			| Http_client.Http_error("401", _) as e ->
+				debug "HTTP 401 Unauthorized\n";
+				raise e
+			| Http_client.Http_error("500", message) as e ->
+				debug "Caught internal server error: %s" message;
+				raise e
+				
 
 	let op stream stream_offset { buf = buf; offset = offset; len = len } =
 		let copy = String.create len in
@@ -206,6 +224,8 @@ module File_copy = DD(File_reader)(File_writer)
 (** An implementatino of the DD algorithm from Unix files to a Network socket *)
 module Network_copy = DD(File_reader)(Network_writer)
 
+module Nbd_copy = DD(File_reader)(Nbd_writer)
+
 (** [file_dd ?progress_cb ?size ?bat prezeroed src dst]
     If [size] is not given, will assume a plain file and will use st_size from Unix.stat
 	If [erase]: will erase other parts of the disk
@@ -223,15 +243,29 @@ let file_dd ?(progress_cb = (fun _ -> ())) ?size ?bat erase write_zeroes src dst
 	if String.startswith "http:" dst || String.startswith "https:" dst then begin
 		(* Network copy *)
 		Network_writer.do_http_put
-		(fun _ ofd ->
-			debug "Writing chunked encoding to fd: %d" (Unixext.int_of_file_descr ofd);
-			let stats = Network_copy.copy progress_cb bat erase write_zeroes ifd ofd blocksize size in
-			debug "Sending final chunk";
-			Network_writer.close ofd;			
-			debug "Waiting for connection to close";
-			(try let tmp = " " in Unixext.really_read ofd tmp 0 1 with End_of_file -> ());
-			debug "Connection closed";
-			stats) (Http.Url.of_string dst)
+		(fun response ofd ->
+			let is_nbd = 
+				List.mem_assoc Http.Hdr.transfer_encoding response.Http.Response.additional_headers && (List.assoc Http.Hdr.transfer_encoding response.Http.Response.additional_headers = "nbd") in
+
+			let stats = 
+				if is_nbd 
+				then begin
+					debug "Writing NBD encoding to fd: %d" (Unixext.int_of_file_descr ofd);
+					let (size,flags) = Nbd.negotiate ofd in
+					ignore((size,flags));
+					Nbd_copy.copy progress_cb bat erase write_zeroes ifd ofd blocksize size
+				end else begin
+					debug "Writing chunked encoding to fd: %d" (Unixext.int_of_file_descr ofd);
+					let stats = Network_copy.copy progress_cb bat erase write_zeroes ifd ofd blocksize size in
+					debug "Sending final chunk";
+					Network_writer.close ofd;			
+					debug "Waiting for connection to close";
+					(try let tmp = " " in Unixext.really_read ofd tmp 0 1 with End_of_file -> ());
+					debug "Connection closed";
+					stats
+				end
+			in stats)
+			(Http.Url.of_string dst)
 	end else begin
 		let ofd = Unix.openfile dst [ Unix.O_WRONLY; Unix.O_CREAT ] 0o600 in
 	 	(* Make sure the output file has the right size *)
