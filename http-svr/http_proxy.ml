@@ -19,6 +19,31 @@ open Xmlrpc_client
 open Threadext
 open Pervasiveext
 
+let one request fromfd s =
+	(* We can only proxy certain types of request properly *)
+	match request.Http.Request.m with
+		| Http.Get | Http.Post | Http.Put ->
+			(* Set Connection:close if it's not already set *)
+			request.Http.Request.close <- true;
+			(* Transmit request headers to master *)
+			Unixext.really_write_string s (Http.Request.to_wire_string request);
+			let limit = match request.Http.Request.m with
+				| Http.Get -> Some 0L
+				| _ -> request.Http.Request.content_length in
+			let (_: int64) = Unixext.copy_file ?limit fromfd s in
+			(* Receive response headers from master *)
+			let response = Opt.default Http.Response.internal_error (Http_client.response_of_fd s) in
+			(* Transmit response headers to client *)
+			Unixext.really_write_string fromfd (Http.Response.to_wire_string response);
+			if response.Http.Response.code = "200" then begin
+				(* If there is a request payload then transmit *)
+				let (_: int64) = Unixext.copy_file ?limit:response.Http.Response.content_length s fromfd in
+				()
+			end;
+		| m ->
+			error "Proxy doesn't support: %s" (Http.string_of_method_t m);
+			Http_svr.response_forbidden ~req:request fromfd
+
 let server = ref None
 let m = Mutex.create ()
 
@@ -29,35 +54,9 @@ let http_proxy src_ip src_port transport =
 			(fun () ->
 				let bio = Buf_io.of_fd fromfd in
 				let request = Http_svr.request_of_bio bio in
-
-				let proxy_one request fromfd s =
-					(* We can only proxy certain types of request properly *)
-					match request.Http.Request.m with
-						| Http.Get | Http.Post | Http.Put ->
-							(* Set Connection:close if it's not already set *)
-							request.Http.Request.close <- true;
-							(* Transmit request headers to master *)
-							Unixext.really_write_string s (Http.Request.to_wire_string request);
-							let limit = match request.Http.Request.m with
-								| Http.Get -> Some 0L
-								| _ -> request.Http.Request.content_length in
-							let (_: int64) = Unixext.copy_file ?limit fromfd s in
-							(* Receive response headers from master *)
-							let response = Opt.default Http.Response.internal_error (Http_client.response_of_fd s) in
-							(* Transmit response headers to client *)
-							Unixext.really_write_string fromfd (Http.Response.to_wire_string response);
-							if response.Http.Response.code = "200" then begin
-								(* If there is a request payload then transmit *)								
-								let (_: int64) = Unixext.copy_file ?limit:response.Http.Response.content_length s fromfd in
-								()
-							end;
-						| m ->
-							error "Proxy doesn't support: %s" (Http.string_of_method_t m);
-							Http_svr.response_forbidden ~req:request fromfd
-				in
 				Opt.iter
 					(fun request ->
-						with_transport transport (proxy_one request fromfd)
+						with_transport transport (one request fromfd)
 					) request;
 			) (fun () -> Unix.close fromfd)
 	in
