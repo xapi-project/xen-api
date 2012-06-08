@@ -411,7 +411,20 @@ let api =
 			outputs = [
 				vdi
 			]
-	    }
+	    }; {
+			Method.name = "similar_content";
+			description = "[similar_content sr vdi] returns a list, most similar first, of disks with recognizably similar content";
+			inputs = [
+				sr;
+				vdi;
+			];
+			outputs = [
+				{ Arg.name = "vdi_infos";
+				ty = Type.(Array (Name "vdi_info"));
+				description = "VDIs with recognizably similar content, most similar first"
+				}
+			]
+		}
 	  ]
 	}; {
 	  Interface.name = "SR";
