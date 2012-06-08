@@ -553,6 +553,13 @@ module SMAPIv1 = struct
 					raise (Vdi_does_not_exist vdi1)
 				| Sm.MasterOnly -> redirect sr
 
+		let remove_from_other_config context ~dbg ~sr ~vdi ~key =
+			info "VDI.update_record dbg:%s sr:%s vdi:%s" dbg sr vdi;
+			Server_helpers.exec_with_new_task "VDI.update_record" ~subtask_of:(Ref.of_string dbg)
+				(fun __context ->
+					let self = find_vdi ~__context sr vdi |> fst in
+					Db.VDI.remove_from_other_config ~__context ~self ~key)
+
 		let get_url context ~dbg ~sr ~vdi =
 			info "VDI.get_url dbg:%s sr:%s vdi:%s" dbg sr vdi;
 			(* XXX: PR-1255: tapdisk shouldn't hardcode xapi urls *)

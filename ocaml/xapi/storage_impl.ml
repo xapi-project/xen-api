@@ -515,6 +515,10 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			info "VDI.compose dbg:%s sr:%s vdi1:%s vdi2:%s" dbg sr vdi1 vdi2;
 			Impl.VDI.compose context ~dbg ~sr ~vdi1 ~vdi2
 
+		let remove_from_other_config context ~dbg ~sr ~vdi ~key =
+			info "VDI.remove_from_other_config dbg:%s sr:%s vdi:%s key:%s" dbg sr vdi key;
+			Impl.VDI.remove_from_other_config context ~dbg ~sr ~vdi ~key
+
 		let get_url context ~dbg ~sr ~vdi =
 			info "VDI.get_url dbg:%s sr:%s vdi:%s" dbg sr vdi;
 			Impl.VDI.get_url context ~dbg ~sr ~vdi
