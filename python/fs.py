@@ -309,6 +309,8 @@ data/ files are referenced directly by a metadata/ file.
 
     def similar_content(self, vdi):
         chains = {}
+        if vdi not in self.metadata.keys():
+            raise Vdi_does_not_exist(vdi)
         for vdi in self.metadata.keys():
             md = self.metadata[vdi]
             data = md["data"]
@@ -324,6 +326,9 @@ data/ files are referenced directly by a metadata/ file.
             distance[vdi] = len(target_chain.intersection(this_chain))
         import operator
         ordered = sorted(distance.iteritems(), key=operator.itemgetter(1))
+        # if two disks have nothing in common then we shouldn't consider
+        # them as similar
+        ordered = filter(lambda x:x[1] <> 0, ordered)
         return map(lambda x:self.metadata[x[0]], ordered)
 
     def maybe_reset(self, vdi):
