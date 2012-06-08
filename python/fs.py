@@ -152,6 +152,8 @@ data/ files are referenced directly by a metadata/ file.
             name = name[0:32]
         valid = '_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
         name = ''.join(c for c in name if c in valid)
+        if name == "":
+            name = "_"
         taken = self.metadata.keys()
         if name not in taken:
             return name
