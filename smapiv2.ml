@@ -373,7 +373,7 @@ let api =
 		};
 	      ];
 	      outputs = [
-		vdi
+		vdi_info'
 	      ];
 	    }; {
 	      Method.name = "set_content_id";
