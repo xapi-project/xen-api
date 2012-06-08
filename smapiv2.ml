@@ -398,8 +398,20 @@ let api =
 	      ];
 	      outputs = [
 	      ];
+	    }; {
+			Method.name = "get_by_name";
+			description = "[get_by_name sr name] resolves a name to a VDI";
+			inputs = [
+				sr;
+				{ Arg.name = "name";
+				ty = Type.(Basic String);
+				description = "Name of VDI to resolve"
+				}
+			];
+			outputs = [
+				vdi
+			]
 	    }
-	      
 	  ]
 	}; {
 	  Interface.name = "SR";
