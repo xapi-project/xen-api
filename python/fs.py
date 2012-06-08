@@ -438,13 +438,13 @@ class Query(Query_skeleton):
             ds = {} # data to idx
             # Represent each VDI as a record
             lines = lines + [
-                "digraph %s {" % sr,
+                "digraph \"%s\" {" % sr,
                 "node [shape=record];"
                 ]
             idx = 0
             for vdi in r.metadata.keys():
                 vdis[vdi] = idx
-                lines.append("%s [label=\"%s\"];" % (str(idx), r.metadata[vdi]["name_label"]))
+                lines.append("%s [label=\"%s:%s\"];" % (str(idx), r.metadata[vdi]["name_label"], str(vdi)))
                 idx = idx + 1
             lines.append("node [shape=circle];")
             for d in r.data.keys():
