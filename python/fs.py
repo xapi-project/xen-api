@@ -270,6 +270,7 @@ data/ files are referenced directly by a metadata/ file.
             else:
                 tapdisk.mirror = None
             tapdisk.reopen()
+        return vdi_info
 
     def stat(self, vdi):
         return self.metadata[vdi]
