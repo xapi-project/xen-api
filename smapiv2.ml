@@ -409,7 +409,7 @@ let api =
 				}
 			];
 			outputs = [
-				vdi
+				vdi_info'
 			]
 	    }; {
 			Method.name = "similar_content";
