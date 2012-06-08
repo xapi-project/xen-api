@@ -305,6 +305,24 @@ data/ files are referenced directly by a metadata/ file.
                 return md
         raise Vdi_does_not_exist(name)
 
+    def similar_content(self, vdi):
+        chains = {}
+        for vdi in self.metadata.keys():
+            md = self.metadata[vdi]
+            data = md["data"]
+            chain = set([data])
+            while "parent" in self.data[data]:
+                data = self.data[data]["parent"]
+                chain.add(data)
+            chains[vdi] = chain
+        distance = {}
+        target_chain = chains[vdi]
+        for vdi in self.metadata.keys():
+            this_chain = chains[vdi]
+            distance[vdi] = len(target_chain.intersection(this_chain))
+        ordered = sorted(distance.iteritems(), key=operator.itemgetter(1))
+        return map(lambda x:self.metadata[x[0]], ordered)
+
     def maybe_reset(self, vdi):
         meta = self.metadata[vdi]
         if not(meta["persistent"]):
@@ -567,6 +585,10 @@ class VDI(VDI_skeleton):
         if not sr in repos:
             raise Sr_not_attached(sr)
         repos[sr].get_by_name(name)
+    def similar_content(self, dbg, sr, vdi):
+        if not sr in repos:
+            raise Sr_not_attached(sr)
+        repos[sr].similar_content(vdi)
     def epoch_begin(self, dbg, sr, vdi):
         if not sr in repos:
             raise Sr_not_attached(sr)
