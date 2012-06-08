@@ -381,6 +381,7 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 			copy' ~task ~dbg ~sr ~vdi:snapshot.vdi ~url ~dest ~dest_vdi:result.Mirror.copy_diffs_to) |> vdi_info in
 		debug "Local VDI %s == remote VDI %s" snapshot.vdi new_parent.vdi;
 		Remote.VDI.compose ~dbg ~sr:dest ~vdi1:result.Mirror.copy_diffs_to ~vdi2:result.Mirror.mirror_vdi.vdi;
+		Remote.VDI.remove_from_other_config ~dbg ~sr:dest ~vdi:result.Mirror.mirror_vdi.vdi ~key:"base_mirror";
 		debug "Local VDI %s now mirrored to remote VDI: %s" local_vdi.vdi result.Mirror.mirror_vdi.vdi;
 
 		debug "Destroying dummy VDI %s on remote" result.Mirror.dummy_vdi;

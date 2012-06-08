@@ -153,6 +153,7 @@ module Debug_print_impl = struct
 
         let get_url context ~dbg ~sr ~vdi = assert false
 		let compose context ~dbg ~sr ~vdi1 ~vdi2 = assert false
+		let remove_from_other_config context ~dbg ~sr ~vdi ~key = assert false
 		let set_content_id context ~dbg ~sr ~vdi ~content_id = assert false
 		let get_by_name context ~dbg ~sr ~name = assert false
 		let similar_content context ~dbg ~sr ~vdi = assert false

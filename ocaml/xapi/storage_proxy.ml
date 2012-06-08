@@ -64,6 +64,7 @@ module Proxy = functor(RPC: RPC) -> struct
 		let set_content_id _ = Client.VDI.set_content_id
 		let similar_content _ = Client.VDI.similar_content
 		let compose _ = Client.VDI.compose
+		let remove_from_other_config _ = Client.VDI.remove_from_other_config
         let get_url _ = Client.VDI.get_url
 	end
 

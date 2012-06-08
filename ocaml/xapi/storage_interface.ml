@@ -296,6 +296,9 @@ module VDI = struct
 
     (** [compose task sr vdi1 vdi2] layers the updates from [vdi2] onto [vdi1], modifying [vdi2] *)
     external compose : dbg:debug_info -> sr:sr -> vdi1:vdi -> vdi2:vdi -> unit = ""
+
+	(** [remove_other_config dbg sr vdi key] remove [key] from [vdi] other config *)
+	external remove_from_other_config: dbg:debug_info -> sr:sr -> vdi:vdi -> key:string -> unit = ""
 end
 
 (** [get_by_name task name] returns a vdi with [name] (which may be in any SR) *)

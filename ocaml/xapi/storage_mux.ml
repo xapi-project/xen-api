@@ -207,6 +207,9 @@ module Mux = struct
 		let compose context ~dbg ~sr ~vdi1 ~vdi2 =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.compose ~dbg ~sr ~vdi1 ~vdi2
+		let remove_from_other_config context ~dbg ~sr ~vdi ~key =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.VDI.remove_from_other_config ~dbg ~sr ~vdi ~key
         let get_url context ~dbg ~sr ~vdi =
             let module C = Client(struct let rpc = of_sr sr end) in
             C.VDI.get_url ~dbg ~sr ~vdi
