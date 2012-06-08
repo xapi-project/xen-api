@@ -589,10 +589,10 @@ class VDI(VDI_skeleton):
         if not sr in repos:
             raise Sr_not_attached(sr)
         return repos[sr].detach(vdi)
-    def compose(self, dbg, vdi1, vdi2):
+    def compose(self, dbg, sr, vdi1, vdi2):
         if not sr in repos:
             raise Sr_not_attached(sr)
-        return repos[sr].compose(vdi)
+        return repos[sr].compose(vdi1, vdi2)
 
 whitelist = [
     "jQuery-Visualize/js/excanvas.js",
