@@ -63,6 +63,11 @@ class Tapdisk:
         util.pread2(cmd)
         self.file = None
 
+    def reopen(self):
+        (ty, path) = self.file
+        self.close()
+        self.open(ty, path)
+
     def detach(self):
         cmd = [TAP_CTL, "detach", "-m", str(self.minor), "-p", str(self.pid)]
         util.pread2(cmd)

@@ -120,3 +120,6 @@ def make_leaf(child, parent):
     ioretry(cmd)
     return list(child).values()[0]
 
+def reparent(child, parent):
+    cmd = [VHD_UTIL, "modify", "-p", parent, "-n", child]
+    ioretry(cmd)

@@ -341,6 +341,29 @@ data/ files are referenced directly by a metadata/ file.
         self.tapdisks[data].free()
         del self.tapdisks[data]
 
+    def compose(self, vdi1, vdi2):
+        # This operates on the vhds, not the VDIs
+        leaf = self.metadata[vdi2]["data"]
+        parent = self.metadata[vdi1]["data"]
+
+        # leaf must be already a leaf of some other parent
+        if "parent" not in self.data[leaf]:
+            raise Backend_error("VHD_NOT_LEAF", [ vdi2 ])
+
+        leaf_path = self.path + "/" + data_dir + "/" + leaf + vhd_suffix
+        parent_path = self.path + "/" + data_dir + "/" + parent + vhd_suffix
+        vhd.reparent(leaf_path, parent_path)
+
+        # update our cached tree information
+        self.data[leaf]["parent"] = parent
+
+        # cause tapdisk to reopen the vhd chain
+        if leaf in self.tapdisks:
+            self.tapdisks[leaf].reopen()
+        else:
+            log("VDI %s (%s.vhd) has no active tapdisk -- nothing to reopen" % (vdi2, leaf))
+
+
 # A map from attached SR reference -> Repo instance
 repos = {}
 
@@ -529,6 +552,10 @@ class VDI(VDI_skeleton):
         if not sr in repos:
             raise Sr_not_attached(sr)
         return repos[sr].detach(vdi)
+    def compose(self, dbg, vdi1, vdi2):
+        if not sr in repos:
+            raise Sr_not_attached(sr)
+        return repos[sr].compose(vdi)
 
 whitelist = [
     "jQuery-Visualize/js/excanvas.js",
