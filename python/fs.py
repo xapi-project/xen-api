@@ -571,35 +571,35 @@ class VDI(VDI_skeleton):
     def destroy(self, dbg, sr, vdi):
         if not sr in repos:
             raise Sr_not_attached(sr)
-        repos[sr].destroy(vdi)
+        return repos[sr].destroy(vdi)
     def stat(self, dbg, sr, vdi):
         if not sr in repos:
             raise Sr_not_attached(sr)
-        repos[sr].stat(vdi)
+        return repos[sr].stat(vdi)
     def set_persistent(self, dbg, sr, vdi, persistent):
         if not sr in repos:
             raise Sr_not_attached(sr)
-        repos[sr].set_persistent(vdi, persistent)
+        return repos[sr].set_persistent(vdi, persistent)
     def set_content_id(self, dbg, sr, vdi, content_id):
         if not sr in repos:
             raise Sr_not_attached(sr)
-        repos[sr].set_content_id(vdi, content_id)
+        return repos[sr].set_content_id(vdi, content_id)
     def get_by_name(self, dbg, sr, name):
         if not sr in repos:
             raise Sr_not_attached(sr)
-        repos[sr].get_by_name(name)
+        return repos[sr].get_by_name(name)
     def similar_content(self, dbg, sr, vdi):
         if not sr in repos:
             raise Sr_not_attached(sr)
-        repos[sr].similar_content(vdi)
+        return repos[sr].similar_content(vdi)
     def epoch_begin(self, dbg, sr, vdi):
         if not sr in repos:
             raise Sr_not_attached(sr)
-        repos[sr].epoch_begin(vdi)
+        return repos[sr].epoch_begin(vdi)
     def epoch_end(self, dbg, sr, vdi):
         if not sr in repos:
             raise Sr_not_attached(sr)
-        repos[sr].epoch_end(vdi)
+        return repos[sr].epoch_end(vdi)
     def attach(self, dbg, dp, sr, vdi, read_write):
         if not sr in repos:
             raise Sr_not_attached(sr)
