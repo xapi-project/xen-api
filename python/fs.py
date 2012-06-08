@@ -322,6 +322,7 @@ data/ files are referenced directly by a metadata/ file.
         for vdi in self.metadata.keys():
             this_chain = chains[vdi]
             distance[vdi] = len(target_chain.intersection(this_chain))
+        import operator
         ordered = sorted(distance.iteritems(), key=operator.itemgetter(1))
         return map(lambda x:self.metadata[x[0]], ordered)
 
