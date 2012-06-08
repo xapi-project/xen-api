@@ -258,8 +258,18 @@ data/ files are referenced directly by a metadata/ file.
         return vdi_info
 
     def snapshot(self, vdi, vdi_info, params):
-        # We use the same implementation as "clone"
-        return self.clone(vdi, vdi_info, params)
+        # The vhd-tree manipulation is the same as clone...
+        vdi_info = self.clone(vdi, vdi_info, params)
+        # ... but we also re-open any active tapdisks
+        md = self.metadata[vdi]
+        data = md["data"]
+        if data in self.tapdisks:
+            tapdisk = self.tapdisks[data]
+            if "mirror" in params:
+                tapdisk.mirror = params["mirror"]
+            else:
+                tapdisk.mirror = None
+            tapdisk.reopen()
 
     def stat(self, vdi):
         return self.metadata[vdi]
