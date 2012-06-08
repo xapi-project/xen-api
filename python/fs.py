@@ -285,6 +285,13 @@ data/ files are referenced directly by a metadata/ file.
         meta["content_id"] = content_id
         self.update_vdi_info(vdi, meta)
 
+    def get_by_name(self, name):
+        for vdi in self.metadata.keys():
+            md = self.metadata[vdi]
+            if vdi == name or md["content_id"] == name:
+                return md
+        raise Vdi_does_not_exist(name)
+
     def maybe_reset(self, vdi):
         meta = self.metadata[vdi]
         if not(meta["persistent"]):
@@ -545,6 +552,10 @@ class VDI(VDI_skeleton):
         if not sr in repos:
             raise Sr_not_attached(sr)
         repos[sr].set_content_id(vdi, content_id)
+    def get_by_name(self, dbg, sr, name):
+        if not sr in repos:
+            raise Sr_not_attached(sr)
+        repos[sr].get_by_name(name)
     def epoch_begin(self, dbg, sr, vdi):
         if not sr in repos:
             raise Sr_not_attached(sr)
