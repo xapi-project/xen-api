@@ -58,6 +58,7 @@ type vdi_info = {
     physical_utilisation: int64;
     (* xenstore_data: workaround via XenAPI *)
 	persistent: bool;
+    base_mirror: string option;
 }
 
 let string_of_vdi_info (x: vdi_info) = Jsonrpc.to_string (rpc_of_vdi_info x)

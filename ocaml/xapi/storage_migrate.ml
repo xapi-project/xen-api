@@ -449,6 +449,7 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
 	let leaf_dp = Local.DP.create ~dbg ~id:(Uuid.string_of_uuid (Uuid.make_uuid ())) in
 
 	try
+		let vdi_info = { vdi_info with base_mirror = Some id } in
 		let leaf = Local.VDI.create ~dbg ~sr ~vdi_info ~params:[] in
 		info "Created leaf VDI for mirror receive: %s" leaf.vdi;
 		on_fail := (fun () -> Local.VDI.destroy ~dbg ~sr ~vdi:leaf.vdi) :: !on_fail;

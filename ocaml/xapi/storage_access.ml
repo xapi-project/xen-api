@@ -84,6 +84,13 @@ module SMAPIv1 = struct
 		let stat_vdi context ~dbg ~sr ~vdi = assert false
 	end
 
+	let base_mirror vdi_rec = (* CA-78221 *)
+		if List.mem_assoc "base_mirror" vdi_rec.API.vDI_other_config then
+			let id = List.assoc "base_mirror" vdi_rec.API.vDI_other_config in
+			Some id
+		else
+			None
+
 	module SR = struct
 		let create context ~dbg ~sr ~device_config ~physical_size =
 			Server_helpers.exec_with_new_task "SR.create" ~subtask_of:(Ref.of_string dbg)
@@ -190,6 +197,7 @@ module SMAPIv1 = struct
 				virtual_size = vdi_rec.API.vDI_virtual_size;
 				physical_utilisation = vdi_rec.API.vDI_physical_utilisation;
 				persistent = vdi_rec.API.vDI_on_boot = `persist;
+				base_mirror = base_mirror vdi_rec;
 			}
 
 		let scan context ~dbg ~sr:sr' =
@@ -329,6 +337,7 @@ module SMAPIv1 = struct
                 virtual_size = r.API.vDI_virtual_size;
                 physical_utilisation = r.API.vDI_physical_utilisation;
 				persistent = r.API.vDI_on_boot = `persist;
+				base_mirror = base_mirror r;
             }
 
         let newvdi ~__context vi =
@@ -377,6 +386,10 @@ module SMAPIv1 = struct
 						Db.VDI.set_name_description ~__context ~self ~value:vdi_info.name_description;
 						Db.VDI.remove_from_other_config ~__context ~self ~key:"content_id";
 						Db.VDI.add_to_other_config ~__context ~self ~key:"content_id" ~value:content_id;
+						Opt.iter (fun id ->
+							Db.VDI.remove_from_other_config ~__context ~self ~key:"base_mirror";
+							Db.VDI.add_to_other_config ~__context ~self ~key:"base_mirror" ~value:id;
+						) vdi_info.base_mirror;
 						for_vdi ~dbg ~sr ~vdi:vi.Smint.vdi_info_location "VDI.update"
 							(fun device_config _type sr self ->
 								Sm.vdi_update device_config _type sr self

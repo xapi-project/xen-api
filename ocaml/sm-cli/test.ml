@@ -170,6 +170,7 @@ let example_vdi_info =
 	let read_only = false in
 	let virtual_size = Int64.mul 8L mib in
 	let physical_utilisation = 0L in
+	let base_mirror = None in
 	{
 		vdi = "";
 		sr = "";
@@ -185,6 +186,7 @@ let example_vdi_info =
 		virtual_size = virtual_size;
 		physical_utilisation = physical_utilisation;
 		persistent = true;
+		base_mirror = base_mirror;
 	}
 
 let test_create_destroy sr _ =

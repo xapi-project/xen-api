@@ -118,6 +118,7 @@ let _ =
 				virtual_size = Opt.default 1L (Opt.map Int64.of_string (find "virtual_size"));
 				physical_utilisation = 0L;
 				persistent = true;
+				base_mirror = find "base_mirror";
 			} in
 			let params = List.filter_map
 				(fun (k, v) ->
