@@ -69,6 +69,8 @@ data/ files are referenced directly by a metadata/ file.
 """
     def __init__(self, path):
         self.path = path
+        # Used to cache which tapdisks are activated read/write (XXX persistence)
+        self.writable = {}
         # Load the metadata first
         self.metadata = {}
         metadata_path = path + "/" + metadata_dir
