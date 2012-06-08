@@ -409,7 +409,6 @@ let snapshot ~__context ~vdi ~driver_params =
 	Db.VDI.set_snapshot_time ~__context ~self:newvdi ~value:(Date.of_float (Unix.gettimeofday ()));
 
 	update_allowed_operations ~__context ~self:newvdi;
-	update ~__context ~vdi:newvdi;
 	newvdi
 
 let destroy ~__context ~self =
