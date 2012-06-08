@@ -422,6 +422,7 @@ class Query(Query_skeleton):
                 feature_vdi_activate,
                 feature_vdi_deactivate,
                 feature_vdi_clone,
+                feature_vdi_snapshot,
                 feature_vdi_reset_on_boot
                 ],
                  "configuration": { "path": "local filesystem path where the VDIs are stored",
