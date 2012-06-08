@@ -320,11 +320,15 @@ data/ files are referenced directly by a metadata/ file.
             raise Backend_error("VDI_ALREADY_ATTACHED", [ vdi ])
         self.tapdisks[data] = tapdisk.Tapdisk()
         device = self.tapdisks[data].get_device()
+        self.writable[vdi] = read_write
         return { "params": device,
                  "xenstore_data": {} }
 
     def activate(self, vdi):
         md = self.metadata[vdi]
+        if self.writable[vdi]:
+            md["content_id"] = ""
+            self.update_vdi_info(vdi, md)
         data = md["data"]
         if data not in self.tapdisks:
             raise Backend_error("VDI_NOT_ATTACHED", [ vdi ])
@@ -332,12 +336,16 @@ data/ files are referenced directly by a metadata/ file.
 
     def deactivate(self, vdi):
         md = self.metadata[vdi]
+        if md["content_id"] == "":
+            md["content_id"] = util.gen_uuid()
+            self.update_vdi_info(vdi, md)
         data = md["data"]
         if data not in self.tapdisks:
             raise Backend_error("VDI_NOT_ATTACHED", [ vdi ])
         self.tapdisks[data].close()
 
     def detach(self, vdi):
+        del self.writable[vdi]
         md = self.metadata[vdi]
         data = md["data"]
         if data not in self.tapdisks:
