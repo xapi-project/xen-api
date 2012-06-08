@@ -33,6 +33,7 @@ class Tapdisk:
         self.minor = minor
         self.pid = pid
         self.file = file
+        self.mirror = None
 
     def __str__(self):
         return "Tapdisk(minor=%s, pid=%s, file=%s)" % (str(self.minor), str(self.pid), repr(self.file))
@@ -63,10 +64,20 @@ class Tapdisk:
         util.pread2(cmd)
         self.file = None
 
-    def reopen(self):
+    def pause(self):
+        cmd = [TAP_CTL, "pause", "-p", str(self.pid), "-m", str(self.minor) ]
+        util.pread2(cmd)
+
+    def unpause(self):
         (ty, path) = self.file
-        self.close()
-        self.open(ty, path)
+        cmd = [TAP_CTL, "unpause", "-p", str(self.pid), "-m", str(self.minor), "-a", "%s:%s" % (ty, path) ]
+        if self.mirror:
+            args.extend(["-2", self.mirror])
+        util.pread2(cmd)
+
+    def reopen(self):
+        self.pause()
+        self.unpause()
 
     def detach(self):
         cmd = [TAP_CTL, "detach", "-m", str(self.minor), "-p", str(self.pid)]
