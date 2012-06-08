@@ -22,6 +22,9 @@ exception Http_error of string * string
 (** [response_of_fd fd] returns an HTTP response read from fd, or None *)
 val response_of_fd: ?use_fastpath:bool -> Unix.file_descr -> Http.Response.t option
 
+(** [response_of_fd fd] returns an HTTP response read from fd, or throws an exception *)
+val response_of_fd_exn: Unix.file_descr -> Http.Response.t
+
 (** [rpc fd request body f] marshals the HTTP request represented by [request] and [body]
     through file descriptor [fd] and then applies the response to [f]. On failure an 
     exception is thrown. *)
