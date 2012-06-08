@@ -468,6 +468,7 @@ let create_vdi_test sr =
         physical_utilisation = 10L;
 		metadata_of_pool = "";
 		persistent = true;
+		base_mirror = None;
 	} in
     expect "too_small_backend_error" too_small_backend_error
         (fun () -> Client.VDI.create ~dbg ~sr ~vdi_info ~params:["toosmall", ""]);

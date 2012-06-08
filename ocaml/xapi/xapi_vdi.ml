@@ -232,6 +232,7 @@ let default_vdi_info =
 		virtual_size = 0L;
 		physical_utilisation = 0L;
 		persistent = true;
+		base_mirror = None;
 	}
 
 let create ~__context ~name_label ~name_description
