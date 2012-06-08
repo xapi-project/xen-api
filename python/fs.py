@@ -280,6 +280,11 @@ data/ files are referenced directly by a metadata/ file.
         meta["persistent"] = persistent
         self.update_vdi_info(vdi, meta)
 
+    def set_content_id(self, vdi, content_id):
+        meta = self.metadata[vdi]
+        meta["content_id"] = content_id
+        self.update_vdi_info(vdi, meta)
+
     def maybe_reset(self, vdi):
         meta = self.metadata[vdi]
         if not(meta["persistent"]):
@@ -528,6 +533,10 @@ class VDI(VDI_skeleton):
         if not sr in repos:
             raise Sr_not_attached(sr)
         repos[sr].set_persistent(vdi, persistent)
+    def set_content_id(self, dbg, sr, vdi, content_id):
+        if not sr in repos:
+            raise Sr_not_attached(sr)
+        repos[sr].set_content_id(vdi, content_id)
     def epoch_begin(self, dbg, sr, vdi):
         if not sr in repos:
             raise Sr_not_attached(sr)
