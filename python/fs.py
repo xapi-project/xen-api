@@ -523,9 +523,6 @@ class VDI(VDI_skeleton):
             raise Sr_not_attached(sr)
         return repos[sr].create(vdi_info, params)
 
-    def snapshot(self, dbg, sr, vdi, vdi_info, params):
-        """Operations which operate on Virtual Disk Images"""
-        raise Unimplemented("VDI.snapshot")
     def clone(self, dbg, sr, vdi, vdi_info, params):
         """Create a writable clone of a VDI"""
         if not sr in repos:
