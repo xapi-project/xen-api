@@ -753,6 +753,7 @@ if __name__ == "__main__":
     if settings["daemon"]:
         log("daemonising")
         xcp.daemonize()
+    log("writing pid (%d) to %s" % (os.getpid(), settings["pidfile"]))
     pidfile = open(settings["pidfile"], "w")
     try:
         pidfile.write(str(os.getpid()))
