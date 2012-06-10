@@ -30,6 +30,8 @@ DESTDIR=$RPM_BUILD_ROOT %{__make} install
 rm -rf $RPM_BUILD_ROOT
 
 %post
+chkconfig --add xcp-sm-fs
+/etc/rc.d/init.d/xcp-sm-fs condrestart
 
 %files
 %defattr(-,root,root,-)
