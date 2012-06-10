@@ -311,24 +311,25 @@ data/ files are referenced directly by a metadata/ file.
         chains = {}
         if vdi not in self.metadata.keys():
             raise Vdi_does_not_exist(vdi)
-        for vdi in self.metadata.keys():
-            md = self.metadata[vdi]
+        for v in self.metadata.keys():
+            md = self.metadata[v]
             data = md["data"]
             chain = set([data])
             while "parent" in self.data[data]:
                 data = self.data[data]["parent"]
                 chain.add(data)
-            chains[vdi] = chain
+            chains[v] = chain
         distance = {}
         target_chain = chains[vdi]
-        for vdi in self.metadata.keys():
-            this_chain = chains[vdi]
-            distance[vdi] = len(target_chain.intersection(this_chain))
+        for v in self.metadata.keys():
+            this_chain = chains[v]
+            difference = target_chain.symmetric_difference(this_chain)
+            # if two disks have nothing in common then we don't consider them
+            # as similar at all
+            if target_chain.intersection(this_chain) <> set([]):
+                distance[v] = len(difference)
         import operator
         ordered = sorted(distance.iteritems(), key=operator.itemgetter(1))
-        # if two disks have nothing in common then we shouldn't consider
-        # them as similar
-        ordered = filter(lambda x:x[1] <> 0, ordered)
         return map(lambda x:self.metadata[x[0]], ordered)
 
     def maybe_reset(self, vdi):
