@@ -195,7 +195,7 @@ data/ files are referenced directly by a metadata/ file.
             except Exception, e:
                 log("Exception writing metadata: %s" % (str(e)))
                 # remove corrupt file
-                os.path.unlink(path)
+                os.unlink(path)
         finally:
             f.close()
 
