@@ -216,18 +216,19 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 
 	let on_fail : (unit -> unit) list ref = ref [] in
 
+	let base_vdi = 
+		try Some ((List.find (fun x -> x.content_id = dest_content_id) vdis).vdi)
+		with e -> 
+			debug "Exception %s while finding local vdi with content_id=dest" (Printexc.to_string e);
+			None
+	in
+
+
 	try
 		let dp = Uuid.string_of_uuid (Uuid.make_uuid ()) in
 		let dest_vdi_url = Http.Url.set_uri remote_url (Printf.sprintf "%s/nbd/%s/%s/%s" (Http.Url.get_uri remote_url) dest dest_vdi dp) |> Http.Url.to_string in
 
 		debug "Will copy into new remote VDI: %s (%s)" dest_vdi dest_vdi_url;
-
-		let base_vdi = 
-			try Some (Local.VDI.get_by_name ~dbg ~sr ~name:dest_content_id).vdi
-			with e -> 
-				debug "Exception %s while finding local vdi with content_id=dest" (Printexc.to_string e);
-				None
-		in
 
 		debug "Activating datapath on remote";
 
