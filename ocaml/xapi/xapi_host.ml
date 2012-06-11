@@ -125,45 +125,8 @@ let assert_bacon_mode ~__context ~host =
 		raise (Api_errors.Server_error (Api_errors.host_in_use, [ selfref; "vbd"; List.hd (List.map Ref.string_of vbds) ]));
 	debug "Bacon test: VBDs OK"
 
-let pif_update_address ~__context ~self =
-	let network = Db.PIF.get_network ~__context ~self in
-	let bridge = Db.Network.get_bridge ~__context ~self:network in
-	let dbg = Context.string_of_task __context in
-	begin
-		match Net.Interface.get_ipv4_addr dbg bridge with
-		| (addr, plen) :: _ ->
-			let ip = Unix.string_of_inet_addr addr in
-			let netmask = Network_interface.prefixlen_to_netmask plen in
-			if ip <> Db.PIF.get_IP ~__context ~self || netmask <> Db.PIF.get_netmask ~__context ~self then begin
-				debug "PIF %s bridge %s IP address changed: %s/%s" (Db.PIF.get_uuid ~__context ~self) bridge ip netmask;
-				Db.PIF.set_IP ~__context ~self ~value:ip;
-				Db.PIF.set_netmask ~__context ~self ~value:netmask
-			end
-		| _ -> ()
-	end;
-	let ipv6_addr = Net.Interface.get_ipv6_addr dbg ~name:bridge in
-	let ipv6_addr' = List.map (fun (addr, plen) -> Printf.sprintf "%s/%d" (Unix.string_of_inet_addr addr) plen) ipv6_addr in
-	if ipv6_addr' <> Db.PIF.get_IPv6 ~__context ~self then begin
-		debug "PIF %s bridge %s IPv6 address changed: %s" (Db.PIF.get_uuid ~__context ~self)
-			bridge (String.concat "; " ipv6_addr');
-		Db.PIF.set_IPv6 ~__context ~self ~value:ipv6_addr'
-	end
-
 let signal_networking_change ~__context =
-	let host = Helpers.get_localhost ~__context in
-	let pifs = Db.PIF.get_refs_where ~__context ~expr:(
-		And (
-			Eq (Field "host", Literal (Ref.string_of host)),
-			Or (
-				Or (
-					(Eq (Field "ip_configuration_mode", Literal "DHCP")),
-					(Eq (Field "ipv6_configuration_mode", Literal "DHCP"))
-				),
-				(Eq (Field "ipv6_configuration_mode", Literal "Autoconf"))
-			)
-		)
-	) in
-	List.iter (fun self -> pif_update_address ~__context ~self) pifs;
+	Helpers.update_pif_addresses ~__context;
 	Xapi_mgmt_iface.on_dom0_networking_change ~__context
 
 let signal_cdrom_event ~__context params =
