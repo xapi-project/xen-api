@@ -106,14 +106,14 @@ val destroy : __context:Context.t -> self:API.ref_PIF -> unit
 val reconfigure_ip :
   __context:Context.t ->
   self:API.ref_PIF ->
-  mode:[< `DHCP | `None | `Static > `None `Static ] ->
+  mode:[`DHCP | `None | `Static] ->
   iP:string -> netmask:string -> gateway:string -> dNS:string -> unit
   
 (** Change the IPv6 configuration of a PIF *)
 val reconfigure_ipv6 :
   __context:Context.t ->
   self:API.ref_PIF ->
-  mode:[< `DHCP | `None | `Static | `Autoconf > `None `Static ] ->
+  mode:[ `DHCP | `None | `Static | `Autoconf ] ->
   iPv6:string -> gateway:string -> dNS:string -> unit
   
 (** Change the primary address type between IPv4 and IPv6 *)

@@ -194,7 +194,10 @@ let resynchronise_pif_params ~__context =
 	Xapi_pif.update_management_flags ~__context ~host:localhost;
 
 	(* sync MACs and MTUs *)
-	Xapi_pif.refresh_all ~__context ~host:localhost
+	Xapi_pif.refresh_all ~__context ~host:localhost;
+
+	(* Ensure that all DHCP PIFs have their IP address updated in the DB *)
+	Helpers.update_pif_addresses ~__context
 
 (** Update the database to reflect current state. Called for both start of day and after
    an agent restart. *)

@@ -571,6 +571,10 @@ let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
 			(Db.PIF.get_uuid ~__context ~self);
 		Db.PIF.set_currently_attached ~__context ~self ~value:false;
 		Nm.bring_pif_up ~__context ~management_interface:management self;
+		if mode = `DHCP || mode = `Autoconf then
+			(* Refresh IP address fields in case dhclient was already running, and
+			 * we are not getting a host-signal-networking-change callback. *)
+			Helpers.update_pif_addresses ~__context
 	end;
 	mark_pif_as_dirty (Db.PIF.get_device ~__context ~self)
 
@@ -621,6 +625,10 @@ let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
 			(Db.PIF.get_uuid ~__context ~self);
 		Db.PIF.set_currently_attached ~__context ~self ~value:false;
 		Nm.bring_pif_up ~__context ~management_interface:management self;
+		if mode = `DHCP then
+			(* Refresh IP address fields in case dhclient was already running, and
+			 * we are not getting a host-signal-networking-change callback. *)
+			Helpers.update_pif_addresses ~__context
 	end;
 	(* We kick the monitor thread to resync the dom0 device state
 	 * with the PIF db record; this fixes a race where the you do
