@@ -259,6 +259,8 @@ data/ files are referenced directly by a metadata/ file.
         vdi_info["data"] = right
         vdi_info["virtual_size"] = parent_info["virtual_size"]
         vdi_info["content_id"] = parent_info["content_id"]
+        if vdi_info["content_id"] == "":
+            vdi_info["content_id"] = util.gen_uuid()
         vdi_info["read_only"] = parent_info["read_only"]
         self.update_vdi_info(clone, vdi_info)
 
