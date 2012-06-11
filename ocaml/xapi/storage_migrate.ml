@@ -190,8 +190,7 @@ let progress_callback start len t y =
 let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 	let remote_url = Http.Url.of_string url in
 	let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
-
-	debug "Copy started with dest_vdi=%s" dest_vdi;
+	debug "copy local=%s/%s url=%s remote=%s/%s" sr vdi url dest dest_vdi;
 
 	(* Check the remote SR exists *)
 	let srs = Remote.SR.list ~dbg in
@@ -206,20 +205,24 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 
 	let dest_content_id = remote_vdi.content_id in
 
-	debug "Dest content_id = %s" dest_content_id;
-
 	(* Find the local VDI *)
 	let vdis = Local.SR.scan ~dbg ~sr in
 	let local_vdi =
 		try List.find (fun x -> x.vdi = vdi) vdis
 		with Not_found -> failwith (Printf.sprintf "Local VDI %s not found" vdi) in
 
+	debug "copy local=%s/%s content_id=%s" sr vdi local_vdi.content_id;
+	debug "copy remote=%s/%s content_id=%s" dest dest_vdi remote_vdi.content_id;
+
 	let on_fail : (unit -> unit) list ref = ref [] in
 
 	let base_vdi = 
-		try Some ((List.find (fun x -> x.content_id = dest_content_id) vdis).vdi)
-		with e -> 
-			debug "Exception %s while finding local vdi with content_id=dest" (Printexc.to_string e);
+		try
+			let x = (List.find (fun x -> x.content_id = dest_content_id) vdis).vdi in
+			debug "local VDI %s has content_id = %s; we will perform an incremental copy" x dest_content_id;
+			Some x
+		with _ ->
+			debug "no local VDI has content_id = %s; we will perform a full copy" dest_content_id;
 			None
 	in
 
@@ -228,15 +231,13 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 		let dp = Uuid.string_of_uuid (Uuid.make_uuid ()) in
 		let dest_vdi_url = Http.Url.set_uri remote_url (Printf.sprintf "%s/nbd/%s/%s/%s" (Http.Url.get_uri remote_url) dest dest_vdi dp) |> Http.Url.to_string in
 
-		debug "Will copy into new remote VDI: %s (%s)" dest_vdi dest_vdi_url;
-
-		debug "Activating datapath on remote";
+		debug "copy remote=%s/%s NBD URL = %s" dest dest_vdi dest_vdi_url;
 
 		Pervasiveext.finally (fun () -> 
+			debug "activating RW datapath %s on remote=%s/%s" dp dest dest_vdi;
 			ignore(Remote.VDI.attach ~dbg ~sr:dest ~vdi:dest_vdi ~dp ~read_write:true);
 			Remote.VDI.activate ~dbg ~dp ~sr:dest ~vdi:dest_vdi;
 			
-			debug "Will base our copy from: %s" (Opt.default "None" base_vdi);
 			with_activated_disk ~dbg ~sr ~vdi:base_vdi
 				(fun base_path ->
 					with_activated_disk ~dbg ~sr ~vdi:(Some vdi)
@@ -254,9 +255,10 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 			(fun () -> 
 				Remote.DP.destroy ~dbg ~dp ~allow_leak:false);
 
-		debug "Updating remote content_id";
+		debug "setting remote=%s/%s content_id <- %s" dest dest_vdi local_vdi.content_id;
 		Remote.VDI.set_content_id ~dbg ~sr:dest ~vdi:dest_vdi ~content_id:local_vdi.content_id;
 		(* PR-1255: XXX: this is useful because we don't have content_ids by default *)
+		debug "setting local=%s/%s content_id <- %s" sr local_vdi.vdi local_vdi.content_id;
 		Local.VDI.set_content_id ~dbg ~sr ~vdi:local_vdi.vdi ~content_id:local_vdi.content_id;
 		Some (Vdi_info remote_vdi)
 	with e ->
