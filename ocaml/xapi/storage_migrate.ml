@@ -214,6 +214,12 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 	debug "copy local=%s/%s content_id=%s" sr vdi local_vdi.content_id;
 	debug "copy remote=%s/%s content_id=%s" dest dest_vdi remote_vdi.content_id;
 
+	if local_vdi.virtual_size > remote_vdi.virtual_size then begin
+		(* This should never happen provided the higher-level logic is working properly *)
+		error "copy local=%s/%s virtual_size=%Ld > remote=%s/%s virtual_size = %Ld" sr vdi local_vdi.virtual_size dest dest_vdi remote_vdi.virtual_size;
+		failwith "local VDI is larger than the remote VDI";
+	end;
+
 	let on_fail : (unit -> unit) list ref = ref [] in
 
 	let base_vdi = 
