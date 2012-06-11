@@ -40,7 +40,6 @@ let find_content ~__context ?sr name =
 		(fun (_, vdi_rec) ->
 			false
 			|| (vdi_rec.API.vDI_location = name) (* PR-1255 *)
-			|| (List.mem_assoc "content_id" vdi_rec.API.vDI_other_config && (List.assoc "content_id" vdi_rec.API.vDI_other_config = name))
 		) all
 
 let redirect sr =
