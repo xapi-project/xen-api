@@ -72,7 +72,7 @@ class Tapdisk:
         (ty, path) = self.file
         cmd = [TAP_CTL, "unpause", "-p", str(self.pid), "-m", str(self.minor), "-a", "%s:%s" % (ty, path) ]
         if self.mirror:
-            args.extend(["-2", self.mirror])
+            cmd.extend(["-2", self.mirror])
         util.pread2(cmd)
 
     def reopen(self):
