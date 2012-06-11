@@ -311,6 +311,8 @@ data/ files are referenced directly by a metadata/ file.
         self.update_vdi_info(vdi, meta)
 
     def get_by_name(self, name):
+        if name == "":
+            raise Backend_error("VDI_INVALID_NAME", [ name ])
         for vdi in self.metadata.keys():
             md = self.metadata[vdi]
             if vdi == name or md["content_id"] == name:
