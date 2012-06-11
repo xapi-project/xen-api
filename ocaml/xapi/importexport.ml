@@ -219,6 +219,7 @@ type vm_export_import = {
 	vm: API.ref_VM;
 	dry_run: bool;
 	live: bool;
+	send_snapshots: bool;
 }
 
 (* Copy VM metadata to a remote pool *)
@@ -229,7 +230,7 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address wh
 
 	let local_export_request = match which with
 		| `All -> "all=true"
-		| `Only {vm=vm} -> Printf.sprintf "export_snapshots=false&ref=%s" (Ref.string_of vm) in
+		| `Only {vm=vm; send_snapshots=send_snapshots} -> Printf.sprintf "export_snapshots=%b&ref=%s" send_snapshots (Ref.string_of vm) in
 
 	let remote_import_request = match which with
 		| `All -> Printf.sprintf "%s?restore=true" Constants.import_metadata_uri

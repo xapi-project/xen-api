@@ -97,6 +97,7 @@ module Mirror = struct
 		mirror_datapath : dp;
 		copy_diffs_from : content_id option;
 		copy_diffs_to : vdi;
+		dummy_vdi : vdi;
 	}
 			
 	type mirror_receive_result = 

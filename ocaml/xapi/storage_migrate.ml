@@ -216,18 +216,19 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 
 	let on_fail : (unit -> unit) list ref = ref [] in
 
+	let base_vdi = 
+		try Some ((List.find (fun x -> x.content_id = dest_content_id) vdis).vdi)
+		with e -> 
+			debug "Exception %s while finding local vdi with content_id=dest" (Printexc.to_string e);
+			None
+	in
+
+
 	try
 		let dp = Uuid.string_of_uuid (Uuid.make_uuid ()) in
 		let dest_vdi_url = Http.Url.set_uri remote_url (Printf.sprintf "%s/nbd/%s/%s/%s" (Http.Url.get_uri remote_url) dest dest_vdi dp) |> Http.Url.to_string in
 
 		debug "Will copy into new remote VDI: %s (%s)" dest_vdi dest_vdi_url;
-
-		let base_vdi = 
-			try Some (Local.VDI.get_by_name ~dbg ~sr ~name:dest_content_id).vdi
-			with e -> 
-				debug "Exception %s while finding local vdi with content_id=dest" (Printexc.to_string e);
-				None
-		in
 
 		debug "Activating datapath on remote";
 
@@ -370,9 +371,15 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 		(* Copy the snapshot to the remote *)
 		let new_parent = Storage_task.with_subtask task "copy" (fun () -> 
 			copy' ~task ~dbg ~sr ~vdi:snapshot.vdi ~url ~dest ~dest_vdi:result.Mirror.copy_diffs_to) |> vdi_info in
-		Remote.VDI.compose ~dbg ~sr:dest ~vdi1:result.Mirror.copy_diffs_to ~vdi2:result.Mirror.mirror_vdi.vdi;
 		debug "Local VDI %s == remote VDI %s" snapshot.vdi new_parent.vdi;
-		
+		Remote.VDI.compose ~dbg ~sr:dest ~vdi1:result.Mirror.copy_diffs_to ~vdi2:result.Mirror.mirror_vdi.vdi;
+		debug "Local VDI %s now mirrored to remote VDI: %s" local_vdi.vdi result.Mirror.mirror_vdi.vdi;
+
+		debug "Destroying dummy VDI %s on remote" result.Mirror.dummy_vdi;
+		Remote.VDI.destroy ~dbg ~sr:dest ~vdi:result.Mirror.dummy_vdi;
+		debug "Destroying snapshot %s on src" snapshot.vdi;
+		Local.VDI.destroy ~dbg ~sr ~vdi:snapshot.vdi;
+
 		Some (Mirror_id id)
 	with e ->
 		error "Caught %s: performing cleanup actions" (Printexc.to_string e);
@@ -434,11 +441,12 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
 	let leaf_dp = Local.DP.create ~dbg ~id:(Uuid.string_of_uuid (Uuid.make_uuid ())) in
 
 	try
-		let dummy = Local.VDI.create ~dbg ~sr ~vdi_info ~params:[] in
-		on_fail := (fun () -> Local.VDI.destroy ~dbg ~sr ~vdi:dummy.vdi) :: !on_fail;
-		let leaf = Local.VDI.clone ~dbg ~sr ~vdi:dummy.vdi ~vdi_info ~params:[] in
+		let leaf = Local.VDI.create ~dbg ~sr ~vdi_info ~params:[] in
+		info "Created leaf VDI for mirror receive: %s" leaf.vdi;
 		on_fail := (fun () -> Local.VDI.destroy ~dbg ~sr ~vdi:leaf.vdi) :: !on_fail;
-		debug "Created leaf for mirror receive: %s" leaf.vdi;
+		let dummy = Local.VDI.snapshot ~dbg ~sr ~vdi:leaf.vdi ~vdi_info ~params:[] in
+		on_fail := (fun () -> Local.VDI.destroy ~dbg ~sr ~vdi:dummy.vdi) :: !on_fail;
+		debug "Created dummy snapshot for mirror receive: %s" dummy.vdi;
 		
 		let _ = Local.VDI.attach ~dbg ~dp:leaf_dp ~sr ~vdi:leaf.vdi ~read_write:true in
 		Local.VDI.activate ~dbg ~dp:leaf_dp ~sr ~vdi:leaf.vdi;
@@ -473,7 +481,8 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
 			Mirror.mirror_vdi = leaf;
 			mirror_datapath = leaf_dp;
 			copy_diffs_from = nearest_content_id;
-			copy_diffs_to = parent.vdi; }
+			copy_diffs_to = parent.vdi;
+		    dummy_vdi = dummy.vdi }
 	with e -> 
 		List.iter (fun op -> try op () with e -> debug "Caught exception in on_fail: %s" (Printexc.to_string e)) !on_fail;
 		raise e
