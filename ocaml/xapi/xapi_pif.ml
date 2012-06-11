@@ -606,7 +606,7 @@ let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
 	let management=Db.PIF.get_management ~__context ~self in
 	let primary_address_type=Db.PIF.get_primary_address_type ~__context ~self in
 
-	if management && mode == `None && primary_address_type=`IPv4
+	if management && mode = `None && primary_address_type=`IPv4
 	then raise (Api_errors.Server_error
 		(Api_errors.pif_is_management_iface, [ Ref.string_of self ]));
 
