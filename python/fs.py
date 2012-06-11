@@ -257,6 +257,7 @@ data/ files are referenced directly by a metadata/ file.
         clone = self.make_fresh_metadata_name(vdi_info)
         vdi_info["vdi"] = clone
         vdi_info["data"] = right
+        vdi_info["virtual_size"] = parent_info["virtual_size"]
         self.update_vdi_info(clone, vdi_info)
 
         return vdi_info
