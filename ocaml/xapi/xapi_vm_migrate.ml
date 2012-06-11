@@ -132,11 +132,19 @@ let get_snapshots_vbds ~__context ~vm =
 	let rec aux acc nb_snapshots cur =
 		let parent = Db.VM.get_parent ~__context ~self:cur in
 		debug "get_snapshots %s" (Ref.string_of parent);
-		if parent = Ref.null then
+		if not (Db.is_valid_ref __context parent) then
 			(acc,nb_snapshots)
 		else
 			aux ((Db.VM.get_VBDs ~__context ~self:parent) @ acc) (nb_snapshots + 1) parent in
 	aux [] 0 vm
+
+let destroy_snapshots ~__context ~vm =
+	let rec aux cur =
+		let parent = Db.VM.get_parent ~__context ~self:cur in
+		Db.VM.destroy ~__context ~self:cur;
+		if Db.is_valid_ref __context parent then
+			aux parent
+	in aux vm
 
 let intra_pool_vdi_remap ~__context vm vdi_map =
 	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
@@ -149,9 +157,7 @@ let intra_pool_vdi_remap ~__context vm vdi_map =
 
 let inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address ~vm ~vdi_map ~dry_run ~live =
 	let vm_export_import = {
-		Importexport.vm = vm;
-		Importexport.dry_run = dry_run;
-		Importexport.live = live;
+		Importexport.vm = vm; dry_run = dry_run; live = live; send_snapshots=true;
 	} in
 	finally
 		(fun () ->
@@ -175,7 +181,9 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let vdi_filter snapshot vbd =
 		if not(Db.VBD.get_empty ~__context ~self:vbd)
 		then
+			let do_mirror = (not snapshot) && (Db.VBD.get_mode ~__context ~self:vbd = `RW) in
 			let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
+			let snapshot_of = Db.VDI.get_snapshot_of ~__context ~self:vdi in
 			let size = Db.VDI.get_virtual_size ~__context ~self:vdi in
 			let xenops_locator = Xapi_xenops.xenops_vdi_locator ~__context ~self:vdi in
 			let location = Db.VDI.get_location ~__context ~self:vdi in
@@ -191,12 +199,12 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				None
 			end else begin
 				let sr = Db.SR.get_uuid ~__context ~self:(Db.VDI.get_SR ~__context ~self:vdi) in
-				Some (vdi, dp, location, sr, xenops_locator, size)
+				Some (vdi, dp, location, sr, xenops_locator, size, snapshot_of, do_mirror)
 			end
 		else None in
 	let vdis = List.filter_map (vdi_filter false) vbds in
 	let snapshots_vdis = List.filter_map (vdi_filter true) snapshots_vbds in
-	let total_size = List.fold_left (fun acc (_,_,_,_,_,sz) -> Int64.add acc sz) 0L (vdis @ snapshots_vdis) in
+	let total_size = List.fold_left (fun acc (_,_,_,_,_,sz,_,_) -> Int64.add acc sz) 0L (vdis @ snapshots_vdis) in
 	let dbg = Context.string_of_task __context in
 	let dest_host = List.assoc _host dest in
 	let url = List.assoc _sm dest in
@@ -230,17 +238,25 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
 		let so_far = ref 0L in
 
-		let vdi_copy_fun snapshot (vdi, dp, location, sr, xenops_locator, size) =
+		let vdi_copy_fun (vdi, dp, location, sr, xenops_locator, size, snapshot_of, do_mirror) =
 			TaskHelper.exn_if_cancelling ~__context;
 			let open Storage_access in 
 			let (dest_sr_ref, dest_sr) =
-				match List.mem_assoc vdi vdi_map, dest_default_sr_ref_uuid with
-					| true, _ ->
+				match List.mem_assoc vdi vdi_map, List.mem_assoc snapshot_of vdi_map, dest_default_sr_ref_uuid with
+					| true, _, _ ->
+						    debug "VDI has been specified in the vdi_map";
 							let dest_sr_ref = List.assoc vdi vdi_map in
 							let dest_sr = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
 							(dest_sr_ref, dest_sr)
-					| false, Some x -> x
-					| false, None ->
+					| false, true, _ ->
+					        debug "snapshot VDI's snapshot_of has been specified in the vdi_map";
+						    let dest_sr_ref = List.assoc snapshot_of vdi_map in
+							let dest_sr = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
+							(dest_sr_ref, dest_sr)
+					| false, false, Some x -> 
+						    debug "Defaulting to destination pool's default_SR";
+						    x
+					| false, false, None ->
 							failwith "No SR specified in VDI map and no default on destination"
 				in
 			let mirror = (not is_intra_pool) || (dest_sr <> sr) in
@@ -260,7 +276,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 						fun x -> start +. x *. len
 					in
 
-					let task = if snapshot then
+					let task = if not do_mirror then
 							SMAPI.DATA.copy ~dbg ~sr ~vdi:location ~dp:newdp ~url ~dest:dest_sr 
 						else begin
 							ignore(Storage_access.register_mirror __context location);
@@ -279,7 +295,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 							 |> success_task dbg in
 
 					let vdi = 
-						if snapshot 
+						if not do_mirror 
 						then begin
 							let vdi = task_result |> vdi_of_task dbg in
 							remote_vdis := vdi.vdi :: !remote_vdis;
@@ -316,8 +332,8 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 								mr_remote_xenops_locator = Xapi_xenops.xenops_vdi_locator_of_strings dest_sr remote_vdi;
 								mr_remote_vdi_reference = remote_vdi_reference; }) in
 
-		let snapshots_map = List.map (vdi_copy_fun true) snapshots_vdis in
-		let vdi_map = List.map (vdi_copy_fun false) vdis in
+		let snapshots_map = List.map vdi_copy_fun snapshots_vdis in
+		let vdi_map = List.map vdi_copy_fun vdis in
 
 		(* Move the xapi VM metadata *)
 
@@ -339,10 +355,18 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			Db.VIF.add_to_other_config ~__context ~self:vif ~key:Constants.storage_migrate_vif_map_key ~value:(Ref.string_of network)) vif_map;
 
 		(* Wait for delay fist to disappear *)
-		while Xapi_fist.pause_storage_migrate () do
-			debug "Sleeping while fistpoint exists";
-			Thread.delay 5.0;
-		done;
+		if Xapi_fist.pause_storage_migrate () then begin
+			TaskHelper.add_to_other_config ~__context "fist" "pause_storage_migrate";
+			
+			while Xapi_fist.pause_storage_migrate () do
+				debug "Sleeping while fistpoint exists";
+				Thread.delay 5.0;
+			done;
+			
+			TaskHelper.operate_on_db_task ~__context 
+				(fun self ->
+					Db_actions.DB_Action.Task.remove_from_other_config ~__context ~self ~key:"fist")
+		end;
 
 		TaskHelper.exn_if_cancelling ~__context;
 
@@ -427,8 +451,8 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				end else debug "Not destroying vdi: %s due to fist point" (Ref.string_of vdi))
 				!vdis_to_destroy;
 			if not is_intra_pool then begin
-				info "Destroying VM record";
-				Db.VM.destroy ~__context ~self:vm
+				info "Destroying VM & snapshots";
+				destroy_snapshots ~__context ~vm
 			end);
 	with e ->
 		error "Caught %s: cleaning up" (Printexc.to_string e);
@@ -465,10 +489,11 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			failed_vdi := Some (List.assoc "mirror_failed" oc);			
 		match !failed_vdi with
 			| Some loc -> 
-				let (vdi,_,_,_,_,_) = List.find (fun (_,_,loc',_,_,_) -> loc'=loc) vdis in
+				let (vdi,_,_,_,_,_,_,_) = List.find (fun (_,_,loc',_,_,_,_,_) -> loc'=loc) vdis in
 				debug "Mirror failed for VDI: %s" loc;
 				raise (Api_errors.Server_error(Api_errors.mirror_failed,[Ref.string_of vdi]))
 			| None ->
+				TaskHelper.exn_if_cancelling ~__context;
 				raise e
 
 let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
