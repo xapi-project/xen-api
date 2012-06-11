@@ -477,6 +477,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				debug "Mirror failed for VDI: %s" loc;
 				raise (Api_errors.Server_error(Api_errors.mirror_failed,[Ref.string_of vdi]))
 			| None ->
+				TaskHelper.exn_if_cancelling ~__context;
 				raise e
 
 let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
