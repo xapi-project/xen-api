@@ -258,6 +258,8 @@ data/ files are referenced directly by a metadata/ file.
         vdi_info["vdi"] = clone
         vdi_info["data"] = right
         vdi_info["virtual_size"] = parent_info["virtual_size"]
+        vdi_info["content_id"] = parent_info["content_id"]
+        vdi_info["read_only"] = parent_info["read_only"]
         self.update_vdi_info(clone, vdi_info)
 
         return vdi_info
@@ -269,6 +271,8 @@ data/ files are referenced directly by a metadata/ file.
 
         # The vhd-tree manipulation is the same as clone...
         vdi_info = self.clone(vdi, vdi_info, params)
+        vdi_info["snapshot_of"] = vdi
+        # XXX vdi_info["snapshot_time"]
         # ... but we also re-open any active tapdisks
         if old_leaf in self.tapdisks:
             tapdisk = self.tapdisks[old_leaf]
