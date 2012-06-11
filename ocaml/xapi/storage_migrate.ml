@@ -286,6 +286,7 @@ let stop ~dbg ~id =
 			let local_vdi =
 				try List.find (fun x -> x.vdi = vdi) vdis
 				with Not_found -> failwith (Printf.sprintf "Local VDI %s not found" vdi) in
+			let local_vdi = { local_vdi with base_mirror = Some id } in
 			(* Disable mirroring on the local machine *)
 			let snapshot = Local.VDI.snapshot ~dbg ~sr ~vdi:local_vdi.vdi ~vdi_info:local_vdi ~params:["mirror", "null"] in
 			Local.VDI.destroy ~dbg ~sr ~vdi:snapshot.vdi;
@@ -308,6 +309,8 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 		with Not_found -> failwith (Printf.sprintf "Local VDI %s not found" vdi) in
 
 	let id = State.id_of (sr,local_vdi.vdi) in
+	(* 'base_mirror = Some X' hides the temporary VDIs to XenCenter *)
+	let local_vdi = { local_vdi with base_mirror = Some id } in
 
 	(* A list of cleanup actions to perform if the operation should fail. *)
 	let on_fail : (unit -> unit) list ref = ref [] in
