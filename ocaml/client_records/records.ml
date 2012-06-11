@@ -310,6 +310,10 @@ let task_record rpc session_id task =
       make_field ~name:"finished"    ~get:(fun () -> Date.to_string (x ()).API.task_finished) ();
       make_field ~name:"error_info"         ~get:(fun () -> String.concat "; " (x ()).API.task_error_info) ();
       make_field ~name:"allowed_operations" ~get:(fun () -> String.concat "; " (List.map Record_util.task_allowed_operations_to_string (x ()).API.task_allowed_operations)) ();
+	  make_field ~name:"other-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.task_other_config) 
+		  ~add_to_map:(fun k v -> Client.Task.add_to_other_config rpc session_id task k v)
+		  ~remove_from_map:(fun k -> Client.Task.remove_from_other_config rpc session_id task k) 
+		  ~get_map:(fun () -> (x ()).API.task_other_config) ();
     ]}
 
 
