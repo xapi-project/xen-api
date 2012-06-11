@@ -262,17 +262,22 @@ data/ files are referenced directly by a metadata/ file.
         return vdi_info
 
     def snapshot(self, vdi, vdi_info, params):
+        # Before modifying the vhd-tree, take a note of the
+        # currently-active leaf so we can find its tapdisk later
+        old_leaf = self.metadata[vdi]["data"]
+
         # The vhd-tree manipulation is the same as clone...
         vdi_info = self.clone(vdi, vdi_info, params)
         # ... but we also re-open any active tapdisks
-        md = self.metadata[vdi]
-        data = md["data"]
-        if data in self.tapdisks:
-            tapdisk = self.tapdisks[data]
+        if old_leaf in self.tapdisks:
+            tapdisk = self.tapdisks[old_leaf]
             if "mirror" in params:
                 tapdisk.mirror = params["mirror"]
             else:
                 tapdisk.mirror = None
+            # Find the new vhd leaf
+            new_leaf = self.metadata[vdi]["data"]
+            tapdisk.file = (self.data[new_leaf]["type"], self.data_path_of_key(new_leaf))
             tapdisk.reopen()
         return vdi_info
 
