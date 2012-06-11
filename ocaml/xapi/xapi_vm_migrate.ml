@@ -339,10 +339,18 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			Db.VIF.add_to_other_config ~__context ~self:vif ~key:Constants.storage_migrate_vif_map_key ~value:(Ref.string_of network)) vif_map;
 
 		(* Wait for delay fist to disappear *)
-		while Xapi_fist.pause_storage_migrate () do
-			debug "Sleeping while fistpoint exists";
-			Thread.delay 5.0;
-		done;
+		if Xapi_fist.pause_storage_migrate () then begin
+			TaskHelper.add_to_other_config ~__context "fist" "pause_storage_migrate";
+			
+			while Xapi_fist.pause_storage_migrate () do
+				debug "Sleeping while fistpoint exists";
+				Thread.delay 5.0;
+			done;
+			
+			TaskHelper.operate_on_db_task ~__context 
+				(fun self ->
+					Db_actions.DB_Action.Task.remove_from_other_config ~__context ~self ~key:"fist")
+		end;
 
 		TaskHelper.exn_if_cancelling ~__context;
 
