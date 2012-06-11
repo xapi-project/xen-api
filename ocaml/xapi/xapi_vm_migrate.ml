@@ -132,7 +132,7 @@ let get_snapshots_vbds ~__context ~vm =
 	let rec aux acc nb_snapshots cur =
 		let parent = Db.VM.get_parent ~__context ~self:cur in
 		debug "get_snapshots %s" (Ref.string_of parent);
-		if parent = Ref.null then
+		if not (Db.is_valid_ref __context parent) then
 			(acc,nb_snapshots)
 		else
 			aux ((Db.VM.get_VBDs ~__context ~self:parent) @ acc) (nb_snapshots + 1) parent in
