@@ -305,7 +305,7 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 	let on_fail : (unit -> unit) list ref = ref [] in
 	try
 		let similar_vdis = Local.VDI.similar_content ~dbg ~sr ~vdi in
-		let similars = List.map (fun vdi -> vdi.content_id) similar_vdis in
+		let similars = List.filter (fun x -> x <> "") (List.map (fun vdi -> vdi.content_id) similar_vdis) in
 		debug "Similar VDIs to %s = [ %s ]" vdi (String.concat "; " (List.map (fun x -> Printf.sprintf "(vdi=%s,content_id=%s)" x.vdi x.content_id) vdis));
 		let result_ty = Remote.DATA.MIRROR.receive_start ~dbg ~sr:dest ~vdi_info:local_vdi ~id ~similar:similars in
 		let result = match result_ty with
