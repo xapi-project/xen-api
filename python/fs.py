@@ -284,6 +284,8 @@ data/ files are referenced directly by a metadata/ file.
             new_leaf = self.metadata[vdi]["data"]
             tapdisk.file = (self.data[new_leaf]["type"], self.data_path_of_key(new_leaf))
             tapdisk.reopen()
+            del self.tapdisks[old_leaf]
+            self.tapdisks[new_leaf] = tapdisk
         return vdi_info
 
     def stat(self, vdi):
