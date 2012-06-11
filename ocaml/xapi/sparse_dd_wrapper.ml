@@ -65,6 +65,7 @@ let dd_internal progress_cb base prezeroed infile outfile size =
 					) () pipe_read;
 				match Forkhelpers.waitpid pid with
 				| (_, Unix.WEXITED 0) -> progress_cb (Finished None)
+				| (_, Unix.WEXITED 5) -> error "sparse_dd received NBD error"; failwith "sparse_dd NBD error"
 				| (_, Unix.WEXITED n) -> error "sparse_dd exit: %d" n; failwith "sparse_dd"
 				| _ -> error "sparse_dd exit with WSTOPPED or WSIGNALED"; failwith "sparse_dd"
 			) with
