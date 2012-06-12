@@ -100,19 +100,22 @@ let ws_proxy __context req protocol port s =
   Pervasiveext.finally (fun () -> 
     let upgrade_successful = Opt.map (fun sock -> 
       try 
-	Ws_helpers.upgrade req s;
-	(sock,true)
+	let result = (sock,Some (Ws_helpers.upgrade req s)) in
+	result	  
       with _ ->
-	(sock,false)) sock
+	(sock,None)) sock
     in
     
     Opt.iter (function
-      | (sock,true) -> begin
-	let message = Printf.sprintf "%s:%d" protocol port in
+      | (sock,Some ty) -> begin
+	let wsprotocol = match ty with
+	  | Ws_helpers.Hixie76 -> "hixie76"
+	  | Ws_helpers.Hybi10 -> "hybi10" in
+	let message = Printf.sprintf "%s:%s:%d" wsprotocol protocol port in
 	let len = String.length message in
 	ignore(Unixext.send_fd sock message 0 len [] s)
       end
-      | (sock,false) -> begin
+      | (sock,None) -> begin
 	Http_svr.headers s (Http.http_501_method_not_implemented ())
       end) upgrade_successful)
     (fun () ->
