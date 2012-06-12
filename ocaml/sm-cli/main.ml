@@ -103,6 +103,13 @@ let _ =
 			if Array.length Sys.argv < 3 then usage_and_exit ();
 			let kvpairs = kvpairs args in
 			let find key = if List.mem_assoc key kvpairs then Some (List.assoc key kvpairs) else None in
+			let params = List.filter_map
+				(fun (k, v) ->
+					let prefix = "params:" in
+					let l = String.length prefix in
+					if String.startswith prefix k
+					then Some (String.sub k l (String.length k - l), v)
+					else None) kvpairs in
 			let vdi_info = {
 				vdi = "";
 				sr = sr;
@@ -118,17 +125,10 @@ let _ =
 				virtual_size = Opt.default 1L (Opt.map Int64.of_string (find "virtual_size"));
 				physical_utilisation = 0L;
 				persistent = true;
-				base_mirror = find "base_mirror";
+				sm_config = params;
 			} in
-			let params = List.filter_map
-				(fun (k, v) ->
-					let prefix = "params:" in
-					let l = String.length prefix in
-					if String.startswith prefix k
-					then Some (String.sub k l (String.length k - l), v)
-					else None) kvpairs in
 
-			let v = Client.VDI.create ~dbg ~sr ~vdi_info ~params in
+			let v = Client.VDI.create ~dbg ~sr ~vdi_info in
 			Printf.printf "%s\n" (string_of_vdi_info v)
 		| [ "vdi-destroy"; sr; vdi ] ->
 			Client.VDI.destroy ~dbg ~sr ~vdi
