@@ -48,6 +48,13 @@ let check_operation_error ~__context ha_enabled record _ref' op =
     let srtype = Db.SR.get_type ~__context ~self:sr in
     let is_tools_sr = Helpers.is_tools_sr ~__context ~sr in
 
+    (* Check to see if any PBDs are attached *)
+    let open Db_filter_types in
+    let num_pbds_attached =
+      List.length (Db.PBD.get_records_where ~__context ~expr:(And(Eq(Field "SR", Literal (Ref.string_of sr)), Eq(Field "currently_attached", Literal "true")))) in
+    if num_pbds_attached = 0 && List.mem op [`resize;]
+    then Some(Api_errors.sr_no_pbds, [Ref.string_of sr])
+    else
     (* check to see whether VBDs exist which are using this VDI *)
     let vbds = Db.VDI.get_VBDs ~__context ~self:_ref' in
     let vbd_recs = List.map (fun self -> Db.VBD.get_record_internal ~__context ~self) vbds in
