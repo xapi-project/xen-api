@@ -428,17 +428,19 @@ set_completions_for_params()
 set_completions()
 {
     # Replace each sequence of non-escaped commas with a newline, then de-escape commas and backslashes.
-    local words=$( echo "$1" | sed -re 's/(^|[^\])((\\\\)*),,*/\1\2\n/g' -e 's/\\,/,/g' -e 's/\\\\/\\/g' )
+    # TODO: Do not generate space suffixes, which have to be removed here.
+    local words=$( echo "$1" | sed -re 's/(^|[^\])((\\\\)*),,*/\1\2\n/g' -e 's/\\,/,/g' -e 's/\\\\/\\/g' -e 's/ *$//' )
     local prefix="$2"
     # TODO: Stop changing IFS.
     local IFS=$'\n'
     local word=
     COMPREPLY=()
     for word in $words; do
-        # TODO: Do not generate space/tab suffixes, which have to be removed here.
-        local word=$( echo "$word" | sed -e 's/[ \t]$//')
-        if [[ "$word" = "$prefix"* ]]; then
+        # Add a space suffix to completions which do not end in '=' or ':'.
+        if [[ "$word" = "$prefix"*[=:] ]]; then
             COMPREPLY+=( $(printf '%q' "$word") )
+        elif [[ "$word" = "$prefix"* ]]; then
+            COMPREPLY+=( $(printf '%q ' "$word") )
         fi
     done
 }
