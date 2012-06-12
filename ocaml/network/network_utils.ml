@@ -143,6 +143,10 @@ module Sysfs = struct
 		try
 			Array.to_list (Sys.readdir (getpath bridge "brif"))
 		with _ -> []
+
+	let get_all_bridges () =
+		let ifaces = list () in
+		List.filter (fun name -> Sys.file_exists (getpath name "bridge")) ifaces
 end
 
 module Ip = struct
