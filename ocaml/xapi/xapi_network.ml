@@ -57,9 +57,7 @@ let check_himn ~__context =
 let attach_internal ?(management_interface=false) ~__context ~self () =
 	let host = Helpers.get_localhost ~__context in
 	let net = Db.Network.get_record ~__context ~self in
-	(* This returns a list of local PIFs, of which there should be only by construction *)
-	let local_pifs =
-		Xapi_network_attach_helpers.assert_can_attach_network_on_host ~__context ~self ~host in
+	let local_pifs = Xapi_network_attach_helpers.get_local_pifs ~__context ~network:self ~host in
 
 	(* Ensure internal bridge exists and is up. external bridges will be
 	   brought up by call to interface-reconfigure. *)
@@ -75,6 +73,7 @@ let attach_internal ?(management_interface=false) ~__context ~self () =
 	   we might be just about to loose our current management interface... *)
 	List.iter (fun pif ->
 		if Db.PIF.get_currently_attached ~__context ~self:pif = false || management_interface then begin
+			Xapi_network_attach_helpers.assert_no_slave ~__context pif;
 			let uuid = Db.PIF.get_uuid ~__context ~self:pif in
 			debug "Trying to attach PIF: %s" uuid;
 			Nm.bring_pif_up ~__context ~management_interface pif

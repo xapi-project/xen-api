@@ -439,12 +439,11 @@ let assert_can_boot_here_common
 	List.iter
 		(fun network->
 			try
-				ignore
-					(Xapi_network_attach_helpers.assert_can_attach_network_on_host
-						~__context
-						~self:network
-						~host)
-					(* throw exception more appropriate to this context: *)
+				Xapi_network_attach_helpers.assert_can_attach_network_on_host
+					~__context
+					~self:network
+					~host
+			(* throw exception more appropriate to this context: *)
 			with exn ->
 				debug
 					"Caught exception while checking if network %s could be attached on host %s:%s"
