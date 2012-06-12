@@ -123,9 +123,11 @@ let reset_state _ () =
 	config := read_management_conf ()
 
 let set_gateway_interface _ dbg ~name =
+	debug "Setting gateway interface to %s" name;
 	config := {!config with gateway_interface = Some name}
 
 let set_dns_interface _ dbg ~name =
+	debug "Setting DNS interface to %s" name;
 	config := {!config with dns_interface = Some name}
 
 module Interface = struct
