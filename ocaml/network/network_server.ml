@@ -455,7 +455,7 @@ module Bridge = struct
 		Debug.with_thread_associated dbg (fun () ->
 			match !kind with
 			| Openvswitch -> Ovs.list_bridges ()
-			| Bridge -> raise Not_implemented
+			| Bridge -> Sysfs.get_all_bridges ()
 		) ()
 
 	let create _ dbg ?vlan ?mac ?(other_config=[]) ~name () =
