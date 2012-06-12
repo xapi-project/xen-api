@@ -458,20 +458,20 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 							Impl.VDI.epoch_end context ~dbg ~sr ~vdi
 						))
 
-        let create context ~dbg ~sr ~vdi_info ~params =
-            info "VDI.create dbg:%s sr:%s vdi_info:%s params:%s" dbg sr (string_of_vdi_info vdi_info) (String.concat "; " (List.map (fun (k, v) -> k ^ ":" ^ v) params));
-            let result = Impl.VDI.create context ~dbg ~sr ~vdi_info ~params in
+        let create context ~dbg ~sr ~vdi_info =
+            info "VDI.create dbg:%s sr:%s vdi_info:%s" dbg sr (string_of_vdi_info vdi_info);
+            let result = Impl.VDI.create context ~dbg ~sr ~vdi_info in
             match result with
                 | { virtual_size = virtual_size' } when virtual_size' < vdi_info.virtual_size ->
                     error "VDI.create dbg:%s created a smaller VDI (%Ld)" dbg virtual_size';
                     raise (Backend_error("SR_BACKEND_FAILURE", ["Disk too small"; Int64.to_string vdi_info.virtual_size; Int64.to_string virtual_size']))
                 | result -> result
 
-		let snapshot_and_clone call_name call_f context ~dbg ~sr ~vdi ~vdi_info ~params =
-			info "%s dbg:%s sr:%s vdi:%s vdi_info:%s params:%s" call_name dbg sr vdi (string_of_vdi_info vdi_info) (String.concat ";" (List.map (fun (k, v) -> k ^ ":" ^ v) params));
+		let snapshot_and_clone call_name call_f context ~dbg ~sr ~vdi ~vdi_info =
+			info "%s dbg:%s sr:%s vdi:%s vdi_info:%s" call_name dbg sr vdi (string_of_vdi_info vdi_info);
 			with_vdi sr vdi
 				(fun () ->
-					call_f context ~dbg ~sr ~vdi ~vdi_info ~params
+					call_f context ~dbg ~sr ~vdi ~vdi_info
 				)
 
 		let snapshot = snapshot_and_clone "VDI.snapshot" Impl.VDI.snapshot
@@ -515,9 +515,13 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			info "VDI.compose dbg:%s sr:%s vdi1:%s vdi2:%s" dbg sr vdi1 vdi2;
 			Impl.VDI.compose context ~dbg ~sr ~vdi1 ~vdi2
 
-		let remove_from_other_config context ~dbg ~sr ~vdi ~key =
+		let add_to_sm_config context ~dbg ~sr ~vdi ~key ~value =
+			info "VDI.add_to_other_config dbg:%s sr:%s vdi:%s key:%s valu:%s" dbg sr vdi key value;
+			Impl.VDI.add_to_sm_config context ~dbg ~sr ~vdi ~key ~value
+
+		let remove_from_sm_config context ~dbg ~sr ~vdi ~key =
 			info "VDI.remove_from_other_config dbg:%s sr:%s vdi:%s key:%s" dbg sr vdi key;
-			Impl.VDI.remove_from_other_config context ~dbg ~sr ~vdi ~key
+			Impl.VDI.remove_from_sm_config context ~dbg ~sr ~vdi ~key
 
 		let get_url context ~dbg ~sr ~vdi =
 			info "VDI.get_url dbg:%s sr:%s vdi:%s" dbg sr vdi;

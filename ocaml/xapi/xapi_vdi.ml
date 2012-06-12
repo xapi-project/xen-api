@@ -232,7 +232,7 @@ let default_vdi_info =
 		virtual_size = 0L;
 		physical_utilisation = 0L;
 		persistent = true;
-		base_mirror = None;
+		sm_config = [];
 	}
 
 let create ~__context ~name_label ~name_description
@@ -261,11 +261,11 @@ let create ~__context ~name_label ~name_description
 		ty = vdi_type;
 		read_only = read_only;
 		virtual_size = virtual_size;
+		sm_config = sm_config;
 	} in
 	let module C = Client(struct let rpc = rpc end) in
 	let vi = transform_storage_exn
-		(fun () -> C.VDI.create ~dbg:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sR)
-			~vdi_info ~params:sm_config) in
+		(fun () -> C.VDI.create ~dbg:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sR) ~vdi_info) in
 	if virtual_size < vi.virtual_size
 	then info "sr:%s vdi:%s requested virtual size %Ld < actual virtual size %Ld" (Ref.string_of sR) vi.vdi virtual_size vi.virtual_size;
 	newvdi ~__context ~sr:sR vi
@@ -370,13 +370,13 @@ let snapshot_and_clone call_f ~__context ~vdi ~driver_params =
 	  let vdi_info = {
 		  default_vdi_info with
 			  name_label = a.Db_actions.vDI_name_label;
-			  name_description = a.Db_actions.vDI_name_description
+			  name_description = a.Db_actions.vDI_name_description;
+			  sm_config = driver_params;
 	  } in
 	  let sr' = Db.SR.get_uuid ~__context ~self:sR in
 	  let vdi' = Db.VDI.get_location ~__context ~self:vdi in
 	  (* We don't use transform_storage_exn because of the clone/copy fallback below *)
-	  let new_vdi = call_f ~dbg:(Ref.string_of task) ~sr:sr'
-		  ~vdi:vdi' ~vdi_info  ~params:driver_params in
+	  let new_vdi = call_f ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:vdi' ~vdi_info in
 	  newvdi ~__context ~sr:sR new_vdi
   in
 
@@ -648,6 +648,9 @@ let set_on_boot ~__context ~self ~value =
 	transform_storage_exn
 		(fun () ->
 			C.VDI.set_persistent ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:vdi' ~persistent:(value = `persist)
+			let newvdi = C.VDI.clone ~dbg:(Ref.string_of task) ~sr:sr'
+				~vdi:vdi' ~vdi_info:default_vdi_info in
+			C.VDI.destroy ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:newvdi.vdi;
 		);
 
 	Db.VDI.set_on_boot ~__context ~self ~value

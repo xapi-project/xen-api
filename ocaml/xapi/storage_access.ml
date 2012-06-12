@@ -84,13 +84,6 @@ module SMAPIv1 = struct
 		let stat_vdi context ~dbg ~sr ~vdi = assert false
 	end
 
-	let base_mirror vdi_rec = (* CA-78221 *)
-		if List.mem_assoc "base_mirror" vdi_rec.API.vDI_other_config then
-			let id = List.assoc "base_mirror" vdi_rec.API.vDI_other_config in
-			Some id
-		else
-			None
-
 	module SR = struct
 		let create context ~dbg ~sr ~device_config ~physical_size =
 			Server_helpers.exec_with_new_task "SR.create" ~subtask_of:(Ref.of_string dbg)
@@ -197,7 +190,7 @@ module SMAPIv1 = struct
 				virtual_size = vdi_rec.API.vDI_virtual_size;
 				physical_utilisation = vdi_rec.API.vDI_physical_utilisation;
 				persistent = vdi_rec.API.vDI_on_boot = `persist;
-				base_mirror = base_mirror vdi_rec;
+				sm_config = vdi_rec.API.vDI_sm_config;
 			}
 
 		let scan context ~dbg ~sr:sr' =
@@ -336,8 +329,12 @@ module SMAPIv1 = struct
                 read_only = r.API.vDI_read_only;
                 virtual_size = r.API.vDI_virtual_size;
                 physical_utilisation = r.API.vDI_physical_utilisation;
+<<<<<<< HEAD
 				persistent = r.API.vDI_on_boot = `persist;
 				base_mirror = base_mirror r;
+=======
+				sm_config = r.API.vDI_sm_config;
+>>>>>>> CA-78221: use sm-config instead of other-config
             }
 
         let newvdi ~__context vi =
@@ -345,15 +342,16 @@ module SMAPIv1 = struct
             let uuid = require_uuid vi in
             vdi_info_from_db ~__context (Db.VDI.get_by_uuid ~__context ~uuid)
 
-        let create context ~dbg ~sr ~vdi_info ~params =
+        let create context ~dbg ~sr ~vdi_info =
             try
                 Server_helpers.exec_with_new_task "VDI.create" ~subtask_of:(Ref.of_string dbg)
                     (fun __context ->
+						let sm_config = vdi_info.sm_config in
                         let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
                         let vi =
                             Sm.call_sm_functions ~__context ~sR:sr
                                 (fun device_config _type ->
-                                    Sm.vdi_create device_config _type sr params vdi_info.ty
+                                    Sm.vdi_create device_config _type sr sm_config vdi_info.ty
                                         vdi_info.virtual_size vdi_info.name_label vdi_info.name_description
 										vdi_info.metadata_of_pool vdi_info.is_a_snapshot
 										vdi_info.snapshot_time vdi_info.snapshot_of vdi_info.read_only
@@ -364,13 +362,18 @@ module SMAPIv1 = struct
 				| Api_errors.Server_error(code, params) -> raise (Backend_error(code, params))
 				| Sm.MasterOnly -> redirect sr
 
-		let snapshot_and_clone call_name call_f context ~dbg ~sr ~vdi ~vdi_info ~params =
+		(* A list of keys in sm-config that will be preserved on clone/snapshot *)
+		let sm_config_keys_to_preserve_on_clone = [
+			"base_mirror"
+		]
+
+		let snapshot_and_clone call_name call_f context ~dbg ~sr ~vdi ~vdi_info =
 			try
 				Server_helpers.exec_with_new_task call_name ~subtask_of:(Ref.of_string dbg)
 					(fun __context ->
 						let vi = for_vdi ~dbg ~sr ~vdi call_name
 							(fun device_config _type sr self ->
-								call_f device_config _type params sr self
+								call_f device_config _type vdi_info.sm_config sr self
 							) in
 						(* PR-1255: modify clone, snapshot to take the same parameters as create? *)
 						let self, _ = find_vdi ~__context sr vi.Smint.vdi_info_location in
@@ -386,10 +389,12 @@ module SMAPIv1 = struct
 						Db.VDI.set_name_description ~__context ~self ~value:vdi_info.name_description;
 						Db.VDI.remove_from_other_config ~__context ~self ~key:"content_id";
 						Db.VDI.add_to_other_config ~__context ~self ~key:"content_id" ~value:content_id;
-						Opt.iter (fun id ->
-							Db.VDI.remove_from_other_config ~__context ~self ~key:"base_mirror";
-							Db.VDI.add_to_other_config ~__context ~self ~key:"base_mirror" ~value:id;
-						) vdi_info.base_mirror;
+						List.iter (fun (key, value) ->
+							if List.mem key sm_config_keys_to_preserve_on_clone then (
+								Db.VDI.remove_from_sm_config ~__context ~self ~key;
+								Db.VDI.add_to_sm_config ~__context ~self ~key ~value;
+							)
+						) vdi_info.sm_config;
 						for_vdi ~dbg ~sr ~vdi:vi.Smint.vdi_info_location "VDI.update"
 							(fun device_config _type sr self ->
 								Sm.vdi_update device_config _type sr self
@@ -553,9 +558,16 @@ module SMAPIv1 = struct
 					raise (Vdi_does_not_exist vdi1)
 				| Sm.MasterOnly -> redirect sr
 
-		let remove_from_other_config context ~dbg ~sr ~vdi ~key =
-			info "VDI.update_record dbg:%s sr:%s vdi:%s" dbg sr vdi;
-			Server_helpers.exec_with_new_task "VDI.update_record" ~subtask_of:(Ref.of_string dbg)
+		let add_to_sm_config context ~dbg ~sr ~vdi ~key ~value =
+			info "VDI.add_to_sm_config dbg:%s sr:%s vdi:%s key:%s value:%s" dbg sr vdi key value;
+			Server_helpers.exec_with_new_task "VDI.add_to_sm_config" ~subtask_of:(Ref.of_string dbg)
+				(fun __context ->
+					let self = find_vdi ~__context sr vdi |> fst in
+					Db.VDI.add_to_sm_config ~__context ~self ~key ~value)
+
+		let remove_from_sm_config context ~dbg ~sr ~vdi ~key =
+			info "VDI.remove_from_sm_config dbg:%s sr:%s vdi:%s key:%s" dbg sr vdi key;
+			Server_helpers.exec_with_new_task "VDI.remove_from_sm_config" ~subtask_of:(Ref.of_string dbg)
 				(fun __context ->
 					let self = find_vdi ~__context sr vdi |> fst in
 					Db.VDI.remove_from_other_config ~__context ~self ~key)
