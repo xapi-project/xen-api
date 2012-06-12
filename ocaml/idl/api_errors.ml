@@ -351,6 +351,8 @@ let ha_host_cannot_access_statefile = "HA_HOST_CANNOT_ACCESS_STATEFILE"
 
 let ha_failed_to_form_liveset = "HA_FAILED_TO_FORM_LIVESET"
 
+let ha_cannot_bond_management_iface = "HA_CANNOT_BOND_MANAGEMENT_IFACE"
+
 (* CA-16480: prevent configuration errors which nullify xHA goodness *)
 let ha_constraint_violation_sr_not_shared = "HA_CONSTRAINT_VIOLATION_SR_NOT_SHARED"
 let ha_constraint_violation_network_not_shared = "HA_CONSTRAINT_VIOLATION_NETWORK_NOT_SHARED"
