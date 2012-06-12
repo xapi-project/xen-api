@@ -1581,7 +1581,7 @@ type info = {
 
 
 (* Where qemu writes its state and is signalled *)
-let device_model_path domid = sprintf "/local/domain/0/device-model/%d" domid
+let device_model_path ~qemu_domid domid = sprintf "/local/domain/%d/device-model/%d" qemu_domid domid
 
 let get_vnc_port ~xs domid =
 	if not (Qemu.is_running ~xs domid)
@@ -1595,26 +1595,26 @@ let get_tc_port ~xs domid =
 
 
 (* Xenclient specific paths *)
-let power_mgmt_path domid = sprintf "/local/domain/0/device-model/%d/xen_extended_power_mgmt" domid
-let oem_features_path domid = sprintf "/local/domain/0/device-model/%d/oem_features" domid
-let inject_sci_path domid = sprintf "/local/domain/0/device-model/%d/inject-sci" domid
+let power_mgmt_path ~qemu_domid domid = sprintf "/local/domain/%d/device-model/%d/xen_extended_power_mgmt" qemu_domid domid
+let oem_features_path ~qemu_domid domid = sprintf "/local/domain/%d/device-model/%d/oem_features" qemu_domid domid
+let inject_sci_path ~qemu_domid domid = sprintf "/local/domain/%d/device-model/%d/inject-sci" qemu_domid domid
 
-let xenclient_specific ~xs info domid =
+let xenclient_specific ~xs info ~qemu_domid domid =
   (match info.power_mgmt with 
     | Some i -> begin
 	try 
 	  if (Unix.stat "/proc/acpi/battery").Unix.st_kind == Unix.S_DIR then
-	    xs.Xs.write (power_mgmt_path domid) (string_of_int i);
+	    xs.Xs.write (power_mgmt_path ~qemu_domid domid) (string_of_int i);
 	with _ -> ()
       end
     | None -> ());
   
   (match info.oem_features with 
-    | Some i -> xs.Xs.write (oem_features_path domid) (string_of_int i);
+    | Some i -> xs.Xs.write (oem_features_path ~qemu_domid domid) (string_of_int i);
     | None -> ());
   
   (match info.inject_sci with 
-    | Some i -> xs.Xs.write (inject_sci_path domid) (string_of_int i)
+    | Some i -> xs.Xs.write (inject_sci_path ~qemu_domid domid) (string_of_int i)
     | None -> ());
   
   let sound_options =
@@ -1627,8 +1627,8 @@ let xenclient_specific ~xs info domid =
    "-M"; (if info.hvm then "xenfv" else "xenpv")] 
   @ sound_options
    
-let signal (task: Xenops_task.t) ~xs ~domid ?wait_for ?param cmd =
-	let cmdpath = device_model_path domid in
+let signal (task: Xenops_task.t) ~xs ~qemu_domid ~domid ?wait_for ?param cmd =
+	let cmdpath = device_model_path ~qemu_domid domid in
 	Xs.transaction xs (fun t ->
 		t.Xst.write (cmdpath ^ "/command") cmd;
 		match param with
@@ -1642,13 +1642,13 @@ let signal (task: Xenops_task.t) ~xs ~domid ?wait_for ?param cmd =
                 * way too long for our software to recover successfully.
                 * Talk to Citrix about this
                 *)
-		let cancel = cancel_path_of_domain ~xs domid in
+		let cancel = cancel_path_of_domain ~xs qemu_domid in
 		let (_: bool) = cancellable_watch cancel [ Watch.value_to_become pw state ] [] task ~xs ~timeout:30. () in
 		()
 	| None -> ()
 
-let get_state ~xs domid =
-	let cmdpath = device_model_path domid in
+let get_state ~xs ~qemu_domid domid =
+	let cmdpath = device_model_path ~qemu_domid domid in
 	let statepath = cmdpath ^ "/state" in
 	try Some (xs.Xs.read statepath)
 	with _ -> None
@@ -1764,7 +1764,8 @@ let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xapi_globs.qemu_dm_re
 	   2. (in production) We know qemu is ready (and the domain may be unpaused) when
 	      device-misc/dm-ready is set in the store. See xs-xen.pq.hg:hvm-late-unpause *)
 
-    let dm_ready = Printf.sprintf "/local/domain/0/device-model/%d/state" domid in
+	let qemu_domid = 0 in (* See stubdom.ml for the corresponding kernel code *)
+    let dm_ready = Printf.sprintf "/local/domain/%d/device-model/%d/state" qemu_domid domid in
 	let qemu_pid = Forkhelpers.getpid pid in
 	debug "qemu-dm: pid = %d. Waiting for %s" qemu_pid dm_ready;
 	(* We can't block for both a xenstore key and a process disappearing so we
@@ -1810,13 +1811,13 @@ let start_vnconly (task: Xenops_task.t) ~xs ~dmpath ?timeout info domid =
 	__start task ~xs ~dmpath ?timeout l domid
 
 (* suspend/resume is a done by sending signals to qemu *)
-let suspend (task: Xenops_task.t) ~xs domid =
-	signal task ~xs ~domid "save" ~wait_for:"paused"
-let resume (task: Xenops_task.t) ~xs domid =
-	signal task ~xs ~domid "continue" ~wait_for:"running"
+let suspend (task: Xenops_task.t) ~xs ~qemu_domid domid =
+	signal task ~xs ~qemu_domid ~domid "save" ~wait_for:"paused"
+let resume (task: Xenops_task.t) ~xs ~qemu_domid domid =
+	signal task ~xs ~qemu_domid ~domid "continue" ~wait_for:"running"
 
 (* Called by every domain destroy, even non-HVM *)
-let stop ~xs domid  =
+let stop ~xs ~qemu_domid domid  =
 	let qemu_pid_path = Qemu.qemu_pid_path domid in
 	match (Qemu.pid ~xs domid) with
 		| None -> () (* nothing to do *)
@@ -1833,7 +1834,7 @@ let stop ~xs domid  =
 			best_effort "removing core files from /var/xen/qemu"
 				(fun () -> Unix.rmdir ("/var/xen/qemu/"^(string_of_int qemu_pid)));
 			best_effort "removing device model path from xenstore"
-				(fun () -> xs.Xs.rm (device_model_path domid))
+				(fun () -> xs.Xs.rm (device_model_path ~qemu_domid domid))
 
 end
 
