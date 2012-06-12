@@ -374,6 +374,19 @@ data/ files are referenced directly by a metadata/ file.
     def epoch_end(self, vdi):
         self.maybe_reset(vdi)
 
+    def open_dummy_vhd(self, vdi_info, tapdisk):
+        # blkback will immediately close if it encounters a blktap
+        # device which doesn't have a backing file. It probably needs
+        # to know the number of sectors? We can satisfy this with a
+        # temporary .vhd file
+        dummy_data_name = self.make_fresh_data_name()
+        dummy_path = self.path + "/" + data_dir + "/" + dummy_data_name + ".dummy" + vhd_suffix
+        virtual_size = long(vdi_info["virtual_size"])
+        vhd.create(virtual_size, dummy_path)
+        tapdisk.open("vhd", dummy_path)
+        tapdisk.pause()
+        os.unlink(dummy_path)
+
     def attach(self, vdi, read_write):
         md = self.metadata[vdi]
         data = md["data"]
@@ -383,17 +396,7 @@ data/ files are referenced directly by a metadata/ file.
         device = self.tapdisks[data].get_device()
         self.writable[vdi] = read_write
 
-        # blkback will immediately close if it encounters a blktap
-        # device which doesn't have a backing file. It probably needs
-        # to know the number of sectors? We can satisfy this with a
-        # temporary .vhd file
-        dummy_data_name = self.make_fresh_data_name()
-        dummy_path = self.path + "/" + data_dir + "/" + dummy_data_name + ".dummy" + vhd_suffix
-        virtual_size = long(md["virtual_size"])
-        vhd.create(virtual_size, dummy_path)
-        self.tapdisks[data].open("vhd", dummy_path)
-        self.tapdisks[data].pause()
-        os.unlink(dummy_path)
+        self.open_dummy_vhd(md, self.tapdisks[data])
 
         return { "params": device,
                  "xenstore_data": {} }
@@ -419,12 +422,15 @@ data/ files are referenced directly by a metadata/ file.
             raise Backend_error("VDI_NOT_ATTACHED", [ vdi ])
         self.tapdisks[data].close()
 
+        self.open_dummy_vhd(md, self.tapdisks[data])
+
     def detach(self, vdi):
         del self.writable[vdi]
         md = self.metadata[vdi]
         data = md["data"]
         if data not in self.tapdisks:
             raise Backend_error("VDI_NOT_ATTACHED", [ vdi ])
+        self.tapdisks[data].close()
         self.tapdisks[data].detach()
         self.tapdisks[data].free()
         del self.tapdisks[data]
