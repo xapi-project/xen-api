@@ -294,6 +294,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 		(* 3. Members must not be tunnel access PIFs *)
 		(* 4. Referenced PIFs must be on the same host *)
 		(* 5. There must be more than one member for the bond ( ** disabled for now) *)
+		(* 6. Members must not be the management interface if HA is enabled *)
 		List.iter (fun self ->
 			let bond = Db.PIF.get_bond_slave_of ~__context ~self in
 			let bonded = try ignore(Db.Bond.get_uuid ~__context ~self:bond); true with _ -> false in
@@ -303,6 +304,9 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 			then raise (Api_errors.Server_error (Api_errors.pif_vlan_exists, [ Db.PIF.get_device_name ~__context ~self] ));
 			if Db.PIF.get_tunnel_access_PIF_of ~__context ~self <> []
 			then raise (Api_errors.Server_error (Api_errors.is_tunnel_access_pif, [Ref.string_of self]));
+			let pool = List.hd (Db.Pool.get_all ~__context) in
+			if Db.Pool.get_ha_enabled ~__context ~self:pool && Db.PIF.get_management ~__context ~self
+			then raise (Api_errors.Server_error(Api_errors.ha_cannot_bond_management_iface, []));
 		) members;
 		let hosts = List.map (fun self -> Db.PIF.get_host ~__context ~self) members in
 		if List.length (List.setify hosts) <> 1
