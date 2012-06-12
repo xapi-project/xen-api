@@ -382,6 +382,19 @@ data/ files are referenced directly by a metadata/ file.
         self.tapdisks[data] = tapdisk.Tapdisk()
         device = self.tapdisks[data].get_device()
         self.writable[vdi] = read_write
+
+        # blkback will immediately close if it encounters a blktap
+        # device which doesn't have a backing file. It probably needs
+        # to know the number of sectors? We can satisfy this with a
+        # temporary .vhd file
+        dummy_data_name = self.make_fresh_data_name()
+        dummy_path = self.path + "/" + data_dir + "/" + dummy_data_name + ".dummy" + vhd_suffix
+        virtual_size = long(md["virtual_size"])
+        vhd.create(virtual_size, dummy_path)
+        self.tapdisks[data].open("vhd", dummy_path)
+        self.tapdisks[data].pause()
+        os.unlink(dummy_path)
+
         return { "params": device,
                  "xenstore_data": {} }
 
@@ -393,7 +406,8 @@ data/ files are referenced directly by a metadata/ file.
         data = md["data"]
         if data not in self.tapdisks:
             raise Backend_error("VDI_NOT_ATTACHED", [ vdi ])
-        self.tapdisks[data].open(self.data[data]["type"], self.data_path_of_key(data))
+        self.tapdisks[data].file = (self.data[data]["type"], self.data_path_of_key(data))
+        self.tapdisks[data].unpause()
 
     def deactivate(self, vdi):
         md = self.metadata[vdi]
