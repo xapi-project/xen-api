@@ -1562,25 +1562,35 @@ module VBD = struct
 		with_xc_and_xs
 			(fun xc xs ->
 				try
-					(* If the device is gone then this is ok *)
-					let device = device_by_id xc xs vm Device_common.Vbd Oldest (id_of vbd) in
-					if force && (not (Device.can_surprise_remove ~xs device))
-					then debug "VM = %s; VBD = %s; Device is not surprise-removable" vm (id_of vbd); (* happens on normal shutdown too *)
-					Xenops_task.with_subtask task (Printf.sprintf "Vbd.clean_shutdown %s" (id_of vbd))
-						(fun () -> (if force then Device.hard_shutdown else Device.clean_shutdown) task ~xs device);
-					Xenops_task.with_subtask task (Printf.sprintf "Vbd.release %s" (id_of vbd))
-						(fun () -> Device.Vbd.release task ~xs device);
-					(* If we have a qemu frontend, detach this too. *)
-					Opt.iter (fun vm_t -> 
-						let non_persistent = vm_t.VmExtra.non_persistent in
-						if List.mem_assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds then begin
-							let _, qemu_vbd = List.assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds in
-							destroy_vbd_frontend ~xc ~xs task qemu_vbd;
-							let non_persistent = { non_persistent with
-								VmExtra.qemu_vbds = List.remove_assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds } in
-							DB.write vm { vm_t with VmExtra.non_persistent = non_persistent }
-						end) vm_t;
-					Storage.dp_destroy task (Storage.id_of (frontend_domid_of_device device) vbd.Vbd.id)
+					(* We always try to destroy the datapath even if the device has
+					   already been shutdown and deactivated (as in the suspend path) *)
+					let domid = Opt.map (fun di -> di.Xenctrl.domid) (di_of_uuid ~xc ~xs Oldest (Uuid.uuid_of_string vm)) in
+					finally
+						(fun () ->
+							(* If the device is gone then this is ok *)
+							let device = device_by_id xc xs vm Device_common.Vbd Oldest (id_of vbd) in
+							if force && (not (Device.can_surprise_remove ~xs device))
+							then debug "VM = %s; VBD = %s; Device is not surprise-removable" vm (id_of vbd); (* happens on normal shutdown too *)
+							Xenops_task.with_subtask task (Printf.sprintf "Vbd.clean_shutdown %s" (id_of vbd))
+								(fun () -> (if force then Device.hard_shutdown else Device.clean_shutdown) task ~xs device);
+							Xenops_task.with_subtask task (Printf.sprintf "Vbd.release %s" (id_of vbd))
+								(fun () -> Device.Vbd.release task ~xs device);
+							(* If we have a qemu frontend, detach this too. *)
+							Opt.iter (fun vm_t -> 
+								let non_persistent = vm_t.VmExtra.non_persistent in
+								if List.mem_assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds then begin
+									let _, qemu_vbd = List.assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds in
+									destroy_vbd_frontend ~xc ~xs task qemu_vbd;
+									let non_persistent = { non_persistent with
+										VmExtra.qemu_vbds = List.remove_assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds } in
+									DB.write vm { vm_t with VmExtra.non_persistent = non_persistent }
+								end) vm_t
+						)
+						(fun () ->
+							Opt.iter (fun domid ->
+								Storage.dp_destroy task (Storage.id_of domid vbd.Vbd.id)
+							) domid
+						)
 				with 
 					| (Does_not_exist(_,_)) ->
 						debug "VM = %s; VBD = %s; Ignoring missing domain" vm (id_of vbd)
