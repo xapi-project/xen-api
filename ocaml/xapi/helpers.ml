@@ -87,25 +87,28 @@ let update_pif_address ~__context ~self =
 	let network = Db.PIF.get_network ~__context ~self in
 	let bridge = Db.Network.get_bridge ~__context ~self:network in
 	let dbg = Context.string_of_task __context in
-	begin
-		match Net.Interface.get_ipv4_addr dbg bridge with
-		| (addr, plen) :: _ ->
-			let ip = Unix.string_of_inet_addr addr in
-			let netmask = Network_interface.prefixlen_to_netmask plen in
-			if ip <> Db.PIF.get_IP ~__context ~self || netmask <> Db.PIF.get_netmask ~__context ~self then begin
-				debug "PIF %s bridge %s IP address changed: %s/%s" (Db.PIF.get_uuid ~__context ~self) bridge ip netmask;
-				Db.PIF.set_IP ~__context ~self ~value:ip;
-				Db.PIF.set_netmask ~__context ~self ~value:netmask
-			end
-		| _ -> ()
-	end;
-	let ipv6_addr = Net.Interface.get_ipv6_addr dbg ~name:bridge in
-	let ipv6_addr' = List.map (fun (addr, plen) -> Printf.sprintf "%s/%d" (Unix.string_of_inet_addr addr) plen) ipv6_addr in
-	if ipv6_addr' <> Db.PIF.get_IPv6 ~__context ~self then begin
-		debug "PIF %s bridge %s IPv6 address changed: %s" (Db.PIF.get_uuid ~__context ~self)
-			bridge (String.concat "; " ipv6_addr');
-		Db.PIF.set_IPv6 ~__context ~self ~value:ipv6_addr'
-	end
+	try
+		begin
+			match Net.Interface.get_ipv4_addr dbg bridge with
+			| (addr, plen) :: _ ->
+				let ip = Unix.string_of_inet_addr addr in
+				let netmask = Network_interface.prefixlen_to_netmask plen in
+				if ip <> Db.PIF.get_IP ~__context ~self || netmask <> Db.PIF.get_netmask ~__context ~self then begin
+					debug "PIF %s bridge %s IP address changed: %s/%s" (Db.PIF.get_uuid ~__context ~self) bridge ip netmask;
+					Db.PIF.set_IP ~__context ~self ~value:ip;
+					Db.PIF.set_netmask ~__context ~self ~value:netmask
+				end
+			| _ -> ()
+		end;
+		let ipv6_addr = Net.Interface.get_ipv6_addr dbg ~name:bridge in
+		let ipv6_addr' = List.map (fun (addr, plen) -> Printf.sprintf "%s/%d" (Unix.string_of_inet_addr addr) plen) ipv6_addr in
+		if ipv6_addr' <> Db.PIF.get_IPv6 ~__context ~self then begin
+			debug "PIF %s bridge %s IPv6 address changed: %s" (Db.PIF.get_uuid ~__context ~self)
+				bridge (String.concat "; " ipv6_addr');
+			Db.PIF.set_IPv6 ~__context ~self ~value:ipv6_addr'
+		end
+	with _ ->
+		debug "Bridge %s is not up; not updating IP" bridge
 
 let update_pif_addresses ~__context =
 	debug "Updating IP addresses in DB for DHCP and autoconf PIFs";
