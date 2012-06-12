@@ -879,12 +879,12 @@ let host_ha_xapi_healthcheck fd printer rpc session_id params =
 	try
 		let result = Client.Host.ha_xapi_healthcheck rpc session_id in
 		if not(result) then begin
-			marshal fd (Command (PrintStderr "Host.ha_xapi_healthcheck reports false"));
+			marshal fd (Command (PrintStderr "Host.ha_xapi_healthcheck reports false\n"));
 			raise (ExitWithError 2) (* comms failure exits with error 1 in the thin CLI itself *)
 		end;
 		marshal fd (Command (Print "xapi is healthy."))
 	with e ->
-		marshal fd (Command (PrintStderr (Printf.sprintf "Host.ha_xapi_healthcheck threw exception: %s" (ExnHelper.string_of_exn e))));
+		marshal fd (Command (PrintStderr (Printf.sprintf "Host.ha_xapi_healthcheck threw exception: %s\n" (ExnHelper.string_of_exn e))));
 		raise (ExitWithError 3)
 
 let pool_sync_database printer rpc session_id params =
@@ -1028,7 +1028,7 @@ let pool_certificate_install fd printer rpc session_id params =
 			Client.Pool.certificate_install ~rpc ~session_id ~name:filename
 				~cert
 		| None ->
-			marshal fd (Command (PrintStderr "Failed to read certificate"));
+			marshal fd (Command (PrintStderr "Failed to read certificate\n"));
 			raise (ExitWithError 1)
 
 let pool_certificate_uninstall printer rpc session_id params =
@@ -1045,7 +1045,7 @@ let pool_crl_install fd printer rpc session_id params =
 		| Some cert ->
 			Client.Pool.crl_install ~rpc ~session_id ~name:filename ~cert
 		| None ->
-			marshal fd (Command (PrintStderr "Failed to read CRL"));
+			marshal fd (Command (PrintStderr "Failed to read CRL\n"));
 			raise (ExitWithError 1)
 
 let pool_crl_uninstall printer rpc session_id params =
@@ -2256,14 +2256,14 @@ let console fd printer rpc session_id params =
 				try
 					List.find (fun c -> Client.Console.get_protocol rpc session_id c = `vt100) cs
 				with Not_found ->
-					marshal fd (Command (PrintStderr "No text console available"));
+					marshal fd (Command (PrintStderr "No text console available\n"));
 					raise (ExitWithError 1)
 			end
 		| [] ->
-			marshal fd (Command (PrintStderr "No VM found"));
+			marshal fd (Command (PrintStderr "No VM found\n"));
 			raise (ExitWithError 1)
 		| _ :: _ ->
-			marshal fd (Command (PrintStderr "Multiple VMs found: please narrow your request to one VM."));
+			marshal fd (Command (PrintStderr "Multiple VMs found: please narrow your request to one VM.\n"));
 			raise (ExitWithError 1)
 	in
 	let vm = Client.Console.get_VM rpc session_id c in
@@ -2746,7 +2746,7 @@ let host_license_add fd printer rpc session_id params =
 			Client.Host.license_apply rpc session_id host (Base64.encode license);
 			marshal fd (Command (Print "License applied."))
 		| None ->
-			marshal fd (Command (PrintStderr "Failed to read license file"));
+			marshal fd (Command (PrintStderr "Failed to read license file\n"));
 			raise (ExitWithError 1)
 
 let host_license_view printer rpc session_id params =
@@ -2904,20 +2904,20 @@ let download_file ~__context rpc session_id task fd filename uri label =
 				(if filename <> "" then
 					marshal fd (Command (Print (Printf.sprintf "%s succeeded" label))))
 			else
-				(marshal fd (Command (PrintStderr (Printf.sprintf "%s failed, unknown error." label)));
+				(marshal fd (Command (PrintStderr (Printf.sprintf "%s failed, unknown error.\n" label)));
 				raise (ExitWithError 1))
 		| `failure ->
 			let result = Client.Task.get_error_info rpc session_id task in
 			if result = []
 			then
-				marshal fd (Command (PrintStderr (Printf.sprintf "%s failed, unknown error" label)))
+				marshal fd (Command (PrintStderr (Printf.sprintf "%s failed, unknown error\n" label)))
 			else
 				raise (Api_errors.Server_error ((List.hd result),(List.tl result)))
 		| `cancelled ->
-			marshal fd (Command (PrintStderr (Printf.sprintf "%s cancelled" label)));
+			marshal fd (Command (PrintStderr (Printf.sprintf "%s cancelled\n" label)));
 			raise (ExitWithError 1)
 		| _ ->
-			marshal fd (Command (PrintStderr "Internal error")); (* should never happen *)
+			marshal fd (Command (PrintStderr "Internal error\n")); (* should never happen *)
 			raise (ExitWithError 1)
 
 let download_file_with_task fd rpc session_id filename uri query label
@@ -3118,26 +3118,26 @@ let vm_import fd printer rpc session_id params =
 													marshal fd (Command (Print (String.concat "," uuids)))
 												else
 													begin
-														marshal fd (Command (PrintStderr "Warning: Streaming failed, but task succeeded. Manual check required."));
+														marshal fd (Command (PrintStderr "Warning: Streaming failed, but task succeeded. Manual check required.\n"));
 														raise (ExitWithError 1)
 													end
 										| `failure ->
 												let result = Client.Task.get_error_info rpc session_id importtask in
 												if result = [] then
 													begin
-														marshal fd (Command (PrintStderr "Import failed, unknown error"));
+														marshal fd (Command (PrintStderr "Import failed, unknown error\n"));
 														raise (ExitWithError 1)
 													end
 												else Cli_util.server_error (List.hd result) (List.tl result) fd
 										| `cancelled ->
-												marshal fd (Command (PrintStderr "Import cancelled"));
+												marshal fd (Command (PrintStderr "Import cancelled\n"));
 												raise (ExitWithError 1)
 										| _ ->
-												marshal fd (Command (PrintStderr "Internal error")); (* should never happen *)
+												marshal fd (Command (PrintStderr "Internal error\n")); (* should never happen *)
 												raise (ExitWithError 1))
 								with e ->
 									marshal fd (Command (Debug ("Caught exception: " ^ (Printexc.to_string e))));
-									marshal fd (Command (PrintStderr "Failed to import directory-format XVA"));
+									marshal fd (Command (PrintStderr "Failed to import directory-format XVA\n"));
 									debug "Import failed with exception: %s" (Printexc.to_string e);
 									(if (Db_actions.DB_Action.Task.get_progress ~__context ~self:importtask = (-1.0))
 									then TaskHelper.failed ~__context:(Context.from_forwarded_task importtask) (Api_errors.import_error_generic,[(Printexc.to_string e)])
@@ -3203,18 +3203,18 @@ let blob_get fd printer rpc session_id params =
 				| `success ->
 					if ok
 					then (marshal fd (Command (Print "Blob get succeeded")))
-					else (marshal fd (Command (PrintStderr "Blob get failed, unknown error."));
+					else (marshal fd (Command (PrintStderr "Blob get failed, unknown error.\n"));
 					raise (ExitWithError 1))
 				| `failure ->
 					let result = Client.Task.get_error_info rpc session_id blobtask in
 					if result = []
-					then marshal fd (Command (PrintStderr "Blob get failed, unknown error"))
+					then marshal fd (Command (PrintStderr "Blob get failed, unknown error\n"))
 					else raise (Api_errors.Server_error ((List.hd result),(List.tl result)))
 				| `cancelled ->
-					marshal fd (Command (PrintStderr "Blob get cancelled"));
+					marshal fd (Command (PrintStderr "Blob get cancelled\n"));
 					raise (ExitWithError 1)
 				| _ ->
-					marshal fd (Command (PrintStderr "Internal error")); (* should never happen *)
+					marshal fd (Command (PrintStderr "Internal error\n")); (* should never happen *)
 					raise (ExitWithError 1)
 			))
 		(fun () -> Client.Task.destroy rpc session_id blobtask)
@@ -3252,18 +3252,18 @@ let blob_put fd printer rpc session_id params =
 				| `success ->
 					if ok
 					then (marshal fd (Command (Print "Blob put succeeded")))
-					else (marshal fd (Command (PrintStderr "Blob put failed, unknown error."));
+					else (marshal fd (Command (PrintStderr "Blob put failed, unknown error.\n"));
 					raise (ExitWithError 1))
 				| `failure ->
 					let result = Client.Task.get_error_info rpc session_id blobtask in
 					if result = []
-					then marshal fd (Command (PrintStderr "Blob put failed, unknown error"))
+					then marshal fd (Command (PrintStderr "Blob put failed, unknown error\n"))
 					else raise (Api_errors.Server_error ((List.hd result),(List.tl result)))
 				| `cancelled ->
-					marshal fd (Command (PrintStderr "Blob put cancelled"));
+					marshal fd (Command (PrintStderr "Blob put cancelled\n"));
 					raise (ExitWithError 1)
 				| _ ->
-					marshal fd (Command (PrintStderr "Internal error")); (* should never happen *)
+					marshal fd (Command (PrintStderr "Internal error\n")); (* should never happen *)
 					raise (ExitWithError 1)
 			))
 		(fun () -> Client.Task.destroy rpc session_id blobtask)
@@ -3796,18 +3796,18 @@ let wait_for_task rpc session_id task __context fd op_str =
 		| `success ->
 			if ok
 			then (marshal fd (Command (Print (op_str ^ " succeeded"))))
-			else (marshal fd (Command (PrintStderr (op_str ^ " failed, unknown error.")));
+			else (marshal fd (Command (PrintStderr (op_str ^ " failed, unknown error.\n")));
 			raise (ExitWithError 1))
 		| `failure ->
 			let result = Client.Task.get_error_info rpc session_id task in
 			if result = []
-			then marshal fd (Command (PrintStderr (op_str ^ " failed, unknown error")))
+			then marshal fd (Command (PrintStderr (op_str ^ " failed, unknown error\n")))
 			else raise (Api_errors.Server_error ((List.hd result),(List.tl result)))
 		| `cancelled ->
-			marshal fd (Command (PrintStderr (op_str ^ " cancelled")));
+			marshal fd (Command (PrintStderr (op_str ^ " cancelled\n")));
 			raise (ExitWithError 1)
 		| _ ->
-			marshal fd (Command (PrintStderr "Internal error")); (* should never happen *)
+			marshal fd (Command (PrintStderr "Internal error\n")); (* should never happen *)
 			raise (ExitWithError 1)
 	)
 
