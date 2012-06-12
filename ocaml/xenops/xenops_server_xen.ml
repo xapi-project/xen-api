@@ -739,8 +739,9 @@ module VM = struct
 
 	let destroy_device_model = on_domain_if_exists (fun xc xs task vm di ->
 		let domid = di.Xenctrl.domid in
+		let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs domid) in
 		log_exn_continue "Error stoping device-model, already dead ?"
-			(fun () -> Device.Dm.stop ~xs domid) ();
+			(fun () -> Device.Dm.stop ~xs ~qemu_domid domid) ();
 		log_exn_continue "Error stoping vncterm, already dead ?"
 			(fun () -> Device.PV_Vnc.stop ~xs domid) ();
 		(* If qemu is in a different domain to storage, detach disks *)
@@ -748,11 +749,11 @@ module VM = struct
 
 	let destroy = on_domain_if_exists (fun xc xs task vm di ->
 		let domid = di.Xenctrl.domid in
-
+		let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs domid) in
 		(* We need to clean up the stubdom before the primary otherwise we deadlock *)
 		Opt.iter
 			(fun stubdom_domid ->
-				Domain.destroy task ~xc ~xs stubdom_domid
+				Domain.destroy task ~xc ~xs ~qemu_domid stubdom_domid
 			) (get_stubdom ~xs domid);
 
 		let devices = Device_common.list_frontends ~xs domid in
@@ -767,7 +768,7 @@ module VM = struct
 			debug "VM = %s; domid = %d; will not have domain-level information preserved" vm.Vm.id di.Xenctrl.domid;
 			if DB.exists vm.Vm.id then DB.remove vm.Vm.id;
 		end;
-		Domain.destroy task ~xc ~xs domid;
+		Domain.destroy task ~xc ~xs ~qemu_domid domid;
 		(* Detach any remaining disks *)
 		List.iter (fun dp -> 
 			try 
@@ -1151,9 +1152,11 @@ module VM = struct
 				let hvm = di.Xenctrl.hvm_guest in
 				let domid = di.Xenctrl.domid in
 
+				let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs domid) in
+
 				with_data ~xc ~xs task data true
 					(fun fd ->
-						Domain.suspend task ~xc ~xs ~hvm ~progress_callback domid fd flags'
+						Domain.suspend task ~xc ~xs ~hvm ~progress_callback ~qemu_domid domid fd flags'
 							(fun () ->
 								if not(request_shutdown task vm Suspend 30.)
 								then raise (Failed_to_acknowledge_shutdown_request);
@@ -1199,6 +1202,7 @@ module VM = struct
 		on_domain
 			(fun xc xs task vm di ->
 				let domid = di.Xenctrl.domid in
+				let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs domid) in
 				let k = vm.Vm.id in
 				let vmextra = DB.read_exn k in
 				let build_info = match vmextra.VmExtra.persistent with
@@ -1219,7 +1223,7 @@ module VM = struct
 						(* As of xen-unstable.hg 779c0ef9682 libxenguest will destroy the domain on failure *)
 						if try ignore(Xenctrl.domain_getinfo xc di.Xenctrl.domid); false with _ -> true then begin
 							debug "VM %s: libxenguest has destroyed domid %d; cleaning up xenstore for consistency" vm.Vm.id di.Xenctrl.domid;
-							Domain.destroy task ~xc ~xs di.Xenctrl.domid;
+							Domain.destroy task ~xc ~xs ~qemu_domid di.Xenctrl.domid;
 						end;
 						raise e
 				end;
