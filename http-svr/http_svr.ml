@@ -177,7 +177,8 @@ let respond_to_options req s =
   in
   response_fct req ~hdrs:[
     "Access-Control-Allow-Origin", "*";
-    "Access-Control-Allow-Headers", access_control_allow_headers] s 0L (fun _ -> ())
+    "Access-Control-Allow-Headers", access_control_allow_headers;
+    "Access-Control-Allow-Methods","PUT"] s 0L (fun _ -> ())
       
 
 (** If no handler matches the request then call this callback *)
