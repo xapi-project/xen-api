@@ -476,7 +476,7 @@ module HOST = struct
 				(* There may be invalid XML characters in the buffer, so remove them *)
 				let is_printable chr =
 					let x = int_of_char chr in
-					x >= 0x20 && x <= 0x7e in
+					x=13 || x=10 || (x >= 0x20 && x <= 0x7e) in
 				for i = 0 to String.length raw - 1 do
 					if not(is_printable raw.[i])
 					then raw.[i] <- ' '
