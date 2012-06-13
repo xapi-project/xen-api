@@ -367,16 +367,17 @@ let snapshot_and_clone call_f ~__context ~vdi ~driver_params =
 	  let open Storage_access in
 	  let task = Context.get_task_id __context in	
 	  let open Storage_interface in
+	  let vdi' = Db.VDI.get_location ~__context ~self:vdi in
 	  let vdi_info = {
 		  default_vdi_info with
+			  vdi = vdi';
 			  name_label = a.Db_actions.vDI_name_label;
 			  name_description = a.Db_actions.vDI_name_description;
 			  sm_config = driver_params;
 	  } in
 	  let sr' = Db.SR.get_uuid ~__context ~self:sR in
-	  let vdi' = Db.VDI.get_location ~__context ~self:vdi in
 	  (* We don't use transform_storage_exn because of the clone/copy fallback below *)
-	  let new_vdi = call_f ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:vdi' ~vdi_info in
+	  let new_vdi = call_f ~dbg:(Ref.string_of task) ~sr:sr' ~vdi_info in
 	  newvdi ~__context ~sr:sR new_vdi
   in
 
@@ -645,11 +646,11 @@ let set_on_boot ~__context ~self ~value =
 	let sr' = Db.SR.get_uuid ~__context ~self:sr in
 	let vdi' = Db.VDI.get_location ~__context ~self in
 	let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+	let vdi_info = { default_vdi_info with vdi = vdi' } in
 	transform_storage_exn
 		(fun () ->
 			C.VDI.set_persistent ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:vdi' ~persistent:(value = `persist)
-			let newvdi = C.VDI.clone ~dbg:(Ref.string_of task) ~sr:sr'
-				~vdi:vdi' ~vdi_info:default_vdi_info in
+			let newvdi = C.VDI.clone ~dbg:(Ref.string_of task) ~sr:sr' ~vdi_info in
 			C.VDI.destroy ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:newvdi.vdi;
 		);
 

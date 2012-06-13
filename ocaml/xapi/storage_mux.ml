@@ -161,13 +161,16 @@ module Mux = struct
 	module VDI = struct
 		let create context ~dbg ~sr ~vdi_info =
 			let module C = Client(struct let rpc = of_sr sr end) in
-			C.VDI.create ~dbg ~sr ~vdi_info ~params
+			C.VDI.create ~dbg ~sr ~vdi_info
+		let stat context ~dbg ~sr ~vdi =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.VDI.stat ~dbg ~sr ~vdi
         let snapshot context ~dbg ~sr ~vdi_info =
             let module C = Client(struct let rpc = of_sr sr end) in
-            C.VDI.snapshot ~dbg ~sr ~vdi ~vdi_info
-        let clone context ~dbg ~sr ~vdi ~vdi_info =
+            C.VDI.snapshot ~dbg ~sr ~vdi_info
+        let clone context ~dbg ~sr ~vdi_info =
             let module C = Client(struct let rpc = of_sr sr end) in
-            C.VDI.clone ~dbg ~sr ~vdi ~vdi_info
+            C.VDI.clone ~dbg ~sr ~vdi_info
 		let destroy context ~dbg ~sr ~vdi =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.destroy ~dbg ~sr ~vdi

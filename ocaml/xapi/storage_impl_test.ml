@@ -67,7 +67,7 @@ module Debug_print_impl = struct
                 );
             info
 
-		let snapshot context ~dbg ~sr ~vdi ~vdi_info =
+		let snapshot context ~dbg ~sr ~vdi_info =
 			create context ~dbg ~sr ~vdi_info
 		let clone = snapshot
 

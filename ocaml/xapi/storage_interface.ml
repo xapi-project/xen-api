@@ -156,8 +156,8 @@ exception Does_not_exist of (string * string)
 exception Cancelled of string
 exception Redirect of string option
 exception Sr_attached of string
-
 exception Unimplemented of string
+exception Duplicated_key of string
 
 type query_result = {
 	driver: string;
@@ -242,11 +242,11 @@ module VDI = struct
         returns the vdi_info which was used. *)
 	external create : dbg:debug_info -> sr:sr -> vdi_info:vdi_info -> vdi_info = ""
 
-	(** [snapshot task sr vdi vdi_info] creates a new VDI which is a snapshot of [vdi] in [sr] *)
-	external snapshot : dbg:debug_info -> sr:sr -> vdi:vdi -> vdi_info:vdi_info -> vdi_info = ""
+	(** [snapshot task sr vdi_info] creates a new VDI which is a snapshot of [vdi_info] in [sr] *)
+	external snapshot : dbg:debug_info -> sr:sr -> vdi_info:vdi_info -> vdi_info = ""
 
-	(** [clone task sr vdi vdi_info] creates a new VDI which is a clone of [vdi] in [sr] *)
-	external clone : dbg:debug_info -> sr:sr -> vdi:vdi -> vdi_info:vdi_info -> vdi_info = ""
+	(** [clone task sr vdi_info] creates a new VDI which is a clone of [vdi_info] in [sr] *)
+	external clone : dbg:debug_info -> sr:sr -> vdi_info:vdi_info -> vdi_info = ""
 
     (** [destroy task sr vdi] removes [vdi] from [sr] *)
     external destroy : dbg:debug_info -> sr:sr -> vdi:vdi -> unit = ""

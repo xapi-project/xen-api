@@ -346,12 +346,11 @@ module SMAPIv1 = struct
             try
                 Server_helpers.exec_with_new_task "VDI.create" ~subtask_of:(Ref.of_string dbg)
                     (fun __context ->
-						let sm_config = vdi_info.sm_config in
                         let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
                         let vi =
                             Sm.call_sm_functions ~__context ~sR:sr
                                 (fun device_config _type ->
-                                    Sm.vdi_create device_config _type sr sm_config vdi_info.ty
+                                    Sm.vdi_create device_config _type sr vdi_info.sm_config vdi_info.ty
                                         vdi_info.virtual_size vdi_info.name_label vdi_info.name_description
 										vdi_info.metadata_of_pool vdi_info.is_a_snapshot
 										vdi_info.snapshot_time vdi_info.snapshot_of vdi_info.read_only
@@ -367,17 +366,17 @@ module SMAPIv1 = struct
 			"base_mirror"
 		]
 
-		let snapshot_and_clone call_name call_f context ~dbg ~sr ~vdi ~vdi_info =
+		let snapshot_and_clone call_name call_f context ~dbg ~sr ~vdi_info =
 			try
 				Server_helpers.exec_with_new_task call_name ~subtask_of:(Ref.of_string dbg)
 					(fun __context ->
-						let vi = for_vdi ~dbg ~sr ~vdi call_name
+						let vi = for_vdi ~dbg ~sr ~vdi:vdi_info.vdi call_name
 							(fun device_config _type sr self ->
 								call_f device_config _type vdi_info.sm_config sr self
 							) in
 						(* PR-1255: modify clone, snapshot to take the same parameters as create? *)
 						let self, _ = find_vdi ~__context sr vi.Smint.vdi_info_location in
-						let clonee, _ = find_vdi ~__context sr vdi in
+						let clonee, _ = find_vdi ~__context sr vdi_info.vdi in
 						let content_id = 
 							try 
 								List.assoc "content_id" 
@@ -389,8 +388,10 @@ module SMAPIv1 = struct
 						Db.VDI.set_name_description ~__context ~self ~value:vdi_info.name_description;
 						Db.VDI.remove_from_other_config ~__context ~self ~key:"content_id";
 						Db.VDI.add_to_other_config ~__context ~self ~key:"content_id" ~value:content_id;
+						debug "copying sm-config";
 						List.iter (fun (key, value) ->
-							if List.mem key sm_config_keys_to_preserve_on_clone then (
+							let preserve = List.mem key sm_config_keys_to_preserve_on_clone in
+							if preserve then (
 								Db.VDI.remove_from_sm_config ~__context ~self ~key;
 								Db.VDI.add_to_sm_config ~__context ~self ~key ~value;
 							)
@@ -399,7 +400,9 @@ module SMAPIv1 = struct
 							(fun device_config _type sr self ->
 								Sm.vdi_update device_config _type sr self
 							);
-						vdi_info_from_db ~__context self
+						let vdi = vdi_info_from_db ~__context self in
+						debug "vdi = %s" (string_of_vdi_info vdi);
+						vdi
 					)
             with 
 				| Api_errors.Server_error(code, params) ->
