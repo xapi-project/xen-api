@@ -112,7 +112,6 @@ let _ =
 					else None) kvpairs in
 			let vdi_info = {
 				vdi = "";
-				sr = sr;
 				content_id = ""; (* PR-1255 *)
 				name_label = Opt.default "default name_label" (find "name_label");
 				name_description = Opt.default "default name_description" (find "name_description");
@@ -145,8 +144,8 @@ let _ =
 			let v = Client.VDI.get_by_name ~dbg ~sr ~name in
 			Printf.printf "%s\n" (string_of_vdi_info v)
 		| [ "vdi-get-by-name"; name ] ->
-			let v = Client.get_by_name ~dbg ~name in
-			Printf.printf "%s\n" (string_of_vdi_info v)
+			let sr, v = Client.get_by_name ~dbg ~name in
+			Printf.printf "sr=%s; %s\n" sr (string_of_vdi_info v)
 		| [ "vdi-set-content-id"; sr; vdi; content_id ] ->
 			Client.VDI.set_content_id ~dbg ~sr ~vdi~content_id
 		| [ "vdi-similar-content"; sr; vdi ] ->

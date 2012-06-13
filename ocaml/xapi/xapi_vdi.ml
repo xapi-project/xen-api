@@ -219,7 +219,6 @@ let newvdi ~__context ~sr newvdi =
 let default_vdi_info =
 	let open Storage_interface in {
 		vdi = "";
-		sr = "";
 		content_id = "";
 		name_label = "";
 		name_description = "";

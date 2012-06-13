@@ -173,7 +173,6 @@ let example_vdi_info =
 	let sm_config = [] in
 	{
 		vdi = "";
-		sr = "";
 		content_id = "";
 		name_label = name_label;
 		name_description = name_description;
