@@ -38,7 +38,15 @@ let cancel_path_of ~xs = function
 	| Domain domid -> Printf.sprintf "%s/tools/xenops/cancel" (xs.Xs.getdomainpath domid)
 	| TestPath x -> x
 
-let watch_of ~xs key = Watch.key_to_disappear (cancel_path_of ~xs key)
+let domain_shutdown_path_of ~xs = function
+	| Device device -> frontend_path_of_device ~xs device ^ "/tools/xenops/shutdown"
+	| Domain domid -> Printf.sprintf "%s/tools/xenops/shutdown" (xs.Xs.getdomainpath domid)
+	| TestPath x -> x
+
+let watches_of ~xs key = [
+	Watch.key_to_disappear (cancel_path_of ~xs key);
+	Watch.value_to_become (domain_shutdown_path_of ~xs key) "";
+]
 
 let cancel ~xs key =
 	let path = cancel_path_of ~xs key in
@@ -46,6 +54,10 @@ let cancel ~xs key =
 		info "Cancelling operation on device: %s" (string_of key);
 		xs.Xs.rm path
 	end
+
+let on_shutdown ~xs domid =
+	let path = domain_shutdown_path_of ~xs (Domain domid) in
+	xs.Xs.write path ""
 
 let with_path ~xs key f =
 	let path = cancel_path_of ~xs key in
@@ -77,9 +89,9 @@ let cancellable_watch key good_watches error_watches (task: Xenops_task.t) ~xs ~
 							List.map (fun w -> `OK, w) good_watches
 						) @ (
 							List.map (fun w -> `Error, w) error_watches
-						) @ [
-							`Cancel, watch_of ~xs key
-						])
+						) @ (
+							List.map (fun w -> `Cancel, w) (watches_of ~xs key)
+						))
 					) with
 						| `OK, _ -> true
 						| `Error, _ -> false
