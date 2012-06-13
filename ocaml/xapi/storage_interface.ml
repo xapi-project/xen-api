@@ -41,7 +41,6 @@ type content_id = string
 (** The result of an operation which creates or examines a VDI *)
 type vdi_info = {
     vdi: vdi;
-	sr: sr;
 	content_id: content_id;
     name_label: string;
     name_description: string;
@@ -306,7 +305,7 @@ module VDI = struct
 end
 
 (** [get_by_name task name] returns a vdi with [name] (which may be in any SR) *)
-external get_by_name : dbg:debug_info -> name:string -> vdi_info = ""
+external get_by_name : dbg:debug_info -> name:string -> sr * vdi_info = ""
 
 module DATA = struct
 

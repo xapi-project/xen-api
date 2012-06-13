@@ -230,11 +230,11 @@ module Mux = struct
         match List.filter (fun x -> x <> "") (String.split ~limit:2 '/' name) with
             | [ sr; name ] ->
                 let module C = Client(struct let rpc = of_sr sr end) in
-                C.VDI.get_by_name ~dbg ~sr ~name
+                sr, C.VDI.get_by_name ~dbg ~sr ~name
             | [ name ] ->
                 (match success_or choose (multicast (fun sr rpc ->
                     let module C = Client(struct let rpc = of_sr sr end) in
-                    C.VDI.get_by_name ~dbg ~sr ~name
+                    sr, C.VDI.get_by_name ~dbg ~sr ~name
                 )) with SMSuccess x -> x
 					| SMFailure e -> raise e)
             | _ ->

@@ -170,14 +170,13 @@ module SMAPIv1 = struct
 						)
 				)
 
-		let vdi_info_of_vdi_rec __context sr vdi_rec =
+		let vdi_info_of_vdi_rec __context vdi_rec =
 			let content_id =
 				if List.mem_assoc "content_id" vdi_rec.API.vDI_other_config
 				then List.assoc "content_id" vdi_rec.API.vDI_other_config
 				else vdi_rec.API.vDI_location (* PR-1255 *)
 			in {
 				vdi = vdi_rec.API.vDI_location;
-				sr = sr;
 				content_id = content_id; (* PR-1255 *)
 				name_label = vdi_rec.API.vDI_name_label;
 				name_description = vdi_rec.API.vDI_name_description;
@@ -203,7 +202,7 @@ module SMAPIv1 = struct
 								Sm.sr_scan device_config _type sr;
 								let open Db_filter_types in
 								let vdis = Db.VDI.get_records_where ~__context ~expr:(Eq(Field "SR", Literal (Ref.string_of sr))) |> List.map snd in
-								List.map (vdi_info_of_vdi_rec __context sr') vdis
+								List.map (vdi_info_of_vdi_rec __context) vdis
 							with
 								| Smint.Not_implemented_in_backend ->
 									raise (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
@@ -317,7 +316,6 @@ module SMAPIv1 = struct
             let r = Db.VDI.get_record ~__context ~self in
             {
                 vdi = r.API.vDI_location;
-				sr = Db.SR.get_uuid ~__context ~self:r.API.vDI_SR;
 				content_id = r.API.vDI_location; (* PR-1255 *)
                 name_label = r.API.vDI_name_label;
                 name_description = r.API.vDI_name_description;
@@ -472,7 +470,7 @@ module SMAPIv1 = struct
 					(* PR-1255: the backend should do this for us *)
 					try
 						let _, vdi = find_content ~__context ~sr name in
-						let vi = SR.vdi_info_of_vdi_rec __context sr vdi in
+						let vi = SR.vdi_info_of_vdi_rec __context vdi in
 						debug "VDI.get_by_name returning successfully";
 						vi
 					with e ->
@@ -537,7 +535,7 @@ module SMAPIv1 = struct
 					let _, vdi_rec = find_vdi ~__context sr vdi in
 					let vdis = explore 0 StringMap.empty vdi_rec.API.vDI_location |> invert |> IntMap.bindings |> List.map snd |> List.concat in
 					let vdi_recs = List.map (fun l -> StringMap.find l locations) vdis in
-					List.map (fun x -> SR.vdi_info_of_vdi_rec __context sr x) vdi_recs
+					List.map (fun x -> SR.vdi_info_of_vdi_rec __context x) vdi_recs
 				)
 
 		let compose context ~dbg ~sr ~vdi1 ~vdi2 =
