@@ -111,7 +111,7 @@ val ha_compute_vm_failover_plan :
   failed_vms:API.ref_VM list -> (API.ref_VM * (string * string) list) list
 val create_new_blob :
   __context:Context.t ->
-  pool:[ `pool ] Ref.t -> name:string -> mime_type:string -> [ `blob ] Ref.t
+  pool:[ `pool ] Ref.t -> name:string -> mime_type:string -> public:bool -> [ `blob ] Ref.t
 val set_ha_host_failures_to_tolerate :
   __context:Context.t -> self:[ `pool ] Ref.t -> value:int64 -> unit
 val ha_schedule_plan_recomputation : __context:'a -> unit

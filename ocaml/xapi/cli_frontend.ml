@@ -92,14 +92,14 @@ let rec cmdtable_data : (string*cmd_spec) list =
       implementation=No_fd Cli_operations.log_get;
       flags=[Neverforward];
     };
-(*
+
     "blob-get",
     {
       reqd=["uuid";"filename"];
       optn=[];
       help="Save the binary blob to the local filesystem";
       implementation=With_fd Cli_operations.blob_get;
-      flags=[];
+      flags=[Hidden];
     };
 
     "blob-put",
@@ -108,7 +108,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
       optn=[];
       help="Upload a binary blob to the xapi server";
       implementation=With_fd Cli_operations.blob_put;
-      flags=[];
+      flags=[Hidden];
     };
 
     "blob-create",
@@ -117,9 +117,9 @@ let rec cmdtable_data : (string*cmd_spec) list =
       optn=["mime-type";"vm-uuid";"host-uuid";"sr-uuid";"network-uuid";"pool-uuid"];
       help="Create a binary blob to be associated with an API object";
       implementation=No_fd Cli_operations.blob_create;
-      flags=[];
+      flags=[Hidden];
     };
-*)
+
     "message-create",
     {
       reqd=["name"; "priority"; "body"];

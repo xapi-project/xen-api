@@ -2063,9 +2063,12 @@ let vm_create_new_blob = call
   ~name: "create_new_blob"
   ~in_product_since:rel_orlando
   ~doc:"Create a placeholder for a named binary blob of data that is associated with this VM"
-  ~params:[Ref _vm, "vm", "The VM";
-	   String, "name", "The name associated with the blob";
-	   String, "mime_type", "The mime type for the data. Empty string translates to application/octet-stream";]
+  ~versioned_params:
+  [{param_type=Ref _vm; param_name="vm"; param_doc="The VM"; param_release=orlando_release; param_default=None};
+  {param_type=String; param_name="name"; param_doc="The name associated with the blob"; param_release=orlando_release; param_default=None};
+  {param_type=String; param_name="mime_type"; param_doc="The mime type for the data. Empty string translates to application/octet-stream"; param_release=orlando_release; param_default=None};
+  {param_type=Bool; param_name="public"; param_doc="True if the blob should be publicly available"; param_release=tampa_release; param_default=Some (VBool false)}
+  ]
   ~result:(Ref _blob, "The reference of the blob, needed for populating its data")
   ~allowed_roles:_R_VM_POWER_ADMIN
   ()
@@ -2679,9 +2682,11 @@ let host_create_new_blob = call
   ~name: "create_new_blob"
   ~in_product_since:rel_orlando
   ~doc:"Create a placeholder for a named binary blob of data that is associated with this host"
-  ~params:[Ref _host, "host", "The host";
-	   String, "name", "The name associated with the blob";
-	   String, "mime_type", "The mime type for the data. Empty string translates to application/octet-stream";]
+  ~versioned_params:
+  [{param_type=Ref _host; param_name="host"; param_doc="The host"; param_release=orlando_release; param_default=None};
+  {param_type=String; param_name="name"; param_doc="The name associated with the blob"; param_release=orlando_release; param_default=None};
+  {param_type=String; param_name="mime_type"; param_doc="The mime type for the data. Empty string translates to application/octet-stream"; param_release=orlando_release; param_default=None};
+  {param_type=Bool; param_name="public"; param_doc="True if the blob should be publicly available"; param_release=tampa_release; param_default=Some (VBool false)}]
   ~result:(Ref _blob, "The reference of the blob, needed for populating its data")
   ~allowed_roles:_R_POOL_OP
   ()
@@ -3210,9 +3215,12 @@ let sr_create_new_blob = call
   ~name: "create_new_blob"
   ~in_product_since:rel_orlando
   ~doc:"Create a placeholder for a named binary blob of data that is associated with this SR"
-  ~params:[Ref _sr, "sr", "The SR";
-	   String, "name", "The name associated with the blob";
-	   String, "mime_type", "The mime type for the data. Empty string translates to application/octet-stream";]
+  ~versioned_params:
+  [{param_type=Ref _sr; param_name="sr"; param_doc="The SR"; param_release=orlando_release; param_default=None};
+  {param_type=String; param_name="name"; param_doc="The name associated with the blob"; param_release=orlando_release; param_default=None};
+  {param_type=String; param_name="mime_type"; param_doc="The mime type for the data. Empty string translates to application/octet-stream"; param_release=orlando_release; param_default=None};
+  {param_type=Bool; param_name="public"; param_doc="True if the blob should be publicly available"; param_release=tampa_release; param_default=Some (VBool false)}
+  ]
   ~result:(Ref _blob, "The reference of the blob, needed for populating its data")
   ~allowed_roles:_R_POOL_OP
   ()
@@ -4263,9 +4271,12 @@ let network_create_new_blob = call
   ~name: "create_new_blob"
   ~in_product_since:rel_orlando
   ~doc:"Create a placeholder for a named binary blob of data that is associated with this pool"
-  ~params:[Ref _network, "network", "The network";
-	   String, "name", "The name associated with the blob";
-	   String, "mime_type", "The mime type for the data. Empty string translates to application/octet-stream";]
+  ~versioned_params:
+  [{param_type=Ref _network; param_name="network"; param_doc="The network"; param_release=orlando_release; param_default=None};
+  {param_type=String; param_name="name"; param_doc="The name associated with the blob"; param_release=orlando_release; param_default=None};
+  {param_type=String; param_name="mime_type"; param_doc="The mime type for the data. Empty string translates to application/octet-stream"; param_release=orlando_release; param_default=None};
+  {param_type=Bool; param_name="public"; param_doc="True if the blob should be publicly available"; param_release=tampa_release; param_default=Some (VBool false)}
+  ]
   ~result:(Ref _blob, "The reference of the blob, needed for populating its data")
   ~allowed_roles:_R_POOL_OP
   ()
@@ -5796,9 +5807,12 @@ let pool_create_new_blob = call
   ~name: "create_new_blob"
   ~in_product_since:rel_orlando
   ~doc:"Create a placeholder for a named binary blob of data that is associated with this pool"
-  ~params:[Ref _pool, "pool", "The pool";
-	   String, "name", "The name associated with the blob";
-	   String, "mime_type", "The mime type for the data. Empty string translates to application/octet-stream";]
+  ~versioned_params:
+  [{param_type=Ref _pool; param_name="pool"; param_doc="The pool"; param_release=orlando_release; param_default=None};
+  {param_type=String; param_name="name"; param_doc="The name associated with the blob"; param_release=orlando_release; param_default=None};
+  {param_type=String; param_name="mime_type"; param_doc="The mime type for the data. Empty string translates to application/octet-stream"; param_release=orlando_release; param_default=None};
+  {param_type=Bool; param_name="public"; param_doc="True if the blob should be publicly available"; param_release=tampa_release; param_default=Some (VBool false)}
+  ]
   ~result:(Ref _blob, "The reference of the blob, needed for populating its data")
   ~allowed_roles:_R_POOL_OP
   ()
@@ -7229,7 +7243,9 @@ let blob =
   let create = call
     ~name:"create"
     ~in_product_since:rel_orlando
-    ~params:[String, "mime_type", "The mime-type of the blob. Defaults to 'application/octet-stream' if the empty string is supplied"]
+	~versioned_params:
+	[{param_type=String; param_name="mime_type"; param_doc="The mime-type of the blob. Defaults to 'application/octet-stream' if the empty string is supplied"; param_release=orlando_release; param_default=None};
+	{param_type=Bool; param_name="public"; param_doc="True if the blob should be publicly available"; param_release=tampa_release; param_default=Some (VBool false)}]
     ~doc:"Create a placeholder for a binary blob"
     ~flags:[`Session]
     ~result:(Ref _blob, "The reference to the created blob")
@@ -7250,6 +7266,7 @@ let blob =
     [ uid _blob;
       namespace ~name:"name" ~contents:(names oss_since_303 RW) ();
       field ~qualifier:DynamicRO ~ty:Int "size" "Size of the binary data, in bytes";
+	  field ~writer_roles:_R_POOL_OP ~qualifier:RW ~in_product_since:rel_tampa ~default_value:(Some (VBool false)) ~ty:Bool "public" "True if the blob is publicly accessible";
       field ~qualifier:StaticRO ~ty:DateTime "last_updated" "Time at which the data in the blob was last updated";
       field ~qualifier:StaticRO ~ty:String "mime_type" "The mime type associated with this object. Defaults to 'application/octet-stream' if the empty string is supplied"]
     ()
@@ -7838,7 +7855,7 @@ let http_actions = [
   ("get_rrd_updates", (Get, Constants.rrd_updates, true,
 		       [Int64_query_arg "start"; String_query_arg "cf"; Int64_query_arg "interval";
 			Bool_query_arg "host"; String_query_arg "uuid"; Bool_query_arg "json"], _R_READ_ONLY, []));
-  ("get_blob", (Get, Constants.blob_uri, true, [String_query_arg "ref"], _R_READ_ONLY, []));
+  ("get_blob", (Get, Constants.blob_uri, false, [], _R_READ_ONLY, []));
   ("put_blob", (Put, Constants.blob_uri, true, [String_query_arg "ref"], _R_VM_POWER_ADMIN, []));
   ("get_message_rss_feed", (Get, Constants.message_rss_feed, false, [], _R_POOL_ADMIN, []));  (* not enabled in xapi *)
   ("put_messages", (Put, Constants.message_put_uri, false, [], _R_VM_POWER_ADMIN, []));
@@ -7867,6 +7884,7 @@ let public_http_actions_with_no_rbac_check =
 		"post_json"; (* JSON -> calls XMLRPC *)
 		"get_root";  (* Make sure that downloads, personal web pages etc do not go through RBAC asking for a password or session_id *)
 		             (* also, without this line, quicktest_http.ml fails on non_resource_cmd and bad_resource_cmd with a 401 instead of 404 *)
+		"get_blob"; (* Public blobs don't need authentication *)
 		"post_root_options"; (* Preflight-requests are not RBAC checked *)
 		"post_json_options"; 
 	]

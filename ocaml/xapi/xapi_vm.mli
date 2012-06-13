@@ -211,7 +211,7 @@ val update_snapshot_metadata :
   __context:'a -> vm:'b -> snapshot_of:'c -> snapshot_time:'d -> 'e
 val create_new_blob :
   __context:Context.t ->
-  vm:[ `VM ] Ref.t -> name:string -> mime_type:string -> [ `blob ] Ref.t
+  vm:[ `VM ] Ref.t -> name:string -> mime_type:string -> public:bool -> [ `blob ] Ref.t
 
 (** {2 Experimental support for S3 suspend/ resume} *)
 

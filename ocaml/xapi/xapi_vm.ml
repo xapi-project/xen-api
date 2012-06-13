@@ -764,8 +764,8 @@ let maximise_memory ~__context ~self ~total ~approximate =
 let atomic_set_resident_on ~__context ~vm ~host = assert false
 let update_snapshot_metadata ~__context ~vm ~snapshot_of ~snapshot_time = assert false
 
-let create_new_blob ~__context ~vm ~name ~mime_type =
-  let blob = Xapi_blob.create ~__context ~mime_type in
+let create_new_blob ~__context ~vm ~name ~mime_type ~public =
+  let blob = Xapi_blob.create ~__context ~mime_type ~public in
   Db.VM.add_to_blobs ~__context ~self:vm ~key:name ~value:blob;
   blob
 
