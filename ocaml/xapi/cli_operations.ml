@@ -3271,11 +3271,12 @@ let blob_put fd printer rpc session_id params =
 let blob_create printer rpc session_id params =
 	let name = List.assoc "name" params in
 	let mime_type = List.assoc_default "mime-type" params "" in
+	let public = try bool_of_string "public" (List.assoc "public" params) with _ -> false in
 	if (List.mem_assoc "vm-uuid" params) then
 		begin
 			let uuid = List.assoc "vm-uuid" params in
 			let vm = Client.VM.get_by_uuid rpc session_id uuid in
-			let blob = Client.VM.create_new_blob rpc session_id vm name mime_type in
+			let blob = Client.VM.create_new_blob rpc session_id vm name mime_type public in
 			let blob_uuid = Client.Blob.get_uuid rpc session_id blob in
 			printer (Cli_printer.PList [blob_uuid])
 		end
@@ -3283,7 +3284,7 @@ let blob_create printer rpc session_id params =
 		begin
 			let uuid = List.assoc "pool-uuid" params in
 			let pool = Client.Pool.get_by_uuid rpc session_id uuid in
-			let blob = Client.Pool.create_new_blob rpc session_id pool name mime_type in
+			let blob = Client.Pool.create_new_blob rpc session_id pool name mime_type public in
 			let blob_uuid = Client.Blob.get_uuid rpc session_id blob in
 			printer (Cli_printer.PList [blob_uuid])
 		end
@@ -3291,7 +3292,7 @@ let blob_create printer rpc session_id params =
 		begin
 			let uuid = List.assoc "sr-uuid" params in
 			let sr = Client.SR.get_by_uuid rpc session_id uuid in
-			let blob = Client.SR.create_new_blob rpc session_id sr name mime_type in
+			let blob = Client.SR.create_new_blob rpc session_id sr name mime_type public in
 			let blob_uuid = Client.Blob.get_uuid rpc session_id blob in
 			printer (Cli_printer.PList [blob_uuid])
 		end
@@ -3299,7 +3300,7 @@ let blob_create printer rpc session_id params =
 		begin
 			let uuid = List.assoc "host-uuid" params in
 			let host = Client.Host.get_by_uuid rpc session_id uuid in
-			let blob = Client.Host.create_new_blob rpc session_id host name mime_type in
+			let blob = Client.Host.create_new_blob rpc session_id host name mime_type public in
 			let blob_uuid = Client.Blob.get_uuid rpc session_id blob in
 			printer (Cli_printer.PList [blob_uuid])
 		end
@@ -3307,7 +3308,7 @@ let blob_create printer rpc session_id params =
 		begin
 			let uuid = List.assoc "network-uuid" params in
 			let network = Client.Network.get_by_uuid rpc session_id uuid in
-			let blob = Client.Network.create_new_blob rpc session_id network name mime_type in
+			let blob = Client.Network.create_new_blob rpc session_id network name mime_type public in
 			let blob_uuid = Client.Blob.get_uuid rpc session_id blob in
 			printer (Cli_printer.PList [blob_uuid])
 		end
