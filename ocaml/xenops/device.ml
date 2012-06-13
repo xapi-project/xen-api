@@ -180,7 +180,7 @@ let clean_shutdown_wait (task: Xenops_task.t) ~xs ~ignore_transients (x: device)
 		   this transient should be ignored anyway *)
 	    raise (Device_error (x, error)) in
 
-	let cancel = cancel_path_of_device ~xs x in
+	let cancel = Device x in
 	let frontend_closed = Watch.map (fun _ -> ()) (frontend_closed ~xs x) in
 	let unplug = Watch.map (fun _ -> ()) (unplug_watch ~xs x) in
 	let error = Watch.map (fun _ -> ()) (error_watch ~xs x) in
@@ -214,7 +214,7 @@ let hard_shutdown_complete ~xs (x: device) = unplug_watch ~xs x
 let hard_shutdown (task: Xenops_task.t) ~xs (x: device) = 
 	hard_shutdown_request ~xs x;
 
-	let (_: bool) = cancellable_watch (cancel_path_of_device ~xs x) [ hard_shutdown_complete ~xs x ] [ ] task ~xs ~timeout:!Xapi_globs.hotplug_timeout () in
+	let (_: bool) = cancellable_watch (Device x) [ hard_shutdown_complete ~xs x ] [ ] task ~xs ~timeout:!Xapi_globs.hotplug_timeout () in
 	(* blow away the backend and error paths *)
 	debug "Device.Generic.hard_shutdown about to blow away backend and error paths";
 	rm_device_state ~xs x
@@ -398,7 +398,7 @@ let shutdown_request_clean_shutdown_wait (task: Xenops_task.t) ~xs ~ignore_trans
     let shutdown_done = shutdown_done ~xs x in
     let error = Watch.value_to_appear (error_path_of_device ~xs x) |> Watch.map (fun _ -> ())  in
 
-	if cancellable_watch (cancel_path_of_device ~xs x) [ shutdown_done ] (if ignore_transients then [] else [ error ]) task ~xs ~timeout:!Xapi_globs.hotplug_timeout ()
+	if cancellable_watch (Device x) [ shutdown_done ] (if ignore_transients then [] else [ error ]) task ~xs ~timeout:!Xapi_globs.hotplug_timeout ()
 	then begin
 		debug "Device.Vbd.shutdown_common: shutdown-done appeared";
 		(* Delete the trees (otherwise attempting to plug the device in again doesn't
@@ -418,7 +418,7 @@ let shutdown_request_hard_shutdown (task: Xenops_task.t) ~xs (x: device) =
 	request_shutdown ~xs x true; (* force *)
 
 	(* We don't watch for error nodes *)
-	let (_: bool) = cancellable_watch (cancel_path_of_device ~xs x) [ shutdown_done ~xs x ] [] task ~xs ~timeout:!Xapi_globs.hotplug_timeout () in
+	let (_: bool) = cancellable_watch (Device x) [ shutdown_done ~xs x ] [] task ~xs ~timeout:!Xapi_globs.hotplug_timeout () in
 	Generic.rm_device_state ~xs x;
 
 	debug "Device.Vbd.hard_shutdown complete"
@@ -448,7 +448,7 @@ let hard_shutdown_complete ~xs x = match shutdown_mode_of_device ~xs x with
 	| ShutdownRequest -> shutdown_done ~xs x
 
 let hard_shutdown_wait (task: Xenops_task.t) ~xs ~timeout x =
-	let (_: bool) = cancellable_watch (cancel_path_of_device ~xs x) [ Watch.map (fun _ -> ()) (hard_shutdown_complete ~xs x) ] [] task ~xs ~timeout () in
+	let (_: bool) = cancellable_watch (Device x) [ Watch.map (fun _ -> ()) (hard_shutdown_complete ~xs x) ] [] task ~xs ~timeout () in
 	()
 
 let release (task: Xenops_task.t) ~xs (x: device) =
@@ -1299,7 +1299,7 @@ let wait_device_model (task: Xenops_task.t) ~xc ~xs domid =
   let path = device_model_state_path xs be_domid domid in
   let watch = Watch.value_to_appear path |> Watch.map (fun _ -> ()) in
   let shutdown = Watch.key_to_disappear (Qemu.qemu_pid_path domid) in
-  let cancel = cancel_path_of_domain ~xs domid in
+  let cancel = Domain domid in
   let (_: bool) = cancellable_watch cancel [ watch; shutdown ] [] task ~xs ~timeout:!Xapi_globs.hotplug_timeout () in
   if Qemu.is_running ~xs domid then begin
 	  let answer = try xs.Xs.read path with _ -> "" in
@@ -1642,7 +1642,7 @@ let signal (task: Xenops_task.t) ~xs ~qemu_domid ~domid ?wait_for ?param cmd =
                 * way too long for our software to recover successfully.
                 * Talk to Citrix about this
                 *)
-		let cancel = cancel_path_of_domain ~xs qemu_domid in
+		let cancel = Domain qemu_domid in
 		let (_: bool) = cancellable_watch cancel [ Watch.value_to_become pw state ] [] task ~xs ~timeout:30. () in
 		()
 	| None -> ()
@@ -1773,7 +1773,7 @@ let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xapi_globs.qemu_dm_re
 	begin
 		let finished = ref false in
 		let watch = Watch.value_to_appear dm_ready |> Watch.map (fun _ -> ()) in
-		let cancel = cancel_path_of_domain ~xs domid in
+		let cancel = Domain domid in
 		let start = Unix.gettimeofday () in
 		while Unix.gettimeofday () -. start < timeout && not !finished do
 			Xenops_task.check_cancelling task;
