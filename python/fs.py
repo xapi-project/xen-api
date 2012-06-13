@@ -384,7 +384,6 @@ data/ files are referenced directly by a metadata/ file.
         virtual_size = long(vdi_info["virtual_size"])
         vhd.create(virtual_size, dummy_path)
         tapdisk.open("vhd", dummy_path)
-        tapdisk.pause()
         os.unlink(dummy_path)
 
     def attach(self, vdi, read_write):
@@ -409,8 +408,9 @@ data/ files are referenced directly by a metadata/ file.
         data = md["data"]
         if data not in self.tapdisks:
             raise Backend_error("VDI_NOT_ATTACHED", [ vdi ])
-        self.tapdisks[data].file = (self.data[data]["type"], self.data_path_of_key(data))
-        self.tapdisks[data].unpause()
+        tapdisk = self.tapdisks[data]
+        tapdisk.close()
+        tapdisk.open(self.data[data]["type"], self.data_path_of_key(data))
 
     def deactivate(self, vdi):
         md = self.metadata[vdi]
