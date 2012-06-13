@@ -1979,25 +1979,25 @@ let watch_xenstore () =
 			let watch path =
 				debug "xenstore watch %s" path;
 				xs.Xs.watch path path in
+
 			let unwatch path =
 				try
 					debug "xenstore unwatch %s" path;
 					xs.Xs.unwatch path path
 				with Xenbus.Xb.Noent ->
 					debug "xenstore unwatch %s threw Xb.Noent" path in
+
 			let add_domU_watches xs domid uuid =
 				debug "Adding watches for: domid %d" domid;
 				List.iter watch (all_domU_watches domid uuid);
 				watches := IntMap.add domid [] !watches in
+
 			let remove_domU_watches xs domid uuid =
 				debug "Removing watches for: domid %d" domid;
 				List.iter unwatch (all_domU_watches domid uuid);
-				IntMap.iter (fun _ ds ->
-					List.iter (fun d ->
-						List.iter unwatch (watches_of_device d)
-					) ds
-				) !watches;
-
+				List.iter (fun d ->
+					List.iter unwatch (watches_of_device d)
+				) (IntMap.find domid !watches);
 				watches := IntMap.remove domid !watches in
 
 			let cancel_domU_operations xs domid uuid =
