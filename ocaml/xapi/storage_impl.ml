@@ -467,11 +467,11 @@ module Wrapper = functor(Impl: Server_impl) -> struct
                     raise (Backend_error("SR_BACKEND_FAILURE", ["Disk too small"; Int64.to_string vdi_info.virtual_size; Int64.to_string virtual_size']))
                 | result -> result
 
-		let snapshot_and_clone call_name call_f context ~dbg ~sr ~vdi ~vdi_info =
-			info "%s dbg:%s sr:%s vdi:%s vdi_info:%s" call_name dbg sr vdi (string_of_vdi_info vdi_info);
-			with_vdi sr vdi
+		let snapshot_and_clone call_name call_f context ~dbg ~sr ~vdi_info =
+			info "%s dbg:%s sr:%s vdi_info:%s" call_name dbg sr (string_of_vdi_info vdi_info);
+			with_vdi sr vdi_info.vdi
 				(fun () ->
-					call_f context ~dbg ~sr ~vdi ~vdi_info
+					call_f context ~dbg ~sr ~vdi_info
 				)
 
 		let snapshot = snapshot_and_clone "VDI.snapshot" Impl.VDI.snapshot

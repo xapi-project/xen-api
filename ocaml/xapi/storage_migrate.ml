@@ -276,6 +276,12 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 let copy_into ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi = 
 	copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi
 
+let add_to_sm_config vdi_info key value =
+	if not (List.mem_assoc key vdi_info.sm_config) then
+		{ vdi_info with sm_config = (key,value) :: vdi_info.sm_config }
+	else
+		raise (Duplicated_key key)
+
 let stop ~dbg ~id =
 	(* Find the local VDI *)
 	let alm = State.find_active_local_mirror id in
@@ -286,10 +292,10 @@ let stop ~dbg ~id =
 			let local_vdi =
 				try List.find (fun x -> x.vdi = vdi) vdis
 				with Not_found -> failwith (Printf.sprintf "Local VDI %s not found" vdi) in
-			let local_vdi = { local_vdi with
-				sm_config = ("base_mirror",id) :: ("mirror","null") :: local_vdi.sm_config } in
+			let local_vdi = add_to_sm_config local_vdi "mirror" "null" in
+			let local_vdi = add_to_sm_config local_vdi "base_mirror" id in
 			(* Disable mirroring on the local machine *)
-			let snapshot = Local.VDI.snapshot ~dbg ~sr ~vdi:local_vdi.vdi ~vdi_info:local_vdi in
+			let snapshot = Local.VDI.snapshot ~dbg ~sr ~vdi_info:local_vdi in
 			Local.VDI.destroy ~dbg ~sr ~vdi:snapshot.vdi;
 			let remote_url = Http.Url.of_string alm.State.Send_state.remote_url in
 			let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
@@ -310,7 +316,6 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 		with Not_found -> failwith (Printf.sprintf "Local VDI %s not found" vdi) in
 
 	let id = State.id_of (sr,local_vdi.vdi) in
-	let local_vdi = { local_vdi with sm_config = ("base_mirror",id) :: local_vdi.sm_config } in
 
 	(* A list of cleanup actions to perform if the operation should fail. *)
 	let on_fail : (unit -> unit) list ref = ref [] in
@@ -364,9 +369,10 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 		let alm = State.add_to_active_local_mirrors id url dest mirror_dp dp result.Mirror.mirror_vdi.vdi url tapdev in
 		debug "Added";
 
-		debug "About to snapshot";
-		let snapshot_vdi = { local_vdi with sm_config = ("mirror", "nbd:" ^ dp) :: local_vdi.sm_config } in
-		let snapshot = Local.VDI.snapshot ~dbg ~sr ~vdi:local_vdi.vdi ~vdi_info:snapshot_vdi in
+		debug "About to snapshot VDI = %s" (string_of_vdi_info local_vdi);
+		let local_vdi = add_to_sm_config local_vdi "mirror" ("nbd:" ^ dp) in
+		let local_vdi = add_to_sm_config local_vdi "base_mirror" id in
+		let snapshot = Local.VDI.snapshot ~dbg ~sr ~vdi_info:local_vdi in
 		debug "Done!";
 
 		begin
@@ -454,13 +460,13 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
 	let leaf_dp = Local.DP.create ~dbg ~id:(Uuid.string_of_uuid (Uuid.make_uuid ())) in
 
 	try
-		let vdi_info = { vdi_info with sm_config =  ("base_mirror",id) :: vdi_info.sm_config } in
+		let vdi_info = { vdi_info with sm_config = ["base_mirror", id] } in
 		let leaf = Local.VDI.create ~dbg ~sr ~vdi_info in
-		info "Created leaf VDI for mirror receive: %s" leaf.vdi;
+		info "Created leaf VDI for mirror receive: %s" (string_of_vdi_info leaf);
 		on_fail := (fun () -> Local.VDI.destroy ~dbg ~sr ~vdi:leaf.vdi) :: !on_fail;
-		let dummy = Local.VDI.snapshot ~dbg ~sr ~vdi:leaf.vdi ~vdi_info in
+		let dummy = Local.VDI.snapshot ~dbg ~sr ~vdi_info:leaf in
 		on_fail := (fun () -> Local.VDI.destroy ~dbg ~sr ~vdi:dummy.vdi) :: !on_fail;
-		debug "Created dummy snapshot for mirror receive: %s" dummy.vdi;
+		debug "Created dummy snapshot for mirror receive: %s" (string_of_vdi_info dummy);
 		
 		let _ = Local.VDI.attach ~dbg ~dp:leaf_dp ~sr ~vdi:leaf.vdi ~read_write:true in
 		Local.VDI.activate ~dbg ~dp:leaf_dp ~sr ~vdi:leaf.vdi;
@@ -479,7 +485,8 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
 		let parent = match nearest with
 			| Some vdi ->
 				debug "Cloning VDI %s" vdi.vdi;
-				Local.VDI.clone ~dbg ~sr ~vdi:vdi.vdi ~vdi_info
+				let vdi = add_to_sm_config vdi "base_mirror" id in
+				Local.VDI.clone ~dbg ~sr ~vdi_info:vdi
 			| None ->
 				debug "Creating a blank remote VDI";
 				Local.VDI.create ~dbg ~sr ~vdi_info
@@ -606,12 +613,12 @@ let copy ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 			let remote_base = match nearest with
 				| Some vdi ->
 						debug "Cloning VDI %s" vdi.vdi;
-						Remote.VDI.clone ~dbg ~sr:dest ~vdi:vdi.vdi ~vdi_info:local_vdi
+						Remote.VDI.clone ~dbg ~sr:dest ~vdi_info:vdi
 				| None ->
 						debug "Creating a blank remote VDI";
 						Remote.VDI.create ~dbg ~sr:dest ~vdi_info:local_vdi in
 			let remote_copy = copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi:remote_base.vdi |> vdi_info in
-			let snapshot = Remote.VDI.snapshot ~dbg ~sr:dest ~vdi:remote_copy.vdi ~vdi_info:local_vdi in
+			let snapshot = Remote.VDI.snapshot ~dbg ~sr:dest ~vdi_info:remote_copy in
 			Remote.VDI.destroy ~dbg ~sr:dest ~vdi:remote_copy.vdi;
 			Some (Vdi_info snapshot)
 		with e ->
