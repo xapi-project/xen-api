@@ -23,33 +23,54 @@ open Device_common
 module D = Debug.Debugger(struct let name = "xenops" end)
 open D
 
-let cancel_path_of_device ~xs device = backend_path_of_device ~xs device ^ "/tools/xenops/cancel"
+type key =
+	| Device of device
+	| Domain of int
+	| TestPath of string
 
-let cancel_path_of_domain ~xs domid = Printf.sprintf "%s/tools/xenops/cancel" (xs.Xs.getdomainpath domid)
+let string_of = function
+	| Device device -> Printf.sprintf "device %s" (Device_common.string_of_device device)
+	| Domain domid -> Printf.sprintf "domid %d" domid
+	| TestPath x -> x
 
-let exists ~xs path = try ignore(xs.Xs.read path); true with _ -> false
-let cancel_domain ~xs domid =
-	let path = cancel_path_of_domain ~xs domid in
-	if exists ~xs path then begin
-		info "Cancelling operation on domid: %d" domid;
+let cancel_path_of ~xs = function
+	| Device device -> backend_path_of_device ~xs device ^ "/tools/xenops/cancel"
+	| Domain domid -> Printf.sprintf "%s/tools/xenops/cancel" (xs.Xs.getdomainpath domid)
+	| TestPath x -> x
+
+let watch_of ~xs key = Watch.key_to_disappear (cancel_path_of ~xs key)
+
+let cancel ~xs key =
+	let path = cancel_path_of ~xs key in
+	if try ignore(xs.Xs.read path); true with _ -> false then begin
+		info "Cancelling operation on device: %s" (string_of key);
 		xs.Xs.rm path
 	end
 
-let cancel_device ~xs device =
-	let path = cancel_path_of_device ~xs device in
-	if exists ~xs path then begin
-		info "Cancelling operation on device: %s" (Device_common.string_of_device device);
-		xs.Xs.rm path
-	end
-
-let cancellable_watch cancel good_watches error_watches (task: Xenops_task.t) ~xs ~timeout () =
+let with_path ~xs key f =
+	let path = cancel_path_of ~xs key in
 	finally
 		(fun () ->
-			xs.Xs.write cancel "";
-			Xenops_task.with_cancel task (fun () ->
-				info "Cancelling: xenstore-write %s" cancel;
-				with_xs (fun xs -> xs.Xs.rm cancel)
-			)
+			xs.Xs.write path "";
+			f ()
+		)
+		(fun () ->
+			try
+				xs.Xs.rm path
+			with _ ->
+				debug "ignoring cancel request: operation has already terminated";
+				(* This means a cancel happened just as we succeeded;
+				   it was too late and we ignore it. *)
+				()
+		)
+
+let cancellable_watch key good_watches error_watches (task: Xenops_task.t) ~xs ~timeout () =
+	with_path ~xs key
+		(fun () ->
+			Xenops_task.with_cancel task
+				(fun () ->
+					with_xs (fun xs -> cancel ~xs key)
+				)
 				(fun () ->
 					match Watch.wait_for ~xs ~timeout (Watch.any_of
 						((
@@ -57,14 +78,14 @@ let cancellable_watch cancel good_watches error_watches (task: Xenops_task.t) ~x
 						) @ (
 							List.map (fun w -> `Error, w) error_watches
 						) @ [
-							`Cancel, Watch.key_to_disappear cancel
+							`Cancel, watch_of ~xs key
 						])
 					) with
 						| `OK, _ -> true
 						| `Error, _ -> false
 						| `Cancel, _ -> Xenops_task.raise_cancelled task
 				)
-		) (fun () -> xs.Xs.rm cancel)
+		)
 
 open Forkhelpers
 let cancellable_subprocess (task: Xenops_task.t) ?env ?stdin ?(syslog_stdout=NoSyslogging) cmd args =

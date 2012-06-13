@@ -115,7 +115,7 @@ let wait_for_plug (task: Xenops_task.t) ~xs (x: device) =
     Stats.time_this "udev backend add event" 
       (fun () ->
 		  let path = path_written_by_hotplug_scripts x in
-		  let (_: bool) = cancellable_watch (cancel_path_of_device ~xs x) [ Watch.map (fun _ -> ()) (Watch.value_to_appear path) ] [] task ~xs ~timeout:!Xapi_globs.hotplug_timeout () in
+		  let (_: bool) = cancellable_watch (Device x) [ Watch.map (fun _ -> ()) (Watch.value_to_appear path) ] [] task ~xs ~timeout:!Xapi_globs.hotplug_timeout () in
 		  ()
       );
     debug "Synchronised ok with hotplug script: %s" (string_of_device x)
@@ -128,7 +128,7 @@ let wait_for_unplug (task: Xenops_task.t) ~xs (x: device) =
     Stats.time_this "udev backend remove event" 
       (fun () ->
 		  let path = path_written_by_hotplug_scripts x in
-		  let (_: bool) = cancellable_watch (cancel_path_of_device ~xs x) [ Watch.map (fun _ -> ()) (Watch.key_to_disappear path) ] [] task ~xs ~timeout:!Xapi_globs.hotplug_timeout () in
+		  let (_: bool) = cancellable_watch (Device x) [ Watch.map (fun _ -> ()) (Watch.key_to_disappear path) ] [] task ~xs ~timeout:!Xapi_globs.hotplug_timeout () in
 		  ()
       );
     debug "Synchronised ok with hotplug script: %s" (string_of_device x)
@@ -142,7 +142,7 @@ let wait_for_frontend_plug (task: Xenops_task.t) ~xs (x: device) =
 		let ok_watch = Watch.value_to_appear (frontend_status_node x) |> Watch.map (fun _ -> ())  in
 		let tapdisk_error_watch = Watch.value_to_appear (tapdisk_error_node ~xs x) |> Watch.map (fun _ -> ()) in
 		let blkback_error_watch = Watch.value_to_appear (blkback_error_node ~xs x) |> Watch.map (fun _ -> ()) in
-		let cancel = cancel_path_of_device ~xs x in
+		let cancel = Device x in
 		Stats.time_this "udev frontend add event" 
 			(fun () ->
 				if cancellable_watch cancel [ ok_watch ] [ tapdisk_error_watch; blkback_error_watch ] task ~xs ~timeout:!Xapi_globs.hotplug_timeout ()
@@ -165,7 +165,7 @@ let wait_for_frontend_unplug (task: Xenops_task.t) ~xs (x: device) =
     let path = frontend_status_node x in
     Stats.time_this "udev frontend remove event" 
       (fun () ->
-		  let (_: bool) = cancellable_watch (cancel_path_of_device ~xs x) [ Watch.map (fun _ -> ()) (Watch.key_to_disappear path) ] [] task ~xs ~timeout:!Xapi_globs.hotplug_timeout () in
+		  let (_: bool) = cancellable_watch (Device x) [ Watch.map (fun _ -> ()) (Watch.key_to_disappear path) ] [] task ~xs ~timeout:!Xapi_globs.hotplug_timeout () in
 		  ()
       );
     debug "Synchronised ok with frontend hotplug script: %s" (string_of_device x)
