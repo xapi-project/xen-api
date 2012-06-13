@@ -1997,7 +1997,7 @@ let watch_xenstore () =
 				List.iter unwatch (all_domU_watches domid uuid);
 				List.iter (fun d ->
 					List.iter unwatch (watches_of_device d)
-				) (IntMap.find domid !watches);
+				) (try IntMap.find domid !watches with Not_found -> []);
 				watches := IntMap.remove domid !watches in
 
 			let cancel_domU_operations xs domid uuid =
