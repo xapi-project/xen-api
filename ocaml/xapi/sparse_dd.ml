@@ -174,6 +174,11 @@ module Nbd_writer = struct
 				exit 5
 end
 
+module Null_writer = struct
+	type t = string
+	let op _ _ _ = ()
+end
+
 (** Marshals data across the network in chunks *)
 module Network_writer = struct
 	open Sparse_encoding
@@ -271,6 +276,9 @@ let file_dd ?(progress_cb = (fun _ -> ())) ?size ?bat erase write_zeroes src dst
 				end
 			in stats)
 			(Http.Url.of_string dst)
+	end else if dst = "null:" then begin
+		let module Null_copy = DD(File_reader)(Null_writer) in
+		Null_copy.copy progress_cb bat erase write_zeroes ifd "" blocksize size
 	end else begin
 		let ofd = Unix.openfile dst [ Unix.O_WRONLY; Unix.O_CREAT ] 0o600 in
 	 	(* Make sure the output file has the right size *)
@@ -536,7 +544,8 @@ let _ =
 	let erase = not !prezeroed in
 	let write_zeroes = not !prezeroed || !base <> None in
 	let stats = file_dd ~progress_cb ?size ?bat erase write_zeroes (Opt.unbox !src) (Opt.unbox !dest) in
-	debug "Time: %.2f seconds" (Unix.gettimeofday () -. start);
+	let time = Unix.gettimeofday () -. start in
+	debug "Time: %.2f seconds" time;
 	debug "Number of writes: %d" stats.writes;
-	debug "Number of bytes: %Ld" stats.bytes;
+	debug "Number of bytes: %Ld (%.0f MiB/sec)" stats.bytes (Int64.(to_float (div stats.bytes 1048576L) /. time));
 	close_output ()
