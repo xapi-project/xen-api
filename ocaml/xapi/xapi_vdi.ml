@@ -645,12 +645,9 @@ let set_on_boot ~__context ~self ~value =
 	let sr' = Db.SR.get_uuid ~__context ~self:sr in
 	let vdi' = Db.VDI.get_location ~__context ~self in
 	let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
-	let vdi_info = { default_vdi_info with vdi = vdi' } in
 	transform_storage_exn
 		(fun () ->
-			C.VDI.set_persistent ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:vdi' ~persistent:(value = `persist)
-			let newvdi = C.VDI.clone ~dbg:(Ref.string_of task) ~sr:sr' ~vdi_info in
-			C.VDI.destroy ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:newvdi.vdi;
+			C.VDI.set_persistent ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:vdi' ~persistent:(value = `persist);
 		);
 
 	Db.VDI.set_on_boot ~__context ~self ~value

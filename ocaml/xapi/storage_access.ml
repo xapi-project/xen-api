@@ -327,12 +327,8 @@ module SMAPIv1 = struct
                 read_only = r.API.vDI_read_only;
                 virtual_size = r.API.vDI_virtual_size;
                 physical_utilisation = r.API.vDI_physical_utilisation;
-<<<<<<< HEAD
 				persistent = r.API.vDI_on_boot = `persist;
-				base_mirror = base_mirror r;
-=======
 				sm_config = r.API.vDI_sm_config;
->>>>>>> CA-78221: use sm-config instead of other-config
             }
 
         let newvdi ~__context vi =
@@ -434,7 +430,7 @@ module SMAPIv1 = struct
 					(fun __context ->
 						for_vdi ~dbg ~sr ~vdi "VDI.stat"
 							(fun device_config _type _ self ->
-								SR.vdi_info_of_vdi_rec __context sr (Db.VDI.get_record ~__context ~self)
+								SR.vdi_info_of_vdi_rec __context (Db.VDI.get_record ~__context ~self)
 							)
 					)
 			with e ->
