@@ -26,14 +26,19 @@ module Proxy = functor(RPC: RPC) -> struct
 
 	module Client = Client(RPC)
 
-    let query _ = Client.query
+	module Query = struct
+		let query _ = Client.Query.query
+		let diagnostics _ = Client.Query.diagnostics
+	end
 	module DP = struct
 		let create _ = Client.DP.create
 		let destroy _ = Client.DP.destroy
 		let diagnostics _ = Client.DP.diagnostics
 		let attach_info _ = Client.DP.attach_info
+		let stat_vdi _ = Client.DP.stat_vdi
 	end
 	module SR = struct
+		let create _ = Client.SR.create
 		let attach _ = Client.SR.attach
 		let detach _ = Client.SR.detach
 		let reset _ = Client.SR.reset
@@ -42,17 +47,19 @@ module Proxy = functor(RPC: RPC) -> struct
 		let list _ = Client.SR.list
 	end
 	module VDI = struct
+		let epoch_begin _ = Client.VDI.epoch_begin
 		let attach _ = Client.VDI.attach
 		let activate _ = Client.VDI.activate
 		let deactivate _ = Client.VDI.deactivate
 		let detach _ = Client.VDI.detach
-
-		let stat _ = Client.VDI.stat
+		let epoch_end _ = Client.VDI.epoch_end
 
 		let create _ = Client.VDI.create
 		let snapshot _ = Client.VDI.snapshot
 		let clone _ = Client.VDI.clone
 		let destroy _ = Client.VDI.destroy
+		let stat _ = Client.VDI.stat
+		let set_persistent _ = Client.VDI.set_persistent
 		let get_by_name _ = Client.VDI.get_by_name
 		let set_content_id _ = Client.VDI.set_content_id
 		let similar_content _ = Client.VDI.similar_content
@@ -61,6 +68,10 @@ module Proxy = functor(RPC: RPC) -> struct
 	end
 
 	let get_by_name _ = Client.get_by_name
+
+	module Policy = struct
+		let get_backend_vm _ = Client.Policy.get_backend_vm
+	end
 
 	module DATA = struct
 		let copy_into _ = Client.DATA.copy_into

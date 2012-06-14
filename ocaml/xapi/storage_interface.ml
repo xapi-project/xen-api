@@ -19,13 +19,6 @@ let service_name="storage"
 
 open Vdi_automaton
 
-type query_result = {
-    name: string;
-    vendor: string;
-    version: string;
-    features: string list;
-}
-
 (** Primary key identifying the SR *)
 type sr = string
 
@@ -64,6 +57,7 @@ type vdi_info = {
     virtual_size: int64;
     physical_utilisation: int64;
     (* xenstore_data: workaround via XenAPI *)
+	persistent: bool;
 }
 
 let string_of_vdi_info (x: vdi_info) = Jsonrpc.to_string (rpc_of_vdi_info x)
@@ -71,12 +65,12 @@ let string_of_vdi_info (x: vdi_info) = Jsonrpc.to_string (rpc_of_vdi_info x)
 (** Each VDI is associated with one or more "attached" or "activated" "datapaths". *)
 type dp = string
 
-type stat_t = {
+type dp_stat_t = {
 	superstate: Vdi_automaton.state;
 	dps: (string * Vdi_automaton.state) list;
 }
 
-let string_of_stat_t (x: stat_t) = Jsonrpc.to_string (rpc_of_stat_t x)
+let string_of_dp_stat_t (x: dp_stat_t) = Jsonrpc.to_string (rpc_of_dp_stat_t x)
 
 module Mirror = struct
 	type id = string
@@ -146,41 +140,43 @@ module Dynamic = struct
 	type t = 
 		| Task_t of Task.id * Task.t
 		| Vdi_t of vdi * vdi_info
-		| Dp_t of dp * stat_t
+		| Dp_t of dp * dp_stat_t
 		| Mirror_t of Mirror.id * Mirror.t
 		
 end
 
 
 
-exception Sr_not_attached                         (** error: SR must be attached to access VDIs *)
-exception Vdi_does_not_exist                      (** error: the VDI is unknown *)
+exception Sr_not_attached of string               (** error: SR must be attached to access VDIs *)
+exception Vdi_does_not_exist of string            (** error: the VDI is unknown *)
 exception Illegal_transition of (Vdi_automaton.state * Vdi_automaton.state) (** This operation implies an illegal state transition *)
 exception Backend_error of (string * (string list)) (** error: of the form SR_BACKEND_FAILURE *)
-exception Unimplemented                           (** error: not implemented by backend *)
 exception Does_not_exist of (string * string)
 exception Cancelled of string
 exception Redirect of string option
+exception Sr_attached of string
 
+exception Unimplemented of string
 
-module Driver_info = struct
-    type t = {
-        uri: string;
-        name: string;
-        description: string;
-        vendor: string;
-        copyright: string;
-        version: string;
-        required_api_version: string;
-        capabilities: string list;
-        configuration: (string * string) list;
-    }
+type query_result = {
+	driver: string;
+	name: string;
+	description: string;
+	vendor: string;
+	copyright: string;
+	version: string;
+	required_api_version: string;
+	features: string list;
+	configuration: (string * string) list;
+}
 
-    type ts = t list
+module Query = struct
+	(** [query ()] returns information about this storage driver *)
+	external query: dbg:string -> query_result = ""
+
+	(** [diagnostics ()] returns diagnostic information about this storage driver *)
+	external diagnostics: dbg:string -> string = ""
 end
-
-(** [query ()] returns information about this storage driver *)
-external query: unit -> query_result = ""
 
 module DP = struct
 	(** Functions which create/destroy (or register/unregister) dps *)
@@ -200,10 +196,17 @@ module DP = struct
 		typically including lists of all registered datapaths and their allocated
 		resources. *)
 	external diagnostics: unit -> string = ""
+
+	(** [stat_vdi task sr vdi ()] returns the state of the given VDI from the point of view of
+        each dp as well as the overall superstate. *)
+	external stat_vdi: dbg:debug_info -> sr:sr -> vdi:vdi -> unit -> dp_stat_t = ""
 end
 
 module SR = struct
-	(** Functions which attach/detach SRs *)
+	(** Functions which manipulate SRs *)
+
+	(** [create dbg sr device_config physical_size] creates an sr with id [sr] *)
+	external create : dbg:debug_info -> sr:sr -> device_config:(string * string) list -> physical_size:int64 -> unit = ""
 
 	(** [attach task sr]: attaches the SR *)
     external attach : dbg:debug_info -> sr:sr -> device_config:(string * string) list -> unit = ""
@@ -247,6 +250,16 @@ module VDI = struct
     (** [destroy task sr vdi] removes [vdi] from [sr] *)
     external destroy : dbg:debug_info -> sr:sr -> vdi:vdi -> unit = ""
 
+	(** [stat dbg sr vdi] returns information about VDI [vdi] in SR [sr] *)
+	external stat : dbg:debug_info -> sr:sr -> vdi:vdi -> vdi_info = ""
+
+	(** [set_persistent dbg sr vdi persistent] sets [vdi]'s persistent flag to [persistent] *)
+	external set_persistent : dbg:debug_info -> sr:sr -> vdi:vdi -> persistent:bool -> unit = ""
+
+	(** [epoch_begin sr vdi] declares that [vdi] is about to be added to a starting/rebooting VM.
+        This is not called over suspend/resume or migrate. *)
+	external epoch_begin : dbg:debug_info -> sr:sr -> vdi:vdi -> unit = ""
+
 	(** [attach task dp sr vdi read_write] returns the [params] for a given
 		[vdi] in [sr] which can be written to if (but not necessarily only if) [read_write]
 		is true *)
@@ -256,10 +269,6 @@ module VDI = struct
 		This client must have called [attach] on the [vdi] first. *)
     external activate : dbg:debug_info -> dp:dp -> sr:sr -> vdi:vdi -> unit = ""
 
-	(** [stat task sr vdi ()] returns the state of the given VDI from the point of view of
-        each dp as well as the overall superstate. *)
-	external stat: dbg:debug_info -> sr:sr -> vdi:vdi -> unit -> stat_t = ""
-
 	(** [deactivate task dp sr vdi] signals that this client has stopped reading (and writing)
 		[vdi]. *)
     external deactivate : dbg:debug_info -> dp:dp -> sr:sr -> vdi:vdi -> unit = ""
@@ -267,6 +276,10 @@ module VDI = struct
 	(** [detach task dp sr vdi] signals that this client no-longer needs the [attach_info]
 		to be valid. *)
     external detach : dbg:debug_info -> dp:dp -> sr:sr -> vdi:vdi -> unit = ""
+
+	(** [epoch_end sr vdi] declares that [vdi] is about to be removed from a shutting down/rebooting VM.
+        This is not called over suspend/resume or migrate. *)
+	external epoch_end : dbg:debug_info -> sr:sr -> vdi:vdi -> unit = ""
 
     (** [get_url task sr vdi] returns a URL suitable for accessing disk data directly. *)
     external get_url : dbg:debug_info -> sr:sr -> vdi:vdi -> string = ""
@@ -319,6 +332,9 @@ module DATA = struct
 
 end
 
+module Policy = struct
+	external get_backend_vm: dbg:debug_info -> vm:string -> sr:sr -> vdi:vdi -> string = ""
+end
 
 module TASK = struct
 	external stat: dbg:debug_info -> task:Task.id -> Task.t = ""

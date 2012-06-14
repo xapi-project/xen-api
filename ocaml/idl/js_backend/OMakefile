@@ -27,7 +27,7 @@ js_binding: main
 	./main > api.js
 	cp api.js ../../../js/
 
-.PHONY: install
-install:
+.PHONY: noarch-install
+noarch-install:
 	mkdir -p $(DESTDIR)$(OPTDIR)/debug/www
 	cp api.js $(DESTDIR)$(OPTDIR)/debug/www

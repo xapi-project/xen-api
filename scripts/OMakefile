@@ -1,5 +1,20 @@
 .SUBDIRS: examples templates host-backup-restore poweron
 
+.PHONY: noarch-install
+noarch-install:
+	mkdir -p $(DESTDIR)/etc/udev                    ### FHS_FIXME
+	$(IPROG) xen-backend.rules $(DESTDIR)/etc/udev  ### FHS_FIXME
+	$(IPROG) xen-frontend.rules $(DESTDIR)/etc/udev ### FHS_FIXME
+	mkdir -p $(DESTDIR)/etc/udev/rules.d ### FHS_FIXME
+	sh -c \
+	'cd $(DESTDIR)/etc/udev/rules.d; \
+	ln -sf ../xen-backend.rules; \
+	ln -sf ../xen-frontend.rules'
+	mkdir -p $(DESTDIR)$(SCRIPTSDIR)
+	$(IPROG) block-frontend vif tap block $(DESTDIR)$(SCRIPTSDIR)
+	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) setup-vif-rules $(DESTDIR)$(LIBEXECDIR)
+
 .PHONY: install
 install:
 	mkdir -p $(DESTDIR)$(BINDIR)
@@ -56,9 +71,6 @@ install:
 	$(IPROG) mpathalert-daemon $(DESTDIR)$(ETCDIR)/master.d/03-mpathalert-daemon
 	mkdir -p $(DESTDIR)/etc/sysconfig
 	$(IPROG) sysconfig-xapi $(DESTDIR)/etc/sysconfig/xapi
-	mkdir -p $(DESTDIR)/etc/udev                    ### FHS_FIXME
-	$(IPROG) xen-backend.rules $(DESTDIR)/etc/udev  ### FHS_FIXME
-	$(IPROG) xen-frontend.rules $(DESTDIR)/etc/udev ### FHS_FIXME
 	$(IPROG) generate_ssl_cert $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) fix_firewall.sh $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/debug
@@ -73,13 +85,6 @@ install:
 	$(IPROG) xe-get-network-backend $(DESTDIR)$(BINDIR)
 	$(IPROG) static-vdis $(DESTDIR)$(BINDIR)
 	$(IPROG) with-vdi $(DESTDIR)$(OPTDIR)/debug
-	mkdir -p $(DESTDIR)/etc/udev/rules.d ### FHS_FIXME
-	sh -c \
-	'cd $(DESTDIR)/etc/udev/rules.d; \
-	ln -sf ../xen-backend.rules; \
-	ln -sf ../xen-frontend.rules'
-	mkdir -p $(DESTDIR)$(SCRIPTSDIR)
-	$(IPROG) block-frontend vif tap block $(DESTDIR)$(SCRIPTSDIR)
 	$(IPROG) pool.conf $(DESTDIR)$(ETCDIR)
 	mkdir -p $(DESTDIR)/etc/pam.d
 	$(IPROG) pam.d-xapi $(DESTDIR)/etc/pam.d/xapi
@@ -117,7 +122,6 @@ install:
 	mkdir -p $(DESTDIR)$(HOOKSDIR)/host-post-declare-dead
 	$(IPROG) 10resetvdis $(DESTDIR)$(HOOKSDIR)/host-post-declare-dead
 	$(IPROG) pci-info $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) setup-vif-rules $(DESTDIR)$(LIBEXECDIR)
 
 .PHONY: sdk-install
 sdk-install: install

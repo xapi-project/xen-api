@@ -519,6 +519,8 @@ let _ =
     ~doc:"The operation could not be performed because a domain still exists for the specified VM." ();
   error Api_errors.cannot_reset_control_domain [ "vm" ]
     ~doc:"The power-state of a control domain cannot be reset." ();
+  error Api_errors.not_system_domain [ "vm" ]
+	~doc:"The given VM is not registered as a system domain. This operation can only be performed on a registered system domain." ();
   error Api_errors.vm_cannot_delete_default_template ["vm"]
     ~doc:"You cannot delete the specified default template." ();
   error Api_errors.vm_bad_power_state ["vm"; "expected"; "actual"]
@@ -855,6 +857,9 @@ let _ =
     ~doc:"The PBD could not be plugged because the SR is in use by another host and is not marked as sharable." ();
   error Api_errors.sr_indestructible ["sr"]
     ~doc:"The SR could not be destroyed, as the 'indestructible' flag was set on it." ();
+
+  error Api_errors.sm_plugin_communication_failure ["sm"]
+    ~doc:"The SM plugin did not respond to a query." ();
     
   error Api_errors.device_already_attached ["device"] 
     ~doc:"The device is already attached to a VM" ();
@@ -1732,6 +1737,17 @@ let vm_get_cooperative = call
   ~result:(Bool, "true if the VM is currently 'co-operative'; false otherwise")
 	~allowed_roles:_R_READ_ONLY
   ()
+
+let vm_query_services = call
+	~name:"query_services"
+	~in_product_since:rel_tampa
+	~doc:"Query the system services advertised by this VM and register them. This can only be applied to a system domain."
+	~params:[
+		Ref _vm, "self", "The VM";
+	]
+	~result:(Map(String, String), "map of service type to name")
+	~allowed_roles:_R_POOL_ADMIN
+	()
 
 (* VM.StartOn *)
 
@@ -6451,7 +6467,9 @@ let vm_operations =
 	    vm_suspend; csvm; vm_resume; vm_resume_on;
 	    vm_pool_migrate;
         vm_migrate_send;
-	    vm_get_boot_record; vm_send_sysrq; vm_send_trigger ]
+	    vm_get_boot_record; vm_send_sysrq; vm_send_trigger;
+		vm_query_services;
+	  ]
 	@ [ "changing_memory_live", "Changing the memory settings";
 	    "awaiting_memory_live", "Waiting for the memory settings to change";
 	    "changing_dynamic_range", "Changing the memory dynamic range";
@@ -6533,6 +6551,7 @@ let vm =
 		vm_recover;
 		vm_import_convert;
 		vm_set_appliance;
+		vm_query_services;
 		]
       ~contents:
       ([ uid _vm;

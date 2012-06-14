@@ -27,7 +27,7 @@ let xenstore_test xs _ =
 	let task = Xenops_task.add tasks "test" (fun _ -> None) in
 	let (_: Thread.t) = Thread.create (fun () -> Thread.delay 1.; Xenops_task.cancel tasks task.Xenops_task.id) () in
 	try
-		let (_: bool) = cancellable_watch "/test/cancel" [] [] task ~xs ~timeout:3. () in
+		let (_: bool) = cancellable_watch (TestPath "/test/cancel") [] [] task ~xs ~timeout:3. () in
 		raise Did_not_cancel
 	with
 		| Cancelled(_) ->

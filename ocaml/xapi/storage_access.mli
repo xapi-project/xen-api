@@ -19,17 +19,6 @@ val start: unit -> unit
 (** once [start ()] returns the storage service is listening for requests on
     its unix domain socket. *)
 
-module Qemu_blkfront: sig
-
-	(** [path_opt __context self] returns [Some path] where [path] names the
-        storage device in the qemu domain, or [None] if there is no path *)
-	val path_opt: __context:Context.t -> self:API.ref_VBD -> string option
-
-	val unplug_nowait: __context:Context.t -> self:API.ref_VBD -> unit
-
-	val destroy: __context:Context.t -> self:API.ref_VBD -> unit
-end
-
 (** [find_vdi __context sr vdi] returns the XenAPI VDI ref associated
 	with (sr, vdi) *)
 val find_vdi: __context:Context.t -> Storage_interface.sr -> Storage_interface.vdi -> API.ref_VDI * API.vDI_t
@@ -40,11 +29,14 @@ val find_content: __context:Context.t -> ?sr:Storage_interface.sr -> Storage_int
 
 (** [bind __context pbd] causes the storage_access module to choose the most
         appropriate driver implementation for the given [pbd] *)
-val bind: __context:Context.t -> pbd:API.ref_PBD -> unit
+val bind: __context:Context.t -> pbd:API.ref_PBD -> Storage_interface.query_result
 
 (** [unbind __context pbd] causes the storage access module to forget the association
     between [pbd] and driver implementation *)
 val unbind: __context:Context.t -> pbd:API.ref_PBD -> unit
+
+(** [make_service uuid type] returns the service record for a storage driver *)
+val make_service: string -> string -> System_domains.service
 
 (** RPC function for calling the main storage multiplexor *)
 val rpc: Rpc.call -> Rpc.response
@@ -68,7 +60,7 @@ val attach_and_activate: __context:Context.t -> vbd:API.ref_VBD -> domid:int -> 
 
 (** [deactivate_and_detach __context vbd domid] idempotent function which ensures
     that any attached or activated VDI gets properly deactivated and detached. *)
-val deactivate_and_detach: __context:Context.t -> vbd:API.ref_VBD -> domid:int -> unplug_frontends:bool -> unit
+val deactivate_and_detach: __context:Context.t -> vbd:API.ref_VBD -> domid:int -> unit
 
 (** [is_attached __context vbd] returns true if the [vbd] has an attached
     or activated datapath. *)
@@ -100,6 +92,9 @@ val diagnostics: __context:Context.t -> string
 
 (** [dp_destroy __context dp allow_leak] attempts to cleanup and detach a given DP *)
 val dp_destroy: __context:Context.t -> string -> bool -> unit
+
+(** [create_sr __context sr physical_size] attempts to create an empty SR *)
+val create_sr: __context:Context.t -> sr:API.ref_SR -> physical_size:int64 -> unit
 
 (** [destroy_sr __context sr] attempts to cleanup and destroy a given SR *)
 val destroy_sr: __context:Context.t -> sr:API.ref_SR -> unit

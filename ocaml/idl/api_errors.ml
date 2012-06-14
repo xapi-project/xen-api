@@ -174,6 +174,7 @@ let vm_attached_to_more_than_one_vdi_with_timeoffset_marked_as_reset_on_boot = "
 let vms_failed_to_cooperate = "VMS_FAILED_TO_COOPERATE"
 let domain_exists = "DOMAIN_EXISTS"
 let cannot_reset_control_domain = "CANNOT_RESET_CONTROL_DOMAIN"
+let not_system_domain = "NOT_SYSTEM_DOMAIN"
 let only_provision_template = "PROVISION_ONLY_ALLOWED_ON_TEMPLATE"
 let only_revert_snapshot = "REVERT_ONLY_ALLOWED_ON_SNAPSHOT"
 let provision_failed_out_of_space = "PROVISION_FAILED_OUT_OF_SPACE"
@@ -215,6 +216,8 @@ let sr_device_in_use = "SR_DEVICE_IN_USE"
 let sr_operation_not_supported = "SR_OPERATION_NOT_SUPPORTED"
 let sr_not_sharable = "SR_NOT_SHARABLE"
 let sr_indestructible = "SR_INDESTRUCTIBLE"
+
+let sm_plugin_communication_failure = "SM_PLUGIN_COMMUNICATION_FAILURE"
 
 let pbd_exists = "PBD_EXISTS"
 

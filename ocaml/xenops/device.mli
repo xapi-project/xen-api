@@ -68,7 +68,7 @@ sig
 	val media_tray_is_locked : xs:Xenstore.Xs.xsh -> device_number:Device_number.t -> int -> bool
 
 	val clean_shutdown_async : xs:Xenstore.Xs.xsh -> device -> unit
-	val clean_shutdown_wait : Xenops_task.t -> xs:Xenstore.Xs.xsh -> device -> unit
+	val clean_shutdown_wait : Xenops_task.t -> xs:Xenstore.Xs.xsh -> ignore_transients:bool -> device -> unit
 
 	(* For migration: *)
 	val hard_shutdown_request : xs:Xenstore.Xs.xsh -> device -> unit
@@ -210,7 +210,7 @@ sig
 	val get_vnc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
 	val get_tc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
 
-	val signal : Xenops_task.t -> xs:Xenstore.Xs.xsh -> domid:Xenctrl.domid -> ?wait_for:string -> ?param:string
+	val signal : Xenops_task.t -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> domid:Xenctrl.domid -> ?wait_for:string -> ?param:string
 	          -> string -> unit
 
 	val cmdline_of_info: info -> bool -> int -> string list
@@ -218,9 +218,9 @@ sig
 	val start : Xenops_task.t -> xs:Xenstore.Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xenctrl.domid -> unit
 	val start_vnconly : Xenops_task.t -> xs:Xenstore.Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xenctrl.domid -> unit
 	val restore : Xenops_task.t -> xs:Xenstore.Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xenctrl.domid -> unit
-	val suspend : Xenops_task.t -> xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
-	val resume : Xenops_task.t -> xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
-	val stop : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
+	val suspend : Xenops_task.t -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
+	val resume : Xenops_task.t -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
+	val stop : xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
 end
 
 val get_vnc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option

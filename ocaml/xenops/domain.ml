@@ -307,7 +307,7 @@ let shutdown_wait_for_ack (t: Xenops_task.t) ?(timeout=60.) ~xc ~xs domid req =
 	end else begin
 		debug "VM = %s; domid = %d; Waiting for PV domain to acknowledge shutdown request" (Uuid.to_string uuid) domid;
 		let path = control_shutdown ~xs domid in
-		let cancel = cancel_path_of_domain ~xs domid in
+		let cancel = Domain domid in
 		if cancellable_watch cancel [ Watch.value_to_become path ""] [ Watch.key_to_disappear path ] t ~xs ~timeout ()
 		then info "VM = %s; domid = %d; Domain acknowledged shutdown request" (Uuid.to_string uuid) domid
 		else debug "VM = %s; domid = %d; Domain disappeared" (Uuid.to_string uuid) domid
@@ -317,7 +317,7 @@ let sysrq ~xs domid key =
 	let path = xs.Xs.getdomainpath domid ^ "/control/sysrq" in
 	xs.Xs.write path (String.make 1 key)
 
-let destroy (task: Xenops_task.t) ~xc ~xs domid =
+let destroy (task: Xenops_task.t) ~xc ~xs ~qemu_domid domid =
 	let dom_path = xs.Xs.getdomainpath domid in
 	let uuid = get_uuid ~xc domid in
 	(* These are the devices with a frontend in [domid] and a well-formed backend
@@ -349,7 +349,7 @@ let destroy (task: Xenops_task.t) ~xc ~xs domid =
 	log_exn_continue "Xenctrl.domain_destroy" (Xenctrl.domain_destroy xc) domid;
 
 	log_exn_continue "Error stoping device-model, already dead ?"
-	                 (fun () -> Device.Dm.stop ~xs domid) ();
+	                 (fun () -> Device.Dm.stop ~xs ~qemu_domid domid) ();
 	log_exn_continue "Error stoping vncterm, already dead ?"
 	                 (fun () -> Device.PV_Vnc.stop ~xs domid) ();
 
@@ -764,12 +764,12 @@ let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~console_port 
 	);
 	store_mfn, console_mfn
 
-let resume (task: Xenops_task.t) ~xc ~xs ~hvm ~cooperative domid =
+let resume (task: Xenops_task.t) ~xc ~xs ~hvm ~cooperative ~qemu_domid domid =
 	if not cooperative
 	then failwith "Domain.resume works only for collaborative domains";
 	Xenctrl.domain_resume_fast xc domid;
 	resume_post ~xc	~xs domid;
-	if hvm then Device.Dm.resume task ~xs domid
+	if hvm then Device.Dm.resume task ~xs ~qemu_domid domid
 
 let pv_restore (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~vcpus domid fd =
 
@@ -860,7 +860,7 @@ type suspend_flag = Live | Debug
  * and is in charge to suspend the domain when called. the whole domain
  * context is saved to fd
  *)
-let suspend (task: Xenops_task.t) ~xc ~xs ~hvm domid fd flags ?(progress_callback = fun _ -> ()) do_suspend_callback =
+let suspend (task: Xenops_task.t) ~xc ~xs ~hvm domid fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
 	let uuid = get_uuid ~xc domid in
 	debug "VM = %s; domid = %d; suspend live = %b" (Uuid.to_string uuid) domid (List.mem Live flags);
 	Io.write fd save_signature;
@@ -923,7 +923,7 @@ let suspend (task: Xenops_task.t) ~xc ~xs ~hvm domid fd flags ?(progress_callbac
 		do_suspend_callback ();
 		if hvm then (
 			debug "VM = %s; domid = %d; suspending qemu-dm" (Uuid.to_string uuid) domid;
-			Device.Dm.suspend task ~xs domid;
+			Device.Dm.suspend task ~xs ~qemu_domid domid;
 		);
  		XenguestHelper.send cnx "done\n";
 
