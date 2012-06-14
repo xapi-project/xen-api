@@ -171,12 +171,12 @@ let get_line str i =
     | _ -> (None,"")
 
 let param_error s t sock =
-  marshal sock (Command (PrintStderr (if s <> "" then s ^ ": " ^ t else t)));
-  marshal sock (Command (PrintStderr "For usage run: 'xe help'"));
+  marshal sock (Command (PrintStderr ((if s <> "" then s ^ ": " ^ t else t)^"\n")));
+  marshal sock (Command (PrintStderr "For usage run: 'xe help'\n"));
   marshal sock (Command (Exit 1))
 
 let other_error msg sock =
-  marshal sock (Command (PrintStderr msg));
+  marshal sock (Command (PrintStderr (msg^"\n")));
   marshal sock (Command (Exit 1))
 
 let multiple_error errs sock =
