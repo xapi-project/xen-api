@@ -668,8 +668,6 @@ let rec unplug ~__context ~self =
 	Nm.bring_pif_down ~__context self
 
 let rec plug ~__context ~self =
-	let network = Db.PIF.get_network ~__context ~self in
-	let host = Db.PIF.get_host ~__context ~self in
 	let tunnel = Db.PIF.get_tunnel_access_PIF_of ~__context ~self in
 	if tunnel <> []
 	then begin
@@ -686,7 +684,9 @@ let rec plug ~__context ~self =
 			plug ~__context ~self:transport_PIF
 		end
 	end;
-	Xapi_network.attach ~__context ~network ~host
+	if Db.PIF.get_bond_slave_of ~__context ~self <> Ref.null then
+		raise (Api_errors.Server_error (Api_errors.cannot_plug_bond_slave, [Ref.string_of self]));
+	Nm.bring_pif_up ~__context ~management_interface:false self
 
 let calculate_pifs_required_at_start_of_day ~__context =
 	let localhost = Helpers.get_localhost ~__context in
