@@ -282,54 +282,59 @@ let rec destroy_bridges ~__context ~force pif_rc bridge =
  * If there are none, then pick the management interface. If there is no management
  * interface, pick a random PIF.
  * Similarly for the DNS PIF, but with other_config:peerdns. *)
-let is_gateway_and_dns_pifs ~__context pif management_interface =
+let determine_gateway_and_dns_ifs ~__context pif_rc management_interface =
 	let localhost = Helpers.get_localhost ~__context in
 	let ip_pifs = Db.PIF.get_records_where ~__context
 		~expr:(And (Eq (Field "host", Literal (Ref.string_of localhost)),
 			Not (Eq (Field "ip_configuration_mode", Literal "None")))) in
-	let gateway_pif =
-		let oc = List.filter (fun (_, r) ->
-			List.mem_assoc "defaultroute" r.API.pIF_other_config &&
-			List.assoc "defaultroute" r.API.pIF_other_config = "true"
-		) ip_pifs in
-		match oc with
-		| (p, r) :: _ ->
-			warn "multiple PIFs with other_config:defaultroute=true - choosing %s" r.API.pIF_device;
-			p
-		| [] ->
-			if management_interface then
-				pif
-			else
-				let mgmt = List.filter (fun (_, r) -> r.API.pIF_management) ip_pifs in
-				match mgmt with
-				| (p, _) :: _ -> p
-				| [] ->
-					let (p, r) = List.hd ip_pifs in
-					warn "no gateway PIF found - choosing %s" r.API.pIF_device;
-					p
-	in
-	let dns_pif =
-		let oc = List.filter (fun (_, r) ->
-			List.mem_assoc "peerdns" r.API.pIF_other_config &&
-			List.assoc "peerdns" r.API.pIF_other_config = "true"
-		) ip_pifs in
-		match oc with
-		| (p, r) :: _ ->
-			warn "multiple PIFs with other_config:peerdns=true - choosing %s" r.API.pIF_device;
-			p
-		| [] ->
-			if management_interface then
-				pif
-			else
-				let mgmt = List.filter (fun (_, r) -> r.API.pIF_management) ip_pifs in
-				match mgmt with
-				| (p, _) :: _ -> p
-				| [] ->
-					let (p, r) = List.hd ip_pifs in
-					warn "no DNS PIF found - choosing %s" r.API.pIF_device;
-					p
-	in
-	gateway_pif = pif, dns_pif = pif
+	if ip_pifs = [] then
+		None, None
+	else
+		let gateway_pif =
+			let oc = List.filter (fun (_, r) ->
+				List.mem_assoc "defaultroute" r.API.pIF_other_config &&
+				List.assoc "defaultroute" r.API.pIF_other_config = "true"
+			) ip_pifs in
+			match oc with
+			| (_, r) :: _ ->
+				warn "multiple PIFs with other_config:defaultroute=true - choosing %s" r.API.pIF_device;
+				r
+			| [] ->
+				if management_interface then
+					pif_rc
+				else
+					let mgmt = List.filter (fun (_, r) -> r.API.pIF_management) ip_pifs in
+					match mgmt with
+					| (_, r) :: _ -> r
+					| [] ->
+						let (_, r) = List.hd ip_pifs in
+						warn "no gateway PIF found - choosing %s" r.API.pIF_device;
+						r
+		in
+		let dns_pif =
+			let oc = List.filter (fun (_, r) ->
+				List.mem_assoc "peerdns" r.API.pIF_other_config &&
+				List.assoc "peerdns" r.API.pIF_other_config = "true"
+			) ip_pifs in
+			match oc with
+			| (_, r) :: _ ->
+				warn "multiple PIFs with other_config:peerdns=true - choosing %s" r.API.pIF_device;
+				r
+			| [] ->
+				if management_interface then
+					pif_rc
+				else
+					let mgmt = List.filter (fun (_, r) -> r.API.pIF_management) ip_pifs in
+					match mgmt with
+					| (_, r) :: _ -> r
+					| [] ->
+						let (_, r) = List.hd ip_pifs in
+						warn "no DNS PIF found - choosing %s" r.API.pIF_device;
+						r
+		in
+		let gateway_bridge = Db.Network.get_bridge ~__context ~self:gateway_pif.API.pIF_network in
+		let dns_bridge = Db.Network.get_bridge ~__context ~self:dns_pif.API.pIF_network in
+		Some gateway_bridge, Some dns_bridge
 
 let determine_static_routes net_rc =
 	if List.mem_assoc "static-routes" net_rc.API.network_other_config then
@@ -363,12 +368,9 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 
 		Network.transform_networkd_exn pif (fun () ->
 			let persistent = is_dom0_interface rc in
-		(*	let dhcp_options =
-				if rc.API.pIF_ip_configuration_mode = `DHCP then
-					determine_dhcp_options ~__context pif management_interface
-				else []
-			in*)
-			let is_gateway_pif, is_dns_pif = is_gateway_and_dns_pifs ~__context pif management_interface in
+			let gateway_if, dns_if = determine_gateway_and_dns_ifs ~__context rc management_interface in
+			Opt.iter (fun name -> Net.set_gateway_interface dbg ~name) gateway_if;
+			Opt.iter (fun name -> Net.set_dns_interface dbg ~name) dns_if;
 
 			(* Setup network infrastructure *)
 			let cleanup, bridge_config, interface_config = create_bridges ~__context rc net_rc in
@@ -436,10 +438,6 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 					conf, gateway
 			in
 
-			if is_gateway_pif then
-				Net.set_gateway_interface dbg ~name:bridge;
-			if is_dns_pif then
-				Net.set_dns_interface dbg ~name:bridge;
 			let mtu = determine_mtu rc net_rc in
 			let (ethtool_settings, ethtool_offload) = determine_ethtool_settings net_rc.API.network_other_config in
 			let interface_config = [bridge, {ipv4_conf; ipv4_gateway; ipv6_conf; ipv6_gateway;
