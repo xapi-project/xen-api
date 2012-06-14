@@ -74,7 +74,7 @@ let write_char fd c start len =
 	Printf.printf "write_char: %c sector:%Ld nsectors:%d\n%!" c start len;
 	if len*512 > Sys.max_string_length then failwith "len too large";
 	let s = String.make (len*512) c in
-	ignore(Nbd.write fd s (Int64.mul 512L start))
+	ignore(Nbd.write fd (Int64.mul 512L start) s 0 (String.length s))
 		
 let write_junk fd size n current_junk =
 	let maxsize = (1024*2) (*Sys.max_string_length*) in

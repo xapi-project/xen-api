@@ -3,6 +3,7 @@
 
 open Pervasiveext
 open Stringext
+open Threadext
 open Fun
 open Listext
 open Zerocheck
@@ -16,7 +17,7 @@ let ( ** ) = Int64.mul
 let kib = 1024L
 let mib = kib ** kib
 
-let blocksize = 10L ** mib
+let blocksize = 2L ** mib
 
 exception ShortWrite of int (* offset *) * int (* expected *) * int (* actual *)
 
@@ -31,25 +32,32 @@ let rounddown x =
 
 (* Set to true when we want machine-readable output *)
 let machine_readable = ref false 
+let debug_m = Mutex.create ()
 
 let debug (fmt: ('a , unit, string, unit) format4) =
-	if !machine_readable
-	then Printf.kprintf
-		(fun s ->
-			let open Sparse_encoding in
-			let x = { Chunk.start = 0L; data = s } in
-			Chunk.marshal Unix.stdout x
-		) fmt
-	else Printf.kprintf
-		(fun s -> 
-			Printf.printf "%s\n" s;
-			flush stdout
-		) fmt
+	Mutex.execute debug_m
+		(fun () ->
+			if !machine_readable
+			then Printf.kprintf
+				(fun s ->
+					let open Sparse_encoding in
+					let x = { Chunk.start = 0L; data = s } in
+					Chunk.marshal Unix.stdout x
+				) fmt
+			else Printf.kprintf
+				(fun s -> 
+					Printf.printf "%s\n" s;
+					flush stdout
+				) fmt
+		)
 
 let close_output () =
 	let open Sparse_encoding in
-	if !machine_readable
-	then Chunk.marshal Unix.stdout { Chunk.start = 0L; data = "" }
+	Mutex.execute debug_m
+		(fun () ->
+			if !machine_readable
+			then Chunk.marshal Unix.stdout { Chunk.start = 0L; data = "" }
+		)
 
 (** The copying routine has inputs and outputs which both look like a 
     Unix file-descriptor *)
@@ -162,16 +170,90 @@ end
 module Nbd_writer = struct
 	type t = Unix.file_descr
 
-	let op fd off { buf = buf; offset = offset; len = len } =
-		debug "off=%Ld buf offset=%d len=%d" off offset len;
-		let copy = String.create len in
-		String.blit buf offset copy 0 len;
-		match Nbd.write fd copy off with
-			| None -> ()
-			| Some err ->
-				debug "Error code from NBD server: %ld" err;
-				close_output ();
-				exit 5
+	(* Keep a count of the in-flight requests, check we receive exactly
+	   this many success responses. *)
+	let num_inflight_requests = ref 0L
+
+	(* Impose an upper limit on the number of inflight requests
+	   since I suspect a bug in the tapdisk receive code *)
+	let max_inflight_requests = ref 1L
+
+	module Int64Set = Set.Make(struct type t = int64 let compare = compare end)
+
+	let inflight_requests = ref Int64Set.empty
+	let string_of_inflight_requests () = String.concat ", " (Int64Set.fold (fun x acc -> Int64.to_string x :: acc) !inflight_requests [])
+
+	(* On first request, fd is set and the condition variable is signalled *)
+	let fd = ref None
+
+	let m = Mutex.create ()
+	let c = Condition.create ()
+
+	(* Consumes all replies from the NBD server. Will exit the whole process
+	   if any of the requests fail. *)
+	let background_receiver = Thread.create
+		(fun () ->
+			(* Wait until the fd is set *)
+			let fd =
+				Mutex.execute m
+					(fun () ->
+						while !fd = None do
+							Condition.wait c m
+						done;
+						Opt.unbox !fd
+					) in
+			(* Consume replies forever *)
+			debug "receiver thread started consuming replies";
+			while true do
+				match Nbd.write_wait fd with
+					| offset, None ->
+						Mutex.execute m
+							(fun () ->
+								num_inflight_requests := Int64.sub !num_inflight_requests 1L;
+								inflight_requests := Int64Set.remove offset !inflight_requests;
+								debug "REPLY offset = %Ld num_inflight_requests = %Ld [ %s ]" offset !num_inflight_requests (string_of_inflight_requests ());
+								(* Wake up the main thread, waiting for us to finish *)
+								Condition.signal c
+							);
+					| offset, Some err ->
+						debug "Error code from NBD server: %ld (Offset %Ld)" err offset;
+						close_output ();
+						exit 5
+			done
+		) ()
+
+	let wait_for_last_reply () =
+		Mutex.execute m
+			(fun () ->
+				match !fd with
+					| None -> () (* nothing to do *)
+					| Some _ ->
+						while !num_inflight_requests > 0L do
+							debug "Waiting for last reply (num_inflight_requests = %Ld)" !num_inflight_requests;
+							Condition.wait c m
+						done
+			)
+
+	let op fd' offset { buf = buf; offset = ofs; len = len } =
+		let reqs = Mutex.execute m
+			(fun () ->
+				(* On first request, signal the background thread *)
+				begin match !fd with
+					| None ->
+						fd := Some fd';
+						Condition.signal c
+					| Some other -> assert (other = fd') (* One server only please *)
+				end;
+				(* If we've sent more than our limit, wait for replies *)
+				while !num_inflight_requests >= !max_inflight_requests do
+					Condition.wait c m
+				done;
+				num_inflight_requests := Int64.add !num_inflight_requests 1L;
+				inflight_requests := Int64Set.add offset !inflight_requests;
+				!num_inflight_requests
+			) in
+		debug "REQUEST offset=%Ld buf ofs=%d len=%d num_inflight_requests=%Ld [ %s ]" offset ofs len reqs (string_of_inflight_requests ());
+		Nbd.write_async fd' offset buf ofs len offset
 end
 
 module Null_writer = struct
@@ -466,7 +548,9 @@ let _ =
 		    "-size", Arg.String (fun x -> size := Int64.of_string x), "number of bytes to copy";
 		    "-prezeroed", Arg.Set prezeroed, "assume the destination disk has been prezeroed (but not full of zeroes if [-base] is provided)";
 		    "-machine", Arg.Set machine_readable, "emit machine-readable output";
-		    "-test", Arg.Set test, "perform some unit tests"; ]
+		    "-test", Arg.Set test, "perform some unit tests";
+			"-nbd:max_requests", Arg.Int (fun x -> Nbd_writer.max_inflight_requests := (Int64.of_int x)), "set the maximum number of in-flight requests";
+	]
 	(fun x -> Printf.fprintf stderr "Warning: ignoring unexpected argument %s\n" x)
 	(String.concat "\n" [ "Usage:";
 			      Printf.sprintf "%s [-base x] [-prezeroed] <-src y> <-dest z> <-size s>" Sys.argv.(0);
@@ -544,6 +628,7 @@ let _ =
 	let erase = not !prezeroed in
 	let write_zeroes = not !prezeroed || !base <> None in
 	let stats = file_dd ~progress_cb ?size ?bat erase write_zeroes (Opt.unbox !src) (Opt.unbox !dest) in
+	Nbd_writer.wait_for_last_reply ();
 	let time = Unix.gettimeofday () -. start in
 	debug "Time: %.2f seconds" time;
 	debug "Number of writes: %d" stats.writes;
