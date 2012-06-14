@@ -601,13 +601,16 @@ let to_xenapi_console_protocol = let open Vm in function
 	| Rfb -> `rfb
 	| Vt100 -> `vt100
 
+let attach_network_for_vif ~__context ~self =
+	Xapi_network.register_vif ~__context self;
+	let network = Db.VIF.get_network ~__context ~self in
+	Xapi_network.attach_internal ~__context ~self:network ();
+	Xapi_udhcpd.maybe_add_lease ~__context self
+
 let attach_networks ~__context ~self =
 	List.iter
 		(fun vif ->
-			Xapi_network.register_vif ~__context vif;
-			let network = Db.VIF.get_network ~__context ~self:vif in
-			Xapi_network.attach_internal ~__context ~self:network ();
-			Xapi_udhcpd.maybe_add_lease ~__context vif
+			attach_network_for_vif ~__context ~self:vif
 		) (Db.VM.get_VIFs ~__context ~self)
 
 let detach_networks ~__context ~self =
@@ -1876,10 +1879,10 @@ let vif_move ~__context ~self network =
 			let backend = backend_of_network network in
 			let dbg = Context.string_of_task __context in
 			(* Nb., at this point, the database shows the vif on the new network *)
-			with_networks_attached ~__context ~self:vm (fun () -> 
-				Client.VIF.move dbg vif.Vif.id backend |> sync_with_task __context;
-				Event.wait dbg ();
-				assert (Db.VIF.get_currently_attached ~__context ~self))
+			attach_network_for_vif ~__context ~self;
+			Client.VIF.move dbg vif.Vif.id backend |> sync_with_task __context;
+			Event.wait dbg ();
+			assert (Db.VIF.get_currently_attached ~__context ~self)
 		)
 
 let task_cancel ~__context ~self =
