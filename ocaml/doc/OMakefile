@@ -19,13 +19,15 @@ doc: jsapi
 sdk-install: doc
 	mkdir -p $(SDK)/docs/html/xcp
 	sh -c 'cp -r -L api $(SDK)/docs/html/xcp/'
-	sh -c 'cp -r -L content $(SDK)/docs/html/xcp/'
+	sh -c 'cp -r -L content $(SDK)/docs/html/xcp/ || true'
 	cp *.js *.html *.css *.png $(SDK)/docs/html/xcp/
 
 	mkdir -p $(SDK)/docs/html/xenserver
 	sh -c 'cp -r -L api $(SDK)/docs/html/xenserver/'
 	cp *.js *.html *.css *.png $(SDK)/docs/html/xenserver/
 	cp xenserver/* $(SDK)/docs/html/xenserver/
+
+noarch-install: sdk-install
 
 .PHONY: clean
 clean:

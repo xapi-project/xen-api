@@ -131,7 +131,7 @@ let find_vdi_in_scan sr vdi =
 	with Not_found ->
 		None
 
-let test_query sr _ = let (_: query_result) = SMClient.query () in ()
+let test_query sr _ = let (_: query_result) = SMClient.Query.query ~dbg in ()
 
 let missing_vdi = "missing"
 
@@ -145,7 +145,7 @@ let test_destroy_missing_vdi sr _ =
 		SMClient.VDI.destroy ~dbg ~sr ~vdi:missing_vdi;
 		failwith "VDI.destroy unexpectedly succeeded"
 	with 
-		| Vdi_does_not_exist -> ()
+		| Vdi_does_not_exist(_) -> ()
 		| x -> failwith (Printf.sprintf "Unexpected result from VDI.destroy: %s\n" (Printexc.to_string x))
 
 let vdi_info_assert_equal vdi_info vdi_info' =
@@ -156,7 +156,8 @@ let vdi_info_assert_equal vdi_info vdi_info' =
 	assert_equal ~msg:"is_a_snapshot" ~printer:string_of_bool vdi_info.is_a_snapshot vdi_info'.is_a_snapshot;
 	assert_equal ~msg:"snapshot_time" ~printer:(fun x -> x) vdi_info.snapshot_time vdi_info'.snapshot_time;
 	assert_equal ~msg:"snapshot_of" ~printer:(fun x -> x) vdi_info.snapshot_of vdi_info'.snapshot_of;
-	assert_equal ~msg:"read_only" ~printer:string_of_bool vdi_info.read_only vdi_info'.read_only
+	assert_equal ~msg:"read_only" ~printer:string_of_bool vdi_info.read_only vdi_info'.read_only;
+	assert_equal ~msg:"persistent" ~printer:string_of_bool vdi_info.persistent vdi_info'.persistent
 
 let example_vdi_info =
 	let name_label = "test_name_label" in
@@ -183,6 +184,7 @@ let example_vdi_info =
 		read_only = read_only;
 		virtual_size = virtual_size;
 		physical_utilisation = physical_utilisation;
+		persistent = true;
 	}
 
 let test_create_destroy sr _ =
@@ -323,6 +325,7 @@ let _ =
 	let password = ref "xenroot" in
 
 	Arg.parse [
+		"-socket", Arg.String (fun s -> transport := Unix s), "Unix domain socket for local SMAPIv2";
 		"-sr", Arg.Set_string sr, "Specify SR";
 		"-rsr", Arg.Set_string rsr, "Specify remote SR";
 		"-verbose", Arg.Unit (fun _ -> verbose := true), "Run in verbose mode";

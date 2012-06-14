@@ -167,7 +167,7 @@ let unplug_watch ~xs (x: device) = Hotplug.path_written_by_hotplug_scripts x |> 
 let error_watch ~xs (x: device) = Watch.value_to_appear (error_path_of_device ~xs x)
 let frontend_closed ~xs (x: device) = Watch.map (fun () -> "") (Watch.value_to_become (frontend_path_of_device ~xs x ^ "/state") (Xenbus_utils.string_of Xenbus_utils.Closed))
 
-let clean_shutdown_wait (task: Xenops_task.t) ~xs (x: device) =
+let clean_shutdown_wait (task: Xenops_task.t) ~xs ~ignore_transients (x: device) =
 	debug "Device.Generic.clean_shutdown_wait %s" (string_of_device x);
 
 	let on_error () =
@@ -176,16 +176,18 @@ let clean_shutdown_wait (task: Xenops_task.t) ~xs (x: device) =
 	    debug "Device.Generic.shutdown_common: read an error: %s" error;
 	    (* After CA-14804 we deleted the error node *)
 		(* After CA-73099 we stopped doing that *)
+		(* ... but in the case of a "managed" domain,
+		   this transient should be ignored anyway *)
 	    raise (Device_error (x, error)) in
 
-	let cancel = cancel_path_of_device ~xs x in
+	let cancel = Device x in
 	let frontend_closed = Watch.map (fun _ -> ()) (frontend_closed ~xs x) in
 	let unplug = Watch.map (fun _ -> ()) (unplug_watch ~xs x) in
 	let error = Watch.map (fun _ -> ()) (error_watch ~xs x) in
-	if cancellable_watch cancel [ frontend_closed; unplug ] [ error ] task ~xs ~timeout:!Xapi_globs.hotplug_timeout ()
+	if cancellable_watch cancel [ frontend_closed; unplug ] (if ignore_transients then [] else [ error ]) task ~xs ~timeout:!Xapi_globs.hotplug_timeout ()
 	then begin
 		safe_rm ~xs (frontend_path_of_device ~xs x);
-		if cancellable_watch cancel [ unplug ] [ error ] task ~xs ~timeout:!Xapi_globs.hotplug_timeout ()
+		if cancellable_watch cancel [ unplug ] (if ignore_transients then [] else [ error ]) task ~xs ~timeout:!Xapi_globs.hotplug_timeout ()
 		then rm_device_state ~xs x
 		else on_error ()
 	end else on_error ()
@@ -193,7 +195,7 @@ let clean_shutdown_wait (task: Xenops_task.t) ~xs (x: device) =
 let clean_shutdown (task: Xenops_task.t) ~xs (x: device) =
 	debug "Device.Generic.clean_shutdown %s" (string_of_device x);
 	clean_shutdown_async ~xs x;
-	clean_shutdown_wait task ~xs x
+	clean_shutdown_wait task ~xs ~ignore_transients:false x
 
 let hard_shutdown_request ~xs (x: device) =
 	debug "Device.Generic.hard_shutdown_request %s" (string_of_device x);
@@ -212,7 +214,7 @@ let hard_shutdown_complete ~xs (x: device) = unplug_watch ~xs x
 let hard_shutdown (task: Xenops_task.t) ~xs (x: device) = 
 	hard_shutdown_request ~xs x;
 
-	let (_: bool) = cancellable_watch (cancel_path_of_device ~xs x) [ hard_shutdown_complete ~xs x ] [ ] task ~xs ~timeout:!Xapi_globs.hotplug_timeout () in
+	let (_: bool) = cancellable_watch (Device x) [ hard_shutdown_complete ~xs x ] [ ] task ~xs ~timeout:!Xapi_globs.hotplug_timeout () in
 	(* blow away the backend and error paths *)
 	debug "Device.Generic.hard_shutdown about to blow away backend and error paths";
 	rm_device_state ~xs x
@@ -389,14 +391,14 @@ let request_shutdown ~xs (x: device) (force: bool) =
 let shutdown_done ~xs (x: device): unit Watch.t =
 	Watch.value_to_appear (backend_shutdown_done_path_of_device ~xs x) |> Watch.map (fun _ -> ())
 
-let shutdown_request_clean_shutdown_wait (task: Xenops_task.t) ~xs (x: device) =
+let shutdown_request_clean_shutdown_wait (task: Xenops_task.t) ~xs ~ignore_transients (x: device) =
     debug "Device.Vbd.clean_shutdown_wait %s" (string_of_device x);
 
     (* Allow the domain to reject the request by writing to the error node *)
     let shutdown_done = shutdown_done ~xs x in
     let error = Watch.value_to_appear (error_path_of_device ~xs x) |> Watch.map (fun _ -> ())  in
 
-	if cancellable_watch (cancel_path_of_device ~xs x) [ shutdown_done ] [ error ] task ~xs ~timeout:!Xapi_globs.hotplug_timeout ()
+	if cancellable_watch (Device x) [ shutdown_done ] (if ignore_transients then [] else [ error ]) task ~xs ~timeout:!Xapi_globs.hotplug_timeout ()
 	then begin
 		debug "Device.Vbd.shutdown_common: shutdown-done appeared";
 		(* Delete the trees (otherwise attempting to plug the device in again doesn't
@@ -416,7 +418,7 @@ let shutdown_request_hard_shutdown (task: Xenops_task.t) ~xs (x: device) =
 	request_shutdown ~xs x true; (* force *)
 
 	(* We don't watch for error nodes *)
-	let (_: bool) = cancellable_watch (cancel_path_of_device ~xs x) [ shutdown_done ~xs x ] [] task ~xs ~timeout:!Xapi_globs.hotplug_timeout () in
+	let (_: bool) = cancellable_watch (Device x) [ shutdown_done ~xs x ] [] task ~xs ~timeout:!Xapi_globs.hotplug_timeout () in
 	Generic.rm_device_state ~xs x;
 
 	debug "Device.Vbd.hard_shutdown complete"
@@ -425,13 +427,13 @@ let clean_shutdown_async ~xs x = match shutdown_mode_of_device ~xs x with
 	| Classic -> Generic.clean_shutdown_async ~xs x
 	| ShutdownRequest -> request_shutdown ~xs x false (* normal *)
 
-let clean_shutdown_wait (task: Xenops_task.t) ~xs x = match shutdown_mode_of_device ~xs x with
-	| Classic -> Generic.clean_shutdown_wait task ~xs x
-	| ShutdownRequest -> shutdown_request_clean_shutdown_wait task ~xs x
+let clean_shutdown_wait (task: Xenops_task.t) ~xs ~ignore_transients x = match shutdown_mode_of_device ~xs x with
+	| Classic -> Generic.clean_shutdown_wait task ~xs ~ignore_transients x
+	| ShutdownRequest -> shutdown_request_clean_shutdown_wait task ~xs ~ignore_transients x
 
 let clean_shutdown (task: Xenops_task.t) ~xs x =
 	clean_shutdown_async ~xs x;
-	clean_shutdown_wait task ~xs x
+	clean_shutdown_wait task ~xs ~ignore_transients:false x
 
 let hard_shutdown (task: Xenops_task.t) ~xs x = match shutdown_mode_of_device ~xs x with
 	| Classic -> Generic.hard_shutdown task ~xs x
@@ -446,7 +448,7 @@ let hard_shutdown_complete ~xs x = match shutdown_mode_of_device ~xs x with
 	| ShutdownRequest -> shutdown_done ~xs x
 
 let hard_shutdown_wait (task: Xenops_task.t) ~xs ~timeout x =
-	let (_: bool) = cancellable_watch (cancel_path_of_device ~xs x) [ Watch.map (fun _ -> ()) (hard_shutdown_complete ~xs x) ] [] task ~xs ~timeout () in
+	let (_: bool) = cancellable_watch (Device x) [ Watch.map (fun _ -> ()) (hard_shutdown_complete ~xs x) ] [] task ~xs ~timeout () in
 	()
 
 let release (task: Xenops_task.t) ~xs (x: device) =
@@ -1297,7 +1299,7 @@ let wait_device_model (task: Xenops_task.t) ~xc ~xs domid =
   let path = device_model_state_path xs be_domid domid in
   let watch = Watch.value_to_appear path |> Watch.map (fun _ -> ()) in
   let shutdown = Watch.key_to_disappear (Qemu.qemu_pid_path domid) in
-  let cancel = cancel_path_of_domain ~xs domid in
+  let cancel = Domain domid in
   let (_: bool) = cancellable_watch cancel [ watch; shutdown ] [] task ~xs ~timeout:!Xapi_globs.hotplug_timeout () in
   if Qemu.is_running ~xs domid then begin
 	  let answer = try xs.Xs.read path with _ -> "" in
@@ -1579,7 +1581,7 @@ type info = {
 
 
 (* Where qemu writes its state and is signalled *)
-let device_model_path domid = sprintf "/local/domain/0/device-model/%d" domid
+let device_model_path ~qemu_domid domid = sprintf "/local/domain/%d/device-model/%d" qemu_domid domid
 
 let get_vnc_port ~xs domid =
 	if not (Qemu.is_running ~xs domid)
@@ -1593,26 +1595,26 @@ let get_tc_port ~xs domid =
 
 
 (* Xenclient specific paths *)
-let power_mgmt_path domid = sprintf "/local/domain/0/device-model/%d/xen_extended_power_mgmt" domid
-let oem_features_path domid = sprintf "/local/domain/0/device-model/%d/oem_features" domid
-let inject_sci_path domid = sprintf "/local/domain/0/device-model/%d/inject-sci" domid
+let power_mgmt_path ~qemu_domid domid = sprintf "/local/domain/%d/device-model/%d/xen_extended_power_mgmt" qemu_domid domid
+let oem_features_path ~qemu_domid domid = sprintf "/local/domain/%d/device-model/%d/oem_features" qemu_domid domid
+let inject_sci_path ~qemu_domid domid = sprintf "/local/domain/%d/device-model/%d/inject-sci" qemu_domid domid
 
-let xenclient_specific ~xs info domid =
+let xenclient_specific ~xs info ~qemu_domid domid =
   (match info.power_mgmt with 
     | Some i -> begin
 	try 
 	  if (Unix.stat "/proc/acpi/battery").Unix.st_kind == Unix.S_DIR then
-	    xs.Xs.write (power_mgmt_path domid) (string_of_int i);
+	    xs.Xs.write (power_mgmt_path ~qemu_domid domid) (string_of_int i);
 	with _ -> ()
       end
     | None -> ());
   
   (match info.oem_features with 
-    | Some i -> xs.Xs.write (oem_features_path domid) (string_of_int i);
+    | Some i -> xs.Xs.write (oem_features_path ~qemu_domid domid) (string_of_int i);
     | None -> ());
   
   (match info.inject_sci with 
-    | Some i -> xs.Xs.write (inject_sci_path domid) (string_of_int i)
+    | Some i -> xs.Xs.write (inject_sci_path ~qemu_domid domid) (string_of_int i)
     | None -> ());
   
   let sound_options =
@@ -1625,8 +1627,8 @@ let xenclient_specific ~xs info domid =
    "-M"; (if info.hvm then "xenfv" else "xenpv")] 
   @ sound_options
    
-let signal (task: Xenops_task.t) ~xs ~domid ?wait_for ?param cmd =
-	let cmdpath = device_model_path domid in
+let signal (task: Xenops_task.t) ~xs ~qemu_domid ~domid ?wait_for ?param cmd =
+	let cmdpath = device_model_path ~qemu_domid domid in
 	Xs.transaction xs (fun t ->
 		t.Xst.write (cmdpath ^ "/command") cmd;
 		match param with
@@ -1640,13 +1642,13 @@ let signal (task: Xenops_task.t) ~xs ~domid ?wait_for ?param cmd =
                 * way too long for our software to recover successfully.
                 * Talk to Citrix about this
                 *)
-		let cancel = cancel_path_of_domain ~xs domid in
+		let cancel = Domain qemu_domid in
 		let (_: bool) = cancellable_watch cancel [ Watch.value_to_become pw state ] [] task ~xs ~timeout:30. () in
 		()
 	| None -> ()
 
-let get_state ~xs domid =
-	let cmdpath = device_model_path domid in
+let get_state ~xs ~qemu_domid domid =
+	let cmdpath = device_model_path ~qemu_domid domid in
 	let statepath = cmdpath ^ "/state" in
 	try Some (xs.Xs.read statepath)
 	with _ -> None
@@ -1762,7 +1764,8 @@ let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xapi_globs.qemu_dm_re
 	   2. (in production) We know qemu is ready (and the domain may be unpaused) when
 	      device-misc/dm-ready is set in the store. See xs-xen.pq.hg:hvm-late-unpause *)
 
-    let dm_ready = Printf.sprintf "/local/domain/0/device-model/%d/state" domid in
+	let qemu_domid = 0 in (* See stubdom.ml for the corresponding kernel code *)
+    let dm_ready = Printf.sprintf "/local/domain/%d/device-model/%d/state" qemu_domid domid in
 	let qemu_pid = Forkhelpers.getpid pid in
 	debug "qemu-dm: pid = %d. Waiting for %s" qemu_pid dm_ready;
 	(* We can't block for both a xenstore key and a process disappearing so we
@@ -1770,7 +1773,7 @@ let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xapi_globs.qemu_dm_re
 	begin
 		let finished = ref false in
 		let watch = Watch.value_to_appear dm_ready |> Watch.map (fun _ -> ()) in
-		let cancel = cancel_path_of_domain ~xs domid in
+		let cancel = Domain domid in
 		let start = Unix.gettimeofday () in
 		while Unix.gettimeofday () -. start < timeout && not !finished do
 			Xenops_task.check_cancelling task;
@@ -1808,13 +1811,13 @@ let start_vnconly (task: Xenops_task.t) ~xs ~dmpath ?timeout info domid =
 	__start task ~xs ~dmpath ?timeout l domid
 
 (* suspend/resume is a done by sending signals to qemu *)
-let suspend (task: Xenops_task.t) ~xs domid =
-	signal task ~xs ~domid "save" ~wait_for:"paused"
-let resume (task: Xenops_task.t) ~xs domid =
-	signal task ~xs ~domid "continue" ~wait_for:"running"
+let suspend (task: Xenops_task.t) ~xs ~qemu_domid domid =
+	signal task ~xs ~qemu_domid ~domid "save" ~wait_for:"paused"
+let resume (task: Xenops_task.t) ~xs ~qemu_domid domid =
+	signal task ~xs ~qemu_domid ~domid "continue" ~wait_for:"running"
 
 (* Called by every domain destroy, even non-HVM *)
-let stop ~xs domid  =
+let stop ~xs ~qemu_domid domid  =
 	let qemu_pid_path = Qemu.qemu_pid_path domid in
 	match (Qemu.pid ~xs domid) with
 		| None -> () (* nothing to do *)
@@ -1831,7 +1834,7 @@ let stop ~xs domid  =
 			best_effort "removing core files from /var/xen/qemu"
 				(fun () -> Unix.rmdir ("/var/xen/qemu/"^(string_of_int qemu_pid)));
 			best_effort "removing device model path from xenstore"
-				(fun () -> xs.Xs.rm (device_model_path domid))
+				(fun () -> xs.Xs.rm (device_model_path ~qemu_domid domid))
 
 end
 

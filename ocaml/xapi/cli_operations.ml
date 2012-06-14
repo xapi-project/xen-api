@@ -2062,6 +2062,14 @@ let vm_memory_shadow_multiplier_set printer rpc session_id params =
 			Client.VM.set_shadow_multiplier_live rpc session_id vm multiplier) params ["multiplier"] in
 	()
 
+let vm_query_services printer rpc session_id params =
+	ignore(do_vm_op printer rpc session_id
+		(fun vm ->
+			let vm=vm.getref () in
+			let record = Client.VM.query_services rpc session_id vm in
+			printer (Cli_printer.PTable [ ("Type", "Name") :: record ])
+		) params [])
+
 let vm_start printer rpc session_id params =
 	let force = get_bool_param params "force" in
 	let paused = get_bool_param params "paused" in

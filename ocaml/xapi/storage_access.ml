@@ -40,13 +40,12 @@ let find_content ~__context ?sr name =
 		(fun (_, vdi_rec) ->
 			false
 			|| (vdi_rec.API.vDI_location = name) (* PR-1255 *)
-			|| (List.mem_assoc "content_id" vdi_rec.API.vDI_other_config && (List.assoc "content_id" vdi_rec.API.vDI_other_config = name))
 		) all
 
 let redirect sr =
 	raise (Redirect (Some (Pool_role.get_master_address ())))
 
-module Builtin_impl = struct
+module SMAPIv1 = struct
 	(** xapi's builtin ability to call local SM plugins using the existing
 	    protocol. The code here should only call the SM functions and encapsulate
 	    the return or error properly. It should not perform side-effects on
@@ -60,21 +59,53 @@ module Builtin_impl = struct
 
 	type context = Smint.request
 
-    let query context () = {
-        name = "SMAPIv1 adapter";
-        vendor = "XCP";
-        version = "0.1";
-        features = [];
-    }
+	module Query = struct
+		let query context ~dbg = {
+			driver = "storage_access";
+			name = "SMAPIv1 adapter";
+			description = "Allows legacy SMAPIv1 adapters to expose an SMAPIv2 interface";
+			vendor = "XCP";
+			copyright = "see the source code";
+			version = "2.0";
+			required_api_version = "2.0";
+			features = [];
+			configuration = []
+		}
+
+		let diagnostics context ~dbg =
+			"No diagnostics are available for SMAPIv1 plugins"
+	end
 
 	module DP = struct
 		let create context ~dbg ~id = assert false
 		let destroy context ~dbg ~dp = assert false
 		let diagnostics context () = assert false
 		let attach_info context ~dbg ~sr ~vdi ~dp = assert false
+		let stat_vdi context ~dbg ~sr ~vdi = assert false
 	end
 
 	module SR = struct
+		let create context ~dbg ~sr ~device_config ~physical_size =
+			Server_helpers.exec_with_new_task "SR.create" ~subtask_of:(Ref.of_string dbg)
+				(fun __context ->
+					let subtask_of = Some (Context.get_task_id __context) in
+					let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
+					let device_config = (Sm.sm_master true) :: device_config in
+					Sm.call_sm_functions ~__context ~sR:sr
+						(fun _ _type ->
+							try
+								Sm.sr_create (subtask_of, device_config) _type sr physical_size
+							with
+								| Smint.Not_implemented_in_backend ->
+									error "SR.create failed SR:%s Not_implemented_in_backend" (Ref.string_of sr);
+									raise (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
+								| e ->
+									let e' = ExnHelper.string_of_exn e in
+									error "SR.create failed SR:%s error:%s" (Ref.string_of sr) e';
+									raise e
+						)
+				)
+
 		let attach context ~dbg ~sr ~device_config =
 			Server_helpers.exec_with_new_task "SR.attach" ~subtask_of:(Ref.of_string dbg)
 				(fun __context ->
@@ -158,6 +189,7 @@ module Builtin_impl = struct
 				read_only = vdi_rec.API.vDI_read_only;
 				virtual_size = vdi_rec.API.vDI_virtual_size;
 				physical_utilisation = vdi_rec.API.vDI_physical_utilisation;
+				persistent = vdi_rec.API.vDI_on_boot = `persist;
 			}
 
 		let scan context ~dbg ~sr:sr' =
@@ -206,6 +238,7 @@ module Builtin_impl = struct
 		let vdi_read_write = Hashtbl.create 10
 		let vdi_read_write_m = Mutex.create ()
 
+		let epoch_begin context ~dbg ~sr ~vdi = ()
 
 		let attach context ~dbg ~dp ~sr ~vdi ~read_write =
 			try
@@ -272,7 +305,7 @@ module Builtin_impl = struct
 			with Api_errors.Server_error(code, params) ->
 				raise (Backend_error(code, params))
 
-		let stat context ~dbg ~sr ~vdi () = assert false
+		let epoch_end context ~dbg ~sr ~vdi = ()
 
         let require_uuid vdi_info =
             match vdi_info.Smint.vdi_info_uuid with
@@ -295,6 +328,7 @@ module Builtin_impl = struct
                 read_only = r.API.vDI_read_only;
                 virtual_size = r.API.vDI_virtual_size;
                 physical_utilisation = r.API.vDI_physical_utilisation;
+				persistent = r.API.vDI_on_boot = `persist;
             }
 
         let newvdi ~__context vi =
@@ -353,7 +387,7 @@ module Builtin_impl = struct
 				| Api_errors.Server_error(code, params) ->
 					raise (Backend_error(code, params))
 				| Smint.Not_implemented_in_backend ->
-					raise Unimplemented
+					raise (Unimplemented call_name)
 				| Sm.MasterOnly -> redirect sr
 
 
@@ -372,7 +406,41 @@ module Builtin_impl = struct
 				| Api_errors.Server_error(code, params) ->
 					raise (Backend_error(code, params))
 				| No_VDI ->
-					raise Vdi_does_not_exist
+					raise (Vdi_does_not_exist vdi)
+				| Sm.MasterOnly -> redirect sr
+
+		let stat context ~dbg ~sr ~vdi =
+			try
+				Server_helpers.exec_with_new_task "VDI.stat" ~subtask_of:(Ref.of_string dbg)
+					(fun __context ->
+						for_vdi ~dbg ~sr ~vdi "VDI.stat"
+							(fun device_config _type _ self ->
+								SR.vdi_info_of_vdi_rec __context sr (Db.VDI.get_record ~__context ~self)
+							)
+					)
+			with e ->
+				error "VDI.stat caught: %s" (Printexc.to_string e);
+				raise (Vdi_does_not_exist vdi)
+
+		let set_persistent context ~dbg ~sr ~vdi ~persistent =
+            try
+                Server_helpers.exec_with_new_task "VDI.set_persistent" ~subtask_of:(Ref.of_string dbg)
+                    (fun __context ->
+						if not persistent then begin
+							info "VDI.set_persistent: calling VDI.clone and VDI.destroy to make an empty vhd-leaf";
+							let location = for_vdi ~dbg ~sr ~vdi "VDI.clone"
+								(fun device_config _type sr self ->
+									let vi = Sm.vdi_clone device_config _type [] sr self in
+									vi.Smint.vdi_info_location
+								) in
+							for_vdi ~dbg ~sr ~vdi:location "VDI.destroy"
+								(fun device_config _type sr self ->
+									Sm.vdi_delete device_config _type sr self
+								)
+						end
+					)
+            with
+				| Api_errors.Server_error(code, params) -> raise (Backend_error(code, params))
 				| Sm.MasterOnly -> redirect sr
 
 		let get_by_name context ~dbg ~sr ~name =
@@ -388,7 +456,7 @@ module Builtin_impl = struct
 						vi
 					with e ->
 						error "VDI.get_by_name caught: %s" (Printexc.to_string e);
-						raise Vdi_does_not_exist
+						raise (Vdi_does_not_exist name)
 				)
 
 		let set_content_id context ~dbg ~sr ~vdi ~content_id =
@@ -465,11 +533,11 @@ module Builtin_impl = struct
 					)
             with
 				| Smint.Not_implemented_in_backend ->
-					raise Unimplemented
+					raise (Unimplemented "VDI.compose")
 				| Api_errors.Server_error(code, params) ->
 					raise (Backend_error(code, params))
 				| No_VDI ->
-					raise Vdi_does_not_exist
+					raise (Vdi_does_not_exist vdi1)
 				| Sm.MasterOnly -> redirect sr
 
 		let get_url context ~dbg ~sr ~vdi =
@@ -504,6 +572,10 @@ module Builtin_impl = struct
 		end
 	end
 
+	module Policy = struct
+		let get_backend_vm context ~dbg ~vm ~sr ~vdi = assert false
+	end
+
 	module TASK = struct
 		let stat context ~dbg ~task = assert false
 		let destroy context ~dbg ~task = assert false
@@ -516,104 +588,59 @@ module Builtin_impl = struct
 	end
 end
 
-module Qemu_blkfront = struct
-	(** If the qemu is in a different domain to the storage backend, a blkfront is
-		needed to exposes disks to guests so the emulated interfaces work. *)
-
-	let get_qemu_vm ~__context ~vm = Helpers.get_domain_zero ~__context
-
-	let needed ~__context ~self hvm =
-		not(Db.VBD.get_empty ~__context ~self) && begin
-            let userdevice = Db.VBD.get_userdevice ~__context ~self in
-            let device_number = Device_number.of_string hvm userdevice in
-            match Device_number.spec device_number with
-                | Device_number.Ide, n, _ when n < 4 -> true
-                | _ -> false
-		end
-
-	(* If we have a shared VDI (eg CDROM) we don't share the blkfront
-	   to simplify the accounting. We use the other_config:related_to key
-	   to distinguish the different VBDs. *)
-	let vbd_opt ~__context ~self =
-		let vdi = Db.VBD.get_VDI ~__context ~self in
-		let user_vm = Db.VBD.get_VM ~__context ~self in
-		let vm = get_qemu_vm ~__context ~vm:user_vm in
-		if Db.is_valid_ref __context vdi
-		then begin
-			match List.filter (fun other ->
-				try
-					let vbd_r = Db.VBD.get_record ~__context ~self:other in
-					true
-					&& vbd_r.API.vBD_VM = vm
-							&& (List.mem_assoc Xapi_globs.related_to_key vbd_r.API.vBD_other_config)
-							&& (List.assoc Xapi_globs.related_to_key vbd_r.API.vBD_other_config = Ref.string_of self)
-				with _ -> false (* the VBD may be destroyed concurrently *)
-			) (Db.VDI.get_VBDs ~__context ~self:vdi) with
-				| vbd :: _ -> Some vbd
-				| [] -> None
-		end else None
-
-	let create ~__context ~self ~read_write hvm =
-		match vbd_opt ~__context ~self with
-			| Some vbd ->
-				if not (Db.VBD.get_currently_attached ~__context ~self:vbd)
-				then Helpers.call_api_functions ~__context
-					(fun rpc session_id -> XenAPI.VBD.plug rpc session_id vbd)
-			| None ->
-				let vdi = Db.VBD.get_VDI ~__context ~self in
-				let user_vm = Db.VBD.get_VM ~__context ~self in
-				let vm = get_qemu_vm ~__context ~vm:user_vm in
-				if needed ~__context ~self hvm
-				then Helpers.call_api_functions ~__context
-					(fun rpc session_id ->
-						let mode = if read_write then `RW else `RO in
-						let vbd = XenAPI.VBD.create
-							~rpc ~session_id ~vM:vm ~vDI:vdi
-							~other_config:[ Xapi_globs.related_to_key, Ref.string_of self ]
-							~userdevice:"autodetect" ~bootable:false ~mode
-							~_type:`Disk ~empty:false ~unpluggable:true
-							~qos_algorithm_type:"" ~qos_algorithm_params:[] in
-						XenAPI.VBD.plug rpc session_id vbd
-					)
-
-	let path_opt ~__context ~self =
-		let vbd = vbd_opt ~__context ~self in
-		let path_of vbd = "/dev/" ^ (Db.VBD.get_device ~__context ~self:vbd) in
-		Opt.map path_of vbd
-
-	let on_vbd ~__context ~self f =
-		let vbd = vbd_opt ~__context ~self in
-		Opt.iter
-            (fun vbd ->
-                Helpers.call_api_functions ~__context
-                    (fun rpc session_id -> f rpc session_id vbd)
-            ) vbd
-
-	let unplug_nowait ~__context ~self =
-		on_vbd ~__context ~self
-			(fun rpc session_id vbd ->
-				try XenAPI.VBD.unplug rpc session_id vbd
-				with _ -> ()
-			)
-		
-	let destroy ~__context ~self =
-		on_vbd ~__context ~self
-			(fun rpc session_id vbd ->
-                Attach_helpers.safe_unplug rpc session_id vbd;
-                XenAPI.VBD.destroy rpc session_id vbd
-            )
-end
-
 module type SERVER = sig
     val process : Smint.request -> Rpc.call -> Rpc.response
 end
 
-let make_local _ =
-    (module Server(Builtin_impl) : SERVER)
+module Driver_kind = struct
+	type t =
+		| SMAPIv1
+		| SMAPIv2_unix of string
+		| SMAPIv2_tcp of string
 
-let make_remote host path =
-	let open Xmlrpc_client in
-    (module Server(Storage_proxy.Proxy(struct let rpc call = XMLRPC_protocol.rpc ~srcstr:"smapiv2" ~dststr:"smapiv1" ~transport:(TCP(host, 8080)) ~http:(xmlrpc ~version:"1.0" path) call end)) : SERVER)
+	let to_server kind path =
+		let open Xmlrpc_client in
+		match kind with
+			| SMAPIv1 ->
+				(module Server(SMAPIv1) : SERVER)
+			| SMAPIv2_unix fs ->
+				(module Server(Storage_proxy.Proxy(struct let rpc call = XMLRPC_protocol.rpc ~srcstr:"smapiv2" ~dststr:"smapiv2" ~transport:(Unix fs) ~http:(xmlrpc ~version:"1.0" path) call end)) : SERVER)
+			| SMAPIv2_tcp ip ->
+				(module Server(Storage_proxy.Proxy(struct let rpc call = XMLRPC_protocol.rpc ~srcstr:"smapiv2" ~dststr:"smapiv1" ~transport:(TCP(ip, 80)) ~http:(xmlrpc ~version:"1.0" path) call end)) : SERVER)
+
+	let to_sockaddr = function
+		| SMAPIv1 -> None
+		| SMAPIv2_unix path -> Some (Unix.ADDR_UNIX path)
+		| SMAPIv2_tcp ip -> Some (Unix.ADDR_INET(Unix.inet_addr_of_string ip, 80))
+
+	let classify ~__context driver ty =
+		let dom0 = Helpers.get_domain_zero ~__context in
+		if driver = dom0 then begin
+			(* Look for an SMAPIv1 plugin first *)
+			if List.mem ty (Sm.supported_drivers ())
+			then SMAPIv1
+			else begin
+				let socket = Filename.concat Fhs.vardir (Printf.sprintf "sm/%s" ty) in
+				if not(Sys.file_exists socket) then begin
+					error "SM plugin unix domain socket does not exist: %s" socket;
+					raise (Api_errors.Server_error(Api_errors.sr_unknown_driver, [ ty ]));
+				end;
+				if not(System_domains.queryable ~__context (Xmlrpc_client.Unix socket) ()) then begin
+					error "SM plugin did not respond to a query on: %s" socket;
+					raise (Api_errors.Server_error(Api_errors.sm_plugin_communication_failure, [ ty ]));
+				end;
+				SMAPIv2_unix socket
+			end
+		end else SMAPIv2_tcp(System_domains.ip_of ~__context driver)
+end
+
+let make_service uuid ty =
+	{
+		System_domains.uuid = uuid;
+		ty = Constants._SM;
+		instance = ty;
+		url = Constants.path [ Constants._services; Constants._driver; uuid; Constants._SM; ty ];
+	}
 
 let bind ~__context ~pbd =
     (* Start the VM if necessary, record its uuid *)
@@ -628,37 +655,30 @@ let bind ~__context ~pbd =
 			(* ignore for now *)
     end;
 	let uuid = Db.VM.get_uuid ~__context ~self:driver in
-    let ip_of driver =
-        (* Find the VIF on the Host internal management network *)
-        let vifs = Db.VM.get_VIFs ~__context ~self:driver in
-        let hin = Helpers.get_host_internal_management_network ~__context in
-        let ip =
-            let vif =
-                try
-                    List.find (fun vif -> Db.VIF.get_network ~__context ~self:vif = hin) vifs
-                with Not_found -> failwith (Printf.sprintf "PBD %s driver domain %s has no VIF on host internal management network" (Ref.string_of pbd) (Ref.string_of driver)) in
-            match Xapi_udhcpd.get_ip ~__context vif with
-                | Some (a, b, c, d) -> Printf.sprintf "%d.%d.%d.%d" a b c d
-                | None -> failwith (Printf.sprintf "PBD %s driver domain %s has no IP on the host internal management network" (Ref.string_of pbd) (Ref.string_of driver)) in
 
-        info "PBD %s driver domain uuid:%s ip:%s" (Ref.string_of pbd) uuid ip;
-        if not(System_domains.wait_for (System_domains.pingable ip))
-        then failwith (Printf.sprintf "PBD %s driver domain %s is not responding to IP ping" (Ref.string_of pbd) (Ref.string_of driver));
-        if not(System_domains.wait_for (System_domains.queryable ip 8080))
-        then failwith (Printf.sprintf "PBD %s driver domain %s is not responding to XMLRPC query" (Ref.string_of pbd) (Ref.string_of driver));
-        ip in
-    let sr = Db.PBD.get_SR ~__context ~self:pbd in
-    let path = Constants.path [ Constants._services; Constants._SM; Db.SR.get_type ~__context ~self:sr ] in
-
-    let dom0 = Helpers.get_domain_zero ~__context in
-    let module Impl = (val (if driver = dom0 then make_local path else make_remote (ip_of driver) path): SERVER) in
-    let sr = Db.SR.get_uuid ~__context ~self:(Db.PBD.get_SR ~__context ~self:pbd) in
-    info "SR %s will be implemented by %s in VM %s" sr path (Ref.string_of driver);
-    Storage_mux.register sr (Impl.process (Some path)) uuid
+	let sr = Db.PBD.get_SR ~__context ~self:pbd in
+	let ty = Db.SR.get_type ~__context ~self:sr in
+	let path = Constants.path [ Constants._services; Constants._SM; ty ] in
+	let kind = Driver_kind.classify ~__context driver ty in
+	let module Impl = (val (Driver_kind.to_server kind path): SERVER) in
+	let sr = Db.SR.get_uuid ~__context ~self:sr in
+	info "SR %s will be implemented by %s in VM %s" sr path (Ref.string_of driver);
+	let service = make_service uuid ty in
+	Opt.iter (System_domains.register_service service) (Driver_kind.to_sockaddr kind);
+	Storage_mux.register sr (Impl.process (Some path)) uuid
 
 let unbind ~__context ~pbd =
-        let sr = Db.SR.get_uuid ~__context ~self:(Db.PBD.get_SR ~__context ~self:pbd) in
-        Storage_mux.unregister sr
+	let driver = System_domains.storage_driver_domain_of_pbd ~__context ~pbd in
+	let uuid = Db.VM.get_uuid ~__context ~self:driver in
+
+	let sr = Db.PBD.get_SR ~__context ~self:pbd in
+	let ty = Db.SR.get_type ~__context ~self:sr in
+
+	let sr = Db.SR.get_uuid ~__context ~self:sr in
+	Storage_mux.unregister sr;
+
+	let service = make_service uuid ty in
+	System_domains.unregister_service service
 
 let rpc call = Storage_mux.Server.process None call
 
@@ -848,7 +868,7 @@ let is_attached ~__context ~vbd ~domid  =
 			let open Vdi_automaton in
 			let module C = Storage_interface.Client(struct let rpc = rpc end) in
 			try 
-				let x = C.VDI.stat ~dbg ~sr ~vdi () in
+				let x = C.DP.stat_vdi ~dbg ~sr ~vdi () in
 				x.superstate <> Detached
 			with 
 				| e -> error "Unable to query state of VDI: %s, %s" vdi (Printexc.to_string e); false
@@ -886,27 +906,20 @@ let attach_and_activate ~__context ~vbd ~domid ~hvm f =
 	transform_storage_exn
 		(fun () ->
 			let read_write = Db.VBD.get_mode ~__context ~self:vbd = `RW in
-			let result = on_vdi ~__context ~vbd ~domid
+			on_vdi ~__context ~vbd ~domid
 				(fun rpc dbg dp sr vdi ->
 					let module C = Storage_interface.Client(struct let rpc = rpc end) in
 					let attach_info = C.VDI.attach dbg dp sr vdi read_write in
 					C.VDI.activate dbg dp sr vdi;
 					f attach_info
-				) in
-			Qemu_blkfront.create ~__context ~self:vbd ~read_write hvm;
-			result
+				)
 		)
 
 (** [deactivate_and_detach __context vbd domid] idempotent function which ensures
     that any attached or activated VDI gets properly deactivated and detached. *)
-let deactivate_and_detach ~__context ~vbd ~domid ~unplug_frontends =
+let deactivate_and_detach ~__context ~vbd ~domid =
 	transform_storage_exn
 		(fun () ->
-			(* Remove the qemu frontend first: this will not pass the deactivate/detach
-			   through to the backend so an SM backend failure won't cause us to leak
-			   a VBD. *)
-			if unplug_frontends
-			then Qemu_blkfront.destroy ~__context ~self:vbd;
 			(* It suffices to destroy the datapath: any attached or activated VDIs will be
 			   automatically detached and deactivated. *)
 			on_vdi ~__context ~vbd ~domid
@@ -918,7 +931,13 @@ let deactivate_and_detach ~__context ~vbd ~domid ~unplug_frontends =
 
 
 let diagnostics ~__context =
-	Client.DP.diagnostics ()
+	let dbg = Context.get_task_id __context |> Ref.string_of in
+	String.concat "\n" [
+		"DataPath information:";
+		Client.DP.diagnostics ();
+		"Backend information:";
+		Client.Query.diagnostics dbg
+	]
 
 let dp_destroy ~__context dp allow_leak =
 	transform_storage_exn
@@ -937,8 +956,14 @@ let resynchronise_pbds ~__context ~pbds =
 			let sr = Db.SR.get_uuid ~__context ~self:(Db.PBD.get_SR ~__context ~self) in
 			let value = List.mem sr srs in
 			debug "Setting PBD %s currently_attached <- %b" (Ref.string_of self) value;
-			if value then bind ~__context ~pbd:self;
-			Db.PBD.set_currently_attached ~__context ~self ~value
+			try
+				if value then (let (_:query_result) = bind ~__context ~pbd:self in ());
+				Db.PBD.set_currently_attached ~__context ~self ~value
+			with e ->
+				(* Unchecked this will block the dbsync code *)
+				error "Service implementing SR %s has failed. Performing emergency reset of SR state" sr;
+				Client.SR.reset (Ref.string_of dbg) sr;
+				Db.PBD.set_currently_attached ~__context ~self ~value:false;
 		) pbds
 
 (* -------------------------------------------------------------------------------- *)
@@ -995,8 +1020,8 @@ let refresh_local_vdi_activations ~__context =
 		end in
 	let remember key ro_rw = 
 		(* The module above contains a hashtable of R/O vs R/W-ness *)
-		Mutex.execute Builtin_impl.VDI.vdi_read_write_m
-			(fun () -> Hashtbl.replace Builtin_impl.VDI.vdi_read_write key (ro_rw = RW)) in
+		Mutex.execute SMAPIv1.VDI.vdi_read_write_m
+			(fun () -> Hashtbl.replace SMAPIv1.VDI.vdi_read_write key (ro_rw = RW)) in
 
 	let dbg = Ref.string_of (Context.get_task_id __context) in
 	let srs = Client.SR.list dbg in
@@ -1007,7 +1032,7 @@ let refresh_local_vdi_activations ~__context =
 			if List.mem sr srs
 			then
 				try
-					let x = Client.VDI.stat ~dbg ~sr ~vdi () in
+					let x = Client.DP.stat_vdi ~dbg ~sr ~vdi () in
 					match x.superstate with 
 						| Activated RO ->
 							lock_vdi (vdi_ref, vdi_rec) RO;
@@ -1040,13 +1065,23 @@ let vbd_attach_order ~__context vbds =
 
 let vbd_detach_order ~__context vbds = List.rev (vbd_attach_order ~__context vbds)
 
+let create_sr ~__context ~sr ~physical_size =
+	transform_storage_exn
+		(fun () ->
+			let pbd, pbd_t = Sm.get_my_pbd_for_sr __context sr in
+			let (_ : query_result) = bind ~__context ~pbd in
+			let dbg = Ref.string_of (Context.get_task_id __context) in
+			Client.SR.create dbg (Db.SR.get_uuid ~__context ~self:sr) pbd_t.API.pBD_device_config physical_size;
+			unbind ~__context ~pbd
+		)
+
 (* This is because the current backends want SR.attached <=> PBD.currently_attached=true.
    It would be better not to plug in the PBD, so that other API calls will be blocked. *)
 let destroy_sr ~__context ~sr =
 	transform_storage_exn
 		(fun () ->
 			let pbd, pbd_t = Sm.get_my_pbd_for_sr __context sr in
-			bind ~__context ~pbd;
+			let (_ : query_result) = bind ~__context ~pbd in
 			let dbg = Ref.string_of (Context.get_task_id __context) in
 			Client.SR.attach dbg (Db.SR.get_uuid ~__context ~self:sr) pbd_t.API.pBD_device_config;
 			(* The current backends expect the PBD to be temporarily set to currently_attached = true *)

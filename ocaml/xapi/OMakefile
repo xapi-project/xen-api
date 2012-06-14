@@ -6,7 +6,7 @@ OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
 	../xenops ../xva ../util \
 	../auth ../license ../client_records ../rfb ../gpg ../network ..
 
-UseCamlp4(rpc-light.syntax, features rrd monitor_fake monitor_fake_common vdi_automaton storage_impl xapi_udhcpd storage_migrate)
+UseCamlp4(rpc-light.syntax, features rrd monitor_fake monitor_fake_common vdi_automaton storage_impl xapi_udhcpd storage_migrate xapi_services system_domains)
 UseCamlp4(rpc-light.idl, storage_interface)
 
 CFLAGS += -std=gnu99 -Wall -Werror -I$(shell ocamlc -where)
@@ -146,6 +146,7 @@ XAPI_MODULES = $(COMMON) \
 	xapi_vlan \
 	xapi_tunnel \
 	xapi_sr \
+	xapi_sr_operations \
 	xapi_sm \
 	xapi_pbd \
 	xapi_vdi \

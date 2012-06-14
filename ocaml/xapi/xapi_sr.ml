@@ -68,10 +68,13 @@ let valid_operations ~__context record _ref' : table =
 
   (* First consider the backend SM capabilities *)
   let sm_caps = 
-    try
-      Sm.capabilities_of_driver record.Db_actions.sR_type
-    with Sm.Unknown_driver _ -> []
+      try
+		  Sm.capabilities_of_driver record.Db_actions.sR_type
+      with Sm.Unknown_driver _ ->
+		  (* then look to see if this supports the SMAPIv2 *)
+		  Smint.parse_capabilities (Storage_mux.capabilities_of_sr _ref)
   in
+  info "SR %s has capabilities: [ %s ]" _ref (String.concat ", " (List.map Smint.string_of_capability sm_caps));
 
   (* Then filter out the operations we don't want to see for the magic tools SR *)
   let sm_caps = 
@@ -256,8 +259,6 @@ let scanning_thread () =
 let introduce  ~__context ~uuid ~name_label
     ~name_description ~_type ~content_type ~shared ~sm_config =
   let _type = String.lowercase _type in
-  if not(List.mem _type (Sm.supported_drivers ()))
-  then raise (Api_errors.Server_error(Api_errors.sr_unknown_driver, [ _type ]));
   let uuid = if uuid="" then Uuid.to_string (Uuid.make_uuid()) else uuid in (* fill in uuid if none specified *)
   let sr_ref = Ref.make () in
     (* Create SR record in DB *)
@@ -306,9 +307,6 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
 		~_type ~content_type ~shared ~sm_config =
 	Helpers.assert_rolling_upgrade_not_in_progress ~__context ;
 	debug "SR.create name_label=%s sm_config=[ %s ]" name_label (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
-	let _type = String.lowercase _type in
-	if not(List.mem _type (Sm.supported_drivers ()))
-		then raise (Api_errors.Server_error(Api_errors.sr_unknown_driver, [ _type ]));
 	(* This breaks the udev SR which doesn't support sr_probe *)
 (*
 	let probe_result = probe ~__context ~host ~device_config ~_type ~sm_config in
@@ -335,20 +333,6 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
 			~name_description ~_type ~content_type ~shared ~sm_config
 	in 
 
-	begin
-		try 
-			let subtask_of = Some (Context.get_task_id __context) in
-			Sm.sr_create (subtask_of, Sm.sm_master true :: device_config) _type sr_ref physical_size;
-		with
-		| Smint.Not_implemented_in_backend ->
-				Db.SR.destroy ~__context ~self:sr_ref;
-				raise (Api_errors.Server_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr_ref ]))
-
-		| e -> 
-				Db.SR.destroy ~__context ~self:sr_ref;
-				raise e
-	end;
-
 	let pbds =
 		if shared then
 			let create_on_host host =
@@ -362,6 +346,14 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
 		else
 			[Xapi_pbd.create_thishost ~__context ~sR:sr_ref ~device_config ~currently_attached:false ]
 	in
+	begin
+		try
+			Storage_access.create_sr ~__context ~sr:sr_ref ~physical_size
+		with e ->
+			Db.SR.destroy ~__context ~self:sr_ref;
+			List.iter (fun pbd -> Db.PBD.destroy ~__context ~self:pbd) pbds;
+			raise e
+	end;
 	Helpers.call_api_functions ~__context
 		(fun rpc session_id ->
 			List.iter

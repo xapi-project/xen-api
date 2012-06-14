@@ -163,7 +163,7 @@ let create_vbd_frontend ~xc ~xs task frontend_domid vdi =
 			Name vdi.attach_info.Storage_interface.params
 		| Some backend_domid ->
 			let t = {
-				Device.Vbd.mode = Device.Vbd.ReadOnly;
+				Device.Vbd.mode = Device.Vbd.ReadWrite;
 				device_number = None; (* we don't mind *)
 				phystype = Device.Vbd.Phys;
 				params = vdi.attach_info.Storage_interface.params;
@@ -190,28 +190,11 @@ let destroy_vbd_frontend ~xc ~xs task disk =
 		| Device device ->
 			Xenops_task.with_subtask task "Vbd.clean_shutdown"
 				(fun () ->
-					let open Device_common in
-					let me = this_domid ~xs in
-					(* To avoid having two codepaths: a 99% "normal" codepath and a 1%
-					   "transient failure" codepath we deliberately trigger a "transient
-					   failure" in 100% of cases by opening the device ourselves.
-					   NB this only works when we're in the same domain as the frontend. *)
-					let f = ref (
-						if device.frontend.domid = me
-						then Some (Unix.openfile (block_device_of_vbd_frontend disk) [ Unix.O_RDONLY ] 0o0)
-						else None
-					) in
-					let close () = Opt.iter (fun fd -> Unix.close fd; f := None) !f in
-					finally
-						(fun () ->
-							Device.Vbd.clean_shutdown_async ~xs device;
-							try
-								Device.Vbd.clean_shutdown_wait task ~xs device
-							with Device_error(_, x) ->
-								debug "Caught transient Device_error %s" x;
-								close ();
-								Device.Vbd.clean_shutdown_wait task ~xs device
-						) (fun () -> close ())
+					(* Outstanding requests may cause a transient 'refusing to close'
+					   but this can be safely ignored because we're controlling the
+					   frontend and all users of it. *)
+					Device.Vbd.clean_shutdown_async ~xs device;
+					Device.Vbd.clean_shutdown_wait task ~xs ~ignore_transients:true device
 				)
 		
 
@@ -249,15 +232,32 @@ module Storage = struct
 	(* Used to identify this VBD to the storage layer *)
 	let id_of frontend_domid vbd = Printf.sprintf "vbd/%d/%s" frontend_domid (snd vbd)
 
-	let attach_and_activate task dp sr vdi read_write =
+	let epoch_begin task sr vdi =
+		transform_exception
+			(fun () ->
+				Client.VDI.epoch_begin task.Xenops_task.debug_info sr vdi
+			) ()
+
+	let epoch_end task sr vdi =
+		transform_exception
+			(fun () ->
+				Client.VDI.epoch_end task.Xenops_task.debug_info sr vdi
+			) ()
+
+	let attach_and_activate ~xc ~xs task vm dp sr vdi read_write =
 		let result =
 			Xenops_task.with_subtask task (Printf.sprintf "VDI.attach %s" dp)
 				(transform_exception (fun () -> Client.VDI.attach "attach_and_activate" dp sr vdi read_write)) in
 
 		Xenops_task.with_subtask task (Printf.sprintf "VDI.activate %s" dp)
 			(transform_exception (fun () -> Client.VDI.activate "attach_and_activate" dp sr vdi));
-		(* XXX: we need to find out the backend domid *)
-		{ domid = 0; attach_info = result }
+		let backend = Xenops_task.with_subtask task (Printf.sprintf "Policy.get_backend_vm %s %s %s" vm sr vdi)
+			(transform_exception (fun () -> Client.Policy.get_backend_vm "attach_and_activate" vm sr vdi)) in
+		match domid_of_uuid ~xc ~xs Newest (Uuid.uuid_of_string backend) with
+			| None ->
+				failwith (Printf.sprintf "Driver domain disapppeared: %s" backend)
+			| Some domid ->
+				{ domid = domid; attach_info = result }
 
 	let deactivate task dp sr vdi =
 		debug "Deactivating disk %s %s" sr vdi;
@@ -277,11 +277,11 @@ module Storage = struct
 
 	let get_disk_by_name task path =
 		debug "Storage.get_disk_by_name %s" path;
-		Xenops_task.with_subtask task (Printf.sprintf "get_by_name %s" path)
-			(transform_exception (fun () ->
-				let vdi = Client.get_by_name "get_by_name" path in
-				vdi.sr, vdi.vdi
-			))
+		match String.split ~limit:2 '/' path with
+			| [ sr; vdi ] -> sr, vdi
+			| _ ->
+				error "Failed to parse VDI name %s (expected SR/VDI)" path;
+				raise (Storage_interface.Vdi_does_not_exist path)
 end
 
 let with_disk ~xc ~xs task disk write f = match disk with
@@ -293,8 +293,9 @@ let with_disk ~xc ~xs task disk write f = match disk with
 		let dp = Client.DP.create "with_disk" (Printf.sprintf "xenopsd/task/%s" task.Xenops_task.id) in
 		finally
 			(fun () ->
-				let vdi = attach_and_activate task dp sr vdi write in
 				let frontend_domid = this_domid ~xs in
+				let frontend_vm = get_uuid ~xc frontend_domid |> Uuid.to_string in
+				let vdi = attach_and_activate ~xc ~xs task frontend_vm dp sr vdi write in
 				let device = create_vbd_frontend ~xc ~xs task frontend_domid vdi in
 				finally
 					(fun () ->
@@ -738,8 +739,9 @@ module VM = struct
 
 	let destroy_device_model = on_domain_if_exists (fun xc xs task vm di ->
 		let domid = di.Xenctrl.domid in
+		let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs domid) in
 		log_exn_continue "Error stoping device-model, already dead ?"
-			(fun () -> Device.Dm.stop ~xs domid) ();
+			(fun () -> Device.Dm.stop ~xs ~qemu_domid domid) ();
 		log_exn_continue "Error stoping vncterm, already dead ?"
 			(fun () -> Device.PV_Vnc.stop ~xs domid) ();
 		(* If qemu is in a different domain to storage, detach disks *)
@@ -747,11 +749,11 @@ module VM = struct
 
 	let destroy = on_domain_if_exists (fun xc xs task vm di ->
 		let domid = di.Xenctrl.domid in
-
+		let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs domid) in
 		(* We need to clean up the stubdom before the primary otherwise we deadlock *)
 		Opt.iter
 			(fun stubdom_domid ->
-				Domain.destroy task ~xc ~xs stubdom_domid
+				Domain.destroy task ~xc ~xs ~qemu_domid stubdom_domid
 			) (get_stubdom ~xs domid);
 
 		let devices = Device_common.list_frontends ~xs domid in
@@ -766,7 +768,7 @@ module VM = struct
 			debug "VM = %s; domid = %d; will not have domain-level information preserved" vm.Vm.id di.Xenctrl.domid;
 			if DB.exists vm.Vm.id then DB.remove vm.Vm.id;
 		end;
-		Domain.destroy task ~xc ~xs domid;
+		Domain.destroy task ~xc ~xs ~qemu_domid domid;
 		(* Detach any remaining disks *)
 		List.iter (fun dp -> 
 			try 
@@ -1150,9 +1152,11 @@ module VM = struct
 				let hvm = di.Xenctrl.hvm_guest in
 				let domid = di.Xenctrl.domid in
 
+				let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs domid) in
+
 				with_data ~xc ~xs task data true
 					(fun fd ->
-						Domain.suspend task ~xc ~xs ~hvm ~progress_callback domid fd flags'
+						Domain.suspend task ~xc ~xs ~hvm ~progress_callback ~qemu_domid domid fd flags'
 							(fun () ->
 								if not(request_shutdown task vm Suspend 30.)
 								then raise (Failed_to_acknowledge_shutdown_request);
@@ -1198,6 +1202,7 @@ module VM = struct
 		on_domain
 			(fun xc xs task vm di ->
 				let domid = di.Xenctrl.domid in
+				let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs domid) in
 				let k = vm.Vm.id in
 				let vmextra = DB.read_exn k in
 				let build_info = match vmextra.VmExtra.persistent with
@@ -1218,7 +1223,7 @@ module VM = struct
 						(* As of xen-unstable.hg 779c0ef9682 libxenguest will destroy the domain on failure *)
 						if try ignore(Xenctrl.domain_getinfo xc di.Xenctrl.domid); false with _ -> true then begin
 							debug "VM %s: libxenguest has destroyed domid %d; cleaning up xenstore for consistency" vm.Vm.id di.Xenctrl.domid;
-							Domain.destroy task ~xc ~xs di.Xenctrl.domid;
+							Domain.destroy task ~xc ~xs ~qemu_domid di.Xenctrl.domid;
 						end;
 						raise e
 				end;
@@ -1463,12 +1468,25 @@ module VBD = struct
 		| Some (VDI path) ->
 			let sr, vdi = Storage.get_disk_by_name task path in
 			let dp = Storage.id_of frontend_domid vbd.id in
-			Storage.attach_and_activate task dp sr vdi (vbd.mode = ReadWrite)
+			let vm = fst vbd.id in
+			Storage.attach_and_activate ~xc ~xs task vm dp sr vdi (vbd.mode = ReadWrite)
 
 	let frontend_domid_of_device device = device.Device_common.frontend.Device_common.domid
 
 	let device_number_of_device d =
 		Device_number.of_xenstore_key d.Device_common.frontend.Device_common.devid
+
+	let epoch_begin task vm vbd = match vbd.backend with
+		| Some (VDI path) ->
+			let sr, vdi = Storage.get_disk_by_name task path in
+			Storage.epoch_begin task sr vdi
+		| _ -> ()
+
+	let epoch_end task vm vbd = match vbd.backend with
+		| Some (VDI path) ->
+			let sr, vdi = Storage.get_disk_by_name task path in
+			Storage.epoch_end task sr vdi
+		| _ -> ()		
 
 	let plug task vm vbd =
 		(* Dom0 doesn't have a vm_t - we don't need this currently, but when we have storage driver domains, 
@@ -1544,25 +1562,35 @@ module VBD = struct
 		with_xc_and_xs
 			(fun xc xs ->
 				try
-					(* If the device is gone then this is ok *)
-					let device = device_by_id xc xs vm Device_common.Vbd Oldest (id_of vbd) in
-					if force && (not (Device.can_surprise_remove ~xs device))
-					then debug "VM = %s; VBD = %s; Device is not surprise-removable" vm (id_of vbd); (* happens on normal shutdown too *)
-					Xenops_task.with_subtask task (Printf.sprintf "Vbd.clean_shutdown %s" (id_of vbd))
-						(fun () -> (if force then Device.hard_shutdown else Device.clean_shutdown) task ~xs device);
-					Xenops_task.with_subtask task (Printf.sprintf "Vbd.release %s" (id_of vbd))
-						(fun () -> Device.Vbd.release task ~xs device);
-					(* If we have a qemu frontend, detach this too. *)
-					Opt.iter (fun vm_t -> 
-						let non_persistent = vm_t.VmExtra.non_persistent in
-						if List.mem_assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds then begin
-							let _, qemu_vbd = List.assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds in
-							destroy_vbd_frontend ~xc ~xs task qemu_vbd;
-							let non_persistent = { non_persistent with
-								VmExtra.qemu_vbds = List.remove_assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds } in
-							DB.write vm { vm_t with VmExtra.non_persistent = non_persistent }
-						end) vm_t;
-					Storage.dp_destroy task (Storage.id_of (frontend_domid_of_device device) vbd.Vbd.id)
+					(* We always try to destroy the datapath even if the device has
+					   already been shutdown and deactivated (as in the suspend path) *)
+					let domid = Opt.map (fun di -> di.Xenctrl.domid) (di_of_uuid ~xc ~xs Oldest (Uuid.uuid_of_string vm)) in
+					finally
+						(fun () ->
+							(* If the device is gone then this is ok *)
+							let device = device_by_id xc xs vm Device_common.Vbd Oldest (id_of vbd) in
+							if force && (not (Device.can_surprise_remove ~xs device))
+							then debug "VM = %s; VBD = %s; Device is not surprise-removable" vm (id_of vbd); (* happens on normal shutdown too *)
+							Xenops_task.with_subtask task (Printf.sprintf "Vbd.clean_shutdown %s" (id_of vbd))
+								(fun () -> (if force then Device.hard_shutdown else Device.clean_shutdown) task ~xs device);
+							Xenops_task.with_subtask task (Printf.sprintf "Vbd.release %s" (id_of vbd))
+								(fun () -> Device.Vbd.release task ~xs device);
+							(* If we have a qemu frontend, detach this too. *)
+							Opt.iter (fun vm_t -> 
+								let non_persistent = vm_t.VmExtra.non_persistent in
+								if List.mem_assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds then begin
+									let _, qemu_vbd = List.assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds in
+									destroy_vbd_frontend ~xc ~xs task qemu_vbd;
+									let non_persistent = { non_persistent with
+										VmExtra.qemu_vbds = List.remove_assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds } in
+									DB.write vm { vm_t with VmExtra.non_persistent = non_persistent }
+								end) vm_t
+						)
+						(fun () ->
+							Opt.iter (fun domid ->
+								Storage.dp_destroy task (Storage.id_of domid vbd.Vbd.id)
+							) domid
+						)
 				with 
 					| (Does_not_exist(_,_)) ->
 						debug "VM = %s; VBD = %s; Ignoring missing domain" vm (id_of vbd)
@@ -2004,8 +2032,7 @@ let watch_xenstore () =
 				(* Anyone blocked on a domain/device operation which won't happen because the domain
 				   just shutdown should be cancelled here. *)
 				debug "Cancelling watches for: domid %d" domid;
-				Cancel_utils.cancel_domain ~xs domid;
-				List.iter (Cancel_utils.cancel_device ~xs) (Device_common.list_frontends ~xs domid) in
+				Cancel_utils.on_shutdown ~xs domid in
 
 			let add_device_watch xs device =
 				let open Device_common in

@@ -45,7 +45,8 @@ let check_operation_error ~__context ha_enabled record _ref' op =
   else 
     (* check to see whether it's a local cd drive *)
     let sr = Db.VDI.get_SR ~__context ~self:_ref' in
-    let srtype = Db.SR.get_type ~__context ~self:sr in
+	let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
+    let srtype = sr_record.Db_actions.sR_type in
     let is_tools_sr = Helpers.is_tools_sr ~__context ~sr in
 
     (* check to see whether VBDs exist which are using this VDI *)
@@ -69,6 +70,8 @@ let check_operation_error ~__context ha_enabled record _ref' op =
 
     (* NB RO vs RW sharing checks are done in xapi_vbd.ml *)
 
+	let sm_caps = Xapi_sr_operations.capabilities_of_sr sr_record in
+
     let any_vbd p = List.fold_left (||) false (List.map p vbd_recs) in
     if not operation_can_be_performed_live && (any_vbd is_active)
     then Some (Api_errors.vdi_in_use,[_ref; (Record_util.vdi_operation_to_string op)])
@@ -86,29 +89,29 @@ let check_operation_error ~__context ha_enabled record _ref' op =
 	      if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 	      then Some (Api_errors.ha_is_enabled, [])
 	      else
-		if not (List.mem Smint.Vdi_delete (Sm.capabilities_of_driver srtype))
+		if not (List.mem Smint.Vdi_delete sm_caps)
 		then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 		else None
       | `resize ->
 	  if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 	  then Some (Api_errors.ha_is_enabled, [])
 	  else 
-	    if not (List.mem Smint.Vdi_resize (Sm.capabilities_of_driver srtype)) 
+	    if not (List.mem Smint.Vdi_resize sm_caps)
 	    then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 	    else None
       | `update ->
-	  if not (List.mem Smint.Vdi_update (Sm.capabilities_of_driver srtype)) then
+	  if not (List.mem Smint.Vdi_update sm_caps) then
 	    Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 	  else None
       | `resize_online ->
 	  if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 	  then Some (Api_errors.ha_is_enabled, [])
 	  else 
-	    if not (List.mem Smint.Vdi_resize_online (Sm.capabilities_of_driver srtype)) 
+	    if not (List.mem Smint.Vdi_resize_online sm_caps)
 	    then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 	    else None
       | `generate_config ->
-	  if not (List.mem Smint.Vdi_generate_config (Sm.capabilities_of_driver srtype)) then
+	  if not (List.mem Smint.Vdi_generate_config sm_caps) then
 	    Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 	  else None	    
 	  | `snapshot when record.Db_actions.vDI_sharable ->
@@ -119,6 +122,10 @@ let check_operation_error ~__context ha_enabled record _ref' op =
 	  if List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 	  then Some (Api_errors.operation_not_allowed, ["VDI containing HA statefile or redo log cannot be copied (check the VDI's allowed operations)."])
 	  else None
+	  | `clone ->
+	      if not (List.mem Smint.Vdi_clone sm_caps)
+	      then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
+	      else None
       | _ -> None
     )
 
@@ -216,7 +223,8 @@ let default_vdi_info =
 		snapshot_of = "";
 		read_only = false;
 		virtual_size = 0L;
-		physical_utilisation = 0L
+		physical_utilisation = 0L;
+		persistent = true;
 	}
 
 let create ~__context ~name_label ~name_description
@@ -385,7 +393,7 @@ let snapshot ~__context ~vdi ~driver_params =
 		(fun () ->
 			try
 				snapshot_and_clone C.VDI.snapshot ~__context ~vdi ~driver_params
-			with Storage_interface.Unimplemented ->
+			with Storage_interface.Unimplemented _ ->
 				(* CA-28598 *)
 				debug "Backend reported not implemented despite it offering the capability; assuming this is an LVHD upgrade issue";
 				raise (Api_errors.Server_error(Api_errors.sr_requires_upgrade, [ Ref.string_of (Db.VDI.get_SR ~__context ~self:vdi) ]))
@@ -401,7 +409,6 @@ let snapshot ~__context ~vdi ~driver_params =
 	Db.VDI.set_snapshot_time ~__context ~self:newvdi ~value:(Date.of_float (Unix.gettimeofday ()));
 
 	update_allowed_operations ~__context ~self:newvdi;
-	update ~__context ~vdi:newvdi;
 	newvdi
 
 let destroy ~__context ~self =
@@ -427,6 +434,8 @@ let destroy ~__context ~self =
 			  (fun () ->
 				  C.VDI.destroy ~dbg:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sr) ~vdi:location
 			  );
+		  if Db.is_valid_ref __context self
+		  then Db.VDI.destroy ~__context ~self;
 
 	(* destroy all the VBDs now rather than wait for the GC thread. This helps
 	   prevent transient glitches but doesn't totally prevent races. *)
@@ -472,7 +481,7 @@ let clone ~__context ~vdi ~driver_params =
 	try
 		let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
 		snapshot_and_clone C.VDI.clone ~__context ~vdi ~driver_params
-	with Storage_interface.Unimplemented ->
+	with Storage_interface.Unimplemented _ ->
     debug "Backend does not implement VDI clone: doing it ourselves";
 	let a = Db.VDI.get_record_internal ~__context ~self:vdi in
     let newvdi = create ~__context 
@@ -615,9 +624,10 @@ let set_metadata_of_pool ~__context ~self ~value =
 
 let set_on_boot ~__context ~self ~value =
 	let sr = Db.VDI.get_SR ~__context ~self in
-	let ty = Db.SR.get_type ~__context ~self:sr in
-	let caps = Sm.capabilities_of_driver ty in
-	if not (List.mem Smint.Vdi_reset_on_boot caps) then 
+	let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
+	let sm_caps = Xapi_sr_operations.capabilities_of_sr sr_record in
+
+	if not (List.mem Smint.Vdi_reset_on_boot sm_caps) then 
 		raise (Api_errors.Server_error(Api_errors.sr_operation_not_supported,[Ref.string_of sr]));
 	Sm.assert_pbd_is_plugged ~__context ~sr;
 
@@ -629,9 +639,7 @@ let set_on_boot ~__context ~self ~value =
 	let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
 	transform_storage_exn
 		(fun () ->
-			let newvdi = C.VDI.clone ~dbg:(Ref.string_of task) ~sr:sr'
-				~vdi:vdi' ~vdi_info:default_vdi_info ~params:[] in
-			C.VDI.destroy ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:newvdi.vdi;
+			C.VDI.set_persistent ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:vdi' ~persistent:(value = `persist)
 		);
 
 	Db.VDI.set_on_boot ~__context ~self ~value

@@ -52,10 +52,41 @@ let all_capabilities =
     Vdi_resize_online
   ]
 
-type sm_type = Executable | Daemon
+let string_to_capability_table = [
+	"SR_PROBE",       Sr_probe;
+	"SR_UPDATE",      Sr_update;
+	"SR_SUPPORTS_LOCAL_CACHING", Sr_supports_local_caching;
+	"SR_METADATA",    Sr_metadata;
+	"VDI_CREATE",     Vdi_create;
+	"VDI_DELETE",     Vdi_delete;
+	"VDI_ATTACH",     Vdi_attach;
+	"VDI_DETACH",     Vdi_detach; 
+	"VDI_RESIZE",     Vdi_resize;
+	"VDI_RESIZE_ONLINE",Vdi_resize_online;
+	"VDI_CLONE",      Vdi_clone;
+	"VDI_SNAPSHOT",   Vdi_snapshot;
+	"VDI_ACTIVATE",   Vdi_activate;
+	"VDI_DEACTIVATE", Vdi_deactivate;
+	"VDI_UPDATE",     Vdi_update;
+	"VDI_INTRODUCE",  Vdi_introduce;
+	"VDI_GENERATE_CONFIG", Vdi_generate_config;
+	"VDI_RESET_ON_BOOT", Vdi_reset_on_boot;
+]
+let capability_to_string_table = List.map (fun (k, v) -> v, k) string_to_capability_table
+
+let string_of_capability x = List.assoc x capability_to_string_table
+
+let parse_capabilities strings =
+	(* Parse the capabilities *)
+	List.iter (fun s -> 
+	    if not(List.mem s (List.map fst string_to_capability_table))
+	    then debug "SR.capabilities: unknown capability %s" s) strings;
+	let text_capabilities = List.filter (fun s -> List.mem s (List.map fst string_to_capability_table)) strings in
+	List.map (fun key -> List.assoc key string_to_capability_table) text_capabilities
+
 
 type sr_driver_info = {
-        sr_driver_filename: string;
+    sr_driver_filename: string;
 	sr_driver_name: string;
 	sr_driver_description: string;
 	sr_driver_vendor: string;
@@ -65,7 +96,18 @@ type sr_driver_info = {
 	sr_driver_capabilities: capability list;
 	sr_driver_text_capabilities: string list;
 	sr_driver_configuration: (string * string) list;
-	sr_driver_type : sm_type;
+}
+
+let query_result_of_sr_driver_info x = {
+	Storage_interface.driver = x.sr_driver_filename;
+	name = x.sr_driver_name;
+	description = x.sr_driver_description;
+	vendor = x.sr_driver_vendor;
+	copyright = x.sr_driver_copyright;
+	version = x.sr_driver_version;
+	required_api_version = x.sr_driver_required_api_version;
+	features = x.sr_driver_text_capabilities;
+	configuration = x.sr_driver_configuration
 }
 
 type attach_info = {
@@ -92,6 +134,3 @@ type request = string option
 let string_of_request = function
 	| Some x -> Printf.sprintf "Some %s" x
 	| None -> "None"
-
-
-

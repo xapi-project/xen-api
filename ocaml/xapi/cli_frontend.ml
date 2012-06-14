@@ -1063,6 +1063,15 @@ let rec cmdtable_data : (string*cmd_spec) list =
      flags=[Hidden; Vm_selectors];
    };
 
+   "vm-query-services",
+	  {
+		  reqd=[];
+		  optn=[];
+		  help="Query the system services offered by the given VM(s).";
+		  implementation=No_fd Cli_operations.vm_query_services;
+		  flags=[Standard;Vm_selectors;Hidden];
+	  };
+
    "vm-start",
    {
      reqd=[];

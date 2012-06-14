@@ -71,6 +71,8 @@ type atomic =
 	| VIF_set_locking_mode of Vif.id * Vif.locking_mode
 	| VM_hook_script of (Vm.id * Xenops_hooks.script * string)
 	| VBD_plug of Vbd.id
+	| VBD_epoch_begin of Vbd.id
+	| VBD_epoch_end of Vbd.id
 	| VBD_set_qos of Vbd.id
 	| VBD_unplug of Vbd.id * bool
 	| VBD_insert of Vbd.id * disk
@@ -729,7 +731,9 @@ let rec atomics_of_operation = function
 			VM_hook_script(id, Xenops_hooks.VM_pre_start, Xenops_hooks.reason__none);
 			VM_create (id, None);
 			VM_build id;
-		] @ (List.map (fun vbd -> VBD_plug vbd.Vbd.id)
+		] @ (List.map (fun vbd -> VBD_epoch_begin vbd.Vbd.id)
+			(VBD_DB.vbds id)
+		) @ (List.map (fun vbd -> VBD_plug vbd.Vbd.id)
 			(VBD_DB.vbds id |> vbd_plug_order)
 		) @ (List.map (fun vif -> VIF_plug vif.Vif.id)
 			(VIF_DB.vifs id |> vif_plug_order)
@@ -787,6 +791,8 @@ let rec atomics_of_operation = function
 		[
 			VM_hook_script(id, Xenops_hooks.VM_pre_destroy, reason);
 		] @ (atomics_of_operation (VM_shutdown (id, timeout))
+		) @ (List.map (fun vbd -> VBD_epoch_end vbd.Vbd.id)
+			(VBD_DB.vbds id)
 		) @ [
 			VM_hook_script(id, Xenops_hooks.VM_post_destroy, reason)
 		]
@@ -799,6 +805,8 @@ let rec atomics_of_operation = function
 		) @ [
 			VM_hook_script(id, Xenops_hooks.VM_pre_destroy, reason)
 		] @ (atomics_of_operation (VM_shutdown (id, None))
+		) @ (List.map (fun vbd -> VBD_epoch_end vbd.Vbd.id)
+			(VBD_DB.vbds id)
 		) @ [
 			VM_hook_script(id, Xenops_hooks.VM_post_destroy, reason);
 			VM_hook_script(id, Xenops_hooks.VM_pre_reboot, Xenops_hooks.reason__none)
@@ -863,6 +871,12 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			debug "VBD.plug %s" (VBD_DB.string_of_id id);
 			B.VBD.plug t (VBD_DB.vm_of id) (VBD_DB.read_exn id);
 			VBD_DB.signal id
+		| VBD_epoch_begin id ->
+			debug "VBD.epoch_begin %s" (VBD_DB.string_of_id id);
+			B.VBD.epoch_begin t (VBD_DB.vm_of id) (VBD_DB.read_exn id)
+		| VBD_epoch_end id ->
+			debug "VBD.epoch_end %s" (VBD_DB.string_of_id id);
+			B.VBD.epoch_end t (VBD_DB.vm_of id) (VBD_DB.read_exn id)
 		| VBD_set_qos id ->
 			debug "VBD.set_qos %s" (VBD_DB.string_of_id id);
 			B.VBD.set_qos t (VBD_DB.vm_of id) (VBD_DB.read_exn id);

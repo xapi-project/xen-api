@@ -166,7 +166,12 @@ module Nbd_writer = struct
 		debug "off=%Ld buf offset=%d len=%d" off offset len;
 		let copy = String.create len in
 		String.blit buf offset copy 0 len;
-		ignore(Nbd.write fd copy off)
+		match Nbd.write fd copy off with
+			| None -> ()
+			| Some err ->
+				debug "Error code from NBD server: %ld" err;
+				close_output ();
+				exit 5
 end
 
 (** Marshals data across the network in chunks *)

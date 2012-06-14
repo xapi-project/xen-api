@@ -102,7 +102,7 @@ val shutdown_wait_for_ack: Xenops_task.Xenops_task.t -> ?timeout:float -> xc:Xen
 val sysrq: xs:Xenstore.Xs.xsh -> domid -> char -> unit
 
 (** destroy a domain *)
-val destroy: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs:Xenstore.Xs.xsh -> domid -> unit
+val destroy: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> domid -> unit
 
 (** Pause a domain *)
 val pause: xc: Xenctrl.handle -> domid -> unit
@@ -135,7 +135,7 @@ val build_hvm: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.X
 val build: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> build_info -> domid -> domarch
 
 (** resume a domain either cooperative or not *)
-val resume: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> hvm: bool -> cooperative: bool -> domid -> unit
+val resume: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> hvm: bool -> cooperative: bool -> qemu_domid:int -> domid -> unit
 
 (** restore a PV domain into a fresh domain created with 'make' *)
 val pv_restore: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> static_max_kib:Int64.t 
@@ -159,6 +159,7 @@ type suspend_flag = Live | Debug
 val suspend: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> hvm: bool -> domid
           -> Unix.file_descr -> suspend_flag list
           -> ?progress_callback: (float -> unit)
+		  -> qemu_domid: int
           -> (unit -> unit) -> unit
 
 (** send a s3resume event to a domain *)

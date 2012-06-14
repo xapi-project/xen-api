@@ -83,6 +83,7 @@ let allowed_power_states ~__context ~vmr ~(op:API.vm_operations) =
 	| `snapshot
 	| `update_allowed_operations
 	| `get_cooperative
+	| `query_services
 	                                -> all_power_states
 
 (** check if [op] can be done when [vmr] is in [power_state], when no other operation is in progress *)
@@ -322,6 +323,12 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 		if Db.is_valid_ref __context vmr.Db_actions.vM_protection_policy
 		then check_protection_policy ~vmr ~op ~ref_str
 		else None) in
+
+	(* Check whether this VM needs to be a system domain. *)
+	let current_error = check current_error (fun () ->
+		if op = `query_services && not(List.mem_assoc "is_system_domain" vmr.Db_actions.vM_other_config && List.assoc "is_system_domain" vmr.Db_actions.vM_other_config = "true")
+		then Some (Api_errors.not_system_domain, [ ref_str ])
+			else None) in
 
 	current_error
 
