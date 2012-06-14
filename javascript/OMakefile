@@ -1,6 +1,6 @@
 
-.PHONY: install
-install:
+.PHONY: noarch-install
+noarch-install:
 	mkdir -p $(DESTDIR)$(OPTDIR)/debug/www
 	cp *.js *.html *.css $(DESTDIR)$(OPTDIR)/debug/www
 	mkdir -p $(DESTDIR)$(OPTDIR)/debug/www/jquery

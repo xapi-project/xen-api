@@ -15,6 +15,7 @@
  * @group Helper functions for handling system domains
  *)
 
+
 (** [is_system_domain vm] returns true if [vm] is a special system domain *)
 val is_system_domain: API.vM_t -> bool
 
@@ -40,12 +41,34 @@ val pbd_of_vm: __context:Context.t -> vm:API.ref_VM -> API.ref_PBD option
 (** [is_in_use __context self] returns true if [self] is in use as a system domain *)
 val is_in_use: __context:Context.t -> self:API.ref_VM -> bool
 
-(** [wait_for ?timeout f] polls [f ()] every second until [timeout], returning 
-    true if [f ()] ever returns true, false otherwise *)
-val wait_for: ?timeout:float -> (unit -> bool) -> bool
-
-(** [pingable ip ()] returns true if the [ip] responds to an ICMP ECHO REQUEST *)
-val pingable: string -> unit -> bool
-
 (** [queryable ip port ()] returns true if [ip]:[port] responsds to an XMLRPC query *)
-val queryable: string -> int -> unit -> bool
+val queryable: __context:Context.t -> Xmlrpc_client.transport -> unit -> bool
+
+(** [ip_of __context vm] returns the IP of the given VM on the internal management network *)
+val ip_of: __context:Context.t -> API.ref_VM -> string
+
+(** One of many service running in a driver domain *)
+type service = {
+	uuid: string;
+	ty: string;
+	instance: string;
+	url: string;
+}
+val rpc_of_service: service -> Rpc.t
+val service_of_rpc: Rpc.t -> service
+
+type services = service list
+val rpc_of_services: services -> Rpc.t
+val services_of_rpc: Rpc.t -> services
+
+(** [register_service service sockaddr] associates [sockaddr] with [service] *)
+val register_service: service -> Unix.sockaddr -> unit
+
+(** [unregister_service service] forgets service [service] *)
+val unregister_service: service -> unit
+
+(** [get_service_address service] returns the sockaddr associated with [service] or None *)
+val get_service: service -> Unix.sockaddr option
+
+(** [list_services ()] returns all the registered services *)
+val list_services: unit -> services

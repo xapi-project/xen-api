@@ -24,10 +24,7 @@ module D=Debug.Debugger(struct let name="sm_exec" end)
 open D
 module E=Debug.Debugger(struct let name="mscgen" end)
 
-let sm_daemon_dir = Filename.concat Fhs.vardir "sm"
-
 let cmd_name driver = sprintf "%s/%sSR" Xapi_globs.sm_dir driver
-let daemon_path driver = sprintf "%s/%s" sm_daemon_dir driver
 
 (*********************************************************************************************)
 (* Random utility functions *)
@@ -167,20 +164,13 @@ let with_session sr f =
   let session_id = create_session () in
   Pervasiveext.finally (fun () -> f session_id) (fun () -> destroy_session session_id))
 
-let exec_xmlrpc ?context ?(needs_session=true) (ty : sm_type) (driver: string) (call: call) =
+let exec_xmlrpc ?context ?(needs_session=true) (driver: string) (call: call) =
   let do_call call = 
     let xml = xmlrpc_of_call call in
 
     let name = Printf.sprintf "sm_exec: %s" call.cmd in
 
     let (xml,stderr) = Stats.time_this name (fun () -> 
-      match ty with 
-	| Daemon ->
-		let open Xmlrpc_client in
-		let http = xmlrpc ~version:"1.0" (Printf.sprintf "/%s" driver) in
-		let transport = Unix (daemon_path driver) in
-		XML_protocol.rpc ~srcstr:"smapiv2" ~dststr:"smapiv1" ~transport ~http xml, ""
-	| Executable ->
 		let exe = cmd_name driver in
 		begin try
 			E.debug "smapiv2=>smapiv1 [label=\"%s\"];" call.cmd;
@@ -288,7 +278,7 @@ let parse_attach_result (xml : Xml.xml) =
 let parse_attach_result_legacy (xml : Xml.xml) = parse_string xml
 
 
-let parse_sr_get_driver_info driver ty (xml: Xml.xml) = 
+let parse_sr_get_driver_info driver (xml: Xml.xml) = 
   let info = XMLRPC.From.structure xml in
   (* Parse the standard strings *)
   let name = XMLRPC.From.string (safe_assoc "name" info) 
@@ -297,34 +287,11 @@ let parse_sr_get_driver_info driver ty (xml: Xml.xml) =
   and copyright = XMLRPC.From.string (safe_assoc "copyright" info)
   and driver_version = XMLRPC.From.string (safe_assoc "driver_version" info)
   and required_api_version = XMLRPC.From.string (safe_assoc "required_api_version" info) in
-  
-  (* Parse the capabilities *)
-  let lookup_table = 
-    [ "SR_PROBE",       Sr_probe;
-      "SR_UPDATE",      Sr_update;
-	  "SR_SUPPORTS_LOCAL_CACHING", Sr_supports_local_caching;
-      "SR_METADATA",    Sr_metadata;
-      "VDI_CREATE",     Vdi_create;
-      "VDI_DELETE",     Vdi_delete;
-      "VDI_ATTACH",     Vdi_attach;
-      "VDI_DETACH",     Vdi_detach; 
-      "VDI_RESIZE",     Vdi_resize;
-      "VDI_RESIZE_ONLINE",Vdi_resize_online;
-      "VDI_CLONE",      Vdi_clone;
-      "VDI_SNAPSHOT",   Vdi_snapshot;
-      "VDI_ACTIVATE",   Vdi_activate;
-      "VDI_DEACTIVATE", Vdi_deactivate;
-      "VDI_UPDATE",     Vdi_update;
-      "VDI_INTRODUCE",  Vdi_introduce;
-      "VDI_GENERATE_CONFIG", Vdi_generate_config;
-	  "VDI_RESET_ON_BOOT", Vdi_reset_on_boot;
-    ] in
+
   let strings = XMLRPC.From.array XMLRPC.From.string (safe_assoc "capabilities" info) in
-  List.iter (fun s -> 
-	       if not(List.mem s (List.map fst lookup_table))
-	       then debug "SR.capabilities: unknown capability %s" s) strings;
-  let text_capabilities = List.filter (fun s -> List.mem s (List.map fst lookup_table)) strings in
-  let capabilities = List.map (fun key -> safe_assoc key lookup_table) text_capabilities in
+  
+  let capabilities = Smint.parse_capabilities strings in
+  let text_capabilities = List.map Smint.string_of_capability capabilities in
   
   (* Parse the driver options *)
   let configuration = 
@@ -343,12 +310,11 @@ let parse_sr_get_driver_info driver ty (xml: Xml.xml) =
     sr_driver_capabilities = capabilities;
     sr_driver_configuration = configuration;
     sr_driver_text_capabilities = text_capabilities;
-    sr_driver_type = ty;
   }
 
-let sr_get_driver_info driver ty = 
+let sr_get_driver_info driver = 
   let call = make_call (None,[]) "sr_get_driver_info" [] in
-  parse_sr_get_driver_info driver ty (exec_xmlrpc ~needs_session:false ty driver call)
+  parse_sr_get_driver_info driver (exec_xmlrpc ~needs_session:false driver call)
     
 (* Call the supplied function (passing driver name and driver_info) for every
  * backend and daemon found. *)
@@ -358,23 +324,12 @@ let get_supported add_fn =
         let driver = String.sub entry 0 (String.length entry - 2) in
         try
           Unix.access (cmd_name driver) [ Unix.X_OK ];
-          let i = sr_get_driver_info driver Executable in
+          let i = sr_get_driver_info driver in
           add_fn driver i;
-          info "SM plugin %s supported (executable)" driver
         with e ->
           error "Rejecting SM plugin: %s because of exception: %s (executable)" driver (Printexc.to_string e);
           log_backtrace ();
       ) in
-
-  let check_daemon entry =
-    try
-      let i = sr_get_driver_info entry Daemon in
-      add_fn entry i;
-	  info "SM plugin %s supported (daemon)" entry;
-    with e ->
-	  error "Rejecting SM plugin: %s because of exception: %s (daemon)" entry (Printexc.to_string e);
-      log_backtrace ();
-  in
 
   List.iter 
     (fun (f, dir) ->
@@ -386,11 +341,6 @@ let get_supported add_fn =
 			   error "Error checking directory %s for SM backends: %s" dir (ExnHelper.string_of_exn e)
 		 end else error "Not scanning %s for SM backends: directory does not exist" dir
     ) 
-    [ check_driver, Xapi_globs.sm_dir;
-      check_daemon, sm_daemon_dir; ]
+    [ check_driver, Xapi_globs.sm_dir ]
 
 (*********************************************************************)
-
-
-  
-    

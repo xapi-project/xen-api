@@ -252,7 +252,10 @@ end
 module Wrapper = functor(Impl: Server_impl) -> struct
 	type context = Smint.request
 
-	let query = Impl.query
+	module Query = struct
+		let query = Impl.Query.query
+		let diagnostics = Impl.Query.diagnostics
+	end
 
 	module VDI = struct
 		type vdi_locks = (string, unit) Storage_locks.t
@@ -313,7 +316,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 
 		let perform_nolock context ~dbg ~dp ~sr ~vdi this_op =
 			match Host.find sr !Host.host with
-			| None -> raise Sr_not_attached
+			| None -> raise (Sr_not_attached sr)
 			| Some sr_t ->
 				let vdi_t = Opt.default (Vdi.empty ()) (Sr.find vdi sr_t) in
 				let vdi_t = 
@@ -354,7 +357,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 		(* Attempt to remove a possibly-active datapath associated with [vdi] *)
 		let destroy_datapath_nolock context ~dbg ~dp ~sr ~vdi ~allow_leak =
 			match Host.find sr !Host.host with
-			| None -> raise Sr_not_attached
+			| None -> raise (Sr_not_attached sr)
 			| Some sr_t ->
 				Opt.iter (fun vdi_t -> 
 					let current_state = Vdi.get_dp_state dp vdi_t in
@@ -402,6 +405,15 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			| [] -> next ()
 			| f :: fs -> raise f
 
+		let epoch_begin context ~dbg ~sr ~vdi =
+			info "VDI.epoch_begin dbg:%s sr:%s vdi:%s" dbg sr vdi;
+			with_vdi sr vdi
+				(fun () ->
+					remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi Vdi.leaked
+						(fun () ->
+							Impl.VDI.epoch_begin context ~dbg ~sr ~vdi
+						))
+
 		let attach context ~dbg ~dp ~sr ~vdi ~read_write =
 			info "VDI.attach dbg:%s dp:%s sr:%s vdi:%s read_write:%b" dbg dp sr vdi read_write;
 			with_vdi sr vdi
@@ -421,20 +433,6 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 						(fun () ->
 							ignore(perform_nolock context ~dbg ~dp ~sr ~vdi Vdi_automaton.Activate)))
 
-		let stat context ~dbg ~sr ~vdi () =
-			info "VDI.stat dbg:%s sr:%s vdi:%s" dbg sr vdi;
-			with_vdi sr vdi
-				(fun () ->
-					match Host.find sr !Host.host with
-					| None -> raise Sr_not_attached
-					| Some sr_t ->
-						let vdi_t = Opt.default (Vdi.empty ()) (Sr.find vdi sr_t) in
-						{
-							superstate = Vdi.superstate vdi_t;
-							dps = List.map (fun dp -> dp, Vdi.get_dp_state dp vdi_t) (Vdi.dps vdi_t)
-						}
-				)
-
 		let deactivate context ~dbg ~dp ~sr ~vdi =
 			info "VDI.deactivate dbg:%s dp:%s sr:%s vdi:%s" dbg dp sr vdi;
 			with_vdi sr vdi
@@ -450,6 +448,15 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 					remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi Vdi.leaked
 						(fun () ->
 							ignore (perform_nolock context ~dbg ~dp ~sr ~vdi Vdi_automaton.Detach)))
+
+		let epoch_end context ~dbg ~sr ~vdi =
+			info "VDI.epoch_end dbg:%s sr:%s vdi:%s" dbg sr vdi;
+			with_vdi sr vdi
+				(fun () ->
+					remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi Vdi.leaked
+						(fun () ->
+							Impl.VDI.epoch_end context ~dbg ~sr ~vdi
+						))
 
         let create context ~dbg ~sr ~vdi_info ~params =
             info "VDI.create dbg:%s sr:%s vdi_info:%s params:%s" dbg sr (string_of_vdi_info vdi_info) (String.concat "; " (List.map (fun (k, v) -> k ^ ":" ^ v) params));
@@ -479,6 +486,18 @@ module Wrapper = functor(Impl: Server_impl) -> struct
                             Impl.VDI.destroy context ~dbg ~sr ~vdi
                         )
                 )
+
+		let stat context ~dbg ~sr ~vdi =
+			info "VDI.stat dbg:%s sr:%s vdi:%s" dbg sr vdi;
+			Impl.VDI.stat context ~dbg ~sr ~vdi
+
+		let set_persistent context ~dbg ~sr ~vdi ~persistent =
+			info "VDI.set_persistent dbg:%s sr:%s vdi:%s persistent:%b" dbg sr vdi persistent;
+			with_vdi sr vdi
+				(fun () ->
+					Impl.VDI.set_persistent context ~dbg ~sr ~vdi ~persistent
+				)
+
 
 		let get_by_name context ~dbg ~sr ~name =
 			info "VDI.get_by_name dbg:%s sr:%s name:%s" dbg sr name;
@@ -558,7 +577,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 		let destroy_sr context ~dbg ~dp ~sr ~allow_leak vdi_already_locked =
 			(* Every VDI in use by this session should be detached and deactivated *)
 			match Host.find sr !Host.host with
-			| None -> [ Sr_not_attached ]
+			| None -> [ Sr_not_attached sr ]
 			| Some sr_t ->
 				let vdis = Sr.list sr_t in
 				List.fold_left (fun acc (vdi, vdi_t) ->
@@ -609,6 +628,22 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 					attach_info
 				| _ -> 
 					raise (Internal_error (Printf.sprintf "sr: %s vdi: %s Datapath %s not attached" sr vdi dp))
+
+
+		let stat_vdi context ~dbg ~sr ~vdi () =
+			info "DP.stat_vdi dbg:%s sr:%s vdi:%s" dbg sr vdi;
+			VDI.with_vdi sr vdi
+				(fun () ->
+					match Host.find sr !Host.host with
+					| None -> raise (Sr_not_attached sr)
+					| Some sr_t ->
+						let vdi_t = Opt.default (Vdi.empty ()) (Sr.find vdi sr_t) in
+						{
+							superstate = Vdi.superstate vdi_t;
+							dps = List.map (fun dp -> dp, Vdi.get_dp_state dp vdi_t) (Vdi.dps vdi_t)
+						}
+				)
+
 	end
 
 	module SR = struct
@@ -623,9 +658,20 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			with_sr sr
 				(fun () ->
 					match Host.find sr !Host.host with
-						| None -> raise Sr_not_attached
+						| None -> raise (Sr_not_attached sr)
 						| Some _ ->
 							Impl.SR.scan context ~dbg ~sr
+				)
+
+		let create context ~dbg ~sr ~device_config ~physical_size =
+			with_sr sr
+				(fun () ->
+					match Host.find sr !Host.host with
+						| None ->
+							Impl.SR.create context ~dbg ~sr ~device_config ~physical_size
+						| Some _ ->
+							error "SR %s is already attached" sr;
+							raise (Sr_attached sr)
 				)
 
 		let attach context ~dbg ~sr ~device_config =
@@ -653,7 +699,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			with_sr sr
 				(fun () ->
 					match Host.find sr !Host.host with
-					| None -> raise Sr_not_attached
+					| None -> raise (Sr_not_attached sr)
 					| Some sr_t ->
 						VDI.with_all_vdis sr
 							(fun () ->
@@ -690,6 +736,10 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			detach_destroy_common context ~dbg ~sr Impl.SR.destroy			
 	end
 
+	module Policy = struct
+		let get_backend_vm context ~dbg ~vm ~sr ~vdi =
+			Impl.Policy.get_backend_vm context ~dbg ~vm ~sr ~vdi
+	end
 
 	module TASK = struct
 		open Storage_task

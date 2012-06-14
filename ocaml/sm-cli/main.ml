@@ -22,10 +22,15 @@ open Xmlrpc_client
 
 let url = Http.Url.(ref (File { path = Filename.concat Fhs.vardir "storage" }, { uri = "/"; query_params = [] }))
 
+let verbose = ref false
+
 module RPC = struct
-let rpc call =
-	XMLRPC_protocol.rpc ~transport:(transport_of_url !url) ~srcstr:"sm-cli" ~dststr:"smapiv2"
-		~http:(xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of !url) ~query:(Http.Url.get_query_params !url) (Http.Url.get_uri !url)) call
+	let rpc call =
+		let response = XMLRPC_protocol.rpc ~transport:(transport_of_url !url) ~srcstr:"sm-cli" ~dststr:"smapiv2"
+			~http:(xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of !url) ~query:(Http.Url.get_query_params !url) (Http.Url.get_uri !url)) call in
+		if !verbose
+		then Printf.fprintf stderr "Received: %s\n%!" (Xmlrpc.string_of_response response);
+		response
 end
 
 open Storage_interface
@@ -35,11 +40,25 @@ let dbg = "sm-cli"
 
 let usage_and_exit () =
 	Printf.fprintf stderr "Usage:\n";
+	Printf.fprintf stderr "  %s query\n" Sys.argv.(0);
+	Printf.fprintf stderr "  %s sr-create <SR> key_1=val_1 ... key_n=val_n\n" Sys.argv.(0);
+	Printf.fprintf stderr "  %s sr-attach <SR> key_1=val_1 ... key_n=val_n\n" Sys.argv.(0);
+	Printf.fprintf stderr "  %s sr-detach <SR>\n" Sys.argv.(0);
 	Printf.fprintf stderr "  %s sr-list\n" Sys.argv.(0);
 	Printf.fprintf stderr "  %s sr-scan <SR>\n" Sys.argv.(0);
 	Printf.fprintf stderr "  %s vdi-create <SR> key_1=val_1 ... key_n=val_n\n" Sys.argv.(0);
 	Printf.fprintf stderr "  %s vdi-destroy <SR> <VDI>\n" Sys.argv.(0);
+	Printf.fprintf stderr "  %s vdi-attach <DP> <SR> <VDI> <RW>\n" Sys.argv.(0);
+	Printf.fprintf stderr "  %s vdi-detach <DP> <SR> <VDI>\n" Sys.argv.(0);
+	Printf.fprintf stderr "  %s vdi-activate <DP> <SR> <VDI>\n" Sys.argv.(0);
+	Printf.fprintf stderr "  %s vdi-deactivate <DP> <SR> <VDI>\n" Sys.argv.(0);
+	Printf.fprintf stderr "  %s GET <uri>\n" Sys.argv.(0);
 	exit 1
+
+let kvpairs = List.filter_map
+	(fun x -> match String.split ~limit:2 '=' x with
+		| [k; v] -> Some (k, v)
+		| _ -> None)
 
 let _ =
 	if Array.length Sys.argv < 2 then usage_and_exit ();
@@ -53,7 +72,20 @@ let _ =
 			| _ -> ()
 	end;
 	let args = List.filter (not ++ (String.startswith "url=")) args |> List.tl in
+	verbose := List.mem "-v" args;
+	let args = List.filter (not ++ ((=) "-v")) args in
 	match args with
+		| [ "query" ] ->
+			let q = Client.Query.query ~dbg in
+			Printf.printf "%s\n" (q |> rpc_of_query_result |> Jsonrpc.to_string)
+		| "sr-create" :: sr :: device_config ->
+			let device_config = kvpairs device_config in
+			Client.SR.create ~dbg ~sr ~device_config ~physical_size:0L
+		| "sr-attach" :: sr :: device_config ->
+			let device_config = kvpairs device_config in
+			Client.SR.attach ~dbg ~sr ~device_config
+		| "sr-detach" :: [ sr ] ->
+			Client.SR.detach ~dbg ~sr
 		| [ "sr-list" ] ->
 			let srs = Client.SR.list ~dbg in
 			List.iter
@@ -69,10 +101,7 @@ let _ =
 				) vs
 		| "vdi-create" :: sr :: args ->
 			if Array.length Sys.argv < 3 then usage_and_exit ();
-			let kvpairs = List.filter_map
-				(fun x -> match String.split ~limit:2 '=' x with
-					| [k; v] -> Some (k, v)
-					| _ -> None) args in
+			let kvpairs = kvpairs args in
 			let find key = if List.mem_assoc key kvpairs then Some (List.assoc key kvpairs) else None in
 			let vdi_info = {
 				vdi = "";
@@ -87,7 +116,8 @@ let _ =
 				snapshot_of = Opt.default "" (find "snapshot_of");
 				read_only = Opt.default false (Opt.map bool_of_string (find "read_only"));
 				virtual_size = Opt.default 1L (Opt.map Int64.of_string (find "virtual_size"));
-				physical_utilisation = 0L
+				physical_utilisation = 0L;
+				persistent = true;
 			} in
 			let params = List.filter_map
 				(fun (k, v) ->
@@ -101,6 +131,15 @@ let _ =
 			Printf.printf "%s\n" (string_of_vdi_info v)
 		| [ "vdi-destroy"; sr; vdi ] ->
 			Client.VDI.destroy ~dbg ~sr ~vdi
+		| [ "vdi-attach"; dp; sr; vdi; rw ] ->
+			let x = Client.VDI.attach ~dbg ~dp ~sr ~vdi ~read_write:(String.lowercase rw = "rw") in
+			Printf.printf "%s\n" (x |> rpc_of_attach_info |> Jsonrpc.to_string)
+		| [ "vdi-detach"; dp; sr; vdi ] ->
+			Client.VDI.detach ~dbg ~dp ~sr ~vdi
+		| [ "vdi-activate"; dp; sr; vdi ] ->
+			Client.VDI.activate ~dbg ~dp ~sr ~vdi
+		| [ "vdi-deactivate"; dp; sr; vdi ] ->
+			Client.VDI.deactivate ~dbg ~dp ~sr ~vdi
 		| [ "vdi-get-by-name"; sr; name ] ->
 			let v = Client.VDI.get_by_name ~dbg ~sr ~name in
 			Printf.printf "%s\n" (string_of_vdi_info v)
@@ -151,5 +190,17 @@ let _ =
 					) tasks
 		| ["task-cancel"; task ] ->
 			Client.TASK.cancel ~dbg ~task
+		| ["GET"; uri ] ->
+			Xmlrpc_client.with_transport (transport_of_url !url)
+				(fun fd ->
+					Http_client.rpc fd (Http.Request.make ~version:"1.0" ~keep_alive:false ~user_agent:"smcli" ~body:"" Http.Get uri)
+						(fun response fd ->
+							if response.Http.Response.code <> "200" then begin
+								Printf.fprintf stderr "%s\n" (Http.Response.to_string response);
+								exit 1;
+							end;
+							ignore(Unixext.copy_file ?limit:response.Http.Response.content_length fd Unix.stdout)
+						)
+				)
 		| _ ->
 			usage_and_exit ()

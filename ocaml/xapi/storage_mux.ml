@@ -22,6 +22,7 @@ open Storage_interface
 type plugin = {
 	processor: processor;
 	backend_domain: string;
+	query_result: query_result;
 }
 let plugins : (sr, plugin) Hashtbl.t = Hashtbl.create 10
 
@@ -31,8 +32,21 @@ let debug_printer rpc call =
 	debug "Rpc.response = %s" (Xmlrpc.string_of_response result);
 	result
 
-let register sr m d = Hashtbl.replace plugins sr { processor = debug_printer m; backend_domain = d }
+let register sr m d =
+	let open Storage_interface in
+	let module Client = Client(struct let rpc = debug_printer m end) in
+	let info = Client.Query.query ~dbg:"mux" in
+	Hashtbl.replace plugins sr { processor = debug_printer m; backend_domain = d; query_result = info };
+	info
+
 let unregister sr = Hashtbl.remove plugins sr
+
+let query_result_of_sr sr =
+	try
+		Some (Hashtbl.find plugins sr).query_result
+	with _ -> None
+
+let capabilities_of_sr sr = Opt.default [] (Opt.map (fun x -> x.features) (query_result_of_sr sr))
 
 exception No_storage_plugin_for_sr of string
 
@@ -70,12 +84,33 @@ let success_or f results =
 module Mux = struct
 	type context = Smint.request
 
-    let query context () = {
-        name = "storage multiplexor";
-        vendor = "XCP";
-        version = "0.1";
-        features = [];
-    }
+	let forall f =
+        let combine results =
+            let all = List.fold_left (fun acc (sr, result) ->
+                (Printf.sprintf "For SR: %s" sr :: (string_of_sm_result (fun s -> s) result) :: acc)) [] results in
+            SMSuccess (String.concat "\n" all) in
+        match fail_or combine (multicast f) with
+			| SMSuccess x -> x
+			| SMFailure e -> raise e
+
+	module Query = struct
+		let query context ~dbg = {
+			driver = "mux";
+			name = "storage multiplexor";
+			description = "forwards calls to other plugins";
+			vendor = "XCP";
+			copyright = "see the source code";
+			version = "2.0";
+			required_api_version = "2.0";
+			features = [];
+			configuration = []
+		}
+		let diagnostics context ~dbg =
+			forall (fun sr rpc ->
+				let module C = Client(struct let rpc = of_sr sr end) in
+				C.Query.diagnostics dbg
+			)
+	end
 	module DP = struct
 		let create context ~dbg ~id = id (* XXX: is this pointless? *)
 		let destroy context ~dbg ~dp ~allow_leak =
@@ -87,22 +122,24 @@ module Mux = struct
 				| SMFailure e -> raise e
 
 		let diagnostics context () =
-			let combine results =
-				let all = List.fold_left (fun acc (sr, result) ->
-					(Printf.sprintf "For SR: %s" sr :: (string_of_sm_result (fun s -> s) result) :: acc)) [] results in
-				SMSuccess (String.concat "\n" all) in
-			match fail_or combine (multicast (fun sr rpc ->
+			forall (fun sr rpc ->
 				let module C = Client(struct let rpc = of_sr sr end) in
-				C.DP.diagnostics ())) with
-				| SMSuccess x -> x
-				| SMFailure e -> raise e
+				C.DP.diagnostics ()
+			)
 
 		let attach_info context ~dbg ~sr ~vdi ~dp =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.DP.attach_info ~dbg ~sr ~vdi ~dp
+
+		let stat_vdi context ~dbg ~sr ~vdi =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.DP.stat_vdi ~dbg ~sr ~vdi
 			
 	end
 	module SR = struct
+		let create context ~dbg ~sr ~device_config ~physical_size =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.SR.create ~dbg ~sr ~device_config ~physical_size
 		let attach context ~dbg ~sr =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.SR.attach ~dbg ~sr
@@ -125,10 +162,6 @@ module Mux = struct
 		let create context ~dbg ~sr ~vdi_info ~params =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.create ~dbg ~sr ~vdi_info ~params
-
-		let stat context ~dbg ~sr ~vdi =
-			let module C = Client(struct let rpc = of_sr sr end) in
-			C.VDI.stat ~dbg ~sr ~vdi
         let snapshot context ~dbg ~sr ~vdi ~vdi_info ~params =
             let module C = Client(struct let rpc = of_sr sr end) in
             C.VDI.snapshot ~dbg ~sr ~vdi ~vdi_info ~params
@@ -138,6 +171,15 @@ module Mux = struct
 		let destroy context ~dbg ~sr ~vdi =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.destroy ~dbg ~sr ~vdi
+		let stat context ~dbg ~sr ~vdi =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.VDI.stat ~dbg ~sr ~vdi
+		let set_persistent context ~dbg ~sr ~vdi ~persistent =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.VDI.set_persistent ~dbg ~sr ~vdi ~persistent
+		let epoch_begin context ~dbg ~sr ~vdi =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.VDI.epoch_begin ~dbg ~sr ~vdi
 		let attach context ~dbg ~dp ~sr ~vdi ~read_write =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.attach ~dbg ~dp ~sr ~vdi ~read_write
@@ -150,6 +192,9 @@ module Mux = struct
 		let detach context ~dbg ~dp ~sr ~vdi =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.detach ~dbg ~dp ~sr ~vdi
+		let epoch_end context ~dbg ~sr ~vdi =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.VDI.epoch_end ~dbg ~sr ~vdi
         let get_by_name context ~dbg ~sr ~name =
             let module C = Client(struct let rpc = of_sr sr end) in
             C.VDI.get_by_name ~dbg ~sr ~name
@@ -184,7 +229,7 @@ module Mux = struct
                 )) with SMSuccess x -> x
 					| SMFailure e -> raise e)
             | _ ->
-                raise Vdi_does_not_exist
+                raise (Vdi_does_not_exist name)
 
 	module DATA = struct
 		let copy context = Storage_migrate.copy
@@ -199,6 +244,14 @@ module Mux = struct
 			let receive_finalize context = Storage_migrate.receive_finalize
 			let receive_cancel context = Storage_migrate.receive_cancel
 		end	
+	end
+
+	module Policy = struct
+		let get_backend_vm context ~dbg ~vm ~sr ~vdi =
+			if not(Hashtbl.mem plugins sr) then begin
+				error "No registered plugin for sr = %s" sr;
+				raise (No_storage_plugin_for_sr sr)				
+			end else (Hashtbl.find plugins sr).backend_domain
 	end
 
 	module TASK = struct
