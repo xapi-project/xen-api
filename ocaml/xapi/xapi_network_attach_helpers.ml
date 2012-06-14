@@ -37,17 +37,19 @@ let assert_pif_disallow_unplug_not_set ~__context pif =
   if (Db.PIF.get_disallow_unplug ~__context ~self:pif) then
     raise (Api_errors.Server_error(Api_errors.pif_does_not_allow_unplug, [ Ref.string_of pif ]))    
 
+let get_local_pifs ~__context ~network ~host =
+	(* There should be at most one local PIF by construction *)
+	Db.PIF.get_refs_where ~__context ~expr:(And (
+		Eq (Field "network", Literal (Ref.string_of network)),
+		Eq (Field "host", Literal (Ref.string_of host))
+	))
+
+(* Plugging a bond slave is not allowed *)
+let assert_no_slave ~__context pif =
+	if Db.PIF.get_bond_slave_of ~__context ~self:pif <> Ref.null then
+		raise (Api_errors.Server_error (Api_errors.cannot_plug_bond_slave, [Ref.string_of pif]))
+
 let assert_can_attach_network_on_host ~__context ~self ~host =
-  (* There really should be only one local PIF by construction *)
-  let local_pifs = Db.PIF.get_refs_where ~__context ~expr:(And (
-    Eq (Field "network", Literal (Ref.string_of self)),
-    Eq (Field "host", Literal (Ref.string_of host))
-  )) in
-  (* Plugging a bond slave is not allowed *)
-  let assert_no_slave pif =
-    if Db.PIF.get_bond_slave_of ~__context ~self:pif <> Ref.null then
-      raise (Api_errors.Server_error (Api_errors.cannot_plug_bond_slave, [Ref.string_of self]))
-  in
-  List.iter assert_no_slave local_pifs;
-  local_pifs
+  let local_pifs = get_local_pifs ~__context ~network:self ~host in
+  List.iter (fun pif -> assert_no_slave ~__context pif) local_pifs
 
