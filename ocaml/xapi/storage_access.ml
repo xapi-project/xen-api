@@ -99,6 +99,8 @@ module SMAPIv1 = struct
 								| Smint.Not_implemented_in_backend ->
 									error "SR.create failed SR:%s Not_implemented_in_backend" (Ref.string_of sr);
 									raise (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
+								| Api_errors.Server_error(code, params) ->
+									raise (Backend_error(code, params))
 								| e ->
 									let e' = ExnHelper.string_of_exn e in
 									error "SR.create failed SR:%s error:%s" (Ref.string_of sr) e';
