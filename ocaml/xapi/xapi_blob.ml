@@ -87,7 +87,6 @@ exception No_storage
 let handler (req: Http.Request.t) s _ =
   let query = req.Http.Request.query in
   req.Http.Request.close <- true;
-  debug "blob handler";
   if not(List.mem_assoc "ref" query || List.mem_assoc "uuid" query) then begin
     let headers = Http.http_400_badrequest () in
     Http_svr.headers s headers;
@@ -139,11 +138,12 @@ let handler (req: Http.Request.t) s _ =
 					  end
 				  | Http.Put ->
 					  let ofd = Unix.openfile path [Unix.O_WRONLY; Unix.O_TRUNC; Unix.O_SYNC; Unix.O_CREAT] 0o600 in
+					  let limit = match req.Http.Request.content_length with Some x -> x | None -> failwith "Need content length" in
 					  let size = 
 						  Pervasiveext.finally
 							  (fun () -> 
-								  Http_svr.headers s (Http.http_200_ok ());
-								  Unixext.copy_file s ofd)
+								  Http_svr.headers s (Http.http_200_ok () @ ["Access-Control-Allow-Origin: *"]);
+								  Unixext.copy_file ~limit s ofd)
 							  (fun () -> 
 								  Unix.close ofd)
 					  in
