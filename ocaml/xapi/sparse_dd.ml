@@ -227,11 +227,13 @@ module Nbd_writer = struct
 			(fun () ->
 				match !fd with
 					| None -> () (* nothing to do *)
-					| Some _ ->
-						while !num_inflight_requests > 0L do
+					| Some fd ->
+						while not(Int64Set.is_empty !inflight_requests) do
 							debug "Waiting for last reply (num_inflight_requests = %Ld)" !num_inflight_requests;
 							Condition.wait c m
-						done
+						done;
+						debug "DISCONNECT";
+						Nbd.disconnect_async fd (-1L);
 			)
 
 	let op fd' offset { buf = buf; offset = ofs; len = len } =
