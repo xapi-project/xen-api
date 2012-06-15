@@ -524,7 +524,7 @@ let sm_caps_of_sr session_id sr =
   | [ _, plugin ] ->
       plugin.API.sM_capabilities 
   | _ ->
-      failwith "Failed to query SM plugin"
+      failwith (Printf.sprintf "Failed to query SM plugin type = %s" ty)
 
 (* Even though the SM backend may expose a VDI_CREATE capability attempts
    to actually create a VDI will fail in (eg) the tools SR and any that
