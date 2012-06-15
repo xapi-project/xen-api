@@ -634,6 +634,22 @@ module Driver_kind = struct
 				SMAPIv2_unix socket
 			end
 		end else SMAPIv2_tcp(System_domains.ip_of ~__context driver)
+
+	let query kind ty path =
+		let open Xmlrpc_client in
+		match kind with
+		| SMAPIv1 ->
+			Sm.info_of_driver ty |> Smint.query_result_of_sr_driver_info
+		| SMAPIv2_unix fs ->
+			let module C = Client(struct
+				let rpc = XMLRPC_protocol.rpc ~srcstr:"smapiv2" ~dststr:"smapiv2" ~transport:(Unix fs) ~http:(xmlrpc ~version:"1.0" path)
+			end) in
+			C.Query.query ~dbg:"dbg"
+		| SMAPIv2_tcp ip ->
+			let module C = Client(struct
+				let rpc = XMLRPC_protocol.rpc ~srcstr:"smapiv2" ~dststr:"smapiv1" ~transport:(TCP(ip, 80)) ~http:(xmlrpc ~version:"1.0" path)
+			end) in
+			C.Query.query ~dbg:"dbg"
 end
 
 let make_service uuid ty =
@@ -667,7 +683,9 @@ let bind ~__context ~pbd =
 	info "SR %s will be implemented by %s in VM %s" sr path (Ref.string_of driver);
 	let service = make_service uuid ty in
 	Opt.iter (System_domains.register_service service) (Driver_kind.to_sockaddr kind);
-	Storage_mux.register sr (Impl.process (Some path)) uuid
+	let info = Driver_kind.query kind ty path in
+	Storage_mux.register sr (Impl.process (Some path)) uuid info;
+	info
 
 let unbind ~__context ~pbd =
 	let driver = System_domains.storage_driver_domain_of_pbd ~__context ~pbd in

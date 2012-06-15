@@ -119,7 +119,6 @@ let plug ~__context ~self =
 					(fun () -> C.SR.attach dbg (Db.SR.get_uuid ~__context ~self:sr) device_config);
 				Db.PBD.set_currently_attached ~__context ~self ~value:true;
 
-				debug "XXX update allowed ops";
 				(* When the plugin is registered it is possible to query the capabilities etc *)
 				Xapi_sm.register_plugin ~__context query_result;
 
