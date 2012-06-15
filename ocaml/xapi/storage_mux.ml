@@ -32,12 +32,8 @@ let debug_printer rpc call =
 	debug "Rpc.response = %s" (Xmlrpc.string_of_response result);
 	result
 
-let register sr m d =
-	let open Storage_interface in
-	let module Client = Client(struct let rpc = debug_printer m end) in
-	let info = Client.Query.query ~dbg:"mux" in
-	Hashtbl.replace plugins sr { processor = debug_printer m; backend_domain = d; query_result = info };
-	info
+let register sr m d info =
+	Hashtbl.replace plugins sr { processor = debug_printer m; backend_domain = d; query_result = info }
 
 let unregister sr = Hashtbl.remove plugins sr
 

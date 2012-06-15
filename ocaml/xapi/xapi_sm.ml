@@ -33,6 +33,7 @@ open D
 let create_from_query_result ~__context q =
 	let r = Ref.make () and u = Uuid.string_of_uuid (Uuid.make_uuid ()) in
 	let open Storage_interface in
+	info "Registering SM plugin %s (version %s)" (String.lowercase q.driver) q.version;
 	Db.SM.create ~__context ~ref:r ~uuid:u ~_type:(String.lowercase q.driver)
 		 ~name_label:q.name
 		 ~name_description:q.description
@@ -49,6 +50,7 @@ let update_from_query_result ~__context (self, r) query_result =
 	let open Storage_interface in
 	let _type = String.lowercase query_result.driver in
 	let driver_filename = Sm_exec.cmd_name query_result.driver in
+	info "Registering SM plugin %s (version %s)" (String.lowercase query_result.driver) query_result.version;
 	if r.API.sM_type <> _type
 	then Db.SM.set_type ~__context ~self ~value:_type;
 	if r.API.sM_name_label <> query_result.name
@@ -79,7 +81,9 @@ let on_xapi_start ~__context =
 			let self, rc = List.assoc ty existing in
 			if version_of_string rc.API.sM_version < [ 2; 0 ] then begin
 				info "Unregistering SM plugin %s since version (%s) < 2.0 and executable is missing" ty rc.API.sM_version;
-				Db.SM.destroy ~__context ~self
+				try
+					Db.SM.destroy ~__context ~self
+				with _ -> ()
 			end
 		) (List.set_difference (List.map fst existing) drivers);
 	(* Create all missing SMAPIv1 plugins *)
@@ -101,7 +105,9 @@ let unregister_plugin ~__context query_result =
 	let driver = String.lowercase query_result.driver in
 	if List.mem_assoc driver existing then begin
 		info "Unregistering SM plugin %s (version %s)" driver query_result.version;
-		Db.SM.destroy ~__context ~self:(fst (List.assoc driver existing))
+		try
+			Db.SM.destroy ~__context ~self:(fst (List.assoc driver existing))
+		with _ -> ()
 	end
 
 let register_plugin ~__context query_result =
