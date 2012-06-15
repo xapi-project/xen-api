@@ -70,6 +70,8 @@ let update_from_query_result ~__context (self, r) query_result =
 	if r.API.sM_driver_filename <> driver_filename
 	then Db.SM.set_driver_filename ~__context ~self ~value:driver_filename
 
+let is_v1 x = version_of_string x < [ 2; 0 ]
+
 (** Update all SMAPIv1 plugins which have been deleted from the filesystem.
     The SMAPIv2 ones are dynamically discovered so we leave those alone. *)
 let on_xapi_start ~__context =
@@ -79,7 +81,7 @@ let on_xapi_start ~__context =
 	List.iter
 		(fun ty ->
 			let self, rc = List.assoc ty existing in
-			if version_of_string rc.API.sM_version < [ 2; 0 ] then begin
+			if is_v1 rc.API.sM_version then begin
 				info "Unregistering SM plugin %s since version (%s) < 2.0 and executable is missing" ty rc.API.sM_version;
 				try
 					Db.SM.destroy ~__context ~self
@@ -101,15 +103,25 @@ let on_xapi_start ~__context =
 
 let unregister_plugin ~__context query_result =
 	let open Storage_interface in
-	let existing = List.map (fun (rf, rc) -> rc.API.sM_type, (rf, rc)) (Db.SM.get_all_records ~__context) in
 	let driver = String.lowercase query_result.driver in
-	if List.mem_assoc driver existing then begin
-		info "Unregistering SM plugin %s (version %s)" driver query_result.version;
-		try
-			Db.SM.destroy ~__context ~self:(fst (List.assoc driver existing))
-		with _ -> ()
+	if is_v1 query_result.version then begin
+		info "Not unregistering SM plugin %s (version %s < 2.0)" driver query_result.version;
+	end else begin
+		let existing = List.map (fun (rf, rc) -> rc.API.sM_type, (rf, rc)) (Db.SM.get_all_records ~__context) in
+		if List.mem_assoc driver existing then begin
+			info "Unregistering SM plugin %s (version %s)" driver query_result.version;
+			try
+				Db.SM.destroy ~__context ~self:(fst (List.assoc driver existing))
+			with _ -> ()
+		end
 	end
 
 let register_plugin ~__context query_result =
-	unregister_plugin ~__context query_result;
-	create_from_query_result ~__context query_result
+	let open Storage_interface in
+	let driver = String.lowercase query_result.driver in
+	if is_v1 query_result.version then begin
+		info "Not registering SM plugin %s (version %s < 2.0)" driver query_result.version;		
+	end else begin
+		unregister_plugin ~__context query_result;
+		create_from_query_result ~__context query_result
+	end
