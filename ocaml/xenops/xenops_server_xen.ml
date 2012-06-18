@@ -2003,6 +2003,7 @@ let watch_xenstore () =
 		(fun xc xs ->
 			let domains = ref IntMap.empty in
 			let watches = ref IntMap.empty in
+			let uuids = ref IntMap.empty in
 
 			let watch path =
 				debug "xenstore watch %s" path;
@@ -2018,17 +2019,22 @@ let watch_xenstore () =
 			let add_domU_watches xs domid uuid =
 				debug "Adding watches for: domid %d" domid;
 				List.iter watch (all_domU_watches domid uuid);
+				uuids := IntMap.add domid uuid !uuids;
 				watches := IntMap.add domid [] !watches in
 
-			let remove_domU_watches xs domid uuid =
+			let remove_domU_watches xs domid =
 				debug "Removing watches for: domid %d" domid;
-				List.iter unwatch (all_domU_watches domid uuid);
-				List.iter (fun d ->
-					List.iter unwatch (watches_of_device d)
-				) (try IntMap.find domid !watches with Not_found -> []);
-				watches := IntMap.remove domid !watches in
+				if IntMap.mem domid !uuids then begin
+					let uuid = IntMap.find domid !uuids in
+					List.iter unwatch (all_domU_watches domid uuid);
+					List.iter (fun d ->
+						List.iter unwatch (watches_of_device d)
+					) (try IntMap.find domid !watches with Not_found -> []);
+					watches := IntMap.remove domid !watches;
+					uuids := IntMap.remove domid !uuids;
+				end in
 
-			let cancel_domU_operations xs domid uuid =
+			let cancel_domU_operations xs domid =
 				(* Anyone blocked on a domain/device operation which won't happen because the domain
 				   just shutdown should be cancelled here. *)
 				debug "Cancelling watches for: domid %d" domid;
@@ -2059,8 +2065,14 @@ let watch_xenstore () =
 						let di = IntMap.find domid (if IntMap.mem domid domains' then domains' else !domains) in
 						let id = Uuid.uuid_of_int_array di.Xenctrl.handle |> Uuid.string_of_uuid in
 						if domid > 0 && not (DB.exists id)
-						then debug "However domain %d is not managed by us: ignoring" domid
-						else begin
+						then begin
+							debug "However domain %d is not managed by us: ignoring" domid;
+							if IntMap.mem domid !uuids then begin
+								debug "Cleaning-up the remaining watches for: domid %d" domid;
+								cancel_domU_operations xs domid;
+								remove_domU_watches xs domid;
+							end;
+						end else begin
 							Updates.add (Dynamic.Vm id) updates;
 							(* A domain is 'running' if we know it has not shutdown *)
 							let running = IntMap.mem domid domains' && (not (IntMap.find domid domains').Xenctrl.shutdown) in
@@ -2070,8 +2082,8 @@ let watch_xenstore () =
 								| false, true ->
 									add_domU_watches xs domid id
 								| true, false ->
-									cancel_domU_operations xs domid id;
-									remove_domU_watches xs domid id
+									cancel_domU_operations xs domid;
+									remove_domU_watches xs domid
 						end
 					) different;
 				domains := domains' in
