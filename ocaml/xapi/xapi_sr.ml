@@ -655,7 +655,7 @@ let disable_database_replication ~__context ~sr =
 		)
 		metadata_vdis
 
-let create_new_blob ~__context ~sr ~name ~mime_type =
-  let blob = Xapi_blob.create ~__context ~mime_type in
+let create_new_blob ~__context ~sr ~name ~mime_type ~public =
+  let blob = Xapi_blob.create ~__context ~mime_type ~public in
   Db.SR.add_to_blobs ~__context ~self:sr ~key:name ~value:blob;
   blob

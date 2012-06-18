@@ -1192,8 +1192,8 @@ let ha_compute_vm_failover_plan ~__context ~failed_hosts ~failed_vms =
     (Xapi_ha_vm_failover.compute_evacuation_plan ~__context (List.length all_hosts) live_hosts vms) in
   (List.filter (fun (vm, _) -> not(List.mem_assoc vm plan)) errors) @ plan
 
-let create_new_blob ~__context ~pool ~name ~mime_type =
-  let blob = Xapi_blob.create ~__context ~mime_type in
+let create_new_blob ~__context ~pool ~name ~mime_type ~public =
+  let blob = Xapi_blob.create ~__context ~mime_type ~public in
   Db.Pool.add_to_blobs ~__context ~self:pool ~key:name ~value:blob;
   blob
 
