@@ -17,6 +17,7 @@ UseCamlp4(rpc-light.syntax, rrdd_server)
 
 RRDD = xcp-rrdd
 RRDD_FILES = \
+	../pool_role_shared \
 	../network/network_interface \
 	../network/network_monitor \
 	../util/stats \

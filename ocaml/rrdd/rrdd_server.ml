@@ -27,10 +27,6 @@ open D
 let has_vm_rrd _ ~(vm_uuid : string) =
 	Mutex.execute mutex (fun _ -> Hashtbl.mem vm_rrds vm_uuid)
 
-let set_master _ ~(is_master : bool) ~(master_address : string) : unit =
-	Rrdd_shared.is_master := is_master;
-	Rrdd_shared.master_address := master_address
-
 let backup_rrds _ ?(save_stats_locally = true) () : unit =
 	debug "backup safe_stats_locally=%b" save_stats_locally;
 	let total_cycles = 5 in
@@ -88,7 +84,8 @@ module Deprecated = struct
 			Http.Request.make ~user_agent:Xapi_globs.xapi_user_agent
 			~cookie:["pool_secret", pool_secret] Http.Get uri in
 		let open Xmlrpc_client in
-		let transport = SSL(SSL.make (), !master_address, !Xapi_globs.https_port) in
+		let master_address = Pool_role_shared.get_master_address () in
+		let transport = SSL(SSL.make (), master_address, !Xapi_globs.https_port) in
 		with_transport transport (
 			with_http request (fun (response, s) ->
 				match response.Http.Response.content_length with
@@ -116,7 +113,7 @@ module Deprecated = struct
 					debug "RRD loaded from local filesystem for object uuid=%s" uuid;
 					rrd
 				with e ->
-					if !is_master then begin
+					if Pool_role_shared.is_master () then begin
 						info "Failed to load RRD from local filesystem: metrics not available for uuid=%s" uuid;
 						raise e
 					end else begin
@@ -297,7 +294,8 @@ let push_rrd _ ~(vm_uuid : string) ~(is_on_localhost : bool) : unit =
 			Mutex.execute mutex (fun () -> Hashtbl.replace vm_rrds vm_uuid {rrd=rrd; dss=[]})
 		else
 			(* Host might be OpaqueRef:null, in which case we'll fail silently *)
-			send_rrd ~address:!master_address ~to_archive:false ~uuid:vm_uuid
+			let address = Pool_role_shared.get_master_address () in
+			send_rrd ~address ~to_archive:false ~uuid:vm_uuid
 				~rrd:(Rrd.copy_rrd rrd) ()
 	with _ -> ()
 

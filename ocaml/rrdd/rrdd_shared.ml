@@ -34,12 +34,6 @@ let memory_targets_m = Mutex.create ()
 let cache_sr_uuid : string option ref = ref None
 let cache_sr_lock = Mutex.create ()
 
-(* Store information about whether this host is a slave or a master. In the
- * former case, also store the address of the master. These values should be
- * set through Rrdd.set_master whenever xapi restarts. *)
-let is_master : bool ref = ref false
-let master_address : string ref = ref "invalid"
-
 (* Here is the only place where RRDs are created. The timescales are fixed. If
  * other timescales are required, this could be done externally. The types of
  * archives created are also fixed.  Currently, we're making 4 timescales of 3
@@ -120,7 +114,8 @@ let send_rrd ?(session_id : string option) ~(address : string)
 		)
 	)
 
-let archive_rrd ?(save_stats_locally = !is_master) ~uuid ~rrd () =
+let archive_rrd ?(save_stats_locally = Pool_role_shared.is_master ()) ~uuid
+		~rrd () =
 	debug "Archiving RRD for object uuid=%s %s" uuid
 		(if save_stats_locally then "to local disk" else "to remote master");
 	if save_stats_locally then begin
@@ -148,7 +143,8 @@ let archive_rrd ?(save_stats_locally = !is_master) ~uuid ~rrd () =
 	end else begin
 		(* Stream it to the master to store, or maybe to a host in the migrate case *)
 		debug "About to send to master.";
-		send_rrd ~address:!master_address ~to_archive:true ~uuid ~rrd ()
+		let address = Pool_role_shared.get_master_address () in
+		send_rrd ~address ~to_archive:true ~uuid ~rrd ()
 	end
 
 module Deprecated = struct
