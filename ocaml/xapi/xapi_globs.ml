@@ -96,7 +96,6 @@ let log_config_file = ref (Filename.concat Fhs.etcdir "log.conf")
 let db_conf_path = Filename.concat Fhs.etcdir "db.conf"
 let remote_db_conf_fragment_path = Filename.concat Fhs.etcdir "remote.db.conf"
 let simulator_config_file = ref "/etc/XenServer-simulator.conf"
-let pool_config_file = Filename.concat Fhs.etcdir "pool.conf"
 let cpu_info_file = Filename.concat Fhs.etcdir "boot_time_cpus"
 let initial_host_free_memory_file = "/var/run/nonpersistent/xapi/boot_time_memory"
 let using_rrds = ref false
