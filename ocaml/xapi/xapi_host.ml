@@ -881,8 +881,8 @@ let forget_data_source_archives ~__context ~host ~data_source = Monitor_rrds.for
 
 let tickle_heartbeat ~__context ~host ~stuff = Db_gc.tickle_heartbeat ~__context host stuff
 
-let create_new_blob ~__context ~host ~name ~mime_type =
-  let blob = Xapi_blob.create ~__context ~mime_type in
+let create_new_blob ~__context ~host ~name ~mime_type ~public =
+  let blob = Xapi_blob.create ~__context ~mime_type ~public in
   Db.Host.add_to_blobs ~__context ~self:host ~key:name ~value:blob;
   blob
 

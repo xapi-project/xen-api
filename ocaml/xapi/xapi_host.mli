@@ -147,7 +147,7 @@ val tickle_heartbeat :
   host:API.ref_host -> stuff:(string * string) list -> 'a list
 val create_new_blob :
   __context:Context.t ->
-  host:[ `host ] Ref.t -> name:string -> mime_type:string -> [ `blob ] Ref.t
+  host:[ `host ] Ref.t -> name:string -> mime_type:string -> public:bool -> [ `blob ] Ref.t
 val serialize_host_enable_disable_extauth : Threadext.Mutex.t
 val extauth_hook_script_name : string
 val call_extauth_plugin_nomutex :

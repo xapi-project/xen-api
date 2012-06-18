@@ -89,7 +89,7 @@ val destroy : __context:Context.t -> self:[ `network ] Ref.t -> unit
 val create_new_blob :
   __context:Context.t ->
   network:[ `network ] Ref.t ->
-  name:string -> mime_type:string -> [ `blob ] Ref.t
+  name:string -> mime_type:string -> public:bool -> [ `blob ] Ref.t
 
 val set_default_locking_mode :
 	__context:Context.t ->
