@@ -197,20 +197,6 @@ let is_vm_on_localhost ~__context ~(vm_uuid : string) : bool =
 	let vm_host = Db.VM.get_resident_on ~__context ~self:vm in
 	localhost = vm_host
 
-let get_master_address_or_localhost () =
-	if Pool_role.is_master ()
-	then "localhost"
-	else Pool_role.get_master_address ()
-
-(* With this method, xapi tells rrdd who is the master ;) If rrdd is not
- * running its monitoring loop yet, this starts it. The reason why this call
- * is requires is because the monitoring loop that can request some RRDs to be
- * archived on the master, which requires xapi's HTTP server to be running. *)
-let set_master ~__context : unit =
-	let is_master = Pool_role.is_master () in
-	let master_address = get_master_address_or_localhost () in
-	Rrdd.set_master ~is_master ~master_address
-
 let push_rrd ~__context ~(vm_uuid : string) : unit =
 	let is_on_localhost = is_vm_on_localhost ~__context ~vm_uuid in
 	let domid = vm_uuid_to_domid ~__context ~uuid:vm_uuid in
