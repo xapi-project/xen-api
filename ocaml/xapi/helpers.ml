@@ -28,7 +28,7 @@ open Api_errors
 include Helper_hostname
 include Helper_process
 
-module Net = (val (Network.get_client ()) : Network.CLIENT)
+open Network
 
 module D=Debug.Debugger(struct let name="helpers" end)
 open D

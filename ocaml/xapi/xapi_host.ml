@@ -21,8 +21,7 @@ open Xapi_support
 open Db_filter_types
 open Create_misc
 open Workload_balancing
-
-module Net = (val (Network.get_client ()) : Network.CLIENT)
+open Network
 
 module D = Debug.Debugger(struct let name="xapi" end)
 open D

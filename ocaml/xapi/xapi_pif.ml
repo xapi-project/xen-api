@@ -23,7 +23,7 @@ open Pervasiveext
 open Stringext
 open Threadext
 
-module Net = (val (Network.get_client ()) : Network.CLIENT)
+open Network
 
 let refresh_internal ~__context ~self =
 
