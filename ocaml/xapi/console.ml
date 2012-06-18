@@ -65,7 +65,21 @@ let real_proxy __context _ _ vnc_port s =
 let fake_proxy __context _ _ console s = 
   Rfb_randomtest.server s
 
+let check_wsproxy () =
+	try 
+		let pid = int_of_string (Unixext.string_of_file "/var/run/wsproxy.pid") in
+		Unix.kill pid 0;
+		true
+	with _ -> false
+
+let ensure_proxy_running () =
+	if check_wsproxy () then () else begin
+		ignore(Forkhelpers.execute_command_get_output "/opt/xensource/libexec/wsproxy" []);
+		Thread.delay 1.0;
+	end
+
 let ws_proxy __context req protocol port s =
+  ensure_proxy_running ();
   let protocol = match protocol with 
     | `rfb -> "rfb"
     | `vt100 -> "vt100"
@@ -86,19 +100,22 @@ let ws_proxy __context req protocol port s =
   Pervasiveext.finally (fun () -> 
     let upgrade_successful = Opt.map (fun sock -> 
       try 
-	Ws_helpers.upgrade req s;
-	(sock,true)
+	let result = (sock,Some (Ws_helpers.upgrade req s)) in
+	result	  
       with _ ->
-	(sock,false)) sock
+	(sock,None)) sock
     in
     
     Opt.iter (function
-      | (sock,true) -> begin
-	let message = Printf.sprintf "%s:%d" protocol port in
+      | (sock,Some ty) -> begin
+	let wsprotocol = match ty with
+	  | Ws_helpers.Hixie76 -> "hixie76"
+	  | Ws_helpers.Hybi10 -> "hybi10" in
+	let message = Printf.sprintf "%s:%s:%d" wsprotocol protocol port in
 	let len = String.length message in
 	ignore(Unixext.send_fd sock message 0 len [] s)
       end
-      | (sock,false) -> begin
+      | (sock,None) -> begin
 	Http_svr.headers s (Http.http_501_method_not_implemented ())
       end) upgrade_successful)
     (fun () ->

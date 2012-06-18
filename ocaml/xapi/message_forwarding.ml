@@ -1855,9 +1855,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm ~value:Ref.null
 				)
 
-		let create_new_blob ~__context ~vm ~name ~mime_type =
-			info "VM.create_new_blob: VM = '%s'; name = '%s'; MIME type = '%s'" (vm_uuid ~__context vm) name mime_type;
-			Local.VM.create_new_blob ~__context ~vm ~name ~mime_type
+		let create_new_blob ~__context ~vm ~name ~mime_type ~public =
+			info "VM.create_new_blob: VM = '%s'; name = '%s'; MIME type = '%s' public = %b" (vm_uuid ~__context vm) name mime_type public;
+			Local.VM.create_new_blob ~__context ~vm ~name ~mime_type ~public
 
 		let s3_suspend ~__context ~vm =
 			info "VM.s3_suspend: VM = '%s'" (vm_uuid ~__context vm);
@@ -2268,9 +2268,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			(* info "Host.tickle_heartbeat: Incoming call from host '%s' with arguments [ %s ]" (Ref.string_of host) (String.concat "; " (List.map (fun (a, b) -> a ^ ": " ^ b) stuff)); *)
 			Local.Host.tickle_heartbeat ~__context ~host ~stuff
 
-		let create_new_blob ~__context ~host ~name ~mime_type =
-			info "Host.create_new_blob: host = '%s'; name = '%s' MIME type = '%s" (host_uuid ~__context  host) name mime_type;
-			Local.Host.create_new_blob ~__context ~host ~name ~mime_type
+		let create_new_blob ~__context ~host ~name ~mime_type ~public =
+			info "Host.create_new_blob: host = '%s'; name = '%s' MIME type = '%s public = %b" (host_uuid ~__context  host) name mime_type public;
+			Local.Host.create_new_blob ~__context ~host ~name ~mime_type ~public
 
 		let call_plugin ~__context ~host ~plugin ~fn ~args =
 			info "Host.call_plugin host = '%s'; plugin = '%s'; fn = '%s'; args = [ %s ]" (host_uuid ~__context host) plugin fn (String.concat "; " (List.map (fun (a, b) -> a ^ ": " ^ b) args));
@@ -2543,9 +2543,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				(fun () ->
 					Local.Network.destroy ~__context ~self)
 
-		let create_new_blob ~__context ~network ~name ~mime_type =
-			info "Network.create_new_blob: network = '%s'; name = %s; MIME type = '%s'" (network_uuid ~__context network) name mime_type;
-			Local.Network.create_new_blob ~__context ~network ~name ~mime_type
+		let create_new_blob ~__context ~network ~name ~mime_type ~public =
+			info "Network.create_new_blob: network = '%s'; name = %s; MIME type = '%s' public = %b" (network_uuid ~__context network) name mime_type public;
+			Local.Network.create_new_blob ~__context ~network ~name ~mime_type ~public
 
 		let set_default_locking_mode ~__context ~network ~value =
 			info "Network.set_default_locking_mode: network = '%s'; value = %s" (network_uuid ~__context network) (Record_util.network_default_locking_mode_to_string value);
@@ -3018,9 +3018,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			info "SR.disable_database_replication: SR = '%s'" (sr_uuid ~__context sr);
 			Local.SR.disable_database_replication ~__context ~sr
 
-		let create_new_blob ~__context ~sr ~name ~mime_type =
+		let create_new_blob ~__context ~sr ~name ~mime_type ~public =
 			info "SR.create_new_blob: SR = '%s'" (sr_uuid ~__context sr);
-			Local.SR.create_new_blob ~__context ~sr ~name ~mime_type
+			Local.SR.create_new_blob ~__context ~sr ~name ~mime_type ~public
 
 	end
 	module VDI = struct
