@@ -101,6 +101,7 @@ SERVER_OBJS = ../../database/escaping locking_helpers \
 	../datamodel ../datamodel_utils ../datamodel_values \
 	gen_client ocaml_syntax ocaml_utils taskHelper exnHelper \
 	server_helpers session_check context \
+	../../pool_role_shared \
 	../../xapi/pool_role \
 	../../xapi/xapi_inventory \
 	../../xapi/hashtbl_xml \
