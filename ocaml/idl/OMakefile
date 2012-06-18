@@ -2,7 +2,7 @@
 
 PSTOPDF = $(shell bash -c "which pstopdf 2>/dev/null || which ps2pdf 2>/dev/null || which ps2pdf14 2>/dev/null || echo false")
 
-OCAMLINCLUDES  = ocaml_backend ../database
+OCAMLINCLUDES  = ocaml_backend ../database ..
 OCAMLPACKS     = xml-light2 sexpr log http-svr
 
 CAMLP4_FILES = datamodel_types
