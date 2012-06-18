@@ -20,7 +20,7 @@ open Threadext
 open Fun
 open Db_filter_types
 
-module Net = (val (Network.get_client ()) : Network.CLIENT)
+open Network
 open Network_interface
 
 (* Protect a bunch of local operations with a mutex *)

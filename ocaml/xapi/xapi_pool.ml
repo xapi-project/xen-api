@@ -17,8 +17,7 @@ open Pervasiveext
 open Threadext
 open Stringext
 open Listext
-
-module Net = (val (Network.get_client ()) : Network.CLIENT)
+open Network
 
 module L = Debug.Debugger(struct let name="license" end)
 module D=Debug.Debugger(struct let name="xapi" end)

@@ -18,8 +18,7 @@ module D=Debug.Debugger(struct let name="xapi" end)
 open D
 
 open Db_filter
-
-module Net = (val (Network.get_client ()) : Network.CLIENT)
+open Network
 
 let create_internal_bridge ~bridge ~uuid =
 	debug "Creating internal bridge %s (uuid:%s)" bridge uuid;
