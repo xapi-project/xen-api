@@ -131,7 +131,7 @@ val build_hvm: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.X
             -> domarch
 
 (** Restore a domain using the info provided *)
-val build: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> build_info -> domid -> domarch
+val build: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> build_info -> string -> domid -> domarch
 
 (** resume a domain either cooperative or not *)
 val resume: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> hvm: bool -> cooperative: bool -> qemu_domid:int -> domid -> unit

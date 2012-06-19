@@ -935,20 +935,20 @@ module VM = struct
 		(* We should prevent leaking files in our filesystem *)
 		let kernel_to_cleanup = ref None in
 		finally (fun () ->
-			let build_info =
+			let (build_info, timeoffset) =
 				match vm.ty with
 					| HVM hvm_info ->
 						let builder_spec_info = Domain.BuildHVM {
 							Domain.shadow_multiplier = hvm_info.shadow_multiplier;
 							video_mib = hvm_info.video_mib;
 						} in
-						make_build_info Domain.hvmloader builder_spec_info
+						((make_build_info Domain.hvmloader builder_spec_info), hvm_info.timeoffset)
 					| PV { boot = Direct direct } ->
 						let builder_spec_info = Domain.BuildPV {
 							Domain.cmdline = direct.cmdline;
 							ramdisk = direct.ramdisk;
 						} in
-						make_build_info direct.kernel builder_spec_info
+						((make_build_info direct.kernel builder_spec_info), "")
 					| PV { boot = Indirect { devices = [] } } ->
 						raise (No_bootable_device)
 					| PV { boot = Indirect ( { devices = d :: _ } as i ) } ->
@@ -963,9 +963,9 @@ module VM = struct
 									Domain.cmdline = b.Bootloader.kernel_args;
 									ramdisk = b.Bootloader.initrd_path;
 								} in
-								make_build_info b.Bootloader.kernel_path builder_spec_info
+								((make_build_info b.Bootloader.kernel_path builder_spec_info), "")
 							) in
-			let arch = Domain.build task ~xc ~xs build_info domid in
+			let arch = Domain.build task ~xc ~xs build_info timeoffset domid in
 			Int64.(
 				let min = to_int (div vm.Vm.memory_dynamic_min 1024L)
 				and max = to_int (div vm.Vm.memory_dynamic_max 1024L) in
