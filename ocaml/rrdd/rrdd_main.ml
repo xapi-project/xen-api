@@ -643,6 +643,8 @@ let monitor_loop () =
 (* Entry point. *)
 let _ =
 	Debug.set_facility Syslog.Local5;
+	(* FIXME: This should be done lazily within stunnel. *)
+	Stunnel.init_stunnel_path ();
 	debug "Start.";
 
 	debug "Processing arguments ..";

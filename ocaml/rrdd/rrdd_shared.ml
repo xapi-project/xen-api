@@ -112,7 +112,7 @@ let send_rrd ?(session_id : string option) ~(address : string)
 		Http.Request.make ~user_agent:Xapi_globs.xapi_user_agent
 			~query ~cookie Http.Put Constants.put_rrd_uri in
 	let open Xmlrpc_client in
-	let transport = SSL(SSL.make (), address, !Xapi_globs.https_port) in
+	let transport = SSL(SSL.make ~use_stunnel_cache:true (), address, !Xapi_globs.https_port) in
 	with_transport transport (
 		with_http request (fun (response, fd) ->
 			try Rrd.to_fd rrd fd
