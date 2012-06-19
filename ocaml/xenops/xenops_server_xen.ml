@@ -532,7 +532,6 @@ module VM = struct
 				| HVM hvm_info ->
 					Domain.BuildHVM {
 						Domain.shadow_multiplier = hvm_info.shadow_multiplier;
-						timeoffset = hvm_info.timeoffset;
 						video_mib = hvm_info.video_mib;
 					}
 				| PV { boot = Direct direct } ->
@@ -941,7 +940,6 @@ module VM = struct
 					| HVM hvm_info ->
 						let builder_spec_info = Domain.BuildHVM {
 							Domain.shadow_multiplier = hvm_info.shadow_multiplier;
-							timeoffset = hvm_info.timeoffset;
 							video_mib = hvm_info.video_mib;
 						} in
 						make_build_info Domain.hvmloader builder_spec_info

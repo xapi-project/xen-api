@@ -39,7 +39,6 @@ type create_info = {
 
 type build_hvm_info = {
 	shadow_multiplier: float;
-	timeoffset: string;
 	video_mib: int;
 } with rpc
 
@@ -703,7 +702,7 @@ let build (task: Xenops_task.t) ~xc ~xs info domid =
 	| BuildHVM hvminfo ->
 		build_hvm task ~xc ~xs ~static_max_kib:info.memory_max ~target_kib:info.memory_target
 		          ~shadow_multiplier:hvminfo.shadow_multiplier ~vcpus:info.vcpus
-		          ~kernel:info.kernel ~timeoffset:hvminfo.timeoffset ~video_mib:hvminfo.video_mib domid
+		          ~kernel:info.kernel ~timeoffset:"" ~video_mib:hvminfo.video_mib domid
 	| BuildPV pvinfo   ->
 		build_linux task ~xc ~xs ~static_max_kib:info.memory_max ~target_kib:info.memory_target
 		            ~kernel:info.kernel ~cmdline:pvinfo.cmdline ~ramdisk:pvinfo.ramdisk
@@ -846,7 +845,7 @@ let restore (task: Xenops_task.t) ~xc ~xs info domid fd =
 	let restore_fct = match info.priv with
 	| BuildHVM hvminfo ->
 		hvm_restore task ~shadow_multiplier:hvminfo.shadow_multiplier
-		  ~timeoffset:hvminfo.timeoffset
+		  ~timeoffset:""
 	| BuildPV pvinfo   ->
 		pv_restore task
 		in
