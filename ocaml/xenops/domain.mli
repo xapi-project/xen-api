@@ -150,7 +150,7 @@ val hvm_restore: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore
              -> unit
 
 (** Restore a domain using the info provided *)
-val restore: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> build_info -> domid -> Unix.file_descr -> unit
+val restore: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> build_info -> string -> domid -> Unix.file_descr -> unit
 
 type suspend_flag = Live | Debug
 
