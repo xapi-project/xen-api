@@ -54,10 +54,10 @@ module Debug_print_impl = struct
         let created = Hashtbl.create 10
 		let key_of sr vdi = Printf.sprintf "%s/%s" sr vdi
 
-        let create context ~dbg ~sr ~vdi_info ~params =
+        let create context ~dbg ~sr ~vdi_info =
             let vdi = "newvdi" in
             let info =
-                if List.mem_assoc "toosmall" params
+                if List.mem_assoc "toosmall" vdi_info.sm_config
                 then { vdi_info with virtual_size = Int64.sub vdi_info.virtual_size 1L }
                 else vdi_info in
             Mutex.execute m
@@ -67,8 +67,8 @@ module Debug_print_impl = struct
                 );
             info
 
-		let snapshot context ~dbg ~sr ~vdi ~vdi_info ~params =
-			create context ~dbg ~sr ~vdi_info ~params
+		let snapshot context ~dbg ~sr ~vdi_info =
+			create context ~dbg ~sr ~vdi_info
 		let clone = snapshot
 
         let destroy context ~dbg ~sr ~vdi =
@@ -153,6 +153,8 @@ module Debug_print_impl = struct
 
         let get_url context ~dbg ~sr ~vdi = assert false
 		let compose context ~dbg ~sr ~vdi1 ~vdi2 = assert false
+		let add_to_sm_config context ~dbg ~sr ~vdi ~key ~value = assert false
+		let remove_from_sm_config context ~dbg ~sr ~vdi ~key = assert false
 		let set_content_id context ~dbg ~sr ~vdi ~content_id = assert false
 		let get_by_name context ~dbg ~sr ~name = assert false
 		let similar_content context ~dbg ~sr ~vdi = assert false
@@ -455,7 +457,6 @@ let create_vdi_test sr =
         (Client.SR.attach ~dbg ~sr ~device_config:[]);
 	let vdi_info = {
 		vdi = "";
-		sr = "";
 		content_id = "";
 		name_label = "name_label";
 		name_description = "name_description";
@@ -468,10 +469,13 @@ let create_vdi_test sr =
         physical_utilisation = 10L;
 		metadata_of_pool = "";
 		persistent = true;
+		sm_config = [];
 	} in
     expect "too_small_backend_error" too_small_backend_error
-        (fun () -> Client.VDI.create ~dbg ~sr ~vdi_info ~params:["toosmall", ""]);
-    let vdi = Client.VDI.create ~dbg ~sr ~vdi_info ~params:[] in
+        (fun () ->
+			let vdi_info = { vdi_info with sm_config = ["toosmall", ""] } in
+			Client.VDI.create ~dbg ~sr ~vdi_info);
+    let vdi = Client.VDI.create ~dbg ~sr ~vdi_info in
     expect "attach_info" (fun _ -> true) 
 		(Client.VDI.attach ~dbg ~dp ~sr ~vdi:vdi.vdi ~read_write:false);
     debug "Detaching and cleaning up";
