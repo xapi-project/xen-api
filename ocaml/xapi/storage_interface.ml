@@ -41,7 +41,6 @@ type content_id = string
 (** The result of an operation which creates or examines a VDI *)
 type vdi_info = {
     vdi: vdi;
-	sr: sr;
 	content_id: content_id;
     name_label: string;
     name_description: string;
@@ -58,6 +57,7 @@ type vdi_info = {
     physical_utilisation: int64;
     (* xenstore_data: workaround via XenAPI *)
 	persistent: bool;
+    sm_config: (string * string) list;
 }
 
 let string_of_vdi_info (x: vdi_info) = Jsonrpc.to_string (rpc_of_vdi_info x)
@@ -155,8 +155,8 @@ exception Does_not_exist of (string * string)
 exception Cancelled of string
 exception Redirect of string option
 exception Sr_attached of string
-
 exception Unimplemented of string
+exception Duplicated_key of string
 
 type query_result = {
 	driver: string;
@@ -236,16 +236,16 @@ module VDI = struct
 	(** Functions which operate on particular VDIs.
 		These functions are all idempotent from the point of view of a given [dp]. *)
 
-	(** [create task sr vdi_info params] creates a new VDI in [sr] using [vdi_info]. Some
+	(** [create task sr vdi_info] creates a new VDI in [sr] using [vdi_info]. Some
         fields in the [vdi_info] may be modified (e.g. rounded up), so the function
         returns the vdi_info which was used. *)
-	external create : dbg:debug_info -> sr:sr -> vdi_info:vdi_info -> params:(string*string) list -> vdi_info = ""
+	external create : dbg:debug_info -> sr:sr -> vdi_info:vdi_info -> vdi_info = ""
 
-	(** [snapshot task sr vdi vdi_info params] creates a new VDI which is a snapshot of [vdi] in [sr] *)
-	external snapshot : dbg:debug_info -> sr:sr -> vdi:vdi -> vdi_info:vdi_info -> params:(string*string) list -> vdi_info = ""
+	(** [snapshot task sr vdi_info] creates a new VDI which is a snapshot of [vdi_info] in [sr] *)
+	external snapshot : dbg:debug_info -> sr:sr -> vdi_info:vdi_info -> vdi_info = ""
 
-	(** [clone task sr vdi vdi_info params] creates a new VDI which is a clone of [vdi] in [sr] *)
-	external clone : dbg:debug_info -> sr:sr -> vdi:vdi -> vdi_info:vdi_info -> params:(string*string) list -> vdi_info = ""
+	(** [clone task sr vdi_info] creates a new VDI which is a clone of [vdi_info] in [sr] *)
+	external clone : dbg:debug_info -> sr:sr -> vdi_info:vdi_info -> vdi_info = ""
 
     (** [destroy task sr vdi] removes [vdi] from [sr] *)
     external destroy : dbg:debug_info -> sr:sr -> vdi:vdi -> unit = ""
@@ -295,10 +295,17 @@ module VDI = struct
 
     (** [compose task sr vdi1 vdi2] layers the updates from [vdi2] onto [vdi1], modifying [vdi2] *)
     external compose : dbg:debug_info -> sr:sr -> vdi1:vdi -> vdi2:vdi -> unit = ""
+
+	(** [add_to_sm_config dbg sr vdi key value] associates [value] to the [key] in [vdi] sm-config *)
+	external add_to_sm_config: dbg:debug_info -> sr:sr -> vdi:vdi -> key:string -> value:string -> unit = ""
+
+	(** [remove_from_sm_config dbg sr vdi key] remove [key] from [vdi] sm-config *)
+	external remove_from_sm_config: dbg:debug_info -> sr:sr -> vdi:vdi -> key:string -> unit = ""
+
 end
 
 (** [get_by_name task name] returns a vdi with [name] (which may be in any SR) *)
-external get_by_name : dbg:debug_info -> name:string -> vdi_info = ""
+external get_by_name : dbg:debug_info -> name:string -> sr * vdi_info = ""
 
 module DATA = struct
 

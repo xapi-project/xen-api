@@ -103,9 +103,15 @@ let _ =
 			if Array.length Sys.argv < 3 then usage_and_exit ();
 			let kvpairs = kvpairs args in
 			let find key = if List.mem_assoc key kvpairs then Some (List.assoc key kvpairs) else None in
+			let params = List.filter_map
+				(fun (k, v) ->
+					let prefix = "params:" in
+					let l = String.length prefix in
+					if String.startswith prefix k
+					then Some (String.sub k l (String.length k - l), v)
+					else None) kvpairs in
 			let vdi_info = {
 				vdi = "";
-				sr = sr;
 				content_id = ""; (* PR-1255 *)
 				name_label = Opt.default "default name_label" (find "name_label");
 				name_description = Opt.default "default name_description" (find "name_description");
@@ -118,16 +124,10 @@ let _ =
 				virtual_size = Opt.default 1L (Opt.map Int64.of_string (find "virtual_size"));
 				physical_utilisation = 0L;
 				persistent = true;
+				sm_config = params;
 			} in
-			let params = List.filter_map
-				(fun (k, v) ->
-					let prefix = "params:" in
-					let l = String.length prefix in
-					if String.startswith prefix k
-					then Some (String.sub k l (String.length k - l), v)
-					else None) kvpairs in
 
-			let v = Client.VDI.create ~dbg ~sr ~vdi_info ~params in
+			let v = Client.VDI.create ~dbg ~sr ~vdi_info in
 			Printf.printf "%s\n" (string_of_vdi_info v)
 		| [ "vdi-destroy"; sr; vdi ] ->
 			Client.VDI.destroy ~dbg ~sr ~vdi
@@ -144,8 +144,8 @@ let _ =
 			let v = Client.VDI.get_by_name ~dbg ~sr ~name in
 			Printf.printf "%s\n" (string_of_vdi_info v)
 		| [ "vdi-get-by-name"; name ] ->
-			let v = Client.get_by_name ~dbg ~name in
-			Printf.printf "%s\n" (string_of_vdi_info v)
+			let sr, v = Client.get_by_name ~dbg ~name in
+			Printf.printf "sr=%s; %s\n" sr (string_of_vdi_info v)
 		| [ "vdi-set-content-id"; sr; vdi; content_id ] ->
 			Client.VDI.set_content_id ~dbg ~sr ~vdi~content_id
 		| [ "vdi-similar-content"; sr; vdi ] ->
