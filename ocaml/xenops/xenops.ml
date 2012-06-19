@@ -77,7 +77,7 @@ let build_domain ~xc ~xs ~kernel ?(ramdisk=None) ~cmdline ~domid ~vcpus ~static_
 
 let build_hvm ~xc ~xs ~kernel ~domid ~vcpus ~static_max_kib ~target_kib =
 	let (_: Domain.domarch) = Domain.build_hvm task xc xs static_max_kib target_kib 1.
-	                                           vcpus kernel "0" 4 domid in
+	                                           vcpus kernel "" 4 domid in
 	printf "built hvm domain: %u\n" domid
 
 let clean_shutdown_domain ~xal ~domid ~reason ~sync =

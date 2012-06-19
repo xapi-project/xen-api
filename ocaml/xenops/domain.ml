@@ -697,12 +697,12 @@ let build_hvm (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~shadow_
 
 	Arch_HVM
 
-let build (task: Xenops_task.t) ~xc ~xs info domid =
+let build (task: Xenops_task.t) ~xc ~xs info timeoffset domid =
 	match info.priv with
 	| BuildHVM hvminfo ->
 		build_hvm task ~xc ~xs ~static_max_kib:info.memory_max ~target_kib:info.memory_target
 		          ~shadow_multiplier:hvminfo.shadow_multiplier ~vcpus:info.vcpus
-		          ~kernel:info.kernel ~timeoffset:"" ~video_mib:hvminfo.video_mib domid
+		          ~kernel:info.kernel ~timeoffset ~video_mib:hvminfo.video_mib domid
 	| BuildPV pvinfo   ->
 		build_linux task ~xc ~xs ~static_max_kib:info.memory_max ~target_kib:info.memory_target
 		            ~kernel:info.kernel ~cmdline:pvinfo.cmdline ~ramdisk:pvinfo.ramdisk
