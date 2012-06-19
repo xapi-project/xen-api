@@ -170,9 +170,9 @@ let example_vdi_info =
 	let read_only = false in
 	let virtual_size = Int64.mul 8L mib in
 	let physical_utilisation = 0L in
+	let sm_config = [] in
 	{
 		vdi = "";
-		sr = "";
 		content_id = "";
 		name_label = name_label;
 		name_description = name_description;
@@ -185,12 +185,13 @@ let example_vdi_info =
 		virtual_size = virtual_size;
 		physical_utilisation = physical_utilisation;
 		persistent = true;
+		sm_config = sm_config;
 	}
 
 let test_create_destroy sr _ =
 	let vdi_info = example_vdi_info in
 	let vdi_info' = 
-		let vdi_info' = SMClient.VDI.create ~dbg ~sr ~vdi_info ~params:[] in
+		let vdi_info' = SMClient.VDI.create ~dbg ~sr ~vdi_info in
 		vdi_info_assert_equal vdi_info vdi_info';
 		vdi_info'
 	in
@@ -205,7 +206,7 @@ let test_create_destroy sr _ =
 	end
 
 let test_attach_activate url sr _ =
-	let vdi_info = SMClient.VDI.create ~dbg ~sr ~vdi_info:example_vdi_info ~params:[] in
+	let vdi_info = SMClient.VDI.create ~dbg ~sr ~vdi_info:example_vdi_info in
 	let dp = "test_attach_activate" in
 	let _ = SMClient.VDI.attach ~dbg ~sr ~dp ~vdi:vdi_info.vdi ~read_write:true in
 	SMClient.VDI.activate ~dbg ~sr ~dp ~vdi:vdi_info.vdi;
@@ -228,7 +229,7 @@ let test_attach_activate url sr _ =
 	SMClient.VDI.destroy ~dbg ~sr ~vdi:vdi_info.vdi
 
 let test_mirror_1 url sr rurl rsr _ =
-	let vdi_info = SMClient.VDI.create ~dbg ~sr ~vdi_info:example_vdi_info ~params:[] in
+	let vdi_info = SMClient.VDI.create ~dbg ~sr ~vdi_info:example_vdi_info in
 	let dp = "test_attach_activate" in
 	ignore(SMClient.VDI.attach ~dbg ~sr ~dp ~vdi:vdi_info.vdi ~read_write:true);
 	SMClient.VDI.activate ~dbg ~sr ~dp ~vdi:vdi_info.vdi;

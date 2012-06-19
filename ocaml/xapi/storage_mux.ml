@@ -155,15 +155,15 @@ module Mux = struct
 		let reset context ~dbg ~sr = assert false
 	end
 	module VDI = struct
-		let create context ~dbg ~sr ~vdi_info ~params =
+		let create context ~dbg ~sr ~vdi_info =
 			let module C = Client(struct let rpc = of_sr sr end) in
-			C.VDI.create ~dbg ~sr ~vdi_info ~params
-        let snapshot context ~dbg ~sr ~vdi ~vdi_info ~params =
+			C.VDI.create ~dbg ~sr ~vdi_info
+        let snapshot context ~dbg ~sr ~vdi_info =
             let module C = Client(struct let rpc = of_sr sr end) in
-            C.VDI.snapshot ~dbg ~sr ~vdi ~vdi_info ~params
-        let clone context ~dbg ~sr ~vdi ~vdi_info ~params =
+            C.VDI.snapshot ~dbg ~sr ~vdi_info
+        let clone context ~dbg ~sr ~vdi_info =
             let module C = Client(struct let rpc = of_sr sr end) in
-            C.VDI.clone ~dbg ~sr ~vdi ~vdi_info ~params
+            C.VDI.clone ~dbg ~sr ~vdi_info
 		let destroy context ~dbg ~sr ~vdi =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.destroy ~dbg ~sr ~vdi
@@ -203,6 +203,12 @@ module Mux = struct
 		let compose context ~dbg ~sr ~vdi1 ~vdi2 =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.compose ~dbg ~sr ~vdi1 ~vdi2
+		let add_to_sm_config context ~dbg ~sr ~vdi ~key =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.VDI.add_to_sm_config ~dbg ~sr ~vdi ~key
+		let remove_from_sm_config context ~dbg ~sr ~vdi ~key =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.VDI.remove_from_sm_config ~dbg ~sr ~vdi ~key
         let get_url context ~dbg ~sr ~vdi =
             let module C = Client(struct let rpc = of_sr sr end) in
             C.VDI.get_url ~dbg ~sr ~vdi
@@ -217,11 +223,11 @@ module Mux = struct
         match List.filter (fun x -> x <> "") (String.split ~limit:2 '/' name) with
             | [ sr; name ] ->
                 let module C = Client(struct let rpc = of_sr sr end) in
-                C.VDI.get_by_name ~dbg ~sr ~name
+                sr, C.VDI.get_by_name ~dbg ~sr ~name
             | [ name ] ->
                 (match success_or choose (multicast (fun sr rpc ->
                     let module C = Client(struct let rpc = of_sr sr end) in
-                    C.VDI.get_by_name ~dbg ~sr ~name
+                    sr, C.VDI.get_by_name ~dbg ~sr ~name
                 )) with SMSuccess x -> x
 					| SMFailure e -> raise e)
             | _ ->
