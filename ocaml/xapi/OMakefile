@@ -257,6 +257,7 @@ XAPI_MODULES = $(COMMON) \
 	xapi_gpu_group \
 	xapi_vgpu \
 	rrdd_proxy \
+	../util/rpc_retry \
 	../rrdd/interface/rrdd_fake_common \
 	../rrdd/interface/rrdd_common \
 	../rrdd/interface/monitor_types \
