@@ -73,20 +73,20 @@ rm -rf $RPM_BUILD_ROOT
 
 %files devel
 %defattr(-,root,root,-)
-/usr/lib/ocaml/*/META
-/usr/lib/ocaml/*/*.cm[i|o|a|x]
-/usr/lib/ocaml/*/*.cmxa
-/usr/lib/ocaml/*/*.[o|a]
-/usr/lib/ocaml/*/*.so
-/usr/lib/ocaml/*/*.so.owner
+%{_libdir}/ocaml/*/META
+%{_libdir}/ocaml/*/*.cm[i|o|a|x]
+%{_libdir}/ocaml/*/*.cmxa
+%{_libdir}/ocaml/*/*.[o|a]
+%{_libdir}/ocaml/*/*.so
+%{_libdir}/ocaml/*/*.so.owner
 
-%exclude /usr/lib/ocaml/close-and-exec/closeandexec_main.cmx
-%exclude /usr/lib/ocaml/pciutil/pciutil_main.cmx
-%exclude /usr/lib/ocaml/sexpr/sexprpp.cmx
-%exclude /usr/lib/ocaml/stdext/base64_main.cmx
-%exclude /usr/lib/ocaml/stdext/fe_cli.cmx
-%exclude /usr/lib/ocaml/stdext/fe_test.cmx
-%exclude /usr/lib/ocaml/xml-light2/xmlpp.cmx
-%exclude /usr/lib/ocaml/*/*.sp?t
+%exclude %{_libdir}/ocaml/close-and-exec/closeandexec_main.cmx
+%exclude %{_libdir}/ocaml/pciutil/pciutil_main.cmx
+%exclude %{_libdir}/ocaml/sexpr/sexprpp.cmx
+%exclude %{_libdir}/ocaml/stdext/base64_main.cmx
+%exclude %{_libdir}/ocaml/stdext/fe_cli.cmx
+%exclude %{_libdir}/ocaml/stdext/fe_test.cmx
+%exclude %{_libdir}/ocaml/xml-light2/xmlpp.cmx
+%exclude %{_libdir}/ocaml/*/*.sp?t
 
 %changelog
