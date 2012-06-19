@@ -67,18 +67,24 @@ module Domain = struct
   let cache = Hashtbl.create 10
 
   let m = Mutex.create ()
+  (* get_per_domain can return None if the domain is deleted by
+	 someone else while we are processing some other event handlers *)
   let get_per_domain (xc, xs) domid = 
-	if Hashtbl.mem cache domid
-	then Hashtbl.find cache domid
-	else 
-	  let di = Xenctrl.domain_getinfo xc domid in
-      let maxmem = Xenctrl.pages_to_kib (Int64.of_nativeint di.Xenctrl.max_memory_pages) in
-	  let d = { path = xs.Xs.getdomainpath domid;
-				hvm = di.Xenctrl.hvm_guest;
-				maxmem = maxmem;
-				keys = Hashtbl.create 10 } in
-	  Hashtbl.replace cache domid d;
-	  d
+	  if Hashtbl.mem cache domid
+	  then Some (Hashtbl.find cache domid)
+	  else
+		  try
+			  let di = Xenctrl.domain_getinfo xc domid in
+			  let maxmem = Xenctrl.pages_to_kib (Int64.of_nativeint di.Xenctrl.max_memory_pages) in
+			  let d = { path = xs.Xs.getdomainpath domid;
+						hvm = di.Xenctrl.hvm_guest;
+						maxmem = maxmem;
+						keys = Hashtbl.create 10 } in
+			  Hashtbl.replace cache domid d;
+			  Some d
+		  with Xenctrl.Error _ ->
+			  Hashtbl.remove cache domid;
+			  None
 
   let _introduceDomain = "@introduceDomain"
   let _releaseDomain = "@releaseDomain"
@@ -152,10 +158,12 @@ module Domain = struct
 						let domid = int_of_string domid in
 						Mutex.execute m
 							(fun () ->
-								let per_domain = get_per_domain (xc, xs) domid in
-								let key = "/" ^ (String.concat "/" rest) in
-								debug "watch %s <- %s" key (Opt.default "None" value);
-								Hashtbl.replace per_domain.keys key value
+								match get_per_domain (xc, xs) domid with
+								| None -> ()
+								| Some per_domain ->
+									let key = "/" ^ (String.concat "/" rest) in
+									debug "watch %s <- %s" key (Opt.default "None" value);
+									Hashtbl.replace per_domain.keys key value
 							)
 					| _  -> debug "Ignoring unexpected watch: %s" path
 			done
@@ -164,42 +172,59 @@ module Domain = struct
   let start_watch_xenstore_thread () =
 	  let (_: Thread.t) = Thread.create
 		  (fun () ->
-			  try
-				  watch_xenstore ()
-			  with e ->
-				  error "watch_xenstore: %s" (Printexc.to_string e);
+			  while true do
+				  try
+					  watch_xenstore ()
+				  with e ->
+					  error "watch_xenstore: %s" (Printexc.to_string e);
+					  Thread.delay 1.
+			  done
 		  ) () in
 	  ()
 
-  let get_hvm cnx domid = Mutex.execute m (fun () -> (get_per_domain cnx domid).hvm)
-  let get_maxmem cnx domid = Mutex.execute m (fun () -> (get_per_domain cnx domid).maxmem)
+  let get_hvm cnx domid =
+	  Mutex.execute m (fun () ->
+		  Opt.default false (Opt.map (fun d -> d.hvm) (get_per_domain cnx domid))
+	  )
+
+  let get_maxmem cnx domid =
+	  Mutex.execute m (fun () ->
+		  Opt.default 0L (Opt.map (fun d -> d.maxmem) (get_per_domain cnx domid))
+	  )
+
   let set_maxmem_noexn (xc, xs) domid mem = 
 	  Mutex.execute m
 		  (fun () ->
-			  let per_domain = get_per_domain (xc, xs) domid in
-			  if per_domain.maxmem <> mem then begin
-				  debug "Xenctrl.domain_setmaxmem domid=%d max=%Ld (was=%Ld)" domid mem per_domain.maxmem;
-				  try
-					  Xenctrl.domain_setmaxmem xc domid mem;
-					  per_domain.maxmem <- mem
-				  with e ->
-					  error "Xenctrl.domain_setmaxmem domid=%d max=%Ld: (was=%Ld) %s" domid mem per_domain.maxmem (Printexc.to_string e)
-			  end
+			  match get_per_domain (xc, xs) domid with
+			  | None -> ()
+			  | Some per_domain ->
+				  if per_domain.maxmem <> mem then begin
+					  debug "Xenctrl.domain_setmaxmem domid=%d max=%Ld (was=%Ld)" domid mem per_domain.maxmem;
+					  try
+						  Xenctrl.domain_setmaxmem xc domid mem;
+						  per_domain.maxmem <- mem
+					  with e ->
+						  error "Xenctrl.domain_setmaxmem domid=%d max=%Ld: (was=%Ld) %s"
+							  domid mem per_domain.maxmem (Printexc.to_string e)
+				  end
 		  )
 
   (** Read a particular domain's key, using the cache *)
   let read (xc, xs) domid key = 
 	  let x = Mutex.execute m
 		  (fun () ->
-			  let per_domain = get_per_domain (xc, xs) domid in
-			  if Hashtbl.mem per_domain.keys key
-			  then Hashtbl.find per_domain.keys key
-			  else begin
-				  let x = (try Some (xs.Xs.read (per_domain.path ^ key))
-				  with Xenbus.Xb.Noent -> None) in
-				  Hashtbl.replace per_domain.keys key x;
-				  x
-			  end) in
+			  match get_per_domain (xc, xs) domid with
+			  | None -> None
+			  | Some per_domain ->
+				  if Hashtbl.mem per_domain.keys key
+				  then Hashtbl.find per_domain.keys key
+				  else begin
+					  let x =
+						  try Some (xs.Xs.read (per_domain.path ^ key))
+						  with Xenbus.Xb.Noent -> None in
+					  Hashtbl.replace per_domain.keys key x;
+					  x
+				  end) in
 	match x with
 	| Some y -> y
 	| None ->
@@ -208,30 +233,32 @@ module Domain = struct
   (** Write a new (key, value) pair into a domain's directory in xenstore. Don't write anything
 	  if the domain's directory doesn't exist. Don't throw exceptions. *)
   let write_noexn (xc, xs) domid key value = 
-	let per_domain = get_per_domain (xc, xs) domid in
-	if not(Hashtbl.mem per_domain.keys key) || Hashtbl.find per_domain.keys key <> (Some value) then begin
-	  try
-		Xs.transaction xs
-			(fun t ->
-				 (* Fail if the directory has been deleted *)
-				 ignore (xs.Xs.read per_domain.path);
-				 t.Xst.write (per_domain.path ^ key) value
-			);
-		  Hashtbl.replace per_domain.keys key (Some value);
-	  with e ->
-		  (* Log but don't throw an exception *)
-		  error "xenstore-write %d %s = %s failed: %s" domid key value (Printexc.to_string e)
-	end
+	match get_per_domain (xc, xs) domid with
+	| None -> ()
+	| Some per_domain ->
+		if not(Hashtbl.mem per_domain.keys key) || Hashtbl.find per_domain.keys key <> (Some value) then begin
+			try
+				Xs.transaction xs
+					(fun t ->
+						(* Fail if the directory has been deleted *)
+						ignore (xs.Xs.read per_domain.path);
+						t.Xst.write (per_domain.path ^ key) value
+					);
+				Hashtbl.replace per_domain.keys key (Some value);
+			with e ->
+				(* Log but don't throw an exception *)
+				error "xenstore-write %d %s = %s failed: %s" domid key value (Printexc.to_string e)
+		end
   (** Returns true if the key exists, false otherwise *)
   let exists (xc, xs) domid key = try ignore(read (xc, xs) domid key); true with Xenbus.Xb.Noent -> false
   (** Delete the key. Don't throw exceptions. *)
   let rm_noexn (xc, xs) domid key = 
-	let per_domain = get_per_domain (xc, xs) domid in
-	Hashtbl.replace per_domain.keys key None;
-	try
-	  xs.Xs.rm (per_domain.path ^ key)
-	with e ->
-		error "xenstore-rm %d %s: %s" domid key (Printexc.to_string e)
+	match get_per_domain (xc, xs) domid with
+	| None -> ()
+	| Some per_domain ->
+		Hashtbl.replace per_domain.keys key None;
+		try xs.Xs.rm (per_domain.path ^ key)
+		with e -> error "xenstore-rm %d %s: %s" domid key (Printexc.to_string e)
 
   (** {High-level functions} *)
 
