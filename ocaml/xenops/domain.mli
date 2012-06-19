@@ -39,7 +39,6 @@ val rpc_of_create_info: create_info -> Rpc.t
 
 type build_hvm_info = {
 	shadow_multiplier: float;
-	timeoffset: string;
 	video_mib: int;
 }
 val build_hvm_info_of_rpc: Rpc.t -> build_hvm_info
