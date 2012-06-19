@@ -177,7 +177,6 @@ XAPI_MODULES = $(COMMON) \
 	static_vdis \
 	monitor_transfer \
 	monitor_master \
-	rrd_shared \
 	monitor_dbcalls \
 	api_server \
 	create_misc \
