@@ -38,7 +38,6 @@
 module D = Debug.Debugger(struct let name = "monitor_dbcalls" end)
 open D
 
-open Rrd_shared
 open Monitor_types
 open Stringext
 open Listext

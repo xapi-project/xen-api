@@ -77,7 +77,7 @@ val db_forget : __context:Context.t -> self:[ `PIF ] Ref.t -> unit
 val introduce :
   __context:Context.t ->
   host:[ `host ] Ref.t ->
-  mAC:string -> device:Rrd_shared.StringSet.elt -> API.ref_PIF
+  mAC:string -> device:Helpers.StringSet.elt -> API.ref_PIF
 
 (** Destroy the PIF record from the database, but only if the interface is no longer used. *)
 val forget : __context:Context.t -> self:API.ref_PIF -> unit
@@ -177,9 +177,9 @@ val introduce_internal :
   t:tables ->
   __context:Context.t ->
   host:[ `host ] Ref.t ->
-  mAC:Rrd_shared.StringSet.elt ->
+  mAC:Helpers.StringSet.elt ->
   mTU:int64 ->
-  device:Rrd_shared.StringSet.elt ->
+  device:Helpers.StringSet.elt ->
   vLAN:int64 ->
   vLAN_master_of:[ `VLAN ] Ref.t ->
   ?metrics:[ `PIF_metrics ] Ref.t ->
