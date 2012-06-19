@@ -61,9 +61,9 @@ let rec add_value f = function
 		f "<value><nil/></value>"
 
 	| Int i  ->
-		f "<value><int>";
+		f "<value>";
 		f (Int64.to_string i);
-		f "</int></value>"
+		f "</value>"
 
 	| Bool b ->
 		f "<value><boolean>";
