@@ -1200,7 +1200,7 @@ let detach_static_vdis ~__context ~host ~vdis =
   List.iter detach vdis
 
 let update_pool_secret ~__context ~host ~pool_secret =
-	Unixext.write_string_to_file Xapi_globs.pool_secret_path pool_secret
+	Unixext.write_string_to_file Constants.pool_secret_path pool_secret
 
 let set_localdb_key ~__context ~host ~key ~value =
 	Localdb.put key value;
