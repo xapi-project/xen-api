@@ -624,21 +624,25 @@ let do_monitor xc =
 			Rrdd_monitor.update_rrds timestamp stats uuids pifs my_rebooting_vms my_paused_vms
 		)
 
-let monitor_loop xc =
-	while true
-	do
-		try
-			do_monitor xc;
-			Thread.delay (float_of_int !timeslice)
-		with e ->
-			debug "Monitor thread caught an exception. Pausing for 10s, then restarting.";
-			log_backtrace ();
-			Thread.delay 10.
-	done
+let monitor_loop () =
+	Debug.name_thread "monitor";
+	Xenctrl.with_intf (fun xc ->
+		while true
+		do
+			try
+				do_monitor xc;
+				Thread.delay (float_of_int !timeslice)
+			with e ->
+				debug "Monitor thread caught an exception. Pausing for 10s, then restarting.";
+				log_backtrace ();
+				Thread.delay 10.
+		done
+	)
 (* Monitoring code --- END. *)
 
 (* Entry point. *)
 let _ =
+	Debug.set_facility Syslog.Local5;
 	debug "Start.";
 
 	debug "Processing arguments ..";
@@ -671,12 +675,7 @@ let _ =
 	start (Rrdd_interface.xmlrpc_path, Rrdd_interface.http_fwd_path) Server.process;
 
 	debug "Creating monitoring loop thread ..";
-	Debug.name_thread "monitor";
-	ignore (Thread.create (fun _ ->
-		Xenctrl.with_intf (fun xc ->
-			monitor_loop xc
-		)
-	) ());
+	Debug.with_thread_associated "main" monitor_loop ();
 
 	while true do
 		Thread.delay 300.
