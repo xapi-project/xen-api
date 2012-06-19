@@ -72,8 +72,11 @@ start() {
 	xenstore-rm /vm
 
 	# start cdrommon on all physicals cdrom at startup
-	for i in `find /dev/xapi/cd/ ! -type d`; do "@LIBEXECDIR@/cdrommon" $i; done
-
+	if [ -d /dev/xapi/cd ]; then
+		for i in `find /dev/xapi/cd/ ! -type d`; do "@LIBEXECDIR@/cdrommon" $i; done
+	else
+		logger "No physical CDROM devices detected; not starting cdrommon"
+	fi
 	echo 
 	touch /var/lock/subsys/xen;
 	return $RETVAL
