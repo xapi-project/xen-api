@@ -33,6 +33,8 @@ module Net = (val (Network.get_client ()) : Network.CLIENT)
 module D=Debug.Debugger(struct let name="helpers" end)
 open D
 
+module StringSet = Set.Make(String)
+
 let log_exn_continue msg f x = try f x with e -> debug "Ignoring exception: %s while %s" (ExnHelper.string_of_exn e) msg
 
 (** Construct a descriptive network name (used as name_label) for a give network interface. *)
