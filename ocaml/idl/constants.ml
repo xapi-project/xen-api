@@ -122,3 +122,6 @@ let storage_migrate_vif_map_key = "maps_to"
 
 (* Path to the pool configuration file. *)
 let pool_config_file = Filename.concat Fhs.etcdir "pool.conf"
+
+(* Path to the pool secret file. *)
+let pool_secret_path = Filename.concat Fhs.etcdir "ptoken"
