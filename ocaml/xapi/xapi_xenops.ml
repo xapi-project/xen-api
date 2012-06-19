@@ -846,10 +846,12 @@ let update_vm ~__context id =
 						try
 							Opt.iter
 								(fun (_, state) ->
-									debug "xenopsd event: Updating VM %s platform:timeoffset <- %s" id state.rtc_timeoffset;
-									let key = "timeoffset" in
-									(try Db.VM.remove_from_platform ~__context ~self ~key with _ -> ());
-									Db.VM.add_to_platform ~__context ~self ~key ~value:state.rtc_timeoffset;
+									if state.rtc_timeoffset <> "" then begin
+										debug "xenopsd event: Updating VM %s platform:timeoffset <- %s" id state.rtc_timeoffset;
+										let key = "timeoffset" in
+										(try Db.VM.remove_from_platform ~__context ~self ~key with _ -> ());
+										Db.VM.add_to_platform ~__context ~self ~key ~value:state.rtc_timeoffset;
+									end
 								) info
 						with e ->
 							error "Caught %s: while updating VM %s rtc/timeoffset" (Printexc.to_string e) id
