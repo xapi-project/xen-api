@@ -25,7 +25,6 @@ let use_xenopsd = ref false
 (* xapi process returns this code on exit when it wants to be restarted *)
 let restart_return_code = 123
 
-let pool_secret_path = Filename.concat Fhs.etcdir "ptoken"
 let pool_secret = ref ""
 
 let localhost_ref : [`host] Ref.t ref = ref Ref.null

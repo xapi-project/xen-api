@@ -34,6 +34,14 @@ let memory_targets_m = Mutex.create ()
 let cache_sr_uuid : string option ref = ref None
 let cache_sr_lock = Mutex.create ()
 
+(** Pool secret. *)
+let get_pool_secret () =
+	try
+		Unix.access Constants.pool_secret_path [Unix.F_OK];
+		Unixext.string_of_file Constants.pool_secret_path
+	with _ ->
+		failwith "Unable to read the pool secret."
+
 (* Here is the only place where RRDs are created. The timescales are fixed. If
  * other timescales are required, this could be done externally. The types of
  * archives created are also fixed.  Currently, we're making 4 timescales of 3
