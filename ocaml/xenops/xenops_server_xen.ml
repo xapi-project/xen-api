@@ -532,7 +532,6 @@ module VM = struct
 				| HVM hvm_info ->
 					Domain.BuildHVM {
 						Domain.shadow_multiplier = hvm_info.shadow_multiplier;
-						timeoffset = hvm_info.timeoffset;
 						video_mib = hvm_info.video_mib;
 					}
 				| PV { boot = Direct direct } ->
@@ -936,21 +935,20 @@ module VM = struct
 		(* We should prevent leaking files in our filesystem *)
 		let kernel_to_cleanup = ref None in
 		finally (fun () ->
-			let build_info =
+			let (build_info, timeoffset) =
 				match vm.ty with
 					| HVM hvm_info ->
 						let builder_spec_info = Domain.BuildHVM {
 							Domain.shadow_multiplier = hvm_info.shadow_multiplier;
-							timeoffset = hvm_info.timeoffset;
 							video_mib = hvm_info.video_mib;
 						} in
-						make_build_info Domain.hvmloader builder_spec_info
+						((make_build_info Domain.hvmloader builder_spec_info), hvm_info.timeoffset)
 					| PV { boot = Direct direct } ->
 						let builder_spec_info = Domain.BuildPV {
 							Domain.cmdline = direct.cmdline;
 							ramdisk = direct.ramdisk;
 						} in
-						make_build_info direct.kernel builder_spec_info
+						((make_build_info direct.kernel builder_spec_info), "")
 					| PV { boot = Indirect { devices = [] } } ->
 						raise (No_bootable_device)
 					| PV { boot = Indirect ( { devices = d :: _ } as i ) } ->
@@ -965,9 +963,9 @@ module VM = struct
 									Domain.cmdline = b.Bootloader.kernel_args;
 									ramdisk = b.Bootloader.initrd_path;
 								} in
-								make_build_info b.Bootloader.kernel_path builder_spec_info
+								((make_build_info b.Bootloader.kernel_path builder_spec_info), "")
 							) in
-			let arch = Domain.build task ~xc ~xs build_info domid in
+			let arch = Domain.build task ~xc ~xs build_info timeoffset domid in
 			Int64.(
 				let min = to_int (div vm.Vm.memory_dynamic_min 1024L)
 				and max = to_int (div vm.Vm.memory_dynamic_max 1024L) in
@@ -1205,18 +1203,21 @@ module VM = struct
 				let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs domid) in
 				let k = vm.Vm.id in
 				let vmextra = DB.read_exn k in
-				let build_info = match vmextra.VmExtra.persistent with
+				let (build_info, timeoffset) = match vmextra.VmExtra.persistent with
 					| { VmExtra.build_info = None } ->
 						error "VM = %s; No stored build_info: cannot safely restore" vm.Vm.id;
 						raise (Does_not_exist("build_info", vm.Vm.id))
-					| { VmExtra.build_info = Some x } ->
+					| { VmExtra.build_info = Some x; VmExtra.ty } ->
 						let initial_target = get_initial_target ~xs domid in
-						{ x with Domain.memory_target = initial_target } in
+						let timeoffset = match ty with
+								Some x -> (match x with HVM hvm_info -> hvm_info.timeoffset | _ -> "")
+							| _ -> "" in
+						({ x with Domain.memory_target = initial_target }, timeoffset) in
 				begin
 					try
 						with_data ~xc ~xs task data false
 							(fun fd ->
-								Domain.restore task ~xc ~xs (* XXX progress_callback *) build_info domid fd
+								Domain.restore task ~xc ~xs (* XXX progress_callback *) build_info timeoffset domid fd
 							);
 					with e ->
 						error "VM %s: restore failed: %s" vm.Vm.id (Printexc.to_string e);
