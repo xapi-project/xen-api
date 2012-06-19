@@ -530,16 +530,15 @@ let lookup_vdi_fields f vdi_refs l =
   let field_ops = List.map (fun r->do_lookup r l) vdi_refs in
   List.fold_right (fun m acc -> match m with None -> acc | Some x -> x :: acc) field_ops []
 
-(* Read pool secret if there, otherwise create a new one *)
+(* Read pool secret if it exists; otherwise, create a new one. *)
 let get_pool_secret () =
-  if (try (Unix.access Constants.pool_secret_path [Unix.F_OK]; true) with _ -> false) then
-    pool_secret := Unixext.string_of_file Constants.pool_secret_path
-  else
-    begin
-      let mk_rand_string () = Uuid.to_string (Uuid.make_uuid()) in
-    pool_secret := (mk_rand_string())^"/"^(mk_rand_string())^"/"^(mk_rand_string());
-        Unixext.write_string_to_file Constants.pool_secret_path !pool_secret
-    end
+	try
+		Unix.access Constants.pool_secret_path [Unix.F_OK];
+		pool_secret := Unixext.string_of_file Constants.pool_secret_path
+	with _ -> (* No pool secret exists. *)
+		let mk_rand_string () = Uuid.to_string (Uuid.make_uuid()) in
+		pool_secret := (mk_rand_string()) ^ "/" ^ (mk_rand_string()) ^ "/" ^ (mk_rand_string());
+		Unixext.write_string_to_file Constants.pool_secret_path !pool_secret
 
 (* Checks if an SR exists, returning an SR ref option (None if it is missing) *)
 let check_sr_exists ~__context ~self =
