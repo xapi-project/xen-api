@@ -108,7 +108,7 @@ let send_rrd ?(session_id : string option) ~(address : string)
 		None -> [] | Some id -> ["session_id", id] in
 	let query = sid_query @ arch_query @ ["uuid", uuid] in
 	let cookie =
-		if sid_query = [] then ["pool_secret", !Xapi_globs.pool_secret] else [] in
+		if sid_query = [] then ["pool_secret", get_pool_secret ()] else [] in
 	let request =
 		Http.Request.make ~user_agent:Xapi_globs.xapi_user_agent
 			~query ~cookie Http.Put Constants.put_rrd_uri in
