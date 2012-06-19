@@ -39,7 +39,6 @@ val rpc_of_create_info: create_info -> Rpc.t
 
 type build_hvm_info = {
 	shadow_multiplier: float;
-	timeoffset: string;
 	video_mib: int;
 }
 val build_hvm_info_of_rpc: Rpc.t -> build_hvm_info
@@ -132,7 +131,7 @@ val build_hvm: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.X
             -> domarch
 
 (** Restore a domain using the info provided *)
-val build: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> build_info -> domid -> domarch
+val build: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> build_info -> string -> domid -> domarch
 
 (** resume a domain either cooperative or not *)
 val resume: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> hvm: bool -> cooperative: bool -> qemu_domid:int -> domid -> unit
@@ -151,7 +150,7 @@ val hvm_restore: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore
              -> unit
 
 (** Restore a domain using the info provided *)
-val restore: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> build_info -> domid -> Unix.file_descr -> unit
+val restore: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> build_info -> string -> domid -> Unix.file_descr -> unit
 
 type suspend_flag = Live | Debug
 

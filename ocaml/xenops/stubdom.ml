@@ -49,7 +49,7 @@ let build (task: Xenops_task.t) ~xc ~xs info domid stubdom_domid =
         Domain.kernel="/usr/lib/xen/boot/ioemu-stubdom.gz";
         Domain.vcpus=1;
         Domain.priv=Domain.BuildPV {Domain.cmdline=""; Domain.ramdisk=None};
-    } stubdom_domid in
+    } "" stubdom_domid in
 
     (* Point the stub domain at the guest *)
     debug "jjd27: pointing stubdom %d to guest %d" stubdom_domid domid;
