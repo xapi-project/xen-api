@@ -841,11 +841,11 @@ let hvm_restore (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~shado
 	build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
 		domid store_mfn store_port local_stuff vm_stuff
 
-let restore (task: Xenops_task.t) ~xc ~xs info domid fd =
+let restore (task: Xenops_task.t) ~xc ~xs info timeoffset domid fd =
 	let restore_fct = match info.priv with
 	| BuildHVM hvminfo ->
 		hvm_restore task ~shadow_multiplier:hvminfo.shadow_multiplier
-		  ~timeoffset:""
+		  ~timeoffset
 	| BuildPV pvinfo   ->
 		pv_restore task
 		in

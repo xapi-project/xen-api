@@ -1203,18 +1203,21 @@ module VM = struct
 				let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs domid) in
 				let k = vm.Vm.id in
 				let vmextra = DB.read_exn k in
-				let build_info = match vmextra.VmExtra.persistent with
+				let (build_info, timeoffset) = match vmextra.VmExtra.persistent with
 					| { VmExtra.build_info = None } ->
 						error "VM = %s; No stored build_info: cannot safely restore" vm.Vm.id;
 						raise (Does_not_exist("build_info", vm.Vm.id))
-					| { VmExtra.build_info = Some x } ->
+					| { VmExtra.build_info = Some x; VmExtra.ty } ->
 						let initial_target = get_initial_target ~xs domid in
-						{ x with Domain.memory_target = initial_target } in
+						let timeoffset = match ty with
+								Some x -> (match x with HVM hvm_info -> hvm_info.timeoffset | _ -> "")
+							| _ -> "" in
+						({ x with Domain.memory_target = initial_target }, timeoffset) in
 				begin
 					try
 						with_data ~xc ~xs task data false
 							(fun fd ->
-								Domain.restore task ~xc ~xs (* XXX progress_callback *) build_info domid fd
+								Domain.restore task ~xc ~xs (* XXX progress_callback *) build_info timeoffset domid fd
 							);
 					with e ->
 						error "VM %s: restore failed: %s" vm.Vm.id (Printexc.to_string e);
