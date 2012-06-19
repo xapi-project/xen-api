@@ -1,5 +1,6 @@
 OCAMLINCLUDES = ..
 OCAML_LIBS = ../fhs
+OCAMLPACKS    = http-svr log
 
 #OCamlLibrary(util_globs_inventory, util_globs_inventory)
 OCamlLibrary(util_inventory, util_globs_inventory util_inventory)
