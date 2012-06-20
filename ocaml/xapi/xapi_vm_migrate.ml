@@ -545,7 +545,7 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	match migration_type with
 	| `intra_pool host ->
 		let force = try bool_of_string (List.assoc "force" options) with _ -> false in
-		if (not force) && live then Xapi_vm_helpers.assert_vm_is_compatible ~__context ~vm ~host
+		if (not force) && live then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host
 	| `cross_pool remote_rpc ->
 		(* Check that the VM has no more than one snapshot *)
 		let (snapshots_vbds, nb_snapshots) = get_snapshots_vbds ~__context ~vm in
