@@ -34,16 +34,6 @@ let create_fresh_rrd use_min_max dss =
 	let rrd = Rrd.rrd_create dss rras (Int64.of_int step) (Unix.gettimeofday()) in
 	rrd
 
-let sent_clock_went_backwards_alert = ref false
-(* XXX TODO Perform the following after every blocking XMLRPC on the xapi
- * side. The "pull" should also reset the flag in rrdd. *)
-(*
-			if not (!sent_clock_went_backwards_alert) then (
-				Xapi_alert.add ~name:Api_messages.host_clock_went_backwards ~priority:Api_messages.host_clock_went_backwards_priority
-					~cls:`Host ~obj_uuid:(Xapi_inventory.lookup Xapi_inventory._installation_uuid) ~body:"";
-			)
-*)
-
 (* Updates all of the hosts rrds. We are passed a list of uuids that
  * is used as the primary source for which VMs are resident on us.
  * When a new uuid turns up that we haven't got an RRD for in our
@@ -62,10 +52,8 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) pifs rebooting
 			| None -> false, 0.
 			| Some rrdi -> rrdi.rrd.Rrd.last_updated > timestamp, abs_float (timestamp -. rrdi.rrd.Rrd.last_updated)
 		in
-		if out_of_date then (
-			warn "Clock just went backwards by %.0f seconds: RRD data may now be unreliable" by_how_much;
-			sent_clock_went_backwards_alert := false;
-		);
+		if out_of_date then
+			error "Clock just went backwards by %.0f seconds: RRD data may now be unreliable" by_how_much;
 		let registered = Hashtbl.fold_keys vm_rrds in
 		let gone_vms = List.filter (fun vm -> not (List.mem_assoc vm uuid_domids)) registered in
 		let to_send_back = List.map (fun uuid -> uuid, Hashtbl.find vm_rrds uuid) gone_vms in
