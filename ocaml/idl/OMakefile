@@ -13,7 +13,7 @@ UseCamlp4(rpc-light.syntax, $(CAMLP4_FILES))
 # Build datamodel library
 # -----------------------------------------------------------------------
 
-OCamlLibrary(datamodel, datamodel constants datamodel_utils datamodel_types api_errors api_messages dm_api ocaml_backend/ocaml_utils ocaml_backend/ref ../database/string_marshall_helper)
+OCamlLibrary(datamodel, datamodel ../fhs constants datamodel_utils datamodel_types api_errors api_messages dm_api ocaml_backend/ocaml_utils ocaml_backend/ref ../database/string_marshall_helper)
 
 # -----------------------------------------------------------------------
 # Build datamodel documentation
