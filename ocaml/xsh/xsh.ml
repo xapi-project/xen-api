@@ -75,10 +75,7 @@ let _ =
   let cmd = Sys.argv.(2) in
   let session = try Sys.getenv "XSH_SESSION" with _ -> failwith "Session not provided" in
   let args = List.map (fun arg -> "&arg="^arg) (List.tl (List.tl (List.tl (Array.to_list Sys.argv)))) in
-  Stunnel.init_stunnel_path();
   let req = Printf.sprintf "CONNECT /remotecmd?session_id=%s&cmd=%s%s http/1.0\r\n\r\n" session cmd (String.concat "" args) in
   let fd = open_tcp_ssl host in
   ignore_int (Unix.write fd req 0 (String.length req));
   proxy Unix.stdin Unix.stdout fd (Unix.dup fd)
-  
-  
