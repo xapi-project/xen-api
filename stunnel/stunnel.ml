@@ -32,31 +32,33 @@ let cached_stunnel_path = ref None
 let stunnel_logger = ref ignore
 
 let init_stunnel_path () =
-  try cached_stunnel_path := Some (Unix.getenv "XE_STUNNEL")
-  with Not_found ->
-    if !use_new_stunnel then
-      cached_stunnel_path := Some new_stunnel_path
-    else (
-      let choices = ["/opt/xensource/libexec/stunnel/stunnel";
-		     "/usr/sbin/stunnel4";
-		     "/usr/sbin/stunnel";
-		     "/usr/bin/stunnel4";
-		     "/usr/bin/stunnel";
-		    ] in
-      let rec choose l =
-        match l with
-	    [] -> raise Stunnel_binary_missing
-	  | (p::ps) ->
-	      try Unix.access p [Unix.X_OK]; p
-	      with _ -> choose ps in
-      let path = choose choices in
-      cached_stunnel_path := Some path
-    )
+	try cached_stunnel_path := Some (Unix.getenv "XE_STUNNEL")
+	with Not_found ->
+		if !use_new_stunnel then
+			cached_stunnel_path := Some new_stunnel_path
+		else (
+			let choices = [
+				"/opt/xensource/libexec/stunnel/stunnel";
+				"/usr/sbin/stunnel4";
+				"/usr/sbin/stunnel";
+				"/usr/bin/stunnel4";
+				"/usr/bin/stunnel";
+			] in
+			let rec choose l =
+				match l with
+				| [] -> raise Stunnel_binary_missing
+				| p::ps ->
+					try Unix.access p [Unix.X_OK]; p
+					with _ -> choose ps
+			in
+			let path = choose choices in
+			cached_stunnel_path := Some path
+		)
 
-let stunnel_path() =
-  match !cached_stunnel_path with
-    | Some p -> p 
-    | None -> raise Stunnel_binary_missing
+let stunnel_path () =
+	if Opt.is_none !cached_stunnel_path then
+		init_stunnel_path ();
+	Opt.unbox !cached_stunnel_path
 
 module Unsafe = struct
   (** These functions are not safe in a multithreaded program *)
