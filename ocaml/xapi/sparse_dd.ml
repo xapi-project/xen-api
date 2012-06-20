@@ -598,8 +598,7 @@ let progress_cb =
 		end;
 		last_percent := new_percent
 
-let _ = 
-	Stunnel.init_stunnel_path ();
+let _ =
 	let base = ref None and src = ref None and dest = ref None and size = ref (-1L) and prezeroed = ref false and test = ref false in
 	read_config_file ();
 	Arg.parse [ "-base", Arg.String (fun x -> base := Some x), "base disk to search for differences from (default: None)";

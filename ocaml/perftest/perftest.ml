@@ -54,7 +54,6 @@ let get_metadata rpc session_id =
   sv
 
 let _ =
-  Stunnel.init_stunnel_path ();
   let template_name = ref "sdk-gold" in
   let key = ref "" in
   let scenario = ref "xendesktop" in
