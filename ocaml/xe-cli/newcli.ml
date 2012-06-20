@@ -590,7 +590,6 @@ let main () =
   let _ =  try
     Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
     Sys.set_signal Sys.sigint (Sys.Signal_handle (fun _ -> exit 1));
-    Stunnel.init_stunnel_path();
     let xe, args =
       match Array.to_list Sys.argv with
       | h :: t -> h, t

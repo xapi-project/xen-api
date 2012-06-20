@@ -153,8 +153,6 @@ let _ =
 
   if not !master && !slave_limit = 0 then failwith "Must provide either -master or -slaves argument";
 
-  Stunnel.init_stunnel_path ();
-
   let session = Client.Session.login_with_password rpc "root" "xenroot" "1.2" in
   finally
     (fun () ->
