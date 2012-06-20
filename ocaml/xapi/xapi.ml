@@ -781,7 +781,6 @@ let server_init() =
     Startup.run ~__context [
     "Reading config file", [], (fun () -> Xapi_config.read_config !Xapi_globs.config_file);
     "Reading external global variables definition", [ Startup.NoExnRaising ], Xapi_globs.read_external_config;
-    "Initing stunnel path", [], Stunnel.init_stunnel_path;
     "XAPI SERVER STARTING", [], print_server_starting_message;
     "Parsing inventory file", [], Xapi_inventory.read_inventory;
     "Initialising local database", [], init_local_database;

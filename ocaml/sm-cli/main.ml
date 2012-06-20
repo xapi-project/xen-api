@@ -62,7 +62,6 @@ let kvpairs = List.filter_map
 
 let _ =
 	if Array.length Sys.argv < 2 then usage_and_exit ();
-	Stunnel.init_stunnel_path ();
 	(* Look for url=foo *)
 	let args = Array.to_list Sys.argv in
 	begin
