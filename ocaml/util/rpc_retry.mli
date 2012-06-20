@@ -12,14 +12,17 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Rpc : Rrdd_interface.RPC = Rpc_retry.Make(
-	struct
-		let client_name = "xapi"
-		let server_name = Rrdd_interface.name
-		let server_path = Filename.concat Fhs.vardir Rrdd_interface.name
-	end
-)
-module Client = Rrdd_interface.Client(Rpc)
+open Xmlrpc_client
 
-(* Make the interface available directly to anyone using this module.*)
-include Client
+module type RPC_META =
+	sig
+		val client_name : string
+		val server_name : string
+		val server_path : string
+	end
+
+module Make : functor (Meta : RPC_META) ->
+	sig
+		val transport : Xmlrpc_client.transport
+		val rpc : Rpc.call -> Rpc.response
+	end

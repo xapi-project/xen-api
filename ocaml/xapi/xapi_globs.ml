@@ -25,7 +25,6 @@ let use_xenopsd = ref false
 (* xapi process returns this code on exit when it wants to be restarted *)
 let restart_return_code = 123
 
-let pool_secret_path = Filename.concat Fhs.etcdir "ptoken"
 let pool_secret = ref ""
 
 let localhost_ref : [`host] Ref.t ref = ref Ref.null
@@ -96,7 +95,6 @@ let log_config_file = ref (Filename.concat Fhs.etcdir "log.conf")
 let db_conf_path = Filename.concat Fhs.etcdir "db.conf"
 let remote_db_conf_fragment_path = Filename.concat Fhs.etcdir "remote.db.conf"
 let simulator_config_file = ref "/etc/XenServer-simulator.conf"
-let pool_config_file = Filename.concat Fhs.etcdir "pool.conf"
 let cpu_info_file = Filename.concat Fhs.etcdir "boot_time_cpus"
 let initial_host_free_memory_file = "/var/run/nonpersistent/xapi/boot_time_memory"
 let using_rrds = ref false

@@ -727,7 +727,6 @@ let _ =
 		assert (List.mem name all_tests);
 		if List.mem name !tests_to_run then f () in
 
-	Stunnel.init_stunnel_path ();
 	let s = init_session !username !password in
 	finally
 		(fun () ->

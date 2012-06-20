@@ -27,9 +27,6 @@ let http_fwd_path = xmlrpc_path  ^ ".forwarded"
 
 (* The interface is defined by extern function declarations. *)
 
-(* This information should probably be obtained from the file system instead. *)
-external set_master : is_master:bool -> master_address:string -> unit = ""
-
 external has_vm_rrd : vm_uuid:string -> bool = ""
 
 external push_rrd : vm_uuid:string -> is_on_localhost:bool -> unit = ""

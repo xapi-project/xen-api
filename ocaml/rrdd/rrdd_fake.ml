@@ -1,6 +1,5 @@
 open Listext
 open Ds
-open Rrd_shared
 
 open Rrdd_fake_common
 

@@ -1,4 +1,4 @@
-OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client
+OCAML_LIBS    = ../fhs ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client
 OCAMLINCLUDES = ../idl/ocaml_backend ../idl ../autogen
 OCAMLPACKS    = xml-light2 stdext stunnel http-svr log rpc-light
 
