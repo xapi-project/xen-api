@@ -645,18 +645,6 @@ let wait_memory_target_live ~__context ~self =
 	in
 	wait 0
 
-let get_cooperative ~__context ~self =
-	(* If the VM is not supposed to be capable of ballooning then return true *)
-	let vm_r = Db.VM.get_record ~__context ~self in
-	if not(Helpers.ballooning_enabled_for_vm ~__context vm_r) then begin
-		info "VM %s (%s) is co-operative because it does not support ballooning" (Ref.string_of self) vm_r.API.vM_name_label;
-		true
-	end else begin
-		(* Otherwise see if the squeezer has concluded the domain is uncooperative *)
-		let domid = Int64.to_int vm_r.API.vM_domid in
-		Rrdd.is_domain_cooperative ~domid
-	end
-
 let set_HVM_shadow_multiplier ~__context ~self ~value =
 	set_HVM_shadow_multiplier ~__context ~self ~value
 
