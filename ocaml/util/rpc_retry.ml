@@ -22,19 +22,22 @@ module type RPC_META =
 		val client_name : string
 		val server_name : string
 		val server_path : string
+		val should_retry : bool
 	end
 
 module Make = functor (Meta : RPC_META) ->
 	struct
 		let transport = Unix Meta.server_path
 
+		let simple_rpc =
+			XMLRPC_protocol.rpc ~srcstr:Meta.client_name ~dststr:Meta.server_name
+				~transport ~http:(xmlrpc ~version:"1.0" "/")
+
 		let rpc call =
 			let rec aux ~retrying =
 				let response' =
 					try
-						let response =
-							XMLRPC_protocol.rpc ~srcstr:Meta.client_name ~dststr:Meta.server_name
-								~transport ~http:(xmlrpc ~version:"1.0" "/") call in
+						let response = simple_rpc call in
 						if retrying then
 							debug "Successfully communicated with service at %s after retrying!"
 								Meta.server_path;
@@ -52,5 +55,6 @@ module Make = functor (Meta : RPC_META) ->
 				match response' with
 				| Some response -> response
 				| None -> aux ~retrying:true
-			in aux ~retrying:false
+			in
+			if Meta.should_retry then aux ~retrying:false else simple_rpc call
 	end
