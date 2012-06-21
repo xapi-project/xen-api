@@ -49,7 +49,7 @@ exception No_storage_plugin_for_sr of string
 (* This is the policy: *)
 let of_sr sr =
 	if not (Hashtbl.mem plugins sr) then begin
-		error "No storage plugin for SR: %s" sr;
+		error "No storage plugin for SR: %s (currently-registered = [ %s ])" sr (Ref.to_string sr) (String.concat ", " (Hastbl.map (fun sr _ acc -> (Ref.to_string sr) :: acc) plugins []));
 		raise (No_storage_plugin_for_sr sr)
 	end else (Hashtbl.find plugins sr).processor
 
