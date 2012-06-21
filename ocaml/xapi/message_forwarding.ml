@@ -1746,16 +1746,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					forward_vm_op ~local_fn ~__context ~vm:self
 						(fun session_id rpc -> Client.VM.wait_memory_target_live rpc session_id self))
 
-		let get_cooperative ~__context ~self =
-			info "VM.get_cooperative: VM = '%s'" (vm_uuid ~__context self);
-			let local_fn = Local.VM.get_cooperative ~self in
-			with_vm_operation ~__context ~self ~doc:"VM.get_cooperative" ~op:`get_cooperative
-				(fun () ->
-					if Db.VM.get_power_state ~__context ~self <> `Running
-					then true
-					else forward_vm_op ~local_fn ~__context ~vm:self
-						(fun session_id rpc -> Client.VM.get_cooperative rpc session_id self))
-
 		let set_HVM_shadow_multiplier ~__context ~self ~value =
 			info "VM.set_HVM_shadow_multiplier: self = %s; multiplier = %f"
 				(vm_uuid ~__context self) value;
@@ -2052,27 +2042,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let emergency_ha_disable ~__context =
 			info "Host.emergency_ha_disable";
 			Local.Host.emergency_ha_disable ~__context
-
-		let get_uncooperative_resident_VMs ~__context ~self =
-			info "Host.get_uncooperative_resident_VMs host=%s" (Ref.string_of self);
-			let domains = Helpers.call_api_functions ~__context
-				(fun rpc session_id ->
-					Client.Host.get_uncooperative_domains rpc session_id self) in
-			let vms = Db.VM.get_records_where ~__context
-				~expr:(Db_filter_types.Eq(Db_filter_types.Field "resident_on", Db_filter_types.Literal (Ref.string_of self))) in
-			(* We are only interested in ones which can balloon *)
-			let vms = List.filter (fun (_, x) -> Helpers.ballooning_enabled_for_vm ~__context x) vms in
-			(* Remove all those not in the uncooperative domains list *)
-			let vms = List.filter (fun (_, x) -> List.mem x.API.vM_uuid domains) vms in
-			List.map fst vms
-
-		let get_uncooperative_domains ~__context ~self =
-			info "Host.get_uncooperative_domains host=%s" (Ref.string_of self);
-			let local_fn = Local.Host.get_uncooperative_domains ~self in
-			do_op_on ~local_fn ~__context ~host:self
-				(fun session_id rpc ->
-					Client.Host.get_uncooperative_domains rpc session_id self
-				)
 
 		let management_reconfigure ~__context ~pif =
 			info "Host.management_reconfigure: management PIF = '%s'" (pif_uuid ~__context pif);
