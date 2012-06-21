@@ -189,12 +189,7 @@ let create_tools_sr __context =
 
 let create_tools_sr_noexn __context = Helpers.log_exn_continue "creating tools SR" create_tools_sr __context
 
-let clear_uncooperative_flags __context = 
-  List.iter (fun vm -> Helpers.set_vm_uncooperative ~__context ~self:vm ~value:false) (Db.VM.get_all ~__context)
-
-let clear_uncooperative_flags_noexn __context = Helpers.log_exn_continue "clearing uncooperative flags" clear_uncooperative_flags __context
-
-let ensure_vm_metrics_records_exist __context = 
+let ensure_vm_metrics_records_exist __context =
   List.iter (fun vm ->
 				 let m = Db.VM.get_metrics ~__context ~self:vm in
 				 if not(Db.is_valid_ref __context m) then begin
@@ -247,7 +242,4 @@ let update_env __context =
   create_missing_vlan_records ~__context;
   create_tools_sr_noexn __context;
 
-  clear_uncooperative_flags_noexn __context;
-  
   ensure_vm_metrics_records_exist_noexn __context
-    

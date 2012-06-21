@@ -29,8 +29,6 @@ module Client = Rrdd_interface.Client(Rpc)
 let _ =
 	let open Printf in
 	printf "CLIENT: Begin.\n";
-	printf "CLIENT: Calling SERVER's hello with \"Foo\"...\n";
-	let _ = Client.get_uncooperative_domains () in
-	printf "CLIENT: SERVER replied.\n";
+	(* TODO perform testing here *)
 	printf "CLIENT: End.\n"
 
