@@ -19,6 +19,7 @@ module type RPC_META =
 		val client_name : string
 		val server_name : string
 		val server_path : string
+		val should_retry : bool
 	end
 
 module Make : functor (Meta : RPC_META) ->
