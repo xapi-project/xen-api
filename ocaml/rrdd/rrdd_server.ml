@@ -425,25 +425,6 @@ let update_use_min_max _ ~(value : bool) : unit =
 let string_of_domain_handle dh =
 	Uuid.string_of_uuid (Uuid.uuid_of_int_array dh.Xenctrl.Domain_info.handle)
 
-let add_to_uncooperative_domains _ ~(domid : int) : unit =
-	Mutex.execute uncooperative_domains_m
-		(fun _ -> Hashtbl.replace uncooperative_domains domid ())
-
-let remove_from_uncooperative_domains _ ~(domid : int) : unit =
-	Mutex.execute uncooperative_domains_m
-		(fun _ -> Hashtbl.remove uncooperative_domains domid)
-
-let is_domain_cooperative _ ~(domid : int) : bool =
-	Mutex.execute uncooperative_domains_m
-		(fun _ -> not (Hashtbl.mem uncooperative_domains domid))
-
-let get_uncooperative_domains _ () : string list =
-	let domids = Mutex.execute uncooperative_domains_m
-		(fun () -> Hashtbl.fold (fun domid _ acc -> domid::acc) uncooperative_domains []) in
-	let dis = Xenctrl.with_intf (fun xc -> Xenctrl.domain_getinfolist xc 0) in
-	let dis_uncoop = List.filter (fun di -> List.mem di.Xenctrl.Domain_info.domid domids) dis in
-	List.map string_of_domain_handle dis_uncoop
-
 let update_vm_memory_target _ ~(domid : int) ~(target : int64) : unit =
 	Mutex.execute memory_targets_m
 		(fun _ -> Hashtbl.replace memory_targets domid target)
