@@ -150,6 +150,16 @@ let read sock from len =
 	else
 		None
 
+let disconnect_async sock rid =
+	let request = {
+		Request.ty=NBD_cmd_disc;
+		handle=rid;
+		from=0L;
+		len=0l
+	} in
+	let msg = construct_request request in
+	Unixext.really_write_string sock msg
+
 let write_async sock dest_ofs str ofs len rid =
 	let request = {
 		Request.ty = NBD_cmd_write;
