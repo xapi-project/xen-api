@@ -967,20 +967,6 @@ let assert_vswitch_controller_not_active ~__context =
 	if (controller <> "") && (net_type = Netdev.Vswitch) then
 		raise (Api_errors.Server_error (Api_errors.operation_not_allowed, ["A vswitch controller is active"]))
 
-let set_vm_uncooperative ~__context ~self ~value =
-  let current_value =
-	let oc = Db.VM.get_other_config ~__context ~self in
-	List.mem_assoc "uncooperative" oc && (bool_of_string (List.assoc "uncooperative" oc)) in
-  if value <> current_value then begin
-	info "VM %s uncooperative <- %b" (Ref.string_of self) value;
-	begin
-      try
-		Db.VM.remove_from_other_config ~__context ~self ~key:"uncooperative"
-      with _ -> ()
-	end;
-	Db.VM.add_to_other_config ~__context ~self ~key:"uncooperative" ~value:(string_of_bool value)
-  end
-
 (* Useful for making readable(ish) logs: *)
 let short_string_of_ref x =
   let x' = Ref.string_of x in
