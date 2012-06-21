@@ -17,6 +17,7 @@ module Rpc : Rrdd_interface.RPC = Rpc_retry.Make(
 		let client_name = "xapi"
 		let server_name = Rrdd_interface.name
 		let server_path = Filename.concat Fhs.vardir Rrdd_interface.name
+		let should_retry = false
 	end
 )
 module Client = Rrdd_interface.Client(Rpc)
