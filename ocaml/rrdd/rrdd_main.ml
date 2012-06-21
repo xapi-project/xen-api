@@ -121,26 +121,6 @@ let with_xs f =
 
 let timeslice = ref 5
 
-(** Table for bonds status. *)
-let bonds_status : (string, (int * int)) Hashtbl.t = Hashtbl.create 10
-let bonds_status_update : (string * int) list ref = ref []
-let bonds_status_update_m = Mutex.create ()
-
-let add_bond_status bond links_up =
-	Mutex.execute bonds_status_update_m
-		(fun _ ->
-			bonds_status_update := !bonds_status_update @ [(bond,links_up)]
-		)
-
-let copy_bonds_status () =
-	Mutex.execute bonds_status_update_m
-		(fun _ ->
-			let l =
-				List.map (fun (bond, links_up) -> (bond, links_up)) !bonds_status_update in
-			bonds_status_update := [];
-			l
-		)
-
 let uuid_of_domid domains domid =
 	try
 		Rrdd_server.string_of_domain_handle
@@ -288,39 +268,10 @@ let string_of_vif_device x =
 	Printf.sprintf "%s%d.%d" (if x.pv then "vif" else "tap") x.domid x.devid
 
 let update_netdev doms =
-	let alert dev nb_links links_up nb_links_old links_up_old interfaces =
-		let ifaces = String.concat "+" (List.sort String.compare interfaces) in
-		ignore (ifaces)
-(* TODO FIXME XXX
-		Xapi_alert.add ~name:Api_messages.bond_status_changed ~priority:1L ~cls:`Host
-			~obj_uuid:Rrdd_shared.localhost_uuid
-			~body:(Printf.sprintf "The status of the %s bond changed: %d/%d up (was %d/%d)"
-				ifaces links_up nb_links links_up_old nb_links_old)
-*)
-	in
 	let stats = Network_monitor.read_stats () in
 	List.fold_left (fun (dss, pifs) (dev, stat) ->
 		if not (String.startswith "vif" dev) then
 		begin
-			if stat.nb_links > 1 then (* it is a bond *)
-			if Hashtbl.mem bonds_status dev then
-				begin
-					let (nb_links_old, links_up_old) = Hashtbl.find bonds_status dev in
-					if links_up_old <> stat.links_up then
-					begin
-						info "Bonds status changed: %s nb_links %d up %d up_old %d" dev stat.nb_links
-						stat.links_up links_up_old;
-						alert dev stat.nb_links stat.links_up nb_links_old links_up_old stat.interfaces;
-						Hashtbl.replace bonds_status dev (stat.nb_links,stat.links_up);
-						add_bond_status dev stat.links_up
-					end
-				end
-			else (* first time that we see the bond *)
-				begin
-					info "New bonds status : %s nb_links %d up %d" dev stat.nb_links stat.links_up;
-					Hashtbl.add bonds_status dev (stat.nb_links,stat.links_up);
-					add_bond_status dev stat.links_up
-				end;
 			let pif_name = "pif_" ^ dev in
 			let pif = {
 				pif_name = dev;
