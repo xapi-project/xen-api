@@ -840,13 +840,7 @@ let update_vm ~__context id =
 							List.iter
 								(fun domid ->
 									if different (fun x -> x.uncooperative_balloon_driver) then begin
-										try
-											debug "xenopsd event: Updating VM %s domid %d uncooperative_balloon_driver <- %b" id domid state.uncooperative_balloon_driver;
-											if state.uncooperative_balloon_driver
-											then Rrdd.add_to_uncooperative_domains ~domid
-											else Rrdd.remove_from_uncooperative_domains ~domid
-										with e ->
-											error "Caught %s: while updating VM %s unco-operative balloon driver flag" (Printexc.to_string e) id
+										debug "xenopsd event: VM %s domid %d uncooperative_balloon_driver = %b" id domid state.uncooperative_balloon_driver;
 									end;
 									let lookup key =
 										if List.mem_assoc key state.guest_agent then Some (List.assoc key state.guest_agent) else None in
