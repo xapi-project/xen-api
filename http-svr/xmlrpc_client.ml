@@ -309,8 +309,6 @@ end
 module XML_protocol = Protocol(XML)
 module XMLRPC_protocol = Protocol(XMLRPC)
 
-let read_xml_rpc_response = XML_protocol.read_response
-
 
 
 
