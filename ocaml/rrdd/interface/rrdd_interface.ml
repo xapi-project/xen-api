@@ -49,11 +49,6 @@ external query_vm_ds : vm_uuid:string -> ds_name:string -> float = ""
 
 external update_use_min_max : value:bool -> unit = ""
 
-external add_to_uncooperative_domains : domid:int -> unit = ""
-external remove_from_uncooperative_domains : domid:int -> unit = ""
-external get_uncooperative_domains : unit -> string list = ""
-external is_domain_cooperative : domid:int -> bool = ""
-
 external update_vm_memory_target : domid:int -> target:int64 -> unit = ""
 
 external set_cache_sr : sr_uuid:string -> unit = ""
