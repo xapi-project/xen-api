@@ -8,7 +8,7 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU Lesser General Public License for more details.
  *)
 
@@ -19,8 +19,64 @@ open Stringext
 open Listext
 open Threadext
 
-module D = Debug.Debugger(struct let name = "network_monitor" end)
+module D = Debug.Debugger(struct let name = "network_monitor_thread" end)
 open D
+
+(** Table for bonds status. *)
+let bonds_status : (string, (int * int)) Hashtbl.t = Hashtbl.create 10
+let bonds_status_update : (string * int) list ref = ref []
+let bonds_status_update_m = Mutex.create ()
+
+let add_bond_status bond links_up =
+	Mutex.execute bonds_status_update_m (fun _ ->
+		bonds_status_update := !bonds_status_update @ [(bond,links_up)]
+	)
+
+let xapi_rpc =
+	let open Xmlrpc_client in
+	XML_protocol.rpc ~http:(xmlrpc ~version:"1.0" "/")
+		~transport:(Unix (Filename.concat Fhs.vardir "xapi"))
+
+let send_bond_change_alert dev nb_links links_up nb_links_old links_up_old interfaces =
+	let ifaces = String.concat "+" (List.sort String.compare interfaces) in
+	let module XenAPI = Client.Client in
+	let session_id = XenAPI.Session.login_with_password
+		~rpc:xapi_rpc ~uname:"" ~pwd:"" ~version:"1.4" in
+	Pervasiveext.finally
+		(fun _ ->
+			let obj_uuid = Util_inventory.lookup Util_inventory._installation_uuid in
+			let body = Printf.sprintf
+				"The status of the %s bond changed: %d/%d up (was %d/%d)"
+				ifaces links_up nb_links links_up_old nb_links_old in
+			try
+				let (_: 'a Ref.t) = XenAPI.Message.create ~rpc:xapi_rpc ~session_id
+					~name:Api_messages.bond_status_changed ~priority:1L ~cls:`Host
+					~obj_uuid ~body in ()
+			with _ ->
+				warn "Exception sending a bond-status-change alert."
+		)
+		(fun _ -> XenAPI.Session.local_logout ~rpc:xapi_rpc ~session_id)
+
+let check_for_changes ~(dev : string) ~(stat : Network_monitor.iface_stats) =
+	let open Network_monitor in
+	match String.startswith "vif" dev with true -> () | false ->
+	if stat.nb_links > 1 then ( (* It is a bond. *)
+		if Hashtbl.mem bonds_status dev then ( (* Seen before. *)
+			let nb_links_old, links_up_old = Hashtbl.find bonds_status dev in
+			if links_up_old <> stat.links_up then (
+				info "Bonds status changed: %s nb_links %d up %d up_old %d" dev stat.nb_links
+				stat.links_up links_up_old;
+				send_bond_change_alert dev stat.nb_links stat.links_up nb_links_old
+					links_up_old stat.interfaces;
+				Hashtbl.replace bonds_status dev (stat.nb_links,stat.links_up);
+				add_bond_status dev stat.links_up
+			)
+		) else ( (* Seen for the first time. *)
+			info "New bonds status: %s nb_links %d up %d" dev stat.nb_links stat.links_up;
+			Hashtbl.add bonds_status dev (stat.nb_links,stat.links_up);
+			add_bond_status dev stat.links_up
+		)
+	)
 
 let failed_again = ref false
 
@@ -148,7 +204,10 @@ let rec monitor dbg () =
 						((if carrier then 1 else 0), [dev]))
 				in
 				let pci_bus_path = if List.length devs = 1 then Sysfs.get_pcibuspath dev else "" in
-				dev, {stat with carrier; speed; duplex; pci_bus_path; vendor_id; device_id; nb_links; links_up; interfaces}
+				let stat = {stat with carrier; speed; duplex; pci_bus_path; vendor_id;
+					device_id; nb_links; links_up; interfaces} in
+				check_for_changes ~dev ~stat;
+				dev, stat
 			end else
 				dev, stat
 		) (!devs);
@@ -169,16 +228,12 @@ let rec monitor dbg () =
 let watcher_m = Mutex.create ()
 let watcher_pid = ref None
 
-let xapirpc xml =
-	let open Xmlrpc_client in
-	XML_protocol.rpc ~transport:(Unix (Filename.concat Fhs.vardir "xapi")) ~http:(xmlrpc ~version:"1.0" "/") xml
-
 let signal_networking_change () =
 	let module XenAPI = Client.Client in
-	let session = XenAPI.Session.slave_local_login_with_password ~rpc:xapirpc ~uname:"" ~pwd:"" in
+	let session = XenAPI.Session.slave_local_login_with_password ~rpc:xapi_rpc ~uname:"" ~pwd:"" in
 	Pervasiveext.finally
-		(fun () -> XenAPI.Host.signal_networking_change xapirpc session)
-		(fun () -> XenAPI.Session.local_logout xapirpc session)
+		(fun () -> XenAPI.Host.signal_networking_change xapi_rpc session)
+		(fun () -> XenAPI.Session.local_logout xapi_rpc session)
 
 let ip_watcher () =
 	let cmd = Network_utils.iproute2 in
