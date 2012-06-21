@@ -29,9 +29,9 @@ let plugins : (sr, plugin) Hashtbl.t = Hashtbl.create 10
 let m = Mutex.create ()
 
 let debug_printer rpc call =
-	debug "Rpc.call = %s" (Xmlrpc.string_of_call call);
+	(* debug "Rpc.call = %s" (Xmlrpc.string_of_call call); *)
 	let result = rpc call in
-	debug "Rpc.response = %s" (Xmlrpc.string_of_response result);
+	(* debug "Rpc.response = %s" (Xmlrpc.string_of_response result); *)
 	result
 
 let register sr rpc d info =
