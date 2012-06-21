@@ -724,6 +724,7 @@ let unbind ~__context ~pbd =
 	let ty = Db.SR.get_type ~__context ~self:sr in
 
 	let sr = Db.SR.get_uuid ~__context ~self:sr in
+	info "SR %s will nolonger be implemented by VM %s" sr (Ref.string_of driver);
 	Storage_mux.unregister sr;
 
 	let service = make_service uuid ty in
