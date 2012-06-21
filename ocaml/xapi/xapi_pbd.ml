@@ -106,12 +106,15 @@ let check_sharing_constraint ~__context ~self =
 module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end)
 
 let plug ~__context ~self =
+	(* It's possible to end up with a PBD being plugged after "unbind" is
+	   called if SR.create races with a PBD.plug (see Storage_access.create_sr)
+	   Since "bind" is idempotent it is safe to always call it. *)
+	let query_result = Storage_access.bind ~__context ~pbd:self in
 	let currently_attached = Db.PBD.get_currently_attached ~__context ~self in
 		if not currently_attached then
 			begin
 				let sr = Db.PBD.get_SR ~__context ~self in
 				check_sharing_constraint ~__context ~self:sr;
-                let query_result = Storage_access.bind ~__context ~pbd:self in
 
 				let dbg = Ref.string_of (Context.get_task_id __context) in
 				let device_config = Db.PBD.get_device_config ~__context ~self in

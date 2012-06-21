@@ -17,6 +17,7 @@ open D
 
 type processor = Rpc.call -> Rpc.response
 
+open Threadext
 open Storage_interface
 
 type plugin = {
@@ -25,21 +26,34 @@ type plugin = {
 	query_result: query_result;
 }
 let plugins : (sr, plugin) Hashtbl.t = Hashtbl.create 10
+let m = Mutex.create ()
 
 let debug_printer rpc call =
-	debug "Rpc.call = %s" (Xmlrpc.string_of_call call);
+	(* debug "Rpc.call = %s" (Xmlrpc.string_of_call call); *)
 	let result = rpc call in
-	debug "Rpc.response = %s" (Xmlrpc.string_of_response result);
+	(* debug "Rpc.response = %s" (Xmlrpc.string_of_response result); *)
 	result
 
-let register sr m d info =
-	Hashtbl.replace plugins sr { processor = debug_printer m; backend_domain = d; query_result = info }
+let register sr rpc d info =
+	Mutex.execute m
+		(fun () ->
+			Hashtbl.replace plugins sr { processor = debug_printer rpc; backend_domain = d; query_result = info };
+			debug "register SR %s (currently-registered = [ %s ])" sr (String.concat ", " (Hashtbl.fold (fun sr _ acc -> sr :: acc) plugins []))
+		)
 
-let unregister sr = Hashtbl.remove plugins sr
+let unregister sr =
+	Mutex.execute m
+		(fun () ->
+			Hashtbl.remove plugins sr;
+			debug "unregister SR %s (currently-registered = [ %s ])" sr (String.concat ", " (Hashtbl.fold (fun sr _ acc -> sr :: acc) plugins []))
+		)
 
 let query_result_of_sr sr =
 	try
-		Some (Hashtbl.find plugins sr).query_result
+		Mutex.execute m
+			(fun () ->
+				Some (Hashtbl.find plugins sr).query_result
+			)
 	with _ -> None
 
 let capabilities_of_sr sr = Opt.default [] (Opt.map (fun x -> x.features) (query_result_of_sr sr))
@@ -48,10 +62,13 @@ exception No_storage_plugin_for_sr of string
 
 (* This is the policy: *)
 let of_sr sr =
-	if not (Hashtbl.mem plugins sr) then begin
-		error "No storage plugin for SR: %s" sr;
-		raise (No_storage_plugin_for_sr sr)
-	end else (Hashtbl.find plugins sr).processor
+	Mutex.execute m
+		(fun () ->
+			if not (Hashtbl.mem plugins sr) then begin
+				error "No storage plugin for SR: %s (currently-registered = [ %s ])" sr (String.concat ", " (Hashtbl.fold (fun sr _ acc -> sr :: acc) plugins []));
+				raise (No_storage_plugin_for_sr sr)
+			end else (Hashtbl.find plugins sr).processor
+		)
 
 open Fun
 
