@@ -1,6 +1,7 @@
 module D = Debug.Debugger(struct let name="rrdd_http_handler" end)
 open D
 
+open Hashtblext
 open Threadext
 open Rrdd_shared
 
@@ -51,11 +52,11 @@ let get_host_stats ?(json = false) ~(start : int64) ~(interval : int64)
 		~(cfopt : Rrd.cf_type option) ~(is_host : bool) ?(uuid : string option) () =
 	Mutex.execute mutex (fun () ->
 		let prefixandrrds =
-			let vmsandrrds = Hashtbl.fold (fun k v acc -> (k, v)::acc) vm_rrds [] in
+			let vmsandrrds = Hashtbl.to_list vm_rrds in
 			let vmsandrrds =
-			match uuid with
-			| None -> vmsandrrds
-			| Some uuid -> List.filter (fun (k, v) -> k = uuid) vmsandrrds
+				match uuid with
+				| None -> vmsandrrds
+				| Some uuid -> List.filter (fun (k, _) -> k = uuid) vmsandrrds
 			in
 			let vm_rrds = List.map (fun (k, v) -> "vm:" ^ k ^ ":", v.rrd) vmsandrrds in
 			if is_host then match !host_rrd with None -> vm_rrds | Some rrdi ->

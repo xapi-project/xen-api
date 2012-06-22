@@ -592,10 +592,14 @@ let monitor_loop () =
 
 (* Entry point. *)
 let _ =
+	(* Prevent shutdown due to sigpipe interrupt. This protects against
+	 * potential stunnel crashes. *)
+	Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
+
+	(* Enable the new logging library. *)
 	Debug.set_facility Syslog.Local5;
 	debug "Start.";
 
-	debug "Processing arguments ..";
 	let pidfile = ref "" in
 	let daemonize = ref false in
 	Arg.parse (Arg.align [
@@ -605,7 +609,6 @@ let _ =
 		])
 		(fun _ -> failwith "Invalid argument")
 		(Printf.sprintf "Usage: %s [-daemon] [-pidfile filename]" Rrdd_interface.name);
-	debug "Arguments processed.";
 
 	if !daemonize then (
 		debug "Daemonizing ..";
@@ -621,7 +624,7 @@ let _ =
 		Unixext.pidfile_write !pidfile;
 	end;
 
-	debug "Starting server ..";
+	debug "Starting the HTTP server ..";
 	start (Rrdd_interface.xmlrpc_path, Rrdd_interface.http_fwd_path) Server.process;
 
 	debug "Creating monitoring loop thread ..";
