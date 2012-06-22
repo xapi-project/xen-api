@@ -413,12 +413,20 @@ module SMAPIv1 = struct
 
         let destroy context ~dbg ~sr ~vdi =
             try
-                for_vdi ~dbg ~sr ~vdi "VDI.destroy"
-                    (fun device_config _type sr self ->
-                        Sm.vdi_delete device_config _type sr self
-                    );
-                Mutex.execute vdi_read_write_m
-                    (fun () -> Hashtbl.remove vdi_read_write (sr, vdi))
+				Server_helpers.exec_with_new_task "VDI.destroy" ~subtask_of:(Ref.of_string dbg)
+				(fun __context ->
+				let _, vdi_t = find_vdi __context sr vdi in
+				let vdi_info = SR.vdi_info_of_vdi_rec context vdi_t in
+				if List.mem_assoc "base_mirror" vdi_info.sm_config then
+					debug "%s is a base mirror VDI, it cannot be deleted" vdi_info.content_id
+				else begin
+					for_vdi ~dbg ~sr ~vdi "VDI.destroy"
+						(fun device_config _type sr self ->
+							Sm.vdi_delete device_config _type sr self
+						);
+					Mutex.execute vdi_read_write_m
+						(fun () -> Hashtbl.remove vdi_read_write (sr, vdi))
+				end)
             with 
 				| Api_errors.Server_error(code, params) ->
 					raise (Backend_error(code, params))
