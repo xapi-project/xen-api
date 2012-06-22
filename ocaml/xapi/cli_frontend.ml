@@ -1996,7 +1996,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       help="Migrate all VMs off a host.";
       implementation=No_fd Cli_operations.host_evacuate;
       flags=[];
-    };   
+    };
    "host-get-vms-which-prevent-evacuation",
     {
       reqd=["uuid"];
@@ -2005,14 +2005,6 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.host_get_vms_which_prevent_evacuation;
       flags=[];
     };
-   "host-get-uncooperative-vms",
-    {
-      reqd=["uuid"];
-      optn=[];
-      help="Return a list of VMs which are not co-operating with the memory control system.";
-      implementation=No_fd Cli_operations.host_get_uncooperative_vms;
-      flags=[];      
-    };
    "host-shutdown-agent",
     {
       reqd=[];
@@ -2020,7 +2012,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       help="Shut down the agent on the local host.";
       implementation=No_fd_local_session Cli_operations.host_shutdown_agent;
       flags=[Neverforward];
-    };   
+    };
    "diagnostic-compact",
     {
       reqd=[];

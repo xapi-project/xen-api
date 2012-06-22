@@ -168,8 +168,6 @@ val enable_binary_storage :
   __context:Context.t -> host:[ `host ] Ref.t -> unit
 val disable_binary_storage :
   __context:Context.t -> host:[ `host ] Ref.t -> unit
-val get_uncooperative_resident_VMs : __context:Context.t -> self:[`host] Ref.t -> 'a
-val get_uncooperative_domains : __context:Context.t -> self:[`host] Ref.t -> string list
 val certificate_install :
   __context:'a -> host:'b -> name:string -> cert:string -> unit
 val certificate_uninstall : __context:'a -> host:'b -> name:string -> unit

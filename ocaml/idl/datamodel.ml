@@ -1698,17 +1698,6 @@ let vm_wait_memory_target_live = call
 		Ref _vm, "self", "The VM";
 	] ()
 
-let vm_get_cooperative = call
-  ~name:"get_cooperative"
-  ~in_product_since:rel_midnight_ride
-  ~doc:"Return true if the VM is currently 'co-operative' i.e. is expected to reach a balloon target and actually has done"
-  ~params:[
-    Ref _vm, "self", "The VM";
-  ]
-  ~result:(Bool, "true if the VM is currently 'co-operative'; false otherwise")
-	~allowed_roles:_R_READ_ONLY
-  ()
-
 (* VM.StartOn *)
 
 let vm_start_on = call
@@ -2426,26 +2415,6 @@ let host_evacuate = call
   ~doc:"Migrate all VMs off of this host, where possible."
   ~params:[Ref _host, "host", "The host to evacuate"]
   ~allowed_roles:_R_POOL_OP
-  ()
-  
-let host_get_uncooperative_resident_VMs = call
-  ~in_product_since:rel_midnight_ride
-  ~name:"get_uncooperative_resident_VMs"
-  ~doc:"Return a set of VMs which are not co-operating with the host's memory control system"
-  ~params:[Ref _host, "self", "The host to query"]
-  ~result:((Set(Ref _vm)), "VMs which are not co-operating")
-  ~allowed_roles:_R_READ_ONLY
-  ()
-
-let host_get_uncooperative_domains = call
-  ~in_product_since:rel_midnight_ride
-  ~name:"get_uncooperative_domains"
-  ~doc:"Return the set of domain uuids which are not co-operating with the host's memory control system"
-  ~params:[Ref _host, "self", "The host to query"]
-  ~result:((Set(String)), "UUIDs of domains which are not co-operating")
-  ~pool_internal:true
-  ~hide_from_docs:true
-  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
 let host_retrieve_wlb_evacuate_recommendations = call
@@ -4028,8 +3997,6 @@ let host =
 		 host_forget_data_source_archives;
 		 host_assert_can_evacuate;
 		 host_get_vms_which_prevent_evacuation;
-		 host_get_uncooperative_resident_VMs;
-		 host_get_uncooperative_domains;
 		 host_evacuate;
 		 host_signal_networking_change;
 		 host_notify;
@@ -6382,7 +6349,6 @@ let vm_operations =
 	    "changing_dynamic_range", "Changing the memory dynamic range";
 	    "changing_static_range", "Changing the memory static range";
 	    "changing_memory_limits", "Changing the memory limits";
-	    "get_cooperative", "Querying the co-operativeness of the VM";
 	    "changing_shadow_memory", "Changing the shadow memory for a halted VM.";
 	    "changing_shadow_memory_live", "Changing the shadow memory for a running VM.";
 	    "changing_VCPUs", "Changing VCPU settings for a halted VM.";
@@ -6406,9 +6372,9 @@ let vm =
       ~messages_default_allowed_roles:_R_VM_ADMIN
       ~messages:[ vm_snapshot; vm_snapshot_with_quiesce; vm_clone; vm_copy; vm_revert; vm_checkpoint;
 		vm_provision; vm_start; vm_start_on; vm_pause; vm_unpause; vm_cleanShutdown;
-		vm_cleanReboot; vm_hardShutdown; vm_stateReset; vm_hardReboot; vm_suspend; csvm; vm_resume; 
+		vm_cleanReboot; vm_hardShutdown; vm_stateReset; vm_hardReboot; vm_suspend; csvm; vm_resume;
 		vm_hardReboot_internal;
-		vm_resume_on; 
+		vm_resume_on;
 		vm_pool_migrate; vm_pool_migrate_complete;
 		set_vcpus_number_live;
 		vm_add_to_VCPUs_params_live;
@@ -6424,7 +6390,6 @@ let vm =
 		vm_set_memory_limits;
 		vm_set_memory_target_live;
 		vm_wait_memory_target_live;
-		vm_get_cooperative;
 		vm_set_HVM_shadow_multiplier;
 		vm_set_shadow_multiplier_live;
 		vm_set_VCPUs_max;

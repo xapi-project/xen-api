@@ -178,7 +178,6 @@ val set_memory_dynamic_range :
 val set_memory_target_live :
   __context:'a -> self:API.ref_VM -> target:'b -> unit
 val wait_memory_target_live : __context:Context.t -> self:API.ref_VM -> unit
-val get_cooperative : __context:Context.t -> self:[ `VM ] Ref.t -> bool
 val set_HVM_shadow_multiplier :
   __context:Context.t -> self:[ `VM ] Ref.t -> value:float -> unit
 val set_shadow_multiplier_live :
