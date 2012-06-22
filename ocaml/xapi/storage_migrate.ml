@@ -397,6 +397,7 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 		debug "Destroying dummy VDI %s on remote" result.Mirror.dummy_vdi;
 		Remote.VDI.destroy ~dbg ~sr:dest ~vdi:result.Mirror.dummy_vdi;
 		debug "Destroying snapshot %s on src" snapshot.vdi;
+		Local.VDI.remove_from_sm_config ~dbg ~sr ~vdi:snapshot.vdi ~key:"base_mirror";
 		Local.VDI.destroy ~dbg ~sr ~vdi:snapshot.vdi;
 
 		Some (Mirror_id id)
@@ -452,6 +453,10 @@ let list ~dbg =
 	List.map (fun id ->
 		(id,stat dbg id)) ids
 
+let local_destroy ~dbg ~sr ~vdi =
+	Local.VDI.remove_from_sm_config ~dbg ~sr ~vdi ~key:"base_mirror";
+	Local.VDI.destroy ~dbg ~sr ~vdi
+	
 let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
 	let on_fail : (unit -> unit) list ref = ref [] in
 
@@ -463,9 +468,9 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
 		let vdi_info = { vdi_info with sm_config = ["base_mirror", id] } in
 		let leaf = Local.VDI.create ~dbg ~sr ~vdi_info in
 		info "Created leaf VDI for mirror receive: %s" (string_of_vdi_info leaf);
-		on_fail := (fun () -> Local.VDI.destroy ~dbg ~sr ~vdi:leaf.vdi) :: !on_fail;
+		on_fail := (fun () -> local_destroy ~dbg ~sr ~vdi:leaf.vdi) :: !on_fail;
 		let dummy = Local.VDI.snapshot ~dbg ~sr ~vdi_info:leaf in
-		on_fail := (fun () -> Local.VDI.destroy ~dbg ~sr ~vdi:dummy.vdi) :: !on_fail;
+		on_fail := (fun () -> local_destroy ~dbg ~sr ~vdi:dummy.vdi) :: !on_fail;
 		debug "Created dummy snapshot for mirror receive: %s" (string_of_vdi_info dummy);
 		
 		let _ = Local.VDI.attach ~dbg ~dp:leaf_dp ~sr ~vdi:leaf.vdi ~read_write:true in
