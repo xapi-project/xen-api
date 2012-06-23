@@ -165,7 +165,6 @@ let api =
 	      inputs = [
 		sr;
 		vdi_info';
-		params;
 	      ];
 	      outputs = [
 		{ Arg.name = "new_vdi";
@@ -179,7 +178,6 @@ let api =
 	      inputs = [
 		sr;
 		vdi_info';
-		params;
 	      ];
 	      outputs = [
 		{ Arg.name = "new_vdi";
@@ -193,7 +191,6 @@ let api =
 	      inputs = [
 		sr;
 		vdi_info';
-		params;
 	      ];
 	      outputs = [
 		{ Arg.name = "new_vdi";
