@@ -16,6 +16,7 @@ let api =
 	"virtual_size", Basic Int64, "Size of the VDI from the perspective of a VM (in bytes)";
 	"physical_utilisation", Basic Int64, "Amount of space currently being consumed on the physical storage media";
 	"persistent", Basic Boolean, "If true then disk modifications are preserved over VM reboot and shutdown";
+	"sm_config", Dict(String, Basic String), "Backend-specific parameters";
       ]
     )) in
   let sr = {
