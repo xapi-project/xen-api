@@ -208,7 +208,8 @@ data/ files are referenced directly by a metadata/ file.
 
         stem = self.path + "/" + data_dir + "/" + data
         virtual_size = long(vdi_info["virtual_size"])
-        if "type" in vdi_info.sm_config and vdi_info.sm_config["type"] == "raw":
+        sm_config = vdi_info["sm_config"]
+        if "type" in sm_config and sm_config["type"] == "raw":
             f = open(stem + raw_suffix, "wc")
             try:
                 f.truncate(virtual_size)
@@ -277,9 +278,10 @@ data/ files are referenced directly by a metadata/ file.
         # XXX vdi_info["snapshot_time"]
         # ... but we also re-open any active tapdisks
         if old_leaf in self.tapdisks:
+            sm_config = vdi_info["sm_config"]
             tapdisk = self.tapdisks[old_leaf]
-            if "mirror" in vdi_info.sm_config:
-                tapdisk.mirror = vdi_info.sm_config["mirror"]
+            if "mirror" in sm_config:
+                tapdisk.mirror = sm_config["mirror"]
             else:
                 tapdisk.mirror = None
             # Find the new vhd leaf
