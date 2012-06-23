@@ -199,7 +199,7 @@ data/ files are referenced directly by a metadata/ file.
         finally:
             f.close()
 
-    def create(self, vdi_info, params):
+    def create(self, vdi_info):
         vdi = self.make_fresh_metadata_name(vdi_info)
         vdi_info["vdi"] = vdi
 
@@ -208,7 +208,7 @@ data/ files are referenced directly by a metadata/ file.
 
         stem = self.path + "/" + data_dir + "/" + data
         virtual_size = long(vdi_info["virtual_size"])
-        if "type" in params and params["type"] == "raw":
+        if "type" in vdi_info.sm_config and vdi_info.sm_config["type"] == "raw":
             f = open(stem + raw_suffix, "wc")
             try:
                 f.truncate(virtual_size)
@@ -238,7 +238,7 @@ data/ files are referenced directly by a metadata/ file.
         del self.metadata[vdi]
         self.gc()
 
-    def clone(self, vdi, vdi_info, params):
+    def clone(self, vdi, vdi_info):
         parent = self.data_path_of_vdi(vdi)
 
         # Create two vhd leaves whose parent is [vdi]
@@ -266,20 +266,20 @@ data/ files are referenced directly by a metadata/ file.
 
         return vdi_info
 
-    def snapshot(self, vdi, vdi_info, params):
+    def snapshot(self, vdi, vdi_info):
         # Before modifying the vhd-tree, take a note of the
         # currently-active leaf so we can find its tapdisk later
         old_leaf = self.metadata[vdi]["data"]
 
         # The vhd-tree manipulation is the same as clone...
-        vdi_info = self.clone(vdi, vdi_info, params)
+        vdi_info = self.clone(vdi, vdi_info)
         vdi_info["snapshot_of"] = vdi
         # XXX vdi_info["snapshot_time"]
         # ... but we also re-open any active tapdisks
         if old_leaf in self.tapdisks:
             tapdisk = self.tapdisks[old_leaf]
-            if "mirror" in params:
-                tapdisk.mirror = params["mirror"]
+            if "mirror" in vdi_info.sm_config:
+                tapdisk.mirror = vdi_info.sm_config["mirror"]
             else:
                 tapdisk.mirror = None
             # Find the new vhd leaf
@@ -593,21 +593,21 @@ class VDI(VDI_skeleton):
     def __init__(self):
         VDI_skeleton.__init__(self)
 
-    def create(self, dbg, sr, vdi_info, params):
+    def create(self, dbg, sr, vdi_info):
         if not sr in repos:
             raise Sr_not_attached(sr)
-        return repos[sr].create(vdi_info, params)
+        return repos[sr].create(vdi_info)
 
-    def clone(self, dbg, sr, vdi, vdi_info, params):
+    def clone(self, dbg, sr, vdi, vdi_info):
         """Create a writable clone of a VDI"""
         if not sr in repos:
             raise Sr_not_attached(sr)
-        return repos[sr].clone(vdi, vdi_info, params)
-    def snapshot(self, dbg, sr, vdi, vdi_info, params):
+        return repos[sr].clone(vdi, vdi_info)
+    def snapshot(self, dbg, sr, vdi, vdi_info):
         """Create a read/only snapshot of a VDI"""
         if not sr in repos:
             raise Sr_not_attached(sr)
-        return repos[sr].snapshot(vdi, vdi_info, params)
+        return repos[sr].snapshot(vdi, vdi_info)
     def destroy(self, dbg, sr, vdi):
         if not sr in repos:
             raise Sr_not_attached(sr)
