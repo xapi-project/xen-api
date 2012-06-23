@@ -4,8 +4,7 @@ let api =
   let vdi_info =
     Type.(Struct(
       ( "vdi", Name "vdi", "The unique id of this VDI" ),
-      [ "sr", Name "sr", "The SR containing this VDI";
-	"content_id", Name "content_id", "The unique id of the VDI contents. If two VDIs have the same content_id then they must have the same data inside";
+      [ "content_id", Name "content_id", "The unique id of the VDI contents. If two VDIs have the same content_id then they must have the same data inside";
 	"name_label", Basic String, "Human-readable name of the VDI";
 	"name_description", Basic String, "Human-readable description of the VDI";
 	"ty", Basic String, "Used by a toolstack to remember why a VDI was created";
