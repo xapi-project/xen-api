@@ -2018,11 +2018,11 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     };
    "host-evacuate",
     {
-      reqd=["uuid"];
+      reqd=[];
       optn=[];
       help="Migrate all VMs off a host.";
       implementation=No_fd Cli_operations.host_evacuate;
-      flags=[];
+      flags=[Host_selectors];
     };   
    "host-get-vms-which-prevent-evacuation",
     {
