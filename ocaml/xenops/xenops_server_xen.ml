@@ -719,6 +719,7 @@ module VM = struct
 							"domid", string_of_int di.Xenctrl.domid;
 							"vm", "/vm/" ^ vm.Vm.id;
 							"memory/dynamic-min", Int64.(to_string (div vm.Vm.memory_dynamic_min 1024L));
+							"memory/target", Int64.(to_string (div vm.Vm.memory_dynamic_min 1024L));
 							"memory/dynamic-max", Int64.(to_string (div vm.Vm.memory_dynamic_max 1024L))
 						] |> List.map (fun (k, v) -> Printf.sprintf "/local/domain/%d/%s" di.Xenctrl.domid k, v) in
 						let minimal_vm_kvs = [
