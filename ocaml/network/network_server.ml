@@ -651,8 +651,13 @@ module Bridge = struct
 					List.iter (fun name -> Interface.bring_up () dbg ~name) interfaces
 				end;
 				if List.mem bridge !add_default then begin
-					add_default_flows () dbg bridge mac interfaces;
-					add_default := List.filter ((<>) bridge) !add_default
+					let mac' = if mac = "" then try Ip.get_mac name with _ -> "" else mac in
+					if mac' <> "" then begin
+						add_default_flows () dbg bridge mac' interfaces;
+						add_default := List.filter ((<>) bridge) !add_default
+					end else
+						warn "Could not add default flows for port %s on bridge %s because no MAC address was specified"
+							name bridge
 				end
 			| Bridge ->
 				if List.length interfaces = 1 then begin
