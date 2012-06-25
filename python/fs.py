@@ -600,16 +600,16 @@ class VDI(VDI_skeleton):
             raise Sr_not_attached(sr)
         return repos[sr].create(vdi_info)
 
-    def clone(self, dbg, sr, vdi, vdi_info):
+    def clone(self, dbg, sr, vdi_info):
         """Create a writable clone of a VDI"""
         if not sr in repos:
             raise Sr_not_attached(sr)
-        return repos[sr].clone(vdi, vdi_info)
-    def snapshot(self, dbg, sr, vdi, vdi_info):
+        return repos[sr].clone(vdi_info["vdi"], vdi_info)
+    def snapshot(self, dbg, sr, vdi_info):
         """Create a read/only snapshot of a VDI"""
         if not sr in repos:
             raise Sr_not_attached(sr)
-        return repos[sr].snapshot(vdi, vdi_info)
+        return repos[sr].snapshot(vdi_info["vdi"], vdi_info)
     def destroy(self, dbg, sr, vdi):
         if not sr in repos:
             raise Sr_not_attached(sr)
