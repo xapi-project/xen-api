@@ -175,7 +175,7 @@ let api =
 	      ];
 	    }; {
 	      Method.name = "snapshot";
-	      description = "[snapshot task sr vdi_info params] creates a new VDI which is a snapshot of [vdi_info.vdi] in [sr]";
+	      description = "[snapshot task sr vdi_info] creates a new VDI which is a snapshot of [vdi_info.vdi] in [sr]";
 	      inputs = [
 		sr;
 		vdi_info';
@@ -188,7 +188,7 @@ let api =
 	      ];
 	    }; {
 	      Method.name = "clone";
-	      description = "[clone task sr vdi_info params] creates a new VDI which is a clone of [vdi_info.vdi] in [sr]";
+	      description = "[clone task sr vdi_info] creates a new VDI which is a clone of [vdi_info.vdi] in [sr]";
 	      inputs = [
 		sr;
 		vdi_info';
