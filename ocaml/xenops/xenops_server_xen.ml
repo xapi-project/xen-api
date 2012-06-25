@@ -937,7 +937,7 @@ module VM = struct
 				} in
 			let bridge_of_network = function
 				| Network.Local b -> b
-				| Network.Remote (_, _) -> failwith "Need to create a VIF frontend" in
+				| Network.Remote (_, b) -> b (* failwith "Need to create a VIF frontend" *) in
 			let nics = List.map (fun vif ->
 				vif.Vif.mac,
 				bridge_of_network vif.Vif.backend,
@@ -1898,7 +1898,8 @@ module VIF = struct
 							Device.Vif.add ~xs ~devid:vif.position
 								~netty:(match vif.backend with
 									| Network.Local x -> Netman.Vswitch x
-									| Network.Remote (_, _) -> raise (Unimplemented "network driver domains"))
+									| Network.Remote (_, x) -> Netman.Vswitch x)
+										(* raise (Unimplemented "network driver domains")) *)
 								~mac:vif.mac ~carrier:vif.carrier ~mtu:vif.mtu
 								~rate:vif.rate ~backend_domid
 								~other_config:vif.other_config
