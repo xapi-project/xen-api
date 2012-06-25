@@ -233,8 +233,8 @@ let cd_guest_verified (cli : Util.t_cli) vmid =
   log Info "Test: VM NAME='%s'" domainname;
   log Info "Test: Testing CD operations";
   ensure_vm_down cli vmid 0;
-  let cd1 = ("xs-tools.iso",get_vdi_uuid_from_name cli "xs-tools.iso","2","xensetup.exe") in
-  let cd2 = ("xs-tools.iso",get_vdi_uuid_from_name cli "xs-tools.iso","3","xensetup.exe") in
+  let cd1 = ("xs-tools.iso",get_vdi_uuid_from_name cli "xs-tools.iso","2","xenlegacy.exe") in
+  let cd2 = ("xs-tools.iso",get_vdi_uuid_from_name cli "xs-tools.iso","3","xenlegacy.exe") in
 
   let checkcdset cdset =
     let missingcds = List.filter (fun (name,uuid,device,file) -> uuid="") cdset in
