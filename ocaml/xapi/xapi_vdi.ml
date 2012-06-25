@@ -589,6 +589,7 @@ let pool_migrate ~__context ~vdi ~sr ~options =
 		| (net,_)::_ -> net
 		| _ -> raise (Api_errors.Server_error(Api_errors.host_has_no_management_ip, []))
 	in
+	TaskHelper.set_cancellable ~__context;
 	Helpers.call_api_functions ~__context (fun rpc session_id -> 
 		let token = Client.Host.migrate_receive ~rpc ~session_id ~host:localhost ~network ~options in
 		let task = Client.Async.VM.migrate_send rpc session_id vm token true [ vdi, sr ] [] [] in
