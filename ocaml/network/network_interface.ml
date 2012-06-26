@@ -92,7 +92,7 @@ type interface_config_t = {
 type port_config_t = {
 	interfaces: iface list;
 	bond_properties: (string * string) list;
-	mac: string;
+	bond_mac: string option;
 }
 type bridge_config_t = {
 	ports: (port * port_config_t) list;
@@ -132,7 +132,7 @@ let default_bridge = {
 let default_port = {
 	interfaces = [];
 	bond_properties = [];
-	mac = "";
+	bond_mac = None;
 }
 
 (** {2 Configuration manipulation} *)
@@ -211,7 +211,7 @@ module Bridge = struct
 	external is_persistent : debug_info -> name:bridge -> bool = ""
 	external set_persistent : debug_info -> name:bridge -> value:bool -> unit = ""
 	external get_vlan : debug_info -> name:bridge -> (bridge * int) option = ""
-	external add_port : debug_info -> ?mac:string -> bridge:bridge -> name:port -> interfaces:iface list ->
+	external add_port : debug_info -> ?bond_mac:string -> bridge:bridge -> name:port -> interfaces:iface list ->
 		?bond_properties:(string * string) list -> unit -> unit = ""
 	external remove_port : debug_info -> bridge:bridge -> name:port -> unit = ""
 	external get_interfaces : debug_info -> name:bridge -> iface list = ""
