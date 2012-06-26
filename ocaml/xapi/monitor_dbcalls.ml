@@ -195,9 +195,12 @@ module StringSet = Set.Make(String)
 
 let pifs_cached : Monitor_types.pif list ref = ref []
 let vm_memory_cached : (string * Int64.t) list ref = ref []
+let host_memory_free_cached : Int64.t ref = ref Int64.zero
+let host_memory_total_cached : Int64.t ref = ref Int64.zero
 
-let changed_vm_memory : (string * Int64.t) list ref = ref []
 let changed_pifs_names = ref StringSet.empty
+let changed_vm_memory : (string * Int64.t) list ref = ref []
+let host_memory_changed : bool ref = ref false
 
 let bonds_links_up : (string * int) list ref = ref []
 
@@ -205,6 +208,17 @@ let value_to_int64 = function
 	| Rrd.VT_Int64 x -> x
 	| Rrd.VT_Float x -> Int64.of_float x
 	| Rrd.VT_Unknown -> failwith "No last value!"
+
+let read_host_memory xc =
+	let physinfo = Xenctrl.physinfo xc in
+	let free_kib =
+		Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.Phys_info.free_pages) in
+	let total_kib =
+		Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.Phys_info.total_pages) in
+	host_memory_changed :=
+		!host_memory_free_cached <> free_kib || !host_memory_total_cached <> total_kib;
+	host_memory_free_cached := free_kib;
+	host_memory_total_cached := total_kib
 
 let read_vm_memory xc =
 	let domains = Xenctrl.domain_getinfolist xc 0 in
@@ -282,31 +296,19 @@ let pifs_and_memory_update_fn xc =
 			let pifs = List.filter has_pif_changed !pifs_cached in
 			let bonds = !bonds_links_up in
 			(* Host memory. *)
-			let host_memories = None in
-(*
-				if !dirty_host_memory then begin
-					try
-						match !host_rrd with None -> None | Some rrdi ->
-						let ds_values = Rrd.get_last_ds_values rrdi.rrd in
-						try
-							let bytes_of_kib x = Int64.shift_left x 10 in
-							let memory_free = value_to_int64 (List.assoc "memory_free_kib" ds_values) in
-							let memory_tot = value_to_int64 (List.assoc "memory_total_kib" ds_values) in
-							Some (bytes_of_kib memory_free, bytes_of_kib memory_tot)
-						with _ -> None
-					with e ->
-						error "Unexpected exn in host computation: %s" (Printexc.to_string e);
-						log_backtrace();
-						raise e
-				end else None
+			read_host_memory xc;
+			let host_memories =
+				let bytes_of_kib x = Int64.shift_left x 10 in
+				match !host_memory_changed with
+				| false -> None
+				| true -> Some (bytes_of_kib !host_memory_free_cached, bytes_of_kib !host_memory_total_cached)
 			in
-*)
 			memories, host_memories, pifs, bonds
 		) (fun _ ->
 			changed_pifs_names := StringSet.empty;
 			bonds_links_up := [];
-			(* dirty_memory := StringSet.empty; *)
-			(* dirty_host_memory := false; *)
+			changed_vm_memory := [];
+			host_memory_changed := false;
 		) in
 		(* This is the bit that might block for some time, but by now we've released the mutex *)
 		Server_helpers.exec_with_new_task "updating VM_metrics.memory_actual fields and PIFs"
@@ -332,6 +334,7 @@ let pifs_and_memory_update_fn xc =
 						~value:(Int64.of_int links_up)
 			) bonds;
 			match host_memories with None -> () | Some (free, total) ->
+			debug "monitor_dbcall_thread: updating host memory to %s and %s" (Int64.to_string free) (Int64.to_string total);
 			let metrics = Db.Host.get_metrics ~__context ~self:localhost in
 			Db.Host_metrics.set_memory_total ~__context ~self:metrics ~value:total;
 			Db.Host_metrics.set_memory_free ~__context ~self:metrics ~value:free
