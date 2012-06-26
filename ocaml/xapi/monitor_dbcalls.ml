@@ -200,7 +200,6 @@ let vm_memory_cached : (string, Int64.t) Hashtbl.t ref = ref (Hashtbl.create 0)
 let host_memory_free_cached : Int64.t ref = ref Int64.zero
 let host_memory_total_cached : Int64.t ref = ref Int64.zero
 
-let changed_pifs_names = ref StringSet.empty
 let host_memory_changed : bool ref = ref false
 
 let value_to_int64 = function
@@ -240,7 +239,7 @@ let get_changed_vm_memory xc =
 	vm_memory_cached := vm_memory;
 	changed_vm_memory
 
-let read_pifs_and_bonds () =
+let get_changed_pifs_and_bonds () =
 	(* Read fresh PIF information from networkd. *)
 	let open Network_monitor in
 	let stats = read_stats () in
@@ -276,15 +275,15 @@ let read_pifs_and_bonds () =
 		) bonds_links_up [] in
 	bonds_links_up_cached := bonds_links_up;
 	(* Check if any of the PIFs have changed since our last reading. *)
-	Hashtbl.iter (fun pif_name pif ->
-		let changed =
-			try pif <> Hashtbl.find !pifs_cached pif_name with Not_found -> true in
-		if changed then
-			changed_pifs_names := StringSet.add pif_name !changed_pifs_names
-	) pifs;
-	(* Store PIFs just read into in-memory cache. *)
+	let pifs_changed =
+		Hashtbl.fold (fun pif_name pif acc ->
+			let changed =
+				try pif <> Hashtbl.find !pifs_cached pif_name with Not_found -> true in
+			if changed then pif::acc else acc
+		) pifs [] in
 	pifs_cached := pifs;
-	bonds_links_up_changed
+	(* Return lists of changes. *)
+	bonds_links_up_changed, pifs_changed
 
 (* This function updates the database for all the slowly changing properties
  * of host memory, VM memory, PIFs, and bonds.
@@ -295,10 +294,7 @@ let pifs_and_memory_update_fn xc =
 			(* VM memory. *)
 			let memories = get_changed_vm_memory xc in
 			(* PIFs and bonds. *)
-			let bonds = read_pifs_and_bonds () in
-			let find_changed_pifs pif_name pif acc =
-				if StringSet.mem pif_name !changed_pifs_names then pif::acc else acc in
-			let pifs = Hashtbl.fold find_changed_pifs !pifs_cached [] in
+			let bonds, pifs = get_changed_pifs_and_bonds () in
 			(* Host memory. *)
 			read_host_memory xc;
 			let host_memories =
@@ -309,7 +305,6 @@ let pifs_and_memory_update_fn xc =
 			in
 			memories, host_memories, pifs, bonds
 		) (fun _ ->
-			changed_pifs_names := StringSet.empty;
 			host_memory_changed := false;
 		) in
 		(* This is the bit that might block for some time, but by now we've released the mutex *)
