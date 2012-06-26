@@ -232,7 +232,8 @@ let update_memory xc doms =
 				)
 			with _ -> None
 		in
-		main_mem_ds :: (Opt.to_list other_ds) @ (Opt.to_list mem_target_ds) @ acc) [] doms
+		main_mem_ds :: (Opt.to_list other_ds) @ (Opt.to_list mem_target_ds) @ acc
+	) [] doms
 
 let update_loadavg () =
 	Host, ds_make ~name:"loadavg"
