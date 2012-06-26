@@ -599,24 +599,26 @@ let handler req fd _ =
 			debug "overhead_bytes = %Ld; free_memory_required = %Ld KiB" overhead_bytes free_memory_required_kib;
 
 			let dbg = Context.string_of_task __context in
-			Xapi_xenops.transform_xenops_exn ~__context (fun () ->
-				Xapi_xenops.with_metadata_pushed_to_xenopsd ~__context ~upgrade:true ~self:vm (fun id ->
-					info "xenops: VM.receive_memory %s" id;
-					let uri = Printf.sprintf "/services/xenops/memory/%s" id in
-					let memory_limit = free_memory_required_kib |> Memory.bytes_of_kib |> Int64.to_string in
-					let req = Http.Request.make ~cookie:["dbg", dbg; "instance_id", "upgrade"; "memory_limit", memory_limit]
-						~user_agent:"xapi" Http.Put uri in
-					let path = "/var/xapi/xenopsd.forwarded" in
-					let response = Xapi_services.hand_over_connection req fd path in
-					match response with
-					| Some task ->
-						let open Xenops_client in
-						task |> wait_for_task dbg |> success_task dbg |> ignore
-					| None ->
-						debug "We did not get a task id to wait for!!"
-				) (* VM.resident_on is automatically set here *)
+			Xapi_xenops.with_networks_attached ~__context ~self:vm (fun () ->
+				Xapi_xenops.transform_xenops_exn ~__context (fun () ->
+					Xapi_xenops.with_metadata_pushed_to_xenopsd ~__context ~upgrade:true ~self:vm (fun id ->
+						info "xenops: VM.receive_memory %s" id;
+						let uri = Printf.sprintf "/services/xenops/memory/%s" id in
+						let memory_limit = free_memory_required_kib |> Memory.bytes_of_kib |> Int64.to_string in
+						let req = Http.Request.make ~cookie:["dbg", dbg; "instance_id", "upgrade"; "memory_limit", memory_limit]
+							~user_agent:"xapi" Http.Put uri in
+						let path = "/var/xapi/xenopsd.forwarded" in
+						let response = Xapi_services.hand_over_connection req fd path in
+						match response with
+						| Some task ->
+							let open Xenops_client in
+							task |> wait_for_task dbg |> success_task dbg |> ignore
+						| None ->
+							debug "We did not get a task id to wait for!!"
+					) (* VM.resident_on is automatically set here *)
+				)
 			);
-			
+
 			(* We will have missed important events because we set resident_on late.
 			   This was deliberate: resident_on is used by the pool master to reserve
 			   memory. If we called 'atomic_set_resident_on' before the domain is
