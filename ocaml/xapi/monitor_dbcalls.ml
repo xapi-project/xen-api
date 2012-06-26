@@ -205,7 +205,7 @@ let value_to_int64 = function
 	| Rrd.VT_Float x -> Int64.of_float x
 	| Rrd.VT_Unknown -> failwith "No last value!"
 
-let get_host_memory_changed xc =
+let get_host_memory_changes xc =
 	let physinfo = Xenctrl.physinfo xc in
 	let free_kib =
 		Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.Phys_info.free_pages) in
@@ -220,7 +220,7 @@ let get_host_memory_changed xc =
 	| false -> None
 	| true -> Some (bytes_of_kib !host_memory_free_cached, bytes_of_kib !host_memory_total_cached)
 
-let get_changed_vm_memory xc =
+let get_vm_memory_changes xc =
 	let domains = Xenctrl.domain_getinfolist xc 0 in
 	let vm_memory = Hashtbl.create 0 in
 	let process_vm dom =
@@ -241,7 +241,7 @@ let get_changed_vm_memory xc =
 	vm_memory_cached := vm_memory;
 	changed_vm_memory
 
-let get_changed_pifs_and_bonds () =
+let get_pif_and_bond_changes () =
 	(* Read fresh PIF information from networkd. *)
 	let open Network_monitor in
 	let stats = read_stats () in
@@ -268,7 +268,7 @@ let get_changed_pifs_and_bonds () =
 		)
 	) stats;
 	(* Check if any of the bonds have changed since our last reading. *)
-	let bonds_links_up_changed =
+	let bond_changes =
 		Hashtbl.fold (fun dev links_up acc ->
 			let changed =
 				try links_up <> Hashtbl.find !bonds_links_up_cached dev
@@ -277,7 +277,7 @@ let get_changed_pifs_and_bonds () =
 		) bonds_links_up [] in
 	bonds_links_up_cached := bonds_links_up;
 	(* Check if any of the PIFs have changed since our last reading. *)
-	let pifs_changed =
+	let pif_changes =
 		Hashtbl.fold (fun pif_name pif acc ->
 			let changed =
 				try pif <> Hashtbl.find !pifs_cached pif_name with Not_found -> true in
@@ -285,51 +285,42 @@ let get_changed_pifs_and_bonds () =
 		) pifs [] in
 	pifs_cached := pifs;
 	(* Return lists of changes. *)
-	bonds_links_up_changed, pifs_changed
+	pif_changes, bond_changes
 
 (* This function updates the database for all the slowly changing properties
  * of host memory, VM memory, PIFs, and bonds.
  *)
 let pifs_and_memory_update_fn xc =
-	let memories, host_memories, pifs, bonds =
-		Pervasiveext.finally (fun _ ->
-			(* VM memory. *)
-			let memories = get_changed_vm_memory xc in
-			(* PIFs and bonds. *)
-			let bonds, pifs = get_changed_pifs_and_bonds () in
-			(* Host memory. *)
-			let host_memories = get_host_memory_changed xc in
-			memories, host_memories, pifs, bonds
-		) (fun _ -> ()
-		) in
-		(* This is the bit that might block for some time, but by now we've released the mutex *)
-		Server_helpers.exec_with_new_task "updating VM_metrics.memory_actual fields and PIFs"
-		(fun __context ->
-			let host = Helpers.get_localhost ~__context in
-			List.iter (fun (uuid, memory) ->
-				let vm = Db.VM.get_by_uuid ~__context ~uuid in
-				let vmm = Db.VM.get_metrics ~__context ~self:vm in
-				Db.VM_metrics.set_memory_actual ~__context ~self:vmm ~value:memory
-			) memories;
-			Monitor_master.update_pifs ~__context host pifs;
-			let localhost = Helpers.get_localhost ~__context in
-			List.iter (fun (bond, links_up) ->
-				let my_bond_pifs = Db.PIF.get_records_where ~__context
-					~expr:(And (And (Eq (Field "host", Literal (Ref.string_of localhost)),
-						Not (Eq (Field "bond_master_of", Literal "()"))),
-						Eq(Field "device", Literal bond))) in
-				let my_bonds = List.map (fun (_, pif) -> List.hd pif.API.pIF_bond_master_of) my_bond_pifs in
-				if (List.length my_bonds) <> 1 then
-					debug "Error: bond %s cannot be found" bond
-				else
-					Db.Bond.set_links_up ~__context ~self:(List.hd my_bonds)
-						~value:(Int64.of_int links_up)
-			) bonds;
-			match host_memories with None -> () | Some (free, total) ->
-			let metrics = Db.Host.get_metrics ~__context ~self:localhost in
-			Db.Host_metrics.set_memory_total ~__context ~self:metrics ~value:total;
-			Db.Host_metrics.set_memory_free ~__context ~self:metrics ~value:free
-		)
+	let host_memory_changes = get_host_memory_changes xc in
+	let vm_memory_changes = get_vm_memory_changes xc in
+	let pif_changes, bond_changes = get_pif_and_bond_changes () in
+	Server_helpers.exec_with_new_task "updating VM_metrics.memory_actual fields and PIFs"
+	(fun __context ->
+		let host = Helpers.get_localhost ~__context in
+		List.iter (fun (uuid, memory) ->
+			let vm = Db.VM.get_by_uuid ~__context ~uuid in
+			let vmm = Db.VM.get_metrics ~__context ~self:vm in
+			Db.VM_metrics.set_memory_actual ~__context ~self:vmm ~value:memory
+		) vm_memory_changes;
+		Monitor_master.update_pifs ~__context host pif_changes;
+		let localhost = Helpers.get_localhost ~__context in
+		List.iter (fun (bond, links_up) ->
+			let my_bond_pifs = Db.PIF.get_records_where ~__context
+				~expr:(And (And (Eq (Field "host", Literal (Ref.string_of localhost)),
+					Not (Eq (Field "bond_master_of", Literal "()"))),
+					Eq(Field "device", Literal bond))) in
+			let my_bonds = List.map (fun (_, pif) -> List.hd pif.API.pIF_bond_master_of) my_bond_pifs in
+			if (List.length my_bonds) <> 1 then
+				debug "Error: bond %s cannot be found" bond
+			else
+				Db.Bond.set_links_up ~__context ~self:(List.hd my_bonds)
+					~value:(Int64.of_int links_up)
+		) bond_changes;
+		match host_memory_changes with None -> () | Some (free, total) ->
+		let metrics = Db.Host.get_metrics ~__context ~self:localhost in
+		Db.Host_metrics.set_memory_total ~__context ~self:metrics ~value:total;
+		Db.Host_metrics.set_memory_free ~__context ~self:metrics ~value:free
+	)
 
 let monitor_dbcall_thread () =
 	Xenctrl.with_intf (fun xc ->
