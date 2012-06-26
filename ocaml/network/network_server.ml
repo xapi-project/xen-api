@@ -627,7 +627,7 @@ module Bridge = struct
 			| Bridge -> ()
 		) ()
 
-	let add_port _ dbg ?(mac="") ~bridge ~name ~interfaces ?(bond_properties=[]) () =
+	let add_port _ dbg ?bond_mac ~bridge ~name ~interfaces ?(bond_properties=[]) () =
 		Debug.with_thread_associated dbg (fun () ->
 			let config = get_config bridge in
 			let ports =
@@ -636,23 +636,34 @@ module Bridge = struct
 				else
 					config.ports
 			in
-			let ports = (name, {interfaces; mac; bond_properties}) :: ports in
+			let ports = (name, {interfaces; bond_mac; bond_properties}) :: ports in
 			update_config bridge {config with ports};
 			debug "Adding port %s to bridge %s with interfaces %s%s" name bridge
 				(String.concat ", " interfaces)
-				(if mac <> "" then " and MAC " ^ mac else "");
+				(match bond_mac with Some mac -> " and MAC " ^ mac | None -> "");
 			match !kind with
 			| Openvswitch ->
 				if List.length interfaces = 1 then begin
 					List.iter (fun name -> Interface.bring_up () dbg ~name) interfaces;
 					ignore (Ovs.create_port (List.hd interfaces) bridge)
 				end else begin
-					ignore (Ovs.create_bond name interfaces bridge mac bond_properties);
+					if bond_mac = None then
+						warn "No MAC address specified for the bond";
+					ignore (Ovs.create_bond ?mac:bond_mac name interfaces bridge bond_properties);
 					List.iter (fun name -> Interface.bring_up () dbg ~name) interfaces
 				end;
 				if List.mem bridge !add_default then begin
-					add_default_flows () dbg bridge mac interfaces;
-					add_default := List.filter ((<>) bridge) !add_default
+					let mac = match bond_mac with
+						| None -> (try Some (Ip.get_mac name) with _ -> None)
+						| Some mac -> Some mac
+					in
+					match mac with
+					| Some mac ->
+						add_default_flows () dbg bridge mac interfaces;
+						add_default := List.filter ((<>) bridge) !add_default
+					| None ->
+						warn "Could not add default flows for port %s on bridge %s because no MAC address was specified"
+							name bridge
 				end
 			| Bridge ->
 				if List.length interfaces = 1 then begin
@@ -661,7 +672,10 @@ module Bridge = struct
 				end else begin
 					if not (List.mem name (Sysfs.bridge_to_interfaces bridge)) then begin
 						Linux_bonding.add_bond_master name;
-						if mac <> "" then Ip.set_mac name mac;
+						begin match bond_mac with
+							| Some mac -> Ip.set_mac name mac
+							| None -> warn "No MAC address specified for the bond"
+						end;
 						List.iter (fun name -> Interface.bring_down () dbg ~name) interfaces;
 						List.iter (Linux_bonding.add_bond_slave name) interfaces;
 						let bond_properties =
@@ -758,8 +772,8 @@ module Bridge = struct
 			List.iter (function (bridge_name, ({ports; vlan; bridge_mac; other_config; _} as c)) ->
 				update_config bridge_name c;
 				create () dbg ?vlan ?mac:bridge_mac ~other_config ~name:bridge_name ();
-				List.iter (fun (port_name, {interfaces; bond_properties; mac}) ->
-					add_port () dbg ~mac ~bridge:bridge_name ~name:port_name ~interfaces ~bond_properties ()
+				List.iter (fun (port_name, {interfaces; bond_properties; bond_mac}) ->
+					add_port () dbg ?bond_mac ~bridge:bridge_name ~name:port_name ~interfaces ~bond_properties ()
 				) ports
 			) config
 		) ()
