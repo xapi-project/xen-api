@@ -193,7 +193,8 @@ let full_update_fn () =
 
 module StringSet = Set.Make(String)
 
-let pifs_cached : Monitor_types.pif list ref = ref []
+(* A cache mapping PIF names to PIF structures. *)
+let pifs_cached : (string, Monitor_types.pif) Hashtbl.t ref = ref (Hashtbl.create 0)
 let vm_memory_cached : (string * Int64.t) list ref = ref []
 let host_memory_free_cached : Int64.t ref = ref Int64.zero
 let host_memory_total_cached : Int64.t ref = ref Int64.zero
@@ -245,39 +246,34 @@ let read_pifs_and_bonds () =
 	(* Read fresh PIF information from networkd. *)
 	let open Network_monitor in
 	let stats = read_stats () in
-	let pifs =
-		List.fold_left (fun acc (dev, stat) ->
-			match String.startswith "vif" dev with
-			| true -> acc
-			| false ->
-				if stat.nb_links > 1 then (* bond *)
-					bonds_links_up := !bonds_links_up @ [(dev, stat.links_up)];
-				let pif = {
-					pif_name = dev;
-					pif_tx = -1.0;
-					pif_rx = -1.0;
-					pif_raw_tx = 0L;
-					pif_raw_rx = 0L;
-					pif_carrier = stat.carrier;
-					pif_speed = stat.speed;
-					pif_duplex = stat.duplex;
-					pif_pci_bus_path = stat.pci_bus_path;
-					pif_vendor_id = stat.vendor_id;
-					pif_device_id = stat.device_id;
-				} in
-				pif :: acc
-		) [] stats
-	in
+	let pifs = Hashtbl.create 0 in
+	List.iter (fun (dev, stat) ->
+		if not (String.startswith "vif" dev) then (
+			if stat.nb_links > 1 then (* bond *)
+				bonds_links_up := !bonds_links_up @ [(dev, stat.links_up)];
+			let pif = {
+				pif_name = dev;
+				pif_tx = -1.0;
+				pif_rx = -1.0;
+				pif_raw_tx = 0L;
+				pif_raw_rx = 0L;
+				pif_carrier = stat.carrier;
+				pif_speed = stat.speed;
+				pif_duplex = stat.duplex;
+				pif_pci_bus_path = stat.pci_bus_path;
+				pif_vendor_id = stat.vendor_id;
+				pif_device_id = stat.device_id;
+			} in
+			Hashtbl.add pifs pif.pif_name pif;
+		)
+	) stats;
 	(* Check if any of the PIFs have changed since our last reading. *)
-	if pifs <> !pifs_cached then
-		List.iter (fun pif ->
-			let changed =
-				try pif <> List.find (fun p -> p.pif_name = pif.pif_name) !pifs_cached
-				with _ -> true
-			in
-			if changed then
-				changed_pifs_names := StringSet.add pif.pif_name !changed_pifs_names
-		) pifs;
+	Hashtbl.iter (fun pif_name pif ->
+		let changed =
+			try pif <> Hashtbl.find !pifs_cached pif_name with Not_found -> true in
+		if changed then
+			changed_pifs_names := StringSet.add pif_name !changed_pifs_names
+	) pifs;
 	(* Store PIFs just read into in-memory cache. *)
 	pifs_cached := pifs
 
@@ -292,8 +288,9 @@ let pifs_and_memory_update_fn xc =
 			let memories = !changed_vm_memory in
 			(* PIFs and bonds. *)
 			read_pifs_and_bonds ();
-			let has_pif_changed pif = StringSet.mem pif.pif_name !changed_pifs_names in
-			let pifs = List.filter has_pif_changed !pifs_cached in
+			let find_changed_pifs pif_name pif acc =
+				if StringSet.mem pif_name !changed_pifs_names then pif::acc else acc in
+			let pifs = Hashtbl.fold find_changed_pifs !pifs_cached [] in
 			let bonds = !bonds_links_up in
 			(* Host memory. *)
 			read_host_memory xc;
