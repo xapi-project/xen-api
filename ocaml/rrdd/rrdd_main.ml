@@ -244,29 +244,6 @@ let update_loadavg () =
 (* network related code                              *)
 (*****************************************************)
 
-type vif_device = {
-	pv: bool;
-	vif: Xenops_interface.Vif.id;
-	domid: int;
-	devid: int;
-}
-
-let vif_device_of_string x =
-	try
-		let ty = String.sub x 0 3 and params = String.sub_to_end x 3 in
-		let domid, devid = Scanf.sscanf params "%d.%d" (fun x y -> x,y) in
-		let di = Xenctrl.with_intf (fun xc -> Xenctrl.domain_getinfo xc domid) in
-		let uuid = Uuid.uuid_of_int_array di.Xenctrl.Domain_info.handle |> Uuid.to_string in
-		let vif = (uuid, string_of_int devid) in
-		match ty with
-		| "vif" -> Some { pv = true; vif = vif; domid = domid; devid = devid }
-		| "tap" -> Some { pv = false; vif = vif; domid = domid; devid = devid }
-		| _ -> failwith "bad device"
-	with _ -> None
-
-let string_of_vif_device x =
-	Printf.sprintf "%s%d.%d" (if x.pv then "vif" else "tap") x.domid x.devid
-
 let update_netdev doms =
 	let stats = Network_monitor.read_stats () in
 	List.fold_left (fun (dss, pifs) (dev, stat) ->
