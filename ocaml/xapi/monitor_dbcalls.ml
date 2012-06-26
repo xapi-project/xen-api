@@ -193,21 +193,63 @@ let full_update_fn () =
 
 module StringSet = Set.Make(String)
 
-(* This function updates anything that's marked as dirty in the
- * rrd_shared module. This is the way that the database fields get
- * updated with information from the rrds.  (and other info that's not
- * in rrds, e.g. the PIF status)
+let changed_pifs_names = ref StringSet.empty
+let pifs_cached : Monitor_types.pif list ref = ref []
+let bonds_links_up : (string * int) list ref = ref []
+
+let value_to_int64 = function
+	| Rrd.VT_Int64 x -> x
+	| Rrd.VT_Float x -> Int64.of_float x
+	| Rrd.VT_Unknown -> failwith "No last value!"
+
+let read_pifs_and_bonds () =
+	(* Read fresh PIF information from networkd. *)
+	let open Network_monitor in
+	let stats = read_stats () in
+	let pifs =
+		List.fold_left (fun acc (dev, stat) ->
+			match String.startswith "vif" dev with
+			| true -> acc
+			| false ->
+				if stat.nb_links > 1 then (* bond *)
+					bonds_links_up := !bonds_links_up @ [(dev, stat.links_up)];
+				let pif = {
+					pif_name = dev;
+					pif_tx = -1.0;
+					pif_rx = -1.0;
+					pif_raw_tx = 0L;
+					pif_raw_rx = 0L;
+					pif_carrier = stat.carrier;
+					pif_speed = stat.speed;
+					pif_duplex = stat.duplex;
+					pif_pci_bus_path = stat.pci_bus_path;
+					pif_vendor_id = stat.vendor_id;
+					pif_device_id = stat.device_id;
+				} in
+				pif :: acc
+		) [] stats
+	in
+	(* Check if any of the PIFs have changed since our last reading. *)
+	if pifs <> !pifs_cached then
+		List.iter (fun pif ->
+			let changed =
+				try pif <> List.find (fun p -> p.pif_name = pif.pif_name) !pifs_cached
+				with _ -> true
+			in
+			if changed then
+				changed_pifs_names := StringSet.add pif.pif_name !changed_pifs_names
+		) pifs;
+	(* Store PIFs just read into in-memory cache. *)
+	pifs_cached := pifs
+
+(* This function updates the database for all the slowly changing properties
+ * of host memory, VM memory, PIFs, and bonds.
  *)
 let pifs_and_memory_update_fn () =
-	let value_to_int64 = function
-		| Rrd.VT_Int64 x -> x
-		| Rrd.VT_Float x -> Int64.of_float x
-		| Rrd.VT_Unknown -> failwith "No last value!"
-	in
-	(* Nb, this bit must not take much time to execute - we're holding the lock! *)
 	let memories, host_memories, pifs, bonds =
 		Pervasiveext.finally (fun _ ->
-			let memories =
+			let memories = [] in
+(*
 				try
 					StringSet.fold (fun uuid acc ->
 						let vm_rrd = (Hashtbl.find vm_rrds uuid).rrd in
@@ -223,10 +265,14 @@ let pifs_and_memory_update_fn () =
 					log_backtrace();
 					raise e
 			in
-			let pifs = List.filter (fun pif -> StringSet.mem pif.pif_name !dirty_pifs) !pif_stats in
+*)
+			read_pifs_and_bonds ();
+			let has_pif_changed pif = StringSet.mem pif.pif_name !changed_pifs_names in
+			let pifs = List.filter has_pif_changed !pifs_cached in
 			(* let's copy the list to avoid blocking during the update *)
-			let bonds = Monitor.copy_bonds_status () in
-			let host_memories =
+			let bonds = !bonds_links_up in
+			let host_memories = None in
+(*
 				if !dirty_host_memory then begin
 					try
 						match !host_rrd with None -> None | Some rrdi ->
@@ -243,12 +289,13 @@ let pifs_and_memory_update_fn () =
 						raise e
 				end else None
 			in
+*)
 			memories, host_memories, pifs, bonds
 		) (fun _ ->
-			dirty_pifs := StringSet.empty;
-			dirty_memory := StringSet.empty;
-			dirty_host_memory := false;
-			Mutex.unlock mutex
+			changed_pifs_names := StringSet.empty;
+			bonds_links_up := [];
+			(* dirty_memory := StringSet.empty; *)
+			(* dirty_host_memory := false; *)
 		) in
 		(* This is the bit that might block for some time, but by now we've released the mutex *)
 		Server_helpers.exec_with_new_task "updating VM_metrics.memory_actual fields and PIFs"
@@ -260,6 +307,7 @@ let pifs_and_memory_update_fn () =
 				Db.VM_metrics.set_memory_actual ~__context ~self:vmm ~value:memory
 			) memories;
 			Monitor_master.update_pifs ~__context host pifs;
+			let localhost = Helpers.get_localhost ~__context in
 			List.iter (fun (bond, links_up) ->
 				let my_bond_pifs = Db.PIF.get_records_where ~__context
 					~expr:(And (And (Eq (Field "host", Literal (Ref.string_of localhost)),
@@ -273,32 +321,17 @@ let pifs_and_memory_update_fn () =
 						~value:(Int64.of_int links_up)
 			) bonds;
 			match host_memories with None -> () | Some (free, total) ->
-			let localhost = Helpers.get_localhost ~__context in
 			let metrics = Db.Host.get_metrics ~__context ~self:localhost in
 			Db.Host_metrics.set_memory_total ~__context ~self:metrics ~value:total;
 			Db.Host_metrics.set_memory_free ~__context ~self:metrics ~value:free
 		)
 
-
 let monitor_dbcall_thread () =
-	()
-(* TODO XXX FIXME : temporarily disabled the monitor db thread
-    while true do 
-      Mutex.lock mutex;
-	  while (StringSet.is_empty !dirty_memory) && (StringSet.is_empty !dirty_pifs) && (not !full_update) && (not !dirty_host_memory)
-		(*XXX FIXME && ((List.length !Monitor.bonds_status_update) = 0)*) do
-        Condition.wait condition mutex
-      done;
-      
-      try
-	(* Mutex locked at this point - gather what we need for the update, then do it *)
-	if !full_update then
-	  (* A full update is required - this does everything *)
-	  full_update_fn ()
-	else 
-	  pifs_and_memory_update_fn ()
-      with e ->
-	debug "monitor_dbcall_thread would have died from: %s; restarting in 30s" (ExnHelper.string_of_exn e);
-	Thread.delay 30.
-    done
-*)
+	while true do
+		try
+			pifs_and_memory_update_fn ();
+			Thread.delay 5.
+		with e ->
+			debug "monitor_dbcall_thread would have died from: %s; restarting in 30s." (ExnHelper.string_of_exn e);
+			Thread.delay 30.
+	done
