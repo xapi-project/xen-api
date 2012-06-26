@@ -334,7 +334,6 @@ let pifs_and_memory_update_fn xc =
 						~value:(Int64.of_int links_up)
 			) bonds;
 			match host_memories with None -> () | Some (free, total) ->
-			debug "monitor_dbcall_thread: updating host memory to %s and %s" (Int64.to_string free) (Int64.to_string total);
 			let metrics = Db.Host.get_metrics ~__context ~self:localhost in
 			Db.Host_metrics.set_memory_total ~__context ~self:metrics ~value:total;
 			Db.Host_metrics.set_memory_free ~__context ~self:metrics ~value:free
