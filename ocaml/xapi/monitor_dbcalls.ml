@@ -195,8 +195,11 @@ module StringSet = Set.Make(String)
 
 (* A cache mapping PIF names to PIF structures. *)
 let pifs_cached : (string, Monitor_types.pif) Hashtbl.t ref = ref (Hashtbl.create 0)
+(* A cache mapping PIF names to bond.links_up. *)
 let bonds_links_up_cached : (string, int) Hashtbl.t ref = ref (Hashtbl.create 0)
+(* A cache mapping vm_uuids to actual memory. *)
 let vm_memory_cached : (string, Int64.t) Hashtbl.t ref = ref (Hashtbl.create 0)
+(* A cache for host's free/total memory. *)
 let host_memory_free_cached : Int64.t ref = ref Int64.zero
 let host_memory_total_cached : Int64.t ref = ref Int64.zero
 
