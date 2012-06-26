@@ -195,12 +195,11 @@ module StringSet = Set.Make(String)
 
 (* A cache mapping PIF names to PIF structures. *)
 let pifs_cached : (string, Monitor_types.pif) Hashtbl.t ref = ref (Hashtbl.create 0)
-let vm_memory_cached : (string * Int64.t) list ref = ref []
+let vm_memory_cached : (string, Int64.t) Hashtbl.t ref = ref (Hashtbl.create 0)
 let host_memory_free_cached : Int64.t ref = ref Int64.zero
 let host_memory_total_cached : Int64.t ref = ref Int64.zero
 
 let changed_pifs_names = ref StringSet.empty
-let changed_vm_memory : (string * Int64.t) list ref = ref []
 let host_memory_changed : bool ref = ref false
 
 let bonds_links_up : (string * int) list ref = ref []
@@ -221,26 +220,26 @@ let read_host_memory xc =
 	host_memory_free_cached := free_kib;
 	host_memory_total_cached := total_kib
 
-let read_vm_memory xc =
+let get_changed_vm_memory xc =
 	let domains = Xenctrl.domain_getinfolist xc 0 in
+	let vm_memory = Hashtbl.create 0 in
 	let process_vm dom =
 		let open Xenctrl.Domain_info in
 		let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.handle) in
 		let kib = Xenctrl.pages_to_kib (Int64.of_nativeint dom.total_memory_pages) in
 		let memory = Int64.mul kib 1024L in
-		uuid, memory
+		Hashtbl.add vm_memory uuid memory
 	in
-	let vm_memory = List.map process_vm domains in
-	if vm_memory <> !vm_memory_cached then
-		List.iter (fun (uuid, memory) ->
+	List.iter process_vm domains;
+	let changed_vm_memory =
+		Hashtbl.fold (fun uuid memory acc ->
 			let changed =
-				try memory <> List.assoc uuid !vm_memory_cached
-				with _ -> true
-			in
-			if changed then
-				changed_vm_memory := (uuid, memory) :: !changed_vm_memory
-		) vm_memory;
-	vm_memory_cached := vm_memory
+				try memory <> Hashtbl.find !vm_memory_cached uuid
+				with Not_found -> true in
+			if changed then (uuid, memory)::acc else acc
+		) vm_memory [] in
+	vm_memory_cached := vm_memory;
+	changed_vm_memory
 
 let read_pifs_and_bonds () =
 	(* Read fresh PIF information from networkd. *)
@@ -284,8 +283,7 @@ let pifs_and_memory_update_fn xc =
 	let memories, host_memories, pifs, bonds =
 		Pervasiveext.finally (fun _ ->
 			(* VM memory. *)
-			read_vm_memory xc;
-			let memories = !changed_vm_memory in
+			let memories = get_changed_vm_memory xc in
 			(* PIFs and bonds. *)
 			read_pifs_and_bonds ();
 			let find_changed_pifs pif_name pif acc =
@@ -304,7 +302,6 @@ let pifs_and_memory_update_fn xc =
 		) (fun _ ->
 			changed_pifs_names := StringSet.empty;
 			bonds_links_up := [];
-			changed_vm_memory := [];
 			host_memory_changed := false;
 		) in
 		(* This is the bit that might block for some time, but by now we've released the mutex *)
