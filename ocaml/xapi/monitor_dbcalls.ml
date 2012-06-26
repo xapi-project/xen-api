@@ -195,14 +195,13 @@ module StringSet = Set.Make(String)
 
 (* A cache mapping PIF names to PIF structures. *)
 let pifs_cached : (string, Monitor_types.pif) Hashtbl.t ref = ref (Hashtbl.create 0)
+let bonds_links_up_cached : (string, int) Hashtbl.t ref = ref (Hashtbl.create 0)
 let vm_memory_cached : (string, Int64.t) Hashtbl.t ref = ref (Hashtbl.create 0)
 let host_memory_free_cached : Int64.t ref = ref Int64.zero
 let host_memory_total_cached : Int64.t ref = ref Int64.zero
 
 let changed_pifs_names = ref StringSet.empty
 let host_memory_changed : bool ref = ref false
-
-let bonds_links_up : (string * int) list ref = ref []
 
 let value_to_int64 = function
 	| Rrd.VT_Int64 x -> x
@@ -246,10 +245,11 @@ let read_pifs_and_bonds () =
 	let open Network_monitor in
 	let stats = read_stats () in
 	let pifs = Hashtbl.create 0 in
+	let bonds_links_up = Hashtbl.create 0 in
 	List.iter (fun (dev, stat) ->
 		if not (String.startswith "vif" dev) then (
 			if stat.nb_links > 1 then (* bond *)
-				bonds_links_up := !bonds_links_up @ [(dev, stat.links_up)];
+				Hashtbl.add bonds_links_up dev stat.links_up;
 			let pif = {
 				pif_name = dev;
 				pif_tx = -1.0;
@@ -266,6 +266,15 @@ let read_pifs_and_bonds () =
 			Hashtbl.add pifs pif.pif_name pif;
 		)
 	) stats;
+	(* Check if any of the bonds have changed since our last reading. *)
+	let bonds_links_up_changed =
+		Hashtbl.fold (fun dev links_up acc ->
+			let changed =
+				try links_up <> Hashtbl.find !bonds_links_up_cached dev
+				with Not_found -> true in
+			if changed then (dev, links_up)::acc else acc
+		) bonds_links_up [] in
+	bonds_links_up_cached := bonds_links_up;
 	(* Check if any of the PIFs have changed since our last reading. *)
 	Hashtbl.iter (fun pif_name pif ->
 		let changed =
@@ -274,7 +283,8 @@ let read_pifs_and_bonds () =
 			changed_pifs_names := StringSet.add pif_name !changed_pifs_names
 	) pifs;
 	(* Store PIFs just read into in-memory cache. *)
-	pifs_cached := pifs
+	pifs_cached := pifs;
+	bonds_links_up_changed
 
 (* This function updates the database for all the slowly changing properties
  * of host memory, VM memory, PIFs, and bonds.
@@ -285,11 +295,10 @@ let pifs_and_memory_update_fn xc =
 			(* VM memory. *)
 			let memories = get_changed_vm_memory xc in
 			(* PIFs and bonds. *)
-			read_pifs_and_bonds ();
+			let bonds = read_pifs_and_bonds () in
 			let find_changed_pifs pif_name pif acc =
 				if StringSet.mem pif_name !changed_pifs_names then pif::acc else acc in
 			let pifs = Hashtbl.fold find_changed_pifs !pifs_cached [] in
-			let bonds = !bonds_links_up in
 			(* Host memory. *)
 			read_host_memory xc;
 			let host_memories =
@@ -301,7 +310,6 @@ let pifs_and_memory_update_fn xc =
 			memories, host_memories, pifs, bonds
 		) (fun _ ->
 			changed_pifs_names := StringSet.empty;
-			bonds_links_up := [];
 			host_memory_changed := false;
 		) in
 		(* This is the bit that might block for some time, but by now we've released the mutex *)
