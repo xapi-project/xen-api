@@ -200,23 +200,25 @@ let vm_memory_cached : (string, Int64.t) Hashtbl.t ref = ref (Hashtbl.create 0)
 let host_memory_free_cached : Int64.t ref = ref Int64.zero
 let host_memory_total_cached : Int64.t ref = ref Int64.zero
 
-let host_memory_changed : bool ref = ref false
-
 let value_to_int64 = function
 	| Rrd.VT_Int64 x -> x
 	| Rrd.VT_Float x -> Int64.of_float x
 	| Rrd.VT_Unknown -> failwith "No last value!"
 
-let read_host_memory xc =
+let get_host_memory_changed xc =
 	let physinfo = Xenctrl.physinfo xc in
 	let free_kib =
 		Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.Phys_info.free_pages) in
 	let total_kib =
 		Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.Phys_info.total_pages) in
-	host_memory_changed :=
-		!host_memory_free_cached <> free_kib || !host_memory_total_cached <> total_kib;
+	let host_memory_changed =
+		!host_memory_free_cached <> free_kib || !host_memory_total_cached <> total_kib in
 	host_memory_free_cached := free_kib;
-	host_memory_total_cached := total_kib
+	host_memory_total_cached := total_kib;
+	let bytes_of_kib x = Int64.shift_left x 10 in
+	match host_memory_changed with
+	| false -> None
+	| true -> Some (bytes_of_kib !host_memory_free_cached, bytes_of_kib !host_memory_total_cached)
 
 let get_changed_vm_memory xc =
 	let domains = Xenctrl.domain_getinfolist xc 0 in
@@ -296,16 +298,9 @@ let pifs_and_memory_update_fn xc =
 			(* PIFs and bonds. *)
 			let bonds, pifs = get_changed_pifs_and_bonds () in
 			(* Host memory. *)
-			read_host_memory xc;
-			let host_memories =
-				let bytes_of_kib x = Int64.shift_left x 10 in
-				match !host_memory_changed with
-				| false -> None
-				| true -> Some (bytes_of_kib !host_memory_free_cached, bytes_of_kib !host_memory_total_cached)
-			in
+			let host_memories = get_host_memory_changed xc in
 			memories, host_memories, pifs, bonds
-		) (fun _ ->
-			host_memory_changed := false;
+		) (fun _ -> ()
 		) in
 		(* This is the bit that might block for some time, but by now we've released the mutex *)
 		Server_helpers.exec_with_new_task "updating VM_metrics.memory_actual fields and PIFs"
