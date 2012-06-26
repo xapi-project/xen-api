@@ -21,7 +21,7 @@ open Threadext
 open Monitor_types
 open Db_filter_types
 
-module D=Debug.Debugger(struct let name="monitormaster" end)
+module D = Debug.Debugger(struct let name = "monitor_master" end)
 open D
 
 let pass_through_pif_carrier = ref false
@@ -205,15 +205,16 @@ let set_pif_metrics ~__context ~self ~vendor ~device
 	Db.PIF_metrics.set_last_updated ~__context ~self
 	                                ~value:(Date.of_float (Unix.gettimeofday ()))
 
-
-(* Nb, the following function is actually called on the slave most of the time now - 
-   but only when the PIF information changes. *)
+(* Note that the following function is actually called on the slave most of the
+ * time now but only when the PIF information changes. *)
 let update_pifs ~__context host pifs =
-	(* All physical and bond PIFs *)
+	match List.length pifs with 0 -> () | _ ->
+	(* Fetch all physical and bond PIFs from DB. *)
 	let db_pifs = Db.PIF.get_records_where ~__context
 		~expr:(And (Eq (Field "host", Literal (Ref.string_of host)),
 			Or (Eq (Field "physical", Literal "true"),
 				Not (Eq (Field "bond_master_of", Literal "()"))))) in
+	(* Iterate over them, and spot and update changes. *)
 	List.iter (fun (pifdev, pifrec) ->
 		begin try
 			let pif_stats = List.find (fun p -> p.pif_name = pifrec.API.pIF_device) pifs in
@@ -248,17 +249,13 @@ let update_pifs ~__context host pifs =
 						(network :: vlan_networks @ tunnel_networks) in
 					let n = Netdev.network in
 					let ifs = List.flatten (List.map (fun bridge -> n.Netdev.intf_list bridge) bridges) in
-					ignore(ifs)
-(* FIXME XXX TODO
 					let set_carrier vif =
-						if vif.Monitor.pv
-						then
+						if vif.pv then (
 							let open Xenops_client in
 							let dbg = Context.string_of_task __context in
-							Client.VIF.set_carrier dbg vif.Monitor.vif carrier |> Xapi_xenops.sync __context in
-
-					List.iter set_carrier (List.filter_map Monitor.vif_device_of_string ifs)
-*)
+							Client.VIF.set_carrier dbg vif.vif carrier |> Xapi_xenops.sync __context
+						)
+					in List.iter set_carrier (List.filter_map vif_device_of_string ifs)
 				with e ->
 					debug "Failed to update VIF carrier flags for PIF: %s" (ExnHelper.string_of_exn e)
 			end;
