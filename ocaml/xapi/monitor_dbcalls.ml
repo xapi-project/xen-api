@@ -253,22 +253,22 @@ let pifs_and_memory_update_fn () =
 	let vmm = Db.VM.get_metrics ~__context ~self:vm in
 	Db.VM_metrics.set_memory_actual ~__context ~self:vmm ~value:memory) memories;
       Monitor_master.update_pifs ~__context host pifs;
+		List.iter (fun (bond,links_up) ->
+			let my_bond_pifs = Db.PIF.get_records_where ~__context
+			~expr:(And (And (Eq (Field "host", Literal (Ref.string_of host)),
+											Not (Eq (Field "bond_master_of", Literal "()"))),
+									Eq(Field "device", Literal bond))) in
+			let my_bonds = List.map (fun (_, pif) -> List.hd pif.API.pIF_bond_master_of) my_bond_pifs in
+			if(List.length my_bonds) <> 1 then
+				debug "Error: bond %s cannot be found" bond
+			else
+				Db.Bond.set_links_up ~__context ~self:(List.hd my_bonds)
+					~value:(Int64.of_int links_up)) bonds;
       match host_memories with None -> () | Some (free,total) ->
 	let localhost = Helpers.get_localhost ~__context in
 	let metrics = Db.Host.get_metrics ~__context ~self:localhost in
 	Db.Host_metrics.set_memory_total ~__context ~self:metrics ~value:total;
 	Db.Host_metrics.set_memory_free ~__context ~self:metrics ~value:free;	
-	List.iter (fun (bond,links_up) ->
-	  let my_bond_pifs = Db.PIF.get_records_where ~__context
-		~expr:(And (And (Eq (Field "host", Literal (Ref.string_of localhost)),
-						 Not (Eq (Field "bond_master_of", Literal "()"))),
-					Eq(Field "device", Literal bond))) in
-	  let my_bonds = List.map (fun (_, pif) -> List.hd pif.API.pIF_bond_master_of) my_bond_pifs in
-	  if(List.length my_bonds) <> 1 then
-		debug "Error: bond %s cannot be found" bond
-	  else
-		Db.Bond.set_links_up ~__context ~self:(List.hd my_bonds)
-		  ~value:(Int64.of_int links_up)) bonds
     )
 
 
