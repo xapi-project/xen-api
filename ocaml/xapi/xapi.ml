@@ -300,8 +300,6 @@ let check_no_other_masters() =
 let on_master_restart ~__context =
   debug "master might have just restarted: refreshing non-persistent data in the master's database";
   Xapi_host_helpers.consider_enabling_host_request ~__context;
-  debug "triggering an immediate refresh of non-persistent fields (eg memory)";
-  Monitor_master.on_restart ();
   (* To make the slave appear live we need to set the live flag AND send a heartbeat otherwise the master
      will mark the slave offline again before the regular heartbeat turns up. *)
   debug "sending an immediate heartbeat";
