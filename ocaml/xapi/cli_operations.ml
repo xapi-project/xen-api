@@ -2823,9 +2823,10 @@ let host_all_editions printer rpc session_id params =
 	printer (Cli_printer.PList editions)
 
 let host_evacuate printer rpc session_id params =
-	let uuid = List.assoc "uuid" params in
-	let host = Client.Host.get_by_uuid rpc session_id uuid in
-	ignore (Client.Host.evacuate rpc session_id host)
+	ignore (do_host_op rpc session_id ~multiple:false
+		(fun _ host ->
+			Client.Host.evacuate rpc session_id (host.getref ()))
+		params [])
 
 let host_get_vms_which_prevent_evacuation printer rpc session_id params =
 	let uuid = List.assoc "uuid" params in
