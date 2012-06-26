@@ -200,25 +200,21 @@ let vm_memory_cached : (string, Int64.t) Hashtbl.t ref = ref (Hashtbl.create 0)
 let host_memory_free_cached : Int64.t ref = ref Int64.zero
 let host_memory_total_cached : Int64.t ref = ref Int64.zero
 
-let value_to_int64 = function
-	| Rrd.VT_Int64 x -> x
-	| Rrd.VT_Float x -> Int64.of_float x
-	| Rrd.VT_Unknown -> failwith "No last value!"
-
 let get_host_memory_changes xc =
 	let physinfo = Xenctrl.physinfo xc in
-	let free_kib =
-		Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.Phys_info.free_pages) in
-	let total_kib =
-		Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.Phys_info.total_pages) in
+	let bytes_of_pages pages =
+		let kib = Xenctrl.pages_to_kib (Int64.of_nativeint pages) in
+		Int64.shift_left kib 10
+	in
+	let free_bytes = bytes_of_pages physinfo.Xenctrl.Phys_info.free_pages in
+	let total_bytes = bytes_of_pages physinfo.Xenctrl.Phys_info.total_pages in
 	let host_memory_changed =
-		!host_memory_free_cached <> free_kib || !host_memory_total_cached <> total_kib in
-	host_memory_free_cached := free_kib;
-	host_memory_total_cached := total_kib;
-	let bytes_of_kib x = Int64.shift_left x 10 in
-	match host_memory_changed with
-	| false -> None
-	| true -> Some (bytes_of_kib !host_memory_free_cached, bytes_of_kib !host_memory_total_cached)
+		!host_memory_free_cached <> free_bytes ||
+		!host_memory_total_cached <> total_bytes
+	in
+	host_memory_free_cached := free_bytes;
+	host_memory_total_cached := total_bytes;
+	if host_memory_changed then Some (free_bytes, total_bytes) else None
 
 let get_vm_memory_changes xc =
 	let domains = Xenctrl.domain_getinfolist xc 0 in
