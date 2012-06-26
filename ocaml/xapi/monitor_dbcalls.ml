@@ -193,14 +193,39 @@ let full_update_fn () =
 
 module StringSet = Set.Make(String)
 
-let changed_pifs_names = ref StringSet.empty
 let pifs_cached : Monitor_types.pif list ref = ref []
+let vm_memory_cached : (string * Int64.t) list ref = ref []
+
+let changed_vm_memory : (string * Int64.t) list ref = ref []
+let changed_pifs_names = ref StringSet.empty
+
 let bonds_links_up : (string * int) list ref = ref []
 
 let value_to_int64 = function
 	| Rrd.VT_Int64 x -> x
 	| Rrd.VT_Float x -> Int64.of_float x
 	| Rrd.VT_Unknown -> failwith "No last value!"
+
+let read_vm_memory xc =
+	let domains = Xenctrl.domain_getinfolist xc 0 in
+	let process_vm dom =
+		let open Xenctrl.Domain_info in
+		let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.handle) in
+		let kib = Xenctrl.pages_to_kib (Int64.of_nativeint dom.total_memory_pages) in
+		let memory = Int64.mul kib 1024L in
+		uuid, memory
+	in
+	let vm_memory = List.map process_vm domains in
+	if vm_memory <> !vm_memory_cached then
+		List.iter (fun (uuid, memory) ->
+			let changed =
+				try memory <> List.assoc uuid !vm_memory_cached
+				with _ -> true
+			in
+			if changed then
+				changed_vm_memory := (uuid, memory) :: !changed_vm_memory
+		) vm_memory;
+	vm_memory_cached := vm_memory
 
 let read_pifs_and_bonds () =
 	(* Read fresh PIF information from networkd. *)
@@ -245,32 +270,18 @@ let read_pifs_and_bonds () =
 (* This function updates the database for all the slowly changing properties
  * of host memory, VM memory, PIFs, and bonds.
  *)
-let pifs_and_memory_update_fn () =
+let pifs_and_memory_update_fn xc =
 	let memories, host_memories, pifs, bonds =
 		Pervasiveext.finally (fun _ ->
-			let memories = [] in
-(*
-				try
-					StringSet.fold (fun uuid acc ->
-						let vm_rrd = (Hashtbl.find vm_rrds uuid).rrd in
-						let ds_values = Rrd.get_last_ds_values vm_rrd in
-						let memory = List.assoc "memory" ds_values in
-						try
-							let memi = value_to_int64 memory in
-							(uuid,memi)::acc
-						with _ -> acc
-					) !dirty_memory []
-				with e ->
-					error "Unexpected exn in memory computation: %s" (Printexc.to_string e);
-					log_backtrace();
-					raise e
-			in
-*)
+			(* VM memory. *)
+			read_vm_memory xc;
+			let memories = !changed_vm_memory in
+			(* PIFs and bonds. *)
 			read_pifs_and_bonds ();
 			let has_pif_changed pif = StringSet.mem pif.pif_name !changed_pifs_names in
 			let pifs = List.filter has_pif_changed !pifs_cached in
-			(* let's copy the list to avoid blocking during the update *)
 			let bonds = !bonds_links_up in
+			(* Host memory. *)
 			let host_memories = None in
 (*
 				if !dirty_host_memory then begin
@@ -327,11 +338,14 @@ let pifs_and_memory_update_fn () =
 		)
 
 let monitor_dbcall_thread () =
-	while true do
-		try
-			pifs_and_memory_update_fn ();
-			Thread.delay 5.
-		with e ->
-			debug "monitor_dbcall_thread would have died from: %s; restarting in 30s." (ExnHelper.string_of_exn e);
-			Thread.delay 30.
-	done
+	Xenctrl.with_intf (fun xc ->
+		while true do
+			try
+				pifs_and_memory_update_fn xc;
+				Thread.delay 5.
+			with e ->
+				debug "monitor_dbcall_thread would have died from: %s; restarting in 30s."
+					(ExnHelper.string_of_exn e);
+				Thread.delay 30.
+		done
+	)
