@@ -718,10 +718,14 @@ module Ovs = struct
 		) properties in
 		mode_args @ extra_args @ other_args
 
-	let create_bond name interfaces bridge mac properties =
+	let create_bond ?mac name interfaces bridge properties =
 		let args = make_bond_properties name properties in
+		let mac_args = match mac with
+			| None -> []
+			| Some mac -> ["--"; "set"; "port"; name; "MAC=\"" ^ (String.escaped mac) ^ "\""]
+		in
 		vsctl ~log:true (["--"; "--may-exist"; "add-bond"; bridge; name] @ interfaces @
-			["--"; "set"; "port"; name; "MAC=\"" ^ (String.escaped mac) ^ "\""] @ args)
+			mac_args @ args)
 
 	let get_fail_mode bridge =
 		vsctl ["get-fail-mode"; bridge]
