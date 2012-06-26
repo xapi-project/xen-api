@@ -91,18 +91,19 @@ let update_rrds timestamp dss uuids pifs rebooting_vms paused_vms =
 						if not (List.mem vm_uuid paused_vms) then (
 							(* Check whether the memory ds has changed since last update *)
 							let last_values = Rrd.get_last_ds_values rrd in
-							let changed =
-							begin try
-								let old_mem = List.assoc "memory" last_values in
-								let cur_mem_ds = List.find (fun ds -> ds.ds_name = "memory") dss in
-								let cur_mem = cur_mem_ds.ds_value in
-								cur_mem <> old_mem
-							with _ -> true end in
+							let changed = (
+								try
+									let old_mem = List.assoc "memory" last_values in
+									let cur_mem_ds = List.find (fun ds -> ds.ds_name = "memory") dss in
+									let cur_mem = cur_mem_ds.ds_value in
+									cur_mem <> old_mem
+								with _ -> true
+							) in
 							if changed then
 								dirty_memory := StringSet.add vm_uuid !dirty_memory;
 								(* Now update the rras/dss *)
 								Rrd.ds_update_named rrd timestamp
-									(List.map (fun ds -> (ds.ds_name,(ds.ds_value,ds.ds_pdp_transform_function))) dss);
+									(List.map (fun ds -> (ds.ds_name, (ds.ds_value, ds.ds_pdp_transform_function))) dss);
 								rrdi.dss <- dss;
 						)
 					with
