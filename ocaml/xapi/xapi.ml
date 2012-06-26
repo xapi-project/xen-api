@@ -300,8 +300,6 @@ let check_no_other_masters() =
 let on_master_restart ~__context =
   debug "master might have just restarted: refreshing non-persistent data in the master's database";
   Xapi_host_helpers.consider_enabling_host_request ~__context;
-  debug "triggering an immediate refresh of non-persistent fields (eg memory)";
-  Monitor_master.on_restart ();
   (* To make the slave appear live we need to set the live flag AND send a heartbeat otherwise the master
      will mark the slave offline again before the regular heartbeat turns up. *)
   debug "sending an immediate heartbeat";
@@ -921,6 +919,7 @@ let server_init() =
       "heartbeat thread", [ Startup.NoExnRaising; Startup.OnThread ], Db_gc.start_heartbeat_thread;
       "resynchronising HA state", [ Startup.NoExnRaising ], resynchronise_ha_state;
       "pool db backup", [ Startup.OnlyMaster; Startup.OnThread ], Pool_db_backup.pool_db_backup_thread;
+      "monitor_dbcalls", [Startup.OnThread], Monitor_dbcalls.monitor_dbcall_thread;
       "touching ready file", [], (fun () -> Helpers.touch_file !Xapi_globs.ready_file);
        (* -- CRITICAL: this check must be performed before touching shared storage *)
       "Performing no-other-masters check", [ Startup.OnlyMaster ], check_no_other_masters;

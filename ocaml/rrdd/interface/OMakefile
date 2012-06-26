@@ -1,6 +1,11 @@
-OCAMLINCLUDES = $(ROOT)/ocaml $(ROOT)/ocaml/autogen $(ROOT)/ocaml/idl \
-	$(ROOT)/ocaml/idl/ocaml_backend $(ROOT)/ocaml/network \
-	$(ROOT)/ocaml/util
+OCAMLINCLUDES = \
+	$(ROOT)/ocaml \
+	$(ROOT)/ocaml/autogen \
+	$(ROOT)/ocaml/idl \
+	$(ROOT)/ocaml/idl/ocaml_backend \
+	$(ROOT)/ocaml/network \
+	$(ROOT)/ocaml/util \
+	$(ROOT)/ocaml/xenops
 OCAMLPACKS    = http-svr xenctrl
 OCAML_LIBS    =
 

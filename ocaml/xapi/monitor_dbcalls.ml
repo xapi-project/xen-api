@@ -191,109 +191,163 @@ let full_update_fn () =
 (* End of legacy function *)
 
 
+module StringSet = Set.Make(String)
 
-(* This function updates anything that's marked as dirty in the
- * rrd_shared module. This is the way that the database fields get
- * updated with information from the rrds.  (and other info that's not
- * in rrds, e.g. the PIF status) 
+let pifs_cached : Monitor_types.pif list ref = ref []
+let vm_memory_cached : (string * Int64.t) list ref = ref []
+let host_memory_free_cached : Int64.t ref = ref Int64.zero
+let host_memory_total_cached : Int64.t ref = ref Int64.zero
+
+let changed_pifs_names = ref StringSet.empty
+let changed_vm_memory : (string * Int64.t) list ref = ref []
+let host_memory_changed : bool ref = ref false
+
+let bonds_links_up : (string * int) list ref = ref []
+
+let value_to_int64 = function
+	| Rrd.VT_Int64 x -> x
+	| Rrd.VT_Float x -> Int64.of_float x
+	| Rrd.VT_Unknown -> failwith "No last value!"
+
+let read_host_memory xc =
+	let physinfo = Xenctrl.physinfo xc in
+	let free_kib =
+		Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.Phys_info.free_pages) in
+	let total_kib =
+		Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.Phys_info.total_pages) in
+	host_memory_changed :=
+		!host_memory_free_cached <> free_kib || !host_memory_total_cached <> total_kib;
+	host_memory_free_cached := free_kib;
+	host_memory_total_cached := total_kib
+
+let read_vm_memory xc =
+	let domains = Xenctrl.domain_getinfolist xc 0 in
+	let process_vm dom =
+		let open Xenctrl.Domain_info in
+		let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.handle) in
+		let kib = Xenctrl.pages_to_kib (Int64.of_nativeint dom.total_memory_pages) in
+		let memory = Int64.mul kib 1024L in
+		uuid, memory
+	in
+	let vm_memory = List.map process_vm domains in
+	if vm_memory <> !vm_memory_cached then
+		List.iter (fun (uuid, memory) ->
+			let changed =
+				try memory <> List.assoc uuid !vm_memory_cached
+				with _ -> true
+			in
+			if changed then
+				changed_vm_memory := (uuid, memory) :: !changed_vm_memory
+		) vm_memory;
+	vm_memory_cached := vm_memory
+
+let read_pifs_and_bonds () =
+	(* Read fresh PIF information from networkd. *)
+	let open Network_monitor in
+	let stats = read_stats () in
+	let pifs =
+		List.fold_left (fun acc (dev, stat) ->
+			match String.startswith "vif" dev with
+			| true -> acc
+			| false ->
+				if stat.nb_links > 1 then (* bond *)
+					bonds_links_up := !bonds_links_up @ [(dev, stat.links_up)];
+				let pif = {
+					pif_name = dev;
+					pif_tx = -1.0;
+					pif_rx = -1.0;
+					pif_raw_tx = 0L;
+					pif_raw_rx = 0L;
+					pif_carrier = stat.carrier;
+					pif_speed = stat.speed;
+					pif_duplex = stat.duplex;
+					pif_pci_bus_path = stat.pci_bus_path;
+					pif_vendor_id = stat.vendor_id;
+					pif_device_id = stat.device_id;
+				} in
+				pif :: acc
+		) [] stats
+	in
+	(* Check if any of the PIFs have changed since our last reading. *)
+	if pifs <> !pifs_cached then
+		List.iter (fun pif ->
+			let changed =
+				try pif <> List.find (fun p -> p.pif_name = pif.pif_name) !pifs_cached
+				with _ -> true
+			in
+			if changed then
+				changed_pifs_names := StringSet.add pif.pif_name !changed_pifs_names
+		) pifs;
+	(* Store PIFs just read into in-memory cache. *)
+	pifs_cached := pifs
+
+(* This function updates the database for all the slowly changing properties
+ * of host memory, VM memory, PIFs, and bonds.
  *)
-let pifs_and_memory_update_fn () =
-()
-(* TODO FIXME XXX
-  let value_to_int64 v =
-    match v with 
-      | Rrd.VT_Int64 x -> x
-      | Rrd.VT_Float x -> Int64.of_float x 
-      | Rrd.VT_Unknown -> failwith "No last value!"
-  in
-
-  (* Nb, this bit must not take much time to execute - we're holding the lock! *)
-  let (memories,host_memories,pifs,bonds) =
-    Pervasiveext.finally (fun () ->
-      let memories = 
-	try
-	  StringSet.fold (fun uuid acc -> 
-			    let vm_rrd = (Hashtbl.find vm_rrds uuid).rrd in
-			    let ds_values = Rrd.get_last_ds_values vm_rrd in
-			    let memory = List.assoc "memory" ds_values in
-			    try
-			      let memi = value_to_int64 memory in
-			      (uuid,memi)::acc
-			    with _ -> acc) !dirty_memory [] 
-	with e -> (error "Unexpected exn in memory computation: %s" (Printexc.to_string e); log_backtrace(); raise e)
-      in
-      let pifs = List.filter (fun pif -> StringSet.mem pif.pif_name !dirty_pifs) !pif_stats in
-	  (* let's copy the list to avoid blocking during the update *)
-	  let bonds = Monitor.copy_bonds_status () in
-      let host_memories = if !dirty_host_memory then begin
-	try
-	  match !host_rrd with None -> None | Some rrdi ->
-	    let ds_values = Rrd.get_last_ds_values rrdi.rrd in
-	    try
-	      let bytes_of_kib x = Int64.shift_left x 10 in
-	      let memory_free = value_to_int64 (List.assoc "memory_free_kib" ds_values) in
-	      let memory_tot = value_to_int64 (List.assoc "memory_total_kib" ds_values) in
-	      Some (bytes_of_kib memory_free,bytes_of_kib memory_tot) 
-	    with _ -> None
-	with e -> (error "Unexpected exn in host computation: %s" (Printexc.to_string e); log_backtrace(); raise e)
-      end else None
-      in
-	  (memories,host_memories,pifs,bonds))
-      (fun () -> 
-	dirty_pifs := StringSet.empty;
-	dirty_memory := StringSet.empty;
-	dirty_host_memory := false;
-	Mutex.unlock mutex)
-  in
-  
-  (* This is the bit that might block for some time, but by now we've released the mutex *)
-  Server_helpers.exec_with_new_task "updating VM_metrics.memory_actual fields and PIFs"
-    (fun __context ->       	
-      let host = Helpers.get_localhost ~__context in
-      List.iter (fun (uuid,memory) ->
-	let vm = Db.VM.get_by_uuid ~__context ~uuid in
-	let vmm = Db.VM.get_metrics ~__context ~self:vm in
-	Db.VM_metrics.set_memory_actual ~__context ~self:vmm ~value:memory) memories;
-      Monitor_master.update_pifs ~__context host pifs;
-      match host_memories with None -> () | Some (free,total) ->
-	let localhost = Helpers.get_localhost ~__context in
-	let metrics = Db.Host.get_metrics ~__context ~self:localhost in
-	Db.Host_metrics.set_memory_total ~__context ~self:metrics ~value:total;
-	Db.Host_metrics.set_memory_free ~__context ~self:metrics ~value:free;	
-	List.iter (fun (bond,links_up) ->
-	  let my_bond_pifs = Db.PIF.get_records_where ~__context
-		~expr:(And (And (Eq (Field "host", Literal (Ref.string_of localhost)),
-						 Not (Eq (Field "bond_master_of", Literal "()"))),
-					Eq(Field "device", Literal bond))) in
-	  let my_bonds = List.map (fun (_, pif) -> List.hd pif.API.pIF_bond_master_of) my_bond_pifs in
-	  if(List.length my_bonds) <> 1 then
-		debug "Error: bond %s cannot be found" bond
-	  else
-		Db.Bond.set_links_up ~__context ~self:(List.hd my_bonds)
-		  ~value:(Int64.of_int links_up)) bonds
-    )
-*)
-
+let pifs_and_memory_update_fn xc =
+	let memories, host_memories, pifs, bonds =
+		Pervasiveext.finally (fun _ ->
+			(* VM memory. *)
+			read_vm_memory xc;
+			let memories = !changed_vm_memory in
+			(* PIFs and bonds. *)
+			read_pifs_and_bonds ();
+			let has_pif_changed pif = StringSet.mem pif.pif_name !changed_pifs_names in
+			let pifs = List.filter has_pif_changed !pifs_cached in
+			let bonds = !bonds_links_up in
+			(* Host memory. *)
+			read_host_memory xc;
+			let host_memories =
+				let bytes_of_kib x = Int64.shift_left x 10 in
+				match !host_memory_changed with
+				| false -> None
+				| true -> Some (bytes_of_kib !host_memory_free_cached, bytes_of_kib !host_memory_total_cached)
+			in
+			memories, host_memories, pifs, bonds
+		) (fun _ ->
+			changed_pifs_names := StringSet.empty;
+			bonds_links_up := [];
+			changed_vm_memory := [];
+			host_memory_changed := false;
+		) in
+		(* This is the bit that might block for some time, but by now we've released the mutex *)
+		Server_helpers.exec_with_new_task "updating VM_metrics.memory_actual fields and PIFs"
+		(fun __context ->
+			let host = Helpers.get_localhost ~__context in
+			List.iter (fun (uuid, memory) ->
+				let vm = Db.VM.get_by_uuid ~__context ~uuid in
+				let vmm = Db.VM.get_metrics ~__context ~self:vm in
+				Db.VM_metrics.set_memory_actual ~__context ~self:vmm ~value:memory
+			) memories;
+			Monitor_master.update_pifs ~__context host pifs;
+			let localhost = Helpers.get_localhost ~__context in
+			List.iter (fun (bond, links_up) ->
+				let my_bond_pifs = Db.PIF.get_records_where ~__context
+					~expr:(And (And (Eq (Field "host", Literal (Ref.string_of localhost)),
+						Not (Eq (Field "bond_master_of", Literal "()"))),
+						Eq(Field "device", Literal bond))) in
+				let my_bonds = List.map (fun (_, pif) -> List.hd pif.API.pIF_bond_master_of) my_bond_pifs in
+				if (List.length my_bonds) <> 1 then
+					debug "Error: bond %s cannot be found" bond
+				else
+					Db.Bond.set_links_up ~__context ~self:(List.hd my_bonds)
+						~value:(Int64.of_int links_up)
+			) bonds;
+			match host_memories with None -> () | Some (free, total) ->
+			let metrics = Db.Host.get_metrics ~__context ~self:localhost in
+			Db.Host_metrics.set_memory_total ~__context ~self:metrics ~value:total;
+			Db.Host_metrics.set_memory_free ~__context ~self:metrics ~value:free
+		)
 
 let monitor_dbcall_thread () =
-	()
-(* TODO XXX FIXME : temporarily disabled the monitor db thread
-    while true do 
-      Mutex.lock mutex;
-	  while (StringSet.is_empty !dirty_memory) && (StringSet.is_empty !dirty_pifs) && (not !full_update) && (not !dirty_host_memory)
-		(*XXX FIXME && ((List.length !Monitor.bonds_status_update) = 0)*) do
-        Condition.wait condition mutex
-      done;
-      
-      try
-	(* Mutex locked at this point - gather what we need for the update, then do it *)
-	if !full_update then
-	  (* A full update is required - this does everything *)
-	  full_update_fn ()
-	else 
-	  pifs_and_memory_update_fn ()
-      with e ->
-	debug "monitor_dbcall_thread would have died from: %s; restarting in 30s" (ExnHelper.string_of_exn e);
-	Thread.delay 30.
-    done
-*)
+	Xenctrl.with_intf (fun xc ->
+		while true do
+			try
+				pifs_and_memory_update_fn xc;
+				Thread.delay 5.
+			with e ->
+				debug "monitor_dbcall_thread would have died from: %s; restarting in 30s."
+					(ExnHelper.string_of_exn e);
+				Thread.delay 30.
+		done
+	)
