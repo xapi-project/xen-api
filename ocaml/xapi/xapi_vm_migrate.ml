@@ -599,7 +599,7 @@ let handler req fd _ =
 			debug "overhead_bytes = %Ld; free_memory_required = %Ld KiB" overhead_bytes free_memory_required_kib;
 
 			let dbg = Context.string_of_task __context in
-			Xapi_xenops.with_networks_attached ~__context ~self:vm (fun () ->
+			Xapi_network.with_networks_attached_for_vm ~__context ~vm (fun () ->
 				Xapi_xenops.transform_xenops_exn ~__context (fun () ->
 					Xapi_xenops.with_metadata_pushed_to_xenopsd ~__context ~upgrade:true ~self:vm (fun id ->
 						info "xenops: VM.receive_memory %s" id;
