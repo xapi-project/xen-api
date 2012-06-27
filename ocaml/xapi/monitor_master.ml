@@ -249,6 +249,7 @@ let update_pifs ~__context host pifs =
 						(network :: vlan_networks @ tunnel_networks) in
 					let n = Netdev.network in
 					let ifs = List.flatten (List.map (fun bridge -> n.Netdev.intf_list bridge) bridges) in
+					let open Vif_device in
 					let set_carrier vif =
 						if vif.pv then (
 							let open Xenops_client in
