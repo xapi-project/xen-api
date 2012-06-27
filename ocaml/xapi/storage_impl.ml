@@ -520,7 +520,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			Impl.VDI.add_to_sm_config context ~dbg ~sr ~vdi ~key ~value
 
 		let remove_from_sm_config context ~dbg ~sr ~vdi ~key =
-			info "VDI.remove_from_other_config dbg:%s sr:%s vdi:%s key:%s" dbg sr vdi key;
+			info "VDI.remove_from_sm_config dbg:%s sr:%s vdi:%s key:%s" dbg sr vdi key;
 			Impl.VDI.remove_from_sm_config context ~dbg ~sr ~vdi ~key
 
 		let get_url context ~dbg ~sr ~vdi =
