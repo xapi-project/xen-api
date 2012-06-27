@@ -100,14 +100,17 @@ type host_stats = {
 	registered : string list; (* registered domain uuids *)
 }
 
-type vif_device = {
-	pv: bool;
-	vif: Xenops_interface.Vif.id;
-	domid: int;
-	devid: int;
-}
+module Vif_device = struct
+	type t = {
+		pv: bool;
+		vif: Xenops_interface.Vif.id;
+		domid: int;
+		devid: int;
+	}
+end
 
 let vif_device_of_string x =
+	let open Vif_device in
 	try
 		let ty = String.sub x 0 3 and params = String.sub_to_end x 3 in
 		let domid, devid = Scanf.sscanf params "%d.%d" (fun x y -> x,y) in
@@ -121,4 +124,5 @@ let vif_device_of_string x =
 	with _ -> None
 
 let string_of_vif_device x =
+	let open Vif_device in
 	Printf.sprintf "%s%d.%d" (if x.pv then "vif" else "tap") x.domid x.devid
