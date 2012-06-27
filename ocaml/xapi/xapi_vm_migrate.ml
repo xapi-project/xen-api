@@ -346,11 +346,6 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				Db.VDI.remove_from_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key;
 			Db.VDI.add_to_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key ~value:(Ref.string_of mirror_record.mr_remote_vdi_reference)) (snapshots_map @ vdi_map);
 
-		let xenops_vif_map = List.map (fun (vif,network) ->
-			let bridge = Xenops_interface.Network.Local (XenAPI.Network.get_bridge remote_rpc session_id network) in
-			let device = Db.VIF.get_device ~__context ~self:vif in
-			(device,bridge)) vif_map in
-
 		List.iter (fun (vif,network) ->
 			Db.VIF.remove_from_other_config ~__context ~self:vif ~key:Constants.storage_migrate_vif_map_key;
 			Db.VIF.add_to_other_config ~__context ~self:vif ~key:Constants.storage_migrate_vif_map_key ~value:(Ref.string_of network)) vif_map;
@@ -382,6 +377,17 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
 		(* Attach networks on remote *)
 		XenAPI.Network.attach_for_vm ~rpc:remote_rpc ~session_id ~host:(Ref.of_string dest_host) ~vm:new_vm;
+
+		(* Create the vif-map for xenops, linking VIF devices to bridge names on the remote *)
+		let xenops_vif_map =
+			let vifs = XenAPI.VM.get_VIFs ~rpc:remote_rpc ~session_id ~self:new_vm in
+			List.map (fun vif ->
+				let vifr = XenAPI.VIF.get_record ~rpc:remote_rpc ~session_id ~self:vif in
+				let bridge = Xenops_interface.Network.Local
+					(XenAPI.Network.get_bridge ~rpc:remote_rpc ~session_id ~self:vifr.API.vIF_network) in
+				vifr.API.vIF_device, bridge
+			) vifs
+		in
 
 		(* Destroy the local datapaths - this allows the VDIs to properly detach, invoking the migrate_finalize calls *)
 		List.iter (fun (_ , mirror_record) -> 
