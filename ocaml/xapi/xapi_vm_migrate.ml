@@ -73,14 +73,15 @@ let pool_migrate ~__context ~vm ~host ~options =
 	let open Xenops_client in
 	let vm' = Db.VM.get_uuid ~__context ~self:vm in
 	begin try
-		Xapi_xenops.with_migrating_away vm'
-			(fun () ->
+		Xapi_network.with_networks_attached_for_vm ~__context ~vm ~host (fun () ->
+			Xapi_xenops.with_migrating_away vm' (fun () ->
 				(* XXX: PR-1255: the live flag *)
 				info "xenops: VM.migrate %s to %s" vm' xenops_url;
 				XenopsAPI.VM.migrate dbg vm' [] [] xenops_url |> wait_for_task dbg |> success_task dbg |> ignore;
 				(try XenopsAPI.VM.remove dbg vm' with e -> debug "xenops: VM.remove %s: caught %s" vm' (Printexc.to_string e));
 				Xapi_xenops.Event.wait dbg ()
-			);
+			)
+		);
 	with e ->
 		error "xenops: VM.migrate %s: caught %s" vm' (Printexc.to_string e);
 		(* We do our best to tidy up the state left behind *)
