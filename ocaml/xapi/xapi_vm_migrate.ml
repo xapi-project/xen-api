@@ -496,10 +496,6 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				TaskHelper.exn_if_cancelling ~__context;
 				raise e
 
-let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
-	assert_licensed_storage_motion ~__context ;
-	with_migrate (fun () -> migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options)
-					
 let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	assert_licensed_storage_motion ~__context ;
 
@@ -531,6 +527,12 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			raise (Api_errors.Server_error(Api_errors.vm_has_too_many_snapshots, []));
 		(* Ignore vdi_map for now since we won't be doing any mirroring. *)
 		inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address ~vm ~vdi_map:[] ~dry_run:true ~live
+
+let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
+	assert_licensed_storage_motion ~__context ;
+	with_migrate (fun () ->
+		assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options;
+		migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options)					
 
 (* Handling migrations from pre-Tampa hosts *)
 
