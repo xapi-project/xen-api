@@ -193,12 +193,30 @@ let full_update_fn () =
 
 module StringSet = Set.Make(String)
 
+(* Helper map functions. *)
+let transfer_map ~source ~target =
+	Hashtbl.clear target;
+	Hashtbl.iter (fun k v -> Hashtbl.add target k v) source;
+	Hashtbl.clear source
+
+let get_updates ~before ~after ~f =
+	Hashtbl.fold (fun k v acc ->
+		if (try v <> Hashtbl.find before k with Not_found -> true)
+		then (f k v acc)
+		else acc
+	) after []
+let get_updates_map = get_updates ~f:(fun k v acc -> (k, v)::acc)
+let get_updates_values = get_updates ~f:(fun _ v acc -> v::acc)
+
 (* A cache mapping PIF names to PIF structures. *)
-let pifs_cached : (string, Monitor_types.pif) Hashtbl.t ref = ref (Hashtbl.create 0)
+let pifs_cached : (string, Monitor_types.pif) Hashtbl.t = Hashtbl.create 10
+let pifs_tmp    : (string, Monitor_types.pif) Hashtbl.t = Hashtbl.create 10
 (* A cache mapping PIF names to bond.links_up. *)
-let bonds_links_up_cached : (string, int) Hashtbl.t ref = ref (Hashtbl.create 0)
+let bonds_links_up_cached : (string, int) Hashtbl.t = Hashtbl.create 10
+let bonds_links_up_tmp    : (string, int) Hashtbl.t = Hashtbl.create 10
 (* A cache mapping vm_uuids to actual memory. *)
-let vm_memory_cached : (string, Int64.t) Hashtbl.t ref = ref (Hashtbl.create 0)
+let vm_memory_cached : (string, Int64.t) Hashtbl.t = Hashtbl.create 100
+let vm_memory_tmp    : (string, Int64.t) Hashtbl.t = Hashtbl.create 100
 (* A cache for host's free/total memory. *)
 let host_memory_free_cached : Int64.t ref = ref Int64.zero
 let host_memory_total_cached : Int64.t ref = ref Int64.zero
@@ -221,35 +239,27 @@ let get_host_memory_changes xc =
 
 let get_vm_memory_changes xc =
 	let domains = Xenctrl.domain_getinfolist xc 0 in
-	let vm_memory = Hashtbl.create 0 in
 	let process_vm dom =
 		let open Xenctrl.Domain_info in
 		let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.handle) in
 		let kib = Xenctrl.pages_to_kib (Int64.of_nativeint dom.total_memory_pages) in
 		let memory = Int64.mul kib 1024L in
-		Hashtbl.add vm_memory uuid memory
+		Hashtbl.add vm_memory_tmp uuid memory
 	in
 	List.iter process_vm domains;
 	let changed_vm_memory =
-		Hashtbl.fold (fun uuid memory acc ->
-			let changed =
-				try memory <> Hashtbl.find !vm_memory_cached uuid
-				with Not_found -> true in
-			if changed then (uuid, memory)::acc else acc
-		) vm_memory [] in
-	vm_memory_cached := vm_memory;
+		get_updates_map ~before:vm_memory_cached ~after:vm_memory_tmp in
+	transfer_map ~source:vm_memory_tmp ~target:vm_memory_cached;
 	changed_vm_memory
 
 let get_pif_and_bond_changes () =
 	(* Read fresh PIF information from networkd. *)
 	let open Network_monitor in
 	let stats = read_stats () in
-	let pifs = Hashtbl.create 0 in
-	let bonds_links_up = Hashtbl.create 0 in
 	List.iter (fun (dev, stat) ->
 		if not (String.startswith "vif" dev) then (
 			if stat.nb_links > 1 then (* bond *)
-				Hashtbl.add bonds_links_up dev stat.links_up;
+				Hashtbl.add bonds_links_up_tmp dev stat.links_up;
 			let pif = {
 				pif_name = dev;
 				pif_tx = -1.0;
@@ -263,26 +273,15 @@ let get_pif_and_bond_changes () =
 				pif_vendor_id = stat.vendor_id;
 				pif_device_id = stat.device_id;
 			} in
-			Hashtbl.add pifs pif.pif_name pif;
+			Hashtbl.add pifs_tmp pif.pif_name pif;
 		)
 	) stats;
 	(* Check if any of the bonds have changed since our last reading. *)
-	let bond_changes =
-		Hashtbl.fold (fun dev links_up acc ->
-			let changed =
-				try links_up <> Hashtbl.find !bonds_links_up_cached dev
-				with Not_found -> true in
-			if changed then (dev, links_up)::acc else acc
-		) bonds_links_up [] in
-	bonds_links_up_cached := bonds_links_up;
+	let bond_changes = get_updates_map ~before:bonds_links_up_cached ~after:bonds_links_up_tmp in
+	transfer_map ~source:bonds_links_up_tmp ~target:bonds_links_up_cached;
 	(* Check if any of the PIFs have changed since our last reading. *)
-	let pif_changes =
-		Hashtbl.fold (fun pif_name pif acc ->
-			let changed =
-				try pif <> Hashtbl.find !pifs_cached pif_name with Not_found -> true in
-			if changed then pif::acc else acc
-		) pifs [] in
-	pifs_cached := pifs;
+	let pif_changes = get_updates_values ~before:pifs_cached ~after:pifs_tmp in
+	transfer_map ~source:pifs_tmp ~target:pifs_cached;
 	(* Return lists of changes. *)
 	pif_changes, bond_changes
 
