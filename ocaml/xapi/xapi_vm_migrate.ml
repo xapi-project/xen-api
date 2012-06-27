@@ -378,6 +378,10 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		(* Migrate the VM *)
 		let open Xenops_client in
 		let vm' = Db.VM.get_uuid ~__context ~self:vm in
+		let new_vm = XenAPI.VM.get_by_uuid remote_rpc session_id vm' in
+
+		(* Attach networks on remote *)
+		XenAPI.Network.attach_for_vm ~rpc:remote_rpc ~session_id ~host:(Ref.of_string dest_host) ~vm:new_vm;
 
 		(* Destroy the local datapaths - this allows the VDIs to properly detach, invoking the migrate_finalize calls *)
 		List.iter (fun (_ , mirror_record) -> 
@@ -401,8 +405,6 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		debug "Migration complete";
 
 		Xapi_xenops.refresh_vm ~__context ~self:vm;
-
-		let new_vm = XenAPI.VM.get_by_uuid remote_rpc session_id vm' in
 
 		XenAPI.VM.pool_migrate_complete remote_rpc session_id new_vm (Ref.of_string dest_host);
 		
