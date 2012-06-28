@@ -1634,6 +1634,12 @@ module UPDATES = struct
 				Updates.get dbg last timeout updates
 			) ()
 
+	let last_id _ dbg =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				Updates.last_id dbg updates
+			) ()
+
 	let inject_barrier _ dbg id =
 		Debug.with_thread_associated dbg
 			(fun () ->
