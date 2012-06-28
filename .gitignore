@@ -170,6 +170,7 @@ ocaml/xenguest/dumpcore
 ocaml/xenguest/xenguest
 ocaml/xenops-ts/runtest
 ocaml/xenops/dbgring
+ocaml/xenops/domain_sethandle
 ocaml/xenops/fence
 ocaml/xenops/list_domains
 ocaml/xenops/watch_test
