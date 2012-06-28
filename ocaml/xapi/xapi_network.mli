@@ -95,3 +95,30 @@ val set_default_locking_mode :
 	__context:Context.t ->
 	network:[ `network ] Ref.t ->
 	value:API.network_default_locking_mode -> unit
+
+(** {2 Networking helper functions for VMs and VIFs} *)
+
+val attach_for_vif :
+	__context:Context.t ->
+	vif:[ `VIF ] Ref.t ->
+	unit ->
+	unit
+
+val attach_for_vm :
+	__context:Context.t ->
+	host:[ `host ] Ref.t ->
+	vm:[ `VM ] Ref.t ->
+	unit
+
+val detach_for_vm :
+	__context:Context.t ->
+	host:[ `host ] Ref.t ->
+	vm:[ `VM ] Ref.t ->
+	unit
+
+val with_networks_attached_for_vm :
+	__context:Context.t ->
+	?host:[ `host ] Ref.t ->
+	vm:[ `VM ] Ref.t ->
+	(unit -> 'a) ->
+	'a

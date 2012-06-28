@@ -2550,6 +2550,18 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let set_default_locking_mode ~__context ~network ~value =
 			info "Network.set_default_locking_mode: network = '%s'; value = %s" (network_uuid ~__context network) (Record_util.network_default_locking_mode_to_string value);
 			Local.Network.set_default_locking_mode ~__context ~network ~value
+
+		let attach_for_vm ~__context ~host ~vm =
+			info "Network.attach_for_vm: host = '%s'; VM = '%s'" (host_uuid ~__context host) (vm_uuid ~__context vm);
+			let local_fn = Local.Network.attach_for_vm ~host ~vm in
+			do_op_on ~local_fn ~__context ~host
+				(fun session_id rpc -> Client.Network.attach_for_vm rpc session_id host vm)
+
+		let detach_for_vm ~__context ~host ~vm =
+			info "Network.detach_for_vm: host = '%s'; VM = '%s'" (host_uuid ~__context host) (vm_uuid ~__context vm);
+			let local_fn = Local.Network.detach_for_vm ~host ~vm in
+			do_op_on ~local_fn ~__context ~host
+				(fun session_id rpc -> Client.Network.detach_for_vm rpc session_id host vm)
 	end
 
 	module VIF = struct
