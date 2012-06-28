@@ -615,41 +615,6 @@ let to_xenapi_console_protocol = let open Vm in function
 	| Rfb -> `rfb
 	| Vt100 -> `vt100
 
-let attach_network_for_vif ~__context ~self =
-	Xapi_network.register_vif ~__context self;
-	let network = Db.VIF.get_network ~__context ~self in
-	Xapi_network.attach_internal ~__context ~self:network ();
-	Xapi_udhcpd.maybe_add_lease ~__context self
-
-let attach_networks ~__context ~self =
-	List.iter
-		(fun vif ->
-			attach_network_for_vif ~__context ~self:vif
-		) (Db.VM.get_VIFs ~__context ~self)
-
-let detach_networks ~__context ~self =
-	try
-		List.iter
-			(fun vif ->
-				Xapi_network.deregister_vif ~__context vif
-			) (Db.VM.get_VIFs ~__context ~self)
-	with e ->
-		error "Caught %s while detaching networks" (string_of_exn e)
-
-let with_networks_attached ~__context ~self f =
-	attach_networks ~__context ~self;
-	try
-		f ()
-	with e ->
-		info "Caught %s: detaching networks" (string_of_exn e);
-		begin
-			try
-				detach_networks ~__context ~self;
-			with e ->
-				error "Caught %s while detaching networks" (string_of_exn e)
-		end;
-		raise e
-
 (* Event handling:
    When we tell the xenopsd to start a VM, we wait for the task to complete.
    We also wait for an iteration of the xenops event loop to ensure that
@@ -771,7 +736,7 @@ let update_vm ~__context id =
 							let power_state = xenapi_of_xenops_power_state (Opt.map (fun x -> (snd x).power_state) info) in
 							debug "xenopsd event: Updating VM %s power_state <- %s" id (Record_util.power_state_to_string power_state);
 							if power_state = `Suspended || power_state = `Halted then begin
-								detach_networks ~__context ~self;
+								Xapi_network.detach_for_vm ~__context ~host:localhost ~vm:self;
 								Storage_access.reset ~__context ~vm:self;
 							end;
 							if power_state = `Halted
@@ -1574,7 +1539,7 @@ let start ~__context ~self paused =
 				(fun id ->
 					with_caches dbg id
 						(fun () ->
-							with_networks_attached ~__context ~self
+							Xapi_network.with_networks_attached_for_vm ~__context ~vm:self
 								(fun () ->
 									info "xenops: VM.start %s" id;
 									Client.VM.start dbg id |> sync_with_task __context;
@@ -1695,7 +1660,7 @@ let resume ~__context ~self ~start_paused ~force =
 				(fun id ->
 					with_caches dbg id
 						(fun () ->
-							with_networks_attached ~__context ~self
+							Xapi_network.with_networks_attached_for_vm ~__context ~vm:self
 								(fun () ->
 									info "xenops: VM.resume %s from %s" id (disk |> rpc_of_disk |> Jsonrpc.to_string);
 									Client.VM.resume dbg id disk |> sync_with_task __context;
@@ -1842,7 +1807,7 @@ let vif_plug ~__context ~self =
 			let dbg = Context.string_of_task __context in
 			(try Client.VIF.remove dbg vif.Vif.id with Does_not_exist _ -> ());
 			info "xenops: VIF.add %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
-			with_networks_attached ~__context ~self:vm (fun () ->
+			Xapi_network.with_networks_attached_for_vm ~__context ~vm (fun () ->
 				let id = Client.VIF.add dbg vif in
 				info "xenops: VIF.plug %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
 				Client.VIF.plug dbg id |> sync_with_task __context;
@@ -1895,7 +1860,7 @@ let vif_move ~__context ~self network =
 			let backend = backend_of_network network in
 			let dbg = Context.string_of_task __context in
 			(* Nb., at this point, the database shows the vif on the new network *)
-			attach_network_for_vif ~__context ~self;
+			Xapi_network.attach_for_vif ~__context ~vif:self ();
 			Client.VIF.move dbg vif.Vif.id backend |> sync_with_task __context;
 			Event.wait dbg ();
 			assert (Db.VIF.get_currently_attached ~__context ~self)
