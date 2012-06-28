@@ -15,6 +15,7 @@
 (* The framework requires type 'context' to be defined. *)
 type context = unit
 
+open Fun
 open Listext
 open Pervasiveext
 open Stringext
@@ -436,16 +437,148 @@ let unset_cache_sr _ () =
 	Mutex.execute cache_sr_lock (fun () -> cache_sr_uuid := None)
 
 module Plugin = struct
+	exception Read_error
+	exception Invalid_magic_string
+	exception Invalid_length
+	exception Invalid_checksum
+	exception Invalid_payload
+
+	(* Static values. *)
+	let magic = "DATASOURCES\n"
+	let magic_bytes = String.length magic
+	let length_bytes = 8 (* hex length of payload *) + 1 (* newline char *)
+	let checksum_bytes = 32 (* hex length of checksum *) + 1 (* newline char *)
+	let max_bytes =
+		List.fold_left max 0 [magic_bytes; length_bytes; checksum_bytes]
+
+	(* Cache of open file handles to files written by plugins. *)
+	let open_files : (string, Unix.file_descr) Hashtbl.t = Hashtbl.create 10
+
+	(* A function that opens files using the above cache. *)
+	let open_file ~(path : string) : Unix.file_descr =
+		try Hashtbl.find open_files path
+		with Not_found ->
+			let fd = Unix.openfile path [Unix.O_RDONLY] 0 in
+			Hashtbl.add open_files path fd;
+			fd
+
+	(* A function that reads using Unix.read a string of specified length from
+	 * the specified file. *)
+	let read_string ~(fd : Unix.file_descr) ~(length : int) : string =
+		let buffer = String.create length in
+		let read = Unix.read fd buffer 0 length in
+		if read <> length then raise Read_error;
+		buffer
+
+	(* The payload type that corresponds to the plugin output file format. *)
+	type payload = {
+		timestamp : int;
+		datasources : Ds.ds list;
+	}
+
+	(* A helper function for extracting the dictionary out of the RPC type. *)
+	let dict_of_rpc ~(rpc : Rpc.t) : (string * Rpc.t) list =
+		match rpc with Rpc.Dict d -> d | _ -> raise Invalid_payload
+
+	(* A helper function for extracting the enum/list out of the RPC type. *)
+	let list_of_rpc ~(rpc : Rpc.t) : Rpc.t list =
+		match rpc with Rpc.Enum l -> l | _ -> raise Invalid_payload
+
+	let assoc_opt ~(key : string) ~(default : string)
+			(l : (string * 'a) list) : string =
+		try Rpc.string_of_rpc (List.assoc key l) with Not_found -> default
+
+	let ds_type_of_string (s : string) : Rrd.ds_type =
+		match String.lowercase s with
+		| "absolute" -> Rrd.Gauge
+		| "rate" -> Rrd.Absolute
+		| "absolute_to_rate" -> Rrd.Derive
+		| _ -> raise Invalid_payload
+
+	type value_type = Float | Int64
+
+	let value_type_of_string (s : string) : value_type =
+		match String.lowercase s with
+		| "float" -> Float
+		| "int" -> Int64
+		| _ -> raise Invalid_payload
+
+	let ds_value_of_string ~(ty : value_type) ~(str : string)
+			: Rrd.ds_value_type =
+		match ty with
+		| Float -> Rrd.VT_Float (float_of_string str)
+		| Int64 -> Rrd.VT_Int64 (Int64.of_string str)
+
+	(* A function that converts a JSON type into a datasource type, assigning
+	 * default values appropriately. *)
+	let ds_of_rpc (rpc : Rpc.t) : Ds.ds =
+		let open Rpc in
+		let kvs = dict_of_rpc ~rpc in
+		let name = string_of_rpc (List.assoc "name" kvs) in
+		let description = assoc_opt ~key:"description" ~default:"" kvs in
+		let units = assoc_opt ~key:"units" ~default:"" kvs in
+		let ty =
+			ds_type_of_string (assoc_opt ~key:"type" ~default:"absolute" kvs) in
+		let val_ty =
+			value_type_of_string (assoc_opt ~key:"type" ~default:"float" kvs) in
+		let value =
+			let value_str = string_of_rpc (List.assoc "name" kvs) in
+			ds_value_of_string ~ty:val_ty ~str:value_str
+		in
+		let min =
+			float_of_string (assoc_opt ~key:"type" ~default:"-infinity" kvs) in
+		let max =
+			float_of_string (assoc_opt ~key:"type" ~default:"infinity" kvs) in
+		Ds.ds_make ~name ~description ~units ~ty ~value ~min ~max ~default:false ()
+
+	(* A function that parses the payload written by a plugin into the payload
+	 * type. *)
+	let parse_payload ~(json : string) : payload =
+		try
+			let open Rpc in
+			let rpc = Jsonrpc.of_string json in
+			let kvs = dict_of_rpc ~rpc in
+			let timestamp = int_of_rpc (List.assoc "timestamp" kvs) in
+			let datasource_rpcs = list_of_rpc (List.assoc "datasources" kvs) in
+			{timestamp; datasources = List.map ds_of_rpc datasource_rpcs}
+		with _ -> raise Invalid_payload
+
+	(* The function that reads the file that corresponds to the plugin with the
+	 * specified uid, and returns the contents of the file in terms of the
+	 * payload type, or throws an exception. *)
+	let read_file ~(uid : string) : payload =
+		try
+			let path = Filename.concat Rrdd_interface.Plugin.base_path uid in
+			let fd = open_file ~path in
+			if Unix.lseek fd 0 Unix.SEEK_SET <> 0 then
+				raise Read_error;
+			if read_string ~fd ~length:magic_bytes <> magic then
+				raise Invalid_magic_string;
+			let length =
+				let length_str = String.rtrim (read_string ~fd ~length:length_bytes) in
+				try int_of_string ("0x" ^ length_str) with _ -> raise Invalid_length
+			in
+			let checksum = String.rtrim (read_string ~fd ~length:checksum_bytes) in
+			let payload = read_string ~fd ~length in
+			if payload |> Digest.string |> Digest.to_hex <> checksum then
+				raise Invalid_checksum;
+			parse_payload ~json:payload
+		with
+		| Invalid_magic_string | Invalid_length | Invalid_checksum as e -> raise e
+		| _ -> raise Read_error
+
 	(* The function registers a plugin, and returns the number of seconds until
 	 * the next reading phase for the specified sampling frequency. *)
 	let register _ ~(uid : string) ~(frequency : Data_source.sampling_frequency)
 			: float =
+		debug "rrdd_plugin: register";
 		0.
 
 	(* Returns the number of seconds until the next reading phase for the
 	 * sampling frequency given at registration by the plugin with the specified
 	 * unique ID. *)
 	let next_reading _ ~(uid : string) : float =
+		debug "rrdd_plugin: next_reading";
 		0.
 end
 
