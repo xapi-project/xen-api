@@ -127,6 +127,9 @@ let with_file file mode perms f =
 
 let file_lines_fold f start file_path = with_input_channel file_path (lines_fold f start)
 
+let read_lines ~(path : string) : string list =
+	List.rev (file_lines_fold (fun acc line -> line::acc) [] path)
+
 let file_lines_iter f = file_lines_fold (fun () line -> ignore(f line)) ()
 
 let readfile_line = file_lines_iter

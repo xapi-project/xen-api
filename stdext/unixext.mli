@@ -37,6 +37,9 @@ val lines_iter : (string -> unit) -> in_channel -> unit
 starting value [start]. *)
 val file_lines_fold : ('a -> string -> 'a) -> 'a -> string -> 'a
 
+(** [read_lines path] returns a list of lines in the file at [path]. *)
+val read_lines : path:string -> string list
+
 (** Applies function [f] to every line in the file at [file_path]. *)
 val file_lines_iter : (string -> unit) -> string -> unit
 
