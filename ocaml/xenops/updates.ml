@@ -164,6 +164,8 @@ module UpdateRecorder = functor(Ord: Map.OrderedType) -> struct
 		(* NB 'xs' must be in order so 'Barrier' requests don't permute *)
 		List.rev xs, last
 
+	let last_id t = t.next - 1
+
 	let fold f t init = M.fold f t.map init
 end
 
@@ -230,6 +232,12 @@ let get dbg from timeout t =
 					!current
 				)
 		) (fun () -> Opt.iter Scheduler.cancel id)
+
+let last_id dbg t =
+	Mutex.execute t.m
+		(fun () ->
+			U.last_id t.u
+		)
 
 let add x t =
 	Mutex.execute t.m
