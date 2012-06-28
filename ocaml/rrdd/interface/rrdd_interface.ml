@@ -54,6 +54,13 @@ external update_vm_memory_target : domid:int -> target:int64 -> unit = ""
 external set_cache_sr : sr_uuid:string -> unit = ""
 external unset_cache_sr : unit -> unit = ""
 
+module Plugin = struct
+	let base_path = "/dev/shm/metrics/"
+	external register : uid:string -> frequency:Data_source.sampling_frequency ->
+		float = ""
+	external next_reading : uid:string -> float = ""
+end
+
 module HA = struct
 	external enable_and_update :
 		statefile_latencies:Rrd.Statefile_latency.t list ->
