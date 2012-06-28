@@ -435,7 +435,19 @@ let set_cache_sr _ ~(sr_uuid : string) : unit =
 let unset_cache_sr _ () =
 	Mutex.execute cache_sr_lock (fun () -> cache_sr_uuid := None)
 
+module Plugin = struct
+	(* The function registers a plugin, and returns the number of seconds until
+	 * the next reading phase for the specified sampling frequency. *)
+	let register _ ~(uid : string) ~(frequency : Data_source.sampling_frequency)
+			: float =
+		0.
 
+	(* Returns the number of seconds until the next reading phase for the
+	 * sampling frequency given at registration by the plugin with the specified
+	 * unique ID. *)
+	let next_reading _ ~(uid : string) : float =
+		0.
+end
 
 module HA = struct
 	let enable_and_update _ ~(statefile_latencies : Rrd.Statefile_latency.t list)
