@@ -251,11 +251,25 @@ module MD = struct
 			| `locked, _ -> Vif.Locked { Vif.ipv4 = vif.API.vIF_ipv4_allowed; ipv6 = vif.API.vIF_ipv6_allowed }
 			| `unlocked, _ -> Vif.Unlocked
 			| `disabled, _ -> Vif.Disabled in
+		let carrier =
+			if !Monitor_rrds.pass_through_pif_carrier then
+				(* We need to reflect the carrier of the local PIF on the network (if any) *)
+				let host = Helpers.get_localhost ~__context in
+				let pifs = Xapi_network_attach_helpers.get_local_pifs ~__context ~network:vif.API.vIF_network ~host in
+				match pifs with
+				| [] -> true (* Internal network; consider as "always up" *)
+				| pif :: _ ->
+					let metrics = Db.PIF.get_metrics ~__context ~self:pif in
+					Db.PIF_metrics.get_carrier ~__context ~self:metrics
+			else
+				(* If we don't need to reflect anything, the carrier is set to "true" *)
+				true
+		in
 		let open Vif in {
 			id = (vm.API.vM_uuid, vif.API.vIF_device);
 			position = int_of_string vif.API.vIF_device;
 			mac = vif.API.vIF_MAC;
-			carrier = true;
+			carrier = carrier;
 			mtu = mtu;
 			rate = None;
 			backend = backend_of_network net;
