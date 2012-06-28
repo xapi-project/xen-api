@@ -569,7 +569,7 @@ module SMAPIv1 = struct
 			Server_helpers.exec_with_new_task "VDI.remove_from_sm_config" ~subtask_of:(Ref.of_string dbg)
 				(fun __context ->
 					let self = find_vdi ~__context sr vdi |> fst in
-					Db.VDI.remove_from_other_config ~__context ~self ~key)
+					Db.VDI.remove_from_sm_config ~__context ~self ~key)
 
 		let get_url context ~dbg ~sr ~vdi =
 			info "VDI.get_url dbg:%s sr:%s vdi:%s" dbg sr vdi;
