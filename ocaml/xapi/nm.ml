@@ -296,8 +296,9 @@ let determine_gateway_and_dns_ifs ~__context pif_rc management_interface =
 				List.assoc "defaultroute" r.API.pIF_other_config = "true"
 			) ip_pifs in
 			match oc with
-			| (_, r) :: _ ->
-				warn "multiple PIFs with other_config:defaultroute=true - choosing %s" r.API.pIF_device;
+			| (_, r) :: tl ->
+				if tl <> [] then
+					warn "multiple PIFs with other_config:defaultroute=true - choosing %s" r.API.pIF_device;
 				r
 			| [] ->
 				if management_interface then
@@ -317,8 +318,9 @@ let determine_gateway_and_dns_ifs ~__context pif_rc management_interface =
 				List.assoc "peerdns" r.API.pIF_other_config = "true"
 			) ip_pifs in
 			match oc with
-			| (_, r) :: _ ->
-				warn "multiple PIFs with other_config:peerdns=true - choosing %s" r.API.pIF_device;
+			| (_, r) :: tl ->
+				if tl <> [] then
+					warn "multiple PIFs with other_config:peerdns=true - choosing %s" r.API.pIF_device;
 				r
 			| [] ->
 				if management_interface then
