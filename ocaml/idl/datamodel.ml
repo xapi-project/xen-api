@@ -4308,12 +4308,37 @@ let network_set_default_locking_mode = call
 	~allowed_roles:_R_POOL_OP
 	()
 
+let network_attach_for_vm = call
+	~name:"attach_for_vm"
+	~doc:"Attaches all networks needed by a given VM on a particular host"
+	~params:[
+		Ref _host, "host", "Physical machine to which the networks are to be attached";
+		Ref _vm, "vm", "The virtual machine"
+	]
+	~in_product_since:rel_tampa
+	~hide_from_docs:true
+	~allowed_roles:_R_POOL_OP
+	()
+
+let network_detach_for_vm = call
+	~name:"detach_for_vm"
+	~doc:"Detaches all networks of a given VM from a particular host"
+	~params:[
+		Ref _host, "host", "Physical machine from which the networks are to be attached";
+		Ref _vm, "vm", "The virtual machine"
+	]
+	~in_product_since:rel_tampa
+	~hide_from_docs:true
+	~allowed_roles:_R_POOL_OP
+	()
+
 (** A virtual network *)
 let network =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_network ~descr:"A virtual network" ~gen_events:true
       ~doccomments:[]
       ~messages_default_allowed_roles:_R_VM_ADMIN (* vm admins can create/destroy networks without PIFs *)
-      ~messages:[network_attach; network_pool_introduce; network_create_new_blob; network_set_default_locking_mode]
+      ~messages:[network_attach; network_pool_introduce; network_create_new_blob; network_set_default_locking_mode;
+        network_attach_for_vm; network_detach_for_vm]
       ~contents:
       ([
       uid _network;

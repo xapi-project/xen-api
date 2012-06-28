@@ -73,14 +73,15 @@ let pool_migrate ~__context ~vm ~host ~options =
 	let open Xenops_client in
 	let vm' = Db.VM.get_uuid ~__context ~self:vm in
 	begin try
-		Xapi_xenops.with_migrating_away vm'
-			(fun () ->
+		Xapi_network.with_networks_attached_for_vm ~__context ~vm ~host (fun () ->
+			Xapi_xenops.with_migrating_away vm' (fun () ->
 				(* XXX: PR-1255: the live flag *)
 				info "xenops: VM.migrate %s to %s" vm' xenops_url;
 				XenopsAPI.VM.migrate dbg vm' [] [] xenops_url |> wait_for_task dbg |> success_task dbg |> ignore;
 				(try XenopsAPI.VM.remove dbg vm' with e -> debug "xenops: VM.remove %s: caught %s" vm' (Printexc.to_string e));
 				Xapi_xenops.Event.wait dbg ()
-			);
+			)
+		);
 	with e ->
 		error "xenops: VM.migrate %s: caught %s" vm' (Printexc.to_string e);
 		(* We do our best to tidy up the state left behind *)
@@ -345,11 +346,6 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				Db.VDI.remove_from_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key;
 			Db.VDI.add_to_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key ~value:(Ref.string_of mirror_record.mr_remote_vdi_reference)) (snapshots_map @ vdi_map);
 
-		let xenops_vif_map = List.map (fun (vif,network) ->
-			let bridge = Xenops_interface.Network.Local (XenAPI.Network.get_bridge remote_rpc session_id network) in
-			let device = Db.VIF.get_device ~__context ~self:vif in
-			(device,bridge)) vif_map in
-
 		List.iter (fun (vif,network) ->
 			Db.VIF.remove_from_other_config ~__context ~self:vif ~key:Constants.storage_migrate_vif_map_key;
 			Db.VIF.add_to_other_config ~__context ~self:vif ~key:Constants.storage_migrate_vif_map_key ~value:(Ref.string_of network)) vif_map;
@@ -377,6 +373,21 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		(* Migrate the VM *)
 		let open Xenops_client in
 		let vm' = Db.VM.get_uuid ~__context ~self:vm in
+		let new_vm = XenAPI.VM.get_by_uuid remote_rpc session_id vm' in
+
+		(* Attach networks on remote *)
+		XenAPI.Network.attach_for_vm ~rpc:remote_rpc ~session_id ~host:(Ref.of_string dest_host) ~vm:new_vm;
+
+		(* Create the vif-map for xenops, linking VIF devices to bridge names on the remote *)
+		let xenops_vif_map =
+			let vifs = XenAPI.VM.get_VIFs ~rpc:remote_rpc ~session_id ~self:new_vm in
+			List.map (fun vif ->
+				let vifr = XenAPI.VIF.get_record ~rpc:remote_rpc ~session_id ~self:vif in
+				let bridge = Xenops_interface.Network.Local
+					(XenAPI.Network.get_bridge ~rpc:remote_rpc ~session_id ~self:vifr.API.vIF_network) in
+				vifr.API.vIF_device, bridge
+			) vifs
+		in
 
 		(* Destroy the local datapaths - this allows the VDIs to properly detach, invoking the migrate_finalize calls *)
 		List.iter (fun (_ , mirror_record) -> 
@@ -400,8 +411,6 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		debug "Migration complete";
 
 		Xapi_xenops.refresh_vm ~__context ~self:vm;
-
-		let new_vm = XenAPI.VM.get_by_uuid remote_rpc session_id vm' in
 
 		XenAPI.VM.pool_migrate_complete remote_rpc session_id new_vm (Ref.of_string dest_host);
 		
@@ -601,7 +610,7 @@ let handler req fd _ =
 			debug "overhead_bytes = %Ld; free_memory_required = %Ld KiB" overhead_bytes free_memory_required_kib;
 
 			let dbg = Context.string_of_task __context in
-			Xapi_xenops.with_networks_attached ~__context ~self:vm (fun () ->
+			Xapi_network.with_networks_attached_for_vm ~__context ~vm (fun () ->
 				Xapi_xenops.transform_xenops_exn ~__context (fun () ->
 					Xapi_xenops.with_metadata_pushed_to_xenopsd ~__context ~upgrade:true ~self:vm (fun id ->
 						info "xenops: VM.receive_memory %s" id;

@@ -201,3 +201,58 @@ let set_default_locking_mode ~__context ~network ~value =
 	with
 	| [] -> Db.Network.set_default_locking_mode ~__context ~self:network ~value
 	| (vif,_)::_ -> raise (Api_errors.Server_error (Api_errors.vif_in_use, [Ref.string_of network; Ref.string_of vif]))
+
+let string_of_exn = function
+	| Api_errors.Server_error(code, params) -> Printf.sprintf "%s [ %s ]" code (String.concat "; " params)
+	| e -> Printexc.to_string e
+
+(* Networking helper functions for VMs and VIFs *)
+
+let attach_for_vif ~__context ~vif () =
+	register_vif ~__context vif;
+	let network = Db.VIF.get_network ~__context ~self:vif in
+	attach_internal ~__context ~self:network ();
+	Xapi_udhcpd.maybe_add_lease ~__context vif
+
+let attach_for_vm ~__context ~host ~vm =
+	List.iter
+		(fun vif ->
+			attach_for_vif ~__context ~vif ()
+		) (Db.VM.get_VIFs ~__context ~self:vm)
+
+let detach_for_vm ~__context ~host ~vm =
+	try
+		List.iter
+			(fun vif ->
+				deregister_vif ~__context vif
+			) (Db.VM.get_VIFs ~__context ~self:vm)
+	with e ->
+		error "Caught %s while detaching networks" (string_of_exn e)
+
+let with_networks_attached_for_vm ~__context ?host ~vm f =
+	begin match host with
+	| None -> (* use local host *)
+		attach_for_vm ~__context ~host:(Helpers.get_localhost ~__context) ~vm
+	| Some host ->
+		Helpers.call_api_functions ~__context (fun rpc session_id ->
+			Client.Network.attach_for_vm ~rpc ~session_id ~host ~vm
+		)
+	end;
+	try
+		f ()
+	with e ->
+		info "Caught %s: detaching networks" (string_of_exn e);
+		begin
+			try
+				match host with
+				| None -> (* use local host *)
+					detach_for_vm ~__context ~host:(Helpers.get_localhost ~__context) ~vm
+				| Some host ->
+					Helpers.call_api_functions ~__context (fun rpc session_id ->
+						Client.Network.detach_for_vm ~rpc ~session_id ~host ~vm
+					)
+			with e ->
+				error "Caught %s while detaching networks" (string_of_exn e)
+		end;
+		raise e
+
