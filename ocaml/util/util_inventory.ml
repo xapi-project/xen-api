@@ -95,14 +95,15 @@ let reread_inventory () = Mutex.execute inventory_m (fun () ->
 exception Missing_inventory_key of string
 
 let lookup ?default key =
-	(if not (!loaded_inventory) then read_inventory());
-	if (Hashtbl.mem inventory key)
-	then
-		Hashtbl.find inventory key
-	else
-		match default with
-			| None   -> raise (Missing_inventory_key key)
-			| Some v -> v
+	Mutex.execute inventory_m (fun () ->
+		(if not (!loaded_inventory) then read_inventory_contents ());
+		if (Hashtbl.mem inventory key)
+		then
+			Hashtbl.find inventory key
+		else
+			match default with
+				| None   -> raise (Missing_inventory_key key)
+				| Some v -> v)
 
 let flush_to_disk_locked () =
 	let h = Hashtbl.fold (fun k v acc -> (k, v) :: acc) inventory [] in
