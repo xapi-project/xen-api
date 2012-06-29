@@ -1038,24 +1038,25 @@ let perform_atomics atomics t =
 			) 0. atomics in
 	()
 
+let call_destroy_on_error name op id t =
+	debug "%s %s" name id;
+	try
+		perform_atomics (atomics_of_operation op) t;
+		VM_DB.signal id
+	with e ->
+		debug "%s threw error: %s. Calling VM.destroy" name (Printexc.to_string e);
+		begin try
+				  perform_atomics [ VM_destroy id; VM_remove id ] t;
+				  VM_DB.signal id
+		with (Does_not_exist("domain", _)) ->
+			debug "Ignoring domain Does_not_exist during clean-up"
+		end;
+		raise e
+	
 let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 	let module B = (val get_backend () : S) in
 	let one = function
-		| VM_start id ->
-			debug "VM.start %s" id;
-			begin try
-				perform_atomics (atomics_of_operation op) t;
-				VM_DB.signal id
-			with e ->
-				debug "VM.start threw error: %s. Calling VM.destroy" (Printexc.to_string e);
-				begin
-					try
-						perform_atomics [ VM_destroy id ] t;
-					with (Does_not_exist("domain", _)) ->
-						debug "Ignoring domain Does_not_exist during clean-up"
-				end;
-				raise e
-			end
+		| VM_start id -> call_destroy_on_error "VM.start" op id t
 		| VM_poweroff (id, timeout) ->
 			debug "VM.poweroff %s" id;
 			perform_atomics (atomics_of_operation op) t;
@@ -1068,10 +1069,7 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			debug "VM.shutdown %s" id;
 			perform_atomics (atomics_of_operation op) t;
 			VM_DB.signal id
-		| VM_suspend (id, data) ->
-			debug "VM.suspend %s" id;
-			perform_atomics (atomics_of_operation op) t;
-			VM_DB.signal id
+		| VM_suspend (id, _) -> call_destroy_on_error "VM.suspend" op id t
 		| VM_restore_devices id -> (* XXX: this is delayed due to the 'attach'/'activate' behaviour *)
 			debug "VM_restore_devices %s" id;
 			perform_atomics (atomics_of_operation op) t;
