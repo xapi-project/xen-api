@@ -179,6 +179,8 @@ let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
 				vncterm_ip = Some "0.0.0.0" (*None PR-1255*);
 			}
 
+let pass_through_pif_carrier = ref false
+
 module MD = struct
 	(** Convert between xapi DB records and xenopsd records *)
 
@@ -252,7 +254,7 @@ module MD = struct
 			| `unlocked, _ -> Vif.Unlocked
 			| `disabled, _ -> Vif.Disabled in
 		let carrier =
-			if !Monitor_rrds.pass_through_pif_carrier then
+			if !pass_through_pif_carrier then
 				(* We need to reflect the carrier of the local PIF on the network (if any) *)
 				let host = Helpers.get_localhost ~__context in
 				let pifs = Xapi_network_attach_helpers.get_local_pifs ~__context ~network:vif.API.vIF_network ~host in
