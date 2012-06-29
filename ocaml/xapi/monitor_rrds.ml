@@ -635,10 +635,10 @@ let handler_rrd_updates (req: Http.Request.t) s _ =
 	       ~version:"1.1" ~keep_alive:false ())
         in
         let headers = if json then headers else (headers@[Http.Hdr.content_type ^ ": text/xml"]) in
-		let headers = [
+		let headers = headers @ [
 			"Access-Control-Allow-Origin: *";
 			"Access-Control-Allow-Headers: X-Requested-With"
-		] @ headers in
+		] in
         Http_svr.headers s headers;
         ignore(Unix.write s xml 0 (String.length xml))
       end)
