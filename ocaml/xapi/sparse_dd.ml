@@ -347,7 +347,10 @@ let file_dd ?(progress_cb = (fun _ -> ())) ?size ?bat erase write_zeroes src dst
 					debug "Writing NBD encoding to fd: %d" (Unixext.int_of_file_descr ofd);
 					let (size,flags) = Nbd.negotiate ofd in
 					ignore((size,flags));
-					Nbd_copy.copy progress_cb bat erase write_zeroes ifd ofd blocksize size
+					let stats = Nbd_copy.copy progress_cb bat erase write_zeroes ifd ofd blocksize size in
+					Nbd_writer.wait_for_last_reply ();
+					stats
+
 				end else begin
 					debug "Writing chunked encoding to fd: %d" (Unixext.int_of_file_descr ofd);
 					let stats = Network_copy.copy progress_cb bat erase write_zeroes ifd ofd blocksize size in
@@ -630,7 +633,6 @@ let _ =
 	let erase = not !prezeroed in
 	let write_zeroes = not !prezeroed || !base <> None in
 	let stats = file_dd ~progress_cb ?size ?bat erase write_zeroes (Opt.unbox !src) (Opt.unbox !dest) in
-	Nbd_writer.wait_for_last_reply ();
 	let time = Unix.gettimeofday () -. start in
 	debug "Time: %.2f seconds" time;
 	debug "Number of writes: %d" stats.writes;
