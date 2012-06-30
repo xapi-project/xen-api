@@ -17,6 +17,13 @@ open D
 
 module StringSet = Set.Make(String)
 
+(* The time between each monitoring loop. *)
+let timeslice : float ref = ref 5.
+(* Timestamp of the last monitoring loop end. *)
+let last_loop_end_time : float ref = ref neg_infinity
+(* The mutex that protects the last_loop_end_time against data corruption. *)
+let last_loop_end_time_m : Mutex.t = Mutex.create ()
+
 (* Monitoring state. *)
 let dirty_host_memory = ref false
 let dirty_memory = ref StringSet.empty
