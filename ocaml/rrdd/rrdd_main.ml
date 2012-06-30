@@ -35,7 +35,6 @@ open Pervasiveext
 (* A helper method for processing XMLRPC requests. *)
 let xmlrpc_handler process req bio context =
 	let body = Http_svr.read_body req bio in
-	debug "BODY: %s" body;
 	let s = Buf_io.fd_of bio in
 	let rpc = Xmlrpc.call_of_string body in
 	try
