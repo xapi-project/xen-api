@@ -1,0 +1,3 @@
+install:
+	$(IDATA) rrdd.py $(DESTDIR)/usr/lib/$(PYTHON_DIR)/site-packages/
+	$(IPROG) rrdd-example.py $(DESTDIR)$(LIBEXECDIR)

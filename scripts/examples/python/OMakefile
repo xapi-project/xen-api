@@ -11,7 +11,6 @@ PYTHON_EXE=vm_start_async.py watch-all-events.py powercycle.py install.py fixpbd
 PYTHON_LIB=XenAPI.py provision.py
 PYTHON_SRC=$(PYTHON_EXE) $(PYTHON_LIB)
 PYTHON_HTML=$(addsuffix .html, $(PYTHON_SRC))
-PYTHON_DIR=python2.4
 
 .PHONY: html-versions
 # note that enscript is not in the build chroot, so this target will fail.
