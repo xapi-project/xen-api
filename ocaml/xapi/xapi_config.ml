@@ -24,18 +24,7 @@ open D
 let read_config filename =
 	let configargs = [
 		"use-xenopsd", Config.Set_bool Xapi_globs.use_xenopsd;
-		"disable-logging-for", Config.String
-			(fun x ->
-				try
-					let modules = String.split_f String.isspace x in
-					List.iter
-						(fun x ->
-							debug "Disabling logging for: %s" x;
-							Debug.disable x
-						) modules
-				with e ->
-					error "Processing disabled-logging-for = %s: %s" x (Printexc.to_string e)
-			)
+		Config_shared.disable_logging_for;
 	] in
 	try
 		Config.read filename configargs (fun _ _ -> ())
