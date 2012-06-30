@@ -569,6 +569,16 @@ let monitor_loop () =
 	)
 (* Monitoring code --- END. *)
 
+(* Read the xcp-rrdd.conf. *)
+let read_config () =
+	let config_args = [
+		Config_shared.disable_logging_for;
+	] in
+	try Config.read Fhs.rrddconf config_args (fun _ _ -> ())
+	with Config.Error ls ->
+		List.iter (fun (p, s) -> debug "Config file error: %s: %s\n" p s) ls;
+		exit 2
+
 (* Entry point. *)
 let _ =
 	(* Prevent shutdown due to sigpipe interrupt. This protects against
@@ -577,7 +587,9 @@ let _ =
 
 	(* Enable the new logging library. *)
 	Debug.set_facility Syslog.Local5;
-	debug "Start.";
+
+	(* Read configuration file. *)
+	read_config ();
 
 	let pidfile = ref "" in
 	let daemonize = ref false in
