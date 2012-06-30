@@ -252,6 +252,7 @@ XAPI_MODULES = $(COMMON) \
 	../license/v6rpc \
 	../license/v6errors \
 	bios_strings \
+	../util/config_shared \
 	xapi_config \
 	features \
 	pool_features \
