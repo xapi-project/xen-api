@@ -84,9 +84,9 @@ let start (xmlrpc_path, http_fwd_path) process =
 	accept_forever http_fwd_socket (fun this_connection ->
 		let msg_size = 16384 in
 		let buf = String.make msg_size '\000' in
-		debug "Calling Unixext.recv_fd()";
+		(* debug "Calling Unixext.recv_fd()"; *)
 		let len, _, received_fd = Unixext.recv_fd this_connection buf 0 msg_size [] in
-		debug "Unixext.recv_fd ok (len = %d)" len;
+		(* debug "Unixext.recv_fd ok (len = %d)" len; *)
 		finally
 			(fun _ ->
 				let req = String.sub buf 0 len |> Jsonrpc.of_string |> Http.Request.t_of_rpc in
