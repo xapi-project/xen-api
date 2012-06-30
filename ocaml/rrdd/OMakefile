@@ -20,6 +20,7 @@ RRDD_FILES = \
 	../pool_role_shared \
 	../network/network_interface \
 	../network/network_monitor \
+	../util/config_shared \
 	../util/stats \
 	../xapi/xapi_fist \
 	../xenops/device_number \
