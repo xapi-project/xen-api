@@ -587,34 +587,34 @@ module Plugin = struct
 		Hashtbl.create 20
 
 	(* The mutex that protects the list of registered plugins against race
-	 * conditions. *)
+	 * conditions and data corruption. *)
 	let registered_m : Mutex.t = Mutex.create ()
+
+	(* Returns the number of seconds until the next reading phase for the
+	 * sampling frequency given at registration by the plugin with the specified
+	 * unique ID. *)
+	let next_reading _ ~(uid : string) : float =
+		let open Rrdd_shared in
+		if Mutex.execute registered_m (fun _ -> Hashtbl.mem registered uid)
+		then Mutex.execute last_loop_end_time_m (fun _ ->
+			!last_loop_end_time +. !timeslice -. (Unix.time ())
+		)
+		else infinity
 
 	(* The function registers a plugin, and returns the number of seconds until
 	 * the next reading phase for the specified sampling frequency. *)
 	let register _ ~(uid : string) ~(frequency : Rrd.sampling_frequency)
 			: float =
 		Mutex.execute registered_m (fun _ ->
-			(* debug "rrdd_plugin: register: %s" uid; *)
-			Hashtbl.add registered uid frequency;
-			0.
-		)
+			Hashtbl.add registered uid frequency
+		);
+		next_reading ~uid ()
 
 	(* The function deregisters a plugin. After this call, the framework will
 	 * process its output file at most once more. *)
 	let deregister _ ~(uid : string) : unit =
 		Mutex.execute registered_m (fun _ ->
-			(* debug "rrdd_plugin: deregister: %s" uid; *)
 			Hashtbl.remove registered uid
-		)
-
-	(* Returns the number of seconds until the next reading phase for the
-	 * sampling frequency given at registration by the plugin with the specified
-	 * unique ID. *)
-	let next_reading _ ~(uid : string) : float =
-		Mutex.execute registered_m (fun _ ->
-			(* debug "rrdd_plugin: next_reading"; *)
-			0.
 		)
 
 	(* Read, parse, and combine metrics from all registered plugins. *)

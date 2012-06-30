@@ -117,10 +117,6 @@ let with_xs f =
 	let xs = Xs.daemon_open () in
 	finally (fun () -> f xs) (fun () -> Xs.close xs)
 
-(* module Net = (val (Network.get_client ()) : Network.CLIENT) *)
-
-let timeslice = ref 5
-
 let uuid_of_domid domains domid =
 	try
 		Rrdd_server.string_of_domain_handle
@@ -561,7 +557,10 @@ let monitor_loop () =
 		do
 			try
 				do_monitor xc;
-				Thread.delay (float_of_int !timeslice)
+				Mutex.execute Rrdd_shared.last_loop_end_time_m (fun _ ->
+					Rrdd_shared.last_loop_end_time := Unix.time ()
+				);
+				Thread.delay !Rrdd_shared.timeslice
 			with e ->
 				debug "Monitor thread caught an exception. Pausing for 10s, then restarting.";
 				log_backtrace ();
