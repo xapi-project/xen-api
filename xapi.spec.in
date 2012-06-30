@@ -316,6 +316,7 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root,-)
 @OPTDIR@/libexec/xcp-rrdd
 /etc/rc.d/init.d/xcp-rrdd
+/etc/xcp-rrdd.conf
 
 %files xenops
 %defattr(-,root,root,-)

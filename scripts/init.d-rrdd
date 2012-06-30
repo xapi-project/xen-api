@@ -6,6 +6,7 @@
 # description: XCP RRD daemon
 # processname: xcp-rrdd
 # pidfile: /var/run/xcp-rrdd.pid
+# config: /etc/xcp-rrdd.conf
 
 # Source function library.
 . /etc/init.d/functions
