@@ -59,6 +59,7 @@ module Plugin = struct
 	external get_path : uid:string -> string = ""
 	external register : uid:string -> frequency:Rrd.sampling_frequency ->
 		float = ""
+	external deregister : uid:string -> unit = ""
 	external next_reading : uid:string -> float = ""
 end
 
