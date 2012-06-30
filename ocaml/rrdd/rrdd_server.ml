@@ -484,12 +484,15 @@ module Plugin = struct
 	let list_of_rpc ~(rpc : Rpc.t) : Rpc.t list =
 		match rpc with Rpc.Enum l -> l | _ -> raise Invalid_payload
 
+	(* [assoc_opt ~key ~default l] gets string value associated with [key] in
+	 * [l], returning [default] if no mapping is found. *)
 	let assoc_opt ~(key : string) ~(default : string)
 			(l : (string * Rpc.t) list) : string =
 		try Rpc.string_of_rpc (List.assoc key l) with
 		| Not_found -> default
 		| e -> error "Failed to obtain datasource key: %s" key; raise e
 
+	(* Converts string to the corresponding datasource type. *)
 	let ds_ty_of_string (s : string) : Rrd.ds_type =
 		match String.lowercase s with
 		| "absolute" -> Rrd.Gauge
@@ -497,14 +500,17 @@ module Plugin = struct
 		| "absolute_to_rate" -> Rrd.Derive
 		| _ -> raise Invalid_payload
 
+	(* Possible types for values in datasources. *)
 	type value_type = Float | Int64
 
+	(* Converts string to datasource value type. *)
 	let val_ty_of_string (s : string) : value_type =
 		match String.lowercase s with
 		| "float" -> Float
 		| "int64" -> Int64
 		| _ -> raise Invalid_payload
 
+	(* Converts an RPC value to a typed datasource value. *)
 	let ds_value_of_rpc ~(ty : value_type) ~(rpc : Rpc.t) : Rrd.ds_value_type =
 		match ty with
 		| Float -> Rrd.VT_Float (Rpc.float_of_rpc rpc)
