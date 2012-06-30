@@ -55,8 +55,9 @@ external set_cache_sr : sr_uuid:string -> unit = ""
 external unset_cache_sr : unit -> unit = ""
 
 module Plugin = struct
-	let base_path = "/dev/shm/metrics/"
-	external register : uid:string -> frequency:Data_source.sampling_frequency ->
+	external get_header : unit -> string = ""
+	external get_path : uid:string -> string = ""
+	external register : uid:string -> frequency:Rrd.sampling_frequency ->
 		float = ""
 	external next_reading : uid:string -> float = ""
 end
