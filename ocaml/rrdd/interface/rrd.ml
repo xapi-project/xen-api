@@ -42,6 +42,8 @@ type cf_type = CF_Average | CF_Min | CF_Max | CF_Last
 (** Container so that we can handle different typed inputs *)
 type ds_value_type = VT_Float of float | VT_Int64 of int64 | VT_Unknown with rpc
 
+type sampling_frequency = Five_Seconds with rpc
+
 (* utility *)
 let isnan x = match classify_float x with | FP_nan -> true | _ -> false
 

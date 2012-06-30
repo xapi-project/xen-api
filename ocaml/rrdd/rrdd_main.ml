@@ -35,6 +35,7 @@ open Pervasiveext
 (* A helper method for processing XMLRPC requests. *)
 let xmlrpc_handler process req bio context =
 	let body = Http_svr.read_body req bio in
+	debug "BODY: %s" body;
 	let s = Buf_io.fd_of bio in
 	let rpc = Xmlrpc.call_of_string body in
 	try
@@ -42,8 +43,8 @@ let xmlrpc_handler process req bio context =
 		let str = Xmlrpc.string_of_response result in
 		Http_svr.response_str req s str
 	with e ->
-		Printf.printf "Caught %s" (Printexc.to_string e);
-		Printf.printf "Backtrace: %s" (Printexc.get_backtrace ());
+		debug "Caught %s" (Printexc.to_string e);
+		debug "Backtrace: %s" (Printexc.get_backtrace ());
 		Http_svr.response_unauthorised ~req (Printf.sprintf "Go away: %s" (Printexc.to_string e)) s
 
 (* Bind the service interface to the server implementation. *)
@@ -90,7 +91,7 @@ let start (xmlrpc_path, http_fwd_path) process =
 		finally
 			(fun _ ->
 				let req = String.sub buf 0 len |> Jsonrpc.of_string |> Http.Request.t_of_rpc in
-				debug "Received request = [%s]\n%!" (req |> Http.Request.rpc_of_t |> Jsonrpc.to_string);
+				(* debug "Received request = [%s]\n%!" (req |> Http.Request.rpc_of_t |> Jsonrpc.to_string); *)
 				req.Http.Request.close <- true;
 				ignore_bool (Http_svr.handle_one server received_fd () req)
 			)
@@ -546,8 +547,10 @@ let read_all_dom0_stats xc =
 let do_monitor xc =
 	Stats.time_this "monitor"
 		(fun _ ->
-			let stats, uuid_domids, pifs, timestamp, my_rebooting_vms, my_paused_vms =
+			let dom0_stats, uuid_domids, pifs, timestamp, my_rebooting_vms, my_paused_vms =
 				read_all_dom0_stats xc in
+			let plugins_stats = Rrdd_server.Plugin.read_stats () in
+			let stats = Rrdd_fake.combine_stats dom0_stats plugins_stats in
 			Rrdd_stats.print_snapshot ();
 			Rrdd_monitor.update_rrds timestamp stats uuid_domids pifs my_rebooting_vms my_paused_vms
 		)
