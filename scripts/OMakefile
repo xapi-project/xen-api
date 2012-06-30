@@ -48,6 +48,7 @@ install:
 	$(IPROG) xapi-autostart-vms $(DESTDIR)$(BINDIR)
 	$(IPROG) udhcpd.skel $(DESTDIR)/var/xapi/udhcpd.skel  #### FHS_FIXME
 	$(IDATA) xapi.conf $(DESTDIR)$(XAPICONF)
+	$(IDATA) xcp-rrdd.conf $(DESTDIR)/etc/xcp-rrdd.conf
 	$(IDATA) xenopsd.conf $(DESTDIR)/etc/xenopsd.conf
 	$(IDATA) squeezed.conf $(DESTDIR)/etc/squeezed.conf
 	$(IPROG) log.conf $(DESTDIR)$(ETCDIR)/log.conf
