@@ -42,5 +42,3 @@ let to_API_data_source (ds : t) = let open API in {
 	data_source_max = ds.max;
 	data_source_value = 0.;
 }
-
-type sampling_frequency = Five_Seconds

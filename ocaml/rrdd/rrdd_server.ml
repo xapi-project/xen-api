@@ -16,6 +16,7 @@
 type context = unit
 
 open Fun
+open Hashtblext
 open Listext
 open Pervasiveext
 open Stringext
@@ -438,18 +439,17 @@ let unset_cache_sr _ () =
 
 module Plugin = struct
 	exception Read_error
-	exception Invalid_magic_string
+	exception Invalid_header_string
 	exception Invalid_length
 	exception Invalid_checksum
 	exception Invalid_payload
 
 	(* Static values. *)
-	let magic = "DATASOURCES\n"
-	let magic_bytes = String.length magic
+	let base_path = "/dev/shm/metrics/"
+	let header = "DATASOURCES\n"
+	let header_bytes = String.length header
 	let length_bytes = 8 (* hex length of payload *) + 1 (* newline char *)
 	let checksum_bytes = 32 (* hex length of checksum *) + 1 (* newline char *)
-	let max_bytes =
-		List.fold_left max 0 [magic_bytes; length_bytes; checksum_bytes]
 
 	(* Cache of open file handles to files written by plugins. *)
 	let open_files : (string, Unix.file_descr) Hashtbl.t = Hashtbl.create 10
@@ -500,14 +500,13 @@ module Plugin = struct
 	let value_type_of_string (s : string) : value_type =
 		match String.lowercase s with
 		| "float" -> Float
-		| "int" -> Int64
+		| "int64" -> Int64
 		| _ -> raise Invalid_payload
 
-	let ds_value_of_string ~(ty : value_type) ~(str : string)
-			: Rrd.ds_value_type =
+	let ds_value_of_rpc ~(ty : value_type) ~(rpc : Rpc.t) : Rrd.ds_value_type =
 		match ty with
-		| Float -> Rrd.VT_Float (float_of_string str)
-		| Int64 -> Rrd.VT_Int64 (Int64.of_string str)
+		| Float -> Rrd.VT_Float (Rpc.float_of_rpc rpc)
+		| Int64 -> Rrd.VT_Int64 (Rpc.int64_of_rpc rpc)
 
 	(* A function that converts a JSON type into a datasource type, assigning
 	 * default values appropriately. *)
@@ -520,16 +519,16 @@ module Plugin = struct
 		let ty =
 			ds_type_of_string (assoc_opt ~key:"type" ~default:"absolute" kvs) in
 		let val_ty =
-			value_type_of_string (assoc_opt ~key:"type" ~default:"float" kvs) in
+			value_type_of_string (assoc_opt ~key:"value_type" ~default:"float" kvs) in
 		let value =
-			let value_str = string_of_rpc (List.assoc "name" kvs) in
-			ds_value_of_string ~ty:val_ty ~str:value_str
+			let value_rpc = List.assoc "value" kvs in
+			ds_value_of_rpc ~ty:val_ty ~rpc:value_rpc
 		in
 		let min =
-			float_of_string (assoc_opt ~key:"type" ~default:"-infinity" kvs) in
+			float_of_string (assoc_opt ~key:"min" ~default:"-infinity" kvs) in
 		let max =
-			float_of_string (assoc_opt ~key:"type" ~default:"infinity" kvs) in
-		Ds.ds_make ~name ~description ~units ~ty ~value ~min ~max ~default:false ()
+			float_of_string (assoc_opt ~key:"max" ~default:"infinity" kvs) in
+		Ds.ds_make ~name ~description ~units ~ty ~value ~min ~max ~default:true ()
 
 	(* A function that parses the payload written by a plugin into the payload
 	 * type. *)
@@ -541,19 +540,19 @@ module Plugin = struct
 			let timestamp = int_of_rpc (List.assoc "timestamp" kvs) in
 			let datasource_rpcs = list_of_rpc (List.assoc "datasources" kvs) in
 			{timestamp; datasources = List.map ds_of_rpc datasource_rpcs}
-		with _ -> raise Invalid_payload
+		with _ -> log_backtrace(); raise Invalid_payload
 
 	(* The function that reads the file that corresponds to the plugin with the
 	 * specified uid, and returns the contents of the file in terms of the
 	 * payload type, or throws an exception. *)
-	let read_file ~(uid : string) : payload =
+	let read_file (uid : string) : payload =
 		try
-			let path = Filename.concat Rrdd_interface.Plugin.base_path uid in
+			let path = Filename.concat base_path uid in
 			let fd = open_file ~path in
 			if Unix.lseek fd 0 Unix.SEEK_SET <> 0 then
 				raise Read_error;
-			if read_string ~fd ~length:magic_bytes <> magic then
-				raise Invalid_magic_string;
+			if read_string ~fd ~length:header_bytes <> header then
+				raise Invalid_header_string;
 			let length =
 				let length_str = String.rtrim (read_string ~fd ~length:length_bytes) in
 				try int_of_string ("0x" ^ length_str) with _ -> raise Invalid_length
@@ -564,14 +563,30 @@ module Plugin = struct
 				raise Invalid_checksum;
 			parse_payload ~json:payload
 		with
-		| Invalid_magic_string | Invalid_length | Invalid_checksum as e -> raise e
-		| _ -> raise Read_error
+		| Invalid_header_string | Invalid_length | Invalid_checksum as e ->
+			log_backtrace (); raise e
+		| _ ->
+			log_backtrace (); raise Read_error
+
+	(* The function that tells the plugin what to write at the top of its output
+	 * file. *)
+	let get_header _ () : string = header
+
+	(* The function that a plugin can use to determine which file to write to. *)
+	let get_path _ ~(uid : string) : string =
+		Filename.concat base_path uid
+
+	(* A map storing currently registered plugins, and their sampling
+	 * frequencies. *)
+	let registered : (string, Rrd.sampling_frequency) Hashtbl.t =
+		Hashtbl.create 20
 
 	(* The function registers a plugin, and returns the number of seconds until
 	 * the next reading phase for the specified sampling frequency. *)
-	let register _ ~(uid : string) ~(frequency : Data_source.sampling_frequency)
+	let register _ ~(uid : string) ~(frequency : Rrd.sampling_frequency)
 			: float =
-		debug "rrdd_plugin: register";
+		debug "rrdd_plugin: register: %s" uid;
+		Hashtbl.add registered uid frequency;
 		0.
 
 	(* Returns the number of seconds until the next reading phase for the
@@ -580,6 +595,16 @@ module Plugin = struct
 	let next_reading _ ~(uid : string) : float =
 		debug "rrdd_plugin: next_reading";
 		0.
+
+	(* Read, parse, and combine metrics from all registered plugins. *)
+	let read_stats () : (Rrd.ds_owner * Ds.ds) list =
+		let uids = Hashtbl.fold_keys registered in
+		(* TODO: change to fold with try with *)
+		let process_plugin uid =
+			let payload = read_file uid in
+			List.map (fun ds -> (Rrd.Host, ds)) payload.datasources
+		in
+		List.concat (List.map process_plugin uids)
 end
 
 module HA = struct
