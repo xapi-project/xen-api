@@ -13,22 +13,8 @@ open Xmlrpc_client
 let ( +* ) = Int64.add
 let ( -* ) = Int64.sub
 let ( ** ) = Int64.mul
-
 let kib = 1024L
 let mib = kib ** kib
-
-let blocksize = ref (2L ** mib)
-
-exception ShortWrite of int (* offset *) * int (* expected *) * int (* actual *)
-
-(* Consider a tunable quantum of non-zero'ness such that if we encounter
-   a non-zero, we know we're going to incur the penalty of a seek/write
-   and we may as well write a sizeable chunk at a time. *)
-let quantum = ref 16384 
-let roundup x = 
-	((x + !quantum + !quantum - 1) / !quantum) * !quantum
-let rounddown x = 
-	(x / !quantum) * !quantum
 
 (* Set to true when we want machine-readable output *)
 let machine_readable = ref false 
@@ -58,6 +44,49 @@ let close_output () =
 			if !machine_readable
 			then Chunk.marshal Unix.stdout { Chunk.start = 0L; data = "" }
 		)
+
+let config_file = "/etc/sparse_dd.conf"
+
+let blocksize = ref (2L ** mib)
+
+(* Consider a tunable quantum of non-zero'ness such that if we encounter
+   a non-zero, we know we're going to incur the penalty of a seek/write
+   and we may as well write a sizeable chunk at a time. *)
+let quantum = ref 16384
+
+(* Impose an upper limit on the number of inflight requests
+   to avoid consuming too much memory in the receiver. The receiver
+   really ought to handle this itself. *)
+let max_inflight_requests = ref 1L
+
+let config_spec = [
+	"blocksize", Config.String (fun x -> blocksize := Int64.of_string x);
+	"quantum", Config.Set_int quantum;
+	"max_inflight_requests", Config.String (fun x -> max_inflight_requests := Int64.of_string x)
+]
+
+let read_config_file () =
+	let unknown_key k v = debug "Unknown key/value pairs: (%s, %s)" k v in
+	if Sys.file_exists config_file then begin
+		(* Will raise exception if config is mis-formatted. It's up to the
+		   caller to inspect and handle the failure.
+		*)
+		Config.read config_file config_spec unknown_key;
+		debug "Read global variables successfully from %s" config_file
+	end
+
+let dump_config () : unit =
+	debug "blocksize = %Ld" !blocksize;
+	debug "quantum = %d" !quantum;
+	debug "max_inflight_requests = %Ld" !max_inflight_requests
+
+
+exception ShortWrite of int (* offset *) * int (* expected *) * int (* actual *)
+
+let roundup x =
+	((x + !quantum + !quantum - 1) / !quantum) * !quantum
+let rounddown x =
+	(x / !quantum) * !quantum
 
 (** The copying routine has inputs and outputs which both look like a 
     Unix file-descriptor *)
@@ -173,10 +202,6 @@ module Nbd_writer = struct
 	(* Keep a count of the in-flight requests, check we receive exactly
 	   this many success responses. *)
 	let num_inflight_requests = ref 0L
-
-	(* Impose an upper limit on the number of inflight requests
-	   since I suspect a bug in the tapdisk receive code *)
-	let max_inflight_requests = ref 1L
 
 	module Int64Set = Set.Make(struct type t = int64 let compare = compare end)
 	module Int64Map = Map.Make(struct type t = int64 let compare = compare end)
@@ -554,6 +579,7 @@ let progress_cb =
 let _ = 
 	Stunnel.init_stunnel_path ();
 	let base = ref None and src = ref None and dest = ref None and size = ref (-1L) and prezeroed = ref false and test = ref false in
+	read_config_file ();
 	Arg.parse [ "-base", Arg.String (fun x -> base := Some x), "base disk to search for differences from (default: None)";
 		    "-src", Arg.String (fun x -> src := Some x), "source disk";
 		    "-dest", Arg.String (fun x -> dest := Some x), "destination disk";
@@ -562,8 +588,8 @@ let _ =
 		    "-prezeroed", Arg.Set prezeroed, "assume the destination disk has been prezeroed (but not full of zeroes if [-base] is provided)";
 		    "-machine", Arg.Set machine_readable, "emit machine-readable output";
 		    "-test", Arg.Set test, "perform some unit tests";
-			"-nbd:max_requests", Arg.Int (fun x -> Nbd_writer.max_inflight_requests := (Int64.of_int x)), "set the maximum number of in-flight requests";
-			"-zeroscanner:quantum", Arg.Set_int quantum, "set the minimum non-zero block size";
+			"-max_inflight_requests", Arg.Int (fun x -> max_inflight_requests := (Int64.of_int x)), "set the maximum number of in-flight requests";
+			"-quantum", Arg.Set_int quantum, "set the minimum non-zero block size";
 	]
 	(fun x -> Printf.fprintf stderr "Warning: ignoring unexpected argument %s\n" x)
 	(String.concat "\n" [ "Usage:";
@@ -593,6 +619,8 @@ let _ =
 			      " -- copy up to 1024 bytes of *differences* between /dev/xvdc and /dev/xvda into";
 			      "     into /dev/xvdb under the assumption that /dev/xvdb contains identical data";
 			      "     to /dev/xvdb."; ]);
+	dump_config ();
+
  	if !test then begin
 		test_lots_of_strings ();
 		exit 0
