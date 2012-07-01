@@ -84,18 +84,23 @@ let cancellable_watch key good_watches error_watches (task: Xenops_task.t) ~xs ~
 					with_xs (fun xs -> cancel ~xs key)
 				)
 				(fun () ->
-					match Watch.wait_for ~xs ~timeout (Watch.any_of
-						((
-							List.map (fun w -> `OK, w) good_watches
-						) @ (
-							List.map (fun w -> `Error, w) error_watches
-						) @ (
-							List.map (fun w -> `Cancel, w) (watches_of ~xs key)
-						))
-					) with
-						| `OK, _ -> true
-						| `Error, _ -> false
-						| `Cancel, _ -> Xenops_task.raise_cancelled task
+					let cancel_watches = watches_of ~xs key in
+					let rec loop () =
+						let _, _ = Watch.wait_for ~xs ~timeout (Watch.any_of
+							(List.map (fun w -> (), w) (good_watches @ error_watches @ cancel_watches))
+						) in
+						let any_have_fired ws = List.fold_left (||) false (List.map (Watch.has_fired ~xs) ws) in
+						(* If multiple conditions are true simultaneously then we apply the policy:
+						   if the success condition is met then any error or cancellation is ignored
+						   if the error condition is met then any cancellation is ignored *)
+						match any_have_fired good_watches, any_have_fired error_watches, any_have_fired cancel_watches with
+							| true, _, _ -> true
+							| false, true, _ -> false
+							| false, false, true -> Xenops_task.raise_cancelled task
+							| false, false, false ->
+								(* they must have fired and then fired again: retest *)
+								loop () in
+					loop ()
 				)
 		)
 
