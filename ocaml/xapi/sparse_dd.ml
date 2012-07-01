@@ -24,11 +24,11 @@ exception ShortWrite of int (* offset *) * int (* expected *) * int (* actual *)
 (* Consider a tunable quantum of non-zero'ness such that if we encounter
    a non-zero, we know we're going to incur the penalty of a seek/write
    and we may as well write a sizeable chunk at a time. *)
-let quantum = 16384 
+let quantum = ref 16384 
 let roundup x = 
-	((x + quantum + quantum - 1) / quantum) * quantum
+	((x + !quantum + !quantum - 1) / !quantum) * !quantum
 let rounddown x = 
-	(x / quantum) * quantum
+	(x / !quantum) * !quantum
 
 (* Set to true when we want machine-readable output *)
 let machine_readable = ref false 
@@ -555,6 +555,7 @@ let _ =
 		    "-machine", Arg.Set machine_readable, "emit machine-readable output";
 		    "-test", Arg.Set test, "perform some unit tests";
 			"-nbd:max_requests", Arg.Int (fun x -> Nbd_writer.max_inflight_requests := (Int64.of_int x)), "set the maximum number of in-flight requests";
+			"-zeroscanner:quantum", Arg.Set_int quantum, "set the minimum non-zero block size";
 	]
 	(fun x -> Printf.fprintf stderr "Warning: ignoring unexpected argument %s\n" x)
 	(String.concat "\n" [ "Usage:";
