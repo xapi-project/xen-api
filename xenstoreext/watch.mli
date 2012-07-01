@@ -34,6 +34,9 @@ val key_to_disappear : path -> unit t
 (** Represents a particular value appearing at a particular key *)
 val value_to_become : path -> string -> unit t
 
+(** True if the given watch has fired *)
+val has_fired : xs:Xenstore.Xs.xsh -> 'a t -> bool
+
 (** Wait for all results *)
 val all_of : 'a t list -> 'a list t
 (** Wait for any of a set of possible results *)

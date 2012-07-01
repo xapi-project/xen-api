@@ -35,6 +35,10 @@ let result_map f = function
     of the paths change *)
 type 'a t = { paths: path list;
 	      evaluate: xs:Xs.xsh -> 'a result }
+
+let has_fired ~xs x = match x.evaluate ~xs with
+	| KeepWaiting -> false
+	| Result _ -> true
     
 let map f x = { x with evaluate = fun ~xs -> result_map f (x.evaluate ~xs) }
   
