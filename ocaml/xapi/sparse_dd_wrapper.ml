@@ -71,7 +71,7 @@ let dd_internal progress_cb base prezeroed infile outfile size =
 			) with
 		| Forkhelpers.Success _ -> progress_cb (Finished None)
 		| Forkhelpers.Failure (log, exn) ->
-			error "Failure from sparse_dd: %s" log;
+			error "Failure from sparse_dd: %s raising %s" log (Printexc.to_string exn);
 			raise exn	
 		with e -> 
 			progress_cb (Finished (Some e));

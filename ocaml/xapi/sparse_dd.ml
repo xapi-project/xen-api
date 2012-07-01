@@ -16,33 +16,55 @@ let ( ** ) = Int64.mul
 let kib = 1024L
 let mib = kib ** kib
 
-(* Set to true when we want machine-readable output *)
-let machine_readable = ref false 
+type logging_mode =
+	| Buffer (* before we know which output format we should use *)
+	| Human
+	| Machine
+
+let logging_mode = ref Buffer
+
+let buffer = ref []
+
 let debug_m = Mutex.create ()
 
 let debug (fmt: ('a , unit, string, unit) format4) =
 	Mutex.execute debug_m
 		(fun () ->
-			if !machine_readable
-			then Printf.kprintf
+			Printf.kprintf
 				(fun s ->
-					let open Sparse_encoding in
-					let x = { Chunk.start = 0L; data = s } in
-					Chunk.marshal Unix.stdout x
-				) fmt
-			else Printf.kprintf
-				(fun s -> 
-					Printf.printf "%s\n" s;
-					flush stdout
+					match !logging_mode with
+						| Buffer ->
+							buffer := s :: !buffer
+						| Human ->
+							Printf.printf "%s\n" s;
+							flush stdout
+						| Machine ->
+							let open Sparse_encoding in
+							let x = { Chunk.start = 0L; data = s } in
+							Chunk.marshal Unix.stdout x
 				) fmt
 		)
+
+let set_logging_mode m =
+	let to_flush = Mutex.execute debug_m
+		(fun () ->
+			logging_mode := m;
+			match m with
+				| Human
+				| Machine ->
+					List.rev !buffer
+				| Buffer -> []
+		) in
+	List.iter (fun x -> debug "%s" x) to_flush
 
 let close_output () =
 	let open Sparse_encoding in
 	Mutex.execute debug_m
 		(fun () ->
-			if !machine_readable
-			then Chunk.marshal Unix.stdout { Chunk.start = 0L; data = "" }
+			match !logging_mode with
+				| Machine ->
+					Chunk.marshal Unix.stdout { Chunk.start = 0L; data = "" }
+				| _ -> ()
 		)
 
 let config_file = "/etc/sparse_dd.conf"
@@ -569,7 +591,7 @@ let progress_cb =
 	function fraction ->
 		let new_percent = int_of_float (fraction *. 100.) in
 		if !last_percent <> new_percent then begin
-			if !machine_readable
+			if !logging_mode = Machine
 			then debug "Progress: %.0f" (fraction *. 100.)
 			else debug "\b\rProgress: %-60s (%d%%)" (String.make (int_of_float (fraction *. 60.)) '#') new_percent;
 			flush stdout;
@@ -586,7 +608,7 @@ let _ =
 		    "-size", Arg.String (fun x -> size := Int64.of_string x), "number of bytes to copy";
 		    "-blocksize", Arg.Int (fun x -> blocksize := Int64.of_int x), "number of bytes to read at a time";
 		    "-prezeroed", Arg.Set prezeroed, "assume the destination disk has been prezeroed (but not full of zeroes if [-base] is provided)";
-		    "-machine", Arg.Set machine_readable, "emit machine-readable output";
+		    "-machine", Arg.Unit (fun () -> set_logging_mode Machine), "emit machine-readable output";
 		    "-test", Arg.Set test, "perform some unit tests";
 			"-max_inflight_requests", Arg.Int (fun x -> max_inflight_requests := (Int64.of_int x)), "set the maximum number of in-flight requests";
 			"-quantum", Arg.Set_int quantum, "set the minimum non-zero block size";
@@ -619,6 +641,8 @@ let _ =
 			      " -- copy up to 1024 bytes of *differences* between /dev/xvdc and /dev/xvda into";
 			      "     into /dev/xvdb under the assumption that /dev/xvdb contains identical data";
 			      "     to /dev/xvdb."; ]);
+	if !logging_mode = Buffer then set_logging_mode Human;
+
 	dump_config ();
 
  	if !test then begin
