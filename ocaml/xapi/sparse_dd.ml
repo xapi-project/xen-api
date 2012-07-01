@@ -179,8 +179,11 @@ module Nbd_writer = struct
 	let max_inflight_requests = ref 1L
 
 	module Int64Set = Set.Make(struct type t = int64 let compare = compare end)
+	module Int64Map = Map.Make(struct type t = int64 let compare = compare end)
 
 	let inflight_requests = ref Int64Set.empty
+	let request_sent_times = ref Int64Map.empty
+
 	let string_of_inflight_requests () = String.concat ", " (Int64Set.fold (fun x acc -> Int64.to_string x :: acc) !inflight_requests [])
 
 	(* On first request, fd is set and the condition variable is signalled *)
@@ -211,7 +214,11 @@ module Nbd_writer = struct
 							(fun () ->
 								num_inflight_requests := Int64.sub !num_inflight_requests 1L;
 								inflight_requests := Int64Set.remove offset !inflight_requests;
-								debug "REPLY offset = %Ld num_inflight_requests = %Ld [ %s ]" offset !num_inflight_requests (string_of_inflight_requests ());
+								let request_sent_time = Int64Map.find offset !request_sent_times in
+								request_sent_times := Int64Map.remove offset !request_sent_times;
+								let rtt = Unix.gettimeofday () -. request_sent_time in
+								Stats.sample "rtt" rtt;
+								(* debug "REPLY offset = %Ld num_inflight_requests = %Ld [ %s ]" offset !num_inflight_requests (string_of_inflight_requests ()); *)
 								(* Wake up the main thread, waiting for us to finish *)
 								Condition.signal c
 							);
@@ -237,7 +244,7 @@ module Nbd_writer = struct
 			)
 
 	let op fd' offset { buf = buf; offset = ofs; len = len } =
-		let reqs = Mutex.execute m
+		Mutex.execute m
 			(fun () ->
 				(* On first request, signal the background thread *)
 				begin match !fd with
@@ -252,9 +259,9 @@ module Nbd_writer = struct
 				done;
 				num_inflight_requests := Int64.add !num_inflight_requests 1L;
 				inflight_requests := Int64Set.add offset !inflight_requests;
-				!num_inflight_requests
-			) in
-		debug "REQUEST offset=%Ld buf ofs=%d len=%d num_inflight_requests=%Ld [ %s ]" offset ofs len reqs (string_of_inflight_requests ());
+				request_sent_times := Int64Map.add offset (Unix.gettimeofday ()) !request_sent_times;
+			);
+		(* debug "REQUEST offset=%Ld buf ofs=%d len=%d num_inflight_requests=%Ld [ %s ]" offset ofs len reqs (string_of_inflight_requests ()); *)
 		Nbd.write_async fd' offset buf ofs len offset
 end
 
@@ -638,5 +645,12 @@ let _ =
 	let time = Unix.gettimeofday () -. start in
 	debug "Time: %.2f seconds" time;
 	debug "Number of writes: %d" stats.writes;
-	debug "Number of bytes: %Ld (%.0f MiB/sec)" stats.bytes (Int64.(to_float (div stats.bytes 1048576L) /. time));
+	debug "Number of bytes transferred: %Ld (%.0f MiB/sec)" stats.bytes (Int64.(to_float (div stats.bytes 1048576L) /. time));
+	Opt.iter
+		(fun size ->
+			debug "Copy speed: %.0f MiB/sec" (Int64.(to_float (div size 1048576L) /. time));
+		) size;
+	List.iter (fun (k, v) ->
+		debug "Stats/%s = %s" k v
+	) (Stats.summarise ());
 	close_output ()
