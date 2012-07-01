@@ -2001,6 +2001,7 @@ let watches_of_device device =
 		"kthread-pid";
 		"tapdisk-pid";
 		"shutdown-done";
+		"hotplug-status";
 		"params";
 	] in
 	let open Device_common in
