@@ -17,7 +17,7 @@ let ( ** ) = Int64.mul
 let kib = 1024L
 let mib = kib ** kib
 
-let blocksize = 2L ** mib
+let blocksize = ref (2L ** mib)
 
 exception ShortWrite of int (* offset *) * int (* expected *) * int (* actual *)
 
@@ -347,13 +347,13 @@ let file_dd ?(progress_cb = (fun _ -> ())) ?size ?bat erase write_zeroes src dst
 					debug "Writing NBD encoding to fd: %d" (Unixext.int_of_file_descr ofd);
 					let (size,flags) = Nbd.negotiate ofd in
 					ignore((size,flags));
-					let stats = Nbd_copy.copy progress_cb bat erase write_zeroes ifd ofd blocksize size in
+					let stats = Nbd_copy.copy progress_cb bat erase write_zeroes ifd ofd !blocksize size in
 					Nbd_writer.wait_for_last_reply ();
 					stats
 
 				end else begin
 					debug "Writing chunked encoding to fd: %d" (Unixext.int_of_file_descr ofd);
-					let stats = Network_copy.copy progress_cb bat erase write_zeroes ifd ofd blocksize size in
+					let stats = Network_copy.copy progress_cb bat erase write_zeroes ifd ofd !blocksize size in
 					debug "Sending final chunk";
 					Network_writer.close ofd;			
 					debug "Waiting for connection to close";
@@ -365,7 +365,7 @@ let file_dd ?(progress_cb = (fun _ -> ())) ?size ?bat erase write_zeroes src dst
 			(Http.Url.of_string dst)
 	end else if dst = "null:" then begin
 		let module Null_copy = DD(File_reader)(Null_writer) in
-		Null_copy.copy progress_cb bat erase write_zeroes ifd "" blocksize size
+		Null_copy.copy progress_cb bat erase write_zeroes ifd "" !blocksize size
 	end else begin
 		let ofd = Unix.openfile dst [ Unix.O_WRONLY; Unix.O_CREAT ] 0o600 in
 	 	(* Make sure the output file has the right size *)
@@ -373,7 +373,7 @@ let file_dd ?(progress_cb = (fun _ -> ())) ?size ?bat erase write_zeroes src dst
 		let (_: int) = Unix.write ofd "\000" 0 1 in
 		let (_: int64) = Unix.LargeFile.lseek ofd 0L Unix.SEEK_SET in
 		debug "Copying";
-		File_copy.copy progress_cb bat erase write_zeroes ifd ofd blocksize size
+		File_copy.copy progress_cb bat erase write_zeroes ifd ofd !blocksize size
 	end 
 
 (** [make_random size zero nonzero] returns a string (of size [size]) and a BAT. Blocks not in the BAT
@@ -551,6 +551,7 @@ let _ =
 		    "-src", Arg.String (fun x -> src := Some x), "source disk";
 		    "-dest", Arg.String (fun x -> dest := Some x), "destination disk";
 		    "-size", Arg.String (fun x -> size := Int64.of_string x), "number of bytes to copy";
+		    "-blocksize", Arg.Int (fun x -> blocksize := Int64.of_int x), "number of bytes to read at a time";
 		    "-prezeroed", Arg.Set prezeroed, "assume the destination disk has been prezeroed (but not full of zeroes if [-base] is provided)";
 		    "-machine", Arg.Set machine_readable, "emit machine-readable output";
 		    "-test", Arg.Set test, "perform some unit tests";
