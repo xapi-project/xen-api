@@ -193,22 +193,32 @@ class API:
     raise NameError(frequency)
 
   def get_header(self):
+    """Get the 'static' first line of the expected output format."""
     return self.header
 
   def get_path(self):
+    """Get the path of the file in which to write the results to."""
     return self.path
 
   def register(self):
+    """Register plugin if not already registered, and return next_reading."""
     params = {"uid": self.uid, "frequency": self.frequency}
     return self.dispatcher.register(params)
 
   def deregister(self):
+    """De-register a plugin."""
     return self.dispatcher.deregister({"uid": self.uid})
 
   def next_reading(self):
+    """Return the time period after which the next reading for this plugin
+    will take place."""
     return self.dispatcher.next_reading({"uid": self.uid})
 
   def update_and_sleep(self, dss):
+    """Package up datasources, write them (together with all the required
+    metadata) into the file agreed with rrdd, re-register, and sleep for the
+    initially specified frequency. Re-registration solves the problem of rrdd
+    restart while a plugin is operating."""
     timestamp = int(time.time())
     combined = dict()
     for ds in dss: combined = dict(combined.items() + ds.to_dict().items())
