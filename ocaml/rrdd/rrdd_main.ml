@@ -35,7 +35,6 @@ open Pervasiveext
 (* A helper method for processing XMLRPC requests. *)
 let xmlrpc_handler process req bio context =
 	let body = Http_svr.read_body req bio in
-	debug "BODY: %s" body;
 	let s = Buf_io.fd_of bio in
 	let rpc = Xmlrpc.call_of_string body in
 	try
@@ -85,9 +84,9 @@ let start (xmlrpc_path, http_fwd_path) process =
 	accept_forever http_fwd_socket (fun this_connection ->
 		let msg_size = 16384 in
 		let buf = String.make msg_size '\000' in
-		debug "Calling Unixext.recv_fd()";
+		(* debug "Calling Unixext.recv_fd()"; *)
 		let len, _, received_fd = Unixext.recv_fd this_connection buf 0 msg_size [] in
-		debug "Unixext.recv_fd ok (len = %d)" len;
+		(* debug "Unixext.recv_fd ok (len = %d)" len; *)
 		finally
 			(fun _ ->
 				let req = String.sub buf 0 len |> Jsonrpc.of_string |> Http.Request.t_of_rpc in
@@ -117,10 +116,6 @@ open Xenstore
 let with_xs f =
 	let xs = Xs.daemon_open () in
 	finally (fun () -> f xs) (fun () -> Xs.close xs)
-
-(* module Net = (val (Network.get_client ()) : Network.CLIENT) *)
-
-let timeslice = ref 5
 
 let uuid_of_domid domains domid =
 	try
@@ -562,7 +557,10 @@ let monitor_loop () =
 		do
 			try
 				do_monitor xc;
-				Thread.delay (float_of_int !timeslice)
+				Mutex.execute Rrdd_shared.last_loop_end_time_m (fun _ ->
+					Rrdd_shared.last_loop_end_time := Unix.time ()
+				);
+				Thread.delay !Rrdd_shared.timeslice
 			with e ->
 				debug "Monitor thread caught an exception. Pausing for 10s, then restarting.";
 				log_backtrace ();
@@ -570,6 +568,16 @@ let monitor_loop () =
 		done
 	)
 (* Monitoring code --- END. *)
+
+(* Read the xcp-rrdd.conf. *)
+let read_config () =
+	let config_args = [
+		Config_shared.disable_logging_for;
+	] in
+	try Config.read Fhs.rrddconf config_args (fun _ _ -> ())
+	with Config.Error ls ->
+		List.iter (fun (p, s) -> debug "Config file error: %s: %s\n" p s) ls;
+		exit 2
 
 (* Entry point. *)
 let _ =
@@ -579,7 +587,9 @@ let _ =
 
 	(* Enable the new logging library. *)
 	Debug.set_facility Syslog.Local5;
-	debug "Start.";
+
+	(* Read configuration file. *)
+	read_config ();
 
 	let pidfile = ref "" in
 	let daemonize = ref false in

@@ -314,6 +314,13 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root,-)
 @OPTDIR@/libexec/xcp-rrdd
 /etc/rc.d/init.d/xcp-rrdd
+/etc/xcp-rrdd.conf
+/usr/lib/python2.4/site-packages/rrdd.py
+/usr/lib/python2.4/site-packages/rrdd.pyc
+/usr/lib/python2.4/site-packages/rrdd.pyo
+@OPTDIR@/libexec/rrdd-example.py
+@OPTDIR@/libexec/rrdd-example.pyc
+@OPTDIR@/libexec/rrdd-example.pyo
 
 %files xenops
 %defattr(-,root,root,-)
