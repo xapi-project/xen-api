@@ -18,7 +18,7 @@ module D=Debug.Debugger(struct let name="v6daemon" end)
 open D
 
 let _ =
-	Debug.set_facility Syslog.Local4;
+	Debug.set_facility Syslog.Local5;
 	debug "V6testd started";
 	V6daemon.startup (fun () -> ()) P.process
 
