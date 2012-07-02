@@ -612,7 +612,8 @@ module Plugin = struct
 	let register _ ~(uid : string) ~(frequency : Rrd.sampling_frequency)
 			: float =
 		Mutex.execute registered_m (fun _ ->
-			Hashtbl.add registered uid frequency
+			if not (Hashtbl.mem registered uid) then
+				Hashtbl.add registered uid frequency
 		);
 		next_reading ~uid ()
 
