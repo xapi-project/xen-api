@@ -23,7 +23,7 @@ let retry = ref true
 let socket = Filename.concat Fhs.vardir "v6"
 let v6rpc call =
 	let open Xmlrpc_client in
-	XMLRPC_protocol.rpc ~srcstr:"unknown" ~dststr:"v6d" ~transport:(Unix socket) ~http:(xmlrpc ~version:"1.0" "/") call
+	XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"v6d" ~transport:(Unix socket) ~http:(xmlrpc ~version:"1.0" "/") call
 
 let rec apply_edition ~__context edition additional =
 	let host = Helpers.get_localhost ~__context in
@@ -60,7 +60,7 @@ let rec apply_edition ~__context edition additional =
 			raise (Api_errors.Server_error (Api_errors.v6d_failure, []))
 		end
 
-let get_editions () =
+let get_editions dbg =
 	try
 		let call = Rpc.call "get_editions" [Rpc.rpc_of_unit ()] in
 		let response = v6rpc call in
@@ -73,7 +73,7 @@ let get_editions () =
 	with _ ->
 		raise (Api_errors.Server_error (Api_errors.v6d_failure, []))
 
-let get_version () =
+let get_version dbg =
 	try
 		let call = Rpc.call "get_version" [Rpc.rpc_of_unit ()] in
 		let response = v6rpc call in

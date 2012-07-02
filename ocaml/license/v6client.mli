@@ -22,8 +22,8 @@ val apply_edition : __context:Context.t -> string -> (string * string) list ->
 	string * Features.feature list * (string * string) list
 
 (** Call the [get_editions] function on the v6d *)
-val get_editions : unit -> (string * string * string * int) list
+val get_editions : string -> (string * string * string * int) list
 
 (** Call the [get_version] function on the v6d *)
-val get_version : unit -> string
+val get_version : string -> string
 

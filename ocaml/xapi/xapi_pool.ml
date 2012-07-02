@@ -71,7 +71,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 
 	(* CA-26975: Pool edition MUST match *)
 	let assert_restrictions_match () =
-		let editions = V6client.get_editions () in
+		let editions = V6client.get_editions "assert_restrictions_match" in
 		let edition_to_int e =
 			match List.find (fun (name, _, _, _) -> name = e) editions with _, _, _, a -> a
 		in
