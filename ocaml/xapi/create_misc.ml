@@ -373,7 +373,7 @@ let make_packs_info () =
 let make_software_version () =
 	let option_to_list k o = match o with None -> [] | Some x -> [ k, x ] in
 	let info = read_localhost_info () in
-	let v6_version = V6client.get_version () in
+	let v6_version = V6client.get_version "make_software_version" in
 	Xapi_globs.software_version @
 	(if v6_version = "" then [] else ["dbv", v6_version]) @
 	[
