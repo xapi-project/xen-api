@@ -17,13 +17,13 @@
 (** The RPC interface of the licensing daemon *)
 module type V6api =
 	sig
-		(* edition -> additional_params -> enabled_features, additional_params *)
-		val apply_edition : string -> (string * string) list ->
+		(*  dbg_str -> edition -> additional_params -> enabled_features, additional_params *)
+		val apply_edition : string -> string -> (string * string) list ->
 			string * Features.feature list * (string * string) list
-		(* () -> list of editions *)
-		val get_editions : unit -> (string * string * string * int) list
-		(* () -> result *)
-		val get_version : unit -> string
+		(* dbg_str -> list of editions *)
+		val get_editions : string -> (string * string * string * int) list
+		(* dbg_str -> result *)
+		val get_version : string -> string
 		(* () -> version *)
 		val reopen_logs : unit -> bool
 	end  
