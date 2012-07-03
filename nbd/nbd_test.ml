@@ -13,14 +13,14 @@ let test host port =
 		Printf.printf "Connecting...\n";
 		let (sock,sz,flags) = Nbd.connect host port in
         Printf.printf "Connected: size=%Ld\n" sz;
-        let _ = Nbd.write sock test_str1 0L in
-        let _ = Nbd.write sock test_str2 512L in
-        let _ = Nbd.write sock test_str3 1024L in
-        let _ = Nbd.write sock test_str4 1536L in
-        let _ = Nbd.write sock test_str5 2048L in
-        let _ = Nbd.write sock test_str6 2560L in
-        let _ = Nbd.write sock test_str7 3072L in
-        let _ = Nbd.write sock test_str8 3584L in
+        let _ = Nbd.write sock 0L test_str1 0 (String.length test_str1) in
+        let _ = Nbd.write sock 512L test_str2 0 (String.length test_str2)  in
+        let _ = Nbd.write sock 1024L test_str3 0 (String.length test_str3)  in
+        let _ = Nbd.write sock 1536L test_str4 0 (String.length test_str4)  in
+        let _ = Nbd.write sock 2048L test_str5 0 (String.length test_str5)  in
+        let _ = Nbd.write sock 2560L test_str6 0 (String.length test_str6)  in
+        let _ = Nbd.write sock 3072L test_str7 0 (String.length test_str7)  in
+        let _ = Nbd.write sock 3584L test_str8 0 (String.length test_str8)  in
 
         Printf.printf "Written\n";
         let Some str2 = Nbd.read sock 0L 4096l in
