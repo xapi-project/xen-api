@@ -35,7 +35,7 @@ OCAMLPACKS = $(OCAMLPACKS) $(XEN_OCAMLPACKS)
 #OCAML_CLIBS += stubs
 
 OCamlProgram(http_test, http_test)
-OCamlProgram(sparse_dd, sparse_dd sparse_encoding)
+OCamlProgram(sparse_dd, sparse_dd sparse_encoding ../util/stats)
 OCamlProgram(show_bat, show_bat)
 OCamlProgram(monitor_fake_plugin, monitor_fake_plugin monitor_fake_common rrd)
 
