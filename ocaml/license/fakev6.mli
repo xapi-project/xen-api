@@ -16,14 +16,14 @@
     licenses that never expire. *)
 
 (** Attempt to switch to a given edition. Returns a list of enabled features. *)
-val apply_edition : string -> (string * string) list ->
+val apply_edition : string -> string -> (string * string) list ->
 	string * Features.feature list * (string * string) list
 
 (** Obtain a list of available editions *)
-val get_editions : unit -> (string * string * string * int) list
+val get_editions : string -> (string * string * string * int) list
 
 (** Version of the daemon *)
-val get_version : unit -> string
+val get_version : string -> string
 
 (** Close and re-open the log file *)
 val reopen_logs : unit -> bool

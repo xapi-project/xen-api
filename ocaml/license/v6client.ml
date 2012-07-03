@@ -23,7 +23,7 @@ let retry = ref true
 let socket = Filename.concat Fhs.vardir "v6"
 let v6rpc call =
 	let open Xmlrpc_client in
-	XMLRPC_protocol.rpc ~srcstr:"unknown" ~dststr:"v6d" ~transport:(Unix socket) ~http:(xmlrpc ~version:"1.0" "/") call
+	XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"v6d" ~transport:(Unix socket) ~http:(xmlrpc ~version:"1.0" "/") call
 
 let rec apply_edition ~__context edition additional =
 	let host = Helpers.get_localhost ~__context in
@@ -32,10 +32,12 @@ let rec apply_edition ~__context edition additional =
 	let current_license_params = Db.Host.get_license_params ~__context ~self:host in
 	let additional = ("current_edition", current_edition) ::
 		license_server @ current_license_params @ additional in
-	let params = V6rpc.rpc_of_apply_edition_in
-		{V6rpc.edition_in = edition; V6rpc.additional_in = additional} in
+	let params = [ Rpc.rpc_of_string (Context.string_of_task __context)
+				 ; V6rpc.rpc_of_apply_edition_in
+					 { V6rpc.edition_in = edition
+					 ; V6rpc.additional_in = additional } ] in
 	try
-		let call = Rpc.call "apply_edition" [ params ] in
+		let call = Rpc.call "apply_edition" params in
 		let response = try v6rpc call with _ -> raise V6DaemonFailure in
 		debug "response: %s" (Rpc.to_string response.Rpc.contents);
 		if response.Rpc.success then
@@ -60,9 +62,9 @@ let rec apply_edition ~__context edition additional =
 			raise (Api_errors.Server_error (Api_errors.v6d_failure, []))
 		end
 
-let get_editions () =
+let get_editions dbg =
 	try
-		let call = Rpc.call "get_editions" [Rpc.rpc_of_unit ()] in
+		let call = Rpc.call "get_editions" [Rpc.rpc_of_string dbg] in
 		let response = v6rpc call in
 		debug "response: %s" (Rpc.to_string response.Rpc.contents);
 		if response.Rpc.success then
@@ -73,9 +75,9 @@ let get_editions () =
 	with _ ->
 		raise (Api_errors.Server_error (Api_errors.v6d_failure, []))
 
-let get_version () =
+let get_version dbg =
 	try
-		let call = Rpc.call "get_version" [Rpc.rpc_of_unit ()] in
+		let call = Rpc.call "get_version" [Rpc.rpc_of_string dbg] in
 		let response = v6rpc call in
 		debug "response: %s" (Rpc.to_string response.Rpc.contents);
 		if response.Rpc.success then
