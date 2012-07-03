@@ -260,7 +260,7 @@ let unplugged_pci = {
 let unplugged_vbd = {
 	Vbd.plugged = false;
 	qos_target = None;
-	media_present = false;
+	backend_present = None;
 }
 
 let unplugged_vif = {

@@ -962,27 +962,28 @@ let update_vbd ~__context (id: (string * string)) =
 					debug "VM %s VBD userdevices = [ %s ]" (fst id) (String.concat "; " (List.map (fun (_,r) -> r.API.vBD_userdevice) vbdrs));
 					let vbd, vbd_r = List.find (fun (_, vbdr) -> vbdr.API.vBD_userdevice = linux_device || vbdr.API.vBD_userdevice = disk_number) vbdrs in
 					Opt.iter
-						(fun (x, state) ->
+						(fun (_, state) ->
 							debug "xenopsd event: Updating VBD %s.%s device <- %s; currently_attached <- %b" (fst id) (snd id) linux_device state.plugged;
 							Db.VBD.set_device ~__context ~self:vbd ~value:linux_device;
 							Db.VBD.set_currently_attached ~__context ~self:vbd ~value:state.plugged;
-							debug "state.media_present = %b" state.media_present;
 							if state.plugged then begin
-								if state.media_present then begin
-									match x.backend with
-										| Some (VDI x) ->
-											Opt.iter
-												(fun (vdi, _) ->
-													Db.VBD.set_VDI ~__context ~self:vbd ~value:vdi;
-													Db.VBD.set_empty ~__context ~self:vbd ~value:false;
-													Xapi_vdi.update_allowed_operations ~__context ~self:vdi;
-												) (vdi_of_disk ~__context x)
-										| _ ->
-											error "I don't know what to do with this kind of VDI backend"
-								end else if vbd_r.API.vBD_type = `CD then begin
-									Db.VBD.set_empty ~__context ~self:vbd ~value:true;
-									Db.VBD.set_VDI ~__context ~self:vbd ~value:Ref.null
-								end
+								match state.backend_present with
+									| Some (VDI x) ->
+										Opt.iter
+											(fun (vdi, _) ->
+												debug "VBD %s.%s backend_present = %s" (fst id) (snd id) x;
+												Db.VBD.set_VDI ~__context ~self:vbd ~value:vdi;
+												Db.VBD.set_empty ~__context ~self:vbd ~value:false;
+												Xapi_vdi.update_allowed_operations ~__context ~self:vdi;
+											) (vdi_of_disk ~__context x)
+									| Some disk ->
+										error "VBD %s.%s backend_present has unknown disk = %s" (fst id) (snd id) (disk |> rpc_of_disk |> Jsonrpc.to_string)
+									| None ->
+										if vbd_r.API.vBD_type = `CD then begin
+											debug "VBD %s.%s backend_present = None (empty)" (fst id) (snd id);
+											Db.VBD.set_empty ~__context ~self:vbd ~value:true;
+											Db.VBD.set_VDI ~__context ~self:vbd ~value:Ref.null
+										end else error "VBD %s.%s is empty but is not a CD" (fst id) (snd id)
 							end
 						) info;
 					Xenops_cache.update_vbd id (Opt.map snd info);
