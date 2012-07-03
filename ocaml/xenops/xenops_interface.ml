@@ -246,7 +246,7 @@ module Vbd = struct
 	type state = {
 		plugged: bool;
 		qos_target: qos option;
-		media_present: bool;
+		backend_present: disk option;
 	}
 
 end

@@ -893,28 +893,24 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			   the host. *)
 			debug "VBD.insert %s" (VBD_DB.string_of_id id);
 			let vbd_t = VBD_DB.read_exn id in
-			let vm_state = B.VM.get_state (VM_DB.read_exn (VBD_DB.vm_of id)) in
-			let vbd_state = B.VBD.get_state (VBD_DB.vm_of id) vbd_t in
-			if vm_state.Vm.power_state = Running
-			then
-				if vbd_state.Vbd.media_present && vbd_t.Vbd.backend <> Some disk
-				then raise (Media_present)
-				else B.VBD.insert t (VBD_DB.vm_of id) vbd_t disk;
-			VBD_DB.write id { vbd_t with Vbd.backend = Some disk };
-			VBD_DB.signal id
+			let power = (B.VM.get_state (VM_DB.read_exn (fst id))).Vm.power_state in
+			begin match power with
+				| Running _ | Paused ->
+					B.VBD.insert t (VBD_DB.vm_of id) vbd_t disk;
+					VBD_DB.signal id
+				| _ -> raise (Bad_power_state(power, Running))
+			end
 		| VBD_eject id ->
 			debug "VBD.eject %s" (VBD_DB.string_of_id id);
 			let vbd_t = VBD_DB.read_exn id in
 			if vbd_t.Vbd.ty = Vbd.Disk then raise (Media_not_ejectable);
-			let vm_state = B.VM.get_state (VM_DB.read_exn (VBD_DB.vm_of id)) in
-			let vbd_state = B.VBD.get_state (VBD_DB.vm_of id) vbd_t in
-			if vm_state.Vm.power_state = Running
-			then
-				if vbd_state.Vbd.media_present
-				then B.VBD.eject t (VBD_DB.vm_of id) vbd_t
-				else raise (Media_not_present);			
-			VBD_DB.write id { vbd_t with Vbd.backend = None };
-			VBD_DB.signal id
+			let power = (B.VM.get_state (VM_DB.read_exn (fst id))).Vm.power_state in
+			begin match power with
+				| Running _ | Paused ->
+					B.VBD.eject t (VBD_DB.vm_of id) vbd_t;
+					VBD_DB.signal id
+				| _ -> raise (Bad_power_state(power, Running))
+			end
 		| VM_remove id ->
 			debug "VM.remove %s" id;
 			let power = (B.VM.get_state (VM_DB.read_exn id)).Vm.power_state in
@@ -1562,7 +1558,7 @@ module VM = struct
 				(* We allow a higher-level toolstack to replace the metadata of a running VM.
 				   Any changes will take place on next reboot. *)
 				if DB.exists id
-				then debug "Updating VM metadata for VM: %s" id;
+				then debug "Overwriting VM metadata for VM: %s" id;
 				let vm = add' md.Metadata.vm in
 				let vbds = List.map (fun x -> { x with Vbd.id = (vm, snd x.Vbd.id) }) md.Metadata.vbds in
 				let vifs = List.map (fun x -> { x with Vif.id = (vm, snd x.Vif.id) }) md.Metadata.vifs in
