@@ -724,7 +724,7 @@ let gethostbyname_family host family =
 let gethostbyname host =
   let throw_resolve_error() = failwith (Printf.sprintf "Couldn't resolve hostname: %s" host) in
   let pref = Record_util.primary_address_type_of_string
-      (Xapi_inventory.lookup Xapi_inventory._management_address_type) in 
+      (Xapi_inventory.lookup Xapi_inventory._management_address_type) in
   try
     gethostbyname_family host (if (pref == `IPv4) then Unix.PF_INET else Unix.PF_INET6)
   with _ ->
