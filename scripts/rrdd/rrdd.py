@@ -99,8 +99,8 @@ class UDSTransport(xmlrpclib.Transport):
       connection.putheader(key, value)
 
 class Proxy(xmlrpclib.ServerProxy):
-  def __init__(self, uri, transport=None, encoding=None, verbose=0,
-         allow_none=1):
+  def __init__(self, uri, transport = None, encoding = None, verbose = 0,
+         allow_none = 1):
     xmlrpclib.ServerProxy.__init__(self, uri, transport, encoding,
                      verbose, allow_none)
     self.transport = transport
@@ -153,37 +153,48 @@ class DataSource:
     FLOAT = "float"
     INT64 = "int64"
 
-  def __init__(self, name, value, description = "", units = "",
-               type = Type.ABSOLUTE, value_type = ValueType.FLOAT,
-               min = "-infinity", max = "infinity"):
+  def __init__(self, name, value, description, units, ty, value_ty, min_val,
+               max_val):
     self.name = name
-    self.value = value
+    if value_ty == DataSource.ValueType.FLOAT:
+      self.value = float(value)
+    elif value_ty == DataSource.ValueType.INT64:
+      self.value = long(value)
+    else: raise NotImplementedError
     self.description = description
     self.units = units
-    self.type = type
-    self.value_type = value_type
-    self.min = min
-    self.max = max
-    if min != float("-infinity"): self.min = str(float(min))
-    if max != float("infinity"): self.max = str(float(max))
+    self.ty = ty
+    self.value_ty = value_ty
+    self.min_val = float(min_val)
+    self.max_val = float(max_val)
+    if min_val != float("-infinity"): self.min_val = str(float(min_val))
+    if max_val != float("infinity"): self.max_val = str(float(max_val))
 
   def to_dict(self):
     return {self.name : {"value": self.value,
             "description": self.description, "units": self.units,
-            "value_type": self.value_type, "min": self.min, "max": self.max}}
+            "value_type": self.value_ty, "min": self.min_val,
+            "max": self.max_val}}
 
 class API:
-  def __init__(self, uid, frequency = "Five_Seconds"):
-    self.uid = uid
+  def __init__(self, plugin_id, frequency = "Five_Seconds"):
+    self.uid = plugin_id
+    self.datasources = []
     self.frequency = frequency
     self.frequency_in_seconds = self.frequency_to_seconds(frequency)
-    p = Proxy("http://_var_xapi_xcp-rrdd/", transport=UDSTransport())
+    p = Proxy("http://_var_xapi_xcp-rrdd/", transport = UDSTransport())
     self.dispatcher = Dispatcher(p.request, None).Plugin
+
+  def lazy_complete_init(self):
+    """This part of API initialisation can fail, since it relies on the
+    xcp-rrdd daemon to be up. Therefore, instead of calling it immediately,
+    it is called lazily within wait_until_next_reading."""
+    if hasattr(self, 'dest'): return
     self.header = self.dispatcher.get_header()
-    self.path = self.dispatcher.get_path({"uid": uid})
+    self.path = self.dispatcher.get_path({"uid": self.uid})
     base_path = os.path.dirname(self.path)
     if not os.path.exists(base_path): os.makedirs(base_path)
-    self.file = open(self.path, "w")
+    self.dest = open(self.path, "w")
 
   def __del__(self):
     self.deregister()
@@ -191,6 +202,16 @@ class API:
   def frequency_to_seconds(self, frequency):
     if frequency == "Five_Seconds": return 5
     raise NameError(frequency)
+
+  def set_datasource(self, name, value, description = "", units = "",
+               ty = DataSource.Type.ABSOLUTE,
+               value_ty = DataSource.ValueType.FLOAT,
+               min_val = "-infinity", max_val = "infinity"):
+    """This function should be called within each iteration of the plugin,
+    and for each datasource, every time providing freshly collected data."""
+    ds = DataSource(name, value, description, units, ty, value_ty,
+                    min_val, max_val)
+    self.datasources.append(ds)
 
   def get_header(self):
     """Get the 'static' first line of the expected output format."""
@@ -206,7 +227,7 @@ class API:
     return self.dispatcher.register(params)
 
   def deregister(self):
-    """De-register a plugin."""
+    """De-register a plugin. Called in destructor. """
     return self.dispatcher.deregister({"uid": self.uid})
 
   def next_reading(self):
@@ -214,27 +235,49 @@ class API:
     will take place."""
     return self.dispatcher.next_reading({"uid": self.uid})
 
-  def update_and_sleep(self, dss):
-    """Package up datasources, write them (together with all the required
-    metadata) into the file agreed with rrdd, re-register, and sleep for the
-    initially specified frequency. Re-registration solves the problem of rrdd
-    restart while a plugin is operating."""
+  def wait_until_next_reading(self, neg_shift = 1):
+    """The xcp-rrdd daemon reads the files written by registered plugins in
+    pre-determined time intervals. This function coordinates this timing with
+    the daemon, and wakes up just before the next such reading occurs. This
+    way, the plugin can provide freshly collected data. The neg_shift argument
+    specifies (in seconds; can be a fraction; default is 1) how long before
+    the next reading this function return. Note that it is up to the plugin
+    author to choose a value for neg_shift that is at least as large the time
+    it takes for the plugin to collect its data; however, it should also not
+    be much larger, since this decreases the freshness of the data."""
+    while True:
+      try:
+        self.lazy_complete_init()
+        next_reading = self.register()
+        wait_time = next_reading - neg_shift
+        if wait_time < 0: wait_time %= self.frequency_in_seconds
+        time.sleep(wait_time)
+        return
+      except socket.error:
+        msg = "Failed to contact xcp-rrdd. Sleeping for 5 seconds .."
+        print >> sys.stderr, msg
+        time.sleep(5)
+
+  def update(self):
+    """Write all datasources specified (via set_datasource) since the last
+    call to this function. The datasources are written together with the
+    relevant metadata into the file agreed with rrdd."""
     timestamp = int(time.time())
     combined = dict()
-    for ds in dss: combined = dict(combined.items() + ds.to_dict().items())
-    format = {"timestamp": timestamp, "datasources": combined}
-    s = json.dumps(format, sort_keys=True, indent=2)
-    payload = '\n'.join([l.rstrip() for l in s.splitlines()])
+    for ds in self.datasources:
+      combined = dict(combined.items() + ds.to_dict().items())
+    payload = {"timestamp": timestamp, "datasources": combined}
+    payload_json = json.dumps(payload, sort_keys = True, indent = 2)
+    payload_pretty = '\n'.join([l.rstrip() for l in payload_json.splitlines()])
     m = md5.new()
-    m.update(payload)
+    m.update(payload_pretty)
     output = ""
     output += self.header
-    output += "%08X\n" % len(payload)
+    output += "%08X\n" % len(payload_pretty)
     output += m.hexdigest() + "\n"
-    output += payload
-    self.file.seek(0)
-    self.file.write(output)
-    self.file.flush()
-    try: self.register() # this ensures the file is read even if rrdd restarts
-    except: pass # rrdd appears to be down
-    time.sleep(self.frequency_in_seconds)
+    output += payload_pretty
+    self.dest.seek(0)
+    self.dest.write(output)
+    self.dest.flush()
+    self.datasources = []
+    time.sleep(0.003) # wait a bit to ensure wait_until_next_reading will block
