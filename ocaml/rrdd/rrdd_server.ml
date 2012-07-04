@@ -438,11 +438,12 @@ let unset_cache_sr _ () =
 	Mutex.execute cache_sr_lock (fun () -> cache_sr_uuid := None)
 
 module Plugin = struct
-	exception Read_error
 	exception Invalid_header_string
 	exception Invalid_length
 	exception Invalid_checksum
 	exception Invalid_payload
+	exception No_update
+	exception Read_error
 
 	(* Static values. *)
 	let base_path = "/dev/shm/metrics/"
@@ -553,6 +554,18 @@ module Plugin = struct
 			{timestamp; datasources = List.map ds_of_rpc datasource_rpcs}
 		with _ -> log_backtrace (); raise Invalid_payload
 
+	(* A map storing the last read checksum of the file written by each plugin. *)
+	let last_read_checksum : (string, string) Hashtbl.t =
+		Hashtbl.create 20
+
+	(* Throw No_update exception if previous checksum is the same as the current
+	 * one for this plugin. Otherwise, replace previous with current.*)
+	let verify_checksum_freshness ~(uid : string) ~(checksum : string) : unit =
+		try
+			if checksum = Hashtbl.find last_read_checksum uid then raise No_update
+		with Not_found -> ();
+		Hashtbl.replace last_read_checksum uid checksum
+
 	(* The function that reads the file that corresponds to the plugin with the
 	 * specified uid, and returns the contents of the file in terms of the
 	 * payload type, or throws an exception. *)
@@ -572,12 +585,15 @@ module Plugin = struct
 			let payload = read_string ~fd ~length in
 			if payload |> Digest.string |> Digest.to_hex <> checksum then
 				raise Invalid_checksum;
+			verify_checksum_freshness ~uid ~checksum;
 			parse_payload ~json:payload
-		with
-		| Invalid_header_string | Invalid_length | Invalid_checksum as e ->
-			log_backtrace (); raise e
-		| _ ->
-			log_backtrace (); raise Read_error
+		with e ->
+			error "Failed to process plugin: %s" uid;
+			log_backtrace ();
+			match e with
+			| Invalid_header_string | Invalid_length | Invalid_checksum
+			| No_update as e -> raise e
+			| _ -> raise Read_error
 
 	(* The function that tells the plugin what to write at the top of its output
 	 * file. *)
@@ -633,10 +649,7 @@ module Plugin = struct
 				let payload = read_file uid in
 				let odss = List.map (fun ds -> (Rrd.Host, ds)) payload.datasources in
 				List.rev_append odss acc
-			with _ ->
-				error "Failed to process plugin: %s" uid;
-				log_backtrace ();
-				acc
+			with _ -> acc
 		in
 		List.fold_left process_plugin [] uids
 end
