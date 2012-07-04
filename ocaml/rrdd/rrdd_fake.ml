@@ -12,7 +12,7 @@ let read_fakestats fname ty =
 		let ds_list = fake_ds_list_of_rpc (Jsonrpc.of_string file) in
 		debug "Got %d fake data source(s) from filename %s" (List.length ds_list) fname;
 		List.map (fun fake_ds ->
-			(ty, ds_make ~name:fake_ds.f_name ~description:""
+			(ty, ds_make ~name:fake_ds.f_name ~units:"" ~description:""
 				~value:(Rrd.VT_Float fake_ds.f_val) ~ty:fake_ds.f_ty ~default:true ())
 		) (fake_ds_list_of_rpc (Jsonrpc.of_string file))
 	with _ ->
