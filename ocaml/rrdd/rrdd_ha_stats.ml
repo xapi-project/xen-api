@@ -24,7 +24,7 @@ module Statefile_latency = struct
 	let all = ref []
 
 	let get_one t =
-		Ds.ds_make ~name:(Printf.sprintf "statefile/%s/latency" t.id)
+		Ds.ds_make ~name:(Printf.sprintf "statefile/%s/latency" t.id) ~units:"s"
 			~description:"Turn-around time of the latest State-File access from the local host"
 			~value:(Opt.default Rrd.VT_Unknown (Opt.map (fun x -> Rrd.VT_Float x) t.latency))
 			~ty:Rrd.Gauge ~default:false ()
@@ -36,7 +36,7 @@ module Heartbeat_latency = struct
 	let raw : float option ref = ref None
 
 	let get () =
-		Ds.ds_make ~name:"network/latency"
+		Ds.ds_make ~name:"network/latency" ~units:"s"
 			~description:"Interval between the last two heartbeats transmitted from the local host to all Online hosts"
 			~value:(Opt.default Rrd.VT_Unknown (Opt.map (fun x -> Rrd.VT_Float x) !raw))
 			~ty:Rrd.Gauge ~default:false ()
@@ -46,7 +46,7 @@ module Xapi_latency = struct
 	let raw : float option ref = ref None
 
 	let get () =
-		Ds.ds_make ~name:"xapi_healthcheck/latency"
+		Ds.ds_make ~name:"xapi_healthcheck/latency" ~units:"s"
 			~description:"Turn-around time of the latest xapi status monitoring call on the local host"
 			~value:(Opt.default Rrd.VT_Unknown (Opt.map (fun x -> Rrd.VT_Float x) !raw))
 			~ty:Rrd.Gauge ~default:false ()
