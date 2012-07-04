@@ -558,7 +558,7 @@ let monitor_loop () =
 			try
 				do_monitor xc;
 				Mutex.execute Rrdd_shared.last_loop_end_time_m (fun _ ->
-					Rrdd_shared.last_loop_end_time := Unix.time ()
+					Rrdd_shared.last_loop_end_time := Unix.gettimeofday ()
 				);
 				Thread.delay !Rrdd_shared.timeslice
 			with e ->
@@ -589,6 +589,7 @@ let _ =
 	Debug.set_facility Syslog.Local5;
 
 	(* Read configuration file. *)
+	debug "Reading configuration file ..";
 	read_config ();
 
 	let pidfile = ref "" in
