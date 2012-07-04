@@ -138,31 +138,47 @@ let update_vcpus xc doms =
 		let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.handle) in
 
 		let rec cpus i dss =
-			if i>=maxcpus then dss else
+			if i >= maxcpus then dss else
 			let vcpuinfo = Xenctrl.domain_get_vcpuinfo xc domid i in
 			cpus (i+1) ((VM uuid,
 				ds_make
-					~name:(Printf.sprintf "cpu%d" i)
+					~name:(Printf.sprintf "cpu%d" i) ~units:"(fraction)"
 					~description:(Printf.sprintf "CPU%d usage" i)
 					~value:(Rrd.VT_Float ((Int64.to_float vcpuinfo.Xenctrl.Vcpu_info.cputime) /. 1.0e9))
-					~ty:Rrd.Derive ~default:true ~min:0.0 ~max:1.0())::dss)
+					~ty:Rrd.Derive ~default:true ~min:0.0 ~max:1.0 ())::dss)
 		in
 
 		(* Runstate info is per-domain rather than per-vcpu *)
 		let dss =
 			try
 				let ri = Xenctrlext.domain_get_runstate_info xc domid in
-				(VM uuid, ds_make ~name:"runstate_entry_time" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrlext.state_entry_time) /. 1.0e9)) ~description:"" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
-				(VM uuid, ds_make ~name:"runstate_fullrun" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrlext.time0) /. 1.0e9)) ~description:"Fraction of time that all VCPUs are running" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
-				(VM uuid, ds_make ~name:"runstate_full_contention" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrlext.time1) /. 1.0e9)) ~description:"Fraction of time that all VCPUs are runnable (i.e., waiting for CPU)" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
-				(VM uuid, ds_make ~name:"runstate_concurrency_hazard" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrlext.time2) /. 1.0e9)) ~description:"Fraction of time that some VCPUs are running and some are runnable" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
-				(VM uuid, ds_make ~name:"runstate_blocked" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrlext.time3) /. 1.0e9)) ~description:"Fraction of time that all VCPUs are blocked or offline" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
-				(VM uuid, ds_make ~name:"runstate_partial_run" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrlext.time4) /. 1.0e9)) ~description:"Fraction of time that some VCPUs are running, and some are blocked" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
-				(VM uuid, ds_make ~name:"runstate_partial_contention" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrlext.time5) /. 1.0e9)) ~description:"Fraction of time that some VCPUs are runnable and some are blocked" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::dss
+				(VM uuid, ds_make ~name:"runstate_fullrun" ~units:"(fraction)"
+					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrlext.time0) /. 1.0e9))
+					~description:"Fraction of time that all VCPUs are running"
+					~ty:Rrd.Derive ~default:false ~min:0.0 ())::
+				(VM uuid, ds_make ~name:"runstate_full_contention" ~units:"(fraction)"
+					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrlext.time1) /. 1.0e9))
+					~description:"Fraction of time that all VCPUs are runnable (i.e., waiting for CPU)"
+					~ty:Rrd.Derive ~default:false ~min:0.0 ())::
+				(VM uuid, ds_make ~name:"runstate_concurrency_hazard" ~units:"(fraction)"
+					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrlext.time2) /. 1.0e9))
+					~description:"Fraction of time that some VCPUs are running and some are runnable"
+					~ty:Rrd.Derive ~default:false ~min:0.0 ())::
+				(VM uuid, ds_make ~name:"runstate_blocked" ~units:"(fraction)"
+					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrlext.time3) /. 1.0e9))
+					~description:"Fraction of time that all VCPUs are blocked or offline"
+					~ty:Rrd.Derive ~default:false ~min:0.0 ())::
+				(VM uuid, ds_make ~name:"runstate_partial_run" ~units:"(fraction)"
+					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrlext.time4) /. 1.0e9))
+					~description:"Fraction of time that some VCPUs are running, and some are blocked"
+					~ty:Rrd.Derive ~default:false ~min:0.0 ())::
+				(VM uuid, ds_make ~name:"runstate_partial_contention" ~units:"(fraction)"
+					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrlext.time5) /. 1.0e9))
+					~description:"Fraction of time that some VCPUs are runnable and some are blocked"
+					~ty:Rrd.Derive ~default:false ~min:0.0 ())::dss
 			with e ->
 				dss
 		in
-		
 		try
 			let dss = cpus 0 dss in
 			(dss, (uuid, domid)::uuid_domids, domid::domids)
@@ -184,7 +200,7 @@ let update_pcpus xc =
 	) in
 	let dss, _ = Array.fold_left (fun (acc, i) v ->
 		((Host, ds_make
-			~name:(Printf.sprintf "cpu%d" i)
+			~name:(Printf.sprintf "cpu%d" i) ~units:"(fraction)"
 			~description:("Physical cpu usage for cpu "^(string_of_int i))
 			~value:(Rrd.VT_Float ((Int64.to_float v) /. 1.0e9)) ~min:0.0 ~max:1.0
 			~ty:Rrd.Derive ~default:true ~transform:(fun x -> 1.0 -. x) ())::acc,i+1)
@@ -200,7 +216,7 @@ let update_memory xc doms =
 		let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.handle) in
 		let main_mem_ds = (
 			VM uuid,
-			ds_make ~name:"memory" ~description:"Memory currently allocated to VM"
+			ds_make ~name:"memory" ~description:"Memory currently allocated to VM" ~units:"B"
 				~value:(Rrd.VT_Int64 memory) ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
 		) in
 		let memory_target_opt =
@@ -212,7 +228,7 @@ let update_memory xc doms =
 			Opt.map
 				(fun memory_target -> (
 					VM uuid,
-					ds_make ~name:"memory_target" ~description:"Target of VM balloon driver"
+					ds_make ~name:"memory_target" ~description:"Target of VM balloon driver" ~units:"B"
 						~value:(Rrd.VT_Int64 memory_target) ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
 				)) memory_target_opt
 		in
@@ -222,7 +238,7 @@ let update_memory xc doms =
 				let mem_free = with_xs (fun xs -> Int64.of_string (xs.Xs.read memfree_xs_key)) in
 				Some (
 					VM uuid,
-					ds_make ~name:"memory_internal_free"
+					ds_make ~name:"memory_internal_free" ~units:"B"
 						~description:"Memory used as reported by the guest agent"
 						~value:(Rrd.VT_Int64 mem_free) ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
 				)
@@ -232,7 +248,7 @@ let update_memory xc doms =
 	) [] doms
 
 let update_loadavg () =
-	Host, ds_make ~name:"loadavg"
+	Host, ds_make ~name:"loadavg" ~units:"(fraction)"
 		~description:"Domain0 loadavg"
 		~value:(Rrd.VT_Float (Rrdd_common.loadavg ()))
 		~ty:Rrd.Gauge ~default:true ()
@@ -261,16 +277,16 @@ let update_netdev doms =
 				pif_device_id = stat.device_id;
 			} in
 			(Host, ds_make ~name:(pif_name ^ "_rx")
-				~description:("Bytes per second received on physical interface " ^ dev)
+				~description:("Bytes per second received on physical interface " ^ dev) ~units:"B/s"
 				~value:(Rrd.VT_Int64 stat.rx_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true ()) ::
 			(Host, ds_make ~name:(pif_name ^ "_tx")
-				~description:("Bytes per second sent on physical interface " ^ dev)
+				~description:("Bytes per second sent on physical interface " ^ dev) ~units:"B/s"
 				~value:(Rrd.VT_Int64 stat.tx_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true ()) ::
 			(Host, ds_make ~name:(pif_name ^ "_rx_errors")
-				~description:("Receive errors per second on physical interface " ^ dev)
+				~description:("Receive errors per second on physical interface " ^ dev) ~units:"err/s"
 				~value:(Rrd.VT_Int64 stat.rx_errors) ~ty:Rrd.Derive ~min:0.0 ~default:false ()) ::
 			(Host, ds_make ~name:(pif_name ^ "_tx_errors")
-				~description:("Transmit errors per second on physical interface " ^ dev)
+				~description:("Transmit errors per second on physical interface " ^ dev) ~units:"err/s"
 				~value:(Rrd.VT_Int64 stat.tx_errors) ~ty:Rrd.Derive ~min:0.0 ~default:false ()) ::
 			dss,
 			pif :: pifs
@@ -281,16 +297,16 @@ let update_netdev doms =
 				let vif_name = Printf.sprintf "vif_%d" d2 in
 				(* Note: rx and tx are the wrong way round because from dom0 we see the vms backwards *)
 				let uuid = uuid_of_domid doms d1 in
-				(VM uuid, ds_make ~name:(vif_name ^ "_tx")
+				(VM uuid, ds_make ~name:(vif_name ^ "_tx") ~units:"B/s"
 					~description:("Bytes per second transmitted on virtual interface number '" ^ (string_of_int d2) ^ "'")
 					~value:(Rrd.VT_Int64 stat.rx_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true ()) ::
-				(VM uuid, ds_make ~name:(vif_name ^ "_rx")
+				(VM uuid, ds_make ~name:(vif_name ^ "_rx") ~units:"B/s"
 					~description:("Bytes per second received on virtual interface number '" ^ (string_of_int d2) ^ "'")
 					~value:(Rrd.VT_Int64 stat.tx_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true ()) ::
-				(VM uuid, ds_make ~name:(vif_name ^ "_rx_errors")
+				(VM uuid, ds_make ~name:(vif_name ^ "_rx_errors") ~units:"err/s"
 					~description:("Receive errors per second on virtual interface number '" ^ (string_of_int d2) ^ "'")
 					~value:(Rrd.VT_Int64 stat.tx_errors) ~ty:Rrd.Derive ~min:0.0 ~default:false ()) ::
-				(VM uuid, ds_make ~name:(vif_name ^ "_tx_errors")
+				(VM uuid, ds_make ~name:(vif_name ^ "_tx_errors") ~units:"err/s"
 					~description:("Transmit errors per second on virtual interface number '" ^ (string_of_int d2) ^ "'")
 					~value:(Rrd.VT_Int64 stat.rx_errors) ~ty:Rrd.Derive ~min:0.0 ~default:false ()) ::
 				dss
@@ -345,23 +361,23 @@ let update_vbds doms =
 			 correspond to an active domain uuid. Skip these for now. *)
 		let newacc =
 			try
-				let uuid=uuid_of_domid doms domid in
+				let uuid = uuid_of_domid doms domid in
 				(VM uuid, ds_make ~name:(vbd_name^"_write")
 					~description:("Writes to device '"^device_name^"' in bytes per second")
 					~value:(Rrd.VT_Int64 wr_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true
-					~units:"bytes per second" ())::
+					~units:"B/s" ())::
 				(VM uuid, ds_make ~name:(vbd_name^"_read")
 					~description:("Reads from device '"^device_name^"' in bytes per second")
 					~value:(Rrd.VT_Int64 rd_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true
-					~units:"bytes per second" ())::
+					~units:"B/s" ())::
 				(VM uuid, ds_make ~name:(vbd_name^"_read_latency")
-					~description:("Reads from device '"^device_name^"' in microseconds")
-					~units:"microseconds" ~value:(Rrd.VT_Int64 rd_avg_usecs)
+					~description:("Reads from device '" ^ device_name ^ "' in microseconds")
+					~units:"ms" ~value:(Rrd.VT_Int64 rd_avg_usecs)
 					~ty:Rrd.Gauge ~min:0.0 ~default:false ())::
 				(VM uuid, ds_make ~name:(vbd_name^"_write_latency")
-					~description:("Reads from device '"^device_name^"' in microseconds")
+					~description:("Reads from device '" ^ device_name ^ "' in microseconds")
 					~value:(Rrd.VT_Int64 wr_avg_usecs) ~ty:Rrd.Gauge ~min:0.0
-					~default:false ~units:"microseconds" ())::
+					~default:false ~units:"ms" ())::
 				acc
 			with _ -> acc
 		in
@@ -407,19 +423,19 @@ let read_mem_metrics xc =
 	let xapiactuallive_kib = Int64.of_int (gcstat.Gc.live_words / 256) in
 	[
 		(Host, ds_make ~name:"memory_total_kib" ~description:"Total amount of memory in use"
-		~value:(Rrd.VT_Int64 total_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true ());
+		~value:(Rrd.VT_Int64 total_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true ~units:"KiB" ());
 		(Host, ds_make ~name:"memory_free_kib" ~description:"Total amount of free memory"
-		 ~value:(Rrd.VT_Int64 free_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true ());
-		(Host, ds_make ~name:"xapi_memory_usage_kib"
+		 ~value:(Rrd.VT_Int64 free_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true ~units:"KiB" ());
+		(Host, ds_make ~name:"xapi_memory_usage_kib" ~units:"KiB"
 			~description:"Total memory allocated used by xapi daemon"
-			~value:(Rrd.VT_Int64 xapitotal_kib) ~ty:Rrd.Gauge ~min:0.0	~default:true ());
-		(Host, ds_make ~name:"xapi_free_memory_kib"
+			~value:(Rrd.VT_Int64 xapitotal_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true ());
+		(Host, ds_make ~name:"xapi_free_memory_kib" ~units:"KiB"
 			~description:"Free memory available to the xapi daemon"
-			~value:(Rrd.VT_Int64 xapiactualfree_kib) ~ty:Rrd.Gauge ~min:0.0	~default:true ());
-		(Host, ds_make ~name:"xapi_live_memory_kib"
+			~value:(Rrd.VT_Int64 xapiactualfree_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true ());
+		(Host, ds_make ~name:"xapi_live_memory_kib" ~units:"KiB"
 			~description:"Live memory used by xapi daemon"
-			~value:(Rrd.VT_Int64 xapiactuallive_kib) ~ty:Rrd.Gauge ~min:0.0	~default:true ());
-		(Host, ds_make ~name:"xapi_allocation_kib"
+			~value:(Rrd.VT_Int64 xapiactuallive_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true ());
+		(Host, ds_make ~name:"xapi_allocation_kib" ~units:"KiB"
 			~description:"Memory allocation done by the xapi daemon"
 			~value:(Rrd.VT_Float xapigrad_kib) ~ty:Rrd.Derive ~min:0.0 ~default:true ());
 	]
@@ -462,17 +478,17 @@ let read_cache_stats timestamp =
 	in
 	let get_dss cache_sr oldvals newvals = [
 		(Host, ds_make ~name:(Printf.sprintf "sr_%s_cache_size" cache_sr)
-			~description:"Size in bytes of the cache SR"
+			~description:"Size in bytes of the cache SR" ~units:"B"
 			~value:(Rrd.VT_Int64 newvals.cache_size_raw)
 			~ty:Rrd.Gauge ~min:0.0 ~default:true ());
 		(Host, ds_make ~name:(Printf.sprintf "sr_%s_cache_hits" cache_sr)
-			~description:"Hits per second of the cache"
+			~description:"Hits per second of the cache" ~units:"hits/s"
 			~value:(Rrd.VT_Int64 (Int64.div
 				(Int64.sub newvals.cache_hits_raw oldvals.cache_hits_raw)
 				(Int64.of_float (newvals.time -. oldvals.time))))
 			~ty:Rrd.Gauge ~min:0.0 ~default:true ());
 		(Host, ds_make ~name:(Printf.sprintf "sr_%s_cache_misses" cache_sr)
-			~description:"Misses per second of the cache"
+			~description:"Misses per second of the cache" ~units:"misses/s"
 			~value:(Rrd.VT_Int64 (Int64.div
 				(Int64.sub newvals.cache_misses_raw oldvals.cache_misses_raw)
 				(Int64.of_float (newvals.time -. oldvals.time))))
