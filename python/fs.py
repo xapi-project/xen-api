@@ -25,12 +25,37 @@ from storage import *
 
 import vhd, tapdisk, mount, util
 
+# The on-disk structure looks like this:
+# 
+# <root>/metadata/hostname.name.xml    -- VDI metadata for a disk with name "name"
+# <root>/metadata/hostname.name.1.xml  -- VDI metadata for another disk with name "name"
+#
+# <root>/data/hostname.1.vhd  -- vhd format disk (parent or leaf)
+# <root>/data/hostname.2.vhd  -- vhd format disk (parent or leaf)
+# <root>/data/hostname.3.raw  -- raw format disk
+#
+# where "hostname" is a prefix unique to this instance which prevents accidental
+# filename clashes.
+# 
+# There is an injective relationship between metadata/ files and data/
+# i.e. all metadata/ files reference exactly one data/ file but not all
+# data/ files are referenced directly by a metadata/ file.
+
 raw_suffix = ".raw"
 vhd_suffix = ".vhd"
 metadata_suffix = ".xml"
 
 metadata_dir = "metadata"
 data_dir = "data"
+
+repo_state_dir = "/tmp/repo-state"
+
+def unlink_safe(path):
+    try:
+        os.unlink(path)
+        log("os.unlink %s OK" % path)
+    except Exception, e:
+        log("os.unlink %s: %s" % (path, str(e)))
 
 def highest_id(xs):
     highest = 0L
@@ -43,164 +68,218 @@ def highest_id(xs):
             pass
     return highest
 
-def unlink_safe(path):
-    try:
-        os.unlink(path)
-        log("os.unlink %s OK" % path)
-    except Exception, e:
-        log("os.unlink %s: %s" % (path, str(e)))
+def make_fresh_metadata_name(root, prefix, name):
+    """Make a human-readable name for on-disk metadata, using a prefix unique
+    to this instance to guarantee no clashes"""
+    # To make this vaguely human-readable, sanitise the first 32 chars of the
+    # VDI's name and then add a numerical suffix to make unique.
+    if len(name) > 32:
+        # arbitrary cut-off
+        name = name[0:32]
+    valid = '_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    name = ''.join(c for c in name if c in valid)
+    if name == "":
+        name = "_"
+    taken = map(lambda x:x[0:-len(metadata_suffix)], os.listdir(root + "/" + metadata_dir))
+    if name not in taken:
+        return name
+    else:
+        superstrings = filter(lambda x:x.startswith(name + "."), taken)
+        suffixes = map(lambda x:x[len(name) + 1:], superstrings)
+        suffix = highest_id(suffixes) + 1L
+        return "%s.%Ld" % (name, suffix)
 
+def metadata_path(root, key):
+    return root + "/" + metadata_dir + "/" + key + metadata_suffix
+
+def loads(path):
+    try:
+        f = open(path, "r")
+    except:
+        log("%s does not exist: returning None" % path)
+        return None
+    try:
+        try:
+            return xmlrpclib.loads(f.read())[0][0]
+        except:
+            log("%s is corrupt: returning None" % path)
+    finally:
+        f.close()
+
+def dumps(path, x):
+    f = open(path, "w")
+    try:
+        try:
+            f.write(xmlrpclib.dumps((x,), allow_none=True))
+        except Exception, e:
+            log("Exception writing metadata: %s" % (str(e)))
+            # remove corrupt file
+            os.unlink(path)
+    finally:
+        f.close()
+
+def write_metadata(root, name, vdi_info):
+    dumps(metadata_path(root, name), vdi_info)
+
+def write_repo_state(sr, info):
+    dumps(repo_state_dir + "/" + sr, info)
+
+def read_metadata(root, name):
+    """Read the vdi_info metadata associated with 'name', throwing Vdi_does_not_exist if
+    it cannot be read."""
+    md = metadata_path(root, name)
+    result = loads(md)
+    if not result:
+        raise Vdi_does_not_exist(name)
+    return result
+
+def list_repo_state():
+    return os.listdir(repo_state_dir)
+
+def read_repo_state(sr):
+    return loads(repo_state_dir + "/" + sr)
+
+def delete_repo_state(sr):
+    os.unlink(repo_state_dir + "/" + sr)
+
+def list_metadata(root):
+    results = []
+    metadata_path = root + "/" + metadata_dir
+    for name in os.listdir(metadata_path):
+        if name.endswith(metadata_suffix):
+            name = name[0:-len(metadata_suffix)]
+            results.append(name)
+    return results
+
+def read_all_metadata(root):
+    results = {}
+    for name in list_metadata(root):
+        vdi_info = read_metadata(root, name)
+        if vdi_info:
+            results[name] = vdi_info
+    return results
+
+def read_tree(root):
+    results = {}
+    data_path = root + "/" + data_dir
+    for name in os.listdir(data_path):
+        if name.endswith(raw_suffix):
+            results[name[0:-len(raw_suffix)]] = { "type": "raw" }
+    all = vhd.list(data_path + "/*.vhd")
+    for name in all.keys():
+        log("data[%s] = %s" % (name, repr(all[name])))
+        results[name] = all[name]
+    return results
+
+def get_deletable(root):
+    """Return a set of the data blobs which are not reachable from
+    any of the VDIs """
+    reachable = set()
+    data = read_tree(root)
+    for vdi_info in read_all_metadata(root).values():
+        x = vdi_info["data"]
+        while x not in reachable:
+            reachable.add(x)
+            info = data[x]
+            if "parent" in info:
+                x = info["parent"]
+    all = set(data.keys())
+    return all.difference(reachable)
+
+def read_data(root, key):
+    base = root + "/" + data_dir + "/" + key
+    raw_path = base + raw_suffix
+    vhd_path = base + vhd_suffix
+    if os.path.exists(raw_path):
+        return { "type": "raw", "path": raw_path }
+    if os.path.exists(vhd_path):
+        one_vhd = vhd.list(vhd_path).values()[0]
+        one_vhd["path"] = vhd_path
+        return one_vhd
+    raise (Vdi_does_not_exist(key))
+
+def data_path(root, key):
+    return read_data(root, key)["path"]
+
+def data_type(root, key):
+    return read_data(root, key)["type"]
+
+def gc(root):
+    deletable = get_deletable(root)
+    for x in deletable:
+        log("Data %s is unreachable now" % x)
+        path = data_path(root, x)
+        unlink_safe(path)
+
+def get_my_highest_id(root, prefix):
+    data_path = root + "/" + data_dir
+    xs = []
+    for x in os.listdir(data_path):
+        if not(x.startswith(prefix)):
+            break
+        x = x[len(prefix):]
+        if x.endswith(raw_suffix):
+            x = x[0:-len(raw_suffix)]
+        if x.endswith(vhd_suffix):
+            x = x[0:-len(vhd_suffix)]
+        xs.append(x)
+
+    return highest_id(xs)
+
+def list_tapdisks():
+    results = {}
+    for tap in tapdisk.list():
+        if not tap.file:
+            log("%s has no file open: detaching and freeing" % str(tap))
+            tap.detach()
+            tap.free()
+        else:
+            ty, path = tap.file
+            if path.startswith(data_path):
+                filename = os.path.basename(path)
+                if ty == "raw":
+                    name = filename[0:-len(raw_suffix)]
+                    log("%s open by %s" % (name, str(tap)))
+                    results[name] = tap
+                elif ty == "vhd":
+                    name = filename[0:-len(vhd_suffix)]
+                    log("%s open by %s" % (name, str(tap)))
+                    results[name] = tap
+                else:
+                    log("Unknown tapdisk type: %s" % ty)
+    return results
 
 class Repo:
-    """Encapsulates all relevant SR operations
-
-The on-disk structure looks like this:
-
-<root>/metadata/name.xml    -- VDI metadata for a disk with name "name"
-<root>/metadata/name.1.xml  -- VDI metadata for another disk with name "name"
-
-<root>/data/1.vhd           -- vhd format disk (parent or leaf)
-<root>/data/2.vhd           -- vhd format disk (parent or leaf)
-<root>/data/3.raw           -- raw format disk
-
-There is an injective relationship between metadata/ files and data/
-i.e. all metadata/ files reference exactly one data/ file but not all
-data/ files are referenced directly by a metadata/ file.
-"""
-    def __init__(self, path):
+    """Encapsulates all relevant SR operations"""
+    def __init__(self, hostname, path):
+        self.hostname = hostname
         self.path = path
-        # Used to cache which tapdisks are activated read/write (XXX persistence)
-        self.writable = {}
-        # Load the metadata first
-        self.metadata = {}
+
+        # Make sure necessary paths exist
         metadata_path = path + "/" + metadata_dir
         if not (os.path.exists(metadata_path)):
             os.mkdir(metadata_path)
-        for name in os.listdir(metadata_path):
-            if name.endswith(metadata_suffix):
-                md = metadata_path + "/" + name
-                f = open(md, "r")
-                try:
-                    try:
-                        vdi_info = xmlrpclib.loads(f.read())[0][0]
-                        self.metadata[name[0:-len(metadata_suffix)]] = vdi_info
-                    except:
-                        log("%s is corrupt: ignoring" % md)
-                finally:
-                    f.close()
-        # Load data about the data second
-        self.data = {}
         data_path = path + "/" + data_dir
         if not(os.path.exists(data_path)):
             os.mkdir(data_path)
-        for name in os.listdir(data_path):
-            if name.endswith(raw_suffix):
-                self.data[name[0:-len(raw_suffix)]] = { "type": "raw" }
-        all = vhd.list(data_path + "/*.vhd")
-        for name in all.keys():
-            log("data[%s] = %s" % (name, repr(all[name])))
-            self.data[name] = all[name]
-        self._data_highest_id = highest_id(self.data.keys()) + 1L
-        # Query running tapdisks. We assume that all tapdisks in this domain
-        # reference this SR.
-        self.tapdisks = {}
-        for tap in tapdisk.list():
-            if not tap.file:
-                log("%s has no file open: detaching and freeing" % str(tap))
-                tap.detach()
-                tap.free()
-            else:
-                ty, path = tap.file
-                if path.startswith(data_path):
-                    filename = os.path.basename(path)
-                    if ty == "raw":
-                        name = filename[0:-len(raw_suffix)]
-                        log("%s open by %s" % (name, str(tap)))
-                        self.tapdisks[name] = tap
-                    elif ty == "vhd":
-                        name = filename[0:-len(vhd_suffix)]
-                        log("%s open by %s" % (name, str(tap)))
-                        self.tapdisks[name] = tap
-                    else:
-                        log("Unknown tapdisk type: %s" % ty)
 
-        # Integrity check: each metadata record should point to a data record
-        for vdi_info in self.metadata.values():
-            if vdi_info["data"] not in self.data:
-                log("WARNING: vdi %s has data %s but this does not exist" % (vdi_info["vdi"], vdi_info["data"]))
+        # Non-shared state is cached:
+        self.writable = {} # activated read/write (XXX persistence)
+        self.tapdisks = list_tapdisks()
 
-    def get_deletable(self):
-        """Return a set of the data blobs which are not reachable from
-        any of the VDIs """
-        reachable = set()
-        for vdi_info in self.metadata.values():
-            x = vdi_info["data"]
-            while x not in reachable:
-                reachable.add(x)
-                info = self.data[x]
-                if "parent" in info:
-                    x = info["parent"]
-        all = set(self.data.keys())
-        return all.difference(reachable)
+        # Non-shared counter used to avoid name collisions when making vhds
+        self._data_highest_id = get_my_highest_id(path, hostname) + 1L
 
-    def make_fresh_metadata_name(self, vdi_info):
-        # To make this vaguely human-readable, sanitise the first 32 chars of the
-        # VDI's name and then add a numerical suffix to make unique.
-        name = vdi_info["name_label"]
-        if len(name) > 32:
-            # arbitrary cut-off
-            name = name[0:32]
-        valid = '_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-        name = ''.join(c for c in name if c in valid)
-        if name == "":
-            name = "_"
-        taken = self.metadata.keys()
-        if name not in taken:
-            return name
-        else:
-            superstrings = filter(lambda x:x.startswith(name + "."), taken)
-            suffixes = map(lambda x:x[len(name) + 1:], superstrings)
-            suffix = highest_id(suffixes) + 1L
-            return "%s.%Ld" % (name, suffix)
+    def scan(self):
+        return read_all_metadata(self.path).values()
 
     def make_fresh_data_name(self):
         name = str(self._data_highest_id)
         self._data_highest_id = self._data_highest_id + 1
-        return name
-
-    def metadata_path_of_vdi(self, vdi):
-        return self.path + "/" + metadata_dir + "/" + vdi + metadata_suffix
-
-    def data_path_of_key(self, key):
-        data = self.data[key]
-        if data["type"] == "raw":
-            return self.path + "/" + data_dir + "/" + key + raw_suffix
-        elif data["type"] == "vhd":
-            return self.path + "/" + data_dir + "/" + key + vhd_suffix
-        else:
-            raise (Vdi_does_not_exist(vdi))
-
-    def data_path_of_vdi(self, vdi):
-        vdi_info = self.metadata[vdi]
-        key = vdi_info["data"]
-        return self.data_path_of_key(key)
-
-    def update_vdi_info(self, vdi, vdi_info):
-        path = self.metadata_path_of_vdi(vdi)
-        f = open(path, "w")
-        try:
-            try:
-                f.write(xmlrpclib.dumps((vdi_info,), allow_none=True))
-                self.metadata[vdi] = vdi_info
-            except Exception, e:
-                log("Exception writing metadata: %s" % (str(e)))
-                # remove corrupt file
-                os.unlink(path)
-        finally:
-            f.close()
+        return self.hostname + "." + name
 
     def create(self, vdi_info):
-        vdi = self.make_fresh_metadata_name(vdi_info)
+        vdi = make_fresh_metadata_name(self.path, self.hostname, vdi_info["name_label"])
         vdi_info["vdi"] = vdi
 
         data = self.make_fresh_data_name()
@@ -213,49 +292,39 @@ data/ files are referenced directly by a metadata/ file.
             f = open(stem + raw_suffix, "wc")
             try:
                 f.truncate(virtual_size)
-                self.data[data] = { "type": "raw" }
             finally:
                 f.close()
         else:
             # xmlrpclib will reject longs which are > 32 bits since it will try
             # to marshal them as XMLRPC integers.
             vdi_info["virtual_size"] = str(vhd.create(virtual_size, stem + vhd_suffix))
-            self.data[data] = { "type": "vhd" }
 
-        self.update_vdi_info(vdi, vdi_info)
+        write_metadata(self.path, vdi, vdi_info)
         return vdi_info
 
-    def gc(self):
-        deletable = self.get_deletable()
-        for x in deletable:
-            log("Data %s is unreachable now" % x)
-            path = self.data_path_of_key(x)
-            unlink_safe(path)
-            del self.data[x]
-
     def destroy(self, vdi):
-        meta = self.metadata_path_of_vdi(vdi)
+        meta = metadata_path(self.path, vdi)
         unlink_safe(meta)
-        del self.metadata[vdi]
-        self.gc()
+        gc(self.path)
 
     def clone(self, vdi, vdi_info):
-        parent = self.data_path_of_vdi(vdi)
+        meta = read_metadata(self.path, vdi)
+        parent = data_path(self.path, meta["data"])
 
         # Create two vhd leaves whose parent is [vdi]
         left = self.make_fresh_data_name()
-        self.data[left] = vhd.make_leaf(self.path + "/" + data_dir + "/" + left + vhd_suffix, parent)
+        vhd.make_leaf(self.path + "/" + data_dir + "/" + left + vhd_suffix, parent)
 
         right = self.make_fresh_data_name()
-        self.data[right] = vhd.make_leaf(self.path + "/" + data_dir + "/" + right + vhd_suffix, parent)
+        vhd.make_leaf(self.path + "/" + data_dir + "/" + right + vhd_suffix, parent)
 
         # Remap the original [vdi]'s location to point to the first leaf's path
-        parent_info = self.metadata[vdi]
+        parent_info = read_metadata(self.path, vdi)
         parent_info["data"] = left
-        self.update_vdi_info(vdi, parent_info)
+        write_metadata(self.path, vdi, parent_info)
 
         # The cloned vdi's location points to the second leaf's path
-        clone = self.make_fresh_metadata_name(vdi_info)
+        clone = make_fresh_metadata_name(self.path, self.hostname, vdi_info["name_label"])
         vdi_info["vdi"] = clone
         vdi_info["data"] = right
         vdi_info["virtual_size"] = parent_info["virtual_size"]
@@ -263,14 +332,14 @@ data/ files are referenced directly by a metadata/ file.
         if vdi_info["content_id"] == "":
             vdi_info["content_id"] = util.gen_uuid()
         vdi_info["read_only"] = parent_info["read_only"]
-        self.update_vdi_info(clone, vdi_info)
+        write_metadata(self.path, clone, vdi_info)
 
         return vdi_info
 
     def snapshot(self, vdi, vdi_info):
         # Before modifying the vhd-tree, take a note of the
         # currently-active leaf so we can find its tapdisk later
-        old_leaf = self.metadata[vdi]["data"]
+        old_leaf = read_metadata(self.path, vdi)["data"]
 
         # The vhd-tree manipulation is the same as clone...
         vdi_info = self.clone(vdi, vdi_info)
@@ -285,59 +354,61 @@ data/ files are referenced directly by a metadata/ file.
             else:
                 tapdisk.mirror = None
             # Find the new vhd leaf
-            new_leaf = self.metadata[vdi]["data"]
-            tapdisk.file = (self.data[new_leaf]["type"], self.data_path_of_key(new_leaf))
+            new_leaf = read_metadata(self.path, vdi)["data"]
+
+            tapdisk.file = (data_type(self.path, new_leaf), data_path(self.path, new_leaf))
             tapdisk.reopen()
             del self.tapdisks[old_leaf]
             self.tapdisks[new_leaf] = tapdisk
         return vdi_info
 
     def stat(self, vdi):
-        return self.metadata[vdi]
+        return read_metadata(self.path, vdi)
 
     def set_persistent(self, vdi, persistent):
-        meta = self.metadata[vdi]
+        meta = read_metadata(self.path, vdi)
 
         if meta["persistent"] and not persistent:
             # We need to make a fresh vhd leaf
-            parent = self.data_path_of_vdi(vdi)
+            parent = data_path(self.path, meta["data"])
 
             leaf = self.make_fresh_data_name()
-            self.data[leaf] = vhd.make_leaf(self.path + "/" + data_dir + "/" + leaf + vhd_suffix, parent)
+            vhd.make_leaf(self.path + "/" + data_dir + "/" + leaf + vhd_suffix, parent)
 
             # Remap the original [vdi]'s location to point to the new leaf
             meta["data"] = leaf
 
         meta["persistent"] = persistent
-        self.update_vdi_info(vdi, meta)
+        write_metadata(self.path, vdi, meta)
 
     def set_content_id(self, vdi, content_id):
-        meta = self.metadata[vdi]
+        meta = read_metadata(self.path, vdi)
         meta["content_id"] = content_id
-        self.update_vdi_info(vdi, meta)
+        write_metadata(self.path, vdi, meta)
 
     def get_by_name(self, name):
-        for vdi in self.metadata.keys():
-            md = self.metadata[vdi]
-            if vdi == name:
-                return md
-        raise Vdi_does_not_exist(name)
+        meta = read_metadata(self.path, name)
+        if not meta:
+            raise Vdi_does_not_exist(name)
+        return meta
 
     def similar_content(self, vdi):
         chains = {}
-        if vdi not in self.metadata.keys():
+        metadata = read_all_metadata(self.path)
+        tree = read_tree(self.path)
+        if vdi not in metadata.keys():
             raise Vdi_does_not_exist(vdi)
-        for v in self.metadata.keys():
-            md = self.metadata[v]
+        for v in metadata.keys():
+            md = metadata[v]
             data = md["data"]
             chain = set([data])
-            while "parent" in self.data[data]:
-                data = self.data[data]["parent"]
+            while "parent" in tree[data]:
+                data = tree[data]["parent"]
                 chain.add(data)
             chains[v] = chain
         distance = {}
         target_chain = chains[vdi]
-        for v in self.metadata.keys():
+        for v in metadata.keys():
             this_chain = chains[v]
             difference = target_chain.symmetric_difference(this_chain)
             # if two disks have nothing in common then we don't consider them
@@ -346,28 +417,29 @@ data/ files are referenced directly by a metadata/ file.
                 distance[v] = len(difference)
         import operator
         ordered = sorted(distance.iteritems(), key=operator.itemgetter(1))
-        return map(lambda x:self.metadata[x[0]], ordered)
+        return map(lambda x:metadata[x[0]], ordered)
 
     def maybe_reset(self, vdi):
-        meta = self.metadata[vdi]
+        meta = read_metadata(self.path, vdi)
         if not(meta["persistent"]):
             # we throw away updates to the leaf
             leaf = meta["data"]
-            leaf_info = self.data[leaf]
+            leaf_info = read_data(self.path, vdi)
             new_leaf = self.make_fresh_data_name()
+
             if "parent" in leaf_info:
                 # Create a new leaf
                 child = self.path + "/" + data_dir + "/" + new_leaf + vhd_suffix
                 parent = self.path + "/" + data_dir + "/" + leaf_info["parent"] + vhd_suffix
-                self.data[new_leaf] = vhd.make_leaf(child, parent)
+                vhd.make_leaf(child, parent)
                 meta["data"] = new_leaf
-                self.update_vdi_info(vdi, meta)
-                self.gc()
+                write_metadata(self.path, vdi, meta)
+                gc(self.path)
             else:
                 # Recreate a whole blank disk
                 new_info = self.create(meta, leaf_info)
                 meta["data"] = new_info["data"]
-                self.update_vdi_info(vdi, meta)
+                write_metadata(self.path, vdi, meta)
                 self.destroy(new_info["vdi"])
 
     def epoch_begin(self, vdi):
@@ -389,7 +461,7 @@ data/ files are referenced directly by a metadata/ file.
         os.unlink(dummy_path)
 
     def attach(self, vdi, read_write):
-        md = self.metadata[vdi]
+        md = read_metadata(self.path, vdi)
         data = md["data"]
         if data in self.tapdisks:
             raise Backend_error("VDI_ALREADY_ATTACHED", [ vdi ])
@@ -403,32 +475,32 @@ data/ files are referenced directly by a metadata/ file.
                  "xenstore_data": {} }
 
     def activate(self, vdi):
-        md = self.metadata[vdi]
+        meta = read_metadata(self.path, vdi)
         if self.writable[vdi]:
-            md["content_id"] = ""
-            self.update_vdi_info(vdi, md)
-        data = md["data"]
+            meta["content_id"] = ""
+            write_metadata(self.path, vdi, meta)
+        data = meta["data"]
         if data not in self.tapdisks:
             raise Backend_error("VDI_NOT_ATTACHED", [ vdi ])
         tapdisk = self.tapdisks[data]
         tapdisk.close()
-        tapdisk.open(self.data[data]["type"], self.data_path_of_key(data))
+        tapdisk.open(data_type(self.path, data), data_path(self.path, data))
 
     def deactivate(self, vdi):
-        md = self.metadata[vdi]
-        if md["content_id"] == "":
-            md["content_id"] = util.gen_uuid()
-            self.update_vdi_info(vdi, md)
-        data = md["data"]
+        meta = read_metadata(self.path, vdi)
+        if meta["content_id"] == "":
+            meta["content_id"] = util.gen_uuid()
+            write_metadata(self.path, vdi, meta)
+        data = meta["data"]
         if data not in self.tapdisks:
             raise Backend_error("VDI_NOT_ATTACHED", [ vdi ])
         self.tapdisks[data].close()
 
-        self.open_dummy_vhd(md, self.tapdisks[data])
+        self.open_dummy_vhd(meta, self.tapdisks[data])
 
     def detach(self, vdi):
         del self.writable[vdi]
-        md = self.metadata[vdi]
+        md = read_metadata(self.path, vdi)
         data = md["data"]
         if data not in self.tapdisks:
             raise Backend_error("VDI_NOT_ATTACHED", [ vdi ])
@@ -439,19 +511,16 @@ data/ files are referenced directly by a metadata/ file.
 
     def compose(self, vdi1, vdi2):
         # This operates on the vhds, not the VDIs
-        leaf = self.metadata[vdi2]["data"]
-        parent = self.metadata[vdi1]["data"]
+        leaf = read_metadata(vdi2)["data"]
+        parent = read_metadata(vdi1)["data"]
 
         # leaf must be already a leaf of some other parent
-        if "parent" not in self.data[leaf]:
+        if "parent" not in read_data(self.path, leaf):
             raise Backend_error("VHD_NOT_LEAF", [ vdi2 ])
 
         leaf_path = self.path + "/" + data_dir + "/" + leaf + vhd_suffix
         parent_path = self.path + "/" + data_dir + "/" + parent + vhd_suffix
         vhd.reparent(leaf_path, parent_path)
-
-        # update our cached tree information
-        self.data[leaf]["parent"] = parent
 
         # cause tapdisk to reopen the vhd chain
         if leaf in self.tapdisks:
@@ -507,19 +576,21 @@ class Query(Query_skeleton):
                 "node [shape=record];"
                 ]
             idx = 0
-            for vdi in r.metadata.keys():
+            metadata = read_all_metadata(r.path)
+            for vdi in metadata.keys():
                 vdis[vdi] = idx
-                lines.append("%s [label=\"%s:%s\"];" % (str(idx), r.metadata[vdi]["name_label"], str(vdi)))
+                lines.append("%s [label=\"%s:%s\"];" % (str(idx), metadata[vdi]["name_label"], str(vdi)))
                 idx = idx + 1
             lines.append("node [shape=circle];")
-            for d in r.data.keys():
+            tree = read_tree(r.path)
+            for d in tree.keys():
                 ds[d] = idx
                 lines.append("%s [label=\"%s\"];" % (str(idx), str(d)))
                 idx = idx + 1
-            for vdi in r.metadata.keys():
-                lines.append("%s -> %s;" % (vdis[vdi], ds[r.metadata[vdi]["data"]]))
-            for d in r.data.keys():
-                data = r.data[d]
+            for vdi in metadata.keys():
+                lines.append("%s -> %s;" % (vdis[vdi], ds[metadata[vdi]["data"]]))
+            for d in tree.keys():
+                data = tree[d]
                 if "parent" in data:
                     lines.append("%s -> %s;" % (ds[d], ds[data["parent"]]))
             lines = lines + [
@@ -562,7 +633,11 @@ class SR(SR_skeleton):
                 path = m.local
         else:
             raise Backend_error("#needabettererror", [ "bad device config" ])
-        repos[sr] = Repo(path)
+        name = "unknown"
+        if "myname" in device_config:
+            name = device_config["myname"]
+        write_repo_state(sr, { "name": name, "path": path })
+        repos[sr] = Repo(name, path)
         sr_device_config[sr] = device_config
 
     def detach(self, dbg, sr):
@@ -580,6 +655,7 @@ class SR(SR_skeleton):
             else:
                 assert False # see attach above
             del repos[sr]
+            delete_repo_state(sr)
             del sr_device_config[sr]
     def destroy(self, dbg, sr):
         pass
@@ -589,7 +665,7 @@ class SR(SR_skeleton):
     def scan(self, dbg, sr):
         if not sr in repos:
             raise Sr_not_attached(sr)
-        return repos[sr].metadata.values()
+        return repos[sr].scan()
 
 class VDI(VDI_skeleton):
     def __init__(self):
@@ -795,6 +871,14 @@ if __name__ == "__main__":
         pidfile.write(str(os.getpid()))
     finally:
         pidfile.close()
+
+    if not (os.path.exists(repo_state_dir)):
+        os.mkdir(repo_state_dir)
+
+    for sr in list_repo_state():
+        log("loading repo state for: %s" % sr)
+        info = read_repo_state(sr)
+        repos[sr] = Repo(info["name"], info["path"])
 
     wwwroot = settings["www"]
 
