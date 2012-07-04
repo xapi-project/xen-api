@@ -9,7 +9,8 @@ UseCamlp4(rpc-light.syntax, network_server network_monitor)
 NETWORKD = xcp-networkd
 NETWORK_TEST = network_test
 
-NETWORKD_FILES = networkd network_utils network_interface network_server network_monitor network_monitor_thread
+NETWORKD_FILES = networkd network_utils network_interface network_server network_config \
+	network_monitor network_monitor_thread
 OCAML_CLIBS = link_stubs
 
 StaticCLibrary(link_stubs, link_stubs)
