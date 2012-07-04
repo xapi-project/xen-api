@@ -153,8 +153,8 @@ class DataSource:
     FLOAT = "float"
     INT64 = "int64"
 
-  def __init__(self, name, value, description, units, ty, value_ty, min_val,
-               max_val):
+  def __init__(self, name, value, description, units, ty, owner, value_ty,
+               min_val, max_val):
     self.name = name
     if value_ty == DataSource.ValueType.FLOAT:
       self.value = float(value)
@@ -164,6 +164,7 @@ class DataSource:
     self.description = description
     self.units = units
     self.ty = ty
+    self.owner = owner
     self.value_ty = value_ty
     self.min_val = float(min_val)
     self.max_val = float(max_val)
@@ -171,7 +172,7 @@ class DataSource:
     if max_val != float("infinity"): self.max_val = str(float(max_val))
 
   def to_dict(self):
-    return {self.name : {"value": self.value,
+    return {self.name : {"value": self.value, "owner": self.owner,
             "description": self.description, "units": self.units,
             "value_type": self.value_ty, "min": self.min_val,
             "max": self.max_val}}
@@ -204,12 +205,14 @@ class API:
     raise NameError(frequency)
 
   def set_datasource(self, name, value, description = "", units = "",
-               ty = DataSource.Type.ABSOLUTE,
+               ty = DataSource.Type.ABSOLUTE, owner = "host",
                value_ty = DataSource.ValueType.FLOAT,
                min_val = "-infinity", max_val = "infinity"):
     """This function should be called within each iteration of the plugin,
-    and for each datasource, every time providing freshly collected data."""
-    ds = DataSource(name, value, description, units, ty, value_ty,
+    and for each datasource, every time providing freshly collected data.
+    Valid values for the 'owner' argument are "host", "vm <vm-uuid>", and
+    "sr <sr-uuid>"."""
+    ds = DataSource(name, value, description, units, ty, owner, value_ty,
                     min_val, max_val)
     self.datasources.append(ds)
 
