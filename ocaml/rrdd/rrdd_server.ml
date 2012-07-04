@@ -474,7 +474,7 @@ module Plugin = struct
 	(* The payload type that corresponds to the plugin output file format. *)
 	type payload = {
 		timestamp : int;
-		datasources : Ds.ds list;
+		datasources : (Rrd.ds_owner * Ds.ds) list;
 	}
 
 	(* A helper function for extracting the dictionary out of the RPC type. *)
@@ -517,9 +517,17 @@ module Plugin = struct
 		| Float -> Rrd.VT_Float (Rpc.float_of_rpc rpc)
 		| Int64 -> Rrd.VT_Int64 (Rpc.int64_of_rpc rpc)
 
+	(* Converts a string to value of datasource owner type. *)
+	let owner_of_string (s : string) : Rrd.ds_owner =
+		match String.split ' ' (String.lowercase s) with
+		| ["host"] -> Rrd.Host
+		| ["vm"; uuid] -> Rrd.VM uuid
+		| ["sr"; uuid] -> Rrd.SR uuid
+		| _ -> raise Invalid_payload
+
 	(* A function that converts a JSON type into a datasource type, assigning
 	 * default values appropriately. *)
-	let ds_of_rpc ((name, rpc) : (string * Rpc.t)) : Ds.ds =
+	let ds_of_rpc ((name, rpc) : (string * Rpc.t)) : (Rrd.ds_owner * Ds.ds) =
 		try
 			let open Rpc in
 			let kvs = dict_of_rpc ~rpc in
@@ -537,7 +545,11 @@ module Plugin = struct
 				float_of_string (assoc_opt ~key:"min" ~default:"-infinity" kvs) in
 			let max =
 				float_of_string (assoc_opt ~key:"max" ~default:"infinity" kvs) in
-			Ds.ds_make ~name ~description ~units ~ty ~value ~min ~max ~default:true ()
+			let owner =
+				owner_of_string (assoc_opt ~key:"owner" ~default:"host" kvs) in
+			let ds = Ds.ds_make ~name ~description ~units ~ty ~value ~min ~max
+				~default:true () in
+			owner, ds
 		with e ->
 			error "Failed to process datasource: %s" name;
 			log_backtrace (); raise e
@@ -647,8 +659,7 @@ module Plugin = struct
 		let process_plugin acc uid =
 			try
 				let payload = read_file uid in
-				let odss = List.map (fun ds -> (Rrd.Host, ds)) payload.datasources in
-				List.rev_append odss acc
+				List.rev_append payload.datasources acc
 			with _ -> acc
 		in
 		List.fold_left process_plugin [] uids
