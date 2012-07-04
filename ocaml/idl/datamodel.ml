@@ -4813,7 +4813,6 @@ let vif_operations =
 	[ "attach", "Attempting to attach this VIF to a VM";
 	  "plug", "Attempting to hotplug this VIF";
 	  "unplug", "Attempting to hot unplug this VIF";
-	  "unplug_force", "Attempting to forcibly unplug this VIF";
 	])
 
 let vif_locking_mode =
