@@ -598,14 +598,14 @@ module Plugin = struct
 
 	(* Returns the number of seconds until the next reading phase for the
 	 * sampling frequency given at registration by the plugin with the specified
-	 * unique ID. *)
+	 * unique ID. If the plugin is not registered, -1 is returned. *)
 	let next_reading _ ~(uid : string) : float =
 		let open Rrdd_shared in
 		if Mutex.execute registered_m (fun _ -> Hashtbl.mem registered uid)
 		then Mutex.execute last_loop_end_time_m (fun _ ->
-			!last_loop_end_time +. !timeslice -. (Unix.time ())
+			!last_loop_end_time +. !timeslice -. (Unix.gettimeofday ())
 		)
-		else infinity
+		else -1.
 
 	(* The function registers a plugin, and returns the number of seconds until
 	 * the next reading phase for the specified sampling frequency. *)
