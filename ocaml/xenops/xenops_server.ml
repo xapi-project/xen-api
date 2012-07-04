@@ -1046,7 +1046,7 @@ let call_destroy_on_error name op id t =
 	with e ->
 		debug "%s threw error: %s. Calling VM.destroy" name (Printexc.to_string e);
 		begin try
-				  perform_atomics [ VM_destroy id; VM_remove id ] t;
+				  perform_atomics [ VM_destroy id ] t;
 				  VM_DB.signal id
 		with (Does_not_exist("domain", _)) ->
 			debug "Ignoring domain Does_not_exist during clean-up"

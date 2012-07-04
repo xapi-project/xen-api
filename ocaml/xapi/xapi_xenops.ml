@@ -1646,6 +1646,7 @@ let suspend ~__context ~self =
 						debug "Caught exception suspending VM: %s" (string_of_exn e);
 						XenAPI.VDI.destroy ~rpc ~session_id ~self:vdi;
 						Db.VM.set_suspend_VDI ~__context ~self ~value:Ref.null;
+						Xapi_vm_lifecycle.force_state_reset ~__context ~self ~value:`Halted;
 						raise e
 				)
 		)
