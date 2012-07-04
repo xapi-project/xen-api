@@ -545,7 +545,7 @@ let do_monitor xc =
 			let dom0_stats, uuid_domids, pifs, timestamp, my_rebooting_vms, my_paused_vms =
 				read_all_dom0_stats xc in
 			let plugins_stats = Rrdd_server.Plugin.read_stats () in
-			let stats = Rrdd_fake.combine_stats dom0_stats plugins_stats in
+			let stats = List.rev_append plugins_stats dom0_stats in
 			Rrdd_stats.print_snapshot ();
 			Rrdd_monitor.update_rrds timestamp stats uuid_domids pifs my_rebooting_vms my_paused_vms
 		)
