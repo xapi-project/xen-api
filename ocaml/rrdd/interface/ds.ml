@@ -28,8 +28,8 @@ type ds = {
 	ds_pdp_transform_function : float -> float;
 }
 
-let ds_make ~name ~description ~value ~ty ~default ?(min = neg_infinity)
-		?(max = infinity) ?(units = "") ?(transform = (fun x -> x)) () = {
+let ds_make ~name ~description ~value ~ty ~default ~units
+		?(min = neg_infinity) ?(max = infinity) ?(transform = (fun x -> x)) () = {
 	ds_name = name;
 	ds_description = description;
 	ds_value = value;
