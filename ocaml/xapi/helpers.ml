@@ -600,9 +600,30 @@ let get_pool_secret () =
         Unixext.write_string_to_file pool_secret_path !pool_secret
     end
 
+(* Checks that a host has a PBD for a particular SR (meaning that the
+   SR is visible to the host) *)
+let host_has_pbd_for_sr ~__context ~host ~sr =
+	try
+		let sr_pbds = Db.SR.get_PBDs ~__context ~self:sr in
+		let sr_host_pbd = List.filter
+			(fun pbd -> host = Db.PBD.get_host ~__context ~self:pbd)
+			sr_pbds
+		in sr_host_pbd <> [] (* empty list means no PBDs *)
+	with _ -> false
+
 (* Checks if an SR exists, returning an SR ref option (None if it is missing) *)
 let check_sr_exists ~__context ~self =
-    try ignore(Db.SR.get_uuid ~__context ~self); Some self with _ -> None
+	try ignore(Db.SR.get_uuid ~__context ~self); Some self with _ -> None
+
+(* Checks that an SR exists, and is visible to a host *)
+let check_sr_exists_for_host ~__context ~self ~host =
+	let sr = check_sr_exists ~__context ~self in
+	if (sr <> None) && (Db.SR.get_shared ~__context ~self)
+	then sr
+	else
+		if host_has_pbd_for_sr ~__context ~host ~sr:self
+		then sr
+		else None
 
 (* Returns an SR suitable for suspending this VM *)
 let choose_suspend_sr ~__context ~vm =
@@ -615,9 +636,9 @@ let choose_suspend_sr ~__context ~vm =
     let host_sr = Db.Host.get_suspend_image_sr ~__context ~self:resident_on in
 
     match
-      check_sr_exists ~__context ~self:vm_sr,
-      check_sr_exists ~__context ~self:pool_sr,
-      check_sr_exists ~__context ~self:host_sr
+      check_sr_exists_for_host ~__context ~self:vm_sr   ~host:resident_on,
+      check_sr_exists_for_host ~__context ~self:pool_sr ~host:resident_on,
+      check_sr_exists_for_host ~__context ~self:host_sr ~host:resident_on
     with
     | Some x, _, _ -> x
     | _, Some x, _ -> x
