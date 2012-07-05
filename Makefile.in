@@ -42,6 +42,7 @@ endif
 	$(MAKE) -C forking_executioner
 	$(MAKE) -C xen-utils
 	$(MAKE) -C nbd
+	CFLAGS="-fPIC -I/usr/lib/ocaml" $(MAKE) -C oclock
 
 ifeq ($(HAVE_XEN),1)
 	$(MAKE) -C netdev
@@ -89,6 +90,7 @@ endif
 	$(MAKE) -C forking_executioner install
 	$(MAKE) -C xen-utils install
 	$(MAKE) -C nbd install
+	$(MAKE) -C oclock install
 
 ifeq ($(HAVE_XEN),1)
 	$(MAKE) -C netdev install
@@ -133,6 +135,7 @@ endif
 	$(MAKE) -C forking_executioner uninstall
 	$(MAKE) -C xen-utils uninstall
 	$(MAKE) -C nbd uninstall
+	$(MAKE) -C oclock uninstall
 
 ifeq ($(HAVE_XEN),1)
 	$(MAKE) -C netdev uninstall
@@ -173,6 +176,8 @@ doc:
 	$(MAKE) -C tapctl doc
 	$(MAKE) -C xen-utils doc
 	$(MAKE) -C nbd doc
+	$(MAKE) -C oclock doc
+
 
 .PHONY: test
 test:
@@ -201,6 +206,7 @@ clean:
 	$(MAKE) -C mlvm clean
 	$(MAKE) -C xen-utils clean
 	$(MAKE) -C nbd clean
+	$(MAKE) -C oclock clean
 	$(MAKE) -C netdev clean
 	$(MAKE) -C cpuid clean
 	$(MAKE) -C vhd clean
