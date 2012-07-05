@@ -590,10 +590,12 @@ let read_config () =
 	let config_args = [
 		Config_shared.disable_logging_for;
 	] in
-	try Config.read Fhs.rrddconf config_args (fun _ _ -> ())
+	try
+		if Unixext.file_exists Fhs.rrddconf then
+			Config.read Fhs.rrddconf config_args (fun _ _ -> ())
+		else error "Missing configuration file."
 	with Config.Error ls ->
-		List.iter (fun (p, s) -> debug "Config file error: %s: %s\n" p s) ls;
-		exit 2
+		List.iter (fun (p, s) -> debug "Config file error: %s: %s\n" p s) ls
 
 (* Entry point. *)
 let _ =
