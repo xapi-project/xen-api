@@ -1,0 +1,20 @@
+OCAMLPACKS = oUnit sexpr log xmlm stunnel xml-light2 http-svr
+
+OCAMLINCLUDES = \
+	../database \
+	../xapi \
+	../idl \
+	../idl/ocaml_backend
+
+OCAML_LIBS = \
+	../fhs \
+	../util/version \
+	../idl/ocaml_backend/common \
+	../idl/ocaml_backend/client \
+	../idl/ocaml_backend/server
+
+OCAML_OBJS = \
+	../idl/api_lowlevel \
+	../idl/datamodel_schema
+
+OCamlProgram(suite, suite $(OCAML_OBJS) )
