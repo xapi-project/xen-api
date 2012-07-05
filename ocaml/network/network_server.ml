@@ -35,13 +35,15 @@ let legacy_management_interface_start () =
 			(Printexc.to_string e) (Printexc.get_backtrace ())
 
 let write_config () =
-	Network_config.write_config !config
+	try
+		Network_config.write_config !config
+	with Network_config.Write_error -> ()
 
 let read_config () =
 	try
 		config := Network_config.read_config ();
 		debug "Read configuration from networkd.db file."
-	with _ ->
+	with Network_config.Read_error ->
 		(* No configuration file found. *)
 		(* Perhaps it is an upgrade from the pre-networkd era. If network.dbcache exists, try to configure the
 		 * management interface using the old scripts. *)
@@ -52,7 +54,7 @@ let read_config () =
 			try
 				config := Network_config.read_management_conf ();
 				debug "Read configuration from management.conf file."
-			with _ ->
+			with Network_config.Read_error ->
 				debug "Could not interpret the configuration in management.conf"
 
 let on_shutdown signal =
