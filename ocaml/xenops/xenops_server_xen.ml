@@ -1500,6 +1500,8 @@ module VBD = struct
 			Storage.epoch_end task sr vdi
 		| _ -> ()		
 
+	let vdi_path_of_device ~xs device = Device_common.backend_path_of_device ~xs device ^ "/vdi"
+
 	let plug task vm vbd =
 		(* Dom0 doesn't have a vm_t - we don't need this currently, but when we have storage driver domains, 
 		   we will. Also this causes the SMRT tests to fail, as they demand the loopback VBDs *)
@@ -1541,6 +1543,9 @@ module VBD = struct
 					let device =
 						Xenops_task.with_subtask task (Printf.sprintf "Vbd.add %s" (id_of vbd))
 							(fun () -> Device.Vbd.add task ~xs ~hvm x frontend_domid) in
+
+					(* We store away the disk so we can implement VBD.stat *)
+					Opt.iter (fun disk -> xs.Xs.write (vdi_path_of_device ~xs device) (disk |> rpc_of_disk |> Jsonrpc.to_string)) vbd.backend;
 
 					(* NB now the frontend position has been resolved *)
 					let open Device_common in
@@ -1633,8 +1638,6 @@ module VBD = struct
 						debug "Caught Device_error: %s" s;
 						raise (Device_detach_rejected("VBD", id_of vbd, s))
 			)
-
-	let vdi_path_of_device ~xs device = Device_common.backend_path_of_device ~xs device ^ "/vdi"
 
 	let insert task vm vbd disk =
 		on_frontend
