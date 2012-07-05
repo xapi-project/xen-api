@@ -27,7 +27,7 @@ let time f =
 (* give xapi time to reply to API messages by means of a 10 second fuse! *)
 let light_fuse_and_run ?(fuse_length = !Xapi_globs.fuse_time) () =
   debug "light_fuse_and_run: calling Rrdd.backup_rrds to save current RRDs locally"; 
-  let delay_so_far = time Rrdd.backup_rrds in
+  let delay_so_far = time (fun _ -> log_and_ignore_exn Rrdd.backup_rrds) in
   let new_fuse_length = max 5. (fuse_length -. delay_so_far) in
   debug "light_fuse_and_run: current RRDs have been saved";
   ignore (Thread.create
@@ -66,7 +66,7 @@ let light_fuse_and_dont_restart ?(fuse_length = !Xapi_globs.fuse_time) () =
   ignore (Thread.create
 	     (fun () ->
 		debug "light_fuse_and_dont_restart: calling Rrdd.backup_rrds to save current RRDs locally";
-	       Rrdd.backup_rrds ();
+	       log_and_ignore_exn Rrdd.backup_rrds;
 	       Thread.delay fuse_length;
 	       Db_cache_impl.flush_and_exit (Db_connections.preferred_write_db ()) 0) ());
   (* This is a best-effort attempt to use the database. We must not block the flush_and_exit above, hence

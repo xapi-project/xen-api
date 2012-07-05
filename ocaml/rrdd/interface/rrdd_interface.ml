@@ -30,7 +30,7 @@ let http_fwd_path = xmlrpc_path  ^ ".forwarded"
 external has_vm_rrd : vm_uuid:string -> bool = ""
 
 external push_rrd : vm_uuid:string -> domid:int -> is_on_localhost:bool ->
-	unit = ""
+	unit -> unit = ""
 external remove_rrd : uuid:string -> unit = ""
 external migrate_rrd : ?session_id:string -> remote_address:string ->
 	vm_uuid:string -> host_uuid:string -> unit -> unit = ""
@@ -47,11 +47,11 @@ external forget_vm_ds : vm_uuid:string -> ds_name:string -> unit = ""
 external query_possible_vm_dss : vm_uuid:string -> Data_source.t list = ""
 external query_vm_ds : vm_uuid:string -> ds_name:string -> float = ""
 
-external update_use_min_max : value:bool -> unit = ""
+external update_use_min_max : value:bool -> unit -> unit = ""
 
 external update_vm_memory_target : domid:int -> target:int64 -> unit = ""
 
-external set_cache_sr : sr_uuid:string -> unit = ""
+external set_cache_sr : sr_uuid:string -> unit -> unit = ""
 external unset_cache_sr : unit -> unit = ""
 
 module Plugin = struct
@@ -66,7 +66,7 @@ end
 module HA = struct
 	external enable_and_update :
 		statefile_latencies:Rrd.Statefile_latency.t list ->
-		heartbeat_latency:float -> xapi_latency:float -> unit = ""
+		heartbeat_latency:float -> xapi_latency:float -> unit -> unit = ""
 	external disable : unit -> unit = ""
 end
 
@@ -75,7 +75,7 @@ module Deprecated = struct
 	external get_full_update_last_rra_idx : unit -> int = ""
 	(* Could change timescale to sum type, e.g. Slow | Fast.*)
 	external load_rrd : uuid:string -> domid:int -> is_host:bool ->
-		timescale:int -> unit = ""
+		timescale:int -> unit -> unit = ""
 	(* external get_host_rrd : unit -> rrd_info option = "" *)
 	external get_host_stats : unit -> unit = ""
 end
