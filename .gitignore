@@ -216,3 +216,5 @@ ocaml/fhs.*
 /ocaml/xenops/cancel_utils_test
 ocaml/xapi/storage_impl_test
 ocaml/xenops/domain_sethandle
+
+ocaml/test/suite
