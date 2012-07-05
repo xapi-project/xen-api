@@ -72,5 +72,7 @@ sig
 	val audit : ?raw:bool -> ('a, unit, string, string) format4 -> 'a
     
 	val log_backtrace : unit -> unit
+
+	val log_and_ignore_exn : (unit -> unit) -> unit
 end
 	

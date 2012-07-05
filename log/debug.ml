@@ -168,8 +168,11 @@ module Debugger = functor(Brand: BRAND) -> struct
 				msg
 			) fmt
 
-  let log_backtrace () =
-    let backtrace = Backtrace.get_backtrace () in
-    debug "%s" (String.escaped backtrace)
+	let log_backtrace () =
+		let backtrace = Backtrace.get_backtrace () in
+		debug "%s" (String.escaped backtrace)
+
+	let log_and_ignore_exn f =
+		try f () with _ -> log_backtrace ()
 
 end
