@@ -124,6 +124,7 @@ let rec monitor dbg () =
 					let statuses = List.map (fun dev ->
 						let speed, duplex =
 							try
+								if not (Sysfs.get_carrier dev) then failwith "no carrier";
 								Bindings.get_status dev
 							with _ ->
 								0,
