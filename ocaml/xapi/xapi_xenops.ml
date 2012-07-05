@@ -1140,6 +1140,8 @@ let rec events_watch ~__context from =
 let manage_dom0 dbg =
 	(* Tell xenopsd to manage domain 0 *)
 	let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
+	let di = Vmopshelpers.with_xc (fun xc -> Xenctrl.domain_getinfo xc 0) in
+	let memory_actual_kib = Xenctrl.pages_to_kib (Int64.of_nativeint di.Xenctrl.total_memory_pages) in
 	let open Vm in
 	if not(vm_exists_in_xenopsd dbg uuid)
 	then begin
@@ -1157,9 +1159,9 @@ let manage_dom0 dbg =
 			};
 			suppress_spurious_page_faults = false;
 			machine_address_size = None;
-			memory_static_max = 0L;
-			memory_dynamic_max = 0L;
-			memory_dynamic_min = 0L;
+			memory_static_max = memory_actual_kib;
+			memory_dynamic_max = memory_actual_kib;
+			memory_dynamic_min = memory_actual_kib;
 			vcpu_max = 0;
 			vcpus = 0;
 			scheduler_params = { priority = None; affinity = [] };
