@@ -9,6 +9,10 @@ open Monitor_types
 module D = Debug.Debugger(struct let name = "rrdd_monitor" end)
 open D
 
+(* TODO: It is now possible to remove quite a bit of code tracking for changes
+ * (e.g. 'changed' and 'dirty_XYZ'), since this is all being done in
+ * xapi/monitor_dbcalls. *)
+
 let create_rras use_min_max =
 	(* Create archives of type min, max and average and last *)
 	Array.of_list (List.flatten
