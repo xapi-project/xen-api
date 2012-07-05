@@ -617,13 +617,9 @@ let check_sr_exists ~__context ~self =
 
 (* Checks that an SR exists, and is visible to a host *)
 let check_sr_exists_for_host ~__context ~self ~host =
-	let sr = check_sr_exists ~__context ~self in
-	if (sr <> None) && (Db.SR.get_shared ~__context ~self)
-	then sr
-	else
-		if host_has_pbd_for_sr ~__context ~host ~sr:self
-		then sr
-		else None
+	if host_has_pbd_for_sr ~__context ~host ~sr:self
+	then Some self
+	else None
 
 (* Returns an SR suitable for suspending this VM *)
 let choose_suspend_sr ~__context ~vm =
