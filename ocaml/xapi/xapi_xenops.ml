@@ -259,8 +259,10 @@ module MD = struct
 				match pifs with
 				| [] -> true (* Internal network; consider as "always up" *)
 				| pif :: _ ->
-					let metrics = Db.PIF.get_metrics ~__context ~self:pif in
-					Db.PIF_metrics.get_carrier ~__context ~self:metrics
+					try
+						let metrics = Db.PIF.get_metrics ~__context ~self:pif in
+						Db.PIF_metrics.get_carrier ~__context ~self:metrics
+					with _ -> true
 			else
 				(* If we don't need to reflect anything, the carrier is set to "true" *)
 				true
