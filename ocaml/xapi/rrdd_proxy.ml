@@ -200,13 +200,16 @@ let is_vm_on_localhost ~__context ~(vm_uuid : string) : bool =
 let push_rrd ~__context ~(vm_uuid : string) : unit =
 	let is_on_localhost = is_vm_on_localhost ~__context ~vm_uuid in
 	let domid = vm_uuid_to_domid ~__context ~uuid:vm_uuid in
-	Rrdd.push_rrd ~vm_uuid ~domid ~is_on_localhost
+	log_and_ignore_exn (Rrdd.push_rrd ~vm_uuid ~domid ~is_on_localhost)
 
 let migrate_rrd ~__context ?remote_address ?session_id ~vm_uuid ~host_uuid () =
 	let remote_address = match remote_address with
 		| None -> Db.Host.get_address ~__context ~self:(Ref.of_string host_uuid)
 		| Some a -> a
-	in Rrdd.migrate_rrd ~remote_address ?session_id ~vm_uuid ~host_uuid ()
+	in
+	log_and_ignore_exn (
+		Rrdd.migrate_rrd ~remote_address ?session_id ~vm_uuid ~host_uuid
+	)
 
 module Deprecated = struct
 	let get_timescale ~__context =
@@ -222,5 +225,5 @@ module Deprecated = struct
 			| false -> vm_uuid_to_domid ~__context ~uuid
 		in
 		let timescale = get_timescale ~__context in
-		Rrdd.Deprecated.load_rrd ~uuid ~domid ~is_host ~timescale
+		log_and_ignore_exn (Rrdd.Deprecated.load_rrd ~uuid ~domid ~is_host ~timescale)
 end

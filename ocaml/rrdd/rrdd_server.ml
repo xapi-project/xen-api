@@ -108,7 +108,7 @@ module Deprecated = struct
 	 * assume that the RRDs were stored locally and fall back to asking the
 	 * master if we can't find them. *)
 	let load_rrd _ ~(uuid : string) ~(domid : int) ~(is_host : bool)
-			~(timescale : int) : unit =
+			~(timescale : int) () : unit =
 		try
 			let rrd =
 				try
@@ -288,7 +288,7 @@ end
 
 (* Push function to push the archived RRD to the appropriate host
  * (which might be us, in which case, pop it into the hashtbl. *)
-let push_rrd _ ~(vm_uuid : string) ~(domid : int) ~(is_on_localhost : bool)
+let push_rrd _ ~(vm_uuid : string) ~(domid : int) ~(is_on_localhost : bool) ()
 		: unit =
 	try
 		let path = Xapi_globs.xapi_rrd_location ^ "/" ^ vm_uuid in
@@ -420,7 +420,7 @@ let query_vm_ds _ ~(vm_uuid : string) ~(ds_name : string) : float =
 		Rrd.query_named_ds rrdi.rrd ds_name Rrd.CF_Average
 	)
 
-let update_use_min_max _ ~(value : bool) : unit =
+let update_use_min_max _ ~(value : bool) () : unit =
 	debug "Updating use_min_max: New value=%b" value;
 	use_min_max := value
 
@@ -431,18 +431,19 @@ let update_vm_memory_target _ ~(domid : int) ~(target : int64) : unit =
 	Mutex.execute memory_targets_m
 		(fun _ -> Hashtbl.replace memory_targets domid target)
 
-let set_cache_sr _ ~(sr_uuid : string) : unit =
+let set_cache_sr _ ~(sr_uuid : string) () : unit =
 	Mutex.execute cache_sr_lock (fun () -> cache_sr_uuid := Some sr_uuid)
 
 let unset_cache_sr _ () =
 	Mutex.execute cache_sr_lock (fun () -> cache_sr_uuid := None)
 
 module Plugin = struct
-	exception Read_error
 	exception Invalid_header_string
 	exception Invalid_length
 	exception Invalid_checksum
 	exception Invalid_payload
+	exception No_update
+	exception Read_error
 
 	(* Static values. *)
 	let base_path = "/dev/shm/metrics/"
@@ -473,7 +474,7 @@ module Plugin = struct
 	(* The payload type that corresponds to the plugin output file format. *)
 	type payload = {
 		timestamp : int;
-		datasources : Ds.ds list;
+		datasources : (Rrd.ds_owner * Ds.ds) list;
 	}
 
 	(* A helper function for extracting the dictionary out of the RPC type. *)
@@ -484,51 +485,74 @@ module Plugin = struct
 	let list_of_rpc ~(rpc : Rpc.t) : Rpc.t list =
 		match rpc with Rpc.Enum l -> l | _ -> raise Invalid_payload
 
+	(* [assoc_opt ~key ~default l] gets string value associated with [key] in
+	 * [l], returning [default] if no mapping is found. *)
 	let assoc_opt ~(key : string) ~(default : string)
-			(l : (string * 'a) list) : string =
-		try Rpc.string_of_rpc (List.assoc key l) with Not_found -> default
+			(l : (string * Rpc.t) list) : string =
+		try Rpc.string_of_rpc (List.assoc key l) with
+		| Not_found -> default
+		| e -> error "Failed to obtain datasource key: %s" key; raise e
 
-	let ds_type_of_string (s : string) : Rrd.ds_type =
+	(* Converts string to the corresponding datasource type. *)
+	let ds_ty_of_string (s : string) : Rrd.ds_type =
 		match String.lowercase s with
 		| "absolute" -> Rrd.Gauge
 		| "rate" -> Rrd.Absolute
 		| "absolute_to_rate" -> Rrd.Derive
 		| _ -> raise Invalid_payload
 
+	(* Possible types for values in datasources. *)
 	type value_type = Float | Int64
 
-	let value_type_of_string (s : string) : value_type =
+	(* Converts string to datasource value type. *)
+	let val_ty_of_string (s : string) : value_type =
 		match String.lowercase s with
 		| "float" -> Float
 		| "int64" -> Int64
 		| _ -> raise Invalid_payload
 
+	(* Converts an RPC value to a typed datasource value. *)
 	let ds_value_of_rpc ~(ty : value_type) ~(rpc : Rpc.t) : Rrd.ds_value_type =
 		match ty with
 		| Float -> Rrd.VT_Float (Rpc.float_of_rpc rpc)
 		| Int64 -> Rrd.VT_Int64 (Rpc.int64_of_rpc rpc)
 
+	(* Converts a string to value of datasource owner type. *)
+	let owner_of_string (s : string) : Rrd.ds_owner =
+		match String.split ' ' (String.lowercase s) with
+		| ["host"] -> Rrd.Host
+		| ["vm"; uuid] -> Rrd.VM uuid
+		| ["sr"; uuid] -> Rrd.SR uuid
+		| _ -> raise Invalid_payload
+
 	(* A function that converts a JSON type into a datasource type, assigning
 	 * default values appropriately. *)
-	let ds_of_rpc (rpc : Rpc.t) : Ds.ds =
-		let open Rpc in
-		let kvs = dict_of_rpc ~rpc in
-		let name = string_of_rpc (List.assoc "name" kvs) in
-		let description = assoc_opt ~key:"description" ~default:"" kvs in
-		let units = assoc_opt ~key:"units" ~default:"" kvs in
-		let ty =
-			ds_type_of_string (assoc_opt ~key:"type" ~default:"absolute" kvs) in
-		let val_ty =
-			value_type_of_string (assoc_opt ~key:"value_type" ~default:"float" kvs) in
-		let value =
-			let value_rpc = List.assoc "value" kvs in
-			ds_value_of_rpc ~ty:val_ty ~rpc:value_rpc
-		in
-		let min =
-			float_of_string (assoc_opt ~key:"min" ~default:"-infinity" kvs) in
-		let max =
-			float_of_string (assoc_opt ~key:"max" ~default:"infinity" kvs) in
-		Ds.ds_make ~name ~description ~units ~ty ~value ~min ~max ~default:true ()
+	let ds_of_rpc ((name, rpc) : (string * Rpc.t)) : (Rrd.ds_owner * Ds.ds) =
+		try
+			let open Rpc in
+			let kvs = dict_of_rpc ~rpc in
+			let description = assoc_opt ~key:"description" ~default:"" kvs in
+			let units = assoc_opt ~key:"units" ~default:"" kvs in
+			let ty =
+				ds_ty_of_string (assoc_opt ~key:"type" ~default:"absolute" kvs) in
+			let val_ty =
+				val_ty_of_string (assoc_opt ~key:"value_type" ~default:"float" kvs) in
+			let value =
+				let value_rpc = List.assoc "value" kvs in
+				ds_value_of_rpc ~ty:val_ty ~rpc:value_rpc
+			in
+			let min =
+				float_of_string (assoc_opt ~key:"min" ~default:"-infinity" kvs) in
+			let max =
+				float_of_string (assoc_opt ~key:"max" ~default:"infinity" kvs) in
+			let owner =
+				owner_of_string (assoc_opt ~key:"owner" ~default:"host" kvs) in
+			let ds = Ds.ds_make ~name ~description ~units ~ty ~value ~min ~max
+				~default:true () in
+			owner, ds
+		with e ->
+			error "Failed to process datasource: %s" name;
+			log_backtrace (); raise e
 
 	(* A function that parses the payload written by a plugin into the payload
 	 * type. *)
@@ -538,9 +562,21 @@ module Plugin = struct
 			let rpc = Jsonrpc.of_string json in
 			let kvs = dict_of_rpc ~rpc in
 			let timestamp = int_of_rpc (List.assoc "timestamp" kvs) in
-			let datasource_rpcs = list_of_rpc (List.assoc "datasources" kvs) in
+			let datasource_rpcs = dict_of_rpc (List.assoc "datasources" kvs) in
 			{timestamp; datasources = List.map ds_of_rpc datasource_rpcs}
-		with _ -> log_backtrace(); raise Invalid_payload
+		with _ -> log_backtrace (); raise Invalid_payload
+
+	(* A map storing the last read checksum of the file written by each plugin. *)
+	let last_read_checksum : (string, string) Hashtbl.t =
+		Hashtbl.create 20
+
+	(* Throw No_update exception if previous checksum is the same as the current
+	 * one for this plugin. Otherwise, replace previous with current.*)
+	let verify_checksum_freshness ~(uid : string) ~(checksum : string) : unit =
+		try
+			if checksum = Hashtbl.find last_read_checksum uid then raise No_update
+		with Not_found -> ();
+		Hashtbl.replace last_read_checksum uid checksum
 
 	(* The function that reads the file that corresponds to the plugin with the
 	 * specified uid, and returns the contents of the file in terms of the
@@ -561,12 +597,15 @@ module Plugin = struct
 			let payload = read_string ~fd ~length in
 			if payload |> Digest.string |> Digest.to_hex <> checksum then
 				raise Invalid_checksum;
+			verify_checksum_freshness ~uid ~checksum;
 			parse_payload ~json:payload
-		with
-		| Invalid_header_string | Invalid_length | Invalid_checksum as e ->
-			log_backtrace (); raise e
-		| _ ->
-			log_backtrace (); raise Read_error
+		with e ->
+			error "Failed to process plugin: %s" uid;
+			log_backtrace ();
+			match e with
+			| Invalid_header_string | Invalid_length | Invalid_checksum
+			| No_update as e -> raise e
+			| _ -> raise Read_error
 
 	(* The function that tells the plugin what to write at the top of its output
 	 * file. *)
@@ -581,35 +620,54 @@ module Plugin = struct
 	let registered : (string, Rrd.sampling_frequency) Hashtbl.t =
 		Hashtbl.create 20
 
+	(* The mutex that protects the list of registered plugins against race
+	 * conditions and data corruption. *)
+	let registered_m : Mutex.t = Mutex.create ()
+
+	(* Returns the number of seconds until the next reading phase for the
+	 * sampling frequency given at registration by the plugin with the specified
+	 * unique ID. If the plugin is not registered, -1 is returned. *)
+	let next_reading _ ~(uid : string) : float =
+		let open Rrdd_shared in
+		if Mutex.execute registered_m (fun _ -> Hashtbl.mem registered uid)
+		then Mutex.execute last_loop_end_time_m (fun _ ->
+			!last_loop_end_time +. !timeslice -. (Unix.gettimeofday ())
+		)
+		else -1.
+
 	(* The function registers a plugin, and returns the number of seconds until
 	 * the next reading phase for the specified sampling frequency. *)
 	let register _ ~(uid : string) ~(frequency : Rrd.sampling_frequency)
 			: float =
-		debug "rrdd_plugin: register: %s" uid;
-		Hashtbl.add registered uid frequency;
-		0.
+		Mutex.execute registered_m (fun _ ->
+			if not (Hashtbl.mem registered uid) then
+				Hashtbl.add registered uid frequency
+		);
+		next_reading ~uid ()
 
-	(* Returns the number of seconds until the next reading phase for the
-	 * sampling frequency given at registration by the plugin with the specified
-	 * unique ID. *)
-	let next_reading _ ~(uid : string) : float =
-		debug "rrdd_plugin: next_reading";
-		0.
+	(* The function deregisters a plugin. After this call, the framework will
+	 * process its output file at most once more. *)
+	let deregister _ ~(uid : string) : unit =
+		Mutex.execute registered_m (fun _ ->
+			Hashtbl.remove registered uid
+		)
 
 	(* Read, parse, and combine metrics from all registered plugins. *)
 	let read_stats () : (Rrd.ds_owner * Ds.ds) list =
-		let uids = Hashtbl.fold_keys registered in
-		(* TODO: change to fold with try with *)
-		let process_plugin uid =
-			let payload = read_file uid in
-			List.map (fun ds -> (Rrd.Host, ds)) payload.datasources
+		let uids =
+			Mutex.execute registered_m (fun _ -> Hashtbl.fold_keys registered) in
+		let process_plugin acc uid =
+			try
+				let payload = read_file uid in
+				List.rev_append payload.datasources acc
+			with _ -> acc
 		in
-		List.concat (List.map process_plugin uids)
+		List.fold_left process_plugin [] uids
 end
 
 module HA = struct
 	let enable_and_update _ ~(statefile_latencies : Rrd.Statefile_latency.t list)
-			~(heartbeat_latency : float) ~(xapi_latency : float) =
+			~(heartbeat_latency : float) ~(xapi_latency : float) () =
 		Mutex.execute Rrdd_ha_stats.m (fun _ ->
 			Rrdd_ha_stats.enabled := true;
 			Rrdd_ha_stats.Statefile_latency.all := statefile_latencies;
