@@ -1,4 +1,4 @@
-OCAMLPACKS = oUnit sexpr log xmlm stunnel xml-light2 http-svr
+OCAMLPACKS = oUnit sexpr log xmlm stunnel xml-light2 http-svr uuid
 
 OCAMLINCLUDES = \
 	../database \
