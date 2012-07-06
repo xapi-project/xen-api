@@ -1500,6 +1500,8 @@ module VBD = struct
 			Storage.epoch_end task sr vdi
 		| _ -> ()		
 
+	let vdi_path_of_device ~xs device = Device_common.backend_path_of_device ~xs device ^ "/vdi"
+
 	let plug task vm vbd =
 		(* Dom0 doesn't have a vm_t - we don't need this currently, but when we have storage driver domains, 
 		   we will. Also this causes the SMRT tests to fail, as they demand the loopback VBDs *)
@@ -1541,6 +1543,9 @@ module VBD = struct
 					let device =
 						Xenops_task.with_subtask task (Printf.sprintf "Vbd.add %s" (id_of vbd))
 							(fun () -> Device.Vbd.add task ~xs ~hvm x frontend_domid) in
+
+					(* We store away the disk so we can implement VBD.stat *)
+					Opt.iter (fun disk -> xs.Xs.write (vdi_path_of_device ~xs device) (disk |> rpc_of_disk |> Jsonrpc.to_string)) vbd.backend;
 
 					(* NB now the frontend position has been resolved *)
 					let open Device_common in
@@ -1644,6 +1649,8 @@ module VBD = struct
 					let vdi = attach_and_activate task xc xs frontend_domid vbd (Some disk) in
 					let device_number = device_number_of_device device in
 					let phystype = Device.Vbd.Phys in
+					(* We store away the disk so we can implement VBD.stat *)
+					xs.Xs.write (vdi_path_of_device ~xs device) (disk |> rpc_of_disk |> Jsonrpc.to_string);
 					Device.Vbd.media_insert ~xs ~device_number ~params:vdi.attach_info.Storage_interface.params ~phystype frontend_domid
 				end
 			) Newest vm
@@ -1658,6 +1665,7 @@ module VBD = struct
 				else begin
 					let device_number = device_number_of_device device in
 					Device.Vbd.media_eject ~xs ~device_number frontend_domid;
+					xs.Xs.rm (vdi_path_of_device ~xs device);
 				end;
 				Storage.dp_destroy task (Storage.id_of (frontend_domid_of_device device) vbd.Vbd.id)
 			) Oldest vm
@@ -1714,10 +1722,13 @@ module VBD = struct
 					let plugged = Hotplug.device_is_online ~xs device in
 					let device_number = device_number_of_device device in
 					let domid = device.Device_common.frontend.Device_common.domid in
-					let ejected = Device.Vbd.media_is_ejected ~xs ~device_number domid in
+					let backend_present =
+						if Device.Vbd.media_is_ejected ~xs ~device_number domid
+						then None
+						else Some (vdi_path_of_device ~xs device |> xs.Xs.read |> Jsonrpc.of_string |> disk_of_rpc) in
 					{
 						Vbd.plugged = plugged;
-						media_present = not ejected;
+						backend_present;
 						qos_target = qos_target
 					}
 				with

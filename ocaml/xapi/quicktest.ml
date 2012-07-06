@@ -487,6 +487,12 @@ let powercycle_test session_id vm =
 			*)
 			debug test "Starting VM";
 			Client.VM.start !rpc session_id vm false false;
+			(* Check that all VBDs are plugged in correctly *)
+			List.iter
+				(fun vbd ->
+					let currently_attached = Client.VBD.get_currently_attached !rpc session_id vbd in
+					if not currently_attached then failwith "after VM.start not currently_attached";
+				) (Client.VM.get_VBDs !rpc session_id vm);
 			delay ();
 			debug test "Rebooting VM";
 			Client.VM.clean_reboot !rpc session_id vm;
