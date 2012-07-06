@@ -14,11 +14,14 @@
 
 open OUnit
 
-module MockDatabase= struct
+module MockDatabase = struct
 
-	let schema = ref (Datamodel_schema.of_datamodel ())
-	let db_ref = ref (Db_cache_types.Database.make !schema)
-	let make_db () = Db_ref.in_memory (ref db_ref)
+	let _schema = ref (Datamodel_schema.of_datamodel ())
+	let _db_ref = ref (Db_cache_types.Database.make Schema.empty)
+	let make_db () =
+		let db = Db_ref.in_memory (ref _db_ref) in
+		Db_cache_impl.make db [] !_schema ;
+		db
 
 end (* MockDatabase *)
 
@@ -34,7 +37,17 @@ let test_mock_db () =
 		~database:db
 		"Mock context"
 	in
-	ignore __context ;
+	let blob_ref = Ref.make () in
+	Db.Blob.create __context
+		blob_ref
+		(Uuid.to_string (Uuid.make_uuid ()))
+		"BLOB"
+		""
+		5L
+		true
+		(Date.of_float 0.0)
+		"" ;
+	ignore (Db.Blob.get_record ~__context ~self:blob_ref) ;
 	ignore (Db.VM.get_all_records ~__context) ;
 	assert_equal 0 0
 
