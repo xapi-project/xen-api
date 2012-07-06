@@ -147,6 +147,13 @@ let destroy_snapshots ~__context ~vm =
 			aux parent
 	in aux vm
 
+(* If VM's suspend_SR is set to the local SR, it won't be visible to
+   the destination host after an intra-pool storage migrate *)
+let intra_pool_fix_suspend_sr ~__context host vm =
+	let sr = Db.VM.get_suspend_SR ~__context ~self:vm in
+	if not (Helpers.host_has_pbd_for_sr ~__context ~host ~sr)
+	then Db.VM.set_suspend_SR ~__context ~self:vm ~value:Ref.null
+
 let intra_pool_vdi_remap ~__context vm vdi_map =
 	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
 	List.iter (fun vbd ->
@@ -367,7 +374,10 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		TaskHelper.exn_if_cancelling ~__context;
 
 		if is_intra_pool 
-		then intra_pool_vdi_remap ~__context vm (snapshots_map @ vdi_map)
+		then begin
+			intra_pool_vdi_remap ~__context vm (snapshots_map @ vdi_map) ;
+			intra_pool_fix_suspend_sr ~__context (Ref.of_string dest_host) vm
+		end
 		else inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address:remote_master_address ~vm ~vdi_map:(snapshots_map @ vdi_map) ~dry_run:false ~live:true;
 
 		(* Migrate the VM *)
