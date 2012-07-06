@@ -231,4 +231,4 @@ phase2: $(OCAML_PHASE2_TARGETS) $(JS_PHASE2_TARGETS) $(JAVA_PHASE2_TARGETS)
 phase3: $(OCAML_PHASE3_TARGETS) $(JS_PHASE3_TARGETS) $(JAVA_PHASE3_TARGETS)
 
 .PHONY: test
-test: ocaml/xenops/xenopsd ocaml/xenops-cli/xenopstest ocaml/xenops-cli/runtest.sh ocaml/test/suite
+test: ocaml/xenops/xenopsd ocaml/xenops-cli/xenopstest ocaml/xenops-cli/runtest.sh ocaml/test/suite ocaml/database/database_test ocaml/xenops/squeeze_test
