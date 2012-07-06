@@ -249,7 +249,7 @@ let vbd_state vm vbd () =
 				{
 					unplugged_vbd with
 						Vbd.plugged = true;
-						media_present = vbd.Vbd.backend <> None
+						backend_present = vbd.Vbd.backend
 				}
 			| [] -> unplugged_vbd
 			| _ -> assert false (* at most one *)
