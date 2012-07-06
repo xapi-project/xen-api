@@ -625,11 +625,11 @@ let master_only_http_handlers = [
 
 let common_http_handlers = [
   ("get_services_xenops", (Http_svr.FdIO Xapi_services.get_handler));
-  ("put_services_xenops", (Http_svr.FdIO Xapi_services.get_handler));
-  ("post_services_xenops", (Http_svr.FdIO Xapi_services.get_handler));
+  ("put_services_xenops", (Http_svr.FdIO Xapi_services.put_handler));
+  ("post_services_xenops", (Http_svr.FdIO Xapi_services.post_handler));
   ("get_services_sm", (Http_svr.FdIO Xapi_services.get_handler));
-  ("put_services_sm", (Http_svr.FdIO Xapi_services.get_handler));
-  ("post_services_sm", (Http_svr.FdIO Xapi_services.get_handler));
+  ("put_services_sm", (Http_svr.FdIO Xapi_services.put_handler));
+  ("post_services_sm", (Http_svr.FdIO Xapi_services.post_handler));
   ("get_services", (Http_svr.FdIO Xapi_services.get_handler));
   ("post_services", (Http_svr.FdIO Xapi_services.post_handler));
   ("put_services", (Http_svr.FdIO Xapi_services.put_handler));
