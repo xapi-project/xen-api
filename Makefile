@@ -102,7 +102,7 @@ api-libs-doc:
 	@(cd ../xen-api-libs 2> /dev/null && $(MAKE) doc) || \
 	 (echo ">>> If you have a myclone of xen-api-libs, its documentation will be included. <<<")
 
-PLATFORM_VERSION ?= 0.0.0
+PLATFORM_VERSION ?= 1.5.50
 
 .PHONY: version
 version:
