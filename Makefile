@@ -48,6 +48,7 @@ all: version ocaml/fhs.ml
 	omake -j 8 phase1
 	omake -j 8 phase2
 	omake -j 8 phase3
+	@make test
 
 .PHONY: phase3
 phase3:
@@ -56,6 +57,11 @@ phase3:
 .PHONY: test
 test:
 	omake test
+	@echo "Running xenops-cli tests"
+	@./ocaml/xenops-cli/runtest.sh 2> /dev/null
+	@echo
+	@echo "Running xapi unit test suite"
+	@./ocaml/test/suite 2> /dev/null
 
 .PHONY: install
 install:
