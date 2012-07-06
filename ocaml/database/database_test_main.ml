@@ -22,13 +22,14 @@ let rpc_common url content_type request =
 	let request = Http.Request.make ~version ~content_type:"text/json"
 		~user_agent:"database_test"
 		~length:(Int64.of_int content_length) Http.Post url in
-	let open Xmlrpcclient in
+	let open Xmlrpc_client in
 	with_transport (Unix !path)
 		(with_http request
 			(fun (response, fd) ->
 				match response.Http.Response.content_length with
 					| None -> failwith "Need a content-length"
-					| Some l -> Unixext.really_read_string fd (Int64.to_int l)
+					| Some l -> Db_interface.String
+						  (Unixext.really_read_string fd (Int64.to_int l))
 			)
 		)
 
