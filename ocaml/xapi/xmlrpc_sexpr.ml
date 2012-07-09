@@ -153,7 +153,9 @@ let sexpr_to_xmlrpc (root:SExpr.t) =
 let sexpr_str_to_xmlrpc (sexpr_str:string) =
 	let sroot1 = SExpr_TS.of_string sexpr_str in
 	let xroot1 = sexpr_to_xmlrpc sroot1 in
-	(xroot1)
+	match xroot1 with
+	| Element("value", [], [Element("WRONG_SEXPR",[],[])]) -> None
+	| _ -> Some xroot1
 
 (** helper function that maps between xml-rpc trees and sexpr strings *)
 let xmlrpc_to_sexpr_str xml=
