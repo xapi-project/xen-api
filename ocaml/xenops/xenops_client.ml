@@ -74,9 +74,9 @@ let query dbg url =
 let print_delta d =
 	debug "Received update: %s" (Jsonrpc.to_string (Xenops_interface.Dynamic.rpc_of_id d))
 
-let event_wait dbg p =
+let event_wait dbg ?from p =
 	let finished = ref false in
-	let event_id = ref None in
+	let event_id = ref from in
 	while not !finished do
 		debug "Calling UPDATES.get %s %s 30" dbg (Opt.default "None" (Opt.map string_of_int !event_id));
 		let deltas, next_id = Client.UPDATES.get dbg !event_id (Some 30) in
@@ -105,8 +105,9 @@ let wait_for_task dbg id =
 		| Dynamic.Task id' ->
 			id = id' && (task_ended dbg id)
 		| _ ->
-			false in 
-	event_wait dbg finished;
+			false in
+	let from = Client.UPDATES.last_id dbg in
+	if not(task_ended dbg id) then event_wait dbg ~from finished;
 	id
 
 let ignore_task (t: Task.t) = ()
