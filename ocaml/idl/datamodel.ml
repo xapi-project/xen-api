@@ -781,6 +781,14 @@ let _ =
     ~doc:"VM cannot be started because it requires a VDI which cannot be attached" ();
   error Api_errors.vm_migrate_failed [ "vm"; "source"; "destination"; "msg" ]
     ~doc:"An error occurred during the migration process." ();
+  error Api_errors.vm_has_too_many_snapshots [ "vm" ]
+    ~doc:"You attempted to migrate a VM with more than one snapshot." ();
+  error Api_errors.vdi_needs_vm_for_migrate [ "vdi" ]
+    ~doc:"You attempted to migrate a VDI which is not attached to a runnning VM." ();
+  error Api_errors.mirror_failed [ "vdi" ]
+    ~doc:"The VDI mirroring cannot be performed" ();
+  error Api_errors.too_many_storage_migrates [ "number" ]
+    ~doc:"You reached the maximal number of concurrently migrating VMs." ();
   error Api_errors.vm_failed_shutdown_ack []
     ~doc:"VM didn't acknowledge the need to shutdown." ();
   error Api_errors.vm_shutdown_timeout [ "vm"; "timeout" ]
