@@ -27,6 +27,8 @@ open Threadext
 module DD=Debug.Debugger(struct let name="xapi" end)
 open DD
 
+module SMPERF=Debug.Debugger(struct let name="SMPERF" end)
+
 open Client
 open Xmlrpc_client
 
@@ -178,6 +180,7 @@ let inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_addr
 				vdi_map)
 
 let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
+	SMPERF.debug "vm.migrate_send called vm:%s" (Db.VM.get_uuid ~__context ~self:vm);
 	if not(!Xapi_globs.use_xenopsd)
 	then failwith "You must have /etc/xapi.conf:use_xenopsd=true";
 	(* Create mirrors of all the disks on the remote *)
@@ -404,6 +407,8 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			if mirror_record.mr_mirrored 
 			then SMAPI.DP.destroy ~dbg ~dp:mirror_record.mr_dp ~allow_leak:false) (snapshots_map @ vdi_map);
 
+		SMPERF.debug "vm.migrate_send: migration initiated vm:%s" vm';
+
 		(* It's acceptable for the VM not to exist at this point; shutdown commutes with storage migrate *)
 		begin
 			try
@@ -419,6 +424,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		end;
 
 		debug "Migration complete";
+		SMPERF.debug "vm.migrate_send: migration complete vm:%s" vm';
 
 		Xapi_xenops.refresh_vm ~__context ~self:vm;
 
@@ -473,6 +479,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				info "Destroying VM & snapshots";
 				destroy_snapshots ~__context ~vm
 			end);
+		SMPERF.debug "vm.migrate_send exiting vm:%s" vm';
 	with e ->
 		error "Caught %s: cleaning up" (Printexc.to_string e);
 		let failed_vdi = ref None in
