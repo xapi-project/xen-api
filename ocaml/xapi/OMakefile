@@ -1,4 +1,4 @@
-OCAMLPACKS    = xml-light2 cdrom pciutil sexpr log stunnel http-svr rss xen-utils netdev tapctl vhd rpc-light nbd
+OCAMLPACKS    = oclock xml-light2 cdrom pciutil sexpr log stunnel http-svr rss xen-utils netdev tapctl vhd rpc-light nbd
 OCAML_LIBS    = ../fhs ../util/version ../util/vm_memory_constraints ../util/sanitycheck ../util/stats \
 	../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server ../util/ocamltest
 OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
