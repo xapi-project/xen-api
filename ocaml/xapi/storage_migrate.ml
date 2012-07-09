@@ -15,6 +15,8 @@
 module D=Debug.Debugger(struct let name="storage_migrate" end)
 open D
 
+module SMPERF=Debug.Debugger(struct let name="SMPERF" end)
+
 open Listext
 open Fun
 open Stringext
@@ -239,6 +241,8 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 
 		debug "copy remote=%s/%s NBD URL = %s" dest dest_vdi dest_vdi_url;
 
+		SMPERF.debug "mirror.copy: copy initiated local_vdi:%s dest_vdi:%s" vdi dest_vdi;
+
 		Pervasiveext.finally (fun () -> 
 			debug "activating RW datapath %s on remote=%s/%s" dp dest dest_vdi;
 			ignore(Remote.VDI.attach ~dbg ~sr:dest ~vdi:dest_vdi ~dp ~read_write:true);
@@ -260,6 +264,8 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 			)
 			(fun () -> 
 				Remote.DP.destroy ~dbg ~dp ~allow_leak:false);
+
+		SMPERF.debug "mirror.copy: copy complete local_vdi:%s dest_vdi:%s" vdi dest_vdi;
 
 		debug "setting remote=%s/%s content_id <- %s" dest dest_vdi local_vdi.content_id;
 		Remote.VDI.set_content_id ~dbg ~sr:dest ~vdi:dest_vdi ~content_id:local_vdi.content_id;
@@ -306,6 +312,7 @@ let stop ~dbg ~id =
 
 let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 	debug "Mirror.start sr:%s vdi:%s url:%s dest:%s" sr vdi url dest;
+	SMPERF.debug "mirror.start called sr:%s vdi:%s url:%s dest:%s" sr vdi url dest;
 	let remote_url = Http.Url.of_string url in
 	let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
 
@@ -374,6 +381,9 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 		let local_vdi = add_to_sm_config local_vdi "base_mirror" id in
 		let snapshot = Local.VDI.snapshot ~dbg ~sr ~vdi_info:local_vdi in
 		debug "Done!";
+
+		SMPERF.debug "mirror.start: snapshot created, mirror initiated vdi:%s snapshot_of:%s"
+			snapshot.vdi local_vdi.vdi ;
 
 		begin
 			let rec inner () =
