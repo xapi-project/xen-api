@@ -137,6 +137,8 @@ let default_port = {
 
 (** {2 Configuration manipulation} *)
 
+let empty_config = {interface_config = []; bridge_config = []; gateway_interface = None; dns_interface = None}
+
 let get_config config default name =
 	if List.mem_assoc name config = false then
 		default
