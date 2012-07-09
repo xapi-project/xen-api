@@ -8,8 +8,10 @@ UseCamlp4(rpc-light.syntax, network_server network_monitor)
 # Name of daemon to install in dom0:
 NETWORKD = xcp-networkd
 NETWORK_TEST = network_test
+NETWORKD_DB = networkd_db
 
-NETWORKD_FILES = networkd network_utils network_interface network_server network_monitor network_monitor_thread
+NETWORKD_FILES = networkd network_utils network_interface network_server network_config \
+	network_monitor network_monitor_thread
 OCAML_CLIBS = link_stubs
 
 StaticCLibrary(link_stubs, link_stubs)
@@ -18,11 +20,13 @@ OCamlLibraryClib(network_utils, network_utils, link_stubs)
 OCamlProgram($(NETWORKD), $(NETWORKD_FILES))
 OCamlDocProgram($(NETWORKD), $(NETWORKD_FILES))
 OCamlProgram($(NETWORK_TEST), ../fhs network_test network_interface)
+OCamlProgram($(NETWORKD_DB), network_interface network_config networkd_db)
 
 .PHONY: install
 install:
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) $(NETWORKD) $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) $(NETWORKD_DB) $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/bin
 
 .PHONY: test
