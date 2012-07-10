@@ -1084,9 +1084,9 @@ module VM = struct
 		run _tune2fs  ["-i"; "0"; "-c"; "0"; device] |> ignore_string
 
 	(* Mount a filesystem somewhere, with optional type *)
-	let mount ?ty:(ty = None) src dest =
+	let mount ?ty:(ty = None) src dest write =
 		let ty = match ty with None -> [] | Some ty -> [ "-t"; ty ] in
-		run _mount (ty @ [ src; dest ]) |> ignore_string
+		run _mount (ty @ [ src; dest; "-o"; if write then "rw" else "ro" ]) |> ignore_string
 
 	let timeout = 300. (* 5 minutes: something is seriously wrong if we hit this timeout *)
 	exception Umount_timeout
@@ -1108,13 +1108,13 @@ module VM = struct
 		done;
 		if not(!finished) then raise Umount_timeout
 
-	let with_mounted_dir device f =
+	let with_mounted_dir device write f =
 		let mount_point = Filename.temp_file "xenops_mount_" "" in
 		Unix.unlink mount_point;
 		Unix.mkdir mount_point 0o640;
 		finally
 			(fun () ->
-				mount ~ty:(Some "ext2") device mount_point;
+				mount ~ty:(Some "ext2") device mount_point write;
 				f mount_point)
 			(fun () ->
 				(try umount mount_point with e -> debug "Caught %s" (Printexc.to_string e));
@@ -1126,7 +1126,7 @@ module VM = struct
 			with_disk ~xc ~xs task disk write
 				(fun path ->
 					if write then mke2fs path;
-					with_mounted_dir path
+					with_mounted_dir path write
 						(fun dir ->
 							(* Do we really want to balloon the guest down? *)
 							let flags =
