@@ -552,7 +552,9 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		if nb_snapshots > 1 then
 			raise (Api_errors.Server_error(Api_errors.vm_has_too_many_snapshots, [Ref.string_of vm]));
 		(* Ignore vdi_map for now since we won't be doing any mirroring. *)
-		inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address ~vm ~vdi_map:[] ~dry_run:true ~live
+		try inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address ~vm ~vdi_map:[] ~dry_run:true ~live
+		with Xmlrpc_client.Connection_reset ->
+			raise (Api_errors.Server_error(Api_errors.cannot_contact_host, [remote_address]))
 
 let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	assert_licensed_storage_motion ~__context ;
