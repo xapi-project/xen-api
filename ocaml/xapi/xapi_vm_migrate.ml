@@ -555,7 +555,7 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host:dest_host_ref
 				~remote:(remote_rpc, session_id) ();
 		(* Ignore vdi_map for now since we won't be doing any mirroring. *)
-		try inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address ~vm ~vdi_map:[] ~dry_run:true ~live
+		try inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address ~vm ~vdi_map:[] ~dry_run:true ~live:true
 		with Xmlrpc_client.Connection_reset ->
 			raise (Api_errors.Server_error(Api_errors.cannot_contact_host, [remote_address]))
 
