@@ -55,9 +55,10 @@ let cancel ~xs key =
 		xs.Xs.rm path
 	end
 
-let on_shutdown ~xs domid =
+let on_shutdown ~xs domid devices =
 	let path = domain_shutdown_path_of ~xs (Domain domid) in
-	xs.Xs.write path ""
+	let paths = List.map (fun d -> domain_shutdown_path_of ~xs (Device d)) devices in
+	List.iter (fun p -> xs.Xs.write p "") (path :: paths)
 
 let with_path ~xs key f =
 	let path = cancel_path_of ~xs key in
