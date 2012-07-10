@@ -141,6 +141,19 @@ let get_snapshots_vbds ~__context ~vm =
 			aux ((Db.VM.get_VBDs ~__context ~self:parent) @ acc) (nb_snapshots + 1) parent in
 	aux [] 0 vm
 
+let get_checkpoints_vbds ~__context ~vm =
+	let rec aux acc nb_checkpoints cur =
+		let parent = Db.VM.get_parent ~__context ~self:cur in
+		debug "get_checkpoints %s" (Ref.string_of parent);
+		if not (Db.is_valid_ref __context parent) then
+			(acc,nb_checkpoints)
+		else
+			if Db.is_valid_ref __context (Db.VM.get_suspend_VDI ~__context ~self:parent) then (* It is a checkpoint *)
+				aux ((Db.VM.get_VBDs ~__context ~self:parent) @ acc) (nb_checkpoints + 1) parent 
+			else (* It is a snapshot, we don’t count it *)
+				aux acc nb_checkpoints parent in
+	aux [] 0 vm
+
 let destroy_snapshots ~__context ~vm =
 	let rec aux cur =
 		let parent = Db.VM.get_parent ~__context ~self:cur in
@@ -548,8 +561,9 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		if (not force) && live then Xapi_vm_helpers.assert_vm_is_compatible ~__context ~vm ~host
 	| `cross_pool remote_rpc ->
 		(* Check that the VM has no more than one snapshot *)
-		let (snapshots_vbds, nb_snapshots) = get_snapshots_vbds ~__context ~vm in
-		if nb_snapshots > 1 then
+		let (_, nb_snapshots) = get_snapshots_vbds ~__context ~vm 
+		and (_, nb_checkpoints) = get_checkpoints_vbds ~__context ~vm in
+		if nb_snapshots > 1 || nb_checkpoints > 0 then
 			raise (Api_errors.Server_error(Api_errors.vm_has_too_many_snapshots, [Ref.string_of vm]));
 		(* Ignore vdi_map for now since we won't be doing any mirroring. *)
 		inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address ~vm ~vdi_map:[] ~dry_run:true ~live
