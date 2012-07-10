@@ -3268,11 +3268,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let vbds = Db.VBD.get_records_where ~__context
 				~expr:(Db_filter_types.Eq(Db_filter_types.Field "VDI", Db_filter_types.Literal (Ref.string_of vdi))) in
 			let vbds = List.filter (fun (_,vbd) -> vbd.API.vBD_currently_attached) vbds in
-			if List.length vbds <> 1 then raise (Api_errors.Server_error(Api_errors.vdi_needs_vm_for_migrate,[]));
+			if List.length vbds <> 1 then raise (Api_errors.Server_error(Api_errors.vdi_needs_vm_for_migrate,[Ref.string_of vdi]));
 
 			let vm = (snd (List.hd vbds)).API.vBD_VM in
 			let vmr = Db.VM.get_record ~__context ~self:vm in
-			if vmr.API.vM_power_state <> `Running then raise (Api_errors.Server_error(Api_errors.vdi_needs_vm_for_migrate,[]));
+			if vmr.API.vM_power_state <> `Running then raise (Api_errors.Server_error(Api_errors.vdi_needs_vm_for_migrate,[Ref.string_of vdi]));
 			let host = vmr.API.vM_resident_on in
 			(* hackity hack *)
 			let options = ("__internal__vm",Ref.string_of vm) :: (List.remove_assoc "__internal__vm" options) in
