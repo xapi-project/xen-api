@@ -188,7 +188,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let (snapshots_vbds,nb_snapshots) = get_snapshots_vbds ~__context ~vm in
 	debug "get_snapshots VMs %d VBDs %d" nb_snapshots (List.length snapshots_vbds);
 	if nb_snapshots > 1 then
-		raise (Api_errors.Server_error(Api_errors.vm_has_too_many_snapshots, []));
+		raise (Api_errors.Server_error(Api_errors.vm_has_too_many_snapshots, [Ref.string_of vm]));
 	let vdi_filter snapshot vbd =
 		if not(Db.VBD.get_empty ~__context ~self:vbd)
 		then
@@ -550,7 +550,7 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		(* Check that the VM has no more than one snapshot *)
 		let (snapshots_vbds, nb_snapshots) = get_snapshots_vbds ~__context ~vm in
 		if nb_snapshots > 1 then
-			raise (Api_errors.Server_error(Api_errors.vm_has_too_many_snapshots, []));
+			raise (Api_errors.Server_error(Api_errors.vm_has_too_many_snapshots, [Ref.string_of vm]));
 		(* Ignore vdi_map for now since we won't be doing any mirroring. *)
 		inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address ~vm ~vdi_map:[] ~dry_run:true ~live
 
