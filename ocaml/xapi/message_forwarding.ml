@@ -1568,7 +1568,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 			(* Check that the VM is compatible with the host it is being migrated to. *)
 			let force = try bool_of_string (List.assoc "force" options) with _ -> false in
-			if not force then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host;
+			if not force then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ();
 
 			with_vm_operation ~__context ~self:vm ~doc:"VM.pool_migrate" ~op:`pool_migrate
 				(fun () ->
