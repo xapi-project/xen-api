@@ -379,7 +379,7 @@ let create ~__context
 		~suspend_SR
 		~version
 		: API.ref_VM =
-	let gen_mac_seed () = Uuid.to_string (Uuid.make_uuid ()) in
+	let gen_mac_seed () = Uuid.to_string (Uuid.insecure ()) in
 	(* Add random mac_seed if there isn't one specified already *)
 	let other_config =
 		if not (List.mem_assoc Xapi_globs.mac_seed other_config)

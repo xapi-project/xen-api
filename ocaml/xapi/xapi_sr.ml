@@ -259,7 +259,7 @@ let scanning_thread () =
 let introduce  ~__context ~uuid ~name_label
     ~name_description ~_type ~content_type ~shared ~sm_config =
   let _type = String.lowercase _type in
-  let uuid = if uuid="" then Uuid.to_string (Uuid.make_uuid()) else uuid in (* fill in uuid if none specified *)
+  let uuid = if uuid="" then Uuid.to_string (Uuid.insecure()) else uuid in (* fill in uuid if none specified *)
   let sr_ref = Ref.make () in
     (* Create SR record in DB *)
   let () = Db.SR.create ~__context ~ref:sr_ref ~uuid
@@ -324,7 +324,7 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
 		  | _ -> ()
 	end;
 *)
-	let sr_uuid = Uuid.make_uuid() in
+	let sr_uuid = Uuid.insecure() in
 	let sr_uuid_str = Uuid.to_string sr_uuid in
 	(* Create the SR in the database before creating on disk, so the backends can read the sm_config field. If an error happens here
 	we have to clean up the record.*)
@@ -450,7 +450,7 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
 	(* Create the new ones *)
 	let db_vdi_map = StringMap.fold
 		(fun loc vdi m ->
-			let ref = Ref.make () and uuid = Uuid.make_uuid () in
+			let ref = Ref.make () and uuid = Uuid.insecure () in
 			debug "Creating VDI: %s (ref=%s)" (string_of_vdi_info vdi) (Ref.string_of ref);
 			Db.VDI.create ~__context ~ref ~uuid:(Uuid.string_of_uuid uuid)
 				~name_label:vdi.name_label ~name_description:vdi.name_description

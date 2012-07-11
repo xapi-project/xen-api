@@ -78,7 +78,7 @@ let login _ dbg service_name =
 	)
 
 let reserve_memory _ dbg session_id kib =
-	let reservation_id = Uuid.string_of_uuid (Uuid.make_uuid ()) in
+	let reservation_id = Uuid.string_of_uuid (Uuid.insecure ()) in
 	if kib < 0L
 	then raise (Invalid_memory_value kib);
 	wrap dbg
@@ -93,7 +93,7 @@ let reserve_memory _ dbg session_id kib =
 	)
 
 let reserve_memory_range _ dbg session_id min max = 
-	let reservation_id = Uuid.string_of_uuid (Uuid.make_uuid ()) in
+	let reservation_id = Uuid.string_of_uuid (Uuid.insecure ()) in
 	if min < 0L 
 	then raise (Invalid_memory_value min);
 	if max < 0L 

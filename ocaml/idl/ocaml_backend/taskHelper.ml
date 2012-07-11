@@ -28,7 +28,7 @@ let string_of_task task_name task_id =
 
 (* creates a new task *)
 let make ~__context ?(description="") ?session_id ?subtask_of label : (t * t Uuid.t) = 
-  let uuid = Uuid.make_uuid () in
+  let uuid = Uuid.insecure () in
   let uuid_str = Uuid.string_of_uuid uuid in
   let ref = Ref.make () in
   (* we store in database only parent/child relationship between real tasks *) 

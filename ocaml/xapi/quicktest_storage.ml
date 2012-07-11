@@ -390,7 +390,7 @@ let vdi_bad_introduce caps session_id sr vdi =
       try
 	debug test (Printf.sprintf "Introducing a VDI with a duplicate location (%s)" vdir.API.vDI_location);
 	let (_: API.ref_VDI) = Client.VDI.introduce ~rpc:!rpc ~session_id
-	  ~uuid:(Uuid.string_of_uuid (Uuid.make_uuid ())) 
+	  ~uuid:(Uuid.string_of_uuid (Uuid.insecure ())) 
 	  ~name_label:"bad location" ~name_description:""
 	  ~sR:vdir.API.vDI_SR ~_type:vdir.API.vDI_type ~sharable:false ~read_only:false ~other_config:[]
 	  ~location:vdir.API.vDI_location ~xenstore_data:[] ~sm_config:[]
@@ -474,7 +474,7 @@ let packages_iso_test session_id =
   start test;
   let host = List.hd (Client.Host.get_all !rpc session_id) in
   debug test (Printf.sprintf "Will plug into host %s" (Client.Host.get_name_label !rpc session_id host));
-  let sr = Client.SR.introduce ~rpc:!rpc ~session_id ~uuid:(Uuid.string_of_uuid (Uuid.make_uuid ())) 
+  let sr = Client.SR.introduce ~rpc:!rpc ~session_id ~uuid:(Uuid.string_of_uuid (Uuid.insecure ())) 
 		~name_label:"test tools SR" ~name_description:"" ~_type:"iso" ~content_type:"iso" 
 		~shared:true ~sm_config:[] in
   finally

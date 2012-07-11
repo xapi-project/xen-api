@@ -18,12 +18,12 @@ open D
 let vlan_mac = "fe:ff:ff:ff:ff:ff"
 
 let create_internal ~__context ~host ~tagged_PIF ~tag ~network ~device =
-	let vlan = Ref.make () and vlan_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+	let vlan = Ref.make () and vlan_uuid = Uuid.to_string (Uuid.insecure ()) in
 	let untagged_PIF = Ref.make () in
 	(* Copy the MTU and metrics from the base PIF *)
 	let mTU = Db.PIF.get_MTU ~__context ~self:tagged_PIF in
 	let metrics = Db.PIF.get_metrics ~__context ~self:tagged_PIF in
-	Db.PIF.create ~__context ~ref:untagged_PIF ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+	Db.PIF.create ~__context ~ref:untagged_PIF ~uuid:(Uuid.to_string (Uuid.insecure ()))
 		~device ~device_name:device ~network ~host ~mAC:vlan_mac ~mTU ~vLAN:tag ~metrics
 		~physical:false ~currently_attached:false
 		~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null

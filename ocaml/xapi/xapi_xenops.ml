@@ -801,7 +801,7 @@ let update_vm ~__context id =
 									List.iter
 										(fun (protocol, _) ->
 											let ref = Ref.make () in
-											let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+											let uuid = Uuid.to_string (Uuid.insecure ()) in
 											let location = Printf.sprintf "%s?uuid=%s" uri uuid in
 											let port =
 												try Int64.of_int ((List.find (fun c -> c.protocol = protocol) state.consoles).port)

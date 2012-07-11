@@ -181,7 +181,7 @@ let snapshot_metadata ~__context ~vm ~is_a_snapshot =
 (* return a new VM record, in appropriate power state and having the good metrics. *)
 let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~new_power_state =
 	let task_id = Ref.string_of (Context.get_task_id __context) in
-	let uuid = Uuid.make_uuid () in
+	let uuid = Uuid.insecure () in
 	let ref = Ref.make () in
 	let all = Db.VM.get_record_internal ~__context ~self:vm in
 	let power_state = Db.VM.get_power_state ~__context ~self:vm in
@@ -199,7 +199,7 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
 		| [] -> []
 		| (x,y)::xs ->
 			if x=Xapi_globs.mac_seed
-			then (x,Uuid.to_string (Uuid.make_uuid()))::xs
+			then (x,Uuid.to_string (Uuid.insecure()))::xs
 			else (x,y)::(replace_seed xs)
 	in
 	(* rewrite mac_seed in other_config *)
@@ -209,7 +209,7 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
 		then other_config
 		else if (List.mem_assoc Xapi_globs.mac_seed other_config)
 		then replace_seed other_config
-		else (Xapi_globs.mac_seed, Uuid.to_string (Uuid.make_uuid()))::other_config
+		else (Xapi_globs.mac_seed, Uuid.to_string (Uuid.insecure()))::other_config
 	in
 	(* remove "default_template" and "xensource_internal" from other_config if it's there *)
 	let other_config =
@@ -230,7 +230,7 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
 		else None
 	in
 	let metrics = Ref.make ()
-	and metrics_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+	and metrics_uuid = Uuid.to_string (Uuid.insecure ()) in
 	Db.VM_metrics.create ~__context
 		~ref:metrics 
 		~uuid:metrics_uuid
@@ -344,7 +344,7 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
 
 (* epoch hint for netapp backend *)
 let make_driver_params () =
-	[Xapi_globs._sm_epoch_hint, Uuid.to_string (Uuid.make_uuid())]
+	[Xapi_globs._sm_epoch_hint, Uuid.to_string (Uuid.insecure())]
 
 (* NB this function may be called when the VM is suspended for copy/clone operations. Snapshot can be done in live.*)
 let clone ?(snapshot_info_record) disk_op ~__context ~vm ~new_name =

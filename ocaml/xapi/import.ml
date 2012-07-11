@@ -312,7 +312,7 @@ module VM : HandlerTools = struct
 				if config.full_restore
 				then other_config
 				else
-					(Xapi_globs.mac_seed, Uuid.string_of_uuid (Uuid.make_uuid ())) ::
+					(Xapi_globs.mac_seed, Uuid.string_of_uuid (Uuid.insecure ())) ::
 						(List.filter (fun (x, _) -> x <> Xapi_globs.mac_seed) other_config) in
 			let vm_record = { vm_record with API.vM_other_config = other_config } in
 
@@ -454,7 +454,7 @@ module GuestMetrics : HandlerTools = struct
 		let gm = Ref.make () in
 		Db.VM_guest_metrics.create ~__context
 			~ref:gm
-			~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+			~uuid:(Uuid.to_string (Uuid.insecure ()))
 			~os_version:gm_record.API.vM_guest_metrics_os_version
 			~pV_drivers_version:gm_record.API.vM_guest_metrics_PV_drivers_version
 			~pV_drivers_up_to_date:gm_record.API.vM_guest_metrics_PV_drivers_up_to_date

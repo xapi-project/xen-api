@@ -31,7 +31,7 @@ let create_common ~__context ~host ~sR ~device_config ~currently_attached ~other
 		; Ref.string_of (List.find (fun pbd -> Db.PBD.get_host ~__context ~self:pbd = host) pbds)
 		]));
 	let ref = Ref.make() in
-	let uuid = Uuid.to_string (Uuid.make_uuid()) in
+	let uuid = Uuid.to_string (Uuid.insecure()) in
 	Db.PBD.create ~__context ~ref ~uuid ~host ~sR ~device_config ~currently_attached ~other_config:[];
 	ref
 

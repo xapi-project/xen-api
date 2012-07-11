@@ -63,7 +63,7 @@ let check_dead xc domid =
 		_ -> true
 
 let with_domain_notbuilt xc xs f =
-	let domid = Domain.make ~xc ~xs ~hvm:false ~uuid:(Uuid.make_uuid ()) in
+	let domid = Domain.make ~xc ~xs ~hvm:false ~uuid:(Uuid.insecure ()) in
 	finally (fun () -> f domid)
 		(fun () -> Domain.destroy ~xc ~xs domid)
 
@@ -180,14 +180,14 @@ let test_xal2 () =
 
 let test_domain_creation xc =
 	assert_nodomain xc;
-	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+	let uuid = Uuid.to_string (Uuid.insecure ()) in
 	let domid = Xenctrl.domain_create xc 0l false uuid in
 	Xenctrl.domain_destroy xc domid;
 	assert_nodomain xc
 
 let test_xenops_creation cfg xc xs =
 	assert_nodomain xc;
-	let domid = Domain.make ~xc ~xs ~hvm:cfg.domain_hvm ~uuid:(Uuid.make_uuid ()) in
+	let domid = Domain.make ~xc ~xs ~hvm:cfg.domain_hvm ~uuid:(Uuid.insecure ()) in
 	Domain.destroy ~xc ~xs domid;
 	assert_nodomain xc
 

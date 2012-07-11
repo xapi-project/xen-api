@@ -203,7 +203,7 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	    then existing
 	    else 
 	      (* if it doesn't exist, make a fresh one *)
-	      let new_ref = Ref.make () and new_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+	      let new_ref = Ref.make () and new_uuid = Uuid.to_string (Uuid.insecure ()) in
 	      Db.VM_guest_metrics.create ~__context ~ref:new_ref ~uuid:new_uuid
 		~os_version:os_version ~pV_drivers_version:pv_drivers_version ~pV_drivers_up_to_date:false ~memory:[] ~disks:[] ~networks:networks ~other:other
 		~last_updated:(Date.of_float last_updated) ~other_config:[] ~live:true;

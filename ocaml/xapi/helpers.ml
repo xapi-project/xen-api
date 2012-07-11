@@ -590,7 +590,7 @@ let get_pool_secret () =
 		Unix.access Constants.pool_secret_path [Unix.F_OK];
 		pool_secret := Unixext.string_of_file Constants.pool_secret_path
 	with _ -> (* No pool secret exists. *)
-		let mk_rand_string () = Uuid.to_string (Uuid.make_uuid()) in
+		let mk_rand_string () = Uuid.to_string (Uuid.secure()) in
 		pool_secret := (mk_rand_string()) ^ "/" ^ (mk_rand_string()) ^ "/" ^ (mk_rand_string());
 		Unixext.write_string_to_file Constants.pool_secret_path !pool_secret
 

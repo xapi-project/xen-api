@@ -32,7 +32,7 @@ let get_capabilities () =
 (* This fn outputs xen-bugtool straight to the socket, only
    for tar output. It should work on embedded edition *)
 let send_via_fd __context s entries output =
-  let s_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+  let s_uuid = Uuid.to_string (Uuid.insecure ()) in
   
   let params = 
     [sprintf "--entries=%s" entries;

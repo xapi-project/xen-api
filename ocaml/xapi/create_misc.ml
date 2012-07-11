@@ -208,7 +208,7 @@ and create_domain_zero_console_record ~__context ~domain_zero_ref : unit =
 	let address = Db.Host.get_address ~__context ~self: (Helpers.get_localhost ~__context) in
 	let location = Printf.sprintf "https://%s%s?ref=%s" address Constants.console_uri (Ref.string_of domain_zero_ref) in
 	Db.Console.create ~__context ~ref: console_ref
-		~uuid: (Uuid.to_string (Uuid.make_uuid ()))
+		~uuid: (Uuid.to_string (Uuid.insecure ()))
 		~protocol:`rfb
 		~location
 		~vM: domain_zero_ref
@@ -219,7 +219,7 @@ and create_domain_zero_guest_metrics_record ~__context ~domain_zero_metrics_ref 
 	let rec mkints = function
 		| 0 -> []
 		| n -> (mkints (n - 1) @ [n]) in
-	Db.VM_metrics.create ~__context ~ref: domain_zero_metrics_ref ~uuid: (Uuid.to_string (Uuid.make_uuid ()))
+	Db.VM_metrics.create ~__context ~ref: domain_zero_metrics_ref ~uuid: (Uuid.to_string (Uuid.insecure ()))
 		~memory_actual: memory_constraints.target
 		~vCPUs_utilisation: (List.map (fun x -> Int64.of_int x, 0.) (mkints vcpus))
 		~vCPUs_number: (Int64.of_int vcpus)
@@ -307,7 +307,7 @@ open Db_filter
 let create_root_user ~__context =
 	let fullname = "superuser"
 	and short_name = "root"
-	and uuid = Uuid.to_string (Uuid.make_uuid ())
+	and uuid = Uuid.to_string (Uuid.insecure ())
 	and ref = Ref.make () in
 
 	let all = Db.User.get_records_where ~__context ~expr:(Eq(Field "short_name", Literal short_name)) in
@@ -484,7 +484,7 @@ let create_host_cpu ~__context =
 	List.iter (fun (r, _) -> Db.Host_cpu.destroy ~__context ~self:r) host_cpus;
 	for i = 0 to number - 1
 	do
-		let uuid = Uuid.to_string (Uuid.make_uuid ())
+		let uuid = Uuid.to_string (Uuid.insecure ())
 	    and ref = Ref.make () in
 		debug "Creating CPU %d: %s" i uuid;
 		ignore (Db.Host_cpu.create ~__context ~ref ~uuid ~host ~number:(Int64.of_int i)

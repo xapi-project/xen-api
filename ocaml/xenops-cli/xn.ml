@@ -325,7 +325,7 @@ let add filename =
 					qemu_disk_cmdline = false;
 					qemu_stubdom = false;
 				} in
-			let uuid = if mem _uuid then find _uuid |> string else Uuid.string_of_uuid (Uuid.make_uuid ()) in
+			let uuid = if mem _uuid then find _uuid |> string else Uuid.string_of_uuid (Uuid.insecure ()) in
 			let name = if mem _name then find _name |> string else uuid in
 			let mib = if mem _memory then find _memory |> int |> Int64.of_int else 64L in
 			let bytes = Int64.mul 1024L (Int64.mul 1024L mib) in

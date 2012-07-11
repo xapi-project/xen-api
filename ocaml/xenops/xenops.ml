@@ -58,7 +58,7 @@ let is_hvm ~xc domid =
 	(Xenctrl.domain_getinfo xc domid).Xenctrl.Domain_info.hvm_guest
 
 let create_domain ~xc ~xs ~hvm =
-	let uuid = Uuid.make_uuid () in
+	let uuid = Uuid.insecure () in
 	let info = {
 		Domain.ssidref = 0l;
 		Domain.hvm = hvm;

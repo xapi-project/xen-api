@@ -220,7 +220,7 @@ let pool_patch_upload_handler (req: Request.t) s _ =
       debug "Patch Upload Handler - Authenticated...";
 
       let _ = Unixext.mkdir_safe patch_dir 0o755 in
-      let new_path = patch_dir ^ "/" ^ (Uuid.to_string (Uuid.make_uuid ())) in
+      let new_path = patch_dir ^ "/" ^ (Uuid.to_string (Uuid.insecure ())) in
       let task_id = Context.get_task_id __context in
       begin
        
@@ -507,7 +507,7 @@ let write_patch_applied_db ~__context ?date ~self ~host () =
     | Some d -> d
     | None -> Unix.gettimeofday ()
   in
-  let uuid = Uuid.make_uuid () in
+  let uuid = Uuid.insecure () in
   let r = Ref.make () in
     Db.Host_patch.create ~__context
       ~ref:r

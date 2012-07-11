@@ -18,7 +18,7 @@ open Listext
 
 let create ~__context ~pCI ~gPU_group ~host ~other_config =
 	let pgpu = Ref.make () in
-	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+	let uuid = Uuid.to_string (Uuid.insecure ()) in
 	Db.PGPU.create ~__context ~ref:pgpu ~uuid ~pCI ~gPU_group ~host ~other_config;
 	debug "PGPU ref='%s' created (host = '%s')" (Ref.string_of pgpu) (Ref.string_of host);
 	pgpu

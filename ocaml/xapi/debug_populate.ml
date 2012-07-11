@@ -22,7 +22,7 @@ let rec make_srs __context i =
   if i=0 then ()
   else
     begin
-      let uuid = Uuid.to_string (Uuid.make_uuid()) in
+      let uuid = Uuid.to_string (Uuid.insecure()) in
       let sr_ref = Xapi_sr.introduce  ~__context ~uuid:uuid ~name_label:("SR-"^(string_of_int i))
 	~name_description:"Dummy data" ~_type:"ext" ~content_type:"dummy" ~shared:true ~sm_config:[] in
 	srs := sr_ref :: !srs;
@@ -48,7 +48,7 @@ let rec make_vdis_and_vbds __context vmref i =
 	if i=0 then ()
 	else
 		begin
-			let uuid = Uuid.to_string (Uuid.make_uuid()) in
+			let uuid = Uuid.to_string (Uuid.insecure()) in
 			let vm_uuid = Db.VM.get_uuid ~self:vmref ~__context in
 			let name_label = "VDI-"^(string_of_int i)^"-for-VM-"^vm_uuid in
 			let name_description = "dummy" in

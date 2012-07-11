@@ -17,7 +17,7 @@ let _ =
 		then if !options.force
 			then Sys.remove !options.tgtfile
 			else begin print_endline "File exists, use -f to replace it."; exit 1 end;
-	let uuid _ = Uuid.to_string (Uuid.make_uuid ()) in
+	let uuid _ = Uuid.to_string (Uuid.secure ()) in
 	let uuids = String.concat "/" [uuid (); uuid (); uuid ()] in
 	let f = open_out_gen [Open_wronly; Open_creat; Open_excl; Open_binary] 0o640 !options.tgtfile in
 	output_string f uuids
