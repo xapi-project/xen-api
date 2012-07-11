@@ -322,7 +322,7 @@ let resume ~__context ~vm ~start_paused ~force =
 			then Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
 
 			let host = Helpers.get_localhost ~__context in
-			if not force then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host;
+			if not force then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ();
 
 			Xapi_xenops.resume ~__context ~self:vm ~start_paused ~force
 		)
