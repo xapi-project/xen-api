@@ -896,7 +896,7 @@ let import_convert ~__context ~_type ~username ~password ~sr ~remote_config =
 		(match jobInstance.state with
 			| Created
 			| Queued
-			| Running -> Unix.sleep 1; loop call vpx_ip
+			| Running -> Thread.delay 1.; loop call vpx_ip
 			| Completed
 			| Aborted
 			| UserAborted -> ()) in
