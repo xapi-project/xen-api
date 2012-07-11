@@ -152,7 +152,7 @@ let create ~__context ~device ~network ~vM
         let () = debug "VIF.create running" in
 
 	let uuid = Uuid.insecure () in
-	let ref = Ref.make () in
+	let ref = Ref.insecure () in
 
 	let vm_mac_seed =
 	  try Some (List.assoc Xapi_globs.mac_seed (Db.VM.get_other_config ~__context ~self:vM)) with _ -> None in
@@ -191,7 +191,7 @@ let create ~__context ~device ~network ~vM
 	if List.mem device all_devices 
 	then raise (Api_errors.Server_error (Api_errors.device_already_exists, [device]));
 	
-	let metrics = Ref.make () and metrics_uuid = Uuid.to_string (Uuid.insecure ()) in
+	let metrics = Ref.insecure () and metrics_uuid = Uuid.to_string (Uuid.insecure ()) in
 	Db.VIF_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
 	  ~io_read_kbs:0. ~io_write_kbs:0. ~last_updated:(Date.of_float 0.) ~other_config:[];
 	

@@ -260,7 +260,7 @@ let introduce  ~__context ~uuid ~name_label
     ~name_description ~_type ~content_type ~shared ~sm_config =
   let _type = String.lowercase _type in
   let uuid = if uuid="" then Uuid.to_string (Uuid.insecure()) else uuid in (* fill in uuid if none specified *)
-  let sr_ref = Ref.make () in
+  let sr_ref = Ref.insecure () in
     (* Create SR record in DB *)
   let () = Db.SR.create ~__context ~ref:sr_ref ~uuid
       ~name_label ~name_description 
@@ -450,7 +450,7 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
 	(* Create the new ones *)
 	let db_vdi_map = StringMap.fold
 		(fun loc vdi m ->
-			let ref = Ref.make () and uuid = Uuid.insecure () in
+			let ref = Ref.insecure () and uuid = Uuid.insecure () in
 			debug "Creating VDI: %s (ref=%s)" (string_of_vdi_info vdi) (Ref.string_of ref);
 			Db.VDI.create ~__context ~ref ~uuid:(Uuid.string_of_uuid uuid)
 				~name_label:vdi.name_label ~name_description:vdi.name_description

@@ -288,9 +288,9 @@ type do_hotplug_fn = __context:Context.t -> vbd:API.ref_VBD -> unit
 (* copy a vbd *)
 let copy ~__context ?vdi ~vm vbd =
 	let all = Db.VBD.get_record ~__context ~self:vbd in
-	let new_vbd = Ref.make () in
+	let new_vbd = Ref.insecure () in
 	let vbd_uuid = Uuid.to_string (Uuid.insecure ()) in
-	let metrics = Ref.make () in
+	let metrics = Ref.insecure () in
 	let metrics_uuid = Uuid.to_string (Uuid.insecure ()) in
 	let vdi = Pervasiveext.default all.API.vBD_VDI vdi in 
 	Db.VBD_metrics.create ~__context

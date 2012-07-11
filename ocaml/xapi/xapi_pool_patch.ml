@@ -184,7 +184,7 @@ let read_in_and_check_patch length s path =
     raise (Api_errors.Server_error(Api_errors.invalid_patch, []))
 
 let create_patch_record ~__context ?path patch_info =
-  let r = Ref.make () in
+  let r = Ref.insecure () in
   let path, size = 
     match path with
       | None -> "", Int64.zero
@@ -508,7 +508,7 @@ let write_patch_applied_db ~__context ?date ~self ~host () =
     | None -> Unix.gettimeofday ()
   in
   let uuid = Uuid.insecure () in
-  let r = Ref.make () in
+  let r = Ref.insecure () in
     Db.Host_patch.create ~__context
       ~ref:r
       ~uuid:(Uuid.to_string uuid)

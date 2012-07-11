@@ -575,9 +575,9 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
 	  ~uuid:(Uuid.to_string (Uuid.insecure ())) ~live:false
 	  ~memory_total:0L ~memory_free:0L ~last_updated:Date.never ~other_config:[] in
   let name_description = "Default install of XenServer"
-  and host = Ref.make () in
+  and host = Ref.insecure () in
 
-  let metrics = Ref.make () in
+  let metrics = Ref.insecure () in
   make_new_metrics_object metrics;
 
   Db.Host.create ~__context ~ref:host

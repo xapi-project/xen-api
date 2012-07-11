@@ -18,7 +18,7 @@ open D
 
 let create ~__context ~mime_type ~public =
   let uuid = Uuid.insecure () in
-  let ref = Ref.make () in
+  let ref = Ref.insecure () in
   let mime_type' = if mime_type="" then "application/octet-stream" else mime_type in
   Db.Blob.create ~__context ~ref ~uuid:(Uuid.to_string uuid) ~public ~mime_type:mime_type' ~size:0L ~last_updated:(Date.never) ~name_label:"" ~name_description:"";
   ref

@@ -131,11 +131,11 @@ let create ~__context ~name_label ~name_description
 	(* NB parameter validation is delayed until VM.start *)
 
 	let uuid = Uuid.insecure () in
-	let vm_ref = Ref.make () in
+	let vm_ref = Ref.insecure () in
 	let resident_on = Ref.null in
 	let scheduled_to_be_resident_on = Ref.null in
 
-	let metrics = Ref.make () and metrics_uuid = Uuid.to_string (Uuid.insecure ()) in
+	let metrics = Ref.insecure () and metrics_uuid = Uuid.to_string (Uuid.insecure ()) in
 	let vCPUs_utilisation = [(0L, 0.)] in
 	Db.VM_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
 		~memory_actual:0L ~vCPUs_number:0L
@@ -779,7 +779,7 @@ let copy_guest_metrics ~__context ~vm =
 	try
 		let gm = Db.VM.get_guest_metrics ~__context ~self:vm in
 		let all = Db.VM_guest_metrics.get_record ~__context ~self:gm in
-		let ref = Ref.make () in
+		let ref = Ref.insecure () in
 		Db.VM_guest_metrics.create ~__context 
 			~ref 
 			~uuid:(Uuid.to_string (Uuid.insecure ()))

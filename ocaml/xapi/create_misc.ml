@@ -115,7 +115,7 @@ let rec ensure_domain_zero_records ~__context (host_info: host_info) : unit =
 
 and ensure_domain_zero_record ~__context (host_info: host_info): [`VM] Ref.t =
 	let ref_lookup () = Helpers.get_domain_zero ~__context in
-	let ref_create () = Ref.make () in
+	let ref_create () = Ref.insecure () in
 	let (domain_zero_ref, found) =
 		try       ref_lookup (), true
 		with _ -> ref_create (), false in
@@ -142,7 +142,7 @@ and ensure_domain_zero_guest_metrics_record ~__context ~domain_zero_ref (host_in
 	if not (Db.is_valid_ref __context (Db.VM.get_metrics ~__context ~self:domain_zero_ref)) then
 	begin
 		debug "Domain 0 record does not have associated guest metrics record. Creating now";
-		let metrics_ref = Ref.make() in
+		let metrics_ref = Ref.insecure() in
 		create_domain_zero_guest_metrics_record ~__context ~domain_zero_metrics_ref:metrics_ref ~memory_constraints:(create_domain_zero_default_memory_constraints host_info)
 		~vcpus:(calculate_domain_zero_vcpu_count ~__context);
 		Db.VM.set_metrics ~__context ~self:domain_zero_ref ~value:metrics_ref
@@ -165,7 +165,7 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info)
 	let uuid = host_info.dom0_uuid in
 	(* FIXME: Assume dom0 has 1 vCPU per Host_cpu for now *)
 	let vcpus = calculate_domain_zero_vcpu_count ~__context in
-	let metrics = Ref.make () in
+	let metrics = Ref.insecure () in
 	(* Now create the database record. *)
 	Db.VM.create ~__context ~ref:domain_zero_ref
 		~name_label:("Control domain on host: " ^ host_info.hostname) ~uuid
@@ -204,7 +204,7 @@ and create_domain_zero_console_record ~__context ~domain_zero_ref : unit =
 	let this_dom0s_consoles = Db.Console.get_refs_where ~__context ~expr: (Eq(Field "_ref", Literal (Ref.string_of domain_zero_ref))) in
 	List.iter (fun console -> debug "Deleted old dom0 console record"; Db.Console.destroy ~__context ~self: console) this_dom0s_consoles;
 	(* now make a new console record for dom0 *)
-	let console_ref = Ref.make () in
+	let console_ref = Ref.insecure () in
 	let address = Db.Host.get_address ~__context ~self: (Helpers.get_localhost ~__context) in
 	let location = Printf.sprintf "https://%s%s?ref=%s" address Constants.console_uri (Ref.string_of domain_zero_ref) in
 	Db.Console.create ~__context ~ref: console_ref
@@ -308,7 +308,7 @@ let create_root_user ~__context =
 	let fullname = "superuser"
 	and short_name = "root"
 	and uuid = Uuid.to_string (Uuid.insecure ())
-	and ref = Ref.make () in
+	and ref = Ref.insecure () in
 
 	let all = Db.User.get_records_where ~__context ~expr:(Eq(Field "short_name", Literal short_name)) in
 	if all = [] then Db.User.create ~__context ~ref ~fullname ~short_name ~uuid ~other_config:[]
@@ -485,7 +485,7 @@ let create_host_cpu ~__context =
 	for i = 0 to number - 1
 	do
 		let uuid = Uuid.to_string (Uuid.insecure ())
-	    and ref = Ref.make () in
+	    and ref = Ref.insecure () in
 		debug "Creating CPU %d: %s" i uuid;
 		ignore (Db.Host_cpu.create ~__context ~ref ~uuid ~host ~number:(Int64.of_int i)
 			~vendor ~speed ~modelname

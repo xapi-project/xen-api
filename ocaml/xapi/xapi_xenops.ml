@@ -800,7 +800,7 @@ let update_vm ~__context id =
 									(* Create consoles that have appeared *)
 									List.iter
 										(fun (protocol, _) ->
-											let ref = Ref.make () in
+											let ref = Ref.insecure () in
 											let uuid = Uuid.to_string (Uuid.insecure ()) in
 											let location = Printf.sprintf "%s?uuid=%s" uri uuid in
 											let port =

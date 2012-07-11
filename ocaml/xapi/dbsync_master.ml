@@ -27,7 +27,7 @@ open Client
 let create_pool_record ~__context =
 	let pools = Db.Pool.get_all ~__context in
 	if pools=[] then
-		Db.Pool.create ~__context ~ref:(Ref.make()) ~uuid:(Uuid.to_string (Uuid.insecure()))
+		Db.Pool.create ~__context ~ref:(Ref.insecure()) ~uuid:(Uuid.to_string (Uuid.insecure()))
 			~name_label:"" ~name_description:"" ~master:(Helpers.get_localhost ~__context) 
 			~default_SR:Ref.null ~suspend_image_SR:Ref.null ~crash_dump_SR:Ref.null
 			~ha_enabled:false ~ha_configuration:[] ~ha_statefiles:[]
@@ -164,7 +164,7 @@ let ensure_vm_metrics_records_exist __context =
 				 let m = Db.VM.get_metrics ~__context ~self:vm in
 				 if not(Db.is_valid_ref __context m) then begin
 				   info "Regenerating missing VM_metrics record for VM %s" (Ref.string_of vm);
-				   let m = Ref.make () in
+				   let m = Ref.insecure () in
 				   let uuid = Uuid.to_string (Uuid.insecure ()) in
 				   Db.VM_metrics.create ~__context ~ref:m ~uuid
 					   ~vCPUs_number:0L

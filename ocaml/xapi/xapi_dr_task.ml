@@ -20,7 +20,7 @@ open D
 
 let make_task ~__context =
 	let uuid = Uuid.insecure () in
-	let ref = Ref.make () in
+	let ref = Ref.insecure () in
 	Db.DR_task.create ~__context ~ref ~uuid:(Uuid.to_string uuid);
 	ref
 

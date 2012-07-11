@@ -22,7 +22,7 @@ let valid_device device =
 	device = "0"
 
 let create ~__context  ~vM ~gPU_group ~device ~other_config =
-	let vgpu = Ref.make () in
+	let vgpu = Ref.insecure () in
 	let uuid = Uuid.to_string (Uuid.insecure ()) in
 	if not (Pool_features.is_enabled ~__context Features.GPU) then
 		raise (Api_errors.Server_error (Api_errors.feature_restricted, []));

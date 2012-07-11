@@ -17,9 +17,11 @@ type 'a t = string
 
 let ref_prefix = "OpaqueRef:"
 
-let make () = 
-  let uuid = Uuid.string_of_uuid (Uuid.secure ()) in
+let wrap f () =
+  let uuid = Uuid.string_of_uuid (f ()) in
   ref_prefix ^ uuid
+let secure = wrap Uuid.secure
+let insecure = wrap Uuid.insecure
 
 let null = ref_prefix ^ "NULL"
 

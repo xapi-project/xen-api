@@ -133,7 +133,7 @@ let mutex = Mutex.create ()
 let stem = "xapi"
 
 let pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~bridge =
-  let r = Ref.make() and uuid = Uuid.insecure() in
+  let r = Ref.insecure() and uuid = Uuid.insecure() in
   Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
     ~current_operations:[] ~allowed_operations:[]
     ~name_label ~name_description ~mTU ~bridge
@@ -150,7 +150,7 @@ let create ~__context ~name_label ~name_description ~mTU ~other_config ~tags =
 			incr counter;
 			if List.mem name bridges then loop ()
 			else
-				let r = Ref.make () and uuid = Uuid.insecure () in
+				let r = Ref.insecure () and uuid = Uuid.insecure () in
 				Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
 					~current_operations:[] ~allowed_operations:[]
 					~name_label ~name_description ~mTU ~bridge:name

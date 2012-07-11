@@ -355,7 +355,7 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
 	 then raise (Api_errors.Server_error
 					 (Api_errors.uuid_invalid, [class_to_string cls; obj_uuid]))) ;
 
-	let _ref = Ref.make () in
+	let _ref = Ref.insecure () in
 	let uuid = Uuid.to_string (Uuid.insecure ()) in
 
 	let timestamp = Mutex.execute event_mutex (fun () ->

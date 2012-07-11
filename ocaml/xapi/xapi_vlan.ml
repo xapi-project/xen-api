@@ -18,8 +18,8 @@ open D
 let vlan_mac = "fe:ff:ff:ff:ff:ff"
 
 let create_internal ~__context ~host ~tagged_PIF ~tag ~network ~device =
-	let vlan = Ref.make () and vlan_uuid = Uuid.to_string (Uuid.insecure ()) in
-	let untagged_PIF = Ref.make () in
+	let vlan = Ref.insecure () and vlan_uuid = Uuid.to_string (Uuid.insecure ()) in
+	let untagged_PIF = Ref.insecure () in
 	(* Copy the MTU and metrics from the base PIF *)
 	let mTU = Db.PIF.get_MTU ~__context ~self:tagged_PIF in
 	let metrics = Db.PIF.get_metrics ~__context ~self:tagged_PIF in

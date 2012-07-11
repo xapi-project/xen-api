@@ -15,7 +15,10 @@
 type 'a t
 
 val ref_prefix : string
-val make : unit -> 'a t
+
+val secure : unit -> 'a t
+val insecure : unit -> 'a t
+
 val null : 'a t
 val string_of : 'a t -> string
 val of_string : string -> 'a t

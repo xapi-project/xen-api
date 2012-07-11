@@ -31,8 +31,8 @@ let choose_tunnel_device_name ~__context ~host =
 	choose 0
 
 let create_internal ~__context ~transport_PIF ~network ~host =
-	let tunnel = Ref.make () in
-	let access_PIF = Ref.make () in
+	let tunnel = Ref.insecure () in
+	let access_PIF = Ref.insecure () in
 	let device = choose_tunnel_device_name ~__context ~host in
 	let device_name = device in
 	let mAC = Xapi_vif_helpers.gen_mac (0, Uuid.to_string (Uuid.insecure ())) in

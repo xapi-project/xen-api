@@ -30,7 +30,7 @@ let string_of_task task_name task_id =
 let make ~__context ?(description="") ?session_id ?subtask_of label : (t * t Uuid.t) = 
   let uuid = Uuid.insecure () in
   let uuid_str = Uuid.string_of_uuid uuid in
-  let ref = Ref.make () in
+  let ref = Ref.insecure () in
   (* we store in database only parent/child relationship between real tasks *) 
   let subtaskid_of = match subtask_of with
     | Some task_id when not (Ref.is_dummy task_id) -> task_id

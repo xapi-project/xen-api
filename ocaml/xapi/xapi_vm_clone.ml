@@ -182,7 +182,7 @@ let snapshot_metadata ~__context ~vm ~is_a_snapshot =
 let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~new_power_state =
 	let task_id = Ref.string_of (Context.get_task_id __context) in
 	let uuid = Uuid.insecure () in
-	let ref = Ref.make () in
+	let ref = Ref.insecure () in
 	let all = Db.VM.get_record_internal ~__context ~self:vm in
 	let power_state = Db.VM.get_power_state ~__context ~self:vm in
 	let is_a_snapshot = disk_op = Disk_op_snapshot || disk_op = Disk_op_checkpoint in
@@ -229,7 +229,7 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
 		then Some (Db.VM_metrics.get_record_internal ~__context ~self:all.Db_actions.vM_metrics)
 		else None
 	in
-	let metrics = Ref.make ()
+	let metrics = Ref.insecure ()
 	and metrics_uuid = Uuid.to_string (Uuid.insecure ()) in
 	Db.VM_metrics.create ~__context
 		~ref:metrics 

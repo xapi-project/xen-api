@@ -377,7 +377,7 @@ let vdi_bad_introduce caps session_id sr vdi =
 	let (_: API.ref_VDI) = Client.VDI.introduce ~rpc:!rpc ~session_id 
 	  ~uuid:vdir.API.vDI_uuid ~name_label:"bad uuid" ~name_description:""
 	  ~sR:vdir.API.vDI_SR ~_type:vdir.API.vDI_type ~sharable:false ~read_only:false ~other_config:[]
-	  ~location:(Ref.string_of (Ref.make ())) ~xenstore_data:[] ~sm_config:[]
+	  ~location:(Ref.string_of (Ref.insecure ())) ~xenstore_data:[] ~sm_config:[]
 	  ~managed:true ~virtual_size:0L ~physical_utilisation:0L ~metadata_of_pool:Ref.null
 	  ~is_a_snapshot:false ~snapshot_time:Date.never ~snapshot_of:Ref.null
  in 

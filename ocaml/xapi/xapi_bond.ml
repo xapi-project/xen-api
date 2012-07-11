@@ -284,8 +284,8 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 	(* Prevent someone supplying the same PIF multiple times and bypassing the
 	 * number of bond members check *)
 	let members = List.setify members in
-	let master = Ref.make () in
-	let bond = Ref.make () in
+	let master = Ref.insecure () in
+	let bond = Ref.insecure () in
 
 	with_local_lock (fun () ->
 		(* Validation constraints: *)

@@ -160,12 +160,12 @@ let record_host_memory_properties ~__context =
    Committing commented out vsn of this because it might be useful again..
 let test_uniqueness_doesnt_kill_us ~__context =
   let duplicate_uuid = Uuid.to_string (Uuid.insecure()) in
-    Db.Network.create ~__context ~ref:(Ref.make()) ~uuid:duplicate_uuid
+    Db.Network.create ~__context ~ref:(Ref.insecure()) ~uuid:duplicate_uuid
       ~current_operations:[] ~allowed_operations:[]
       ~name_label:"Test uniqueness constraint"
       ~name_description:"Testing"
       ~bridge:"bridge" ~other_config:[];
-    Db.Network.create ~__context ~ref:(Ref.make()) ~uuid:duplicate_uuid
+    Db.Network.create ~__context ~ref:(Ref.insecure()) ~uuid:duplicate_uuid
       ~current_operations:[] ~allowed_operations:[]
       ~name_label:"Test uniqueness constraint"
       ~name_description:"Testing"

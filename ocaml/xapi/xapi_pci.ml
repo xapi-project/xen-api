@@ -63,7 +63,7 @@ let get_pcis_by_class pcis cls =
 
 let create ~__context ~class_id ~class_name ~vendor_id ~vendor_name ~device_id
 		~device_name ~host ~pci_id ~functions ~dependencies ~other_config =
-	let p = Ref.make () in
+	let p = Ref.insecure () in
 	let uuid = Uuid.to_string (Uuid.insecure ()) in
 	Db.PCI.create ~__context ~ref:p ~uuid ~class_id ~class_name ~vendor_id ~vendor_name ~device_id
 		~device_name ~host ~pci_id ~functions ~dependencies:[] ~other_config:[];

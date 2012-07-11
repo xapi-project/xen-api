@@ -145,7 +145,7 @@ let create  ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable 
 	     else userdevice in
 
 	     let uuid = Uuid.insecure () in
-	     let ref = Ref.make () in
+	     let ref = Ref.insecure () in
 	     debug "VBD.create (device = %s; uuid = %s; ref = %s)"
 	       userdevice (Uuid.string_of_uuid uuid) (Ref.string_of ref);
 
@@ -160,7 +160,7 @@ let create  ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable 
 	     (* Make people aware that non-shared disks make VMs not agile *)
 	     if not empty then assert_doesnt_make_vm_non_agile ~__context ~vm:vM ~vdi:vDI;
 
-	     let metrics = Ref.make () and metrics_uuid = Uuid.to_string (Uuid.insecure ()) in
+	     let metrics = Ref.insecure () and metrics_uuid = Uuid.to_string (Uuid.insecure ()) in
 	     Db.VBD_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
 	       ~io_read_kbs:0. ~io_write_kbs:0. ~last_updated:(Date.of_float 0.)
 	       ~other_config:[];
