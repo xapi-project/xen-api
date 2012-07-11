@@ -34,14 +34,20 @@ let vm_connect_uri = "http"                           (* ocaml/xapi/xapi_udhcpd.
 let vncsnapshot_uri = "/vncsnapshot"                  (* ocaml/xapi/xapi_vncsnapshot.ml *)
 let system_status_uri = "/system-status"              (* ocaml/xapi/system_status.ml *)
 let remote_db_access_uri = "/remote_db_access"        (* ocaml/xapi/xapi.ml *)
-let remote_db_access_uri_v2 = "/remote_db_access_v2"        (* ocaml/xapi/xapi.ml *)
+let remote_db_access_uri_v2 = "/remote_db_access_v2"  (* ocaml/xapi/xapi.ml *)
 let remote_stats_uri = "/remote_stats"                (* ocaml/xapi/xapi.ml *)
 let json_uri = "/json"                                (* ocaml/xapi/xapi.ml *)
 let cli_uri = "/cli"                                  (* ocaml/xapi/xapi_cli.ml *)
-let vm_rrd_uri = "/vm_rrd"                            (* ocaml/xapi/monitor_rrds.ml *)
-let rrd_put_uri = "/rrd"                              (* ocaml/xapi/monitor_rrds.ml *)
-let host_rrd_uri = "/host_rrd"                        (* ocaml/xapi/monitor_rrds.ml *)
-let rrd_updates = "/rrd_updates"                      (* ocaml/xapi/monitor_rrds.ml *)
+let get_vm_rrd = "vm_rrd"                             (* ocaml/xapi/xapi.ml *)
+let get_vm_rrd_uri = "/" ^ get_vm_rrd                 (* ocaml/xapi/xapi.ml *)
+let get_host_rrd = "host_rrd"                         (* ocaml/xapi/xapi.ml *)
+let get_host_rrd_uri = "/" ^ get_host_rrd             (* ocaml/xapi/xapi.ml *)
+let get_rrd_updates = "rrd_updates"                   (* ocaml/xapi/xapi.ml *)
+let get_rrd_updates_uri = "/" ^ get_rrd_updates       (* ocaml/xapi/xapi.ml *)
+let put_rrd = "rrd"                                   (* ocaml/xapi/xapi.ml *)
+let put_rrd_uri = "/" ^ put_rrd                       (* ocaml/xapi/xapi.ml *)
+let rrd_unarchive = "rrd_unarchive"                   (* ocaml/xapi/rrdd_proxy.ml *)
+let rrd_unarchive_uri = "/" ^ rrd_unarchive           (* ocaml/xapi/rrdd_proxy.ml *)
 let blob_uri = "/blob"                                (* ocaml/xapi/xapi_blob.ml *)
 let remotecmd_uri = "/remotecmd"                      (* ocaml/xapi/xapi_remotecmd.ml *)
 let message_rss_feed = "/rss"                         (* ocaml/xapi/xapi_message.ml *)
@@ -113,3 +119,9 @@ let storage_migrate_vdi_map_key = "maps_to"
 
 (* Used to specify mapping of VIFs to networks on the remote machine. Stored in VIF.other_config *)
 let storage_migrate_vif_map_key = "maps_to"
+
+(* Path to the pool configuration file. *)
+let pool_config_file = Filename.concat Fhs.etcdir "pool.conf"
+
+(* Path to the pool secret file. *)
+let pool_secret_path = Filename.concat Fhs.etcdir "ptoken"

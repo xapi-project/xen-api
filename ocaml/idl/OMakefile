@@ -2,7 +2,7 @@
 
 PSTOPDF = $(shell bash -c "which pstopdf 2>/dev/null || which ps2pdf 2>/dev/null || which ps2pdf14 2>/dev/null || echo false")
 
-OCAMLINCLUDES  = ocaml_backend ../database
+OCAMLINCLUDES  = ocaml_backend ../database ..
 OCAMLPACKS     = xml-light2 sexpr log http-svr
 
 CAMLP4_FILES = datamodel_types
@@ -13,7 +13,7 @@ UseCamlp4(rpc-light.syntax, $(CAMLP4_FILES))
 # Build datamodel library
 # -----------------------------------------------------------------------
 
-OCamlLibrary(datamodel, datamodel constants datamodel_utils datamodel_types api_errors api_messages dm_api ocaml_backend/ocaml_utils ocaml_backend/ref ../database/string_marshall_helper)
+OCamlLibrary(datamodel, datamodel ../fhs constants datamodel_utils datamodel_types api_errors api_messages dm_api ocaml_backend/ocaml_utils ocaml_backend/ref ../database/string_marshall_helper)
 
 # -----------------------------------------------------------------------
 # Build datamodel documentation

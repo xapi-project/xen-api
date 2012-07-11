@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) 2006-2012 Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -8,7 +8,7 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU Lesser General Public License for more details.
  *)
 (**
@@ -21,8 +21,21 @@ open Threadext
 open Monitor_types
 open Db_filter_types
 
-module D=Debug.Debugger(struct let name="monitormaster" end)
+module D = Debug.Debugger(struct let name = "monitor_master" end)
 open D
+
+let update_configuration_from_master () =
+	Server_helpers.exec_with_new_task "update_configuration_from_master" (fun __context ->
+		let oc = Db.Pool.get_other_config ~__context ~self:(Helpers.get_pool ~__context) in
+		let new_use_min_max = (List.mem_assoc Xapi_globs.create_min_max_in_new_VM_RRDs oc) &&
+			(List.assoc Xapi_globs.create_min_max_in_new_VM_RRDs oc = "true") in
+		log_and_ignore_exn (Rrdd.update_use_min_max ~value:new_use_min_max);
+		let carrier = (List.mem_assoc Xapi_globs.pass_through_pif_carrier oc) &&
+			(List.assoc Xapi_globs.pass_through_pif_carrier oc = "true") in
+		if !Xapi_xenops.pass_through_pif_carrier <> carrier
+		then debug "Updating pass_through_pif_carrier: New value=%b" carrier;
+		Xapi_xenops.pass_through_pif_carrier := carrier
+	)
 
 (***************** settings stuffs *)
 let set_vm_metrics ~__context ~vm ~memory ~cpus =
@@ -190,15 +203,16 @@ let set_pif_metrics ~__context ~self ~vendor ~device
 	Db.PIF_metrics.set_last_updated ~__context ~self
 	                                ~value:(Date.of_float (Unix.gettimeofday ()))
 
-
-(* Nb, the following function is actually called on the slave most of the time now - 
-   but only when the PIF information changes. *)
+(* Note that the following function is actually called on the slave most of the
+ * time now but only when the PIF information changes. *)
 let update_pifs ~__context host pifs =
-	(* All physical and bond PIFs *)
+	match List.length pifs with 0 -> () | _ ->
+	(* Fetch all physical and bond PIFs from DB. *)
 	let db_pifs = Db.PIF.get_records_where ~__context
 		~expr:(And (Eq (Field "host", Literal (Ref.string_of host)),
 			Or (Eq (Field "physical", Literal "true"),
 				Not (Eq (Field "bond_master_of", Literal "()"))))) in
+	(* Iterate over them, and spot and update changes. *)
 	List.iter (fun (pifdev, pifrec) ->
 		begin try
 			let pif_stats = List.find (fun p -> p.pif_name = pifrec.API.pIF_device) pifs in
@@ -214,7 +228,7 @@ let update_pifs ~__context host pifs =
 			let pcibuspath = pif_stats.pif_pci_bus_path in
 
 			(* 1. Update corresponding VIF carrier flags *)
-			if !Monitor_rrds.pass_through_pif_carrier then begin
+			if !Xapi_xenops.pass_through_pif_carrier then begin
 				try
 					(* Go from physical interface -> bridge -> vif devices.
 					 * Do this for the physical network and any VLANs/tunnels on top of it. *)
@@ -233,15 +247,14 @@ let update_pifs ~__context host pifs =
 						(network :: vlan_networks @ tunnel_networks) in
 					let n = Netdev.network in
 					let ifs = List.flatten (List.map (fun bridge -> n.Netdev.intf_list bridge) bridges) in
-
+					let open Vif_device in
 					let set_carrier vif =
-						if vif.Monitor.pv
-						then
+						if vif.pv then (
 							let open Xenops_client in
 							let dbg = Context.string_of_task __context in
-							Client.VIF.set_carrier dbg vif.Monitor.vif carrier |> Xapi_xenops.sync __context in
-
-					List.iter set_carrier (List.filter_map Monitor.vif_device_of_string ifs)
+							Client.VIF.set_carrier dbg vif.vif carrier |> Xapi_xenops.sync __context
+						)
+					in List.iter set_carrier (List.filter_map vif_device_of_string ifs)
 				with e ->
 					debug "Failed to update VIF carrier flags for PIF: %s" (ExnHelper.string_of_exn e)
 			end;

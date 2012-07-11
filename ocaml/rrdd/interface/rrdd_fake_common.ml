@@ -1,6 +1,5 @@
 open Listext
 open Ds
-open Rrd_shared 
 
 type fake_ds = {
    f_name : string;
@@ -11,4 +10,3 @@ type fake_ds = {
 type fake_ds_list = fake_ds list with rpc
 
 let fake_dir = Filename.concat Fhs.vardir "fake_data"
-

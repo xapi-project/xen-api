@@ -860,7 +860,7 @@ let eject ~__context ~host =
 		debug "Pool.eject: setting our role to be master";
 		Pool_role.set_role Pool_role.Master;
 		debug "Pool.eject: forgetting pool secret";
-		Unixext.unlink_safe Xapi_globs.pool_secret_path; (* forget current pool secret *)
+		Unixext.unlink_safe Constants.pool_secret_path; (* forget current pool secret *)
 		(* delete backup databases and any temporary restore databases *)
 		Unixext.unlink_safe Xapi_globs.backup_db_xml;
 		Unixext.unlink_safe Xapi_globs.db_temporary_restore_path;
