@@ -16,8 +16,6 @@ open OUnit
 
 module MockDatabase = struct
 
-	open Pervasiveext
-
 	let _schema = Datamodel_schema.of_datamodel ()
 	let _db_ref = ref (ref (Db_cache_types.Database.make _schema))
 
@@ -42,15 +40,9 @@ let test_mock_db () =
 		"Mock context"
 	in
 	let blob_ref = Ref.make () in
-	Db.Blob.create __context
-		blob_ref
+	Db.Blob.create __context blob_ref
 		(Uuid.to_string (Uuid.make_uuid ()))
-		"BLOB"
-		""
-		5L
-		true
-		(Date.of_float 0.0)
-		"" ;
+		"BLOB" "" 5L true (Date.of_float 0.0) "" ;
 	ignore (Db.Blob.get_record ~__context ~self:blob_ref) ;
 	ignore (Db.VM.get_all_records ~__context) ;
 	let blob_name = Db.Blob.get_name_label ~__context ~self:blob_ref in
