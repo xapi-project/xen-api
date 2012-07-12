@@ -496,6 +496,10 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	with e ->
 		error "Caught %s: cleaning up" (Printexc.to_string e);
 
+		Xapi_xenops.remove_caches vm_uuid;
+		Xapi_xenops.add_caches vm_uuid;
+		Xapi_xenops.refresh_vm ~__context ~self:vm;
+
 		let failed_vdi = ref None in
 		List.iter
 			(fun mirror -> 
