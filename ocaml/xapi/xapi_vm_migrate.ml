@@ -384,6 +384,19 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		end
 		else inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address:remote_master_address ~vm ~vdi_map:(snapshots_map @ vdi_map) ~dry_run:false ~live:true;
 
+		if Xapi_fist.pause_storage_migrate2 () then begin
+			TaskHelper.add_to_other_config ~__context "fist" "pause_storage_migrate2";
+			
+			while Xapi_fist.pause_storage_migrate2 () do
+				debug "Sleeping while fistpoint 2 exists";
+				Thread.delay 5.0;
+			done;
+			
+			TaskHelper.operate_on_db_task ~__context 
+				(fun self ->
+					Db_actions.DB_Action.Task.remove_from_other_config ~__context ~self ~key:"fist")
+		end;
+
 		(* Migrate the VM *)
 		let open Xenops_client in
 		let new_vm = XenAPI.VM.get_by_uuid remote_rpc session_id vm_uuid in
