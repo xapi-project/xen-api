@@ -162,6 +162,7 @@ XAPI_MODULES = $(COMMON) \
 	vgpuops \
 	vbdops \
 	attach_helpers \
+	cpuid_helpers \
 	message_forwarding \
 	cancel_tasks \
 	xapi_pool_transition \

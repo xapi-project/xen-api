@@ -1180,7 +1180,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 										let host = forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_start
 											(fun session_id rpc ->
 												Client.VM.start rpc session_id vm start_paused force) in
-										Xapi_vm_helpers.populate_cpu_flags ~__context ~vm ~host;
+										Cpuid_helpers.populate_cpu_flags ~__context ~vm ~host;
 										Xapi_vm_helpers.start_delay ~__context ~vm;
 										host
 									))) in
@@ -1232,7 +1232,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 													Client.VM.start
 														rpc session_id vm start_paused force)
 										);
-									Xapi_vm_helpers.populate_cpu_flags ~__context ~vm ~host;
+									Cpuid_helpers.populate_cpu_flags ~__context ~vm ~host;
 									Xapi_vm_helpers.start_delay ~__context ~vm;
 								)));
 			update_vbd_operations ~__context ~vm;
@@ -1495,7 +1495,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 								let snapshot = Helpers.get_boot_record ~__context ~self:vm in
 								let host = forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_resume
 									(fun session_id rpc -> Client.VM.resume rpc session_id vm start_paused force) in
-								Xapi_vm_helpers.populate_cpu_flags ~__context ~vm ~host;
+								Cpuid_helpers.populate_cpu_flags ~__context ~vm ~host;
 								host
 							);
 					)
@@ -1528,7 +1528,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 								(fun () ->
 									do_op_on ~local_fn ~__context ~host
 										(fun session_id rpc -> Client.VM.resume_on rpc session_id vm host start_paused force));
-							Xapi_vm_helpers.populate_cpu_flags ~__context ~vm ~host;
+							Cpuid_helpers.populate_cpu_flags ~__context ~vm ~host;
 						);
 				);
 			update_vbd_operations ~__context ~vm;
@@ -1568,7 +1568,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 			(* Check that the VM is compatible with the host it is being migrated to. *)
 			let force = try bool_of_string (List.assoc "force" options) with _ -> false in
-			if not force then Xapi_vm_helpers.assert_vm_is_compatible ~__context ~vm ~host;
+			if not force then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ();
 
 			with_vm_operation ~__context ~self:vm ~doc:"VM.pool_migrate" ~op:`pool_migrate
 				(fun () ->
