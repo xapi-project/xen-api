@@ -234,12 +234,14 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
       if(List.mem_assoc Xapi_globs.device_id_key_name device_id) then begin
         let value = List.assoc Xapi_globs.device_id_key_name device_id in
         let platform = Db.VM.get_platform ~__context ~self in
-        if not(List.mem_assoc Xapi_globs.device_id_key_name platform) then begin
-			    info "Setting VM %s platform:%s <- %s" (Ref.string_of self) Xapi_globs.device_id_key_name value;
-			    try
-				    Db.VM.add_to_platform ~__context ~self ~key:Xapi_globs.device_id_key_name ~value:value;
-			    with _ -> ()
-		    end
+				info "Updating VM %s platform:%s <- %s" (Ref.string_of self) Xapi_globs.device_id_key_name value;
+				if List.mem_assoc Xapi_globs.device_id_key_name platform then
+					(try
+						Db.VM.remove_from_platform ~__context ~self ~key:Xapi_globs.device_id_key_name
+					with _ -> ());
+				try
+					Db.VM.add_to_platform ~__context ~self ~key:Xapi_globs.device_id_key_name ~value:value;
+				with _ -> ()
       end
     end;
 
