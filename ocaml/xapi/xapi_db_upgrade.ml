@@ -259,7 +259,7 @@ let upgrade_cpu_flags = {
 		let vms_to_update = List.filter should_update_vm all_vms in
 		let pool = Helpers.get_pool ~__context in
 		let master = Db.Pool.get_master ~__context ~self:pool in
-		List.iter (fun vm -> Xapi_vm_helpers.populate_cpu_flags ~__context ~vm ~host:master)
+		List.iter (fun vm -> Cpuid_helpers.populate_cpu_flags ~__context ~vm ~host:master)
 			vms_to_update
 }
 
