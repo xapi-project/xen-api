@@ -540,9 +540,9 @@ let trim limit str =
 let vbd_list x =
 	let vm, _ = find_by_name x in
 	let vbds = Client.VBD.list dbg vm.Vm.id in
-	let line id position mode ty plugged disk =
-		Printf.sprintf "%-10s %-8s %-4s %-5s %-7s %s" id position mode ty plugged disk in
-	let header = line "id" "position" "mode" "type" "plugged" "disk" in
+	let line id position mode ty plugged disk disk2 =
+		Printf.sprintf "%-10s %-8s %-4s %-5s %-7s %-35s %-35s " id position mode ty plugged disk disk2 in
+	let header = line "id" "position" "mode" "type" "plugged" "disk" "xenstore_disk" in
 	let lines = List.map
 		(fun (vbd, state) ->
 			let id = snd vbd.Vbd.id in
@@ -554,7 +554,11 @@ let vbd_list x =
 				| Local x -> x |> trim 32
 				| VDI path -> path |> trim 32
 			) vbd.Vbd.backend) in
-			line id position mode ty plugged disk
+			let info = Client.VBD.stat dbg (vbd.Vbd.id) in
+			let disk2 = Opt.default "" (Opt.map (function
+					| Local x -> x |> trim 32
+					| VDI path -> path |> trim 32) (snd info).Vbd.backend_present) in
+			line id position mode ty plugged disk disk2
 		) vbds in
 	List.iter print_endline (header :: lines)
 
