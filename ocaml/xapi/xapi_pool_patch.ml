@@ -617,6 +617,20 @@ let parse_patch_precheck_xml patch = function
         let found = findElement "found" children in
         let required = findElement "required" children in
         raise (Api_errors.Server_error (Api_errors.patch_precheck_failed_wrong_server_version, [Ref.string_of patch; found; required]))
+  | Element ("error", [("errorcode", "PATCH_PRECHECK_FAILED_WRONG_SERVER_BUILD")], children) ->
+      (* Exactly like the previous one but SERVER_BUILD instead of SERVER_VERSION *)
+      (* <error errorcode="PATCH_PRECHECK_FAILED_WRONG_SERVER_BUILD">
+        <found>50845c</found>
+        <required>^58332[pc]$</required>
+      </error> *)
+      let rec findElement name = function
+        | Element (tagName, _, (PCData head)::_)::tail -> if tagName = name then head else findElement name tail
+        | _::tail -> findElement name tail
+        | [] -> raise (Bad_precheck_xml "Could not find element %s")
+      in
+        let found = findElement "found" children in
+        let required = findElement "required" children in
+        raise (Api_errors.Server_error (Api_errors.patch_precheck_failed_wrong_server_build, [Ref.string_of patch; found; required]))
   | Element ("error", [("errorcode", "PATCH_PRECHECK_FAILED_VM_RUNNING")], _) ->
       (* <error errorcode="PATCH_PRECHECK_FAILED_VM_RUNNING" /> *)
       raise (Api_errors.Server_error (Api_errors.patch_precheck_failed_vm_running, [Ref.string_of patch]))
