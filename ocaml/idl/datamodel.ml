@@ -963,6 +963,8 @@ let _ =
     ~doc:"The patch precheck stage failed: prerequisite patches are missing." ();
   error Api_errors.patch_precheck_failed_wrong_server_version [ "patch"; "found_version"; "required_version"]
     ~doc:"The patch precheck stage failed: the server is of an incorrect version." ();
+  error Api_errors.patch_precheck_failed_wrong_server_build [ "patch"; "found_build"; "required_build"]
+    ~doc:"The patch precheck stage failed: the server is of an incorrect build." ();
   error Api_errors.patch_precheck_failed_vm_running [ "patch" ]
     ~doc:"The patch precheck stage failed: there are one or more VMs still running on the server.  All VMs must be suspended before the patch can be applied." ();
 
