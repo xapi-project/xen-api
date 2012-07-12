@@ -7874,6 +7874,12 @@ let http_actions = [
   ("post_remote_db_access", (Post, Constants.remote_db_access_uri, false, [], _R_POOL_ADMIN, []));
   ("post_remote_db_access_v2", (Post, Constants.remote_db_access_uri_v2, false, [], _R_POOL_ADMIN, []));
   ("connect_migrate", (Connect, Constants.migrate_uri, false, [], _R_VM_POWER_ADMIN, []));
+  ("get_services_xenops", (Get, Constants.xenops_uri, false, [], _R_VM_POWER_ADMIN, []));
+  ("post_services_xenops", (Post, Constants.xenops_uri, false, [], _R_VM_POWER_ADMIN, []));
+  ("put_services_xenops", (Put, Constants.xenops_uri, false, [], _R_VM_POWER_ADMIN, []));
+  ("get_services_sm", (Get, Constants.sm_uri, false, [], _R_VM_POWER_ADMIN, []));
+  ("post_services_sm", (Post, Constants.sm_uri, false, [], _R_VM_POWER_ADMIN, []));
+  ("put_services_sm", (Put, Constants.sm_uri, false, [], _R_VM_POWER_ADMIN, []));
   ("put_import", (Put, Constants.import_uri, true,
 		  [Bool_query_arg "restore"; Bool_query_arg "force"; String_query_arg "sr_id"], _R_VM_ADMIN, []));
   ("put_import_metadata", (Put, Constants.import_metadata_uri, true,
