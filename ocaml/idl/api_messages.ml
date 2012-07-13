@@ -78,7 +78,6 @@ let auth_external_pool_non_homogeneous = addMessage "EXTAUTH_IN_POOL_IS_NON_HOMO
 
 let multipath_periodic_alert = addMessage "MULTIPATH_PERIODIC_ALERT"
 
-let vm_uncooperative = addMessage "VM_UNCOOPERATIVE"
 let v6_server_up = addMessage "LICENSE_SERVER_CONNECTED"
 let v6_server_down = addMessage "LICENSE_SERVER_UNAVAILABLE"
 let v6_license_expired = addMessage "LICENSE_EXPIRED"

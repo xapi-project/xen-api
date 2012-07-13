@@ -342,18 +342,12 @@ module Monitor = struct
 				(* All hosts: Feed the current latency values into the per-host RRDs (if available) *)
 				Opt.iter
 					(fun local ->
-						Mutex.execute Xapi_ha_stats.m
-							(fun () ->
-								Xapi_ha_stats.enabled := true;
-								(* Assume all values are ms *)
-								let statefile = float_of_int (local.Xha_interface.LiveSetInformation.RawStatus.statefile_latency) /. 1000. in
-								let heartbeat = float_of_int local.Xha_interface.LiveSetInformation.RawStatus.heartbeat_latency /. 1000. -. (float_of_int timeouts.Timeouts.heart_beat_interval) in
-								let xapi = float_of_int (local.Xha_interface.LiveSetInformation.RawStatus.xapi_healthcheck_latency) /. 1000. in
-								let t = List.map (fun vdi -> { Xapi_ha_stats.Statefile_latency.id = vdi.Static_vdis.uuid; latency = Some statefile}) statefiles in
-								Xapi_ha_stats.Statefile_latency.all := t;
-								Xapi_ha_stats.Heartbeat_latency.raw := Some heartbeat;
-								Xapi_ha_stats.Xapi_latency.raw      := Some xapi;
-							)
+						(* Assume all values are ms *)
+						let statefile = float_of_int (local.Xha_interface.LiveSetInformation.RawStatus.statefile_latency) /. 1000. in
+						let heartbeat_latency = float_of_int local.Xha_interface.LiveSetInformation.RawStatus.heartbeat_latency /. 1000. -. (float_of_int timeouts.Timeouts.heart_beat_interval) in
+						let xapi_latency = float_of_int (local.Xha_interface.LiveSetInformation.RawStatus.xapi_healthcheck_latency) /. 1000. in
+						let statefile_latencies = List.map (fun vdi -> let open Rrd.Statefile_latency in {id = vdi.Static_vdis.uuid; latency = Some statefile}) statefiles in
+						log_and_ignore_exn (Rrdd.HA.enable_and_update ~statefile_latencies ~heartbeat_latency ~xapi_latency)
 					) liveset.Xha_interface.LiveSetInformation.raw_status_on_local_host;
 
 				(* All hosts: create alerts from per-host warnings (if available) *)
@@ -619,8 +613,7 @@ module Monitor = struct
 				(fun () -> Db_gc.use_host_heartbeat_for_liveness := true);
 
 			debug "Stopping reading per-host HA stats";
-			Mutex.execute Xapi_ha_stats.m
-				(fun () -> Xapi_ha_stats.enabled := false);
+			log_and_ignore_exn Rrdd.HA.disable;
 
 			debug "HA background thread told to stop")
 
