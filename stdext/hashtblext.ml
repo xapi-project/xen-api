@@ -29,6 +29,12 @@ let add_empty tbl k v =
 let add_list tbl l =
 	List.iter (fun (k, v) -> Hashtbl.add tbl k v) l
 
+let remove_other_keys tbl valid_keys =
+	let keys = fold_keys tbl in
+	let maybe_remove k =
+		if not (List.mem k valid_keys) then Hashtbl.remove tbl k in
+	List.iter maybe_remove keys
+
 let of_list l =
 	let tbl = Hashtbl.create (List.length l) in
 	add_list tbl l;

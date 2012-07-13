@@ -53,6 +53,12 @@ let is_boxed = function
 	| Some _ -> true
 	| None -> false
 
+let is_some = is_boxed
+
+let is_none = function
+	| Some _ -> false
+	| None -> true
+
 let to_list = function
 	| Some x -> [x]
 	| None -> []

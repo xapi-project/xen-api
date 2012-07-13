@@ -22,9 +22,7 @@ let with_connection ip port f =
 		(fun () -> Unix.close s)
 
 let with_stunnel ip port =
-	let done_init = ref false in
 	fun f ->
-		if not !done_init then Stunnel.init_stunnel_path ();
 		let s = Stunnel.connect ~use_fork_exec_helper:false ~extended_diagnosis:false ip port in
 		let fd = s.Stunnel.fd in
 		finally
