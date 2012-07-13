@@ -42,3 +42,6 @@ OCamlLibrary(fhs, fhs)
 	xenops-cli \
 	network \
 	rrdd
+
+clean:
+	rm -f fhs.*
