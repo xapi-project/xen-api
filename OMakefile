@@ -128,7 +128,9 @@ export
 
 # Ocaml #############################################################################
 OCAML_PHASE1= autogen_idl
-OCAML_PHASE2= $(if $(BYTE_ENABLED), ocaml/idl/ocaml_backend/xapi_client.cma) $(if $(NATIVE_ENABLED), ocaml/idl/ocaml_backend/xapi_client.cmxa)
+OCAML_PHASE2= \
+  $(if $(BYTE_ENABLED), ocaml/idl/ocaml_backend/xapi_client.cma) $(if $(NATIVE_ENABLED), ocaml/idl/ocaml_backend/xapi_client.cmxa) \
+  ocaml/rrdd/xcp-rrdd ocaml/rrdd/rrdd_test
 
 # JS ################################################################################
 JS_PHASE1=
@@ -166,10 +168,11 @@ OCAML_PHASE3_XEN = \
 	ocaml/xapi/quicktestbin \
 	ocaml/xapi/sparse_dd \
 	ocaml/xapi/storage_impl_test \
-	ocaml/xapi/monitor_fake_plugin \
 	ocaml/license/v6d \
 	ocaml/network/xcp-networkd \
 	ocaml/network/networkd_db
+
+#ocaml/xapi/monitor_fake_plugin
 
 OCAML_PHASE3_NOXEN = \
 		     ocaml/ptoken/genptoken \
@@ -197,7 +200,6 @@ OCAML_PHASE3_NOXEN = \
 	ocaml/idl/datamodel \
 	ocaml/db_process/xapi-db-process \
 	ocaml/vncproxy/vncproxy \
-	ocaml/xapi/rrddump \
 	ocaml/perftest/perftest \
 	ocaml/perftest/histogram \
 	ocaml/perftest/cumulative_time \
@@ -205,6 +207,7 @@ OCAML_PHASE3_NOXEN = \
 	ocaml/mpathalert/mpathalert \
 	ocaml/multipathrt/multipathrt
 
+# ocaml/xapi/rrddump
 
 OCAML_PHASE3 = $(OCAML_PHASE3_XEN) $(OCAML_PHASE3_NOXEN)
 

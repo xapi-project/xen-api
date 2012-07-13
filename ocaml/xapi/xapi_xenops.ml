@@ -179,6 +179,8 @@ let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
 				vncterm_ip = Some "0.0.0.0" (*None PR-1255*);
 			}
 
+let pass_through_pif_carrier = ref false
+
 module MD = struct
 	(** Convert between xapi DB records and xenopsd records *)
 
@@ -252,7 +254,7 @@ module MD = struct
 			| `unlocked, _ -> Vif.Unlocked
 			| `disabled, _ -> Vif.Disabled in
 		let carrier =
-			if !Monitor_rrds.pass_through_pif_carrier then
+			if !pass_through_pif_carrier then
 				(* We need to reflect the carrier of the local PIF on the network (if any) *)
 				let host = Helpers.get_localhost ~__context in
 				let pifs = Xapi_network_attach_helpers.get_local_pifs ~__context ~network:vif.API.vIF_network ~host in
@@ -842,16 +844,7 @@ let update_vm ~__context id =
 							List.iter
 								(fun domid ->
 									if different (fun x -> x.uncooperative_balloon_driver) then begin
-										try
-											debug "xenopsd event: Updating VM %s domid %d uncooperative_balloon_driver <- %b" id domid state.uncooperative_balloon_driver;
-											Mutex.execute Monitor.uncooperative_domains_m
-												(fun () ->
-													if state.uncooperative_balloon_driver
-													then Hashtbl.replace Monitor.uncooperative_domains domid ()
-													else Hashtbl.remove Monitor.uncooperative_domains domid
-												)
-										with e ->
-											error "Caught %s: while updating VM %s unco-operative balloon driver flag" (Printexc.to_string e) id
+										debug "xenopsd event: VM %s domid %d uncooperative_balloon_driver = %b" id domid state.uncooperative_balloon_driver;
 									end;
 									let lookup key =
 										if List.mem_assoc key state.guest_agent then Some (List.assoc key state.guest_agent) else None in
@@ -883,8 +876,7 @@ let update_vm ~__context id =
 									if different (fun x -> x.memory_target) then begin
 										try
 											debug "xenopsd event: Updating VM %s domid %d memory target" id domid;
-											Mutex.execute Monitor.memory_targets_m (fun () -> 
-												Hashtbl.replace Monitor.memory_targets domid state.memory_target)
+											Rrdd.update_vm_memory_target ~domid ~target:state.memory_target;
 										with e ->
 											error "Caught %s: while updating VM %s memory_target" (Printexc.to_string e) id
 									end;
@@ -1142,9 +1134,10 @@ let rec events_watch ~__context from =
 
 let manage_dom0 dbg =
 	(* Tell xenopsd to manage domain 0 *)
+	let open Xenctrl.Domain_info in
 	let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
 	let di = Vmopshelpers.with_xc (fun xc -> Xenctrl.domain_getinfo xc 0) in
-	let memory_actual_bytes = Xenctrl.pages_to_kib Int64.(mul (of_nativeint di.Xenctrl.total_memory_pages) 1024L) in
+	let memory_actual_bytes = Xenctrl.pages_to_kib Int64.(mul (of_nativeint di.total_memory_pages) 1024L) in
 	let open Vm in
 	if not(vm_exists_in_xenopsd dbg uuid)
 	then begin

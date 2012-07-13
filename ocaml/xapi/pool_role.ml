@@ -14,61 +14,14 @@
 (**
  * @group Pool Management
  *)
- 
-open Stringext
+
 open Threadext
 
-(** The role of this node *)
-type t = 
-  | Master
-  | Slave of string (* IP address *)
-  | Broken
+include Pool_role_shared
 
-let role = ref None
-let role_m = Mutex.create ()
-
-let string_of = function
-  | Master -> "master"
-  | Slave x -> "slave:" ^ x
-  | Broken -> "broken"
-
-let read_pool_role() =
-  let s = String.strip String.isspace (Unixext.string_of_file Xapi_globs.pool_config_file) in
-  match String.split ~limit:2 ':' s with
-  | [ "master" ]      -> Master
-  | [ "slave"; m_ip ] -> Slave m_ip
-  | [ "broken" ]      -> Broken
-  | _                       ->
-      failwith "cannot parse pool_role from pool config file"
-	
-let get_role () = 
-  Mutex.execute role_m
-    (fun () -> match !role with
-     | Some x -> x
-     | None ->
-	 let r = read_pool_role () in
-	 role := Some r;
-	 r)
-
-let set_role r = 
+let set_role r =
   let old_role = get_role () in
   Mutex.execute role_m
     (fun () ->
-       Unixext.write_string_to_file Xapi_globs.pool_config_file (string_of r));
+       Unixext.write_string_to_file Constants.pool_config_file (string_of r));
   Localdb.put Constants.this_node_just_became_master (string_of_bool (old_role <> Master && r = Master))
-
-let is_master () = get_role () = Master
-let is_slave () = match get_role () with
-  | Slave _ -> true
-  | _ -> false
-let is_broken () = get_role () = Broken
-
-exception This_host_is_a_master
-exception This_host_is_broken
-
-let get_master_address () = match get_role () with
-  | Slave ip -> ip
-  | Master -> raise This_host_is_a_master
-  | Broken -> raise This_host_is_broken
-     
-
