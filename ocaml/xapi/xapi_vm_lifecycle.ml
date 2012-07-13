@@ -50,7 +50,7 @@ let allowed_power_states ~__context ~vmr ~(op:API.vm_operations) =
 	| `clean_shutdown
 	| `changing_memory_live
 	| `changing_shadow_memory_live
-	| `changing_VCPUs_live 
+	| `changing_VCPUs_live
 	| `data_source_op
 	| `migrate_send
 	| `pause
@@ -82,7 +82,6 @@ let allowed_power_states ~__context ~vmr ~(op:API.vm_operations) =
 	| `reverting
 	| `snapshot
 	| `update_allowed_operations
-	| `get_cooperative
 	| `query_services
 	                                -> all_power_states
 

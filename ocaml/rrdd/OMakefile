@@ -1,0 +1,69 @@
+OCAMLINCLUDES = \
+	$(ROOT)/ocaml \
+	$(ROOT)/ocaml/autogen \
+	$(ROOT)/ocaml/idl \
+	$(ROOT)/ocaml/idl/ocaml_backend \
+	$(ROOT)/ocaml/network \
+	$(ROOT)/ocaml/util \
+	$(ROOT)/ocaml/xapi \
+	$(ROOT)/ocaml/xenops \
+	interface
+# ocaml/xapi only needed for xapi_fist : should move xapi_first to libs
+OCAMLPACKS = xml-light2 stunnel http-svr xenctrl xenctrlext xenstore
+OCAML_LIBS = $(ROOT)/ocaml/fhs ../idl/ocaml_backend/xapi_client
+# ../xenops/xenops_client
+
+UseCamlp4(rpc-light.syntax, rrdd_server)
+
+RRDD = xcp-rrdd
+RRDD_FILES = \
+	../pool_role_shared \
+	../network/network_interface \
+	../network/network_monitor \
+	../util/config_shared \
+	../util/stats \
+	../xapi/xapi_fist \
+	../xenops/device_number \
+	interface/ds \
+	interface/data_source \
+	interface/rrd \
+	interface/rrdd_common \
+	interface/rrdd_fake_common \
+	interface/rrdd_interface \
+	interface/monitor_types \
+	rrdd_fake \
+	rrdd_shared \
+	rrdd_ha_stats \
+	rrdd_http_handler \
+	rrdd_server \
+	rrdd_monitor \
+	rrdd_stats \
+	rrdd_main
+RRDD_TEST = rrdd_test
+RRDD_TEST_FILES = \
+	interface/rrd \
+	interface/rrdd_interface \
+	interface/data_source \
+	rrdd_test
+
+.SUBDIRS: interface
+
+OCamlProgram($(RRDD), $(RRDD_FILES))
+OCamlDocProgram($(RRDD), $(RRDD_FILES))
+OCamlProgram($(RRDD_TEST), $(RRDD_TEST_FILES))
+
+.PHONY: install
+install:
+	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) $(RRDD) $(DESTDIR)$(LIBEXECDIR)
+
+.PHONY: test
+test: $(RRDD) $(RRDD_TEST)
+	killall $(RRDD) || true
+	./$(RRDD) -daemon
+	./$(RRDD_TEST)
+	killall $(RRDD) || true
+
+clean:
+	rm -f *.cmi *.cmx *.cmo *.a *.cma *.run *.opt *.annot *.o *.orig *.spit *.spot *.omc
+	rm -f $(RRDD) $(RRDD_TEST)

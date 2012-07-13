@@ -482,11 +482,11 @@ let shutdown_and_reboot_common ~__context ~host label description operation cmd 
   Xapi_ha.before_clean_shutdown_or_reboot ~__context ~host;
   Remote_requests.stop_request_thread();
 
-  (* Push the Host RRD to the master. Note there are no VMs running here so we don't have to worry about them. *)
-  if not(Pool_role.is_master ())
-  then Monitor_rrds.send_host_rrd_to_master ();
-  (* Also save the Host RRD to local disk for us to pick up when we return. Note there are no VMs running at this point. *)
-  Monitor_rrds.backup ();
+	(* Push the Host RRD to the master. Note there are no VMs running here so we don't have to worry about them. *)
+	if not(Pool_role.is_master ())
+	then log_and_ignore_exn Rrdd.send_host_rrd_to_master;
+	(* Also save the Host RRD to local disk for us to pick up when we return. Note there are no VMs running at this point. *)
+	log_and_ignore_exn Rrdd.backup_rrds;
 
   (* This prevents anyone actually re-enabling us until after reboot *)
   Localdb.put Constants.host_disabled_until_reboot "true";
@@ -871,13 +871,13 @@ let compute_free_memory ~__context ~host =
 let compute_memory_overhead ~__context ~host =
 	Memory_check.host_compute_memory_overhead ~__context ~host
 
-let get_data_sources ~__context ~host = Monitor_rrds.query_possible_host_dss ()
+let get_data_sources ~__context ~host = List.map Data_source.to_API_data_source (Rrdd.query_possible_host_dss ())
 
-let record_data_source ~__context ~host ~data_source = Monitor_rrds.add_host_ds data_source
+let record_data_source ~__context ~host ~data_source = Rrdd.add_host_ds ~ds_name:data_source
 
-let query_data_source ~__context ~host ~data_source = Monitor_rrds.query_host_dss data_source
+let query_data_source ~__context ~host ~data_source = Rrdd.query_host_ds ~ds_name:data_source
 
-let forget_data_source_archives ~__context ~host ~data_source = Monitor_rrds.forget_host_ds data_source
+let forget_data_source_archives ~__context ~host ~data_source = Rrdd.forget_host_ds ~ds_name:data_source
 
 let tickle_heartbeat ~__context ~host ~stuff = Db_gc.tickle_heartbeat ~__context host stuff
 
@@ -908,8 +908,10 @@ let sync_data ~__context ~host =
   Xapi_sync.sync_host __context host (* Nb, no attempt to wrap exceptions yet *)
 
 let backup_rrds ~__context ~host ~delay =
-  Xapi_periodic_scheduler.add_to_queue "RRD backup" Xapi_periodic_scheduler.OneShot
-	delay (fun () -> Monitor_rrds.backup ~save_stats_locally:(Pool_role.is_master ()) ())
+	Xapi_periodic_scheduler.add_to_queue "RRD backup" Xapi_periodic_scheduler.OneShot
+	delay (fun _ ->
+		log_and_ignore_exn (Rrdd.backup_rrds ~save_stats_locally:(Pool_role.is_master ()))
+	)
 
 let get_servertime ~__context ~host =
   Date.of_float (Unix.gettimeofday ())
@@ -936,10 +938,6 @@ let disable_binary_storage ~__context ~host =
   ignore(Helpers.get_process_output (Printf.sprintf "/bin/rm -rf %s" Xapi_globs.xapi_blob_location));
   Db.Host.remove_from_other_config ~__context ~self:host ~key:Xapi_globs.host_no_local_storage;
   Db.Host.add_to_other_config ~__context ~self:host ~key:Xapi_globs.host_no_local_storage ~value:"true"
-
-let get_uncooperative_resident_VMs ~__context ~self = assert false
-
-let get_uncooperative_domains ~__context ~self = Monitor.get_uncooperative_domains ()
 
 let certificate_install ~__context ~host ~name ~cert =
   Certificates.host_install true name cert
@@ -1200,7 +1198,7 @@ let detach_static_vdis ~__context ~host ~vdis =
   List.iter detach vdis
 
 let update_pool_secret ~__context ~host ~pool_secret =
-	Unixext.write_string_to_file Xapi_globs.pool_secret_path pool_secret
+	Unixext.write_string_to_file Constants.pool_secret_path pool_secret
 
 let set_localdb_key ~__context ~host ~key ~value =
 	Localdb.put key value;
@@ -1359,7 +1357,7 @@ let enable_local_storage_caching ~__context ~host ~sr =
 		if old_sr <> Ref.null then Db.SR.set_local_cache_enabled ~__context ~self:old_sr ~value:false;
 		Db.Host.set_local_cache_sr ~__context ~self:host ~value:sr;
 		Db.SR.set_local_cache_enabled ~__context ~self:sr ~value:true;
-		Monitor.set_cache_sr (Db.SR.get_uuid ~__context ~self:sr);
+		log_and_ignore_exn (Rrdd.set_cache_sr ~sr_uuid:(Db.SR.get_uuid ~__context ~self:sr));
 	end else begin
 		raise (Api_errors.Server_error (Api_errors.sr_operation_not_supported,[]))
 	end
@@ -1368,7 +1366,7 @@ let disable_local_storage_caching ~__context ~host =
 	assert_bacon_mode ~__context ~host;
 	let sr = Db.Host.get_local_cache_sr ~__context ~self:host in
 	Db.Host.set_local_cache_sr ~__context ~self:host ~value:Ref.null;
-	Monitor.unset_cache_sr ();
+	log_and_ignore_exn Rrdd.unset_cache_sr;
 	try Db.SR.set_local_cache_enabled ~__context ~self:sr ~value:false with _ -> ()
 
 (* Here's how we do VLAN resyncing:

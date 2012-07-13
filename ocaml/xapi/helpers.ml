@@ -33,6 +33,8 @@ module Net = (val (Network.get_client ()) : Network.CLIENT)
 module D=Debug.Debugger(struct let name="helpers" end)
 open D
 
+module StringSet = Set.Make(String)
+
 let log_exn_continue msg f x = try f x with e -> debug "Ignoring exception: %s while %s" (ExnHelper.string_of_exn e) msg
 
 (** Construct a descriptive network name (used as name_label) for a give network interface. *)
@@ -427,7 +429,8 @@ let vif_of_devid ~__context ~vm devid =
 let domid_of_vm ~__context ~self =
   let uuid = Uuid.uuid_of_string (Db.VM.get_uuid ~__context ~self) in
   let all = Xenctrl.with_intf (fun xc -> Xenctrl.domain_getinfolist xc 0) in
-  let uuid_to_domid = List.map (fun di -> Uuid.uuid_of_int_array di.Xenctrl.handle, di.Xenctrl.domid) all in
+  let open Xenctrl.Domain_info in
+  let uuid_to_domid = List.map (fun di -> Uuid.uuid_of_int_array di.handle, di.domid) all in
   if List.mem_assoc uuid uuid_to_domid
   then List.assoc uuid uuid_to_domid
   else -1 (* for backwards compat with old behaviour *)
@@ -581,16 +584,15 @@ let lookup_vdi_fields f vdi_refs l =
   let field_ops = List.map (fun r->do_lookup r l) vdi_refs in
   List.fold_right (fun m acc -> match m with None -> acc | Some x -> x :: acc) field_ops []
 
-(* Read pool secret if there, otherwise create a new one *)
+(* Read pool secret if it exists; otherwise, create a new one. *)
 let get_pool_secret () =
-  if (try (Unix.access pool_secret_path [Unix.F_OK]; true) with _ -> false) then
-    pool_secret := Unixext.string_of_file pool_secret_path
-  else
-    begin
-      let mk_rand_string () = Uuid.to_string (Uuid.make_uuid()) in
-    pool_secret := (mk_rand_string())^"/"^(mk_rand_string())^"/"^(mk_rand_string());
-        Unixext.write_string_to_file pool_secret_path !pool_secret
-    end
+	try
+		Unix.access Constants.pool_secret_path [Unix.F_OK];
+		pool_secret := Unixext.string_of_file Constants.pool_secret_path
+	with _ -> (* No pool secret exists. *)
+		let mk_rand_string () = Uuid.to_string (Uuid.make_uuid()) in
+		pool_secret := (mk_rand_string()) ^ "/" ^ (mk_rand_string()) ^ "/" ^ (mk_rand_string());
+		Unixext.write_string_to_file Constants.pool_secret_path !pool_secret
 
 (* Checks that a host has a PBD for a particular SR (meaning that the
    SR is visible to the host) *)
@@ -861,14 +863,6 @@ let weighted_random_choice weighted_items (* list of (item, integer) weight *) =
   let a, b = List.partition (fun (_, cumulative_weight) -> cumulative_weight <= w) cumulative in
   fst (List.hd b)
 
-let loadavg () =
-  let split_colon line =
-    List.filter (fun x -> x <> "") (List.map (String.strip String.isspace) (String.split ' ' line)) in
-  let all = Unixext.string_of_file "/proc/loadavg" in
-  try
-    float_of_string (List.hd (split_colon all))
-  with _ -> -1.
-
 let memusage () =
 	let memtotal, memfree, swaptotal, swapfree, buffers, cached =
 		ref None, ref None, ref None, ref None, ref None, ref None in
@@ -947,11 +941,6 @@ let copy_snapshot_metadata rpc session_id ?lookup_table ~src_record ~dst_ref =
 		~snapshot_time:src_record.API.vM_snapshot_time
 		~transportable_snapshot_id:src_record.API.vM_transportable_snapshot_id
 
-(** Remove all entries in this table except the valid_keys *)
-let remove_other_keys table valid_keys =
-  let keys = Hashtbl.fold (fun k v acc -> k :: acc) table [] in
-  List.iter (fun k -> if not (List.mem k valid_keys) then Hashtbl.remove table k) keys
-
 let update_vswitch_controller ~__context ~host =
 	try call_api_functions ~__context (fun rpc session_id ->
 		let result = Client.Client.Host.call_plugin ~rpc ~session_id ~host ~plugin:"openvswitch-cfg-update" ~fn:"update" ~args:[] in
@@ -969,20 +958,6 @@ let assert_vswitch_controller_not_active ~__context =
 	let net_type = Netdev.network.Netdev.kind in
 	if (controller <> "") && (net_type = Netdev.Vswitch) then
 		raise (Api_errors.Server_error (Api_errors.operation_not_allowed, ["A vswitch controller is active"]))
-
-let set_vm_uncooperative ~__context ~self ~value =
-  let current_value =
-	let oc = Db.VM.get_other_config ~__context ~self in
-	List.mem_assoc "uncooperative" oc && (bool_of_string (List.assoc "uncooperative" oc)) in
-  if value <> current_value then begin
-	info "VM %s uncooperative <- %b" (Ref.string_of self) value;
-	begin
-      try
-		Db.VM.remove_from_other_config ~__context ~self ~key:"uncooperative"
-      with _ -> ()
-	end;
-	Db.VM.add_to_other_config ~__context ~self ~key:"uncooperative" ~value:(string_of_bool value)
-  end
 
 (* Useful for making readable(ish) logs: *)
 let short_string_of_ref x =

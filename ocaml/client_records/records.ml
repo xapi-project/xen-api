@@ -917,29 +917,26 @@ let vm_record rpc session_id vm =
 				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_os_version) (xgm ())))
 				~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_os_version) (xgm ()))) ();
 			make_field ~name:"PV-drivers-version"
-				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_PV_drivers_version) (xgm ()) )) 
+				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_PV_drivers_version) (xgm ()) ))
 				~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_PV_drivers_version) (xgm ()))) ();
 			make_field ~name:"PV-drivers-up-to-date"
 				~get:(fun () -> default nid (may (fun m -> string_of_bool m.API.vM_guest_metrics_PV_drivers_up_to_date) (xgm ()) )) ();
 			make_field ~name:"memory"
-				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_memory) (xgm ()))) 
+				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_memory) (xgm ())))
 				~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_memory) (xgm ()))) ();
 			make_field ~name:"disks"
-				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_disks) (xgm ()) )) 
+				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_disks) (xgm ()) ))
 				~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_disks) (xgm ()))) ();
 			make_field ~name:"networks"
-				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_networks) (xgm ()) )) 
+				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_networks) (xgm ()) ))
 				~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_networks) (xgm ()))) ();
 			make_field ~name:"other"
-				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_other) (xgm ()) )) 
+				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_other) (xgm ()) ))
 				~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_other) (xgm()))) ();
 			make_field ~name:"live"
 				~get:(fun () -> default nid (may (fun m -> string_of_bool m.API.vM_guest_metrics_live) (xgm ()) )) ();
 			make_field ~name:"guest-metrics-last-updated"
 				~get:(fun () -> default nid (may (fun m -> Date.to_string m.API.vM_guest_metrics_last_updated) (xgm ()) )) ();
-			make_field ~name:"cooperative"
-				(* NB this can receive VM_IS_SNAPSHOT *)
-				~get:(fun () -> string_of_bool (try Client.VM.get_cooperative rpc session_id vm with _ -> true)) ~expensive:true ();
 			make_field ~name:"protection-policy"
 				~get:(fun () -> get_uuid_from_ref (x ()).API.vM_protection_policy)
 				~set:(fun x -> if x="" then Client.VM.set_protection_policy rpc session_id vm Ref.null else Client.VM.set_protection_policy rpc session_id vm (Client.VMPP.get_by_uuid rpc session_id x)) ();

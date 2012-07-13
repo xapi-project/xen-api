@@ -68,6 +68,15 @@ Group: System/Hypervisor
 This package contains a daemon that is able to configure network
 interfaces and bridges
 
+%package rrdd
+Summary: The RRD daemon
+Group: System/Hypervisor
+
+%description rrdd
+This package contains a daemon that continually collects performance metrics
+from the host and its VMs, stores the data in host's memory, and occasionally
+synchronises the data to host's local storage.
+
 %package xenops
 Summary: Low-level debugging tools
 Group: System/Hypervisor
@@ -116,6 +125,9 @@ rm -rf $RPM_BUILD_ROOT
 
 %post networkd
 [ ! -x /sbin/chkconfig ] || chkconfig --add xcp-networkd
+
+%post rrdd
+[ ! -x /sbin/chkconfig ] || chkconfig --add xcp-rrdd
 
 %post squeezed
 [ ! -x /sbin/chkconfig ] || chkconfig squeezed on
@@ -301,6 +313,18 @@ rm -rf $RPM_BUILD_ROOT
 /etc/rc.d/init.d/xcp-networkd
 @OPTDIR@/libexec/networkd_db
 
+%files rrdd
+%defattr(-,root,root,-)
+@OPTDIR@/libexec/xcp-rrdd
+/etc/rc.d/init.d/xcp-rrdd
+/etc/xcp-rrdd.conf
+/usr/lib/python2.4/site-packages/rrdd.py
+/usr/lib/python2.4/site-packages/rrdd.pyc
+/usr/lib/python2.4/site-packages/rrdd.pyo
+@OPTDIR@/libexec/rrdd-example.py
+@OPTDIR@/libexec/rrdd-example.pyc
+@OPTDIR@/libexec/rrdd-example.pyo
+
 %files xenops
 %defattr(-,root,root,-)
 @OPTDIR@/debug/xenops
@@ -317,7 +341,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/debug/memory_summary
 @OPTDIR@/debug/pause_domain
 @OPTDIR@/debug/restore_domain
-@OPTDIR@/debug/rrddump
 @OPTDIR@/debug/shutdown_domain
 @OPTDIR@/debug/sm_stress
 @OPTDIR@/debug/suspend_domain
@@ -342,7 +365,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/debug/quicktest
 @OPTDIR@/debug/quicktestbin
 /cli-rt/*
-/etc/xapi.d/plugins/monitor_fake_plugin
 
 %files client-devel
 %defattr(-,root,root,-)
