@@ -359,8 +359,8 @@ let clean_shutdown ~xs (x: device) =
 	       work.) This also clears any stale error nodes. *)
 	    Generic.rm_device_state ~xs x
 	| `Failed, error ->
-	    (* CA-14804: Delete the error node contents *)
-	    Generic.safe_rm ~xs (error_path_of_device ~xs x);
+			(* After CA-14804 we deleted the error node *)
+			(* After CA-73099 we stopped doing that *)
 	    debug "Device.Vbd.shutdown_common: read an error: %s" error;
 	    raise (Device_error (x, error))
 
