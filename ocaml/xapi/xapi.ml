@@ -1105,13 +1105,13 @@ let set_thread_queue_params () =
 		(float_of_int virtual_space_kb) /. stack_size_kb in
 	let soft_limit = ref 75. in
 	let confidence = ref 0.3 in
-	let tolarence = ref 1. in
+	let tolerance = ref 1. in
 	let calm_down = ref 5. in
 	let last_update = ref (Unix.time (), Thread.Now) in
 	let wait_or_not () =
 		let current_run = float_of_int (Thread.running_threads ()) in
 		if current_run >= hard_limit *. safe_limit then Thread.Indefinite
-		else if current_run < !soft_limit *. !confidence *. !tolarence then Thread.Now
+		else if current_run < !soft_limit *. !confidence *. !tolerance then Thread.Now
 		else
 			let last_clock, last_decision = !last_update in
 			let now = Unix.time () in
@@ -1134,17 +1134,17 @@ let set_thread_queue_params () =
 					let new_confidence =
 						(confidence' *. confidence' +. !confidence *. !confidence)
 						/. (confidence' +. !confidence) in
-					let new_tolarence =
+					let new_tolerance =
 						1. -. (abs_float (confidence' -. !confidence)) in
 					let new_calm_down =
 						min 60. (max 5. (1. /. (abs_float (confidence' -. !confidence)))) in
 					soft_limit := new_soft_limit;
 					confidence := new_confidence;
-					tolarence := new_tolarence;
+					tolerance := new_tolerance;
 					calm_down := new_calm_down;
 					debug "Set threads number soft limit to %f with %f confidence and %f \
-tolarence, the next tweak will be %f seconds away at the earliest."
-						!soft_limit !confidence !tolarence !calm_down;
+tolerance, the next tweak will be %f seconds away at the earliest."
+						!soft_limit !confidence !tolerance !calm_down;
 					decision in
 	Thread.set_policy (Thread.WaitCondition wait_or_not)
 
