@@ -2720,22 +2720,15 @@ end
 	  let host = Db.PBD.get_host ~__context ~self:pbd in
 	  do_op_on ~local_fn ~__context ~host op
 
-    (* do op on a host that can view multiple SRs *)
-    let forward_sr_multiple_op ~local_fn ~__context ~srs op =
-      let hosts = Db.Host.get_all ~__context in
-      let filterfn host =
-		try
-			Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:srs ~host;
-			check_live ~__context host;
-			true
-		with 
-	    _ -> false in
-      let possibles = List.filter filterfn hosts in
-      match possibles with
-	  [] -> local_fn ~__context
-	| l -> 
-	    let host = List.nth l (Random.int (List.length l)) in
-	    do_op_on ~local_fn ~__context ~host op	  
+		(* do op on a host that can view multiple SRs, if none is found, an
+		   exception of Not_found will be raised. *)
+		let forward_sr_multiple_op ~local_fn ~__context ~srs ?(prefer_slaves=false) op =
+			let choose_fn ~host =
+				Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:srs ~host in
+			let host =
+				try Xapi_vm_helpers.choose_host ~__context ~choose_fn ~prefer_slaves ()
+				with _ -> raise Not_found in
+			do_op_on ~local_fn ~__context ~host op
 
     let set_virtual_allocation ~__context ~self ~value = 
       Sm.assert_session_has_internal_sr_access ~__context ~sr:self;
@@ -3066,10 +3059,15 @@ end
     let copy ~__context ~vdi ~sr =
       info "VDI.copy: VDI = '%s'; SR = '%s'" (vdi_uuid ~__context vdi) (sr_uuid ~__context sr);
       let local_fn = Local.VDI.copy ~vdi ~sr in
+      let src_sr = Db.VDI.get_SR ~__context ~self:vdi in
       (* No need to lock the VDI because the VBD.plug will do that for us *)
-      (* Forward the request to a host which can read the source VDI *)
-      forward_vdi_op ~local_fn ~__context ~self:vdi
-	(fun session_id rpc -> Client.VDI.copy rpc session_id vdi sr)
+      (* Try forward the request to a host which can have access to both the source
+         and destination SR. *)
+      let op session_id rpc = Client.VDI.copy rpc session_id vdi sr in
+      try
+        SR.forward_sr_multiple_op ~local_fn ~__context ~srs:[src_sr; sr] ~prefer_slaves:true op
+      with Not_found -> 
+        SR.forward_sr_multiple_op ~local_fn ~__context ~srs:[src_sr] ~prefer_slaves:true op
 
     let resize ~__context ~vdi ~size =
       info "VDI.resize: VDI = '%s'; size = %Ld" (vdi_uuid ~__context vdi) size;

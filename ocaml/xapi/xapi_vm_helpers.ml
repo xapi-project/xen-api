@@ -530,11 +530,18 @@ function [choose_fn] can be applied without raising an exception. Raises
 argument is present, then this function additionally prints a debug message
 that includes the names of the given VM and the subset of all hosts that
 satisfy the given function [choose_fn]. *)
-let choose_host ~__context ?vm ~choose_fn () =
+let choose_host ~__context ?vm ~choose_fn ?(prefer_slaves=false) () =
 	let choices = possible_hosts ~__context ?vm ~choose_fn () in
-	if List.length choices = 0
-	then raise (Api_errors.Server_error (Api_errors.no_hosts_available, []));
-	List.nth choices (Random.int (List.length choices))
+	match choices with
+	| [] -> raise (Api_errors.Server_error (Api_errors.no_hosts_available, []))
+	| [h] -> h
+	| _ ->
+		let choices =
+			if prefer_slaves then
+				let master = Db.Pool.get_master ~__context ~self:(Helpers.get_pool ~__context) in
+				List.filter ((<>) master) choices
+			else choices in
+		List.nth choices (Random.int (List.length choices))
 
 (** Returns the subset of all hosts on which the given [vm] can boot. This
 function also prints a debug message identifying the given [vm] and hosts. *)

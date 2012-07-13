@@ -169,7 +169,7 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
 	in
 	let need_write = record.Db_actions.vBD_mode = `RW in
 	(* Read-only access doesn't require VDI to be marked sharable *)
-	if not(vdi_record.Db_actions.vDI_sharable) && someones_got_rw_access
+	if not(vdi_record.Db_actions.vDI_sharable) && (someones_got_rw_access || need_write && vbds_to_check <> [])
 	then set_errors Api_errors.vdi_in_use [ Ref.string_of vdi ] [ `attach; `insert; `plug ];
 	if need_write && vdi_record.Db_actions.vDI_read_only 
 	then set_errors Api_errors.vdi_readonly [ Ref.string_of vdi ] [ `attach; `insert; `plug ]
