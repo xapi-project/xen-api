@@ -1580,9 +1580,6 @@ type info = {
 }
 
 
-(* Where qemu writes its state and is signalled *)
-let device_model_path ~qemu_domid domid = sprintf "/local/domain/%d/device-model/%d" qemu_domid domid
-
 let get_vnc_port ~xs domid =
 	if not (Qemu.is_running ~xs domid)
 	then None
@@ -1642,7 +1639,7 @@ let signal (task: Xenops_task.t) ~xs ~qemu_domid ~domid ?wait_for ?param cmd =
                 * way too long for our software to recover successfully.
                 * Talk to Citrix about this
                 *)
-		let cancel = Domain qemu_domid in
+		let cancel = Qemu (qemu_domid, domid) in
 		let (_: bool) = cancellable_watch cancel [ Watch.value_to_become pw state ] [] task ~xs ~timeout:30. () in
 		()
 	| None -> ()
@@ -1773,7 +1770,7 @@ let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xapi_globs.qemu_dm_re
 	begin
 		let finished = ref false in
 		let watch = Watch.value_to_appear dm_ready |> Watch.map (fun _ -> ()) in
-		let cancel = Domain domid in
+		let cancel = Qemu (qemu_domid, domid) in
 		let start = Unix.gettimeofday () in
 		while Unix.gettimeofday () -. start < timeout && not !finished do
 			Xenops_task.check_cancelling task;
