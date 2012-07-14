@@ -666,21 +666,23 @@ let handler req fd _ =
 			let dbg = Context.string_of_task __context in
 			Xapi_network.with_networks_attached_for_vm ~__context ~vm (fun () ->
 				Xapi_xenops.transform_xenops_exn ~__context (fun () ->
-					Xapi_xenops.with_metadata_pushed_to_xenopsd ~__context ~upgrade:true ~self:vm (fun id ->
-						info "xenops: VM.receive_memory %s" id;
-						let uri = Printf.sprintf "/services/xenops/memory/%s" id in
-						let memory_limit = free_memory_required_kib |> Memory.bytes_of_kib |> Int64.to_string in
-						let req = Http.Request.make ~cookie:["dbg", dbg; "instance_id", "upgrade"; "memory_limit", memory_limit]
-							~user_agent:"xapi" Http.Put uri in
-						let path = "/var/xapi/xenopsd.forwarded" in
-						let response = Xapi_services.hand_over_connection req fd path in
-						match response with
+					debug "Sending VM %s configuration to xenopsd" (Ref.string_of vm);
+					let id = Xapi_xenops.push_metadata_to_xenopsd ~__context ~upgrade:true ~self:vm in
+					info "xenops: VM.receive_memory %s" id;
+					let uri = Printf.sprintf "/services/xenops/memory/%s" id in
+					let memory_limit = free_memory_required_kib |> Memory.bytes_of_kib |> Int64.to_string in
+					let req = Http.Request.make ~cookie:["dbg", dbg; "instance_id", "upgrade"; "memory_limit", memory_limit]
+						~user_agent:"xapi" Http.Put uri in
+					let path = "/var/xapi/xenopsd.forwarded" in
+					let response = Xapi_services.hand_over_connection req fd path in
+					begin match response with
 						| Some task ->
 							let open Xenops_client in
 							task |> wait_for_task dbg |> success_task dbg |> ignore
 						| None ->
 							debug "We did not get a task id to wait for!!"
-					) (* VM.resident_on is automatically set here *)
+					end;
+					Xapi_xenops.set_resident_on ~__context ~self:vm
 				)
 			);
 

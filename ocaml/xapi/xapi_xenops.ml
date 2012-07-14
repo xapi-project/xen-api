@@ -1514,43 +1514,37 @@ let set_memory_dynamic_range ~__context ~self min max =
 			Event.wait dbg ()
 		)
 
-let with_metadata_pushed_to_xenopsd ?(upgrade=false) ~__context ~self f =
-	let id = push_metadata_to_xenopsd ~__context ~upgrade ~self in
-	try
-		f id;
-		set_resident_on ~__context ~self;
-	with e ->
-		error "Caught %s: removing VM %s from xenopsd" (string_of_exn e) id;
-		begin
-			try
-				delete_metadata_from_xenopsd ~__context id;
-			with e ->
-				error "Caught %s while removing VM %s from metadata" (string_of_exn e) id
-		end;
-		raise e
-
 let start ~__context ~self paused =
 	let dbg = Context.string_of_task __context in
 	transform_xenops_exn ~__context
 		(fun () ->
-			with_metadata_pushed_to_xenopsd ~__context ~self
-				(fun id ->
-					with_caches dbg id
-						(fun () ->
-							Xapi_network.with_networks_attached_for_vm ~__context ~vm:self
-								(fun () ->
-									info "xenops: VM.start %s" id;
-									Client.VM.start dbg id |> sync_with_task __context;
-									if not paused then begin
-										info "xenops: VM.unpause %s" id;
-										Client.VM.unpause dbg id |> sync __context;
-									end;
-								)
-						)
-				);
-			(* XXX: if the guest crashed or shutdown immediately then it may be offline now *)
-			assert (Db.VM.get_power_state ~__context ~self = (if paused then `Paused else `Running))
-		)
+			debug "Sending VM %s configuration to xenopsd" (Ref.string_of self);
+			let id = push_metadata_to_xenopsd ~__context ~upgrade:false ~self in
+			try
+				with_caches dbg id
+					(fun () ->
+						Xapi_network.with_networks_attached_for_vm ~__context ~vm:self
+							(fun () ->
+								info "xenops: VM.start %s" id;
+								Client.VM.start dbg id |> sync_with_task __context;
+								if not paused then begin
+									info "xenops: VM.unpause %s" id;
+									Client.VM.unpause dbg id |> sync __context;
+								end;
+							)
+					);
+				set_resident_on ~__context ~self;
+			with e ->
+				error "Caught exception starting VM: %s" (string_of_exn e);
+				set_resident_on ~__context ~self;
+				let dbg = Context.string_of_task __context in
+				Event.wait dbg ();
+				(* If the VM power_state is Halted, the event thread will have removed
+				   the metadata and cleared resident_on. *)
+				raise e
+		);
+	(* XXX: if the guest crashed or shutdown immediately then it may be offline now *)
+	assert (Db.VM.get_power_state ~__context ~self = (if paused then `Paused else `Running))
 
 let start ~__context ~self paused =
 	transform_xenops_exn ~__context
@@ -1653,28 +1647,38 @@ let resume ~__context ~self ~start_paused ~force =
 	transform_xenops_exn ~__context
 		(fun () ->
 			let vdi = Db.VM.get_suspend_VDI ~__context ~self in
-			let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in	
-			with_metadata_pushed_to_xenopsd ~__context ~self
-				(fun id ->
-					with_caches dbg id
-						(fun () ->
-							Xapi_network.with_networks_attached_for_vm ~__context ~vm:self
-								(fun () ->
-									info "xenops: VM.resume %s from %s" id (disk |> rpc_of_disk |> Jsonrpc.to_string);
-									Client.VM.resume dbg id disk |> sync_with_task __context;
-									if not start_paused then begin
-										info "xenops: VM.unpause %s" id;
-										Client.VM.unpause dbg id |> sync_with_task __context;
-									end;
-								)
-						)
-				);
-			assert (Db.VM.get_power_state ~__context ~self = if start_paused then `Paused else `Running);
+			let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in
+			debug "Sending VM %s configuration to xenopsd" (Ref.string_of self);
+			let id = push_metadata_to_xenopsd ~__context ~upgrade:false ~self in
+			(* NB we don't set resident_on because we don't want to
+			   modify the VM.power_state, {VBD,VIF}.currently_attached in the
+			   failures cases. This means we must remove the metadata from
+			   xenopsd on failure. *)
+			begin try
+				with_caches dbg id
+					(fun () ->
+						Xapi_network.with_networks_attached_for_vm ~__context ~vm:self
+							(fun () ->
+								info "xenops: VM.resume %s from %s" id (disk |> rpc_of_disk |> Jsonrpc.to_string);
+								Client.VM.resume dbg id disk |> sync_with_task __context;
+								if not start_paused then begin
+									info "xenops: VM.unpause %s" id;
+									Client.VM.unpause dbg id |> sync_with_task __context;
+								end;
+							)
+					)
+			with e ->
+				error "Caught exception resuming VM: %s" (string_of_exn e);
+				delete_metadata_from_xenopsd ~__context id;
+				raise e
+			end;
+			set_resident_on ~__context ~self;
+			Db.VM.set_suspend_VDI ~__context ~self ~value:Ref.null;
 			Helpers.call_api_functions ~__context
 				(fun rpc session_id ->
 					XenAPI.VDI.destroy rpc session_id vdi
 				);
-			Db.VM.set_suspend_VDI ~__context ~self ~value:Ref.null
+			assert (Db.VM.get_power_state ~__context ~self = if start_paused then `Paused else `Running);
 		)
 
 let s3suspend ~__context ~self =
