@@ -1034,24 +1034,91 @@ let perform_atomics atomics t =
 			) 0. atomics in
 	()
 
-let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
+let rec immediate_operation dbg id op =
+	let task = Xenops_task.add tasks dbg (fun t -> perform op t; None) in
+	TASK.destroy' task.Xenops_task.id;
+	Debug.with_thread_associated dbg
+		(fun () ->
+			debug "Task %s reference %s: %s" task.Xenops_task.id task.Xenops_task.debug_info (string_of_operation op);
+			Xenops_task.run task
+		) ();
+	match task.Xenops_task.state with
+		| Task.Pending _ -> assert false
+		| Task.Completed _ -> ()
+		| Task.Failed e ->
+			raise (exn_of_exnty (Exception.exnty_of_rpc e))
+
+(* At all times we ensure that an operation which partially fails
+   leaves the system in a recoverable state. All that should be
+   necessary is to call the {VM,VBD,VIF,PCI}_check_state function. *)
+and trigger_cleanup_after_failure op t = match op with
+	| VM_check_state _
+	| PCI_check_state _
+	| VBD_check_state _
+	| VIF_check_state _ -> () (* not state changing operations *)
+
+	| VM_start id
+	| VM_poweroff (id, _)
+	| VM_reboot (id, _)
+	| VM_shutdown (id, _)
+	| VM_suspend (id, _)
+	| VM_restore_devices id
+	| VM_resume (id, _)
+	| VM_migrate (id, _, _, _)
+	| VM_receive_memory (id, _, _) ->
+		immediate_operation t.Xenops_task.debug_info id (VM_check_state id);
+
+	| Atomic op -> begin match op with
+		| VBD_eject id
+		| VBD_plug id
+		| VBD_epoch_begin id
+		| VBD_epoch_end id
+		| VBD_set_qos id
+		| VBD_unplug (id, _)
+		| VBD_insert (id, _) ->
+			immediate_operation t.Xenops_task.debug_info (fst id) (VBD_check_state id)
+
+		| VIF_plug id
+		| VIF_unplug (id, _)
+		| VIF_move (id, _)
+		| VIF_set_carrier (id, _)
+		| VIF_set_locking_mode (id, _) ->
+			immediate_operation t.Xenops_task.debug_info (fst id) (VIF_check_state id)
+
+		| PCI_plug id
+		| PCI_unplug id ->
+			immediate_operation t.Xenops_task.debug_info (fst id) (PCI_check_state id)
+
+		| VM_hook_script (id, _, _)
+		| VM_remove id
+		| VM_set_xsdata (id, _)
+		| VM_set_vcpus (id, _)
+		| VM_set_shadow_multiplier (id, _)
+		| VM_set_memory_dynamic_range (id, _, _)
+		| VM_pause id
+		| VM_unpause id
+		| VM_set_domain_action_request (id, _)
+		| VM_create_device_model (id, _)
+		| VM_destroy_device_model id
+		| VM_destroy id
+		| VM_create (id, _)
+		| VM_build id
+		| VM_shutdown_domain (id, _, _)
+		| VM_s3suspend id
+		| VM_s3resume id
+		| VM_save (id, _, _)
+		| VM_restore (id, _)
+		| VM_delay (id, _) ->
+			immediate_operation t.Xenops_task.debug_info id (VM_check_state id)
+	end
+
+and perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 	let module B = (val get_backend () : S) in
 	let one = function
 		| VM_start id ->
 			debug "VM.start %s" id;
-			begin try
-				perform_atomics (atomics_of_operation op) t;
-				VM_DB.signal id
-			with e ->
-				debug "VM.start threw error: %s. Calling VM.destroy" (Printexc.to_string e);
-				begin
-					try
-						perform_atomics [ VM_destroy id ] t;
-					with (Does_not_exist("domain", _)) ->
-						debug "Ignoring domain Does_not_exist during clean-up"
-				end;
-				raise e
-			end
+			perform_atomics (atomics_of_operation op) t;
+			VM_DB.signal id
 		| VM_poweroff (id, timeout) ->
 			debug "VM.poweroff %s" id;
 			perform_atomics (atomics_of_operation op) t;
@@ -1266,6 +1333,18 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			let progress_callback = progress_callback 0. 1. t in
 			perform_atomic ~progress_callback ?subtask op t
 	in
+	let one op =
+		try
+			one op
+		with e ->
+			info "Caught %s executing %s: triggering cleanup actions" (Printexc.to_string e) (string_of_operation op);
+			begin
+				try
+					trigger_cleanup_after_failure op t
+				with e ->
+					error "Triggering cleanup actions failed: %s" (Printexc.to_string e)
+			end;
+			raise e in
 	match subtask with
 		| None -> one op
 		| Some name -> Xenops_task.with_subtask t name (fun () -> one op)
@@ -1274,20 +1353,6 @@ let queue_operation dbg id op =
 	let task = Xenops_task.add tasks dbg (fun t -> perform op t; None) in
 	Redirector.push id (op, task);
 	task.Xenops_task.id
-
-let immediate_operation dbg id op =
-	let task = Xenops_task.add tasks dbg (fun t -> perform op t; None) in
-	TASK.destroy' task.Xenops_task.id;
-	Debug.with_thread_associated dbg
-		(fun () ->
-			debug "Task %s reference %s: %s" task.Xenops_task.id task.Xenops_task.debug_info (string_of_operation op);
-			Xenops_task.run task
-		) ();
-	match task.Xenops_task.state with
-		| Task.Pending _ -> assert false
-		| Task.Completed _ -> ()
-		| Task.Failed e ->
-			raise (exn_of_exnty (Exception.exnty_of_rpc e))
 
 module PCI = struct
 	open Pci
