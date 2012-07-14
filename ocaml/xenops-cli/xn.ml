@@ -665,7 +665,7 @@ let task_list () =
 	let all = Client.TASK.list dbg in
 	List.iter
 		(fun t ->
-			Printf.printf "%-8s %-12s %-30s %s\n" t.Task.id (t.Task.ctime |> Date.of_float |> Date.to_string) t.Task.debug_info (t.Task.state |> Task.rpc_of_state |> Jsonrpc.to_string);
+			Printf.printf "%-8s %-12s %-30s %s\n" t.Task.id (t.Task.ctime |> Date.of_float |> Date.to_string) t.Task.dbg (t.Task.state |> Task.rpc_of_state |> Jsonrpc.to_string);
 			List.iter
 				(fun (name, state) ->
 					Printf.printf "  |_ %-30s %s\n" name (state |> Task.rpc_of_state |> Jsonrpc.to_string)

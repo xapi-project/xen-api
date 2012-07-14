@@ -313,7 +313,7 @@ module Task = struct
 
 	type t = {
 		id: id;
-		debug_info: string;
+		dbg: string;
 		ctime: float;
 		state: state;
 		subtasks: (string * state) list;

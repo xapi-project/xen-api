@@ -758,7 +758,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 		open Storage_task
 		let t x = {
 			Task.id = x.id;
-			debug_info = x.debug_info;
+			debug_info = x.dbg;
 			ctime = x.ctime;
 			state = x.state;
 			subtasks = x.subtasks;

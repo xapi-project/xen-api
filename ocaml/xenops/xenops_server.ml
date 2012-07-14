@@ -126,7 +126,7 @@ module TASK = struct
 
 	let task x = {
 		Task.id = x.id;
-		debug_info = x.debug_info;
+		dbg = x.dbg;
 		ctime = x.ctime;
 		state = x.state;
 		subtasks = x.subtasks;
@@ -544,9 +544,9 @@ module Worker = struct
 					begin
 						try
 							Debug.with_thread_associated
-								item.Xenops_task.debug_info
+								item.Xenops_task.dbg
 								(fun () ->
-									debug "Task %s reference %s: %s" item.Xenops_task.id item.Xenops_task.debug_info (string_of_operation op);
+									debug "Task %s reference %s: %s" item.Xenops_task.id item.Xenops_task.dbg (string_of_operation op);
 									Xenops_task.run item
 								) ()
 						with e ->
@@ -578,13 +578,13 @@ module WorkerPool = struct
 		type task = {
 			id: string;
 			ctime: string;
-			debug_info: string;
+			dbg: string;
 			subtasks: (string * string) list;
 		} with rpc
 		let of_task t = {
 				id = t.Xenops_task.id;
 				ctime = t.Xenops_task.ctime |> Date.of_float |> Date.to_string;
-				debug_info = t.Xenops_task.debug_info;
+				dbg = t.Xenops_task.dbg;
 				subtasks = List.map (fun (name, state) -> name, state |> Task.rpc_of_state |> Jsonrpc.to_string) t.Xenops_task.subtasks |> List.rev;
 			}
 		type w = {
@@ -1039,7 +1039,7 @@ let rec immediate_operation dbg id op =
 	TASK.destroy' task.Xenops_task.id;
 	Debug.with_thread_associated dbg
 		(fun () ->
-			debug "Task %s reference %s: %s" task.Xenops_task.id task.Xenops_task.debug_info (string_of_operation op);
+			debug "Task %s reference %s: %s" task.Xenops_task.id task.Xenops_task.dbg (string_of_operation op);
 			Xenops_task.run task
 		) ();
 	match task.Xenops_task.state with
@@ -1066,7 +1066,7 @@ and trigger_cleanup_after_failure op t = match op with
 	| VM_resume (id, _)
 	| VM_migrate (id, _, _, _)
 	| VM_receive_memory (id, _, _) ->
-		immediate_operation t.Xenops_task.debug_info id (VM_check_state id);
+		immediate_operation t.Xenops_task.dbg id (VM_check_state id);
 
 	| Atomic op -> begin match op with
 		| VBD_eject id
@@ -1076,18 +1076,18 @@ and trigger_cleanup_after_failure op t = match op with
 		| VBD_set_qos id
 		| VBD_unplug (id, _)
 		| VBD_insert (id, _) ->
-			immediate_operation t.Xenops_task.debug_info (fst id) (VBD_check_state id)
+			immediate_operation t.Xenops_task.dbg (fst id) (VBD_check_state id)
 
 		| VIF_plug id
 		| VIF_unplug (id, _)
 		| VIF_move (id, _)
 		| VIF_set_carrier (id, _)
 		| VIF_set_locking_mode (id, _) ->
-			immediate_operation t.Xenops_task.debug_info (fst id) (VIF_check_state id)
+			immediate_operation t.Xenops_task.dbg (fst id) (VIF_check_state id)
 
 		| PCI_plug id
 		| PCI_unplug id ->
-			immediate_operation t.Xenops_task.debug_info (fst id) (PCI_check_state id)
+			immediate_operation t.Xenops_task.dbg (fst id) (PCI_check_state id)
 
 		| VM_hook_script (id, _, _)
 		| VM_remove id
@@ -1109,7 +1109,7 @@ and trigger_cleanup_after_failure op t = match op with
 		| VM_save (id, _, _)
 		| VM_restore (id, _)
 		| VM_delay (id, _) ->
-			immediate_operation t.Xenops_task.debug_info id (VM_check_state id)
+			immediate_operation t.Xenops_task.dbg id (VM_check_state id)
 	end
 
 and perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
@@ -1151,7 +1151,7 @@ and perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			(* We need to perform version exchange here *)
 			let is_localhost =
 				try
-					let q = query t.Xenops_task.debug_info url in
+					let q = query t.Xenops_task.dbg url in
 					debug "Remote system is: %s" (q |> Query.rpc_of_t |> Jsonrpc.to_string);
 					q.Query.instance_id = instance_id
 				with e ->
@@ -1162,7 +1162,7 @@ and perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			Xenops_hooks.vm_pre_migrate ~reason:Xenops_hooks.reason__migrate_source ~id;
 
 			let module Remote = Xenops_interface.Client(struct let rpc = xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" url end) in
-			let id = Remote.VM.import_metadata t.Xenops_task.debug_info(export_metadata vdi_map vif_map id) in
+			let id = Remote.VM.import_metadata t.Xenops_task.dbg (export_metadata vdi_map vif_map id) in
 			debug "Received id = %s" id;
 			let suffix = Printf.sprintf "/memory/%s" id in
 			let memory_url = Http.Url.(set_uri url (get_uri url ^ suffix)) in
@@ -1180,7 +1180,7 @@ and perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 					let open Xenops_migrate in
 					let request = http_put memory_url ~cookie:[
 						"instance_id", instance_id;
-						"dbg", t.Xenops_task.debug_info;
+						"dbg", t.Xenops_task.dbg;
 						"memory_limit", Int64.to_string state.Vm.memory_limit;
 					] in
 					request |> Http.Request.to_wire_string |> Unixext.really_write_string mfd;

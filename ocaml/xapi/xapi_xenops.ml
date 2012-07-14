@@ -1177,7 +1177,7 @@ let on_xapi_restart ~__context =
 	let tasks = Client.TASK.list dbg in
 	List.iter
 		(fun t ->
-			info "Deleting leaked xenopsd task %s (%s) (%s)" t.Task.id t.Task.debug_info (t.Task.state |> Task.rpc_of_state |> Jsonrpc.to_string);
+			info "Deleting leaked xenopsd task %s (%s) (%s)" t.Task.id t.Task.dbg (t.Task.state |> Task.rpc_of_state |> Jsonrpc.to_string);
 			Client.TASK.destroy dbg t.Task.id
 		) tasks;
 	(* Any VM marked as 'Suspended' in xenopsd is broken because the
