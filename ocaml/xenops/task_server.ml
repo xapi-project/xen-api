@@ -80,6 +80,7 @@ type t = {
     mutable cancelling: bool;                      (* set by cancel *)
 	mutable cancel: (unit -> unit) list;           (* attempt to cancel [f] *)
 	mutable cancel_points_seen: int;               (* incremented every time we pass a cancellation point *)
+	test_cancel_at: int option;                    (* index of the cancel point to trigger *)
 }
 
 module SMap = Map.Make(struct type t = string let compare = compare end)
@@ -89,6 +90,7 @@ module SMap = Map.Make(struct type t = string let compare = compare end)
 
 type tasks = {
 	tasks : t SMap.t ref;
+	mutable test_cancel_trigger : (string * int) option;
 	m : Mutex.t;
 	c : Condition.t;
 }
@@ -97,7 +99,7 @@ let empty () =
 	let tasks = ref SMap.empty in
 	let m = Mutex.create () in
 	let c = Condition.create () in
-	{ tasks; m; c }
+	{ tasks; test_cancel_trigger = None; m; c }
 
 (* [next_task_id ()] returns a fresh task id *)
 let next_task_id =
@@ -106,6 +108,12 @@ let next_task_id =
 		let result = string_of_int !counter in
 		incr counter;
 		result
+
+let set_cancel_trigger tasks dbg n =
+	Mutex.execute tasks.m
+		(fun () ->
+			tasks.test_cancel_trigger <- Some (dbg, n)
+		)
 
 (* [add dbg f] creates a fresh [t], registers and returns it *)
 let add tasks dbg (f: t -> Interface.Task.async_result option) =
@@ -120,6 +128,9 @@ let add tasks dbg (f: t -> Interface.Task.async_result option) =
 		cancelling = false;
 		cancel = [];
 		cancel_points_seen = 0;
+		test_cancel_at = match tasks.test_cancel_trigger with
+			| Some (dbg', n) when dbg = dbg' -> Some n
+			| _ -> None
 	} in
 	Mutex.execute tasks.m
 		(fun () ->
@@ -196,7 +207,11 @@ let check_cancelling t =
 	Mutex.execute t.tm
 		(fun () ->
 			t.cancel_points_seen <- t.cancel_points_seen + 1;
-			if t.cancelling then raise_cancelled t
+			if t.cancelling then raise_cancelled t;
+			Opt.iter (fun x -> if t.cancel_points_seen = x then begin
+				info "Task %s has been triggered by the test-case (cancel_point = %d)" t.id t.cancel_points_seen;
+				raise_cancelled t
+			end) t.test_cancel_at
 		)
 
 let with_cancel t cancel_fn f =
