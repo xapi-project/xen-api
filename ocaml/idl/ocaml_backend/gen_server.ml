@@ -289,7 +289,8 @@ let gen_module api : O.Module.t =
 	      "let __label = __call in";
 	      "let __call = if __async then Server_helpers.remove_async_prefix __call else __call in";
 	      "let subtask_of = if http_req.Http.Request.task <> None then http_req.Http.Request.task else http_req.Http.Request.subtask_of in";
-	      "Server_helpers.exec_with_new_task (\"dispatch:\"^__call^\"\") ?subtask_of:(Pervasiveext.may Ref.of_string subtask_of) (fun __context ->";
+		  "let http_other_config = Context.get_http_other_config http_req in";
+	      "Server_helpers.exec_with_new_task (\"dispatch:\"^__call^\"\") ~http_other_config ?subtask_of:(Pervasiveext.may Ref.of_string subtask_of) (fun __context ->";
 (*
 	      "if not (Hashtbl.mem supress_printing_for_these_messages __call) then ";
 	      debug "%s %s" [ "__call"; "(if __async then \"(async)\" else \"\")" ];
