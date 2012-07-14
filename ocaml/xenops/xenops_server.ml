@@ -1692,7 +1692,12 @@ module DEBUG = struct
 		Debug.with_thread_associated dbg
 			(fun () ->
 				let module B = (val get_backend () : S) in
-				B.DEBUG.trigger cmd args 
+				match cmd, args with
+					| "set-cancel-trigger", [ dbg; n ] ->
+						debug "Will automatically cancel any task with dbg = %s at step %s" dbg n;
+						Xenops_task.set_cancel_trigger tasks dbg (int_of_string n)
+					| _, _ ->
+						B.DEBUG.trigger cmd args
 			) ()
 	let shutdown _ dbg () =
 		Debug.with_thread_associated dbg
