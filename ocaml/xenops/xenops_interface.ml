@@ -317,6 +317,7 @@ module Task = struct
 		ctime: float;
 		state: state;
 		subtasks: (string * state) list;
+		debug_info: (string * string) list;
 	}
 end
 
