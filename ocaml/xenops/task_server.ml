@@ -185,7 +185,9 @@ let cancel tasks id =
 				debug "Task.cancel %s: ignore exception %s" id (Printexc.to_string e)
 		) callbacks
 
-let raise_cancelled t = raise (Interface.Cancelled(t.id))
+let raise_cancelled t =
+	info "Task %s has been cancelled: raising Cancelled exception" t.id;
+	raise (Interface.Cancelled(t.id))
 
 let check_cancelling t = if Mutex.execute t.tm (fun () -> t.cancelling) then raise_cancelled t
 
