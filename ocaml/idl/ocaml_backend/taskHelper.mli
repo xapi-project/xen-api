@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 (* task constructor is hidden : it us used internally by context.ml*)
-val string_of_task: string -> API.ref_task -> string
+(* val string_of_task: string -> API.ref_task -> string *)
 val operate_on_db_task :
   __context:Context.t -> (API.ref_task -> unit) -> unit
 val destroy : __context:Context.t -> API.ref_task -> unit
@@ -41,3 +41,5 @@ val id_to_task_exn : id -> API.ref_task
 val task_to_id_exn : API.ref_task -> id
 val register_task : Context.t -> id -> id
 val unregister_task : Context.t -> id -> id
+
+
