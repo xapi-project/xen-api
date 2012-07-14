@@ -79,6 +79,7 @@ type t = {
 	tm: Mutex.t;                                   (* protects cancelling state: *)
     mutable cancelling: bool;                      (* set by cancel *)
 	mutable cancel: (unit -> unit) list;           (* attempt to cancel [f] *)
+	mutable cancel_points_seen: int;               (* incremented every time we pass a cancellation point *)
 }
 
 module SMap = Map.Make(struct type t = string let compare = compare end)
@@ -118,6 +119,7 @@ let add tasks dbg (f: t -> Interface.Task.async_result option) =
 		tm = Mutex.create ();
 		cancelling = false;
 		cancel = [];
+		cancel_points_seen = 0;
 	} in
 	Mutex.execute tasks.m
 		(fun () ->
@@ -131,11 +133,12 @@ let run item =
 		let start = Unix.gettimeofday () in
 		let result = item.f item in
 		let duration = Unix.gettimeofday () -. start in
-		item.state <- Interface.Task.Completed { Interface.Task.duration; result }
+		item.state <- Interface.Task.Completed { Interface.Task.duration; result };
+		debug "Task %s completed; duration = %.0f" item.id duration
 	with
 		| e ->
 			let e = e |> Interface.exnty_of_exn |> Interface.Exception.rpc_of_exnty in
-			debug "Caught exception while processing queue: %s" (e |> Jsonrpc.to_string);
+			debug "Task %s failed; exception = %s" item.id (e |> Jsonrpc.to_string);
 			debug "%s" (Printexc.get_backtrace ());
 			item.state <- Interface.Task.Failed e
 
@@ -189,7 +192,12 @@ let raise_cancelled t =
 	info "Task %s has been cancelled: raising Cancelled exception" t.id;
 	raise (Interface.Cancelled(t.id))
 
-let check_cancelling t = if Mutex.execute t.tm (fun () -> t.cancelling) then raise_cancelled t
+let check_cancelling t =
+	Mutex.execute t.tm
+		(fun () ->
+			t.cancel_points_seen <- t.cancel_points_seen + 1;
+			if t.cancelling then raise_cancelled t
+		)
 
 let with_cancel t cancel_fn f =
 	Mutex.execute t.tm (fun () -> t.cancel <- cancel_fn :: t.cancel);

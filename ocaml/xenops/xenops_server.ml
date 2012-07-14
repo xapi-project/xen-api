@@ -130,6 +130,9 @@ module TASK = struct
 		ctime = x.ctime;
 		state = x.state;
 		subtasks = x.subtasks;
+		debug_info = [
+			"cancel_points_seen", string_of_int x.cancel_points_seen
+		]
 	}
 	let cancel _ dbg id =
 		Xenops_task.cancel tasks id

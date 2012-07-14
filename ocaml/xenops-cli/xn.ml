@@ -707,6 +707,7 @@ let verbose_task t =
 		| Task.Failed x -> Printf.sprintf "Error: %s" (x |> Jsonrpc.to_string)
 		| Task.Pending _ -> Printf.sprintf "Error: still pending" in
 	let rows = List.map (fun (name, state) -> [ name;  string_of_state state ]) t.Task.subtasks in
+	let rows = rows @ (List.map (fun (k, v) -> [ k; v ]) t.Task.debug_info) in
 	Table.print rows;
 	Printf.printf "\n";
 	Printf.printf "Overall: %s\n" (string_of_state t.Task.state)
