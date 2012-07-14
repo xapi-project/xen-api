@@ -72,7 +72,7 @@ open D
 type t = {
 	id: string;                                    (* unique task id *)
 	ctime: float;                                  (* created timestamp *)
-	debug_info: string;                            (* token sent by client *)
+	dbg: string;                                   (* token sent by client *)
 	mutable state: Interface.Task.state;         (* current completion state *)
 	mutable subtasks: (string * Interface.Task.state) list; (* one level of "subtasks" *)
 	f: t -> Interface.Task.async_result option;    (* body of the function *)
@@ -111,7 +111,7 @@ let add tasks dbg (f: t -> Interface.Task.async_result option) =
 	let t = {
 		id = next_task_id ();
 		ctime = Unix.gettimeofday ();
-		debug_info = dbg;
+		dbg = dbg;
 		state = Interface.Task.Pending 0.;
 		subtasks = [];
 		f = f;
