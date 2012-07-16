@@ -765,7 +765,10 @@ let update_vm ~__context id =
 							debug "xenopsd event: Updating VM %s domid" id;
 							Opt.iter
 								(fun (_, state) ->
-									Db.VM.set_domid ~__context ~self ~value:(List.hd state.domids |> Int64.of_int)
+									match state.domids with
+										| value :: _ ->
+											Db.VM.set_domid ~__context ~self ~value:(Int64.of_int value)
+										| [] -> () (* happens when the VM is shutdown *)
 								) info;
 							(* If this is a storage domain, attempt to plug the PBD *)
 							Opt.iter (fun pbd ->
