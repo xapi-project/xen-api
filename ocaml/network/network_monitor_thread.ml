@@ -159,6 +159,7 @@ let rec monitor dbg () =
 
 		transform_taps ();
 
+		let bonds_list = ref [] in
 		devs := List.map (fun (dev, stat) ->
 			if not (String.startswith "vif" dev) then begin
 				let devs =
@@ -201,7 +202,8 @@ let rec monitor dbg () =
 					let interfaces = (try List.assoc dev bonds with _ -> []) in
 					interfaces in
 				let (links_up,interfaces) = (if nb_links > 1 then
-						(Network_server.Bridge.get_bond_links_up () dbg dev, get_interfaces dev)
+						(bonds_list := dev :: !bonds_list;
+						 Network_server.Bridge.get_bond_links_up () dbg dev, get_interfaces dev)
 					else
 						((if carrier then 1 else 0), [dev]))
 				in
@@ -213,6 +215,12 @@ let rec monitor dbg () =
 			end else
 				dev, stat
 		) (!devs);
+
+		if (List.length !bonds_list) <> (Hashtbl.length bonds_status) then begin
+			let dead_bonds = Hashtbl.fold (fun k _ acc -> if List.mem k !bonds_list then acc else k :: acc) 
+				bonds_status [] in
+			List.iter (fun b -> info "Removing bond %s" b; Hashtbl.remove bonds_status b) dead_bonds
+		end;
 
 		write_stats !devs;
 		failed_again := false
