@@ -745,6 +745,15 @@ let update_vm ~__context id =
 							end;
 							if power_state = `Halted
 							then delete_metadata_from_xenopsd ~__context id;
+							if power_state = `Suspended then begin
+								let md = pull_metadata_from_xenopsd ~__context id in
+								match md.Metadata.domains with
+									| None ->
+										error "Suspended VM has no domain-specific metadata"
+									| Some x ->
+										Db.VM.set_last_booted_record ~__context ~self ~value:x;
+										debug "VM %s last_booted_record set to %s" (Ref.string_of self) x
+							end;
 							(* This will mark VBDs, VIFs as detached and clear resident_on
 							   if the VM has permenantly shutdown. *)
 							Xapi_vm_lifecycle.force_state_reset ~__context ~self ~value:power_state;
@@ -1626,16 +1635,15 @@ let suspend ~__context ~self =
 						remove_caches id;
 						assert (Db.VM.get_power_state ~__context ~self = `Suspended);
 						assert (Db.VM.get_resident_on ~__context ~self = Ref.null);
-						(* XXX PR-1255: need to convert between 'domains' and lbr *)
-						let md = pull_metadata_from_xenopsd ~__context id in
-						match md.Metadata.domains with
-							| None ->
-								failwith "Suspended VM has no domain-specific metadata"
-							| Some x ->
-								Db.VM.set_last_booted_record ~__context ~self ~value:x;
-								debug "VM %s last_booted_record set to %s" (Ref.string_of self) x
 					with e ->
-						debug "Caught exception suspending VM: %s" (string_of_exn e);
+						error "Caught exception suspending VM: %s" (string_of_exn e);
+						(* If the domain has suspended, we have to shut it down *)
+						Event.wait dbg ();
+						if Db.VM.get_power_state ~__context ~self = `Suspended then begin
+							info "VM has already suspended; we must perform a hard_shutdown";
+							remove_caches id;
+							Xapi_vm_lifecycle.force_state_reset ~__context ~self ~value:`Halted;
+						end else info "VM is still running after failed suspend";
 						XenAPI.VDI.destroy ~rpc ~session_id ~self:vdi;
 						Db.VM.set_suspend_VDI ~__context ~self ~value:Ref.null;
 						raise e
