@@ -166,6 +166,27 @@ let readdir ~xs d = try xs.Xs.directory d with Xenbus.Xb.Noent -> []
 let to_list ys = List.concat (List.map Opt.to_list ys)
 let list_kinds ~xs dir = to_list (List.map parse_kind (readdir ~xs dir))
 
+let list_devices ~xs domid =
+	let path = Printf.sprintf "/xapi/%d/private" domid in
+	let kinds = list_kinds ~xs path in
+	List.concat (List.map
+		(fun k ->
+			let dir = sprintf "%s/%s" path (string_of_kind k) in
+			let devids = to_list (List.map parse_int (readdir ~xs dir)) in
+			to_list (List.map
+				(fun devid ->
+					Opt.map
+						(fun backend_kind ->
+							let backend_id = int_of_string (xs.Xs.read (sprintf "%s/%d/backend-id" dir devid)) in
+							let frontend = { domid = domid; kind = k; devid = devid } in
+							let backend = { domid = backend_id; kind = backend_kind; devid = devid } in
+							{ backend = backend; frontend = frontend }
+						)
+					(parse_kind (xs.Xs.read (sprintf "%s/%d/backend-kind" dir devid)))
+				) devids)
+		) kinds
+	)
+
 (* NB: we only read data from the frontend directory. Therefore this gives
    the "frontend's point of view". *)
 let list_frontends ~xs domid = 

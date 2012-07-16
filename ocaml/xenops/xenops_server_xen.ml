@@ -449,7 +449,7 @@ let device_by_id xc xs vm kind domain_selection id =
 			debug "VM = %s; does not exist in domain list" vm;
 			raise (Does_not_exist("domain", vm))
 		| Some frontend_domid ->
-			let devices = Device_common.list_frontends ~xs frontend_domid in
+			let devices = Device_common.list_devices ~xs frontend_domid in
 
 			let key = _device_id kind in
 			let id_of_device device =
@@ -1955,10 +1955,13 @@ module VIF = struct
 					let (d: Device_common.device) = device_by_id xc xs vm Device_common.Vif Newest (id_of vif) in
 					let path = Device_common.kthread_pid_path_of_device ~xs d in
 					let kthread_pid = try xs.Xs.read path |> int_of_string with _ -> 0 in
-					let plugged = Hotplug.device_is_online ~xs d in
+					(* We say the device is present unless it has been deleted
+					   from xenstore. The corrolary is that: only when the device
+					   is finally deleted from xenstore, can we remove bridges or
+					   switch configuration. *)
 					{
-						Vif.plugged = plugged;
-						media_present = plugged;
+						Vif.plugged = true;
+						media_present = true;
 						kthread_pid = kthread_pid
 					}
 				with
