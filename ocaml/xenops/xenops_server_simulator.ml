@@ -365,8 +365,8 @@ module PCI = struct
 end
 
 module VBD = struct
-	let epoch_begin _ (vm: Vm.id) (vbd: Vbd.t) = ()
-	let epoch_end _ (vm: Vm.id) (vbd: Vbd.t) = ()
+	let epoch_begin _ (vm: Vm.id) (disk: disk) = ()
+	let epoch_end _ (vm: Vm.id) (disk: disk) = ()
 	let plug _ (vm: Vm.id) (vbd: Vbd.t) = Mutex.execute m (add_vbd vm vbd)
 	let unplug _ vm vbd _ = Mutex.execute m (remove_vbd vm vbd)
 

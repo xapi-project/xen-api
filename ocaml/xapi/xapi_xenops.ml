@@ -968,7 +968,7 @@ let update_vbd ~__context (id: (string * string)) =
 					debug "VM %s VBD userdevices = [ %s ]" (fst id) (String.concat "; " (List.map (fun (_,r) -> r.API.vBD_userdevice) vbdrs));
 					let vbd, vbd_r = List.find (fun (_, vbdr) -> vbdr.API.vBD_userdevice = linux_device || vbdr.API.vBD_userdevice = disk_number) vbdrs in
 					Opt.iter
-						(fun (_, state) ->
+						(fun (vb, state) ->
 							debug "xenopsd event: Updating VBD %s.%s device <- %s; currently_attached <- %b" (fst id) (snd id) linux_device state.plugged;
 							Db.VBD.set_device ~__context ~self:vbd ~value:linux_device;
 							Db.VBD.set_currently_attached ~__context ~self:vbd ~value:state.plugged;
@@ -1022,10 +1022,13 @@ let update_vif ~__context id =
 					let vifrs = List.map (fun self -> self, Db.VIF.get_record ~__context ~self) vifs in
 					let vif, _ = List.find (fun (_, vifr) -> vifr.API.vIF_device = (snd id)) vifrs in
 					Opt.iter
-						(fun (_, state) ->
-							if not state.plugged
-							then Xapi_network.deregister_vif ~__context vif
-							else begin
+						(fun (vf, state) ->
+							if not state.plugged then begin
+								try
+									Xapi_network.deregister_vif ~__context vif
+								with e ->
+									error "Failed to deregister vif: %s" (Printexc.to_string e)
+							end else begin
 								(* sync MTU *)
 								try
 									let device = "vif" ^ (Int64.to_string (Db.VM.get_domid ~__context ~self:vm)) ^ "." ^ (snd id) in
@@ -1776,12 +1779,15 @@ let vbd_plug ~__context ~self =
 			let vbd = md_of_vbd ~__context ~self in
 			info "xenops: VBD.remove %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
 			let dbg = Context.string_of_task __context in
+			(* Refresh the VBD metadata: *)
 			(try Client.VBD.remove dbg vbd.Vbd.id with Does_not_exist _ -> ());
 			info "xenops: VBD.add %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
 			let id = Client.VBD.add dbg vbd in
 			info "xenops: VBD.plug %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
-			Client.VBD.plug dbg id |> sync_with_task __context;
-			Event.wait dbg ();
+			finally
+				(fun () ->
+					Client.VBD.plug dbg id |> sync_with_task __context;
+				) (fun () -> Event.wait dbg ());
 			assert (Db.VBD.get_currently_attached ~__context ~self)
 		)
 
@@ -1799,10 +1805,7 @@ let vbd_unplug ~__context ~self force =
 				with Device_detach_rejected(_, _, _) ->
 					raise (Api_errors.Server_error(Api_errors.device_detach_rejected, [ "VBD"; Ref.string_of self; "" ]))
 			end;
-			(* We need to make sure VBD.stat still works so: wait before calling VBD.remove *)
 			Event.wait dbg ();
-			info "xenops: VBD.remove %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
-			Client.VBD.remove dbg vbd.Vbd.id;
 			assert (not(Db.VBD.get_currently_attached ~__context ~self))
 		)
 
@@ -1818,14 +1821,18 @@ let vif_plug ~__context ~self =
 			let vif = md_of_vif ~__context ~self in
 			info "xenops: VIF.eject %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
 			let dbg = Context.string_of_task __context in
+			(* Refresh the VIF metadata: *)
 			(try Client.VIF.remove dbg vif.Vif.id with Does_not_exist _ -> ());
 			info "xenops: VIF.add %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
+			let id = Client.VIF.add dbg vif in
 			Xapi_network.with_networks_attached_for_vm ~__context ~vm (fun () ->
-				let id = Client.VIF.add dbg vif in
 				info "xenops: VIF.plug %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
-				Client.VIF.plug dbg id |> sync_with_task __context;
-				Event.wait dbg ();
-				assert (Db.VIF.get_currently_attached ~__context ~self))
+				finally
+					(fun () ->
+						Client.VIF.plug dbg id |> sync_with_task __context;
+					) (fun () -> Event.wait dbg ());
+				assert (Db.VIF.get_currently_attached ~__context ~self)
+			)
 		)
 
 let vm_set_vm_data ~__context ~self =
@@ -1857,8 +1864,6 @@ let vif_unplug ~__context ~self force =
 			Client.VIF.unplug dbg vif.Vif.id force |> sync_with_task __context;
 			(* We need to make sure VIF.stat still works so: wait before calling VIF.remove *)
 			Event.wait dbg ();
-			info "xenops: VIF.remove %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
-			Client.VIF.remove dbg vif.Vif.id;
 			assert (not(Db.VIF.get_currently_attached ~__context ~self))
 		)
 
