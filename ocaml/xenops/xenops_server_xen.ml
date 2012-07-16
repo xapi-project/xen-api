@@ -1488,14 +1488,14 @@ module VBD = struct
 	let device_number_of_device d =
 		Device_number.of_xenstore_key d.Device_common.frontend.Device_common.devid
 
-	let epoch_begin task vm vbd = match vbd.backend with
-		| Some (VDI path) ->
+	let epoch_begin task vm disk = match disk with
+		| VDI path ->
 			let sr, vdi = Storage.get_disk_by_name task path in
 			Storage.epoch_begin task sr vdi
 		| _ -> ()
 
-	let epoch_end task vm vbd = match vbd.backend with
-		| Some (VDI path) ->
+	let epoch_end task vm disk = match disk with
+		| VDI path ->
 			let sr, vdi = Storage.get_disk_by_name task path in
 			Storage.epoch_end task sr vdi
 		| _ -> ()		
@@ -1721,7 +1721,6 @@ module VBD = struct
 					let (device: Device_common.device) = device_by_id xc xs vm Device_common.Vbd Newest (id_of vbd) in
 					let qos_target = get_qos xc xs vm vbd device in
 
-					let plugged = Hotplug.device_is_online ~xs device in
 					let device_number = device_number_of_device device in
 					let domid = device.Device_common.frontend.Device_common.domid in
 					let backend_present =
@@ -1729,7 +1728,7 @@ module VBD = struct
 						then None
 						else Some (vdi_path_of_device ~xs device |> xs.Xs.read |> Jsonrpc.of_string |> disk_of_rpc) in
 					{
-						Vbd.plugged = plugged;
+						Vbd.plugged = true;
 						backend_present;
 						qos_target = qos_target
 					}
