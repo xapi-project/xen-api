@@ -293,8 +293,9 @@ module Protocol = functor(F: FORMAT) -> struct
 	let read_response r s =
 		try
 			match r.Http.Response.content_length with
-				| Some l -> F.response_of_string (Unixext.really_read_string s (Int64.to_int l))
-				| None -> F.response_of_file_descr s
+				| Some l when (Int64.to_int l) <= Sys.max_string_length ->
+					F.response_of_string (Unixext.really_read_string s (Int64.to_int l))
+				| Some _ | None -> F.response_of_file_descr s
 		with
 			| Unix.Unix_error(Unix.ECONNRESET, _, _) -> raise Connection_reset
 
@@ -307,8 +308,6 @@ end
 
 module XML_protocol = Protocol(XML)
 module XMLRPC_protocol = Protocol(XMLRPC)
-
-let read_xml_rpc_response = XML_protocol.read_response
 
 
 
