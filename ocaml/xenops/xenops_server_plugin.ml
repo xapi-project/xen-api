@@ -88,7 +88,7 @@ module type S = sig
 		val set_domain_action_request: Vm.t -> domain_action_request option -> unit
 		val get_domain_action_request: Vm.t -> domain_action_request option
 
-		val generate_state_string: Vm.t -> string
+		val generate_state_string: Vm.t -> Vbd.t list -> Vif.t list -> string
 		val get_internal_state: (string * string) list -> (string * Network.t) list -> Vm.t -> string
 		val set_internal_state: Vm.t -> string -> unit
 
@@ -101,6 +101,7 @@ module type S = sig
 		val get_device_action_request: Vm.id -> Pci.t -> device_action_request option
 	end
 	module VBD : sig
+		val set_active: Xenops_task.t -> Vm.id -> Vbd.t -> bool -> unit
 		val epoch_begin: Xenops_task.t -> Vm.id -> disk -> unit
 		val epoch_end: Xenops_task.t -> Vm.id -> disk -> unit
 		val plug: Xenops_task.t -> Vm.id -> Vbd.t -> unit
@@ -115,6 +116,7 @@ module type S = sig
 		val get_device_action_request: Vm.id -> Vbd.t -> device_action_request option
 	end
 	module VIF : sig
+		val set_active: Xenops_task.t -> Vm.id -> Vif.t -> bool -> unit
 		val plug: Xenops_task.t -> Vm.id -> Vif.t -> unit
 		val unplug: Xenops_task.t -> Vm.id -> Vif.t -> bool -> unit
 		val move: Xenops_task.t -> Vm.id -> Vif.t -> Network.t -> unit
