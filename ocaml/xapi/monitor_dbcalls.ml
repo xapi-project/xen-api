@@ -38,10 +38,11 @@
 module D = Debug.Debugger(struct let name = "monitor_dbcalls" end)
 open D
 
+open Db_filter_types
+open Listext
 open Monitor_types
 open Stringext
-open Listext
-open Db_filter_types
+open Threadext
 
 let i64_of_float f =
 	match classify_float f with
@@ -209,6 +210,7 @@ let get_updates_map = get_updates ~f:(fun k v acc -> (k, v)::acc)
 let get_updates_values = get_updates ~f:(fun _ v acc -> v::acc)
 
 (* A cache mapping PIF names to PIF structures. *)
+let pifs_cached_m : Mutex.t = Mutex.create ()
 let pifs_cached : (string, Monitor_types.pif) Hashtbl.t = Hashtbl.create 10
 let pifs_tmp    : (string, Monitor_types.pif) Hashtbl.t = Hashtbl.create 10
 (* A cache mapping PIF names to bond.links_up. *)
@@ -220,6 +222,13 @@ let vm_memory_tmp    : (string, Int64.t) Hashtbl.t = Hashtbl.create 100
 (* A cache for host's free/total memory. *)
 let host_memory_free_cached : Int64.t ref = ref Int64.zero
 let host_memory_total_cached : Int64.t ref = ref Int64.zero
+
+(* This removes any current cache for the specified pif_name, which forces
+ * fresh metrics for pif_name into xapi's DB. *)
+let clear_cache_for_pif ~pif_name =
+	Mutex.execute pifs_cached_m (fun _ ->
+		Hashtbl.remove pifs_cached pif_name
+	)
 
 let get_host_memory_changes xc =
 	let physinfo = Xenctrl.physinfo xc in
@@ -279,11 +288,13 @@ let get_pif_and_bond_changes () =
 	(* Check if any of the bonds have changed since our last reading. *)
 	let bond_changes = get_updates_map ~before:bonds_links_up_cached ~after:bonds_links_up_tmp in
 	transfer_map ~source:bonds_links_up_tmp ~target:bonds_links_up_cached;
-	(* Check if any of the PIFs have changed since our last reading. *)
-	let pif_changes = get_updates_values ~before:pifs_cached ~after:pifs_tmp in
-	transfer_map ~source:pifs_tmp ~target:pifs_cached;
-	(* Return lists of changes. *)
-	pif_changes, bond_changes
+	Mutex.execute pifs_cached_m (fun _ ->
+		(* Check if any of the PIFs have changed since our last reading. *)
+		let pif_changes = get_updates_values ~before:pifs_cached ~after:pifs_tmp in
+		transfer_map ~source:pifs_tmp ~target:pifs_cached;
+		(* Return lists of changes. *)
+		pif_changes, bond_changes
+	)
 
 (* This function updates the database for all the slowly changing properties
  * of host memory, VM memory, PIFs, and bonds.
