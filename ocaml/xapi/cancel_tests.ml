@@ -319,10 +319,10 @@ let test ({ session_id = session_id; vm = vm; id = id } as env) (op, n) =
 				with _ -> f None
 			) in
 	let running_domain () = domain (function
-		| Some di -> not(di.Xenctrl.paused) && not(di.Xenctrl.shutdown)
+		| Some di -> not(di.Xenctrl.Domain_info.paused) && not(di.Xenctrl.Domain_info.shutdown)
 		| None -> false) in
 	let paused_domain () = domain (function
-		| Some di -> di.Xenctrl.paused && not(di.Xenctrl.shutdown)
+		| Some di -> di.Xenctrl.Domain_info.paused && not(di.Xenctrl.Domain_info.shutdown)
 		| None -> false) in
 	let missing_domain () = domain (function
 		| Some _ -> false
