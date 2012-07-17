@@ -1431,13 +1431,24 @@ let set_resident_on ~__context ~self =
 	(* Any future XenAPI updates will trigger events, but we might have missed one so: *)
 	update_metadata_in_xenopsd ~__context ~self |> ignore
 
+let update_debug_info __context t =
+	let task = Context.get_task_id __context in
+	let debug_info = List.map (fun (k, v) -> "debug_info:" ^ k, v) t.Task.debug_info in
+	List.iter
+		(fun (k, v) ->
+			try
+				Db.Task.add_to_other_config ~__context ~self:task ~key:k ~value:v
+			with e ->
+				debug "Failed to add %s = %s to task %s: %s" k v (Ref.string_of task) (Printexc.to_string e)
+		) debug_info
+
 let sync_with_task __context x =
 	let dbg = Context.string_of_task __context in
-	x |> register_task __context |> wait_for_task dbg |> unregister_task __context |> success_task ignore_task dbg
+	x |> register_task __context |> wait_for_task dbg |> unregister_task __context |> success_task (update_debug_info __context) dbg
 
 let sync __context x =
 	let dbg = Context.string_of_task __context in
-	x |> wait_for_task dbg |> success_task ignore_task dbg
+	x |> wait_for_task dbg |> success_task (update_debug_info __context) dbg
 
 let assert_resident_on ~__context ~self =
 	let localhost = Helpers.get_localhost ~__context in
