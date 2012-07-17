@@ -68,6 +68,10 @@ module Task = functor (Interface : INTERFACE) -> struct
 module D = Debug.Debugger(struct let name = Interface.service_name end)
 open D
 
+module SMap = Map.Make(struct type t = string let compare = compare end)
+
+(* Tasks are stored in an id -> t map *)
+
 (* A task is associated with every running operation *)
 type t = {
 	id: string;                                    (* unique task id *)
@@ -82,11 +86,6 @@ type t = {
 	mutable cancel_points_seen: int;               (* incremented every time we pass a cancellation point *)
 	test_cancel_at: int option;                    (* index of the cancel point to trigger *)
 }
-
-module SMap = Map.Make(struct type t = string let compare = compare end)
-
-(* Tasks are stored in an id -> t map *)
-
 
 type tasks = {
 	tasks : t SMap.t ref;
@@ -115,6 +114,12 @@ let set_cancel_trigger tasks dbg n =
 			tasks.test_cancel_trigger <- Some (dbg, n)
 		)
 
+let clear_cancel_trigger tasks =
+	Mutex.execute tasks.m
+		(fun () ->
+			tasks.test_cancel_trigger <- None
+		)
+
 (* [add dbg f] creates a fresh [t], registers and returns it *)
 let add tasks dbg (f: t -> Interface.Task.async_result option) =
 	let t = {
@@ -129,7 +134,9 @@ let add tasks dbg (f: t -> Interface.Task.async_result option) =
 		cancel = [];
 		cancel_points_seen = 0;
 		test_cancel_at = match tasks.test_cancel_trigger with
-			| Some (dbg', n) when dbg = dbg' -> Some n
+			| Some (dbg', n) when dbg = dbg' ->
+				clear_cancel_trigger tasks; (* one shot *)
+				Some n
 			| _ -> None
 	} in
 	Mutex.execute tasks.m
