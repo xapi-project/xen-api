@@ -343,7 +343,7 @@ module VM = struct
 	let set_domain_action_request vm request = ()
 	let get_domain_action_request vm = Mutex.execute m (get_domain_action_request_nolock vm)
 
-	let generate_state_string vm = ""
+	let generate_state_string vm vbds vifs = ""
 	let get_internal_state vdi_map vif_map vm =
 		let state = Opt.unbox (DB.read vm.Vm.id) in
 		let vbds = List.map (fun vbd -> {vbd with Vbd.backend = Opt.map (remap_vdi vdi_map) vbd.Vbd.backend}) state.Domain.vbds in
@@ -365,6 +365,7 @@ module PCI = struct
 end
 
 module VBD = struct
+	let set_active _ (vm: Vm.id) (vbd: Vbd.t) (b: bool) = ()
 	let epoch_begin _ (vm: Vm.id) (disk: disk) = ()
 	let epoch_end _ (vm: Vm.id) (disk: disk) = ()
 	let plug _ (vm: Vm.id) (vbd: Vbd.t) = Mutex.execute m (add_vbd vm vbd)
@@ -381,6 +382,7 @@ module VBD = struct
 end
 
 module VIF = struct
+	let set_active _ (vm: Vm.id) (vif: Vif.t) (b: bool) = ()
 	let plug _ vm vif = Mutex.execute m (add_vif vm vif)
 	let unplug _ vm vif _ = Mutex.execute m (remove_vif vm vif)
 	let move _ vm vif network = Mutex.execute m (move_vif vm vif network)

@@ -400,16 +400,16 @@ open Fun
 
 (* If a VM was suspended pre-xenopsd it won't have a last_booted_record of the format understood by xenopsd. *)
 (* If we can parse the last_booted_record according to the old syntax, update it before attempting to resume. *)
-let generate_xenops_state ~__context ~self ~vm ~vbds ~pcis =
+let generate_xenops_state ~__context ~self ~vm ~vbds ~currently_attached_vbds ~currently_attached_vifs ~pcis =
 	try
 		let vm_to_resume = {
 			(Helpers.parse_boot_record vm.API.vM_last_booted_record) with
 			API.vM_VBDs = vm.API.vM_VBDs
 		} in
 		debug "Successfully parsed old last_booted_record format - translating to new format so that xenopsd can resume the VM.";
-		let md = MD.of_vm ~__context (self, vm_to_resume) vbds (pcis <> []) in
+		let vm = MD.of_vm ~__context (self, vm_to_resume) vbds (pcis <> []) in
 		let dbg = Context.string_of_task __context in
-		Client.VM.generate_state_string dbg md
+		Client.VM.generate_state_string dbg vm currently_attached_vbds currently_attached_vifs
 	with Xml.Error _ ->
 		debug "last_booted_record is not of the old format, so we should be able to resume the VM.";
 		vm.API.vM_last_booted_record
@@ -418,17 +418,26 @@ let generate_xenops_state ~__context ~self ~vm ~vbds ~pcis =
 let create_metadata ~__context ~upgrade ~self =
 	let vm = Db.VM.get_record ~__context ~self in
 	let vbds = List.map (fun self -> Db.VBD.get_record ~__context ~self) vm.API.vM_VBDs in
+	let vbds' = List.map (fun vbd -> MD.of_vbd ~__context ~vm ~vbd) vbds in
 	let vifs = List.map (fun self -> Db.VIF.get_record ~__context ~self) vm.API.vM_VIFs in
+	let vifs' = List.map (fun vif -> MD.of_vif ~__context ~vm ~vif) vifs in
 	let pcis = MD.pcis_of_vm ~__context (self, vm) in
 	let domains =
 		(* For suspended VMs, we may need to translate the last_booted_record from the old format. *)
-		if vm.API.vM_power_state = `Suspended || upgrade
-		then Some (generate_xenops_state ~__context ~self ~vm ~vbds ~pcis)
-		else None in
+		if vm.API.vM_power_state = `Suspended || upgrade then begin
+			(* We need to recall the currently_attached devices *)
+			let currently_attached_vbds =
+				List.filter (fun (vbd, _) -> vbd.API.vBD_currently_attached) (List.combine vbds vbds')
+				|> List.map snd in
+			let currently_attached_vifs =
+				List.filter (fun (vif, _) -> vif.API.vIF_currently_attached) (List.combine vifs vifs')
+				|> List.map snd in
+			Some(generate_xenops_state ~__context ~self ~vm ~vbds ~currently_attached_vbds ~currently_attached_vifs ~pcis)
+		end else None in
 	let open Metadata in {
 		vm = MD.of_vm ~__context (self, vm) vbds (pcis <> []);
-		vbds = List.map (fun vbd -> MD.of_vbd ~__context ~vm ~vbd) vbds;
-		vifs = List.map (fun vif -> MD.of_vif ~__context ~vm ~vif) vifs;
+		vbds = vbds';
+		vifs = vifs';
 		pcis = pcis;
 		domains = domains
 	}
@@ -971,7 +980,7 @@ let update_vbd ~__context (id: (string * string)) =
 						(fun (vb, state) ->
 							debug "xenopsd event: Updating VBD %s.%s device <- %s; currently_attached <- %b" (fst id) (snd id) linux_device state.plugged;
 							Db.VBD.set_device ~__context ~self:vbd ~value:linux_device;
-							Db.VBD.set_currently_attached ~__context ~self:vbd ~value:state.plugged;
+							Db.VBD.set_currently_attached ~__context ~self:vbd ~value:(state.plugged || state.active);
 							if state.plugged then begin
 								match state.backend_present with
 									| Some (VDI x) ->
@@ -1039,7 +1048,7 @@ let update_vif ~__context id =
 									debug "could not update MTU field on VIF %s.%s" (fst id) (snd id)
 							end;
 							debug "xenopsd event: Updating VIF %s.%s currently_attached <- %b" (fst id) (snd id) state.plugged;
-							Db.VIF.set_currently_attached ~__context ~self:vif ~value:state.plugged
+							Db.VIF.set_currently_attached ~__context ~self:vif ~value:(state.plugged || state.active)
 						) info;
 					Xenops_cache.update_vif id (Opt.map snd info);
 					Xapi_vif_helpers.update_allowed_operations ~__context ~self:vif

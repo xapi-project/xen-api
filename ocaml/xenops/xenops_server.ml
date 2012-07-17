@@ -69,6 +69,7 @@ type atomic =
 	| VIF_move of Vif.id * Network.t
 	| VIF_set_carrier of Vif.id * bool
 	| VIF_set_locking_mode of Vif.id * Vif.locking_mode
+	| VIF_set_active of Vif.id * bool
 	| VM_hook_script of (Vm.id * Xenops_hooks.script * string)
 	| VBD_plug of Vbd.id
 	| VBD_epoch_begin of (Vbd.id * disk)
@@ -76,6 +77,7 @@ type atomic =
 	| VBD_set_qos of Vbd.id
 	| VBD_unplug of Vbd.id * bool
 	| VBD_insert of Vbd.id * disk
+	| VBD_set_active of Vbd.id * bool
 	| VM_remove of Vm.id
 	| PCI_plug of Pci.id
 	| PCI_unplug of Pci.id
@@ -112,6 +114,10 @@ type operation =
 	| VM_restore_devices of Vm.id
 	| VM_migrate of (Vm.id * (string * string) list * (string * Network.t) list * string)
 	| VM_receive_memory of (Vm.id * int64 * Unix.file_descr)
+	| VBD_hotplug of Vbd.id
+	| VBD_hotunplug of Vbd.id * bool
+	| VIF_hotplug of Vbd.id
+	| VIF_hotunplug of Vbd.id * bool
 	| VM_check_state of Vm.id
 	| PCI_check_state of Pci.id
 	| VBD_check_state of Vbd.id
@@ -734,10 +740,14 @@ let rec atomics_of_operation = function
 			VM_hook_script(id, Xenops_hooks.VM_pre_start, Xenops_hooks.reason__none);
 			VM_create (id, None);
 			VM_build id;
-		] @ (List.concat (List.map (fun vbd -> Opt.default [] (Opt.map (fun x -> [ VBD_epoch_begin (vbd.Vbd.id, x) ]) vbd.Vbd.backend))
+		] @ (List.map (fun vbd -> VBD_set_active (vbd.Vbd.id, true))
+			(VBD_DB.vbds id)
+		) @	(List.concat (List.map (fun vbd -> Opt.default [] (Opt.map (fun x -> [ VBD_epoch_begin (vbd.Vbd.id, x) ]) vbd.Vbd.backend))
 			(VBD_DB.vbds id)
 		)) @ (List.map (fun vbd -> VBD_plug vbd.Vbd.id)
 			(VBD_DB.vbds id |> vbd_plug_order)
+		) @ (List.map (fun vif -> VIF_set_active (vif.Vif.id, true))
+			(VIF_DB.vifs id)
 		) @ (List.map (fun vif -> VIF_plug vif.Vif.id)
 			(VIF_DB.vifs id |> vif_plug_order)
 		) @ [
@@ -796,7 +806,11 @@ let rec atomics_of_operation = function
 		] @ (atomics_of_operation (VM_shutdown (id, timeout))
 		) @ (List.concat (List.map (fun vbd -> Opt.default [] (Opt.map (fun x -> [ VBD_epoch_end (vbd.Vbd.id, x)] ) vbd.Vbd.backend))
 			(VBD_DB.vbds id)
-		)) @ [
+		)) @ (List.map (fun vbd -> VBD_set_active (vbd.Vbd.id, false))
+			(VBD_DB.vbds id)
+		) @ (List.map (fun vif -> VIF_set_active (vif.Vif.id, false))
+			(VIF_DB.vifs id)
+		) @ [
 			VM_hook_script(id, Xenops_hooks.VM_post_destroy, reason)
 		]
 	| VM_reboot (id, timeout) ->
@@ -813,7 +827,7 @@ let rec atomics_of_operation = function
 		)) @ [
 			VM_hook_script(id, Xenops_hooks.VM_post_destroy, reason);
 			VM_hook_script(id, Xenops_hooks.VM_pre_reboot, Xenops_hooks.reason__none)
-		] @ (atomics_of_operation (VM_start id)
+        ] @ (atomics_of_operation (VM_start id)
 		) @ [
 			VM_unpause id;
 		]
@@ -833,6 +847,26 @@ let rec atomics_of_operation = function
 		) @ [
 			(* At this point the domain is considered survivable. *)
 			VM_set_domain_action_request(id, None)			
+		]
+	| VBD_hotplug id ->
+		[
+			VBD_set_active (id, true);
+			VBD_plug id
+		]
+	| VBD_hotunplug (id, force) ->
+		[
+			VBD_unplug (id, force);
+			VBD_set_active (id, false);
+		]
+	| VIF_hotplug id ->
+		[
+			VIF_set_active (id, true);
+			VIF_plug id
+		]
+	| VIF_hotunplug (id, force) ->
+		[
+			VIF_unplug (id, force);
+			VIF_set_active (id, false);
 		]
 	| _ -> []
 
@@ -868,11 +902,19 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 				(fun () ->
 					B.VIF.set_locking_mode t (VIF_DB.vm_of id) (VIF_DB.read_exn id) mode;
 				) (fun () -> VIF_DB.signal id)
+		| VIF_set_active (id, b) ->
+			debug "VIF.set_active %s %b" (VIF_DB.string_of_id id) b;
+			B.VIF.set_active t (VIF_DB.vm_of id) (VIF_DB.read_exn id) b;
+			VIF_DB.signal id
 		| VM_hook_script(id, script, reason) ->
 			Xenops_hooks.vm ~script ~reason ~id
 		| VBD_plug id ->
 			debug "VBD.plug %s" (VBD_DB.string_of_id id);
 			B.VBD.plug t (VBD_DB.vm_of id) (VBD_DB.read_exn id);
+			VBD_DB.signal id
+		| VBD_set_active (id, b) ->
+			debug "VBD.set_active %s %b" (VBD_DB.string_of_id id) b;
+			B.VBD.set_active t (VBD_DB.vm_of id) (VBD_DB.read_exn id) b;
 			VBD_DB.signal id
 		| VBD_epoch_begin (id, disk) ->
 			debug "VBD.epoch_begin %s" (disk |> rpc_of_disk |> Jsonrpc.to_string);
@@ -1071,9 +1113,18 @@ and trigger_cleanup_after_failure op t = match op with
 	| VM_receive_memory (id, _, _) ->
 		immediate_operation t.Xenops_task.dbg id (VM_check_state id);
 
+	| VBD_hotplug id
+	| VBD_hotunplug (id, _) ->
+		immediate_operation t.Xenops_task.dbg (fst id) (VBD_check_state id)
+
+	| VIF_hotplug id
+	| VIF_hotunplug (id, _) ->
+		immediate_operation t.Xenops_task.dbg (fst id) (VIF_check_state id)
+
 	| Atomic op -> begin match op with
 		| VBD_eject id
 		| VBD_plug id
+		| VBD_set_active (id, _)
 		| VBD_epoch_begin (id, _)
 		| VBD_epoch_end (id, _)
 		| VBD_set_qos id
@@ -1082,6 +1133,7 @@ and trigger_cleanup_after_failure op t = match op with
 			immediate_operation t.Xenops_task.dbg (fst id) (VBD_check_state id)
 
 		| VIF_plug id
+		| VIF_set_active (id, _)
 		| VIF_unplug (id, _)
 		| VIF_move (id, _)
 		| VIF_set_carrier (id, _)
@@ -1145,6 +1197,18 @@ and perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			debug "VM.resume %s" id;
 			perform_atomics (atomics_of_operation op) t;
 			VM_DB.signal id
+		| VBD_hotplug id ->
+			debug "VBD_hotplug %s.%s" (fst id) (snd id);
+			perform_atomics (atomics_of_operation op) t
+		| VBD_hotunplug (id, force) ->
+			debug "VBD_hotplug %s.%s %b" (fst id) (snd id) force;
+			perform_atomics (atomics_of_operation op) t
+		| VIF_hotplug id ->
+			debug "VIF_hotplug %s.%s" (fst id) (snd id);
+			perform_atomics (atomics_of_operation op) t
+		| VIF_hotunplug (id, force) ->
+			debug "VIF_hotplug %s.%s %b" (fst id) (snd id) force;
+			perform_atomics (atomics_of_operation op) t
 		| VM_migrate (id, vdi_map, vif_map, url') ->
 			debug "VM.migrate %s -> %s" id url';
 			let vm = VM_DB.read_exn id in
@@ -1276,7 +1340,7 @@ and perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 					[] in
 			let operations_of_action = function
 				| Vm.Coredump -> []
-				| Vm.Shutdown -> [ VM_poweroff (id, None) ]
+				| Vm.Shutdown -> [ VM_shutdown (id, None) ]
 				| Vm.Start    ->
 					let delay = if run_time < B.VM.minimum_reboot_delay then begin
 						debug "VM %s rebooted too quickly; inserting delay" id;
@@ -1422,8 +1486,8 @@ module VBD = struct
 		Debug.with_thread_associated dbg
 			(fun () -> add' x ) ()
 
-	let plug _ dbg id = queue_operation dbg (DB.vm_of id) (Atomic(VBD_plug id))
-	let unplug _ dbg id force = queue_operation dbg (DB.vm_of id) (Atomic(VBD_unplug (id, force)))
+	let plug _ dbg id = queue_operation dbg (DB.vm_of id) (VBD_hotplug id)
+	let unplug _ dbg id force = queue_operation dbg (DB.vm_of id) (VBD_hotunplug (id, force))
 
 	let insert _ dbg id disk = queue_operation dbg (DB.vm_of id) (Atomic(VBD_insert(id, disk)))
 	let eject _ dbg id = queue_operation dbg (DB.vm_of id) (Atomic(VBD_eject id))
@@ -1433,6 +1497,7 @@ module VBD = struct
 		if (B.VBD.get_state (DB.vm_of id) (VBD_DB.read_exn id)).Vbd.plugged
 		then raise (Device_is_connected)
 		else (DB.remove id)
+
 	let remove _ dbg id =
 		Debug.with_thread_associated dbg
 			(fun () -> remove' id ) ()
@@ -1479,8 +1544,8 @@ module VIF = struct
 	let add _ dbg x =
 		Debug.with_thread_associated dbg (fun () -> add' x) ()
 
-	let plug _ dbg id = queue_operation dbg (DB.vm_of id) (Atomic (VIF_plug id)) 
-	let unplug _ dbg id force = queue_operation dbg (DB.vm_of id) (Atomic (VIF_unplug (id, force))) 
+	let plug _ dbg id = queue_operation dbg (DB.vm_of id) (VIF_hotplug id) 
+	let unplug _ dbg id force = queue_operation dbg (DB.vm_of id) (VIF_hotunplug (id, force))
 	let move _ dbg id network = queue_operation dbg (DB.vm_of id) (Atomic (VIF_move (id, network)))
 	let set_carrier _ dbg id carrier = queue_operation dbg (DB.vm_of id) (Atomic (VIF_set_carrier (id, carrier)))
 	let set_locking_mode _ dbg id carrier = queue_operation dbg (DB.vm_of id) (Atomic (VIF_set_locking_mode (id, carrier)))
@@ -1611,9 +1676,9 @@ module VM = struct
 
 	let migrate context dbg id vdi_map vif_map url = queue_operation dbg id (VM_migrate (id, vdi_map, vif_map, url))
 
-	let generate_state_string _ dbg vm =
+	let generate_state_string _ dbg vm vbds vifs =
 		let module B = (val get_backend () : S) in
-		B.VM.generate_state_string vm
+		B.VM.generate_state_string vm vbds vifs
 
 	let export_metadata _ dbg id = export_metadata [] [] id
 
