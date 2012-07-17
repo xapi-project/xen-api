@@ -80,10 +80,10 @@ let get_rrd_updates_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
 		~version:"1.1" ~keep_alive:false () in
 	let headers =
 		if json then headers else headers @ [Http.Hdr.content_type ^ ": text/xml"] in
-	let headers = [
+	let headers = headers @ [
 		"Access-Control-Allow-Origin: *";
 		"Access-Control-Allow-Headers: X-Requested-With";
-	] @ headers in
+	] in
 	Http_svr.headers s headers;
 	ignore (Unix.write s reply 0 (String.length reply))
 
