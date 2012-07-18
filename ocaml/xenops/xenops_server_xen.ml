@@ -2089,8 +2089,7 @@ let watch_xenstore () =
 				(* Anyone blocked on a domain/device operation which won't happen because the domain
 				   just shutdown should be cancelled here. *)
 				debug "Cancelling watches for: domid %d" domid;
-				let devices = try IntMap.find domid !watches with Not_found -> [] in
-				Cancel_utils.on_shutdown ~xs domid devices in
+				Cancel_utils.on_shutdown ~xs domid in
 
 			let add_device_watch xs device =
 				let open Device_common in
