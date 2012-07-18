@@ -177,6 +177,7 @@ let make ~xc ~xs vm_info uuid =
 		let rwperm = Xenbus_utils.rwperm_for_guest domid in
 		debug "VM = %s; creating xenstored tree: %s" (Uuid.to_string uuid) dom_path;
 
+		let create_time = Oclock.gettime Oclock.monotonic in
 		Xs.transaction xs (fun t ->
 			(* Clear any existing rubbish in xenstored *)
 			t.Xst.rm dom_path;
@@ -194,6 +195,7 @@ let make ~xc ~xs vm_info uuid =
 				];
 			end;
 			t.Xst.write (Printf.sprintf "%s/domains/%d" vm_path domid) dom_path;
+			t.Xst.write (Printf.sprintf "%s/domains/%d/create-time" vm_path domid) (Int64.to_string create_time);
 
 			t.Xst.rm vss_path;
 			t.Xst.mkdir vss_path;
