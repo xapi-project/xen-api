@@ -11,29 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU Lesser General Public License for more details.
  *)
-(** Monitor DB calls
- * @group Performance Monitoring
- *)
-
-(** Here is where all of the calls that touch the database live. There
- * is a thread that sits waiting for the monitor_rrd module (or
- * xapi_pif module) to wake it up so that it writes into the
- * database. We don't particularly care if the db calls block for a
- * while as if the master isn't responding, your problems are larger
- * than having an out-of-date value for the host's memory.
- *
- * The key thing in this module is to know when to push data from the
- * cache into the database. This is usually triggered by edge detection
- * code in monitor_rrds which notices when a value has changed between
- * the last call and the current one. This falls apart when e.g. we've
- * gathered PIF info for an interface that isn't in the database - we
- * try try to update the database with the information and the object
- * isn't there. We don't try to re-issue the db call, so if the PIF is
- * later introduced, it will never get updated with the cached
- * information. In this particular case, we fix this by forcing an
- * update from xapi_pif.ml - but it's important to keep this in mind
- * because it will be quite easy for this code to get out of sync.
- *)
 
 module D = Debug.Debugger(struct let name = "monitor_dbcalls" end)
 open D
@@ -226,13 +203,9 @@ let host_memory_m : Mutex.t = Mutex.create ()
 let host_memory_free_cached : Int64.t ref = ref Int64.zero
 let host_memory_total_cached : Int64.t ref = ref Int64.zero
 
-(* This removes any current cache for the specified pif_name, which forces
- * fresh metrics for pif_name into xapi's database. *)
 let clear_cache_for_pif ~pif_name =
 	Mutex.execute pifs_cached_m (fun _ -> Hashtbl.remove pifs_cached pif_name)
 
-(* Clear the whole cache. This forces fresh metrics to be written into xapi's
- * database. *)
 let clear_cache () =
 	let safe_clear ~cache ~lock =
 		Mutex.execute lock (fun _ -> Hashtbl.clear cache) in
