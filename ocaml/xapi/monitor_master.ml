@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2012 Citrix Systems Inc.
+ * Copyright (C) Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -11,8 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU Lesser General Public License for more details.
  *)
-(**
- * @group Performance Monitoring
+
+(** Pushing object properties to database.
+ * @group Property Monitoring
  *)
 
 open Fun
