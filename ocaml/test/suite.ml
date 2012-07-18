@@ -48,11 +48,19 @@ let test_mock_db () =
 	let blob_name = Db.Blob.get_name_label ~__context ~self:blob_ref in
 	assert_equal blob_name "BLOB"
 
+let test_assert_licensed_storage_motion () = skip "TODO" ;
+	let db = MockDatabase.make () in
+	let __context = MockContext.make ~database:db "Mock context" in
+	let licensed = try Xapi_vm_migrate.assert_licensed_storage_motion ~__context; true
+	with _ -> false in
+	assert_bool "Not licensed for SXM" licensed
+
 let test_suite = "test_suit" >:::
 	[
 		"test_always_pass" >:: test_always_pass ;
 		"test_always_fail" >:: test_always_fail ;
 		"test_mock_db" >:: test_mock_db ;
+		"test_assert_licensed_storage_motion" >:: test_assert_licensed_storage_motion ;
 	]
 
 let _ = run_test_tt_main test_suite
