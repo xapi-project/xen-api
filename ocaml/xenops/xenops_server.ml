@@ -1307,15 +1307,15 @@ module PCI = struct
 	let add _ dbg x =
 		Debug.with_thread_associated dbg (fun () -> add' x) ()
 
+	let remove' id =
+		debug "PCI.remove %s" (string_of_id id);
+		let module B = (val get_backend () : S) in
+		if (B.PCI.get_state (DB.vm_of id) (PCI_DB.read_exn id)).Pci.plugged
+		then raise (Device_is_connected)
+		else (DB.remove id)
 	let remove _ dbg id =
 		Debug.with_thread_associated dbg
-			(fun () ->
-				debug "PCI.remove %s" (string_of_id id);
-				let module B = (val get_backend () : S) in
-				if (B.PCI.get_state (DB.vm_of id) (PCI_DB.read_exn id)).Pci.plugged
-				then raise (Device_is_connected)
-				else (DB.remove id)
-			) ()
+			(fun () -> remove' id ) ()
 
 	let stat' id =
 		debug "PCI.stat %s" (string_of_id id);
@@ -1359,15 +1359,15 @@ module VBD = struct
 
 	let insert _ dbg id disk = queue_operation dbg (DB.vm_of id) (Atomic(VBD_insert(id, disk)))
 	let eject _ dbg id = queue_operation dbg (DB.vm_of id) (Atomic(VBD_eject id))
+	let remove' id =
+		debug "VBD.remove %s" (string_of_id id);
+		let module B = (val get_backend () : S) in
+		if (B.VBD.get_state (DB.vm_of id) (VBD_DB.read_exn id)).Vbd.plugged
+		then raise (Device_is_connected)
+		else (DB.remove id)
 	let remove _ dbg id =
 		Debug.with_thread_associated dbg
-			(fun () ->
-				debug "VBD.remove %s" (string_of_id id);
-				let module B = (val get_backend () : S) in
-				if (B.VBD.get_state (DB.vm_of id) (VBD_DB.read_exn id)).Vbd.plugged
-				then raise (Device_is_connected)
-				else (DB.remove id)
-			) ()
+			(fun () -> remove' id ) ()
 
 	let stat' id =
 		debug "VBD.stat %s" (string_of_id id);
@@ -1417,15 +1417,15 @@ module VIF = struct
 	let set_carrier _ dbg id carrier = queue_operation dbg (DB.vm_of id) (Atomic (VIF_set_carrier (id, carrier)))
 	let set_locking_mode _ dbg id carrier = queue_operation dbg (DB.vm_of id) (Atomic (VIF_set_locking_mode (id, carrier)))
 
+	let remove' id =
+		debug "VIF.remove %s" (string_of_id id);
+		let module B = (val get_backend () : S) in
+		if (B.VIF.get_state (DB.vm_of id) (VIF_DB.read_exn id)).Vif.plugged
+		then raise (Device_is_connected)
+		else (DB.remove id)
 	let remove _ dbg id =
 		Debug.with_thread_associated dbg
-			(fun () ->
-				debug "VIF.remove %s" (string_of_id id);
-				let module B = (val get_backend () : S) in
-				if (B.VIF.get_state (DB.vm_of id) (VIF_DB.read_exn id)).Vif.plugged
-				then raise (Device_is_connected)
-				else (DB.remove id)
-			) ()
+			(fun () -> remove' id) ()
 
 	let stat' id =
 		debug "VIF.stat %s" (string_of_id id);
@@ -1563,6 +1563,18 @@ module VM = struct
 				let vbds = List.map (fun x -> { x with Vbd.id = (vm, snd x.Vbd.id) }) md.Metadata.vbds in
 				let vifs = List.map (fun x -> { x with Vif.id = (vm, snd x.Vif.id) }) md.Metadata.vifs in
 				let pcis = List.map (fun x -> { x with Pci.id = (vm, snd x.Pci.id) }) md.Metadata.pcis in
+
+				(* Remove any VBDs, VIFs and PCIs not passed in - they must have been destroyed in the higher level *)
+
+				let gc old cur remove =
+				    let to_remove = List.set_difference old cur in
+                    List.iter remove to_remove
+                in
+
+				gc (VBD_DB.ids id) (List.map (fun x -> x.Vbd.id) vbds) (VBD.remove');
+				gc (VIF_DB.ids id) (List.map (fun x -> x.Vif.id) vifs) (VIF.remove');
+				gc (PCI_DB.ids id) (List.map (fun x -> x.Pci.id) pcis) (PCI.remove');
+
 				let (_: Vbd.id list) = List.map VBD.add' vbds in
 				let (_: Vif.id list) = List.map VIF.add' vifs in
 				let (_: Pci.id list) = List.map PCI.add' pcis in
