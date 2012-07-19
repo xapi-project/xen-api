@@ -12,10 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(** Pushing object properties to database.
- * @group Property Monitoring
- *)
-
 open Fun
 open Listext
 open Threadext
