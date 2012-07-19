@@ -214,34 +214,20 @@ let pifs_cached_m : Mutex.t = Mutex.create ()
 let pifs_cached : (string, Monitor_types.pif) Hashtbl.t = Hashtbl.create 10
 let pifs_tmp    : (string, Monitor_types.pif) Hashtbl.t = Hashtbl.create 10
 (* A cache mapping PIF names to bond.links_up. *)
-let bonds_links_up_cached_m : Mutex.t = Mutex.create ()
 let bonds_links_up_cached : (string, int) Hashtbl.t = Hashtbl.create 10
 let bonds_links_up_tmp    : (string, int) Hashtbl.t = Hashtbl.create 10
 (* A cache mapping vm_uuids to actual memory. *)
-let vm_memory_cached_m : Mutex.t = Mutex.create ()
 let vm_memory_cached : (string, Int64.t) Hashtbl.t = Hashtbl.create 100
 let vm_memory_tmp    : (string, Int64.t) Hashtbl.t = Hashtbl.create 100
 (* A cache for host's free/total memory. *)
-let host_memory_m : Mutex.t = Mutex.create ()
 let host_memory_free_cached : Int64.t ref = ref Int64.zero
 let host_memory_total_cached : Int64.t ref = ref Int64.zero
 
 (* This removes any current cache for the specified pif_name, which forces
- * fresh metrics for pif_name into xapi's database. *)
+ * fresh metrics for pif_name into xapi's DB. *)
 let clear_cache_for_pif ~pif_name =
-	Mutex.execute pifs_cached_m (fun _ -> Hashtbl.remove pifs_cached pif_name)
-
-(* Clear the whole cache. This forces fresh metrics to be written into xapi's
- * database. *)
-let clear_cache () =
-	let safe_clear ~cache ~lock =
-		Mutex.execute lock (fun _ -> Hashtbl.clear cache) in
-	safe_clear ~cache:pifs_cached ~lock:pifs_cached_m;
-	safe_clear ~cache:bonds_links_up_cached ~lock:bonds_links_up_cached_m;
-	safe_clear ~cache:vm_memory_cached ~lock:vm_memory_cached_m;
-	Mutex.execute host_memory_m (fun _ ->
-		host_memory_free_cached := Int64.zero;
-		host_memory_total_cached := Int64.zero;
+	Mutex.execute pifs_cached_m (fun _ ->
+		Hashtbl.remove pifs_cached pif_name
 	)
 
 let get_host_memory_changes xc =
@@ -252,15 +238,13 @@ let get_host_memory_changes xc =
 	in
 	let free_bytes = bytes_of_pages physinfo.Xenctrl.Phys_info.free_pages in
 	let total_bytes = bytes_of_pages physinfo.Xenctrl.Phys_info.total_pages in
-	Mutex.execute host_memory_m (fun _ ->
-		let host_memory_changed =
-			!host_memory_free_cached <> free_bytes ||
-			!host_memory_total_cached <> total_bytes
-		in
-		host_memory_free_cached := free_bytes;
-		host_memory_total_cached := total_bytes;
-		if host_memory_changed then Some (free_bytes, total_bytes) else None
-	)
+	let host_memory_changed =
+		!host_memory_free_cached <> free_bytes ||
+		!host_memory_total_cached <> total_bytes
+	in
+	host_memory_free_cached := free_bytes;
+	host_memory_total_cached := total_bytes;
+	if host_memory_changed then Some (free_bytes, total_bytes) else None
 
 let get_vm_memory_changes xc =
 	let domains = Xenctrl.domain_getinfolist xc 0 in
@@ -272,12 +256,10 @@ let get_vm_memory_changes xc =
 		Hashtbl.add vm_memory_tmp uuid memory
 	in
 	List.iter process_vm domains;
-	Mutex.execute vm_memory_cached_m (fun _ ->
-		let changed_vm_memory =
-			get_updates_map ~before:vm_memory_cached ~after:vm_memory_tmp in
-		transfer_map ~source:vm_memory_tmp ~target:vm_memory_cached;
-		changed_vm_memory
-	)
+	let changed_vm_memory =
+		get_updates_map ~before:vm_memory_cached ~after:vm_memory_tmp in
+	transfer_map ~source:vm_memory_tmp ~target:vm_memory_cached;
+	changed_vm_memory
 
 let get_pif_and_bond_changes () =
 	(* Read fresh PIF information from networkd. *)
@@ -304,20 +286,15 @@ let get_pif_and_bond_changes () =
 		)
 	) stats;
 	(* Check if any of the bonds have changed since our last reading. *)
-	let bond_changes = Mutex.execute bonds_links_up_cached_m (fun _ ->
-		let changes =
-			get_updates_map ~before:bonds_links_up_cached ~after:bonds_links_up_tmp in
-		transfer_map ~source:bonds_links_up_tmp ~target:bonds_links_up_cached;
-		changes
-	) in
-	(* Check if any of the PIFs have changed since our last reading. *)
-	let pif_changes = Mutex.execute pifs_cached_m (fun _ ->
-		let changes = get_updates_values ~before:pifs_cached ~after:pifs_tmp in
+	let bond_changes = get_updates_map ~before:bonds_links_up_cached ~after:bonds_links_up_tmp in
+	transfer_map ~source:bonds_links_up_tmp ~target:bonds_links_up_cached;
+	Mutex.execute pifs_cached_m (fun _ ->
+		(* Check if any of the PIFs have changed since our last reading. *)
+		let pif_changes = get_updates_values ~before:pifs_cached ~after:pifs_tmp in
 		transfer_map ~source:pifs_tmp ~target:pifs_cached;
-		changes
-	) in
-	(* Return lists of changes. *)
-	pif_changes, bond_changes
+		(* Return lists of changes. *)
+		pif_changes, bond_changes
+	)
 
 (* This function updates the database for all the slowly changing properties
  * of host memory, VM memory, PIFs, and bonds.
