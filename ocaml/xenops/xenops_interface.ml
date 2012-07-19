@@ -357,7 +357,7 @@ module VM = struct
 	external add: debug_info -> Vm.t -> Vm.id = ""
 	external remove: debug_info -> Vm.id -> unit = ""
 
-	external generate_state_string: debug_info -> Vm.t -> Vbd.t list -> Vif.t list -> string = ""
+	external generate_state_string: debug_info -> Vm.t -> string = ""
 
 	external migrate: debug_info -> Vm.id -> (string * string) list -> (string * Network.t) list -> string -> Task.id = ""
 

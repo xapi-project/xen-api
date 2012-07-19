@@ -782,8 +782,12 @@ let rec atomics_of_operation = function
 		]
 	| VM_restore_devices id ->
 		[
-		] @ (List.map (fun vbd -> VBD_plug vbd.Vbd.id)
+		] @ (List.map (fun vbd -> VBD_set_active (vbd.Vbd.id, true))
+			(VBD_DB.vbds id)
+		) @ (List.map (fun vbd -> VBD_plug vbd.Vbd.id)
 			(VBD_DB.vbds id |> vbd_plug_order)
+		) @ (List.map (fun vif -> VIF_set_active (vif.Vif.id, true))
+			(VIF_DB.vifs id)
 		) @ (List.map (fun vif -> VIF_plug vif.Vif.id)
 			(VIF_DB.vifs id |> vif_plug_order)
 		) @ [
@@ -1676,9 +1680,9 @@ module VM = struct
 
 	let migrate context dbg id vdi_map vif_map url = queue_operation dbg id (VM_migrate (id, vdi_map, vif_map, url))
 
-	let generate_state_string _ dbg vm vbds vifs =
+	let generate_state_string _ dbg vm =
 		let module B = (val get_backend () : S) in
-		B.VM.generate_state_string vm vbds vifs
+		B.VM.generate_state_string vm
 
 	let export_metadata _ dbg id = export_metadata [] [] id
 
