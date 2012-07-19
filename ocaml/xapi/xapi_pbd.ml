@@ -106,6 +106,7 @@ let check_sharing_constraint ~__context ~self =
 module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end)
 
 let plug ~__context ~self =
+	TaskHelper.set_not_cancellable ~__context;
 	(* It's possible to end up with a PBD being plugged after "unbind" is
 	   called if SR.create races with a PBD.plug (see Storage_access.create_sr)
 	   Since "bind" is idempotent it is safe to always call it. *)
@@ -130,6 +131,7 @@ let plug ~__context ~self =
 			end
 
 let unplug ~__context ~self =
+	TaskHelper.set_not_cancellable ~__context;
 	let currently_attached = Db.PBD.get_currently_attached ~__context ~self in
 	if currently_attached then
 		begin
