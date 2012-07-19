@@ -80,7 +80,10 @@ let pool_migrate ~__context ~vm ~host ~options =
 				(* XXX: PR-1255: the live flag *)
 				info "xenops: VM.migrate %s to %s" vm' xenops_url;
 				XenopsAPI.VM.migrate dbg vm' [] [] xenops_url |> wait_for_task dbg |> success_task dbg |> ignore;
-				(try XenopsAPI.VM.remove dbg vm' with e -> debug "xenops: VM.remove %s: caught %s" vm' (Printexc.to_string e));
+				(* Delete all record of this VM locally (including caches) *)
+				Xapi_xenops.Xenopsd_metadata.delete ~__context vm';
+				(* Flush xenopsd events through: we don't want the pool database to
+				   be updated on this host ever again. *)
 				Xapi_xenops.Event.wait dbg ()
 			)
 		);
@@ -90,14 +93,10 @@ let pool_migrate ~__context ~vm ~host ~options =
 		let _, state = XenopsAPI.VM.stat dbg vm' in
 		if Xenops_interface.(state.Vm.power_state = Suspended) then begin
 			debug "xenops: %s: shutting down suspended VM" vm';
-			(* This will remove any traces, but the VM may still be 'suspended' *)
 			Xapi_xenops.shutdown ~__context ~self:vm None;
-			(* Remove the VM metadata from xenopsd *)
-			(try XenopsAPI.VM.remove dbg vm' with e -> debug "xenops: VM.remove %s: caught %s" vm' (Printexc.to_string e))
 		end;
 		raise e
 	end;
-	Xapi_xenops.remove_caches vm';
 	Rrdd_proxy.migrate_rrd ~__context ~vm_uuid:vm' ~host_uuid:(Ref.string_of host) ();
 	(* We will have missed important events because we set resident_on late.
 	   This was deliberate: resident_on is used by the pool master to reserve
@@ -428,9 +427,8 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				Xapi_xenops.with_migrating_away vm_uuid
 					(fun () ->
 						XenopsAPI.VM.migrate dbg vm_uuid xenops_vdi_map xenops_vif_map xenops |> wait_for_task dbg |> success_task dbg |> ignore;
-						(try XenopsAPI.VM.remove dbg vm_uuid with e -> debug "Caught %s while removing VM %s from metadata" (Printexc.to_string e) vm_uuid);
+						Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid;
 						Xapi_xenops.Event.wait dbg ())
-							
 			with
 				| Xenops_interface.Does_not_exist ("VM",_) ->
 					()	
@@ -496,7 +494,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	with e ->
 		error "Caught %s: cleaning up" (Printexc.to_string e);
 
-		Xapi_xenops.remove_caches vm_uuid;
+		(* This resets the caches to empty: *)
 		Xapi_xenops.add_caches vm_uuid;
 		Xapi_xenops.refresh_vm ~__context ~self:vm;
 
@@ -667,7 +665,7 @@ let handler req fd _ =
 			Xapi_network.with_networks_attached_for_vm ~__context ~vm (fun () ->
 				Xapi_xenops.transform_xenops_exn ~__context (fun () ->
 					debug "Sending VM %s configuration to xenopsd" (Ref.string_of vm);
-					let id = Xapi_xenops.push_metadata_to_xenopsd ~__context ~upgrade:true ~self:vm in
+					let id = Xapi_xenops.Xenopsd_metadata.push ~__context ~upgrade:true ~self:vm in
 					info "xenops: VM.receive_memory %s" id;
 					let uri = Printf.sprintf "/services/xenops/memory/%s" id in
 					let memory_limit = free_memory_required_kib |> Memory.bytes_of_kib |> Int64.to_string in

@@ -452,13 +452,38 @@ let string_of_exn = function
 	| Api_errors.Server_error(code, params) -> Printf.sprintf "%s [ %s ]" code (String.concat "; " params)
 	| e -> Printexc.to_string e
 
-(* Serialise updates to the xenopsd metadata *)
+(* Serialise updates to the metadata caches *)
 let metadata_m = Mutex.create ()
 
-(* Remember the last events received from xapi so we can suppress
-   non-updates (the xapi objects are bigger and will change more often
-   than the xenopsd ones) *)
-let metadata_cache = Hashtbl.create 10
+module Xapi_cache = struct
+	(** Keep a cache of the "xenops-translation" of XenAPI VM configuration,
+		updated whenever we receive an event from xapi. *)
+
+	let cache = Hashtbl.create 10 (* indexed by Vm.id *)
+
+	let _register_nolock id initial_value =
+		debug "xapi_cache: creating cache for %s" id;
+		if not(Hashtbl.mem cache id) || (Hashtbl.find cache id = None)
+		then Hashtbl.replace cache id initial_value
+
+	let _unregister_nolock id =
+		debug "xapi_cache: deleting cache for %s" id;
+		Hashtbl.remove cache id
+
+	let find_nolock id =
+		if Hashtbl.mem cache id
+		then Hashtbl.find cache id
+		else None
+
+	let update_nolock id t =
+		if Hashtbl.mem cache id then begin
+			debug "xapi_cache: updating cache for %s" id;
+			Hashtbl.replace cache id t
+		end else debug "xapi_cache: not updating cache for %s" id
+
+
+	let list_nolock () = Hashtbl.fold (fun id _ acc -> id :: acc) cache []
+end
 
 module Xenops_cache = struct
 	(** Remember the last events received from xenopsd so we can compute
@@ -480,12 +505,12 @@ module Xenops_cache = struct
 			
 	let cache = Hashtbl.create 10 (* indexed by Vm.id *)
 
-	let register_nolock id =
-		debug "xenopsd events: creating empty cache for %s" id;
+	let _register_nolock id =
+		debug "xenops_cache: creating empty cache for %s" id;
 		Hashtbl.replace cache id empty
 
-	let unregister_nolock id =
-		debug "xenopsd events: deleting cache for %s" id;
+	let _unregister_nolock id =
+		debug "xenops_cache: deleting cache for %s" id;
 		Hashtbl.remove cache id
 
 	let find id : t option =
@@ -530,7 +555,7 @@ module Xenops_cache = struct
 			(fun () ->
 				if Hashtbl.mem cache id
 				then Hashtbl.replace cache id t
-				else debug "xenopsd event: Not updating cache for unregistered VM %s" id
+				else debug "xenops_cache: Not updating cache for unregistered VM %s" id
 			)
 
 	let update_vbd id info =
@@ -552,73 +577,94 @@ module Xenops_cache = struct
 		let existing = Opt.default empty (find id) in
 		update id { existing with vm = info }
 
-	let unregister_nolock id =
-		Hashtbl.remove cache id
+	let list_nolock () = Hashtbl.fold (fun id _ acc -> id :: acc) cache []
 end
 
-(* Set up event caches for a VM *)
+module Xenopsd_metadata = struct
+	(** Manage the lifetime of VM metadata pushed to xenopsd *)
+
+	let push ~__context ~upgrade ~self =
+		Mutex.execute metadata_m (fun () ->
+			let md = create_metadata ~__context ~upgrade ~self in
+			let txt = md |> Metadata.rpc_of_t |> Jsonrpc.to_string in
+			info "xenops: VM.import_metadata %s" txt;
+			let dbg = Context.string_of_task __context in
+			let id = Client.VM.import_metadata dbg txt in
+
+			Xapi_cache._register_nolock id (Some txt);
+			Xenops_cache._register_nolock id;
+			id
+		)
+
+	let delete_nolock ~__context id =
+		Xenops_cache._unregister_nolock id;
+		Xapi_cache._unregister_nolock id;
+
+		let dbg = Context.string_of_task __context in
+		info "xenops: VM.remove %s" id;
+		try
+			Client.VM.remove dbg id
+		with 
+			| Bad_power_state(_, _) ->
+				(* This can fail during a localhost live migrate; but this is safe to ignore *)
+				debug "We have not removed metadata from xenopsd because VM %s is still running" id
+
+	(* Unregisters a VM with xenopsd, and cleans up metadata and caches *)
+	let pull ~__context id =
+		Mutex.execute metadata_m
+			(fun () ->
+				info "xenops: VM.export_metadata %s" id;
+				let dbg = Context.string_of_task __context in
+				let md = Client.VM.export_metadata dbg id |> Jsonrpc.of_string |> Metadata.t_of_rpc in
+
+				delete_nolock ~__context id;
+
+				md)
+
+	let delete ~__context id =
+		Mutex.execute metadata_m
+			(fun () ->
+				delete_nolock ~__context id
+			)
+
+	let counter = ref 0
+
+	let update ~__context ~self =
+		let id = id_of_vm ~__context ~self in
+		Mutex.execute metadata_m
+			(fun () ->
+				let dbg = Context.string_of_task __context in
+				if vm_exists_in_xenopsd dbg id
+				then
+					let txt = create_metadata ~__context ~upgrade:false ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
+					begin match Xapi_cache.find_nolock id with
+						| Some old ->
+							if old <> txt then begin
+								Unixext.write_string_to_file (Printf.sprintf "/tmp/metadata.old.%d" !counter) old;
+								Unixext.write_string_to_file (Printf.sprintf "/tmp/metadata.new.%d" !counter) txt;
+								incr counter
+							end
+						| None -> ()
+					end;
+					begin match Xapi_cache.find_nolock id with
+						| Some old when old = txt -> ()
+						| _ ->
+							debug "VM %s metadata has changed: updating xenopsd" id;
+							info "xenops: VM.import_metadata %s" txt;
+							Xapi_cache.update_nolock id (Some txt);
+							let (_: Vm.id) = Client.VM.import_metadata dbg txt in
+							()
+					end
+			)
+end
+
 let add_caches id =
 	Mutex.execute metadata_m
 		(fun () ->
-			Hashtbl.replace metadata_cache id None;
-			Xenops_cache.register_nolock id;
-			debug "VM %s: registering with cache (xenops cache size = %d)" id (Hashtbl.length Xenops_cache.cache)
+			Xapi_cache._register_nolock id None;
+			Xenops_cache._register_nolock id;
 		)
 
-(* Remove event caches for a VM *)
-let remove_caches id =
-	Mutex.execute metadata_m
-		(fun () ->
-			Hashtbl.remove metadata_cache id;
-			Xenops_cache.unregister_nolock id;
-			debug "VM %s: unregistering with cache (xenops cache size = %d; xapi cache size = %d)" id (Hashtbl.length Xenops_cache.cache) (Hashtbl.length metadata_cache);
-		)
-
-let push_metadata_to_xenopsd ~__context ~upgrade ~self =
-	Mutex.execute metadata_m (fun () ->
-		let txt = create_metadata ~__context ~upgrade ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
-		info "xenops: VM.import_metadata %s" txt;
-		let dbg = Context.string_of_task __context in
-		Client.VM.import_metadata dbg txt;
-	)
-
-(* Unregisters a VM with xenopsd, and cleans up metadata and caches *)
-let pull_metadata_from_xenopsd ~__context id =
-	Mutex.execute metadata_m
-		(fun () ->
-			info "xenops: VM.export_metadata %s" id;
-			let dbg = Context.string_of_task __context in
-			let md = Client.VM.export_metadata dbg id |> Jsonrpc.of_string |> Metadata.t_of_rpc in
-			info "xenops: VM.remove %s" id;
-			Client.VM.remove dbg id;
-			md)
-
-let delete_metadata_from_xenopsd ~__context id =
-	Mutex.execute metadata_m
-		(fun () ->
-			let dbg = Context.string_of_task __context in
-			info "xenops: VM.remove %s" id;
-			Client.VM.remove dbg id
-		)
-
-let update_metadata_in_xenopsd ~__context ~self =
-	let id = id_of_vm ~__context ~self in
-	Mutex.execute metadata_m
-		(fun () ->
-			let dbg = Context.string_of_task __context in
-			if vm_exists_in_xenopsd dbg id
-			then
-				let txt = create_metadata ~__context ~upgrade:false ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
-				if Hashtbl.mem metadata_cache id && (Hashtbl.find metadata_cache id = Some txt)
-				then ()
-				else begin
-					debug "VM %s metadata has changed: updating xenopsd" id;
-					info "xenops: VM.import_metadata %s" txt;
-					let (_: Vm.id) = Client.VM.import_metadata dbg txt in
-					if Hashtbl.mem metadata_cache id
-					then Hashtbl.replace metadata_cache id (Some txt)
-				end
-		)
 
 let to_xenops_console_protocol = let open Vm in function
 	| `rfb -> Rfb
@@ -689,21 +735,6 @@ module Event = struct
 			) t
 end
 
-let with_caches dbg id f =
-	add_caches id;
-	try
-		f ()
-	with e ->
-		error "Caught %s: removing caches" (string_of_exn e);
-		Event.wait dbg ();
-		begin
-			try
-				remove_caches id;
-			with e ->
-				error "Caught %s: while removing caches" (string_of_exn e)
-		end;
-		raise e
-
 (* Ignore events on VMs which are migrating away *)
 let migrating_away = Hashtbl.create 10
 let migrating_away_m = Mutex.create ()
@@ -753,9 +784,9 @@ let update_vm ~__context id =
 								Storage_access.reset ~__context ~vm:self;
 							end;
 							if power_state = `Halted
-							then delete_metadata_from_xenopsd ~__context id;
+							then Xenopsd_metadata.delete ~__context id;
 							if power_state = `Suspended then begin
-								let md = pull_metadata_from_xenopsd ~__context id in
+								let md = Xenopsd_metadata.pull ~__context id in
 								match md.Metadata.domains with
 									| None ->
 										error "Suspended VM has no domain-specific metadata"
@@ -1302,7 +1333,19 @@ let events_from_xapi () =
 											error "Waking up the xapi event thread: %s" (string_of_exn e)
 								);
 							(* We register for events on resident_VMs only *)
-							let classes = List.map (fun x -> Printf.sprintf "VM/%s" (Ref.string_of x)) (Db.Host.get_resident_VMs ~__context ~self:localhost) in
+							let resident_VMs = Db.Host.get_resident_VMs ~__context ~self:localhost in
+
+							let uuids = List.map (fun self -> Db.VM.get_uuid ~__context ~self) resident_VMs in
+							let cached = Mutex.execute metadata_m (fun () -> Xenops_cache.list_nolock ()) in
+							let missing_in_cache = Listext.List.set_difference uuids cached in
+							let extra_in_cache = Listext.List.set_difference cached uuids in
+							if missing_in_cache <> []
+							then error "XXX Missing from the cache: [ %s ]" (String.concat "; " missing_in_cache);
+							if extra_in_cache <> []
+							then error "XXX Extra in the cache: [ %s ]" (String.concat "; " extra_in_cache);
+
+
+							let classes = List.map (fun x -> Printf.sprintf "VM/%s" (Ref.string_of x)) resident_VMs in
 							(* NB we re-use the old token so we don't get events we've already
 							   received BUT we will not necessarily receive events for the new VMs *)
 
@@ -1319,7 +1362,7 @@ let events_from_xapi () =
 													let shutting_down = is_shutting_down id in
 													debug "Event on VM %s; resident_here = %b; shutting_down = %b" id resident_here shutting_down;
 													if resident_here && not shutting_down then begin
-														update_metadata_in_xenopsd ~__context ~self:vm |> ignore
+														Xenopsd_metadata.update ~__context ~self:vm |> ignore
 													end
 												)
 										| _ -> ()
@@ -1438,7 +1481,7 @@ let set_resident_on ~__context ~self =
 	debug "Signalling xenapi event thread to re-register";
 	!trigger_xenapi_reregister ();
 	(* Any future XenAPI updates will trigger events, but we might have missed one so: *)
-	update_metadata_in_xenopsd ~__context ~self |> ignore
+	Xenopsd_metadata.update ~__context ~self
 
 let update_debug_info __context t =
 	let task = Context.get_task_id __context in
@@ -1554,19 +1597,16 @@ let start ~__context ~self paused =
 	transform_xenops_exn ~__context
 		(fun () ->
 			debug "Sending VM %s configuration to xenopsd" (Ref.string_of self);
-			let id = push_metadata_to_xenopsd ~__context ~upgrade:false ~self in
+			let id = Xenopsd_metadata.push ~__context ~upgrade:false ~self in
 			try
-				with_caches dbg id
+				Xapi_network.with_networks_attached_for_vm ~__context ~vm:self
 					(fun () ->
-						Xapi_network.with_networks_attached_for_vm ~__context ~vm:self
-							(fun () ->
-								info "xenops: VM.start %s" id;
-								Client.VM.start dbg id |> sync_with_task __context;
-								if not paused then begin
-									info "xenops: VM.unpause %s" id;
-									Client.VM.unpause dbg id |> sync __context;
-								end;
-							)
+						info "xenops: VM.start %s" id;
+						Client.VM.start dbg id |> sync_with_task __context;
+						if not paused then begin
+							info "xenops: VM.unpause %s" id;
+							Client.VM.unpause dbg id |> sync __context;
+						end;
 					);
 				set_resident_on ~__context ~self;
 			with e ->
@@ -1603,7 +1643,7 @@ let reboot ~__context ~self timeout =
 			info "xenops: VM.reboot %s" id;
 			let dbg = Context.string_of_task __context in
 			(* Ensure we have the latest version of the VM metadata before the reboot *)
-			update_metadata_in_xenopsd ~__context ~self;
+			Xenopsd_metadata.update ~__context ~self;
 			Client.VM.reboot dbg id timeout |> sync_with_task __context;
 			Event.wait dbg ();
 			assert (Db.VM.get_power_state ~__context ~self = `Running)
@@ -1620,7 +1660,6 @@ let shutdown ~__context ~self timeout =
 					let dbg = Context.string_of_task __context in
 					Client.VM.shutdown dbg id timeout |> sync_with_task __context;
 					Event.wait dbg ();
-					remove_caches id;
 					assert (Db.VM.get_power_state ~__context ~self = `Halted);
 					(* force_state_reset called from the xenopsd event loop above *)
 					assert (Db.VM.get_resident_on ~__context ~self = Ref.null);
@@ -1658,7 +1697,6 @@ let suspend ~__context ~self =
 						let dbg = Context.string_of_task __context in
 						Client.VM.suspend dbg id disk |> sync_with_task __context;
 						Event.wait dbg ();
-						remove_caches id;
 						assert (Db.VM.get_power_state ~__context ~self = `Suspended);
 						assert (Db.VM.get_resident_on ~__context ~self = Ref.null);
 					with e ->
@@ -1667,7 +1705,6 @@ let suspend ~__context ~self =
 						Event.wait dbg ();
 						if Db.VM.get_power_state ~__context ~self = `Suspended then begin
 							info "VM has already suspended; we must perform a hard_shutdown";
-							remove_caches id;
 							Xapi_vm_lifecycle.force_state_reset ~__context ~self ~value:`Halted;
 						end else info "VM is still running after failed suspend";
 						XenAPI.VDI.destroy ~rpc ~session_id ~self:vdi;
@@ -1683,27 +1720,24 @@ let resume ~__context ~self ~start_paused ~force =
 			let vdi = Db.VM.get_suspend_VDI ~__context ~self in
 			let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in
 			debug "Sending VM %s configuration to xenopsd" (Ref.string_of self);
-			let id = push_metadata_to_xenopsd ~__context ~upgrade:false ~self in
+			let id = Xenopsd_metadata.push ~__context ~upgrade:false ~self in
 			(* NB we don't set resident_on because we don't want to
 			   modify the VM.power_state, {VBD,VIF}.currently_attached in the
 			   failures cases. This means we must remove the metadata from
 			   xenopsd on failure. *)
 			begin try
-				with_caches dbg id
+				Xapi_network.with_networks_attached_for_vm ~__context ~vm:self
 					(fun () ->
-						Xapi_network.with_networks_attached_for_vm ~__context ~vm:self
-							(fun () ->
-								info "xenops: VM.resume %s from %s" id (disk |> rpc_of_disk |> Jsonrpc.to_string);
-								Client.VM.resume dbg id disk |> sync_with_task __context;
-								if not start_paused then begin
-									info "xenops: VM.unpause %s" id;
-									Client.VM.unpause dbg id |> sync_with_task __context;
-								end;
-							)
+						info "xenops: VM.resume %s from %s" id (disk |> rpc_of_disk |> Jsonrpc.to_string);
+						Client.VM.resume dbg id disk |> sync_with_task __context;
+						if not start_paused then begin
+							info "xenops: VM.unpause %s" id;
+							Client.VM.unpause dbg id |> sync_with_task __context;
+						end;
 					)
 			with e ->
 				error "Caught exception resuming VM: %s" (string_of_exn e);
-				delete_metadata_from_xenopsd ~__context id;
+				Xenopsd_metadata.delete ~__context id;
 				raise e
 			end;
 			set_resident_on ~__context ~self;
