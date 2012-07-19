@@ -400,7 +400,7 @@ open Fun
 
 (* If a VM was suspended pre-xenopsd it won't have a last_booted_record of the format understood by xenopsd. *)
 (* If we can parse the last_booted_record according to the old syntax, update it before attempting to resume. *)
-let generate_xenops_state ~__context ~self ~vm ~vbds ~currently_attached_vbds ~currently_attached_vifs ~pcis =
+let generate_xenops_state ~__context ~self ~vm ~vbds ~pcis =
 	try
 		let vm_to_resume = {
 			(Helpers.parse_boot_record vm.API.vM_last_booted_record) with
@@ -409,7 +409,7 @@ let generate_xenops_state ~__context ~self ~vm ~vbds ~currently_attached_vbds ~c
 		debug "Successfully parsed old last_booted_record format - translating to new format so that xenopsd can resume the VM.";
 		let vm = MD.of_vm ~__context (self, vm_to_resume) vbds (pcis <> []) in
 		let dbg = Context.string_of_task __context in
-		Client.VM.generate_state_string dbg vm currently_attached_vbds currently_attached_vifs
+		Client.VM.generate_state_string dbg vm
 	with Xml.Error _ ->
 		debug "last_booted_record is not of the old format, so we should be able to resume the VM.";
 		vm.API.vM_last_booted_record
@@ -417,22 +417,18 @@ let generate_xenops_state ~__context ~self ~vm ~vbds ~currently_attached_vbds ~c
 (* Create an instance of Metadata.t, suitable for uploading to the xenops service *)
 let create_metadata ~__context ~upgrade ~self =
 	let vm = Db.VM.get_record ~__context ~self in
-	let vbds = List.map (fun self -> Db.VBD.get_record ~__context ~self) vm.API.vM_VBDs in
+	let vbds = List.filter (fun vbd -> vbd.API.vBD_currently_attached)
+		(List.map (fun self -> Db.VBD.get_record ~__context ~self) vm.API.vM_VBDs) in
 	let vbds' = List.map (fun vbd -> MD.of_vbd ~__context ~vm ~vbd) vbds in
-	let vifs = List.map (fun self -> Db.VIF.get_record ~__context ~self) vm.API.vM_VIFs in
+	let vifs = List.filter (fun vif -> vif.API.vIF_currently_attached)
+		(List.map (fun self -> Db.VIF.get_record ~__context ~self) vm.API.vM_VIFs) in
 	let vifs' = List.map (fun vif -> MD.of_vif ~__context ~vm ~vif) vifs in
 	let pcis = MD.pcis_of_vm ~__context (self, vm) in
 	let domains =
 		(* For suspended VMs, we may need to translate the last_booted_record from the old format. *)
 		if vm.API.vM_power_state = `Suspended || upgrade then begin
 			(* We need to recall the currently_attached devices *)
-			let currently_attached_vbds =
-				List.filter (fun (vbd, _) -> vbd.API.vBD_currently_attached) (List.combine vbds vbds')
-				|> List.map snd in
-			let currently_attached_vifs =
-				List.filter (fun (vif, _) -> vif.API.vIF_currently_attached) (List.combine vifs vifs')
-				|> List.map snd in
-			Some(generate_xenops_state ~__context ~self ~vm ~vbds ~currently_attached_vbds ~currently_attached_vifs ~pcis)
+			Some(generate_xenops_state ~__context ~self ~vm ~vbds ~pcis)
 		end else None in
 	let open Metadata in {
 		vm = MD.of_vm ~__context (self, vm) vbds (pcis <> []);
@@ -1030,6 +1026,10 @@ let update_vbd ~__context (id: (string * string)) =
 											Db.VBD.set_empty ~__context ~self:vbd ~value:true;
 											Db.VBD.set_VDI ~__context ~self:vbd ~value:Ref.null
 										end else error "VBD %s.%s is empty but is not a CD" (fst id) (snd id)
+							end;
+							if not(state.plugged || state.active) then begin
+								debug "VBD.remove %s.%s" (fst id) (snd id);
+								(try Client.VBD.remove dbg id with e -> debug "VBD.remove failed: %s" (Printexc.to_string e))
 							end
 						) info;
 					Xenops_cache.update_vbd id (Opt.map snd info);
@@ -1063,12 +1063,16 @@ let update_vif ~__context id =
 					let vif, _ = List.find (fun (_, vifr) -> vifr.API.vIF_device = (snd id)) vifrs in
 					Opt.iter
 						(fun (vf, state) ->
-							if not state.plugged then begin
-								try
+							if not (state.plugged || state.active) then begin
+								(try
 									Xapi_network.deregister_vif ~__context vif
 								with e ->
-									error "Failed to deregister vif: %s" (Printexc.to_string e)
-							end else begin
+									error "Failed to deregister vif: %s" (Printexc.to_string e));
+									debug "VIF.remove %s.%s" (fst id) (snd id);
+								(try Client.VIF.remove dbg id with e -> debug "VIF.remove failed: %s" (Printexc.to_string e))
+							end;
+
+							if state.plugged then begin
 								(* sync MTU *)
 								try
 									let device = "vif" ^ (Int64.to_string (Db.VM.get_domid ~__context ~self:vm)) ^ "." ^ (snd id) in
@@ -1596,6 +1600,11 @@ let start ~__context ~self paused =
 	let dbg = Context.string_of_task __context in
 	transform_xenops_exn ~__context
 		(fun () ->
+			(* Set all VBDs and VIFs to currently_attached = true, so the metadata is
+			   pushed to xenopsd. *)
+			List.iter (fun self -> Db.VBD.set_currently_attached ~__context ~self ~value:true) (Db.VM.get_VBDs ~__context ~self);
+			List.iter (fun self -> Db.VIF.set_currently_attached ~__context ~self ~value:true) (Db.VM.get_VIFs ~__context ~self);
+
 			debug "Sending VM %s configuration to xenopsd" (Ref.string_of self);
 			let id = Xenopsd_metadata.push ~__context ~upgrade:false ~self in
 			try

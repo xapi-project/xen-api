@@ -58,8 +58,6 @@ module VmExtra = struct
 		build_info: Domain.build_info option;
 		ty: Vm.builder_info option;
 		last_start_time: float;
-		active_vbds: string list;
-		active_vifs: string list;
 	} with rpc
 
 	type non_persistent_t = {
@@ -532,7 +530,7 @@ module VM = struct
 		Int64.of_string (xs.Xs.read (Printf.sprintf "/local/domain/%d/memory/initial-target" domid))
 
 	(* Called from a xenops client if it needs to resume a VM that was suspended on a pre-xenopsd host. *)
-	let generate_state_string vm vbds vifs =
+	let generate_state_string vm =
 		let open Memory in
 		let builder_spec_info =
 			match vm.ty with
@@ -564,8 +562,6 @@ module VM = struct
 		{
 			VmExtra.build_info = Some build_info;
 			ty = Some vm.ty;
-			active_vbds = List.map (fun vbd -> snd vbd.Vbd.id) vbds;
-			active_vifs = List.map (fun vif -> snd vif.Vif.id) vifs;
 			(* Earlier than the PV drivers update time, therefore
 			   any cached PV driver information will be kept. *)
 			last_start_time = 0.;
@@ -640,7 +636,7 @@ module VM = struct
 							x.VmExtra.persistent, x.VmExtra.non_persistent
 						| None -> begin
 							debug "VM = %s; has no stored domain-level configuration, regenerating" vm.Vm.id;
-							let persistent = { VmExtra.build_info = None; ty = None; last_start_time = Unix.gettimeofday (); active_vbds = []; active_vifs = []} in
+							let persistent = { VmExtra.build_info = None; ty = None; last_start_time = Unix.gettimeofday () } in
 							let non_persistent = generate_non_persistent_state xc xs vm in
 							persistent, non_persistent
 						end in
@@ -1492,20 +1488,18 @@ module VBD = struct
 	let device_number_of_device d =
 		Device_number.of_xenstore_key d.Device_common.frontend.Device_common.devid
 
+	let active_path vm vbd = Printf.sprintf "/vm/%s/vbd/%s" vm (snd vbd.Vbd.id)
+
 	let set_active task vm vbd active =
 		try
-			let vm_t = DB.read_exn vm in
-			let open VmExtra in
-			let persistent =
-				{ vm_t.persistent with
-					active_vbds =
-						if active
-						then snd vbd.Vbd.id :: vm_t.persistent.active_vbds
-						else List.filter (fun x -> x <> snd vbd.Vbd.id) vm_t.persistent.active_vbds
-				} in
-			DB.write vm { vm_t with persistent = persistent }
+			with_xs (fun xs -> xs.Xs.write (active_path vm vbd) (if active then "1" else "0"))
 		with e ->
 			debug "set_active %s.%s <- %b failed: %s" (fst vbd.Vbd.id) (snd vbd.Vbd.id) active (Printexc.to_string e)
+
+	let get_active vm vbd =
+		try
+			with_xs (fun xs -> xs.Xs.read (active_path vm vbd)) = "1"
+		with _ -> false
 
 	let epoch_begin task vm disk = match disk with
 		| VDI path ->
@@ -1526,7 +1520,7 @@ module VBD = struct
 		   we will. Also this causes the SMRT tests to fail, as they demand the loopback VBDs *)
 		let vm_t = DB.read_exn vm in
 		(* If the vbd isn't listed as "active" then we don't automatically plug this one in *)
-		if not(List.mem (snd vbd.Vbd.id) VmExtra.(vm_t.persistent.active_vbds))
+		if not(get_active vm vbd)
 		then debug "VBD %s.%s is not active: not plugging into VM" (fst vbd.Vbd.id) (snd vbd.Vbd.id)
 		else on_frontend
 			(fun xc xs frontend_domid hvm ->
@@ -1756,10 +1750,8 @@ module VBD = struct
 				with
 					| (Does_not_exist(_, _))
 					| Device_not_connected ->
-						let vm_t = DB.read vm in
-						let open VmExtra in
 						{ unplugged_vbd with
-							Vbd.active = Opt.default false (Opt.map (fun vm_t -> List.mem (snd vbd.Vbd.id) vm_t.persistent.active_vbds) vm_t)
+							Vbd.active = get_active vm vbd
 						}
 			)
 
@@ -1823,25 +1815,23 @@ module VIF = struct
 		let flag = match mode with Xenops_interface.Vif.Disabled -> "1" | _ -> "0" in
 		path, flag
 
+	let active_path vm vif = Printf.sprintf "/vm/%s/vif/%s" vm (snd vif.Vif.id)
+
 	let set_active task vm vif active =
 		try
-			let vm_t = DB.read_exn vm in
-			let open VmExtra in
-			let persistent =
-				{ vm_t.persistent with
-					active_vifs =
-						if active
-						then snd vif.Vif.id :: vm_t.persistent.active_vifs
-						else List.filter (fun x -> x <> snd vif.Vif.id) vm_t.persistent.active_vifs
-				} in
-			DB.write vm { vm_t with persistent = persistent }
+			with_xs (fun xs -> xs.Xs.write (active_path vm vif) (if active then "1" else "0"))
 		with e ->
 			debug "set_active %s.%s <- %b failed: %s" (fst vif.Vif.id) (snd vif.Vif.id) active (Printexc.to_string e)
+
+	let get_active vm vif =
+		try
+			with_xs (fun xs -> xs.Xs.read (active_path vm vif)) = "1"
+		with _ -> false
 
 	let plug_exn task vm vif =
 		let vm_t = DB.read_exn vm in
 		(* If the vif isn't listed as "active" then we don't automatically plug this one in *)
-		if not(List.mem (snd vif.Vif.id) VmExtra.(vm_t.persistent.active_vifs))
+		if not(get_active vm vif)
 		then debug "VIF %s.%s is not active: not plugging into VM" (fst vif.Vif.id) (snd vif.Vif.id)
 		else on_frontend
 			(fun xc xs frontend_domid hvm ->
@@ -2008,10 +1998,8 @@ module VIF = struct
 				with
 					| (Does_not_exist(_,_))
 					| Device_not_connected ->
-						let vm_t = DB.read vm in
-						let open VmExtra in
 						{ unplugged_vif with
-							Vif.active = Opt.default false (Opt.map (fun vm_t -> List.mem (snd vif.Vif.id) vm_t.persistent.active_vifs) vm_t)
+							Vif.active = get_active vm vif
 						}
 			)
 
