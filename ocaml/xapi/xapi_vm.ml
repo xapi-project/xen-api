@@ -288,7 +288,7 @@ let power_state_reset ~__context ~vm =
 					true
 				end else begin
 					(* Delete the metadata from xenopsd *)
-					Xapi_xenops.delete_metadata_from_xenopsd ~__context id;
+					Xapi_xenops.Xenopsd_metadata.delete ~__context id;
 					false
 				end
 			with _ -> false in
