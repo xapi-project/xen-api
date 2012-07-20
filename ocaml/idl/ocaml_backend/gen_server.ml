@@ -91,7 +91,8 @@ let operation (obj: obj) (x: message) =
     | false, None -> "(fun x -> [])" in
 
   let wire_name = DU.wire_name ~sync:true obj x in
-  
+  let alternative_wire_name = DU.alternative_wire_name ~sync:true obj x in
+
   let string_args = if is_ctor then [O.string_of_param Client.session;"__structure"]
     else List.map O.string_of_param args_without_default_values in
   let is_non_constructor_with_defaults = not is_ctor && (has_default_args x.DT.msg_params) in
@@ -101,7 +102,7 @@ let operation (obj: obj) (x: message) =
     else arg_pattern^"::[]" in
   let name_pattern_match =
     Printf.sprintf
-      "| \"%s\" ->\n" wire_name in
+      "| \"%s\"\n| \"%s\" ->\n" wire_name alternative_wire_name in
 
   (* Lookup the various fields from the constructor record *)
   let from_ctor_record =
