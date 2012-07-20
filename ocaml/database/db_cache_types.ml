@@ -30,6 +30,8 @@ module Map2 = functor(V: VAL) -> struct
 	let mem = StringMap.mem
 	let iter f = StringMap.iter (fun key x -> f key x.v)
 	let remove = StringMap.remove
+	let update_generation generation key default f row =
+		StringMap.update key {created=generation; updated=generation; v=default} (fun x -> {x with updated=generation; v=f x.v}) row
 	let update generation key default f row = 
 		let updatefn () = StringMap.update key {created=generation; updated=generation; v=default} (fun x -> {x with updated=generation; v=f x.v}) row in
 		if mem key row 
@@ -87,6 +89,7 @@ module type TABLE = sig
 	val mem : string -> t -> bool
 	val iter : (string -> Row.t -> unit) -> t -> unit
 	val remove : int64 -> string -> t -> t
+	val update_generation : int64 -> string -> Row.t -> (Row.t -> Row.t) -> t -> t
 	val update : int64 -> string -> Row.t -> (Row.t -> Row.t) -> t -> t
 	val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
 	val rows : t -> Row.t list
@@ -118,6 +121,7 @@ module Table : TABLE = struct
 		{rows = StringRowMap.remove key t.rows;
 		 deleted_len = new_len;
 		 deleted = new_deleted}
+	let update_generation g key default f t = {t with rows = StringRowMap.update_generation g key default f t.rows }
 	let update g key default f t = {t with rows = StringRowMap.update g key default f t.rows}
 	let fold_over_recent since f errf t acc =
 		let acc = StringRowMap.fold_over_recent since (fun c u d x _ z -> f c u d x z) t.rows acc in
@@ -212,8 +216,9 @@ module Manifest = struct
 	}
 end
 
-(** The core database updates (PreDelete is more of an 'event') *)
+(** The core database updates (RefreshRow and PreDelete is more of an 'event') *)
 type update =
+	| RefreshRow of string (* tblname *) * string (* objref *)
 	| WriteField of string (* tblname *) * string (* objref *) * string (* fldname *) * string (* oldval *) * string (* newval *)
 	| PreDelete of string (* tblname *) * string (* objref *)
 	| Delete of string (* tblname *) * string (* objref *) * (string * string) list (* values *)
@@ -453,6 +458,17 @@ let set_field tblname objref fldname newval db =
 				(fun _ -> newval))) db
 	end
 
+let update_generation tblname objref db =
+	let g = Manifest.generation (Database.manifest db) in
+	(* We update the generation twice so that we can return the lower count
+	   for the "event.inject" API to guarantee that the token from a later
+	   event.from will always compare as strictly greater. See the definition
+	   of the event token datatype. *)
+	(Database.increment ++ Database.increment
+		++ ((Database.update
+			++ (TableSet.update g tblname Table.empty)
+			++ (Table.update_generation g objref Row.empty)) id
+		)) db
 
 let add_row tblname objref newval db =
 	let g = db.Database.manifest.Manifest.generation_count in
