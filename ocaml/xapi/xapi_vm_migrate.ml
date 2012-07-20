@@ -76,7 +76,7 @@ let pool_migrate ~__context ~vm ~host ~options =
 	let vm' = Db.VM.get_uuid ~__context ~self:vm in
 	begin try
 		Xapi_network.with_networks_attached_for_vm ~__context ~vm ~host (fun () ->
-			Xapi_xenops.with_migrating_away vm' (fun () ->
+			Xapi_xenops.with_events_suppressed ~__context ~self:vm (fun () ->
 				(* XXX: PR-1255: the live flag *)
 				info "xenops: VM.migrate %s to %s" vm' xenops_url;
 				XenopsAPI.VM.migrate dbg vm' [] [] xenops_url |> wait_for_task dbg |> success_task dbg |> ignore;
@@ -424,7 +424,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		(* It's acceptable for the VM not to exist at this point; shutdown commutes with storage migrate *)
 		begin
 			try
-				Xapi_xenops.with_migrating_away vm_uuid
+				Xapi_xenops.with_events_suppressed ~__context ~self:vm
 					(fun () ->
 						XenopsAPI.VM.migrate dbg vm_uuid xenops_vdi_map xenops_vif_map xenops |> wait_for_task dbg |> success_task dbg |> ignore;
 						Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid;
@@ -463,7 +463,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			List.iter (fun vdi -> 
 				if not (Xapi_fist.storage_motion_keep_vdi ()) 
 				then begin
-					(* In a cross-pool migrate, due to the Xapi_xenops.with_migrating_away call above, 
+					(* In a cross-pool migrate, due to the Xapi_xenops.with_events_suppressed call above, 
 					   the VBDs are left 'currently-attached=true', because they haven't been resynced
 					   by the destination host.
 
