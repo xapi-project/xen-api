@@ -60,7 +60,10 @@ let xmlrpc_of_event ev =
        "ref", XMLRPC.To.string ev.reference;
     ] @ (default [] (may (fun x -> [ "snapshot", x ]) ev.snapshot)))
 
-let string_of_token (last, timestamp) = Printf.sprintf "%Ld,%f" last timestamp
+let string_of_token (last, timestamp) =
+	(* We prefix with zeroes so tokens which differ only in the generation
+	   can be compared lexicographically as strings. *)
+	Printf.sprintf "%020Ld,%f" last timestamp
 
 exception Failed_to_parse_token of string
 

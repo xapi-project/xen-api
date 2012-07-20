@@ -410,6 +410,18 @@ let from ~__context ~classes ~token ~timeout =
 
 let get_current_id ~__context = Mutex.execute event_lock (fun () -> !id)
 
+let inject ~__context ~_class ~ref =
+	let open Db_cache_types in
+	let generation : int64 = Db_lock.with_lock
+		(fun () ->
+			let db_ref = Db_backend.make () in
+			let g = Manifest.generation (Database.manifest (Db_ref.get_database db_ref)) in
+			Db_cache_impl.refresh_row db_ref _class ref; (* consumes this generation *)
+			g
+		) in
+	let token = (Int64.sub generation 1L), 0. in
+	string_of_token token
+
 (** Inject an unnecessary update as a heartbeat. This will:
     1. hopefully prevent some firewalls from silently closing the connection
     2. allow the server to detect when a client has failed *)
