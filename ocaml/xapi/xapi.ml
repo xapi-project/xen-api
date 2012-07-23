@@ -1049,7 +1049,7 @@ let watchdog f =
 							last_badexit := ctime
 						end
 					| Unix.WSIGNALED i ->
-						loginfo "received signal %d" i;
+						loginfo "received signal: %s" (Unixext.string_of_signal i);
 						pid := None;
 						(* arbitrary choice of signals, probably need more
 						   though, for real use *)

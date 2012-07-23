@@ -1790,7 +1790,7 @@ let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xapi_globs.qemu_dm_re
 						error "qemu-dm: unexpected exit with code: %d" n;
 						raise (Ioemu_failed "qemu-dm exited unexpectedly")
 					| _, (Unix.WSIGNALED n | Unix.WSTOPPED n) ->
-						error "qemu-dm: unexpected signal: %d" n;
+						error "qemu-dm: unexpected signal: %s" (Unixext.string_of_signal n);
 						raise (Ioemu_failed "qemu-dm exited unexpectedly")
 				end
 		done
