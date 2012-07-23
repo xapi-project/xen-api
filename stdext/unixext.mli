@@ -92,8 +92,15 @@ val delete_empty_file : string -> bool
 exception Host_not_found of string
 val open_connection_fd : string -> int -> Unix.file_descr
 val open_connection_unix_fd : string -> Unix.file_descr
+
+
 exception Process_still_alive
 val kill_and_wait : ?signal:int -> ?timeout:float -> int -> unit
+
+(** [string_of_signal x] translates an ocaml signal number into
+	a string suitable for logging. *)
+val string_of_signal : int -> string
+
 val proxy : Unix.file_descr -> Unix.file_descr -> unit
 val really_read : Unix.file_descr -> string -> int -> int -> unit
 val really_read_string : Unix.file_descr -> int -> string

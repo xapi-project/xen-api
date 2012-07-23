@@ -195,10 +195,10 @@ let run state comms_sock fd_sock fd_sock_path =
 			if n <> 0 then log_failure "exitted with code" n;
 			  Fe.WEXITED n
 		| Unix.WSIGNALED n -> 
-			  log_failure "exitted with signal" n;
+			  log_failure (Printf.sprintf "exitted with signal: %s" (Unixext.string_of_signal n));
 			  Fe.WSIGNALED n 
 		| Unix.WSTOPPED n -> 
-			  log_failure "stopped with signal" n;
+			  log_failure (Printf.sprintf "stopped with signal: %s" (Unixext.string_of_signal n));
 			  Fe.WSTOPPED n
       in
       let result = Fe.Finished (pr) in

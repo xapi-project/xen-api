@@ -86,8 +86,8 @@ let go (mode: zcat_mode) (input: input_type) fd f =
 	      match snd (Forkhelpers.waitpid pid) with
 	      | Unix.WEXITED 0 -> ();
 	      | Unix.WEXITED i -> failwith_error (Printf.sprintf "exit code %d" i)
-	      | Unix.WSIGNALED i -> failwith_error (Printf.sprintf "killed by signal %d" i)
-	      | Unix.WSTOPPED i -> failwith_error (Printf.sprintf "stopped by signal %d" i)
+	      | Unix.WSIGNALED i -> failwith_error (Printf.sprintf "killed by signal: %s" (Unixext.string_of_signal i))
+	      | Unix.WSTOPPED i -> failwith_error (Printf.sprintf "stopped by signal: %s" (Unixext.string_of_signal i))
 	   )
       ) (fun () -> List.iter close !to_close)
 

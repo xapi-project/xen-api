@@ -39,7 +39,6 @@ STDEXT_OBJS = \
 	backtrace \
 	tar \
 	mapext \
-	os \
 	either \
 	lazyList \
 	extentlistSet \
