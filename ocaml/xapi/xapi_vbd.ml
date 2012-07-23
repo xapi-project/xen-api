@@ -42,9 +42,9 @@ let plug ~__context ~self =
 	let vm = Db.VBD.get_VM ~__context ~self in
 	let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
 	let force_loopback_vbd = Helpers.force_loopback_vbd ~__context in
+	let hvm = Helpers.has_booted_hvm ~__context ~self:vm in
 	if System_domains.storage_driver_domain_of_vbd ~__context ~vbd:self = vm && not force_loopback_vbd then begin
 		debug "VBD.plug of loopback VBD '%s'" (Ref.string_of self);
-		let hvm = Helpers.has_booted_hvm ~__context ~self:vm in
 		Storage_access.attach_and_activate ~__context ~vbd:self ~domid ~hvm
 			(fun attach_info ->
 				let params = attach_info.Storage_interface.params in
@@ -55,7 +55,14 @@ let plug ~__context ~self =
 				Db.VBD.set_currently_attached ~__context ~self ~value:true;
 			)
 	end
-	else Xapi_xenops.vbd_plug ~__context ~self
+	else begin
+		(* CA-83260: prevent HVM guests having readonly disk VBDs *)
+		let dev_type = Db.VBD.get_type ~__context ~self in
+		let mode = Db.VBD.get_mode ~__context ~self in
+		if hvm && dev_type <> `CD && mode = `RO then
+			raise (Api_errors.Server_error(Api_errors.disk_vbd_must_be_readwrite_for_hvm, [ Ref.string_of self ]));
+		Xapi_xenops.vbd_plug ~__context ~self
+	end
 
 let unplug ~__context ~self =
 	let vm = Db.VBD.get_VM ~__context ~self in
