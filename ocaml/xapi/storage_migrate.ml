@@ -626,7 +626,7 @@ let copy ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 						Remote.VDI.clone ~dbg ~sr:dest ~vdi_info:vdi
 				| None ->
 						debug "Creating a blank remote VDI";
-						Remote.VDI.create ~dbg ~sr:dest ~vdi_info:local_vdi in
+						Remote.VDI.create ~dbg ~sr:dest ~vdi_info:{ local_vdi with sm_config = [] }  in
 			let remote_copy = copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi:remote_base.vdi |> vdi_info in
 			let snapshot = Remote.VDI.snapshot ~dbg ~sr:dest ~vdi_info:remote_copy in
 			Remote.VDI.destroy ~dbg ~sr:dest ~vdi:remote_copy.vdi;
