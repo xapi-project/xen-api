@@ -183,9 +183,9 @@ let exec_xmlrpc ?context ?(needs_session=true) (driver: string) (call: call) =
 			end
 		with
 			| Forkhelpers.Spawn_internal_error(log, output, Unix.WSTOPPED i) ->
-				raise (Api_errors.Server_error (Api_errors.sr_backend_failure, ["task stopped"; output; log ]))
+				raise (Api_errors.Server_error (Api_errors.sr_backend_failure, ["exit code: " ^ (string_of_int i); output; log ]))
 			| Forkhelpers.Spawn_internal_error(log, output, Unix.WSIGNALED i) ->
-				raise (Api_errors.Server_error (Api_errors.sr_backend_failure, ["task signaled"; output; log ]))
+				raise (Api_errors.Server_error (Api_errors.sr_backend_failure, ["received signal: " ^ (Unixext.string_of_signal i); output; log ]))
 			| Forkhelpers.Spawn_internal_error(log, output, Unix.WEXITED i) ->
 				raise (Api_errors.Server_error (Api_errors.sr_backend_failure, ["non-zero exit"; output; log ]))
 		end
