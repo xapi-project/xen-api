@@ -88,18 +88,6 @@ let validate_basic_parameters ~__context ~self ~snapshot:x =
 let set_actions_after_crash ~__context ~self ~value = 
 	Db.VM.set_actions_after_crash ~__context ~self ~value
 let set_is_a_template ~__context ~self ~value =
-	if value then begin
-		(* Don't allow VMs in an appliance to be converted into templates. *)
-		let appliance = Db.VM.get_appliance ~__context ~self in
-		if Db.is_valid_ref __context appliance then
-			raise (Api_errors.Server_error(Api_errors.vm_is_part_of_an_appliance,
-				[(Ref.string_of self); (Ref.string_of appliance)]));
-		(* Don't allow VMPR-protected VMs to be converted into templates. *)
-		let protection_policy = Db.VM.get_protection_policy ~__context ~self in
-		if Db.is_valid_ref __context protection_policy then
-			raise (Api_errors.Server_error(Api_errors.vm_assigned_to_protection_policy,
-				[(Ref.string_of self); (Ref.string_of protection_policy)]))
-	end;
 	(* We define a 'set_is_a_template false' as 'install time' *)
 	info "VM.set_is_a_template('%b')" value;
 	let m = Db.VM.get_metrics ~__context ~self in
