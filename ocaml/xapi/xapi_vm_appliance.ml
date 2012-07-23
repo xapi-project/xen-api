@@ -21,7 +21,6 @@ module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
 module Int64Map = Map.Make(struct type t = int64 let compare = compare end)
-module TaskSet = Set.Make(struct type t = API.ref_task let compare = compare end)
 
 type appliance_operation = {
 	name : string;
@@ -58,35 +57,6 @@ let create_action_list ~__context start vms =
 	(if start then List.rev else (fun x -> x))
 		(Int64Map.fold (fun _ vms groups -> vms::groups) order_map [])
 
-(* Return once none of the tasks have a `pending status. *)
-let wait_for_all_tasks ~rpc ~session_id ~tasks =
-	let classes = List.map
-		(fun task -> Printf.sprintf "task/%s" (Ref.string_of task))
-		tasks
-	in
-	let timeout = 5.0 in
-	let rec wait ~token ~task_set =
-		if TaskSet.is_empty task_set then ()
-		else begin
-			let open Event_types in
-			let event_from = Client.Event.from ~rpc ~session_id ~classes ~token ~timeout |> event_from_of_xmlrpc in
-			let records = List.map Event_helper.record_of_event event_from.events in
-			(* If any records indicate that a task is no longer pending, remove that task from the set. *)
-			let pending_task_set = List.fold_left (fun task_set' record ->
-				match record with
-				| Event_helper.Task (t, Some t_rec) ->
-					if (TaskSet.mem t task_set') && (t_rec.API.task_status <> `pending) then
-						TaskSet.remove t task_set'
-					else
-						task_set'
-				| _ -> task_set') task_set records in
-			wait ~token:(string_of_token event_from.token) ~task_set:pending_task_set
-		end
-	in
-	let token = "" in
-	let task_set = List.fold_left (fun task_set' task -> TaskSet.add task task_set') TaskSet.empty tasks in
-	wait ~token ~task_set
-
 (* Run the given operation on all VMs in the list, and record the tasks created. *)
 (* Return once all the tasks have completed, with a list of VMs which threw an exception. *)
 let run_operation_on_vms ~__context operation vms =
@@ -97,7 +67,7 @@ let run_operation_on_vms ~__context operation vms =
 				(task::tasks, failed_vms)
 			with e ->
 				(tasks, vm::failed_vms)) ([], []) vms in
-		wait_for_all_tasks ~rpc ~session_id ~tasks)
+		Tasks.wait_for_all ~rpc ~session_id ~tasks)
 
 let perform_operation ~__context ~self ~operation ~ascending_priority =
 	let appliance_uuid = (Db.VM_appliance.get_uuid ~__context ~self) in

@@ -1394,7 +1394,7 @@ let events_from_xapi () =
 											then Xenopsd_metadata.update ~__context ~self:vm |> ignore
 										| _ -> ()
 									) from.events;
-								token := string_of_token from.token;
+								token := from.token;
 								Events_from_xapi.broadcast !token;
 							done
 						)

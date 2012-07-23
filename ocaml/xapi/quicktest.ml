@@ -95,7 +95,7 @@ let event_from_test session_id =
 			let token = ref "" in
 			while not (Mutex.execute m (fun () -> !finished)) do
 				let events = Client.Event.from !rpc session_id [ "pool" ] (!token) 10. |> event_from_of_xmlrpc in
-				token := string_of_token events.token;
+				token := events.token;
 				let oc = Client.Pool.get_other_config !rpc session_id pool in
 				if List.mem_assoc key oc && (List.assoc key oc) = "1"
 				then Mutex.execute m (fun () ->
@@ -146,7 +146,7 @@ let object_level_event_test session_id =
 								)
 						end
 					) events.events;
-				token := string_of_token events.token;
+				token := events.token;
 				let oc = Client.VM.get_other_config !rpc session_id vm_a in
 				if List.mem_assoc key oc && (List.assoc key oc) = "1"
 				then Mutex.execute m (fun () ->
