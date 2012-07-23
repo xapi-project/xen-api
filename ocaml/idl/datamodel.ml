@@ -1078,7 +1078,7 @@ let _ =
     ~doc:"There is at least one VM assigned to this protection policy." ();
   error Api_errors.vmpp_archive_more_frequent_than_backup []
     ~doc:"Archive more frequent than backup." ();
-  error Api_errors.vm_assigned_to_protection_policy []
+  error Api_errors.vm_assigned_to_protection_policy ["vm"; "vmpp"]
     ~doc:"This VM is assigned to a protection policy." ();
 
   error Api_errors.ssl_verify_error ["reason"]
