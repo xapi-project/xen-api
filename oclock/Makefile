@@ -12,6 +12,8 @@
 # OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
+include ../config.mk
+
 OCAMLC ?= ocamlc
 OCAMLOPT ?= ocamlopt
 OCAMLDEP ?= ocamldep
@@ -82,7 +84,7 @@ distclean: clean
 # (Un)Install
 install: all
 ifdef OCAMLFIND
-	$(OCAMLFIND) install oclock oclock.cma oclock.cmxa liboclock.a oclock.cmi oclock.a META -dll dlloclock.so
+	$(OCAMLFIND) install -destdir $(OCAMLDESTDIR) oclock oclock.cma oclock.cmxa liboclock.a oclock.cmi oclock.a META -dll dlloclock.so
 else
 	install -d $(INSTALL_DIR)
 	install -t $(INSTALL_DIR) oclock.cma oclock.cmxa liboclock.a oclock.cmi oclock.a META
