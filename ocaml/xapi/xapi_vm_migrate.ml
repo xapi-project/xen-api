@@ -184,6 +184,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	if not(!Xapi_globs.use_xenopsd)
 	then failwith "You must have /etc/xapi.conf:use_xenopsd=true";
 	(* Create mirrors of all the disks on the remote *)
+	let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
 	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
 	let (snapshots_vbds,nb_snapshots) = get_snapshots_vbds ~__context ~vm in
 	debug "get_snapshots VMs %d VBDs %d" nb_snapshots (List.length snapshots_vbds);
@@ -383,10 +384,22 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		end
 		else inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address:remote_master_address ~vm ~vdi_map:(snapshots_map @ vdi_map) ~dry_run:false ~live:true;
 
+		if Xapi_fist.pause_storage_migrate2 () then begin
+			TaskHelper.add_to_other_config ~__context "fist" "pause_storage_migrate2";
+			
+			while Xapi_fist.pause_storage_migrate2 () do
+				debug "Sleeping while fistpoint 2 exists";
+				Thread.delay 5.0;
+			done;
+			
+			TaskHelper.operate_on_db_task ~__context 
+				(fun self ->
+					Db_actions.DB_Action.Task.remove_from_other_config ~__context ~self ~key:"fist")
+		end;
+
 		(* Migrate the VM *)
 		let open Xenops_client in
-		let vm' = Db.VM.get_uuid ~__context ~self:vm in
-		let new_vm = XenAPI.VM.get_by_uuid remote_rpc session_id vm' in
+		let new_vm = XenAPI.VM.get_by_uuid remote_rpc session_id vm_uuid in
 
 		(* Attach networks on remote *)
 		XenAPI.Network.attach_for_vm ~rpc:remote_rpc ~session_id ~host:(Ref.of_string dest_host) ~vm:new_vm;
@@ -407,15 +420,15 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			if mirror_record.mr_mirrored 
 			then SMAPI.DP.destroy ~dbg ~dp:mirror_record.mr_dp ~allow_leak:false) (snapshots_map @ vdi_map);
 
-		SMPERF.debug "vm.migrate_send: migration initiated vm:%s" vm';
+		SMPERF.debug "vm.migrate_send: migration initiated vm:%s" vm_uuid;
 
 		(* It's acceptable for the VM not to exist at this point; shutdown commutes with storage migrate *)
 		begin
 			try
-				Xapi_xenops.with_migrating_away vm'
+				Xapi_xenops.with_migrating_away vm_uuid
 					(fun () ->
-						XenopsAPI.VM.migrate dbg vm' xenops_vdi_map xenops_vif_map xenops |> wait_for_task dbg |> success_task dbg |> ignore;
-						(try XenopsAPI.VM.remove dbg vm' with e -> debug "Caught %s while removing VM %s from metadata" (Printexc.to_string e) vm');
+						XenopsAPI.VM.migrate dbg vm_uuid xenops_vdi_map xenops_vif_map xenops |> wait_for_task dbg |> success_task dbg |> ignore;
+						(try XenopsAPI.VM.remove dbg vm_uuid with e -> debug "Caught %s while removing VM %s from metadata" (Printexc.to_string e) vm_uuid);
 						Xapi_xenops.Event.wait dbg ())
 							
 			with
@@ -424,7 +437,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		end;
 
 		debug "Migration complete";
-		SMPERF.debug "vm.migrate_send: migration complete vm:%s" vm';
+		SMPERF.debug "vm.migrate_send: migration complete vm:%s" vm_uuid;
 
 		Xapi_xenops.refresh_vm ~__context ~self:vm;
 
@@ -435,11 +448,11 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			ignore(Storage_access.unregister_mirror mirror)) !mirrors;
 
 		Rrdd_proxy.migrate_rrd ~__context ~remote_address ~session_id:(Ref.string_of session_id)
-			~vm_uuid:vm' ~host_uuid:dest_host ();
+			~vm_uuid:vm_uuid ~host_uuid:dest_host ();
 
 		if not is_intra_pool then begin
 			(* Send non-database metadata *)
-			Xapi_message.send_messages ~__context ~cls:`VM ~obj_uuid:vm'
+			Xapi_message.send_messages ~__context ~cls:`VM ~obj_uuid:vm_uuid
 				~session_id ~remote_address:remote_master_address;
 			Xapi_blob.migrate_push ~__context ~rpc:remote_rpc
 				~remote_address:remote_master_address ~session_id ~old_vm:vm ~new_vm ;
@@ -479,9 +492,14 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				info "Destroying VM & snapshots";
 				destroy_snapshots ~__context ~vm
 			end);
-		SMPERF.debug "vm.migrate_send exiting vm:%s" vm';
+		SMPERF.debug "vm.migrate_send exiting vm:%s" vm_uuid;
 	with e ->
 		error "Caught %s: cleaning up" (Printexc.to_string e);
+
+		Xapi_xenops.remove_caches vm_uuid;
+		Xapi_xenops.add_caches vm_uuid;
+		Xapi_xenops.refresh_vm ~__context ~self:vm;
+
 		let failed_vdi = ref None in
 		List.iter
 			(fun mirror -> 

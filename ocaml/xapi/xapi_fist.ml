@@ -120,4 +120,6 @@ let force_remote_vdi_copy () = fistpoint "force_remote_vdi_copy"
 
 let pause_storage_migrate () = fistpoint "pause_storage_migrate"
 
+let pause_storage_migrate2 () = fistpoint "pause_storage_migrate2"
+
 let storage_motion_keep_vdi () = fistpoint "storage_motion_keep_vdi"
