@@ -120,6 +120,18 @@ let create  ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable 
 	if mode = `RW && Db.VDI.get_read_only ~__context ~self:vDI
 	then raise (Api_errors.Server_error(Api_errors.vdi_readonly, [ Ref.string_of vDI ]));
 
+        (* CA-75697: Disallow VBD.create on a VM that's in the middle of a migration *)
+        debug "Checking whether there's a migrate in progress...";
+        let vm_current_ops = Listext.List.setify (List.map snd (Db.VM.get_current_operations ~__context ~self:vM)) in
+        let migrate_ops = [ `migrate_send; `pool_migrate ] in
+        let migrate_ops_in_progress = List.filter (fun op -> List.mem op vm_current_ops) migrate_ops in
+        match migrate_ops_in_progress with
+        | op::_ ->
+            raise
+            (Api_errors.Server_error(Api_errors.other_operation_in_progress, [
+              "VM"; Ref.string_of vM; Record_util.vm_operation_to_string op ]));
+        | _ ->
+
 	Mutex.execute autodetect_mutex
 	  (fun () ->
 	     let possibilities = Xapi_vm_helpers.allowed_VBD_devices ~__context ~vm:vM in
