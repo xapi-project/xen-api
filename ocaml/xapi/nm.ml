@@ -229,7 +229,8 @@ let rec create_bridges ~__context pif_rc net_rc =
 	match get_pif_type pif_rc with
 	| `tunnel_pif _ ->
 		[],
-		[net_rc.API.network_bridge, {default_bridge with bridge_mac=(Some pif_rc.API.pIF_MAC); persistent_b}],
+		[net_rc.API.network_bridge, {default_bridge with bridge_mac=(Some pif_rc.API.pIF_MAC);
+			other_config; persistent_b}],
 		[]
 	| `vlan_pif vlan ->
 		let slave = Db.VLAN.get_tagged_PIF ~__context ~self:vlan in
