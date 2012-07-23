@@ -37,7 +37,7 @@ let xapi_rpc =
 	XML_protocol.rpc ~http:(xmlrpc ~version:"1.0" "/")
 		~transport:(Unix (Filename.concat Fhs.vardir "xapi"))
 
-let send_bond_change_alert dev nb_links links_up nb_links_old links_up_old interfaces =
+let send_bond_change_alert dev interfaces message =
 	let ifaces = String.concat "+" (List.sort String.compare interfaces) in
 	let module XenAPI = Client.Client in
 	let session_id = XenAPI.Session.login_with_password
@@ -45,9 +45,7 @@ let send_bond_change_alert dev nb_links links_up nb_links_old links_up_old inter
 	Pervasiveext.finally
 		(fun _ ->
 			let obj_uuid = Util_inventory.lookup Util_inventory._installation_uuid in
-			let body = Printf.sprintf
-				"The status of the %s bond changed: %d/%d up (was %d/%d)"
-				ifaces links_up nb_links links_up_old nb_links_old in
+			let body = Printf.sprintf	"The status of the %s bond %s" ifaces message in
 			try
 				let (_: 'a Ref.t) = XenAPI.Message.create ~rpc:xapi_rpc ~session_id
 					~name:Api_messages.bond_status_changed ~priority:1L ~cls:`Host
@@ -66,13 +64,17 @@ let check_for_changes ~(dev : string) ~(stat : Network_monitor.iface_stats) =
 			if links_up_old <> stat.links_up then (
 				info "Bonds status changed: %s nb_links %d up %d up_old %d" dev stat.nb_links
 				stat.links_up links_up_old;
-				send_bond_change_alert dev stat.nb_links stat.links_up nb_links_old
-					links_up_old stat.interfaces;
+				let msg = Printf.sprintf "changed: %d/%d up (was %d/%d)" stat.links_up stat.nb_links
+					links_up_old nb_links_old in
+				send_bond_change_alert dev stat.interfaces msg;
 				Hashtbl.replace bonds_status dev (stat.nb_links,stat.links_up);
 				add_bond_status dev stat.links_up
 			)
 		) else ( (* Seen for the first time. *)
 			info "New bonds status: %s nb_links %d up %d" dev stat.nb_links stat.links_up;
+			if stat.links_up <> stat.nb_links then
+				let msg = Printf.sprintf "is: %d/%d up" stat.links_up stat.nb_links in
+				send_bond_change_alert dev stat.interfaces msg;
 			Hashtbl.add bonds_status dev (stat.nb_links,stat.links_up);
 			add_bond_status dev stat.links_up
 		)
@@ -157,6 +159,7 @@ let rec monitor dbg () =
 
 		transform_taps ();
 
+		let bonds_list = ref [] in
 		devs := List.map (fun (dev, stat) ->
 			if not (String.startswith "vif" dev) then begin
 				let devs =
@@ -199,7 +202,8 @@ let rec monitor dbg () =
 					let interfaces = (try List.assoc dev bonds with _ -> []) in
 					interfaces in
 				let (links_up,interfaces) = (if nb_links > 1 then
-						(Network_server.Bridge.get_bond_links_up () dbg dev, get_interfaces dev)
+						(bonds_list := dev :: !bonds_list;
+						 Network_server.Bridge.get_bond_links_up () dbg dev, get_interfaces dev)
 					else
 						((if carrier then 1 else 0), [dev]))
 				in
@@ -211,6 +215,12 @@ let rec monitor dbg () =
 			end else
 				dev, stat
 		) (!devs);
+
+		if (List.length !bonds_list) <> (Hashtbl.length bonds_status) then begin
+			let dead_bonds = Hashtbl.fold (fun k _ acc -> if List.mem k !bonds_list then acc else k :: acc) 
+				bonds_status [] in
+			List.iter (fun b -> info "Removing bond %s" b; Hashtbl.remove bonds_status b) dead_bonds
+		end;
 
 		write_stats !devs;
 		failed_again := false
