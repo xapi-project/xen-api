@@ -542,7 +542,8 @@ let copy ~__context ~vdi ~sr =
 	   ~virtual_size:src.API.vDI_virtual_size
 	   ~_type:src.API.vDI_type
 	   ~sharable:src.API.vDI_sharable
-	   ~read_only:src.API.vDI_read_only
+	   (* CA-64962: Always create a RW VDI such that copy operation works with RO source VDI as well *)
+	   ~read_only:false
 	   ~other_config:src.API.vDI_other_config
 	   ~xenstore_data:src.API.vDI_xenstore_data
 	   ~sm_config:[] ~tags:[] in
