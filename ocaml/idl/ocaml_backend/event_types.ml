@@ -29,7 +29,7 @@ type event = {
 	snapshot: XMLRPC.xmlrpc option;
 }
 
-type token = int64 * float (* last id, timestamp *)
+type token = string
 
 type event_from = {
 	events: event list;
@@ -60,27 +60,12 @@ let xmlrpc_of_event ev =
        "ref", XMLRPC.To.string ev.reference;
     ] @ (default [] (may (fun x -> [ "snapshot", x ]) ev.snapshot)))
 
-let string_of_token (last, timestamp) =
-	(* We prefix with zeroes so tokens which differ only in the generation
-	   can be compared lexicographically as strings. *)
-	Printf.sprintf "%020Ld,%f" last timestamp
-
-exception Failed_to_parse_token of string
-
-let token_of_string token =
-	match String.split ',' token with
-		| [from;from_t] -> 
-			(Int64.of_string from, float_of_string from_t)
-		| [""] -> (0L, 0.1)
-		| _ ->
-			raise (Failed_to_parse_token token)
-
 let xmlrpc_of_event_from x =
 	XMLRPC.To.structure
 		[
 			"events", XMLRPC.To.array (List.map xmlrpc_of_event x.events); 
 			"valid_ref_counts", XMLRPC.To.structure (List.map (fun (tbl, int) -> tbl, XMLRPC.To.int int) x.valid_ref_counts);
-			"token",XMLRPC.To.string (string_of_token x.token);
+			"token",XMLRPC.To.string x.token;
 		]
 
 exception Event_field_missing of string
@@ -109,7 +94,7 @@ let event_from_of_xmlrpc x =
 	{
 		events = events_of_xmlrpc (find "events");
 		valid_ref_counts = List.map (fun (tbl, int) -> tbl, XMLRPC.From.int int) (XMLRPC.From.structure (find "valid_ref_counts"));
-		token = token_of_string (XMLRPC.From.string (find "token"));
+		token = XMLRPC.From.string (find "token");
 	}
 
 		

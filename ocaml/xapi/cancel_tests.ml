@@ -43,37 +43,6 @@ let make_rpc ?dbg () xml =
 	} in
 	XML_protocol.rpc ~srcstr:"graph" ~dststr:"xapi" ~transport:(TCP(!host, !port)) ~http xml
 
-module TaskSet = Set.Make(struct type t = API.ref_task let compare = compare end)
-
-(* Return once none of the tasks have a `pending status. *)
-let wait_for_all_tasks ~rpc ~session_id ~tasks =
-	let classes = List.map
-		(fun task -> Printf.sprintf "task/%s" (Ref.string_of task))
-		tasks
-	in
-	let timeout = 5.0 in
-	let rec wait ~token ~task_set =
-		if TaskSet.is_empty task_set then ()
-		else begin
-			let open Event_types in
-			let event_from = Client.Event.from ~rpc ~session_id ~classes ~token ~timeout |> event_from_of_xmlrpc in
-			let records = List.map Event_helper.record_of_event event_from.events in
-			(* If any records indicate that a task is no longer pending, remove that task from the set. *)
-			let pending_task_set = List.fold_left (fun task_set' record ->
-				match record with
-				| Event_helper.Task (t, Some t_rec) ->
-					if (TaskSet.mem t task_set') && (t_rec.API.task_status <> `pending) then
-						TaskSet.remove t task_set'
-					else
-						task_set'
-				| _ -> task_set') task_set records in
-			wait ~token:(string_of_token event_from.token) ~task_set:pending_task_set
-		end
-	in
-	let token = "" in
-	let task_set = List.fold_left (fun task_set' task -> TaskSet.add task task_set') TaskSet.empty tasks in
-	wait ~token ~task_set
-
 let wait_for_guest_agent ~rpc ~session_id ~vm =
 	debug "prepare: waiting for guest agent in VM %s" (Ref.string_of vm);
 	let classes = [ Printf.sprintf "VM/%s" (Ref.string_of vm) ] in
@@ -87,7 +56,7 @@ let wait_for_guest_agent ~rpc ~session_id ~vm =
 				vm_rec.API.vM_guest_metrics <> Ref.null
 			| _ -> false in
 		if not (List.fold_left (||) false (List.map valid records))
-		then wait ~token:(string_of_token event_from.token) in
+		then wait ~token:event_from.token in
 	let token = "" in
 	wait ~token
 
@@ -276,7 +245,7 @@ let test ({ session_id = session_id; vm = vm; id = id } as env) (op, n) =
 	XN.DEBUG.trigger "cancel_tests" "set-cancel-trigger" [ dbg; string_of_int n ];
 	let task = execute env op (make_rpc ~dbg ()) in
 	let rpc = make_rpc () in
-	wait_for_all_tasks ~rpc ~session_id ~tasks:[task];
+	Tasks.wait_for_all ~rpc ~session_id ~tasks:[task];
 	begin match Client.Task.get_status ~rpc ~session_id ~self:task with
 		| `pending -> failwith "task is pending (not cancelled)"
 		| `success -> failwith "task succeed (not cancelled)"
@@ -370,7 +339,7 @@ let cancel_points_of session_id f =
 	let rpc = make_rpc ~dbg:(Printf.sprintf "cancel_points_of:%d" !counter) () in
 	let task : API.ref_task = f rpc in
 	let rpc = make_rpc () in
-	wait_for_all_tasks ~rpc ~session_id ~tasks:[task];
+	Tasks.wait_for_all ~rpc ~session_id ~tasks:[task];
 	let status = Client.Task.get_status ~rpc ~session_id ~self:task in
 	if status <> `success then begin
 		let error = Client.Task.get_error_info ~rpc ~session_id ~self:task in
