@@ -33,13 +33,15 @@ let string_of = function
 	| Broken -> "broken"
 
 let read_pool_role () =
-	let s = String.strip String.isspace (Unixext.string_of_file Constants.pool_config_file) in
-	match String.split ~limit:2 ':' s with
-	| [ "master" ] -> Master
-	| [ "slave"; m_ip ] -> Slave m_ip
-	| [ "broken" ] -> Broken
-	| _ ->
-		failwith "cannot parse pool_role from pool config file"
+	try
+		let s = String.strip String.isspace
+			(Unixext.string_of_file Constants.pool_config_file) in
+		match String.split ~limit:2 ':' s with
+			| [ "master" ]      -> Master
+			| [ "slave"; m_ip ] -> Slave m_ip
+			| [ "broken" ]      -> Broken
+			| _ -> failwith "cannot parse pool_role from pool config file"
+	with _ -> Broken
 
 let get_role () =
 	Mutex.execute role_m (fun _ ->
