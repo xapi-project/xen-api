@@ -545,6 +545,9 @@ let _ =
     ~doc:"This VM has locked the DVD drive tray, so the disk cannot be ejected" ();
   error Api_errors.vbd_cds_must_be_readonly [ ]
     ~doc:"Read/write CDs are not supported" ();
+  (* CA-83260 *)
+  error Api_errors.disk_vbd_must_be_readwrite_for_hvm ["vbd"]
+    ~doc:"All VBDs of type 'disk' must be read/write for HVM guests" ();
   error Api_errors.vm_hvm_required ["vm"]
     ~doc:"HVM is required for this operation" ();
   error Api_errors.vm_no_vcpus ["vm"]
