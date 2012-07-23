@@ -1,0 +1,24 @@
+OCAMLPACKS = oUnit sexpr log xmlm stunnel xml-light2 http-svr uuid netdev \
+             tapctl rss xenctrl xenctrlext xenstore xenstoreext cpuid
+
+OCAMLINCLUDES = \
+	../database \
+	../xapi \
+	../idl \
+	../idl/ocaml_backend \
+
+OCAML_LIBS = \
+	../fhs \
+	../util/version \
+	../idl/ocaml_backend/common \
+	../idl/ocaml_backend/client \
+	../idl/ocaml_backend/server \
+	../xenops/xenops_client \
+	../auth/pam \
+	../util/stats \
+	../xapi/xapi \
+
+OCAML_OBJS = \
+	../idl/api_lowlevel \
+
+OCamlProgram(suite, suite $(OCAML_OBJS) )

@@ -48,6 +48,7 @@ all: version ocaml/fhs.ml
 	omake -j 8 phase1
 	omake -j 8 phase2
 	omake -j 8 phase3
+	@make test
 
 .PHONY: phase3
 phase3:
@@ -56,6 +57,27 @@ phase3:
 .PHONY: test
 test:
 	omake test
+	@echo @
+	@echo @ Running unit tests
+	@echo @
+#	Pipe ugly bash output to /dev/null
+	@echo @ xapi unit test suite
+	@./ocaml/test/suite
+	@echo @ xapi_unit_test
+	@./ocaml/xapi/xapi_unit_test
+	@echo @ xenops-cli unit test
+	@./ocaml/xenops-cli/runtest.sh 2> /dev/null
+	@echo
+	@echo @ HA binpack test
+	@./ocaml/xapi/binpack
+	@echo @ squeezed test
+	@./ocaml/xenops/squeeze_test
+#	The following test no longer runs:
+#	./ocaml/database/database_test
+#	The following test no longer compiles:
+#	./ocaml/xenops/device_number_test
+#	The following test must be run in dom0:
+#	./ocaml/xenops/cancel_utils_test
 
 .PHONY: install
 install:

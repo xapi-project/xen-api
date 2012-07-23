@@ -276,6 +276,8 @@ XAPI_MODULES = $(COMMON) \
 OCamlProgram(xapi, xapi $(XAPI_MODULES))
 OCamlDocProgram(xapi, xapi $(XAPI_MODULES))
 
+OCamlLibrary(xapi, xapi $(XAPI_MODULES))
+
 OCamlProgram(xapi_unit_test, xapi_unit_test xapi_db_upgrade_test pool_db_backup_test xapi_test_common $(XAPI_MODULES))
 
 OCamlProgram(bootloader, bootloader bootloader_test)
