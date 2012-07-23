@@ -1076,7 +1076,9 @@ let watchdog f =
 						Unix.kill (Forkhelpers.getpid (Opt.unbox !pid)) Sys.sigcont;
 			with
 					Unix.Unix_error(Unix.EINTR,_,_) -> ()
-				| e -> loginfo "Watchdog received unexpected exception: %s" (Printexc.to_string e)
+				| e ->
+					loginfo "Watchdog received unexpected exception: %s" (Printexc.to_string e);
+					Thread.delay 30.
 		end;
 		done;
 		if !error_msg <> "" then begin
