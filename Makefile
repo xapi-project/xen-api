@@ -19,8 +19,8 @@ BASE_PATH=$(shell scripts/base-path scripts/xapi.conf)
 JQUERY=$(CARBON_DISTFILES)/javascript/jquery/jquery-1.1.3.1.pack.js
 JQUERY_TREEVIEW=$(CARBON_DISTFILES)/javascript/jquery/treeview/jquery.treeview.zip
 
-COMPILE_NATIVE=yes
-COMPILE_BYTE=no # bytecode version does not build
+COMPILE_NATIVE ?= yes
+COMPILE_BYTE ?= no
 export COMPILE_NATIVE COMPILE_BYTE
 
 # FHS stuff
