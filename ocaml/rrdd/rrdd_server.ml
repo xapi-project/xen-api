@@ -306,7 +306,7 @@ let push_rrd _ ~(vm_uuid : string) ~(domid : int) ~(is_on_localhost : bool) ()
 	with _ -> ()
 
 (** Remove an RRD from the local filesystem, if it exists. *)
-let remove_rrd _ ~(uuid : string) : unit =
+let remove_rrd _ ~(uuid : string) () : unit =
 	let path = Xapi_globs.xapi_rrd_location ^ "/" ^ uuid in
 	let gz_path = path ^ ".gz" in
 	(try Unix.unlink path with _ -> ());

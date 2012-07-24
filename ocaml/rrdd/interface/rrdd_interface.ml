@@ -31,7 +31,7 @@ external has_vm_rrd : vm_uuid:string -> bool = ""
 
 external push_rrd : vm_uuid:string -> domid:int -> is_on_localhost:bool ->
 	unit -> unit = ""
-external remove_rrd : uuid:string -> unit = ""
+external remove_rrd : uuid:string -> unit -> unit = ""
 external migrate_rrd : ?session_id:string -> remote_address:string ->
 	vm_uuid:string -> host_uuid:string -> unit -> unit = ""
 external send_host_rrd_to_master : unit -> unit = ""
