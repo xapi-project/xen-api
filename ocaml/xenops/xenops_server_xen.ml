@@ -123,15 +123,11 @@ let di_of_uuid ~xc ~xs domain_selection uuid =
 	let uuid' = Uuid.string_of_uuid uuid in
 	let all = Xenctrl.domain_getinfolist xc 0 in
 	let possible = List.filter (fun x -> uuid_of_di x = uuid) all in
+
 	let oldest_first = List.sort
 		(fun a b ->
-			let has_run x = x.cpu_time <> 0L in
-			match has_run a, has_run b with
-				| true, false -> -1 (* a is older than b *)
-				| false, true -> 1
-				| _, _ ->
-					warn "VM %s: unable to tell which of domid %d and %d is newer" uuid' a.domid b.domid;
-					compare a.domid b.domid
+			let create_time x = xs.Xs.read (Printf.sprintf "/vm/%s/domains/%d/create-time" uuid' x.domid) |> Int64.of_string in
+			compare (create_time a) (create_time b)
 		) possible in
 	let domid_list = String.concat ", " (List.map (fun x -> string_of_int x.domid) oldest_first) in
 	if List.length oldest_first > 2
@@ -736,7 +732,8 @@ module VM = struct
 						let minimal_vm_kvs = [
 							"uuid", vm.Vm.id;
 							"name", vm.Vm.name;
-							Printf.sprintf "domains/%d" di.domid, Printf.sprintf "/local/domain/%d" di.domid
+							Printf.sprintf "domains/%d" di.domid, Printf.sprintf "/local/domain/%d" di.domid;
+							Printf.sprintf "domains/%d/create-time" di.domid, "0"
 						] |> List.map (fun (k, v) -> Printf.sprintf "/vm/%s/%s" vm.Vm.id k, v) in
 						List.iter
 							(fun (k, v) ->
