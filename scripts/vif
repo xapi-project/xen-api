@@ -64,7 +64,6 @@ handle_mtu()
     if [ $? -eq 0 -a -n "${mtu}" ]; then
         logger -t scripts-vif "Setting ${dev} MTU ${mtu}"
         ${IP} link set "${dev}" mtu ${mtu} || logger -t scripts-vif "Failed to ip link set ${dev} mtu ${mtu}. Error code $?"
-        xenstore-write "/local/domain/${DOMID}/device/vif/${DEVID}/mtu" "${mtu}"
     fi
 }
 
