@@ -110,6 +110,7 @@ let rec monitor dbg () =
 						[dev]
 				in
 				let vendor_id, device_id = if List.length devs = 1 then Sysfs.get_pci_ids dev else "", "" in
+				let carriers = List.map Sysfs.get_carrier devs in
 				let speed, duplex =
 					let int_of_duplex = function
 						| Duplex_half -> 1
@@ -121,24 +122,24 @@ let rec monitor dbg () =
 						| 2 -> Duplex_full
 						| _ -> Duplex_unknown
 					in
-					let statuses = List.map (fun dev ->
+					let statuses = List.map2 (fun dev carrier ->
 						let speed, duplex =
 							try
-								if not (Sysfs.get_carrier dev) then failwith "no carrier";
+								if not carrier then failwith "no carrier";
 								Bindings.get_status dev
 							with _ ->
 								0,
 								Duplex_unknown
 						in
 						speed, int_of_duplex duplex
-					) devs in
+					) devs carriers in
 					let speed, duplex =
 						List.fold_left (fun (speed, duplex) (speed', duplex') -> (speed + speed'), (min duplex duplex')) (0, 2) statuses
 					in
 					speed, duplex_of_int duplex
 				in
 				let nb_links = List.length devs in
-				let carrier = List.exists Sysfs.get_carrier devs in
+				let carrier = List.mem true carriers in
 				let get_interfaces name =
 					let bonds = Network_server.Bridge.get_all_bonds () dbg ~from_cache:true () in
 					let interfaces = (try List.assoc dev bonds with _ -> []) in
