@@ -646,7 +646,7 @@ let main () =
       error "Stunnel process %d %s.\n" i
         (match e with
          | Unix.WEXITED c -> "existed with exit code " ^ string_of_int c
-         | Unix.WSIGNALED c -> "killed by signal " ^ string_of_int c
+         | Unix.WSIGNALED c -> "killed by signal " ^ (Unixext.string_of_signal c)
          | Unix.WSTOPPED c -> "stopped by signal " ^ string_of_int c)
   | e ->
       error "Unhandled exception\n%s\n" (Printexc.to_string e) in
