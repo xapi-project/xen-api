@@ -1454,7 +1454,7 @@ let set_xenstore_data ~__context ~self xsdata =
 	transform_xenops_exn ~__context
 		(fun () ->
 			let id = id_of_vm ~__context ~self in
-			debug "xenops: VM.unpause %s" id;
+			debug "xenops: VM.set_xenstore_data %s" id;
 			let dbg = Context.string_of_task __context in
 			Client.VM.set_xsdata dbg id xsdata |> sync_with_task __context;
 			Event.wait dbg ();
@@ -1464,7 +1464,7 @@ let set_vcpus ~__context ~self n =
 	transform_xenops_exn ~__context
 		(fun () ->
 			let id = id_of_vm ~__context ~self in
-			debug "xenops: VM.unpause %s" id;
+			debug "xenops: VM.set_vcpus %s" id;
 			let dbg = Context.string_of_task __context in
 			try
 				Client.VM.set_vcpus dbg id (Int64.to_int n) |> sync_with_task __context;
