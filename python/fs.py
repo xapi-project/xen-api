@@ -744,7 +744,9 @@ whitelist = [
     "jQuery-Visualize/js/visualize.jQuery.js",
     "jQuery-Visualize/css/visualize.css",
     "jQuery-Visualize/css/visualize-light.css",
-    "mobile.html"
+    "mobile.html",
+    "index.html",
+    "monkey.model",
     ]
 rewrites = {
     "": "mobile.html"
@@ -780,6 +782,7 @@ class RequestHandler(xcp.RequestHandler):
                 if self.path.endswith(".js"):
                     self.send_header("Content-type", "application/x-javascript")
                 self.send_header("Content-length", str(size))
+                self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
                 self.wfile.write(f.read())
                 # shut down the connection
