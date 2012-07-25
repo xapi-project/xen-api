@@ -569,12 +569,23 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				"VIF mapping is not supported for intra-pool migration"]))
 	| `cross_pool remote_rpc ->
 		(* Check that the VM has no more than one snapshot *)
+		let is_a_checkpoint vbd =
+			let vm = Db.VBD.get_VM ~__context ~self:vbd in
+			match Db.VM.get_power_state ~__context ~self:vm with
+				| `Suspended -> true 
+				| _          -> false in
 		let (snapshots_vbds, nb_snapshots) = get_snapshots_vbds ~__context ~vm in
-		if nb_snapshots > 1 then
-			raise (Api_errors.Server_error(Api_errors.vm_has_too_many_snapshots, [Ref.string_of vm]));
+		(match nb_snapshots with
+			| 0 -> ()                                             (* 0 snapshots/checkpoints: no problem *)
+			| 1 -> (match snapshots_vbds with 
+					| vbd::[] -> (if is_a_checkpoint vbd then     (* might be a checkpoint *)
+							raise (Api_errors.Server_error(Api_errors.vm_has_too_many_snapshots, [Ref.string_of vm])))
+					| _       -> assert false) (* should never happen *)
+			| _ ->	raise (Api_errors.Server_error(Api_errors.vm_has_too_many_snapshots, [Ref.string_of vm])));
 		if (not force) && live then
 			Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host:dest_host_ref
 				~remote:(remote_rpc, session_id) ();
+
 		(* Ignore vdi_map for now since we won't be doing any mirroring. *)
 		try inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address ~vm ~vdi_map:[] ~dry_run:true ~live:true
 		with Xmlrpc_client.Connection_reset ->
