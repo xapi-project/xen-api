@@ -1032,8 +1032,8 @@ let _ =
     ~doc:"This operation cannot be performed because it would invalidate VM failover planning such that the system would be unable to guarantee to restart protected VMs after a Host failure."
     ();
 
-	error Api_errors.ha_cannot_bond_management_iface [ ]
-		~doc:"This operation cannot be performed because creating a bond with the management interface is not allowed while HA is on. In order to do that, disable HA, create the bond then re-enable HA."
+	error Api_errors.ha_cannot_change_bond_status_of_mgmt_iface [ ]
+		~doc:"This operation cannot be performed because creating or deleting a bond involving the management interface is not allowed while HA is on. In order to do that, disable HA, create or delete the bond then re-enable HA."
 		();
 
   error Api_errors.cannot_evacuate_host ["errors"]
