@@ -79,6 +79,10 @@ def get_running_domains(session, host):
     for vm in session.xenapi.host.get_resident_VMs(host):
         record = session.xenapi.VM.get_record(vm)
         if not(record["is_control_domain"]) and record["power_state"] == "Running":
+            if record['other_config'].has_key('auto_poweroff') and record['other_config'].get('auto_poweroff') == "false":
+                print "\n  Skip running VM %s has self-managed power-off" % record["name_label"],
+                sys.stdout.flush()
+                continue
             vms.append((vm,record))
     return vms
 
@@ -173,11 +177,28 @@ def main(session, host_uuid, force):
         vms = []
         for vm in session.xenapi.host.get_vms_which_prevent_evacuation(host).keys():
             r = session.xenapi.VM.get_record(vm)
+
+            # check for self-managed power off
+            if r['other_config'].has_key('auto_poweroff') and r['other_config'].get('auto_poweroff') == "false":
+                print "\n  VM %s has self-managed power-off" % r["name_label"],
+                sys.stdout.flush()
+                continue
+
             print "\n  VM %s cannot be evacuated" % r["name_label"],
             sys.stdout.flush()
             vms.append((vm, r))
         rc = rc + parallel_clean_shutdown(session, vms)
-        vms = filter(lambda (vm, _): session.xenapi.VM.get_power_state(vm) == "Running", vms)
+        vms_f = filter(lambda (vm, _): session.xenapi.VM.get_power_state(vm) == "Running", vms)
+
+        # check for self-managed power off
+        vms = []
+        for (vm,record) in vms_f:
+            if record['other_config'].has_key('auto_poweroff') and record['other_config'].get('auto_poweroff') == "false":
+                print "\n  VM %s has self-managed power-off" % record["name_label"],
+                sys.stdout.flush()
+                continue
+            vms.append((vm, r))
+
         rc = rc + serial_hard_shutdown(session, vms)
 
         # VMs which can be evacuated should be evacuated
