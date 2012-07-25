@@ -53,7 +53,7 @@ let html_navbar oc pages this_page =
       xmlm (span "icon-bar"); xmlm endtag;
       xmlm endtag;
       xmlm (`El_start (("", "a"), [ ("", "class"), "brand"; ("", "href"), "index.html"]));
-      xmlm (`Data "XCP host services");
+      xmlm (`Data "XCP Host APIs");
       xmlm endtag;
       xmlm (div "nav-collapse");
       xmlm (ul "nav");
@@ -80,7 +80,7 @@ let index_html oc pages =
       xmlm (div "container");
       xmlm (div "hero-unit");
       xmlm h1;
-      xmlm (`Data "XCP host services");
+      xmlm (`Data "XCP Host APIs");
       xmlm endtag;
       xmlm p;
       xmlm (`Data "XCP is built from a number of separate services including: a domain manager, a storage manager, a host networking manager and a statistics collector. In the future some of these services will be located within isolated domains, which means they can only communicate via explicit APIs. This site contains the prototype API definitions and example code.");
