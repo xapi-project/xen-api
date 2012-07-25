@@ -3,7 +3,7 @@ OCAML_LIBS =
 OCAMLINCLUDES =
 OCAML_CLIBS = xenguest_stubs
 OCAML_LINK_FLAGS += $(XEN_OCAML_LINK_FLAGS) -cclib -L$(XEN_ROOT)/usr/$(LIBDIR) -cclib -lz -cclib -lxenguest -cclib -lxenctrl -cclib -lxenstore
-OCAMLPACKS = unix
+OCAMLPACKS = unix stdext
 
 XENGUEST_SRC_FILES = dumpcore.ml xenguest.ml xenguest_main.ml xenguest_stubs.c
 

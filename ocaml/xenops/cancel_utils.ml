@@ -158,7 +158,7 @@ let cancellable_subprocess (task: Xenops_task.t) ?env ?stdin ?(syslog_stdout=NoS
 						| Unix.WEXITED n -> raise (Spawn_internal_error(err,out,Unix.WEXITED n))
 						| Unix.WSTOPPED n -> raise (Spawn_internal_error(err,out,Unix.WSTOPPED n))
 						| Unix.WSIGNALED n ->
-							debug "Subprocess exitted with signal %d and cancel requested; raising Cancelled" n;
+							debug "Subprocess exitted with signal %s and cancel requested; raising Cancelled" (Unixext.string_of_signal n);
 							if !cancelled
 							then Xenops_task.raise_cancelled task
 							else raise (Spawn_internal_error(err,out,Unix.WSIGNALED n))
