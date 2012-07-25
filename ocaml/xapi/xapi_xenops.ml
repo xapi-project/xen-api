@@ -883,6 +883,31 @@ let update_vm ~__context id =
 						with e ->
 							error "Caught %s: while updating VM %s rtc/timeoffset" (Printexc.to_string e) id
 					end;
+					let check_guest_agent () =
+						Opt.iter
+							(fun (_, state) ->
+								List.iter
+									(fun domid ->
+										let lookup key =
+											if List.mem_assoc key state.guest_agent then Some (List.assoc key state.guest_agent) else None in
+										let list dir =
+											let dir = if dir.[0] = '/' then String.sub dir 1 (String.length dir - 1) else dir in
+											let results = Listext.List.filter_map (fun (path, value) ->
+												if String.startswith dir path then begin
+													let rest = String.sub path (String.length dir) (String.length path - (String.length dir)) in
+													match List.filter (fun x -> x <> "") (String.split '/' rest) with
+														| x :: _ -> Some x
+														| _ -> None
+												end else None
+											) state.guest_agent |> Listext.List.setify in
+											results in
+										try
+											debug "xenopsd event: Updating VM %s domid %d guest_agent" id domid;
+											Xapi_guest_agent.all lookup list ~__context ~domid ~uuid:id
+										with e ->
+											error "Caught %s: while updating VM %s guest_agent" (Printexc.to_string e) id
+									) state.domids
+							) info in
 					Opt.iter
 						(fun (_, state) ->
 							List.iter
@@ -890,26 +915,8 @@ let update_vm ~__context id =
 									if different (fun x -> x.uncooperative_balloon_driver) then begin
 										debug "xenopsd event: VM %s domid %d uncooperative_balloon_driver = %b" id domid state.uncooperative_balloon_driver;
 									end;
-									let lookup key =
-										if List.mem_assoc key state.guest_agent then Some (List.assoc key state.guest_agent) else None in
-									let list dir =
-										let dir = if dir.[0] = '/' then String.sub dir 1 (String.length dir - 1) else dir in
-										let results = Listext.List.filter_map (fun (path, value) ->
-											if String.startswith dir path then begin
-												let rest = String.sub path (String.length dir) (String.length path - (String.length dir)) in
-												match List.filter (fun x -> x <> "") (String.split '/' rest) with
-													| x :: _ -> Some x
-													| _ -> None
-											end else None
-										) state.guest_agent |> Listext.List.setify in
-										results in
-									if different (fun x -> x.guest_agent) then begin
-										try
-											debug "xenopsd event: Updating VM %s domid %d guest_agent" id domid;
-											Xapi_guest_agent.all lookup list ~__context ~domid ~uuid:id
-										with e ->
-											error "Caught %s: while updating VM %s guest_agent" (Printexc.to_string e) id
-									end;
+									if different (fun x -> x.guest_agent) then check_guest_agent ();
+
 									if different (fun x -> x.xsdata_state) then begin
 										try
 											debug "xenopsd event: Updating VM %s domid %d xsdata" id domid;
@@ -952,7 +959,8 @@ let update_vm ~__context id =
 											if update_time < start_time then begin
 												debug "VM %s guest metrics update time (%s) < VM start time (%s): deleting"
 													id (Date.to_string update_time) (Date.to_string start_time);
-												Xapi_vm_helpers.delete_guest_metrics ~__context ~self
+												Xapi_vm_helpers.delete_guest_metrics ~__context ~self;
+												check_guest_agent ();
 											end
 										with _ -> () (* The guest metrics didn't exist *)
 									end
