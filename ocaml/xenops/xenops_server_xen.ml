@@ -690,7 +690,7 @@ module VM = struct
 						then Domain.suppress_spurious_page_faults ~xc domid;
 						Domain.set_machine_address_size ~xc domid vm.machine_address_size;
 						for i = 0 to vm.vcpu_max - 1 do
-							Device.Vcpu.add ~xs ~devid:i domid
+							Device.Vcpu.add ~xs ~devid:i domid (i < vm.vcpus)
 						done
 					);
 			)
