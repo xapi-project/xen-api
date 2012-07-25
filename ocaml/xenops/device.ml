@@ -790,19 +790,15 @@ end
 (** Vcpus:                                                                   *)
 module Vcpu = struct
 
-let add ~xs ~devid domid =
-	let path = sprintf "/local/domain/%d/cpu/%d" domid devid in
-	xs.Xs.writev path [
-		"availability", "online"
-	]
+let add ~xs ~devid domid online =
+	let path = sprintf "/local/domain/%d/cpu/%d/availability" domid devid in
+	xs.Xs.write path (if online then "online" else "offline")
 
 let del ~xs ~devid domid =
 	let path = sprintf "/local/domain/%d/cpu/%d" domid devid in
 	xs.Xs.rm path
 
-let set ~xs ~devid domid online =
-	let path = sprintf "/local/domain/%d/cpu/%d/availability" domid devid in
-	xs.Xs.write path (if online then "online" else "offline")
+let set = add
 
 let status ~xs ~devid domid =
 	let path = sprintf "/local/domain/%d/cpu/%d/availability" domid devid in
