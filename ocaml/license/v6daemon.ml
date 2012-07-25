@@ -126,7 +126,7 @@ let watchdog f =
 									last_badexit := ctime
 								end
 						| Unix.WSIGNALED i ->
-							loginfo "Received signal %d" i;
+							loginfo "Received signal %s" (Unixext.string_of_signal i);
 							pid := 0;
 							(* arbitrary choice of signals, probably need more though, for real use *)
 							if i = Sys.sigsegv || i = Sys.sigpipe then

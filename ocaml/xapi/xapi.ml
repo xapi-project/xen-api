@@ -1051,7 +1051,7 @@ let watchdog f =
 							last_badexit := ctime
 						end
 					| Unix.WSIGNALED i ->
-						loginfo "received signal %d" i;
+						loginfo "received signal: %s" (Unixext.string_of_signal i);
 						pid := None;
 						(* arbitrary choice of signals, probably need more
 						   though, for real use *)
@@ -1078,7 +1078,9 @@ let watchdog f =
 						Unix.kill (Forkhelpers.getpid (Opt.unbox !pid)) Sys.sigcont;
 			with
 					Unix.Unix_error(Unix.EINTR,_,_) -> ()
-				| e -> loginfo "Watchdog received unexpected exception: %s" (Printexc.to_string e)
+				| e ->
+					loginfo "Watchdog received unexpected exception: %s" (Printexc.to_string e);
+					Thread.delay 30.
 		end;
 		done;
 		if !error_msg <> "" then begin
