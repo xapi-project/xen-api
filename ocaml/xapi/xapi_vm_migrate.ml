@@ -569,14 +569,18 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let migration_type =
 		try
 			ignore(Db.Host.get_uuid ~__context ~self:dest_host_ref);
+			debug "This is an intra-pool migration";
 			`intra_pool dest_host_ref
 		with _ ->
 			let remote_rpc = Helpers.make_remote_rpc remote_master_address in
+			debug "This is a cross-pool migration";
 			`cross_pool remote_rpc
 	in
 	match migration_type with
 	| `intra_pool host ->
 		if (not force) && live then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ();
+		let snapshot = Helpers.get_boot_record ~__context ~self:vm in
+		Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_sr_check:false ();
 		if vif_map <> [] then
 			raise (Api_errors.Server_error(Api_errors.not_implemented, [
 				"VIF mapping is not supported for intra-pool migration"]))
