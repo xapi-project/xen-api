@@ -12,6 +12,14 @@ broker.tex: $(INPUTS)
 broker.html: $(INPUTS)
 	pandoc --toc --standalone $(INPUTS) -f html -o $@
 
+PACKS=lwt,lwt.unix,lwt.syntax,cohttp
+
+switch: store.cmx switch.cmx
+	ocamlfind ocamlopt -package "${PACKS}" -linkpkg -o switch $<
+
+%.cmx: %.ml
+	ocamlfind ocamlopt -package "${PACKS}" -syntax camlp4o -c $<
+
 %.pdf: %.tex
 	pdflatex $*
 	pdflatex $*
