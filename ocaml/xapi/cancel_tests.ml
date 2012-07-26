@@ -317,16 +317,19 @@ let test ({ session_id = session_id; vm = vm; id = id } as env) (op, n) =
 	let start = Unix.gettimeofday () in
 	let timeout = 30. in
 	while not(!finished) && (Unix.gettimeofday () -. start < timeout) do
-		finished :=
-			match Client.VM.get_power_state ~rpc ~session_id ~self:vm with
-				| `Halted ->
-					missing_in_xenopsd () && missing_domain () && (suspend_vdi () = Ref.null)
-				| `Running ->
-					running_in_xenopsd () && running_domain () && (suspend_vdi () = Ref.null) && devices_in_sync ()
-				| `Suspended ->
-					missing_in_xenopsd () && missing_domain () && (suspend_vdi () <> Ref.null)
-				| `Paused ->
-					paused_in_xenopsd () && paused_domain () && (suspend_vdi () = Ref.null) && devices_in_sync ()
+		finally
+			(fun () ->
+				finished :=
+					match Client.VM.get_power_state ~rpc ~session_id ~self:vm with
+						| `Halted ->
+							missing_in_xenopsd () && missing_domain () && (suspend_vdi () = Ref.null)
+						| `Running ->
+							running_in_xenopsd () && running_domain () && (suspend_vdi () = Ref.null) && devices_in_sync ()
+						| `Suspended ->
+							missing_in_xenopsd () && missing_domain () && (suspend_vdi () <> Ref.null)
+						| `Paused ->
+							paused_in_xenopsd () && paused_domain () && (suspend_vdi () = Ref.null) && devices_in_sync ()
+			) (fun () -> Thread.delay 1.)
 	done;
 	if not !finished then failwith "State never stabilised"
 
