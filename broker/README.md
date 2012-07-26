@@ -1,11 +1,31 @@
-Service domain message broker
-=============================
+Components
+==========
 
-Aims:
+We will have the following components:
 
-  1. To map persistent well-known names to abstract endpoint identifiers
-  2. To monitor the accessibility of each registered endpoint
-  3. To route binary messages to a well-known name
+name resolver
+
+:    The name resolver will map well-known names to transient endpoint identifiers.
+     For example a storage backend may have name *org/xen/sm/nfs/uuid* but this will be
+     mapped at runtime to a *(domain id, port or IP address)*.
+
+message switch
+
+:    The message switch will allow components to send messages to other components
+     by name, without knowing anything about their transient endpoint identifiers. The
+     switch will buffer a finite number of messages and will be expected to handle the
+     necessary retries while (for example) a driver domain is rebooting. The switch
+     will act as a central point for logging, filtering, monitoring and record/replay
+     of binary messages/
+
+liveness monitor
+
+:    The liveness monitor will monitor the accessibility of bound names corresponding
+     to services. When a driver domain crashes and the name becomes inaccessible,
+     the liveness monitor will take steps to reboot the domain and ensure the domain
+     is rebound. The message switch will then be able to deliver queued messages.
+
+The following sections describe the concepts in more detail:
 
 Endpoints
 ---------
@@ -25,9 +45,7 @@ An endpoint is a transient address identifier of the following form:
        | Process of unix_domain_socket_path * pid
        | Domain of idc_endpoint * domid
 
-Endpoints are only visible to the broker.
-
-XXX detecting endpoint failure
+Endpoints are not visible to clients.
 
 Names
 -----
@@ -54,6 +72,15 @@ resolver may take some side-effecting action (e.g. it may boot
 a VM which contains the requested service) and it will return the
 new endpoint address. The switch will then bind the name to the
 endpoint and start transmission.
+
+Detecting service failure
+-------------------------
+
+A separate component, the "health and liveness monitor" monitors the
+accessibility of bound names. The monitor will take corrective action
+if an endpoint fails (e.g. a domain crashes) and it will rebind the
+name to a new endpoint when one becomes available.
+
 
 Connections
 -----------
@@ -111,10 +138,10 @@ Queueing and ordering
 ---------------------
 
 Messages are always queued at the switch inputs, in a queue labelled
-with both the input port and the output port. The queues have a fixed
+with both the input name and the output name. The queues have a fixed
 size and message transmission will block if the queue is full. Note
-that flooding messages to one output port will not cause messages
-sent to other output ports to block, since they will be kept in separate
-queues. Similarly if a remote endpoint is unresponsive then this will
-apply backpressure through only one queue per input port.
+that flooding messages to one output name will not cause messages
+sent to other output names to block, since they will be kept in separate
+queues. Similarly if a remote name is unresponsive then this will
+apply backpressure through only one queue per input name.
 
