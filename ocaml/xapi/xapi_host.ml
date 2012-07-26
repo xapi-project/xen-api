@@ -1552,13 +1552,9 @@ let migrate_receive ~__context ~host ~network ~options =
 	end;
 	let sm_url = Printf.sprintf "http://%s/services/SM?session_id=%s" ip new_session_id in
 	let xenops_url = Printf.sprintf "http://%s/services/xenops?session_id=%s" ip new_session_id in
-	let master_address = try Pool_role.get_master_address () with Pool_role.This_host_is_a_master ->
-		Opt.unbox (Helpers.get_management_ip_addr ~__context) in
-
-	let master_url = Printf.sprintf "http://%s/" master_address in
 	[ Xapi_vm_migrate._sm, sm_url;
 	  Xapi_vm_migrate._host, Ref.string_of host;
 	  Xapi_vm_migrate._xenops, xenops_url;
 	  Xapi_vm_migrate._session_id, new_session_id;
-	  Xapi_vm_migrate._master, master_url;
+	  Xapi_vm_migrate._master, Xapi_vm_migrate.master_url ~__context;
 	]

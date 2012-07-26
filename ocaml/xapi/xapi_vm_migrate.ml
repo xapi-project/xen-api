@@ -178,6 +178,14 @@ let inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_addr
 				(fun (vdi, _) -> Db.VDI.remove_from_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key)
 				vdi_map)
 
+
+let master_url ~__context =
+	let master_address =
+		try Pool_role.get_master_address ()
+		with Pool_role.This_host_is_a_master ->
+			Opt.unbox (Helpers.get_management_ip_addr ~__context) in
+	Printf.sprintf "http://%s/" master_address
+
 let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	SMPERF.debug "vm.migrate_send called vm:%s" (Db.VM.get_uuid ~__context ~self:vm);
 	if not(!Xapi_globs.use_xenopsd)
@@ -190,26 +198,32 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let vdi_filter snapshot vbd =
 		if not(Db.VBD.get_empty ~__context ~self:vbd)
 		then
-			let do_mirror = (not snapshot) && (Db.VBD.get_mode ~__context ~self:vbd = `RW) in
 			let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
-			let snapshot_of = Db.VDI.get_snapshot_of ~__context ~self:vdi in
-			let size = Db.VDI.get_virtual_size ~__context ~self:vdi in
-			let xenops_locator = Xapi_xenops.xenops_vdi_locator ~__context ~self:vdi in
-			let location = Db.VDI.get_location ~__context ~self:vdi in
-			let device = Db.VBD.get_device ~__context ~self:vbd in
-			let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
-			let dp = Storage_access.datapath_of_vbd ~domid ~device in
-			(* XXX PR-1255: eject any CDROMs for now *)
-			if Db.VBD.get_type ~__context ~self:vbd = `CD then begin
-				if not snapshot then begin
-					info "Ejecting CD %s from %s" location (Ref.string_of vbd);
-					Xapi_xenops.vbd_eject ~__context ~self:vbd;
-				end;
+			let sr = Db.VDI.get_SR ~__context ~self:vdi in
+			let source_master_url = master_url ~__context in
+			let dest_master_url = List.assoc _master dest in
+			if source_master_url = dest_master_url && Db.SR.get_shared ~__context ~self:sr then
 				None
-			end else begin
-				let sr = Db.SR.get_uuid ~__context ~self:(Db.VDI.get_SR ~__context ~self:vdi) in
-				Some (vdi, dp, location, sr, xenops_locator, size, snapshot_of, do_mirror)
-			end
+			else
+				let do_mirror = (not snapshot) && (Db.VBD.get_mode ~__context ~self:vbd = `RW) in
+				let snapshot_of = Db.VDI.get_snapshot_of ~__context ~self:vdi in
+				let size = Db.VDI.get_virtual_size ~__context ~self:vdi in
+				let xenops_locator = Xapi_xenops.xenops_vdi_locator ~__context ~self:vdi in
+				let location = Db.VDI.get_location ~__context ~self:vdi in
+				let device = Db.VBD.get_device ~__context ~self:vbd in
+				let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
+				let dp = Storage_access.datapath_of_vbd ~domid ~device in
+				(* XXX PR-1255: eject any CDROMs for now *)
+				if Db.VBD.get_type ~__context ~self:vbd = `CD then begin
+					if not snapshot then begin
+						info "Ejecting CD %s from %s" location (Ref.string_of vbd);
+						Xapi_xenops.vbd_eject ~__context ~self:vbd;
+					end;
+					None
+				end else begin
+					let sr = Db.SR.get_uuid ~__context ~self:(Db.VDI.get_SR ~__context ~self:vdi) in
+					Some (vdi, dp, location, sr, xenops_locator, size, snapshot_of, do_mirror)
+				end
 		else None in
 	let vdis = List.filter_map (vdi_filter false) vbds in
 	let snapshots_vdis = List.filter_map (vdi_filter true) snapshots_vbds in
