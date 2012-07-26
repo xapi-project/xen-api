@@ -592,8 +592,7 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
 let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	with_migrate (fun () ->
-		assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options;
-		migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options)					
+		migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options)
 
 (* Handling migrations from pre-Tampa hosts *)
 

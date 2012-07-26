@@ -1592,6 +1592,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 		let migrate_send ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			info "VM.migrate_send: VM = '%s'" (vm_uuid ~__context vm);
+			Local.VM.assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options;
 			let local_fn = Local.VM.migrate_send ~vm ~dest ~live ~vdi_map ~vif_map ~options in
 			with_vm_operation ~__context ~self:vm ~doc:"VM.migrate_send" ~op:`migrate_send
 				(fun () ->
