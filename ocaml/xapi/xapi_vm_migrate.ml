@@ -188,8 +188,6 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
 	let (snapshots_vbds,nb_snapshots) = get_snapshots_vbds ~__context ~vm in
 	debug "get_snapshots VMs %d VBDs %d" nb_snapshots (List.length snapshots_vbds);
-	if nb_snapshots > 1 then
-		raise (Api_errors.Server_error(Api_errors.vm_has_too_many_snapshots, [Ref.string_of vm]));
 	let vdi_filter snapshot vbd =
 		if not(Db.VBD.get_empty ~__context ~self:vbd)
 		then
@@ -552,6 +550,22 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let dest_host_ref = Ref.of_string dest_host in
 	let force = try bool_of_string (List.assoc "force" options) with _ -> false in
 
+	(* Check that the VM has no more than one snapshot *)
+	let is_a_checkpoint vbd =
+		let vm = Db.VBD.get_VM ~__context ~self:vbd in
+		match Db.VM.get_power_state ~__context ~self:vm with
+		| `Suspended -> true
+		| _          -> false
+	in
+	let (snapshots_vbds, nb_snapshots) = get_snapshots_vbds ~__context ~vm in
+	(match nb_snapshots with
+		| 0 -> ()                                             (* 0 snapshots/checkpoints: no problem *)
+		| 1 -> (match snapshots_vbds with
+				| vbd::[] -> (if is_a_checkpoint vbd then     (* might be a checkpoint *)
+						raise (Api_errors.Server_error(Api_errors.vm_has_too_many_snapshots, [Ref.string_of vm])))
+				| _       -> assert false) (* should never happen *)
+		| _ -> raise (Api_errors.Server_error(Api_errors.vm_has_too_many_snapshots, [Ref.string_of vm])));
+
 	let migration_type =
 		try
 			ignore(Db.Host.get_uuid ~__context ~self:dest_host_ref);
@@ -560,7 +574,6 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			let remote_rpc = Helpers.make_remote_rpc remote_master_address in
 			`cross_pool remote_rpc
 	in
-
 	match migration_type with
 	| `intra_pool host ->
 		if (not force) && live then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ();
@@ -568,20 +581,6 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			raise (Api_errors.Server_error(Api_errors.not_implemented, [
 				"VIF mapping is not supported for intra-pool migration"]))
 	| `cross_pool remote_rpc ->
-		(* Check that the VM has no more than one snapshot *)
-		let is_a_checkpoint vbd =
-			let vm = Db.VBD.get_VM ~__context ~self:vbd in
-			match Db.VM.get_power_state ~__context ~self:vm with
-				| `Suspended -> true 
-				| _          -> false in
-		let (snapshots_vbds, nb_snapshots) = get_snapshots_vbds ~__context ~vm in
-		(match nb_snapshots with
-			| 0 -> ()                                             (* 0 snapshots/checkpoints: no problem *)
-			| 1 -> (match snapshots_vbds with 
-					| vbd::[] -> (if is_a_checkpoint vbd then     (* might be a checkpoint *)
-							raise (Api_errors.Server_error(Api_errors.vm_has_too_many_snapshots, [Ref.string_of vm])))
-					| _       -> assert false) (* should never happen *)
-			| _ ->	raise (Api_errors.Server_error(Api_errors.vm_has_too_many_snapshots, [Ref.string_of vm])));
 		if (not force) && live then
 			Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host:dest_host_ref
 				~remote:(remote_rpc, session_id) ();
