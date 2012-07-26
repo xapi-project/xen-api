@@ -592,7 +592,6 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			raise (Api_errors.Server_error(Api_errors.cannot_contact_host, [remote_address]))
 
 let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
-	assert_licensed_storage_motion ~__context ;
 	with_migrate (fun () ->
 		assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options;
 		migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options)					
