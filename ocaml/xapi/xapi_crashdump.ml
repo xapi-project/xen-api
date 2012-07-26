@@ -16,8 +16,8 @@ exception Not_implemented
 let nothrow f () = try f() with _ -> ()
 
 let create ~__context ~vM ~vDI =
-  let cdumpref = Ref.make() in
-  let uuid = Uuid.to_string (Uuid.make_uuid()) in
+  let cdumpref = Ref.insecure() in
+  let uuid = Uuid.to_string (Uuid.insecure()) in
     Db.Crashdump.create ~__context ~ref:cdumpref ~uuid ~vM ~vDI ~other_config:[];
     cdumpref
 

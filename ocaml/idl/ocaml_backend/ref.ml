@@ -17,9 +17,11 @@ type 'a t = string
 
 let ref_prefix = "OpaqueRef:"
 
-let make () = 
-  let uuid = Uuid.string_of_uuid (Uuid.make_uuid ()) in
+let wrap f () =
+  let uuid = Uuid.string_of_uuid (f ()) in
   ref_prefix ^ uuid
+let secure = wrap Uuid.secure
+let insecure = wrap Uuid.insecure
 
 let null = ref_prefix ^ "NULL"
 
@@ -37,7 +39,7 @@ let dummy_prefix = "DummyRef:"
 open Stringext
 
 let make_dummy task_name =
-  let uuid = Uuid.string_of_uuid (Uuid.make_uuid ()) in
+  let uuid = Uuid.string_of_uuid (Uuid.insecure ()) in
   dummy_prefix ^ String.of_char dummy_sep ^ uuid ^ String.of_char dummy_sep ^ task_name 
 
 let is_dummy x =

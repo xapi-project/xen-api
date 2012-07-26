@@ -233,8 +233,8 @@ let get_by_permission_name_label ~__context ~label =
 let create ~__context ~name_label ~name_description ~subroles =
 	(* disabled in RBAC 1.0 *)
 	(*
-	let ref=Ref.make() in 
-	let uuid=Uuid.to_string (Uuid.make_uuid()) in
+	let ref=Ref.insecure() in 
+	let uuid=Uuid.to_string (Uuid.insecure()) in
 	(* TODO: verify the uniqueness of id *)
 	if id = "no" 
 	then raise (Api_errors.Server_error (Api_errors.role_not_found, []))

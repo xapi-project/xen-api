@@ -34,7 +34,7 @@ let make_context () = {
 	transferred_fd = None
 }
 
-let instance_id = Uuid.string_of_uuid (Uuid.make_uuid ())
+let instance_id = Uuid.string_of_uuid (Uuid.insecure ())
 
 let query _ _ _ = {
 	Query.name = "xenops";

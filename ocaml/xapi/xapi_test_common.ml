@@ -62,7 +62,7 @@ let make_vm ~__context ?(name_label="name_label") ?(name_description="descriptio
 		~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy
 		~is_snapshot_from_vmpp ~appliance ~start_delay ~shutdown_delay ~order ~suspend_SR ~version
 
-let make_host ~__context ?(uuid=Uuid.string_of_uuid (Uuid.make_uuid ())) ?(name_label="host")
+let make_host ~__context ?(uuid=Uuid.string_of_uuid (Uuid.insecure ())) ?(name_label="host")
 		?(name_description="description") ?(hostname="localhost") ?(address="127.0.0.1")
 		?(external_auth_type="") ?(external_auth_service_name="") ?(external_auth_configuration=[])
 		?(license_params=[]) ?(edition="free") ?(license_server=[]) ?(local_cache_sr=Ref.null) ?(chipset_info=[]) () = 

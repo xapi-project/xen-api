@@ -284,8 +284,8 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 	(* Prevent someone supplying the same PIF multiple times and bypassing the
 	 * number of bond members check *)
 	let members = List.setify members in
-	let master = Ref.make () in
-	let bond = Ref.make () in
+	let master = Ref.insecure () in
+	let bond = Ref.insecure () in
 
 	with_local_lock (fun () ->
 		(* Validation constraints: *)
@@ -352,13 +352,13 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 		(* Create master PIF and Bond objects *)
 		let device = choose_bond_device_name ~__context ~host in
 		let device_name = device in
-		Db.PIF.create ~__context ~ref:master ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+		Db.PIF.create ~__context ~ref:master ~uuid:(Uuid.to_string (Uuid.insecure ()))
 			~device ~device_name ~network ~host ~mAC ~mTU:(-1L) ~vLAN:(-1L) ~metrics:Ref.null
 			~physical:false ~currently_attached:false
 			~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null
 			~vLAN_master_of:Ref.null ~management:false ~other_config:[] ~disallow_unplug:false
 			~ipv6_configuration_mode:`None ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type:`IPv4;
-		Db.Bond.create ~__context ~ref:bond ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~master:master ~other_config:[]
+		Db.Bond.create ~__context ~ref:bond ~uuid:(Uuid.to_string (Uuid.insecure ())) ~master:master ~other_config:[]
 			~primary_slave ~mode ~properties ~links_up:0L;
 
 		(* Set the PIF.bond_slave_of fields of the members.

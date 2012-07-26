@@ -236,7 +236,7 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 
 
 	try
-		let dp = Uuid.string_of_uuid (Uuid.make_uuid ()) in
+		let dp = Uuid.string_of_uuid (Uuid.insecure ()) in
 		let dest_vdi_url = Http.Url.set_uri remote_url (Printf.sprintf "%s/nbd/%s/%s/%s" (Http.Url.get_uri remote_url) dest dest_vdi dp) |> Http.Url.to_string in
 
 		debug "copy remote=%s/%s NBD URL = %s" dest dest_vdi dest_vdi_url;
@@ -467,7 +467,7 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
 
 	let vdis = Local.SR.scan ~dbg ~sr in
 
-	let leaf_dp = Local.DP.create ~dbg ~id:(Uuid.string_of_uuid (Uuid.make_uuid ())) in
+	let leaf_dp = Local.DP.create ~dbg ~id:(Uuid.string_of_uuid (Uuid.insecure ())) in
 
 	try
 		let vdi_info = { vdi_info with sm_config = ["base_mirror", id] } in

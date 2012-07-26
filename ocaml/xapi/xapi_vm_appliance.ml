@@ -34,8 +34,8 @@ let assert_operation_valid = Xapi_vm_appliance_lifecycle.assert_operation_valid
 let update_allowed_operations = Xapi_vm_appliance_lifecycle.update_allowed_operations
 
 let create ~__context ~name_label ~name_description =
-	let uuid = Uuid.make_uuid () in
-	let ref = Ref.make() in
+	let uuid = Uuid.insecure () in
+	let ref = Ref.insecure() in
 	Db.VM_appliance.create ~__context ~ref ~uuid:(Uuid.to_string uuid) ~name_label ~name_description ~allowed_operations:[] ~current_operations:[];
 	update_allowed_operations ~__context ~self:ref;
 	ref

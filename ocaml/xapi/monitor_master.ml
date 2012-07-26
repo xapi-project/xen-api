@@ -38,8 +38,8 @@ let set_vm_metrics ~__context ~vm ~memory ~cpus =
 	(* If VM metrics don't exist, then create them. *)
 	let metrics = Db.VM.get_metrics ~__context ~self:vm in
 	if not (Db.is_valid_ref __context metrics) then (
-		let ref = Ref.make () in
-		Db.VM_metrics.create ~__context ~ref ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+		let ref = Ref.insecure () in
+		Db.VM_metrics.create ~__context ~ref ~uuid:(Uuid.to_string (Uuid.insecure ()))
 			~memory_actual:0L ~vCPUs_number:0L
 			~vCPUs_utilisation:[]
 			~vCPUs_CPU:[]
@@ -80,8 +80,8 @@ let update_vm_stats ~__context uuid cpus vbds vifs memory =
 			(* If VIF metrics don't exist, then make them. *)
 			let metrics = Db.VIF.get_metrics ~__context ~self in
 			if not (Db.is_valid_ref __context metrics) then begin
-				let ref = Ref.make () in
-				Db.VIF_metrics.create ~__context ~ref ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+				let ref = Ref.insecure () in
+				Db.VIF_metrics.create ~__context ~ref ~uuid:(Uuid.to_string (Uuid.insecure ()))
 					~io_read_kbs:0. ~io_write_kbs:0. ~last_updated:(Date.of_float 0.) ~other_config:[];
 				Db.VIF.set_metrics ~__context ~self ~value:ref
 			end;
@@ -107,8 +107,8 @@ let update_vm_stats ~__context uuid cpus vbds vifs memory =
 			(* if vbd metrics don't exist then make one *)
 			let metrics = Db.VBD.get_metrics ~__context ~self in
 			if not (Db.is_valid_ref __context metrics) then begin
-				let ref = Ref.make () in
-				Db.VBD_metrics.create ~__context ~ref ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+				let ref = Ref.insecure () in
+				Db.VBD_metrics.create ~__context ~ref ~uuid:(Uuid.to_string (Uuid.insecure ()))
 					~io_read_kbs:0. ~io_write_kbs:0. ~last_updated:(Date.of_float 0.) ~other_config:[];
 				Db.VBD.set_metrics ~__context ~self ~value:ref
 			end;
@@ -138,8 +138,8 @@ let update_host_cpu ~__context host cpus' =
 			let numbers = List.map (fun self -> Int64.to_int (Db.Host_cpu.get_number ~__context ~self)) all in
 			for i = 0 to Array.length cpus - 1 do
 				if not (List.mem i numbers) then
-				let () = Db.Host_cpu.create ~__context ~ref:(Ref.make())
-					~uuid:(Uuid.string_of_uuid (Uuid.make_uuid ())) ~host ~number:(Int64.of_int i)
+				let () = Db.Host_cpu.create ~__context ~ref:(Ref.insecure())
+					~uuid:(Uuid.string_of_uuid (Uuid.insecure ())) ~host ~number:(Int64.of_int i)
 					~vendor:"unknown" ~speed:0L ~modelname:"unknown"
 					~utilisation:cpus.(i) ~flags:"unknown" ~stepping:"unknown" ~model:(-1L) ~family:(-1L)
 					~features:"unknown" ~other_config:[] in ()
@@ -253,8 +253,8 @@ let update_pifs ~__context host pifs =
 				if Db.is_valid_ref __context pifrec.API.pIF_metrics then
 					pifrec.API.pIF_metrics
 				else begin
-					let ref = Ref.make() in
-					Db.PIF_metrics.create ~__context ~ref ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~carrier:false
+					let ref = Ref.insecure() in
+					Db.PIF_metrics.create ~__context ~ref ~uuid:(Uuid.to_string (Uuid.insecure ())) ~carrier:false
 						~device_name:"" ~vendor_name:"" ~device_id:"" ~vendor_id:""
 						~speed:0L ~duplex:false ~pci_bus_path:""
 						~io_read_kbs:0. ~io_write_kbs:0. ~last_updated:(Date.of_float 0.)

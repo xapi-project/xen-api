@@ -24,7 +24,7 @@ let memory_kib = Int64.mul 1024L memory_mib
 
 let create ~xc ~xs domid =
     let stubdom_name = Printf.sprintf "stubdom:%d" domid in
-	let stubdom_uuid = Uuid.make_uuid() in
+	let stubdom_uuid = Uuid.insecure() in
     debug "jjd27: creating stubdom with name '%s' and uuid '%s'" stubdom_name (Uuid.to_string stubdom_uuid);
 	let info = {
  		Domain.ssidref = 0l;

@@ -97,7 +97,7 @@ let magic = "redo-log--------" (* 16 bytes *)
 (* Lengths of things on the socket comms protocol and in the redo-log *)
 let magic_size = 16
 let generation_size = 16
-let marker_size = String.length (Uuid.to_string (Uuid.make_uuid ()))
+let marker_size = String.length (Uuid.to_string (Uuid.insecure ()))
 let size_size = 16 (* decimal digits *)
 let command_size = 10 (* "write_delta" or "write_db___" or "read______" or "empty_____" *)
 

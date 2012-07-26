@@ -21,12 +21,12 @@ module D = Debug.Debugger(struct let name = "xapi_secret" end)
 open D
 
 let introduce ~__context ~uuid ~value ~other_config =
-	let ref = Ref.make () in
+	let ref = Ref.secure () in
 	Db.Secret.create ~__context ~ref ~uuid ~value ~other_config;
 	ref
 
 let create ~__context ~value ~other_config=
-	let uuid = Uuid.to_string(Uuid.make_uuid()) in
+	let uuid = Uuid.to_string(Uuid.secure()) in
 	let ref = introduce ~__context ~uuid ~value ~other_config in
 	ref
 

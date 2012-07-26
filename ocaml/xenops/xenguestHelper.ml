@@ -49,8 +49,8 @@ let connect domid (args: string list) (fds: (string * Unix.file_descr) list) : t
 	let last_log_file = Printf.sprintf "/tmp/xenguest.%d.log" domid in
 	(try Unix.unlink last_log_file with _ -> ());
 
-	let slave_to_server_w_uuid = Uuid.to_string (Uuid.make_uuid ()) in
-	let server_to_slave_r_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+	let slave_to_server_w_uuid = Uuid.to_string (Uuid.insecure ()) in
+	let server_to_slave_r_uuid = Uuid.to_string (Uuid.insecure ()) in
 
 	let slave_to_server_r, slave_to_server_w = Unix.pipe () in
 	let server_to_slave_r, server_to_slave_w = Unix.pipe () in

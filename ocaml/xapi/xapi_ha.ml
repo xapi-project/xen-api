@@ -1460,7 +1460,7 @@ let enable __context heartbeat_srs configuration =
 		Db.Pool.set_ha_plan_exists_for ~__context ~self:pool ~value:0L;
 		let (_: bool) = Xapi_ha_vm_failover.update_pool_status ~__context in
 
-		let generation = Uuid.string_of_uuid (Uuid.make_uuid ()) in
+		let generation = Uuid.string_of_uuid (Uuid.insecure ()) in
 
 		let hosts = Db.Host.get_all ~__context in
 

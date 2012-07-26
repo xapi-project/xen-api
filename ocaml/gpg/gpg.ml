@@ -58,7 +58,7 @@ let common ty filename signature size f =
   Unix.unlink tmp_file; 
   (* no need to close the 'tmp_oc' -> closing the fd is enough *)
   let status_out, status_in = Unix.pipe() in
-  let status_in_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+  let status_in_uuid = Uuid.to_string (Uuid.insecure ()) in (* only for command-line substitution *)
   (* from the parent's PoV *)
   let fds_to_close = ref [ result_out; result_in; status_out; status_in ] in
   let close' fd = 

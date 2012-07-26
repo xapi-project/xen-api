@@ -232,7 +232,7 @@ let make ~xc ~xs vm_info uuid =
 
 		(* CA-30811: let the linux guest agent easily determine if this is a fresh domain even if
 		   the domid hasn't changed (consider cross-host migrate) *)
-		xs.Xs.write (dom_path ^ "/unique-domain-id") (Uuid.string_of_uuid (Uuid.make_uuid ()));
+		xs.Xs.write (dom_path ^ "/unique-domain-id") (Uuid.string_of_uuid (Uuid.insecure ()));
 
 		info "VM = %s; domid = %d" (Uuid.to_string uuid) domid;
 		domid
@@ -727,7 +727,7 @@ let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~console_port 
 		raise Restore_signature_mismatch;
 	end;
 	Unix.clear_close_on_exec fd;
-	let fd_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+	let fd_uuid = Uuid.to_string (Uuid.insecure ()) in
 
 	let line = XenguestHelper.with_connection task domid
 	  ([
@@ -870,7 +870,7 @@ let suspend (task: Xenops_task.t) ~xc ~xs ~hvm domid fd flags ?(progress_callbac
 	let uuid = get_uuid ~xc domid in
 	debug "VM = %s; domid = %d; suspend live = %b" (Uuid.to_string uuid) domid (List.mem Live flags);
 	Io.write fd save_signature;
-	let fd_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+	let fd_uuid = Uuid.to_string (Uuid.insecure ()) in
 
 	let cmdline_to_flag flag =
 		match flag with

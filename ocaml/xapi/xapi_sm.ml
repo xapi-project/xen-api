@@ -31,7 +31,7 @@ module D=Debug.Debugger(struct let name="xapi" end)
 open D
 
 let create_from_query_result ~__context q =
-	let r = Ref.make () and u = Uuid.string_of_uuid (Uuid.make_uuid ()) in
+	let r = Ref.insecure () and u = Uuid.string_of_uuid (Uuid.insecure ()) in
 	let open Storage_interface in
 	info "Registering SM plugin %s (version %s)" (String.lowercase q.driver) q.version;
 	Db.SM.create ~__context ~ref:r ~uuid:u ~_type:(String.lowercase q.driver)

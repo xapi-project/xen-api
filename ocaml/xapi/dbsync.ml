@@ -38,9 +38,9 @@ let create_host_metrics ~__context =
        let m = Db.Host.get_metrics ~__context ~self in
        if not(Db.is_valid_ref __context m) then begin
 	 debug "Creating missing Host_metrics object for Host: %s" (Db.Host.get_uuid ~__context ~self);
-	 let r = Ref.make () in
+	 let r = Ref.insecure () in
 	 Db.Host_metrics.create ~__context ~ref:r
-	   ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~live:false
+	   ~uuid:(Uuid.to_string (Uuid.insecure ())) ~live:false
 	   ~memory_total:0L ~memory_free:0L ~last_updated:Date.never ~other_config:[];
 	 Db.Host.set_metrics ~__context ~self ~value:r
        end) (Db.Host.get_all ~__context)

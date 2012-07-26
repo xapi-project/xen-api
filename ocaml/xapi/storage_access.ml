@@ -287,7 +287,7 @@ module SMAPIv1 = struct
 							(fun __context ->
 								let other_config = Db.VDI.get_other_config ~__context ~self in
 								if not (List.mem_assoc "content_id" other_config)
-								then Db.VDI.add_to_other_config ~__context ~self ~key:"content_id" ~value:(Uuid.string_of_uuid (Uuid.make_uuid ())));
+								then Db.VDI.add_to_other_config ~__context ~self ~key:"content_id" ~value:(Uuid.string_of_uuid (Uuid.insecure ())));
 						(* If the backend doesn't advertise the capability then do nothing *)
 						if List.mem Smint.Vdi_activate (Sm.capabilities_of_driver _type)
 						then Sm.vdi_deactivate device_config _type sr self
@@ -378,7 +378,7 @@ module SMAPIv1 = struct
 								List.assoc "content_id" 
 									(Db.VDI.get_other_config ~__context ~self:clonee)
 							with _ ->
-								Uuid.string_of_uuid (Uuid.make_uuid ())
+								Uuid.string_of_uuid (Uuid.insecure ())
 						in
 						Db.VDI.set_name_label ~__context ~self ~value:vdi_info.name_label;
 						Db.VDI.set_name_description ~__context ~self ~value:vdi_info.name_description;

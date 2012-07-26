@@ -297,7 +297,7 @@ module VM : HandlerTools = struct
 		| Fail e -> raise e
 		| Default_template template -> state.table <- (x.cls, x.id, Ref.string_of template) :: state.table
 		| Clean_import _ | Replace _  ->
-			let dummy_vm = Ref.make () in
+			let dummy_vm = Ref.insecure () in
 			state.table <- (x.cls, x.id, Ref.string_of dummy_vm) :: state.table
 
 	let handle __context config rpc session_id state x precheck_result =
@@ -312,7 +312,7 @@ module VM : HandlerTools = struct
 				if config.full_restore
 				then other_config
 				else
-					(Xapi_globs.mac_seed, Uuid.string_of_uuid (Uuid.make_uuid ())) ::
+					(Xapi_globs.mac_seed, Uuid.string_of_uuid (Uuid.insecure ())) ::
 						(List.filter (fun (x, _) -> x <> Xapi_globs.mac_seed) other_config) in
 			let vm_record = { vm_record with API.vM_other_config = other_config } in
 
@@ -446,15 +446,15 @@ module GuestMetrics : HandlerTools = struct
 	let precheck __context config rpc session_id state x = OK
 
 	let handle_dry_run __context config rpc session_id state x precheck_result =
-		let dummy_gm = Ref.make () in
+		let dummy_gm = Ref.insecure () in
 		state.table <- (x.cls, x.id, Ref.string_of dummy_gm) :: state.table
 
 	let handle __context config rpc session_id state x precheck_result =
 		let gm_record = API.From.vM_guest_metrics_t "" x.snapshot in
-		let gm = Ref.make () in
+		let gm = Ref.insecure () in
 		Db.VM_guest_metrics.create ~__context
 			~ref:gm
-			~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+			~uuid:(Uuid.to_string (Uuid.insecure ()))
 			~os_version:gm_record.API.vM_guest_metrics_os_version
 			~pV_drivers_version:gm_record.API.vM_guest_metrics_PV_drivers_version
 			~pV_drivers_up_to_date:gm_record.API.vM_guest_metrics_PV_drivers_up_to_date
@@ -591,13 +591,13 @@ module VDI : HandlerTools = struct
 				(* We expect the disk to be missing during a live migration dry run. *)
 				debug "Ignoring missing disk %s - this will be mirrored during a real live migration." x.id;
 				(* Create a dummy disk in the state table so the VBD import has a disk to look up. *)
-				let dummy_vdi = Ref.make () in
+				let dummy_vdi = Ref.insecure () in
 				state.table <- (x.cls, x.id, Ref.string_of dummy_vdi) :: state.table
 			| _ -> raise e
 		end
 		| Skip -> ()
 		| Create _ ->
-			let dummy_vdi = Ref.make () in
+			let dummy_vdi = Ref.insecure () in
 			state.table <- (x.cls, x.id, Ref.string_of dummy_vdi) :: state.table
 
 	let handle __context config rpc session_id state x precheck_result =
@@ -646,7 +646,7 @@ module Net : HandlerTools = struct
 		match precheck_result with
 		| Found_net net -> state.table <- (x.cls, x.id, Ref.string_of net) :: state.table
 		| Create _ ->
-			let dummy_net = Ref.make () in
+			let dummy_net = Ref.insecure () in
 			state.table <- (x.cls, x.id, Ref.string_of dummy_net) :: state.table
 
 	let handle __context config rpc session_id state x precheck_result =
@@ -708,7 +708,7 @@ module GPUGroup : HandlerTools = struct
 			state.table <- (x.cls, x.id, Ref.string_of group) :: state.table
 		| Found_no_GPU_group e -> raise e
 		| Create _ ->
-			let dummy_gpu_group = Ref.make () in
+			let dummy_gpu_group = Ref.insecure () in
 			state.table <- (x.cls, x.id, Ref.string_of dummy_gpu_group) :: state.table
 
 	let handle __context config rpc session_id state x precheck_result =
@@ -801,7 +801,7 @@ module VBD : HandlerTools = struct
 		| Fail e -> raise e
 		| Skip -> ()
 		| Create _ -> begin
-			let dummy_vbd = Ref.make () in
+			let dummy_vbd = Ref.insecure () in
 			state.table <- (x.cls, x.id, Ref.string_of dummy_vbd) :: state.table
 		end
 
@@ -867,7 +867,7 @@ module VIF : HandlerTools = struct
 			state.table <- (x.cls, Ref.string_of vif, Ref.string_of vif) :: state.table
 		end
 		| Create _ -> begin
-			let dummy_vif = Ref.make () in
+			let dummy_vif = Ref.insecure () in
 			state.table <- (x.cls, x.id, Ref.string_of dummy_vif) :: state.table
 		end
 
@@ -929,7 +929,7 @@ module VGPU : HandlerTools = struct
 			state.table <- (x.cls, Ref.string_of vgpu, Ref.string_of vgpu) :: state.table
 		end
 		| Create _ -> begin
-			let dummy_vgpu = Ref.make () in
+			let dummy_vgpu = Ref.insecure () in
 			state.table <- (x.cls, x.id, Ref.string_of dummy_vgpu) :: state.table
 		end
 

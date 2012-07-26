@@ -227,8 +227,8 @@ let find_or_create_network (bridge: string) (device: string) ~__context =
 	match nets with
 	| [net] -> net
 	| _ ->
-		let net_ref = Ref.make ()
-		and net_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+		let net_ref = Ref.insecure ()
+		and net_uuid = Uuid.to_string (Uuid.insecure ()) in
 		let () = Db.Network.create
 			~__context ~ref:net_ref ~uuid:net_uuid
 			~current_operations:[] ~allowed_operations:[]
@@ -268,8 +268,8 @@ let is_my_management_pif ~__context ~self =
 	Db.Network.get_bridge ~__context ~self:net = management_if
 
 let make_pif_metrics ~__context =
-	let metrics = Ref.make ()
-	and metrics_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+	let metrics = Ref.insecure ()
+	and metrics_uuid = Uuid.to_string (Uuid.insecure ()) in
 	let () = Db.PIF_metrics.create
 		~__context ~ref:metrics ~uuid:metrics_uuid ~carrier:false
 		~device_name:"" ~vendor_name:"" ~device_id:"" ~vendor_id:""
@@ -285,11 +285,11 @@ let pool_introduce
 		~dNS ~bond_slave_of ~vLAN_master_of ~management
 		~other_config ~disallow_unplug ~ipv6_configuration_mode
 		~iPv6 ~ipv6_gateway ~primary_address_type =
-	let pif_ref = Ref.make () in
+	let pif_ref = Ref.insecure () in
 	let metrics = make_pif_metrics ~__context in
 	let () =
 		Db.PIF.create
-			~__context ~ref:pif_ref ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+			~__context ~ref:pif_ref ~uuid:(Uuid.to_string (Uuid.insecure ()))
 			~device ~device_name:device ~network ~host
 			~mAC ~mTU ~vLAN ~metrics
 			~physical ~currently_attached:false
@@ -320,13 +320,13 @@ let introduce_internal
 		| None -> make_pif_metrics ~__context
 		| Some m -> m
 	in
-	let pif = Ref.make () in
+	let pif = Ref.insecure () in
 	debug
 		"Creating a new record for NIC: %s: %s"
 		(device)
 		(Ref.string_of pif);
 	let () = Db.PIF.create
-		~__context ~ref:pif ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+		~__context ~ref:pif ~uuid:(Uuid.to_string (Uuid.insecure ()))
 		~device ~device_name:device ~network:net_ref ~host ~mAC
 		~mTU ~vLAN ~metrics ~physical ~currently_attached:false
 		~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:""

@@ -182,7 +182,7 @@ let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
     ?physical_utilisation ?_type ?sharable ?read_only ?storage_lock ?other_config ?parent
     ?xenstore_data ?sm_config ~current_operations ~__context ~original () =
   let a = Db.VDI.get_record_internal ~__context ~self:original in
-  let r = Ref.make () in
+  let r = Ref.insecure () in
   Db.VDI.create ~__context ~ref:r 
     ~uuid:(Uuid.to_string uuid)
     ~name_label:(default a.Db_actions.vDI_name_label name_label)
@@ -286,7 +286,7 @@ let introduce_dbonly  ~__context ~uuid ~name_label ~name_description ~sR ~_type 
 	(fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ -> ())
     with _ -> raise (Api_errors.Server_error (Api_errors.uuid_invalid, [ "VDI"; uuid ]))
   end;
-  let ref = Ref.make() in
+  let ref = Ref.insecure() in
   debug "VDI.introduce read_only = %b" read_only;
   Db.VDI.create ~__context ~ref ~uuid:uuid
     ~name_label ~name_description 

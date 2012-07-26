@@ -389,8 +389,8 @@ let map_password_to_secret ~__context ~new_password ~db =
   with e -> (
     (* uuid doesn't exist in secrets table, create a new one *)
     ignore (ExnHelper.string_of_exn e);
-    let new_secret_ref = Ref.make() in
-    let new_secret_uuid = Uuid.to_string(Uuid.make_uuid()) in
+    let new_secret_ref = Ref.secure() in
+    let new_secret_uuid = Uuid.to_string(Uuid.secure()) in
     Db.Secret.create ~__context ~ref:new_secret_ref ~uuid:new_secret_uuid ~value:new_password ~other_config:[];
     new_secret_uuid
   )
@@ -636,8 +636,8 @@ let create ~__context ~name_label ~name_description ~is_policy_enabled
   (* other constraints *)
   assert_backup_retention_value ~backup_retention_value;
 
-  let ref=Ref.make() in
-  let uuid=Uuid.to_string (Uuid.make_uuid()) in
+  let ref=Ref.insecure() in
+  let uuid=Uuid.to_string (Uuid.insecure()) in
   Db.VMPP.create ~__context ~ref ~uuid
     ~name_label ~name_description ~is_policy_enabled
     ~backup_type ~backup_retention_value
