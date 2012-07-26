@@ -1564,7 +1564,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					~__context ~host_from:source_host ~host_to:host ;
 			end;
 			let local_fn = Local.VM.pool_migrate ~vm ~host ~options in
-			Xapi_vm_helpers.assert_can_see_SRs ~__context ~self:vm ~host;
 
 			(* Check that the VM is compatible with the host it is being migrated to. *)
 			let force = try bool_of_string (List.assoc "force" options) with _ -> false in
