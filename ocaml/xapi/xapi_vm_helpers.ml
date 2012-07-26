@@ -444,12 +444,13 @@ let assert_enough_memory_available ~__context ~self ~host ~snapshot =
 
  * XXX: we ought to lock this otherwise we may violate our constraints under load
  *)
-let assert_can_boot_here ~__context ~self ~host ~snapshot ?(do_memory_check=true) () =
+let assert_can_boot_here ~__context ~self ~host ~snapshot ?(do_sr_check=true) ?(do_memory_check=true) () =
 	debug "Checking whether VM %s can run on host %s" (Ref.string_of self) (Ref.string_of host);
 	validate_basic_parameters ~__context ~self ~snapshot;
 	assert_host_is_live ~__context ~host;
 	assert_host_is_enabled ~__context ~host;
-	assert_can_see_SRs ~__context ~self ~host;
+	if do_sr_check then
+		assert_can_see_SRs ~__context ~self ~host;
 	assert_can_see_networks ~__context ~self ~host;
 	if vm_needs_iommu ~__context ~self then
 		assert_host_has_iommu ~__context ~host;
