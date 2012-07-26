@@ -39,9 +39,9 @@ let test_always_fail () = skip "This will fail" ; assert_equal 1 0
 let test_mock_db () =
 	let db = MockDatabase.make () in
 	let __context = MockContext.make ~database:db "Mock context" in
-	let blob_ref = Ref.make () in
+	let blob_ref = Ref.insecure () in
 	Db.Blob.create __context blob_ref
-		(Uuid.to_string (Uuid.make_uuid ()))
+		(Uuid.to_string (Uuid.insecure ()))
 		"BLOB" "" 5L true (Date.of_float 0.0) "" ;
 	ignore (Db.Blob.get_record ~__context ~self:blob_ref) ;
 	ignore (Db.VM.get_all_records ~__context) ;

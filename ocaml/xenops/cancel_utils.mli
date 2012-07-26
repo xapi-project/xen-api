@@ -21,10 +21,11 @@ open Xenops_task
 type key =
 	| Device of device
 	| Domain of int
+	| Qemu of int * int
 	| TestPath of string
 
 (** [on_shutdown xs domid] called whenever a domain has permanently shutdown *)
-val on_shutdown: xs:Xs.xsh -> int -> device list -> unit
+val on_shutdown: xs:Xs.xsh -> int -> unit
 
 (** [cancellable_watch key success_watches error_watches task xs timeout]
     watches for cancellation, "success_watches" or "error_watches" up to a timeout.
