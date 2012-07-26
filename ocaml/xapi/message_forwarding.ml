@@ -901,7 +901,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let reserve_memory_for_vm ~__context ~vm ~snapshot ~host ?host_op f =
 			with_global_lock
 				(fun () ->
-					Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host:host ~snapshot;
+					Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host:host ~snapshot ();
 					(* NB in the case of migrate although we are about to increase free memory on the sending host
 					   we ignore this because if a failure happens while a VM is in-flight it will still be considered
 					   on both hosts, potentially breaking the failover plan. *)

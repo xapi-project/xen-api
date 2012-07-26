@@ -444,7 +444,7 @@ let assert_enough_memory_available ~__context ~self ~host ~snapshot =
 
  * XXX: we ought to lock this otherwise we may violate our constraints under load
  *)
-let assert_can_boot_here_common ~__context ~self ~host ~snapshot do_memory_check =
+let assert_can_boot_here ~__context ~self ~host ~snapshot ?(do_memory_check=true) () =
 	debug "Checking whether VM %s can run on host %s" (Ref.string_of self) (Ref.string_of host);
 	validate_basic_parameters ~__context ~self ~snapshot;
 	assert_host_is_live ~__context ~host;
@@ -460,12 +460,6 @@ let assert_can_boot_here_common ~__context ~self ~host ~snapshot do_memory_check
 		assert_enough_memory_available ~__context ~self ~host ~snapshot;
 	debug "All fine, VM %s can run on host %s!" (Ref.string_of self) (Ref.string_of host)
 
-let assert_can_boot_here ~__context ~self ~host ~snapshot = 
-	assert_can_boot_here_common ~__context ~self ~host ~snapshot true 
-
-let assert_can_boot_here_no_memcheck ~__context ~self ~host ~snapshot = 
-	assert_can_boot_here_common ~__context ~self ~host ~snapshot false 
-
 let retrieve_wlb_recommendations ~__context ~vm ~snapshot =
   (* we have already checked the number of returned entries is correct in retrieve_vm_recommendations
   But checking that there are no duplicates is also quite cheap, put them in a hash and overwrite duplicates *)
@@ -473,7 +467,7 @@ let retrieve_wlb_recommendations ~__context ~vm ~snapshot =
   List.iter (
     fun (h, r) -> 
       try 
-        assert_can_boot_here ~__context ~self:vm ~host:h ~snapshot;
+        assert_can_boot_here ~__context ~self:vm ~host:h ~snapshot ();
         Hashtbl.replace recs h r;
       with
         | Api_errors.Server_error(x, y) -> Hashtbl.replace recs h (x :: y)
@@ -557,7 +551,7 @@ let vm_can_run_on_host __context vm snapshot host =
 		let host_metrics = Db.Host.get_metrics ~__context ~self:host in
 		Db.Host_metrics.get_live ~__context ~self:host_metrics in
 	let host_can_run_vm () =
-		assert_can_boot_here_no_memcheck ~__context ~self:vm ~host ~snapshot;
+		assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_memory_check:false ();
 		true in
 	try host_has_proper_version () && host_enabled () && host_live () && host_can_run_vm ()
 	with _ -> false
