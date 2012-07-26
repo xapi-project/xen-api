@@ -240,13 +240,13 @@ module Storage = struct
 	let epoch_begin task sr vdi =
 		transform_exception
 			(fun () ->
-				Client.VDI.epoch_begin task.Xenops_task.debug_info sr vdi
+				Client.VDI.epoch_begin task.Xenops_task.dbg sr vdi
 			) ()
 
 	let epoch_end task sr vdi =
 		transform_exception
 			(fun () ->
-				Client.VDI.epoch_end task.Xenops_task.debug_info sr vdi
+				Client.VDI.epoch_end task.Xenops_task.dbg sr vdi
 			) ()
 
 	let attach_and_activate ~xc ~xs task vm dp sr vdi read_write =
@@ -449,7 +449,7 @@ let device_by_id xc xs vm kind domain_selection id =
 			debug "VM = %s; does not exist in domain list" vm;
 			raise (Does_not_exist("domain", vm))
 		| Some frontend_domid ->
-			let devices = Device_common.list_frontends ~xs frontend_domid in
+			let devices = Device_common.list_devices ~xs frontend_domid in
 
 			let key = _device_id kind in
 			let id_of_device device =
@@ -636,7 +636,7 @@ module VM = struct
 							x.VmExtra.persistent, x.VmExtra.non_persistent
 						| None -> begin
 							debug "VM = %s; has no stored domain-level configuration, regenerating" vm.Vm.id;
-							let persistent = { VmExtra.build_info = None; ty = None; last_start_time = Unix.gettimeofday ()} in
+							let persistent = { VmExtra.build_info = None; ty = None; last_start_time = Unix.gettimeofday () } in
 							let non_persistent = generate_non_persistent_state xc xs vm in
 							persistent, non_persistent
 						end in
@@ -661,20 +661,20 @@ module VM = struct
 				let min_kib = kib_of_bytes_used (min_bytes +++ overhead_bytes)
 				and max_kib = kib_of_bytes_used (max_bytes +++ overhead_bytes) in
 				(* XXX: we would like to be able to cancel an in-progress with_reservation *)
-				Mem.with_reservation task.Xenops_task.debug_info min_kib max_kib
+				Mem.with_reservation task.Xenops_task.dbg min_kib max_kib
 					(fun target_plus_overhead_kib reservation_id ->
 						DB.write k {
 							VmExtra.persistent = persistent;
 							VmExtra.non_persistent = non_persistent
 						};
 						let domid = Domain.make ~xc ~xs non_persistent.VmExtra.create_info (uuid_of_vm vm) in
-						Mem.transfer_reservation_to_domain task.Xenops_task.debug_info domid reservation_id;
+						Mem.transfer_reservation_to_domain task.Xenops_task.dbg domid reservation_id;
 						begin match vm.Vm.ty with
 							| Vm.HVM { Vm.qemu_stubdom = true } ->
-								Mem.with_reservation task.Xenops_task.debug_info Stubdom.memory_kib Stubdom.memory_kib
+								Mem.with_reservation task.Xenops_task.dbg Stubdom.memory_kib Stubdom.memory_kib
 									(fun _ reservation_id ->
 										let stubdom_domid = Stubdom.create ~xc ~xs domid in
-										Mem.transfer_reservation_to_domain task.Xenops_task.debug_info stubdom_domid reservation_id;
+										Mem.transfer_reservation_to_domain task.Xenops_task.dbg stubdom_domid reservation_id;
 										set_stubdom ~xs domid stubdom_domid;
 									)
 							| _ ->
@@ -853,7 +853,7 @@ module VM = struct
 			~min:(Int64.to_int (Int64.div min 1024L))
 			~max:(Int64.to_int (Int64.div max 1024L))
 			domid;
-		Mem.balance_memory task.Xenops_task.debug_info
+		Mem.balance_memory task.Xenops_task.dbg
 	) Newest task vm
 
 	(* NB: the arguments which affect the qemu configuration must be saved and
@@ -1488,14 +1488,27 @@ module VBD = struct
 	let device_number_of_device d =
 		Device_number.of_xenstore_key d.Device_common.frontend.Device_common.devid
 
-	let epoch_begin task vm vbd = match vbd.backend with
-		| Some (VDI path) ->
+	let active_path vm vbd = Printf.sprintf "/vm/%s/vbd/%s" vm (snd vbd.Vbd.id)
+
+	let set_active task vm vbd active =
+		try
+			with_xs (fun xs -> xs.Xs.write (active_path vm vbd) (if active then "1" else "0"))
+		with e ->
+			debug "set_active %s.%s <- %b failed: %s" (fst vbd.Vbd.id) (snd vbd.Vbd.id) active (Printexc.to_string e)
+
+	let get_active vm vbd =
+		try
+			with_xs (fun xs -> xs.Xs.read (active_path vm vbd)) = "1"
+		with _ -> false
+
+	let epoch_begin task vm disk = match disk with
+		| VDI path ->
 			let sr, vdi = Storage.get_disk_by_name task path in
 			Storage.epoch_begin task sr vdi
 		| _ -> ()
 
-	let epoch_end task vm vbd = match vbd.backend with
-		| Some (VDI path) ->
+	let epoch_end task vm disk = match disk with
+		| VDI path ->
 			let sr, vdi = Storage.get_disk_by_name task path in
 			Storage.epoch_end task sr vdi
 		| _ -> ()		
@@ -1505,8 +1518,11 @@ module VBD = struct
 	let plug task vm vbd =
 		(* Dom0 doesn't have a vm_t - we don't need this currently, but when we have storage driver domains, 
 		   we will. Also this causes the SMRT tests to fail, as they demand the loopback VBDs *)
-		let vm_t = DB.read vm in 
-		on_frontend
+		let vm_t = DB.read_exn vm in
+		(* If the vbd isn't listed as "active" then we don't automatically plug this one in *)
+		if not(get_active vm vbd)
+		then debug "VBD %s.%s is not active: not plugging into VM" (fst vbd.Vbd.id) (snd vbd.Vbd.id)
+		else on_frontend
 			(fun xc xs frontend_domid hvm ->
 				if vbd.backend = None && not hvm
 				then info "VM = %s; an empty CDROM drive on a PV guest is simulated by unplugging the whole drive" vm
@@ -1564,13 +1580,11 @@ module VBD = struct
 							end
 						| _, _, _ -> None in
 					(* Remember what we've just done *)
-					Opt.iter (fun vm_t -> 
-						Opt.iter (fun q ->
-							let non_persistent = { vm_t.VmExtra.non_persistent with
-								VmExtra.qemu_vbds = (vbd.Vbd.id, q) :: vm_t.VmExtra.non_persistent.VmExtra.qemu_vbds} in
-							DB.write vm { vm_t with VmExtra.non_persistent = non_persistent }
-						) qemu_frontend
-					) vm_t
+					Opt.iter (fun q ->
+						let non_persistent = { vm_t.VmExtra.non_persistent with
+							VmExtra.qemu_vbds = (vbd.Vbd.id, q) :: vm_t.VmExtra.non_persistent.VmExtra.qemu_vbds} in
+						DB.write vm { vm_t with VmExtra.non_persistent = non_persistent }
+					) qemu_frontend
 				end
 			) Newest vm
 
@@ -1721,7 +1735,6 @@ module VBD = struct
 					let (device: Device_common.device) = device_by_id xc xs vm Device_common.Vbd Newest (id_of vbd) in
 					let qos_target = get_qos xc xs vm vbd device in
 
-					let plugged = Hotplug.device_is_online ~xs device in
 					let device_number = device_number_of_device device in
 					let domid = device.Device_common.frontend.Device_common.domid in
 					let backend_present =
@@ -1729,14 +1742,17 @@ module VBD = struct
 						then None
 						else Some (vdi_path_of_device ~xs device |> xs.Xs.read |> Jsonrpc.of_string |> disk_of_rpc) in
 					{
-						Vbd.plugged = plugged;
+						Vbd.active = true;
+						plugged = true;
 						backend_present;
 						qos_target = qos_target
 					}
 				with
 					| (Does_not_exist(_, _))
 					| Device_not_connected ->
-						unplugged_vbd
+						{ unplugged_vbd with
+							Vbd.active = get_active vm vbd
+						}
 			)
 
 	let get_device_action_request vm vbd =
@@ -1799,9 +1815,25 @@ module VIF = struct
 		let flag = match mode with Xenops_interface.Vif.Disabled -> "1" | _ -> "0" in
 		path, flag
 
+	let active_path vm vif = Printf.sprintf "/vm/%s/vif/%s" vm (snd vif.Vif.id)
+
+	let set_active task vm vif active =
+		try
+			with_xs (fun xs -> xs.Xs.write (active_path vm vif) (if active then "1" else "0"))
+		with e ->
+			debug "set_active %s.%s <- %b failed: %s" (fst vif.Vif.id) (snd vif.Vif.id) active (Printexc.to_string e)
+
+	let get_active vm vif =
+		try
+			with_xs (fun xs -> xs.Xs.read (active_path vm vif)) = "1"
+		with _ -> false
+
 	let plug_exn task vm vif =
-		let vm_t = DB.read vm in
-		on_frontend
+		let vm_t = DB.read_exn vm in
+		(* If the vif isn't listed as "active" then we don't automatically plug this one in *)
+		if not(get_active vm vif)
+		then debug "VIF %s.%s is not active: not plugging into VM" (fst vif.Vif.id) (snd vif.Vif.id)
+		else on_frontend
 			(fun xc xs frontend_domid hvm ->
 				let backend_domid = backend_domid_of xc xs vif in
 				(* Remember the VIF id with the device *)
@@ -1827,18 +1859,16 @@ module VIF = struct
 
 						(* If qemu is in a different domain, then plug into it *)
 						let me = this_domid ~xs in
-						Opt.iter (fun vm_t -> 
-							Opt.iter
-								(fun stubdom_domid ->
-									if vif.position < 4 && stubdom_domid <> me then begin
-										let device = create task stubdom_domid in
-										let q = vif.position, Device device in
-										let non_persistent = { vm_t.VmExtra.non_persistent with
-											VmExtra.qemu_vifs = (vif.Vif.id, q) :: vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs } in
-										DB.write vm { vm_t with VmExtra.non_persistent = non_persistent}
-									end
-								) (get_stubdom ~xs frontend_domid)
-						) vm_t
+						Opt.iter
+							(fun stubdom_domid ->
+								if vif.position < 4 && stubdom_domid <> me then begin
+									let device = create task stubdom_domid in
+									let q = vif.position, Device device in
+									let non_persistent = { vm_t.VmExtra.non_persistent with
+										VmExtra.qemu_vifs = (vif.Vif.id, q) :: vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs } in
+									DB.write vm { vm_t with VmExtra.non_persistent = non_persistent}
+								end
+							) (get_stubdom ~xs frontend_domid)
 					)
 			) Newest vm
 
@@ -1955,16 +1985,22 @@ module VIF = struct
 					let (d: Device_common.device) = device_by_id xc xs vm Device_common.Vif Newest (id_of vif) in
 					let path = Device_common.kthread_pid_path_of_device ~xs d in
 					let kthread_pid = try xs.Xs.read path |> int_of_string with _ -> 0 in
-					let plugged = Hotplug.device_is_online ~xs d in
+					(* We say the device is present unless it has been deleted
+					   from xenstore. The corrolary is that: only when the device
+					   is finally deleted from xenstore, can we remove bridges or
+					   switch configuration. *)
 					{
-						Vif.plugged = plugged;
-						media_present = plugged;
+						Vif.active = true;
+						plugged = true;
+						media_present = true;
 						kthread_pid = kthread_pid
 					}
 				with
 					| (Does_not_exist(_,_))
 					| Device_not_connected ->
-						unplugged_vif
+						{ unplugged_vif with
+							Vif.active = get_active vm vif
+						}
 			)
 
 	let get_device_action_request vm vif =

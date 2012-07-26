@@ -241,5 +241,5 @@ let release (task:Xenops_task.t) ~xs (x: device) =
 			warn "Warning, deleting unexpected '%s' entry from %s" x path;
 			xs.Xs.rm (path ^ "/" ^ x)
 		  ) all;
-	xs.Xs.rm path
-
+	xs.Xs.rm path;
+	xs.Xs.rm (get_private_data_path_of_device x)

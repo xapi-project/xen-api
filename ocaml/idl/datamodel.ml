@@ -7233,6 +7233,17 @@ let event =
     ~result:(Int, "the event ID")
     ~allowed_roles:_R_ALL
     () in
+  let inject = call
+	  ~name:"inject" ~params:[
+		  String, "class", "class of the object";
+		  String, "ref", "A reference to the object that will be changed.";
+	  ]
+	  ~in_product_since:rel_tampa
+	  ~doc:"Injects an artificial event on the given object and return the corresponding ID"
+	  ~flags:[`Session]
+	  ~result:(String, "the event ID")
+	  ~allowed_roles:_R_ALL
+	  () in
   (* !!! This should call create_obj ~in_db:true like everything else... !!! *)
   {
     obj_lifecycle=[];
@@ -7241,7 +7252,7 @@ let event =
     description = "Asynchronous event registration and handling";
     gen_constructor_destructor = false;
     doccomments = [];
-    messages = [ register; unregister; next; from; get_current_id ];
+    messages = [ register; unregister; next; from; get_current_id; inject ];
     obj_release = {internal=get_product_releases rel_rio; opensource=get_oss_releases (Some "3.0.3"); internal_deprecated_since=None};
     contents = [
       field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:Int "id" "An ID, monotonically increasing, and local to the current session";

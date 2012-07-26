@@ -53,8 +53,9 @@ module Manifest :
 	val update_schema : ((int * int) option -> (int * int) option) -> t -> t
   end
 
-(** The core database updates (PreDelete is more of an 'event') *)
+(** The core database updates (RefreshRow and PreDelete is more of an 'event') *)
 type update = 
+	| RefreshRow of string (* tblname *) * string (* objref *)
 	| WriteField of string (* tblname *) * string (* objref *) * string (* fldname *) * string  (* oldval *) * string (* newval *)
 	| PreDelete of string (* tblname *) * string (* objref *)
 	| Delete of string (* tblname *) * string (* objref *) * (string * string) list (* values *)
@@ -92,6 +93,8 @@ val set_field : string -> string -> string -> string -> Database.t -> Database.t
 val get_field : string -> string -> string -> Database.t -> string
 val remove_row : string -> string -> Database.t -> Database.t
 val add_row : string -> string -> Row.t -> Database.t -> Database.t
+
+val update_generation : string -> string -> Database.t -> Database.t
 
 type where_record = {
 	table: string;       (** table from which ... *)

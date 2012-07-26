@@ -84,14 +84,23 @@ let disconnect (_, _, r, w, pid) =
 
 let with_connection (task: Xenops_task.t) domid (args: string list) (fds: (string * Unix.file_descr) list) f =
 	let t = connect domid args fds in
+	let cancelled = ref false in
 	let cancel_cb () =
 		let _, _, _, _, pid = t in
-		try Unix.kill (Forkhelpers.getpid pid) Sys.sigkill with _ -> () in
+		let pid = Forkhelpers.getpid pid in
+		cancelled := true;
+		info "Cancelling task %s by killing xenguest subprocess pid: %d" task.Xenops_task.id pid;
+		try Unix.kill pid Sys.sigkill with _ -> () in
 	finally
 		(fun () ->
 			Xenops_task.with_cancel task cancel_cb
 				(fun () ->
-					f t
+					try
+						f t
+					with e ->
+						if !cancelled
+						then Xenops_task.raise_cancelled task
+						else raise e
 				)
 		) (fun () -> disconnect t)
 
