@@ -242,8 +242,8 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
 				begin
 					try
 						List.iter (fun host ->
-							Xapi_vm_helpers.assert_can_boot_here_no_memcheck
-								~__context ~self:vm ~host ~snapshot:record)
+							Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host ~snapshot:record
+								~do_memory_check:false ())
 							target_hosts;
 						true
 					with (Api_errors.Server_error (code, params)) -> Hashtbl.replace plans vm (Error (code, params)); false
@@ -281,7 +281,7 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
 			List.iter (fun (vm, host) ->
 				let snapshot = List.assoc vm all_vms in
 				begin
-					try Xapi_vm_helpers.assert_can_boot_here_no_memcheck ~__context ~self:vm ~host ~snapshot
+					try Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_memory_check:false ()
 					with (Api_errors.Server_error (code, params)) -> Hashtbl.replace plans vm (Error (code, params))
 				end;
 				if not(Hashtbl.mem plans vm) then Hashtbl.add plans vm (Migrate host)
