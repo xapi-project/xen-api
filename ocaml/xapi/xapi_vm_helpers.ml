@@ -25,8 +25,6 @@ module D=Debug.Debugger(struct let name="xapi" end)
 open D
 open Workload_balancing
 
-let set_difference a b = List.filter (fun x -> not(List.mem x b)) a
-
 let compute_memory_overhead ~__context ~vm =
   let snapshot = match Db.VM.get_power_state ~__context ~self:vm with
     | `Paused | `Running | `Suspended -> Helpers.get_boot_record ~__context ~self:vm
@@ -263,7 +261,7 @@ let which_specified_SRs_not_available_on_host ~__context ~reqd_srs ~host =
     (* filter for those currently_attached *)
   let pbds = List.filter (fun self -> Db.PBD.get_currently_attached ~__context ~self) pbds in
   let avail_srs = List.map (fun self -> Db.PBD.get_SR ~__context ~self) pbds in
-  let not_available = set_difference reqd_srs avail_srs in
+  let not_available = List.set_difference reqd_srs avail_srs in
     List.iter (fun sr -> warn "Host %s cannot see SR %s"
 		 (Helpers.checknull (fun () -> Db.Host.get_name_label ~__context ~self:host))
 		 (Helpers.checknull (fun () -> Db.SR.get_name_label ~__context ~self:sr))) 
@@ -318,7 +316,7 @@ let assert_can_see_networks ~__context ~self ~host =
 	in
 
 	let avail_nets = List.filter (is_network_available_on host) reqd_nets in
-	let not_available = set_difference reqd_nets avail_nets in
+	let not_available = List.set_difference reqd_nets avail_nets in
 
 	List.iter
 		(fun net -> warn "Host %s cannot see Network %s"
@@ -382,7 +380,7 @@ let assert_gpus_available ~__context ~self ~host =
 		List.mem host hosts
 	in
 	let avail_groups = List.filter (is_group_available_on host) reqd_groups in
-	let not_available = set_difference reqd_groups avail_groups in
+	let not_available = List.set_difference reqd_groups avail_groups in
 
 	List.iter
 		(fun group -> warn "Host %s does not have a pGPU from group %s available"
