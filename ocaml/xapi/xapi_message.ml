@@ -423,6 +423,7 @@ let destroy_real basefilename =
 			   (deleted := Listext.List.take 512 !deleted;
 				ndeleted := 512)		    
 	  );
+  cache_remove _ref;
   Xapi_event.event_add ~snapshot:xml "message" "del" (Ref.string_of _ref)
 
 let destroy ~__context ~self = 
