@@ -41,7 +41,8 @@ module Token = struct
 end
 
 
-let message_get_since_for_events : (__context:Context.t -> float -> (float * (API.ref_message * API.message_t) list)) ref = ref ( fun ~__context _ -> ignore __context; (0.0, []))
+type message_event = MCreate of (API.ref_message * API.message_t) | MDel of API.ref_message
+let message_get_since_for_events : (__context:Context.t -> float -> (float * message_event list)) ref = ref ( fun ~__context _ -> ignore __context; (0.0, []))
 
 (** Limit the event queue to this many events: *)
 let max_stored_events = 500
@@ -399,16 +400,12 @@ let from ~__context ~classes ~token ~timeout =
 		if event_matches sub.subs ev then ev::acc else acc
 	) modevs creates in
 	
-	let message_events = List.fold_left (fun acc (_ref,message) ->
-											 let objref = Ref.string_of _ref in
-											 let xml = API.To.message_t message in
-											 let ev = { id=0L;
-														ts=0.0;
-														ty="message";
-														op=Add;
-														reference=objref;
-														snapshot=Some xml } in
-											 ev::acc) createevs messages in
+	let message_events = List.fold_left (fun acc mev ->
+		let event = match mev with 
+			| MCreate (_ref,message) -> event_of Add ?snapshot:(Some (API.To.message_t message)) ("message", Ref.string_of _ref, 0L)
+			| MDel _ref -> event_of Del ("message",Ref.string_of _ref, 0L)
+		in
+		event::acc) createevs messages in
 
 	let valid_ref_counts =
         Db_cache_types.TableSet.fold

@@ -500,19 +500,20 @@ let get_since ~__context ~since =
 
 let get_since_for_events ~__context since =
 	let now = Mutex.execute event_mutex (fun () -> Unix.gettimeofday ()) in
-	let result = Mutex.execute in_memory_cache_mutex
+	let cached_result = Mutex.execute in_memory_cache_mutex
 		(fun () ->
 			 match !in_memory_cache with
 			 | (last_in_memory, _, _) :: _ when last_in_memory > since ->
 				   Some (List.filter_map
 					         (fun (timestamp,_ref,msg) ->
-						          if timestamp > since then Some (_ref, msg) else None)
+						          if timestamp > since then Some (Xapi_event.MCreate (_ref, msg)) else None)
 					         !in_memory_cache)
 			 | _ -> None) in
-	match result with
-		| Some x -> (now,x)
-		| None ->
-	(now, get_real message_dir (fun _ -> true) since)
+	let result = match cached_result with
+		| Some x -> x
+		| None -> List.map (fun x -> Xapi_event.MCreate x) (get_real message_dir (fun _ -> true) since)
+	in
+	(now, result)
 
 let get_by_uuid ~__context ~uuid =
   try
