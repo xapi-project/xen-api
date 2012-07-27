@@ -285,6 +285,15 @@ let cache_insert _ref message =
 				(List.length !in_memory_cache)
 		end)
 
+let cache_remove _ref =
+	Mutex.execute in_memory_cache_mutex (fun () ->
+		let (to_delete,to_keep) = List.partition (function | _ , _ref', _ -> _ref' = _ref) !in_memory_cache in
+		if List.length to_delete > 1 then
+			error "Internal error: Repeated reference in messages in_memory_cache";
+		in_memory_cache := to_keep;
+		in_memory_cache_length := List.length to_keep)
+		
+
 (** Write: write message to disk. Returns boolean indicating whether
 	message was written *)
 let write ~_ref ~message =
