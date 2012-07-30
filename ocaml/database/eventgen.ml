@@ -86,6 +86,17 @@ let database_callback event db =
 		with _ -> false in
 
 	match event with
+		| RefreshRow (tblname, objref) ->
+			(* Generate event *)
+			let snapshot = find_get_record tblname ~__context:context ~self:objref in
+			let record = snapshot() in
+			begin match record with
+				| None ->
+					error "Failed to send MOD event for %s %s" tblname objref;
+					Printf.printf "Failed to send MOD event for %s %s\n%!" tblname objref;
+				| Some record ->
+					events_notify ~snapshot:record tblname "mod" objref;
+			end
 		| WriteField (tblname, objref, fldname, oldval, newval) ->
 			let events_old_val = 
 				if is_valid_ref oldval then 

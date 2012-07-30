@@ -101,8 +101,9 @@ module type S = sig
 		val get_device_action_request: Vm.id -> Pci.t -> device_action_request option
 	end
 	module VBD : sig
-		val epoch_begin: Xenops_task.t -> Vm.id -> Vbd.t -> unit
-		val epoch_end: Xenops_task.t -> Vm.id -> Vbd.t -> unit
+		val set_active: Xenops_task.t -> Vm.id -> Vbd.t -> bool -> unit
+		val epoch_begin: Xenops_task.t -> Vm.id -> disk -> unit
+		val epoch_end: Xenops_task.t -> Vm.id -> disk -> unit
 		val plug: Xenops_task.t -> Vm.id -> Vbd.t -> unit
 		val unplug: Xenops_task.t -> Vm.id -> Vbd.t -> bool -> unit
 		val insert: Xenops_task.t -> Vm.id -> Vbd.t -> disk -> unit
@@ -115,6 +116,7 @@ module type S = sig
 		val get_device_action_request: Vm.id -> Vbd.t -> device_action_request option
 	end
 	module VIF : sig
+		val set_active: Xenops_task.t -> Vm.id -> Vif.t -> bool -> unit
 		val plug: Xenops_task.t -> Vm.id -> Vif.t -> unit
 		val unplug: Xenops_task.t -> Vm.id -> Vif.t -> bool -> unit
 		val move: Xenops_task.t -> Vm.id -> Vif.t -> Network.t -> unit

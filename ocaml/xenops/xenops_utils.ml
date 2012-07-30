@@ -258,13 +258,15 @@ let unplugged_pci = {
 }
 
 let unplugged_vbd = {
-	Vbd.plugged = false;
+	Vbd.active = false;
+	plugged = false;
 	qos_target = None;
 	backend_present = None;
 }
 
 let unplugged_vif = {
-	Vif.plugged = false;
+	Vif.active = false;
+	plugged = false;
 	kthread_pid = 0;
 	media_present = false;
 }

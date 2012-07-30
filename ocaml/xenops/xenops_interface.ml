@@ -244,6 +244,7 @@ module Vbd = struct
 	}
 
 	type state = {
+		active: bool;
 		plugged: bool;
 		qos_target: qos option;
 		backend_present: disk option;
@@ -279,6 +280,7 @@ module Vif = struct
 	}
 
 	type state = {
+		active: bool;
 		plugged: bool;
 		kthread_pid: int;
 		media_present: bool;
@@ -313,10 +315,11 @@ module Task = struct
 
 	type t = {
 		id: id;
-		debug_info: string;
+		dbg: string;
 		ctime: float;
 		state: state;
 		subtasks: (string * state) list;
+		debug_info: (string * string) list;
 	}
 end
 
@@ -354,6 +357,8 @@ module VM = struct
 	external add: debug_info -> Vm.t -> Vm.id = ""
 	external remove: debug_info -> Vm.id -> unit = ""
 
+	external generate_state_string: debug_info -> Vm.t -> string = ""
+
 	external migrate: debug_info -> Vm.id -> (string * string) list -> (string * Network.t) list -> string -> Task.id = ""
 
 	external create: debug_info -> Vm.id -> Task.id = ""
@@ -379,7 +384,6 @@ module VM = struct
 	external s3suspend: debug_info -> Vm.id -> Task.id = ""
 	external s3resume: debug_info -> Vm.id -> Task.id = ""
 
-	external generate_state_string: debug_info -> Vm.t -> string = ""
 	external export_metadata: debug_info -> Vm.id -> string  = ""
 	external import_metadata: debug_info -> string -> Vm.id  = ""
 end

@@ -20,6 +20,27 @@ open Stringext
 module D=Debug.Debugger(struct let name="xapi_event" end)
 open D
 
+module Token = struct
+
+	type t = int64 * float (* last id, timestamp *)
+
+	exception Failed_to_parse of string
+
+	let of_string token =
+		match String.split ',' token with
+			| [from;from_t] -> 
+				(Int64.of_string from, float_of_string from_t)
+			| [""] -> (0L, 0.1)
+			| _ ->
+				raise (Failed_to_parse token)
+
+	let to_string (last, timestamp) =
+		(* We prefix with zeroes so tokens which differ only in the generation
+		   can be compared lexicographically as strings. *)
+		Printf.sprintf "%020Ld,%f" last timestamp
+end
+
+
 let message_get_since_for_events : (__context:Context.t -> float -> (float * (API.ref_message * API.message_t) list)) ref = ref ( fun ~__context _ -> ignore __context; (0.0, []))
 
 (** Limit the event queue to this many events: *)
@@ -280,7 +301,7 @@ let rec next ~__context =
 let from ~__context ~classes ~token ~timeout = 
 	let from, from_t = 
 		try
-			token_of_string token
+			Token.of_string token
 		with e ->
 			warn "Failed to parse event.from token: %s (%s)" token (Printexc.to_string e);
 			raise (Api_errors.Server_error(Api_errors.event_from_token_parse_failure, [ token ])) in
@@ -404,11 +425,23 @@ let from ~__context ~classes ~token ~timeout =
 	let result = {
 		events = message_events;
 		valid_ref_counts = valid_ref_counts;
-		token = last, timestamp;
+		token = Token.to_string (last, timestamp);
 	} in
 	xmlrpc_of_event_from result
 
 let get_current_id ~__context = Mutex.execute event_lock (fun () -> !id)
+
+let inject ~__context ~_class ~ref =
+	let open Db_cache_types in
+	let generation : int64 = Db_lock.with_lock
+		(fun () ->
+			let db_ref = Db_backend.make () in
+			let g = Manifest.generation (Database.manifest (Db_ref.get_database db_ref)) in
+			Db_cache_impl.refresh_row db_ref _class ref; (* consumes this generation *)
+			g
+		) in
+	let token = (Int64.sub generation 1L), 0. in
+	Token.to_string token
 
 (** Inject an unnecessary update as a heartbeat. This will:
     1. hopefully prevent some firewalls from silently closing the connection

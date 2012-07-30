@@ -22,12 +22,8 @@ type t = API.ref_task
 
 let now () = Date.of_float (Unix.time ())
 
-let string_of_task task_name task_id = 
-  let sep = if task_name = "" then "" else " " in
-  Printf.sprintf "%s%s%s" task_name sep (Ref.really_pretty_and_small task_id)
-
 (* creates a new task *)
-let make ~__context ?(description="") ?session_id ?subtask_of label : (t * t Uuid.t) = 
+let make ~__context ~http_other_config ?(description="") ?session_id ?subtask_of label : (t * t Uuid.t) = 
   let uuid = Uuid.make_uuid () in
   let uuid_str = Uuid.string_of_uuid uuid in
   let ref = Ref.make () in
@@ -53,7 +49,7 @@ let make ~__context ?(description="") ?session_id ?subtask_of label : (t * t Uui
     ~stunnelpid:(-1L) ~forwarded:false ~forwarded_to:Ref.null
     ~uuid:uuid_str ~externalpid:(-1L)
     ~subtask_of:subtaskid_of
-    ~other_config:[] in
+    ~other_config:(List.map (fun (k, v) -> "http:" ^ k, v) http_other_config)  in
   ref, uuid
 
 let rbac_assert_permission_fn = ref None (* required to break dep-cycle with rbac.ml *)
@@ -104,7 +100,6 @@ let destroy ~__context task_id =
 let init () = 
   Context.__get_task_name := (fun ~__context self -> Db_actions.DB_Action.Task.get_name_label ~__context ~self);
   Context.__destroy_task := destroy;
-  Context.__string_of_task := string_of_task;
   Context.__make_task := make
 
 let operate_on_db_task ~__context f =

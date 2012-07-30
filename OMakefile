@@ -168,6 +168,7 @@ OCAML_PHASE3_XEN = \
 	ocaml/xapi/quicktestbin \
 	ocaml/xapi/sparse_dd \
 	ocaml/xapi/storage_impl_test \
+	ocaml/xapi/cancel_tests \
 	ocaml/license/v6d \
 	ocaml/network/xcp-networkd \
 	ocaml/network/networkd_db

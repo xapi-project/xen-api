@@ -270,11 +270,6 @@ let update_env __context sync_keys =
     Xapi_host_crashdump.resynchronise ~__context ~host:localhost;
   );
 
-  switched_sync Xapi_globs.sync_update_xenopsd (fun () ->
-    debug "synchronising with xenopsd";
-    Xapi_xenops.on_xapi_restart ~__context;
-  );
-
   switched_sync Xapi_globs.sync_pbds (fun () ->
 	  debug "resynchronising host PBDs";
 	  Storage_access.resynchronise_pbds ~__context ~pbds:(Db.Host.get_PBDs ~__context ~self:localhost);

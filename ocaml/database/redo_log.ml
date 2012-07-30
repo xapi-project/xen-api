@@ -759,6 +759,8 @@ let flush_db_to_all_active_redo_logs db =
 let database_callback event db =
 	let to_write =
 		match event with
+			| Db_cache_types.RefreshRow (tblname, objref) ->
+				None
 			| Db_cache_types.WriteField (tblname, objref, fldname, oldval, newval) ->
 				R.debug "WriteField(%s, %s, %s, %s, %s)" tblname objref fldname oldval newval;
 				if Schema.is_field_persistent (Db_cache_types.Database.schema db) tblname fldname 
