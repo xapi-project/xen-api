@@ -95,7 +95,9 @@ let add_device ~xs device backend_list frontend_list private_list =
 
 		t.Xst.mkdir private_data_path;
 		t.Xst.setperms private_data_path (device.backend.domid, Xsraw.PERM_NONE, []);
-		t.Xst.writev private_data_path private_list;
+		t.Xst.writev private_data_path
+			(("backend-kind", string_of_kind device.backend.kind) ::
+				("backend-id", string_of_int device.backend.domid) :: private_list);
 	)
 	)
 
