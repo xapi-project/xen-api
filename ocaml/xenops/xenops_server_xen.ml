@@ -1677,13 +1677,9 @@ module VBD = struct
 			(fun xc xs frontend_domid hvm ->
 				let (device: Device_common.device) = device_by_id xc xs vm Device_common.Vbd Oldest (id_of vbd) in
 
-				if not hvm
-				then unplug task vm vbd false
-				else begin
-					let device_number = device_number_of_device device in
-					Device.Vbd.media_eject ~xs ~device_number frontend_domid;
-					xs.Xs.rm (vdi_path_of_device ~xs device);
-				end;
+				let device_number = device_number_of_device device in
+				Device.Vbd.media_eject ~xs ~device_number frontend_domid;
+				xs.Xs.rm (vdi_path_of_device ~xs device);
 				Storage.dp_destroy task (Storage.id_of (frontend_domid_of_device device) vbd.Vbd.id)
 			) Oldest vm
 

@@ -1840,37 +1840,6 @@ let md_of_vbd ~__context ~self =
 	let vm = Db.VBD.get_VM ~__context ~self in
 	MD.of_vbd ~__context ~vm:(Db.VM.get_record ~__context ~self:vm) ~vbd:(Db.VBD.get_record ~__context ~self)
 
-let vbd_eject ~__context ~self =
-	transform_xenops_exn ~__context
-		(fun () ->
-			let vm = Db.VBD.get_VM ~__context ~self in
-			assert_resident_on ~__context ~self:vm;
-			let vbd = md_of_vbd ~__context ~self in
-			info "xenops: VBD.eject %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
-			let dbg = Context.string_of_task __context in
-			Client.VBD.eject dbg vbd.Vbd.id |> sync_with_task __context;
-			Events_from_xenopsd.wait dbg ();
-			Events_from_xapi.wait ~__context ~self:vm;
-			assert (Db.VBD.get_empty ~__context ~self);
-			assert (Db.VBD.get_VDI ~__context ~self = Ref.null)
-		)
-
-let vbd_insert ~__context ~self ~vdi =
-	transform_xenops_exn ~__context
-		(fun () ->
-			let vm = Db.VBD.get_VM ~__context ~self in
-			assert_resident_on ~__context ~self:vm;
-			let vbd = md_of_vbd ~__context ~self in
-			let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in
-			info "xenops: VBD.insert %s.%s %s" (fst vbd.Vbd.id) (snd vbd.Vbd.id) (disk |> rpc_of_disk |> Jsonrpc.to_string);
-			let dbg = Context.string_of_task __context in
-			Client.VBD.insert dbg vbd.Vbd.id disk |> sync_with_task __context;
-			Events_from_xenopsd.wait dbg ();
-			Events_from_xapi.wait ~__context ~self:vm;
-			assert (not(Db.VBD.get_empty ~__context ~self));
-			assert (Db.VBD.get_VDI ~__context ~self = vdi)
-		)
-
 let vbd_plug ~__context ~self =
 	transform_xenops_exn ~__context
 		(fun () ->
@@ -1910,6 +1879,62 @@ let vbd_unplug ~__context ~self force =
 			Events_from_xenopsd.wait dbg ();
 			assert (not(Db.VBD.get_currently_attached ~__context ~self))
 		)
+
+let vbd_eject_hvm ~__context ~self =
+	transform_xenops_exn ~__context
+		(fun () ->
+			let vm = Db.VBD.get_VM ~__context ~self in
+			assert_resident_on ~__context ~self:vm;
+			let vbd = md_of_vbd ~__context ~self in
+			info "xenops: VBD.eject %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
+			let dbg = Context.string_of_task __context in
+			Client.VBD.eject dbg vbd.Vbd.id |> sync_with_task __context;
+			Events_from_xenopsd.wait dbg ();
+			Events_from_xapi.wait ~__context ~self:vm;
+			assert (Db.VBD.get_empty ~__context ~self);
+			assert (Db.VBD.get_VDI ~__context ~self = Ref.null)
+		)
+
+let vbd_insert_hvm ~__context ~self ~vdi =
+	transform_xenops_exn ~__context
+		(fun () ->
+			let vm = Db.VBD.get_VM ~__context ~self in
+			assert_resident_on ~__context ~self:vm;
+			let vbd = md_of_vbd ~__context ~self in
+			let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in
+			info "xenops: VBD.insert %s.%s %s" (fst vbd.Vbd.id) (snd vbd.Vbd.id) (disk |> rpc_of_disk |> Jsonrpc.to_string);
+			let dbg = Context.string_of_task __context in
+			Client.VBD.insert dbg vbd.Vbd.id disk |> sync_with_task __context;
+			Events_from_xenopsd.wait dbg ();
+			Events_from_xapi.wait ~__context ~self:vm;
+			assert (not(Db.VBD.get_empty ~__context ~self));
+			assert (Db.VBD.get_VDI ~__context ~self = vdi)
+		)
+
+let ejectable ~__context ~self =
+	let dbg = Context.string_of_task __context in
+	let vm = Db.VBD.get_VM ~__context ~self in
+	let id = Db.VM.get_uuid ~__context ~self:vm in
+	let _, state = Client.VM.stat dbg id in
+	state.Vm.hvm
+
+let vbd_eject ~__context ~self =
+	if ejectable ~__context ~self
+	then vbd_eject_hvm ~__context ~self
+	else begin
+		vbd_unplug ~__context ~self false;
+		Db.VBD.set_empty ~__context ~self ~value:true;
+		Db.VBD.set_VDI ~__context ~self ~value:Ref.null;
+	end
+
+let vbd_insert ~__context ~self ~vdi =
+	if ejectable ~__context ~self
+	then vbd_insert_hvm ~__context ~self ~vdi
+	else begin
+		Db.VBD.set_VDI ~__context ~self ~value:vdi;
+		Db.VBD.set_empty ~__context ~self ~value:false;
+		vbd_plug ~__context ~self
+	end
 
 let md_of_vif ~__context ~self =
 	let vm = Db.VIF.get_VM ~__context ~self in
