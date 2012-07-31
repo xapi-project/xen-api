@@ -1758,18 +1758,22 @@ module VBD = struct
 	let get_device_action_request vm vbd =
 		with_xc_and_xs
 			(fun xc xs ->
-				let (device: Device_common.device) = device_by_id xc xs vm Device_common.Vbd Newest (id_of vbd) in
-				if Hotplug.device_is_online ~xs device
-				then begin
-					let qos_target = get_qos xc xs vm vbd device in
-					if qos_target <> vbd.Vbd.qos then begin
-						debug "VM = %s; VBD = %s; VBD_set_qos needed, current = %s; target = %s" vm (id_of vbd) (string_of_qos qos_target) (string_of_qos vbd.Vbd.qos);
-						Some Needs_set_qos
-					end else None
-				end else begin
-					debug "VM = %s; VBD = %s; VBD_unplug needed, device offline: %s" vm (id_of vbd) (Device_common.string_of_device device);
-					Some Needs_unplug
-				end
+				try
+					let (device: Device_common.device) = device_by_id xc xs vm Device_common.Vbd Newest (id_of vbd) in
+					if Hotplug.device_is_online ~xs device
+					then begin
+						let qos_target = get_qos xc xs vm vbd device in
+						if qos_target <> vbd.Vbd.qos then begin
+							debug "VM = %s; VBD = %s; VBD_set_qos needed, current = %s; target = %s" vm (id_of vbd) (string_of_qos qos_target) (string_of_qos vbd.Vbd.qos);
+							Some Needs_set_qos
+						end else None
+					end else begin
+						debug "VM = %s; VBD = %s; VBD_unplug needed, device offline: %s" vm (id_of vbd) (Device_common.string_of_device device);
+						Some Needs_unplug
+					end
+				with Device_not_connected ->
+					debug "VM = %s; VBD = %s; Device_not_connected so no action required" vm (id_of vbd);
+					None
 			)
 end
 
@@ -2006,10 +2010,13 @@ module VIF = struct
 	let get_device_action_request vm vif =
 		with_xc_and_xs
 			(fun xc xs ->
-				let (device: Device_common.device) = device_by_id xc xs vm Device_common.Vif Newest (id_of vif) in
-				if Hotplug.device_is_online ~xs device
-				then None
-				else Some Needs_unplug
+				try
+					let (device: Device_common.device) = device_by_id xc xs vm Device_common.Vif Newest (id_of vif) in
+					if Hotplug.device_is_online ~xs device
+					then None
+					else Some Needs_unplug
+				with Device_not_connected ->
+					None
 			)
 
 end
