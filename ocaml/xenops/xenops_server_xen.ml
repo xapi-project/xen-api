@@ -1337,6 +1337,7 @@ module VM = struct
 								| None -> 0.
 							end;
 							shadow_multiplier_target = shadow_multiplier_target;
+							hvm = di.Xenctrl.Domain_info.hvm_guest;
 						}
 			)
 

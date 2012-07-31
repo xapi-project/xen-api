@@ -251,6 +251,7 @@ let halted_vm = {
 	xsdata_state = [];
 	last_start_time = 0.;
 	shadow_multiplier_target = 1.;
+	hvm = false;
 }
 
 let unplugged_pci = {
