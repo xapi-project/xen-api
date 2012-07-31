@@ -188,6 +188,7 @@ module Vm = struct
 		guest_agent: (string * string) list;
 		xsdata_state: (string * string) list;
 		last_start_time: float;
+		hvm: bool;
 	}
 
 end
