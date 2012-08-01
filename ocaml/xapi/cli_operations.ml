@@ -2462,6 +2462,9 @@ let vm_retrieve_wlb_recommendations printer rpc session_id params =
 		| Records.CLI_failed_to_find_param name ->
 			failwith ("Parameter '"^name^"' is not a field of the VM class. Failed to select VM for operation.")
 
+let vm_migrate_sxm_params = ["remote-master"; "remote-username"; "vif"; "remote-password";
+							 "remote-network"; "destination-sr-uuid"; "vdi"]
+
 let vm_migrate printer rpc session_id params =
 	(* Hack to match host-uuid and host-name for backwards compatibility *)
 	let params = List.map (fun (k, v) -> if (k = "host-uuid") || (k = "host-name") then ("host", v) else (k, v)) params in
@@ -2512,14 +2515,42 @@ let vm_migrate printer rpc session_id params =
 							let net = Client.PIF.get_network remote_rpc remote_session pif in
 							(net, Client.Network.get_record remote_rpc remote_session net)
 						end in
-					let vdi_map = List.map (fun (vdi_uuid,sr_uuid) ->
-						let vdi = Client.VDI.get_by_uuid rpc session_id vdi_uuid in
-						let sr = Client.SR.get_by_uuid remote_rpc remote_session sr_uuid in
-						vdi,sr) (read_map_params "vdi" params) in
 					let vif_map = List.map (fun (vif_uuid,net_uuid) ->
 						let vif = Client.VIF.get_by_uuid rpc session_id vif_uuid in
 						let net = Client.Network.get_by_uuid remote_rpc remote_session net_uuid in
 						vif,net) (read_map_params "vif" params) in
+
+					let vdi_map = List.map (fun (vdi_uuid,sr_uuid) ->
+						let vdi = Client.VDI.get_by_uuid rpc session_id vdi_uuid in
+						let sr = Client.SR.get_by_uuid remote_rpc remote_session sr_uuid in
+						vdi,sr) (read_map_params "vdi" params) in
+
+					let default_sr =
+						if List.mem_assoc "destination-sr-uuid" params
+						then let sr_uuid = List.assoc "destination-sr-uuid" params in
+							 try Some (Client.SR.get_by_uuid remote_rpc remote_session sr_uuid)
+							 with _ -> None
+						else try let pools = Client.Pool.get_all remote_rpc remote_session in
+								 Some (Client.Pool.get_default_SR remote_rpc remote_session
+										   (List.hd pools))
+							with _ -> None in
+
+					let vdi_map = match default_sr with
+						| None -> vdi_map
+						| Some default_sr ->
+							  let vms = select_vms rpc session_id params
+								  ( "host" :: "host-uuid" :: "host-name" :: "live"
+									:: vm_migrate_sxm_params ) in
+							  if vms = [] then failwith "No matching VMs found" ;
+							  let vbds = Client.VM.get_VBDs rpc session_id ((List.hd vms).getref ())  in
+							  let vdis = List.map
+								  (fun vbd -> Client.VBD.get_VDI rpc session_id vbd) vbds in
+							  List.map (fun vdi ->
+								  if List.mem_assoc vdi vdi_map
+								  then (vdi, List.assoc vdi vdi_map)
+								  else (vdi, default_sr)
+							  ) vdis in
+
 					let params = List.filter (fun (s,_) -> if String.length s < 5 then true 
 						else let start = String.sub s 0 4 in start <> "vif:" && start <> "vdi:") params in
 					printer (Cli_printer.PMsg (Printf.sprintf "Will migrate to remote host: %s, using remote network: %s" host_record.API.host_name_label network_record.API.network_name_label));
