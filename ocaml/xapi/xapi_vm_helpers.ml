@@ -25,10 +25,6 @@ module D=Debug.Debugger(struct let name="xapi" end)
 open D
 open Workload_balancing
 
-let invalid_value x y = raise (Api_errors.Server_error (Api_errors.invalid_value, [ x; y ]))
-let value_not_supported fld v reason = 
-	raise (Api_errors.Server_error (Api_errors.value_not_supported, [ fld; v; reason ]))
-
 let compute_memory_overhead ~__context ~vm =
   let snapshot = match Db.VM.get_power_state ~__context ~self:vm with
     | `Paused | `Running | `Suspended -> Helpers.get_boot_record ~__context ~self:vm
@@ -36,53 +32,6 @@ let compute_memory_overhead ~__context ~vm =
   Memory_check.vm_compute_memory_overhead snapshot 
 
 let update_memory_overhead ~__context ~vm = Db.VM.set_memory_overhead ~__context ~self:vm ~value:(compute_memory_overhead ~__context ~vm)
-
-(* Simple validation functions for fields ************************************************)
-let validate_vcpus ~__context ~vCPUs_max ~vCPUs_at_startup = 
-	if vCPUs_max < 1L then invalid_value "VCPUs_max" (Int64.to_string vCPUs_max);
-	if vCPUs_at_startup < 1L
-	then invalid_value "VCPUs-at-startup" (Int64.to_string vCPUs_at_startup);
-	if vCPUs_at_startup > vCPUs_max 
-	then value_not_supported "VCPUs-at-startup" (Int64.to_string vCPUs_at_startup) "value greater than VCPUs-max"
-
-let validate_memory ~__context ~snapshot:vm_record =
-	let constraints = Vm_memory_constraints.extract ~vm_record in
-	(* For now, we simply check that the given snapshot record has  *)
-	(* memory constraints that can be coerced to valid constraints. *)
-	(* In future, we can be more rigorous and require the snapshot  *)
-	(* to have valid constraints without allowing coercion.         *)
-	match Vm_memory_constraints.transform constraints with
-		| Some constraints -> ()
-			(* Do nothing. *)
-		| None ->
-			(* The constraints could not be coerced. *)
-			raise (Api_errors.Server_error (Api_errors.memory_constraint_violation, []))
-
-let validate_shadow_multiplier ~hVM_shadow_multiplier =
-	if hVM_shadow_multiplier < 1.
-	then invalid_value "HVM_shadow_multiplier" (string_of_float hVM_shadow_multiplier)
-
-let validate_actions_after_crash ~__context ~self ~value = 
-	let fld = "VM.actions_after_crash" in 
-	let hvm_cannot_coredump v = 
-	      if Helpers.will_boot_hvm ~__context ~self
-	      then value_not_supported fld v "cannot invoke a coredump of an HVM domain" in
-	match value with
-	  | `rename_restart -> value_not_supported fld "rename_restart" 
-	      "option would leak a domain; VMs and not domains are managed by this API"
-	  | `coredump_and_destroy -> hvm_cannot_coredump "coredump_and_destroy"
-	  | `coredump_and_restart -> hvm_cannot_coredump "coredump_and_restart"
-	  | `destroy | `restart | `preserve -> ()
-
-(* Used to sanity-check parameters before VM start *)
-let validate_basic_parameters ~__context ~self ~snapshot:x =
-	validate_vcpus ~__context 
-	  ~vCPUs_max:x.API.vM_VCPUs_max 
-	  ~vCPUs_at_startup:x.API.vM_VCPUs_at_startup;
-	validate_memory ~__context ~snapshot:x;
-	validate_shadow_multiplier
-	  ~hVM_shadow_multiplier:x.API.vM_HVM_shadow_multiplier;
-	validate_actions_after_crash ~__context ~self ~value:x.API.vM_actions_after_crash
 
 (* Overrides for database set functions: ************************************************)
 let set_actions_after_crash ~__context ~self ~value = 
@@ -237,29 +186,82 @@ let destroy  ~__context ~self =
 
      Db.VM.destroy ~__context ~self
 
-let set_difference a b = List.filter (fun x -> not(List.mem x b)) a
+(* Validation and assertion functions *)
 
-(** Checks to see if a VM can boot on a particular host, throws an error if not.
-    Criteria: 
-    * for each VBD, corresponding VDI's SR must be attached on the target host
-    * for each VIF, either the Network has a PIF connecting to the target host
-                    OR if no PIF is connected to the Network
-                       then the host must be the same one all running VMs with
-                       VIFs on the Network are running on.
-    * if the VM would boot HVM, check the host supports it
-    * if the VM would boot PV, check the bootloader is supported
-    (ie we share storage but not networks; the first VIF on a network pins it to
-    the host the VM is running on)
-    XXX: we ought to lock this otherwise we may violate our constraints under load
-    XXX: this constraint can be undermined by booting a VM and then downing the PIF
-*)
+let invalid_value x y = raise (Api_errors.Server_error (Api_errors.invalid_value, [ x; y ]))
+let value_not_supported fld v reason =
+	raise (Api_errors.Server_error (Api_errors.value_not_supported, [ fld; v; reason ]))
+
+let validate_vcpus ~__context ~vCPUs_max ~vCPUs_at_startup = 
+	if vCPUs_max < 1L then invalid_value "VCPUs_max" (Int64.to_string vCPUs_max);
+	if vCPUs_at_startup < 1L
+	then invalid_value "VCPUs-at-startup" (Int64.to_string vCPUs_at_startup);
+	if vCPUs_at_startup > vCPUs_max 
+	then value_not_supported "VCPUs-at-startup" (Int64.to_string vCPUs_at_startup) "value greater than VCPUs-max"
+
+let validate_memory ~__context ~snapshot:vm_record =
+	let constraints = Vm_memory_constraints.extract ~vm_record in
+	(* For now, we simply check that the given snapshot record has  *)
+	(* memory constraints that can be coerced to valid constraints. *)
+	(* In future, we can be more rigorous and require the snapshot  *)
+	(* to have valid constraints without allowing coercion.         *)
+	match Vm_memory_constraints.transform constraints with
+		| Some constraints -> ()
+			(* Do nothing. *)
+		| None ->
+			(* The constraints could not be coerced. *)
+			raise (Api_errors.Server_error (Api_errors.memory_constraint_violation, []))
+
+let validate_shadow_multiplier ~hVM_shadow_multiplier =
+	if hVM_shadow_multiplier < 1.
+	then invalid_value "HVM_shadow_multiplier" (string_of_float hVM_shadow_multiplier)
+
+let validate_actions_after_crash ~__context ~self ~value = 
+	let fld = "VM.actions_after_crash" in 
+	let hvm_cannot_coredump v = 
+	      if Helpers.will_boot_hvm ~__context ~self
+	      then value_not_supported fld v "cannot invoke a coredump of an HVM domain" in
+	match value with
+	  | `rename_restart -> value_not_supported fld "rename_restart" 
+	      "option would leak a domain; VMs and not domains are managed by this API"
+	  | `coredump_and_destroy -> hvm_cannot_coredump "coredump_and_destroy"
+	  | `coredump_and_restart -> hvm_cannot_coredump "coredump_and_restart"
+	  | `destroy | `restart | `preserve -> ()
+
+(* Used to sanity-check parameters before VM start *)
+let validate_basic_parameters ~__context ~self ~snapshot:x =
+	validate_vcpus ~__context 
+	  ~vCPUs_max:x.API.vM_VCPUs_max 
+	  ~vCPUs_at_startup:x.API.vM_VCPUs_at_startup;
+	validate_memory ~__context ~snapshot:x;
+	validate_shadow_multiplier
+	  ~hVM_shadow_multiplier:x.API.vM_HVM_shadow_multiplier;
+	validate_actions_after_crash ~__context ~self ~value:x.API.vM_actions_after_crash
+
+
+let assert_host_is_enabled ~__context ~host =
+	(* Check the host is enabled first *)
+	if not (Db.Host.get_enabled ~__context ~self:host) then
+		raise (Api_errors.Server_error (
+			Api_errors.host_disabled, [Ref.string_of host]))
+
+let is_host_live ~__context host =
+	try
+		Db.Host_metrics.get_live
+			~__context ~self:(Db.Host.get_metrics ~__context ~self:host)
+	with _ -> false
+
+let assert_host_is_live ~__context ~host =
+	let host_is_live = is_host_live ~__context host in
+	if not host_is_live then
+		raise (Api_errors.Server_error (Api_errors.host_not_live, []))
 
 let which_specified_SRs_not_available_on_host ~__context ~reqd_srs ~host =
   let pbds = Db.Host.get_PBDs ~__context ~self:host in
     (* filter for those currently_attached *)
   let pbds = List.filter (fun self -> Db.PBD.get_currently_attached ~__context ~self) pbds in
   let avail_srs = List.map (fun self -> Db.PBD.get_SR ~__context ~self) pbds in
-  let not_available = set_difference reqd_srs avail_srs in
+  let not_available = List.set_difference reqd_srs avail_srs in
     List.iter (fun sr -> warn "Host %s cannot see SR %s"
 		 (Helpers.checknull (fun () -> Db.Host.get_name_label ~__context ~self:host))
 		 (Helpers.checknull (fun () -> Db.SR.get_name_label ~__context ~self:sr))) 
@@ -285,103 +287,10 @@ let assert_can_see_SRs ~__context ~self ~host =
 	  if not_available <> []
 	  then raise (Api_errors.Server_error (Api_errors.vm_requires_sr, [ Ref.string_of self; Ref.string_of (List.hd not_available) ]))
 
-let assert_host_is_enabled ~__context ~host =
-	(* Check the host is enabled first *)
-	if not (Db.Host.get_enabled ~__context ~self:host) then
-		raise (Api_errors.Server_error (
-			Api_errors.host_disabled, [Ref.string_of host]))
-
-let is_host_live ~__context host =
-	try
-		Db.Host_metrics.get_live
-			~__context ~self:(Db.Host.get_metrics ~__context ~self:host)
-	with _ -> false
-
-let assert_host_is_live ~__context ~host =
-	let host_is_live = is_host_live ~__context host in
-	if not host_is_live then
-		raise (Api_errors.Server_error (Api_errors.host_not_live, []))
-
-(* Currently, this check assumes that IOMMU (VT-d) is required iff the host
- * has a vGPU. This will likely need to be modified in future. *)
-let vm_needs_iommu ~__context ~self =
-	Db.VM.get_VGPUs ~__context ~self <> []
-
-let assert_host_has_iommu ~__context ~host =
-	let chipset_info = Db.Host.get_chipset_info ~__context ~self:host in
-	if List.assoc "iommu" chipset_info <> "true" then
-		raise (Api_errors.Server_error (Api_errors.vm_requires_iommu, [Ref.string_of host]))
-
-let assert_gpus_available ~__context ~self ~host =
-	let vgpus = Db.VM.get_VGPUs ~__context ~self in
-	let reqd_groups =
-		List.map (fun self -> Db.VGPU.get_GPU_group ~__context ~self) vgpus in
-	let is_pgpu_available pgpu =
-		let pci = Db.PGPU.get_PCI ~__context ~self:pgpu in
-		let attached = List.length (Db.PCI.get_attached_VMs ~__context ~self:pci) in
-		let functions = Int64.to_int (Db.PCI.get_functions ~__context ~self:pci) in
-		attached < functions
-	in
-	let is_group_available_on host group =
-		let pgpus = Db.GPU_group.get_PGPUs ~__context ~self:group in
-		let avail_pgpus = List.filter is_pgpu_available pgpus in
-		let hosts = List.map (fun self -> Db.PGPU.get_host ~__context ~self) avail_pgpus in
-		List.mem host hosts
-	in
-	let avail_groups = List.filter (is_group_available_on host) reqd_groups in
-	let not_available = set_difference reqd_groups avail_groups in
-
-	List.iter
-		(fun group -> warn "Host %s does not have a pGPU from group %s available"
-			(Helpers.checknull
-				(fun () -> Db.Host.get_name_label ~__context ~self:host))
-			(Helpers.checknull
-				(fun () -> Db.GPU_group.get_name_label ~__context ~self:group)))
-		not_available;
-	if not_available <> [] then
-		raise (Api_errors.Server_error (Api_errors.vm_requires_gpu, [
-			Ref.string_of self;
-			Ref.string_of (List.hd not_available)
-		]))
-
-(* We only check if a VM can boot here w.r.t. the configuration snapshot. If
- * the database is modified in parallel then this check will be inaccurate.
- * We must use the snapshot to boot the VM.
- *)
-let assert_can_boot_here_common
-		~__context ~self ~host ~snapshot do_memory_check =
-	(* Check to see if the VM is obviously malformed *)
-	validate_basic_parameters ~__context ~self ~snapshot;
-	(* Check host is live *)
-	assert_host_is_live ~__context ~host;
-	(* Check host is enabled *)
-	assert_host_is_enabled ~__context ~host;
-	(* Check SRs *)
-	assert_can_see_SRs ~__context ~self ~host;
-	(* Check Networks *)
+let assert_can_see_networks ~__context ~self ~host =
 	let vifs = Db.VM.get_VIFs ~__context ~self in
 	let reqd_nets =
 		List.map (fun self -> Db.VIF.get_network ~__context ~self) vifs in
-
-	let assert_enough_memory_available () =
-		let host_mem_available =
-			Memory_check.host_compute_free_memory_with_maximum_compression
-				~__context ~host (Some self) in
-		let main, shadow =
-			Memory_check.vm_compute_start_memory ~__context snapshot in
-		let mem_reqd_for_vm = Int64.add main shadow in
-		debug "host %s; available_memory = %Ld; memory_required = %Ld"
-			(Db.Host.get_name_label ~self:host ~__context)
-			host_mem_available
-			mem_reqd_for_vm;
-		if host_mem_available < mem_reqd_for_vm then
-			raise (Api_errors.Server_error (
-				Api_errors.host_not_enough_free_memory,
-				[
-					Int64.to_string mem_reqd_for_vm;
-					Int64.to_string host_mem_available;
-				]))
-	in
 
 	let is_network_available_on host net =
 		(* has the network been actualised by one or more PIFs? *)
@@ -407,7 +316,7 @@ let assert_can_boot_here_common
 	in
 
 	let avail_nets = List.filter (is_network_available_on host) reqd_nets in
-	let not_available = set_difference reqd_nets avail_nets in
+	let not_available = List.set_difference reqd_nets avail_nets in
 
 	List.iter
 		(fun net -> warn "Host %s cannot see Network %s"
@@ -442,30 +351,115 @@ let assert_can_boot_here_common
 					Api_errors.host_cannot_attach_network, [
 						Ref.string_of host; Ref.string_of network ]))
 		)
-		avail_nets;
+		avail_nets
 
-	if vm_needs_iommu ~__context ~self then
-		assert_host_has_iommu ~__context ~host;
+(* Currently, this check assumes that IOMMU (VT-d) is required iff the host
+ * has a vGPU. This will likely need to be modified in future. *)
+let vm_needs_iommu ~__context ~self =
+	Db.VM.get_VGPUs ~__context ~self <> []
 
-	assert_gpus_available ~__context ~self ~host;
+let assert_host_has_iommu ~__context ~host =
+	let chipset_info = Db.Host.get_chipset_info ~__context ~self:host in
+	if List.assoc "iommu" chipset_info <> "true" then
+		raise (Api_errors.Server_error (Api_errors.vm_requires_iommu, [Ref.string_of host]))
 
-	(* Check if the VM would boot HVM and the target machine is HVM-capable *)
-	let hvm = Helpers.will_boot_hvm ~__context ~self in
-	let capabilities = Db.Host.get_capabilities ~__context ~self:host in
+let assert_gpus_available ~__context ~self ~host =
+	let vgpus = Db.VM.get_VGPUs ~__context ~self in
+	let reqd_groups =
+		List.map (fun self -> Db.VGPU.get_GPU_group ~__context ~self) vgpus in
+	let is_pgpu_available pgpu =
+		let pci = Db.PGPU.get_PCI ~__context ~self:pgpu in
+		let attached = List.length (Db.PCI.get_attached_VMs ~__context ~self:pci) in
+		let functions = Int64.to_int (Db.PCI.get_functions ~__context ~self:pci) in
+		attached < functions
+	in
+	let is_group_available_on host group =
+		let pgpus = Db.GPU_group.get_PGPUs ~__context ~self:group in
+		let avail_pgpus = List.filter is_pgpu_available pgpus in
+		let hosts = List.map (fun self -> Db.PGPU.get_host ~__context ~self) avail_pgpus in
+		List.mem host hosts
+	in
+	let avail_groups = List.filter (is_group_available_on host) reqd_groups in
+	let not_available = List.set_difference reqd_groups avail_groups in
+
+	List.iter
+		(fun group -> warn "Host %s does not have a pGPU from group %s available"
+			(Helpers.checknull
+				(fun () -> Db.Host.get_name_label ~__context ~self:host))
+			(Helpers.checknull
+				(fun () -> Db.GPU_group.get_name_label ~__context ~self:group)))
+		not_available;
+	if not_available <> [] then
+		raise (Api_errors.Server_error (Api_errors.vm_requires_gpu, [
+			Ref.string_of self;
+			Ref.string_of (List.hd not_available)
+		]))
+
+let assert_host_supports_hvm ~__context ~self ~host =
 	(* For now we say that a host supports HVM if any of    *)
 	(* the capability strings contains the substring "hvm". *)
-	let host_supports_hvm = List.fold_left (||) false 
+	let capabilities = Db.Host.get_capabilities ~__context ~self:host in
+	let host_supports_hvm = List.fold_left (||) false
 		(List.map (fun x -> String.has_substr x "hvm") capabilities) in
-	if hvm && not(host_supports_hvm)
-	then raise (Api_errors.Server_error (
-		Api_errors.vm_hvm_required, [Ref.string_of self]));
-	if do_memory_check then assert_enough_memory_available()
+	if not(host_supports_hvm) then
+		raise (Api_errors.Server_error (Api_errors.vm_hvm_required, [Ref.string_of self]))
 
-let assert_can_boot_here ~__context ~self ~host ~snapshot = 
-	assert_can_boot_here_common ~__context ~self ~host ~snapshot true 
+let assert_enough_memory_available ~__context ~self ~host ~snapshot =
+	let host_mem_available =
+		Memory_check.host_compute_free_memory_with_maximum_compression
+			~__context ~host (Some self) in
+	let main, shadow =
+		Memory_check.vm_compute_start_memory ~__context snapshot in
+	let mem_reqd_for_vm = Int64.add main shadow in
+	debug "host %s; available_memory = %Ld; memory_required = %Ld"
+		(Db.Host.get_name_label ~self:host ~__context)
+		host_mem_available
+		mem_reqd_for_vm;
+	if host_mem_available < mem_reqd_for_vm then
+		raise (Api_errors.Server_error (
+			Api_errors.host_not_enough_free_memory,
+			[
+				Int64.to_string mem_reqd_for_vm;
+				Int64.to_string host_mem_available;
+			]))
 
-let assert_can_boot_here_no_memcheck ~__context ~self ~host ~snapshot = 
-	assert_can_boot_here_common ~__context ~self ~host ~snapshot false 
+(** Checks to see if a VM can boot on a particular host, throws an error if not.
+ * Criteria:
+ - The vCPU, memory, shadow multiplier, and actions-after-crash values must be valid.
+ - For each VBD, corresponding VDI's SR must be attached on the target host.
+ - For each VIF, either the Network has a PIF connecting to the target host,
+   OR if no PIF is connected to the Network then the host must be the same one
+   all running VMs with VIFs on the Network are running on.
+ - If the VM need PCI passthrough, check the host supports IOMMU/VT-d.
+ - For each vGPU, check whether a pGPU from the required GPU group is available.
+ - If the VM would boot HVM, check the host supports it.
+ - If the VM would boot PV, check the bootloader is supported.
+
+ * I.e. we share storage but not (internal/PIF-less) networks: the first VIF on a
+ * network pins it to the host the VM is running on.
+
+ * We only check if a VM can boot here w.r.t. the configuration snapshot. If
+ * the database is modified in parallel then this check will be inaccurate.
+ * We must use the snapshot to boot the VM.
+
+ * XXX: we ought to lock this otherwise we may violate our constraints under load
+ *)
+let assert_can_boot_here ~__context ~self ~host ~snapshot ?(do_sr_check=true) ?(do_memory_check=true) () =
+	debug "Checking whether VM %s can run on host %s" (Ref.string_of self) (Ref.string_of host);
+	validate_basic_parameters ~__context ~self ~snapshot;
+	assert_host_is_live ~__context ~host;
+	assert_host_is_enabled ~__context ~host;
+	if do_sr_check then
+		assert_can_see_SRs ~__context ~self ~host;
+	assert_can_see_networks ~__context ~self ~host;
+	if vm_needs_iommu ~__context ~self then
+		assert_host_has_iommu ~__context ~host;
+	assert_gpus_available ~__context ~self ~host;
+	if Helpers.will_boot_hvm ~__context ~self then
+		assert_host_supports_hvm ~__context ~self ~host;
+	if do_memory_check then
+		assert_enough_memory_available ~__context ~self ~host ~snapshot;
+	debug "All fine, VM %s can run on host %s!" (Ref.string_of self) (Ref.string_of host)
 
 let retrieve_wlb_recommendations ~__context ~vm ~snapshot =
   (* we have already checked the number of returned entries is correct in retrieve_vm_recommendations
@@ -474,7 +468,7 @@ let retrieve_wlb_recommendations ~__context ~vm ~snapshot =
   List.iter (
     fun (h, r) -> 
       try 
-        assert_can_boot_here ~__context ~self:vm ~host:h ~snapshot;
+        assert_can_boot_here ~__context ~self:vm ~host:h ~snapshot ();
         Hashtbl.replace recs h r;
       with
         | Api_errors.Server_error(x, y) -> Hashtbl.replace recs h (x :: y)
@@ -558,7 +552,7 @@ let vm_can_run_on_host __context vm snapshot host =
 		let host_metrics = Db.Host.get_metrics ~__context ~self:host in
 		Db.Host_metrics.get_live ~__context ~self:host_metrics in
 	let host_can_run_vm () =
-		assert_can_boot_here_no_memcheck ~__context ~self:vm ~host ~snapshot;
+		assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_memory_check:false ();
 		true in
 	try host_has_proper_version () && host_enabled () && host_live () && host_can_run_vm ()
 	with _ -> false
