@@ -1645,9 +1645,14 @@ let start ~__context ~self paused =
 	let dbg = Context.string_of_task __context in
 	transform_xenops_exn ~__context
 		(fun () ->
-			(* Set all VBDs and VIFs to currently_attached = true, so the metadata is
-			   pushed to xenopsd. *)
-			List.iter (fun self -> Db.VBD.set_currently_attached ~__context ~self ~value:true) (Db.VM.get_VBDs ~__context ~self);
+			(* For all devices which we want xenopsd to manage, set currently_attached = true
+			   so the metadata is pushed. *)
+			let vbds =
+				(* xenopsd only manages empty VBDs for HVM guests *)
+				let hvm = Helpers.will_boot_hvm ~__context ~self in
+				let vbds = Db.VM.get_VBDs ~__context ~self in
+				if hvm then vbds else (List.filter (fun self -> not(Db.VBD.get_empty ~__context ~self)) vbds) in
+			List.iter (fun self -> Db.VBD.set_currently_attached ~__context ~self ~value:true) vbds;
 			List.iter (fun self -> Db.VIF.set_currently_attached ~__context ~self ~value:true) (Db.VM.get_VIFs ~__context ~self);
 
 			debug "Sending VM %s configuration to xenopsd" (Ref.string_of self);
