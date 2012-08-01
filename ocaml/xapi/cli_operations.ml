@@ -2550,14 +2550,14 @@ let do_sxm_vm_migrate printer rpc session_id params options =
 			let token = Client.Host.migrate_receive remote_rpc remote_session host network options in
 			printer (Cli_printer.PMsg (Printf.sprintf "Received token: [ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ ":" ^ v) token))));
 			ignore(do_vm_op ~include_control_vms:true printer rpc session_id (fun vm -> Client.VM.migrate_send rpc session_id (vm.getref ()) token true vdi_map vif_map options)
-				params ["host"; "host-uuid"; "host-name"; "live"; "encrypt"; "remote-master"; "remote-username"; "remote-password"; "remote-network"; "vdi"; "vif" ])
+				params ["host"; "host-uuid"; "host-name"; "live"; "remote-master"; "remote-username"; "remote-password"; "remote-network"; "vdi"; "vif" ])
 		)
 		(fun () -> Client.Session.logout remote_rpc remote_session)
 
 let vm_migrate printer rpc session_id params =
 	(* Hack to match host-uuid and host-name for backwards compatibility *)
 	let params = List.map (fun (k, v) -> if (k = "host-uuid") || (k = "host-name") then ("host", v) else (k, v)) params in
-	let options = List.map_assoc_with_key (string_of_bool +++ bool_of_string) (List.restrict_with_default "false" ["force"; "live"; "encrypt"] params) in
+	let options = List.map_assoc_with_key (string_of_bool +++ bool_of_string) (List.restrict_with_default "false" ["force"; "live"] params) in
 	(* If we specify all of: remote-master, remote-username, remote-password
 	   then we're using the new codepath *)
 	if List.mem_assoc "remote-master" params && (List.mem_assoc "remote-username" params)
@@ -2568,7 +2568,7 @@ let vm_migrate printer rpc session_id params =
 			let host = (get_host_by_name_or_id rpc session_id (List.assoc "host" params)).getref () in
 
 			ignore(do_vm_op ~include_control_vms:true printer rpc session_id (fun vm -> Client.VM.pool_migrate rpc session_id (vm.getref ()) host options)
-				params ["host"; "host-uuid"; "host-name"; "live"; "encrypt"])
+				params ["host"; "host-uuid"; "host-name"; "live"])
 		end
 let vm_disk_list_aux vm is_cd_list printer rpc session_id params =
 	let vbds = List.filter (fun vbd -> Client.VBD.get_type rpc session_id vbd = (if is_cd_list then `CD else `Disk)) (vm.record()).API.vM_VBDs in
