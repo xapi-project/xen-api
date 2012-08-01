@@ -82,7 +82,7 @@ let string_of_configuration_change ~__context (x: configuration_change) =
    the planner. *)
 let host_of_non_agile_vm ~__context all_hosts_and_snapshots_sorted (vm, snapshot) =
   match (List.filter (fun (host, _) -> 
-			try Xapi_vm_helpers.assert_can_boot_here_no_memcheck ~__context ~self:vm ~host ~snapshot; true
+			try Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_memory_check:false (); true
 			with _ -> false) all_hosts_and_snapshots_sorted) with
   | (host, host_snapshot) :: _ -> 
       (* Multiple hosts are possible because "not agile" means "not restartable on every host". It is 
