@@ -2466,12 +2466,12 @@ let vm_migrate printer rpc session_id params =
 	(* Hack to match host-uuid and host-name for backwards compatibility *)
 	let params = List.map (fun (k, v) -> if (k = "host-uuid") || (k = "host-name") then ("host", v) else (k, v)) params in
 	let options = List.map_assoc_with_key (string_of_bool +++ bool_of_string) (List.restrict_with_default "false" ["force"; "live"; "encrypt"] params) in
-	(* If we specify all of: remote-address, remote-username, remote-password
+	(* If we specify all of: remote-master, remote-username, remote-password
 	   then we're using the new codepath *)
-	if List.mem_assoc "remote-address" params && (List.mem_assoc "remote-username" params)
+	if List.mem_assoc "remote-master" params && (List.mem_assoc "remote-username" params)
 		&& (List.mem_assoc "remote-password" params) then begin
 			printer (Cli_printer.PMsg "Using the new cross-host, cross-pool, cross-everything codepath.");
-			let ip = List.assoc "remote-address" params in
+			let ip = List.assoc "remote-master" params in
 			let remote_rpc xml =
 				let open Xmlrpc_client in
 				let http = xmlrpc ~version:"1.0" "/" in
@@ -2526,7 +2526,7 @@ let vm_migrate printer rpc session_id params =
 					let token = Client.Host.migrate_receive remote_rpc remote_session host network options in
 					printer (Cli_printer.PMsg (Printf.sprintf "Received token: [ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ ":" ^ v) token))));
 					ignore(do_vm_op ~include_control_vms:true printer rpc session_id (fun vm -> Client.VM.migrate_send rpc session_id (vm.getref ()) token true vdi_map vif_map options)
-						params ["host"; "host-uuid"; "host-name"; "live"; "encrypt"; "remote-address"; "remote-username"; "remote-password"; "remote-network"; "vdi"; "vif" ])
+						params ["host"; "host-uuid"; "host-name"; "live"; "encrypt"; "remote-master"; "remote-username"; "remote-password"; "remote-network"; "vdi"; "vif" ])
 				)
 				(fun () -> Client.Session.logout remote_rpc remote_session)
 		end else begin
