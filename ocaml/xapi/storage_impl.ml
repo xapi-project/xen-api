@@ -319,7 +319,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			| None -> raise (Sr_not_attached sr)
 			| Some sr_t ->
 				let vdi_t = Opt.default (Vdi.empty ()) (Sr.find vdi sr_t) in
-				let vdi_t = 
+				let vdi_t' = 
 					try
 						(* Compute the overall state ('superstate') of the VDI *)
 						let superstate = Vdi.superstate vdi_t in
@@ -343,7 +343,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 				   to update the SR to update this DP's view of the state.
 				   However if nothing changed (e.g. because this was the detach of a DP
 				   which had not attached this VDI) then we won't need to update our on-disk state *)
-				let vdi_t' = Vdi.perform (Dp.make dp) this_op vdi_t in
+				let vdi_t' = Vdi.perform (Dp.make dp) this_op vdi_t' in
 				if vdi_t <> vdi_t' then begin
 					Sr.replace vdi vdi_t' sr_t;
 					(* If the new VDI state is "detached" then we remove it from the table
