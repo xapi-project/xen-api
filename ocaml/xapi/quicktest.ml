@@ -170,6 +170,79 @@ let object_level_event_test session_id =
 			end
 		)
 
+let event_message_test session_id =
+	let test = make_test "Message creation event test" 1 in
+	start test;
+	let events = Client.Event.from !rpc session_id [ "message" ] "" 1.0 |> event_from_of_xmlrpc in
+	let token = events.token in
+	let pool = List.hd (Client.Pool.get_all !rpc session_id) in
+	let obj_uuid = Client.Pool.get_uuid !rpc session_id pool in
+	debug test "Creating message";
+	let cls = `Pool in
+	let message = Client.Message.create ~rpc:!rpc ~session_id ~name:"test" ~priority:1L ~cls
+		~obj_uuid ~body:"Hello" in
+	debug test (Printf.sprintf "Created message: %s" (Ref.string_of message));
+	let events = Client.Event.from !rpc session_id [ "message" ] token 1.0 |> event_from_of_xmlrpc
+	in
+	debug test (Printf.sprintf "Got some events: %d %s" (List.length events.events) (String.concat "," (List.map (fun ev -> ev.reference) events.events)));
+	let token = events.token in
+	if List.exists (fun ev -> ev.reference = (Ref.string_of message) && ev.op = Add) events.events 
+	then success test
+	else failed test "Failed to receive an event with the message";
+	
+	let test = make_test "Message deletion event test" 1 in
+	start test;
+	debug test "Destroying message";
+	Client.Message.destroy !rpc session_id message;
+	let events = Client.Event.from !rpc session_id [ "message" ] token 1.0 |> event_from_of_xmlrpc in
+	debug test "Got some events";
+	if List.exists (fun ev -> ev.reference = (Ref.string_of message) && ev.op = Del) events.events
+	then success test
+	else failed test "Failed to receive a delete event";
+	
+	let test = make_test "Message deletion from cache test" 1 in
+	start test;
+	let events = Client.Event.from !rpc session_id [ "message" ] "" 1.0 |> event_from_of_xmlrpc in
+	debug test "Got lots of events";
+	if List.exists (fun ev -> ev.reference = (Ref.string_of message) && ev.op <> Del) events.events
+	then failed test "Got told about a deleted message"
+	else success test;
+
+	let test = make_test "Multi message test" 1 in
+	start test;
+	let message1 = Client.Message.create ~rpc:!rpc ~session_id ~name:"test" ~priority:1L ~cls
+		~obj_uuid ~body:"Hello" in
+	let message2 = Client.Message.create ~rpc:!rpc ~session_id ~name:"test" ~priority:1L ~cls
+		~obj_uuid ~body:"Hello" in
+	let events = Client.Event.from !rpc session_id [ "message" ] token 1.0 |> event_from_of_xmlrpc in
+	let token = events.token in
+	let message3 = Client.Message.create ~rpc:!rpc ~session_id ~name:"test" ~priority:1L ~cls
+		~obj_uuid ~body:"Hello" in
+	let events2 = Client.Event.from !rpc session_id [ "message" ] token 1.0 |> event_from_of_xmlrpc in
+	debug test (Printf.sprintf "message1=%s" (Ref.string_of message1));
+	debug test (Printf.sprintf "message2=%s" (Ref.string_of message2));
+	debug test (Printf.sprintf "message3=%s" (Ref.string_of message3));
+	List.iter (fun ev -> debug test (Printf.sprintf "events1: ev.ref=%s" ev.reference)) events.events;
+	List.iter (fun ev -> debug test (Printf.sprintf "events2: ev.ref=%s" ev.reference)) events2.events;
+	let ok1 = 
+		List.exists (fun ev -> ev.reference = (Ref.string_of message1) && ev.op = Add) events.events &&
+			List.exists (fun ev -> ev.reference = (Ref.string_of message2) && ev.op = Add) events.events in
+	let ok2 = 
+		List.exists (fun ev -> ev.reference = (Ref.string_of message3) && ev.op = Add) events2.events in
+	let ok3 = 
+		not (List.exists (fun ev -> ev.reference = (Ref.string_of message1) && ev.op = Add) events2.events) &&
+			not (List.exists (fun ev -> ev.reference = (Ref.string_of message2) && ev.op = Add) events2.events)
+	in
+	if ok1 && ok2 && ok3 then success test else failed test (Printf.sprintf "ok1=%b ok2=%b ok3=%b" ok1 ok2 ok3);
+
+	let test = make_test "Object messages test" 1 in
+	start test;
+	debug test (Printf.sprintf "Finding messages for object: %s" (Client.Pool.get_uuid !rpc session_id pool));
+	let messages = Client.Message.get ~rpc:!rpc ~session_id  ~cls ~obj_uuid ~since:(Date.never) in
+	let has_msg m = List.exists (fun (r,_) -> r=m) messages in
+	let ok = has_msg message1 && has_msg message2 && has_msg message3 in
+	if ok then success test else failed test "Failed to get messages for object"
+
 let all_srs_with_vdi_create session_id = 
   let all_srs : API.ref_SR list = Quicktest_storage.list_srs session_id in
   (* Filter out those which support the vdi_create capability *)
@@ -747,6 +820,7 @@ let _ =
 				maybe_run_test "event" (fun () -> event_next_test s);
 				maybe_run_test "event" (fun () -> event_from_test s);
 (*				maybe_run_test "event" (fun () -> object_level_event_test s);*)
+				maybe_run_test "event" (fun () -> event_message_test s);
 				maybe_run_test "vdi" (fun () -> vdi_test s);
 				maybe_run_test "async" (fun () -> async_test s);
 				maybe_run_test "import" (fun () -> import_export_test s);
