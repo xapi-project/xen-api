@@ -678,6 +678,14 @@ let to_xenapi_console_protocol = let open Vm in function
    final value when the XenAPI VM.start returns. It will not be set when
    the xenops VM.start returns since the event is asynchronous. *)
 
+(* If a xapi event thread is blocked, wake it up and cause it to re-register. This should be
+   called after updating Host.resident_VMs *)
+let trigger_xenapi_reregister =
+	ref (fun () ->
+		debug "No xapi event thread to wake up"
+	)
+
+
 module Events_from_xenopsd = struct
 	type t = {
 		mutable finished: bool;
@@ -789,6 +797,8 @@ let update_vm ~__context id =
 							(* This will mark VBDs, VIFs as detached and clear resident_on
 							   if the VM has permenantly shutdown. *)
 							Xapi_vm_lifecycle.force_state_reset ~__context ~self ~value:power_state;
+							if power_state = `Halted
+							then !trigger_xenapi_reregister ();
 						with e ->
 							error "Caught %s: while updating VM %s power_state" (Printexc.to_string e) id
 					end;
@@ -1302,7 +1312,7 @@ let on_xapi_restart ~__context =
 		) (List.set_difference in_xenopsd in_db)
 
 let events_from_xenopsd () =
-    Server_helpers.exec_with_new_task "xapi_xenops"
+    Server_helpers.exec_with_new_task "xenops events"
 		(fun __context ->
 			while true do
 				try
@@ -1312,13 +1322,6 @@ let events_from_xenopsd () =
 					Thread.delay 10.
 			done
 		)
-
-(* If a xapi event thread is blocked, wake it up and cause it to re-register. This should be
-   called after updating Host.resident_VMs *)
-let trigger_xenapi_reregister =
-	ref (fun () ->
-		debug "No xapi event thread to wake up"
-	)
 
 let assert_resident_on ~__context ~self =
 	let localhost = Helpers.get_localhost ~__context in
@@ -1354,7 +1357,7 @@ end
 (* XXX: PR-1255: we also want to only listen for events on VMs and fields we care about *)
 let events_from_xapi () =
 	let open Event_types in
-    Server_helpers.exec_with_new_task "xapi_xenops"
+    Server_helpers.exec_with_new_task "xapi events"
 		(fun __context ->
 			let localhost = Helpers.get_localhost ~__context in
 			let token = ref "" in
@@ -1366,6 +1369,7 @@ let events_from_xapi () =
 								(fun () ->
 									try
 										(* This causes Event.next () and Event.from () to return SESSION_INVALID *)
+										debug "triggering xapi event thread to re-register via session.logout";
 										XenAPI.Session.logout ~rpc ~session_id
 									with
 										| Api_errors.Server_error(code, _) when code = Api_errors.session_invalid ->
@@ -1381,9 +1385,9 @@ let events_from_xapi () =
 							let missing_in_cache = Listext.List.set_difference uuids cached in
 							let extra_in_cache = Listext.List.set_difference cached uuids in
 							if missing_in_cache <> []
-							then error "XXX Missing from the cache: [ %s ]" (String.concat "; " missing_in_cache);
+							then error "events_from_xapi: missing from the cache: [ %s ]" (String.concat "; " missing_in_cache);
 							if extra_in_cache <> []
-							then error "XXX Extra in the cache: [ %s ]" (String.concat "; " extra_in_cache);
+							then error "events_from_xapi: extra items in the cache: [ %s ]" (String.concat "; " extra_in_cache);
 
 							let classes = List.map (fun x -> Printf.sprintf "VM/%s" (Ref.string_of x)) resident_VMs in
 							(* NB we re-use the old token so we don't get events we've already
@@ -1395,11 +1399,21 @@ let events_from_xapi () =
 									(function
 										| { ty = "vm"; reference = vm' } ->
 											let vm = Ref.of_string vm' in
-											let id = id_of_vm ~__context ~self:vm in
-											let resident_here = Db.VM.get_resident_on ~__context ~self:vm = localhost in
-											debug "Event on VM %s; resident_here = %b" id resident_here;
-											if resident_here
-											then Xenopsd_metadata.update ~__context ~self:vm |> ignore
+											begin
+												try
+													let id = id_of_vm ~__context ~self:vm in
+													let resident_here = Db.VM.get_resident_on ~__context ~self:vm = localhost in
+													debug "Event on VM %s; resident_here = %b" id resident_here;
+													if resident_here
+													then Xenopsd_metadata.update ~__context ~self:vm |> ignore
+												with e ->
+													if not(Db.is_valid_ref __context vm)
+													then debug "VM %s has been removed: event on it will be ignored" (Ref.string_of vm)
+													else begin
+														error "Caught %s while processing XenAPI event for VM %s" (Printexc.to_string e) (Ref.string_of vm);
+														raise e
+													end
+											end
 										| _ -> ()
 									) from.events;
 								token := from.token;
@@ -1767,6 +1781,7 @@ let suspend ~__context ~self =
 						if Db.VM.get_power_state ~__context ~self = `Suspended then begin
 							info "VM has already suspended; we must perform a hard_shutdown";
 							Xapi_vm_lifecycle.force_state_reset ~__context ~self ~value:`Halted;
+							!trigger_xenapi_reregister ();
 						end else info "VM is still running after failed suspend";
 						XenAPI.VDI.destroy ~rpc ~session_id ~self:vdi;
 						Db.VM.set_suspend_VDI ~__context ~self ~value:Ref.null;
