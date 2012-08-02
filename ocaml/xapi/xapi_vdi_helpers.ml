@@ -157,8 +157,12 @@ let database_ref_of_vdi ~__context ~vdi =
 		let db_ref = Db_ref.in_memory (ref (ref db)) in
 		Redo_log_usage.read_from_redo_log log Xapi_globs.foreign_metadata_db db_ref;
 		Redo_log.delete log;
+		(* Upgrade database to the local schema. *)
 		(* Reindex database to make sure is_valid_ref works. *)
-		Db_ref.update_database db_ref (Database.reindex ++ (Db_backend.blow_away_non_persistent_fields (Datamodel_schema.of_datamodel ())));
+		Db_ref.update_database db_ref
+			(Db_upgrade.generic_database_upgrade
+				++ Database.reindex
+				++ (Db_backend.blow_away_non_persistent_fields (Datamodel_schema.of_datamodel ())));
 		db_ref
 	in
 	Mutex.execute database_open_mutex
