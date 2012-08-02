@@ -2625,7 +2625,7 @@ let do_sxm_vm_migrate printer rpc session_id params options =
 					   (fun vm -> Client.VM.migrate_send rpc session_id
 						   (vm.getref ()) token true vdi_map vif_map options)
 					   params ["host"; "host-uuid"; "host-name"; "live";
-					           "encrypt"; "remote-master"; "remote-username";
+					           "remote-master"; "remote-username";
 					           "remote-password"; "remote-network"; "vdi"; "vif" ])
 		)
 		(fun () ->
@@ -2646,7 +2646,7 @@ let vm_migrate printer rpc session_id params =
 		else (k, v)) params in
 	let options = List.map_assoc_with_key
 		(string_of_bool +++ bool_of_string)
-		(List.restrict_with_default "false" ["force"; "live"; "encrypt"] params) in
+		(List.restrict_with_default "false" ["force"; "live"] params) in
 
 	if is_storage_migrate printer rpc session_id params
 	then do_sxm_vm_migrate printer rpc session_id params options
@@ -2659,7 +2659,7 @@ let vm_migrate printer rpc session_id params =
 			ignore(do_vm_op ~include_control_vms:true printer rpc session_id
 					   (fun vm -> Client.VM.pool_migrate rpc session_id
 						   (vm.getref ()) host options)
-				params ["host"; "host-uuid"; "host-name"; "live"; "encrypt"])
+				params ["host"; "host-uuid"; "host-name"; "live"])
 		end
 
 let vm_disk_list_aux vm is_cd_list printer rpc session_id params =
