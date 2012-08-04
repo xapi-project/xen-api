@@ -594,7 +594,7 @@ let pool_migrate ~__context ~vdi ~sr ~options =
 	Helpers.call_api_functions ~__context (fun rpc session_id -> 
 		let token = Client.Host.migrate_receive ~rpc ~session_id ~host:localhost ~network ~options in
 		let task = Client.Async.VM.migrate_send rpc session_id vm token true [ vdi, sr ] [] [] in
-		
+
 		ignore(Xapi_vm_clone.wait_for_subtask ~progress_minmax:(0.0,1.0) ~__context task)
 	) ;
 	Db.VBD.get_VDI ~__context ~self:vbd

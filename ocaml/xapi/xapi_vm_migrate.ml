@@ -251,21 +251,29 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			TaskHelper.exn_if_cancelling ~__context;
 			let open Storage_access in 
 			let (dest_sr_ref, dest_sr) =
-				match List.mem_assoc vdi vdi_map, List.mem_assoc snapshot_of vdi_map, dest_default_sr_ref_uuid with
-					| true, _, _ ->
+					match List.mem_assoc vdi vdi_map, List.mem_assoc snapshot_of vdi_map, is_intra_pool, dest_default_sr_ref_uuid with
+						| true, _, _, _ ->
 						    debug "VDI has been specified in the vdi_map";
 							let dest_sr_ref = List.assoc vdi vdi_map in
 							let dest_sr = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
 							(dest_sr_ref, dest_sr)
-					| false, true, _ ->
+						| false, true, _, _ ->
 					        debug "snapshot VDI's snapshot_of has been specified in the vdi_map";
 						    let dest_sr_ref = List.assoc snapshot_of vdi_map in
 							let dest_sr = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
 							(dest_sr_ref, dest_sr)
-					| false, false, Some x -> 
+						| false, false, true, _ ->
+							  (* If we're doing an in-pool migration, we should leave unspecified
+								 VDIs where they are, and not send them to the default SR. *)
+							  let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
+							  let sr = Db.VDI.get_SR ~__context ~self:vdi in
+							  let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
+							  debug "Leaving VDI %s on SR %s" vdi_uuid sr_uuid ;
+							  sr,sr_uuid
+						| false, false, false, Some x ->
 						    debug "Defaulting to destination pool's default_SR";
 						    x
-					| false, false, None ->
+						| false, false, false, None ->
 							failwith "No SR specified in VDI map and no default on destination"
 				in
 			let mirror = (not is_intra_pool) || (dest_sr <> sr) in
