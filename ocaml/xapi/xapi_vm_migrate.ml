@@ -212,6 +212,15 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			end
 		else None in
 	let vdis = List.filter_map (vdi_filter false) vbds in
+
+	(* Assert that every VDI is specified in the VDI map *)
+	List.(iter (fun (vdi,_,_,_,_,_,_,_) ->
+		if not (mem_assoc vdi vdi_map)
+		then
+			let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
+			error "VDI:SR map not fully specified for VDI %s" vdi_uuid ;
+			raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ vdi_uuid ]))) vdis) ;
+
 	let snapshots_vdis = List.filter_map (vdi_filter true) snapshots_vbds in
 	let total_size = List.fold_left (fun acc (_,_,_,_,_,sz,_,_) -> Int64.add acc sz) 0L (vdis @ snapshots_vdis) in
 	let dbg = Context.string_of_task __context in
@@ -235,38 +244,26 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let remote_rpc = Helpers.make_remote_rpc remote_master_address in
 
 	try
-		let dest_default_sr_ref_uuid = 
-			try
-				let remote_pool = List.hd (XenAPI.Pool.get_all remote_rpc session_id) in
-				let remote_default_SR = XenAPI.Pool.get_default_SR remote_rpc session_id remote_pool in
-				let remote_default_SR_uuid = XenAPI.SR.get_uuid remote_rpc session_id remote_default_SR in
-				Some (remote_default_SR, remote_default_SR_uuid) 
-			with _ ->
-				None
-		in
-
 		let so_far = ref 0L in
 
 		let vdi_copy_fun (vdi, dp, location, sr, xenops_locator, size, snapshot_of, do_mirror) =
 			TaskHelper.exn_if_cancelling ~__context;
 			let open Storage_access in 
 			let (dest_sr_ref, dest_sr) =
-				match List.mem_assoc vdi vdi_map, List.mem_assoc snapshot_of vdi_map, dest_default_sr_ref_uuid with
-					| true, _, _ ->
+				match List.mem_assoc vdi vdi_map, List.mem_assoc snapshot_of vdi_map with
+					| true, _ ->
 						    debug "VDI has been specified in the vdi_map";
 							let dest_sr_ref = List.assoc vdi vdi_map in
 							let dest_sr = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
 							(dest_sr_ref, dest_sr)
-					| false, true, _ ->
+					| false, true ->
 					        debug "snapshot VDI's snapshot_of has been specified in the vdi_map";
 						    let dest_sr_ref = List.assoc snapshot_of vdi_map in
 							let dest_sr = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
 							(dest_sr_ref, dest_sr)
-					| false, false, Some x -> 
-						    debug "Defaulting to destination pool's default_SR";
-						    x
-					| false, false, None ->
-							failwith "No SR specified in VDI map and no default on destination"
+					| false, false ->
+							let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
+							failwith ("No SR specified in VDI map for VDI " ^ vdi_uuid)
 				in
 			let mirror = (not is_intra_pool) || (dest_sr <> sr) in
 
