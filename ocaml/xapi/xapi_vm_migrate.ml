@@ -180,8 +180,6 @@ let inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_addr
 
 let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	SMPERF.debug "vm.migrate_send called vm:%s" (Db.VM.get_uuid ~__context ~self:vm);
-	if not(!Xapi_globs.use_xenopsd)
-	then failwith "You must have /etc/xapi.conf:use_xenopsd=true";
 	(* Create mirrors of all the disks on the remote *)
 	let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
 	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
