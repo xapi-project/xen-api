@@ -61,6 +61,7 @@ let vm_operation_table =
     `unpause, "unpause";
     `update_allowed_operations, "update_allowed_operations";
     `make_into_template, "make_into_template";
+    `convert_from_template, "convert_from_template";
     `send_sysrq, "send_sysrq";
     `send_trigger, "send_trigger";
     `changing_memory_live, "changing_memory_live";
