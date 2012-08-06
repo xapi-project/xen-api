@@ -915,7 +915,7 @@ let stop ~xs domid =
 	match pid ~xs domid with
 		| Some pid ->
 			best_effort "killing vncterm"
-				(fun () -> Unix.kill (-pid) Sys.sigterm);
+				(fun () -> Unix.kill pid Sys.sigterm);
 			best_effort "removing vncterm-pid from xenstore"
 				(fun () -> xs.Xs.rm (vnc_pid_path domid))
 		| None -> ()
