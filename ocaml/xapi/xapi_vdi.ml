@@ -673,3 +673,5 @@ let read_database_pool_uuid ~__context ~self =
 	match Xapi_dr.read_vdi_cache_record ~vdi:self with
 	| Some (_, uuid) -> uuid
 	| None -> ""
+
+(* let pool_migrate = "See Xapi_vm_migrate.vdi_pool_migrate!" *)
