@@ -52,7 +52,10 @@ module Actions = struct
 	module PIF_metrics = struct end
 	module SR = Xapi_sr
 	module SM = Xapi_sm
-	module VDI = Xapi_vdi
+	module VDI = struct
+		include Xapi_vdi
+		let pool_migrate = Xapi_vm_migrate.vdi_pool_migrate
+	end
 	module VBD = Xapi_vbd
 	module VBD_metrics = struct end
 	module Crashdump = Xapi_crashdump

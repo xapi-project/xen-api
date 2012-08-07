@@ -567,50 +567,6 @@ let copy ~__context ~vdi ~sr =
       (fun rpc session_id -> Client.VDI.destroy rpc session_id dst);
       raise e
 
-let pool_migrate ~__context ~vdi ~sr ~options =
-	let localhost = Helpers.get_localhost ~__context in
-	(* inserted by message_forwarding *)
-	let vm = Ref.of_string (List.assoc "__internal__vm" options) in
-
-	(* Need vbd of vdi, to find new vdi's uuid *)
-	let vbds = Db.VDI.get_VBDs ~__context ~self:vdi in
-	let vbd = List.filter
-		(fun vbd -> (Db.VBD.get_VM ~__context ~self:vbd) = vm)
-		vbds in
-	let vbd = match vbd with
-		| v :: _ -> v
-		| _ -> raise (Api_errors.Server_error(Api_errors.vbd_missing, [])) in
-
-	(* Fully specify vdi_map: other VDIs stay on current SR *)
-	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
-	let vbds = List.filter (fun self ->
-		not (Db.VBD.get_empty ~__context ~self)) vbds in
-	let vdis = List.map (fun self ->
-		Db.VBD.get_VDI ~__context ~self) vbds in
-	let vdis = List.filter ((<>) vdi) vdis in
-	let vdi_map = List.map (fun vdi ->
-		let sr = Db.VDI.get_SR ~__context ~self:vdi in
-		(vdi,sr)) vdis in
-	let vdi_map = (vdi,sr) :: vdi_map in
-
-	(* Need a network for the VM migrate *)
-	let management_if =
-		Xapi_inventory.lookup Xapi_inventory._management_interface in
-	let open Db_filter_types in
-	let networks = Db.Network.get_records_where ~__context ~expr:(Eq (Field "bridge", Literal management_if)) in
-	let network = match networks with
-		| (net,_)::_ -> net
-		| _ -> raise (Api_errors.Server_error(Api_errors.host_has_no_management_ip, []))
-	in
-	TaskHelper.set_cancellable ~__context;
-	Helpers.call_api_functions ~__context (fun rpc session_id -> 
-		let token = Client.Host.migrate_receive ~rpc ~session_id ~host:localhost ~network ~options in
-		let task = Client.Async.VM.migrate_send rpc session_id vm token true vdi_map [] [] in
-		
-		ignore(Xapi_vm_clone.wait_for_subtask ~progress_minmax:(0.0,1.0) ~__context task)
-	) ;
-	Db.VBD.get_VDI ~__context ~self:vbd
-
 let force_unlock ~__context ~vdi = 
   raise (Api_errors.Server_error(Api_errors.message_deprecated,[]))
 
