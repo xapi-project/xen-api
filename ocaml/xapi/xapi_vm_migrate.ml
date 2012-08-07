@@ -180,8 +180,6 @@ let inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_addr
 
 let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	SMPERF.debug "vm.migrate_send called vm:%s" (Db.VM.get_uuid ~__context ~self:vm);
-	if not(!Xapi_globs.use_xenopsd)
-	then failwith "You must have /etc/xapi.conf:use_xenopsd=true";
 	(* Create mirrors of all the disks on the remote *)
 	let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
 	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
@@ -212,6 +210,15 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			end
 		else None in
 	let vdis = List.filter_map (vdi_filter false) vbds in
+
+	(* Assert that every VDI is specified in the VDI map *)
+	List.(iter (fun (vdi,_,_,_,_,_,_,_) ->
+		if not (mem_assoc vdi vdi_map)
+		then
+			let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
+			error "VDI:SR map not fully specified for VDI %s" vdi_uuid ;
+			raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ vdi_uuid ]))) vdis) ;
+
 	let snapshots_vdis = List.filter_map (vdi_filter true) snapshots_vbds in
 	let total_size = List.fold_left (fun acc (_,_,_,_,_,sz,_,_) -> Int64.add acc sz) 0L (vdis @ snapshots_vdis) in
 	let dbg = Context.string_of_task __context in
@@ -235,38 +242,26 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let remote_rpc = Helpers.make_remote_rpc remote_master_address in
 
 	try
-		let dest_default_sr_ref_uuid = 
-			try
-				let remote_pool = List.hd (XenAPI.Pool.get_all remote_rpc session_id) in
-				let remote_default_SR = XenAPI.Pool.get_default_SR remote_rpc session_id remote_pool in
-				let remote_default_SR_uuid = XenAPI.SR.get_uuid remote_rpc session_id remote_default_SR in
-				Some (remote_default_SR, remote_default_SR_uuid) 
-			with _ ->
-				None
-		in
-
 		let so_far = ref 0L in
 
 		let vdi_copy_fun (vdi, dp, location, sr, xenops_locator, size, snapshot_of, do_mirror) =
 			TaskHelper.exn_if_cancelling ~__context;
 			let open Storage_access in 
 			let (dest_sr_ref, dest_sr) =
-				match List.mem_assoc vdi vdi_map, List.mem_assoc snapshot_of vdi_map, dest_default_sr_ref_uuid with
-					| true, _, _ ->
+				match List.mem_assoc vdi vdi_map, List.mem_assoc snapshot_of vdi_map with
+					| true, _ ->
 						    debug "VDI has been specified in the vdi_map";
 							let dest_sr_ref = List.assoc vdi vdi_map in
 							let dest_sr = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
 							(dest_sr_ref, dest_sr)
-					| false, true, _ ->
+					| false, true ->
 					        debug "snapshot VDI's snapshot_of has been specified in the vdi_map";
 						    let dest_sr_ref = List.assoc snapshot_of vdi_map in
 							let dest_sr = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
 							(dest_sr_ref, dest_sr)
-					| false, false, Some x -> 
-						    debug "Defaulting to destination pool's default_SR";
-						    x
-					| false, false, None ->
-							failwith "No SR specified in VDI map and no default on destination"
+					| false, false ->
+							let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
+							failwith ("No SR specified in VDI map for VDI " ^ vdi_uuid)
 				in
 			let mirror = (not is_intra_pool) || (dest_sr <> sr) in
 
@@ -701,3 +696,44 @@ let handler req fd _ =
 			TaskHelper.failed ~__context (Api_errors.internal_error, [ ExnHelper.string_of_exn e ])
     )
 
+let vdi_pool_migrate ~__context ~vdi ~sr ~options =
+	let localhost = Helpers.get_localhost ~__context in
+	(* inserted by message_forwarding *)
+	let vm = Ref.of_string (List.assoc "__internal__vm" options) in
+
+	(* Need vbd of vdi, to find new vdi's uuid *)
+	let vbds = Db.VDI.get_VBDs ~__context ~self:vdi in
+	let vbd = List.filter
+		(fun vbd -> (Db.VBD.get_VM ~__context ~self:vbd) = vm)
+		vbds in
+	let vbd = match vbd with
+		| v :: _ -> v
+		| _ -> raise (Api_errors.Server_error(Api_errors.vbd_missing, [])) in
+
+	(* Fully specify vdi_map: other VDIs stay on current SR *)
+	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
+	let vbds = List.filter (fun self ->
+		not (Db.VBD.get_empty ~__context ~self)) vbds in
+	let vdis = List.map (fun self ->
+		Db.VBD.get_VDI ~__context ~self) vbds in
+	let vdis = List.filter ((<>) vdi) vdis in
+	let vdi_map = List.map (fun vdi ->
+		let sr = Db.VDI.get_SR ~__context ~self:vdi in
+		(vdi,sr)) vdis in
+	let vdi_map = (vdi,sr) :: vdi_map in
+
+	(* Need a network for the VM migrate *)
+	let management_if =
+		Xapi_inventory.lookup Xapi_inventory._management_interface in
+	let open Db_filter_types in
+	let networks = Db.Network.get_records_where ~__context ~expr:(Eq (Field "bridge", Literal management_if)) in
+	let network = match networks with
+		| (net,_)::_ -> net
+		| _ -> raise (Api_errors.Server_error(Api_errors.host_has_no_management_ip, []))
+	in
+	TaskHelper.set_cancellable ~__context;
+	Helpers.call_api_functions ~__context (fun rpc session_id ->
+		let token = XenAPI.Host.migrate_receive ~rpc ~session_id ~host:localhost ~network ~options in
+		migrate_send ~__context ~vm ~dest:token ~live:true ~vdi_map ~vif_map:[] ~options:[]
+	) ;
+	Db.VBD.get_VDI ~__context ~self:vbd
