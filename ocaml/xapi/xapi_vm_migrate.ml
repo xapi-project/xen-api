@@ -275,7 +275,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 					location,vdi,"none"
 				else begin
 					let newdp = Printf.sprintf "mirror_%s" dp in
-					ignore(SMAPI.VDI.attach ~dbg ~dp:newdp ~sr ~vdi:location ~read_write:true);
+					ignore(SMAPI.VDI.attach ~dbg ~dp:newdp ~sr ~vdi:location ~read_write:do_mirror);
 					SMAPI.VDI.activate ~dbg ~dp:newdp ~sr ~vdi:location;
 					new_dps := newdp :: !new_dps;
 
