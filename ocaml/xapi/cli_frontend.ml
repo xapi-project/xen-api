@@ -1157,7 +1157,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
     {
       reqd=[];
       optn=["live"; "host"; "host-uuid"; "remote-master"; "remote-username"; "remote-password"; "remote-network"; "destination-sr-uuid"; "force"; "vif"; "vdi"];
-      help="Migrate the selected VM(s). The parameter '--live' will migrate the VM without shutting it down. The 'host' parameter matches can be either the name or the uuid of the host.";
+      help="Migrate the selected VM(s). The parameter '--live' will migrate the VM without shutting it down. The 'host' parameter matches can be either the name or the uuid of the host. If you are migrating a VM to a remote pool, you will need to specify the remote-master, remote-username, and remote-password parameters. remote-master is the network address of the master host. To migrate to a particular host within a remote pool, you may additionally specify the host or host-uuid parameters. The vif and vdi mapping parameters take the form 'vif:<source vif uuid>=<dest vif uuid>' (and the same for vdi map). You may simplify this mapping by using the destination-sr-uuid parameter. Unfortunately, destination uuids cannot be tab-completed.";
       implementation=No_fd Cli_operations.vm_migrate;
       flags=[Standard; Vm_selectors];
     };
