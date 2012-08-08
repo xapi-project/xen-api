@@ -786,6 +786,8 @@ let _ =
     ~doc:"An error occurred during the migration process." ();
   error Api_errors.vm_has_too_many_snapshots [ "vm" ]
     ~doc:"You attempted to migrate a VM with more than one snapshot." ();
+  error Api_errors.vm_has_checkpoint [ "vm" ]
+    ~doc:"You attempted to migrate a VM which has a checkpoint." ();
   error Api_errors.vdi_needs_vm_for_migrate [ "vdi" ]
     ~doc:"You attempted to migrate a VDI which is not attached to a runnning VM." ();
   error Api_errors.mirror_failed [ "vdi" ]
