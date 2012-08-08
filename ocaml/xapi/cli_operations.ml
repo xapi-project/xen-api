@@ -2527,11 +2527,12 @@ let vm_migrate printer rpc session_id params =
 						if List.mem_assoc "destination-sr-uuid" params
 						then let sr_uuid = List.assoc "destination-sr-uuid" params in
 							 try Some (Client.SR.get_by_uuid remote_rpc remote_session sr_uuid)
-							 with _ -> None
+							 with _ -> failwith (Printf.sprintf "Couldn't find destination SR: %s" sr_uuid)
 						else try let pools = Client.Pool.get_all remote_rpc remote_session in
+								 printer (Cli_printer.PMsg "Selecting remote pool's default SR for migrating VDIs") ;
 								 Some (Client.Pool.get_default_SR remote_rpc remote_session
 										   (List.hd pools))
-							with _ -> None in
+						     with _ -> None in
 
 					let vdi_map = match default_sr with
 						| None -> vdi_map
