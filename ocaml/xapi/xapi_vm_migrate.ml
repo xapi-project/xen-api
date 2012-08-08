@@ -543,21 +543,14 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let dest_host_ref = Ref.of_string dest_host in
 	let force = try bool_of_string (List.assoc "force" options) with _ -> false in
 
-	(* Check that the VM has no more than one snapshot *)
-	let is_a_checkpoint vbd =
-		let vm = Db.VBD.get_VM ~__context ~self:vbd in
-		match Db.VM.get_power_state ~__context ~self:vm with
-		| `Suspended -> true
-		| _          -> false
-	in
-	let (snapshots_vbds, nb_snapshots) = get_snapshots_vbds ~__context ~vm in
-	(match nb_snapshots with
-		| 0 -> ()                                             (* 0 snapshots/checkpoints: no problem *)
-		| 1 -> (match snapshots_vbds with
-				| vbd::[] -> (if is_a_checkpoint vbd then     (* might be a checkpoint *)
-						raise (Api_errors.Server_error(Api_errors.vm_has_too_many_snapshots, [Ref.string_of vm])))
-				| _       -> assert false) (* should never happen *)
-		| _ -> raise (Api_errors.Server_error(Api_errors.vm_has_too_many_snapshots, [Ref.string_of vm])));
+	(* Check that the VM has at most one snapshot, and that that snapshot is not a checkpoint. *)
+	(match Db.VM.get_snapshots ~__context ~self:vm with
+	| [] -> ()
+	| [snapshot] ->
+		if (Db.VM.get_power_state ~__context ~self:snapshot) = `Suspended then
+			raise (Api_errors.Server_error (Api_errors.vm_has_checkpoint, [Ref.string_of vm]))
+	| _ ->
+			raise (Api_errors.Server_error (Api_errors.vm_has_too_many_snapshots, [Ref.string_of vm])));
 
 	let migration_type =
 		try
