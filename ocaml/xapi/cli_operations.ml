@@ -2473,7 +2473,7 @@ let vm_migrate printer rpc session_id params =
 	   then we're using the new codepath *)
 	if List.mem_assoc "remote-master" params && (List.mem_assoc "remote-username" params)
 		&& (List.mem_assoc "remote-password" params) then begin
-			printer (Cli_printer.PMsg "Using the new cross-host, cross-pool, cross-everything codepath.");
+			printer (Cli_printer.PMsg "Performing a Storage XenMotion migration. Your VM's VDIs will be migrated with the VM.");
 			let ip = List.assoc "remote-master" params in
 			let remote_rpc xml =
 				let open Xmlrpc_client in
@@ -2493,7 +2493,6 @@ let vm_migrate printer rpc session_id params =
 							with Not_found ->
 								failwith (Printf.sprintf "Failed to find host: %s" x)
 						end else begin
-							printer (Cli_printer.PMsg "No host specified; I will choose automatically");
 							List.hd all
 						end in
 					let network, network_record =
@@ -2505,7 +2504,6 @@ let vm_migrate printer rpc session_id params =
 							with Not_found ->
 								failwith (Printf.sprintf "Failed to find network: %s" x)
 						end else begin
-							printer (Cli_printer.PMsg "No network specified; I will try to find the remote host management network");
 							let pifs = host_record.API.host_PIFs in
 							let management_pifs = List.filter (fun pif -> 
 								Client.PIF.get_management remote_rpc remote_session pif) pifs in
@@ -2555,9 +2553,13 @@ let vm_migrate printer rpc session_id params =
 
 					let params = List.filter (fun (s,_) -> if String.length s < 5 then true 
 						else let start = String.sub s 0 4 in start <> "vif:" && start <> "vdi:") params in
-					printer (Cli_printer.PMsg (Printf.sprintf "Will migrate to remote host: %s, using remote network: %s" host_record.API.host_name_label network_record.API.network_name_label));
+					printer (Cli_printer.PMsg (Printf.sprintf "Will migrate to remote host: %s, using remote network: %s. Here is the VDI mapping:" host_record.API.host_name_label network_record.API.network_name_label));
+					List.iter (fun (vdi,sr) ->
+						printer (Cli_printer.PMsg (Printf.sprintf "VDI %s -> SR %s"
+						                           (Client.VDI.get_uuid rpc session_id vdi)
+						                           (Client.SR.get_uuid remote_rpc remote_session sr))))
+						vdi_map ;
 					let token = Client.Host.migrate_receive remote_rpc remote_session host network options in
-					printer (Cli_printer.PMsg (Printf.sprintf "Received token: [ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ ":" ^ v) token))));
 					ignore(do_vm_op ~include_control_vms:true printer rpc session_id (fun vm -> Client.VM.migrate_send rpc session_id (vm.getref ()) token true vdi_map vif_map options)
 						params (["host"; "host-uuid"; "host-name"; "live"] @ vm_migrate_sxm_params))
 				)
