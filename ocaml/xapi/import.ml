@@ -855,9 +855,18 @@ module VIF : HandlerTools = struct
 					log_reraise
 						("Failed to find VIF's Network: " ^ (Ref.string_of vif_record.API.vIF_network))
 						(lookup vif_record.API.vIF_network) state.table in
+			(* Make sure we remove the cross-pool migration VIF mapping key from the other_config
+			 * before creating a VIF - otherwise we'll risk sending this key on to another pool
+			 * during a future cross-pool migration and it won't make sense. *)
+			let other_config =
+				List.filter
+					(fun (k, _) -> k <> Constants.storage_migrate_vif_map_key)
+					vif_record.API.vIF_other_config
+			in
 			let vif_record = { vif_record with
 				API.vIF_VM = vm;
-				API.vIF_network = net } in
+				API.vIF_network = net;
+				API.vIF_other_config = other_config } in
 			Create vif_record
 
 	let handle_dry_run __context config rpc session_id state x precheck_result =
