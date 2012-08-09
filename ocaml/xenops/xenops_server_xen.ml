@@ -103,6 +103,12 @@ let event_wait task timeout p =
 	done;
 	!success
 
+let safe_rm xs path =
+	debug "xenstore-rm %s" path;
+	try
+		xs.Xs.rm path
+	with _ -> ()
+
 let this_domid ~xs = int_of_string (xs.Xs.read "domid")
 
 let uuid_of_vm vm = Uuid.uuid_of_string vm.Vm.id
@@ -742,6 +748,13 @@ module VM = struct
 									xs.Xs.write k v
 								end
 							) (minimal_local_kvs @ minimal_vm_kvs)
+			)
+
+	let remove vm =
+		with_xc_and_xs
+			(fun xc xs ->
+				safe_rm xs (Printf.sprintf "/vm/%s" vm.Vm.id);
+				safe_rm xs (Printf.sprintf "/vss/%s" vm.Vm.id);
 			)
 
 	let log_exn_continue msg f x = try f x with e -> debug "Safely ignoring exception: %s while %s" (Printexc.to_string e) msg
@@ -1467,6 +1480,14 @@ module PCI = struct
 			) Oldest vm
 end
 
+let set_active_device path active =
+	with_xs
+		(fun xs ->
+			if active
+			then xs.Xs.write path "1"
+			else safe_rm xs path;
+		)
+
 module VBD = struct
 	open Vbd
 
@@ -1489,11 +1510,11 @@ module VBD = struct
 	let device_number_of_device d =
 		Device_number.of_xenstore_key d.Device_common.frontend.Device_common.devid
 
-	let active_path vm vbd = Printf.sprintf "/vm/%s/vbd/%s" vm (snd vbd.Vbd.id)
+	let active_path vm vbd = Printf.sprintf "/vm/%s/devices/vbd/%s" vm (snd vbd.Vbd.id)
 
 	let set_active task vm vbd active =
 		try
-			with_xs (fun xs -> xs.Xs.write (active_path vm vbd) (if active then "1" else "0"))
+			set_active_device (active_path vm vbd) active
 		with e ->
 			debug "set_active %s.%s <- %b failed: %s" (fst vbd.Vbd.id) (snd vbd.Vbd.id) active (Printexc.to_string e)
 
@@ -1679,7 +1700,7 @@ module VBD = struct
 
 				let device_number = device_number_of_device device in
 				Device.Vbd.media_eject ~xs ~device_number frontend_domid;
-				xs.Xs.rm (vdi_path_of_device ~xs device);
+				safe_rm xs (vdi_path_of_device ~xs device);
 				Storage.dp_destroy task (Storage.id_of (frontend_domid_of_device device) vbd.Vbd.id)
 			) Oldest vm
 
@@ -1816,11 +1837,11 @@ module VIF = struct
 		let flag = match mode with Xenops_interface.Vif.Disabled -> "1" | _ -> "0" in
 		path, flag
 
-	let active_path vm vif = Printf.sprintf "/vm/%s/vif/%s" vm (snd vif.Vif.id)
+	let active_path vm vif = Printf.sprintf "/vm/%s/devices/vif/%s" vm (snd vif.Vif.id)
 
 	let set_active task vm vif active =
 		try
-			with_xs (fun xs -> xs.Xs.write (active_path vm vif) (if active then "1" else "0"))
+			set_active_device (active_path vm vif) active
 		with e ->
 			debug "set_active %s.%s <- %b failed: %s" (fst vif.Vif.id) (snd vif.Vif.id) active (Printexc.to_string e)
 
@@ -1965,7 +1986,7 @@ module VIF = struct
 				let device = device_by_id xc xs vm Vif Newest (id_of vif) in
 				let path = Hotplug.get_private_data_path_of_device device in
 				(* Delete the old keys *)
-				List.iter (fun x -> xs.Xs.rm (path ^ "/" ^ x)) locking_mode_keys;
+				List.iter (fun x -> safe_rm xs (path ^ "/" ^ x)) locking_mode_keys;
 				List.iter (fun (x, y) -> xs.Xs.write (path ^ "/" ^ x) y) (xenstore_of_locking_mode mode);
 				let disconnect_path, flag = disconnect_flag device mode in
 				xs.Xs.write disconnect_path flag;
