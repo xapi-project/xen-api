@@ -779,6 +779,10 @@ let update_vm ~__context id =
 						try
 							let power_state = xenapi_of_xenops_power_state (Opt.map (fun x -> (snd x).power_state) info) in
 							debug "xenopsd event: Updating VM %s power_state <- %s" id (Record_util.power_state_to_string power_state);
+							(* This will mark VBDs, VIFs as detached and clear resident_on
+							   if the VM has permenantly shutdown. *)
+							Xapi_vm_lifecycle.force_state_reset ~__context ~self ~value:power_state;
+
 							if power_state = `Suspended || power_state = `Halted then begin
 								Xapi_network.detach_for_vm ~__context ~host:localhost ~vm:self;
 								Storage_access.reset ~__context ~vm:self;
@@ -794,9 +798,6 @@ let update_vm ~__context id =
 										Db.VM.set_last_booted_record ~__context ~self ~value:x;
 										debug "VM %s last_booted_record set to %s" (Ref.string_of self) x
 							end;
-							(* This will mark VBDs, VIFs as detached and clear resident_on
-							   if the VM has permenantly shutdown. *)
-							Xapi_vm_lifecycle.force_state_reset ~__context ~self ~value:power_state;
 							if power_state = `Halted
 							then !trigger_xenapi_reregister ();
 						with e ->

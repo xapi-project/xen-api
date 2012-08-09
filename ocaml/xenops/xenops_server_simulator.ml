@@ -318,6 +318,7 @@ module HOST = struct
 end
 module VM = struct
 	let add vm = ()
+	let remove vm = ()
 	let create _ memory_limit vm = Mutex.execute m (create_nolock memory_limit vm)
 	let destroy _ vm = Mutex.execute m (destroy_nolock vm)
 	let pause _ vm = Mutex.execute m (do_pause_unpause_nolock vm true)

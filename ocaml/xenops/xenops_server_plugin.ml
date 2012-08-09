@@ -63,6 +63,7 @@ module type S = sig
 	end
 	module VM : sig
 		val add: Vm.t -> unit
+		val remove: Vm.t -> unit
 		val create: Xenops_task.t -> int64 option -> Vm.t -> unit
 		val build: Xenops_task.t -> Vm.t -> Vbd.t list -> Vif.t list -> unit (* XXX cancel *)
 		val create_device_model: Xenops_task.t -> Vm.t -> Vbd.t list -> Vif.t list -> bool -> unit
