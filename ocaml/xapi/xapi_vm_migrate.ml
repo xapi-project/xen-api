@@ -165,6 +165,14 @@ let intra_pool_vdi_remap ~__context vm vdi_map =
 
 
 let inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address ~vm ~vdi_map ~vif_map ~dry_run ~live =
+	List.iter (fun (vdi,mirror_record) ->
+		Db.VDI.remove_from_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key;
+		Db.VDI.add_to_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key ~value:(Ref.string_of mirror_record.mr_remote_vdi_reference)) vdi_map;
+
+	List.iter (fun (vif,network) ->
+		Db.VIF.remove_from_other_config ~__context ~self:vif ~key:Constants.storage_migrate_vif_map_key;
+		Db.VIF.add_to_other_config ~__context ~self:vif ~key:Constants.storage_migrate_vif_map_key ~value:(Ref.string_of network)) vif_map;
+
 	let vm_export_import = {
 		Importexport.vm = vm; dry_run = dry_run; live = live; send_snapshots=true;
 	} in
@@ -346,14 +354,6 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
 		let xenops_vdi_map = List.map (fun (_, mirror_record) -> (mirror_record.mr_local_xenops_locator, mirror_record.mr_remote_xenops_locator)) (snapshots_map @ vdi_map) in
 		
-		List.iter (fun (vdi,mirror_record) ->
-			Db.VDI.remove_from_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key;
-			Db.VDI.add_to_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key ~value:(Ref.string_of mirror_record.mr_remote_vdi_reference)) (snapshots_map @ vdi_map);
-
-		List.iter (fun (vif,network) ->
-			Db.VIF.remove_from_other_config ~__context ~self:vif ~key:Constants.storage_migrate_vif_map_key;
-			Db.VIF.add_to_other_config ~__context ~self:vif ~key:Constants.storage_migrate_vif_map_key ~value:(Ref.string_of network)) vif_map;
-
 		(* Wait for delay fist to disappear *)
 		if Xapi_fist.pause_storage_migrate () then begin
 			TaskHelper.add_to_other_config ~__context "fist" "pause_storage_migrate";
