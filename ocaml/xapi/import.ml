@@ -839,19 +839,24 @@ module VIF : HandlerTools = struct
 		let vif_exists () = try ignore (get_vif ()); true with _ -> false in
 
 		if config.full_restore && vif_exists () then begin
+			(* If there's already a VIF with the same UUID and we're preserving UUIDs, use that one. *)
 			let vif = get_vif () in
 			Found_VIF vif
 		end else
 			(* If not restoring a full backup then blank the MAC so it is regenerated *)
 			let vif_record = { vif_record with API.vIF_MAC =
 				if config.full_restore then vif_record.API.vIF_MAC else "" } in
+			(* Determine the VM to which we're going to attach this VIF. *)
 			let vm = log_reraise
 				("Failed to find VIF's VM: " ^ (Ref.string_of vif_record.API.vIF_VM))
 				(lookup vif_record.API.vIF_VM) state.table in
+			(* Determine the network to which we're going to attach this VIF. *)
 			let net =
+				(* If we find the cross-pool migration key, attach the VIF to that network... *)
 				if List.mem_assoc Constants.storage_migrate_vif_map_key vif_record.API.vIF_other_config
 				then Ref.of_string (List.assoc Constants.storage_migrate_vif_map_key vif_record.API.vIF_other_config)
 				else
+					(* ...otherwise fall back to looking up the network from the state table. *)
 					log_reraise
 						("Failed to find VIF's Network: " ^ (Ref.string_of vif_record.API.vIF_network))
 						(lookup vif_record.API.vIF_network) state.table in
@@ -863,6 +868,7 @@ module VIF : HandlerTools = struct
 					(fun (k, _) -> k <> Constants.storage_migrate_vif_map_key)
 					vif_record.API.vIF_other_config
 			in
+			(* Construct the VIF record we're going to try to create locally. *)
 			let vif_record = { vif_record with
 				API.vIF_VM = vm;
 				API.vIF_network = net;
