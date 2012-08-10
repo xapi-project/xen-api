@@ -198,14 +198,21 @@ let update_pcpus xc =
 	) else (
 		Xenctrl.pcpu_info xc len
 	) in
-	let dss, _ = Array.fold_left (fun (acc, i) v ->
+	let dss, len_newinfos = Array.fold_left (fun (acc, i) v ->
 		((Host, ds_make
 			~name:(Printf.sprintf "cpu%d" i) ~units:"(fraction)"
 			~description:("Physical cpu usage for cpu "^(string_of_int i))
 			~value:(Rrd.VT_Float ((Int64.to_float v) /. 1.0e9)) ~min:0.0 ~max:1.0
 			~ty:Rrd.Derive ~default:true ~transform:(fun x -> 1.0 -. x) ())::acc,i+1)
 	) ([], 0) newinfos in
-	dss
+	let sum_array = Array.fold_left (fun acc v -> Int64.add acc v) 0L newinfos in
+	let avg_array = Int64.to_float sum_array /. (float_of_int len_newinfos) in
+	let avgcpu_ds = (Host, ds_make 
+		~name:"cpu_avg" ~units:"(fraction)"
+		~description:"Average physical cpu usage"
+		~value:(Rrd.VT_Float (avg_array /. 1.0e9)) ~min:0.0 ~max:1.0
+		~ty:Rrd.Derive ~default:true ~transform:(fun x -> 1.0 -. x) ()) in
+	avgcpu_ds::dss
 
 let update_memory xc doms =
 	List.fold_left (fun acc dom ->
