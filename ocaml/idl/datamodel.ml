@@ -1032,8 +1032,8 @@ let _ =
     ~doc:"This operation cannot be performed because it would invalidate VM failover planning such that the system would be unable to guarantee to restart protected VMs after a Host failure."
     ();
 
-	error Api_errors.ha_cannot_bond_management_iface [ ]
-		~doc:"This operation cannot be performed because creating a bond with the management interface is not allowed while HA is on. In order to do that, disable HA, create the bond then re-enable HA."
+	error Api_errors.ha_cannot_change_bond_status_of_mgmt_iface [ ]
+		~doc:"This operation cannot be performed because creating or deleting a bond involving the management interface is not allowed while HA is on. In order to do that, disable HA, create or delete the bond then re-enable HA."
 		();
 
   error Api_errors.cannot_evacuate_host ["errors"]
@@ -7233,6 +7233,17 @@ let event =
     ~result:(Int, "the event ID")
     ~allowed_roles:_R_ALL
     () in
+  let inject = call
+	  ~name:"inject" ~params:[
+		  String, "class", "class of the object";
+		  String, "ref", "A reference to the object that will be changed.";
+	  ]
+	  ~in_product_since:rel_tampa
+	  ~doc:"Injects an artificial event on the given object and return the corresponding ID"
+	  ~flags:[`Session]
+	  ~result:(String, "the event ID")
+	  ~allowed_roles:_R_ALL
+	  () in
   (* !!! This should call create_obj ~in_db:true like everything else... !!! *)
   {
     obj_lifecycle=[];
@@ -7241,7 +7252,7 @@ let event =
     description = "Asynchronous event registration and handling";
     gen_constructor_destructor = false;
     doccomments = [];
-    messages = [ register; unregister; next; from; get_current_id ];
+    messages = [ register; unregister; next; from; get_current_id; inject ];
     obj_release = {internal=get_product_releases rel_rio; opensource=get_oss_releases (Some "3.0.3"); internal_deprecated_since=None};
     contents = [
       field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:Int "id" "An ID, monotonically increasing, and local to the current session";

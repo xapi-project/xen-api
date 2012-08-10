@@ -68,6 +68,9 @@ val list_frontends : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> device list
     we don't recognise *)
 val list_devices_between : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> Xenctrl.domid -> device list
 
+(** List all managed devices with frontend in [domid] *)
+val list_devices : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> device list
+
 val device_of_backend : endpoint -> Xenctrl.domid -> device
 
 type protocol = Protocol_Native | Protocol_X86_32 | Protocol_X86_64

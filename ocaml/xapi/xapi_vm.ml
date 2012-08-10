@@ -56,7 +56,7 @@ let assert_can_boot_here ~__context ~self ~host =
 	let snapshot = Db.VM.get_record ~__context ~self in
 	if Helpers.rolling_upgrade_in_progress ~__context then
 		Helpers.assert_platform_version_is_same_on_master ~__context ~host ~self;
-	assert_can_boot_here ~__context ~self ~host ~snapshot
+	assert_can_boot_here ~__context ~self ~host ~snapshot ()
 
 let retrieve_wlb_recommendations ~__context ~vm =
   let snapshot = Db.VM.get_record ~__context ~self:vm in
@@ -288,7 +288,7 @@ let power_state_reset ~__context ~vm =
 					true
 				end else begin
 					(* Delete the metadata from xenopsd *)
-					Xapi_xenops.delete_metadata_from_xenopsd ~__context id;
+					Xapi_xenops.Xenopsd_metadata.delete ~__context id;
 					false
 				end
 			with _ -> false in
@@ -319,7 +319,10 @@ let resume ~__context ~vm ~start_paused ~force =
 	License_check.with_vm_license_check ~__context vm
 		(fun () ->
 			if Db.VM.get_ha_restart_priority ~__context ~self:vm = Constants.ha_restart
-			then Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
+			then begin
+				Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context vm;
+				Db.VM.set_ha_always_run ~__context ~self:vm ~value:true
+			end;
 
 			let host = Helpers.get_localhost ~__context in
 			if not force then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ();

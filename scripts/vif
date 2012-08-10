@@ -207,6 +207,7 @@ case ${TYPE} in
         if [ -z ${XENBUS_PATH} ]; then
             DOMID=$3
             DEVID=$4
+            XENBUS_PATH=/local/domain/$DOMID/device/vif/$DEVID
         else
             DOMID=`echo ${XENBUS_PATH} | cut -f 3 -d '/'`
             DEVID=`echo ${XENBUS_PATH} | cut -f 4 -d '/'`

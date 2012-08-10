@@ -251,6 +251,7 @@ let halted_vm = {
 	xsdata_state = [];
 	last_start_time = 0.;
 	shadow_multiplier_target = 1.;
+	hvm = false;
 }
 
 let unplugged_pci = {
@@ -258,13 +259,15 @@ let unplugged_pci = {
 }
 
 let unplugged_vbd = {
-	Vbd.plugged = false;
+	Vbd.active = false;
+	plugged = false;
 	qos_target = None;
 	backend_present = None;
 }
 
 let unplugged_vif = {
-	Vif.plugged = false;
+	Vif.active = false;
+	plugged = false;
 	kthread_pid = 0;
 	media_present = false;
 }

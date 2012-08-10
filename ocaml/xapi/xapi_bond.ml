@@ -306,7 +306,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 			then raise (Api_errors.Server_error (Api_errors.is_tunnel_access_pif, [Ref.string_of self]));
 			let pool = List.hd (Db.Pool.get_all ~__context) in
 			if Db.Pool.get_ha_enabled ~__context ~self:pool && Db.PIF.get_management ~__context ~self
-			then raise (Api_errors.Server_error(Api_errors.ha_cannot_bond_management_iface, []));
+			then raise (Api_errors.Server_error(Api_errors.ha_cannot_change_bond_status_of_mgmt_iface, []));
 		) members;
 		let hosts = List.map (fun self -> Db.PIF.get_host ~__context ~self) members in
 		if List.length (List.setify hosts) <> 1
@@ -423,6 +423,11 @@ let destroy ~__context ~self =
 		let local_vifs = get_local_vifs ~__context host [master_network] in
 		let local_vlans = Db.PIF.get_VLAN_slave_of ~__context ~self:master in
 		let local_tunnels = Db.PIF.get_tunnel_transport_PIF_of ~__context ~self:master in
+
+		(* CA-86573: forbid the deletion of a bond involving the mgmt interface if HA is on *)
+		let pool = List.hd (Db.Pool.get_all ~__context) in
+		if Db.Pool.get_ha_enabled ~__context ~self:pool && Db.PIF.get_management ~__context ~self:master
+		then raise (Api_errors.Server_error(Api_errors.ha_cannot_change_bond_status_of_mgmt_iface, []));
 
 		(* Copy IP configuration from master to primary member *)
 		copy_configuration ~__context master primary_slave;
