@@ -266,7 +266,8 @@ let update_loadavg () =
 
 let update_netdev doms =
 	let stats = Network_monitor.read_stats () in
-	List.fold_left (fun (dss, pifs) (dev, stat) ->
+	let dss, pifs, sum_rx, sum_tx =
+	List.fold_left (fun (dss, pifs, sum_rx, sum_tx) (dev, stat) ->
 		if not (String.startswith "vif" dev) then
 		begin
 			let pif_name = "pif_" ^ dev in
@@ -296,7 +297,7 @@ let update_netdev doms =
 				~description:("Transmit errors per second on physical interface " ^ dev) ~units:"err/s"
 				~value:(Rrd.VT_Int64 stat.tx_errors) ~ty:Rrd.Derive ~min:0.0 ~default:false ()) ::
 			dss,
-			pif :: pifs
+			pif :: pifs, Int64.add stat.rx_bytes sum_rx, Int64.add stat.tx_bytes sum_tx
 		end
 		else
 			(try
@@ -318,8 +319,16 @@ let update_netdev doms =
 					~value:(Rrd.VT_Int64 stat.rx_errors) ~ty:Rrd.Derive ~min:0.0 ~default:false ()) ::
 				dss
 			with _ -> dss),
-			pifs
-	) ([], []) stats
+			pifs, sum_rx, sum_tx
+	) ([], [], 0L, 0L) stats in [ 
+		(Host, ds_make ~name:"pif_aggr_rx"
+			~description:"Bytes per second received on all physical interfaces"
+			~units:"B/s" ~value:(Rrd.VT_Int64 sum_rx) ~ty:Rrd.Derive ~min:0.0 ~default:true ());
+		 (Host, ds_make ~name:"pif_aggr_tx"
+			 ~description:"Bytes per second sent on all physical interfaces"
+			 ~units:"B/s" ~value:(Rrd.VT_Int64 sum_tx) ~ty:Rrd.Derive ~min:0.0 ~default:true ())
+		 ] @ dss, pifs
+			 
 
 (*****************************************************)
 (* disk related code                                 *)
