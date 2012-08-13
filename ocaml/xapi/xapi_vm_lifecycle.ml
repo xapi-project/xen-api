@@ -76,7 +76,7 @@ let allowed_power_states ~__context ~vmr ~(op:API.vm_operations) =
 	| `hard_shutdown
 	                                -> [`Paused; `Suspended; `Running]
 	| `assert_operation_valid
-	| `metadata_export 
+	| `metadata_export
 	| `power_state_reset
 	| `revert
 	| `reverting
