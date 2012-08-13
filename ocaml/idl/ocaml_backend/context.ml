@@ -12,6 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 open Pervasiveext
+open Fun
+open Stringext
 
 module Real = Debug.Debugger(struct let name = "taskhelper" end)
 module Dummy = Debug.Debugger(struct let name = "dummytaskhelper" end)
@@ -40,6 +42,7 @@ type t = { session_id: API.ref_session option;
 	   origin: origin;
 	   task_name: string; (* Name for dummy task FIXME: used only for dummy task, as real task as their name in the database *)
 	   database: Db_ref.t;
+	   dbg: string;
 	 }
 
 let get_session_id x =
@@ -109,20 +112,18 @@ let initial =
     origin = Internal;
     task_name = "initial_task";
 	database = default_database ();
+	dbg = "initial_task";
   }
 
 (* ref fn used to break the cyclic dependency between context, db_actions and taskhelper *)
 let __get_task_name : (__context:t -> API.ref_task -> string) ref = 
   ref (fun ~__context t -> "__get_task_name not set")
 let __make_task = 
-  ref (fun ~__context ?(description:string option) ?(session_id:API.ref_session option) ?(subtask_of:API.ref_task option) (task_name:string) -> Ref.null, Uuid.null)
+  ref (fun ~__context ~(http_other_config:(string * string) list) ?(description:string option) ?(session_id:API.ref_session option) ?(subtask_of:API.ref_task option) (task_name:string) -> Ref.null, Uuid.null)
 let __destroy_task : (__context:t -> API.ref_task -> unit) ref = 
   ref (fun ~__context:_ _ -> ()) 
-let __string_of_task : (string -> API.ref_task -> string) ref =
-  ref (fun _ _ -> "__string_of_task not set")
 
-let string_of_task __context = 
-    !__string_of_task __context.task_name __context.task_id
+let string_of_task __context = __context.dbg
 
 let check_for_foreign_database ~__context =
 	match __context.session_id with
@@ -153,8 +154,14 @@ let trackid_of_session ?(with_brackets=false) ?(prefix="") session_id =
 let trackid ?(with_brackets=false) ?(prefix="") __context = (* CP-982: create tracking id in log files to link username to actions *)
   trackid_of_session ~with_brackets ~prefix __context.session_id 
 
+let make_dbg http_other_config task_name task_id =
+	if List.mem_assoc "dbg" http_other_config
+	then List.assoc "dbg" http_other_config
+	else Printf.sprintf "%s%s%s" task_name (if task_name = "" then "" else " ") (Ref.really_pretty_and_small task_id)
+
 (** constructors *)
-let from_forwarded_task ?(__context=initial) ?session_id ?(origin=Internal) task_id =
+
+let from_forwarded_task ?(__context=initial) ?(http_other_config=[]) ?session_id ?(origin=Internal) task_id =
   let task_name = 
     if Ref.is_dummy task_id 
     then Ref.name_of_dummy task_id
@@ -162,7 +169,8 @@ let from_forwarded_task ?(__context=initial) ?session_id ?(origin=Internal) task
     in   
     let info = if not (Ref.is_dummy task_id) then Real.info else Dummy.debug in
       (* CP-982: promote tracking debug line to info status *)
-      info "task %s forwarded%s" (!__string_of_task task_name task_id) (trackid_of_session ~with_brackets:true ~prefix:" " session_id);
+	let dbg = make_dbg http_other_config task_name task_id in
+      info "task %s forwarded%s" dbg (trackid_of_session ~with_brackets:true ~prefix:" " session_id);
       { session_id = session_id; 
         task_id = task_id;
         forwarded_task = true;
@@ -170,12 +178,13 @@ let from_forwarded_task ?(__context=initial) ?session_id ?(origin=Internal) task
         origin = origin;
         task_name = task_name;
 		database = default_database ();
+		dbg = dbg;
 	  } 
 
-let make ?(__context=initial) ?(quiet=false) ?subtask_of ?session_id ?(database=default_database ()) ?(task_in_database=false) ?task_description ?(origin=Internal) task_name =
+let make ?(__context=initial) ?(http_other_config=[]) ?(quiet=false) ?subtask_of ?session_id ?(database=default_database ()) ?(task_in_database=false) ?task_description ?(origin=Internal) task_name =
   let task_id, task_uuid =
     if task_in_database 
-    then !__make_task ~__context ?description:task_description ?session_id ?subtask_of task_name
+    then !__make_task ~__context ~http_other_config ?description:task_description ?session_id ?subtask_of task_name
     else Ref.make_dummy task_name, Uuid.null
   in
   let task_uuid =
@@ -185,14 +194,15 @@ let make ?(__context=initial) ?(quiet=false) ?subtask_of ?session_id ?(database=
   in
 
   let info = if task_in_database then Real.info else Dummy.debug in
+  let dbg = make_dbg http_other_config task_name task_id in
   if not quiet && subtask_of <> None then
     info "task %s%s created%s%s" (* CP-982: promote tracking debug line to info status *)
-      (!__string_of_task task_name task_id) 
+      dbg
       task_uuid
       (trackid_of_session ~with_brackets:true ~prefix:" " session_id) (* CP-982: link each task to original session created during login *)
       (match subtask_of with
         | None -> ""
-        | Some subtask_of -> " by task " ^ !__string_of_task "" subtask_of)
+        | Some subtask_of -> " by task " ^ (make_dbg [] "" subtask_of))
     ;
     { session_id = session_id;
 	  database = database;
@@ -200,4 +210,27 @@ let make ?(__context=initial) ?(quiet=false) ?subtask_of ?session_id ?(database=
       task_in_database = task_in_database;
       origin = origin;
       forwarded_task = false;
-      task_name = task_name } 
+      task_name = task_name;
+	  dbg = dbg;
+	} 
+
+let get_http_other_config http_req =
+	let http_other_config_hdr = "x-http-other-config-" in
+	http_req.Http.Request.additional_headers
+		 |> List.filter (fun (k, v) -> String.startswith http_other_config_hdr k)
+		 |> List.map (fun (k, v) -> String.sub k (String.length http_other_config_hdr) (String.length k - (String.length http_other_config_hdr)), v)
+
+(** Called by autogenerated dispatch code *)
+let of_http_req ?session_id ~generate_task_for ~supports_async ~label ~http_req ~fd =
+	let http_other_config = get_http_other_config http_req in
+	match http_req.Http.Request.task with
+		| Some task_id -> 
+			from_forwarded_task ?session_id ~http_other_config ~origin:(Http(http_req,fd)) (Ref.of_string task_id)
+		| None ->
+			if generate_task_for && supports_async  
+			then 
+				let subtask_of = Pervasiveext.may Ref.of_string http_req.Http.Request.subtask_of in
+				make ?session_id ?subtask_of ~http_other_config ~task_in_database:true ~origin:(Http(http_req,fd)) label
+			else 
+				make ?session_id ~http_other_config ~origin:(Http(http_req,fd)) label
+

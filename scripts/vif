@@ -29,6 +29,7 @@ setup_vif_rules="@LIBEXECDIR@/setup-vif-rules"
 
 handle_promiscuous()
 {
+    # other-config keys are optional
     local arg=$(xenstore-read "${PRIVATE}/other-config/promiscuous" 2>/dev/null)
     if [ $? -eq 0 -a -n "${arg}" ] ; then
         case $NETWORK_MODE in
@@ -48,6 +49,7 @@ handle_promiscuous()
 handle_ethtool()
 {
     local opt=$1
+    # other-config keys are optional
     local arg=$(xenstore-read "${PRIVATE}/other-config/ethtool-${opt}" 2>/dev/null)
     if [ $? -eq 0 -a -n "${arg}" ] ; then
         case "${arg}" in
@@ -64,6 +66,10 @@ handle_mtu()
     if [ $? -eq 0 -a -n "${mtu}" ]; then
         logger -t scripts-vif "Setting ${dev} MTU ${mtu}"
         ${IP} link set "${dev}" mtu ${mtu} || logger -t scripts-vif "Failed to ip link set ${dev} mtu ${mtu}. Error code $?"
+    else
+        logger -t scripts-vif "Failed to read ${PRIVATE}/MTU"
+        xenstore-write "${HOTPLUG_ERROR}" "Failed to read ${PRIVATE}/MTU"
+        exit 1
     fi
 }
 
@@ -82,24 +88,44 @@ handle_vswitch_vif_details()
     local vm=$(xenstore-read "/local/domain/$DOMID/vm" 2>/dev/null)
     if [ $? -eq 0 -a -n "${vm}" ] ; then
         local vm_uuid=$(xenstore-read "$vm/uuid" 2>/dev/null)
+    else
+        logger -t scripts-vif "Failed to read /local/domain/$DOMID/vm"
+        xenstore-write "${HOTPLUG_ERROR}" "Failed to read /local/domain/$DOMID/vm"
+        exit 1
     fi
     if [ -n "${vm_uuid}" ] ; then
         set_vif_external_id "xs-vm-uuid" "${vm_uuid}"
+    else
+        logger -t scripts-vif "Failed to read $vm/uuid"
+        xenstore-write "${HOTPLUG_ERROR}" "Failed to read $vm/uuid"
+        exit 1
     fi
 
     local vif_uuid=$(xenstore-read "${PRIVATE}/vif-uuid" 2>/dev/null)
     if [ -n "${vif_uuid}" ] ; then
 	set_vif_external_id "xs-vif-uuid" "${vif_uuid}"
+    else
+        logger -t scripts-vif "Failed to read ${PRIVATE}/vif-uuid"
+        xenstore-write "${HOTPLUG_ERROR}" "Failed to read ${PRIVATE}/vif-uuid"
+        exit 1
     fi
 
     local vif_details=
     local net_uuid=$(xenstore-read "${PRIVATE}/network-uuid" 2>/dev/null)
     if [ -n "${net_uuid}" ] ; then
 	set_vif_external_id "xs-network-uuid" "${net_uuid}"
+    else
+        logger -t scripts-vif "Failed to read ${PRIVATE}/network-uuid"
+        xenstore-write "${HOTPLUG_ERROR}" "Failed to read ${PRIVATE}/network-uuid"
+        exit 1
     fi
     local address=$(xenstore-read "/local/domain/$DOMID/device/vif/$DEVID/mac" 2>/dev/null)
     if [ -n "${address}" ] ; then
         set_vif_external_id "attached-mac" "${address}"
+    else
+        logger -t scripts-vif "Failed to read /local/domain/$DOMID/device/vif/$DEVID/mac"
+        xenstore-write "${HOTPLUG_ERROR}" "Failed to read /local/domain/$DOMID/device/vif/$DEVID/mac"
+        exit 1
     fi
 }
 
@@ -108,11 +134,13 @@ add_to_bridge()
     local address=$(xenstore-read "${PRIVATE}/bridge-MAC")
     if [ $? -ne 0 -o -z "${address}" ]; then
         logger -t scripts-vif "Failed to read ${PRIVATE}/bridge-MAC from xenstore"
+        xenstore-write "${HOTPLUG_ERROR}" "Failed to read ${PRIVATE}/bridge-MAC from xenstore"
         exit 1
     fi
     local bridge=$(xenstore-read "${PRIVATE}/bridge")
     if [ $? -ne 0 -o -z "${bridge}" ]; then
         logger -t scripts-vif "Failed to read ${PRIVATE}/bridge from xenstore"
+        xenstore-write "${HOTPLUG_ERROR}" "Failed to read ${PRIVATE}/bridge from xenstore"
         exit 1
     fi
     logger -t scripts-vif "Adding ${dev} to ${bridge} with address ${address}"
@@ -138,8 +166,6 @@ add_to_bridge()
     esac
         
     $setup_vif_rules $TYPE $DOMID $DEVID filter         || logger -t scripts-vif "Failed to setup-vif-rules $TYPE $DOMID $DEVID filter"
-
-    ${IP} link set "${dev}" up                          || logger -t scripts-vif "Failed to ip link set ${dev} up"
 }
 
 remove_from_bridge()
@@ -167,14 +193,23 @@ call_hook_script() {
         local vm=$(xenstore-read "/local/domain/$domid/vm" 2>/dev/null)
         if [ $? -eq 0 -a -n "${vm}" ] ; then
             local vm_uuid=$(xenstore-read "$vm/uuid" 2>/dev/null)
+        else
+            logger -t scripts-vif "Failed to read /local/domain/$domid/vm"
+            xenstore-write "${HOTPLUG_ERROR}" "Failed to read /local/domain/$domid/vm"
         fi
         if [ -n "${vm_uuid}" ] ; then
             logger -t scripts-vif "VM UUID ${vm_uuid}"
+        else
+            logger -t scripts-vif "Failed to read $vm/uuid"
+            xenstore-write "${HOTPLUG_ERROR}" "Failed to read $vm/uuid"
         fi
 
         local vif_uuid=$(xenstore-read "${PRIVATE}/vif-uuid" 2>/dev/null)
         if [ -n "${vif_uuid}" ] ; then
             logger -t scripts-vif "VIF UUID ${vif_uuid}"
+        else
+            logger -t scripts-vif "Failed to read ${PRIVATE}/vif-uuid"
+            xenstore-write "${HOTPLUG_ERROR}" "Failed to read ${PRIVATE}/vif-uuid"
         fi
         if [ -n "${vif_uuid}" -a -n "${vm_uuid}" ] ; then
             logger -t scripts-vif "Calling VIF hotplug hook for VM ${vm_uuid}, VIF ${vif_uuid}"
@@ -207,6 +242,7 @@ case ${TYPE} in
         if [ -z ${XENBUS_PATH} ]; then
             DOMID=$3
             DEVID=$4
+            XENBUS_PATH=/local/domain/$DOMID/device/vif/$DEVID
         else
             DOMID=`echo ${XENBUS_PATH} | cut -f 3 -d '/'`
             DEVID=`echo ${XENBUS_PATH} | cut -f 4 -d '/'`
@@ -228,6 +264,7 @@ XAPI=/xapi/${DOMID}/hotplug/vif/${DEVID}
 HOTPLUG=/xapi/${DOMID}/hotplug/vif/${DEVID}
 PRIVATE=/xapi/${DOMID}/private/vif/${DEVID}
 HOTPLUG_STATUS="${XENBUS_PATH}/hotplug-status"
+HOTPLUG_ERROR="${XENBUS_PATH}/hotplug-error"
 
 logger -t scripts-vif "Called as \"$@\" domid:$DOMID devid:$DEVID mode:$NETWORK_MODE"
 case "${ACTION}" in

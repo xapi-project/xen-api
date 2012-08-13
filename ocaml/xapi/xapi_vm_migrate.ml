@@ -76,12 +76,15 @@ let pool_migrate ~__context ~vm ~host ~options =
 	let vm' = Db.VM.get_uuid ~__context ~self:vm in
 	begin try
 		Xapi_network.with_networks_attached_for_vm ~__context ~vm ~host (fun () ->
-			Xapi_xenops.with_migrating_away vm' (fun () ->
+			Xapi_xenops.with_events_suppressed ~__context ~self:vm (fun () ->
 				(* XXX: PR-1255: the live flag *)
 				info "xenops: VM.migrate %s to %s" vm' xenops_url;
 				XenopsAPI.VM.migrate dbg vm' [] [] xenops_url |> wait_for_task dbg |> success_task dbg |> ignore;
-				(try XenopsAPI.VM.remove dbg vm' with e -> debug "xenops: VM.remove %s: caught %s" vm' (Printexc.to_string e));
-				Xapi_xenops.Event.wait dbg ()
+				(* Delete all record of this VM locally (including caches) *)
+				Xapi_xenops.Xenopsd_metadata.delete ~__context vm';
+				(* Flush xenopsd events through: we don't want the pool database to
+				   be updated on this host ever again. *)
+				Xapi_xenops.Events_from_xenopsd.wait dbg ()
 			)
 		);
 	with e ->
@@ -90,14 +93,10 @@ let pool_migrate ~__context ~vm ~host ~options =
 		let _, state = XenopsAPI.VM.stat dbg vm' in
 		if Xenops_interface.(state.Vm.power_state = Suspended) then begin
 			debug "xenops: %s: shutting down suspended VM" vm';
-			(* This will remove any traces, but the VM may still be 'suspended' *)
 			Xapi_xenops.shutdown ~__context ~self:vm None;
-			(* Remove the VM metadata from xenopsd *)
-			(try XenopsAPI.VM.remove dbg vm' with e -> debug "xenops: VM.remove %s: caught %s" vm' (Printexc.to_string e))
 		end;
 		raise e
 	end;
-	Xapi_xenops.remove_caches vm';
 	Rrdd_proxy.migrate_rrd ~__context ~vm_uuid:vm' ~host_uuid:(Ref.string_of host) ();
 	(* We will have missed important events because we set resident_on late.
 	   This was deliberate: resident_on is used by the pool master to reserve
@@ -181,15 +180,11 @@ let inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_addr
 
 let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	SMPERF.debug "vm.migrate_send called vm:%s" (Db.VM.get_uuid ~__context ~self:vm);
-	if not(!Xapi_globs.use_xenopsd)
-	then failwith "You must have /etc/xapi.conf:use_xenopsd=true";
 	(* Create mirrors of all the disks on the remote *)
 	let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
 	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
 	let (snapshots_vbds,nb_snapshots) = get_snapshots_vbds ~__context ~vm in
 	debug "get_snapshots VMs %d VBDs %d" nb_snapshots (List.length snapshots_vbds);
-	if nb_snapshots > 1 then
-		raise (Api_errors.Server_error(Api_errors.vm_has_too_many_snapshots, [Ref.string_of vm]));
 	let vdi_filter snapshot vbd =
 		if not(Db.VBD.get_empty ~__context ~self:vbd)
 		then
@@ -215,6 +210,15 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			end
 		else None in
 	let vdis = List.filter_map (vdi_filter false) vbds in
+
+	(* Assert that every VDI is specified in the VDI map *)
+	List.(iter (fun (vdi,_,_,_,_,_,_,_) ->
+		if not (mem_assoc vdi vdi_map)
+		then
+			let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
+			error "VDI:SR map not fully specified for VDI %s" vdi_uuid ;
+			raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ vdi_uuid ]))) vdis) ;
+
 	let snapshots_vdis = List.filter_map (vdi_filter true) snapshots_vbds in
 	let total_size = List.fold_left (fun acc (_,_,_,_,_,sz,_,_) -> Int64.add acc sz) 0L (vdis @ snapshots_vdis) in
 	let dbg = Context.string_of_task __context in
@@ -238,38 +242,26 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let remote_rpc = Helpers.make_remote_rpc remote_master_address in
 
 	try
-		let dest_default_sr_ref_uuid = 
-			try
-				let remote_pool = List.hd (XenAPI.Pool.get_all remote_rpc session_id) in
-				let remote_default_SR = XenAPI.Pool.get_default_SR remote_rpc session_id remote_pool in
-				let remote_default_SR_uuid = XenAPI.SR.get_uuid remote_rpc session_id remote_default_SR in
-				Some (remote_default_SR, remote_default_SR_uuid) 
-			with _ ->
-				None
-		in
-
 		let so_far = ref 0L in
 
 		let vdi_copy_fun (vdi, dp, location, sr, xenops_locator, size, snapshot_of, do_mirror) =
 			TaskHelper.exn_if_cancelling ~__context;
 			let open Storage_access in 
 			let (dest_sr_ref, dest_sr) =
-				match List.mem_assoc vdi vdi_map, List.mem_assoc snapshot_of vdi_map, dest_default_sr_ref_uuid with
-					| true, _, _ ->
+				match List.mem_assoc vdi vdi_map, List.mem_assoc snapshot_of vdi_map with
+					| true, _ ->
 						    debug "VDI has been specified in the vdi_map";
 							let dest_sr_ref = List.assoc vdi vdi_map in
 							let dest_sr = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
 							(dest_sr_ref, dest_sr)
-					| false, true, _ ->
+					| false, true ->
 					        debug "snapshot VDI's snapshot_of has been specified in the vdi_map";
 						    let dest_sr_ref = List.assoc snapshot_of vdi_map in
 							let dest_sr = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
 							(dest_sr_ref, dest_sr)
-					| false, false, Some x -> 
-						    debug "Defaulting to destination pool's default_SR";
-						    x
-					| false, false, None ->
-							failwith "No SR specified in VDI map and no default on destination"
+					| false, false ->
+							let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
+							failwith ("No SR specified in VDI map for VDI " ^ vdi_uuid)
 				in
 			let mirror = (not is_intra_pool) || (dest_sr <> sr) in
 
@@ -425,12 +417,11 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		(* It's acceptable for the VM not to exist at this point; shutdown commutes with storage migrate *)
 		begin
 			try
-				Xapi_xenops.with_migrating_away vm_uuid
+				Xapi_xenops.with_events_suppressed ~__context ~self:vm
 					(fun () ->
 						XenopsAPI.VM.migrate dbg vm_uuid xenops_vdi_map xenops_vif_map xenops |> wait_for_task dbg |> success_task dbg |> ignore;
-						(try XenopsAPI.VM.remove dbg vm_uuid with e -> debug "Caught %s while removing VM %s from metadata" (Printexc.to_string e) vm_uuid);
-						Xapi_xenops.Event.wait dbg ())
-							
+						Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid;
+						Xapi_xenops.Events_from_xenopsd.wait dbg ())
 			with
 				| Xenops_interface.Does_not_exist ("VM",_) ->
 					()	
@@ -465,7 +456,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			List.iter (fun vdi -> 
 				if not (Xapi_fist.storage_motion_keep_vdi ()) 
 				then begin
-					(* In a cross-pool migrate, due to the Xapi_xenops.with_migrating_away call above, 
+					(* In a cross-pool migrate, due to the Xapi_xenops.with_events_suppressed call above, 
 					   the VBDs are left 'currently-attached=true', because they haven't been resynced
 					   by the destination host.
 
@@ -496,7 +487,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	with e ->
 		error "Caught %s: cleaning up" (Printexc.to_string e);
 
-		Xapi_xenops.remove_caches vm_uuid;
+		(* This resets the caches to empty: *)
 		Xapi_xenops.add_caches vm_uuid;
 		Xapi_xenops.refresh_vm ~__context ~self:vm;
 
@@ -552,36 +543,34 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let dest_host_ref = Ref.of_string dest_host in
 	let force = try bool_of_string (List.assoc "force" options) with _ -> false in
 
+	(* Check that the VM has at most one snapshot, and that that snapshot is not a checkpoint. *)
+	(match Db.VM.get_snapshots ~__context ~self:vm with
+	| [] -> ()
+	| [snapshot] ->
+		if (Db.VM.get_power_state ~__context ~self:snapshot) = `Suspended then
+			raise (Api_errors.Server_error (Api_errors.vm_has_checkpoint, [Ref.string_of vm]))
+	| _ ->
+			raise (Api_errors.Server_error (Api_errors.vm_has_too_many_snapshots, [Ref.string_of vm])));
+
 	let migration_type =
 		try
 			ignore(Db.Host.get_uuid ~__context ~self:dest_host_ref);
+			debug "This is an intra-pool migration";
 			`intra_pool dest_host_ref
 		with _ ->
 			let remote_rpc = Helpers.make_remote_rpc remote_master_address in
+			debug "This is a cross-pool migration";
 			`cross_pool remote_rpc
 	in
-
 	match migration_type with
 	| `intra_pool host ->
 		if (not force) && live then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ();
+		let snapshot = Helpers.get_boot_record ~__context ~self:vm in
+		Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_sr_check:false ();
 		if vif_map <> [] then
 			raise (Api_errors.Server_error(Api_errors.not_implemented, [
 				"VIF mapping is not supported for intra-pool migration"]))
 	| `cross_pool remote_rpc ->
-		(* Check that the VM has no more than one snapshot *)
-		let is_a_checkpoint vbd =
-			let vm = Db.VBD.get_VM ~__context ~self:vbd in
-			match Db.VM.get_power_state ~__context ~self:vm with
-				| `Suspended -> true 
-				| _          -> false in
-		let (snapshots_vbds, nb_snapshots) = get_snapshots_vbds ~__context ~vm in
-		(match nb_snapshots with
-			| 0 -> ()                                             (* 0 snapshots/checkpoints: no problem *)
-			| 1 -> (match snapshots_vbds with 
-					| vbd::[] -> (if is_a_checkpoint vbd then     (* might be a checkpoint *)
-							raise (Api_errors.Server_error(Api_errors.vm_has_too_many_snapshots, [Ref.string_of vm])))
-					| _       -> assert false) (* should never happen *)
-			| _ ->	raise (Api_errors.Server_error(Api_errors.vm_has_too_many_snapshots, [Ref.string_of vm])));
 		if (not force) && live then
 			Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host:dest_host_ref
 				~remote:(remote_rpc, session_id) ();
@@ -592,10 +581,8 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			raise (Api_errors.Server_error(Api_errors.cannot_contact_host, [remote_address]))
 
 let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
-	assert_licensed_storage_motion ~__context ;
 	with_migrate (fun () ->
-		assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options;
-		migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options)					
+		migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options)
 
 (* Handling migrations from pre-Tampa hosts *)
 
@@ -666,21 +653,23 @@ let handler req fd _ =
 			let dbg = Context.string_of_task __context in
 			Xapi_network.with_networks_attached_for_vm ~__context ~vm (fun () ->
 				Xapi_xenops.transform_xenops_exn ~__context (fun () ->
-					Xapi_xenops.with_metadata_pushed_to_xenopsd ~__context ~upgrade:true ~self:vm (fun id ->
-						info "xenops: VM.receive_memory %s" id;
-						let uri = Printf.sprintf "/services/xenops/memory/%s" id in
-						let memory_limit = free_memory_required_kib |> Memory.bytes_of_kib |> Int64.to_string in
-						let req = Http.Request.make ~cookie:["dbg", dbg; "instance_id", "upgrade"; "memory_limit", memory_limit]
-							~user_agent:"xapi" Http.Put uri in
-						let path = "/var/xapi/xenopsd.forwarded" in
-						let response = Xapi_services.hand_over_connection req fd path in
-						match response with
+					debug "Sending VM %s configuration to xenopsd" (Ref.string_of vm);
+					let id = Xapi_xenops.Xenopsd_metadata.push ~__context ~upgrade:true ~self:vm in
+					info "xenops: VM.receive_memory %s" id;
+					let uri = Printf.sprintf "/services/xenops/memory/%s" id in
+					let memory_limit = free_memory_required_kib |> Memory.bytes_of_kib |> Int64.to_string in
+					let req = Http.Request.make ~cookie:["dbg", dbg; "instance_id", "upgrade"; "memory_limit", memory_limit]
+						~user_agent:"xapi" Http.Put uri in
+					let path = "/var/xapi/xenopsd.forwarded" in
+					let response = Xapi_services.hand_over_connection req fd path in
+					begin match response with
 						| Some task ->
 							let open Xenops_client in
 							task |> wait_for_task dbg |> success_task dbg |> ignore
 						| None ->
 							debug "We did not get a task id to wait for!!"
-					) (* VM.resident_on is automatically set here *)
+					end;
+					Xapi_xenops.set_resident_on ~__context ~self:vm
 				)
 			);
 
@@ -700,3 +689,44 @@ let handler req fd _ =
 			TaskHelper.failed ~__context (Api_errors.internal_error, [ ExnHelper.string_of_exn e ])
     )
 
+let vdi_pool_migrate ~__context ~vdi ~sr ~options =
+	let localhost = Helpers.get_localhost ~__context in
+	(* inserted by message_forwarding *)
+	let vm = Ref.of_string (List.assoc "__internal__vm" options) in
+
+	(* Need vbd of vdi, to find new vdi's uuid *)
+	let vbds = Db.VDI.get_VBDs ~__context ~self:vdi in
+	let vbd = List.filter
+		(fun vbd -> (Db.VBD.get_VM ~__context ~self:vbd) = vm)
+		vbds in
+	let vbd = match vbd with
+		| v :: _ -> v
+		| _ -> raise (Api_errors.Server_error(Api_errors.vbd_missing, [])) in
+
+	(* Fully specify vdi_map: other VDIs stay on current SR *)
+	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
+	let vbds = List.filter (fun self ->
+		not (Db.VBD.get_empty ~__context ~self)) vbds in
+	let vdis = List.map (fun self ->
+		Db.VBD.get_VDI ~__context ~self) vbds in
+	let vdis = List.filter ((<>) vdi) vdis in
+	let vdi_map = List.map (fun vdi ->
+		let sr = Db.VDI.get_SR ~__context ~self:vdi in
+		(vdi,sr)) vdis in
+	let vdi_map = (vdi,sr) :: vdi_map in
+
+	(* Need a network for the VM migrate *)
+	let management_if =
+		Xapi_inventory.lookup Xapi_inventory._management_interface in
+	let open Db_filter_types in
+	let networks = Db.Network.get_records_where ~__context ~expr:(Eq (Field "bridge", Literal management_if)) in
+	let network = match networks with
+		| (net,_)::_ -> net
+		| _ -> raise (Api_errors.Server_error(Api_errors.host_has_no_management_ip, []))
+	in
+	TaskHelper.set_cancellable ~__context;
+	Helpers.call_api_functions ~__context (fun rpc session_id ->
+		let token = XenAPI.Host.migrate_receive ~rpc ~session_id ~host:localhost ~network ~options in
+		migrate_send ~__context ~vm ~dest:token ~live:true ~vdi_map ~vif_map:[] ~options:[]
+	) ;
+	Db.VBD.get_VDI ~__context ~self:vbd

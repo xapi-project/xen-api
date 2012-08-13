@@ -203,6 +203,7 @@ let vdi_incompatible_type = "VDI_INCOMPATIBLE_TYPE"
 let vdi_not_managed = "VDI_NOT_MANAGED"
 let vdi_io_error = "VDI_IO_ERROR"
 let vdi_on_boot_mode_incompatable_with_operation = "VDI_ON_BOOT_MODE_INCOMPATABLE_WITH_OPERATION"
+let vdi_not_in_map = "VDI_NOT_IN_MAP"
 let cannot_create_state_file = "CANNOT_CREATE_STATE_FILE"
 
 let operation_partially_failed = "OPERATION_PARTIALLY_FAILED"
@@ -357,7 +358,7 @@ let ha_host_cannot_access_statefile = "HA_HOST_CANNOT_ACCESS_STATEFILE"
 
 let ha_failed_to_form_liveset = "HA_FAILED_TO_FORM_LIVESET"
 
-let ha_cannot_bond_management_iface = "HA_CANNOT_BOND_MANAGEMENT_IFACE"
+let ha_cannot_change_bond_status_of_mgmt_iface = "HA_CANNOT_CHANGE_BOND_STATUS_OF_MGMT_IFACE"
 
 (* CA-16480: prevent configuration errors which nullify xHA goodness *)
 let ha_constraint_violation_sr_not_shared = "HA_CONSTRAINT_VIOLATION_SR_NOT_SHARED"
@@ -455,6 +456,7 @@ let suspend_vdi_replacement_is_not_identical = "SUSPEND_VDI_REPLACEMENT_IS_NOT_I
 
 let vdi_needs_vm_for_migrate = "VDI_NEEDS_VM_FOR_MIGRATE"
 let vm_has_too_many_snapshots = "VM_HAS_TOO_MANY_SNAPSHOTS"
+let vm_has_checkpoint = "VM_HAS_CHECKPOINT"
 
 let mirror_failed = "MIRROR_FAILED"
 let too_many_storage_migrates = "TOO_MANY_STORAGE_MIGRATES"
