@@ -229,8 +229,14 @@ module Ip = struct
 
 	let set_ip_addr dev (ip, prefixlen) =
 		let addr = Printf.sprintf "%s/%d" (Unix.string_of_inet_addr ip) prefixlen in
+		let broadcast =
+			(* Set the broadcast address when adding an IPv4 address *)
+			if String.contains addr '.' then
+				["broadcast"; "+"]
+			else []
+		in
 		try
-			ignore (call ~log:true ["addr"; "add"; addr; "dev"; dev])
+			ignore (call ~log:true (["addr"; "add"; addr; "dev"; dev] @ broadcast))
 		with _ -> ()
 
 	let flush_ip_addr ?(ipv6=false) dev =
