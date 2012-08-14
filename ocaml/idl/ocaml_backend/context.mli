@@ -26,6 +26,7 @@ val initial : t
 
 (** [make ~__context ~subtask_of ~database ~session_id ~task_in_database ~task_description ~origin name] creates a new context. 
     [__context] is the calling context,
+    [http_other_config] are extra bits of context picked up from HTTP headers,
 	[quiet] silences "task created" log messages,
     [subtask_of] is a reference to the parent task, 
     [session_id] is the current session id,
@@ -35,6 +36,7 @@ val initial : t
     [task_name] is the task name of the created context. *)
 val make :
   ?__context:t ->
+  ?http_other_config:(string * string) list ->
   ?quiet:bool ->
   ?subtask_of:API.ref_task ->
   ?session_id:API.ref_session ->
@@ -42,8 +44,17 @@ val make :
   ?task_in_database:bool ->
   ?task_description:string -> ?origin:origin -> string -> t
 
+val of_http_req :
+  ?session_id:API.ref_session ->
+  generate_task_for:bool ->
+  supports_async:bool ->
+  label:string ->
+  http_req:Http.Request.t ->
+  fd:Unix.file_descr -> t
+
 val from_forwarded_task :
   ?__context:t ->
+  ?http_other_config:(string * string) list ->
   ?session_id:API.ref_session ->
   ?origin:origin -> API.ref_task -> t
   
@@ -100,13 +111,16 @@ val trackid : ?with_brackets:bool -> ?prefix:string -> t -> string
 
 val check_for_foreign_database : __context:t -> t
 
+val get_http_other_config : Http.Request.t -> (string * string) list
+
 (** {6 Functions which help resolving cyclic dependencies} *)
 
 val __get_task_name : (__context:t -> API.ref_task -> string) ref
 val __destroy_task  : (__context:t -> API.ref_task -> unit  ) ref
 val __make_task :
-  (__context:t -> ?description:string ->
+  (__context:t -> http_other_config:(string * string) list ->
+   ?description:string ->
    ?session_id:API.ref_session ->
    ?subtask_of:API.ref_task -> string -> API.ref_task * API.ref_task Uuid.t)
   ref
-val __string_of_task : (string -> API.ref_task -> string) ref
+

@@ -901,7 +901,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let reserve_memory_for_vm ~__context ~vm ~snapshot ~host ?host_op f =
 			with_global_lock
 				(fun () ->
-					Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host:host ~snapshot;
+					Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host:host ~snapshot ();
 					(* NB in the case of migrate although we are about to increase free memory on the sending host
 					   we ignore this because if a failure happens while a VM is in-flight it will still be considered
 					   on both hosts, potentially breaking the failover plan. *)
@@ -1564,7 +1564,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					~__context ~host_from:source_host ~host_to:host ;
 			end;
 			let local_fn = Local.VM.pool_migrate ~vm ~host ~options in
-			Xapi_vm_helpers.assert_can_see_SRs ~__context ~self:vm ~host;
 
 			(* Check that the VM is compatible with the host it is being migrated to. *)
 			let force = try bool_of_string (List.assoc "force" options) with _ -> false in
@@ -1593,6 +1592,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 		let migrate_send ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			info "VM.migrate_send: VM = '%s'" (vm_uuid ~__context vm);
+			Local.VM.assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options;
 			let local_fn = Local.VM.migrate_send ~vm ~dest ~live ~vdi_map ~vif_map ~options in
 			with_vm_operation ~__context ~self:vm ~doc:"VM.migrate_send" ~op:`migrate_send
 				(fun () ->
@@ -3232,23 +3232,29 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				SR.forward_sr_multiple_op ~local_fn ~__context ~srs:[src_sr] ~prefer_slaves:true op
 
 		let pool_migrate ~__context ~vdi ~sr ~options =
-			info "VDI.pool_migrate: VDI = '%s'; SR = '%s'"
-				(vdi_uuid ~__context vdi) (sr_uuid ~__context sr);
 			let vbds = Db.VBD.get_records_where ~__context
-				~expr:(Db_filter_types.Eq(Db_filter_types.Field "VDI", Db_filter_types.Literal (Ref.string_of vdi))) in
+			    ~expr:(Db_filter_types.Eq(Db_filter_types.Field "VDI",
+			                              Db_filter_types.Literal (Ref.string_of vdi))) in
 			let vbds = List.filter (fun (_,vbd) -> vbd.API.vBD_currently_attached) vbds in
-			if List.length vbds <> 1 then raise (Api_errors.Server_error(Api_errors.vdi_needs_vm_for_migrate,[Ref.string_of vdi]));
+			if List.length vbds <> 1
+			then raise (Api_errors.Server_error(Api_errors.vdi_needs_vm_for_migrate,[Ref.string_of vdi]));
 
 			let vm = (snd (List.hd vbds)).API.vBD_VM in
 			let vmr = Db.VM.get_record ~__context ~self:vm in
-			if vmr.API.vM_power_state <> `Running then raise (Api_errors.Server_error(Api_errors.vdi_needs_vm_for_migrate,[Ref.string_of vdi]));
-			let host = vmr.API.vM_resident_on in
+			if vmr.API.vM_power_state <> `Running
+			then raise (Api_errors.Server_error(Api_errors.vdi_needs_vm_for_migrate,[Ref.string_of vdi]));
 			(* hackity hack *)
 			let options = ("__internal__vm",Ref.string_of vm) :: (List.remove_assoc "__internal__vm" options) in
 			let local_fn = Local.VDI.pool_migrate ~vdi ~sr ~options in
-			do_op_on ~local_fn ~__context ~host 
-				(fun session_id rpc -> Client.VDI.pool_migrate ~rpc ~session_id ~vdi ~sr ~options)
 
+			info "VDI.pool_migrate: VDI = '%s'; SR = '%s'; VM = '%s'"
+			    (vdi_uuid ~__context vdi) (sr_uuid ~__context sr) (vm_uuid ~__context vm);
+
+			VM.with_vm_operation ~__context ~self:vm ~doc:"VDI.pool_migrate" ~op:`migrate_send
+			    (fun () ->
+			        let host = Db.VM.get_resident_on ~__context ~self:vm in
+			        do_op_on ~local_fn ~__context ~host
+			            (fun session_id rpc -> Client.VDI.pool_migrate ~rpc ~session_id ~vdi ~sr ~options))
 
 		let resize ~__context ~vdi ~size =
 			info "VDI.resize: VDI = '%s'; size = %Ld" (vdi_uuid ~__context vdi) size;

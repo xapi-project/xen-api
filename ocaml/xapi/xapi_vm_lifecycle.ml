@@ -136,7 +136,8 @@ let check_drivers ~__context ~vmr ~vmgmr ~op ~ref =
 	else None
 
 let need_pv_drivers_check ~__context ~vmr ~power_state ~op =
-	let op_list = [ `suspend; `checkpoint; `pool_migrate; `clean_shutdown; `clean_reboot; `changing_VCPUs_live ] in
+	let op_list = [ `suspend; `checkpoint; `pool_migrate; `migrate_send
+	              ; `clean_shutdown; `clean_reboot; `changing_VCPUs_live ] in
 	power_state = `Running
 	&& Helpers.has_booted_hvm_of_record ~__context vmr
 	&& List.mem op op_list

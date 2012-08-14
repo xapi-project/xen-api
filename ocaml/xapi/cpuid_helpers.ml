@@ -68,24 +68,25 @@ let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
 		raise (Api_errors.Server_error(Api_errors.vm_incompatible_with_this_host,
 			[Ref.string_of vm; Ref.string_of host; msg]))
 	in
-	let host_cpu_vendor, host_cpu_features = get_host_compatibility_info ~__context ~host ~remote in
-	let vm_cpu_info = Db.VM.get_last_boot_CPU_flags ~__context ~self:vm in
-	if List.mem_assoc vendor_key vm_cpu_info then begin
-		(* Check the VM was last booted on a CPU with the same vendor as this host's CPU. *)
-		let vm_cpu_vendor = List.assoc vendor_key vm_cpu_info in
-		debug "VM last booted on CPU of vendor %s; host CPUs are of vendor %s" vm_cpu_vendor host_cpu_vendor;
-		if vm_cpu_vendor <> host_cpu_vendor then
-			fail "VM last booted on a host which had a CPU from a different vendor."
-	end;
-	if List.mem_assoc features_key vm_cpu_info then begin
-		(* Check the VM was last booted on a CPU whose features are a subset of the features of this host's CPU. *)
-		let vm_cpu_features = List.assoc features_key vm_cpu_info in
-		debug "VM last booted on CPU with features %s; host CPUs have features %s" vm_cpu_features host_cpu_features;
-		let pool_mask = get_pool_feature_mask ~__context ~remote in
-		let vm_cpu_features' = vm_cpu_features |> Cpuid.string_to_features |> maybe_apply_mask pool_mask in
-		let host_cpu_features' = host_cpu_features |> Cpuid.string_to_features |> maybe_apply_mask pool_mask in
-		if not((Cpuid.mask_features vm_cpu_features' host_cpu_features') = vm_cpu_features') then
-			fail "VM last booted on a CPU with features this host's CPU does not have."
+	if Db.VM.get_power_state ~__context ~self:vm <> `Halted then begin
+		let host_cpu_vendor, host_cpu_features = get_host_compatibility_info ~__context ~host ~remote in
+		let vm_cpu_info = Db.VM.get_last_boot_CPU_flags ~__context ~self:vm in
+		if List.mem_assoc vendor_key vm_cpu_info then begin
+			(* Check the VM was last booted on a CPU with the same vendor as this host's CPU. *)
+			let vm_cpu_vendor = List.assoc vendor_key vm_cpu_info in
+			debug "VM last booted on CPU of vendor %s; host CPUs are of vendor %s" vm_cpu_vendor host_cpu_vendor;
+			if vm_cpu_vendor <> host_cpu_vendor then
+				fail "VM last booted on a host which had a CPU from a different vendor."
+		end;
+		if List.mem_assoc features_key vm_cpu_info then begin
+			(* Check the VM was last booted on a CPU whose features are a subset of the features of this host's CPU. *)
+			let vm_cpu_features = List.assoc features_key vm_cpu_info in
+			debug "VM last booted on CPU with features %s; host CPUs have features %s" vm_cpu_features host_cpu_features;
+			let pool_mask = get_pool_feature_mask ~__context ~remote in
+			let vm_cpu_features' = vm_cpu_features |> Cpuid.string_to_features |> maybe_apply_mask pool_mask in
+			let host_cpu_features' = host_cpu_features |> Cpuid.string_to_features |> maybe_apply_mask pool_mask in
+			if not((Cpuid.mask_features vm_cpu_features' host_cpu_features') = vm_cpu_features') then
+				fail "VM last booted on a CPU with features this host's CPU does not have."
+		end
 	end
-
 

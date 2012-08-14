@@ -507,10 +507,13 @@ let on_client_side (x: message) : bool = match x with
       x.msg_name <> "get_record"
   | _ -> true
 
-let wire_name ~sync (obj: obj) (msg: message) =
-  let sync_name = obj.name ^ "." ^ msg.msg_name in
+let wire_name_common sep ~sync (obj: obj) (msg: message) =
+  let sync_name = obj.name ^ sep ^ msg.msg_name in
   if sync
   then sync_name
-  else "Async." ^ sync_name
+  else "Async" ^ sep ^ sync_name
+
+let wire_name = wire_name_common "."
+let alternative_wire_name = wire_name_common "_"
 
 let wire_name_of_field (fld: field) = String.concat "_" fld.full_name

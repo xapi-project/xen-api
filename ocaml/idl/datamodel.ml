@@ -786,6 +786,8 @@ let _ =
     ~doc:"An error occurred during the migration process." ();
   error Api_errors.vm_has_too_many_snapshots [ "vm" ]
     ~doc:"You attempted to migrate a VM with more than one snapshot." ();
+  error Api_errors.vm_has_checkpoint [ "vm" ]
+    ~doc:"You attempted to migrate a VM which has a checkpoint." ();
   error Api_errors.vdi_needs_vm_for_migrate [ "vdi" ]
     ~doc:"You attempted to migrate a VDI which is not attached to a runnning VM." ();
   error Api_errors.mirror_failed [ "vdi" ]
@@ -855,6 +857,8 @@ let _ =
     ~doc:"This operation cannot be performed because the specified VDI is of an incompatible type (eg: an HA statefile cannot be attached to a guest)" ();
   error Api_errors.vdi_not_managed [ "vdi" ]
     ~doc:"This operation cannot be performed because the system does not manage this VDI" ();
+  error Api_errors.vdi_not_in_map [ "vdi" ]
+    ~doc:"This VDI was not mapped to a destination SR in VM.migrate_send operation" () ;
   error Api_errors.cannot_create_state_file []
     ~doc:"An HA statefile could not be created, perhaps because no SR with the appropriate capability was found." ();
 
@@ -1032,8 +1036,8 @@ let _ =
     ~doc:"This operation cannot be performed because it would invalidate VM failover planning such that the system would be unable to guarantee to restart protected VMs after a Host failure."
     ();
 
-	error Api_errors.ha_cannot_bond_management_iface [ ]
-		~doc:"This operation cannot be performed because creating a bond with the management interface is not allowed while HA is on. In order to do that, disable HA, create the bond then re-enable HA."
+	error Api_errors.ha_cannot_change_bond_status_of_mgmt_iface [ ]
+		~doc:"This operation cannot be performed because creating or deleting a bond involving the management interface is not allowed while HA is on. In order to do that, disable HA, create or delete the bond then re-enable HA."
 		();
 
   error Api_errors.cannot_evacuate_host ["errors"]
@@ -3343,7 +3347,7 @@ let task =
       field ~qualifier:DynamicRO ~ty:String "type" "if the task has completed successfully, this field contains the type of the encoded result (i.e. name of the class whose reference is in the result field). Undefined otherwise.";
       field ~qualifier:DynamicRO ~ty:String "result" "if the task has completed successfully, this field contains the result value (either Void or an object reference). Undefined otherwise.";
       field ~qualifier:DynamicRO ~ty:(Set String) "error_info" "if the task has failed, this field contains the set of associated error strings. Undefined otherwise.";
-      field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("applies_to",(_R_VM_OP));("XenCenterUUID",(_R_VM_OP))];
+      field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("applies_to",(_R_VM_OP));("XenCenterUUID",(_R_VM_OP));("XenCenterMeddlingActionTitle",(_R_VM_OP))];
       (* field ~ty:(Set(Ref _alert)) ~in_product_since:rel_miami ~qualifier:DynamicRO "alerts" "all alerts related to this task"; *)
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~default_value:(Some (VRef "")) ~ty:(Ref _task) "subtask_of" "Ref pointing to the task this is a substask of.";
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Set (Ref _task)) "subtasks"   "List pointing to all the substasks."; 
@@ -7233,6 +7237,17 @@ let event =
     ~result:(Int, "the event ID")
     ~allowed_roles:_R_ALL
     () in
+  let inject = call
+	  ~name:"inject" ~params:[
+		  String, "class", "class of the object";
+		  String, "ref", "A reference to the object that will be changed.";
+	  ]
+	  ~in_product_since:rel_tampa
+	  ~doc:"Injects an artificial event on the given object and return the corresponding ID"
+	  ~flags:[`Session]
+	  ~result:(String, "the event ID")
+	  ~allowed_roles:_R_ALL
+	  () in
   (* !!! This should call create_obj ~in_db:true like everything else... !!! *)
   {
     obj_lifecycle=[];
@@ -7241,7 +7256,7 @@ let event =
     description = "Asynchronous event registration and handling";
     gen_constructor_destructor = false;
     doccomments = [];
-    messages = [ register; unregister; next; from; get_current_id ];
+    messages = [ register; unregister; next; from; get_current_id; inject ];
     obj_release = {internal=get_product_releases rel_rio; opensource=get_oss_releases (Some "3.0.3"); internal_deprecated_since=None};
     contents = [
       field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:Int "id" "An ID, monotonically increasing, and local to the current session";
