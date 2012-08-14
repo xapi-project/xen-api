@@ -648,6 +648,9 @@ let wait_memory_target_live ~__context ~self =
 	in
 	wait 0
 
+(* Dummy implementation for a deprecated API method. *)
+let get_cooperative ~__context ~self = true
+
 let set_HVM_shadow_multiplier ~__context ~self ~value =
 	set_HVM_shadow_multiplier ~__context ~self ~value
 
