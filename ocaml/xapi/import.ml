@@ -344,6 +344,8 @@ module VM : HandlerTools = struct
 				else
 					{vm_record with API.vM_version = 0L}
 			in
+			(* Clear the appliance field - in the case of DR we will reconstruct the appliance separately. *)
+			let vm_record = {vm_record with API.vM_appliance = Ref.null} in
 
 			let vm = log_reraise
 				("failed to create VM with name-label " ^ vm_record.API.vM_name_label)
