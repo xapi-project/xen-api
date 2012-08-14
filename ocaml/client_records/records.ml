@@ -1384,7 +1384,9 @@ let pbd_record rpc session_id pbd =
 			[ make_field ~name:"uuid" ~get:(fun () -> (x ()).API.pBD_uuid) ()
 			; make_field ~name:"host" ~get:(fun () -> get_uuid_from_ref (x ()).API.pBD_host) ~deprecated:true ()
 			; make_field ~name:"host-uuid" ~get:(fun () -> get_uuid_from_ref (x ()).API.pBD_host) ()
+			; make_field ~name:"host-name-label" ~get:(fun () -> get_name_from_ref (x ()).API.pBD_host) ()
 			; make_field ~name:"sr-uuid" ~get:(fun () -> get_uuid_from_ref (x ()).API.pBD_SR) ()
+			; make_field ~name:"sr-name-label" ~get:(fun () -> get_name_from_ref (x ()).API.pBD_SR) ()
 			; make_field ~name:"device-config"
 				~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.pBD_device_config)
 				~get_map:(fun () -> (x ()).API.pBD_device_config) ()
