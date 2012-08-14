@@ -937,6 +937,10 @@ let vm_record rpc session_id vm =
 				~get:(fun () -> default nid (may (fun m -> string_of_bool m.API.vM_guest_metrics_live) (xgm ()) )) ();
 			make_field ~name:"guest-metrics-last-updated"
 				~get:(fun () -> default nid (may (fun m -> Date.to_string m.API.vM_guest_metrics_last_updated) (xgm ()) )) ();
+			make_field ~name:"cooperative"
+				(* NB this can receive VM_IS_SNAPSHOT *)
+				~get:(fun () -> string_of_bool (try Client.VM.get_cooperative rpc session_id vm with _ -> true))
+				~expensive:true ~deprecated:true ();
 			make_field ~name:"protection-policy"
 				~get:(fun () -> get_uuid_from_ref (x ()).API.vM_protection_policy)
 				~set:(fun x -> if x="" then Client.VM.set_protection_policy rpc session_id vm Ref.null else Client.VM.set_protection_policy rpc session_id vm (Client.VMPP.get_by_uuid rpc session_id x)) ();
