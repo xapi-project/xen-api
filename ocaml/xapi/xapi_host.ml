@@ -939,6 +939,12 @@ let disable_binary_storage ~__context ~host =
   Db.Host.remove_from_other_config ~__context ~self:host ~key:Xapi_globs.host_no_local_storage;
   Db.Host.add_to_other_config ~__context ~self:host ~key:Xapi_globs.host_no_local_storage ~value:"true"
 
+(* Dummy implementation for a deprecated API method. *)
+let get_uncooperative_resident_VMs ~__context ~self = []
+
+(* Dummy implementation for a deprecated API method. *)
+let get_uncooperative_domains ~__context ~self = []
+
 let certificate_install ~__context ~host ~name ~cert =
   Certificates.host_install true name cert
 

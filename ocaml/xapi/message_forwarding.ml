@@ -1746,6 +1746,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					forward_vm_op ~local_fn ~__context ~vm:self
 						(fun session_id rpc -> Client.VM.wait_memory_target_live rpc session_id self))
 
+		(* Dummy implementation for a deprecated API method. *)
+		let get_cooperative ~__context ~self =
+			info "VM.get_cooperative: VM = '%s'" (vm_uuid ~__context self);
+			Local.VM.get_cooperative ~__context ~self
+
 		let set_HVM_shadow_multiplier ~__context ~self ~value =
 			info "VM.set_HVM_shadow_multiplier: self = %s; multiplier = %f"
 				(vm_uuid ~__context self) value;
@@ -2043,6 +2048,16 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			info "Host.emergency_ha_disable";
 			Local.Host.emergency_ha_disable ~__context
 
+		(* Dummy implementation for a deprecated API method. *)
+		let get_uncooperative_resident_VMs ~__context ~self =
+			info "Host.get_uncooperative_resident_VMs host=%s" (Ref.string_of self);
+			Local.Host.get_uncooperative_resident_VMs ~__context ~self
+
+		(* Dummy implementation for a deprecated API method. *)
+		let get_uncooperative_domains ~__context ~self =
+			info "Host.get_uncooperative_domains host=%s" (Ref.string_of self);
+			Local.Host.get_uncooperative_domains ~__context ~self
+
 		let management_reconfigure ~__context ~pif =
 			info "Host.management_reconfigure: management PIF = '%s'" (pif_uuid ~__context pif);
 			(* The management interface on the slave may change during this operation, so expect connection loss.
@@ -2059,7 +2074,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			info "Host.management_disable";
 			Local.Host.management_disable ~__context
 
-		let get_management_interface ~__context ~host = 
+		let get_management_interface ~__context ~host =
 			info "Host.get_management_interface: host = '%s'" (host_uuid ~__context host);
 			Local.Host.get_management_interface ~__context ~host
 
