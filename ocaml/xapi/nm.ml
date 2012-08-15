@@ -138,7 +138,8 @@ let create_bond ~__context bond mtu =
 				"downdelay", "200";
 				"updelay", "31000";
 				"use_carrier", "1";
-				"hashing-algorithm", hashing_algorithm
+				"hashing-algorithm", hashing_algorithm;
+				"rebalance-interval", "1800000";
 			] in
 			let overrides = List.filter_map (fun (k, v) ->
 				if String.startswith "bond-" k then
