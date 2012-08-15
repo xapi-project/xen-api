@@ -689,7 +689,7 @@ module Ovs = struct
 		vsctl ~log:true ["port-to-br"; name]
 
 	let make_bond_properties name properties =
-		let known_props = ["mode"; "hashing-algorithm"; "updelay"; "downdelay"; "miimon"; "use_carrier"] in
+		let known_props = ["mode"; "hashing-algorithm"; "updelay"; "downdelay"; "miimon"; "use_carrier"; "rebalance-interval"] in
 		let mode_args =
 			let mode = if List.mem_assoc "mode" properties then List.assoc "mode" properties else "balance-slb" in
 			let halgo = if List.mem_assoc "hashing-algorithm" properties then List.assoc "hashing-algorithm" properties else "" in
@@ -705,19 +705,21 @@ module Ovs = struct
 		in
 		let get_prop (prop, ovs_key) =
 			if List.mem_assoc prop properties then
-				let value = int_of_string (List.assoc prop properties) in
-				if value < 0 then begin
-					debug "bond %s has invalid %s '%d'" name prop value;
+				let value = List.assoc prop properties in
+				let value' = try int_of_string value with _ -> -1 in
+				if value' < 0 then begin
+					debug "bond %s has invalid %s '%s'" name prop value;
 					[]
 				end else if prop = "use_carrier" then
-					[ovs_key ^ "=" ^ (if value > 0 then "carrier" else "miimon")]
+					[ovs_key ^ "=" ^ (if value' > 0 then "carrier" else "miimon")]
 				else
-					[ovs_key ^ "=" ^ (string_of_int value)]
+					[ovs_key ^ "=" ^ (string_of_int value')]
 			else
 				[]
 		in
 		let extra_args = List.flatten (List.map get_prop ["updelay", "bond_updelay"; "downdelay", "bond_downdelay";
-			"miimon", "other-config:bond-miimon-interval"; "use_carrier", "other-config:bond-detect-mode"]) in
+			"miimon", "other-config:bond-miimon-interval"; "use_carrier", "other-config:bond-detect-mode";
+			"rebalance-interval", "other-config:bond-rebalance-interval"]) in
 		let other_args = List.filter_map (fun (k, v) ->
 			if List.mem k known_props then None
 			else Some (Printf.sprintf "other-config:\"%s\"=\"%s\"" (String.escaped ("bond-" ^ k)) (String.escaped v))
