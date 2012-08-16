@@ -27,7 +27,8 @@ open Network_interface
 let local_m = Mutex.create ()
 let with_local_lock f = Mutex.execute local_m f
 
-let is_dom0_interface pif_r = pif_r.API.pIF_ip_configuration_mode <> `None
+let is_dom0_interface pif_r =
+  pif_r.API.pIF_ip_configuration_mode <> `None || pif_r.API.pIF_ipv6_configuration_mode <> `None
 
 let determine_mtu pif_rc net_rc =
 	let mtu = Int64.to_int net_rc.API.network_MTU in
