@@ -27,14 +27,14 @@ let create_internal_bridge ~bridge ~uuid =
 	if not(List.mem bridge current) then Netdev.network.Netdev.add bridge ?uuid:(Some uuid);
 	if not(Netdev.Link.is_up bridge) then Netdev.Link.up bridge
 
-let set_himn_ip bridge other_config =
+let set_himn_ip ~__context bridge other_config =
 	if not(List.mem_assoc "ip_begin" other_config) then
 		error "Cannot setup host internal management network: no other-config:ip_begin"
 	else begin
 		(* Set the ip address of the bridge *)
 		let ip = List.assoc "ip_begin" other_config in
 		ignore(Forkhelpers.execute_command_get_output "/sbin/ifconfig" [bridge; ip; "up"]);
-		Xapi_mgmt_iface.maybe_start_himn ~addr:ip ()
+		Xapi_mgmt_iface.maybe_start_himn ~__context ~addr:ip ()
 	end
 
 let check_himn ~__context =
@@ -52,7 +52,7 @@ let check_himn ~__context =
 		let dbg = Context.string_of_task __context in
 		let bridges = Net.Bridge.get_all dbg () in
 		if List.mem rc.API.network_bridge bridges then
-			set_himn_ip rc.API.network_bridge rc.API.network_other_config
+			set_himn_ip ~__context rc.API.network_bridge rc.API.network_other_config
 
 let attach_internal ?(management_interface=false) ~__context ~self () =
 	let host = Helpers.get_localhost ~__context in
@@ -66,7 +66,7 @@ let attach_internal ?(management_interface=false) ~__context ~self () =
 	(* Check if we're a Host-Internal Management Network (HIMN) (a.k.a. guest-installer network) *)
 	if (List.mem_assoc Xapi_globs.is_guest_installer_network net.API.network_other_config)
 		&& (List.assoc Xapi_globs.is_guest_installer_network net.API.network_other_config = "true") then
-		set_himn_ip net.API.network_bridge net.API.network_other_config;
+		set_himn_ip ~__context net.API.network_bridge net.API.network_other_config;
 
 	(* Create the new PIF.
 	   NB if we're doing this as part of a management-interface-reconfigure then

@@ -38,7 +38,7 @@ let read_pool_role () =
 			(Unixext.string_of_file Constants.pool_config_file) in
 		match String.split ~limit:2 ':' s with
 			| [ "master" ]      -> Master
-			| [ "slave"; m_ip ] -> Slave m_ip
+			| [ "slave"; m_ip ] -> Slave (String.sub s 6 (String.length s - 6))
 			| [ "broken" ]      -> Broken
 			| _ -> failwith "cannot parse pool_role from pool config file"
 	with _ -> Broken
