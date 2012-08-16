@@ -11,6 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+open Db_filter_types
 open Pervasiveext
 open Threadext
 
@@ -46,10 +47,19 @@ let stop () =
 (* Even though xapi listens on all IP addresses, there is still an interface appointed as
  * _the_ management interface. Slaves in a pool use the IP address of this interface to connect
  * the pool master. *)
-let start ?addr ~primary_address_type () =
+let start ~__context ?addr () =
 	debug "Starting new server";
+	let localhost = Helpers.get_localhost ~__context in
+	let ipv6_pifs = Db.PIF.get_records_where ~__context
+		~expr:(
+			And (
+				Not (Eq (Field "ipv6_configuration_mode", Literal "None")),
+				Eq (Field "host", Literal (Ref.string_of localhost))
+			)
+		) in
+	let pif_address_type = if ipv6_pifs = [] then `IPv4 else `IPv6 in
 	let addr =
-		match addr, primary_address_type with
+		match addr, pif_address_type with
 		| None, `IPv4 -> Unix.inet_addr_any
 		| None, `IPv6 -> Unix.inet6_addr_any
 		| Some ip, _ ->
@@ -79,13 +89,13 @@ let change interface primary_address_type =
 		(Record_util.primary_address_type_to_string primary_address_type);
 	update_mh_info interface
 
-let run interface primary_address_type =
+let run ~__context interface primary_address_type =
 	Mutex.execute management_m (fun () ->
 		change interface primary_address_type;
 		if !himn_only then
 			stop ();
 		if !management_interface_server = None then
-			start ~primary_address_type ()
+			start ~__context ()
 	)
 
 let shutdown () =
@@ -96,11 +106,11 @@ let shutdown () =
 		restart_stunnel ();
 	)
 
-let maybe_start_himn ?addr () =
+let maybe_start_himn ~__context ?addr () =
 	Mutex.execute management_m (fun () ->
 		Opt.iter (fun addr -> himn_addr := Some addr) addr;
 		if !management_interface_server = None then
-			Opt.iter (fun addr -> start ~addr ~primary_address_type:`IPv4 ()) !himn_addr
+			Opt.iter (fun addr -> start ~__context ~addr ()) !himn_addr
 	)
 
 let management_ip_mutex = Mutex.create ()
