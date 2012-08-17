@@ -367,7 +367,9 @@ let make_host ~verbose ~xc ~xs =
 	(* We cannot query simultaneously the host memory info and the domain memory info. Furthermore
 	   the call to domain_getinfolist is not atomic but comprised of many hypercall invocations. *)
 
-	let domain_infolist = Xenctrl.domain_getinfolist xc 0 in
+	(* We are excluding dom0, so it will never be ballooned down. *)
+	let open Xenctrl.Domain_info in
+	let domain_infolist = List.filter (fun di -> di.domid > 0) (Xenctrl.domain_getinfolist xc 0) in
 	(*
 		For the host free memory we sum the free pages and the pages needing
 		scrubbing: we don't want to adjust targets simply because the scrubber
@@ -379,7 +381,6 @@ let make_host ~verbose ~xc ~xs =
 	and total_pages_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.Phys_info.total_pages) in
 	let free_mem_kib = free_pages_kib +* scrub_pages_kib in
 
-	let open Xenctrl.Domain_info in
 	let cnx = xc, xs in
 	let domains = List.concat
 		(List.map
