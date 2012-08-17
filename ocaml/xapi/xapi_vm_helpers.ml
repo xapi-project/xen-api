@@ -302,16 +302,22 @@ let assert_can_see_networks ~__context ~self ~host =
 				List.map (fun self -> Db.PIF.get_host ~__context ~self) pifs in
 			List.mem host hosts
 		end else begin
-			(* find all the VIFs on this network and whose VM's are running. *)
-			(* XXX: in many environments this will perform O (Vms) calls to  *)
-			(* VM.getRecord. *)
-			let vifs = Db.Network.get_VIFs ~__context ~self:net in
-			let vms = List.map (fun self -> Db.VIF.get_VM ~__context ~self) vifs in
-			let vms = List.map (fun self -> Db.VM.get_record ~__context ~self) vms in
-			let vms = List.filter (fun vm -> vm.API.vM_power_state = `Running) vms in
-			let hosts = List.map (fun vm -> vm.API.vM_resident_on) vms in
-			(* either not pinned to any host OR pinned to this host already *)
-			hosts = [] || (List.mem host hosts)
+			let other_config = Db.Network.get_other_config ~__context ~self:net in
+			if List.mem_assoc Xapi_globs.assume_network_is_shared other_config && (List.assoc Xapi_globs.assume_network_is_shared other_config = "true") then begin
+				debug "other_config:%s is set on Network %s" Xapi_globs.assume_network_is_shared (Ref.string_of net);
+				true
+			end else begin
+				(* find all the VIFs on this network and whose VM's are running. *)
+				(* XXX: in many environments this will perform O (Vms) calls to  *)
+				(* VM.getRecord. *)
+				let vifs = Db.Network.get_VIFs ~__context ~self:net in
+				let vms = List.map (fun self -> Db.VIF.get_VM ~__context ~self) vifs in
+				let vms = List.map (fun self -> Db.VM.get_record ~__context ~self) vms in
+				let vms = List.filter (fun vm -> vm.API.vM_power_state = `Running) vms in
+				let hosts = List.map (fun vm -> vm.API.vM_resident_on) vms in
+				(* either not pinned to any host OR pinned to this host already *)
+				hosts = [] || (List.mem host hosts)
+			end
 		end
 	in
 
