@@ -530,7 +530,10 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				raise (Api_errors.Server_error(Api_errors.mirror_failed,[Ref.string_of vdi]))
 			| None ->
 				TaskHelper.exn_if_cancelling ~__context;
-				raise e
+				begin match e with
+					| Storage_interface.Backend_error(code, params) -> raise (Api_errors.Server_error(code, params))
+					| _ -> raise e
+				end
 
 let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	assert_licensed_storage_motion ~__context ;
