@@ -54,6 +54,9 @@ function get_release_name(s)
 	case 'boston':
 		return 'XenServer 6.0';
 		break;
+	case 'tampa':
+		return 'XenServer 6.1';
+		break;
 	default:
 		return 'Unreleased';
 		break;
