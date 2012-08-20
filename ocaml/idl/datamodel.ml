@@ -1744,6 +1744,18 @@ let vm_wait_memory_target_live = call
 		Ref _vm, "self", "The VM";
 	] ()
 
+let vm_get_cooperative = call
+	~name:"get_cooperative"
+	~in_product_since:rel_midnight_ride
+	~internal_deprecated_since:rel_tampa
+	~doc:"Return true if the VM is currently 'co-operative' i.e. is expected to reach a balloon target and actually has done"
+	~params:[
+		Ref _vm, "self", "The VM";
+	]
+	~result:(Bool, "true if the VM is currently 'co-operative'; false otherwise")
+	~allowed_roles:_R_READ_ONLY
+	()
+
 let vm_query_services = call
 	~name:"query_services"
 	~in_product_since:rel_tampa
@@ -2485,6 +2497,28 @@ let host_evacuate = call
   ~params:[Ref _host, "host", "The host to evacuate"]
   ~allowed_roles:_R_POOL_OP
   ()
+
+let host_get_uncooperative_resident_VMs = call
+	~in_product_since:rel_midnight_ride
+	~internal_deprecated_since:rel_tampa
+	~name:"get_uncooperative_resident_VMs"
+	~doc:"Return a set of VMs which are not co-operating with the host's memory control system"
+	~params:[Ref _host, "self", "The host to query"]
+	~result:((Set(Ref _vm)), "VMs which are not co-operating")
+	~allowed_roles:_R_READ_ONLY
+	()
+
+let host_get_uncooperative_domains = call
+	~in_product_since:rel_midnight_ride
+	~internal_deprecated_since:rel_tampa
+	~name:"get_uncooperative_domains"
+	~doc:"Return the set of domain uuids which are not co-operating with the host's memory control system"
+	~params:[Ref _host, "self", "The host to query"]
+	~result:((Set(String)), "UUIDs of domains which are not co-operating")
+	~pool_internal:true
+	~hide_from_docs:true
+	~allowed_roles:_R_LOCAL_ROOT_ONLY
+	()
 
 let host_retrieve_wlb_evacuate_recommendations = call
   ~name:"retrieve_wlb_evacuate_recommendations"
@@ -4071,6 +4105,8 @@ let host =
 		 host_forget_data_source_archives;
 		 host_assert_can_evacuate;
 		 host_get_vms_which_prevent_evacuation;
+		 host_get_uncooperative_resident_VMs;
+		 host_get_uncooperative_domains;
 		 host_evacuate;
 		 host_signal_networking_change;
 		 host_notify;
@@ -6480,7 +6516,7 @@ let vm_power_state =
 			    "Running", "Running";
 				"Suspended", "VM state has been saved to disk and it is nolonger running. Note that disks remain in-use while the VM is suspended."])
 
-let vm_operations = 
+let vm_operations =
   Enum ("vm_operations",
 	List.map operation_enum
 	  [ vm_snapshot; vm_clone; vm_copy; vm_create_template; vm_revert; vm_checkpoint; vm_snapshot_with_quiesce;
@@ -6538,6 +6574,7 @@ let vm =
 		vm_set_memory_limits;
 		vm_set_memory_target_live;
 		vm_wait_memory_target_live;
+		vm_get_cooperative;
 		vm_set_HVM_shadow_multiplier;
 		vm_set_shadow_multiplier_live;
 		vm_set_VCPUs_max;

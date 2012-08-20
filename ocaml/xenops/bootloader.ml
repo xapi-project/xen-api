@@ -83,10 +83,17 @@ let parse_output x =
 
 let parse_exception x =
 	debug "Bootloader failed: %s" x;
-	let lines = String.split '\n' x in
-	(* Since the error is a python stack trace, the last-but-one line tends to be the most useful. *)
-	let err = try List.nth (List.rev lines) 1 with _ -> raise (Bad_error x) in
-	raise (Error_from_bootloader err)
+	let msg =
+		try
+			(* Look through the error for the prefix "RuntimeError: " - raise an exception with a message
+			 * containing the error from the end of this prefix onwards. *)
+			let msg_prefix = "RuntimeError: " in
+			let msg_start = (List.hd (String.find_all msg_prefix x)) + (String.length msg_prefix) in
+			String.sub_to_end x msg_start
+		with _ ->
+			raise (Bad_error x)
+	in
+	raise (Error_from_bootloader msg)
 
 (** Extract the default kernel using the -q option *)
 let extract (task: Xenops_task.t) ~bootloader ~disk ?(legacy_args="") ?(extra_args="") ?(pv_bootloader_args="") ~vm:vm_uuid () =

@@ -97,6 +97,8 @@ sdk-install: doc sdk-README.txt
 	cp sdk-README.txt $(SDK)/README.txt
 	cp sdk-index.html $(SDK)/index.html
 
+noarch-install: sdk-install
+
 META: META.in
 	sed 's/@VERSION@/$(PRODUCT_VERSION)/g' < $< > $@
 
