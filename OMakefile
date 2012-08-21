@@ -130,6 +130,7 @@ export
 OCAML_PHASE1= autogen_idl
 OCAML_PHASE2= \
   $(if $(BYTE_ENABLED), ocaml/idl/ocaml_backend/xapi_client.cma) $(if $(NATIVE_ENABLED), ocaml/idl/ocaml_backend/xapi_client.cmxa) \
+  $(if $(BYTE_ENABLED), ocaml/rrdd/rrd_client.cma) $(if $(NATIVE_ENABLED), ocaml/rrdd/rrd_client.cmxa) \
   ocaml/rrdd/xcp-rrdd ocaml/rrdd/rrdd_test
 
 # JS ################################################################################
