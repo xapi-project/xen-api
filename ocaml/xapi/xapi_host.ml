@@ -735,7 +735,7 @@ let get_management_interface ~__context ~host =
 
 let change_management_interface ~__context interface primary_address_type =
 	debug "Changing management interface";
-	Xapi_mgmt_iface.run interface primary_address_type;
+	Xapi_mgmt_iface.run ~__context interface primary_address_type;
 	(* once the inventory file has been rewritten to specify new interface, sync up db with
 	   state of world.. *)
 	Xapi_mgmt_iface.on_dom0_networking_change ~__context
@@ -795,7 +795,7 @@ let management_disable ~__context =
   then raise (Api_errors.Server_error (Api_errors.slave_requires_management_iface, []));
 
   Xapi_mgmt_iface.shutdown ();
-  Xapi_mgmt_iface.maybe_start_himn ();
+  Xapi_mgmt_iface.maybe_start_himn ~__context ();
 
   (* Make sure all my PIFs are marked appropriately *)
   Xapi_pif.update_management_flags ~__context ~host:(Helpers.get_localhost ~__context)
@@ -938,6 +938,12 @@ let disable_binary_storage ~__context ~host =
   ignore(Helpers.get_process_output (Printf.sprintf "/bin/rm -rf %s" Xapi_globs.xapi_blob_location));
   Db.Host.remove_from_other_config ~__context ~self:host ~key:Xapi_globs.host_no_local_storage;
   Db.Host.add_to_other_config ~__context ~self:host ~key:Xapi_globs.host_no_local_storage ~value:"true"
+
+(* Dummy implementation for a deprecated API method. *)
+let get_uncooperative_resident_VMs ~__context ~self = []
+
+(* Dummy implementation for a deprecated API method. *)
+let get_uncooperative_domains ~__context ~self = []
 
 let certificate_install ~__context ~host ~name ~cert =
   Certificates.host_install true name cert

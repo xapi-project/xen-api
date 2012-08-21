@@ -413,7 +413,7 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 	with e ->
 		error "Caught %s: performing cleanup actions" (Printexc.to_string e);
 		(try stop dbg id; with _ -> ());
-		raise (Internal_error (Printexc.to_string e))
+		raise e
 
 
 (* XXX: PR-1255: copy the xenopsd 'raise Exception' pattern *)
@@ -421,10 +421,11 @@ let stop ~dbg ~id =
 	try
 		stop ~dbg ~id
 	with
+		| Backend_error(code, params)
 		| Api_errors.Server_error(code, params) ->
 			raise (Backend_error(code, params))
 		| e ->
-			raise (Internal_error(Printexc.to_string e))
+			raise e
 
 let stat ~dbg ~id =
 	let s1 = State.find id State.active_recv in
@@ -635,6 +636,7 @@ let copy ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 			error "Caught %s: copying snapshots vdi" (Printexc.to_string e);
 			raise (Internal_error (Printexc.to_string e))
 	with
+		| Backend_error(code, params)
 		| Api_errors.Server_error(code, params) ->
 			raise (Backend_error(code, params))
 		| e ->
@@ -646,6 +648,7 @@ let wrap ~dbg f =
 		try
 			f task
 		with
+			| Backend_error(code, params)
 			| Api_errors.Server_error(code, params) ->
 				raise (Backend_error(code, params))
 			| e ->

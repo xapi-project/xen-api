@@ -344,6 +344,8 @@ module VM : HandlerTools = struct
 				else
 					{vm_record with API.vM_version = 0L}
 			in
+			(* Clear the appliance field - in the case of DR we will reconstruct the appliance separately. *)
+			let vm_record = {vm_record with API.vM_appliance = Ref.null} in
 
 			let vm = log_reraise
 				("failed to create VM with name-label " ^ vm_record.API.vM_name_label)
@@ -839,25 +841,40 @@ module VIF : HandlerTools = struct
 		let vif_exists () = try ignore (get_vif ()); true with _ -> false in
 
 		if config.full_restore && vif_exists () then begin
+			(* If there's already a VIF with the same UUID and we're preserving UUIDs, use that one. *)
 			let vif = get_vif () in
 			Found_VIF vif
 		end else
 			(* If not restoring a full backup then blank the MAC so it is regenerated *)
 			let vif_record = { vif_record with API.vIF_MAC =
 				if config.full_restore then vif_record.API.vIF_MAC else "" } in
+			(* Determine the VM to which we're going to attach this VIF. *)
 			let vm = log_reraise
 				("Failed to find VIF's VM: " ^ (Ref.string_of vif_record.API.vIF_VM))
 				(lookup vif_record.API.vIF_VM) state.table in
+			(* Determine the network to which we're going to attach this VIF. *)
 			let net =
+				(* If we find the cross-pool migration key, attach the VIF to that network... *)
 				if List.mem_assoc Constants.storage_migrate_vif_map_key vif_record.API.vIF_other_config
 				then Ref.of_string (List.assoc Constants.storage_migrate_vif_map_key vif_record.API.vIF_other_config)
 				else
+					(* ...otherwise fall back to looking up the network from the state table. *)
 					log_reraise
 						("Failed to find VIF's Network: " ^ (Ref.string_of vif_record.API.vIF_network))
 						(lookup vif_record.API.vIF_network) state.table in
+			(* Make sure we remove the cross-pool migration VIF mapping key from the other_config
+			 * before creating a VIF - otherwise we'll risk sending this key on to another pool
+			 * during a future cross-pool migration and it won't make sense. *)
+			let other_config =
+				List.filter
+					(fun (k, _) -> k <> Constants.storage_migrate_vif_map_key)
+					vif_record.API.vIF_other_config
+			in
+			(* Construct the VIF record we're going to try to create locally. *)
 			let vif_record = { vif_record with
 				API.vIF_VM = vm;
-				API.vIF_network = net } in
+				API.vIF_network = net;
+				API.vIF_other_config = other_config } in
 			Create vif_record
 
 	let handle_dry_run __context config rpc session_id state x precheck_result =
