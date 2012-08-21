@@ -46,6 +46,13 @@ RRDD_TEST_FILES = \
 	interface/data_source \
 	rrdd_test
 
+RRD_CLIENT_OBJS = \
+	interface/rrd \
+	interface/rrdd_interface \
+	interface/ds \
+	interface/data_source \
+	rrdd_shared
+
 .SUBDIRS: interface
 
 OCamlProgram($(RRDD), $(RRDD_FILES))
