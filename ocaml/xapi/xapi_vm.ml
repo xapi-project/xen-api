@@ -243,6 +243,14 @@ let clean_shutdown ~__context ~vm =
 	Db.VM.set_ha_always_run ~__context ~self:vm ~value:false;
 	Xapi_xenops.shutdown ~__context ~self:vm (Some 1200.0)
 
+let shutdown ~__context ~vm =
+	begin
+		try
+			clean_shutdown ~__context ~vm 
+		with e ->
+			hard_shutdown ~__context ~vm
+	end 	
+
 (***************************************************************************************)
 
 (** @deprecated *)

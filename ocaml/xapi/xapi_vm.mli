@@ -92,6 +92,7 @@ val hard_reboot : __context:Context.t -> vm:API.ref_VM -> unit
 val hard_shutdown : __context:Context.t -> vm:API.ref_VM -> unit
 val clean_reboot : __context:Context.t -> vm:API.ref_VM -> unit
 val clean_shutdown : __context:Context.t -> vm:API.ref_VM -> unit
+val shutdown : __context:Context.t -> vm:API.ref_VM -> unit
 val hard_reboot_internal : __context:Context.t -> vm:API.ref_VM -> unit
 val power_state_reset : __context:Context.t -> vm:API.ref_VM -> unit
 val suspend : __context:Context.t -> vm:API.ref_VM -> unit
