@@ -1877,6 +1877,18 @@ let vm_hardShutdown = call
   ~allowed_roles:_R_VM_OP
   ()
 
+(* VM.Shutdown *)
+
+let vm_shutdown = call
+  ~in_product_since:rel_rio
+  ~name:"shutdown"
+  ~doc:"Attempts to first clean shutdown a VM and if it should fail then perform a hard shutdown on it."
+  ~params:[Ref _vm, "vm", "The VM to shutdown"]
+  ~errs:[Api_errors.vm_bad_power_state; Api_errors.other_operation_in_progress; Api_errors.operation_not_allowed;
+         Api_errors.vm_is_template]
+  ~allowed_roles:_R_VM_OP
+  ()
+
 (* VM.PowerStateReset *)
 
 let vm_stateReset = call
@@ -6594,7 +6606,7 @@ let vm_operations =
 	    vm_pool_migrate;
         vm_migrate_send;
 	    vm_get_boot_record; vm_send_sysrq; vm_send_trigger;
-		vm_query_services;
+		vm_query_services;vm_shutdown;
 	  ]
 	@ [ "changing_memory_live", "Changing the memory settings";
 	    "awaiting_memory_live", "Waiting for the memory settings to change";
@@ -6623,7 +6635,7 @@ let vm =
       ~doccomments:[ "destroy", "Destroy the specified VM.  The VM is completely removed from the system.  This function can only be called when the VM is in the Halted State." ]
       ~messages_default_allowed_roles:_R_VM_ADMIN
       ~messages:[ vm_snapshot; vm_snapshot_with_quiesce; vm_clone; vm_copy; vm_revert; vm_checkpoint;
-		vm_provision; vm_start; vm_start_on; vm_pause; vm_unpause; vm_cleanShutdown;
+		vm_provision; vm_start; vm_start_on; vm_pause; vm_unpause; vm_cleanShutdown;vm_shutdown;
 		vm_cleanReboot; vm_hardShutdown; vm_stateReset; vm_hardReboot; vm_suspend; csvm; vm_resume;
 		vm_hardReboot_internal;
 		vm_resume_on;
