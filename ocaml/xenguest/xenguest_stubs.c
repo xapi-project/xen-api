@@ -47,6 +47,8 @@
 #warning missing viridian parameter
 #endif
 
+#define XENGUEST_4_2
+
 #include <stdio.h>
 
 /* The following boolean flags are all set by their value
