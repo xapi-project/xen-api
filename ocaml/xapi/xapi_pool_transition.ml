@@ -170,5 +170,6 @@ let consider_sending_alert __context () =
   if (try bool_of_string (Localdb.get Constants.this_node_just_became_master) with _ -> false)
   then 
     let obj_uuid = Helpers.get_localhost_uuid () in
-    let (_: 'a Ref.t) = Xapi_message.create ~__context ~name:Api_messages.pool_master_transition ~priority:1L ~cls:`Host ~obj_uuid ~body:"" in 
+    let (name, priority) = Api_messages.pool_master_transition in
+    let (_: 'a Ref.t) = Xapi_message.create ~__context ~name ~priority ~cls:`Host ~obj_uuid ~body:"" in 
     Localdb.put Constants.this_node_just_became_master (string_of_bool false)
