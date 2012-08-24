@@ -47,9 +47,9 @@ let send_bond_change_alert dev interfaces message =
 			let obj_uuid = Util_inventory.lookup Util_inventory._installation_uuid in
 			let body = Printf.sprintf	"The status of the %s bond %s" ifaces message in
 			try
+				let (name, priority) = Api_messages.bond_status_changed in
 				let (_: 'a Ref.t) = XenAPI.Message.create ~rpc:xapi_rpc ~session_id
-					~name:Api_messages.bond_status_changed ~priority:1L ~cls:`Host
-					~obj_uuid ~body in ()
+					~name ~priority ~cls:`Host ~obj_uuid ~body in ()
 			with _ ->
 				warn "Exception sending a bond-status-change alert."
 		)
