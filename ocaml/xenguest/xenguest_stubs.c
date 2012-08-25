@@ -336,6 +336,8 @@ CAMLprim value stub_xenguest_close(value xenguest_handle)
     CAMLreturn(Val_unit);
 }
 
+
+
 extern struct xc_dom_image *xc_dom_allocate(xc_interface *xch, const char *cmdline, const char *features);
 
 static void configure_vcpus(xc_interface *xch, int domid, struct flags f){
@@ -388,8 +390,9 @@ CAMLprim value stub_xc_linux_build_native(value xc_handle, value domid,
                                           value mem_max_mib, value mem_start_mib,
                                           value image_name, value ramdisk_name,
                                           value cmdline, value features,
-                                          value flags, value store_evtchn,
-                                          value console_evtchn)
+                                          value flags,
+                                          value store_evtchn, value store_domid,
+                                          value console_evtchn, value console_domid)
 {
     CAMLparam5(xc_handle, domid, mem_max_mib, mem_start_mib, image_name);
     CAMLxparam5(ramdisk_name, cmdline, features, flags, store_evtchn);
@@ -438,6 +441,13 @@ CAMLprim value stub_xc_linux_build_native(value xc_handle, value domid,
                            c_image_name, c_ramdisk_name, c_flags,
                            c_store_evtchn, &store_mfn,
                            c_console_evtchn, &console_mfn);
+    if (r == 0)
+        r = xc_dom_gnttab_seed(xch, c_domid,
+                               console_mfn,
+                               store_mfn,
+                               Int_val(console_domid),
+                               Int_val(store_domid));
+
     caml_leave_blocking_section();
 
 #ifndef XEN_UNSTABLE
@@ -465,7 +475,8 @@ CAMLprim value stub_xc_linux_build_bytecode(value * argv, int argn)
 {
     return stub_xc_linux_build_native(argv[0], argv[1], argv[2], argv[3],
                                       argv[4], argv[5], argv[6], argv[7],
-                                      argv[8], argv[9], argv[10]);
+                                      argv[8], argv[9], argv[10], argv[11],
+                                      argv[12]);
 }
 
 static int hvm_build_set_params(xc_interface *xch, int domid,
@@ -517,7 +528,9 @@ static int hvm_build_set_params(xc_interface *xch, int domid,
 }
 
 CAMLprim value stub_xc_hvm_build_native(value xc_handle, value domid,
-                                        value mem_max_mib, value mem_start_mib, value image_name, value store_evtchn, value console_evtchn)
+                                        value mem_max_mib, value mem_start_mib, value image_name,
+                                        value store_evtchn, value store_domid,
+                                        value console_evtchn, value console_domid)
 {
     CAMLparam5(xc_handle, domid, mem_max_mib, mem_start_mib, image_name);
     CAMLxparam2(store_evtchn, console_evtchn);
@@ -570,6 +583,8 @@ CAMLprim value stub_xc_hvm_build_native(value xc_handle, value domid,
     if (r)
         failwith_oss_xc(xch, "hvm_build_params");
 
+    xc_dom_gnttab_hvm_seed(xch, _D(domid), console_mfn, store_mfn, Int_val(console_domid), Int_val(store_domid));
+
     result = caml_alloc_tuple(2);
     Store_field(result, 0, caml_copy_nativeint(store_mfn));
     Store_field(result, 1, caml_copy_nativeint(console_mfn));
@@ -580,7 +595,7 @@ CAMLprim value stub_xc_hvm_build_native(value xc_handle, value domid,
 CAMLprim value stub_xc_hvm_build_bytecode(value * argv, int argn)
 {
     return stub_xc_hvm_build_native(argv[0], argv[1], argv[2], argv[3],
-                                    argv[4], argv[5], argv[6]);
+                                    argv[4], argv[5], argv[6], argv[7], argv[8]);
 }
 
 

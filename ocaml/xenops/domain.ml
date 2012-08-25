@@ -539,8 +539,8 @@ let build_post ~xc ~xs ~vcpus ~static_max_mib ~target_mib domid
 	xs.Xs.introduce domid store_mfn store_port
 
 (** build a linux type of domain *)
-let build_linux (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~kernel ~cmdline ~ramdisk
-		~vcpus xenguest_path domid =
+let build_linux (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~static_max_kib ~target_kib
+		~kernel ~cmdline ~ramdisk ~vcpus xenguest_path domid =
 	let uuid = get_uuid ~xc domid in
 	assert_file_is_readable kernel;
 	maybe assert_file_is_readable ramdisk;
@@ -582,7 +582,9 @@ let build_linux (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~kerne
 	    "-features"; "";
 	    "-flags"; "0";
 	    "-store_port"; string_of_int store_port;
+		"-store_domid"; string_of_int store_domid;
 	    "-console_port"; string_of_int console_port;
+		"-console_domid"; string_of_int console_domid;
 	    "-fork"; "true";
 	  ] []
 		XenguestHelper.receive_success in
@@ -610,7 +612,7 @@ let build_linux (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~kerne
 	| _            -> Arch_native
 
 (** build hvm type of domain *)
-let build_hvm (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
+let build_hvm (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
               ~kernel ~timeoffset ~video_mib xenguest_path domid =
 	let uuid = get_uuid ~xc domid in
 	assert_file_is_readable kernel;
@@ -642,7 +644,9 @@ let build_hvm (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~shadow_
 	    "-mode"; "hvm_build";
 	    "-domid"; string_of_int domid;
 	    "-store_port"; string_of_int store_port;
+		"-store_domid"; string_of_int store_domid;
 	    "-console_port"; string_of_int console_port;
+		"-console_domid"; string_of_int console_domid;
 	    "-image"; kernel;
 	    "-mem_max_mib"; Int64.to_string build_max_mib;
 	    "-mem_start_mib"; Int64.to_string build_start_mib;
@@ -695,14 +699,14 @@ let build_hvm (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~shadow_
 
 	Arch_HVM
 
-let build (task: Xenops_task.t) ~xc ~xs info timeoffset xenguest_path domid =
+let build (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid info timeoffset xenguest_path domid =
 	match info.priv with
 	| BuildHVM hvminfo ->
-		build_hvm task ~xc ~xs ~static_max_kib:info.memory_max ~target_kib:info.memory_target
+		build_hvm task ~xc ~xs ~store_domid ~console_domid ~static_max_kib:info.memory_max ~target_kib:info.memory_target
 		          ~shadow_multiplier:hvminfo.shadow_multiplier ~vcpus:info.vcpus
 		          ~kernel:info.kernel ~timeoffset ~video_mib:hvminfo.video_mib xenguest_path domid
 	| BuildPV pvinfo   ->
-		build_linux task ~xc ~xs ~static_max_kib:info.memory_max ~target_kib:info.memory_target
+		build_linux task ~xc ~xs ~store_domid ~console_domid ~static_max_kib:info.memory_max ~target_kib:info.memory_target
 		            ~kernel:info.kernel ~cmdline:pvinfo.cmdline ~ramdisk:pvinfo.ramdisk
 		            ~vcpus:info.vcpus xenguest_path domid
 

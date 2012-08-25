@@ -25,11 +25,11 @@ external close : handle -> unit = "stub_xenguest_close"
 (** build a linux domain *)
 external linux_build : handle -> domid -> int -> int -> string ->
                        string option -> string -> string -> int ->
-                       int -> int -> (nativeint * nativeint * string)
+                       int -> int -> int -> int -> (nativeint * nativeint * string)
 	= "stub_xc_linux_build_bytecode" "stub_xc_linux_build_native"
 
 (** build a hvm domain *)
-external hvm_build : handle -> domid -> int -> int -> string -> int -> int ->
+external hvm_build : handle -> domid -> int -> int -> string -> int -> int -> int -> int ->
 	(nativeint * nativeint)
 	= "stub_xc_hvm_build_bytecode" "stub_xc_hvm_build_native"
 

@@ -118,20 +118,22 @@ val get_action_request: xs:Xenstore.Xs.xsh -> domid -> string option
 (* val create_channels : xc:Xenctrl.handle -> domid -> int * int *)
 
 (** Builds a linux guest in a fresh domain created with 'make' *)
-val build_linux: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> static_max_kib:Int64.t
+val build_linux: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh
+	-> store_domid:int -> console_domid:int -> static_max_kib:Int64.t
               -> target_kib:Int64.t -> kernel:string -> cmdline:string
               -> ramdisk:string option -> vcpus:int -> string -> domid
               -> domarch
 
 (** build an hvm domain in a fresh domain created with 'make' *)
-val build_hvm: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> static_max_kib:Int64.t
+val build_hvm: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh
+	-> store_domid:int -> console_domid:int -> static_max_kib:Int64.t
             -> target_kib:Int64.t -> shadow_multiplier:float
             -> vcpus:int -> kernel:string
             -> timeoffset:string -> video_mib:int -> string -> domid
             -> domarch
 
 (** Restore a domain using the info provided *)
-val build: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> build_info -> string -> string -> domid -> domarch
+val build: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> store_domid:int -> console_domid:int -> build_info -> string -> string -> domid -> domarch
 
 (** resume a domain either cooperative or not *)
 val resume: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> hvm: bool -> cooperative: bool -> qemu_domid:int -> domid -> unit

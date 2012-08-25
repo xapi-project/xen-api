@@ -74,12 +74,12 @@ let create_domain ~xc ~xs ~hvm =
 let default_xenguest = "/opt/xensource/libexec/xenguest"
 
 let build_domain ~xc ~xs ~kernel ?(ramdisk=None) ~cmdline ~domid ~vcpus ~static_max_kib ~target_kib =
-	let (_: Domain.domarch) = Domain.build_linux task xc xs static_max_kib target_kib
+	let (_: Domain.domarch) = Domain.build_linux task xc xs 0 0 static_max_kib target_kib
 	                                             kernel cmdline ramdisk vcpus default_xenguest domid in
 	printf "built domain: %u\n" domid
 
 let build_hvm ~xc ~xs ~kernel ~domid ~vcpus ~static_max_kib ~target_kib =
-	let (_: Domain.domarch) = Domain.build_hvm task xc xs static_max_kib target_kib 1.
+	let (_: Domain.domarch) = Domain.build_hvm task xc xs 0 0 static_max_kib target_kib 1.
 	                                           vcpus kernel "" 4 default_xenguest domid in
 	printf "built hvm domain: %u\n" domid
 
