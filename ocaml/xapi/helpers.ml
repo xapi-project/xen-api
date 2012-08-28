@@ -557,7 +557,8 @@ let assert_host_versions_not_decreasing :
 			raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []))
 
 (** Indicates whether ballooning is enabled for the given virtual machine. *)
-let ballooning_enabled_for_vm ~__context vm_record = true
+let ballooning_enabled_for_vm ~__context vm_record =
+	not vm_record.API.vM_is_control_domain
 
 let get_vm_metrics ~__context ~self =
     let metrics = Db.VM.get_metrics ~__context ~self in
