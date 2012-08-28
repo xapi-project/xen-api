@@ -1275,8 +1275,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 		let set_xenstore_data ~__context ~self ~value =
 			info "VM.set_xenstore_data: VM = '%s'" (vm_uuid ~__context self);
-			let local_fn = Local.VM.set_xenstore_data ~self ~value in
-			forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc -> Client.VM.set_xenstore_data rpc session_id self value)
+			Db.VM.set_xenstore_data ~__context ~self ~value;
+			let power_state = Db.VM.get_power_state ~__context ~self in
+			if power_state = `Running then
+				let local_fn = Local.VM.set_xenstore_data ~self ~value in
+				forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc -> Client.VM.set_xenstore_data rpc session_id self value)
 
 		let clean_shutdown ~__context ~vm =
 			info "VM.clean_shutdown: VM = '%s'" (vm_uuid ~__context vm);
