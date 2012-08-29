@@ -203,10 +203,7 @@ module Interface = struct
 				Dhcp6c.stop name;
 				Ip.flush_ip_addr ~ipv6:true name;
 				Sysctl.set_ipv6_autoconf name true;
-				if Ip.is_up name then begin
-					Ip.link_set_down name;
-					Ip.link_set_up name
-				end
+				(* Cannot link set down/up due to CA-89882 - IPv4 default route cleared *)
 			| Static6 addrs ->
 				Dhcp6c.stop name;
 				Sysctl.set_ipv6_autoconf name false;
