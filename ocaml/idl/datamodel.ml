@@ -1135,18 +1135,18 @@ let _ =
 
 
 let _ =
-  message Api_messages.ha_pool_overcommitted ~doc:"Pool has become overcommitted: it can nolonger guarantee to restart protected VMs if the configured number of hosts fail." ();
-  message Api_messages.ha_statefile_lost ~doc:"Host lost access to HA storage heartbeat" ();
-  message Api_messages.ha_heartbeat_approaching_timeout ~doc:"HA network heartbeat almost timed-out" ();
-  message Api_messages.ha_statefile_approaching_timeout ~doc:"HA storage heartbeat almost timed-out" ();
-  message Api_messages.ha_xapi_healthcheck_approaching_timeout ~doc:"HA xapi healthcheck almost timed-out" ();
-  message Api_messages.ha_network_bonding_error ~doc:"HA network heartbeat interface bonding error" ();
-  message Api_messages.vif_qos_failed ~doc:"Applying QoS to VIF failed." ();
-  message Api_messages.vbd_qos_failed ~doc:"Applying QoS to VBD failed." ();
-  message Api_messages.vcpu_qos_failed ~doc:"Applying QoS to VCPU failed." ();
-  message Api_messages.pool_master_transition ~doc:"Host has become the new Pool master." ();
-  message Api_messages.pbd_plug_failed_on_server_start ~doc:"Host failed to attach one or more Storage Repositories." ();
-  ()
+    message (fst Api_messages.ha_pool_overcommitted) ~doc:"Pool has become overcommitted: it can no longer guarantee to restart protected VMs if the configured number of hosts fail." ();
+    message (fst Api_messages.ha_statefile_lost) ~doc:"Host lost access to HA storage heartbeat" ();
+    message (fst Api_messages.ha_heartbeat_approaching_timeout) ~doc:"HA network heartbeat almost timed-out" ();
+    message (fst Api_messages.ha_statefile_approaching_timeout) ~doc:"HA storage heartbeat almost timed-out" ();
+    message (fst Api_messages.ha_xapi_healthcheck_approaching_timeout) ~doc:"HA xapi healthcheck almost timed-out" ();
+    message (fst Api_messages.ha_network_bonding_error) ~doc:"HA network heartbeat interface bonding error" ();
+    message (fst Api_messages.vif_qos_failed) ~doc:"Applying QoS to VIF failed." ();
+    message (fst Api_messages.vbd_qos_failed) ~doc:"Applying QoS to VBD failed." ();
+    message (fst Api_messages.vcpu_qos_failed) ~doc:"Applying QoS to VCPU failed." ();
+    message (fst Api_messages.pool_master_transition) ~doc:"Host has become the new Pool master." ();
+    message (fst Api_messages.pbd_plug_failed_on_server_start) ~doc:"Host failed to attach one or more Storage Repositories." ();
+    ()
 
 (* ------------------------------------------------------------------------------------------------------------
    Session Management
