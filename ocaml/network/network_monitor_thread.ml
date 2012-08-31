@@ -24,13 +24,6 @@ open D
 
 (** Table for bonds status. *)
 let bonds_status : (string, (int * int)) Hashtbl.t = Hashtbl.create 10
-let bonds_status_update : (string * int) list ref = ref []
-let bonds_status_update_m = Mutex.create ()
-
-let add_bond_status bond links_up =
-	Mutex.execute bonds_status_update_m (fun _ ->
-		bonds_status_update := !bonds_status_update @ [(bond,links_up)]
-	)
 
 let xapi_rpc =
 	let open Xmlrpc_client in
