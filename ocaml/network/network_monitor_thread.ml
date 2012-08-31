@@ -53,7 +53,7 @@ let send_bond_change_alert dev interfaces message =
 			with _ ->
 				warn "Exception sending a bond-status-change alert."
 		)
-		(fun _ -> XenAPI.Session.local_logout ~rpc:xapi_rpc ~session_id)
+		(fun _ -> XenAPI.Session.logout ~rpc:xapi_rpc ~session_id)
 
 let check_for_changes ~(dev : string) ~(stat : Network_monitor.iface_stats) =
 	let open Network_monitor in
