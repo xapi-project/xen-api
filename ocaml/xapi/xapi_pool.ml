@@ -1161,7 +1161,7 @@ let ha_compute_max_host_failures_to_tolerate ~__context =
     if current_plan_for <> n then begin
       Db.Pool.set_ha_plan_exists_for ~__context ~self:pool ~value:(min n' n);
       if n < current_plan_for
-      then Xapi_alert.add ~msg:Api_messages.ha_pool_drop_in_plan_exists_for ~cls:`Pool ~obj_uuid:(Db.Pool.get_uuid ~__context ~self:pool) ~body:(Int64.to_string n);
+      then Xapi_alert.add ~name:Api_messages.ha_pool_drop_in_plan_exists_for ~priority:1L ~cls:`Pool ~obj_uuid:(Db.Pool.get_uuid ~__context ~self:pool) ~body:(Int64.to_string n);
     end;
   end;
   n

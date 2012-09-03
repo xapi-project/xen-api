@@ -149,7 +149,7 @@ let detect_clock_skew ~__context host skew =
     let host_name_label = Db.Host.get_name_label ~__context ~self:host in
     let pool = Helpers.get_pool ~__context in
     let pool_name_label = Db.Pool.get_name_label ~__context ~self:pool in
-    Xapi_alert.add ~msg:Api_messages.host_clock_skew_detected ~cls:`Host ~obj_uuid
+    Xapi_alert.add ~name:Api_messages.host_clock_skew_detected ~priority:Api_messages.host_clock_skew_detected_priority ~cls:`Host ~obj_uuid
       ~body:(Printf.sprintf "The clock on server '%s' may not be synchronized with the other servers in pool '%s'. This could lead to errors when performing VM lifecycle operations, and will also affect the times recorded against archived performance data gathered from this server." host_name_label pool_name_label)
   end;
   (* If we are under half the max skew then re-arm the message sender *)
