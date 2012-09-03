@@ -16,17 +16,17 @@ open Threadext
 module R = Debug.Debugger(struct let name = "redo_log" end)
 open R
 
-let raise_system_alert (name, priority) body =
+let raise_system_alert news body =
 	(* This code may block indefinitely while attempting to look up the pool UUID and send the alert, so do it in a separate thread *)
 	ignore (Thread.create (fun () ->
-		debug "Processing redo log event: %s" name;
+		debug "Processing redo log event: %s" news;
 		let __context = Context.make "context" in
 		let pool = Helpers.get_pool ~__context in
 		let obj_uuid = Db.Pool.get_uuid ~__context ~self:pool in
 		let other_config = Db.Pool.get_other_config ~__context ~self:pool in
 		if List.mem_assoc Xapi_globs.redo_log_alert_key other_config && (List.assoc Xapi_globs.redo_log_alert_key other_config = "true") then begin
 			debug "Raising alert for pool UUID %s" obj_uuid;
-			(try ignore (Xapi_message.create ~__context ~name ~priority ~cls:`Pool ~obj_uuid ~body) with _ -> ());
+			(try ignore (Xapi_message.create ~__context ~name:news ~priority:1L ~cls:`Pool ~obj_uuid ~body) with _ -> ());
 			debug "Alert raised"
 		end else debug "Not raising alert because Pool.other_config:%s <> true" Xapi_globs.redo_log_alert_key;
   ) ())
