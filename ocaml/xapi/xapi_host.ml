@@ -391,8 +391,7 @@ let compute_evacuation_plan ~__context ~host =
 			(Db.Host.get_name_label ~__context ~self:host)
 			(Db.Pool.get_uuid ~__context ~self:(Helpers.get_pool ~__context))
 		  in
-		  let (name, priority) = Api_messages.wlb_failed in
-		  ignore(Xapi_message.create ~__context ~name ~priority ~cls:`Host ~obj_uuid:uuid ~body:message_body)
+		  ignore(Xapi_message.create ~__context ~name:Api_messages.wlb_failed ~priority:3L ~cls:`Host ~obj_uuid:uuid ~body:message_body)
 		with _ -> ());
 	  compute_evacuation_plan_no_wlb ~__context ~host
 	| _ ->
@@ -1000,10 +999,9 @@ let detect_nonhomogeneous_external_auth_in_host ~__context ~host =
 				master_external_auth_type master_external_auth_service_name;
 			(* raise alert about this non-homogeneous slave in the pool *)
 			let host_uuid = host_rec.API.host_uuid in
-			let (name, priority) = Api_messages.auth_external_pool_non_homogeneous in
 			ignore(
-				Client.Client.Message.create ~rpc ~session_id ~name ~priority
-				~cls:`Host ~obj_uuid:host_uuid ~body:(
+				Client.Client.Message.create ~rpc ~session_id ~name:Api_messages.auth_external_pool_non_homogeneous
+				~priority:1L ~cls:`Host ~obj_uuid:host_uuid ~body:(
 					"host_external_auth_type="^host_external_auth_type^
 					", host_external_auth_service_name="^host_external_auth_service_name^
 					", master_external_auth_type="^master_external_auth_type^

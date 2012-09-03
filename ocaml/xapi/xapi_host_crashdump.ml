@@ -72,7 +72,7 @@ let resynchronise ~__context ~host =
 		with _ -> false (* on first boot no-pool=>exn, but on first boot HA is never enabled *) in
 	begin
 		if ha_is_enabled && (arrived = []) && not was_shutdown_cleanly && !Xapi_globs.on_system_boot
-		then Xapi_alert.add ~msg:Api_messages.ha_host_was_fenced ~cls:`Host ~obj_uuid:(Db.Host.get_uuid ~__context ~self:host) ~body:""
+		then Xapi_alert.add ~name:Api_messages.ha_host_was_fenced ~priority:1L ~cls:`Host ~obj_uuid:(Db.Host.get_uuid ~__context ~self:host) ~body:""
 	end;
 
 	let table = List.combine db_filenames all_refs in

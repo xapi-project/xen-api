@@ -656,8 +656,8 @@ let choose_host_for_vm ~__context ~vm ~snapshot =
 							(Db.Pool.get_uuid ~__context
 								~self:(Helpers.get_pool ~__context))
 					in
-					let (name, priority) = Api_messages.wlb_failed in
-					ignore (Xapi_message.create ~__context ~name ~priority
+					ignore (Xapi_message.create ~__context
+						~name:Api_messages.wlb_failed ~priority:3L
 						~cls:`VM ~obj_uuid:uuid ~body:message_body)
 				with _ -> ()
 			end;
