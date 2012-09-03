@@ -100,6 +100,14 @@ Group:   Development/Libraries
 This package contains the internal xapi datamodel as a library suitable
 for writing additional code generators.
 
+%package rrd-devel
+Summary: rrd-client headers and libraries
+Group:   Development/Libraries
+
+%description rrd-devel
+This package contains rrd functions as a library suitable for writing tools 
+related to rrd. Needed for rrd2csv and rrdd-plugins.
+
 %prep 
 %setup -q
 %patch0 -p0 -b xapi-version.patch
@@ -373,6 +381,10 @@ rm -rf $RPM_BUILD_ROOT
 %files datamodel-devel
 %defattr(-,root,root,-)
 /usr/lib/ocaml/xapi-datamodel/*
+
+%files rrd-devel
+%defattr(-,root,root,-)
+/usr/lib/ocaml/rrd-client/*
 
 %changelog
 
