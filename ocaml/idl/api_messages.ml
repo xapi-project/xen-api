@@ -29,7 +29,7 @@ let addMsg name priority =
     let _ = msgList := msg :: !msgList in
     msg
 
-let license_does_not_support_pooling = addMsg "LICENSE_DOES_NOT_SUPPORT_POOLING" 2L (* Unused in xen-api *)
+let license_does_not_support_pooling = addMsg "LICENSE_DOES_NOT_SUPPORT_POOLING" 2L (* Unused? *)
 let license_expires_soon = addMsg "LICENSE_EXPIRES_SOON" 2L (* Used by license-check.py, which may be unused? *)
 
 let ha_statefile_lost = addMsg "HA_STATEFILE_LOST" 2L
@@ -54,39 +54,34 @@ let redo_log_broken = addMsg "METADATA_LUN_BROKEN" 3L
 
 let ip_configured_pif_can_unplug = addMsg "IP_CONFIGURED_PIF_CAN_UNPLUG" 3L
 
-let vif_qos_failed = addMsg "VIF_QOS_FAILED" 3L (* Used in idl/datamodel.ml *)
-let vbd_qos_failed = addMsg "VBD_QOS_FAILED" 3L (* Used in idl/datamodel.ml *)
-let vcpu_qos_failed = addMsg "VCPU_QOS_FAILED" 3L (* Used in idl/datamodel.ml *)
+let vif_qos_failed = addMsg "VIF_QOS_FAILED" 3L (* Only used by idl/datamodel.ml *)
+let vbd_qos_failed = addMsg "VBD_QOS_FAILED" 3L (* Only used by idl/datamodel.ml *)
+let vcpu_qos_failed = addMsg "VCPU_QOS_FAILED" 3L (* Only used by idl/datamodel.ml *)
 
 let vm_started = addMsg "VM_STARTED" 5L (* Previously missing from table *)
 let vm_shutdown = addMsg "VM_SHUTDOWN" 3L (* Previously missing from table *)
 let vm_rebooted = addMsg "VM_REBOOTED" 3L (* Previously missing from table *)
 let vm_suspended = addMsg "VM_SUSPENDED" 5L (* Previously missing from table *)
 let vm_resumed = addMsg "VM_RESUMED" 5L (* Previously missing from table *)
-let vm_crashed = addMsg "VM_CRASHED" 3L (* Previously missing from table; unused in xen-api *)
+let vm_crashed = addMsg "VM_CRASHED" 3L (* Previously missing from table; unused? *)
 let vm_cloned = addMsg "VM_CLONED" 5L (* Prviously missing from table *)
 
-let host_sync_data_failed = addMsg "HOST_SYNC_DATA_FAILED" 1L (* Kept for backward compatibility; used in XenCenter *)
 let host_clock_skew_detected = addMsg "HOST_CLOCK_SKEW_DETECTED" 3L
-let host_clock_went_backwards = addMsg "HOST_CLOCK_WENT_BACKWARDS" 1L (* Unused in xen-api *)
+let host_clock_went_backwards = addMsg "HOST_CLOCK_WENT_BACKWARDS" 1L (* Unused? *)
 
 let pool_master_transition = addMsg "POOL_MASTER_TRANSITION" 4L
 
 let pbd_plug_failed_on_server_start = addMsg "PBD_PLUG_FAILED_ON_SERVER_START" 3L
 
-let alarm = addMsg "ALARM" 1L (* Previously missing from table; unused in xen-api *)
+let alarm = addMsg "ALARM" 1L (* Previously missing from table; unused? *)
 
 let wlb_failed = addMsg "WLB_CONSULTATION_FAILED" 3L
-let wlb_optimization_alert = addMsg "WLB_OPTIMIZATION_ALERT" 3L (* Used in XenCenter *)
 
 let auth_external_init_failed = addMsg "EXTAUTH_INIT_IN_HOST_FAILED" 2L
 let auth_external_pool_non_homogeneous = addMsg "EXTAUTH_IN_POOL_IS_NON_HOMOGENEOUS" 2L
 
 let multipath_periodic_alert = addMsg "MULTIPATH_PERIODIC_ALERT" 3L
 
-let v6_server_up = addMsg "LICENSE_SERVER_CONNECTED" 4L (* Used in XenCenter *)
-let v6_server_down = addMsg "LICENSE_SERVER_UNAVAILABLE" 3L (* Used in XenCenter *)
-let v6_license_expired = addMsg "LICENSE_EXPIRED" 2L (* Used in XenCenter *)
 let v6_grace_license = addMsg "GRACE_LICENSE" 3L
 let v6_rejected = addMsg "LICENSE_NOT_AVAILABLE" 2L
 let v6_comm_error = addMsg "LICENSE_SERVER_UNREACHABLE" 2L
