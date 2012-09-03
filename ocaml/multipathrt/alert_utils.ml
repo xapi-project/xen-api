@@ -147,7 +147,7 @@ let wait_for_alert rpc session ?(delay=180.0) check_message f =
       raise (Multipathrt_exceptions.Test_error (Printf.sprintf "received unexpected exception: %s" (Printexc.to_string e)))
 
 let wait_for_alert_saying_all_is_well rpc session scsi_id max_paths =
-  wait_for_alert rpc session (fun msg -> msg.API.message_name = fst Api_messages.multipath_periodic_alert) (fun msg ->
+  wait_for_alert rpc session (fun msg -> msg.API.message_name = Api_messages.multipath_periodic_alert) (fun msg ->
     (* Check there's no unhealthy entry for this path *)
     let body = parse_alert_body msg.API.message_body in
     begin
@@ -169,7 +169,7 @@ let wait_for_alert_saying_all_is_well rpc session scsi_id max_paths =
   )
 
 let wait_for_alert_saying_we_flapped rpc session scsi_id max_paths =
-  wait_for_alert rpc session (fun msg -> msg.API.message_name = fst Api_messages.multipath_periodic_alert) (fun msg ->
+  wait_for_alert rpc session (fun msg -> msg.API.message_name = Api_messages.multipath_periodic_alert) (fun msg ->
     (* Check there's no unhealthy entry for this path *)
     let body = parse_alert_body msg.API.message_body in
     begin
@@ -195,7 +195,7 @@ let wait_for_alert_saying_we_flapped rpc session scsi_id max_paths =
 
 let wait_for_alert_saying_path_is_unhealthy rpc session scsi_id max_paths =
   wait_for_alert rpc session (fun msg ->
-    msg.API.message_name = fst Api_messages.multipath_periodic_alert && begin
+    msg.API.message_name = Api_messages.multipath_periodic_alert && begin
       let body = parse_alert_body msg.API.message_body in
       let unhealthy_entries = get_entries_concerning_scsiid body.unhealthy scsi_id in
       match unhealthy_entries with

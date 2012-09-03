@@ -267,8 +267,7 @@ let sender rpc session (delay, msg, queue) =
 			end);
 
 		if Buffer.length msg <> 0 then begin
-			let (name, priority) = Api_messages.multipath_periodic_alert in
-			let (_:API.ref_message) = Client.Message.create rpc session name priority `Pool pool_uuid (Buffer.contents msg) in
+			let (_:API.ref_message) = Client.Message.create rpc session Api_messages.multipath_periodic_alert 5L `Pool pool_uuid (Buffer.contents msg) in
 			remember_broken_history state_of_the_world;
 			Buffer.clear msg;
 		end;

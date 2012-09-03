@@ -322,7 +322,7 @@ let mark_pool_as_overcommitted ~__context =
   if planned_for <> max_failures then begin
     Db.Pool.set_ha_plan_exists_for ~__context ~self:pool ~value:(min to_tolerate max_failures);
     if max_failures < planned_for
-    then Xapi_alert.add ~msg:Api_messages.ha_pool_drop_in_plan_exists_for ~cls:`Pool ~obj_uuid:(Db.Pool.get_uuid ~__context ~self:pool) ~body:(Int64.to_string max_failures);
+    then Xapi_alert.add ~name:Api_messages.ha_pool_drop_in_plan_exists_for ~priority:1L ~cls:`Pool ~obj_uuid:(Db.Pool.get_uuid ~__context ~self:pool) ~body:(Int64.to_string max_failures);
   end;
     
   if not overcommitted then begin
@@ -333,8 +333,8 @@ let mark_pool_as_overcommitted ~__context =
     let pool_name_label = Db.Pool.get_name_label ~__context ~self:pool in
     (* Note -- it's OK to look up stuff in the database when generating the alert text, because this code runs on the master; therefore there is no
        danger of blocking for db.* calls to return *)
-    let (name, priority) = Api_messages.ha_pool_overcommitted in
-    let (_: 'a Ref.t) = Xapi_message.create ~__context ~name ~priority ~cls:`Pool ~obj_uuid
+    let (_: 'a Ref.t) = Xapi_message.create ~__context ~name:Api_messages.ha_pool_overcommitted 
+      ~priority:Api_messages.ha_pool_overcommitted_priority ~cls:`Pool ~obj_uuid
       ~body:(Printf.sprintf "The failover tolerance for pool '%s' has dropped and the initially specified number of host failures to tolerate can no longer be guaranteed"
 	       pool_name_label) in
     ();
@@ -451,7 +451,7 @@ let restart_auto_run_vms ~__context live_set n =
 								if not (List.exists (fun x -> x=h) shutting_down) then begin
 									let obj_uuid = Db.Host.get_uuid ~__context ~self:h in
 									let host_name = Db.Host.get_name_label ~__context ~self:h in
-									Xapi_alert.add ~msg:Api_messages.ha_host_failed ~cls:`Host ~obj_uuid
+									Xapi_alert.add ~name:Api_messages.ha_host_failed ~priority:Api_messages.ha_host_failed_priority ~cls:`Host ~obj_uuid
 										~body:(Printf.sprintf "Server '%s' has failed" host_name);
 								end;
 								(* Call external host failed hook (allows a third-party to use power-fencing if desired) *)
@@ -528,7 +528,7 @@ let restart_auto_run_vms ~__context live_set n =
 		if not(Hashtbl.mem restart_failed vm) then begin
 			Hashtbl.replace restart_failed vm ();
 			let obj_uuid = Db.VM.get_uuid ~__context ~self:vm in
-			Xapi_alert.add ~msg:Api_messages.ha_protected_vm_restart_failed ~cls:`VM ~obj_uuid ~body:""
+			Xapi_alert.add ~name:Api_messages.ha_protected_vm_restart_failed ~priority:1L ~cls:`VM ~obj_uuid ~body:""
 		end in
 
 	(* execute the plan *)
