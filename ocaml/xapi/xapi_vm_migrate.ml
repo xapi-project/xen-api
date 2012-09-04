@@ -372,10 +372,14 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
 		if is_intra_pool 
 		then begin
-			intra_pool_vdi_remap ~__context vm (snapshots_map @ vdi_map) ;
-			intra_pool_fix_suspend_sr ~__context (Ref.of_string dest_host) vm
+			let vm_and_snapshots = vm :: (Db.VM.get_snapshots ~__context ~self:vm) in
+			List.iter
+				(fun vm' ->
+					intra_pool_vdi_remap ~__context vm' (snapshots_map @ vdi_map);
+					intra_pool_fix_suspend_sr ~__context (Ref.of_string dest_host) vm')
+				vm_and_snapshots
 		end
-		else inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address:remote_master_address ~vm ~vdi_map:(snapshots_map @ vdi_map) ~vif_map ~dry_run:false ~live:true;
+		else inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address ~vm ~vdi_map:(snapshots_map @ vdi_map) ~vif_map ~dry_run:false ~live:true;
 
 		if Xapi_fist.pause_storage_migrate2 () then begin
 			TaskHelper.add_to_other_config ~__context "fist" "pause_storage_migrate2";

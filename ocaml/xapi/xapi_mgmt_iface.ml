@@ -98,6 +98,15 @@ let run ~__context interface primary_address_type =
 			start ~__context ()
 	)
 
+let rebind ~__context =
+	Mutex.execute management_m (fun () ->
+		if !management_interface_server <> None then
+		begin
+			stop ();
+			start ~__context ();
+		end;
+	)
+
 let shutdown () =
 	Mutex.execute management_m (fun () ->
 		change "" `IPv4;

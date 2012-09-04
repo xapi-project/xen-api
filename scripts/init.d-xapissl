@@ -46,10 +46,11 @@ mgmt_ip() {
     fi
 }
 
-if [ -n "${MANAGEMENT_ADDRESS_TYPE}" ] && [ "${MANAGEMENT_ADDRESS_TYPE}" == "IPv6" ]; then
-	ACCEPT=:::443
-else
-	ACCEPT=443
+
+ACCEPT=443
+ss -ln | grep -q :::80
+if [ $? -eq 0 ]; then
+    ACCEPT=:::443
 fi
 
 # Write out the stunnel config file. This requires the management

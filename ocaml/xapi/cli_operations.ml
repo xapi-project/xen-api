@@ -1719,7 +1719,15 @@ let select_vms ?(include_control_vms = false) ?(include_template_vms = false) rp
 		let vms = Client.VM.get_all_records_where rpc session_id "true" in
 		let all_recs = List.map (fun (vm,vm_r) -> let r = vm_record rpc session_id vm in r.setrefrec (vm,vm_r); r) vms in
 		(* Filter on everything on the cmd line except params=... *)
-		let filter_params = List.filter (fun (p,_) -> not (List.mem p (stdparams @ ignore_params))) params in
+		let filter_params = List.filter (fun (p,_) ->
+			let p' =
+				try
+					let i = String.index p ':' in
+					String.sub p 0 i
+				with Not_found -> p
+			in
+			not (List.mem p' (stdparams @ ignore_params))
+		) params in
 		(* Filter all the records *)
 		List.fold_left filter_records_on_fields all_recs filter_params
 	in
