@@ -77,6 +77,9 @@ let populate_db backend =
 		then [ Parse_db_conf.make Xapi_globs.db_temporary_restore_path ]
 		else output_connections
 	in
+	debug "Attempting to populate database from one of these locations: [%s]"
+		(String.concat "; "
+			(List.map (fun conn -> conn.Parse_db_conf.path) input_connections));
 	Db_cache_impl.make backend input_connections schema;
 	Db_cache_impl.sync output_connections (Db_ref.get_database backend);
 	(* Delete the temporary restore file so that we don't revert to it again at next startup. *)
