@@ -9,10 +9,6 @@ open Monitor_types
 module D = Debug.Debugger(struct let name = "rrdd_monitor" end)
 open D
 
-(* TODO: It is now possible to remove quite a bit of code tracking for changes
- * (e.g. 'changed' and 'dirty_XYZ'), since this is all being done in
- * xapi/monitor_dbcalls. *)
-
 let create_rras use_min_max =
 	(* Create archives of type min, max and average and last *)
 	Array.of_list (List.flatten
@@ -46,7 +42,7 @@ let create_fresh_rrd use_min_max dss =
  * domain has gone and we stream the RRD to the master. We also have a
  * list of the currently rebooting VMs to ensure we don't accidentally
  * archive the RRD. *)
-let update_rrds timestamp dss (uuid_domids : (string * int) list) pifs rebooting_vms paused_vms =
+let update_rrds timestamp dss (uuid_domids : (string * int) list) rebooting_vms paused_vms =
 	(* Here we do the synchronising between the dom0 view of the world
 		 and our Hashtbl. By the end of this execute block, the Hashtbl
 		 correctly represents the world *)
@@ -92,23 +88,10 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) pifs rebooting
 						 * Hence, we ignore changes from paused domains:
 						 *)
 						if not (List.mem vm_uuid paused_vms) then (
-							(* Check whether the memory ds has changed since last update *)
-							let last_values = Rrd.get_last_ds_values rrd in
-							let changed = (
-								try
-									let old_mem = List.assoc "memory" last_values in
-									let cur_mem_ds = List.find (fun ds -> ds.ds_name = "memory") dss in
-									let cur_mem = cur_mem_ds.ds_value in
-									cur_mem <> old_mem
-								with _ -> true
-							) in
-							if changed then
-								dirty_memory := StringSet.add vm_uuid !dirty_memory;
-								(* Now update the rras/dss *)
-								Rrd.ds_update_named rrd timestamp ~new_domid:(domid <> rrdi.domid)
-									(List.map (fun ds -> (ds.ds_name, (ds.ds_value, ds.ds_pdp_transform_function))) dss);
-								rrdi.dss <- dss;
-								rrdi.domid <- domid;
+							Rrd.ds_update_named rrd timestamp ~new_domid:(domid <> rrdi.domid)
+								(List.map (fun ds -> (ds.ds_name, (ds.ds_value, ds.ds_pdp_transform_function))) dss);
+							rrdi.dss <- dss;
+							rrdi.domid <- domid;
 						)
 					with
 					| Not_found ->
@@ -122,12 +105,6 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) pifs rebooting
 				log_backtrace ()
 		in
 		List.iter do_vm uuid_domids;
-		(* Check to see if any of the PIFs have changed *)
-		if pifs <> !pif_stats then
-			List.iter (fun pif ->
-				if (try pif <> List.find (fun p -> p.pif_name = pif.pif_name) !pif_stats with _ -> true) then
-					dirty_pifs := StringSet.add pif.pif_name !dirty_pifs) pifs;
-		pif_stats := pifs;
 		let host_dss = List.filter_map (fun (ty, ds) -> match ty with | Host -> Some ds | _ -> None) dss in
 		begin
 			match !host_rrd with
@@ -135,7 +112,6 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) pifs rebooting
 				begin
 					debug "Creating fresh RRD for localhost";
 					let rrd = create_fresh_rrd true host_dss in (* Always always create localhost rrds with min/max enabled *)
-					(*Deprecated.add_update_hook ~rrd;*) (* No longer needed, since Db updating will now be done through blocking XMLRPC calls from monitor_dbsync. *)
 					host_rrd := Some {rrd; dss = host_dss; domid = 0}
 				end
 			| Some rrdi ->
@@ -151,27 +127,9 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) pifs rebooting
 					else
 						rrdi.rrd
 				in
-				let last_values = Rrd.get_last_ds_values rrd in
-				let changed =
-					try
-						let old_mem_tot = List.assoc "memory_total_kib" last_values in
-						let old_mem_free = List.assoc "memory_free_kib" last_values in
-						let cur_mem_tot_ds = List.find (fun ds -> ds.ds_name = "memory_total_kib") host_dss in
-						let cur_mem_free_ds = List.find (fun ds -> ds.ds_name = "memory_free_kib") host_dss in
-						let cur_mem_tot = cur_mem_tot_ds.ds_value in
-						let cur_mem_free = cur_mem_free_ds.ds_value in
-						cur_mem_tot <> old_mem_tot || cur_mem_free <> old_mem_free
-					with _ -> true
-				in
-				if changed then dirty_host_memory := true;
 				Rrd.ds_update_named rrd timestamp ~new_domid:false
 					(List.map (fun ds -> (ds.ds_name, (ds.ds_value,ds.ds_pdp_transform_function))) host_dss)
 		end;
-		(* If we've got something different to worry about then wake up the monitor_dbcalls thread *)
-		(* TODO FIXME XXX: temporarily disabled broadcasting.
-		if (not (StringSet.is_empty !dirty_pifs)) || (not (StringSet.is_empty !dirty_memory)) || (!dirty_host_memory) then
-			Condition.broadcast condition;
-		*)
 		to_send_back
 	)
 	in List.iter (fun (uuid, rrdi) ->
