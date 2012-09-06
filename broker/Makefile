@@ -12,10 +12,10 @@ broker.tex: $(INPUTS)
 broker.html: $(INPUTS)
 	pandoc --toc --standalone $(INPUTS) -f html -o $@
 
-PACKS=lwt,lwt.unix,lwt.syntax,cohttp
+PACKS=lwt,lwt.unix,lwt.syntax,cohttp,cohttp.lwt,xenstore,xenstore.server,xenstore.client
 
-switch: store.cmx switch.cmx
-	ocamlfind ocamlopt -package "${PACKS}" -linkpkg -o switch $<
+switch: xs_transport_unix.cmx switch.cmx
+	ocamlfind ocamlopt -package "${PACKS}" -linkpkg -o switch xs_transport_unix.cmx switch.cmx
 
 %.cmx: %.ml
 	ocamlfind ocamlopt -package "${PACKS}" -syntax camlp4o -c $<
@@ -32,5 +32,5 @@ switch: store.cmx switch.cmx
 
 .PHONY: clean
 clean:
-	rm -f *.pdf *.html *.tex *.out
+	rm -f *.pdf *.html *.tex *.out switch
 
