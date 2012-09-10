@@ -247,6 +247,29 @@ module MD = struct
 			with _ ->
 				error "Failed to parse VIF.other_config:mtu; defaulting to network.mtu";
 				net_mtu in
+		let qos_type = vif.API.vIF_qos_algorithm_type in
+		let qos_params = vif.API.vIF_qos_algorithm_params in
+		let log_qos_failure reason =
+			warn "vif QoS failed: %s (vm=%s,vif=%s)" reason vm.API.vM_uuid vif.API.vIF_uuid in
+		let rate = match qos_type with
+			| "ratelimit" ->
+				let timeslice =
+					try Int64.of_string (List.assoc "timeslice_us" qos_params)
+					with _ -> 0L in
+				begin
+					try
+						let rate = Int64.of_string (List.assoc "kbps" qos_params) in
+						Some (rate, timeslice)
+					with
+					| Failure "int_of_string" ->
+						log_qos_failure "parameter \"kbps\" not an integer"; None
+					| Not_found ->
+						log_qos_failure "necessary parameter \"kbps\" not found"; None
+					| e ->
+						log_qos_failure (Printf.sprintf "unexpected error: %s" (Printexc.to_string e)); None
+				end
+			| "" -> None
+			| _ -> log_qos_failure (Printf.sprintf "unknown type: %s" qos_type); None in
 		let locking_mode = match vif.API.vIF_locking_mode, net.API.network_default_locking_mode with
 			| `network_default, `disabled -> Vif.Disabled
 			| `network_default, `unlocked -> Vif.Unlocked
@@ -275,7 +298,7 @@ module MD = struct
 			mac = vif.API.vIF_MAC;
 			carrier = carrier;
 			mtu = mtu;
-			rate = None;
+			rate = rate;
 			backend = backend_of_network net;
 			other_config = vif.API.vIF_other_config;
 			locking_mode = locking_mode;
