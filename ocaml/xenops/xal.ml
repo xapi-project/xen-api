@@ -326,6 +326,7 @@ let domain_update ctx =
 		  sprintf "/local/domain/%d/memory/target" domid;
 		  sprintf "/local/domain/%d/memory/uncooperative" domid;
 		  sprintf "/local/domain/%d/console" domid;
+		  sprintf "/local/domain/%d/console/vnc-port" domid;
 		] @
 		if ctx.monitor_devices then [
 			sprintf "/local/domain/%d/device" domid;
