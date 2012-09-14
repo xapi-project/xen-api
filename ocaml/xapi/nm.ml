@@ -133,6 +133,11 @@ let create_bond ~__context bond mtu =
 				else
 					""
 			in
+			let rebalance_interval =
+				if mode = `lacp
+				then []
+				else ["rebalance-interval", "1800000"]
+			in
 			let props = [
 				"mode", Record_util.bond_mode_to_string mode;
 				"miimon", "100";
@@ -140,8 +145,7 @@ let create_bond ~__context bond mtu =
 				"updelay", "31000";
 				"use_carrier", "1";
 				"hashing-algorithm", hashing_algorithm;
-				"rebalance-interval", "1800000";
-			] in
+			] @ rebalance_interval in
 			let overrides = List.filter_map (fun (k, v) ->
 				if String.startswith "bond-" k then
 					Some ((String.sub_to_end k 5), v)
