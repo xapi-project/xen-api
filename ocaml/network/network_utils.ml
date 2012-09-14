@@ -717,9 +717,9 @@ module Ovs = struct
 			else
 				[]
 		in
-		let extra_args = List.flatten (List.map get_prop ["updelay", "bond_updelay"; "downdelay", "bond_downdelay";
-			"miimon", "other-config:bond-miimon-interval"; "use_carrier", "other-config:bond-detect-mode";
-			"rebalance-interval", "other-config:bond-rebalance-interval"]) in
+		let extra_args = List.flatten (List.map get_prop (["updelay", "bond_updelay"; "downdelay", "bond_downdelay";
+			"miimon", "other-config:bond-miimon-interval"; "use_carrier", "other-config:bond-detect-mode";]
+			@ (if (List.mem_assoc "mode" properties) && (List.assoc "mode" properties = "lacp") then [] else ["rebalance-interval", "other-config:bond-rebalance-interval"]))) in
 		let other_args = List.filter_map (fun (k, v) ->
 			if List.mem k known_props then None
 			else Some (Printf.sprintf "other-config:\"%s\"=\"%s\"" (String.escaped ("bond-" ^ k)) (String.escaped v))
