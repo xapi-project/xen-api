@@ -53,16 +53,18 @@ let redirect x =
 	Server.respond_string ~headers ~status:`Found ~body:"" ()
 
 let make_unique_id =
-	let counter = ref 0 in
+	let counter = ref 0L in
 	fun () ->
 		let result = !counter in
-		incr counter;
-		string_of_int result
+		counter := Int64.add 1L !counter;
+		result
 
-let queues : (string, string Queue.t) Hashtbl.t = Hashtbl.create 128
+module IntMap = Map.Make(struct type t = int64 let compare = Int64.compare end)
+
+let queues : (string, string IntMap.t) Hashtbl.t = Hashtbl.create 128
 
 let find_or_create_queue name =
-	if not(Hashtbl.mem queues name) then Hashtbl.replace queues name (Queue.create ());
+	if not(Hashtbl.mem queues name) then Hashtbl.replace queues name IntMap.empty;
 	Hashtbl.find queues name
 
 let make_server () =
@@ -78,20 +80,26 @@ let make_server () =
 			let callback conn_id ?body req = match Request.meth req, split '/' (Request.path req) with
 				| `GET, [ ""; "bind"; name ] ->
 					(* If a queue for [name] doesn't already exist, make it now *)
-					let (_: 'a Queue.t) = find_or_create_queue name in
+					if not(Hashtbl.mem queues name) then Hashtbl.add queues name IntMap.empty;
 					lwt () = write xs (Printf.sprintf "/name/%s" name) (string_of_int conn_id) in
 					lwt () = write xs (Printf.sprintf "/id/%s" (Server.string_of_conn_id conn_id)) name in
 					redirect "/connection"
 				| `GET, [ ""; "connection" ] ->
 					lwt name = read xs (Printf.sprintf "/id/%s" (Server.string_of_conn_id conn_id)) in
 					let q = if Hashtbl.mem queues name then Some (Hashtbl.find queues name) else None in
-					let qlen = match q with Some x -> Queue.length x | None -> -1 in
+					let qlen = match q with Some x -> IntMap.cardinal x | None -> -1 in
 					Server.respond_string ~status:`OK ~body:(Printf.sprintf "name = %s; length = %d" name qlen) ()
+				| `GET, [ ""; "transfer"; ack_to ] ->
+					lwt name = read xs (Printf.sprintf "/id/%s" (Server.string_of_conn_id conn_id)) in
+					let q = find_or_create_queue name in
+					let dropped, also_dropped, not_acked = IntMap.split (Int64.of_string ack_to) q in
+					Hashtbl.replace queues name not_acked;
+					Server.respond_string ~status:`OK ~body:(Printf.sprintf "dropped %d items, returning %d items" (IntMap.cardinal dropped + (match also_dropped with Some x -> 1 | None -> 0)) (IntMap.cardinal not_acked)) ()
 				| `GET, [ ""; "send"; name; data ] ->
 					(* If a queue for [name] doesn't already exist, make it now *)
 					let q = find_or_create_queue name in
-					Queue.push data q;
-					Server.respond_string ~status:`OK ~body:(Printf.sprintf "queue now has length %d" (Queue.length q)) ()
+					Hashtbl.replace queues name (IntMap.add (make_unique_id ()) data q);
+					Server.respond_string ~status:`OK ~body:(Printf.sprintf "queue now has length %d" (IntMap.cardinal q + 1)) ()
 				| _, _ ->
 					Server.respond_not_found (Request.uri req) ()
 			in
