@@ -61,19 +61,17 @@ let make_unique_id =
 
 module IntMap = Map.Make(struct type t = int64 let compare = Int64.compare end)
 
-open Sexplib.Conv
-
 type origin =
 	| Anonymous of int (** An un-named connection, probably a temporary client connection *)
 	| Name of string   (** A service with a well-known name *)
-with sexp
+with rpc
 
 module Message = struct
 	type t = {
 		origin: origin;
 		time: float; (* XXX this is for judging age: use oclock/clock_monotonic *)
 		payload: string;
-	} with sexp
+	} with rpc
 
 	let make origin payload =
 		let time = 0. in
@@ -83,7 +81,7 @@ end
 type transfer = {
 	dropped: int;
 	messages: (int64 * Message.t) list;
-} with sexp
+} with rpc
 
 let queues : (string, Message.t IntMap.t) Hashtbl.t = Hashtbl.create 128
 
@@ -129,7 +127,7 @@ let make_server () =
 						dropped = IntMap.cardinal dropped + (match also_dropped with Some _ -> 1 | None -> 0);
 						messages = IntMap.fold (fun id m acc -> (id, m) :: acc) not_acked [];
 					} in
-					Server.respond_string ~status:`OK ~body:(Sexplib.Sexp.to_string_hum (sexp_of_transfer transfer)) ()
+					Server.respond_string ~status:`OK ~body:(Jsonrpc.to_string (rpc_of_transfer transfer)) ()
 				| `GET, [ ""; "send"; name; data ] ->
 					(* If a queue for [name] doesn't already exist, make it now *)
 					let q = find_or_create_queue name in
