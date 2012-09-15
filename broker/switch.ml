@@ -40,9 +40,31 @@ let rec split ?limit:(limit=(-1)) c s =
 
 let port = ref 8080
 
-
-
 open Cohttp_lwt_unix
+
+let no_name () =
+	Server.respond_string ~status:`Bad_request ~body:"no name has been bound" ()
+
+let no_binding x =
+	Server.respond_string ~status:`Not_found ~body:(Printf.sprintf "name %s is not bound" x) ()
+
+let redirect x =
+	let headers = Header.add (Header.init()) "Location" x in
+	Server.respond_string ~headers ~status:`Found ~body:"" ()
+
+let make_unique_id =
+	let counter = ref 0 in
+	fun () ->
+		let result = !counter in
+		incr counter;
+		string_of_int result
+
+let queues : (string, string Queue.t) Hashtbl.t = Hashtbl.create 128
+
+let find_or_create_queue name =
+	if not(Hashtbl.mem queues name) then Hashtbl.replace queues name (Queue.create ());
+	Hashtbl.find queues name
+
 let make_server () =
 	let (_: unit Lwt.t) = UnixServer.serve_forever () in
 	debug "Started server on unix domain socket";
@@ -55,18 +77,33 @@ let make_server () =
   			(* (Response.t * Body.t) Lwt.t *)
 			let callback conn_id ?body req = match Request.meth req, split '/' (Request.path req) with
 				| `GET, [ ""; "bind"; name ] ->
-					let unique_id = "foo" in
-					lwt () = write xs (Printf.sprintf "/name/%s" name) unique_id in
-		  			(* Set cookie so we can identify this connection *)
-					let headers = Header.add (Header.init ()) "Set-Cookie" (Printf.sprintf "connection=%s" unique_id) in
-					Server.respond_string ~headers ~status:`OK ~body:"bind name" ()
-				| `POST, [ ""; "send"; destination ] ->
-					Server.respond_string ~status:`OK ~body:"send message, has id 1" ()
+					(* If a queue for [name] doesn't already exist, make it now *)
+					let (_: 'a Queue.t) = find_or_create_queue name in
+					lwt () = write xs (Printf.sprintf "/name/%s" name) (string_of_int conn_id) in
+					lwt () = write xs (Printf.sprintf "/id/%s" (Server.string_of_conn_id conn_id)) name in
+					redirect "/connection"
+				| `GET, [ ""; "connection" ] ->
+					lwt name = read xs (Printf.sprintf "/id/%s" (Server.string_of_conn_id conn_id)) in
+					let q = if Hashtbl.mem queues name then Some (Hashtbl.find queues name) else None in
+					let qlen = match q with Some x -> Queue.length x | None -> -1 in
+					Server.respond_string ~status:`OK ~body:(Printf.sprintf "name = %s; length = %d" name qlen) ()
+				| `GET, [ ""; "send"; name; data ] ->
+					(* If a queue for [name] doesn't already exist, make it now *)
+					let q = find_or_create_queue name in
+					Queue.push data q;
+					Server.respond_string ~status:`OK ~body:(Printf.sprintf "queue now has length %d" (Queue.length q)) ()
 				| _, _ ->
 					Server.respond_not_found (Request.uri req) ()
 			in
 			let conn_closed conn_id () =
-				Printf.eprintf "conn %s closed\n%!" (Server.string_of_conn_id conn_id)
+				let c = Server.string_of_conn_id conn_id in
+				Printf.eprintf "conn %s closed\n%!" c;
+				let _ : unit Lwt.t =
+					lwt name = read xs (Printf.sprintf "/id/%s" c) in
+					lwt () = rm xs (Printf.sprintf "/name/%s" name) in
+					lwt () = rm xs (Printf.sprintf "/id/%s" c) in
+					return () in
+				()
 			in
 
 			debug "Message switch starting";

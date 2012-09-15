@@ -32,5 +32,5 @@ switch: xs_transport_unix.cmx switch.cmx
 
 .PHONY: clean
 clean:
-	rm -f *.pdf *.html *.tex *.out switch
+	rm -f *.pdf *.html *.tex *.out *.cmx *.cmi switch
 
