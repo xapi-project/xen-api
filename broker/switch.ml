@@ -61,7 +61,31 @@ let make_unique_id =
 
 module IntMap = Map.Make(struct type t = int64 let compare = Int64.compare end)
 
-let queues : (string, string IntMap.t) Hashtbl.t = Hashtbl.create 128
+open Sexplib.Conv
+
+type origin =
+	| Anonymous of int (** An un-named connection, probably a temporary client connection *)
+	| Name of string   (** A service with a well-known name *)
+with sexp
+
+module Message = struct
+	type t = {
+		origin: origin;
+		time: float; (* XXX this is for judging age: use oclock/clock_monotonic *)
+		payload: string;
+	} with sexp
+
+	let make origin payload =
+		let time = 0. in
+		{ origin; time; payload }
+end
+
+type transfer = {
+	dropped: int;
+	messages: (int64 * Message.t) list;
+} with sexp
+
+let queues : (string, Message.t IntMap.t) Hashtbl.t = Hashtbl.create 128
 
 let find_or_create_queue name =
 	if not(Hashtbl.mem queues name) then Hashtbl.replace queues name IntMap.empty;
@@ -76,6 +100,13 @@ let make_server () =
 	lwt client = make () in
 	with_xs client
 		(fun xs ->
+			let origin_of_conn_id conn_id =
+				try_lwt
+					lwt name = read xs (Printf.sprintf "/id/%s" (Server.string_of_conn_id conn_id)) in
+					return (Name name)
+				with _ ->
+					return (Anonymous conn_id) in
+
   			(* (Response.t * Body.t) Lwt.t *)
 			let callback conn_id ?body req = match Request.meth req, split '/' (Request.path req) with
 				| `GET, [ ""; "bind"; name ] ->
@@ -94,11 +125,16 @@ let make_server () =
 					let q = find_or_create_queue name in
 					let dropped, also_dropped, not_acked = IntMap.split (Int64.of_string ack_to) q in
 					Hashtbl.replace queues name not_acked;
-					Server.respond_string ~status:`OK ~body:(Printf.sprintf "dropped %d items, returning %d items" (IntMap.cardinal dropped + (match also_dropped with Some x -> 1 | None -> 0)) (IntMap.cardinal not_acked)) ()
+					let transfer = {
+						dropped = IntMap.cardinal dropped + (match also_dropped with Some _ -> 1 | None -> 0);
+						messages = IntMap.fold (fun id m acc -> (id, m) :: acc) not_acked [];
+					} in
+					Server.respond_string ~status:`OK ~body:(Sexplib.Sexp.to_string_hum (sexp_of_transfer transfer)) ()
 				| `GET, [ ""; "send"; name; data ] ->
 					(* If a queue for [name] doesn't already exist, make it now *)
 					let q = find_or_create_queue name in
-					Hashtbl.replace queues name (IntMap.add (make_unique_id ()) data q);
+					lwt origin = origin_of_conn_id conn_id in
+					Hashtbl.replace queues name (IntMap.add (make_unique_id ()) (Message.make origin data) q);
 					Server.respond_string ~status:`OK ~body:(Printf.sprintf "queue now has length %d" (IntMap.cardinal q + 1)) ()
 				| _, _ ->
 					Server.respond_not_found (Request.uri req) ()
