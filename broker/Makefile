@@ -12,7 +12,7 @@ broker.tex: $(INPUTS)
 broker.html: $(INPUTS)
 	pandoc --toc --standalone $(INPUTS) -f html -o $@
 
-PACKS=lwt,lwt.unix,lwt.syntax,cohttp,cohttp.lwt,xenstore,xenstore.server,xenstore.client,rpc-light,rpc-light.json,rpc-light.syntax
+PACKS=lwt,lwt.unix,lwt.syntax,cohttp,cohttp.lwt,xenstore,xenstore.server,xenstore.client,rpc,rpc.json,rpc.syntax
 
 switch: xs_transport_unix.cmx switch.cmx
 	ocamlfind ocamlopt -package "${PACKS}" -linkpkg -o switch xs_transport_unix.cmx switch.cmx
