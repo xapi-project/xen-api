@@ -738,8 +738,8 @@ let server_init() =
           (* CP-729: alert to notify client if internal event hook ext_auth.on_xapi_initialize fails *)
           ignore (Helpers.call_api_functions ~__context (fun rpc session_id ->
             (* we need to create the alert on the *master* so that XenCenter will be able to pick it up *)
-            Client.Client.Message.create ~rpc ~session_id ~name:Api_messages.auth_external_init_failed 
-              ~priority:1L ~cls:`Host ~obj_uuid ~body:(
+            let (name, priority) = Api_messages.auth_external_init_failed in
+            Client.Client.Message.create ~rpc ~session_id ~name ~priority ~cls:`Host ~obj_uuid ~body:(
                 "host_external_auth_type="^auth_type^
                 ", host_external_auth_service_name="^service_name^
                 ", error="^ (match !last_error with None -> "timeout" | Some e ->
