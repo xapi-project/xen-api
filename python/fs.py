@@ -798,6 +798,7 @@ if __name__ == "__main__":
     settings = {
         "log": "stdout:",
         "port": None,
+        "interface": None,
         "ip": None,
         "socket": "/var/xapi/sm/fs",
         "daemon": False,
@@ -811,6 +812,7 @@ if __name__ == "__main__":
     types = {
         "log": string_t,
         "port": int_t,
+        "interface": string_t,
         "ip": string_t,
         "socket": string_t,
         "daemon": bool_t,
@@ -824,6 +826,7 @@ if __name__ == "__main__":
     parser = OptionParser()
     parser.add_option("-l", "--log", dest="logfile", help="log to LOG", metavar="LOG")
     parser.add_option("-p", "--port", dest="port", help="listen on PORT", metavar="PORT")
+    parser.add_option("-e", "--interface", dest="interface", help="listen on network interface", metavar="ethN")
     parser.add_option("-i", "--ip-addr", dest="ip", help="listen on IP", metavar="IP")
     parser.add_option("-s", "--socket", dest="socket", help="listen on Unix domain socket", metavar="SOCK")
     parser.add_option("-d", "--daemon", action="store_true", dest="daemon", help="run as a background daemon", metavar="DAEMON")
@@ -859,11 +862,15 @@ if __name__ == "__main__":
         xcp.use_syslog = False
         xcp.reopenlog(settings["log"])
 
-    tcp = settings["ip"] and settings["port"]
+    tcp = (settings["ip"] or settings["interface"]) and settings["port"]
     unix = settings["socket"]
     if not tcp and not unix:
-        print >>sys.stderr, "Need an --ip-addr and --port or a --socket. Use -h for help"
+        print >>sys.stderr, "Need an --ip-addr/--interface and --port or a --socket. Use -h for help"
         sys.exit(1)
+
+    if settings["interface"]:
+        settings["ip"] = util.address_from_interface(settings["interface"])
+        log("using ip address %s of interface %s" % (settings["ip"], settings["interface"]))
 
     if settings["daemon"]:
         log("daemonising")

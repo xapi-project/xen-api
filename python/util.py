@@ -24,6 +24,9 @@ import resource
 import exceptions
 import traceback
 import glob
+import socket
+import fcntl
+import struct
 
 IORETRY_MAX = 20 # retries
 IORETRY_PERIOD = 1.0 # seconds
@@ -224,3 +227,11 @@ def ismount(path):
     if ino1 == ino2:
         return True     # path/.. is the same i-node as path
     return False
+
+def address_from_interface(ifname):
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    return socket.inet_ntoa(fcntl.ioctl(
+        s.fileno(),
+        0x8915,  # SIOCGIFADDR
+        struct.pack('256s', ifname[:15])
+    )[20:24])
