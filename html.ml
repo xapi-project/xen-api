@@ -302,7 +302,7 @@ let index_html oc pages =
 			xmlm (`Data "XCP Host APIs");
 			xmlm endtag;
 			xmlm p;
-			xmlm (`Data "XCP is built from a number of separate services including: a domain manager, a storage manager, a host networking manager and a statistics collector. In the future some of these services will be located within isolated domains, which means they can only communicate via explicit APIs. This site contains the prototype API definitions and example code.");
+			xmlm (`Data "This site contains prototype API definitions and example code fragments for interoperating with services running on an XCP host.");
 			xmlm endtag; (* p *)
 			xmlm (`El_start (("", "a"), [("", "class"), "btn btn-primary btn-large"; ("", "href"), "https://github.com/xen-org"]));
 			xmlm (`El_start (("", "i"), [("", "class"), "icon-github-sign icon-large"]));
@@ -331,9 +331,7 @@ let index_html oc pages =
 							xmlm endtag;
 							xmlm p;
 							xmlm (`El_start (("", "a"), [("", "class"), "btn btn-info"; ("", "href"), page.filename]));
-							xmlm (`El_start (("", "i"), [("", "class"), "icon-info-sign"]));
-							xmlm (`Data "View details »");
-							xmlm endtag;
+							xmlm (`Data "View details");
 							xmlm endtag;
 							xmlm endtag;
 							xmlm endtag;
