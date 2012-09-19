@@ -469,6 +469,12 @@ let resynchronise_ha_state () =
 	try
 		Server_helpers.exec_with_new_task "resynchronise_ha_state"
 			(fun __context ->
+				(* Make sure the control domain is marked as "running" - in the case of *)
+				(* HA failover it will have been marked as "halted". *)
+				let control_domain_uuid = Util_inventory.lookup Util_inventory._control_domain_uuid in
+				let control_domain = Db.VM.get_by_uuid ~__context ~uuid:control_domain_uuid in
+				Db.VM.set_power_state ~__context ~self:control_domain ~value:`Running;
+
 				let pool = Helpers.get_pool ~__context in
 				let pool_ha_enabled = Db.Pool.get_ha_enabled ~__context ~self:pool in
 				let local_ha_enabled = bool_of_string (Localdb.get Constants.ha_armed) in
