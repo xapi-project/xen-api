@@ -274,6 +274,12 @@ let resolve_references (idents: (string * Ident.t) list) i =
 
   { i with Interfaces.interfaces = List.map of_interface i.Interfaces.interfaces }
 
+let resolve_refs_in_api api =
+	let idents, api = lift_type_decls api in
+	dump_ident_mappings idents;
+	idents, (resolve_references idents api)
+
+
 let with_buffer f =
   let buffer = Buffer.create 128 in
   f (Buffer.add_string buffer);
