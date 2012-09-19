@@ -157,6 +157,10 @@ let is_guest_installer_network = "is_guest_installer_network"
 
 let is_host_internal_management_network = "is_host_internal_management_network"
 
+(* Used to override the check which blocks VM start or migration if a VIF is on an internal
+   network which is pinned to a particular host. *)
+let assume_network_is_shared = "assume_network_is_shared"
+
 let auto_scan = "auto-scan" (* if set in SR.other_config, scan the SR in the background *)
 let auto_scan_interval = "auto-scan-interval" (* maybe set in Host.other_config *)
 
