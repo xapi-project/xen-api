@@ -51,6 +51,9 @@ function get_release_name(s)
 	case 'boston':
 		return 'XCP 1.5';
 		break;
+	case 'tampa':
+		return 'XCP 1.6;
+		break;
 	default:
 		return 'Unreleased';
 		break;
