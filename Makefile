@@ -14,17 +14,17 @@ RPM_SOURCESDIR?=$(shell rpm --eval='%_sourcedir')
 RPMBUILD?=rpmbuild
 
 
-idl: types.cmx smapiv2.cmx xenops.cmx memory.cmx main.cmx
-	${OCAMLFIND} ocamlopt -package xmlm,stdext -linkpkg -g -o idl types.cmx smapiv2.cmx xenops.cmx memory.cmx main.cmx
+idl: types.cmx smapiv2.cmx xenops.cmx memory.cmx python.cmx html.cmx main.cmx
+	${OCAMLFIND} ocamlopt -package xmlm -linkpkg -g -o idl types.cmx smapiv2.cmx xenops.cmx memory.cmx python.cmx html.cmx main.cmx
 
-toplevel: types.cmo smapiv2.cmo xenops.cmo memory.cmo
-	${OCAMLFIND} ocamlmktop -thread -package xmlm,stdext -linkpkg -g -o toplevel types.cmo smapiv2.cmo xenops.cmo memory.cmo
+toplevel: types.cmo smapiv2.cmo xenops.cmo memory.cmo python.cmo html.cmo
+	${OCAMLFIND} ocamlmktop -thread -package xmlm -linkpkg -g -o toplevel types.cmo smapiv2.cmo xenops.cmo memory.cmo python.cmo html.cmo
 
 %.cmx: %.ml
-	${OCAMLFIND} ocamlopt -package xmlm,stdext -c -g $<
+	${OCAMLFIND} ocamlopt -package xmlm -c -g -I . $<
 
 %.cmo: %.ml
-	${OCAMLFIND} ocamlc -package xmlm,stdext -c -g $<
+	${OCAMLFIND} ocamlc -package xmlm -c -g -I . $<
 
 PYPATH=/usr/lib/xcp-sm-fs
 
@@ -70,4 +70,4 @@ srpm: python/xcp-sm-fs.spec xcp-sm-fs-0.9.tar.bz2
 
 .PHONY: clean
 clean:
-	rm -f *.cmx *.cmo idl toplevel
+	rm -f *.cmx *.cmo *.cmi idl toplevel

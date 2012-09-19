@@ -1,3 +1,4 @@
+default: switch
 
 all: pdf html
 

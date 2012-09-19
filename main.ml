@@ -1,13 +1,34 @@
-open Pervasiveext
 open Types
 
-let with_file filename f =
-  let oc = open_out filename in
-  finally (fun () -> f oc) (fun () -> close_out oc)
+let finally f g =
+	try
+		let result = f () in
+		g ();
+		result
+	with e ->
+		g ();
+		raise e
 
-let print_file_to oc =
-  let output_line oc txt = output_string oc txt; output_string oc "\n" in
-  Unixext.file_lines_iter (output_line oc)
+let with_output_file filename f =
+	let oc = open_out filename in
+	finally (fun () -> f oc) (fun () -> close_out oc)
+
+let with_input_file filename f =
+	let ic = open_in filename in
+	finally (fun () -> f ic) (fun () -> close_in ic)
+
+let dd ic oc =
+	try
+		while true do
+			output_char oc (input_char ic)
+		done
+	with End_of_file -> ()
+
+let print_file_to oc filename =
+	with_input_file filename
+		(fun ic ->
+			dd ic oc
+		)
 
 type page = {
   name: string;
@@ -29,6 +50,8 @@ let page_of_api api =
 }
 
 module Html = struct
+	include Html
+
   let div cls = `El_start (("", "div"), [ ("", "class"), cls ])
   let a cls toggle target = `El_start (("", "a"), [ ("", "class"), cls; ("", "data-toggle"), toggle; ("", "data-target"), target ])
   let span cls = `El_start (("", "span"), [ ("", "class"), cls ])
@@ -145,25 +168,25 @@ let _ =
 
   List.iter
     (fun page ->
-      with_file page.path
+      with_output_file page.path
        (fun oc ->
 	 print_file_to oc ("doc/header.html");
 	 html_navbar oc pages (Some page);
 	 let idents, api = resolve_refs_in_api page.api in
-	 output_string oc (Types.to_html idents api);
+	 output_string oc (Html.to_string idents api);
 	 print_file_to oc ("doc/footer.html")
       );
     ) pages;
-  with_file "doc/index.html"
+  with_output_file "doc/index.html"
     (fun oc ->
       index_html oc pages
     );
   List.iter
     (fun api ->
-     with_file (Printf.sprintf "python/%s.py" api.Interfaces.name)
+     with_output_file (Printf.sprintf "python/%s.py" api.Interfaces.name)
        (fun oc ->
 	 let idents, api = resolve_refs_in_api api in
-	 output_string oc (Types.To_python.of_interfaces idents api |> Types.To_python.string_of_ts)
+	 output_string oc (Python.of_interfaces idents api |> Python.string_of_ts)
        )
     ) apis
 

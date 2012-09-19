@@ -1,0 +1,238 @@
+open Types
+
+let to_string env x =
+	let open Xmlm in
+    let buffer = Buffer.create 128 in
+    let output = Xmlm.make_output ~nl:true ~indent:(Some 4) (`Buffer buffer) in
+    Xmlm.output output (`Dtd None);
+    Buffer.reset buffer;
+    let wrap ?id name body =
+		let attrs = match id with
+			| None -> []
+			| Some id -> [ ("", "id"), id ] in
+		Xmlm.output output (`El_start (("", name), attrs));
+		Xmlm.output output (`Data body);
+		Xmlm.output output (`El_end) in
+    let h1 ?id = wrap ?id "h1" in
+    let h2 ?id = wrap ?id "h2" in
+    let h3 ?id = wrap ?id "h3" in
+    let td = wrap "td" in
+    let pre ?lang txt =
+		let cls = match lang with
+			| None -> "prettyprint"
+			| Some x -> Printf.sprintf "prettyprint lang-%s" x in
+		Xmlm.output output (`El_start (("", "pre"), [ ("", "class"), cls ]));
+		Xmlm.output output (`Data txt);
+		Xmlm.output output (`El_end) in
+    let code ?id = wrap ?id "code" in
+    let wrapf ?cls name items =
+		let attrs = match cls with
+			| None -> []
+			| Some cls -> [ ("", "class"), cls ] in
+		Xmlm.output output (`El_start (("", name), attrs));
+		items ();
+		Xmlm.output output (`El_end) in
+    let tdcode x = wrapf "td" (fun () -> code x) in
+    let th = wrapf "th" in
+    let tr = wrapf "tr" in
+    let ul ?cls = wrapf ?cls "ul" in
+    let li ?cls = wrapf ?cls "li" in
+    let p = wrap "p" in
+    let a_href ?toggle ?icon link txt =
+		let toggle = match toggle with
+			| None -> []
+			| Some x -> [ ("", "data-toggle"), x ] in
+		Xmlm.output output (`El_start (("", "a"), [ ("", "href"), link ] @ toggle));
+		begin match icon with | None -> () | Some icon ->
+			Xmlm.output output (`El_start (("", "i"), [ ("", "class"), icon ]));
+			Xmlm.output output (`Data "");
+			Xmlm.output output (`El_end)
+		end;
+	
+		Xmlm.output output (`Data txt);
+		Xmlm.output output (`El_end) in
+
+    let rec html_of_t =
+		let open Type in
+		let print txt = Xmlm.output output (`Data txt) in
+		function
+			| Basic b -> print (ocaml_of_basic b)
+			| Struct (_, _) -> print ("struct  { ... }")
+			| Variant (_, _) -> print ("variant { ... }")
+			| Array t -> html_of_t t; print " list"
+			| Dict (key, v) -> print (Printf.sprintf "(%s * " (ocaml_of_basic key)); html_of_t v; print ") list";
+			| Name x ->
+				let ident =
+					if not(List.mem_assoc x env)
+					then failwith (Printf.sprintf "Unable to find ident: %s" x)
+					else List.assoc x env in
+				a_href (Printf.sprintf "#a-%s" x) (String.concat "/" ident.Ident.name)
+			| Unit -> print "unit"
+			| Option x -> html_of_t x; print " option"
+			| Pair(a, b) -> html_of_t a; print " * "; html_of_t b in
+
+    let of_args args =
+		Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "alert alert-info" ]));
+		Xmlm.output output (`El_start (("", "table"), [ ("", "class"), "table table-striped" ]));
+		th (fun () -> td "Type"; td "Description");
+		List.iter
+			(fun arg ->
+				tr (fun () ->
+					tdcode arg.Arg.name;
+					wrapf "td"
+						(fun () ->
+							wrapf "code"
+								(fun () ->
+									html_of_t arg.Arg.ty;
+								)
+						);
+					td arg.Arg.description);
+			) args;
+		Xmlm.output output (`El_end);
+		Xmlm.output output (`El_end) in
+
+    Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "container-fluid" ]));
+    Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "row-fluid" ]));
+
+    (* Side bar *)
+    Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "span2" ]));
+    Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "well sidebar-nav" ]));
+    ul ~cls:"nav nav-list" (fun () ->
+		List.iter (fun t ->
+			let ident = ident_of_type_decl env t in
+			li (fun () ->
+				a_href (* ~toggle:"tab" *) ~icon:"icon-pencil" (Printf.sprintf "#a-%s" ident.Ident.id) t.TyDecl.name
+			)
+		) x.Interfaces.type_decls;
+		List.iter (fun i ->
+			li ~cls:"nav-header" (fun () ->
+				a_href (* ~toggle:"tab" *) ~icon:"icon-book" (Printf.sprintf "#a-%s" i.Interface.name) i.Interface.name
+			);
+			List.iter (fun t ->
+				let ident = ident_of_type_decl env t in
+				li (fun () ->
+					a_href (* ~toggle:"tab" *) ~icon:"icon-pencil" (Printf.sprintf "#a-%s" ident.Ident.id) t.TyDecl.name
+				)
+			) i.Interface.type_decls;
+			List.iter (fun m ->
+				li (fun () ->
+					a_href (* ~toggle:"tab" *) ~icon:"icon-cogs" (Printf.sprintf "#a-%s" m.Method.name) m.Method.name
+				)
+			) i.Interface.methods
+		) x.Interfaces.interfaces;
+		li ~cls:"nav-header" (fun () ->
+			a_href "#a-exceptions" "Exceptions";
+		);
+(*
+	List.iter (fun t ->
+	  li (fun () ->
+	    let ident = ident_of_type_decl env t in
+	    a_href (Printf.sprintf "#a-%s" ident.Ident.id) t.TyDecl.name
+	  )
+	) x.Interfaces.exn_decls;
+*)
+    );
+	Xmlm.output output (`El_end);
+	Xmlm.output output (`El_end);
+
+	let of_struct_variant_fields all =
+		Xmlm.output output (`El_start (("", "table"), [ ("", "class"), "table table-striped table-condensed" ]));
+		th (fun () -> td "Type"; td "Description");
+		List.iter
+			(fun (name, ty, descr) ->
+				tr (fun () ->
+					tdcode name;
+					tdcode (Type.ocaml_of_t ty);
+					td descr
+				)
+			) all;
+		Xmlm.output output (`El_end) in
+    let of_type_decl t =
+		let ident = ident_of_type_decl env t in
+		h2 ~id:(Printf.sprintf "a-%s" ident.Ident.id) (Printf.sprintf "type %s = %s" t.TyDecl.name (Type.string_of_t ident.Ident.ty));
+		p t.TyDecl.description;
+		match ident.Ident.original_ty with
+			| Type.Struct(hd, tl) ->
+				p "Members:";
+				of_struct_variant_fields (hd :: tl)
+			| Type.Variant(hd, tl) ->
+				p "Constructors:";
+				of_struct_variant_fields (hd :: tl)
+			| _ -> () in
+
+    (* Main content *)
+    Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "span10" ]));
+    h1 ~id:(Printf.sprintf "a-%s" x.Interfaces.name) (Printf.sprintf "%s: %s" x.Interfaces.name x.Interfaces.title);
+    p x.Interfaces.description;
+    List.iter of_type_decl x.Interfaces.type_decls;
+    List.iter
+		(fun i ->
+			h2 ~id:(Printf.sprintf "a-%s" i.Interface.name) i.Interface.name;
+			p i.Interface.description;
+			List.iter of_type_decl i.Interface.type_decls;
+			List.iter
+				(fun m ->
+					h3 ~id:(Printf.sprintf "a-%s" m.Method.name) m.Method.name;
+					p m.Method.description;
+					Buffer.add_string buffer
+						(Printf.sprintf "
+          <ul id=\"tab\" class=\"nav nav-tabs\">
+            <li class=\"active\"><a href=\"#defn-%s\" data-toggle=\"tab\">Definition</a></li>
+            <li><a href=\"#dbus-%s\" data-toggle=\"tab\">DBUS XML</a></li>
+            <li><a href=\"#ocaml-%s\" data-toggle=\"tab\">ocaml</a></li>
+            <li><a href=\"#python-server-%s\" data-toggle=\"tab\">python server</a></li>
+          </ul>
+          <div id=\"myTabContent\" class=\"tab-content\">
+            <div class=\"tab-pane fade in active\" id=\"defn-%s\">
+" m.Method.name m.Method.name m.Method.name m.Method.name m.Method.name);
+					p "inputs:";
+					of_args m.Method.inputs;
+					p "outputs:";
+					of_args m.Method.outputs;
+					Buffer.add_string buffer
+(Printf.sprintf "
+            </div>
+            <div class=\"tab-pane fade\" id=\"dbus-%s\">
+" m.Method.name);
+					pre (with_xmlm (To_dbus.of_method env m));
+					Buffer.add_string buffer
+(Printf.sprintf "
+            </div>
+            <div class=\"tab-pane fade\" id=\"ocaml-%s\">
+" m.Method.name);
+					pre ~lang:"ml" (with_buffer (To_rpclight.of_method m));
+					Buffer.add_string buffer
+(Printf.sprintf "
+            </div>
+            <div class=\"tab-pane fade\" id=\"python-server-%s\">
+" m.Method.name);
+					pre ~lang:"python" (Python.example_skeleton_user env i m |> Python.string_of_ts);
+					Buffer.add_string buffer
+(Printf.sprintf "
+            </div>
+          </div>
+");
+				) i.Interface.methods;
+		) x.Interfaces.interfaces;
+
+    h1 ~id:"a-exceptions" "Exceptions";
+
+    Xmlm.output output (`El_start (("", "table"), [ ("", "class"), "table table-striped table-condensed" ]));
+    th (fun () -> td "Parameter Types"; td "Description");
+    List.iter
+		(fun t ->
+			let ident = ident_of_type_decl env t in
+			tr (fun () ->
+				tdcode (String.concat "/" ident.Ident.name);
+				tdcode (Type.ocaml_of_t ident.Ident.original_ty);
+				td ident.Ident.description
+			)
+		) x.Interfaces.exn_decls;
+    Xmlm.output output (`El_end);
+
+    Xmlm.output output (`El_end);
+    Xmlm.output output (`El_end);
+    Xmlm.output output (`El_end);
+    Buffer.contents buffer
+
+
