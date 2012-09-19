@@ -28,8 +28,12 @@ open Api_errors
 include Helper_hostname
 include Helper_process
 
+module Net = (val (Network.get_client ()) : Network.CLIENT)
+
 module D=Debug.Debugger(struct let name="helpers" end)
 open D
+
+module StringSet = Set.Make(String)
 
 let log_exn_continue msg f x = try f x with e -> debug "Ignoring exception: %s while %s" (ExnHelper.string_of_exn e) msg
 
@@ -53,12 +57,26 @@ let checknull f =
   try f() with
       _ -> "<not in database>"
 
-let get_management_ip_addr () =
-  try
-    let addrs = Netdev.Addr.get (Xapi_inventory.lookup Xapi_inventory._management_interface) in
-    let (addr,netmask) = List.hd addrs in
-      Some (Unix.string_of_inet_addr addr)
-  with e -> None
+let get_primary_ip_addr ~__context iface primary_address_type =
+	if iface = "" then
+		None
+	else
+		try
+			let dbg = Context.string_of_task __context in
+			let addrs = match primary_address_type with
+				| `IPv4 -> Net.Interface.get_ipv4_addr dbg ~name:iface
+				| `IPv6 -> Net.Interface.get_ipv6_addr dbg ~name:iface
+			in
+			let addrs = List.map (fun (addr, _) -> Unix.string_of_inet_addr addr) addrs in
+			(* Filter out link-local addresses *)
+			let addrs = List.filter (fun addr -> String.sub addr 0 4 <> "fe80") addrs in
+			Some (List.hd addrs)
+		with _ -> None
+
+let get_management_ip_addr ~__context =
+	get_primary_ip_addr ~__context
+		(Xapi_inventory.lookup Xapi_inventory._management_interface)
+		(Record_util.primary_address_type_of_string (Xapi_inventory.lookup Xapi_inventory._management_address_type ~default:"ipv4"))
 
 let get_localhost_uuid () =
   Xapi_inventory.lookup Xapi_inventory._installation_uuid
@@ -66,6 +84,50 @@ let get_localhost_uuid () =
 let get_localhost ~__context : API.ref_host  =
     let uuid = get_localhost_uuid () in
 	Db.Host.get_by_uuid ~__context ~uuid
+
+let update_pif_address ~__context ~self =
+	let network = Db.PIF.get_network ~__context ~self in
+	let bridge = Db.Network.get_bridge ~__context ~self:network in
+	let dbg = Context.string_of_task __context in
+	try
+		begin
+			match Net.Interface.get_ipv4_addr dbg bridge with
+			| (addr, plen) :: _ ->
+				let ip = Unix.string_of_inet_addr addr in
+				let netmask = Network_interface.prefixlen_to_netmask plen in
+				if ip <> Db.PIF.get_IP ~__context ~self || netmask <> Db.PIF.get_netmask ~__context ~self then begin
+					debug "PIF %s bridge %s IP address changed: %s/%s" (Db.PIF.get_uuid ~__context ~self) bridge ip netmask;
+					Db.PIF.set_IP ~__context ~self ~value:ip;
+					Db.PIF.set_netmask ~__context ~self ~value:netmask
+				end
+			| _ -> ()
+		end;
+		let ipv6_addr = Net.Interface.get_ipv6_addr dbg ~name:bridge in
+		let ipv6_addr' = List.map (fun (addr, plen) -> Printf.sprintf "%s/%d" (Unix.string_of_inet_addr addr) plen) ipv6_addr in
+		if ipv6_addr' <> Db.PIF.get_IPv6 ~__context ~self then begin
+			debug "PIF %s bridge %s IPv6 address changed: %s" (Db.PIF.get_uuid ~__context ~self)
+				bridge (String.concat "; " ipv6_addr');
+			Db.PIF.set_IPv6 ~__context ~self ~value:ipv6_addr'
+		end
+	with _ ->
+		debug "Bridge %s is not up; not updating IP" bridge
+
+let update_pif_addresses ~__context =
+	debug "Updating IP addresses in DB for DHCP and autoconf PIFs";
+	let host = get_localhost ~__context in
+	let pifs = Db.PIF.get_refs_where ~__context ~expr:(
+		And (
+			Eq (Field "host", Literal (Ref.string_of host)),
+			Or (
+				Or (
+					(Eq (Field "ip_configuration_mode", Literal "DHCP")),
+					(Eq (Field "ipv6_configuration_mode", Literal "DHCP"))
+				),
+				(Eq (Field "ipv6_configuration_mode", Literal "Autoconf"))
+			)
+		)
+	) in
+	List.iter (fun self -> update_pif_address ~__context ~self) pifs
 
 let make_rpc ~__context xml : XMLRPC.xmlrpc =
     let subtask_of = Ref.string_of (Context.get_task_id __context) in
@@ -75,7 +137,14 @@ let make_rpc ~__context xml : XMLRPC.xmlrpc =
 		if Pool_role.is_master ()
 		then Unix(Xapi_globs.unix_domain_socket)
 		else SSL(SSL.make ~use_stunnel_cache:true (), Pool_role.get_master_address(), !Xapi_globs.https_port) in
-	XML_protocol.rpc ~transport ~http xml
+	XML_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http xml
+
+(* This one uses rpc-light *)
+let make_remote_rpc remote_address xml =
+	let open Xmlrpc_client in
+	let transport = SSL(SSL.make (), remote_address, !Xapi_globs.https_port) in
+	let http = xmlrpc ~version:"1.0" "/" in
+	XML_protocol.rpc ~srcstr:"xapi" ~dststr:"remote_xapi" ~transport ~http xml
 
 (** Log into pool master using the client code, call a function
     passing it the rpc function and session id, logout when finished. *)
@@ -122,7 +191,7 @@ let call_emergency_mode_functions hostname f =
 	let open Xmlrpc_client in
 	let transport = SSL(SSL.make (), hostname, !Xapi_globs.https_port) in
 	let http = xmlrpc ~version:"1.0" "/" in
-	let rpc = XML_protocol.rpc ~transport ~http in
+	let rpc = XML_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http in
   let session_id = Client.Client.Session.slave_local_login rpc !Xapi_globs.pool_secret in
   finally
     (fun () -> f rpc session_id)
@@ -234,23 +303,18 @@ let rolling_upgrade_in_progress ~__context =
 	with _ ->
 		false
 
+let parse_boot_record ~string:lbr =
+	match Xmlrpc_sexpr.sexpr_str_to_xmlrpc lbr with
+	| None     -> API.From.vM_t "ret_val" (Xml.parse_string lbr)
+	| Some xml -> API.From.vM_t "ret_val" xml
+
 (** Fetch the configuration the VM was booted with *)
 let get_boot_record_of_record ~__context ~string:lbr ~uuid:current_vm_uuid =
   try
-    try
-      begin
-        (* initially, try to parse lbr using new default sexpr format *)
-        API.From.vM_t "ret_val" (Xmlrpc_sexpr.sexpr_str_to_xmlrpc lbr)
-      end
-    with
-      (* xapi import/upgrade fallback: if sexpr parsing fails, try parsing using legacy xmlrpc format*)
-      Api_errors.Server_error (code,_) when code=Api_errors.field_type_error ->
-        begin
-          API.From.vM_t "ret_val" (Xml.parse_string lbr)
-        end
+    parse_boot_record lbr
   with e ->
-    warn "Warning: exception '%s' parsing last booted record - returning current record instead" (ExnHelper.string_of_exn e);
-      Db.VM.get_record ~__context ~self:(Db.VM.get_by_uuid ~__context ~uuid:current_vm_uuid)
+	(* warn "Warning: exception '%s' parsing last booted record (%s) - returning current record instead" lbr (ExnHelper.string_of_exn e); *)
+    Db.VM.get_record ~__context ~self:(Db.VM.get_by_uuid ~__context ~uuid:current_vm_uuid)
 
 let get_boot_record ~__context ~self =
   let r = Db.VM.get_record_internal ~__context ~self in
@@ -343,12 +407,6 @@ let has_booted_hvm_of_record ~__context r =
     let boot_record = get_boot_record_of_record ~__context ~string:r.Db_actions.vM_last_booted_record ~uuid:r.Db_actions.vM_uuid in
     boot_record.API.vM_HVM_boot_policy <> ""
 
-let device_protocol_of_string domarch =
-    match Domain.domarch_of_string domarch with
-    | Domain.Arch_HVM | Domain.Arch_native -> Device_common.Protocol_Native
-    | Domain.Arch_X32                      -> Device_common.Protocol_X86_32
-    | Domain.Arch_X64                      -> Device_common.Protocol_X86_64
-
 let is_running ~__context ~self = Db.VM.get_domid ~__context ~self <> -1L
 
 let devid_of_vif ~__context ~self =
@@ -371,7 +429,8 @@ let vif_of_devid ~__context ~vm devid =
 let domid_of_vm ~__context ~self =
   let uuid = Uuid.uuid_of_string (Db.VM.get_uuid ~__context ~self) in
   let all = Xenctrl.with_intf (fun xc -> Xenctrl.domain_getinfolist xc 0) in
-  let uuid_to_domid = List.map (fun di -> Uuid.uuid_of_int_array di.Xenctrl.handle, di.Xenctrl.domid) all in
+  let open Xenctrl.Domain_info in
+  let uuid_to_domid = List.map (fun di -> Uuid.uuid_of_int_array di.handle, di.domid) all in
   if List.mem_assoc uuid uuid_to_domid
   then List.assoc uuid uuid_to_domid
   else -1 (* for backwards compat with old behaviour *)
@@ -498,7 +557,8 @@ let assert_host_versions_not_decreasing :
 			raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []))
 
 (** Indicates whether ballooning is enabled for the given virtual machine. *)
-let ballooning_enabled_for_vm ~__context vm_record = true
+let ballooning_enabled_for_vm ~__context vm_record =
+	not vm_record.API.vM_is_control_domain
 
 let get_vm_metrics ~__context ~self =
     let metrics = Db.VM.get_metrics ~__context ~self in
@@ -525,20 +585,36 @@ let lookup_vdi_fields f vdi_refs l =
   let field_ops = List.map (fun r->do_lookup r l) vdi_refs in
   List.fold_right (fun m acc -> match m with None -> acc | Some x -> x :: acc) field_ops []
 
-(* Read pool secret if there, otherwise create a new one *)
+(* Read pool secret if it exists; otherwise, create a new one. *)
 let get_pool_secret () =
-  if (try (Unix.access pool_secret_path [Unix.F_OK]; true) with _ -> false) then
-    pool_secret := Unixext.string_of_file pool_secret_path
-  else
-    begin
-      let mk_rand_string () = Uuid.to_string (Uuid.make_uuid()) in
-    pool_secret := (mk_rand_string())^"/"^(mk_rand_string())^"/"^(mk_rand_string());
-        Unixext.write_string_to_file pool_secret_path !pool_secret
-    end
+	try
+		Unix.access Constants.pool_secret_path [Unix.F_OK];
+		pool_secret := Unixext.string_of_file Constants.pool_secret_path
+	with _ -> (* No pool secret exists. *)
+		let mk_rand_string () = Uuid.to_string (Uuid.make_uuid()) in
+		pool_secret := (mk_rand_string()) ^ "/" ^ (mk_rand_string()) ^ "/" ^ (mk_rand_string());
+		Unixext.write_string_to_file Constants.pool_secret_path !pool_secret
+
+(* Checks that a host has a PBD for a particular SR (meaning that the
+   SR is visible to the host) *)
+let host_has_pbd_for_sr ~__context ~host ~sr =
+	try
+		let sr_pbds = Db.SR.get_PBDs ~__context ~self:sr in
+		let sr_host_pbd = List.filter
+			(fun pbd -> host = Db.PBD.get_host ~__context ~self:pbd)
+			sr_pbds
+		in sr_host_pbd <> [] (* empty list means no PBDs *)
+	with _ -> false
 
 (* Checks if an SR exists, returning an SR ref option (None if it is missing) *)
 let check_sr_exists ~__context ~self =
-    try ignore(Db.SR.get_uuid ~__context ~self); Some self with _ -> None
+	try ignore(Db.SR.get_uuid ~__context ~self); Some self with _ -> None
+
+(* Checks that an SR exists, and is visible to a host *)
+let check_sr_exists_for_host ~__context ~self ~host =
+	if host_has_pbd_for_sr ~__context ~host ~sr:self
+	then Some self
+	else None
 
 (* Returns an SR suitable for suspending this VM *)
 let choose_suspend_sr ~__context ~vm =
@@ -551,9 +627,9 @@ let choose_suspend_sr ~__context ~vm =
     let host_sr = Db.Host.get_suspend_image_sr ~__context ~self:resident_on in
 
     match
-      check_sr_exists ~__context ~self:vm_sr,
-      check_sr_exists ~__context ~self:pool_sr,
-      check_sr_exists ~__context ~self:host_sr
+      check_sr_exists_for_host ~__context ~self:vm_sr   ~host:resident_on,
+      check_sr_exists_for_host ~__context ~self:pool_sr ~host:resident_on,
+      check_sr_exists_for_host ~__context ~self:host_sr ~host:resident_on
     with
     | Some x, _, _ -> x
     | _, Some x, _ -> x
@@ -614,8 +690,9 @@ let validate_ip_address str =
 	with _ -> None
 
 (** Returns true if the supplied IP address looks like one of mine *)
-let this_is_my_address address =
-  let inet_addrs = Netdev.Addr.get (Xapi_inventory.lookup Xapi_inventory._management_interface) in
+let this_is_my_address ~__context address =
+  let dbg = Context.string_of_task __context in
+  let inet_addrs = Net.Interface.get_ipv4_addr dbg ~name:(Xapi_inventory.lookup Xapi_inventory._management_interface) in
   let addresses = List.map Unix.string_of_inet_addr (List.map fst inet_addrs) in
   List.mem address addresses
 
@@ -626,13 +703,25 @@ let get_live_hosts ~__context =
          let metrics = Db.Host.get_metrics ~__context ~self in
          try Db.Host_metrics.get_live ~__context ~self:metrics with _ -> false) hosts
 
-(** Return the first IPv4 address we find for a hostname *)
+let gethostbyname_family host family =
+  let throw_resolve_error() = failwith (Printf.sprintf "Couldn't resolve hostname: %s" host) in
+  let getaddr x = match x with Unix.ADDR_INET (addr, port) -> addr | _ -> failwith "Expected ADDR_INET" in
+  let he = Unix.getaddrinfo host "" [ Unix.AI_SOCKTYPE(Unix.SOCK_STREAM); Unix.AI_FAMILY(family) ] in
+  if List.length he = 0
+  then throw_resolve_error();
+  Unix.string_of_inet_addr (getaddr (List.hd he).Unix.ai_addr)
+
+(** Return the first address we find for a hostname *)
 let gethostbyname host =
   let throw_resolve_error() = failwith (Printf.sprintf "Couldn't resolve hostname: %s" host) in
-  let he = try Unix.gethostbyname host with _ -> throw_resolve_error() in
-  if Array.length he.Unix.h_addr_list = 0
-  then throw_resolve_error();
-  Unix.string_of_inet_addr he.Unix.h_addr_list.(0)
+  let pref = Record_util.primary_address_type_of_string
+      (Xapi_inventory.lookup Xapi_inventory._management_address_type) in
+  try
+    gethostbyname_family host (if (pref == `IPv4) then Unix.PF_INET else Unix.PF_INET6)
+  with _ ->
+    (try
+      gethostbyname_family host (if (pref = `IPv4) then Unix.PF_INET6 else Unix.PF_INET)
+     with _ -> throw_resolve_error())
 
 (** Indicate whether VM.clone should be allowed on suspended VMs *)
 let clone_suspended_vm_enabled ~__context =
@@ -775,14 +864,6 @@ let weighted_random_choice weighted_items (* list of (item, integer) weight *) =
   let a, b = List.partition (fun (_, cumulative_weight) -> cumulative_weight <= w) cumulative in
   fst (List.hd b)
 
-let loadavg () =
-  let split_colon line =
-    List.filter (fun x -> x <> "") (List.map (String.strip String.isspace) (String.split ' ' line)) in
-  let all = Unixext.string_of_file "/proc/loadavg" in
-  try
-    float_of_string (List.hd (split_colon all))
-  with _ -> -1.
-
 let memusage () =
 	let memtotal, memfree, swaptotal, swapfree, buffers, cached =
 		ref None, ref None, ref None, ref None, ref None, ref None in
@@ -861,11 +942,6 @@ let copy_snapshot_metadata rpc session_id ?lookup_table ~src_record ~dst_ref =
 		~snapshot_time:src_record.API.vM_snapshot_time
 		~transportable_snapshot_id:src_record.API.vM_transportable_snapshot_id
 
-(** Remove all entries in this table except the valid_keys *)
-let remove_other_keys table valid_keys =
-  let keys = Hashtbl.fold (fun k v acc -> k :: acc) table [] in
-  List.iter (fun k -> if not (List.mem k valid_keys) then Hashtbl.remove table k) keys
-
 let update_vswitch_controller ~__context ~host =
 	try call_api_functions ~__context (fun rpc session_id ->
 		let result = Client.Client.Host.call_plugin ~rpc ~session_id ~host ~plugin:"openvswitch-cfg-update" ~fn:"update" ~args:[] in
@@ -883,20 +959,6 @@ let assert_vswitch_controller_not_active ~__context =
 	let net_type = Netdev.network.Netdev.kind in
 	if (controller <> "") && (net_type = Netdev.Vswitch) then
 		raise (Api_errors.Server_error (Api_errors.operation_not_allowed, ["A vswitch controller is active"]))
-
-let set_vm_uncooperative ~__context ~self ~value =
-  let current_value =
-	let oc = Db.VM.get_other_config ~__context ~self in
-	List.mem_assoc "uncooperative" oc && (bool_of_string (List.assoc "uncooperative" oc)) in
-  if value <> current_value then begin
-	info "VM %s uncooperative <- %b" (Ref.string_of self) value;
-	begin
-      try
-		Db.VM.remove_from_other_config ~__context ~self ~key:"uncooperative"
-      with _ -> ()
-	end;
-	Db.VM.add_to_other_config ~__context ~self ~key:"uncooperative" ~value:(string_of_bool value)
-  end
 
 (* Useful for making readable(ish) logs: *)
 let short_string_of_ref x =

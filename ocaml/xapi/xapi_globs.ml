@@ -19,10 +19,12 @@ open Printf
 
 module D = Debug.Debugger(struct let name="xapi_globs" end)
 
+(* set this to true to use the experimental codepath *)
+let use_xenopsd = ref false
+
 (* xapi process returns this code on exit when it wants to be restarted *)
 let restart_return_code = 123
 
-let pool_secret_path = Filename.concat Fhs.etcdir "ptoken"
 let pool_secret = ref ""
 
 let localhost_ref : [`host] Ref.t ref = ref Ref.null
@@ -80,10 +82,6 @@ let emergency_mode_error = ref (Api_errors.Server_error(Api_errors.host_still_bo
 
 let http_realm = "xapi"
 
-(* Special XS entry looked for by the XenSource PV drivers (see xenagentd.hg:src/xad.c) *)
-let xe_key = "/mh/XenSource-TM_XenEnterprise-TM"
-let xe_val = "XenSource(TM) and XenEnterprise(TM) are registered trademarks of XenSource Inc."
-
 (* Base path and some of its immediate dependencies. *)
 let xe_path = Filename.concat Fhs.bindir "xe"
 let sm_dir = Filename.concat Fhs.optdir "sm"
@@ -93,9 +91,8 @@ let log_config_file = ref (Filename.concat Fhs.etcdir "log.conf")
 let db_conf_path = Filename.concat Fhs.etcdir "db.conf"
 let remote_db_conf_fragment_path = Filename.concat Fhs.etcdir "remote.db.conf"
 let simulator_config_file = ref "/etc/XenServer-simulator.conf"
-let pool_config_file = Filename.concat Fhs.etcdir "pool.conf"
 let cpu_info_file = Filename.concat Fhs.etcdir "boot_time_cpus"
-let initial_host_free_memory_file = "/var/run/xapi/boot_time_memory"
+let initial_host_free_memory_file = "/var/run/nonpersistent/xapi/boot_time_memory"
 let using_rrds = ref false
 
 let ready_file = ref ""
@@ -160,6 +157,10 @@ let is_guest_installer_network = "is_guest_installer_network"
 
 let is_host_internal_management_network = "is_host_internal_management_network"
 
+(* Used to override the check which blocks VM start or migration if a VIF is on an internal
+   network which is pinned to a particular host. *)
+let assume_network_is_shared = "assume_network_is_shared"
+
 let auto_scan = "auto-scan" (* if set in SR.other_config, scan the SR in the background *)
 let auto_scan_interval = "auto-scan-interval" (* maybe set in Host.other_config *)
 
@@ -191,6 +192,7 @@ let tools_sr_dir = Filename.concat Fhs.sharedir "packages/iso"
 
 let default_template_key = "default_template"
 let linux_template_key = "linux_template"
+let base_template_name_key = "base_template_name"
 
 (* Keys to explain the presence of dom0 block-attached VBDs: *)
 let vbd_task_key = "task_id"
@@ -198,14 +200,6 @@ let related_to_key = "related_to"
 
 (* Set to true on the P2V server template and the tools SR *)
 let xensource_internal = "xensource_internal"
-
-let logrot_max = ref (1024*16*1024)
-(* CA-12242: use this script because otherwise logrotate has a habit of closing its own fds *)
-(* logrotate is called without a stdin, and when it fork-and-execs gzip, it opens the src *)
-(* getting fd 0, opens the dest getting fd 3, then forks, then dups 0 to 0, dups 3 to 1 and *)
-(* then closes 0 and 3! *)
-let logrot_cmd = Filename.concat Fhs.libexecdir "logrotate.sh"
-let logrot_arg = [ ]
 
 (* Error codes for internal storage backends -- these have counterparts in sm.hg/drivers/XE_SR_ERRORCODES.xml *)
 let sm_error_ISODconfMissingLocation = 1000
@@ -328,7 +322,7 @@ let sync_create_host_cpu = "sync_create_host_cpu"
 let sync_create_domain_zero = "sync_create_domain_zero"
 let sync_crashdump_resynchronise = "sync_crashdump_resynchronise"
 let sync_pbds = "sync_pbds"
-let sync_update_vms = "sync_update_vms"
+let sync_update_xenopsd = "sync_update_xenopsd"
 let sync_remove_leaked_vbds = "sync_remove_leaked_vbds"
 let sync_pif_params = "sync_pif_params"
 let sync_patch_update_db = "sync_patch_update_db"
@@ -430,7 +424,7 @@ let vm_operations_miami = [
 	`hard_shutdown;
 	`import;
 	`make_into_template;
-	`migrate;
+	`migrate_send;
 	`pause;
 	`pool_migrate;
 	`power_state_reset;
@@ -451,6 +445,8 @@ let viridian_key_name = "viridian"
 (* Viridian key value (set in new templates, in built-in templates on upgrade and when Orlando PV drivers up-to-date first detected) *)
 let default_viridian_key_value = "true"
 
+let device_id_key_name = "device_id"
+
 (* machine-address-size key-name/value; goes in other-config of RHEL5.2 template *)
 let machine_address_size_key_name = "machine-address-size"
 let machine_address_size_key_value = "36"
@@ -463,6 +459,9 @@ let create_min_max_in_new_VM_RRDs = "create_min_max_in_new_VM_RRDs"
 
 (* Pool.other_config key to enable pass-through of PIF carrier *)
 let pass_through_pif_carrier = "pass_through_pif_carrier"
+
+(* Remember the specific PCI devices needed for vGPU passthrough *)
+let vgpu_pci = "vgpu_pci"
 
 let dev_zero = "/dev/zero"
 
@@ -531,9 +530,6 @@ let event_hook_auth_on_xapi_initialize_succeeded = ref false
 
 (** Directory used by the v6 license policy engine for caching *)
 let upgrade_grace_file = Filename.concat Fhs.vardir "ugp"
-
-(** Where the ballooning daemon writes the initial overhead value *)
-let squeezed_reserved_host_memory = "/squeezed/reserved-host-memory"
 
 (** Xenclient enabled *)
 let xenclient_enabled = false
@@ -607,9 +603,6 @@ let master_connection_retry_timeout = ref (-1.)
 let master_connection_default_timeout = ref 10.
 
 let qemu_dm_ready_timeout = ref 300.
-
-(* seconds per balancing check *)
-let squeezed_balance_check_interval = ref 10.
 
 (* Time we allow for the hotplug scripts to run before we assume something bad
    has happened and abort *)
@@ -718,8 +711,6 @@ let xapi_globs_spec =
 	  Config.Set_float master_connection_default_timeout;
 	  "qemu_dm_ready_timeout",
 	  Config.Set_float qemu_dm_ready_timeout;
-	  "squeezed_balance_check_interval",
-	  Config.Set_float squeezed_balance_check_interval;
 	  "hotplug_timeout",
 	  Config.Set_float hotplug_timeout;
 	  "pif_reconfigure_ip_timeout",

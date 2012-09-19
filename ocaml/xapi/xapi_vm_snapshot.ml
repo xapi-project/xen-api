@@ -168,58 +168,27 @@ let snapshot_with_quiesce ~__context ~vm ~new_name =
 (*************************************************************************************************)
 (* Checkpoint                                                                                    *)
 (*************************************************************************************************)
-let get_flushable_vbds ~__context vm =
-	let aux vbd =  
-		Db.VBD.get_currently_attached ~__context ~self:vbd
-		&& Db.VBD.get_mode ~__context ~self:vbd = `RW
-	in
-	List.filter aux (Db.VM.get_VBDs ~__context ~self:vm)
-
 let checkpoint ~__context ~vm ~new_name =
 	Xapi_vmpp.show_task_in_xencenter ~__context ~vm;
 	let power_state = Db.VM.get_power_state ~__context ~self:vm in
-	let domid = Helpers.domid_of_vm ~__context ~self:vm in
-	with_xc_and_xs (fun xc xs ->
-		let vbds = get_flushable_vbds ~__context vm in
-
+	let snapshot_info = ref [] in
 		(* live-suspend the VM if the VM is running *)
 		if power_state = `Running
 		then begin
 			try
+				(* Save the state of the vm *)
+				snapshot_info := Xapi_vm_clone.snapshot_info ~power_state ~is_a_snapshot:true;
 				(* suspend the VM *)
-				Vmops.suspend ~progress_cb:(fun _ -> ())  ~__context ~xs ~xc ~vm ~live:false;
-				(* Ensure all changes are flushed to disk before the clone:
-				   delete and recreate all devices. *)
-				List.iter
-					(fun vbd ->
-						if Db.VBD.get_currently_attached ~__context ~self:vbd then begin
-							debug "VBD device %s: needs to be flushed" (Vbdops.string_of_vbd ~__context ~vbd);
-							let device = Xen_helpers.device_of_vbd ~__context ~self:vbd in
-							Device.hard_shutdown ~xs device;
-							Storage_access.on_vdi ~__context ~vbd ~domid
-								(fun rpc task datapath_id sr vdi ->
-									let module C = Storage_interface.Client(struct let rpc = rpc end) in
-									Storage_access.expect_unit (fun () -> ())
-										(C.VDI.deactivate task datapath_id sr vdi);
-								);
-							debug "VBD device %s: has been shutdown and deactivated" (Vbdops.string_of_vbd ~__context ~vbd);
-						end
-					) vbds
+				Xapi_xenops.suspend ~__context ~self:vm;
 			with
-				| Api_errors.Server_error("SR_BACKEND_FAILURE_44", _) as e ->
-					error "Not enough space to create the suspend image";
-					raise e
-				| Api_errors.Server_error(code, _) as e when code = Api_errors.vm_no_suspend_sr ->
-					  error "No suspend SR available for this VM";
-					  raise e
 				| Api_errors.Server_error(_, _) as e -> raise e
-				| _ -> raise (Api_errors.Server_error (Api_errors.vm_checkpoint_suspend_failed, [Ref.string_of vm]))
+				(* | _ -> raise (Api_errors.Server_error (Api_errors.vm_checkpoint_suspend_failed, [Ref.string_of vm])) *)
 		end;
 
 		(* snapshot the disks and the suspend VDI *)
 		let snap =
 			if not (TaskHelper.is_cancelling ~__context) then begin
-				try Some (Xapi_vm_clone.clone Xapi_vm_clone.Disk_op_checkpoint ~__context ~vm ~new_name)
+				try Some (Xapi_vm_clone.clone Xapi_vm_clone.Disk_op_checkpoint ~__context ~vm ~new_name ~snapshot_info_record:!snapshot_info)
 				with Api_errors.Server_error (x, []) when x=Api_errors.task_cancelled -> None
 			end else
 				None in
@@ -227,16 +196,14 @@ let checkpoint ~__context ~vm ~new_name =
 		(* restore the power state of the VM *)
 		if power_state = `Running
 		then begin
+			let localhost = Helpers.get_localhost ~__context in
+			Db.VM.set_resident_on ~__context ~self:vm ~value:localhost;
 			debug "Performing a slow resume";
-			(* most vendor kernels don't support fast resume *)
-			let old_domid = Helpers.domid_of_vm ~__context ~self:vm in
-			Vmops.destroy ~clear_currently_attached:false
-				~__context ~xc ~xs ~self:vm old_domid `Running;
-			Vmops.restore ~__context ~xc ~xs ~self:vm false
+			Xapi_xenops.resume ~__context ~self:vm ~start_paused:false ~force:false;
 		end;
 		match snap with
 		| None      -> raise (Api_errors.Server_error (Api_errors.task_cancelled,[]))
-		| Some snap -> snap)
+		| Some snap -> snap
 
 
 (********************************************************************************)
@@ -310,12 +277,14 @@ let update_vifs_and_vbds ~__context ~snapshot ~vm =
 
 		try
 			debug "Copying the VBDs";
-			let (vbds : [`VBD] Ref.t list) =
+			let (_ : [`VBD] Ref.t list) =
 				List.map (fun (vbd, vdi, _) -> Xapi_vbd_helpers.copy ~__context ~vm ~vdi vbd) cloned_disks in
+			(* XXX: no VBDs stored in the LBR now *)
+			(*
 			(* To include the case of checkpoints we must also update the VBD references in the LBR *)
 			let snapshot = Helpers.get_boot_record ~__context ~self:vm in
 			Helpers.set_boot_record ~__context ~self:vm { snapshot with API.vM_VBDs = vbds };
-
+			  *)
 			TaskHelper.set_progress ~__context 0.8;
 
 			debug "Update the suspend_VDI";

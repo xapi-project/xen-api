@@ -17,25 +17,22 @@ open D
 
 let supported_editions = [Edition.Free]
 
-let apply_edition edition additional_params =
-	let edition' = Edition.of_string edition in
-	if List.mem edition' supported_editions then
-		edition, Edition.to_features edition', []
-	else
-		failwith "unknown edition"
-		
-let get_editions () =
-	List.map (fun e -> Edition.to_string e, Edition.to_marketing_name e,
-		Edition.to_short_string e, Edition.to_int e) supported_editions
+let apply_edition dbg edition additional_params =
+	Debug.with_thread_associated dbg (fun () ->
+		let edition' = Edition.of_string edition in
+		if List.mem edition' supported_editions then
+			edition, Edition.to_features edition', []
+		else
+			failwith "unknown edition"
+	) ()
 
-let get_version () =
-	""
+let get_editions dbg =
+	Debug.with_thread_associated dbg (fun () ->
+		List.map (fun e -> Edition.to_string e, Edition.to_marketing_name e,
+			Edition.to_short_string e, Edition.to_int e) supported_editions
+	) ()
 
-let reopen_logs () =
-	try
-		debug "Reopening logfiles";
-		Logs.reopen ();
-		debug "Logfiles reopened";
-		true
-	with _ -> false
+let get_version dbg =
+	Debug.with_thread_associated dbg (fun () -> "") ()
 
+let reopen_logs () = true

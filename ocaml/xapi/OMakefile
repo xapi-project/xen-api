@@ -1,12 +1,12 @@
-OCAMLPACKS    = xml-light2 cdrom pciutil sexpr log stunnel http-svr rss xen-utils netdev tapctl vhd xenstore rpc-light
+OCAMLPACKS    = oclock xml-light2 cdrom pciutil sexpr log stunnel http-svr rss xen-utils netdev tapctl vhd rpc-light nbd xenstore xenctrl
 OCAML_LIBS    = ../fhs ../util/version ../util/vm_memory_constraints ../util/sanitycheck ../util/stats \
 	../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server ../util/ocamltest
 OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
 	../autogen ../database/ \
 	../xenops ../xva ../util \
-	../auth ../license ../client_records ../rfb ../gpg ../network ..
+	../auth ../license ../client_records ../rfb ../gpg ../network ../rrdd/interface ..
 
-UseCamlp4(rpc-light.syntax, features rrd monitor_fake monitor_fake_common vdi_automaton storage_impl xapi_udhcpd)
+UseCamlp4(rpc-light.syntax, features vdi_automaton storage_impl xapi_udhcpd storage_migrate xapi_services system_domains cancel_tests)
 UseCamlp4(rpc-light.idl, storage_interface)
 
 CFLAGS += -std=gnu99 -Wall -Werror -I$(shell ocamlc -where)
@@ -17,16 +17,16 @@ XENLIGHT_LINK_FLAGS=-cclib -luuid
 # xen stuff at all.
 # NB order of libraries is important: OMake cannot determine dependencies between libraries
 # (the same holds for OCaml packages)
-XEN_OCAML_LIBS = ../xenops/xenops ../auth/pam
+XEN_OCAML_LIBS = ../xenops/xenops_client ../auth/pam
 XEN_OCAMLINCLUDES =
-XEN_OCAMLPACKS = xenctrl xenctrlext xenstore cpuid # xenlight
+XEN_OCAMLPACKS = xenctrl xenctrlext xenstore xenstoreext cpuid # xenlight
 OCAML_CLIBS = $(XEN_OCAML_CLIBS) $(OCAML_CLIBS)
 OCAML_LINK_FLAGS = $(XEN_OCAML_LINK_FLAGS) $(OCAML_LINK_FLAGS) # $(XENLIGHT_LINK_FLAGS)
 CFLAGS = $(XEN_CFLAGS) $(CFLAGS)
 OCAMLINCLUDES = $(XEN_OCAMLINCLUDES) $(OCAMLINCLUDES)
 # xc.cma depends on uuid.cma
 OCAML_LIBS = $(OCAML_LIBS) $(XEN_OCAML_LIBS)
-OCAMLPACKS = $(XEN_OCAMLPACKS) $(OCAMLPACKS)
+OCAMLPACKS = $(OCAMLPACKS) $(XEN_OCAMLPACKS)
 
 # -----------------------------------------------------------------------
 # Build the server
@@ -35,14 +35,16 @@ OCAMLPACKS = $(XEN_OCAMLPACKS) $(OCAMLPACKS)
 #OCAML_CLIBS += stubs
 
 OCamlProgram(http_test, http_test)
-OCamlProgram(sparse_dd, sparse_dd sparse_encoding)
+OCamlProgram(sparse_dd, sparse_dd sparse_encoding ../util/stats)
 OCamlProgram(show_bat, show_bat)
-OCamlProgram(monitor_fake_plugin, monitor_fake_plugin monitor_fake_common rrd)
+#OCamlProgram(monitor_fake_plugin, monitor_fake_plugin rrdd_fake_common rrd)
 
 storage_interface.mli: storage_interface.ml vdi_automaton.cmi
 	ocamlfind ocamlc -package rpc-light.idl -syntax camlp4o -i $< > $@
 
-OCamlProgram(storage_impl_test, storage_interface vdi_automaton storage_impl storage_locks storage_impl_test)
+OCamlProgram(storage_impl_test, sparse_encoding sparse_dd_wrapper ../xenops/updates storage_migrate storage_interface vdi_automaton storage_impl ../xenops/task_server storage_task storage_locks storage_impl_test)
+
+OCamlProgram(cancel_tests, cancel_tests ../xenops/xenops_helpers)
 
 COMMON = \
 	xapi_templates \
@@ -60,14 +62,15 @@ COMMON = \
 
 #OCamlProgram(upload_receive, $(COMMON) fileupload upload_receive)
 
-OCamlProgram(quicktestbin, quicktest quicktest_common quicktest_ocamltest quicktest_storage quicktest_http quicktest_encodings quicktest_vm_placement vm_placement ../xenops/squeeze_test quicktest_vm_memory_constraints ../util/vm_memory_constraints quicktest_lifecycle)
-OCamlProgram(fakeguestagent, fakeguestagent)
+OCamlProgram(quicktestbin, quicktest quicktest_common quicktest_ocamltest quicktest_storage quicktest_http quicktest_encodings quicktest_vm_placement vm_placement ../xenops/squeeze ../xenops/squeeze_test quicktest_vm_memory_constraints ../util/vm_memory_constraints quicktest_lifecycle)
 
 OCamlProgram(xenstore_copy, xenstore_dump xenstore_copy)
 
-OCamlProgram(rrddump, rrddump rrd)
+#OCamlProgram(rrddump, rrddump rrd)
 
 XAPI_MODULES = $(COMMON) \
+	../util/table \
+	balloon \
 	system_domains \
 	local_work_queue \
 	../xva/xva \
@@ -76,9 +79,12 @@ XAPI_MODULES = $(COMMON) \
 	../rfb/rfb_randomtest \
 	../client_records/records \
 	../client_records/record_util \
-	bootloader \
+	../xenops/task_server \
+	../xenops/updates \
+	storage_task \
 	storage_access \
 	storage_mux \
+	storage_migrate \
 	storage_proxy \
 	xapi_services \
 	sm_exec \
@@ -88,7 +94,6 @@ XAPI_MODULES = $(COMMON) \
 	storage_impl \
 	storage_locks \
 	console \
-	xen_helpers \
 	importexport \
 	sparse_encoding \
 	create_storage \
@@ -96,8 +101,6 @@ XAPI_MODULES = $(COMMON) \
 	xapi_db_upgrade \
 	xapi_fist \
 	xapi_udhcpd \
-	xapi_network_types \
-	xapi_network_real \
 	xapi_network \
 	xapi_network_attach_helpers \
 	xapi_event \
@@ -116,7 +119,6 @@ XAPI_MODULES = $(COMMON) \
 	xapi_host_patch \
 	xapi_pool_patch \
 	xapi_support \
-	xapi_xenops_errors \
 	xapi_session \
 	xapi_auth \
 	../auth/auth_signature \
@@ -126,6 +128,7 @@ XAPI_MODULES = $(COMMON) \
 	../auth/parse_likewise \
 	xapi_subject \
 	audit_log \
+	xapi_xenops \
 	xapi_vmpp \
 	xapi_vm_appliance \
 	xapi_vm_appliance_lifecycle \
@@ -145,6 +148,7 @@ XAPI_MODULES = $(COMMON) \
 	xapi_vlan \
 	xapi_tunnel \
 	xapi_sr \
+	xapi_sr_operations \
 	xapi_sm \
 	xapi_pbd \
 	xapi_vdi \
@@ -156,19 +160,16 @@ XAPI_MODULES = $(COMMON) \
 	sm_fs_ops \
 	sparse_dd_wrapper \
 	vmopshelpers \
-	vm_config \
-	vmops \
 	pciops \
 	vgpuops \
-	memory_control \
 	vbdops \
 	attach_helpers \
+	cpuid_helpers \
 	message_forwarding \
 	cancel_tasks \
 	xapi_pool_transition \
 	thread_queue \
 	xapi_ha \
-	xapi_ha_stats \
 	xapi_ha_vm_failover \
 	binpack \
 	xapi_local_session \
@@ -177,16 +178,9 @@ XAPI_MODULES = $(COMMON) \
 	xha_metadata_vdi \
 	xha_errno \
 	static_vdis \
-	monitor_self \
 	monitor_transfer \
 	monitor_master \
-	rrd_shared \
 	monitor_dbcalls \
-	monitor_rrds \
-	monitor_fake \
-	monitor_fake_common \
-	monitor \
-	rrd \
 	api_server \
 	create_misc \
 	xapi_host \
@@ -204,12 +198,13 @@ XAPI_MODULES = $(COMMON) \
 	ipq \
 	xapi_periodic_scheduler \
 	xapi_periodic_scheduler_init \
+	../xenops/memory_client \
+	../xenops/memory_interface \
 	dbsync \
 	dbsync_slave \
 	dbsync_master \
 	sync_networking \
 	storage_access \
-	events \
 	import_xva \
 	import \
 	import_raw_vdi \
@@ -222,6 +217,7 @@ XAPI_MODULES = $(COMMON) \
 	startup \
 	system_status \
 	license_check \
+	vpx \
 	xapi_vm \
 	xapi_sr \
 	xapi_vdi \
@@ -247,7 +243,6 @@ XAPI_MODULES = $(COMMON) \
 	xapi_message \
 	../idl/datamodel_schema \
 	debug_populate \
-	ds \
 	xapi_remotecmd \
 	redo_log_usage \
 	redo_log_alert \
@@ -260,6 +255,7 @@ XAPI_MODULES = $(COMMON) \
 	../license/v6rpc \
 	../license/v6errors \
 	bios_strings \
+	../util/config_shared \
 	xapi_config \
 	features \
 	pool_features \
@@ -267,10 +263,22 @@ XAPI_MODULES = $(COMMON) \
 	xapi_pci \
 	xapi_pgpu \
 	xapi_gpu_group \
-	xapi_vgpu
+	xapi_vgpu \
+	rrdd_proxy \
+	../util/rpc_retry \
+	../rrdd/interface/rrdd_fake_common \
+	../rrdd/interface/rrdd_common \
+	../rrdd/interface/monitor_types \
+	../rrdd/interface/ds \
+	../rrdd/interface/rrd \
+	../rrdd/interface/data_source \
+	../rrdd/interface/rrdd_interface \
+	../rrdd/interface/rrdd
 
 OCamlProgram(xapi, xapi $(XAPI_MODULES))
 OCamlDocProgram(xapi, xapi $(XAPI_MODULES))
+
+OCamlLibrary(xapi, xapi $(XAPI_MODULES))
 
 OCamlProgram(xapi_unit_test, xapi_unit_test xapi_db_upgrade_test pool_db_backup_test xapi_test_common $(XAPI_MODULES))
 
@@ -295,13 +303,10 @@ install:
 	mkdir -p $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) monitor_fake_plugin $(DESTDIR)$(PLUGINDIR)
 
-.PHONY: sdk-install
-sdk-install: install
-	mkdir -p $(DESTDIR)$(LIBEXECDIR)
-	cp fakeguestagent $(DESTDIR)$(LIBEXECDIR)/
-
 .PHONY: clean
 clean:
 	rm -rf $(CLEAN_OBJS) *.aux *.log *.fig xapi
-	rm -f binpack xapi_unit_test sparse_dd fakeguestagent monitor_fake_plugin rrddump quicktestbin
+	rm -f config_constants.ml
+	rm -f binpack xapi_unit_test sparse_dd monitor_fake_plugin rrddump quicktestbin
+
 

@@ -27,7 +27,7 @@ let delete_disks rpc session_id disks =
 				   else debug "Not destroying CD VDI: %s" (Ref.string_of vdi)
 			  ) disks
 
-let wait_for_clone ?progress_minmax ~__context task =
+let wait_for_subtask ?progress_minmax ~__context task =
 	Helpers.call_api_functions ~__context (fun rpc session ->
 	let refresh_session = Xapi_session.consider_touching_session rpc session in
 	let main_task = Context.get_task_id __context in
@@ -91,9 +91,14 @@ let wait_for_clone ?progress_minmax ~__context task =
 	done;
 	debug "Finished listening for events relating to tasks %s and %s" (Ref.string_of task) (Ref.string_of main_task);
 
-	let result = Db_actions.DB_Action.Task.get_result ~__context ~self:task in
-	let vdiref = API.From.ref_VDI "" (Xml.parse_string result) in
-	vdiref)
+	Db_actions.DB_Action.Task.get_result ~__context ~self:task)
+
+
+let wait_for_clone ?progress_minmax ~__context task =
+	let result = wait_for_subtask ?progress_minmax ~__context task in
+	let result = Xml.parse_string result in
+	let vdiref = API.From.ref_VDI "" result in
+	vdiref
 
 (* Clone code is parameterised over this so it can be shared with copy *)
 type disk_op_t =
@@ -174,7 +179,7 @@ let snapshot_metadata ~__context ~vm ~is_a_snapshot =
 		""
 
 (* return a new VM record, in appropriate power state and having the good metrics. *)
-let copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state =
+let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~new_power_state =
 	let task_id = Ref.string_of (Context.get_task_id __context) in
 	let uuid = Uuid.make_uuid () in
 	let ref = Ref.make () in
@@ -211,6 +216,12 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state =
 		List.filter
 			(fun (k,v) -> k <> Xapi_globs.default_template_key && k <> Xapi_globs.xensource_internal)
 			other_config
+	in
+	(* Preserve the name_label of the base template in other_config. *)
+	let other_config =
+		if all.Db_actions.vM_is_a_template && not(List.mem_assoc Xapi_globs.base_template_name_key other_config)
+		then (Xapi_globs.base_template_name_key, all.Db_actions.vM_name_label) :: other_config
+		else other_config
 	in
 	(* Copy the old metrics if available, otherwise generate a fresh one *)
 	let m =
@@ -264,7 +275,9 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state =
 		~is_a_snapshot: is_a_snapshot
 		~snapshot_of:(if is_a_snapshot then vm else Ref.null)
 		~snapshot_time:(if is_a_snapshot then Date.of_float (Unix.gettimeofday ()) else Date.never)
-		~snapshot_info:(snapshot_info ~power_state ~is_a_snapshot)
+		~snapshot_info:(match snapshot_info_record with
+				None -> (snapshot_info ~power_state ~is_a_snapshot)
+			| Some s -> s)
 		~snapshot_metadata:(snapshot_metadata ~__context ~vm ~is_a_snapshot)
 		~transportable_snapshot_id:""
 		~parent
@@ -334,7 +347,7 @@ let make_driver_params () =
 	[Xapi_globs._sm_epoch_hint, Uuid.to_string (Uuid.make_uuid())]
 
 (* NB this function may be called when the VM is suspended for copy/clone operations. Snapshot can be done in live.*)
-let clone disk_op ~__context ~vm ~new_name =
+let clone ?(snapshot_info_record) disk_op ~__context ~vm ~new_name =
 	Helpers.call_api_functions ~__context (fun rpc session_id ->
 		let task_id = Ref.string_of (Context.get_task_id __context) in
 		let vbds = Db.VM.get_VBDs ~__context ~self:vm in
@@ -362,7 +375,7 @@ let clone disk_op ~__context ~vm ~new_name =
 		begin try 
 			
 			(* create the VM record *)
-			let ref, uuid = copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state in
+			let ref, uuid = copy_vm_record ?snapshot_info_record ~__context ~vm ~disk_op ~new_name ~new_power_state in
 				
 			(* copy every VBD using the new VDI as backend                                *)
 			(* if this fails halfway through, delete the VM and the VDIs, but don't worry *)

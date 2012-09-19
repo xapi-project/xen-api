@@ -16,17 +16,14 @@ module Dummy = Debug.Debugger(struct let name = "dummytaskhelper" end)
 open D
 
 (*open API*)
+open Threadext
 
 type t = API.ref_task
 
 let now () = Date.of_float (Unix.time ())
 
-let string_of_task task_name task_id = 
-  let sep = if task_name = "" then "" else " " in
-  Printf.sprintf "%s%s%s" task_name sep (Ref.really_pretty_and_small task_id)
-
 (* creates a new task *)
-let make ~__context ?(description="") ?session_id ?subtask_of label : (t * t Uuid.t) = 
+let make ~__context ~http_other_config ?(description="") ?session_id ?subtask_of label : (t * t Uuid.t) = 
   let uuid = Uuid.make_uuid () in
   let uuid_str = Uuid.string_of_uuid uuid in
   let ref = Ref.make () in
@@ -52,7 +49,7 @@ let make ~__context ?(description="") ?session_id ?subtask_of label : (t * t Uui
     ~stunnelpid:(-1L) ~forwarded:false ~forwarded_to:Ref.null
     ~uuid:uuid_str ~externalpid:(-1L)
     ~subtask_of:subtaskid_of
-    ~other_config:[] in
+    ~other_config:(List.map (fun (k, v) -> "http:" ^ k, v) http_other_config)  in
   ref, uuid
 
 let rbac_assert_permission_fn = ref None (* required to break dep-cycle with rbac.ml *)
@@ -103,7 +100,6 @@ let destroy ~__context task_id =
 let init () = 
   Context.__get_task_name := (fun ~__context self -> Db_actions.DB_Action.Task.get_name_label ~__context ~self);
   Context.__destroy_task := destroy;
-  Context.__string_of_task := string_of_task;
   Context.__make_task := make
 
 let operate_on_db_task ~__context f =
@@ -220,3 +216,48 @@ let failed ~__context (code, params) =
 				(Ref.really_pretty_and_small self)
 				(status_to_string status)
 				(if code=Api_errors.task_cancelled then "`cancelled" else "`failure"))
+
+
+type id = 
+	| Sm of string
+	| Xenops of string
+
+let id_to_task_tbl : (id, API.ref_task) Hashtbl.t = Hashtbl.create 10
+let task_to_id_tbl : (API.ref_task, id) Hashtbl.t = Hashtbl.create 10
+let task_tbl_m = Mutex.create ()
+
+let id_to_task_exn id =
+	Mutex.execute task_tbl_m
+		(fun () ->
+			Hashtbl.find id_to_task_tbl id
+		)
+
+let task_to_id_exn task =
+	Mutex.execute task_tbl_m
+		(fun () ->
+			Hashtbl.find task_to_id_tbl task
+		)
+
+let register_task __context id =
+	let task = Context.get_task_id __context in
+	Mutex.execute task_tbl_m
+		(fun () ->
+			Hashtbl.replace id_to_task_tbl id task;
+			Hashtbl.replace task_to_id_tbl task id;
+		);
+	(* Since we've bound the XenAPI Task to the xenopsd Task, and the xenopsd Task
+	   is cancellable, mark the XenAPI Task as cancellable too. *)
+	set_cancellable ~__context;
+	id
+
+let unregister_task __context id =
+	(* The rest of the XenAPI Task won't be cancellable *)
+	set_not_cancellable ~__context;
+	Mutex.execute task_tbl_m
+		(fun () ->
+			let task = Hashtbl.find id_to_task_tbl id in
+			Hashtbl.remove id_to_task_tbl id;
+			Hashtbl.remove task_to_id_tbl task;
+		);
+	id
+

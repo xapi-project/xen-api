@@ -50,9 +50,9 @@ let allowed_power_states ~__context ~vmr ~(op:API.vm_operations) =
 	| `clean_shutdown
 	| `changing_memory_live
 	| `changing_shadow_memory_live
-	| `changing_VCPUs_live 
+	| `changing_VCPUs_live
 	| `data_source_op
-	| `migrate
+	| `migrate_send
 	| `pause
 	| `pool_migrate
 	| `send_sysrq
@@ -76,13 +76,13 @@ let allowed_power_states ~__context ~vmr ~(op:API.vm_operations) =
 	| `hard_shutdown
 	                                -> [`Paused; `Suspended; `Running]
 	| `assert_operation_valid
-	| `metadata_export 
+	| `metadata_export
 	| `power_state_reset
 	| `revert
 	| `reverting
 	| `snapshot
 	| `update_allowed_operations
-	| `get_cooperative
+	| `query_services
 	                                -> all_power_states
 
 (** check if [op] can be done when [vmr] is in [power_state], when no other operation is in progress *)
@@ -98,7 +98,14 @@ let is_allowed_concurrently ~(op:API.vm_operations) ~current_ops =
 	and snapshot    = [`snapshot; `checkpoint]
 	and allowed_operations = (* a list of valid state -> operation *)
 		[ [`snapshot_with_quiesce], `snapshot;
-		  [`reverting],             `hard_shutdown ] in                
+		  [`reverting],             `hard_shutdown;
+		  [`migrate_send],               `metadata_export;
+		  [`migrate_send],          `hard_shutdown;
+		  [`migrate_send],          `clean_shutdown;
+          [`migrate_send],          `hard_reboot;
+		  [`migrate_send],          `clean_reboot;
+          [`migrate_send],          `start;
+          [`migrate_send],          `start_on;] in
 	let state_machine () = 
 		let current_state = List.map snd current_ops in
 		List.exists (fun (state, transition) -> state = current_state && transition = op) allowed_operations
@@ -129,7 +136,8 @@ let check_drivers ~__context ~vmr ~vmgmr ~op ~ref =
 	else None
 
 let need_pv_drivers_check ~__context ~vmr ~power_state ~op =
-	let op_list = [ `suspend; `checkpoint; `pool_migrate; `clean_shutdown; `clean_reboot; `changing_VCPUs_live ] in
+	let op_list = [ `suspend; `checkpoint; `pool_migrate; `migrate_send
+	              ; `clean_shutdown; `clean_reboot; `changing_VCPUs_live ] in
 	power_state = `Running
 	&& Helpers.has_booted_hvm_of_record ~__context vmr
 	&& List.mem op op_list
@@ -264,6 +272,7 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 			&& op <> `awaiting_memory_live
 			&& op <> `metadata_export
 			&& op <> `changing_dynamic_range
+			&& op <> `start
 		then Some (Api_errors.operation_not_allowed, ["Operations on domain 0 are not allowed"])
 		else None) in
 
@@ -315,6 +324,12 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 		then check_protection_policy ~vmr ~op ~ref_str
 		else None) in
 
+	(* Check whether this VM needs to be a system domain. *)
+	let current_error = check current_error (fun () ->
+		if op = `query_services && not(List.mem_assoc "is_system_domain" vmr.Db_actions.vM_other_config && List.assoc "is_system_domain" vmr.Db_actions.vM_other_config = "true")
+		then Some (Api_errors.not_system_domain, [ ref_str ])
+			else None) in
+
 	current_error
 
 let maybe_get_guest_metrics ~__context ~ref =
@@ -360,7 +375,7 @@ let update_allowed_operations ~__context ~self =
 			[`snapshot; `copy; `clone; `revert; `checkpoint; `snapshot_with_quiesce;
 			 `start; `start_on; `pause; `unpause; `clean_shutdown; `clean_reboot;
 			`hard_shutdown; `hard_reboot; `suspend; `resume; `resume_on; `export; `destroy;
-			`provision; `changing_VCPUs_live; `pool_migrate; `make_into_template; `changing_static_range;
+			`provision; `changing_VCPUs_live; `pool_migrate; `migrate_send; `make_into_template; `changing_static_range;
 			`changing_shadow_memory; `changing_dynamic_range]
 	in
 	(* FIXME: need to be able to deal with rolling-upgrade for orlando as well *)
@@ -388,12 +403,14 @@ let force_state_reset ~__context ~self ~value:state =
 		List.iter 
 			(fun vbd ->
 				 Db.VBD.set_currently_attached ~__context ~self:vbd ~value:false;
-				 Db.VBD.set_reserved ~__context ~self:vbd ~value:false;)
+				 Db.VBD.set_reserved ~__context ~self:vbd ~value:false;
+				 Xapi_vbd_helpers.clear_current_operations ~__context ~self:vbd)
 			(Db.VM.get_VBDs ~__context ~self);
 		List.iter 
 			(fun vif ->
 				 Db.VIF.set_currently_attached ~__context ~self:vif ~value:false;
-				 Db.VIF.set_reserved ~__context ~self:vif ~value:false)
+				 Db.VIF.set_reserved ~__context ~self:vif ~value:false;
+				 Xapi_vif_helpers.clear_current_operations ~__context ~self:vif)
 			(Db.VM.get_VIFs ~__context ~self);
 		List.iter 
 			(fun vgpu ->
@@ -403,9 +420,12 @@ let force_state_reset ~__context ~self ~value:state =
 			(fun pci ->
 				Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:self)
 			(Db.VM.get_attached_PCIs ~__context ~self);
+	end;
+	if state = `Halted || state = `Suspended then begin
 		Db.VM.set_resident_on ~__context ~self ~value:Ref.null;
 		(* make sure we aren't reserving any memory for this VM *)
-		Db.VM.set_scheduled_to_be_resident_on ~__context ~self ~value:Ref.null
+		Db.VM.set_scheduled_to_be_resident_on ~__context ~self ~value:Ref.null;
+		Db.VM.set_domid ~__context ~self ~value:(-1L)
 	end
 
 (** Someone is cancelling a task so remove it from the current_operations *)

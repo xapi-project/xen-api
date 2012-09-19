@@ -11,6 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+open Fun
 open Pervasiveext
 open Stringext
 open Listext
@@ -20,6 +21,8 @@ open Xapi_support
 open Db_filter_types
 open Create_misc
 open Workload_balancing
+
+module Net = (val (Network.get_client ()) : Network.CLIENT)
 
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
@@ -122,28 +125,9 @@ let assert_bacon_mode ~__context ~host =
 		raise (Api_errors.Server_error (Api_errors.host_in_use, [ selfref; "vbd"; List.hd (List.map Ref.string_of vbds) ]));
 	debug "Bacon test: VBDs OK"
 
-let pif_update_dhcp_address ~__context ~self =
-  let network = Db.PIF.get_network ~__context ~self in
-  let bridge = Db.Network.get_bridge ~__context ~self:network in
-  match Netdev.Addr.get bridge with
-   | (_addr,_netmask)::_ ->
-	   let addr = (Unix.string_of_inet_addr _addr) in
-	   let netmask = (Unix.string_of_inet_addr _netmask) in
-	   if addr <> Db.PIF.get_IP ~__context ~self || netmask <> Db.PIF.get_netmask ~__context ~self then begin
-	 debug "PIF %s bridge %s IP address changed: %s/%s" (Db.PIF.get_uuid ~__context ~self) bridge addr netmask;
-	 Db.PIF.set_IP ~__context ~self ~value:addr;
-	 Db.PIF.set_netmask ~__context ~self ~value:netmask
-	   end
-   | _ -> ()
-
 let signal_networking_change ~__context =
-  let host = Helpers.get_localhost ~__context in
-  let pifs = Db.Host.get_PIFs ~__context ~self:host in
-  List.iter (fun pif -> if Db.PIF.get_ip_configuration_mode ~__context ~self:pif = `DHCP then
-		   pif_update_dhcp_address ~__context ~self:pif
-  ) pifs;
-  Xapi_mgmt_iface.on_dom0_networking_change ~__context
-
+	Helpers.update_pif_addresses ~__context;
+	Xapi_mgmt_iface.on_dom0_networking_change ~__context
 
 let signal_cdrom_event ~__context params =
   let find_vdi_name sr name =
@@ -167,7 +151,7 @@ let signal_cdrom_event ~__context params =
 	  let vdi = List.hd vdis in
 	  debug "cdrom inserted notification in vdi %s" (Ref.string_of vdi);
 	  let vbds = Db.VDI.get_VBDs ~__context ~self:vdi in
-	  List.iter (fun vbd -> Xapi_vbd.refresh ~__context ~vbd ~vdi) vbds
+	  List.iter (fun vbd -> Xapi_xenops.vbd_insert ~__context ~self:vbd ~vdi) vbds
 	) else
 	  ()
 	in
@@ -258,8 +242,8 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
 				begin
 					try
 						List.iter (fun host ->
-							Xapi_vm_helpers.assert_can_boot_here_no_memcheck
-								~__context ~self:vm ~host ~snapshot:record)
+							Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host ~snapshot:record
+								~do_memory_check:false ())
 							target_hosts;
 						true
 					with (Api_errors.Server_error (code, params)) -> Hashtbl.replace plans vm (Error (code, params)); false
@@ -297,7 +281,7 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
 			List.iter (fun (vm, host) ->
 				let snapshot = List.assoc vm all_vms in
 				begin
-					try Xapi_vm_helpers.assert_can_boot_here_no_memcheck ~__context ~self:vm ~host ~snapshot
+					try Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_memory_check:false ()
 					with (Api_errors.Server_error (code, params)) -> Hashtbl.replace plans vm (Error (code, params))
 				end;
 				if not(Hashtbl.mem plans vm) then Hashtbl.add plans vm (Migrate host)
@@ -498,11 +482,11 @@ let shutdown_and_reboot_common ~__context ~host label description operation cmd 
   Xapi_ha.before_clean_shutdown_or_reboot ~__context ~host;
   Remote_requests.stop_request_thread();
 
-  (* Push the Host RRD to the master. Note there are no VMs running here so we don't have to worry about them. *)
-  if not(Pool_role.is_master ())
-  then Monitor_rrds.send_host_rrd_to_master ();
-  (* Also save the Host RRD to local disk for us to pick up when we return. Note there are no VMs running at this point. *)
-  Monitor_rrds.backup ();
+	(* Push the Host RRD to the master. Note there are no VMs running here so we don't have to worry about them. *)
+	if not(Pool_role.is_master ())
+	then log_and_ignore_exn Rrdd.send_host_rrd_to_master;
+	(* Also save the Host RRD to local disk for us to pick up when we return. Note there are no VMs running at this point. *)
+	log_and_ignore_exn Rrdd.backup_rrds;
 
   (* This prevents anyone actually re-enabling us until after reboot *)
   Localdb.put Constants.host_disabled_until_reboot "true";
@@ -537,7 +521,9 @@ let power_on ~__context ~host =
   if result <> "True" then failwith (Printf.sprintf "The host failed to power on.")
 
 let dmesg ~__context ~host =
-	Vmopshelpers.with_xc (fun xc -> Xenctrl.readconsolering xc)
+	let open Xenops_client in
+	let dbg = Context.string_of_task __context in
+	Client.HOST.get_console_data dbg
 
 let dmesg_clear ~__context ~host =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ "dmesg_clear" ]))
@@ -546,7 +532,9 @@ let get_log ~__context ~host =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ "get_log" ]))
 
 let send_debug_keys ~__context ~host ~keys =
-  Vmopshelpers.with_xc (fun xc -> Xenctrl.send_debug_keys xc keys)
+	let open Xenops_client in
+	let dbg = Context.string_of_task __context in
+	Client.HOST.send_debug_keys dbg keys
 
 let list_methods ~__context =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ "list_method" ]))
@@ -745,12 +733,9 @@ let get_management_interface ~__context ~host =
 	| pif :: _ ->
 		pif
 
-let change_management_interface ~__context interface =
+let change_management_interface ~__context interface primary_address_type =
 	debug "Changing management interface";
-	let addrs = Netdev.Addr.get interface in
-	if addrs = []
-	then raise (Api_errors.Server_error(Api_errors.interface_has_no_ip, [ interface ]));
-	Xapi_mgmt_iface.change_ip interface (Unix.string_of_inet_addr (fst (List.hd addrs)));
+	Xapi_mgmt_iface.run ~__context interface primary_address_type;
 	(* once the inventory file has been rewritten to specify new interface, sync up db with
 	   state of world.. *)
 	Xapi_mgmt_iface.on_dom0_networking_change ~__context
@@ -761,6 +746,7 @@ let local_management_reconfigure ~__context ~interface =
   if not !Xapi_globs.slave_emergency_mode
   then raise (Api_errors.Server_error (Api_errors.pool_not_in_emergency_mode, []));
   change_management_interface ~__context interface
+    (Record_util.primary_address_type_of_string (Xapi_inventory.lookup Xapi_inventory._management_address_type ~default:"ipv4"))
 
 let management_reconfigure ~__context ~pif =
   (* Disallow if HA is enabled *)
@@ -774,15 +760,26 @@ let management_reconfigure ~__context ~pif =
 
   let net = Db.PIF.get_network ~__context ~self:pif in
   let bridge = Db.Network.get_bridge ~__context ~self:net in
-
-  if Db.PIF.get_ip_configuration_mode ~__context ~self:pif = `None then
-	raise (Api_errors.Server_error(Api_errors.pif_has_no_network_configuration, []));
+  let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self:pif in
+  let mgmt_pif_option = try Some (get_management_interface ~__context ~host:(Helpers.get_localhost ~__context)) with _ -> None in
+  (match mgmt_pif_option with
+  | Some mgmt_pif -> (
+      let mgmt_address_type = Db.PIF.get_primary_address_type ~__context ~self:mgmt_pif in
+      if (primary_address_type <> mgmt_address_type) then
+	raise (Api_errors.Server_error(Api_errors.pif_incompatible_primary_address_type, [ ]));
+  
+      if primary_address_type==`IPv4 && Db.PIF.get_ip_configuration_mode ~__context ~self:pif = `None then
+	raise (Api_errors.Server_error(Api_errors.pif_has_no_network_configuration, []))
+      else if primary_address_type==`IPv6 && Db.PIF.get_ipv6_configuration_mode ~__context ~self:pif = `None then
+	raise (Api_errors.Server_error(Api_errors.pif_has_no_v6_network_configuration, []))
+     )
+  | None -> ());
 
   if Db.PIF.get_management ~__context ~self:pif
   then debug "PIF %s is already marked as a management PIF; taking no action" (Ref.string_of pif)
   else begin
 	Xapi_network.attach_internal ~management_interface:true ~__context ~self:net ();
-	change_management_interface ~__context bridge;
+	change_management_interface ~__context bridge primary_address_type;
 
 	Xapi_pif.update_management_flags ~__context ~host:(Helpers.get_localhost ~__context)
   end
@@ -797,7 +794,9 @@ let management_disable ~__context =
   if Pool_role.is_slave ()
   then raise (Api_errors.Server_error (Api_errors.slave_requires_management_iface, []));
 
-  Xapi_mgmt_iface.stop ();
+  Xapi_mgmt_iface.shutdown ();
+  Xapi_mgmt_iface.maybe_start_himn ~__context ();
+
   (* Make sure all my PIFs are marked appropriately *)
   Xapi_pif.update_management_flags ~__context ~host:(Helpers.get_localhost ~__context)
 
@@ -872,18 +871,18 @@ let compute_free_memory ~__context ~host =
 let compute_memory_overhead ~__context ~host =
 	Memory_check.host_compute_memory_overhead ~__context ~host
 
-let get_data_sources ~__context ~host = Monitor_rrds.query_possible_host_dss ()
+let get_data_sources ~__context ~host = List.map Data_source.to_API_data_source (Rrdd.query_possible_host_dss ())
 
-let record_data_source ~__context ~host ~data_source = Monitor_rrds.add_host_ds data_source
+let record_data_source ~__context ~host ~data_source = Rrdd.add_host_ds ~ds_name:data_source
 
-let query_data_source ~__context ~host ~data_source = Monitor_rrds.query_host_dss data_source
+let query_data_source ~__context ~host ~data_source = Rrdd.query_host_ds ~ds_name:data_source
 
-let forget_data_source_archives ~__context ~host ~data_source = Monitor_rrds.forget_host_ds data_source
+let forget_data_source_archives ~__context ~host ~data_source = Rrdd.forget_host_ds ~ds_name:data_source
 
 let tickle_heartbeat ~__context ~host ~stuff = Db_gc.tickle_heartbeat ~__context host stuff
 
-let create_new_blob ~__context ~host ~name ~mime_type =
-  let blob = Xapi_blob.create ~__context ~mime_type in
+let create_new_blob ~__context ~host ~name ~mime_type ~public =
+  let blob = Xapi_blob.create ~__context ~mime_type ~public in
   Db.Host.add_to_blobs ~__context ~self:host ~key:name ~value:blob;
   blob
 
@@ -909,8 +908,10 @@ let sync_data ~__context ~host =
   Xapi_sync.sync_host __context host (* Nb, no attempt to wrap exceptions yet *)
 
 let backup_rrds ~__context ~host ~delay =
-  Xapi_periodic_scheduler.add_to_queue "RRD backup" Xapi_periodic_scheduler.OneShot
-	delay (fun () -> Monitor_rrds.backup ~save_stats_locally:(Pool_role.is_master ()) ())
+	Xapi_periodic_scheduler.add_to_queue "RRD backup" Xapi_periodic_scheduler.OneShot
+	delay (fun _ ->
+		log_and_ignore_exn (Rrdd.backup_rrds ~save_stats_locally:(Pool_role.is_master ()))
+	)
 
 let get_servertime ~__context ~host =
   Date.of_float (Unix.gettimeofday ())
@@ -938,9 +939,11 @@ let disable_binary_storage ~__context ~host =
   Db.Host.remove_from_other_config ~__context ~self:host ~key:Xapi_globs.host_no_local_storage;
   Db.Host.add_to_other_config ~__context ~self:host ~key:Xapi_globs.host_no_local_storage ~value:"true"
 
-let get_uncooperative_resident_VMs ~__context ~self = assert false
+(* Dummy implementation for a deprecated API method. *)
+let get_uncooperative_resident_VMs ~__context ~self = []
 
-let get_uncooperative_domains ~__context ~self = Monitor.get_uncooperative_domains ()
+(* Dummy implementation for a deprecated API method. *)
+let get_uncooperative_domains ~__context ~self = []
 
 let certificate_install ~__context ~host ~name ~cert =
   Certificates.host_install true name cert
@@ -1201,7 +1204,7 @@ let detach_static_vdis ~__context ~host ~vdis =
   List.iter detach vdis
 
 let update_pool_secret ~__context ~host ~pool_secret =
-	Unixext.write_string_to_file Xapi_globs.pool_secret_path pool_secret
+	Unixext.write_string_to_file Constants.pool_secret_path pool_secret
 
 let set_localdb_key ~__context ~host ~key ~value =
 	Localdb.put key value;
@@ -1360,7 +1363,7 @@ let enable_local_storage_caching ~__context ~host ~sr =
 		if old_sr <> Ref.null then Db.SR.set_local_cache_enabled ~__context ~self:old_sr ~value:false;
 		Db.Host.set_local_cache_sr ~__context ~self:host ~value:sr;
 		Db.SR.set_local_cache_enabled ~__context ~self:sr ~value:true;
-		Monitor.set_cache_sr (Db.SR.get_uuid ~__context ~self:sr);
+		log_and_ignore_exn (Rrdd.set_cache_sr ~sr_uuid:(Db.SR.get_uuid ~__context ~self:sr));
 	end else begin
 		raise (Api_errors.Server_error (Api_errors.sr_operation_not_supported,[]))
 	end
@@ -1369,7 +1372,7 @@ let disable_local_storage_caching ~__context ~host =
 	assert_bacon_mode ~__context ~host;
 	let sr = Db.Host.get_local_cache_sr ~__context ~self:host in
 	Db.Host.set_local_cache_sr ~__context ~self:host ~value:Ref.null;
-	Monitor.unset_cache_sr ();
+	log_and_ignore_exn Rrdd.unset_cache_sr;
 	try Db.SR.set_local_cache_enabled ~__context ~self:sr ~value:false with _ -> ()
 
 (* Here's how we do VLAN resyncing:
@@ -1527,3 +1530,41 @@ let sync_pif_currently_attached ~__context ~host ~bridges =
 			end;
 		) pifs
 
+let migrate_receive ~__context ~host ~network ~options =
+	Xapi_vm_migrate.assert_licensed_storage_motion ~__context ;
+
+	let session_id = Context.get_session_id __context in
+	let session_rec = Db.Session.get_record ~__context ~self:session_id in
+	let new_session_id = Xapi_session.login_no_password ~__context ~uname:None ~host
+		~pool:session_rec.API.session_pool
+		~is_local_superuser:session_rec.API.session_is_local_superuser
+		~subject:session_rec.API.session_subject
+		~auth_user_sid:session_rec.API.session_auth_user_sid
+		~auth_user_name:session_rec.API.session_auth_user_name
+	 	~rbac_permissions:session_rec.API.session_rbac_permissions in
+	let new_session_id = (Ref.string_of new_session_id) in
+	let pifs = Db.Network.get_PIFs ~__context ~self:network in
+	let pif = 
+		try List.find (fun x -> host = Db.PIF.get_host ~__context ~self:x) pifs
+		with Not_found ->
+			raise (Api_errors.Server_error(Api_errors.host_cannot_attach_network,[Ref.string_of host; Ref.string_of network]))
+	in
+	let ip = Db.PIF.get_IP ~__context ~self:pif in
+	if String.length ip = 0 then begin
+		match Db.PIF.get_ip_configuration_mode ~__context ~self:pif with
+			| `None -> raise (Api_errors.Server_error(Api_errors.pif_has_no_network_configuration,[Ref.string_of pif]))
+			| `DHCP -> raise (Api_errors.Server_error(Api_errors.interface_has_no_ip,[Ref.string_of pif]))
+			| _ -> failwith "No IP address on PIF"
+	end;
+	let sm_url = Printf.sprintf "http://%s/services/SM?session_id=%s" ip new_session_id in
+	let xenops_url = Printf.sprintf "http://%s/services/xenops?session_id=%s" ip new_session_id in
+	let master_address = try Pool_role.get_master_address () with Pool_role.This_host_is_a_master ->
+		Opt.unbox (Helpers.get_management_ip_addr ~__context) in
+
+	let master_url = Printf.sprintf "http://%s/" master_address in
+	[ Xapi_vm_migrate._sm, sm_url;
+	  Xapi_vm_migrate._host, Ref.string_of host;
+	  Xapi_vm_migrate._xenops, xenops_url;
+	  Xapi_vm_migrate._session_id, new_session_id;
+	  Xapi_vm_migrate._master, master_url;
+	]

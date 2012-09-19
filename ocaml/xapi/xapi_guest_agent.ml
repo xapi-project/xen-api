@@ -16,6 +16,7 @@
     not dynamic performance data. *)
 
 open Fun
+open Hashtblext
 open Stringext
 open Threadext
 
@@ -52,6 +53,8 @@ let memory =
   [ "data/meminfo_free", "free";
     "data/meminfo_total", "total"
   ]
+
+let device_id = [ "data/device_id", "device_id"]
 
 (* This function is passed the 'attr' node and a function it can use to
  * find the directory listing of sub-nodes. It will return a map where the
@@ -108,7 +111,7 @@ let other all_control =
     the results of these lookups differ *)
 
 type m = (string * string) list
-let cache : (int, (m*m*m*m*m*float)) Hashtbl.t = Hashtbl.create 20
+let cache : (int, (m*m*m*m*m*m*float)) Hashtbl.t = Hashtbl.create 20
 let memory_targets : (int, int64) Hashtbl.t = Hashtbl.create 20
 let dead_domains : IntSet.t ref = ref IntSet.empty
 let mutex = Mutex.create ()
@@ -124,6 +127,7 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 
   let pv_drivers_version = to_map pv_drivers_version
   and os_version = to_map os_version
+  and device_id = to_map device_id
   and networks = to_map (networks "attr" list)
   and other = to_map (other all_control)
   and memory = to_map memory
@@ -146,6 +150,7 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
     networks_cached,
     other_cached,
     memory_cached,
+    device_id_cached,
     last_updated_cached
   ) = Mutex.execute mutex (fun () -> try
        Hashtbl.find cache domid 
@@ -159,7 +164,7 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	dead_domains := IntSet.remove domid !dead_domains
       else
 	dead_domains := IntSet.add domid !dead_domains;
-      ([],[],[],[],[],0.0)) in
+      ([],[],[],[],[],[],0.0)) in
 
   (* Consider the data valid IF the data/updated key exists AND the pv_drivers_version map
      contains a major and minor version-- this prevents a migration mid-way through an update
@@ -175,7 +180,7 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
     && List.mem_assoc "minor" pv_drivers_version then begin
 
       (* Only if the data is valid, cache it (CA-20353) *)
-      Mutex.execute mutex (fun () -> Hashtbl.replace cache domid (pv_drivers_version,os_version,networks,other,memory,last_updated));
+      Mutex.execute mutex (fun () -> Hashtbl.replace cache domid (pv_drivers_version,os_version,networks,other,memory,device_id,last_updated));
 
       (* We update only if any actual data has changed *)
       if ( pv_drivers_version_cached <> pv_drivers_version 
@@ -184,7 +189,9 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	   ||
 	   networks_cached <> networks 
 	   ||
-	   other_cached <> other)
+	   other_cached <> other
+     ||
+     device_id_cached <> device_id)
 (* Nb. we're ignoring the memory updates as far as the VM_guest_metrics API object is concerned. We are putting them into an RRD instead *)
 (*	   ||
 	   memory_cached <> memory)*)
@@ -224,6 +231,20 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	  
 	  Db.VM_guest_metrics.set_last_updated ~__context ~self:gm ~value:(Date.of_float last_updated);
 	  
+    if(device_id_cached <> device_id) then begin
+      if(List.mem_assoc Xapi_globs.device_id_key_name device_id) then begin
+        let value = List.assoc Xapi_globs.device_id_key_name device_id in
+        let platform = Db.VM.get_platform ~__context ~self in
+				info "Updating VM %s platform:%s <- %s" (Ref.string_of self) Xapi_globs.device_id_key_name value;
+				if List.mem_assoc Xapi_globs.device_id_key_name platform then
+					(try
+						Db.VM.remove_from_platform ~__context ~self ~key:Xapi_globs.device_id_key_name
+					with _ -> ());
+				try
+					Db.VM.add_to_platform ~__context ~self ~key:Xapi_globs.device_id_key_name ~value:value;
+				with _ -> ()
+      end
+    end;
 
 	  (* Update the 'up to date' flag afterwards *)
 	  let gmr = Db.VM_guest_metrics.get_record_internal ~__context ~self:gm in
@@ -251,67 +272,15 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	  end;	  
 	end (* else debug "Ignored spurious guest agent update" *)
     end
-    
-let sync_cache valid_domids =
-  Mutex.execute mutex 
-    (fun () -> 
-       let stored_domids = Hashtbl.fold (fun k v acc -> k::acc) cache [] in
-       List.iter (fun domid -> if not (List.mem domid valid_domids) then dead_domains := IntSet.remove domid !dead_domains) stored_domids;
 
-       Helpers.remove_other_keys cache valid_domids;
-    )
-    
-let guest_metrics_liveness_thread () =
-  ignore(Thread.create (fun () -> 
-    Vmopshelpers.with_xc (fun xc ->
-      Server_helpers.exec_with_new_task "Guest liveness monitor"
-	(fun __context ->
-	  while true do
-	    try
-	      Thread.delay !Xapi_globs.guest_liveness_timeout;
-	      let doms = Xenctrl.domain_getinfolist xc 1 in (* no guest agent in dom0 *)
-	      let now = Unix.gettimeofday () in
-	      (* debug "Running liveness logic"; *)
-	      Mutex.execute mutex (fun () -> 
-		List.iter (fun dom ->
-		  let domid = dom.Xenctrl.domid in
-		  try
-		    let (_,_,_,_,_,last_updated) = Hashtbl.find cache domid in		    
-		    let dead = IntSet.mem domid !dead_domains in
-		    if dead then
-		      begin
-			(* debug "Domain %d thought to be dead" domid; *)
-			(* If it's marked as dead, check if we've received any update recently *)
-			if now -. last_updated < !Xapi_globs.guest_liveness_timeout then
-			  begin
-			    (* debug "Marking as alive!"; *)
-			    (* Mark guest as alive! *)
-			    dead_domains := IntSet.remove domid !dead_domains;
-				let vm = Db.VM.get_by_uuid ~__context ~uuid:(Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xenctrl.handle)) in
-			    let vm_guest_metrics = Db.VM.get_guest_metrics ~__context ~self:vm in
-			    Db.VM_guest_metrics.set_live ~__context ~self:vm_guest_metrics ~value:true;
-			    (* debug "Done" *)
-			      
-			  end			  
-		      end
-		    else
-		      begin
-			(* debug "Domain %d thought to be live" domid; *)
-			(* If it's marked as alive, check if we've received any update recently *)
-			if now -. last_updated > !Xapi_globs.guest_liveness_timeout then
-			  begin
-			    (* debug "Marking as dead!"; *)
-			    (* Mark guest as dead! *)
-			    dead_domains := IntSet.add domid !dead_domains;
-				let vm = Db.VM.get_by_uuid ~__context ~uuid:(Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xenctrl.handle)) in				
-			    let vm_guest_metrics = Db.VM.get_guest_metrics ~__context ~self:vm in
-			    Db.VM_guest_metrics.set_live ~__context ~self:vm_guest_metrics ~value:false;
-			    (* debug "Done" *)
-			  end			  
-		      end
-		  with
-		      _ -> () (* Don't do anything if we've got no guest agent stats for a domain *)
-			
-		) doms)		
-	    with _ -> ()
-	  done))) ())
+(* XXX This function was previously called in the monitoring loop of the
+ * RRD-related code, but that code has now been moved into rrdd, so there
+ * is currently no caller. It probably needs to be called from whereever
+ * the fields in this file are used. *)
+let sync_cache valid_domids =
+	Mutex.execute mutex
+		(fun _ ->
+			let stored_domids = Hashtbl.fold (fun k v acc -> k::acc) cache [] in
+			List.iter (fun domid -> if not (List.mem domid valid_domids) then dead_domains := IntSet.remove domid !dead_domains) stored_domids;
+			Hashtbl.remove_other_keys cache valid_domids;
+		)

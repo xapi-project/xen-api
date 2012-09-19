@@ -92,6 +92,11 @@ let move_vlan ~__context host new_slave old_vlan =
 	let network = Db.PIF.get_network ~__context ~self:old_master in
 	let plugged = Db.PIF.get_currently_attached ~__context ~self:old_master in
 
+	if plugged then begin
+		debug "Unplugging old VLAN";
+		Nm.bring_pif_down ~__context old_master
+	end;
+
 	(* Only create new objects if the tag does not yet exist *)
 	let new_vlan, new_master =
 		let existing_vlans = Db.PIF.get_VLAN_slave_of ~__context ~self:new_slave in
@@ -165,7 +170,8 @@ let move_management ~__context from_pif to_pif =
 	Nm.bring_pif_up ~__context ~management_interface:true to_pif;
 	let network = Db.PIF.get_network ~__context ~self:to_pif in
 	let bridge = Db.Network.get_bridge ~__context ~self:network in
-	Xapi_host.change_management_interface ~__context bridge;
+	let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self:to_pif in
+	Xapi_host.change_management_interface ~__context bridge primary_address_type;
 	Xapi_pif.update_management_flags ~__context ~host:(Helpers.get_localhost ~__context)
 
 let fix_bond ~__context ~bond =
@@ -223,7 +229,7 @@ let requirements_of_mode = function
 	| `lacp -> [
 			{
 				name = "hashing_algorithm";
-				default_value = "src_mac";
+				default_value = "tcpudp_ports";
 				is_valid_value = (fun str -> List.mem str ["src_mac"; "tcpudp_ports"]);
 			};
 		]
@@ -258,20 +264,6 @@ let add_defaults requirements properties =
 			else (requirement.name, requirement.default_value)::acc)
 		properties requirements
 
-(* Temporary measure for compatibility with current interface-reconfigure.
- * Remove once interface-reconfigure has been updated to recognise bond.mode and bond.properties. *)
-let refresh_pif_other_config ~__context ~self =
-	let master = Db.Bond.get_master ~__context ~self in
-	let mode = Db.Bond.get_mode ~__context ~self in
-	let properties = Db.Bond.get_properties ~__context ~self in
-
-	Db.PIF.remove_from_other_config ~__context ~self:master ~key:"bond-mode";
-	Db.PIF.remove_from_other_config ~__context ~self:master ~key:"bond-hashing-algorithm";
-
-	Db.PIF.add_to_other_config ~__context ~self:master ~key:"bond-mode" ~value:(Record_util.bond_mode_to_string mode);
-	if List.mem_assoc "hashing_algorithm" properties then
-		Db.PIF.add_to_other_config ~__context ~self:master ~key:"bond-hashing-algorithm" ~value:(List.assoc "hashing_algorithm" properties)
-
 let create ~__context ~network ~members ~mAC ~mode ~properties =
 	let host = Db.PIF.get_host ~__context ~self:(List.hd members) in
 	Xapi_pif.assert_no_other_local_pifs ~__context ~host ~network;
@@ -302,6 +294,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 		(* 3. Members must not be tunnel access PIFs *)
 		(* 4. Referenced PIFs must be on the same host *)
 		(* 5. There must be more than one member for the bond ( ** disabled for now) *)
+		(* 6. Members must not be the management interface if HA is enabled *)
 		List.iter (fun self ->
 			let bond = Db.PIF.get_bond_slave_of ~__context ~self in
 			let bonded = try ignore(Db.Bond.get_uuid ~__context ~self:bond); true with _ -> false in
@@ -311,6 +304,9 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 			then raise (Api_errors.Server_error (Api_errors.pif_vlan_exists, [ Db.PIF.get_device_name ~__context ~self] ));
 			if Db.PIF.get_tunnel_access_PIF_of ~__context ~self <> []
 			then raise (Api_errors.Server_error (Api_errors.is_tunnel_access_pif, [Ref.string_of self]));
+			let pool = List.hd (Db.Pool.get_all ~__context) in
+			if Db.Pool.get_ha_enabled ~__context ~self:pool && Db.PIF.get_management ~__context ~self
+			then raise (Api_errors.Server_error(Api_errors.ha_cannot_change_bond_status_of_mgmt_iface, []));
 		) members;
 		let hosts = List.map (fun self -> Db.PIF.get_host ~__context ~self) members in
 		if List.length (List.setify hosts) <> 1
@@ -360,9 +356,10 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 			~device ~device_name ~network ~host ~mAC ~mTU:(-1L) ~vLAN:(-1L) ~metrics:Ref.null
 			~physical:false ~currently_attached:false
 			~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null
-			~vLAN_master_of:Ref.null ~management:false ~other_config:[] ~disallow_unplug:false;
+			~vLAN_master_of:Ref.null ~management:false ~other_config:[] ~disallow_unplug:false
+			~ipv6_configuration_mode:`None ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type:`IPv4;
 		Db.Bond.create ~__context ~ref:bond ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~master:master ~other_config:[]
-			~primary_slave ~mode ~properties;
+			~primary_slave ~mode ~properties ~links_up:0L;
 
 		(* Set the PIF.bond_slave_of fields of the members.
 		 * The value of the Bond.slaves field is dynamically computed on request. *)
@@ -370,11 +367,6 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 
 		(* Copy the IP configuration of the primary member to the master *)
 		copy_configuration ~__context primary_slave master;
-
-		if not !Nm.use_networkd then
-			(* Temporary measure for compatibility with current interface-reconfigure.
-			 * Remove once interface-reconfigure has been updated to recognise bond.mode and bond.properties. *)
-			refresh_pif_other_config ~__context ~self:bond;
 
 		begin match management_pif with
 		| Some management_pif ->
@@ -432,6 +424,11 @@ let destroy ~__context ~self =
 		let local_vlans = Db.PIF.get_VLAN_slave_of ~__context ~self:master in
 		let local_tunnels = Db.PIF.get_tunnel_transport_PIF_of ~__context ~self:master in
 
+		(* CA-86573: forbid the deletion of a bond involving the mgmt interface if HA is on *)
+		let pool = List.hd (Db.Pool.get_all ~__context) in
+		if Db.Pool.get_ha_enabled ~__context ~self:pool && Db.PIF.get_management ~__context ~self:master
+		then raise (Api_errors.Server_error(Api_errors.ha_cannot_change_bond_status_of_mgmt_iface, []));
+
 		(* Copy IP configuration from master to primary member *)
 		copy_configuration ~__context master primary_slave;
 
@@ -486,11 +483,6 @@ let set_mode ~__context ~self ~value =
 	in
 	Db.Bond.set_properties ~__context ~self ~value:properties;
 
-	if not !Nm.use_networkd then
-		refresh_pif_other_config ~__context ~self;
-
-	(* Need to set currently_attached to false, otherwise bring_pif_up does nothing... *)
-	Db.PIF.set_currently_attached ~__context ~self:master ~value:false;
 	Nm.bring_pif_up ~__context master
 
 let set_property ~__context ~self ~name ~value =
@@ -506,10 +498,5 @@ let set_property ~__context ~self ~name ~value =
 	let properties = (name, value)::properties in
 	Db.Bond.set_properties ~__context ~self ~value:properties;
 
-	if not !Nm.use_networkd then
-		refresh_pif_other_config ~__context ~self;
-
-	(* Need to set currently_attached to false, otherwise bring_pif_up does nothing... *)
 	let master = Db.Bond.get_master ~__context ~self in
-	Db.PIF.set_currently_attached ~__context ~self:master ~value:false;
 	Nm.bring_pif_up ~__context master

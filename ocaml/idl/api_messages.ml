@@ -78,7 +78,6 @@ let auth_external_pool_non_homogeneous = addMessage "EXTAUTH_IN_POOL_IS_NON_HOMO
 
 let multipath_periodic_alert = addMessage "MULTIPATH_PERIODIC_ALERT"
 
-let vm_uncooperative = addMessage "VM_UNCOOPERATIVE"
 let v6_server_up = addMessage "LICENSE_SERVER_CONNECTED"
 let v6_server_down = addMessage "LICENSE_SERVER_UNAVAILABLE"
 let v6_license_expired = addMessage "LICENSE_EXPIRED"
@@ -100,3 +99,5 @@ let vmpp_backup_missed_event = addMessage "VMPP_SNAPSHOT_MISSED_EVENT" (*'A sche
 let vmpp_archive_missed_event = addMessage "VMPP_ARCHIVE_MISSED_EVENT" (*'A scheduled archive event was missed due to another on-going scheduled archive run. This is unexpected behaviour, please re-configure your archive sub-policy'*)
 let vmpp_backup_failed = addMessage "VMPP_SNAPSHOT_FAILED" (*'The snapshot phase of the protection policy failed.'*)
 let vmpp_snapshot_archive_already_exists = addMessage "VMPP_SNAPSHOT_ARCHIVE_ALREADY_EXISTS" (*'Failed to archive the snapshot, it has already been archived on the specified target'*)
+
+let bond_status_changed = addMessage "BOND_STATUS_CHANGED" (* A link in a bond went down or came back up *)

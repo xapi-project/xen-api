@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 open Threadext
-open Xapi_network_types
 open Client
 
 module D=Debug.Debugger(struct let name="xapi" end)
@@ -20,39 +19,68 @@ open D
 
 open Db_filter
 
+module Net = (val (Network.get_client ()) : Network.CLIENT)
+
 let create_internal_bridge ~bridge ~uuid =
 	debug "Creating internal bridge %s (uuid:%s)" bridge uuid;
 	let current = Netdev.network.Netdev.list () in
 	if not(List.mem bridge current) then Netdev.network.Netdev.add bridge ?uuid:(Some uuid);
 	if not(Netdev.Link.is_up bridge) then Netdev.Link.up bridge
 
+let set_himn_ip ~__context bridge other_config =
+	if not(List.mem_assoc "ip_begin" other_config) then
+		error "Cannot setup host internal management network: no other-config:ip_begin"
+	else begin
+		(* Set the ip address of the bridge *)
+		let ip = List.assoc "ip_begin" other_config in
+		ignore(Forkhelpers.execute_command_get_output "/sbin/ifconfig" [bridge; ip; "up"]);
+		Xapi_mgmt_iface.maybe_start_himn ~__context ~addr:ip ()
+	end
+
+let check_himn ~__context =
+	let nets = Db.Network.get_all_records ~__context in
+	let mnets =
+		List.filter (fun (_, n) ->
+			let oc = n.API.network_other_config in
+			(List.mem_assoc Xapi_globs.is_guest_installer_network oc)
+				&& (List.assoc Xapi_globs.is_guest_installer_network oc = "true")
+		) nets
+	in
+	match mnets with
+	| [] -> ()
+	| (_, rc) :: _ ->
+		let dbg = Context.string_of_task __context in
+		let bridges = Net.Bridge.get_all dbg () in
+		if List.mem rc.API.network_bridge bridges then
+			set_himn_ip ~__context rc.API.network_bridge rc.API.network_other_config
+
 let attach_internal ?(management_interface=false) ~__context ~self () =
 	let host = Helpers.get_localhost ~__context in
 	let net = Db.Network.get_record ~__context ~self in
-	(* This returns a list of local PIFs, of which there should be only by construction *)
-	let local_pifs =
-		Xapi_network_attach_helpers.assert_can_attach_network_on_host ~__context ~self ~host in
+	let local_pifs = Xapi_network_attach_helpers.get_local_pifs ~__context ~network:self ~host in
 
 	(* Ensure internal bridge exists and is up. external bridges will be
 	   brought up by call to interface-reconfigure. *)
 	if List.length(local_pifs) = 0 then create_internal_bridge ~bridge:net.API.network_bridge ~uuid:net.API.network_uuid;
 
-	(* Check if we're a guest-installer network: *)
+	(* Check if we're a Host-Internal Management Network (HIMN) (a.k.a. guest-installer network) *)
 	if (List.mem_assoc Xapi_globs.is_guest_installer_network net.API.network_other_config)
-		&& (List.assoc Xapi_globs.is_guest_installer_network net.API.network_other_config = "true")
-	then Xapi_network_real.maybe_start net.API.network_bridge net.API.network_other_config;
+		&& (List.assoc Xapi_globs.is_guest_installer_network net.API.network_other_config = "true") then
+		set_himn_ip ~__context net.API.network_bridge net.API.network_other_config;
 
 	(* Create the new PIF.
 	   NB if we're doing this as part of a management-interface-reconfigure then
 	   we might be just about to loose our current management interface... *)
 	List.iter (fun pif ->
-		let uuid = Db.PIF.get_uuid ~__context ~self:pif in
-		debug "Trying to attach PIF: %s" uuid;
-		Nm.bring_pif_up ~__context ~management_interface pif
+		if Db.PIF.get_currently_attached ~__context ~self:pif = false || management_interface then begin
+			Xapi_network_attach_helpers.assert_no_slave ~__context pif;
+			let uuid = Db.PIF.get_uuid ~__context ~self:pif in
+			debug "Trying to attach PIF: %s" uuid;
+			Nm.bring_pif_up ~__context ~management_interface pif
+		end
 	) local_pifs
 
 let detach bridge_name =
-	Xapi_network_real.maybe_stop bridge_name;
 	if Netdev.network.Netdev.exists bridge_name then begin
 		List.iter (fun iface ->
 			D.warn "Untracked interface %s exists on bridge %s: deleting" iface bridge_name;
@@ -153,16 +181,13 @@ let destroy ~__context ~self =
 	) vifs;
 	Db.Network.destroy ~__context ~self
 
-let create_new_blob ~__context ~network ~name ~mime_type =
-	let blob = Xapi_blob.create ~__context ~mime_type in
+let create_new_blob ~__context ~network ~name ~mime_type ~public =
+	let blob = Xapi_blob.create ~__context ~mime_type ~public in
 	Db.Network.add_to_blobs ~__context ~self:network ~key:name ~value:blob;
 	blob
 
 let set_default_locking_mode ~__context ~network ~value =
 	if (value = `disabled) then begin
-		(* Allow unlicensed users to set default_locking_mode = `unlocked, i.e. turn the feature off. *)
-		if not(Pool_features.is_enabled ~__context Features.VIF_locking) then
-			raise (Api_errors.Server_error(Api_errors.license_restriction, []));
 		(* Don't allow locking of a network if a vswitch controller is present. *)
 		Helpers.assert_vswitch_controller_not_active ~__context
 	end;
@@ -176,3 +201,58 @@ let set_default_locking_mode ~__context ~network ~value =
 	with
 	| [] -> Db.Network.set_default_locking_mode ~__context ~self:network ~value
 	| (vif,_)::_ -> raise (Api_errors.Server_error (Api_errors.vif_in_use, [Ref.string_of network; Ref.string_of vif]))
+
+let string_of_exn = function
+	| Api_errors.Server_error(code, params) -> Printf.sprintf "%s [ %s ]" code (String.concat "; " params)
+	| e -> Printexc.to_string e
+
+(* Networking helper functions for VMs and VIFs *)
+
+let attach_for_vif ~__context ~vif () =
+	register_vif ~__context vif;
+	let network = Db.VIF.get_network ~__context ~self:vif in
+	attach_internal ~__context ~self:network ();
+	Xapi_udhcpd.maybe_add_lease ~__context vif
+
+let attach_for_vm ~__context ~host ~vm =
+	List.iter
+		(fun vif ->
+			attach_for_vif ~__context ~vif ()
+		) (Db.VM.get_VIFs ~__context ~self:vm)
+
+let detach_for_vm ~__context ~host ~vm =
+	try
+		List.iter
+			(fun vif ->
+				deregister_vif ~__context vif
+			) (Db.VM.get_VIFs ~__context ~self:vm)
+	with e ->
+		error "Caught %s while detaching networks" (string_of_exn e)
+
+let with_networks_attached_for_vm ~__context ?host ~vm f =
+	begin match host with
+	| None -> (* use local host *)
+		attach_for_vm ~__context ~host:(Helpers.get_localhost ~__context) ~vm
+	| Some host ->
+		Helpers.call_api_functions ~__context (fun rpc session_id ->
+			Client.Network.attach_for_vm ~rpc ~session_id ~host ~vm
+		)
+	end;
+	try
+		f ()
+	with e ->
+		info "Caught %s: detaching networks" (string_of_exn e);
+		begin
+			try
+				match host with
+				| None -> (* use local host *)
+					detach_for_vm ~__context ~host:(Helpers.get_localhost ~__context) ~vm
+				| Some host ->
+					Helpers.call_api_functions ~__context (fun rpc session_id ->
+						Client.Network.detach_for_vm ~rpc ~session_id ~host ~vm
+					)
+			with e ->
+				error "Caught %s while detaching networks" (string_of_exn e)
+		end;
+		raise e
+

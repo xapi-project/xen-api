@@ -17,6 +17,7 @@
  * console will be chosen) or a console object.
  *)
 
+open Fun
 open Http
 open Xenops_helpers
 
@@ -29,13 +30,22 @@ exception Failure
     proxy could not be found. *)
 let port_of_proxy __context console =
 	let vm = Db.Console.get_VM __context console in
-	let domid = Helpers.domid_of_vm __context vm in
-	let vnc_port_option = 
-		with_xs
-			(fun xs -> match Db.Console.get_protocol __context console with
-				| `rfb -> Device.get_vnc_port xs domid
-				| `vt100 -> Device.get_tc_port xs domid
-				| `rdp -> raise Failure) in
+	let vnc_port_option =
+		try
+			let open Xenops_interface in
+			let open Xenops_client in
+			let id = Xapi_xenops.id_of_vm ~__context ~self:vm in
+			let dbg = Context.string_of_task __context in		
+			let _, s = Client.VM.stat dbg id in
+			let proto = match Db.Console.get_protocol __context console with
+				| `rfb -> Vm.Rfb
+				| `vt100 -> Vm.Vt100
+				| `rdp -> failwith "No support for tunnelling RDP" in
+			let console = List.find (fun x -> x.Vm.protocol = proto) s.Vm.consoles in
+			Some console.Vm.port
+		with e ->
+			debug "%s" (Printexc.to_string e);
+			None in
 	debug "VM %s console port: %s" (Ref.string_of vm) (Opt.default "None" (Opt.map (fun x -> "Some " ^ (string_of_int x)) vnc_port_option));
 	vnc_port_option
 
@@ -55,7 +65,21 @@ let real_proxy __context _ _ vnc_port s =
 let fake_proxy __context _ _ console s = 
   Rfb_randomtest.server s
 
+let check_wsproxy () =
+	try 
+		let pid = int_of_string (Unixext.string_of_file "/var/run/wsproxy.pid") in
+		Unix.kill pid 0;
+		true
+	with _ -> false
+
+let ensure_proxy_running () =
+	if check_wsproxy () then () else begin
+		ignore(Forkhelpers.execute_command_get_output "/opt/xensource/libexec/wsproxy" []);
+		Thread.delay 1.0;
+	end
+
 let ws_proxy __context req protocol port s =
+  ensure_proxy_running ();
   let protocol = match protocol with 
     | `rfb -> "rfb"
     | `vt100 -> "vt100"
@@ -76,19 +100,22 @@ let ws_proxy __context req protocol port s =
   Pervasiveext.finally (fun () -> 
     let upgrade_successful = Opt.map (fun sock -> 
       try 
-	Ws_helpers.upgrade req s;
-	(sock,true)
+	let result = (sock,Some (Ws_helpers.upgrade req s)) in
+	result	  
       with _ ->
-	(sock,false)) sock
+	(sock,None)) sock
     in
     
     Opt.iter (function
-      | (sock,true) -> begin
-	let message = Printf.sprintf "%s:%d" protocol port in
+      | (sock,Some ty) -> begin
+	let wsprotocol = match ty with
+	  | Ws_helpers.Hixie76 -> "hixie76"
+	  | Ws_helpers.Hybi10 -> "hybi10" in
+	let message = Printf.sprintf "%s:%s:%d" wsprotocol protocol port in
 	let len = String.length message in
 	ignore(Unixext.send_fd sock message 0 len [] s)
       end
-      | (sock,false) -> begin
+      | (sock,None) -> begin
 	Http_svr.headers s (Http.http_501_method_not_implemented ())
       end) upgrade_successful)
     (fun () ->

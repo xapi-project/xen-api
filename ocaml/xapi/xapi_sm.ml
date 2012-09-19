@@ -14,38 +14,114 @@
 (**
  * @group Storage
  *)
+
+(* The SMAPIv1 plugins are a static set in the filesystem.
+   The SMAPIv2 plugins are a dynamic set hosted in driver domains. *)
+
+open Listext
+open Stringext
+open Fun
+
+(* We treat versions as '.'-separated integer lists under the usual
+   lexicographic ordering. *)
+type version = int list
+let version_of_string = List.map int_of_string ++ (String.split '.')
  
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
 
-(** Enumerate the registered plugins and recreate db records for them *)
-let resync_plugins ~__context =
-  let existing = Db.SM.get_records_where ~__context ~expr:Db_filter_types.True in
-  let drivers = Sm.supported_drivers () in
-  (* CA-24517: preserve SM.other_config keys across xapi restart for HP *)
-  let other_config_tbl : (string, (string * string) list) Hashtbl.t = Hashtbl.create 10 in
+let create_from_query_result ~__context q =
+	let r = Ref.make () and u = Uuid.string_of_uuid (Uuid.make_uuid ()) in
+	let open Storage_interface in
+	info "Registering SM plugin %s (version %s)" (String.lowercase q.driver) q.version;
+	Db.SM.create ~__context ~ref:r ~uuid:u ~_type:(String.lowercase q.driver)
+		 ~name_label:q.name
+		 ~name_description:q.description
+		 ~vendor:q.vendor
+		 ~copyright:q.copyright
+		 ~version:q.version
+		 ~required_api_version:q.required_api_version
+		 ~capabilities:q.features
+		 ~configuration:q.configuration
+		 ~other_config:[]
+		 ~driver_filename:(Sm_exec.cmd_name q.driver)
 
-  (* remove all existing db records for sm plugins *)
-  List.iter (fun (x, y) ->
-	       debug "Deleting storage plugin from database: %s" y.API.sM_type;
-	       Hashtbl.replace other_config_tbl y.API.sM_type y.API.sM_other_config;
-	       Db.SM.destroy ~__context ~self:x) existing;
+let update_from_query_result ~__context (self, r) query_result =
+	let open Storage_interface in
+	let _type = String.lowercase query_result.driver in
+	let driver_filename = Sm_exec.cmd_name query_result.driver in
+	info "Registering SM plugin %s (version %s)" (String.lowercase query_result.driver) query_result.version;
+	if r.API.sM_type <> _type
+	then Db.SM.set_type ~__context ~self ~value:_type;
+	if r.API.sM_name_label <> query_result.name
+	then Db.SM.set_name_label ~__context ~self ~value:query_result.name;
+	if r.API.sM_name_description <> query_result.description
+	then Db.SM.set_name_description ~__context ~self ~value:query_result.description;
+	if r.API.sM_vendor <> query_result.vendor
+	then Db.SM.set_vendor ~__context ~self ~value:query_result.vendor;
+	if r.API.sM_copyright <> query_result.copyright
+	then Db.SM.set_copyright ~__context ~self ~value:query_result.copyright;
+	if r.API.sM_required_api_version <> query_result.required_api_version
+	then Db.SM.set_required_api_version ~__context ~self ~value:query_result.required_api_version;
+	if r.API.sM_capabilities <> query_result.features
+	then Db.SM.set_capabilities ~__context ~self ~value:query_result.features;
+	if r.API.sM_configuration <> query_result.configuration
+	then Db.SM.set_configuration ~__context ~self ~value:query_result.configuration;
+	if r.API.sM_driver_filename <> driver_filename
+	then Db.SM.set_driver_filename ~__context ~self ~value:driver_filename
 
-  (* make new db records for discovered sm plugins *)
-  List.iter (fun driver ->
-	       debug "Registering new driver with database: %s" driver;
-	       let r = Ref.make () and u = Uuid.string_of_uuid (Uuid.make_uuid ()) in
-	       let info = Sm.info_of_driver driver in
-	       Db.SM.create ~__context ~ref:r ~uuid:u ~_type:driver
-		 ~name_label:info.Smint.sr_driver_name
-		 ~name_description:info.Smint.sr_driver_description
-		 ~vendor:info.Smint.sr_driver_vendor
-		 ~copyright:info.Smint.sr_driver_copyright
-		 ~version:info.Smint.sr_driver_version
-		 ~required_api_version:info.Smint.sr_driver_required_api_version 
-		 ~capabilities:info.Smint.sr_driver_text_capabilities
-		 ~configuration:info.Smint.sr_driver_configuration
-		 ~other_config:(try Hashtbl.find other_config_tbl driver with _ -> [])
-		 ~driver_filename:(Sm_exec.cmd_name info.Smint.sr_driver_filename)
-	    ) drivers
+let is_v1 x = version_of_string x < [ 2; 0 ]
 
+(** Update all SMAPIv1 plugins which have been deleted from the filesystem.
+    The SMAPIv2 ones are dynamically discovered so we leave those alone. *)
+let on_xapi_start ~__context =
+	let existing = List.map (fun (rf, rc) -> rc.API.sM_type, (rf, rc)) (Db.SM.get_all_records ~__context) in
+	let drivers = Sm.supported_drivers () in
+	(* Delete all SM records except those for SMAPIv1 plugins *)
+	List.iter
+		(fun ty ->
+			let self, rc = List.assoc ty existing in
+			if is_v1 rc.API.sM_version then begin
+				info "Unregistering SM plugin %s since version (%s) < 2.0 and executable is missing" ty rc.API.sM_version;
+				try
+					Db.SM.destroy ~__context ~self
+				with _ -> ()
+			end
+		) (List.set_difference (List.map fst existing) drivers);
+	(* Create all missing SMAPIv1 plugins *)
+	List.iter
+		(fun ty ->
+			let query_result = Sm.info_of_driver ty |> Smint.query_result_of_sr_driver_info in
+			create_from_query_result ~__context query_result
+		) (List.set_difference drivers (List.map fst existing));
+	(* Update all existing SMAPIv1 plugins *)
+	List.iter
+		(fun ty ->
+			let query_result = Sm.info_of_driver ty |> Smint.query_result_of_sr_driver_info in
+			update_from_query_result ~__context (List.assoc ty existing) query_result
+		) (List.intersect drivers (List.map fst existing))
+
+let unregister_plugin ~__context query_result =
+	let open Storage_interface in
+	let driver = String.lowercase query_result.driver in
+	if is_v1 query_result.version then begin
+		info "Not unregistering SM plugin %s (version %s < 2.0)" driver query_result.version;
+	end else begin
+		let existing = List.map (fun (rf, rc) -> rc.API.sM_type, (rf, rc)) (Db.SM.get_all_records ~__context) in
+		if List.mem_assoc driver existing then begin
+			info "Unregistering SM plugin %s (version %s)" driver query_result.version;
+			try
+				Db.SM.destroy ~__context ~self:(fst (List.assoc driver existing))
+			with _ -> ()
+		end
+	end
+
+let register_plugin ~__context query_result =
+	let open Storage_interface in
+	let driver = String.lowercase query_result.driver in
+	if is_v1 query_result.version then begin
+		info "Not registering SM plugin %s (version %s < 2.0)" driver query_result.version;		
+	end else begin
+		unregister_plugin ~__context query_result;
+		create_from_query_result ~__context query_result
+	end

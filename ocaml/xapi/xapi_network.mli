@@ -32,6 +32,10 @@
 Note: It is currently assumed that all PIFs that are associated with a certain Network are physically connected, but this is not checked or enforced anywhere. This means that if a system admin connects the cables in a wrong way, things may be broken. Moreover, if two PIFs are of different Networks, this does not mean that they are not on the same physical network. Ideally, Networks objects should be constructed and maintained automatically by xapi based the actual physical connections.
 *)
 
+(** This function is called when xapi starts and management is disabled. It ensures
+ *  that a HIMN API server is running if there is a HIMN bridge present. *)
+val check_himn : __context:Context.t -> unit
+
 (** Instantiate the bridge associated to this network on the localhost, and bring
    up the PIFs on the localhost that are on this network, provided it wouldn't 
    destroy existing Networks (e.g. slaves of a bond) in use by something (VIF or management interface).
@@ -85,9 +89,36 @@ val destroy : __context:Context.t -> self:[ `network ] Ref.t -> unit
 val create_new_blob :
   __context:Context.t ->
   network:[ `network ] Ref.t ->
-  name:string -> mime_type:string -> [ `blob ] Ref.t
+  name:string -> mime_type:string -> public:bool -> [ `blob ] Ref.t
 
 val set_default_locking_mode :
 	__context:Context.t ->
 	network:[ `network ] Ref.t ->
 	value:API.network_default_locking_mode -> unit
+
+(** {2 Networking helper functions for VMs and VIFs} *)
+
+val attach_for_vif :
+	__context:Context.t ->
+	vif:[ `VIF ] Ref.t ->
+	unit ->
+	unit
+
+val attach_for_vm :
+	__context:Context.t ->
+	host:[ `host ] Ref.t ->
+	vm:[ `VM ] Ref.t ->
+	unit
+
+val detach_for_vm :
+	__context:Context.t ->
+	host:[ `host ] Ref.t ->
+	vm:[ `VM ] Ref.t ->
+	unit
+
+val with_networks_attached_for_vm :
+	__context:Context.t ->
+	?host:[ `host ] Ref.t ->
+	vm:[ `VM ] Ref.t ->
+	(unit -> 'a) ->
+	'a

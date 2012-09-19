@@ -35,7 +35,7 @@ open Record_util
 
 let all_ops : API.storage_operations_set = 
   [ `scan; `destroy; `forget; `plug; `unplug; `vdi_create; `vdi_destroy; `vdi_resize; `vdi_clone; `vdi_snapshot;
-    `vdi_introduce; `update ]
+    `vdi_introduce; `update; `pbd_create; `pbd_destroy ]
 
 let sm_cap_table = 
   [ `vdi_create, Smint.Vdi_create;
@@ -47,8 +47,6 @@ let sm_cap_table =
     `vdi_snapshot, Smint.Vdi_snapshot ]
 
 type table = (API.storage_operations, ((string * (string list)) option)) Hashtbl.t
-
-let set_difference a b = List.filter (fun x -> not(List.mem x b)) a
 
 (** Returns a table of operations -> API error options (None if the operation would be ok) *)
 let valid_operations ~__context record _ref' : table = 
@@ -70,10 +68,13 @@ let valid_operations ~__context record _ref' : table =
 
   (* First consider the backend SM capabilities *)
   let sm_caps = 
-    try
-      Sm.capabilities_of_driver record.Db_actions.sR_type
-    with Sm.Unknown_driver _ -> []
+      try
+		  Sm.capabilities_of_driver record.Db_actions.sR_type
+      with Sm.Unknown_driver _ ->
+		  (* then look to see if this supports the SMAPIv2 *)
+		  Smint.parse_capabilities (Storage_mux.capabilities_of_sr _ref)
   in
+  info "SR %s has capabilities: [ %s ]" _ref (String.concat ", " (List.map Smint.string_of_capability sm_caps));
 
   (* Then filter out the operations we don't want to see for the magic tools SR *)
   let sm_caps = 
@@ -86,15 +87,19 @@ let valid_operations ~__context record _ref' : table =
       all_ops in
   set_errors Api_errors.sr_operation_not_supported [ _ref ] forbidden_by_backend;
 
-  (* CA-70294: if the SR has a PBD, destroy and forget operations are not allowed.*)
+  (* CA-70294: if the SR has any attached PBDs, destroy and forget operations are not allowed.*)
   let all_pbds_attached_to_this_sr =
 	Db.PBD.get_records_where ~__context ~expr:(And(Eq(Field "SR", Literal _ref), Eq(Field "currently_attached", Literal "true"))) in
   if List.length all_pbds_attached_to_this_sr > 0 then
-	set_errors Api_errors.sr_operation_not_supported [ _ref ] [ `destroy; `forget ]
+	set_errors Api_errors.sr_has_pbd [ _ref ] [ `destroy; `forget ]
   else ();
 
-	(* If the SR is not empty, destroy is not allowed. *)
-	if (Db.SR.get_VDIs ~__context ~self:_ref') <> [] then
+	(* If the SR has no PBDs, destroy is not allowed. *)
+	if (Db.SR.get_PBDs ~__context ~self:_ref') = [] then
+		set_errors Api_errors.sr_no_pbds [_ref] [`destroy];
+
+	(* If the SR contains any managed VDIs, destroy is not allowed. *)
+	if (Db.VDI.get_records_where ~__context ~expr:(And(Eq(Field "SR", Literal _ref), Eq(Field "managed", Literal "true")))) <> [] then
 		set_errors Api_errors.sr_not_empty [] [`destroy];
 
   let safe_to_parallelise = [ ] in
@@ -105,7 +110,7 @@ let valid_operations ~__context record _ref' : table =
   if current_ops <> []
   then set_errors Api_errors.other_operation_in_progress
     [ "SR"; _ref; sr_operation_to_string (List.hd current_ops) ]
-    (set_difference all_ops safe_to_parallelise);
+    (List.set_difference all_ops safe_to_parallelise);
 
   let all_are_parallelisable = List.fold_left (&&) true 
     (List.map (fun op -> List.mem op safe_to_parallelise) current_ops) in
@@ -254,8 +259,6 @@ let scanning_thread () =
 let introduce  ~__context ~uuid ~name_label
     ~name_description ~_type ~content_type ~shared ~sm_config =
   let _type = String.lowercase _type in
-  if not(List.mem _type (Sm.supported_drivers ()))
-  then raise (Api_errors.Server_error(Api_errors.sr_unknown_driver, [ _type ]));
   let uuid = if uuid="" then Uuid.to_string (Uuid.make_uuid()) else uuid in (* fill in uuid if none specified *)
   let sr_ref = Ref.make () in
     (* Create SR record in DB *)
@@ -304,9 +307,6 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
 		~_type ~content_type ~shared ~sm_config =
 	Helpers.assert_rolling_upgrade_not_in_progress ~__context ;
 	debug "SR.create name_label=%s sm_config=[ %s ]" name_label (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
-	let _type = String.lowercase _type in
-	if not(List.mem _type (Sm.supported_drivers ()))
-		then raise (Api_errors.Server_error(Api_errors.sr_unknown_driver, [ _type ]));
 	(* This breaks the udev SR which doesn't support sr_probe *)
 (*
 	let probe_result = probe ~__context ~host ~device_config ~_type ~sm_config in
@@ -333,20 +333,6 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
 			~name_description ~_type ~content_type ~shared ~sm_config
 	in 
 
-	begin
-		try 
-			let subtask_of = Some (Context.get_task_id __context) in
-			Sm.sr_create (subtask_of, Sm.sm_master true :: device_config) _type sr_ref physical_size;
-		with
-		| Smint.Not_implemented_in_backend ->
-				Db.SR.destroy ~__context ~self:sr_ref;
-				raise (Api_errors.Server_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr_ref ]))
-
-		| e -> 
-				Db.SR.destroy ~__context ~self:sr_ref;
-				raise e
-	end;
-
 	let pbds =
 		if shared then
 			let create_on_host host =
@@ -360,6 +346,14 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
 		else
 			[Xapi_pbd.create_thishost ~__context ~sR:sr_ref ~device_config ~currently_attached:false ]
 	in
+	begin
+		try
+			Storage_access.create_sr ~__context ~sr:sr_ref ~physical_size
+		with e ->
+			Db.SR.destroy ~__context ~self:sr_ref;
+			List.iter (fun pbd -> Db.PBD.destroy ~__context ~self:pbd) pbds;
+			raise e
+	end;
 	Helpers.call_api_functions ~__context
 		(fun rpc session_id ->
 			List.iter
@@ -404,10 +398,10 @@ let destroy  ~__context ~sr =
 	let vdis = Db.SR.get_VDIs ~__context ~self:sr in
 	let sm_cfg = Db.SR.get_sm_config ~__context ~self:sr in
 
-	Db.SR.destroy ~__context ~self:sr;
 	Xapi_secret.clean_out_passwds ~__context sm_cfg;
 	List.iter (fun self -> Xapi_pbd.destroy ~__context ~self) pbds;
-	List.iter (fun vdi ->  Db.VDI.destroy ~__context ~self:vdi) vdis
+	List.iter (fun vdi ->  Db.VDI.destroy ~__context ~self:vdi) vdis;
+	Db.SR.destroy ~__context ~self:sr
 
 let update ~__context ~sr =
   Sm.assert_pbd_is_plugged ~__context ~sr;
@@ -531,14 +525,13 @@ let scan ~__context ~sr =
     let open Storage_interface in
 	let module C = Client(struct let rpc = rpc end) in
 	let sr' = Ref.string_of sr in
-	match C.SR.scan ~task:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sr) with
-		| Success (Vdis vs) ->
+	transform_storage_exn
+		(fun () ->
+			let vs = C.SR.scan ~dbg:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sr) in
 			let db_vdis = Db.VDI.get_records_where ~__context ~expr:(Eq(Field "SR", Literal sr')) in
 			update_vdis ~__context ~sr:sr db_vdis vs;
-			Db.SR.remove_from_other_config ~__context ~self:sr ~key:"dirty";
-		| x ->
-			error "Unexpected result from scanning SR %s: %s" sr' (string_of_result x);
-			raise (Api_errors.Server_error(Api_errors.internal_error, [ "SR.scan"; sr'; string_of_result x ]))
+			Db.SR.remove_from_other_config ~__context ~self:sr ~key:"dirty"
+		)
 
 let set_shared ~__context ~sr ~value =
   if value then
@@ -590,7 +583,7 @@ let assert_supports_database_replication ~__context ~sr =
 	if List.length connected_hosts < (List.length all_hosts) then begin
 		error "Cannot enable database replication to SR %s: some hosts lack a PBD: [ %s ]"
 			(Ref.string_of sr)
-			(String.concat "; " (List.map Ref.string_of (set_difference all_hosts connected_hosts)));
+			(String.concat "; " (List.map Ref.string_of (List.set_difference all_hosts connected_hosts)));
 		raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of sr ]))
 	end;
 	(* Check that each PBD is plugged in *)
@@ -662,7 +655,7 @@ let disable_database_replication ~__context ~sr =
 		)
 		metadata_vdis
 
-let create_new_blob ~__context ~sr ~name ~mime_type =
-  let blob = Xapi_blob.create ~__context ~mime_type in
+let create_new_blob ~__context ~sr ~name ~mime_type ~public =
+  let blob = Xapi_blob.create ~__context ~mime_type ~public in
   Db.SR.add_to_blobs ~__context ~self:sr ~key:name ~value:blob;
   blob

@@ -32,12 +32,9 @@ let no_exn f x =
     debug "Ignoring exception: %s" (ExnHelper.string_of_exn exn)
 
 let rpc host_address xml =
-	let open Xmlrpc_client in
 	try
-		let transport = SSL(SSL.make (), host_address, !Xapi_globs.https_port) in
-		let http = xmlrpc ~version:"1.0" "/" in
-		XML_protocol.rpc ~transport ~http xml
-	with Connection_reset ->
+		Helpers.make_remote_rpc host_address xml
+	with Xmlrpc_client.Connection_reset ->
 		raise (Api_errors.Server_error(Api_errors.pool_joining_host_connection_failed, []))
 
 let get_master ~rpc ~session_id =
@@ -74,7 +71,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 
 	(* CA-26975: Pool edition MUST match *)
 	let assert_restrictions_match () =
-		let editions = V6client.get_editions () in
+		let editions = V6client.get_editions "assert_restrictions_match" in
 		let edition_to_int e =
 			match List.find (fun (name, _, _, _) -> name = e) editions with _, _, _, a -> a
 		in
@@ -313,28 +310,38 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 			raise (Api_errors.Server_error(Api_errors.operation_not_allowed, [error_msg])) in
 
 	let assert_homogeneous_vswitch_configuration () =
+		(* The network backend must be the same as the remote master's backend *)
+		let my_pool = Helpers.get_pool __context in
+		let my_backend = Netdev.string_of_kind Netdev.network.Netdev.kind in
+		let pool = List.hd (Client.Pool.get_all rpc session_id) in
+		let remote_master = Client.Pool.get_master ~rpc ~session_id ~self:pool in
+		let remote_masters_backend =
+			let v = Client.Host.get_software_version ~rpc ~session_id ~self:remote_master in
+			if not (List.mem_assoc "network_backend" v) then
+				Netdev.string_of_kind Netdev.Bridge
+			else
+				List.assoc "network_backend" v
+		in
+		if my_backend <> remote_masters_backend then
+			raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["Network backends differ"]));
+
 		match Netdev.network.Netdev.kind with
 		| Netdev.Vswitch ->
-			let my_pool = Helpers.get_pool __context in
 			let my_controller = Db.Pool.get_vswitch_controller ~__context ~self:my_pool in
-			let pool = List.hd (Client.Pool.get_all rpc session_id) in
 			let controller = Client.Pool.get_vswitch_controller ~rpc ~session_id ~self:pool in
 			if my_controller <> controller && my_controller <> "" then
-				raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["vswitch controller address differs"]));
-
-			(* The network backend must be the same as the remote master's backend *)
-			let my_backend = Netdev.string_of_kind Netdev.network.Netdev.kind in
-			let remote_master = Client.Pool.get_master ~rpc ~session_id ~self:pool in
-			let remote_masters_backend =
-				let v = Client.Host.get_software_version ~rpc ~session_id ~self:remote_master in
-				if not (List.mem_assoc "network_backend" v) then
-					Netdev.string_of_kind Netdev.Bridge
-				else
-					List.assoc "network_backend" v
-			in
-			if my_backend <> remote_masters_backend then
-				raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["Network backends differ"]));
+				raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["vswitch controller address differs"]))
 		| _ -> ()
+	in
+
+	let assert_homogeneous_primary_address_type () =
+	  let mgmt_iface = Xapi_host.get_management_interface ~__context ~host:(Helpers.get_localhost ~__context) in
+	  let mgmt_addr_type = Db.PIF.get_primary_address_type ~__context ~self:mgmt_iface in
+	  let master = get_master rpc session_id in
+	  let master_mgmt_iface = Client.Host.get_management_interface rpc session_id master in
+          let master_addr_type = Client.PIF.get_primary_address_type rpc session_id master_mgmt_iface in
+	  if (mgmt_addr_type <> master_addr_type) then
+	    raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["Primary address type differs"]));
 	in
 
 	(* call pre-join asserts *)
@@ -352,7 +359,8 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 	assert_external_auth_matches ();
 	assert_restrictions_match ();
 	assert_homogeneous_vswitch_configuration ();
-	assert_applied_patches_match ()
+	assert_applied_patches_match ();
+	assert_homogeneous_primary_address_type ()
 
 let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) : API.ref_host =
 	let my_uuid = host.API.host_uuid in
@@ -582,7 +590,11 @@ let create_or_get_pif_on_master __context rpc session_id (pif_ref, pif) : API.re
 				~vLAN_master_of:pif.API.pIF_VLAN_master_of
 				~management:pif.API.pIF_management
 				~other_config:pif.API.pIF_other_config
-				~disallow_unplug:pif.API.pIF_disallow_unplug in
+				~disallow_unplug:pif.API.pIF_disallow_unplug
+				~ipv6_configuration_mode:pif.API.pIF_ipv6_configuration_mode
+				~iPv6:pif.API.pIF_IPv6
+				~ipv6_gateway:pif.API.pIF_ipv6_gateway
+				~primary_address_type:pif.API.pIF_primary_address_type in
 
 	new_pif_ref
 
@@ -648,36 +660,6 @@ let update_non_vm_metadata ~__context ~rpc ~session_id =
 
 	()
 
-let update_vm_metadata ~__context ~rpc ~session_id ~master_address =
-	let subtask_of = (Ref.string_of (Context.get_task_id __context)) in
-
-	let open Xmlrpc_client in
-
-	Helpers.call_api_functions ~__context (fun my_rpc my_session_id ->
-		let get = Xapi_http.http_request ~version:"1.0" ~subtask_of
-			~cookie:["session_id", Ref.string_of my_session_id] ~keep_alive:false
-			Http.Get
-			(Printf.sprintf "%s?all=true" Constants.export_metadata_uri) in
-		let put = Xapi_http.http_request ~version:"1.0" ~subtask_of
-			~cookie:["session_id", Ref.string_of session_id] ~keep_alive:false
-			Http.Put
-			(Printf.sprintf "%s?restore=true" Constants.import_metadata_uri) in
-		debug "Piping HTTP %s to %s" (Http.Request.to_string get) (Http.Request.to_string put);
-		with_transport (Unix Xapi_globs.unix_domain_socket)
-			(with_http get
-				(fun (r, ifd) ->
-					let put = { put with Http.Request.content_length = r.Http.Response.content_length } in
-					with_transport (SSL (SSL.make (), master_address, !Xapi_globs.https_port))
-						(with_http put
-							(fun (_, ofd) ->
-								let (_: int64) = Unixext.copy_file ?limit:r.Http.Response.content_length ifd ofd in
-								()
-							)
-						)
-				)
-			)
-	)
-
 let join_common ~__context ~master_address ~master_username ~master_password ~force =
 	(* get hold of cluster secret - this is critical; if this fails whole pool join fails *)
 	(* Note: this is where the license restrictions are checked on the other side.. if we're trying to join
@@ -707,7 +689,7 @@ let join_common ~__context ~master_address ~master_username ~master_password ~fo
 		on with the join *)
 		try
 			update_non_vm_metadata ~__context ~rpc ~session_id;
-			update_vm_metadata ~__context ~rpc ~session_id ~master_address;
+			Importexport.remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address:master_address `All
 		with e ->
 			debug "Error whilst importing db objects into master; aborted: %s" (Printexc.to_string e);
 			warn "Error whilst importing db objects to master. The pool-join operation will continue, but some of the slave's VMs may not be available on the master.")
@@ -839,6 +821,9 @@ let eject ~__context ~host =
 		let write_first_boot_management_interface_configuration_file () =
 			let bridge = Xapi_pif.bridge_naming_convention management_device in
 			Xapi_inventory.update Xapi_inventory._management_interface bridge;
+			let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self:management_pif in
+			Xapi_inventory.update Xapi_inventory._management_address_type
+			  (Record_util.primary_address_type_to_string primary_address_type);
 			let configuration_file_contents = begin
 				"LABEL='" ^ management_device ^ "'\nMODE=" ^ mode ^
 				if mode = "static" then
@@ -875,7 +860,7 @@ let eject ~__context ~host =
 		debug "Pool.eject: setting our role to be master";
 		Pool_role.set_role Pool_role.Master;
 		debug "Pool.eject: forgetting pool secret";
-		Unixext.unlink_safe Xapi_globs.pool_secret_path; (* forget current pool secret *)
+		Unixext.unlink_safe Constants.pool_secret_path; (* forget current pool secret *)
 		(* delete backup databases and any temporary restore databases *)
 		Unixext.unlink_safe Xapi_globs.backup_db_xml;
 		Unixext.unlink_safe Xapi_globs.db_temporary_restore_path;
@@ -1207,8 +1192,8 @@ let ha_compute_vm_failover_plan ~__context ~failed_hosts ~failed_vms =
     (Xapi_ha_vm_failover.compute_evacuation_plan ~__context (List.length all_hosts) live_hosts vms) in
   (List.filter (fun (vm, _) -> not(List.mem_assoc vm plan)) errors) @ plan
 
-let create_new_blob ~__context ~pool ~name ~mime_type =
-  let blob = Xapi_blob.create ~__context ~mime_type in
+let create_new_blob ~__context ~pool ~name ~mime_type ~public =
+  let blob = Xapi_blob.create ~__context ~mime_type ~public in
   Db.Pool.add_to_blobs ~__context ~self:pool ~key:name ~value:blob;
   blob
 

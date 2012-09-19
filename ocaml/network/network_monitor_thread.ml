@@ -8,22 +8,82 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU Lesser General Public License for more details.
  *)
 
-open Network_interface
 open Network_utils
-open Network_monitor
 
 open Fun
 open Stringext
 open Listext
 open Threadext
 
+module D = Debug.Debugger(struct let name = "network_monitor_thread" end)
+open D
+
+(** Table for bonds status. *)
+let bonds_status : (string, (int * int)) Hashtbl.t = Hashtbl.create 10
+
+let xapi_rpc =
+	let open Xmlrpc_client in
+	XML_protocol.rpc ~http:(xmlrpc ~version:"1.0" "/")
+		~transport:(Unix (Filename.concat Fhs.vardir "xapi"))
+
+let send_bond_change_alert dev interfaces message =
+	let ifaces = String.concat "+" (List.sort String.compare interfaces) in
+	let module XenAPI = Client.Client in
+	let session_id = XenAPI.Session.login_with_password
+		~rpc:xapi_rpc ~uname:"" ~pwd:"" ~version:"1.4" in
+	Pervasiveext.finally
+		(fun _ ->
+			let obj_uuid = Util_inventory.lookup Util_inventory._installation_uuid in
+			let body = Printf.sprintf	"The status of the %s bond %s" ifaces message in
+			try
+				let (_: 'a Ref.t) = XenAPI.Message.create ~rpc:xapi_rpc ~session_id
+					~name:Api_messages.bond_status_changed ~priority:1L ~cls:`Host
+					~obj_uuid ~body in ()
+			with _ ->
+				warn "Exception sending a bond-status-change alert."
+		)
+		(fun _ -> XenAPI.Session.logout ~rpc:xapi_rpc ~session_id)
+
+let check_for_changes ~(dev : string) ~(stat : Network_monitor.iface_stats) =
+	let open Network_monitor in
+	match String.startswith "vif" dev with true -> () | false ->
+	if stat.nb_links > 1 then ( (* It is a bond. *)
+		if Hashtbl.mem bonds_status dev then ( (* Seen before. *)
+			let nb_links_old, links_up_old = Hashtbl.find bonds_status dev in
+			if links_up_old <> stat.links_up then (
+				info "Bonds status changed: %s nb_links %d up %d up_old %d" dev stat.nb_links
+				stat.links_up links_up_old;
+				Hashtbl.replace bonds_status dev (stat.nb_links,stat.links_up);
+				let msg = Printf.sprintf "changed: %d/%d up (was %d/%d)" stat.links_up stat.nb_links
+					links_up_old nb_links_old in
+				try
+					send_bond_change_alert dev stat.interfaces msg
+				with e ->
+					debug "Error while sending alert BONDS_STATUS_CHANGED: %s\n%s"
+						(Printexc.to_string e) (Printexc.get_backtrace ())
+			)
+		) else ( (* Seen for the first time. *)
+			Hashtbl.add bonds_status dev (stat.nb_links,stat.links_up);
+			info "New bonds status: %s nb_links %d up %d" dev stat.nb_links stat.links_up;
+			if stat.links_up <> stat.nb_links then
+				(let msg = Printf.sprintf "is: %d/%d up" stat.links_up stat.nb_links in
+					try
+						send_bond_change_alert dev stat.interfaces msg
+					with e ->
+						debug "Error while sending alert BONDS_STATUS_CHANGED: %s\n%s"
+							(Printexc.to_string e) (Printexc.get_backtrace ()))
+		)
+	)
+
 let failed_again = ref false
 
-let rec monitor () =
+let rec monitor dbg () =
+	let open Network_interface in
+	let open Network_monitor in
 	(try
 		let devs = ref [] in
 
@@ -74,7 +134,7 @@ let rec monitor () =
 			} in
 			name, eth_stat
 		in
-		let bonds : (string * string list) list = Network_server.Bridge.get_all_bonds () ~from_cache:true () in
+		let bonds : (string * string list) list = Network_server.Bridge.get_all_bonds () dbg ~from_cache:true () in
 		devs := (List.map make_bond_info bonds) @ !devs;
 
 		let transform_taps () =
@@ -98,6 +158,7 @@ let rec monitor () =
 
 		transform_taps ();
 
+		let bonds_list = ref [] in
 		devs := List.map (fun (dev, stat) ->
 			if not (String.startswith "vif" dev) then begin
 				let devs =
@@ -107,6 +168,7 @@ let rec monitor () =
 						[dev]
 				in
 				let vendor_id, device_id = if List.length devs = 1 then Sysfs.get_pci_ids dev else "", "" in
+				let carriers = List.map Sysfs.get_carrier devs in
 				let speed, duplex =
 					let int_of_duplex = function
 						| Duplex_half -> 1
@@ -118,27 +180,48 @@ let rec monitor () =
 						| 2 -> Duplex_full
 						| _ -> Duplex_unknown
 					in
-					let statuses = List.map (fun dev ->
+					let statuses = List.map2 (fun dev carrier ->
 						let speed, duplex =
 							try
+								if not carrier then failwith "no carrier";
 								Bindings.get_status dev
 							with _ ->
 								0,
 								Duplex_unknown
 						in
 						speed, int_of_duplex duplex
-					) devs in
+					) devs carriers in
 					let speed, duplex =
 						List.fold_left (fun (speed, duplex) (speed', duplex') -> (speed + speed'), (min duplex duplex')) (0, 2) statuses
 					in
 					speed, duplex_of_int duplex
 				in
-				let carrier = List.exists Sysfs.get_carrier devs in
+				let nb_links = List.length devs in
+				let carrier = List.mem true carriers in
+				let get_interfaces name =
+					let bonds = Network_server.Bridge.get_all_bonds () dbg ~from_cache:true () in
+					let interfaces = (try List.assoc dev bonds with _ -> []) in
+					interfaces in
+				let (links_up,interfaces) = (if nb_links > 1 then
+						(bonds_list := dev :: !bonds_list;
+						 Network_server.Bridge.get_bond_links_up () dbg dev, get_interfaces dev)
+					else
+						((if carrier then 1 else 0), [dev]))
+				in
 				let pci_bus_path = if List.length devs = 1 then Sysfs.get_pcibuspath dev else "" in
-				dev, {stat with carrier; speed; duplex; pci_bus_path; vendor_id; device_id}
+				let stat = {stat with carrier; speed; duplex; pci_bus_path; vendor_id;
+					device_id; nb_links; links_up; interfaces} in
+				check_for_changes ~dev ~stat;
+				dev, stat
 			end else
 				dev, stat
 		) (!devs);
+
+		if (List.length !bonds_list) <> (Hashtbl.length bonds_status) then begin
+			let dead_bonds = Hashtbl.fold (fun k _ acc -> if List.mem k !bonds_list then acc else k :: acc) 
+				bonds_status [] in
+			List.iter (fun b -> info "Removing bond %s" b; Hashtbl.remove bonds_status b) dead_bonds
+		end;
 
 		write_stats !devs;
 		failed_again := false
@@ -151,10 +234,52 @@ let rec monitor () =
 	);
 
 	Thread.delay interval;
-	monitor ()
+	monitor dbg ()
+
+let watcher_m = Mutex.create ()
+let watcher_pid = ref None
+
+let signal_networking_change () =
+	let module XenAPI = Client.Client in
+	let session = XenAPI.Session.slave_local_login_with_password ~rpc:xapi_rpc ~uname:"" ~pwd:"" in
+	Pervasiveext.finally
+		(fun () -> XenAPI.Host.signal_networking_change xapi_rpc session)
+		(fun () -> XenAPI.Session.local_logout xapi_rpc session)
+
+let ip_watcher () =
+	let cmd = Network_utils.iproute2 in
+	(* Only monitor IPv6 addresses at the moment *)
+	let args = ["-6"; "monitor"; "address"] in
+	let readme, writeme = Unix.pipe () in
+	Mutex.execute watcher_m (fun () ->
+		watcher_pid := Some (Forkhelpers.safe_close_and_exec ~env:(Unix.environment ()) None (Some writeme) None [] cmd args)
+	);
+	Unix.close writeme;
+	let in_channel = Unix.in_channel_of_descr readme in
+	debug "Started IPv6 watcher thread";
+	let rec loop () =
+		let line = input_line in_channel in
+		(* Do not send events for link-local IPv6 addresses *)
+		if String.has_substr line "inet" && not (String.has_substr line "inet6 fe80") then begin
+			signal_networking_change ()
+		end;
+		loop ()
+	in
+	loop ()
 
 let start () =
-	debug "Starting network monitor";
-	let (_ : Thread.t) = Thread.create monitor () in
-	()
+	let dbg = "monitor_thread" in
+	Debug.with_thread_associated dbg (fun () ->
+		debug "Starting network monitor";
+		let (_ : Thread.t) = Thread.create (monitor dbg) () in
+		let (_ : Thread.t) = Thread.create ip_watcher () in
+		()
+	) ()
+
+let stop () =
+	Mutex.execute watcher_m (fun () ->
+		match !watcher_pid with
+		| None -> ()
+		| Some pid -> Unix.kill (Forkhelpers.getpid pid) Sys.sigterm
+	)
 

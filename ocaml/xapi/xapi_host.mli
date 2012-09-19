@@ -55,10 +55,10 @@ val enable : __context:Context.t -> host:[ `host ] Ref.t -> unit
 val shutdown : __context:Context.t -> host:[ `host ] Ref.t -> unit
 val reboot : __context:Context.t -> host:[ `host ] Ref.t -> unit
 val power_on : __context:Context.t -> host:[ `host ] Ref.t -> unit
-val dmesg : __context:'a -> host:'b -> string
+val dmesg : __context:Context.t -> host:'b -> string
 val dmesg_clear : __context:'a -> host:'b -> 'c
 val get_log : __context:'a -> host:'b -> 'c
-val send_debug_keys : __context:'a -> host:'b -> keys:string -> unit
+val send_debug_keys : __context:Context.t -> host:'b -> keys:string -> unit
 val list_methods : __context:'a -> 'b
 val is_slave : __context:'a -> host:'b -> bool
 
@@ -102,7 +102,7 @@ val preconfigure_ha :
   metadata_vdi:[ `VDI ] Ref.t -> generation:string -> unit
 val ha_join_liveset : __context:'a -> host:'b Ref.t -> unit
 val propose_new_master : __context:'a -> address:string -> manual:'b -> unit
-val commit_new_master : __context:'a -> address:string -> unit
+val commit_new_master : __context:Context.t -> address:string -> unit
 val abort_new_master : __context:'a -> address:string -> unit
 val update_master : __context:'a -> host:'b -> master_address:'c -> 'd
 val emergency_ha_disable : __context:'a -> unit
@@ -115,7 +115,7 @@ val syslog_reconfigure : __context:Context.t -> host:'a -> unit
 (** {2 Management Interface} *)
 
 val get_management_interface : __context:Context.t -> host:API.ref_host -> API.ref_PIF
-val change_management_interface : __context:Context.t -> string -> unit
+val change_management_interface : __context:Context.t -> string -> [ `IPv4 | `IPv6 ] -> unit
 val local_management_reconfigure :
   __context:Context.t -> interface:string -> unit
 val management_reconfigure :
@@ -147,7 +147,7 @@ val tickle_heartbeat :
   host:API.ref_host -> stuff:(string * string) list -> 'a list
 val create_new_blob :
   __context:Context.t ->
-  host:[ `host ] Ref.t -> name:string -> mime_type:string -> [ `blob ] Ref.t
+  host:[ `host ] Ref.t -> name:string -> mime_type:string -> public:bool -> [ `blob ] Ref.t
 val serialize_host_enable_disable_extauth : Threadext.Mutex.t
 val extauth_hook_script_name : string
 val call_extauth_plugin_nomutex :
@@ -168,7 +168,7 @@ val enable_binary_storage :
   __context:Context.t -> host:[ `host ] Ref.t -> unit
 val disable_binary_storage :
   __context:Context.t -> host:[ `host ] Ref.t -> unit
-val get_uncooperative_resident_VMs : __context:Context.t -> self:[`host] Ref.t -> 'a
+val get_uncooperative_resident_VMs : __context:Context.t -> self:[`host] Ref.t -> API.ref_VM_set
 val get_uncooperative_domains : __context:Context.t -> self:[`host] Ref.t -> string list
 val certificate_install :
   __context:'a -> host:'b -> name:string -> cert:string -> unit
@@ -285,3 +285,4 @@ val sync_tunnels : __context:Context.t -> host:API.ref_host -> unit
  *  The parameter [bridges] contains a list of bridge names reflecting all bridges that are up. *)
 val sync_pif_currently_attached : __context:Context.t -> host:API.ref_host -> bridges:string list -> unit
 
+val migrate_receive : __context:Context.t -> host:API.ref_host -> network:API.ref_network -> options:API.string_to_string_map -> API.string_to_string_map

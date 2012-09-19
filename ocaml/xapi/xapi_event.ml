@@ -20,7 +20,29 @@ open Stringext
 module D=Debug.Debugger(struct let name="xapi_event" end)
 open D
 
-let message_get_since_for_events : (__context:Context.t -> float -> (float * (API.ref_message * API.message_t) list)) ref = ref ( fun ~__context _ -> ignore __context; (0.0, []))
+module Token = struct
+
+	type t = int64 * int64 (* last id, message id *)
+
+	exception Failed_to_parse of string
+
+	let of_string token =
+		match String.split ',' token with
+			| [from;from_t] -> 
+				(Int64.of_string from, Int64.of_string from_t)
+			| [""] -> (0L, 0L)
+			| _ ->
+				raise (Failed_to_parse token)
+
+	let to_string (last,last_t) =
+		(* We prefix with zeroes so tokens which differ only in the generation
+		   can be compared lexicographically as strings. *)
+		Printf.sprintf "%020Ld,%020Ld" last last_t
+end
+
+
+type message_event = MCreate of (API.ref_message * API.message_t) | MDel of API.ref_message
+let message_get_since_for_events : (__context:Context.t -> int64 -> (int64 * message_event list)) ref = ref ( fun ~__context _ -> ignore __context; (0L, []))
 
 (** Limit the event queue to this many events: *)
 let max_stored_events = 500
@@ -67,7 +89,7 @@ let event_matches subs ev =
 (** Every session that calls 'register' gets a subscription*)
 type subscription_record = {
 	mutable last_id: int64;           (** last event ID to sent to this client *)
-	mutable last_timestamp : float;   (** Time at which the last event was sent (for messages) *)
+	mutable last_msg_gen : int64;     (** last generation count from the messages *)
 	mutable last_generation : int64;  (** Generation count of the last event *)
 	mutable cur_id: int64;            (** Most current generation count relevant to the client - only used in new events mechanism *)
 	mutable subs: subscription list;  (** list of all the subscriptions *)
@@ -155,7 +177,7 @@ let get_subscription ~__context =
 	(fun () ->
 	   if Hashtbl.mem subscriptions session then Hashtbl.find subscriptions session
 	   else 
-		   let subscription = { last_id = !id; last_timestamp=(Unix.gettimeofday ()); last_generation=0L; cur_id = 0L; subs = []; m = Mutex.create(); session = session; session_invalid = false; timeout=0.0; } in
+		   let subscription = { last_id = !id; last_msg_gen = 0L; last_generation=0L; cur_id = 0L; subs = []; m = Mutex.create(); session = session; session_invalid = false; timeout=0.0; } in
 	     Hashtbl.replace subscriptions session subscription;
 	     subscription)
 
@@ -280,7 +302,7 @@ let rec next ~__context =
 let from ~__context ~classes ~token ~timeout = 
 	let from, from_t = 
 		try
-			token_of_string token
+			Token.of_string token
 		with e ->
 			warn "Failed to parse event.from token: %s (%s)" token (Printexc.to_string e);
 			raise (Api_errors.Server_error(Api_errors.event_from_token_parse_failure, [ token ])) in
@@ -291,8 +313,8 @@ let from ~__context ~classes ~token ~timeout =
 
 	sub.timeout <- Unix.gettimeofday () +. timeout;
 
-	sub.last_timestamp <- from_t;
 	sub.last_generation <- from;
+	sub.last_msg_gen <- from_t;
 
 	Mutex.execute sub.m (fun () -> sub.subs <- subs @ sub.subs);
 
@@ -309,14 +331,12 @@ let from ~__context ~classes ~token ~timeout =
 
 	let grab_range t =
 		let tableset = Db_cache_types.Database.tableset (Db_ref.get_database t) in
-		let (timestamp,messages) =
-			if table_matches all_subs "message" then (!message_get_since_for_events) ~__context sub.last_timestamp else (0.0, []) in
-		(timestamp, messages, tableset, List.fold_left
+		let (msg_gen,messages) =
+			if table_matches all_subs "message" then (!message_get_since_for_events) ~__context sub.last_msg_gen else (0L, []) in
+		(msg_gen, messages, tableset, List.fold_left
 			(fun acc table ->
 				 Db_cache_types.Table.fold_over_recent sub.last_generation
 					 (fun ctime mtime dtime objref (creates,mods,deletes,last) ->
-						  info "last_generation=%Ld cur_id=%Ld" sub.last_generation sub.cur_id;
-						  info "ctime: %Ld mtime:%Ld dtime:%Ld objref:%s" ctime mtime dtime objref;
 						  let last = max last (max mtime dtime) in (* mtime guaranteed to always be larger than ctime *)
 						  if dtime > 0L then begin
 							  if ctime > sub.last_generation then
@@ -333,15 +353,13 @@ let from ~__context ~classes ~token ~timeout =
 	in
 
 	let rec grab_nonempty_range () =
-		let (timestamp, messages, tableset, (creates,mods,deletes,last)) as result = Db_lock.with_lock (fun () -> grab_range (Db_backend.make ())) in
+		let (msg_gen, messages, tableset, (creates,mods,deletes,last)) as result = Db_lock.with_lock (fun () -> grab_range (Db_backend.make ())) in
 		if List.length creates = 0 && List.length mods = 0 && List.length deletes = 0 && List.length messages = 0 && Unix.gettimeofday () < sub.timeout
 		then
 			(
-				debug "Waiting more: timeout=%f now=%f" sub.timeout (Unix.gettimeofday ());
-				
 				sub.last_generation <- last; (* Cur_id was bumped, but nothing relevent fell out of the db. Therefore the *)
-				sub.last_timestamp <- timestamp;
 				sub.cur_id <- last; (* last id the client got is equivalent to the current one *)
+				sub.last_msg_gen <- msg_gen;
 				wait2 sub last;
 				Thread.delay 0.05;
 				grab_nonempty_range ())
@@ -349,10 +367,9 @@ let from ~__context ~classes ~token ~timeout =
 			result
 	in
 
-	let (timestamp, messages, tableset, (creates,mods,deletes,last)) = grab_nonempty_range () in
+	let (msg_gen, messages, tableset, (creates,mods,deletes,last)) = grab_nonempty_range () in
 
 	sub.last_generation <- last;
-	sub.last_timestamp <- timestamp;
 
 	let event_of op ?snapshot (table, objref, time) =
 		{
@@ -382,16 +399,12 @@ let from ~__context ~classes ~token ~timeout =
 		if event_matches sub.subs ev then ev::acc else acc
 	) modevs creates in
 	
-	let message_events = List.fold_left (fun acc (_ref,message) ->
-											 let objref = Ref.string_of _ref in
-											 let xml = API.To.message_t message in
-											 let ev = { id=0L;
-														ts=0.0;
-														ty="message";
-														op=Add;
-														reference=objref;
-														snapshot=Some xml } in
-											 ev::acc) createevs messages in
+	let message_events = List.fold_left (fun acc mev ->
+		let event = match mev with 
+			| MCreate (_ref,message) -> event_of Add ?snapshot:(Some (API.To.message_t message)) ("message", Ref.string_of _ref, 0L)
+			| MDel _ref -> event_of Del ("message",Ref.string_of _ref, 0L)
+		in
+		event::acc) createevs messages in
 
 	let valid_ref_counts =
         Db_cache_types.TableSet.fold
@@ -408,11 +421,23 @@ let from ~__context ~classes ~token ~timeout =
 	let result = {
 		events = message_events;
 		valid_ref_counts = valid_ref_counts;
-		token = last, timestamp;
+		token = Token.to_string (last,msg_gen);
 	} in
 	xmlrpc_of_event_from result
 
 let get_current_id ~__context = Mutex.execute event_lock (fun () -> !id)
+
+let inject ~__context ~_class ~ref =
+	let open Db_cache_types in
+	let generation : int64 = Db_lock.with_lock
+		(fun () ->
+			let db_ref = Db_backend.make () in
+			let g = Manifest.generation (Database.manifest (Db_ref.get_database db_ref)) in
+			Db_cache_impl.refresh_row db_ref _class ref; (* consumes this generation *)
+			g
+		) in
+	let token = Int64.sub generation 1L, 0L in
+	Token.to_string token
 
 (** Inject an unnecessary update as a heartbeat. This will:
     1. hopefully prevent some firewalls from silently closing the connection

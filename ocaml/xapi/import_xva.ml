@@ -67,7 +67,7 @@ let make __context rpc session_id srid (vms, vdis) =
 				~memory_dynamic_max:memory_b
 				~memory_target:memory_b
 				~memory_dynamic_min:memory_b
-				~memory_static_min:(Memory.bytes_of_mib 16L)
+				~memory_static_min:(Int64.mul 16L (Int64.mul 1024L 1024L))
 				~vCPUs_max:1L ~vCPUs_at_startup:1L
 				~vCPUs_params:[]
 				~actions_after_shutdown:`destroy ~actions_after_reboot:`restart

@@ -18,16 +18,19 @@ open Pervasiveext
 open Xenstore
 
 type kind = Vif | Vbd | Tap | Pci | Vfs | Vfb | Vkbd
+with rpc
 
 type devid = int
 (** Represents one end of a device *)
-type endpoint = { domid: Xenctrl.domid; kind: kind; devid: int }
+type endpoint = { domid: int; kind: kind; devid: int }
+with rpc
 
 (** Represent a device as a pair of endpoints *)
 type device = { 
   frontend: endpoint;
   backend: endpoint
 }
+with rpc
 
 exception Device_frontend_already_connected of device
 exception Device_backend_vanished of device
@@ -80,6 +83,13 @@ let disconnect_path_of_device ~xs (x: device) =
 	sprintf "%s/device/%s/%d/disconnect"
 		(xs.Xs.getdomainpath x.frontend.domid)
 		(string_of_kind x.frontend.kind)
+		x.frontend.devid
+
+(** Where linux blkback writes its thread id. NB this won't work in a driver domain *)
+let kthread_pid_path_of_device ~xs (x: device) =
+	sprintf "%s/device/%s/%d/kthread-pid"
+		(xs.Xs.getdomainpath x.backend.domid)
+		(string_of_kind x.backend.kind)
 		x.frontend.devid
 
 (** Location of the backend error path *)
@@ -156,6 +166,27 @@ let readdir ~xs d = try xs.Xs.directory d with Xenbus.Xb.Noent -> []
 let to_list ys = List.concat (List.map Opt.to_list ys)
 let list_kinds ~xs dir = to_list (List.map parse_kind (readdir ~xs dir))
 
+let list_devices ~xs domid =
+	let path = Printf.sprintf "/xapi/%d/private" domid in
+	let kinds = list_kinds ~xs path in
+	List.concat (List.map
+		(fun k ->
+			let dir = sprintf "%s/%s" path (string_of_kind k) in
+			let devids = to_list (List.map parse_int (readdir ~xs dir)) in
+			to_list (List.map
+				(fun devid ->
+					Opt.map
+						(fun backend_kind ->
+							let backend_id = int_of_string (xs.Xs.read (sprintf "%s/%d/backend-id" dir devid)) in
+							let frontend = { domid = domid; kind = k; devid = devid } in
+							let backend = { domid = backend_id; kind = backend_kind; devid = devid } in
+							{ backend = backend; frontend = frontend }
+						)
+					(parse_kind (xs.Xs.read (sprintf "%s/%d/backend-kind" dir devid)))
+				) devids)
+		) kinds
+	)
+
 (* NB: we only read data from the frontend directory. Therefore this gives
    the "frontend's point of view". *)
 let list_frontends ~xs domid = 
@@ -230,3 +261,7 @@ let protocol_of_string = function
 
 let qemu_save_path : (_, _, _) format = "/var/lib/xen/qemu-save.%d"
 let qemu_restore_path : (_, _, _) format = "/var/lib/xen/qemu-resume.%d"
+
+(* Where qemu writes its state and is signalled *)
+let device_model_path ~qemu_domid domid = sprintf "/local/domain/%d/device-model/%d" qemu_domid domid
+

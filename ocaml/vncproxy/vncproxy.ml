@@ -14,13 +14,13 @@
 open Pervasiveext
 open Client
 
-let _ = 
+let _ =
   let vm = ref "" in
   let server = ref "" in
   let username = ref "" in
   let password = ref "" in
   let ip = ref "127.0.0.1" in
-  Arg.parse [ 
+  Arg.parse [
     "-vm", Arg.Set_string vm, "VM uuid or name-label";
     "-s", Arg.Set_string server, "server hostname or IP (default unix domain socket)";
     "-u", Arg.Set_string username, "username";
@@ -30,8 +30,7 @@ let _ =
     (fun x -> Printf.fprintf stderr "Ignoring: %s\n" x)
     "Proxy VNC traffic";
   if !vm = "" then failwith "Must supply a VM uuid or name-label";
-  Stunnel.init_stunnel_path ();
-  
+
   let sockaddr = Unix.ADDR_INET(Unix.inet_addr_of_string !ip, 0) in
   let sock = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
   Unix.setsockopt sock Unix.SO_REUSEADDR true;
@@ -65,8 +64,8 @@ let _ =
 	  let open Xmlrpc_client in
 	  let http = xmlrpc ~version:"1.0" "/" in
 	  match !server with
-		  | "" -> XML_protocol.rpc ~transport:(Unix (Filename.concat Fhs.vardir "xapi")) ~http xml
-		  | host -> XML_protocol.rpc ~transport:(SSL(SSL.make ~use_fork_exec_helper:false (), host, 443)) ~http xml in
+		  | "" -> XML_protocol.rpc ~srcstr:"vncproxy" ~dststr:"xapi" ~transport:(Unix (Filename.concat Fhs.vardir "xapi")) ~http xml
+		  | host -> XML_protocol.rpc ~srcstr:"vncproxy" ~dststr:"xapi" ~transport:(SSL(SSL.make ~use_fork_exec_helper:false (), host, 443)) ~http xml in
 
   let find_vm rpc session_id vm = 
     try

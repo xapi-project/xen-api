@@ -1,351 +1,392 @@
 # Copy this file to /etc/bash_completion.d/xe
 # Make sure that cli is on your path, too!
 
-MAGIC_SQUOTE="jsufbtghejhw"
-MAGIC_DQUOTE="JSUFBTGHEJHW"
-
 _xe()
 {
-	local IFS=$'\n,'
-	local cur prev opts xe IFS
-	COMPREPLY=()
-	# The following if statement is a fix for CA-28853. "cur=`_get_cword`" is used in newer scripts, but it somehow does not work.
-	if [[ $COMP_CWORD < 1 ]] ; then
-			COMP_CWORD=$(( ${#COMP_WORDS[@]} + 1))
-	fi
+    local IFS=$'\n,'
+    local cur prev opts xe IFS
 
-	# bash 4 changed the semantics of COMP_WORDS: specifically it will
-	# split (eg) on "=" if this is contained in COMP_WORDBREAKS. We
-	# have a particular problem with "=", so we work around by
-	# regenerating the old style of array.
-	j=0
-	for ((i=0;i<=$COMP_CWORD;i++)); do
-		if [ "${COMP_WORDS[$i]}" = "=" ]; then
-			j=$(expr $j - 1)
-			OLDSTYLE_WORDS[$j]="${OLDSTYLE_WORDS[$j]}${COMP_WORDS[$i]}"
-			# and the next one if there is one
-			if [ $i -lt $COMP_CWORD ]; then
-				i=$(expr $i + 1)
-				OLDSTYLE_WORDS[$j]="${OLDSTYLE_WORDS[$j]}${COMP_WORDS[$i]}"
+    # The following if statement is a fix for CA-28853. "cur=`_get_cword`" is used in newer scripts, but it somehow does not work.
+    if [[ $COMP_CWORD < 1 ]] ; then
+        COMP_CWORD=$(( ${#COMP_WORDS[@]} + 1))
+    fi
 
-			fi
-			j=$(expr $j + 1)
-		else
-			OLDSTYLE_WORDS[$j]="${COMP_WORDS[$i]}"
-			j=$(expr $j + 1)
-		fi
-	done
-	OLDSTYLE_CWORD=$(expr $j - 1)
-	COMP_CWORD=$OLDSTYLE_CWORD
+    # bash 4 changed the semantics of COMP_WORDS: specifically it will
+    # split (eg) on "=" if this is contained in COMP_WORDBREAKS. We
+    # have a particular problem with "=", so we work around by
+    # regenerating the old style of array.
+    j=0
+    for ((i=0;i<=$COMP_CWORD;i++)); do
+        if [ "${COMP_WORDS[$i]}" = "=" ]; then
+            j=$(expr $j - 1)
+            OLDSTYLE_WORDS[$j]="${OLDSTYLE_WORDS[$j]}${COMP_WORDS[$i]}"
+            # and the next one if there is one
+            if [ $i -lt $COMP_CWORD ]; then
+                i=$(expr $i + 1)
+                OLDSTYLE_WORDS[$j]="${OLDSTYLE_WORDS[$j]}${COMP_WORDS[$i]}"
 
-	cur="${OLDSTYLE_WORDS[COMP_CWORD]}"
-	prev="${OLDSTYLE_WORDS[COMP_CWORD-1]}"
-	xe=xe
+            fi
+            j=$(expr $j + 1)
+        else
+            OLDSTYLE_WORDS[$j]="${COMP_WORDS[$i]}"
+            j=$(expr $j + 1)
+        fi
+    done
+    OLDSTYLE_CWORD=$(expr $j - 1)
+    COMP_CWORD=$OLDSTYLE_CWORD
 
-	if [[ $COMP_CWORD == 1 ]] ; then
-		opts=`${xe} help --minimal --all 2>/dev/null | sed -e 's/,/\ ,/g' -e 's/$/\ /g'` && COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
-		return 0
-	fi
+    cur="${OLDSTYLE_WORDS[COMP_CWORD]}"
+    prev="${OLDSTYLE_WORDS[COMP_CWORD-1]}"
+    xe=xe
 
-	if echo ${OLDSTYLE_WORDS[COMP_CWORD]} | grep "=" > /dev/null; then
-		local param value
-		local IFS=""
-		param=`echo ${OLDSTYLE_WORDS[COMP_CWORD]} | cut -d= -f1`
-		value=`echo ${OLDSTYLE_WORDS[COMP_CWORD]} | cut -d= -f2`
+    if [[ $COMP_CWORD == 1 ]] ; then
+        opts=`${xe} help --minimal --all 2>/dev/null | sed -e 's/,/\ ,/g' -e 's/$/\ /g'`
+        set_completions "$opts" "$cur"
+        return 0
+    fi
 
-		local vms args
+    if echo ${OLDSTYLE_WORDS[COMP_CWORD]} | grep "=" > /dev/null; then
+        local param value
+        local IFS=""
+        param=`echo ${OLDSTYLE_WORDS[COMP_CWORD]} | cut -d= -f1`
+        value=`echo ${OLDSTYLE_WORDS[COMP_CWORD]} | cut -d= -f2`
 
-		case "$param" in
-			filename|file-name|license-file)
-				IFS=$'\n,'
-				COMPREPLY=( $(compgen -f ${value}) )
-				return 0
-				;;
+        local vms args
 
-			mode) # for pif-reconfigure-ip
-				if [ "${OLDSTYLE_WORDS[1]}" == "pif-reconfigure-ip" ]; then
-					IFS=$'\n,'
-					COMPREPLY=( $(compgen -W "dhcp ,static ,none" -- ${value}) )
-				elif [ "${OLDSTYLE_WORDS[1]}" == "bond-set-mode" ] || [ "${OLDSTYLE_WORDS[1]}" == "bond-create" ]; then
-					IFS=$'\n,'
-					COMPREPLY=( $(compgen -W "balance-slb ,active-backup ,lacp " -- ${value}) )
-				fi
-				return 0
-				;;
-
-			uuid)
-				case "${OLDSTYLE_WORDS[1]}" in
-					diagnostic-vm-status) cmd=vm-list;;
-					diagnostic-vdi-status) cmd=vdi-list;;
-					*) cmd=`echo ${OLDSTYLE_WORDS[1]} | awk -F- '/^host-cpu-/ || /^host-crashdump-/ || /^gpu-group-/ { print $1 "-" $2 }
-$0 !~ /^host-cpu-/ && $0 !~ /^host-crashdump-/ && $0 !~ /^gpu-group-/ { print $1 }'`-list;;
-				esac
-				IFS=$'\n,'
-				COMPREPLY=( $(compgen_names "$cmd" uuid "$value") )
-				return 1
-				;;
-			vm)
-				IFS=$'\n,'
-				COMPREPLY=( $(compgen_names vm-list name-label "$value") )
-				return 0
-				;;
-
-			host)
-				IFS=$'\n,'
-				COMPREPLY=( $(compgen_names host-list name-label "$value") )
-				return 0
-				;;
-			params)
-				val=$(final_comma_separated_param "$value")
-				class=`echo ${OLDSTYLE_WORDS[1]} | cut -d- -f1`
-				params=`${xe} ${class}-list params=all 2>/dev/null| cut -d: -f1 | sed -e s/\(.*\)//g -e s/^\ *//g -e s/\ *$//g`
-				IFS=$'\n,'
-				COMPREPLY=( $(compgen -W "$params,all" -- "$val" ) )
-				return 0
-				;;
-			template)
-				IFS=$'\n,'
-				COMPREPLY=( $(compgen_names template-list name-label "$value") )
-				return 0
-				;;
-
-			# param name is used by *-param-add, *-param-remove, and *-param-get
-			param-name)
-				if echo ${OLDSTYLE_WORDS[1]} | grep "param-add" > /dev/null; then
-					class=`echo ${OLDSTYLE_WORDS[1]} | sed s/-param-add//g`
-					paramsset=`${xe} ${class}-list params=all 2>/dev/null | grep "SRW\|MRW" | cut -d\( -f 1 | cut -d: -f1 | sed s/\ *//` 
-					IFS=$'\n,' COMPREPLY=( $(compgen -W "${paramsset}" -- ${value}) )
-					return 0
-				elif echo ${OLDSTYLE_WORDS[1]} | grep "param-remove" > /dev/null; then
-					class=`echo ${OLDSTYLE_WORDS[1]} | sed s/-param-remove//g`
-					paramsset=`${xe} ${class}-list params=all 2>/dev/null | grep "SRW\|MRW" | cut -d\( -f 1 | cut -d: -f1 | sed s/\ *//` 
-					IFS=$'\n,' COMPREPLY=( $(compgen -W "${paramsset}" -- ${value}) )
-					return 0
-				elif echo ${OLDSTYLE_WORDS[1]} | grep "param-get" > /dev/null; then
-					class=`echo ${OLDSTYLE_WORDS[1]} | sed s/-param-get//g`
-					paramsset=`${xe} ${class}-list params=all 2>/dev/null | cut -d\( -f 1 | cut -d: -f1 | sed s/\ *//` 
-					IFS=$'\n,' COMPREPLY=( $(compgen -W "${paramsset}" -- ${value}) )
-					return 0
-				fi
-				;;
-			cd-name)
-				if [[ "${OLDSTYLE_WORDS[1]}" == "vm-cd-add" || "${OLDSTYLE_WORDS[1]}" == "vm-cd-insert" ]]; then
-                                        IFS=$'\n,'
-                                        COMPREPLY=( $(compgen_names cd-list name-label "$value") )
-					return 0
-				elif [[ "${OLDSTYLE_WORDS[1]}" == "vm-cd-remove" ]]; then
-				        vm=`for i in ${OLDSTYLE_WORDS[@]:2}; do echo $i | grep "^vm="; done`
-					local cds=`${xe} vm-cd-list "$vm" --minimal --multiple vbd-params=vdi-name-label vdi-params=none 2>/dev/null | sed -e "s,',$MAGIC_SQUOTE,g" -e "s,\",$MAGIC_DQUOTE,g"`
-                                        IFS=$'\n,'
-                                        COMPREPLY=( $(compgen_escape "$cds" "$value") )
-					return 0
-				fi
-				;;
-			on)	
-                                IFS=$'\n,'
-                                COMPREPLY=( $(compgen_names host-list name-label "$value") )
-				return 0
-				;;
-			key)
-				local keys=`${xe} log-get-keys --minimal 2>/dev/null`
-                                IFS=$'\n,'
-                                COMPREPLY=( $(compgen_escape "$keys" "$value") )
-				return 0
-				;;
-			level)
-                                IFS=$'\n,'
-				COMPREPLY=( $(compgen -W "debug ,info ,warning ,error " -- ${value}) )
-				return 0
-				;;
-			sr-name-label) # for vm-install
-                                IFS=$'\n,'
-				COMPREPLY=( $(compgen_names sr-list name-label "$value") )
-				return 0
-				;;
-			crash-dump-SR | suspend-image-SR | default-SR)
-                                IFS=$'\n,'
-				COMPREPLY=( $(compgen_names sr-list uuid "$value") )
-				return 0
-				;;
-			type) # for vbd-create/vdi-create/sr-create/sr-probe
-                                IFS=$'\n,'
-			        fst=`echo ${OLDSTYLE_WORDS[1]} | cut -d- -f1`
-
-				if [[ "${fst}" == "vbd" ]]; then
-				   COMPREPLY=( $(compgen -W "Disk ,CD " -- ${value}) )
-				   return 0
-				elif [[ "${fst}" == "vdi" ]]; then
-				   COMPREPLY=( $(compgen -W "system ,user ,suspend ,crashdump " -- ${value}) )
-				   return 0
-				elif [[ "${fst}" == "sr" ]]; then
-				   COMPREPLY=( $(compgen -W "$(xe sm-list params=type --minimal 2>/dev/null | sed 's/,/ ,/g') " -- ${value}) )
-				   return 0
-				fi
-				;;
-			locking-mode) # VIF.locking_mode
-				IFS=$'\n,'
-				COMPREPLY=( $(compgen -W "network_default ,locked ,unlocked ,disabled " -- ${value}) )
-				return 0
-				;;
-			default-locking-mode) # network.default_locking_mode
-				IFS=$'\n,'
-				COMPREPLY=( $(compgen -W "unlocked ,disabled " -- ${value}) )
-				return 0
-				;;
-			pif-uuids) # bond-create
-				val=$(final_comma_separated_param "$value")
-				pifs=`${xe} pif-list --minimal 2>/dev/null`
-				IFS=$'\n,'
-				COMPREPLY=( $(compgen -W "$pifs" -- "$val" ) )
-				return 0
-				;;
-			entries) # for host-get-system-status
-                                val=$(final_comma_separated_param "$value")
-                                master_uuid=$(xe pool-list params=master --minimal 2>/dev/null)
-                                IFS=$'\n'
-                                caps=$($xe host-get-system-status-capabilities uuid="$master_uuid" 2>/dev/null | grep '<capability ' | sed -ne 's/.*<capability .* key="\([^"]*\)".*$/\1/p' | tr '\n' , | sed -e 's/,$//g' | tr , '\n')
-        # Fake "
-                                COMPREPLY=( $(compgen -W "$caps" -- "$val") )
-                                return 0
-                                ;;
-			output)
-                                case "${OLDSTYLE_WORDS[1]}" in
-                                    log-set-output)
-                                        IFS=$'\n,'
-                                        COMPREPLY=( $(compgen -W "file,syslog,nil " -- ${value}) )
-                                        ;;
-                                    host-get-system-status)
-                                        IFS=$'\n,'
-                                        COMPREPLY=( $(compgen -W "tar.bz2 ,zip " -- ${value}) )
-                                        ;;
-                                esac
-                                return 0
-                                ;;
-            copy-bios-strings-from) # for vm-install
-                COMPREPLY=`${xe} host-list params=uuid --minimal 2>/dev/null`
+        case "$param" in
+            filename|file-name|license-file)
+                IFS=$'\n,'
+                # Here we actually WANT file name completion, so using compgen is OK.
+                COMPREPLY=( $(compgen -f ${value}) )
                 return 0
                 ;;
-			backup-type) # for vmpp
-                                IFS=$'\n,'
-				COMPREPLY=( $(compgen -W "snapshot,checkpoint" -- ${value}) )
-				return 0
-				;;
-                        backup-frequency) # for vmpp
-                                IFS=$'\n,'
-                                COMPREPLY=( $(compgen -W "hourly,daily,weekly" -- ${value}) )
-                                return 0
-                                ;;
-                        archive-frequency) # for vmpp
-                                IFS=$'\n,'
-                                COMPREPLY=( $(compgen -W "never,always_after_backup,daily,weekly" -- ${value}) )
-                                return 0
-                                ;;
-                        archive-target-type) # for vmpp
-                                IFS=$'\n,'
-                                COMPREPLY=( $(compgen -W "none,cifs,nfs" -- ${value}) )
-                                return 0
-                                ;;
-			backup-schedule:days) # for vmpp 
-                                IFS=$'\n,'
-			        LAST_VALUE=`echo ${value}|gawk 'BEGIN{FS=" "}{print $NF}'`
-                                COMPREPLY=( $(compgen -W "monday,tuesday,wednesday,thursday,friday,saturday,sunday" -- ${LAST_VALUE}) )
-                                return 0
-                                ;;
-                        archive-schedule:days) # for vmpp
-                                IFS=$'\n,'
-			        LAST_VALUE=`echo ${value}|gawk 'BEGIN{FS=" "}{print $NF}'`
-                                COMPREPLY=( $(compgen -W "monday,tuesday,wednesday,thursday,friday,saturday,sunday " -- ${LAST_VALUE}) )
-                                return 0
-                                ;;
-			role-name)
-				IFS=$'\n,'
-				LAST_VALUE=`echo ${value}|gawk 'BEGIN{FS=" "}{print $NF}'`
-				COMPREPLY=( $(compgen -W "vm-power-admin,vm-admin,vm-operator,read-only,pool-operator,pool-admin" -- ${LAST_VALUE}) )
-				return 0
-				;;
-			edition) # for host-apply-edition (licensing)
-				IFS=$'\n,'
-				LAST_VALUE=`echo ${value}|gawk 'BEGIN{FS=" "}{print $NF}'`
-				EDITIONS=`${xe} host-all-editions --minimal 2>/dev/null`
-				COMPREPLY=( $(compgen -W "${EDITIONS}" -- ${LAST_VALUE}) )
-				return 0
-				;;
-			*)
-				snd=`echo ${param} | gawk -F- '{print $NF}'`
-				fst=`echo ${param} | gawk -F- '{printf "%s", $1; for (i=2; i<NF; i++) printf "-%s", $i}'`
-				
-				if [[ "${snd}" == "uuid" ]]; then
-				   if [[ "${fst}" == "snapshot" ]]; then
-				   	  all=""
-				   else
-					  all="--all"
-				   fi
-				   uuids=`${xe} ${fst}-list ${all} params=uuid --minimal 2>/dev/null`
-                                   IFS=$'\n,'
-                                   COMPREPLY=( $(compgen_escape "$uuids" "$value") )
-				   return 0
-				else
-				   fst=`echo ${OLDSTYLE_WORDS[1]} | cut -d- -f1`
-				   snd=`echo ${OLDSTYLE_WORDS[1]} | cut -d- -f2`
-				   if [[ "${snd}" == "list" || "${fst}" == "vm" ]]; then
-                                     IFS=$'\n,'
-				     COMPREPLY=( $(compgen_names "${fst}-list" "$param" "$value") )
-				     return 0
-				   fi
-				fi	  
-				;;
-		esac
-	else
-		local param reqd
-		param=${OLDSTYLE_WORDS[COMP_CWORD]}
-		vmselectors=`${xe} help ${OLDSTYLE_WORDS[1]} 2>/dev/null | grep "optional params" | grep "<vm-selectors>"`
-		hostselectors=`${xe} help ${OLDSTYLE_WORDS[1]} 2>/dev/null | grep "optional params" | grep "<host-selectors>"`
-		isdeviceconfig=`echo "${param}" | grep "device-config:"`
-		isvcpusparams=`echo "${param}" | grep "VCPUs-params:"`
-		isvmppbackupschedule=`echo "${param}" | grep "backup-schedule:"`
-		isvmpparchiveschedule=`echo "${param}" | grep "archive-schedule:"`
-		isvmpparchivetargetconfig=`echo "${param}" | grep "archive-target-config:"`
-		isvmppalarmconfig=`echo "${param}" | grep "alarm-config:"`
-		if [ "${isdeviceconfig}" ]; then
-			IFS=" " type=$(for i in ${OLDSTYLE_WORDS[@]:2}; do echo $i | grep "^type="; done | sed -e 's/^type=//' | tr "[A-Z]" "[a-z]")
-			extraargs=,$(IFS=";"; for i in `xe sm-list type=${type} params=configuration --minimal 2>/dev/null`; do echo device-config:$i | cut -d ':' -f 1-2; done | sed -e 's/ //g' -e 's/$/=/')
-		elif [ "${isvcpusparams}" ]; then
-			extraargs=,$(for i in weight cap mask; do echo "VCPUs-params:$i="; done)
-		elif [ "${vmselectors}" ]; then
-			if [ "${param}" ] ; then
-				extraargs=",vm=,"$(params "vm-list" | sed 's/params=//g')
-			else
-				extraargs=",vm="
-			fi
-		elif [ "${hostselectors}" ]; then
-			if [ "${param}" ] ; then
-				extraargs=",host=,"$(params "host-list" | sed 's/params=//g')
-			else
-				extraargs=",host="
-			fi
-		elif [ "${isvmppbackupschedule}" ]; then
-			pfx=`echo ${isvmppbackupschedule} | cut -d ':' -f 1`
-			COMPREPLY=( $(compgen -W "${pfx}:min=,${pfx}:hour=,${pfx}:days=" -- ${param}) )
-			return 0
-		elif [ "${isvmpparchiveschedule}" ]; then
-			pfx=`echo ${isvmpparchiveschedule} | cut -d ':' -f 1`
-			COMPREPLY=( $(compgen -W "${pfx}:min=,${pfx}:hour=,${pfx}:days=" -- ${param}) )
-			return 0
-		elif [ "${isvmpparchivetargetconfig}" ]; then
-			pfx=`echo ${isvmpparchivetargetconfig} | cut -d ':' -f 1`
-			COMPREPLY=( $(compgen -W "${pfx}:location=,${pfx}:username=,${pfx}:password=" -- ${param}) )
-			return 0
-		elif [ "${isvmppalarmconfig}" ]; then
-			pfx=`echo ${isvmppalarmconfig} | cut -d ':' -f 1`
-			COMPREPLY=( $(compgen -W "${pfx}:smtp_server=,${pfx}:smtp_port=,${pfx}:email_address=" -- ${param}) )
-			return 0
-		else
-			extraargs=""
-		fi
-		IFS=$'\n,'
-		COMPREPLY=( $(compgen_params "${OLDSTYLE_WORDS[1]}" "$extraargs" "$param") )
-		return 0
-	fi
+
+            mode) # for pif-reconfigure-ip
+                if [ "${OLDSTYLE_WORDS[1]}" == "pif-reconfigure-ip" ]; then
+                    IFS=$'\n,'
+                    set_completions "dhcp,static,none" "$value"
+                    COMPREPLY=( $(compgen -W "dhcp ,static ,none" -- ${value}) )
+                elif [ "${COMP_WORDS[1]}" == "pif-reconfigure-ipv6" ]; then
+                    IFS=$'\n,'
+                    set_completions "dhcp,static,none,autoconf" "$value"
+                elif [ "${OLDSTYLE_WORDS[1]}" == "bond-set-mode" ] || [ "${OLDSTYLE_WORDS[1]}" == "bond-create" ]; then
+                    IFS=$'\n,'
+                    set_completions "balance-slb,active-backup,lacp" "$value"
+                fi
+                return 0
+                ;;
+
+            primary_address_type)
+                if [ "${COMP_WORDS[1]}" == "pif-set-primary-address-type" ]; then
+                    IFS=$'\n,'
+                    set_completions "ipv4,ipv6" "$value"
+                fi
+                return 0
+                ;;
+
+            uuid)
+                case "${OLDSTYLE_WORDS[1]}" in
+                    diagnostic-vm-status) cmd=vm-list;;
+                    diagnostic-vdi-status) cmd=vdi-list;;
+                    *) cmd=`echo ${OLDSTYLE_WORDS[1]} | awk -F- '/^host-cpu-/ || /^host-crashdump-/ || /^gpu-group-/ { print $1 "-" $2 }
+                        $0 !~ /^host-cpu-/ && $0 !~ /^host-crashdump-/ && $0 !~ /^gpu-group-/ { print $1 }'`-list;;
+                esac
+                IFS=$'\n,'
+                set_completions_for_names "$cmd" 'uuid' "$value"
+                return 1
+                ;;
+
+            vm)
+                IFS=$'\n,'
+                set_completions_for_names 'vm-list' 'name-label' "$value"
+                return 0
+                ;;
+
+            host)
+                IFS=$'\n,'
+                set_completions_for_names 'host-list' 'name-label' "$value"
+                return 0
+                ;;
+
+            params)
+                val=$(final_comma_separated_param "$value")
+                class=`echo ${OLDSTYLE_WORDS[1]} | cut -d- -f1`
+                params=`${xe} ${class}-list params=all 2>/dev/null| cut -d: -f1 | sed -e s/\(.*\)//g -e s/^\ *//g -e s/\ *$//g`
+                IFS=$'\n,'
+                set_completions "$params,all" "$val"
+                return 0
+                ;;
+
+            template)
+                IFS=$'\n,'
+                set_completions_for_names 'template-list' 'name-label' "$value"
+                return 0
+                ;;
+
+            # param name is used by *-param-add, *-param-remove, and *-param-get
+            param-name)
+                if echo ${OLDSTYLE_WORDS[1]} | grep "param-add" > /dev/null; then
+                    class=`echo ${OLDSTYLE_WORDS[1]} | sed s/-param-add//g`
+                    paramsset=`${xe} ${class}-list params=all 2>/dev/null | grep "SRW\|MRW" | cut -d\( -f 1 | cut -d: -f1 | sed s/\ *//`
+                    set_completions "$paramsset" "$value"
+                    return 0
+                elif echo ${OLDSTYLE_WORDS[1]} | grep "param-remove" > /dev/null; then
+                    class=`echo ${OLDSTYLE_WORDS[1]} | sed s/-param-remove//g`
+                    paramsset=`${xe} ${class}-list params=all 2>/dev/null | grep "SRW\|MRW" | cut -d\( -f 1 | cut -d: -f1 | sed s/\ *//`
+                    set_completions "$paramsset" "$value"
+                    return 0
+                elif echo ${OLDSTYLE_WORDS[1]} | grep "param-get" > /dev/null; then
+                    class=`echo ${OLDSTYLE_WORDS[1]} | sed s/-param-get//g`
+                    paramsset=`${xe} ${class}-list params=all 2>/dev/null | cut -d\( -f 1 | cut -d: -f1 | sed s/\ *//`
+                    set_completions "$paramsset" "$value"
+                    return 0
+                fi
+                ;;
+
+            cd-name)
+                if [[ "${OLDSTYLE_WORDS[1]}" == "vm-cd-add" || "${OLDSTYLE_WORDS[1]}" == "vm-cd-insert" ]]; then
+                    IFS=$'\n,'
+                    set_completions_for_names 'cd-list' 'name-label' "$value"
+                    return 0
+                elif [[ "${OLDSTYLE_WORDS[1]}" == "vm-cd-remove" ]]; then
+                    vm=`for i in ${OLDSTYLE_WORDS[@]:2}; do echo $i | grep "^vm="; done`
+                    local cds=`${xe} vm-cd-list "$vm" --minimal --multiple vbd-params=vdi-name-label vdi-params=none 2>/dev/null`
+                    IFS=$'\n,'
+                    set_completions "$cds" "$value"
+                    return 0
+                fi
+                ;;
+
+            on)	
+                IFS=$'\n,'
+                set_completions_for_names 'host-list' 'name-label' "$value"
+                return 0
+                ;;
+
+            key)
+                local keys=`${xe} log-get-keys --minimal 2>/dev/null`
+                IFS=$'\n,'
+                set_completions "$keys" "$value"
+                return 0
+                ;;
+
+            level)
+                IFS=$'\n,'
+                set_completions 'debug,info,warning,error' "$value"
+                return 0
+                ;;
+
+            sr-name-label) # for vm-install
+                IFS=$'\n,'
+                set_completions_for_names 'sr-list' 'name-label' "$value"
+                return 0
+                ;;
+
+            crash-dump-SR | suspend-image-SR | default-SR)
+                IFS=$'\n,'
+                set_completions_for_names 'sr-list' 'uuid' "$value"
+                return 0
+                ;;
+
+            type) # for vbd-create/vdi-create/sr-create/sr-probe
+                IFS=$'\n,'
+                fst=`echo ${OLDSTYLE_WORDS[1]} | cut -d- -f1`
+
+                if [[ "${fst}" == "vbd" ]]; then
+                    set_completions 'Disk,CD' "$value"
+                    return 0
+                elif [[ "${fst}" == "vdi" ]]; then
+                    set_completions 'system,user,suspend,crashdump' "$value"
+                    return 0
+                elif [[ "${fst}" == "sr" ]]; then
+                    local words=$( ${xe} sm-list params=type --minimal 2>/dev/null )
+                    set_completions "$words" "$value"
+                    return 0
+                fi
+                ;;
+
+            locking-mode) # VIF.locking_mode
+                IFS=$'\n,'
+                set_completions 'network_default,locked,unlocked,disabled' "$value"
+                return 0
+                ;;
+
+            default-locking-mode) # network.default_locking_mode
+                IFS=$'\n,'
+                set_completions 'unlocked,disabled' "$value"
+                return 0
+                ;;
+
+            pif-uuids) # bond-create
+                val=$(final_comma_separated_param "$value")
+                pifs=`${xe} pif-list --minimal 2>/dev/null`
+                IFS=$'\n,'
+                set_completions "$pifs" "$val"
+                return 0
+                ;;
+
+            entries) # for host-get-system-status
+                val=$(final_comma_separated_param "$value")
+                master_uuid=$(xe pool-list params=master --minimal 2>/dev/null)
+                IFS=$'\n'
+                caps=$($xe host-get-system-status-capabilities uuid="$master_uuid" 2>/dev/null | grep '<capability ' | sed -ne 's/.*<capability .* key="\([^"]*\)".*$/\1/p' | tr '\n' , | sed -e 's/,$//g' | tr , '\n')
+                # Fake "
+                set_completions "$caps" "$val"
+                return 0
+                ;;
+
+            output)
+                case "${OLDSTYLE_WORDS[1]}" in
+                    log-set-output)
+                        IFS=$'\n,'
+                        set_completions 'file,syslog,nil' "$value"
+                        ;;
+                    host-get-system-status)
+                        IFS=$'\n,'
+                        set_completions 'tar.bz2,zip' "$value"
+                        ;;
+                esac
+                return 0
+                ;;
+
+            copy-bios-strings-from) # for vm-install
+                # TODO: Test this really well!
+                set_completions_for_names 'host-list' 'uuid' "$value"
+                return 0
+                ;;
+
+            backup-type) # for vmpp
+                IFS=$'\n,'
+                set_completions 'snapshot,checkpoint' "$value"
+                return 0
+                ;;
+
+            backup-frequency) # for vmpp
+                IFS=$'\n,'
+                set_completions 'hourly,daily,weekly' "$value"
+                return 0
+                ;;
+
+            archive-frequency) # for vmpp
+                IFS=$'\n,'
+                set_completions 'never,always_after_backup,daily,weekly' "$value"
+                return 0
+                ;;
+
+            archive-target-type) # for vmpp
+                IFS=$'\n,'
+                set_completions 'none,cifs,nfs' "$value"
+                return 0
+                ;;
+
+            backup-schedule:days) # for vmpp
+                IFS=$'\n,'
+                LAST_VALUE=`echo ${value}|gawk 'BEGIN{FS=" "}{print $NF}'`
+                set_completions 'monday,tuesday,wednesday,thursday,friday,saturday,sunday' "$LAST_VALUE"
+                return 0
+                ;;
+
+            archive-schedule:days) # for vmpp
+                IFS=$'\n,'
+                LAST_VALUE=`echo ${value}|gawk 'BEGIN{FS=" "}{print $NF}'`
+                set_completions 'monday,tuesday,wednesday,thursday,friday,saturday,sunday' "$LAST_VALUE"
+                return 0
+                ;;
+
+            role-name)
+                IFS=$'\n,'
+                LAST_VALUE=`echo ${value}|gawk 'BEGIN{FS=" "}{print $NF}'`
+                set_completions 'vm-power-admin,vm-admin,vm-operator,read-only,pool-operator,pool-admin' "$LAST_VALUE"
+                return 0
+                ;;
+
+            edition) # for host-apply-edition (licensing)
+                IFS=$'\n,'
+                LAST_VALUE=`echo ${value}|gawk 'BEGIN{FS=" "}{print $NF}'`
+                EDITIONS=`${xe} host-all-editions --minimal 2>/dev/null`
+                set_completions "$EDITIONS" "$LAST_VALUE"
+                return 0
+                ;;
+
+            *)
+                snd=`echo ${param} | gawk -F- '{print $NF}'`
+                fst=`echo ${param} | gawk -F- '{printf "%s", $1; for (i=2; i<NF; i++) printf "-%s", $i}'`
+
+                if [[ "${snd}" == "uuid" ]]; then
+                    if [[ "${fst}" == "snapshot" ]]; then
+                        all=""
+                    else
+                        all="--all"
+                    fi
+                    uuids=`${xe} ${fst}-list ${all} params=uuid --minimal 2>/dev/null`
+                    IFS=$'\n,'
+                    set_completions "$uuids" "$value"
+                    return 0
+                else
+                    fst=`echo ${OLDSTYLE_WORDS[1]} | cut -d- -f1`
+                    snd=`echo ${OLDSTYLE_WORDS[1]} | cut -d- -f2`
+                    if [[ "${snd}" == "list" || "${fst}" == "vm" ]]; then
+                        IFS=$'\n,'
+                        set_completions_for_names "${fst}-list" "$param" "$value"
+                        return 0
+                    fi
+                fi
+                ;;
+        esac
+    else
+        local param reqd
+        param=${OLDSTYLE_WORDS[COMP_CWORD]}
+
+        vmselectors=`${xe} help ${OLDSTYLE_WORDS[1]} 2>/dev/null | grep "optional params" | grep "<vm-selectors>"`
+        hostselectors=`${xe} help ${OLDSTYLE_WORDS[1]} 2>/dev/null | grep "optional params" | grep "<host-selectors>"`
+        isdeviceconfig=`echo "${param}" | grep "device-config:"`
+        isvcpusparams=`echo "${param}" | grep "VCPUs-params:"`
+        isvmppbackupschedule=`echo "${param}" | grep "backup-schedule:"`
+        isvmpparchiveschedule=`echo "${param}" | grep "archive-schedule:"`
+        isvmpparchivetargetconfig=`echo "${param}" | grep "archive-target-config:"`
+        isvmppalarmconfig=`echo "${param}" | grep "alarm-config:"`
+
+        if [ "${isdeviceconfig}" ]; then
+            IFS=" " type=$(for i in ${OLDSTYLE_WORDS[@]:2}; do echo $i | grep "^type="; done | sed -e 's/^type=//' | tr "[A-Z]" "[a-z]")
+            extraargs=,$(IFS=";"; for i in `xe sm-list type=${type} params=configuration --minimal 2>/dev/null`; do echo device-config:$i | cut -d ':' -f 1-2; done | sed -e 's/ //g' -e 's/$/=/')
+        elif [ "${isvcpusparams}" ]; then
+            extraargs=,$(for i in weight cap mask; do echo "VCPUs-params:$i="; done)
+        elif [ "${vmselectors}" ]; then
+            if [ "${param}" ] ; then
+                extraargs=",vm=,"$(params "vm-list" | sed 's/params=//g')
+            else
+                extraargs=",vm="
+            fi
+        elif [ "${hostselectors}" ]; then
+            if [ "${param}" ] ; then
+                extraargs=",host=,"$(params "host-list" | sed 's/params=//g')
+            else
+                extraargs=",host="
+            fi
+        elif [ "${isvmppbackupschedule}" ]; then
+            pfx=`echo ${isvmppbackupschedule} | cut -d ':' -f 1`
+            set_completions "${pfx}:min=,${pfx}:hour=,${pfx}:days=" "$param"
+            return 0
+        elif [ "${isvmpparchiveschedule}" ]; then
+            pfx=`echo ${isvmpparchiveschedule} | cut -d ':' -f 1`
+            set_completions "${pfx}:min=,${pfx}:hour=,${pfx}:days=" "$param"
+            return 0
+        elif [ "${isvmpparchivetargetconfig}" ]; then
+            pfx=`echo ${isvmpparchivetargetconfig} | cut -d ':' -f 1`
+            set_completions "${pfx}:location=,${pfx}:username=,${pfx}:password=" "$param"
+            return 0
+        elif [ "${isvmppalarmconfig}" ]; then
+            pfx=`echo ${isvmppalarmconfig} | cut -d ':' -f 1`
+            set_completions "${pfx}:smtp_server=,${pfx}:smtp_port=,${pfx}:email_address=" "$param"
+            return 0
+        else
+            extraargs=""
+        fi
+
+        IFS=$'\n,'
+        set_completions_for_params "${OLDSTYLE_WORDS[1]}" "$extraargs" "$param"
+        return 0
+    fi
 }
 
 ##
@@ -353,39 +394,55 @@ $0 !~ /^host-cpu-/ && $0 !~ /^host-crashdump-/ && $0 !~ /^gpu-group-/ { print $1
 #
 final_comma_separated_param()
 {
-	if expr "$1" : ".*," >/dev/null
-	then
-		old_ifs="$IFS"
-		bits=$(echo "$1" | sed -e 's#^\(.*\),\([^,]*\)$#\1%\2#g')
-		IFS=%
-		bits=($bits)
-		echo "${bits[1]}"
-		IFS="$old_ifs"
-	else
-		echo "$1"
-	fi
+    if expr "$1" : ".*," >/dev/null
+    then
+        old_ifs="$IFS"
+        bits=$(echo "$1" | sed -e 's#^\(.*\),\([^,]*\)$#\1%\2#g')
+        IFS=%
+        bits=($bits)
+        echo "${bits[1]}"
+        IFS="$old_ifs"
+    else
+        echo "$1"
+    fi
 }
 
-compgen_names()
-{
-	local vals=$("$xe" "$1" --minimal params="$2" 2>/dev/null | sed -e "s,',$MAGIC_SQUOTE,g" -e "s,\",$MAGIC_DQUOTE,g")
-	compgen_escape "$vals" "$3"
-}
 
-compgen_escape()
+set_completions_for_names()
 {
-	local v=$(echo "$2" | sed -e "s,',$MAGIC_SQUOTE,g" -e "s,\",$MAGIC_DQUOTE,g")
-	compgen -W "$1" -- "$v" | sed -e 's, ,\\ ,g' -e 's,(,\\(,g' -e 's,),\\),g' -e 's,$, ,g' -e 's,|,\\|,g' -e "s,$MAGIC_SQUOTE,\\\',g" -e "s,$MAGIC_DQUOTE,\\\\\",g"
+    local vals=$("$xe" "$1" --minimal params="$2" 2>/dev/null)
+    set_completions "$vals" "$3"
 }
 
 params()
 {
-	"$xe" help "$1" 2>/dev/null | grep '^[^:]*params' | cut -d: -f2- | egrep -v "^ $" | cut -c 2- | sed -e 's/,/=,/g' -e 's/$/=/g' -e 's/:=/:/g' -e 's/-=/-/g' -e 's/ //g'
+    "$xe" help "$1" 2>/dev/null | grep '^[^:]*params' | cut -d: -f2- | egrep -v "^ $" | cut -c 2- | sed -e 's/,/=,/g' -e 's/$/=/g' -e 's/:=/:/g' -e 's/-=/-/g' -e 's/ //g'
 }
 
-compgen_params()
+set_completions_for_params()
 {
-	local v=$(params "$1" | sed -e 's/<vm-selectors>=//g' -e 's/<host-selectors>=//g')
-	compgen -o nospace -W "$v$2" -- "$3"
+    local v=$(params "$1" | sed -e 's/<vm-selectors>=//g' -e 's/<host-selectors>=//g')
+    set_completions "$v$2" "$3"
 }
+
+set_completions()
+{
+    # Replace each sequence of non-escaped commas with a newline, then de-escape commas and backslashes.
+    # TODO: Do not generate space suffixes, which have to be removed here.
+    local words=$( echo "$1" | sed -re 's/(^|[^\])((\\\\)*),,*/\1\2\n/g' -e 's/\\,/,/g' -e 's/\\\\/\\/g' | sed -e 's/ *$//' )
+    local prefix="$2"
+    # TODO: Stop changing IFS.
+    local IFS=$'\n'
+    local word=
+    COMPREPLY=()
+    for word in $words; do
+        # Add a space suffix to completions which do not end in '=' or ':'.
+        if [[ "$word" = "$prefix"*[=:] ]]; then
+            COMPREPLY+=( $(printf '%q' "$word") )
+        elif [[ "$word" = "$prefix"* ]]; then
+            COMPREPLY+=( $(printf '%q ' "$word") )
+        fi
+    done
+}
+
 complete -F _xe -o nospace xe

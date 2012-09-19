@@ -23,7 +23,6 @@ open Pervasiveext
 open Listext
 open Auth_signature
 open Extauth
-open Xenstore
 open Db_filter_types
 
 module D=Debug.Debugger(struct let name="xapi" end)
@@ -32,16 +31,6 @@ let info s = info s; debug s (* write info to both info and debug log *)
 
 module L=Debug.Debugger(struct let name="license" end)
 module W=Debug.Debugger(struct let name="watchdog" end)
-
-
-let check_control_domain () =
-  let domuuid = with_xc (fun xc -> Domain.get_uuid ~xc 0) in
-	let domuuid = Uuid.to_string domuuid in
-  let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
-  if domuuid <> uuid then (
-    info "dom0 uuid mismatch with inventory -- setting it the proper value";
-    with_xc (fun xc -> Xenctrl.domain_sethandle xc 0 uuid)
-  )
 
 (** Perform some startup sanity checks. Note that we nolonger look for processes using 'ps':
     instead we rely on the init.d scripts to start other services. *)
@@ -170,30 +159,6 @@ let signals_handling () =
   Sys.catch_break false;
   Sys.set_signal Sys.sigint (Sys.Signal_handle cleanup_handler)
 
-let domain0_setup () =
-  with_xc_and_xs (fun xc xs ->
-    let already_setup = try ignore(xs.Xs.read "/local/domain/0/name"); true with _ -> false in
-    if not already_setup then begin
-	     (* Write an initial neutral target in for domain 0 *)
-	     let di = Xenctrl.domain_getinfo xc 0 in
-	     let memory_actual_kib = Xenctrl.pages_to_kib (Int64.of_nativeint di.Xenctrl.total_memory_pages) in
-	     (* Find domain 0's UUID *)
-	     let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
-	     (* setup xenstore domain 0 for blktap, xentop (CA-24231) *)
-	     xs.Xs.writev "/local/domain/0" [ "name", "Domain-0"; "domid", "0"; "vm", "/vm/" ^ uuid ];
-	     xs.Xs.write "/local/domain/0/memory/target" (Int64.to_string memory_actual_kib);
-	     (* XXX: remove when domain 0 gets the same script as the linux domUs *)
-	     xs.Xs.write "/local/domain/0/control/feature-balloon" "1";
-	     
-	     xs.Xs.writev ("/vm/" ^ uuid) [ "uuid", uuid; "name", "Domain-0" ];
-	     (* add special key demanded by the PV drivers *)
-	     Xs.transaction xs (fun t ->
-				  t.Xst.write Xapi_globs.xe_key Xapi_globs.xe_val;
-				  t.Xst.setperms Xapi_globs.xe_key (0, Xsraw.PERM_READ, [])
-			       )
-    end
-          )
-
 let random_setup () =
   Random.self_init ();
   let n = 8 in
@@ -301,14 +266,7 @@ let on_master_restart ~__context =
   debug "master might have just restarted: refreshing non-persistent data in the master's database";
   Xapi_host_helpers.consider_enabling_host_request ~__context;
   debug "triggering an immediate refresh of non-persistent fields (eg memory)";
-  Mutex.execute Rrd_shared.mutex 
-    (fun () -> 
-       (* Explicitly dirty all VM memory values *)
-       let uuids = Vmopshelpers.with_xc 
-	 (fun xc -> List.map (fun di -> Uuid.to_string (Uuid.uuid_of_int_array di.Xenctrl.handle)) (Xenctrl.domain_getinfolist xc 0)) in
-       Rrd_shared.dirty_memory := List.fold_left (fun acc x -> Rrd_shared.StringSet.add x acc) Rrd_shared.StringSet.empty uuids;
-       Rrd_shared.dirty_host_memory := true; 
-       Condition.broadcast Rrd_shared.condition);
+  Monitor_dbcalls.clear_cache ();
   (* To make the slave appear live we need to set the live flag AND send a heartbeat otherwise the master
      will mark the slave offline again before the regular heartbeat turns up. *)
   debug "sending an immediate heartbeat";
@@ -341,37 +299,38 @@ let init_local_database () =
   (* We've just rebooted, so we clear the flag that stops the host being disabled during the reboot *)
   if !Xapi_globs.on_system_boot then Localdb.put Constants.host_disabled_until_reboot "false"
 
-let bring_up_management_if ~__context () = 
-  try
-    (* We require the configuration for the management interface to still exist in
-       /etc/sysconfig/network-scripts *)
-    let management_if = Xapi_inventory.lookup Xapi_inventory._management_interface in
-    (* Bring up the management interface synchronously *)
-    if management_if = "" 
-    then debug "No management interface defined"
-    else begin
-      match Helpers.get_management_ip_addr () with 
-      | Some "127.0.0.1" -> 
-	  debug "Received 127.0.0.1 as a management IP address; ignoring"
-      | Some ip ->
-	  debug "Management IP address is: %s" ip;
-	  Xapi_mgmt_iface.change_ip management_if ip;
-	  (* Make sure everyone is up to speed *)
-	  ignore (Thread.create (fun ()-> Server_helpers.exec_with_new_task "dom0 networking update" 
-        ~subtask_of:(Context.get_task_id __context)
-        (fun __context -> Xapi_mgmt_iface.on_dom0_networking_change ~__context)) ())
-      | None ->
-	  warn "Failed to acquire a management IP address"
-    end
-  with e ->
-    debug "Caught exception bringing up management interface: %s" (ExnHelper.string_of_exn e)
+let bring_up_management_if ~__context () =
+	try
+		let management_if = Xapi_inventory.lookup Xapi_inventory._management_interface in
+		let management_address_type = Record_util.primary_address_type_of_string
+			(Xapi_inventory.lookup Xapi_inventory._management_address_type) in
+		if management_if = "" then begin
+			debug "No management interface defined (management is disabled)";
+		end else begin
+			Xapi_mgmt_iface.run ~__context management_if management_address_type;
+			match Helpers.get_management_ip_addr ~__context with
+			| Some "127.0.0.1" ->
+				debug "Received 127.0.0.1 as a management IP address; ignoring"
+			| Some ip ->
+				debug "Management IP address is: %s" ip;
+				(* Make sure everyone is up to speed *)
+				ignore (Thread.create (fun () -> Server_helpers.exec_with_new_task "dom0 networking update"
+					~subtask_of:(Context.get_task_id __context)
+					(fun __context -> Xapi_mgmt_iface.on_dom0_networking_change ~__context)) ())
+			| None ->
+				warn "Failed to acquire a management IP address"
+		end;
+		(* Start the Host Internal Management Network, if needed. *)
+		Xapi_network.check_himn ~__context
+	with e ->
+		debug "Caught exception bringing up management interface: %s" (ExnHelper.string_of_exn e)
 
 (** Assuming a management interface is defined, return the IP address. Note this
 	call may block for a long time. *)
-let wait_for_management_ip_address () =
+let wait_for_management_ip_address ~__context =
 	debug "Attempting to acquire a management IP address";
 	Xapi_host.set_emergency_mode_error Api_errors.host_has_no_management_ip [];
-	let ip = Xapi_mgmt_iface.wait_for_management_ip () in
+	let ip = Xapi_mgmt_iface.wait_for_management_ip ~__context in
 	debug "Acquired management IP address: %s" ip;
 	Xapi_host.set_emergency_mode_error Api_errors.host_still_booting [];
 	(* Check whether I am my own slave. *)
@@ -553,15 +512,16 @@ let resynchronise_ha_state () =
 let calculate_boot_time_host_free_memory () =
 	let ( + ) = Nativeint.add in
 	let host_info = with_xc (fun xc -> Xenctrl.physinfo xc) in
-	let host_free_pages = host_info.Xenctrl.free_pages in
-	let host_scrub_pages = host_info.Xenctrl.scrub_pages in
+	let open Xenctrl.Phys_info in
+	let host_free_pages = host_info.free_pages in
+	let host_scrub_pages = host_info.scrub_pages in
 	let domain0_info = with_xc (fun xc -> Xenctrl.domain_getinfo xc 0) in
-	let domain0_total_pages = domain0_info.Xenctrl.total_memory_pages in
+	let domain0_total_pages = domain0_info.Xenctrl.Domain_info.total_memory_pages in
 	let boot_time_host_free_pages =
 		host_free_pages + host_scrub_pages + domain0_total_pages in
 	let boot_time_host_free_kib =
 		Xenctrl.pages_to_kib (Int64.of_nativeint boot_time_host_free_pages) in
-	Memory.bytes_of_kib boot_time_host_free_kib
+	Int64.mul 1024L boot_time_host_free_kib
 
 (* Read the free memory on the host and record this in the db. This is used *)
 (* as the baseline for memory calculations in the message forwarding layer. *)
@@ -569,7 +529,7 @@ let record_boot_time_host_free_memory () =
 	if not (Unixext.file_exists Xapi_globs.initial_host_free_memory_file) then begin
 		try
 			let free_memory = calculate_boot_time_host_free_memory () in
-                        Unixext.mkdir_safe (Filename.dirname Xapi_globs.initial_host_free_memory_file) 0o700;
+                        Unixext.mkdir_rec (Filename.dirname Xapi_globs.initial_host_free_memory_file) 0o700;
 			Unixext.write_string_to_file
 				Xapi_globs.initial_host_free_memory_file
 				(Int64.to_string free_memory)
@@ -665,9 +625,15 @@ let master_only_http_handlers = [
 ]
 
 let common_http_handlers = [
+  ("get_services_xenops", (Http_svr.FdIO Xapi_services.get_handler));
+  ("put_services_xenops", (Http_svr.FdIO Xapi_services.put_handler));
+  ("post_services_xenops", (Http_svr.FdIO Xapi_services.post_handler));
+  ("get_services_sm", (Http_svr.FdIO Xapi_services.get_handler));
+  ("put_services_sm", (Http_svr.FdIO Xapi_services.put_handler));
+  ("post_services_sm", (Http_svr.FdIO Xapi_services.post_handler));
   ("get_services", (Http_svr.FdIO Xapi_services.get_handler));
   ("post_services", (Http_svr.FdIO Xapi_services.post_handler));
-  ("connect_migrate", (Http_svr.FdIO Xapi_vm_migrate.handler));
+  ("put_services", (Http_svr.FdIO Xapi_services.put_handler));
   ("put_import", (Http_svr.FdIO Import.handler));
   ("put_import_metadata", (Http_svr.FdIO Import.metadata_handler));
   ("put_import_raw_vdi", (Http_svr.FdIO Import_raw_vdi.handler));
@@ -688,15 +654,16 @@ let common_http_handlers = [
   ("put_pool_xml_db_sync", (Http_svr.FdIO Pool_db_backup.push_database_restore_handler));
   ("get_config_sync", (Http_svr.FdIO Config_file_sync.config_file_sync_handler));
   ("get_system_status", (Http_svr.FdIO System_status.handler));
-  ("get_vm_rrd", (Http_svr.FdIO Monitor_rrds.handler));
-  ("put_rrd", (Http_svr.BufIO Monitor_rrds.receive_handler));
-  ("get_host_rrd", (Http_svr.FdIO Monitor_rrds.handler_host));
-  ("get_rrd_updates", (Http_svr.FdIO Monitor_rrds.handler_rrd_updates));
+  (Constants.get_vm_rrd, (Http_svr.FdIO Rrdd_proxy.get_vm_rrd_forwarder));
+  (Constants.get_host_rrd, (Http_svr.FdIO Rrdd_proxy.get_host_rrd_forwarder));
+  (Constants.get_rrd_updates, (Http_svr.FdIO Rrdd_proxy.get_rrd_updates_forwarder));
+  (Constants.put_rrd, (Http_svr.FdIO Rrdd_proxy.put_rrd_forwarder));
   ("get_blob", (Http_svr.FdIO Xapi_blob.handler));
   ("put_blob", (Http_svr.FdIO Xapi_blob.handler));
   (* disabled RSS feed for release; this is useful for developers, but not reqd for product.
      [the motivation for disabling it is that it simplifies security audit etc.] *)
-  (* ("get_message_rss_feed", Xapi_message.handler); *)
+  (* ("get_message_rss_feed", Xapi_message.rss_handler); *)
+  ("put_messages", (Http_svr.FdIO Xapi_message.handler));
   ("connect_remotecmd", (Http_svr.FdIO Xapi_remotecmd.handler));
   ("post_remote_stats", (Http_svr.BufIO remote_stats_handler));
   ("get_wlb_report", (Http_svr.BufIO Wlb_reports.report_handler));
@@ -706,6 +673,7 @@ let common_http_handlers = [
   ("post_json", (Http_svr.BufIO (Api_server.callback true)));
   ("post_root_options", (Http_svr.BufIO (Api_server.options_callback)));
   ("post_json_options", (Http_svr.BufIO (Api_server.options_callback)));
+  ("connect_migrate", (Http_svr.FdIO Xapi_vm_migrate.handler));
 ]
 
 let server_init() =
@@ -715,12 +683,6 @@ let server_init() =
     Unixext.unlink_safe Xapi_globs.unix_domain_socket;
     let domain_sock = Xapi_http.bind (Unix.ADDR_UNIX(Xapi_globs.unix_domain_socket)) in
     ignore(Http_svr.start Xapi_http.server domain_sock);
-    in
-  let listen_localhost () =
-    (* Always listen on 127.0.0.1 *)
-    let localhost = Unix.inet_addr_of_string "127.0.0.1" in
-    let localhost_sock = Xapi_http.bind (Unix.ADDR_INET(localhost, Xapi_globs.http_port)) in
-    ignore(Http_svr.start Xapi_http.server localhost_sock);
     in
 
   let print_server_starting_message() = debug "on_system_boot=%b pool_role=%s" !Xapi_globs.on_system_boot (Pool_role.string_of (Pool_role.get_role ())) in
@@ -824,27 +786,24 @@ let server_init() =
     Server_helpers.exec_with_new_task "server_init" (fun __context ->
     Startup.run ~__context [
     "Reading config file", [], (fun () -> Xapi_config.read_config !Xapi_globs.config_file);
-    "Reading log config file", [ Startup.NoExnRaising ], (fun () ->Xapi_config.read_log_config !Xapi_globs.log_config_file);
     "Reading external global variables definition", [ Startup.NoExnRaising ], Xapi_globs.read_external_config;
-    "Initing stunnel path", [], Stunnel.init_stunnel_path;
     "XAPI SERVER STARTING", [], print_server_starting_message;
     "Parsing inventory file", [], Xapi_inventory.read_inventory;
     "Initialising local database", [], init_local_database;
 	"Loading DHCP leases", [], Xapi_udhcpd.init;
     "Reading pool secret", [], Helpers.get_pool_secret;
     "Logging xapi version info", [], Xapi_config.dump_config;
-    "Checking control domain", [], check_control_domain;
     "Setting signal handlers", [], signals_handling;
-    "Setting up domain 0 xenstore keys", [], domain0_setup;
     "Initialising random number generator", [], random_setup;
     "Running startup check", [], startup_check;
-    "Registering SR plugins", [Startup.OnlyMaster], Sm.register;
+    "Registering SMAPIv1 plugins", [Startup.OnlyMaster], Sm.register;
 	"Initialising SM state", [], Storage_impl.initialise;
+	"Starting SM internal event service", [], Storage_task.Updates.Scheduler.start;
 	"Starting SM service", [], Storage_access.start;
+	"Starting SM xapi event service", [], Storage_access.events_from_sm;
     "Registering http handlers", [], (fun () -> List.iter Xapi_http.add_handler common_http_handlers);
     "Registering master-only http handlers", [ Startup.OnlyMaster ], (fun () -> List.iter Xapi_http.add_handler master_only_http_handlers);
     "Listening unix socket", [], listen_unix_socket;
-    "Listening localhost", [], listen_localhost;
     "Metadata VDI liveness monitor", [ Startup.OnlyMaster; Startup.OnThread ], (fun () -> Redo_log_alert.loop ());
     "Checking HA configuration", [], start_ha;
 	"Checking for non-HA redo-log", [], start_redo_log;
@@ -882,7 +841,7 @@ let server_init() =
         let finished = ref false in
         while not(!finished) do
           (* Grab the management IP address (wait forever for it if necessary) *)
-          let ip = wait_for_management_ip_address () in
+          let ip = wait_for_management_ip_address ~__context in
 
           debug "Attempting to communicate with master";
           (* Try to say hello to the pool *)
@@ -926,16 +885,14 @@ let server_init() =
       "Synchronising bonds on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_bonds_from_master ~__context;
       "Synchronising VLANs on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_vlans_from_master ~__context;
       "Synchronising tunnels on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_tunnels_from_master ~__context;
-      "Initialise monitor configuration", [], Monitor_rrds.update_configuration_from_master;
+      "Initialise monitor configuration", [], Monitor_master.update_configuration_from_master;
       "Initialising licensing", [], handle_licensing;
       "control domain memory", [ Startup.OnThread ], control_domain_memory;
       "message_hook_thread", [ Startup.NoExnRaising ], (Xapi_message.start_message_hook_thread ~__context);
       "heartbeat thread", [ Startup.NoExnRaising; Startup.OnThread ], Db_gc.start_heartbeat_thread;
       "resynchronising HA state", [ Startup.NoExnRaising ], resynchronise_ha_state;
       "pool db backup", [ Startup.OnlyMaster; Startup.OnThread ], Pool_db_backup.pool_db_backup_thread;
-      "monitor", [ Startup.OnThread ], Monitor.loop;
       "monitor_dbcalls", [Startup.OnThread], Monitor_dbcalls.monitor_dbcall_thread;
-      "guest_agent_monitor", [ Startup.NoExnRaising ], Xapi_guest_agent.guest_metrics_liveness_thread;
       "touching ready file", [], (fun () -> Helpers.touch_file !Xapi_globs.ready_file);
        (* -- CRITICAL: this check must be performed before touching shared storage *)
       "Performing no-other-masters check", [ Startup.OnlyMaster ], check_no_other_masters;
@@ -949,11 +906,13 @@ let server_init() =
       (* CA-22417: bring up all non-bond slaves so that the SM backends can use storage NIC IP addresses (if the routing
 	 table happens to be right) *)
       "Best-effort bring up of physical NICs", [ Startup.NoExnRaising ], Xapi_pif.start_of_day_best_effort_bring_up;
-	  "Starting host internal management network", [ Startup.NoExnRaising ], Xapi_network_real.on_server_start;
       "initialising storage", [ Startup.NoExnRaising ],
                 (fun () -> Helpers.call_api_functions ~__context Create_storage.create_storage_localhost);
       (* CA-13878: make sure PBD plugging has happened before attempting to reboot any VMs *)
-      "starting events thread", [], (fun () -> if not (!noevents) then ignore (Thread.create Events.listen_xal ()));
+	  "resynchronising VM state", [], (fun () -> Xapi_xenops.on_xapi_restart ~__context);
+      "listening to events from xenopsd", [], (fun () -> if not (!noevents) && (!Xapi_globs.use_xenopsd) then ignore (Thread.create Xapi_xenops.events_from_xenopsd ()));
+      "listening to events from xapi", [], (fun () -> if not (!noevents) && (!Xapi_globs.use_xenopsd) then ignore (Thread.create Xapi_xenops.events_from_xapi ()));
+
       "SR scanning", [ Startup.OnlyMaster; Startup.OnThread ], Xapi_sr.scanning_thread;
       "writing init complete", [], (fun () -> Helpers.touch_file !Xapi_globs.init_complete);
 (*      "Synchronising HA state with Pool", [ Startup.NoExnRaising ], Xapi_ha.synchronise_ha_state_with_pool; *)
@@ -970,7 +929,7 @@ let server_init() =
       let management_if = Xapi_inventory.lookup Xapi_inventory._management_interface in
       if management_if <> "" then (
 	debug "Waiting forever for the management interface to gain an IP address";
-	let ip = wait_for_management_ip_address () in
+	let ip = wait_for_management_ip_address ~__context in
 	debug "Management interface got IP address: %s; attempting to re-plug any unplugged PBDs" ip;
 	Helpers.call_api_functions ~__context (fun rpc session_id -> 
 	       Create_storage.plug_unplugged_pbds __context rpc session_id)
@@ -1030,7 +989,6 @@ let watchdog f =
 		(* parent process blocks sigint and forward sigterm to child. *)
 		ignore(Unix.sigprocmask Unix.SIG_BLOCK [Sys.sigint]);
 		Sys.catch_break false;
-		Logs.append "watchdog" Log.Info "syslog:xapi_watchdog";
 		
 		(* watchdog logic *)
 		let loginfo fmt = W.info fmt in
@@ -1094,7 +1052,7 @@ let watchdog f =
 							last_badexit := ctime
 						end
 					| Unix.WSIGNALED i ->
-						loginfo "received signal %d" i;
+						loginfo "received signal: %s" (Unixext.string_of_signal i);
 						pid := None;
 						(* arbitrary choice of signals, probably need more
 						   though, for real use *)
@@ -1121,7 +1079,9 @@ let watchdog f =
 						Unix.kill (Forkhelpers.getpid (Opt.unbox !pid)) Sys.sigcont;
 			with
 					Unix.Unix_error(Unix.EINTR,_,_) -> ()
-				| e -> loginfo "Watchdog received unexpected exception: %s" (Printexc.to_string e)
+				| e ->
+					loginfo "Watchdog received unexpected exception: %s" (Printexc.to_string e);
+					Thread.delay 30.
 		end;
 		done;
 		if !error_msg <> "" then begin
@@ -1150,20 +1110,20 @@ let set_thread_queue_params () =
 		(float_of_int virtual_space_kb) /. stack_size_kb in
 	let soft_limit = ref 75. in
 	let confidence = ref 0.3 in
-	let tolarence = ref 1. in
+	let tolerance = ref 1. in
 	let calm_down = ref 5. in
 	let last_update = ref (Unix.time (), Thread.Now) in
 	let wait_or_not () =
 		let current_run = float_of_int (Thread.running_threads ()) in
 		if current_run >= hard_limit *. safe_limit then Thread.Indefinite
-		else if current_run < !soft_limit *. !confidence *. !tolarence then Thread.Now
+		else if current_run < !soft_limit *. !confidence *. !tolerance then Thread.Now
 		else
 			let last_clock, last_decision = !last_update in
 			let now = Unix.time () in
 			if now -. last_clock < !calm_down then last_decision else
 				let cpuload =
 					let upbound = (cpu_num +. 1.) *. 2. in
-					let loadavg = Helpers.loadavg () in
+					let loadavg = Rrdd_common.loadavg () in
 					(sqrt loadavg) /. (sqrt upbound) in
 				let memload = Helpers.memusage () in
 				let load = max cpuload memload in
@@ -1179,22 +1139,24 @@ let set_thread_queue_params () =
 					let new_confidence =
 						(confidence' *. confidence' +. !confidence *. !confidence)
 						/. (confidence' +. !confidence) in
-					let new_tolarence =
+					let new_tolerance =
 						1. -. (abs_float (confidence' -. !confidence)) in
 					let new_calm_down =
 						min 60. (max 5. (1. /. (abs_float (confidence' -. !confidence)))) in
 					soft_limit := new_soft_limit;
 					confidence := new_confidence;
-					tolarence := new_tolarence;
+					tolerance := new_tolerance;
 					calm_down := new_calm_down;
 					debug "Set threads number soft limit to %f with %f confidence and %f \
-tolarence, the next tweak will be %f seconds away at the earliest."
-						!soft_limit !confidence !tolarence !calm_down;
+tolerance, the next tweak will be %f seconds away at the earliest."
+						!soft_limit !confidence !tolerance !calm_down;
 					decision in
 	Thread.set_policy (Thread.WaitCondition wait_or_not)
 
 
 let _ =
+	Debug.set_facility Syslog.Local5;
+
 	init_args(); (* need to read args to find out whether to daemonize or not *)
 
   if !daemonize then

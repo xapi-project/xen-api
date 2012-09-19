@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 65
+let schema_minor_vsn = 66
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -442,6 +442,10 @@ let _ =
     ~doc:"The operation you requested cannot be performed because the specified PIF does not allow unplug." ();
   error Api_errors.pif_has_no_network_configuration [ ]
     ~doc:"PIF has no IP configuration (mode curently set to 'none')" ();
+  error Api_errors.pif_has_no_v6_network_configuration [ ]
+    ~doc:"PIF has no IPv6 configuration (mode curently set to 'none')" ();
+  error Api_errors.pif_incompatible_primary_address_type [ ]
+    ~doc:"The primary address types are not compatible" ();
   error Api_errors.cannot_plug_bond_slave ["PIF"]
     ~doc:"This PIF is a bond slave and cannot be plugged." ();
   error Api_errors.cannot_add_vlan_to_bond_slave ["PIF"]
@@ -515,6 +519,8 @@ let _ =
     ~doc:"The operation could not be performed because a domain still exists for the specified VM." ();
   error Api_errors.cannot_reset_control_domain [ "vm" ]
     ~doc:"The power-state of a control domain cannot be reset." ();
+  error Api_errors.not_system_domain [ "vm" ]
+	~doc:"The given VM is not registered as a system domain. This operation can only be performed on a registered system domain." ();
   error Api_errors.vm_cannot_delete_default_template ["vm"]
     ~doc:"You cannot delete the specified default template." ();
   error Api_errors.vm_bad_power_state ["vm"; "expected"; "actual"]
@@ -539,6 +545,9 @@ let _ =
     ~doc:"This VM has locked the DVD drive tray, so the disk cannot be ejected" ();
   error Api_errors.vbd_cds_must_be_readonly [ ]
     ~doc:"Read/write CDs are not supported" ();
+  (* CA-83260 *)
+  error Api_errors.disk_vbd_must_be_readwrite_for_hvm ["vbd"]
+    ~doc:"All VBDs of type 'disk' must be read/write for HVM guests" ();
   error Api_errors.vm_hvm_required ["vm"]
     ~doc:"HVM is required for this operation" ();
   error Api_errors.vm_no_vcpus ["vm"]
@@ -775,6 +784,16 @@ let _ =
     ~doc:"VM cannot be started because it requires a VDI which cannot be attached" ();
   error Api_errors.vm_migrate_failed [ "vm"; "source"; "destination"; "msg" ]
     ~doc:"An error occurred during the migration process." ();
+  error Api_errors.vm_has_too_many_snapshots [ "vm" ]
+    ~doc:"You attempted to migrate a VM with more than one snapshot." ();
+  error Api_errors.vm_has_checkpoint [ "vm" ]
+    ~doc:"You attempted to migrate a VM which has a checkpoint." ();
+  error Api_errors.vdi_needs_vm_for_migrate [ "vdi" ]
+    ~doc:"You attempted to migrate a VDI which is not attached to a runnning VM." ();
+  error Api_errors.mirror_failed [ "vdi" ]
+    ~doc:"The VDI mirroring cannot be performed" ();
+  error Api_errors.too_many_storage_migrates [ "number" ]
+    ~doc:"You reached the maximal number of concurrently migrating VMs." ();
   error Api_errors.vm_failed_shutdown_ack []
     ~doc:"VM didn't acknowledge the need to shutdown." ();
   error Api_errors.vm_shutdown_timeout [ "vm"; "timeout" ]
@@ -809,7 +828,7 @@ let _ =
   error Api_errors.pbd_exists ["sr";"host";"pbd"]
     ~doc:"A PBD already exists connecting the SR to the host" ();
   error Api_errors.sr_has_pbd ["sr"] 
-    ~doc:"The SR is still connected to a host via a PBD. It cannot be destroyed." ();
+    ~doc:"The SR is still connected to a host via a PBD. It cannot be destroyed or forgotten." ();
   error Api_errors.sr_has_multiple_pbds [ "PBD" ]
     ~doc:"The SR.shared flag cannot be set to false while the SR remains connected to multiple hosts" ();
   error Api_errors.sr_requires_upgrade [ "SR" ]
@@ -838,6 +857,8 @@ let _ =
     ~doc:"This operation cannot be performed because the specified VDI is of an incompatible type (eg: an HA statefile cannot be attached to a guest)" ();
   error Api_errors.vdi_not_managed [ "vdi" ]
     ~doc:"This operation cannot be performed because the system does not manage this VDI" ();
+  error Api_errors.vdi_not_in_map [ "vdi" ]
+    ~doc:"This VDI was not mapped to a destination SR in VM.migrate_send operation" () ;
   error Api_errors.cannot_create_state_file []
     ~doc:"An HA statefile could not be created, perhaps because no SR with the appropriate capability was found." ();
 
@@ -851,6 +872,9 @@ let _ =
     ~doc:"The PBD could not be plugged because the SR is in use by another host and is not marked as sharable." ();
   error Api_errors.sr_indestructible ["sr"]
     ~doc:"The SR could not be destroyed, as the 'indestructible' flag was set on it." ();
+
+  error Api_errors.sm_plugin_communication_failure ["sm"]
+    ~doc:"The SM plugin did not respond to a query." ();
     
   error Api_errors.device_already_attached ["device"] 
     ~doc:"The device is already attached to a VM" ();
@@ -946,6 +970,8 @@ let _ =
     ~doc:"The patch precheck stage failed: prerequisite patches are missing." ();
   error Api_errors.patch_precheck_failed_wrong_server_version [ "patch"; "found_version"; "required_version"]
     ~doc:"The patch precheck stage failed: the server is of an incorrect version." ();
+  error Api_errors.patch_precheck_failed_wrong_server_build [ "patch"; "found_build"; "required_build"]
+    ~doc:"The patch precheck stage failed: the server is of an incorrect build." ();
   error Api_errors.patch_precheck_failed_vm_running [ "patch" ]
     ~doc:"The patch precheck stage failed: there are one or more VMs still running on the server.  All VMs must be suspended before the patch can be applied." ();
 
@@ -1009,6 +1035,11 @@ let _ =
   error Api_errors.ha_operation_would_break_failover_plan [ ]
     ~doc:"This operation cannot be performed because it would invalidate VM failover planning such that the system would be unable to guarantee to restart protected VMs after a Host failure."
     ();
+
+	error Api_errors.ha_cannot_change_bond_status_of_mgmt_iface [ ]
+		~doc:"This operation cannot be performed because creating or deleting a bond involving the management interface is not allowed while HA is on. In order to do that, disable HA, create or delete the bond then re-enable HA."
+		();
+
   error Api_errors.cannot_evacuate_host ["errors"]
     ~doc:"This host cannot be evacuated."
     ();
@@ -1054,7 +1085,7 @@ let _ =
     ~doc:"There is at least one VM assigned to this protection policy." ();
   error Api_errors.vmpp_archive_more_frequent_than_backup []
     ~doc:"Archive more frequent than backup." ();
-  error Api_errors.vm_assigned_to_protection_policy []
+  error Api_errors.vm_assigned_to_protection_policy ["vm"; "vmpp"]
     ~doc:"This VM is assigned to a protection policy." ();
 
   error Api_errors.ssl_verify_error ["reason"]
@@ -1458,6 +1489,21 @@ let vm_create_template = call
   ~allowed_roles:_R_VM_ADMIN
   ()
 
+let vm_import_convert = call
+	~name:"import_convert"
+  ~in_product_since:rel_tampa
+	~doc:"Import using a conversion service."
+	~params:[
+		String, "type", "Type of the conversion";
+		String, "username", "Admin username on the host";
+		String, "password", "Password on the host";
+		Ref _sr, "sr", "The destination SR";
+		Map(String, String), "remote_config", "Remote configuration options"
+	]
+	~errs:[]
+	~allowed_roles:_R_VM_ADMIN
+	()
+
 (* VM.Provision -- causes the template's disks to be instantiated *)
 
 let vm_provision = call
@@ -1699,15 +1745,27 @@ let vm_wait_memory_target_live = call
 	] ()
 
 let vm_get_cooperative = call
-  ~name:"get_cooperative"
-  ~in_product_since:rel_midnight_ride
-  ~doc:"Return true if the VM is currently 'co-operative' i.e. is expected to reach a balloon target and actually has done"
-  ~params:[
-    Ref _vm, "self", "The VM";
-  ]
-  ~result:(Bool, "true if the VM is currently 'co-operative'; false otherwise")
+	~name:"get_cooperative"
+	~in_product_since:rel_midnight_ride
+	~internal_deprecated_since:rel_tampa
+	~doc:"Return true if the VM is currently 'co-operative' i.e. is expected to reach a balloon target and actually has done"
+	~params:[
+		Ref _vm, "self", "The VM";
+	]
+	~result:(Bool, "true if the VM is currently 'co-operative'; false otherwise")
 	~allowed_roles:_R_READ_ONLY
-  ()
+	()
+
+let vm_query_services = call
+	~name:"query_services"
+	~in_product_since:rel_tampa
+	~doc:"Query the system services advertised by this VM and register them. This can only be applied to a system domain."
+	~params:[
+		Ref _vm, "self", "The VM";
+	]
+	~result:(Map(String, String), "map of service type to name")
+	~allowed_roles:_R_POOL_ADMIN
+	()
 
 (* VM.StartOn *)
 
@@ -1889,6 +1947,30 @@ let vm_pool_migrate = call
   ~allowed_roles:_R_VM_POWER_ADMIN
   ()
 
+let vm_pool_migrate_complete = call
+  ~in_oss_since:None 
+  ~in_product_since:rel_tampa
+  ~name:"pool_migrate_complete"
+  ~doc:"Tell a destination host that migration is complete."
+  ~params:[Ref _vm, "vm", "The VM which has finished migrating";
+	   Ref _host, "host", "The target host" ]
+  ~hide_from_docs:true
+  ~pool_internal:false (* needed for cross-pool migrate too *)
+  ~allowed_roles:_R_VM_POWER_ADMIN
+  ()
+
+let host_migrate_receive = call
+  ~in_oss_since:None
+  ~in_product_since:rel_tampa
+  ~name:"migrate_receive"
+  ~doc:"Prepare to receive a VM, returning a token which can be passed to VM.migrate."
+  ~params:[Ref _host, "host", "The target host";
+    Ref _network, "network", "The network through which migration traffic should be received.";
+    Map(String, String), "options", "Extra configuration operations" ]
+  ~result:(Map(String,String), "A value which should be passed to VM.migrate")
+  ~allowed_roles:_R_VM_POWER_ADMIN
+  ()
+
 let set_vcpus_number_live = call
 	~name:"set_VCPUs_number_live"
 	~in_product_since:rel_rio
@@ -1964,18 +2046,33 @@ let vm_send_trigger = call
   ~allowed_roles:_R_POOL_ADMIN
   ()
 
-let vm_migrate = call
-  ~name: "migrate"
-  ~in_product_since:rel_rio
+let vm_migrate_send = call
+  ~name: "migrate_send"
+  ~in_product_since:rel_tampa
   ~doc: "Migrate the VM to another host.  This can only be called when the specified VM is in the Running state."
   ~params:[Ref _vm, "vm", "The VM";
-           String, "dest", "The destination host";
+           Map(String,String), "dest", "The result of a Host.migrate_receive call.";
            Bool, "live", "Live migration";
+		   Map (Ref _vdi, Ref _sr), "vdi_map", "Map of source VDI to destination SR";
+		   Map (Ref _vif, Ref _network), "vif_map", "Map of source VIF to destination network";
            Map (String, String), "options", "Other parameters"]
   ~errs:[Api_errors.vm_bad_power_state]
-  ~hide_from_docs:true
   ~allowed_roles:_R_VM_POWER_ADMIN
   ()
+
+let vm_assert_can_migrate = call
+~name:"assert_can_migrate"
+	~in_product_since:rel_tampa
+	~doc:"Assert whether a VM can be migrated to the specified destination."
+	~params:[
+		Ref _vm, "vm", "The VM";
+		Map(String,String), "dest", "The result of a VM.migrate_receive call.";
+		Bool, "live", "Live migration";
+		Map (Ref _vdi, Ref _sr), "vdi_map", "Map of source VDI to destination SR";
+		Map (Ref _vif, Ref _network), "vif_map", "Map of source VIF to destination network";
+		Map (String, String), "options", "Other parameters" ]
+	~allowed_roles:_R_VM_POWER_ADMIN
+	()
 
 let vm_s3_suspend = call
   ~name: "s3_suspend"
@@ -2000,9 +2097,12 @@ let vm_create_new_blob = call
   ~name: "create_new_blob"
   ~in_product_since:rel_orlando
   ~doc:"Create a placeholder for a named binary blob of data that is associated with this VM"
-  ~params:[Ref _vm, "vm", "The VM";
-	   String, "name", "The name associated with the blob";
-	   String, "mime_type", "The mime type for the data. Empty string translates to application/octet-stream";]
+  ~versioned_params:
+  [{param_type=Ref _vm; param_name="vm"; param_doc="The VM"; param_release=orlando_release; param_default=None};
+  {param_type=String; param_name="name"; param_doc="The name associated with the blob"; param_release=orlando_release; param_default=None};
+  {param_type=String; param_name="mime_type"; param_doc="The mime type for the data. Empty string translates to application/octet-stream"; param_release=orlando_release; param_default=None};
+  {param_type=Bool; param_name="public"; param_doc="True if the blob should be publicly available"; param_release=tampa_release; param_default=Some (VBool false)}
+  ]
   ~result:(Ref _blob, "The reference of the blob, needed for populating its data")
   ~allowed_roles:_R_VM_POWER_ADMIN
   ()
@@ -2359,6 +2459,15 @@ let host_management_disable = call ~flags:[`Session]
   ~allowed_roles:_R_POOL_OP
   ()
 
+let host_get_management_interface = call
+  ~lifecycle:[]
+  ~name:"get_management_interface"
+  ~doc:"Returns the management interface for the specified host"
+  ~params:[Ref _host, "host", "Which host's management interface is required"]
+  ~result:(Ref _pif, "The managment interface for the host")
+  ~allowed_roles:_R_POOL_OP
+  ()
+
 (* Simple host evacuate message for Miami.
    Not intended for HA *)
 
@@ -2388,26 +2497,28 @@ let host_evacuate = call
   ~params:[Ref _host, "host", "The host to evacuate"]
   ~allowed_roles:_R_POOL_OP
   ()
-  
+
 let host_get_uncooperative_resident_VMs = call
-  ~in_product_since:rel_midnight_ride
-  ~name:"get_uncooperative_resident_VMs"
-  ~doc:"Return a set of VMs which are not co-operating with the host's memory control system"
-  ~params:[Ref _host, "self", "The host to query"]
-  ~result:((Set(Ref _vm)), "VMs which are not co-operating")
-  ~allowed_roles:_R_READ_ONLY
-  ()
+	~in_product_since:rel_midnight_ride
+	~internal_deprecated_since:rel_tampa
+	~name:"get_uncooperative_resident_VMs"
+	~doc:"Return a set of VMs which are not co-operating with the host's memory control system"
+	~params:[Ref _host, "self", "The host to query"]
+	~result:((Set(Ref _vm)), "VMs which are not co-operating")
+	~allowed_roles:_R_READ_ONLY
+	()
 
 let host_get_uncooperative_domains = call
-  ~in_product_since:rel_midnight_ride
-  ~name:"get_uncooperative_domains"
-  ~doc:"Return the set of domain uuids which are not co-operating with the host's memory control system"
-  ~params:[Ref _host, "self", "The host to query"]
-  ~result:((Set(String)), "UUIDs of domains which are not co-operating")
-  ~pool_internal:true
-  ~hide_from_docs:true
-  ~allowed_roles:_R_LOCAL_ROOT_ONLY
-  ()
+	~in_product_since:rel_midnight_ride
+	~internal_deprecated_since:rel_tampa
+	~name:"get_uncooperative_domains"
+	~doc:"Return the set of domain uuids which are not co-operating with the host's memory control system"
+	~params:[Ref _host, "self", "The host to query"]
+	~result:((Set(String)), "UUIDs of domains which are not co-operating")
+	~pool_internal:true
+	~hide_from_docs:true
+	~allowed_roles:_R_LOCAL_ROOT_ONLY
+	()
 
 let host_retrieve_wlb_evacuate_recommendations = call
   ~name:"retrieve_wlb_evacuate_recommendations"
@@ -2607,9 +2718,11 @@ let host_create_new_blob = call
   ~name: "create_new_blob"
   ~in_product_since:rel_orlando
   ~doc:"Create a placeholder for a named binary blob of data that is associated with this host"
-  ~params:[Ref _host, "host", "The host";
-	   String, "name", "The name associated with the blob";
-	   String, "mime_type", "The mime type for the data. Empty string translates to application/octet-stream";]
+  ~versioned_params:
+  [{param_type=Ref _host; param_name="host"; param_doc="The host"; param_release=orlando_release; param_default=None};
+  {param_type=String; param_name="name"; param_doc="The name associated with the blob"; param_release=orlando_release; param_default=None};
+  {param_type=String; param_name="mime_type"; param_doc="The mime type for the data. Empty string translates to application/octet-stream"; param_release=orlando_release; param_default=None};
+  {param_type=Bool; param_name="public"; param_doc="True if the blob should be publicly available"; param_release=tampa_release; param_default=Some (VBool false)}]
   ~result:(Ref _blob, "The reference of the blob, needed for populating its data")
   ~allowed_roles:_R_POOL_OP
   ()
@@ -2752,6 +2865,18 @@ let vdi_copy = call
   ~doc:"Make a fresh VDI in the specified SR and copy the supplied VDI's data to the new disk"
   ~result:(Ref _vdi, "The reference of the newly created VDI.")
   ~allowed_roles:_R_VM_ADMIN
+  ()
+
+let vdi_pool_migrate = call
+  ~name:"pool_migrate"
+  ~in_oss_since:None
+  ~in_product_since:rel_tampa
+  ~params:[ Ref _vdi, "vdi", "The VDI to migrate"
+    ; Ref _sr, "sr", "The destination SR"
+    ; Map (String, String), "options", "Other parameters" ]
+  ~result:(Ref _vdi, "The new reference of the migrated VDI.")
+  ~doc:"Migrate a VDI, which may be attached to a running guest, to a different SR. The destination SR must be visible to the guest."
+  ~allowed_roles:_R_VM_POWER_ADMIN
   ()
 
 (* ------------------------------------------------------------------------------------------------------------
@@ -2928,7 +3053,7 @@ let names ?(writer_roles=None) ?(reader_roles=None) ?lifecycle in_oss_since qual
 			~default_value:(Some (VString "")) ?lifecycle in
 	[
 		field "label" "a human-readable name";
-		field "description" "a notes field containg human-readable description"
+		field "description" "a notes field containing human-readable description"
 	]
 
 let default_field_reader_roles = _R_ALL (* by default, all can read fields *)
@@ -3126,9 +3251,12 @@ let sr_create_new_blob = call
   ~name: "create_new_blob"
   ~in_product_since:rel_orlando
   ~doc:"Create a placeholder for a named binary blob of data that is associated with this SR"
-  ~params:[Ref _sr, "sr", "The SR";
-	   String, "name", "The name associated with the blob";
-	   String, "mime_type", "The mime type for the data. Empty string translates to application/octet-stream";]
+  ~versioned_params:
+  [{param_type=Ref _sr; param_name="sr"; param_doc="The SR"; param_release=orlando_release; param_default=None};
+  {param_type=String; param_name="name"; param_doc="The name associated with the blob"; param_release=orlando_release; param_default=None};
+  {param_type=String; param_name="mime_type"; param_doc="The mime type for the data. Empty string translates to application/octet-stream"; param_release=orlando_release; param_default=None};
+  {param_type=Bool; param_name="public"; param_doc="True if the blob should be publicly available"; param_release=tampa_release; param_default=Some (VBool false)}
+  ]
   ~result:(Ref _blob, "The reference of the blob, needed for populating its data")
   ~allowed_roles:_R_POOL_OP
   ()
@@ -3253,7 +3381,7 @@ let task =
       field ~qualifier:DynamicRO ~ty:String "type" "if the task has completed successfully, this field contains the type of the encoded result (i.e. name of the class whose reference is in the result field). Undefined otherwise.";
       field ~qualifier:DynamicRO ~ty:String "result" "if the task has completed successfully, this field contains the result value (either Void or an object reference). Undefined otherwise.";
       field ~qualifier:DynamicRO ~ty:(Set String) "error_info" "if the task has failed, this field contains the set of associated error strings. Undefined otherwise.";
-      field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("applies_to",(_R_VM_OP));("XenCenterUUID",(_R_VM_OP))];
+      field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("applies_to",(_R_VM_OP));("XenCenterUUID",(_R_VM_OP));("XenCenterMeddlingActionTitle",(_R_VM_OP))];
       (* field ~ty:(Set(Ref _alert)) ~in_product_since:rel_miami ~qualifier:DynamicRO "alerts" "all alerts related to this task"; *)
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~default_value:(Some (VRef "")) ~ty:(Ref _task) "subtask_of" "Ref pointing to the task this is a substask of.";
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Set (Ref _task)) "subtasks"   "List pointing to all the substasks."; 
@@ -3986,6 +4114,7 @@ let host =
 		 host_management_reconfigure;
 		 host_local_management_reconfigure;
 		 host_management_disable;
+		 host_get_management_interface;
 		 host_get_system_status_capabilities;
 		 host_get_diagnostic_timing_stats;
 		 host_restart_agent;
@@ -4033,6 +4162,7 @@ let host =
 		 host_sync_vlans;
 		 host_sync_tunnels;
 		 host_sync_pif_currently_attached;
+		 host_migrate_receive;
 		 ]
       ~contents:
         ([ uid _host;
@@ -4177,9 +4307,12 @@ let network_create_new_blob = call
   ~name: "create_new_blob"
   ~in_product_since:rel_orlando
   ~doc:"Create a placeholder for a named binary blob of data that is associated with this pool"
-  ~params:[Ref _network, "network", "The network";
-	   String, "name", "The name associated with the blob";
-	   String, "mime_type", "The mime type for the data. Empty string translates to application/octet-stream";]
+  ~versioned_params:
+  [{param_type=Ref _network; param_name="network"; param_doc="The network"; param_release=orlando_release; param_default=None};
+  {param_type=String; param_name="name"; param_doc="The name associated with the blob"; param_release=orlando_release; param_default=None};
+  {param_type=String; param_name="mime_type"; param_doc="The mime type for the data. Empty string translates to application/octet-stream"; param_release=orlando_release; param_default=None};
+  {param_type=Bool; param_name="public"; param_doc="True if the blob should be publicly available"; param_release=tampa_release; param_default=Some (VBool false)}
+  ]
   ~result:(Ref _blob, "The reference of the blob, needed for populating its data")
   ~allowed_roles:_R_POOL_OP
   ()
@@ -4195,12 +4328,37 @@ let network_set_default_locking_mode = call
 	~allowed_roles:_R_POOL_OP
 	()
 
+let network_attach_for_vm = call
+	~name:"attach_for_vm"
+	~doc:"Attaches all networks needed by a given VM on a particular host"
+	~params:[
+		Ref _host, "host", "Physical machine to which the networks are to be attached";
+		Ref _vm, "vm", "The virtual machine"
+	]
+	~in_product_since:rel_tampa
+	~hide_from_docs:true
+	~allowed_roles:_R_POOL_OP
+	()
+
+let network_detach_for_vm = call
+	~name:"detach_for_vm"
+	~doc:"Detaches all networks of a given VM from a particular host"
+	~params:[
+		Ref _host, "host", "Physical machine from which the networks are to be attached";
+		Ref _vm, "vm", "The virtual machine"
+	]
+	~in_product_since:rel_tampa
+	~hide_from_docs:true
+	~allowed_roles:_R_POOL_OP
+	()
+
 (** A virtual network *)
 let network =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_network ~descr:"A virtual network" ~gen_events:true
       ~doccomments:[]
       ~messages_default_allowed_roles:_R_VM_ADMIN (* vm admins can create/destroy networks without PIFs *)
-      ~messages:[network_attach; network_pool_introduce; network_create_new_blob; network_set_default_locking_mode]
+      ~messages:[network_attach; network_pool_introduce; network_create_new_blob; network_set_default_locking_mode;
+        network_attach_for_vm; network_detach_for_vm]
       ~contents:
       ([
       uid _network;
@@ -4285,6 +4443,39 @@ let pif_reconfigure_ip = call
   ~allowed_roles:_R_POOL_OP
   ()
 
+let pif_ipv6_configuration_mode = Enum ("ipv6_configuration_mode",
+				      [ "None", "Do not acquire an IPv6 address";
+					"DHCP", "Acquire an IPv6 address by DHCP";
+					"Static", "Static IPv6 address configuration";
+				        "Autoconf", "Router assigned prefix delegation IPv6 allocation" ])
+
+let pif_reconfigure_ipv6 = call
+  ~name:"reconfigure_ipv6"
+  ~doc:"Reconfigure the IPv6 address settings for this interface"
+  ~params:[Ref _pif, "self", "the PIF object to reconfigure";
+	   pif_ipv6_configuration_mode, "mode", "whether to use dynamic/static/no-assignment";
+	   String, "IPv6", "the new IPv6 address (in <addr>/<prefix length> format)";
+	   String, "gateway", "the new gateway";
+	   String, "DNS", "the new DNS settings";
+	  ]
+  ~lifecycle:[]
+  ~allowed_roles:_R_POOL_OP
+  ()
+
+let pif_primary_address_type = Enum ("primary_address_type",
+				      [ "IPv4", "Primary address is the IPv4 address";
+					"IPv6", "Primary address is the IPv6 address" ])
+
+let pif_set_primary_address_type = call
+  ~name:"set_primary_address_type"
+  ~doc:"Change the primary address type used by this PIF"
+  ~params:[Ref _pif, "self", "the PIF object to reconfigure";
+	   pif_primary_address_type, "primary_address_type", "Whether to prefer IPv4 or IPv6 connections";
+	  ]
+  ~lifecycle:[]
+  ~allowed_roles:_R_POOL_OP
+  ()
+
 let pif_scan = call
   ~name:"scan"
   ~doc:"Scan for physical interfaces on a host and create PIF objects to represent them"
@@ -4332,7 +4523,11 @@ let pif_introduce_params first_rel =
     {param_type=Ref _vlan; param_name="VLAN_master_of"; param_doc=""; param_release=first_rel; param_default=None};
     {param_type=Bool; param_name="management"; param_doc=""; param_release=first_rel; param_default=None};
     {param_type=Map(String, String); param_name="other_config"; param_doc=""; param_release=first_rel; param_default=None};
-    {param_type=Bool; param_name="disallow_unplug"; param_doc=""; param_release=orlando_release; param_default=Some (VBool false)}
+    {param_type=Bool; param_name="disallow_unplug"; param_doc=""; param_release=orlando_release; param_default=Some (VBool false)};
+    {param_type=pif_ipv6_configuration_mode; param_name="ipv6_configuration_mode"; param_doc=""; param_release=boston_release; param_default=Some (VEnum "None")};
+    {param_type=(Set(String)); param_name="IPv6"; param_doc=""; param_release=boston_release; param_default=Some (VSet [])};
+    {param_type=String; param_name="ipv6_gateway"; param_doc=""; param_release=boston_release; param_default=Some (VString "")};
+    {param_type=pif_primary_address_type; param_name="primary_address_type"; param_doc=""; param_release=boston_release; param_default=Some (VEnum "IPv4")}
   ]
 
 (* PIF pool introduce is used to copy PIF records on pool join -- it's the PIF analogue of VDI.pool_introduce *)
@@ -4373,7 +4568,7 @@ let pif =
       ~gen_events:true
       ~doccomments:[] 
       ~messages_default_allowed_roles:_R_POOL_OP
-      ~messages:[pif_create_VLAN; pif_destroy; pif_reconfigure_ip; pif_scan; pif_introduce; pif_forget;
+      ~messages:[pif_create_VLAN; pif_destroy; pif_reconfigure_ip; pif_reconfigure_ipv6; pif_set_primary_address_type; pif_scan; pif_introduce; pif_forget;
 		pif_unplug; pif_plug; pif_pool_introduce;
 		pif_db_introduce; pif_db_forget
 		] ~contents:
@@ -4406,6 +4601,10 @@ let pif =
 	field ~in_product_since:rel_orlando ~default_value:(Some (VBool false)) ~ty:Bool "disallow_unplug" "Prevent this PIF from being unplugged; set this to notify the management tool-stack that the PIF has a special use and should not be unplugged under any circumstances (e.g. because you're running storage traffic over it)";
 	field ~in_oss_since:None ~ty:(Set(Ref _tunnel)) ~lifecycle:[Published, rel_cowley, "Indicates to which tunnel this PIF gives access"] ~qualifier:DynamicRO "tunnel_access_PIF_of" "Indicates to which tunnel this PIF gives access";
 	field ~in_oss_since:None ~ty:(Set(Ref _tunnel)) ~lifecycle:[Published, rel_cowley, "Indicates to which tunnel this PIF provides transport"] ~qualifier:DynamicRO "tunnel_transport_PIF_of" "Indicates to which tunnel this PIF provides transport";
+	field ~in_oss_since:None ~ty:pif_ipv6_configuration_mode ~lifecycle:[] ~qualifier:DynamicRO "ipv6_configuration_mode" "Sets if and how this interface gets an IPv6 address" ~default_value:(Some (VEnum "None"));
+	field ~in_oss_since:None ~ty:(Set(String)) ~lifecycle:[] ~qualifier:DynamicRO "IPv6" "IPv6 address" ~default_value:(Some (VSet []));
+	field ~in_oss_since:None ~ty:String ~lifecycle:[] ~qualifier:DynamicRO "ipv6_gateway" "IPv6 gateway" ~default_value:(Some (VString ""));
+	field ~in_oss_since:None ~ty:pif_primary_address_type ~lifecycle:[] ~qualifier:DynamicRO "primary_address_type" "Which protocol should define the primary address of this interface" ~default_value:(Some (VEnum "IPv4"));
       ]
 	()
 
@@ -4496,6 +4695,7 @@ let bond =
       field ~lifecycle:[Published, rel_boston, ""] ~qualifier:DynamicRO ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _pif) "primary_slave" "The PIF of which the IP configuration and MAC were copied to the bond, and which will receive all configuration/VLANs/VIFs on the bond if the bond is destroyed";
       field ~lifecycle:[Published, rel_boston, ""] ~qualifier:DynamicRO ~default_value:(Some (VEnum "balance-slb")) ~ty:bond_mode "mode" "The algorithm used to distribute traffic among the bonded NICs";
       field ~in_oss_since:None ~in_product_since:rel_tampa ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "properties" "Additional configuration properties specific to the bond mode.";
+	  field ~in_oss_since:None ~in_product_since:rel_tampa ~qualifier:DynamicRO ~ty:Int ~default_value:(Some (VInt 0L)) "links_up" "Number of links up in this bond";
     ]
     ()
 
@@ -4633,7 +4833,6 @@ let vif_operations =
 	[ "attach", "Attempting to attach this VIF to a VM";
 	  "plug", "Attempting to hotplug this VIF";
 	  "unplug", "Attempting to hot unplug this VIF";
-	  "unplug_force", "Attempting to forcibly unplug this VIF";
 	])
 
 let vif_locking_mode =
@@ -4791,7 +4990,9 @@ let storage_operations =
 	  "vdi_destroy", "Destroying a VDI";
 	  "vdi_resize", "Resizing a VDI"; 
 	  "vdi_clone", "Cloneing a VDI"; 
-	  "vdi_snapshot", "Snapshotting a VDI" ])
+	  "vdi_snapshot", "Snapshotting a VDI";
+	  "pbd_create", "Creating a PBD for this SR";
+	  "pbd_destroy", "Destroying one of this SR's PBDs"; ])
 
 let sr_set_virtual_allocation = call
    ~name:"set_virtual_allocation"
@@ -5304,6 +5505,7 @@ let vdi =
 		 vdi_open_database;
 		 vdi_checksum;
 		 vdi_read_database_pool_uuid;
+		 vdi_pool_migrate;
 		]
       ~contents:
       ([ uid _vdi;
@@ -5665,9 +5867,12 @@ let pool_create_new_blob = call
   ~name: "create_new_blob"
   ~in_product_since:rel_orlando
   ~doc:"Create a placeholder for a named binary blob of data that is associated with this pool"
-  ~params:[Ref _pool, "pool", "The pool";
-	   String, "name", "The name associated with the blob";
-	   String, "mime_type", "The mime type for the data. Empty string translates to application/octet-stream";]
+  ~versioned_params:
+  [{param_type=Ref _pool; param_name="pool"; param_doc="The pool"; param_release=orlando_release; param_default=None};
+  {param_type=String; param_name="name"; param_doc="The name associated with the blob"; param_release=orlando_release; param_default=None};
+  {param_type=String; param_name="mime_type"; param_doc="The mime type for the data. Empty string translates to application/octet-stream"; param_release=orlando_release; param_default=None};
+  {param_type=Bool; param_name="public"; param_doc="True if the blob should be publicly available"; param_release=tampa_release; param_default=Some (VBool false)}
+  ]
   ~result:(Ref _blob, "The reference of the blob, needed for populating its data")
   ~allowed_roles:_R_POOL_OP
   ()
@@ -6311,7 +6516,7 @@ let vm_power_state =
 			    "Running", "Running";
 				"Suspended", "VM state has been saved to disk and it is nolonger running. Note that disks remain in-use while the VM is suspended."])
 
-let vm_operations = 
+let vm_operations =
   Enum ("vm_operations",
 	List.map operation_enum
 	  [ vm_snapshot; vm_clone; vm_copy; vm_create_template; vm_revert; vm_checkpoint; vm_snapshot_with_quiesce;
@@ -6319,14 +6524,15 @@ let vm_operations =
 	    vm_cleanReboot; vm_hardShutdown; vm_stateReset; vm_hardReboot;
 	    vm_suspend; csvm; vm_resume; vm_resume_on;
 	    vm_pool_migrate;
-            vm_migrate; 
-	    vm_get_boot_record; vm_send_sysrq; vm_send_trigger ]
+        vm_migrate_send;
+	    vm_get_boot_record; vm_send_sysrq; vm_send_trigger;
+		vm_query_services;
+	  ]
 	@ [ "changing_memory_live", "Changing the memory settings";
 	    "awaiting_memory_live", "Waiting for the memory settings to change";
 	    "changing_dynamic_range", "Changing the memory dynamic range";
 	    "changing_static_range", "Changing the memory static range";
 	    "changing_memory_limits", "Changing the memory limits";
-	    "get_cooperative", "Querying the co-operativeness of the VM";
 	    "changing_shadow_memory", "Changing the shadow memory for a halted VM.";
 	    "changing_shadow_memory_live", "Changing the shadow memory for a running VM.";
 	    "changing_VCPUs", "Changing VCPU settings for a halted VM.";
@@ -6350,10 +6556,11 @@ let vm =
       ~messages_default_allowed_roles:_R_VM_ADMIN
       ~messages:[ vm_snapshot; vm_snapshot_with_quiesce; vm_clone; vm_copy; vm_revert; vm_checkpoint;
 		vm_provision; vm_start; vm_start_on; vm_pause; vm_unpause; vm_cleanShutdown;
-		vm_cleanReboot; vm_hardShutdown; vm_stateReset; vm_hardReboot; vm_suspend; csvm; vm_resume; 
+		vm_cleanReboot; vm_hardShutdown; vm_stateReset; vm_hardReboot; vm_suspend; csvm; vm_resume;
 		vm_hardReboot_internal;
-		vm_resume_on; 
-		vm_pool_migrate; set_vcpus_number_live;
+		vm_resume_on;
+		vm_pool_migrate; vm_pool_migrate_complete;
+		set_vcpus_number_live;
 		vm_add_to_VCPUs_params_live;
 		vm_set_ha_restart_priority;  (* updates the allowed-operations of the VM *)
 		vm_set_ha_always_run;        (* updates the allowed-operations of the VM *)
@@ -6374,7 +6581,8 @@ let vm =
 		vm_set_VCPUs_at_startup;
 		vm_send_sysrq; vm_send_trigger;
 		vm_maximise_memory;
-		vm_migrate;
+		vm_migrate_send;
+		vm_assert_can_migrate;
 		vm_get_boot_record;
 		vm_get_data_sources; vm_record_data_source; vm_query_data_source; vm_forget_data_source_archives;
 		assert_operation_valid vm_operations _vm _self;
@@ -6398,7 +6606,9 @@ let vm =
 		vm_set_suspend_VDI;
 		vm_assert_can_be_recovered;
 		vm_recover;
+		vm_import_convert;
 		vm_set_appliance;
+		vm_query_services;
 		]
       ~contents:
       ([ uid _vm;
@@ -6432,7 +6642,7 @@ let vm =
 		Published, rel_rio, "PCI bus path for pass-through devices";
 		Deprecated, rel_boston, "Field was never used"]
 		"PCI_bus" "PCI bus path for pass-through devices";
-	field  ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("folder",(_R_VM_OP));("XenCenter.CustomFields.*",(_R_VM_OP))];
+	field  ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:["pci", _R_POOL_ADMIN; ("folder",(_R_VM_OP));("XenCenter.CustomFields.*",(_R_VM_OP))];
 	field ~qualifier:DynamicRO ~ty:Int "domid" "domain ID (if available, -1 otherwise)";
 	field ~qualifier:DynamicRO ~in_oss_since:None ~ty:String "domarch" "Domain architecture (if available, null string otherwise)";
 	field ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Map(String, String)) "last_boot_CPU_flags" "describes the CPU flags on which the VM was last booted";
@@ -6444,7 +6654,7 @@ let vm =
 	   the VM is in a suspended state *)
 	field ~in_oss_since:None ~internal_only:false ~in_product_since:rel_miami ~qualifier:DynamicRO ~ty:String "last_booted_record" "marshalled value containing VM record at time of last boot, updated dynamically to reflect the runtime state of the domain" ~default_value:(Some (VString ""));
 	field ~in_oss_since:None ~ty:String "recommendations" "An XML specification of recommended values and ranges for properties of this VM";
-	field ~in_oss_since:None ~ty:(Map(String, String)) ~in_product_since:rel_miami ~qualifier:RW "xenstore_data" "data to be inserted into the xenstore tree (/local/domain/<domid>/vm-data) after the VM is created." ~default_value:(Some (VMap []));
+	field ~effect:true ~in_oss_since:None ~ty:(Map(String, String)) ~in_product_since:rel_miami ~qualifier:RW "xenstore_data" "data to be inserted into the xenstore tree (/local/domain/<domid>/vm-data) after the VM is created." ~default_value:(Some (VMap []));
 	field ~writer_roles:_R_POOL_OP ~in_oss_since:None ~ty:Bool ~in_product_since:rel_orlando ~internal_deprecated_since:rel_boston ~qualifier:StaticRO "ha_always_run" "if true then the system will attempt to keep the VM running as much as possible." ~default_value:(Some (VBool false));
 	field ~writer_roles:_R_POOL_OP ~in_oss_since:None ~ty:String ~in_product_since:rel_orlando ~qualifier:StaticRO "ha_restart_priority" "has possible values: \"best-effort\" meaning \"try to restart this VM if possible but don't consider the Pool to be overcommitted if this is not possible\"; \"restart\" meaning \"this VM should be restarted\"; \"\" meaning \"do not try to restart this VM\"" ~default_value:(Some (VString ""));
 	field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO ~in_product_since:rel_orlando ~default_value:(Some (VBool false))          ~ty:Bool            "is_a_snapshot" "true if this is a snapshot. Snapshotted VMs can never be started, they are used only for cloning other VMs";
@@ -7022,7 +7232,7 @@ let event =
     ~name:"register" 
     ~in_product_since:rel_rio
     ~params:[Set String, "classes", "register for events for the indicated classes"]
-    ~doc:"Registers this session with the event system.  Specifying the empty list will register for all classes."
+    ~doc:"Registers this session with the event system.  Specifying * as the desired class will register for all classes."
     ~allowed_roles:_R_ALL
     () in
   let unregister = call
@@ -7064,6 +7274,17 @@ let event =
     ~result:(Int, "the event ID")
     ~allowed_roles:_R_ALL
     () in
+  let inject = call
+	  ~name:"inject" ~params:[
+		  String, "class", "class of the object";
+		  String, "ref", "A reference to the object that will be changed.";
+	  ]
+	  ~in_product_since:rel_tampa
+	  ~doc:"Injects an artificial event on the given object and return the corresponding ID"
+	  ~flags:[`Session]
+	  ~result:(String, "the event ID")
+	  ~allowed_roles:_R_ALL
+	  () in
   (* !!! This should call create_obj ~in_db:true like everything else... !!! *)
   {
     obj_lifecycle=[];
@@ -7072,7 +7293,7 @@ let event =
     description = "Asynchronous event registration and handling";
     gen_constructor_destructor = false;
     doccomments = [];
-    messages = [ register; unregister; next; from; get_current_id ];
+    messages = [ register; unregister; next; from; get_current_id; inject ];
     obj_release = {internal=get_product_releases rel_rio; opensource=get_oss_releases (Some "3.0.3"); internal_deprecated_since=None};
     contents = [
       field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:Int "id" "An ID, monotonically increasing, and local to the current session";
@@ -7095,7 +7316,9 @@ let blob =
   let create = call
     ~name:"create"
     ~in_product_since:rel_orlando
-    ~params:[String, "mime_type", "The mime-type of the blob. Defaults to 'application/octet-stream' if the empty string is supplied"]
+	~versioned_params:
+	[{param_type=String; param_name="mime_type"; param_doc="The mime-type of the blob. Defaults to 'application/octet-stream' if the empty string is supplied"; param_release=orlando_release; param_default=None};
+	{param_type=Bool; param_name="public"; param_doc="True if the blob should be publicly available"; param_release=tampa_release; param_default=Some (VBool false)}]
     ~doc:"Create a placeholder for a binary blob"
     ~flags:[`Session]
     ~result:(Ref _blob, "The reference to the created blob")
@@ -7116,6 +7339,7 @@ let blob =
     [ uid _blob;
       namespace ~name:"name" ~contents:(names oss_since_303 RW) ();
       field ~qualifier:DynamicRO ~ty:Int "size" "Size of the binary data, in bytes";
+	  field ~writer_roles:_R_POOL_OP ~qualifier:RW ~in_product_since:rel_tampa ~default_value:(Some (VBool false)) ~ty:Bool "public" "True if the blob is publicly accessible";
       field ~qualifier:StaticRO ~ty:DateTime "last_updated" "Time at which the data in the blob was last updated";
       field ~qualifier:StaticRO ~ty:String "mime_type" "The mime type associated with this object. Defaults to 'application/octet-stream' if the empty string is supplied"]
     ()
@@ -7401,7 +7625,7 @@ let vgpu =
 			{param_type=String; param_name="device"; param_doc=""; param_release=boston_release; param_default=Some (VString "0")};
 			{param_type=(Map (String, String)); param_name="other_config"; param_doc=""; param_release=boston_release; param_default=Some (VMap [])}
 		]
-		~result:(Ref _vgpu, "")
+		~result:(Ref _vgpu, "reference to the newly created object")
 		~allowed_roles:_R_POOL_OP
 		()
 	in
@@ -7666,9 +7890,16 @@ let rbac_http_permission_prefix = "http/"
 let http_actions = [
   ("get_services", (Get, Constants.services_uri, true, [], _R_READ_ONLY, []));
   ("post_services", (Post, Constants.services_uri, false, [], _R_POOL_ADMIN, []));
+  ("put_services", (Put, Constants.services_uri, false, [], _R_POOL_ADMIN, []));
   ("post_remote_db_access", (Post, Constants.remote_db_access_uri, false, [], _R_POOL_ADMIN, []));
   ("post_remote_db_access_v2", (Post, Constants.remote_db_access_uri_v2, false, [], _R_POOL_ADMIN, []));
   ("connect_migrate", (Connect, Constants.migrate_uri, false, [], _R_VM_POWER_ADMIN, []));
+  ("get_services_xenops", (Get, Constants.xenops_uri, false, [], _R_VM_POWER_ADMIN, []));
+  ("post_services_xenops", (Post, Constants.xenops_uri, false, [], _R_VM_POWER_ADMIN, []));
+  ("put_services_xenops", (Put, Constants.xenops_uri, false, [], _R_VM_POWER_ADMIN, []));
+  ("get_services_sm", (Get, Constants.sm_uri, false, [], _R_VM_POWER_ADMIN, []));
+  ("post_services_sm", (Post, Constants.sm_uri, false, [], _R_VM_POWER_ADMIN, []));
+  ("put_services_sm", (Put, Constants.sm_uri, false, [], _R_VM_POWER_ADMIN, []));
   ("put_import", (Put, Constants.import_uri, true,
 		  [Bool_query_arg "restore"; Bool_query_arg "force"; String_query_arg "sr_id"], _R_VM_ADMIN, []));
   ("put_import_metadata", (Put, Constants.import_metadata_uri, true,
@@ -7697,15 +7928,16 @@ let http_actions = [
   ("put_vm_connect", (Put, Constants.vm_connect_uri, false, [], _R_POOL_ADMIN, []));
   ("get_system_status", (Get, Constants.system_status_uri, true,
 			 [String_query_arg "entries"; String_query_arg "output"], _R_POOL_OP, []));
-  ("get_vm_rrd", (Get, Constants.vm_rrd_uri, true, [String_query_arg "uuid"], _R_READ_ONLY, []));
-  ("put_rrd", (Put, Constants.rrd_put_uri, false, [], _R_POOL_ADMIN, []));
-  ("get_host_rrd", (Get, Constants.host_rrd_uri, true, [Bool_query_arg "json"], _R_READ_ONLY, []));
-  ("get_rrd_updates", (Get, Constants.rrd_updates, true,
-		       [Int64_query_arg "start"; String_query_arg "cf"; Int64_query_arg "interval";
-			Bool_query_arg "host"; String_query_arg "uuid"; Bool_query_arg "json"], _R_READ_ONLY, []));
-  ("get_blob", (Get, Constants.blob_uri, true, [String_query_arg "ref"], _R_READ_ONLY, []));
+	(Constants.get_vm_rrd, (Get, Constants.get_vm_rrd_uri, true, [String_query_arg "uuid"], _R_READ_ONLY, []));
+	(Constants.get_host_rrd, (Get, Constants.get_host_rrd_uri, true, [Bool_query_arg "json"], _R_READ_ONLY, []));
+	(Constants.get_rrd_updates, (Get, Constants.get_rrd_updates_uri, true,
+		[Int64_query_arg "start"; String_query_arg "cf"; Int64_query_arg "interval";
+		Bool_query_arg "host"; String_query_arg "uuid"; Bool_query_arg "json"], _R_READ_ONLY, []));
+  (Constants.put_rrd, (Put, Constants.put_rrd_uri, false, [], _R_POOL_ADMIN, []));
+  ("get_blob", (Get, Constants.blob_uri, false, [], _R_READ_ONLY, []));
   ("put_blob", (Put, Constants.blob_uri, true, [String_query_arg "ref"], _R_VM_POWER_ADMIN, []));
   ("get_message_rss_feed", (Get, Constants.message_rss_feed, false, [], _R_POOL_ADMIN, []));  (* not enabled in xapi *)
+  ("put_messages", (Put, Constants.message_put_uri, false, [], _R_VM_POWER_ADMIN, []));
   ("connect_remotecmd", (Connect, Constants.remotecmd_uri, false, [], _R_POOL_ADMIN, []));
   ("post_remote_stats", (Post, Constants.remote_stats_uri, false, [], _R_POOL_ADMIN, []));  (* deprecated *)
   ("get_wlb_report", (Get, Constants.wlb_report_uri, true,
@@ -7731,6 +7963,7 @@ let public_http_actions_with_no_rbac_check =
 		"post_json"; (* JSON -> calls XMLRPC *)
 		"get_root";  (* Make sure that downloads, personal web pages etc do not go through RBAC asking for a password or session_id *)
 		             (* also, without this line, quicktest_http.ml fails on non_resource_cmd and bad_resource_cmd with a 401 instead of 404 *)
+		"get_blob"; (* Public blobs don't need authentication *)
 		"post_root_options"; (* Preflight-requests are not RBAC checked *)
 		"post_json_options"; 
 	]
@@ -7738,5 +7971,4 @@ let public_http_actions_with_no_rbac_check =
 (* permissions not associated with any object message or field *)
 let extra_permissions = [
 	(extra_permission_task_destroy_any, _R_POOL_OP); (* only POOL_OP can destroy any tasks *)
-	("internal/vm.plug_pcidevs", _R_POOL_ADMIN); (* only POOL_ADMIN can execute xapi_vm.plug_pcidevs *)
 ]

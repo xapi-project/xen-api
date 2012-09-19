@@ -199,7 +199,7 @@ let fork_capture_stdout_stderr callback f x =
 	begin match snd (Unix.waitpid [] pid) with
 	| Unix.WEXITED 0    -> ()
 	| Unix.WEXITED rc   -> failwith (sprintf "child failure, return code %d" rc)
-	| Unix.WSIGNALED si -> failwith (sprintf "child killed by signal %d" si)
+	| Unix.WSIGNALED si -> failwith (sprintf "child killed by signal %s" (Unixext.string_of_signal si))
 	| _                 -> failwith (sprintf "child stopped")
 	end;
 	(* Success/failure is encoded in the first character *)

@@ -24,9 +24,22 @@ val assert_network_has_no_vifs_in_use_on_me :
 val assert_pif_disallow_unplug_not_set :
   __context:Context.t -> [ `PIF ] Ref.t -> unit
 
+(** Returns a list of PIFs on a given Network and on a given Host *)
+val get_local_pifs :
+  __context:Context.t ->
+  network:[ `network ] Ref.t ->
+  host:[ `host ] Ref.t ->
+  [ `PIF ] Ref.t list
+
+(** Raises an exception if the PIF is a bond slave *)
+val assert_no_slave :
+  __context:Context.t ->
+  [ `PIF ] Ref.t ->
+  unit
+
 (** Raises an exception if the network cannot be attached. *)
 val assert_can_attach_network_on_host :
   __context:Context.t ->
   self:[ `network ] Ref.t ->
   host:[ `host ] Ref.t ->
-  [ `PIF ] Ref.t list
+  unit

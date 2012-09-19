@@ -15,6 +15,7 @@
  * @group Database Operations
  *)
 
+open Fun
 open Xapi_vm_memory_constraints
 open Vm_memory_constraints
 open Printf
@@ -46,7 +47,8 @@ let read_localhost_info () =
 		let xc = Xenctrl.interface_open () in
 		let v = Xenctrl.version xc in
 		Xenctrl.interface_close xc;
-		Printf.sprintf "%d.%d%s" v.Xenctrl.major v.Xenctrl.minor v.Xenctrl.extra
+		let open Xenctrl.Version in
+		Printf.sprintf "%d.%d%s" v.major v.minor v.extra
 	and linux_verstring =
 		let verstring = ref "" in
 		let f line =
@@ -58,9 +60,10 @@ let read_localhost_info () =
 	let me = Helpers.get_localhost_uuid () in
 	let lookup_inventory_nofail k = try Some (Xapi_inventory.lookup k) with _ -> None in
 	let this_host_name = Helpers.get_hostname() in
-	let total_memory_mib = 
-		Vmopshelpers.with_xc
-			(fun xc -> Memory.get_total_memory_mib ~xc) in
+	let total_memory_mib =
+		let open Xenops_client in
+		Client.HOST.get_total_memory_mib "read_localhost_info" in
+
 	let dom0_static_max = 
 		(* Query the balloon driver to determine how much memory is available for domain 0. *)
 		(* We cannot ask XenControl for this information, since for domain 0, the value of  *)
@@ -70,7 +73,7 @@ let read_localhost_info () =
 		let keys = [Balloon._low_mem_balloon; Balloon._high_mem_balloon; Balloon._current_allocation] in
 		let values = List.map lookup keys in
 		let result = List.fold_left Int64.add 0L values in
-		Memory.bytes_of_kib result in
+		Int64.mul 1024L result in
 
 	  {name_label=this_host_name;
 	   xen_verstring=xen_verstring;
@@ -156,7 +159,7 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info)
 	(* Determine information about the host machine. *)
 	let domarch =
 		let i = Int64.of_nativeint (Int64.to_nativeint 0xffffffffL) in
-		Domain.string_of_domarch (if i > 0L then Domain.Arch_X64 else Domain.Arch_X32) in
+		if i > 0L then "x64" else "x32" in
 	let localhost = Helpers.get_localhost ~__context in
 	(* Read the control domain uuid from the inventory file *)
 	let uuid = host_info.dom0_uuid in
@@ -230,23 +233,21 @@ and create_domain_zero_guest_metrics_record ~__context ~domain_zero_metrics_ref 
 		~other_config:[];
 
 and create_domain_zero_default_memory_constraints host_info : Vm_memory_constraints.t =
-        try  
-	  let constraints = {
-	    static_min = Int64.of_string (Localdb.get Constants.pool_join_mem_stat_min);
-	    static_max = Int64.of_string (Localdb.get Constants.pool_join_mem_stat_max);
-	    dynamic_min = Int64.of_string (Localdb.get Constants.pool_join_mem_dyn_min);
-	    dynamic_max = Int64.of_string (Localdb.get Constants.pool_join_mem_dyn_max);
-	    target = Int64.of_string (Localdb.get Constants.pool_join_mem_target);
-	  } in
-	  Localdb.del Constants.pool_join_mem_stat_min;
-	  Localdb.del Constants.pool_join_mem_stat_max;
-	  Localdb.del Constants.pool_join_mem_dyn_min;
-	  Localdb.del Constants.pool_join_mem_dyn_max;
-	  Localdb.del Constants.pool_join_mem_target;
-	  constraints 
+	let static_min, static_max = calculate_domain_zero_memory_static_range host_info in
+	try
+		(* Look up the current domain zero record in xenopsd *)
+		let open Xenops_interface in
+		let open Xenops_client in
+		let vm, state = Client.VM.stat "dbsync" host_info.dom0_uuid in
+		{
+			static_min = static_min;
+			static_max = vm.Vm.memory_static_max;
+			dynamic_min = vm.Vm.memory_dynamic_min;
+			dynamic_max = vm.Vm.memory_dynamic_max;
+			target = state.Vm.memory_target;
+		}
 	with _ -> 
-	  let static_min, static_max = calculate_domain_zero_memory_static_range host_info in
-	  let target = static_min +++ (Memory.bytes_of_mib 100L) in
+	  let target = static_min +++ (Int64.(mul 100L (mul 1024L 1024L))) in
 	  let target = if target > static_max then static_max else target in
 	  {
 	    static_min  = static_min;
@@ -289,7 +290,7 @@ and calculate_domain_zero_memory_static_range (host_info: host_info) : int64 * i
 		let gradient = 21.0 /. 1024.0 in (* d [domain 0 memory] /  d [total host memory]     *)
 		let result = Int64.add (Int64.of_float (gradient *. (Int64.to_float host_total_memory_mib))) intercept in
 		let result = if result < minimum then minimum else result in
-		Memory.bytes_of_mib result in
+		Int64.(mul result (mul 1024L 1024L)) in
 
 	(* static_min must not be greater than static_max *)
 	let static_min = calculate_domain_zero_memory_static_min () in
@@ -373,7 +374,7 @@ let make_packs_info () =
 let make_software_version () =
 	let option_to_list k o = match o with None -> [] | Some x -> [ k, x ] in
 	let info = read_localhost_info () in
-	let v6_version = V6client.get_version () in
+	let v6_version = V6client.get_version "make_software_version" in
 	Xapi_globs.software_version @
 	(if v6_version = "" then [] else ["dbv", v6_version]) @
 	[
@@ -396,7 +397,7 @@ let create_host_cpu ~__context =
 		let xc = Xenctrl.interface_open () in
 		let p = Xenctrl.physinfo xc in
 		Xenctrl.interface_close xc;
-		p.Xenctrl.nr_cpus
+		p.Xenctrl.Phys_info.nr_cpus
 		in
 	let trim_end s =
         	let i = ref (String.length s - 1) in
@@ -496,7 +497,9 @@ let create_chipset_info ~__context =
 	let host = Helpers.get_localhost ~__context in
 	let current_info = Db.Host.get_chipset_info ~__context ~self:host in
 	let iommu =
-		let xen_dmesg = Vmopshelpers.with_xc (fun xc -> Xenctrl.readconsolering xc) in
+		let open Xenops_client in
+		let dbg = Context.string_of_task __context in
+		let xen_dmesg = Client.HOST.get_console_data dbg in
 		if String.has_substr xen_dmesg "I/O virtualisation enabled" then
 			"true"
 		else if String.has_substr xen_dmesg "I/O virtualisation disabled" then

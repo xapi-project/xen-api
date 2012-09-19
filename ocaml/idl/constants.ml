@@ -14,6 +14,8 @@
 (* constants which are global across all the tools *)
 
 let services_uri = "/services"                        (* ocaml/xapi/xapi_services.ml *)
+let xenops_uri = "/services/xenops"                   (* ocaml/xapi/xapi_services.ml *)
+let sm_uri = "/services/SM"                           (* ocaml/xapi/xapi_services.ml *)
 let import_vdi_uri = "/import_vdi"                    (* Currently unused *)
 let import_raw_vdi_uri = "/import_raw_vdi"            (* ocaml/xapi/import_raw_vdi.ml *)
 let export_uri = "/export"                            (* ocaml/xapi/export.ml *)
@@ -34,17 +36,24 @@ let vm_connect_uri = "http"                           (* ocaml/xapi/xapi_udhcpd.
 let vncsnapshot_uri = "/vncsnapshot"                  (* ocaml/xapi/xapi_vncsnapshot.ml *)
 let system_status_uri = "/system-status"              (* ocaml/xapi/system_status.ml *)
 let remote_db_access_uri = "/remote_db_access"        (* ocaml/xapi/xapi.ml *)
-let remote_db_access_uri_v2 = "/remote_db_access_v2"        (* ocaml/xapi/xapi.ml *)
+let remote_db_access_uri_v2 = "/remote_db_access_v2"  (* ocaml/xapi/xapi.ml *)
 let remote_stats_uri = "/remote_stats"                (* ocaml/xapi/xapi.ml *)
 let json_uri = "/json"                                (* ocaml/xapi/xapi.ml *)
 let cli_uri = "/cli"                                  (* ocaml/xapi/xapi_cli.ml *)
-let vm_rrd_uri = "/vm_rrd"                            (* ocaml/xapi/monitor_rrds.ml *)
-let rrd_put_uri = "/rrd"                              (* ocaml/xapi/monitor_rrds.ml *)
-let host_rrd_uri = "/host_rrd"                        (* ocaml/xapi/monitor_rrds.ml *)
-let rrd_updates = "/rrd_updates"                      (* ocaml/xapi/monitor_rrds.ml *)
+let get_vm_rrd = "vm_rrd"                             (* ocaml/xapi/xapi.ml *)
+let get_vm_rrd_uri = "/" ^ get_vm_rrd                 (* ocaml/xapi/xapi.ml *)
+let get_host_rrd = "host_rrd"                         (* ocaml/xapi/xapi.ml *)
+let get_host_rrd_uri = "/" ^ get_host_rrd             (* ocaml/xapi/xapi.ml *)
+let get_rrd_updates = "rrd_updates"                   (* ocaml/xapi/xapi.ml *)
+let get_rrd_updates_uri = "/" ^ get_rrd_updates       (* ocaml/xapi/xapi.ml *)
+let put_rrd = "rrd"                                   (* ocaml/xapi/xapi.ml *)
+let put_rrd_uri = "/" ^ put_rrd                       (* ocaml/xapi/xapi.ml *)
+let rrd_unarchive = "rrd_unarchive"                   (* ocaml/xapi/rrdd_proxy.ml *)
+let rrd_unarchive_uri = "/" ^ rrd_unarchive           (* ocaml/xapi/rrdd_proxy.ml *)
 let blob_uri = "/blob"                                (* ocaml/xapi/xapi_blob.ml *)
 let remotecmd_uri = "/remotecmd"                      (* ocaml/xapi/xapi_remotecmd.ml *)
 let message_rss_feed = "/rss"                         (* ocaml/xapi/xapi_message.ml *)
+let message_put_uri = "/messages"                     (* ocaml/xapi/xapi_message.ml *)
 let wlb_report_uri = "/wlb_report"                    (* ocaml/xapi/wlb_reports.ml *)
 let wlb_diagnostics_uri = "/wlb_diagnostics"          (* ocaml/xapi/wlb_reports.ml *)
 let audit_log_uri = "/audit_log"                      (* ocaml/xapi/audit.ml *)
@@ -99,13 +108,22 @@ let power_on_fn = "main"
 (* Key used in local storage to list local PBDs with should have currently_attached = true (on this boot) *)
 let local_currently_attached_pbds = "currently_attached_pbds"
 
-(* Key used in local db to preserve dom0 memory settings over a pool-join *)
-let pool_join_mem_stat_min = "pool_join_memory_static_min"
-let pool_join_mem_stat_max = "pool_join_memory_static_max"
-let pool_join_mem_dyn_min = "pool_join_memory_dynamic_min"
-let pool_join_mem_dyn_max = "pool_join_memory_dynamic_max"
-let pool_join_mem_target = "pool_join_memory_target"
-
 (* The unique static rbac ref for the pool-admin role in the roles table *)
 let rbac_pool_admin_uuid = "0165f154-ba3e-034e-6b27-5d271af109ba"
 
+let _services = "services"
+let _SM = "SM"
+let _driver = "driver"
+let path xs = "/" ^ (String.concat "/" xs)
+
+(* Used to identify remote VDIs that are mirrors. Stored in VDI.other_config *)
+let storage_migrate_vdi_map_key = "maps_to"
+
+(* Used to specify mapping of VIFs to networks on the remote machine. Stored in VIF.other_config *)
+let storage_migrate_vif_map_key = "maps_to"
+
+(* Path to the pool configuration file. *)
+let pool_config_file = Filename.concat Fhs.etcdir "pool.conf"
+
+(* Path to the pool secret file. *)
+let pool_secret_path = Filename.concat Fhs.etcdir "ptoken"

@@ -14,9 +14,11 @@
 
 open Printf
 open Stringext
-
+open Fun
+open Xenops_task
 open Device_common
 open Xenstore
+open Cancel_utils
 
 module D = Debug.Debugger(struct let name = "hotplug" end)
 open D
@@ -36,6 +38,8 @@ exception Loopdev_error of string
 exception Loopdev_delete_error
 (** If all the loopback devices are busy *)
 exception Loopdev_all_busy
+(** If the hotplug script reports an error *)
+exception Hotplug_error of string
 
 (** Interface to synchronise with minimal hotplug scripts *)
 
@@ -66,15 +70,17 @@ let path_written_by_hotplug_scripts (x: device) = match x.backend.kind with
 			x.backend.domid (string_of_kind x.backend.kind) x.frontend.domid x.frontend.devid
 	| k -> failwith (Printf.sprintf "No xenstore interface for this kind of device: %s" (string_of_kind k))
 
-let value_written_by_hotplug_scripts (x: device) = match x.backend.kind with
-	| Vif -> "online"
-	| Vbd -> "connected"
-	| k -> failwith (Printf.sprintf "No xenstore interface for this kind of device: %s" (string_of_kind k))
+let error_path_written_by_hotplug_scripts (x: device) =
+		sprintf "/local/domain/%d/backend/%s/%d/%d/hotplug-error"
+			x.backend.domid (string_of_kind x.backend.kind) x.frontend.domid x.frontend.devid
+
+let vif_disconnect_path (x: device) =
+	sprintf "/local/domain/%d/device/vif/%d/disconnect" x.frontend.domid x.frontend.devid
 
 let hotplugged ~xs (x: device) =
-	let path = path_written_by_hotplug_scripts x
-	and v = value_written_by_hotplug_scripts x in
-	try xs.Xs.read path = v with Xenbus.Xb.Noent -> false
+	let path = path_written_by_hotplug_scripts x in
+	debug "Checking to see whether %s" path;
+	try ignore(xs.Xs.read path); true with Xenbus.Xb.Noent -> false
 
 (* The path in xenstore written to by the frontend hotplug scripts *)
 let frontend_status_node (x: device) = 
@@ -109,58 +115,71 @@ let device_is_online ~xs (x: device) =
       then not(backend_shutdown ())
       else hotplugged ~xs x
 
-let wait_for_plug ~xs (x: device) = 
+let wait_for_plug (task: Xenops_task.t) ~xs (x: device) = 
   debug "Hotplug.wait_for_plug: %s" (string_of_device x);
   try
     Stats.time_this "udev backend add event" 
       (fun () ->
 		  let path = path_written_by_hotplug_scripts x in
-		  ignore(Watch.wait_for ~xs ~timeout:!Xapi_globs.hotplug_timeout (Watch.value_to_appear path));
+		  let error_path = error_path_written_by_hotplug_scripts x in
+		  let (_: bool) = cancellable_watch (Device x) [
+			  Watch.map (fun _ -> ()) (Watch.value_to_appear path);
+			  Watch.map (fun _ -> ()) (Watch.value_to_appear error_path);
+		  ] [] task ~xs ~timeout:!Xapi_globs.hotplug_timeout () in
+		  try
+			  (* If an error node exists, return the error *)
+			  raise (Hotplug_error (xs.Xs.read error_path))
+		  with Xenbus.Xb.Noent -> () (* common case *)
       );
     debug "Synchronised ok with hotplug script: %s" (string_of_device x)
   with Watch.Timeout _ ->
     raise (Device_timeout x)
 
-let wait_for_unplug ~xs (x: device) = 
+let wait_for_unplug (task: Xenops_task.t) ~xs (x: device) = 
   debug "Hotplug.wait_for_unplug: %s" (string_of_device x);
   try
     Stats.time_this "udev backend remove event" 
       (fun () ->
 		  let path = path_written_by_hotplug_scripts x in
-		  ignore(Watch.wait_for ~xs ~timeout:!Xapi_globs.hotplug_timeout (Watch.key_to_disappear path));
+		  let (_: bool) = cancellable_watch (Device x) [ Watch.map (fun _ -> ()) (Watch.key_to_disappear path) ] [] task ~xs ~timeout:!Xapi_globs.hotplug_timeout () in
+		  ()
       );
     debug "Synchronised ok with hotplug script: %s" (string_of_device x)
   with Watch.Timeout _ ->
     raise (Device_timeout x)
 
 (** Wait for the frontend device to become available to userspace *)
-let wait_for_frontend_plug ~xs (x: device) =
-  debug "Hotplug.wait_for_frontend_plug: %s" (string_of_device x);
-  try
-    let ok_watch = Watch.value_to_appear (frontend_status_node x) in
-    let tapdisk_error_watch = Watch.value_to_appear (tapdisk_error_node ~xs x) in
-	let blkback_error_watch = Watch.value_to_appear (blkback_error_node ~xs x) in
-    Stats.time_this "udev frontend add event" 
-      (fun () ->
-	 match Watch.wait_for ~xs ~timeout:!Xapi_globs.hotplug_timeout 
-	 (Watch.any_of [ `OK, ok_watch; `Failed, tapdisk_error_watch; `Failed, blkback_error_watch ]) with
-	 | `OK, _ ->
-	     debug "Synchronised ok with frontend hotplug script: %s" (string_of_device x)
-	 | `Failed, e ->
-	     error "Failed waiting for frontend device %s: %s" (string_of_device x) e;
-	     raise (Frontend_device_error e)
-      );
-  with Watch.Timeout _ ->
-    error "Timed out waiting for the frontend udev event to fire on device: %s" (string_of_device x);
-    raise (Frontend_device_timeout x)
+let wait_for_frontend_plug (task: Xenops_task.t) ~xs (x: device) =
+	debug "Hotplug.wait_for_frontend_plug: %s" (string_of_device x);
+	try
+		let ok_watch = Watch.value_to_appear (frontend_status_node x) |> Watch.map (fun _ -> ())  in
+		let tapdisk_error_watch = Watch.value_to_appear (tapdisk_error_node ~xs x) |> Watch.map (fun _ -> ()) in
+		let blkback_error_watch = Watch.value_to_appear (blkback_error_node ~xs x) |> Watch.map (fun _ -> ()) in
+		let cancel = Device x in
+		Stats.time_this "udev frontend add event" 
+			(fun () ->
+				if cancellable_watch cancel [ ok_watch ] [ tapdisk_error_watch; blkback_error_watch ] task ~xs ~timeout:!Xapi_globs.hotplug_timeout ()
+				then debug "Synchronised ok with frontend hotplug script: %s" (string_of_device x)
+				else begin
+					let tapdisk_error = try xs.Xs.read (tapdisk_error_node ~xs x) with _ -> "" in
+					let blkback_error = try xs.Xs.read (blkback_error_node ~xs x) with _ -> "" in
+					let e = tapdisk_error ^ "/" ^ blkback_error in
+					error "Failed waiting for frontend device %s: %s" (string_of_device x) e;
+					raise (Frontend_device_error e)
+				end
+			)
+	with Watch.Timeout _ ->
+		error "Timed out waiting for the frontend udev event to fire on device: %s" (string_of_device x);
+		raise (Frontend_device_timeout x)
 
-let wait_for_frontend_unplug ~xs (x: device) =
+let wait_for_frontend_unplug (task: Xenops_task.t) ~xs (x: device) =
   debug "Hotplug.wait_for_frontend_unplug: %s" (string_of_device x);
   try
     let path = frontend_status_node x in
     Stats.time_this "udev frontend remove event" 
       (fun () ->
-    ignore(Watch.wait_for ~xs ~timeout:!Xapi_globs.hotplug_timeout (Watch.key_to_disappear path));
+		  let (_: bool) = cancellable_watch (Device x) [ Watch.map (fun _ -> ()) (Watch.key_to_disappear path) ] [] task ~xs ~timeout:!Xapi_globs.hotplug_timeout () in
+		  ()
       );
     debug "Synchronised ok with frontend hotplug script: %s" (string_of_device x)
   with Watch.Timeout _ ->
@@ -216,9 +235,9 @@ let mount_loopdev ~xs (x: device) file readonly =
 (* Wait for the device to be released by the backend driver (via udev) and
    then deallocate any resources which are registered (in our private bit of
    xenstore) *)
-let release ~xs (x: device) =
+let release (task:Xenops_task.t) ~xs (x: device) =
 	debug "Hotplug.release: %s" (string_of_device x);
-	wait_for_unplug ~xs x;
+	wait_for_unplug task ~xs x;
 	let path = get_hotplug_path x in
 	let all = try xs.Xs.directory path with _ -> [] in
 	List.iter (function
@@ -235,5 +254,5 @@ let release ~xs (x: device) =
 			warn "Warning, deleting unexpected '%s' entry from %s" x path;
 			xs.Xs.rm (path ^ "/" ^ x)
 		  ) all;
-	xs.Xs.rm path
-
+	xs.Xs.rm path;
+	xs.Xs.rm (get_private_data_path_of_device x)

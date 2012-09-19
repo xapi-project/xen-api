@@ -41,6 +41,9 @@ type iface_stats = {
 	pci_bus_path: string;
 	vendor_id: string;
 	device_id: string;
+	nb_links: int;
+	links_up: int;
+	interfaces: iface list;
 } with rpc
 
 let default_stats = {
@@ -56,6 +59,9 @@ let default_stats = {
 	pci_bus_path = "";
 	vendor_id = "";
 	device_id = "";
+	nb_links = 0;
+	links_up = 0;
+	interfaces = [];
 }
 
 type stats_t = (iface * iface_stats) list with rpc
@@ -83,7 +89,7 @@ let read_stats () =
 				try int_of_string ("0x" ^ (String.sub data (magic_bytes + checksum_bytes) length_bytes))
 				with _ -> raise Invalid_length
 			in
-			let payload = String.sub data (magic_bytes + checksum_bytes + length_bytes + 1) length in
+			let payload = String.sub data (magic_bytes + checksum_bytes + length_bytes) length in
 			if payload |> Digest.string |> Digest.to_hex <> checksum then
 				raise Invalid_checksum
 			else

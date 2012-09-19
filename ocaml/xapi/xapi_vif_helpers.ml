@@ -22,7 +22,7 @@ open D
 
 open Record_util
 
-let all_ops : API.vif_operations_set = [ `attach; `plug; `unplug; `unplug_force ]
+let all_ops : API.vif_operations_set = [ `attach; `plug; `unplug ]
 
 type table = (API.vif_operations, ((string * (string list)) option)) Hashtbl.t
 
@@ -61,18 +61,18 @@ let valid_operations ~__context record _ref' : table =
   let plugged = record.Db_actions.vIF_currently_attached || record.Db_actions.vIF_reserved in
   (match power_state, plugged with
   | `Running, true -> set_errors Api_errors.device_already_attached [ _ref ] [ `plug ]
-  | `Running, false -> set_errors Api_errors.device_already_detached [ _ref ] [ `unplug; `unplug_force ]
+  | `Running, false -> set_errors Api_errors.device_already_detached [ _ref ] [ `unplug ]
   | _, _ -> 
       let actual = Record_util.power_to_string power_state in
       let expected = Record_util.power_to_string `Running in
-      set_errors Api_errors.vm_bad_power_state [ Ref.string_of vm; expected; actual ] [ `plug; `unplug; `unplug_force ]);
+      set_errors Api_errors.vm_bad_power_state [ Ref.string_of vm; expected; actual ] [ `plug; `unplug ]);
 
   (* HVM guests only support plug/unplug IF they have recent PV drivers *)
   let vm_gm = Db.VM.get_guest_metrics ~__context ~self:vm in
   let vm_gmr = try Some (Db.VM_guest_metrics.get_record_internal ~__context ~self:vm_gm) with _ -> None in
   if power_state = `Running && Helpers.has_booted_hvm ~__context ~self:vm
   then (match Xapi_pv_driver_version.make_error_opt (Xapi_pv_driver_version.of_guest_metrics vm_gmr) vm vm_gm with
-  | Some(code, params) -> set_errors code params [ `plug; `unplug; `unplug_force ]
+  | Some(code, params) -> set_errors code params [ `plug; `unplug ]
   | None -> ());
 
   table
@@ -126,51 +126,6 @@ let clear_current_operations ~__context ~self =
 
 (** Check if the device string has the right form *)
 let valid_device dev = try ignore(int_of_string dev); true with _ -> false
-
-(* Type of a function which does the actual hotplug/ hotunplug *)
-type do_hotplug_fn = __context:Context.t -> vif:API.ref_VIF -> Locking_helpers.token -> unit
-
-let plug (dynamic_create: do_hotplug_fn) ~__context ~self =
-  let vm = Db.VIF.get_VM ~__context ~self in
-
-  (* Acquire an extra lock on the VM to prevent a race with the events thread*)
-  Locking_helpers.with_lock vm 
-    (fun token () ->
-       if not(Helpers.is_running ~__context ~self:vm) then begin
-	 error "Cannot hotplug because VM (%s) is not running" (Ref.string_of vm);
-	 let actual = Record_util.power_to_string (Db.VM.get_power_state ~__context ~self:vm) in
-	 let expected = Record_util.power_to_string `Running in
-	 raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, 
-					[Ref.string_of vm; expected; actual]))
-       end;
-       if Db.VIF.get_currently_attached ~__context ~self then begin
-	 error "Cannot hotplug because VIF (%s) is already attached to VM (%s)"
-	   (Ref.string_of self) (Ref.string_of vm);
-	 raise (Api_errors.Server_error(Api_errors.device_already_attached,
-					[Ref.string_of self]))
-       end;
-       dynamic_create ~__context ~vif:self token) ()
-
-let unplug (dynamic_destroy: do_hotplug_fn)  ~__context ~self =
-  let vm = Db.VIF.get_VM ~__context ~self in
-
-  (* Acquire an extra lock on the VM to prevent a race with the events thread*)
-  Locking_helpers.with_lock vm
-    (fun token () ->
-       if not(Helpers.is_running ~__context ~self:vm) then begin
-	 error "Cannot hot unplug because VM (%s) is not running" (Ref.string_of vm);
-	 let actual = Record_util.power_to_string (Db.VM.get_power_state ~__context ~self:vm) in
-	 let expected = Record_util.power_to_string `Running in
-	 raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, 
-					[Ref.string_of vm; expected; actual]))
-       end;
-       if not(Db.VIF.get_currently_attached ~__context ~self) then begin
-	 error "Cannot hot unplug because VIF (%s) is already detached from VM (%s)"
-	   (Ref.string_of self) (Ref.string_of vm);
-	 raise (Api_errors.Server_error(Api_errors.device_already_detached,
-					[Ref.string_of self]))
-       end;
-       dynamic_destroy ~__context ~vif:self token) ()
 
 let gen_mac(dev, seed) =
   let hash x = Digest.string x in

@@ -28,15 +28,30 @@ XAPISSL_LOCK="/var/lock/xapissl"
 [ $(which stunnel4) ] && STUNNEL=$(which stunnel4)
 [ -z ${STUNNEL} ] && STUNNEL=$(which stunnel)
 
+. @INVENTORY@
+
 mgmt_ip() {
-    . @INVENTORY@
     if [ -n "${MANAGEMENT_INTERFACE}" ] &&
         [ "${MANAGEMENT_INTERFACE}" != "lo" ];
     then
-        /sbin/ifconfig ${MANAGEMENT_INTERFACE} | \
-            sed -ne 's/.*inet addr:\([^ ]*\).*/\1/p'
+        while [ true ]; do
+            IP=`/sbin/ifconfig ${MANAGEMENT_INTERFACE} | sed -ne 's/.*inet addr:\([^ ]*\).*/\1/p'`
+            if [ -n "$IP" ]; then
+                echo "$IP"
+                return
+            else
+                sleep 1
+            fi
+        done
     fi
 }
+
+
+ACCEPT=443
+ss -ln | grep -q :::80
+if [ $? -eq 0 ]; then
+    ACCEPT=:::443
+fi
 
 # Write out the stunnel config file. This requires the management
 # interface, so it's done here rather than written statically.
@@ -51,30 +66,14 @@ socket = a:TCP_NODELAY=1
 socket = l:TCP_NODELAY=1
 compression = zlib
 
-[localhost-xapi]
-accept = 127.0.0.1:443
-connect = 80
-cert = ${PEMFILE}
-ciphers = !SSLv2:RSA+AES256-SHA:RSA+AES128-SHA:RSA+RC4-SHA:RSA+RC4-MD5:RSA+DES-CBC3-SHA
-EOF
-
-    . @INVENTORY@
-    # Only if the management interface is set ask stunnel to bind to it
-    if [ -n "${MANAGEMENT_INTERFACE}" ] &&
-        [ "${MANAGEMENT_INTERFACE}" != "lo" ];
-    then
-        MGMT_IP=`mgmt_ip`
-        cat >> $SSLCONFFILE <<EOF
-
 [xapi]
-accept = ${MGMT_IP}:443
+accept = ${ACCEPT}
 connect = 80
 cert = ${PEMFILE}
 ciphers = !SSLv2:RSA+AES256-SHA:RSA+AES128-SHA:RSA+RC4-SHA:RSA+RC4-MD5:RSA+DES-CBC3-SHA
 TIMEOUTclose = 0
 EOF
 
-    fi
     return
 }
 

@@ -45,9 +45,17 @@ let check_operation_error ~__context ha_enabled record _ref' op =
   else 
     (* check to see whether it's a local cd drive *)
     let sr = Db.VDI.get_SR ~__context ~self:_ref' in
-    let srtype = Db.SR.get_type ~__context ~self:sr in
+	let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
+    let srtype = sr_record.Db_actions.sR_type in
     let is_tools_sr = Helpers.is_tools_sr ~__context ~sr in
 
+    (* Check to see if any PBDs are attached *)
+    let open Db_filter_types in
+    let num_pbds_attached =
+      List.length (Db.PBD.get_records_where ~__context ~expr:(And(Eq(Field "SR", Literal (Ref.string_of sr)), Eq(Field "currently_attached", Literal "true")))) in
+    if num_pbds_attached = 0 && List.mem op [`resize;]
+    then Some(Api_errors.sr_no_pbds, [Ref.string_of sr])
+    else
     (* check to see whether VBDs exist which are using this VDI *)
     let vbds = Db.VDI.get_VBDs ~__context ~self:_ref' in
     let vbd_recs = List.map (fun self -> Db.VBD.get_record_internal ~__context ~self) vbds in
@@ -69,6 +77,8 @@ let check_operation_error ~__context ha_enabled record _ref' op =
 
     (* NB RO vs RW sharing checks are done in xapi_vbd.ml *)
 
+	let sm_caps = Xapi_sr_operations.capabilities_of_sr sr_record in
+
     let any_vbd p = List.fold_left (||) false (List.map p vbd_recs) in
     if not operation_can_be_performed_live && (any_vbd is_active)
     then Some (Api_errors.vdi_in_use,[_ref; (Record_util.vdi_operation_to_string op)])
@@ -86,35 +96,43 @@ let check_operation_error ~__context ha_enabled record _ref' op =
 	      if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 	      then Some (Api_errors.ha_is_enabled, [])
 	      else
-		if not (List.mem Smint.Vdi_delete (Sm.capabilities_of_driver srtype))
+		if not (List.mem Smint.Vdi_delete sm_caps)
 		then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 		else None
       | `resize ->
 	  if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 	  then Some (Api_errors.ha_is_enabled, [])
 	  else 
-	    if not (List.mem Smint.Vdi_resize (Sm.capabilities_of_driver srtype)) 
+	    if not (List.mem Smint.Vdi_resize sm_caps)
 	    then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 	    else None
       | `update ->
-	  if not (List.mem Smint.Vdi_update (Sm.capabilities_of_driver srtype)) then
+	  if not (List.mem Smint.Vdi_update sm_caps) then
 	    Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 	  else None
       | `resize_online ->
 	  if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 	  then Some (Api_errors.ha_is_enabled, [])
 	  else 
-	    if not (List.mem Smint.Vdi_resize_online (Sm.capabilities_of_driver srtype)) 
+	    if not (List.mem Smint.Vdi_resize_online sm_caps)
 	    then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 	    else None
       | `generate_config ->
-	  if not (List.mem Smint.Vdi_generate_config (Sm.capabilities_of_driver srtype)) then
+	  if not (List.mem Smint.Vdi_generate_config sm_caps) then
 	    Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 	  else None	    
 	  | `snapshot when record.Db_actions.vDI_sharable ->
 			Some (Api_errors.vdi_is_sharable, [ _ref ])
 	  | `snapshot when reset_on_boot ->
 		    Some (Api_errors.vdi_on_boot_mode_incompatable_with_operation, [])
+	  | `copy ->
+	  if List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
+	  then Some (Api_errors.operation_not_allowed, ["VDI containing HA statefile or redo log cannot be copied (check the VDI's allowed operations)."])
+	  else None
+	  | `clone ->
+	      if not (List.mem Smint.Vdi_clone sm_caps)
+	      then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
+	      else None
       | _ -> None
     )
 
@@ -198,6 +216,24 @@ let newvdi ~__context ~sr newvdi =
 		| (vdi, _) :: _ -> vdi
 		| [] -> failwith (Printf.sprintf "newvdi failed to create a VDI for %s" (string_of_vdi_info newvdi))
 
+let default_vdi_info =
+	let open Storage_interface in {
+		vdi = "";
+		content_id = "";
+		name_label = "";
+		name_description = "";
+		ty = "user";
+		metadata_of_pool = "";
+		is_a_snapshot = false;
+		snapshot_time = Date.to_string Date.never;
+		snapshot_of = "";
+		read_only = false;
+		virtual_size = 0L;
+		physical_utilisation = 0L;
+		persistent = true;
+		sm_config = [];
+	}
+
 let create ~__context ~name_label ~name_description
         ~sR ~virtual_size ~_type
         ~sharable ~read_only ~other_config ~xenstore_data ~sm_config ~tags =
@@ -218,27 +254,22 @@ let create ~__context ~name_label ~name_description
     let task = Context.get_task_id __context in
     let open Storage_interface in
 	let vdi_info = {
-		vdi = "";
+		default_vdi_info with
 		name_label = name_label;
 		name_description = name_description;
 		ty = vdi_type;
-		metadata_of_pool = "";
-		is_a_snapshot = false;
-		snapshot_time = Date.to_string Date.never;
-		snapshot_of = "";
 		read_only = read_only;
 		virtual_size = virtual_size;
-		physical_utilisation = 0L
+		sm_config = sm_config;
 	} in
-    expect_vdi
-        (fun vi ->
-            if virtual_size < vi.virtual_size
-            then info "sr:%s vdi:%s requested virtual size %Ld < actual virtual size %Ld" (Ref.string_of sR) vi.vdi virtual_size vi.virtual_size;
-            newvdi ~__context ~sr:sR vi
-        ) (
-		let module C = Client(struct let rpc = rpc end) in
-		C.VDI.create ~task:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sR)
-			~vdi_info ~params:sm_config)
+	let module C = Client(struct let rpc = rpc end) in
+	let vi = transform_storage_exn
+		(fun () -> C.VDI.create ~dbg:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sR) ~vdi_info) in
+	if virtual_size < vi.virtual_size
+	then info "sr:%s vdi:%s requested virtual size %Ld < actual virtual size %Ld" (Ref.string_of sR) vi.vdi virtual_size vi.virtual_size;
+	newvdi ~__context ~sr:sR vi
+
+
 
 (* Make the database record only *)
 let introduce_dbonly  ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config  ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of =
@@ -325,50 +356,67 @@ open Client
 (* driver_params is the storage-backend-specific parameters that are used to drive the
    snapshot operation (e.g. vmhint for NetAPP)
 *)
+let snapshot_and_clone call_f ~__context ~vdi ~driver_params =
+	let sR = Db.VDI.get_SR ~__context ~self:vdi in
+  Sm.assert_pbd_is_plugged ~__context ~sr:sR;
+  Xapi_vdi_helpers.assert_managed ~__context ~vdi;
+  let a = Db.VDI.get_record_internal ~__context ~self:vdi in
+
+  let call_snapshot () = 
+	  let open Storage_access in
+	  let task = Context.get_task_id __context in	
+	  let open Storage_interface in
+	  let vdi' = Db.VDI.get_location ~__context ~self:vdi in
+	  let vdi_info = {
+		  default_vdi_info with
+			  vdi = vdi';
+			  name_label = a.Db_actions.vDI_name_label;
+			  name_description = a.Db_actions.vDI_name_description;
+			  sm_config = driver_params;
+	  } in
+	  let sr' = Db.SR.get_uuid ~__context ~self:sR in
+	  (* We don't use transform_storage_exn because of the clone/copy fallback below *)
+	  let new_vdi = call_f ~dbg:(Ref.string_of task) ~sr:sr' ~vdi_info in
+	  newvdi ~__context ~sr:sR new_vdi
+  in
+
+  (* While we don't have blkback support for pause/unpause we only do this
+     for .vhd-based backends. *)
+  let newvdi = call_snapshot () in
+
+  (* Copy across the metadata which we control *)
+  Db.VDI.set_name_label ~__context ~self:newvdi ~value:a.Db_actions.vDI_name_label;
+  Db.VDI.set_name_description ~__context ~self:newvdi ~value:a.Db_actions.vDI_name_description;
+  Db.VDI.set_type ~__context ~self:newvdi ~value:a.Db_actions.vDI_type;
+  Db.VDI.set_sharable ~__context ~self:newvdi ~value:a.Db_actions.vDI_sharable;
+  Db.VDI.set_other_config ~__context ~self:newvdi ~value:a.Db_actions.vDI_other_config;
+  Db.VDI.set_xenstore_data ~__context ~self:newvdi ~value:a.Db_actions.vDI_xenstore_data;
+  Db.VDI.set_on_boot ~__context ~self:newvdi ~value:a.Db_actions.vDI_on_boot;
+  Db.VDI.set_allow_caching ~__context ~self:newvdi ~value:a.Db_actions.vDI_allow_caching;
+  newvdi
+
 let snapshot ~__context ~vdi ~driver_params =
-	Sm.assert_pbd_is_plugged ~__context ~sr:(Db.VDI.get_SR ~__context ~self:vdi);
-	Xapi_vdi_helpers.assert_managed ~__context ~vdi;
-	let a = Db.VDI.get_record_internal ~__context ~self:vdi in
-
-	let call_snapshot () =
-		Sm.call_sm_vdi_functions ~__context ~vdi
-			(fun srconf srtype sr ->
-				try
-					Sm.vdi_snapshot srconf srtype driver_params sr vdi
-				with Smint.Not_implemented_in_backend ->
-					(* CA-28598 *)
-					debug "Backend reported not implemented despite it offering the capability; assuming this is an LVHD upgrade issue";
-					raise (Api_errors.Server_error(Api_errors.sr_requires_upgrade, [ Ref.string_of sr ]))
-			) in
-
-	(* While we don't have blkback support for pause/unpause we only do this
-	   for .vhd-based backends. *)
-	let vdi_info = call_snapshot () in
-	let uuid = require_uuid vdi_info in
-	let newvdi = Db.VDI.get_by_uuid ~__context ~uuid in
-
-	(* Copy across the metadata which we control *)
-	Db.VDI.set_name_label ~__context ~self:newvdi ~value:a.Db_actions.vDI_name_label;
-	Db.VDI.set_name_description ~__context ~self:newvdi ~value:a.Db_actions.vDI_name_description;
-	Db.VDI.set_type ~__context ~self:newvdi ~value:a.Db_actions.vDI_type;
-	Db.VDI.set_sharable ~__context ~self:newvdi ~value:a.Db_actions.vDI_sharable;
-	Db.VDI.set_other_config ~__context ~self:newvdi ~value:a.Db_actions.vDI_other_config;
-	Db.VDI.set_xenstore_data ~__context ~self:newvdi ~value:a.Db_actions.vDI_xenstore_data;
-	Db.VDI.set_on_boot ~__context ~self:newvdi ~value:a.Db_actions.vDI_on_boot;
-	Db.VDI.set_allow_caching ~__context ~self:newvdi ~value:a.Db_actions.vDI_allow_caching;
-
+	let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+	let newvdi = Storage_access.transform_storage_exn
+		(fun () ->
+			try
+				snapshot_and_clone C.VDI.snapshot ~__context ~vdi ~driver_params
+			with Storage_interface.Unimplemented _ ->
+				(* CA-28598 *)
+				debug "Backend reported not implemented despite it offering the capability; assuming this is an LVHD upgrade issue";
+				raise (Api_errors.Server_error(Api_errors.sr_requires_upgrade, [ Ref.string_of (Db.VDI.get_SR ~__context ~self:vdi) ]))
+		) in
 	(* Record the fact this is a snapshot *)
-
+ 
 	(*(try Db.VDI.remove_from_other_config ~__context ~self:newvdi ~key:Xapi_globs.snapshot_of with _ -> ());
 	  (try Db.VDI.remove_from_other_config ~__context ~self:newvdi ~key:Xapi_globs.snapshot_time with _ -> ());
 	  Db.VDI.add_to_other_config ~__context ~self:newvdi ~key:Xapi_globs.snapshot_of ~value:a.Db_actions.vDI_uuid;
 	  Db.VDI.add_to_other_config ~__context ~self:newvdi ~key:Xapi_globs.snapshot_time ~value:(Date.to_string (Date.of_float (Unix.gettimeofday ())));*)
 	Db.VDI.set_is_a_snapshot ~__context ~self:newvdi ~value:true;
-	Db.VDI.set_snapshot_of ~__context ~self:newvdi ~value:(Db.VDI.get_by_uuid ~__context ~uuid:a.Db_actions.vDI_uuid);
+	Db.VDI.set_snapshot_of ~__context ~self:newvdi ~value:vdi;
 	Db.VDI.set_snapshot_time ~__context ~self:newvdi ~value:(Date.of_float (Unix.gettimeofday ()));
 
 	update_allowed_operations ~__context ~self:newvdi;
-	update ~__context ~vdi:newvdi;
 	newvdi
 
 let destroy ~__context ~self =
@@ -389,9 +437,13 @@ let destroy ~__context ~self =
           let open Storage_access in
           let open Storage_interface in
           let task = Context.get_task_id __context in
-          expect_unit (fun () -> ()) (
-			let module C = Client(struct let rpc = rpc end) in
-			C.VDI.destroy ~task:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sr) ~vdi:location);
+          let module C = Client(struct let rpc = rpc end) in
+		  transform_storage_exn
+			  (fun () ->
+				  C.VDI.destroy ~dbg:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sr) ~vdi:location
+			  );
+		  if Db.is_valid_ref __context self
+		  then Db.VDI.destroy ~__context ~self;
 
 	(* destroy all the VBDs now rather than wait for the GC thread. This helps
 	   prevent transient glitches but doesn't totally prevent races. *)
@@ -432,31 +484,14 @@ let generate_config ~__context ~host ~vdi =
        Sm.vdi_generate_config srconf srtype sr vdi) 
 
 let clone ~__context ~vdi ~driver_params =
-  Sm.assert_pbd_is_plugged ~__context ~sr:(Db.VDI.get_SR ~__context ~self:vdi);
-  Xapi_vdi_helpers.assert_managed ~__context ~vdi;
-  let a = Db.VDI.get_record_internal ~__context ~self:vdi in
-  let task_id = Ref.string_of (Context.get_task_id __context) in
-  try
-    let newvdi = Sm.call_sm_vdi_functions ~__context ~vdi
-      (fun srconf srtype sr ->
-	 let vdi_info = Sm.vdi_clone srconf srtype driver_params __context sr vdi in
-	 let uuid = require_uuid vdi_info in
-	 Db.VDI.get_by_uuid ~__context ~uuid)
-    in
-    (* Copy across the metadata which we control *)
-    Db.VDI.set_name_label ~__context ~self:newvdi ~value:a.Db_actions.vDI_name_label;
-    Db.VDI.set_name_description ~__context ~self:newvdi ~value:a.Db_actions.vDI_name_description;
-    Db.VDI.set_type ~__context ~self:newvdi ~value:a.Db_actions.vDI_type;
-    Db.VDI.set_sharable ~__context ~self:newvdi ~value:a.Db_actions.vDI_sharable;
-    Db.VDI.set_other_config ~__context ~self:newvdi ~value:a.Db_actions.vDI_other_config;
-    Db.VDI.set_xenstore_data ~__context ~self:newvdi ~value:a.Db_actions.vDI_xenstore_data;
-	Db.VDI.set_on_boot ~__context ~self:newvdi ~value:a.Db_actions.vDI_on_boot;
-	Db.VDI.set_allow_caching ~__context ~self:newvdi ~value:a.Db_actions.vDI_allow_caching;
-
-    update_allowed_operations ~__context ~self:newvdi;
-    newvdi
-  with Smint.Not_implemented_in_backend ->
+	Storage_access.transform_storage_exn
+		(fun () ->
+	try
+		let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+		snapshot_and_clone C.VDI.clone ~__context ~vdi ~driver_params
+	with Storage_interface.Unimplemented _ ->
     debug "Backend does not implement VDI clone: doing it ourselves";
+	let a = Db.VDI.get_record_internal ~__context ~self:vdi in
     let newvdi = create ~__context 
       ~name_label:a.Db_actions.vDI_name_label
       ~name_description:a.Db_actions.vDI_name_description
@@ -472,6 +507,7 @@ let clone ~__context ~vdi ~driver_params =
     (try
        (* Remove the vdi_clone from the SR's current operations, this prevents the whole
 	  SR being locked for the duration of the slow copy *)
+		let task_id = Ref.string_of (Context.get_task_id __context) in
        Db.SR.remove_from_current_operations ~__context ~self:a.Db_actions.vDI_SR ~key:task_id;
        Xapi_sr.update_allowed_operations ~__context ~self:a.Db_actions.vDI_SR;
        (* Remove the clone from the VDI's current operations since the dom0 block-attach
@@ -489,6 +525,7 @@ let clone ~__context ~vdi ~driver_params =
        debug "Caught failure during copy, deleting VDI";
        destroy ~__context ~self:newvdi;
        raise e)
+		)
 
 let copy ~__context ~vdi ~sr =
   Xapi_vdi_helpers.assert_managed ~__context ~vdi;
@@ -505,7 +542,8 @@ let copy ~__context ~vdi ~sr =
 	   ~virtual_size:src.API.vDI_virtual_size
 	   ~_type:src.API.vDI_type
 	   ~sharable:src.API.vDI_sharable
-	   ~read_only:src.API.vDI_read_only
+	   (* CA-64962: Always create a RW VDI such that copy operation works with RO source VDI as well *)
+	   ~read_only:false
 	   ~other_config:src.API.vDI_other_config
 	   ~xenstore_data:src.API.vDI_xenstore_data
 	   ~sm_config:[] ~tags:[] in
@@ -528,8 +566,6 @@ let copy ~__context ~vdi ~sr =
       Helpers.call_api_functions ~__context
       (fun rpc session_id -> Client.VDI.destroy rpc session_id dst);
       raise e
-
-
 
 let force_unlock ~__context ~vdi = 
   raise (Api_errors.Server_error(Api_errors.message_deprecated,[]))
@@ -566,17 +602,24 @@ let set_metadata_of_pool ~__context ~self ~value =
 
 let set_on_boot ~__context ~self ~value =
 	let sr = Db.VDI.get_SR ~__context ~self in
-	let ty = Db.SR.get_type ~__context ~self:sr in
-	let caps = Sm.capabilities_of_driver ty in
-	if not (List.mem Smint.Vdi_reset_on_boot caps) then 
+	let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
+	let sm_caps = Xapi_sr_operations.capabilities_of_sr sr_record in
+
+	if not (List.mem Smint.Vdi_reset_on_boot sm_caps) then 
 		raise (Api_errors.Server_error(Api_errors.sr_operation_not_supported,[Ref.string_of sr]));
 	Sm.assert_pbd_is_plugged ~__context ~sr;
-	Sm.call_sm_vdi_functions ~__context ~vdi:self
-		(fun srconf srtype sr ->
-			let vdi_info = Sm.vdi_clone srconf srtype [] __context sr self in
-			let uuid = require_uuid vdi_info in
-			let ref = Db.VDI.get_by_uuid ~__context ~uuid in
-			Sm.vdi_delete srconf srtype sr ref);
+
+	let open Storage_access in
+	let open Storage_interface in
+	let task = Context.get_task_id __context in
+	let sr' = Db.SR.get_uuid ~__context ~self:sr in
+	let vdi' = Db.VDI.get_location ~__context ~self in
+	let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+	transform_storage_exn
+		(fun () ->
+			C.VDI.set_persistent ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:vdi' ~persistent:(value = `persist);
+		);
+
 	Db.VDI.set_on_boot ~__context ~self ~value
 
 let set_allow_caching ~__context ~self ~value =
@@ -630,3 +673,5 @@ let read_database_pool_uuid ~__context ~self =
 	match Xapi_dr.read_vdi_cache_record ~vdi:self with
 	| Some (_, uuid) -> uuid
 	| None -> ""
+
+(* let pool_migrate = "See Xapi_vm_migrate.vdi_pool_migrate!" *)

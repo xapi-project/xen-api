@@ -150,6 +150,7 @@ let bond_record rpc session_id bond =
           ~get_map:(fun () -> (x ()).API.bond_properties)
           ~set_in_map:(fun k v -> Client.Bond.set_property rpc session_id bond k v) ();
         make_field ~name:"primary-slave" ~get:(fun () -> get_uuid_from_ref (x ()).API.bond_primary_slave) ();
+		make_field ~name:"links-up" ~get:(fun () -> Int64.to_string (x ()).API.bond_links_up) ();
       ]
   }
 
@@ -250,6 +251,10 @@ let pif_record rpc session_id pif =
 	make_field ~name:"IP"           ~get:(fun () -> (x ()).API.pIF_IP) ();
 	make_field ~name:"netmask"      ~get:(fun () -> (x ()).API.pIF_netmask) ();
 	make_field ~name:"gateway"      ~get:(fun () -> (x ()).API.pIF_gateway) ();
+	make_field ~name:"IPv6-configuration-mode" ~get:(fun () -> Record_util.ipv6_configuration_mode_to_string (x ()).API.pIF_ipv6_configuration_mode) ();
+	make_field ~name:"IPv6"           ~get:(fun () -> String.concat "; " (x ()).API.pIF_IPv6) ();
+	make_field ~name:"IPv6-gateway"      ~get:(fun () -> (x ()).API.pIF_ipv6_gateway) ();
+	make_field ~name:"primary-address-type" ~get:(fun () -> Record_util.primary_address_type_to_string (x ()).API.pIF_primary_address_type) ();
 	make_field ~name:"DNS"          ~get:(fun () -> (x ()).API.pIF_DNS) ();
 	make_field ~name:"io_read_kbs" ~get:(fun () -> 
 	  try 
@@ -305,6 +310,10 @@ let task_record rpc session_id task =
       make_field ~name:"finished"    ~get:(fun () -> Date.to_string (x ()).API.task_finished) ();
       make_field ~name:"error_info"         ~get:(fun () -> String.concat "; " (x ()).API.task_error_info) ();
       make_field ~name:"allowed_operations" ~get:(fun () -> String.concat "; " (List.map Record_util.task_allowed_operations_to_string (x ()).API.task_allowed_operations)) ();
+	  make_field ~name:"other-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.task_other_config) 
+		  ~add_to_map:(fun k v -> Client.Task.add_to_other_config rpc session_id task k v)
+		  ~remove_from_map:(fun k -> Client.Task.remove_from_other_config rpc session_id task k) 
+		  ~get_map:(fun () -> (x ()).API.task_other_config) ();
     ]}
 
 
@@ -908,21 +917,21 @@ let vm_record rpc session_id vm =
 				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_os_version) (xgm ())))
 				~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_os_version) (xgm ()))) ();
 			make_field ~name:"PV-drivers-version"
-				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_PV_drivers_version) (xgm ()) )) 
+				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_PV_drivers_version) (xgm ()) ))
 				~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_PV_drivers_version) (xgm ()))) ();
 			make_field ~name:"PV-drivers-up-to-date"
 				~get:(fun () -> default nid (may (fun m -> string_of_bool m.API.vM_guest_metrics_PV_drivers_up_to_date) (xgm ()) )) ();
 			make_field ~name:"memory"
-				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_memory) (xgm ()))) 
+				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_memory) (xgm ())))
 				~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_memory) (xgm ()))) ();
 			make_field ~name:"disks"
-				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_disks) (xgm ()) )) 
+				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_disks) (xgm ()) ))
 				~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_disks) (xgm ()))) ();
 			make_field ~name:"networks"
-				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_networks) (xgm ()) )) 
+				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_networks) (xgm ()) ))
 				~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_networks) (xgm ()))) ();
 			make_field ~name:"other"
-				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_other) (xgm ()) )) 
+				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_other) (xgm ()) ))
 				~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_other) (xgm()))) ();
 			make_field ~name:"live"
 				~get:(fun () -> default nid (may (fun m -> string_of_bool m.API.vM_guest_metrics_live) (xgm ()) )) ();
@@ -930,7 +939,8 @@ let vm_record rpc session_id vm =
 				~get:(fun () -> default nid (may (fun m -> Date.to_string m.API.vM_guest_metrics_last_updated) (xgm ()) )) ();
 			make_field ~name:"cooperative"
 				(* NB this can receive VM_IS_SNAPSHOT *)
-				~get:(fun () -> string_of_bool (try Client.VM.get_cooperative rpc session_id vm with _ -> true)) ~expensive:true ();
+				~get:(fun () -> string_of_bool (try Client.VM.get_cooperative rpc session_id vm with _ -> true))
+				~expensive:true ~deprecated:true ();
 			make_field ~name:"protection-policy"
 				~get:(fun () -> get_uuid_from_ref (x ()).API.vM_protection_policy)
 				~set:(fun x -> if x="" then Client.VM.set_protection_policy rpc session_id vm Ref.null else Client.VM.set_protection_policy rpc session_id vm (Client.VMPP.get_by_uuid rpc session_id x)) ();
@@ -1374,7 +1384,9 @@ let pbd_record rpc session_id pbd =
 			[ make_field ~name:"uuid" ~get:(fun () -> (x ()).API.pBD_uuid) ()
 			; make_field ~name:"host" ~get:(fun () -> get_uuid_from_ref (x ()).API.pBD_host) ~deprecated:true ()
 			; make_field ~name:"host-uuid" ~get:(fun () -> get_uuid_from_ref (x ()).API.pBD_host) ()
+			; make_field ~name:"host-name-label" ~get:(fun () -> get_name_from_ref (x ()).API.pBD_host) ()
 			; make_field ~name:"sr-uuid" ~get:(fun () -> get_uuid_from_ref (x ()).API.pBD_SR) ()
+			; make_field ~name:"sr-name-label" ~get:(fun () -> get_name_from_ref (x ()).API.pBD_SR) ()
 			; make_field ~name:"device-config"
 				~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.pBD_device_config)
 				~get_map:(fun () -> (x ()).API.pBD_device_config) ()

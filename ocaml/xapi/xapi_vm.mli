@@ -78,9 +78,9 @@ val assert_power_state_is :
             > `Halted `Paused `Running `Suspended ] ->
   unit
 val assert_not_ha_protected : __context:Context.t -> vm:[ `VM ] Ref.t -> unit
-val pause_already_locked : __context:Context.t -> vm:[ `VM ] Ref.t -> unit
 val pause : __context:Context.t -> vm:API.ref_VM -> unit
 val unpause : __context:Context.t -> vm:API.ref_VM -> unit
+val set_xenstore_data : __context:Context.t -> self:API.ref_VM -> value:(string * string) list -> unit
 val start :
   __context:Context.t ->
   vm:API.ref_VM -> start_paused:bool -> force:'a -> unit
@@ -88,43 +88,6 @@ val assert_host_is_localhost : __context:Context.t -> host:API.ref_host -> unit
 val start_on :
   __context:Context.t ->
   vm:API.ref_VM -> host:API.ref_host -> start_paused:bool -> force:'a -> unit
-module TwoPhase :
-  sig
-    type args = {
-      __context : Context.t;
-      vm : API.ref_VM;
-      api_call_name : string;
-      clean : bool;
-    }
-    type t = { in_guest : args -> unit; in_dom0 : args -> unit; }
-  end
-module Reboot :
-  sig
-    val in_guest : TwoPhase.args -> unit
-	val in_dom0_already_locked : TwoPhase.args -> unit
-    val in_dom0 : TwoPhase.args -> unit
-    val actions : TwoPhase.t
-  end
-module Shutdown :
-  sig
-    val in_guest : TwoPhase.args -> unit
-	val in_dom0_already_locked : TwoPhase.args -> unit
-    val in_dom0 : TwoPhase.args -> unit
-    val actions : TwoPhase.t
-  end
-val of_action : [< `destroy | `restart ] -> TwoPhase.t
-val record_shutdown_details :
-  __context:Context.t ->
-  vm:[ `VM ] Ref.t ->
-  Xal.died_reason ->
-  string ->
-  [< `coredump_and_destroy
-   | `coredump_and_restart
-   | `destroy
-   | `preserve
-   | `rename_restart
-   | `restart ] ->
-  unit
 val hard_reboot : __context:Context.t -> vm:API.ref_VM -> unit
 val hard_shutdown : __context:Context.t -> vm:API.ref_VM -> unit
 val clean_reboot : __context:Context.t -> vm:API.ref_VM -> unit
@@ -248,7 +211,7 @@ val update_snapshot_metadata :
   __context:'a -> vm:'b -> snapshot_of:'c -> snapshot_time:'d -> 'e
 val create_new_blob :
   __context:Context.t ->
-  vm:[ `VM ] Ref.t -> name:string -> mime_type:string -> [ `blob ] Ref.t
+  vm:[ `VM ] Ref.t -> name:string -> mime_type:string -> public:bool -> [ `blob ] Ref.t
 
 (** {2 Experimental support for S3 suspend/ resume} *)
 
@@ -274,3 +237,9 @@ val recover : __context:Context.t -> self:API.ref_VM ->
 val set_suspend_VDI : __context:Context.t -> self:API.ref_VM ->
 	value:API.ref_VDI -> unit
 val set_appliance : __context:Context.t -> self:API.ref_VM -> value:API.ref_VM_appliance -> unit
+val import_convert : __context:Context.t -> _type:string -> username:string -> password:string ->
+	sr:API.ref_SR -> remote_config:(string * string) list -> unit
+
+(** [query_services __context self] returns a Map of service type -> name label provided
+	by the specific VM. *)
+val query_services : __context:Context.t -> self:API.ref_VM -> (string * string) list

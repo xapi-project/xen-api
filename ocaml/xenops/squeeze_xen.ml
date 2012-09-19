@@ -20,7 +20,12 @@
 	2. not depend on any other info beyond domain_getinfolist and xenstore.
 *)
 open Pervasiveext
+open Threadext
+open Listext
+open Stringext
 open Xenstore
+open Xenops_helpers
+open Fun
 
 module M = Debug.Debugger(struct let name = "memory" end)
 let debug = Squeeze.debug
@@ -57,83 +62,205 @@ module Domain = struct
 					  mutable maxmem: int64;
 					  keys: (string, string option) Hashtbl.t }
   type t = (int, per_domain) Hashtbl.t
+
 	  
   let cache = Hashtbl.create 10
+
+  let m = Mutex.create ()
+  (* get_per_domain can return None if the domain is deleted by
+	 someone else while we are processing some other event handlers *)
   let get_per_domain (xc, xs) domid = 
-	if Hashtbl.mem cache domid
-	then Hashtbl.find cache domid
-	else 
-	  let di = Xenctrl.domain_getinfo xc domid in
-      let maxmem = Xenctrl.pages_to_kib (Int64.of_nativeint di.Xenctrl.max_memory_pages) in
-	  let d = { path = xs.Xs.getdomainpath domid;
-				hvm = di.Xenctrl.hvm_guest;
-				maxmem = maxmem;
-				keys = Hashtbl.create 10 } in
-	  Hashtbl.replace cache domid d;
-	  d
-  let get_hvm cnx domid = (get_per_domain cnx domid).hvm
-  let get_maxmem cnx domid = (get_per_domain cnx domid).maxmem
-  let set_maxmem_noexn (xc, xs) domid m = 
-	let per_domain = get_per_domain (xc, xs) domid in
-	if per_domain.maxmem <> m then begin
-		debug "Xenctrl.domain_setmaxmem domid=%d max=%Ld (was=%Ld)" domid m per_domain.maxmem;
-	  try
-		Xenctrl.domain_setmaxmem xc domid m;
-		per_domain.maxmem <- m
-	  with e ->
-		  error "Xenctrl.domain_setmaxmem domid=%d max=%Ld: (was=%Ld) %s" domid m per_domain.maxmem (Printexc.to_string e)
-	end
+	  if Hashtbl.mem cache domid
+	  then Some (Hashtbl.find cache domid)
+	  else
+		  try
+			  let open Xenctrl.Domain_info in
+			  let di = Xenctrl.domain_getinfo xc domid in
+			  let maxmem = Xenctrl.pages_to_kib (Int64.of_nativeint di.max_memory_pages) in
+			  let d = { path = xs.Xs.getdomainpath domid;
+						hvm = di.hvm_guest;
+						maxmem = maxmem;
+						keys = Hashtbl.create 10 } in
+			  Hashtbl.replace cache domid d;
+			  Some d
+		  with Xenctrl.Error _ ->
+			  Hashtbl.remove cache domid;
+			  None
+
+  let _introduceDomain = "@introduceDomain"
+  let _releaseDomain = "@releaseDomain"
+  let watch_xenstore () =
+	  with_xc_and_xs
+		  (fun xc xs ->
+			  let interesting_paths = [
+				  [ "memory";  "initial-reservation" ];
+				  [ "memory";  "target" ];
+				  [ "control"; "feature-balloon" ];
+				  [ "data";    "updated" ];
+				  [ "memory";  "memory-offset" ];
+				  [ "memory";  "uncooperative" ];
+				  [ "memory";  "dynamic-min" ];
+				  [ "memory";  "dynamic-max" ];
+			  ] in
+			  let watches domid =
+				  List.map (fun p -> Printf.sprintf "/local/domain/%d/%s" domid (String.concat "/" p)) interesting_paths in
+
+			  let module IntSet = Set.Make(struct type t = int let compare = compare end) in
+			  let watching_domids = ref IntSet.empty in
+
+			  let look_for_different_domains () =
+				  let list_domains xc =
+					  let open Xenctrl.Domain_info in
+					  let dis = Xenctrl.domain_getinfolist xc 0 in
+					  List.fold_left (fun set x -> if not x.shutdown then IntSet.add x.domid set else set) IntSet.empty dis in
+				  let existing = list_domains xc in
+				  let arrived = IntSet.diff existing !watching_domids in
+				  IntSet.iter
+					  (fun domid ->
+						  debug "Adding watches for domid: %d" domid;
+						  List.iter (fun x ->
+							  try
+								  xs.Xs.watch x x
+							  with e ->
+								  error "watch %s: %s" x (Printexc.to_string e)
+						  ) (watches domid);
+					  ) arrived;
+				  let gone = IntSet.diff !watching_domids existing in
+				  IntSet.iter
+					  (fun domid ->
+						  debug "Removing watches for domid: %d" domid;
+						  List.iter (fun x ->
+							  try
+								  xs.Xs.unwatch x x
+							  with e ->
+								  error "unwatch %s: %s" x (Printexc.to_string e)
+						  ) (watches domid);
+					  ) gone;
+				  watching_domids := existing;
+				  Mutex.execute m
+					  (fun () ->
+						  IntSet.iter (Hashtbl.remove cache) gone;
+						  IntSet.iter (fun domid -> try ignore(get_per_domain (xc, xs) domid) with _ -> ()) arrived
+					  ) in
+
+			xs.Xs.watch _introduceDomain "";
+			xs.Xs.watch _releaseDomain "";
+			look_for_different_domains ();
+
+			while true do
+				let path, _ =
+					if Xs.has_watchevents xs
+					then Xs.get_watchevent xs
+					else Xs.read_watchevent xs in
+				if path = _introduceDomain || path = _releaseDomain
+				then look_for_different_domains ()
+				else match List.filter (fun x -> x <> "") (String.split '/' path) with
+					| "local" :: "domain" :: domid :: rest when List.mem rest interesting_paths ->
+						let value = try Some (xs.Xs.read path) with _ -> None in
+						let domid = int_of_string domid in
+						Mutex.execute m
+							(fun () ->
+								match get_per_domain (xc, xs) domid with
+								| None -> ()
+								| Some per_domain ->
+									let key = "/" ^ (String.concat "/" rest) in
+									debug "watch %s <- %s" key (Opt.default "None" value);
+									Hashtbl.replace per_domain.keys key value
+							)
+					| _  -> debug "Ignoring unexpected watch: %s" path
+			done
+		  )
+
+  let start_watch_xenstore_thread () =
+	  let (_: Thread.t) = Thread.create
+		  (fun () ->
+			  while true do
+				  try
+					  watch_xenstore ()
+				  with e ->
+					  error "watch_xenstore: %s" (Printexc.to_string e);
+					  Thread.delay 1.
+			  done
+		  ) () in
+	  ()
+
+  let get_hvm cnx domid =
+	  Mutex.execute m (fun () ->
+		  Opt.default false (Opt.map (fun d -> d.hvm) (get_per_domain cnx domid))
+	  )
+
+  let get_maxmem cnx domid =
+	  Mutex.execute m (fun () ->
+		  Opt.default 0L (Opt.map (fun d -> d.maxmem) (get_per_domain cnx domid))
+	  )
+
+  let set_maxmem_noexn (xc, xs) domid mem = 
+	  Mutex.execute m
+		  (fun () ->
+			  match get_per_domain (xc, xs) domid with
+			  | None -> ()
+			  | Some per_domain ->
+				  if per_domain.maxmem <> mem then begin
+					  debug "Xenctrl.domain_setmaxmem domid=%d max=%Ld (was=%Ld)" domid mem per_domain.maxmem;
+					  try
+						  Xenctrl.domain_setmaxmem xc domid mem;
+						  per_domain.maxmem <- mem
+					  with e ->
+						  error "Xenctrl.domain_setmaxmem domid=%d max=%Ld: (was=%Ld) %s"
+							  domid mem per_domain.maxmem (Printexc.to_string e)
+				  end
+		  )
 
   (** Read a particular domain's key, using the cache *)
   let read (xc, xs) domid key = 
-	let per_domain = get_per_domain (xc, xs) domid in
-	let x = 
-	  if Hashtbl.mem per_domain.keys key
-	  then Hashtbl.find per_domain.keys key
-	  else begin
-		let x = (try Some (xs.Xs.read (per_domain.path ^ key))
-				 with Xenbus.Xb.Noent -> None) in
-		Hashtbl.replace per_domain.keys key x;
-		x
-	  end in
+	  let x = Mutex.execute m
+		  (fun () ->
+			  match get_per_domain (xc, xs) domid with
+			  | None -> None
+			  | Some per_domain ->
+				  if Hashtbl.mem per_domain.keys key
+				  then Hashtbl.find per_domain.keys key
+				  else begin
+					  let x =
+						  try Some (xs.Xs.read (per_domain.path ^ key))
+						  with Xenbus.Xb.Noent -> None in
+					  Hashtbl.replace per_domain.keys key x;
+					  x
+				  end) in
 	match x with
 	| Some y -> y
 	| None ->
 		  raise Xenbus.Xb.Noent
 
-  (** Read a particular domain's key from xenstore, for when we believe the cache is out of date *)
-  let read_nocache (xc, xs) domid key = 
-	let per_domain = get_per_domain (xc, xs) domid in
-	if Hashtbl.mem per_domain.keys key then Hashtbl.remove per_domain.keys key;
-	read (xc, xs) domid key
   (** Write a new (key, value) pair into a domain's directory in xenstore. Don't write anything
 	  if the domain's directory doesn't exist. Don't throw exceptions. *)
-
   let write_noexn (xc, xs) domid key value = 
-	let per_domain = get_per_domain (xc, xs) domid in
-	if not(Hashtbl.mem per_domain.keys key) || Hashtbl.find per_domain.keys key <> (Some value) then begin
-	  try
-		Xs.transaction xs
-			(fun t ->
-				 (* Fail if the directory has been deleted *)
-				 ignore (xs.Xs.read per_domain.path);
-				 t.Xst.write (per_domain.path ^ key) value
-			);
-		  Hashtbl.replace per_domain.keys key (Some value);
-	  with e ->
-		  (* Log but don't throw an exception *)
-		  error "xenstore-write %d %s = %s failed: %s" domid key value (Printexc.to_string e)
-	end
+	match get_per_domain (xc, xs) domid with
+	| None -> ()
+	| Some per_domain ->
+		if not(Hashtbl.mem per_domain.keys key) || Hashtbl.find per_domain.keys key <> (Some value) then begin
+			try
+				Xs.transaction xs
+					(fun t ->
+						(* Fail if the directory has been deleted *)
+						ignore (xs.Xs.read per_domain.path);
+						t.Xst.write (per_domain.path ^ key) value
+					);
+				Hashtbl.replace per_domain.keys key (Some value);
+			with e ->
+				(* Log but don't throw an exception *)
+				error "xenstore-write %d %s = %s failed: %s" domid key value (Printexc.to_string e)
+		end
   (** Returns true if the key exists, false otherwise *)
   let exists (xc, xs) domid key = try ignore(read (xc, xs) domid key); true with Xenbus.Xb.Noent -> false
   (** Delete the key. Don't throw exceptions. *)
   let rm_noexn (xc, xs) domid key = 
-	let per_domain = get_per_domain (xc, xs) domid in
-	Hashtbl.replace per_domain.keys key None;
-	try
-	  xs.Xs.rm (per_domain.path ^ key)
-	with e ->
-		error "xenstore-rm %d %s: %s" domid key (Printexc.to_string e)
+	match get_per_domain (xc, xs) domid with
+	| None -> ()
+	| Some per_domain ->
+		Hashtbl.replace per_domain.keys key None;
+		try xs.Xs.rm (per_domain.path ^ key)
+		with e -> error "xenstore-rm %d %s: %s" domid key (Printexc.to_string e)
 
   (** {High-level functions} *)
 
@@ -167,25 +294,11 @@ module Domain = struct
 	let maxmem_kib = xen_max_offset_kib (get_hvm cnx domid) +* target_kib in
 	set_maxmem_noexn cnx domid maxmem_kib
 
-  let get_xenstore_key k (xc, xs) domid = 
-	(* Cache the presence of this key when it appears but always read through when it hasn't yet *)
-	let per_domain = get_per_domain (xc, xs) domid in
-	if Hashtbl.mem per_domain.keys k && Hashtbl.find per_domain.keys k <> None
-	then true
-	else (try ignore (read_nocache (xc, xs) domid k); true with Xenbus.Xb.Noent -> false)
-
   (** Return true if feature_balloon has been advertised *)
-  let get_feature_balloon = get_xenstore_key _feature_balloon
+  let get_feature_balloon cnx domid = try ignore(read cnx domid _feature_balloon); true with Xenbus.Xb.Noent -> false
 
   (** Return true if the guest agent has been advertised *)
-  let get_guest_agent = get_xenstore_key _data_updated
-
-  let get_guest_agent (xc, xs) domid =
-	(* Cache the presence of this key when it appears but always read through when it hasn't yet *)
-	let per_domain = get_per_domain (xc, xs) domid in
-	if Hashtbl.mem per_domain.keys _data_updated && Hashtbl.find per_domain.keys _data_updated <> None
-	then true
-	else (try ignore (read_nocache (xc, xs) domid _data_updated); true with Xenbus.Xb.Noent -> false)	  
+  let get_guest_agent cnx domid = try ignore(read cnx domid _data_updated); true with Xenbus.Xb.Noent -> false
 
   (** Query a domain's initial reservation. Throws Xenbus.Xb.Noent if the domain has been destroyed *)
   let get_initial_reservation cnx domid = 
@@ -193,17 +306,11 @@ module Domain = struct
 
   (** Query a domain's dynamic_min. Throws Xenbus.Xb.Noent if the domain has been destroyed *)
   let get_dynamic_min cnx domid = 
-	Int64.of_string (read_nocache cnx domid _dynamic_min)
+	Int64.of_string (read cnx domid _dynamic_min)
 
   (** Query a domain's dynamic_max. Throws Xenbus.Xb.Noent if the domain has been destroyed *)
   let get_dynamic_max cnx domid = 
-	Int64.of_string (read_nocache cnx domid _dynamic_max)
-
-  (** Expire old domain information from the cache *)
-  let gc live_domids = 
-	let cached_domids = Hashtbl.fold (fun d _ ds -> d::ds) cache [] in
-	let to_remove = set_difference cached_domids live_domids in
-	List.iter (Hashtbl.remove cache) to_remove
+	Int64.of_string (read cnx domid _dynamic_max)
 end
 
 
@@ -241,7 +348,9 @@ let update_cooperative_flags cnx =
 let make_host ~verbose ~xc ~xs =
 	(* Wait for any scrubbing so that we don't end up with no immediately usable pages --
 	   this might cause something else to fail (eg domain builder?) *)
-	while Memory.get_scrub_memory_kib ~xc <> 0L do ignore(Unix.select [] [] [] 0.25) done;
+	while Int64.div ((Xenctrl.physinfo xc).Xenctrl.Phys_info.scrub_pages |> Int64.of_nativeint) 1024L <> 0L do
+		ignore(Unix.select [] [] [] 0.25)
+	done;
 
 	(* Some VMs are considered by us (but not by xen) to have an "initial-reservation". For VMs which have never 
 	   run (eg which are still being built or restored) we take the difference between memory_actual_kib and the
@@ -258,16 +367,18 @@ let make_host ~verbose ~xc ~xs =
 	(* We cannot query simultaneously the host memory info and the domain memory info. Furthermore
 	   the call to domain_getinfolist is not atomic but comprised of many hypercall invocations. *)
 
-	let domain_infolist = Xenctrl.domain_getinfolist xc 0 in
+	(* We are excluding dom0, so it will never be ballooned down. *)
+	let open Xenctrl.Domain_info in
+	let domain_infolist = List.filter (fun di -> di.domid > 0) (Xenctrl.domain_getinfolist xc 0) in
 	(*
 		For the host free memory we sum the free pages and the pages needing
 		scrubbing: we don't want to adjust targets simply because the scrubber
 		is slow.
 	*)
 	let physinfo = Xenctrl.physinfo xc in
-	let free_pages_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.free_pages)
-	and scrub_pages_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.scrub_pages) 
-	and total_pages_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.total_pages) in
+	let free_pages_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.Phys_info.free_pages)
+	and scrub_pages_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.Phys_info.scrub_pages)
+	and total_pages_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.Phys_info.total_pages) in
 	let free_mem_kib = free_pages_kib +* scrub_pages_kib in
 
 	let cnx = xc, xs in
@@ -275,19 +386,19 @@ let make_host ~verbose ~xc ~xs =
 		(List.map
 			(fun di ->
 				try
-					let memory_actual_kib = Xenctrl.pages_to_kib (Int64.of_nativeint di.Xenctrl.total_memory_pages) in
+					let memory_actual_kib = Xenctrl.pages_to_kib (Int64.of_nativeint di.total_memory_pages) in
 					let memory_shadow_kib =
-						if di.Xenctrl.hvm_guest then
+						if di.hvm_guest then
 							try
-								Memory.kib_of_mib (Int64.of_int (Xenctrl.shadow_allocation_get xc di.Xenctrl.domid))
+								Memory.kib_of_mib (Int64.of_int (Xenctrl.shadow_allocation_get xc di.domid))
 							with _ -> 0L
 						else 0L in
 					(* dom0 is special for some reason *)
-					let memory_max_kib = if di.Xenctrl.domid = 0 then 0L else Xenctrl.pages_to_kib (Int64.of_nativeint di.Xenctrl.max_memory_pages) in
+					let memory_max_kib = if di.domid = 0 then 0L else Xenctrl.pages_to_kib (Int64.of_nativeint di.max_memory_pages) in
 					(* Misc other stuff appears in max_memory_pages *)
-					let memory_max_kib = max 0L (memory_max_kib -* (xen_max_offset_kib di.Xenctrl.hvm_guest)) in
-					let can_balloon = Domain.get_feature_balloon cnx di.Xenctrl.domid in
-					let has_guest_agent = Domain.get_guest_agent cnx di.Xenctrl.domid in
+					let memory_max_kib = max 0L (memory_max_kib -* (xen_max_offset_kib di.hvm_guest)) in
+					let can_balloon = Domain.get_feature_balloon cnx di.domid in
+					let has_guest_agent = Domain.get_guest_agent cnx di.domid in
 					let has_booted = can_balloon || has_guest_agent in
 					(* Once the domain tells us it has booted, we assume it's not currently ballooning and
 					   record the offset between memory_actual and target. We assume this is constant over the 
@@ -296,29 +407,29 @@ let make_host ~verbose ~xc ~xs =
 					  if not has_booted then 0L
 					  else begin
 					    try
-					      Domain.get_memory_offset cnx di.Xenctrl.domid
+					      Domain.get_memory_offset cnx di.domid
 					    with Xenbus.Xb.Noent ->
 							(* Our memory_actual_kib value was sampled before reading xenstore which means there is a slight race.
 							   The race is probably only noticable in the hypercall simulator. However we can fix it by resampling
 							   memory_actual *after* noticing the feature-balloon flag. *)
-							let target_kib = Domain.get_target cnx di.Xenctrl.domid in
-							let memory_actual_kib' = Xenctrl.pages_to_kib (Int64.of_nativeint (Xenctrl.domain_getinfo xc di.Xenctrl.domid).Xenctrl.total_memory_pages) in
+							let target_kib = Domain.get_target cnx di.domid in
+							let memory_actual_kib' = Xenctrl.pages_to_kib (Int64.of_nativeint (Xenctrl.domain_getinfo xc di.domid).total_memory_pages) in
 							let offset_kib = memory_actual_kib' -* target_kib in
-							debug "domid %d just %s; calibrating memory-offset = %Ld KiB" di.Xenctrl.domid
+							debug "domid %d just %s; calibrating memory-offset = %Ld KiB" di.domid
 								(match can_balloon, has_guest_agent with
 									| true, false -> "advertised a balloon driver"
 									| true, true -> "started a guest agent and advertised a balloon driver"
 									| false, true -> "started a guest agent (but has no balloon driver)"
 									| false, false -> "N/A" (*impossible: see if has_booted above *)
 							) offset_kib;
-							Domain.set_memory_offset_noexn cnx di.Xenctrl.domid offset_kib;
+							Domain.set_memory_offset_noexn cnx di.domid offset_kib;
 							offset_kib
 					  end in
 					let memory_actual_kib = memory_actual_kib -* offset_kib in
 
 					let domain = 
 					  { Squeeze.
-						domid = di.Xenctrl.domid;
+						domid = di.domid;
 						can_balloon = can_balloon;
 						dynamic_min_kib = 0L;
 						dynamic_max_kib = 0L;
@@ -335,7 +446,7 @@ let make_host ~verbose ~xc ~xs =
 					(* If the domain has yet to boot properly then we assume it is using at least its
 					   "initial-reservation". *)
 					if not has_booted then begin
-						let initial_reservation_kib = Domain.get_initial_reservation cnx di.Xenctrl.domid in
+						let initial_reservation_kib = Domain.get_initial_reservation cnx di.domid in
 						let unaccounted_kib = max 0L
 							(initial_reservation_kib -* memory_actual_kib -* memory_shadow_kib) in
 						reserved_kib := Int64.add !reserved_kib unaccounted_kib;
@@ -347,13 +458,13 @@ let make_host ~verbose ~xc ~xs =
 						} ]
 					end else begin
 
-						let target_kib = Domain.get_target cnx di.Xenctrl.domid in
+						let target_kib = Domain.get_target cnx di.domid in
 						(* min and max are written separately; if we notice they *)
 						(* are missing set them both to the target for now.      *)
 						let min_kib, max_kib =
 						try
-						  Domain.get_dynamic_min cnx di.Xenctrl.domid,
-						  Domain.get_dynamic_max cnx di.Xenctrl.domid
+						  Domain.get_dynamic_min cnx di.domid,
+						  Domain.get_dynamic_max cnx di.domid
 						with _ ->
 							target_kib, target_kib
 						in
@@ -371,20 +482,19 @@ let make_host ~verbose ~xc ~xs =
 				|  e ->
 					if verbose 
 					then debug "Skipping domid %d: %s"
-						di.Xenctrl.domid (Printexc.to_string e);
+						di.domid (Printexc.to_string e);
 					[]
 			)
 			domain_infolist
 		) in
 
 	(* Sum up the 'reservations' which exist separately from domains *)
-	let non_domain_reservations = Squeezed_state.total_reservations xs Squeezed_rpc._service in
+	let non_domain_reservations = Squeezed_state.total_reservations xs Squeezed_state._service in
 	if verbose && non_domain_reservations <> 0L
 	then debug "Total non-domain reservations = %Ld" non_domain_reservations;
 	reserved_kib := Int64.add !reserved_kib non_domain_reservations;
 
 	let host = Squeeze.make_host ~domains ~free_mem_kib:(Int64.sub free_mem_kib !reserved_kib) in
-	Domain.gc (List.map (fun di -> di.Xenctrl.domid) domain_infolist);
 
 	(* Externally-visible side-effects. It's a bit ugly to include these here: *)
 	update_cooperative_table host;

@@ -31,13 +31,6 @@ Group: System/Hypervisor
 %description xe
 The command-line interface for controlling XCP hosts.
 
-%package www
-Summary: The XenAPI www interface
-Group: System/Hypervisor
-
-%description www
-This package contains the XenAPI www interface
-
 %package tests
 Summary: Toolstack test programs
 Group: System/Hypervisor
@@ -51,6 +44,13 @@ Group: System/Hypervisor
 
 %description squeezed
 This package contains the Xen virtual firmware (hvmloader)
+
+%package xenopsd
+Summary: The xenops daemon
+Group: System/Hypervisor
+
+%description xenopsd
+This package contains the xenops daemon.
 
 %package v6d
 Summary: The editions and features daemon
@@ -67,6 +67,15 @@ Group: System/Hypervisor
 %description networkd
 This package contains a daemon that is able to configure network
 interfaces and bridges
+
+%package rrdd
+Summary: The RRD daemon
+Group: System/Hypervisor
+
+%description rrdd
+This package contains a daemon that continually collects performance metrics
+from the host and its VMs, stores the data in host's memory, and occasionally
+synchronises the data to host's local storage.
 
 %package xenops
 Summary: Low-level debugging tools
@@ -91,26 +100,18 @@ Group:   Development/Libraries
 This package contains the internal xapi datamodel as a library suitable
 for writing additional code generators.
 
-%package docs
-Summary: Xen-API documentation and examples
-Group:   Development/Documentation
-
-%description docs
-This package contains Xen-API documentation and examples in several programming languages.
-
 %prep 
 %setup -q
-cp $RPM_SOURCE_DIR/jquery* $RPM_BUILD_DIR/xapi-0.2/ocaml/idl
 %patch0 -p0 -b xapi-version.patch
 
 %build
 COMPILE_JAVA=no %{__make}
+COMPILE_JAVA=no %{__make} test
 
 %install
 rm -rf %{buildroot}
 
 DESTDIR=$RPM_BUILD_ROOT %{__make} install
-DESTDIR=$RPM_BUILD_ROOT %{__make} sdk-install
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -125,8 +126,14 @@ rm -rf $RPM_BUILD_ROOT
 %post networkd
 [ ! -x /sbin/chkconfig ] || chkconfig --add xcp-networkd
 
+%post rrdd
+[ ! -x /sbin/chkconfig ] || chkconfig --add xcp-rrdd
+
 %post squeezed
 [ ! -x /sbin/chkconfig ] || chkconfig squeezed on
+
+%post xenopsd
+[ ! -x /sbin/chkconfig ] || chkconfig xenopsd on
 
 %post v6d
 [ ! -x /sbin/chkconfig ] || chkconfig --add v6d
@@ -145,14 +152,9 @@ rm -rf $RPM_BUILD_ROOT
 /etc/rc.d/init.d/xapi-domains
 /etc/rc.d/init.d/xapissl
 /etc/rc.d/init.d/xenservices
-/etc/rc.d/init.d/sdkinit
 /etc/rc.d/init.d/genptoken
 /etc/sysconfig/perfmon
 /etc/sysconfig/xapi
-/etc/udev/rules.d/xen-backend.rules
-/etc/udev/rules.d/xen-frontend.rules
-/etc/udev/xen-backend.rules
-/etc/udev/xen-frontend.rules
 /etc/xapi.d/base-path
 /etc/xapi.d/plugins/DRAC.py
 /etc/xapi.d/plugins/DRAC.pyo
@@ -175,20 +177,14 @@ rm -rf $RPM_BUILD_ROOT
 /etc/xapi.d/plugins/iovirt
 /etc/xensource/db.conf
 /etc/xensource/db.conf.rio
-/etc/xensource/log.conf
 /etc/xensource/master.d/01-example
 /etc/xensource/master.d/03-mpathalert-daemon
 /etc/xensource/pool.conf
-/etc/xensource/scripts/block-frontend
-/etc/xensource/scripts/tap
-/etc/xensource/scripts/vif
-/etc/xensource/scripts/block
 @OPTDIR@/bin/fix_firewall.sh
 @OPTDIR@/bin/list_domains
 @OPTDIR@/bin/mpathalert
 @OPTDIR@/bin/perfmon
 @OPTDIR@/bin/static-vdis
-@OPTDIR@/bin/v6d-reopen-logs
 @OPTDIR@/bin/xapi-autostart-vms
 @OPTDIR@/bin/xapi-db-process
 @OPTDIR@/bin/xapi-wait-init-complete
@@ -203,12 +199,11 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/bin/xe-toolstack-restart
 @OPTDIR@/bin/xe-xentrace
 @OPTDIR@/bin/xsh
-@OPTDIR@/bin/xe-networkd
 /etc/xensource/bugtool/xapi.xml
 /etc/xensource/bugtool/xapi/stuff.xml
+@OPTDIR@/libexec/list_plugins
 @OPTDIR@/libexec/sm_diagnostics
 @OPTDIR@/libexec/thread_diagnostics
-@OPTDIR@/libexec/fakeguestagent
 @OPTDIR@/libexec/InterfaceReconfigure.py
 @OPTDIR@/libexec/InterfaceReconfigure.pyo
 @OPTDIR@/libexec/InterfaceReconfigure.pyc
@@ -239,7 +234,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/link-vms-by-sr.py
 @OPTDIR@/libexec/link-vms-by-sr.pyo
 @OPTDIR@/libexec/link-vms-by-sr.pyc
-@OPTDIR@/libexec/logrotate.sh
 @OPTDIR@/libexec/logs-download
 @OPTDIR@/libexec/lw-force-domain-leave
 @OPTDIR@/libexec/mail-alarm
@@ -250,15 +244,14 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/restore-sr-metadata.py
 @OPTDIR@/libexec/restore-sr-metadata.pyo
 @OPTDIR@/libexec/restore-sr-metadata.pyc
-@OPTDIR@/libexec/rewrite-management-interface
 @OPTDIR@/libexec/set-dom0-memory-target-from-packs
 @OPTDIR@/libexec/set-hostname
-@OPTDIR@/libexec/setup-vif-rules
 @OPTDIR@/libexec/shell.py
 @OPTDIR@/libexec/shell.pyo
 @OPTDIR@/libexec/shell.pyc
 @OPTDIR@/libexec/shutdown
 @OPTDIR@/libexec/sparse_dd
+/etc/sparse_dd.conf
 @OPTDIR@/libexec/update-mh-info
 @OPTDIR@/libexec/upload-wrapper
 @OPTDIR@/libexec/vncterm-wrapper
@@ -280,8 +273,6 @@ rm -rf $RPM_BUILD_ROOT
 /usr/lib/python2.4/site-packages/inventory.py
 /usr/lib/python2.4/site-packages/inventory.pyo
 /usr/lib/python2.4/site-packages/inventory.pyc
-%exclude   /usr/lib/python2.4/site-packages/xen/*
-%exclude   /usr/lib/python2.4/site-packages/xen/lowlevel/*
 /var/xapi/udhcpd.skel
 @OPTDIR@/debug/rbac_static.csv
 /etc/xapi.d/host-post-declare-dead/10resetvdis
@@ -296,9 +287,20 @@ rm -rf $RPM_BUILD_ROOT
 %files squeezed
 %defattr(-,root,root,-)
 @OPTDIR@/libexec/squeezed
-/etc/logrotate.d/squeezed
 /etc/rc.d/init.d/squeezed
-@OPTDIR@/bin/squeezed_client
+/etc/squeezed.conf
+
+%files xenopsd
+%defattr(-,root,root,-)
+@OPTDIR@/libexec/xenopsd
+/etc/rc.d/init.d/xenopsd
+/etc/xenopsd.conf
+@OPTDIR@/bin/xn
+/usr/bin/xn
+/etc/xensource/bugtool/xenopsd.xml
+/etc/xensource/bugtool/xenopsd/stuff.xml
+@OPTDIR@/libexec/xn_diagnostics
+@OPTDIR@/libexec/domain_sethandle
 
 %files v6d
 %defattr(-,root,root,-)
@@ -309,8 +311,19 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root,-)
 @OPTDIR@/libexec/xcp-networkd
 /etc/rc.d/init.d/xcp-networkd
-@OPTDIR@/bin/xcp-networkd-reopen-logs
-/etc/logrotate.d/xcp-networkd
+@OPTDIR@/libexec/networkd_db
+
+%files rrdd
+%defattr(-,root,root,-)
+@OPTDIR@/libexec/xcp-rrdd
+/etc/rc.d/init.d/xcp-rrdd
+/etc/xcp-rrdd.conf
+/usr/lib/python2.4/site-packages/rrdd.py
+/usr/lib/python2.4/site-packages/rrdd.pyc
+/usr/lib/python2.4/site-packages/rrdd.pyo
+@OPTDIR@/libexec/rrdd-example.py
+@OPTDIR@/libexec/rrdd-example.pyc
+@OPTDIR@/libexec/rrdd-example.pyo
 
 %files xenops
 %defattr(-,root,root,-)
@@ -328,55 +341,13 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/debug/memory_summary
 @OPTDIR@/debug/pause_domain
 @OPTDIR@/debug/restore_domain
-@OPTDIR@/debug/rrddump
 @OPTDIR@/debug/shutdown_domain
 @OPTDIR@/debug/sm_stress
 @OPTDIR@/debug/suspend_domain
 @OPTDIR@/debug/unpause_domain
 @OPTDIR@/debug/vncproxy
 @OPTDIR@/debug/with-vdi
-@OPTDIR@/debug/xal
 @OPTDIR@/debug/xs
-
-%files www
-%defattr(-,root,root,-)
-#@OPTDIR@/debug/www/XenServerConsole.jar
-@OPTDIR@/debug/www/api.js
-@OPTDIR@/debug/www/apicall.css
-@OPTDIR@/debug/www/apicall.js
-@OPTDIR@/debug/www/construct_tree.js
-@OPTDIR@/debug/www/devweb.css
-@OPTDIR@/debug/www/devweb.js
-@OPTDIR@/debug/www/editables.js
-@OPTDIR@/debug/www/graphs.js
-@OPTDIR@/debug/www/haplan.css
-@OPTDIR@/debug/www/haplan.js
-@OPTDIR@/debug/www/images/xen_logo.gif
-@OPTDIR@/debug/www/index.html
-@OPTDIR@/debug/www/jquery/jqDnR.css
-@OPTDIR@/debug/www/jquery/jqDnR.js
-@OPTDIR@/debug/www/jquery/jqModal.css
-@OPTDIR@/debug/www/jquery/jqModal.js
-@OPTDIR@/debug/www/jquery/jquery-1.3.2.js
-@OPTDIR@/debug/www/jquery/jquery-dom.js
-@OPTDIR@/debug/www/jquery/jquery.autocomplete.css
-@OPTDIR@/debug/www/jquery/jquery.autocomplete.js
-@OPTDIR@/debug/www/jquery/jquery.bgiframe.js
-@OPTDIR@/debug/www/jquery/jquery.color.js
-@OPTDIR@/debug/www/jquery/jquery.cookie.js
-@OPTDIR@/debug/www/jquery/jquery.jeditable.js
-@OPTDIR@/debug/www/jquery/jquery.rpc.js
-@OPTDIR@/debug/www/jquery/jquery.treeview.js
-@OPTDIR@/debug/www/main.js
-@OPTDIR@/debug/www/messages.js
-@OPTDIR@/debug/www/networks.css
-@OPTDIR@/debug/www/networks.js
-@OPTDIR@/debug/www/objectviewoverrides.js
-@OPTDIR@/debug/www/offline.js
-@OPTDIR@/debug/www/process_rrd.js
-@OPTDIR@/debug/www/tree.css
-@OPTDIR@/debug/www/vmsearch.js
-@OPTDIR@/debug/www/xenapi.js
 
 %files tests
 %defattr(-,root,root,-)
@@ -393,9 +364,7 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/debug/perftest
 @OPTDIR@/debug/quicktest
 @OPTDIR@/debug/quicktestbin
-@OPTDIR@/debug/watch_test
 /cli-rt/*
-/etc/xapi.d/plugins/monitor_fake_plugin
 
 %files client-devel
 %defattr(-,root,root,-)
@@ -404,18 +373,6 @@ rm -rf $RPM_BUILD_ROOT
 %files datamodel-devel
 %defattr(-,root,root,-)
 %{_libdir}/ocaml/xapi-datamodel/*
-
-%files docs
-%defattr(-,root,root,-)
-/usr/share/doc/xapi/*
-#/usr/share/doc/xapi/client-examples/*/*
-#/usr/share/doc/xapi/docs/html/API/Classes/*/index.html
-#/usr/share/doc/xapi/docs/html/API/Classes/*/Explicit/*
-#/usr/share/doc/xapi/docs/html/API/Classes/*/Implicit/*
-#/usr/share/doc/xapi/docs/html/API/Classes/*/Fields/*
-#/usr/share/doc/xapi/docs/html/*
-#/usr/share/doc/xapi/docs/html/images/*
-#/usr/share/doc/xapi/docs/pdf/xenenterpriseapi.pdf
 
 %changelog
 

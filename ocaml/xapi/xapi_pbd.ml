@@ -106,17 +106,27 @@ let check_sharing_constraint ~__context ~self =
 module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end)
 
 let plug ~__context ~self =
+	(* It's possible to end up with a PBD being plugged after "unbind" is
+	   called if SR.create races with a PBD.plug (see Storage_access.create_sr)
+	   Since "bind" is idempotent it is safe to always call it. *)
+	let query_result = Storage_access.bind ~__context ~pbd:self in
 	let currently_attached = Db.PBD.get_currently_attached ~__context ~self in
 		if not currently_attached then
 			begin
 				let sr = Db.PBD.get_SR ~__context ~self in
 				check_sharing_constraint ~__context ~self:sr;
-                Storage_access.bind ~__context ~pbd:self;
-				let task = Ref.string_of (Context.get_task_id __context) in
+
+				let dbg = Ref.string_of (Context.get_task_id __context) in
 				let device_config = Db.PBD.get_device_config ~__context ~self in
-				Storage_access.expect_unit (fun () -> ())
-					(C.SR.attach task (Db.SR.get_uuid ~__context ~self:sr) device_config);
+				Storage_access.transform_storage_exn
+					(fun () -> C.SR.attach dbg (Db.SR.get_uuid ~__context ~self:sr) device_config);
 				Db.PBD.set_currently_attached ~__context ~self ~value:true;
+
+				(* When the plugin is registered it is possible to query the capabilities etc *)
+				Xapi_sm.register_plugin ~__context query_result;
+
+				(* The allowed-operations depend on the capabilities *)
+				Xapi_sr_operations.update_allowed_operations ~__context ~self:sr
 			end
 
 let unplug ~__context ~self =
@@ -137,9 +147,6 @@ let unplug ~__context ~self =
 				if List.mem sr statefile_srs
 				then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []))
 			end;
-
-			(* Unplug any disks attached to me which have leaked *)
-			Attach_helpers.remove_all_leaked_vbds __context;
 
 			let vdis = get_active_vdis_by_pbd ~__context ~self in
 			let non_metadata_vdis = List.filter (fun vdi -> Db.VDI.get_type ~__context ~self:vdi <> `metadata) vdis in
@@ -164,11 +171,18 @@ let unplug ~__context ~self =
 						Xapi_vdi_helpers.disable_database_replication ~__context ~vdi)
 					metadata_vdis_of_this_pool
 			end;
-			let task = Ref.string_of (Context.get_task_id __context) in
-			Storage_access.expect_unit (fun () -> ())
-				(C.SR.detach task (Db.SR.get_uuid ~__context ~self:sr));
+			let dbg = Ref.string_of (Context.get_task_id __context) in
+			let uuid = Db.SR.get_uuid ~__context ~self:sr in
+			Storage_access.transform_storage_exn
+				(fun () -> C.SR.detach dbg uuid);
+
+			(* This is the last point we can query the plugin's capabilities *)
+			Opt.iter (Xapi_sm.unregister_plugin ~__context) (Storage_mux.query_result_of_sr uuid);
+
             Storage_access.unbind ~__context ~pbd:self;
-			Db.PBD.set_currently_attached ~__context ~self ~value:false
+			Db.PBD.set_currently_attached ~__context ~self ~value:false;
+
+			Xapi_sr_operations.update_allowed_operations ~__context ~self:sr;
 		end
 
 let destroy ~__context ~self =

@@ -79,7 +79,7 @@ let make_printer sock minimal =
 			| (PMsg ss) ->
 				marshal sock (Command (Print ss))
 			| (PStderr ss) ->
-				marshal sock (Command (PrintStderr ss))
+				marshal sock (Command (PrintStderr (ss ^ "\n")))
 	in
 
 	let minimal_flush () =

@@ -52,7 +52,10 @@ module Actions = struct
 	module PIF_metrics = struct end
 	module SR = Xapi_sr
 	module SM = Xapi_sm
-	module VDI = Xapi_vdi
+	module VDI = struct
+		include Xapi_vdi
+		let pool_migrate = Xapi_vm_migrate.vdi_pool_migrate
+	end
 	module VBD = Xapi_vbd
 	module VBD_metrics = struct end
 	module Crashdump = Xapi_crashdump
@@ -96,7 +99,7 @@ open D
 let forward req body xml =
   let open Xmlrpc_client in
   let transport = SSL(SSL.make ~use_stunnel_cache:true (), Pool_role.get_master_address(), !Xapi_globs.https_port) in
-  XML_protocol.rpc ~transport ~http:{ req with Http.Request.frame = true } xml
+  XML_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http:{ req with Http.Request.frame = true } xml
 
 (* Whitelist of functions that do *not* get forwarded to the master (e.g. session.login_with_password) *)
 (* !!! Note, this only blocks synchronous calls. As is it happens, all the calls we want to block right now are only
@@ -104,16 +107,24 @@ let forward req body xml =
 let whitelist = List.map (fun (obj,msg) -> Datamodel_utils.wire_name ~sync:true obj msg) Datamodel.whitelist 
 let emergency_call_list = List.map (fun (obj,msg) -> Datamodel_utils.wire_name ~sync:true obj msg) Datamodel.emergency_calls
 
+let is_himn_req req =
+	match req.Http.Request.host with
+	| Some h ->
+		(match !Xapi_mgmt_iface.himn_addr with
+		| Some himn -> himn = h
+		| None -> false)
+	| None -> false
 
 (* This bit is called directly by the fake_rpc callback *)
 let callback1 is_json req fd body xml =
   let call,_ = XMLRPC.From.methodCall xml in
   (* We now have the body string, the xml and the call name, and can also tell *)
   (* if we're a master or slave and whether the call came in on the unix domain socket or the tcp socket *)
-  (* If we're a slave, and the call is from the unix domain socket, and the call *isn't* session.login_with_password, then forward *)
+  (* If we're a slave, and the call is from the unix domain socket or from the HIMN, and the call *isn't* *)
+  (* in the whitelist, then forward *)
   if !Xapi_globs.slave_emergency_mode && (not (List.mem call emergency_call_list)) 
   then raise !Xapi_globs.emergency_mode_error;
-  if ((not (Pool_role.is_master ()))  && (Context.is_unix_socket fd) && (not (List.mem call whitelist))) 
+  if ((not (Pool_role.is_master ())) && (Context.is_unix_socket fd || is_himn_req req) && (not (List.mem call whitelist)))
   then
     forward req body xml
   else

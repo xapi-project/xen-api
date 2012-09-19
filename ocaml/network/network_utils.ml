@@ -17,11 +17,8 @@ open Stringext
 open Fun
 open Network_interface
 
-let service_name = "network"
-
-module D = Debug.Debugger(struct let name = service_name end)
-
-let print_debug = ref false
+module D = Debug.Debugger(struct let name = "network_utils" end)
+open D
 
 let iproute2 = "/sbin/ip"
 let resolv_conf = "/etc/resolv.conf"
@@ -29,46 +26,33 @@ let dhclient = "/sbin/dhclient"
 let sysctl = "/sbin/sysctl"
 let ovs_vsctl = "/usr/bin/ovs-vsctl"
 let ovs_ofctl = "/usr/bin/ovs-ofctl"
+let ovs_appctl = "/usr/bin/ovs-appctl"
 let ovs_vlan_bug_workaround = "/usr/sbin/ovs-vlan-bug-workaround"
 let brctl = "/usr/sbin/brctl"
 let modprobe = "/sbin/modprobe"
 let ethtool = "/sbin/ethtool"
+let bonding_dir = "/proc/net/bonding/"
+let dhcp6c = "/sbin/dhcp6c"
 
-let debug (fmt: ('a , unit, string, unit) format4) =
-	let time_of_float x = 
-		let time = Unix.gmtime x in
-		Printf.sprintf "%04d%02d%02dT%02d:%02d:%02dZ"
-			(time.Unix.tm_year+1900)
-			(time.Unix.tm_mon+1)
-			time.Unix.tm_mday
-			time.Unix.tm_hour
-			time.Unix.tm_min
-			time.Unix.tm_sec in
-	if !print_debug 
-	then Printf.kprintf
-		(fun s -> 
-			Printf.printf "%s %s\n" (time_of_float (Unix.gettimeofday ()))  s; 
-			flush stdout) fmt
-	else Printf.kprintf (fun s -> D.debug "%s" s) fmt
-
-let call_script ?(log_successful_output=true) script args =
+let call_script ?(log_successful_output=false) script args =
 	try
 		Unix.access script [ Unix.X_OK ];
 		(* Use the same $PATH as xapi *)
 		let env = [| "PATH=" ^ (Sys.getenv "PATH") |] in
 		let output, _ = Forkhelpers.execute_command_get_output ~env script args in
 		if log_successful_output then
-			debug "%s %s succeeded [ output = '%s' ]" script (String.concat " " args) output;
+			debug "Call '%s %s' succeeded [output = '%s']" script (String.concat " " args) output;
 		output
 	with
 	| Unix.Unix_error (e, a, b) ->
-		debug "Caught unix error: %s [%s, %s]" (Unix.error_message e) a b;
-		debug "Assuming script %s doesn't exist" script;
-		raise (RpcFailure ("SCRIPT_DOES_NOT_EXIST", ["script", script; "args", String.concat " " args]))
+		error "Caught unix error: %s [%s, %s]" (Unix.error_message e) a b;
+		error "Assuming script %s doesn't exist" script;
+		raise (Script_missing script)
 	| Forkhelpers.Spawn_internal_error(stderr, stdout, Unix.WEXITED n)->
-		debug "%s %s exited with code %d [stdout = '%s'; stderr = '%s']" script (String.concat " " args) n stdout stderr;
-		raise (RpcFailure ("SCRIPT_ERROR", ["script", script; "args", String.concat " " args; "code",
-			string_of_int n; "stdout", stdout; "stderr", stderr]))
+		error "Call '%s %s' exited with code %d [stdout = '%s'; stderr = '%s']" script
+			(String.concat " " args) n stdout stderr;
+		raise (Script_error ["script", script; "args", String.concat " " args; "code",
+			string_of_int n; "stdout", stdout; "stderr", stderr])
 
 module Sysfs = struct
 	let list () =
@@ -84,14 +68,14 @@ module Sysfs = struct
 			let result = input_line inchan in
 			close_in inchan;
 			result
-		with exn -> close_in inchan; raise exn
+		with exn -> close_in inchan; raise (Read_error file)
 
 	let write_one_line file l =
 		let outchan = open_out file in
 		try
 			output_string outchan (l ^ "\n");
 			close_out outchan
-		with exn -> close_out outchan; raise exn
+		with exn -> close_out outchan; raise (Write_error file)
 
 	let is_physical name =
 		try
@@ -101,8 +85,10 @@ module Sysfs = struct
 		with _ -> false
 
 	let get_carrier name =
-		let i = int_of_string (read_one_line (getpath name "carrier")) in
-		match i with 1 -> true | 0 -> false | _ -> false
+		try
+			let i = int_of_string (read_one_line (getpath name "carrier")) in
+			match i with 1 -> true | 0 -> false | _ -> false
+		with _ -> false
 
 	let get_pcibuspath name =
 		try
@@ -158,97 +144,9 @@ module Sysfs = struct
 			Array.to_list (Sys.readdir (getpath bridge "brif"))
 		with _ -> []
 
-	(** {2 NIC Bonding} *)
-
-	let bonding_masters = "/sys/class/net/bonding_masters"
-
-	let load_bonding_driver () =
-		debug "Loading bonding driver";
-		try
-			ignore (call_script modprobe ["bonding"]);
-			(* is_bond_device() uses the contents of sysfs_bonding_masters to work out which devices
-			 * have already been created. Unfortunately the driver creates "bond0" automatically at
-			 * modprobe init. Get rid of this now or our accounting will go wrong. *)
-			write_one_line bonding_masters "-bond0"
-		with _ ->
-			debug "Failed to load bonding driver"
-
-	let bonding_driver_loaded () =
-		try
-			Unix.access bonding_masters [Unix.F_OK];
-			true
-		with _ ->
-			false
-
-	let is_bond_device name =
-		try
-			List.exists ((=) name) (String.split ' ' (read_one_line bonding_masters))
-		with _ -> false
-
-	(** Ensures that a bond master device exists in the kernel. *)
-	let add_bond_master name =
-		if not (bonding_driver_loaded ()) then
-			load_bonding_driver ();
-		if is_bond_device name then
-			debug "Bond master %s already exists, not creating" name
-		else begin
-			debug "Adding bond master %s" name;
-			try
-				write_one_line bonding_masters ("+" ^ name)
-			with _ ->
-				debug "Failed to add bond master %s" name
-		end
-
-	(** No, Mr. Bond, I expect you to die. *)
-	let remove_bond_master name =
-		if is_bond_device name then begin
-			let rec destroy retries =
-				debug "Removing bond master %s (%d attempts remain)" name retries;
-				try
-					write_one_line bonding_masters ("-" ^ name)
-				with _ ->
-					if retries > 0 then
-						(Thread.delay 0.5; destroy (retries - 1))
-					else
-						debug "Failed to remove bond master %s" name
-			in
-			destroy 10
-		end else
-			debug "Bond master %s does not exist; cannot destroy it" name
-
-	let set_bond_properties master properties =
-		let known_props = ["mode"; "updelay"; "downdelay"; "miimon"; "use_carrier"] in
-		if is_bond_device master then begin
-			let set_prop (prop, value) =
-				try
-					debug "Setting %s=%s on bond %s" prop value master;
-					write_one_line (getpath master ("bonding/" ^ prop)) value
-				with _ ->
-					debug "Failed to set property \"%s\" on bond %s" prop master
-			in
-			List.iter set_prop (List.filter (fun (prop, _) -> List.mem prop known_props) properties)
-		end else
-			debug "Bond %s does not exist; cannot set properties" master
-
-	let add_bond_slave master slave =
-		if is_bond_device master then
-			try
-				debug "Adding slave %s to bond %s" slave master;
-				write_one_line (getpath master "bonding/slaves") ("+" ^ slave)
-			with _ ->
-				debug "Failed to add slave %s to bond %s" slave master
-		else
-			debug "Bond %s does not exist; cannot add slave" master
-
-	let remove_bond_slave master slave =
-		if is_bond_device master then
-			try
-				debug "Remove slave %s from bond %s" slave master;
-				write_one_line (getpath master "bonding/slaves") ("-" ^ slave)
-			with _ ->
-				debug "Failed to remove slave %s from bond %s" slave master
-		else
-			debug "Bond %s does not exist; cannot remove slave" master
+	let get_all_bridges () =
+		let ifaces = list () in
+		List.filter (fun name -> Sys.file_exists (getpath name "bridge")) ifaces
 end
 
 module Ip = struct
@@ -259,8 +157,8 @@ module Ip = struct
 		| V6 -> ["-6"]
 		| V46 -> []
 
-	let call args =
-		call_script iproute2 args
+	let call ?(log=false) args =
+		call_script ~log_successful_output:log iproute2 args
 
 	let find output attr =
 		let args = String.split_f String.isspace output in
@@ -280,7 +178,7 @@ module Ip = struct
 		with _ -> false
 
 	let link_set dev args =
-		ignore (call ("link" :: "set" :: dev :: args))
+		ignore (call ~log:true ("link" :: "set" :: dev :: args))
 
 	let link_set_mtu dev mtu =
 		ignore (link_set dev ["mtu"; string_of_int mtu])
@@ -331,14 +229,23 @@ module Ip = struct
 
 	let set_ip_addr dev (ip, prefixlen) =
 		let addr = Printf.sprintf "%s/%d" (Unix.string_of_inet_addr ip) prefixlen in
+		let broadcast =
+			(* Set the broadcast address when adding an IPv4 address *)
+			if String.contains addr '.' then
+				["broadcast"; "+"]
+			else []
+		in
 		try
-			ignore (call ["addr"; "add"; addr; "dev"; dev])
+			ignore (call ~log:true (["addr"; "add"; addr; "dev"; dev] @ broadcast))
 		with _ -> ()
 
 	let flush_ip_addr ?(ipv6=false) dev =
-		let ipv6' = if ipv6 then ["-6"] else ["-4"] in
 		try
-			ignore (call(ipv6' @ ["addr"; "flush"; "dev"; dev]))
+			if ipv6 then begin
+				ignore (call ~log:true ["-6"; "addr"; "flush"; "dev"; dev; "scope"; "global"]);
+				ignore (call ~log:true ["-6"; "addr"; "flush"; "dev"; dev; "scope"; "site"])
+			end else
+				ignore (call ~log:true ["-4"; "addr"; "flush"; "dev"; dev])
 		with _ -> ()
 
 	let route_show ?(version=V46) dev =
@@ -349,10 +256,10 @@ module Ip = struct
 		try
 			match network with
 			| None ->
-				ignore (call ["route"; "replace"; "default"; "via"; Unix.string_of_inet_addr gateway; "dev"; dev])
+				ignore (call ~log:true ["route"; "replace"; "default"; "via"; Unix.string_of_inet_addr gateway; "dev"; dev])
 			| Some (ip, prefixlen) ->
 				let addr = Printf.sprintf "%s/%d" (Unix.string_of_inet_addr ip) prefixlen in
-				ignore (call ["route"; "replace"; addr; "via"; Unix.string_of_inet_addr gateway; "dev"; dev])
+				ignore (call ~log:true ["route"; "replace"; addr; "via"; Unix.string_of_inet_addr gateway; "dev"; dev])
 		with _ -> ()
 
 	let set_gateway dev gateway = set_route dev gateway
@@ -362,12 +269,128 @@ module Ip = struct
 
 	let create_vlan interface vlan =
 		if not (List.mem (vlan_name interface vlan) (Sysfs.list ())) then
-			ignore (call ["link"; "add"; "link"; interface; "name"; vlan_name interface vlan;
+			ignore (call ~log:true ["link"; "add"; "link"; interface; "name"; vlan_name interface vlan;
 				"type"; "vlan"; "id"; string_of_int vlan])
 
 	let destroy_vlan name =
 		if List.mem name (Sysfs.list ()) then
-			ignore (call ["link"; "delete"; name])
+			ignore (call ~log:true ["link"; "delete"; name])
+end
+
+module Linux_bonding = struct
+	let bonding_masters = "/sys/class/net/bonding_masters"
+
+	let load_bonding_driver () =
+		debug "Loading bonding driver";
+		try
+			ignore (call_script modprobe ["bonding"]);
+			(* is_bond_device() uses the contents of sysfs_bonding_masters to work out which devices
+			 * have already been created. Unfortunately the driver creates "bond0" automatically at
+			 * modprobe init. Get rid of this now or our accounting will go wrong. *)
+			Sysfs.write_one_line bonding_masters "-bond0"
+		with _ ->
+			error "Failed to load bonding driver"
+
+	let bonding_driver_loaded () =
+		try
+			Unix.access bonding_masters [Unix.F_OK];
+			true
+		with _ ->
+			false
+
+	let is_bond_device name =
+		try
+			List.exists ((=) name) (String.split ' ' (Sysfs.read_one_line bonding_masters))
+		with _ -> false
+
+	(** Ensures that a bond master device exists in the kernel. *)
+	let add_bond_master name =
+		if not (bonding_driver_loaded ()) then
+			load_bonding_driver ();
+		if is_bond_device name then
+			debug "Bond master %s already exists, not creating" name
+		else begin
+			debug "Adding bond master %s" name;
+			try
+				Sysfs.write_one_line bonding_masters ("+" ^ name)
+			with _ ->
+				error "Failed to add bond master %s" name
+		end
+
+	(** No, Mr. Bond, I expect you to die. *)
+	let remove_bond_master name =
+		if is_bond_device name then begin
+			let rec destroy retries =
+				debug "Removing bond master %s (%d attempts remain)" name retries;
+				try
+					Sysfs.write_one_line bonding_masters ("-" ^ name)
+				with _ ->
+					if retries > 0 then
+						(Thread.delay 0.5; destroy (retries - 1))
+					else
+						error "Failed to remove bond master %s" name
+			in
+			destroy 10
+		end else
+			error "Bond master %s does not exist; cannot destroy it" name
+
+	let known_props = ["mode"; "updelay"; "downdelay"; "miimon"; "use_carrier"]
+
+	let get_bond_properties master =
+		if is_bond_device master then begin
+			let get_prop prop =
+				try
+					Some (prop, Sysfs.read_one_line (Sysfs.getpath master ("bonding/" ^ prop)))
+				with _ ->
+					debug "Failed to get property \"%s\" on bond %s" prop master;
+					None
+			in
+			List.filter_map get_prop known_props
+		end else begin
+			debug "Bond %s does not exist; cannot get properties" master;
+			[]
+		end
+
+	let set_bond_properties master properties =
+		if is_bond_device master then begin
+			let current_props = get_bond_properties master in
+			(* Find out which properties are known, but different from the current state,
+			 * and only continue if there is at least one of those. *)
+			let props_to_update = List.filter (fun (prop, value) ->
+				not (List.mem (prop, value) current_props) && List.mem prop known_props) properties in
+			if props_to_update <> [] then
+				let set_prop (prop, value) =
+					try
+						debug "Setting %s=%s on bond %s" prop value master;
+						Sysfs.write_one_line (Sysfs.getpath master ("bonding/" ^ prop)) value
+					with _ ->
+						error "Failed to set property \"%s\" on bond %s" prop master
+				in
+				Ip.link_set_down master;
+				List.iter set_prop props_to_update;
+				Ip.link_set_up master
+		end else
+			error "Bond %s does not exist; cannot set properties" master
+
+	let add_bond_slave master slave =
+		if is_bond_device master then
+			try
+				debug "Adding slave %s to bond %s" slave master;
+				Sysfs.write_one_line (Sysfs.getpath master "bonding/slaves") ("+" ^ slave)
+			with _ ->
+				error "Failed to add slave %s to bond %s" slave master
+		else
+			error "Bond %s does not exist; cannot add slave" master
+
+	let remove_bond_slave master slave =
+		if is_bond_device master then
+			try
+				debug "Remove slave %s from bond %s" slave master;
+				Sysfs.write_one_line (Sysfs.getpath master "bonding/slaves") ("-" ^ slave)
+			with _ ->
+				error "Failed to remove slave %s from bond %s" slave master
+		else
+			error "Bond %s does not exist; cannot remove slave" master
 end
 
 module Dhclient = struct
@@ -383,19 +406,26 @@ module Dhclient = struct
 		let ipv6' = if ipv6 then "6" else "" in
 		Filename.concat Fhs.vardir (Printf.sprintf "dhclient%s-%s.conf" ipv6' interface)
 
-	let write_conf_file ?(ipv6=false) interface options =
+	let generate_conf ?(ipv6=false) interface options =
 		let minimal = ["subnet-mask"; "broadcast-address"; "time-offset"; "host-name"; "nis-domain";
 			"nis-servers"; "ntp-servers"; "interface-mtu"] in
 		let set_gateway = if List.mem `set_gateway options then ["routers"] else [] in
 		let set_dns = if List.mem `set_dns options then ["domain-name"; "domain-name-servers"] else [] in
 		let request = minimal @ set_gateway @ set_dns in
-		let conf = Printf.sprintf "interface \"%s\" {\n  request %s;\n}\n" interface (String.concat ", " request) in
+		Printf.sprintf "interface \"%s\" {\n  request %s;\n}\n" interface (String.concat ", " request)
+
+	let read_conf_file ?(ipv6=false) interface =
+		let file = conf_file ~ipv6 interface in
+		try Some (Unixext.string_of_file file) with _ -> None
+
+	let write_conf_file ?(ipv6=false) interface options =
+		let conf = generate_conf ~ipv6 interface options in
 		Unixext.write_string_to_file (conf_file ~ipv6 interface) conf
 
 	let start ?(ipv6=false) interface options =
 		write_conf_file ~ipv6 interface options;
 		let ipv6' = if ipv6 then ["-6"] else [] in
-		call_script dhclient (ipv6' @ ["-q";
+		call_script ~log_successful_output:true dhclient (ipv6' @ ["-q";
 			"-pf"; pid_file ~ipv6 interface;
 			"-lf"; lease_file ~ipv6 interface;
 			"-cf"; conf_file ~ipv6 interface;
@@ -403,7 +433,7 @@ module Dhclient = struct
 
 	let stop ?(ipv6=false) interface =
 		try
-			ignore (call_script dhclient ["-r";
+			ignore (call_script ~log_successful_output:true dhclient ["-r";
 				"-pf"; pid_file ~ipv6 interface;
 				interface]);
 			Unix.unlink (pid_file ~ipv6 interface)
@@ -415,34 +445,83 @@ module Dhclient = struct
 			true
 		with Unix.Unix_error _ ->
 			false
+
+	let ensure_running ?(ipv6=false) interface options =
+		if not(is_running ~ipv6 interface) then
+			(* dhclient is not running, so we need to start it. *)
+			ignore (start ~ipv6 interface options)
+		else begin
+			(* dhclient is running - if the config has changed, update the config file and restart. *)
+			let current_conf = read_conf_file ~ipv6 interface in
+			let new_conf = generate_conf ~ipv6 interface options in
+			if current_conf <> (Some new_conf) then begin
+				ignore (stop ~ipv6 interface);
+				ignore (start ~ipv6 interface options)
+			end
+		end
 end
 
 module Sysctl = struct
-	let write variable value =
-		call_script sysctl ["-q"; "-w"; variable ^ "=" ^ value]
+	let write value variable =
+		ignore (call_script ~log_successful_output:true sysctl ["-q"; "-w"; variable ^ "=" ^ value])
 
 	let set_ipv6_autoconf interface value =
-		let variable = "net.ipv6.conf." ^ interface ^ ".autoconf" in
-		let value' = if value then "1" else "0" in
-		write variable value'
+		try
+			let variables = [
+				"net.ipv6.conf." ^ interface ^ ".autoconf";
+				"net.ipv6.conf." ^ interface ^ ".accept_ra"
+			] in
+			let value' = if value then "1" else "0" in
+			List.iter (write value') variables
+		with
+		| e when value = true -> raise e
+		| _ -> ()
+end
+
+module Proc = struct
+	let get_bond_links_up name = 
+		try
+			let raw = Unixext.string_of_file (bonding_dir ^ name) in
+			let lines = String.split '\n' raw in
+			let check_lines lines =
+			let rec loop acc = function
+				| [] -> acc
+				| line1 :: line2 :: tail ->
+					if (String.startswith "Slave Interface:" line1)
+						&& (String.startswith "MII Status:" line2)
+						&& (String.endswith "up" line2)
+					then
+						loop (acc + 1) tail
+					else
+						loop acc (line2 :: tail)
+			  | _ :: [] -> acc in
+			loop 0 lines in
+			check_lines lines
+		with e ->
+			error "Error: could not read %s." (bonding_dir ^ name);
+			0
+
 end
 
 module Ovs = struct
-	let call args =
-		call_script ovs_vsctl ("--timeout=20" :: args)
+	let vsctl ?(log=false) args =
+		call_script ~log_successful_output:log ovs_vsctl ("--timeout=20" :: args)
 
-	let ofctl args =
-		call_script ovs_ofctl args
+	let ofctl ?(log=false) args =
+		call_script ~log_successful_output:log ovs_ofctl args
+
+	let appctl ?(log=false) args =
+		call_script ~log_successful_output:log ovs_appctl args
 
 	let port_to_interfaces name =
 		try
-			let raw = call ["get"; "port"; name; "interfaces"] in
+			let raw = vsctl ["get"; "port"; name; "interfaces"] in
 			let raw = String.rtrim raw in
 			if raw <> "[]" then
 				let raw_list = (String.split ',' (String.sub raw 1 (String.length raw - 2))) in
 				let uuids = List.map (String.strip String.isspace) raw_list in
 				List.map (fun uuid ->
-					let raw = String.rtrim (call ["get"; "interface"; uuid; "name"]) in
+					let raw = String.rtrim (vsctl ["get"; "interface"; uuid; "name"]) in
 					String.sub raw 1 (String.length raw - 2)) uuids
 			else
 				[]
@@ -450,18 +529,40 @@ module Ovs = struct
 
 	let bridge_to_ports name =
 		try
-			let ports = String.split '\n' (String.rtrim (call ["list-ports"; name])) in
-			List.map (fun port -> port, port_to_interfaces port) ports
+			let ports = String.rtrim (vsctl ["list-ports"; name]) in
+			let ports' =
+				if ports <> "" then
+					String.split '\n' ports
+				else
+					[]
+			in
+			List.map (fun port -> port, port_to_interfaces port) ports'
 		with _ -> []
 
 	let bridge_to_interfaces name =
 		try
-			String.split '\n' (String.rtrim (call ["list-ifaces"; name]))
+			let ifaces = String.rtrim (vsctl ["list-ifaces"; name]) in
+			if ifaces <> "" then
+				String.split '\n' ifaces
+			else
+				[]
 		with _ -> []
 
 	let bridge_to_vlan name =
-		call ["br-to-parent"; name],
-		int_of_string (call ["br-to-vlan"; name])
+		try
+			Some (vsctl ["br-to-parent"; name], int_of_string (vsctl ["br-to-vlan"; name]))
+		with _ -> None
+
+	let get_bond_links_up name =
+		try
+			let check_line line =
+				if (String.startswith "slave" line) && (String.endswith "enabled" line) then 1 else 0
+			in
+			let raw = appctl ["bond/show"; name] in
+			let lines = String.split '\n' raw in
+			let nb_links = List.fold_left (fun acc line -> acc + (check_line line)) 0 lines in
+			nb_links
+		with _ -> 0
 
 	let handle_vlan_bug_workaround override bridge =
 		(* This is a list of drivers that do support VLAN tx or rx acceleration, but
@@ -474,7 +575,7 @@ module Ovs = struct
 		let no_vlan_workaround_drivers = ["bonding"] in
 		let phy_interfaces =
 			try
-				let interfaces = String.split '\n' (String.rtrim (call ["list-ifaces"; bridge])) in
+				let interfaces = bridge_to_interfaces bridge in
 				List.filter Sysfs.is_physical interfaces
 			with _ -> []
 		in
@@ -494,7 +595,7 @@ module Ovs = struct
 			in
 			let setting = if do_workaround then "on" else "off" in
 			(try
-				ignore (call_script ovs_vlan_bug_workaround [interface; setting]);
+				ignore (call_script ~log_successful_output:true ovs_vlan_bug_workaround [interface; setting]);
 			with _ -> ());
 		) phy_interfaces
 
@@ -507,7 +608,11 @@ module Ovs = struct
 		in
 		let mac_arg = match mac with
 			| None -> []
-			| Some mac -> ["--"; "set"; "bridge"; name; Printf.sprintf "other-config:hwaddr=\"%s\"" (String.escaped mac)]
+			| Some mac ->
+				if vlan = None then
+					["--"; "set"; "bridge"; name; Printf.sprintf "other-config:hwaddr=\"%s\"" (String.escaped mac)]
+				else
+					["--"; "set"; "interface"; name; Printf.sprintf "MAC=\"%s\"" (String.escaped mac)]
 		in
 		let fail_mode_arg =
 			if vlan = None then ["--"; "set"; "bridge"; name; "fail_mode=" ^ fail_mode] else [] in
@@ -531,24 +636,38 @@ module Ovs = struct
 			let existing_vifs = List.filter (fun iface -> not (Sysfs.is_physical iface)) (bridge_to_interfaces name) in
 			List.flatten (List.map (fun vif -> ["--"; "--may-exist"; "add-port"; name; vif]) existing_vifs)
 		in
-		call (["--"; "--if-exists"; "del-br"; name; "--"; "--may-exist"; "add-br"; name] @
+		let del_old_arg =
+			if vlan <> None then
+				(* This is to handle the case that a "real" bridge (not a "fake" VLAN bridge) already exists *)
+				["--"; "--if-exists"; "del-br"; name]
+			else
+				[]
+		in
+		vsctl ~log:true (del_old_arg @ ["--"; "--may-exist"; "add-br"; name] @
 			vlan_arg @ mac_arg @ fail_mode_arg @ disable_in_band_arg @ external_id_arg @ vif_arg)
 
 	let destroy_bridge name =
-		call ["--"; "--if-exists"; "del-br"; name]
+		vsctl ~log:true ["--"; "--if-exists"; "del-br"; name]
 
 	let list_bridges () =
-		String.split '\n' (String.rtrim (call ["list-br"]))
+		let bridges = String.rtrim (vsctl ["list-br"]) in
+		if bridges <> "" then
+			String.split '\n' bridges
+		else
+			[]
 
 	let get_vlans name =
 		try
 			let vlans_with_uuid =
-				let raw = call ["--bare"; "-f"; "table"; "--"; "--columns=name,_uuid"; "find"; "port"; "fake_bridge=true"] in
-				let lines = String.split '\n' (String.rtrim raw) in
-				List.map (fun line -> Scanf.sscanf line "%s %s" (fun a b-> a, b)) lines
+				let raw = vsctl ["--bare"; "-f"; "table"; "--"; "--columns=name,_uuid"; "find"; "port"; "fake_bridge=true"] in
+				if raw <> "" then
+					let lines = String.split '\n' (String.rtrim raw) in
+					List.map (fun line -> Scanf.sscanf line "%s %s" (fun a b-> a, b)) lines
+				else
+					[]
 			in
 			let bridge_ports =
-				let raw = call ["get"; "bridge"; name; "ports"] in
+				let raw = vsctl ["get"; "bridge"; name; "ports"] in
 				let raw = String.rtrim raw in
 				if raw <> "[]" then
 					let raw_list = (String.split ',' (String.sub raw 1 (String.length raw - 2))) in
@@ -561,20 +680,16 @@ module Ovs = struct
 		with _ -> []
 
 	let create_port name bridge =
-		call ["--"; "--may-exist"; "add-port"; bridge; name]
-
-	let create_bond name interfaces bridge mac =
-		call (["--"; "--may-exist"; "add-bond"; bridge; name] @ interfaces @
-			["--"; "set"; "port"; name; "MAC=\"" ^ (String.escaped mac) ^ "\""])
+		vsctl ~log:true ["--"; "--may-exist"; "add-port"; bridge; name]
 
 	let destroy_port name =
-		call ["--"; "--with-iface"; "--if-exists"; "del-port"; name]
+		vsctl ~log:true ["--"; "--with-iface"; "--if-exists"; "del-port"; name]
 
 	let port_to_bridge name =
-		call ["port-to-br"; name]
+		vsctl ~log:true ["port-to-br"; name]
 
-	let set_bond_properties name properties =
-		let known_props = ["mode"; "hashing-algorithm"; "updelay"; "downdelay"; "miimon"; "use_carrier"] in
+	let make_bond_properties name properties =
+		let known_props = ["mode"; "hashing-algorithm"; "updelay"; "downdelay"; "miimon"; "use_carrier"; "rebalance-interval"] in
 		let mode_args =
 			let mode = if List.mem_assoc "mode" properties then List.assoc "mode" properties else "balance-slb" in
 			let halgo = if List.mem_assoc "hashing-algorithm" properties then List.assoc "hashing-algorithm" properties else "" in
@@ -582,39 +697,49 @@ module Ovs = struct
 				(if halgo = "src_mac" then ["bond_mode=balance-slb"]
 				else if halgo = "tcpudp_ports" then ["bond_mode=balance-tcp"]
 				else begin
-					debug "bond %s has invalid bond-hashing-algorithm '%s'" name halgo;
-					["bond_mode=balance-slb"]
+					debug "bond %s has invalid bond-hashing-algorithm '%s'; defaulting to balance-tcp" name halgo;
+					["bond_mode=balance-tcp"]
 				end)
 			else
 				["lacp=off"; "bond_mode=" ^ mode]
 		in
 		let get_prop (prop, ovs_key) =
 			if List.mem_assoc prop properties then
-				let value = int_of_string (List.assoc prop properties) in
-				if value < 0 then begin
-					debug "bond %s has invalid %s '%d'" name prop value;
+				let value = List.assoc prop properties in
+				let value' = try int_of_string value with _ -> -1 in
+				if value' < 0 then begin
+					debug "bond %s has invalid %s '%s'" name prop value;
 					[]
 				end else if prop = "use_carrier" then
-					[ovs_key ^ "=" ^ (if value > 0 then "carrier" else "miimon")]
+					[ovs_key ^ "=" ^ (if value' > 0 then "carrier" else "miimon")]
 				else
-					[ovs_key ^ "=" ^ (string_of_int value)]
+					[ovs_key ^ "=" ^ (string_of_int value')]
 			else
 				[]
 		in
 		let extra_args = List.flatten (List.map get_prop ["updelay", "bond_updelay"; "downdelay", "bond_downdelay";
-			"miimon", "other-config:bond-miimon-interval"; "use_carrier", "other-config:bond-detect-mode"]) in
+			"miimon", "other-config:bond-miimon-interval"; "use_carrier", "other-config:bond-detect-mode";
+			"rebalance-interval", "other-config:bond-rebalance-interval"]) in
 		let other_args = List.filter_map (fun (k, v) ->
 			if List.mem k known_props then None
 			else Some (Printf.sprintf "other-config:\"%s\"=\"%s\"" (String.escaped ("bond-" ^ k)) (String.escaped v))
 		) properties in
-		let args = ["--"; "set"; "port"; name] @ mode_args @ extra_args @ other_args in
-		call args
+		mode_args @ extra_args @ other_args
+
+	let create_bond ?mac name interfaces bridge properties =
+		let args = make_bond_properties name properties in
+		let mac_args = match mac with
+			| None -> []
+			| Some mac -> ["--"; "set"; "port"; name; "MAC=\"" ^ (String.escaped mac) ^ "\""]
+		in
+		vsctl ~log:true (["--"; "--may-exist"; "add-bond"; bridge; name] @ interfaces @
+			mac_args @ args)
 
 	let get_fail_mode bridge =
-		call ["get-fail-mode"; bridge]
+		vsctl ["get-fail-mode"; bridge]
 
 	let add_default_flows bridge mac interfaces =
-		let ports = List.map (fun interface -> call ["get"; "interface"; interface; "ofport"]) interfaces in
+		let ports = List.map (fun interface -> vsctl ["get"; "interface"; interface; "ofport"]) interfaces in
 		let flows = match ports with
 			| [port] ->
 				[Printf.sprintf "idle_timeout=0,priority=0,in_port=%s,arp,nw_proto=1,actions=local" port;
@@ -629,42 +754,42 @@ module Ovs = struct
 					Printf.sprintf "idle_timeout=0,priority=0,in_port=%s,dl_dst=%s,actions=local" port mac]
 				) ports)
 		in
-		List.iter (fun flow -> ignore (ofctl ["add-flow"; bridge; flow])) flows
+		List.iter (fun flow -> ignore (ofctl ~log:true ["add-flow"; bridge; flow])) flows
 end
 
 module Brctl = struct
-	let call args =
-		call_script brctl args
+	let call ?(log=false) args =
+		call_script ~log_successful_output:log brctl args
 
 	let create_bridge name =
 		if not (List.mem name (Sysfs.list ())) then
-			ignore (call ["addbr"; name])
+			ignore (call ~log:true ["addbr"; name])
 
 	let destroy_bridge name =
 		if List.mem name (Sysfs.list ()) then
-			ignore (call ["delbr"; name])
+			ignore (call ~log:true ["delbr"; name])
 
 	let create_port bridge name =
 		if not (List.mem name (Sysfs.bridge_to_interfaces bridge)) then
-			ignore (call ["addif"; bridge; name])
+			ignore (call ~log:true ["addif"; bridge; name])
 
 	let destroy_port bridge name =
 		if List.mem name (Sysfs.bridge_to_interfaces bridge) then
-			ignore (call ["delif"; bridge; name])
+			ignore (call ~log:true ["delif"; bridge; name])
 
 end
 
 module Ethtool = struct
-	let call args =
-		call_script ethtool args
+	let call ?(log=false) args =
+		call_script ~log_successful_output:log ethtool args
 
 	let set_options name options =
 		if options <> [] then
-			ignore (call ("-s" :: name :: (List.concat (List.map (fun (k, v) -> [k; v]) options))))
+			ignore (call ~log:true ("-s" :: name :: (List.concat (List.map (fun (k, v) -> [k; v]) options))))
 
 	let set_offload name options =
 		if options <> [] then
-			ignore (call ("-K" :: name :: (List.concat (List.map (fun (k, v) -> [k; v]) options))))
+			ignore (call ~log:true ("-K" :: name :: (List.concat (List.map (fun (k, v) -> [k; v]) options))))
 end
 
 module Bindings = struct
@@ -696,6 +821,18 @@ module Bindings = struct
 	(** Returns speed and duplex for a given network interface.
 	 *  Note: from kernel 2.6.33, this information is also present in sysfs. *)
 	let get_status name =
-		with_fd (fun fd -> _get_status fd name)
+		try
+			with_fd (fun fd -> _get_status fd name)
+		with _ -> raise (Read_error "stub_link_get_status")
 end
 
+module Dhcp6c = struct
+	let pid_file interface =
+		Printf.sprintf "/var/run/dhcp6c-%s.pid" interface
+
+	let start interface =
+		ignore (call_script dhcp6c [interface])
+
+	let stop interface =
+		ignore (call_script dhcp6c ["-r"; "all"; interface])
+end

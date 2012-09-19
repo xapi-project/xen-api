@@ -14,19 +14,27 @@
 (** Controlling the management interface.
  *  @group Networking
  *)
- 
+
+(** Local IP address of the HIMN (if any) *)
+val himn_addr : string option ref
+
 (** Block until an IP address appears on the management interface *)
-val wait_for_management_ip : unit -> string
+val wait_for_management_ip : __context:Context.t -> string
 
 (** Called anywhere we suspect dom0's networking (hostname, IP address) has been changed
     underneath us (eg by dhclient) *)
 val on_dom0_networking_change : __context:Context.t -> unit
 
-(** Change the interface and IP address on which we listen for management traffic *)
-val change_ip : string  -> string -> unit
+(** Ensure the server thread listening on the management interface, and
+ *  update the inventory file with the given interface (used for management traffic). *)
+val run : __context:Context.t -> string -> [< `IPv4 | `IPv6 ] -> unit
 
-(** Rebind to the management IP address, useful after reconfiguring the interface *)
-val rebind : unit -> unit
+(** Re-bind the management interface to respond to changes (e.g. adding IPv6 address) *)
+val rebind : __context:Context.t -> unit
 
 (** Stop the server thread listening on the management interface *)
-val stop : unit -> unit
+val shutdown : unit -> unit
+
+(** Start a server thread on the given HIMN address if the server is not yet running *)
+val maybe_start_himn : __context:Context.t -> ?addr:string -> unit -> unit
+

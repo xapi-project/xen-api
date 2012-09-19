@@ -19,8 +19,8 @@ BASE_PATH=$(shell scripts/base-path scripts/xapi.conf)
 JQUERY=$(CARBON_DISTFILES)/javascript/jquery/jquery-1.1.3.1.pack.js
 JQUERY_TREEVIEW=$(CARBON_DISTFILES)/javascript/jquery/treeview/jquery.treeview.zip
 
-COMPILE_NATIVE=yes
-COMPILE_BYTE=no # bytecode version does not build
+COMPILE_NATIVE ?= yes
+COMPILE_BYTE ?= no
 export COMPILE_NATIVE COMPILE_BYTE
 
 # FHS stuff
@@ -32,6 +32,7 @@ PLUGINDIR=/etc/xapi.d/plugins
 HOOKSDIR=/etc/xapi.d
 INVENTORY=/etc/xensource-inventory
 XAPICONF=/etc/xapi.conf
+RRDDCONF=/etc/xcp-rrdd.conf
 LIBEXECDIR=/opt/xensource/libexec
 SCRIPTSDIR=/etc/xensource/scripts
 SHAREDIR=/opt/xensource
@@ -40,17 +41,43 @@ XHADIR=/opt/xensource/xha
 BINDIR=/opt/xensource/bin
 SBINDIR=/opt/xensource/bin
 
-export VARDIR ETCDIR OPTDIR PLUGINDIR HOOKSDIR INVENTORY VARPATCHDIR LIBEXECDIR XAPICONF SCRIPTSDIR SHAREDIR WEBDIR XHADIR BINDIR SBINDIR
+export VARDIR ETCDIR OPTDIR PLUGINDIR HOOKSDIR INVENTORY VARPATCHDIR LIBEXECDIR XAPICONF RRDDCONF SCRIPTSDIR SHAREDIR WEBDIR XHADIR BINDIR SBINDIR
 
 .PHONY: all
 all: version ocaml/fhs.ml
-	omake phase1
-	omake phase2
-	omake phase3
+	omake -j 8 phase1
+	omake -j 8 phase2
+	omake -j 8 phase3
+	@make test
 
 .PHONY: phase3
 phase3:
 	omake phase3
+
+.PHONY: test
+test:
+	omake test
+	@echo @
+	@echo @ Running unit tests
+	@echo @
+#	Pipe ugly bash output to /dev/null
+	@echo @ xapi unit test suite
+	@./ocaml/test/suite
+	@echo @ xapi_unit_test
+	@./ocaml/xapi/xapi_unit_test
+	@echo @ xenops-cli unit test
+	@./ocaml/xenops-cli/runtest.sh 2> /dev/null
+	@echo
+	@echo @ HA binpack test
+	@./ocaml/xapi/binpack
+	@echo @ squeezed test
+	@./ocaml/xenops/squeeze_test
+#	The following test no longer runs:
+#	./ocaml/database/database_test
+#	The following test no longer compiles:
+#	./ocaml/xenops/device_number_test
+#	The following test must be run in dom0:
+#	./ocaml/xenops/cancel_utils_test
 
 .PHONY: install
 install:
@@ -69,6 +96,10 @@ lib-uninstall:
 .PHONY: sdk-install
 sdk-install: doc
 	omake sdk-install
+
+.PHONY: noarch-install
+noarch-install: doc
+	omake noarch-install
 
 .PHONY: clean
 clean:
@@ -123,6 +154,7 @@ ocaml/fhs.ml :
 	let hooksdir=\"$(HOOKSDIR)\"\n \
 	let libexecdir=\"$(LIBEXECDIR)\"\n \
 	let xapiconf=\"$(XAPICONF)\"\n \
+	let rrddconf=\"$(RRDDCONF)\"\n \
 	let scriptsdir=\"$(SCRIPTSDIR)\"\n \
 	let varpatchdir=\"$(VARPATCHDIR)\"\n \
 	let webdir=\"$(WEBDIR)\"\n \
@@ -131,27 +163,31 @@ ocaml/fhs.ml :
 	let sbindir=\"$(SBINDIR)\"\n \
 	let sharedir=\"$(SHAREDIR)\"\n" \
 	> ocaml/fhs.ml
- 
+
 .PHONY: clean
  clean:
 
-.PHONY: xapi.spec
 xapi.spec: xapi.spec.in
+noarch.spec: noarch.spec.in
+
+%.spec: %.spec.in
 	sed -e 's/@RPM_RELEASE@/$(shell git rev-list HEAD | wc -l)/g' < $< > $@
 	sed -i "s!@OPTDIR@!${OPTDIR}!g" $@
 
 .PHONY: srpm
-srpm: xapi.spec
+srpm: xapi.spec noarch.spec
 	mkdir -p $(RPM_SOURCESDIR) $(RPM_SPECSDIR) $(RPM_SRPMSDIR)
 	while ! [ -d .git ]; do cd ..; done; \
 	git archive --prefix=xapi-0.2/ --format=tar HEAD | bzip2 -z > $(RPM_SOURCESDIR)/xapi-0.2.tar.bz2 # xen-api/Makefile
+	git archive --prefix=xapi-noarch-0.2/ --format=tar HEAD | bzip2 -z > $(RPM_SOURCESDIR)/xapi-noarch-0.2.tar.bz2 # xen-api/Makefile
 	cp $(JQUERY) $(JQUERY_TREEVIEW) $(RPM_SOURCESDIR)
 	make -C $(REPO) version
 	rm -f $(RPM_SOURCESDIR)/xapi-version.patch
 	(cd $(REPO); diff -u /dev/null ocaml/util/version.ml > $(RPM_SOURCESDIR)/xapi-version.patch) || true
-	cp -f xapi.spec $(RPM_SPECSDIR)/
-	chown root.root $(RPM_SPECSDIR)/xapi.spec || true
+	cp -f xapi.spec noarch.spec $(RPM_SPECSDIR)/
+	chown root.root $(RPM_SPECSDIR)/xapi.spec $(RPM_SPECSDIR)/noarch.spec || true
 	$(RPMBUILD) -bs --nodeps $(RPM_SPECSDIR)/xapi.spec
+	$(RPMBUILD) -bs --nodeps $(RPM_SPECSDIR)/noarch.spec
 
 
 .PHONY: build

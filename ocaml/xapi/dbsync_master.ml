@@ -41,7 +41,7 @@ let create_pool_record ~__context =
 
 let set_master_ip ~__context =
   let ip =
-    match (Helpers.get_management_ip_addr()) with
+    match (Helpers.get_management_ip_addr ~__context) with
 	Some ip -> ip
       | None ->
 	  (error "Cannot read master IP address. Check the control interface has an IP address"; "") in
@@ -69,9 +69,6 @@ let set_pool_defaults ~__context =
 			~key:Xapi_globs.cpuid_feature_mask_key
 			~value:Xapi_globs.cpuid_default_feature_mask
 
-(** Look at all running VMs, examine their consoles and regenerate the console URLs.
-    This catches the case where the IP address changes but the URLs still point to the wrong
-    place. *)
 let refresh_console_urls ~__context =
   List.iter
     (fun console ->
@@ -119,36 +116,6 @@ let release_locks ~__context =
   List.iter (fun self -> Db.VM.set_scheduled_to_be_resident_on ~__context ~self ~value:Ref.null)
     (Db.VM.get_all ~__context)
 
-(** Miami added an explicit VLAN linking table; to cope with the upgrade case
-    recreate any missing VLAN records here *)
-let create_missing_vlan_records ~__context =
-  debug "Recreating any missing VLAN records";
-  let all_pifs = Db.PIF.get_records_where ~__context ~expr:Db_filter_types.True in
-  let base_pifs = List.filter (fun (_, rc) -> rc.API.pIF_physical) all_pifs in
-  List.iter (fun (rf, rc) ->
-	       if rc.API.pIF_VLAN <> (-1L) then begin
-		 (* make sure this VLAN record exists *)
-		 let vlan = rc.API.pIF_VLAN_master_of in
-		 try
-		   ignore(Db.VLAN.get_uuid ~__context ~self:vlan)
-		 with _ ->
-		   debug "VLAN PIF '%s' has missing VLAN record" rc.API.pIF_uuid;
-		   (* Find the base PIF on this host to link it up to *)
-		   let my_base_pifs = List.filter (fun (_, x) -> x.API.pIF_host = rc.API.pIF_host) base_pifs in
-		   begin match List.filter (fun (_, x) -> x.API.pIF_device = rc.API.pIF_device) my_base_pifs with
-		   | [ brf, brc ] ->
-		       debug "VLAN PIF '%s' corresponds to base PIF '%s'" rc.API.pIF_uuid brc.API.pIF_uuid;
-		       let vlan_ref = Ref.make () and vlan_uuid = Uuid.string_of_uuid (Uuid.make_uuid ()) in
-		       Db.PIF.set_VLAN_master_of ~__context ~self:rf ~value:vlan_ref;
-		       Db.VLAN.create ~__context ~ref:vlan_ref ~uuid:vlan_uuid
-			 ~tagged_PIF:brf ~untagged_PIF:rf ~tag:rc.API.pIF_VLAN ~other_config:[]
-		   | [] ->
-		       warn "Failed to find untagged PIF corresponding to VLAN PIF '%s'" rc.API.pIF_uuid
-		   | _ ->
-		       warn "Found multiple untagged PIF corresponding to VLAN PIF '%s'" rc.API.pIF_uuid
-		   end
-	       end) all_pifs
-
 let create_tools_sr __context = 
   Helpers.call_api_functions ~__context (fun rpc session_id ->
     (* Creates a new SR and PBD record *)
@@ -192,12 +159,7 @@ let create_tools_sr __context =
 
 let create_tools_sr_noexn __context = Helpers.log_exn_continue "creating tools SR" create_tools_sr __context
 
-let clear_uncooperative_flags __context = 
-  List.iter (fun vm -> Helpers.set_vm_uncooperative ~__context ~self:vm ~value:false) (Db.VM.get_all ~__context)
-
-let clear_uncooperative_flags_noexn __context = Helpers.log_exn_continue "clearing uncooperative flags" clear_uncooperative_flags __context
-
-let ensure_vm_metrics_records_exist __context = 
+let ensure_vm_metrics_records_exist __context =
   List.iter (fun vm ->
 				 let m = Db.VM.get_metrics ~__context ~self:vm in
 				 if not(Db.is_valid_ref __context m) then begin
@@ -239,20 +201,14 @@ let update_env __context =
      and reset the rest to Halted. *)
   reset_vms_running_on_missing_hosts ~__context;
 
-  refresh_console_urls ~__context;
-
   (* Resets all Halted VMs to a known good state *)
   release_locks ~__context;
   (* Cancel tasks that were running on the master - by setting host=None we consider all tasks
      in the db for cancelling *)
   Cancel_tasks.cancel_tasks_on_host ~__context ~host_opt:None;
   (* Update the SM plugin table *)
-  Xapi_sm.resync_plugins ~__context;
+  Xapi_sm.on_xapi_start ~__context;
 
-  create_missing_vlan_records ~__context;
   create_tools_sr_noexn __context;
 
-  clear_uncooperative_flags_noexn __context;
-  
   ensure_vm_metrics_records_exist_noexn __context
-    

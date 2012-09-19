@@ -213,3 +213,76 @@ let cleanup (x: cleanup_stack) =
 	 )
     )
 
+open Pervasiveext
+
+type vm_export_import = {
+	vm: API.ref_VM;
+	dry_run: bool;
+	live: bool;
+	send_snapshots: bool;
+}
+
+(* Copy VM metadata to a remote pool *)
+let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address which =
+	let subtask_of = (Ref.string_of (Context.get_task_id __context)) in
+
+	let open Xmlrpc_client in
+
+	let local_export_request = match which with
+		| `All -> "all=true"
+		| `Only {vm=vm; send_snapshots=send_snapshots} -> Printf.sprintf "export_snapshots=%b&ref=%s" send_snapshots (Ref.string_of vm) in
+
+	let remote_import_request = match which with
+		| `All -> Printf.sprintf "%s?restore=true" Constants.import_metadata_uri
+		| `Only {vm=vm; live=live; dry_run=dry_run} ->
+			Printf.sprintf "%s?restore=true&live=%b&dry_run=%b" Constants.import_metadata_uri live dry_run in
+
+	Helpers.call_api_functions ~__context (fun my_rpc my_session_id ->
+		let get = Xapi_http.http_request ~version:"1.0" ~subtask_of
+			~cookie:["session_id", Ref.string_of my_session_id] ~keep_alive:false
+			Http.Get
+			(Printf.sprintf "%s?%s" Constants.export_metadata_uri local_export_request) in
+		let remote_task = Client.Task.create rpc session_id "VM metadata import" "" in
+		finally
+			(fun () ->
+				let put = Xapi_http.http_request ~version:"1.0" ~subtask_of
+					~cookie:[
+						"session_id", Ref.string_of session_id;
+						"task_id", Ref.string_of remote_task
+					] ~keep_alive:false
+					Http.Put remote_import_request in
+				debug "Piping HTTP %s to %s" (Http.Request.to_string get) (Http.Request.to_string put);
+				with_transport (Unix Xapi_globs.unix_domain_socket)
+					(with_http get
+						(fun (r, ifd) ->
+							debug "Content-length: %s" (Opt.default "None" (Opt.map Int64.to_string r.Http.Response.content_length));
+							let put = { put with Http.Request.content_length = r.Http.Response.content_length } in
+							debug "Connecting to %s:%d" remote_address !Xapi_globs.https_port;
+							with_transport (SSL (SSL.make (), remote_address, !Xapi_globs.https_port))
+								(with_http put
+									(fun (_, ofd) ->
+										let (n: int64) = Unixext.copy_file ?limit:r.Http.Response.content_length ifd ofd in
+										debug "Written %Ld bytes" n
+									)
+								)
+						)
+					);
+				(* Wait for remote task to succeed or fail *)
+				Cli_util.wait_for_task_completion rpc session_id remote_task;
+				match Client.Task.get_status rpc session_id remote_task with
+					| `cancelling | `cancelled ->
+						raise (Api_errors.Server_error(Api_errors.task_cancelled, [ Ref.string_of remote_task ]))
+					| `pending ->
+						failwith "wait_for_task_completion failed; task is still pending"
+					| `failure -> begin
+						let error_info = Client.Task.get_error_info rpc session_id remote_task in
+						match error_info with
+						| code :: params when Hashtbl.mem Datamodel.errors code ->
+							raise (Api_errors.Server_error(code, params))
+						| _ -> failwith (Printf.sprintf "VM metadata import failed: %s" (String.concat " " error_info));
+					end
+					| `success ->
+						debug "Remote metadata import succeeded"
+			)
+			(fun () -> Client.Task.destroy rpc session_id remote_task )
+	)

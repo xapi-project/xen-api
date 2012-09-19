@@ -336,7 +336,7 @@ let main_loop ifd ofd =
     debug "Read: %s\n%!" (string_of_message cmd); flush stderr;
     match cmd with
     | Command (Print x) -> print_endline x; flush stdout
-    | Command (PrintStderr x) -> Printf.fprintf stderr "%s\n%!" x
+    | Command (PrintStderr x) -> Printf.fprintf stderr "%s%!" x
     | Command (Debug x) -> debug "debug from server: %s\n%!" x
     | Command (Load x) ->
         begin
@@ -590,7 +590,6 @@ let main () =
   let _ =  try
     Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
     Sys.set_signal Sys.sigint (Sys.Signal_handle (fun _ -> exit 1));
-    Stunnel.init_stunnel_path();
     let xe, args =
       match Array.to_list Sys.argv with
       | h :: t -> h, t
@@ -647,7 +646,7 @@ let main () =
       error "Stunnel process %d %s.\n" i
         (match e with
          | Unix.WEXITED c -> "existed with exit code " ^ string_of_int c
-         | Unix.WSIGNALED c -> "killed by signal " ^ string_of_int c
+         | Unix.WSIGNALED c -> "killed by signal " ^ (Unixext.string_of_signal c)
          | Unix.WSTOPPED c -> "stopped by signal " ^ string_of_int c)
   | e ->
       error "Unhandled exception\n%s\n" (Printexc.to_string e) in

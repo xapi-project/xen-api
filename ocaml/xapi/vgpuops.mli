@@ -17,10 +17,14 @@
  *)
 
 
-(** Return a list of GPU PCI devices that are going to be attached. *)
+(** Assign a list of PCI devices to a VM for GPU passthrough, store them in
+	other_config:vgpu_pci *)
 val create_vgpus :
-  __context:Context.t ->
-  vm:[ `VM ] Ref.t -> int -> bool -> [ `PCI ] Ref.t list
+  __context:Context.t -> (API.ref_VM * API.vM_t) -> bool -> unit
+
+(** Return a list of the GPU PCI devices which have been assigned to this VM *)
+val list_vgpus :
+  __context:Context.t -> vm:API.ref_VM -> (int * (int * int * int * int)) list
 
 (** Mark all VGPUs for the given VM as unattached. *)
 val clear_vgpus : __context:Context.t -> vm:[ `VM ] Ref.t -> unit

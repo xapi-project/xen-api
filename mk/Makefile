@@ -69,7 +69,7 @@ $(OUTPUT_CLI_RT) $(OUTPUT_SDK): $(MY_MAIN_PACKAGES)/.dirstamp $(RPM_DIRECTORIES)
 
 	# extract the xapi-docs
 	mkdir -p $(OUTPUT_SDK_DIR)/tmp
-	(cd $(OUTPUT_SDK_DIR)/tmp; rpm2cpio $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-docs*.rpm | cpio -i --make-directories; tar -zcf $(OUTPUT_SDK) .;zip -9rv $(OUTPUT_WEBZIP) .)
+	(cd $(OUTPUT_SDK_DIR)/tmp; rpm2cpio $(RPM_RPMSDIR)/noarch/xapi-noarch-docs*.rpm | cpio -i --make-directories; tar -zcf $(OUTPUT_SDK) .;zip -9rv $(OUTPUT_WEBZIP) .)
 	rm -rf $(OUTPUT_SDK_DIR)/tmp
 
 	# Unpack the xapi-datamodel-devel RPM for now
@@ -82,12 +82,15 @@ $(OUTPUT_CLI_RT) $(OUTPUT_SDK): $(MY_MAIN_PACKAGES)/.dirstamp $(RPM_DIRECTORIES)
 	# Make sure the right RPMs appear on the install CD
 	mkdir $(MY_MAIN_PACKAGES)
 	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-core-*.rpm $(MY_MAIN_PACKAGES)
+	cp $(RPM_RPMSDIR)/noarch/xapi-noarch-backend-udev-*.rpm $(MY_MAIN_PACKAGES)
 	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-networkd-*.rpm $(MY_MAIN_PACKAGES)
+	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-rrdd-*.rpm $(MY_MAIN_PACKAGES)
 	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-squeezed-*.rpm $(MY_MAIN_PACKAGES)
 	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-tests-*.rpm $(MY_MAIN_PACKAGES)
-	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-www-*.rpm $(MY_MAIN_PACKAGES)
+	cp $(RPM_RPMSDIR)/noarch/xapi-noarch-www-*.rpm $(MY_MAIN_PACKAGES)
 	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-xe-*.rpm $(MY_MAIN_PACKAGES)
 	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-xenops-*.rpm $(MY_MAIN_PACKAGES)
+	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-xenopsd-*.rpm $(MY_MAIN_PACKAGES)
 	mkdir $(MY_XCP_PACKAGES)
 	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-v6d-*.rpm $(MY_XCP_PACKAGES)
 

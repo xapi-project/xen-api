@@ -11,8 +11,17 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Squeezed_rpc 
 open Xenstore
+
+module D = Debug.Debugger(struct let name = Memory_interface.service_name end)
+open D
+
+let _service = "squeezed"
+
+let listdir xs path = try List.filter (fun x -> x <> "") (xs.Xs.directory path) with Xenbus.Xb.Noent -> []
+let xs_read xs path = try xs.Xs.read path with Xenbus.Xb.Noent as e -> begin debug "xenstore-read %s returned ENOENT" path; raise e end
+
+let path = String.concat "/"
 
 (** Path in xenstore where the daemon stores state, specifically reservations *)
 let state_path service = path [ ""; service; "state" ]

@@ -29,8 +29,8 @@ let log_exn_continue msg f x = try f x with e -> debug "Ignoring exception: %s w
 
 exception Cli_failure of string
 
-(** Use the event system to wait for a specific task to complete (succeed, failed or be cancelled) *)
-let wait_for_task_completion rpc session_id task = 
+(** call [callback task_record] on every update to the task, until it completes or fails *)
+let track callback rpc session_id task = 
   let classes = [ "task" ] in
   finally 
     (fun () ->
@@ -44,6 +44,10 @@ let wait_for_task_completion rpc session_id task =
 	   while not(!finished) do
 	     let events = Event_types.events_of_xmlrpc (Client.Event.next ~rpc ~session_id) in
 	     let events = List.map Event_helper.record_of_event events in
+		 List.iter (function
+			 | Event_helper.Task (t, Some t_rec) when t = task -> callback t_rec
+			 | _ -> ()
+		 ) events;
 	     let matches = function
 	       | Event_helper.Task (t, Some t_rec) -> t = task && t_rec.API.task_status <> `pending
 	       | _ -> false in
@@ -54,6 +58,26 @@ let wait_for_task_completion rpc session_id task =
 	   Client.Event.unregister ~rpc ~session_id ~classes
        done)
     (fun () -> Client.Event.unregister ~rpc ~session_id ~classes)
+
+let result_from_task rpc session_id remote_task =
+	match Client.Task.get_status rpc session_id remote_task with
+		| `cancelling | `cancelled ->
+			raise (Api_errors.Server_error(Api_errors.task_cancelled, [ Ref.string_of remote_task ]))
+		| `pending ->
+			failwith "wait_for_task_completion failed; task is still pending"
+		| `success ->
+			()
+		| `failure ->
+			let error_info = Client.Task.get_error_info rpc session_id remote_task in
+			begin match error_info with
+				| code :: params ->
+					raise (Api_errors.Server_error(code, params))
+				| [] ->
+					failwith (Printf.sprintf "Task failed but no error recorded: %s" (Ref.string_of remote_task))
+			end
+
+(** Use the event system to wait for a specific task to complete (succeed, failed or be cancelled) *)
+let wait_for_task_completion = track (fun _ -> ())
 
 let track_http_operation ?use_existing_task fd rpc session_id (make_command: API.ref_task -> command) label =
   (* Need to associate the operation with a task so we can check for failure *)
@@ -172,8 +196,8 @@ let server_error (code: string) (params: string list) sock =
   | None ->
     marshal sock (Command (Error(code, List.map ref_convert params)));
   | Some (e, l) ->
-    marshal sock (Command (PrintStderr e));
-    List.iter (fun pv -> marshal sock (Command (PrintStderr pv))) l;
+    marshal sock (Command (PrintStderr (e ^ "\n")));
+    List.iter (fun pv -> marshal sock (Command (PrintStderr (pv ^ "\n")))) l;
   end;
   marshal sock (Command (Exit 1))
 

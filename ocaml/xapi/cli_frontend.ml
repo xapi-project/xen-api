@@ -92,14 +92,14 @@ let rec cmdtable_data : (string*cmd_spec) list =
       implementation=No_fd Cli_operations.log_get;
       flags=[Neverforward];
     };
-(*
+
     "blob-get",
     {
       reqd=["uuid";"filename"];
       optn=[];
       help="Save the binary blob to the local filesystem";
       implementation=With_fd Cli_operations.blob_get;
-      flags=[];
+      flags=[Hidden];
     };
 
     "blob-put",
@@ -108,7 +108,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
       optn=[];
       help="Upload a binary blob to the xapi server";
       implementation=With_fd Cli_operations.blob_put;
-      flags=[];
+      flags=[Hidden];
     };
 
     "blob-create",
@@ -117,9 +117,9 @@ let rec cmdtable_data : (string*cmd_spec) list =
       optn=["mime-type";"vm-uuid";"host-uuid";"sr-uuid";"network-uuid";"pool-uuid"];
       help="Create a binary blob to be associated with an API object";
       implementation=No_fd Cli_operations.blob_create;
-      flags=[];
+      flags=[Hidden];
     };
-*)
+
     "message-create",
     {
       reqd=["name"; "priority"; "body"];
@@ -1063,6 +1063,15 @@ let rec cmdtable_data : (string*cmd_spec) list =
      flags=[Hidden; Vm_selectors];
    };
 
+   "vm-query-services",
+	  {
+		  reqd=[];
+		  optn=[];
+		  help="Query the system services offered by the given VM(s).";
+		  implementation=No_fd Cli_operations.vm_query_services;
+		  flags=[Standard;Vm_selectors;Hidden];
+	  };
+
    "vm-start",
    {
      reqd=[];
@@ -1147,8 +1156,8 @@ let rec cmdtable_data : (string*cmd_spec) list =
    "vm-migrate",
     {
       reqd=[];
-      optn=["live"; "host"; "host-uuid"; "encrypt"; "force"];
-      help="Migrate the selected VM(s). The parameter '--live' will migrate the VM without shutting it down. The 'host' parameter matches can be either the name or the uuid of the host. The parameter '--encrypt' will encrypt the memory image transfer.";
+      optn=["live"; "host"; "host-uuid"; "remote-master"; "remote-username"; "remote-password"; "remote-network"; "destination-sr-uuid"; "force"; "vif:"; "vdi:"];
+      help="Migrate the selected VM(s). The parameter '--live' will migrate the VM without shutting it down. The 'host' parameter matches can be either the name or the uuid of the host. If you are migrating a VM to a remote pool, you will need to specify the remote-master, remote-username, and remote-password parameters. remote-master is the network address of the master host. To migrate to a particular host within a remote pool, you may additionally specify the host or host-uuid parameters. The vif and vdi mapping parameters take the form 'vif:<source vif uuid>=<dest vif uuid>' (and the same for vdi map). You may simplify this mapping by using the destination-sr-uuid parameter. Unfortunately, destination uuids cannot be tab-completed.";
       implementation=No_fd Cli_operations.vm_migrate;
       flags=[Standard; Vm_selectors];
     };
@@ -1274,9 +1283,9 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
 
    "vm-import",
    {
-     reqd=["filename"];
-     optn=["preserve"; "sr-uuid"; "force"];
-     help="Import a VM. If the option preserve=true is given then as many settings as possible are restored, including VIF MAC addresses. The default is to regenerate VIF MAC addresses. The VDIs will be imported into the Pool's default SR unless an override is provided. If the force option is given then any disk data checksum failures will be ignored.";
+			reqd=[];
+			optn=["filename"; "preserve"; "sr-uuid"; "force"; "host-username"; "host-password"; "type"; "remote-config"];
+			help="Import a VM. If type=ESXServer is given, it will import from a VMWare server and 'host-username', 'host-password' and 'remote-config' are required. Otherwise, it will import from a file, and 'filename' is required. If the option preserve=true is given then as many settings as possible are restored, including VIF MAC addresses. The default is to regenerate VIF MAC addresses. The VDIs will be imported into the Pool's default SR unless an override is provided. If the force option is given then any disk data checksum failures will be ignored.";
      implementation=With_fd Cli_operations.vm_import;
      flags=[Standard];
    };
@@ -1284,7 +1293,7 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
    "vm-export",
     {
       reqd=["filename"];
-      optn=["preserve-power-state"; "compress"];
+      optn=["preserve-power-state"; "compress"; "include-snapshots"];
       help="Export a VM to <filename>.";
       implementation=With_fd Cli_operations.vm_export;
       flags=[Standard; Vm_selectors];
@@ -1449,6 +1458,24 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
       optn=["IP"; "netmask"; "gateway"; "DNS"];
       help="Reconfigure the IP address settings on a PIF.";
       implementation=No_fd Cli_operations.pif_reconfigure_ip;
+      flags=[];
+    };
+
+   "pif-reconfigure-ipv6",
+    {
+      reqd=["uuid"; "mode"];
+      optn=["IPv6"; "gateway"; "DNS"];
+      help="Reconfigure the IPv6 address settings on a PIF.";
+      implementation=No_fd Cli_operations.pif_reconfigure_ipv6;
+      flags=[];
+    };
+
+   "pif-set-primary-address-type",
+    {
+      reqd=["uuid"; "primary_address_type"];
+      optn=[];
+      help="Change the primary address type used by this PIF.";
+      implementation=No_fd Cli_operations.pif_set_primary_address_type;
       flags=[];
     };
 
@@ -1725,6 +1752,14 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
       implementation=No_fd Cli_operations.vdi_copy;
       flags=[];
     };
+   "vdi-pool-migrate",
+    {
+      reqd=["uuid"; "sr-uuid"];
+		optn=[];
+      help="Migrate a VDI to a specified SR, while the VDI is attached to a running guest.";
+      implementation=No_fd Cli_operations.vdi_pool_migrate;
+      flags=[];
+    };
    "vdi-clone",
     {
       reqd=["uuid"];
@@ -1983,12 +2018,12 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     };
    "host-evacuate",
     {
-      reqd=["uuid"];
+      reqd=[];
       optn=[];
       help="Migrate all VMs off a host.";
       implementation=No_fd Cli_operations.host_evacuate;
-      flags=[];
-    };   
+      flags=[Host_selectors];
+    };
    "host-get-vms-which-prevent-evacuation",
     {
       reqd=["uuid"];
@@ -1997,14 +2032,6 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.host_get_vms_which_prevent_evacuation;
       flags=[];
     };
-   "host-get-uncooperative-vms",
-    {
-      reqd=["uuid"];
-      optn=[];
-      help="Return a list of VMs which are not co-operating with the memory control system.";
-      implementation=No_fd Cli_operations.host_get_uncooperative_vms;
-      flags=[];      
-    };
    "host-shutdown-agent",
     {
       reqd=[];
@@ -2012,7 +2039,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       help="Shut down the agent on the local host.";
       implementation=No_fd_local_session Cli_operations.host_shutdown_agent;
       flags=[Neverforward];
-    };   
+    };
    "diagnostic-compact",
     {
       reqd=[];

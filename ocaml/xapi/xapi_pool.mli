@@ -53,9 +53,6 @@ val protect_exn : ('a -> 'b) -> 'a -> 'b option
 val update_non_vm_metadata :
   __context:Context.t ->
   rpc:(XMLRPC.xmlrpc -> XMLRPC.xmlrpc) -> session_id:API.ref_session -> unit
-val update_vm_metadata :
-  __context:Context.t ->
-  rpc:'a -> session_id:'b Ref.t -> master_address:string -> unit
 val join_common :
   __context:Context.t ->
   master_address:string ->
@@ -114,7 +111,7 @@ val ha_compute_vm_failover_plan :
   failed_vms:API.ref_VM list -> (API.ref_VM * (string * string) list) list
 val create_new_blob :
   __context:Context.t ->
-  pool:[ `pool ] Ref.t -> name:string -> mime_type:string -> [ `blob ] Ref.t
+  pool:[ `pool ] Ref.t -> name:string -> mime_type:string -> public:bool -> [ `blob ] Ref.t
 val set_ha_host_failures_to_tolerate :
   __context:Context.t -> self:[ `pool ] Ref.t -> value:int64 -> unit
 val ha_schedule_plan_recomputation : __context:'a -> unit
