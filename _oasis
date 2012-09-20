@@ -1,0 +1,14 @@
+OASISFormat: 0.3
+Name:        xen-api-client
+Version:     0.1.0
+Synopsis:    Xen API client
+Authors:     Jonathan Ludlam, Anil Madhavapeddy
+License:     LGPL-2.0 with OCaml linking exception
+Plugins:     META (0.3)
+BuildTools:  ocamlbuild
+
+Library "xen-api-client"
+  Path: lib
+  Findlibname: xen-api-client
+  Modules: API,	Api_errors, Client, Date, XMLRPC, Xml
+  BuildDepends:	xmlm
