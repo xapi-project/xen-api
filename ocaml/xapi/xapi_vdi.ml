@@ -26,7 +26,7 @@ open Printf
 
 (** Checks to see if an operation is valid in this state. Returns Some exception
     if not and None if everything is ok. *)
-let check_operation_error ~__context ha_enabled record _ref' op =
+let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_records=[]) ha_enabled record _ref' op =
 	let _ref = Ref.string_of _ref' in
 	let current_ops = record.Db_actions.vDI_current_operations in
 
@@ -145,16 +145,19 @@ let assert_operation_valid ~__context ~self ~(op:API.vdi_operations) =
       None -> ()
     | Some (a,b) -> raise (Api_errors.Server_error (a,b))
 
-let update_allowed_operations ~__context ~self : unit =
+let update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records ~vbd_records =
   let pool = Helpers.get_pool ~__context in
   let ha_enabled = Db.Pool.get_ha_enabled ~__context ~self:pool in
 
   let all = Db.VDI.get_record_internal ~__context ~self in
   let allowed = 
-    let check x = match check_operation_error ~__context ha_enabled all self x with None ->  [ x ] | _ -> [] in
+    let check x = match check_operation_error ~__context ~sr_records ~pbd_records ~vbd_records ha_enabled all self x with None ->  [ x ] | _ -> [] in
 	List.fold_left (fun accu op -> check op @ accu) []
 		[ `snapshot; `copy; `clone; `destroy; `resize; `update; `generate_config; `resize_online ] in
   Db.VDI.set_allowed_operations ~__context ~self ~value:allowed
+
+let update_allowed_operations ~__context ~self : unit =
+	update_allowed_operations_internal ~__context ~self ~sr_records:[] ~pbd_records:[] ~vbd_records:[]
 
 (** Someone is cancelling a task so remove it from the current_operations *)
 let cancel_task ~__context ~self ~task_id = 
