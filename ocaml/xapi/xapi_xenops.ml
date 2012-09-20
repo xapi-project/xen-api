@@ -766,6 +766,7 @@ let update_vm ~__context id =
 				else begin
 					debug "xenopsd event: processing event for VM %s" id;
 					if info = None then debug "xenopsd event: VM state missing: assuming VM has shut down";
+					let should_update_allowed_operations = ref false in
 					let different f =
 						let a = Opt.map (fun x -> f (snd x)) info in
 						let b = Opt.map f previous in
@@ -777,6 +778,8 @@ let update_vm ~__context id =
 					   inject artificial events IF there has been an event sync failure? *)
 					if different (fun x -> x.power_state) then begin
 						try
+							debug "Will update VM.allowed_operations because power_state has changed.";
+							should_update_allowed_operations := true;
 							let power_state = xenapi_of_xenops_power_state (Opt.map (fun x -> (snd x).power_state) info) in
 							debug "xenopsd event: Updating VM %s power_state <- %s" id (Record_util.power_state_to_string power_state);
 							(* This will mark VBDs, VIFs as detached and clear resident_on
@@ -805,6 +808,8 @@ let update_vm ~__context id =
 					end;
 					if different (fun x -> x.domids) then begin
 						try
+							debug "Will update VM.allowed_operations because domid has changed.";
+							should_update_allowed_operations := true;
 							debug "xenopsd event: Updating VM %s domid" id;
 							Opt.iter
 								(fun (_, state) ->
@@ -895,6 +900,8 @@ let update_vm ~__context id =
 							error "Caught %s: while updating VM %s rtc/timeoffset" (Printexc.to_string e) id
 					end;
 					let check_guest_agent () =
+						debug "Will update VM.allowed_operations because guest_agent has changed.";
+						should_update_allowed_operations := true;
 						Opt.iter
 							(fun (_, state) ->
 								List.iter
@@ -990,7 +997,8 @@ let update_vm ~__context id =
 							error "Caught %s: while updating VM %s HVM_shadow_multiplier" (Printexc.to_string e) id
 					end;
 					Xenops_cache.update_vm id (Opt.map snd info);
-					Xapi_vm_lifecycle.update_allowed_operations ~__context ~self;
+					if !should_update_allowed_operations then
+						Xapi_vm_lifecycle.update_allowed_operations ~__context ~self;
 				end
 	with e ->
 		error "xenopsd event: Caught %s while updating VM: has this VM been removed while this host is offline?" (string_of_exn e)
