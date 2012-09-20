@@ -88,49 +88,36 @@ let exn_decl env e =
 	]
 
 let skeleton_method unimplemented env i m =
-	let open Printf in
 	[
-		Line (sprintf "def %s(self%s):" m.Method.name (String.concat "" (List.map (fun x -> ", " ^ x) (List.map (fun x -> x.Arg.name) m.Method.inputs))));
-		Block ([
-			Line (sprintf "\"\"\"%s\"\"\"" i.Interface.description);
-		] @ (
-			if unimplemented
-			then [ Line (sprintf "raise Unimplemented(\"%s.%s\")" i.Interface.name m.Method.name) ]
-			else ([
-				Line "result = {}";
-			] @ (
-				List.map (fun a -> Line (sprintf "result[\"%s\"] = %s" a.Arg.name (example_value_of env a.Arg.ty))) m.Method.outputs
-			) @ [
-				Line "return result"
-			])
-		))
+		Line (sprintf "let %s x = %s" m.Method.name
+			(if unimplemented
+			then (sprintf "raise (Unimplemented \"%s.%s\")" i.Interface.name m.Method.name)
+			else "failwith \"need example method outputs\"")
+		)
 	]
 
 let example_skeleton_user env i m =
     let open Printf in
     [
 		Line "";
-		Line (sprintf "class %s_myimplementation(%s_skeleton):" i.Interface.name i.Interface.name);
-		Line "...";
-		Block (skeleton_method false env i m);
-		Line "...";
+		Line (sprintf "module %s_myimplementation = struct" i.Interface.name);
+		Block [
+			Line (sprintf "include %s_skeleton" i.Interface.name);
+			Line "...";
+			Block (skeleton_method false env i m);
+			Line "...";
+		];
+		Line "end"
     ]
 
-let rec skeleton_of_interface unimplemented suffix env i =
-	let open Printf in
-
+let skeleton_of_interface unimplemented suffix env i =
 	[
-		Line (sprintf "class %s_%s:" i.Interface.name suffix);
-		Block ([
-			Line (sprintf "\"\"\"%s\"\"\"" i.Interface.description);
-			Line "def __init__(self):";
-			Block [
-				Line "pass";
-			];
-		] @ (
-			List.concat (List.map (skeleton_method unimplemented env i) i.Interface.methods)
-		))
+		Line (sprintf "module %s_%s = struct" i.Interface.name suffix);
+		Block (List.concat (List.map (skeleton_method unimplemented env i) i.Interface.methods));
+		Line "end";
 	]
+
+
 
 let test_impl_of_interface = skeleton_of_interface false "test"
 let skeleton_of_interface = skeleton_of_interface true "skeleton"
