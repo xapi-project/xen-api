@@ -48,12 +48,15 @@ let sm_cap_table =
 
 type table = (API.storage_operations, ((string * (string list)) option)) Hashtbl.t
 
-let capabilities_of_sr record =
-    try
-		Sm.capabilities_of_driver record.Db_actions.sR_type
-    with Sm.Unknown_driver _ ->
+let capabilities_of_sr_internal ~_type ~uuid =
+	try
+		Sm.capabilities_of_driver _type
+	with Sm.Unknown_driver _ ->
 		(* then look to see if this supports the SMAPIv2 *)
-		Smint.parse_capabilities (Storage_mux.capabilities_of_sr record.Db_actions.sR_uuid)
+		Smint.parse_capabilities (Storage_mux.capabilities_of_sr uuid)
+
+let capabilities_of_sr record =
+	capabilities_of_sr_internal record.Db_actions.sR_type record.Db_actions.sR_uuid
 
 (** Returns a table of operations -> API error options (None if the operation would be ok) *)
 let valid_operations ~__context record _ref' : table = 
