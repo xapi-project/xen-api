@@ -29,6 +29,7 @@ let update_all_allowed_operations ~__context =
 	and all_vifs = Db.VIF.get_all ~__context
 	and all_vdis = Db.VDI.get_all ~__context
 	and all_srs = Db.SR.get_all ~__context
+	and all_pbds = Db.PBD.get_all ~__context
 	and all_hosts = Db.Host.get_all ~__context in
 	debug "Updating allowed operations: VM";
 	List.iter (safe_wrapper "allowed_ops - VMs" (fun self -> Xapi_vm_lifecycle.update_allowed_operations ~__context ~self)) all_vms;
@@ -40,7 +41,11 @@ let update_all_allowed_operations ~__context =
 	List.iter (safe_wrapper "allowed_ops - VIFs" (fun self -> Xapi_vif_helpers.update_allowed_operations ~__context ~self)) all_vifs;
 	debug "Finished updating allowed operations: VIF";
 	debug "Updating allowed operations: VDI";
-	List.iter (safe_wrapper "allowed_ops - VDIs" (fun self -> Xapi_vdi.update_allowed_operations ~__context ~self)) all_vdis;
+	let sr_records = List.map (fun sr -> (sr, Db.SR.get_record_internal ~__context ~self:sr)) all_srs in
+	let pbd_records = List.map (fun pbd -> (pbd, Db.PBD.get_record ~__context ~self:pbd)) all_pbds in
+	let vbd_records = List.map (fun vbd -> (vbd, Db.VBD.get_record_internal ~__context ~self:vbd)) all_vbds in
+	List.iter (safe_wrapper "allowed_ops - VDIs"
+		(fun self -> Xapi_vdi.update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records ~vbd_records)) all_vdis;
 	debug "Finished updating allowed operations: VDI";
 	debug "Updating allowed operations: SR";
 	List.iter (safe_wrapper "allowed_ops" (fun self ->
