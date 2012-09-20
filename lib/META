@@ -1,0 +1,12 @@
+# OASIS_START
+# DO NOT EDIT (digest: 8d6ea50eb3dbf14a5c6ab6f231dd4fa2)
+version = "0.1.0"
+description = "Xen API client"
+requires = "xmlm"
+archive(byte) = "xen-api-client.cma"
+archive(byte, plugin) = "xen-api-client.cma"
+archive(native) = "xen-api-client.cmxa"
+archive(native, plugin) = "xen-api-client.cmxs"
+exists_if = "xen-api-client.cma"
+# OASIS_STOP
+

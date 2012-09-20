@@ -1,32 +1,43 @@
-default: test.js
+.PHONY: all clean install build
+all: build test doc
 
-test.byte : test.cmo post.cmo client.cmo aPI.cmo xMLRPC.cmo date.cmo xml.cmo api_errors.cmo
-	ocamlfind ocamlc -package js_of_ocaml,js_of_ocaml.syntax,xmlm -linkpkg -syntax camlp4o -annot -o test.byte post.cmo api_errors.cmo xml.cmo date.cmo xMLRPC.cmo aPI.cmo client.cmo test.cmo
+NAME=xen-api-client
 
-%.cmo : %.ml
-	ocamlfind ocamlc -package js_of_ocaml,js_of_ocaml.syntax,xmlm -syntax camlp4o -annot -c $<
+LWT ?= $(shell if ocamlfind query lwt.ssl >/dev/null 2>&1; then echo --enable-lwt; fi)
+ASYNC ?= $(shell if ocamlfind query async_core >/dev/null 2>&1; then echo --enable-async; fi)
+MIRAGE ?= $(shell if ocamlfind query mirage-net >/dev/null 2>&1; then echo --enable-mirage; fi)
+ifneq ($(MIRAGE_OS),xen)
+TESTS ?= --enable-tests
+endif
+# disabled by default as they hang at the moment for Async
+# NETTESTS ?= --enable-nettests
 
-test.js : test.byte
-	js_of_ocaml test.byte
+setup.bin: setup.ml
+	ocamlopt.opt -o $@ $< || ocamlopt -o $@ $< || ocamlc -o $@ $<
+	rm -f setup.cmx setup.cmi setup.o setup.cmo
 
-.PHONY: clean
+setup.data: setup.bin
+	./setup.bin -configure # $(LWT) $(ASYNC) $(MIRAGE) $(TESTS) $(NETTESTS)
 
-clean : 
-	rm -f *.cmo *.cmi *.byte *.js *~ *.annot
+build: setup.data setup.bin
+	./setup.bin -build
 
-test.cmo: client.cmo post.cmo
-test.cmx: client.cmx post.cmx
-post.cmo:
-post.cmx:
-api_errors.cmo:
-api_errors.cmx:
-aPI.cmo: xml.cmo xMLRPC.cmo date.cmo api_errors.cmo
-aPI.cmx: xml.cmx xMLRPC.cmx date.cmx api_errors.cmx
-client.cmo: xml.cmo xMLRPC.cmo api_errors.cmo aPI.cmo
-client.cmx: xml.cmx xMLRPC.cmx api_errors.cmx aPI.cmx
-date.cmo:
-date.cmx:
-xml.cmo:
-xml.cmx:
-xMLRPC.cmo: xml.cmo date.cmo
-xMLRPC.cmx: xml.cmx date.cmx
+doc: setup.data setup.bin
+	./setup.bin -doc
+
+install: setup.bin
+	./setup.bin -install
+
+test: setup.bin build
+	./setup.bin -test
+
+fulltest: setup.bin build
+	./setup.bin -test
+
+reinstall: setup.bin
+	ocamlfind remove $(NAME) || true
+	./setup.bin -reinstall
+
+clean:
+	ocamlbuild -clean
+	rm -f setup.data setup.log setup.bin
