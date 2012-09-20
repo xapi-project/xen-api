@@ -19,5 +19,14 @@ let _ =
 					let idents, api = resolve_refs_in_api api in
 					output_string oc (Python.of_interfaces idents api |> Python.string_of_ts)
 				)
+		) apis;
+
+	List.iter
+		(fun api ->
+			with_output_file (Printf.sprintf "ocaml/%s.ml" api.Interfaces.name)
+				(fun oc ->
+					let idents, api = resolve_refs_in_api api in
+					output_string oc (Ocaml.of_interfaces idents api |> Ocaml.string_of_ts)
+				)
 		) apis
 
