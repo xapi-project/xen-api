@@ -44,21 +44,30 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 	then Some(Api_errors.other_operation_in_progress,["VDI"; _ref])
 	else
 		(* check to see whether it's a local cd drive *)
-		let sr = Db.VDI.get_SR ~__context ~self:_ref' in
-		let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
+		let sr = record.Db_actions.vDI_SR in
+		let sr_record =
+			try 
+				List.assoc sr sr_records
+			with Not_found ->
+				Db.SR.get_record_internal ~__context ~self:sr
+		in
 		let srtype = sr_record.Db_actions.sR_type in
 		let is_tools_sr = Helpers.is_tools_sr ~__context ~sr in
 
 		(* Check to see if any PBDs are attached *)
 		let open Db_filter_types in
-		let num_pbds_attached =
-			List.length (Db.PBD.get_records_where ~__context ~expr:(And(Eq(Field "SR", Literal (Ref.string_of sr)), Eq(Field "currently_attached", Literal "true")))) in
-		if num_pbds_attached = 0 && List.mem op [`resize;]
+		let pbds_attached = match pbd_records with
+		| [] -> Db.PBD.get_records_where ~__context ~expr:(And(Eq(Field "SR", Literal (Ref.string_of sr)), Eq(Field "currently_attached", Literal "true")))
+		| _ -> List.filter (fun (_, pbd_record) -> (pbd_record.API.pBD_SR = sr) && pbd_record.API.pBD_currently_attached) pbd_records
+		in
+		if (List.length pbds_attached = 0) && List.mem op [`resize;]
 		then Some(Api_errors.sr_no_pbds, [Ref.string_of sr])
 		else
 			(* check to see whether VBDs exist which are using this VDI *)
-			let vbds = Db.VDI.get_VBDs ~__context ~self:_ref' in
-			let vbd_recs = List.map (fun self -> Db.VBD.get_record_internal ~__context ~self) vbds in
+			let my_vbd_records = match vbd_records with
+			| [] -> List.map (fun vbd -> Db.VBD.get_record_internal ~__context ~self:vbd) record.Db_actions.vDI_VBDs
+			| _ -> List.map snd (List.filter (fun (_, vbd_record) -> vbd_record.Db_actions.vBD_VDI = _ref') vbd_records)
+			in
 
 			(* Only a 'live' operation can be performed if there are active (even RO) devices *)
 			let is_active v = v.Db_actions.vBD_currently_attached || v.Db_actions.vBD_reserved in
@@ -79,7 +88,7 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 
 			let sm_caps = Xapi_sr_operations.capabilities_of_sr sr_record in
 
-			let any_vbd p = List.fold_left (||) false (List.map p vbd_recs) in
+			let any_vbd p = List.fold_left (||) false (List.map p my_vbd_records) in
 			if not operation_can_be_performed_live && (any_vbd is_active)
 			then Some (Api_errors.vdi_in_use,[_ref; (Record_util.vdi_operation_to_string op)])
 			else if any_vbd has_current_operation
