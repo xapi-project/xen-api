@@ -1075,9 +1075,10 @@ let refresh_local_vdi_activations ~__context =
 
 	let dbg = Ref.string_of (Context.get_task_id __context) in
 	let srs = Client.SR.list dbg in
+	let sr_uuids = List.map (fun sr -> (sr, Db.SR.get_uuid ~__context ~self:sr)) (Db.SR.get_all ~__context) in
 	List.iter 
 		(fun (vdi_ref, vdi_rec) ->
-			let sr = Db.SR.get_uuid ~__context ~self:vdi_rec.API.vDI_SR in
+			let sr = List.assoc vdi_rec.API.vDI_SR sr_uuids in
 			let vdi = vdi_rec.API.vDI_location in
 			if List.mem sr srs
 			then
