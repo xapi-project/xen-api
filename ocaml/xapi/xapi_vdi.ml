@@ -45,13 +45,7 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 	else
 		(* check to see whether it's a local cd drive *)
 		let sr = record.Db_actions.vDI_SR in
-		let sr_record =
-			try 
-				List.assoc sr sr_records
-			with Not_found ->
-				Db.SR.get_record_internal ~__context ~self:sr
-		in
-		let srtype = sr_record.Db_actions.sR_type in
+		let sr_type = Db.SR.get_type ~__context ~self:sr in
 		let is_tools_sr = Helpers.is_tools_sr ~__context ~sr in
 
 		(* Check to see if any PBDs are attached *)
@@ -86,7 +80,8 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 
 			(* NB RO vs RW sharing checks are done in xapi_vbd.ml *)
 
-			let sm_caps = Xapi_sr_operations.capabilities_of_sr sr_record in
+			let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
+			let sm_caps = Xapi_sr_operations.capabilities_of_sr_internal ~_type:sr_type ~uuid:sr_uuid in
 
 			let any_vbd p = List.fold_left (||) false (List.map p my_vbd_records) in
 			if not operation_can_be_performed_live && (any_vbd is_active)
@@ -96,7 +91,7 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 			else (
 				match op with
 				| `destroy ->
-					if srtype = "udev"
+					if sr_type = "udev"
 					then Some (Api_errors.vdi_is_a_physical_device, [_ref])
 					else
 						if is_tools_sr
