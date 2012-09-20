@@ -1021,7 +1021,8 @@ let update_vm ~__context id =
 					end;
 					Xenops_cache.update_vm id (Opt.map snd info);
 					if !should_update_allowed_operations then
-						Xapi_vm_lifecycle.update_allowed_operations ~__context ~self;
+						Helpers.call_api_functions ~__context
+							(fun rpc session_id -> XenAPI.VM.update_allowed_operations ~rpc ~session_id ~self);
 				end
 	with e ->
 		error "xenopsd event: Caught %s while updating VM: has this VM been removed while this host is offline?" (string_of_exn e)
