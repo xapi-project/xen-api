@@ -7,8 +7,29 @@ License:     LGPL-2.0 with OCaml linking exception
 Plugins:     META (0.3)
 BuildTools:  ocamlbuild
 
+Flag lwt
+  Description: build the Lwt library
+  Default: false
+
 Library "xen-api-client"
   Path: lib
   Findlibname: xen-api-client
   Modules: API,	Api_errors, Client, Date, XMLRPC, Xml
   BuildDepends:	xmlm
+
+Library "xen-api-client-lwt"
+  Build$: flag(lwt)
+  Install$: flag(lwt)
+  Path: lwt
+  Findlibparent: xen-api-client
+  Findlibname: lwt
+  Modules: Xen_api_lwt_unix
+  BuildDepends:	xen-api-client, xmlm, lwt, lwt.ssl, lwt.unix
+
+Executable list_vms
+  Build$: flag(lwt)
+  Install: false
+  Path: lwt_test
+  MainIs: list_vms.ml
+  BuildDepends: xen-api-client, xen-api-client.lwt, lwt, lwt.ssl, lwt.unix
+
