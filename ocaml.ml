@@ -123,59 +123,19 @@ let test_impl_of_interface = skeleton_of_interface false "test"
 let skeleton_of_interface = skeleton_of_interface true "skeleton"
 
 let server_of_interface env i =
-    let open Printf in
-    let typecheck_method_wrapper m =
-		let extract_input arg =
-			[ Line (sprintf "if not(args.has_key('%s')):" arg.Arg.name);
-			Block [ Line (sprintf "raise UnmarshalException('argument missing', '%s', '')" arg.Arg.name) ];
-			Line (sprintf "%s = args[\"%s\"]" arg.Arg.name arg.Arg.name) ]
-			(* @ (typecheck env arg.Arg.ty arg.Arg.name) *) in
-		let check_output arg =
-			(* The ocaml rpc-light doesn't actually support named results, instead we
-			   have single anonymous results only. *)
-			(* typecheck env arg.Arg.ty "results" *) [] in
-		[
-			Line (sprintf "def %s(self, args):" m.Method.name);
-			Block ([
-				Line "\"\"\"type-check inputs, call implementation, type-check outputs and return\"\"\"";
-				Line "if type(args) <> type({}):";
-				Block [
-					Line "raise (UnmarshalException('arguments', 'dict', repr(args)))"
-				]
-			] @ (
-				List.concat (List.map extract_input m.Method.inputs)
-			) @ [
-				Line (sprintf "results = self._impl.%s(%s)" m.Method.name (String.concat ", " (List.map (fun x -> x.Arg.name) m.Method.inputs)))
-			] @ (
-				List.concat (List.map check_output m.Method.outputs)
-			) @ [
-				Line "return results"
-			])
-		] in    
-	let dispatch_method first m =
-		[ Line (sprintf "%sif method == \"%s.%s\":" (if first then "" else "el") i.Interface.name m.Method.name);
-		Block [ Line (sprintf "return success(self.%s(args))" m.Method.name) ]
-		] in
-	let first_is_special f xs = match xs with
-		| [] -> []
-		| x :: xs -> f true x :: (List.map (f false) xs) in
+	let dispatch_method m =
+		Line (sprintf "| \"%s.%s\" -> Impl.%s call (* XXX *)" i.Interface.name m.Method.name m.Method.name) in
+
 	[
-		Line (sprintf "class %s_server_dispatcher:" i.Interface.name);
-		Block ([
-			Line (sprintf "\"\"\"%s\"\"\"" i.Interface.description);
-			Line "def __init__(self, impl):";
+		Line (sprintf "module %s_server_dispatcher = functor(Impl: %s) -> struct" i.Interface.name i.Interface.name);
+		Block [
+			Line "let dispatch (call: Rpc.call) : Rpc.response (* M.t *) =";
 			Block [
-				Line "\"\"\"impl is a proxy object whose methods contain the implementation\"\"\"";
-				Line "self._impl = impl";
-			];
-		] @ (List.concat (List.map typecheck_method_wrapper i.Interface.methods)
-		) @ [
-			Line "def _dispatch(self, method, params):";
-			Block ([
-				Line "\"\"\"type check inputs, call implementation, type check outputs and return\"\"\"";
-				Line "args = params[0]";
-			] @ (List.concat (first_is_special dispatch_method i.Interface.methods)))
-		])
+				Line "match call.Rpc.name with";
+				Block (List.map dispatch_method i.Interface.methods);
+			]
+		];
+		Line "end"
 	]
 
 let test_impl_of_interfaces env i =
