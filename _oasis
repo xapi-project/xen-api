@@ -12,12 +12,14 @@ Flag lwt
   Default: false
 
 Library "xen-api-client"
+  CompiledObject:     best
   Path: lib
   Findlibname: xen-api-client
   Modules: API,	Api_errors, Client, Date, XMLRPC, Xml
   BuildDepends:	xmlm
 
 Library "xen-api-client-lwt"
+  CompiledObject:     best
   Build$: flag(lwt)
   Install$: flag(lwt)
   Path: lwt
@@ -27,6 +29,7 @@ Library "xen-api-client-lwt"
   BuildDepends:	xen-api-client, xmlm, lwt, lwt.ssl, lwt.unix
 
 Executable list_vms
+  CompiledObject:     best
   Build$: flag(lwt)
   Install: false
   Path: lwt_test
