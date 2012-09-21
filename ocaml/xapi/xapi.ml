@@ -466,35 +466,41 @@ let server_run_in_emergency_mode () =
 (** Once the database is online we make sure our local ha.armed flag is in sync with the
     master's Pool.ha_enabled flag. *)
 let resynchronise_ha_state () =
-  try
-    Server_helpers.exec_with_new_task "resynchronise_ha_state"
-      (fun __context ->
-	 let pool = Helpers.get_pool ~__context in
-	 let pool_ha_enabled = Db.Pool.get_ha_enabled ~__context ~self:pool in
-	 let local_ha_enabled = bool_of_string (Localdb.get Constants.ha_armed) in
-	 match local_ha_enabled, pool_ha_enabled with
-	 | true, true ->
-	     info "HA is enabled on both localhost and the Pool"
-	 | false, false ->
-	     info "HA is disabled on both localhost and the Pool"
-	 | true, false ->
-	     info "HA has been disabled on the Pool while we were offline; disarming HA locally";
-	     Localdb.put Constants.ha_armed "false";
-	     Xapi_ha.Monitor.stop ()
-	 | false, true ->
-	     info "HA has been disabled on localhost but not the Pool.";
-	     if Pool_role.is_master () then begin
-	       info "We are the master: disabling HA on the Pool.";
-	       Db.Pool.set_ha_enabled ~__context ~self:pool ~value:false;
-	     end else begin
-	       info "We are a slave: we cannot join an HA-enabled Pool after being locally disarmed. Entering emergency mode.";
-	       Xapi_host.set_emergency_mode_error Api_errors.ha_pool_is_enabled_but_host_is_disabled [];
-	       server_run_in_emergency_mode()
-	     end
-      )
-  with e ->
-    (* Critical that we don't continue as a master and use shared resources *)
-    error "Caught exception resynchronising state of HA system: %s" (ExnHelper.string_of_exn e)
+	try
+		Server_helpers.exec_with_new_task "resynchronise_ha_state"
+			(fun __context ->
+				(* Make sure the control domain is marked as "running" - in the case of *)
+				(* HA failover it will have been marked as "halted". *)
+				let control_domain_uuid = Util_inventory.lookup Util_inventory._control_domain_uuid in
+				let control_domain = Db.VM.get_by_uuid ~__context ~uuid:control_domain_uuid in
+				Db.VM.set_power_state ~__context ~self:control_domain ~value:`Running;
+
+				let pool = Helpers.get_pool ~__context in
+				let pool_ha_enabled = Db.Pool.get_ha_enabled ~__context ~self:pool in
+				let local_ha_enabled = bool_of_string (Localdb.get Constants.ha_armed) in
+				match local_ha_enabled, pool_ha_enabled with
+				| true, true ->
+					info "HA is enabled on both localhost and the Pool"
+				| false, false ->
+					info "HA is disabled on both localhost and the Pool"
+				| true, false ->
+					info "HA has been disabled on the Pool while we were offline; disarming HA locally";
+					Localdb.put Constants.ha_armed "false";
+					Xapi_ha.Monitor.stop ()
+				| false, true ->
+					info "HA has been disabled on localhost but not the Pool.";
+					if Pool_role.is_master () then begin
+						info "We are the master: disabling HA on the Pool.";
+						Db.Pool.set_ha_enabled ~__context ~self:pool ~value:false;
+					end else begin
+						info "We are a slave: we cannot join an HA-enabled Pool after being locally disarmed. Entering emergency mode.";
+						Xapi_host.set_emergency_mode_error Api_errors.ha_pool_is_enabled_but_host_is_disabled [];
+						server_run_in_emergency_mode()
+					end
+			)
+	with e ->
+		(* Critical that we don't continue as a master and use shared resources *)
+		error "Caught exception resynchronising state of HA system: %s" (ExnHelper.string_of_exn e)
 
 (* Calculates the amount of free memory on the host at boot time. *)
 (* Returns a result that is equivalent to (T - X), where:         *)
