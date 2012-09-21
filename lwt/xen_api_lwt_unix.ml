@@ -12,85 +12,122 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Lwt
-
-type t = {
-	address: Unix.sockaddr;
-	mutable io: (Lwt_io.input_channel * Lwt_io.output_channel) option;
-	m: Lwt_mutex.t;
-}
-
-let of_sockaddr sockaddr = {
-	address = sockaddr;
-	io = None;
-	m = Lwt_mutex.create ();
-}
-
-let timeout = 30.
-
-let reconnect (t: t) =
-	lwt () = match t.io with
-		| Some (ic, oc) -> Lwt_io.close ic >> Lwt_io.close oc
-		| None -> return () in
-	t.io <- None;
-
-	let socket = Lwt_unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
-	let start = Unix.gettimeofday () in
-	lwt () = while_lwt t.io = None do
-		try_lwt
-			lwt () = Lwt_unix.connect socket t.address in
-			let ic = Lwt_io.of_fd ~close:return ~mode:Lwt_io.input socket in
-			let oc = Lwt_io.of_fd ~close:(fun () -> Lwt_unix.close socket) ~mode:Lwt_io.output socket in
-			let io = Some (ic, oc) in
-			t.io <- io;
-			return ()
-		with e ->
-			if Unix.gettimeofday () -. start >= timeout
-			then fail e
-			else Lwt_unix.sleep 1.
-	done in
-	match t.io with
-		| None -> assert false
-		| Some io -> return io
-
-
 exception No_content_length
 
 exception Http_error of int * string
 
-let counter = ref 0
+module type IO = sig
 
-let time_this descr f =
-	let start = Unix.gettimeofday () in
-	lwt result = f () in
-	Printf.fprintf stderr "TIME: %s took %.02f\n%!" descr (Unix.gettimeofday () -. start);
-	return result
+	type 'a t
+	val (>>=) : 'a t -> ('a -> 'b t) -> 'b t
+	val return : 'a -> 'a t
 
-let one_attempt (ic, oc) xml =
-	let open Printf in
-	let body = Xml.to_string xml in
-	lwt () = Lwt_list.iter_s
+	type ic
+	type oc
+
+	val iter : ('a -> unit t) -> 'a list -> unit t
+	val read_line : ic -> string option t
+	val read : ic -> int -> string t
+	val read_exactly : ic -> string -> int -> int -> bool t
+	val write : oc -> string -> unit t
+
+	val close : (ic * oc) -> unit t
+
+	type address
+	val open_connection: address -> (ic * oc) t
+end
+
+module Lwt_unix_IO = struct
+	include Cohttp_lwt_unix.IO
+
+	let close (ic, oc) = Lwt_io.close ic >> Lwt_io.close oc
+
+	let timeout = 30.
+
+	type address = Unix.sockaddr
+	let open_connection address =
+		let socket = Lwt_unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
+		let start = Unix.gettimeofday () in
+		let result = ref None in
+		let exn = ref None in
+		lwt () = while_lwt !result = None && !exn = None do
+			try_lwt
+				lwt () = Lwt_unix.connect socket address in
+				let ic = Lwt_io.of_fd ~close:return ~mode:Lwt_io.input socket in
+				let oc = Lwt_io.of_fd ~close:(fun () -> Lwt_unix.close socket) ~mode:Lwt_io.output socket in
+				result := Some (ic, oc);
+				return ()
+			with e ->
+				if Unix.gettimeofday () -. start >= timeout
+				then (exn := Some e; return ())
+				else Lwt_unix.sleep 1.
+		done in
+		match !result, !exn with
+			| Some x, _ -> return x
+			| _, Some e ->
+				(* XXX: need a nice error handling technique *)
+				Printf.fprintf stderr "Caught %s\n%!" (Printexc.to_string e);
+				failwith "it's game over man"
+			| None, None -> assert false
+end
+
+			
+
+module Make(IO:IO) = struct
+	open IO
+	type ic = IO.ic
+	type oc = IO.oc
+
+	type t = {
+		address: address;
+		mutable io: (ic * oc) option;
+	}
+
+	let of_sockaddr address = {
+		address = address;
+		io = None;
+	}
+
+	let reconnect (t: t) =
+		begin match t.io with
+			| Some io -> close io
+			| None -> return ()
+		end >>= fun () ->
+		t.io <- None;
+
+		open_connection t.address
+		>>= fun io ->
+		t.io <- Some io;
+		return io
+
+	let one_attempt (ic, oc) xml =
+		let open Printf in
+		let body = Xml.to_string xml in
+
+		iter
 		(fun line ->
-			Lwt_io.write oc line >> Lwt_io.write oc "\r\n"
+			write oc line
+			>>= fun () ->
+			write oc "\r\n"
 		) [
 			"POST / HTTP/1.1";
 			"User-agent: xen_api_lwt_unix/0.1";
 			sprintf "Content-length: %d" (String.length body);
 			"Connection: keep-alive";
 			""
-		] in
-	lwt () = Lwt_io.write oc body in
-    lwt response = Lwt_io.read_line ic in
-	let proto, code, result = Scanf.sscanf response "HTTP/1.%d %d %s" (fun a b c -> a, b, c) in
-	if code <> 200
-	then fail (Http_error(code, result))
-	else begin
+		]
+		>>= fun () ->
+		write oc body
+		>>= fun () ->
+		read_line ic
+		>>= fun _ ->
 		let headers = Hashtbl.create 16 in
-		let finished = ref false in
-		lwt () = while_lwt not(!finished) do
-			lwt line = Lwt_io.read_line ic in
+		let rec loop () =
+			read_line ic
+			>>= fun line ->
+			let line = (match line with None -> failwith "game over, again" | Some line -> line) in
 			if line = ""
-			then finished := true
+			then return ()
 			else begin
 				let i = String.index line ':' in
 				let key = String.sub line 0 i in
@@ -101,16 +138,15 @@ let one_attempt (ic, oc) xml =
 				let m = ref (String.length line - 1) in
 				while !m > !n && line.[!m] = ' ' do decr m done;
 				let value = String.sub line !n (!m - !n + 1) in
-				Hashtbl.add headers (String.lowercase key) value
-			end;
-			return ()
-		done in
-		lwt content_length =
-			if not(Hashtbl.mem headers "content-length")
-			then fail No_content_length
-			else return (int_of_string (Hashtbl.find headers "content-length")) in
+				Hashtbl.add headers (String.lowercase key) value;
+				loop ()
+			end in
+		loop ()
+		>>= fun () ->
+		let content_length = int_of_string (Hashtbl.find headers "content-length") in
 		let result = String.create content_length in
-		lwt () = Lwt_io.read_into_exactly ic result 0 content_length in
+		read_exactly ic result 0 content_length
+		>>= fun _ ->
 (* for debugging
 incr counter;
 lwt fd = Lwt_unix.openfile (Printf.sprintf "/tmp/response.%d.xml" !counter) [ Unix.O_WRONLY; Unix.O_CREAT ] 0o644 in
@@ -119,22 +155,20 @@ lwt () = Lwt_io.write_from_exactly fd_oc result 0 (String.length result) in
 lwt () = Lwt_io.close fd_oc in
 *)
 		return (Xml.parse_string result)
-	end	
 
-let rec rpc max_retries retry_number (t: t) (xml: Xml.xml) : Xml.xml Lwt.t =
-	lwt io = match t.io with
+	let rec rpc max_retries retry_number (t: t) (xml: Xml.xml) : Xml.xml IO.t =
+		begin match t.io with
 		| None -> reconnect t
-		| Some io -> return io in
-	try_lwt
+		| Some io -> return io
+		end >>= fun io ->
 		one_attempt io xml
-	with e ->
-		(* XXX: need to distinguish different types of errors. Is it
-		   safe to re-issue the request? *)
-		if retry_number >= max_retries
-		then fail e
-		else rpc max_retries (retry_number + 1) t xml
+		>>= fun result ->
+		return result
 
-let rpc ?(max_retries=10) t xml = rpc max_retries 0 t xml
+	let rpc ?(max_retries=10) t xml = rpc max_retries 0 t xml
+end
 
 
 
+module M = Make(Lwt_unix_IO)
+include M
