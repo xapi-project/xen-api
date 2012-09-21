@@ -60,6 +60,12 @@ exception Http_error of int * string
 
 let counter = ref 0
 
+let time_this descr f =
+	let start = Unix.gettimeofday () in
+	lwt result = f () in
+	Printf.fprintf stderr "TIME: %s took %.02f\n%!" descr (Unix.gettimeofday () -. start);
+	return result
+
 let one_attempt (ic, oc) xml =
 	let open Printf in
 	let body = Xml.to_string xml in
