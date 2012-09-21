@@ -56,6 +56,10 @@ let reconnect (t: t) =
 
 exception No_content_length
 
+exception Http_error of int * string
+
+let counter = ref 0
+
 let one_attempt (ic, oc) xml =
 	let open Printf in
 	let body = Xml.to_string xml in
@@ -70,34 +74,46 @@ let one_attempt (ic, oc) xml =
 			""
 		] in
 	lwt () = Lwt_io.write oc body in
-	let headers = Hashtbl.create 16 in
-	let finished = ref false in
-	lwt () = while_lwt not(!finished) do
-		lwt line = Lwt_io.read_line ic in
-		if line = ""
-		then finished := true
-		else begin
-			let i = String.index line ':' in
-			let key = String.sub line 0 i in
-			(* Find latest non-whitespace at the start *)
-			let n = ref (i + 1) in
-			while !n < String.length line && line.[!n] = ' ' do incr n done;
-			(* Find earliest non-whitespace at the end *)
-			let m = ref (String.length line - 1) in
-			while !m > !n && line.[!m] = ' ' do decr m done;
-			let value = String.sub line !n (!m - !n + 1) in
-			Hashtbl.add headers (String.lowercase key) value
-		end;
-		return ()
-	done in
-	lwt content_length =
-		if not(Hashtbl.mem headers "content-length")
-		then fail No_content_length
-		else return (int_of_string (Hashtbl.find headers "content-length")) in
-	let result = String.create content_length in
-	lwt () = Lwt_io.read_into_exactly ic result 0 content_length in
-	return (Xml.parse_string result)
-		
+    lwt response = Lwt_io.read_line ic in
+	let proto, code, result = Scanf.sscanf response "HTTP/1.%d %d %s" (fun a b c -> a, b, c) in
+	if code <> 200
+	then fail (Http_error(code, result))
+	else begin
+		let headers = Hashtbl.create 16 in
+		let finished = ref false in
+		lwt () = while_lwt not(!finished) do
+			lwt line = Lwt_io.read_line ic in
+			if line = ""
+			then finished := true
+			else begin
+				let i = String.index line ':' in
+				let key = String.sub line 0 i in
+				(* Find latest non-whitespace at the start *)
+				let n = ref (i + 1) in
+				while !n < String.length line && line.[!n] = ' ' do incr n done;
+				(* Find earliest non-whitespace at the end *)
+				let m = ref (String.length line - 1) in
+				while !m > !n && line.[!m] = ' ' do decr m done;
+				let value = String.sub line !n (!m - !n + 1) in
+				Hashtbl.add headers (String.lowercase key) value
+			end;
+			return ()
+		done in
+		lwt content_length =
+			if not(Hashtbl.mem headers "content-length")
+			then fail No_content_length
+			else return (int_of_string (Hashtbl.find headers "content-length")) in
+		let result = String.create content_length in
+		lwt () = Lwt_io.read_into_exactly ic result 0 content_length in
+(* for debugging
+incr counter;
+lwt fd = Lwt_unix.openfile (Printf.sprintf "/tmp/response.%d.xml" !counter) [ Unix.O_WRONLY; Unix.O_CREAT ] 0o644 in
+let fd_oc = Lwt_io.of_fd ~close:(fun () -> Lwt_unix.close fd) ~mode:Lwt_io.output fd in
+lwt () = Lwt_io.write_from_exactly fd_oc result 0 (String.length result) in
+lwt () = Lwt_io.close fd_oc in
+*)
+		return (Xml.parse_string result)
+	end	
 
 let rec rpc max_retries retry_number (t: t) (xml: Xml.xml) : Xml.xml Lwt.t =
 	lwt io = match t.io with
