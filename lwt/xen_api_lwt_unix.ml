@@ -145,8 +145,11 @@ incr counter;
 let fd = Unix.openfile (Printf.sprintf "/tmp/response.%d.xml" !counter) [ Unix.O_WRONLY; Unix.O_CREAT ] 0o644 in
 let (_: int) = Unix.write fd result 0 (String.length result) in
 Unix.close fd;
-
-				return (Ok (Xml.parse_string result))
+				match Response.status response with
+					| `OK ->
+						return (Ok (Xml.parse_string result))
+					| s ->
+						return (Error (Http_error(Cohttp.Code.code_of_status s, result)))
 
 	let rec rpc max_retries retry_number (t: t) (xml: Xml.xml) : (Xml.xml, exn) result IO.t =
 		begin match t.io with
