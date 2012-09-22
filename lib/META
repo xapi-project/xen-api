@@ -1,8 +1,8 @@
 # OASIS_START
-# DO NOT EDIT (digest: 9e07c54765b0fbf19b0783a7671e4bd7)
+# DO NOT EDIT (digest: f580ba5fba6065292f8e64079577ec6f)
 version = "0.1.0"
 description = "Xen API client"
-requires = "xmlm"
+requires = "xmlm cohttp"
 archive(byte) = "xen-api-client.cma"
 archive(byte, plugin) = "xen-api-client.cma"
 archive(native) = "xen-api-client.cmxa"
@@ -11,7 +11,7 @@ exists_if = "xen-api-client.cma"
 package "lwt" (
  version = "0.1.0"
  description = "Xen API client"
- requires = "xen-api-client xmlm lwt lwt.ssl lwt.unix"
+ requires = "xen-api-client xmlm lwt lwt.ssl lwt.unix cohttp uri"
  archive(byte) = "xen-api-client-lwt.cma"
  archive(byte, plugin) = "xen-api-client-lwt.cma"
  archive(native) = "xen-api-client-lwt.cmxa"

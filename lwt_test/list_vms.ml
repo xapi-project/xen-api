@@ -15,9 +15,17 @@
 module Client = Client.ClientF(Lwt)
 open Lwt
 
+open Xen_api
+open Xen_api_lwt_unix
+
 let server = ref "127.0.0.1"
 let username = ref "root"
 let password = ref "password"
+
+let exn_to_string = function
+	| Api_errors.Server_error(code, params) ->
+		Printf.sprintf "%s %s" code (String.concat " " params)
+	| e -> Printexc.to_string e
 
 let main () =
 	let addr =
@@ -26,13 +34,15 @@ let main () =
 		with _ ->
 			Printf.fprintf stderr "Failed to parse IP address: %s\n%!" !server;
 			exit 1 in
-	let connection = Xen_api_lwt_unix.of_sockaddr (Unix.ADDR_INET(addr, 80)) in
-	let rpc = Xen_api_lwt_unix.rpc connection in
-	lwt session_id =
-		try_lwt Client.Session.login_with_password rpc !username !password "1.0"
-		with e ->
-			Printf.fprintf stderr "login_with_password caught: %s\n%!" (Printexc.to_string e);
-			fail e in
+	let connection = Xen_api_lwt_unix.make (Unix.ADDR_INET(addr, 80)) in
+	let rpc x =
+		lwt result = Xen_api_lwt_unix.rpc connection x in
+		match result with
+			| Ok x -> return x
+			| Error e ->
+				Printf.fprintf stderr "Caught: %s\n%!" (exn_to_string e);
+				fail e in
+	lwt session_id = Client.Session.login_with_password rpc !username !password "1.0" in
 	try_lwt
 		lwt vms = Client.VM.get_all_records rpc session_id in
 		List.iter
@@ -40,10 +50,6 @@ let main () =
 				Printf.printf "VM %s\n" vm_rec.API.vM_name_label
 			) vms;
 		return ()
-	with
-		| Api_errors.Server_error(code, params) as e ->
-			Printf.fprintf stderr "%s %s\n%!" code (String.concat " " params);
-			raise e
 	finally
 		Client.Session.logout rpc session_id
 

@@ -15,8 +15,8 @@ Library "xen-api-client"
   CompiledObject:     best
   Path: lib
   Findlibname: xen-api-client
-  Modules: API,	Api_errors, Client, Date, XMLRPC, Xml
-  BuildDepends:	xmlm
+  Modules: API,	Api_errors, Client, Date, XMLRPC, Xml, Xen_api
+  BuildDepends:	xmlm, cohttp
 
 Library "xen-api-client-lwt"
   CompiledObject:     best
@@ -26,7 +26,16 @@ Library "xen-api-client-lwt"
   Findlibparent: xen-api-client
   Findlibname: lwt
   Modules: Xen_api_lwt_unix
-  BuildDepends:	xen-api-client, xmlm, lwt, lwt.ssl, lwt.unix
+  BuildDepends:	xen-api-client, xmlm, lwt, lwt.ssl, lwt.unix, cohttp, uri
+
+Executable xen_api_test
+  Path:               lib_test
+  MainIs:             xen_api_test.ml
+  Build$:             flag(tests)
+  Custom:             true
+  CompiledObject:     best
+  Install:            false
+  BuildDepends:       xen-api-client, oUnit
 
 Executable list_vms
   CompiledObject:     best
@@ -36,3 +45,7 @@ Executable list_vms
   MainIs: list_vms.ml
   BuildDepends: xen-api-client, xen-api-client.lwt, lwt, lwt.ssl, lwt.unix
 
+Test xen_api_test_test
+  Run$:               flag(tests)
+  Command:            $xen_api_test
+  WorkingDirectory:   lib_test
