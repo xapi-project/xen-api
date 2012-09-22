@@ -16,7 +16,7 @@ Library "xen-api-client"
   Path: lib
   Findlibname: xen-api-client
   Modules: API,	Api_errors, Client, Date, XMLRPC, Xml
-  BuildDepends:	xmlm
+  BuildDepends:	xmlm, cohttp
 
 Library "xen-api-client-lwt"
   CompiledObject:     best
@@ -26,7 +26,7 @@ Library "xen-api-client-lwt"
   Findlibparent: xen-api-client
   Findlibname: lwt
   Modules: Xen_api_lwt_unix
-  BuildDepends:	xen-api-client, xmlm, lwt, lwt.ssl, lwt.unix, cohttp.lwt
+  BuildDepends:	xen-api-client, xmlm, lwt, lwt.ssl, lwt.unix, cohttp, uri
 
 Executable list_vms
   CompiledObject:     best

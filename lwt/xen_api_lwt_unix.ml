@@ -17,19 +17,7 @@ exception No_content_length
 exception Http_error of int * string
 
 module type IO = sig
-
-	type 'a t
-	val (>>=) : 'a t -> ('a -> 'b t) -> 'b t
-	val return : 'a -> 'a t
-
-	type ic
-	type oc
-
-	val iter : ('a -> unit t) -> 'a list -> unit t
-	val read_line : ic -> string option t
-	val read : ic -> int -> string t
-	val read_exactly : ic -> string -> int -> int -> bool t
-	val write : oc -> string -> unit t
+	include Cohttp.Make.IO
 
 	val close : (ic * oc) -> unit t
 
@@ -38,7 +26,7 @@ module type IO = sig
 end
 
 module Lwt_unix_IO = struct
-	include Cohttp_lwt_unix.IO
+	include Tmp_cohttp_lwt_unix.IO
 
 	let close (ic, oc) = Lwt_io.close ic >> Lwt_io.close oc
 
@@ -78,6 +66,9 @@ module Make(IO:IO) = struct
 	type ic = IO.ic
 	type oc = IO.oc
 
+	module Request = Cohttp.Request.Make(IO)
+	module Response = Cohttp.Response.Make(IO)
+
 	type t = {
 		address: address;
 		mutable io: (ic * oc) option;
@@ -100,60 +91,35 @@ module Make(IO:IO) = struct
 		t.io <- Some io;
 		return io
 
+let counter = ref 0
+
 	let one_attempt (ic, oc) xml =
 		let open Printf in
 		let body = Xml.to_string xml in
 
-		iter
-		(fun line ->
-			write oc line
-			>>= fun () ->
-			write oc "\r\n"
-		) [
-			"POST / HTTP/1.1";
-			"User-agent: xen_api_lwt_unix/0.1";
-			sprintf "Content-length: %d" (String.length body);
-			"Connection: keep-alive";
-			""
-		]
+		let headers = Cohttp.Header.of_list [
+			"user-agent", "xen_api_lwt_unix/0.1";
+			"content-length", string_of_int (String.length body);
+			"connection", "keep-alive";
+		] in
+		let request = Request.make ~meth:`POST ~version:`HTTP_1_1 ~headers ~body (Uri.of_string "/") in
+		Request.write (fun req oc -> Request.write_body req oc body) request oc
 		>>= fun () ->
-		write oc body
-		>>= fun () ->
-		read_line ic
-		>>= fun _ ->
-		let headers = Hashtbl.create 16 in
-		let rec loop () =
-			read_line ic
-			>>= fun line ->
-			let line = (match line with None -> failwith "game over, again" | Some line -> line) in
-			if line = ""
-			then return ()
-			else begin
-				let i = String.index line ':' in
-				let key = String.sub line 0 i in
-				(* Find latest non-whitespace at the start *)
-				let n = ref (i + 1) in
-				while !n < String.length line && line.[!n] = ' ' do incr n done;
-				(* Find earliest non-whitespace at the end *)
-				let m = ref (String.length line - 1) in
-				while !m > !n && line.[!m] = ' ' do decr m done;
-				let value = String.sub line !n (!m - !n + 1) in
-				Hashtbl.add headers (String.lowercase key) value;
-				loop ()
-			end in
-		loop ()
-		>>= fun () ->
-		let content_length = int_of_string (Hashtbl.find headers "content-length") in
-		let result = String.create content_length in
-		read_exactly ic result 0 content_length
-		>>= fun _ ->
-(* for debugging
+		Response.read ic
+		>>= function
+			| None ->
+				Printf.fprintf stderr "failed to read response\n%!";
+				(* XXX *)
+				failwith "game over man"
+			| Some response ->
+		Response.read_body_to_string response ic
+		>>= fun result ->
+(* for debugging *)
 incr counter;
-lwt fd = Lwt_unix.openfile (Printf.sprintf "/tmp/response.%d.xml" !counter) [ Unix.O_WRONLY; Unix.O_CREAT ] 0o644 in
-let fd_oc = Lwt_io.of_fd ~close:(fun () -> Lwt_unix.close fd) ~mode:Lwt_io.output fd in
-lwt () = Lwt_io.write_from_exactly fd_oc result 0 (String.length result) in
-lwt () = Lwt_io.close fd_oc in
-*)
+let fd = Unix.openfile (Printf.sprintf "/tmp/response.%d.xml" !counter) [ Unix.O_WRONLY; Unix.O_CREAT ] 0o644 in
+Unix.write fd result 0 (String.length result);
+Unix.close fd;
+
 		return (Xml.parse_string result)
 
 	let rec rpc max_retries retry_number (t: t) (xml: Xml.xml) : Xml.xml IO.t =
