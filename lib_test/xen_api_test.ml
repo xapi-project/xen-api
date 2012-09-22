@@ -17,6 +17,85 @@ open OUnit
 let ( |> ) a b = b a
 let id x = x
 
+open Xen_api
+
+module Fake_IO = struct
+	type 'a t = T of 'a
+	let return x = T x
+	let (>>=) t f = match t with
+		| T x -> f x
+
+	let rec iter f = function
+		| [] -> return ()
+		| x :: xs -> f x >>= fun () -> (iter f xs)
+
+	type ic = string Queue.t
+	type oc = string Queue.t
+
+	let read_line ic =
+		return (if Queue.is_empty ic then None else Some(Queue.pop ic))
+
+	let read ic n = assert false
+
+	let read_exactly ic buf off len =
+		return (if Queue.is_empty ic then false else begin
+			let chunk = Queue.pop ic in
+			String.blit chunk 0 buf off len;
+			true
+		end)
+
+	let write oc string = Queue.push string oc; return ()
+	
+	type address = string
+
+	type connection = {
+		address: address;
+		ic: ic;
+		oc: ic;
+	}
+	let connections = ref []
+
+	let open_connection address =
+		let ic = Queue.create () and oc = Queue.create () in
+		let c = { address; ic; oc } in
+		connections := c :: !connections;
+		return (Ok (ic, oc))
+
+	let close (ic, oc) =
+		let this_one c = c.ic == ic && c.oc == oc in
+		ignore(List.find this_one !connections);
+		connections := List.filter (fun c -> not(this_one c)) !connections;
+		return ()
+
+	let timeofday = ref 0.
+	let gettimeofday () = !timeofday
+
+	let num_sleeps = ref 0
+	let sleep x = incr num_sleeps; timeofday := !timeofday +. x; return ()
+end
+
+module M = Xen_api.Make(Fake_IO)
+module C = Client.Client
+open Fake_IO
+
+let test_login _ =
+	let rpc xml =
+		M.rpc (M.make "somewhere") xml
+		>>= function
+			| Ok x -> failwith "should have failed with No_response"
+			| Error e -> raise e in
+	Fake_IO.timeofday := 0.;
+	Fake_IO.num_sleeps := 0;
+	begin
+		try
+			let session_id = C.Session.login_with_password rpc "root" "password" "1.0" in
+			()
+		with Xen_api.No_response -> ()
+	end;
+	assert_equal ~printer:string_of_float ~msg:"timeofday" 31. !Fake_IO.timeofday;
+	assert_equal ~printer:string_of_int ~msg:"num_sleeps" 31 !Fake_IO.num_sleeps;
+	()
+
 let _ =
 	let verbose = ref false in
 	Arg.parse [
@@ -26,5 +105,6 @@ let _ =
 
 	let suite = "xen-api" >:::
 		[
+			"login" >:: test_login;
 		] in
 	run_test_tt ~verbose:!verbose suite
