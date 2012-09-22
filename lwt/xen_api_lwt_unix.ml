@@ -26,6 +26,7 @@ module type IO = sig
 	val close : (ic * oc) -> unit t
 
 	type address
+
 	val open_connection: address -> ((ic * oc), exn) result t
 end
 
@@ -40,27 +41,18 @@ module Lwt_unix_IO = struct
 	let open_connection address =
 		let socket = Lwt_unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
 		let start = Unix.gettimeofday () in
-		let result = ref None in
-		let exn = ref None in
-		lwt () = while_lwt !result = None && !exn = None do
+
+		let rec loop () =
 			try_lwt
 				lwt () = Lwt_unix.connect socket address in
 				let ic = Lwt_io.of_fd ~close:return ~mode:Lwt_io.input socket in
 				let oc = Lwt_io.of_fd ~close:(fun () -> Lwt_unix.close socket) ~mode:Lwt_io.output socket in
-				result := Some (ic, oc);
-				return ()
+				return (Ok (ic, oc))
 			with e ->
 				if Unix.gettimeofday () -. start >= timeout
-				then (exn := Some e; return ())
-				else Lwt_unix.sleep 1.
-		done in
-		match !result, !exn with
-			| Some x, _ -> return (Ok x)
-			| _, Some e ->
-				(* XXX: need a nice error handling technique *)
-				Printf.fprintf stderr "Caught %s\n%!" (Printexc.to_string e);
-				return (Error e)
-			| None, None -> assert false
+				then return (Error e)
+				else Lwt_unix.sleep 1. >> loop () in
+		loop ()
 end
 
 			
