@@ -12,9 +12,16 @@
  * GNU Lesser General Public License for more details.
  *)
 
+let user_agent = "xen_api_lwt_unix/0.1"
+
 exception No_content_length
 
 exception Http_error of int * string
+(** HTTP-layer rejected the request. Assume permanent failure as probably
+    the address belonged to some other server. *)
+
+exception No_response
+(** No http-level response. Assume ok to retransmit request. *)
 
 type ('a, 'b) result =
 	| Ok of 'a
@@ -28,6 +35,10 @@ module type IO = sig
 	type address
 
 	val open_connection: address -> ((ic * oc), exn) result t
+
+	val sleep: float -> unit t
+
+	val gettimeofday: unit -> float
 end
 
 module Lwt_unix_IO = struct
@@ -35,24 +46,22 @@ module Lwt_unix_IO = struct
 
 	let close (ic, oc) = Lwt_io.close ic >> Lwt_io.close oc
 
-	let timeout = 30.
-
 	type address = Unix.sockaddr
+
 	let open_connection address =
 		let socket = Lwt_unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
-		let start = Unix.gettimeofday () in
 
-		let rec loop () =
-			try_lwt
-				lwt () = Lwt_unix.connect socket address in
-				let ic = Lwt_io.of_fd ~close:return ~mode:Lwt_io.input socket in
-				let oc = Lwt_io.of_fd ~close:(fun () -> Lwt_unix.close socket) ~mode:Lwt_io.output socket in
-				return (Ok (ic, oc))
-			with e ->
-				if Unix.gettimeofday () -. start >= timeout
-				then return (Error e)
-				else Lwt_unix.sleep 1. >> loop () in
-		loop ()
+		try_lwt
+			lwt () = Lwt_unix.connect socket address in
+			let ic = Lwt_io.of_fd ~close:return ~mode:Lwt_io.input socket in
+			let oc = Lwt_io.of_fd ~close:(fun () -> Lwt_unix.close socket) ~mode:Lwt_io.output socket in
+			return (Ok (ic, oc))
+		with e ->
+			return (Error e)
+
+	let sleep = Lwt_unix.sleep
+
+	let gettimeofday = Unix.gettimeofday
 end
 
 			
@@ -75,6 +84,26 @@ module Make(IO:IO) = struct
 		io = None;
 	}
 
+	let retry timeout delay_between_attempts is_finished f =
+		let start = gettimeofday () in
+		let rec loop n =
+			f () >>= fun result ->
+			let time_so_far = gettimeofday () -. start in
+			if time_so_far > timeout || is_finished result
+			then return result
+			else
+				sleep (delay_between_attempts time_so_far (n + 1))
+				>>= fun () ->
+				loop (n + 1) in
+		loop 0
+
+	(* Attempt to issue one request every [ideal_interval] seconds.
+	   NB if the requests take more than [ideal_interval] seconds to
+	   issue then we will retry with no delay. *)
+	let every ideal_interval time_so_far next_n =
+		let ideal_time = float_of_int next_n *. ideal_interval in
+		max 0. (ideal_time -. time_so_far)
+
 	let reconnect (t: t) : ((ic * oc), exn) result IO.t =
 		begin match t.io with
 			| Some io -> close io
@@ -82,7 +111,7 @@ module Make(IO:IO) = struct
 		end >>= fun () ->
 		t.io <- None;
 
-		open_connection t.address
+		retry 30. (every 1.) (function Ok _ -> true | _ -> false) (fun () -> open_connection t.address)
 		>>= function
 			| Error e -> return (Error e)
 			| Ok io ->
@@ -91,14 +120,12 @@ module Make(IO:IO) = struct
 
 let counter = ref 0
 
-exception No_response
-
 	let one_attempt (ic, oc) xml =
 		let open Printf in
 		let body = Xml.to_string xml in
 
 		let headers = Cohttp.Header.of_list [
-			"user-agent", "xen_api_lwt_unix/0.1";
+			"user-agent", user_agent;
 			"content-length", string_of_int (String.length body);
 			"connection", "keep-alive";
 		] in
@@ -126,7 +153,10 @@ Unix.close fd;
 		| None -> reconnect t
 		| Some io -> return (Ok io)
 		end >>= function
-			| Error e -> return (Error e)
+			| Error e ->
+				if retry_number > max_retries
+				then return (Error e)
+				else rpc max_retries (retry_number + 1) t xml
 			| Ok io ->
 				one_attempt io xml
 
