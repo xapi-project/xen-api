@@ -16,13 +16,17 @@ exception No_content_length
 
 exception Http_error of int * string
 
+type ('a, 'b) result =
+	| Ok of 'a
+	| Error of 'b
+
 module type IO = sig
 	include Cohttp.Make.IO
 
 	val close : (ic * oc) -> unit t
 
 	type address
-	val open_connection: address -> (ic * oc) t
+	val open_connection: address -> ((ic * oc), exn) result t
 end
 
 module Lwt_unix_IO = struct
@@ -51,11 +55,11 @@ module Lwt_unix_IO = struct
 				else Lwt_unix.sleep 1.
 		done in
 		match !result, !exn with
-			| Some x, _ -> return x
+			| Some x, _ -> return (Ok x)
 			| _, Some e ->
 				(* XXX: need a nice error handling technique *)
 				Printf.fprintf stderr "Caught %s\n%!" (Printexc.to_string e);
-				failwith "it's game over man"
+				return (Error e)
 			| None, None -> assert false
 end
 
@@ -79,7 +83,7 @@ module Make(IO:IO) = struct
 		io = None;
 	}
 
-	let reconnect (t: t) =
+	let reconnect (t: t) : ((ic * oc), exn) result IO.t =
 		begin match t.io with
 			| Some io -> close io
 			| None -> return ()
@@ -87,11 +91,15 @@ module Make(IO:IO) = struct
 		t.io <- None;
 
 		open_connection t.address
-		>>= fun io ->
-		t.io <- Some io;
-		return io
+		>>= function
+			| Error e -> return (Error e)
+			| Ok io ->
+				t.io <- Some io;
+				return (Ok io)
 
 let counter = ref 0
+
+exception No_response
 
 	let one_attempt (ic, oc) xml =
 		let open Printf in
@@ -109,27 +117,26 @@ let counter = ref 0
 		>>= function
 			| None ->
 				Printf.fprintf stderr "failed to read response\n%!";
-				(* XXX *)
-				failwith "game over man"
+				return (Error No_response)
 			| Some response ->
-		Response.read_body_to_string response ic
-		>>= fun result ->
+				Response.read_body_to_string response ic
+				>>= fun result ->
 (* for debugging *)
 incr counter;
 let fd = Unix.openfile (Printf.sprintf "/tmp/response.%d.xml" !counter) [ Unix.O_WRONLY; Unix.O_CREAT ] 0o644 in
-Unix.write fd result 0 (String.length result);
+let (_: int) = Unix.write fd result 0 (String.length result) in
 Unix.close fd;
 
-		return (Xml.parse_string result)
+				return (Ok (Xml.parse_string result))
 
-	let rec rpc max_retries retry_number (t: t) (xml: Xml.xml) : Xml.xml IO.t =
+	let rec rpc max_retries retry_number (t: t) (xml: Xml.xml) : (Xml.xml, exn) result IO.t =
 		begin match t.io with
 		| None -> reconnect t
-		| Some io -> return io
-		end >>= fun io ->
-		one_attempt io xml
-		>>= fun result ->
-		return result
+		| Some io -> return (Ok io)
+		end >>= function
+			| Error e -> return (Error e)
+			| Ok io ->
+				one_attempt io xml
 
 	let rpc ?(max_retries=10) t xml = rpc max_retries 0 t xml
 end
