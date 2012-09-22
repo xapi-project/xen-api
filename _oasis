@@ -15,7 +15,7 @@ Library "xen-api-client"
   CompiledObject:     best
   Path: lib
   Findlibname: xen-api-client
-  Modules: API,	Api_errors, Client, Date, XMLRPC, Xml
+  Modules: API,	Api_errors, Client, Date, XMLRPC, Xml, Xen_api
   BuildDepends:	xmlm, cohttp
 
 Library "xen-api-client-lwt"

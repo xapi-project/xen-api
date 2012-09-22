@@ -15,12 +15,8 @@
 type t
 (** An active xen-api connection *)
 
-type ('a, 'b) result =
-	| Ok of 'a
-	| Error of 'b
-
 val make: Unix.sockaddr -> t
 (** [of_sockaddr addr] creates a plaintext xen-api connection to [addr] *)
 
-val rpc: ?timeout:float -> t -> Xml.xml -> (Xml.xml, exn) result Lwt.t
+val rpc: ?timeout:float -> t -> Xml.xml -> (Xml.xml, exn) Xen_api.result Lwt.t
 (** performs (and optionally retries) an RPC request *)

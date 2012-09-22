@@ -15,6 +15,7 @@
 module Client = Client.ClientF(Lwt)
 open Lwt
 
+open Xen_api
 open Xen_api_lwt_unix
 
 let server = ref "127.0.0.1"
