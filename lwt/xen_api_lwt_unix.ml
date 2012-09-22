@@ -84,15 +84,19 @@ module Make(IO:IO) = struct
 		io = None;
 	}
 
-	let reconnect (t: t) : ((ic * oc), exn) result IO.t =
-		begin match t.io with
-			| Some io -> close io
-			| None -> return ()
-		end >>= fun () ->
-		t.io <- None;
+	let disconnect (t: t) = match t.io with
+		| Some io ->
+			t.io <- None;
+			close io
+		| None ->
+			return ()
 
-		open_connection t.address
-		>>= function
+	let connect (t: t) : ((ic * oc), exn) result IO.t = match t.io with
+		| Some io ->
+			return (Ok io)
+		| None ->
+			open_connection t.address
+			>>= function
 			| Error e -> return (Error e)
 			| Ok io ->
 				t.io <- Some io;
@@ -154,11 +158,12 @@ Unix.close fd;
 	let rpc ?(timeout=30.) t xml =
 		retry timeout (every 1.) (function Ok _ -> true | _ -> false)
 			(fun () ->
-				begin match t.io with
-					| None -> reconnect t
-					| Some io -> return (Ok io)
-				end >>= function
-					| Error e -> return (Error e)
+				connect t
+				>>= function
+					| Error e ->
+						disconnect t
+						>>= fun () ->
+						return (Error e)
 					| Ok io ->
 						one_attempt io xml
 			)
