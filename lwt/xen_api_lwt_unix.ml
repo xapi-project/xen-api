@@ -84,26 +84,6 @@ module Make(IO:IO) = struct
 		io = None;
 	}
 
-	let retry timeout delay_between_attempts is_finished f =
-		let start = gettimeofday () in
-		let rec loop n =
-			f () >>= fun result ->
-			let time_so_far = gettimeofday () -. start in
-			if time_so_far > timeout || is_finished result
-			then return result
-			else
-				sleep (delay_between_attempts time_so_far (n + 1))
-				>>= fun () ->
-				loop (n + 1) in
-		loop 0
-
-	(* Attempt to issue one request every [ideal_interval] seconds.
-	   NB if the requests take more than [ideal_interval] seconds to
-	   issue then we will retry with no delay. *)
-	let every ideal_interval time_so_far next_n =
-		let ideal_time = float_of_int next_n *. ideal_interval in
-		max 0. (ideal_time -. time_so_far)
-
 	let reconnect (t: t) : ((ic * oc), exn) result IO.t =
 		begin match t.io with
 			| Some io -> close io
@@ -111,7 +91,7 @@ module Make(IO:IO) = struct
 		end >>= fun () ->
 		t.io <- None;
 
-		retry 30. (every 1.) (function Ok _ -> true | _ -> false) (fun () -> open_connection t.address)
+		open_connection t.address
 		>>= function
 			| Error e -> return (Error e)
 			| Ok io ->
@@ -151,6 +131,25 @@ Unix.close fd;
 					| s ->
 						return (Error (Http_error(Cohttp.Code.code_of_status s, result)))
 
+	let retry timeout delay_between_attempts is_finished f =
+		let start = gettimeofday () in
+		let rec loop n =
+			f () >>= fun result ->
+			let time_so_far = gettimeofday () -. start in
+			if time_so_far > timeout || is_finished result
+			then return result
+			else
+				sleep (delay_between_attempts time_so_far (n + 1))
+				>>= fun () ->
+				loop (n + 1) in
+		loop 0
+
+	(* Attempt to issue one request every [ideal_interval] seconds.
+	   NB if the requests take more than [ideal_interval] seconds to
+	   issue then we will retry with no delay. *)
+	let every ideal_interval time_so_far next_n =
+		let ideal_time = float_of_int next_n *. ideal_interval in
+		max 0. (ideal_time -. time_so_far)
 
 	let rpc ?(timeout=30.) t xml =
 		retry timeout (every 1.) (function Ok _ -> true | _ -> false)
