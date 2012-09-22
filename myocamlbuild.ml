@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 5ef0bcab268637a6d41954b605b3976b) *)
+(* DO NOT EDIT (digest: 6ce36e75b8d1232ebd759238bec70f80) *)
 module OASISGettext = struct
 # 21 "/home/djs/.opam/3.12.1/build/oasis.0.3.0/src/oasis/OASISGettext.ml"
 
@@ -481,12 +481,14 @@ let package_default =
        [("xen-api-client", ["lib"]); ("xen-api-client-lwt", ["lwt"])];
      lib_c = [];
      flags = [];
-     includes = [("lwt_test", ["lib"; "lwt"]); ("lwt", ["lib"])];
+     includes =
+       [("lwt_test", ["lib"; "lwt"]); ("lwt", ["lib"]); ("lib_test", ["lib"])
+       ];
      }
   ;;
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default package_default;;
 
-# 491 "myocamlbuild.ml"
+# 493 "myocamlbuild.ml"
 (* OASIS_STOP *)
 Ocamlbuild_plugin.dispatch dispatch_default;;

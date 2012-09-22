@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 9d62666c7f3c6c655bc5c91654357fb5)
+# DO NOT EDIT (digest: 216e4678293c4794eedb49210cb7c22e)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -26,6 +26,16 @@
 <lwt/*.ml{,i}>: pkg_xmlm
 <lwt/*.ml{,i}>: pkg_cohttp
 <lwt/*.ml{,i}>: pkg_uri
+# Executable xen_api_test
+<lib_test/xen_api_test.{native,byte}>: use_xen-api-client
+<lib_test/xen_api_test.{native,byte}>: pkg_oUnit
+<lib_test/xen_api_test.{native,byte}>: pkg_xmlm
+<lib_test/xen_api_test.{native,byte}>: pkg_cohttp
+<lib_test/*.ml{,i}>: use_xen-api-client
+<lib_test/*.ml{,i}>: pkg_oUnit
+<lib_test/*.ml{,i}>: pkg_xmlm
+<lib_test/*.ml{,i}>: pkg_cohttp
+<lib_test/xen_api_test.{native,byte}>: custom
 # Executable list_vms
 <lwt_test/list_vms.{native,byte}>: use_xen-api-client-lwt
 <lwt_test/list_vms.{native,byte}>: use_xen-api-client
