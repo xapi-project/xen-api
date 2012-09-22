@@ -19,7 +19,7 @@ type ('a, 'b) result =
 	| Ok of 'a
 	| Error of 'b
 
-val of_sockaddr: Unix.sockaddr -> t
+val make: Unix.sockaddr -> t
 (** [of_sockaddr addr] creates a plaintext xen-api connection to [addr] *)
 
 val rpc: ?timeout:float -> t -> Xml.xml -> (Xml.xml, exn) result Lwt.t

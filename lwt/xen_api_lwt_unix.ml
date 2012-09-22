@@ -79,7 +79,7 @@ module Make(IO:IO) = struct
 		mutable io: (ic * oc) option;
 	}
 
-	let of_sockaddr address = {
+	let make address = {
 		address = address;
 		io = None;
 	}

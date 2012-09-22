@@ -33,7 +33,7 @@ let main () =
 		with _ ->
 			Printf.fprintf stderr "Failed to parse IP address: %s\n%!" !server;
 			exit 1 in
-	let connection = Xen_api_lwt_unix.of_sockaddr (Unix.ADDR_INET(addr, 80)) in
+	let connection = Xen_api_lwt_unix.make (Unix.ADDR_INET(addr, 80)) in
 	let rpc x =
 		lwt result = Xen_api_lwt_unix.rpc connection x in
 		match result with
