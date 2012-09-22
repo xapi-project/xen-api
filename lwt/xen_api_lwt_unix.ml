@@ -151,19 +151,18 @@ Unix.close fd;
 					| s ->
 						return (Error (Http_error(Cohttp.Code.code_of_status s, result)))
 
-	let rec rpc max_retries retry_number (t: t) (xml: Xml.xml) : (Xml.xml, exn) result IO.t =
-		begin match t.io with
-		| None -> reconnect t
-		| Some io -> return (Ok io)
-		end >>= function
-			| Error e ->
-				if retry_number > max_retries
-				then return (Error e)
-				else rpc max_retries (retry_number + 1) t xml
-			| Ok io ->
-				one_attempt io xml
 
-	let rpc ?(max_retries=10) t xml = rpc max_retries 0 t xml
+	let rpc ?(timeout=30.) t xml =
+		retry timeout (every 1.) (function Ok _ -> true | _ -> false)
+			(fun () ->
+				begin match t.io with
+					| None -> reconnect t
+					| Some io -> return (Ok io)
+				end >>= function
+					| Error e -> return (Error e)
+					| Ok io ->
+						one_attempt io xml
+			)
 end
 
 
