@@ -33,9 +33,20 @@ module Fake_IO = struct
 	type oc = string Queue.t
 
 	let read_line ic =
-		return (if Queue.is_empty ic then None else Some(Queue.pop ic))
+		if Queue.is_empty ic then begin
+(*			Printf.fprintf stderr "read_line = None\n%!"; *)
+			return None
+		end else begin
+			let chunk = Queue.pop ic in
+(*			Printf.fprintf stderr "read_line = %s\n%!" chunk;*)
+			return (Some chunk)
+		end
 
-	let read ic n = assert false
+	let read ic n =
+		let chunk = Queue.pop ic in
+(*		Printf.fprintf stderr "read %d\n%!" n;*)
+		assert (String.length chunk <= n);
+		return chunk
 
 	let read_exactly ic buf off len =
 		return (if Queue.is_empty ic then false else begin
@@ -74,27 +85,52 @@ module Fake_IO = struct
 	let sleep x = incr num_sleeps; timeofday := !timeofday +. x; return ()
 end
 
-module M = Xen_api.Make(Fake_IO)
 module C = Client.Client
-open Fake_IO
 
-let test_login _ =
+let test_login_fail _ =
+	let module M = Xen_api.Make(Fake_IO) in
+	let open Fake_IO in
 	let rpc xml =
 		M.rpc (M.make "somewhere") xml
 		>>= function
 			| Ok x -> failwith "should have failed with No_response"
 			| Error e -> raise e in
-	Fake_IO.timeofday := 0.;
-	Fake_IO.num_sleeps := 0;
+	timeofday := 0.;
+	num_sleeps := 0;
 	begin
 		try
 			let session_id = C.Session.login_with_password rpc "root" "password" "1.0" in
 			()
 		with Xen_api.No_response -> ()
 	end;
-	assert_equal ~printer:string_of_float ~msg:"timeofday" 31. !Fake_IO.timeofday;
-	assert_equal ~printer:string_of_int ~msg:"num_sleeps" 31 !Fake_IO.num_sleeps;
+	assert_equal ~printer:string_of_float ~msg:"timeofday" 31. !timeofday;
+	assert_equal ~printer:string_of_int ~msg:"num_sleeps" 31 !num_sleeps;
 	()
+
+let test_login_success _ =
+	let session_id = "OpaqueRef:9e9cf047-76d7-9f3a-62ca-cb7bacf5a4e1" in
+	let result = Printf.sprintf "<methodResponse><params><param><value><struct><member><name>Status</name><value>Success</value></member><member><name>Value</name><value>%s</value></member></struct></value></param></params></methodResponse>" session_id in
+	let module Fake_IO = struct
+		include Fake_IO
+		let open_connection address =
+			let ic = Queue.create () and oc = Queue.create () in
+			Queue.push "HTTP/1.1 200 OK\r\n" ic;
+			Queue.push (Printf.sprintf "Content-length: %d\r\n" (String.length result)) ic;
+			Queue.push "\r\n" ic;
+			Queue.push result ic;
+			let c = { address; ic; oc } in
+			connections := c :: !connections;
+			return (Ok (ic, oc))
+	end in
+	let open Fake_IO in
+	let module M = Xen_api.Make(Fake_IO) in
+	let rpc xml =
+		M.rpc (M.make "somewhere") xml
+		>>= function
+			| Ok x -> x
+			| Error e -> raise e in
+	let session_id' = C.Session.login_with_password rpc "root" "password" "1.0" in
+	assert_equal ~msg:"session_id" session_id session_id'
 
 let _ =
 	let verbose = ref false in
@@ -105,6 +141,7 @@ let _ =
 
 	let suite = "xen-api" >:::
 		[
-			"login" >:: test_login;
+			"login_fail" >:: test_login_fail;
+			"login_success" >:: test_login_success;
 		] in
 	run_test_tt ~verbose:!verbose suite
