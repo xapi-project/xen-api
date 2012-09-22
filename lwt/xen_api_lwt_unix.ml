@@ -156,7 +156,14 @@ Unix.close fd;
 		max 0. (ideal_time -. time_so_far)
 
 	let rpc ?(timeout=30.) t xml =
-		retry timeout (every 1.) (function Ok _ -> true | _ -> false)
+		let is_finished = function
+			| Ok _ -> true
+			| Error (Http_error (_, _)) -> true  (* wrong server? *)
+			| Error (No_content_length) -> true  (* wrong server? *)
+			| Error (No_response)       -> false (* busy? *)
+			| Error _                   -> true in
+
+		retry timeout (every 1.) is_finished
 			(fun () ->
 				connect t
 				>>= function
