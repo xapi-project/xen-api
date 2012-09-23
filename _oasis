@@ -51,13 +51,21 @@ Executable xen_api_test
   Install:            false
   BuildDepends:       xen-api-client, oUnit
 
-Executable list_vms
+Executable list_vms_lwt
   CompiledObject:     best
   Build$: flag(lwt)
   Install: false
   Path: lwt_test
   MainIs: list_vms.ml
   BuildDepends: xen-api-client, xen-api-client.lwt, lwt, lwt.ssl, lwt.unix
+
+Executable list_vms_async
+  CompiledObject:     best
+  Build$: flag(async)
+  Install: false
+  Path: async_test
+  MainIs: list_vms.ml
+  BuildDepends: xen-api-client, xen-api-client.async, core, async, async_unix, threads
 
 Test xen_api_test_test
   Run$:               flag(tests)
