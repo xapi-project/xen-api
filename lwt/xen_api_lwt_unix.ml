@@ -20,44 +20,116 @@ module Lwt_unix_IO = struct
 	let (>>=) = Lwt.bind
 	let return = Lwt.return
 
-	type ic = Lwt_io.input_channel
-	type oc = Lwt_io.output_channel
+	type ic = (unit -> unit Lwt.t) * Lwt_io.input_channel
+	type oc = (unit -> unit Lwt.t) * Lwt_io.output_channel
 
 	let iter fn x = Lwt_list.iter_s fn x
 
-	let read_line = Lwt_io.read_line_opt
+	let read_line (_, ic) = Lwt_io.read_line_opt ic
 
-	let read ic count =
+	let read (_, ic) count =
 		try_lwt Lwt_io.read ~count ic
     	with End_of_file -> return ""
 
-	let read_exactly ic buf off len =
+	let read_exactly (_, ic) buf off len =
         try_lwt Lwt_io.read_into_exactly ic buf off len >> return true
 		with End_of_file -> return false
 
-	let write = Lwt_io.write
+	let write (_, oc) = Lwt_io.write oc
 
-	let write_line = Lwt_io.write_line
+	let write_line (_, oc) = Lwt_io.write_line oc
 
-	let close (ic, oc) = Lwt_io.close ic >> Lwt_io.close oc
+	let close ((close1, _), (close2, _)) =
+		close1 () >> close2 ()
 
-	type address = Unix.sockaddr
+	type address =
+		| Plaintext of Unix.socket_domain * Unix.sockaddr
+		| Ssl of Unix.socket_domain * Unix.sockaddr
 
-	let open_connection address =
-		let socket = Lwt_unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
+	let sslctx =
+		Ssl.init ();
+		Ssl.create_context Ssl.SSLv23 Ssl.Client_context
 
-		try_lwt
-			lwt () = Lwt_unix.connect socket address in
-			let ic = Lwt_io.of_fd ~close:return ~mode:Lwt_io.input socket in
-			let oc = Lwt_io.of_fd ~close:(fun () -> Lwt_unix.close socket) ~mode:Lwt_io.output socket in
-			return (Ok (ic, oc))
-		with e ->
-			return (Error e)
+	let open_connection = function
+		| Plaintext (domain, address) ->
+			let fd = Lwt_unix.socket domain Unix.SOCK_STREAM 0 in
+			begin
+				try_lwt
+					lwt () = Lwt_unix.connect fd address in
+					let ic = Lwt_io.of_fd ~close:return ~mode:Lwt_io.input fd in
+					let oc = Lwt_io.of_fd ~close:(fun () -> Lwt_unix.close fd) ~mode:Lwt_io.output fd in
+					return (Ok (((fun () -> Lwt_io.close ic), ic), ((fun () -> Lwt_io.close oc), oc)))
+				with e ->
+					return (Error e)
+			end
+		| Ssl (domain, address) ->
+			let fd = Lwt_unix.socket domain Unix.SOCK_STREAM 0 in
+			begin
+				try_lwt
+					lwt () = Lwt_unix.connect fd address in
+					lwt sock = Lwt_ssl.ssl_connect fd sslctx in
+					let ic = Lwt_ssl.in_channel_of_descr sock in
+					let oc = Lwt_ssl.out_channel_of_descr sock in
+					return (Ok (((fun () -> Lwt_ssl.close sock), ic), ((fun () -> Lwt_ssl.close sock), oc)))
+
+				with e ->
+					return (Error e)
+			end
 
 	let sleep = Lwt_unix.sleep
 
 	let gettimeofday = Unix.gettimeofday
 end
 
+include Lwt_unix_IO
+
 module M = Make(Lwt_unix_IO)
-include M
+
+open Lwt
+
+let exn_to_string = function
+	| Api_errors.Server_error(code, params) ->
+		Printf.sprintf "%s %s" code (String.concat " " params)
+	| e -> Printexc.to_string e
+
+exception Failed_to_resolve_hostname of string
+
+exception Unsupported_scheme of string
+
+let make ?(timeout=30.) uri =
+	let uri = Uri.of_string uri in
+	lwt domain, addr = match Uri.host uri with
+		| Some host ->
+			begin
+				try_lwt
+					lwt host_entry = Lwt_unix.gethostbyname host in
+					return (host_entry.Lwt_unix.h_addrtype, host_entry.Lwt_unix.h_addr_list.(0))
+				with _ ->
+					fail (Failed_to_resolve_hostname host)
+			end;
+		| None -> fail (Failed_to_resolve_hostname "") in
+	lwt ssl = match Uri.scheme uri with
+		| Some "http" -> return false
+		| Some "https" -> return true
+		| Some x -> fail (Unsupported_scheme x)
+		| None -> fail (Unsupported_scheme "") in
+	let port = match Uri.port uri with
+		| Some x -> x
+		| None -> if ssl then 443 else 80 in
+	let sockaddr = match domain with
+		| Unix.PF_INET | Unix.PF_INET6 -> Unix.ADDR_INET(addr, port)
+		| Unix.PF_UNIX -> assert false in (* XXX: it would be good to support this *)
+	let address = if ssl then Ssl(domain, sockaddr) else Plaintext(domain, sockaddr) in
+	let connection = M.make address in
+	return (fun xml ->
+		lwt result = M.rpc connection xml in
+		match result with
+			| Ok x -> return x
+			| Error e ->
+				Printf.fprintf stderr "Caught: %s\n%!" (exn_to_string e);
+				fail e
+	)
+
+module Client = Client.ClientF(Lwt)
+include Client
+
