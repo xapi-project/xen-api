@@ -106,11 +106,11 @@ let counter = ref 0
 			| Some response ->
 				Response.read_body_to_string response ic
 				>>= fun result ->
-(* for debugging *)
+(* for debugging --
 incr counter;
 let fd = Unix.openfile (Printf.sprintf "/tmp/response.%d.xml" !counter) [ Unix.O_WRONLY; Unix.O_CREAT ] 0o644 in
 let (_: int) = Unix.write fd result 0 (String.length result) in
-Unix.close fd;
+Unix.close fd; *)
 				match Response.status response with
 					| `OK ->
 						return (Ok (Xml.parse_string result))
