@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: f580ba5fba6065292f8e64079577ec6f)
+# DO NOT EDIT (digest: 77d135ac11a0a4399c8f94ba1c823de5)
 version = "0.1.0"
 description = "Xen API client"
 requires = "xmlm cohttp"
@@ -17,6 +17,18 @@ package "lwt" (
  archive(native) = "xen-api-client-lwt.cmxa"
  archive(native, plugin) = "xen-api-client-lwt.cmxs"
  exists_if = "xen-api-client-lwt.cma"
+)
+
+package "async" (
+ version = "0.1.0"
+ description = "Xen API client"
+ requires =
+ "xen-api-client xmlm core async async_core async_unix cohttp uri threads"
+ archive(byte) = "xen-api-client-async.cma"
+ archive(byte, plugin) = "xen-api-client-async.cma"
+ archive(native) = "xen-api-client-async.cmxa"
+ archive(native, plugin) = "xen-api-client-async.cmxs"
+ exists_if = "xen-api-client-async.cma"
 )
 # OASIS_STOP
 

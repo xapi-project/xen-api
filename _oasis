@@ -11,6 +11,10 @@ Flag lwt
   Description: build the Lwt library
   Default: false
 
+Flag async
+  Description: build the Core/Async library
+  Default: false
+
 Library "xen-api-client"
   CompiledObject:     best
   Path: lib
@@ -28,6 +32,16 @@ Library "xen-api-client-lwt"
   Modules: Xen_api_lwt_unix
   BuildDepends:	xen-api-client, xmlm, lwt, lwt.ssl, lwt.unix, cohttp, uri
 
+Library "xen-api-client-async"
+  CompiledObject:     best
+  Build$: flag(async)
+  Install$: flag(async)
+  Path: async
+  Findlibparent: xen-api-client
+  Findlibname: async
+  Modules: Xen_api_async_unix
+  BuildDepends:	xen-api-client, xmlm, core, async, async_core, async_unix, cohttp, uri, threads
+
 Executable xen_api_test
   Path:               lib_test
   MainIs:             xen_api_test.ml
@@ -37,13 +51,21 @@ Executable xen_api_test
   Install:            false
   BuildDepends:       xen-api-client, oUnit
 
-Executable list_vms
+Executable list_vms_lwt
   CompiledObject:     best
   Build$: flag(lwt)
   Install: false
   Path: lwt_test
   MainIs: list_vms.ml
   BuildDepends: xen-api-client, xen-api-client.lwt, lwt, lwt.ssl, lwt.unix
+
+Executable list_vms_async
+  CompiledObject:     best
+  Build$: flag(async)
+  Install: false
+  Path: async_test
+  MainIs: list_vms.ml
+  BuildDepends: xen-api-client, xen-api-client.async, core, async, async_unix, threads
 
 Test xen_api_test_test
   Run$:               flag(tests)

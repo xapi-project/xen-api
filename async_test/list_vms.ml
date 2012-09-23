@@ -12,10 +12,11 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Lwt
+open Core.Std
+open Async.Std
 
 open Xen_api
-open Xen_api_lwt_unix
+open Xen_api_async_unix
 
 let uri = ref "http://127.0.0.1/"
 let username = ref "root"
@@ -23,21 +24,24 @@ let password = ref "password"
 
 let exn_to_string = function
 	| Api_errors.Server_error(code, params) ->
-		Printf.sprintf "%s %s" code (String.concat " " params)
-	| e -> Printexc.to_string e
+		Printf.sprintf "%s %s" code (String.concat ~sep:" " params)
+	| e -> failwith "XXX: figure out core/async error handling"
 
 let main () =
 	let rpc = make !uri in
-	lwt session_id = Session.login_with_password rpc !username !password "1.0" in
-	try_lwt
-		lwt vms = VM.get_all_records rpc session_id in
-		List.iter
-			(fun (vm, vm_rec) ->
-				Printf.printf "VM %s\n" vm_rec.API.vM_name_label
-			) vms;
-		return ()
-	finally
-		Session.logout rpc session_id
+	Session.login_with_password rpc !username !password "1.0"
+	>>= fun session_id ->
+	VM.get_all_records rpc session_id
+	>>= fun vms ->
+	List.iter
+		~f:(fun (vm, vm_rec) ->
+			Printf.printf "VM %s\n%!" vm_rec.API.vM_name_label
+		) vms;
+	Session.logout rpc session_id
+	>>= fun () ->
+	shutdown 0;
+	return ()
+
 
 let _ =
 	Arg.parse [
@@ -47,4 +51,5 @@ let _ =
 	] (fun x -> Printf.fprintf stderr "Ignoring argument: %s\n" x)
 		"Simple example which lists VMs found on a pool";
 
-	Lwt_main.run (main ())
+	let (_: unit Deferred.t) = main () in
+	never_returns (Scheduler.go ())

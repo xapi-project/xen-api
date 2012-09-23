@@ -12,8 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 
-val make: ?timeout:float -> string -> Xml.xml -> Xml.xml Lwt.t
+open Async.Std
+
+val make: ?timeout:float -> string -> Xml.xml -> Xml.xml Deferred.t
 (** [make ?timeout uri] returns an 'rpc' function which can be
 	passed to Client.* functions *)
 
-include (module type of (Client.ClientF(Lwt)))
+include (module type of (Client.ClientF(Deferred)))

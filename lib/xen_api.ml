@@ -15,6 +15,7 @@
 let user_agent = "xen-api-client/0.1"
 
 exception No_content_length
+(** xapi always includes a content-length header and we rely on it *)
 
 exception Http_error of int * string
 (** HTTP-layer rejected the request. Assume permanent failure as probably
@@ -22,6 +23,14 @@ exception Http_error of int * string
 
 exception No_response
 (** No http-level response. Assume ok to retransmit request. *)
+
+exception Failed_to_resolve_hostname of string
+(** The hostname within the URI could not be resolved. Check DNS settings. *)
+
+exception Unsupported_scheme of string
+(** Not all implementations will support all URI schemes. For example, not
+	everyone has an SSL/TLS implementation. *)
+
 
 type ('a, 'b) result =
 	| Ok of 'a
@@ -32,9 +41,7 @@ module type IO = sig
 
 	val close : (ic * oc) -> unit t
 
-	type address
-
-	val open_connection: address -> ((ic * oc), exn) result t
+	val open_connection: Uri.t -> ((ic * oc), exn) result t
 
 	val sleep: float -> unit t
 
@@ -50,12 +57,12 @@ module Make(IO:IO) = struct
 	module Response = Cohttp.Response.Make(IO)
 
 	type t = {
-		address: address;
+		uri: Uri.t;
 		mutable io: (ic * oc) option;
 	}
 
-	let make address = {
-		address = address;
+	let make uri = {
+		uri = uri;
 		io = None;
 	}
 
@@ -70,7 +77,7 @@ module Make(IO:IO) = struct
 		| Some io ->
 			return (Ok io)
 		| None ->
-			open_connection t.address
+			open_connection t.uri
 			>>= function
 			| Error e -> return (Error e)
 			| Ok io ->
