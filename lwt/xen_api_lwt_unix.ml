@@ -20,26 +20,27 @@ module Lwt_unix_IO = struct
 	let (>>=) = Lwt.bind
 	let return = Lwt.return
 
-	type ic = Lwt_io.input_channel
-	type oc = Lwt_io.output_channel
+	type ic = (unit -> unit Lwt.t) * Lwt_io.input_channel
+	type oc = (unit -> unit Lwt.t) * Lwt_io.output_channel
 
 	let iter fn x = Lwt_list.iter_s fn x
 
-	let read_line = Lwt_io.read_line_opt
+	let read_line (_, ic) = Lwt_io.read_line_opt ic
 
-	let read ic count =
+	let read (_, ic) count =
 		try_lwt Lwt_io.read ~count ic
     	with End_of_file -> return ""
 
-	let read_exactly ic buf off len =
+	let read_exactly (_, ic) buf off len =
         try_lwt Lwt_io.read_into_exactly ic buf off len >> return true
 		with End_of_file -> return false
 
-	let write = Lwt_io.write
+	let write (_, oc) = Lwt_io.write oc
 
-	let write_line = Lwt_io.write_line
+	let write_line (_, oc) = Lwt_io.write_line oc
 
-	let close (ic, oc) = Lwt_io.close ic >> Lwt_io.close oc
+	let close ((close1, _), (close2, _)) =
+		close1 () >> close2 ()
 
 	type address =
 		| Plaintext of Unix.socket_domain * Unix.sockaddr
@@ -57,7 +58,7 @@ module Lwt_unix_IO = struct
 					lwt () = Lwt_unix.connect fd address in
 					let ic = Lwt_io.of_fd ~close:return ~mode:Lwt_io.input fd in
 					let oc = Lwt_io.of_fd ~close:(fun () -> Lwt_unix.close fd) ~mode:Lwt_io.output fd in
-					return (Ok (ic, oc))
+					return (Ok (((fun () -> Lwt_io.close ic), ic), ((fun () -> Lwt_io.close oc), oc)))
 				with e ->
 					return (Error e)
 			end
@@ -69,15 +70,11 @@ module Lwt_unix_IO = struct
 					lwt sock = Lwt_ssl.ssl_connect fd sslctx in
 					let ic = Lwt_ssl.in_channel_of_descr sock in
 					let oc = Lwt_ssl.out_channel_of_descr sock in
-					return (Ok (ic, oc))
+					return (Ok (((fun () -> Lwt_ssl.close sock), ic), ((fun () -> Lwt_ssl.close sock), oc)))
+
 				with e ->
 					return (Error e)
 			end
-(* XXX: we're probably leaking 
-  let close (ic,oc) =
-    let _ = try_lwt Lwt_ssl.close ic with _ -> return () in
-    try_lwt Lwt_ssl.close oc with _ -> return ()
-*)
 
 	let sleep = Lwt_unix.sleep
 
