@@ -45,19 +45,39 @@ module Lwt_unix_IO = struct
 		| Plaintext of Unix.socket_domain * Unix.sockaddr
 		| Ssl of Unix.socket_domain * Unix.sockaddr
 
+	let sslctx =
+		Ssl.init ();
+		Ssl.create_context Ssl.SSLv23 Ssl.Client_context
+
 	let open_connection = function
 		| Plaintext (domain, address) ->
-			let socket = Lwt_unix.socket domain Unix.SOCK_STREAM 0 in
+			let fd = Lwt_unix.socket domain Unix.SOCK_STREAM 0 in
 			begin
 				try_lwt
-					lwt () = Lwt_unix.connect socket address in
-					let ic = Lwt_io.of_fd ~close:return ~mode:Lwt_io.input socket in
-					let oc = Lwt_io.of_fd ~close:(fun () -> Lwt_unix.close socket) ~mode:Lwt_io.output socket in
+					lwt () = Lwt_unix.connect fd address in
+					let ic = Lwt_io.of_fd ~close:return ~mode:Lwt_io.input fd in
+					let oc = Lwt_io.of_fd ~close:(fun () -> Lwt_unix.close fd) ~mode:Lwt_io.output fd in
 					return (Ok (ic, oc))
 				with e ->
 					return (Error e)
-			end;
-		| Ssl (domain, address) -> failwith "unimplemented" 
+			end
+		| Ssl (domain, address) ->
+			let fd = Lwt_unix.socket domain Unix.SOCK_STREAM 0 in
+			begin
+				try_lwt
+					lwt () = Lwt_unix.connect fd address in
+					lwt sock = Lwt_ssl.ssl_connect fd sslctx in
+					let ic = Lwt_ssl.in_channel_of_descr sock in
+					let oc = Lwt_ssl.out_channel_of_descr sock in
+					return (Ok (ic, oc))
+				with e ->
+					return (Error e)
+			end
+(* XXX: we're probably leaking 
+  let close (ic,oc) =
+    let _ = try_lwt Lwt_ssl.close ic with _ -> return () in
+    try_lwt Lwt_ssl.close oc with _ -> return ()
+*)
 
 	let sleep = Lwt_unix.sleep
 
