@@ -12,11 +12,12 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type t
-(** An active xen-api connection *)
+exception Failed_to_resolve_hostname of string
 
-val make: Unix.sockaddr -> t
-(** [of_sockaddr addr] creates a plaintext xen-api connection to [addr] *)
+exception Unsupported_scheme of string
 
-val rpc: ?timeout:float -> t -> Xml.xml -> (Xml.xml, exn) Xen_api.result Lwt.t
-(** performs (and optionally retries) an RPC request *)
+val make: ?timeout:float -> string -> (Xml.xml -> Xml.xml Lwt.t) Lwt.t
+(** [make ?timeout uri] returns an 'rpc' function which can be
+	passed to Client.* functions *)
+
+include (module type of (Client.ClientF(Lwt)))
