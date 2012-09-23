@@ -12,11 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-exception Failed_to_resolve_hostname of string
-
-exception Unsupported_scheme of string
-
-val make: ?timeout:float -> string -> (Xml.xml -> Xml.xml Lwt.t) Lwt.t
+val make: ?timeout:float -> string -> Xml.xml -> Xml.xml Lwt.t
 (** [make ?timeout uri] returns an 'rpc' function which can be
 	passed to Client.* functions *)
 

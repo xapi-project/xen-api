@@ -57,10 +57,8 @@ module Fake_IO = struct
 
 	let write oc string = Queue.push string oc; return ()
 	
-	type address = string
-
 	type connection = {
-		address: address;
+		address: Uri.t;
 		ic: ic;
 		oc: ic;
 	}
@@ -91,7 +89,7 @@ let test_login_fail _ =
 	let module M = Xen_api.Make(Fake_IO) in
 	let open Fake_IO in
 	let rpc xml =
-		M.rpc (M.make "somewhere") xml
+		M.rpc (M.make (Uri.of_string "http://127.0.0.1/")) xml
 		>>= function
 			| Ok x -> failwith "should have failed with No_response"
 			| Error e -> raise e in
@@ -125,7 +123,7 @@ let test_login_success _ =
 	let open Fake_IO in
 	let module M = Xen_api.Make(Fake_IO) in
 	let rpc xml =
-		M.rpc (M.make "somewhere") xml
+		M.rpc (M.make (Uri.of_string "http://127.0.0.1/")) xml
 		>>= function
 			| Ok x -> x
 			| Error e -> raise e in

@@ -27,7 +27,7 @@ let exn_to_string = function
 	| e -> Printexc.to_string e
 
 let main () =
-	lwt rpc = make !uri in
+	let rpc = make !uri in
 	lwt session_id = Session.login_with_password rpc !username !password "1.0" in
 	try_lwt
 		lwt vms = VM.get_all_records rpc session_id in
