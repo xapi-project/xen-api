@@ -17,7 +17,7 @@ setup.bin: setup.ml
 	rm -f setup.cmx setup.cmi setup.o setup.cmo
 
 setup.data: setup.bin
-	./setup.bin -configure $(LWT) $(TESTS) #$(ASYNC) $(MIRAGE) $(NETTESTS)
+	./setup.bin -configure $(LWT) $(TESTS) $(ASYNC) #$(MIRAGE) $(NETTESTS)
 
 build: setup.data setup.bin
 	./setup.bin -build
