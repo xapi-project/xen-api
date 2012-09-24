@@ -133,8 +133,8 @@ sdk-install: install
 	mkdir -p $(SDK)
 	cp motd $(SDK)/motd
 	$(IPROG) init.d-sdkinit $(DESTDIR)/etc/rc.d/init.d/sdkinit
-	mkdir -p $(DESTDIR)/usr/lib/python2.4/site-packages/xen/lowlevel
-	touch $(DESTDIR)/usr/lib/python2.4/site-packages/xen/__init__.py
-	touch $(DESTDIR)/usr/lib/python2.4/site-packages/xen/lowlevel/__init__.py
-	cp xc.py $(DESTDIR)/usr/lib/python2.4/site-packages/xen/lowlevel
+	mkdir -p $(DESTDIR)/usr/$(LIBDIR)/python2.4/site-packages/xen/lowlevel
+	touch $(DESTDIR)/usr/$(LIBDIR)/python2.4/site-packages/xen/__init__.py
+	touch $(DESTDIR)/usr/$(LIBDIR)/python2.4/site-packages/xen/lowlevel/__init__.py
+	cp xc.py $(DESTDIR)/usr/$(LIBDIR)/python2.4/site-packages/xen/lowlevel
 
