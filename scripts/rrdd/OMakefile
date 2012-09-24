@@ -1,3 +1,4 @@
 install:
+	mkdir -p $(DESTDIR)/usr/$(LIBDIR)/$(PYTHON_DIR)/site-packages
 	$(IDATA) rrdd.py $(DESTDIR)/usr/$(LIBDIR)/$(PYTHON_DIR)/site-packages/
 	$(IPROG) rrdd-example.py $(DESTDIR)$(LIBEXECDIR)
