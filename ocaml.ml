@@ -166,7 +166,18 @@ let skeleton_of_interface unimplemented suffix env i =
 		Line "end";
 	]
 
-
+let signature_of_interface env i =
+	let signature_of_method m =
+		Line (sprintf "val %s: Types.%s.%s.In.t -> Types.%s.%s.Out.t"
+			m.Method.name
+			i.Interface.name (String.capitalize m.Method.name)
+			i.Interface.name (String.capitalize m.Method.name)
+		) in
+	[
+		Line (sprintf "module type %s = sig" i.Interface.name);
+		Block (List.map signature_of_method i.Interface.methods);
+		Line "end";
+	]
 
 let test_impl_of_interface = skeleton_of_interface false "test"
 let skeleton_of_interface = skeleton_of_interface true "skeleton"
@@ -177,7 +188,7 @@ let server_of_interface env i =
 			Line (sprintf "| \"%s.%s\", [ args ] ->" i.Interface.name m.Method.name);
 			Block [
 				Line (sprintf "let request = %s.%s.In.t_of_rpc args in" i.Interface.name (String.capitalize m.Method.name));
-				Line (sprintf "let response = Impl.%s request" (String.capitalize m.Method.name));
+				Line (sprintf "let response = Impl.%s request" m.Method.name);
 				Line (sprintf "%s.%s.Out.to_rpc response" i.Interface.name (String.capitalize m.Method.name));
 			];
 			Line (sprintf "| \"%s.%s\", args -> failwith \"wrong number of arguments\""
@@ -224,6 +235,8 @@ let of_interfaces env i =
 		List.concat (List.map (exn_decl env) i.Interfaces.exn_decls)
 	) @ (
 		rpc_of_interfaces env i
+	) @ (
+		List.concat (List.map (signature_of_interface env) i.Interfaces.interfaces)
 	) @ (
 		List.fold_left (fun acc i -> acc @
 			(server_of_interface env i) @ (skeleton_of_interface env i) @ (test_impl_of_interface env i)
