@@ -38,7 +38,7 @@ let rec typeof ?(expand_aliases=false) env =
 				else List.assoc x env in
 			if expand_aliases
 			then typeof env ident.Ident.ty
-			else String.concat "." ident.Ident.name
+			else List.hd ident.Ident.name (* we assume names are all in scope *)
 		| Unit -> "()"
 		| Option t -> sprintf "%s option" (typeof env t)
 		| Pair (a, b) -> sprintf "(%s * %s)" (typeof env a) (typeof env b)
@@ -90,21 +90,20 @@ let exn_decl env e =
 		Line (sprintf "(** %s *)" e.TyDecl.description);
 	]
 
-let rpc_of_interface env i =
+let rpc_of_interfaces env is =
 	let field_of_arg a = Line (sprintf "%s: %s;" a.Arg.name (typeof env a.Arg.ty)) in
-	let of_method m =
+	let of_method i m =
 		[
 			Line (sprintf "module %s = struct" (String.capitalize m.Method.name));
-			Block [
+			Block ([
 				Line "module In = struct";
-				Block ([
-				] @ [
+				Block [
 					Line "type t = {";
 					Block (List.map field_of_arg m.Method.inputs);
 					Line "} with rpc";
-				]);
+				];
 				Line "end";
-			];
+			]);
 			Block [
 				Line "module Out = struct";
 				Block [
@@ -119,10 +118,22 @@ let rpc_of_interface env i =
 			];
 			Line "end";
 		] in
+	let rpc_of_interface env i =
+		[
+			Line (sprintf "module %s = struct" i.Interface.name);
+			Block ([
+			] @ (List.concat (List.map (type_decl env) i.Interface.type_decls)
+			) @ (List.concat (List.map (of_method i) i.Interface.methods))
+			);
+			Line "end"
+		] in
 	[
-		Line (sprintf "module %s = struct" i.Interface.name);
-		Block (List.concat (List.map of_method i.Interface.methods));
-		Line "end"
+		Line "module Types = struct";
+		Block ([
+		] @ (List.concat (List.map (type_decl env) is.Interfaces.type_decls)
+		) @ (List.concat (List.map (rpc_of_interface env) is.Interfaces.interfaces)
+		));
+		Line "end";
 	]
 
 let skeleton_method unimplemented env i m =
@@ -201,17 +212,12 @@ let test_impl_of_interfaces env i =
 let of_interfaces env i =
 	let open Printf in
 	[
-		Line "from xcp import *";
-		Line "import traceback";
+		Line "(* Automatically generated code - DO NOT MODIFY *)";
 	] @ (
-		List.concat (List.map (type_decl env) i.Interfaces.type_decls)
-	) @ (
 		List.concat (List.map (exn_decl env) i.Interfaces.exn_decls)
-	) @ [
-		Line "modules Types = struct";
-		Block (List.concat (List.map (rpc_of_interface env) i.Interfaces.interfaces));
-		Line "end";
-	] @ (
+	) @ (
+		rpc_of_interfaces env i
+	) @ (
 		List.fold_left (fun acc i -> acc @
 			(server_of_interface env i) @ (skeleton_of_interface env i) @ (test_impl_of_interface env i)
 		) [] i.Interfaces.interfaces
