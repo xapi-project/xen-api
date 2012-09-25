@@ -189,8 +189,15 @@ let server_of_interface env i =
 		Block [
 			Line "let dispatch (call: Rpc.call) : Rpc.response (* M.t *) =";
 			Block [
-				Line "match call.Rpc.name, call.Rpc.params with";
-				Block (List.concat (List.map dispatch_method i.Interface.methods));
+				Line "try";
+				Block [
+					Line "match call.Rpc.name, call.Rpc.params with";
+					Block (List.concat (List.map dispatch_method i.Interface.methods));
+				];
+				Line "with";
+				Block ([
+					Line "| e -> Rpc.failure (Printf.sprintf \"Internal_error: %s\" (Printexc.to_string e))";
+				])
 			]
 		];
 		Line "end"
