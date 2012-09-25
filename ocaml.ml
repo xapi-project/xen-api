@@ -137,11 +137,13 @@ let rpc_of_interfaces env is =
 	]
 
 let skeleton_method unimplemented env i m =
+	let example_outputs = sprintf "Types.%s.%s.Out.({ %s })" i.Interface.name (String.capitalize m.Method.name)
+		(String.concat "; " (List.map (fun a -> sprintf "%s = %s" a.Arg.name (example_value_of env a.Arg.ty)) m.Method.outputs)) in
 	[
 		Line (sprintf "let %s x = %s" m.Method.name
 			(if unimplemented
 			then (sprintf "raise (Unimplemented \"%s.%s\")" i.Interface.name m.Method.name)
-			else "failwith \"need example method outputs\"")
+			else example_outputs)
 		)
 	]
 
