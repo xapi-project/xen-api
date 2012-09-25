@@ -90,28 +90,32 @@ let exn_decl env e =
 let rpc_of_interface env i =
 	let type_of_arg a = Line (sprintf "type %s = %s with rpc" a.Arg.name (typeof env a.Arg.ty)) in
 	let field_of_arg a = Line (sprintf "%s: %s;" a.Arg.name a.Arg.name) in
-	let of_inputs_outputs which args =
-		[
-			Line (sprintf "module %s = struct" which);
-			Block ([
-			] @ (List.map type_of_arg args
-			) @ [
-				Line "type t = {";
-				Block (List.map field_of_arg args);
-				Line "}";
-				Line (sprintf "let of_rpc %s = {" (String.concat " " (List.map (fun a -> a.Arg.name) args)));
-				Block (List.map (function { Arg.name = a } -> Line (sprintf "%s = %s_of_rpc %s;" a a a)) args);
-				Line "}";
-				Line (sprintf "let to_rpc { %s } = [" (String.concat "; " (List.map (fun a -> a.Arg.name) args)));
-				Block (List.map (function { Arg.name = a } -> Line (sprintf "rpc_of_%s %s" a a)) args);
-				Line "]";
-			]);
-			Line "end";
-		] in
 	let of_method m =
 		[
 			Line (sprintf "module %s = struct" (String.capitalize m.Method.name));
-			Block (of_inputs_outputs "Inputs" m.Method.inputs @ (of_inputs_outputs "Outputs" m.Method.outputs));
+			Block [
+				Line "module Inputs = struct";
+				Block ([
+				] @ (List.map type_of_arg m.Method.inputs
+				) @ [
+					Line "type t = {";
+					Block (List.map field_of_arg m.Method.inputs);
+					Line "} with rpc";
+				]);
+				Line "end";
+			];
+			Block [
+				Line "module Outputs = struct";
+				Block [
+					match m.Method.outputs with
+						| [ x ] ->
+							Line (sprintf "type t = %s with rpc" (typeof env x.Arg.ty))
+						| [] ->
+							Line "type t = unit with rpc"
+						| _ -> failwith (Printf.sprintf "%s.%s has output arity <> 0, 1: rpc-light can't cope" i.Interface.name m.Method.name)
+				];
+				Line "end";
+			];
 			Line "end";
 		] in
 	[
@@ -158,12 +162,9 @@ let skeleton_of_interface = skeleton_of_interface true "skeleton"
 let server_of_interface env i =
 	let dispatch_method m =
 		[
-			Line (sprintf "| \"%s.%s\", [%s] ->"
-				i.Interface.name m.Method.name
-				(String.concat "; " (List.map (fun a -> a.Arg.name) m.Method.inputs))
-			);
+			Line (sprintf "| \"%s.%s\", [ args ] ->" i.Interface.name m.Method.name);
 			Block [
-				Line (sprintf "let request = %s.%s.Inputs.of_rpc %s in" i.Interface.name (String.capitalize m.Method.name) (String.concat " " (List.map (fun a -> a.Arg.name) m.Method.inputs)));
+				Line (sprintf "let request = %s.%s.Inputs.t_of_rpc args in" i.Interface.name (String.capitalize m.Method.name));
 				Line (sprintf "let response = Impl.%s request" (String.capitalize m.Method.name));
 				Line (sprintf "%s.%s.Outputs.to_rpc response" i.Interface.name (String.capitalize m.Method.name));
 			];
