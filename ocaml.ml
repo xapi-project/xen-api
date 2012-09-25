@@ -16,7 +16,8 @@ let string_of_ts ts = String.concat "\n" (List.concat (List.map lines_of_t ts))
 
 open Printf
 
-let rec typeof env =
+let rec typeof ?(expand_aliases=false) env =
+	let typeof env = typeof ~expand_aliases env in
 	let open Type in function
 		| Basic Int64 -> "int64"
 		| Basic String -> "string"
@@ -35,14 +36,16 @@ let rec typeof env =
 				if not(List.mem_assoc x env)
 				then failwith (Printf.sprintf "Unable to find ident: %s" x)
 				else List.assoc x env in
-			typeof env ident.Ident.ty
+			if expand_aliases
+			then typeof env ident.Ident.ty
+			else String.concat "." ident.Ident.name
 		| Unit -> "()"
 		| Option t -> sprintf "%s option" (typeof env t)
 		| Pair (a, b) -> sprintf "(%s * %s)" (typeof env a) (typeof env b)
 
 let type_decl env t =
 	[
-		Line (sprintf "type %s = %s" t.TyDecl.name (typeof env t.TyDecl.ty));
+		Line (sprintf "type %s = %s with rpc" t.TyDecl.name (typeof ~expand_aliases:true env t.TyDecl.ty));
 		Line (sprintf "(** %s *)" t.TyDecl.description);
 	]
 
@@ -88,16 +91,14 @@ let exn_decl env e =
 	]
 
 let rpc_of_interface env i =
-	let type_of_arg a = Line (sprintf "type %s = %s with rpc" a.Arg.name (typeof env a.Arg.ty)) in
-	let field_of_arg a = Line (sprintf "%s: %s;" a.Arg.name a.Arg.name) in
+	let field_of_arg a = Line (sprintf "%s: %s;" a.Arg.name (typeof env a.Arg.ty)) in
 	let of_method m =
 		[
 			Line (sprintf "module %s = struct" (String.capitalize m.Method.name));
 			Block [
-				Line "module Inputs = struct";
+				Line "module In = struct";
 				Block ([
-				] @ (List.map type_of_arg m.Method.inputs
-				) @ [
+				] @ [
 					Line "type t = {";
 					Block (List.map field_of_arg m.Method.inputs);
 					Line "} with rpc";
@@ -105,7 +106,7 @@ let rpc_of_interface env i =
 				Line "end";
 			];
 			Block [
-				Line "module Outputs = struct";
+				Line "module Out = struct";
 				Block [
 					match m.Method.outputs with
 						| [ x ] ->
@@ -164,9 +165,9 @@ let server_of_interface env i =
 		[
 			Line (sprintf "| \"%s.%s\", [ args ] ->" i.Interface.name m.Method.name);
 			Block [
-				Line (sprintf "let request = %s.%s.Inputs.t_of_rpc args in" i.Interface.name (String.capitalize m.Method.name));
+				Line (sprintf "let request = %s.%s.In.t_of_rpc args in" i.Interface.name (String.capitalize m.Method.name));
 				Line (sprintf "let response = Impl.%s request" (String.capitalize m.Method.name));
-				Line (sprintf "%s.%s.Outputs.to_rpc response" i.Interface.name (String.capitalize m.Method.name));
+				Line (sprintf "%s.%s.Out.to_rpc response" i.Interface.name (String.capitalize m.Method.name));
 			];
 			Line (sprintf "| \"%s.%s\", args -> failwith \"wrong number of arguments\""
 				i.Interface.name m.Method.name

@@ -1,7 +1,7 @@
 open Types
 
 let api =
-  let vdi_info =
+  let vdi_info_decl =
     Type.(Struct(
       ( "vdi", Name "vdi", "The unique id of this VDI" ),
       [ "content_id", Name "content_id", "The unique id of the VDI contents. If two VDIs have the same content_id then they must have the same data inside";
@@ -19,6 +19,7 @@ let api =
 	"sm_config", Dict(String, Basic String), "Backend-specific parameters";
       ]
     )) in
+  let vdi_info = Type.Name "vdi_info" in
   let sr = {
     Arg.name = "sr";
     ty = Type.(Basic String);
@@ -29,11 +30,12 @@ let api =
     ty = Type.(Basic String);
     description = "The Virtual Disk Image to operate on";
   } in
-  let attach_info =
+  let attach_info_decl =
 	  Type.(Struct(
 		  ( "params", Basic String, "The xenstore backend params key"),
 		  [ "xenstore_data", Dict(String, Basic String), "Additional xenstore backend device keys" ]
 	  )) in
+  let attach_info = Type.Name "attach_info" in
   let vdi_info' = {
     Arg.name = "vdi_info";
 (*    ty = vdi_info; *)
@@ -104,8 +106,12 @@ let api =
 		}; {
 			TyDecl.name = "vdi_info";
 			description = "All per-VDI properties";
-			ty = vdi_info
-		};
+			ty = vdi_info_decl
+		}; {
+			TyDecl.name = "attach_info";
+			description = "Configuration for blkback";
+			ty = attach_info_decl
+		}
 	];
     interfaces =
       [
@@ -269,9 +275,7 @@ let api =
 	      ];
 	      outputs = [
 		{ Arg.name = "device";
-		  ty = Type.(Struct(("params", Basic String, "blkback params key"), [
-			  "xenstore_data", Dict(String, Basic String), "additional backend configuration for xenstore-data/"
-		  ]));
+		  ty = attach_info;
 		  description = "backend device configuration";
 		}
 	      ];
