@@ -1,3 +1,8 @@
+type ('a, 'b) result =
+	| Ok of 'a
+	| Error of 'b
+
+let error exn = Error exn
 
 module type M = sig
 

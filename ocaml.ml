@@ -173,7 +173,7 @@ let skeleton_of_interface unimplemented suffix env i =
 
 let signature_of_interface env i =
 	let signature_of_method m =
-		Line (sprintf "val %s: Types.%s.%s.In.t -> Types.%s.%s.Out.t"
+		Line (sprintf "val %s: Types.%s.%s.In.t -> (Types.%s.%s.Out.t, exn) Xcp.result Xcp.M.t"
 			m.Method.name
 			i.Interface.name (String.capitalize m.Method.name)
 			i.Interface.name (String.capitalize m.Method.name)
@@ -193,8 +193,17 @@ let server_of_interface env i =
 			Line (sprintf "| \"%s.%s\", [ args ] ->" i.Interface.name m.Method.name);
 			Block [
 				Line (sprintf "let request = %s.%s.In.t_of_rpc args in" i.Interface.name (String.capitalize m.Method.name));
-				Line (sprintf "let response = Impl.%s request" m.Method.name);
-				Line (sprintf "%s.%s.Out.to_rpc response" i.Interface.name (String.capitalize m.Method.name));
+				Line (sprintf "%s request" m.Method.name);
+				Line ">>= function";
+				Line " | Ok response ->";
+				Block [
+					Line (sprintf "let response = %s.%s.Out.to_rpc response" i.Interface.name (String.capitalize m.Method.name));
+					Line "return response";
+				];
+				Line " | Error exn ->";
+				Block [
+					Line "Rpc.failure (Printf.sprintf \"Internal_error: %s\" (Printexc.to_string exn))";
+				]
 			];
 			Line (sprintf "| \"%s.%s\", args -> failwith \"wrong number of arguments\""
 				i.Interface.name m.Method.name
@@ -203,39 +212,23 @@ let server_of_interface env i =
 	[
 		Line (sprintf "module %s_server_dispatcher = functor(Impl: %s) -> struct" i.Interface.name i.Interface.name);
 		Block [
-			Line "let dispatch (call: Rpc.call) : Rpc.response (* M.t *) =";
+			Line "let open Impl in";
+			Line "let dispatch (call: Rpc.call) : Rpc.response Impl.t =";
 			Block [
-				Line "try";
-				Block [
-					Line "match call.Rpc.name, call.Rpc.params with";
-					Block (List.concat (List.map dispatch_method i.Interface.methods));
-				];
-				Line "with";
-				Block ([
-					Line "| e -> Rpc.failure (Printf.sprintf \"Internal_error: %s\" (Printexc.to_string e))";
-				])
+				Line "match call.Rpc.name, call.Rpc.params with";
+				Block (List.concat (List.map dispatch_method i.Interface.methods));
 			]
 		];
 		Line "end"
-	]
-
-let test_impl_of_interfaces env i =
-	let open Printf in
-	[
-		Line (sprintf "class %s_server_test(%s_server_dispatcher):" i.Interfaces.name i.Interfaces.name);
-		Block [
-			Line "\"\"\"Create a server which will respond to all calls, returning arbitrary values. This is intended as a marshal/unmarshal test.\"\"\"";
-			Line "def __init__(self):";
-			Block [
-				Line (sprintf "%s_server_dispatcher.__init__(self%s)" i.Interfaces.name (String.concat "" (List.map (fun i -> ", " ^ i.Interface.name ^ "_server_dispatcher(" ^ i.Interface.name ^ "_test())") i.Interfaces.interfaces)))
-			]
-		]
 	]
 
 let of_interfaces env i =
 	let open Printf in
 	[
 		Line "(* Automatically generated code - DO NOT MODIFY *)";
+		Line "";
+		Line "open Xcp";
+		Line "";
 	] @ (
 		List.concat (List.map (exn_decl env) i.Interfaces.exn_decls)
 	) @ (
@@ -246,42 +239,4 @@ let of_interfaces env i =
 		List.fold_left (fun acc i -> acc @
 			(server_of_interface env i) @ (skeleton_of_interface env i) @ (test_impl_of_interface env i)
 		) [] i.Interfaces.interfaces
-	) @ [
-		Line (sprintf "class %s_server_dispatcher:" i.Interfaces.name);
-		Block ([
-			Line "\"\"\"Demux calls to individual interface server_dispatchers\"\"\"";
-			Line (sprintf "def __init__(self%s):" (String.concat "" (List.map (fun x -> ", " ^ x ^ " = None") (List.map (fun i -> i.Interface.name) i.Interfaces.interfaces))));
-			Block (List.map (fun i -> Line (sprintf "self.%s = %s" i.Interface.name i.Interface.name)) i.Interfaces.interfaces);
-			Line "def _dispatch(self, method, params):";
-			Block [
-				Line "try:";
-				Block ([
-					Line "log(\"method = %s params = %s\" % (method, repr(params)))";
-				] @ (
-					List.fold_left (fun (first, acc) i -> false, acc @ [
-						Line (sprintf "%sif method.startswith(\"%s\") and self.%s:" (if first then "" else "el") i.Interface.name i.Interface.name);
-						Block [ Line (sprintf "return self.%s._dispatch(method, params)" i.Interface.name) ];
-					]) (true, []) i.Interfaces.interfaces |> snd
-				) @ [
-					Line "raise UnknownMethod(method)"
-				]
-				);
-				Line "except Exception, e:";
-				Block [
-					Line "log(\"caught %s\" % e)";
-					Line "traceback.print_exc()";
-					Line "try:";
-					Block [
-						Line "# A declared (expected) failure will have a .failure() method";
-						Line "log(\"returning %s\" % (repr(e.failure())))";
-						Line "return e.failure()"
-					];
-					Line "except:";
-					Block [
-						Line "# An undeclared (unexpected) failure is wrapped as InternalError";
-						Line "return (InternalError(str(e)).failure())"
-					]
-				]
-			]
-		])
-	] @ (test_impl_of_interfaces env i)
+	)
