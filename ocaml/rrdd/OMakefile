@@ -46,16 +46,43 @@ RRDD_TEST_FILES = \
 	interface/data_source \
 	rrdd_test
 
+RRD_CLIENT_OBJS = \
+	interface/rrd \
+	interface/rrdd_interface \
+	interface/ds \
+	interface/data_source \
+	rrdd_shared
+
 .SUBDIRS: interface
 
 OCamlProgram($(RRDD), $(RRDD_FILES))
 OCamlDocProgram($(RRDD), $(RRDD_FILES))
+OCamlLibrary(rrd_client, $(RRD_CLIENT_OBJS))
 OCamlProgram($(RRDD_TEST), $(RRDD_TEST_FILES))
 
 .PHONY: install
 install:
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) $(RRDD) $(DESTDIR)$(LIBEXECDIR)
+
+META: META.in
+	sed 's/@VERSION@/$(PRODUCT_VERSION)/g' < $< > $@
+
+if $(defined-env DESTDIR)
+	INSTALL_PATH = $(DESTDIR)/$(shell ocamlfind printconf destdir)
+	export
+else
+	INSTALL_PATH = $(shell ocamlfind printconf destdir)
+	export
+
+.PHONY: lib-install
+lib-install: META
+	mkdir -p $(INSTALL_PATH)
+	ocamlfind install -destdir $(INSTALL_PATH) -ldconf ignore rrd-client META $(addsuffixes .cmi,$(RRD_CLIENT_OBJS)) $(if $(BYTE_ENABLED), rrd_client.cma) $(if $(NATIVE_ENABLED), rrd_client.cmxa rrd_client.a $(addsuffixes .cmx, $(RRD_CLIENT_OBJS)))
+
+.PHONY: lib-uninstall
+lib-uninstall:
+	ocamlfind remove -destdir $(INSTALL_PATH) rrd-client
 
 .PHONY: test
 test: $(RRDD) $(RRDD_TEST)

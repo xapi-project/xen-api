@@ -1,0 +1,5 @@
+version = "@VERSION@"
+description = "RRDD library"
+requires = "xapi-client"
+archive(byte) = "rrd_client.cma"
+archive(native) = "rrd_client.cmxa"
