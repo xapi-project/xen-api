@@ -118,13 +118,25 @@ let rpc_of_interfaces env is =
 			];
 			Line "end";
 		] in
+	let variant_of_interface direction env i =
+		[
+			Line (sprintf "module %s = struct" direction);
+			Block [
+				Line "type t =";
+				Block (List.map (fun m -> Line(sprintf "%s of %s.%s.t" (String.capitalize m.Method.name) (String.capitalize m.Method.name) direction)) i.Interface.methods)
+			];
+			Line "end";
+		] in
+
 	let rpc_of_interface env i =
 		[
 			Line (sprintf "module %s = struct" i.Interface.name);
 			Block ([
 			] @ (List.concat (List.map (type_decl env) i.Interface.type_decls)
-			) @ (List.concat (List.map (of_method i) i.Interface.methods))
-			);
+			) @ (List.concat (List.map (of_method i) i.Interface.methods)
+			) @ (variant_of_interface "In" env i
+			) @ (variant_of_interface "Out" env i
+			));
 			Line "end"
 		] in
 	[
@@ -194,33 +206,55 @@ let skeleton_of_interface = skeleton_of_interface true "skeleton"
 let server_of_interface env i =
 	let dispatch_method m =
 		[
+			Line (sprintf "| Types.%s.In.%s x ->" i.Interface.name (String.capitalize m.Method.name));
+			Block [
+				Line (sprintf "Impl.%s x" m.Method.name);
+				Line ">>= fun result ->";
+				Line "return (result Result.(>>=) fun ok ->";
+				Block [
+					Line (sprintf "Result.return (Types.%s.Out.%s ok)" i.Interface.name (String.capitalize m.Method.name));
+				];
+				Line ")";
+			]
+		] in
+	let of_call_method m =
+		[
 			Line (sprintf "| \"%s.%s\", [ args ] ->" i.Interface.name m.Method.name);
 			Block [
-				Line (sprintf "let request = %s.%s.In.t_of_rpc args in" i.Interface.name (String.capitalize m.Method.name));
-				Line (sprintf "%s request" m.Method.name);
-				Line ">>= function";
-				Line " | Ok response ->";
-				Block [
-					Line (sprintf "let response = %s.%s.Out.to_rpc response" i.Interface.name (String.capitalize m.Method.name));
-					Line "return response";
-				];
-				Line " | Error exn ->";
-				Block [
-					Line "Rpc.failure (Printf.sprintf \"Internal_error: %s\" (Printexc.to_string exn))";
-				]
-			];
-			Line (sprintf "| \"%s.%s\", args -> failwith \"wrong number of arguments\""
-				i.Interface.name m.Method.name
-			);
+				Line (sprintf "Result.return (Types.%s.In.%s(Types.%s.%s.In.t_of_rpc args))" i.Interface.name (String.capitalize m.Method.name) i.Interface.name (String.capitalize m.Method.name));
+			]
 		] in
+	let response_of_method m =
+		Line (sprintf "| Ok (Types.%s.Out.%s x) -> Types.%s.%s.rpc_of_t x" i.Interface.name (String.capitalize m.Method.name) i.Interface.name (String.capitalize m.Method.name)) in
 	[
 		Line (sprintf "module %s_server_dispatcher = functor(Impl: %s) -> struct" i.Interface.name i.Interface.name);
 		Block [
-			Line "let open Impl in";
-			Line "let dispatch (call: Rpc.call) : Rpc.response Impl.t =";
+			Line (sprintf "let of_call (call: Rpc.call) : (Types.%s.In.t, 'b) result" i.Interface.name);
 			Block [
 				Line "match call.Rpc.name, call.Rpc.params with";
-				Block (List.concat (List.map dispatch_method i.Interface.methods));
+				Block ([
+				] @ (List.concat (List.map of_call_method i.Interface.methods)
+				) @ [
+					Line "| name, params -> Result.fail (Unknown_method name)"
+				])
+			];
+			Line "let response_of = function";
+			Block ([
+				Line "| Error exn ->";
+				Block [
+					Line "Rpc.failure (Printf.sprintf \"Internal_error: %s\" (Printexc.to_string exn))";
+				];
+			] @ (List.map response_of_method i.Interface.methods)
+			);
+			Line (sprintf "let dispatch (request: Types.%s.In.t) : (Types.%s.Out.t, 'b) result t = match request with" i.Interface.name i.Interface.name);
+			Block (List.concat (List.map dispatch_method i.Interface.methods));
+			Line "let rpc (call: Rpc.call) : Rpc.response t =";
+			Block [
+				Line "of_call call";
+				Line "Result.(>>=) fun request ->";
+				Line "dispatch request";
+				Line "(>>=) fun result ->";
+				Line "response_of result";
 			]
 		];
 		Line "end"
