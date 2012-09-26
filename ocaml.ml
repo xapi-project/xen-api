@@ -139,15 +139,16 @@ let rpc_of_interfaces env is =
 let skeleton_method unimplemented env i m =
 	let example_outputs =
 		if m.Method.outputs = []
-		then "()"
-		else sprintf "Types.%s.%s.Out.({ %s })" i.Interface.name (String.capitalize m.Method.name)
+		then "Ok ()"
+		else sprintf "return (Ok (Types.%s.%s.Out.({ %s })))" i.Interface.name (String.capitalize m.Method.name)
 		(String.concat "; " (List.map (fun a -> sprintf "%s = %s" a.Arg.name (example_value_of env a.Arg.ty)) m.Method.outputs)) in
+	let unimplemented_error =
+		sprintf "return (Error (Unimplemented \"%s.%s\")))" i.Interface.name m.Method.name in
 	[
-		Line (sprintf "let %s x = %s" m.Method.name
-			(if unimplemented
-			then (sprintf "raise (Unimplemented \"%s.%s\")" i.Interface.name m.Method.name)
-			else example_outputs)
-		)
+		Line (sprintf "let %s x =" m.Method.name);
+		Block [
+			Line (if unimplemented then unimplemented_error else example_outputs)
+		]
 	]
 
 let example_skeleton_user env i m =
@@ -166,8 +167,11 @@ let example_skeleton_user env i m =
 
 let skeleton_of_interface unimplemented suffix env i =
 	[
-		Line (sprintf "module %s_%s = struct" i.Interface.name suffix);
-		Block (List.concat (List.map (skeleton_method unimplemented env i) i.Interface.methods));
+		Line (sprintf "module %s_%s = functor(M: Xcp.M) -> struct" i.Interface.name suffix);
+		Block ([
+			Line "include M";
+		] @ (List.concat (List.map (skeleton_method unimplemented env i) i.Interface.methods))
+		);
 		Line "end";
 	]
 
