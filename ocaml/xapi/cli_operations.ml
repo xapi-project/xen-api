@@ -1025,8 +1025,8 @@ let pool_certificate_install fd printer rpc session_id params =
 	let filename = List.assoc "filename" params in
 	match get_client_file fd filename with
 		| Some cert ->
-			Client.Pool.certificate_install ~rpc ~session_id ~name:filename
-				~cert
+			Client.Pool.certificate_install ~rpc ~session_id
+				~name:(Filename.basename filename) ~cert
 		| None ->
 			marshal fd (Command (PrintStderr "Failed to read certificate\n"));
 			raise (ExitWithError 1)
@@ -1043,7 +1043,8 @@ let pool_crl_install fd printer rpc session_id params =
 	let filename = List.assoc "filename" params in
 	match get_client_file fd filename with
 		| Some cert ->
-			Client.Pool.crl_install ~rpc ~session_id ~name:filename ~cert
+			Client.Pool.crl_install ~rpc ~session_id
+				~name:(Filename.basename filename) ~cert
 		| None ->
 			marshal fd (Command (PrintStderr "Failed to read CRL\n"));
 			raise (ExitWithError 1)
