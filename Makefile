@@ -7,12 +7,14 @@ SED=sed
 BZIP2=bzip2
 CP=cp
 OCAMLFIND=ocamlfind
+MAKE=make
 
 RPM_SPECSDIR?=$(shell rpm --eval='%_specdir')
 RPM_SRPMSDIR?=$(shell rpm --eval='%_srcrpmdir')
 RPM_SOURCESDIR?=$(shell rpm --eval='%_sourcedir')
 RPMBUILD?=rpmbuild
 
+default: build
 
 idl: files.cmx types.cmx smapiv2.cmx xenops.cmx memory.cmx python.cmx ocaml.cmx html.cmx main.cmx
 	${OCAMLFIND} ocamlopt -package xmlm -linkpkg -g -o idl files.cmx types.cmx smapiv2.cmx xenops.cmx memory.cmx python.cmx ocaml.cmx html.cmx main.cmx
@@ -28,9 +30,13 @@ toplevel: files.cmo types.cmo smapiv2.cmo xenops.cmo memory.cmo python.cmo ocaml
 
 PYPATH=/usr/lib/xcp-sm-fs
 
-.PHONY: install
-install: idl
+.PHONY: build
+build: idl
 	./idl
+	${MAKE} -C ocaml
+
+.PHONY: install
+install: build
 	${MKDIR} -p ${DESTDIR}${PYPATH}
 	${INSTALL} python/fs.py ${DESTDIR}${PYPATH}
 	${INSTALL} python/mount.py ${DESTDIR}${PYPATH}
@@ -71,3 +77,4 @@ srpm: python/xcp-sm-fs.spec xcp-sm-fs-0.9.tar.bz2
 .PHONY: clean
 clean:
 	rm -f *.cmx *.cmo *.cmi idl toplevel
+	${MAKE} -C ocaml clean

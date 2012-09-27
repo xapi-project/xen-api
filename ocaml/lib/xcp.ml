@@ -1,4 +1,3 @@
-module Xcp = struct
 module Result = struct
 	type ('a, 'b) t =
 		| Ok of 'a
@@ -35,4 +34,4 @@ end
 exception Unknown_method of string
 
 exception Internal_error of string
-end
+

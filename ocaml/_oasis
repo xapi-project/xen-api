@@ -19,7 +19,7 @@ Library "xcp-api-client"
   CompiledObject:     best
   Path: lib
   Findlibname: xcp-api-client
-  Modules: Xcp, Storage, Domains, Memory
+  Modules: Xcp, Storage
   BuildDepends:	rpc
 
 Executable xcp_api_test
@@ -29,7 +29,7 @@ Executable xcp_api_test
   Custom:             true
   CompiledObject:     best
   Install:            false
-  BuildDepends:       xcp-api-client, oUnit
+  BuildDepends:       xcp-api-client, lwt, lwt.unix, oUnit
 
 Test xcp_api_test_test
   Run$:               flag(tests)
