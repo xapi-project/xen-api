@@ -1,0 +1,37 @@
+OASISFormat: 0.3
+Name:        xcp-api-client
+Version:     0.1.0
+Synopsis:    XCP API client
+Authors:     David Scott
+License:     LGPL-2.0 with OCaml linking exception
+Plugins:     META (0.3)
+BuildTools:  ocamlbuild
+
+Flag lwt
+  Description: build the Lwt library
+  Default: false
+
+Flag async
+  Description: build the Core/Async library
+  Default: false
+
+Library "xcp-api-client"
+  CompiledObject:     best
+  Path: lib
+  Findlibname: xcp-api-client
+  Modules: Xcp, Storage, Domains, Memory
+  BuildDepends:	rpc
+
+Executable xcp_api_test
+  Path:               lib_test
+  MainIs:             xcp_api_test.ml
+  Build$:             flag(tests)
+  Custom:             true
+  CompiledObject:     best
+  Install:            false
+  BuildDepends:       xcp-api-client, oUnit
+
+Test xcp_api_test_test
+  Run$:               flag(tests)
+  Command:            $xcp_api_test
+  WorkingDirectory:   lib_test
