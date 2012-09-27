@@ -111,7 +111,21 @@ let api =
 			TyDecl.name = "attach_info";
 			description = "Configuration for blkback";
 			ty = attach_info_decl
+		}; {
+			TyDecl.name = "query_result";
+			description = "properties of this implementation";
+			ty = Type.(Struct( ("driver", Basic String, "driver, used in the XenAPI as SR.type"), [
+				"name", Basic String, "short name";
+				"description", Basic String, "description";
+				"vendor", Basic String, "entity which produced this implementation";
+				"copyright", Basic String, "copyright";
+				"version", Basic String, "version";
+				"required_api_version", Basic String, "minimum required API version";
+				"features", Array (Basic String), "features supported by this plugin";
+				"configuration", Dict(String, Basic String), "key/description pairs describing required device_config parameters"
+			]))
 		}
+
 	];
     interfaces =
       [
@@ -119,20 +133,6 @@ let api =
 			  Interface.name = "Query";
 			  description = "Discover properties of this implementation";
 			  type_decls = [
-				  {
-					  TyDecl.name = "query_result";
-					  description = "properties of this implementation";
-					  ty = Type.(Struct( ("driver", Basic String, "driver, used in the XenAPI as SR.type"), [
-						  "name", Basic String, "short name";
-						  "description", Basic String, "description";
-						  "vendor", Basic String, "entity which produced this implementation";
-						  "copyright", Basic String, "copyright";
-						  "version", Basic String, "version";
-						  "required_api_version", Basic String, "minimum required API version";
-						  "features", Array (Basic String), "features supported by this plugin";
-						  "configuration", Dict(String, Basic String), "key/description pairs describing required device_config parameters"
-					  ]))
-				  }
 			  ];
 			  methods = [
 				  {
@@ -403,8 +403,8 @@ let api =
 	  type_decls = [];
 	  methods = [
 		  {
-			  Method.name = "list";
-			  description = "[list dbg]: returns a list of attached SRs";
+			  Method.name = "ls";
+			  description = "[ls dbg]: returns a list of attached SRs";
 			  inputs = [];
 			  outputs = [
 				  {

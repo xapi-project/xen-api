@@ -1,3 +1,4 @@
+module Xcp = struct
 module Result = struct
 	type ('a, 'b) t =
 		| Ok of 'a
@@ -28,7 +29,10 @@ end
 module type RPC = sig
 	include M
 
-	val rpc : Rpc.call -> Rpc.response
+	val rpc : Rpc.call -> Rpc.response t
 end
 
 exception Unknown_method of string
+
+exception Internal_error of string
+end
