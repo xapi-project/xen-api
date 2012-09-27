@@ -1,0 +1,34 @@
+# OASIS_START
+# DO NOT EDIT (digest: 19fcb93bd1f513efe99281778667748a)
+# Ignore VCS directories, you can use the same kind of rule outside 
+# OASIS_START/STOP if you want to exclude directories that contains 
+# useless stuff for the build process
+<**/.svn>: -traverse
+<**/.svn>: not_hygienic
+".bzr": -traverse
+".bzr": not_hygienic
+".hg": -traverse
+".hg": not_hygienic
+".git": -traverse
+".git": not_hygienic
+"_darcs": -traverse
+"_darcs": not_hygienic
+# Library xcp-api-client
+"lib/xcp-api-client.cmxs": use_xcp-api-client
+<lib/*.ml{,i}>: pkg_rpc
+# Executable xcp_api_test
+<lib_test/xcp_api_test.{native,byte}>: use_xcp-api-client
+<lib_test/xcp_api_test.{native,byte}>: pkg_lwt
+<lib_test/xcp_api_test.{native,byte}>: pkg_lwt.unix
+<lib_test/xcp_api_test.{native,byte}>: pkg_oUnit
+<lib_test/xcp_api_test.{native,byte}>: pkg_rpc
+<lib_test/*.ml{,i}>: use_xcp-api-client
+<lib_test/*.ml{,i}>: pkg_lwt
+<lib_test/*.ml{,i}>: pkg_lwt.unix
+<lib_test/*.ml{,i}>: pkg_oUnit
+<lib_test/*.ml{,i}>: pkg_rpc
+<lib_test/xcp_api_test.{native,byte}>: custom
+# OASIS_STOP
+<lib/*.ml>: syntax_camlp4o, pkg_rpc.syntax
+
+
