@@ -218,7 +218,7 @@ let rpc_of_interfaces env is =
 let skeleton_method unimplemented env i m =
 	let example_outputs =
 		if m.Method.outputs = []
-		then "Result.Ok ()"
+		then "return (Result.Ok ())"
 		else sprintf "return (Result.Ok (Types.%s.%s.Out.(%s)))" i.Interface.name (String.capitalize m.Method.name)
 		(String.concat "; " (List.map (fun a -> sprintf "%s" (example_value_of env a.Arg.ty)) m.Method.outputs)) in
 	let unimplemented_error =
@@ -290,6 +290,7 @@ let server_of_interface env i =
 	[
 		Line (sprintf "module %s_server_dispatcher = functor(Impl: %s) -> struct" i.Interface.name i.Interface.name);
 		Block [
+			Line "type 'a t = 'a Impl.t";
 			Line "let (>>=) = Impl.(>>=)";
 			Line "let return = Impl.return";
 			Line (sprintf "let dispatch (request: Types.%s.In.t) : (Types.%s.Out.t, 'b) Result.t Impl.t = match request with" i.Interface.name i.Interface.name);
