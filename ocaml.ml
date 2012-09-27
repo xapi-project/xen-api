@@ -29,8 +29,8 @@ let rec typeof ?(expand_aliases=false) env =
 		| Variant (fst, rest) ->
 			let member (name, ty, descr) = sprintf "| %s of %s (** %s *)" name (typeof env ty) descr in
 			member fst ^ (String.concat " " (List.map member rest))
-		| Array t -> typeof env t ^ " list"
-		| Dict (basic, t) -> sprintf "(%s * %s) list" (typeof env (Basic basic)) (typeof env t)
+		| Array t -> "(" ^ (typeof env t) ^ " list" ^ ")"
+		| Dict (basic, t) -> sprintf "((%s * %s) list)" (typeof env (Basic basic)) (typeof env t)
 		| Name x ->
 			let ident =
 				if not(List.mem_assoc x env)
@@ -40,7 +40,7 @@ let rec typeof ?(expand_aliases=false) env =
 			then typeof env ident.Ident.ty
 			else List.hd ident.Ident.name (* we assume names are all in scope *)
 		| Unit -> "()"
-		| Option t -> sprintf "%s option" (typeof env t)
+		| Option t -> sprintf "(%s option)" (typeof env t)
 		| Pair (a, b) -> sprintf "(%s * %s)" (typeof env a) (typeof env b)
 
 let type_decl env t =
@@ -317,12 +317,17 @@ let server_of_interface env i =
 let client_of_interfaces env is =
 	let client_of_method env i m =
 		[
-			Line (sprintf "let %s x =" m.Method.name);
+			Line (sprintf "let %s_r x =" m.Method.name);
 			Block [
 				Line (sprintf "let call = Types.%s.In.call_of (Types.%s.In.%s x) in" i.Interface.name i.Interface.name (String.capitalize m.Method.name));
 				Line "RPC.rpc call >>= fun response ->";
 				Line (sprintf "let result = Result.(>>=) (result_of_response response) (fun x -> Result.return (Types.%s.%s.Out.t_of_rpc x)) in" i.Interface.name (String.capitalize m.Method.name));
 				Line "return result";
+			];
+			Line (sprintf "let %s %s =" m.Method.name (String.concat " " (List.map (fun i -> sprintf "~%s" i.Arg.name) m.Method.inputs)));
+			Block [
+				Line (sprintf "let r = Types.%s.%s.In.({ %s }) in" i.Interface.name (String.capitalize m.Method.name) (String.concat "; " (List.map (fun i -> sprintf "%s = %s" i.Arg.name i.Arg.name) m.Method.inputs)));
+				Line (sprintf "%s_r r" m.Method.name);
 			]
 		] in
 	let client_of_interface env i =
