@@ -17,14 +17,18 @@ end
 
 type ('a, 'b) t = ('a, 'b) Result.t
 
-let error exn = Error exn
-
 module type M = sig
 
   type 'a t
   val (>>=) : 'a t -> ('a -> 'b t) -> 'b t
   val return : 'a -> 'a t
 
+end
+
+module type RPC = sig
+	include M
+
+	val rpc : Rpc.call -> Rpc.response
 end
 
 exception Unknown_method of string
