@@ -28,6 +28,22 @@ module V = (VDI_test(Lwt): VDI with type 'a t = 'a Lwt.t)
 module V_d = VDI_server_dispatcher(V)
 module VDI = VDI_client(V_d)
 
+let base_path = "../../rpc-light/"
+
+let readfile filename =
+	let fd = Unix.openfile filename [ Unix.O_RDONLY ] 0o0 in
+	let buffer = String.make (1024 * 1024) '\000' in
+	let length = Unix.read fd buffer 0 (String.length buffer) in
+	let () = Unix.close fd in
+	String.sub buffer 0 length
+
+let sr_attach_request _ =
+	let xml = readfile (base_path ^ "sr.attach/request") in
+	let req = Xmlrpc.call_of_string xml in
+	match Storage.Types.SR.In.of_call req with
+	| Xcp.Result.Ok _ -> ()
+	| Xcp.Result.Error e -> raise e
+
 let _ =
 	let verbose = ref false in
 	Arg.parse [
@@ -37,5 +53,6 @@ let _ =
 
 	let suite = "xen-api" >:::
 		[
+			"sr_attach_request" >:: sr_attach_request;
 		] in
 	run_test_tt ~verbose:!verbose suite
