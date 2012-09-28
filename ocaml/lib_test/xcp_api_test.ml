@@ -44,6 +44,13 @@ let sr_attach_request _ =
 	| Xcp.Result.Ok _ -> ()
 	| Xcp.Result.Error e -> raise e
 
+let sr_attach_response _ =
+	let xml = readfile (base_path ^ "sr.attach/response") in
+	let resp = Xmlrpc.response_of_string xml in
+	match Storage.result_of_response resp with
+	| Xcp.Result.Ok x -> let (_: Storage.Types.SR.Attach.Out.t) = Storage.Types.SR.Attach.Out.t_of_rpc x in ()
+	| Xcp.Result.Error e -> raise e
+
 let _ =
 	let verbose = ref false in
 	Arg.parse [
@@ -54,5 +61,6 @@ let _ =
 	let suite = "xen-api" >:::
 		[
 			"sr_attach_request" >:: sr_attach_request;
+			"sr_attach_response" >:: sr_attach_response;
 		] in
 	run_test_tt ~verbose:!verbose suite
