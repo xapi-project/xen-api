@@ -65,6 +65,13 @@ let sr_detach_response _ =
 	| Xcp.Result.Ok x -> let (_: Storage.Types.SR.Detach.Out.t) = Storage.Types.SR.Detach.Out.t_of_rpc x in ()
 	| Xcp.Result.Error e -> raise e
 
+let sr_detach_failure _ =
+	let xml = readfile (base_path ^ "sr.detach/failure") in
+	let resp = Xmlrpc.response_of_string xml in
+	match Storage.result_of_response resp with
+	| Xcp.Result.Ok x -> let (_: Storage.Types.SR.Detach.Out.t) = Storage.Types.SR.Detach.Out.t_of_rpc x in ()
+	| Xcp.Result.Error e -> raise e
+
 let _ =
 	let verbose = ref false in
 	Arg.parse [
@@ -78,5 +85,6 @@ let _ =
 			"sr_attach_response" >:: sr_attach_response;
 			"sr_detach_request" >:: sr_detach_request;
 			"sr_detach_response" >:: sr_detach_request;
+			"sr_detach_failure" >:: sr_detach_failure;
 		] in
 	run_test_tt ~verbose:!verbose suite
