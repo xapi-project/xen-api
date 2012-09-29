@@ -243,7 +243,7 @@ let skeleton_method unimplemented env i m =
 	[
 		Line (sprintf "let %s x =" m.Method.name);
 		Block [
-			Line (sprintf "let open Types.%s.%s in" i.Interface.name (String.capitalize m.Method.name));
+			Line (sprintf "let open %s.%s in" i.Interface.name (String.capitalize m.Method.name));
 			Line (if unimplemented then unimplemented_error else example_outputs)
 		]
 	]
@@ -257,12 +257,12 @@ let example_skeleton_user env is i m =
 		Line "";
 		Line "open Xcp";
 		Line (sprintf "open %s" (String.capitalize is.Interfaces.name));
+		Line "open Types";
 		Line "";
 		Line (sprintf "module %s_myimplementation = functor(M: M) -> struct" i.Interface.name);
 		Block ([
 			Line "(* by default every operation will return a 'not implemented' exception *)";
 			Line (sprintf "include %s_skeleton(M)" i.Interface.name);
-			Line "open Types";
 			Line "(* ... *)";
 		] @ (skeleton_method false env i m
 		) @ [
