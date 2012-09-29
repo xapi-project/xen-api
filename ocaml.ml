@@ -89,6 +89,7 @@ let exn_decl env e =
 	let open Printf in
 	let args = args_of_exn env e in
 	[
+		Line (sprintf "type %s = %s with rpc" (String.lowercase e.TyDecl.name) (typeof ~expand_aliases:true env e.TyDecl.ty));
 		Line (sprintf "exception %s of %s" e.TyDecl.name (String.concat " * " (List.map Type.ocaml_of_t args)));
 		Line (sprintf "(** %s *)" e.TyDecl.description);
 	]
@@ -102,16 +103,27 @@ let rpc_of_exns env es =
 		Block (List.map rpc_of_exn es)
 	]
 
+
 let result_of_response env es =
 	let result_of_exn e =
-		Line "(* XXX *)" in
+		let args = args_of_exn env e in
+		let rec ints = function | 0 -> [] | n -> n :: (ints (n - 1)) in
+		let is = List.map (fun x -> "arg_" ^ (string_of_int x)) (ints (List.length args)) in
+		[
+			Line (sprintf "| { Rpc.success = false; contents = Rpc.Enum [ Rpc.String \"%s\"; args ] } ->" e.TyDecl.name);
+			Block [
+				Line (sprintf "let %s = %s_of_rpc args in" (String.concat ", " is) (String.lowercase e.TyDecl.name));
+				Line (sprintf "Result.fail (%s (%s))" e.TyDecl.name (String.concat ", " is));
+			]
+		] in
 	[
 		Line "let result_of_response = function";
 		Block ([
 			Line "| { Rpc.success = true; contents = t } -> Result.return t";
+		] @ (List.concat (List.map result_of_exn es)
+		) @ [
 			Line "| { Rpc.success = false; contents = t } -> Result.fail (Xcp.Internal_error (Rpc.to_string t))";
-		] @ (List.map result_of_exn es)
-		)
+		])
 	]
 
 let rpc_of_interfaces env is =
@@ -210,6 +222,7 @@ let rpc_of_interfaces env is =
 		Line "module Types = struct";
 		Block ([
 		] @ (List.concat (List.map (type_decl env) is.Interfaces.type_decls)
+		) @ (List.concat (List.map (exn_decl env) is.Interfaces.exn_decls)
 		) @ (List.concat (List.map (rpc_of_interface env) is.Interfaces.interfaces)
 		));
 		Line "end";

@@ -69,7 +69,8 @@ let sr_detach_failure _ =
 	let xml = readfile (base_path ^ "sr.detach/failure") in
 	let resp = Xmlrpc.response_of_string xml in
 	match Storage.result_of_response resp with
-	| Xcp.Result.Ok x -> let (_: Storage.Types.SR.Detach.Out.t) = Storage.Types.SR.Detach.Out.t_of_rpc x in ()
+	| Xcp.Result.Ok x -> failwith "unexpected success"
+	| Xcp.Result.Error (Storage.Backend_error(_, _)) -> ()
 	| Xcp.Result.Error e -> raise e
 
 let _ =
