@@ -41,11 +41,25 @@ let expect_ok = function
 	| Xcp.Result.Ok _ -> ()
 	| Xcp.Result.Error e -> raise e
 
-let check_request_parser relative_path f =
+let check_request_parser f relative_path =
 	(base_path ^ relative_path) |> readfile |> Xmlrpc.call_of_string |> f |> expect_ok
 
-let sr_attach_request _ =
-	check_request_parser "sr.attach/request" Storage.Types.SR.In.of_call
+let check_sr_request_parser = check_request_parser Storage.Types.SR.In.of_call
+
+let sr_attach_request _ = check_sr_request_parser "sr.attach/request"
+let sr_detach_request _ = check_sr_request_parser "sr.detach/request"
+let sr_scan_request   _ = check_sr_request_parser "sr.scan/request"
+
+let check_vdi_request_parser = check_request_parser Storage.Types.VDI.In.of_call
+
+let vdi_activate_request   _ = check_vdi_request_parser "vdi.activate/request"
+let vdi_attach_request     _ = check_vdi_request_parser "vdi.attach/request"
+let vdi_clone_request      _ = check_vdi_request_parser "vdi.clone/request"
+let vdi_create_request     _ = check_vdi_request_parser "vdi.create/request"
+let vdi_deactivate_request _ = check_vdi_request_parser "vdi.deactivate/request"
+let vdi_destroy_request    _ = check_vdi_request_parser "vdi.destroy/request"
+let vdi_detach_request     _ = check_vdi_request_parser "vdi.detach/request"
+let vdi_snapshot_request   _ = check_vdi_request_parser "vdi.snapshot/request"
 
 let sr_attach_response _ =
 	let xml = readfile (base_path ^ "sr.attach/response") in
@@ -53,9 +67,6 @@ let sr_attach_response _ =
 	match Storage.result_of_response resp with
 	| Xcp.Result.Ok x -> let (_: Storage.Types.SR.Attach.Out.t) = Storage.Types.SR.Attach.Out.t_of_rpc x in ()
 	| Xcp.Result.Error e -> raise e
-
-let sr_detach_request _ =
-	check_request_parser "sr.detach/request" Storage.Types.SR.In.of_call
 
 let sr_detach_response _ =
 	let xml = readfile (base_path ^ "sr.detach/response") in
@@ -98,5 +109,14 @@ let _ =
 			"sr_detach_failure" >:: sr_detach_failure;
 			"exception_marshal_unmarshal1" >:: exception_marshal_unmarshal1;
 			"exception_marshal_unmarshal2" >:: exception_marshal_unmarshal2;
+			"sr_scan_request" >:: sr_scan_request;
+			"vdi_attach_request" >:: vdi_attach_request;
+			"vdi_activate_request" >:: vdi_activate_request;
+			"vdi_clone_request" >:: vdi_clone_request;
+			"vdi_create_request" >:: vdi_create_request;
+			"vdi_deactivate_request" >:: vdi_deactivate_request;
+			"vdi_destroy_request" >:: vdi_destroy_request;
+			"vdi_detach_request" >:: vdi_detach_request;
+			"vdi_snapshot_request" >:: vdi_snapshot_request;
 		] in
 	run_test_tt ~verbose:!verbose suite
