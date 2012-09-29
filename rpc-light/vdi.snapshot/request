@@ -17,6 +17,8 @@
 					   <member><name>read_only</name><value><boolean>0</boolean></value></member>
                        <member><name>virtual_size</name><value>0</value></member>
                        <member><name>physical_utilisation</name><value>0</value></member>
+					   <member><name>persistent</name><value><boolean>1</boolean></value></member>
+					   <member><name>sm_config</name><value><struct></struct></value></member>
                </struct></value></member>
              <member><name>params</name><value><struct></struct></value></member>
      </struct>
