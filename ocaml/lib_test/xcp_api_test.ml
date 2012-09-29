@@ -37,12 +37,15 @@ let readfile filename =
 	let () = Unix.close fd in
 	String.sub buffer 0 length
 
-let sr_attach_request _ =
-	let xml = readfile (base_path ^ "sr.attach/request") in
-	let req = Xmlrpc.call_of_string xml in
-	match Storage.Types.SR.In.of_call req with
+let expect_ok = function
 	| Xcp.Result.Ok _ -> ()
 	| Xcp.Result.Error e -> raise e
+
+let check_request_parser relative_path f =
+	(base_path ^ relative_path) |> readfile |> Xmlrpc.call_of_string |> f |> expect_ok
+
+let sr_attach_request _ =
+	check_request_parser "sr.attach/request" Storage.Types.SR.In.of_call
 
 let sr_attach_response _ =
 	let xml = readfile (base_path ^ "sr.attach/response") in
@@ -52,11 +55,7 @@ let sr_attach_response _ =
 	| Xcp.Result.Error e -> raise e
 
 let sr_detach_request _ =
-	let xml = readfile (base_path ^ "sr.detach/request") in
-	let req = Xmlrpc.call_of_string xml in
-	match Storage.Types.SR.In.of_call req with
-	| Xcp.Result.Ok _ -> ()
-	| Xcp.Result.Error e -> raise e
+	check_request_parser "sr.detach/request" Storage.Types.SR.In.of_call
 
 let sr_detach_response _ =
 	let xml = readfile (base_path ^ "sr.detach/response") in
