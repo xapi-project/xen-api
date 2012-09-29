@@ -73,6 +73,16 @@ let sr_detach_failure _ =
 	| Xcp.Result.Error (Storage.Backend_error(_, _)) -> ()
 	| Xcp.Result.Error e -> raise e
 
+let exception_marshal_unmarshal e _ =
+	let e = Storage.Backend_error("foo", ["a"; "b"]) in
+	match Storage.result_of_response (Storage.response_of_exn e) with
+	| Xcp.Result.Error e' when e = e' -> ()
+	| Xcp.Result.Ok x -> failwith "unexpected success"
+	| Xcp.Result.Error e -> raise e
+
+let exception_marshal_unmarshal1 = exception_marshal_unmarshal (Storage.Cancelled "bad luck")
+let exception_marshal_unmarshal2 = exception_marshal_unmarshal (Storage.Backend_error("foo", ["a"; "b"]))
+
 let _ =
 	let verbose = ref false in
 	Arg.parse [
@@ -87,5 +97,7 @@ let _ =
 			"sr_detach_request" >:: sr_detach_request;
 			"sr_detach_response" >:: sr_detach_request;
 			"sr_detach_failure" >:: sr_detach_failure;
+			"exception_marshal_unmarshal1" >:: exception_marshal_unmarshal1;
+			"exception_marshal_unmarshal2" >:: exception_marshal_unmarshal2;
 		] in
 	run_test_tt ~verbose:!verbose suite

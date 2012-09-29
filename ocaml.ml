@@ -97,7 +97,11 @@ let exn_decl env e =
 let rpc_of_exns env es =
 	let rpc_of_exn e =
 		let args = args_of_exn env e in
-		Line (Printf.sprintf "| %s(%s) as e -> Rpc.failure (Rpc.String (Printf.sprintf \"Failed to marshal: %%s\" (Printexc.to_string e)))" e.TyDecl.name (String.concat ", " (List.map (fun _ -> "_") args))) in
+		let rec ints = function | 0 -> [] | n -> n :: (ints (n - 1)) in
+		let is = List.map (fun x -> "arg_" ^ (string_of_int x)) (ints (List.length args)) in
+		Line (Printf.sprintf "| %s(%s) -> Rpc.failure (Rpc.Enum [ Rpc.String \"%s\"; rpc_of_%s (%s) ])"
+				  e.TyDecl.name (String.concat ", " is)
+				  e.TyDecl.name (String.lowercase e.TyDecl.name) (String.concat ", " is)) in
 	[
 		Line "let response_of_exn = function";
 		Block (List.map rpc_of_exn es)
