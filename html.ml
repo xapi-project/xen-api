@@ -217,7 +217,7 @@ let to_string env x =
             </div>
             <div class=\"tab-pane fade\" id=\"ocaml-server-%s\">
 " m.Method.name);
-					pre ~lang:"ml" (Ocaml.example_skeleton_user env i m |> Ocaml.string_of_ts);
+					pre ~lang:"ml" (Ocaml.example_skeleton_user env x i m |> Ocaml.string_of_ts);
 					Buffer.add_string buffer
 (Printf.sprintf "
             </div>

@@ -57,7 +57,7 @@ let rec example_value_of env =
 		| Basic Boolean -> "true"
 		| Struct (hd, tl) ->
 			let member (name, ty, descr) =
-				sprintf "Types.%s = %s" name (example_value_of env ty) in
+				sprintf "%s = %s" name (example_value_of env ty) in
 			sprintf "{ %s }" (String.concat "; " (List.map member (hd :: tl)))
 		| Variant ((first_name, first_t, _), tl) ->
 			first_name ^ " " ^ (example_value_of env first_t)
@@ -236,28 +236,38 @@ let skeleton_method unimplemented env i m =
 	let example_outputs =
 		if m.Method.outputs = []
 		then "return (Result.Ok ())"
-		else sprintf "return (Result.Ok (Types.%s.%s.Out.(%s)))" i.Interface.name (String.capitalize m.Method.name)
+		else sprintf "return (Result.Ok (Out.(%s)))"
 		(String.concat "; " (List.map (fun a -> sprintf "%s" (example_value_of env a.Arg.ty)) m.Method.outputs)) in
 	let unimplemented_error =
 		sprintf "return (Result.Error (Unimplemented \"%s.%s\"))" i.Interface.name m.Method.name in
 	[
 		Line (sprintf "let %s x =" m.Method.name);
 		Block [
+			Line (sprintf "let open Types.%s.%s in" i.Interface.name (String.capitalize m.Method.name));
 			Line (if unimplemented then unimplemented_error else example_outputs)
 		]
 	]
 
-let example_skeleton_user env i m =
+let example_skeleton_user env is i m =
     let open Printf in
     [
 		Line "";
-		Line (sprintf "module %s_myimplementation = struct" i.Interface.name);
-		Block [
-			Line (sprintf "include %s_skeleton" i.Interface.name);
-			Line "...";
-			Block (skeleton_method false env i m);
-			Line "...";
-		];
+		Line "(* this line only needed in a toplevel: *)";
+		Line "#require \"xcp-api-client\";;";
+		Line "";
+		Line "open Xcp";
+		Line (sprintf "open %s" (String.capitalize is.Interfaces.name));
+		Line "";
+		Line (sprintf "module %s_myimplementation = functor(M: M) -> struct" i.Interface.name);
+		Block ([
+			Line "(* by default every operation will return a 'not implemented' exception *)";
+			Line (sprintf "include %s_skeleton(M)" i.Interface.name);
+			Line "open Types";
+			Line "(* ... *)";
+		] @ (skeleton_method false env i m
+		) @ [
+			Line "(* ... *)";
+		]);
 		Line "end"
     ]
 
@@ -266,6 +276,7 @@ let skeleton_of_interface unimplemented suffix env i =
 		Line (sprintf "module %s_%s = functor(M: Xcp.M) -> struct" i.Interface.name suffix);
 		Block ([
 			Line "include M";
+			Line "open Types";
 		] @ (List.concat (List.map (skeleton_method unimplemented env i) i.Interface.methods))
 		);
 		Line "end";
