@@ -155,10 +155,18 @@ let example_skeleton_user env i m =
     let open Printf in
     [
 		Line "";
+		Line "import xmlrpclib";
+		Line "import xcp";
+		Line "from storage import *";
+		Line "";
 		Line (sprintf "class %s_myimplementation(%s_skeleton):" i.Interface.name i.Interface.name);
-		Line "...";
-		Block (skeleton_method false env i m);
-		Line "...";
+		Block ([
+			Line "# by default each method will return a Not_implemented error";
+			Line "# ..."
+		] @ (skeleton_method false env i m
+		) @ [
+			Line "# ..."
+		]);
     ]
 
 let rec skeleton_of_interface unimplemented suffix env i =
