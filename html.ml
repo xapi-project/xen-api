@@ -106,7 +106,7 @@ let to_string env x =
     Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "row-fluid" ]));
 
     (* Side bar *)
-    Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "span2" ]));
+    Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "span3" ]));
     Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "well sidebar-nav" ]));
     ul ~cls:"nav nav-list" (fun () ->
 		List.iter (fun t ->
@@ -172,7 +172,7 @@ let to_string env x =
 			| _ -> () in
 
     (* Main content *)
-    Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "span10" ]));
+    Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "span9" ]));
     h1 ~id:(Printf.sprintf "a-%s" x.Interfaces.name) (Printf.sprintf "%s: %s" x.Interfaces.name x.Interfaces.title);
     p x.Interfaces.description;
     List.iter of_type_decl x.Interfaces.type_decls;
@@ -367,7 +367,7 @@ let write apis =
 			with_output_file page.path
 				(fun oc ->
 					print_file_to oc ("doc/header.html");
-					html_navbar oc pages (Some page);
+(*					html_navbar oc pages (Some page); *)
 					let idents, api = Types.resolve_refs_in_api page.api in
 					output_string oc (to_string idents api);
 					print_file_to oc ("doc/footer.html")
