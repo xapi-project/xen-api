@@ -26,6 +26,7 @@ let _ =
 			with_output_file (Printf.sprintf "ocaml/lib/%s.ml" api.Interfaces.name)
 				(fun oc ->
 					let idents, api = resolve_refs_in_api api in
+					Ocaml.write_examples (Printf.sprintf "ocaml/examples/%s" api.Interfaces.name) idents api;
 					output_string oc (Ocaml.of_interfaces idents api |> Ocaml.string_of_ts)
 				)
 		) apis

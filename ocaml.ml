@@ -271,6 +271,29 @@ let example_skeleton_user env is i m =
 		Line "end"
     ]
 
+let example_stub env is i m =
+    [
+		Line "";
+		Line "(* these directives only needed in a toplevel: *)";
+		Line "#require \"xcp-api-client\";;";
+		Line "#require \"lwt\";;";
+		Line "#require \"lwt.syntax\";;";
+		Line "#require \"rpc.unix\";;";
+		Line "";
+		Line "open Xcp";
+		Line (sprintf "open %s" (String.capitalize is.Interfaces.name));
+		Line "open Types";
+		Line "";
+		Line (sprintf "module Client = %s_client(struct" i.Interface.name);
+		Block [
+			Line "include Lwt";
+			Line "let rpc call = return (Rpc_client.do_rpc ~content_type:`XML ~path:\"/\" ~host:\"127.0.0.1\" ~port:80 call) (* TODO: Rpc_client needs to support Lwt *)"
+		];
+		Line "end)";
+		Line "";
+		Line (sprintf "let result = Client.%s %s;;" m.Method.name (String.concat " " (List.map (fun a -> sprintf "~%s:%s" a.Arg.name (example_value_of env a.Arg.ty)) m.Method.inputs)));
+    ]
+
 let skeleton_of_interface unimplemented suffix env i =
 	[
 		Line (sprintf "module %s_%s = functor(M: Xcp.M) -> struct" i.Interface.name suffix);
@@ -393,3 +416,20 @@ let of_interfaces env i =
 	) @ (
 		client_of_interfaces env i
 	)
+
+let write_examples base_path env is =
+	List.iter
+		(fun i ->
+			List.iter (fun m ->
+				Files.with_output_file (Printf.sprintf "%s.%s.%s.skel.ml" base_path i.Interface.name m.Method.name)
+					(fun oc ->
+						let code = example_skeleton_user env is i m in
+						output_string oc (code |> string_of_ts)
+					);
+				Files.with_output_file (Printf.sprintf "%s.%s.%s.stub.ml" base_path i.Interface.name m.Method.name)
+					(fun oc ->
+						let code = example_stub env is i m in
+						output_string oc (code |> string_of_ts)
+					)
+			) i.Interface.methods;
+		) is.Interfaces.interfaces
