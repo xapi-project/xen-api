@@ -439,7 +439,7 @@ let caml2html str =
 	let out_filename = filename ^ ".html" in
 	output_string oc str;
 	close_out oc;
-	let (_:int) = Sys.command (Printf.sprintf "caml2html -nf -inline -body -ln %s -o %s" filename out_filename) in
+	let (_:int) = Sys.command (Printf.sprintf "caml2html -nf -inline -body %s -o %s" filename out_filename) in
 	Sys.remove filename;
 	let buffer = String.make 16384 '\000' in
 	let fd = Unix.openfile out_filename [ Unix.O_RDONLY ] 0o0 in
