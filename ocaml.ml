@@ -433,3 +433,18 @@ let write_examples base_path env is =
 					)
 			) i.Interface.methods;
 		) is.Interfaces.interfaces
+
+let caml2html str =
+	let filename, oc = Filename.open_temp_file "ocaml" "ocaml" in
+	let out_filename = filename ^ ".html" in
+	output_string oc str;
+	close_out oc;
+	let (_:int) = Sys.command (Printf.sprintf "caml2html -nf -inline -body -ln %s -o %s" filename out_filename) in
+	Sys.remove filename;
+	let buffer = String.make 16384 '\000' in
+	let fd = Unix.openfile out_filename [ Unix.O_RDONLY ] 0o0 in
+	let n = Unix.read fd buffer 0 (String.length buffer) in
+	Unix.close fd;
+	Sys.remove out_filename;
+	String.sub buffer 0 n
+	
