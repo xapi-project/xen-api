@@ -103,6 +103,13 @@ from socket import socket, SOL_SOCKET, SO_REUSEADDR, AF_UNIX, SOCK_STREAM
 
 class RequestHandler(SimpleXMLRPCRequestHandler):
     rpc_paths = []
+    def do_OPTIONS(self):
+        log("running options thingy")
+        self.send_response(200, "ok")
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS, GET')
+        self.send_header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept')
+
 
 class UnixServer(UnixStreamServer, SimpleXMLRPCDispatcher):
     def __init__(self, addr, requestHandler=RequestHandler):
