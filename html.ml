@@ -84,11 +84,12 @@ let to_string env x =
     let of_args args =
 		Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "alert alert-info" ]));
 		Xmlm.output output (`El_start (("", "table"), [ ("", "class"), "table table-striped" ]));
-		th (fun () -> td "Type"; td "Description");
+		th (fun () -> td "Direction"; td "Type"; td "Description");
 		List.iter
-			(fun arg ->
+			(fun (is_in, arg) ->
 				tr (fun () ->
 					tdcode arg.Arg.name;
+					td (if is_in then "in" else "out");
 					wrapf "td"
 						(fun () ->
 							wrapf "code"
@@ -187,19 +188,16 @@ let to_string env x =
 					Buffer.add_string buffer
 						(Printf.sprintf "
           <ul id=\"tab\" class=\"nav nav-tabs\">
-            <li class=\"active\"><a href=\"#defn-%s\" data-toggle=\"tab\">Definition</a></li>
-            <li><a href=\"#dbus-%s\" data-toggle=\"tab\">DBUS XML</a></li>
-            <li><a href=\"#ocaml-%s\" data-toggle=\"tab\">ocaml client</a></li>
+            <li><a href=\"#defn-%s\" data-toggle=\"tab\">Definition</a></li>
+            <li class=\"active\"><a href=\"#ocaml-%s\" data-toggle=\"tab\">ocaml client</a></li>
             <li><a href=\"#ocaml-server-%s\" data-toggle=\"tab\">ocaml server</a></li>
             <li><a href=\"#python-server-%s\" data-toggle=\"tab\">python server</a></li>
+            <li><a href=\"#dbus-%s\" data-toggle=\"tab\">DBUS XML</a></li>
           </ul>
           <div id=\"myTabContent\" class=\"tab-content\">
-            <div class=\"tab-pane fade in active\" id=\"defn-%s\">
+            <div class=\"tab-pane fade\" id=\"defn-%s\">
 " m.Method.name m.Method.name m.Method.name m.Method.name m.Method.name m.Method.name);
-					p "inputs:";
-					of_args m.Method.inputs;
-					p "outputs:";
-					of_args m.Method.outputs;
+					of_args (List.map (fun m -> true, m) m.Method.inputs @ (List.map (fun m -> false, m) m.Method.outputs));
 					Buffer.add_string buffer
 (Printf.sprintf "
             </div>
@@ -209,7 +207,7 @@ let to_string env x =
 					Buffer.add_string buffer
 (Printf.sprintf "
             </div>
-            <div class=\"tab-pane fade\" id=\"ocaml-%s\">
+            <div class=\"tab-pane fade in active\" id=\"ocaml-%s\">
 " m.Method.name);
 					Buffer.add_string buffer (Ocaml.caml2html (Ocaml.example_stub env x i m |> Ocaml.string_of_ts));
 					Buffer.add_string buffer
