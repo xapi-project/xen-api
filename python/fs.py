@@ -747,6 +747,10 @@ whitelist = [
     "mobile.html",
     "index.html",
     "monkey.model",
+    "bootstrap.css",
+    "style.css",
+    "try-ocaml.js",
+    "images/arrow.png"
     ]
 rewrites = {
     "": "mobile.html"
@@ -763,6 +767,7 @@ class RequestHandler(xcp.RequestHandler):
         if path not in whitelist:
             log("%s not in whitelist: 404" % path)
             self.send_response(404)
+            self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
 
             # shut down the connection
