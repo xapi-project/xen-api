@@ -34,3 +34,5 @@ end
 exception Unknown_method of string
 
 exception Internal_error of string
+
+let ( |> ) a b = b a
