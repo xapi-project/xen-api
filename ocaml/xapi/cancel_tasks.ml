@@ -45,7 +45,7 @@ let update_all_allowed_operations ~__context =
     debug "Updating allowed operations: SR";
     List.iter (safe_wrapper "allowed_ops" (fun self -> 
       Db.SR.set_current_operations ~__context ~self ~value:[];
-      Xapi_sr.update_allowed_operations ~__context ~self)) all_srs;
+      Xapi_sr_operations.update_allowed_operations ~__context ~self)) all_srs;
     debug "Finished updating allowed operations: SR";
     debug "Updating allowed operations: host";
     List.iter (safe_wrapper "allowed_ops - host" (fun self -> Xapi_host_helpers.update_allowed_operations ~__context ~self)) all_hosts;
@@ -106,7 +106,7 @@ let cancel_tasks_on_host ~__context ~host_opt =
        List.iter (safe_wrapper "vbd_helpers" (fun self -> Xapi_vbd_helpers.cancel_tasks ~__context ~self ~all_tasks_in_db:tasks ~task_ids)) all_vbds;
        List.iter (safe_wrapper "vif_helpers" (fun self -> Xapi_vif_helpers.cancel_tasks ~__context ~self ~all_tasks_in_db:tasks ~task_ids)) all_vifs;
        List.iter (safe_wrapper "vdis" (fun self -> Xapi_vdi.cancel_tasks ~__context ~self ~all_tasks_in_db:tasks ~task_ids)) all_vdis;
-       List.iter (safe_wrapper "sr" (fun self -> Xapi_sr.cancel_tasks ~__context ~self ~all_tasks_in_db:tasks ~task_ids)) all_srs;
+       List.iter (safe_wrapper "sr" (fun self -> Xapi_sr_operations.cancel_tasks ~__context ~self ~all_tasks_in_db:tasks ~task_ids)) all_srs;
        List.iter (safe_wrapper "host" (fun self -> Xapi_host_helpers.cancel_tasks ~__context ~self ~all_tasks_in_db:tasks ~task_ids)) all_hosts;
        
        let hosts = default (Db.Host.get_all ~__context) (may (fun x -> [x]) host_opt) in
