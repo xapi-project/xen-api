@@ -509,7 +509,7 @@ let clone ~__context ~vdi ~driver_params =
 	  SR being locked for the duration of the slow copy *)
 		let task_id = Ref.string_of (Context.get_task_id __context) in
        Db.SR.remove_from_current_operations ~__context ~self:a.Db_actions.vDI_SR ~key:task_id;
-       Xapi_sr.update_allowed_operations ~__context ~self:a.Db_actions.vDI_SR;
+       Xapi_sr_operations.update_allowed_operations ~__context ~self:a.Db_actions.vDI_SR;
        (* Remove the clone from the VDI's current operations since the dom0 block-attach
 	  will protect the VDI anyway. There's no point refreshing the VDI's allowed operations
 	  because they're going to change when the VBD.plug happens. *)
