@@ -900,10 +900,25 @@ let update_vm ~__context id =
 							error "Caught %s: while updating VM %s rtc/timeoffset" (Printexc.to_string e) id
 					end;
 					let check_guest_agent () =
-						debug "Will update VM.allowed_operations because guest_agent has changed.";
-						should_update_allowed_operations := true;
 						Opt.iter
 							(fun (_, state) ->
+								Opt.iter (fun oldstate -> 
+									let old_ga = oldstate.guest_agent in
+									let new_ga = state.guest_agent in
+									
+									(* Remove memory keys *)
+									let ignored_keys = [ "data/meminfo_free"; "data/updated"; "data/update_cnt" ] in
+									let remove_ignored ga = 
+										List.fold_left (fun acc k -> List.filter (fun x -> fst x <> k) acc) ga ignored_keys in
+									let old_ga = remove_ignored old_ga in
+									let new_ga = remove_ignored new_ga in
+									if new_ga <> old_ga then begin
+										debug "Will update VM.allowed_operations because guest_agent has changed.";
+										should_update_allowed_operations := true
+									end else begin
+										debug "Supressing VM.allowed_operations update because guest_agent data is largely the same"
+									end
+								) previous;
 								List.iter
 									(fun domid ->
 										let lookup key =
