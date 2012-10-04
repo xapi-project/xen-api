@@ -387,16 +387,20 @@ let from ~__context ~classes ~token ~timeout =
 
 	let modevs = List.fold_left (fun acc (table, objref, mtime) ->
 		let serialiser = Eventgen.find_get_record table in
-		let xml = serialiser ~__context ~self:objref () in
-		let ev = event_of Mod ?snapshot:xml (table, objref, mtime) in
-		if event_matches sub.subs ev then ev::acc else acc
+		try 
+			let xml = serialiser ~__context ~self:objref () in
+			let ev = event_of Mod ?snapshot:xml (table, objref, mtime) in
+			if event_matches sub.subs ev then ev::acc else acc
+		with _ -> acc
 	) delevs mods in
 
 	let createevs = List.fold_left (fun acc (table, objref, ctime) ->
 		let serialiser = Eventgen.find_get_record table in
-		let xml = serialiser ~__context ~self:objref () in
-		let ev = event_of Add ?snapshot:xml (table, objref, ctime) in
-		if event_matches sub.subs ev then ev::acc else acc
+		try 
+			let xml = serialiser ~__context ~self:objref () in
+			let ev = event_of Add ?snapshot:xml (table, objref, ctime) in
+			if event_matches sub.subs ev then ev::acc else acc
+		with _ -> acc
 	) modevs creates in
 	
 	let message_events = List.fold_left (fun acc mev ->
