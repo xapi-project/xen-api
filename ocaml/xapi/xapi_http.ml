@@ -26,15 +26,15 @@ let validate_session __context session_id realm =
 (* Talk to the master over the network. NB we deliberately use the network rather than
    the unix domain socket because we don't want to accidentally bypass the authentication *)
 let inet_rpc xml = 
-	let version = "1.1" and host = "127.0.0.1" and path = "/" in
+	let version = "1.1" and path = "/" in
 	let http = 80 and https = !Xapi_globs.https_port in
 	(* Bypass SSL for localhost, this works even if the management interface
 	   is disabled. *)
 	let open Xmlrpc_client in
 	let transport =
 		if Pool_role.is_master ()
-		then TCP(host, http)
-		else SSL(SSL.make (), host, https) in
+		then TCP("127.0.0.1", http)
+		else SSL(SSL.make (), Pool_role.get_master_address (), https) in
 	let http = xmlrpc ~version path in
 	XML_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http xml
 
