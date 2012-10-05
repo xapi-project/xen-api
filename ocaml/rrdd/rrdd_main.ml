@@ -266,24 +266,11 @@ let update_loadavg () =
 
 let update_netdev doms =
 	let stats = Network_monitor.read_stats () in
-	let dss, pifs, sum_rx, sum_tx =
-	List.fold_left (fun (dss, pifs, sum_rx, sum_tx) (dev, stat) ->
+	let dss, sum_rx, sum_tx =
+	List.fold_left (fun (dss, sum_rx, sum_tx) (dev, stat) ->
 		if not (String.startswith "vif" dev) then
 		begin
 			let pif_name = "pif_" ^ dev in
-			let pif = {
-				pif_name = dev;
-				pif_tx = -1.0;
-				pif_rx = -1.0;
-				pif_raw_tx = 0L;
-				pif_raw_rx = 0L;
-				pif_carrier = stat.carrier;
-				pif_speed = stat.speed;
-				pif_duplex = stat.duplex;
-				pif_pci_bus_path = stat.pci_bus_path;
-				pif_vendor_id = stat.vendor_id;
-				pif_device_id = stat.device_id;
-			} in
 			(Host, ds_make ~name:(pif_name ^ "_rx")
 				~description:("Bytes per second received on physical interface " ^ dev) ~units:"B/s"
 				~value:(Rrd.VT_Int64 stat.rx_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true ()) ::
@@ -297,7 +284,7 @@ let update_netdev doms =
 				~description:("Transmit errors per second on physical interface " ^ dev) ~units:"err/s"
 				~value:(Rrd.VT_Int64 stat.tx_errors) ~ty:Rrd.Derive ~min:0.0 ~default:false ()) ::
 			dss,
-			pif :: pifs, Int64.add stat.rx_bytes sum_rx, Int64.add stat.tx_bytes sum_tx
+			Int64.add stat.rx_bytes sum_rx, Int64.add stat.tx_bytes sum_tx
 		end
 		else
 			(try
@@ -319,16 +306,15 @@ let update_netdev doms =
 					~value:(Rrd.VT_Int64 stat.rx_errors) ~ty:Rrd.Derive ~min:0.0 ~default:false ()) ::
 				dss
 			with _ -> dss),
-			pifs, sum_rx, sum_tx
-	) ([], [], 0L, 0L) stats in [ 
+			sum_rx, sum_tx
+	) ([], 0L, 0L) stats in [
 		(Host, ds_make ~name:"pif_aggr_rx"
 			~description:"Bytes per second received on all physical interfaces"
 			~units:"B/s" ~value:(Rrd.VT_Int64 sum_rx) ~ty:Rrd.Derive ~min:0.0 ~default:true ());
 		 (Host, ds_make ~name:"pif_aggr_tx"
 			 ~description:"Bytes per second sent on all physical interfaces"
 			 ~units:"B/s" ~value:(Rrd.VT_Int64 sum_tx) ~ty:Rrd.Derive ~min:0.0 ~default:true ())
-		 ] @ dss, pifs
-			 
+		 ] @ dss
 
 (*****************************************************)
 (* disk related code                                 *)
@@ -547,12 +533,12 @@ let read_all_dom0_stats xc =
 	let domain_paused d = d.paused in
 	let my_paused_domain_uuids =
 		List.map uuid_of_domain (List.filter domain_paused domains) in
-	let vifs, pifs =
+	let vifs =
 		try update_netdev domains
 		with e ->
 			debug "Exception in update_netdev(). Defaulting value for vifs/pifs: %s"
 				(Printexc.to_string e);
-			[], []
+			[]
 	in
 	let vcpus, uuid_domids, domids = update_vcpus xc domains in
 	Hashtbl.remove_other_keys memory_targets domids;
@@ -569,17 +555,17 @@ let read_all_dom0_stats xc =
 	] in
 	let fake_stats = Rrdd_fake.get_fake_stats (List.map fst uuid_domids) in
 	let all_stats = Rrdd_fake.combine_stats real_stats fake_stats in
-	all_stats, uuid_domids, pifs, timestamp, my_rebooting_vms, my_paused_domain_uuids
+	all_stats, uuid_domids, timestamp, my_rebooting_vms, my_paused_domain_uuids
 
 let do_monitor xc =
 	Stats.time_this "monitor"
 		(fun _ ->
-			let dom0_stats, uuid_domids, pifs, timestamp, my_rebooting_vms, my_paused_vms =
+			let dom0_stats, uuid_domids, timestamp, my_rebooting_vms, my_paused_vms =
 				read_all_dom0_stats xc in
 			let plugins_stats = Rrdd_server.Plugin.read_stats () in
 			let stats = List.rev_append plugins_stats dom0_stats in
 			Rrdd_stats.print_snapshot ();
-			Rrdd_monitor.update_rrds timestamp stats uuid_domids pifs my_rebooting_vms my_paused_vms
+			Rrdd_monitor.update_rrds timestamp stats uuid_domids my_rebooting_vms my_paused_vms
 		)
 
 let monitor_loop () =
