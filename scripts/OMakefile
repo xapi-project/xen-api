@@ -55,7 +55,6 @@ install:
 	$(IDATA) xcp-rrdd.conf $(DESTDIR)/etc/xcp-rrdd.conf
 	$(IDATA) xenopsd.conf $(DESTDIR)/etc/xenopsd.conf
 	$(IDATA) squeezed.conf $(DESTDIR)/etc/squeezed.conf
-	$(IPROG) log.conf $(DESTDIR)$(ETCDIR)/log.conf
 	$(IPROG) db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf
 	$(IPROG) rio.db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf.rio
 	mkdir -p $(DESTDIR)/etc/init.d
@@ -101,7 +100,6 @@ install:
 	$(IPROG) InterfaceReconfigureBridge.py $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) InterfaceReconfigureVswitch.py $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) interface-visualise $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) logrotate.sh $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xapi-rolling-upgrade-miami $(DESTDIR)$(LIBEXECDIR)/xapi-rolling-upgrade
 	$(IPROG) set-hostname $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) update-mh-info $(DESTDIR)$(LIBEXECDIR)
