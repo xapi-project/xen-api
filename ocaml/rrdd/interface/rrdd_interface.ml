@@ -71,11 +71,7 @@ module HA = struct
 end
 
 module Deprecated = struct
-	external get_full_update_avg_rra_idx : unit -> int = ""
-	external get_full_update_last_rra_idx : unit -> int = ""
 	(* Could change timescale to sum type, e.g. Slow | Fast.*)
 	external load_rrd : uuid:string -> domid:int -> is_host:bool ->
 		timescale:int -> unit -> unit = ""
-	(* external get_host_rrd : unit -> rrd_info option = "" *)
-	external get_host_stats : unit -> unit = ""
 end
