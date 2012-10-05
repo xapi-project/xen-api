@@ -829,7 +829,8 @@ let get_pif_underneath_vlan ~__context vlan_pif_ref =
  * network can run on (and be migrated to) any (enabled) host in the pool. *)
 let is_network_properly_shared ~__context ~self =
 	let pifs = Db.Network.get_PIFs ~__context ~self in
-	let non_slave_pifs = List.filter (fun pif -> Db.PIF.get_bond_slave_of ~__context ~self:pif = Ref.null) pifs in
+	let non_slave_pifs = List.filter (fun pif ->
+		not (Db.is_valid_ref __context (Db.PIF.get_bond_slave_of ~__context ~self:pif))) pifs in
 	let hosts_with_pif = List.setify (List.map (fun pif -> Db.PIF.get_host ~__context ~self:pif) non_slave_pifs) in
 	let all_hosts = Db.Host.get_all ~__context in
 	let enabled_hosts = List.filter (fun host -> Db.Host.get_enabled ~__context ~self:host) all_hosts in
