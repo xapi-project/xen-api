@@ -1443,6 +1443,7 @@ let events_from_xapi () =
 
 							while true do
 								let from = XenAPI.Event.from ~rpc ~session_id ~classes ~token:!token ~timeout:60. |> event_from_of_xmlrpc in
+								if List.length from.events > 200 then warn "Warning: received more than 200 events!";
 								List.iter
 									(function
 										| { ty = "vm"; reference = vm' } ->
@@ -1462,7 +1463,7 @@ let events_from_xapi () =
 														raise e
 													end
 											end
-										| _ -> ()
+										| _ -> warn "Received event for something we didn't register for!"
 									) from.events;
 								token := from.token;
 								Events_from_xapi.broadcast !token;
