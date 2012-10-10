@@ -47,6 +47,7 @@ let rm = "/bin/rm"
 let patch_dir = "/var/patch"
 
 let xensource_patch_key = "NERDNTUzMDMwRUMwNDFFNDI4N0M4OEVCRUFEMzlGOTJEOEE5REUyNg=="
+let test_patch_key = "RjgyNjVCRURDMzcxMjgzNkQ1NkJENjJERDQ2MDlGOUVDQzBBQkZENQ=="
 
 let oem_patch_keys = [
 	xensource_patch_key; (* normal public key *)
@@ -64,7 +65,11 @@ let extract_patch path =
 	    (match fingerprint with 
 	      | Some f ->
 		  let enc = Base64.encode f in
-		  if enc <> xensource_patch_key
+		  let acceptable_keys = 
+			  if Xapi_fist.allow_test_patches () then
+				  [ xensource_patch_key; test_patch_key ] else [ xensource_patch_key ]
+		  in
+		  if not (List.mem enc acceptable_keys)
 		  then 
 		    (
                       debug "Got fingerprint: %s" f;
