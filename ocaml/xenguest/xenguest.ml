@@ -39,7 +39,7 @@ external domain_resume_slow : handle -> domid -> unit
 
 (** restore a domain *)
 external domain_restore : handle -> Unix.file_descr -> domid
-                       -> int -> int -> int -> int -> bool -> bool
+                       -> int -> int -> bool
                        -> nativeint * nativeint
        = "stub_xc_domain_restore_bytecode" "stub_xc_domain_restore"
 
