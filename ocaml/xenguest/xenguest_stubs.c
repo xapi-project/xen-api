@@ -65,6 +65,7 @@ struct flags {
   int apic;
   int acpi_s3;
   int acpi_s4;
+  int tsc_mode;
 };
 
 static int pasprintf(char **buf, const char *fmt, ...)
@@ -168,11 +169,12 @@ get_flags(struct flags *f, int domid)
   f->pae      = xenstore_get(domid, "pae");
   f->acpi_s4  = xenstore_get(domid, "acpi_s4");
   f->acpi_s3  = xenstore_get(domid, "acpi_s3");
+  f->tsc_mode = xenstore_get(domid, "tsc_mode");
 
   openlog("xenguest",LOG_NDELAY,LOG_DAEMON);
   syslog(LOG_INFO|LOG_DAEMON,"Determined the following parameters from xenstore:");
-  syslog(LOG_INFO|LOG_DAEMON,"vcpu/number:%d vcpu/weight:%d vcpu/cap:%d nx: %d viridian: %d apic: %d acpi: %d pae: %d acpi_s4: %d acpi_s3: %d",
-                f->vcpus,f->vcpu_weight,f->vcpu_cap,f->nx,f->viridian,f->apic,f->acpi,f->pae,f->acpi_s4,f->acpi_s3);
+  syslog(LOG_INFO|LOG_DAEMON,"vcpu/number:%d vcpu/weight:%d vcpu/cap:%d nx: %d viridian: %d apic: %d acpi: %d pae: %d acpi_s4: %d acpi_s3: %d tsc_mode %d",
+		f->vcpus,f->vcpu_weight,f->vcpu_cap,f->nx,f->viridian,f->apic,f->acpi,f->pae,f->acpi_s4,f->acpi_s3,f->tsc_mode);
   for (n = 0; n < f->vcpus; n++){
 	syslog(LOG_INFO|LOG_DAEMON,"vcpu/%d/affinity:%s", n, (f->vcpu_affinity[n])?f->vcpu_affinity[n]:"unset");
   }
@@ -275,6 +277,10 @@ static void configure_vcpus(xc_interface *xch, int domid, struct flags f){
     failwith_oss_xc(xch, "xc_sched_credit_domain_set");
 }
 
+static void configure_tsc(xc_interface *xch, int domid, struct flags f) {
+	xc_domain_set_tsc_info(xch, domid, f.tsc_mode, 0, 0, 0);
+}
+
 CAMLprim value stub_xc_linux_build_native(value xc_handle, value domid,
                                           value mem_max_mib, value mem_start_mib,
                                           value image_name, value ramdisk_name,
@@ -312,6 +318,7 @@ CAMLprim value stub_xc_linux_build_native(value xc_handle, value domid,
 		failwith_oss_xc(xch, "xc_dom_allocate");
 
 	configure_vcpus(xch, c_domid, f);
+	configure_tsc(xch, c_domid, f);
 
 	caml_enter_blocking_section();
 	r = xc_dom_linux_build(xch, dom, c_domid, c_mem_start_mib,
@@ -411,6 +418,7 @@ CAMLprim value stub_xc_hvm_build_native(value xc_handle, value domid,
 
 	xch = _H(xc_handle);
 	configure_vcpus(xch, _D(domid), f);
+	configure_tsc(xch, _D(domid), f);
 
 	caml_enter_blocking_section ();
 	r = xc_hvm_build_target_mem(xch, _D(domid),
