@@ -135,7 +135,7 @@ let make_server () =
 					Hashtbl.replace queues name (IntMap.add (make_unique_id ()) (Message.make origin data) q);
 					Server.respond_string ~status:`OK ~body:(Printf.sprintf "queue now has length %d" (IntMap.cardinal q + 1)) ()
 				| _, _ ->
-					Server.respond_not_found (Request.uri req) ()
+					Server.respond_not_found ~uri:(Request.uri req) ()
 			in
 			let conn_closed conn_id () =
 				let c = Server.string_of_conn_id conn_id in
