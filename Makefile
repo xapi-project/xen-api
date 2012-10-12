@@ -32,6 +32,7 @@ PYPATH=/usr/lib/xcp-sm-fs
 
 .PHONY: build
 build: idl
+	mkdir -p ocaml/examples
 	./idl
 	${MAKE} -C ocaml
 
