@@ -191,12 +191,13 @@ let to_string env x =
             <li><a href=\"#defn-%s\" data-toggle=\"tab\">Definition</a></li>
             <li class=\"active\"><a href=\"#ocaml-%s\" data-toggle=\"tab\">ocaml client</a></li>
             <li><a href=\"#ocaml-server-%s\" data-toggle=\"tab\">ocaml server</a></li>
+            <li><a href=\"#python-client-%s\" data-toggle=\"tab\">python client</a></li>
             <li><a href=\"#python-server-%s\" data-toggle=\"tab\">python server</a></li>
             <li><a href=\"#dbus-%s\" data-toggle=\"tab\">DBUS XML</a></li>
           </ul>
           <div id=\"myTabContent\" class=\"tab-content\">
             <div class=\"tab-pane fade\" id=\"defn-%s\">
-" m.Method.name m.Method.name m.Method.name m.Method.name m.Method.name m.Method.name);
+" m.Method.name m.Method.name m.Method.name m.Method.name m.Method.name m.Method.name m.Method.name);
 					of_args (List.map (fun m -> true, m) m.Method.inputs @ (List.map (fun m -> false, m) m.Method.outputs));
 					Buffer.add_string buffer
 (Printf.sprintf "
@@ -216,6 +217,12 @@ let to_string env x =
             <div class=\"tab-pane fade\" id=\"ocaml-server-%s\">
 " m.Method.name);
 					Buffer.add_string buffer (Ocaml.caml2html (Ocaml.example_skeleton_user env x i m |> Ocaml.string_of_ts));
+					Buffer.add_string buffer
+(Printf.sprintf "
+            </div>
+            <div class=\"tab-pane fade\" id=\"python-client-%s\">
+" m.Method.name);
+					pre ~lang:"python" (Python.example_stub_user env i m |> Python.string_of_ts);
 					Buffer.add_string buffer
 (Printf.sprintf "
             </div>

@@ -151,6 +151,23 @@ let skeleton_method unimplemented env i m =
 		))
 	]
 
+let example_stub_user env i m =
+	let open Printf in
+	[
+		Line "";
+		Line "import xmlrpclib";
+		Line "import xcp";
+		Line "from storage import *";
+		Line "";
+		Line "if __name__ == \"__main__\":";
+		Block [
+			Line "c = xcp.connect()";
+			Line (Printf.sprintf "results = c.%s.%s({ %s })" i.Interface.name m.Method.name
+				(String.concat ", " (List.map (fun a -> sprintf "%s: %s" a.Arg.name (value_of env a.Arg.ty)) m.Method.inputs)));
+			Line "print (repr(results))"
+		]
+	]
+
 let example_skeleton_user env i m =
     let open Printf in
     [

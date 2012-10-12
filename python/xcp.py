@@ -173,3 +173,6 @@ feature_vdi_update = "VDI_UPDATE"
 feature_vdi_introduce = "VDI_INTRODUCE"
 feature_vdi_generate_config = "VDI_GENERATE_CONFIG"
 feature_vdi_reset_on_boot = "VDI_RESET_ON_BOOT"
+
+def connect():
+    return xmlrpclib.Server("http://localhost:80")
