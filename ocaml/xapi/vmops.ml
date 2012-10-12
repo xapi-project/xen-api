@@ -39,7 +39,7 @@ type api_access = InternalNetwork | FirstNetwork
 
 (* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
 let filtered_platform_flags = ["acpi"; "apic"; "nx"; "pae"; "viridian";
-                               "acpi_s3";"acpi_s4"]
+                               "acpi_s3";"acpi_s4"; "tsc_mode"]
 
 let set_difference a b = List.filter (fun x -> not(List.mem x b)) a
 
@@ -368,7 +368,8 @@ let create ~__context ~xc ~xs ~self (snapshot: API.vM_t) ~reservation_id () =
 	let platformdata =
 		let p = Db.VM.get_platform ~__context ~self in
 		if not (Pool_features.is_enabled ~__context Features.No_platform_filter) then
-			List.filter (fun (k, v) -> List.mem k filtered_platform_flags) p
+			List.filter (fun (k, v) -> List.mem k filtered_platform_flags &&
+				(k <> "tsc_mode" || List.mem v ["0"; "1"; "2"; "3"])) p
 		else p
 	in
 	(* XXX: add extra configuration info to the platform/ map for now.
