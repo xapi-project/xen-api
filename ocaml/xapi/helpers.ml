@@ -668,13 +668,32 @@ let cancel_tasks ~__context ~ops ~all_tasks_in_db (* all tasks in database *) ~t
     Currently this just means "CD" but might change in future? *)
 let is_removable ~__context ~vbd = Db.VBD.get_type ~__context ~self:vbd = `CD
 
+let is_tools_sr_cache = ref []
+let is_tools_sr_cache_m = Mutex.create ()
+
+let clear_tools_sr_cache () =
+	Mutex.execute is_tools_sr_cache_m 
+		(fun () -> is_tools_sr_cache := [])
+
 (** Returns true if this SR is the XenSource Tools SR *)
 let is_tools_sr ~__context ~sr =
-  let other_config = Db.SR.get_other_config ~__context ~self:sr in
-  (* Miami GA *)
-  List.mem_assoc Xapi_globs.tools_sr_tag other_config
-    (* Miami beta2 and earlier: *)
-  || (List.mem_assoc Xapi_globs.xensource_internal other_config)
+	try
+		Mutex.execute is_tools_sr_cache_m
+			(fun () -> List.assoc sr !is_tools_sr_cache)
+	with Not_found _ ->
+		let other_config = Db.SR.get_other_config ~__context ~self:sr in
+		(* Miami GA *)
+		let result =
+			List.mem_assoc Xapi_globs.tools_sr_tag other_config
+			(* Miami beta2 and earlier: *)
+			|| (List.mem_assoc Xapi_globs.xensource_internal other_config)
+		in
+		Mutex.execute is_tools_sr_cache_m
+			(fun () ->
+				let cache = !is_tools_sr_cache in
+				if not (List.mem_assoc sr cache) then
+					is_tools_sr_cache := (sr, result) :: !is_tools_sr_cache);
+		result
 
 (** Return true if the MAC is in the right format XX:XX:XX:XX:XX:XX *)
 let is_valid_MAC mac =
