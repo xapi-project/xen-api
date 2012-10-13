@@ -79,6 +79,13 @@ let find_or_create_queue name =
 	if not(Hashtbl.mem queues name) then Hashtbl.replace queues name IntMap.empty;
 	Hashtbl.find queues name
 
+let make_fresh_name =
+	let c = ref 0 in
+	fun () ->
+		let result = Printf.sprintf "queue-%d" !c in
+		incr c;
+		result
+
 let make_server () =
 	let (_: unit Lwt.t) = UnixServer.serve_forever () in
 	debug "Started server on unix domain socket";
@@ -99,11 +106,16 @@ let make_server () =
 			let callback conn_id ?body req =
 				let open Protocol.Frame in match of_request req with
 				| Some (Bind name) ->
+					let name = match name with Some name -> name | None -> make_fresh_name () in
 					(* If a queue for [name] doesn't already exist, make it now *)
-					if not(Hashtbl.mem queues name) then Hashtbl.add queues name IntMap.empty;
+					if not(Hashtbl.mem queues name) then begin
+						Printf.fprintf stderr "Created queue %s\n%!" name;
+						Hashtbl.add queues name IntMap.empty;
+					end;
 					lwt () = write xs (Printf.sprintf "/name/%s" name) (string_of_int conn_id) in
 					lwt () = write xs (Printf.sprintf "/id/%s" (Server.string_of_conn_id conn_id)) name in
-					redirect "/connection"
+					Printf.fprintf stderr "Responding\n%!";
+					Server.respond_string ~status:`OK ~body:(Printf.sprintf "%s" name) ()
 				| Some Connect ->
 					lwt name = read xs (Printf.sprintf "/id/%s" (Server.string_of_conn_id conn_id)) in
 					let q = if Hashtbl.mem queues name then Some (Hashtbl.find queues name) else None in

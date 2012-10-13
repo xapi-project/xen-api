@@ -10,9 +10,22 @@ let reply = ref false
 
 let main () =
 	lwt c = Connection.make !port in
-	let frame = Frame.Send(!name, Message.one_way !payload) in
+	lwt reply_to =
+		if not !reply then return None
+		else begin
+			let frame = Frame.Bind None in
+			let http_request = Frame.to_request frame in
+			lwt queue_name = Connection.rpc c http_request in
+			return (Some queue_name)
+		end in
+	let frame = Frame.Send(!name, { Message.payload = !payload; correlation_id = 0; reply_to }) in
 	let http_request = Frame.to_request frame in
-	Connection.rpc c http_request
+	lwt (_: string) = Connection.rpc c http_request in
+	if not !reply then return ()
+	else begin
+		return ()
+
+	end
 
 let _ =
 	Arg.parse [

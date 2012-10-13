@@ -21,7 +21,7 @@ module Frame = struct
 	| Send of string * Message.t
 	| Transfer of string (* ack to *)
 	| Connect
-	| Bind of string
+	| Bind of string option
 
 	let rec split ?limit:(limit=(-1)) c s =
 		let i = try String.index s c with Not_found -> -1 in
@@ -34,7 +34,8 @@ module Frame = struct
 			a :: (split ~limit: nlimit c b)
 
 	let of_request req = match Request.meth req, split '/' (Request.path req) with
-		| `GET, [ ""; "bind"; name ] -> Some (Bind name)
+		| `GET, [ ""; "bind" ]       -> Some (Bind None)
+		| `GET, [ ""; "bind"; name ] -> Some (Bind (Some name))
 		| `GET, [ ""; "connection" ] -> Some Connect
 		| `GET, [ ""; "transfer"; ack_to ] -> Some (Transfer ack_to)
 		| `GET, [ ""; "send"; name; data ] ->
@@ -43,7 +44,9 @@ module Frame = struct
 		| _, _ -> None
 
 	let to_request = function
-		| Bind name ->
+		| Bind None ->
+			Request.make ~meth:`GET (Uri.make ~path:"/bind" ())
+		| Bind (Some name) ->
 			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/bind/%s" name) ())
 		| Connect ->
 			Request.make ~meth:`GET (Uri.make ~path:"/connection" ())
@@ -67,6 +70,10 @@ module Connection = struct
 		let oc = Lwt_io.of_fd ~close:(fun () -> return ()) ~mode:Lwt_io.output fd in
 		return (ic, oc)
 
+	exception Failed_to_read_response
+
+	exception Unsuccessful_response
+
 	let rpc (ic, oc) request =
 		lwt () = Request.write (fun _ _ -> return ()) request oc in
 		match_lwt Response.read ic with
@@ -74,13 +81,16 @@ module Connection = struct
 			if Response.status response <> `OK then begin
 				Printf.fprintf stderr "Failed to read response\n%!";
 				lwt () = Response.write (fun _ _ -> return ()) response Lwt_io.stderr in
-				return ()
+				fail Unsuccessful_response
 			end else begin
 				Printf.fprintf stderr "OK\n%!";
-				return ()
+				match_lwt Response.read_body response ic with
+				| Transfer.Final_chunk x -> return x
+				| Transfer.Chunk x -> return x
+				| Transfer.Done -> return ""
 			end
 		| None ->
 			Printf.fprintf stderr "Failed to read response\n%!";
-			return ()
+			fail Failed_to_read_response
 
 end
