@@ -25,6 +25,16 @@ module Frame = struct
 		| `GET, [ ""; "transfer"; ack_to ] -> Some (Transfer ack_to)
 		| `GET, [ ""; "send"; name; data ] -> Some (Send (name, data))
 		| _, _ -> None
+
+	let to_request = function
+		| Bind name ->
+			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/bind/%s" name) ())
+		| Connect ->
+			Request.make ~meth:`GET (Uri.make ~path:"/connection" ())
+		| Transfer ack_to ->
+			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/transfer/%s" ack_to) ())
+		| Send (name, data) ->
+			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/send/%s/%s" name data) ())
 end
 
 
