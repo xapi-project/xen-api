@@ -27,16 +27,6 @@ let make_path p = Store.Path.create p (Store.Path.getdomainpath 0)
 
 let startswith prefix x = String.length x >= (String.length prefix) && (String.sub x 0 (String.length prefix) = prefix)
 
-let rec split ?limit:(limit=(-1)) c s =
-    let i = try String.index s c with Not_found -> -1 in
-    let nlimit = if limit = -1 || limit = 0 then limit else limit - 1 in
-    if i = -1 || nlimit = 0 then
-        [ s ]
-    else
-        let a = String.sub s 0 i
-        and b = String.sub s (i + 1) (String.length s - i - 1) in
-        a :: (split ~limit: nlimit c b)
-
 
 let port = ref 8080
 
@@ -106,19 +96,20 @@ let make_server () =
 					return (Anonymous conn_id) in
 
   			(* (Response.t * Body.t) Lwt.t *)
-			let callback conn_id ?body req = match Request.meth req, split '/' (Request.path req) with
-				| `GET, [ ""; "bind"; name ] ->
+			let callback conn_id ?body req =
+				let open Protocol.Frame in match of_request req with
+				| Some (Bind name) ->
 					(* If a queue for [name] doesn't already exist, make it now *)
 					if not(Hashtbl.mem queues name) then Hashtbl.add queues name IntMap.empty;
 					lwt () = write xs (Printf.sprintf "/name/%s" name) (string_of_int conn_id) in
 					lwt () = write xs (Printf.sprintf "/id/%s" (Server.string_of_conn_id conn_id)) name in
 					redirect "/connection"
-				| `GET, [ ""; "connection" ] ->
+				| Some Connect ->
 					lwt name = read xs (Printf.sprintf "/id/%s" (Server.string_of_conn_id conn_id)) in
 					let q = if Hashtbl.mem queues name then Some (Hashtbl.find queues name) else None in
 					let qlen = match q with Some x -> IntMap.cardinal x | None -> -1 in
 					Server.respond_string ~status:`OK ~body:(Printf.sprintf "name = %s; length = %d" name qlen) ()
-				| `GET, [ ""; "transfer"; ack_to ] ->
+				| Some (Transfer ack_to) ->
 					lwt name = read xs (Printf.sprintf "/id/%s" (Server.string_of_conn_id conn_id)) in
 					let q = find_or_create_queue name in
 					let dropped, also_dropped, not_acked = IntMap.split (Int64.of_string ack_to) q in
@@ -128,13 +119,13 @@ let make_server () =
 						messages = IntMap.fold (fun id m acc -> (id, m) :: acc) not_acked [];
 					} in
 					Server.respond_string ~status:`OK ~body:(Jsonrpc.to_string (rpc_of_transfer transfer)) ()
-				| `GET, [ ""; "send"; name; data ] ->
+				| Some (Send (name, data)) ->
 					(* If a queue for [name] doesn't already exist, make it now *)
 					let q = find_or_create_queue name in
 					lwt origin = origin_of_conn_id conn_id in
 					Hashtbl.replace queues name (IntMap.add (make_unique_id ()) (Message.make origin data) q);
 					Server.respond_string ~status:`OK ~body:(Printf.sprintf "queue now has length %d" (IntMap.cardinal q + 1)) ()
-				| _, _ ->
+				| None ->
 					Server.respond_not_found ~uri:(Request.uri req) ()
 			in
 			let conn_closed conn_id () =
@@ -156,10 +147,14 @@ let make_server () =
 		)
     
 let _ =
+	let listen = ref true in (* XXX *)
+	let name = ref None in
+	let payload = ref None in
 	Arg.parse [
-		"-port", Arg.Set_int port, "port to listen on"
-	] (fun _ -> ())
-		"Start listening for requests";
+		"-port", Arg.Set_int port, "port broker listens on";
+		"-listen", Arg.Set listen, "listen for messages";
+	] (fun x -> if !name = None then name := Some x else (if !payload = None then payload := Some x else Printf.fprintf stderr "Ignoring: %s" x))
+		"";
 
 	Lwt_unix.run (make_server ()) 
 
