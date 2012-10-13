@@ -56,24 +56,24 @@ type origin =
 	| Name of string   (** A service with a well-known name *)
 with rpc
 
-module Message = struct
+module Entry = struct
 	type t = {
 		origin: origin;
 		time: float; (* XXX this is for judging age: use oclock/clock_monotonic *)
-		payload: string;
+		message: Protocol.Message.t;
 	} with rpc
 
-	let make origin payload =
+	let make origin message =
 		let time = 0. in
-		{ origin; time; payload }
+		{ origin; time; message }
 end
 
 type transfer = {
 	dropped: int;
-	messages: (int64 * Message.t) list;
+	messages: (int64 * Entry.t) list;
 } with rpc
 
-let queues : (string, Message.t IntMap.t) Hashtbl.t = Hashtbl.create 128
+let queues : (string, Entry.t IntMap.t) Hashtbl.t = Hashtbl.create 128
 
 let find_or_create_queue name =
 	if not(Hashtbl.mem queues name) then Hashtbl.replace queues name IntMap.empty;
@@ -123,7 +123,7 @@ let make_server () =
 					(* If a queue for [name] doesn't already exist, make it now *)
 					let q = find_or_create_queue name in
 					lwt origin = origin_of_conn_id conn_id in
-					Hashtbl.replace queues name (IntMap.add (make_unique_id ()) (Message.make origin data) q);
+					Hashtbl.replace queues name (IntMap.add (make_unique_id ()) (Entry.make origin data) q);
 					Server.respond_string ~status:`OK ~body:(Printf.sprintf "queue now has length %d" (IntMap.cardinal q + 1)) ()
 				| None ->
 					Server.respond_not_found ~uri:(Request.uri req) ()
@@ -147,14 +147,10 @@ let make_server () =
 		)
     
 let _ =
-	let listen = ref true in (* XXX *)
-	let name = ref None in
-	let payload = ref None in
 	Arg.parse [
-		"-port", Arg.Set_int port, "port broker listens on";
-		"-listen", Arg.Set listen, "listen for messages";
-	] (fun x -> if !name = None then name := Some x else (if !payload = None then payload := Some x else Printf.fprintf stderr "Ignoring: %s" x))
-		"";
+		"-port", Arg.Set_int port, "port to listen on";
+	] (fun x -> Printf.fprintf stderr "Ignoring: %s" x)
+		"A simple message switch";
 
 	Lwt_unix.run (make_server ()) 
 
