@@ -453,24 +453,30 @@ let single_pass () =
 		(fun __context ->
 			Db_lock.with_lock
 				(fun () ->
+					let time_one (name, f) =
+						Stats.time_this (Printf.sprintf "Db_gc: %s" name)
+							(fun () -> f ~__context)
+					in
 					(* do VDIs first because this will *)
 					(* cause some VBDs to be affected  *)
-					gc_VDIs ~__context;
-					gc_PIFs ~__context;
-					gc_VBDs ~__context;
-					gc_crashdumps ~__context;
-					gc_VIFs ~__context;
-					gc_PBDs ~__context;
-					gc_VGPUs ~__context;
-					gc_PGPUs ~__context;
-					gc_Host_patches ~__context;
-					gc_host_cpus ~__context;
-					timeout_sessions ~__context;
-					timeout_tasks ~__context;
-					gc_messages ~__context;
-					(* timeout_alerts ~__context; *)
-					(* CA-29253: wake up all blocked clients *)
-					Xapi_event.heartbeat ~__context;
+					List.iter time_one [
+						"VDIs", gc_VDIs;
+						"PIFs", gc_PIFs;
+						"VBDs", gc_VBDs;
+						"crashdumps", gc_crashdumps;
+						"VIFs", gc_VIFs;
+						"PBDs", gc_PBDs;
+						"VGPUs", gc_VGPUs;
+						"PGPUs", gc_PGPUs;
+						"Host patches", gc_Host_patches;
+						"Host CPUs", gc_host_cpus;
+						"Sessions", timeout_sessions;
+						"Tasks", timeout_tasks;
+						"Messages", gc_messages;
+						(* timeout_alerts; *)
+						(* CA-29253: wake up all blocked clients *)
+						"Heartbeat", Xapi_event.heartbeat;
+					]
 					);
 	Mutex.execute use_host_heartbeat_for_liveness_m
 		(fun () ->
