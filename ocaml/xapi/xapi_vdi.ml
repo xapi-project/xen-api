@@ -26,115 +26,119 @@ open Printf
 
 (** Checks to see if an operation is valid in this state. Returns Some exception
     if not and None if everything is ok. *)
-let check_operation_error ~__context ha_enabled record _ref' op = 
-  let _ref = Ref.string_of _ref' in
-  let current_ops = record.Db_actions.vDI_current_operations in
+let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_records=[]) ha_enabled record _ref' op =
+	let _ref = Ref.string_of _ref' in
+	let current_ops = record.Db_actions.vDI_current_operations in
 
-  let reset_on_boot = record.Db_actions.vDI_on_boot = `reset in
+	let reset_on_boot = record.Db_actions.vDI_on_boot = `reset in
 
-  (* Policy:
-     1. any current_operation implies exclusivity; fail everything else
-     2. if doing a VM start then assume the sharing check is done elsewhere
-        (so VMs may share disks but our operations cannot)
-     3. for other operations, fail if any VBD has currently-attached=true or any VBD 
-        has a current_operation itself
-     4. HA prevents you from deleting statefiles or metadata volumes
-  *)
-  if List.length current_ops > 0 
-  then Some(Api_errors.other_operation_in_progress,["VDI"; _ref])
-  else 
-    (* check to see whether it's a local cd drive *)
-    let sr = Db.VDI.get_SR ~__context ~self:_ref' in
-	let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
-    let srtype = sr_record.Db_actions.sR_type in
-    let is_tools_sr = Helpers.is_tools_sr ~__context ~sr in
+	(* Policy:
+	   1. any current_operation implies exclusivity; fail everything else
+	   2. if doing a VM start then assume the sharing check is done elsewhere
+	      (so VMs may share disks but our operations cannot)
+	   3. for other operations, fail if any VBD has currently-attached=true or any VBD 
+	      has a current_operation itself
+	   4. HA prevents you from deleting statefiles or metadata volumes
+	   *)
+	if List.length current_ops > 0
+	then Some(Api_errors.other_operation_in_progress,["VDI"; _ref])
+	else
+		(* check to see whether it's a local cd drive *)
+		let sr = record.Db_actions.vDI_SR in
+		let sr_type = Db.SR.get_type ~__context ~self:sr in
+		let is_tools_sr = Helpers.is_tools_sr ~__context ~sr in
 
-    (* Check to see if any PBDs are attached *)
-    let open Db_filter_types in
-    let num_pbds_attached =
-      List.length (Db.PBD.get_records_where ~__context ~expr:(And(Eq(Field "SR", Literal (Ref.string_of sr)), Eq(Field "currently_attached", Literal "true")))) in
-    if num_pbds_attached = 0 && List.mem op [`resize;]
-    then Some(Api_errors.sr_no_pbds, [Ref.string_of sr])
-    else
-    (* check to see whether VBDs exist which are using this VDI *)
-    let vbds = Db.VDI.get_VBDs ~__context ~self:_ref' in
-    let vbd_recs = List.map (fun self -> Db.VBD.get_record_internal ~__context ~self) vbds in
+		(* Check to see if any PBDs are attached *)
+		let open Db_filter_types in
+		let pbds_attached = match pbd_records with
+		| [] -> Db.PBD.get_records_where ~__context ~expr:(And(Eq(Field "SR", Literal (Ref.string_of sr)), Eq(Field "currently_attached", Literal "true")))
+		| _ -> List.filter (fun (_, pbd_record) -> (pbd_record.API.pBD_SR = sr) && pbd_record.API.pBD_currently_attached) pbd_records
+		in
+		if (List.length pbds_attached = 0) && List.mem op [`resize;]
+		then Some(Api_errors.sr_no_pbds, [Ref.string_of sr])
+		else
+			(* check to see whether VBDs exist which are using this VDI *)
+			let my_vbd_records = match vbd_records with
+			| [] -> List.map (fun vbd -> Db.VBD.get_record_internal ~__context ~self:vbd) record.Db_actions.vDI_VBDs
+			| _ -> List.map snd (List.filter (fun (_, vbd_record) -> vbd_record.Db_actions.vBD_VDI = _ref') vbd_records)
+			in
 
-    (* Only a 'live' operation can be performed if there are active (even RO) devices *)
-    let is_active v = v.Db_actions.vBD_currently_attached || v.Db_actions.vBD_reserved in
-    (* VBD operations (plug/unplug) (which should be transient) cause us to serialise *)
-    let has_current_operation v = v.Db_actions.vBD_current_operations <> [] in
+			(* Only a 'live' operation can be performed if there are active (even RO) devices *)
+			let is_active v = v.Db_actions.vBD_currently_attached || v.Db_actions.vBD_reserved in
+			(* VBD operations (plug/unplug) (which should be transient) cause us to serialise *)
+			let has_current_operation v = v.Db_actions.vBD_current_operations <> [] in
 
-    (* If the VBD is currently_attached then some operations can still be performed ie:
-       VDI.clone (if the VM is suspended we have to have the 'allow_clone_suspended_vm'' flag)
-       VDI.snapshot; VDI.resize_online; 'blocked' (CP-831) *)
-    let operation_can_be_performed_live = match op with
-	| `snapshot -> true
-	| `resize_online -> true
-	| `blocked -> true
-	| `clone -> true
-	| _ -> false in
+			(* If the VBD is currently_attached then some operations can still be performed ie:
+			   VDI.clone (if the VM is suspended we have to have the 'allow_clone_suspended_vm'' flag)
+			   VDI.snapshot; VDI.resize_online; 'blocked' (CP-831) *)
+			let operation_can_be_performed_live = match op with
+			| `snapshot -> true
+			| `resize_online -> true
+			| `blocked -> true
+			| `clone -> true
+			| _ -> false in
 
-    (* NB RO vs RW sharing checks are done in xapi_vbd.ml *)
+			(* NB RO vs RW sharing checks are done in xapi_vbd.ml *)
 
-	let sm_caps = Xapi_sr_operations.capabilities_of_sr sr_record in
+			let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
+			let sm_caps = Xapi_sr_operations.capabilities_of_sr_internal ~_type:sr_type ~uuid:sr_uuid in
 
-    let any_vbd p = List.fold_left (||) false (List.map p vbd_recs) in
-    if not operation_can_be_performed_live && (any_vbd is_active)
-    then Some (Api_errors.vdi_in_use,[_ref; (Record_util.vdi_operation_to_string op)])
-    else if any_vbd has_current_operation
-    then Some (Api_errors.other_operation_in_progress, [ "VDI"; _ref ])
-    else (
-      match op with
-	`destroy ->
-	  if srtype = "udev" 
-	  then Some (Api_errors.vdi_is_a_physical_device, [_ref])
-	  else 
-	    if is_tools_sr
-	    then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
-	    else
-	      if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
-	      then Some (Api_errors.ha_is_enabled, [])
-	      else
-		if not (List.mem Smint.Vdi_delete sm_caps)
-		then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
-		else None
-      | `resize ->
-	  if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
-	  then Some (Api_errors.ha_is_enabled, [])
-	  else 
-	    if not (List.mem Smint.Vdi_resize sm_caps)
-	    then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
-	    else None
-      | `update ->
-	  if not (List.mem Smint.Vdi_update sm_caps) then
-	    Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
-	  else None
-      | `resize_online ->
-	  if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
-	  then Some (Api_errors.ha_is_enabled, [])
-	  else 
-	    if not (List.mem Smint.Vdi_resize_online sm_caps)
-	    then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
-	    else None
-      | `generate_config ->
-	  if not (List.mem Smint.Vdi_generate_config sm_caps) then
-	    Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
-	  else None	    
-	  | `snapshot when record.Db_actions.vDI_sharable ->
-			Some (Api_errors.vdi_is_sharable, [ _ref ])
-	  | `snapshot when reset_on_boot ->
-		    Some (Api_errors.vdi_on_boot_mode_incompatable_with_operation, [])
-	  | `copy ->
-	  if List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
-	  then Some (Api_errors.operation_not_allowed, ["VDI containing HA statefile or redo log cannot be copied (check the VDI's allowed operations)."])
-	  else None
-	  | `clone ->
-	      if not (List.mem Smint.Vdi_clone sm_caps)
-	      then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
-	      else None
-      | _ -> None
-    )
+			let any_vbd p = List.fold_left (||) false (List.map p my_vbd_records) in
+			if not operation_can_be_performed_live && (any_vbd is_active)
+			then Some (Api_errors.vdi_in_use,[_ref; (Record_util.vdi_operation_to_string op)])
+			else if any_vbd has_current_operation
+			then Some (Api_errors.other_operation_in_progress, [ "VDI"; _ref ])
+			else (
+				match op with
+				| `destroy ->
+					if sr_type = "udev"
+					then Some (Api_errors.vdi_is_a_physical_device, [_ref])
+					else
+						if is_tools_sr
+						then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
+						else
+							if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
+							then Some (Api_errors.ha_is_enabled, [])
+							else
+								if not (List.mem Smint.Vdi_delete sm_caps)
+								then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
+								else None
+				| `resize ->
+					if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
+					then Some (Api_errors.ha_is_enabled, [])
+					else
+						if not (List.mem Smint.Vdi_resize sm_caps)
+						then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
+						else None
+				| `update ->
+					if not (List.mem Smint.Vdi_update sm_caps)
+					then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
+					else None
+				| `resize_online ->
+					if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
+					then Some (Api_errors.ha_is_enabled, [])
+					else
+						if not (List.mem Smint.Vdi_resize_online sm_caps)
+						then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
+						else None
+				| `generate_config ->
+					if not (List.mem Smint.Vdi_generate_config sm_caps)
+					then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
+					else None
+				| `snapshot when record.Db_actions.vDI_sharable ->
+					Some (Api_errors.vdi_is_sharable, [ _ref ])
+				| `snapshot when reset_on_boot ->
+					Some (Api_errors.vdi_on_boot_mode_incompatable_with_operation, [])
+				| `copy ->
+					if List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
+					then Some (Api_errors.operation_not_allowed, ["VDI containing HA statefile or redo log cannot be copied (check the VDI's allowed operations)."])
+					else None
+				| `clone ->
+					if not (List.mem Smint.Vdi_clone sm_caps)
+					then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
+					else None
+				| _ -> None
+			)
 
 let assert_operation_valid ~__context ~self ~(op:API.vdi_operations) = 
   let pool = Helpers.get_pool ~__context in
@@ -145,16 +149,19 @@ let assert_operation_valid ~__context ~self ~(op:API.vdi_operations) =
       None -> ()
     | Some (a,b) -> raise (Api_errors.Server_error (a,b))
 
-let update_allowed_operations ~__context ~self : unit =
+let update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records ~vbd_records =
   let pool = Helpers.get_pool ~__context in
   let ha_enabled = Db.Pool.get_ha_enabled ~__context ~self:pool in
 
   let all = Db.VDI.get_record_internal ~__context ~self in
   let allowed = 
-    let check x = match check_operation_error ~__context ha_enabled all self x with None ->  [ x ] | _ -> [] in
+    let check x = match check_operation_error ~__context ~sr_records ~pbd_records ~vbd_records ha_enabled all self x with None ->  [ x ] | _ -> [] in
 	List.fold_left (fun accu op -> check op @ accu) []
 		[ `snapshot; `copy; `clone; `destroy; `resize; `update; `generate_config; `resize_online ] in
   Db.VDI.set_allowed_operations ~__context ~self ~value:allowed
+
+let update_allowed_operations ~__context ~self : unit =
+	update_allowed_operations_internal ~__context ~self ~sr_records:[] ~pbd_records:[] ~vbd_records:[]
 
 (** Someone is cancelling a task so remove it from the current_operations *)
 let cancel_task ~__context ~self ~task_id = 
