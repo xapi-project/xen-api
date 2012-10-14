@@ -18,14 +18,17 @@ PACKS=lwt,lwt.unix,lwt.syntax,cohttp,cohttp.lwt,xenstore,xenstore.server,xenstor
 switch: xs_transport_unix.cmx protocol.cmx switch.cmx
 	ocamlfind ocamlopt -package "${PACKS}" -linkpkg -o switch xs_transport_unix.cmx protocol.cmx switch.cmx
 
-client: xs_transport_unix.cmx protocol.cmx client.cmx
+client: xs_transport_unix.cmx protocol.cmi protocol.cmx client.cmx
 	ocamlfind ocamlopt -package "${PACKS}" -linkpkg -o client xs_transport_unix.cmx protocol.cmx client.cmx
 
-server: xs_transport_unix.cmx protocol.cmx server.cmx
+server: xs_transport_unix.cmx protocol.cmi protocol.cmx server.cmx
 	ocamlfind ocamlopt -package "${PACKS}" -linkpkg -o client xs_transport_unix.cmx protocol.cmx server.cmx
 
 %.cmx: %.ml
 	ocamlfind ocamlopt -package "${PACKS}" -syntax camlp4o -c $<
+
+%.cmi: %.mli
+	ocamlfind ocamlc -package "${PACKS}" -syntax camlp4o -c $<
 
 %.pdf: %.tex
 	pdflatex $*

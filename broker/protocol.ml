@@ -18,10 +18,10 @@ end
 
 module Frame = struct
 	type t =
-	| Send of string * Message.t
-	| Transfer of string (* ack to *)
-	| Connect
-	| Bind of string option
+	| Login of string            (** Associate this transport-level channel with a session *)
+	| Bind of string option      (** Listen on either an existing queue or a fresh one *)
+	| Send of string * Message.t (** Send a message to a queue *)
+	| Transfer of string * float (** ACK up to a message, blocking wait for new messages *)
 
 	let rec split ?limit:(limit=(-1)) c s =
 		let i = try String.index s c with Not_found -> -1 in
@@ -34,24 +34,25 @@ module Frame = struct
 			a :: (split ~limit: nlimit c b)
 
 	let of_request req = match Request.meth req, split '/' (Request.path req) with
-		| `GET, [ ""; "bind" ]       -> Some (Bind None)
-		| `GET, [ ""; "bind"; name ] -> Some (Bind (Some name))
-		| `GET, [ ""; "connection" ] -> Some Connect
-		| `GET, [ ""; "transfer"; ack_to ] -> Some (Transfer ack_to)
+		| `GET, [ ""; "login"; token ] -> Some (Login token)
+		| `GET, [ ""; "bind" ]         -> Some (Bind None)
+		| `GET, [ ""; "bind"; name ]   -> Some (Bind (Some name))
+		| `GET, [ ""; "transfer"; ack_to; timeout ] ->
+			Some (Transfer(ack_to, float_of_string timeout))
 		| `GET, [ ""; "send"; name; data ] ->
 			let message = Message.one_way data in
 			Some (Send (name, message))
 		| _, _ -> None
 
 	let to_request = function
+		| Login token ->
+			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/login/%s" token) ())
 		| Bind None ->
 			Request.make ~meth:`GET (Uri.make ~path:"/bind" ())
 		| Bind (Some name) ->
 			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/bind/%s" name) ())
-		| Connect ->
-			Request.make ~meth:`GET (Uri.make ~path:"/connection" ())
-		| Transfer ack_to ->
-			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/transfer/%s" ack_to) ())
+		| Transfer(ack_to, timeout) ->
+			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/transfer/%s/%.16g" ack_to timeout) ())
 		| Send (name, message) ->
 			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/send/%s/%s" name message.Message.payload) ())
 end
@@ -62,20 +63,12 @@ end
 module Connection = struct
 	type t = Lwt_io.input Lwt_io.channel * Lwt_io.output Lwt_io.channel
 
-	let make port =
-		let sockaddr = Lwt_unix.ADDR_INET(Unix.inet_addr_of_string "127.0.0.1", port) in
-		let fd = Lwt_unix.socket Lwt_unix.PF_INET Lwt_unix.SOCK_STREAM 0 in
-		lwt () = Lwt_unix.connect fd sockaddr in
-		let ic = Lwt_io.of_fd ~close:(fun () -> Lwt_unix.close fd) ~mode:Lwt_io.input fd in
-		let oc = Lwt_io.of_fd ~close:(fun () -> return ()) ~mode:Lwt_io.output fd in
-		return (ic, oc)
-
 	exception Failed_to_read_response
 
 	exception Unsuccessful_response
 
-	let rpc (ic, oc) request =
-		lwt () = Request.write (fun _ _ -> return ()) request oc in
+	let rpc (ic, oc) frame =
+		lwt () = Request.write (fun _ _ -> return ()) (Frame.to_request frame) oc in
 		match_lwt Response.read ic with
 		| Some response ->
 			if Response.status response <> `OK then begin
@@ -92,5 +85,15 @@ module Connection = struct
 		| None ->
 			Printf.fprintf stderr "Failed to read response\n%!";
 			fail Failed_to_read_response
+
+	let make port token =
+		let sockaddr = Lwt_unix.ADDR_INET(Unix.inet_addr_of_string "127.0.0.1", port) in
+		let fd = Lwt_unix.socket Lwt_unix.PF_INET Lwt_unix.SOCK_STREAM 0 in
+		lwt () = Lwt_unix.connect fd sockaddr in
+		let ic = Lwt_io.of_fd ~close:(fun () -> Lwt_unix.close fd) ~mode:Lwt_io.input fd in
+		let oc = Lwt_io.of_fd ~close:(fun () -> return ()) ~mode:Lwt_io.output fd in
+		let c = ic, oc in
+		lwt _ = rpc c (Frame.Login token) in
+		return c
 
 end

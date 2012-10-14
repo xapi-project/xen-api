@@ -7,24 +7,65 @@ let name = ref "default_name"
 let payload = ref "hello"
 let reply = ref false
 
+(* New semantics:
+
+   TCP connect
+   Login "constant"
+                       TCP connect
+                       Login "constant"
+   <-- both connections are associated with the same session
+   <-- session will be GCed when the connections are dropped
+
+   Bind "name"
+   Send(foo, reply_to "name")
+                       Transfer
+
+
+   So the switch has
+
+   Connection* -> Session -> Binding*
+*)
+
+let fresh_correlation_id =
+	let counter = ref 0 in
+	fun () ->
+		let result = !counter in
+		incr counter;
+		result
 
 let main () =
-	lwt c = Connection.make !port in
+	let token = Printf.sprintf "%d" (Unix.getuid ()) in
+	lwt requests_conn = Connection.make !port token
+	and events_conn = Connection.make !port token in
+ 
+	let wakener = Hashtbl.create 10 in
+	let (_ : unit Lwt.t) =
+		let rec loop ack_to =
+			let timeout = 5. in
+			let frame = Frame.Transfer(ack_to, timeout) in
+			lwt _ = Connection.rpc events_conn frame in
+			(* XXX: read responses *)
+			loop ack_to in
+		loop "" in
+
 	lwt reply_to =
 		if not !reply then return None
 		else begin
 			let frame = Frame.Bind None in
-			let http_request = Frame.to_request frame in
-			lwt queue_name = Connection.rpc c http_request in
+			lwt queue_name = Connection.rpc requests_conn frame in
 			return (Some queue_name)
 		end in
-	let frame = Frame.Send(!name, { Message.payload = !payload; correlation_id = 0; reply_to }) in
-	let http_request = Frame.to_request frame in
-	lwt (_: string) = Connection.rpc c http_request in
+	let correlation_id = fresh_correlation_id () in
+	let frame = Frame.Send(!name, { Message.payload = !payload; correlation_id; reply_to }) in
+	lwt (_: string) = Connection.rpc requests_conn frame in
 	if not !reply then return ()
 	else begin
+		Printf.fprintf stderr "waiting for response\n%!";
+		let t, u = Lwt.task () in
+		Hashtbl.add wakener correlation_id u;
+		lwt response = t in
+		Printf.fprintf stdout "%s\n%!" response.Message.payload;
 		return ()
-
 	end
 
 let _ =
