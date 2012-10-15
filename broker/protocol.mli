@@ -13,7 +13,7 @@ end
 
 open Cohttp_lwt_unix
 
-module Frame : sig
+module In : sig
 	type t =
 	| Login of string            (** Associate this transport-level channel with a session *)
 	| Bind of string option      (** Listen on either an existing queue or a fresh one *)
@@ -25,6 +25,23 @@ module Frame : sig
 
 	val to_request: t -> Request.t
 	(** print a [t] to an HTTP request *)
+end
+
+module Out : sig
+	type transfer = {
+		dropped: int;
+		messages: (int64 * Message.t) list;
+	}
+	val transfer_of_rpc: Rpc.t -> transfer
+	val rpc_of_transfer: transfer -> Rpc.t
+
+	type t =
+	| Login
+	| Bind of string
+	| Send
+	| Transfer of transfer
+
+	val to_response : t ->  (Response.t * Body.t) Lwt.t
 end
 
 module Connection : sig
@@ -39,5 +56,5 @@ module Connection : sig
 
 	exception Unsuccessful_response
 
-	val rpc: t -> Frame.t -> string Lwt.t
+	val rpc: t -> In.t -> string Lwt.t
 end

@@ -2,6 +2,7 @@ open Cohttp
 open Cohttp_lwt_unix
 open Lwt
 
+
 module Message = struct
 	type t = {
 		payload: string; (* switch to Rpc.t *)
@@ -16,7 +17,7 @@ module Message = struct
 	}
 end
 
-module Frame = struct
+module In = struct
 	type t =
 	| Login of string            (** Associate this transport-level channel with a session *)
 	| Bind of string option      (** Listen on either an existing queue or a fresh one *)
@@ -57,6 +58,26 @@ module Frame = struct
 			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/send/%s/%s" name message.Message.payload) ())
 end
 
+module Out = struct
+	type transfer = {
+		dropped: int;
+		messages: (int64 * Message.t) list;
+	} with rpc
+
+	type t =
+	| Login
+	| Bind of string
+	| Send
+	| Transfer of transfer
+
+	let to_response = function
+		| Login
+		| Send -> Server.respond_string ~status:`OK ~body:"" ()
+		| Bind name ->
+			Server.respond_string ~status:`OK ~body:name ()
+		| Transfer transfer ->
+			Server.respond_string ~status:`OK ~body:(Jsonrpc.to_string (rpc_of_transfer transfer)) ()
+end
 
 
 
@@ -68,7 +89,7 @@ module Connection = struct
 	exception Unsuccessful_response
 
 	let rpc (ic, oc) frame =
-		lwt () = Request.write (fun _ _ -> return ()) (Frame.to_request frame) oc in
+		lwt () = Request.write (fun _ _ -> return ()) (In.to_request frame) oc in
 		match_lwt Response.read ic with
 		| Some response ->
 			if Response.status response <> `OK then begin
@@ -93,7 +114,7 @@ module Connection = struct
 		let ic = Lwt_io.of_fd ~close:(fun () -> Lwt_unix.close fd) ~mode:Lwt_io.input fd in
 		let oc = Lwt_io.of_fd ~close:(fun () -> return ()) ~mode:Lwt_io.output fd in
 		let c = ic, oc in
-		lwt _ = rpc c (Frame.Login token) in
+		lwt _ = rpc c (In.Login token) in
 		return c
 
 end

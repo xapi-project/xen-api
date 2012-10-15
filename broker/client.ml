@@ -42,21 +42,30 @@ let main () =
 	let (_ : unit Lwt.t) =
 		let rec loop ack_to =
 			let timeout = 5. in
-			let frame = Frame.Transfer(ack_to, timeout) in
-			lwt _ = Connection.rpc events_conn frame in
-			(* XXX: read responses *)
-			loop ack_to in
-		loop "" in
+			let frame = In.Transfer(ack_to, timeout) in
+			lwt raw = Connection.rpc events_conn frame in
+			let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
+			match transfer.Out.messages with
+			| [] -> loop ack_to
+			| m :: ms ->
+				List.iter
+					(fun (i, m) ->
+						if Hashtbl.mem wakener m.Message.correlation_id
+						then Lwt.wakeup_later (Hashtbl.find wakener m.Message.correlation_id) m;
+					) transfer.Out.messages;
+				let ack_to = Int64.to_string (List.fold_left max (fst m) (List.map fst ms)) in
+				loop ack_to in
+		loop "-1" in
 
 	lwt reply_to =
 		if not !reply then return None
 		else begin
-			let frame = Frame.Bind None in
+			let frame = In.Bind None in
 			lwt queue_name = Connection.rpc requests_conn frame in
 			return (Some queue_name)
 		end in
 	let correlation_id = fresh_correlation_id () in
-	let frame = Frame.Send(!name, { Message.payload = !payload; correlation_id; reply_to }) in
+	let frame = In.Send(!name, { Message.payload = !payload; correlation_id; reply_to }) in
 	lwt (_: string) = Connection.rpc requests_conn frame in
 	if not !reply then return ()
 	else begin
