@@ -105,6 +105,12 @@ let make_server () =
   			(* (Response.t * Body.t) Lwt.t *)
 			let callback conn_id ?body req =
 				let open Protocol.Frame in match of_request req with
+				| Some (Login token) ->
+					(* associate conn_id with token *)
+					let conn_id = string_of_int conn_id in
+					lwt () = write xs (Printf.sprintf "/id/%s" conn_id) token in
+					lwt () = write xs (Printf.sprintf "/session/%s/%s" token conn_id) "" in
+					Server.respond_string ~status:`OK ~body:"" ()
 				| Some (Bind name) ->
 					let name = match name with Some name -> name | None -> make_fresh_name () in
 					(* If a queue for [name] doesn't already exist, make it now *)
@@ -112,17 +118,17 @@ let make_server () =
 						Printf.fprintf stderr "Created queue %s\n%!" name;
 						Hashtbl.add queues name IntMap.empty;
 					end;
-					lwt () = write xs (Printf.sprintf "/name/%s" name) (string_of_int conn_id) in
-					lwt () = write xs (Printf.sprintf "/id/%s" (Server.string_of_conn_id conn_id)) name in
+					let conn_id = string_of_int conn_id in
+					lwt token = read xs (Printf.sprintf "/id/%s" conn_id) in
+					lwt () = write xs (Printf.sprintf "/by_name/%s/%s" name token) "" in
+					lwt () = write xs (Printf.sprintf "/by_session/%s/%s" token name) "" in
 					Printf.fprintf stderr "Responding\n%!";
 					Server.respond_string ~status:`OK ~body:(Printf.sprintf "%s" name) ()
-				| Some Connect ->
-					lwt name = read xs (Printf.sprintf "/id/%s" (Server.string_of_conn_id conn_id)) in
-					let q = if Hashtbl.mem queues name then Some (Hashtbl.find queues name) else None in
-					let qlen = match q with Some x -> IntMap.cardinal x | None -> -1 in
-					Server.respond_string ~status:`OK ~body:(Printf.sprintf "name = %s; length = %d" name qlen) ()
-				| Some (Transfer ack_to) ->
-					lwt name = read xs (Printf.sprintf "/id/%s" (Server.string_of_conn_id conn_id)) in
+				| Some (Transfer(ack_to, timeout)) ->
+					let conn_id = string_of_int conn_id in
+					lwt token = read xs (Printf.sprintf "/id/%s" conn_id) in
+					lwt names = directory xs (Printf.sprintf "/by_session/%s" token) in
+					let name = List.hd names (* XXX *) in
 					let q = find_or_create_queue name in
 					let dropped, also_dropped, not_acked = IntMap.split (Int64.of_string ack_to) q in
 					Hashtbl.replace queues name not_acked;
@@ -130,6 +136,7 @@ let make_server () =
 						dropped = IntMap.cardinal dropped + (match also_dropped with Some _ -> 1 | None -> 0);
 						messages = IntMap.fold (fun id m acc -> (id, m) :: acc) not_acked [];
 					} in
+					Lwt_unix.sleep timeout >>
 					Server.respond_string ~status:`OK ~body:(Jsonrpc.to_string (rpc_of_transfer transfer)) ()
 				| Some (Send (name, data)) ->
 					(* If a queue for [name] doesn't already exist, make it now *)
