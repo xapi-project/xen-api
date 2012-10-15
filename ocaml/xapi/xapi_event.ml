@@ -56,15 +56,29 @@ let highest_forgotten_id = ref (-1L)
 
 (** Types used to store user event subscriptions: ***********************************************)
 type subscription = 
-    | Class of string           (** subscribe to all events for objects of this class *)
-	| Object of string * string (** subscribe to all events for this specific object *)
-    | All                       (** subscribe to everything *)
+    | Class of string * (string list)           (** subscribe to all events for objects of this class *)
+	| Object of string * string * (string list) (** subscribe to all events for this specific object *)
+    | All                                       (** subscribe to everything *)
 
-let subscription_of_string x = if x = "*" then All else match String.split ~limit:2 '/' x with
-	| [ cls ] -> Class (String.lowercase cls)
-	| [ cls; id ] -> Object(String.lowercase cls, id)
-	| _ ->
-		raise (Api_errors.Server_error(Api_errors.event_subscription_parse_failure, [ x ]))
+let fields_of_sub sub =
+	try
+		let i = String.index sub '[' in
+		let e = String.index sub ']' in
+		let fields = String.sub sub (i+1) (e-i-1) in
+		let pre_sub = String.sub sub 0 i in
+		(pre_sub,String.split ',' fields)
+	with _ -> (sub,[])
+
+let subscription_of_string x = 
+	if x = "*" 
+	then All 
+	else
+		let pre_sub,fields = fields_of_sub x in
+		match String.split ~limit:2 '/' pre_sub with
+			| [ cls ] -> Class (String.lowercase cls, fields)
+			| [ cls; id ] -> Object(String.lowercase cls, id, fields)
+			| _ ->
+				raise (Api_errors.Server_error(Api_errors.event_subscription_parse_failure, [ x ]))
 
 let any = List.fold_left (fun acc x -> acc || x) false
 
@@ -73,8 +87,8 @@ let table_matches subs tbl =
 	let tbl = String.lowercase tbl in
 	let matches = function
 		| All -> true
-		| Class x -> x = tbl
-		| Object (x, _) -> x = tbl in
+		| Class (x, _) -> x = tbl
+		| Object (x, _, _) -> x = tbl in
 	any (List.map matches subs)
 
 (** [event_matches subs ev]: true if at least one subscription from [subs] selects for event [ev] *)
@@ -82,9 +96,29 @@ let event_matches subs ev =
 	let tbl = String.lowercase ev.ty in
 	let matches = function
 		| All -> true
-		| Class x -> x = tbl
-		| Object (x, y) -> x = tbl && (y = ev.reference) in
+		| Class (x, _) -> x = tbl
+		| Object (x, y, _) -> x = tbl && (y = ev.reference) in
 	any (List.map matches subs)
+
+let fieldset_of_sub subs cls objref =
+	if List.mem All subs 
+	then [] (* == all *)
+	else begin
+		let to_filter = List.filter_map 
+			(function 
+				| Class (x,fields) -> 
+					if x=String.lowercase cls 
+					then Some fields 
+					else None 
+				| Object(x,r,fields) -> 
+					if x=String.lowercase cls && objref=r 
+					then Some fields 
+					else None
+				| _ -> None) subs in
+		let f = List.concat to_filter in
+		List.setify f
+	end
+
 
 (** Every session that calls 'register' gets a subscription*)
 type subscription_record = {
@@ -299,7 +333,7 @@ let rec next ~__context =
 	if relevant = [] then next ~__context 
 	else XMLRPC.To.array (List.map xmlrpc_of_event relevant)
 
-let from ~__context ~classes ~token ~timeout = 
+let from_real filter_fields ~__context ~classes ~token ~timeout = 
 	let from, from_t = 
 		try
 			Token.of_string token
@@ -328,6 +362,19 @@ let from ~__context ~classes ~token ~timeout =
 
 	let events_lost = ref [] in
 
+	(* Some database fields have more underscores than the api fields, e.g. name__label.
+	   This function simply removes them and replaces them with single underscores *)
+	let remap_fields fields = 
+		List.map 
+			(fun field -> 
+				String.concat "_" 
+					(List.filter 
+						(fun x -> String.length x > 0) 
+						(String.split '_' field)
+					)
+			) fields
+	in
+
 	let grab_range t =
 		let tableset = Db_cache_types.Database.tableset (Db_ref.get_database t) in
 		let (msg_gen,messages) =
@@ -335,7 +382,7 @@ let from ~__context ~classes ~token ~timeout =
 		(msg_gen, messages, tableset, List.fold_left
 			(fun acc table ->
 				 Db_cache_types.Table.fold_over_recent sub.last_generation
-					 (fun ctime mtime dtime objref (creates,mods,deletes,last) ->
+					 (fun ctime mtime dtime objref row (creates,mods,deletes,last) ->
 						  let last = max last (max mtime dtime) in (* mtime guaranteed to always be larger than ctime *)
 						  if dtime > 0L then begin
 							  if ctime > sub.last_generation then
@@ -344,7 +391,23 @@ let from ~__context ~classes ~token ~timeout =
 								  (creates,mods,(table, objref, dtime)::deletes,last) (* It might have been modified, but we can't tell now *)
 						  end else begin
 							  ((if ctime > sub.last_generation then (table, objref, ctime)::creates else creates),
-							   (if mtime > sub.last_generation then (table, objref, mtime)::mods else mods),
+							   (if mtime > sub.last_generation && ctime <= sub.last_generation 
+							   then begin
+								   let relevant_fields = fieldset_of_sub sub.subs table objref in
+
+								   let row = Opt.unbox row in
+								   let fields = Db_cache_types.Row.fold_over_recent sub.last_generation
+									   (fun ctime mtime dtime fieldname _ fields -> fieldname::fields) row [] in
+
+								   let fields = List.filter (fun x -> x <> "_ref") fields in
+								   let fields = remap_fields fields in
+
+								   let fields = List.intersect relevant_fields fields in
+								   if List.length fields > 0 || List.length relevant_fields=0 then
+									   (table, objref, mtime, fields)::mods
+								   else 
+									   mods
+							   end else mods),
 							   deletes, last)
 						  end
 					 ) (fun () -> events_lost := table :: !events_lost) (Db_cache_types.TableSet.find table tableset) acc
@@ -379,15 +442,30 @@ let from ~__context ~classes ~token ~timeout =
 			reference=objref;
 			snapshot=snapshot
 		} in
+
 	let delevs = List.fold_left (fun acc x ->
 		let ev = event_of Del x in
 		if event_matches sub.subs ev then ev::acc else acc
 	) [] deletes in
 
-	let modevs = List.fold_left (fun acc (table, objref, mtime) ->
+	let gen_snapshot serialiser objref fields =
+		let xml = serialiser ~__context ~self:objref () in
+		Opt.map (fun xml -> 
+			if filter_fields && List.length fields > 0
+			then begin
+				let str = XMLRPC.From.structure xml in
+				let str = List.filter (fun (f,_) -> List.mem f fields) str in
+				XMLRPC.To.structure str
+			end else xml) xml
+	in
+
+	let modevs = List.fold_left (fun acc (table, objref, mtime, fields) ->
 		let serialiser = Eventgen.find_get_record table in
-		try 
-			let xml = serialiser ~__context ~self:objref () in
+		try
+			(* It would be handy if the serialiser took a list of fields
+			   to serialise. Instead, here we construct the XML tree then
+			   filter out the irrelevant fields *)
+			let xml = gen_snapshot serialiser objref fields in
 			let ev = event_of Mod ?snapshot:xml (table, objref, mtime) in
 			if event_matches sub.subs ev then ev::acc else acc
 		with _ -> acc
@@ -395,8 +473,9 @@ let from ~__context ~classes ~token ~timeout =
 
 	let createevs = List.fold_left (fun acc (table, objref, ctime) ->
 		let serialiser = Eventgen.find_get_record table in
-		try 
-			let xml = serialiser ~__context ~self:objref () in
+		try
+			let relevant_fields = fieldset_of_sub sub.subs table objref in
+			let xml = gen_snapshot serialiser objref relevant_fields in
 			let ev = event_of Add ?snapshot:xml (table, objref, ctime) in
 			if event_matches sub.subs ev then ev::acc else acc
 		with _ -> acc
@@ -426,7 +505,11 @@ let from ~__context ~classes ~token ~timeout =
 		valid_ref_counts = valid_ref_counts;
 		token = Token.to_string (last,msg_gen);
 	} in
+
 	xmlrpc_of_event_from result
+
+let from = from_real false
+let fields_from = from_real true
 
 let get_current_id ~__context = Mutex.execute event_lock (fun () -> !id)
 
