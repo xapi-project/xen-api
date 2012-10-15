@@ -22,7 +22,8 @@ module In = struct
 	| Login of string            (** Associate this transport-level channel with a session *)
 	| Bind of string option      (** Listen on either an existing queue or a fresh one *)
 	| Send of string * Message.t (** Send a message to a queue *)
-	| Transfer of string * float (** ACK up to a message, blocking wait for new messages *)
+	| Transfer of int64 * float  (** blocking wait for new messages *)
+	| Ack of int64               (** ACK this particular message *)
 
 	let rec split ?limit:(limit=(-1)) c s =
 		let i = try String.index s c with Not_found -> -1 in
@@ -38,8 +39,9 @@ module In = struct
 		| `GET, [ ""; "login"; token ] -> Some (Login token)
 		| `GET, [ ""; "bind" ]         -> Some (Bind None)
 		| `GET, [ ""; "bind"; name ]   -> Some (Bind (Some name))
+		| `GET, [ ""; "ack"; id ]      -> Some (Ack (Int64.of_string id))
 		| `GET, [ ""; "transfer"; ack_to; timeout ] ->
-			Some (Transfer(ack_to, float_of_string timeout))
+			Some (Transfer(Int64.of_string ack_to, float_of_string timeout))
 		| `GET, [ ""; "send"; name; data ] ->
 			let message = Message.one_way data in
 			Some (Send (name, message))
@@ -52,15 +54,16 @@ module In = struct
 			Request.make ~meth:`GET (Uri.make ~path:"/bind" ())
 		| Bind (Some name) ->
 			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/bind/%s" name) ())
+		| Ack x ->
+			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/ack/%Ld" x) ())
 		| Transfer(ack_to, timeout) ->
-			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/transfer/%s/%.16g" ack_to timeout) ())
+			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/transfer/%Ld/%.16g" ack_to timeout) ())
 		| Send (name, message) ->
 			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/send/%s/%s" name message.Message.payload) ())
 end
 
 module Out = struct
 	type transfer = {
-		dropped: int;
 		messages: (int64 * Message.t) list;
 	} with rpc
 
@@ -69,9 +72,11 @@ module Out = struct
 	| Bind of string
 	| Send
 	| Transfer of transfer
+	| Ack
 
 	let to_response = function
 		| Login
+		| Ack
 		| Send -> Server.respond_string ~status:`OK ~body:"" ()
 		| Bind name ->
 			Server.respond_string ~status:`OK ~body:name ()

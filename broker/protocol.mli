@@ -18,7 +18,8 @@ module In : sig
 	| Login of string            (** Associate this transport-level channel with a session *)
 	| Bind of string option      (** Listen on either an existing queue or a fresh one *)
 	| Send of string * Message.t (** Send a message to a queue *)
-	| Transfer of string * float (** ACK up to a message, blocking wait for new messages *)
+	| Transfer of int64 * float  (** ACK up to a message, blocking wait for new messages *)
+	| Ack of int64               (** ACK this particular message *)
 
 	val of_request: Request.t -> t option
 	(** parse a [t] from an HTTP request *)
@@ -29,7 +30,6 @@ end
 
 module Out : sig
 	type transfer = {
-		dropped: int;
 		messages: (int64 * Message.t) list;
 	}
 	val transfer_of_rpc: Rpc.t -> transfer
@@ -40,6 +40,7 @@ module Out : sig
 	| Bind of string
 	| Send
 	| Transfer of transfer
+	| Ack
 
 	val to_response : t ->  (Response.t * Body.t) Lwt.t
 end

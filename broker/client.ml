@@ -40,22 +40,22 @@ let main () =
  
 	let wakener = Hashtbl.create 10 in
 	let (_ : unit Lwt.t) =
-		let rec loop ack_to =
+		let rec loop from =
 			let timeout = 5. in
-			let frame = In.Transfer(ack_to, timeout) in
+			let frame = In.Transfer(from, timeout) in
 			lwt raw = Connection.rpc events_conn frame in
 			let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
 			match transfer.Out.messages with
-			| [] -> loop ack_to
+			| [] -> loop from
 			| m :: ms ->
 				List.iter
 					(fun (i, m) ->
 						if Hashtbl.mem wakener m.Message.correlation_id
 						then Lwt.wakeup_later (Hashtbl.find wakener m.Message.correlation_id) m;
 					) transfer.Out.messages;
-				let ack_to = Int64.to_string (List.fold_left max (fst m) (List.map fst ms)) in
-				loop ack_to in
-		loop "-1" in
+				let from = List.fold_left max (fst m) (List.map fst ms) in
+				loop from in
+		loop (-1L) in
 
 	lwt reply_to =
 		if not !reply then return None

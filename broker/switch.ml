@@ -49,6 +49,8 @@ let make_unique_id =
 		counter := Int64.add 1L !counter;
 		result
 
+let make_fresh_name () = Printf.sprintf "queue-%Ld" (make_unique_id ())
+
 module IntMap = Map.Make(struct type t = int64 let compare = Int64.compare end)
 
 type origin =
@@ -69,17 +71,26 @@ module Entry = struct
 end
 
 let queues : (string, Entry.t IntMap.t) Hashtbl.t = Hashtbl.create 128
+let message_id_to_queue : string IntMap.t ref = ref IntMap.empty
+
+let queues_c = Hashtbl.create 128
 
 let find_or_create_queue name =
-	if not(Hashtbl.mem queues name) then Hashtbl.replace queues name IntMap.empty;
+	if not(Hashtbl.mem queues name) then begin
+		Hashtbl.replace queues name IntMap.empty;
+		Hashtbl.replace queues_c name (Lwt_condition.create ());
+	end;
 	Hashtbl.find queues name
 
-let make_fresh_name =
-	let c = ref 0 in
-	fun () ->
-		let result = Printf.sprintf "queue-%d" !c in
-		incr c;
-		result
+let queue_broadcast name =
+	if not(Hashtbl.mem queues_c name)
+	then Printf.fprintf stderr "ERROR: queue_broadcast: queue %s doesn't exist\n%!" name
+	else Lwt_condition.broadcast (Hashtbl.find queues_c name) ()
+
+let queue_wait name =
+	if not(Hashtbl.mem queues_c name)
+	then (Printf.fprintf stderr "ERROR: queue_wait: queue %s doesn't exist\n%!" name; fail Not_found)
+	else Lwt_condition.wait (Hashtbl.find queues_c name)
 
 let make_server () =
 	let (_: unit Lwt.t) = UnixServer.serve_forever () in
@@ -113,6 +124,7 @@ let make_server () =
 					if not(Hashtbl.mem queues name) then begin
 						Printf.fprintf stderr "Created queue %s\n%!" name;
 						Hashtbl.add queues name IntMap.empty;
+						Hashtbl.add queues_c name (Lwt_condition.create ());
 					end;
 					let conn_id = string_of_int conn_id in
 					lwt token = read xs (Printf.sprintf "/id/%s" conn_id) in
@@ -120,26 +132,44 @@ let make_server () =
 					lwt () = write xs (Printf.sprintf "/by_session/%s/%s" token name) "" in
 					Printf.fprintf stderr "Responding\n%!";
 					Out.to_response (Out.Bind name)
-				| Some (In.Transfer(ack_to, timeout)) ->
+				| Some (In.Ack id) ->
+					let name = IntMap.find id !message_id_to_queue in
+					let q = find_or_create_queue name in
+					message_id_to_queue := IntMap.remove id !message_id_to_queue;
+					Hashtbl.replace queues name (IntMap.remove id q);
+					Out.to_response Out.Ack
+				| Some (In.Transfer(from, timeout)) ->
 					let conn_id = string_of_int conn_id in
 					lwt token = read xs (Printf.sprintf "/id/%s" conn_id) in
 					lwt names = directory xs (Printf.sprintf "/by_session/%s" token) in
 					let name = List.hd names (* XXX *) in
-					let q = find_or_create_queue name in
-					let dropped, also_dropped, not_acked = IntMap.split (Int64.of_string ack_to) q in
-					Hashtbl.replace queues name not_acked;
+					let start = Unix.gettimeofday () in
+					let rec wait () =
+						let q = find_or_create_queue name in
+						let _, _, not_seen = IntMap.split from q in
+						if not_seen <> IntMap.empty
+						then return not_seen
+						else
+							let remaining_timeout = max 0. (start +. timeout -. (Unix.gettimeofday ())) in
+							let timeout = Lwt.map (fun () -> `Timeout) (Lwt_unix.sleep remaining_timeout) in
+							let more = Lwt.map (fun () -> `Data) (queue_wait name) in
+							match_lwt Lwt.pick [ timeout; more ] with
+							| `Timeout -> return IntMap.empty
+							| `Data -> wait () in
+					lwt messages = wait () in
 					let transfer = {
-						Out.dropped = IntMap.cardinal dropped + (match also_dropped with Some _ -> 1 | None -> 0);
-						messages = IntMap.fold (fun id e acc -> (id, e.Entry.message) :: acc) not_acked [];
+						Out.messages = IntMap.fold (fun id e acc -> (id, e.Entry.message) :: acc) messages [];
 					} in
-					Lwt_unix.sleep timeout >>
-						Out.to_response (Out.Transfer transfer)
+					Out.to_response (Out.Transfer transfer)
 
 				| Some (In.Send (name, data)) ->
 					(* If a queue for [name] doesn't already exist, make it now *)
 					let q = find_or_create_queue name in
 					lwt origin = origin_of_conn_id conn_id in
-					Hashtbl.replace queues name (IntMap.add (make_unique_id ()) (Entry.make origin data) q);
+					let id = make_unique_id () in
+					message_id_to_queue := IntMap.add id name !message_id_to_queue;
+					Hashtbl.replace queues name (IntMap.add id (Entry.make origin data) q);
+					queue_broadcast name;
 					Out.to_response Out.Send
 				| None ->
 					Server.respond_not_found ~uri:(Request.uri req) ()

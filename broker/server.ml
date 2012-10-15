@@ -11,13 +11,13 @@ let main () =
 
 	lwt (_: string) = Connection.rpc c (In.Bind (Some !name)) in
 	Printf.fprintf stderr "Serving requests forever\n%!";
-	let rec loop ack_to =
+	let rec loop from =
 		let timeout = 5. in
-		let frame = In.Transfer(ack_to, timeout) in
+		let frame = In.Transfer(from, timeout) in
 		lwt raw = Connection.rpc c frame in
 		let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
 		match transfer.Out.messages with
-		| [] -> loop ack_to
+		| [] -> loop from
 		| m :: ms ->
 			lwt () = Lwt_list.iter_s
 				(fun (i, m) ->
@@ -26,11 +26,13 @@ let main () =
 					| Some reply_to ->
 						let request = In.Send(reply_to, { m with Message.reply_to = None }) in
 						lwt (_: string) = Connection.rpc c request in
+						let request = In.Ack i in
+						lwt (_: string) = Connection.rpc c request in
 						return ()
 				) transfer.Out.messages in
-			let ack_to = Int64.to_string (List.fold_left max (fst m) (List.map fst ms)) in
-			loop ack_to in
-	loop "-1"
+			let from = List.fold_left max (fst m) (List.map fst ms) in
+			loop from in
+	loop (-1L)
 
 let _ =
 	Arg.parse [
