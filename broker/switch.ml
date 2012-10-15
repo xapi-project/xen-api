@@ -72,8 +72,17 @@ end
 
 let queues : (string, Entry.t IntMap.t) Hashtbl.t = Hashtbl.create 128
 let message_id_to_queue : string IntMap.t ref = ref IntMap.empty
-
 let queues_c = Hashtbl.create 128
+
+module Diagnostics = struct
+	type queue = (int64 * Entry.t) list with rpc
+	let queue q = IntMap.fold (fun i e acc -> (i, e) :: acc) q []
+
+	type queues = (string * queue) list with rpc
+
+	let snapshot () = Hashtbl.fold (fun n q acc -> (n, queue q) :: acc) queues []
+end
+
 
 let find_or_create_queue name =
 	if not(Hashtbl.mem queues name) then begin
@@ -171,6 +180,9 @@ let make_server () =
 					Hashtbl.replace queues name (IntMap.add id (Entry.make origin data) q);
 					queue_broadcast name;
 					Out.to_response Out.Send
+				| Some In.Diagnostics ->
+					let d = Diagnostics.(Jsonrpc.to_string (rpc_of_queues (snapshot ()))) in
+					Out.to_response (Out.Diagnostics d)
 				| None ->
 					Server.respond_not_found ~uri:(Request.uri req) ()
 			in

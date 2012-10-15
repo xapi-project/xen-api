@@ -20,6 +20,7 @@ module In : sig
 	| Send of string * Message.t (** Send a message to a queue *)
 	| Transfer of int64 * float  (** ACK up to a message, blocking wait for new messages *)
 	| Ack of int64               (** ACK this particular message *)
+	| Diagnostics                (** return a diagnostic dump *)
 
 	val of_request: Request.t -> t option
 	(** parse a [t] from an HTTP request *)
@@ -41,6 +42,7 @@ module Out : sig
 	| Send
 	| Transfer of transfer
 	| Ack
+	| Diagnostics of string
 
 	val to_response : t ->  (Response.t * Body.t) Lwt.t
 end

@@ -24,6 +24,7 @@ module In = struct
 	| Send of string * Message.t (** Send a message to a queue *)
 	| Transfer of int64 * float  (** blocking wait for new messages *)
 	| Ack of int64               (** ACK this particular message *)
+	| Diagnostics                (** return a diagnostic dump *)
 
 	let rec split ?limit:(limit=(-1)) c s =
 		let i = try String.index s c with Not_found -> -1 in
@@ -36,6 +37,7 @@ module In = struct
 			a :: (split ~limit: nlimit c b)
 
 	let of_request req = match Request.meth req, split '/' (Request.path req) with
+		| `GET, [ ""; "" ]             -> Some Diagnostics
 		| `GET, [ ""; "login"; token ] -> Some (Login token)
 		| `GET, [ ""; "bind" ]         -> Some (Bind None)
 		| `GET, [ ""; "bind"; name ]   -> Some (Bind (Some name))
@@ -60,6 +62,8 @@ module In = struct
 			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/transfer/%Ld/%.16g" ack_to timeout) ())
 		| Send (name, message) ->
 			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/send/%s/%s" name message.Message.payload) ())
+		| Diagnostics ->
+			Request.make ~meth:`GET (Uri.make ~path:"/" ())
 end
 
 module Out = struct
@@ -73,6 +77,7 @@ module Out = struct
 	| Send
 	| Transfer of transfer
 	| Ack
+	| Diagnostics of string
 
 	let to_response = function
 		| Login
@@ -82,6 +87,8 @@ module Out = struct
 			Server.respond_string ~status:`OK ~body:name ()
 		| Transfer transfer ->
 			Server.respond_string ~status:`OK ~body:(Jsonrpc.to_string (rpc_of_transfer transfer)) ()
+		| Diagnostics x ->
+			Server.respond_string ~status:`OK ~body:x ()
 end
 
 
@@ -123,3 +130,4 @@ module Connection = struct
 		return c
 
 end
+
