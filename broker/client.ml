@@ -5,7 +5,7 @@ open Protocol
 let port = ref 8080
 let name = ref "default_name"
 let payload = ref "hello"
-let reply = ref false
+let noreply = ref false
 
 (* New semantics:
 
@@ -58,7 +58,7 @@ let main () =
 		loop (-1L) in
 
 	lwt reply_to =
-		if not !reply then return None
+		if !noreply then return None
 		else begin
 			lwt queue_name = Connection.rpc requests_conn (In.Create None) in
 			lwt (_: string) = Connection.rpc requests_conn (In.Subscribe queue_name) in
@@ -67,7 +67,7 @@ let main () =
 	let correlation_id = fresh_correlation_id () in
 	let frame = In.Send(!name, { Message.payload = !payload; correlation_id; reply_to }) in
 	lwt (_: string) = Connection.rpc requests_conn frame in
-	if not !reply then return ()
+	if !noreply then return ()
 	else begin
 		Printf.fprintf stderr "waiting for response\n%!";
 		let t, u = Lwt.task () in
@@ -82,7 +82,7 @@ let _ =
 		"-port", Arg.Set_int port, (Printf.sprintf "port broker listens on (default %d)" !port);
 		"-name", Arg.Set_string name, (Printf.sprintf "name to send message to (default %s)" !name);
 		"-payload", Arg.Set_string payload, (Printf.sprintf "payload of message to send (default %s)" !payload);
-		"-reply", Arg.Set reply, (Printf.sprintf "wait for a reply (default %b)" !reply);
+		"-noreply", Arg.Set noreply, (Printf.sprintf "do not for a reply (default %b)" !noreply);
 	] (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s" x)
 		"Send a message to a name, optionally waiting for a response";
 
