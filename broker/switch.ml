@@ -50,7 +50,7 @@ let make_fresh_name () = Printf.sprintf "client-%Ld" (make_unique_id ())
 module Int64Map = Map.Make(struct type t = int64 let compare = Int64.compare end)
 module IntMap = Map.Make(struct type t = int let compare = compare end)
 module StringSet = Set.Make(struct type t = string let compare = String.compare end)
-
+module IntSet = Set.Make(struct type t = int let compare = compare end)
 
 type origin =
 	| Anonymous of int (** An un-named connection, probably a temporary client connection *)
@@ -74,6 +74,12 @@ let bindings : (string, StringSet.t) Hashtbl.t = Hashtbl.create 128
 
 (* Connection id -> session token *)
 let connections : string IntMap.t ref = ref IntMap.empty
+
+(* session token -> active connection ids *)
+let sessions : (string, IntSet.t) Hashtbl.t = Hashtbl.create 128
+
+(* Session token -> set of queues which will be GCed on session cleanup *)
+let private_queues : (string, StringSet.t) Hashtbl.t = Hashtbl.create 128
 
 let queues : (string, Entry.t Int64Map.t) Hashtbl.t = Hashtbl.create 128
 let message_id_to_queue : string Int64Map.t ref = ref Int64Map.empty
@@ -123,9 +129,27 @@ let make_server () =
 			| In.Login token ->
 				(* associate conn_id with token *)
 				connections := IntMap.add conn_id token !connections;
+				let existing =
+					if Hashtbl.mem sessions token
+					then Hashtbl.find sessions token
+					else IntSet.empty in
+				Hashtbl.replace sessions token (IntSet.add conn_id existing);
 				Out.to_response Out.Login
 			| In.Create name ->
-				let name = match name with Some name -> name | None -> make_fresh_name () in
+				let name = begin match name with
+				| Some name ->
+					name
+				| None ->
+					(* Create a session-local private queue name *)
+					let name = make_fresh_name () in
+					let token = IntMap.find conn_id !connections in
+					let existing =
+						if Hashtbl.mem private_queues token
+						then Hashtbl.find private_queues token
+						else StringSet.empty in
+					Hashtbl.replace private_queues token (StringSet.add name existing);
+					name
+				end in
 				if not(Hashtbl.mem queues name) then create_queue name;
 				Printf.fprintf stderr "Responding\n%!";
 				Out.to_response (Out.Create name)
@@ -197,6 +221,25 @@ let make_server () =
 			in
 			let conn_closed conn_id () =
 				Printf.eprintf "conn %d closed\n%!" conn_id;
+				if IntMap.mem conn_id !connections then begin
+					let token = IntMap.find conn_id !connections in
+					let existing = Hashtbl.find sessions token in
+					let remaining = IntSet.remove conn_id existing in
+					if remaining = IntSet.empty then begin
+						Printf.fprintf stderr "Session %s cleaning up\n%!" token;
+						Hashtbl.remove sessions token;
+						if Hashtbl.mem private_queues token then begin
+							let qs = Hashtbl.find private_queues token in
+							StringSet.iter
+								(fun name ->
+									Printf.fprintf stderr "Deleting private queue: %s\n%!" name;
+									Hashtbl.remove queues name;
+									Hashtbl.remove queues_c name;
+								) qs;
+							Hashtbl.remove private_queues token
+						end
+					end else Hashtbl.replace sessions token remaining
+				end;
 				connections := IntMap.remove conn_id !connections in
 
 			debug "Message switch starting";
