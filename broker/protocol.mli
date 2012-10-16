@@ -22,6 +22,9 @@ module In : sig
 	| Ack of int64               (** ACK this particular message *)
 	| Diagnostics                (** return a diagnostic dump *)
 
+	val rpc_of_t : t -> Rpc.t
+	val t_of_rpc : Rpc.t -> t
+
 	val of_request: Request.t -> t option
 	(** parse a [t] from an HTTP request *)
 

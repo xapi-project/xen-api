@@ -21,14 +21,17 @@ let main () =
 		| m :: ms ->
 			lwt () = Lwt_list.iter_s
 				(fun (i, m) ->
-					match m.Message.reply_to with
-					| None -> return ()
-					| Some reply_to ->
-						let request = In.Send(reply_to, { m with Message.reply_to = None }) in
-						lwt (_: string) = Connection.rpc c request in
-						let request = In.Ack i in
-						lwt (_: string) = Connection.rpc c request in
-						return ()
+					lwt () =
+						match m.Message.reply_to with
+						| None ->
+							return ()
+						| Some reply_to ->
+							let request = In.Send(reply_to, { m with Message.reply_to = None }) in
+							lwt (_: string) = Connection.rpc c request in
+							return () in
+					let request = In.Ack i in
+					lwt (_: string) = Connection.rpc c request in
+					return ()
 				) transfer.Out.messages in
 			let from = List.fold_left max (fst m) (List.map fst ms) in
 			loop from in

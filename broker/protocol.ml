@@ -25,6 +25,7 @@ module In = struct
 	| Transfer of int64 * float  (** blocking wait for new messages *)
 	| Ack of int64               (** ACK this particular message *)
 	| Diagnostics                (** return a diagnostic dump *)
+	with rpc
 
 	let rec split ?limit:(limit=(-1)) c s =
 		let i = try String.index s c with Not_found -> -1 in
@@ -109,7 +110,6 @@ module Connection = struct
 				lwt () = Response.write (fun _ _ -> return ()) response Lwt_io.stderr in
 				fail Unsuccessful_response
 			end else begin
-				Printf.fprintf stderr "OK\n%!";
 				match_lwt Response.read_body response ic with
 				| Transfer.Final_chunk x -> return x
 				| Transfer.Chunk x -> return x
