@@ -51,7 +51,8 @@ let make_unique_id =
 
 let make_fresh_name () = Printf.sprintf "queue-%Ld" (make_unique_id ())
 
-module IntMap = Map.Make(struct type t = int64 let compare = Int64.compare end)
+module Int64Map = Map.Make(struct type t = int64 let compare = Int64.compare end)
+module IntMap = Map.Make(struct type t = int let compare = compare end)
 module StringSet = Set.Make(struct type t = string let compare = String.compare end)
 
 
@@ -72,15 +73,19 @@ module Entry = struct
 		{ origin; time; message }
 end
 
+(* Session token -> queue bindings *)
 let bindings : (string, StringSet.t) Hashtbl.t = Hashtbl.create 128
 
-let queues : (string, Entry.t IntMap.t) Hashtbl.t = Hashtbl.create 128
-let message_id_to_queue : string IntMap.t ref = ref IntMap.empty
+(* Connection id -> session token *)
+let connections : string IntMap.t ref = ref IntMap.empty
+
+let queues : (string, Entry.t Int64Map.t) Hashtbl.t = Hashtbl.create 128
+let message_id_to_queue : string Int64Map.t ref = ref Int64Map.empty
 let queues_c = Hashtbl.create 128
 
 module Diagnostics = struct
 	type queue = (int64 * Entry.t) list with rpc
-	let queue q = IntMap.fold (fun i e acc -> (i, e) :: acc) q []
+	let queue q = Int64Map.fold (fun i e acc -> (i, e) :: acc) q []
 
 	type queues = (string * queue) list with rpc
 
@@ -90,7 +95,7 @@ end
 
 let find_or_create_queue name =
 	if not(Hashtbl.mem queues name) then begin
-		Hashtbl.replace queues name IntMap.empty;
+		Hashtbl.replace queues name Int64Map.empty;
 		Hashtbl.replace queues_c name (Lwt_condition.create ());
 	end;
 	Hashtbl.find queues name
@@ -108,121 +113,102 @@ let queue_wait name =
 let make_server () =
 	let (_: unit Lwt.t) = UnixServer.serve_forever () in
 	debug "Started server on unix domain socket";
-	(* XXX: we need to synchronise with the server starting *)
-	lwt () = Lwt_unix.sleep 2. in
 
-	lwt client = make () in
-	with_xs client
-		(fun xs ->
-			let origin_of_conn_id conn_id =
-				try_lwt
-					lwt name = read xs (Printf.sprintf "/id/%s" (Server.string_of_conn_id conn_id)) in
-					return (Name name)
-				with _ ->
-					return (Anonymous conn_id) in
+	let origin_of_conn_id conn_id =
+		if IntMap.mem conn_id !connections
+		then Name (IntMap.find conn_id !connections)
+		else Anonymous conn_id in
 
-  			(* (Response.t * Body.t) Lwt.t *)
-			let callback conn_id ?body req =
-				let open Protocol in
-				match In.of_request req with
-				| None ->
-					Server.respond_not_found ~uri:(Request.uri req) ()
-				| Some request ->
-					Printf.fprintf stderr "%s\n%!" (Jsonrpc.to_string (In.rpc_of_t request));
-					begin match request with
-					| In.Login token ->
-					(* associate conn_id with token *)
-						let conn_id = string_of_int conn_id in
-						lwt () = write xs (Printf.sprintf "/id/%s" conn_id) token in
-						lwt () = write xs (Printf.sprintf "/session/%s/%s" token conn_id) "" in
-						Out.to_response Out.Login
-					| In.Bind name ->
-						let name = match name with Some name -> name | None -> make_fresh_name () in
-						(* If a queue for [name] doesn't already exist, make it now *)
-						if not(Hashtbl.mem queues name) then begin
-							Printf.fprintf stderr "Created queue %s\n%!" name;
-							Hashtbl.add queues name IntMap.empty;
-							Hashtbl.add queues_c name (Lwt_condition.create ());
-						end;
-						let conn_id = string_of_int conn_id in
-						lwt token = read xs (Printf.sprintf "/id/%s" conn_id) in
-						let existing =
-							if Hashtbl.mem bindings token
-							then Hashtbl.find bindings token
-							else StringSet.empty in
-						Hashtbl.replace bindings token (StringSet.add name existing);
-						Printf.fprintf stderr "Responding\n%!";
-						Out.to_response (Out.Bind name)
-					| In.Ack id ->
-						let name = IntMap.find id !message_id_to_queue in
+  	(* (Response.t * Body.t) Lwt.t *)
+	let callback conn_id ?body req =
+		let open Protocol in
+		match In.of_request req with
+		| None ->
+			Server.respond_not_found ~uri:(Request.uri req) ()
+		| Some request ->
+			Printf.fprintf stderr "%s\n%!" (Jsonrpc.to_string (In.rpc_of_t request));
+			begin match request with
+			| In.Login token ->
+				(* associate conn_id with token *)
+				connections := IntMap.add conn_id token !connections;
+				Out.to_response Out.Login
+			| In.Bind name ->
+				let name = match name with Some name -> name | None -> make_fresh_name () in
+				(* If a queue for [name] doesn't already exist, make it now *)
+				if not(Hashtbl.mem queues name) then begin
+					Printf.fprintf stderr "Created queue %s\n%!" name;
+					Hashtbl.add queues name Int64Map.empty;
+					Hashtbl.add queues_c name (Lwt_condition.create ());
+				end;
+				let token = IntMap.find conn_id !connections in
+				let existing =
+					if Hashtbl.mem bindings token
+					then Hashtbl.find bindings token
+					else StringSet.empty in
+				Hashtbl.replace bindings token (StringSet.add name existing);
+				Printf.fprintf stderr "Responding\n%!";
+				Out.to_response (Out.Bind name)
+			| In.Ack id ->
+				let name = Int64Map.find id !message_id_to_queue in
+				let q = find_or_create_queue name in
+				message_id_to_queue := Int64Map.remove id !message_id_to_queue;
+				Printf.fprintf stderr "Removing id %Ld from queue %s\n%!" id name;
+				Hashtbl.replace queues name (Int64Map.remove id q);
+				Out.to_response Out.Ack
+			| In.Transfer(from, timeout) ->
+				let token = IntMap.find conn_id !connections in
+				let names =
+					if Hashtbl.mem bindings token
+					then Hashtbl.find bindings token
+					else StringSet.empty in
+
+				let start = Unix.gettimeofday () in
+				let rec wait () =
+					let not_seen = StringSet.fold (fun name map ->
 						let q = find_or_create_queue name in
-						message_id_to_queue := IntMap.remove id !message_id_to_queue;
-						Printf.fprintf stderr "Removing id %Ld from queue %s\n%!" id name;
-						Hashtbl.replace queues name (IntMap.remove id q);
-						Out.to_response Out.Ack
-					| In.Transfer(from, timeout) ->
-						let conn_id = string_of_int conn_id in
-						lwt token = read xs (Printf.sprintf "/id/%s" conn_id) in
-						let names =
-							if Hashtbl.mem bindings token
-							then Hashtbl.find bindings token
-							else StringSet.empty in
+						let _, _, not_seen = Int64Map.split from q in
+						Int64Map.fold Int64Map.add map not_seen
+					) names Int64Map.empty in
+					if not_seen <> Int64Map.empty
+					then return not_seen
+					else
+						let remaining_timeout = max 0. (start +. timeout -. (Unix.gettimeofday ())) in
+						let timeout = Lwt.map (fun () -> `Timeout) (Lwt_unix.sleep remaining_timeout) in
+						let more = StringSet.fold (fun name acc ->
+							Lwt.map (fun () -> `Data) (queue_wait name) :: acc
+						) names [] in
+						match_lwt Lwt.pick (timeout :: more) with
+						| `Timeout -> return Int64Map.empty
+						| `Data -> wait () in
+				lwt messages = wait () in
+				let transfer = {
+					Out.messages = Int64Map.fold (fun id e acc -> (id, e.Entry.message) :: acc) messages [];
+				} in
+				Out.to_response (Out.Transfer transfer)
 
-						let start = Unix.gettimeofday () in
-						let rec wait () =
-							let not_seen = StringSet.fold (fun name map ->
-								let q = find_or_create_queue name in
-								let _, _, not_seen = IntMap.split from q in
-								IntMap.fold IntMap.add map not_seen
-							) names IntMap.empty in
-							if not_seen <> IntMap.empty
-							then return not_seen
-							else
-								let remaining_timeout = max 0. (start +. timeout -. (Unix.gettimeofday ())) in
-								let timeout = Lwt.map (fun () -> `Timeout) (Lwt_unix.sleep remaining_timeout) in
-								let more = StringSet.fold (fun name acc ->
-									Lwt.map (fun () -> `Data) (queue_wait name) :: acc
-								) names [] in
-								match_lwt Lwt.pick (timeout :: more) with
-								| `Timeout -> return IntMap.empty
-								| `Data -> wait () in
-						lwt messages = wait () in
-						let transfer = {
-							Out.messages = IntMap.fold (fun id e acc -> (id, e.Entry.message) :: acc) messages [];
-						} in
-						Out.to_response (Out.Transfer transfer)
-
-					| In.Send (name, data) ->
-						(* If a queue for [name] doesn't already exist, make it now *)
-						let q = find_or_create_queue name in
-						lwt origin = origin_of_conn_id conn_id in
-						let id = make_unique_id () in
-						message_id_to_queue := IntMap.add id name !message_id_to_queue;
-						Hashtbl.replace queues name (IntMap.add id (Entry.make origin data) q);
-						queue_broadcast name;
-						Out.to_response Out.Send
-					| In.Diagnostics ->
-						let d = Diagnostics.(Jsonrpc.to_string (rpc_of_queues (snapshot ()))) in
-						Out.to_response (Out.Diagnostics d)
-					end
+			| In.Send (name, data) ->
+				(* If a queue for [name] doesn't already exist, make it now *)
+				let q = find_or_create_queue name in
+				let origin = origin_of_conn_id conn_id in
+				let id = make_unique_id () in
+				message_id_to_queue := Int64Map.add id name !message_id_to_queue;
+				Hashtbl.replace queues name (Int64Map.add id (Entry.make origin data) q);
+				queue_broadcast name;
+				Out.to_response Out.Send
+			| In.Diagnostics ->
+				let d = Diagnostics.(Jsonrpc.to_string (rpc_of_queues (snapshot ()))) in
+				Out.to_response (Out.Diagnostics d)
+			end
 			in
 			let conn_closed conn_id () =
-				let c = Server.string_of_conn_id conn_id in
-				Printf.eprintf "conn %s closed\n%!" c;
-				let _ : unit Lwt.t =
-					lwt name = read xs (Printf.sprintf "/id/%s" c) in
-					lwt () = rm xs (Printf.sprintf "/name/%s" name) in
-					lwt () = rm xs (Printf.sprintf "/id/%s" c) in
-					return () in
-				()
-			in
+				Printf.eprintf "conn %d closed\n%!" conn_id;
+				connections := IntMap.remove conn_id !connections in
 
 			debug "Message switch starting";
 			let (_: 'a Lwt.t) = logging_thread Logging.logger in
 
 			let config = { Server.callback; conn_closed } in
 			server ~address:"127.0.0.1" ~port:!port config
-		)
     
 let _ =
 	Arg.parse [
