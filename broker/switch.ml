@@ -89,12 +89,9 @@ module Diagnostics = struct
 end
 
 
-let find_or_create_queue name =
-	if not(Hashtbl.mem queues name) then begin
-		Hashtbl.replace queues name Int64Map.empty;
-		Hashtbl.replace queues_c name (Lwt_condition.create ());
-	end;
-	Hashtbl.find queues name
+let create_queue name =
+	Hashtbl.replace queues name Int64Map.empty;
+	Hashtbl.replace queues_c name (Lwt_condition.create ())
 
 let queue_broadcast name =
 	if not(Hashtbl.mem queues_c name)
@@ -127,28 +124,27 @@ let make_server () =
 				(* associate conn_id with token *)
 				connections := IntMap.add conn_id token !connections;
 				Out.to_response Out.Login
-			| In.Bind name ->
+			| In.Create name ->
 				let name = match name with Some name -> name | None -> make_fresh_name () in
-				(* If a queue for [name] doesn't already exist, make it now *)
-				if not(Hashtbl.mem queues name) then begin
-					Printf.fprintf stderr "Created queue %s\n%!" name;
-					Hashtbl.add queues name Int64Map.empty;
-					Hashtbl.add queues_c name (Lwt_condition.create ());
-				end;
+				if not(Hashtbl.mem queues name) then create_queue name;
+				Printf.fprintf stderr "Responding\n%!";
+				Out.to_response (Out.Create name)
+			| In.Subscribe name ->
 				let token = IntMap.find conn_id !connections in
 				let existing =
 					if Hashtbl.mem bindings token
 					then Hashtbl.find bindings token
 					else StringSet.empty in
 				Hashtbl.replace bindings token (StringSet.add name existing);
-				Printf.fprintf stderr "Responding\n%!";
-				Out.to_response (Out.Bind name)
+				Out.to_response Out.Subscribe
 			| In.Ack id ->
 				let name = Int64Map.find id !message_id_to_queue in
-				let q = find_or_create_queue name in
-				message_id_to_queue := Int64Map.remove id !message_id_to_queue;
-				Printf.fprintf stderr "Removing id %Ld from queue %s\n%!" id name;
-				Hashtbl.replace queues name (Int64Map.remove id q);
+				if Hashtbl.mem queues name then begin
+					let q = Hashtbl.find queues name in
+					message_id_to_queue := Int64Map.remove id !message_id_to_queue;
+					Printf.fprintf stderr "Removing id %Ld from queue %s\n%!" id name;
+					Hashtbl.replace queues name (Int64Map.remove id q);
+				end;
 				Out.to_response Out.Ack
 			| In.Transfer(from, timeout) ->
 				let token = IntMap.find conn_id !connections in
@@ -160,9 +156,11 @@ let make_server () =
 				let start = Unix.gettimeofday () in
 				let rec wait () =
 					let not_seen = StringSet.fold (fun name map ->
-						let q = find_or_create_queue name in
-						let _, _, not_seen = Int64Map.split from q in
-						Int64Map.fold Int64Map.add map not_seen
+						if Hashtbl.mem queues name then begin
+							let q = Hashtbl.find queues name in
+							let _, _, not_seen = Int64Map.split from q in
+							Int64Map.fold Int64Map.add map not_seen
+						end else map
 					) names Int64Map.empty in
 					if not_seen <> Int64Map.empty
 					then return not_seen
@@ -182,13 +180,15 @@ let make_server () =
 				Out.to_response (Out.Transfer transfer)
 
 			| In.Send (name, data) ->
-				(* If a queue for [name] doesn't already exist, make it now *)
-				let q = find_or_create_queue name in
-				let origin = origin_of_conn_id conn_id in
-				let id = make_unique_id () in
-				message_id_to_queue := Int64Map.add id name !message_id_to_queue;
-				Hashtbl.replace queues name (Int64Map.add id (Entry.make origin data) q);
-				queue_broadcast name;
+				(* If a queue doesn't exist then drop the message *)
+				if Hashtbl.mem queues name then begin
+					let q = Hashtbl.find queues name in
+					let origin = origin_of_conn_id conn_id in
+					let id = make_unique_id () in
+					message_id_to_queue := Int64Map.add id name !message_id_to_queue;
+					Hashtbl.replace queues name (Int64Map.add id (Entry.make origin data) q);
+					queue_broadcast name;
+				end;
 				Out.to_response Out.Send
 			| In.Diagnostics ->
 				let d = Diagnostics.(Jsonrpc.to_string (rpc_of_queues (snapshot ()))) in

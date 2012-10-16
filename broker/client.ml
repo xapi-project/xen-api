@@ -60,8 +60,8 @@ let main () =
 	lwt reply_to =
 		if not !reply then return None
 		else begin
-			let frame = In.Bind None in
-			lwt queue_name = Connection.rpc requests_conn frame in
+			lwt queue_name = Connection.rpc requests_conn (In.Create None) in
+			lwt (_: string) = Connection.rpc requests_conn (In.Subscribe queue_name) in
 			return (Some queue_name)
 		end in
 	let correlation_id = fresh_correlation_id () in

@@ -20,7 +20,8 @@ end
 module In = struct
 	type t =
 	| Login of string            (** Associate this transport-level channel with a session *)
-	| Bind of string option      (** Listen on either an existing queue or a fresh one *)
+	| Create of string option    (** Create a queue with a well-known or fresh name *)
+	| Subscribe of string        (** Subscribe to messages from a queue *)
 	| Send of string * Message.t (** Send a message to a queue *)
 	| Transfer of int64 * float  (** blocking wait for new messages *)
 	| Ack of int64               (** ACK this particular message *)
@@ -38,11 +39,12 @@ module In = struct
 			a :: (split ~limit: nlimit c b)
 
 	let of_request req = match Request.meth req, split '/' (Request.path req) with
-		| `GET, [ ""; "" ]             -> Some Diagnostics
-		| `GET, [ ""; "login"; token ] -> Some (Login token)
-		| `GET, [ ""; "bind" ]         -> Some (Bind None)
-		| `GET, [ ""; "bind"; name ]   -> Some (Bind (Some name))
-		| `GET, [ ""; "ack"; id ]      -> Some (Ack (Int64.of_string id))
+		| `GET, [ ""; "" ]                -> Some Diagnostics
+		| `GET, [ ""; "login"; token ]    -> Some (Login token)
+		| `GET, [ ""; "create" ]          -> Some (Create None)
+		| `GET, [ ""; "create"; name ]    -> Some (Create (Some name))
+		| `GET, [ ""; "subscribe"; name ] -> Some (Subscribe name)
+		| `GET, [ ""; "ack"; id ]         -> Some (Ack (Int64.of_string id))
 		| `GET, [ ""; "transfer"; ack_to; timeout ] ->
 			Some (Transfer(Int64.of_string ack_to, float_of_string timeout))
 		| `GET, [ ""; "send"; name; data ] ->
@@ -53,10 +55,12 @@ module In = struct
 	let to_request = function
 		| Login token ->
 			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/login/%s" token) ())
-		| Bind None ->
-			Request.make ~meth:`GET (Uri.make ~path:"/bind" ())
-		| Bind (Some name) ->
-			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/bind/%s" name) ())
+		| Create None ->
+			Request.make ~meth:`GET (Uri.make ~path:"/create" ())
+		| Create (Some name) ->
+			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/create/%s" name) ())
+		| Subscribe name ->
+			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/subscribe/%s" name) ())
 		| Ack x ->
 			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/ack/%Ld" x) ())
 		| Transfer(ack_to, timeout) ->
@@ -74,7 +78,8 @@ module Out = struct
 
 	type t =
 	| Login
-	| Bind of string
+	| Create of string
+	| Subscribe
 	| Send
 	| Transfer of transfer
 	| Ack
@@ -83,8 +88,9 @@ module Out = struct
 	let to_response = function
 		| Login
 		| Ack
+		| Subscribe
 		| Send -> Server.respond_string ~status:`OK ~body:"" ()
-		| Bind name ->
+		| Create name ->
 			Server.respond_string ~status:`OK ~body:name ()
 		| Transfer transfer ->
 			Server.respond_string ~status:`OK ~body:(Jsonrpc.to_string (rpc_of_transfer transfer)) ()

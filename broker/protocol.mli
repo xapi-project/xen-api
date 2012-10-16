@@ -16,9 +16,10 @@ open Cohttp_lwt_unix
 module In : sig
 	type t =
 	| Login of string            (** Associate this transport-level channel with a session *)
-	| Bind of string option      (** Listen on either an existing queue or a fresh one *)
+	| Create of string option    (** Create a queue with a well-known or fresh name *)
+	| Subscribe of string        (** Subscribe to messages from a queue *)
 	| Send of string * Message.t (** Send a message to a queue *)
-	| Transfer of int64 * float  (** ACK up to a message, blocking wait for new messages *)
+	| Transfer of int64 * float  (** blocking wait for new messages *)
 	| Ack of int64               (** ACK this particular message *)
 	| Diagnostics                (** return a diagnostic dump *)
 
@@ -41,7 +42,8 @@ module Out : sig
 
 	type t =
 	| Login
-	| Bind of string
+	| Create of string
+	| Subscribe
 	| Send
 	| Transfer of transfer
 	| Ack

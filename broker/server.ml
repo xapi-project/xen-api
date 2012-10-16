@@ -9,7 +9,8 @@ let main () =
 	let token = Printf.sprintf "%d" (Unix.getuid ()) in
 	lwt c = Connection.make !port token in
 
-	lwt (_: string) = Connection.rpc c (In.Bind (Some !name)) in
+	lwt (_: string) = Connection.rpc c (In.Create (Some !name)) in
+	lwt (_: string) = Connection.rpc c (In.Subscribe (!name)) in
 	Printf.fprintf stderr "Serving requests forever\n%!";
 	let rec loop from =
 		let timeout = 5. in
