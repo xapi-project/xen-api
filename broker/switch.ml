@@ -1,10 +1,6 @@
 open Lwt
 open Cohttp
 
-module UnixServer = Xs_server.Server(Xs_transport_unix)
-module Client = Xs_client.Client(Xs_transport_unix)
-open Client
-
 let debug fmt = Logging.debug "server_xen" fmt
 let warn  fmt = Logging.warn  "server_xen" fmt
 let error fmt = Logging.error "server_xen" fmt
@@ -111,7 +107,6 @@ let queue_wait name =
 	else Lwt_condition.wait (Hashtbl.find queues_c name)
 
 let make_server () =
-	let (_: unit Lwt.t) = UnixServer.serve_forever () in
 	debug "Started server on unix domain socket";
 
 	let origin_of_conn_id conn_id =

@@ -13,16 +13,16 @@ broker.tex: $(INPUTS)
 broker.html: $(INPUTS)
 	pandoc --toc --standalone $(INPUTS) -f html -o $@
 
-PACKS=lwt,lwt.unix,lwt.syntax,cohttp,cohttp.lwt,xenstore,xenstore.server,xenstore.client,rpc,rpc.json,rpc.syntax
+PACKS=lwt,lwt.unix,lwt.syntax,xenstore,xenstore.server,cohttp,cohttp.lwt,rpc,rpc.json,rpc.syntax
 
-switch: xs_transport_unix.cmx protocol.cmi protocol.cmx switch.cmx
-	ocamlfind ocamlopt -package "${PACKS}" -linkpkg -o switch xs_transport_unix.cmx protocol.cmx switch.cmx
+switch: protocol.cmi protocol.cmx switch.cmx
+	ocamlfind ocamlopt -package "${PACKS}" -linkpkg -o switch protocol.cmx switch.cmx
 
-client: xs_transport_unix.cmx protocol.cmi protocol.cmx client.cmx
-	ocamlfind ocamlopt -package "${PACKS}" -linkpkg -o client xs_transport_unix.cmx protocol.cmx client.cmx
+client: protocol.cmi protocol.cmx client.cmx
+	ocamlfind ocamlopt -package "${PACKS}" -linkpkg -o client protocol.cmx client.cmx
 
-server: xs_transport_unix.cmx protocol.cmi protocol.cmx server.cmx
-	ocamlfind ocamlopt -package "${PACKS}" -linkpkg -o server xs_transport_unix.cmx protocol.cmx server.cmx
+server: protocol.cmi protocol.cmx server.cmx
+	ocamlfind ocamlopt -package "${PACKS}" -linkpkg -o server protocol.cmx server.cmx
 
 %.cmx: %.ml
 	ocamlfind ocamlopt -package "${PACKS}" -syntax camlp4o -c $<
