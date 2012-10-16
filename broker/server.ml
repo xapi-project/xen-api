@@ -3,7 +3,7 @@ open Lwt
 open Protocol
 
 let port = ref 8080
-let name = ref "default_name"
+let name = ref "server"
 
 let main () =
 	let token = Printf.sprintf "%d" (Unix.getuid ()) in

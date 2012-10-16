@@ -45,7 +45,7 @@ let make_unique_id =
 		counter := Int64.add 1L !counter;
 		result
 
-let make_fresh_name () = Printf.sprintf "queue-%Ld" (make_unique_id ())
+let make_fresh_name () = Printf.sprintf "client-%Ld" (make_unique_id ())
 
 module Int64Map = Map.Make(struct type t = int64 let compare = Int64.compare end)
 module IntMap = Map.Make(struct type t = int let compare = compare end)
