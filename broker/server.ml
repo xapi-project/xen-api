@@ -6,7 +6,7 @@ let port = ref 8080
 let name = ref "server"
 
 let main () =
-	let token = Printf.sprintf "%d" (Unix.getuid ()) in
+	let token = Printf.sprintf "%d" (Unix.getpid ()) in
 	lwt c = Connection.make !port token in
 
 	lwt (_: string) = Connection.rpc c (In.Create (Some !name)) in
@@ -25,8 +25,10 @@ let main () =
 					lwt () =
 						match m.Message.reply_to with
 						| None ->
+							Printf.fprintf stderr "No reply_to\n%!";
 							return ()
 						| Some reply_to ->
+							Printf.fprintf stderr "reply_to %s\n%!" reply_to;
 							let request = In.Send(reply_to, { m with Message.reply_to = None }) in
 							lwt (_: string) = Connection.rpc c request in
 							return () in

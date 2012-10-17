@@ -4,7 +4,7 @@ open Protocol
 
 let port = ref 8080
 let name = ref "server"
-let payload = ref "hello"
+let payload = ref "hello\r\n"
 let noreply = ref false
 
 (* New semantics:
@@ -34,7 +34,7 @@ let fresh_correlation_id =
 		result
 
 let main () =
-	let token = Printf.sprintf "%d" (Unix.getuid ()) in
+	let token = Printf.sprintf "%d" (Unix.getpid ()) in
 	lwt requests_conn = Connection.make !port token
 	and events_conn = Connection.make !port token in
  
@@ -62,11 +62,18 @@ let main () =
 		else begin
 			lwt queue_name = Connection.rpc requests_conn (In.Create None) in
 			lwt (_: string) = Connection.rpc requests_conn (In.Subscribe queue_name) in
+Printf.fprintf stderr "will set reply_to = %s\n%!" queue_name;
 			return (Some queue_name)
 		end in
 	let correlation_id = fresh_correlation_id () in
-	let frame = In.Send(!name, { Message.payload = !payload; correlation_id; reply_to }) in
-	lwt (_: string) = Connection.rpc requests_conn frame in
+	let msg = In.Send(!name, { Message.payload = !payload; correlation_id; reply_to }) in
+	let txt = Jsonrpc.to_string (In.rpc_of_t msg) in
+	let msg' = In.t_of_rpc (Jsonrpc.of_string txt) in
+	let txt' = Jsonrpc.to_string (In.rpc_of_t msg') in
+	Printf.fprintf stderr "%s %s %s\n%!" txt (if msg = msg' then "=" else "<>") txt';
+
+	Printf.fprintf stderr "%s\n%!" (Jsonrpc.to_string (In.rpc_of_t msg));
+	lwt (_: string) = Connection.rpc requests_conn msg in
 	if !noreply then return ()
 	else begin
 		Printf.fprintf stderr "waiting for response\n%!";

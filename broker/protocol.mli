@@ -26,11 +26,11 @@ module In : sig
 	val rpc_of_t : t -> Rpc.t
 	val t_of_rpc : Rpc.t -> t
 
-	val of_request: Request.t -> t option
-	(** parse a [t] from an HTTP request *)
+	val of_request: Request.t * (string option) -> t option
+	(** parse a [t] from an HTTP request and body  *)
 
-	val to_request: t -> Request.t
-	(** print a [t] to an HTTP request *)
+	val to_request: t -> Request.t * (string option)
+	(** print a [t] to an HTTP request and body *)
 end
 
 module Out : sig

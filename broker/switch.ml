@@ -102,6 +102,7 @@ module Connections = struct
 		IntMap.find conn_id !connections
 
 	let add conn_id session =
+		Printf.fprintf stderr "Connections.add %d -> %s\n%!" conn_id session;
 		connections := IntMap.add conn_id session !connections;
 		let existing =
 			if Hashtbl.mem sessions session
@@ -117,6 +118,7 @@ module Connections = struct
 			else IntSet.empty in
 		connections := IntMap.remove conn_id !connections;
 		let remaining = IntSet.remove conn_id existing in
+		Printf.fprintf stderr "Connections.remove %d (session %s size %d)\n%!" conn_id session (IntSet.cardinal remaining);
 		if existing = IntSet.empty
 		then Hashtbl.remove sessions session
 		else Hashtbl.replace sessions session remaining
@@ -226,7 +228,15 @@ let make_server () =
   	(* (Response.t * Body.t) Lwt.t *)
 	let callback conn_id ?body req =
 		let open Protocol in
-		match In.of_request req with
+let body = None in
+(*
+		lwt body = match body with
+			| None -> return None
+			| Some b ->
+				lwt s = Body.string_of_body (Some b) in
+				return (Some s) in
+*)
+		match In.of_request (req, body) with
 		| None ->
 			Server.respond_not_found ~uri:(Request.uri req) ()
 		| Some request ->
@@ -294,7 +304,6 @@ let make_server () =
 			end
 			in
 			let conn_closed conn_id () =
-				Printf.eprintf "conn %d closed\n%!" conn_id;
 				let session = Connections.get_session conn_id in
 				Connections.remove conn_id;
 				if not(Connections.is_session_active session) then begin

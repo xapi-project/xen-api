@@ -38,37 +38,50 @@ module In = struct
 			and b = String.sub s (i + 1) (String.length s - i - 1) in
 			a :: (split ~limit: nlimit c b)
 
-	let of_request req = match Request.meth req, split '/' (Request.path req) with
-		| `GET, [ ""; "" ]                -> Some Diagnostics
-		| `GET, [ ""; "login"; token ]    -> Some (Login token)
-		| `GET, [ ""; "create" ]          -> Some (Create None)
-		| `GET, [ ""; "create"; name ]    -> Some (Create (Some name))
-		| `GET, [ ""; "subscribe"; name ] -> Some (Subscribe name)
-		| `GET, [ ""; "ack"; id ]         -> Some (Ack (Int64.of_string id))
-		| `GET, [ ""; "transfer"; ack_to; timeout ] ->
+	let of_request (req, body) = match body, Request.meth req, split '/' (Request.path req) with
+		| None, `GET, [ ""; "" ]                -> Some Diagnostics
+		| None, `GET, [ ""; "login"; token ]    -> Some (Login token)
+		| None, `GET, [ ""; "create" ]          -> Some (Create None)
+		| None, `GET, [ ""; "create"; name ]    -> Some (Create (Some name))
+		| None, `GET, [ ""; "subscribe"; name ] -> Some (Subscribe name)
+		| None, `GET, [ ""; "ack"; id ]         -> Some (Ack (Int64.of_string id))
+		| None, `GET, [ ""; "transfer"; ack_to; timeout ] ->
 			Some (Transfer(Int64.of_string ack_to, float_of_string timeout))
-		| `GET, [ ""; "send"; name; data ] ->
-			let message = Message.one_way data in
-			Some (Send (name, message))
-		| _, _ -> None
+		| Some body, `POST, [ ""; "send"; name; correlation_id ] ->
+			Some (Send (name, { Message.correlation_id = int_of_string correlation_id; reply_to = None; payload = body }))
+		| Some body, `POST, [ ""; "send"; name; correlation_id; reply_to ] ->
+			Some (Send (name, { Message.correlation_id = int_of_string correlation_id; reply_to = Some reply_to; payload = body }))
+		| _, _, _ -> None
+
+	let make_headers payload =
+		Header.of_list [
+            "user-agent", "cohttp";
+            "content-length", string_of_int (String.length payload);
+            "connection", "keep-alive";
+        ]
+
 
 	let to_request = function
 		| Login token ->
-			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/login/%s" token) ())
+			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/login/%s" token) ()), None
 		| Create None ->
-			Request.make ~meth:`GET (Uri.make ~path:"/create" ())
+			Request.make ~meth:`GET (Uri.make ~path:"/create" ()), None
 		| Create (Some name) ->
-			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/create/%s" name) ())
+			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/create/%s" name) ()), None
 		| Subscribe name ->
-			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/subscribe/%s" name) ())
+			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/subscribe/%s" name) ()), None
 		| Ack x ->
-			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/ack/%Ld" x) ())
+			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/ack/%Ld" x) ()), None
 		| Transfer(ack_to, timeout) ->
-			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/transfer/%Ld/%.16g" ack_to timeout) ())
-		| Send (name, message) ->
-			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/send/%s/%s" name message.Message.payload) ())
+			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/transfer/%Ld/%.16g" ack_to timeout) ()), None
+		| Send (name, { Message.correlation_id = c; reply_to = None; payload = p }) ->
+			let headers = make_headers p in
+			Request.make ~meth:`POST ~headers ?body:(Body.body_of_string p) (Uri.make ~path:(Printf.sprintf "/send/%s/%d" name c) ()), Some p
+		| Send (name, { Message.correlation_id = c; reply_to = Some r; payload = p }) ->
+			let headers = make_headers p in
+			Request.make ~meth:`POST ~headers ?body:(Body.body_of_string p) (Uri.make ~path:(Printf.sprintf "/send/%s/%d/%s" name c r) ()), Some p
 		| Diagnostics ->
-			Request.make ~meth:`GET (Uri.make ~path:"/" ())
+			Request.make ~meth:`GET (Uri.make ~path:"/" ()), None
 end
 
 module Out = struct
@@ -108,7 +121,19 @@ module Connection = struct
 	exception Unsuccessful_response
 
 	let rpc (ic, oc) frame =
-		lwt () = Request.write (fun _ _ -> return ()) (In.to_request frame) oc in
+		let req, body = In.to_request frame in
+		let write oc =
+			lwt () = Request.write (fun req oc -> match body with Some body ->
+
+			Printf.fprintf stderr "writing body %s\n%!" body;
+Request.write_body req oc body
+
+| None -> return ()) req oc in
+			Lwt_io.flush oc in
+		lwt () = write Lwt_io.stdout in
+		lwt () = write oc in
+		
+	Printf.fprintf stderr "reading response\n%!";
 		match_lwt Response.read ic with
 		| Some response ->
 			if Response.status response <> `OK then begin
