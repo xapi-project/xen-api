@@ -1797,7 +1797,7 @@ let wrap_op printer pri rpc session_id op e =
 	let result = op e in
 	let msgs = try Client.Message.get ~rpc ~session_id ~cls:`VM ~obj_uuid:(safe_get_field (field_lookup e.fields "uuid")) ~since:(Date.of_float now) with _ -> [] in
 	List.iter (fun (ref,msg) ->
-		if msg.API.message_priority > pri
+		if msg.API.message_priority < pri
 		then printer (Cli_printer.PStderr (format_message msg ^ "\n"))) msgs;
 	result
 
@@ -1826,7 +1826,7 @@ let do_multiple op set =
 
 let do_vm_op ?(include_control_vms = false) ?(include_template_vms = false)
 		printer rpc session_id op params ?(multiple=true) ignore_params =
-	let msg_prio = try Int64.of_string (List.assoc "message-priority" params) with _ -> 1L in
+	let msg_prio = try Int64.of_string (List.assoc "message-priority" params) with _ -> 5L in
 	let op = wrap_op printer msg_prio rpc session_id op in
 	try
 		let vms = select_vms ~include_control_vms ~include_template_vms rpc session_id params ignore_params in
