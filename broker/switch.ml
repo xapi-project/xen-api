@@ -70,15 +70,27 @@ module Entry = struct
 end
 
 (* Session token -> queue bindings *)
-let bindings : (string, StringSet.t) Hashtbl.t = Hashtbl.create 128
+let session_to_subscriptions : (string, StringSet.t) Hashtbl.t = Hashtbl.create 128
 
-(* Connection id -> session token *)
+let add_subscription session subscription =
+	let existing =
+		if Hashtbl.mem session_to_subscriptions session
+		then Hashtbl.find session_to_subscriptions session
+		else StringSet.empty in
+	Hashtbl.replace session_to_subscriptions session (StringSet.add subscription existing)
+
+let get_subscriptions session =
+	if Hashtbl.mem session_to_subscriptions session
+	then Hashtbl.find session_to_subscriptions session
+	else StringSet.empty
+
+(* Connection id -> session *)
 let connections : string IntMap.t ref = ref IntMap.empty
 
-(* session token -> active connection ids *)
+(* session -> active connection ids *)
 let sessions : (string, IntSet.t) Hashtbl.t = Hashtbl.create 128
 
-(* Session token -> set of queues which will be GCed on session cleanup *)
+(* Session -> set of queues which will be GCed on session cleanup *)
 let private_queues : (string, StringSet.t) Hashtbl.t = Hashtbl.create 128
 
 let queues : (string, Entry.t Int64Map.t) Hashtbl.t = Hashtbl.create 128
@@ -126,14 +138,14 @@ let make_server () =
 		| Some request ->
 			Printf.fprintf stderr "%s\n%!" (Jsonrpc.to_string (In.rpc_of_t request));
 			begin match request with
-			| In.Login token ->
-				(* associate conn_id with token *)
-				connections := IntMap.add conn_id token !connections;
+			| In.Login session ->
+				(* associate conn_id with 'session' *)
+				connections := IntMap.add conn_id session !connections;
 				let existing =
-					if Hashtbl.mem sessions token
-					then Hashtbl.find sessions token
+					if Hashtbl.mem sessions session
+					then Hashtbl.find sessions session
 					else IntSet.empty in
-				Hashtbl.replace sessions token (IntSet.add conn_id existing);
+				Hashtbl.replace sessions session (IntSet.add conn_id existing);
 				Out.to_response Out.Login
 			| In.Create name ->
 				let name = begin match name with
@@ -142,24 +154,20 @@ let make_server () =
 				| None ->
 					(* Create a session-local private queue name *)
 					let name = make_fresh_name () in
-					let token = IntMap.find conn_id !connections in
+					let session = IntMap.find conn_id !connections in
 					let existing =
-						if Hashtbl.mem private_queues token
-						then Hashtbl.find private_queues token
+						if Hashtbl.mem private_queues session
+						then Hashtbl.find private_queues session
 						else StringSet.empty in
-					Hashtbl.replace private_queues token (StringSet.add name existing);
+					Hashtbl.replace private_queues session (StringSet.add name existing);
 					name
 				end in
 				if not(Hashtbl.mem queues name) then create_queue name;
 				Printf.fprintf stderr "Responding\n%!";
 				Out.to_response (Out.Create name)
 			| In.Subscribe name ->
-				let token = IntMap.find conn_id !connections in
-				let existing =
-					if Hashtbl.mem bindings token
-					then Hashtbl.find bindings token
-					else StringSet.empty in
-				Hashtbl.replace bindings token (StringSet.add name existing);
+				let session = IntMap.find conn_id !connections in
+				add_subscription session name;
 				Out.to_response Out.Subscribe
 			| In.Ack id ->
 				let name = Int64Map.find id !message_id_to_queue in
@@ -171,11 +179,8 @@ let make_server () =
 				end;
 				Out.to_response Out.Ack
 			| In.Transfer(from, timeout) ->
-				let token = IntMap.find conn_id !connections in
-				let names =
-					if Hashtbl.mem bindings token
-					then Hashtbl.find bindings token
-					else StringSet.empty in
+				let session = IntMap.find conn_id !connections in
+				let names = get_subscriptions session in
 
 				let start = Unix.gettimeofday () in
 				let rec wait () =
@@ -222,23 +227,23 @@ let make_server () =
 			let conn_closed conn_id () =
 				Printf.eprintf "conn %d closed\n%!" conn_id;
 				if IntMap.mem conn_id !connections then begin
-					let token = IntMap.find conn_id !connections in
-					let existing = Hashtbl.find sessions token in
+					let session = IntMap.find conn_id !connections in
+					let existing = Hashtbl.find sessions session in
 					let remaining = IntSet.remove conn_id existing in
 					if remaining = IntSet.empty then begin
-						Printf.fprintf stderr "Session %s cleaning up\n%!" token;
-						Hashtbl.remove sessions token;
-						if Hashtbl.mem private_queues token then begin
-							let qs = Hashtbl.find private_queues token in
+						Printf.fprintf stderr "Session %s cleaning up\n%!" session;
+						Hashtbl.remove sessions session;
+						if Hashtbl.mem private_queues session then begin
+							let qs = Hashtbl.find private_queues session in
 							StringSet.iter
 								(fun name ->
 									Printf.fprintf stderr "Deleting private queue: %s\n%!" name;
 									Hashtbl.remove queues name;
 									Hashtbl.remove queues_c name;
 								) qs;
-							Hashtbl.remove private_queues token
+							Hashtbl.remove private_queues session
 						end
-					end else Hashtbl.replace sessions token remaining
+					end else Hashtbl.replace sessions session remaining
 				end;
 				connections := IntMap.remove conn_id !connections in
 
