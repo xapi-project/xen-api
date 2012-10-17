@@ -86,11 +86,44 @@ module Subscription = struct
 		else StringSet.empty
 end
 
-(* Connection id -> session *)
-let connections : string IntMap.t ref = ref IntMap.empty
+module Connections = struct
+	(* Connection id -> session *)
+	let connections : string IntMap.t ref = ref IntMap.empty
 
-(* session -> active connection ids *)
-let sessions : (string, IntSet.t) Hashtbl.t = Hashtbl.create 128
+	(* session -> active connection ids *)
+	let sessions : (string, IntSet.t) Hashtbl.t = Hashtbl.create 128
+
+	let get_origin conn_id =
+		if IntMap.mem conn_id !connections
+		then Name (IntMap.find conn_id !connections)
+		else Anonymous conn_id
+
+	let get_session conn_id =
+		IntMap.find conn_id !connections
+
+	let add conn_id session =
+		connections := IntMap.add conn_id session !connections;
+		let existing =
+			if Hashtbl.mem sessions session
+			then Hashtbl.find sessions session
+			else IntSet.empty in
+		Hashtbl.replace sessions session (IntSet.add conn_id existing)
+
+	let remove conn_id =
+		let session = get_session conn_id in
+		let existing =
+			if Hashtbl.mem sessions session
+			then Hashtbl.find sessions session
+			else IntSet.empty in
+		connections := IntMap.remove conn_id !connections;
+		let remaining = IntSet.remove conn_id existing in
+		if existing = IntSet.empty
+		then Hashtbl.remove sessions session
+		else Hashtbl.replace sessions session remaining
+
+	let is_session_active session = Hashtbl.mem sessions session
+
+end
 
 (* Session -> set of queues which will be GCed on session cleanup *)
 let private_queues : (string, StringSet.t) Hashtbl.t = Hashtbl.create 128
@@ -126,11 +159,6 @@ let queue_wait name =
 let make_server () =
 	debug "Started server on unix domain socket";
 
-	let origin_of_conn_id conn_id =
-		if IntMap.mem conn_id !connections
-		then Name (IntMap.find conn_id !connections)
-		else Anonymous conn_id in
-
   	(* (Response.t * Body.t) Lwt.t *)
 	let callback conn_id ?body req =
 		let open Protocol in
@@ -142,12 +170,7 @@ let make_server () =
 			begin match request with
 			| In.Login session ->
 				(* associate conn_id with 'session' *)
-				connections := IntMap.add conn_id session !connections;
-				let existing =
-					if Hashtbl.mem sessions session
-					then Hashtbl.find sessions session
-					else IntSet.empty in
-				Hashtbl.replace sessions session (IntSet.add conn_id existing);
+				Connections.add conn_id session;
 				Out.to_response Out.Login
 			| In.Create name ->
 				let name = begin match name with
@@ -156,7 +179,7 @@ let make_server () =
 				| None ->
 					(* Create a session-local private queue name *)
 					let name = make_fresh_name () in
-					let session = IntMap.find conn_id !connections in
+					let session = Connections.get_session conn_id in
 					let existing =
 						if Hashtbl.mem private_queues session
 						then Hashtbl.find private_queues session
@@ -168,7 +191,7 @@ let make_server () =
 				Printf.fprintf stderr "Responding\n%!";
 				Out.to_response (Out.Create name)
 			| In.Subscribe name ->
-				let session = IntMap.find conn_id !connections in
+				let session = Connections.get_session conn_id in
 				Subscription.add session name;
 				Out.to_response Out.Subscribe
 			| In.Ack id ->
@@ -181,7 +204,7 @@ let make_server () =
 				end;
 				Out.to_response Out.Ack
 			| In.Transfer(from, timeout) ->
-				let session = IntMap.find conn_id !connections in
+				let session = Connections.get_session conn_id in
 				let names = Subscription.get session in
 
 				let start = Unix.gettimeofday () in
@@ -214,7 +237,7 @@ let make_server () =
 				(* If a queue doesn't exist then drop the message *)
 				if Hashtbl.mem queues name then begin
 					let q = Hashtbl.find queues name in
-					let origin = origin_of_conn_id conn_id in
+					let origin = Connections.get_origin conn_id in
 					let id = make_unique_id () in
 					message_id_to_queue := Int64Map.add id name !message_id_to_queue;
 					Hashtbl.replace queues name (Int64Map.add id (Entry.make origin data) q);
@@ -228,26 +251,21 @@ let make_server () =
 			in
 			let conn_closed conn_id () =
 				Printf.eprintf "conn %d closed\n%!" conn_id;
-				if IntMap.mem conn_id !connections then begin
-					let session = IntMap.find conn_id !connections in
-					let existing = Hashtbl.find sessions session in
-					let remaining = IntSet.remove conn_id existing in
-					if remaining = IntSet.empty then begin
-						Printf.fprintf stderr "Session %s cleaning up\n%!" session;
-						Hashtbl.remove sessions session;
-						if Hashtbl.mem private_queues session then begin
-							let qs = Hashtbl.find private_queues session in
-							StringSet.iter
-								(fun name ->
-									Printf.fprintf stderr "Deleting private queue: %s\n%!" name;
-									Hashtbl.remove queues name;
-									Hashtbl.remove queues_c name;
-								) qs;
-							Hashtbl.remove private_queues session
-						end
-					end else Hashtbl.replace sessions session remaining
-				end;
-				connections := IntMap.remove conn_id !connections in
+				let session = Connections.get_session conn_id in
+				Connections.remove conn_id;
+				if not(Connections.is_session_active session) then begin
+					Printf.fprintf stderr "Session %s cleaning up\n%!" session;
+					if Hashtbl.mem private_queues session then begin
+						let qs = Hashtbl.find private_queues session in
+						StringSet.iter
+							(fun name ->
+								Printf.fprintf stderr "Deleting private queue: %s\n%!" name;
+								Hashtbl.remove queues name;
+								Hashtbl.remove queues_c name;
+							) qs;
+						Hashtbl.remove private_queues session
+					end
+				end in
 
 			debug "Message switch starting";
 			let (_: 'a Lwt.t) = logging_thread Logging.logger in
