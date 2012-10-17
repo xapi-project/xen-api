@@ -69,20 +69,22 @@ module Entry = struct
 		{ origin; time; message }
 end
 
-(* Session token -> queue bindings *)
-let session_to_subscriptions : (string, StringSet.t) Hashtbl.t = Hashtbl.create 128
+module Subscription = struct
+	(* Session token -> queue bindings *)
+	let session_to_subscriptions : (string, StringSet.t) Hashtbl.t = Hashtbl.create 128
 
-let add_subscription session subscription =
-	let existing =
+	let add session subscription =
+		let existing =
+			if Hashtbl.mem session_to_subscriptions session
+			then Hashtbl.find session_to_subscriptions session
+			else StringSet.empty in
+		Hashtbl.replace session_to_subscriptions session (StringSet.add subscription existing)
+
+	let get session =
 		if Hashtbl.mem session_to_subscriptions session
 		then Hashtbl.find session_to_subscriptions session
-		else StringSet.empty in
-	Hashtbl.replace session_to_subscriptions session (StringSet.add subscription existing)
-
-let get_subscriptions session =
-	if Hashtbl.mem session_to_subscriptions session
-	then Hashtbl.find session_to_subscriptions session
-	else StringSet.empty
+		else StringSet.empty
+end
 
 (* Connection id -> session *)
 let connections : string IntMap.t ref = ref IntMap.empty
@@ -167,7 +169,7 @@ let make_server () =
 				Out.to_response (Out.Create name)
 			| In.Subscribe name ->
 				let session = IntMap.find conn_id !connections in
-				add_subscription session name;
+				Subscription.add session name;
 				Out.to_response Out.Subscribe
 			| In.Ack id ->
 				let name = Int64Map.find id !message_id_to_queue in
@@ -180,7 +182,7 @@ let make_server () =
 				Out.to_response Out.Ack
 			| In.Transfer(from, timeout) ->
 				let session = IntMap.find conn_id !connections in
-				let names = get_subscriptions session in
+				let names = Subscription.get session in
 
 				let start = Unix.gettimeofday () in
 				let rec wait () =
