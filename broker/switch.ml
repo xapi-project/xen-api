@@ -125,12 +125,36 @@ module Connections = struct
 
 end
 
-(* Session -> set of queues which will be GCed on session cleanup *)
-let private_queues : (string, StringSet.t) Hashtbl.t = Hashtbl.create 128
-
 let queues : (string, Entry.t Int64Map.t) Hashtbl.t = Hashtbl.create 128
 let message_id_to_queue : string Int64Map.t ref = ref Int64Map.empty
 let queues_c = Hashtbl.create 128
+
+
+
+module Private_queue = struct
+
+	(* Session -> set of queues which will be GCed on session cleanup *)
+	let private_queues : (string, StringSet.t) Hashtbl.t = Hashtbl.create 128
+
+	let add session name =
+		let existing =
+			if Hashtbl.mem private_queues session
+			then Hashtbl.find private_queues session
+			else StringSet.empty in
+		Hashtbl.replace private_queues session (StringSet.add name existing)
+
+	let remove session =
+		if Hashtbl.mem private_queues session then begin
+			let qs = Hashtbl.find private_queues session in
+			StringSet.iter
+				(fun name ->
+					Printf.fprintf stderr "Deleting private queue: %s\n%!" name;
+					Hashtbl.remove queues name;
+					Hashtbl.remove queues_c name;
+				) qs;
+			Hashtbl.remove private_queues session
+		end
+end
 
 module Diagnostics = struct
 	type queue = (int64 * Entry.t) list with rpc
@@ -180,11 +204,7 @@ let make_server () =
 					(* Create a session-local private queue name *)
 					let name = make_fresh_name () in
 					let session = Connections.get_session conn_id in
-					let existing =
-						if Hashtbl.mem private_queues session
-						then Hashtbl.find private_queues session
-						else StringSet.empty in
-					Hashtbl.replace private_queues session (StringSet.add name existing);
+					Private_queue.add session name;
 					name
 				end in
 				if not(Hashtbl.mem queues name) then create_queue name;
@@ -255,16 +275,7 @@ let make_server () =
 				Connections.remove conn_id;
 				if not(Connections.is_session_active session) then begin
 					Printf.fprintf stderr "Session %s cleaning up\n%!" session;
-					if Hashtbl.mem private_queues session then begin
-						let qs = Hashtbl.find private_queues session in
-						StringSet.iter
-							(fun name ->
-								Printf.fprintf stderr "Deleting private queue: %s\n%!" name;
-								Hashtbl.remove queues name;
-								Hashtbl.remove queues_c name;
-							) qs;
-						Hashtbl.remove private_queues session
-					end
+					Private_queue.remove session
 				end in
 
 			debug "Message switch starting";
