@@ -18,9 +18,6 @@ open Xenops_task
 module D = Debug.Debugger(struct let name = "xenguesthelper" end)
 open D
 
-(** Installed path of the xenguest helper *)
-let path = Filename.concat Fhs.libexecdir "xenguest"
-
 (** Where to place the last xenguesthelper debug log (just in case) *)
 let last_log_file = "/tmp/xenguesthelper-log"
 
@@ -39,7 +36,7 @@ type t = in_channel * out_channel * Unix.file_descr * Unix.file_descr * Forkhelp
 
 (** Fork and run a xenguest helper with particular args, leaving 'fds' open 
     (in addition to internal control I/O fds) *)
-let connect domid (args: string list) (fds: (string * Unix.file_descr) list) : t =
+let connect path domid (args: string list) (fds: (string * Unix.file_descr) list) : t =
 	debug "connect: args = [ %s ]" (String.concat " " args);
 	(* Need to send commands and receive responses from the
 	   slave process *)
@@ -82,8 +79,8 @@ let disconnect (_, _, r, w, pid) =
 	(try Unix.kill (Forkhelpers.getpid pid) Sys.sigterm with _ -> ());
 	ignore(Forkhelpers.waitpid pid)
 
-let with_connection (task: Xenops_task.t) domid (args: string list) (fds: (string * Unix.file_descr) list) f =
-	let t = connect domid args fds in
+let with_connection (task: Xenops_task.t) path domid (args: string list) (fds: (string * Unix.file_descr) list) f =
+	let t = connect path domid args fds in
 	let cancelled = ref false in
 	let cancel_cb () =
 		let _, _, _, _, pid = t in
