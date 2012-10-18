@@ -71,14 +71,16 @@ let create_domain ~xc ~xs ~hvm =
 	let domid = Domain.make ~xc ~xs info uuid in
 	printf "%u\n" domid
 
+let default_xenguest = "/opt/xensource/libexec/xenguest"
+
 let build_domain ~xc ~xs ~kernel ?(ramdisk=None) ~cmdline ~domid ~vcpus ~static_max_kib ~target_kib =
 	let (_: Domain.domarch) = Domain.build_linux task xc xs static_max_kib target_kib
-	                                             kernel cmdline ramdisk vcpus domid in
+	                                             kernel cmdline ramdisk vcpus default_xenguest domid in
 	printf "built domain: %u\n" domid
 
 let build_hvm ~xc ~xs ~kernel ~domid ~vcpus ~static_max_kib ~target_kib =
 	let (_: Domain.domarch) = Domain.build_hvm task xc xs static_max_kib target_kib 1.
-	                                           vcpus kernel "" 4 domid in
+	                                           vcpus kernel "" 4 default_xenguest domid in
 	printf "built hvm domain: %u\n" domid
 
 let clean_shutdown_domain ~xal ~domid ~reason ~sync =
@@ -108,7 +110,7 @@ let suspend_domain ~xc ~xs ~domid ~file =
 		in
 	let hvm = is_hvm ~xc domid in
 	let fd = Unix.openfile file [ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_EXCL ] 0o600 in
-	Domain.suspend task ~xc ~xs ~hvm ~qemu_domid:0 domid fd [] suspendfct;
+	Domain.suspend task ~xc ~xs ~hvm ~qemu_domid:0 default_xenguest domid fd [] suspendfct;
 	Unix.close fd
 
 let suspend_domain_and_resume ~xc ~xs ~domid ~file ~cooperative =
@@ -121,7 +123,7 @@ let suspend_domain_and_destroy ~xc ~xs ~domid ~file =
 
 let restore_domain ~xc ~xs ~domid ~vcpus ~static_max_kib ~target_kib ~file =
 	let fd = Unix.openfile file [ Unix.O_RDONLY ] 0o400 in
-	Domain.pv_restore task ~xc ~xs domid ~static_max_kib ~target_kib ~vcpus fd;
+	Domain.pv_restore task ~xc ~xs default_xenguest domid ~static_max_kib ~target_kib ~vcpus fd;
 	Unix.close fd
 
 let balloon_domain ~xs ~domid ~mem_mib =
