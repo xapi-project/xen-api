@@ -62,21 +62,17 @@ let main () =
 		else begin
 			lwt queue_name = Connection.rpc requests_conn (In.Create None) in
 			lwt (_: string) = Connection.rpc requests_conn (In.Subscribe queue_name) in
-Printf.fprintf stderr "will set reply_to = %s\n%!" queue_name;
 			return (Some queue_name)
 		end in
+	lwt (_: string) = Connection.rpc requests_conn (In.Create (Some !name)) in
 	let correlation_id = fresh_correlation_id () in
 	let msg = In.Send(!name, { Message.payload = !payload; correlation_id; reply_to }) in
 	let txt = Jsonrpc.to_string (In.rpc_of_t msg) in
 	let msg' = In.t_of_rpc (Jsonrpc.of_string txt) in
 	let txt' = Jsonrpc.to_string (In.rpc_of_t msg') in
-	Printf.fprintf stderr "%s %s %s\n%!" txt (if msg = msg' then "=" else "<>") txt';
-
-	Printf.fprintf stderr "%s\n%!" (Jsonrpc.to_string (In.rpc_of_t msg));
 	lwt (_: string) = Connection.rpc requests_conn msg in
 	if !noreply then return ()
 	else begin
-		Printf.fprintf stderr "waiting for response\n%!";
 		let t, u = Lwt.task () in
 		Hashtbl.add wakener correlation_id u;
 		lwt response = t in

@@ -5,6 +5,9 @@ let debug fmt = Logging.debug "server_xen" fmt
 let warn  fmt = Logging.warn  "server_xen" fmt
 let error fmt = Logging.error "server_xen" fmt
 
+let message_logger = Logging.create 512
+let message conn_id (fmt: (_,_,_,_) format4) =
+    Printf.ksprintf message_logger.Logging.push ("[%3d] " ^^ fmt) conn_id
 
 let syslog = Lwt_log.syslog ~facility:`Local3 ()
 
@@ -12,7 +15,7 @@ let rec logging_thread logger =
     lwt lines = Logging.get logger in
 	lwt () = Lwt_list.iter_s
             (fun x ->
-                lwt () = Lwt_log.log ~logger:syslog ~level:Lwt_log.Notice x in
+                lwt () = Lwt_log.log ~logger:!Lwt_log.default ~level:Lwt_log.Notice x in
 				return ()
 			) lines in
 	logging_thread logger
@@ -73,17 +76,41 @@ module Subscription = struct
 	(* Session token -> queue bindings *)
 	let session_to_subscriptions : (string, StringSet.t) Hashtbl.t = Hashtbl.create 128
 
+	let subscription_to_sessions : (string, StringSet.t) Hashtbl.t = Hashtbl.create 128
+
+	let session_to_wakeup : (string, unit Lwt.u) Hashtbl.t = Hashtbl.create 128
+
 	let add session subscription =
 		let existing =
 			if Hashtbl.mem session_to_subscriptions session
 			then Hashtbl.find session_to_subscriptions session
 			else StringSet.empty in
-		Hashtbl.replace session_to_subscriptions session (StringSet.add subscription existing)
+		Hashtbl.replace session_to_subscriptions session (StringSet.add subscription existing);
+		let existing =
+			if Hashtbl.mem subscription_to_sessions subscription
+			then Hashtbl.find subscription_to_sessions subscription
+			else StringSet.empty in
+		Hashtbl.replace subscription_to_sessions subscription (StringSet.add session existing);
+		if Hashtbl.mem session_to_wakeup session then begin
+			Lwt.wakeup_later (Hashtbl.find session_to_wakeup session) ()
+		end
 
 	let get session =
 		if Hashtbl.mem session_to_subscriptions session
 		then Hashtbl.find session_to_subscriptions session
 		else StringSet.empty
+
+	let remove subscription =
+		if Hashtbl.mem subscription_to_sessions subscription then begin
+			StringSet.iter (fun session ->
+				let existing = Hashtbl.find session_to_subscriptions session in
+				let remaining = StringSet.remove subscription existing in
+				if remaining = StringSet.empty
+				then Hashtbl.remove session_to_subscriptions session
+				else Hashtbl.replace session_to_subscriptions session remaining
+			) (Hashtbl.find subscription_to_sessions subscription);
+			Hashtbl.remove subscription_to_sessions subscription
+		end
 end
 
 module Connections = struct
@@ -102,7 +129,7 @@ module Connections = struct
 		IntMap.find conn_id !connections
 
 	let add conn_id session =
-		Printf.fprintf stderr "Connections.add %d -> %s\n%!" conn_id session;
+		debug "Connections.add %d -> %s" conn_id session;
 		connections := IntMap.add conn_id session !connections;
 		let existing =
 			if Hashtbl.mem sessions session
@@ -118,8 +145,8 @@ module Connections = struct
 			else IntSet.empty in
 		connections := IntMap.remove conn_id !connections;
 		let remaining = IntSet.remove conn_id existing in
-		Printf.fprintf stderr "Connections.remove %d (session %s size %d)\n%!" conn_id session (IntSet.cardinal remaining);
-		if existing = IntSet.empty
+		debug "Connections.remove %d (session %s size %d)" conn_id session (IntSet.cardinal remaining);
+		if remaining = IntSet.empty
 		then Hashtbl.remove sessions session
 		else Hashtbl.replace sessions session remaining
 
@@ -131,14 +158,23 @@ module Q = struct
 
 	let queues : (string, Entry.t Int64Map.t) Hashtbl.t = Hashtbl.create 128
 	let message_id_to_queue : string Int64Map.t ref = ref Int64Map.empty
-	let queues_c = Hashtbl.create 128
+
+	type wait = {
+		c: unit Lwt_condition.t;
+		m: Lwt_mutex.t
+	}
+
+	let waiters = Hashtbl.create 128
 
 	let exists name = Hashtbl.mem queues name
 
 	let add name =
 		if not(exists name) then begin
 			Hashtbl.replace queues name Int64Map.empty;
-			Hashtbl.replace queues_c name (Lwt_condition.create ())
+			Hashtbl.replace waiters name {
+				c = Lwt_condition.create ();
+				m = Lwt_mutex.create ()
+			}
 		end
 
 	let get name =
@@ -153,7 +189,8 @@ module Q = struct
 			message_id_to_queue := Int64Map.remove id !message_id_to_queue
 		) entries;
 		Hashtbl.remove queues name;
-		Hashtbl.remove queues_c name
+		Hashtbl.remove waiters name;
+		Subscription.remove name
 
 	let ack id =
 		let name = Int64Map.find id !message_id_to_queue in
@@ -164,26 +201,39 @@ module Q = struct
 			Hashtbl.replace queues name (Int64Map.remove id q);
 		end
 
-	let wait name =
-		if not(Hashtbl.mem queues_c name)
-		then (Printf.fprintf stderr "ERROR: queue_wait: queue %s doesn't exist\n%!" name; fail Not_found)
-		else Lwt_condition.wait (Hashtbl.find queues_c name)
-
-	let broadcast name =
-		if not(Hashtbl.mem queues_c name)
-		then Printf.fprintf stderr "ERROR: queue_broadcast: queue %s doesn't exist\n%!" name
-		else Lwt_condition.broadcast (Hashtbl.find queues_c name) ()
+	let wait from name =
+		if Hashtbl.mem waiters name then begin
+			let w = Hashtbl.find waiters name in
+			Lwt_mutex.with_lock w.m
+				(fun () ->
+					let rec loop () =
+						let _, _, not_seen = Int64Map.split from (get name) in
+						if not_seen = Int64Map.empty then begin
+							lwt () = Lwt_condition.wait ~mutex:w.m w.c in
+							loop ()
+						end else return () in
+					loop ()
+				)
+		end else begin
+			let t, _ = Lwt.task () in
+			t (* block forever *)
+		end
 
 	let send conn_id name data =
 		(* If a queue doesn't exist then drop the message *)
 		if exists name then begin
-			let q = get name in
-			let origin = Connections.get_origin conn_id in
-			let id = make_unique_id () in
-			message_id_to_queue := Int64Map.add id name !message_id_to_queue;
-			Hashtbl.replace queues name (Int64Map.add id (Entry.make origin data) q);
-			broadcast name;
-		end
+			let w = Hashtbl.find waiters name in
+			Lwt_mutex.with_lock w.m
+				(fun () ->
+					let q = get name in
+					let origin = Connections.get_origin conn_id in
+					let id = make_unique_id () in
+					message_id_to_queue := Int64Map.add id name !message_id_to_queue;
+					Hashtbl.replace queues name (Int64Map.add id (Entry.make origin data) q);
+					Lwt_condition.broadcast w.c ();
+					return ()
+				)
+		end else return ()
 
 end
 
@@ -204,7 +254,7 @@ module Private_queue = struct
 			let qs = Hashtbl.find private_queues session in
 			StringSet.iter
 				(fun name ->
-					Printf.fprintf stderr "Deleting private queue: %s\n%!" name;
+					debug "Deleting private queue: %s" name;
 					Q.remove name;
 				) qs;
 			Hashtbl.remove private_queues session
@@ -224,23 +274,22 @@ end
 
 let make_server () =
 	debug "Started server on unix domain socket";
+    let (_: 'a) = logging_thread Logging.logger in
+    let (_: 'a) = logging_thread message_logger in
 
   	(* (Response.t * Body.t) Lwt.t *)
 	let callback conn_id ?body req =
 		let open Protocol in
-let body = None in
-(*
 		lwt body = match body with
 			| None -> return None
 			| Some b ->
 				lwt s = Body.string_of_body (Some b) in
 				return (Some s) in
-*)
 		match In.of_request (req, body) with
 		| None ->
 			Server.respond_not_found ~uri:(Request.uri req) ()
 		| Some request ->
-			Printf.fprintf stderr "%s\n%!" (Jsonrpc.to_string (In.rpc_of_t request));
+			message conn_id "%s" (Jsonrpc.to_string (In.rpc_of_t request));
 			begin match request with
 			| In.Login session ->
 				(* associate conn_id with 'session' *)
@@ -258,7 +307,6 @@ let body = None in
 					name
 				end in
 				Q.add name;
-				Printf.fprintf stderr "Responding\n%!";
 				Out.to_response (Out.Create name)
 			| In.Subscribe name ->
 				let session = Connections.get_session conn_id in
@@ -269,10 +317,10 @@ let body = None in
 				Out.to_response Out.Ack
 			| In.Transfer(from, timeout) ->
 				let session = Connections.get_session conn_id in
-				let names = Subscription.get session in
 
 				let start = Unix.gettimeofday () in
 				let rec wait () =
+					let names = Subscription.get session in
 					let not_seen = StringSet.fold (fun name map ->
 						let q = Q.get name in
 						let _, _, not_seen = Int64Map.split from q in
@@ -282,13 +330,27 @@ let body = None in
 					then return not_seen
 					else
 						let remaining_timeout = max 0. (start +. timeout -. (Unix.gettimeofday ())) in
-						let timeout = Lwt.map (fun () -> `Timeout) (Lwt_unix.sleep remaining_timeout) in
-						let more = StringSet.fold (fun name acc ->
-							Lwt.map (fun () -> `Data) (Q.wait name) :: acc
-						) names [] in
-						match_lwt Lwt.pick (timeout :: more) with
-						| `Timeout -> return Int64Map.empty
-						| `Data -> wait () in
+						if remaining_timeout <= 0.
+						then return Int64Map.empty
+						else
+							let timeout = Lwt.map (fun () -> `Timeout) (Lwt_unix.sleep remaining_timeout) in
+							let more = StringSet.fold (fun name acc ->
+								Lwt.map (fun () -> `Data) (Q.wait from name) :: acc
+							) names [] in
+							let t, u = Lwt.task () in
+							Hashtbl.replace Subscription.session_to_wakeup session u;
+							let sub = Lwt.map (fun () -> `Subscription) t in
+							try_lwt
+								match_lwt Lwt.pick (sub :: timeout :: more) with
+								| `Timeout -> return Int64Map.empty
+								| `Data ->
+									wait ()
+								| `Subscription ->
+									wait ()
+							finally
+								Hashtbl.remove Subscription.session_to_wakeup session;
+								return ()
+							in
 				lwt messages = wait () in
 				let transfer = {
 					Out.messages = Int64Map.fold (fun id e acc -> (id, e.Entry.message) :: acc) messages [];
@@ -296,7 +358,7 @@ let body = None in
 				Out.to_response (Out.Transfer transfer)
 
 			| In.Send (name, data) ->
-				Q.send conn_id name data;
+				lwt () = Q.send conn_id name data in
 				Out.to_response Out.Send
 			| In.Diagnostics ->
 				let d = Diagnostics.(Jsonrpc.to_string (rpc_of_queues (snapshot ()))) in
@@ -307,7 +369,7 @@ let body = None in
 				let session = Connections.get_session conn_id in
 				Connections.remove conn_id;
 				if not(Connections.is_session_active session) then begin
-					Printf.fprintf stderr "Session %s cleaning up\n%!" session;
+					debug "Session %s cleaning up" session;
 					Private_queue.remove session
 				end in
 

@@ -122,18 +122,13 @@ module Connection = struct
 
 	let rpc (ic, oc) frame =
 		let req, body = In.to_request frame in
-		let write oc =
-			lwt () = Request.write (fun req oc -> match body with Some body ->
+		lwt () = Request.write (fun req oc -> match body with
+		| Some body ->
+			Request.write_body req oc body
+		| None -> return ()
+		) req oc in
+		lwt () = Lwt_io.flush oc in
 
-			Printf.fprintf stderr "writing body %s\n%!" body;
-Request.write_body req oc body
-
-| None -> return ()) req oc in
-			Lwt_io.flush oc in
-		lwt () = write Lwt_io.stdout in
-		lwt () = write oc in
-		
-	Printf.fprintf stderr "reading response\n%!";
 		match_lwt Response.read ic with
 		| Some response ->
 			if Response.status response <> `OK then begin

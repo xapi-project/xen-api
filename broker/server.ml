@@ -11,7 +11,7 @@ let main () =
 
 	lwt (_: string) = Connection.rpc c (In.Create (Some !name)) in
 	lwt (_: string) = Connection.rpc c (In.Subscribe (!name)) in
-	Printf.fprintf stderr "Serving requests forever\n%!";
+	Printf.fprintf stdout "Serving requests forever\n%!";
 	let rec loop from =
 		let timeout = 5. in
 		let frame = In.Transfer(from, timeout) in
@@ -28,7 +28,7 @@ let main () =
 							Printf.fprintf stderr "No reply_to\n%!";
 							return ()
 						| Some reply_to ->
-							Printf.fprintf stderr "reply_to %s\n%!" reply_to;
+							Printf.fprintf stderr "Sending reply to %s\n%!" reply_to;
 							let request = In.Send(reply_to, { m with Message.reply_to = None }) in
 							lwt (_: string) = Connection.rpc c request in
 							return () in
