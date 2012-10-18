@@ -1,46 +1,45 @@
-default: switch
+.PHONY: all clean install build
+all: build doc
 
-all: pdf html
+NAME=xenstore
+J=4
 
-pdf: broker.pdf
-html: broker.html
+export OCAMLRUNPARAM=b
 
-INPUTS=README.md
+TESTS ?= --enable-tests
+ifneq "$(MIRAGE_OS)" ""
+TESTS := --disable-tests
+endif
 
-broker.tex: $(INPUTS)
-	pandoc --toc --standalone $(INPUTS) -o $@
 
-broker.html: $(INPUTS)
-	pandoc --toc --standalone $(INPUTS) -f html -o $@
+setup.bin: setup.ml
+	@ocamlopt.opt -o $@ $< || ocamlopt -o $@ $< || ocamlc -o $@ $<
+	@rm -f setup.cmx setup.cmi setup.o setup.cmo
 
-PACKS=lwt,lwt.unix,lwt.syntax,xenstore,xenstore.server,cohttp,cohttp.lwt,rpc,rpc.json,rpc.syntax
+setup.data: setup.bin
+	@./setup.bin -configure $(TESTS)
 
-switch: protocol.cmi protocol.cmx switch.cmx
-	ocamlfind ocamlopt -package "${PACKS}" -linkpkg -o switch protocol.cmx switch.cmx
+build: setup.data setup.bin
+	@./setup.bin -build -j $(J)
 
-client: protocol.cmi protocol.cmx client.cmx
-	ocamlfind ocamlopt -package "${PACKS}" -linkpkg -o client protocol.cmx client.cmx
+doc: setup.data setup.bin
+	@./setup.bin -doc -j $(J)
 
-server: protocol.cmi protocol.cmx server.cmx
-	ocamlfind ocamlopt -package "${PACKS}" -linkpkg -o server protocol.cmx server.cmx
+install: setup.bin
+	@./setup.bin -install
 
-%.cmx: %.ml
-	ocamlfind ocamlopt -package "${PACKS}" -syntax camlp4o -c $<
+# oasis bug?
+#test: setup.bin build
+#	@./setup.bin -test
+test:
+	_build/core_test/xs_test.native
+	_build/server_test/server_test.native
 
-%.cmi: %.mli
-	ocamlfind ocamlc -package "${PACKS}" -syntax camlp4o -c $<
 
-%.pdf: %.tex
-	pdflatex $*
-	pdflatex $*
+reinstall: setup.bin
+	@ocamlfind remove $(NAME) || true
+	@./setup.bin -reinstall
 
-%.tex: %
-	pandoc --toc --standalone $* -o $@
-
-%.html: %
-	pandoc --toc --standalone $* -f html -o $@
-
-.PHONY: clean
 clean:
-	rm -f *.pdf *.html *.tex *.out *.cmx *.cmi switch
-
+	@ocamlbuild -clean
+	@rm -f setup.data setup.log setup.bin

@@ -1,0 +1,46 @@
+OASISFormat: 0.2
+Name:        xenswitch
+Version:     1.0
+Synopsis:    XCP message switch
+Authors:     see CREDITS.md
+License:     LGPL-2.1 with OCaml linking exception
+Plugins:     META (0.2)
+BuildTools:  ocamlbuild
+
+Flag tests
+  Description:        Build and run tests
+  Default:            true
+
+Library xenswitch
+  CompiledObject:     best
+  Path:               core
+  Findlibname:        xenswitch
+  Modules:            Protocol, Protocol_lwt
+  BuildDepends:       lwt,lwt.unix,lwt.syntax,xenstore,xenstore.server,cohttp,cohttp.lwt,rpc,rpc.json,rpc.syntax
+
+Executable client
+  CompiledObject:     best
+  Path:               core_test
+  MainIs:             client_main.ml
+  Build$:             flag(tests)
+  Custom:             true
+  Install:            false
+  BuildDepends:       xenswitch, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
+
+Executable server
+  CompiledObject:     best
+  Path:               core_test
+  MainIs:             server_main.ml
+  Build$:             flag(tests)
+  Custom:             true
+  Install:            false
+  BuildDepends:       xenswitch, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
+
+Executable switch
+  CompiledObject:     best
+  Path:               switch
+  MainIs:             switch.ml
+  Custom:             true
+  Install:            false
+  BuildDepends:       xenswitch, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
+

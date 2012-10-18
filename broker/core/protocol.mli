@@ -52,17 +52,3 @@ module Out : sig
 	val to_response : t ->  (Response.t * Body.t) Lwt.t
 end
 
-module Connection : sig
-	type t
-	(** represents an open transport-level connection *)
-
-	val make: int -> string -> t Lwt.t
-	(** [make port token] connects to a switch listening on [port] and
-		associates with a session identified by [token] *)
-
-	exception Failed_to_read_response
-
-	exception Unsuccessful_response
-
-	val rpc: t -> In.t -> string Lwt.t
-end
