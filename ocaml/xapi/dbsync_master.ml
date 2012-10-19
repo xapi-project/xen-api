@@ -211,4 +211,13 @@ let update_env __context =
 
   create_tools_sr_noexn __context;
 
+  (* If we did actually create a tools sr in the previous call,
+	 the cache will be incorrect. This is because the SR is 
+	 introduced before the magic flag marking it as a tools SR
+	 is set. A side effect of the introduction is to calculate
+	 its allowed operations, which calls 'is_tools_sr', which
+	 returns false, and that result is cached. The simplest fix
+	 is to just clear the cache, which we do here. *)
+  Helpers.clear_tools_sr_cache ();
+
   ensure_vm_metrics_records_exist_noexn __context

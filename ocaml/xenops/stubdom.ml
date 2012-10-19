@@ -41,7 +41,7 @@ let create ~xc ~xs domid =
     Domain.set_machine_address_size ~xc stubdom_domid (Some 32);
 	stubdom_domid
 
-let build (task: Xenops_task.t) ~xc ~xs info domid stubdom_domid =
+let build (task: Xenops_task.t) ~xc ~xs info xenguest domid stubdom_domid =
     (* Now build it as a PV domain *)
     let (_: Domain.domarch) = Domain.build task ~xc ~xs {
         Domain.memory_max=memory_kib;
@@ -49,7 +49,7 @@ let build (task: Xenops_task.t) ~xc ~xs info domid stubdom_domid =
         Domain.kernel="/usr/lib/xen/boot/ioemu-stubdom.gz";
         Domain.vcpus=1;
         Domain.priv=Domain.BuildPV {Domain.cmdline=""; Domain.ramdisk=None};
-    } "" stubdom_domid in
+    } "" xenguest stubdom_domid in
 
     (* Point the stub domain at the guest *)
     debug "jjd27: pointing stubdom %d to guest %d" stubdom_domid domid;

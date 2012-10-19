@@ -668,13 +668,32 @@ let cancel_tasks ~__context ~ops ~all_tasks_in_db (* all tasks in database *) ~t
     Currently this just means "CD" but might change in future? *)
 let is_removable ~__context ~vbd = Db.VBD.get_type ~__context ~self:vbd = `CD
 
+let is_tools_sr_cache = ref []
+let is_tools_sr_cache_m = Mutex.create ()
+
+let clear_tools_sr_cache () =
+	Mutex.execute is_tools_sr_cache_m 
+		(fun () -> is_tools_sr_cache := [])
+
 (** Returns true if this SR is the XenSource Tools SR *)
 let is_tools_sr ~__context ~sr =
-  let other_config = Db.SR.get_other_config ~__context ~self:sr in
-  (* Miami GA *)
-  List.mem_assoc Xapi_globs.tools_sr_tag other_config
-    (* Miami beta2 and earlier: *)
-  || (List.mem_assoc Xapi_globs.xensource_internal other_config)
+	try
+		Mutex.execute is_tools_sr_cache_m
+			(fun () -> List.assoc sr !is_tools_sr_cache)
+	with Not_found _ ->
+		let other_config = Db.SR.get_other_config ~__context ~self:sr in
+		(* Miami GA *)
+		let result =
+			List.mem_assoc Xapi_globs.tools_sr_tag other_config
+			(* Miami beta2 and earlier: *)
+			|| (List.mem_assoc Xapi_globs.xensource_internal other_config)
+		in
+		Mutex.execute is_tools_sr_cache_m
+			(fun () ->
+				let cache = !is_tools_sr_cache in
+				if not (List.mem_assoc sr cache) then
+					is_tools_sr_cache := (sr, result) :: !is_tools_sr_cache);
+		result
 
 (** Return true if the MAC is in the right format XX:XX:XX:XX:XX:XX *)
 let is_valid_MAC mac =
@@ -824,19 +843,20 @@ let get_pif_underneath_vlan ~__context vlan_pif_ref =
   let vlan_rec = Db.PIF.get_VLAN_master_of ~__context ~self:vlan_pif_ref in
   Db.VLAN.get_tagged_PIF ~__context ~self:vlan_rec
 
-(* Only returns true if the network is shared properly; it must either be fully virtual (no PIFs) or
-   every host must have a currently_attached PIF *)
+(* Only returns true if the network is shared properly: all (enabled) hosts in the pool must have a PIF on
+ * the network, and none of these PIFs may be bond slaves. This ensures that a VM with a VIF on this
+ * network can run on (and be migrated to) any (enabled) host in the pool. *)
 let is_network_properly_shared ~__context ~self =
-  let pifs = Db.Network.get_PIFs ~__context ~self in
-  let plugged_pifs = List.filter (fun pif -> Db.PIF.get_currently_attached ~__context ~self:pif) pifs in
-  let plugged_hosts = List.setify (List.map (fun pif -> Db.PIF.get_host ~__context ~self:pif) plugged_pifs) in
-  let all_hosts = Db.Host.get_all ~__context in
-  let enabled_hosts = List.filter (fun host -> Db.Host.get_enabled ~__context ~self:host) all_hosts in
-  let missing_pifs = not(subset enabled_hosts plugged_hosts) in
-  if missing_pifs then warn "Network %s not shared properly: Not all hosts have currently_attached PIFs" (Ref.string_of self);
-  false
-  (* || pifs = [] *) (* It's NOT ok to be fully virtual: see CA-20703. Change this in sync with assert_can_boot_here *)
-  || not missing_pifs
+	let pifs = Db.Network.get_PIFs ~__context ~self in
+	let non_slave_pifs = List.filter (fun pif ->
+		not (Db.is_valid_ref __context (Db.PIF.get_bond_slave_of ~__context ~self:pif))) pifs in
+	let hosts_with_pif = List.setify (List.map (fun pif -> Db.PIF.get_host ~__context ~self:pif) non_slave_pifs) in
+	let all_hosts = Db.Host.get_all ~__context in
+	let enabled_hosts = List.filter (fun host -> Db.Host.get_enabled ~__context ~self:host) all_hosts in
+	let properly_shared = subset enabled_hosts hosts_with_pif in
+	if not properly_shared then
+		warn "Network %s not shared properly: Not all hosts have PIFs" (Ref.string_of self);
+	properly_shared
 
 let vm_assert_agile ~__context ~self =
   (* All referenced VDIs should be in shared SRs *)

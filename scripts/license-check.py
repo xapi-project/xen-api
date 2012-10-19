@@ -55,7 +55,7 @@ def main():
         timeleft=expiry-currenttime
         if (timeleft < 24.0 * 3600.0 * 30.0 and timeleft > 0):
             localhost=get_localhost()
-            doexec(["xe","message-create","host-uuid=%s" % localhost, "name=%s" % expiry_message_name, "priority=10", "body=Your license will expire in %.0f days" % (timeleft / (24.0 * 3600.0))])
+            doexec(["xe","message-create","host-uuid=%s" % localhost, "name=%s" % expiry_message_name, "priority=2", "body=Your license will expire in %.0f days" % (timeleft / (24.0 * 3600.0))])
     return 0
 
 if __name__ == '__main__':

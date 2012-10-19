@@ -324,15 +324,14 @@ let from ~__context ~classes ~token ~timeout =
 		objs
 	in
 
-	let all_subs = Mutex.execute sub.m (fun () -> Hashtbl.fold (fun _ s acc -> s.subs @ acc) subscriptions []) in
-	let tables = List.filter (fun table -> table_matches all_subs table) all_event_tables in
+	let tables = List.filter (fun table -> table_matches sub.subs table) all_event_tables in
 
 	let events_lost = ref [] in
 
 	let grab_range t =
 		let tableset = Db_cache_types.Database.tableset (Db_ref.get_database t) in
 		let (msg_gen,messages) =
-			if table_matches all_subs "message" then (!message_get_since_for_events) ~__context sub.last_msg_gen else (0L, []) in
+			if table_matches sub.subs "message" then (!message_get_since_for_events) ~__context sub.last_msg_gen else (0L, []) in
 		(msg_gen, messages, tableset, List.fold_left
 			(fun acc table ->
 				 Db_cache_types.Table.fold_over_recent sub.last_generation
@@ -387,16 +386,20 @@ let from ~__context ~classes ~token ~timeout =
 
 	let modevs = List.fold_left (fun acc (table, objref, mtime) ->
 		let serialiser = Eventgen.find_get_record table in
-		let xml = serialiser ~__context ~self:objref () in
-		let ev = event_of Mod ?snapshot:xml (table, objref, mtime) in
-		if event_matches sub.subs ev then ev::acc else acc
+		try 
+			let xml = serialiser ~__context ~self:objref () in
+			let ev = event_of Mod ?snapshot:xml (table, objref, mtime) in
+			if event_matches sub.subs ev then ev::acc else acc
+		with _ -> acc
 	) delevs mods in
 
 	let createevs = List.fold_left (fun acc (table, objref, ctime) ->
 		let serialiser = Eventgen.find_get_record table in
-		let xml = serialiser ~__context ~self:objref () in
-		let ev = event_of Add ?snapshot:xml (table, objref, ctime) in
-		if event_matches sub.subs ev then ev::acc else acc
+		try 
+			let xml = serialiser ~__context ~self:objref () in
+			let ev = event_of Add ?snapshot:xml (table, objref, ctime) in
+			if event_matches sub.subs ev then ev::acc else acc
+		with _ -> acc
 	) modevs creates in
 	
 	let message_events = List.fold_left (fun acc mev ->

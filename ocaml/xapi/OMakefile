@@ -297,11 +297,8 @@ install:
 	mkdir -p $(DESTDIR)$(OPTDIR)/debug
 	$(IPROG) quicktest $(DESTDIR)$(OPTDIR)/debug
 	cp -f quicktestbin $(DESTDIR)$(OPTDIR)/debug
-	$(IPROG) rrddump $(DESTDIR)$(OPTDIR)/debug
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) sparse_dd $(DESTDIR)$(LIBEXECDIR)
-	mkdir -p $(DESTDIR)$(PLUGINDIR)
-	$(IPROG) monitor_fake_plugin $(DESTDIR)$(PLUGINDIR)
 
 .PHONY: clean
 clean:

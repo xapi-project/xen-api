@@ -53,21 +53,38 @@ let database_ready_for_clients = ref false (* while this is false, client calls 
 
 open Db_cache_types
 
+(** Populate the database from the default connections or the restore db file
+    (if it is present). Perform an initial flush to the database connections
+    which were already setup, then delete the restore file. *)
+let populate_db backend =
+	let schema = Datamodel_schema.of_datamodel () in
+
+	let output_connections = Db_conn_store.read_db_connections () in
+	(* If the temporary restore file is present then we must populate from that *)
+	let restoring = Sys.file_exists Xapi_globs.db_temporary_restore_path in
+	let input_connections =
+		if restoring
+		then [ Parse_db_conf.make Xapi_globs.db_temporary_restore_path ]
+		else output_connections
+	in
+	debug "Attempting to populate database from one of these locations: [%s]"
+		(String.concat "; "
+			(List.map (fun conn -> conn.Parse_db_conf.path) input_connections));
+	Db_cache_impl.make backend input_connections schema;
+	Db_cache_impl.sync output_connections (Db_ref.get_database backend);
+	(* Delete the temporary restore file so that we don't revert to it again at next startup. *)
+	if restoring then begin
+		Unixext.unlink_safe Xapi_globs.db_temporary_restore_path;
+		Unixext.unlink_safe (Xapi_globs.db_temporary_restore_path ^ ".generation")
+	end
+
 (** Starts the main database engine: this should be done only on the master node. 
     The db connections must have been parsed from db.conf file and initialised before this fn is called.
     Also this function depends on being able to call API functions through the external interface.
 *)
 let start_database_engine () =
-	let schema = Datamodel_schema.of_datamodel () in
-	
-	(* If the temporary restore file is present then we must populate from that *)
-	let connections = 
-		if Sys.file_exists Xapi_globs.db_temporary_restore_path
-		then [ Parse_db_conf.make Xapi_globs.db_temporary_restore_path ]
-		else Db_conn_store.read_db_connections () in
 	let t = Db_backend.make () in
-	Db_cache_impl.make t connections schema;
-	Db_cache_impl.sync connections (Db_ref.get_database t);
+	populate_db t;
 
 	Db_ref.update_database t (Database.register_callback "redo_log" Redo_log.database_callback);
 	Db_ref.update_database t (Database.register_callback "events" Eventgen.database_callback);
@@ -466,35 +483,41 @@ let server_run_in_emergency_mode () =
 (** Once the database is online we make sure our local ha.armed flag is in sync with the
     master's Pool.ha_enabled flag. *)
 let resynchronise_ha_state () =
-  try
-    Server_helpers.exec_with_new_task "resynchronise_ha_state"
-      (fun __context ->
-	 let pool = Helpers.get_pool ~__context in
-	 let pool_ha_enabled = Db.Pool.get_ha_enabled ~__context ~self:pool in
-	 let local_ha_enabled = bool_of_string (Localdb.get Constants.ha_armed) in
-	 match local_ha_enabled, pool_ha_enabled with
-	 | true, true ->
-	     info "HA is enabled on both localhost and the Pool"
-	 | false, false ->
-	     info "HA is disabled on both localhost and the Pool"
-	 | true, false ->
-	     info "HA has been disabled on the Pool while we were offline; disarming HA locally";
-	     Localdb.put Constants.ha_armed "false";
-	     Xapi_ha.Monitor.stop ()
-	 | false, true ->
-	     info "HA has been disabled on localhost but not the Pool.";
-	     if Pool_role.is_master () then begin
-	       info "We are the master: disabling HA on the Pool.";
-	       Db.Pool.set_ha_enabled ~__context ~self:pool ~value:false;
-	     end else begin
-	       info "We are a slave: we cannot join an HA-enabled Pool after being locally disarmed. Entering emergency mode.";
-	       Xapi_host.set_emergency_mode_error Api_errors.ha_pool_is_enabled_but_host_is_disabled [];
-	       server_run_in_emergency_mode()
-	     end
-      )
-  with e ->
-    (* Critical that we don't continue as a master and use shared resources *)
-    error "Caught exception resynchronising state of HA system: %s" (ExnHelper.string_of_exn e)
+	try
+		Server_helpers.exec_with_new_task "resynchronise_ha_state"
+			(fun __context ->
+				(* Make sure the control domain is marked as "running" - in the case of *)
+				(* HA failover it will have been marked as "halted". *)
+				let control_domain_uuid = Util_inventory.lookup Util_inventory._control_domain_uuid in
+				let control_domain = Db.VM.get_by_uuid ~__context ~uuid:control_domain_uuid in
+				Db.VM.set_power_state ~__context ~self:control_domain ~value:`Running;
+
+				let pool = Helpers.get_pool ~__context in
+				let pool_ha_enabled = Db.Pool.get_ha_enabled ~__context ~self:pool in
+				let local_ha_enabled = bool_of_string (Localdb.get Constants.ha_armed) in
+				match local_ha_enabled, pool_ha_enabled with
+				| true, true ->
+					info "HA is enabled on both localhost and the Pool"
+				| false, false ->
+					info "HA is disabled on both localhost and the Pool"
+				| true, false ->
+					info "HA has been disabled on the Pool while we were offline; disarming HA locally";
+					Localdb.put Constants.ha_armed "false";
+					Xapi_ha.Monitor.stop ()
+				| false, true ->
+					info "HA has been disabled on localhost but not the Pool.";
+					if Pool_role.is_master () then begin
+						info "We are the master: disabling HA on the Pool.";
+						Db.Pool.set_ha_enabled ~__context ~self:pool ~value:false;
+					end else begin
+						info "We are a slave: we cannot join an HA-enabled Pool after being locally disarmed. Entering emergency mode.";
+						Xapi_host.set_emergency_mode_error Api_errors.ha_pool_is_enabled_but_host_is_disabled [];
+						server_run_in_emergency_mode()
+					end
+			)
+	with e ->
+		(* Critical that we don't continue as a master and use shared resources *)
+		error "Caught exception resynchronising state of HA system: %s" (ExnHelper.string_of_exn e)
 
 (* Calculates the amount of free memory on the host at boot time. *)
 (* Returns a result that is equivalent to (T - X), where:         *)
@@ -738,8 +761,8 @@ let server_init() =
           (* CP-729: alert to notify client if internal event hook ext_auth.on_xapi_initialize fails *)
           ignore (Helpers.call_api_functions ~__context (fun rpc session_id ->
             (* we need to create the alert on the *master* so that XenCenter will be able to pick it up *)
-            Client.Client.Message.create ~rpc ~session_id ~name:Api_messages.auth_external_init_failed 
-              ~priority:1L ~cls:`Host ~obj_uuid ~body:(
+            let (name, priority) = Api_messages.auth_external_init_failed in
+            Client.Client.Message.create ~rpc ~session_id ~name ~priority ~cls:`Host ~obj_uuid ~body:(
                 "host_external_auth_type="^auth_type^
                 ", host_external_auth_service_name="^service_name^
                 ", error="^ (match !last_error with None -> "timeout" | Some e ->

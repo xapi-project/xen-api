@@ -48,12 +48,15 @@ let sm_cap_table =
 
 type table = (API.storage_operations, ((string * (string list)) option)) Hashtbl.t
 
-let capabilities_of_sr record =
-    try
-		Sm.capabilities_of_driver record.Db_actions.sR_type
-    with Sm.Unknown_driver _ ->
+let capabilities_of_sr_internal ~_type ~uuid =
+	try
+		Sm.capabilities_of_driver _type
+	with Sm.Unknown_driver _ ->
 		(* then look to see if this supports the SMAPIv2 *)
-		Smint.parse_capabilities (Storage_mux.capabilities_of_sr record.Db_actions.sR_uuid)
+		Smint.parse_capabilities (Storage_mux.capabilities_of_sr uuid)
+
+let capabilities_of_sr record =
+	capabilities_of_sr_internal record.Db_actions.sR_type record.Db_actions.sR_uuid
 
 (** Returns a table of operations -> API error options (None if the operation would be ok) *)
 let valid_operations ~__context record _ref' : table = 
@@ -100,8 +103,8 @@ let valid_operations ~__context record _ref' : table =
 	if (Db.SR.get_PBDs ~__context ~self:_ref') = [] then
 		set_errors Api_errors.sr_no_pbds [_ref] [`destroy];
 
-	(* If the SR is not empty, destroy is not allowed. *)
-	if (Db.SR.get_VDIs ~__context ~self:_ref') <> [] then
+	(* If the SR contains any managed VDIs, destroy is not allowed. *)
+	if (Db.VDI.get_records_where ~__context ~expr:(And(Eq(Field "SR", Literal _ref), Eq(Field "managed", Literal "true")))) <> [] then
 		set_errors Api_errors.sr_not_empty [] [`destroy];
 
   let safe_to_parallelise = [ ] in
