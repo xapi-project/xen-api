@@ -50,4 +50,4 @@ let call_plugin session_id plugin_name fn_name args =
 		| XMLRPC.Failure(code, params) -> raise (Api_errors.Server_error(code, params))
 		| _ -> raise (Api_errors.Server_error(Api_errors.xenapi_plugin_failure, [ "unexpected XMLRPC result"; output ]))
 	with Xml.Error e ->
-		raise (Api_errors.Server_error(Api_errors.xenapi_plugin_failure, [ "parse failure"; Xml.error e ]))
+		raise (Api_errors.Server_error(Api_errors.xenapi_plugin_failure, [ "failed to parse plugin output"; output; Xml.error e ]))
