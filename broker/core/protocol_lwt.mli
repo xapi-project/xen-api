@@ -18,9 +18,9 @@ end
 module Client : sig
 	type t
 
-	val connect: int -> t Lwt.t
+	val connect: int -> string -> t Lwt.t
 
-	val rpc: t -> string -> string -> string Lwt.t
+	val rpc: t -> string  -> string Lwt.t
 end
 
 module Server : sig

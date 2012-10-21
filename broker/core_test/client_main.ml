@@ -8,9 +8,9 @@ let name = ref "server"
 let payload = ref "hello\r\n"
 
 let main () =
-	lwt c = Client.connect !port in
+	lwt c = Client.connect !port !name in
 
-	lwt x = Client.rpc c !name !payload in
+	lwt x = Client.rpc c !payload in
 	Printf.fprintf stderr "%s\n%!" x;
 	return ()
 

@@ -53,6 +53,7 @@ module Client = struct
 		events_conn: Connection.t;
 		requests_m: Lwt_mutex.t;
 		wakener: (int, Message.t Lwt.u) Hashtbl.t;
+		dest_queue_name: string;
 		reply_queue_name: string;
 	}
 
@@ -63,7 +64,7 @@ module Client = struct
 			incr counter;
 			result
 
-	let connect port =
+	let connect port dest_queue_name =
 		let token = Printf.sprintf "%d" (Unix.getpid ()) in
 		lwt requests_conn = Connection.make port token
 		and events_conn = Connection.make port token in
@@ -88,19 +89,21 @@ module Client = struct
 			loop (-1L) in
 		lwt reply_queue_name = Connection.rpc requests_conn (In.Create None) in
 		lwt (_: string) = Connection.rpc requests_conn (In.Subscribe reply_queue_name) in
+		lwt (_: string) = Connection.rpc requests_conn (In.Create (Some dest_queue_name)) in
 		return {
 			requests_conn = requests_conn;
 			events_conn = events_conn;
 			requests_m = Lwt_mutex.create ();
 			wakener = wakener;
+			dest_queue_name = dest_queue_name;
 			reply_queue_name = reply_queue_name;
 		}
 
-	let rpc c name x =
+	let rpc c x =
 		let correlation_id = fresh_correlation_id () in
 		let t, u = Lwt.task () in
 		Hashtbl.add c.wakener correlation_id u;
-		let msg = In.Send(name, {
+		let msg = In.Send(c.dest_queue_name, {
 			Message.payload = x;
 			correlation_id;
 			reply_to = Some c.reply_queue_name
