@@ -97,6 +97,7 @@ module Out = struct
 	| Transfer of transfer
 	| Ack
 	| Diagnostics of string
+	| Not_logged_in
 
 	let to_response = function
 		| Login
@@ -109,6 +110,8 @@ module Out = struct
 			Server.respond_string ~status:`OK ~body:(Jsonrpc.to_string (rpc_of_transfer transfer)) ()
 		| Diagnostics x ->
 			Server.respond_string ~status:`OK ~body:x ()
+		| Not_logged_in ->
+			Server.respond_string ~status:`Not_found ~body:"Please log in." ()
 end
 
 

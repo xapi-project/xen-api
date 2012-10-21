@@ -48,6 +48,7 @@ module Out : sig
 	| Transfer of transfer
 	| Ack
 	| Diagnostics of string
+	| Not_logged_in
 
 	val to_response : t ->  (Response.t * Body.t) Lwt.t
 end

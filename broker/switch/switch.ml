@@ -6,8 +6,8 @@ let warn  fmt = Logging.warn  "server_xen" fmt
 let error fmt = Logging.error "server_xen" fmt
 
 let message_logger = Logging.create 512
-let message conn_id (fmt: (_,_,_,_) format4) =
-    Printf.ksprintf message_logger.Logging.push ("[%3d] " ^^ fmt) conn_id
+let message conn_id session (fmt: (_,_,_,_) format4) =
+    Printf.ksprintf message_logger.Logging.push ("[%3d] [%s]" ^^ fmt) conn_id (match session with None -> "None" | Some x -> x)
 
 let syslog = Lwt_log.syslog ~facility:`Local3 ()
 
@@ -56,76 +56,82 @@ module StringSet = Set.Make(struct type t = string let compare = String.compare 
 module IntSet = Set.Make(struct type t = int let compare = compare end)
 module StringMap = Map.Make(struct type t = string let compare = compare end)
 
-module StringRelation = struct
-	(** Store a (a: string, b: string) relation R such that given
+module Relation = functor(A: Map.OrderedType) -> functor(B: Map.OrderedType) -> struct
+	(** Store a (a: A.t, b:B.t) relation R such that given
 		an a, finding the largest set bs such that
           \forall b \in bs. (a, b)\in R
 		and v.v. on b are efficient. *)
 
+	module A_Set = Set.Make(A)
+	module A_Map = Map.Make(A)
+	module B_Set = Set.Make(B)
+	module B_Map = Map.Make(B)
+
 	type t = {
-		a_to_b: StringSet.t StringMap.t;
-		b_to_a: StringSet.t StringMap.t;
+		a_to_b: B_Set.t A_Map.t;
+		b_to_a: A_Set.t B_Map.t;
 	}
 	let empty = {
-		a_to_b = StringMap.empty;
-		b_to_a = StringMap.empty;
+		a_to_b = A_Map.empty;
+		b_to_a = B_Map.empty;
 	}
-	let to_string t =
-		let set xs = String.concat "; " (StringSet.fold (fun x acc -> x :: acc) xs []) in
-		Printf.sprintf "{ %s }" 
-			(String.concat "; "
-				 (StringMap.fold (fun k v acc -> 
-					 Printf.sprintf "%s: { %s }" k (set v) :: acc
-				  ) t.a_to_b []
-				 )
-			)
-
-	let mapping_of x map =
-		if StringMap.mem x map
-		then StringMap.find x map
-		else StringSet.empty
-	let get_bs a t = mapping_of a t.a_to_b
-	let get_as b t = mapping_of b t.b_to_a
+	let get_bs a t =
+		if A_Map.mem a t.a_to_b
+		then A_Map.find a t.a_to_b
+		else B_Set.empty
+	let get_as b t =
+		if B_Map.mem b t.b_to_a
+		then B_Map.find b t.b_to_a
+		else A_Set.empty
+			
 	let add a b t =
 		{
-			a_to_b = StringMap.add a (StringSet.add b (get_bs a t)) t.a_to_b;
-			b_to_a = StringMap.add b (StringSet.add a (get_as b t)) t.b_to_a;
+			a_to_b = A_Map.add a (B_Set.add b (get_bs a t)) t.a_to_b;
+			b_to_a = B_Map.add b (A_Set.add a (get_as b t)) t.b_to_a;
 		}
 	let of_list = List.fold_left (fun t (a, b) -> add a b t) empty
-	let to_list t = StringMap.fold (fun a bs acc -> StringSet.fold (fun b acc -> (a, b) :: acc) bs acc) t.a_to_b []
+	let to_list t = A_Map.fold (fun a bs acc -> B_Set.fold (fun b acc -> (a, b) :: acc) bs acc) t.a_to_b []
 
 	let remove_a a t =
 		let bs = get_bs a t in
 		{
-			a_to_b = StringMap.remove a t.a_to_b;
+			a_to_b = A_Map.remove a t.a_to_b;
 			b_to_a =
-				StringSet.fold
+				B_Set.fold
 					(fun b acc ->
-						let as' = StringSet.remove a (mapping_of b acc) in
-						if as' = StringSet.empty
-						then StringMap.remove b acc
-						else StringMap.add b as' acc
+						let as' =
+							if B_Map.mem b acc
+							then B_Map.find b acc
+							else A_Set.empty in
+						let as' = A_Set.remove a as' in
+						if as' = A_Set.empty
+						then B_Map.remove b acc
+						else B_Map.add b as' acc
 					) bs t.b_to_a;
 		}
-	let flip t = {
-		a_to_b = t.b_to_a;
-		b_to_a = t.a_to_b;
-	}
-	let remove_b b t = flip (remove_a b (flip t))
+	let remove_b b t =
+		let as' = get_as b t in
+		{
+			a_to_b =
+				A_Set.fold
+					(fun a acc ->
+						let bs =
+							if A_Map.mem a acc
+							then A_Map.find a acc
+							else B_Set.empty in
+						let bs = B_Set.remove b bs in
+						if bs = B_Set.empty
+						then A_Map.remove a acc
+						else A_Map.add a bs acc
+					) as' t.a_to_b;
+			b_to_a = B_Map.remove b t.b_to_a;
+		}
 
 	let equal t1 t2 =
 		true
-		&& StringMap.equal StringSet.equal t1.a_to_b t2.a_to_b
-		&& StringMap.equal StringSet.equal t1.b_to_a t2.b_to_a
-	let always_true t = equal t (flip (of_list (List.map (fun (a, b) -> b, a) (to_list t))))
+		&& A_Map.equal B_Set.equal t1.a_to_b t2.a_to_b
+		&& B_Map.equal A_Set.equal t1.b_to_a t2.b_to_a
 
-	let test_inputs = List.map of_list [
-		[];
-		[ "foo", "bar" ];
-		[ "foo", "bar"; "foo", "anotherbar" ];
-		[ "foo", "bar"; "anotherfoo", "bar" ];
-		[ "foo", "bar"; "bar", "foo" ]
-	]
 end
 
 type origin =
@@ -145,63 +151,53 @@ module Entry = struct
 		{ origin; time; message }
 end
 
+module StringStringRelation = Relation(String)(String)
+
 module Subscription = struct
 	(* Session token -> queue bindings *)
-	let t = ref (StringRelation.empty)
+	let t = ref (StringStringRelation.empty)
 
 	let session_to_wakeup : (string, unit Lwt.u) Hashtbl.t = Hashtbl.create 128
 
 	let add session subscription =
-		t := StringRelation.add session subscription !t;
+		t := StringStringRelation.add session subscription !t;
 		if Hashtbl.mem session_to_wakeup session then begin
 			Lwt.wakeup_later (Hashtbl.find session_to_wakeup session) ()
 		end
 
-	let get session = StringRelation.get_bs session !t
+	let get session = StringStringRelation.get_bs session !t
 
 	let remove subscription =
-		t := StringRelation.remove_b subscription !t
+		t := StringStringRelation.remove_b subscription !t
 
 end
 
+module IntStringRelation = Relation(struct type t = int let compare = compare end)(String)
+
 module Connections = struct
-	(* Connection id -> session *)
-	let connections : string IntMap.t ref = ref IntMap.empty
-
-	(* session -> active connection ids *)
-	let sessions : (string, IntSet.t) Hashtbl.t = Hashtbl.create 128
-
-	let get_origin conn_id =
-		if IntMap.mem conn_id !connections
-		then Name (IntMap.find conn_id !connections)
-		else Anonymous conn_id
+	let t = ref (IntStringRelation.empty)
 
 	let get_session conn_id =
-		IntMap.find conn_id !connections
+		(* Nothing currently stops you registering multiple sessions per connection *)
+		let sessions = IntStringRelation.get_bs conn_id !t in
+		if sessions = IntStringRelation.B_Set.empty
+		then None
+		else Some(IntStringRelation.B_Set.choose sessions)
+
+	let get_origin conn_id = match get_session conn_id with
+		| None -> Anonymous conn_id
+		| Some x -> Name x
 
 	let add conn_id session =
-		debug "Connections.add %d -> %s" conn_id session;
-		connections := IntMap.add conn_id session !connections;
-		let existing =
-			if Hashtbl.mem sessions session
-			then Hashtbl.find sessions session
-			else IntSet.empty in
-		Hashtbl.replace sessions session (IntSet.add conn_id existing)
+		debug "+ connection %d" conn_id;
+		t := IntStringRelation.add conn_id session !t
 
 	let remove conn_id =
-		let session = get_session conn_id in
-		let existing =
-			if Hashtbl.mem sessions session
-			then Hashtbl.find sessions session
-			else IntSet.empty in
-		connections := IntMap.remove conn_id !connections;
-		let remaining = IntSet.remove conn_id existing in
-		debug "Connections.remove %d (session %s size %d)" conn_id session (IntSet.cardinal remaining);
-		if remaining = IntSet.empty
-		then Hashtbl.remove sessions session
-		else Hashtbl.replace sessions session remaining
+		debug "- connection %d" conn_id;
+		t := IntStringRelation.remove_a conn_id !t
 
-	let is_session_active session = Hashtbl.mem sessions session
+	let is_session_active session =
+		IntStringRelation.get_as session !t <> IntStringRelation.A_Set.empty
 
 end
 
@@ -340,39 +336,42 @@ let make_server () =
 		| None ->
 			Server.respond_not_found ~uri:(Request.uri req) ()
 		| Some request ->
-			message conn_id "%s" (Jsonrpc.to_string (In.rpc_of_t request));
-			begin match request with
-			| In.Login session ->
+			let session = Connections.get_session conn_id in
+			message conn_id session "%s" (Jsonrpc.to_string (In.rpc_of_t request));
+			(* Only allow Login and Diagnostic messages if there is no session *)
+			begin match session, request with
+			| _, In.Login session ->
 				(* associate conn_id with 'session' *)
 				Connections.add conn_id session;
 				Out.to_response Out.Login
-			| In.Create name ->
+			| _, In.Diagnostics ->
+				let d = Diagnostics.(Jsonrpc.to_string (rpc_of_queues (snapshot ()))) in
+				Out.to_response (Out.Diagnostics d)
+			| None, _ ->
+				Out.to_response Out.Not_logged_in
+			| Some session, In.Create name ->
 				let name = begin match name with
-				| Some name ->
-					name
-				| None ->
-					(* Create a session-local private queue name *)
-					let name = make_fresh_name () in
-					let session = Connections.get_session conn_id in
-					Private_queue.add session name;
-					name
+					| Some name ->
+						name
+					| None ->
+						(* Create a session-local private queue name *)
+						let name = make_fresh_name () in
+						Private_queue.add session name;
+						name
 				end in
 				Q.add name;
 				Out.to_response (Out.Create name)
-			| In.Subscribe name ->
-				let session = Connections.get_session conn_id in
+			| Some session, In.Subscribe name ->
 				Subscription.add session name;
 				Out.to_response Out.Subscribe
-			| In.Ack id ->
+			| Some session, In.Ack id ->
 				Q.ack id;
 				Out.to_response Out.Ack
-			| In.Transfer(from, timeout) ->
-				let session = Connections.get_session conn_id in
-
+			| Some session, In.Transfer(from, timeout) ->
 				let start = Unix.gettimeofday () in
 				let rec wait () =
 					let names = Subscription.get session in
-					let not_seen = StringSet.fold (fun name map ->
+					let not_seen = StringStringRelation.B_Set.fold (fun name map ->
 						let q = Q.get name in
 						let _, _, not_seen = Int64Map.split from q in
 						Int64Map.fold Int64Map.add map not_seen
@@ -385,7 +384,7 @@ let make_server () =
 						then return Int64Map.empty
 						else
 							let timeout = Lwt.map (fun () -> `Timeout) (Lwt_unix.sleep remaining_timeout) in
-							let more = StringSet.fold (fun name acc ->
+							let more = StringStringRelation.B_Set.fold (fun name acc ->
 								Lwt.map (fun () -> `Data) (Q.wait from name) :: acc
 							) names [] in
 							let t, u = Lwt.task () in
@@ -401,28 +400,28 @@ let make_server () =
 							finally
 								Hashtbl.remove Subscription.session_to_wakeup session;
 								return ()
-							in
+						in
 				lwt messages = wait () in
 				let transfer = {
 					Out.messages = Int64Map.fold (fun id e acc -> (id, e.Entry.message) :: acc) messages [];
 				} in
 				Out.to_response (Out.Transfer transfer)
 
-			| In.Send (name, data) ->
+			| Some session, In.Send (name, data) ->
 				lwt () = Q.send conn_id name data in
 				Out.to_response Out.Send
-			| In.Diagnostics ->
-				let d = Diagnostics.(Jsonrpc.to_string (rpc_of_queues (snapshot ()))) in
-				Out.to_response (Out.Diagnostics d)
 			end
 			in
 			let conn_closed conn_id () =
 				let session = Connections.get_session conn_id in
 				Connections.remove conn_id;
-				if not(Connections.is_session_active session) then begin
-					debug "Session %s cleaning up" session;
-					Private_queue.remove session
-				end in
+				match session with
+				| None -> ()
+				| Some session ->
+					if not(Connections.is_session_active session) then begin
+						debug "Session %s cleaning up" session;
+						Private_queue.remove session
+					end in
 
 			debug "Message switch starting";
 			let (_: 'a Lwt.t) = logging_thread Logging.logger in
