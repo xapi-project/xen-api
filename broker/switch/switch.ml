@@ -54,6 +54,79 @@ module Int64Map = Map.Make(struct type t = int64 let compare = Int64.compare end
 module IntMap = Map.Make(struct type t = int let compare = compare end)
 module StringSet = Set.Make(struct type t = string let compare = String.compare end)
 module IntSet = Set.Make(struct type t = int let compare = compare end)
+module StringMap = Map.Make(struct type t = string let compare = compare end)
+
+module StringRelation = struct
+	(** Store a (a: string, b: string) relation R such that given
+		an a, finding the largest set bs such that
+          \forall b \in bs. (a, b)\in R
+		and v.v. on b are efficient. *)
+
+	type t = {
+		a_to_b: StringSet.t StringMap.t;
+		b_to_a: StringSet.t StringMap.t;
+	}
+	let empty = {
+		a_to_b = StringMap.empty;
+		b_to_a = StringMap.empty;
+	}
+	let to_string t =
+		let set xs = String.concat "; " (StringSet.fold (fun x acc -> x :: acc) xs []) in
+		Printf.sprintf "{ %s }" 
+			(String.concat "; "
+				 (StringMap.fold (fun k v acc -> 
+					 Printf.sprintf "%s: { %s }" k (set v) :: acc
+				  ) t.a_to_b []
+				 )
+			)
+
+	let mapping_of x map =
+		if StringMap.mem x map
+		then StringMap.find x map
+		else StringSet.empty
+	let get_bs a t = mapping_of a t.a_to_b
+	let get_as b t = mapping_of b t.b_to_a
+	let add a b t =
+		{
+			a_to_b = StringMap.add a (StringSet.add b (get_bs a t)) t.a_to_b;
+			b_to_a = StringMap.add b (StringSet.add a (get_as b t)) t.b_to_a;
+		}
+	let of_list = List.fold_left (fun t (a, b) -> add a b t) empty
+	let to_list t = StringMap.fold (fun a bs acc -> StringSet.fold (fun b acc -> (a, b) :: acc) bs acc) t.a_to_b []
+
+	let remove_a a t =
+		let bs = get_bs a t in
+		{
+			a_to_b = StringMap.remove a t.a_to_b;
+			b_to_a =
+				StringSet.fold
+					(fun b acc ->
+						let as' = StringSet.remove a (mapping_of b acc) in
+						if as' = StringSet.empty
+						then StringMap.remove b acc
+						else StringMap.add b as' acc
+					) bs t.b_to_a;
+		}
+	let flip t = {
+		a_to_b = t.b_to_a;
+		b_to_a = t.a_to_b;
+	}
+	let remove_b b t = flip (remove_a b (flip t))
+
+	let equal t1 t2 =
+		true
+		&& StringMap.equal StringSet.equal t1.a_to_b t2.a_to_b
+		&& StringMap.equal StringSet.equal t1.b_to_a t2.b_to_a
+	let always_true t = equal t (flip (of_list (List.map (fun (a, b) -> b, a) (to_list t))))
+
+	let test_inputs = List.map of_list [
+		[];
+		[ "foo", "bar" ];
+		[ "foo", "bar"; "foo", "anotherbar" ];
+		[ "foo", "bar"; "anotherfoo", "bar" ];
+		[ "foo", "bar"; "bar", "foo" ]
+	]
+end
 
 type origin =
 	| Anonymous of int (** An un-named connection, probably a temporary client connection *)
@@ -74,43 +147,21 @@ end
 
 module Subscription = struct
 	(* Session token -> queue bindings *)
-	let session_to_subscriptions : (string, StringSet.t) Hashtbl.t = Hashtbl.create 128
-
-	let subscription_to_sessions : (string, StringSet.t) Hashtbl.t = Hashtbl.create 128
+	let t = ref (StringRelation.empty)
 
 	let session_to_wakeup : (string, unit Lwt.u) Hashtbl.t = Hashtbl.create 128
 
 	let add session subscription =
-		let existing =
-			if Hashtbl.mem session_to_subscriptions session
-			then Hashtbl.find session_to_subscriptions session
-			else StringSet.empty in
-		Hashtbl.replace session_to_subscriptions session (StringSet.add subscription existing);
-		let existing =
-			if Hashtbl.mem subscription_to_sessions subscription
-			then Hashtbl.find subscription_to_sessions subscription
-			else StringSet.empty in
-		Hashtbl.replace subscription_to_sessions subscription (StringSet.add session existing);
+		t := StringRelation.add session subscription !t;
 		if Hashtbl.mem session_to_wakeup session then begin
 			Lwt.wakeup_later (Hashtbl.find session_to_wakeup session) ()
 		end
 
-	let get session =
-		if Hashtbl.mem session_to_subscriptions session
-		then Hashtbl.find session_to_subscriptions session
-		else StringSet.empty
+	let get session = StringRelation.get_bs session !t
 
 	let remove subscription =
-		if Hashtbl.mem subscription_to_sessions subscription then begin
-			StringSet.iter (fun session ->
-				let existing = Hashtbl.find session_to_subscriptions session in
-				let remaining = StringSet.remove subscription existing in
-				if remaining = StringSet.empty
-				then Hashtbl.remove session_to_subscriptions session
-				else Hashtbl.replace session_to_subscriptions session remaining
-			) (Hashtbl.find subscription_to_sessions subscription);
-			Hashtbl.remove subscription_to_sessions subscription
-		end
+		t := StringRelation.remove_b subscription !t
+
 end
 
 module Connections = struct
