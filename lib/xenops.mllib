@@ -1,8 +1,9 @@
 # OASIS_START
-# DO NOT EDIT (digest: 520d54ceafff7900b05ff828b8694bee)
+# DO NOT EDIT (digest: 429ca58d7d36614dbe4ac3c800f02069)
 Xenops_client
 Xenops_server
 Xenopsd
 Xenops_interface
 Xenops_server_plugin
+Device_number
 # OASIS_STOP

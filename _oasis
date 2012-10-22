@@ -23,8 +23,8 @@ Library xenops
   CompiledObject:     best
   Path:               lib
   Findlibname:        xenops
-  Modules:            Xenops_client, Xenops_server, Xenopsd, Xenops_interface, Xenops_server_plugin
-  BuildDepends:       xmlm
+  Modules:            Xenops_client, Xenops_server, Xenopsd, Xenops_interface, Xenops_server_plugin, Device_number
+  BuildDepends:       xmlm, rpc, rpc.syntax
 
 Executable xn
   CompiledObject:     best
