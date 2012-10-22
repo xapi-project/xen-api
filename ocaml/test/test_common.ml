@@ -14,14 +14,5 @@
 
 open OUnit
 
-let test_suite =
-	let open Test_basic in
-	"test_suite" >:::
-		[
-			"test_always_pass" >:: test_always_pass ;
-			"test_always_fail" >:: test_always_fail ;
-			"test_mock_db" >:: test_mock_db ;
-			"test_assert_licensed_storage_motion" >:: test_assert_licensed_storage_motion ;
-		]
+let skip str = skip_if true str
 
-let _ = run_test_tt_main test_suite
