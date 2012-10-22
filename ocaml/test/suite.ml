@@ -14,31 +14,14 @@
 
 open OUnit
 
-module MockDatabase = struct
-
-	let _schema = Datamodel_schema.of_datamodel ()
-	let _db_ref = ref (ref (Db_cache_types.Database.make _schema))
-
-	let make () =
-		(* generic_database_upgrade will create and populate with
-		   default values all the tables which don't exist. *)
-		!_db_ref := Db_upgrade.generic_database_upgrade !(!_db_ref) ;
-		Db_ref.in_memory _db_ref
-
-end (* MockDatabase *)
-
-module MockContext : (module type of Context with type t = Context.t) = struct
-	include Context
-end (* MockContext *)
-
 let skip str = skip_if true str
 
 let test_always_pass () = assert_equal 1 1
 let test_always_fail () = skip "This will fail" ; assert_equal 1 0
 
 let test_mock_db () =
-	let db = MockDatabase.make () in
-	let __context = MockContext.make ~database:db "Mock context" in
+	let db = Mock.Database.make () in
+	let __context = Mock.Context.make ~database:db "Mock context" in
 	let blob_ref = Ref.make () in
 	Db.Blob.create __context blob_ref
 		(Uuid.to_string (Uuid.make_uuid ()))
@@ -49,8 +32,8 @@ let test_mock_db () =
 	assert_equal blob_name "BLOB"
 
 let test_assert_licensed_storage_motion () = skip "TODO" ;
-	let db = MockDatabase.make () in
-	let __context = MockContext.make ~database:db "Mock context" in
+	let db = Mock.Database.make () in
+	let __context = Mock.Context.make ~database:db "Mock context" in
 	let licensed = try Xapi_vm_migrate.assert_licensed_storage_motion ~__context; true
 	with _ -> false in
 	assert_bool "Not licensed for SXM" licensed

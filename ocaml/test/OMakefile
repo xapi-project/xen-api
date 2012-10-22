@@ -20,5 +20,6 @@ OCAML_LIBS = \
 
 OCAML_OBJS = \
 	../idl/api_lowlevel \
+	mock
 
 OCamlProgram(suite, suite $(OCAML_OBJS) )
