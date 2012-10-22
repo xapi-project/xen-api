@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Fun
 open Xenops_interface
 open Xmlrpc_client
 
@@ -24,7 +23,7 @@ let default_path = "/var/xapi/xenopsd"
 let forwarded_path = default_path ^ ".forwarded"
 
 let default_uri = "file:" ^ default_path
-let json_url = Printf.sprintf "file:%s.json" default_path |> Http.Url.of_string
+let json_url = Http.Url.of_string (Printf.sprintf "file:%s.json" default_path)
 
 (* Use HTTP to frame RPC messages *)
 let http_rpc string_of_call response_of_string ~srcstr ~dststr url call =
