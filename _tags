@@ -1,0 +1,43 @@
+# OASIS_START
+# DO NOT EDIT (digest: 67a81dafba3b1073ab808b89bf609ef5)
+# Ignore VCS directories, you can use the same kind of rule outside 
+# OASIS_START/STOP if you want to exclude directories that contains 
+# useless stuff for the build process
+<**/.svn>: -traverse
+<**/.svn>: not_hygienic
+".bzr": -traverse
+".bzr": not_hygienic
+".hg": -traverse
+".hg": not_hygienic
+".git": -traverse
+".git": not_hygienic
+"_darcs": -traverse
+"_darcs": not_hygienic
+# Library xenops
+"lib/xenops.cmxs": use_xenops
+<lib/*.ml{,i}>: pkg_xmlm
+# Executable xn
+<cli/xn.{native,byte}>: use_xenops
+<cli/xn.{native,byte}>: pkg_xmlm
+<cli/*.ml{,i}>: use_xenops
+<cli/*.ml{,i}>: pkg_xmlm
+<cli/xn.{native,byte}>: custom
+# Executable xenopsd_xen
+<xen/xenopsd_xen_main.{native,byte}>: use_xenops
+<xen/xenopsd_xen_main.{native,byte}>: pkg_xmlm
+<xen/*.ml{,i}>: use_xenops
+<xen/*.ml{,i}>: pkg_xmlm
+<xen/xenopsd_xen_main.{native,byte}>: custom
+# Executable xenopsd_simulator
+<simulator/xenopsd_simulator_main.{native,byte}>: use_xenops
+<simulator/xenopsd_simulator_main.{native,byte}>: pkg_xmlm
+<simulator/*.ml{,i}>: use_xenops
+<simulator/*.ml{,i}>: pkg_xmlm
+<simulator/xenopsd_simulator_main.{native,byte}>: custom
+# Executable test
+<test/test.{native,byte}>: use_xenops
+<test/test.{native,byte}>: pkg_xmlm
+<test/*.ml{,i}>: use_xenops
+<test/*.ml{,i}>: pkg_xmlm
+<test/test.{native,byte}>: custom
+# OASIS_STOP

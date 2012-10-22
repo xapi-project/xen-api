@@ -1,0 +1,68 @@
+OASISFormat: 0.2
+Name:        xenopsd
+Version:     1.0
+Synopsis:    Xen domain manager
+Authors:     see CREDITS.md
+License:     LGPL-2.1 with OCaml linking exception
+Plugins:     META (0.2)
+BuildTools:  ocamlbuild
+
+Flag tests
+  Description:        Build and run tests
+  Default:            true
+
+Flag xen
+  Description:        Build server with xen support
+  Default:            false
+
+Flag simulator
+  Description:        Build server with simulator support
+  Default:            false
+
+Library xenops
+  CompiledObject:     best
+  Path:               lib
+  Findlibname:        xenops
+  Modules:            Xenops_client, Xenops_server, Xenopsd, Xenops_interface, Xenops_server_plugin
+  BuildDepends:       xmlm
+
+Executable xn
+  CompiledObject:     best
+  Path:               cli
+  MainIs:             xn.ml
+  Custom:             true
+  Install:            false
+  BuildDepends:       xenops
+
+Executable xenopsd_xen
+  CompiledObject:     best
+  Path:               xen
+  MainIs:             xenopsd_xen_main.ml
+  Build$:             flag(xen)
+  Custom:             true
+  Install:            false
+  BuildDepends:       xenops
+
+Executable xenopsd_simulator
+  CompiledObject:     best
+  Path:               simulator
+  MainIs:             xenopsd_simulator_main.ml
+  Build$:             flag(simulator)
+  Custom:             true
+  Install:            false
+  BuildDepends:       xenops
+
+Executable test
+  CompiledObject:     best
+  Path:               test
+  MainIs:             test.ml
+  Build$:             flag(tests)
+  Custom:             true
+  Install:            false
+  BuildDepends:       xenops
+
+Test test
+  Run$:               flag(tests)
+  Command:            runtest.sh
+  WorkingDirectory:   test
+
