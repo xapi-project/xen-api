@@ -86,7 +86,21 @@ let rec string_of_int26 x =
 	let low' = String.make 1 (char_of_int (low + (int_of_char 'a') - 1)) in
 	high' ^ low'
 
-open Stringext
+module String = struct
+	include String
+	let fold_right f string accu =
+		let accu = ref accu in
+		for i = length string - 1 downto 0 do
+			accu := f string.[i] !accu
+		done;
+		!accu
+
+	let explode string =
+		fold_right (fun h t -> h :: t) string []
+
+	let implode list =
+		concat "" (List.map (String.make 1) list)
+end
 
 (** Convert a linux device string back into an integer *)
 let int26_of_string x = 
