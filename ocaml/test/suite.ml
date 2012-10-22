@@ -38,7 +38,7 @@ let test_assert_licensed_storage_motion () = skip "TODO" ;
 	with _ -> false in
 	assert_bool "Not licensed for SXM" licensed
 
-let test_suite = "test_suit" >:::
+let test_suite = "test_suite" >:::
 	[
 		"test_always_pass" >:: test_always_pass ;
 		"test_always_fail" >:: test_always_fail ;
