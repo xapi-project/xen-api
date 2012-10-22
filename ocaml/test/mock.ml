@@ -27,3 +27,7 @@ end (* Database *)
 module Context : (module type of Context with type t = Context.t) = struct
 	include Context
 end (* Context *)
+
+let make_context_with_new_db task_name =
+	let db_ref = Database.make () in
+	Context.make ~database:db_ref task_name

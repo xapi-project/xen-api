@@ -19,8 +19,7 @@ let test_always_pass () = assert_equal 1 1
 let test_always_fail () = skip "This will fail" ; assert_equal 1 0
 
 let test_mock_db () =
-	let db = Mock.Database.make () in
-	let __context = Mock.Context.make ~database:db "Mock context" in
+	let __context = Mock.make_context_with_new_db "Mock context" in
 	let blob_ref = Ref.make () in
 	Db.Blob.create __context blob_ref
 		(Uuid.to_string (Uuid.make_uuid ()))
@@ -31,8 +30,7 @@ let test_mock_db () =
 	assert_equal blob_name "BLOB"
 
 let test_assert_licensed_storage_motion () = skip "TODO" ;
-	let db = Mock.Database.make () in
-	let __context = Mock.Context.make ~database:db "Mock context" in
+	let __context = Mock.make_context_with_new_db "Mock context" in
 	let licensed = try Xapi_vm_migrate.assert_licensed_storage_motion ~__context; true
 	with _ -> false in
 	assert_bool "Not licensed for SXM" licensed
