@@ -15,13 +15,12 @@
 module Database = struct
 
 	let _schema = Datamodel_schema.of_datamodel ()
-	let _db_ref = ref (ref (Db_cache_types.Database.make _schema))
 
 	let make () =
 		(* generic_database_upgrade will create and populate with
 		   default values all the tables which don't exist. *)
-		!_db_ref := Db_upgrade.generic_database_upgrade !(!_db_ref) ;
-		Db_ref.in_memory _db_ref
+		let db = Db_upgrade.generic_database_upgrade (Db_cache_types.Database.make (Datamodel_schema.of_datamodel ())) in
+		Db_ref.in_memory (ref (ref db))
 
 end (* Database *)
 
