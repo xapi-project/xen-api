@@ -12,6 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
+open OUnit
 open Test_common
 open Xapi_db_upgrade
 
@@ -27,10 +28,10 @@ let upgrade_vm_memory_for_dmc () =
 	(* Apply the upgrade rule *)
 	upgrade_vm_memory_for_dmc.fn ~__context; 
 	let r = Db.VM.get_record ~__context ~self in
-	if r.API.vM_memory_dynamic_min <> r.API.vM_memory_target
-	then failwith "upgrade_vm_memory_for_dmc: control domain memory_dynamic_min <> memory_target";
-	if r.API.vM_memory_dynamic_max <> r.API.vM_memory_target
-	then failwith "upgrade_vm_memory_for_dmc: control domain memory_dynamic_max <> memory_target";
+	assert_equal ~msg:"upgrade_vm_memory_for_dmc: control domain memory_dynamic_min <> memory_target"
+		r.API.vM_memory_dynamic_min r.API.vM_memory_target;
+	assert_equal ~msg:"upgrade_vm_memory_for_dmc: control domain memory_dynamic_max <> memory_target"
+		r.API.vM_memory_dynamic_max r.API.vM_memory_target;
 
 	(* Make this a non-control domain and change all memory fields *)
 	Db.VM.set_is_control_domain ~__context ~self ~value:false;
@@ -42,15 +43,14 @@ let upgrade_vm_memory_for_dmc () =
 	(* Apply the upgrade rule *)
 	upgrade_vm_memory_for_dmc.fn ~__context;
 	let r = Db.VM.get_record ~__context ~self in
-	if r.API.vM_memory_dynamic_max <> r.API.vM_memory_static_max
-	then failwith "upgrade_vm_memory_for_dmc: memory_dynamic_max <> memory_static_max";
-	if r.API.vM_memory_target <> r.API.vM_memory_static_max
-	then failwith "upgrade_vm_memory_for_dmc: memory_target <> memory_static_max";
-	if r.API.vM_memory_dynamic_min <> r.API.vM_memory_static_max
-	then failwith "upgrade_vm_memory_for_dmc: memory_dynamic_min <> memory_static_max";
-	if r.API.vM_memory_static_min > r.API.vM_memory_static_max
-	then failwith "upgrade_vm_memory_for_dmc: memory_static_min > memory_static_max";
-	Printf.printf "upgrade_vm_memory_for_dmc: OK\n"
+	assert_equal ~msg:"upgrade_vm_memory_for_dmc: memory_dynamic_max <> memory_static_max"
+		r.API.vM_memory_dynamic_max r.API.vM_memory_static_max;
+	assert_equal ~msg:"upgrade_vm_memory_for_dmc: memory_target <> memory_static_max"
+		r.API.vM_memory_target r.API.vM_memory_static_max;
+	assert_equal ~msg:"upgrade_vm_memory_for_dmc: memory_dynamic_min <> memory_static_max"
+		r.API.vM_memory_dynamic_min r.API.vM_memory_static_max;
+	assert_bool "upgrade_vm_memory_for_dmc: memory_static_min > memory_static_max"
+		(r.API.vM_memory_static_min <= r.API.vM_memory_static_max)
 
 let upgrade_bios () = 
 
@@ -60,14 +60,13 @@ let upgrade_bios () =
 		let __context = make_test_database () in
 		upgrade_bios_strings.fn ~__context; 
 		let _, vm_r = List.hd (Db.VM.get_all_records ~__context) in
-		if vm_r.API.vM_bios_strings <> bios_strings
-		then failwith "bios strings upgrade" in
-	
+		assert_equal ~msg:"bios strings upgrade"
+			vm_r.API.vM_bios_strings bios_strings
+	in
 	check "OEM_MANUFACTURER=Dell" Xapi_globs.old_dell_bios_strings;
 	check "OEM_MANUFACTURER=HP" Xapi_globs.old_hp_bios_strings;
 	check "" Xapi_globs.generic_bios_strings;
-	Unixext.unlink_safe "/var/tmp/.previousInventory";
-	Printf.printf "upgrade_bios: OK\n"
+	Unixext.unlink_safe "/var/tmp/.previousInventory"
 
 let update_snapshots () = 
 	let __context = make_test_database () in
@@ -87,15 +86,13 @@ let update_snapshots () =
 	update_snapshots.fn ~__context;
 	
 	(* a.parent = a_snap *)
-	if Db.VM.get_parent ~__context ~self:a <> a_snap
-	then failwith "a.parent <> a_snap";
+	assert_equal ~msg:"a.parent <> a_snap"
+		(Db.VM.get_parent ~__context ~self:a) a_snap;
 
 	(* b.parent = b_snap2 *)
-	if Db.VM.get_parent ~__context ~self:b <> b_snap2
-	then failwith "b.parent <> b_snap2";
+	assert_equal ~msg:"b.parent <> b_snap2"
+		(Db.VM.get_parent ~__context ~self:b) b_snap2;
 
 	(* b_snap2.parent = b_snap *)
-	if Db.VM.get_parent ~__context ~self:b_snap2 <> b_snap
-	then failwith "b_snap2.parent <> b_snap";
-
-	Printf.printf "update_snapshots: OK\n"
+	assert_equal ~msg:"b_snap2.parent <> b_snap"
+		(Db.VM.get_parent ~__context ~self:b_snap2)b_snap;
