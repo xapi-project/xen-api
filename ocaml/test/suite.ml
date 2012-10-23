@@ -24,10 +24,26 @@ let test_basic =
 			"test_assert_licensed_storage_motion" >:: test_assert_licensed_storage_motion ;
 		]
 
+let test_db_backup =
+	"test_db_backup" >:::
+		[
+			"test_prepare_restore" >:: Pool_db_backup_test.test_prepare_restore;
+		]
+
+let test_db_upgrade =
+	"test_db_upgrade" >:::
+		[
+			"upgrade_vm_memory_for_dmc" >:: Xapi_db_upgrade_test.upgrade_vm_memory_for_dmc;
+			"upgrade_bios" >:: Xapi_db_upgrade_test.upgrade_bios;
+			"update_snapshots" >:: Xapi_db_upgrade_test.update_snapshots;
+		]
+
 let base_suite =
 	"base_suite" >:::
 		[
-			test_basic
+			test_basic;
+			test_db_backup;
+			test_db_upgrade;
 		]
 
 let _ = run_test_tt_main base_suite
