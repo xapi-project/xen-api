@@ -25,7 +25,7 @@ OCAML_OBJS = \
 	mock \
 	test_common \
 	test_basic \
-	pool_db_backup_test \
-	xapi_db_upgrade_test \
+	test_pool_db_backup \
+	test_xapi_db_upgrade \
 
 OCamlProgram(suite, suite $(OCAML_OBJS) )

@@ -27,15 +27,16 @@ let test_basic =
 let test_db_backup =
 	"test_db_backup" >:::
 		[
-			"test_prepare_restore" >:: Pool_db_backup_test.test_prepare_restore;
+			"test_prepare_restore" >:: Test_pool_db_backup.test_prepare_restore;
 		]
 
 let test_db_upgrade =
+	let open Test_xapi_db_upgrade in
 	"test_db_upgrade" >:::
 		[
-			"upgrade_vm_memory_for_dmc" >:: Xapi_db_upgrade_test.upgrade_vm_memory_for_dmc;
-			"upgrade_bios" >:: Xapi_db_upgrade_test.upgrade_bios;
-			"update_snapshots" >:: Xapi_db_upgrade_test.update_snapshots;
+			"upgrade_vm_memory_for_dmc" >:: upgrade_vm_memory_for_dmc;
+			"upgrade_bios" >:: upgrade_bios;
+			"update_snapshots" >:: update_snapshots;
 		]
 
 let base_suite =
