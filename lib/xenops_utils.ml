@@ -16,11 +16,12 @@ open Listext
 open Stringext
 open Pervasiveext
 open Threadext
-open Fun
 open Xenops_interface
 
 module D = Debug.Debugger(struct let name = service_name end)
 open D
+
+let ( |> ) a b = b a
 
 module Unix = struct
 	include Unix
