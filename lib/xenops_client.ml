@@ -85,7 +85,7 @@ let open_uri uri f =
 	| None -> failwith (Printf.sprintf "Failed to parse URI: %s" (Uri.to_string uri))
 
 (* Use HTTP to frame RPC messages *)
-let http_rpc string_of_call response_of_string ~srcstr ~dststr url call =
+let http_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset") url call =
 	let uri = Uri.of_string url in
 	let req = string_of_call call in
 	let headers = Cohttp.Header.of_list [
