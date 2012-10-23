@@ -121,6 +121,17 @@ rm -rf %{buildroot}
 
 DESTDIR=$RPM_BUILD_ROOT %{__make} install
 
+SITEDIR=$(python -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")
+for f in XenAPI XenAPIPlugin inventory; do
+	for e in py pyc pyo; do
+		echo $SITEDIR/$f.$e
+	done
+done > core-files
+
+for e in py pyc pyo; do
+	echo $SITEDIR/rrdd.$e
+done > rrdd-files
+
 %clean
 rm -rf $RPM_BUILD_ROOT
 
@@ -146,7 +157,7 @@ rm -rf $RPM_BUILD_ROOT
 %post v6d
 [ ! -x /sbin/chkconfig ] || chkconfig --add v6d
 
-%files core
+%files core -f core-files
 %defattr(-,root,root,-)
 @OPTDIR@/bin/xapi
 /etc/xapi.conf
@@ -272,15 +283,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/pci-info
 @OPTDIR@/packages/post-install-scripts/debian-etch
 @OPTDIR@/packages/post-install-scripts/debug
-/usr/lib/python2.4/site-packages/XenAPI.py
-/usr/lib/python2.4/site-packages/XenAPI.pyo
-/usr/lib/python2.4/site-packages/XenAPI.pyc
-/usr/lib/python2.4/site-packages/XenAPIPlugin.py
-/usr/lib/python2.4/site-packages/XenAPIPlugin.pyo
-/usr/lib/python2.4/site-packages/XenAPIPlugin.pyc
-/usr/lib/python2.4/site-packages/inventory.py
-/usr/lib/python2.4/site-packages/inventory.pyo
-/usr/lib/python2.4/site-packages/inventory.pyc
 /var/xapi/udhcpd.skel
 @OPTDIR@/debug/rbac_static.csv
 /etc/xapi.d/host-post-declare-dead/10resetvdis
@@ -321,14 +323,11 @@ rm -rf $RPM_BUILD_ROOT
 /etc/rc.d/init.d/xcp-networkd
 @OPTDIR@/libexec/networkd_db
 
-%files rrdd
+%files rrdd -f rrdd-files
 %defattr(-,root,root,-)
 @OPTDIR@/libexec/xcp-rrdd
 /etc/rc.d/init.d/xcp-rrdd
 /etc/xcp-rrdd.conf
-/usr/lib/python2.4/site-packages/rrdd.py
-/usr/lib/python2.4/site-packages/rrdd.pyc
-/usr/lib/python2.4/site-packages/rrdd.pyo
 @OPTDIR@/libexec/rrdd-example.py
 @OPTDIR@/libexec/rrdd-example.pyc
 @OPTDIR@/libexec/rrdd-example.pyo
