@@ -381,36 +381,36 @@ let detect_rolling_upgrade ~__context =
 		let pools = Db.Pool.get_all ~__context in
 		match pools with
 			| [] ->
-				debug "Ignoring absence of pool record in detect_rolling_upgrade: this is expected on first boot"
+				  debug "Ignoring absence of pool record in detect_rolling_upgrade: this is expected on first boot"
 			| pool :: _ ->
-				let pool_says_in_progress =
-					List.mem_assoc Xapi_globs.rolling_upgrade_in_progress (Db.Pool.get_other_config ~__context ~self:pool) in
+				  let pool_says_in_progress =
+					  List.mem_assoc Xapi_globs.rolling_upgrade_in_progress (Db.Pool.get_other_config ~__context ~self:pool) in
 				(* Resynchronise *)
-				if actually_in_progress <> pool_says_in_progress then begin
-					debug "xapi platform version = %s; host platform versions = [ %s ]"
-						Version.platform_version (String.concat "; " platform_versions);
+				  if actually_in_progress <> pool_says_in_progress then begin
+					  debug "xapi platform version = %s; host platform versions = [ %s ]"
+						  Version.platform_version (String.concat "; " platform_versions);
 
-					warn "Pool thinks rolling upgrade%s in progress but Host version numbers indicate otherwise; correcting"
-						(if pool_says_in_progress then "" else " not");
-					(if actually_in_progress
-					 then Db.Pool.add_to_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress ~value:"true"
-					 else begin
-						 Db.Pool.remove_from_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress;
-						 List.iter (fun vm -> Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm) (Db.VM.get_all ~__context)
-					 end);
+					  warn "Pool thinks rolling upgrade%s in progress but Host version numbers indicate otherwise; correcting"
+						  (if pool_says_in_progress then "" else " not");
+					  (if actually_in_progress
+					   then Db.Pool.add_to_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress ~value:"true"
+					   else begin
+						   Db.Pool.remove_from_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress;
+						   List.iter (fun vm -> Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm) (Db.VM.get_all ~__context)
+					   end);
 					(* Call out to an external script to allow external actions to be performed *)
-					let rolling_upgrade_script_hook = Xapi_globs.rolling_upgrade_script_hook in
-					if (try Unix.access rolling_upgrade_script_hook [ Unix.X_OK ]; true with _ -> false) then begin
-						let args = if actually_in_progress then [ "start" ] else [ "stop" ] in
-						debug "Executing rolling_upgrade script: %s %s"
-							rolling_upgrade_script_hook (String.concat " " args);
-						ignore(Forkhelpers.execute_command_get_output rolling_upgrade_script_hook args)
-					end;
+					  let rolling_upgrade_script_hook = Xapi_globs.rolling_upgrade_script_hook in
+					  if (try Unix.access rolling_upgrade_script_hook [ Unix.X_OK ]; true with _ -> false) then begin
+						  let args = if actually_in_progress then [ "start" ] else [ "stop" ] in
+						  debug "Executing rolling_upgrade script: %s %s"
+							  rolling_upgrade_script_hook (String.concat " " args);
+						  ignore(Forkhelpers.execute_command_get_output rolling_upgrade_script_hook args)
+					  end;
 					(* Call in to internal xapi upgrade code *)
-					if actually_in_progress
-					then Xapi_upgrade.start ()
-					else Xapi_upgrade.stop ()
-				end
+					  if actually_in_progress
+					  then Xapi_upgrade.start ()
+					  else Xapi_upgrade.stop ()
+				  end
 	with exn ->
 		warn "Ignoring error in detect_rolling_upgrade: %s" (ExnHelper.string_of_exn exn)
 
