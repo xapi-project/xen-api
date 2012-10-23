@@ -12,21 +12,21 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Listext
-open Stringext
-open Pervasiveext
-open Threadext
 open Xenops_interface
 
-module D = Debug.Debugger(struct let name = service_name end)
-open D
+let debug fmt = Printf.ksprintf ignore fmt (* XXX *)
+
 
 let ( |> ) a b = b a
 
 module Unix = struct
 	include Unix
-	let file_descr_of_rpc x = x |> Rpc.int_of_rpc |> Unixext.file_descr_of_int
-	let rpc_of_file_descr x = x |> Unixext.int_of_file_descr |> Rpc.rpc_of_int
+
+	let file_descr_of_int (x: int) : Unix.file_descr = Obj.magic x
+	let int_of_file_descr (x: Unix.file_descr) : int = Obj.magic x
+
+	let file_descr_of_rpc x = x |> Rpc.int_of_rpc |> file_descr_of_int
+	let rpc_of_file_descr x = x |> int_of_file_descr |> Rpc.rpc_of_int
 end
 
 let all = List.fold_left (&&) true
