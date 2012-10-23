@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_test_common
+open Test_common
 
 let test_prepare_restore () = 
 	let make_context mac1 mac2 host_uuid dom0_uuid = 
@@ -52,8 +52,3 @@ let test_prepare_restore () =
 	if dom0_uuid <> my_control_uuid
 	then failwith "test_prepare_restore: master dom0 uuid wrong";
 	Printf.printf "test_prepare_restore OK \n"
-
-let all () = 
-	test_prepare_restore ()
-
-	

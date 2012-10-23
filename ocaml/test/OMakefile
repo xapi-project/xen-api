@@ -1,11 +1,13 @@
 OCAMLPACKS = oUnit sexpr log xmlm stunnel xml-light2 http-svr uuid netdev \
-             tapctl rss xenctrl xenctrlext xenstore xenstoreext cpuid
+             tapctl rss xenctrl xenctrlext xenstore xenstoreext cpuid pciutil
 
 OCAMLINCLUDES = \
 	../database \
 	../xapi \
+	../xenops \
 	../idl \
 	../idl/ocaml_backend \
+	../autogen \
 
 OCAML_LIBS = \
 	../fhs \
@@ -23,5 +25,7 @@ OCAML_OBJS = \
 	mock \
 	test_common \
 	test_basic \
+	pool_db_backup_test \
+	xapi_db_upgrade_test \
 
 OCamlProgram(suite, suite $(OCAML_OBJS) )
