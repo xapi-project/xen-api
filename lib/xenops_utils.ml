@@ -81,14 +81,22 @@ module FileFS = struct
 	let filename_of k = Printf.sprintf "%s/%s" !root (String.concat "/" k)
 	let paths_of k = List.map filename_of (prefixes_of k)
 
-	let mkdir path = Unixext.mkdir_rec (filename_of path) 0o755
+	let mkdir_rec dir perm =
+        let rec p_mkdir dir =
+            let p_name = Filename.dirname dir in
+            if p_name <> "/" && p_name <> "." 
+            then p_mkdir p_name;
+            try Unix.mkdir dir perm with Unix.Unix_error (Unix.EEXIST, _, _) -> () in
+        p_mkdir dir
+
+	let mkdir path = mkdir_rec (filename_of path) 0o755
 	let read path =
 		try
 			Some (filename_of path |> Unixext.string_of_file |> Jsonrpc.of_string)
 		with e -> None
 	let write path x =
 		let filename = filename_of path in
-		Unixext.mkdir_rec (Filename.dirname filename) 0o755;
+		mkdir_rec (Filename.dirname filename) 0o755;
 		Unixext.write_string_to_file filename (Jsonrpc.to_string x)
 	let exists path = Sys.file_exists (filename_of path)
 	let rm path =
