@@ -12,6 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
+open OUnit
 open Test_common
 
 let test_prepare_restore () = 
@@ -34,21 +35,16 @@ let test_prepare_restore () =
 	Pool_db_backup.prepare_database_for_restore ~old_context ~new_context;
 	let all_hosts = Db.Host.get_all ~__context:new_context in
 	(* new_context should have exactly 1 host: the master *)
-	if List.length all_hosts <> 1
-	then failwith "test_prepare_restore: should only be 1 host";
+	assert_equal ~msg:"test_prepare_restore: should only be 1 host" (List.length all_hosts) 1;
 	let master = List.hd all_hosts in	
 	(* new_context master host should have PIF with MAC "1" *)
 	let pif = List.hd (Db.Host.get_PIFs ~__context:new_context ~self:master) in
 	let mac = Db.PIF.get_MAC ~__context:new_context ~self:pif in
-	if mac <> "1"
-	then failwith "test_prepare_restore: PIF should have MAC 1";
+	assert_equal ~msg:"test_prepare_restore: PIF should have MAC 1" mac "1";
 	(* new_context should have correct master host uuid *)
 	let host_uuid = Db.Host.get_uuid ~__context:new_context ~self:master in
-	if host_uuid <> my_installation_uuid
-	then failwith "test_prepare_restore: master uuid wrong";
+	assert_equal ~msg:"test_prepare_restore: master uuid wrong" host_uuid my_installation_uuid;
 	(* new_context should have correct master dom0 uuid *)
 	let dom0 = List.hd (Db.Host.get_resident_VMs ~__context:new_context ~self:master) in
 	let dom0_uuid = Db.VM.get_uuid ~__context:new_context ~self:dom0 in
-	if dom0_uuid <> my_control_uuid
-	then failwith "test_prepare_restore: master dom0 uuid wrong";
-	Printf.printf "test_prepare_restore OK \n"
+	assert_equal ~msg:"test_prepare_restore: master dom0 uuid wrong" dom0_uuid my_control_uuid;
