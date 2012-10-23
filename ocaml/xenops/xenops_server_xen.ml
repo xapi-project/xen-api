@@ -46,13 +46,15 @@ let choose_alternative kind default platformdata =
 	debug "looking for %s in [ %s ]" kind (String.concat "; " (List.map (fun (k, v) -> k ^ " : " ^v) platformdata));
 	if List.mem_assoc kind platformdata then begin
 		let x = List.assoc kind platformdata in
-		let path = Printf.sprintf "%s/%s/%s" _alternatives kind x in
-		try
-			Unix.access path [ Unix.X_OK ];
-			path
-		with _ ->
-			error "Invalid platform:%s=%s (check execute permissions of %s)" kind x path;
+		let dir = Filename.concat _alternatives kind in
+		let available = try Array.to_list (Sys.readdir dir) with _ -> [] in
+		(* If x has been put in the directory (by root) then it's safe to use *)
+		if List.mem x available
+		then Filename.concat dir x
+		else begin
+			error "Invalid platform:%s=%s (check execute permissions of %s)" kind x (Filename.concat dir x);
 			default
+		end
 	end else default
 
 (* We allow qemu-dm to be overriden via a platform flag *)
