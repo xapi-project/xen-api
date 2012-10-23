@@ -32,7 +32,10 @@ end
 let all = List.fold_left (&&) true
 let any = List.fold_left (||) false
 
-let dropnone x = List.filter_map (fun x -> x) x
+let dropnone =
+	List.fold_left (fun acc x -> match x with
+		| None -> acc
+		| Some x -> x :: acc) []
 
 module type ITEM = sig
 	type t
