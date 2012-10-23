@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_test_common
+open Test_common
 open Xapi_db_upgrade
 
 let upgrade_vm_memory_for_dmc () = 
@@ -99,8 +99,3 @@ let update_snapshots () =
 	then failwith "b_snap2.parent <> b_snap";
 
 	Printf.printf "update_snapshots: OK\n"
-
-let all () = 
-	upgrade_vm_memory_for_dmc ();
-	upgrade_bios ();
-	update_snapshots ()
