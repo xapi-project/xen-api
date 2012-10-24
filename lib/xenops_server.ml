@@ -1075,24 +1075,24 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			debug "VM.migrate %s -> %s" id url';
 			let vm = VM_DB.read_exn id in
 			let open Xenops_client in
-			let url = Url.of_string url' in
+			let url = Uri.of_string url' in
 			(* We need to perform version exchange here *)
 			let is_localhost =
 				try
-					let q = query t.Xenops_task.debug_info url in
+					let q = query t.Xenops_task.debug_info url' in
 					debug "Remote system is: %s" (q |> Query.rpc_of_t |> Jsonrpc.to_string);
 					q.Query.instance_id = instance_id
 				with e ->
 					debug "Failed to contact remote system on %s: is it running? (%s)" url' (Printexc.to_string e);
-					raise (Failed_to_contact_remote_service (url |> transport_of_url |> string_of_transport)) in
+					raise (Failed_to_contact_remote_service url') in
 			if is_localhost
 			then debug "This is a localhost migration.";
 			Xenops_hooks.vm_pre_migrate ~reason:Xenops_hooks.reason__migrate_source ~id;
 
-			let module Remote = Xenops_interface.Client(struct let rpc = xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" url end) in
+			let module Remote = Xenops_interface.Client(struct let rpc = xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" url' end) in
 			let id = Remote.VM.import_metadata t.Xenops_task.debug_info(export_metadata vdi_map vif_map id) in
 			debug "Received id = %s" id;
-			let memory_url = Uri.make ~scheme:(Uri.scheme url) ~host:(Uri.host url) ~port:(Uri.port url)
+			let memory_url = Uri.make ?scheme:(Uri.scheme url) ?host:(Uri.host url) ?port:(Uri.port url)
 				~path:(Uri.path url ^ "/memory/" ^ id) ~query:(Uri.query url) () in
 
 			(* CA-78365: set the memory dynamic range to a single value to stop ballooning. *)
@@ -1114,13 +1114,13 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 						"dbg", t.Xenops_task.debug_info;
 						"memory_limit", Int64.to_string state.Vm.memory_limit;
 					] in
-					let headers = [
+					let headers = Cohttp.Header.of_list [
 						"Connection", "keep-alive";
 						"User-agent", "xenopsd";
 					] in
 					let request = Request.make ~meth:`PUT ~version:`HTTP_1_1 ~headers memory_url in
 
-					Request.write (fun t _ -> ()) http_req oc;
+					Request.write (fun t _ -> ()) request mfd;
 
 					begin match Handshake.recv mfd with
 						| Handshake.Success -> ()

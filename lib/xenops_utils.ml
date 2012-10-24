@@ -16,6 +16,8 @@ open Xenops_interface
 
 let debug fmt = Printf.ksprintf ignore fmt (* XXX *)
 let error fmt = Printf.ksprintf ignore fmt (* XXX *)
+let info fmt = Printf.ksprintf ignore fmt (* XXX *)
+let warn fmt = Printf.ksprintf ignore fmt (* XXX *)
 
 
 let ( |> ) a b = b a
@@ -94,6 +96,9 @@ module Opt = struct
 		| None -> None
 		| Some x -> Some (f x)
 	let iter f x = ignore (map f x)
+	let to_list = function
+		| Some x -> [x]
+		| None -> []
 end
 module List = struct
 	include List
