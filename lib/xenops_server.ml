@@ -1107,7 +1107,6 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 				(fun mfd ->
 					let open Xenops_migrate in
 					let module Request = Cohttp.Request.Make(Cohttp_posix_io.Unbuffered_IO) in
-					let module Response = Cohttp.Response.Make(Cohttp_posix_io.Unbuffered_IO) in
 					(* XXX: hook up cookies *)
 					let cookie = [
 						"instance_id", instance_id;
@@ -1574,18 +1573,22 @@ module VM = struct
 				vm 
 			) ()
 
+	let path_separator = Re_str.regexp_string "/"
+
 	let receive_memory req s context : unit =
-		let dbg = List.assoc "dbg" req.Http.Request.cookie in
-		let memory_limit = List.assoc "memory_limit" req.Http.Request.cookie |> Int64.of_string in
+		let module Request = Cohttp.Request.Make(Cohttp_posix_io.Unbuffered_IO) in
+		let module Response = Cohttp.Response.Make(Cohttp_posix_io.Unbuffered_IO) in
+		let cookies = [] in (* XXX *)
+		let dbg = List.assoc "dbg" cookies in
+		let memory_limit = List.assoc "memory_limit" cookies |> Int64.of_string in
 		Debug.with_thread_associated dbg
 		(fun () ->
 			let is_localhost, id = Debug.with_thread_associated dbg
 				debug "VM.receive_memory";
-				req.Http.Request.close <- true;
-				let remote_instance = List.assoc "instance_id" req.Http.Request.cookie in
+				let remote_instance = List.assoc "instance_id" cookies in
 				let is_localhost = instance_id = remote_instance in
 				(* The URI is /service/xenops/memory/id *)
-				let bits = String.split '/' req.Http.Request.uri in
+				let bits = Re_str.split_delim path_separator (Uri.path (Request.uri req)) in
 				let id = bits |> List.rev |> List.hd in
 				debug "VM.receive_memory id = %s is_localhost = %b" id is_localhost;
 				is_localhost, id
@@ -1594,7 +1597,6 @@ module VM = struct
 			| Some transferred_fd ->
 				let op = VM_receive_memory(id, memory_limit, transferred_fd) in
 				(* If it's a localhost migration then we're already in the queue *)
-				let open Xenops_client in
 				let task =
 					if is_localhost then begin
 						immediate_operation dbg id op;
@@ -1602,12 +1604,20 @@ module VM = struct
 					end else
 						Some (queue_operation dbg id op)
 				in
-				let response = Http.Response.make ?task ~version:"1.1" "200" "OK" in
-				response |> Http.Response.to_wire_string |> Unixext.really_write_string s;
-				Opt.iter (fun t -> t |> wait_for_task dbg |> ignore) task
+				let headers = Cohttp.Header.of_list ([
+					"User-agent", "xenopsd"
+				] @ (match task with
+					| None -> []
+					| Some task -> [ "task-id", task ])) in
+				let response = Response.make ~version:`HTTP_1_1 ~status:`OK ~headers () in
+				Response.write (fun _ _ -> ()) response s;
+				Opt.iter (fun t -> t |> Xenops_client.wait_for_task dbg |> ignore) task
 			| None ->
-				let response = Http.Response.make ~version:"1.1" "404" "File descriptor missing" in
-				response |> Http.Response.to_wire_string |> Unixext.really_write_string s
+				let headers = Cohttp.Header.of_list [
+					"User-agent", "xenopsd"
+				] in
+				let response = Response.make ~version:`HTTP_1_1 ~status:`Not_found ~headers () in
+				Response.write (fun _ _ -> ()) response s;
 		) ()
 end
 
