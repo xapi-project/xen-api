@@ -110,6 +110,20 @@ end
 module Debug = struct
 	let with_thread_associated _ f x = f x (* XXX *)
 end
+module Date = struct
+	type t = string
+	let of_float x = 
+		let time = Unix.gmtime x in
+		Printf.sprintf "%04d%02d%02dT%02d:%02d:%02dZ"
+			(time.Unix.tm_year+1900)
+			(time.Unix.tm_mon+1)
+			time.Unix.tm_mday
+			time.Unix.tm_hour
+			time.Unix.tm_min
+			time.Unix.tm_sec
+	let to_string x = x
+end
+
 
 let dropnone x = List.filter_map (Opt.map (fun x -> x)) x
 
