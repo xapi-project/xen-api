@@ -1,8 +1,8 @@
 # OASIS_START
-# DO NOT EDIT (digest: 3c451b32236ddcce51fda71f021ca147)
+# DO NOT EDIT (digest: b639c46e69fbf786b9353134f9411b23)
 version = "1.0"
 description = "Xen domain manager"
-requires = "xmlm cohttp uri rpc rpc.syntax"
+requires = "threads xmlm cohttp uri rpc rpc.syntax"
 archive(byte) = "xenops.cma"
 archive(byte, plugin) = "xenops.cma"
 archive(native) = "xenops.cmxa"
