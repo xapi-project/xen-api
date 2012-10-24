@@ -14,7 +14,6 @@
 
 open Xenops_interface
 open Xenops_utils
-open Fun
 open Xenops_task
 
 type domain_action_request =

@@ -1,5 +1,8 @@
 # OASIS_START
-# DO NOT EDIT (digest: bdfc60cd77d0f3680e0fdc54244fdf43)
+# DO NOT EDIT (digest: 0cad4322a938e4ee96b0c5abf34c3280)
+Task_server
+Xenops_task
+Updates
 Xenops_utils
 Xenops_client
 Xenops_server
