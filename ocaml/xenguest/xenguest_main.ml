@@ -287,7 +287,10 @@ let _ =
 	add_param "live" "perform a live suspend";
 	add_param "debug" "suspend in debug mode";
 	add_param "store_port" "";
+	add_param "store_domid" "";
 	add_param "console_port" "";
+	add_param "console_domid" "";
+	add_param "no_incr_generationid" "";
 	add_param "features" "";
 	add_param "flags" "";
 	add_param "mem_max_mib" "maximum memory allocation / MiB";
