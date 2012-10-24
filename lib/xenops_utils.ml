@@ -91,9 +91,13 @@ module Mutex = struct
 		finally f (fun () -> Mutex.unlock m)
 end
 module Opt = struct
+	let default x = function
+		| None -> x
+		| Some x -> x
 	let map f = function
 		| None -> None
 		| Some x -> Some (f x)
+	let iter f x = ignore (map f x)
 end
 
 module FileFS = struct
