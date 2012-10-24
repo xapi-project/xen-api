@@ -101,6 +101,11 @@ module List = struct
 			| None -> acc
 			| Some x -> f x :: acc) [] x
 end
+module String = struct
+	include String
+	let startswith prefix x =
+		String.length x >= (String.length prefix) && (String.sub x 0 (String.length prefix) = prefix)
+end
 
 let dropnone x = List.filter_map (fun x -> x) x
 
