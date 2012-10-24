@@ -15,10 +15,7 @@
  * @group Xenops
  *)
 
-open Threadext
-open Pervasiveext
-open Listext
-open Fun
+open Xenops_utils
 
 type stringpair = string * string
 
@@ -64,9 +61,6 @@ end
 
 
 module Task = functor (Interface : INTERFACE) -> struct		
-
-module D = Debug.Debugger(struct let name = Interface.service_name end)
-open D
 
 (* A task is associated with every running operation *)
 type t = {
@@ -145,16 +139,19 @@ let find_locked tasks id =
 	if not (exists_locked tasks id) then raise (Interface.Does_not_exist("task", id));
 	SMap.find id !(tasks.tasks)
 
+let replace_assoc key new_value existing =
+        (key, new_value) :: (List.filter (fun (k, _) -> k <> key) existing)
+
 let with_subtask t name f =
 	let start = Unix.gettimeofday () in
 	try
 		t.subtasks <- (name, Interface.Task.Pending 0.) :: t.subtasks;
 		let result = f () in
 		let duration = Unix.gettimeofday () -. start in
-		t.subtasks <- List.replace_assoc name (Interface.Task.Completed {Interface.Task.duration; result=None}) t.subtasks;
+		t.subtasks <- replace_assoc name (Interface.Task.Completed {Interface.Task.duration; result=None}) t.subtasks;
 		result
 	with e ->
-		t.subtasks <- List.replace_assoc name (Interface.Task.Failed (Interface.Exception.rpc_of_exnty (Interface.exnty_of_exn (Interface.Internal_error (Printexc.to_string e))))) t.subtasks;
+		t.subtasks <- replace_assoc name (Interface.Task.Failed (Interface.Exception.rpc_of_exnty (Interface.exnty_of_exn (Interface.Internal_error (Printexc.to_string e))))) t.subtasks;
 		raise e
 
 let list tasks =
