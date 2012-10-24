@@ -312,13 +312,16 @@ module Plugin = struct
 			Hashtbl.add open_files path fd;
 			fd
 
-	(* A function that reads using Unix.read a string of specified length from
-	 * the specified file. *)
+	(* A function that reads using Unixext.really_read a string of specified
+	 * length from the specified file. *)
 	let read_string ~(fd : Unix.file_descr) ~(length : int) : string =
-		let buffer = String.create length in
-		let read = Unix.read fd buffer 0 length in
-		if read <> length then raise Read_error;
-		buffer
+		try
+			(* CA-92154: use Unixext.really_read since Unix.read will
+			 * not read a string longer than 16384 bytes *)
+			Unixext.really_read_string fd length
+		with _ ->
+			log_backtrace ();
+			raise Read_error
 
 	(* The payload type that corresponds to the plugin output file format. *)
 	type payload = {
