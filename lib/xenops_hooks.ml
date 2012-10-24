@@ -15,9 +15,6 @@
 open Xenops_interface
 open Xenops_utils
 
-module D = Debug.Debugger(struct let name = service_name end)
-open D
-
 let hooks_dir = "/etc/xapi.d/"
 
 (* Names of VM script hooks *)
@@ -54,6 +51,8 @@ let execute_hook ~script_name ~args ~reason =
   let args = args @ [ "-reason"; reason ] in
   let scripts = list_individual_hooks ~script_name in
 
+  error "XXX unable to fork/exec in this program"
+(*
   let script_dir = hooks_dir^script_name^"/" in
     Array.iter
       (fun script->
@@ -68,6 +67,7 @@ let execute_hook ~script_name ~args ~reason =
 	       raise (Hook_failed(script_name^"/"^script, reason, stdout, string_of_int i))
 		     )
       scripts
+*)
 
 let execute_vm_hook ~id ~reason =
   execute_hook ~args:[ "-vmuuid"; id ] ~reason

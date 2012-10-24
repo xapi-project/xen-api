@@ -15,6 +15,7 @@
 open Xenops_interface
 
 let debug fmt = Printf.ksprintf ignore fmt (* XXX *)
+let error fmt = Printf.ksprintf ignore fmt (* XXX *)
 
 
 let ( |> ) a b = b a
