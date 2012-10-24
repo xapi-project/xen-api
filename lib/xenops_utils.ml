@@ -90,14 +90,35 @@ module FileFS = struct
         p_mkdir dir
 
 	let mkdir path = mkdir_rec (filename_of path) 0o755
-	let read path =
+
+	let finally f g =
 		try
-			Some (filename_of path |> Unixext.string_of_file |> Jsonrpc.of_string)
-		with e -> None
+			let result = f () in
+			g ();
+			result
+		with e ->
+			g ();
+			raise e
+
+	let read path =
+		let ic = open_in (filename_of path) in
+		finally
+			(fun () ->
+				try
+					Some (Jsonrpc.of_fct (fun () -> input_char ic))
+				with _ ->
+					None
+			) (fun () -> close_in ic)
+
 	let write path x =
 		let filename = filename_of path in
 		mkdir_rec (Filename.dirname filename) 0o755;
-		Unixext.write_string_to_file filename (Jsonrpc.to_string x)
+		let oc = open_out_gen [ Open_trunc ] 0o644 filename in
+		finally
+			(fun () ->
+				Jsonrpc.to_fct x (output_string oc)
+			) (fun () -> close_out oc)
+
 	let exists path = Sys.file_exists (filename_of path)
 	let rm path =
 		List.iter
