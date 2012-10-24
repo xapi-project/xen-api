@@ -95,8 +95,7 @@ module Unbuffered_IO = struct
 	let rec read_exactly ic buf ofs len =
 		let n = Unix.read ic.fd buf ofs len in
 		let remaining = len - n in
-		if remaining > 0
-		then read_exactly ic buf (ofs + n) (len - n)
+		remaining = 0 || (n > 0 && (read_exactly ic buf (ofs + n) (len - n)))
 
 	let read ic n =
 		let buf = String.make n '\000' in
@@ -105,7 +104,7 @@ module Unbuffered_IO = struct
 		then buf
 		else String.sub buf 0 actually_read
 
-	let write oc x = Unix.write oc x 0 (String.length x)
+	let write oc x = ignore(Unix.write oc x 0 (String.length x))
 
 	let open_uri uri f =
 		let handle_socket s =
