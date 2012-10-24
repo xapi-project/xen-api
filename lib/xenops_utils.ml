@@ -32,11 +32,6 @@ end
 let all = List.fold_left (&&) true
 let any = List.fold_left (||) false
 
-let dropnone x  =
-	List.fold_left (fun acc x -> match x with
-		| None -> acc
-		| Some x -> x :: acc) [] x
-
 module type ITEM = sig
 	type t
     val t_of_rpc: Rpc.t -> t
@@ -99,6 +94,15 @@ module Opt = struct
 		| Some x -> Some (f x)
 	let iter f x = ignore (map f x)
 end
+module List = struct
+	include List
+	let filter_map f x =
+		List.fold_left (fun acc x -> match x with
+			| None -> acc
+			| Some x -> f x :: acc) [] x
+end
+
+let dropnone x = List.filter_map (fun x -> x) x
 
 module FileFS = struct
 	(** A directory tree containiign files, each of which contain strings *)
