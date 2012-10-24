@@ -107,6 +107,9 @@ module String = struct
 	let startswith prefix x =
 		String.length x >= (String.length prefix) && (String.sub x 0 (String.length prefix) = prefix)
 end
+module Debug = struct
+	let with_thread_associated _ f x = f x (* XXX *)
+end
 
 let dropnone x = List.filter_map (Opt.map (fun x -> x)) x
 
