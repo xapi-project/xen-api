@@ -172,12 +172,17 @@ module Handshake = struct
 		| Success -> "Success"
 		| Error x -> "Error: " ^ x
 
+	let rec really_read fd buf ofs len =
+		let n = Unix.read fd buf ofs len in
+		if n = 0 then raise End_of_file;
+		if n < len then really_read fd buf (ofs + n) (len - n)
+
 	(** Receive a 'result' from the remote *)
 	let recv ?verbose:(verbose=false) (s: Unix.file_descr) : result =
 		let buf = String.make 2 '\000' in
 		if verbose then debug "Handshake.recv: about to read result code from remote.";
 		(try
-			Unixext.really_read s buf 0 (String.length buf)
+			really_read s buf 0 (String.length buf)
 		with _ ->
 			raise (Remote_failed "unmarshalling result code from remote"));
 		if verbose then debug "Handshake.recv: finished reading result code from remote.";
@@ -187,7 +192,7 @@ module Handshake = struct
 		else begin
 			let msg = String.make len '\000' in
 			if verbose then debug "Handshake.recv: about to read error message from remote.";
-			(try Unixext.really_read s msg 0 len
+			(try really_read s msg 0 len
 				with _ ->
 					raise (Remote_failed "unmarshalling error message from remote"));
 			if verbose then debug "Handshake.recv: finished reading error message from remote.";
