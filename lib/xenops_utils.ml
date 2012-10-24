@@ -98,9 +98,9 @@ end
 module List = struct
 	include List
 	let filter_map f x =
-		List.fold_left (fun acc x -> match x with
+		List.fold_left (fun acc x -> match f x with
 			| None -> acc
-			| Some x -> f x :: acc) [] x
+			| Some x -> x :: acc) [] x
 end
 module String = struct
 	include String
@@ -108,7 +108,7 @@ module String = struct
 		String.length x >= (String.length prefix) && (String.sub x 0 (String.length prefix) = prefix)
 end
 
-let dropnone x = List.filter_map (fun x -> x) x
+let dropnone x = List.filter_map (Opt.map (fun x -> x)) x
 
 module FileFS = struct
 	(** A directory tree containiign files, each of which contain strings *)
