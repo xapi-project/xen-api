@@ -15,10 +15,6 @@
 open Xenops_interface
 open Xenops_utils
 open Xenops_client
-open Fun
-
-module D = Debug.Debugger(struct let name = service_name end)
-open D
 
 (*
 let local_rpc call =
@@ -98,14 +94,7 @@ let rec receiver_loop req s state =
 let receive req s _ =
 	let _, _ = receiver_loop req s Receiver.initial in
 	()
-*)
 
-let http_post url length body =
-	Http.Request.make ~version:"1.1" ?auth:(Http.Url.auth_of url) ~user_agent:"xenopsd" ~length ~query:(Http.Url.get_query_params url) ~body Http.Post (Http.Url.get_uri url)
-*)
-let http_put ?(cookie=[]) url =
-	Http.Request.make ~version:"1.1" ~keep_alive:false ?auth:(Http.Url.auth_of url) ~user_agent:"xenopsd" ~query:(Http.Url.get_query_params url) ~cookie Http.Put (Http.Url.get_uri url)
-(*
 let remote_rpc url rpc fd =
 	let body = rpc |> Jsonrpc.string_of_call in
 	let length = body |> String.length |> Int64.of_int in
@@ -166,7 +155,7 @@ let serve_rpc s f =
 			response |> Http.Response.to_wire_string |> Unixext.really_write_string s
 		end
 *)
-
+*)
 exception Remote_failed of string
 
 (** Functions to synchronise between the sender and receiver via binary messages of the form:

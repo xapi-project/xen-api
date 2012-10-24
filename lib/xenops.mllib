@@ -1,5 +1,7 @@
 # OASIS_START
-# DO NOT EDIT (digest: 111b1e515a9db388a434a8e4aae9c89e)
+# DO NOT EDIT (digest: d09defeed5767b90deeea021ffbcd4fd)
+Cohttp_posix_io
+Xenops_migrate
 Xenops_hooks
 Task_server
 Xenops_task

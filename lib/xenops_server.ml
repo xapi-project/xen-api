@@ -1074,9 +1074,8 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 		| VM_migrate (id, vdi_map, vif_map, url') ->
 			debug "VM.migrate %s -> %s" id url';
 			let vm = VM_DB.read_exn id in
-			let open Xmlrpc_client in
 			let open Xenops_client in
-			let url = url' |> Http.Url.of_string in
+			let url = Url.of_string url' in
 			(* We need to perform version exchange here *)
 			let is_localhost =
 				try
@@ -1093,8 +1092,8 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			let module Remote = Xenops_interface.Client(struct let rpc = xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" url end) in
 			let id = Remote.VM.import_metadata t.Xenops_task.debug_info(export_metadata vdi_map vif_map id) in
 			debug "Received id = %s" id;
-			let suffix = Printf.sprintf "/memory/%s" id in
-			let memory_url = Http.Url.(set_uri url (get_uri url ^ suffix)) in
+			let memory_url = Uri.make ~scheme:(Uri.scheme url) ~host:(Uri.host url) ~port:(Uri.port url)
+				~path:(Uri.path url ^ "/memory/" ^ id) ~query:(Uri.query url) () in
 
 			(* CA-78365: set the memory dynamic range to a single value to stop ballooning. *)
 			let atomic = VM_set_memory_dynamic_range(id, vm.Vm.memory_dynamic_min, vm.Vm.memory_dynamic_min) in
@@ -1104,15 +1103,24 @@ let rec perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			let state = B.VM.get_state vm in
 			info "VM %s has memory_limit = %Ld" id state.Vm.memory_limit;
 
-			with_transport (transport_of_url memory_url)
+			Cohttp_posix_io.Unbuffered_IO.open_uri memory_url
 				(fun mfd ->
 					let open Xenops_migrate in
-					let request = http_put memory_url ~cookie:[
+					let module Request = Cohttp.Request.Make(Cohttp_posix_io.Unbuffered_IO) in
+					let module Response = Cohttp.Response.Make(Cohttp_posix_io.Unbuffered_IO) in
+					(* XXX: hook up cookies *)
+					let cookie = [
 						"instance_id", instance_id;
 						"dbg", t.Xenops_task.debug_info;
 						"memory_limit", Int64.to_string state.Vm.memory_limit;
 					] in
-					request |> Http.Request.to_wire_string |> Unixext.really_write_string mfd;
+					let headers = [
+						"Connection", "keep-alive";
+						"User-agent", "xenopsd";
+					] in
+					let request = Request.make ~meth:`PUT ~version:`HTTP_1_1 ~headers memory_url in
+
+					Request.write (fun t _ -> ()) http_req oc;
 
 					begin match Handshake.recv mfd with
 						| Handshake.Success -> ()
