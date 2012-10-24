@@ -12,18 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Listext
-open Stringext
-open Threadext
-open Pervasiveext
-open Fun
 open Xenops_interface
 open Xenops_server_plugin
 open Xenops_utils
 open Xenops_task
-
-module D = Debug.Debugger(struct let name = service_name end)
-open D
 
 type context = {
 	transferred_fd: Unix.file_descr option;
@@ -34,7 +26,7 @@ let make_context () = {
 	transferred_fd = None
 }
 
-let instance_id = Uuid.string_of_uuid (Uuid.make_uuid ())
+let instance_id = Uuidm.to_string (Uuidm.create `V4)
 
 let query _ _ _ = {
 	Query.name = "xenops";
