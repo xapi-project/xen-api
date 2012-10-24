@@ -602,7 +602,7 @@ module WorkerPool = struct
 	let count_active () =
 		Mutex.execute m
 			(fun () ->
-				List.map Worker.is_active !pool |> List.filter id |> List.length
+				List.map Worker.is_active !pool |> List.filter (fun x -> x) |> List.length
 			)
 
 	let find_one f = List.fold_left (fun acc x -> acc || (f x)) false
