@@ -32,10 +32,10 @@ end
 let all = List.fold_left (&&) true
 let any = List.fold_left (||) false
 
-let dropnone =
+let dropnone x  =
 	List.fold_left (fun acc x -> match x with
 		| None -> acc
-		| Some x -> x :: acc) []
+		| Some x -> x :: acc) [] x
 
 module type ITEM = sig
 	type t
@@ -75,6 +75,27 @@ let prefixes_of k =
 		) ([], []) k in
 	List.map List.rev prefixes
 
+let finally f g =
+	try
+		let result = f () in
+		g ();
+		result
+	with e ->
+		g ();
+		raise e
+
+module Mutex = struct
+	include Mutex
+	let execute m f =
+		Mutex.lock m;
+		finally f (fun () -> Mutex.unlock m)
+end
+module Opt = struct
+	let map f = function
+		| None -> None
+		| Some x -> Some (f x)
+end
+
 module FileFS = struct
 	(** A directory tree containiign files, each of which contain strings *)
 
@@ -90,15 +111,6 @@ module FileFS = struct
         p_mkdir dir
 
 	let mkdir path = mkdir_rec (filename_of path) 0o755
-
-	let finally f g =
-		try
-			let result = f () in
-			g ();
-			result
-		with e ->
-			g ();
-			raise e
 
 	let read path =
 		let ic = open_in (filename_of path) in
