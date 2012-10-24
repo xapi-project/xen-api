@@ -1407,8 +1407,8 @@ module VIF = struct
 		end;
 		(* Generate MAC if necessary *)
 		let mac = match x.mac with
-			| "random" -> Device.Vif.random_local_mac ()
-			| "" -> Device.Vif.hashchain_local_mac x.position (DB.vm_of x.id)
+			| "random" -> Mac.random_local_mac ()
+			| "" -> Mac.hashchain_local_mac x.position (DB.vm_of x.id)
 			| mac -> mac in
 		DB.write x.id { x with mac = mac };
 		x.id
