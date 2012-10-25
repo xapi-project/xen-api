@@ -14,6 +14,7 @@
 
 open Xenops_interface
 open Xenops_client
+open Xenops_utils
 
 let usage () =
 	Printf.fprintf stderr "%s <command> [args] - send commands to the xenops daemon\n" Sys.argv.(0);
@@ -276,8 +277,9 @@ let print_vm id =
 
 
 let add filename =
-	Unixext.with_input_channel filename
-		(fun ic ->
+	let ic = open_in filename in
+	finally
+		(fun () ->
 			let lexbuf = Lexing.from_channel ic in
 			let config = Xn_cfg_parser.file Xn_cfg_lexer.token lexbuf in
 			let open Xn_cfg_types in
@@ -379,6 +381,7 @@ let add filename =
 			let (_: Pci.id list) = List.map one pcis in
 			Printf.printf "%s\n" id
 		)
+		(fun () -> close_in ic)
 
 let string_of_power_state = function
 	| Running   -> "Running"
