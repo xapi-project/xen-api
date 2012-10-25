@@ -372,11 +372,12 @@ let add filename =
 			let one x = x |> parse_disk id |> Client.VBD.add dbg in
 			let (_: Vbd.id list) = List.map one disks in
 			let vifs = if mem _vif then find _vif |> list string else [] in
-			let vifs = List.combine vifs (Range.to_list (Range.make 0 (List.length vifs))) in
+			let rec ints first last = if first > last then [] else first :: (ints (first + 1) last) in
+			let vifs = List.combine vifs (ints 0 (List.length vifs - 1)) in
 			let one x = x |> parse_vif id |> Client.VIF.add dbg in
 			let (_: Vif.id list) = List.map one vifs in
 			let pcis = if mem _pci then find _pci |> list string else [] in
-			let pcis = List.combine pcis (Range.to_list (Range.make 0 (List.length pcis))) in
+			let pcis = List.combine pcis (ints 0 (List.length pcis - 1)) in
 			let one x = x |> parse_pci id |> Client.PCI.add dbg in
 			let (_: Pci.id list) = List.map one pcis in
 			Printf.printf "%s\n" id
