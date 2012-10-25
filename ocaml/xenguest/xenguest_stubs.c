@@ -92,6 +92,7 @@ xenstore_putsv(int domid, const char *val, const char *fmt, va_list ap)
   struct xs_handle *xsh = NULL;
   int n, m, rc;
   char key[1024];
+  bool success;
 
   rc = 1;
   bzero(key, sizeof(key));
@@ -110,7 +111,8 @@ xenstore_putsv(int domid, const char *val, const char *fmt, va_list ap)
   if (m < 0)
     goto out;
 
-  rc = xs_write(xsh, XBT_NULL, key, val, strlen(val));
+  success = xs_write(xsh, XBT_NULL, key, val, strlen(val));
+  rc = success? 0 : 1;
   out:
   xs_daemon_close(xsh);
   free(path);
