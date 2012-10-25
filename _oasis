@@ -32,7 +32,7 @@ Executable xn
   MainIs:             xn.ml
   Custom:             true
   Install:            false
-  BuildDepends:       xenops
+  BuildDepends:       xenops, uuidm
 
 Executable xenopsd_xen
   CompiledObject:     best

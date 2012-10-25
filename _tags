@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: e9f7cddd0e28ab5c32f5029daf137adf)
+# DO NOT EDIT (digest: 4722c82b742824b0b276fc537b8853b5)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -15,8 +15,8 @@
 "_darcs": not_hygienic
 # Library xenops
 "lib/xenops.cmxs": use_xenops
-<lib/*.ml{,i}>: pkg_threads
 <lib/*.ml{,i}>: pkg_uuidm
+<lib/*.ml{,i}>: pkg_threads
 <lib/*.ml{,i}>: pkg_xmlm
 <lib/*.ml{,i}>: pkg_cohttp
 <lib/*.ml{,i}>: pkg_uri
@@ -24,16 +24,16 @@
 <lib/*.ml{,i}>: pkg_rpc.syntax
 # Executable xn
 <cli/xn.{native,byte}>: use_xenops
-<cli/xn.{native,byte}>: pkg_threads
 <cli/xn.{native,byte}>: pkg_uuidm
+<cli/xn.{native,byte}>: pkg_threads
 <cli/xn.{native,byte}>: pkg_xmlm
 <cli/xn.{native,byte}>: pkg_cohttp
 <cli/xn.{native,byte}>: pkg_uri
 <cli/xn.{native,byte}>: pkg_rpc
 <cli/xn.{native,byte}>: pkg_rpc.syntax
 <cli/*.ml{,i}>: use_xenops
-<cli/*.ml{,i}>: pkg_threads
 <cli/*.ml{,i}>: pkg_uuidm
+<cli/*.ml{,i}>: pkg_threads
 <cli/*.ml{,i}>: pkg_xmlm
 <cli/*.ml{,i}>: pkg_cohttp
 <cli/*.ml{,i}>: pkg_uri
@@ -42,16 +42,16 @@
 <cli/xn.{native,byte}>: custom
 # Executable xenopsd_xen
 <xen/xenopsd_xen_main.{native,byte}>: use_xenops
-<xen/xenopsd_xen_main.{native,byte}>: pkg_threads
 <xen/xenopsd_xen_main.{native,byte}>: pkg_uuidm
+<xen/xenopsd_xen_main.{native,byte}>: pkg_threads
 <xen/xenopsd_xen_main.{native,byte}>: pkg_xmlm
 <xen/xenopsd_xen_main.{native,byte}>: pkg_cohttp
 <xen/xenopsd_xen_main.{native,byte}>: pkg_uri
 <xen/xenopsd_xen_main.{native,byte}>: pkg_rpc
 <xen/xenopsd_xen_main.{native,byte}>: pkg_rpc.syntax
 <xen/*.ml{,i}>: use_xenops
-<xen/*.ml{,i}>: pkg_threads
 <xen/*.ml{,i}>: pkg_uuidm
+<xen/*.ml{,i}>: pkg_threads
 <xen/*.ml{,i}>: pkg_xmlm
 <xen/*.ml{,i}>: pkg_cohttp
 <xen/*.ml{,i}>: pkg_uri
@@ -60,16 +60,16 @@
 <xen/xenopsd_xen_main.{native,byte}>: custom
 # Executable xenopsd_simulator
 <simulator/xenopsd_simulator_main.{native,byte}>: use_xenops
-<simulator/xenopsd_simulator_main.{native,byte}>: pkg_threads
 <simulator/xenopsd_simulator_main.{native,byte}>: pkg_uuidm
+<simulator/xenopsd_simulator_main.{native,byte}>: pkg_threads
 <simulator/xenopsd_simulator_main.{native,byte}>: pkg_xmlm
 <simulator/xenopsd_simulator_main.{native,byte}>: pkg_cohttp
 <simulator/xenopsd_simulator_main.{native,byte}>: pkg_uri
 <simulator/xenopsd_simulator_main.{native,byte}>: pkg_rpc
 <simulator/xenopsd_simulator_main.{native,byte}>: pkg_rpc.syntax
 <simulator/*.ml{,i}>: use_xenops
-<simulator/*.ml{,i}>: pkg_threads
 <simulator/*.ml{,i}>: pkg_uuidm
+<simulator/*.ml{,i}>: pkg_threads
 <simulator/*.ml{,i}>: pkg_xmlm
 <simulator/*.ml{,i}>: pkg_cohttp
 <simulator/*.ml{,i}>: pkg_uri
@@ -78,16 +78,16 @@
 <simulator/xenopsd_simulator_main.{native,byte}>: custom
 # Executable test
 <test/test.{native,byte}>: use_xenops
-<test/test.{native,byte}>: pkg_threads
 <test/test.{native,byte}>: pkg_uuidm
+<test/test.{native,byte}>: pkg_threads
 <test/test.{native,byte}>: pkg_xmlm
 <test/test.{native,byte}>: pkg_cohttp
 <test/test.{native,byte}>: pkg_uri
 <test/test.{native,byte}>: pkg_rpc
 <test/test.{native,byte}>: pkg_rpc.syntax
 <test/*.ml{,i}>: use_xenops
-<test/*.ml{,i}>: pkg_threads
 <test/*.ml{,i}>: pkg_uuidm
+<test/*.ml{,i}>: pkg_threads
 <test/*.ml{,i}>: pkg_xmlm
 <test/*.ml{,i}>: pkg_cohttp
 <test/*.ml{,i}>: pkg_uri
