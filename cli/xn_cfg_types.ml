@@ -1,4 +1,4 @@
-open Fun
+let ( |> ) a b = b a
 
 type value =
 	| String of string
