@@ -14,14 +14,6 @@
 
 (* General DB utils *)
 
-let __callback : ((?snapshot: XMLRPC.xmlrpc -> string -> string -> string -> unit) option ref) = ref None
-let events_register f = __callback := Some f
-let events_unregister () = __callback := None
-    
-let events_notify ?(snapshot) ty op ref =
-  match !__callback with
-    | None -> ()
-    | Some f -> f ?snapshot ty op ref
 	  
 exception Db_set_or_map_parse_fail of string
   

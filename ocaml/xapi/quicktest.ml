@@ -243,6 +243,64 @@ let event_message_test session_id =
 	let ok = has_msg message1 && has_msg message2 && has_msg message3 in
 	if ok then success test else failed test "Failed to get messages for object"
 
+
+let field_event_test session_id =
+	let failure = ref false in
+
+	let test = make_test "Event.fields_from test" 0 in
+	start test;
+
+	let fail x =
+		failed test x; failure := true
+	in
+	(* Let's play with templates *)
+	let vms = Client.VM.get_all !rpc session_id in
+	if List.length vms < 2 then failwith "Test needs 2 VMs";
+	let vm_a = List.hd vms in
+	let vm_b = List.hd (List.tl vms) in
+
+	debug test (Printf.sprintf "watching %s" (Ref.string_of vm_a));	
+	let before_a = Client.VM.get_record !rpc session_id vm_a in
+	let before_b = Client.VM.get_record !rpc session_id vm_b in
+	ignore before_b;
+
+	let classes = [ Printf.sprintf "vm/%s[name_description]" (Ref.string_of vm_a) ] in
+	
+	debug test "Getting all name_description events for specific VM";
+	let cur = Client.Event.fields_from !rpc session_id classes "" 0.0 |> event_from_of_xmlrpc in
+	
+	if List.length cur.events <> 1 then fail (Printf.sprintf "List.length cur.events <> 1: %d" (List.length cur.events));
+	let ev = List.hd cur.events in
+	if ev.reference <> (Ref.string_of vm_a) then fail (Printf.sprintf "ev.reference <> %s (=%s)" (Ref.string_of vm_a) ev.reference);
+	Opt.iter (fun xml -> 
+		let str = XMLRPC.From.structure xml in
+		if not (List.mem_assoc "name_description" str) then fail (Printf.sprintf "name_description not in returned snapshot: contents are [%s]" (String.concat "," (List.map fst str)));
+		let descr = XMLRPC.From.string (List.assoc "name_description" str) in
+		if descr <> before_a.API.vM_name_description then fail (Printf.sprintf "name_description not expected value: got '%s', expected '%s'" descr before_a.API.vM_name_description);
+	) ev.snapshot;
+
+	Client.VM.set_name_description !rpc session_id vm_a "test";
+	debug test "Set description - getting all new name_description events";
+	let cur = Client.Event.fields_from !rpc session_id classes cur.token 0.0 |> event_from_of_xmlrpc in
+	
+	if List.length cur.events <> 1 then fail (Printf.sprintf "List.length cur.events <> 1: %d" (List.length cur.events));
+	let ev = List.hd cur.events in
+	if ev.reference <> (Ref.string_of vm_a) then fail (Printf.sprintf "ev.reference <> %s (=%s)" (Ref.string_of vm_a) ev.reference);
+	Opt.iter (fun xml -> 
+		let str = XMLRPC.From.structure xml in
+		if not (List.mem_assoc "name_description" str) then fail (Printf.sprintf "name_description not in returned snapshot: contents are [%s]" (String.concat "," (List.map fst str)));
+		let descr = XMLRPC.From.string (List.assoc "name_description" str) in
+		if descr <> "test" then fail (Printf.sprintf "name_description not expected value: got '%s', expected '%s'" descr "test");
+	) ev.snapshot;
+
+	Client.VM.set_name_description !rpc session_id vm_b "test";
+	debug test "Set other VM's description - getting all new name_description events";
+	let cur = Client.Event.fields_from !rpc session_id classes cur.token 0.0 |> event_from_of_xmlrpc in
+	if List.length cur.events <> 0 then fail (Printf.sprintf "List.length cur.events <> 0: %d" (List.length cur.events));
+
+	success test
+
+
 let all_srs_with_vdi_create session_id = 
   let all_srs : API.ref_SR list = Quicktest_storage.list_srs session_id in
   (* Filter out those which support the vdi_create capability *)
@@ -821,6 +879,7 @@ let _ =
 				maybe_run_test "event" (fun () -> event_from_test s);
 (*				maybe_run_test "event" (fun () -> object_level_event_test s);*)
 				maybe_run_test "event" (fun () -> event_message_test s);
+				maybe_run_test "event" (fun () -> field_event_test s);
 				maybe_run_test "vdi" (fun () -> vdi_test s);
 				maybe_run_test "async" (fun () -> async_test s);
 				maybe_run_test "import" (fun () -> import_export_test s);

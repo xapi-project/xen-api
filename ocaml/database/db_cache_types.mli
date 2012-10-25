@@ -24,7 +24,7 @@ module Table :
     val iter : (string -> Row.t -> unit) -> t -> unit
     val remove : int64 -> string -> t -> t
     val update : int64 -> string -> Row.t -> (Row.t -> Row.t) -> t -> t
-    val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
+    val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> Row.t option -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
 	val rows : t -> Row.t list
   end
 
@@ -112,4 +112,10 @@ type structured_op_t =
 	| RemoveMap
 val structured_op_t_of_rpc: Rpc.t -> structured_op_t
 val rpc_of_structured_op_t: structured_op_t -> Rpc.t
+
+
+val events_register : (?snapshot: XMLRPC.xmlrpc -> ?row:Row.t -> string -> string -> string -> unit) -> unit
+val events_unregister : unit -> unit
+
+val events_notify : ?snapshot:XMLRPC.xmlrpc -> ?row:Row.t -> string -> string -> string -> unit
 

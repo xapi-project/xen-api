@@ -177,7 +177,7 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 			Db_cache_types.TableSet.fold_over_recent g 
 				(fun c u d name table acc ->
 					 Db_cache_types.Table.fold_over_recent g 
-						 (fun c u d r acc -> 
+						 (fun c u d r _ acc -> 
 							  let s = 
 								  try 
 									  let row = Db_cache_types.Table.find r table in
@@ -197,7 +197,7 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 			Db_cache_types.TableSet.fold_over_recent g
 				(fun c u d name table acc ->
 					 Db_cache_types.Table.fold_over_recent g
-						 (fun c u d r acc ->
+						 (fun c u d r _ acc ->
 							  if c>=g then (name,r)::acc else acc) ignore table acc
 				) tables []
 		in
@@ -207,7 +207,7 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 			Db_cache_types.TableSet.fold_over_recent g
 				(fun c u d name table acc ->
 					 Db_cache_types.Table.fold_over_recent g
-						 (fun c u d r acc ->
+						 (fun c u d r _ acc ->
 							  let row = Db_cache_types.Table.find r table in
 							  Db_cache_types.Row.fold_over_recent g 
 								  (fun c u d k v acc ->
@@ -220,7 +220,7 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 			Db_cache_types.TableSet.fold_over_recent g
 				(fun c u d name table acc ->
 					 Db_cache_types.Table.fold_over_recent g
-						 (fun c u d r acc ->
+						 (fun c u d r _ acc ->
 							  if d > g then r::acc else acc)
 						 ignore table acc) tables []
 		in

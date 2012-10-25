@@ -91,7 +91,7 @@ module type TABLE = sig
 	val remove : int64 -> string -> t -> t
 	val update_generation : int64 -> string -> Row.t -> (Row.t -> Row.t) -> t -> t
 	val update : int64 -> string -> Row.t -> (Row.t -> Row.t) -> t -> t
-	val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
+	val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> Row.t option -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
 	val rows : t -> Row.t list
 end
 
@@ -124,13 +124,13 @@ module Table : TABLE = struct
 	let update_generation g key default f t = {t with rows = StringRowMap.update_generation g key default f t.rows }
 	let update g key default f t = {t with rows = StringRowMap.update g key default f t.rows}
 	let fold_over_recent since f errf t acc =
-		let acc = StringRowMap.fold_over_recent since (fun c u d x _ z -> f c u d x z) t.rows acc in
+		let acc = StringRowMap.fold_over_recent since (fun c u d x y z -> f c u d x (Some y) z) t.rows acc in
 		let rec fold_over_deleted deleted acc =
 			match deleted with
 				| (created,destroyed,r)::xs ->
 					let new_acc =
 						if (destroyed > since) && (created <= since)
-						then (f created 0L destroyed r acc)
+						then (f created 0L destroyed r None acc)
 						else acc
 					in
 					if destroyed <= since then new_acc else fold_over_deleted xs new_acc
@@ -518,3 +518,12 @@ type structured_op_t =
 	| AddMap
 	| RemoveMap
 with rpc
+
+let __callback : ((?snapshot: XMLRPC.xmlrpc -> ?row:Row.t -> string -> string -> string -> unit) option ref) = ref None
+let events_register f = __callback := Some f
+let events_unregister () = __callback := None
+    
+let events_notify ?(snapshot) ?(row) ty op ref =
+  match !__callback with
+    | None -> ()
+    | Some f -> f ?snapshot ?row ty op ref

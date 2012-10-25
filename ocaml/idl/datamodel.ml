@@ -7266,6 +7266,20 @@ let event =
     ~errs:[Api_errors.session_not_registered;Api_errors.events_lost]
     ~allowed_roles:_R_ALL
       () in
+  let fields_from = call
+    ~name:"fields_from" 
+	~params:[Set String, "classes", "register for events for the indicated classes";
+			 String, "token", "A token representing the point from which to generate database events. The empty string represents the beginning.";
+			 Float, "timeout", "Return after this many seconds if no events match";
+	]
+    ~in_product_since:rel_sarasota
+    ~doc:"Blocking call which returns a (possibly empty) batch of events"
+    ~custom_marshaller:true
+    ~flags:[`Session]
+    ~result:(Set (Record _event), "the batch of events")
+    ~errs:[Api_errors.session_not_registered;Api_errors.events_lost]
+    ~allowed_roles:_R_ALL
+      () in
   let get_current_id = call
     ~name:"get_current_id" ~params:[]
     ~in_product_since:rel_rio
@@ -7293,7 +7307,7 @@ let event =
     description = "Asynchronous event registration and handling";
     gen_constructor_destructor = false;
     doccomments = [];
-    messages = [ register; unregister; next; from; get_current_id; inject ];
+    messages = [ register; unregister; next; from; fields_from; get_current_id; inject ];
     obj_release = {internal=get_product_releases rel_rio; opensource=get_oss_releases (Some "3.0.3"); internal_deprecated_since=None};
     contents = [
       field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:Int "id" "An ID, monotonically increasing, and local to the current session";
