@@ -480,13 +480,21 @@ let export_metadata x filename =
 	let open Vm in
 	let vm, _ = find_by_name x in
 	let txt = Client.VM.export_metadata dbg vm.id in
-	Unixext.write_string_to_file filename txt
+	let oc = open_out filename in
+	finally
+		(fun () ->
+			output_string oc txt
+		) (fun () -> close_out oc)
 
 let export_metadata_xm x filename =
 	let open Vm in
 	let vm, _ = find_by_name x in
 	let txt = print_vm vm.id in
-	Unixext.write_string_to_file filename txt
+	let oc = open_out filename in
+	finally
+		(fun () ->
+			output_string oc txt
+		) (fun () -> close_out oc)
 
 let delay x t =
 	let open Vm in
