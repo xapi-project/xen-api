@@ -160,7 +160,7 @@ rm -rf $RPM_BUILD_ROOT
 %files core -f core-files
 %defattr(-,root,root,-)
 @OPTDIR@/bin/xapi
-/etc/xapi.conf
+%config(noreplace) /etc/xapi.conf
 /etc/logrotate.d/audit
 /etc/logrotate.d/v6d
 /etc/logrotate.d/xapi
@@ -172,8 +172,8 @@ rm -rf $RPM_BUILD_ROOT
 /etc/rc.d/init.d/xapissl
 /etc/rc.d/init.d/xenservices
 /etc/rc.d/init.d/genptoken
-/etc/sysconfig/perfmon
-/etc/sysconfig/xapi
+%config(noreplace) /etc/sysconfig/perfmon
+%config(noreplace) /etc/sysconfig/xapi
 /etc/xapi.d/base-path
 /etc/xapi.d/plugins/DRAC.py
 /etc/xapi.d/plugins/DRAC.pyo
@@ -194,11 +194,11 @@ rm -rf $RPM_BUILD_ROOT
 /etc/xapi.d/plugins/wlan.pyo
 /etc/xapi.d/plugins/wlan.pyc
 /etc/xapi.d/plugins/iovirt
-/etc/xensource/db.conf
-/etc/xensource/db.conf.rio
+%config(noreplace) /etc/xensource/db.conf
+%config(noreplace) /etc/xensource/db.conf.rio
 /etc/xensource/master.d/01-example
 /etc/xensource/master.d/03-mpathalert-daemon
-/etc/xensource/pool.conf
+%config(noreplace) /etc/xensource/pool.conf
 @OPTDIR@/bin/fix_firewall.sh
 @OPTDIR@/bin/list_domains
 @OPTDIR@/bin/mpathalert
@@ -270,7 +270,7 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/shell.pyc
 @OPTDIR@/libexec/shutdown
 @OPTDIR@/libexec/sparse_dd
-/etc/sparse_dd.conf
+%config(noreplace) /etc/sparse_dd.conf
 @OPTDIR@/libexec/update-mh-info
 @OPTDIR@/libexec/upload-wrapper
 @OPTDIR@/libexec/vncterm-wrapper
@@ -298,13 +298,13 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root,-)
 @OPTDIR@/libexec/squeezed
 /etc/rc.d/init.d/squeezed
-/etc/squeezed.conf
+%config(noreplace) /etc/squeezed.conf
 
 %files xenopsd
 %defattr(-,root,root,-)
 @OPTDIR@/libexec/xenopsd
 /etc/rc.d/init.d/xenopsd
-/etc/xenopsd.conf
+%config(noreplace) /etc/xenopsd.conf
 @OPTDIR@/bin/xn
 /usr/bin/xn
 /etc/xensource/bugtool/xenopsd.xml
@@ -327,7 +327,7 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root,-)
 @OPTDIR@/libexec/xcp-rrdd
 /etc/rc.d/init.d/xcp-rrdd
-/etc/xcp-rrdd.conf
+%config(noreplace) /etc/xcp-rrdd.conf
 @OPTDIR@/libexec/rrdd-example.py
 @OPTDIR@/libexec/rrdd-example.pyc
 @OPTDIR@/libexec/rrdd-example.pyo
