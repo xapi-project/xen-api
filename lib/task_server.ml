@@ -62,26 +62,28 @@ end
 
 module Task = functor (Interface : INTERFACE) -> struct		
 
+module SMap = Map.Make(struct type t = string let compare = compare end)
+
+(* Tasks are stored in an id -> t map *)
+
 (* A task is associated with every running operation *)
 type t = {
 	id: string;                                    (* unique task id *)
 	ctime: float;                                  (* created timestamp *)
-	debug_info: string;                            (* token sent by client *)
+	dbg: string;                                   (* token sent by client *)
 	mutable state: Interface.Task.state;         (* current completion state *)
 	mutable subtasks: (string * Interface.Task.state) list; (* one level of "subtasks" *)
 	f: t -> Interface.Task.async_result option;    (* body of the function *)
 	tm: Mutex.t;                                   (* protects cancelling state: *)
     mutable cancelling: bool;                      (* set by cancel *)
 	mutable cancel: (unit -> unit) list;           (* attempt to cancel [f] *)
+	mutable cancel_points_seen: int;               (* incremented every time we pass a cancellation point *)
+	test_cancel_at: int option;                    (* index of the cancel point to trigger *)
 }
-
-module SMap = Map.Make(struct type t = string let compare = compare end)
-
-(* Tasks are stored in an id -> t map *)
-
 
 type tasks = {
 	tasks : t SMap.t ref;
+	mutable test_cancel_trigger : (string * int) option;
 	m : Mutex.t;
 	c : Condition.t;
 }
@@ -90,7 +92,7 @@ let empty () =
 	let tasks = ref SMap.empty in
 	let m = Mutex.create () in
 	let c = Condition.create () in
-	{ tasks; m; c }
+	{ tasks; test_cancel_trigger = None; m; c }
 
 (* [next_task_id ()] returns a fresh task id *)
 let next_task_id =
@@ -100,18 +102,36 @@ let next_task_id =
 		incr counter;
 		result
 
+let set_cancel_trigger tasks dbg n =
+	Mutex.execute tasks.m
+		(fun () ->
+			tasks.test_cancel_trigger <- Some (dbg, n)
+		)
+
+let clear_cancel_trigger tasks =
+	Mutex.execute tasks.m
+		(fun () ->
+			tasks.test_cancel_trigger <- None
+		)
+
 (* [add dbg f] creates a fresh [t], registers and returns it *)
 let add tasks dbg (f: t -> Interface.Task.async_result option) =
 	let t = {
 		id = next_task_id ();
 		ctime = Unix.gettimeofday ();
-		debug_info = dbg;
+		dbg = dbg;
 		state = Interface.Task.Pending 0.;
 		subtasks = [];
 		f = f;
 		tm = Mutex.create ();
 		cancelling = false;
 		cancel = [];
+		cancel_points_seen = 0;
+		test_cancel_at = match tasks.test_cancel_trigger with
+			| Some (dbg', n) when dbg = dbg' ->
+				clear_cancel_trigger tasks; (* one shot *)
+				Some n
+			| _ -> None
 	} in
 	Mutex.execute tasks.m
 		(fun () ->
@@ -125,11 +145,12 @@ let run item =
 		let start = Unix.gettimeofday () in
 		let result = item.f item in
 		let duration = Unix.gettimeofday () -. start in
-		item.state <- Interface.Task.Completed { Interface.Task.duration; result }
+		item.state <- Interface.Task.Completed { Interface.Task.duration; result };
+		debug "Task %s completed; duration = %.0f" item.id duration
 	with
 		| e ->
 			let e = e |> Interface.exnty_of_exn |> Interface.Exception.rpc_of_exnty in
-			debug "Caught exception while processing queue: %s" (e |> Jsonrpc.to_string);
+			debug "Task %s failed; exception = %s" item.id (e |> Jsonrpc.to_string);
 			debug "%s" (Printexc.get_backtrace ());
 			item.state <- Interface.Task.Failed e
 
@@ -182,9 +203,20 @@ let cancel tasks id =
 				debug "Task.cancel %s: ignore exception %s" id (Printexc.to_string e)
 		) callbacks
 
-let raise_cancelled t = raise (Interface.Cancelled(t.id))
+let raise_cancelled t =
+	info "Task %s has been cancelled: raising Cancelled exception" t.id;
+	raise (Interface.Cancelled(t.id))
 
-let check_cancelling t = if Mutex.execute t.tm (fun () -> t.cancelling) then raise_cancelled t
+let check_cancelling t =
+	Mutex.execute t.tm
+		(fun () ->
+			t.cancel_points_seen <- t.cancel_points_seen + 1;
+			if t.cancelling then raise_cancelled t;
+			Opt.iter (fun x -> if t.cancel_points_seen = x then begin
+				info "Task %s has been triggered by the test-case (cancel_point = %d)" t.id t.cancel_points_seen;
+				raise_cancelled t
+			end) t.test_cancel_at
+		)
 
 let with_cancel t cancel_fn f =
 	Mutex.execute t.tm (fun () -> t.cancel <- cancel_fn :: t.cancel);
