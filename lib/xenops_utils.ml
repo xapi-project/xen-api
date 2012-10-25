@@ -117,6 +117,8 @@ module String = struct
 end
 module Debug = struct
 	let with_thread_associated _ f x = f x (* XXX *)
+	let disable m =
+		debug "Debug.disable %s" m
 end
 module Date = struct
 	type t = string

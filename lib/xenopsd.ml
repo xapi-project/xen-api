@@ -26,10 +26,46 @@ let minor_version = 9
 let config_file = ref (Printf.sprintf "/etc/%s.conf" name)
 let pidfile = ref (Printf.sprintf "/var/run/%s.pid" name)
 let log_destination = ref "syslog:daemon"
-let simulate = ref false
 let persist = ref true
 let daemon = ref false
 let worker_pool_size = ref 4
+
+let config_spec = [
+    "pidfile", Arg.Set_string pidfile, "Location to store the process pid";
+    "log", Arg.Set_string log_destination, "Where to send the log output";
+    "persist", Arg.Bool (fun b -> persist := b), "True if we want to persist metadata across restarts";
+    "daemon", Arg.Bool (fun b -> daemon := b), "True if we want to daemonize";
+    "disable-logging-for", Arg.String
+        (fun x ->
+            try
+                let modules = Re_str.split (Re_str.regexp "\\s+") x in
+                List.iter Debug.disable modules
+            with e ->
+				error "Processing disabled-logging-for = %s: %s" x (Printexc.to_string e)
+        ), "A space-separated list of debug modules to suppress logging from";
+    "worker-pool-size", Arg.Set_int worker_pool_size, "Number of threads for the worker pool";
+    "database-path", Arg.Set_string Xenops_utils.root, "Location to store the metadata";
+	"config", Arg.Set_string config_file, "Location of configuration file";
+]
+
+let arg_spec = List.map (fun (a, b, c) -> "-" ^ a, b, c) config_spec
+
+let read_config_file () =
+    if Sys.file_exists !config_file then begin
+		(* Will raise exception if config is mis-formatted. It's up to the
+           caller to inspect and handle the failure.
+        *)
+        Config.read !config_file config_spec;
+		debug "Read global variables successfully from %s" !config_file
+    end
+
+let dump_config_file () : unit =
+    debug "pidfile = %s" !pidfile;
+    debug "log = %s" !log_destination;
+    debug "persist = %b" !persist;
+    debug "daemon = %b" !daemon;
+    debug "worker-pool-size = %d" !worker_pool_size;
+    debug "database-path = %s" !Xenops_utils.root
 
 let path = "/var/xapi/xenopsd"
 let forwarded_path = path  ^ ".forwarded" (* receive an authenticated fd from xapi *)

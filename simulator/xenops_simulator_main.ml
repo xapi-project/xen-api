@@ -18,29 +18,16 @@ let name = "xenopsd"
 let major_version = 0
 let minor_version = 9
 
-(* Server configuration. We have built-in (hopefully) sensible defaults,
-   together with command-line arguments and a configuration file. They
-   are applied in order: (latest takes precedence)
-      defaults < arguments < config file
-*)
-let config_file = ref (Printf.sprintf "/etc/%s.conf" name)
-let pidfile = ref (Printf.sprintf "/var/run/%s.pid" name)
-let log_destination = ref "syslog:daemon"
-let persist = ref true
-let daemon = ref false
-let worker_pool_size = ref 4
-
 open Xenopsd
 let _ = 
 	debug "xenopsd version %d.%d starting" major_version minor_version;
 
-	Arg.parse (Arg.align [
-	       "-daemon", Arg.Set daemon, "Create a daemon";
-	       "-pidfile", Arg.Set_string pidfile, Printf.sprintf "Set the pid file (default \"%s\")" !pidfile;
-		   "-config", Arg.Set_string config_file, Printf.sprintf "Read configuration from the specified config file (default \"%s\")" !config_file;
-	     ])
-    (fun _ -> failwith "Invalid argument")
-    (Printf.sprintf "Usage: %s [-daemon] [-pidfile filename]" name);
+	Arg.parse (Arg.align arg_spec)
+		(fun _ -> failwith "Invalid argument")
+		(Printf.sprintf "Usage: %s [-config filename]" name);
+
+	read_config_file ();
+	dump_config_file ();
 
 	Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
 
