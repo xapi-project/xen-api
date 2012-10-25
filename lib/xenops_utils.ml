@@ -128,6 +128,15 @@ module Date = struct
 			time.Unix.tm_sec
 	let to_string x = x
 end
+module Unixext = struct
+	(** remove a file, but doesn't raise an exception if the file is already removed *)
+	let unlink_safe file =
+        try Unix.unlink file with (* Unix.Unix_error (Unix.ENOENT, _ , _)*) _ -> ()
+
+	(** create a directory but doesn't raise an exception if the directory already exist *)
+	let mkdir_safe dir perm =
+        try Unix.mkdir dir perm with Unix.Unix_error (Unix.EEXIST, _, _) -> ()
+end
 
 
 let dropnone x = List.filter_map (Opt.map (fun x -> x)) x
