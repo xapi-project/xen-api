@@ -17,19 +17,11 @@
 
 open OUnit
 
-open Listext
-open Stringext
-open Pervasiveext
-open Fun
-
-open Xmlrpc_client
-
-
 let default_path = "/var/xapi/xenopsd"
-let transport = ref (Unix default_path)
 
 open Xenops_interface
 open Xenops_client
+open Xenops_utils
 
 let usage_and_exit () =
 	Printf.fprintf stderr "Usage:\n";
@@ -367,7 +359,8 @@ let vm_test_start_shutdown _ =
 		)
 
 let vm_test_parallel_start_shutdown _ =
-	let ints = Range.to_list (Range.make 0 1000) |> List.map string_of_int in
+	let rec ints start finish = if start > finish then [] else start :: (ints (start + 1) finish) in
+	let ints = ints 0 1000 |> List.map string_of_int in
 	let t = Unix.gettimeofday () in
 	let ids = List.map
 		(fun x ->
@@ -748,7 +741,7 @@ let _ =
 			"ionice_output" >:: ionice_output;
 		] in
 
-	if !verbose then Debug.log_to_stdout ();
+(*	if !verbose then Debug.log_to_stdout (); *)
 
 	run_test_tt ~verbose:!verbose suite
 

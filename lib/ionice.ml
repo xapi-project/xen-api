@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stringext
 open Xenops_interface.Vbd
 
 (* ionice invocations apply a 'class' and a 'parameter' to a process *)
@@ -50,7 +49,7 @@ exception Parse_failed of string
 
 let parse_result_exn s : qos_scheduler option =
 	try
-		match String.split ' ' (String.strip String.isspace s) with
+		match Re_str.split (Re_str.regexp "\\s+") s with
 			| [ cls_colon; "prio"; param ] ->
 				let cls = String.sub cls_colon 0 (String.length cls_colon - 1) in
 				Some (of_class_param_exn cls param)

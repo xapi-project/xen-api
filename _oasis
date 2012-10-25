@@ -23,7 +23,7 @@ Library xenops
   CompiledObject:     best
   Path:               lib
   Findlibname:        xenops
-  Modules:            Mac, Cohttp_posix_io, Xenops_migrate, Xenops_hooks, Task_server, Xenops_task, Updates, Xenops_utils, Xenops_client, Xenops_server, Xenopsd, Xenops_interface, Xenops_server_plugin, Device_number
+  Modules:            Ionice, Mac, Cohttp_posix_io, Xenops_migrate, Xenops_hooks, Task_server, Xenops_task, Updates, Xenops_utils, Xenops_client, Xenops_server, Xenopsd, Xenops_interface, Xenops_server_plugin, Device_number
   BuildDepends:       threads, uuidm, xmlm, cohttp, uri, rpc, rpc.syntax
 
 Executable xn
@@ -59,7 +59,7 @@ Executable test
   Build$:             flag(tests)
   Custom:             true
   Install:            false
-  BuildDepends:       xenops
+  BuildDepends:       xenops, oUnit, unix
 
 Test test
   Run$:               flag(tests)
