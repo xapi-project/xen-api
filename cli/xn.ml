@@ -502,7 +502,19 @@ let delay x t =
 	Client.VM.delay dbg vm.id t |> wait_for_task dbg |> success_task ignore_task
 
 let import_metadata filename =
-	let txt = Unixext.string_of_file filename in
+	let ic = open_in filename in
+	let buf = Buffer.create 128 in
+	let line = String.make 128 '\000' in
+	finally
+		(fun () ->
+			try
+				while true do
+					let n = input ic line 0 (String.length line) in
+					Buffer.add_string buf (String.sub line 0 n)
+				done
+				with End_of_file -> ()
+		) (fun () -> close_in ic);
+	let txt = Buffer.contents buf in
 	let id = Client.VM.import_metadata dbg txt in
 	Printf.printf "%s\n" id
 
