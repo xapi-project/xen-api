@@ -136,6 +136,7 @@ val build: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xs
 (** resume a domain either cooperative or not *)
 val resume: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> hvm: bool -> cooperative: bool -> qemu_domid:int -> domid -> unit
 
+(*
 (** restore a PV domain into a fresh domain created with 'make' *)
 val pv_restore: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> static_max_kib:Int64.t 
           -> target_kib:Int64.t -> vcpus:int -> string -> domid -> Unix.file_descr
@@ -148,9 +149,10 @@ val hvm_restore: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore
              -> vcpus:int -> timeoffset:string
              -> string -> domid -> Unix.file_descr
              -> unit
+*)
 
 (** Restore a domain using the info provided *)
-val restore: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> build_info -> string -> string -> domid -> Unix.file_descr -> unit
+val restore: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> store_domid:int -> console_domid:int -> no_incr_generationid:bool -> build_info -> string -> string -> domid -> Unix.file_descr -> unit
 
 type suspend_flag = Live | Debug
 
