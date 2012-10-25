@@ -11,16 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Threadext
-open Listext
 open Xenops_interface
 open Xenops_server_plugin
 open Xenops_utils
-open Fun
 open Xenops_task
-
-module D = Debug.Debugger(struct let name = service_name end)
-open D
 
 module Domain = struct
 	type t = {
@@ -249,7 +243,7 @@ let vbd_state vm vbd () =
 				{
 					unplugged_vbd with
 						Vbd.plugged = true;
-						media_present = vbd.Vbd.backend <> None
+						backend_present = vbd.Vbd.backend
 				}
 			| [] -> unplugged_vbd
 			| _ -> assert false (* at most one *)
@@ -318,6 +312,7 @@ module HOST = struct
 end
 module VM = struct
 	let add vm = ()
+	let remove vm = ()
 	let create _ memory_limit vm = Mutex.execute m (create_nolock memory_limit vm)
 	let destroy _ vm = Mutex.execute m (destroy_nolock vm)
 	let pause _ vm = Mutex.execute m (do_pause_unpause_nolock vm true)
@@ -365,8 +360,9 @@ module PCI = struct
 end
 
 module VBD = struct
-	let epoch_begin _ (vm: Vm.id) (vbd: Vbd.t) = ()
-	let epoch_end _ (vm: Vm.id) (vbd: Vbd.t) = ()
+	let set_active _ (vm: Vm.id) (vbd: Vbd.t) (b: bool) = ()
+	let epoch_begin _ (vm: Vm.id) (disk: disk) = ()
+	let epoch_end _ (vm: Vm.id) (disk: disk) = ()
 	let plug _ (vm: Vm.id) (vbd: Vbd.t) = Mutex.execute m (add_vbd vm vbd)
 	let unplug _ vm vbd _ = Mutex.execute m (remove_vbd vm vbd)
 
@@ -381,6 +377,7 @@ module VBD = struct
 end
 
 module VIF = struct
+	let set_active _ (vm: Vm.id) (vif: Vif.t) (b: bool) = ()
 	let plug _ vm vif = Mutex.execute m (add_vif vm vif)
 	let unplug _ vm vif _ = Mutex.execute m (remove_vif vm vif)
 	let move _ vm vif network = Mutex.execute m (move_vif vm vif network)

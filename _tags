@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 4722c82b742824b0b276fc537b8853b5)
+# DO NOT EDIT (digest: f1940263f8f13deda6cb6ab4b1f7af0b)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -59,14 +59,14 @@
 <xen/*.ml{,i}>: pkg_rpc.syntax
 <xen/xenopsd_xen_main.{native,byte}>: custom
 # Executable xenopsd_simulator
-<simulator/xenopsd_simulator_main.{native,byte}>: use_xenops
-<simulator/xenopsd_simulator_main.{native,byte}>: pkg_uuidm
-<simulator/xenopsd_simulator_main.{native,byte}>: pkg_threads
-<simulator/xenopsd_simulator_main.{native,byte}>: pkg_xmlm
-<simulator/xenopsd_simulator_main.{native,byte}>: pkg_cohttp
-<simulator/xenopsd_simulator_main.{native,byte}>: pkg_uri
-<simulator/xenopsd_simulator_main.{native,byte}>: pkg_rpc
-<simulator/xenopsd_simulator_main.{native,byte}>: pkg_rpc.syntax
+<simulator/xenops_simulator_main.{native,byte}>: use_xenops
+<simulator/xenops_simulator_main.{native,byte}>: pkg_uuidm
+<simulator/xenops_simulator_main.{native,byte}>: pkg_threads
+<simulator/xenops_simulator_main.{native,byte}>: pkg_xmlm
+<simulator/xenops_simulator_main.{native,byte}>: pkg_cohttp
+<simulator/xenops_simulator_main.{native,byte}>: pkg_uri
+<simulator/xenops_simulator_main.{native,byte}>: pkg_rpc
+<simulator/xenops_simulator_main.{native,byte}>: pkg_rpc.syntax
 <simulator/*.ml{,i}>: use_xenops
 <simulator/*.ml{,i}>: pkg_uuidm
 <simulator/*.ml{,i}>: pkg_threads
@@ -75,7 +75,7 @@
 <simulator/*.ml{,i}>: pkg_uri
 <simulator/*.ml{,i}>: pkg_rpc
 <simulator/*.ml{,i}>: pkg_rpc.syntax
-<simulator/xenopsd_simulator_main.{native,byte}>: custom
+<simulator/xenops_simulator_main.{native,byte}>: custom
 # Executable test
 <test/test.{native,byte}>: use_xenops
 <test/test.{native,byte}>: pkg_uuidm

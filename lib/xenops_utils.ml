@@ -139,6 +139,14 @@ module Unixext = struct
 	(** create a directory but doesn't raise an exception if the directory already exist *)
 	let mkdir_safe dir perm =
         try Unix.mkdir dir perm with Unix.Unix_error (Unix.EEXIST, _, _) -> ()
+
+	let mkdir_rec dir perm =
+        let rec p_mkdir dir =
+            let p_name = Filename.dirname dir in
+            if p_name <> "/" && p_name <> "." 
+            then p_mkdir p_name;
+            try Unix.mkdir dir perm with Unix.Unix_error (Unix.EEXIST, _, _) -> () in
+        p_mkdir dir
 end
 
 
@@ -150,15 +158,7 @@ module FileFS = struct
 	let filename_of k = Printf.sprintf "%s/%s" !root (String.concat "/" k)
 	let paths_of k = List.map filename_of (prefixes_of k)
 
-	let mkdir_rec dir perm =
-        let rec p_mkdir dir =
-            let p_name = Filename.dirname dir in
-            if p_name <> "/" && p_name <> "." 
-            then p_mkdir p_name;
-            try Unix.mkdir dir perm with Unix.Unix_error (Unix.EEXIST, _, _) -> () in
-        p_mkdir dir
-
-	let mkdir path = mkdir_rec (filename_of path) 0o755
+	let mkdir path = Unixext.mkdir_rec (filename_of path) 0o755
 
 	let read path =
 		let ic = open_in (filename_of path) in
@@ -172,7 +172,7 @@ module FileFS = struct
 
 	let write path x =
 		let filename = filename_of path in
-		mkdir_rec (Filename.dirname filename) 0o755;
+		Unixext.mkdir_rec (Filename.dirname filename) 0o755;
 		let oc = open_out_gen [ Open_trunc ] 0o644 filename in
 		finally
 			(fun () ->

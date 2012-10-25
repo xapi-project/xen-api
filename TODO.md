@@ -4,3 +4,4 @@ Cohttp support for cookies
 Need to send and receive fds
 FD passing
 Config file parsing
+Daemonize helper

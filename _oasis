@@ -46,7 +46,7 @@ Executable xenopsd_xen
 Executable xenopsd_simulator
   CompiledObject:     best
   Path:               simulator
-  MainIs:             xenopsd_simulator_main.ml
+  MainIs:             xenops_simulator_main.ml
   Build$:             flag(simulator)
   Custom:             true
   Install:            false
