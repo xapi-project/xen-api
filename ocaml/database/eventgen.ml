@@ -85,17 +85,25 @@ let database_callback event db =
 			true
 		with _ -> false in
 
+	let get_row table objref =
+		let tableset = Database.tableset db in
+		let table = TableSet.find table tableset in
+		Table.find objref table
+	in
+
 	match event with
 		| RefreshRow (tblname, objref) ->
 			(* Generate event *)
 			let snapshot = find_get_record tblname ~__context:context ~self:objref in
 			let record = snapshot() in
+			let row = get_row tblname objref in
+
 			begin match record with
 				| None ->
 					error "Failed to send MOD event for %s %s" tblname objref;
 					Printf.printf "Failed to send MOD event for %s %s\n%!" tblname objref;
 				| Some record ->
-					events_notify ~snapshot:record tblname "mod" objref;
+					events_notify ~snapshot:record ~row tblname "mod" objref;
 			end
 		| WriteField (tblname, objref, fldname, oldval, newval) ->
 			let events_old_val = 
@@ -118,22 +126,25 @@ let database_callback event db =
 				| tbl, ref, None ->
 					error "Failed to send MOD event for %s %s" tbl ref;
 					Printf.printf "Failed to send MOD event for %s %s\n%!" tbl ref;
-				| tbl, ref, Some s ->
-					events_notify ~snapshot:s tbl "mod" ref
+				| tbl, ref, Some s ->	
+					let row = get_row tbl ref in
+					events_notify ~snapshot:s ~row tbl "mod" ref
 			) events_old_val;
 			begin match record with
 				| None ->
 					error "Failed to send MOD event for %s %s" tblname objref;
 					Printf.printf "Failed to send MOD event for %s %s\n%!" tblname objref;
 				| Some record ->
-					events_notify ~snapshot:record tblname "mod" objref;
+					let row = get_row tblname objref in
+					events_notify ~snapshot:record ~row tblname "mod" objref;
 			end;
 			List.iter (function 
 				| tbl, ref, None ->
 					error "Failed to send MOD event for %s %s" tbl ref;
 					Printf.printf "Failed to send MOD event for %s %s\n%!" tbl ref;
 				| tbl, ref, Some s -> 
-					events_notify ~snapshot:s tbl "mod" ref
+					let row = get_row tbl ref in
+					events_notify ~snapshot:s ~row tbl "mod" ref
 			) events_new_val;
 		| PreDelete(tblname, objref) ->
 			begin match find_get_record tblname ~__context:context ~self:objref () with
@@ -141,7 +152,8 @@ let database_callback event db =
 					error "Failed to generate DEL event for %s %s" tblname objref;
 					(*				Printf.printf "Failed to generate DEL event for %s %s\n%!" tblname objref; *)
 				| Some snapshot ->
-					events_notify ~snapshot tblname "del" objref
+					let row = get_row tblname objref in
+					events_notify ~snapshot ~row tblname "del" objref
 			end
 		| Delete(tblname, objref, kv) ->
 			let other_tbl_refs = follow_references tblname in
@@ -158,7 +170,8 @@ let database_callback event db =
 					error "Failed to generate MOD event on %s %s" tbl ref;
 (*					Printf.printf "Failed to generate MOD event on %s %s\n%!" tbl ref; *)
 				| tbl, ref, Some s -> 
-					events_notify ~snapshot:s tbl "mod" ref
+					let row = get_row tbl ref in
+					events_notify ~snapshot:s ~row tbl "mod" ref
 			) other_tbl_ref_events
 
 		| Create (tblname, new_objref, kv) ->
@@ -177,12 +190,14 @@ let database_callback event db =
 					error "Failed to generate ADD event for %s %s" tblname new_objref;
 					(*				Printf.printf "Failed to generate ADD event for %s %s\n%!" tblname new_objref; *)
 				| Some snapshot ->
-					events_notify ~snapshot tblname "add" new_objref;
+					let row = get_row tblname new_objref in
+					events_notify ~snapshot ~row tblname "add" new_objref;
 			end;
 			List.iter (function
 				| tbl, ref, None ->
 					error "Failed to generate MOD event for %s %s" tbl ref;
 					(* 				Printf.printf "Failed to generate MOD event for %s %s\n%!" tbl ref;*)
 				| tbl, ref, Some s ->
-					events_notify ~snapshot:s tbl "mod" ref
+					let row = get_row tbl ref in
+					events_notify ~snapshot:s ~row tbl "mod" ref
 			) other_tbl_events

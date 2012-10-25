@@ -113,3 +113,9 @@ type structured_op_t =
 val structured_op_t_of_rpc: Rpc.t -> structured_op_t
 val rpc_of_structured_op_t: structured_op_t -> Rpc.t
 
+
+val events_register : (?snapshot: XMLRPC.xmlrpc -> ?row:Row.t -> string -> string -> string -> unit) -> unit
+val events_unregister : unit -> unit
+
+val events_notify : ?snapshot:XMLRPC.xmlrpc -> ?row:Row.t -> string -> string -> string -> unit
+

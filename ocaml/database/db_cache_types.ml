@@ -518,3 +518,12 @@ type structured_op_t =
 	| AddMap
 	| RemoveMap
 with rpc
+
+let __callback : ((?snapshot: XMLRPC.xmlrpc -> ?row:Row.t -> string -> string -> string -> unit) option ref) = ref None
+let events_register f = __callback := Some f
+let events_unregister () = __callback := None
+    
+let events_notify ?(snapshot) ?(row) ty op ref =
+  match !__callback with
+    | None -> ()
+    | Some f -> f ?snapshot ?row ty op ref
