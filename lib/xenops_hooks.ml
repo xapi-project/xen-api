@@ -15,6 +15,9 @@
 open Xenops_interface
 open Xenops_utils
 
+module D = Debug.Make(struct let name = "xenops_hooks" end)
+open D
+
 let hooks_dir = "/etc/xapi.d/"
 
 (* Names of VM script hooks *)

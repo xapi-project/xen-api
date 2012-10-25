@@ -3,6 +3,9 @@
 
 open Xenops_utils
 
+module D = Debug.Make(struct let name = "updates" end)
+open D
+
 module type INTERFACE = sig
 	val service_name : string
 

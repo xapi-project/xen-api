@@ -16,6 +16,9 @@ open Xenops_server_plugin
 open Xenops_utils
 open Xenops_task
 
+module D = Debug.Make(struct let name = "xenops_server_simulator" end)
+open D
+
 module Domain = struct
 	type t = {
 		domid: int;

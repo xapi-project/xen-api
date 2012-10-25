@@ -13,6 +13,9 @@
  *)
 open Xenops_utils
 
+module D = Debug.Make(struct let name = "xenopsd" end)
+open D
+
 let name = "xenopsd"
 
 let major_version = 0
@@ -25,14 +28,12 @@ let minor_version = 9
 *)
 let config_file = ref (Printf.sprintf "/etc/%s.conf" name)
 let pidfile = ref (Printf.sprintf "/var/run/%s.pid" name)
-let log_destination = ref "syslog:daemon"
 let persist = ref true
 let daemon = ref false
 let worker_pool_size = ref 4
 
 let config_spec = [
     "pidfile", Arg.Set_string pidfile, "Location to store the process pid";
-    "log", Arg.Set_string log_destination, "Where to send the log output";
     "persist", Arg.Bool (fun b -> persist := b), "True if we want to persist metadata across restarts";
     "daemon", Arg.Bool (fun b -> daemon := b), "True if we want to daemonize";
     "disable-logging-for", Arg.String
@@ -61,7 +62,6 @@ let read_config_file () =
 
 let dump_config_file () : unit =
     debug "pidfile = %s" !pidfile;
-    debug "log = %s" !log_destination;
     debug "persist = %b" !persist;
     debug "daemon = %b" !daemon;
     debug "worker-pool-size = %d" !worker_pool_size;

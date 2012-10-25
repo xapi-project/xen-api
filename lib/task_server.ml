@@ -17,6 +17,9 @@
 
 open Xenops_utils
 
+module D = Debug.Make(struct let name = "task_server" end)
+open D
+
 type stringpair = string * string
 
 module type INTERFACE = sig

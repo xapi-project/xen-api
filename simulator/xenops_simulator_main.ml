@@ -13,6 +13,9 @@
  *)
 open Xenops_utils
 
+module D = Debug.Make(struct let name = "xenops_simulator_main" end)
+open D
+
 let name = "xenopsd"
 
 let major_version = 0
@@ -28,6 +31,8 @@ let _ =
 
 	read_config_file ();
 	dump_config_file ();
+
+	if !daemon then Debug.output := Debug.syslog "xenopd_simulator" ();
 
 	Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
 

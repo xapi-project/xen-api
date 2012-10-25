@@ -17,6 +17,9 @@ open Xenops_server_plugin
 open Xenops_utils
 open Xenops_task
 
+module D = Debug.Make(struct let name = "xenops_server" end)
+open D
+
 type context = {
 	transferred_fd: Unix.file_descr option;
 	(** some API calls take a file descriptor argument *)

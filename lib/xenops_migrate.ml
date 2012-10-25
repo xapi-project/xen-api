@@ -16,6 +16,9 @@ open Xenops_interface
 open Xenops_utils
 open Xenops_client
 
+module D = Debug.Make(struct let name = "xenops_migrate" end)
+open D
+
 (*
 let local_rpc call =
 	let open Xmlrpc_client in

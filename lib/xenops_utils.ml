@@ -14,13 +14,57 @@
 
 open Xenops_interface
 
-let debug fmt = Printf.ksprintf ignore fmt (* XXX *)
-let error fmt = Printf.ksprintf ignore fmt (* XXX *)
-let info fmt = Printf.ksprintf ignore fmt (* XXX *)
-let warn fmt = Printf.ksprintf ignore fmt (* XXX *)
-
-
 let ( |> ) a b = b a
+
+module type BRAND = sig val name: string end
+
+module Debug = struct
+	type level =
+	| Debug
+	| Warn
+	| Info
+	| Error
+
+	let disabled_modules = ref []
+	let disable m =
+		disabled_modules := m :: !disabled_modules
+
+	let stderr key level x =
+		output_string stderr (Printf.sprintf "[%s|%s] %s" key (match level with
+		| Debug -> "debug"
+		| Warn -> "warn"
+		| Info -> "info"
+		| Error -> "error") x);
+		output_string stderr "\n"
+
+	let syslog ?(facility=`LOG_LOCAL5) name () =
+		let t = Syslog.openlog ~facility name in
+		fun key level x ->
+			Syslog.syslog t (match level with
+			| Debug -> `LOG_DEBUG
+			| Warn -> `LOG_WARNING
+			| Info -> `LOG_INFO
+			| Error -> `LOG_ERR
+			) (Printf.sprintf "[%s] %s" key x)
+
+	let output = ref stderr
+
+	let write key level x =
+		if not(List.mem key !disabled_modules)
+		then !output key level x
+
+	let with_thread_associated _ f x = f x (* XXX *)
+
+	module Make = functor(Brand: BRAND) -> struct
+		let debug fmt = Printf.ksprintf (write Brand.name Debug) fmt
+		let error fmt = Printf.ksprintf (write Brand.name Error) fmt
+		let info fmt = Printf.ksprintf (write Brand.name Info) fmt
+		let warn fmt = Printf.ksprintf (write Brand.name Warn) fmt
+	end
+end
+
+module D = Debug.Make(struct let name = "xenops_utils" end)
+open D
 
 module Unix = struct
 	include Unix
@@ -115,11 +159,7 @@ module String = struct
 	let startswith prefix x =
 		String.length x >= (String.length prefix) && (String.sub x 0 (String.length prefix) = prefix)
 end
-module Debug = struct
-	let with_thread_associated _ f x = f x (* XXX *)
-	let disable m =
-		debug "Debug.disable %s" m
-end
+
 module Date = struct
 	type t = string
 	let of_float x = 
