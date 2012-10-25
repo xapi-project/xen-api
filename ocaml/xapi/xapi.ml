@@ -682,6 +682,34 @@ let common_http_handlers = [
   ("connect_migrate", (Http_svr.FdIO Xapi_vm_migrate.handler));
 ]
 
+(* Hack to allow XCP Boston hosts to migrate to XCP Tampa hosts during
+   an upgrade. If we are in rolling pool upgrade mode, we will add the
+   key product-version=$PLATFORM_VERSION to the software-version
+   map. We'll need to start a thread to watch for the pool to leave
+   upgrade mode, and then remove the key. We should only do this (as
+   in, add the key and then remove it) if it is not already set by the
+   inventory file. *)
+let boston_tampa_upgrade_hack ~__context =
+	let self = Helpers.get_localhost ~__context in
+	let software_version = Db.Host.get_software_version ~__context ~self in
+	(* If product_version isn't already set, and if we're in RPU mode... *)
+	if (not (List.mem_assoc Xapi_globs._product_version software_version)) &&
+	   (Helpers.rolling_upgrade_in_progress ~__context)
+	then
+		let platform_version = List.assoc
+			Xapi_globs._platform_version software_version in
+		(* Make PRODUCT_VERSION == PLATFORM_VERSION *)
+		Db.Host.add_to_software_version ~__context ~self
+			~key:Xapi_globs._product_version ~value:platform_version ;
+		(* Remove PRODUCT_VERSION key after RPU finished *)
+		let rec remove_product_version_after_rpu () =
+			Thread.delay 30. ;
+			if Helpers.rolling_upgrade_in_progress ~__context
+			then remove_product_version_after_rpu ()
+			else Db.Host.remove_from_software_version ~__context ~self
+				~key:Xapi_globs._product_version
+		in ignore (Thread.create remove_product_version_after_rpu ())
+
 let server_init() =
   let listen_unix_socket () =
     (* Always listen on the Unix domain socket first *)
@@ -957,6 +985,9 @@ let server_init() =
       "Calling on_xapi_initialize event hook in the external authentication plugin", [ Startup.NoExnRaising; Startup.OnThread ],
           (fun () -> event_hook_auth_on_xapi_initialize_async ~__context);
     ];
+
+	(* See above for comment *)
+	boston_tampa_upgrade_hack ~__context ;
 
     debug "startup: startup sequence finished");
     wait_to_die()
