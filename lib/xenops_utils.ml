@@ -99,6 +99,9 @@ module Opt = struct
 	let to_list = function
 		| Some x -> [x]
 		| None -> []
+	let unbox = function
+		| Some x -> x
+		| None -> raise Not_found
 end
 module List = struct
 	include List
