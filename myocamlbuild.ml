@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: ecaddaf0c8ff7c6eaee96715d0519afc) *)
+(* DO NOT EDIT (digest: 6727b3b8d967a3e5e4b215ddaf83eef6) *)
 module OASISGettext = struct
 # 21 "/home/djs/.opam/3.12.1/build/oasis.0.3.0/src/oasis/OASISGettext.ml"
 
@@ -478,7 +478,7 @@ open Ocamlbuild_plugin;;
 let package_default =
   {
      MyOCamlbuildBase.lib_ocaml = [("xenops", ["lib"])];
-     lib_c = [];
+     lib_c = [("xenops", "lib", [])];
      flags = [];
      includes =
        [

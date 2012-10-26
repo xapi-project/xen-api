@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: eb495fbcef228e5194f82a94e95b44c7)
+# DO NOT EDIT (digest: 9af53e2b5d60a4da1e67f74c5c39d7b9)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -15,6 +15,7 @@
 "_darcs": not_hygienic
 # Library xenops
 "lib/xenops.cmxs": use_xenops
+<lib/xenops.{cma,cmxa}>: use_libxenops_stubs
 <lib/*.ml{,i}>: pkg_uuidm
 <lib/*.ml{,i}>: pkg_syslog
 <lib/*.ml{,i}>: pkg_threads
@@ -23,6 +24,14 @@
 <lib/*.ml{,i}>: pkg_uri
 <lib/*.ml{,i}>: pkg_rpc
 <lib/*.ml{,i}>: pkg_rpc.syntax
+"lib/fd_send_recv_stubs.c": pkg_uuidm
+"lib/fd_send_recv_stubs.c": pkg_syslog
+"lib/fd_send_recv_stubs.c": pkg_threads
+"lib/fd_send_recv_stubs.c": pkg_xmlm
+"lib/fd_send_recv_stubs.c": pkg_cohttp
+"lib/fd_send_recv_stubs.c": pkg_uri
+"lib/fd_send_recv_stubs.c": pkg_rpc
+"lib/fd_send_recv_stubs.c": pkg_rpc.syntax
 # Executable xn
 <cli/xn.{native,byte}>: use_xenops
 <cli/xn.{native,byte}>: pkg_uuidm
