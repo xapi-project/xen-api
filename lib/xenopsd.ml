@@ -39,7 +39,7 @@ let config_spec = [
     "disable-logging-for", Arg.String
         (fun x ->
             try
-                let modules = Re_str.split (Re_str.regexp "\\s+") x in
+                let modules = Re_str.split (Re_str.regexp "[ ]+") x in
                 List.iter Debug.disable modules
             with e ->
 				error "Processing disabled-logging-for = %s: %s" x (Printexc.to_string e)
