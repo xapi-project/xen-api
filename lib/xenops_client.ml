@@ -19,18 +19,22 @@
 
 open Xenops_interface
 
-let default_path = "/var/xapi/xenopsd"
-let forwarded_path = default_path ^ ".forwarded"
+let default_path = ref ""
+let forwarded_path = ref ""
 
-let default_uri = "file:" ^ default_path
-let json_url = Printf.sprintf "file:%s.json" default_path
+let set_sockets_dir x =
+	default_path := Filename.concat x "xenopsd";
+	forwarded_path := !default_path ^ ".forwarded"
+
+let default_uri () = "file:" ^ !default_path
+let json_url () = Printf.sprintf "file:%s.json" !default_path
 
 module Request = Cohttp.Request.Make(Cohttp_posix_io.Buffered_IO)
 module Response = Cohttp.Response.Make(Cohttp_posix_io.Buffered_IO)
 
 (* Use HTTP to frame RPC messages *)
 let http_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset") url call =
-	let uri = Uri.of_string url in
+	let uri = Uri.of_string (url ()) in
 	let req = string_of_call call in
 	let headers = Cohttp.Header.of_list [
 		"User-agent", "xenopsd"
@@ -41,7 +45,7 @@ let http_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset
 		(fun ic oc ->
 			Request.write (fun t oc -> Request.write_body t oc req) http_req oc;
 			match Response.read ic with
-				| None -> failwith (Printf.sprintf "Failed to read HTTP response from: %s" url)
+				| None -> failwith (Printf.sprintf "Failed to read HTTP response from: %s" (url ()))
 				| Some t ->
 					begin match Response.status t with
 						| `OK ->
@@ -56,7 +60,7 @@ let json_http_rpc = http_rpc Jsonrpc.string_of_call Jsonrpc.response_of_string
 
 (* Use a binary 16-byte length to frame RPC messages *)
 let binary_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset") url (call: Rpc.call) : Rpc.response =
-	let uri = Uri.of_string url in
+	let uri = Uri.of_string (url ()) in
 	Cohttp_posix_io.Buffered_IO.open_uri uri
 		(fun ic oc ->
 			let msg_buf = string_of_call call in
@@ -78,7 +82,7 @@ let json_binary_rpc = binary_rpc Jsonrpc.string_of_call Jsonrpc.response_of_stri
 module Client = Xenops_interface.Client(struct let rpc = json_binary_rpc ~srcstr:"xapi" ~dststr:"xenops" json_url end)
 
 let query dbg url =
-	let module Remote = Xenops_interface.Client(struct let rpc = xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" url end) in
+	let module Remote = Xenops_interface.Client(struct let rpc = xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" (fun () -> url) end) in
 	Remote.query dbg ()
 
 let event_wait dbg p =

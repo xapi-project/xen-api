@@ -707,29 +707,6 @@ let task_cancel id =
 let debug_shutdown () =
 	Client.DEBUG.shutdown dbg ()
 
-let slave () =
-	let copy a b =
-		let len = 1024 * 1024 in
-		let buf = String.make len '\000' in
-		let finished = ref false in
-		while not !finished do
-			let n = Unix.read a buf 0 len in
-			if n = 0 then finished := true
-			else
-				let m = Unix.write b buf 0 n in
-				if m <> n then finished := true
-		done in
-
-	let fd = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
-	finally
-		(fun () ->
-			Unix.connect fd (Unix.ADDR_UNIX default_path);
-			let incoming = Thread.create (copy Unix.stdin) fd in
-			let outgoing = Thread.create (copy fd) Unix.stdout in
-			Thread.join incoming;
-			Thread.join outgoing;
-		) (fun () -> Unix.close fd)
-
 let verbose_task t =
 	let string_of_state = function
 		| Task.Completed t -> Printf.sprintf "%.2f" t.Task.duration
@@ -746,6 +723,21 @@ let _ =
 	let args = Sys.argv |> Array.to_list |> List.tl in
 	let verbose = List.mem "-v" args in
 	let args = List.filter (fun x -> x <> "-v") args in
+    (* Extract any -path X argument *)
+	let extract args key =
+		let result = ref None in
+		let args =
+			List.fold_left (fun (acc, foundit) x ->
+				if foundit then (result := Some x; (acc, false))
+				else if x = key then (acc, true)
+				else (x :: acc, false)
+			) ([], false) args |> fst |> List.rev in
+		!result, args in
+	let path, args = extract args "-path" in
+	begin match path with
+		| Some path -> Xenops_client.set_sockets_dir path
+		| None -> ()
+	end;
 	let task = success_task (if verbose then verbose_task else ignore_task) in
 	match args with
 		| [ "help" ] | [] ->
@@ -803,8 +795,6 @@ let _ =
 			cd_eject id |> task
 		| [ "delay"; id; t ] ->
 			delay id (float_of_string t)
-		| [ "slave" ] ->
-			slave ()
 		| [ "events-watch" ] ->
 			events_watch None
 		| [ "set-worker-pool-size"; size ] ->
