@@ -703,6 +703,7 @@ let _ =
 
 	Arg.parse [
 		"-verbose", Arg.Unit (fun _ -> verbose := true), "Run in verbose mode";
+		"-path", Arg.String Xenops_client.set_sockets_dir, "Set the directory containing the unix domain sockets";
 	] (fun x -> Printf.fprintf stderr "Ignoring argument: %s\n" x)
 		"Test xenopd service";
 
