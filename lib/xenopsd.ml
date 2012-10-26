@@ -201,6 +201,7 @@ let prepare_sockets () =
     Unixext.unlink_safe path;
 	let domain_sock = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
 	Unix.bind domain_sock (Unix.ADDR_UNIX path);
+	Unix.listen domain_sock 5;
 
 	(* Start receiving forwarded /file descriptors/ from xapi *)
 	let forwarded_path = forwarded_path () in
