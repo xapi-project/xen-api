@@ -137,7 +137,8 @@ let binary_handler s (context: Xenops_server.context) =
 	let msg_buf = Jsonrpc.string_of_response result in
 	let len_buf = Printf.sprintf "%016d" (String.length msg_buf) in
 	output_string oc len_buf;
-	output_string oc msg_buf
+	output_string oc msg_buf;
+	flush oc
 
 let accept_forever sock f =
 	let (_: Thread.t) = Thread.create
