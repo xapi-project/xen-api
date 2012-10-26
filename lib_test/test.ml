@@ -24,10 +24,10 @@ let test_config_file () =
 	let () = parse_line "\n" [] in
 	let () = parse_line "whatever" [] in
 	let () = parse_line "foo=true" [ "", Arg.Bool (fun x -> assert_equal ~printer:string_of_bool ~msg:"foo=true" true x), "" ] in
-	(* true *)
-	(* string *)
-	(* int *)
-	(* commented out string *)
+	let () = parse_line "foo=false" [ "", Arg.Bool (fun x -> assert_equal ~printer:string_of_bool ~msg:"foo=false" false x), "" ] in
+	let () = parse_line "log=somewhere" [ "", Arg.String (fun x -> assert_equal ~printer:id ~msg:"log=somewhere" "somewhere" x), "" ] in
+	let () = parse_line "n=2" [ "", Arg.Int (fun x -> assert_equal ~printer:string_of_int ~msg:"n=2" 2 x), "" ] in
+	let () = parse_line "n=2 # and no more" [ "", Arg.Int (fun x -> assert_equal ~printer:string_of_int ~msg:"n=2" 2 x), "" ] in
 	()
 
 let _ =
