@@ -32,7 +32,10 @@ let _ =
 	read_config_file ();
 	dump_config_file ();
 
-	if !daemon then Debug.output := Debug.syslog "xenopd_simulator" ();
+	if !daemon then begin
+		Debug.output := Debug.syslog "xenopd_simulator" ();
+		Unixext.daemonize();
+	end;
 
 	Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
 

@@ -190,6 +190,27 @@ module Unixext = struct
             then p_mkdir p_name;
             try Unix.mkdir dir perm with Unix.Unix_error (Unix.EEXIST, _, _) -> () in
         p_mkdir dir
+
+	(** daemonize a process *)
+	let daemonize () =
+		match Unix.fork () with
+			| 0 ->
+				if Unix.setsid () == -1 then
+					failwith "Unix.setsid failed";
+
+				begin match Unix.fork () with
+					| 0 ->
+						let nullfd = Unix.openfile "/dev/null" [ Unix.O_WRONLY ] 0 in
+						begin try
+							Unix.close Unix.stdin;
+							Unix.dup2 nullfd Unix.stdout;
+							Unix.dup2 nullfd Unix.stderr;
+						with exn -> Unix.close nullfd; raise exn
+						end;
+						Unix.close nullfd
+					| _ -> exit 0
+				end
+			| _ -> exit 0
 end
 
 
