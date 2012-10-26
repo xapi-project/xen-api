@@ -49,7 +49,7 @@ exception Parse_failed of string
 
 let parse_result_exn s : qos_scheduler option =
 	try
-		match Re_str.split (Re_str.regexp "\\s+") s with
+		match Re_str.split (Re_str.regexp "[ ]+") s with
 			| [ cls_colon; "prio"; param ] ->
 				let cls = String.sub cls_colon 0 (String.length cls_colon - 1) in
 				Some (of_class_param_exn cls param)
