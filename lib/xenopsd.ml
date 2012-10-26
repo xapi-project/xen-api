@@ -28,11 +28,13 @@ let minor_version = 9
 *)
 let config_file = ref (Printf.sprintf "/etc/%s.conf" name)
 let pidfile = ref (Printf.sprintf "/var/run/%s.pid" name)
+let sockets_path = ref "/var/xapi"
 let persist = ref true
 let daemon = ref false
 let worker_pool_size = ref 4
 
 let config_spec = [
+	"sockets-path", Arg.Set_string sockets_path, "Directory to create listening sockets";
     "pidfile", Arg.Set_string pidfile, "Location to store the process pid";
     "persist", Arg.Bool (fun b -> persist := b), "True if we want to persist metadata across restarts";
     "daemon", Arg.Bool (fun b -> daemon := b), "True if we want to daemonize";
@@ -67,9 +69,9 @@ let dump_config_file () : unit =
     debug "worker-pool-size = %d" !worker_pool_size;
     debug "database-path = %s" !Xenops_utils.root
 
-let path = "/var/xapi/xenopsd"
-let forwarded_path = path  ^ ".forwarded" (* receive an authenticated fd from xapi *)
-let json_path = path ^ ".json"
+let path () = Filename.concat !sockets_path "xenopsd"
+let forwarded_path () = path () ^ ".forwarded" (* receive an authenticated fd from xapi *)
+let json_path () = path () ^ ".json"
 
 module Server = Xenops_interface.Server(Xenops_server)
 
@@ -193,19 +195,22 @@ let start (domain_sock, forwarded_sock, json_sock)  =
 		)
 
 (* Start accepting connections on sockets before we daemonize *)
-let prepare_sockets path =
+let prepare_sockets () =
+	let path = path () in
     Unixext.mkdir_safe (Filename.dirname path) 0o700;
     Unixext.unlink_safe path;
 	let domain_sock = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
 	Unix.bind domain_sock (Unix.ADDR_UNIX path);
 
 	(* Start receiving forwarded /file descriptors/ from xapi *)
+	let forwarded_path = forwarded_path () in
 	Unixext.unlink_safe forwarded_path;
 	let forwarded_sock = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
 	Unix.bind forwarded_sock (Unix.ADDR_UNIX forwarded_path);
 	Unix.listen forwarded_sock 5;
 
 	(* Start receiving local binary messages *)
+	let json_path = json_path () in
 	Unixext.unlink_safe json_path;
 	let json_sock = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
 	Unix.bind json_sock (Unix.ADDR_UNIX json_path);

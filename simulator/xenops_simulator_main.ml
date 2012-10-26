@@ -37,7 +37,7 @@ let _ =
 	Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
 
 	(* Accept connections before we have daemonized *)
-	let sockets = prepare_sockets path in
+	let sockets = prepare_sockets () in
 
 (*
 	if !daemon
