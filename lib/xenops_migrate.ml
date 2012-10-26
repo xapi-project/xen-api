@@ -84,3 +84,13 @@ module Handshake = struct
 		if verbose then debug "Handshake.send: finished writing result to remote.";
 end
 
+module Forwarded_http_request = struct
+	(** Subset of the structure sent by xapi *)
+	type t = {
+		uri: string;
+		query: (string*string) list;
+		cookie: (string * string) list;
+		body: string option;
+	} with rpc
+end
+

@@ -145,3 +145,4 @@
 <lib/device_number.ml>: pkg_rpc.syntax
 <lib/xenops_interface.ml>: pkg_rpc.idl
 <cli/xn_cfg_types.ml>: pkg_rpc.syntax
+<lib/xenops_migrate.ml>: pkg_rpc.syntax

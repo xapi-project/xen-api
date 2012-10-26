@@ -164,29 +164,36 @@ let start (domain_sock, forwarded_sock, json_sock)  =
 			http_handler s context
 		);
 
-
-	(* XXX: need fd transfer *)
-(*
 	accept_forever forwarded_sock
 		(fun this_connection ->
 			let msg_size = 16384 in
 			let buf = String.make msg_size '\000' in
-			debug "Calling Unixext.recv_fd()";
-			let len, _, received_fd = Unixext.recv_fd this_connection buf 0 msg_size [] in
-			debug "Unixext.recv_fd ok (len = %d)" len;
+			debug "Calling recv_fd()";
+			let len, _, received_fd = Fd_send_recv.recv_fd this_connection buf 0 msg_size [] in
+			debug "recv_fd ok (len = %d)" len;
 			finally
 				(fun () ->
-					let req = String.sub buf 0 len |> Jsonrpc.of_string |> Http.Request.t_of_rpc in
-					debug "Received request = [%s]\n%!" (req |> Http.Request.rpc_of_t |> Jsonrpc.to_string);
-					req.Http.Request.close <- true;
-					let context = {
-						Xenops_server.transferred_fd = Some received_fd
-					} in
-					let (_: bool) = Http_svr.handle_one server this_connection context req in
-					()
+					let req = String.sub buf 0 len |> Jsonrpc.of_string |> Xenops_migrate.Forwarded_http_request.t_of_rpc in
+					debug "Received request = [%s]\n%!" (req |> Xenops_migrate.Forwarded_http_request.rpc_of_t |> Jsonrpc.to_string);
+					let expected_prefix = "/service/xenops/memory/" in
+					let uri = req.Xenops_migrate.Forwarded_http_request.uri in
+					if String.length uri < String.length expected_prefix || (String.sub uri 0 (String.length expected_prefix) <> expected_prefix) then begin
+						error "Expected URI prefix %s, got %s" expected_prefix uri;
+						let module Response = Cohttp.Response.Make(Cohttp_posix_io.Unbuffered_IO) in
+						let headers = Cohttp.Header.of_list [
+							"User-agent", "xenopsd"
+						] in
+						let response = Response.make ~version:`HTTP_1_1 ~status:`Not_found ~headers () in
+						Response.write (fun _ _ -> ()) response this_connection;
+					end else begin
+						let context = {
+							Xenops_server.transferred_fd = Some received_fd
+						} in
+						let uri = Uri.of_string req.Xenops_migrate.Forwarded_http_request.uri in
+						Xenops_server.VM.receive_memory uri req.Xenops_migrate.Forwarded_http_request.cookie this_connection context
+					end
 				) (fun () -> Unix.close received_fd)
 		);
-*)
 
 	(* JSON/binary over json_sock, no fd passing *)
 	accept_forever json_sock
