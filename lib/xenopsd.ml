@@ -56,7 +56,7 @@ let read_config_file () =
 		(* Will raise exception if config is mis-formatted. It's up to the
            caller to inspect and handle the failure.
         *)
-        Config.read !config_file config_spec;
+        Config.parse_file !config_file config_spec;
 		debug "Read global variables successfully from %s" !config_file
     end
 

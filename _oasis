@@ -61,8 +61,23 @@ Executable test
   Install:            false
   BuildDepends:       xenops, oUnit, unix
 
-Test test
+Executable lib_test
+  CompiledObject:     best
+  Path:               lib_test
+  MainIs:             test.ml
+  Build$:             flag(tests)
+  Custom:             true
+  Install:            false
+  BuildDepends:       xenops, oUnit, unix
+
+Test simulation
   Run$:               flag(tests)
   Command:            runtest.sh
   WorkingDirectory:   test
+
+Test test
+  Run$:               flag(tests)
+  Command:            $lib_test
+  WorkingDirectory:   lib_test
+
 

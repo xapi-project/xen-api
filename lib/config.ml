@@ -37,24 +37,27 @@ let apply v = function
 	| Float f -> f (float_of_string v)
 	| _ -> failwith "Unsupported type in config file"
 
-let read filename spec =
-	(* Remove the unnecessary doc parameter *)
+let parse_line data spec =
 	let spec = List.map (fun (a, b, c) -> a, b) spec in
+	(* Strip comments *)
+	match Re_str.(split_delim (regexp (quote "#"))) data with
+		| [] -> ()
+		| x :: _ ->
+			begin match Re_str.bounded_split_delim (Re_str.regexp "[ \t]*=[ \t]*") x 2 with
+				| key :: v :: [] ->
+					if List.mem_assoc key spec then apply v (List.assoc key spec)
+				| _ -> ()
+			end
+
+let parse_file filename spec =
+	(* Remove the unnecessary doc parameter *)
 	let ic = open_in filename in
 	finally
 		(fun () ->
 			try
 				while true do
 					let line = input_line ic in
-					(* Strip comments *)
-					match Re_str.(split_delim (regexp (quote "#"))) line with
-					| [] -> ()
-					| x :: _ ->
-						begin match Re_str.bounded_split_delim (Re_str.regexp "\\s*=\\s*") x 2 with
-						| key :: v :: [] ->
-							if List.mem_assoc key spec then apply v (List.assoc key spec)
-						| _ -> ()
-						end
+					parse_line line spec
 				done
 			with End_of_file -> ()
 		) (fun () -> close_in ic)
