@@ -53,7 +53,7 @@ module In = struct
 			Some (Send (name, { Message.correlation_id = int_of_string correlation_id; reply_to = Some reply_to; payload = body }))
 		| _, _, _ -> None
 
-	let make_headers payload =
+	let headers payload =
 		Header.of_list [
             "user-agent", "cohttp";
             "content-length", string_of_int (String.length payload);
@@ -63,25 +63,23 @@ module In = struct
 
 	let to_request = function
 		| Login token ->
-			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/login/%s" token) ()), None
+			None, `GET, (Uri.make ~path:(Printf.sprintf "/login/%s" token) ())
 		| Create None ->
-			Request.make ~meth:`GET (Uri.make ~path:"/create" ()), None
+			None, `GET, (Uri.make ~path:"/create" ())
 		| Create (Some name) ->
-			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/create/%s" name) ()), None
+			None, `GET, (Uri.make ~path:(Printf.sprintf "/create/%s" name) ())
 		| Subscribe name ->
-			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/subscribe/%s" name) ()), None
+			None, `GET, (Uri.make ~path:(Printf.sprintf "/subscribe/%s" name) ())
 		| Ack x ->
-			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/ack/%Ld" x) ()), None
+			None, `GET, (Uri.make ~path:(Printf.sprintf "/ack/%Ld" x) ())
 		| Transfer(ack_to, timeout) ->
-			Request.make ~meth:`GET (Uri.make ~path:(Printf.sprintf "/transfer/%Ld/%.16g" ack_to timeout) ()), None
+			None, `GET, (Uri.make ~path:(Printf.sprintf "/transfer/%Ld/%.16g" ack_to timeout) ())
 		| Send (name, { Message.correlation_id = c; reply_to = None; payload = p }) ->
-			let headers = make_headers p in
-			Request.make ~meth:`POST ~headers ?body:(Body.body_of_string p) (Uri.make ~path:(Printf.sprintf "/send/%s/%d" name c) ()), Some p
+			Some p, `POST, (Uri.make ~path:(Printf.sprintf "/send/%s/%d" name c) ())
 		| Send (name, { Message.correlation_id = c; reply_to = Some r; payload = p }) ->
-			let headers = make_headers p in
-			Request.make ~meth:`POST ~headers ?body:(Body.body_of_string p) (Uri.make ~path:(Printf.sprintf "/send/%s/%d/%s" name c r) ()), Some p
+			Some p, `POST, (Uri.make ~path:(Printf.sprintf "/send/%s/%d/%s" name c r) ())
 		| Diagnostics ->
-			Request.make ~meth:`GET (Uri.make ~path:"/" ()), None
+			None, `GET, (Uri.make ~path:"/" ())
 end
 
 module Out = struct

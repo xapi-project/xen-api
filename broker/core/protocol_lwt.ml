@@ -11,8 +11,11 @@ module Connection = struct
 	exception Unsuccessful_response
 
 	let rpc (ic, oc) frame =
-		let req, body = In.to_request frame in
-		lwt () = Request.write (fun req oc -> match body with
+		let b, meth, uri = In.to_request frame in
+		let body = match b with None -> "" | Some x -> x in
+		let headers = In.headers body in
+		let req = Request.make ~meth ~headers ?body:(Body.body_of_string body) uri in
+		lwt () = Request.write (fun req oc -> match b with
 		| Some body ->
 			Request.write_body req oc body
 		| None -> return ()
