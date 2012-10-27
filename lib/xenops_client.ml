@@ -12,10 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(* TODO:
-   1. cohttp support for basic auth
-*)
-
 open Xenops_interface
 
 let default_path = ref ""
@@ -31,13 +27,27 @@ let json_url () = Printf.sprintf "file:%s.json" !default_path
 module Request = Cohttp.Request.Make(Cohttp_posix_io.Buffered_IO)
 module Response = Cohttp.Response.Make(Cohttp_posix_io.Buffered_IO)
 
+let colon = Re_str.regexp "[:]"
+
 (* Use HTTP to frame RPC messages *)
 let http_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset") url call =
 	let uri = Uri.of_string (url ()) in
-	let req = string_of_call call in
 	let headers = Cohttp.Header.of_list [
 		"User-agent", "xenopsd"
 	] in
+	(* If we have a username:password@ then use basic authentication *)
+	let userinfo = Uri.userinfo uri in
+	let headers = match userinfo with
+		| Some x ->
+			begin match Re_str.split_delim colon x with
+			| username :: password :: [] ->
+				Cohttp.Header.add_authorization headers (Cohttp.Auth.Basic (username, password))
+			| _ -> headers
+			end
+		| None -> headers in
+	
+	let req = string_of_call call in
+
 	let http_req = Request.make ~meth:`POST ~version:`HTTP_1_1 ~headers ~body:req uri in
 
 	Cohttp_posix_io.Buffered_IO.open_uri uri

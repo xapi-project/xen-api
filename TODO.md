@@ -1,5 +1,5 @@
 
-Cohttp support for basic auth
+Cohttp support for basic auth (done)
 Cohttp support for cookies (done)
 Need to send and receive fds (done)
 FD passing (done)
