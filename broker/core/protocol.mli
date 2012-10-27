@@ -11,8 +11,6 @@ module Message : sig
 	val one_way: string -> t
 end
 
-open Cohttp_lwt_unix
-
 module In : sig
 	type t =
 	| Login of string            (** Associate this transport-level channel with a session *)

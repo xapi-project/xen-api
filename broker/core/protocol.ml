@@ -1,6 +1,4 @@
 open Cohttp
-open Cohttp_lwt_unix
-open Lwt
 
 
 module Message = struct

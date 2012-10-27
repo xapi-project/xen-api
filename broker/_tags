@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: e4f13401995ac7722d0a0ef243fa195c)
+# DO NOT EDIT (digest: 5f28d5b21292f888c85a58fcda3f93c3)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -15,77 +15,76 @@
 "_darcs": not_hygienic
 # Library xenswitch
 "core/xenswitch.cmxs": use_xenswitch
+# Library xenswitch_lwt
+"core/xenswitch_lwt.cmxs": use_xenswitch_lwt
 <core/*.ml{,i}>: pkg_lwt
 <core/*.ml{,i}>: pkg_lwt.unix
 <core/*.ml{,i}>: pkg_lwt.syntax
 <core/*.ml{,i}>: pkg_cohttp
 <core/*.ml{,i}>: pkg_cohttp.lwt
-<core/*.ml{,i}>: pkg_xenstore
-<core/*.ml{,i}>: pkg_xenstore.server
 <core/*.ml{,i}>: pkg_rpc
 <core/*.ml{,i}>: pkg_rpc.json
 <core/*.ml{,i}>: pkg_rpc.syntax
 # Executable client
-<core_test/client_main.{native,byte,nobj.o}>: use_xenswitch
-<core_test/client_main.{native,byte,nobj.o}>: pkg_lwt
-<core_test/client_main.{native,byte,nobj.o}>: pkg_lwt.unix
-<core_test/client_main.{native,byte,nobj.o}>: pkg_lwt.syntax
-<core_test/client_main.{native,byte,nobj.o}>: pkg_cohttp
-<core_test/client_main.{native,byte,nobj.o}>: pkg_cohttp.lwt
-<core_test/client_main.{native,byte,nobj.o}>: pkg_xenstore
-<core_test/client_main.{native,byte,nobj.o}>: pkg_xenstore.server
-<core_test/client_main.{native,byte,nobj.o}>: pkg_rpc
-<core_test/client_main.{native,byte,nobj.o}>: pkg_rpc.json
-<core_test/client_main.{native,byte,nobj.o}>: pkg_rpc.syntax
-<core_test/client_main.{native,byte,nobj.o}>: custom
+<core_test/client_main.{native,byte}>: use_xenswitch
+<core_test/client_main.{native,byte}>: use_xenswitch_lwt
+<core_test/client_main.{native,byte}>: pkg_lwt
+<core_test/client_main.{native,byte}>: pkg_lwt.unix
+<core_test/client_main.{native,byte}>: pkg_lwt.syntax
+<core_test/client_main.{native,byte}>: pkg_cohttp
+<core_test/client_main.{native,byte}>: pkg_cohttp.lwt
+<core_test/client_main.{native,byte}>: pkg_rpc
+<core_test/client_main.{native,byte}>: pkg_rpc.json
+<core_test/client_main.{native,byte}>: pkg_rpc.syntax
+<core_test/client_main.{native,byte}>: custom
 # Executable server
-<core_test/server_main.{native,byte,nobj.o}>: use_xenswitch
-<core_test/server_main.{native,byte,nobj.o}>: pkg_lwt
-<core_test/server_main.{native,byte,nobj.o}>: pkg_lwt.unix
-<core_test/server_main.{native,byte,nobj.o}>: pkg_lwt.syntax
-<core_test/server_main.{native,byte,nobj.o}>: pkg_cohttp
-<core_test/server_main.{native,byte,nobj.o}>: pkg_cohttp.lwt
-<core_test/server_main.{native,byte,nobj.o}>: pkg_xenstore
-<core_test/server_main.{native,byte,nobj.o}>: pkg_xenstore.server
-<core_test/server_main.{native,byte,nobj.o}>: pkg_rpc
-<core_test/server_main.{native,byte,nobj.o}>: pkg_rpc.json
-<core_test/server_main.{native,byte,nobj.o}>: pkg_rpc.syntax
+<core_test/server_main.{native,byte}>: use_xenswitch
+<core_test/server_main.{native,byte}>: use_xenswitch_lwt
+<core_test/server_main.{native,byte}>: pkg_lwt
+<core_test/server_main.{native,byte}>: pkg_lwt.unix
+<core_test/server_main.{native,byte}>: pkg_lwt.syntax
+<core_test/server_main.{native,byte}>: pkg_cohttp
+<core_test/server_main.{native,byte}>: pkg_cohttp.lwt
+<core_test/server_main.{native,byte}>: pkg_rpc
+<core_test/server_main.{native,byte}>: pkg_rpc.json
+<core_test/server_main.{native,byte}>: pkg_rpc.syntax
 <core_test/*.ml{,i}>: use_xenswitch
+<core_test/*.ml{,i}>: use_xenswitch_lwt
 <core_test/*.ml{,i}>: pkg_lwt
 <core_test/*.ml{,i}>: pkg_lwt.unix
 <core_test/*.ml{,i}>: pkg_lwt.syntax
 <core_test/*.ml{,i}>: pkg_cohttp
 <core_test/*.ml{,i}>: pkg_cohttp.lwt
-<core_test/*.ml{,i}>: pkg_xenstore
-<core_test/*.ml{,i}>: pkg_xenstore.server
 <core_test/*.ml{,i}>: pkg_rpc
 <core_test/*.ml{,i}>: pkg_rpc.json
 <core_test/*.ml{,i}>: pkg_rpc.syntax
-<core_test/server_main.{native,byte,nobj.o}>: custom
+<core_test/server_main.{native,byte}>: custom
 # Executable switch
-<switch/switch.{native,byte,nobj.o}>: use_xenswitch
-<switch/switch.{native,byte,nobj.o}>: pkg_lwt
-<switch/switch.{native,byte,nobj.o}>: pkg_lwt.unix
-<switch/switch.{native,byte,nobj.o}>: pkg_lwt.syntax
-<switch/switch.{native,byte,nobj.o}>: pkg_cohttp
-<switch/switch.{native,byte,nobj.o}>: pkg_cohttp.lwt
-<switch/switch.{native,byte,nobj.o}>: pkg_xenstore
-<switch/switch.{native,byte,nobj.o}>: pkg_xenstore.server
-<switch/switch.{native,byte,nobj.o}>: pkg_rpc
-<switch/switch.{native,byte,nobj.o}>: pkg_rpc.json
-<switch/switch.{native,byte,nobj.o}>: pkg_rpc.syntax
+<switch/switch.{native,byte}>: use_xenswitch
+<switch/switch.{native,byte}>: use_xenswitch_lwt
+<switch/switch.{native,byte}>: pkg_xenstore
+<switch/switch.{native,byte}>: pkg_xenstore.server
+<switch/switch.{native,byte}>: pkg_lwt
+<switch/switch.{native,byte}>: pkg_lwt.unix
+<switch/switch.{native,byte}>: pkg_lwt.syntax
+<switch/switch.{native,byte}>: pkg_cohttp
+<switch/switch.{native,byte}>: pkg_cohttp.lwt
+<switch/switch.{native,byte}>: pkg_rpc
+<switch/switch.{native,byte}>: pkg_rpc.json
+<switch/switch.{native,byte}>: pkg_rpc.syntax
 <switch/*.ml{,i}>: use_xenswitch
+<switch/*.ml{,i}>: use_xenswitch_lwt
+<switch/*.ml{,i}>: pkg_xenstore
+<switch/*.ml{,i}>: pkg_xenstore.server
 <switch/*.ml{,i}>: pkg_lwt
 <switch/*.ml{,i}>: pkg_lwt.unix
 <switch/*.ml{,i}>: pkg_lwt.syntax
 <switch/*.ml{,i}>: pkg_cohttp
 <switch/*.ml{,i}>: pkg_cohttp.lwt
-<switch/*.ml{,i}>: pkg_xenstore
-<switch/*.ml{,i}>: pkg_xenstore.server
 <switch/*.ml{,i}>: pkg_rpc
 <switch/*.ml{,i}>: pkg_rpc.json
 <switch/*.ml{,i}>: pkg_rpc.syntax
-<switch/switch.{native,byte,nobj.o}>: custom
+<switch/switch.{native,byte}>: custom
 # OASIS_STOP
 <*/*>: syntax_camlp4o
 <core/protocol.ml>: pkg_rpc.syntax

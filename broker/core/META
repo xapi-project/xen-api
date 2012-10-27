@@ -1,13 +1,23 @@
 # OASIS_START
-# DO NOT EDIT (digest: 2f4afc660926fc33af0e405dd0009d7f)
+# DO NOT EDIT (digest: 3b284589d6b733e46aa603d6d712608d)
 version = "1.0"
 description = "XCP message switch"
-requires =
-"lwt lwt.unix lwt.syntax xenstore xenstore.server cohttp cohttp.lwt rpc rpc.json rpc.syntax"
+requires = "cohttp rpc rpc.json rpc.syntax"
 archive(byte) = "xenswitch.cma"
 archive(byte, plugin) = "xenswitch.cma"
 archive(native) = "xenswitch.cmxa"
 archive(native, plugin) = "xenswitch.cmxs"
 exists_if = "xenswitch.cma"
+package "lwt" (
+ version = "1.0"
+ description = "XCP message switch"
+ requires =
+ "lwt lwt.unix lwt.syntax cohttp cohttp.lwt rpc rpc.json rpc.syntax"
+ archive(byte) = "xenswitch_lwt.cma"
+ archive(byte, plugin) = "xenswitch_lwt.cma"
+ archive(native) = "xenswitch_lwt.cmxa"
+ archive(native, plugin) = "xenswitch_lwt.cmxs"
+ exists_if = "xenswitch_lwt.cma"
+)
 # OASIS_STOP
 
