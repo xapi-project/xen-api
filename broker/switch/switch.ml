@@ -317,7 +317,78 @@ module Diagnostics = struct
 	let snapshot () = Hashtbl.fold (fun n q acc -> (n, queue q) :: acc) Q.queues []
 end
 
-
+open Protocol
+let process_request conn_id session request = match session, request with
+	(* Only allow Login and Diagnostic messages if there is no session *)
+	| _, In.Login session ->
+		(* associate conn_id with 'session' *)
+		Connections.add conn_id session;
+		return Out.Login
+	| _, In.Diagnostics ->
+		let d = Diagnostics.(Jsonrpc.to_string (rpc_of_queues (snapshot ()))) in
+		return (Out.Diagnostics d)
+	| None, _ ->
+		return Out.Not_logged_in
+	| Some session, In.Create name ->
+		let name = begin match name with
+			| Some name ->
+				name
+			| None ->
+				(* Create a session-local private queue name *)
+				let name = make_fresh_name () in
+				Private_queue.add session name;
+				name
+		end in
+		Q.add name;
+		return (Out.Create name)
+	| Some session, In.Subscribe name ->
+		Subscription.add session name;
+		return Out.Subscribe
+	| Some session, In.Ack id ->
+		Q.ack id;
+		return Out.Ack
+	| Some session, In.Transfer(from, timeout) ->
+		let start = Unix.gettimeofday () in
+		let rec wait () =
+			let names = Subscription.get session in
+			let not_seen = StringStringRelation.B_Set.fold (fun name map ->
+				let q = Q.get name in
+				let _, _, not_seen = Int64Map.split from q in
+				Int64Map.fold Int64Map.add map not_seen
+			) names Int64Map.empty in
+			if not_seen <> Int64Map.empty
+			then return not_seen
+			else
+				let remaining_timeout = max 0. (start +. timeout -. (Unix.gettimeofday ())) in
+				if remaining_timeout <= 0.
+				then return Int64Map.empty
+				else
+					let timeout = Lwt.map (fun () -> `Timeout) (Lwt_unix.sleep remaining_timeout) in
+					let more = StringStringRelation.B_Set.fold (fun name acc ->
+						Lwt.map (fun () -> `Data) (Q.wait from name) :: acc
+					) names [] in
+					let t, u = Lwt.task () in
+					Hashtbl.replace Subscription.session_to_wakeup session u;
+					let sub = Lwt.map (fun () -> `Subscription) t in
+					try_lwt
+						match_lwt Lwt.pick (sub :: timeout :: more) with
+						| `Timeout -> return Int64Map.empty
+						| `Data ->
+							wait ()
+						| `Subscription ->
+							wait ()
+					finally
+		   				Hashtbl.remove Subscription.session_to_wakeup session;
+			   			return ()
+				in
+		lwt messages = wait () in
+		let transfer = {
+			Out.messages = Int64Map.fold (fun id e acc -> (id, e.Entry.message) :: acc) messages [];
+		} in
+		return (Out.Transfer transfer)
+	| Some session, In.Send (name, data) ->
+		lwt () = Q.send conn_id name data in
+		return (Out.Send)
 
 let make_server () =
 	debug "Started server on unix domain socket";
@@ -338,96 +409,25 @@ let make_server () =
 		| Some request ->
 			let session = Connections.get_session conn_id in
 			message conn_id session "%s" (Jsonrpc.to_string (In.rpc_of_t request));
-			(* Only allow Login and Diagnostic messages if there is no session *)
-			begin match session, request with
-			| _, In.Login session ->
-				(* associate conn_id with 'session' *)
-				Connections.add conn_id session;
-				Out.to_response Out.Login
-			| _, In.Diagnostics ->
-				let d = Diagnostics.(Jsonrpc.to_string (rpc_of_queues (snapshot ()))) in
-				Out.to_response (Out.Diagnostics d)
-			| None, _ ->
-				Out.to_response Out.Not_logged_in
-			| Some session, In.Create name ->
-				let name = begin match name with
-					| Some name ->
-						name
-					| None ->
-						(* Create a session-local private queue name *)
-						let name = make_fresh_name () in
-						Private_queue.add session name;
-						name
-				end in
-				Q.add name;
-				Out.to_response (Out.Create name)
-			| Some session, In.Subscribe name ->
-				Subscription.add session name;
-				Out.to_response Out.Subscribe
-			| Some session, In.Ack id ->
-				Q.ack id;
-				Out.to_response Out.Ack
-			| Some session, In.Transfer(from, timeout) ->
-				let start = Unix.gettimeofday () in
-				let rec wait () =
-					let names = Subscription.get session in
-					let not_seen = StringStringRelation.B_Set.fold (fun name map ->
-						let q = Q.get name in
-						let _, _, not_seen = Int64Map.split from q in
-						Int64Map.fold Int64Map.add map not_seen
-					) names Int64Map.empty in
-					if not_seen <> Int64Map.empty
-					then return not_seen
-					else
-						let remaining_timeout = max 0. (start +. timeout -. (Unix.gettimeofday ())) in
-						if remaining_timeout <= 0.
-						then return Int64Map.empty
-						else
-							let timeout = Lwt.map (fun () -> `Timeout) (Lwt_unix.sleep remaining_timeout) in
-							let more = StringStringRelation.B_Set.fold (fun name acc ->
-								Lwt.map (fun () -> `Data) (Q.wait from name) :: acc
-							) names [] in
-							let t, u = Lwt.task () in
-							Hashtbl.replace Subscription.session_to_wakeup session u;
-							let sub = Lwt.map (fun () -> `Subscription) t in
-							try_lwt
-								match_lwt Lwt.pick (sub :: timeout :: more) with
-								| `Timeout -> return Int64Map.empty
-								| `Data ->
-									wait ()
-								| `Subscription ->
-									wait ()
-							finally
-								Hashtbl.remove Subscription.session_to_wakeup session;
-								return ()
-						in
-				lwt messages = wait () in
-				let transfer = {
-					Out.messages = Int64Map.fold (fun id e acc -> (id, e.Entry.message) :: acc) messages [];
-				} in
-				Out.to_response (Out.Transfer transfer)
+			lwt response = process_request conn_id session request in
+			Out.to_response response
+		in
+	let conn_closed conn_id () =
+		let session = Connections.get_session conn_id in
+		Connections.remove conn_id;
+		match session with
+		| None -> ()
+		| Some session ->
+			if not(Connections.is_session_active session) then begin
+				debug "Session %s cleaning up" session;
+				Private_queue.remove session
+			end in
 
-			| Some session, In.Send (name, data) ->
-				lwt () = Q.send conn_id name data in
-				Out.to_response Out.Send
-			end
-			in
-			let conn_closed conn_id () =
-				let session = Connections.get_session conn_id in
-				Connections.remove conn_id;
-				match session with
-				| None -> ()
-				| Some session ->
-					if not(Connections.is_session_active session) then begin
-						debug "Session %s cleaning up" session;
-						Private_queue.remove session
-					end in
+	debug "Message switch starting";
+	let (_: 'a Lwt.t) = logging_thread Logging.logger in
 
-			debug "Message switch starting";
-			let (_: 'a Lwt.t) = logging_thread Logging.logger in
-
-			let config = { Server.callback; conn_closed } in
-			server ~address:"127.0.0.1" ~port:!port config
+	let config = { Server.callback; conn_closed } in
+	server ~address:"127.0.0.1" ~port:!port config
     
 let _ =
 	Arg.parse [
