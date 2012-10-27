@@ -101,15 +101,16 @@ module Out = struct
 		| Login
 		| Ack
 		| Subscribe
-		| Send -> Server.respond_string ~status:`OK ~body:"" ()
+		| Send ->
+			`OK, ""
 		| Create name ->
-			Server.respond_string ~status:`OK ~body:name ()
+			`OK, name
 		| Transfer transfer ->
-			Server.respond_string ~status:`OK ~body:(Jsonrpc.to_string (rpc_of_transfer transfer)) ()
+			`OK, (Jsonrpc.to_string (rpc_of_transfer transfer))
 		| Diagnostics x ->
-			Server.respond_string ~status:`OK ~body:x ()
+			`OK, x
 		| Not_logged_in ->
-			Server.respond_string ~status:`Not_found ~body:"Please log in." ()
+			`Not_found, "Please log in."
 end
 
 

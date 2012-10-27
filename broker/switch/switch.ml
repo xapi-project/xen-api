@@ -410,7 +410,8 @@ let make_server () =
 			let session = Connections.get_session conn_id in
 			message conn_id session "%s" (Jsonrpc.to_string (In.rpc_of_t request));
 			lwt response = process_request conn_id session request in
-			Out.to_response response
+			let status, body = Out.to_response response in
+			Server.respond_string ~status ~body ()
 		in
 	let conn_closed conn_id () =
 		let session = Connections.get_session conn_id in
