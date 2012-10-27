@@ -403,7 +403,7 @@ let make_server () =
 			| Some b ->
 				lwt s = Body.string_of_body (Some b) in
 				return (Some s) in
-		match In.of_request (req, body) with
+		match In.of_request body (Request.meth req) (Request.path req) with
 		| None ->
 			Server.respond_not_found ~uri:(Request.uri req) ()
 		| Some request ->

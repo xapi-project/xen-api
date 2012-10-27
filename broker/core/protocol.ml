@@ -38,7 +38,7 @@ module In = struct
 			and b = String.sub s (i + 1) (String.length s - i - 1) in
 			a :: (split ~limit: nlimit c b)
 
-	let of_request (req, body) = match body, Request.meth req, split '/' (Request.path req) with
+	let of_request body meth path = match body, meth, split '/' path with
 		| None, `GET, [ ""; "" ]                -> Some Diagnostics
 		| None, `GET, [ ""; "login"; token ]    -> Some (Login token)
 		| None, `GET, [ ""; "create" ]          -> Some (Create None)

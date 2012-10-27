@@ -26,7 +26,7 @@ module In : sig
 	val rpc_of_t : t -> Rpc.t
 	val t_of_rpc : Rpc.t -> t
 
-	val of_request: Request.t * (string option) -> t option
+	val of_request: (string option) -> Cohttp.Code.meth -> string -> t option
 	(** parse a [t] from an HTTP request and body  *)
 
 	val to_request: t -> Request.t * (string option)
