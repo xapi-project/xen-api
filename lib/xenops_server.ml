@@ -1245,16 +1245,16 @@ and perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 				(fun mfd ->
 					let open Xenops_migrate in
 					let module Request = Cohttp.Request.Make(Cohttp_posix_io.Unbuffered_IO) in
-					(* XXX: hook up cookies *)
-					let cookie = [
+					let cookies = [
 						"instance_id", instance_id;
 						"dbg", t.Xenops_task.dbg;
 						"memory_limit", Int64.to_string state.Vm.memory_limit;
 					] in
-					let headers = Cohttp.Header.of_list [
-						"Connection", "keep-alive";
-						"User-agent", "xenopsd";
-					] in
+					let headers = Cohttp.Header.of_list (
+						Cohttp.Cookie.Cookie_hdr.serialize cookies :: [
+							"Connection", "keep-alive";
+							"User-agent", "xenopsd";
+						]) in
 					let request = Request.make ~meth:`PUT ~version:`HTTP_1_1 ~headers memory_url in
 
 					Request.write (fun t _ -> ()) request mfd;

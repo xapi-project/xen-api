@@ -14,7 +14,6 @@
 
 (* TODO:
    1. cohttp support for basic auth
-   2. cohttp support for cookies
 *)
 
 open Xenops_interface
