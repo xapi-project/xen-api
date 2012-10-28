@@ -8,7 +8,8 @@ let name = ref "server"
 let process x = return x
 
 let main () =
-	Protocol_lwt.Server.listen process !port !name
+	lwt c = Protocol_lwt.IO.connect !port in
+	Protocol_lwt.Server.listen process c (Printf.sprintf "%d" (Unix.getpid ())) !name
 
 let _ =
 	Arg.parse [

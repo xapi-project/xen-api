@@ -405,13 +405,14 @@ let make_server () =
 				return (Some s) in
 		match In.of_request body (Request.meth req) (Request.path req) with
 		| None ->
-			Server.respond_not_found ~uri:(Request.uri req) ()
+			Cohttp_lwt_unix.Server.respond_not_found ~uri:(Request.uri req) ()
 		| Some request ->
 			let session = Connections.get_session conn_id in
 			message conn_id session "%s" (Jsonrpc.to_string (In.rpc_of_t request));
 			lwt response = process_request conn_id session request in
 			let status, body = Out.to_response response in
-			Server.respond_string ~status ~body ()
+			debug "<- %s [%s]" (Cohttp.Code.string_of_status status) body;
+			Cohttp_lwt_unix.Server.respond_string ~status ~body ()
 		in
 	let conn_closed conn_id () =
 		let session = Connections.get_session conn_id in
@@ -427,7 +428,7 @@ let make_server () =
 	debug "Message switch starting";
 	let (_: 'a Lwt.t) = logging_thread Logging.logger in
 
-	let config = { Server.callback; conn_closed } in
+	let config = { Cohttp_lwt_unix.Server.callback; conn_closed } in
 	server ~address:"127.0.0.1" ~port:!port config
     
 let _ =

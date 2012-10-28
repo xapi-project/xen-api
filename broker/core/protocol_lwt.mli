@@ -1,18 +1,15 @@
 open Protocol
 
+module IO : sig
+	type ic
+	type oc
+
+	val connect : int -> (ic * oc) Lwt.t
+	(** [connect port] connects to a switch listening on [port] *)
+end
+
 module Connection : sig
-	type t
-	(** represents an open transport-level connection *)
-
-	val make: int -> string -> t Lwt.t
-	(** [make port token] connects to a switch listening on [port] and
-		associates with a session identified by [token] *)
-
-	exception Failed_to_read_response
-
-	exception Unsuccessful_response
-
-	val rpc: t -> In.t -> string Lwt.t
+	val rpc: (IO.ic * IO.oc) -> In.t -> (string, exn) result Lwt.t
 end
 
 module Client : sig
@@ -25,5 +22,5 @@ end
 
 module Server : sig
 
-	val listen: (string -> string Lwt.t) -> int -> string -> 'a Lwt.t
+	val listen: (string -> string Lwt.t) -> (IO.ic * IO.oc) -> string -> string -> unit Lwt.t
 end

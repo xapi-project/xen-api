@@ -111,5 +111,92 @@ module Out = struct
 			`Not_found, "Please log in."
 end
 
+exception Failed_to_read_response
+
+exception Unsuccessful_response
+
+type ('a, 'b) result =
+| Ok of 'a
+| Error of 'b
+
+module Connection = functor(IO: Cohttp.Make.IO) -> struct
+	open IO
+	module Request = Cohttp.Request.Make(IO)
+	module Response = Cohttp.Response.Make(IO)
+
+	let rpc (ic, oc) frame =
+		let b, meth, uri = In.to_request frame in
+		let body = match b with None -> "" | Some x -> x in
+		let headers = In.headers body in
+		let req = Request.make ~meth ~headers ~body uri in
+		Request.write (fun req oc -> match b with
+		| Some body ->
+			Request.write_body req oc body
+		| None -> return ()
+		) req oc >>= fun () ->
+
+		Response.read ic >>= function
+		| Some response ->
+			if Response.status response <> `OK then begin
+				Printf.fprintf stderr "Server sent: %s\n%!" (Cohttp.Code.string_of_status (Response.status response));
+				(* Response.write (fun _ _ -> return ()) response Lwt_io.stderr >>= fun () -> *)
+				return (Error Unsuccessful_response)
+			end else begin
+				Response.read_body response ic >>= function
+				| Transfer.Final_chunk x -> return (Ok x)
+				| Transfer.Chunk x -> return (Ok x)
+				| Transfer.Done -> return (Ok "")
+			end
+		| None ->
+			Printf.fprintf stderr "Empty response\n%!";
+			return (Error Failed_to_read_response)
+end
+
+module Server = functor(IO: Cohttp.Make.IO) -> struct
+
+	module Connection = Connection(IO)
+
+	let listen process c token name =
+		let open IO in
+		Connection.rpc c (In.Login token) >>= fun _ ->
+		Connection.rpc c (In.Create (Some name)) >>= fun _ ->
+		Connection.rpc c (In.Subscribe name) >>= fun _ ->
+		Printf.fprintf stdout "Serving requests forever\n%!";
+
+		let rec loop from =
+			let timeout = 5. in
+			let frame = In.Transfer(from, timeout) in
+			Connection.rpc c frame >>= function
+			| Error e ->
+				Printf.fprintf stderr "Server.listen.loop: %s\n%!" (Printexc.to_string e);
+				return ()
+			| Ok raw ->
+				let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
+				begin match transfer.Out.messages with
+				| [] -> loop from
+				| m :: ms ->
+					iter
+						(fun (i, m) ->
+							process m.Message.payload >>= fun response ->
+							begin
+								match m.Message.reply_to with
+								| None ->
+									Printf.fprintf stderr "No reply_to\n%!";
+									return ()
+								| Some reply_to ->
+									Printf.fprintf stderr "Sending reply to %s\n%!" reply_to;
+									let request = In.Send(reply_to, { m with Message.reply_to = None; payload = response }) in
+									Connection.rpc c request >>= fun _ ->
+									return ()
+					 		end >>= fun () ->
+							let request = In.Ack i in
+							Connection.rpc c request >>= fun _ ->
+							return ()
+						) transfer.Out.messages >>= fun () ->
+					let from = List.fold_left max (fst m) (List.map fst ms) in
+					loop from
+				end in
+		loop (-1L)
+end
 
 

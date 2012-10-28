@@ -53,3 +53,18 @@ module Out : sig
 	val to_response : t -> Cohttp.Code.status_code * string
 end
 
+type ('a, 'b) result =
+| Ok of 'a
+| Error of 'b
+
+exception Failed_to_read_response
+
+exception Unsuccessful_response
+
+module Connection(IO: Cohttp.Make.IO) : sig
+	val rpc: (IO.ic * IO.oc) -> In.t -> (string, exn) result IO.t
+end
+
+module Server(IO: Cohttp.Make.IO) : sig
+	val listen: (string -> string IO.t) -> (IO.ic * IO.oc) -> string -> string -> unit IO.t
+end
