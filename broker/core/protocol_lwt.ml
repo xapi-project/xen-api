@@ -46,13 +46,6 @@ module Client = struct
 		reply_queue_name: string;
 	}
 
-	let fresh_correlation_id =
-		let counter = ref 0 in
-		fun () ->
-			let result = !counter in
-			incr counter;
-			result
-
 	let rpc c frame = match_lwt Connection.rpc c frame with
 		| Error e -> fail e
 		| Ok raw -> return raw
@@ -95,7 +88,7 @@ module Client = struct
 		}
 
 	let rpc c x =
-		let correlation_id = fresh_correlation_id () in
+		let correlation_id = Protocol.fresh_correlation_id () in
 		let t, u = Lwt.task () in
 		Hashtbl.add c.wakener correlation_id u;
 		let msg = In.Send(c.dest_queue_name, {

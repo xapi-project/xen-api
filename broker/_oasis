@@ -26,6 +26,14 @@ Library xenswitch_lwt
   Modules:            Protocol_lwt
   BuildDepends:       lwt,lwt.unix,lwt.syntax,cohttp,cohttp.lwt,rpc,rpc.json,rpc.syntax
 
+Library xenswitch_unix
+  CompiledObject:     best
+  Path:               core
+  Findlibparent:      xenswitch
+  Findlibname:        unix
+  Modules:            Protocol_unix
+  BuildDepends:       unix,threads,cohttp,rpc,rpc.json,rpc.syntax
+
 Executable client
   CompiledObject:     best
   Path:               core_test

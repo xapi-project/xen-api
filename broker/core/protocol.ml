@@ -200,3 +200,10 @@ module Server = functor(IO: Cohttp.Make.IO) -> struct
 end
 
 
+let fresh_correlation_id =
+	let counter = ref 0 in
+	fun () ->
+		let result = !counter in
+		incr counter;
+		result
+

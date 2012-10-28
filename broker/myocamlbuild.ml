@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: aec7374bb9560333fa090832192112f7) *)
+(* DO NOT EDIT (digest: a92f6bee0c0dd88e0911237a01ba9284) *)
 module OASISGettext = struct
 # 21 "/home/djs/.opam/system/build/oasis.0.3.0/src/oasis/OASISGettext.ml"
 
@@ -478,7 +478,11 @@ open Ocamlbuild_plugin;;
 let package_default =
   {
      MyOCamlbuildBase.lib_ocaml =
-       [("xenswitch", ["core"]); ("xenswitch_lwt", ["core"])];
+       [
+          ("xenswitch", ["core"]);
+          ("xenswitch_lwt", ["core"]);
+          ("xenswitch_unix", ["core"])
+       ];
      lib_c = [];
      flags = [];
      includes = [("switch", ["core"]); ("core_test", ["core"])];
@@ -487,6 +491,6 @@ let package_default =
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default package_default;;
 
-# 491 "myocamlbuild.ml"
+# 495 "myocamlbuild.ml"
 (* OASIS_STOP *)
 Ocamlbuild_plugin.dispatch dispatch_default;;
