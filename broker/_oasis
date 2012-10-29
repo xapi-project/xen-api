@@ -24,7 +24,7 @@ Library xenswitch_lwt
   Findlibparent:      xenswitch
   Findlibname:        lwt
   Modules:            Protocol_lwt
-  BuildDepends:       lwt,lwt.unix,lwt.syntax,cohttp,cohttp.lwt,rpc,rpc.json,rpc.syntax
+  BuildDepends:       lwt,lwt.unix,lwt.syntax,cohttp,cohttp.lwt,rpc,rpc.json,rpc.syntax,xenswitch
 
 Library xenswitch_unix
   CompiledObject:     best
@@ -32,7 +32,7 @@ Library xenswitch_unix
   Findlibparent:      xenswitch
   Findlibname:        unix
   Modules:            Protocol_unix
-  BuildDepends:       unix,threads,cohttp,rpc,rpc.json,rpc.syntax
+  BuildDepends:       unix,threads,cohttp,rpc,rpc.json,rpc.syntax,xenswitch
 
 Executable client
   CompiledObject:     best
