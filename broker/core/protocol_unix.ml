@@ -11,9 +11,18 @@ module IO = struct
 	type ic = in_channel
 	type oc = out_channel
 
-	let read_line ic = try Some(input_line ic) with End_of_file -> None
+	let read_line ic =
+		try
+			let line = input_line ic in
+			let last = String.length line - 1 in
+			let line = if line.[last] = '\r' then String.sub line 0 last else line in
+			Some line
+		with _ -> None
 
-	let read_exactly ic buf ofs len = try really_input ic buf ofs len; true with _ -> false
+	let read_exactly ic buf ofs len =
+		try
+			really_input ic buf ofs len; true
+		with _ -> false
 
 	let read ic n =
 		let buf = String.make n '\000' in
@@ -22,7 +31,8 @@ module IO = struct
 		then buf
 		else String.sub buf 0 actually_read
 
-	let write oc x = output_string oc x; flush oc
+	let write oc x = 
+		output_string oc x; flush oc
 
 	let connect port =
 		let sockaddr = Unix.ADDR_INET(Unix.inet_addr_of_string "127.0.0.1", port) in
@@ -109,7 +119,7 @@ module Client = struct
 						) transfer.Out.messages;
 					let from = List.fold_left max (fst m) (List.map fst ms) in
 					loop from in
-			loop (-1L) in
+			Thread.create loop (-1L) in
 		let reply_queue_name = rpc requests_conn (In.Create None) in
 		let (_: string) = rpc requests_conn (In.Subscribe reply_queue_name) in
 		let (_: string) = rpc requests_conn (In.Create (Some dest_queue_name)) in
