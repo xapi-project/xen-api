@@ -407,11 +407,12 @@ let make_server () =
 		| None ->
 			Cohttp_lwt_unix.Server.respond_not_found ~uri:(Request.uri req) ()
 		| Some request ->
+			debug "<- %s [%s]" (Request.path req) (match body with None -> "" | Some x -> x);
 			let session = Connections.get_session conn_id in
 			message conn_id session "%s" (Jsonrpc.to_string (In.rpc_of_t request));
 			lwt response = process_request conn_id session request in
 			let status, body = Out.to_response response in
-			debug "<- %s [%s]" (Cohttp.Code.string_of_status status) body;
+			debug "-> %s [%s]" (Cohttp.Code.string_of_status status) body;
 			Cohttp_lwt_unix.Server.respond_string ~status ~body ()
 		in
 	let conn_closed conn_id () =
