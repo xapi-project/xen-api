@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 66
+let schema_minor_vsn = 67
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -3308,6 +3308,7 @@ let session =
 		  field ~in_product_since:rel_midnight_ride ~qualifier:StaticRO ~default_value:(Some(VSet [])) ~ty:(Set(String)) "rbac_permissions" "list with all RBAC permissions for this session";
 		  field ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Set(Ref _task)) "tasks" "list of tasks created using the current session";
 		  field ~in_product_since:rel_midnight_ride ~qualifier:StaticRO ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _session) "parent" "references the parent session that created this session"; 
+		  field ~in_product_since:rel_tampa(*clearwater*) ~qualifier:DynamicRO ~ty:String  "origin" "Origin of login session";
 		]
 	()
 

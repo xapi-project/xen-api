@@ -19,6 +19,8 @@ type origin =
   | Http of Http.Request.t * Unix.file_descr
   | Internal
 
+val is_origin_string_unix_socket : string -> bool
+
 (** {6 Constructors} *)
 
 (** [initial] is the initial context. *)

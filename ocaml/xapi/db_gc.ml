@@ -221,7 +221,26 @@ let check_host_liveness ~__context =
 let task_status_is_completed task_status =
     (task_status=`success) || (task_status=`failure) || (task_status=`cancelled)
 
-let timeout_sessions_common ~__context sessions =
+module StringMap = Map.Make(struct type t = string let compare = compare end)
+
+let log_session_origin_counts ~__context sessions session_group =
+  let count_session m s =
+    let get_origin (_, y) = y.Db_actions.session_origin in
+    let origin = get_origin s in
+    let new_count =
+      if StringMap.mem origin m
+      then (StringMap.find origin m) + 1
+      else 1
+    in
+    StringMap.add origin new_count m
+  in
+  let stats = List.fold_left count_session StringMap.empty sessions in
+  debug "Session counts of %s sessions by origin:" session_group;
+  let log_one origin count = debug "%d sessions: %s" count origin in
+  StringMap.iter log_one stats
+
+let timeout_sessions_common ~__context sessions session_group =
+  log_session_origin_counts ~__context sessions session_group;
   let unused_sessions = List.filter
     (fun (x, _) -> 
 	  let rec is_session_unused s = 
@@ -243,9 +262,8 @@ let timeout_sessions_common ~__context sessions =
     )
     sessions
   in
-  let disposable_sessions = unused_sessions in
   (* Only keep a list of (ref, last_active, uuid) *)
-  let disposable_sessions = List.map (fun (x, y) -> x, Date.to_float y.Db_actions.session_last_active, y.Db_actions.session_uuid) disposable_sessions in
+  let disposable_sessions = List.map (fun (x, y) -> x, Date.to_float y.Db_actions.session_last_active, y.Db_actions.session_uuid) unused_sessions in
   (* Definitely invalidate sessions last used long ago *)
   let threshold_time = Unix.time () -. !Xapi_globs.inactive_session_timeout in
   let young, old = List.partition (fun (_, y, _) -> y > threshold_time) disposable_sessions in
@@ -268,15 +286,27 @@ let timeout_sessions_common ~__context sessions =
   cancel "Timed out session because of its age" old;
   cancel "Timed out session because max number of sessions was exceeded" unlucky
 
+let is_local_su_socket_session s =
+  s.Db_actions.session_is_local_superuser
+  && (Context.is_origin_string_unix_socket s.Db_actions.session_origin)
+(*&& s.Db_actions.session_auth_user_name = "___sm___"  *)
+  (* Possible future extension/enhancement: get dom0 storage-related python *)
+  (* scripts to set user when calling xapi, e.g. use "-u ___sm___" when     *)
+  (* calling xe commands.  Also similar for other important dom0 scripts.   *)
+
 let timeout_sessions ~__context =
   let all_sessions =
     Db.Session.get_internal_records_where ~__context ~expr:Db_filter_types.True
   in
-  let (intrapool_sessions, normal_sessions) =
-    List.partition (fun (_, y) -> y.Db_actions.session_pool) all_sessions
+  let (pool_sessions, nonpool_sessions) =
+    List.partition (fun (_, y) -> y.Db_actions.session_pool) all_sessions in
+  let (local_su_socket_sessions, other_sessions) =
+    List.partition (fun (_, y) -> is_local_su_socket_session y) nonpool_sessions
   in begin
-    timeout_sessions_common ~__context normal_sessions;
-    timeout_sessions_common ~__context intrapool_sessions;
+    log_session_origin_counts ~__context all_sessions "all";
+    timeout_sessions_common ~__context pool_sessions "pool";
+    timeout_sessions_common ~__context local_su_socket_sessions "local-superuser unix-socket";
+    timeout_sessions_common ~__context other_sessions "other";
   end
 
 let probation_pending_tasks = Hashtbl.create 53
