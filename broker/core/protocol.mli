@@ -11,6 +11,30 @@ module Message : sig
 	val one_way: string -> t
 end
 
+module Endpoint : sig
+	type t =
+		| Queue of string
+		| Connection of string
+		| Switch
+	val t_of_rpc: Rpc.t -> t
+	val rpc_of_t: t -> Rpc.t
+end
+
+module Event : sig
+	type message =
+		| Message of Message.t
+		| Ack of int
+
+	type t = {
+		time: float;
+		src: Endpoint.t;
+		dst: Endpoint.t;
+		message: message
+	}
+	val t_of_rpc: Rpc.t -> t
+	val rpc_of_t: t -> Rpc.t
+end
+
 module In : sig
 	type t =
 	| Login of string            (** Associate this transport-level channel with a session *)
@@ -18,6 +42,7 @@ module In : sig
 	| Subscribe of string        (** Subscribe to messages from a queue *)
 	| Send of string * Message.t (** Send a message to a queue *)
 	| Transfer of int64 * float  (** blocking wait for new messages *)
+	| Trace of int64 * float     (** blocking wait for trace data *)
 	| Ack of int64               (** ACK this particular message *)
 	| Diagnostics                (** return a diagnostic dump *)
 
@@ -40,12 +65,19 @@ module Out : sig
 	val transfer_of_rpc: Rpc.t -> transfer
 	val rpc_of_transfer: transfer -> Rpc.t
 
+	type trace = {
+		events: (int64 * Event.t) list;
+	}
+	val transfer_of_rpc: Rpc.t -> transfer
+	val rpc_of_transfer: transfer -> Rpc.t
+
 	type t =
 	| Login
 	| Create of string
 	| Subscribe
 	| Send
 	| Transfer of transfer
+	| Trace of trace
 	| Ack
 	| Diagnostics of string
 	| Not_logged_in

@@ -15,6 +15,29 @@ module Message = struct
 	}
 end
 
+module Endpoint = struct
+	type t =
+		| Queue of string
+		| Connection of string
+		| Switch
+	with rpc
+end
+
+module Event = struct
+	type message =
+		| Message of Message.t
+		| Ack of int
+	with rpc
+
+	type t = {
+		time: float;
+		src: Endpoint.t;
+		dst: Endpoint.t;
+		message: message
+	} with rpc
+
+end
+
 module In = struct
 	type t =
 	| Login of string            (** Associate this transport-level channel with a session *)
@@ -22,6 +45,7 @@ module In = struct
 	| Subscribe of string        (** Subscribe to messages from a queue *)
 	| Send of string * Message.t (** Send a message to a queue *)
 	| Transfer of int64 * float  (** blocking wait for new messages *)
+	| Trace of int64 * float     (** blocking wait for trace data *)
 	| Ack of int64               (** ACK this particular message *)
 	| Diagnostics                (** return a diagnostic dump *)
 	with rpc
@@ -45,6 +69,10 @@ module In = struct
 		| None, `GET, [ ""; "ack"; id ]         -> Some (Ack (Int64.of_string id))
 		| None, `GET, [ ""; "transfer"; ack_to; timeout ] ->
 			Some (Transfer(Int64.of_string ack_to, float_of_string timeout))
+		| None, `GET, [ ""; "trace"; ack_to; timeout ] ->
+			Some (Trace(Int64.of_string ack_to, float_of_string timeout))
+		| None, `GET, [ ""; "trace" ] ->
+			Some (Trace(-1L, 5.))
 		| Some body, `POST, [ ""; "send"; name; correlation_id ] ->
 			Some (Send (name, { Message.correlation_id = int_of_string correlation_id; reply_to = None; payload = body }))
 		| Some body, `POST, [ ""; "send"; name; correlation_id; reply_to ] ->
@@ -72,6 +100,8 @@ module In = struct
 			None, `GET, (Uri.make ~path:(Printf.sprintf "/ack/%Ld" x) ())
 		| Transfer(ack_to, timeout) ->
 			None, `GET, (Uri.make ~path:(Printf.sprintf "/transfer/%Ld/%.16g" ack_to timeout) ())
+		| Trace(ack_to, timeout) ->
+			None, `GET, (Uri.make ~path:(Printf.sprintf "/trace/%Ld/%.16g" ack_to timeout) ())
 		| Send (name, { Message.correlation_id = c; reply_to = None; payload = p }) ->
 			Some p, `POST, (Uri.make ~path:(Printf.sprintf "/send/%s/%d" name c) ())
 		| Send (name, { Message.correlation_id = c; reply_to = Some r; payload = p }) ->
@@ -85,12 +115,17 @@ module Out = struct
 		messages: (int64 * Message.t) list;
 	} with rpc
 
+	type trace = {
+		events: (int64 * Event.t) list;
+	} with rpc
+
 	type t =
 	| Login
 	| Create of string
 	| Subscribe
 	| Send
 	| Transfer of transfer
+	| Trace of trace
 	| Ack
 	| Diagnostics of string
 	| Not_logged_in
@@ -105,6 +140,8 @@ module Out = struct
 			`OK, name
 		| Transfer transfer ->
 			`OK, (Jsonrpc.to_string (rpc_of_transfer transfer))
+		| Trace trace ->
+			`OK, (Jsonrpc.to_string (rpc_of_trace trace))
 		| Diagnostics x ->
 			`OK, x
 		| Not_logged_in ->

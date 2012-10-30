@@ -319,7 +319,7 @@ end
 
 open Protocol
 let process_request conn_id session request = match session, request with
-	(* Only allow Login and Diagnostic messages if there is no session *)
+	(* Only allow Login, Trace and Diagnostic messages if there is no session *)
 	| _, In.Login session ->
 		(* associate conn_id with 'session' *)
 		Connections.add conn_id session;
@@ -327,6 +327,8 @@ let process_request conn_id session request = match session, request with
 	| _, In.Diagnostics ->
 		let d = Diagnostics.(Jsonrpc.to_string (rpc_of_queues (snapshot ()))) in
 		return (Out.Diagnostics d)
+	| _, In.Trace(from, timeout) ->
+		return (Out.Trace {Out.events = []})
 	| None, _ ->
 		return Out.Not_logged_in
 	| Some session, In.Create name ->
