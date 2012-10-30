@@ -52,7 +52,7 @@ let make_iscsi session_id pool network =
 		Client.VM.set_PV_bootloader rpc session_id newvm "pygrub";
 		Client.VM.set_PV_args rpc session_id newvm (Printf.sprintf "net_ip=%s net_mask=255.255.255.0" (make_iscsi_ip pool));
 		Client.VM.set_HVM_boot_policy rpc session_id newvm "";
-		let (_ : API.ref_VIF) = Client.VIF.create rpc session_id "0" network newvm "" 1500L [oc_key,pool.key] "" [] in
+		let (_ : API.ref_VIF) = Client.VIF.create rpc session_id "0" network newvm "" 1500L [oc_key,pool.key] "" [] `network_default [] [] in
 		Client.VM.add_to_other_config rpc session_id newvm oc_key pool.key;
 		let localhost_uuid = Xapi_inventory.lookup "INSTALLATION_UUID" in
 		Client.VM.start_on rpc session_id newvm (Client.Host.get_by_uuid rpc session_id localhost_uuid) false false;
@@ -81,8 +81,8 @@ let make ~rpc ~session_id ~pool ~vm ~networks ~storages =
 			done;
 			Client.VM.provision ~rpc ~session_id ~vm:clone;
 			for device = 0 to (min vm.vifs (Array.length networks)) - 1 do
-				ignore(Client.VIF.create ~rpc ~session_id ~device:(string_of_int device) ~network:networks.(device)
-					~vM:clone ~mAC:"" ~mTU:1500L ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[])
+				ignore(Client.VIF.create ~rpc ~session_id ~device:(string_of_int device) ~network:networks.(device) ~vM:clone ~mAC:"" 
+					~mTU:1500L ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[] ~locking_mode:`network_default ~ipv4_allowed:[] ~ipv6_allowed:[])
 			done;
 			Client.VM.set_memory_static_min ~rpc ~session_id ~self:clone ~value:16777216L;
 			Client.VM.set_memory_dynamic_min ~rpc ~session_id ~self:clone ~value:16777216L;
