@@ -144,12 +144,19 @@ let gen_mac(dev, seed) =
 	 take_byte 1 mac_data_2;
 	 take_byte 2 mac_data_2; |]
 
+let assert_locking_licensed ~__context =
+	if (not (Pool_features.is_enabled ~__context Features.VIF_locking)) then
+		raise (Api_errors.Server_error(Api_errors.license_restriction, []))
+
 let m = Mutex.create () (* prevents duplicate VIFs being created by accident *)
 
 let create ~__context ~device ~network ~vM
            ~mAC ~mTU ~other_config ~qos_algorithm_type ~qos_algorithm_params
            ~currently_attached ~locking_mode ~ipv4_allowed ~ipv6_allowed : API.ref_VIF =
         let () = debug "VIF.create running" in
+
+	if locking_mode = `locked || ipv4_allowed <> [] || ipv6_allowed <> [] then
+		assert_locking_licensed ~__context;
 
 	let uuid = Uuid.make_uuid () in
 	let ref = Ref.make () in
