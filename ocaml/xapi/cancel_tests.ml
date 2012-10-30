@@ -105,7 +105,7 @@ let find_or_create_vif { session_id = session_id; vm = vm; net = net } =
 		let vif, _ = List.find (fun (_, r) -> r.API.vIF_device = vif_idx) (List.combine vifs vif_records) in
 		vif
 	with Not_found ->
-		Client.VIF.create ~rpc ~session_id ~vM:vm ~network:net ~mAC:"" ~device:vif_idx ~mTU:1500L ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[]
+		Client.VIF.create ~rpc ~session_id ~vM:vm ~network:net ~mAC:"" ~device:vif_idx ~mTU:1500L ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[] ~locking_mode:`network_default ~ipv4_allowed:[] ~ipv6_allowed:[] 
 
 let find_or_create_vbd { session_id = session_id; vm = vm; vdi = vdi } =
 	let rpc = make_rpc () in

@@ -871,6 +871,19 @@ module VIF : HandlerTools = struct
 					vif_record.API.vIF_other_config
 			in
 			(* Construct the VIF record we're going to try to create locally. *)
+			let vif_record = if (Pool_features.is_enabled ~__context Features.VIF_locking) then
+			       			 vif_record 
+					else begin
+						if vif_record.API.vIF_locking_mode = `locked then
+	        		                	{ vif_record with API.vIF_locking_mode = `network_default; 
+									  API.vIF_ipv4_allowed = [];      	
+									  API.vIF_ipv6_allowed = [];
+							} 
+						else            	
+	                    			    	{ vif_record with API.vIF_ipv4_allowed = [];
+									  API.vIF_ipv6_allowed = [];
+							}      
+					end in		
 			let vif_record = { vif_record with
 				API.vIF_VM = vm;
 				API.vIF_network = net;
@@ -900,16 +913,6 @@ module VIF : HandlerTools = struct
 					if config.full_restore then Db.VIF.set_uuid ~__context ~self:vif ~value:value.API.vIF_uuid;
 					vif)
 				vif_record in
-			(* Make a best-effort attempt to persist the port locking fields - this may fail due to licensing. *)
-			(* The VIF is not currently_attached at this stage, so setup-vif-rules will not be called yet. *)
-			begin
-				try
-					Client.VIF.set_locking_mode ~rpc ~session_id ~self:vif ~value:vif_record.API.vIF_locking_mode;
-					Client.VIF.set_ipv4_allowed ~rpc ~session_id ~self:vif ~value:vif_record.API.vIF_ipv4_allowed;
-					Client.VIF.set_ipv6_allowed ~rpc ~session_id ~self:vif ~value:vif_record.API.vIF_ipv6_allowed;
-				with e ->
-					debug "Could not persist port locking fields for this VIF - caught %s" (Printexc.to_string e)
-			end;
 			state.cleanup <- (fun __context rpc session_id -> Client.VIF.destroy rpc session_id vif) :: state.cleanup;
 			(* Now that we can import/export suspended VMs we need to preserve the
 				 currently_attached flag *)

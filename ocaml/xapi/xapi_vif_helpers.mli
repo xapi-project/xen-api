@@ -33,6 +33,9 @@ val cancel_tasks :
 val clear_current_operations :
   __context:Context.t -> self:[ `VIF ] Ref.t -> unit
 
+val assert_locking_licensed :
+  __context:Context.t -> unit
+
 (** Create a VIF object in the database. *)
 val create :
   __context:Context.t ->
