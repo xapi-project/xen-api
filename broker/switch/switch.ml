@@ -239,8 +239,10 @@ module Q = struct
 		Hashtbl.remove waiters name;
 		Subscription.remove name
 
+	let queue_of_id id = Int64Map.find id !message_id_to_queue
+
 	let ack id =
-		let name = Int64Map.find id !message_id_to_queue in
+		let name = queue_of_id id in
 		if exists name then begin
 			let q = get name in
 			message_id_to_queue := Int64Map.remove id !message_id_to_queue;
@@ -317,6 +319,46 @@ module Diagnostics = struct
 	let snapshot () = Hashtbl.fold (fun n q acc -> (n, queue q) :: acc) Q.queues []
 end
 
+module Trace_buffer = struct
+	let size = 128
+
+	let buffer : (int64 * Protocol.Event.t) option array = Array.create size None
+	let c = Lwt_condition.create ()
+
+	let next_id = ref (0L)
+
+	let add event =
+		let next_slot = Int64.(to_int (rem !next_id (of_int size))) in
+		buffer.(next_slot) <- Some (!next_id, event);
+		next_id := Int64.succ !next_id;
+		Lwt_condition.broadcast c ()
+
+	(* fold [f] over buffered items in chronological order *)
+	let fold f acc =
+		let next_slot = Int64.(to_int (rem !next_id (of_int size))) in
+		let rec range start finish acc =
+			if start > finish
+			then acc
+			else range (start + 1) finish (f buffer.(start) acc) in
+		range 0 (next_slot - 1) (range next_slot (size - 1) acc)
+
+	let get from timeout : (int64 * Protocol.Event.t) list Lwt.t =
+		(* Wait until some data is available ie. when next_id > from *)
+		lwt () =
+			while_lwt !next_id < from do
+				Lwt_condition.wait c
+			done in
+
+		(* start from next_slot, looking for non-None entries which
+		   are > from *)
+		let reversed_results = fold (fun x acc -> match x with
+			| None -> acc
+			| Some (id, _) when id < from -> acc
+			| Some (id, x) -> (id, x) :: acc) [] in
+		return (List.rev reversed_results)
+
+end
+
 open Protocol
 let process_request conn_id session request = match session, request with
 	(* Only allow Login, Trace and Diagnostic messages if there is no session *)
@@ -328,7 +370,8 @@ let process_request conn_id session request = match session, request with
 		let d = Diagnostics.(Jsonrpc.to_string (rpc_of_queues (snapshot ()))) in
 		return (Out.Diagnostics d)
 	| _, In.Trace(from, timeout) ->
-		return (Out.Trace {Out.events = []})
+		lwt events = Trace_buffer.get from timeout in
+		return (Out.Trace {Out.events = events})
 	| None, _ ->
 		return Out.Not_logged_in
 	| Some session, In.Create name ->
@@ -347,6 +390,8 @@ let process_request conn_id session request = match session, request with
 		Subscription.add session name;
 		return Out.Subscribe
 	| Some session, In.Ack id ->
+		let name = Q.queue_of_id id in
+		Trace_buffer.add (Event.({time = Unix.gettimeofday (); src = Endpoint.Connection session; dst = Endpoint.Queue name; message = Ack id }));
 		Q.ack id;
 		return Out.Ack
 	| Some session, In.Transfer(from, timeout) ->
@@ -387,8 +432,14 @@ let process_request conn_id session request = match session, request with
 		let transfer = {
 			Out.messages = Int64Map.fold (fun id e acc -> (id, e.Entry.message) :: acc) messages [];
 		} in
+		List.iter
+			(fun (id, m) ->
+				let name = Q.queue_of_id id in
+				Trace_buffer.add (Event.({time = Unix.gettimeofday (); src = Endpoint.Queue name; dst = Endpoint.Connection session; message = Message m }))
+			) transfer.Out.messages;
 		return (Out.Transfer transfer)
 	| Some session, In.Send (name, data) ->
+		Trace_buffer.add (Event.({time = Unix.gettimeofday (); src = Endpoint.Connection session; dst = Endpoint.Queue name; message = Message data }));
 		lwt () = Q.send conn_id name data in
 		return (Out.Send)
 

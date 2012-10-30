@@ -23,7 +23,7 @@ end
 module Event : sig
 	type message =
 		| Message of Message.t
-		| Ack of int
+		| Ack of int64
 
 	type t = {
 		time: float;
