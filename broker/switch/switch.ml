@@ -374,7 +374,7 @@ let process_request conn_id session request = match session, request with
 		lwt events = Trace_buffer.get from timeout in
 		return (Out.Trace {Out.events = events})
 	| _, In.Get path ->
-		let path = if path = [] then [ "index.html" ] else path in
+		let path = if path = [] || path = [ "" ] then [ "index.html" ] else path in
 		lwt ic = Lwt_io.open_file ~mode:Lwt_io.input (String.concat "/" ("www" :: path)) in
 		lwt txt = Lwt_stream.to_string (Lwt_io.read_chars ic) in
 		lwt () = Lwt_io.close ic in
