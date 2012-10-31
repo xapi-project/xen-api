@@ -45,6 +45,7 @@ module In : sig
 	| Trace of int64 * float     (** blocking wait for trace data *)
 	| Ack of int64               (** ACK this particular message *)
 	| Diagnostics                (** return a diagnostic dump *)
+	| Get of string list         (** return a web interface resource *)
 
 	val rpc_of_t : t -> Rpc.t
 	val t_of_rpc : Rpc.t -> t
@@ -81,6 +82,7 @@ module Out : sig
 	| Ack
 	| Diagnostics of string
 	| Not_logged_in
+	| Get of string
 
 	val to_response : t -> Cohttp.Code.status_code * string
 end

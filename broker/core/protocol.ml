@@ -48,6 +48,7 @@ module In = struct
 	| Trace of int64 * float     (** blocking wait for trace data *)
 	| Ack of int64               (** ACK this particular message *)
 	| Diagnostics                (** return a diagnostic dump *)
+	| Get of string list         (** return a web interface resource *)
 	with rpc
 
 	let rec split ?limit:(limit=(-1)) c s =
@@ -61,6 +62,7 @@ module In = struct
 			a :: (split ~limit: nlimit c b)
 
 	let of_request body meth path = match body, meth, split '/' path with
+		| None, `GET, "" :: "admin" :: path     -> Some (Get path)
 		| None, `GET, [ ""; "" ]                -> Some Diagnostics
 		| None, `GET, [ ""; "login"; token ]    -> Some (Login token)
 		| None, `GET, [ ""; "create" ]          -> Some (Create None)
@@ -108,6 +110,8 @@ module In = struct
 			Some p, `POST, (Uri.make ~path:(Printf.sprintf "/send/%s/%d/%s" name c r) ())
 		| Diagnostics ->
 			None, `GET, (Uri.make ~path:"/" ())
+		| Get path ->
+			None, `GET, (Uri.make ~path:(String.concat "/" ("" :: "admin" :: path)) ())
 end
 
 module Out = struct
@@ -129,6 +133,7 @@ module Out = struct
 	| Ack
 	| Diagnostics of string
 	| Not_logged_in
+	| Get of string
 
 	let to_response = function
 		| Login
@@ -146,6 +151,8 @@ module Out = struct
 			`OK, x
 		| Not_logged_in ->
 			`Not_found, "Please log in."
+		| Get x ->
+			`OK, x
 end
 
 exception Failed_to_read_response

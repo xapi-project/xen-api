@@ -362,7 +362,7 @@ end
 
 open Protocol
 let process_request conn_id session request = match session, request with
-	(* Only allow Login, Trace and Diagnostic messages if there is no session *)
+	(* Only allow Login, Get, Trace and Diagnostic messages if there is no session *)
 	| _, In.Login session ->
 		(* associate conn_id with 'session' *)
 		Connections.add conn_id session;
@@ -373,6 +373,12 @@ let process_request conn_id session request = match session, request with
 	| _, In.Trace(from, timeout) ->
 		lwt events = Trace_buffer.get from timeout in
 		return (Out.Trace {Out.events = events})
+	| _, In.Get path ->
+		let path = if path = [] then [ "index.html" ] else path in
+		lwt ic = Lwt_io.open_file ~mode:Lwt_io.input (String.concat "/" ("www" :: path)) in
+		lwt txt = Lwt_stream.to_string (Lwt_io.read_chars ic) in
+		lwt () = Lwt_io.close ic in
+		return (Out.Get txt)
 	| None, _ ->
 		return Out.Not_logged_in
 	| Some session, In.Create name ->
