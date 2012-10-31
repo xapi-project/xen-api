@@ -121,11 +121,6 @@ let suspend_domain_and_destroy ~xc ~xs ~domid ~file =
 	suspend_domain ~xc ~xs ~domid ~file;
 	Domain.destroy task ~xc ~xs ~qemu_domid:0 domid
 
-let restore_domain ~xc ~xs ~domid ~vcpus ~static_max_kib ~target_kib ~file =
-	let fd = Unix.openfile file [ Unix.O_RDONLY ] 0o400 in
-	Domain.pv_restore task ~xc ~xs default_xenguest domid ~static_max_kib ~target_kib ~vcpus fd;
-	Unix.close fd
-
 let balloon_domain ~xs ~domid ~mem_mib =
 	if mem_mib <= 16L then
 		failwith (sprintf "cannot balloon domain below 16Mb: %Ld requested" mem_mib);
@@ -418,7 +413,6 @@ let cmd_alias cmd =
 	| "list" | "li"             -> "list_domains"
 	| "destroy" | "del"         -> "destroy_domain"
 	| "chkpoint" | "checkpoint" -> "chkpoint_domain"
-	| "restore"                 -> "restore_domain"
 	| "build"                   -> "build_domain"
 	| "hvmbuild"                -> "build_hvm"
 	| "suspend"                 -> "save_domain"
@@ -597,7 +591,6 @@ let do_cmd_parsing subcmd init_pos =
 		("build_hvm"      , common @ common_build @ hvm_build);
 		("setmaxmem"      , common @ setmaxmem_args);
 		("save_domain"    , common @ common_suspend);
-		("restore_domain" , common @ common_suspend @ common_build);
 		("chkpoint_domain", common @ common_suspend @ resume_args);
 		("shutdown_domain", common @ shutdown_args);
 		("hard_shutdown_domain", common @ shutdown_args);
@@ -711,9 +704,6 @@ let _ = try
 	| "save_domain"   ->
 		assert_domid (); assert_file ();
 		with_xc_and_xs (fun xc xs -> suspend_domain_and_destroy ~xc ~xs ~domid ~file)
-	| "restore_domain" ->
-		assert_domid (); assert_vcpus ();
-		with_xc_and_xs (fun xc xs -> restore_domain ~xc ~xs ~domid ~vcpus ~static_max_kib ~target_kib ~file)
 	| "chkpoint_domain" ->
 		assert_domid (); assert_file ();
 		with_xc_and_xs (fun xc xs -> suspend_domain_and_resume ~xc ~xs ~domid ~file ~cooperative)
