@@ -38,7 +38,7 @@
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
           </a>
-          <a class="brand" href="#">Cohttp Logger</a>
+          <a class="brand" href="#">XenSwitch</a>
           <div class="nav-collapse">
             <ul class="nav">
               <li class="active"><a href="#">Home</a></li>
@@ -57,7 +57,9 @@
         <tr>
          <th class="span1">Level</td>
          <th class="span2">Time</td>
-         <th class="span6">Message</td>
+         <th class="span1">Source</td>
+         <th class="span1">Destination</td>
+         <th class="span4">Message</td>
        </tr>
       </thead>
       <tbody>
@@ -88,45 +90,28 @@
 
     <script>
 $(document).ready(function(){
+   var from = -1;
 (function poll(){
    setTimeout(function(){
-      $.ajax({ url: "/log.json", success: function(data){
-        $.each(data, function(k,v) {
-          var level = '<span class="label">Default</span>';
-          if (v.level=="info") { level='<span class="label label-info">Info</span>'; }
-          if (v.level=="notice") { level='<span class="label label-success">Notice</span>'; }
-          if (v.level=="warning") { level='<span class="label label-warning">Warning</span>'; }
-          if (v.level=="error") { level='<span class="label label-important">Error</span>'; }
-          if (v.level=="fatal") { level='<span class="label label-important">Fatal</span>'; }
-          var m = new moment(parseInt(v.date));
-          if (v.mode=="log") {
-              $('#logger tr:last').after(
-                "<tr><td>"+level+"</td><td>"+
-                m.format('LLL')+"</td><td>"+
-                v.data.join('<br/>')+"</td></tr>");
-          } else if (v.mode=="progress") {
-            var pid="progress_"+v.id;
-            /* Find an existing progress bar */
-            if ($('#'+pid).length == 0) {
-              var prcl='progress-success';
-              if (v.level=='info') { prcl = 'progress-info'; }
-              else if (v.level=='warning' || v.level=="error" || v.level=='fatal') { prcl = 'progress-danger'; }
-              $('#logger tr:last').after(
-                "<tr><td>"+level+"</td><td>"+
-                m.format('LLL')+"</td><td>"+
-                '<div class="progress '+prcl+' progress-striped active" id="'+
-                pid+'"><div class="bar" style="width:0%"></div></div>'+
-                "</td></tr>");
-            }
-            /* Update progress bar */
-            $('#'+pid+" .bar").width(v.width+'%');
-            /* Update active */
-            if (parseInt(v.width) >= 100) {
-              if ($('#'+pid).hasClass('active'))
-                $('#'+pid).removeClass('active');
-                $('#'+pid).removeClass('progress-striped');
-            }
-          }
+      $.ajax({ url: "/trace/" + from + "/5.0", success: function(data){
+        $.each(data.events, function(id,v) {
+          if (id >= from) {
+             from = id + 1;
+             console.log("from = " + from);
+          };
+          var event = v[1];
+          var level = '<span class="label label-info">Message</span>';
+          if (event.message[0] == "Ack") { level = '<span class="label label-success">Ack</span>' };
+          var m = new moment(parseInt(event.time) * 1000);
+          var descr = "Unknown";
+          if (event.message[0] == "Message"){ descr = event.message[1].payload };
+          if (event.message[0] == "Ack") { descr = "Ack " + event.message[1] };
+          $('#logger tr:last').after(
+            "<tr><td>"+level+"</td><td>"+
+             m.format('LLL')+"</td><td>"+
+             event.src+"</td><td>"+
+             event.dst+"</td><td>"+
+             descr+"</td></tr>");
         });
           poll();
       }, dataType: "json"});
