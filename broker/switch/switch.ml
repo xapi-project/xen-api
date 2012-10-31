@@ -325,7 +325,7 @@ module Trace_buffer = struct
 	let buffer : (int64 * Protocol.Event.t) option array = Array.create size None
 	let c = Lwt_condition.create ()
 
-	let next_id = ref (0L)
+	let next_id = ref (-1L)
 
 	let add event =
 		let next_slot = Int64.(to_int (rem !next_id (of_int size))) in
@@ -345,7 +345,7 @@ module Trace_buffer = struct
 	let get from timeout : (int64 * Protocol.Event.t) list Lwt.t =
 		(* Wait until some data is available ie. when next_id > from *)
 		lwt () =
-			while_lwt !next_id < from do
+			while_lwt !next_id <= from do
 				Lwt_condition.wait c
 			done in
 
