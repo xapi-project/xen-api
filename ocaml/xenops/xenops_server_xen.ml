@@ -46,13 +46,15 @@ let choose_alternative kind default platformdata =
 	debug "looking for %s in [ %s ]" kind (String.concat "; " (List.map (fun (k, v) -> k ^ " : " ^v) platformdata));
 	if List.mem_assoc kind platformdata then begin
 		let x = List.assoc kind platformdata in
-		let path = Printf.sprintf "%s/%s/%s" _alternatives kind x in
-		try
-			Unix.access path [ Unix.X_OK ];
-			path
-		with _ ->
-			error "Invalid platform:%s=%s (check execute permissions of %s)" kind x path;
+		let dir = Filename.concat _alternatives kind in
+		let available = try Array.to_list (Sys.readdir dir) with _ -> [] in
+		(* If x has been put in the directory (by root) then it's safe to use *)
+		if List.mem x available
+		then Filename.concat dir x
+		else begin
+			error "Invalid platform:%s=%s (check execute permissions of %s)" kind x (Filename.concat dir x);
 			default
+		end
 	end else default
 
 (* We allow qemu-dm to be overriden via a platform flag *)
@@ -1263,11 +1265,14 @@ module VM = struct
 								Some x -> (match x with HVM hvm_info -> hvm_info.timeoffset | _ -> "")
 							| _ -> "" in
 						({ x with Domain.memory_target = initial_target }, timeoffset) in
+				let store_domid = 0 in
+				let console_domid = 0 in
+				let no_incr_generationid = false in
 				begin
 					try
 						with_data ~xc ~xs task data false
 							(fun fd ->
-								Domain.restore task ~xc ~xs (* XXX progress_callback *) build_info timeoffset (choose_xenguest vm.Vm.platformdata) domid fd
+								Domain.restore task ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid (* XXX progress_callback *) build_info timeoffset (choose_xenguest vm.Vm.platformdata) domid fd
 							);
 					with e ->
 						error "VM %s: restore failed: %s" vm.Vm.id (Printexc.to_string e);

@@ -1,4 +1,4 @@
 install:
-	mkdir -p $(DESTDIR)/usr/lib/$(PYTHON_DIR)/site-packages
-	$(IDATA) rrdd.py $(DESTDIR)/usr/lib/$(PYTHON_DIR)/site-packages/
+	mkdir -p $(DESTDIR)$(SITE_DIR)
+	$(IDATA) rrdd.py $(DESTDIR)$(SITE_DIR)/
 	$(IPROG) rrdd-example.py $(DESTDIR)$(LIBEXECDIR)
