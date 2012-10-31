@@ -495,7 +495,6 @@ static int hvm_build_set_params(xc_interface *xch, int domid,
         return -1;
 
     va_hvm = (struct hvm_info_table *)(va_map + HVM_INFO_OFFSET);
-    va_hvm->acpi_enabled = f.acpi;
     va_hvm->apic_mode = f.apic;
     va_hvm->nr_vcpus = f.vcpus;
     memset(va_hvm->vcpu_online, 0, sizeof(va_hvm->vcpu_online));
