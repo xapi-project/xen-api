@@ -5,7 +5,7 @@ open Protocol_lwt
 
 let port = ref 8080
 let name = ref "server"
-let payload = ref "hello\r\n"
+let payload = ref "hello"
 
 let main () =
 	lwt c = Client.connect !port !name in

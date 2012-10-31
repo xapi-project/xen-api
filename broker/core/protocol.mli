@@ -68,8 +68,8 @@ module Out : sig
 	type trace = {
 		events: (int64 * Event.t) list;
 	}
-	val transfer_of_rpc: Rpc.t -> transfer
-	val rpc_of_transfer: transfer -> Rpc.t
+	val trace_of_rpc: Rpc.t -> trace
+	val rpc_of_trace: trace -> Rpc.t
 
 	type t =
 	| Login

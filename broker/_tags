@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: d32292aff9c32144ba16deaa5c3706e7)
+# DO NOT EDIT (digest: 8b5ad67f3800b6c1b2461502438a09ab)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -53,6 +53,18 @@
 <core_test/server_main.{native,byte}>: pkg_rpc
 <core_test/server_main.{native,byte}>: pkg_rpc.json
 <core_test/server_main.{native,byte}>: pkg_rpc.syntax
+<core_test/server_main.{native,byte}>: custom
+# Executable dump
+<core_test/dump.{native,byte}>: use_xenswitch_lwt
+<core_test/dump.{native,byte}>: use_xenswitch
+<core_test/dump.{native,byte}>: pkg_lwt
+<core_test/dump.{native,byte}>: pkg_lwt.unix
+<core_test/dump.{native,byte}>: pkg_lwt.syntax
+<core_test/dump.{native,byte}>: pkg_cohttp
+<core_test/dump.{native,byte}>: pkg_cohttp.lwt
+<core_test/dump.{native,byte}>: pkg_rpc
+<core_test/dump.{native,byte}>: pkg_rpc.json
+<core_test/dump.{native,byte}>: pkg_rpc.syntax
 <core_test/*.ml{,i}>: use_xenswitch_lwt
 <core_test/*.ml{,i}>: use_xenswitch
 <core_test/*.ml{,i}>: pkg_lwt
@@ -63,7 +75,7 @@
 <core_test/*.ml{,i}>: pkg_rpc
 <core_test/*.ml{,i}>: pkg_rpc.json
 <core_test/*.ml{,i}>: pkg_rpc.syntax
-<core_test/server_main.{native,byte}>: custom
+<core_test/dump.{native,byte}>: custom
 # Executable switch
 <switch/switch.{native,byte}>: use_xenswitch_lwt
 <switch/switch.{native,byte}>: use_xenswitch

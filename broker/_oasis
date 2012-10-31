@@ -52,6 +52,14 @@ Executable server
   Install:            false
   BuildDepends:       xenswitch, xenswitch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
 
+Executable dump
+  CompiledObject:     best
+  Path:               core_test
+  MainIs:             dump.ml
+  Custom:             true
+  Install:            false
+  BuildDepends:       xenswitch, xenswitch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
+
 Executable switch
   CompiledObject:     best
   Path:               switch
