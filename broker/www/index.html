@@ -95,8 +95,8 @@ $(document).ready(function(){
    setTimeout(function(){
       $.ajax({ url: "/trace/" + from + "/5.0", success: function(data){
         $.each(data.events, function(id,v) {
-          if (id >= from) {
-             from = id + 1;
+          if (v[0] >= from) {
+             from = v[0] + 1;
              console.log("from = " + from);
           };
           var event = v[1];
