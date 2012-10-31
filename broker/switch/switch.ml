@@ -325,7 +325,7 @@ module Trace_buffer = struct
 	let buffer : (int64 * Protocol.Event.t) option array = Array.create size None
 	let c = Lwt_condition.create ()
 
-	let next_id = ref (-1L)
+	let next_id = ref 0L
 
 	let add event =
 		let next_slot = Int64.(to_int (rem !next_id (of_int size))) in
@@ -343,12 +343,13 @@ module Trace_buffer = struct
 		range 0 (next_slot - 1) (range next_slot (size - 1) acc)
 
 	let get from timeout : (int64 * Protocol.Event.t) list Lwt.t =
-		(* Wait until some data is available ie. when next_id > from *)
-		lwt () =
+		let sleep = Lwt_unix.sleep timeout in
+		let wait_for_data =
 			while_lwt !next_id <= from do
-				Lwt_condition.wait c
+	   			Lwt_condition.wait c
 			done in
-
+		(* Wait until some data is available ie. when next_id > from (or timeout) *)
+		lwt () = Lwt.pick [ sleep; wait_for_data ] in
 		(* start from next_slot, looking for non-None entries which
 		   are > from *)
 		let reversed_results = fold (fun x acc -> match x with
