@@ -2018,7 +2018,7 @@ module VIF = struct
 				(* Delete the old keys *)
 				List.iter (fun x -> safe_rm xs (path ^ "/" ^ x)) locking_mode_keys;
 				List.iter (fun (x, y) -> xs.Xs.write (path ^ "/" ^ x) y) (xenstore_of_locking_mode mode);
-				let disconnected = (not vif.carrier) || (mode = Xenops_interface.Vif.Disabled) in
+				let disconnected = not (vif.carrier && (mode <> Xenops_interface.Vif.Disabled)) in
 				let disconnect_path, flag = disconnect_flag device disconnected in
 				xs.Xs.write disconnect_path flag;
 
