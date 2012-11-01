@@ -110,8 +110,8 @@ $(document).ready(function(){
           if (event.output) { output = event.output };
           var queue = event.queue;
           var descr = "Unknown";
-          if (event.message[0] == "Message"){ descr = event.message[1].payload };
-          if (event.message[0] == "Ack") { descr = "Ack " + event.message[1] };
+          if (event.message[0] == "Message"){ descr = event.message[1] + ":" + event.message[2].payload };
+          if (event.message[0] == "Ack") { descr = event.message[1] + ":Ack"};
           $('#logger tr:last').after(
             "<tr><td>"+level+"</td><td>"+
              m.format('LLL')+"</td><td>"+

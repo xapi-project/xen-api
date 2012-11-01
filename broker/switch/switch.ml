@@ -280,9 +280,9 @@ module Q = struct
 					message_id_to_queue := Int64Map.add id name !message_id_to_queue;
 					Hashtbl.replace queues name (Int64Map.add id (Entry.make origin data) q);
 					Lwt_condition.broadcast w.c ();
-					return ()
+					return (Some id)
 				)
-		end else return ()
+		end else return None
 
 end
 
@@ -442,13 +442,16 @@ let process_request conn_id session request = match session, request with
 		List.iter
 			(fun (id, m) ->
 				let name = Q.queue_of_id id in
-				Trace_buffer.add (Event.({time = Unix.gettimeofday (); input = None; queue = name; output = Some session; message = Message m }))
+				Trace_buffer.add (Event.({time = Unix.gettimeofday (); input = None; queue = name; output = Some session; message = Message (id, m) }))
 			) transfer.Out.messages;
 		return (Out.Transfer transfer)
 	| Some session, In.Send (name, data) ->
-		Trace_buffer.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Message data }));
-		lwt () = Q.send conn_id name data in
-		return (Out.Send)
+		begin match_lwt Q.send conn_id name data with
+		| None -> return Out.Send
+		| Some id ->
+			Trace_buffer.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Message (id, data) }));
+			return Out.Send
+		end
 
 let make_server () =
 	debug "Started server on unix domain socket";

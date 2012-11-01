@@ -19,7 +19,7 @@ let main () =
 				| None -> "-"
 				| Some x -> x in
 			let message = function
-				| Event.Message m -> m.Message.payload
+				| Event.Message (id, m) -> m.Message.payload
 				| Event.Ack id -> Printf.sprintf "ack %Ld" id in
 			List.iter (fun (id, event) ->
 				let time = match !start with

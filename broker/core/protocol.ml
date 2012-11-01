@@ -17,7 +17,7 @@ end
 
 module Event = struct
 	type message =
-		| Message of Message.t
+		| Message of int64 * Message.t
 		| Ack of int64
 	with rpc
 
