@@ -441,9 +441,9 @@ let _ =
   error Api_errors.pif_does_not_allow_unplug [ "PIF" ]
     ~doc:"The operation you requested cannot be performed because the specified PIF does not allow unplug." ();
   error Api_errors.pif_has_no_network_configuration [ ]
-    ~doc:"PIF has no IP configuration (mode curently set to 'none')" ();
+    ~doc:"PIF has no IP configuration (mode currently set to 'none')" ();
   error Api_errors.pif_has_no_v6_network_configuration [ ]
-    ~doc:"PIF has no IPv6 configuration (mode curently set to 'none')" ();
+    ~doc:"PIF has no IPv6 configuration (mode currently set to 'none')" ();
   error Api_errors.pif_incompatible_primary_address_type [ ]
     ~doc:"The primary address types are not compatible" ();
   error Api_errors.cannot_plug_bond_slave ["PIF"]
@@ -5719,7 +5719,7 @@ let pool_recover_slaves = call
   ~in_oss_since:None
   ~in_product_since:rel_rio
   ~params:[]
-  ~result:(Set (Ref _host), "list of hosts whose master address were succesfully reset")
+  ~result:(Set (Ref _host), "list of hosts whose master address were successfully reset")
   ~doc:"Instruct a pool master, M, to try and contact its slaves and, if slaves are in emergency mode, reset their master address to M."
   ~allowed_roles:_R_POOL_OP
   ()

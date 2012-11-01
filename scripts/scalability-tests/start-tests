@@ -14,7 +14,7 @@ if [ $# -ne 2 ]; then
    echo "  * a pool already set up with a shared NFS storage and a HVM VM called dsl;"
    echo "  * ${0} must be started on the master of this pool;"
    echo "${0} clones <number_of_vm>, then starts them all, then shutdown them all, then destroy them all."
-   echo "If WAIT_FOR_IP is set to 1, the script waits for the IP adress of the VM to appear before starting the next VM."
+   echo "If WAIT_FOR_IP is set to 1, the script waits for the IP address of the VM to appear before starting the next VM."
    exit 1
 fi 
 
