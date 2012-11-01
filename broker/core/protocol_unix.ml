@@ -95,12 +95,11 @@ module Client = struct
 		| Error e -> raise e
 		| Ok raw -> raw
 
-	let connect port dest_queue_name =
-		let token = Printf.sprintf "%d" (Unix.getpid ()) in
+	let connect myname port dest_queue_name =
 		let requests_conn = IO.connect port in
-		let (_: string) = rpc requests_conn (In.Login token) in
+		let (_: string) = rpc requests_conn (In.Login myname) in
 		let events_conn = IO.connect port in
-		let (_: string) = rpc events_conn (In.Login token) in
+		let (_: string) = rpc events_conn (In.Login myname) in
 
 		let wakener = Hashtbl.create 10 in
 		let (_ : Thread.t) =
@@ -114,6 +113,7 @@ module Client = struct
 				| m :: ms ->
 					List.iter
 						(fun (i, m) ->
+							let (_: string) = rpc events_conn (In.Ack i) in
 							if Hashtbl.mem wakener m.Message.correlation_id
 							then wakeup_later (Hashtbl.find wakener m.Message.correlation_id) m;
 						) transfer.Out.messages;

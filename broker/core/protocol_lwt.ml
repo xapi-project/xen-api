@@ -67,11 +67,13 @@ module Client = struct
 				match transfer.Out.messages with
 				| [] -> loop from
 				| m :: ms ->
-					List.iter
+					lwt () = Lwt_list.iter_s
 						(fun (i, m) ->
+							lwt _ = rpc events_conn (In.Ack i) in
 							if Hashtbl.mem wakener m.Message.correlation_id
 							then Lwt.wakeup_later (Hashtbl.find wakener m.Message.correlation_id) m;
-						) transfer.Out.messages;
+							return ()
+						) transfer.Out.messages in
 					let from = List.fold_left max (fst m) (List.map fst ms) in
 					loop from in
 			loop (-1L) in
