@@ -24,11 +24,6 @@ SUBSYS_FILE="/var/lock/subsys/squeezed"
 # Source function library.
 . /etc/init.d/functions
 
-if [ -e /var/xapi/xiu-xc ]; then
-	export XENCTRL_OSDEP="@OPTDIR@/lib/libxenctrl_xiu.so"
-	export XIU=/var/xapi/xiu
-fi
-
 # Enable core dumping
 ulimit -c unlimited
 

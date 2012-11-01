@@ -27,7 +27,6 @@ OCamlLibrary(fhs, fhs)
 	database \
 	toplevel \
 	xstest \
-	xiu \
 	cdrommon \
 	gpg \
 	db_process \
