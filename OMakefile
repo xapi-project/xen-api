@@ -163,8 +163,6 @@ OCAML_PHASE3_XEN = \
 	ocaml/xenops/cancel_utils_test \
 	ocaml/xenguest/xenguest \
 	ocaml/xenguest/dumpcore \
-	ocaml/xiu/libxenctrl_xiu.so \
-	ocaml/xiu/xiu \
 	ocaml/xapi/quicktestbin \
 	ocaml/xapi/sparse_dd \
 	ocaml/xapi/storage_impl_test \
