@@ -25,6 +25,24 @@ COMPILE_BYTE ?= no
 export COMPILE_NATIVE COMPILE_BYTE
 
 # FHS stuff
+ifeq ($(DISTROTY),Debianlike)
+VARDIR=/var/lib/xcp
+VARPATCHDIR=/var/lib/xcp/patch
+ETCDIR=/etc/xcp
+OPTDIR=/usr/lib/xcp
+PLUGINDIR=/usr/lib/xcp/plugins
+HOOKSDIR=/etc/xcp/hook-scripts
+INVENTORY=/etc/xcp/inventory
+XAPICONF=/etc/xcp/xapi.conf
+RRDDCONF=/etc/xcp/rrdd.conf
+LIBEXECDIR=/usr/lib/xcp/lib
+SCRIPTSDIR=/usr/lib/xcp/scripts
+SHAREDIR=/usr/share/xcp
+WEBDIR=/var/www/html
+XHADIR=/opt/xensource/xha
+BINDIR=/usr/lib/xcp/bin
+SBINDIR=/usr/sbin
+else
 VARDIR=/var/xapi
 VARPATCHDIR=/var/patch
 ETCDIR=/etc/xensource
@@ -41,6 +59,8 @@ WEBDIR=/opt/xensource/www
 XHADIR=/opt/xensource/xha
 BINDIR=/opt/xensource/bin
 SBINDIR=/opt/xensource/bin
+endif
+
 
 export VARDIR ETCDIR OPTDIR PLUGINDIR HOOKSDIR INVENTORY VARPATCHDIR LIBEXECDIR XAPICONF RRDDCONF SCRIPTSDIR SHAREDIR WEBDIR XHADIR BINDIR SBINDIR
 
