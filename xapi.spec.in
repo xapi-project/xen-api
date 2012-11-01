@@ -169,7 +169,7 @@ rm -rf $RPM_BUILD_ROOT
 /etc/rc.d/init.d/perfmon
 /etc/rc.d/init.d/xapi
 /etc/rc.d/init.d/xapi-domains
-/etc/rc.d/init.d/xapissl
+@OPTDIR@/libexec/xapissl
 /etc/rc.d/init.d/xenservices
 /etc/rc.d/init.d/genptoken
 %config(noreplace) /etc/sysconfig/perfmon

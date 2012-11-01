@@ -61,7 +61,7 @@ install:
 	mkdir -p $(DESTDIR)/etc/rc.d/init.d
 	$(IPROG) init.d-xenservices $(DESTDIR)/etc/rc.d/init.d/xenservices
 	$(IPROG) init.d-xapi $(DESTDIR)/etc/rc.d/init.d/xapi
-	$(IPROG) init.d-xapissl $(DESTDIR)/etc/rc.d/init.d/xapissl
+	$(IPROG) init.d-xapissl $(DESTDIR)$(LIBEXECDIR)/xapissl
 	$(IPROG) init.d-xapi-domains $(DESTDIR)/etc/rc.d/init.d/xapi-domains
 	$(IPROG) init.d-squeezed $(DESTDIR)/etc/rc.d/init.d/squeezed
 	$(IPROG) init.d-xenopsd $(DESTDIR)/etc/rc.d/init.d/xenopsd
