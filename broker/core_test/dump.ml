@@ -16,9 +16,8 @@ let main () =
 		| Ok raw ->
 			let trace = Out.trace_of_rpc (Jsonrpc.of_string raw) in
 			let endpoint = function
-				| Endpoint.Queue name -> name
-				| Endpoint.Connection name -> name
-				| Endpoint.Switch -> "switch" in
+				| None -> "-"
+				| Some x -> x in
 			let message = function
 				| Event.Message m -> m.Message.payload
 				| Event.Ack id -> Printf.sprintf "ack %Ld" id in
@@ -29,8 +28,8 @@ let main () =
 						0.
 					| Some t ->
 						event.Event.time -. t in
-				Printf.fprintf stdout "%Ld: %.1f: %s -> %s: %s\n%!" id time
-					(endpoint event.Event.src) (endpoint event.Event.dst)
+				Printf.fprintf stdout "%Ld: %.1f: %10s -> %10s -> %10s: %s\n%!" id time
+					(endpoint event.Event.input) event.Event.queue (endpoint event.Event.output)
 					(message event.Event.message)
 			) trace.Out.events;
 			from :=

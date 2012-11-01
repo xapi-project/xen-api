@@ -11,15 +11,6 @@ module Message : sig
 	val one_way: string -> t
 end
 
-module Endpoint : sig
-	type t =
-		| Queue of string
-		| Connection of string
-		| Switch
-	val t_of_rpc: Rpc.t -> t
-	val rpc_of_t: t -> Rpc.t
-end
-
 module Event : sig
 	type message =
 		| Message of Message.t
@@ -27,8 +18,9 @@ module Event : sig
 
 	type t = {
 		time: float;
-		src: Endpoint.t;
-		dst: Endpoint.t;
+		input: string option;
+		queue: string;
+		output: string option;
 		message: message
 	}
 	val t_of_rpc: Rpc.t -> t

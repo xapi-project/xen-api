@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>Bootstrap, from Twitter</title>
+    <title>Xenswitch</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="">
     <meta name="author" content="">
@@ -56,9 +56,10 @@
       <thead>
         <tr>
          <th class="span1">Level</td>
-         <th class="span2">Time</td>
-         <th class="span1">Source</td>
-         <th class="span1">Destination</td>
+         <th class="span1">Time</td>
+         <th class="span1">Input</td>
+         <th class="span1">Queue</td>
+         <th class="span1">Output</td>
          <th class="span4">Message</td>
        </tr>
       </thead>
@@ -103,14 +104,20 @@ $(document).ready(function(){
           var level = '<span class="label label-info">Message</span>';
           if (event.message[0] == "Ack") { level = '<span class="label label-success">Ack</span>' };
           var m = new moment(parseInt(event.time) * 1000);
+          var input = "";
+          if (event.input) { input = event.input };
+          var output = "";
+          if (event.output) { output = event.output };
+          var queue = event.queue;
           var descr = "Unknown";
           if (event.message[0] == "Message"){ descr = event.message[1].payload };
           if (event.message[0] == "Ack") { descr = "Ack " + event.message[1] };
           $('#logger tr:last').after(
             "<tr><td>"+level+"</td><td>"+
              m.format('LLL')+"</td><td>"+
-             event.src+"</td><td>"+
-             event.dst+"</td><td>"+
+             input+"</td><td>"+
+             queue+"</td><td>"+
+             output+"</td><td>"+
              descr+"</td></tr>");
         });
           poll();

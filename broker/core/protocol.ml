@@ -15,14 +15,6 @@ module Message = struct
 	}
 end
 
-module Endpoint = struct
-	type t =
-		| Queue of string
-		| Connection of string
-		| Switch
-	with rpc
-end
-
 module Event = struct
 	type message =
 		| Message of Message.t
@@ -31,8 +23,9 @@ module Event = struct
 
 	type t = {
 		time: float;
-		src: Endpoint.t;
-		dst: Endpoint.t;
+		input: string option;
+		queue: string;
+		output: string option;
 		message: message
 	} with rpc
 

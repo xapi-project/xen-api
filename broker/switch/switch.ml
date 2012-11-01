@@ -398,7 +398,7 @@ let process_request conn_id session request = match session, request with
 		return Out.Subscribe
 	| Some session, In.Ack id ->
 		let name = Q.queue_of_id id in
-		Trace_buffer.add (Event.({time = Unix.gettimeofday (); src = Endpoint.Connection session; dst = Endpoint.Queue name; message = Ack id }));
+		Trace_buffer.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Ack id }));
 		Q.ack id;
 		return Out.Ack
 	| Some session, In.Transfer(from, timeout) ->
@@ -442,11 +442,11 @@ let process_request conn_id session request = match session, request with
 		List.iter
 			(fun (id, m) ->
 				let name = Q.queue_of_id id in
-				Trace_buffer.add (Event.({time = Unix.gettimeofday (); src = Endpoint.Queue name; dst = Endpoint.Connection session; message = Message m }))
+				Trace_buffer.add (Event.({time = Unix.gettimeofday (); input = None; queue = name; output = Some session; message = Message m }))
 			) transfer.Out.messages;
 		return (Out.Transfer transfer)
 	| Some session, In.Send (name, data) ->
-		Trace_buffer.add (Event.({time = Unix.gettimeofday (); src = Endpoint.Connection session; dst = Endpoint.Queue name; message = Message data }));
+		Trace_buffer.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Message data }));
 		lwt () = Q.send conn_id name data in
 		return (Out.Send)
 
