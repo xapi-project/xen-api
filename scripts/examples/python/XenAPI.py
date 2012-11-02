@@ -102,7 +102,7 @@ class UDSTransport(xmlrpclib.Transport):
         self._extra_headers += [ (key,value) ]
     def make_connection(self, host):
         # Python 2.4 compatibility
-        if sys.version_info[0] <= 2 and sys.version_info[1] < 6:
+        if sys.version_info[0] <= 2 and sys.version_info[1] < 7:
             return UDSHTTP(host)
         else:
             return UDSHTTPConnection(host)
