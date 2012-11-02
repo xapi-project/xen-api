@@ -63,7 +63,7 @@
          <th class="span4">Message</td>
        </tr>
       </thead>
-      <tbody>
+      <tbody id="logger-body">
       </tbody>
       </table>
 
@@ -92,6 +92,9 @@
     <script>
 $(document).ready(function(){
    var from = -1;
+   var earliest_id = 100;
+   var next_id = 1;
+   var total = 0;
 (function poll(){
    setTimeout(function(){
       $.ajax({ url: "/trace/" + from + "/5.0", success: function(data){
@@ -112,13 +115,23 @@ $(document).ready(function(){
           var descr = "Unknown";
           if (event.message[0] == "Message"){ descr = event.message[1] + ":" + event.message[2].payload };
           if (event.message[0] == "Ack") { descr = event.message[1] + ":Ack"};
+          while (total > 10){
+             $('#item-' + earliest_id).remove();
+             earliest_id = earliest_id + 1;
+             total = total - 1;
+          };
           $('#logger tr:last').after(
-            "<tr><td>"+level+"</td><td>"+
+            "<tr id=\"item-" + next_id + "\"><td>"+level+"</td><td>"+
              m.format('LLL')+"</td><td>"+
              input+"</td><td>"+
              queue+"</td><td>"+
              output+"</td><td>"+
              descr+"</td></tr>");
+          total = total + 1;
+          if (next_id < earliest_id){
+             earliest_id = next_id;
+          };
+          next_id = next_id + 1;
         });
           poll();
       }, dataType: "json"});
