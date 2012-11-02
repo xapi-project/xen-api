@@ -14,8 +14,8 @@
 open Printf
 open Stringext
 open Hashtblext
-open Pervasiveext
 open Xenstore
+open Xenops_utils
 
 type kind = Vif | Vbd | Tap | Pci | Vfs | Vfb | Vkbd
 with rpc

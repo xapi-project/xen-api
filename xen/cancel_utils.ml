@@ -14,7 +14,7 @@
 open Printf
 open Stringext
 open Hashtblext
-open Pervasiveext
+open Xenops_utils
 open Xenstore
 open Xenops_helpers
 open Xenops_task

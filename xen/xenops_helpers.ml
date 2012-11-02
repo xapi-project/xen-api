@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Pervasiveext
+open Xenops_utils
 open Xenstore
 
 (** {2 XC, XS and XAL interface helpers.} *)

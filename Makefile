@@ -8,6 +8,7 @@ export OCAMLRUNPARAM=b
 
 TESTS     := --enable-tests
 XEN       := --disable-xen
+XEN       ?= $(shell if ocamlfind query xenctrl >/dev/null 2>&1; then echo --enable-xen; fi)
 SIMULATOR := --enable-simulator
 
 setup.bin: setup.ml

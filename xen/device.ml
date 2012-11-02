@@ -15,7 +15,7 @@ open Printf
 
 open Stringext
 open Hashtblext
-open Pervasiveext
+open Xenops_utils
 open Fun
 open Listext
 

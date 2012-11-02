@@ -16,7 +16,7 @@
 open Printf
 open Stringext
 open Listext
-open Pervasiveext
+open Xenops_utils
 open Xenstore
 open Cancel_utils
 

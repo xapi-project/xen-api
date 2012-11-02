@@ -38,7 +38,7 @@ Executable xn
 Executable xenopsd_xen
   CompiledObject:     best
   Path:               xen
-  MainIs:             xenopsd_xen_main.ml
+  MainIs:             xenops_main.ml
   Build$:             flag(xen)
   Custom:             true
   Install:            false

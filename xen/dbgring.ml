@@ -11,6 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+open Xenops_utils
+
 let xenstored_proc_port = "/proc/xen/xsd_port"
 let xenstored_proc_kva = "/proc/xen/xsd_kva"
 
@@ -23,7 +25,7 @@ let open_ring0 () =
 
 let open_ringU domid mfn =
 	let xc = Xenctrl.interface_open () in
-	Pervasiveext.finally
+	finally
 		(fun () -> Xenctrl.map_foreign_range xc domid (Xenmmap.getpagesize()) mfn)
 		(fun () -> Xenctrl.interface_close xc)
 

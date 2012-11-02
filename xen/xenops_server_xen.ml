@@ -17,7 +17,7 @@ open Xenops_utils
 open Xenops_server_plugin
 open Xenops_helpers
 open Xenstore
-open Pervasiveext
+open Xenops_utils
 open Listext
 open Threadext
 open Stringext

@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open Fun
-open Pervasiveext
+open Xenops_utils
 open Xenops_task
 
 module D = Debug.Debugger(struct let name = "xenguesthelper" end)
