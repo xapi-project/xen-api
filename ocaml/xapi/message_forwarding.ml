@@ -1019,14 +1019,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			Xapi_vm_lifecycle.update_allowed_operations ~__context ~self
 
 		let set_is_a_template ~__context ~self ~value =
-			if value
-			then with_vm_operation ~__context ~self ~doc:"VM.set_is_a_template" ~op:`make_into_template
-				(fun () ->
-					Local.VM.set_is_a_template ~__context ~self ~value:true)
-			else Local.VM.set_is_a_template ~__context ~self ~value
-				(*
-				  else raise (Api_errors.Server_error(Api_errors.operation_not_allowed, [ "Must use VM.provision" ]))
-				*)
+			let op =
+				if value then `make_into_template
+				else `convert_from_template
+			in
+			with_vm_operation ~__context ~self ~doc:"VM.set_is_a_template" ~op
+				(fun () -> Local.VM.set_is_a_template ~__context ~self ~value)
 
 		let maximise_memory ~__context ~self ~total ~approximate =
 			info "VM.maximise_memory: VM = '%s'; total = '%Ld'; approximate = '%b'" (vm_uuid ~__context self) total approximate;

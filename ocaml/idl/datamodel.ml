@@ -531,6 +531,8 @@ let _ =
     ~doc:"You attempted an operation on a VM which requires a more recent version of the PV drivers. Please upgrade your PV drivers." ();
   error Api_errors.vm_is_template ["vm"]
     ~doc:"The operation attempted is not valid for a template VM" ();
+  error Api_errors.vm_is_not_template ["vm"]
+    ~doc:"The operation attempted is only valid for a template VM" ();
   error Api_errors.other_operation_in_progress ["class"; "object"]
     ~doc:"Another operation involving the object is currently in progress" ();
   error Api_errors.vbd_not_removable_media ["vbd"]
@@ -6541,6 +6543,7 @@ let vm_operations =
 	    "data_source_op", "Add, remove, query or list data sources";
 	    "update_allowed_operations", "";
 	    "make_into_template", "Turning this VM into a template";
+	    "convert_from_template", "Turning this template into a VM";
 	    "import", "importing a VM from a network stream";
 	    "export", "exporting a VM to a network stream";
 	    "metadata_export", "exporting VM metadata to a network stream";

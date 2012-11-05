@@ -35,6 +35,7 @@ let allowed_power_states ~__context ~vmr ~(op:API.vm_operations) =
 	| `changing_static_range
 	| `changing_VCPUs
 	| `make_into_template
+	| `convert_from_template
 	| `provision
 	| `start
 	| `start_on
@@ -162,7 +163,7 @@ let check_template ~vmr ~op ~ref_str =
 	] in
 	if false
 		|| List.mem op allowed_operations
-		|| (op = `destroy && not default_template)
+		|| (List.mem op [`destroy; `convert_from_template] && not default_template)
 	then None
 	else Some (Api_errors.vm_is_template, [ref_str; Record_util.vm_operation_to_string op])
 
@@ -249,6 +250,12 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 	let current_error = check current_error (fun () -> 
 		if is_snapshot
 		then check_snapshot ~vmr ~op ~ref_str
+		else None) in
+
+	(* if the VM is not a template, it cannot be converted from a template. *)
+	let current_error = check current_error (fun () ->
+		if op = `convert_from_template && (not is_template)
+		then Some (Api_errors.vm_is_not_template, [ref_str])
 		else None) in
 
 	(* if the VM is neither a template nor a snapshot, do not allow provision and revert. *)
@@ -376,7 +383,7 @@ let update_allowed_operations ~__context ~self =
 			 `start; `start_on; `pause; `unpause; `clean_shutdown; `clean_reboot;
 			`hard_shutdown; `hard_reboot; `suspend; `resume; `resume_on; `export; `destroy;
 			`provision; `changing_VCPUs_live; `pool_migrate; `migrate_send; `make_into_template; `changing_static_range;
-			`changing_shadow_memory; `changing_dynamic_range]
+			`changing_shadow_memory; `changing_dynamic_range; `convert_from_template]
 	in
 	(* FIXME: need to be able to deal with rolling-upgrade for orlando as well *)
 	let allowed =
