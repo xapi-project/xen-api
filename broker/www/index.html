@@ -105,7 +105,13 @@ $(document).ready(function(){
           };
           var event = v[1];
           var level = '<span class="label label-info">Message</span>';
-          if (event.message[0] == "Ack") { level = '<span class="label label-success">Ack</span>' };
+          if (event.message[0] == "Message") {
+            if (event.message[2].reply_to)
+              { level = '<span class="label label-important">Request</span>' }
+            else
+              { level = '<span class="label label-success">Reply</span>' }
+          };
+          if (event.message[0] == "Ack") { level = '<span class="label label-info">Ack</span>' };
           var m = new moment(parseInt(event.time) * 1000);
           var input = "";
           if (event.input) { input = event.input };
