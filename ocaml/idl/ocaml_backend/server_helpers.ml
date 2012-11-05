@@ -119,7 +119,7 @@ let dispatch_exn_wrapper f =
     f()
   with exn -> let code, params = ExnHelper.error_of_exn exn in XMLRPC.Failure(code, params)
 
-let do_dispatch ?session_id ?forward_op ?self _type called_async supports_async called_fn_name op_fn
+let do_dispatch ?session_id ?forward_op ?self called_async supports_async called_fn_name op_fn
     marshaller_fn fd http_req label generate_task_for =
 
   if (called_async && (not supports_async)) 
