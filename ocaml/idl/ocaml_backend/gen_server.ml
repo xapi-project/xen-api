@@ -204,8 +204,6 @@ let operation (obj: obj) (x: message) =
 			in
 
 	let gen_body () =
-		let ret = match x.msg_result with Some(ty, _) -> Some ty | _ -> None in
-		let type_xml = Datamodel_types.TypeToXML.marshal ret in
 		let module_prefix = if (Gen_empty_custom.operation_requires_side_effect x) then _custom else _db_defaults in
 		let common_let_decs =
 			[
@@ -227,10 +225,9 @@ let operation (obj: obj) (x: message) =
 
 		let body_exp =
 			[
-				Printf.sprintf "let resp = Server_helpers.do_dispatch %s %s \"%s\" __async supports_async __call local_op marshaller fd http_req __label generate_task_for in"
+				Printf.sprintf "let resp = Server_helpers.do_dispatch %s %s __async supports_async __call local_op marshaller fd http_req __label generate_task_for in"
 				(if x.msg_session then "~session_id" else "")
-				(if Gen_empty_custom.operation_requires_side_effect x then "~forward_op" else "")
-				(Xml.to_string type_xml);
+				(if Gen_empty_custom.operation_requires_side_effect x then "~forward_op" else "");
 				(*	"P.debug \"Server XML response: %s\" (Xml.to_string (XMLRPC.To.methodResponse resp));"; *)
 				"resp"
 			] in
