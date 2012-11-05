@@ -116,7 +116,7 @@ let operation (obj: obj) (x: message) =
 	| Some default ->
 	    Printf.sprintf "(if (List.mem_assoc \"%s\" __structure) then (my_assoc \"%s\" __structure) else %s)"
 	      (DU.wire_name_of_field f) (DU.wire_name_of_field f)
-	      ("Xml.parse_string (\""^(Xml.to_string (Datamodel_values.to_xml default))^"\")") in
+	      (Datamodel_values.to_ocaml_string default) in
       Printf.sprintf "let %s = %s \"%s\" %s in"
 	binding converter binding lookup_expr in
     String.concat "\n"
@@ -182,7 +182,7 @@ let operation (obj: obj) (x: message) =
 	     match default_param.DT.param_default with
 	       None -> "** EXPECTED DEFAULT VALUE IN THIS PARAM **"
 	     | Some default ->
-		 "Xml.parse_string (\""^(Xml.to_string (Datamodel_values.to_xml default))^"\")" in
+		 Datamodel_values.to_ocaml_string default in
 	   Printf.sprintf "let %s = From.%s \"%s\" (try %s with _ -> %s) in"
 	     param_name param_type param_name try_and_get_default default_value
 	)

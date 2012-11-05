@@ -21,7 +21,7 @@ let module_name = "Client"
 let async_module_name = "Async"
 let signature_name = "API"
 
-(** If true then all create arguments are packaged in an XMLRPC <struct>
+(** If true then all create arguments are packaged in an RPC <struct>
     otherwise they are unrolled into a <param> list *)
 let use_structure_in_ctor = true
 
@@ -30,7 +30,7 @@ let _session_id = "session_id"
 let _self = "self"
 let _value = "value"
 let _key = "key"
-let _rpc = O.Named("rpc", "(xml -> xml)")
+let _rpc = O.Named("rpc", "(Rpc.call -> Rpc.response)")
 let custom name ty = O.Named(name, OU.alias_of_ty ty)
 let session           = custom _session_id (DT.Ref Datamodel._session)
 let self (x: DT.obj)  = custom _self (DT.Ref x.DT.name)
@@ -111,36 +111,38 @@ let gen_module api : O.Module.t =
   let operation ~sync (obj: obj) (x: message) =
     let args = args_of_message obj x in
 
-    let to_xmlrpc (arg: O.param) =
+    let to_rpc (arg: O.param) =
       let binding = O.string_of_param arg in
       let converter = O.type_of_param arg in
-      Printf.sprintf "let %s = To.%s %s in" binding converter binding in
+      Printf.sprintf "let %s = rpc_of_%s %s in" binding converter binding in
 
     (* Constructors use a <struct> on the wire *)
     let is_ctor = x.msg_tag = FromObject(Make) && use_structure_in_ctor in
     let ctor_record =
       let fields = ctor_fields obj in
       let of_field f = Printf.sprintf "\"%s\", %s"
-	(DU.wire_name_of_field f)
-	(O.string_of_param (param_of_field f)) in
-      "let __structure = To.structure [ " ^ (String.concat "; " (List.map of_field fields)) ^ "] in" in
-    let rpc_args = if is_ctor then [ O.string_of_param session; "__structure" ]
-    else List.map O.string_of_param args in
+        (DU.wire_name_of_field f)
+        (O.string_of_param (param_of_field f)) in
+        "let args = Dict [ " ^ (String.concat "; " (List.map of_field fields)) ^ "] in" in
+    let rpc_args =
+      if is_ctor
+      then [ O.string_of_param session; "args" ]
+      else List.map O.string_of_param args in
 
     let task = DT.Ref Datamodel._task in
 
     let from_xmlrpc t = match x.msg_custom_marshaller, t, sync with
-      | true, _, true             -> "" (* already in XML form *)
+      | true, _, true             -> "" (* already in RPC form *)
       | true, _, false            -> failwith "No implementation for custom_marshaller && async"
-      | false, Some (ty,_), true  -> Printf.sprintf "From.%s \"return value of %s.%s\" " (OU.alias_of_ty ty) x.msg_obj_name x.msg_name
-      | false, _,           false -> Printf.sprintf "From.%s \"return value of %s.%s\" " (OU.alias_of_ty task) x.msg_obj_name x.msg_name
+      | false, Some (ty,_), true  -> Printf.sprintf "%s_of_rpc " (OU.alias_of_ty ty)
+      | false, _,           false -> Printf.sprintf "%s_of_rpc " (OU.alias_of_ty task)
       | false, None,        true  -> "ignore" in
 
     let wire_name = DU.wire_name ~sync obj x in
 
     let return_type = 
       if x.msg_custom_marshaller 
-      then "XMLRPC.xmlrpc"
+      then "Rpc.t"
       else begin
 	  if sync then (match x.msg_result with Some (x,_) ->
 			  OU.alias_of_ty x | _ -> "unit")
@@ -152,7 +154,7 @@ let gen_module api : O.Module.t =
       (* Plus ~rpc:(xml -> xml) function (alternative to using functor) *)
       ~params:(_rpc :: args)
       ~ty:return_type
-      ~body:(List.map to_xmlrpc args @ [
+      ~body:(List.map to_rpc args @ [
 	       if is_ctor then ctor_record else "";
 	       Printf.sprintf "%s(rpc_wrapper rpc \"%s\" [ %s ])"
 		 (from_xmlrpc x.msg_result)
@@ -174,14 +176,14 @@ let gen_module api : O.Module.t =
       ~elements:fields ()
   in
   let preamble = [
-    "let rpc_wrapper rpc name args = ";
-    "  match From.methodResponse(rpc(To.methodCall name args)) with";
-    "  | Fault _ -> invalid_arg \"Client.rpc (Fault _)\"";
-    "  | Success [] -> XMLRPC.To.structure [] (* dummy value *)";
-    "  | Success [x] -> x";
-    "  | Success _ -> invalid_arg \"more than one result from an RPC\"";
-    "  | Failure(code, strings) -> server_failure code strings";
-	"  | _ -> invalid_arg \"unexpected result from an RPC\"";
+      "let rpc_wrapper rpc name args = ";
+      "  let response = rpc (Rpc.call name args) in";
+      "  if response.Rpc.success then";
+      "    response.Rpc.contents";
+      "  else match response.Rpc.contents with";
+      "    | Rpc.Enum [ Rpc.String \"Fault\"; Rpc.String code ] -> failwith (\"INTERNAL ERROR: \"^code)";
+      "    | Rpc.Enum [ Rpc.String code; args ] -> server_failure code (API.string_set_of_rpc args)";
+      "    | rpc -> failwith (\"Client.rpc: \" ^ Rpc.to_string rpc)";
   ]
   in
   let async =

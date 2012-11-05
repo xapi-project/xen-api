@@ -23,17 +23,30 @@ let to_string v =
   | VEnum e -> e
   | _ -> raise Map_key_that_cannot_be_represented_as_string      
       
-let rec to_xml v =
+let rec to_rpc v =
   match v with
-    VString s -> XMLRPC.To.string s
-  | VInt i -> XMLRPC.To.string (Int64.to_string i)
-  | VFloat f -> XMLRPC.To.double f
-  | VBool b -> XMLRPC.To.boolean b
-  | VDateTime d -> XMLRPC.To.datetime d
-  | VEnum e -> XMLRPC.To.string e
-  | VMap vvl -> XMLRPC.To.structure (List.map (fun (v1,v2)-> to_string v1, to_xml v2) vvl)
-  | VSet vl -> XMLRPC.To.array (List.map (fun v->to_xml v) vl)
-  | VRef r -> XMLRPC.To.string r
+    VString s -> Rpc.String s
+  | VInt i -> Rpc.Int i
+  | VFloat f -> Rpc.Float f
+  | VBool b -> Rpc.Bool b
+  | VDateTime d -> Rpc.String (Date.to_string d)
+  | VEnum e -> Rpc.String e
+  | VMap vvl -> Rpc.Dict (List.map (fun (v1,v2)-> to_string v1, to_rpc v2) vvl)
+  | VSet vl -> Rpc.Enum (List.map (fun v->to_rpc v) vl)
+  | VRef r -> Rpc.String r
+
+open Printf
+
+let to_ocaml_string v =
+	let rec aux = function
+		| Rpc.Null -> "Rpc.Null"
+		| Rpc.String s -> sprintf "Rpc.String \"%s\"" s
+		| Rpc.Int i -> sprintf "Rpc.Int %LdL" i
+		| Rpc.Float f -> sprintf "Rpc.Float %f" f
+		| Rpc.Bool b -> sprintf "Rpc.Bool %b" b
+		| Rpc.Dict d -> sprintf "Rpc.Dict [%s]" (String.concat ";" (List.map (fun (n,v) -> sprintf "(\"%s\",%s)" n (aux v)) d))
+		| Rpc.Enum l -> sprintf "Rpc.Enum [%s]" (String.concat ";" (List.map aux l)) in
+	aux (to_rpc v)
       
 let rec to_db_string v =
   match v with
