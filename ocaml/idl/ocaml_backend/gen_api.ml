@@ -35,62 +35,62 @@ let gen_type highapi = function
   | ty -> [ "and "^OU.alias_of_ty ty^" = "^OU.ocaml_of_ty ty ]
 
 let gen_client highapi =
-  let _ (* unused variable: all_types *) = DU.Types.of_objects (Dm_api.objects_of_api highapi) in
-  List.iter (List.iter print)
-    (List.between [""]
-       [[ "open Xml";
-	  "open XMLRPC";
-	  "open API";
-	  "module type RPC = sig val rpc: xml -> xml end";
-	  "";
-	  "let server_failure code args = raise (Api_errors.Server_error (code, args))";
-	];
-	O.Module.strings_of (Gen_client.gen_module highapi);
-       ])
+	List.iter (List.iter print)
+		(List.between [""] [
+			 [ 
+				 "open API";
+				 "open Rpc";
+				 "module type RPC = sig val rpc: Rpc.t -> Rpc.t end";
+				 "";
+				 "let server_failure code args = raise (Api_errors.Server_error (code, args))";
+			 ];
+			O.Module.strings_of (Gen_client.gen_module highapi);
+		])
 
 let gen_client_types highapi =
 	let all_types = DU.Types.of_objects (Dm_api.objects_of_api highapi) in
 	List.iter (List.iter print)
-		(List.between [""]
+		(List.between [""] [
+			[ "open Date" ];
 			[
-				[
-					"open Xml";
-					"open XMLRPC";
-					"open Date";
-					"module D = Debug.Debugger(struct let name = \"backtrace\" end)";
-					"open D"
-				];
-				"type __unused = unit " :: (List.concat (List.map (gen_type highapi) all_types));
-				GenOCaml.gen_of_xmlrpc highapi all_types;
-				GenOCaml.gen_to_xmlrpc highapi all_types;
-				O.Signature.strings_of (Gen_client.gen_signature highapi);
-			]
-		)
+				"type failure = string * (string list) with rpc";
+				"let response_of_failure code params =";
+				"  Rpc.failure (rpc_of_failure (code, params))";
+				"let response_of_fault code =";
+				"  Rpc.failure (rpc_of_failure (\"Fault\", [code]))";
+			]; [
+				"include Rpc";
+				"type string_list = string list with rpc";
+			]; [ 
+				"module Ref = struct";
+				"  include Ref";
+				"  let rpc_of_t _ x = rpc_of_string (Ref.string_of x)";
+				"  let t_of_rpc _ x = of_string (string_of_rpc x);";
+				"end";
+			]; [
+				"module Date = struct";
+				"  include Date";
+				"  let rpc_of_iso8601 x = String (Date.to_string x)";
+				"  let iso8601_of_rpc = function String x -> Date.of_string x | _ -> failwith \"Date.iso8601_of_rpc\"";
+				"end";
+			];
+			"type __unused = unit " :: (List.concat (List.map (gen_type highapi) all_types)) @  [ "with rpc" ];			O.Signature.strings_of (Gen_client.gen_signature highapi);
+		])
 
 let gen_server highapi =
-  let _ (* Unused variable: all_types *) = DU.Types.of_objects (Dm_api.objects_of_api highapi) in
-  List.iter (List.iter print)
-    (List.between [""]
-       [[ "open Xml";
-	  "open XMLRPC";
-	  "open API";
-	  "open Server_helpers";
-	];
-	O.Module.strings_of (Gen_server.gen_module highapi);
-       ])
+	List.iter (List.iter print)
+		(List.between [""] [
+			[ "open API"; "open Server_helpers" ];
+			O.Module.strings_of (Gen_server.gen_module highapi);
+		])
 
 let gen_custom_actions highapi =
     List.iter (List.iter print)
-      (List.between [""]
-       [
-	 [ "open API" ];
-	 O.Signature.strings_of (Gen_empty_custom.gen_signature Gen_empty_custom.signature_name None highapi);
-(* - make signatures with result type override like this:
-	 O.Signature.strings_of (Gen_empty_custom.gen_signature Gen_empty_custom.forwarding_signature_name (Some "Xml.xml option") highapi);
-*)
-	 O.Module.strings_of (Gen_empty_custom.gen_release_module highapi);
-       ]
-      )
+		(List.between [""] [
+			[ "open API" ];
+			O.Signature.strings_of (Gen_empty_custom.gen_signature Gen_empty_custom.signature_name None highapi);
+			O.Module.strings_of (Gen_empty_custom.gen_release_module highapi);
+		 ])
 
 open Gen_db_actions
 
