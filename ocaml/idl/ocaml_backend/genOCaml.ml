@@ -69,7 +69,7 @@ let ty_to_xmlrpc api ty =
 	let kvs = List.map 
 	  (fun fld -> 
 	     alias_of_ty fld.ty ^ " x." ^ 
-	       (OU.ocaml_of_record_field x fld.full_name),
+	       (OU.ocaml_of_record_field fld.full_name),
 	     String.concat "_" fld.full_name) fields in
 	let kvs = List.map (fun (record, v) -> "\"" ^ v ^ "\", " ^ record) kvs in
 	"fun x -> To.structure [ " ^ (String.concat "; " kvs) ^ " ]"
@@ -138,7 +138,7 @@ let ty_of_xmlrpc api ty =
 	let fields = DU.fields_of_obj (Dm_api.get_obj_by_name api ~objname:x) in
 	let fields = 
 	  List.map (fun fld ->
-		      (OU.ocaml_of_record_field x fld.full_name) ^ " = " ^
+		      (OU.ocaml_of_record_field fld.full_name) ^ " = " ^
 			(alias_of_ty_param fld.ty) ^
 			(
 			  (* generate code to insert default value if none in xml structure *)

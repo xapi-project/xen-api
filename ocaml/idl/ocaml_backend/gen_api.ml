@@ -12,6 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open Listext
+open Printf
 
 module DT = Datamodel_types
 module DU = Datamodel_utils
@@ -21,18 +22,59 @@ module O = Ocaml_syntax
 
 let print s = output_string stdout (s^"\n")
 
-(** Generate a single type declaration (using 'and' rather than 'let' *)
-let gen_type highapi = function
-  | DT.String | DT.Int | DT.Float | DT.Bool -> []
-  | (DT.Record x) as ty ->
-      let fields = DU.fields_of_obj (Dm_api.get_obj_by_name highapi ~objname:x) in
-      let fields = List.map
-	  (fun fld -> OU.ocaml_of_record_field x fld.DT.full_name ^ ":" ^
-	    (OU.alias_of_ty fld.DT.ty)) fields in
-      let fields = if fields = [] then [ "__unused: unit" ] else fields in
-      [ "and " ^ (OU.alias_of_ty ty) ^ " = { " ^
-	(String.concat "; " fields) ^ " }" ]
-  | ty -> [ "and "^OU.alias_of_ty ty^" = "^OU.ocaml_of_ty ty ]
+(** Generate a single type declaration for simple types (eg not containing references to record objects) *)
+let gen_non_record_type highapi tys =
+	let rec aux accu = function
+		| []                           -> accu
+		| DT.String               :: t
+		| DT.Int                  :: t
+		| DT.Float                :: t
+		| DT.Bool                 :: t
+		| DT.Record _             :: t
+		| DT.Map (_, DT.Record _) :: t
+		| DT.Set (DT.Record _)    :: t -> aux accu t
+		| ty                      :: t -> aux (sprintf "%s = %s" (OU.alias_of_ty ty) (OU.ocaml_of_ty ty) :: accu) t in
+	match aux [] tys with
+	| []   -> []
+	| h::t -> sprintf "type %s" h :: List.map (sprintf "and %s") t
+
+(** Generate a list of modules for each record kind *)
+let gen_record_type ~with_module highapi tys =
+	let rec aux accu = function
+		| []                    -> accu
+		| DT.Record record :: t ->
+
+			let obj_name = OU.ocaml_of_record_name record in
+			let module_name_rpc = sprintf "%s_rpc" (OU.ocaml_of_module_name record) in
+			let all_fields = DU.fields_of_obj (Dm_api.get_obj_by_name highapi ~objname:record) in
+			let field fld = OU.ocaml_of_record_field (obj_name :: fld.DT.full_name) in
+			let field_rpc fld = OU.ocaml_of_record_field_rpc fld.DT.full_name in
+			let map_fields fn = String.concat "; " (List.map (fun field -> fn field) all_fields) in
+			let rpc_def fld = sprintf "%s : %s" (field_rpc fld) (OU.alias_of_ty fld.DT.ty) in
+			let regular_def fld = sprintf "%s : %s" (field fld) (OU.alias_of_ty fld.DT.ty) in
+			let to_t fld = sprintf "%s = x.%s" (field_rpc fld) (field fld) in
+			let of_t fld = sprintf "%s = x.%s" (field fld) (field_rpc fld) in
+
+			let type_t = sprintf "type %s_t = { %s }" obj_name (map_fields regular_def) in
+			let others = if not with_module then
+				[]
+			else [
+				sprintf "module %s = struct" module_name_rpc;
+				sprintf "  type t = { %s } with rpc" (map_fields rpc_def);
+				sprintf "  type ref_to_t_map = (ref_%s * t) list with rpc" record;
+				sprintf "  type t_set = t list with rpc";
+				sprintf "  let to_t x = { %s }" (map_fields to_t);
+				sprintf "  let of_t x = { %s }" (map_fields of_t);
+				sprintf "end";
+				sprintf "let rpc_of_%s_t x = %s.rpc_of_t (%s.to_t x)" obj_name module_name_rpc module_name_rpc;
+				sprintf "let %s_t_of_rpc x = %s.of_t (%s.t_of_rpc x)" obj_name module_name_rpc module_name_rpc;
+				sprintf "type ref_%s_to_%s_t_map = (ref_%s * %s_t) list with rpc" record obj_name record obj_name;
+				sprintf "type %s_t_set = %s_t list with rpc" obj_name obj_name;
+				""
+			] in
+			aux (type_t :: others @ accu) t
+		| _                :: t -> aux accu t in
+	aux [] tys
 
 let gen_client highapi =
 	List.iter (List.iter print)
@@ -74,7 +116,9 @@ let gen_client_types highapi =
 				"  let iso8601_of_rpc = function String x -> Date.of_string x | _ -> failwith \"Date.iso8601_of_rpc\"";
 				"end";
 			];
-			"type __unused = unit " :: (List.concat (List.map (gen_type highapi) all_types)) @  [ "with rpc" ];			O.Signature.strings_of (Gen_client.gen_signature highapi);
+			gen_non_record_type highapi all_types @ [ "with rpc" ];
+            gen_record_type ~with_module:true highapi all_types; 
+			O.Signature.strings_of (Gen_client.gen_signature highapi);
 		])
 
 let gen_server highapi =
@@ -104,7 +148,7 @@ let gen_db_actions highapi =
 	 [ "open API" ];
 
 	(* These records have the hidden fields inside *)
-	"type __unused = unit " :: (List.concat (List.map (gen_type highapi) only_records));
+	gen_record_type ~with_module:false highapi only_records;
 
 	 (* NB record types are ignored by dm_to_string and string_to_dm *)
 	 O.Module.strings_of (dm_to_string all_types);
