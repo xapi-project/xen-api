@@ -52,11 +52,10 @@ let remove_async_prefix x =
   String.sub x async_length (String.length x - async_length)
 
 let unknown_rpc_failure func =
-  XMLRPC.Failure (Api_errors.message_method_unknown, [func])
+	API.response_of_failure Api_errors.message_method_unknown [func]
 
 let parameter_count_mismatch_failure func expected received =
-  XMLRPC.Failure (Api_errors.message_parameter_count_mismatch,
-                  [func; expected; received])
+	API.response_of_failure Api_errors.message_parameter_count_mismatch [func; expected; received]
 
 (* Execute fn f in specified __context, marshalling result with "marshaller".
    If has_task is set then __context has a real task in it that has to be completed. *)
@@ -79,8 +78,8 @@ let exec ?marshaller ?f_forward ~__context f =
 	          forward ~local_fn:f ~__context
     in 
       begin match marshaller with
-        | None -> TaskHelper.complete ~__context []
-        | Some fn -> TaskHelper.complete ~__context (fn result)
+        | None    -> TaskHelper.complete ~__context None
+        | Some fn -> TaskHelper.complete ~__context (Some (fn result))
       end;
       result 
   with 
@@ -117,13 +116,13 @@ let exec_with_context ~__context ?marshaller ?f_forward ?(called_async=false) f 
 let dispatch_exn_wrapper f =
   try
     f()
-  with exn -> let code, params = ExnHelper.error_of_exn exn in XMLRPC.Failure(code, params)
+  with exn -> let code, params = ExnHelper.error_of_exn exn in API.response_of_failure code params
 
 let do_dispatch ?session_id ?forward_op ?self called_async supports_async called_fn_name op_fn
     marshaller_fn fd http_req label generate_task_for =
 
   if (called_async && (not supports_async)) 
-  then XMLRPC.Fault(0l, "No async mode for this operation (rpc: "^called_fn_name^")")
+  then API.response_of_fault ("No async mode for this operation (rpc: "^called_fn_name^")")
   else  
     let __context = Context.of_http_req ?session_id ~generate_task_for ~supports_async ~label ~http_req ~fd in
     if called_async
@@ -134,12 +133,12 @@ let do_dispatch ?session_id ?forward_op ?self called_async supports_async called
               exec_with_context ~__context ~called_async ?f_forward:forward_op ~marshaller:marshaller_fn op_fn) 
            ());
 	      (* Return task id immediately *)
-	      XMLRPC.Success [API.To.ref_task (Context.get_task_id __context)]
+	      Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
       end else
         let result = 
           exec_with_context ~__context ~called_async ?f_forward:forward_op ~marshaller:marshaller_fn op_fn
         in
-          XMLRPC.Success (marshaller_fn result)
+          Rpc.success (marshaller_fn result)
 
 let exec_with_new_task ?http_other_config ?quiet ?subtask_of ?session_id ?task_in_database ?task_description ?origin task_name f =
   exec_with_context 
@@ -156,6 +155,3 @@ let exec_with_subtask ~__context ?task_in_database ?task_description task_name f
 	let session_id = try Some (Context.get_session_id __context) with _ -> None in
 	let new_context = Context.make ~subtask_of ?session_id ?task_in_database ?task_description task_name in
 	exec_with_context ~__context:new_context f
-
-(** Transform 'syntactic sugar' calls server-side  *)
-let transform call params = call, params
