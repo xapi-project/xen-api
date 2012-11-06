@@ -45,7 +45,8 @@ let to_ocaml_string v =
 		| Rpc.Float f -> sprintf "Rpc.Float %f" f
 		| Rpc.Bool b -> sprintf "Rpc.Bool %b" b
 		| Rpc.Dict d -> sprintf "Rpc.Dict [%s]" (String.concat ";" (List.map (fun (n,v) -> sprintf "(\"%s\",%s)" n (aux v)) d))
-		| Rpc.Enum l -> sprintf "Rpc.Enum [%s]" (String.concat ";" (List.map aux l)) in
+ 		| Rpc.Enum l -> sprintf "Rpc.Enum [%s]" (String.concat ";" (List.map aux l)) 
+		| Rpc.DateTime t -> sprintf "Rpc.DateTime %s" t in
 	aux (to_rpc v)
       
 let rec to_db_string v =
