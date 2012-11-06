@@ -16,6 +16,7 @@ module DT = Datamodel_types
 module DU = Datamodel_utils
 module OU = Ocaml_utils
 open DT
+open Printf
 
 let module_name = "Client"
 let async_module_name = "Async"
@@ -37,12 +38,8 @@ let self (x: DT.obj)  = custom _self (DT.Ref x.DT.name)
 let value (ty: DT.ty) = custom _value ty
 let key (ty: DT.ty)   = custom _key ty
 
-let string_arg_name name = OU.escape name
-
-let name_of_param p  = string_arg_name p.param_name
-let of_param p  = custom (string_arg_name p.param_name) p.param_type
-
-let param_of_field fld = custom (string_arg_name (OU.ocaml_of_id fld.full_name)) fld.ty
+let of_param p  = custom (OU.ocaml_of_record_field [p.param_name]) p.param_type
+let param_of_field fld = custom (OU.ocaml_of_record_field fld.full_name) fld.ty
 
 (** True if a message has an asynchronous counterpart *)
 let has_async = function
@@ -95,7 +92,10 @@ let gen_module api : O.Module.t =
     if x.msg_tag <> FromObject(Make) then []
     else [
 	   let fields = ctor_fields obj in
-	   let binding x = "~" ^ OU.escape(OU.ocaml_of_id x.DT.full_name) ^ ":" ^ _value ^ "." ^ OU.ocaml_of_record_field obj.DT.name x.DT.full_name in
+	   let binding x =
+		   let arg = OU.ocaml_of_record_field x.DT.full_name in 
+		   let fld = OU.ocaml_of_record_field (obj.DT.name :: x.DT.full_name) in
+		   sprintf "~%s:%s.%s" arg _value fld in
 	   let all = List.map binding fields in
 	   let all = if x.msg_session then "~session_id"::all else all in
 	   O.Let.make
