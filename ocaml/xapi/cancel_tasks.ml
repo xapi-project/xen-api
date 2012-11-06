@@ -57,10 +57,11 @@ let update_all_allowed_operations ~__context =
 		List.iter (safe_wrapper "allowed_ops" (fun self ->
 			Db.SR.set_current_operations ~__context ~self ~value:[];
 			Xapi_sr_operations.update_allowed_operations ~__context ~self)) all_srs;
-			debug "Finished updating allowed operations: SR";
-			debug "Updating allowed operations: host";
-			List.iter (safe_wrapper "allowed_ops - host" (fun self -> Xapi_host_helpers.update_allowed_operations ~__context ~self)) all_hosts;
-			debug "Finished updating allowed operations: host")
+		debug "Finished updating allowed operations: SR");
+	time_this "Cancel_tasks.update_all_allowed_operations: host" (fun () ->
+		debug "Updating allowed operations: host";
+		List.iter (safe_wrapper "allowed_ops - host" (fun self -> Xapi_host_helpers.update_allowed_operations ~__context ~self)) all_hosts;
+		debug "Finished updating allowed operations: host")
 
 (* !!! This code was written in a world when tasks, current_operations and allowed_operations were persistent.
    This is no longer the case (we changed this to reduce writes to flash for OEM case + to simplify xapi logic elsewhere).
