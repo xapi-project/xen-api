@@ -35,6 +35,18 @@ let rec to_rpc v =
   | VSet vl -> Rpc.Enum (List.map (fun v->to_rpc v) vl)
   | VRef r -> Rpc.String r
 
+let rec to_xml v =
+  match v with
+    VString s -> XMLRPC.To.string s
+  | VInt i -> XMLRPC.To.string (Int64.to_string i)
+  | VFloat f -> XMLRPC.To.double f
+  | VBool b -> XMLRPC.To.boolean b
+  | VDateTime d -> XMLRPC.To.datetime d
+  | VEnum e -> XMLRPC.To.string e
+  | VMap vvl -> XMLRPC.To.structure (List.map (fun (v1,v2)-> to_string v1, to_xml v2) vvl)
+  | VSet vl -> XMLRPC.To.array (List.map (fun v->to_xml v) vl)
+  | VRef r -> XMLRPC.To.string r	
+
 open Printf
 
 let to_ocaml_string v =

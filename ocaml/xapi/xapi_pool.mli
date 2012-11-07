@@ -17,42 +17,42 @@
 
 (** {2 (Fill in Title!)} *)
 
-val rpc : string -> Xml.xml -> Xml.xml
+val rpc : string -> Rpc.call -> Rpc.response
 val get_master :
-  rpc:(XMLRPC.xmlrpc -> XMLRPC.xmlrpc) ->
+  rpc:(Rpc.call -> Rpc.response) ->
   session_id:API.ref_session -> API.ref_host
 val pre_join_checks :
   __context:Context.t ->
-  rpc:(XMLRPC.xmlrpc -> XMLRPC.xmlrpc) ->
+  rpc:(Rpc.call -> Rpc.response) ->
   session_id:API.ref_session -> force:bool -> unit
 val create_or_get_host_on_master :
   Context.t ->
-  (XMLRPC.xmlrpc -> XMLRPC.xmlrpc) ->
+  (Rpc.call -> Rpc.response) ->
   API.ref_session -> [ `host ] Ref.t * API.host_t -> API.ref_host
 val create_or_get_sr_on_master :
   Context.t ->
-  (XMLRPC.xmlrpc -> XMLRPC.xmlrpc) ->
+  (Rpc.call -> Rpc.response) ->
   API.ref_session -> [ `SR ] Ref.t * API.sR_t -> API.ref_SR
 val create_or_get_pbd_on_master :
   Context.t ->
-  (XMLRPC.xmlrpc -> XMLRPC.xmlrpc) ->
+  (Rpc.call -> Rpc.response) ->
   API.ref_session -> 'a * API.pBD_t -> API.ref_PBD
 val create_or_get_vdi_on_master :
   Context.t ->
-  (XMLRPC.xmlrpc -> XMLRPC.xmlrpc) ->
+  (Rpc.call -> Rpc.response) ->
   API.ref_session -> [ `VDI ] Ref.t * API.vDI_t -> API.ref_VDI
 val create_or_get_network_on_master :
   Context.t ->
-  (XMLRPC.xmlrpc -> XMLRPC.xmlrpc) ->
+  (Rpc.call -> Rpc.response) ->
   API.ref_session -> 'b * API.network_t -> API.ref_network
 val create_or_get_pif_on_master :
   Context.t ->
-  (XMLRPC.xmlrpc -> XMLRPC.xmlrpc) ->
+  (Rpc.call -> Rpc.response) ->
   API.ref_session -> 'a * API.pIF_t -> API.ref_PIF
 val protect_exn : ('a -> 'b) -> 'a -> 'b option
 val update_non_vm_metadata :
   __context:Context.t ->
-  rpc:(XMLRPC.xmlrpc -> XMLRPC.xmlrpc) -> session_id:API.ref_session -> unit
+  rpc:(Rpc.call -> Rpc.response) -> session_id:API.ref_session -> unit
 val join_common :
   __context:Context.t ->
   master_address:string ->
@@ -120,12 +120,12 @@ val ha_schedule_plan_recomputation : __context:'a -> unit
 
 val call_fn_on_hosts :
   __context:Context.t ->
-  (rpc:(XMLRPC.xmlrpc -> Xml.xml) ->
+  (rpc:(Rpc.call -> Rpc.response) ->
    session_id:API.ref_session -> host:[ `host ] Ref.t -> 'a) ->
   unit
 val call_fn_on_host :
   __context:Context.t ->
-  (rpc:(XMLRPC.xmlrpc -> Xml.xml) ->
+  (rpc:(Rpc.call -> Rpc.response) ->
    session_id:API.ref_session -> host:'a Ref.t -> 'b) ->
   'a Ref.t -> 'b
 val enable_binary_storage : __context:Context.t -> unit

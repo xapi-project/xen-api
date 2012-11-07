@@ -45,29 +45,27 @@ let gen_record_type ~with_module highapi tys =
 		| DT.Record record :: t ->
 
 			let obj_name = OU.ocaml_of_record_name record in
-			let module_name_rpc = sprintf "%s_rpc" (OU.ocaml_of_module_name record) in
 			let all_fields = DU.fields_of_obj (Dm_api.get_obj_by_name highapi ~objname:record) in
 			let field fld = OU.ocaml_of_record_field (obj_name :: fld.DT.full_name) in
-			let field_rpc fld = OU.ocaml_of_record_field_rpc fld.DT.full_name in
 			let map_fields fn = String.concat "; " (List.map (fun field -> fn field) all_fields) in
-			let rpc_def fld = sprintf "%s : %s" (field_rpc fld) (OU.alias_of_ty fld.DT.ty) in
 			let regular_def fld = sprintf "%s : %s" (field fld) (OU.alias_of_ty fld.DT.ty) in
-			let to_t fld = sprintf "%s = x.%s" (field_rpc fld) (field fld) in
-			let of_t fld = sprintf "%s = x.%s" (field fld) (field_rpc fld) in
+			
+			let make_of_field fld = 
+				sprintf "\"%s\",rpc_of_%s x.%s" (String.concat "_" fld.DT.full_name)
+					(OU.alias_of_ty fld.DT.ty) (OU.ocaml_of_record_field (obj_name :: fld.DT.full_name))
+			in
 
+			let make_to_field fld =
+				sprintf "%s = %s_of_rpc (List.assoc \"%s\" x)" (field fld) (OU.alias_of_ty fld.DT.ty) 
+					(String.concat "_" fld.DT.full_name)
+			in
+				
 			let type_t = sprintf "type %s_t = { %s }" obj_name (map_fields regular_def) in
 			let others = if not with_module then
 				[]
 			else [
-				sprintf "module %s = struct" module_name_rpc;
-				sprintf "  type t = { %s } with rpc" (map_fields rpc_def);
-				sprintf "  type ref_to_t_map = (ref_%s * t) list with rpc" record;
-				sprintf "  type t_set = t list with rpc";
-				sprintf "  let to_t x = { %s }" (map_fields to_t);
-				sprintf "  let of_t x = { %s }" (map_fields of_t);
-				sprintf "end";
-				sprintf "let rpc_of_%s_t x = %s.rpc_of_t (%s.to_t x)" obj_name module_name_rpc module_name_rpc;
-				sprintf "let %s_t_of_rpc x = %s.of_t (%s.t_of_rpc x)" obj_name module_name_rpc module_name_rpc;
+				sprintf "let rpc_of_%s_t x = Rpc.Dict [ %s ]" obj_name (map_fields make_of_field);
+				sprintf "let %s_t_of_rpc x = on_dict (fun x -> { %s }) x" obj_name (map_fields make_to_field);
 				sprintf "type ref_%s_to_%s_t_map = (ref_%s * %s_t) list with rpc" record obj_name record obj_name;
 				sprintf "type %s_t_set = %s_t list with rpc" obj_name obj_name;
 				""
@@ -115,10 +113,19 @@ let gen_client_types highapi =
 				"  let rpc_of_iso8601 x = String (Date.to_string x)";
 				"  let iso8601_of_rpc = function String x -> Date.of_string x | _ -> failwith \"Date.iso8601_of_rpc\"";
 				"end";
+			]; [
+				"let on_dict f = function | Rpc.Dict x -> f x | _ -> failwith \"Expected Dictionary\""
 			];
 			gen_non_record_type highapi all_types @ [ "with rpc" ];
             gen_record_type ~with_module:true highapi all_types; 
 			O.Signature.strings_of (Gen_client.gen_signature highapi);
+			[ "module Legacy = struct";
+			  "open XMLRPC";
+			  "module D=Debug.Debugger(struct let name=\"legacy_marshallers\" end)";
+			  "open D" ]; 
+			GenOCaml.gen_of_xmlrpc highapi all_types;
+            GenOCaml.gen_to_xmlrpc highapi all_types;
+			["end"];
 		])
 
 let gen_server highapi =

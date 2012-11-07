@@ -165,7 +165,7 @@ let make_host table __context self =
 		API.host_resident_VMs = List.filter ((<>) Ref.null) (List.map (fun vm -> lookup table (Ref.string_of vm)) host.API.host_resident_VMs) } in
 	{ cls = Datamodel._host;
 	  id  = Ref.string_of (lookup table (Ref.string_of self));
-	  snapshot = API.To.host_t host }
+	  snapshot = API.Legacy.To.host_t host }
 
 (** Convert a VM reference to an obj *)
 let make_vm ?(with_snapshot_metadata=false) ~preserve_power_state table __context self = 
@@ -202,14 +202,14 @@ let make_vm ?(with_snapshot_metadata=false) ~preserve_power_state table __contex
 		API.vM_blobs = [];} in
   { cls = Datamodel._vm; 
     id = Ref.string_of (lookup table (Ref.string_of self)); 
-    snapshot = API.To.vM_t vm }
+    snapshot = API.Legacy.To.vM_t vm }
 
 (** Convert a guest-metrics reference to an obj *)
 let make_gm table __context self =
 	let gm = Db.VM_guest_metrics.get_record ~__context ~self in
 	{ cls = Datamodel._vm_guest_metrics;
 	  id = Ref.string_of (lookup table (Ref.string_of self));
-	  snapshot = API.To.vM_guest_metrics_t gm }
+	  snapshot = API.Legacy.To.vM_guest_metrics_t gm }
 
 (** Convert a VIF reference to an obj *)
 let make_vif table ~preserve_power_state __context self = 
@@ -224,7 +224,7 @@ let make_vif table ~preserve_power_state __context self =
   } in
   { cls = Datamodel._vif; 
     id = Ref.string_of (lookup table (Ref.string_of self)); 
-    snapshot = API.To.vIF_t vif }
+    snapshot = API.Legacy.To.vIF_t vif }
 
 (** Convert a Network reference to an obj *)
 let make_network table __context self = 
@@ -237,7 +237,7 @@ let make_network table __context self =
   } in
   { cls = Datamodel._network; 
     id = Ref.string_of (lookup table (Ref.string_of self)); 
-    snapshot = API.To.network_t net }
+    snapshot = API.Legacy.To.network_t net }
 
 (** Convert a VBD reference to an obj *)
 let make_vbd table ~preserve_power_state __context self = 
@@ -252,7 +252,7 @@ let make_vbd table ~preserve_power_state __context self =
 	    } in
   { cls = Datamodel._vbd; 
     id = Ref.string_of (lookup table (Ref.string_of self)); 
-    snapshot = API.To.vBD_t vbd }  
+    snapshot = API.Legacy.To.vBD_t vbd }  
 
 (** Convert a VDI reference to an obj *)
 let make_vdi table __context self = 
@@ -266,7 +266,7 @@ let make_vdi table __context self =
   } in
   { cls = Datamodel._vdi; 
     id = Ref.string_of (lookup table (Ref.string_of self)); 
-    snapshot = API.To.vDI_t vdi }  
+    snapshot = API.Legacy.To.vDI_t vdi }  
 
 (** Convert a SR reference to an obj *)
 let make_sr table __context self = 
@@ -279,7 +279,7 @@ let make_sr table __context self =
   } in
   { cls = Datamodel._sr; 
     id = Ref.string_of (lookup table (Ref.string_of self)); 
-    snapshot = API.To.sR_t sr;
+    snapshot = API.Legacy.To.sR_t sr;
   }    
 
 (** Convert a VGPU reference to an obj *)
@@ -293,7 +293,7 @@ let make_vgpu table ~preserve_power_state __context self =
 	{
 		cls = Datamodel._vgpu;
 		id = Ref.string_of (lookup table (Ref.string_of self));
-		snapshot = API.To.vGPU_t vgpu
+		snapshot = API.Legacy.To.vGPU_t vgpu
 	}
 
 (** Convert a GPU_group reference to an obj *)
@@ -306,7 +306,7 @@ let make_gpu_group table __context self =
 	{
 		cls = Datamodel._gpu_group;
 		id = Ref.string_of (lookup table (Ref.string_of self)); 
-		snapshot = API.To.gPU_group_t group
+		snapshot = API.Legacy.To.gPU_group_t group
 	}
 
 let make_all ~with_snapshot_metadata ~preserve_power_state table __context = 
