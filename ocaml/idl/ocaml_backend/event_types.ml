@@ -26,7 +26,7 @@ type event = {
 	ty: string;
 	op: op;
 	reference: string;
-	snapshot: XMLRPC.xmlrpc option;
+	snapshot: Rpc.t option;
 }
 
 type token = string
@@ -36,6 +36,7 @@ type event_from = {
 	valid_ref_counts: (string * int32) list;
 	token: token;
 }
+
 (** Return result of an events.from call *)
 
 open Printf

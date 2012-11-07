@@ -14,4 +14,4 @@
 
 (** [wait_for_all ~rpc ~session_id ~tasks] returns when all of [tasks]
     are in some non-pending state. *)
-val wait_for_all : rpc:(Xml.xml -> Xml.xml) -> session_id:API.ref_session -> tasks:API.ref_task list -> unit
+val wait_for_all : rpc:(Rpc.call -> Rpc.response) -> session_id:API.ref_session -> tasks:API.ref_task list -> unit
