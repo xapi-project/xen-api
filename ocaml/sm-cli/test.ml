@@ -50,7 +50,7 @@ let storage_rpc transport session call =
 		~http:(xmlrpc ~version:"1.0" ~query:["session_id",session] "/services/SM") call
 
 let xapi_rpc transport call =
-	XML_protocol.rpc ~srcstr:"sm-cli-test" ~dststr:"xapi" ~transport
+	XMLRPC_protocol.rpc ~srcstr:"sm-cli-test" ~dststr:"xapi" ~transport
 		~http:(xmlrpc ~version:"1.0" "/") call
 
 let rpc = fun call -> storage_rpc !transport !session call

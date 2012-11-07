@@ -93,11 +93,12 @@ let operation (obj: obj) (x: message) =
   let wire_name = DU.wire_name ~sync:true obj x in
   let alternative_wire_name = DU.alternative_wire_name ~sync:true obj x in
 
-  let string_args =
-		if is_ctor then
-			List.map (fun s -> Printf.sprintf "%s_rpc" s) [O.string_of_param Client.session;"__structure"]
-		else
-			List.map (fun p -> Printf.sprintf "%s_rpc" (O.string_of_param p)) args_without_default_values in
+  let orig_string_args = 
+	  if is_ctor then [O.string_of_param Client.session;"__structure"]
+	  else List.map O.string_of_param args_without_default_values in
+
+  let string_args = List.map (fun s -> Printf.sprintf "%s_rpc" s) orig_string_args in
+
   let is_non_constructor_with_defaults = not is_ctor && (has_default_args x.DT.msg_params) in
   let arg_pattern = String.concat "::" string_args in
   let arg_pattern =
@@ -157,7 +158,7 @@ let operation (obj: obj) (x: message) =
   in
   let rbac_check_begin = if has_session_arg
     then [
-			"let arg_names = "^(List.fold_right (fun arg args -> "\""^arg^"\"::"^args) string_args (if is_non_constructor_with_defaults then ((List.fold_right (fun dp ss->"\""^(dp.DT.param_name)^"\"::"^ss) msg_params_with_default_values "")^"[]") else "[]"))^" in";
+			"let arg_names = "^(List.fold_right (fun arg args -> "\""^arg^"\"::"^args) orig_string_args (if is_non_constructor_with_defaults then ((List.fold_right (fun dp ss->"\""^(dp.DT.param_name)^"\"::"^ss) msg_params_with_default_values "")^"[]") else "[]"))^" in";
 			"let key_names = "^(List.fold_right (fun arg args -> "\""^arg^"\"::"^args) (List.map (fun (k,_)->k) x.msg_map_keys_roles) "[]")^" in";
 			"let rbac __context fn = Rbac.check session_id __call ~args:(arg_names,__params) ~keys:key_names ~__context ~fn in"]
     else [
@@ -282,7 +283,7 @@ let gen_module api : O.Module.t =
 	  ~body: (
 	    [ 
 	      "let __call, __params = call.Rpc.name, call.Rpc.params in";
-          "List.iter (fun p -> let s = Xml.to_string p in if not (Encodings.UTF8_XML.is_valid s) then"; 
+          "List.iter (fun p -> let s = Rpc.to_string p in if not (Encodings.UTF8_XML.is_valid s) then"; 
           "raise (Api_errors.Server_error(Api_errors.invalid_value, [\"Invalid UTF-8 string in parameter\"; s])))  __params;";
 	      "let __async = Server_helpers.is_async __call in";
 	      "let __label = __call in";
@@ -306,7 +307,7 @@ let gen_module api : O.Module.t =
 			" ])";
 			"| func -> ";
 			"  if (try Scanf.sscanf func \"system.isAlive:%s\" (fun _ -> true) with _ -> false)";
-			"  then XMLRPC.Success __params";
+			"  then Rpc.success (Rpc.Bool true)";
 			"  else begin";
 			"    if (try Scanf.sscanf func \"unknown-message-%s\" (fun _ -> false) with _ -> true)";
 			"    then " ^ (debug "Unknown rpc \"%s\"" [ "__call" ]);

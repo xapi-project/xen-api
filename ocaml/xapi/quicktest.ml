@@ -94,7 +94,7 @@ let event_from_test session_id =
 		(fun () ->
 			let token = ref "" in
 			while not (Mutex.execute m (fun () -> !finished)) do
-				let events = Client.Event.from !rpc session_id [ "pool" ] (!token) 10. |> event_from_of_xmlrpc in
+				let events = Client.Event.from !rpc session_id [ "pool" ] (!token) 10. |> event_from_of_rpc in
 				token := events.token;
 				let oc = Client.Pool.get_other_config !rpc session_id pool in
 				if List.mem_assoc key oc && (List.assoc key oc) = "1"
@@ -133,7 +133,7 @@ let object_level_event_test session_id =
 		(fun () ->
 			let token = ref "" in
 			while not (Mutex.execute m (fun () -> !finished)) do
-				let events = Client.Event.from !rpc session_id [ Printf.sprintf "vm/%s" (Ref.string_of vm_a) ] (!token) 10. |> event_from_of_xmlrpc in
+				let events = Client.Event.from !rpc session_id [ Printf.sprintf "vm/%s" (Ref.string_of vm_a) ] (!token) 10. |> event_from_of_rpc in
 				List.iter
 					(fun event ->
 						if event.reference <> Ref.string_of vm_a then begin
@@ -173,7 +173,7 @@ let object_level_event_test session_id =
 let event_message_test session_id =
 	let test = make_test "Message creation event test" 1 in
 	start test;
-	let events = Client.Event.from !rpc session_id [ "message" ] "" 1.0 |> event_from_of_xmlrpc in
+	let events = Client.Event.from !rpc session_id [ "message" ] "" 1.0 |> event_from_of_rpc in
 	let token = events.token in
 	let pool = List.hd (Client.Pool.get_all !rpc session_id) in
 	let obj_uuid = Client.Pool.get_uuid !rpc session_id pool in
@@ -182,7 +182,7 @@ let event_message_test session_id =
 	let message = Client.Message.create ~rpc:!rpc ~session_id ~name:"test" ~priority:1L ~cls
 		~obj_uuid ~body:"Hello" in
 	debug test (Printf.sprintf "Created message: %s" (Ref.string_of message));
-	let events = Client.Event.from !rpc session_id [ "message" ] token 1.0 |> event_from_of_xmlrpc
+	let events = Client.Event.from !rpc session_id [ "message" ] token 1.0 |> event_from_of_rpc
 	in
 	debug test (Printf.sprintf "Got some events: %d %s" (List.length events.events) (String.concat "," (List.map (fun ev -> ev.reference) events.events)));
 	let token = events.token in
@@ -194,7 +194,7 @@ let event_message_test session_id =
 	start test;
 	debug test "Destroying message";
 	Client.Message.destroy !rpc session_id message;
-	let events = Client.Event.from !rpc session_id [ "message" ] token 1.0 |> event_from_of_xmlrpc in
+	let events = Client.Event.from !rpc session_id [ "message" ] token 1.0 |> event_from_of_rpc in
 	debug test "Got some events";
 	if List.exists (fun ev -> ev.reference = (Ref.string_of message) && ev.op = Del) events.events
 	then success test
@@ -202,7 +202,7 @@ let event_message_test session_id =
 	
 	let test = make_test "Message deletion from cache test" 1 in
 	start test;
-	let events = Client.Event.from !rpc session_id [ "message" ] "" 1.0 |> event_from_of_xmlrpc in
+	let events = Client.Event.from !rpc session_id [ "message" ] "" 1.0 |> event_from_of_rpc in
 	debug test "Got lots of events";
 	if List.exists (fun ev -> ev.reference = (Ref.string_of message) && ev.op <> Del) events.events
 	then failed test "Got told about a deleted message"
@@ -214,11 +214,11 @@ let event_message_test session_id =
 		~obj_uuid ~body:"Hello" in
 	let message2 = Client.Message.create ~rpc:!rpc ~session_id ~name:"test" ~priority:1L ~cls
 		~obj_uuid ~body:"Hello" in
-	let events = Client.Event.from !rpc session_id [ "message" ] token 1.0 |> event_from_of_xmlrpc in
+	let events = Client.Event.from !rpc session_id [ "message" ] token 1.0 |> event_from_of_rpc in
 	let token = events.token in
 	let message3 = Client.Message.create ~rpc:!rpc ~session_id ~name:"test" ~priority:1L ~cls
 		~obj_uuid ~body:"Hello" in
-	let events2 = Client.Event.from !rpc session_id [ "message" ] token 1.0 |> event_from_of_xmlrpc in
+	let events2 = Client.Event.from !rpc session_id [ "message" ] token 1.0 |> event_from_of_rpc in
 	debug test (Printf.sprintf "message1=%s" (Ref.string_of message1));
 	debug test (Printf.sprintf "message2=%s" (Ref.string_of message2));
 	debug test (Printf.sprintf "message3=%s" (Ref.string_of message3));

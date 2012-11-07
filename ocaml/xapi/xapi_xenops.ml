@@ -1403,7 +1403,7 @@ module Events_from_xapi = struct
 		assert_resident_on ~__context ~self;
 		let t = Helpers.call_api_functions ~__context
 			(fun rpc session_id ->
-				XenAPI.Event.inject ~rpc ~session_id ~_class:"VM" ~ref:(Ref.string_of self)
+				XenAPI.Event.inject ~rpc ~session_id ~_class:"VM" ~_ref:(Ref.string_of self)
 			) in
 		debug "Waiting for token greater than: %s" t;
 		Mutex.execute m
@@ -1461,7 +1461,7 @@ let events_from_xapi () =
 							   received BUT we will not necessarily receive events for the new VMs *)
 
 							while true do
-								let from = XenAPI.Event.from ~rpc ~session_id ~classes ~token:!token ~timeout:60. |> event_from_of_xmlrpc in
+								let from = XenAPI.Event.from ~rpc ~session_id ~classes ~token:!token ~timeout:60. |> event_from_of_rpc in
 								if List.length from.events > 200 then warn "Warning: received more than 200 events!";
 								List.iter
 									(function

@@ -7961,6 +7961,8 @@ let http_actions = [
   ("post_json", (Post, Constants.json_uri, false, [], _R_READ_ONLY, []));
   ("post_root_options", (Options, "/", false, [], _R_READ_ONLY, []));
   ("post_json_options", (Options, Constants.json_uri, false, [], _R_READ_ONLY, []));
+  ("post_jsonrpc", (Post, Constants.jsonrpc_uri, false, [], _R_READ_ONLY, []));
+  ("post_jsonrpc_options", (Options, Constants.jsonrpc_uri, false, [], _R_READ_ONLY, []));
 ]
 
 (* these public http actions will NOT be checked by RBAC *)
@@ -7976,6 +7978,8 @@ let public_http_actions_with_no_rbac_check =
 		"get_blob"; (* Public blobs don't need authentication *)
 		"post_root_options"; (* Preflight-requests are not RBAC checked *)
 		"post_json_options"; 
+		"post_jsonrpc";
+		"post_jsonrpc_options";
 	]
 
 (* permissions not associated with any object message or field *)

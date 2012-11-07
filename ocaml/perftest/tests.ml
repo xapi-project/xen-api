@@ -25,7 +25,7 @@ type test = {
   run: bool;
   key: string;
   testname : string;
-  func : (XMLRPC.xmlrpc -> XMLRPC.xmlrpc) -> API.ref_session -> test -> result list;
+  func : (Rpc.call -> Rpc.response) -> API.ref_session -> test -> result list;
 }
 
 let time f =
@@ -131,7 +131,7 @@ let parallel_with_vms async_op opname n vms rpc session_id test subtest_name =
 
 	       while not(!finished) do
 		 (* debug ~out:stderr "Polling for events (%d active tasks)" (Mutex.execute m (fun () -> List.length !active_tasks)); *)
-		 let events = Event_types.events_of_xmlrpc (Client.Event.next ~rpc ~session_id) in
+		 let events = Event_types.events_of_rpc (Client.Event.next ~rpc ~session_id) in
 		 let events = List.map Event_helper.record_of_event events in
 		 let finished_tasks = 
 		   List.concat
