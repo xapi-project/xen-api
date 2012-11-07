@@ -1328,6 +1328,12 @@ let handler (req: Request.t) s _ =
 															List.iter (fun (extid, intid, size) -> debug "Expecting to import VDI %s into %s (size=%Ld)" extid (Ref.string_of intid) size) vdis;
 															let checksum_table = Stream_vdi.recv_all refresh_session s __context rpc session_id header.version force vdis in
 
+															(* CA-48768: Stream_vdi.recv_all only checks for task cancellation
+															   every ten seconds, so we need to check again now. After this
+															   point, we disable cancellation for this task. *)
+															TaskHelper.exn_if_cancelling ~__context;
+															TaskHelper.set_not_cancellable ~__context;
+
 															(* Pre-miami GA exports have a checksum table at the end of the export. Check the calculated checksums *)
 															(* against the table here. Nb. Rio GA-Miami B2 exports get their checksums checked twice! *)
 															if header.version.export_vsn < 2 then
