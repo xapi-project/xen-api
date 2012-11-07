@@ -14,7 +14,7 @@
 module D = Debug.Debugger(struct let name = "sql" end)
 open D
 
-type getrecord = unit -> XMLRPC.xmlrpc 
+type getrecord = unit -> Rpc.t
 
 let get_record_table : (string, __context:Context.t -> self:string -> getrecord ) Hashtbl.t = Hashtbl.create 20
 
