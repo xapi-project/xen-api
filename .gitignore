@@ -41,3 +41,4 @@ stdext/fe_test
 uuid/META
 xml-light2/xmlpp
 /Makefile
+xapi-libs.spec
