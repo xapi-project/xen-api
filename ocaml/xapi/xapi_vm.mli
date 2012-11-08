@@ -200,8 +200,6 @@ val get_allowed_VBD_devices :
   __context:Context.t -> vm:[ `VM ] Ref.t -> string list
 val get_allowed_VIF_devices :
   __context:Context.t -> vm:[ `VM ] Ref.t -> string list
-val reserve_vbds_and_vifs :
-  __context:Context.t -> vm:[ `VM ] Ref.t -> (unit -> 'a) -> 'a
 val csvm : __context:Context.t -> vm:API.ref_VM -> [ `VM ] Ref.t
 val maximise_memory :
   __context:Context.t ->
