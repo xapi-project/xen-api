@@ -155,7 +155,7 @@ META: META.in
 	sed 's/@VERSION@/$(PRODUCT_VERSION)/g' < $< > $@
 
 if $(defined-env DESTDIR)
-	INSTALL_PATH = $(DESTDIR)/$(shell ocamlc -where)
+	INSTALL_PATH = $(DESTDIR)/$(shell ocamlc -where)$(EXTRA_INSTALL_PATH)
 	export
 else
 	INSTALL_PATH = $(shell ocamlfind printconf destdir)
