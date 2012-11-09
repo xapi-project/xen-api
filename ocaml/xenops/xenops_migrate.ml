@@ -23,7 +23,7 @@ open D
 (*
 let local_rpc call =
 	let open Xmlrpc_client in
-	XMLRPC_protocol.rpc ~transport:(Unix "/var/xapi/xenopsd") ~http:(xmlrpc ~version:"1.0" "/") call
+	XMLRPC_protocol.rpc ~transport:(Unix "/var/lib/xcp/xenopsd") ~http:(xmlrpc ~version:"1.0" "/") call
 
 let _metadata = "VM.import_metadata"
 let _failure = "VM.client_migrate_failed"

@@ -132,6 +132,8 @@ for e in py pyc pyo; do
 	echo $SITEDIR/rrdd.$e
 done > rrdd-files
 
+ln -s /var/lib/xcp $RPM_BUILD_ROOT/var/xapi
+
 %clean
 rm -rf $RPM_BUILD_ROOT
 
@@ -281,9 +283,10 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/pci-info
 @OPTDIR@/packages/post-install-scripts/debian-etch
 @OPTDIR@/packages/post-install-scripts/debug
-/var/xapi/udhcpd.skel
+/var/lib/xcp/udhcpd.skel
 @OPTDIR@/debug/rbac_static.csv
 /etc/xapi.d/host-post-declare-dead/10resetvdis
+/var/xapi
 
 %files xe
 %defattr(-,root,root,-)
