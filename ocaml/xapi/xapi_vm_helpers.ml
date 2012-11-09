@@ -151,8 +151,12 @@ let destroy  ~__context ~self =
   (* given the call to 'assert_operation_valid' *)
   debug "VM.destroy: deleting DB records";  
 
+  (* Should we be destroying blobs? It's possible to create a blob and then
+	 add its reference to multiple objects. Perhaps we want to just leave the
+	 blob? Or only delete it if there is no other reference to it? Is that
+	 even possible to know? *)
   let blobs = Db.VM.get_blobs ~__context ~self in
-  List.iter (fun (name,_ref) -> Xapi_blob.destroy ~__context ~self:_ref) blobs;
+  List.iter (fun (_,self) -> try Xapi_blob.destroy ~__context ~self with _ -> ()) blobs;
 
   let other_config = Db.VM.get_other_config ~__context ~self in
     if ((List.mem_assoc Xapi_globs.default_template_key other_config) &&
