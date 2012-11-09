@@ -48,7 +48,7 @@ OCAMLPATH=/usr/lib/xen-4.1/lib/ocaml:/usr/lib/ocaml/xcp
 EXTRA_INSTALL_PATH=/xcp
 
 else
-VARDIR=/var/xapi
+VARDIR=/var/lib/xcp
 VARPATCHDIR=/var/patch
 ETCDIR=/etc/xensource
 OPTDIR=/opt/xensource
