@@ -199,7 +199,7 @@ class Session(xmlrpclib.ServerProxy):
             return xmlrpclib.ServerProxy.__getattr__(self, name)
 
 def xapi_local():
-    return Session("http://_var_xapi_xapi/", transport=UDSTransport())
+    return Session("http://_var_lib_xcp_xapi/", transport=UDSTransport())
 
 def _parse_result(result):
     if type(result) != dict or 'Status' not in result:

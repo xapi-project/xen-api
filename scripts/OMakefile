@@ -49,7 +49,7 @@ install:
 	$(IPROG) xapi-logrotate $(DESTDIR)/etc/logrotate.d/xapi
 	$(IPROG) xapi-wait-init-complete $(DESTDIR)$(BINDIR)
 	$(IPROG) xapi-autostart-vms $(DESTDIR)$(BINDIR)
-	$(IPROG) udhcpd.skel $(DESTDIR)/var/xapi/udhcpd.skel  #### FHS_FIXME
+	$(IPROG) udhcpd.skel $(DESTDIR)$(VARDIR)/udhcpd.skel
 	$(IDATA) xapi.conf $(DESTDIR)$(XAPICONF)
 	$(IDATA) sparse_dd.conf $(DESTDIR)/etc/sparse_dd.conf
 	$(IDATA) xcp-rrdd.conf $(DESTDIR)/etc/xcp-rrdd.conf
