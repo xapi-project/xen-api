@@ -47,7 +47,7 @@ if $(not $(defined-env DESTDIR))
 
 
 if $(not $(defined-env VARDIR))
-  VARDIR=/var/xapi
+  VARDIR=/var/lib/xcp
   export
 if $(not $(defined-env VARPATCHDIR))
   VARPATCHDIR=/var/patch
