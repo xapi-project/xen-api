@@ -22,6 +22,26 @@ module O = Ocaml_syntax
 
 let print s = output_string stdout (s^"\n")
 
+let overrides = [
+	"vm_operations_to_string_map",(
+		"let rpc_of_vm_operations_to_string_map x = Rpc.Dict (List.map (fun (x,y) -> (match rpc_of_vm_operations x with Rpc.String x -> x | _ -> failwith \"Marshalling error\"), Rpc.String y) x)\n" ^
+		"let vm_operations_to_string_map_of_rpc x = match x with Rpc.Dict l -> List.map (function (x,y) -> vm_operations_of_rpc (Rpc.String x), string_of_rpc y) l | _ -> failwith \"Unmarshalling error\"\n");
+	"bond_mode",(
+		"let rpc_of_bond_mode x = match x with `balanceslb -> Rpc.String \"balance-slb\" | `activebackup -> Rpc.String \"active-backup\" | `lacp -> Rpc.String \"lacp\"\n"^
+		"let bond_mode_of_rpc x = match x with Rpc.String \"balance-slb\" -> `balanceslb | Rpc.String \"active-backup\" -> `activebackup | Rpc.String \"lacp\" -> `lacp | _ -> failwith \"Unmarshalling error in bond-mode\"\n");
+	"int64_to_float_map",(
+		"let rpc_of_int64_to_float_map x = Rpc.Dict (List.map (fun (x,y) -> Int64.to_string x, Rpc.Float y) x)\n" ^
+			"let int64_to_float_map_of_rpc x = match x with Rpc.Dict x -> List.map (fun (x,y) -> Int64.of_string x, float_of_rpc y) x | _ -> failwith \"Unmarshalling error\"");
+	"int64_to_int64_map",(
+		"let rpc_of_int64_to_int64_map x = Rpc.Dict (List.map (fun (x,y) -> Int64.to_string x, Rpc.Int y) x)\n" ^
+			"let int64_to_int64_map_of_rpc x = match x with Rpc.Dict x -> List.map (fun (x,y) -> Int64.of_string x, int64_of_rpc y) x | _ -> failwith \"Unmarshalling error\"");
+	"int64_to_string_set_map",(
+		"let rpc_of_int64_to_string_set_map x = Rpc.Dict (List.map (fun (x,y) -> Int64.to_string x, rpc_of_string_set y) x)\n" ^
+			"let int64_to_string_set_map_of_rpc x = match x with Rpc.Dict x -> List.map (fun (x,y) -> Int64.of_string x, string_set_of_rpc y) x | _ -> failwith \"Unmarshalling error\"");
+	
+]
+			
+		
 (** Generate a single type declaration for simple types (eg not containing references to record objects) *)
 let gen_non_record_type highapi tys =
 	let rec aux accu = function
@@ -33,10 +53,12 @@ let gen_non_record_type highapi tys =
 		| DT.Record _             :: t
 		| DT.Map (_, DT.Record _) :: t
 		| DT.Set (DT.Record _)    :: t -> aux accu t
-		| ty                      :: t -> aux (sprintf "%s = %s" (OU.alias_of_ty ty) (OU.ocaml_of_ty ty) :: accu) t in
-	match aux [] tys with
-	| []   -> []
-	| h::t -> sprintf "type %s" h :: List.map (sprintf "and %s") t
+		| ty                      :: t -> 
+			let alias = OU.alias_of_ty ty in
+			if List.mem_assoc alias overrides 
+			then aux ((sprintf "type %s = %s\n%s\n" alias (OU.ocaml_of_ty ty) (List.assoc alias overrides))::accu) t
+			else aux (sprintf "type %s = %s with rpc" (OU.alias_of_ty ty) (OU.ocaml_of_ty ty) :: accu) t in
+	aux [] tys
 
 (** Generate a list of modules for each record kind *)
 let gen_record_type ~with_module highapi tys =
@@ -110,13 +132,13 @@ let gen_client_types highapi =
 			]; [
 				"module Date = struct";
 				"  include Date";
-				"  let rpc_of_iso8601 x = String (Date.to_string x)";
-				"  let iso8601_of_rpc = function String x -> Date.of_string x | _ -> failwith \"Date.iso8601_of_rpc\"";
+				"  let rpc_of_iso8601 x = DateTime (Date.to_string x)";
+				"  let iso8601_of_rpc = function String x | DateTime x -> Date.of_string x | _ -> failwith \"Date.iso8601_of_rpc\"";
 				"end";
 			]; [
 				"let on_dict f = function | Rpc.Dict x -> f x | _ -> failwith \"Expected Dictionary\""
 			];
-			gen_non_record_type highapi all_types @ [ "with rpc" ];
+			gen_non_record_type highapi all_types;
             gen_record_type ~with_module:true highapi all_types; 
 			O.Signature.strings_of (Gen_client.gen_signature highapi);
 			[ "module Legacy = struct";
