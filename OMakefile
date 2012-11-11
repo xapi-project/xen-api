@@ -91,7 +91,9 @@ if $(not $(defined-env BINDIR))
 if $(not $(defined-env SBINDIR))
   SBINDIR=/opt/xensource/bin
   export
-
+if $(not $(defined-env UDEVDIR))
+  UDEVDIR=/etc/udev
+  export
 
 XEN_CFLAGS=-I$(XEN_ROOT)/usr/include
 XEN_OCAML_LINK_FLAGS=-cclib -L$(XEN_ROOT)/usr/$(LIBDIR)
