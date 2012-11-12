@@ -380,7 +380,7 @@ let from ~__context ~classes ~token ~timeout =
 			snapshot=snapshot
 		} in
 	let delevs = List.fold_left (fun acc x ->
-		let ev = event_of Del x in
+		let ev = event_of `del x in
 		if event_matches sub.subs ev then ev::acc else acc
 	) [] deletes in
 
@@ -388,7 +388,7 @@ let from ~__context ~classes ~token ~timeout =
 		let serialiser = Eventgen.find_get_record table in
 		try 
 			let xml = serialiser ~__context ~self:objref () in
-			let ev = event_of Mod ?snapshot:xml (table, objref, mtime) in
+			let ev = event_of `_mod ?snapshot:xml (table, objref, mtime) in
 			if event_matches sub.subs ev then ev::acc else acc
 		with _ -> acc
 	) delevs mods in
@@ -397,15 +397,15 @@ let from ~__context ~classes ~token ~timeout =
 		let serialiser = Eventgen.find_get_record table in
 		try 
 			let xml = serialiser ~__context ~self:objref () in
-			let ev = event_of Add ?snapshot:xml (table, objref, ctime) in
+			let ev = event_of `add ?snapshot:xml (table, objref, ctime) in
 			if event_matches sub.subs ev then ev::acc else acc
 		with _ -> acc
 	) modevs creates in
 	
 	let message_events = List.fold_left (fun acc mev ->
 		let event = match mev with 
-			| MCreate (_ref,message) -> event_of Add ?snapshot:(Some (API.rpc_of_message_t message)) ("message", Ref.string_of _ref, 0L)
-			| MDel _ref -> event_of Del ("message",Ref.string_of _ref, 0L)
+			| MCreate (_ref,message) -> event_of `add ?snapshot:(Some (API.rpc_of_message_t message)) ("message", Ref.string_of _ref, 0L)
+			| MDel _ref -> event_of `del ("message",Ref.string_of _ref, 0L)
 		in
 		event::acc) createevs messages in
 

@@ -186,7 +186,7 @@ let event_message_test session_id =
 	in
 	debug test (Printf.sprintf "Got some events: %d %s" (List.length events.events) (String.concat "," (List.map (fun ev -> ev.reference) events.events)));
 	let token = events.token in
-	if List.exists (fun ev -> ev.reference = (Ref.string_of message) && ev.op = Add) events.events 
+	if List.exists (fun ev -> ev.reference = (Ref.string_of message) && ev.op = `add) events.events 
 	then success test
 	else failed test "Failed to receive an event with the message";
 	
@@ -196,7 +196,7 @@ let event_message_test session_id =
 	Client.Message.destroy !rpc session_id message;
 	let events = Client.Event.from !rpc session_id [ "message" ] token 1.0 |> event_from_of_rpc in
 	debug test "Got some events";
-	if List.exists (fun ev -> ev.reference = (Ref.string_of message) && ev.op = Del) events.events
+	if List.exists (fun ev -> ev.reference = (Ref.string_of message) && ev.op = `del) events.events
 	then success test
 	else failed test "Failed to receive a delete event";
 	
@@ -204,7 +204,7 @@ let event_message_test session_id =
 	start test;
 	let events = Client.Event.from !rpc session_id [ "message" ] "" 1.0 |> event_from_of_rpc in
 	debug test "Got lots of events";
-	if List.exists (fun ev -> ev.reference = (Ref.string_of message) && ev.op <> Del) events.events
+	if List.exists (fun ev -> ev.reference = (Ref.string_of message) && ev.op <> `del) events.events
 	then failed test "Got told about a deleted message"
 	else success test;
 
@@ -225,13 +225,13 @@ let event_message_test session_id =
 	List.iter (fun ev -> debug test (Printf.sprintf "events1: ev.ref=%s" ev.reference)) events.events;
 	List.iter (fun ev -> debug test (Printf.sprintf "events2: ev.ref=%s" ev.reference)) events2.events;
 	let ok1 = 
-		List.exists (fun ev -> ev.reference = (Ref.string_of message1) && ev.op = Add) events.events &&
-			List.exists (fun ev -> ev.reference = (Ref.string_of message2) && ev.op = Add) events.events in
+		List.exists (fun ev -> ev.reference = (Ref.string_of message1) && ev.op = `add) events.events &&
+			List.exists (fun ev -> ev.reference = (Ref.string_of message2) && ev.op = `add) events.events in
 	let ok2 = 
-		List.exists (fun ev -> ev.reference = (Ref.string_of message3) && ev.op = Add) events2.events in
+		List.exists (fun ev -> ev.reference = (Ref.string_of message3) && ev.op = `add) events2.events in
 	let ok3 = 
-		not (List.exists (fun ev -> ev.reference = (Ref.string_of message1) && ev.op = Add) events2.events) &&
-			not (List.exists (fun ev -> ev.reference = (Ref.string_of message2) && ev.op = Add) events2.events)
+		not (List.exists (fun ev -> ev.reference = (Ref.string_of message1) && ev.op = `add) events2.events) &&
+			not (List.exists (fun ev -> ev.reference = (Ref.string_of message2) && ev.op = `add) events2.events)
 	in
 	if ok1 && ok2 && ok3 then success test else failed test (Printf.sprintf "ok1=%b ok2=%b ok3=%b" ok1 ok2 ok3);
 
