@@ -14,12 +14,9 @@
 open Stringext
 
 (** Types used to store events: *****************************************************************)
-type op = 
-    | Add   (** Object has been created *)
-    | Del   (** Object has been deleted *)
-    | Mod   (** Object has been modified *)
-    | Dummy (** A dummy or filler event inserted by coalesce_events *)
-with rpc
+type op = API.event_operation 
+let rpc_of_op = API.rpc_of_event_operation
+let op_of_rpc = API.event_operation_of_rpc
 
 type event = {
 	id: string;
@@ -66,9 +63,9 @@ type event_from = {
 open Printf
 open Pervasiveext
 
-let string_of_op = function Add -> "add" | Mod -> "mod" | Del -> "del" | Dummy -> "dummy"
+let string_of_op = function `add -> "add" | `_mod -> "mod" | `del -> "del" 
 let op_of_string x = match String.lowercase x with
-  | "add" -> Add | "mod" -> Mod | "del" -> Del
+  | "add" -> `add | "mod" -> `_mod | "del" -> `del
   | x -> failwith (sprintf "Unknown operation type: %s" x)
 
 let string_of_event ev = sprintf "%s %s %s %s %s" ev.id ev.ty (string_of_op ev.op) ev.reference
