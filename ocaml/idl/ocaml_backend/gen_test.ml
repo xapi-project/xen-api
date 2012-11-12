@@ -54,6 +54,7 @@ and gen_record_type highapi record =
 
 let gen_test highapi =
 	let all_types = DU.Types.of_objects (Dm_api.objects_of_api highapi) in
+	let all_types = Gen_api.add_set_enums all_types in
 	ignore(all_types);
 	List.iter (List.iter print)
 		(List.between [""] [
@@ -68,7 +69,8 @@ let gen_test highapi =
 					sprintf "let oc = open_out \"xml-light2_%s.xml\" in" (OU.alias_of_ty ty);
 					sprintf "Printf.fprintf oc \"%%s\" (Xml.to_string (API.Legacy.To.%s x));" (OU.alias_of_ty ty);
 					"close_out oc;";
-
+(*					sprintf "let s = Xml.to_string (API.Legacy.To.%s x) in" (OU.alias_of_ty ty);*)
+(*					sprintf "let y =" *)
 				]
 			) all_types)
 		])
