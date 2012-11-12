@@ -38,6 +38,9 @@ let overrides = [
 	"int64_to_string_set_map",(
 		"let rpc_of_int64_to_string_set_map x = Rpc.Dict (List.map (fun (x,y) -> Int64.to_string x, rpc_of_string_set y) x)\n" ^
 			"let int64_to_string_set_map_of_rpc x = match x with Rpc.Dict x -> List.map (fun (x,y) -> Int64.of_string x, string_set_of_rpc y) x | _ -> failwith \"Unmarshalling error\"");
+	"event_operation",(
+		"let rpc_of_event_operation x = match x with | `add -> Rpc.String \"add\" | `del -> Rpc.String \"del\" | `_mod -> Rpc.String \"mod\"\n"^
+			"let event_operation_of_rpc x = match x with | Rpc.String \"add\" -> `add | Rpc.String \"del\" -> `del | Rpc.String \"mod\" -> `_mod | _ -> failwith \"Unmarshalling error\"");
 	
 ]
 			
@@ -53,6 +56,8 @@ let gen_non_record_type highapi tys =
 		| DT.Record _             :: t
 		| DT.Map (_, DT.Record _) :: t
 		| DT.Set (DT.Record _)    :: t -> aux accu t
+		| DT.Set (DT.Enum (n,_) as e) as ty :: t ->
+		    aux (sprintf "type %s = %s list with rpc" (OU.alias_of_ty ty) (OU.alias_of_ty e) :: accu) t
 		| ty                      :: t -> 
 			let alias = OU.alias_of_ty ty in
 			if List.mem_assoc alias overrides 
@@ -109,8 +114,17 @@ let gen_client highapi =
 			O.Module.strings_of (Gen_client.gen_module highapi);
 		])
 
+let add_set_enums types =
+	List.concat (
+		List.map (fun ty ->
+			match ty with 
+				| DT.Enum _ -> 
+					if List.exists (fun ty2 -> ty2 = DT.Set ty) types then [ty] else [DT.Set ty; ty]
+				| _ -> [ty]) types)
+
 let gen_client_types highapi =
 	let all_types = DU.Types.of_objects (Dm_api.objects_of_api highapi) in
+	let all_types = add_set_enums all_types in
 	List.iter (List.iter print)
 		(List.between [""] [
 			[ "open Date" ];
