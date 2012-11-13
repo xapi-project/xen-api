@@ -67,6 +67,8 @@ struct flags {
   int acpi_s4;
   uint64_t mmio_size_mib;
   int tsc_mode;
+  size_t kernel_max_size;
+  size_t ramdisk_max_size;
 };
 
 static int pasprintf(char **buf, const char *fmt, ...)
@@ -164,6 +166,45 @@ xenstore_puts(int domid, const char *val, const char *fmt, ...)
   return rc;
 }
 
+static void
+xenstore_get_host_limits(size_t *kernel_max_size, size_t *ramdisk_max_size)
+{
+    static const char *kernel_max_path = "/mh/limits/pv-kernel-max-size";
+    static const char *ramdisk_max_path = "/mh/limits/pv-ramdisk-max-size";
+    struct xs_handle *xsh = NULL;
+    size_t value;
+    char *s;
+
+    /* Safe defaults */
+    *kernel_max_size  =  (32 * 1024 * 1024);
+    *ramdisk_max_size = (128 * 1024 * 1024);
+
+    xsh = xs_daemon_open();
+    if (xsh == NULL)
+        return;
+
+    s = xs_read(xsh, XBT_NULL, kernel_max_path, NULL);
+    if (s) {
+        errno = 0;
+        value = strtoul(s, NULL, 10);
+        if ( errno == 0 )
+            *kernel_max_size = value;
+        free(s);
+    }
+
+    s = xs_read(xsh, XBT_NULL, ramdisk_max_path, NULL);
+    if (s) {
+        errno = 0;
+        value = strtoul(s, NULL, 10);
+        if ( errno == 0 )
+            *ramdisk_max_size = value;
+        free(s);
+    }
+
+    xs_daemon_close(xsh);
+    return;
+}
+
 static char *
 xenstore_gets(int domid, const char *fmt, ...)
 {
@@ -200,6 +241,11 @@ static void
 get_flags(struct flags *f, int domid) 
 {
   int n;
+  size_t host_pv_kernel_max_size;
+  size_t host_pv_ramdisk_max_size;
+  size_t vm_pv_kernel_max_size;
+  size_t vm_pv_ramdisk_max_size;
+
   f->vcpus    = xenstore_get(domid, "platform/vcpu/number");
   f->vcpu_affinity = (const char**)(malloc(sizeof(char*) * f->vcpus));
 
@@ -219,6 +265,13 @@ get_flags(struct flags *f, int domid)
   f->mmio_size_mib = xenstore_get(domid, "platform/mmio_size_mib");
   f->tsc_mode = xenstore_get(domid, "platform/tsc_mode");
 
+  xenstore_get_host_limits(&host_pv_kernel_max_size, &host_pv_ramdisk_max_size);
+  vm_pv_kernel_max_size = xenstore_get(domid, "pv-kernel-max-size");
+  vm_pv_ramdisk_max_size = xenstore_get(domid, "pv-ramdisk-max-size");
+
+  f->kernel_max_size = vm_pv_kernel_max_size ? vm_pv_kernel_max_size : host_pv_kernel_max_size;
+  f->ramdisk_max_size = vm_pv_ramdisk_max_size ? vm_pv_ramdisk_max_size : host_pv_ramdisk_max_size;
+
   openlog("xenguest",LOG_NDELAY,LOG_DAEMON);
   syslog(LOG_INFO|LOG_DAEMON,"Determined the following parameters from xenstore:");
   syslog(LOG_INFO|LOG_DAEMON,"vcpu/number:%d vcpu/weight:%d vcpu/cap:%d nx: %d viridian: %d apic: %d acpi: %d pae: %d acpi_s4: %d acpi_s3: %d mmio_size_mib: %ld tsc_mode %d",
@@ -226,6 +279,9 @@ get_flags(struct flags *f, int domid)
   for (n = 0; n < f->vcpus; n++){
 	syslog(LOG_INFO|LOG_DAEMON,"vcpu/%d/affinity:%s", n, (f->vcpu_affinity[n])?f->vcpu_affinity[n]:"unset");
   }
+  syslog(LOG_INFO|LOG_DAEMON,"kernel/ramdisk host limits: (%zu,%zu), VM overrides: (%zu,%zu)",
+	 host_pv_kernel_max_size, host_pv_ramdisk_max_size,
+	 vm_pv_kernel_max_size, vm_pv_ramdisk_max_size);
   closelog();
   
 }
@@ -367,6 +423,18 @@ CAMLprim value stub_xc_linux_build_native(value xc_handle, value domid,
 
 	configure_vcpus(xch, c_domid, f);
 	configure_tsc(xch, c_domid, f);
+#ifdef XC_HAVE_DECOMPRESS_LIMITS
+	if ( xc_dom_kernel_max_size(dom, f.kernel_max_size) )
+		failwith_oss_xc(xch, "xc_dom_kernel_max_size");
+	if ( xc_dom_ramdisk_max_size(dom, f.ramdisk_max_size) )
+		failwith_oss_xc(xch, "xc_dom_ramdisk_max_size");
+#else
+	if ( f.kernel_max_size || f.ramdisk_max_size ) {
+		openlog("xenguest",LOG_NDELAY,LOG_DAEMON);
+		syslog(LOG_WARNING|LOG_DAEMON,"Kernel/Ramdisk limits set, but no support compiled in");
+		closelog();
+	}
+#endif
 
 	caml_enter_blocking_section();
 	r = xc_dom_linux_build(xch, dom, c_domid, c_mem_start_mib,
