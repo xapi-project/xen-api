@@ -3,6 +3,10 @@
 # Copyright (c) Citrix Systems 2008. All rights reserved.
 #
 
+# Host PV Kernel and Ramdisk limits
+xenstore-write -s /mh/limits/pv-kernel-max-size  $(expr  32  \* 1024 \* 1024)
+xenstore-write -s /mh/limits/pv-ramdisk-max-size $(expr 128  \* 1024 \* 1024)
+
 [ -z "$1" ] && exit 0
 mgmt_mac=$(ip link show $1 | awk '/link.ether/ {print $2}')
 
