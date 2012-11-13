@@ -13,7 +13,9 @@
  *)
 open Xenops_utils
 
-module D = Debug.Make(struct let name = "netman" end)
+module D = Debug.Make(struct let name = "netdev" end)
 open D
 
-type netty = Bridge of string | Vswitch of string | DriverDomain | Nat
+type network =
+	| Bridge of string
+	| VSwitch of string

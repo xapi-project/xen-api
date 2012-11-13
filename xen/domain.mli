@@ -74,7 +74,7 @@ val domarch_of_string : string -> domarch
 val hvmloader : string
 
 (** Create a fresh (empty) domain with a specific UUID, returning the domain ID *)
-val make: xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> create_info -> [`domain] Uuid.t -> domid
+val make: xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> create_info -> Uuidm.t -> domid
 
 (** 'types' of shutdown request *)
 type shutdown_reason = PowerOff | Reboot | Suspend | Crash | Halt | S3Suspend | Unknown of int
@@ -177,7 +177,7 @@ val vcpu_affinity_set: xc: Xenctrl.handle -> domid -> int -> bool array -> unit
 val vcpu_affinity_get: xc: Xenctrl.handle -> domid -> int -> bool array
 
 (** Get the uuid from a specific domain *)
-val get_uuid: xc: Xenctrl.handle -> Xenctrl.domid -> [`domain] Uuid.t
+val get_uuid: xc: Xenctrl.handle -> Xenctrl.domid -> Uuidm.t
 
 (** Write the min,max values of memory/target to xenstore for use by a memory policy agent *)
 val set_memory_dynamic_range: xc:Xenctrl.handle -> xs: Xenstore.Xs.xsh -> min:int -> max:int -> domid -> unit

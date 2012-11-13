@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -13,7 +13,11 @@
  *)
 open Xenops_utils
 
-module D = Debug.Make(struct let name = "netman" end)
+module D = Debug.Make(struct let name = "xenctrl" end)
 open D
 
-type netty = Bridge of string | Vswitch of string | DriverDomain | Nat
+type handle = unit
+
+let with_intf f = failwith "with_intf"
+
+type domid = int
