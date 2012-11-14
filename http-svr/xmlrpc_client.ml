@@ -97,6 +97,7 @@ let get_new_stunnel_id =
 (** Returns an stunnel, either from the persistent cache or a fresh one which
     has been checked out and guaranteed to work. *)
 let get_reusable_stunnel ?use_fork_exec_helper ?write_to_log host port =
+  let start_time = Unix.gettimeofday () in
   let found = ref None in
   (* 1. First check if there is a suitable stunnel in the cache. *)
   begin
@@ -113,10 +114,13 @@ let get_reusable_stunnel ?use_fork_exec_helper ?write_to_log host port =
     with Not_found -> ()
   end;
   match !found with
-  | Some x -> x
+  | Some x ->
+      StunnelDebug.debug "get_reusable_stunnel: got from cache in %.2f ms for %s:%d." ((Unix.gettimeofday () -. start_time) *. 1000.) host port;
+      x
   | None ->
       StunnelDebug.debug "get_reusable_stunnel: stunnel cache is empty; creating a fresh connection to %s:%d" host port;
       (* 2. Create a fresh connection and make sure it works *)
+      let start_time_2 = Unix.gettimeofday () in
       begin
 	let max_attempts = 10 in
 	let attempt_number = ref 0 in
@@ -139,7 +143,11 @@ let get_reusable_stunnel ?use_fork_exec_helper ?write_to_log host port =
 	done
       end;
       begin match !found with
-      | Some x -> x
+      | Some x ->
+          let now = Unix.gettimeofday () in
+          StunnelDebug.debug "get_reusable_stunnel: done in %.2f ms of which %.2f ms for new stunnel to %s:%d"
+              ((now -. start_time) *. 1000.) ((now -. start_time_2) *. 1000.) host port;
+          x
       | None ->
 	  StunnelDebug.error "get_reusable_stunnel: failed to acquire a working stunnel to connect to %s:%d" host port;
 	  raise Stunnel_connection_failed
