@@ -1802,6 +1802,7 @@ module UPDATES = struct
 			(fun () ->
 				debug "UPDATES.inject_barrier %d" id;
 				Updates.add (Dynamic.Barrier id) updates;
+				debug "Updates.Dump: %s" (updates |> Updates.Dump.make |> Updates.Dump.rpc_of_t |> Jsonrpc.to_string);
 				()
 			) ()
 
