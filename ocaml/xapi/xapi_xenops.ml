@@ -470,7 +470,7 @@ let id_of_vm ~__context ~self = Db.VM.get_uuid ~__context ~self
 let vm_of_id ~__context uuid = Db.VM.get_by_uuid ~__context ~uuid
 
 let vm_exists_in_xenopsd dbg id =
-	try Client.VM.stat dbg id |> ignore; true with Does_not_exist(_, _) -> false
+	Client.VM.exists dbg id
 
 let string_of_exn = function
 	| Api_errors.Server_error(code, params) -> Printf.sprintf "%s [ %s ]" code (String.concat "; " params)

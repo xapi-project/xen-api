@@ -1643,6 +1643,11 @@ module VM = struct
 	let stat _ dbg id =
 		Debug.with_thread_associated dbg (fun () -> (stat' id)) ()
 
+	let exists _ dbg id =
+		match DB.read id with
+		| Some _ -> true
+		| None -> false
+
 	let list _ dbg () =
 		Debug.with_thread_associated dbg (fun () -> DB.list ()) ()
 
