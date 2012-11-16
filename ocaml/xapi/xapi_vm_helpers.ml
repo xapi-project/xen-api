@@ -40,13 +40,13 @@ let set_is_a_template ~__context ~self ~value =
 	(* We define a 'set_is_a_template false' as 'install time' *)
 	info "VM.set_is_a_template('%b')" value;
 	let m = Db.VM.get_metrics ~__context ~self in
-	if not(value) then begin
-		(try Db.VM_metrics.set_install_time ~__context ~self:m ~value:(Date.of_float (Unix.gettimeofday ()))
-		with _ -> warn "Could not update VM install time because metrics object was missing")
-	end else (
+	if not value then begin
+		try Db.VM_metrics.set_install_time ~__context ~self:m ~value:(Date.of_float (Unix.gettimeofday ()))
+		with _ -> warn "Could not update VM install time because metrics object was missing"
+	end else begin
 		(* delete the vm metrics associated with the vm if it exists, when we templat'ize it *)
-		(try Db.VM_metrics.destroy ~__context ~self:m with _ -> ())
-	);
+		try Db.VM_metrics.destroy ~__context ~self:m with _ -> ()
+	end;
 	Db.VM.set_is_a_template ~__context ~self ~value
 
 let create ~__context ~name_label ~name_description
