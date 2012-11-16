@@ -36,6 +36,7 @@ let update_memory_overhead ~__context ~vm = Db.VM.set_memory_overhead ~__context
 (* Overrides for database set functions: ************************************************)
 let set_actions_after_crash ~__context ~self ~value =
 	Db.VM.set_actions_after_crash ~__context ~self ~value
+
 let set_is_a_template ~__context ~self ~value =
 	(* We define a 'set_is_a_template false' as 'install time' *)
 	info "VM.set_is_a_template('%b')" value;
@@ -44,6 +45,24 @@ let set_is_a_template ~__context ~self ~value =
 		try Db.VM_metrics.set_install_time ~__context ~self:m ~value:(Date.of_float (Unix.gettimeofday ()))
 		with _ -> warn "Could not update VM install time because metrics object was missing"
 	end else begin
+		(* VM must be halted, or we couldn't have got this far.
+		 * If we have a halted VM with ha_always_run = true, ha_restart_priority = "restart"
+		 * and HA is enabled on the pool, then HA is about to restart the VM and we should
+		 * block converting it into a template.
+		 *
+		 * This logic can't live in the allowed_operations code, or we'd have to update VM.allowed_operations
+		 * across the pool when enabling or disabling HA. *)
+		let ha_enabled = Db.Pool.get_ha_enabled ~__context ~self:(Helpers.get_pool ~__context) in
+		if ha_enabled && (Helpers.is_xha_protected ~__context ~self)
+		then raise
+			(Api_errors.Server_error
+				(Api_errors.vm_is_protected, [Ref.string_of self]))
+		(* If the VM is not protected then we can convert the VM to a template,
+		 * but we should clear the ha_always_run flag
+		 * (which will be true if the VM has ha_restart_priority = "restart" and was shut down from inside).
+		 *
+		 * We don't want templates to have this flag, or HA will try to start them. *)
+		else Db.VM.set_ha_always_run ~__context ~self ~value:false;
 		(* delete the vm metrics associated with the vm if it exists, when we templat'ize it *)
 		try Db.VM_metrics.destroy ~__context ~self:m with _ -> ()
 	end;
