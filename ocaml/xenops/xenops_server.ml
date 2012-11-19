@@ -1798,21 +1798,26 @@ module UPDATES = struct
 				Updates.last_id dbg updates
 			) ()
 
-	let inject_barrier _ dbg id =
+	let inject_barrier _ dbg vm_id id =
 		Debug.with_thread_associated dbg
 			(fun () ->
-				debug "UPDATES.inject_barrier %d" id;
-				Updates.add (Dynamic.Barrier id) updates;
-				debug "Updates.Dump: %s" (updates |> Updates.Dump.make |> Updates.Dump.rpc_of_t |> Jsonrpc.to_string);
-				()
+				debug "UPDATES.inject_barrier %s %d" vm_id id;
+				let filter k _ = 
+					match k with 
+						| Dynamic.Task _ -> false
+						| Dynamic.Vm id 
+						| Dynamic.Vbd (id,_) 
+						| Dynamic.Vif (id,_) 
+						| Dynamic.Pci (id,_) -> id=vm_id
+				in
+				Updates.inject_barrier id filter updates
 			) ()
 
 	let remove_barrier _ dbg id =
 		Debug.with_thread_associated dbg
 			(fun () ->
 				debug "UPDATES.remove_barrier %d" id;
-				Updates.remove (Dynamic.Barrier id) updates;
-				()
+				Updates.remove_barrier id updates;
 			) ()
 
 	let refresh_vm _ dbg id =
@@ -1835,7 +1840,7 @@ let internal_event_thread_body = Debug.with_thread_associated "events" (fun () -
 	let module B = (val get_backend () : S) in
 	let id = ref None in
 	while true do
-		let updates, next_id = B.UPDATES.get !id None in
+		let _, updates, next_id = B.UPDATES.get !id None in
 		assert (updates <> []);
 		List.iter
 			(function
