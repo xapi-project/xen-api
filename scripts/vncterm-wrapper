@@ -21,10 +21,15 @@ export VNCTERM_LISTEN="-v 127.0.0.1:1"
 # 64MiB core dumps
 ulimit -c 67108864
 
+vncterm=/usr/lib/xen/bin/vncterm
+if [ ! -e $vncterm ]; then
+	vncterm=/usr/lib/xcp/lib/vncterm
+fi
+
 echo vncterm-wrapper:
 xenstore-write -s /local/domain/$DOMID/vncterm-pid $$
 if [ -z "${XIU}" ]; then
-	exec /usr/lib/xen/bin/vncterm $* > /dev/null 2>&1
+	exec $vncterm $* > /dev/null 2>&1
 else
 	exec xenstore-write -s /local/domain/$DOMID/console/vnc-port 0
 fi

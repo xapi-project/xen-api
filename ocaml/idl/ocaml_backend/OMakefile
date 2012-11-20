@@ -155,7 +155,7 @@ META: META.in
 	sed 's/@VERSION@/$(PRODUCT_VERSION)/g' < $< > $@
 
 if $(defined-env DESTDIR)
-	INSTALL_PATH = $(DESTDIR)/$(shell ocamlfind printconf destdir)
+	INSTALL_PATH = $(DESTDIR)/$(shell ocamlc -where)$(EXTRA_INSTALL_PATH)
 	export
 else
 	INSTALL_PATH = $(shell ocamlfind printconf destdir)
@@ -164,7 +164,7 @@ else
 DATAMODEL_PACK_DIR=/tmp/xapi-datamodel
 
 lib-install: META
-	mkdir -p $(INSTALL_PATH)
+	mkdir -p $(INSTALL_PATH)/stublibs
 	ocamlfind install -destdir $(INSTALL_PATH) -ldconf ignore xapi-client META $(addsuffixes .cmi, $(XAPI_CLIENT_OBJS)) $(if $(BYTE_ENABLED), xapi_client.cma) $(if $(NATIVE_ENABLED), xapi_client.cmxa xapi_client.a $(addsuffixes .cmx, $(XAPI_CLIENT_OBJS)))
 
 .PHONY: lib-uninstall

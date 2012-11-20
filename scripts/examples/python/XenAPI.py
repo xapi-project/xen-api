@@ -102,7 +102,7 @@ class UDSTransport(xmlrpclib.Transport):
         self._extra_headers += [ (key,value) ]
     def make_connection(self, host):
         # Python 2.4 compatibility
-        if sys.version_info[0] <= 2 and sys.version_info[1] < 6:
+        if sys.version_info[0] <= 2 and sys.version_info[1] < 7:
             return UDSHTTP(host)
         else:
             return UDSHTTPConnection(host)
@@ -199,7 +199,7 @@ class Session(xmlrpclib.ServerProxy):
             return xmlrpclib.ServerProxy.__getattr__(self, name)
 
 def xapi_local():
-    return Session("http://_var_xapi_xapi/", transport=UDSTransport())
+    return Session("http://_var_lib_xcp_xapi/", transport=UDSTransport())
 
 def _parse_result(result):
     if type(result) != dict or 'Status' not in result:

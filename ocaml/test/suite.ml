@@ -45,6 +45,7 @@ let base_suite =
 			test_basic;
 			test_db_backup;
 			test_db_upgrade;
+			Test_ca91480.test;
 		]
 
 let _ = run_test_tt_main base_suite
