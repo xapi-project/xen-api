@@ -47,7 +47,7 @@ if $(not $(defined-env DESTDIR))
 
 
 if $(not $(defined-env VARDIR))
-  VARDIR=/var/xapi
+  VARDIR=/var/lib/xcp
   export
 if $(not $(defined-env VARPATCHDIR))
   VARPATCHDIR=/var/patch
@@ -163,8 +163,6 @@ OCAML_PHASE3_XEN = \
 	ocaml/xenops/cancel_utils_test \
 	ocaml/xenguest/xenguest \
 	ocaml/xenguest/dumpcore \
-	ocaml/xiu/libxenctrl_xiu.so \
-	ocaml/xiu/xiu \
 	ocaml/xapi/quicktestbin \
 	ocaml/xapi/sparse_dd \
 	ocaml/xapi/storage_impl_test \

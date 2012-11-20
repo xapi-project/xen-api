@@ -5,12 +5,12 @@ SITE_DIR=$(shell python -c "from distutils.sysconfig import get_python_lib; prin
 .SUBDIRS: examples host-backup-restore poweron rrdd templates
 
 noarch-install:
-	mkdir -p $(DESTDIR)/etc/udev                    ### FHS_FIXME
-	$(IPROG) xen-backend.rules $(DESTDIR)/etc/udev  ### FHS_FIXME
-	$(IPROG) xen-frontend.rules $(DESTDIR)/etc/udev ### FHS_FIXME
-	mkdir -p $(DESTDIR)/etc/udev/rules.d ### FHS_FIXME
+	mkdir -p $(DESTDIR)$(UDEVDIR)
+	$(IPROG) xen-backend.rules $(DESTDIR)$(UDEVDIR)
+	$(IPROG) xen-frontend.rules $(DESTDIR)$(UDEVDIR)
+	mkdir -p $(DESTDIR)$(UDEVDIR)/rules.d
 	sh -c \
-	'cd $(DESTDIR)/etc/udev/rules.d; \
+	'cd $(DESTDIR)$(UDEVDIR)/rules.d; \
 	ln -sf ../xen-backend.rules; \
 	ln -sf ../xen-frontend.rules'
 	mkdir -p $(DESTDIR)$(SCRIPTSDIR)
@@ -49,7 +49,7 @@ install:
 	$(IPROG) xapi-logrotate $(DESTDIR)/etc/logrotate.d/xapi
 	$(IPROG) xapi-wait-init-complete $(DESTDIR)$(BINDIR)
 	$(IPROG) xapi-autostart-vms $(DESTDIR)$(BINDIR)
-	$(IPROG) udhcpd.skel $(DESTDIR)/var/xapi/udhcpd.skel  #### FHS_FIXME
+	$(IPROG) udhcpd.skel $(DESTDIR)$(VARDIR)/udhcpd.skel
 	$(IDATA) xapi.conf $(DESTDIR)$(XAPICONF)
 	$(IDATA) sparse_dd.conf $(DESTDIR)/etc/sparse_dd.conf
 	$(IDATA) xcp-rrdd.conf $(DESTDIR)/etc/xcp-rrdd.conf
@@ -61,7 +61,7 @@ install:
 	mkdir -p $(DESTDIR)/etc/rc.d/init.d
 	$(IPROG) init.d-xenservices $(DESTDIR)/etc/rc.d/init.d/xenservices
 	$(IPROG) init.d-xapi $(DESTDIR)/etc/rc.d/init.d/xapi
-	$(IPROG) init.d-xapissl $(DESTDIR)/etc/rc.d/init.d/xapissl
+	$(IPROG) init.d-xapissl $(DESTDIR)$(LIBEXECDIR)/xapissl
 	$(IPROG) init.d-xapi-domains $(DESTDIR)/etc/rc.d/init.d/xapi-domains
 	$(IPROG) init.d-squeezed $(DESTDIR)/etc/rc.d/init.d/squeezed
 	$(IPROG) init.d-xenopsd $(DESTDIR)/etc/rc.d/init.d/xenopsd

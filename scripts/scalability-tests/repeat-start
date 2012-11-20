@@ -8,7 +8,7 @@
 if [ $# -ne 2 ]; then 
    echo "Usage: $0 n vm_name"
    echo "Starts VMs nammed vm_name<1> .. vm_name<n> and output the time taken and the load average."
-   echo "if WAIT_FOR_IP is set to 1, then wait the IP adress to appear before starting the next VM. need xgetip executable to be in the current directory."
+   echo "if WAIT_FOR_IP is set to 1, then wait the IP address to appear before starting the next VM. need xgetip executable to be in the current directory."
    exit 1
 fi 
 
@@ -22,9 +22,9 @@ wait_IP () {
     i=$1
     VM_UUID=`xe vm-list name-label=${VM_NAME}${i} params=uuid --minimal`
     MAC=`xe vif-list vm-uuid=${VM_UUID} params=MAC --minimal`
-    echo "Waiting for the IP adress of ${VM_NAME}${i} to appear."
+    echo "Waiting for the IP address of ${VM_NAME}${i} to appear."
     IP=`./xgetip xenbr0 ${MAC} &> /dev/null`
-    echo "IP adress of ${VM_NAME}${i} is ${IP}."
+    echo "IP address of ${VM_NAME}${i} is ${IP}."
 }
 
 echo "# vm_number cumulative_time load_average"

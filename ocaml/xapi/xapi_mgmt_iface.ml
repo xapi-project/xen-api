@@ -36,7 +36,7 @@ let update_mh_info interface =
 
 let restart_stunnel () =
 	let (_ : Thread.t) = Thread.create (fun () ->
-		Forkhelpers.execute_command_get_output "/sbin/service" [ "xapissl"; "restart" ]) () in
+		Forkhelpers.execute_command_get_output (Filename.concat Fhs.libexecdir "xapissl") [ "restart" ]) () in
 	()
 
 let stop () =
