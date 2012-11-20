@@ -3193,15 +3193,14 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			Sm.assert_session_has_internal_sr_access ~__context ~sr;
 			Local.VDI.db_forget ~__context ~vdi
 
-		let introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config =
+		let introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config  ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of=
 			info "VDI.introduce: SR = '%s'; name label = '%s'" (sr_uuid ~__context sR) name_label;
-			let local_fn = Local.VDI.introduce ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config in
-
+			let local_fn = Local.VDI.introduce ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of in
 			with_sr_andor_vdi ~__context ~sr:(sR, `vdi_introduce) ~doc:"VDI.introduce"
 				(fun () ->
 					SR.forward_sr_op ~local_fn ~__context ~self:sR
 						(fun session_id rpc ->
-							Client.VDI.introduce ~rpc ~session_id  ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config))
+							Client.VDI.introduce ~rpc ~session_id  ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config  ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of))
 
 		let update ~__context ~vdi =
 			let local_fn = Local.VDI.update ~vdi in
