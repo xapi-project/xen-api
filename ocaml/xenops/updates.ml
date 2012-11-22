@@ -320,9 +320,16 @@ module Dump = struct
 		id: int;
 		v: string;
 	} with rpc
-	type t = u list with rpc
+	type t = {
+		updates: u list;
+		barriers : (int * (u list)) list;
+	} with rpc
+	let make_list updates = 
+		U.M.fold (fun key v acc -> { id = v; v = (key |> Interface.Dynamic.rpc_of_id |> Jsonrpc.to_string) } :: acc) updates []
 	let make_raw u =
-		U.fold (fun key v acc -> { id = v; v = (key |> Interface.Dynamic.rpc_of_id |> Jsonrpc.to_string) } :: acc) u []
+		{ updates = make_list u.U.map;
+		  barriers = List.map (fun (id,map) -> (id, make_list map)) u.U.barriers;
+		}
 	let make t =
 		Mutex.execute t.m
 			(fun () ->
