@@ -1482,7 +1482,7 @@ let vif_create printer rpc session_id params =
 	let vm=Client.VM.get_by_uuid rpc session_id vm_uuid in
 	let network=Client.Network.get_by_uuid rpc session_id network_uuid in
 	let mtu = Client.Network.get_MTU rpc session_id network in
-	let vif = Client.VIF.create rpc session_id device network vm mac mtu [] "" [] in
+	let vif = Client.VIF.create rpc session_id device network vm mac mtu [] "" [] `network_default [] [] in
 	let uuid = Client.VIF.get_uuid rpc session_id vif in
 	printer (Cli_printer.PList [uuid])
 

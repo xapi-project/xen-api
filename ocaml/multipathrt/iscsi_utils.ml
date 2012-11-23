@@ -59,7 +59,7 @@ let make_iscsi rpc session_id iscsi_luns num_vifs sr_disk_size key network =
 		Client.VM.set_HVM_boot_policy rpc session_id newvm "";
 
 		for i = 0 to num_vifs - 1 do
-			ignore (Client.VIF.create rpc session_id (string_of_int i) network newvm "" 1500L [oc_key,key] "" [])
+			ignore (Client.VIF.create rpc session_id (string_of_int i) network newvm "" 1500L [oc_key,key] "" [] `network_default [] [] )
 		done;
 
 		Client.VM.add_to_other_config rpc session_id newvm oc_key key;
