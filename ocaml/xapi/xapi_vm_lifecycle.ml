@@ -393,11 +393,6 @@ let update_allowed_operations ~__context ~self =
 (** Called on new VMs (clones, imports) and on server start to manually refresh
     the power state, allowed_operations field etc *)
 let force_state_reset ~__context ~self ~value:state =
-	Db.VM.set_power_state ~__context ~self ~value:state;
-	if (Db.VM.get_current_operations ~__context ~self)<>[] then
-		Db.VM.set_current_operations ~__context ~self ~value:[];
-	update_allowed_operations ~__context ~self;
-
 	if state = `Halted then begin
 		(* mark all devices as disconnected *)
 		List.iter 
@@ -421,12 +416,18 @@ let force_state_reset ~__context ~self ~value:state =
 				Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:self)
 			(Db.VM.get_attached_PCIs ~__context ~self);
 	end;
+
 	if state = `Halted || state = `Suspended then begin
 		Db.VM.set_resident_on ~__context ~self ~value:Ref.null;
 		(* make sure we aren't reserving any memory for this VM *)
 		Db.VM.set_scheduled_to_be_resident_on ~__context ~self ~value:Ref.null;
 		Db.VM.set_domid ~__context ~self ~value:(-1L)
-	end
+	end;
+
+	Db.VM.set_power_state ~__context ~self ~value:state;
+	if (Db.VM.get_current_operations ~__context ~self)<>[] then
+		Db.VM.set_current_operations ~__context ~self ~value:[];
+	update_allowed_operations ~__context ~self
 
 (** Someone is cancelling a task so remove it from the current_operations *)
 let cancel_task ~__context ~self ~task_id = 
