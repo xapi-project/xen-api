@@ -748,12 +748,12 @@ let vm_powercycle_test s vm =
   (* Try to add some VIFs *)
   let (guest_installer_network: API.ref_network) = find_guest_installer_network s in
   debug test (Printf.sprintf "Adding VIF to guest installer network (%s)" (Client.Network.get_uuid !rpc s guest_installer_network));
-  let (_: API.ref_VIF) = make_vif ~session_id:s ~vM:vm ~network:guest_installer_network ~device:"0" in
+  let (_: API.ref_VIF) = make_vif ~session_id:s ~vM:vm ~network:guest_installer_network ~device:"0" ~locking_mode:`network_default ~ipv4_allowed:[] ~ipv6_allowed:[] in
   begin match Client.PIF.get_all !rpc s with
   | pif :: _ ->
 		let net = Client.PIF.get_network !rpc s pif in
 		debug test (Printf.sprintf "Adding VIF to physical network (%s)" (Client.Network.get_uuid !rpc s net));
-		let (_: API.ref_VIF) = make_vif ~session_id:s ~vM:vm ~network:net ~device:"1" in
+		let (_: API.ref_VIF) = make_vif ~session_id:s ~vM:vm ~network:net ~device:"1" ~locking_mode:`network_default ~ipv4_allowed:[] ~ipv6_allowed:[] in
 		()
   | _ -> ()
   end;
