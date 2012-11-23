@@ -1067,9 +1067,10 @@ let update_vbd ~__context (id: (string * string)) =
 					let vbd, vbd_r = List.find (fun (_, vbdr) -> vbdr.API.vBD_userdevice = linux_device || vbdr.API.vBD_userdevice = disk_number) vbdrs in
 					Opt.iter
 						(fun (vb, state) ->
-							debug "xenopsd event: Updating VBD %s.%s device <- %s; currently_attached <- %b" (fst id) (snd id) linux_device state.plugged;
+							let currently_attached = state.plugged || state.active in
+							debug "xenopsd event: Updating VBD %s.%s device <- %s; currently_attached <- %b" (fst id) (snd id) linux_device currently_attached;
 							Db.VBD.set_device ~__context ~self:vbd ~value:linux_device;
-							Db.VBD.set_currently_attached ~__context ~self:vbd ~value:(state.plugged || state.active);
+							Db.VBD.set_currently_attached ~__context ~self:vbd ~value:currently_attached;
 							if state.plugged then begin
 								match state.backend_present with
 									| Some (VDI x) ->
