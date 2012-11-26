@@ -668,7 +668,7 @@ let handler req fd _ =
 					let memory_limit = free_memory_required_kib |> Memory.bytes_of_kib |> Int64.to_string in
 					let req = Http.Request.make ~cookie:["dbg", dbg; "instance_id", "upgrade"; "memory_limit", memory_limit]
 						~user_agent:"xapi" Http.Put uri in
-					let path = "/var/xapi/xenopsd.forwarded" in
+					let path = Filename.concat Fhs.vardir "xenopsd.forwarded" in
 					let response = Xapi_services.hand_over_connection req fd path in
 					begin match response with
 						| Some task ->

@@ -27,5 +27,6 @@ OCAML_OBJS = \
 	test_basic \
 	test_pool_db_backup \
 	test_xapi_db_upgrade \
+	test_ca91480 \
 
 OCamlProgram(suite, suite $(OCAML_OBJS) )

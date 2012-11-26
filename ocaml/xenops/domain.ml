@@ -79,7 +79,7 @@ exception Domain_stuck_in_dying_state of Xenctrl.domid
 
 let save_signature = "XenSavedDomain\n"
 let qemu_save_signature = "QemuDeviceModelRecord\n"
-let hvmloader = "/usr/lib/xen/boot/hvmloader"
+let hvmloader = match Fhs.distroty with | Fhs.Debianlike -> "/usr/lib/xen-4.1/boot/hvmloader" | Fhs.Centoslike -> "/usr/lib/xen/boot/hvmloader"
 let releaseDomain = "@releaseDomain"
 let introduceDomain = "@introduceDomain"
 

@@ -305,7 +305,7 @@ let write ~__context ~_ref ~message =
 			gen := Db_cache_types.Manifest.generation (Db_cache_types.Database.manifest db);
 			Db_cache_types.Database.increment db));
 
-	Unixext.mkdir_safe message_dir 0o700;
+	Unixext.mkdir_rec message_dir 0o700;
 	let timestamp = ref (Date.to_float (message.API.message_timestamp)) in
 
 	if message_exists () then (Some (message_gen ()))
