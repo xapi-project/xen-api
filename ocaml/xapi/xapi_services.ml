@@ -113,7 +113,7 @@ let post_handler (req: Http.Request.t) s _ =
 		(fun __context ->
 			match String.split '/' req.Http.Request.uri with
 				| "" :: services :: "xenops" :: _ when services = _services ->
-					ignore (hand_over_connection req s "/var/xapi/xenopsd.forwarded")
+					ignore (hand_over_connection req s (Filename.concat Fhs.vardir "xenopsd.forwarded"))
 				| "" :: services :: "plugin" :: name :: _ when services = _services ->
 					http_proxy_to_plugin req s name
 				| "" :: services :: "driver" :: uuid :: ty :: instance :: rest when services = _services ->
@@ -127,7 +127,7 @@ let post_handler (req: Http.Request.t) s _ =
 
 
 let rpc ~srcstr ~dststr call =
-	let url = Http.Url.(File { path = "/var/xapi/storage" }, { uri = "/"; query_params = [] }) in
+	let url = Http.Url.(File { path = Filename.concat Fhs.vardir "storage" }, { uri = "/"; query_params = [] }) in
 	let open Xmlrpc_client in
 	XMLRPC_protocol.rpc ~transport:(transport_of_url url) ~srcstr ~dststr
 		~http:(xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of url) ~query:(Http.Url.get_query_params url) (Http.Url.get_uri url)) call
@@ -139,7 +139,7 @@ let put_handler (req: Http.Request.t) s _ =
 		(fun __context ->
 			match String.split '/' req.Http.Request.uri with
 				| "" :: services :: "xenops" :: _ when services = _services ->
-					ignore (hand_over_connection req s "/var/xapi/xenopsd.forwarded")
+					ignore (hand_over_connection req s (Filename.concat Fhs.vardir "xenopsd.forwarded"))
 				| "" :: services :: "plugin" :: name :: _ when services = _services ->
 					http_proxy_to_plugin req s name
 				| "" :: services :: "driver" :: uuid :: ty :: instance :: rest when services = _services ->

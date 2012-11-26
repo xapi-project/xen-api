@@ -139,11 +139,20 @@ let print_system_stats () =
 	let current_offset = Unix.gettimeofday () -. (Int64.to_float (Oclock.gettime Oclock.monotonic) /. 1e9) in
 	debug "Clock drift: %.0f" (current_offset -. initial_offset)
 
+let pidof_path = 
+	try 
+		let path = List.hd (List.filter (fun x -> try ignore (Unix.stat x); true with _ -> false) ["/sbin/pidof";"/bin/pidof"]) in
+		debug "Located pidof: %s" path;
+		Some path
+	with _ -> 
+		None
+
+
 (* Obtains process IDs for the specified program.
  * This should probably be moved into xen-api-libs. *)
 let pidof ~(program : string) : int list =
 	try
-		let pidof_path = "/sbin/pidof" in
+		let pidof_path = Opt.unbox pidof_path in
 		let out, _ = Forkhelpers.execute_command_get_output pidof_path [program] in
 		let lines = String.split '\n' out in
 		let get_pids_from_line acc line =
@@ -154,7 +163,9 @@ let pidof ~(program : string) : int list =
 			acc @ pids
 		in
 		List.fold_left get_pids_from_line [] lines
-	with Forkhelpers.Spawn_internal_error (_, _, _) -> []
+	with
+		| Forkhelpers.Spawn_internal_error (_, _, _) -> []
+		| Not_found -> []
 
 let print_stats_for ~program =
 	let pids = pidof ~program in

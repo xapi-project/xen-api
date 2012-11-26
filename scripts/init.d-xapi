@@ -15,11 +15,6 @@ if [ -f /etc/sysconfig/xapi ]; then
   . /etc/sysconfig/xapi
 fi
 
-if [ -e /var/xapi/xiu-xc ]; then
-	export XENCTRL_OSDEP="@OPTDIR@/lib/libxenctrl_xiu.so"
-	export XIU=/var/xapi/xiu
-fi
-
 XAPI_STARTUP_COOKIE=/var/run/xapi_startup.cookie
 XAPI_INIT_COMPLETE_COOKIE=/var/run/xapi_init_complete.cookie
 XAPI_BLOCK_STARTUP_COOKIE=@ETCDIR@/xapi_block_startup

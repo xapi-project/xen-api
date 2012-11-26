@@ -77,7 +77,7 @@ let dump_config_file () : unit =
 let socket : Http_svr.socket option ref = ref None
 let server = Http_svr.Server.empty (Xenops_server.make_context ())
 
-let path = "/var/xapi/xenopsd"
+let path = Filename.concat Fhs.vardir "xenopsd"
 let forwarded_path = path  ^ ".forwarded" (* receive an authenticated fd from xapi *)
 let json_path = path ^ ".json"
 

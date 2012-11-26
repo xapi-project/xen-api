@@ -255,7 +255,7 @@ module Storage = struct
 			let open Xmlrpc_client in
 			retry_econnrefused 10
 				(fun () ->
-					XMLRPC_protocol.rpc ~srcstr:"xenops" ~dststr:"smapiv2" ~transport:(Unix "/var/xapi/storage") ~http:(xmlrpc ~version:"1.0" "/") call
+					XMLRPC_protocol.rpc ~srcstr:"xenops" ~dststr:"smapiv2" ~transport:(Unix (Filename.concat Fhs.vardir "storage")) ~http:(xmlrpc ~version:"1.0" "/") call
 				)
 	end)
 
@@ -1864,9 +1864,9 @@ module VIF = struct
 			_locking_mode, "disabled";
 		]
 
-	let disconnect_flag device mode =
+	let disconnect_flag device disconnected =
 		let path = Hotplug.vif_disconnect_path device in
-		let flag = match mode with Xenops_interface.Vif.Disabled -> "1" | _ -> "0" in
+		let flag = if disconnected then "1" else "0" in
 		path, flag
 
 	let active_path vm vif = Printf.sprintf "/vm/%s/devices/vif/%s" vm (snd vif.Vif.id)
@@ -1902,14 +1902,12 @@ module VIF = struct
 								~netty:(match vif.backend with
 									| Network.Local x -> Netman.Vswitch x
 									| Network.Remote (_, _) -> raise (Unimplemented "network driver domains"))
-								~mac:vif.mac ~carrier:vif.carrier ~mtu:vif.mtu
-								~rate:vif.rate ~backend_domid
+								~mac:vif.mac ~carrier:(vif.carrier && (vif.locking_mode <> Xenops_interface.Vif.Disabled))
+								~mtu:vif.mtu ~rate:vif.rate ~backend_domid
 								~other_config:vif.other_config
 								~extra_private_keys:(id :: vif.extra_private_keys @ locking_mode)
 								frontend_domid in
-						let device = create task frontend_domid in
-						let disconnect_path, flag = disconnect_flag device vif.locking_mode in
-						xs.Xs.write disconnect_path flag;
+						let (_ : Device_common.device) = create task frontend_domid in
 
 						(* If qemu is in a different domain, then plug into it *)
 						let me = this_domid ~xs in
@@ -2020,7 +2018,8 @@ module VIF = struct
 				(* Delete the old keys *)
 				List.iter (fun x -> safe_rm xs (path ^ "/" ^ x)) locking_mode_keys;
 				List.iter (fun (x, y) -> xs.Xs.write (path ^ "/" ^ x) y) (xenstore_of_locking_mode mode);
-				let disconnect_path, flag = disconnect_flag device mode in
+				let disconnected = not (vif.carrier && (mode <> Xenops_interface.Vif.Disabled)) in
+				let disconnect_path, flag = disconnect_flag device disconnected in
 				xs.Xs.write disconnect_path flag;
 
 				let domid = string_of_int device.frontend.domid in

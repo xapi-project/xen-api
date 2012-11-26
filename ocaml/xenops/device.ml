@@ -1750,7 +1750,12 @@ let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xapi_globs.qemu_dm_re
 
 	(* Execute qemu-dm-wrapper, forwarding stdout to the syslog, with the key "qemu-dm-<domid>" *)
 	let syslog_stdout = Forkhelpers.Syslog_WithKey (Printf.sprintf "qemu-dm-%d" domid) in
-	let pid = Forkhelpers.safe_close_and_exec None None None [] ~syslog_stdout dmpath (prepend_wrapper_args domid l) in
+	let env = 
+		match Fhs.distroty with 
+			| Fhs.Debianlike -> Some [|"PYTHONPATH=/usr/lib/xen-4.1/lib/python"|] 
+			| Fhs.Centoslike -> None
+	in
+	let pid = Forkhelpers.safe_close_and_exec ?env None None None [] ~syslog_stdout dmpath (prepend_wrapper_args domid l) in
 
         debug "qemu-dm: should be running in the background (stdout redirected to syslog)";
 
