@@ -16,8 +16,10 @@
 
 from protocol import *
 
-rpc_req = Message("hello", 1L, "reply_here")
-rpc_res = Message("there", 1L)
+basedir = "/tmp/link_test"
+
+rpc_req = Message("hello", 1L, "reply_to")
+rpc_res = Message("hello", 1L)
 
 import unittest, os
 class Internal_invariants(unittest.TestCase):
@@ -28,6 +30,64 @@ class Internal_invariants(unittest.TestCase):
             assert m.correlation_id == n.correlation_id
             assert m.reply_to == n.reply_to
 
+def load(x):
+    path = os.path.join(basedir, x)
+    f = open(path, "r")
+    try:
+        return f.read()
+    finally:
+        f.close()
+
+class Ocaml_interop(unittest.TestCase):
+    def test_login(self):
+        py = Login("hello").to_request().to_string()
+        ocaml = load("login")
+        assert py == ocaml
+    def test_create_named(self):
+        py = Create_request("service").to_request().to_string()
+        ocaml = load("create")
+        assert py == ocaml
+    def test_create_anon(self):
+        py = Create_request().to_request().to_string()
+        ocaml = load("create.anon")
+        assert py == ocaml
+    def test_subscribe(self):
+        py = Subscribe("service").to_request().to_string()
+        ocaml = load("subscribe")
+        assert py == ocaml
+    def test_request(self):
+        py = Send("service", rpc_req).to_request().to_string()
+        ocaml = load("request")
+        assert py == ocaml
+    def test_response(self):
+        py = Send("service", rpc_res).to_request().to_string()
+        ocaml = load("reply")
+        assert py == ocaml
+    def test_transfer(self):
+        py = Transfer_request(3, 5.0).to_request().to_string()
+        ocaml = load("transfer")
+        assert py == ocaml
+    def test_ack(self):
+        py = Ack(3).to_request().to_string()
+        ocaml = load("ack")
+        assert py == ocaml
+
+    def test_create_reply(self):
+        ocaml = Create_response.of_response(Http_response.of_string(load("create.reply")))
+        assert ocaml.name == "service"
+    def test_transfer_reply(self):
+        ocaml = Transfer_response.of_response(Http_response.of_string(load("transfer.reply")))        
+        m = {
+            1L: rpc_req,
+            2L: rpc_res,
+            }
+        py = Transfer_response(m)
+        for k in py.messages:
+            assert k in ocaml.messages
+            assert str(py.messages[k]) == str(ocaml.messages[k])
+        for k in ocaml.messages:
+            assert k in py.messages
+            assert str(py.messages[k]) == str(ocaml.messages[k])
 
 if __name__ == "__main__":
 	unittest.main()
