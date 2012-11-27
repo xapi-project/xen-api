@@ -34,6 +34,15 @@ Library xenswitch_unix
   Modules:            Protocol_unix
   BuildDepends:       unix,threads,cohttp,rpc,rpc.json,rpc.syntax,xenswitch
 
+Executable link_test
+  CompiledObject:     best
+  Path:               core_test
+  MainIs:             link_test_main.ml
+  Build$:             flag(tests)
+  Custom:             true
+  Install:            false
+  BuildDepends:       xenswitch, xenswitch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
+
 Executable client
   CompiledObject:     best
   Path:               core_test
