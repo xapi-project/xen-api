@@ -153,3 +153,233 @@ class Ack:
 
     def to_request(self):
         return Http_request("GET", "/ack/%Ld" % self.ack)
+
+import string, socket
+
+default_config = {
+    "ip": "169.254.0.1", # HIMN IP of dom0
+    "port": 8080,      # default for xenswitch
+}
+
+class End_of_file(Exception):
+    def __init__(self):
+        pass
+class Bad_status(Exception):
+    def __init__(self, status):
+        self.status = status
+class Missing_content_length(Exception):
+    def __init__(self):
+        pass
+class StreamReader:
+    def __init__(self, sock):
+        self.sock = sock
+        self.buffered = ""
+    def read_fragment(self, n):
+        if len(self.buffered) > 0:
+            num_available = min(n, len(self.buffered))
+            fragment = self.buffered[0:num_available]
+            self.buffered = self.buffered[num_available:]
+            return fragment
+        else:
+            self.buffered = self.sock.recv(16384)
+            if len(self.buffered) == 0:
+                raise End_of_file()
+            return self.read_fragment(n)
+    def read(self, n):
+        results = ""
+        while n > 0:
+            fragment = self.read_fragment(n)
+            n = n - len(fragment)
+            results = results + fragment
+        return results
+
+    def readline(self):
+        results = ""
+        eol = False
+        while not eol:
+            byte = self.read(1)
+            if byte == "\n":
+                eol = True
+            else:
+                results = results + byte
+        return results
+
+def link_send(sock, m):
+    sock.sendall(m.to_request().to_string())
+
+def link_recv(reader):
+    status = reader.readline()
+    if not(status.startswith("HTTP/1.1 200 OK")):
+        raise (Bad_status(status))
+    content_length = None
+    eoh = False
+    while not eoh:
+        header = reader.readline().strip()
+        if header == "":
+            eoh = True
+        else:
+            bits = header.split(":")
+            key = string.lower(bits[0])
+            if key == "content-length":
+                content_length = int(bits[1])
+    if content_length == None:
+        raise Missing_content_length()
+    body = reader.read(content_length)
+    return Http_response(body)
+
+def login(sock, reader, some_credential):
+    link_send(sock, Login(some_credential))
+    link_recv(reader)
+
+def create(sock, reader, name = None):
+    link_send(sock, Create_request(name))
+    return Create_response.of_response(link_recv(reader)).name
+
+def subscribe(sock, reader, name):
+    link_send(sock, Subscribe(name))
+    link_recv(reader)
+
+def send(sock, reader, name, msg):
+    link_send(sock, Send(name, msg))
+    link_recv(reader)
+
+def transfer(sock, reader, ack_to, timeout):
+    link_send(sock, Transfer_request(ack_to, timeout))
+    return Transfer_response.of_response(link_recv(reader)).messages
+
+def ack(sock, reader, id):
+    link_send(sock, Ack(id))
+    link_recv(reader)
+
+from threading import Thread, Event, Lock
+
+class Receiver(Thread):
+    def __init__(self, sock, reader):
+        Thread.__init__(self)
+        self.daemon = True
+        self.sock = sock
+        self.reader = reader
+        self.events = {}
+        self.replies = {}
+    def register_correlation_id(self, correlation_id):
+        event = Event()
+        self.events[correlation_id] = event
+        return event
+    def get_reply(self, correlation_id):
+        reply = self.replies[correlation_id]
+        del self.replies[correlation_id]
+        return reply
+    def run(self):
+        ack_to = -1L
+        timeout = 5.0
+        while True:
+            messages = transfer(self.sock, self.reader, ack_to, timeout)
+            for id in messages.keys():
+                ack_to = max(ack_to, id)
+                m = messages[id]
+                if m.correlation_id not in self.events:
+                    print >>sys.stderr, "Unknown correlation_id: %d" % m.correlation_id
+                else:
+                    self.replies[m.correlation_id] = m.payload
+                    event = self.events[m.correlation_id]
+                    del self.events[m.correlation_id]
+                    event.set()
+
+class Service:
+    def __init__(self, client, name):
+        self.client = client
+        self.name = name
+    def rpc(self, request):
+        return self.client.rpc(self.name, request)
+
+class Client:
+    def __init__(self, some_credential, config = default_config):
+        self.some_credential = some_credential
+        self.config = config
+
+        # Open a connection for requests and one for events
+        self.request_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.request_sock.connect((config["ip"], config["port"]))
+        self.request_stream_reader = StreamReader(self.request_sock)
+        self.request_mutex = Lock()
+        login(self.request_sock, self.request_stream_reader, some_credential)
+
+        self.event_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.event_sock.connect((config["ip"], config["port"]))
+        self.event_stream_reader = StreamReader(self.event_sock)
+        login(self.event_sock, self.event_stream_reader, some_credential)
+
+        self.receiver_thread = Receiver(self.event_sock, self.event_stream_reader)
+        self.receiver_thread.start()
+        self.next_correlation_id = 0
+        self.next_correlation_id_mutex = Lock()
+
+    def correlation_id(self):
+        self.next_correlation_id_mutex.acquire()
+        try:
+            correlation_id = self.next_correlation_id
+            self.next_correlation_id = self.next_correlation_id + 1
+            return correlation_id
+        finally:
+            self.next_correlation_id_mutex.release()
+
+    def rpc(self, name, request):
+        correlation_id = self.correlation_id()
+        event = self.receiver_thread.register_correlation_id(correlation_id)
+
+        self.request_mutex.acquire()
+        try:
+            reply_queue = create(self.request_sock, self.request_stream_reader)
+            subscribe(self.request_sock, self.request_stream_reader, reply_queue)
+            send(self.request_sock, self.request_stream_reader, name, Message(request, correlation_id, reply_queue))
+        finally:
+            self.request_mutex.release()
+
+        event.wait()
+        return self.receiver_thread.get_reply(correlation_id)
+
+    def connect(self, service):
+        self.request_mutex.acquire()
+        try:
+            create(self.request_sock, self.request_stream_reader, service)
+        finally:
+            self.request_mutex.release()
+
+        return Service(self, service)
+
+if __name__ == "__main__":
+    from optparse import OptionParser
+    import sys
+
+    parser = OptionParser()
+    parser.add_option("-x", "--switch", dest="switch", type="string",
+                  help="address of message switch", metavar="SWITCH")
+    parser.add_option("-l", "--listen", dest="listen", action="store_true",
+                  help="listen for RPCs, instead of sending them")
+    parser.add_option("-s", "--service", dest="service", type="string",
+                  help="name of the remote service")
+    parser.add_option("-n", "--name", dest="name", type="string",
+                  help="name which identifies this client")
+
+    (options, args) = parser.parse_args()
+    config = default_config
+    if options.switch:
+        bits = options.switch.split(":")
+        config["ip"] = bits[0]
+        if len(bits) == 2:
+            config["port"] = int(bits[1])
+
+    name = "test_python"
+    if options.name:
+        name = options.name
+    if not options.service:
+        print >> sys.stderr, "Must provide a --service name"
+        sys.exit(1)
+
+    c = Client(name)
+    s = c.connect(options.service)
+    if options.listen:
+        print >> sys.stderr, "Not implemented"
+        sys.exit(1)
+    print s.rpc("hello")
+
