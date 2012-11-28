@@ -79,7 +79,8 @@ let to_string env x =
 				a_href (Printf.sprintf "#a-%s" x) (String.concat "/" ident.Ident.name)
 			| Unit -> print "unit"
 			| Option x -> html_of_t x; print " option"
-			| Pair(a, b) -> html_of_t a; print " * "; html_of_t b in
+			| Pair(a, b) -> html_of_t a; print " * "; html_of_t b
+			| Channel -> print "channel" in
 
     let of_args args =
 		Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "alert alert-info" ]));

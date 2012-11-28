@@ -19,7 +19,7 @@ Library "xcp-api-client"
   CompiledObject:     best
   Path: lib
   Findlibname: xcp-api-client
-  Modules: Xcp, Storage
+  Modules: Xcp, Storage, Clock
   BuildDepends:	rpc
 
 Executable xcp_api_test

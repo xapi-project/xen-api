@@ -36,3 +36,12 @@ exception Unknown_method of string
 exception Internal_error of string
 
 let ( |> ) a b = b a
+
+module Channel = struct
+	type t = unit
+
+	let t_of_rpc _ = ()
+	let rpc_of_t = Rpc.String "test"
+
+	let echo = ()
+end

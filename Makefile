@@ -16,11 +16,11 @@ RPMBUILD?=rpmbuild
 
 default: build
 
-idl: files.cmx types.cmx smapiv2.cmx xenops.cmx memory.cmx python.cmx ocaml.cmx html.cmx main.cmx
-	${OCAMLFIND} ocamlopt -package xmlm -package unix -linkpkg -g -o idl files.cmx types.cmx smapiv2.cmx xenops.cmx memory.cmx python.cmx ocaml.cmx html.cmx main.cmx
+idl: files.cmx types.cmx smapiv2.cmx xenops.cmx memory.cmx clocksource.cmx python.cmx ocaml.cmx html.cmx main.cmx
+	${OCAMLFIND} ocamlopt -package xmlm -package unix -linkpkg -g -o idl files.cmx types.cmx smapiv2.cmx xenops.cmx memory.cmx clocksource.cmx python.cmx ocaml.cmx html.cmx main.cmx
 
-toplevel: files.cmo types.cmo smapiv2.cmo xenops.cmo memory.cmo python.cmo ocaml.cmo html.cmo
-	${OCAMLFIND} ocamlmktop -thread -package xmlm -linkpkg -g -o toplevel files.cmo types.cmo smapiv2.cmo xenops.cmo memory.cmo python.cmo ocaml.cmo html.cmo
+toplevel: files.cmo types.cmo smapiv2.cmo xenops.cmo memory.cmo clocksource.cmo python.cmo ocaml.cmo html.cmo
+	${OCAMLFIND} ocamlmktop -thread -package xmlm -linkpkg -g -o toplevel files.cmo types.cmo smapiv2.cmo xenops.cmo memory.cmo clocksource.cmo python.cmo ocaml.cmo html.cmo
 
 %.cmx: %.ml
 	${OCAMLFIND} ocamlopt -package xmlm -package unix -c -g -I . $<

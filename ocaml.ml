@@ -42,6 +42,7 @@ let rec typeof ?(expand_aliases=false) env =
 		| Unit -> "()"
 		| Option t -> sprintf "(%s option)" (typeof env t)
 		| Pair (a, b) -> sprintf "(%s * %s)" (typeof env a) (typeof env b)
+		| Channel -> "(* Channel.t *) unit"
 
 let type_decl env t =
 	[
@@ -77,6 +78,8 @@ let rec example_value_of env =
 			"Some " ^ (example_value_of env t)
 		| Pair (a, b) ->
 			Printf.sprintf "(%s, %s)" (example_value_of env a) (example_value_of env b)
+		| Channel ->
+			"Channel.echo"
 
 let args_of_exn env e =
 	let rec unpair = function
@@ -104,7 +107,9 @@ let rpc_of_exns env es =
 				  e.TyDecl.name (String.lowercase e.TyDecl.name) (String.concat ", " is)) in
 	[
 		Line "let response_of_exn = function";
-		Block (List.map rpc_of_exn es)
+		Block ((List.map rpc_of_exn es) @ [
+			Line "| e -> Rpc.failure (Rpc.Enum [ Rpc.String \"Internal_error\"; Rpc.String (Printexc.to_string e) ])"
+		])
 	]
 
 
