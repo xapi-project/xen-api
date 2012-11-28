@@ -254,11 +254,12 @@ def ack(sock, reader, id):
 from threading import Thread, Event, Lock
 
 class Receiver(Thread):
-    def __init__(self, sock, reader):
+    def __init__(self, sock, reader, server):
         Thread.__init__(self)
         self.daemon = True
         self.sock = sock
         self.reader = reader
+        self.server = server
         self.events = {}
         self.replies = {}
     def register_correlation_id(self, correlation_id):
@@ -269,6 +270,8 @@ class Receiver(Thread):
         reply = self.replies[correlation_id]
         del self.replies[correlation_id]
         return reply
+    def set_listen_callback(self, listen_callback):
+        self.listen_callback = listen_callback
     def run(self):
         ack_to = -1L
         timeout = 5.0
@@ -277,25 +280,40 @@ class Receiver(Thread):
             for id in messages.keys():
                 ack_to = max(ack_to, id)
                 m = messages[id]
-                if m.correlation_id not in self.events:
-                    print >>sys.stderr, "Unknown correlation_id: %d" % m.correlation_id
+                reply_to = m.reply_to
+                if reply_to:
+                    reply = self.server.dispatch(m)
+                    send(self.sock, self.reader, reply_to, reply)
+                    ack(self.sock, self.reader, id)
                 else:
-                    self.replies[m.correlation_id] = m.payload
-                    event = self.events[m.correlation_id]
-                    del self.events[m.correlation_id]
-                    event.set()
+                    if m.correlation_id not in self.events:
+                        print >>sys.stderr, "Unknown correlation_id: %d" % m.correlation_id
+                    else:
+                        self.replies[m.correlation_id] = m.payload
+                        event = self.events[m.correlation_id]
+                        del self.events[m.correlation_id]
+                        event.set()
 
-class Service:
+class Connection:
     def __init__(self, client, name):
         self.client = client
         self.name = name
     def rpc(self, request):
         return self.client.rpc(self.name, request)
 
-class Client:
-    def __init__(self, some_credential, config = default_config):
+class Server:
+    def __init__(self):
+        pass
+    def dispatch(self, request):
+        # echo the request back
+        request.reply_to = None
+        return request
+
+class Switch:
+    def __init__(self, some_credential, config = default_config, server = Server()):
         self.some_credential = some_credential
         self.config = config
+        self.server = server
 
         # Open a connection for requests and one for events
         self.request_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -309,7 +327,7 @@ class Client:
         self.event_stream_reader = StreamReader(self.event_sock)
         login(self.event_sock, self.event_stream_reader, some_credential)
 
-        self.receiver_thread = Receiver(self.event_sock, self.event_stream_reader)
+        self.receiver_thread = Receiver(self.event_sock, self.event_stream_reader, self.server)
         self.receiver_thread.start()
         self.next_correlation_id = 0
         self.next_correlation_id_mutex = Lock()
@@ -345,11 +363,20 @@ class Client:
         finally:
             self.request_mutex.release()
 
-        return Service(self, service)
+        return Connection(self, service)
+
+    def listen(self, service):
+        self.request_mutex.acquire()
+        try:
+            create(self.request_sock, self.request_stream_reader, service)
+            subscribe(self.request_sock, self.request_stream_reader, service)
+        finally:
+            self.request_mutex.release()
+
 
 if __name__ == "__main__":
     from optparse import OptionParser
-    import sys
+    import sys, time
 
     parser = OptionParser()
     parser.add_option("-x", "--switch", dest="switch", type="string",
@@ -358,7 +385,7 @@ if __name__ == "__main__":
                   help="listen for RPCs, instead of sending them")
     parser.add_option("-s", "--service", dest="service", type="string",
                   help="name of the remote service")
-    parser.add_option("-n", "--name", dest="name", type="string",
+    parser.add_option("-c", "--client", dest="client_name", type="string",
                   help="name which identifies this client")
 
     (options, args) = parser.parse_args()
@@ -369,17 +396,20 @@ if __name__ == "__main__":
         if len(bits) == 2:
             config["port"] = int(bits[1])
 
-    name = "test_python"
-    if options.name:
-        name = options.name
+    client_name = "test_python"
+    if options.client_name:
+        client_name = options.client_name
     if not options.service:
         print >> sys.stderr, "Must provide a --service name"
         sys.exit(1)
 
-    c = Client(name)
-    s = c.connect(options.service)
     if options.listen:
-        print >> sys.stderr, "Not implemented"
-        sys.exit(1)
-    print s.rpc("hello")
+        s = Switch(client_name, server = Server())
+        s.listen(options.service)
+        while True:
+            time.sleep(5)
+    else:
+        s = Switch(client_name)
+        c = s.connect(options.service)
+        print c.rpc("hello")
 
