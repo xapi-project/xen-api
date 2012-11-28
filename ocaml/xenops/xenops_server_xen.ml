@@ -213,22 +213,21 @@ module Storage = struct
 	open Storage_interface
 
 	module Client = Client(struct
-		let rec retry_econnrefused upto f =
+		let rec retry_econnrefused f =
 			try
 				f ()
 			with
-				| Unix.Unix_error(Unix.ECONNREFUSED, "connect", _) as e ->
-					if upto = 0 then raise e;
+				| Unix.Unix_error(Unix.ECONNREFUSED, "connect", _) ->
 					debug "Caught ECONNREFUSED; retrying in 5s";
 					Thread.delay 5.;
-					retry_econnrefused (upto - 1) f
+					retry_econnrefused f
 				| e ->
 					error "Caught %s: does the storage service need restarting?" (Printexc.to_string e);
 					raise e
 
 		let rpc call =
 			let open Xmlrpc_client in
-			retry_econnrefused 10
+			retry_econnrefused
 				(fun () ->
 					XMLRPC_protocol.rpc ~srcstr:"xenops" ~dststr:"smapiv2" ~transport:(Unix "/var/xapi/storage") ~http:(xmlrpc ~version:"1.0" "/") call
 				)
