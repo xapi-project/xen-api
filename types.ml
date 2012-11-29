@@ -48,7 +48,7 @@ module Type = struct
     | Unit
     | Option of t
     | Pair of t * t
-	| Channel
+	| Custom of string
 
   type env = (string * t) list
 
@@ -69,7 +69,7 @@ module Type = struct
       else dbus_of_t env (List.assoc x env)
     | Unit -> ""
     | Pair (a, b) -> dbus_of_t env a ^ (dbus_of_t env b)
-	| Channel -> dbus_of_t env (Dict (String, Basic String))
+	| Custom _ -> dbus_of_t env (Dict (String, Basic String))
 
   let rec string_of_t = function
     | Basic b -> ocaml_of_basic b
@@ -81,7 +81,7 @@ module Type = struct
     | Unit -> "unit"
     | Option x -> string_of_t x ^ " option"
     | Pair(a, b) -> string_of_t a ^ " * " ^ (string_of_t b)
-	| Channel -> "channel"
+	| Custom x -> x
 
   let rec ocaml_of_t = function
     | Basic b -> ocaml_of_basic b
@@ -97,7 +97,7 @@ module Type = struct
     | Unit -> "unit"
     | Option x -> string_of_t x ^ " option"
     | Pair(a, b) -> ocaml_of_t a ^ " * " ^ (ocaml_of_t b)
-	| Channel -> "channel"
+	| Custom x -> (String.capitalize x) ^ ".t"
 
   type ts = t list
 
@@ -176,7 +176,7 @@ module Ident = struct
     | Unit -> Unit
     | Option x -> Option (aux x)
     | Pair(a, b) -> Pair (aux a, aux b)
-	| Channel -> Channel in
+	| Custom x -> Custom x in
 	aux
 
 

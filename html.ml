@@ -80,7 +80,7 @@ let to_string env x =
 			| Unit -> print "unit"
 			| Option x -> html_of_t x; print " option"
 			| Pair(a, b) -> html_of_t a; print " * "; html_of_t b
-			| Channel -> print "channel" in
+			| Custom c -> print c in
 
     let of_args args =
 		Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "alert alert-info" ]));

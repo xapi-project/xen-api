@@ -42,7 +42,7 @@ let rec typeof ?(expand_aliases=false) env =
 		| Unit -> "()"
 		| Option t -> sprintf "(%s option)" (typeof env t)
 		| Pair (a, b) -> sprintf "(%s * %s)" (typeof env a) (typeof env b)
-		| Channel -> "(* Channel.t *) unit"
+		| Custom x -> "(* Channel.t *) unit"
 
 let type_decl env t =
 	[
@@ -78,8 +78,8 @@ let rec example_value_of env =
 			"Some " ^ (example_value_of env t)
 		| Pair (a, b) ->
 			Printf.sprintf "(%s, %s)" (example_value_of env a) (example_value_of env b)
-		| Channel ->
-			"Channel.echo"
+		| Custom x ->
+			(String.capitalize x) ^ ".example"
 
 let args_of_exn env e =
 	let rec unpair = function

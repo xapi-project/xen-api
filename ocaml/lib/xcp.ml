@@ -43,5 +43,5 @@ module Channel = struct
 	let t_of_rpc _ = ()
 	let rpc_of_t = Rpc.String "test"
 
-	let echo = ()
+	let example = ()
 end

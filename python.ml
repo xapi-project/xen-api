@@ -81,9 +81,9 @@ let rec typecheck env ty v =
 			[
 				Line "# Not sure how to typecheck pairs"
 			]
-		| Channel ->
+		| Custom c ->
 			[
-				Line (Printf.sprintf "channel.assert_type(%s)" v)
+				Line (Printf.sprintf "%s.assert_type(%s)" c v)
 			]
 
 let rec value_of env =
@@ -115,8 +115,8 @@ let rec value_of env =
 			"None"
 		| Pair (a, b) ->
 			"[]"
-		| Channel ->
-			"channel.Echo()"
+		| Custom c ->
+			Printf.sprintf "%s.Echo()" c
 
 let exn_decl env e =
 	let open Printf in
