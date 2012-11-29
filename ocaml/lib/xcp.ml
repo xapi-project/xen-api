@@ -38,10 +38,12 @@ exception Internal_error of string
 let ( |> ) a b = b a
 
 module Channel = struct
-	type t = unit
+	type t =
+		| Foo
+		| Bar
 
-	let t_of_rpc _ = ()
-	let rpc_of_t = Rpc.String "test"
+	let t_of_rpc _ = Foo
+	let rpc_of_t _ = Rpc.String "test"
 
-	let example = ()
+	let example = Foo
 end

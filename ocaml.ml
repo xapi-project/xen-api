@@ -42,7 +42,7 @@ let rec typeof ?(expand_aliases=false) env =
 		| Unit -> "()"
 		| Option t -> sprintf "(%s option)" (typeof env t)
 		| Pair (a, b) -> sprintf "(%s * %s)" (typeof env a) (typeof env b)
-		| Custom x -> "(* Channel.t *) unit"
+		| Custom x -> (String.capitalize x) ^ ".t"
 
 let type_decl env t =
 	[
