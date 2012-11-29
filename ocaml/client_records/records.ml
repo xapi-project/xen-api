@@ -1129,6 +1129,10 @@ let host_record rpc session_id host =
 				~get_set:(fun () -> (x ()).API.host_tags)
 				~add_to_set:(fun tag -> Client.Host.add_tags rpc session_id host tag)
 				~remove_from_set:(fun tag -> Client.Host.remove_tags rpc session_id host tag) ();
+			make_field ~name:"guest_VCPUs_params" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.host_guest_VCPUs_params) 
+				~get_map:(fun () -> (x ()).API.host_guest_VCPUs_params) 
+				~add_to_map:(fun k v -> Client.Host.add_to_guest_VCPUs_params rpc session_id host k v)
+				~remove_from_map:(fun k -> Client.Host.remove_from_guest_VCPUs_params rpc session_id host k) ();
 		]}
 
 let vdi_record rpc session_id vdi =
