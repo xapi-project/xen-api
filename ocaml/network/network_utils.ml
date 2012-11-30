@@ -689,26 +689,32 @@ module Ovs = struct
 		vsctl ~log:true ["port-to-br"; name]
 
 	let make_bond_properties name properties =
-		let known_props = ["mode"; "hashing-algorithm"; "updelay"; "downdelay"; "miimon"; "use_carrier"; "rebalance-interval"] in
+		let known_props = ["mode"; "hashing-algorithm"; "updelay"; "downdelay";
+		                   "miimon"; "use_carrier"; "rebalance-interval";
+		                   "lacp-time"; "lacp-aggregation-key"] in
 		let mode_args =
-			let mode = if List.mem_assoc "mode" properties then List.assoc "mode" properties else "balance-slb" in
-			let halgo = if List.mem_assoc "hashing-algorithm" properties then List.assoc "hashing-algorithm" properties else "" in
+			let mode = if List.mem_assoc "mode" properties
+				then List.assoc "mode" properties else "balance-slb" in
+			let halgo = if List.mem_assoc "hashing-algorithm" properties
+				then List.assoc "hashing-algorithm" properties else "" in
 			if mode = "lacp" then "lacp=active" ::
 				(if halgo = "src_mac" then ["bond_mode=balance-slb"]
 				else if halgo = "tcpudp_ports" then ["bond_mode=balance-tcp"]
 				else begin
-					debug "bond %s has invalid bond-hashing-algorithm '%s'; defaulting to balance-tcp" name halgo;
+					debug "bond %s has invalid bond-hashing-algorithm '%s'; defaulting to balance-tcp"
+						name halgo;
 					["bond_mode=balance-tcp"]
 				end)
 			else
 				["lacp=off"; "bond_mode=" ^ mode]
 		in
-		let get_prop (prop, ovs_key) =
+		(* "legacy" converter for bond properties *)
+		let get_prop_legacy (prop, ovs_key) =
 			if List.mem_assoc prop properties then
 				let value = List.assoc prop properties in
 				let value' = try int_of_string value with _ -> -1 in
 				if value' < 0 then begin
-					debug "bond %s has invalid %s '%s'" name prop value;
+					debug "bond %s has invalid %s '%s'\n" name prop value;
 					[]
 				end else if prop = "use_carrier" then
 					[ovs_key ^ "=" ^ (if value' > 0 then "carrier" else "miimon")]
@@ -716,24 +722,45 @@ module Ovs = struct
 					[ovs_key ^ "=" ^ (string_of_int value')]
 			else
 				[]
+		and get_prop (prop, ovs_key) =
+			if List.mem_assoc prop properties
+			then let value = List.assoc prop properties in
+					 [ovs_key ^ "=" ^ value]
+			else []
 		in
-		let extra_args = List.flatten (List.map get_prop ["updelay", "bond_updelay"; "downdelay", "bond_downdelay";
-			"miimon", "other-config:bond-miimon-interval"; "use_carrier", "other-config:bond-detect-mode";
-			"rebalance-interval", "other-config:bond-rebalance-interval"]) in
-		let other_args = List.filter_map (fun (k, v) ->
+		(* Don't add new properties here, these use the legacy converter *)
+		let extra_args_legacy = List.flatten (List.map get_prop_legacy
+			["updelay", "bond_updelay"; "downdelay", "bond_downdelay";
+			 "miimon", "other-config:bond-miimon-interval";
+			 "use_carrier", "other-config:bond-detect-mode";
+			 "rebalance-interval", "other-config:bond-rebalance-interval";])
+		and extra_args = List.flatten (List.map get_prop
+			["lacp-time", "other-config:lacp-time";])
+		and per_iface_args = List.flatten (List.map get_prop
+			["lacp-aggregation-key", "other-config:lacp-aggregation-key";
+			 "lacp-actor-key", "other-config:lacp-actor-key";])
+		and other_args = List.filter_map (fun (k, v) ->
 			if List.mem k known_props then None
-			else Some (Printf.sprintf "other-config:\"%s\"=\"%s\"" (String.escaped ("bond-" ^ k)) (String.escaped v))
+			else Some (Printf.sprintf "other-config:\"%s\"=\"%s\""
+			             (String.escaped ("bond-" ^ k)) (String.escaped v))
 		) properties in
-		mode_args @ extra_args @ other_args
+		(mode_args @ extra_args_legacy @ extra_args @ other_args, per_iface_args)
 
 	let create_bond ?mac name interfaces bridge properties =
-		let args = make_bond_properties name properties in
+		let args, per_iface_args = make_bond_properties name properties in
 		let mac_args = match mac with
 			| None -> []
 			| Some mac -> ["--"; "set"; "port"; name; "MAC=\"" ^ (String.escaped mac) ^ "\""]
 		in
+		let per_iface_args =
+			List.flatten
+				 (List.map
+						(fun iface ->
+							["--"; "set"; "interface"; iface ] @ per_iface_args)
+						interfaces)
+		in
 		vsctl ~log:true (["--"; "--may-exist"; "add-bond"; bridge; name] @ interfaces @
-			mac_args @ args)
+			mac_args @ args @ per_iface_args)
 
 	let get_fail_mode bridge =
 		vsctl ["get-fail-mode"; bridge]
