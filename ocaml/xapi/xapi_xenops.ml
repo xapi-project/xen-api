@@ -138,8 +138,9 @@ let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
 			video = begin match string vm.API.vM_platform "cirrus" "vga" with
 				| "std" -> Standard_VGA
 				| "cirrus" -> Cirrus
+				| "vgpu" -> Vgpu
 				| x ->
-					error "Unknown platform/vga option: %s (expected 'std' or 'cirrus')" x;
+					error "Unknown platform/vga option: %s (expected 'std', 'cirrus', or 'vgpu')" x;
 					Cirrus
 			end;
 			acpi = bool vm.API.vM_platform true "acpi";

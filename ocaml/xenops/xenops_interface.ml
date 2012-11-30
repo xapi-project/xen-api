@@ -81,6 +81,7 @@ module Vm = struct
 	type video_card =
 		| Cirrus
 		| Standard_VGA
+		| Vgpu
 
 	type hvm_info = {
 		hap: bool;

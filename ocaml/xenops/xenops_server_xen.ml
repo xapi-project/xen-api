@@ -910,7 +910,8 @@ module VM = struct
 					?vnc_ip ?(pci_passthrough=false) ?(hvm=true) ?(video_mib=4) () =
 				let video = match video with
 					| Cirrus -> Device.Dm.Cirrus
-					| Standard_VGA -> Device.Dm.Std_vga in
+					| Standard_VGA -> Device.Dm.Std_vga
+					| vGPU -> Device.Dm.Vgpu in
 				let open Device.Dm in {
 					memory = build_info.Domain.memory_max;
 					boot = boot_order;
