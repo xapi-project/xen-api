@@ -227,12 +227,22 @@ type requirement =
 
 let requirements_of_mode = function
 	| `lacp -> [
-			{
-				name = "hashing_algorithm";
-				default_value = "tcpudp_ports";
-				is_valid_value = (fun str -> List.mem str ["src_mac"; "tcpudp_ports"]);
-			};
-		]
+		{
+			name = "hashing_algorithm";
+			default_value = "tcpudp_ports";
+			is_valid_value = (fun str -> List.mem str ["src_mac"; "tcpudp_ports"]);
+		};
+		{
+			name = "lacp-time";
+			default_value = "fast";
+			is_valid_value = (fun str -> List.mem str ["fast"; "slow"]);
+		};
+		{
+			name = "lacp-aggregation-key";
+			default_value = "";
+			is_valid_value = (fun i -> try ignore (int_of_string i); true with _ -> false);
+		};
+	]
 	| _ -> []
 
 (* Validate a key-value pair against a list of property requirements. *)
