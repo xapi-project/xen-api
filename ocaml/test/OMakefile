@@ -8,6 +8,7 @@ OCAMLINCLUDES = \
 	../idl \
 	../idl/ocaml_backend \
 	../autogen \
+	../network \
 
 OCAML_LIBS = \
 	../fhs \
@@ -19,6 +20,7 @@ OCAML_LIBS = \
 	../auth/pam \
 	../util/stats \
 	../xapi/xapi \
+	../network/network_utils \
 
 OCAML_OBJS = \
 	../idl/api_lowlevel \
@@ -28,5 +30,6 @@ OCAML_OBJS = \
 	test_pool_db_backup \
 	test_xapi_db_upgrade \
 	test_ca91480 \
+	test_pr1510 \
 
 OCamlProgram(suite, suite $(OCAML_OBJS) )
