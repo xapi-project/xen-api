@@ -519,7 +519,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
 	~guest_VCPUs_params:[]
   ;
   (* If the host we're creating is us, make sure its set to live *)
-  Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.of_float (Unix.gettimeofday ()));
+  Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.of_float (Int64.to_float (Oclock.gettime Oclock.monotonic) /. 1e9));
   Db.Host_metrics.set_live ~__context ~self:metrics ~value:(uuid=(Helpers.get_localhost_uuid ()));
   host
 
