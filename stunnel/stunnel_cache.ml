@@ -25,23 +25,27 @@ open D
 
 type endpoint = { host: string; port: int }
 
+(* Need to limit the absolute number of stunnels as well as the maximum age *)
+let max_stunnel = 22
+let max_age = 180. *. 60. (* seconds *)
+let max_idle = 5. *. 60. (* seconds *)
+
+(* The add function adds the new stunnel before doing gc, so the cache *)
+(* can briefly contain one more than maximum. *)
+let capacity = max_stunnel + 1
+
 (** An index of endpoints to stunnel IDs *)
-let index : (endpoint, int list) Hashtbl.t ref = ref (Hashtbl.create 10)
+let index : (endpoint, int list) Hashtbl.t ref = ref (Hashtbl.create capacity)
 (** A mapping of stunnel unique IDs to donation times *)
-let times : (int, float) Hashtbl.t ref = ref (Hashtbl.create 10)
+let times : (int, float) Hashtbl.t ref = ref (Hashtbl.create capacity)
 (** A mapping of stunnel unique ID to Stunnel.t *)
-let stunnels : (int, Stunnel.t) Hashtbl.t ref = ref (Hashtbl.create 10)
+let stunnels : (int, Stunnel.t) Hashtbl.t ref = ref (Hashtbl.create capacity)
 
 open Pervasiveext
 open Threadext
 open Listext
 
 let m = Mutex.create ()
-
-(* Need to limit the absolute number of stunnels as well as the maximum age *)
-let max_stunnel = 4
-let max_age = 5. *. 60. (* seconds *)
-let max_idle = 2. *. 60. (* seconds *)
 
 let id_of_stunnel stunnel = 
     Opt.default "unknown" (Opt.map string_of_int stunnel.Stunnel.unique_id)
@@ -95,10 +99,13 @@ let unlocked_gc () =
 	       let s = Hashtbl.find !stunnels id in
 	       Stunnel.disconnect s) !to_gc;
   (* Remove all reference to them from our cache hashtables *)
-  let index' = Hashtbl.create 10 in
+  let index' = Hashtbl.create capacity in
   Hashtbl.iter
     (fun ep ids ->
-       Hashtbl.add index' ep (List.filter (fun id -> not(List.mem id !to_gc)) ids)) !index;
+      let kept_ids = (List.filter (fun id -> not(List.mem id !to_gc)) ids) in
+      if kept_ids != [] then Hashtbl.add index' ep kept_ids
+      else ()
+    ) !index;
   let times' = Hashtbl.copy !times in
   List.iter (fun idx -> Hashtbl.remove times' idx) !to_gc;
   let stunnels' = Hashtbl.copy !stunnels in
