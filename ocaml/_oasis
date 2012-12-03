@@ -27,7 +27,7 @@ Executable proxy
   MainIs:             proxy.ml
   Custom:             true
   CompiledObject:     best
-  Install:            false
+  Install:            true
   BuildDepends:       xcp-api-client, lwt, lwt.unix, oUnit
 
 Executable xcp_api_test
