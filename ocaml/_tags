@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 19fcb93bd1f513efe99281778667748a)
+# DO NOT EDIT (digest: c00d310a3ae4c06f0159642169398e1f)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -16,6 +16,18 @@
 # Library xcp-api-client
 "lib/xcp-api-client.cmxs": use_xcp-api-client
 <lib/*.ml{,i}>: pkg_rpc
+# Executable proxy
+<proxy/proxy.{native,byte}>: use_xcp-api-client
+<proxy/proxy.{native,byte}>: pkg_lwt
+<proxy/proxy.{native,byte}>: pkg_lwt.unix
+<proxy/proxy.{native,byte}>: pkg_oUnit
+<proxy/proxy.{native,byte}>: pkg_rpc
+<proxy/*.ml{,i}>: use_xcp-api-client
+<proxy/*.ml{,i}>: pkg_lwt
+<proxy/*.ml{,i}>: pkg_lwt.unix
+<proxy/*.ml{,i}>: pkg_oUnit
+<proxy/*.ml{,i}>: pkg_rpc
+<proxy/proxy.{native,byte}>: custom
 # Executable xcp_api_test
 <lib_test/xcp_api_test.{native,byte}>: use_xcp-api-client
 <lib_test/xcp_api_test.{native,byte}>: pkg_lwt
@@ -30,5 +42,6 @@
 <lib_test/xcp_api_test.{native,byte}>: custom
 # OASIS_STOP
 <lib/*.ml>: syntax_camlp4o, pkg_rpc.syntax
+<proxy/*.ml>: syntax_camlp4o, pkg_lwt.syntax
 
 

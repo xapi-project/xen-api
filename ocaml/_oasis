@@ -22,6 +22,14 @@ Library "xcp-api-client"
   Modules: Xcp, Storage, Clock
   BuildDepends:	rpc
 
+Executable proxy
+  Path:               proxy
+  MainIs:             proxy.ml
+  Custom:             true
+  CompiledObject:     best
+  Install:            false
+  BuildDepends:       xcp-api-client, lwt, lwt.unix, oUnit
+
 Executable xcp_api_test
   Path:               lib_test
   MainIs:             xcp_api_test.ml

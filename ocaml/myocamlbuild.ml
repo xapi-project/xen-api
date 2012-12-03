@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 9e9a23a3a99ce0fd82179f3c7b0899aa) *)
+(* DO NOT EDIT (digest: 1134163903f5ad8586b52c86b3d42613) *)
 module OASISGettext = struct
 # 21 "/home/djs/.opam/3.12.1/build/oasis.0.3.0/src/oasis/OASISGettext.ml"
 
@@ -480,7 +480,7 @@ let package_default =
      MyOCamlbuildBase.lib_ocaml = [("xcp-api-client", ["lib"])];
      lib_c = [];
      flags = [];
-     includes = [("lib_test", ["lib"])];
+     includes = [("proxy", ["lib"]); ("lib_test", ["lib"])];
      }
   ;;
 

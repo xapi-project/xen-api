@@ -35,15 +35,50 @@ exception Unknown_method of string
 
 exception Internal_error of string
 
+exception Channel_setup_failed
+
 let ( |> ) a b = b a
 
 module Channel = struct
-	type t =
-		| Foo
-		| Bar
+	type t = Unix.file_descr
 
-	let t_of_rpc _ = Foo
-	let rpc_of_t _ = Rpc.String "test"
+	type protocol =
+		| TCP_proxy of string * int             (** IP, port *)
+		| V4V_proxy of int * int                (** domid, port *)
+		| Unix_sendmsg of int * string * string (** domid, path, token *)
+	with rpc
 
-	let example = Foo
+	let export fd =
+		let ip = "127.0.0.1" in
+		let s = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
+		Unix.bind s (Unix.ADDR_INET(Unix.inet_addr_of_string ip, 0));
+		let port = match Unix.getsockname s with
+			| Unix.ADDR_INET(_, port) -> port
+			| _ -> assert false in
+		(* fork to a single one-shot proxy process, handing over fd and s *)
+		Unix.close s;
+		[
+			TCP_proxy(ip, port);
+		]
+
+	type protocols = protocol list with rpc
+
+	let rpc_of_t fd =
+		(* Advertise the fd's availability over a list of protocols *)
+		rpc_of_protocols (export fd)
+
+	let t_of_rpc x =
+		let protocols = protocols_of_rpc x in
+		(* Choose the best transport mechanism from the list of options *)
+		try
+			match List.find (function TCP_proxy(_, _)-> true | _ -> false) protocols with
+				| TCP_proxy(ip, port) ->
+					let s = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
+					Unix.connect s (Unix.ADDR_INET(Unix.inet_addr_of_string ip, port));
+					s
+				| _ -> assert false
+		with Not_found ->
+			raise Channel_setup_failed
+
+	let example = Unix.stdout
 end
