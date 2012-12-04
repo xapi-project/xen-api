@@ -48,37 +48,17 @@ module Channel = struct
 		| Unix_sendmsg of int * string * string (** domid, path, token *)
 	with rpc
 
+	type protocols = protocol list with rpc
 
 	let _proxy = "/usr/local/bin/proxy"
-
-	let exec cmd args =
-		match Unix.fork() with
-			| 0 ->
-				Unix.execv cmd (Array.of_list (cmd :: args))
-			| pid -> pid
 
 	let int_of_file_descr (fd: Unix.file_descr) : int = Obj.magic fd
 
 	let export fd =
-		let ip = "127.0.0.1" in
-		let s = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
-		Unix.bind s (Unix.ADDR_INET(Unix.inet_addr_of_string ip, 0));
-		Unix.listen s 5;
-		let port = match Unix.getsockname s with
-			| Unix.ADDR_INET(_, port) -> port
-			| _ -> assert false in
-		let args = [
-			"-accept"; string_of_int (int_of_file_descr s);
-			"-proxy"; string_of_int (int_of_file_descr fd);
-		] in
-		let _ = exec _proxy args in
-		(* fork to a single one-shot proxy process, handing over fd and s *)
-		Unix.close s;
-		[
-			TCP_proxy(ip, port);
-		]
-
-	type protocols = protocol list with rpc
+		let ic = Unix.open_process_in (Printf.sprintf "%s -proxy %d" _proxy (int_of_file_descr fd)) in
+		let json = input_line ic in
+		close_in ic;
+		protocols_of_rpc (Jsonrpc.of_string json)
 
 	let rpc_of_t fd =
 		(* Advertise the fd's availability over a list of protocols *)
