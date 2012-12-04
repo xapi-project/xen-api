@@ -277,13 +277,13 @@ module Storage = struct
 	let dp_destroy task dp =
 		Xenops_task.with_subtask task (Printf.sprintf "DP.destroy %s" dp)
 			(transform_exception (fun () ->
-				try 
+				try
 					Client.DP.destroy "dp_destroy" dp false
-			    with e ->
+				with e ->
 					(* Backends aren't supposed to return exceptions on deactivate/detach, but they
 					   frequently do. Log and ignore *)
 					warn "DP destroy returned unexpected exception: %s" (Printexc.to_string e)
-			        ))
+			))
 
 	let get_disk_by_name task path =
 		debug "Storage.get_disk_by_name %s" path;
