@@ -58,8 +58,6 @@ let query_result_of_sr sr =
 
 let capabilities_of_sr sr = Opt.default [] (Opt.map (fun x -> x.features) (query_result_of_sr sr))
 
-exception No_storage_plugin_for_sr of string
-
 (* This is the policy: *)
 let of_sr sr =
 	Mutex.execute m
