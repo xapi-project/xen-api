@@ -26,6 +26,7 @@ doc: setup.data setup.bin
 	@./setup.bin -doc -j $(J)
 
 install: setup.bin
+	@cp -f core/message_switch.py $(shell python -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")/
 	@./setup.bin -install
 
 # oasis bug?
@@ -38,6 +39,7 @@ test:
 
 reinstall: setup.bin
 	@ocamlfind remove $(NAME) || true
+	@cp -f core/message_switch.py $(shell python -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")/
 	@./setup.bin -reinstall
 
 clean:
