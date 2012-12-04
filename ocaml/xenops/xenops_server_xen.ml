@@ -27,7 +27,11 @@ open Xenops_task
 module D = Debug.Debugger(struct let name = service_name end)
 open D
 
-let _qemu_dm = "/opt/xensource/libexec/qemu-dm-wrapper"
+let _alternatives = "/opt/xensource/alternatives"
+let _qemu_dm_default = Filename.concat Fhs.libexecdir "qemu-dm-wrapper"
+let _xenguest_default = Filename.concat Fhs.libexecdir "xenguest"
+let _device_model = "device-model"
+let _xenguest = "xenguest"
 let _tune2fs = "/sbin/tune2fs"
 let _mkfs = "/sbin/mkfs"
 let _mount = "/bin/mount"
@@ -37,6 +41,27 @@ let _ionice = "/usr/bin/ionice"
 let run cmd args =
 	debug "%s %s" cmd (String.concat " " args);
 	fst(Forkhelpers.execute_command_get_output cmd args)
+
+let choose_alternative kind default platformdata =
+	debug "looking for %s in [ %s ]" kind (String.concat "; " (List.map (fun (k, v) -> k ^ " : " ^v) platformdata));
+	if List.mem_assoc kind platformdata then begin
+		let x = List.assoc kind platformdata in
+		let dir = Filename.concat _alternatives kind in
+		let available = try Array.to_list (Sys.readdir dir) with _ -> [] in
+		(* If x has been put in the directory (by root) then it's safe to use *)
+		if List.mem x available
+		then Filename.concat dir x
+		else begin
+			error "Invalid platform:%s=%s (check execute permissions of %s)" kind x (Filename.concat dir x);
+			default
+		end
+	end else default
+
+(* We allow qemu-dm to be overriden via a platform flag *)
+let choose_qemu_dm = choose_alternative _device_model _qemu_dm_default
+
+(* We allow xenguest to be overriden via a platform flag *)
+let choose_xenguest = choose_alternative _xenguest _xenguest_default
 
 type qemu_frontend =
 	| Name of string (* block device path or bridge name *)
@@ -988,7 +1013,7 @@ module VM = struct
 								} in
 								((make_build_info b.Bootloader.kernel_path builder_spec_info), "")
 							) in
-			let arch = Domain.build task ~xc ~xs build_info timeoffset domid in
+			let arch = Domain.build task ~xc ~xs build_info timeoffset (choose_xenguest vm.Vm.platformdata) domid in
 			Int64.(
 				let min = to_int (div vm.Vm.memory_dynamic_min 1024L)
 				and max = to_int (div vm.Vm.memory_dynamic_max 1024L) in
@@ -1040,22 +1065,26 @@ module VM = struct
 
 	let create_device_model_exn vbds vifs saved_state xc xs task vm di =
 		let vmextra = DB.read_exn vm.Vm.id in
+		let qemu_dm = choose_qemu_dm vm.Vm.platformdata in
+		let xenguest = choose_xenguest vm.Vm.platformdata in
+		debug "chosen qemu_dm = %s" qemu_dm;
+		debug "chosen xenguest = %s" xenguest;
 		Opt.iter (fun info ->
 			match vm.Vm.ty with
 				| Vm.HVM { Vm.qemu_stubdom = true } ->
 					if saved_state then failwith "Cannot resume with stubdom yet";
 					Opt.iter
 						(fun stubdom_domid ->
-							Stubdom.build task ~xc ~xs info di.domid stubdom_domid;
-							Device.Dm.start_vnconly task ~xs ~dmpath:_qemu_dm info stubdom_domid
+							Stubdom.build task ~xc ~xs info xenguest di.domid stubdom_domid;
+							Device.Dm.start_vnconly task ~xs ~dmpath:qemu_dm info stubdom_domid
 						) (get_stubdom ~xs di.domid);
 				| Vm.HVM { Vm.qemu_stubdom = false } ->
 					(if saved_state then Device.Dm.restore else Device.Dm.start)
-						task ~xs ~dmpath:_qemu_dm info di.domid
+						task ~xs ~dmpath:qemu_dm info di.domid
 				| Vm.PV _ ->
 					Device.Vfb.add ~xc ~xs di.domid;
 					Device.Vkbd.add ~xc ~xs di.domid;
-					Device.Dm.start_vnconly task ~xs ~dmpath:_qemu_dm info di.domid
+					Device.Dm.start_vnconly task ~xs ~dmpath:qemu_dm info di.domid
 		) (create_device_model_config vbds vifs vmextra);
 		match vm.Vm.ty with
 			| Vm.PV { vncterm = true; vncterm_ip = ip } -> Device.PV_Vnc.start ~xs ?ip di.domid
@@ -1177,7 +1206,7 @@ module VM = struct
 
 				with_data ~xc ~xs task data true
 					(fun fd ->
-						Domain.suspend task ~xc ~xs ~hvm ~progress_callback ~qemu_domid domid fd flags'
+						Domain.suspend task ~xc ~xs ~hvm ~progress_callback ~qemu_domid (choose_xenguest vm.Vm.platformdata) domid fd flags'
 							(fun () ->
 								if not(request_shutdown task vm Suspend 30.)
 								then raise (Failed_to_acknowledge_shutdown_request);
@@ -1240,7 +1269,7 @@ module VM = struct
 					try
 						with_data ~xc ~xs task data false
 							(fun fd ->
-								Domain.restore task ~xc ~xs (* XXX progress_callback *) build_info timeoffset domid fd
+								Domain.restore task ~xc ~xs (* XXX progress_callback *) build_info timeoffset (choose_xenguest vm.Vm.platformdata) domid fd
 							);
 					with e ->
 						error "VM %s: restore failed: %s" vm.Vm.id (Printexc.to_string e);
