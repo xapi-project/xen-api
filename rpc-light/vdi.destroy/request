@@ -1,3 +1,0 @@
-<?xml version="1.0"?><methodCall><methodName>VDI.destroy</methodName><params><param><value><struct><member><name>dbg</name>
-<value>OpaqueRef:319a85c7-1e80-fea0-bde9-44e7069f8cff</value></member><member><name>sr</name><value>7c8e002f-1924-2839-5c63-d8d389313bd8</value></member><member><name>vdi</name><value>7b72f5f5-c036-4560-ae7a-abcb5e561aab</value></member>
-</struct></value></param></params></methodCall>

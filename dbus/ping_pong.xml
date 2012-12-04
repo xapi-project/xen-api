@@ -1,8 +1,0 @@
-<node>
-  <interface name="org.foo.bar">
-    <method name="Ping">
-      <arg direction="in" type="s"/>
-      <arg direction="out" type="s"/>
-    </method>
-  </interface>
-</node>
