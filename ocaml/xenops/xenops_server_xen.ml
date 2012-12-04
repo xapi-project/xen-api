@@ -439,9 +439,9 @@ module Mem = struct
 		()
 
 	(** After an event which frees memory (eg a domain destruction), perform a one-off memory rebalance *)
-	let balance_memory dbg =
+	let balance_memory dbg = Opt.default () (wrap (fun () ->
 		debug "rebalance_memory";
-		Client.balance_memory dbg
+		Client.balance_memory dbg))
 
 end
 
