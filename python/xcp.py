@@ -75,7 +75,7 @@ def is_long(x):
 # Example JSON-marshalled protocol list:
 # [["TCP_proxy", "127.0.0.1", 52673], ["TCP_proxy", "127.0.0.1", 52673]]
 
-import subprocess, json
+import subprocess, json, socket
 
 _TCP_proxy = "TCP_proxy"
 
