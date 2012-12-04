@@ -25,8 +25,12 @@ build: setup.data setup.bin
 doc: setup.data setup.bin
 	@./setup.bin -doc -j $(J)
 
+OCAML := $(shell ocamlc -where)
+PYTHON := $(OCAML)/../python
+
 install: setup.bin
-	@cp -f core/message_switch.py $(shell python -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")/
+	@mkdir -p $(PYTHON)
+	@cp -f core/message_switch.py $(PYTHON)/
 	@./setup.bin -install
 
 # oasis bug?
@@ -39,7 +43,7 @@ test:
 
 reinstall: setup.bin
 	@ocamlfind remove $(NAME) || true
-	@cp -f core/message_switch.py $(shell python -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")/
+	@cp -f core/message_switch.py $(PYTHON)/
 	@./setup.bin -reinstall
 
 clean:
