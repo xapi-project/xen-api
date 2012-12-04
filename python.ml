@@ -83,7 +83,7 @@ let rec typecheck env ty v =
 			]
 		| Custom c ->
 			[
-				Line (Printf.sprintf "%s.assert_type(%s)" c v)
+				Line (Printf.sprintf "%s.assert_type(%s)" (String.capitalize c) v)
 			]
 
 let rec value_of env =
@@ -116,7 +116,7 @@ let rec value_of env =
 		| Pair (a, b) ->
 			"[]"
 		| Custom c ->
-			Printf.sprintf "%s.Echo()" c
+			Printf.sprintf "%s.example()" (String.capitalize c)
 
 let exn_decl env e =
 	let open Printf in

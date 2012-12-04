@@ -77,5 +77,10 @@ module Channel = struct
 		with Not_found ->
 			raise Channel_setup_failed
 
+	let vnc () =
+		let s = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
+		Unix.connect s (Unix.ADDR_INET(Unix.inet_addr_of_string "10.81.64.61", 5904));
+		s
+
 	let example = Unix.stdout
 end

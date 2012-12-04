@@ -72,6 +72,57 @@ def is_long(x):
     except:
         return False
 
+# Example JSON-marshalled protocol list:
+# [["TCP_proxy", "127.0.0.1", 52673], ["TCP_proxy", "127.0.0.1", 52673]]
+
+import subprocess, json
+
+_TCP_proxy = "TCP_proxy"
+
+class I_cant_talk_any_of_these_protocols(Exception):
+    def __init__(self, protocols):
+        self.protocols = protocols
+    def __str__(self):
+        return "I_cant_talk_any_of_these_protocols(%s)" % (json.dumps(self.protocols))
+
+class Channel:
+    def __init__(self, fd):
+        self.fd = fd
+
+    @classmethod
+    def open(cls, protocols):
+        preferred = None
+        for p in protocols:
+            if p[0] == _TCP_proxy:
+                preferred = p
+        if not preferred:
+            raise (I_cant_talk_any_of_these_protocols(self.protocols))
+        if preferred[0] == _TCP_proxy:
+            ip = preferred[1]
+            port = preferred[2]
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
+            s.connect((ip, port))
+            return s
+
+    @classmethod
+    def unmarshal(cls, protocols):
+        return cls(cls.open(protocols))
+
+    def marshal(self):
+        args = [ "/usr/local/bin/proxy", "-proxy", str(self.fd.fileno()) ]
+        p = subprocess.Popen(args, stdout=subprocess.PIPE, close_fds=False)
+        txt = p.stdout.readline()
+        return json.loads(txt)
+
+    @classmethod
+    def assert_type(cls, thing):
+        pass
+
+    @classmethod
+    def example(cls):
+        return cls(None)
+
+
 # Helper function to daemonise ##############################################
 def daemonize():
     def fork():
