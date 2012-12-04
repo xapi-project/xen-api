@@ -210,6 +210,18 @@ let vdi_compose dconf driver sr vdi1 vdi2 =
 	let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi2 dconf "vdi_compose" [ Ref.string_of vdi1] in
 	Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
+let vdi_epoch_begin dconf driver sr vdi =
+	debug "vdi_epoch_begin" driver (sprintf "sr=%s vdi=%s"
+		(Ref.string_of sr) (Ref.string_of vdi));
+	let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi dconf "vdi_epoch_begin" [] in
+	Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
+
+let vdi_epoch_end dconf driver sr vdi =
+	debug "vdi_epoch_end" driver (sprintf "sr=%s vdi=%s"
+		(Ref.string_of sr) (Ref.string_of vdi));
+	let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi dconf "vdi_epoch_end" [] in
+	Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
+
 let session_has_internal_sr_access ~__context ~sr = 
   let session_id = Context.get_session_id __context in
   (* XXX: need to move this somewhere else eventually *)
