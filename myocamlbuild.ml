@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 530bea4467b40b770e4a3ed93275f6ae) *)
+(* DO NOT EDIT (digest: 3040806a7a27ebdb2c56466952682ed3) *)
 module OASISGettext = struct
 # 21 "/home/djs/.opam/3.12.1/build/oasis.0.3.0/src/oasis/OASISGettext.ml"
 
@@ -479,9 +479,9 @@ let package_default =
   {
      MyOCamlbuildBase.lib_ocaml =
        [
-          ("xenswitch", ["core"]);
-          ("xenswitch_lwt", ["core"]);
-          ("xenswitch_unix", ["core"])
+          ("message_switch", ["core"]);
+          ("message_switch_lwt", ["core"]);
+          ("message_switch_unix", ["core"])
        ];
      lib_c = [];
      flags = [];

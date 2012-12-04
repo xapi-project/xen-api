@@ -1,34 +1,34 @@
 # OASIS_START
-# DO NOT EDIT (digest: a7cff11f7629bf85c86b0b1b0ab4710b)
+# DO NOT EDIT (digest: d1847cd642f04ac57363911b206f48a8)
 version = "1.0"
-description = "XCP message switch"
+description = "A simple store-and-forward message switch"
 requires = "cohttp rpc rpc.json rpc.syntax"
-archive(byte) = "xenswitch.cma"
-archive(byte, plugin) = "xenswitch.cma"
-archive(native) = "xenswitch.cmxa"
-archive(native, plugin) = "xenswitch.cmxs"
-exists_if = "xenswitch.cma"
+archive(byte) = "message_switch.cma"
+archive(byte, plugin) = "message_switch.cma"
+archive(native) = "message_switch.cmxa"
+archive(native, plugin) = "message_switch.cmxs"
+exists_if = "message_switch.cma"
 package "unix" (
  version = "1.0"
- description = "XCP message switch"
- requires = "unix threads cohttp rpc rpc.json rpc.syntax xenswitch"
- archive(byte) = "xenswitch_unix.cma"
- archive(byte, plugin) = "xenswitch_unix.cma"
- archive(native) = "xenswitch_unix.cmxa"
- archive(native, plugin) = "xenswitch_unix.cmxs"
- exists_if = "xenswitch_unix.cma"
+ description = "A simple store-and-forward message switch"
+ requires = "unix threads cohttp rpc rpc.json rpc.syntax message_switch"
+ archive(byte) = "message_switch_unix.cma"
+ archive(byte, plugin) = "message_switch_unix.cma"
+ archive(native) = "message_switch_unix.cmxa"
+ archive(native, plugin) = "message_switch_unix.cmxs"
+ exists_if = "message_switch_unix.cma"
 )
 
 package "lwt" (
  version = "1.0"
- description = "XCP message switch"
+ description = "A simple store-and-forward message switch"
  requires =
- "lwt lwt.unix lwt.syntax cohttp cohttp.lwt rpc rpc.json rpc.syntax xenswitch"
- archive(byte) = "xenswitch_lwt.cma"
- archive(byte, plugin) = "xenswitch_lwt.cma"
- archive(native) = "xenswitch_lwt.cmxa"
- archive(native, plugin) = "xenswitch_lwt.cmxs"
- exists_if = "xenswitch_lwt.cma"
+ "lwt lwt.unix lwt.syntax cohttp cohttp.lwt rpc rpc.json rpc.syntax message_switch"
+ archive(byte) = "message_switch_lwt.cma"
+ archive(byte, plugin) = "message_switch_lwt.cma"
+ archive(native) = "message_switch_lwt.cmxa"
+ archive(native, plugin) = "message_switch_lwt.cmxs"
+ exists_if = "message_switch_lwt.cma"
 )
 # OASIS_STOP
 

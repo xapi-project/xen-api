@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: b1f50d6ef7c470ca161398c717b12518)
+# DO NOT EDIT (digest: 7d9ce6e2782995aebf8287a4e8c49b43)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -13,17 +13,17 @@
 ".git": not_hygienic
 "_darcs": -traverse
 "_darcs": not_hygienic
-# Library xenswitch
-"core/xenswitch.cmxs": use_xenswitch
-# Library xenswitch_lwt
-"core/xenswitch_lwt.cmxs": use_xenswitch_lwt
+# Library message_switch
+"core/message_switch.cmxs": use_message_switch
+# Library message_switch_lwt
+"core/message_switch_lwt.cmxs": use_message_switch_lwt
 <core/*.ml{,i}>: pkg_lwt
 <core/*.ml{,i}>: pkg_lwt.unix
 <core/*.ml{,i}>: pkg_lwt.syntax
 <core/*.ml{,i}>: pkg_cohttp.lwt
-# Library xenswitch_unix
-"core/xenswitch_unix.cmxs": use_xenswitch_unix
-<core/*.ml{,i}>: use_xenswitch
+# Library message_switch_unix
+"core/message_switch_unix.cmxs": use_message_switch_unix
+<core/*.ml{,i}>: use_message_switch
 <core/*.ml{,i}>: pkg_cohttp
 <core/*.ml{,i}>: pkg_unix
 <core/*.ml{,i}>: pkg_threads
@@ -31,8 +31,8 @@
 <core/*.ml{,i}>: pkg_rpc.json
 <core/*.ml{,i}>: pkg_rpc.syntax
 # Executable link_test
-<core_test/link_test_main.{native,byte}>: use_xenswitch_lwt
-<core_test/link_test_main.{native,byte}>: use_xenswitch
+<core_test/link_test_main.{native,byte}>: use_message_switch_lwt
+<core_test/link_test_main.{native,byte}>: use_message_switch
 <core_test/link_test_main.{native,byte}>: pkg_lwt
 <core_test/link_test_main.{native,byte}>: pkg_lwt.unix
 <core_test/link_test_main.{native,byte}>: pkg_lwt.syntax
@@ -43,8 +43,8 @@
 <core_test/link_test_main.{native,byte}>: pkg_rpc.syntax
 <core_test/link_test_main.{native,byte}>: custom
 # Executable client
-<core_test/client_main.{native,byte}>: use_xenswitch_lwt
-<core_test/client_main.{native,byte}>: use_xenswitch
+<core_test/client_main.{native,byte}>: use_message_switch_lwt
+<core_test/client_main.{native,byte}>: use_message_switch
 <core_test/client_main.{native,byte}>: pkg_lwt
 <core_test/client_main.{native,byte}>: pkg_lwt.unix
 <core_test/client_main.{native,byte}>: pkg_lwt.syntax
@@ -55,8 +55,8 @@
 <core_test/client_main.{native,byte}>: pkg_rpc.syntax
 <core_test/client_main.{native,byte}>: custom
 # Executable server
-<core_test/server_main.{native,byte}>: use_xenswitch_lwt
-<core_test/server_main.{native,byte}>: use_xenswitch
+<core_test/server_main.{native,byte}>: use_message_switch_lwt
+<core_test/server_main.{native,byte}>: use_message_switch
 <core_test/server_main.{native,byte}>: pkg_lwt
 <core_test/server_main.{native,byte}>: pkg_lwt.unix
 <core_test/server_main.{native,byte}>: pkg_lwt.syntax
@@ -67,8 +67,8 @@
 <core_test/server_main.{native,byte}>: pkg_rpc.syntax
 <core_test/server_main.{native,byte}>: custom
 # Executable dump
-<core_test/dump.{native,byte}>: use_xenswitch_lwt
-<core_test/dump.{native,byte}>: use_xenswitch
+<core_test/dump.{native,byte}>: use_message_switch_lwt
+<core_test/dump.{native,byte}>: use_message_switch
 <core_test/dump.{native,byte}>: pkg_lwt
 <core_test/dump.{native,byte}>: pkg_lwt.unix
 <core_test/dump.{native,byte}>: pkg_lwt.syntax
@@ -77,8 +77,8 @@
 <core_test/dump.{native,byte}>: pkg_rpc
 <core_test/dump.{native,byte}>: pkg_rpc.json
 <core_test/dump.{native,byte}>: pkg_rpc.syntax
-<core_test/*.ml{,i}>: use_xenswitch_lwt
-<core_test/*.ml{,i}>: use_xenswitch
+<core_test/*.ml{,i}>: use_message_switch_lwt
+<core_test/*.ml{,i}>: use_message_switch
 <core_test/*.ml{,i}>: pkg_lwt
 <core_test/*.ml{,i}>: pkg_lwt.unix
 <core_test/*.ml{,i}>: pkg_lwt.syntax
@@ -89,8 +89,8 @@
 <core_test/*.ml{,i}>: pkg_rpc.syntax
 <core_test/dump.{native,byte}>: custom
 # Executable switch
-<switch/switch.{native,byte}>: use_xenswitch_lwt
-<switch/switch.{native,byte}>: use_xenswitch
+<switch/switch.{native,byte}>: use_message_switch_lwt
+<switch/switch.{native,byte}>: use_message_switch
 <switch/switch.{native,byte}>: pkg_xenstore
 <switch/switch.{native,byte}>: pkg_xenstore.server
 <switch/switch.{native,byte}>: pkg_lwt
@@ -101,8 +101,8 @@
 <switch/switch.{native,byte}>: pkg_rpc
 <switch/switch.{native,byte}>: pkg_rpc.json
 <switch/switch.{native,byte}>: pkg_rpc.syntax
-<switch/*.ml{,i}>: use_xenswitch_lwt
-<switch/*.ml{,i}>: use_xenswitch
+<switch/*.ml{,i}>: use_message_switch_lwt
+<switch/*.ml{,i}>: use_message_switch
 <switch/*.ml{,i}>: pkg_xenstore
 <switch/*.ml{,i}>: pkg_xenstore.server
 <switch/*.ml{,i}>: pkg_lwt

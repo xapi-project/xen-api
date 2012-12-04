@@ -1,7 +1,7 @@
 OASISFormat: 0.2
-Name:        xenswitch
+Name:        message_switch
 Version:     1.0
-Synopsis:    XCP message switch
+Synopsis:    A simple store-and-forward message switch
 Authors:     see CREDITS.md
 License:     LGPL-2.1 with OCaml linking exception
 Plugins:     META (0.2)
@@ -11,28 +11,28 @@ Flag tests
   Description:        Build and run tests
   Default:            true
 
-Library xenswitch
+Library message_switch
   CompiledObject:     best
   Path:               core
-  Findlibname:        xenswitch
+  Findlibname:        message_switch
   Modules:            Protocol
   BuildDepends:       cohttp,rpc,rpc.json,rpc.syntax
 
-Library xenswitch_lwt
+Library message_switch_lwt
   CompiledObject:     best
   Path:               core
-  Findlibparent:      xenswitch
+  Findlibparent:      message_switch
   Findlibname:        lwt
   Modules:            Protocol_lwt
-  BuildDepends:       lwt,lwt.unix,lwt.syntax,cohttp,cohttp.lwt,rpc,rpc.json,rpc.syntax,xenswitch
+  BuildDepends:       lwt,lwt.unix,lwt.syntax,cohttp,cohttp.lwt,rpc,rpc.json,rpc.syntax,message_switch
 
-Library xenswitch_unix
+Library message_switch_unix
   CompiledObject:     best
   Path:               core
-  Findlibparent:      xenswitch
+  Findlibparent:      message_switch
   Findlibname:        unix
   Modules:            Protocol_unix
-  BuildDepends:       unix,threads,cohttp,rpc,rpc.json,rpc.syntax,xenswitch
+  BuildDepends:       unix,threads,cohttp,rpc,rpc.json,rpc.syntax,message_switch
 
 Executable link_test
   CompiledObject:     best
@@ -41,7 +41,7 @@ Executable link_test
   Build$:             flag(tests)
   Custom:             true
   Install:            false
-  BuildDepends:       xenswitch, xenswitch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
+  BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
 
 Executable client
   CompiledObject:     best
@@ -50,7 +50,7 @@ Executable client
   Build$:             flag(tests)
   Custom:             true
   Install:            false
-  BuildDepends:       xenswitch, xenswitch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
+  BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
 
 Executable server
   CompiledObject:     best
@@ -59,7 +59,7 @@ Executable server
   Build$:             flag(tests)
   Custom:             true
   Install:            false
-  BuildDepends:       xenswitch, xenswitch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
+  BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
 
 Executable dump
   CompiledObject:     best
@@ -67,13 +67,13 @@ Executable dump
   MainIs:             dump.ml
   Custom:             true
   Install:            false
-  BuildDepends:       xenswitch, xenswitch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
+  BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
 
 Executable switch
   CompiledObject:     best
   Path:               switch
   MainIs:             switch.ml
   Custom:             true
-  Install:            false
-  BuildDepends:       xenswitch, xenswitch.lwt, xenstore, xenstore.server, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
+  Install:            true
+  BuildDepends:       message_switch, message_switch.lwt, xenstore, xenstore.server, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
 
