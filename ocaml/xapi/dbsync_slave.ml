@@ -298,13 +298,20 @@ let update_vms ~xal ~__context =
       Events.callback_release xal dinfo.Xc.domid (Uuid.string_of_uuid (Uuid.uuid_of_int_array dinfo.Xc.handle))
     end else begin
       debug "VM is not resident on this host; destroying remnant of managed domain";
-      Domain.destroy ~xc ~xs dinfo.Xc.domid
+      try 
+	Domain.destroy ~xc ~xs dinfo.Xc.domid
+      with e ->
+	warn "Ignoring exception during domain.destroy: %s" (Printexc.to_string e)
     end in
   
   (* Process an "unmanaged domain" that's running here *)
   let unmanaged_domain_running dinfo =
     debug "killing umanaged domain: %s" (uuid_from_dinfo dinfo);
-    Domain.destroy ~xc ~xs dinfo.Xc.domid (* bye-bye... *) in
+    try
+      Domain.destroy ~xc ~xs dinfo.Xc.domid (* bye-bye... *)
+    with e ->
+      warn "Ignoring exception during domain.destroy: %s" (Printexc.to_string e)
+  in
 
   let have_record_for dinfo = try let _,_ = vmrefrec_of_dinfo dinfo in true with _ -> false in
 
