@@ -74,6 +74,6 @@ Executable switch
   Path:               switch
   MainIs:             switch.ml
   Custom:             true
-  Install:            true
+  Install:            false
   BuildDepends:       message_switch, message_switch.lwt, xenstore, xenstore.server, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
 
