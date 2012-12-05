@@ -357,6 +357,21 @@ module MD = struct
 						(fun x -> List.map int_of_string (String.split ',' x))
 						(String.split ';' (List.assoc "mask" vm.API.vM_VCPUs_params))
 				with _ -> [] in
+			let localhost = Helpers.get_localhost ~__context in
+			let host_guest_VCPUs_params = Db.Host.get_guest_VCPUs_params ~__context ~self:localhost in
+			let host_cpu_mask =
+				try 
+					List.map int_of_string (String.split ',' (List.assoc "mask" host_guest_VCPUs_params))
+				with _ -> [] in
+			let affinity = 
+				match affinity,host_cpu_mask with 
+					| [],[] -> []
+					| [],h -> [h]
+					| v,[] -> v
+					| affinity,mask -> 
+						List.map
+							(fun vcpu_affinity ->
+								List.filter (fun x -> List.mem x mask) vcpu_affinity) affinity in
 			let priority =
 				try
 					let weight = List.assoc "weight" vm.API.vM_VCPUs_params in
