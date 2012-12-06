@@ -278,17 +278,51 @@ let timeout_sessions ~__context =
     timeout_sessions_common ~__context intrapool_sessions;
   end
 
+let probation_pending_tasks = Hashtbl.create 53
+
 let timeout_tasks ~__context =
-  let all_tasks = Db.Task.get_internal_records_where ~__context ~expr:Db_filter_types.True in
-  let oldest_completed_time = Unix.time() -. Xapi_globs.completed_task_timeout (* time out completed tasks after 65 minutes *) in
-  let oldest_pending_time   = Unix.time() -. Xapi_globs.pending_task_timeout   (* time out pending tasks after 24 hours *) in
+	let all_tasks = Db.Task.get_internal_records_where ~__context ~expr:Db_filter_types.True in
+	let oldest_completed_time = Unix.time() -. Xapi_globs.completed_task_timeout (* time out completed tasks after 65 minutes *) in
+	let oldest_pending_time   = Unix.time() -. Xapi_globs.pending_task_timeout   (* time out pending tasks after 24 hours *) in
 
-  let should_delete_task (_, t) = 
-    if task_status_is_completed t.Db_actions.task_status
-    then Date.to_float t.Db_actions.task_finished < oldest_completed_time
-    else Date.to_float t.Db_actions.task_created < oldest_pending_time in
+	let completed, pending =
+		List.partition
+			(fun (_, t) -> task_status_is_completed t.Db_actions.task_status)
+			all_tasks in
 
-  let old, young = List.partition should_delete_task all_tasks in
+	let completed_old, completed_young =
+		List.partition
+			(fun (_, t) ->
+				Date.to_float t.Db_actions.task_finished < oldest_completed_time)
+			completed in
+
+	let pending_old, pending_young =
+		List.partition
+			(fun (_, t) ->
+				Date.to_float t.Db_actions.task_created < oldest_pending_time)
+			pending in
+
+	let pending_old_run, pending_old_hung =
+		List.partition
+			(fun (_, t) ->
+				try
+					let pre_progress =
+						Hashtbl.find probation_pending_tasks t.Db_actions.task_uuid in
+					t.Db_actions.task_progress -. pre_progress > min_float
+				with Not_found -> true)
+			pending_old in
+
+	let () =
+		Hashtbl.clear probation_pending_tasks;
+		List.iter
+			(fun (_, t) ->
+				Hashtbl.add probation_pending_tasks
+					t.Db_actions.task_uuid t.Db_actions.task_progress)
+			pending_old in
+
+	let old = pending_old_hung @ completed_old in
+	let young = pending_old_run @ pending_young @ completed_young in
+
   (* If there are still too many young tasks then we'll try to delete some completed ones *)
   let lucky, unlucky = 
     if List.length young <= Xapi_globs.max_tasks

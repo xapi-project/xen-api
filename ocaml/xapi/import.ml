@@ -921,7 +921,20 @@ let handler (req: Request.t) s =
 		 raise (Api_errors.Server_error (Api_errors.sr_operation_not_supported, []))
 	       end;
 	     try
-		let refresh_session = Xapi_session.consider_touching_session rpc session_id in
+		let refresh_external =
+			if List.mem_assoc "session_id" all then begin
+				let external_session_id = List.assoc "session_id" all in
+				Xapi_session.consider_touching_session rpc (Ref.of_string external_session_id)
+			end else
+				fun () -> ()
+		in
+		let refresh_internal =
+			Xapi_session.consider_touching_session rpc session_id
+		in
+		let refresh_session () =
+			refresh_external ();
+			refresh_internal ()
+		in
 
 	        debug "Importing %s" (if full_restore then "(as 'restore')" else "(as new VM)");
 		let config = { sr = sr; full_restore = full_restore; vm_metadata_only = false; force = force } in
