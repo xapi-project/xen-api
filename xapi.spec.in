@@ -124,7 +124,7 @@ rm -rf $RPM_BUILD_ROOT
 %files core
 %defattr(-,root,root,-)
 @BASE_PATH@/bin/xapi
-/etc/xapi.conf
+%config(noreplace) /etc/xapi.conf
 /etc/logrotate.d/audit
 /etc/logrotate.d/v6d
 /etc/logrotate.d/xapi
@@ -137,8 +137,8 @@ rm -rf $RPM_BUILD_ROOT
 /etc/rc.d/init.d/xenservices
 /etc/rc.d/init.d/sdkinit
 /etc/rc.d/init.d/genptoken
-/etc/sysconfig/perfmon
-/etc/sysconfig/xapi
+%config(noreplace) /etc/sysconfig/perfmon
+%config(noreplace) /etc/sysconfig/xapi
 /etc/udev/rules.d/xen-backend.rules
 /etc/udev/rules.d/xen-frontend.rules
 /etc/udev/xen-backend.rules
@@ -163,16 +163,16 @@ rm -rf $RPM_BUILD_ROOT
 /etc/xapi.d/plugins/wlan.pyo
 /etc/xapi.d/plugins/wlan.pyc
 /etc/xapi.d/plugins/iovirt
-/etc/xensource/db.conf
-/etc/xensource/db.conf.rio
-/etc/xensource/log.conf
+%config(noreplace) /etc/xensource/db.conf
+%config(noreplace) /etc/xensource/db.conf.rio
+%config(noreplace) /etc/xensource/log.conf
 /etc/xensource/master.d/01-example
 /etc/xensource/master.d/03-mpathalert-daemon
-/etc/xensource/pool.conf
+%config(noreplace) /etc/xensource/pool.conf
 /etc/xensource/scripts/block-frontend
 /etc/xensource/scripts/tap
 /etc/xensource/scripts/vif
-/etc/xensource/xapi-ssl.conf
+%config(noreplace) /etc/xensource/xapi-ssl.conf
 @BASE_PATH@/bin/fix_firewall.sh
 @BASE_PATH@/bin/list_domains
 @BASE_PATH@/bin/mpathalert
