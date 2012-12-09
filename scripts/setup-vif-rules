@@ -211,22 +211,15 @@ def create_vswitch_rules(bridge_name, port, config):
     # Drop all other neighbour discovery.
     add_flow(bridge_name, "in_port=%s,priority=7000,icmp6,icmp_type=135,action=drop" % port)
     add_flow(bridge_name, "in_port=%s,priority=7000,icmp6,icmp_type=136,action=drop" % port)
-    # Drop other specific ICMPv6 types.
-    # Router advertisement.
-    add_flow(bridge_name, "in_port=%s,priority=6000,icmp6,icmp_type=134,action=drop" % port)
-    # Redirect gateway.
-    add_flow(bridge_name, "in_port=%s,priority=6000,icmp6,icmp_type=137,action=drop" % port)
-    # Mobile prefix solicitation.
-    add_flow(bridge_name, "in_port=%s,priority=6000,icmp6,icmp_type=146,action=drop" % port)
-    # Mobile prefix advertisement.
-    add_flow(bridge_name, "in_port=%s,priority=6000,icmp6,icmp_type=147,action=drop" % port)
-    # Multicast router advertisement.
-    add_flow(bridge_name, "in_port=%s,priority=6000,icmp6,icmp_type=151,action=drop" % port)
-    # Multicast router solicitation.
-    add_flow(bridge_name, "in_port=%s,priority=6000,icmp6,icmp_type=152,action=drop" % port)
-    # Multicast router termination.
-    add_flow(bridge_name, "in_port=%s,priority=6000,icmp6,icmp_type=153,action=drop" % port)
-    # Drop everything else.
+    # Drop other specific ICMPv6 types:
+    # Router advertisement (icmp_type=134)
+    # Redirect gateway. (icmp_type=137)
+    # Mobile prefix solicitation. (icmp_type=146)
+    # Mobile prefix advertisement. (icmp_type=147)
+    # Multicast router advertisement. (icmp_type=151)
+    # Multicast router solicitation. (icmp_type=152)
+    # Multicast router termination. (icmp_type=153)
+    # ... and drop everything else.
     add_flow(bridge_name, "in_port=%s,priority=4000,idle_timeout=0,action=drop" % port)
 
 def handle_vswitch(vif_type, domid, devid, action):
