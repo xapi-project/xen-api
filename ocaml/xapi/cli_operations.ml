@@ -3538,7 +3538,7 @@ let vlan_destroy printer rpc session_id params =
 		let vlan = Client.VLAN.get_by_uuid rpc session_id uuid in
 		Client.VLAN.destroy rpc session_id vlan
 	with
-		| Api_errors.Server_error(s,_) as e when s=Api_errors.handle_invalid ->
+		| Api_errors.Server_error(s,_) as e when s=Api_errors.handle_invalid || s=Api_errors.host_offline ->
 			raise e
 		| _ ->
 			let pif = Client.PIF.get_by_uuid rpc session_id uuid in
