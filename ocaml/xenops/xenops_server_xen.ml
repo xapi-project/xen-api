@@ -46,13 +46,15 @@ let choose_alternative kind default platformdata =
 	debug "looking for %s in [ %s ]" kind (String.concat "; " (List.map (fun (k, v) -> k ^ " : " ^v) platformdata));
 	if List.mem_assoc kind platformdata then begin
 		let x = List.assoc kind platformdata in
-		let path = Printf.sprintf "%s/%s/%s" _alternatives kind x in
-		try
-			Unix.access path [ Unix.X_OK ];
-			path
-		with _ ->
-			error "Invalid platform:%s=%s (check execute permissions of %s)" kind x path;
+		let dir = Filename.concat _alternatives kind in
+		let available = try Array.to_list (Sys.readdir dir) with _ -> [] in
+		(* If x has been put in the directory (by root) then it's safe to use *)
+		if List.mem x available
+		then Filename.concat dir x
+		else begin
+			error "Invalid platform:%s=%s (check execute permissions of %s)" kind x (Filename.concat dir x);
 			default
+		end
 	end else default
 
 (* We allow qemu-dm to be overriden via a platform flag *)
@@ -236,24 +238,23 @@ module Storage = struct
 	open Storage_interface
 
 	module Client = Client(struct
-		let rec retry_econnrefused upto f =
+		let rec retry_econnrefused f =
 			try
 				f ()
 			with
-				| Unix.Unix_error(Unix.ECONNREFUSED, "connect", _) as e ->
-					if upto = 0 then raise e;
+				| Unix.Unix_error(Unix.ECONNREFUSED, "connect", _) ->
 					debug "Caught ECONNREFUSED; retrying in 5s";
 					Thread.delay 5.;
-					retry_econnrefused (upto - 1) f
+					retry_econnrefused f
 				| e ->
 					error "Caught %s: does the storage service need restarting?" (Printexc.to_string e);
 					raise e
 
 		let rpc call =
 			let open Xmlrpc_client in
-			retry_econnrefused 10
+			retry_econnrefused
 				(fun () ->
-					XMLRPC_protocol.rpc ~srcstr:"xenops" ~dststr:"smapiv2" ~transport:(Unix "/var/xapi/storage") ~http:(xmlrpc ~version:"1.0" "/") call
+					XMLRPC_protocol.rpc ~srcstr:"xenops" ~dststr:"smapiv2" ~transport:(Unix (Filename.concat Fhs.vardir "storage")) ~http:(xmlrpc ~version:"1.0" "/") call
 				)
 	end)
 
@@ -301,13 +302,25 @@ module Storage = struct
 	let dp_destroy task dp =
 		Xenops_task.with_subtask task (Printf.sprintf "DP.destroy %s" dp)
 			(transform_exception (fun () ->
-				try 
-					Client.DP.destroy "dp_destroy" dp false
-			    with e ->
-					(* Backends aren't supposed to return exceptions on deactivate/detach, but they
-					   frequently do. Log and ignore *)
-					warn "DP destroy returned unexpected exception: %s" (Printexc.to_string e)
-			        ))
+				let waiting_for_plugin = ref true in
+				while !waiting_for_plugin do
+					try
+						Client.DP.destroy "dp_destroy" dp false;
+						waiting_for_plugin := false
+					with
+						| Storage_interface.No_storage_plugin_for_sr sr as e ->
+							(* Since we have an activated disk in this SR, assume we are still
+							   waiting for xapi to register the SR's plugin. *)
+							debug "Caught %s - waiting for xapi to register storage plugins."
+								(Printexc.to_string e);
+							Thread.delay 5.0
+						| e ->
+							(* Backends aren't supposed to return exceptions on deactivate/detach, but they
+							   frequently do. Log and ignore *)
+							warn "DP destroy returned unexpected exception: %s" (Printexc.to_string e);
+							waiting_for_plugin := false
+				done
+			))
 
 	let get_disk_by_name task path =
 		debug "Storage.get_disk_by_name %s" path;
@@ -462,9 +475,9 @@ module Mem = struct
 		()
 
 	(** After an event which frees memory (eg a domain destruction), perform a one-off memory rebalance *)
-	let balance_memory dbg =
+	let balance_memory dbg = Opt.default () (wrap (fun () ->
 		debug "rebalance_memory";
-		Client.balance_memory dbg
+		Client.balance_memory dbg))
 
 end
 
@@ -1264,11 +1277,14 @@ module VM = struct
 								Some x -> (match x with HVM hvm_info -> hvm_info.timeoffset | _ -> "")
 							| _ -> "" in
 						({ x with Domain.memory_target = initial_target }, timeoffset) in
+				let store_domid = 0 in
+				let console_domid = 0 in
+				let no_incr_generationid = false in
 				begin
 					try
 						with_data ~xc ~xs task data false
 							(fun fd ->
-								Domain.restore task ~xc ~xs (* XXX progress_callback *) build_info timeoffset (choose_xenguest vm.Vm.platformdata) domid fd
+								Domain.restore task ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid (* XXX progress_callback *) build_info timeoffset (choose_xenguest vm.Vm.platformdata) domid fd
 							);
 					with e ->
 						error "VM %s: restore failed: %s" vm.Vm.id (Printexc.to_string e);
@@ -1860,9 +1876,9 @@ module VIF = struct
 			_locking_mode, "disabled";
 		]
 
-	let disconnect_flag device mode =
+	let disconnect_flag device disconnected =
 		let path = Hotplug.vif_disconnect_path device in
-		let flag = match mode with Xenops_interface.Vif.Disabled -> "1" | _ -> "0" in
+		let flag = if disconnected then "1" else "0" in
 		path, flag
 
 	let active_path vm vif = Printf.sprintf "/vm/%s/devices/vif/%s" vm (snd vif.Vif.id)
@@ -1898,14 +1914,12 @@ module VIF = struct
 								~netty:(match vif.backend with
 									| Network.Local x -> Netman.Vswitch x
 									| Network.Remote (_, _) -> raise (Unimplemented "network driver domains"))
-								~mac:vif.mac ~carrier:vif.carrier ~mtu:vif.mtu
-								~rate:vif.rate ~backend_domid
+								~mac:vif.mac ~carrier:(vif.carrier && (vif.locking_mode <> Xenops_interface.Vif.Disabled))
+								~mtu:vif.mtu ~rate:vif.rate ~backend_domid
 								~other_config:vif.other_config
 								~extra_private_keys:(id :: vif.extra_private_keys @ locking_mode)
 								frontend_domid in
-						let device = create task frontend_domid in
-						let disconnect_path, flag = disconnect_flag device vif.locking_mode in
-						xs.Xs.write disconnect_path flag;
+						let (_ : Device_common.device) = create task frontend_domid in
 
 						(* If qemu is in a different domain, then plug into it *)
 						let me = this_domid ~xs in
@@ -2016,7 +2030,8 @@ module VIF = struct
 				(* Delete the old keys *)
 				List.iter (fun x -> safe_rm xs (path ^ "/" ^ x)) locking_mode_keys;
 				List.iter (fun (x, y) -> xs.Xs.write (path ^ "/" ^ x) y) (xenstore_of_locking_mode mode);
-				let disconnect_path, flag = disconnect_flag device mode in
+				let disconnected = not (vif.carrier && (mode <> Xenops_interface.Vif.Disabled)) in
+				let disconnect_path, flag = disconnect_flag device disconnected in
 				xs.Xs.write disconnect_path flag;
 
 				let domid = string_of_int device.frontend.domid in

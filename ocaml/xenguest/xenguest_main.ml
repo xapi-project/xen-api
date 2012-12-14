@@ -253,11 +253,11 @@ let domain_save_real fd domid x y flags hvm =
 		""
 	)
 
-let domain_restore_real fd domid store_port console_port hvm =
+let domain_restore_real fd domid store_port store_domid console_port console_domid hvm no_incr_generationid =
 	with_xenguest (fun xc ->
 		let store_mfn, console_mfn =
-		Xenguest.domain_restore xc fd domid store_port
-					console_port hvm in
+		Xenguest.domain_restore xc fd domid store_port store_domid
+					console_port console_domid hvm no_incr_generationid in
 		String.concat " "  [ Nativeint.to_string store_mfn;
 				     Nativeint.to_string console_mfn ]
 	)
@@ -266,14 +266,14 @@ let domain_restore_real fd domid store_port console_port hvm =
 let linux_build_fake domid mem_max_mib mem_start_mib image ramdisk cmdline features flags store_port console_port = "10 10 x86-32"
 let hvm_build_fake domid mem_max_mib mem_start_mib image store_port console_port = "2901 2901"
 let domain_save_fake fd domid x y flags hvm = Unix.sleep 1; ignore (suspend_callback domid); ""
-let domain_restore_fake fd domid store_port console_port hvm = "10 10"
+let domain_restore_fake fd domid store_port store_domid console_port console_domid hvm no_incr_generationid = "10 10"
 
 (** operation vector *)
 type ops = {
 	linux_build: int -> int -> int -> string -> string option -> string -> string -> int -> int -> int -> string;
 	hvm_build: int -> int -> int -> string -> int -> int -> string;
 	domain_save: Unix.file_descr -> int -> int -> int -> Xenguest.suspend_flags list -> bool -> string;
-	domain_restore: Unix.file_descr -> int -> int -> int -> bool -> string;
+	domain_restore: Unix.file_descr -> int -> int -> int -> int -> int -> bool -> bool -> string;
 }
 
 (* main *)
@@ -287,7 +287,10 @@ let _ =
 	add_param "live" "perform a live suspend";
 	add_param "debug" "suspend in debug mode";
 	add_param "store_port" "";
+	add_param "store_domid" "";
 	add_param "console_port" "";
+	add_param "console_domid" "";
+	add_param "no_incr_generationid" "";
 	add_param "features" "";
 	add_param "flags" "";
 	add_param "mem_max_mib" "maximum memory allocation / MiB";
@@ -376,13 +379,16 @@ let _ =
 	      | Some "restore" ->
 		  debug "restore mode selected";
 		  let hvm = if !mode = (Some "hvm_restore") then true else false in
-		  require [ "domid"; "fd"; "store_port"; "console_port"; ];
+		  require [ "domid"; "fd"; "store_port"; "store_domid"; "console_port"; "console_domid" ];
 		  let fd = file_descr_of_int (int_of_string (get_param "fd"))
 		  and domid = int_of_string (get_param "domid")
 		  and store_port = int_of_string (get_param "store_port")
-		  and console_port = int_of_string (get_param "console_port") in
+		  and store_domid = int_of_string (get_param "store_domid")
+		  and console_port = int_of_string (get_param "console_port")
+		  and console_domid = int_of_string (get_param "console_domid")
+		  and no_incr_generationid = bool_of_string (get_param "no_incr_generationid") in
 
-		  with_logging (fun () -> ops.domain_restore fd domid store_port console_port hvm)
+		  with_logging (fun () -> ops.domain_restore fd domid store_port store_domid console_port console_domid hvm no_incr_generationid)
 	      | Some "linux_build" ->
 		  debug "linux_build mode selected";
 		  require [ "domid"; "mem_max_mib"; "mem_start_mib"; "image"; "ramdisk"; "cmdline"; "features"; "flags";

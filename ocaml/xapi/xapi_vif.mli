@@ -50,7 +50,10 @@ val create :
   mTU:int64 ->
   other_config:(string * string) list ->
   qos_algorithm_type:string ->
-  qos_algorithm_params:(string * string) list -> API.ref_VIF
+  qos_algorithm_params:(string * string) list ->
+  locking_mode:API.vif_locking_mode -> 
+  ipv4_allowed:string list ->
+  ipv6_allowed:string list -> API.ref_VIF
 
 (** Destroy the specified VIF instance *)
 val destroy : __context:Context.t -> self:[ `VIF ] Ref.t -> unit

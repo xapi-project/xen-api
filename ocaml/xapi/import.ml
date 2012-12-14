@@ -871,6 +871,19 @@ module VIF : HandlerTools = struct
 					vif_record.API.vIF_other_config
 			in
 			(* Construct the VIF record we're going to try to create locally. *)
+			let vif_record = if (Pool_features.is_enabled ~__context Features.VIF_locking) then
+			       			 vif_record 
+					else begin
+						if vif_record.API.vIF_locking_mode = `locked then
+	        		                	{ vif_record with API.vIF_locking_mode = `network_default; 
+									  API.vIF_ipv4_allowed = [];      	
+									  API.vIF_ipv6_allowed = [];
+							} 
+						else            	
+	                    			    	{ vif_record with API.vIF_ipv4_allowed = [];
+									  API.vIF_ipv6_allowed = [];
+							}      
+					end in		
 			let vif_record = { vif_record with
 				API.vIF_VM = vm;
 				API.vIF_network = net;
@@ -900,16 +913,6 @@ module VIF : HandlerTools = struct
 					if config.full_restore then Db.VIF.set_uuid ~__context ~self:vif ~value:value.API.vIF_uuid;
 					vif)
 				vif_record in
-			(* Make a best-effort attempt to persist the port locking fields - this may fail due to licensing. *)
-			(* The VIF is not currently_attached at this stage, so setup-vif-rules will not be called yet. *)
-			begin
-				try
-					Client.VIF.set_locking_mode ~rpc ~session_id ~self:vif ~value:vif_record.API.vIF_locking_mode;
-					Client.VIF.set_ipv4_allowed ~rpc ~session_id ~self:vif ~value:vif_record.API.vIF_ipv4_allowed;
-					Client.VIF.set_ipv6_allowed ~rpc ~session_id ~self:vif ~value:vif_record.API.vIF_ipv6_allowed;
-				with e ->
-					debug "Could not persist port locking fields for this VIF - caught %s" (Printexc.to_string e)
-			end;
 			state.cleanup <- (fun __context rpc session_id -> Client.VIF.destroy rpc session_id vif) :: state.cleanup;
 			(* Now that we can import/export suspended VMs we need to preserve the
 				 currently_attached flag *)
@@ -1327,6 +1330,12 @@ let handler (req: Request.t) s _ =
 																	x.id, lookup (Ref.of_string x.id) table, vdir.API.vDI_virtual_size) all_vdis in
 															List.iter (fun (extid, intid, size) -> debug "Expecting to import VDI %s into %s (size=%Ld)" extid (Ref.string_of intid) size) vdis;
 															let checksum_table = Stream_vdi.recv_all refresh_session s __context rpc session_id header.version force vdis in
+
+															(* CA-48768: Stream_vdi.recv_all only checks for task cancellation
+															   every ten seconds, so we need to check again now. After this
+															   point, we disable cancellation for this task. *)
+															TaskHelper.exn_if_cancelling ~__context;
+															TaskHelper.set_not_cancellable ~__context;
 
 															(* Pre-miami GA exports have a checksum table at the end of the export. Check the calculated checksums *)
 															(* against the table here. Nb. Rio GA-Miami B2 exports get their checksums checked twice! *)

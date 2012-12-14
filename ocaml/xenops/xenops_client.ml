@@ -20,7 +20,7 @@ module D = Debug.Debugger(struct let name = "xenops_client" end)
 open D
 module E = Debug.Debugger(struct let name = "mscgen" end)
 
-let default_path = "/var/xapi/xenopsd"
+let default_path = "/var/lib/xcp/xenopsd"
 let forwarded_path = default_path ^ ".forwarded"
 
 let default_uri = "file:" ^ default_path

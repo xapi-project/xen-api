@@ -1307,7 +1307,7 @@ let revalidate_subjects ~__context =
 (* calling Host.enable_external_auth with the specified parameters in turn on each of the hosts in the pool
     * The call fails immediately if any of the pool hosts already have external auth enabled (must disable first)
     * If a call to a single host to enable external auth fails, then Pool.enable_external_auth fails, and there is
-      a best-effort attempt to disable any hosts who had their external auth succesfully enabled before the failure occured
+      a best-effort attempt to disable any hosts who had their external auth successfully enabled before the failure occured
 *)
 let enable_external_auth ~__context ~pool ~config ~service_name ~auth_type = 
 

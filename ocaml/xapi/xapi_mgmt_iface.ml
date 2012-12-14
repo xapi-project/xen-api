@@ -36,7 +36,7 @@ let update_mh_info interface =
 
 let restart_stunnel () =
 	let (_ : Thread.t) = Thread.create (fun () ->
-		Forkhelpers.execute_command_get_output "/sbin/service" [ "xapissl"; "restart" ]) () in
+		Forkhelpers.execute_command_get_output (Filename.concat Fhs.libexecdir "xapissl") [ "restart" ]) () in
 	()
 
 let stop () =
@@ -49,25 +49,23 @@ let stop () =
  * the pool master. *)
 let start ~__context ?addr () =
 	debug "Starting new server";
-	let localhost = Helpers.get_localhost ~__context in
-	let ipv6_pifs = Db.PIF.get_records_where ~__context
-		~expr:(
-			And (
-				Not (Eq (Field "ipv6_configuration_mode", Literal "None")),
-				Eq (Field "host", Literal (Ref.string_of localhost))
-			)
-		) in
-	let pif_address_type = if ipv6_pifs = [] then `IPv4 else `IPv6 in
-	let addr =
-		match addr, pif_address_type with
-		| None, `IPv4 -> Unix.inet_addr_any
-		| None, `IPv6 -> Unix.inet6_addr_any
-		| Some ip, _ ->
-			debug "Starting new server (listening on HIMN only: %s)" ip;
-			himn_only := true;
-			Unix.inet_addr_of_string ip
+	let addr, socket =
+		match addr with
+			| None ->
+					begin
+						try (* Is it IPv6 ? *)
+							let addr = Unix.inet6_addr_any in
+							addr, Xapi_http.bind (Unix.ADDR_INET(addr, Xapi_globs.http_port))
+						with _ -> (* No. *)
+							let addr = Unix.inet_addr_any in
+							addr, Xapi_http.bind (Unix.ADDR_INET(addr, Xapi_globs.http_port))
+					end
+			| Some ip ->
+					debug "Starting new server (listening on HIMN only: %s)" ip;
+					himn_only := true;
+					let addr = Unix.inet_addr_of_string ip in
+					addr, Xapi_http.bind (Unix.ADDR_INET(addr, Xapi_globs.http_port))
 	in
-	let socket = Xapi_http.bind (Unix.ADDR_INET(addr, Xapi_globs.http_port)) in
 	Http_svr.start Xapi_http.server socket;
 	management_interface_server := Some socket;
 

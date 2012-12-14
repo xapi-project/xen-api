@@ -67,6 +67,8 @@ struct flags {
   int acpi_s4;
   uint64_t mmio_size_mib;
   int tsc_mode;
+  size_t kernel_max_size;
+  size_t ramdisk_max_size;
 };
 
 static int pasprintf(char **buf, const char *fmt, ...)
@@ -83,6 +85,40 @@ static int pasprintf(char **buf, const char *fmt, ...)
     }
     va_end(ap);
     return ret;
+}
+
+static int
+xenstore_putsv(int domid, const char *val, const char *fmt, va_list ap)
+{
+  char *path = NULL;
+  struct xs_handle *xsh = NULL;
+  int n, m, rc;
+  char key[1024];
+  bool success;
+
+  rc = 1;
+  bzero(key, sizeof(key));
+  xsh = xs_daemon_open();
+  if (xsh == NULL)
+    goto out;
+
+  path = xs_get_domain_path(xsh, domid);
+  if (path == NULL)
+    goto out;
+
+  n = snprintf(key, sizeof(key), "%s/", path);
+  if (n < 0)
+    goto out;
+  m = vsnprintf(key + n, sizeof(key) - n, fmt, ap);
+  if (m < 0)
+    goto out;
+
+  success = xs_write(xsh, XBT_NULL, key, val, strlen(val));
+  rc = success? 0 : 1;
+  out:
+  xs_daemon_close(xsh);
+  free(path);
+  return rc;
 }
 
 static char *
@@ -104,7 +140,7 @@ xenstore_getsv(int domid, const char *fmt, va_list ap)
     if (path == NULL)
         goto out;
 
-	n = snprintf(key, sizeof(key), "%s/platform/", path);
+	n = snprintf(key, sizeof(key), "%s/", path);
 	if (n < 0)
 	  goto out;
 	m = vsnprintf(key + n, sizeof(key) - n, fmt, ap);
@@ -116,6 +152,57 @@ xenstore_getsv(int domid, const char *fmt, va_list ap)
     xs_daemon_close(xsh);
     free(path);
     return s;
+}
+
+static int
+xenstore_puts(int domid, const char *val, const char *fmt, ...)
+{
+  int rc;
+  va_list ap;
+
+  va_start(ap, fmt);
+  rc = xenstore_putsv(domid, val, fmt, ap);
+  va_end(ap);
+  return rc;
+}
+
+static void
+xenstore_get_host_limits(size_t *kernel_max_size, size_t *ramdisk_max_size)
+{
+    static const char *kernel_max_path = "/mh/limits/pv-kernel-max-size";
+    static const char *ramdisk_max_path = "/mh/limits/pv-ramdisk-max-size";
+    struct xs_handle *xsh = NULL;
+    size_t value;
+    char *s;
+
+    /* Safe defaults */
+    *kernel_max_size  =  (32 * 1024 * 1024);
+    *ramdisk_max_size = (128 * 1024 * 1024);
+
+    xsh = xs_daemon_open();
+    if (xsh == NULL)
+        return;
+
+    s = xs_read(xsh, XBT_NULL, kernel_max_path, NULL);
+    if (s) {
+        errno = 0;
+        value = strtoul(s, NULL, 10);
+        if ( errno == 0 )
+            *kernel_max_size = value;
+        free(s);
+    }
+
+    s = xs_read(xsh, XBT_NULL, ramdisk_max_path, NULL);
+    if (s) {
+        errno = 0;
+        value = strtoul(s, NULL, 10);
+        if ( errno == 0 )
+            *ramdisk_max_size = value;
+        free(s);
+    }
+
+    xs_daemon_close(xsh);
+    return;
 }
 
 static char *
@@ -154,24 +241,36 @@ static void
 get_flags(struct flags *f, int domid) 
 {
   int n;
-  f->vcpus    = xenstore_get(domid, "vcpu/number");
+  size_t host_pv_kernel_max_size;
+  size_t host_pv_ramdisk_max_size;
+  size_t vm_pv_kernel_max_size;
+  size_t vm_pv_ramdisk_max_size;
+
+  f->vcpus    = xenstore_get(domid, "platform/vcpu/number");
   f->vcpu_affinity = (const char**)(malloc(sizeof(char*) * f->vcpus));
 
   for (n = 0; n < f->vcpus; n++) {
-	f->vcpu_affinity[n] = xenstore_gets(domid, "vcpu/%d/affinity", n);
+	f->vcpu_affinity[n] = xenstore_gets(domid, "platform/vcpu/%d/affinity", n);
   }
-  f->vcpus_current = xenstore_get(domid, "vcpu/current");
-  f->vcpu_weight = xenstore_get(domid, "vcpu/weight");
-  f->vcpu_cap = xenstore_get(domid, "vcpu/cap");
-  f->nx       = xenstore_get(domid, "nx");
-  f->viridian = xenstore_get(domid, "viridian");
-  f->apic     = xenstore_get(domid, "apic");
-  f->acpi     = xenstore_get(domid, "acpi");
-  f->pae      = xenstore_get(domid, "pae");
-  f->acpi_s4  = xenstore_get(domid, "acpi_s4");
-  f->acpi_s3  = xenstore_get(domid, "acpi_s3");
-  f->mmio_size_mib = xenstore_get(domid, "mmio_size_mib");
-  f->tsc_mode = xenstore_get(domid, "tsc_mode");
+  f->vcpus_current = xenstore_get(domid, "platform/vcpu/current");
+  f->vcpu_weight = xenstore_get(domid, "platform/vcpu/weight");
+  f->vcpu_cap = xenstore_get(domid, "platform/vcpu/cap");
+  f->nx       = xenstore_get(domid, "platform/nx");
+  f->viridian = xenstore_get(domid, "platform/viridian");
+  f->apic     = xenstore_get(domid, "platform/apic");
+  f->acpi     = xenstore_get(domid, "platform/acpi");
+  f->pae      = xenstore_get(domid, "platform/pae");
+  f->acpi_s4  = xenstore_get(domid, "platform/acpi_s4");
+  f->acpi_s3  = xenstore_get(domid, "platform/acpi_s3");
+  f->mmio_size_mib = xenstore_get(domid, "platform/mmio_size_mib");
+  f->tsc_mode = xenstore_get(domid, "platform/tsc_mode");
+
+  xenstore_get_host_limits(&host_pv_kernel_max_size, &host_pv_ramdisk_max_size);
+  vm_pv_kernel_max_size = xenstore_get(domid, "pv-kernel-max-size");
+  vm_pv_ramdisk_max_size = xenstore_get(domid, "pv-ramdisk-max-size");
+
+  f->kernel_max_size = vm_pv_kernel_max_size ? vm_pv_kernel_max_size : host_pv_kernel_max_size;
+  f->ramdisk_max_size = vm_pv_ramdisk_max_size ? vm_pv_ramdisk_max_size : host_pv_ramdisk_max_size;
 
   openlog("xenguest",LOG_NDELAY,LOG_DAEMON);
   syslog(LOG_INFO|LOG_DAEMON,"Determined the following parameters from xenstore:");
@@ -180,6 +279,9 @@ get_flags(struct flags *f, int domid)
   for (n = 0; n < f->vcpus; n++){
 	syslog(LOG_INFO|LOG_DAEMON,"vcpu/%d/affinity:%s", n, (f->vcpu_affinity[n])?f->vcpu_affinity[n]:"unset");
   }
+  syslog(LOG_INFO|LOG_DAEMON,"kernel/ramdisk host limits: (%zu,%zu), VM overrides: (%zu,%zu)",
+	 host_pv_kernel_max_size, host_pv_ramdisk_max_size,
+	 vm_pv_kernel_max_size, vm_pv_ramdisk_max_size);
   closelog();
   
 }
@@ -321,6 +423,18 @@ CAMLprim value stub_xc_linux_build_native(value xc_handle, value domid,
 
 	configure_vcpus(xch, c_domid, f);
 	configure_tsc(xch, c_domid, f);
+#ifdef XC_HAVE_DECOMPRESS_LIMITS
+	if ( xc_dom_kernel_max_size(dom, f.kernel_max_size) )
+		failwith_oss_xc(xch, "xc_dom_kernel_max_size");
+	if ( xc_dom_ramdisk_max_size(dom, f.ramdisk_max_size) )
+		failwith_oss_xc(xch, "xc_dom_ramdisk_max_size");
+#else
+	if ( f.kernel_max_size || f.ramdisk_max_size ) {
+		openlog("xenguest",LOG_NDELAY,LOG_DAEMON);
+		syslog(LOG_WARNING|LOG_DAEMON,"Kernel/Ramdisk limits set, but no support compiled in");
+		closelog();
+	}
+#endif
 
 	caml_enter_blocking_section();
 	r = xc_dom_linux_build(xch, dom, c_domid, c_mem_start_mib,
@@ -498,9 +612,11 @@ int switch_qemu_logdirty(int domid, unsigned enable, void *data)
 
 static struct save_callbacks save_callbacks = {
 	.suspend = dispatch_suspend,
-  .postcopy = switch_qemu_logdirty,
+	.switch_qemu_logdirty = switch_qemu_logdirty,
         .checkpoint = NULL,
 };
+
+#define GENERATION_ID_ADDRESS "hvmloader/generation-id-address"
 
 CAMLprim value stub_xc_domain_save(value handle, value fd, value domid,
                                    value max_iters, value max_factors,
@@ -513,19 +629,25 @@ CAMLprim value stub_xc_domain_save(value handle, value fd, value domid,
 	uint32_t c_flags;
   uint32_t c_domid;
 	int r;
+	unsigned long generation_id_addr;
 
 	c_flags = caml_convert_flag_list(flags, suspend_flag_list);
   c_domid = _D(domid);
 
 	memset(&callbacks, 0, sizeof(callbacks));
-  callbacks.data = c_domid;
+	callbacks.data = (void*) c_domid;
 	callbacks.suspend = dispatch_suspend;
 	callbacks.switch_qemu_logdirty = switch_qemu_logdirty;
 
 	caml_enter_blocking_section();
+	generation_id_addr = xenstore_get(c_domid, GENERATION_ID_ADDRESS);
 	r = xc_domain_save(_H(handle), Int_val(fd), c_domid,
 	                   Int_val(max_iters), Int_val(max_factors),
-	                   c_flags, &callbacks, Bool_val(hvm));
+	                   c_flags, &callbacks, Bool_val(hvm)
+#ifdef XENGUEST_4_2
+					   ,generation_id_addr
+#endif
+					   );
 	caml_leave_blocking_section();
 	if (r)
 		failwith_oss_xc(_H(handle), "xc_domain_save");
@@ -555,21 +677,28 @@ CAMLprim value stub_xc_domain_resume_slow(value handle, value domid)
 
 
 CAMLprim value stub_xc_domain_restore(value handle, value fd, value domid,
-                                      value store_evtchn, value console_evtchn,
-                                      value hvm)
+                                      value store_evtchn, value store_domid,
+									  value console_evtchn, value console_domid,
+                                      value hvm, value no_incr_generationid)
 {
 	CAMLparam5(handle, fd, domid, store_evtchn, console_evtchn);
 	CAMLxparam1(hvm);
 	CAMLlocal1(result);
 	unsigned long store_mfn, console_mfn;
+	domid_t c_store_domid, c_console_domid;
+	unsigned long c_vm_generationid_addr;
+	char c_vm_generationid_addr_s[32];
 	unsigned int c_store_evtchn, c_console_evtchn;
 	int r;
+	size_t size, written;
 
 	struct flags f;
 	get_flags(&f,_D(domid));
 
 	c_store_evtchn = Int_val(store_evtchn);
+	c_store_domid = Int_val(store_domid);
 	c_console_evtchn = Int_val(console_evtchn);
+	c_console_domid = Int_val(console_domid);
 
 #ifdef HVM_PARAM_VIRIDIAN
 	xc_set_hvm_param(_H(handle), _D(domid), HVM_PARAM_VIRIDIAN, f.viridian);	
@@ -577,10 +706,34 @@ CAMLprim value stub_xc_domain_restore(value handle, value fd, value domid,
 	configure_vcpus(_H(handle), _D(domid), f);
 
 	caml_enter_blocking_section();
+
 	r = xc_domain_restore(_H(handle), Int_val(fd), _D(domid),
 	                      c_store_evtchn, &store_mfn,
+#ifdef XENGUEST_4_2
+						  c_store_domid,
+#endif
 	                      c_console_evtchn, &console_mfn,
-			      Bool_val(hvm), f.pae, 0 /*superpages*/);
+#ifdef XENGUEST_4_2
+						  c_console_domid,
+#endif
+						  Bool_val(hvm), f.pae, 0 /*superpages*/
+#ifdef XENGUEST_4_2
+						  ,
+						  Bool_val(no_incr_generationid),
+						  &c_vm_generationid_addr,
+						  NULL /* restore_callbacks */
+#endif
+						  );
+	if (!r) {
+		size = sizeof(c_vm_generationid_addr_s) - 1; /* guarantee a NULL remains on the end */
+		written = snprintf(c_vm_generationid_addr_s, size, "0x%lx", c_vm_generationid_addr);
+		if (written < size)
+			r = xenstore_puts(_D(domid), c_vm_generationid_addr_s, GENERATION_ID_ADDRESS);
+		else {
+			syslog(LOG_ERR|LOG_DAEMON,"Failed to write %s (%d >= %d)", GENERATION_ID_ADDRESS, written, size);
+			r = 1;
+		}
+	}
 	caml_leave_blocking_section();
 	if (r)
 		failwith_oss_xc(_H(handle), "xc_domain_restore");
@@ -588,14 +741,14 @@ CAMLprim value stub_xc_domain_restore(value handle, value fd, value domid,
 	result = caml_alloc_tuple(2);
 	Store_field(result, 0, caml_copy_nativeint(store_mfn));
 	Store_field(result, 1, caml_copy_nativeint(console_mfn));
-
 	CAMLreturn(result);
 }
 
 CAMLprim value stub_xc_domain_restore_bytecode(value * argv, int argn)
 {
 	return stub_xc_domain_restore(argv[0], argv[1], argv[2], argv[3],
-	                              argv[4], argv[5]);
+	                              argv[4], argv[5], argv[6], argv[7],
+								  argv[8]);
 }
 
 CAMLprim value stub_xc_domain_dumpcore(value handle, value domid, value file)
