@@ -127,7 +127,15 @@ let callback1 is_json req fd body call =
   then
     forward req body call
   else
-    Server.dispatch_call req fd call
+      let response = Server.dispatch_call req fd call in
+	  let translated = 
+		  if is_json && response.Rpc.success && call.Rpc.name <> "system.listMethods" then
+			  {response with Rpc.contents = Rpc.rpc_of_string (Jsonrpc.to_string response.Rpc.contents)}
+		  else
+              response in
+	  translated
+
+
       (* debug(fmt "response = %s" response); *)
 
 (** HTML callback that dispatches an RPC and returns the response. *)
@@ -136,27 +144,54 @@ let callback is_json req bio _ =
   let body = Http_svr.read_body ~limit:Xapi_globs.http_limit_max_rpc_size req bio in
   try
     let rpc = Xmlrpc.call_of_string body in
-    let response = Xmlrpc.string_of_response (callback1 is_json req fd (Some body) rpc) in
+	let response = callback1 is_json req fd (Some body) rpc in
+    let response_str = 
+		if rpc.Rpc.name = "system.listMethods" 
+		then 
+			let inner = Xmlrpc.to_a 
+				~empty:Bigbuffer.make
+				~append:(fun buf s -> Bigbuffer.append_substring buf s 0 (String.length s))
+				response.Rpc.contents in
+			let s = Printf.sprintf "<?xml version=\"1.0\"?><methodResponse><params><param>%s</param></params></methodResponse>" (Bigbuffer.to_string inner) in
+			let buf = Bigbuffer.make () in
+			Bigbuffer.append_string buf s;
+			buf
+		else 
+			Xmlrpc.a_of_response 
+				~empty:Bigbuffer.make 
+				~append:(fun buf s -> Bigbuffer.append_substring buf s 0 (String.length s)) 
+				response in
     Http_svr.response_fct req ~hdrs:[ Http.Hdr.content_type, "text/xml";
 				    "Access-Control-Allow-Origin", "*";
-				    "Access-Control-Allow-Headers", "X-Requested-With"] fd (Int64.of_int (String.length response))
-      (fun fd -> Unixext.really_write_string fd response)
+				    "Access-Control-Allow-Headers", "X-Requested-With"] fd (Bigbuffer.length response_str)
+      (fun fd -> Bigbuffer.to_fct response_str (fun s -> ignore(Unixext.really_write_string fd s)))
   with 
       | (Api_errors.Server_error (err, params)) ->
 		  Http_svr.response_str req ~hdrs:[ Http.Hdr.content_type, "text/xml" ] fd
 			  (Xmlrpc.string_of_response (Rpc.failure (Rpc.Enum (List.map (fun s -> Rpc.String s) (err :: params)))))
+	  | e ->
+		  error "Caught exception in callback...";
+		  log_backtrace ();
+		  raise e
+
 
 (** HTML callback that dispatches an RPC and returns the response. *)
 let jsoncallback req bio _ =
   let fd = Buf_io.fd_of bio in (* fd only used for writing *)
   let body = Http_svr.read_body ~limit:Xapi_globs.http_limit_max_rpc_size req bio in
+  debug "Here in jsoncallback";
   try
+	debug "Got the jsonrpc body: %s" body;
     let rpc = Jsonrpc.call_of_string body in
-    let response = Jsonrpc.string_of_response (callback1 false req fd (Some body) rpc) in
+	debug "Got the jsonrpc body: %s" body;
+    let response = Xmlrpc.a_of_response 
+		~empty:Bigbuffer.make 
+		~append:(fun buf s -> Bigbuffer.append_substring buf s 0 (String.length s)) 
+		(callback1 false req fd (Some body) rpc) in
     Http_svr.response_fct req ~hdrs:[ Http.Hdr.content_type, "application/json";
 				    "Access-Control-Allow-Origin", "*";
-				    "Access-Control-Allow-Headers", "X-Requested-With"] fd (Int64.of_int (String.length response))
-      (fun fd -> Unixext.really_write_string fd response)
+				    "Access-Control-Allow-Headers", "X-Requested-With"] fd (Bigbuffer.length response)
+		(fun fd -> Bigbuffer.to_fct response (fun s -> ignore(Unixext.really_write_string fd s)))
   with 
       | (Api_errors.Server_error (err, params)) ->
 		  Http_svr.response_str req ~hdrs:[ Http.Hdr.content_type, "application/json" ] fd
