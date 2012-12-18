@@ -146,15 +146,19 @@ class Session(xmlrpclib.ServerProxy):
             while retry_count < 3:
                 full_params = (self._session,) + params
                 result = _parse_result(getattr(self, methodname)(*full_params))
-                if result == _RECONNECT_AND_RETRY:
-                    retry_count += 1
-                    if self.last_login_method:
-                        self._login(self.last_login_method,
-                                    self.last_login_params)
+                try:
+                    if result == _RECONNECT_AND_RETRY:
+                        retry_count += 1
+                        if self.last_login_method:
+                            self._login(self.last_login_method,
+                                        self.last_login_params)
+                        else:
+                            raise xmlrpclib.Fault(401, 'You must log in')
                     else:
-                        raise xmlrpclib.Fault(401, 'You must log in')
-                else:
-                    return result
+                        return result
+                except TypeError:
+                    return str(result)
+                    
             raise xmlrpclib.Fault(
                 500, 'Tried 3 times to get a valid session, but failed')
 
