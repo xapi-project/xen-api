@@ -504,14 +504,20 @@ module Proc = struct
 end
 
 module Ovs = struct
+
+	module Cli = struct
 	let vsctl ?(log=false) args =
 		call_script ~log_successful_output:log ovs_vsctl ("--timeout=20" :: args)
-
 	let ofctl ?(log=false) args =
 		call_script ~log_successful_output:log ovs_ofctl args
-
 	let appctl ?(log=false) args =
 		call_script ~log_successful_output:log ovs_appctl args
+	end
+
+	module type Cli_S = module type of Cli
+
+	module Make(Cli : Cli_S) = struct
+	include Cli
 
 	let port_to_interfaces name =
 		try
@@ -782,6 +788,8 @@ module Ovs = struct
 				) ports)
 		in
 		List.iter (fun flow -> ignore (ofctl ~log:true ["add-flow"; bridge; flow])) flows
+	end
+	include Make(Cli)
 end
 
 module Brctl = struct
