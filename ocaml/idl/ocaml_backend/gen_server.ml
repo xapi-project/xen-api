@@ -88,7 +88,7 @@ let operation (obj: obj) (x: message) =
   let result_marshaller = match x.msg_custom_marshaller, x.msg_result with
     | true, _ -> "(fun x -> x)"
     | false, Some (ty,_) -> Printf.sprintf "(fun x -> rpc_of_%s x)" (OU.alias_of_ty ty)
-    | false, None -> "(fun _ -> Rpc.Null)" in
+    | false, None -> "(fun _ -> Rpc.String \"\")" in
 
   let wire_name = DU.wire_name ~sync:true obj x in
   let alternative_wire_name = DU.alternative_wire_name ~sync:true obj x in
