@@ -162,9 +162,12 @@ let is_up_to_date pv_driver_vsn =
 (** We can migrate as long as PV drivers are present. *)
 let is_ok_for_migrate = has_pv_drivers
 
-let of_drivers_version drivers_version =
+let get_drivers_version os_version drivers_version =
 	try
-		let is_windows = List.mem_assoc "xenvbd" drivers_version in
+		let is_windows =
+			try List.assoc "distro" os_version = "windows"
+			with Not_found -> false
+		in
 		let lookup_driver_key_with_default key default =
 			if not (List.mem_assoc key drivers_version) then default
 			else int_of_string (List.assoc key drivers_version) in
@@ -180,7 +183,10 @@ let of_drivers_version drivers_version =
 
 let of_guest_metrics gmr =
 	match gmr with
-		| Some gmr -> of_drivers_version gmr.Db_actions.vM_guest_metrics_PV_drivers_version
+		| Some gmr ->
+			get_drivers_version
+				gmr.Db_actions.vM_guest_metrics_os_version
+				gmr.Db_actions.vM_guest_metrics_PV_drivers_version
 		| None -> Unknown
 
 (** Returns an API error option if the PV drivers are missing or not the most recent version *)
