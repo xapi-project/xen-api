@@ -19,7 +19,7 @@ open Printf
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
 
-(* A comparision function suitable for passing to List.sort and Array.sort.
+(* A comparison function suitable for passing to List.sort and Array.sort.
    Sorts into oldest first *)
 let compare_vsn =
 	List.fold_left2 (fun r x y -> if r <> 0 then r else compare x y) 0
