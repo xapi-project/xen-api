@@ -82,7 +82,8 @@ class Failure(Exception):
                      for i in range(len(self.details))])
 
 
-_RECONNECT_AND_RETRY = (lambda _ : ())
+# Just a "constant" that we use to decide whether to retry the RPC
+_RECONNECT_AND_RETRY = object()
 
 class UDSHTTPConnection(httplib.HTTPConnection):
     """HTTPConnection subclass to allow HTTP over Unix domain sockets. """
@@ -146,7 +147,7 @@ class Session(xmlrpclib.ServerProxy):
             while retry_count < 3:
                 full_params = (self._session,) + params
                 result = _parse_result(getattr(self, methodname)(*full_params))
-                if result == _RECONNECT_AND_RETRY:
+                if result is _RECONNECT_AND_RETRY:
                     retry_count += 1
                     if self.last_login_method:
                         self._login(self.last_login_method,
@@ -161,7 +162,7 @@ class Session(xmlrpclib.ServerProxy):
 
     def _login(self, method, params):
         result = _parse_result(getattr(self, 'session.%s' % method)(*params))
-        if result == _RECONNECT_AND_RETRY:
+        if result is _RECONNECT_AND_RETRY:
             raise xmlrpclib.Fault(
                 500, 'Received SESSION_INVALID when logging in')
         self._session = result
