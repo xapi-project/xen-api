@@ -185,16 +185,13 @@ let get_record (obj: obj) aux_fn_name =
   String.concat "\n" body
 
 (* Return a thunk which calls get_record on this class, for the event mechanism *)
-let snapshot obj_name self = Printf.sprintf "(fun () -> API.To.%s (get_record ~__context ~self:%s))"
-  (OU.alias_of_ty (DT.Record obj_name)) self 
+let snapshot obj_name self =
+	Printf.sprintf "(fun () -> API.%s.rpc_of_t (get_record ~__context ~self:%s))" (OU.ocaml_of_module_name obj_name) self 
 
 (* Return a thunk which calls get_record on some other class, for the event mechanism *)
 let external_snapshot obj_name self = 
   Printf.sprintf "find_get_record \"%s\" ~__context ~self:%s" obj_name self
-(*
-  Printf.sprintf "(fun () -> API.To.%s (%s.get_record ~__context ~self:%s))"
-  (OU.alias_of_ty (DT.Record obj_name)) (OU.ocaml_of_obj_name obj_name) self
-*)
+
 let ocaml_of_tbl_fields xs = 
   let of_field (tbl, fld, fn) = 
     Printf.sprintf "\"%s\", %s, %s" tbl fld fn in
@@ -248,9 +245,9 @@ let db_action api : O.Module.t =
 	| f ->
 	    _string_to_dm ^ "." ^ (OU.alias_of_ty f.DT.ty) ^
 	      "(List.assoc \"" ^ (Escaping.escape_id f.full_name) ^ "\" __regular_fields)" in
-      let fields = List.map (fun f -> m ^ (OU.ocaml_of_record_field obj.DT.name f.DT.full_name) ^ "=" ^ (of_field f) ^ ";") all_fields in
-      let fields = if fields = [] then [ m ^ "__unused=()" ] else fields in
-      let mk_rec = [ "{" ] @ fields @ [ "}"] in
+      let make_field f = Printf.sprintf "        %s%s = %s;" m (OU.ocaml_of_record_field (obj.DT.name :: f.DT.full_name)) (of_field f) in
+      let fields = List.map make_field all_fields in
+      let mk_rec = [ "{" ] @ fields @ [ "    }"] in
 	String.concat "\n" mk_rec in
 
     let get_record_aux_fn (obj : obj) =
@@ -287,8 +284,8 @@ let db_action api : O.Module.t =
       ~ty:"unit"
       ~body:[
 	      Printf.sprintf "Hashtbl.add Eventgen.get_record_table \"%s\"" obj.DT.name;
-	      Printf.sprintf "(fun ~__context ~self -> (fun () -> API.To.%s (%s.get_record ~__context ~self:(Ref.of_string self))))" 
-		(OU.alias_of_ty (DT.Record obj.DT.name)) 
+	      Printf.sprintf "(fun ~__context ~self -> (fun () -> API.rpc_of_%s_t (%s.get_record ~__context ~self:(Ref.of_string self))))" 
+		(OU.ocaml_of_record_name obj.DT.name)
 		(OU.ocaml_of_obj_name obj.DT.name) 
 	    ]
       () in
@@ -349,7 +346,7 @@ let db_action api : O.Module.t =
 (*	  let fields = db_fields_of_obj obj in *)
 	  let kvs = List.map (fun fld ->
 				Escaping.escape_id fld.full_name,
-				OU.escape (OU.ocaml_of_id fld.full_name)) fields  in
+				OU.ocaml_of_record_field fld.full_name) fields  in
 	  let kvs' = List.map (fun (sql, o) ->
 				 Printf.sprintf "(\"%s\", %s)" sql o) kvs in
 	  Printf.sprintf "DB.create_row __t \"%s\" [ %s ] ref"

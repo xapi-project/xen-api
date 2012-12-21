@@ -187,7 +187,7 @@ let random_setup () =
   Random.full_init (Array.init n (fun i -> Char.code s.[i]))
 
 let register_callback_fns() =
-	let fake_rpc req sock xml : Xml.xml =
+	let fake_rpc req sock xml : Rpc.response =
 		Api_server.callback1 false req sock None xml in
 	Helpers.rpc_fun := Some fake_rpc;
 	let set_stunnelpid task_opt pid =
@@ -694,8 +694,10 @@ let common_http_handlers = [
   ("get_audit_log", (Http_svr.BufIO Audit_log.handler));
   ("post_root", (Http_svr.BufIO (Api_server.callback false)));
   ("post_json", (Http_svr.BufIO (Api_server.callback true)));
+  ("post_jsonrpc", (Http_svr.BufIO (Api_server.jsoncallback)));
   ("post_root_options", (Http_svr.BufIO (Api_server.options_callback)));
   ("post_json_options", (Http_svr.BufIO (Api_server.options_callback)));
+  ("post_jsonrpc_options", (Http_svr.BufIO (Api_server.options_callback)));
   ("connect_migrate", (Http_svr.FdIO Xapi_vm_migrate.handler));
 ]
 

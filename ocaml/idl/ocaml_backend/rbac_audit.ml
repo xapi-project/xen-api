@@ -292,7 +292,7 @@ let get_db_namevalue __context name action _ref =
     some, like passwords, are sensitive and should not be persisted
     into the audit log. Use heuristics to map non-sensitive parameters.
 *)
-let rec sexpr_args_of __context name xml_value action =
+let rec sexpr_args_of __context name rpc_value action =
   let is_selected_action_param action_params =
     (if List.mem_assoc action action_params
      then
@@ -307,8 +307,8 @@ let rec sexpr_args_of __context name xml_value action =
 		or (* action+param pair *)
     (is_selected_action_param action_params_whitelist)
 	then
-	( match xml_value with
-		| Xml.PCData value ->
+	( match rpc_value with
+		| Rpc.String value ->
 			Some (get_sexpr_arg
 				name 
 				(if is_selected_action_param action_params_zip
@@ -317,16 +317,24 @@ let rec sexpr_args_of __context name xml_value action =
 				)
 				"" ""
 			)
-		| Xml.Element ("struct",_,_) -> Some (SExpr.Node
-    ((SExpr.String name)::(SExpr.Node (sexpr_of_parameters __context (action^"."^name) (Some (["__structure"],[xml_value]))))::(SExpr.String "")::(SExpr.String "")::[]))
-		|_-> (*D.debug "sexpr_args_of:value=%s" (Xml.to_string xml_value);*)			
+		| Rpc.Dict _ -> 
+			Some (SExpr.Node
+					  (
+						  (SExpr.String name)
+						  ::(SExpr.Node (sexpr_of_parameters __context (action^"."^name) (Some (["__structure"],[rpc_value]))))
+						  ::(SExpr.String "")
+						  ::(SExpr.String "")
+						  ::[]
+					  )
+			)
+		| _-> (*D.debug "sexpr_args_of:value=%s" (Xml.to_string xml_value);*)			
 			(*None*)
-			Some (get_sexpr_arg name (Xml.to_string xml_value) "" "")
+			Some (get_sexpr_arg name (Rpc.to_string rpc_value) "" "")
 	)
 	else
 	(* heuristic 2: print uuid/refs arguments in the xapi call *)
-	match xml_value with
-	| Xml.PCData value -> (
+	match rpc_value with
+	| Rpc.String value -> (
 		let name_uuid_ref = get_obj_of_ref value in
 		match name_uuid_ref with
 		| None ->
@@ -347,67 +355,42 @@ and
 (*let rec*) sexpr_of_parameters __context action args : SExpr.t list =
 	match args with
 	| None -> []
-	| Some (str_names,xml_values) -> 
+	| Some (str_names,rpc_values) -> 
 	begin
-	if (List.length str_names) <> (List.length xml_values)
+	if (List.length str_names) <> (List.length rpc_values)
 	then
 		( (* debug mode *)
-		D.debug "cannot marshall arguments for the action %s: name and value list lengths don't match. str_names=[%s], xml_values=[%s]" action ((List.fold_left (fun ss s->ss^s^",") "" str_names)) ((List.fold_left (fun ss s->ss^(Xml.to_string s)^",") "" xml_values));
+		D.debug "cannot marshall arguments for the action %s: name and value list lengths don't match. str_names=[%s], xml_values=[%s]" action ((List.fold_left (fun ss s->ss^s^",") "" str_names)) ((List.fold_left (fun ss s->ss^(Rpc.to_string s)^",") "" rpc_values));
 		[]
 		)
 	else
 	List.fold_right2
-		(fun str_name xml_value (params:SExpr.t list) ->
+		(fun str_name rpc_value (params:SExpr.t list) ->
 			if str_name = "session_id" 
 			then params (* ignore session_id param *)
 			else 
 			(* if it is a constructor structure, need to rewrap params *)
 			if str_name = "__structure"
-			then match xml_value with 
-				| Xml.Element (_,_,(Xml.Element ("struct",_,iargs))::[])
-				| Xml.Element ("struct",_,iargs) ->
-						let (myparam:SExpr.t list) =
-							(sexpr_of_parameters __context action (Some
-							(List.fold_right
-								(fun xml_arg (acc_xn,acc_xv) ->
-									match xml_arg with
-									| Xml.Element ("member",_,
-											(Xml.Element ("name",_,(Xml.PCData xn)::[])
-											::(Xml.Element ("value",_,x) as xv)
-											::[]
-											)
-										) -> xn::acc_xn, xv::acc_xv
-									| _ -> acc_xn,acc_xv
-								)
-								iargs
-								([],[])
-							)
-						))
-						in myparam@params
-				| xml_value ->
-					(match (sexpr_args_of __context str_name xml_value action)
+			then match rpc_value with 
+				| Rpc.Dict d ->
+					let names = List.map fst d in
+					let values = List.map snd d in
+					let myparam = sexpr_of_parameters __context action (Some (names,values)) in
+					myparam@params
+				| rpc_value ->
+					(match (sexpr_args_of __context str_name rpc_value action)
 					 with None->params|Some p->p::params
 					)
 			else 
 			(* the expected list of xml arguments *)
 			begin
-				let name,filtered_xml_value = 
-					match xml_value with
-					(* try to pick up only the xml value *)
-					| Xml.Element ("value", _, v::[]) ->
-							(match v with
-							| Xml.Element ("string",_,v::[]) -> str_name,v
-							| _ -> str_name,v
-						)
-					| _ -> str_name,xml_value
-				in
-				(match (sexpr_args_of __context name filtered_xml_value action)
+				(match (sexpr_args_of __context str_name rpc_value action)
 				 with None->params|Some p->p::params
 				)
 			end
 		)
 		str_names
-		xml_values
+		rpc_values
 		[]
 	end
 
@@ -440,20 +423,20 @@ let wrap fn =
 let add_dummy_args __context action args =
 	match args with
 	| None -> args
-	| Some (str_names, xml_values) -> begin
-		let rec find_self str_names xml_values =
-			match str_names, xml_values with
-			| ("self"::_), (xml::_) -> xml
-			| (_::str_names'), (_::xml_values') -> find_self str_names' xml_values'
+	| Some (str_names, rpc_values) -> begin
+		let rec find_self str_names rpc_values =
+			match str_names, rpc_values with
+			| ("self"::_), (rpc::_) -> rpc
+			| (_::str_names'), (_::rpc_values') -> find_self str_names' rpc_values'
 			| _, _ -> raise Not_found
 		in
 		match action with
 		(* Add VDI info for VBD.destroy *)
 		| "VBD.destroy" -> begin
 			try
-				let vbd = API.From.ref_VBD "self" (find_self str_names xml_values) in
+				let vbd = API.ref_VBD_of_rpc (find_self str_names rpc_values) in
 				let vdi = DB_Action.VBD.get_VDI __context vbd in
-				Some (str_names@["VDI"], xml_values@[API.To.ref_VDI vdi])
+				Some (str_names@["VDI"], rpc_values@[API.rpc_of_ref_VDI vdi])
 			with e ->
 				D.debug "couldn't get VDI ref for VBD: %s" (ExnHelper.string_of_exn e);
 				args

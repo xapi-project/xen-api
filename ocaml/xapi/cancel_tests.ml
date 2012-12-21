@@ -41,7 +41,7 @@ let make_rpc ?dbg () xml =
 		(xmlrpc ~version:"1.0" "/") with
 			Http.Request.additional_headers = Opt.default [] (Opt.map (fun dbg -> [ "X-Http-other-config-dbg", dbg ]) dbg)
 	} in
-	XML_protocol.rpc ~srcstr:"graph" ~dststr:"xapi" ~transport:(TCP(!host, !port)) ~http xml
+	XMLRPC_protocol.rpc ~srcstr:"graph" ~dststr:"xapi" ~transport:(TCP(!host, !port)) ~http xml
 
 let wait_for_guest_agent ~rpc ~session_id ~vm =
 	debug "prepare: waiting for guest agent in VM %s" (Ref.string_of vm);
@@ -49,7 +49,7 @@ let wait_for_guest_agent ~rpc ~session_id ~vm =
 	let timeout = 5.0 in
 	let rec wait ~token =
 		let open Event_types in
-		let event_from = Client.Event.from ~rpc ~session_id ~classes ~token ~timeout |> event_from_of_xmlrpc in
+		let event_from = Client.Event.from ~rpc ~session_id ~classes ~token ~timeout |> event_from_of_rpc in
 		let records = List.map Event_helper.record_of_event event_from.events in
 		let valid = function
 			| Event_helper.VM (vm, Some vm_rec) ->

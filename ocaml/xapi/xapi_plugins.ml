@@ -32,7 +32,7 @@ let call_plugin session_id plugin_name fn_name args =
 
 	(* Marshal the args as XMLRPC *)
 	let args = List.map (fun (k, v) -> k, XMLRPC.To.string v) args in
-	let call = XMLRPC.To.methodCall fn_name [ API.To.ref_session session_id; XMLRPC.To.structure args ] in
+	let call = XMLRPC.To.methodCall fn_name [ XMLRPC.To.string (Ref.string_of session_id); XMLRPC.To.structure args ] in
 	let output, _ =
 		try
 			Forkhelpers.execute_command_get_output plugin_name [ Xml.to_string call ]

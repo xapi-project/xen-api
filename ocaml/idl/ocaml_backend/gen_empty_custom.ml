@@ -73,7 +73,7 @@ let gen_debug_module name_override result_type_override body_override api : O.Mo
 	  None ->
 	    begin
 	      match x.msg_custom_marshaller, x.msg_result with
-		| true, _ -> "XMLRPC.xmlrpc"
+		| true, _ -> "Rpc.t"
 		| _, Some (ty, _) -> OU.alias_of_ty ty
 		| _, None -> "unit"
 	    end

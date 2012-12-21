@@ -32,8 +32,8 @@ let to_key_value_map ds = [
 	"units", ds.units;
 ]
 
-let to_API_data_source (ds : t) = let open API in {
-	data_source_name_label = ds.name;
+let to_API_data_source (ds : t) = {
+	API.data_source_name_label = ds.name;
 	data_source_name_description = ds.description;
 	data_source_enabled = ds.enabled;
 	data_source_standard = ds.standard;
