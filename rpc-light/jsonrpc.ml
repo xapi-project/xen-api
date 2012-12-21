@@ -67,6 +67,11 @@ let to_string t =
 	to_buffer t buf;
 	Buffer.contents buf
 
+let to_a ~empty ~append t =
+	let buf = empty () in
+	to_fct t (fun s -> append buf s);
+	buf
+
 let new_id =
 	let count = ref 0L in
 	(fun () -> count := Int64.add 1L !count; !count)
@@ -79,21 +84,27 @@ let string_of_call call =
 	] in
 	to_string json
 
+let json_of_response response = 
+	if response.Rpc.success then
+		Dict [
+			"result", response.Rpc.contents;
+			"error", Null;
+			"id", Int 0L
+		]
+	else
+		Dict [
+			"result", Null;
+			"error", response.Rpc.contents;
+			"id", Int 0L
+		]
+			
 let string_of_response response =
-	let json =
-		if response.Rpc.success then
-			Dict [
-				"result", response.Rpc.contents;
-				"error", Null;
-				"id", Int 0L
-			]
-		else
-			Dict [
-				"result", Null;
-				"error", response.Rpc.contents;
-				"id", Int 0L
-			] in
+	let json = json_of_response response in
 	to_string json
+
+let a_of_response ~empty ~append response =
+	let json = json_of_response response in
+	to_a ~empty ~append json
 
 type error =
 	| Unexpected_char of int * char * (* json type *) string
@@ -481,6 +492,8 @@ module Parser = struct
 end
 
 let of_string = Parser.of_string
+let of_a ~next_char b =
+	Parser.of_stream (fun () -> next_char b)
 
 exception Malformed_method_request of string
 exception Malformed_method_response of string

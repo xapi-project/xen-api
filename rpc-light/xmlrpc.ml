@@ -135,7 +135,7 @@ let add_response add response =
 	else
 		Dict [ "Status", String "Failure"; "ErrorDescription", response.contents ] in
 	add "<?xml version=\"1.0\"?><methodResponse><params><param>";
-	add (to_string v);
+	to_a ~empty:(fun () -> ()) ~append:(fun _ s -> add s) v;
 	add "</param></params></methodResponse>"
 
 let string_of_response response =
