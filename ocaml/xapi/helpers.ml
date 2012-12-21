@@ -44,7 +44,7 @@ let choose_network_name_for_pif device =
 (** Once the server functor has been instantiated, set this reference to the appropriate
     "fake_rpc" (loopback non-HTTP) rpc function. This is used by the CLI, which passes in
     the HTTP request headers it has already received together with its active file descriptor. *)
-let rpc_fun : (Http.Request.t -> Unix.file_descr -> Xml.xml -> Xml.xml) option ref = ref None
+let rpc_fun : (Http.Request.t -> Unix.file_descr -> Rpc.call -> Rpc.response) option ref = ref None
 
 let get_rpc () =
   match !rpc_fun with
@@ -129,7 +129,7 @@ let update_pif_addresses ~__context =
 	) in
 	List.iter (fun self -> update_pif_address ~__context ~self) pifs
 
-let make_rpc ~__context xml : XMLRPC.xmlrpc =
+let make_rpc ~__context rpc : Rpc.response =
     let subtask_of = Ref.string_of (Context.get_task_id __context) in
 	let open Xmlrpc_client in
 	let http = xmlrpc ~subtask_of ~version:"1.1" "/" in
@@ -137,14 +137,14 @@ let make_rpc ~__context xml : XMLRPC.xmlrpc =
 		if Pool_role.is_master ()
 		then Unix(Xapi_globs.unix_domain_socket)
 		else SSL(SSL.make ~use_stunnel_cache:true (), Pool_role.get_master_address(), !Xapi_globs.https_port) in
-	XML_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http xml
+	XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http rpc
 
 (* This one uses rpc-light *)
 let make_remote_rpc remote_address xml =
 	let open Xmlrpc_client in
 	let transport = SSL(SSL.make (), remote_address, !Xapi_globs.https_port) in
 	let http = xmlrpc ~version:"1.0" "/" in
-	XML_protocol.rpc ~srcstr:"xapi" ~dststr:"remote_xapi" ~transport ~http xml
+	XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"remote_xapi" ~transport ~http xml
 
 (** Log into pool master using the client code, call a function
     passing it the rpc function and session id, logout when finished. *)
@@ -191,7 +191,7 @@ let call_emergency_mode_functions hostname f =
 	let open Xmlrpc_client in
 	let transport = SSL(SSL.make (), hostname, !Xapi_globs.https_port) in
 	let http = xmlrpc ~version:"1.0" "/" in
-	let rpc = XML_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http in
+	let rpc = XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http in
   let session_id = Client.Client.Session.slave_local_login rpc !Xapi_globs.pool_secret in
   finally
     (fun () -> f rpc session_id)
@@ -305,8 +305,8 @@ let rolling_upgrade_in_progress ~__context =
 
 let parse_boot_record ~string:lbr =
 	match Xmlrpc_sexpr.sexpr_str_to_xmlrpc lbr with
-	| None     -> API.From.vM_t "ret_val" (Xml.parse_string lbr)
-	| Some xml -> API.From.vM_t "ret_val" xml
+	| None     -> API.Legacy.From.vM_t "ret_val" (Xml.parse_string lbr)
+	| Some xml -> API.Legacy.From.vM_t "ret_val" xml
 
 (** Fetch the configuration the VM was booted with *)
 let get_boot_record_of_record ~__context ~string:lbr ~uuid:current_vm_uuid =
@@ -338,7 +338,7 @@ let set_boot_record ~__context ~self newbootrec =
        who have not yet been upgraded to understand sexprs, so
        let's still talk using the legacy xmlrpc format.
     *)
-    let xml = Xml.to_string (API.To.vM_t newbootrec) in
+    let xml = Xml.to_string (API.Legacy.To.vM_t newbootrec) in
     Db.VM.set_last_booted_record ~__context ~self ~value:xml
   end
   else
@@ -346,7 +346,7 @@ let set_boot_record ~__context ~self newbootrec =
     (* if it's not a rolling upgrade, then we know everyone
        else in the pool will understand s-expressions.
     *)
-    let sexpr = Xmlrpc_sexpr.xmlrpc_to_sexpr_str (API.To.vM_t newbootrec) in
+    let sexpr = Xmlrpc_sexpr.xmlrpc_to_sexpr_str (API.Legacy.To.vM_t newbootrec) in
     Db.VM.set_last_booted_record ~__context ~self ~value:sexpr
   end;
   ()

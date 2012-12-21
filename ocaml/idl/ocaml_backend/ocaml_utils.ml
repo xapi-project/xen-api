@@ -13,8 +13,16 @@
  *)
 open Stringext
 open Datamodel_types
+open Printf
 
-let keywords = [ "mod" ]
+let keywords = [ "mod"; "type"; "class"; "ref"; "and" ]
+
+let escape x =
+  if List.mem x keywords then
+	  "_" ^ x
+  else match x.[0] with
+	  | 'a' .. 'z' | '_' -> x
+	  | _                -> "_" ^ x
 
 (** Escape enum names to make them readable polymorphic variant type
     constructors. *)
@@ -28,11 +36,25 @@ let constructor_of string =
     | list -> "`" :: List.map remove_non_alphanum list in
   String.concat "" list
 
-let ocaml_of_record_name x = 
-  String.uncapitalize x
+(* generates: vM *)
+let ocaml_of_record_name x =
+	escape (String.uncapitalize x)
 
-let ocaml_of_record_field x y = 
-  ocaml_of_record_name x ^ "_" ^ (String.concat "_" y)
+(* generates: _VM *)
+let ocaml_of_record_name_rpc x =
+	escape x
+
+(* generates: _VM_foo *)
+let ocaml_of_record_field_rpc x = 
+	escape (String.concat "_" x)
+
+(* generates: vM_foo *)
+let ocaml_of_record_field = function
+	| []     -> failwith "ocaml_of_record_field"
+	| h :: t -> ocaml_of_record_field_rpc (String.uncapitalize h :: t)
+
+let ocaml_of_module_name x =
+	String.capitalize x
 
 (** Convert an IDL enum into a polymorhic variant. *)
 let ocaml_of_enum list =
@@ -40,17 +62,17 @@ let ocaml_of_enum list =
 
 (** Convert an IDL type to a function name; we need to generate functions to
     marshal/unmarshal from XML for each unique IDL type *)
-let rec alias_of_ty = function
-  | String -> "string"
-  | Int -> "int64"
-  | Float -> "float"
-  | Bool -> "bool"
-  | DateTime -> "datetime"
-  | Set ty -> alias_of_ty ty^"_set"
-  | Enum(name, _) -> String.uncapitalize (String.sub name 0 1) ^ (String.sub name 1 (String.length name - 1))
-  | Map(k, v) -> alias_of_ty k^"_to_"^alias_of_ty v^"_map"
-  | Ref x -> "ref_"^x
-  | Record x -> ocaml_of_record_name x ^ "_t"
+let rec alias_of_ty ?(prefix="") = function
+	| String                        -> "string"
+	| Int                           -> "int64"
+	| Float                         -> "float"
+	| Bool                          -> "bool"
+	| DateTime                      -> "datetime"
+	| Set ty                        -> sprintf "%s_set" (alias_of_ty ty)
+	| Enum(name, _)                 -> String.uncapitalize name
+	| Map(k, v)                     -> sprintf "%s_to_%s_map" (alias_of_ty k) (alias_of_ty v)
+	| Ref x                         -> sprintf "ref_%s" x
+	| Record x                      -> sprintf "%s_t" (ocaml_of_record_name x)
 
 (** Convert an IDL type into a string containing OCaml code representing the
     type. *)
@@ -67,13 +89,6 @@ let rec ocaml_of_ty = function
 (*  | Ref "session" -> "Uuid.cookie" *)
   | Ref ty -> "[`"^ty^"] Ref.t"
   | Record x -> failwith "ocaml_of_ty got a record"
-
-
-let keywords = [ "type"; "and"; "class" ]
-let escape x = String.uncapitalize (if List.mem x keywords then "_" ^ x else x)
-
-(** Take a field name as a list (including namespaces) and return a flat name *)
-let ocaml_of_id x = String.concat "_" x
 
 (** Take an object name and return the corresponding ocaml name *)
 let ocaml_of_obj_name x = 

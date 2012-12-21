@@ -96,10 +96,10 @@ module D=Debug.Debugger(struct let name="xapi" end)
 open D
 
 (** Forward a call to the master *)
-let forward req body xml =
+let forward req body rpc =
   let open Xmlrpc_client in
   let transport = SSL(SSL.make ~use_stunnel_cache:true (), Pool_role.get_master_address(), !Xapi_globs.https_port) in
-  XML_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http:{ req with Http.Request.frame = true } xml
+  XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http:{ req with Http.Request.frame = true } rpc
 
 (* Whitelist of functions that do *not* get forwarded to the master (e.g. session.login_with_password) *)
 (* !!! Note, this only blocks synchronous calls. As is it happens, all the calls we want to block right now are only
@@ -116,25 +116,26 @@ let is_himn_req req =
 	| None -> false
 
 (* This bit is called directly by the fake_rpc callback *)
-let callback1 is_json req fd body xml =
-  let call,_ = XMLRPC.From.methodCall xml in
+let callback1 is_json req fd body call =
   (* We now have the body string, the xml and the call name, and can also tell *)
   (* if we're a master or slave and whether the call came in on the unix domain socket or the tcp socket *)
   (* If we're a slave, and the call is from the unix domain socket or from the HIMN, and the call *isn't* *)
   (* in the whitelist, then forward *)
-  if !Xapi_globs.slave_emergency_mode && (not (List.mem call emergency_call_list)) 
+  if !Xapi_globs.slave_emergency_mode && (not (List.mem call.Rpc.name emergency_call_list)) 
   then raise !Xapi_globs.emergency_mode_error;
-  if ((not (Pool_role.is_master ())) && (Context.is_unix_socket fd || is_himn_req req) && (not (List.mem call whitelist)))
+  if ((not (Pool_role.is_master ())) && (Context.is_unix_socket fd || is_himn_req req) && (not (List.mem call.Rpc.name whitelist)))
   then
-    forward req body xml
+    forward req body call
   else
-    let response = Server.dispatch_xml req fd xml in
-    let translated =
-      match is_json,response with
-        true,XMLRPC.Success [Xml.Element("value",_,[x])] -> XMLRPC.Success [Xml.Element("value",[],[Xml.PCData (Json.xmlrpc_to_json x)])]
-      | _ -> response
-    in
-    XMLRPC.To.methodResponse translated
+      let response = Server.dispatch_call req fd call in
+	  let translated = 
+		  if is_json && response.Rpc.success && call.Rpc.name <> "system.listMethods" then
+			  {response with Rpc.contents = Rpc.rpc_of_string (Jsonrpc.to_string response.Rpc.contents)}
+		  else
+              response in
+	  translated
+
+
       (* debug(fmt "response = %s" response); *)
 
 (** HTML callback that dispatches an RPC and returns the response. *)
@@ -142,19 +143,59 @@ let callback is_json req bio _ =
   let fd = Buf_io.fd_of bio in (* fd only used for writing *)
   let body = Http_svr.read_body ~limit:Xapi_globs.http_limit_max_rpc_size req bio in
   try
-    let xml = Xml.parse_string body in
-    let response = Xml.to_bigbuffer (callback1 is_json req fd (Some body) xml) in
+    let rpc = Xmlrpc.call_of_string body in
+	let response = callback1 is_json req fd (Some body) rpc in
+    let response_str = 
+		if rpc.Rpc.name = "system.listMethods" 
+		then 
+			let inner = Xmlrpc.to_a 
+				~empty:Bigbuffer.make
+				~append:(fun buf s -> Bigbuffer.append_substring buf s 0 (String.length s))
+				response.Rpc.contents in
+			let s = Printf.sprintf "<?xml version=\"1.0\"?><methodResponse><params><param>%s</param></params></methodResponse>" (Bigbuffer.to_string inner) in
+			let buf = Bigbuffer.make () in
+			Bigbuffer.append_string buf s;
+			buf
+		else 
+			Xmlrpc.a_of_response 
+				~empty:Bigbuffer.make 
+				~append:(fun buf s -> Bigbuffer.append_substring buf s 0 (String.length s)) 
+				response in
     Http_svr.response_fct req ~hdrs:[ Http.Hdr.content_type, "text/xml";
 				    "Access-Control-Allow-Origin", "*";
-				    "Access-Control-Allow-Headers", "X-Requested-With"] fd (Bigbuffer.length response)
-      (fun fd -> Bigbuffer.to_fct response (fun s -> ignore(Unixext.really_write_string fd s)))
+				    "Access-Control-Allow-Headers", "X-Requested-With"] fd (Bigbuffer.length response_str)
+      (fun fd -> Bigbuffer.to_fct response_str (fun s -> ignore(Unixext.really_write_string fd s)))
   with 
-    | (Api_errors.Server_error (err, params)) ->
-      Http_svr.response_str req ~hdrs:[ Http.Hdr.content_type, "text/xml" ] fd
-	(Xml.to_string (XMLRPC.To.methodResponse (XMLRPC.Failure(err, params))))
-    | Xml.Error _ ->
-      Http_svr.response_str req ~hdrs:[ Http.Hdr.content_type, "text/xml" ] fd
-	(Xml.to_string (XMLRPC.To.methodResponse (XMLRPC.Fault(1l, "Failed to parse supplied XML")))) 
+      | (Api_errors.Server_error (err, params)) ->
+		  Http_svr.response_str req ~hdrs:[ Http.Hdr.content_type, "text/xml" ] fd
+			  (Xmlrpc.string_of_response (Rpc.failure (Rpc.Enum (List.map (fun s -> Rpc.String s) (err :: params)))))
+	  | e ->
+		  error "Caught exception in callback...";
+		  log_backtrace ();
+		  raise e
+
+
+(** HTML callback that dispatches an RPC and returns the response. *)
+let jsoncallback req bio _ =
+  let fd = Buf_io.fd_of bio in (* fd only used for writing *)
+  let body = Http_svr.read_body ~limit:Xapi_globs.http_limit_max_rpc_size req bio in
+  debug "Here in jsoncallback";
+  try
+	debug "Got the jsonrpc body: %s" body;
+    let rpc = Jsonrpc.call_of_string body in
+	debug "Got the jsonrpc body: %s" body;
+    let response = Xmlrpc.a_of_response 
+		~empty:Bigbuffer.make 
+		~append:(fun buf s -> Bigbuffer.append_substring buf s 0 (String.length s)) 
+		(callback1 false req fd (Some body) rpc) in
+    Http_svr.response_fct req ~hdrs:[ Http.Hdr.content_type, "application/json";
+				    "Access-Control-Allow-Origin", "*";
+				    "Access-Control-Allow-Headers", "X-Requested-With"] fd (Bigbuffer.length response)
+		(fun fd -> Bigbuffer.to_fct response (fun s -> ignore(Unixext.really_write_string fd s)))
+  with 
+      | (Api_errors.Server_error (err, params)) ->
+		  Http_svr.response_str req ~hdrs:[ Http.Hdr.content_type, "application/json" ] fd
+			  (Jsonrpc.string_of_response (Rpc.failure (Rpc.Enum (List.map (fun s -> Rpc.String s) (err :: params)))))
 
 let options_callback req bio _ =
 	let fd = Buf_io.fd_of bio in

@@ -75,7 +75,7 @@ let wait_for_subtask ?progress_minmax ~__context task =
 	while not !finished do
 		try
 			let xml = Client.Event.next rpc session in
-			let events = Event_types.events_of_xmlrpc xml in
+			let events = Event_types.events_of_rpc xml in
 			refresh_session ();
 			let checkevent ev =
 				match Event_helper.record_of_event ev with
@@ -97,7 +97,7 @@ let wait_for_subtask ?progress_minmax ~__context task =
 let wait_for_clone ?progress_minmax ~__context task =
 	let result = wait_for_subtask ?progress_minmax ~__context task in
 	let result = Xml.parse_string result in
-	let vdiref = API.From.ref_VDI "" result in
+	let vdiref = API.Legacy.From.ref_VDI "" result in
 	vdiref
 
 (* Clone code is parameterised over this so it can be shared with copy *)

@@ -124,7 +124,7 @@ let permission_of_action ?args ~keys _action =
 		then begin (* this should never happen *)
 			debug "DENYING access: arg_keys and arg_values lengths don't match: arg_keys=[%s], arg_values=[%s]"
 				((List.fold_left (fun ss s->ss^s^",") "" arg_keys))
-				((List.fold_left (fun ss s->ss^(Xml.to_string s)^",") "" arg_values))
+				((List.fold_left (fun ss s->ss^(Rpc.to_string s)^",") "" arg_values))
 			;
 			get_keyERR_permission_name action "DENY_WRGLEN" (* will always deny *)	
 		end
@@ -142,9 +142,7 @@ let permission_of_action ?args ~keys _action =
 					(get_permission_name_of_keys ks vs)
 				else (* found "key" in args *)
 					match v with
-					| Xml.Element("value",_,(Xml.PCData key_name_in_args)::[]) 
-					| Xml.Element("value",_,(Xml.Element("string",_,
-						(Xml.PCData key_name_in_args)::[]))::[]) ->
+					| Rpc.String key_name_in_args ->
 					begin
 						(*debug "key_name_in_args=%s, keys=[%s]" key_name_in_args ((List.fold_left (fun ss s->ss^s^",") "" keys)) ;*)
 						try 
@@ -167,7 +165,7 @@ let permission_of_action ?args ~keys _action =
 							action
 					end
 					|_ -> begin (* this should never happen *)
-						 debug "DENYING access: wrong XML value [%s] in the 'key' argument of action %s" (Xml.to_string v) action;
+						 debug "DENYING access: wrong XML value [%s] in the 'key' argument of action %s" (Rpc.to_string v) action;
 						 get_keyERR_permission_name action "DENY_NOVALUE"
 					end
 		in

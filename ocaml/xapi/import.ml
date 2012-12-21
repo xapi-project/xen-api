@@ -78,7 +78,7 @@ type table = (string * string * string) list
 type state = {
 	mutable table: table;
 	mutable created_vms: table;
-	mutable cleanup: (Context.t -> (Xml.xml -> Xml.xml) -> API.ref_session -> unit) list;
+	mutable cleanup: (Context.t -> (Rpc.call -> Rpc.response) -> API.ref_session -> unit) list;
 	export: obj list;
 }
 
@@ -115,26 +115,26 @@ let choose_one = function
 (* Return the list of non-CDROM VDIs ie those which will be streamed-in *)
 let non_cdrom_vdis (x: header) =
 	let all_vbds = List.filter (fun x -> x.cls = Datamodel._vbd) x.objects in
-	let all_vbds = List.map (fun x -> API.From.vBD_t "" x.snapshot) all_vbds in
+	let all_vbds = List.map (fun x -> API.Legacy.From.vBD_t "" x.snapshot) all_vbds in
 	let all_disk_vbds = List.filter (fun x -> x.API.vBD_type <> `CD) all_vbds in
 	let all_disk_vdis = List.map (fun x -> Ref.string_of x.API.vBD_VDI) all_disk_vbds in
 
   (* Remove all those whose SR has content-type = "iso" *)
 	let all_disk_vdis = List.filter (fun vdi ->
-		let vdir = API.From.vDI_t "" (find_in_export vdi x.objects) in
-		let sr = API.From.sR_t "" (find_in_export (Ref.string_of vdir.API.vDI_SR) x.objects) in
+		let vdir = API.Legacy.From.vDI_t "" (find_in_export vdi x.objects) in
+		let sr = API.Legacy.From.sR_t "" (find_in_export (Ref.string_of vdir.API.vDI_SR) x.objects) in
 		sr.API.sR_content_type <> "iso") all_disk_vdis in
 
 	let all_vdis = List.filter (fun x -> x.cls = Datamodel._vdi) x.objects in
 	List.filter (fun x -> false
 		|| (List.mem x.id all_disk_vdis)
-		|| (API.From.vDI_t "" x.snapshot).API.vDI_type = `suspend) all_vdis
+		|| (API.Legacy.From.vDI_t "" x.snapshot).API.vDI_type = `suspend) all_vdis
 
 (* Check to see if another VM exists with the same MAC seed. *)
 (* Check VM uuids don't already exist. Check that if a VDI exists then it is a CDROM. *)
 let assert_can_restore_backup rpc session_id (x: header) =
 	let all_vms = List.filter (fun x -> x.cls = Datamodel._vm) x.objects in
-	let all_vms = List.map (fun x -> API.From.vM_t "" x.snapshot) all_vms in
+	let all_vms = List.map (fun x -> API.Legacy.From.vM_t "" x.snapshot) all_vms in
 	let all_vms = List.filter (fun x -> try let (_:[`VM] Ref.t) = Client.VM.get_by_uuid rpc session_id x.API.vM_uuid in false with _ -> true) all_vms in
 
 	let get_mac_seed (vm: API.vM_t): string option =
@@ -178,13 +178,13 @@ module type HandlerTools = sig
 	type precheck_t
 	(* Compare the state of the database with the metadata to be imported. *)
 	(* Returns a result which signals what we should do to import the metadata. *)
-	val precheck: Context.t -> config -> (XMLRPC.xmlrpc -> XMLRPC.xmlrpc) -> API.ref_session -> state -> obj -> precheck_t
+	val precheck: Context.t -> config -> (Rpc.call -> Rpc.response) -> API.ref_session -> state -> obj -> precheck_t
 	(* Handle the result of the precheck function, but don't create any database objects. *)
 	(* Add objects to the state table if necessary, to keep track of what would have been imported.*)
-	val handle_dry_run: Context.t -> config -> (XMLRPC.xmlrpc -> XMLRPC.xmlrpc) -> API.ref_session -> state -> obj -> precheck_t -> unit
+	val handle_dry_run: Context.t -> config -> (Rpc.call -> Rpc.response) -> API.ref_session -> state -> obj -> precheck_t -> unit
 	(* Handle the result of the check function, creating database objects if necessary. *)
 	(* For certain combinations of result and object type, this can be aliased to handle_dry_run. *)
-	val handle: Context.t -> config -> (XMLRPC.xmlrpc -> XMLRPC.xmlrpc) -> API.ref_session -> state -> obj -> precheck_t -> unit
+	val handle: Context.t -> config -> (Rpc.call -> Rpc.response) -> API.ref_session -> state -> obj -> precheck_t -> unit
 end
 
 (* Make a handler for a set of handler functions. *)
@@ -207,7 +207,7 @@ module Host : HandlerTools = struct
 		| Found_no_host
 
 	let precheck __context config rpc session_id state x =
-		let host_record = API.From.host_t "" x.snapshot in
+		let host_record = API.Legacy.From.host_t "" x.snapshot in
 		try Found_host (Db.Host.get_by_uuid __context host_record.API.host_uuid)
 		with _ -> Found_no_host
 
@@ -230,7 +230,7 @@ module VM : HandlerTools = struct
 		| Clean_import of API.vM_t
 
 	let precheck __context config rpc session_id state x =
-		let vm_record = API.From.vM_t "" x.snapshot in
+		let vm_record = API.Legacy.From.vM_t "" x.snapshot in
 		if vm_record.API.vM_is_a_template
 			&& (List.mem_assoc Xapi_globs.default_template_key vm_record.API.vM_other_config)
 			&& ((List.assoc Xapi_globs.default_template_key vm_record.API.vM_other_config) = "true")
@@ -452,7 +452,7 @@ module GuestMetrics : HandlerTools = struct
 		state.table <- (x.cls, x.id, Ref.string_of dummy_gm) :: state.table
 
 	let handle __context config rpc session_id state x precheck_result =
-		let gm_record = API.From.vM_guest_metrics_t "" x.snapshot in
+		let gm_record = API.Legacy.From.vM_guest_metrics_t "" x.snapshot in
 		let gm = Ref.make () in
 		Db.VM_guest_metrics.create ~__context
 			~ref:gm
@@ -480,7 +480,7 @@ module SR : HandlerTools = struct
 		| SR_not_needed
 
 	let precheck __context config rpc session_id state x =
-		let sr_record = API.From.sR_t "" x.snapshot in
+		let sr_record = API.Legacy.From.sR_t "" x.snapshot in
 		match config.import_type with
 		| Metadata_import _ -> begin
 			(* Look up the existing SR record *)
@@ -529,9 +529,9 @@ module VDI : HandlerTools = struct
 		| Create of API.vDI_t
 
 	let precheck __context config rpc session_id state x =
-		let vdi_record = API.From.vDI_t "" x.snapshot in
+		let vdi_record = API.Legacy.From.vDI_t "" x.snapshot in
 
-		let original_sr = API.From.sR_t "" (find_in_export (Ref.string_of vdi_record.API.vDI_SR) state.export) in
+		let original_sr = API.Legacy.From.sR_t "" (find_in_export (Ref.string_of vdi_record.API.vDI_SR) state.export) in
 		if original_sr.API.sR_content_type = "iso" then begin
 			(* Best effort: locate a VDI in any shared ISO SR with a matching VDI.location *)
 			let iso_srs = List.filter (fun self -> Client.SR.get_content_type rpc session_id self = "iso"
@@ -630,7 +630,7 @@ module Net : HandlerTools = struct
 		| Create of API.network_t
 	
 	let precheck __context config rpc session_id state x =
-		let net_record = API.From.network_t "" x.snapshot in
+		let net_record = API.Legacy.From.network_t "" x.snapshot in
 		let possibilities = Client.Network.get_by_name_label rpc session_id net_record.API.network_name_label in
 		match possibilities with
 		| [] ->
@@ -682,7 +682,7 @@ module GPUGroup : HandlerTools = struct
 		| Create of API.gPU_group_t
 
 	let precheck __context config rpc session_id state x =
-		let gpu_group_record = API.From.gPU_group_t "" x.snapshot in
+		let gpu_group_record = API.Legacy.From.gPU_group_t "" x.snapshot in
 		let groups = Client.GPU_group.get_all_records rpc session_id in
 		try
 			let group, _ =
@@ -752,7 +752,7 @@ module VBD : HandlerTools = struct
 		| Create of API.vBD_t
 
 	let precheck __context config rpc session_id state x =
-		let vbd_record = API.From.vBD_t "" x.snapshot in
+		let vbd_record = API.Legacy.From.vBD_t "" x.snapshot in
 
 		let get_vbd () = Client.VBD.get_by_uuid rpc session_id vbd_record.API.vBD_uuid in
 		let vbd_exists () = try ignore (get_vbd ()); true with _ -> false in
@@ -766,7 +766,7 @@ module VBD : HandlerTools = struct
 				(lookup vbd_record.API.vBD_VM) state.table in
 			(* If the VBD is supposed to be attached to a PV guest (which doesn't support
 				 currently_attached empty drives) then throw a fatal error. *)
-			let original_vm = API.From.vM_t "" (find_in_export (Ref.string_of vbd_record.API.vBD_VM) state.export) in
+			let original_vm = API.Legacy.From.vM_t "" (find_in_export (Ref.string_of vbd_record.API.vBD_VM) state.export) in
 			if vbd_record.API.vBD_currently_attached && not(exists vbd_record.API.vBD_VDI state.table) then begin
 				(* It's only ok if it's a CDROM attached to an HVM guest *)
 				let has_booted_hvm =
@@ -835,7 +835,7 @@ module VIF : HandlerTools = struct
 		| Create of API.vIF_t
 
 	let precheck __context config rpc session_id state x =
-		let vif_record = API.From.vIF_t "" x.snapshot in
+		let vif_record = API.Legacy.From.vIF_t "" x.snapshot in
 
 		let get_vif () = Client.VIF.get_by_uuid rpc session_id vif_record.API.vIF_uuid in
 		let vif_exists () = try ignore (get_vif ()); true with _ -> false in
@@ -931,7 +931,7 @@ module VGPU : HandlerTools = struct
 		| Create of API.vGPU_t
 
 	let precheck __context config rpc session_id state x =
-		let vgpu_record = API.From.vGPU_t "" x.snapshot in
+		let vgpu_record = API.Legacy.From.vGPU_t "" x.snapshot in
 
 		let get_vgpu () = Client.VGPU.get_by_uuid rpc session_id vgpu_record.API.vGPU_uuid in
 		let vgpu_exists () = try ignore (get_vgpu ()); true with _ -> false in
@@ -1143,7 +1143,7 @@ let complete_import ~__context vmrefs =
 			let vmrefs = List.filter (fun vmref -> not (Db.VM.get_is_a_snapshot ~__context ~self:vmref)) vmrefs in
 
 			(* We only set the result on the task since it is officially completed later. *)
-			TaskHelper.set_result ~__context [(API.To.ref_VM_set vmrefs)]
+			TaskHelper.set_result ~__context (Some (API.rpc_of_ref_VM_set vmrefs))
 	with e -> error "Caught exception completing import: %s" (ExnHelper.string_of_exn e); raise e
 
 let find_query_flag query key =
@@ -1326,7 +1326,7 @@ let handler (req: Request.t) s _ =
 															let all_vdis = List.filter (fun x -> exists (Ref.of_string x.id) table) all_vdis in
 															let vdis = List.map
 																(fun x ->
-																	let vdir = API.From.vDI_t "" (find_in_export x.id state.export) in
+																	let vdir = API.Legacy.From.vDI_t "" (find_in_export x.id state.export) in
 																	x.id, lookup (Ref.of_string x.id) table, vdir.API.vDI_virtual_size) all_vdis in
 															List.iter (fun (extid, intid, size) -> debug "Expecting to import VDI %s into %s (size=%Ld)" extid (Ref.string_of intid) size) vdis;
 															let checksum_table = Stream_vdi.recv_all refresh_session s __context rpc session_id header.version force vdis in

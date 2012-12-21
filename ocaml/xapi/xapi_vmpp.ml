@@ -409,11 +409,11 @@ let remove_any_secrets ~__context ~config ~key =
       ()
 
 let assert_set_backup_frequency ~backup_frequency ~backup_schedule=
-  let ty = XMLRPC.From.string (API.To.vmpp_backup_frequency backup_frequency) in
+  let ty = XMLRPC.From.string (API.Legacy.To.vmpp_backup_frequency backup_frequency) in
   assert_all_keys ~ty ~ks:backup_schedule_keys ~value:backup_schedule ~db:backup_schedule
 
 let assert_archive_target_type_not_none ~archive_target_type ~archive_target_config =
-  let ty = XMLRPC.From.string (API.To.vmpp_archive_target_type archive_target_type) in
+  let ty = XMLRPC.From.string (API.Legacy.To.vmpp_archive_target_type archive_target_type) in
   let archive_target_config = assert_all_keys ~ty ~ks:archive_target_config_keys ~value:archive_target_config ~db:archive_target_config in
   archive_target_config
 
@@ -430,7 +430,7 @@ let assert_set_archive_frequency ~archive_frequency ~archive_target_type ~archiv
   |`none -> (
     match archive_frequency with
     |`never-> ([],[])
-    |_->err "archive_target_type" "" (XMLRPC.From.string (API.To.vmpp_archive_target_type archive_target_type))
+    |_->err "archive_target_type" "" (XMLRPC.From.string (API.Legacy.To.vmpp_archive_target_type archive_target_type))
     )
   |_ -> (
     match archive_frequency with
@@ -440,7 +440,7 @@ let assert_set_archive_frequency ~archive_frequency ~archive_target_type ~archiv
       (archive_target_config,[])
     | _ ->
       let archive_target_config = assert_archive_target_type_not_none ~archive_target_type ~archive_target_config in
-		  let ty = XMLRPC.From.string (API.To.vmpp_archive_frequency archive_frequency) in
+		  let ty = XMLRPC.From.string (API.Legacy.To.vmpp_archive_frequency archive_frequency) in
       let archive_schedule = assert_all_keys ~ty ~ks:archive_schedule_keys ~value:archive_schedule ~db:archive_schedule in
       (archive_target_config,archive_schedule)
     )
@@ -454,8 +454,8 @@ let assert_set_is_alarm_enabled ~is_alarm_enabled ~alarm_config =
     alarm_config
 
 let assert_frequency ~archive_frequency ~backup_frequency =
-  let a = XMLRPC.From.string (API.To.vmpp_archive_frequency archive_frequency) in
-  let b = XMLRPC.From.string (API.To.vmpp_backup_frequency backup_frequency) in
+  let a = XMLRPC.From.string (API.Legacy.To.vmpp_archive_frequency archive_frequency) in
+  let b = XMLRPC.From.string (API.Legacy.To.vmpp_backup_frequency backup_frequency) in
   if (more_frequent_than ~a ~b)
   then
     raise (Api_errors.Server_error (Api_errors.vmpp_archive_more_frequent_than_backup,[]))
@@ -611,9 +611,9 @@ let create ~__context ~name_label ~name_description ~is_policy_enabled
 
   assert_licensed ~__context;
   (* assert all provided field values, key names and key values are valid *)
-  let (_: (string*string) list) = assert_keys ~ty:(XMLRPC.From.string (API.To.vmpp_backup_frequency backup_frequency)) ~ks:backup_schedule_keys ~value:backup_schedule ~db:[] in
-  let (_: (string*string) list) = assert_keys ~ty:(XMLRPC.From.string (API.To.vmpp_archive_frequency archive_frequency)) ~ks:archive_schedule_keys ~value:archive_schedule ~db:[] in
-  let (_: (string*string) list) = assert_keys ~ty:(XMLRPC.From.string (API.To.vmpp_archive_target_type archive_target_type)) ~ks:archive_target_config_keys ~value:archive_target_config ~db:[] in
+  let (_: (string*string) list) = assert_keys ~ty:(XMLRPC.From.string (API.Legacy.To.vmpp_backup_frequency backup_frequency)) ~ks:backup_schedule_keys ~value:backup_schedule ~db:[] in
+  let (_: (string*string) list) = assert_keys ~ty:(XMLRPC.From.string (API.Legacy.To.vmpp_archive_frequency archive_frequency)) ~ks:archive_schedule_keys ~value:archive_schedule ~db:[] in
+  let (_: (string*string) list) = assert_keys ~ty:(XMLRPC.From.string (API.Legacy.To.vmpp_archive_target_type archive_target_type)) ~ks:archive_target_config_keys ~value:archive_target_config ~db:[] in
   let (_: (string*string) list) = assert_keys ~ty:(btype is_alarm_enabled) ~ks:alarm_config_keys ~value:alarm_config ~db:[] in
 
   (* assert inter-field constraints and fix values if possible *)

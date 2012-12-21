@@ -70,7 +70,7 @@ let localhost_handler rpc session_id vdi (req: Request.t) (s: Unix.file_descr) =
 			     raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O errors"]))
 		   )
 	    );
-	    TaskHelper.complete ~__context [];
+	    TaskHelper.complete ~__context None;
       with e ->
 	error "Caught exception: %s" (ExnHelper.string_of_exn e);
 	log_backtrace ();

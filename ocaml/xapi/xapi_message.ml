@@ -391,8 +391,8 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
 	   hasn't been written, we may want to also emit a del even, for
 	   consistency (since the reference for the message will never be
 	   valid again. *)
-	let xml = API.To.message_t message in
-	Xapi_event.event_add ~snapshot:xml "message" "add" (Ref.string_of _ref);
+	let rpc = API.rpc_of_message_t message in
+	Xapi_event.event_add ~snapshot:rpc "message" "add" (Ref.string_of _ref);
 	let (_: bool) = (!queue_push) name (message_to_string (_ref,message)) in
 	(*Xapi_event.event_add ~snapshot:xml "message" "del" (Ref.string_of _ref);*)
 
@@ -417,7 +417,7 @@ let destroy_real __context basefilename =
   List.iter (fun (dir,newpath) ->
 	Unixext.unlink_safe newpath) symlinks;
   Unixext.unlink_safe filename;
-  let xml = API.To.message_t message in
+  let rpc = API.rpc_of_message_t message in
 
   let gen = ref 0L in
 
@@ -437,7 +437,7 @@ let destroy_real __context basefilename =
 				ndeleted := 512)
 	  );
   cache_remove _ref;
-  Xapi_event.event_add ~snapshot:xml "message" "del" (Ref.string_of _ref)
+  Xapi_event.event_add ~snapshot:rpc "message" "del" (Ref.string_of _ref)
 
 let destroy ~__context ~self =
   (* Find the original message so we know where the symlinks will be *)

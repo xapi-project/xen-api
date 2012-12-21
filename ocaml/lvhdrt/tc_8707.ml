@@ -92,7 +92,7 @@ let vdi_create_for_snapshot = {
 
 (* parameters of all of the function call in this file *)
 type params = {
-	rpc: XMLRPC.xmlrpc -> XMLRPC.xmlrpc;
+	rpc: Rpc.call -> Rpc.response;
 	session: API.ref_session;
 	sr: API.ref_SR }
 
