@@ -20,7 +20,7 @@ let rpc_of_hostname host =
   fun xml -> 
 	  let open Xmlrpc_client in
 	  let http = xmlrpc ~version:"1.0" "/" in
-	  XML_protocol.rpc ~srcstr:"lvhdrt" ~dststr:"xapi" ~transport:(TCP(host, 80)) ~http xml
+	  XMLRPC_protocol.rpc ~srcstr:"lvhdrt" ~dststr:"xapi" ~transport:(TCP(host, 80)) ~http xml
 
 let _ =
   Arg.parse [

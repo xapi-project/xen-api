@@ -35,13 +35,13 @@ let is_session_arg arg =
   let converter = O.type_of_param arg in
   ((binding = "session_id") && (converter = "ref_session"))
 
-let from_xmlrpc arg =
+let from_rpc arg =
 	let binding = O.string_of_param arg in
 	let converter = O.type_of_param arg in
-	Printf.sprintf "let %s = From.%s \"%s\" %s in" binding converter binding binding
+	Printf.sprintf "let %s = %s_of_rpc %s_rpc in" binding converter binding
 
 let read_msg_parameter msg_parameter =
-  from_xmlrpc 
+  from_rpc 
  
 let debug msg args =
   if !enable_debugging
@@ -86,15 +86,19 @@ let operation (obj: obj) (x: message) =
     
   (* Result marshaller converts the result to a string for the Task table *)
   let result_marshaller = match x.msg_custom_marshaller, x.msg_result with
-    | true, _ -> "(fun x -> [ x ])"
-    | false, Some (ty,_) -> Printf.sprintf "(fun x -> [ To.%s x])" (OU.alias_of_ty ty)
-    | false, None -> "(fun x -> [])" in
+    | true, _ -> "(fun x -> x)"
+    | false, Some (ty,_) -> Printf.sprintf "(fun x -> rpc_of_%s x)" (OU.alias_of_ty ty)
+    | false, None -> "(fun _ -> Rpc.String \"\")" in
 
   let wire_name = DU.wire_name ~sync:true obj x in
   let alternative_wire_name = DU.alternative_wire_name ~sync:true obj x in
 
-  let string_args = if is_ctor then [O.string_of_param Client.session;"__structure"]
-    else List.map O.string_of_param args_without_default_values in
+  let orig_string_args = 
+	  if is_ctor then [O.string_of_param Client.session;"__structure"]
+	  else List.map O.string_of_param args_without_default_values in
+
+  let string_args = List.map (fun s -> Printf.sprintf "%s_rpc" s) orig_string_args in
+
   let is_non_constructor_with_defaults = not is_ctor && (has_default_args x.DT.msg_params) in
   let arg_pattern = String.concat "::" string_args in
   let arg_pattern =
@@ -109,18 +113,17 @@ let operation (obj: obj) (x: message) =
     let fields = Client.ctor_fields obj in
     let of_field f =
       let binding = O.string_of_param (Client.param_of_field f) in
-      let converter = "From." ^ (OU.alias_of_ty f.DT.ty) in
+      let converter = Printf.sprintf "%s_of_rpc" (OU.alias_of_ty f.DT.ty) in
       let lookup_expr =
 	match f.DT.default_value with
 	  None -> Printf.sprintf "(my_assoc \"%s\" __structure)" (DU.wire_name_of_field f)
 	| Some default ->
 	    Printf.sprintf "(if (List.mem_assoc \"%s\" __structure) then (my_assoc \"%s\" __structure) else %s)"
 	      (DU.wire_name_of_field f) (DU.wire_name_of_field f)
-	      ("Xml.parse_string (\""^(Xml.to_string (Datamodel_values.to_xml default))^"\")") in
-      Printf.sprintf "let %s = %s \"%s\" %s in"
-	binding converter binding lookup_expr in
-    String.concat "\n"
-      ("let __structure = From.structure __structure in" ::
+	      (Datamodel_values.to_ocaml_string default) in
+      Printf.sprintf "        let %s = %s %s in" binding converter lookup_expr in
+      String.concat "\n"
+      ("let __structure = match __structure_rpc with Dict d -> d | _ -> failwith \"bad __structure\" in" ::
 	 (List.map of_field fields)) in
     
   (* impl_fn = something like "VM.make ~__context" *)
@@ -155,7 +158,7 @@ let operation (obj: obj) (x: message) =
   in
   let rbac_check_begin = if has_session_arg
     then [
-			"let arg_names = "^(List.fold_right (fun arg args -> "\""^arg^"\"::"^args) string_args (if is_non_constructor_with_defaults then ((List.fold_right (fun dp ss->"\""^(dp.DT.param_name)^"\"::"^ss) msg_params_with_default_values "")^"[]") else "[]"))^" in";
+			"let arg_names = "^(List.fold_right (fun arg args -> "\""^arg^"\"::"^args) orig_string_args (if is_non_constructor_with_defaults then ((List.fold_right (fun dp ss->"\""^(dp.DT.param_name)^"\"::"^ss) msg_params_with_default_values "")^"[]") else "[]"))^" in";
 			"let key_names = "^(List.fold_right (fun arg args -> "\""^arg^"\"::"^args) (List.map (fun (k,_)->k) x.msg_map_keys_roles) "[]")^" in";
 			"let rbac __context fn = Rbac.check session_id __call ~args:(arg_names,__params) ~keys:key_names ~__context ~fn in"]
     else [
@@ -166,10 +169,10 @@ let operation (obj: obj) (x: message) =
   let unmarshall_code =
     (
       (* If we're a constructor then unmarshall all the fields from the constructor record, passed as a struct *)
-      if is_ctor then [from_xmlrpc Client.session; from_ctor_record]
+      if is_ctor then [from_rpc Client.session; from_ctor_record]
 	(* Otherwise, go read non-default fields from pattern match; if we have default fields then we need to
 	   get those from the 'default_fields' arg *)
-      else  List.map from_xmlrpc args_without_default_values)
+      else  List.map from_rpc args_without_default_values)
 
     (* and for every default value we try to get this from default_args or default it *)
     @ (
@@ -182,9 +185,9 @@ let operation (obj: obj) (x: message) =
 	     match default_param.DT.param_default with
 	       None -> "** EXPECTED DEFAULT VALUE IN THIS PARAM **"
 	     | Some default ->
-		 "Xml.parse_string (\""^(Xml.to_string (Datamodel_values.to_xml default))^"\")" in
-	   Printf.sprintf "let %s = From.%s \"%s\" (try %s with _ -> %s) in"
-	     param_name param_type param_name try_and_get_default default_value
+		 Datamodel_values.to_ocaml_string default in
+	   Printf.sprintf "let %s = %s_of_rpc (try %s with _ -> %s) in"
+	     param_name param_type try_and_get_default default_value
 	)
 	(add_counts 1 msg_params_with_default_values))
   in
@@ -204,8 +207,6 @@ let operation (obj: obj) (x: message) =
 			in
 
 	let gen_body () =
-		let ret = match x.msg_result with Some(ty, _) -> Some ty | _ -> None in
-		let type_xml = Datamodel_types.TypeToXML.marshal ret in
 		let module_prefix = if (Gen_empty_custom.operation_requires_side_effect x) then _custom else _db_defaults in
 		let common_let_decs =
 			[
@@ -227,11 +228,10 @@ let operation (obj: obj) (x: message) =
 
 		let body_exp =
 			[
-				Printf.sprintf "let resp = Server_helpers.do_dispatch %s %s \"%s\" __async supports_async __call local_op marshaller fd http_req __label generate_task_for in"
+				Printf.sprintf "let resp = Server_helpers.do_dispatch %s %s __async supports_async __call local_op marshaller fd http_req __label generate_task_for in"
 				(if x.msg_session then "~session_id" else "")
-				(if Gen_empty_custom.operation_requires_side_effect x then "~forward_op" else "")
-				(Xml.to_string type_xml);
-				(*	"P.debug \"Server XML response: %s\" (Xml.to_string (XMLRPC.To.methodResponse resp));"; *)
+				(if Gen_empty_custom.operation_requires_side_effect x then "~forward_op" else "");
+				(*	"P.debug \"Server RPC response: %s\" (Rpc.to_string (resp.Rpc.contents));"; *)
 				"resp"
 			] in
 		common_let_decs @ side_effect_let_decs @ body_exp in
@@ -275,16 +275,15 @@ let gen_module api : O.Module.t =
     ~elements:[
       O.Module.Let (
 	O.Let.make
-	  ~name: "dispatch_xml"
+	  ~name: "dispatch_call"
 	  ~params: [ O.Anon(Some "http_req", "Http.Request.t"); 
 		     O.Anon(Some "fd", "Unix.file_descr");
-		     O.Anon(Some "xml", "xml") ]
+		     O.Anon(Some "call", "Rpc.call") ]
 	  ~ty: "response"
 	  ~body: (
 	    [ 
-	      "let __call, __params = From.methodCall xml in";
-	      "let __call, __params = transform __call __params in (* Potentially rewrite call, translating 'syntactic sugar' calls server-side  *) ";
-          "List.iter (fun p -> let s = Xml.to_string p in if not (Encodings.UTF8_XML.is_valid s) then"; 
+	      "let __call, __params = call.Rpc.name, call.Rpc.params in";
+          "List.iter (fun p -> let s = Rpc.to_string p in if not (Encodings.UTF8_XML.is_valid s) then"; 
           "raise (Api_errors.Server_error(Api_errors.invalid_value, [\"Invalid UTF-8 string in parameter\"; s])))  __params;";
 	      "let __async = Server_helpers.is_async __call in";
 	      "let __label = __call in";
@@ -299,16 +298,16 @@ let gen_module api : O.Module.t =
 	      "Server_helpers.dispatch_exn_wrapper (fun () -> (match __call with ";
 	    ] @ (List.flatten (List.map obj all_objs)) @ [
 		"| \"system.listMethods\" -> ";
-		"  XMLRPC.Raw [ To.string_set [" ] @
+		"  success (rpc_of_string_set [" ] @
 		begin 
 		  let objmsgs obj = List.map (fun msg -> Printf.sprintf "\"%s\";" (DU.wire_name ~sync:true obj msg)) obj.messages in
 		  let allmsg = List.map (fun obj -> String.concat "" (objmsgs obj)) all_objs in
 		  allmsg
 		end @ [
-			" ]]";
+			" ])";
 			"| func -> ";
 			"  if (try Scanf.sscanf func \"system.isAlive:%s\" (fun _ -> true) with _ -> false)";
-			"  then XMLRPC.Success __params";
+			"  then Rpc.success (Rpc.Bool true)";
 			"  else begin";
 			"    if (try Scanf.sscanf func \"unknown-message-%s\" (fun _ -> false) with _ -> true)";
 			"    then " ^ (debug "Unknown rpc \"%s\"" [ "__call" ]);
@@ -328,8 +327,8 @@ let gen_module api : O.Module.t =
 					  ]
 				 ~ty: "unit"
 				 ~body: [
-					  "let xml = Xml.parse_string body in";
-					  "  dispatch_xml http_req fd xml"
+					  "let call = Xmlrpc.call_of_string body in";
+					  "  dispatch_call http_req fd call"
 					] ())
 	      ] ()
 

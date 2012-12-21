@@ -144,8 +144,8 @@ open Client
 (** HTTP header type used for streaming binary data *)
 let content_type = Http.Hdr.content_type ^ ": application/octet-stream"
 
-let xmlrpc_of_checksum_table table = API.To.string_to_string_map table
-let checksum_table_of_xmlrpc xml = API.From.string_to_string_map "" xml
+let xmlrpc_of_checksum_table table = API.Legacy.To.string_to_string_map table
+let checksum_table_of_xmlrpc xml = API.Legacy.From.string_to_string_map "" xml
 
 let compare_checksums a b = 
   let success = ref true in
@@ -199,7 +199,7 @@ let find_host_for_VM ~__context vm =
   Xapi_vm_helpers.choose_host ~__context ~vm:vm ~choose_fn:(Xapi_vm_helpers.assert_can_see_SRs ~__context ~self:vm) ()
 
 (* On any import error, we try to cleanup the bits we have created *)
-type cleanup_stack = (Context.t -> (Xml.xml -> Xml.xml) -> API.ref_session -> unit) list
+type cleanup_stack = (Context.t -> (Rpc.call -> Rpc.response) -> API.ref_session -> unit) list
 
 let cleanup (x: cleanup_stack) = 
   (* Always perform the cleanup with a fresh login + context to prevent problems with

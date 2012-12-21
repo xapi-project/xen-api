@@ -24,7 +24,7 @@ module Int64Map = Map.Make(struct type t = int64 let compare = compare end)
 
 type appliance_operation = {
 	name : string;
-	vm_operation : (API.ref_VM -> (Xml.xml -> Xml.xml) -> API.ref_session -> API.ref_task);
+	vm_operation : (API.ref_VM -> (Rpc.call -> Rpc.response) -> API.ref_session -> API.ref_task);
 	required_state : API.vm_power_state;
 }
 

@@ -17,7 +17,7 @@
 
 type op =        
     Cli_printer.print_fn ->
-      (Xml.xml -> Xml.xml) ->
+      (Rpc.call -> Rpc.response) ->
       API.ref_session -> ((string*string) list) -> unit
 
 type imp = 

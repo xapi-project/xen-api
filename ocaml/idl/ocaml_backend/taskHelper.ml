@@ -126,23 +126,14 @@ let set_external_pid ~__context pid =
 
 let clear_external_pid ~__context = set_external_pid ~__context (-1)
 
-let set_result_on_task ~__context task_id (result: Xml.xml list) = 
-  (* Extract the result: must be either a void or a reference for now *)
-  match result with
-  | [] -> () (* void *)
-  | [ x ] -> 
-      begin try
-	Db_actions.DB_Action.Task.set_result ~__context ~self:task_id ~value:(Xml.to_string x)
-      with e ->
-	warn "unable to store task result (not a unit or void): %s (got exn %s)" (Xml.to_string x) (Printexc.to_string e)
-      end
-  | xs -> 
-      warn "taskHelper.complete received something other than a single string result value: [ %s ]" (String.concat "; " (List.map Xml.to_string xs));
-      Db_actions.DB_Action.Task.set_result ~__context ~self:task_id ~value:""
-  
+let set_result_on_task ~__context task_id result =
+	match result with
+	| None   -> ()
+	| Some x -> Db_actions.DB_Action.Task.set_result ~__context ~self:task_id ~value:(Xmlrpc.to_string x)
+
 
 (** Only set the result without completing the task. Useful for vm import *)
-let set_result ~__context (result: Xml.xml list) = 
+let set_result ~__context result = 
   operate_on_db_task ~__context
     (fun t -> set_result_on_task ~__context t result)
 
@@ -153,7 +144,7 @@ let status_to_string = function
 	| `cancelling -> "cancelling"
 	| `cancelled -> "cancelled"
 
-let complete ~__context (result: Xml.xml list) =
+let complete ~__context result =
   operate_on_db_task ~__context
     (fun self ->
 		let status = Db_actions.DB_Action.Task.get_status ~__context ~self in

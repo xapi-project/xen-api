@@ -133,7 +133,7 @@ let event_add ?snapshot ty op reference  =
 
 	Mutex.execute event_lock
 	(fun () ->
-		let ev = { id = !id; ts = ts; ty = String.lowercase ty; op = op; reference = reference; 
+		let ev = { id = Int64.to_string !id; ts = string_of_float ts; ty = String.lowercase ty; op = op; reference = reference; 
 			   snapshot = snapshot } in
 
 		let matches_anything = Hashtbl.fold
@@ -159,7 +159,7 @@ let event_add ?snapshot ty op reference  =
 		queue := to_keep;
 		(* Remember the highest ID of the list of events to drop *)
 		if to_drop <> [] then
-		highest_forgotten_id := (List.hd to_drop).id;
+		highest_forgotten_id := Int64.of_string (List.hd to_drop).id;
 		(* debug "After event queue GC: keeping %d; dropping %d (highest dropped id = %Ld)" 
 		  (List.length to_keep) (List.length to_drop) !highest_forgotten_id *)
 	)
@@ -249,7 +249,7 @@ let wait2 subscription from_id =
 (** Internal function to return a list of events between a start and an end ID. 
     We assume that our 64bit counter never wraps. *)
 let events_read id_start id_end =
-	let check_ev ev = id_start <= ev.id && ev.id < id_end in
+	let check_ev ev = id_start <= Int64.of_string ev.id && Int64.of_string ev.id < id_end in
 
 	let some_events_lost = ref false in
 	let selected_events = Mutex.execute event_lock
@@ -297,7 +297,7 @@ let rec next ~__context =
 	let relevant = List.filter (fun ev -> event_matches subs ev) events in
 	(* debug "number of relevant events = %d" (List.length relevant); *)
 	if relevant = [] then next ~__context 
-	else XMLRPC.To.array (List.map xmlrpc_of_event relevant)
+	else rpc_of_events relevant
 
 let from ~__context ~classes ~token ~timeout = 
 	let from, from_t = 
@@ -372,15 +372,15 @@ let from ~__context ~classes ~token ~timeout =
 
 	let event_of op ?snapshot (table, objref, time) =
 		{
-			id=time;
-			ts=0.0;
+			id=Int64.to_string time;
+			ts="0.0";
 			ty=String.lowercase table;
 			op=op;
 			reference=objref;
 			snapshot=snapshot
 		} in
 	let delevs = List.fold_left (fun acc x ->
-		let ev = event_of Del x in
+		let ev = event_of `del x in
 		if event_matches sub.subs ev then ev::acc else acc
 	) [] deletes in
 
@@ -388,7 +388,7 @@ let from ~__context ~classes ~token ~timeout =
 		let serialiser = Eventgen.find_get_record table in
 		try 
 			let xml = serialiser ~__context ~self:objref () in
-			let ev = event_of Mod ?snapshot:xml (table, objref, mtime) in
+			let ev = event_of `_mod ?snapshot:xml (table, objref, mtime) in
 			if event_matches sub.subs ev then ev::acc else acc
 		with _ -> acc
 	) delevs mods in
@@ -397,15 +397,15 @@ let from ~__context ~classes ~token ~timeout =
 		let serialiser = Eventgen.find_get_record table in
 		try 
 			let xml = serialiser ~__context ~self:objref () in
-			let ev = event_of Add ?snapshot:xml (table, objref, ctime) in
+			let ev = event_of `add ?snapshot:xml (table, objref, ctime) in
 			if event_matches sub.subs ev then ev::acc else acc
 		with _ -> acc
 	) modevs creates in
 	
 	let message_events = List.fold_left (fun acc mev ->
 		let event = match mev with 
-			| MCreate (_ref,message) -> event_of Add ?snapshot:(Some (API.To.message_t message)) ("message", Ref.string_of _ref, 0L)
-			| MDel _ref -> event_of Del ("message",Ref.string_of _ref, 0L)
+			| MCreate (_ref,message) -> event_of `add ?snapshot:(Some (API.rpc_of_message_t message)) ("message", Ref.string_of _ref, 0L)
+			| MDel _ref -> event_of `del ("message",Ref.string_of _ref, 0L)
 		in
 		event::acc) createevs messages in
 
@@ -426,17 +426,17 @@ let from ~__context ~classes ~token ~timeout =
 		valid_ref_counts = valid_ref_counts;
 		token = Token.to_string (last,msg_gen);
 	} in
-	xmlrpc_of_event_from result
+	rpc_of_event_from result
 
 let get_current_id ~__context = Mutex.execute event_lock (fun () -> !id)
 
-let inject ~__context ~_class ~ref =
+let inject ~__context ~_class ~_ref =
 	let open Db_cache_types in
 	let generation : int64 = Db_lock.with_lock
 		(fun () ->
 			let db_ref = Db_backend.make () in
 			let g = Manifest.generation (Database.manifest (Db_ref.get_database db_ref)) in
-			Db_cache_impl.refresh_row db_ref _class ref; (* consumes this generation *)
+			Db_cache_impl.refresh_row db_ref _class _ref; (* consumes this generation *)
 			g
 		) in
 	let token = Int64.sub generation 1L, 0L in
@@ -455,8 +455,8 @@ let heartbeat ~__context =
 		   match pool with
 		   | Some pool ->
 				 let pool_r = Db.Pool.get_record ~__context ~self:pool in
-				 let pool_xml = API.To.pool_t pool_r in
-				 event_add ~snapshot:pool_xml "pool" "mod" (Ref.string_of pool)
+				 let pool_rpc = API.rpc_of_pool_t pool_r in
+				 event_add ~snapshot:pool_rpc "pool" "mod" (Ref.string_of pool)
 		   | None -> () (* no pool object created during initial boot *)
       )
   with e ->

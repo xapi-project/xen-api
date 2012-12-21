@@ -550,7 +550,7 @@ let print_field x =
 	(x.name ^ append ^ (if x.deprecated then " [DEPRECATED]" else ""), result)
 
 type printer = Cli_printer.print_fn
-type rpc = (Xml.xml -> Xml.xml)
+type rpc = (Rpc.call -> Rpc.response)
 type params = (string * string) list
 
 (* Check the params for "database:vdi-uuid=" - if this parameter is present, *)
@@ -1641,7 +1641,7 @@ let event_wait_gen rpc session_id classname record_matches =
 				try
 					while true do
 						try
-							let events = Event_types.events_of_xmlrpc (Client.Event.next ~rpc ~session_id) in
+							let events = Event_types.events_of_rpc (Client.Event.next ~rpc ~session_id) in
 							let doevent event =
 								let tbl = match Event_helper.record_of_event event with
 									| Event_helper.VM (r,Some x) -> let record = vm_record rpc session_id r in record.setrefrec (r,x); record.fields
@@ -2487,7 +2487,7 @@ let vm_migrate printer rpc session_id params =
 			let remote_rpc xml =
 				let open Xmlrpc_client in
 				let http = xmlrpc ~version:"1.0" "/" in
-				XML_protocol.rpc ~srcstr:"cli" ~dststr:"dst_xapi" ~transport:(SSL(SSL.make ~use_fork_exec_helper:false (), ip, 443)) ~http xml in
+				XMLRPC_protocol.rpc ~srcstr:"cli" ~dststr:"dst_xapi" ~transport:(SSL(SSL.make ~use_fork_exec_helper:false (), ip, 443)) ~http xml in
 			let username = List.assoc "remote-username" params in
 			let password = List.assoc "remote-password" params in
 			let remote_session = Client.Session.login_with_password remote_rpc username password "1.3" in
@@ -3158,7 +3158,7 @@ let vm_import fd printer rpc session_id params =
 										| `success ->
 												if stream_ok then
 													let result = Client.Task.get_result rpc session_id importtask in
-													let vmrefs = API.From.ref_VM_set "" (Xml.parse_string result) in
+													let vmrefs = API.Legacy.From.ref_VM_set "" (Xml.parse_string result) in
 													let uuids = List.map (fun vm -> Client.VM.get_uuid rpc session_id vm) vmrefs in
 													marshal fd (Command (Print (String.concat "," uuids)))
 												else
@@ -3210,7 +3210,7 @@ let vm_import fd printer rpc session_id params =
 							Some (Client.Task.get_by_uuid rpc session_id (List.assoc "task-uuid" params))
 						else None (* track_http_operation will create one for us *) in
 					let result = track_http_operation ?use_existing_task:importtask fd rpc session_id make_command "VM import" in
-					let vmrefs = API.From.ref_VM_set "" (Xml.parse_string result) in
+					let vmrefs = API.Legacy.From.ref_VM_set "" (Xml.parse_string result) in
 					let uuids = List.map (fun vm -> Client.VM.get_uuid rpc session_id vm) vmrefs in
 					marshal fd (Command (Print (String.concat "," uuids)))
 			| _ -> failwith "Thin CLI protocol error"
@@ -4250,15 +4250,15 @@ let vmpp_create printer rpc session_id params =
 		api_from_type param_name (xmlrpc_to_type (get ?default param_name))
 	in
 	let name_label = List.assoc "name-label" params in
-	let backup_type = map "backup-type" XMLRPC.To.string API.From.vmpp_backup_type in
-	let backup_frequency = map "backup-frequency" XMLRPC.To.string API.From.vmpp_backup_frequency in
+	let backup_type = map "backup-type" XMLRPC.To.string API.Legacy.From.vmpp_backup_type in
+	let backup_frequency = map "backup-frequency" XMLRPC.To.string API.Legacy.From.vmpp_backup_frequency in
 	let backup_schedule = read_map_params "backup-schedule" params in
 	(* optional parameters with default values *)
 	let name_description = get "name-description" ~default:"" in
 	let is_policy_enabled = Record_util.bool_of_string(get "is-policy-enabled" ~default:"true") in
-	let backup_retention_value = map "backup-retention-value" ~default:"7" XMLRPC.To.string API.From.int64 in
-	let archive_frequency = map "archive-frequency" ~default:"never" XMLRPC.To.string API.From.vmpp_archive_frequency in
-	let archive_target_type = map "archive-target-type" ~default:"none" XMLRPC.To.string API.From.vmpp_archive_target_type in
+	let backup_retention_value = map "backup-retention-value" ~default:"7" XMLRPC.To.string API.Legacy.From.int64 in
+	let archive_frequency = map "archive-frequency" ~default:"never" XMLRPC.To.string API.Legacy.From.vmpp_archive_frequency in
+	let archive_target_type = map "archive-target-type" ~default:"none" XMLRPC.To.string API.Legacy.From.vmpp_archive_target_type in
 	let archive_target_config = read_map_params "archive-target-config" params in
 	let archive_schedule = read_map_params "archive-schedule" params in
 	let is_alarm_enabled = Record_util.bool_of_string(get "is-alarm-enabled" ~default:"false") in

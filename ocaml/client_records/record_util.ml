@@ -431,6 +431,16 @@ let on_boot_to_string onboot =
 		| `reset -> "reset"
 		| `persist -> "persist"
 
+let rpc_to_string = function | Rpc.String s -> s | _ -> failwith "Bad RPC type in record_util"
+let backup_type_to_string t = rpc_to_string (API.rpc_of_vmpp_backup_type t)
+let string_to_backup_type s = API.vmpp_backup_type_of_rpc (Rpc.String s)
+let backup_frequency_to_string t = rpc_to_string (API.rpc_of_vmpp_backup_frequency t)
+let string_to_backup_frequency s = API.vmpp_backup_frequency_of_rpc (Rpc.String s)
+let archive_frequency_to_string t = rpc_to_string (API.rpc_of_vmpp_archive_frequency t)
+let string_to_archive_frequency s = API.vmpp_archive_frequency_of_rpc (Rpc.String s)
+let archive_target_type_to_string t = rpc_to_string (API.rpc_of_vmpp_archive_target_type t)
+let string_to_archive_target_type s = API.vmpp_archive_target_type_of_rpc (Rpc.String s)
+
 (** Parse a string which might have a units suffix on the end *)
 let bytes_of_string field x =
   let isdigit c = c >= '0' && c <= '9' in
