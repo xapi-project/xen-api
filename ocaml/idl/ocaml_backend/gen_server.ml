@@ -307,7 +307,7 @@ let gen_module api : O.Module.t =
 			" ])";
 			"| func -> ";
 			"  if (try Scanf.sscanf func \"system.isAlive:%s\" (fun _ -> true) with _ -> false)";
-			"  then Rpc.success (Rpc.Bool true)";
+			"  then Rpc.success (List.hd __params)";
 			"  else begin";
 			"    if (try Scanf.sscanf func \"unknown-message-%s\" (fun _ -> false) with _ -> true)";
 			"    then " ^ (debug "Unknown rpc \"%s\"" [ "__call" ]);
