@@ -18,7 +18,7 @@
 open Client
 open Vmopshelpers
 open Xenstore
-
+open Listext
 open Client
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
@@ -178,6 +178,28 @@ let checkpoint ~__context ~vm ~new_name =
 			try
 				(* Save the state of the vm *)
 				snapshot_info := Xapi_vm_clone.snapshot_info ~power_state ~is_a_snapshot:true;
+				
+				(* Get all the VM's VDI's except CD's *)
+				let vbds = Db.VM.get_VBDs ~__context ~self:vm in
+				let vbds = List.filter (fun x -> Db.VBD.get_type ~__context ~self:x <> `CD) vbds in
+				let vdis = List.map (fun self -> Db.VBD.get_VDI ~__context ~self) vbds in
+
+				(* Get SR of each VDI *)
+				let vdi_sr = List.filter_map (fun vdi -> try Some (Db.VDI.get_SR ~__context ~self:vdi) with _ -> None) vdis in
+				let vdi_sr = List.setify vdi_sr in
+				let sr_records = List.map (fun self -> Db.SR.get_record_internal ~__context ~self) vdi_sr in
+
+				(* Check if SR has snapshot capability *)
+				let sr_has_snapshot_capability sr = 
+					if not (List.mem Smint.Vdi_snapshot (Xapi_sr_operations.capabilities_of_sr sr)) then false
+					else true
+				in
+
+				List.iter
+					(fun sr ->
+						if not (sr_has_snapshot_capability sr)
+						then raise (Api_errors.Server_error (Api_errors.sr_operation_not_supported, [Ref.string_of vm])) )
+				sr_records ;
 				(* suspend the VM *)
 				Xapi_xenops.suspend ~__context ~self:vm;
 			with
