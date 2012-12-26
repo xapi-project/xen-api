@@ -13,33 +13,15 @@
  *)
 
 open Memory_interface
-open Xmlrpc_client
+open Xenops_utils
 
-module D = Debug.Debugger(struct let name = "memory_client" end)
+module D = Debug.Make(struct let name = "memory_client" end)
 open D
-module E = Debug.Debugger(struct let name = "mscgen" end)
+module E = Debug.Make(struct let name = "mscgen" end)
 
-let json_uri = "file:" ^ json_path
-let json_url = json_uri |> Http.Url.of_string
+let json_url () = "file:" ^ json_path
 
-(* Use a binary 16-byte length to frame RPC messages *)
-let binary_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset") url (call: Rpc.call) : Rpc.response =
-	E.debug "%s=>%s [label=\"%s\"];" srcstr dststr call.Rpc.name;
-	let transport = transport_of_url url in
-	with_transport transport
-		(fun fd ->
-			let msg_buf = string_of_call call in
-			let len = Printf.sprintf "%016d" (String.length msg_buf) in
-			Unixext.really_write_string fd len;
-			Unixext.really_write_string fd msg_buf;
-			let len_buf = Unixext.really_read_string fd 16 in
-			let len = int_of_string len_buf in
-			let msg_buf = Unixext.really_read_string fd len in
-			let (response: Rpc.response) = response_of_string msg_buf in
-			response
-		)
-
-let json_binary_rpc = binary_rpc Jsonrpc.string_of_call Jsonrpc.response_of_string
+let json_binary_rpc = Xenops_client.binary_rpc Jsonrpc.string_of_call Jsonrpc.response_of_string
 
 module Client = Memory_interface.Client(struct let rpc = json_binary_rpc ~srcstr:"xenops" ~dststr:"squeezed" json_url end)
 

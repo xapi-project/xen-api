@@ -43,7 +43,7 @@ Executable xenopsd_xen
   Build$:             flag(xen)
   Custom:             true
   Install:            false
-  BuildDepends:       xenops, xenstore_transport.unix
+  BuildDepends:       xenops, xenstore_transport.unix, rpclib
 
 Executable xenopsd_simulator
   CompiledObject:     best
