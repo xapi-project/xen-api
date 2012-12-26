@@ -33,6 +33,8 @@ let persist = ref true
 let daemon = ref false
 let worker_pool_size = ref 4
 
+let hotplug_timeout = ref 300.
+
 let config_spec = [
 	"sockets-path", Arg.Set_string sockets_path, "Directory to create listening sockets";
     "pidfile", Arg.Set_string pidfile, "Location to store the process pid";
@@ -48,7 +50,8 @@ let config_spec = [
         ), "A space-separated list of debug modules to suppress logging from";
     "worker-pool-size", Arg.Set_int worker_pool_size, "Number of threads for the worker pool";
     "database-path", Arg.Set_string Xenops_utils.root, "Location to store the metadata";
-	"config", Arg.Set_string config_file, "Location of configuration file";
+    "config", Arg.Set_string config_file, "Location of configuration file";
+    "hotplug_timeout", Arg.Set_float hotplug_timeout, "Time before we assume hotplug scripts have failed";
 ]
 
 let arg_spec = List.map (fun (a, b, c) -> "-" ^ a, b, c) config_spec
