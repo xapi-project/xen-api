@@ -22,6 +22,7 @@ let client = Client.make ()
 type domid = int
 
 module Xs = struct
+	type domid = int
 
 	type xsh = {
 (*
