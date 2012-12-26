@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Fun
 open Memory_interface
 open Xmlrpc_client
 

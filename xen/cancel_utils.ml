@@ -12,15 +12,13 @@
  * GNU Lesser General Public License for more details.
  *)
 open Printf
-open Stringext
-open Hashtblext
 open Xenops_utils
 open Xenstore
 open Xenops_helpers
 open Xenops_task
 open Device_common
 
-module D = Debug.Debugger(struct let name = "xenops" end)
+module D = Debug.Make(struct let name = "xenops" end)
 open D
 
 type key =
@@ -99,6 +97,15 @@ let cancellable_watch key good_watches error_watches (task: Xenops_task.t) ~xs ~
 				)
 		)
 
+let really_write fd string off n =
+        let written = ref 0 in
+        while !written < n
+        do
+                let wr = Unix.write fd string (off + !written) (n - !written) in
+                written := wr + !written
+        done
+
+
 open Forkhelpers
 let cancellable_subprocess (task: Xenops_task.t) ?env ?stdin ?(syslog_stdout=NoSyslogging) cmd args =
 	let stdinandpipes = Opt.map (fun str -> 
@@ -106,7 +113,7 @@ let cancellable_subprocess (task: Xenops_task.t) ?env ?stdin ?(syslog_stdout=NoS
 		(str,x,y)) stdin in
 	(* Used so that cancel -> kills subprocess -> Unix.WSIGNALED -> raise cancelled *)
 	let cancelled = ref false in
-	Pervasiveext.finally (fun () -> 
+	finally (fun () -> 
 		match with_logfile_fd "execute_command_get_out" (fun out_fd ->
 			with_logfile_fd "execute_command_get_err" (fun err_fd ->
 				let t = safe_close_and_exec ?env (Opt.map (fun (_,fd,_) -> fd) stdinandpipes) (Some out_fd) (Some err_fd) [] ~syslog_stdout cmd args in
@@ -121,7 +128,7 @@ let cancellable_subprocess (task: Xenops_task.t) ?env ?stdin ?(syslog_stdout=NoS
 								try Unix.kill pid' Sys.sigkill with _ -> ()
 							)
 							(fun () ->
-								Opt.iter (fun (str,_,wr) -> Unixext.really_write_string wr str) stdinandpipes;
+								Opt.iter (fun (str,_,wr) -> really_write wr str 0 (String.length str)) stdinandpipes;
 								done_waitpid := true;
 								snd (Forkhelpers.waitpid t)
 							)
