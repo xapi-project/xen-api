@@ -17,8 +17,9 @@ open Xenops_task
 open Device_common
 open Xenstore
 open Cancel_utils
+open Xenops_utils
 
-module D = Debug.Debugger(struct let name = "hotplug" end)
+module D = Debug.Make(struct let name = "hotplug" end)
 open D
 
 
