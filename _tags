@@ -145,6 +145,7 @@
 # OASIS_STOP
 <lib/device_number.ml>: syntax_camlp4o, pkg_rpclib.syntax
 <lib/xenops_interface.ml>: syntax_camlp4o, pkg_rpclib.idl
+<xen/memory_interface.ml>: syntax_camlp4o, pkg_rpclib.idl
 <cli/xn_cfg_types.ml>: syntax_camlp4o, pkg_rpclib.syntax
 <lib/xenops_migrate.ml>: syntax_camlp4o, pkg_rpclib.syntax
 <lib/xenops_hooks.ml>: syntax_camlp4o, pkg_rpclib.syntax
