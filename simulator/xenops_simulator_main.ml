@@ -59,7 +59,7 @@ let _ =
   Xenops_server.set_backend (Some (module Xenops_server_simulator: Xenops_server_plugin.S));
 
   Debug.with_thread_associated "main" start sockets;
-  Xenops_task.Updates.Scheduler.start ();
+  Scheduler.start ();
   Xenops_server.WorkerPool.start !worker_pool_size;
   while true do
 	  try

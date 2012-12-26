@@ -1884,7 +1884,7 @@ module Diagnostics = struct
 	type t = {
 		queues: Redirector.Dump.t;
 		workers: WorkerPool.Dump.t;
-		scheduler: Updates.Scheduler.Dump.t;
+		scheduler: Scheduler.Dump.t;
 		updates: Updates.Dump.t;
 		tasks: WorkerPool.Dump.task list;
 		vm_actions: (string * domain_action_request option) list;
@@ -1894,7 +1894,7 @@ module Diagnostics = struct
 		let module B = (val get_backend (): S) in {
 			queues = Redirector.Dump.make ();
 			workers = WorkerPool.Dump.make ();
-			scheduler = Updates.Scheduler.Dump.make ();
+			scheduler = Scheduler.Dump.make ();
 			updates = Updates.Dump.make updates;
 			tasks = List.map WorkerPool.Dump.of_task (Xenops_task.list tasks);
 			vm_actions = List.filter_map (fun id -> match VM_DB.read id with

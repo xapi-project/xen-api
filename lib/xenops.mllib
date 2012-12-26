@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 9ac1924b8382b8ee2b1ee2dbae3993f6)
+# DO NOT EDIT (digest: 7200925b3b082ba3902872d8c02aa1c3)
 Fd_send_recv
 Config
 Ionice
@@ -17,4 +17,5 @@ Xenopsd
 Xenops_interface
 Xenops_server_plugin
 Device_number
+Scheduler
 # OASIS_STOP

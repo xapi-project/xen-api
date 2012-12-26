@@ -16,6 +16,9 @@ open Xenops_utils
 module D = Debug.Make(struct let name = "xenstore" end)
 open D
 
+module Client = Xs_client_unix.Client(Xs_transport_unix_client)
+let client = Client.make ()
+
 type domid = int
 
 module Xs = struct
@@ -50,6 +53,14 @@ module Xs = struct
 *)
 }
 
+    let ops h = {
+        read = Client.read h;
+        write = Client.write h;
+        rm = Client.rm h;
+        getdomainpath = Client.getdomainpath h;
+    }
+    let with_xs f = Client.with_xs client (fun h -> f (ops h))
+    let wait f = Client.wait client (fun h -> f (ops h))
 
 	let daemon_open _ = failwith "daemon_open"
 

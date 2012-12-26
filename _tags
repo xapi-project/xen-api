@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 260ffa667af31d1e3909109c24460965)
+# DO NOT EDIT (digest: fccdf1b8158564aaeddd284bed7cf83d)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -54,6 +54,7 @@
 <cli/xn.{native,byte,nobj.o}>: custom
 # Executable xenopsd_xen
 <xen/xenops_main.{native,byte,nobj.o}>: use_xenops
+<xen/xenops_main.{native,byte,nobj.o}>: pkg_xenstore_transport.unix
 <xen/xenops_main.{native,byte,nobj.o}>: pkg_uuidm
 <xen/xenops_main.{native,byte,nobj.o}>: pkg_syslog
 <xen/xenops_main.{native,byte,nobj.o}>: pkg_threads
@@ -63,6 +64,7 @@
 <xen/xenops_main.{native,byte,nobj.o}>: pkg_rpclib
 <xen/xenops_main.{native,byte,nobj.o}>: pkg_rpclib.syntax
 <xen/*.ml{,i}>: use_xenops
+<xen/*.ml{,i}>: pkg_xenstore_transport.unix
 <xen/*.ml{,i}>: pkg_uuidm
 <xen/*.ml{,i}>: pkg_syslog
 <xen/*.ml{,i}>: pkg_threads
@@ -149,5 +151,6 @@
 <lib/updates.ml>: syntax_camlp4o, pkg_rpclib.syntax
 <lib/xenops_server.ml>: syntax_camlp4o, pkg_rpclib.syntax
 <lib/xenops_server_plugin.ml>: syntax_camlp4o, pkg_rpclib.syntax
+<lib/scheduler.ml>: syntax_camlp4o, pkg_rpclib.syntax
 <simulator/xenops_server_simulator.ml>: syntax_camlp4o, pkg_rpclib.syntax
 <xen/xenops_server_xen.ml>: syntax_camlp4o, pkg_rpclib.syntax

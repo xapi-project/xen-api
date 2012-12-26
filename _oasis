@@ -23,7 +23,7 @@ Library xenops
   CompiledObject:     best
   Path:               lib
   Findlibname:        xenops
-  Modules:            Fd_send_recv, Config, Ionice, Mac, Cohttp_posix_io, Xenops_migrate, Xenops_hooks, Task_server, Xenops_task, Updates, Xenops_utils, Xenops_client, Xenops_server, Xenopsd, Xenops_interface, Xenops_server_plugin, Device_number
+  Modules:            Fd_send_recv, Config, Ionice, Mac, Cohttp_posix_io, Xenops_migrate, Xenops_hooks, Task_server, Xenops_task, Updates, Xenops_utils, Xenops_client, Xenops_server, Xenopsd, Xenops_interface, Xenops_server_plugin, Device_number, Scheduler
   CSources:           fd_send_recv_stubs.c
   BuildDepends:       syslog, threads, uuidm, xmlm, cohttp, uri, rpclib, rpclib.syntax
 
@@ -31,6 +31,7 @@ Executable xn
   CompiledObject:     best
   Path:               cli
   MainIs:             xn.ml
+  Build$:             flag(tests)
   Custom:             true
   Install:            false
   BuildDepends:       xenops, uuidm
@@ -42,7 +43,7 @@ Executable xenopsd_xen
   Build$:             flag(xen)
   Custom:             true
   Install:            false
-  BuildDepends:       xenops
+  BuildDepends:       xenops, xenstore_transport.unix
 
 Executable xenopsd_simulator
   CompiledObject:     best
