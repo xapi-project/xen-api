@@ -14,8 +14,9 @@
 (** Functions relating to memory requirements of Xen domains *)
 
 open Printf
+open Xenops_utils
 
-module D = Debug.Debugger(struct let name = "xenops" end)
+module D = Debug.Make(struct let name = "xenops" end)
 open D
 
 let ( +++ ) = Int64.add
