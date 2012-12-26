@@ -288,7 +288,7 @@ let shutdown ~xc ~xs domid req =
 	Xs.transaction xs
 		(fun t ->
 			 (* Fail if the directory has been deleted *)
-			 let domain_exists = try ignore (t.Xst.read domainpath); true with Xenbus.Xb.Noent -> false in
+			 let domain_exists = try ignore (t.Xst.read domainpath); true with Xs_protocol.Enoent _ -> false in
 			 if not domain_exists then raise Domain_does_not_exist;
 			 (* Delete the node if it already exists. NB: the guest may well still shutdown for the
 				previous reason... we only want to give it a kick again just in case. *)
@@ -458,7 +458,7 @@ let get_action_request ~xs domid =
 	let path = xs.Xs.getdomainpath domid ^ "/action-request" in
 	try
 		Some (xs.Xs.read path)
-	with Xenbus.Xb.Noent -> None
+	with Xs_protocol.Enoent _ -> None
 
 (** create store and console channels *)
 let create_channels ~xc uuid domid =

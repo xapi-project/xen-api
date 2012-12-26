@@ -65,13 +65,13 @@ let add_device ~xs device backend_list frontend_list private_list =
 			try
 				let (_: string) = t.Xst.read (sprintf "/local/domain/%d/vm" device.backend.domid) in
 				()
-			with Xenbus.Xb.Noent ->
+			with Xs_protocol.Enoent _ ->
 				raise (Device_backend_vanished device) in
 
 		begin try
 			ignore (t.Xst.read frontend_path);
 			raise (Device_frontend_already_connected device)
-		with Xenbus.Xb.Noent -> () end;
+		with Xs_protocol.Enoent _ -> () end;
 
 		t.Xst.rm frontend_path;
 		t.Xst.rm backend_path;
@@ -140,13 +140,13 @@ let exists ~xs (x: device) =
   try
     ignore_string(xs.Xs.read backend_stub);
     true
-  with Xenbus.Xb.Noent -> false
+  with Xs_protocol.Enoent _ -> false
 
 let assert_exists_t ~xs t (x: device) =
   let backend_stub = backend_path_of_device ~xs x in
   try
     ignore_string(t.Xst.read backend_stub)
-  with Xenbus.Xb.Noent -> raise Device_not_found
+  with Xs_protocol.Enoent _ -> raise Device_not_found
 
 (** When hot-unplugging a device we ask nicely *)
 let clean_shutdown_async ~xs (x: device) =
@@ -232,7 +232,7 @@ let wait_for_error_or ~xs ?(timeout=Hotplug.hotplug_timeout) doc predicate other
 	let finished = ref false and error = ref None in
 	let callback watch =
 		finished := predicate ();
-		error := (try Some (xs.Xs.read errorpath) with Xenbus.Xb.Noent -> None);
+		error := (try Some (xs.Xs.read errorpath) with Xs_protocol.Enoent _ -> None);
 		(* We return if the predicate is true of an error node has appeared *)
 		!finished || !error <> None in
 	begin try
@@ -766,7 +766,7 @@ let status ~xs ~devid domid =
 	| "online"  -> true
 	| "offline" -> false
 	| _         -> (* garbage, assuming false *) false
-	with Xenbus.Xb.Noent -> false
+	with Xs_protocol.Enoent _ -> false
 
 end
 
@@ -1271,7 +1271,7 @@ let wait_device_model (task: Xenops_task.t) ~xc ~xs domid =
 let read_pcidir ~xc ~xs domid = 
   let path = device_model_pci_device_path xs 0 domid in
   let prefix = "dev-" in
-  let all = List.filter (String.startswith prefix) (try xs.Xs.directory path with Xenbus.Xb.Noent -> []) in
+  let all = List.filter (String.startswith prefix) (try xs.Xs.directory path with Xs_protocol.Enoent _ -> []) in
   (* The values are the PCI device (domain, bus, dev, func) strings *)
   let device_number_of_string x =
     (* remove the silly prefix *)

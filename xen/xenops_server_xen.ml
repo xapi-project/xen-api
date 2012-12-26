@@ -1273,8 +1273,8 @@ module VM = struct
 						let tc = Opt.map (fun port -> { Vm.protocol = Vm.Vt100; port = port })
 							(Device.get_tc_port ~xs di.Xenctrl.domid) in
 						let local x = Printf.sprintf "/local/domain/%d/%s" di.Xenctrl.domid x in
-						let uncooperative = try ignore_string (xs.Xs.read (local "memory/uncooperative")); true with Xenbus.Xb.Noent -> false in
-						let memory_target = try xs.Xs.read (local "memory/target") |> Int64.of_string |> Int64.mul 1024L with Xenbus.Xb.Noent -> 0L in
+						let uncooperative = try ignore_string (xs.Xs.read (local "memory/uncooperative")); true with Xs_protocol.Enoent _ -> false in
+						let memory_target = try xs.Xs.read (local "memory/target") |> Int64.of_string |> Int64.mul 1024L with Xs_protocol.Enoent _ -> 0L in
 						let memory_actual =
 							let pages = Int64.of_nativeint di.Xenctrl.total_memory_pages in
 							let kib = Xenctrl.pages_to_kib pages in 
@@ -1290,7 +1290,7 @@ module VM = struct
 							(* CA-31764: may be larger than static_max if maxmem has been increased to initial-reservation. *)
 							max memory_actual max_memory_bytes in
 
-						let rtc = try xs.Xs.read (Printf.sprintf "/vm/%s/rtc/timeoffset" (Uuid.string_of_uuid uuid)) with Xenbus.Xb.Noent -> "" in
+						let rtc = try xs.Xs.read (Printf.sprintf "/vm/%s/rtc/timeoffset" (Uuid.string_of_uuid uuid)) with Xs_protocol.Enoent _ -> "" in
 						let rec ls_lR root dir =
 							let this = try [ dir, xs.Xs.read (root ^ "/" ^ dir) ] with _ -> [] in
 							let subdirs = try List.map (fun x -> dir ^ "/" ^ x) (xs.Xs.directory (root ^ "/" ^ dir)) with _ -> [] in
@@ -1648,7 +1648,7 @@ module VBD = struct
 							let kthread_pid = xs.Xs.read path |> int_of_string in
 							ionice qos kthread_pid
 						with
-							| Xenbus.Xb.Noent ->
+							| Xs_protocol.Enoent _ ->
 								(* This means the kthread-pid hasn't been written yet. We'll be called back later. *)
 								()
 							| e ->
@@ -2015,7 +2015,7 @@ let watch_xenstore () =
 				try
 					debug "xenstore unwatch %s" path;
 					xs.Xs.unwatch path path
-				with Xenbus.Xb.Noent ->
+				with Xs_protocol.Enoent _ ->
 					debug "xenstore unwatch %s threw Xb.Noent" path in
 
 			let add_domU_watches xs domid uuid =

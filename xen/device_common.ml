@@ -162,7 +162,7 @@ let parse_backend_link x =
 			end
 		| _ -> None
 
-let readdir ~xs d = try xs.Xs.directory d with Xenbus.Xb.Noent -> []
+let readdir ~xs d = try xs.Xs.directory d with Xs_protocol.Enoent _ -> []
 let to_list ys = List.concat (List.map Opt.to_list ys)
 let list_kinds ~xs dir = to_list (List.map parse_kind (readdir ~xs dir))
 
