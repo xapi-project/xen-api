@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 724e26da1355f7925f25541857a770ae)
+# DO NOT EDIT (digest: 260ffa667af31d1e3909109c24460965)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -22,26 +22,26 @@
 <lib/*.ml{,i}>: pkg_xmlm
 <lib/*.ml{,i}>: pkg_cohttp
 <lib/*.ml{,i}>: pkg_uri
-<lib/*.ml{,i}>: pkg_rpc
-<lib/*.ml{,i}>: pkg_rpc.syntax
+<lib/*.ml{,i}>: pkg_rpclib
+<lib/*.ml{,i}>: pkg_rpclib.syntax
 "lib/fd_send_recv_stubs.c": pkg_uuidm
 "lib/fd_send_recv_stubs.c": pkg_syslog
 "lib/fd_send_recv_stubs.c": pkg_threads
 "lib/fd_send_recv_stubs.c": pkg_xmlm
 "lib/fd_send_recv_stubs.c": pkg_cohttp
 "lib/fd_send_recv_stubs.c": pkg_uri
-"lib/fd_send_recv_stubs.c": pkg_rpc
-"lib/fd_send_recv_stubs.c": pkg_rpc.syntax
+"lib/fd_send_recv_stubs.c": pkg_rpclib
+"lib/fd_send_recv_stubs.c": pkg_rpclib.syntax
 # Executable xn
-<cli/xn.{native,byte}>: use_xenops
-<cli/xn.{native,byte}>: pkg_uuidm
-<cli/xn.{native,byte}>: pkg_syslog
-<cli/xn.{native,byte}>: pkg_threads
-<cli/xn.{native,byte}>: pkg_xmlm
-<cli/xn.{native,byte}>: pkg_cohttp
-<cli/xn.{native,byte}>: pkg_uri
-<cli/xn.{native,byte}>: pkg_rpc
-<cli/xn.{native,byte}>: pkg_rpc.syntax
+<cli/xn.{native,byte,nobj.o}>: use_xenops
+<cli/xn.{native,byte,nobj.o}>: pkg_uuidm
+<cli/xn.{native,byte,nobj.o}>: pkg_syslog
+<cli/xn.{native,byte,nobj.o}>: pkg_threads
+<cli/xn.{native,byte,nobj.o}>: pkg_xmlm
+<cli/xn.{native,byte,nobj.o}>: pkg_cohttp
+<cli/xn.{native,byte,nobj.o}>: pkg_uri
+<cli/xn.{native,byte,nobj.o}>: pkg_rpclib
+<cli/xn.{native,byte,nobj.o}>: pkg_rpclib.syntax
 <cli/*.ml{,i}>: use_xenops
 <cli/*.ml{,i}>: pkg_uuidm
 <cli/*.ml{,i}>: pkg_syslog
@@ -49,19 +49,19 @@
 <cli/*.ml{,i}>: pkg_xmlm
 <cli/*.ml{,i}>: pkg_cohttp
 <cli/*.ml{,i}>: pkg_uri
-<cli/*.ml{,i}>: pkg_rpc
-<cli/*.ml{,i}>: pkg_rpc.syntax
-<cli/xn.{native,byte}>: custom
+<cli/*.ml{,i}>: pkg_rpclib
+<cli/*.ml{,i}>: pkg_rpclib.syntax
+<cli/xn.{native,byte,nobj.o}>: custom
 # Executable xenopsd_xen
-<xen/xenops_main.{native,byte}>: use_xenops
-<xen/xenops_main.{native,byte}>: pkg_uuidm
-<xen/xenops_main.{native,byte}>: pkg_syslog
-<xen/xenops_main.{native,byte}>: pkg_threads
-<xen/xenops_main.{native,byte}>: pkg_xmlm
-<xen/xenops_main.{native,byte}>: pkg_cohttp
-<xen/xenops_main.{native,byte}>: pkg_uri
-<xen/xenops_main.{native,byte}>: pkg_rpc
-<xen/xenops_main.{native,byte}>: pkg_rpc.syntax
+<xen/xenops_main.{native,byte,nobj.o}>: use_xenops
+<xen/xenops_main.{native,byte,nobj.o}>: pkg_uuidm
+<xen/xenops_main.{native,byte,nobj.o}>: pkg_syslog
+<xen/xenops_main.{native,byte,nobj.o}>: pkg_threads
+<xen/xenops_main.{native,byte,nobj.o}>: pkg_xmlm
+<xen/xenops_main.{native,byte,nobj.o}>: pkg_cohttp
+<xen/xenops_main.{native,byte,nobj.o}>: pkg_uri
+<xen/xenops_main.{native,byte,nobj.o}>: pkg_rpclib
+<xen/xenops_main.{native,byte,nobj.o}>: pkg_rpclib.syntax
 <xen/*.ml{,i}>: use_xenops
 <xen/*.ml{,i}>: pkg_uuidm
 <xen/*.ml{,i}>: pkg_syslog
@@ -69,19 +69,19 @@
 <xen/*.ml{,i}>: pkg_xmlm
 <xen/*.ml{,i}>: pkg_cohttp
 <xen/*.ml{,i}>: pkg_uri
-<xen/*.ml{,i}>: pkg_rpc
-<xen/*.ml{,i}>: pkg_rpc.syntax
-<xen/xenops_main.{native,byte}>: custom
+<xen/*.ml{,i}>: pkg_rpclib
+<xen/*.ml{,i}>: pkg_rpclib.syntax
+<xen/xenops_main.{native,byte,nobj.o}>: custom
 # Executable xenopsd_simulator
-<simulator/xenops_simulator_main.{native,byte}>: use_xenops
-<simulator/xenops_simulator_main.{native,byte}>: pkg_uuidm
-<simulator/xenops_simulator_main.{native,byte}>: pkg_syslog
-<simulator/xenops_simulator_main.{native,byte}>: pkg_threads
-<simulator/xenops_simulator_main.{native,byte}>: pkg_xmlm
-<simulator/xenops_simulator_main.{native,byte}>: pkg_cohttp
-<simulator/xenops_simulator_main.{native,byte}>: pkg_uri
-<simulator/xenops_simulator_main.{native,byte}>: pkg_rpc
-<simulator/xenops_simulator_main.{native,byte}>: pkg_rpc.syntax
+<simulator/xenops_simulator_main.{native,byte,nobj.o}>: use_xenops
+<simulator/xenops_simulator_main.{native,byte,nobj.o}>: pkg_uuidm
+<simulator/xenops_simulator_main.{native,byte,nobj.o}>: pkg_syslog
+<simulator/xenops_simulator_main.{native,byte,nobj.o}>: pkg_threads
+<simulator/xenops_simulator_main.{native,byte,nobj.o}>: pkg_xmlm
+<simulator/xenops_simulator_main.{native,byte,nobj.o}>: pkg_cohttp
+<simulator/xenops_simulator_main.{native,byte,nobj.o}>: pkg_uri
+<simulator/xenops_simulator_main.{native,byte,nobj.o}>: pkg_rpclib
+<simulator/xenops_simulator_main.{native,byte,nobj.o}>: pkg_rpclib.syntax
 <simulator/*.ml{,i}>: use_xenops
 <simulator/*.ml{,i}>: pkg_uuidm
 <simulator/*.ml{,i}>: pkg_syslog
@@ -89,21 +89,21 @@
 <simulator/*.ml{,i}>: pkg_xmlm
 <simulator/*.ml{,i}>: pkg_cohttp
 <simulator/*.ml{,i}>: pkg_uri
-<simulator/*.ml{,i}>: pkg_rpc
-<simulator/*.ml{,i}>: pkg_rpc.syntax
-<simulator/xenops_simulator_main.{native,byte}>: custom
+<simulator/*.ml{,i}>: pkg_rpclib
+<simulator/*.ml{,i}>: pkg_rpclib.syntax
+<simulator/xenops_simulator_main.{native,byte,nobj.o}>: custom
 # Executable test
-<test/test.{native,byte}>: use_xenops
-<test/test.{native,byte}>: pkg_oUnit
-<test/test.{native,byte}>: pkg_unix
-<test/test.{native,byte}>: pkg_uuidm
-<test/test.{native,byte}>: pkg_syslog
-<test/test.{native,byte}>: pkg_threads
-<test/test.{native,byte}>: pkg_xmlm
-<test/test.{native,byte}>: pkg_cohttp
-<test/test.{native,byte}>: pkg_uri
-<test/test.{native,byte}>: pkg_rpc
-<test/test.{native,byte}>: pkg_rpc.syntax
+<test/test.{native,byte,nobj.o}>: use_xenops
+<test/test.{native,byte,nobj.o}>: pkg_oUnit
+<test/test.{native,byte,nobj.o}>: pkg_unix
+<test/test.{native,byte,nobj.o}>: pkg_uuidm
+<test/test.{native,byte,nobj.o}>: pkg_syslog
+<test/test.{native,byte,nobj.o}>: pkg_threads
+<test/test.{native,byte,nobj.o}>: pkg_xmlm
+<test/test.{native,byte,nobj.o}>: pkg_cohttp
+<test/test.{native,byte,nobj.o}>: pkg_uri
+<test/test.{native,byte,nobj.o}>: pkg_rpclib
+<test/test.{native,byte,nobj.o}>: pkg_rpclib.syntax
 <test/*.ml{,i}>: use_xenops
 <test/*.ml{,i}>: pkg_oUnit
 <test/*.ml{,i}>: pkg_unix
@@ -113,21 +113,21 @@
 <test/*.ml{,i}>: pkg_xmlm
 <test/*.ml{,i}>: pkg_cohttp
 <test/*.ml{,i}>: pkg_uri
-<test/*.ml{,i}>: pkg_rpc
-<test/*.ml{,i}>: pkg_rpc.syntax
-<test/test.{native,byte}>: custom
+<test/*.ml{,i}>: pkg_rpclib
+<test/*.ml{,i}>: pkg_rpclib.syntax
+<test/test.{native,byte,nobj.o}>: custom
 # Executable lib_test
-<lib_test/test.{native,byte}>: use_xenops
-<lib_test/test.{native,byte}>: pkg_oUnit
-<lib_test/test.{native,byte}>: pkg_unix
-<lib_test/test.{native,byte}>: pkg_uuidm
-<lib_test/test.{native,byte}>: pkg_syslog
-<lib_test/test.{native,byte}>: pkg_threads
-<lib_test/test.{native,byte}>: pkg_xmlm
-<lib_test/test.{native,byte}>: pkg_cohttp
-<lib_test/test.{native,byte}>: pkg_uri
-<lib_test/test.{native,byte}>: pkg_rpc
-<lib_test/test.{native,byte}>: pkg_rpc.syntax
+<lib_test/test.{native,byte,nobj.o}>: use_xenops
+<lib_test/test.{native,byte,nobj.o}>: pkg_oUnit
+<lib_test/test.{native,byte,nobj.o}>: pkg_unix
+<lib_test/test.{native,byte,nobj.o}>: pkg_uuidm
+<lib_test/test.{native,byte,nobj.o}>: pkg_syslog
+<lib_test/test.{native,byte,nobj.o}>: pkg_threads
+<lib_test/test.{native,byte,nobj.o}>: pkg_xmlm
+<lib_test/test.{native,byte,nobj.o}>: pkg_cohttp
+<lib_test/test.{native,byte,nobj.o}>: pkg_uri
+<lib_test/test.{native,byte,nobj.o}>: pkg_rpclib
+<lib_test/test.{native,byte,nobj.o}>: pkg_rpclib.syntax
 <lib_test/*.ml{,i}>: use_xenops
 <lib_test/*.ml{,i}>: pkg_oUnit
 <lib_test/*.ml{,i}>: pkg_unix
@@ -137,12 +137,16 @@
 <lib_test/*.ml{,i}>: pkg_xmlm
 <lib_test/*.ml{,i}>: pkg_cohttp
 <lib_test/*.ml{,i}>: pkg_uri
-<lib_test/*.ml{,i}>: pkg_rpc
-<lib_test/*.ml{,i}>: pkg_rpc.syntax
-<lib_test/test.{native,byte}>: custom
+<lib_test/*.ml{,i}>: pkg_rpclib
+<lib_test/*.ml{,i}>: pkg_rpclib.syntax
+<lib_test/test.{native,byte,nobj.o}>: custom
 # OASIS_STOP
-<*/*>: syntax_camlp4o
-<lib/device_number.ml>: pkg_rpc.syntax
-<lib/xenops_interface.ml>: pkg_rpc.idl
-<cli/xn_cfg_types.ml>: pkg_rpc.syntax
-<lib/xenops_migrate.ml>: pkg_rpc.syntax
+<lib/device_number.ml>: syntax_camlp4o, pkg_rpclib.syntax
+<lib/xenops_interface.ml>: syntax_camlp4o, pkg_rpclib.idl
+<cli/xn_cfg_types.ml>: syntax_camlp4o, pkg_rpclib.syntax
+<lib/xenops_migrate.ml>: syntax_camlp4o, pkg_rpclib.syntax
+<lib/xenops_hooks.ml>: syntax_camlp4o, pkg_rpclib.syntax
+<lib/updates.ml>: syntax_camlp4o, pkg_rpclib.syntax
+<lib/xenops_server.ml>: syntax_camlp4o, pkg_rpclib.syntax
+<lib/xenops_server_plugin.ml>: syntax_camlp4o, pkg_rpclib.syntax
+<simulator/xenops_server_simulator.ml>: syntax_camlp4o, pkg_rpclib.syntax
