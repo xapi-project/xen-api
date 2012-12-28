@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: eea800afe1810606b71916a1ea3da20f)
+# DO NOT EDIT (digest: a32a2c67cd369535129549a81fd8c7f1)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -13,10 +13,28 @@
 ".git": not_hygienic
 "_darcs": -traverse
 "_darcs": not_hygienic
+# Library xcp
+"lib/xcp.cmxs": use_xcp
+<lib/*.ml{,i}>: pkg_rpclib
+<lib/*.ml{,i}>: pkg_uri
+<lib/*.ml{,i}>: pkg_re
+<lib/*.ml{,i}>: pkg_cohttp
+<lib/*.ml{,i}>: pkg_xmlm
+<lib/*.ml{,i}>: pkg_unix
+<lib/*.ml{,i}>: pkg_rpclib.xml
+<lib/*.ml{,i}>: pkg_rpclib.js
 # Library xcp_storage
 "storage/xcp_storage.cmxs": use_xcp_storage
+<storage/*.ml{,i}>: use_xcp
 <storage/*.ml{,i}>: pkg_rpclib
 <storage/*.ml{,i}>: pkg_rpclib.syntax
+<storage/*.ml{,i}>: pkg_uri
+<storage/*.ml{,i}>: pkg_re
+<storage/*.ml{,i}>: pkg_cohttp
+<storage/*.ml{,i}>: pkg_xmlm
+<storage/*.ml{,i}>: pkg_unix
+<storage/*.ml{,i}>: pkg_rpclib.xml
+<storage/*.ml{,i}>: pkg_rpclib.js
 # OASIS_STOP
 <storage/*.ml{,i}>: syntax_camlp4o
 <storage/storage_interface.ml>: pkg_rpclib.idl

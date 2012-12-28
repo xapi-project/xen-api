@@ -1,8 +1,8 @@
 # OASIS_START
-# DO NOT EDIT (digest: 4499b3718ade0a9d045a86b4aa1c08be)
+# DO NOT EDIT (digest: 057071b33e01bc2321b6a664af7fae01)
 version = "0.1"
 description = "Interface definitions for XCP hosts"
-requires = "uri re cohttp xmlm unix"
+requires = "uri re cohttp xmlm unix rpclib rpclib.xml rpclib.js"
 archive(byte) = "xcp.cma"
 archive(byte, plugin) = "xcp.cma"
 archive(native) = "xcp.cmxa"

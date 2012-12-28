@@ -7,10 +7,18 @@ License:     LGPL-2.1 with OCaml linking exception
 Plugins:     META (0.2)
 BuildTools:  ocamlbuild
 
+Library xcp
+  CompiledObject:     best
+  Path:               lib
+  Findlibname:        xcp
+  Modules:            Cohttp_posix_io, Xcp_client
+  BuildDepends:       uri, re, cohttp, xmlm, unix, rpclib, rpclib.xml, rpclib.js
+
 Library xcp_storage
   CompiledObject:     best
   Path:               storage
-  Findlibname:        xcp-storage
-  Modules:            Storage_interface, Vdi_automaton
-  BuildDepends:       rpclib, rpclib.syntax
+  Findlibname:        storage
+  Findlibparent:      xcp
+  Modules:            Storage_interface, Vdi_automaton, Storage_client
+  BuildDepends:       xcp, rpclib, rpclib.syntax
 
