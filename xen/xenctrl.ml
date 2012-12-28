@@ -19,7 +19,7 @@ open D
 type handle = unit
 let uuid_of_handle = failwith "uuid_of_handle"
 
-
+let xc_open () = failwith "xc_open"
 let with_intf f = failwith "with_intf"
 
 type domid = int

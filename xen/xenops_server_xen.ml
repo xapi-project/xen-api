@@ -2088,13 +2088,11 @@ let watches_of_device device =
 	let devid = device.frontend.devid in
 	List.map (fun k -> Printf.sprintf "/local/domain/%d/backend/%s/%d/%d/%s" be kind fe devid k) interesting_backend_keys
 
-let watch_xenstore () =
-	with_xc_and_xs
-		(fun xc xs ->
-			let domains = ref IntMap.empty in
-			let watches = ref IntMap.empty in
-			let uuids = ref IntMap.empty in
+let domains = ref IntMap.empty
+let watches = ref IntMap.empty
+let uuids = ref IntMap.empty
 
+let watch_callback xc xs (path, token) =
 			let watch path =
 				debug "xenstore watch %s" path;
 				xs.Xs.watch path path in
@@ -2224,11 +2222,6 @@ let watch_xenstore () =
 							None in
 					Opt.iter (fun x -> Updates.add x updates) update in
 
-			while true do
-				let path, _ =
-					if Xs.has_watchevents xs
-					then Xs.get_watchevent xs
-					else Xs.read_watchevent xs in
 				if path = _introduceDomain || path = _releaseDomain
 				then look_for_different_domains ()
 				else match List.filter (fun x -> x <> "") (Re_str.split (Re_str.regexp "[/]") path) with
@@ -2249,8 +2242,6 @@ let watch_xenstore () =
 								Updates.add (Dynamic.Vm uuid) updates
 							) timeoffset
 					| _  -> debug "Ignoring unexpected watch: %s" path
-			done
-		)
 
 let init () =
 	(* XXX: is this completely redundant now? The Citrix PV drivers don't need this any more *)
@@ -2266,21 +2257,10 @@ let init () =
 			)
 		);
 
-	let (_: Thread.t) = Thread.create
-		(fun () ->
-			while true do
-				begin
-					try
-						Debug.with_thread_associated "xenstore" watch_xenstore ();
-						debug "watch_xenstore thread exitted"
-					with e ->
-						debug "watch_xenstore thread raised: %s" (Printexc.to_string e);
-						debug "watch_xenstore thread backtrace: %s" (Printexc.get_backtrace ())
-				end;
-				Thread.delay 5.
-			done
-		) () in
-	()
+	let xc = Xenctrl.xc_open () in
+	let xs = Xenstore.Client.make () in
+	let watch_callback = watch_callback xc xs in
+	Xenstore.Client.set_watch_callback xs watch_callback
 
 module DEBUG = struct
 	let trigger cmd args = match cmd, args with
