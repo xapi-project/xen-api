@@ -17,7 +17,13 @@ module D = Debug.Make(struct let name = "xenctrl" end)
 open D
 
 type handle = unit
+let uuid_of_handle = failwith "uuid_of_handle"
+
 
 let with_intf f = failwith "with_intf"
 
 type domid = int
+
+type dominfo = {
+	handle: handle;
+}

@@ -101,8 +101,16 @@ let event_wait task timeout p =
 
 let this_domid ~xs = int_of_string (xs.Xs.read "domid")
 
-let uuid_of_vm vm = Uuid.uuid_of_string vm.Vm.id
-let uuid_of_di di = Uuid.uuid_of_int_array di.Xenctrl.handle
+let uuid_of_string x = match Uuidm.of_string x with
+	| Some x -> x
+	| None ->
+		let msg = Printf.sprintf "string '%s' is not a valid UUID" x in
+		error "%s" msg;
+		failwith msg
+
+let uuid_of_vm vm = uuid_of_string vm.Vm.id
+
+let uuid_of_di di = Xenctrl.uuid_of_handle di.Xenctrl.handle
 
 (* During a live migrate, there will be multiple domains with the same uuid.
    The convention is: we construct things on the newest domain (e.g. VBD.plug)
@@ -116,7 +124,7 @@ type domain_selection =
 
 let di_of_uuid ~xc ~xs domain_selection uuid =
 	let open Xenctrl in
-	let uuid' = Uuid.string_of_uuid uuid in
+	let uuid' = Uuidm.to_string uuid in
 	let all = domain_getinfolist xc 0 in
 	let possible = List.filter (fun x -> uuid_of_di x = uuid) all in
 	let oldest_first = List.sort
@@ -148,9 +156,9 @@ let domid_of_uuid ~xc ~xs domain_selection uuid =
 let get_uuid ~xc domid = uuid_of_di (Xenctrl.domain_getinfo xc domid)
 
 let create_vbd_frontend ~xc ~xs task frontend_domid vdi =
-	let frontend_vm_id = get_uuid ~xc frontend_domid |> Uuid.string_of_uuid in
-	let backend_vm_id = get_uuid ~xc vdi.domid |> Uuid.string_of_uuid in
-	match domid_of_uuid ~xc ~xs Expect_only_one (Uuid.uuid_of_string backend_vm_id) with
+	let frontend_vm_id = get_uuid ~xc frontend_domid |> Uuidm.to_string in
+	let backend_vm_id = get_uuid ~xc vdi.domid |> Uuidm.to_string in
+	match domid_of_uuid ~xc ~xs Expect_only_one (uuid_of_string backend_vm_id) with
 		| None ->
 			error "VM = %s; domid = %d; Failed to determine domid of backend VM id: %s" frontend_vm_id frontend_domid backend_vm_id;
 			raise (Does_not_exist("domain", backend_vm_id))
@@ -249,7 +257,7 @@ module Storage = struct
 			(transform_exception (fun () -> Client.VDI.activate "attach_and_activate" dp sr vdi));
 		let backend = Xenops_task.with_subtask task (Printf.sprintf "Policy.get_backend_vm %s %s %s" vm sr vdi)
 			(transform_exception (fun () -> Client.Policy.get_backend_vm "attach_and_activate" vm sr vdi)) in
-		match domid_of_uuid ~xc ~xs Newest (Uuid.uuid_of_string backend) with
+		match domid_of_uuid ~xc ~xs Newest (uuid_of_string backend) with
 			| None ->
 				failwith (Printf.sprintf "Driver domain disapppeared: %s" backend)
 			| Some domid ->
@@ -290,7 +298,7 @@ let with_disk ~xc ~xs task disk write f = match disk with
 		finally
 			(fun () ->
 				let frontend_domid = this_domid ~xs in
-				let frontend_vm = get_uuid ~xc frontend_domid |> Uuid.to_string in
+				let frontend_vm = get_uuid ~xc frontend_domid |> Uuidm.to_string in
 				let vdi = attach_and_activate ~xc ~xs task frontend_vm dp sr vdi write in
 				let device = create_vbd_frontend ~xc ~xs task frontend_domid vdi in
 				finally
@@ -315,7 +323,7 @@ module Mem = struct
 				debug "Got error_domains_refused_to_cooperate_code from ballooning daemon";
 				Xenctrl.with_intf
 					(fun xc ->
-						let vms = List.map (get_uuid ~xc) domids |> List.map Uuid.string_of_uuid in
+						let vms = List.map (get_uuid ~xc) domids |> List.map Uuidm.to_string in
 						raise (Vms_failed_to_cooperate(vms))
 					)
 			| Unix.Unix_error(Unix.ECONNREFUSED, "connect", _) ->
@@ -435,7 +443,7 @@ let _device_id kind = Device_common.string_of_kind kind ^ "-id"
 
 (* Return the xenstore device with [kind] corresponding to [id] *)
 let device_by_id xc xs vm kind domain_selection id =
-	match vm |> Uuid.uuid_of_string |> domid_of_uuid ~xc ~xs domain_selection with
+	match vm |> uuid_of_string |> domid_of_uuid ~xc ~xs domain_selection with
 		| None ->
 			debug "VM = %s; does not exist in domain list" vm;
 			raise (Does_not_exist("domain", vm))
@@ -1286,7 +1294,7 @@ module VM = struct
 							(* CA-31764: may be larger than static_max if maxmem has been increased to initial-reservation. *)
 							max memory_actual max_memory_bytes in
 
-						let rtc = try xs.Xs.read (Printf.sprintf "/vm/%s/rtc/timeoffset" (Uuid.string_of_uuid uuid)) with Xs_protocol.Enoent _ -> "" in
+						let rtc = try xs.Xs.read (Printf.sprintf "/vm/%s/rtc/timeoffset" (Uuidm.to_string uuid)) with Xs_protocol.Enoent _ -> "" in
 						let rec ls_lR root dir =
 							let this = try [ dir, xs.Xs.read (root ^ "/" ^ dir) ] with _ -> [] in
 							let subdirs = try List.map (fun x -> dir ^ "/" ^ x) (xs.Xs.directory (root ^ "/" ^ dir)) with _ -> [] in
@@ -1387,7 +1395,7 @@ end
 let on_frontend f domain_selection frontend =
 	with_xc_and_xs
 		(fun xc xs ->
-			let frontend_di = match frontend |> Uuid.uuid_of_string |> di_of_uuid ~xc ~xs domain_selection with
+			let frontend_di = match frontend |> uuid_of_string |> di_of_uuid ~xc ~xs domain_selection with
 				| None -> raise (Does_not_exist ("domain", frontend))
 				| Some x -> x in
 			f xc xs frontend_di.Xenctrl.domid frontend_di.Xenctrl.hvm_guest
@@ -1401,7 +1409,7 @@ module PCI = struct
 	let get_state vm pci =
 		with_xc_and_xs
 			(fun xc xs ->
-				let all = match domid_of_uuid ~xc ~xs Newest (Uuid.uuid_of_string vm) with
+				let all = match domid_of_uuid ~xc ~xs Newest (uuid_of_string vm) with
 					| Some domid -> Device.PCI.list ~xc ~xs domid |> List.map snd
 					| None -> [] in
 				{
@@ -1562,7 +1570,7 @@ module VBD = struct
 				try
 					(* We always try to destroy the datapath even if the device has
 					   already been shutdown and deactivated (as in the suspend path) *)
-					let domid = Opt.map (fun di -> di.Xenctrl.domid) (di_of_uuid ~xc ~xs Oldest (Uuid.uuid_of_string vm)) in
+					let domid = Opt.map (fun di -> di.Xenctrl.domid) (di_of_uuid ~xc ~xs Oldest (uuid_of_string vm)) in
 					finally
 						(fun () ->
 							(* If the device is gone then this is ok *)
@@ -1718,7 +1726,7 @@ module VIF = struct
 		match vif.backend with
 			| Network.Local _ -> this_domid ~xs
 			| Network.Remote (vm, _) ->
-				begin match vm |> Uuid.uuid_of_string |> domid_of_uuid ~xc ~xs Expect_only_one with
+				begin match vm |> uuid_of_string |> domid_of_uuid ~xc ~xs Expect_only_one with
 					| None -> raise (Does_not_exist ("domain", vm))
 					| Some x -> x
 				end
@@ -2061,7 +2069,7 @@ let watch_xenstore () =
 						debug "Domain %d may have changed state" domid;
 						(* The uuid is either in the new domains map or the old map. *)
 						let di = IntMap.find domid (if IntMap.mem domid domains' then domains' else !domains) in
-						let id = Uuid.uuid_of_int_array di.Xenctrl.handle |> Uuid.string_of_uuid in
+						let id = Xenctrl.uuid_of_handle di.Xenctrl.handle |> Uuidm.to_string in
 						if domid > 0 && not (DB.exists id)
 						then begin
 							debug "However domain %d is not managed by us: ignoring" domid;
@@ -2108,7 +2116,7 @@ let watch_xenstore () =
 				then debug "Ignoring watch on shutdown domain %d" d
 				else
 					let di = IntMap.find d !domains in
-					let id = Uuid.uuid_of_int_array di.Xenctrl.handle |> Uuid.string_of_uuid in
+					let id = Xenctrl.uuid_of_handle di.Xenctrl.handle |> Uuidm.to_string in
 					Updates.add (Dynamic.Vm id) updates in
 
 			let fire_event_on_device domid kind devid =
@@ -2117,7 +2125,7 @@ let watch_xenstore () =
 				then debug "Ignoring watch on shutdown domain %d" d
 				else
 					let di = IntMap.find d !domains in
-					let id = Uuid.uuid_of_int_array di.Xenctrl.handle |> Uuid.string_of_uuid in
+					let id = Xenctrl.uuid_of_handle di.Xenctrl.handle |> Uuidm.to_string in
 					let update = match kind with
 						| "vbd" ->
 							let devid' = devid |> int_of_string |> Device_number.of_xenstore_key |> Device_number.to_linux_device in
@@ -2189,7 +2197,7 @@ let init () =
 module DEBUG = struct
 	let trigger cmd args = match cmd, args with
 		| "reboot", [ k ] ->
-			let uuid = Uuid.uuid_of_string k in
+			let uuid = uuid_of_string k in
 			with_xc_and_xs
 				(fun xc xs ->
 					match di_of_uuid ~xc ~xs Newest uuid with
@@ -2198,7 +2206,7 @@ module DEBUG = struct
 							Xenctrl.domain_shutdown xc di.Xenctrl.domid Xenctrl.Reboot
 				)
 		| "halt", [ k ] ->
-			let uuid = Uuid.uuid_of_string k in
+			let uuid = uuid_of_string k in
 			with_xc_and_xs
 				(fun xc xs ->
 					match di_of_uuid ~xc ~xs Newest uuid with
