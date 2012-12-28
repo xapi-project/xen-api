@@ -218,13 +218,13 @@ module Storage = struct
 	let epoch_begin task sr vdi =
 		transform_exception
 			(fun () ->
-				Client.VDI.epoch_begin task.Xenops_task.debug_info sr vdi
+				Client.VDI.epoch_begin task.Xenops_task.dbg sr vdi
 			) ()
 
 	let epoch_end task sr vdi =
 		transform_exception
 			(fun () ->
-				Client.VDI.epoch_end task.Xenops_task.debug_info sr vdi
+				Client.VDI.epoch_end task.Xenops_task.dbg sr vdi
 			) ()
 
 	let attach_and_activate ~xc ~xs task vm dp sr vdi read_write =
@@ -639,20 +639,20 @@ module VM = struct
 				let min_kib = kib_of_bytes_used (min_bytes +++ overhead_bytes)
 				and max_kib = kib_of_bytes_used (max_bytes +++ overhead_bytes) in
 				(* XXX: we would like to be able to cancel an in-progress with_reservation *)
-				Mem.with_reservation task.Xenops_task.debug_info min_kib max_kib
+				Mem.with_reservation task.Xenops_task.dbg min_kib max_kib
 					(fun target_plus_overhead_kib reservation_id ->
 						DB.write k {
 							VmExtra.persistent = persistent;
 							VmExtra.non_persistent = non_persistent
 						};
 						let domid = Domain.make ~xc ~xs non_persistent.VmExtra.create_info (uuid_of_vm vm) in
-						Mem.transfer_reservation_to_domain task.Xenops_task.debug_info domid reservation_id;
+						Mem.transfer_reservation_to_domain task.Xenops_task.dbg domid reservation_id;
 						begin match vm.Vm.ty with
 							| Vm.HVM { Vm.qemu_stubdom = true } ->
-								Mem.with_reservation task.Xenops_task.debug_info Stubdom.memory_kib Stubdom.memory_kib
+								Mem.with_reservation task.Xenops_task.dbg Stubdom.memory_kib Stubdom.memory_kib
 									(fun _ reservation_id ->
 										let stubdom_domid = Stubdom.create ~xc ~xs domid in
-										Mem.transfer_reservation_to_domain task.Xenops_task.debug_info stubdom_domid reservation_id;
+										Mem.transfer_reservation_to_domain task.Xenops_task.dbg stubdom_domid reservation_id;
 										set_stubdom ~xs domid stubdom_domid;
 									)
 							| _ ->
@@ -827,7 +827,7 @@ module VM = struct
 			~min:(Int64.to_int (Int64.div min 1024L))
 			~max:(Int64.to_int (Int64.div max 1024L))
 			domid;
-		Mem.balance_memory task.Xenops_task.debug_info
+		Mem.balance_memory task.Xenops_task.dbg
 	) Newest task vm
 
 	(* NB: the arguments which affect the qemu configuration must be saved and
