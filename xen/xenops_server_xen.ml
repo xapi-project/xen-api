@@ -598,10 +598,10 @@ module VM = struct
 			let result = String.make pcpus '0' in
 			List.iter (fun cpu -> result.[cpu] <- '1') cpus;
 			result in
-		let affinity = 
-			List.mapi (fun idx mask -> 
-				Printf.sprintf "vcpu/%d/affinity" idx, bitmap mask
-			) masks in
+		let affinity =
+			snd(List.fold_left (fun (idx, acc) mask ->
+				idx + 1, ((Printf.sprintf "vcpu/%d/affinity" idx, bitmap mask) :: acc)
+			) (0, []) masks) in
 		let weight = Opt.default [] (Opt.map
 			(fun (w, c) -> [
 				"vcpu/weight", string_of_int w;
