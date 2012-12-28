@@ -20,6 +20,8 @@ open Xenstore
 open Xenops_utils
 open Xenops_task
 
+module Xenctrlext = Xenctrl
+
 module D = Debug.Make(struct let name = service_name end)
 open D
 

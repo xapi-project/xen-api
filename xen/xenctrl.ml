@@ -36,3 +36,19 @@ let domain_getinfo xc domid = {
 	cpu_time = 0L;
 }
 let domain_getinfolist xc from = [ domain_getinfo xc from ]
+
+let domain_setmaxmem xc domid max = ()
+
+let readconsolering () = "console"
+
+type physinfo = {
+	total_pages: nativeint;
+}
+
+let physinfo () = {
+	total_pages = 0n;
+}
+
+let send_debug_keys xc keys = ()
+
+let get_max_nr_cpus xc = 0
