@@ -1824,6 +1824,19 @@ module VIF = struct
 		let flag = match mode with Xenops_interface.Vif.Disabled -> "1" | _ -> "0" in
 		path, flag
 
+	let active_path vm vif = Printf.sprintf "/vm/%s/devices/vif/%s" vm (snd vif.Vif.id)
+
+	let set_active task vm vif active =
+		try
+			set_active_device (active_path vm vif) active
+		with e ->
+			debug "set_active %s.%s <- %b failed: %s" (fst vif.Vif.id) (snd vif.Vif.id) active (Printexc.to_string e)
+
+	let get_active vm vif =
+		try
+			with_xs (fun xs -> xs.Xs.read (active_path vm vif)) = "1"
+		with _ -> false
+
 	let plug_exn task vm vif =
 		let vm_t = DB.read vm in
 		on_frontend
@@ -1980,16 +1993,22 @@ module VIF = struct
 					let (d: Device_common.device) = device_by_id xc xs vm Device_common.Vif Newest (id_of vif) in
 					let path = Device_common.kthread_pid_path_of_device ~xs d in
 					let kthread_pid = try xs.Xs.read path |> int_of_string with _ -> 0 in
-					let plugged = Hotplug.device_is_online ~xs d in
+					(* We say the device is present unless it has been deleted
+					   from xenstore. The corrolary is that: only when the device
+					   is finally deleted from xenstore, can we remove bridges or
+					   switch configuration. *)
 					{
-						Vif.plugged = plugged;
-						media_present = plugged;
+						Vif.active = true;
+						plugged = true;
+						media_present = true;
 						kthread_pid = kthread_pid
 					}
 				with
 					| (Does_not_exist(_,_))
 					| Device_not_connected ->
-						unplugged_vif
+						{ unplugged_vif with
+							Vif.active = get_active vm vif
+						}
 			)
 
 	let get_device_action_request vm vif =
