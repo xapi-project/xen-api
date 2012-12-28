@@ -25,5 +25,14 @@ let with_intf f = failwith "with_intf"
 type domid = int
 
 type dominfo = {
+	domid: domid;
 	handle: handle;
+	cpu_time: int64;
 }
+
+let domain_getinfo xc domid = {
+	domid = 0;
+	handle = ();
+	cpu_time = 0L;
+}
+let domain_getinfolist xc from = [ domain_getinfo xc from ]
