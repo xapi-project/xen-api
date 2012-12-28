@@ -1,9 +1,9 @@
 # OASIS_START
-# DO NOT EDIT (digest: 857a1c2aa41cdf5e4748483d78102cd8)
+# DO NOT EDIT (digest: abe71d312a59f85f10411a9abf798403)
 version = "1.0"
 description = "Xen domain manager"
 requires =
-"syslog threads uuidm xmlm cohttp uri rpclib rpclib.syntax forkexec fd-send-recv"
+"syslog threads uuidm xmlm cohttp uri rpclib rpclib.syntax forkexec fd-send-recv xcp xcp.xen"
 archive(byte) = "xenops.cma"
 archive(byte, plugin) = "xenops.cma"
 archive(native) = "xenops.cmxa"

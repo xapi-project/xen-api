@@ -1,20 +1,16 @@
 # OASIS_START
-# DO NOT EDIT (digest: b584517f8bd61b4f17219c8cbd293bbf)
+# DO NOT EDIT (digest: 3d9d0cf56e2d9fad69e7a697f161be63)
 Config
 Ionice
 Mac
-Cohttp_posix_io
 Xenops_migrate
 Xenops_hooks
 Task_server
 Xenops_task
 Updates
 Xenops_utils
-Xenops_client
 Xenops_server
 Xenopsd
-Xenops_interface
 Xenops_server_plugin
-Device_number
 Scheduler
 # OASIS_STOP
