@@ -204,7 +204,7 @@ let destroy_vbd_frontend ~xc ~xs task disk =
 
 module Storage = struct
 	open Storage_interface
-	open Storage_client
+	module Client = Storage_client.Client
 
 	let transform_exception f x =
 		try f x
