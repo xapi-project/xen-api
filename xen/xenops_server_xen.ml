@@ -559,13 +559,17 @@ module VM = struct
 			last_start_time = 0.;
 		} |> VmExtra.rpc_of_persistent_t |> Jsonrpc.to_string
 
+	let mkints n =
+		let rec loop a b = if a = b then [] else a :: (loop (a + 1) b) in
+		loop 0 n
+
 	let generate_non_persistent_state xc xs vm =
 		let hvm = match vm.ty with HVM _ -> true | _ -> false in
 		(* XXX add per-vcpu information to the platform data *)
 		(* VCPU configuration *)
 		let pcpus = Xenctrlext.get_max_nr_cpus xc in							
-		let all_pcpus = pcpus |> Range.make 0 |> Range.to_list in
-		let all_vcpus = vm.vcpu_max |> Range.make 0 |> Range.to_list in
+		let all_pcpus = mkints pcpus in
+		let all_vcpus = mkints vm.vcpu_max in
 		let masks = match vm.scheduler_params.affinity with
 			| [] ->
 				(* Every vcpu can run on every pcpu *)
