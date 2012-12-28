@@ -17,6 +17,9 @@
 
 let service_name="storage"
 
+let unix_domain_socket = "/var/xapi/storage"
+let uri () = Printf.sprintf "file:%s" unix_domain_socket
+
 open Vdi_automaton
 
 (** Primary key identifying the SR *)
