@@ -48,10 +48,8 @@ module Xs = struct
         resume : domid -> unit;
 *)
         getdomainpath : domid -> string;
-(*
         watch : string -> string -> unit;
         unwatch : string -> string -> unit;
-*)
 }
 
     let ops h = {
@@ -60,6 +58,8 @@ module Xs = struct
         write = Client.write h;
         rm = Client.rm h;
         getdomainpath = Client.getdomainpath h;
+        watch = Client.watch h;
+        unwatch = Client.unwatch h;
     }
     let with_xs f = Client.with_xs client (fun h -> f (ops h))
     let wait f = Client.wait client (fun h -> f (ops h))
