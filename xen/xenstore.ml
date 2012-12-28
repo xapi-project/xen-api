@@ -27,8 +27,8 @@ module Xs = struct
 	type xsh = {
 (*
         debug: string list -> string;
-        directory : string -> string list;
 *)
+        directory : string -> string list;
         read : string -> string;
 (*
         readv : string -> string list -> string list;
@@ -56,6 +56,7 @@ module Xs = struct
 
     let ops h = {
         read = Client.read h;
+		directory = Client.directory h;
         write = Client.write h;
         rm = Client.rm h;
         getdomainpath = Client.getdomainpath h;
