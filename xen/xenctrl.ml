@@ -69,3 +69,7 @@ let shadow_allocation_get xc domid = 0
 let shadow_allocation_set xc domid x = ()
 
 let pages_to_kib x = Int64.div x 4L
+
+type reason = Reboot | Halt
+let domain_shutdown xc domid reason = ()
+
