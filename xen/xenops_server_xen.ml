@@ -260,7 +260,7 @@ module Storage = struct
 
 	let get_disk_by_name task path =
 		debug "Storage.get_disk_by_name %s" path;
-		match String.split ~limit:2 '/' path with
+		match Re_str.bounded_split (Re_str.regexp "[/]") path 2 with
 			| [ sr; vdi ] -> sr, vdi
 			| _ ->
 				error "Failed to parse VDI name %s (expected SR/VDI)" path;
@@ -2122,7 +2122,7 @@ let watch_xenstore () =
 					else Xs.read_watchevent xs in
 				if path = _introduceDomain || path = _releaseDomain
 				then look_for_different_domains ()
-				else match List.filter (fun x -> x <> "") (String.split '/' path) with
+				else match List.filter (fun x -> x <> "") (Re_str.split (Re_str.regexp "[/]") path) with
 					| "local" :: "domain" :: domid :: "backend" :: kind :: frontend :: devid :: _ ->
 						debug "Watch on backend domid: %s kind: %s -> frontend domid: %s devid: %s" domid kind frontend devid;
 						fire_event_on_device frontend kind devid
