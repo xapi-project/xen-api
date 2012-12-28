@@ -43,6 +43,8 @@ Executable xenopsd_xen
   Custom:             true
   Install:            false
   BuildDepends:       xenops, xenstore_transport.unix, rpclib, forkexec, xcp, xcp.storage
+  CSources:           fsync_stubs.c
+
 
 Executable xenopsd_simulator
   CompiledObject:     best

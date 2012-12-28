@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 1420349d10ffb790d35bc972da639652)
+# DO NOT EDIT (digest: f05b303b1d390000a02b4996aa0b0f4f)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -56,6 +56,7 @@
 <cli/*.ml{,i}>: pkg_xcp.xen
 <cli/xn.{native,byte,nobj.o}>: custom
 # Executable xenopsd_xen
+<xen/xenops_main.{native,byte,nobj.o}>: use_libxenopsd_xen_stubs
 <xen/xenops_main.{native,byte,nobj.o}>: use_xenops
 <xen/xenops_main.{native,byte,nobj.o}>: pkg_xenstore_transport.unix
 <xen/xenops_main.{native,byte,nobj.o}>: pkg_rpclib
@@ -86,6 +87,21 @@
 <xen/*.ml{,i}>: pkg_rpclib.syntax
 <xen/*.ml{,i}>: pkg_fd-send-recv
 <xen/*.ml{,i}>: pkg_xcp.xen
+"xen/fsync_stubs.c": use_xenops
+"xen/fsync_stubs.c": pkg_xenstore_transport.unix
+"xen/fsync_stubs.c": pkg_rpclib
+"xen/fsync_stubs.c": pkg_forkexec
+"xen/fsync_stubs.c": pkg_xcp
+"xen/fsync_stubs.c": pkg_xcp.storage
+"xen/fsync_stubs.c": pkg_uuidm
+"xen/fsync_stubs.c": pkg_syslog
+"xen/fsync_stubs.c": pkg_threads
+"xen/fsync_stubs.c": pkg_xmlm
+"xen/fsync_stubs.c": pkg_cohttp
+"xen/fsync_stubs.c": pkg_uri
+"xen/fsync_stubs.c": pkg_rpclib.syntax
+"xen/fsync_stubs.c": pkg_fd-send-recv
+"xen/fsync_stubs.c": pkg_xcp.xen
 <xen/xenops_main.{native,byte,nobj.o}>: custom
 # Executable xenopsd_simulator
 <simulator/xenops_simulator_main.{native,byte,nobj.o}>: use_xenops
