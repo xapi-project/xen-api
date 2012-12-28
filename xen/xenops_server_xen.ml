@@ -563,6 +563,20 @@ module VM = struct
 		let rec loop a b = if a = b then [] else a :: (loop (a + 1) b) in
 		loop 0 n
 
+	(* Could use fold_left to get the same value, but that would necessarily go through the whole list everytime, instead of the first n items, only. *)
+	(* ToDo: This is complicated enough to warrant a test. *)
+	(* Is it wise to fail silently on negative values?  (They are treated as zero, here.)
+	 Pro: Would mask fewer bugs.
+	 Con: Less robust.
+	*)
+	let take n list =
+		let ($) f a = f a in
+		let rec helper i acc list =
+			if i <= 0 || list = []
+			then acc
+			else helper (i-1)  (List.hd list :: acc) (List.tl list)
+		in List.rev $ helper n [] list
+
 	let generate_non_persistent_state xc xs vm =
 		let hvm = match vm.ty with HVM _ -> true | _ -> false in
 		(* XXX add per-vcpu information to the platform data *)
@@ -577,7 +591,7 @@ module VM = struct
 			| m :: ms ->
 				(* Treat the first as the template for the rest *)
 				let defaults = List.map (fun _ -> m) all_vcpus in
-				List.take vm.vcpu_max (m :: ms @ defaults) in
+				take vm.vcpu_max (m :: ms @ defaults) in
 		(* convert a mask into a binary string, one char per pCPU *)
 		let bitmap cpus: string = 
 			let cpus = List.filter (fun x -> x >= 0 && x < pcpus) cpus in
