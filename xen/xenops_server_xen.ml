@@ -2178,14 +2178,18 @@ let watch_xenstore () =
 					) different;
 				domains := domains' in
 
+			let set_difference a b = List.fold_left (fun acc a ->
+				if not(List.mem a b) then a :: acc else acc
+			) [] a in
+
 			let look_for_different_devices domid =
 				if not(IntMap.mem domid !watches)
 				then debug "Ignoring frontend device watch on unmanaged domain: %d" domid
 				else begin
 					let devices = IntMap.find domid !watches in
 					let devices' = Device_common.list_frontends ~xs domid in
-					let old_devices = Listext.List.set_difference devices devices' in
-					let new_devices = Listext.List.set_difference devices' devices in
+					let old_devices = set_difference devices devices' in
+					let new_devices = set_difference devices' devices in
 					List.iter (add_device_watch xs) new_devices;
 					List.iter (remove_device_watch xs) old_devices;
 				end in
