@@ -765,6 +765,13 @@ module VM = struct
 							) (minimal_local_kvs @ minimal_vm_kvs)
 			)
 
+	let remove vm =
+		with_xc_and_xs
+			(fun xc xs ->
+				safe_rm xs (Printf.sprintf "/vm/%s" vm.Vm.id);
+				safe_rm xs (Printf.sprintf "/vss/%s" vm.Vm.id);
+			)
+
 	let log_exn_continue msg f x = try f x with e -> debug "Safely ignoring exception: %s while %s" (Printexc.to_string e) msg
 
 	let destroy_device_model = on_domain_if_exists (fun xc xs task vm di ->
@@ -1540,14 +1547,14 @@ module VBD = struct
 			with_xs (fun xs -> xs.Xs.read (active_path vm vbd)) = "1"
 		with _ -> false
 
-	let epoch_begin task vm vbd = match vbd.backend with
-		| Some (VDI path) ->
+	let epoch_begin task vm disk = match disk with
+		| VDI path ->
 			let sr, vdi = Storage.get_disk_by_name task path in
 			Storage.epoch_begin task sr vdi
 		| _ -> ()
 
-	let epoch_end task vm vbd = match vbd.backend with
-		| Some (VDI path) ->
+	let epoch_end task vm disk = match disk with
+		| VDI path ->
 			let sr, vdi = Storage.get_disk_by_name task path in
 			Storage.epoch_end task sr vdi
 		| _ -> ()		
