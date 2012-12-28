@@ -30,7 +30,9 @@ type dominfo = {
 	cpu_time: int64;
 	shutdown: bool;
 	shutdown_code: int;
+	paused: bool;
 	total_memory_pages: nativeint;
+	max_memory_pages: nativeint;
 	hvm_guest: bool;
 }
 
@@ -40,7 +42,9 @@ let domain_getinfo xc domid = {
 	cpu_time = 0L;
 	shutdown = false;
 	shutdown_code = 0;
+	paused = false;
 	total_memory_pages = 0n;
+	max_memory_pages = 0n;
 	hvm_guest = false;
 }
 let domain_getinfolist xc from = [ domain_getinfo xc from ]
