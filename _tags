@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 6be6da4741cf3318aed6b53101146da7)
+# DO NOT EDIT (digest: 4329708b0b02a53193bfc7ce15ad4bee)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -15,8 +15,8 @@
 "_darcs": not_hygienic
 # Library xenops
 "lib/xenops.cmxs": use_xenops
-<lib/xenops.{cma,cmxa}>: use_libxenops_stubs
 <lib/*.ml{,i}>: pkg_rpclib
+<lib/*.ml{,i}>: pkg_forkexec
 <lib/*.ml{,i}>: pkg_uuidm
 <lib/*.ml{,i}>: pkg_syslog
 <lib/*.ml{,i}>: pkg_threads
@@ -24,17 +24,11 @@
 <lib/*.ml{,i}>: pkg_cohttp
 <lib/*.ml{,i}>: pkg_uri
 <lib/*.ml{,i}>: pkg_rpclib.syntax
-"lib/fd_send_recv_stubs.c": pkg_rpclib
-"lib/fd_send_recv_stubs.c": pkg_uuidm
-"lib/fd_send_recv_stubs.c": pkg_syslog
-"lib/fd_send_recv_stubs.c": pkg_threads
-"lib/fd_send_recv_stubs.c": pkg_xmlm
-"lib/fd_send_recv_stubs.c": pkg_cohttp
-"lib/fd_send_recv_stubs.c": pkg_uri
-"lib/fd_send_recv_stubs.c": pkg_rpclib.syntax
+<lib/*.ml{,i}>: pkg_fd-send-recv
 # Executable xn
 <cli/xn.{native,byte,nobj.o}>: use_xenops
 <cli/xn.{native,byte,nobj.o}>: pkg_rpclib
+<cli/xn.{native,byte,nobj.o}>: pkg_forkexec
 <cli/xn.{native,byte,nobj.o}>: pkg_uuidm
 <cli/xn.{native,byte,nobj.o}>: pkg_syslog
 <cli/xn.{native,byte,nobj.o}>: pkg_threads
@@ -42,8 +36,10 @@
 <cli/xn.{native,byte,nobj.o}>: pkg_cohttp
 <cli/xn.{native,byte,nobj.o}>: pkg_uri
 <cli/xn.{native,byte,nobj.o}>: pkg_rpclib.syntax
+<cli/xn.{native,byte,nobj.o}>: pkg_fd-send-recv
 <cli/*.ml{,i}>: use_xenops
 <cli/*.ml{,i}>: pkg_rpclib
+<cli/*.ml{,i}>: pkg_forkexec
 <cli/*.ml{,i}>: pkg_uuidm
 <cli/*.ml{,i}>: pkg_syslog
 <cli/*.ml{,i}>: pkg_threads
@@ -51,11 +47,13 @@
 <cli/*.ml{,i}>: pkg_cohttp
 <cli/*.ml{,i}>: pkg_uri
 <cli/*.ml{,i}>: pkg_rpclib.syntax
+<cli/*.ml{,i}>: pkg_fd-send-recv
 <cli/xn.{native,byte,nobj.o}>: custom
 # Executable xenopsd_xen
 <xen/xenops_main.{native,byte,nobj.o}>: use_xenops
 <xen/xenops_main.{native,byte,nobj.o}>: pkg_xenstore_transport.unix
 <xen/xenops_main.{native,byte,nobj.o}>: pkg_rpclib
+<xen/xenops_main.{native,byte,nobj.o}>: pkg_forkexec
 <xen/xenops_main.{native,byte,nobj.o}>: pkg_uuidm
 <xen/xenops_main.{native,byte,nobj.o}>: pkg_syslog
 <xen/xenops_main.{native,byte,nobj.o}>: pkg_threads
@@ -63,9 +61,11 @@
 <xen/xenops_main.{native,byte,nobj.o}>: pkg_cohttp
 <xen/xenops_main.{native,byte,nobj.o}>: pkg_uri
 <xen/xenops_main.{native,byte,nobj.o}>: pkg_rpclib.syntax
+<xen/xenops_main.{native,byte,nobj.o}>: pkg_fd-send-recv
 <xen/*.ml{,i}>: use_xenops
 <xen/*.ml{,i}>: pkg_xenstore_transport.unix
 <xen/*.ml{,i}>: pkg_rpclib
+<xen/*.ml{,i}>: pkg_forkexec
 <xen/*.ml{,i}>: pkg_uuidm
 <xen/*.ml{,i}>: pkg_syslog
 <xen/*.ml{,i}>: pkg_threads
@@ -73,10 +73,12 @@
 <xen/*.ml{,i}>: pkg_cohttp
 <xen/*.ml{,i}>: pkg_uri
 <xen/*.ml{,i}>: pkg_rpclib.syntax
+<xen/*.ml{,i}>: pkg_fd-send-recv
 <xen/xenops_main.{native,byte,nobj.o}>: custom
 # Executable xenopsd_simulator
 <simulator/xenops_simulator_main.{native,byte,nobj.o}>: use_xenops
 <simulator/xenops_simulator_main.{native,byte,nobj.o}>: pkg_rpclib
+<simulator/xenops_simulator_main.{native,byte,nobj.o}>: pkg_forkexec
 <simulator/xenops_simulator_main.{native,byte,nobj.o}>: pkg_uuidm
 <simulator/xenops_simulator_main.{native,byte,nobj.o}>: pkg_syslog
 <simulator/xenops_simulator_main.{native,byte,nobj.o}>: pkg_threads
@@ -84,8 +86,10 @@
 <simulator/xenops_simulator_main.{native,byte,nobj.o}>: pkg_cohttp
 <simulator/xenops_simulator_main.{native,byte,nobj.o}>: pkg_uri
 <simulator/xenops_simulator_main.{native,byte,nobj.o}>: pkg_rpclib.syntax
+<simulator/xenops_simulator_main.{native,byte,nobj.o}>: pkg_fd-send-recv
 <simulator/*.ml{,i}>: use_xenops
 <simulator/*.ml{,i}>: pkg_rpclib
+<simulator/*.ml{,i}>: pkg_forkexec
 <simulator/*.ml{,i}>: pkg_uuidm
 <simulator/*.ml{,i}>: pkg_syslog
 <simulator/*.ml{,i}>: pkg_threads
@@ -93,12 +97,14 @@
 <simulator/*.ml{,i}>: pkg_cohttp
 <simulator/*.ml{,i}>: pkg_uri
 <simulator/*.ml{,i}>: pkg_rpclib.syntax
+<simulator/*.ml{,i}>: pkg_fd-send-recv
 <simulator/xenops_simulator_main.{native,byte,nobj.o}>: custom
 # Executable test
 <test/test.{native,byte,nobj.o}>: use_xenops
 <test/test.{native,byte,nobj.o}>: pkg_oUnit
 <test/test.{native,byte,nobj.o}>: pkg_unix
 <test/test.{native,byte,nobj.o}>: pkg_rpclib
+<test/test.{native,byte,nobj.o}>: pkg_forkexec
 <test/test.{native,byte,nobj.o}>: pkg_uuidm
 <test/test.{native,byte,nobj.o}>: pkg_syslog
 <test/test.{native,byte,nobj.o}>: pkg_threads
@@ -106,10 +112,12 @@
 <test/test.{native,byte,nobj.o}>: pkg_cohttp
 <test/test.{native,byte,nobj.o}>: pkg_uri
 <test/test.{native,byte,nobj.o}>: pkg_rpclib.syntax
+<test/test.{native,byte,nobj.o}>: pkg_fd-send-recv
 <test/*.ml{,i}>: use_xenops
 <test/*.ml{,i}>: pkg_oUnit
 <test/*.ml{,i}>: pkg_unix
 <test/*.ml{,i}>: pkg_rpclib
+<test/*.ml{,i}>: pkg_forkexec
 <test/*.ml{,i}>: pkg_uuidm
 <test/*.ml{,i}>: pkg_syslog
 <test/*.ml{,i}>: pkg_threads
@@ -117,12 +125,14 @@
 <test/*.ml{,i}>: pkg_cohttp
 <test/*.ml{,i}>: pkg_uri
 <test/*.ml{,i}>: pkg_rpclib.syntax
+<test/*.ml{,i}>: pkg_fd-send-recv
 <test/test.{native,byte,nobj.o}>: custom
 # Executable lib_test
 <lib_test/test.{native,byte,nobj.o}>: use_xenops
 <lib_test/test.{native,byte,nobj.o}>: pkg_oUnit
 <lib_test/test.{native,byte,nobj.o}>: pkg_unix
 <lib_test/test.{native,byte,nobj.o}>: pkg_rpclib
+<lib_test/test.{native,byte,nobj.o}>: pkg_forkexec
 <lib_test/test.{native,byte,nobj.o}>: pkg_uuidm
 <lib_test/test.{native,byte,nobj.o}>: pkg_syslog
 <lib_test/test.{native,byte,nobj.o}>: pkg_threads
@@ -130,10 +140,12 @@
 <lib_test/test.{native,byte,nobj.o}>: pkg_cohttp
 <lib_test/test.{native,byte,nobj.o}>: pkg_uri
 <lib_test/test.{native,byte,nobj.o}>: pkg_rpclib.syntax
+<lib_test/test.{native,byte,nobj.o}>: pkg_fd-send-recv
 <lib_test/*.ml{,i}>: use_xenops
 <lib_test/*.ml{,i}>: pkg_oUnit
 <lib_test/*.ml{,i}>: pkg_unix
 <lib_test/*.ml{,i}>: pkg_rpclib
+<lib_test/*.ml{,i}>: pkg_forkexec
 <lib_test/*.ml{,i}>: pkg_uuidm
 <lib_test/*.ml{,i}>: pkg_syslog
 <lib_test/*.ml{,i}>: pkg_threads
@@ -141,6 +153,7 @@
 <lib_test/*.ml{,i}>: pkg_cohttp
 <lib_test/*.ml{,i}>: pkg_uri
 <lib_test/*.ml{,i}>: pkg_rpclib.syntax
+<lib_test/*.ml{,i}>: pkg_fd-send-recv
 <lib_test/test.{native,byte,nobj.o}>: custom
 # OASIS_STOP
 <lib/device_number.ml>: syntax_camlp4o, pkg_rpclib.syntax
