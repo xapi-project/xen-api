@@ -2251,10 +2251,8 @@ let init () =
 
 	with_xc_and_xs
 		(fun xc xs ->
-			Xs.transaction xs (fun t ->
-				t.Xst.write xe_key xe_val;
-				t.Xst.setperms xe_key (0, Xsraw.PERM_READ, [])
-			)
+			xs.Xs.write xe_key xe_val;
+			xs.Xs.setperms xe_key { Xs_protocol.ACL.owner = 0; other = Xs_protocol.ACL.READ; acl = [] }
 		);
 
 	let xc = Xenctrl.xc_open () in

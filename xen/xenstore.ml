@@ -41,12 +41,13 @@ module Xs = struct
         rm : string -> unit;
 (*
         getperms : string -> perms;
-        setperms : string -> perms -> unit;
         setpermsv : string -> string list -> perms -> unit;
         introduce : domid -> nativeint -> int -> unit;
         release : domid -> unit;
         resume : domid -> unit;
 *)
+        setperms : string -> Xs_protocol.ACL.t -> unit;
+
         getdomainpath : domid -> string;
         watch : string -> string -> unit;
         unwatch : string -> string -> unit;
@@ -57,6 +58,7 @@ module Xs = struct
 		directory = Client.directory h;
         write = Client.write h;
         rm = Client.rm h;
+        setperms = Client.setperms h;
         getdomainpath = Client.getdomainpath h;
         watch = Client.watch h;
         unwatch = Client.unwatch h;
