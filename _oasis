@@ -1,0 +1,16 @@
+OASISFormat: 0.2
+Name:        xcp-idl
+Version:     0.1
+Synopsis:    Interface definitions for XCP hosts
+Authors:     see CREDITS.md
+License:     LGPL-2.1 with OCaml linking exception
+Plugins:     META (0.2)
+BuildTools:  ocamlbuild
+
+Library xcp_storage
+  CompiledObject:     best
+  Path:               storage
+  Findlibname:        xcp-storage
+  Modules:            Storage_interface, Vdi_automaton
+  BuildDepends:       rpclib, rpclib.syntax
+
