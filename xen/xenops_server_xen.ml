@@ -34,6 +34,18 @@ let run cmd args =
 	debug "%s %s" cmd (String.concat " " args);
 	fst(Forkhelpers.execute_command_get_output cmd args)
 
+module Opt = struct
+	let map f = function
+		| Some x -> Some(f x)
+		| None -> None
+	let join = function
+		| Some (Some a) -> Some a
+		| _ -> None
+	let default d = function
+		| Some x -> x
+		| None -> d
+end
+
 type qemu_frontend =
 	| Name of string (* block device path or bridge name *)
 	| Device of Device_common.device
