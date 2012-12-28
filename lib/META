@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 35dbb6375fd313c44de7a58d04c1d499)
+# DO NOT EDIT (digest: e8345432e0f02429f55425e8b619ca31)
 version = "0.1"
 description = "Interface definitions for XCP hosts"
 requires = "uri re cohttp xmlm unix rpclib rpclib.xml rpclib.js"
@@ -8,6 +8,17 @@ archive(byte, plugin) = "xcp.cma"
 archive(native) = "xcp.cmxa"
 archive(native, plugin) = "xcp.cmxs"
 exists_if = "xcp.cma"
+package "xen" (
+ version = "0.1"
+ description = "Interface definitions for XCP hosts"
+ requires = "xcp threads rpclib rpclib.syntax"
+ archive(byte) = "xcp_xen.cma"
+ archive(byte, plugin) = "xcp_xen.cma"
+ archive(native) = "xcp_xen.cmxa"
+ archive(native, plugin) = "xcp_xen.cmxs"
+ exists_if = "xcp_xen.cma"
+)
+
 package "storage" (
  version = "0.1"
  description = "Interface definitions for XCP hosts"

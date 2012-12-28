@@ -22,3 +22,11 @@ Library xcp_storage
   Modules:            Storage_interface, Vdi_automaton, Storage_client
   BuildDepends:       xcp, threads, rpclib, rpclib.syntax
 
+Library xcp_xen
+  CompiledObject:     best
+  Path:               xen
+  Findlibname:        xen
+  Findlibparent:      xcp
+  Modules:            Xenops_interface, Xenops_client, Device_number
+  BuildDepends:       xcp, threads, rpclib, rpclib.syntax
+
