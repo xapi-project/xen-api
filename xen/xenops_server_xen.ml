@@ -37,6 +37,9 @@ let run cmd args =
 	fst(Forkhelpers.execute_command_get_output cmd args)
 
 module Opt = struct
+	let iter f = function
+		| Some x -> f x
+		| None -> ()
 	let map f = function
 		| Some x -> Some(f x)
 		| None -> None
