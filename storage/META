@@ -1,0 +1,12 @@
+# OASIS_START
+# DO NOT EDIT (digest: 2f88730e35b7a0c176f8a2513790eeb5)
+version = "0.1"
+description = "Interface definitions for XCP hosts"
+requires = "rpclib rpclib.syntax"
+archive(byte) = "xcp_storage.cma"
+archive(byte, plugin) = "xcp_storage.cma"
+archive(native) = "xcp_storage.cmxa"
+archive(native, plugin) = "xcp_storage.cmxs"
+exists_if = "xcp_storage.cma"
+# OASIS_STOP
+
