@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 4329708b0b02a53193bfc7ce15ad4bee)
+# DO NOT EDIT (digest: 1e42437b4b6e8598ff75a38202168214)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -54,6 +54,7 @@
 <xen/xenops_main.{native,byte,nobj.o}>: pkg_xenstore_transport.unix
 <xen/xenops_main.{native,byte,nobj.o}>: pkg_rpclib
 <xen/xenops_main.{native,byte,nobj.o}>: pkg_forkexec
+<xen/xenops_main.{native,byte,nobj.o}>: pkg_xcp-storage
 <xen/xenops_main.{native,byte,nobj.o}>: pkg_uuidm
 <xen/xenops_main.{native,byte,nobj.o}>: pkg_syslog
 <xen/xenops_main.{native,byte,nobj.o}>: pkg_threads
@@ -66,6 +67,7 @@
 <xen/*.ml{,i}>: pkg_xenstore_transport.unix
 <xen/*.ml{,i}>: pkg_rpclib
 <xen/*.ml{,i}>: pkg_forkexec
+<xen/*.ml{,i}>: pkg_xcp-storage
 <xen/*.ml{,i}>: pkg_uuidm
 <xen/*.ml{,i}>: pkg_syslog
 <xen/*.ml{,i}>: pkg_threads

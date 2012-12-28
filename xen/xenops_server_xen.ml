@@ -18,13 +18,9 @@ open Xenops_server_plugin
 open Xenops_helpers
 open Xenstore
 open Xenops_utils
-open Listext
-open Threadext
-open Stringext
-open Fun
 open Xenops_task
 
-module D = Debug.Debugger(struct let name = service_name end)
+module D = Debug.Make(struct let name = service_name end)
 open D
 
 let _qemu_dm = "/opt/xensource/libexec/qemu-dm-wrapper"
