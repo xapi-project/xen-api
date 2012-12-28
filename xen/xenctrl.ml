@@ -28,12 +28,20 @@ type dominfo = {
 	domid: domid;
 	handle: handle;
 	cpu_time: int64;
+	shutdown: bool;
+	shutdown_code: int;
+	total_memory_pages: nativeint;
+	hvm_guest: bool;
 }
 
 let domain_getinfo xc domid = {
 	domid = 0;
 	handle = ();
 	cpu_time = 0L;
+	shutdown = false;
+	shutdown_code = 0;
+	total_memory_pages = 0n;
+	hvm_guest = false;
 }
 let domain_getinfolist xc from = [ domain_getinfo xc from ]
 
@@ -52,3 +60,6 @@ let physinfo () = {
 let send_debug_keys xc keys = ()
 
 let get_max_nr_cpus xc = 0
+
+let shadow_allocation_get xc domid = 0
+let shadow_allocation_set xc domid x = ()
