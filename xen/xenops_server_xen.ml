@@ -1360,6 +1360,7 @@ module VM = struct
 								| Some x -> x.VmExtra.persistent.VmExtra.last_start_time
 								| None -> 0.
 							end;
+							hvm = di.Xenctrl.hvm_guest;
 							shadow_multiplier_target = shadow_multiplier_target;
 						}
 			)
@@ -1489,6 +1490,14 @@ module PCI = struct
 			) Oldest vm
 end
 
+let set_active_device path active =
+	with_xs
+		(fun xs ->
+			if active
+			then xs.Xs.write path "1"
+			else safe_rm xs path;
+		)
+
 module VBD = struct
 	open Vbd
 
@@ -1511,6 +1520,19 @@ module VBD = struct
 	let device_number_of_device d =
 		Device_number.of_xenstore_key d.Device_common.frontend.Device_common.devid
 
+	let active_path vm vbd = Printf.sprintf "/vm/%s/devices/vbd/%s" vm (snd vbd.Vbd.id)
+
+	let set_active task vm vbd active =
+		try
+			set_active_device (active_path vm vbd) active
+		with e ->
+			debug "set_active %s.%s <- %b failed: %s" (fst vbd.Vbd.id) (snd vbd.Vbd.id) active (Printexc.to_string e)
+
+	let get_active vm vbd =
+		try
+			with_xs (fun xs -> xs.Xs.read (active_path vm vbd)) = "1"
+		with _ -> false
+
 	let epoch_begin task vm vbd = match vbd.backend with
 		| Some (VDI path) ->
 			let sr, vdi = Storage.get_disk_by_name task path in
@@ -1522,6 +1544,8 @@ module VBD = struct
 			let sr, vdi = Storage.get_disk_by_name task path in
 			Storage.epoch_end task sr vdi
 		| _ -> ()		
+
+	let vdi_path_of_device ~xs device = Device_common.backend_path_of_device ~xs device ^ "/vdi"
 
 	let plug task vm vbd =
 		(* Dom0 doesn't have a vm_t - we don't need this currently, but when we have storage driver domains, 
@@ -1713,19 +1737,24 @@ module VBD = struct
 					let (device: Device_common.device) = device_by_id xc xs vm Device_common.Vbd Newest (id_of vbd) in
 					let qos_target = get_qos xc xs vm vbd device in
 
-					let plugged = Hotplug.device_is_online ~xs device in
 					let device_number = device_number_of_device device in
 					let domid = device.Device_common.frontend.Device_common.domid in
-					let ejected = Device.Vbd.media_is_ejected ~xs ~device_number domid in
+					let backend_present =
+						if Device.Vbd.media_is_ejected ~xs ~device_number domid
+						then None
+						else Some (vdi_path_of_device ~xs device |> xs.Xs.read |> Jsonrpc.of_string |> disk_of_rpc) in
 					{
-						Vbd.plugged = plugged;
-						media_present = not ejected;
+						Vbd.active = true;
+						plugged = true;
+						backend_present;
 						qos_target = qos_target
 					}
 				with
 					| (Does_not_exist(_, _))
 					| Device_not_connected ->
-						unplugged_vbd
+						{ unplugged_vbd with
+							Vbd.active = get_active vm vbd
+						}
 			)
 
 	let get_device_action_request vm vbd =
