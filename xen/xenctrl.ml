@@ -63,3 +63,5 @@ let get_max_nr_cpus xc = 0
 
 let shadow_allocation_get xc domid = 0
 let shadow_allocation_set xc domid x = ()
+
+let pages_to_kib x = Int64.div x 4L
