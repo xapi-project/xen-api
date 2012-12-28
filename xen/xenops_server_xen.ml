@@ -2256,9 +2256,9 @@ let init () =
 		);
 
 	let xc = Xenctrl.xc_open () in
-	let xs = Xenstore.Client.make () in
-	let watch_callback = watch_callback xc xs in
-	Xenstore.Client.set_watch_callback xs watch_callback
+	let client = Xenstore.Client.make () in
+	let watch_callback = Xenstore.Xs.with_xs (watch_callback xc) in
+	Xenstore.Client.set_watch_callback client watch_callback
 
 module DEBUG = struct
 	let trigger cmd args = match cmd, args with
