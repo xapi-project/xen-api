@@ -1160,7 +1160,7 @@ module VM = struct
 										(fun () -> f fd)
 										(fun () ->
 											try
-												Unixext.fsync fd;
+												Fsync.fsync fd;
 											with Unix.Unix_error(Unix.EIO, _, _) ->
 												error "Caught EIO in fsync after suspend; suspend image may be corrupt";
 												raise (IO_error)
