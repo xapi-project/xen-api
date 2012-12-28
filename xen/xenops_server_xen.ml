@@ -204,28 +204,7 @@ let destroy_vbd_frontend ~xc ~xs task disk =
 
 module Storage = struct
 	open Storage_interface
-
-	module Client = Client(struct
-		let rec retry_econnrefused upto f =
-			try
-				f ()
-			with
-				| Unix.Unix_error(Unix.ECONNREFUSED, "connect", _) as e ->
-					if upto = 0 then raise e;
-					debug "Caught ECONNREFUSED; retrying in 5s";
-					Thread.delay 5.;
-					retry_econnrefused (upto - 1) f
-				| e ->
-					error "Caught %s: does the storage service need restarting?" (Printexc.to_string e);
-					raise e
-
-		let rpc call =
-			let open Xmlrpc_client in
-			retry_econnrefused 10
-				(fun () ->
-					XMLRPC_protocol.rpc ~srcstr:"xenops" ~dststr:"smapiv2" ~transport:(Unix "/var/xapi/storage") ~http:(xmlrpc ~version:"1.0" "/") call
-				)
-	end)
+	open Storage_client
 
 	let transform_exception f x =
 		try f x
