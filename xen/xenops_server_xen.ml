@@ -121,6 +121,12 @@ let event_wait task timeout p =
 	done;
 	!success
 
+let safe_rm xs path =
+	debug "xenstore-rm %s" path;
+	try
+		xs.Xs.rm path
+	with _ -> ()
+
 let this_domid ~xs = int_of_string (xs.Xs.read "domid")
 
 let uuid_of_string x = match Uuidm.of_string x with
