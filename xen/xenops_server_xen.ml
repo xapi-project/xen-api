@@ -51,6 +51,8 @@ module Opt = struct
 		| None -> d
 end
 
+let ignore_string (_: string) = ()
+
 type qemu_frontend =
 	| Name of string (* block device path or bridge name *)
 	| Device of Device_common.device
