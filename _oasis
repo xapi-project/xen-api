@@ -20,5 +20,5 @@ Library xcp_storage
   Findlibname:        storage
   Findlibparent:      xcp
   Modules:            Storage_interface, Vdi_automaton, Storage_client
-  BuildDepends:       xcp, rpclib, rpclib.syntax
+  BuildDepends:       xcp, threads, rpclib, rpclib.syntax
 
