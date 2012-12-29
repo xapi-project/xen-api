@@ -127,6 +127,11 @@ let finally f g =
 		g ();
 		raise e
 
+
+let ignore_string (_: string) = ()
+let ignore_bool (_: bool) = ()
+let ignore_int (_: int) = ()
+
 module Mutex = struct
 	include Mutex
 	let execute m f =
@@ -157,6 +162,7 @@ module List = struct
 		List.fold_left (fun acc x -> match f x with
 			| None -> acc
 			| Some x -> x :: acc) [] x
+
 end
 module String = struct
 	include String
@@ -314,10 +320,26 @@ module Unixext = struct
 				raise Process_still_alive;
 		)
 
-end
+	let copy_file_internal ?limit reader writer =
+		let buffer = String.make 65536 '\000' in
+		let buffer_len = Int64.of_int (String.length buffer) in
+		let finished = ref false in
+		let total_bytes = ref 0L in
+		let limit = ref limit in
+		while not(!finished) do
+			let requested = min (Opt.default buffer_len !limit) buffer_len in
+			let num = reader buffer 0 (Int64.to_int requested) in
+			let num64 = Int64.of_int num in
 
-let ignore_string (_: string) = ()
-let ignore_bool (_: bool) = ()
+			limit := Opt.map (fun x -> Int64.sub x num64) !limit;
+			ignore_int (writer buffer 0 num);
+			total_bytes := Int64.add !total_bytes num64;
+			finished := num = 0 || !limit = Some 0L;
+		done;
+		!total_bytes
+
+	let copy_file ?limit ifd ofd = copy_file_internal ?limit (Unix.read ifd) (Unix.write ofd)
+end
 
 let dropnone x = List.filter_map (Opt.map (fun x -> x)) x
 

@@ -81,6 +81,8 @@ let hvmloader = "/usr/lib/xen/boot/hvmloader"
 let releaseDomain = "@releaseDomain"
 let introduceDomain = "@introduceDomain"
 
+module Uuid = Uuidm
+
 let log_exn_continue msg f x = try f x with e -> debug "Safely ignoring exception: %s while %s" (Printexc.to_string e) msg
 
 let log_exn_rm ~xs x = log_exn_continue ("xenstore-rm " ^ x) xs.Xs.rm x
@@ -109,7 +111,7 @@ let domarch_of_string = function
 	| _     -> Arch_native
 
 let get_uuid ~xc domid =
-	Uuid.uuid_of_int_array (Xenctrl.domain_getinfo xc domid).Xenctrl.handle
+	Xenctrl.uuid_of_handle (Xenctrl.domain_getinfo xc domid).Xenctrl.handle
 
 let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds=64) required_memory_kib : bool =
 	let open Memory in
@@ -227,7 +229,7 @@ let make ~xc ~xs vm_info uuid =
 
 		(* CA-30811: let the linux guest agent easily determine if this is a fresh domain even if
 		   the domid hasn't changed (consider cross-host migrate) *)
-		xs.Xs.write (dom_path ^ "/unique-domain-id") (Uuid.string_of_uuid (Uuid.make_uuid ()));
+		xs.Xs.write (dom_path ^ "/unique-domain-id") (Uuid.to_string (Uuid.create `V4));
 
 		info "VM = %s; domid = %d" (Uuid.to_string uuid) domid;
 		domid
@@ -486,15 +488,15 @@ let build_pre ~xc ~xs ~vcpus ~xen_max_mib ~shadow_mib ~required_host_free_mib do
 
 	maybe_exn_ign "timer mode" (fun mode ->
 		debug "VM = %s; domid = %d; domain_set_timer_mode %d" (Uuid.to_string uuid) domid mode;
-		Xenctrlext.domain_set_timer_mode xc domid mode
+		Xenctrl.domain_set_timer_mode xc domid mode
 	) timer_mode;
     maybe_exn_ign "hpet" (fun hpet -> 
 		debug "VM = %s; domid = %d; domain_set_hpet %d" (Uuid.to_string uuid) domid hpet;
-		Xenctrlext.domain_set_hpet xc domid hpet
+		Xenctrl.domain_set_hpet xc domid hpet
 	) hpet;
     maybe_exn_ign "vpt align" (fun vpt_align ->
 		debug "VM = %s; domid = %d; domain_set_vpt_align %d" (Uuid.to_string uuid) domid vpt_align;
-		Xenctrlext.domain_set_vpt_align xc domid vpt_align
+		Xenctrl.domain_set_vpt_align xc domid vpt_align
 	) vpt_align;
 	debug "VM = %s; domid = %d; domain_max_vcpus %d" (Uuid.to_string uuid) domid vcpus;
 	Xenctrl.domain_max_vcpus xc domid vcpus;
@@ -588,7 +590,7 @@ let build_linux (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~kerne
 		XenguestHelper.receive_success in
 
 	let store_mfn, console_mfn, protocol =
-		match String.split ' ' line with
+		match Re_str.split (Re_str.regexp "[ ]") line with
 		| [ store_mfn; console_mfn; protocol ] ->
 			debug "VM = %s; domid = %d; store_mfn = %s; console_mfn = %s; protocol = %s" (Uuid.to_string uuid) domid store_mfn console_mfn protocol;
 		    Nativeint.of_string store_mfn, Nativeint.of_string console_mfn, protocol
@@ -666,7 +668,7 @@ let build_hvm (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~shadow_
 	end;
 
 	let store_mfn, console_mfn =
-		match String.split ' ' line with
+		match Re_str.split (Re_str.regexp "[ ]") line with
 		| [ store_mfn; console_mfn] ->
 			debug "VM = %s; domid = %d; store_mfn = %s; console_mfn = %s" (Uuid.to_string uuid) domid store_mfn console_mfn;
 			Nativeint.of_string store_mfn, Nativeint.of_string console_mfn
@@ -718,7 +720,7 @@ let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~console_port 
 		raise Restore_signature_mismatch;
 	end;
 	Unix.clear_close_on_exec fd;
-	let fd_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+	let fd_uuid = Uuid.to_string (Uuid.create `V4) in
 
 	let line = XenguestHelper.with_connection task domid
 	  ([
@@ -731,7 +733,7 @@ let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~console_port 
 	  ] @ extras) [ fd_uuid, fd ] XenguestHelper.receive_success in
 
 	let store_mfn, console_mfn =
-		match String.split_f String.isspace line with
+		match Re_str.split (Re_str.regexp "[ ]") line with
 		| [ store; console ] ->
 			debug "VM = %s; domid = %d; store_mfn = %s; console_mfn = %s" (Uuid.to_string uuid) domid store console;
 			Nativeint.of_string store, Nativeint.of_string console
@@ -861,7 +863,7 @@ let suspend (task: Xenops_task.t) ~xc ~xs ~hvm domid fd flags ?(progress_callbac
 	let uuid = get_uuid ~xc domid in
 	debug "VM = %s; domid = %d; suspend live = %b" (Uuid.to_string uuid) domid (List.mem Live flags);
 	Io.write fd save_signature;
-	let fd_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+	let fd_uuid = Uuid.to_string (Uuid.create `V4) in
 
 	let cmdline_to_flag flag =
 		match flag with
@@ -888,7 +890,7 @@ let suspend (task: Xenops_task.t) ~xc ~xs ~hvm domid fd flags ?(progress_callbac
 			if String.startswith prefix txt then
 				let rest = String.sub txt (String.length prefix)
 				                   (String.length txt - (String.length prefix)) in
-				match String.split_f (fun x -> String.isspace x || x = '%') rest with
+				match Re_str.split (Re_str.regexp "[ %]") rest with
 				| [ percent ] -> (
 					try
 						let percent = int_of_string percent in
@@ -958,16 +960,16 @@ let suspend (task: Xenops_task.t) ~xc ~xs ~hvm domid fd flags ?(progress_callbac
 let send_s3resume ~xc domid =
 	let uuid = get_uuid ~xc domid in
 	debug "VM = %s; domid = %d; send_s3resume" (Uuid.to_string uuid) domid;
-	Xenctrlext.domain_send_s3resume xc domid
+	Xenctrl.domain_send_s3resume xc domid
 
 let trigger_power ~xc domid =
 	let uuid = get_uuid ~xc domid in
 	debug "VM = %s; domid = %d; domain_trigger_power" (Uuid.to_string uuid) domid;
-	Xenctrlext.domain_trigger_power xc domid
+	Xenctrl.domain_trigger_power xc domid
 let trigger_sleep ~xc domid =
 	let uuid = get_uuid ~xc domid in
 	debug "VM = %s; domid = %d; domain_trigger_sleep" (Uuid.to_string uuid) domid;
-	Xenctrlext.domain_trigger_sleep xc domid
+	Xenctrl.domain_trigger_sleep xc domid
 
 let vcpu_affinity_set ~xc domid vcpu cpumap =
 	(*
@@ -1062,7 +1064,7 @@ let set_machine_address_size ~xc domid width =
 let suppress_spurious_page_faults ~xc domid =
 	let uuid = get_uuid ~xc domid in
 	debug "VM = %s; domid = %d; domain_suppress_spurious_page_faults" (Uuid.to_string uuid) domid;
-  Xenctrlext.domain_suppress_spurious_page_faults xc domid
+  Xenctrl.domain_suppress_spurious_page_faults xc domid
 
 type cpuid_reg = Eax | Ebx | Ecx | Edx
 type cpuid_rtype = Clear | Set | Default | Same | Keep
@@ -1131,11 +1133,9 @@ let cpuid_set ~xc ~hvm domid cfg =
 	cfgout
 
 let cpuid_apply ~xc ~hvm domid =
-	if not (Xenctrl.is_fake()) then begin
 		let uuid = get_uuid ~xc domid in
 		debug "VM = %s; domid = %d; cpuid_apply" (Uuid.to_string uuid) domid;
 		Xenctrl.domain_cpuid_apply_policy xc domid
-	end
 
 let cpuid_check ~xc cfg =
 	let tmp = Array.create 4 None in

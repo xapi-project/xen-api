@@ -40,7 +40,6 @@ module Xs = struct
 (*
         getperms : string -> perms;
         setpermsv : string -> string list -> perms -> unit;
-        introduce : domid -> nativeint -> int -> unit;
         release : domid -> unit;
         resume : domid -> unit;
 *)
@@ -49,6 +48,7 @@ module Xs = struct
         getdomainpath : domid -> string;
         watch : string -> string -> unit;
         unwatch : string -> string -> unit;
+        introduce : domid -> nativeint -> int -> unit;
 }
 
     let ops h = {
@@ -62,6 +62,7 @@ module Xs = struct
         getdomainpath = Client.getdomainpath h;
         watch = Client.watch h;
         unwatch = Client.unwatch h;
+        introduce = Client.introduce h;
     }
     let with_xs f = Client.with_xs client (fun h -> f (ops h))
     let wait f = Client.wait client (fun h -> f (ops h))
