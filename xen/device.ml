@@ -1298,7 +1298,7 @@ let ensure_device_frontend_exists ~xs backend_domid frontend_domid =
 		then debug "PCI frontend already exists: no work to do"
 		else begin
 			t.Xst.mkdir frontend_path;
-			t.Xst.setperms frontend_path (frontend_domid, Xsraw.PERM_NONE, [ (backend_domid, Xsraw.PERM_READ) ]);
+			t.Xst.setperms frontend_path (Xs_protocol.ACL.({owner = frontend_domid; other = NONE; acl = [ (backend_domid, READ) ]}));
 			t.Xst.writev frontend_path [
 				"backend", backend_path;
 				"backend-id", string_of_int backend_domid;
