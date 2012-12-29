@@ -76,13 +76,13 @@ let add_device ~xs device backend_list frontend_list private_list =
 		   one per PV .iso *)
 
 		t.Xst.mkdir frontend_path;
-		t.Xst.setperms frontend_path (device.frontend.domid, Xsraw.PERM_NONE, [ (device.backend.domid, Xsraw.PERM_READ) ]);
+		t.Xst.setperms frontend_path (Xenbus_utils.device_frontend device);
 
 		t.Xst.mkdir backend_path;
-		t.Xst.setperms backend_path (device.backend.domid, Xsraw.PERM_NONE, [ (device.frontend.domid, Xsraw.PERM_READ) ]);
+		t.Xst.setperms backend_path (Xenbus_utils.device_backend device);
 
 		t.Xst.mkdir hotplug_path;
-		t.Xst.setperms hotplug_path (device.backend.domid, Xsraw.PERM_NONE, []);
+		t.Xst.setperms hotplug_path (Xenbus_utils.hotplug device);
 
 		t.Xst.writev frontend_path
 		             (("backend", backend_path) :: frontend_list);
@@ -90,7 +90,7 @@ let add_device ~xs device backend_list frontend_list private_list =
 		             (("frontend", frontend_path) :: backend_list);
 
 		t.Xst.mkdir private_data_path;
-		t.Xst.setperms private_data_path (device.backend.domid, Xsraw.PERM_NONE, []);
+		t.Xst.setperms private_data_path (Xenbus_utils.hotplug device);
 		t.Xst.writev private_data_path private_list;
 	)
 	)

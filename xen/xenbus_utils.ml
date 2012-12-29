@@ -56,3 +56,13 @@ let rwperm_for_guest domid =
 let roperm_for_guest domid =
 	Xs_protocol.ACL.({owner = 0; other = NONE; acl = [ (domid, READ) ]})
 
+open Device_common
+
+let device_frontend device =
+	Xs_protocol.ACL.({owner = device.frontend.domid; other = NONE; acl = [ device.backend.domid, READ ]})
+
+let device_backend device =
+	Xs_protocol.ACL.({owner = device.backend.domid; other = NONE; acl = [ device.frontend.domid, READ ]})
+
+let hotplug device =
+	Xs_protocol.ACL.({owner = device.backend.domid; other = NONE; acl = []})
