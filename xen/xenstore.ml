@@ -34,9 +34,7 @@ module Xs = struct
         readv : string -> string list -> string list;
 *)
         write : string -> string -> unit;
-(*
         writev : string -> (string * string) list -> unit;
-*)
         mkdir : string -> unit;
         rm : string -> unit;
 (*
@@ -57,7 +55,8 @@ module Xs = struct
         read = Client.read h;
 		directory = Client.directory h;
         write = Client.write h;
-		mkdir = Client.mkdir h;
+        writev = (fun base_path -> List.iter (fun (k, v) -> Client.write h (base_path ^ "/" ^ k) k));
+        mkdir = Client.mkdir h;
         rm = Client.rm h;
         setperms = Client.setperms h;
         getdomainpath = Client.getdomainpath h;
