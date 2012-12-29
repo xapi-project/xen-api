@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D = Debug.Debugger(struct let name = "xenops" end)
+module D = Debug.Make(struct let name = "xenops" end)
 open D
 open Xenstore
 open Xenops_task

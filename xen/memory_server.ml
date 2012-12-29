@@ -20,7 +20,7 @@ open Squeezed_state
 open Xenops_helpers
 open Xenstore
 
-module D = Debug.Debugger(struct let name = Memory_interface.service_name end)
+module D = Debug.Make(struct let name = Memory_interface.service_name end)
 open D
 
 type context = unit

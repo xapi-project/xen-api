@@ -14,7 +14,7 @@
 open Xenops_utils
 open Xenops_task
 
-module D = Debug.Debugger(struct let name = "xenguesthelper" end)
+module D = Debug.Make(struct let name = "xenguesthelper" end)
 open D
 
 (** Installed path of the xenguest helper *)
