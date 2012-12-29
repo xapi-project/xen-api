@@ -12,8 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 open Printf
-open Stringext
-open Hashtblext
 open Xenstore
 open Xenops_utils
 
@@ -41,7 +39,7 @@ exception Hotplug_script_expecting_field of device * string
 exception Unknown_device_type of string
 exception Unknown_device_protocol of string
 
-module D = Debug.Debugger(struct let name = "xenops" end)
+module D = Debug.Make(struct let name = "xenops" end)
 open D
 
 open Printf
@@ -140,8 +138,10 @@ let parse_int i =
 		Some (int_of_string i)
 	with _ -> None
 
+let slash = Re_str.regexp "[/]"
+
 let parse_frontend_link x =
-	match String.split '/' x with
+	match Re_str.split slash x with
 		| [ ""; "local"; "domain"; domid; "device"; kind; devid ] ->
 			begin
 				match parse_int domid, parse_kind kind, parse_int devid with
@@ -152,7 +152,7 @@ let parse_frontend_link x =
 		| _ -> None
 
 let parse_backend_link x = 
-	match String.split '/' x with
+	match Re_str.split slash x with
 		| [ ""; "local"; "domain"; domid; "backend"; kind; _; devid ] ->
 			begin
 				match parse_int domid, parse_kind kind, parse_int devid with
