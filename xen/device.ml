@@ -709,8 +709,8 @@ let add (task: Xenops_task.t) ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) 
 	let extra_private_keys = extra_private_keys @
 	  (match mtu with | Some mtu when mtu > 0 -> [ "MTU", string_of_int mtu ] | _ -> []) @
 	  (match netty with
-	     | Netman.Bridge b -> [ "bridge", b; "bridge-MAC", if(Xenctrl.is_fake ()) then "fe:fe:fe:fe:fe:fe" else "fe:ff:ff:ff:ff:ff"; ]
-	     | Netman.Vswitch b -> [ "bridge", b; "bridge-MAC", if(Xenctrl.is_fake ()) then "fe:fe:fe:fe:fe:fe" else "fe:ff:ff:ff:ff:ff"; ]
+	     | Netman.Bridge b -> [ "bridge", b; "bridge-MAC", "fe:ff:ff:ff:ff:ff"; ]
+	     | Netman.Vswitch b -> [ "bridge", b; "bridge-MAC", "fe:ff:ff:ff:ff:ff"; ]
 	     | Netman.DriverDomain -> []
 	     | Netman.Nat -> []) @
 	  (match rate with | None -> [] | Some(rate, timeslice) -> [ "rate", Int64.to_string rate; "timeslice", Int64.to_string timeslice ]) in
