@@ -47,13 +47,23 @@ end
    lognormal transformations here.
  *)
 
-module D=Debug.Debugger(struct let name="stats" end)
+open Xenops_utils
+
+module D=Debug.Make(struct let name="stats" end)
 open D
-open Threadext
-open Pervasiveext
 
 let timings : (string, Normal_population.t) Hashtbl.t = Hashtbl.create 10
 let timings_m = Mutex.create ()
+
+let with_lock m f =
+  Mutex.lock m;
+  try
+    let result = f () in
+    Mutex.unlock m;
+    result
+  with e ->
+    Mutex.unlock m;
+    raise e
 
 let mean (p: Normal_population.t) = 
   let sigma = Normal_population.sd p in
@@ -72,7 +82,7 @@ let string_of (p: Normal_population.t) =
 let sample (name: string) (x: float) : unit = 
   (* Use the lognormal distribution: *)
   let x' = log x in
-  Mutex.execute timings_m
+  with_lock timings_m
     (fun () ->
        let p = 
 	 if Hashtbl.mem timings name 
@@ -101,7 +111,7 @@ let time_this (name: string) f =
     )
        
 let summarise () = 
-  Mutex.execute timings_m
+  with_lock timings_m
     (fun () ->
        Hashtbl.fold (fun k v acc -> (k, string_of v) :: acc) timings []
     )
@@ -124,7 +134,7 @@ let log_stats = ref false
 
 let log_db_call task_opt dbcall ty = 
   if not !log_stats then () else
-    Mutex.execute dbstats_m (fun () ->
+    with_lock dbstats_m (fun () ->
       let hashtbl = match ty with 
 	| Read -> dbstats_read_dbcalls 
 	| Write -> dbstats_write_dbcalls
@@ -151,7 +161,7 @@ let summarise_db_calls () =
     (Printf.sprintf "Total: %d" total) :: (List.map (fun (count,str) -> Printf.sprintf "%s: %d" str count) sorted)
   in
 
-  Mutex.execute dbstats_m (fun () ->
+  with_lock dbstats_m (fun () ->
     (summarise_table dbstats_write_dbcalls,
     summarise_table dbstats_read_dbcalls,
     summarise_table dbstats_create_dbcalls,
