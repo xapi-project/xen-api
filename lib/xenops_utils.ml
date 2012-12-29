@@ -213,6 +213,7 @@ module Unixext = struct
 			| _ -> exit 0
 end
 
+let ignore_string (_: string) = ()
 
 let dropnone x = List.filter_map (Opt.map (fun x -> x)) x
 
