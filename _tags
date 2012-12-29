@@ -209,3 +209,4 @@
 <simulator/xenops_server_simulator.ml>: syntax_camlp4o, pkg_rpclib.syntax
 <xen/xenops_server_xen.ml>: syntax_camlp4o, pkg_rpclib.syntax
 <xen/device_common.ml>: syntax_camlp4o, pkg_rpclib.syntax
+<xen/device.ml>: syntax_camlp4o, pkg_rpclib.syntax
