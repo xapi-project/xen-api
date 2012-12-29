@@ -1657,8 +1657,11 @@ let cmdline_of_info info restore domid =
 	let nics = List.stable_sort (fun (_,_,a) (_,_,b) -> compare a b) info.nics in
 	if List.length nics > max_emulated_nics then debug "Limiting the number of emulated NICs to %d" max_emulated_nics;
 	(* Take the first 'max_emulated_nics' elements from the list. *)
-	let take xs n  = List.map snd (List.filter (fun (x, _) -> x < n) (List.combine (Range.to_list (Range.make 0 (List.length xs))) xs)) in
-	let nics = take nics max_emulated_nics in
+	let rec take n xs = match n, xs with
+		| 0, _ -> []
+		| _, [] -> [] (* return a short list *)
+		| n, x :: xs -> x :: (take (n - 1) xs) in
+	let nics = take max_emulated_nics nics in
 	
 	(* qemu need a different id for every vlan, or things get very bad *)
 	let nics' =
