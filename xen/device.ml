@@ -11,6 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+
+let _vif_script = "/etc/xensource/scripts/vif"
+
 open Printf
 
 open Xenops_utils
@@ -682,7 +685,7 @@ let add (task: Xenops_task.t) ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) 
 		"frontend-id", sprintf "%u" domid;
 		"online", "1";
 		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
-		"script", (Filename.concat Fhs.scriptsdir "vif");
+		"script", _vif_script;
 		"mac", mac;
 		"handle", string_of_int devid
 	] @ back_options in
