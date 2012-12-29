@@ -55,10 +55,14 @@ let readconsolering () = "console"
 
 type physinfo = {
 	total_pages: nativeint;
+	free_pages: nativeint;
+	scrub_pages: nativeint;
 }
 
 let physinfo () = {
 	total_pages = 0n;
+	free_pages = 0n;
+	scrub_pages = 0n;
 }
 
 let send_debug_keys xc keys = ()
