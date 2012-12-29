@@ -507,13 +507,13 @@ let add_async ~xs ~hvm x domid =
 
 	List.iter (fun (k, v) -> Hashtbl.add back_tbl k v) x.extra_backend_keys;
 
-	Hashtbl.add_list front_tbl [
+	List.iter (fun (k, v) -> Hashtbl.replace front_tbl k v) [
 		"backend-id", string_of_int x.backend_domid;
 		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
 		"virtual-device", string_of_int devid;
 		"device-type", if x.dev_type = CDROM then "cdrom" else "disk";
 	];
-	Hashtbl.add_list back_tbl [
+	List.iter (fun (k, v) -> Hashtbl.replace back_tbl k v) [
 		"frontend-id", sprintf "%u" domid;
 		(* Prevents the backend hotplug scripts from running if the frontend disconnects.
 		   This allows the xenbus connection to re-establish itself *)
@@ -536,9 +536,8 @@ let add_async ~xs ~hvm x domid =
 			Hashtbl.add front_tbl "protocol" (string_of_protocol protocol)
 		) x.protocol;
 
-	let back = Hashtbl.to_list back_tbl in
-	let front = Hashtbl.to_list front_tbl in
-
+	let back = Hashtbl.fold (fun k v acc -> (k, v) :: acc) back_tbl [] in
+	let front = Hashtbl.fold (fun k v acc -> (k, v) :: acc) front_tbl [] in
 
 	Generic.add_device ~xs device back front x.extra_private_keys;
 	device
