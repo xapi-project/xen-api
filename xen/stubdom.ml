@@ -28,7 +28,7 @@ let memory_kib = Int64.mul 1024L memory_mib
 
 let create ~xc ~xs domid =
     let stubdom_name = Printf.sprintf "stubdom:%d" domid in
-	let stubdom_uuid = Uuid.make_uuid() in
+	let stubdom_uuid = Uuid.create `V4 in
     debug "jjd27: creating stubdom with name '%s' and uuid '%s'" stubdom_name (Uuid.to_string stubdom_uuid);
 	let info = {
  		Domain.ssidref = 0l;
@@ -57,7 +57,7 @@ let build (task: Xenops_task.t) ~xc ~xs info domid stubdom_domid =
 
     (* Point the stub domain at the guest *)
     debug "jjd27: pointing stubdom %d to guest %d" stubdom_domid domid;
-    Xenctrlext.domain_set_target xc stubdom_domid domid;
+    Xenctrl.domain_set_target xc stubdom_domid domid;
 
     (* Tell XenStore that the stubdom should have implicit privileges over the target domain *)
     debug "jjd27: telling XenStore that stubdom %d has target %d" stubdom_domid domid;

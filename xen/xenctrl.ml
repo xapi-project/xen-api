@@ -123,4 +123,6 @@ let vcpu_affinity_get xc domid vcpu = [| true |]
 
 let domain_set_machine_address_size xc domid width = ()
 
+let domain_set_target xc stubdom_domid domid = ()
+
 let evtchn_alloc_unbound xc a b = 0
