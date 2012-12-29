@@ -47,7 +47,7 @@ let tc_port_path domid = sprintf "/local/domain/%d/console/tc-port" domid
    VMs. Work around this by serialising these transactions for now. *)
 let device_serialise_m = Mutex.create ()
 let add_device ~xs device backend_list frontend_list private_list =
-	Threadext.Mutex.execute device_serialise_m (fun () ->
+	Mutex.execute device_serialise_m (fun () ->
 
 	let frontend_path = frontend_path_of_device ~xs device
 	and backend_path = backend_path_of_device ~xs device
