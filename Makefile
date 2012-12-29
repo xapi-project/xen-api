@@ -4,6 +4,10 @@ all: build doc
 NAME=xenops
 J=4
 
+BINDIR ?= /usr/bin
+SBINDIR ?= /usr/sbin
+DESTDIR ?= /
+
 export OCAMLRUNPARAM=b
 
 TESTS     := --enable-tests
@@ -27,6 +31,8 @@ doc: setup.data setup.bin
 
 install: setup.bin
 	@./setup.bin -install
+	install ./xenops_main.native $(DESTDIR)/$(SBINDIR)/xenopsd
+	install ./xenops_simulator_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
 
 test: setup.bin build
 	@./setup.bin -test
@@ -34,6 +40,13 @@ test: setup.bin build
 reinstall: setup.bin
 	@ocamlfind remove $(NAME) || true
 	@./setup.bin -reinstall
+	install ./xenops_main.native $(DESTDIR)/$(SBINDIR)/xenopsd
+	install ./xenops_simulator_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
+
+uninstall:
+	@ocamlfind remove $(NAME) || true
+	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd
+	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
 
 clean:
 	@ocamlbuild -clean
