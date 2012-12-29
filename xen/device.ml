@@ -1137,14 +1137,17 @@ let release ~xc ~xs ~hvm pcidevs domid devid =
 		release_xl pcidevs domid
 
 let write_string_to_file file s =
-	let fn_write_string fd = Unixext.really_write fd s 0 (String.length s) in
-	Unixext.with_file file [ Unix.O_WRONLY ] 0o640 fn_write_string
+	Unixext.with_file file [ Unix.O_WRONLY ] 0o640
+		(fun fd ->
+			let (_: int) = Unix.write fd s 0 (String.length s) in
+			()
+		)
 
 let do_flr device =
 	debug "Doing FLR on pci device: %s" device;
 	let doflr = "/sys/bus/pci/drivers/pciback/do_flr" in
 	let callscript s devstr =
-		if Sys.file_exists script then begin
+		if Sys.file_exists _pci_flr_script then begin
 			try ignore (Forkhelpers.execute_command_get_output _pci_flr_script [ s; devstr; ])
 			with _ -> ()
 		end
