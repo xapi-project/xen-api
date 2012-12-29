@@ -211,6 +211,73 @@ module Unixext = struct
 					| _ -> exit 0
 				end
 			| _ -> exit 0
+
+
+	let with_file file mode perms f =
+		let fd = Unix.openfile file mode perms in
+		let r =
+			try f fd
+			with exn -> Unix.close fd; raise exn
+		in
+		Unix.close fd;
+		r
+
+	(** [fd_blocks_fold block_size f start fd] folds [f] over blocks (strings)
+		from the fd [fd] with initial value [start] *)
+	let fd_blocks_fold block_size f start fd = 
+		let block = String.create block_size in
+		let rec fold acc = 
+			let n = Unix.read fd block 0 block_size in
+			(* Consider making the interface explicitly use Substrings *)
+			let s = if n = block_size then block else String.sub block 0 n in
+			if n = 0 then acc else fold (f acc s) in
+		fold start
+
+	let buffer_of_fd fd = 
+		fd_blocks_fold 1024 (fun b s -> Buffer.add_string b s; b) (Buffer.create 1024) fd
+
+	let buffer_of_file file_path = with_file file_path [ Unix.O_RDONLY ] 0 buffer_of_fd
+
+	let string_of_file file_path = Buffer.contents (buffer_of_file file_path)
+
+	exception Process_still_alive
+
+	let kill_and_wait ?(signal = Sys.sigterm) ?(timeout=10.) pid =
+		let proc_entry_exists pid =
+			try Unix.access (Printf.sprintf "/proc/%d" pid) [ Unix.F_OK ]; true
+			with _ -> false
+		in
+		if pid > 0 && proc_entry_exists pid then (
+			let loop_time_waiting = 0.03 in
+			let left = ref timeout in
+			let readcmdline pid =
+				try string_of_file (Printf.sprintf "/proc/%d/cmdline" pid)
+				with _ -> ""
+			in
+			let reference = readcmdline pid and quit = ref false in
+			Unix.kill pid signal;
+
+			(* We cannot do a waitpid here, since we might not be parent of
+			   the process, so instead we are waiting for the /proc/%d to go
+			   away. Also we verify that the cmdline stay the same if it's still here
+			   to prevent the very very unlikely event that the pid get reused before
+			   we notice it's gone *)
+			while proc_entry_exists pid && not !quit && !left > 0.
+			do
+				let cmdline = readcmdline pid in
+				if cmdline = reference then (
+					(* still up, let's sleep a bit *)
+					ignore (Unix.select [] [] [] loop_time_waiting);
+					left := !left -. loop_time_waiting
+				) else (
+					(* not the same, it's gone ! *)
+					quit := true
+				)
+			done;
+			if !left <= 0. then
+				raise Process_still_alive;
+		)
+
 end
 
 let ignore_string (_: string) = ()

@@ -1147,14 +1147,6 @@ module VM = struct
 			)
 
 	(** open a file, and make sure the close is always done *)
-	let with_file file mode perms f =
-		let fd = Unix.openfile file mode perms in
-		let r =
-			try f fd
-			with exn -> Unix.close fd; raise exn
-		in
-		Unix.close fd;
-		r
 
 	let with_data ~xc ~xs task data write f = match data with
 		| Disk disk ->
@@ -1169,7 +1161,7 @@ module VM = struct
 								then [ Unix.O_WRONLY; Unix.O_CREAT ]
 								else [ Unix.O_RDONLY ] in
 							let filename = dir ^ "/suspend-image" in
-							with_file filename flags 0o600
+							Unixext.with_file filename flags 0o600
 								(fun fd ->
 									finally
 										(fun () -> f fd)
