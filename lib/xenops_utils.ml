@@ -215,6 +215,33 @@ module Unixext = struct
 				end
 			| _ -> exit 0
 
+	exception Break
+
+	let lines_fold f start input =
+		let accumulator = ref start in
+		let running = ref true in
+		while !running do
+			let line =
+				try Some (input_line input)
+				with End_of_file -> None
+			in
+			match line with
+			| Some line ->
+				begin
+					try accumulator := (f !accumulator line)
+					with Break -> running := false
+				end
+			| None ->
+				running := false
+		done;
+		!accumulator
+
+	(** open a file, and make sure the close is always done *)
+	let with_input_channel file f =
+		let input = open_in file in
+		finally
+			(fun () -> f input)
+			(fun () -> close_in input)
 
 	let with_file file mode perms f =
 		let fd = Unix.openfile file mode perms in
@@ -224,6 +251,12 @@ module Unixext = struct
 		in
 		Unix.close fd;
 		r
+
+	let file_lines_fold f start file_path = with_input_channel file_path (lines_fold f start)
+
+	let file_lines_iter f = file_lines_fold (fun () line -> ignore(f line)) ()
+
+	let readfile_line = file_lines_iter
 
 	(** [fd_blocks_fold block_size f start fd] folds [f] over blocks (strings)
 		from the fd [fd] with initial value [start] *)
