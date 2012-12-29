@@ -738,7 +738,7 @@ let move ~xs (x: device) bridge =
 	xs.Xs.write xs_bridge_path bridge;
 	let domid = string_of_int x.frontend.domid in
 	let devid = string_of_int x.frontend.devid in
-	ignore (Forkhelpers.execute_command_get_output (Filename.concat Fhs.scriptsdir "vif") ["move"; "vif"; domid; devid])
+	ignore (Forkhelpers.execute_command_get_output _vif_script ["move"; "vif"; domid; devid])
 end
 
 (*****************************************************************************)
