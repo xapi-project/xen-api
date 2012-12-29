@@ -1616,8 +1616,9 @@ let cmdline_of_disp info =
 	    | Cirrus -> []
 	in
 	let videoram_opt = ["-videoram"; string_of_int info.video_mib] in
-	let dom0_input_opts x =
-	  (maybe_with_default [] (fun i -> ["-dom0-input"; string_of_int i]) x)
+	let dom0_input_opts = function
+		| None -> []
+		| Some i -> ["-dom0-input"; string_of_int i]
 	in
 	let disp_options, wait_for_port =
 		match info.disp with
