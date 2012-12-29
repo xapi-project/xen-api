@@ -14,11 +14,11 @@
 open Xenops_utils
 open Xenops_task
 
+(** Installed path of the xenguest helper *)
+let _path = "/opt/xensource/libexec/xenguest"
+
 module D = Debug.Make(struct let name = "xenguesthelper" end)
 open D
-
-(** Installed path of the xenguest helper *)
-let path = Filename.concat Fhs.libexecdir "xenguest"
 
 (** Where to place the last xenguesthelper debug log (just in case) *)
 let last_log_file = "/tmp/xenguesthelper-log"
@@ -62,7 +62,7 @@ let connect domid (args: string list) (fds: (string * Unix.file_descr) list) : t
 	let pid = Forkhelpers.safe_close_and_exec None None None 
 	  ([ slave_to_server_w_uuid, slave_to_server_w;
 	    server_to_slave_r_uuid, server_to_slave_r ] @ fds)
-	  path args in
+	  _path args in
 	
 	Unix.close slave_to_server_w;
 	Unix.close server_to_slave_r;
