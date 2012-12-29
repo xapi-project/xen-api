@@ -1377,13 +1377,13 @@ let add ~xc ~xs ?(backend_domid=0) domid =
     ] in
     Xs.transaction xs (fun t ->
         (* Add the frontend *)
-        let perms = (domid, Xsraw.PERM_NONE, [(0, Xsraw.PERM_READ)]) in
+        let perms = Xs_protocol.ACL.({owner = domid; other = NONE; acl =[(0, READ)]}) in
         t.Xst.mkdir frontend_path;
         t.Xst.setperms frontend_path perms;
         t.Xst.writev frontend_path front;
 
         (* Now make the request *)
-        let perms = (domid, Xsraw.PERM_NONE, []) in
+        let perms = Xs_protocol.ACL.({owner = domid; other = NONE; acl = []}) in
         let request_path = Printf.sprintf "%s/%d" request_path 0 in
         t.Xst.mkdir request_path;
         t.Xst.setperms request_path perms;
