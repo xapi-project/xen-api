@@ -12,10 +12,14 @@
  * GNU Lesser General Public License for more details.
  *)
 
+open Xenops_utils
+
 module D = Debug.Make(struct let name = "xenops" end)
 open D
 open Xenstore
 open Xenops_task
+
+module Uuid = Uuidm
 
 let fs_backend_path = "/usr/sbin/fs-backend"
 
