@@ -73,3 +73,6 @@ let pages_to_kib x = Int64.div x 4L
 type reason = Reboot | Halt
 let domain_shutdown xc domid reason = ()
 
+let domain_ioport_permission xc domid first_ports nr_ports perm = ()
+
+let domain_iomem_permission xc domid first_pfn nr_pfns perm = ()
