@@ -52,7 +52,7 @@ type t = {
 let bootloader_args q extra_args legacy_args pv_bootloader_args image vm_uuid = 
   (* Let's not do anything fancy while parsing the pv_bootloader_args string:
      no escaping of spaces or quotes for now *)
-  let pv_bootloader_args = if pv_bootloader_args = "" then [] else String.split ' ' pv_bootloader_args in
+  let pv_bootloader_args = if pv_bootloader_args = "" then [] else Re_str.split (Re_str.regexp "[ ]") pv_bootloader_args in
 
   let rules = [ '"', "\\\""; '\\', "\\\\" ] in
   [ if q then "-q" else "";
@@ -82,7 +82,7 @@ let parse_output x =
 
 let parse_exception x =
 	debug "Bootloader failed: %s" x;
-	let lines = String.split '\n' x in
+	let lines = Re_str.split (Re_str.regexp "[\n]") x in
 	(* Since the error is a python stack trace, the last-but-one line tends to be the most useful. *)
 	let err = try List.nth (List.rev lines) 1 with _ -> raise (Bad_error x) in
 	raise (Error_from_bootloader err)
