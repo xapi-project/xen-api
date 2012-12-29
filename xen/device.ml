@@ -14,6 +14,8 @@
 
 let _vif_script = "/etc/xensource/scripts/vif"
 let _pci_flr_script = "/opt/xensource/libexec/pci-flr"
+let _vncterm_wrapper = "/opt/xensource/libexec/vncterm-wrapper"
+let _vncterm = "/usr/lib/xen/bin/vncterm"
 
 open Printf
 
@@ -771,9 +773,6 @@ end
 
 module PV_Vnc = struct
 
-let vncterm_wrapper = Filename.concat Fhs.libexecdir "vncterm-wrapper"
-let vncterm_path = "/usr/lib/xen/bin/vncterm"
-
 let vnc_pid_path domid = sprintf "/local/domain/%d/vncterm-pid" domid
 let vnc_console_path domid = sprintf "/local/domain/%d/console" domid
 
@@ -792,7 +791,7 @@ let is_cmdline_valid domid pid =
 		|> Unixext.string_of_file
 		|> String.split '\000'
 	in
-	if (List.mem vncterm_path cmdline) && (List.mem (vnc_console_path domid) cmdline)
+	if (List.mem _vncterm cmdline) && (List.mem (vnc_console_path domid) cmdline)
 	then true
 	else false
 
@@ -864,7 +863,7 @@ let start ?statefile ~xs ?ip domid =
 		  "-v"; ip ^ ":1";
 		] @ load_args statefile in
 	(* Now add the close fds wrapper *)
-	let pid = Forkhelpers.safe_close_and_exec None None None [] vncterm_wrapper l in
+	let pid = Forkhelpers.safe_close_and_exec None None None [] _vncterm_wrapper l in
 	Forkhelpers.dontwaitpid pid
 
 let stop ~xs domid =
