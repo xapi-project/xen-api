@@ -61,7 +61,7 @@ let build (task: Xenops_task.t) ~xc ~xs info domid stubdom_domid =
 
     (* Tell XenStore that the stubdom should have implicit privileges over the target domain *)
     debug "jjd27: telling XenStore that stubdom %d has target %d" stubdom_domid domid;
-    Xenctrlext.Xsrawext.set_target stubdom_domid domid xs.Xs.con;
+    xs.Xs.set_target stubdom_domid domid;
 
     (* Write the guest's domid into XenStore *)
     let path = xs.Xs.getdomainpath stubdom_domid in

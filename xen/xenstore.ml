@@ -49,6 +49,7 @@ module Xs = struct
         watch : string -> string -> unit;
         unwatch : string -> string -> unit;
         introduce : domid -> nativeint -> int -> unit;
+        set_target : domid -> domid -> unit;
 }
 
     let ops h = {
@@ -63,6 +64,7 @@ module Xs = struct
         watch = Client.watch h;
         unwatch = Client.unwatch h;
         introduce = Client.introduce h;
+        set_target = Client.set_target h;
     }
     let with_xs f = Client.with_xs client (fun h -> f (ops h))
     let wait f = Client.wait client (fun h -> f (ops h))
