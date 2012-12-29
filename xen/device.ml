@@ -1012,14 +1012,13 @@ let add_noexn ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?(flrscript=None) pcide
 	} in
 
 	let others = (match flrscript with None -> [] | Some script -> [ ("script", script) ]) in
-	let xsdevs = List.mapi (fun i dev ->
-		[
+	let xsdevs = snd(List.fold_left (fun (i, acc) dev ->
+		i+1, acc @ [
 			sprintf "key-%d" i, to_string (dev.domain, dev.bus, dev.slot, dev.func);
 			sprintf "dev-%d" i, to_string (dev.domain, dev.bus, dev.slot, dev.func);
 			sprintf "opts-%d" i, "msitranslate=0,power_mgmt=0";
 			sprintf "state-%d" i, "1";
-		]
-	) pcidevs |> List.concat in
+		]) (0, []) pcidevs) in
 
 	let backendlist = [
 		"frontend-id", sprintf "%u" domid;
