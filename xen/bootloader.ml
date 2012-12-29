@@ -19,7 +19,7 @@
    4. Add support to control a slave screen process, to make a 'bios'
 *)
 
-open Stringext
+open String
 open Xenops_utils
 open Xenops_task
 

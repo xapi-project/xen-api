@@ -13,11 +13,7 @@
  *)
 open Printf
 
-open Stringext
-open Hashtblext
 open Xenops_utils
-open Fun
-open Listext
 
 open Device_common
 open Xenstore
@@ -32,7 +28,7 @@ exception Device_not_found
 
 exception Cdrom
 
-module D = Debug.Debugger(struct let name = "xenops" end)
+module D = Debug.Make(struct let name = "xenops" end)
 open D
 
 (* keys read by vif udev script (keep in sync with api:scripts/vif) *)

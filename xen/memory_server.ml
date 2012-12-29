@@ -19,7 +19,6 @@ open Memory_interface
 open Squeezed_state
 open Xenops_helpers
 open Xenstore
-open Threadext
 
 module D = Debug.Debugger(struct let name = Memory_interface.service_name end)
 open D

@@ -14,8 +14,6 @@
 (** Functions relating to Xen domains *)
 
 open Printf
-open Stringext
-open Listext
 open Xenops_utils
 open Xenstore
 open Cancel_utils
