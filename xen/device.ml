@@ -13,6 +13,7 @@
  *)
 
 let _vif_script = "/etc/xensource/scripts/vif"
+let _pci_flr_script = "/opt/xensource/libexec/pci-flr"
 
 open Printf
 
@@ -1143,10 +1144,9 @@ let write_string_to_file file s =
 let do_flr device =
 	debug "Doing FLR on pci device: %s" device;
 	let doflr = "/sys/bus/pci/drivers/pciback/do_flr" in
-	let script = Filename.concat Fhs.libexecdir "pci-flr" in
 	let callscript s devstr =
 		if Sys.file_exists script then begin
-			try ignore (Forkhelpers.execute_command_get_output script [ s; devstr; ])
+			try ignore (Forkhelpers.execute_command_get_output _pci_flr_script [ s; devstr; ])
 			with _ -> ()
 		end
 	in
