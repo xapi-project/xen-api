@@ -140,6 +140,9 @@ module Opt = struct
 	let map f = function
 		| None -> None
 		| Some x -> Some (f x)
+	let join = function
+		| Some (Some a) -> Some a
+		| _ -> None
 	let iter f x = ignore (map f x)
 	let to_list = function
 		| Some x -> [x]
