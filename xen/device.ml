@@ -656,7 +656,7 @@ let add (task: Xenops_task.t) ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) 
 	let backend = { domid = backend_domid; kind = Vif; devid = devid } in
 	let device = { backend = backend; frontend = frontend } in
 
-	let mac = check_mac mac in
+	let mac = Mac.check_mac mac in
 
 	let back_options =
 		match rate with
