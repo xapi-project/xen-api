@@ -61,23 +61,32 @@ let bootloader_args q extra_args legacy_args pv_bootloader_args image vm_uuid =
   ] @ pv_bootloader_args @ [
     image ]
 
-let parse_output x = 
-  let sexpr = "(" ^ x ^ ")" in
-  let sexpr' = SExpr_TS.of_string sexpr in
-  match sexpr' with
-    (* linux (kernel /var/lib/xen/vmlinuz.y1Wmrp)(args 'root=/dev/sda1 ro') *)
-    (* linux (kernel /var/lib/xen/vmlinuz.SFO5fb)(ramdisk /var/lib/xen/initrd.MUitgP)(args 'root=/dev/sda1 ro') *)
-    | SExpr.Node (SExpr.Symbol "linux" :: list) ->
-	let l = List.map (function
-	   | SExpr.Node [ SExpr.Symbol x; SExpr.Symbol y | SExpr.String y ] -> (x,y)
-	   | _ -> raise (Bad_sexpr sexpr)) list in
+(* linux (kernel /var/lib/xen/vmlinuz.y1Wmrp)(args 'root=/dev/sda1 ro') *)
+(* linux (kernel /var/lib/xen/vmlinuz.SFO5fb)(ramdisk /var/lib/xen/initrd.MUitgP)(args 'root=/dev/sda1 ro') *)
+let kvpairs_of_string x = Sexplib.Sexp.(match scan_sexps (Lexing.from_string x) with
+  | Atom "linux" :: list ->
+    let rec to_list = function
+    | List (Atom key :: values) :: rest ->
+      let atoms = List.map (function Atom x -> x | _ -> raise (Bad_sexpr x)) values in
+      let v = String.concat " " atoms in
+      let v =
+        if v.[0] = '\'' && v.[String.length v - 1] = '\''
+        then String.sub v 1 (String.length v - 2)
+        else v in
+      (key, v) :: (to_list rest)
+    | [] -> []
+    | _ -> raise (Bad_sexpr x) in
+		to_list list
+	| _ -> raise (Bad_sexpr x)
+)
+
+let parse_output x =
+  let l = kvpairs_of_string x in
 	{
 		kernel_path = List.assoc "kernel" l;
 		initrd_path = (try Some (List.assoc "ramdisk" l) with _ -> None);
-		kernel_args = (try List.assoc "args" l with _ -> "") }
-    | _ -> 
-		debug "Failed to parse: %s" sexpr;
-		raise (Bad_sexpr sexpr)
+		kernel_args = (try List.assoc "args" l with _ -> "")
+	}
 
 let parse_exception x =
 	debug "Bootloader failed: %s" x;

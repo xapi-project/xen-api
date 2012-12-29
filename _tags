@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: f05b303b1d390000a02b4996aa0b0f4f)
+# DO NOT EDIT (digest: f440196647260b21498278b7a1cb9dc6)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -63,6 +63,7 @@
 <xen/xenops_main.{native,byte,nobj.o}>: pkg_forkexec
 <xen/xenops_main.{native,byte,nobj.o}>: pkg_xcp
 <xen/xenops_main.{native,byte,nobj.o}>: pkg_xcp.storage
+<xen/xenops_main.{native,byte,nobj.o}>: pkg_sexplib
 <xen/xenops_main.{native,byte,nobj.o}>: pkg_uuidm
 <xen/xenops_main.{native,byte,nobj.o}>: pkg_syslog
 <xen/xenops_main.{native,byte,nobj.o}>: pkg_threads
@@ -78,6 +79,7 @@
 <xen/*.ml{,i}>: pkg_forkexec
 <xen/*.ml{,i}>: pkg_xcp
 <xen/*.ml{,i}>: pkg_xcp.storage
+<xen/*.ml{,i}>: pkg_sexplib
 <xen/*.ml{,i}>: pkg_uuidm
 <xen/*.ml{,i}>: pkg_syslog
 <xen/*.ml{,i}>: pkg_threads
@@ -93,6 +95,7 @@
 "xen/fsync_stubs.c": pkg_forkexec
 "xen/fsync_stubs.c": pkg_xcp
 "xen/fsync_stubs.c": pkg_xcp.storage
+"xen/fsync_stubs.c": pkg_sexplib
 "xen/fsync_stubs.c": pkg_uuidm
 "xen/fsync_stubs.c": pkg_syslog
 "xen/fsync_stubs.c": pkg_threads
