@@ -76,3 +76,8 @@ let domain_shutdown xc domid reason = ()
 let domain_ioport_permission xc domid first_ports nr_ports perm = ()
 
 let domain_iomem_permission xc domid first_pfn nr_pfns perm = ()
+
+let domain_test_assign_device xc domid (domain, bus, slot, func) = true
+
+let domain_irq_permission xc domid irq bool = ()
+
