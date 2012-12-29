@@ -54,11 +54,10 @@ let bootloader_args q extra_args legacy_args pv_bootloader_args image vm_uuid =
      no escaping of spaces or quotes for now *)
   let pv_bootloader_args = if pv_bootloader_args = "" then [] else Re_str.split (Re_str.regexp "[ ]") pv_bootloader_args in
 
-  let rules = [ '"', "\\\""; '\\', "\\\\" ] in
   [ if q then "-q" else "";
-    Printf.sprintf "--default_args=%s" (String.escaped ~rules legacy_args);
-    Printf.sprintf "--extra_args=%s" (String.escaped ~rules extra_args);
-    Printf.sprintf "--vm=%s" vm_uuid;
+    "--default_args"; legacy_args;
+    "--extra_args"; extra_args;
+    "--vm"; vm_uuid;
   ] @ pv_bootloader_args @ [
     image ]
 
