@@ -232,7 +232,10 @@ let prepare_unix_domain_socket path =
 		begin match e with
 		| Unix.Unix_error(Unix.EACCES, _, _) ->
 			error "Access was denied.";
-			error "Check the permissions in the filesystem or try again as root.";
+			error "Possible fixes include:";
+			error "1. Run this program as root (recommended)";
+			error "2. Make the permissions in the filesystem more permissive (my effective uid is %d)" (Unix.geteuid ());
+			error "3. Adjust the sockets-path directive in %s" !config_file;
 			exit 1
 		| _ -> ()
 		end;
