@@ -252,6 +252,7 @@ let main backend =
 	dump_config_file ();
 
 	if !daemon then begin
+		debug "About to daemonize";
 		Debug.output := Debug.syslog "xenopd_simulator" ();
 		Unixext.daemonize();
 	end;

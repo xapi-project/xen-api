@@ -2230,7 +2230,9 @@ let look_for_forkexec () =
 
 let look_for_xen () =
 	try
-		Xenctrl.interface_open ()
+		let xc = Xenctrl.interface_open () in
+		debug "xenctrl interface is available";
+		xc
 	with e ->
 		error "I failed to open the low-level xen control interface (xenctrl)";
 		error "The raw error was: %s" (Printexc.to_string e);
@@ -2277,6 +2279,7 @@ let init () =
 			xs.Xs.write xe_key xe_val;
 			xs.Xs.setperms xe_key { Xs_protocol.ACL.owner = 0; other = Xs_protocol.ACL.READ; acl = [] }
 		);
+	debug "xenstore is responding to requests";
 
 	let client = Xenstore.Client.make () in
 	let watch_callback = Xenstore.Xs.with_xs (watch_callback xc) in
