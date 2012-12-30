@@ -28,7 +28,7 @@ let minor_version = 9
 *)
 let config_file = ref (Printf.sprintf "/etc/%s.conf" name)
 let pidfile = ref (Printf.sprintf "/var/run/%s.pid" name)
-let sockets_path = ref "/var/xapi"
+let sockets_path = ref Xenops_interface.default_sockets_dir
 let persist = ref true
 let daemon = ref false
 let worker_pool_size = ref 4
