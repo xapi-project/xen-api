@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-let _vif_script = "/etc/xensource/scripts/vif"
 let _pci_flr_script = "/opt/xensource/libexec/pci-flr"
 let _vncterm_wrapper = "/opt/xensource/libexec/vncterm-wrapper"
 let _vncterm = "/usr/lib/xen/bin/vncterm"
@@ -688,7 +687,7 @@ let add (task: Xenops_task.t) ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) 
 		"frontend-id", sprintf "%u" domid;
 		"online", "1";
 		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
-		"script", _vif_script;
+		"script", !Path.vif_script;
 		"mac", mac;
 		"handle", string_of_int devid
 	] @ back_options in
@@ -740,7 +739,7 @@ let move ~xs (x: device) bridge =
 	xs.Xs.write xs_bridge_path bridge;
 	let domid = string_of_int x.frontend.domid in
 	let devid = string_of_int x.frontend.devid in
-	ignore (Forkhelpers.execute_command_get_output _vif_script ["move"; "vif"; domid; devid])
+	ignore (Forkhelpers.execute_command_get_output !Path.vif_script ["move"; "vif"; domid; devid])
 end
 
 (*****************************************************************************)

@@ -23,7 +23,7 @@ Library xenops
   CompiledObject:     best
   Path:               lib
   Findlibname:        xenops
-  Modules:            Config, Ionice, Mac, Xenops_migrate, Xenops_hooks, Task_server, Xenops_task, Updates, Xenops_utils, Xenops_server, Xenopsd, Xenops_server_plugin, Scheduler
+  Modules:            Config, Ionice, Mac, Xenops_migrate, Xenops_hooks, Task_server, Xenops_task, Updates, Xenops_utils, Xenops_server, Xenopsd, Xenops_server_plugin, Scheduler, Path
   BuildDepends:       syslog, threads, uuidm, xmlm, cohttp, uri, rpclib, rpclib.syntax, forkexec, fd-send-recv, xcp, xcp.xen
 
 Executable xn

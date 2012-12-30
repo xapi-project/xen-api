@@ -54,7 +54,7 @@ let config_spec = [
     "config", Arg.Set_string config_file, "Location of configuration file";
     "hotplug_timeout", Arg.Set_float hotplug_timeout, "Time before we assume hotplug scripts have failed";
     "qemu_dm_ready_timeout", Arg.Set_float qemu_dm_ready_timeout, "Time before we assume qemu has become stuck";
-]
+] @ Path.config_spec
 
 let arg_spec = List.map (fun (a, b, c) -> "-" ^ a, b, c) config_spec
 
