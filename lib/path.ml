@@ -13,8 +13,10 @@
  *)
 
 let vif_script = ref "/usr/lib/xcp/scripts/vif"
+let pci_flr_script = ref "/usr/lib/xcp/lib/pci-flr"
 
 let config_spec = [
 	"vif-script", Arg.Set_string vif_script, "Path to the vif backend script";
+	"pci-flr-script", Arg.Set_string pci_flr_script, "Path to the PCI function-level reset script";
 ]
 

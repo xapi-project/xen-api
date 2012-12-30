@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-let _pci_flr_script = "/opt/xensource/libexec/pci-flr"
 let _vncterm_wrapper = "/opt/xensource/libexec/vncterm-wrapper"
 let _vncterm = "/usr/lib/xen/bin/vncterm"
 
@@ -1146,8 +1145,8 @@ let do_flr device =
 	debug "Doing FLR on pci device: %s" device;
 	let doflr = "/sys/bus/pci/drivers/pciback/do_flr" in
 	let callscript s devstr =
-		if Sys.file_exists _pci_flr_script then begin
-			try ignore (Forkhelpers.execute_command_get_output _pci_flr_script [ s; devstr; ])
+		if Sys.file_exists !Path.pci_flr_script then begin
+			try ignore (Forkhelpers.execute_command_get_output !Path.pci_flr_script [ s; devstr; ])
 			with _ -> ()
 		end
 	in
