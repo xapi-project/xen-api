@@ -42,8 +42,8 @@ Executable xenopsd_xen
   Build$:             flag(xen)
   Custom:             true
   Install:            false
-  BuildDepends:       xenops, xenstore, xenstore.unix, xenstore_transport, xenstore_transport.unix, rpclib, forkexec, xcp, xcp.storage, sexplib
-  CSources:           fsync_stubs.c
+  BuildDepends:       xenctrl, xenops, xenstore, xenstore.unix, xenstore_transport, xenstore_transport.unix, rpclib, forkexec, xcp, xcp.storage, sexplib
+  CSources:           fsync_stubs.c, xenctrlext_stubs.c
 
 
 Executable xenopsd_simulator

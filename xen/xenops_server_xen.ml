@@ -20,8 +20,6 @@ open Xenstore
 open Xenops_utils
 open Xenops_task
 
-module Xenctrlext = Xenctrl
-
 module D = Debug.Make(struct let name = service_name end)
 open D
 
@@ -2234,7 +2232,7 @@ let init () =
 			xs.Xs.setperms xe_key { Xs_protocol.ACL.owner = 0; other = Xs_protocol.ACL.READ; acl = [] }
 		);
 
-	let xc = Xenctrl.xc_open () in
+	let xc = Xenctrl.interface_open () in
 	let client = Xenstore.Client.make () in
 	let watch_callback = Xenstore.Xs.with_xs (watch_callback xc) in
 	Xenstore.Client.set_watch_callback client watch_callback

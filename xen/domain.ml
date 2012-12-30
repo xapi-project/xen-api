@@ -166,7 +166,7 @@ let make ~xc ~xs vm_info uuid =
 			default_flags
 		end
 	end else [] in
-	let domid = Xenctrl.domain_create xc vm_info.ssidref flags (Uuid.to_string uuid) in
+	let domid = Xenctrl.domain_create xc vm_info.ssidref flags (Xenctrl.handle_of_uuid uuid) in
 	let name = if vm_info.name <> "" then vm_info.name else sprintf "Domain-%d" domid in
 	try
 		let dom_path = xs.Xs.getdomainpath domid in
@@ -437,7 +437,7 @@ let destroy (task: Xenops_task.t) ~xc ~xs ~qemu_domid domid =
 	  (* CA-13801: to avoid confusing people, we shall change this domain's uuid *)
 	  let s = Printf.sprintf "deadbeef-dead-beef-dead-beef0000%04x" domid in
 	  error "VM = %s; domid = %d; Domain stuck in dying state after 30s; resetting UUID to %s. This probably indicates a backend driver bug." (Uuid.to_string uuid) domid s;
-	  Xenctrl.domain_sethandle xc domid s;
+	  Xenctrl.domain_sethandle xc domid (Xenctrl.handle_of_string s);
 	  raise (Domain_stuck_in_dying_state domid)
 	end
 
@@ -488,15 +488,15 @@ let build_pre ~xc ~xs ~vcpus ~xen_max_mib ~shadow_mib ~required_host_free_mib do
 
 	maybe_exn_ign "timer mode" (fun mode ->
 		debug "VM = %s; domid = %d; domain_set_timer_mode %d" (Uuid.to_string uuid) domid mode;
-		Xenctrl.domain_set_timer_mode xc domid mode
+		Xenctrlext.domain_set_timer_mode xc domid mode
 	) timer_mode;
     maybe_exn_ign "hpet" (fun hpet -> 
 		debug "VM = %s; domid = %d; domain_set_hpet %d" (Uuid.to_string uuid) domid hpet;
-		Xenctrl.domain_set_hpet xc domid hpet
+		Xenctrlext.domain_set_hpet xc domid hpet
 	) hpet;
     maybe_exn_ign "vpt align" (fun vpt_align ->
 		debug "VM = %s; domid = %d; domain_set_vpt_align %d" (Uuid.to_string uuid) domid vpt_align;
-		Xenctrl.domain_set_vpt_align xc domid vpt_align
+		Xenctrlext.domain_set_vpt_align xc domid vpt_align
 	) vpt_align;
 	debug "VM = %s; domid = %d; domain_max_vcpus %d" (Uuid.to_string uuid) domid vcpus;
 	Xenctrl.domain_max_vcpus xc domid vcpus;
@@ -960,16 +960,16 @@ let suspend (task: Xenops_task.t) ~xc ~xs ~hvm domid fd flags ?(progress_callbac
 let send_s3resume ~xc domid =
 	let uuid = get_uuid ~xc domid in
 	debug "VM = %s; domid = %d; send_s3resume" (Uuid.to_string uuid) domid;
-	Xenctrl.domain_send_s3resume xc domid
+	Xenctrlext.domain_send_s3resume xc domid
 
 let trigger_power ~xc domid =
 	let uuid = get_uuid ~xc domid in
 	debug "VM = %s; domid = %d; domain_trigger_power" (Uuid.to_string uuid) domid;
-	Xenctrl.domain_trigger_power xc domid
+	Xenctrlext.domain_trigger_power xc domid
 let trigger_sleep ~xc domid =
 	let uuid = get_uuid ~xc domid in
 	debug "VM = %s; domid = %d; domain_trigger_sleep" (Uuid.to_string uuid) domid;
-	Xenctrl.domain_trigger_sleep xc domid
+	Xenctrlext.domain_trigger_sleep xc domid
 
 let vcpu_affinity_set ~xc domid vcpu cpumap =
 	(*
@@ -1064,7 +1064,7 @@ let set_machine_address_size ~xc domid width =
 let suppress_spurious_page_faults ~xc domid =
 	let uuid = get_uuid ~xc domid in
 	debug "VM = %s; domid = %d; domain_suppress_spurious_page_faults" (Uuid.to_string uuid) domid;
-  Xenctrl.domain_suppress_spurious_page_faults xc domid
+  Xenctrlext.domain_suppress_spurious_page_faults xc domid
 
 type cpuid_reg = Eax | Ebx | Ecx | Edx
 type cpuid_rtype = Clear | Set | Default | Same | Keep
