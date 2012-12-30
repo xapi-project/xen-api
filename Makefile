@@ -7,6 +7,7 @@ J=4
 BINDIR ?= /usr/bin
 SBINDIR ?= /usr/sbin
 LIBEXECDIR ?= /usr/lib/xcp/lib
+SCRIPTSDIR ?= /usr/lib/xcp/scripts
 ETCDIR ?= /etc
 DESTDIR ?= /
 
@@ -37,6 +38,10 @@ install: setup.bin
 	install -D ./xenops_simulator_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
 	install -D ./xenguest_main.native $(DESTDIR)/$(LIBEXECDIR)/xenguest
 	install -D ./xenopsd.conf $(DESTDIR)/$(ETCDIR)/xenopsd.conf
+	install -D ./scripts/vif $(DESTDIR)/$(SCRIPTSDIR)/vif
+	install -D ./scripts/vncterm-wrapper $(DESTDIR)/$(LIBEXECDIR)/vncterm-wrapper
+	install -D ./scripts/qemu-dm-wrapper $(DESTDIR)/$(LIBEXECDIR)/qemu-dm-wrapper
+	install -D ./scripts/setup-vif-rules $(DESTDIR)/$(LIBEXECDIR)/setup-vif-rules
 
 test: setup.bin build
 	@./setup.bin -test
@@ -48,6 +53,10 @@ reinstall: setup.bin
 	install -D ./xenops_simulator_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
 	install -D ./xenguest_main.native $(DESTDIR)/$(LIBEXECDIR)/xenguest
 	install -D ./xenopsd.conf $(DESTDIR)/$(ETCDIR)/xenopsd.conf
+	install -D ./scripts/vif $(DESTDIR)/$(SCRIPTSDIR)/vif
+	install -D ./scripts/vncterm-wrapper $(DESTDIR)/$(LIBEXECDIR)/vncterm-wrapper
+	install -D ./scripts/qemu-dm-wrapper $(DESTDIR)/$(LIBEXECDIR)/qemu-dm-wrapper
+	install -D ./scripts/setup-vif-rules $(DESTDIR)/$(LIBEXECDIR)/setup-vif-rules
 
 uninstall:
 	@ocamlfind remove $(NAME) || true
@@ -55,6 +64,10 @@ uninstall:
 	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/xenguest
 	rm -f $(DESTDIR)/$(ETCDIR)/xenopsd.conf
+	rm -f $(DESTDIR)/$(SCRIPTSDIR)/vif
+	rm -f $(DESTDIR)/$(LIBEXECDIR)/vncterm-wrapper
+	rm -f $(DESTDIR)/$(LIBEXECDIR)/qemu-dm-wrapper
+	rm -f $(DESTDIR)/$(LIBEXECDIR)/setup-vif-rules
 
 clean:
 	@ocamlbuild -clean
