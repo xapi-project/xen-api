@@ -17,6 +17,17 @@
 
 let service_name = "xenops"
 
+let default_sockets_dir = "/var/xapi"
+let default_path = ref (Filename.concat default_sockets_dir "xenopsd")
+let forwarded_path = ref (Filename.concat default_sockets_dir "xenopsd" ^ ".forwarded")
+
+let set_sockets_dir x =
+	default_path := Filename.concat x "xenopsd";
+	forwarded_path := !default_path ^ ".forwarded"
+
+let default_uri () = "file:" ^ !default_path
+let json_url () = Printf.sprintf "file:%s.json" !default_path
+
 type power_state =
 	| Running
 	| Halted

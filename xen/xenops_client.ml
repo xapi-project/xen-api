@@ -14,16 +14,6 @@
 
 open Xenops_interface
 
-let default_path = ref ""
-let forwarded_path = ref ""
-
-let set_sockets_dir x =
-	default_path := Filename.concat x "xenopsd";
-	forwarded_path := !default_path ^ ".forwarded"
-
-let default_uri () = "file:" ^ !default_path
-let json_url () = Printf.sprintf "file:%s.json" !default_path
-
 module Request = Cohttp.Request.Make(Cohttp_posix_io.Buffered_IO)
 module Response = Cohttp.Response.Make(Cohttp_posix_io.Buffered_IO)
 
