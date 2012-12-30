@@ -72,7 +72,10 @@ let read_config_file () =
 			try
 				Unix.access !path [ Unix.X_OK ]
 			with _ ->
-				error "Cannot execute %s: please set %s in config file" !path descr;
+				error "Cannot execute %s: please set %s in %s" !path descr !config_file;
+				error "For example:";
+				error "    # %s" descr;
+				error "    %s=/path/to/%s" name name;
 				exit 1
 		) Path.essentials
 
