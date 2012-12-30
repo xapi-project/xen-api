@@ -755,7 +755,7 @@ let _ =
 		!result, args in
 	let path, args = extract args "-path" in
 	begin match path with
-		| Some path -> Xenops_client.set_sockets_dir path
+		| Some path -> Xenops_interface.set_sockets_dir path
 		| None -> ()
 	end;
 	let task = success_task (if verbose then verbose_task else ignore_task) in
