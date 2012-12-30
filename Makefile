@@ -33,7 +33,7 @@ doc: setup.data setup.bin
 
 install: setup.bin
 	@./setup.bin -install
-	install -D ./xenops_main.native $(DESTDIR)/$(SBINDIR)/xenopsd
+	install -D ./xenops_xc_main.native $(DESTDIR)/$(SBINDIR)/xenopsd
 	install -D ./xenops_simulator_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
 	install -D ./xenguest_main.native $(DESTDIR)/$(LIBEXECDIR)/xenguest
 	install -D ./xenopsd.conf $(DESTDIR)/$(ETCDIR)/xenopsd.conf
@@ -44,7 +44,7 @@ test: setup.bin build
 reinstall: setup.bin
 	@ocamlfind remove $(NAME) || true
 	@./setup.bin -reinstall
-	install -D ./xenops_main.native $(DESTDIR)/$(SBINDIR)/xenopsd
+	install -D ./xenops_xc_main.native $(DESTDIR)/$(SBINDIR)/xenopsd
 	install -D ./xenops_simulator_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
 	install -D ./xenguest_main.native $(DESTDIR)/$(LIBEXECDIR)/xenguest
 	install -D ./xenopsd.conf $(DESTDIR)/$(ETCDIR)/xenopsd.conf

@@ -35,10 +35,10 @@ Executable xn
   Install:            false
   BuildDepends:       xenops, uuidm
 
-Executable xenopsd_xen
+Executable xenopsd_xc_main
   CompiledObject:     best
-  Path:               xen
-  MainIs:             xenops_main.ml
+  Path:               xc
+  MainIs:             xenops_xc_main.ml
   Build$:             flag(xen)
   Custom:             true
   Install:            false

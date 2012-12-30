@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 63a53cee2380a82e3c2f054fb06b3d02)
+# DO NOT EDIT (digest: 0fbe2a8495a87ddd185bfd03992b0a70)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -55,89 +55,89 @@
 <cli/*.ml{,i}>: pkg_fd-send-recv
 <cli/*.ml{,i}>: pkg_xcp.xen
 <cli/xn.{native,byte,nobj.o}>: custom
-# Executable xenopsd_xen
-<xen/xenops_main.{native,byte,nobj.o}>: use_libxenopsd_xen_stubs
-<xen/xenops_main.{native,byte,nobj.o}>: use_xenops
-<xen/xenops_main.{native,byte,nobj.o}>: pkg_xenctrl
-<xen/xenops_main.{native,byte,nobj.o}>: pkg_xenstore
-<xen/xenops_main.{native,byte,nobj.o}>: pkg_xenstore.unix
-<xen/xenops_main.{native,byte,nobj.o}>: pkg_xenstore_transport
-<xen/xenops_main.{native,byte,nobj.o}>: pkg_xenstore_transport.unix
-<xen/xenops_main.{native,byte,nobj.o}>: pkg_rpclib
-<xen/xenops_main.{native,byte,nobj.o}>: pkg_forkexec
-<xen/xenops_main.{native,byte,nobj.o}>: pkg_xcp
-<xen/xenops_main.{native,byte,nobj.o}>: pkg_xcp.storage
-<xen/xenops_main.{native,byte,nobj.o}>: pkg_sexplib
-<xen/xenops_main.{native,byte,nobj.o}>: pkg_uuidm
-<xen/xenops_main.{native,byte,nobj.o}>: pkg_syslog
-<xen/xenops_main.{native,byte,nobj.o}>: pkg_threads
-<xen/xenops_main.{native,byte,nobj.o}>: pkg_xmlm
-<xen/xenops_main.{native,byte,nobj.o}>: pkg_cohttp
-<xen/xenops_main.{native,byte,nobj.o}>: pkg_uri
-<xen/xenops_main.{native,byte,nobj.o}>: pkg_rpclib.syntax
-<xen/xenops_main.{native,byte,nobj.o}>: pkg_fd-send-recv
-<xen/xenops_main.{native,byte,nobj.o}>: pkg_xcp.xen
-<xen/*.ml{,i}>: use_xenops
-<xen/*.ml{,i}>: pkg_xenctrl
-<xen/*.ml{,i}>: pkg_xenstore
-<xen/*.ml{,i}>: pkg_xenstore.unix
-<xen/*.ml{,i}>: pkg_xenstore_transport
-<xen/*.ml{,i}>: pkg_xenstore_transport.unix
-<xen/*.ml{,i}>: pkg_rpclib
-<xen/*.ml{,i}>: pkg_forkexec
-<xen/*.ml{,i}>: pkg_xcp
-<xen/*.ml{,i}>: pkg_xcp.storage
-<xen/*.ml{,i}>: pkg_sexplib
-<xen/*.ml{,i}>: pkg_uuidm
-<xen/*.ml{,i}>: pkg_syslog
-<xen/*.ml{,i}>: pkg_threads
-<xen/*.ml{,i}>: pkg_xmlm
-<xen/*.ml{,i}>: pkg_cohttp
-<xen/*.ml{,i}>: pkg_uri
-<xen/*.ml{,i}>: pkg_rpclib.syntax
-<xen/*.ml{,i}>: pkg_fd-send-recv
-<xen/*.ml{,i}>: pkg_xcp.xen
-"xen/fsync_stubs.c": use_xenops
-"xen/fsync_stubs.c": pkg_xenctrl
-"xen/fsync_stubs.c": pkg_xenstore
-"xen/fsync_stubs.c": pkg_xenstore.unix
-"xen/fsync_stubs.c": pkg_xenstore_transport
-"xen/fsync_stubs.c": pkg_xenstore_transport.unix
-"xen/fsync_stubs.c": pkg_rpclib
-"xen/fsync_stubs.c": pkg_forkexec
-"xen/fsync_stubs.c": pkg_xcp
-"xen/fsync_stubs.c": pkg_xcp.storage
-"xen/fsync_stubs.c": pkg_sexplib
-"xen/fsync_stubs.c": pkg_uuidm
-"xen/fsync_stubs.c": pkg_syslog
-"xen/fsync_stubs.c": pkg_threads
-"xen/fsync_stubs.c": pkg_xmlm
-"xen/fsync_stubs.c": pkg_cohttp
-"xen/fsync_stubs.c": pkg_uri
-"xen/fsync_stubs.c": pkg_rpclib.syntax
-"xen/fsync_stubs.c": pkg_fd-send-recv
-"xen/fsync_stubs.c": pkg_xcp.xen
-"xen/xenctrlext_stubs.c": use_xenops
-"xen/xenctrlext_stubs.c": pkg_xenctrl
-"xen/xenctrlext_stubs.c": pkg_xenstore
-"xen/xenctrlext_stubs.c": pkg_xenstore.unix
-"xen/xenctrlext_stubs.c": pkg_xenstore_transport
-"xen/xenctrlext_stubs.c": pkg_xenstore_transport.unix
-"xen/xenctrlext_stubs.c": pkg_rpclib
-"xen/xenctrlext_stubs.c": pkg_forkexec
-"xen/xenctrlext_stubs.c": pkg_xcp
-"xen/xenctrlext_stubs.c": pkg_xcp.storage
-"xen/xenctrlext_stubs.c": pkg_sexplib
-"xen/xenctrlext_stubs.c": pkg_uuidm
-"xen/xenctrlext_stubs.c": pkg_syslog
-"xen/xenctrlext_stubs.c": pkg_threads
-"xen/xenctrlext_stubs.c": pkg_xmlm
-"xen/xenctrlext_stubs.c": pkg_cohttp
-"xen/xenctrlext_stubs.c": pkg_uri
-"xen/xenctrlext_stubs.c": pkg_rpclib.syntax
-"xen/xenctrlext_stubs.c": pkg_fd-send-recv
-"xen/xenctrlext_stubs.c": pkg_xcp.xen
-<xen/xenops_main.{native,byte,nobj.o}>: custom
+# Executable xenopsd_xc_main
+<xc/xenops_xc_main.{native,byte,nobj.o}>: use_libxenopsd_xc_main_stubs
+<xc/xenops_xc_main.{native,byte,nobj.o}>: use_xenops
+<xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_xenctrl
+<xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_xenstore
+<xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_xenstore.unix
+<xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_xenstore_transport
+<xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_xenstore_transport.unix
+<xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_rpclib
+<xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_forkexec
+<xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_xcp
+<xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_xcp.storage
+<xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_sexplib
+<xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_uuidm
+<xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_syslog
+<xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_threads
+<xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_xmlm
+<xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_cohttp
+<xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_uri
+<xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_rpclib.syntax
+<xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_fd-send-recv
+<xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_xcp.xen
+<xc/*.ml{,i}>: use_xenops
+<xc/*.ml{,i}>: pkg_xenctrl
+<xc/*.ml{,i}>: pkg_xenstore
+<xc/*.ml{,i}>: pkg_xenstore.unix
+<xc/*.ml{,i}>: pkg_xenstore_transport
+<xc/*.ml{,i}>: pkg_xenstore_transport.unix
+<xc/*.ml{,i}>: pkg_rpclib
+<xc/*.ml{,i}>: pkg_forkexec
+<xc/*.ml{,i}>: pkg_xcp
+<xc/*.ml{,i}>: pkg_xcp.storage
+<xc/*.ml{,i}>: pkg_sexplib
+<xc/*.ml{,i}>: pkg_uuidm
+<xc/*.ml{,i}>: pkg_syslog
+<xc/*.ml{,i}>: pkg_threads
+<xc/*.ml{,i}>: pkg_xmlm
+<xc/*.ml{,i}>: pkg_cohttp
+<xc/*.ml{,i}>: pkg_uri
+<xc/*.ml{,i}>: pkg_rpclib.syntax
+<xc/*.ml{,i}>: pkg_fd-send-recv
+<xc/*.ml{,i}>: pkg_xcp.xen
+"xc/fsync_stubs.c": use_xenops
+"xc/fsync_stubs.c": pkg_xenctrl
+"xc/fsync_stubs.c": pkg_xenstore
+"xc/fsync_stubs.c": pkg_xenstore.unix
+"xc/fsync_stubs.c": pkg_xenstore_transport
+"xc/fsync_stubs.c": pkg_xenstore_transport.unix
+"xc/fsync_stubs.c": pkg_rpclib
+"xc/fsync_stubs.c": pkg_forkexec
+"xc/fsync_stubs.c": pkg_xcp
+"xc/fsync_stubs.c": pkg_xcp.storage
+"xc/fsync_stubs.c": pkg_sexplib
+"xc/fsync_stubs.c": pkg_uuidm
+"xc/fsync_stubs.c": pkg_syslog
+"xc/fsync_stubs.c": pkg_threads
+"xc/fsync_stubs.c": pkg_xmlm
+"xc/fsync_stubs.c": pkg_cohttp
+"xc/fsync_stubs.c": pkg_uri
+"xc/fsync_stubs.c": pkg_rpclib.syntax
+"xc/fsync_stubs.c": pkg_fd-send-recv
+"xc/fsync_stubs.c": pkg_xcp.xen
+"xc/xenctrlext_stubs.c": use_xenops
+"xc/xenctrlext_stubs.c": pkg_xenctrl
+"xc/xenctrlext_stubs.c": pkg_xenstore
+"xc/xenctrlext_stubs.c": pkg_xenstore.unix
+"xc/xenctrlext_stubs.c": pkg_xenstore_transport
+"xc/xenctrlext_stubs.c": pkg_xenstore_transport.unix
+"xc/xenctrlext_stubs.c": pkg_rpclib
+"xc/xenctrlext_stubs.c": pkg_forkexec
+"xc/xenctrlext_stubs.c": pkg_xcp
+"xc/xenctrlext_stubs.c": pkg_xcp.storage
+"xc/xenctrlext_stubs.c": pkg_sexplib
+"xc/xenctrlext_stubs.c": pkg_uuidm
+"xc/xenctrlext_stubs.c": pkg_syslog
+"xc/xenctrlext_stubs.c": pkg_threads
+"xc/xenctrlext_stubs.c": pkg_xmlm
+"xc/xenctrlext_stubs.c": pkg_cohttp
+"xc/xenctrlext_stubs.c": pkg_uri
+"xc/xenctrlext_stubs.c": pkg_rpclib.syntax
+"xc/xenctrlext_stubs.c": pkg_fd-send-recv
+"xc/xenctrlext_stubs.c": pkg_xcp.xen
+<xc/xenops_xc_main.{native,byte,nobj.o}>: custom
 # Executable xenguest
 <xenguest/xenguest_main.{native,byte,nobj.o}>: oasis_executable_xenguest_cclib
 "xenguest/libxenguest_stubs.lib": oasis_executable_xenguest_cclib
@@ -244,7 +244,7 @@
 # OASIS_STOP
 <lib/device_number.ml>: syntax_camlp4o, pkg_rpclib.syntax
 <lib/xenops_interface.ml>: syntax_camlp4o, pkg_rpclib.idl
-<xen/memory_interface.ml>: syntax_camlp4o, pkg_rpclib.idl
+<xc/memory_interface.ml>: syntax_camlp4o, pkg_rpclib.idl
 <cli/xn_cfg_types.ml>: syntax_camlp4o, pkg_rpclib.syntax
 <lib/xenops_migrate.ml>: syntax_camlp4o, pkg_rpclib.syntax
 <lib/xenops_hooks.ml>: syntax_camlp4o, pkg_rpclib.syntax
@@ -253,7 +253,7 @@
 <lib/xenops_server_plugin.ml>: syntax_camlp4o, pkg_rpclib.syntax
 <lib/scheduler.ml>: syntax_camlp4o, pkg_rpclib.syntax
 <simulator/xenops_server_simulator.ml>: syntax_camlp4o, pkg_rpclib.syntax
-<xen/xenops_server_xen.ml>: syntax_camlp4o, pkg_rpclib.syntax
-<xen/device_common.ml>: syntax_camlp4o, pkg_rpclib.syntax
-<xen/device.ml>: syntax_camlp4o, pkg_rpclib.syntax
-<xen/domain.ml>: syntax_camlp4o, pkg_rpclib.syntax
+<xc/xenops_server_xen.ml>: syntax_camlp4o, pkg_rpclib.syntax
+<xc/device_common.ml>: syntax_camlp4o, pkg_rpclib.syntax
+<xc/device.ml>: syntax_camlp4o, pkg_rpclib.syntax
+<xc/domain.ml>: syntax_camlp4o, pkg_rpclib.syntax
