@@ -23,7 +23,6 @@ open Xenops_task
 module D = Debug.Make(struct let name = service_name end)
 open D
 
-let _qemu_dm = "/opt/xensource/libexec/qemu-dm-wrapper"
 let _tune2fs = "/sbin/tune2fs"
 let _mkfs = "/sbin/mkfs"
 let _mount = "/bin/mount"
@@ -1040,15 +1039,15 @@ module VM = struct
 					Opt.iter
 						(fun stubdom_domid ->
 							Stubdom.build task ~xc ~xs info di.Xenctrl.domid stubdom_domid;
-							Device.Dm.start_vnconly task ~xs ~dmpath:_qemu_dm info stubdom_domid
+							Device.Dm.start_vnconly task ~xs ~dmpath:!Path.qemu_dm_wrapper info stubdom_domid
 						) (get_stubdom ~xs di.Xenctrl.domid);
 				| Vm.HVM { Vm.qemu_stubdom = false } ->
 					(if saved_state then Device.Dm.restore else Device.Dm.start)
-						task ~xs ~dmpath:_qemu_dm info di.Xenctrl.domid
+						task ~xs ~dmpath:!Path.qemu_dm_wrapper info di.Xenctrl.domid
 				| Vm.PV _ ->
 					Device.Vfb.add ~xc ~xs di.Xenctrl.domid;
 					Device.Vkbd.add ~xc ~xs di.Xenctrl.domid;
-					Device.Dm.start_vnconly task ~xs ~dmpath:_qemu_dm info di.Xenctrl.domid
+					Device.Dm.start_vnconly task ~xs ~dmpath:!Path.qemu_dm_wrapper info di.Xenctrl.domid
 		) (create_device_model_config vbds vifs vmextra);
 		match vm.Vm.ty with
 			| Vm.PV { vncterm = true; vncterm_ip = ip } -> Device.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
