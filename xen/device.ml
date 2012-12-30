@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-let _vncterm_wrapper = "/opt/xensource/libexec/vncterm-wrapper"
 let _vncterm = "/usr/lib/xen/bin/vncterm"
 
 open Printf
@@ -862,7 +861,7 @@ let start ?statefile ~xs ?ip domid =
 		  "-v"; ip ^ ":1";
 		] @ load_args statefile in
 	(* Now add the close fds wrapper *)
-	let pid = Forkhelpers.safe_close_and_exec None None None [] _vncterm_wrapper l in
+	let pid = Forkhelpers.safe_close_and_exec None None None [] !Path.vncterm_wrapper l in
 	Forkhelpers.dontwaitpid pid
 
 let stop ~xs domid =
