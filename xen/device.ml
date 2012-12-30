@@ -12,8 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-let _vncterm = "/usr/lib/xen/bin/vncterm"
-
 open Printf
 
 open Xenops_utils
@@ -789,7 +787,7 @@ let is_cmdline_valid domid pid =
 		|> Unixext.string_of_file
 		|> Re_str.split null
 	in
-	if (List.mem _vncterm cmdline) && (List.mem (vnc_console_path domid) cmdline)
+	if (List.mem !Path.vncterm cmdline) && (List.mem (vnc_console_path domid) cmdline)
 	then true
 	else false
 
