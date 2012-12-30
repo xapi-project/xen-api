@@ -45,7 +45,3 @@ external domain_get_runstate_info : handle -> int -> runstateinfo = "stub_xenctr
 external get_max_nr_cpus: handle -> int = "stub_xenctrlext_get_max_nr_cpus"
 
 external domain_set_target: handle -> domid -> domid -> unit = "stub_xenctrlext_domain_set_target"
-
-module Xsrawext : sig
-  val set_target : int -> int -> Xenstore.Xs.con -> unit
-end

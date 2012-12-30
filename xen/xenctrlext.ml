@@ -45,22 +45,3 @@ external domain_get_runstate_info : handle -> int -> runstateinfo = "stub_xenctr
 external get_max_nr_cpus: handle -> int = "stub_xenctrlext_get_max_nr_cpus"
 
 external domain_set_target: handle -> domid -> domid -> unit = "stub_xenctrlext_domain_set_target"
-
-module Queueopext = struct
-  open Xenstore
-  include Queueop
-  let set_target domid target con =
-    let data = data_concat
-      [ Printf.sprintf "%u" domid;
-        Printf.sprintf "%u" target; ] in
-    Xenbus.Xb.queue con (Xenbus.Xb.Packet.create 0 0 Xenbus.Xb.Op.Set_target data)
-end
-
-module Xsrawext = struct
-  open Xenstore
-  include Xsraw
-  (* xs.ml has "type con = Xsraw.con" *)
-  let unsafe_con (con: Xs.con) : Xsraw.con = Obj.magic con
-  let set_target domid target con =
-    ack (sync (Queueopext.set_target domid target) (unsafe_con con))
-end
