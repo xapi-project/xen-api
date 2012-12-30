@@ -14,7 +14,8 @@
 
 open Xenops_interface
 open Xenops_client
-open Xenops_utils
+
+let ( |> ) a b = b a
 
 let usage () =
 	Printf.fprintf stderr "%s <command> [args] - send commands to the xenops daemon\n" Sys.argv.(0);
@@ -245,7 +246,9 @@ let print_vm id =
 					_builder, quote "linux";
 					_kernel, quote k;
 					_root, quote c
-				] @ (Opt.default [] (Opt.map (fun x -> [ _ramdisk, x ]) i))
+				] @ (match i with
+				| None -> []
+				| Some x -> [ _ramdisk, x ])
 				| Indirect { bootloader = b } -> [
 					_builder, quote "linux";
 					_bootloader, quote b;
@@ -575,18 +578,21 @@ let vbd_list x =
 	let lines = List.map
 		(fun (vbd, state) ->
 			let id = snd vbd.Vbd.id in
-			let position = Opt.default "None" (Opt.map Device_number.to_linux_device vbd.Vbd.position) in
+			let position = match vbd.Vbd.position with
+				| None -> "None"
+				| Some x -> Device_number.to_linux_device x in
 			let mode = if vbd.Vbd.mode = Vbd.ReadOnly then "RO" else "RW" in
 			let ty = match vbd.Vbd.ty with Vbd.CDROM -> "CDROM" | Vbd.Disk -> "HDD" in
 			let plugged = if state.Vbd.plugged then "X" else " " in
-			let disk = Opt.default "" (Opt.map (function
-				| Local x -> x |> trim 32
-				| VDI path -> path |> trim 32
-			) vbd.Vbd.backend) in
+			let disk = match vbd.Vbd.backend with
+				| None -> ""
+				| Some (Local x) -> x |> trim 32
+				| Some (VDI path) -> path |> trim 32 in
 			let info = Client.VBD.stat dbg (vbd.Vbd.id) in
-			let disk2 = Opt.default "" (Opt.map (function
-					| Local x -> x |> trim 32
-					| VDI path -> path |> trim 32) (snd info).Vbd.backend_present) in
+			let disk2 = match (snd info).Vbd.backend_present with
+				| None -> ""
+				| Some (Local x) -> x |> trim 32
+				| Some (VDI path) -> path |> trim 32 in
 			line id position mode ty plugged disk disk2
 		) vbds in
 	List.iter print_endline (header :: lines)
@@ -662,8 +668,12 @@ let cd_eject id =
 
 let cd_insert id disk =
 	let vbd, _ = find_vbd id in
-	let backend = parse_source disk |> Opt.unbox in
-	Client.VBD.insert dbg vbd.Vbd.id backend |> wait_for_task dbg
+	match parse_source disk with
+	| None ->
+		Printf.fprintf stderr "Cannot insert a disk which doesn't exist\n";
+		exit 1
+	| Some backend ->
+		Client.VBD.insert dbg vbd.Vbd.id backend |> wait_for_task dbg
 
 let rec events_watch from =
 	let events, next = Client.UPDATES.get dbg from None in
@@ -690,11 +700,21 @@ let rec events_watch from =
 let set_worker_pool_size size =
 	Client.HOST.set_worker_pool_size dbg size
 
+let print_date float =
+  let time = Unix.gmtime float in
+  Printf.sprintf "%04d%02d%02dT%02d:%02d:%02dZ"
+    (time.Unix.tm_year+1900)
+    (time.Unix.tm_mon+1)
+    time.Unix.tm_mday
+    time.Unix.tm_hour
+    time.Unix.tm_min
+    time.Unix.tm_sec
+
 let task_list () =
 	let all = Client.TASK.list dbg in
 	List.iter
 		(fun t ->
-			Printf.printf "%-8s %-12s %-30s %s\n" t.Task.id (t.Task.ctime |> Date.of_float |> Date.to_string) t.Task.dbg (t.Task.state |> Task.rpc_of_state |> Jsonrpc.to_string);
+			Printf.printf "%-8s %-12s %-30s %s\n" t.Task.id (print_date t.Task.ctime) t.Task.dbg (t.Task.state |> Task.rpc_of_state |> Jsonrpc.to_string);
 			List.iter
 				(fun (name, state) ->
 					Printf.printf "  |_ %-30s %s\n" name (state |> Task.rpc_of_state |> Jsonrpc.to_string)
