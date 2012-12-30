@@ -13,4 +13,4 @@ Executable xn
   MainIs:             xn.ml
   Custom:             true
   Install:            false
-  BuildDepends:       threads, rpclib, xcp, xcp.xen
+  BuildDepends:       threads, uuidm, rpclib, xcp, xcp.xen
