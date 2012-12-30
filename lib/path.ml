@@ -25,9 +25,8 @@ let umount = ref "/bin/umount"
 let ionice = ref "/usr/bin/ionice"
 let setup_vif_rules = ref "/usr/lib/xcp/lib/setup-vif-rules"
 
-let table = [
+let essentials = [
 	"vif-script", vif_script, "path to the vif backend script";
-	"pci-flr-script", pci_flr_script, "path to the PCI function-level reset script";
 	"vncterm-wrapper", vncterm_wrapper, "path to the vncterm-wrapper script";
 	"vncterm", vncterm, "path to the vncterm binary";
 	"xenguest", xenguest, "path to the xenguest binary";
@@ -40,4 +39,8 @@ let table = [
 	"setup-vif-rules", setup_vif_rules, "path to the setup-vif-rules script";
 ]
 
-let config_spec = List.map (fun (a, b, c) -> a, Arg.Set_string b, c) table
+let nonessentials = [
+	"pci-flr-script", pci_flr_script, "path to the PCI function-level reset script";
+]
+
+let config_spec = List.map (fun (a, b, c) -> a, Arg.Set_string b, c) (essentials @ nonessentials)

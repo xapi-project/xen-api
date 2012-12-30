@@ -74,7 +74,7 @@ let read_config_file () =
 			with _ ->
 				error "Cannot execute %s: please set %s in config file" !path descr;
 				exit 1
-		) Path.table
+		) Path.essentials
 
 let dump_config_file () : unit =
     debug "pidfile = %s" !pidfile;
