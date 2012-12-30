@@ -14,6 +14,33 @@
 (* Very simple commandline wrapper around useful but not threadsafe xenguest
    functions.  Serves as an example of the ocaml bindings. *)
 
+let string_of_signal x =
+	let table = [
+		Sys.sigabrt, "SIGABRT";
+		Sys.sigalrm, "SIGALRM";
+		Sys.sigfpe, "SIGFPE";
+		Sys.sighup, "SIGHUP";
+		Sys.sigill, "SIGILL";
+		Sys.sigint, "SIGINT";
+		Sys.sigkill, "SIGKILL";
+		Sys.sigpipe, "SIGPIPE";
+		Sys.sigquit, "SIGQUIT";
+		Sys.sigsegv, "SIGSEGV";
+		Sys.sigterm, "SIGTERM";
+		Sys.sigusr1, "SIGUSR1";
+		Sys.sigusr2, "SIGUSR2";
+		Sys.sigchld, "SIGCHLD";
+		Sys.sigcont, "SIGCONT";
+		Sys.sigstop, "SIGSTOP";
+		Sys.sigttin, "SIGTTIN";
+		Sys.sigttou, "SIGTTOU";
+		Sys.sigvtalrm, "SIGVTALRM";
+		Sys.sigprof, "SIGPROF";
+	] in
+	if List.mem_assoc x table
+	then List.assoc x table
+	else (Printf.sprintf "(ocaml signal %d with an unknown name)" x)
+
 let mode = ref None
 
 open Printf
@@ -199,7 +226,7 @@ let fork_capture_stdout_stderr callback f x =
 	begin match snd (Unix.waitpid [] pid) with
 	| Unix.WEXITED 0    -> ()
 	| Unix.WEXITED rc   -> failwith (sprintf "child failure, return code %d" rc)
-	| Unix.WSIGNALED si -> failwith (sprintf "child killed by signal %s" (Unixext.string_of_signal si))
+	| Unix.WSIGNALED si -> failwith (sprintf "child killed by signal %s" (string_of_signal si))
 	| _                 -> failwith (sprintf "child stopped")
 	end;
 	(* Success/failure is encoded in the first character *)
