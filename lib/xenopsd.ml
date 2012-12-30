@@ -219,30 +219,24 @@ let start (domain_sock, forwarded_sock, json_sock)  =
 			binary_handler s context
 		)
 
-(* Start accepting connections on sockets before we daemonize *)
-let prepare_sockets () =
-	let path = path () in
-    Unixext.mkdir_safe (Filename.dirname path) 0o700;
-    Unixext.unlink_safe path;
-	let domain_sock = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
-	Unix.bind domain_sock (Unix.ADDR_UNIX path);
-	Unix.listen domain_sock 5;
-
-	(* Start receiving forwarded /file descriptors/ from xapi *)
-	let forwarded_path = forwarded_path () in
-	Unixext.unlink_safe forwarded_path;
-	let forwarded_sock = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
-	Unix.bind forwarded_sock (Unix.ADDR_UNIX forwarded_path);
-	Unix.listen forwarded_sock 5;
-
-	(* Start receiving local binary messages *)
-	let json_path = json_path () in
-	Unixext.unlink_safe json_path;
-	let json_sock = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
-	Unix.bind json_sock (Unix.ADDR_UNIX json_path);
-	Unix.listen json_sock 5;
-
-	domain_sock, forwarded_sock, json_sock
+let prepare_unix_domain_socket path =
+	try
+		Unixext.mkdir_safe (Filename.dirname path) 0o700;
+		Unixext.unlink_safe path;
+		let sock = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
+		Unix.bind sock (Unix.ADDR_UNIX path);
+		Unix.listen sock 5;
+		sock
+	with e ->
+		error "Failed to listen on Unix domain socket %s. Raw error was: %s" path (Printexc.to_string e);
+		begin match e with
+		| Unix.Unix_error(Unix.EACCES, _, _) ->
+			error "Access was denied.";
+			error "Check the permissions in the filesystem or try again as root.";
+			exit 1
+		| _ -> ()
+		end;
+		raise e
 
 let main backend =
 	debug "xenopsd version %d.%d starting" major_version minor_version;
@@ -262,7 +256,9 @@ let main backend =
 	Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
 
 	(* Accept connections before we have daemonized *)
-	let sockets = prepare_sockets () in
+	let domain_sock = prepare_unix_domain_socket (path ()) in
+	let forwarded_sock = prepare_unix_domain_socket (forwarded_path ()) in
+	let json_sock = prepare_unix_domain_socket (json_path ()) in
 
 	Unixext.mkdir_rec (Filename.dirname !pidfile) 0o755;
 	(* Unixext.pidfile_write !pidfile; *) (* XXX *)
@@ -275,7 +271,7 @@ let main backend =
 	Xenops_server.register_objects();
 	Xenops_server.set_backend (Some backend);
 
-	Debug.with_thread_associated "main" start sockets;
+	Debug.with_thread_associated "main" start (domain_sock, forwarded_sock, json_sock);
 	Scheduler.start ();
 	Xenops_server.WorkerPool.start !worker_pool_size;
 	while true do
