@@ -35,7 +35,7 @@ install: setup.bin
 	@./setup.bin -install
 	install -D ./xenops_main.native $(DESTDIR)/$(SBINDIR)/xenopsd
 	install -D ./xenops_simulator_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
-	install -D ./xenguest.native $(DESTDIR)/$(LIBEXECDIR)/xenguest
+	install -D ./xenguest_main.native $(DESTDIR)/$(LIBEXECDIR)/xenguest
 	install -D ./xenopsd.conf $(DESTDIR)/$(ETCDIR)/xenopsd.conf
 
 test: setup.bin build
@@ -46,7 +46,7 @@ reinstall: setup.bin
 	@./setup.bin -reinstall
 	install -D ./xenops_main.native $(DESTDIR)/$(SBINDIR)/xenopsd
 	install -D ./xenops_simulator_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
-	install -D ./xenguest.native $(DESTDIR)/$(LIBEXECDIR)/xenguest
+	install -D ./xenguest_main.native $(DESTDIR)/$(LIBEXECDIR)/xenguest
 	install -D ./xenopsd.conf $(DESTDIR)/$(ETCDIR)/xenopsd.conf
 
 uninstall:
