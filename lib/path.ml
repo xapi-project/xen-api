@@ -25,18 +25,19 @@ let umount = ref "/bin/umount"
 let ionice = ref "/usr/bin/ionice"
 let setup_vif_rules = ref "/usr/lib/xcp/lib/setup-vif-rules"
 
-let config_spec = [
-	"vif-script", Arg.Set_string vif_script, "Path to the vif backend script";
-	"pci-flr-script", Arg.Set_string pci_flr_script, "Path to the PCI function-level reset script";
-	"vncterm-wrapper", Arg.Set_string vncterm_wrapper, "Path to the vncterm-wrapper script";
-	"vncterm", Arg.Set_string vncterm, "Path to the vncterm binary";
-	"xenguest", Arg.Set_string xenguest, "Path to the xenguest binary";
-	"qemu-dm-wrapper", Arg.Set_string qemu_dm_wrapper, "Path to the qemu-dm-wrapper script";
-	"tune2fs", Arg.Set_string tune2fs, "Path to the tune2fs binary";
-	"mkfs", Arg.Set_string mkfs, "Path to the mkfs binary";
-	"mount", Arg.Set_string mount, "Path to the mount binary";
-	"umount", Arg.Set_string umount, "Path to the umount binary";
-	"ionice", Arg.Set_string ionice, "Path to the ionice binary";
-	"setup-vif-rules", Arg.Set_string setup_vif_rules, "Path to the setup-vif-rules script";
+let table = [
+	"vif-script", vif_script, "path to the vif backend script";
+	"pci-flr-script", pci_flr_script, "path to the PCI function-level reset script";
+	"vncterm-wrapper", vncterm_wrapper, "path to the vncterm-wrapper script";
+	"vncterm", vncterm, "path to the vncterm binary";
+	"xenguest", xenguest, "path to the xenguest binary";
+	"qemu-dm-wrapper", qemu_dm_wrapper, "path to the qemu-dm-wrapper script";
+	"tune2fs", tune2fs, "path to the tune2fs binary";
+	"mkfs", mkfs, "path to the mkfs binary";
+	"mount", mount, "path to the mount binary";
+	"umount", umount, "path to the umount binary";
+	"ionice", ionice, "path to the ionice binary";
+	"setup-vif-rules", setup_vif_rules, "path to the setup-vif-rules script";
 ]
 
+let config_spec = List.map (fun (a, b, c) -> a, Arg.Set_string b, c) table

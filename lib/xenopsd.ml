@@ -65,7 +65,16 @@ let read_config_file () =
         *)
         Config.parse_file !config_file config_spec;
 		debug "Read global variables successfully from %s" !config_file
-    end
+    end;
+	(* Check the required binaries are all available *)
+	List.iter
+		(fun (name, path, descr) ->
+			try
+				Unix.access !path [ Unix.X_OK ]
+			with _ ->
+				error "Cannot execute %s: please set %s in config file" !path descr;
+				exit 1
+		) Path.table
 
 let dump_config_file () : unit =
     debug "pidfile = %s" !pidfile;
