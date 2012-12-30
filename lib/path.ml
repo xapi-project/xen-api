@@ -15,7 +15,7 @@
 let vif_script = ref "/usr/lib/xcp/scripts/vif"
 let pci_flr_script = ref "/usr/lib/xcp/lib/pci-flr"
 let vncterm_wrapper = ref "/usr/lib/xcp/lib/vncterm-wrapper"
-let vncterm = ref "/usr/lib/xen/bin/vncterm"
+let vncterm = ref "/usr/lib/xcp/lib/vncterm"
 let xenguest = ref "/usr/lib/xcp/lib/xenguest"
 let qemu_dm_wrapper = ref "/usr/lib/xcp/lib/qemu-dm-wrapper"
 let tune2fs = ref "/sbin/tune2fs"
