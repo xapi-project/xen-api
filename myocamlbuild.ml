@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: ca58559871b282fe0c02b481c8d13486) *)
+(* DO NOT EDIT (digest: 7ca2b0e079b64d9cd69adb9fac8eab53) *)
 module OASISGettext = struct
 # 21 "/home/djs/oasis/src/oasis/OASISGettext.ml"
 
@@ -586,14 +586,13 @@ let package_default =
           ("xc", ["lib"]);
           ("test", ["lib"]);
           ("simulator", ["lib"]);
-          ("lib_test", ["lib"]);
-          ("cli", ["lib"])
+          ("lib_test", ["lib"])
        ];
      }
   ;;
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default package_default;;
 
-# 598 "myocamlbuild.ml"
+# 597 "myocamlbuild.ml"
 (* OASIS_STOP *)
 Ocamlbuild_plugin.dispatch dispatch_default;;

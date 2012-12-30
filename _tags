@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 0fbe2a8495a87ddd185bfd03992b0a70)
+# DO NOT EDIT (digest: e8cf7863d48580aec3da40a2633462d9)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -18,43 +18,15 @@
 <lib/*.ml{,i}>: pkg_rpclib
 <lib/*.ml{,i}>: pkg_forkexec
 <lib/*.ml{,i}>: pkg_xcp
-<lib/*.ml{,i}>: pkg_uuidm
 <lib/*.ml{,i}>: pkg_syslog
 <lib/*.ml{,i}>: pkg_threads
+<lib/*.ml{,i}>: pkg_uuidm
 <lib/*.ml{,i}>: pkg_xmlm
 <lib/*.ml{,i}>: pkg_cohttp
 <lib/*.ml{,i}>: pkg_uri
 <lib/*.ml{,i}>: pkg_rpclib.syntax
 <lib/*.ml{,i}>: pkg_fd-send-recv
 <lib/*.ml{,i}>: pkg_xcp.xen
-# Executable xn
-<cli/xn.{native,byte,nobj.o}>: use_xenops
-<cli/xn.{native,byte,nobj.o}>: pkg_rpclib
-<cli/xn.{native,byte,nobj.o}>: pkg_forkexec
-<cli/xn.{native,byte,nobj.o}>: pkg_xcp
-<cli/xn.{native,byte,nobj.o}>: pkg_uuidm
-<cli/xn.{native,byte,nobj.o}>: pkg_syslog
-<cli/xn.{native,byte,nobj.o}>: pkg_threads
-<cli/xn.{native,byte,nobj.o}>: pkg_xmlm
-<cli/xn.{native,byte,nobj.o}>: pkg_cohttp
-<cli/xn.{native,byte,nobj.o}>: pkg_uri
-<cli/xn.{native,byte,nobj.o}>: pkg_rpclib.syntax
-<cli/xn.{native,byte,nobj.o}>: pkg_fd-send-recv
-<cli/xn.{native,byte,nobj.o}>: pkg_xcp.xen
-<cli/*.ml{,i}>: use_xenops
-<cli/*.ml{,i}>: pkg_rpclib
-<cli/*.ml{,i}>: pkg_forkexec
-<cli/*.ml{,i}>: pkg_xcp
-<cli/*.ml{,i}>: pkg_uuidm
-<cli/*.ml{,i}>: pkg_syslog
-<cli/*.ml{,i}>: pkg_threads
-<cli/*.ml{,i}>: pkg_xmlm
-<cli/*.ml{,i}>: pkg_cohttp
-<cli/*.ml{,i}>: pkg_uri
-<cli/*.ml{,i}>: pkg_rpclib.syntax
-<cli/*.ml{,i}>: pkg_fd-send-recv
-<cli/*.ml{,i}>: pkg_xcp.xen
-<cli/xn.{native,byte,nobj.o}>: custom
 # Executable xenopsd_xc_main
 <xc/xenops_xc_main.{native,byte,nobj.o}>: use_libxenopsd_xc_main_stubs
 <xc/xenops_xc_main.{native,byte,nobj.o}>: use_xenops
@@ -68,9 +40,9 @@
 <xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_xcp
 <xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_xcp.storage
 <xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_sexplib
-<xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_uuidm
 <xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_syslog
 <xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_threads
+<xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_uuidm
 <xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_xmlm
 <xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_cohttp
 <xc/xenops_xc_main.{native,byte,nobj.o}>: pkg_uri
@@ -88,9 +60,9 @@
 <xc/*.ml{,i}>: pkg_xcp
 <xc/*.ml{,i}>: pkg_xcp.storage
 <xc/*.ml{,i}>: pkg_sexplib
-<xc/*.ml{,i}>: pkg_uuidm
 <xc/*.ml{,i}>: pkg_syslog
 <xc/*.ml{,i}>: pkg_threads
+<xc/*.ml{,i}>: pkg_uuidm
 <xc/*.ml{,i}>: pkg_xmlm
 <xc/*.ml{,i}>: pkg_cohttp
 <xc/*.ml{,i}>: pkg_uri
@@ -108,9 +80,9 @@
 "xc/fsync_stubs.c": pkg_xcp
 "xc/fsync_stubs.c": pkg_xcp.storage
 "xc/fsync_stubs.c": pkg_sexplib
-"xc/fsync_stubs.c": pkg_uuidm
 "xc/fsync_stubs.c": pkg_syslog
 "xc/fsync_stubs.c": pkg_threads
+"xc/fsync_stubs.c": pkg_uuidm
 "xc/fsync_stubs.c": pkg_xmlm
 "xc/fsync_stubs.c": pkg_cohttp
 "xc/fsync_stubs.c": pkg_uri
@@ -128,9 +100,9 @@
 "xc/xenctrlext_stubs.c": pkg_xcp
 "xc/xenctrlext_stubs.c": pkg_xcp.storage
 "xc/xenctrlext_stubs.c": pkg_sexplib
-"xc/xenctrlext_stubs.c": pkg_uuidm
 "xc/xenctrlext_stubs.c": pkg_syslog
 "xc/xenctrlext_stubs.c": pkg_threads
+"xc/xenctrlext_stubs.c": pkg_uuidm
 "xc/xenctrlext_stubs.c": pkg_xmlm
 "xc/xenctrlext_stubs.c": pkg_cohttp
 "xc/xenctrlext_stubs.c": pkg_uri
@@ -154,9 +126,9 @@
 <simulator/xenops_simulator_main.{native,byte,nobj.o}>: pkg_rpclib
 <simulator/xenops_simulator_main.{native,byte,nobj.o}>: pkg_forkexec
 <simulator/xenops_simulator_main.{native,byte,nobj.o}>: pkg_xcp
-<simulator/xenops_simulator_main.{native,byte,nobj.o}>: pkg_uuidm
 <simulator/xenops_simulator_main.{native,byte,nobj.o}>: pkg_syslog
 <simulator/xenops_simulator_main.{native,byte,nobj.o}>: pkg_threads
+<simulator/xenops_simulator_main.{native,byte,nobj.o}>: pkg_uuidm
 <simulator/xenops_simulator_main.{native,byte,nobj.o}>: pkg_xmlm
 <simulator/xenops_simulator_main.{native,byte,nobj.o}>: pkg_cohttp
 <simulator/xenops_simulator_main.{native,byte,nobj.o}>: pkg_uri
@@ -167,9 +139,9 @@
 <simulator/*.ml{,i}>: pkg_rpclib
 <simulator/*.ml{,i}>: pkg_forkexec
 <simulator/*.ml{,i}>: pkg_xcp
-<simulator/*.ml{,i}>: pkg_uuidm
 <simulator/*.ml{,i}>: pkg_syslog
 <simulator/*.ml{,i}>: pkg_threads
+<simulator/*.ml{,i}>: pkg_uuidm
 <simulator/*.ml{,i}>: pkg_xmlm
 <simulator/*.ml{,i}>: pkg_cohttp
 <simulator/*.ml{,i}>: pkg_uri
@@ -184,9 +156,9 @@
 <test/test.{native,byte,nobj.o}>: pkg_rpclib
 <test/test.{native,byte,nobj.o}>: pkg_forkexec
 <test/test.{native,byte,nobj.o}>: pkg_xcp
-<test/test.{native,byte,nobj.o}>: pkg_uuidm
 <test/test.{native,byte,nobj.o}>: pkg_syslog
 <test/test.{native,byte,nobj.o}>: pkg_threads
+<test/test.{native,byte,nobj.o}>: pkg_uuidm
 <test/test.{native,byte,nobj.o}>: pkg_xmlm
 <test/test.{native,byte,nobj.o}>: pkg_cohttp
 <test/test.{native,byte,nobj.o}>: pkg_uri
@@ -199,9 +171,9 @@
 <test/*.ml{,i}>: pkg_rpclib
 <test/*.ml{,i}>: pkg_forkexec
 <test/*.ml{,i}>: pkg_xcp
-<test/*.ml{,i}>: pkg_uuidm
 <test/*.ml{,i}>: pkg_syslog
 <test/*.ml{,i}>: pkg_threads
+<test/*.ml{,i}>: pkg_uuidm
 <test/*.ml{,i}>: pkg_xmlm
 <test/*.ml{,i}>: pkg_cohttp
 <test/*.ml{,i}>: pkg_uri
@@ -216,9 +188,9 @@
 <lib_test/test.{native,byte,nobj.o}>: pkg_rpclib
 <lib_test/test.{native,byte,nobj.o}>: pkg_forkexec
 <lib_test/test.{native,byte,nobj.o}>: pkg_xcp
-<lib_test/test.{native,byte,nobj.o}>: pkg_uuidm
 <lib_test/test.{native,byte,nobj.o}>: pkg_syslog
 <lib_test/test.{native,byte,nobj.o}>: pkg_threads
+<lib_test/test.{native,byte,nobj.o}>: pkg_uuidm
 <lib_test/test.{native,byte,nobj.o}>: pkg_xmlm
 <lib_test/test.{native,byte,nobj.o}>: pkg_cohttp
 <lib_test/test.{native,byte,nobj.o}>: pkg_uri
@@ -231,9 +203,9 @@
 <lib_test/*.ml{,i}>: pkg_rpclib
 <lib_test/*.ml{,i}>: pkg_forkexec
 <lib_test/*.ml{,i}>: pkg_xcp
-<lib_test/*.ml{,i}>: pkg_uuidm
 <lib_test/*.ml{,i}>: pkg_syslog
 <lib_test/*.ml{,i}>: pkg_threads
+<lib_test/*.ml{,i}>: pkg_uuidm
 <lib_test/*.ml{,i}>: pkg_xmlm
 <lib_test/*.ml{,i}>: pkg_cohttp
 <lib_test/*.ml{,i}>: pkg_uri
