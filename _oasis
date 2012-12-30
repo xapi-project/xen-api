@@ -45,6 +45,16 @@ Executable xenopsd_xen
   BuildDepends:       xenctrl, xenops, xenstore, xenstore.unix, xenstore_transport, xenstore_transport.unix, rpclib, forkexec, xcp, xcp.storage, sexplib
   CSources:           fsync_stubs.c, xenctrlext_stubs.c
 
+Executable xenguest
+  CompiledObject:     best
+  Path:               xenguest
+  MainIs:             xenguest_main.ml
+  Build$:             flag(xen)
+  Custom:             true
+  Install:            false
+  BuildDepends:       unix
+  CSources:           xenguest_stubs.c
+  CCLib:              -lxenctrl-4.1 -lxenguest-4.1 -lxenstore
 
 Executable xenopsd_simulator
   CompiledObject:     best

@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: ab2ea12781cd5ba5d6648e8ef0f45913) *)
+(* DO NOT EDIT (digest: 845f767365a2285efe996ffb46061ff9) *)
 module OASISGettext = struct
 # 21 "/home/djs/oasis/src/oasis/OASISGettext.ml"
 
@@ -559,8 +559,28 @@ open Ocamlbuild_plugin;;
 let package_default =
   {
      MyOCamlbuildBase.lib_ocaml = [("xenops", ["lib"])];
-     lib_c = [("xenopsd_xen", "xen", [])];
-     flags = [];
+     lib_c = [("xenopsd_xen", "xen", []); ("xenguest", "xenguest", [])];
+     flags =
+       [
+          (["oasis_executable_xenguest_cclib"; "link"],
+            [
+               (OASISExpr.EBool true,
+                 S
+                   [
+                      A "-cclib";
+                      A "-lxenctrl-4.1";
+                      A "-cclib";
+                      A "-lxenguest-4.1";
+                      A "-cclib";
+                      A "-lxenstore"
+                   ])
+            ]);
+          (["oasis_executable_xenguest_cclib"; "ocamlmklib"; "c"],
+            [
+               (OASISExpr.EBool true,
+                 S [A "-lxenctrl-4.1"; A "-lxenguest-4.1"; A "-lxenstore"])
+            ])
+       ];
      includes =
        [
           ("xen", ["lib"]);
@@ -574,6 +594,6 @@ let package_default =
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default package_default;;
 
-# 578 "myocamlbuild.ml"
+# 598 "myocamlbuild.ml"
 (* OASIS_STOP *)
 Ocamlbuild_plugin.dispatch dispatch_default;;

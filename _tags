@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 1c7760e2dede8d8dfc574f1768cbf7c9)
+# DO NOT EDIT (digest: 63a53cee2380a82e3c2f054fb06b3d02)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -138,6 +138,17 @@
 "xen/xenctrlext_stubs.c": pkg_fd-send-recv
 "xen/xenctrlext_stubs.c": pkg_xcp.xen
 <xen/xenops_main.{native,byte,nobj.o}>: custom
+# Executable xenguest
+<xenguest/xenguest_main.{native,byte,nobj.o}>: oasis_executable_xenguest_cclib
+"xenguest/libxenguest_stubs.lib": oasis_executable_xenguest_cclib
+"xenguest/dllxenguest_stubs.dll": oasis_executable_xenguest_cclib
+"xenguest/libxenguest_stubs.a": oasis_executable_xenguest_cclib
+"xenguest/dllxenguest_stubs.so": oasis_executable_xenguest_cclib
+<xenguest/xenguest_main.{native,byte,nobj.o}>: use_libxenguest_stubs
+<xenguest/xenguest_main.{native,byte,nobj.o}>: pkg_unix
+<xenguest/*.ml{,i}>: pkg_unix
+"xenguest/xenguest_stubs.c": pkg_unix
+<xenguest/xenguest_main.{native,byte,nobj.o}>: custom
 # Executable xenopsd_simulator
 <simulator/xenops_simulator_main.{native,byte,nobj.o}>: use_xenops
 <simulator/xenops_simulator_main.{native,byte,nobj.o}>: pkg_rpclib
