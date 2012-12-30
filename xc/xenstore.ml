@@ -90,11 +90,8 @@ module Xs = struct
     let wait f = Client.wait client (fun h -> f (ops h))
 	let transaction _ f = Client.with_xst client (fun h -> f (ops h))
 
-	let daemon_open _ = failwith "daemon_open"
-
-	let close _ = failwith "close"
-
-	let getdomainpath _ _ = failwith "getdomainpath"
 end
 
 module Xst = Xs
+
+let with_xs = Xs.with_xs

@@ -18,10 +18,6 @@ open Xenstore
 
 let with_xc f = Xenctrl.with_intf f
 
-let with_xs f =
-	let xs = Xs.daemon_open () in
-	finally (fun () -> f xs) (fun () -> Xs.close xs)
-
 let with_xc_and_xs f =
 	Xenctrl.with_intf (fun xc -> with_xs (fun xs -> f xc xs))
 
