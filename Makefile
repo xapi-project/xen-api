@@ -7,6 +7,7 @@ J=4
 BINDIR ?= /usr/bin
 SBINDIR ?= /usr/sbin
 LIBEXECDIR ?= /usr/lib/xcp/lib
+ETCDIR ?= /etc
 DESTDIR ?= /
 
 export OCAMLRUNPARAM=b
@@ -35,6 +36,7 @@ install: setup.bin
 	install -D ./xenops_main.native $(DESTDIR)/$(SBINDIR)/xenopsd
 	install -D ./xenops_simulator_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
 	install -D ./xenguest.native $(DESTDIR)/$(LIBEXECDIR)/xenguest
+	install -D ./xenopsd.conf $(DESTDIR)/$(ETCDIR)/xenopsd.conf
 
 test: setup.bin build
 	@./setup.bin -test
@@ -45,12 +47,14 @@ reinstall: setup.bin
 	install -D ./xenops_main.native $(DESTDIR)/$(SBINDIR)/xenopsd
 	install -D ./xenops_simulator_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
 	install -D ./xenguest.native $(DESTDIR)/$(LIBEXECDIR)/xenguest
+	install -D ./xenopsd.conf $(DESTDIR)/$(ETCDIR)/xenopsd.conf
 
 uninstall:
 	@ocamlfind remove $(NAME) || true
 	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd
 	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/xenguest
+	rm -f $(DESTDIR)/$(ETCDIR)/xenopsd.conf
 
 clean:
 	@ocamlbuild -clean
