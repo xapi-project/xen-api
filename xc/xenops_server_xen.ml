@@ -23,6 +23,8 @@ open Xenops_task
 module D = Debug.Make(struct let name = service_name end)
 open D
 
+let _sys_hypervisor_type = "/sys/hypervisor/type"
+
 let run cmd args =
 	debug "%s %s" cmd (String.concat " " args);
 	fst(Forkhelpers.execute_command_get_output cmd args)
@@ -2212,19 +2214,70 @@ let watch_callback xc xs (path, token) =
 							) timeoffset
 					| _  -> debug "Ignoring unexpected watch: %s" path
 
+(* Here we analyse common startup errors in more detail and
+   suggest the most likely fixes (e.g. switch to root, start missing
+   service) *)
+
+let look_for_forkexec () =
+	try
+		let _ = run "/bin/ls" [] in
+		debug "fork/exec service is responding"
+	with e ->
+		error "The fork/exec service is not working properly. The raw error was: %s" (Printexc.to_string e);
+		error "This is a fatal error because I will not be able to start any VMs.";
+		error "Please start (or restart) the fork/exec service and try again.";
+		exit 1
+
+let look_for_xen () =
+	try
+		Xenctrl.interface_open ()
+	with e ->
+		error "I failed to open the low-level xen control interface (xenctrl)";
+		error "The raw error was: %s" (Printexc.to_string e);
+		if not (Sys.file_exists _sys_hypervisor_type) then begin
+			error "The file %s does not exist: you are not running xen." _sys_hypervisor_type;
+			error "Please check your bootloader configuration, reboot to xen and try again.";
+			exit 1;
+		end;
+		let hypervisor = Unixext.string_of_file _sys_hypervisor_type in
+		let hypervisor =
+			if hypervisor.[String.length hypervisor - 1] = '\n'
+			then String.sub hypervisor 0 (String.length hypervisor - 1)
+			else hypervisor in
+		match hypervisor with
+		| "xen" ->
+			debug "You are running xen -- this is good.";
+			if Unix.geteuid () = 0 then begin
+				debug "You are running as root -- this is good.";
+				error "Please check you have a matching hypervisor, xenctrl libraries and xenopsd.";
+				error "If the problem persists then contact: <xen-api@lists.xen.org>";
+				exit 1;
+			end else begin
+				error "You are not running as root.";
+				error "Please switch to root and try again.";
+				exit 1;
+			end
+		| x ->
+			error "You are running a different hypervisor (%s)" x;
+			error "Please check your bootloader configuration, reboot to xen and try again.";
+			exit 1
+
 let init () =
+	look_for_forkexec ();
+
+	let xc = look_for_xen () in
+
 	(* XXX: is this completely redundant now? The Citrix PV drivers don't need this any more *)
 	(* Special XS entry looked for by the XenSource PV drivers (see xenagentd.hg:src/xad.c) *)
 	let xe_key = "/mh/XenSource-TM_XenEnterprise-TM" in
 	let xe_val = "XenSource(TM) and XenEnterprise(TM) are registered trademarks of XenSource Inc." in
 
-	with_xc_and_xs
-		(fun xc xs ->
+	with_xs
+		(fun xs ->
 			xs.Xs.write xe_key xe_val;
 			xs.Xs.setperms xe_key { Xs_protocol.ACL.owner = 0; other = Xs_protocol.ACL.READ; acl = [] }
 		);
 
-	let xc = Xenctrl.interface_open () in
 	let client = Xenstore.Client.make () in
 	let watch_callback = Xenstore.Xs.with_xs (watch_callback xc) in
 	Xenstore.Client.set_watch_callback client watch_callback
