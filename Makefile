@@ -40,11 +40,11 @@ install-scripts:
 	install -D ./xenops_xc_main.native $(DESTDIR)/$(SBINDIR)/xenopsd
 	install -D ./xenops_simulator_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
 	install -D ./xenguest_main.native $(DESTDIR)/$(LIBEXECDIR)/xenguest
-	install -D ./xenopsd.conf $(DESTDIR)/$(ETCDIR)/xenopsd.conf
 	install -D ./scripts/vif $(DESTDIR)/$(SCRIPTSDIR)/vif
 	install -D ./scripts/vncterm-wrapper $(DESTDIR)/$(LIBEXECDIR)/vncterm-wrapper
 	install -D ./scripts/qemu-dm-wrapper $(DESTDIR)/$(LIBEXECDIR)/qemu-dm-wrapper
 	install -D ./scripts/setup-vif-rules $(DESTDIR)/$(LIBEXECDIR)/setup-vif-rules
+	SBINDIR=$(SBINDIR) LIBEXECDIR=$(LIBEXECDIR) SCRIPTSDIR=$(SCRIPTSDIR) ./scripts/make-custom-xenopsd.conf
 
 test: setup.bin build
 	@./setup.bin -test
