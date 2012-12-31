@@ -1,0 +1,69 @@
+XE(1)
+=======
+:doctype: manpage
+:man source:   xe 
+:man version:  {1}
+:man manual:   xe pif-param-clear manual
+
+NAME
+----
+xe-pif-param-clear - Clears a specific writable parameter for a PIF.
+
+SYNOPSIS
+--------
+
+*xe pif-param-clear* uuid=<PIF UUID> param-name=<parameter> 
+
+
+DESCRIPTION
+-----------
+*xe pif-param-clear* attempts to clear all values for a specific writable parameter for a PIF interface. 
+
+REQUIRED PARAMETERS
+-------------------
+
+*uuid*::
+	UUID of PIF interface - Use *xe pif-list* to obtain PIF interface UUIDs.
+	
+*param-name*::
+	Parameter to be cleared for a PIF interface (e.g. other-config). 
+
+EXAMPLES
+--------
+
+To clear all values found in the other-config parameter: ::
+	*xe pif-param-clear* uuid=<PIF UUID> param-name="other-config"
+
+SEE ALSO
+--------
+*xe-pif-list*(1), *xe-pif-param-list*(1), *xe-pif-param-remove*(1), *xe-pif-param-set*(1), *xe-network-list*(1), *xe-vlan-list*(1)
+
+BUGS
+----
+Send bugs to xen-devel@lists.xen.org, see http://wiki.xen.org/wiki/Reporting_Bugs_against_XCP on how to send bug reports. General questions can be sent to xen-api@lists.xen.org.
+
+AUTHORS
+-------
+Matthew Spah <spahmatthew@xenapiadmin.com>::
+Lisa Nguyen <lisa@xenapiadmin.com>
+
+COPYRIGHT
+---------
+Copyright \(C) 2012 - Matthew Spah, Lisa Nguyen
+
+The Howto containing this example, was offered under the following conditions:
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are
+met:
+
+[options="compact"]
+. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+

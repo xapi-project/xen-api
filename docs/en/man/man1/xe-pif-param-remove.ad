@@ -1,0 +1,75 @@
+XE(1)
+=======
+:doctype: manpage
+:man source:   xe 
+:man version:  {1}
+:man manual:   xe pif-param-remove manual
+
+NAME
+----
+xe-pif-param-remove - Removes a writable parameter key for a PIF.
+
+SYNOPSIS
+--------
+*xe pif-param-remove* uuid=<PIF UUID> param-name=<Parameter> param-key=<Parameter Key>
+
+
+DESCRIPTION
+-----------
+*xe pif-param-remove* removes a set or map writable parameter key assigned to a PIF interface. Tags is one example of a set or map parameter.
+
+
+REQUIRED PARAMETERS
+-------------------
+
+*uuid*::
+	UUID of PIF interface - Use *xe pif-list* to obtain PIF interface UUIDs.
+
+*param-name*::
+	Parameter that contains parameter keys (e.g. other-config).
+
+*param-key*::
+	Parameter key that displays additional information on a PIF.
+
+EXAMPLES
+--------
+To remove the *ethtool-speed* value::
+	*xe pif-param-remove* uuid=<PIF UUID> param-name="other-config" param-key="ethtool-speed"
+
+SEE ALSO
+--------
+*xe-pif-param-set*(1), *xe-pif-param-add*(1), *xe-pif-list*(1), *xe-pif-introduce*(1), *xe-network-list*(1), *xe-vif-list*(1)
+
+
+AUTHORS
+-------
+Matthew Spah <spahmatthew@xenapiadmin.com>::
+Lisa Nguyen <lisa@xenapiadmin.com>
+
+BUGS
+----
+See http://wiki.xen.org/wiki/Reporting_Bugs_against_XCP on how to send bug reports, send bugs to xen-devel@lists.xen.org. General questions can be sent to xen-api@lists.xen.org.
+
+COPYRIGHT
+---------
+Copyright \(C) 2012 - Matthew Spah, Lisa Nguyen
+
+The Howto containing this example, was offered under the following conditions:
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are
+met:
+
+[options="compact"]
+. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+
+
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+
