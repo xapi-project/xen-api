@@ -113,13 +113,32 @@ let start_cmd =
   Term.(ret (pure Xn.start $ common_options_t $ paused $ vm)),
   Term.info "start" ~sdocs:_common_options ~doc ~man
 
+let shutdown_cmd =
+  let vm = 
+    let doc = "The name or UUID of the VM to be shutdown (powered off)." in
+    Arg.(value & pos 0 (some string) None & info [] ~docv:"VM" ~doc) in
+  let timeout =
+    let doc = "Amount of time to wait for the VM to cleanly shut itself down, before we power it off." in
+    Arg.(value & opt (some float) None & info [ "timeout" ] ~doc) in
+  let doc = "shutdown a VM" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Shutdown a VM.";
+    `P "If the specified VM is running, it will be asked to shutdown.
+       If a <timeout> is specified then we will wait. If no <timeout>
+       is specified or if the timeout expires, the VM will be powered off.";
+    `S "ERRORS";
+    `P "Something about the current power state." ] @ help in
+  Term.(ret (pure Xn.shutdown $ common_options_t $ timeout $ vm)),
+  Term.info "shutdown" ~sdocs:_common_options ~doc ~man
+
 let default_cmd = 
   let doc = "interact with the XCP xenopsd VM management service" in 
   let man = help in
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
   Term.info "xenops-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
        
-let cmds = [list_cmd; add_cmd; remove_cmd; start_cmd ]
+let cmds = [list_cmd; add_cmd; remove_cmd; start_cmd; shutdown_cmd ]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 

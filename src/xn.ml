@@ -579,10 +579,12 @@ let start copts paused x =
 
 let start copts paused x = diagnose_error (need_vm (start copts paused) x)
 
-let shutdown x timeout =
+let shutdown copts timeout x =
 	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.shutdown dbg vm.id timeout |> wait_for_task dbg
+	Client.VM.shutdown dbg vm.id timeout |> wait_for_task dbg |> success_task ignore_task
+
+let shutdown copts timeout x = diagnose_error (need_vm (shutdown copts timeout) x)
 
 let pause x =
 	let open Vm in
@@ -824,10 +826,6 @@ let old_main () =
 			pause id |> task
 		| [ "unpause"; id ] ->
 			unpause id |> task
-		| [ "shutdown"; id ] ->
-			shutdown id None |> task
-		| [ "shutdown"; id; timeout ] ->
-			shutdown id (Some (float_of_string timeout)) |> task
 		| [ "reboot"; id ] ->
 			reboot id None |> task
 		| [ "reboot"; id; timeout ] ->
