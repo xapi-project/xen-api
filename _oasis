@@ -10,7 +10,7 @@ BuildTools:  ocamlbuild
 Executable xn
   CompiledObject:     best
   Path:               src
-  MainIs:             xn.ml
+  MainIs:             main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       threads, uuidm, rpclib, xcp, xcp.xen
+  BuildDepends:       threads, uuidm, cmdliner, rpclib, xcp, xcp.xen

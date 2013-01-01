@@ -403,7 +403,7 @@ let list_verbose () =
 			Printf.printf "  %s\n" (state |> rpc_of_state |> Jsonrpc.to_string);
 		) vms
 
-let list () =
+let list_compact () =
 	let open Vm in
 	let line name domid mem vcpus state time =
 		Printf.sprintf "%-45s%-5s%-6s%-5s     %-8s%-s" name domid mem vcpus state time in
@@ -419,6 +419,8 @@ let list () =
 	let vms = Client.VM.list dbg () in
 	let lines = header :: (List.map string_of_vm vms) in
 	List.iter (Printf.printf "%s\n") lines
+
+let list copts = (if copts.Common.verbose then list_verbose else list_compact) ()
 
 type t =
 	| Line of string
@@ -521,12 +523,15 @@ let import_metadata filename =
 	let id = Client.VM.import_metadata dbg txt in
 	Printf.printf "%s\n" id
 
-let start x paused =
-	let open Vm in
-	let vm, _ = find_by_name x in
-	Client.VM.start dbg vm.id |> wait_for_task dbg |> success_task ignore_task;
-	if not paused
-	then Client.VM.unpause dbg vm.id |> wait_for_task dbg |> success_task ignore_task
+let start copts paused = function
+	| None -> `Error (false, "You must supply a VM name or UUID")
+	| Some x ->
+		let open Vm in
+		let vm, _ = find_by_name x in
+		Client.VM.start dbg vm.id |> wait_for_task dbg |> success_task ignore_task;
+		if not paused
+		then Client.VM.unpause dbg vm.id |> wait_for_task dbg |> success_task ignore_task;
+		`Ok ()
 
 let shutdown x timeout =
 	let open Vm in
@@ -739,7 +744,7 @@ let verbose_task t =
 	Printf.printf "Overall: %s\n" (string_of_state t.Task.state)
 
 
-let _ =
+let old_main () =
 	let args = Sys.argv |> Array.to_list |> List.tl in
 	let verbose = List.mem "-v" args in
 	let args = List.filter (fun x -> x <> "-v") args in
@@ -765,10 +770,6 @@ let _ =
 			exit 0
 		| [ "add"; filename ] ->
 			add filename
-		| [ "list" ] ->
-			list ()
-		| [ "list"; "verbose" ] ->
-			list_verbose ()
 		| [ "remove"; id ] ->
 			remove id
 		| [ "export-metadata"; id; filename ] ->
@@ -777,10 +778,6 @@ let _ =
 			export_metadata_xm id filename
 		| [ "import-metadata"; filename ] ->
 			import_metadata filename
-		| [ "start"; id; "paused" ] ->
-			start id true
-		| [ "start"; id ] ->
-			start id false
 		| [ "pause"; id ] ->
 			pause id |> task
 		| [ "unpause"; id ] ->

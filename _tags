@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: c57cdb1085345438ebdad1f8f980f2bd)
+# DO NOT EDIT (digest: a22346522bf02aff9eb5feb32734a5fb)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -14,16 +14,19 @@
 "_darcs": -traverse
 "_darcs": not_hygienic
 # Executable xn
-<src/xn.{native,byte,nobj.o}>: pkg_threads
-<src/xn.{native,byte,nobj.o}>: pkg_uuidm
-<src/xn.{native,byte,nobj.o}>: pkg_rpclib
-<src/xn.{native,byte,nobj.o}>: pkg_xcp
-<src/xn.{native,byte,nobj.o}>: pkg_xcp.xen
+<src/main.{native,byte,nobj.o}>: pkg_threads
+<src/main.{native,byte,nobj.o}>: pkg_uuidm
+<src/main.{native,byte,nobj.o}>: pkg_cmdliner
+<src/main.{native,byte,nobj.o}>: pkg_rpclib
+<src/main.{native,byte,nobj.o}>: pkg_xcp
+<src/main.{native,byte,nobj.o}>: pkg_xcp.xen
 <src/*.ml{,i}>: pkg_threads
 <src/*.ml{,i}>: pkg_uuidm
+<src/*.ml{,i}>: pkg_cmdliner
 <src/*.ml{,i}>: pkg_rpclib
 <src/*.ml{,i}>: pkg_xcp
 <src/*.ml{,i}>: pkg_xcp.xen
-<src/xn.{native,byte,nobj.o}>: custom
+<src/main.{native,byte,nobj.o}>: custom
 # OASIS_STOP
 <src/xn_cfg_types.ml>: syntax_camlp4o, pkg_rpclib.syntax
+<src/common.ml>: syntax_camlp4o, pkg_rpclib.syntax
