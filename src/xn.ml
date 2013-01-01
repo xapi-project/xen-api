@@ -507,7 +507,7 @@ let find_by_name x =
 		Printf.fprintf stderr "Failed to find VM: %s\n" x;
 		exit 1
 
-let remove x =
+let remove copts x =
 	let open Vm in
 	let vm, _ = find_by_name x in
 	let vbds = Client.VBD.list dbg vm.id in
@@ -521,6 +521,12 @@ let remove x =
 			Client.VIF.remove dbg vif.Vif.id
 		) vifs;
 	Client.VM.remove dbg vm.id
+
+let need_vm f x () = match x with
+	| None -> `Error (false, "You must supply a VM name or UUID")
+    | Some x -> let () = f x in `Ok ()
+
+let remove copts x = diagnose_error (need_vm (remove copts) x)
 
 let export_metadata x filename =
 	let open Vm in
@@ -564,15 +570,14 @@ let import_metadata filename =
 	let id = Client.VM.import_metadata dbg txt in
 	Printf.printf "%s\n" id
 
-let start copts paused = function
-	| None -> `Error (false, "You must supply a VM name or UUID")
-	| Some x ->
-		let open Vm in
-		let vm, _ = find_by_name x in
-		Client.VM.start dbg vm.id |> wait_for_task dbg |> success_task ignore_task;
-		if not paused
-		then Client.VM.unpause dbg vm.id |> wait_for_task dbg |> success_task ignore_task;
-		`Ok ()
+let start copts paused x =
+	let open Vm in
+	let vm, _ = find_by_name x in
+	Client.VM.start dbg vm.id |> wait_for_task dbg |> success_task ignore_task;
+	if not paused
+	then Client.VM.unpause dbg vm.id |> wait_for_task dbg |> success_task ignore_task
+
+let start copts paused x = diagnose_error (need_vm (start copts paused) x)
 
 let shutdown x timeout =
 	let open Vm in
@@ -809,8 +814,6 @@ let old_main () =
 		| [ "help" ] | [] ->
 			usage ();
 			exit 0
-		| [ "remove"; id ] ->
-			remove id
 		| [ "export-metadata"; id; filename ] ->
 			export_metadata id filename
 		| [ "export-metadata-xm"; id; filename ] ->

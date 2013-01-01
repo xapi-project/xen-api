@@ -69,6 +69,27 @@ let list_cmd =
   Term.(pure Xn.list $ common_options_t),
   Term.info "list" ~sdocs:_common_options ~doc ~man
 
+let remove_cmd =
+  let vm =
+    let doc = "The name or UUID of the VM to be removed." in
+    Arg.(value & pos 0 (some string) None & info [] ~docv:"VM" ~doc) in
+  let doc = "unregister a VM" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Unregister a VM.";
+    `P "The xenopsd service will only manipulate VMs if they are
+       explicitly registered with it. You should unregister a VM if either:";
+    `P "1. the VM is not needed any more; or";
+    `P "2. you intend to manage the VM on another host or using another toolstack.";
+    `P "Note: before attempting to use multiple toolstacks simultaneously on a single host,
+        check all the relevant documentation to see whether this is a sensible thing to do.";
+    `P "Only Halted VMs may be unregistered.";
+    `S "ERRORS";
+    `P "Something about power state exceptions";
+   ] in
+  Term.(ret (pure Xn.remove $ common_options_t $ vm)),
+  Term.info "remove" ~sdocs:_common_options ~doc ~man
+
 let start_cmd =
   let vm = 
     let doc = "The name or UUID of the VM to be started." in
@@ -98,7 +119,7 @@ let default_cmd =
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
   Term.info "xenops-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
        
-let cmds = [list_cmd; add_cmd; start_cmd ]
+let cmds = [list_cmd; add_cmd; remove_cmd; start_cmd ]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
