@@ -23,14 +23,14 @@ doc: setup.data setup.bin
 
 install: setup.bin
 	@./setup.bin -install
-	install -D ./xn.native $(DESTDIR)/$(BINDIR)/xenops-cli
+	install -D ./main.native $(DESTDIR)/$(BINDIR)/xenops-cli
 
 test: setup.bin build
 	@./setup.bin -test
 
 reinstall: setup.bin
 	@./setup.bin -reinstall
-	install -D ./xn.native $(DESTDIR)/$(BINDIR)/xenops-cli
+	install -D ./main.native $(DESTDIR)/$(BINDIR)/xenops-cli
 
 uninstall:
 	rm -f $(DESTDIR)/$(BINDIR)/xenops-cli
