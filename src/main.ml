@@ -45,16 +45,26 @@ let common_options_t =
     
 (* Commands *)
 
+let add_cmd =
+  let doc = "register a new VM with xenopsd" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Registers a new VM with the xenopsd service.";
+  ] @ help in
+  let filename = 
+    let doc = Printf.sprintf "Path to the VM metadata to be registered." in
+    Arg.(value & pos 0 (some file) None & info [] ~doc) in
+  Term.(ret(pure Xn.add $ common_options_t $ filename)),
+  Term.info "add" ~sdocs:_common_options ~doc ~man
+
 let list_cmd =
   let doc = "list the VMs registered with xenopsd" in
   let man = [
     `S "DESCRIPTION";
-    `P "Lists the VMs registered with the xenopsd service.
-
-       VMs are registered with xenospd via the \"add\" command and
-       will be monitored until the corresponding \"remove\" command.
-
-       xenopsd will not touch any VMs (and domains) which have not
+    `P "Lists the VMs registered with the xenopsd service.";
+    `P "VMs are registered with xenospd via the \"add\" command and
+       will be monitored until the corresponding \"remove\" command.";
+    `P "xenopsd will not touch any VMs (and domains) which have not
        been explicitly registered." ] @ help in
   Term.(pure Xn.list $ common_options_t),
   Term.info "list" ~sdocs:_common_options ~doc ~man
@@ -88,7 +98,7 @@ let default_cmd =
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
   Term.info "xenops-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
        
-let cmds = [list_cmd; start_cmd ]
+let cmds = [list_cmd; add_cmd; start_cmd ]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 

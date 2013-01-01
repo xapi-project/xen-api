@@ -15,6 +15,43 @@
 open Xenops_interface
 open Xenops_client
 
+let diagnose_error f =
+	try
+		f ()
+	with e ->
+		Printf.fprintf stderr "Caught exception: %s\n" (Printexc.to_string e);
+		begin match e with
+		| Unix.Unix_error(Unix.EACCES, _, _) ->
+			Printf.fprintf stderr "Access was denied (EACCES).\n";
+			let uid = Unix.geteuid () in
+			if uid <> 0 then begin
+				Printf.fprintf stderr "My effective uid is %d.\n" uid;
+				Printf.fprintf stderr "\nPlease switch to root (uid 0) and retry.\n";
+				exit 1
+			end else begin
+				Printf.fprintf stderr "I observe that my effective uid is 0 (i.e. I'm running as root).\n";
+				Printf.fprintf stderr "\nInvestigate the settings of any active security software (selinux) and retry.\n";
+				exit 1;
+			end
+		| Unix.Unix_error(Unix.ECONNREFUSED, _, _) ->
+			Printf.fprintf stderr "Connection to the server was refused (ECONNREFUSED).\n";
+			Printf.fprintf stderr "\nPlease start (or restart) the xenopsd service and retry.\n";
+			exit 1;
+		| Unix.Unix_error(Unix.ENOENT, _, _) ->
+			Printf.fprintf stderr "The server socket does not exist (ENOENT).\n";
+			Printf.fprintf stderr "\nPossible fixes include:\n";
+			Printf.fprintf stderr "1. Start the xenopsd service; it will create the socket when it is started;\n";
+			Printf.fprintf stderr "2. Override the default path using the --socket=<path> option;\n";
+			exit 1;
+		| Sys_error "Is a directory" ->
+			Printf.fprintf stderr "The path refered to a directory. I require a file.\n";
+			Printf.fprintf stderr "\nPlease check the path and retry.\n";
+			exit 1;
+		| _ ->
+			Printf.fprintf stderr "I don't have any relevant diagnostic advice. Please re-read the documentation\nand if you can't resolve the problem, send an email to <xen-api@lists.xen.org>.\n";
+			exit 1
+		end
+
 let ( |> ) a b = b a
 
 let usage () =
@@ -279,113 +316,117 @@ let print_vm id =
 		(name @ boot @ vcpus @ memory @ vbds @ vifs @ pcis @ global_pci_opts))
 
 
-let add filename =
-	let ic = open_in filename in
-	finally
-		(fun () ->
-			let lexbuf = Lexing.from_channel ic in
-			let config = Xn_cfg_parser.file Xn_cfg_lexer.token lexbuf in
-			let open Xn_cfg_types in
-			let mem x = List.mem_assoc x config in
-			let find x = List.assoc x config in
-			let any xs = List.fold_left (||) false (List.map mem xs) in
-			let pv =
-				false
-				|| (mem _builder && (find _builder |> string = "linux"))
-				|| (not(mem _builder) && (any [ _bootloader; _kernel ])) in
-			let open Vm in
-			let builder_info = match pv with
-				| true -> PV {
-					framebuffer = false;
-					framebuffer_ip = Some "0.0.0.0";
-					vncterm = true;
-					vncterm_ip = Some "0.0.0.0";
-					boot =
-						if mem _bootloader then Indirect {
-							bootloader = find _bootloader |> string;
-							extra_args = "";
-							legacy_args = "";
-							bootloader_args = "";
-							devices = [];
-						} else if mem _kernel then Direct {
-							kernel = find _kernel |> string;
-							cmdline = if mem _root then find _root |> string else "";
-							ramdisk = if mem _ramdisk then Some (find _ramdisk |> string) else None;
-						} else begin
-							List.iter (Printf.fprintf stderr "%s\n") [
-								"I couldn't determine how to start this VM.";
-								Printf.sprintf "A PV guest needs either %s or %s and %s" _bootloader _kernel _ramdisk
-							];
-							exit 1
-						end;
+let add copts x () = match x with
+	| None -> `Error (false, "You must supply a path to a VM metadata file.")
+	| Some filename ->
+		let ic = open_in filename in
+		finally
+			(fun () ->
+				let lexbuf = Lexing.from_channel ic in
+				let config = Xn_cfg_parser.file Xn_cfg_lexer.token lexbuf in
+				let open Xn_cfg_types in
+				let mem x = List.mem_assoc x config in
+				let find x = List.assoc x config in
+				let any xs = List.fold_left (||) false (List.map mem xs) in
+				let pv =
+					false
+					|| (mem _builder && (find _builder |> string = "linux"))
+					|| (not(mem _builder) && (any [ _bootloader; _kernel ])) in
+				let open Vm in
+				let builder_info = match pv with
+					| true -> PV {
+						framebuffer = false;
+						framebuffer_ip = Some "0.0.0.0";
+						vncterm = true;
+						vncterm_ip = Some "0.0.0.0";
+						boot =
+							if mem _bootloader then Indirect {
+								bootloader = find _bootloader |> string;
+								extra_args = "";
+								legacy_args = "";
+								bootloader_args = "";
+								devices = [];
+							} else if mem _kernel then Direct {
+								kernel = find _kernel |> string;
+								cmdline = if mem _root then find _root |> string else "";
+								ramdisk = if mem _ramdisk then Some (find _ramdisk |> string) else None;
+							} else begin
+								List.iter (Printf.fprintf stderr "%s\n") [
+									"I couldn't determine how to start this VM.";
+									Printf.sprintf "A PV guest needs either %s or %s and %s" _bootloader _kernel _ramdisk
+								];
+								exit 1
+							end;
 					}
-				| false -> HVM {
-					hap = true;
-					shadow_multiplier = 1.;
-					timeoffset = "";
-					video_mib = 4;
-					video = Cirrus;
-					acpi = true;
-					serial = None;
-					keymap = None;
-					vnc_ip = Some "0.0.0.0";
-					pci_emulations = [];
-					pci_passthrough = false;
-					boot_order = if mem _boot then find _boot |> string else "cd";
-					qemu_disk_cmdline = false;
-					qemu_stubdom = false;
+					| false -> HVM {
+						hap = true;
+						shadow_multiplier = 1.;
+						timeoffset = "";
+						video_mib = 4;
+						video = Cirrus;
+						acpi = true;
+						serial = None;
+						keymap = None;
+						vnc_ip = Some "0.0.0.0";
+						pci_emulations = [];
+						pci_passthrough = false;
+						boot_order = if mem _boot then find _boot |> string else "cd";
+						qemu_disk_cmdline = false;
+						qemu_stubdom = false;
+					} in
+				let uuid = if mem _uuid then find _uuid |> string else Uuidm.to_string (Uuidm.create `V4) in
+				let name = if mem _name then find _name |> string else uuid in
+				let mib = if mem _memory then find _memory |> int |> Int64.of_int else 64L in
+				let bytes = Int64.mul 1024L (Int64.mul 1024L mib) in
+				let vcpus = if mem _vcpus then find _vcpus |> int else 1 in
+				let pci_msitranslate = if mem _vm_pci_msitranslate then find _vm_pci_msitranslate |> bool else true in
+				let pci_power_mgmt = if mem _vm_pci_power_mgmt then find _vm_pci_power_mgmt |> bool else false in
+				let vm = {
+					id = uuid;
+					name = name;
+					ssidref = 0l;
+					xsdata = [];
+					platformdata = [ (* HVM defaults *)
+						"nx", "false";
+						"acpi", "true";
+						"apic", "true";
+						"pae", "true";
+						"viridian", "true";
+					];
+					bios_strings = [];
+					ty = builder_info;
+					suppress_spurious_page_faults = false;
+					machine_address_size = None;
+					memory_static_max = bytes;
+					memory_dynamic_max = bytes;
+					memory_dynamic_min = bytes;
+					vcpu_max = vcpus;
+					vcpus = vcpus;
+					scheduler_params = { priority = None; affinity = [] };
+					on_crash = [ Vm.Shutdown ];
+					on_shutdown = [ Vm.Shutdown ];
+					on_reboot = [ Vm.Start ];
+					pci_msitranslate = pci_msitranslate;
+					pci_power_mgmt = pci_power_mgmt;
 				} in
-			let uuid = if mem _uuid then find _uuid |> string else Uuidm.to_string (Uuidm.create `V4) in
-			let name = if mem _name then find _name |> string else uuid in
-			let mib = if mem _memory then find _memory |> int |> Int64.of_int else 64L in
-			let bytes = Int64.mul 1024L (Int64.mul 1024L mib) in
-			let vcpus = if mem _vcpus then find _vcpus |> int else 1 in
-			let pci_msitranslate = if mem _vm_pci_msitranslate then find _vm_pci_msitranslate |> bool else true in
-			let pci_power_mgmt = if mem _vm_pci_power_mgmt then find _vm_pci_power_mgmt |> bool else false in
-			let vm = {
-				id = uuid;
-				name = name;
-				ssidref = 0l;
-				xsdata = [];
-				platformdata = [ (* HVM defaults *)
-					"nx", "false";
-					"acpi", "true";
-					"apic", "true";
-					"pae", "true";
-					"viridian", "true";
-				];
-				bios_strings = [];
-				ty = builder_info;
-				suppress_spurious_page_faults = false;
-				machine_address_size = None;
-				memory_static_max = bytes;
-				memory_dynamic_max = bytes;
-				memory_dynamic_min = bytes;
-				vcpu_max = vcpus;
-				vcpus = vcpus;
-				scheduler_params = { priority = None; affinity = [] };
-				on_crash = [ Vm.Shutdown ];
-				on_shutdown = [ Vm.Shutdown ];
-				on_reboot = [ Vm.Start ];
-				pci_msitranslate = pci_msitranslate;
-				pci_power_mgmt = pci_power_mgmt;
-			} in
-			let (id: Vm.id) = Client.VM.add dbg vm in
-			let disks = if mem _disk then find _disk |> list string else [] in
-			let one x = x |> parse_disk id |> Client.VBD.add dbg in
-			let (_: Vbd.id list) = List.map one disks in
-			let vifs = if mem _vif then find _vif |> list string else [] in
-			let rec ints first last = if first > last then [] else first :: (ints (first + 1) last) in
-			let vifs = List.combine vifs (ints 0 (List.length vifs - 1)) in
-			let one x = x |> parse_vif id |> Client.VIF.add dbg in
-			let (_: Vif.id list) = List.map one vifs in
-			let pcis = if mem _pci then find _pci |> list string else [] in
-			let pcis = List.combine pcis (ints 0 (List.length pcis - 1)) in
-			let one x = x |> parse_pci id |> Client.PCI.add dbg in
-			let (_: Pci.id list) = List.map one pcis in
-			Printf.printf "%s\n" id
-		)
-		(fun () -> close_in ic)
+				let (id: Vm.id) = Client.VM.add dbg vm in
+				let disks = if mem _disk then find _disk |> list string else [] in
+				let one x = x |> parse_disk id |> Client.VBD.add dbg in
+				let (_: Vbd.id list) = List.map one disks in
+				let vifs = if mem _vif then find _vif |> list string else [] in
+				let rec ints first last = if first > last then [] else first :: (ints (first + 1) last) in
+				let vifs = List.combine vifs (ints 0 (List.length vifs - 1)) in
+				let one x = x |> parse_vif id |> Client.VIF.add dbg in
+				let (_: Vif.id list) = List.map one vifs in
+				let pcis = if mem _pci then find _pci |> list string else [] in
+				let pcis = List.combine pcis (ints 0 (List.length pcis - 1)) in
+				let one x = x |> parse_pci id |> Client.PCI.add dbg in
+				let (_: Pci.id list) = List.map one pcis in
+				Printf.fprintf stdout "%s\n" id;
+				`Ok ()
+			)
+			(fun () -> close_in ic)
+let add copts x = diagnose_error (add copts x)
 
 let string_of_power_state = function
 	| Running   -> "Running"
@@ -419,39 +460,6 @@ let list_compact () =
 	let vms = Client.VM.list dbg () in
 	let lines = header :: (List.map string_of_vm vms) in
 	List.iter (Printf.printf "%s\n") lines
-
-let diagnose_error f =
-	try
-		f ()
-	with e ->
-		Printf.fprintf stderr "Caught exception: %s\n" (Printexc.to_string e);
-		begin match e with
-		| Unix.Unix_error(Unix.EACCES, _, _) ->
-			Printf.fprintf stderr "Access was denied (EACCES).\n";
-			let uid = Unix.geteuid () in
-			if uid <> 0 then begin
-				Printf.fprintf stderr "My effective uid is %d.\n" uid;
-				Printf.fprintf stderr "\nPlease switch to root (uid 0) and retry.\n";
-				exit 1
-			end else begin
-				Printf.fprintf stderr "I observe that my effective uid is 0 (i.e. I'm running as root).\n";
-				Printf.fprintf stderr "\nInvestigate the settings of any active security software (selinux) and retry.\n";
-				exit 1;
-			end
-		| Unix.Unix_error(Unix.ECONNREFUSED, _, _) ->
-			Printf.fprintf stderr "Connection to the server was refused (ECONNREFUSED).\n";
-			Printf.fprintf stderr "\nPlease start (or restart) the xenopsd service and retry.\n";
-			exit 1;
-		| Unix.Unix_error(Unix.ENOENT, _, _) ->
-			Printf.fprintf stderr "The server socket does not exist (ENOENT).\n";
-			Printf.fprintf stderr "\nPossible fixes include:\n";
-			Printf.fprintf stderr "1. Start the xenopsd service; it will create the socket when it is started;\n";
-			Printf.fprintf stderr "2. Override the default path using the --socket=<path> option;\n";
-			exit 1;
-		| _ ->
-			Printf.fprintf stderr "I don't have any relevant diagnostic advice. Please re-read the documentation\nand if you can't resolve the problem, send an email to <xen-api@lists.xen.org>.\n";
-			exit 1
-		end
 
 let list copts = diagnose_error (if copts.Common.verbose then list_verbose else list_compact)
 
@@ -801,8 +809,6 @@ let old_main () =
 		| [ "help" ] | [] ->
 			usage ();
 			exit 0
-		| [ "add"; filename ] ->
-			add filename
 		| [ "remove"; id ] ->
 			remove id
 		| [ "export-metadata"; id; filename ] ->
