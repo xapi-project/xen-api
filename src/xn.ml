@@ -420,7 +420,40 @@ let list_compact () =
 	let lines = header :: (List.map string_of_vm vms) in
 	List.iter (Printf.printf "%s\n") lines
 
-let list copts = (if copts.Common.verbose then list_verbose else list_compact) ()
+let diagnose_error f =
+	try
+		f ()
+	with e ->
+		Printf.fprintf stderr "Caught exception: %s\n" (Printexc.to_string e);
+		begin match e with
+		| Unix.Unix_error(Unix.EACCES, _, _) ->
+			Printf.fprintf stderr "Access was denied (EACCES).\n";
+			let uid = Unix.geteuid () in
+			if uid <> 0 then begin
+				Printf.fprintf stderr "My effective uid is %d.\n" uid;
+				Printf.fprintf stderr "\nPlease switch to root (uid 0) and retry.\n";
+				exit 1
+			end else begin
+				Printf.fprintf stderr "I observe that my effective uid is 0 (i.e. I'm running as root).\n";
+				Printf.fprintf stderr "\nInvestigate the settings of any active security software (selinux) and retry.\n";
+				exit 1;
+			end
+		| Unix.Unix_error(Unix.ECONNREFUSED, _, _) ->
+			Printf.fprintf stderr "Connection to the server was refused (ECONNREFUSED).\n";
+			Printf.fprintf stderr "\nPlease start (or restart) the xenopsd service and retry.\n";
+			exit 1;
+		| Unix.Unix_error(Unix.ENOENT, _, _) ->
+			Printf.fprintf stderr "The server socket does not exist (ENOENT).\n";
+			Printf.fprintf stderr "\nPossible fixes include:\n";
+			Printf.fprintf stderr "1. Start the xenopsd service; it will create the socket when it is started;\n";
+			Printf.fprintf stderr "2. Override the default path using the --socket=<path> option;\n";
+			exit 1;
+		| _ ->
+			Printf.fprintf stderr "I don't have any relevant diagnostic advice. Please re-read the documentation\nand if you can't resolve the problem, send an email to <xen-api@lists.xen.org>.\n";
+			exit 1
+		end
+
+let list copts = diagnose_error (if copts.Common.verbose then list_verbose else list_compact)
 
 type t =
 	| Line of string
