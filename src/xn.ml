@@ -596,10 +596,12 @@ let unpause x =
 	let vm, _ = find_by_name x in
 	Client.VM.unpause dbg vm.id |> wait_for_task dbg
 
-let reboot x timeout =
+let reboot copts timeout x =
 	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.reboot dbg vm.id timeout |> wait_for_task dbg
+	Client.VM.reboot dbg vm.id timeout |> wait_for_task dbg |> success_task ignore_task
+
+let reboot copts timeout x = diagnose_error (need_vm (reboot copts timeout) x)
 
 let suspend x disk =
 	let open Vm in
@@ -826,10 +828,6 @@ let old_main () =
 			pause id |> task
 		| [ "unpause"; id ] ->
 			unpause id |> task
-		| [ "reboot"; id ] ->
-			reboot id None |> task
-		| [ "reboot"; id; timeout ] ->
-			reboot id (Some (float_of_string timeout)) |> task
 		| [ "suspend"; id; disk ] ->
 			suspend id disk |> task
 		| [ "resume"; id; disk ] ->
