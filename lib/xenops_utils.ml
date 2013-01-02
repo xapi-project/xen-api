@@ -352,14 +352,14 @@ module FileFS = struct
 	let mkdir path = Unixext.mkdir_rec (filename_of path) 0o755
 
 	let read path =
-		let ic = open_in (filename_of path) in
-		finally
-			(fun () ->
-				try
-					Some (Jsonrpc.of_fct (fun () -> input_char ic))
-				with _ ->
-					None
-			) (fun () -> close_in ic)
+		try
+			let ic = open_in (filename_of path) in
+			let data = finally
+				(fun () -> Jsonrpc.of_fct (fun () -> input_char ic))
+				(fun () -> close_in ic) in
+			Some data
+		with e ->
+			None
 
 	let write path x =
 		let filename = filename_of path in
