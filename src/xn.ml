@@ -616,10 +616,18 @@ let suspend copts disk x =
 
 let suspend copts disk x = diagnose_error (need_vm (suspend copts disk) x)
 
-let resume x disk =
+let resume copts disk x =
+	(* We don't currently store where the suspend image is *)
+	let disk = match disk with
+	| None ->
+		Printf.fprintf stderr "Please specify a block device.\n";
+		exit 1
+	| Some disk -> disk in
 	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.resume dbg vm.id (Local disk) |> wait_for_task dbg
+	Client.VM.resume dbg vm.id (Local disk) |> wait_for_task dbg |> success_task ignore_task
+
+let resume copts disk x = diagnose_error (need_vm (resume copts disk) x)
 
 let migrate x url =
 	let open Vm in
@@ -836,8 +844,6 @@ let old_main () =
 			pause id |> task
 		| [ "unpause"; id ] ->
 			unpause id |> task
-		| [ "resume"; id; disk ] ->
-			resume id disk |> task
 		| [ "migrate"; id; url ] ->
 			migrate id url |> task
 		| [ "vbd-list"; id ] ->

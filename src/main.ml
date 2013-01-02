@@ -156,13 +156,29 @@ let suspend_cmd =
   let doc = "suspend a VM" in
   let man = [
     `S "DESCRIPTION";
-    `P "Reboot a VM.";
+    `P "Suspend a VM.";
     `P "If the specified VM is running, it will be asked to suspend.
        The memory image will be saved to the specified block device.";
     `S "ERRORS";
     `P "Something about the current power state." ] @ help in
   Term.(ret (pure Xn.suspend $ common_options_t $ device $ vm)),
   Term.info "suspend" ~sdocs:_common_options ~doc ~man
+
+let resume_cmd =
+  let vm = vm_arg "resumed" in
+  let device =
+    let doc = "Block device to read the suspend image from" in
+    Arg.(value & opt (some file) None & info [ "block-device" ] ~doc) in
+  let doc = "resume a VM" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Resume a VM.";
+    `P "The VM memory image will be reloaded from the specified block device
+       and the VM will be left in a Running state.";
+    `S "ERRORS";
+    `P "Something about the current power state." ] @ help in
+  Term.(ret (pure Xn.resume $ common_options_t $ device $ vm)),
+  Term.info "resume" ~sdocs:_common_options ~doc ~man
 
 let default_cmd = 
   let doc = "interact with the XCP xenopsd VM management service" in 
@@ -171,7 +187,7 @@ let default_cmd =
   Term.info "xenops-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
        
 let cmds = [list_cmd; add_cmd; remove_cmd; start_cmd; shutdown_cmd; reboot_cmd;
-            suspend_cmd ]
+            suspend_cmd; resume_cmd ]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
