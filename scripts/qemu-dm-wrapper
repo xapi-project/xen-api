@@ -27,34 +27,6 @@ def write_dm_pid(domid, pid):
 	store = xs.xs()
 	store.write('', '/local/domain/%d/qemu-pid'%domid, '%d'%pid)
 
-def is_sdk():
-	try:
-		store = xs.xs(socket=True)
-		domid_as_dom0 = int(store.read('', 'domid'))
-		store.close()
-		assert domid_as_dom0 == 0
-		store = xs.xs(xenbus=True)
-		domid_on_host = int(store.read('', 'domid'))
-		store.close()
-		return domid_on_host != domid_as_dom0
-	except:
-		return False
-
-def fake_dm(domid):
-	from time import sleep
-	from os import getpid
-
-	store = xs.xs()
-
-	store.write('', '/local/domain/%d/qemu-pid'%domid, '%d'%getpid())
-	store.write('', '/local/domain/%d/device-misc/dm-ready'%domid, '1')
-	store.write('', '/local/domain/%d/console/vnc-port'%domid, '%d'%(domid))
-
-	while True:
-		sleep(600)
-
-	return 0
-
 def cleanup(domid):
 	from xen.lowlevel import xc
 	hcall = xc.xc()
@@ -84,9 +56,6 @@ def main(argv):
 		qemu_dm = '/usr/lib/xen-4.1/bin/qemu-dm'
 	domid = int(argv[1])
 	qemu_args = ['qemu-dm-%d'%domid] + argv[2:]
-
-	if is_sdk() is True:
-		return fake_dm(domid)
 
 	print "qemu-dm-wrapper in python:"
 	print "Using domid: %d" % domid
