@@ -586,15 +586,19 @@ let shutdown copts timeout x =
 
 let shutdown copts timeout x = diagnose_error (need_vm (shutdown copts timeout) x)
 
-let pause x =
+let pause copts x =
 	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.pause dbg vm.id |> wait_for_task dbg
+	Client.VM.pause dbg vm.id |> wait_for_task dbg |> success_task ignore_task
 
-let unpause x =
+let pause copts x = diagnose_error (need_vm (pause copts) x)
+
+let unpause copts x =
 	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.unpause dbg vm.id |> wait_for_task dbg
+	Client.VM.unpause dbg vm.id |> wait_for_task dbg |> success_task ignore_task
+
+let unpause copts x = diagnose_error (need_vm (unpause copts) x)
 
 let reboot copts timeout x =
 	let open Vm in
@@ -840,10 +844,6 @@ let old_main () =
 			export_metadata_xm id filename
 		| [ "import-metadata"; filename ] ->
 			import_metadata filename
-		| [ "pause"; id ] ->
-			pause id |> task
-		| [ "unpause"; id ] ->
-			unpause id |> task
 		| [ "migrate"; id; url ] ->
 			migrate id url |> task
 		| [ "vbd-list"; id ] ->

@@ -180,6 +180,33 @@ let resume_cmd =
   Term.(ret (pure Xn.resume $ common_options_t $ device $ vm)),
   Term.info "resume" ~sdocs:_common_options ~doc ~man
 
+let pause_cmd =
+  let vm = vm_arg "paused" in
+  let doc = "pause a VM" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Pause a VM.";
+    `P "The running VM will be marked as Paused: although it will
+       still consume memory on the host, all of its virtual CPUs will
+       be taken offline so the VM will stop executing.";
+    `S "ERRORS";
+    `P "Something about the current power state." ] @ help in
+  Term.(ret (pure Xn.pause $ common_options_t $ vm)),
+  Term.info "pause" ~sdocs:_common_options ~doc ~man
+
+let unpause_cmd =
+  let vm = vm_arg "unpaused" in
+  let doc = "unpause a VM" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Unpause a VM.";
+    `P "A paused VM will be marked as Running: all of its virtual CPUs
+       will be brought back online so the VM will start executing.";
+    `S "ERRORS";
+    `P "Something about the current power state." ] @ help in
+  Term.(ret (pure Xn.unpause $ common_options_t $ vm)),
+  Term.info "unpause" ~sdocs:_common_options ~doc ~man
+
 let default_cmd = 
   let doc = "interact with the XCP xenopsd VM management service" in 
   let man = help in
@@ -187,7 +214,7 @@ let default_cmd =
   Term.info "xenops-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
        
 let cmds = [list_cmd; add_cmd; remove_cmd; start_cmd; shutdown_cmd; reboot_cmd;
-            suspend_cmd; resume_cmd ]
+            suspend_cmd; resume_cmd; pause_cmd; unpause_cmd ]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
