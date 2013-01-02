@@ -956,7 +956,7 @@ module VM = struct
 							Domain.shadow_multiplier = hvm_info.shadow_multiplier;
 							video_mib = hvm_info.video_mib;
 						} in
-						((make_build_info Domain.hvmloader builder_spec_info), hvm_info.timeoffset)
+						((make_build_info !Path.hvmloader builder_spec_info), hvm_info.timeoffset)
 					| PV { boot = Direct direct } ->
 						let builder_spec_info = Domain.BuildPV {
 							Domain.cmdline = direct.cmdline;

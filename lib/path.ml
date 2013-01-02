@@ -24,6 +24,7 @@ let mount = ref "/bin/mount"
 let umount = ref "/bin/umount"
 let ionice = ref "/usr/bin/ionice"
 let setup_vif_rules = ref "/usr/lib/xcp/lib/setup-vif-rules"
+let hvmloader = ref "/usr/lib/xen-4.1/boot/hvmloader"
 
 let essentials = [
 	"vif-script", vif_script, "path to the vif backend script";
@@ -37,6 +38,7 @@ let essentials = [
 	"umount", umount, "path to the umount binary";
 	"ionice", ionice, "path to the ionice binary";
 	"setup-vif-rules", setup_vif_rules, "path to the setup-vif-rules script";
+	"hvmloader", hvmloader, "path to the hvmloader binary for HVM guests";
 ]
 
 let nonessentials = [

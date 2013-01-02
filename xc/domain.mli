@@ -70,9 +70,6 @@ type domarch = Arch_HVM | Arch_native | Arch_X64 | Arch_X32
 val string_of_domarch : domarch -> string
 val domarch_of_string : string -> domarch
 
-(** path to the system hvmloader binary *)
-val hvmloader : string
-
 (** Create a fresh (empty) domain with a specific UUID, returning the domain ID *)
 val make: xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> create_info -> Uuidm.t -> domid
 
