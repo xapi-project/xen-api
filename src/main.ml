@@ -69,10 +69,12 @@ let list_cmd =
   Term.(pure Xn.list $ common_options_t),
   Term.info "list" ~sdocs:_common_options ~doc ~man
 
+let vm_arg verb =
+  let doc = Printf.sprintf "The name or UUID of the VM to be %s." verb in
+  Arg.(value & pos 0 (some string) None & info [] ~docv:"VM" ~doc)
+
 let remove_cmd =
-  let vm =
-    let doc = "The name or UUID of the VM to be removed." in
-    Arg.(value & pos 0 (some string) None & info [] ~docv:"VM" ~doc) in
+  let vm = vm_arg "unregistered" in
   let doc = "unregister a VM" in
   let man = [
     `S "DESCRIPTION";
@@ -91,9 +93,7 @@ let remove_cmd =
   Term.info "remove" ~sdocs:_common_options ~doc ~man
 
 let start_cmd =
-  let vm = 
-    let doc = "The name or UUID of the VM to be started." in
-    Arg.(value & pos 0 (some string) None & info [] ~docv:"VM" ~doc) in
+  let vm = vm_arg "started" in
   let paused =
     let doc = "Leave the VM in a Paused state." in
     Arg.(value & flag & info [ "paused" ] ~doc) in
@@ -114,9 +114,7 @@ let start_cmd =
   Term.info "start" ~sdocs:_common_options ~doc ~man
 
 let shutdown_cmd =
-  let vm = 
-    let doc = "The name or UUID of the VM to be shutdown (powered off)." in
-    Arg.(value & pos 0 (some string) None & info [] ~docv:"VM" ~doc) in
+  let vm = vm_arg "shutdown and powered off" in
   let timeout =
     let doc = "Amount of time to wait for the VM to cleanly shut itself down, before we power it off." in
     Arg.(value & opt (some float) None & info [ "timeout" ] ~doc) in
@@ -133,9 +131,7 @@ let shutdown_cmd =
   Term.info "shutdown" ~sdocs:_common_options ~doc ~man
 
 let reboot_cmd =
-  let vm = 
-    let doc = "The name or UUID of the VM to be rebooted." in
-    Arg.(value & pos 0 (some string) None & info [] ~docv:"VM" ~doc) in
+  let vm = vm_arg "rebooted" in
   let timeout =
     let doc = "Amount of time to wait for the VM to cleanly shut itself down, before we power it off and then on." in
     Arg.(value & opt (some float) None & info [ "timeout" ] ~doc) in
