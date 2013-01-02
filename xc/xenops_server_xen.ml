@@ -298,6 +298,7 @@ module Mem = struct
 			| Memory_interface.Cannot_free_this_much_memory(needed, free) ->
 				let needed = Memory.bytes_of_kib needed in
 				let free = Memory.bytes_of_kib free in
+				error "Cannot free %Ld KiB; only %Ld KiB are available" needed free;
 				raise (Cannot_free_this_much_memory(needed, free))
 			| Memory_interface.Domains_refused_to_cooperate domids ->
 				debug "Got error_domains_refused_to_cooperate_code from ballooning daemon";
@@ -308,6 +309,9 @@ module Mem = struct
 					)
 			| Unix.Unix_error(Unix.ECONNREFUSED, "connect", _) ->
 				info "ECONNREFUSED talking to squeezed: assuming it has been switched off";
+				None
+			| Unix.Unix_error(Unix.ENOENT, "connect", _) ->
+				info "ENOENT talking to squeezed: assuming it has never been started";
 				None
 	open Memory_client
 	let do_login dbg = wrap (fun () -> Client.login dbg "xenopsd")
