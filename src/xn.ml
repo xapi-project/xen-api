@@ -116,7 +116,7 @@ let success_task f id =
 			Client.TASK.destroy dbg id
 		)
 
-let parse_source x = match List.filter (fun x -> x <> "") (Re_str.split (Re_str.regexp "[:]") x) with
+let parse_source x = match List.filter (fun x -> x <> "") (Re_str.split_delim (Re_str.regexp "[:]") x) with
 	| [ "phy"; path ] -> Some (Local path)
 	| [ "sm"; path ] -> Some (VDI path)
 	| [ "file"; path ] ->
@@ -145,15 +145,15 @@ let print_pci x =
 		| Some false -> Printf.sprintf ",%s=0" _power_mgmt in
 	Printf.sprintf "%04x:%02x:%02x.%01x%s%s" x.domain x.bus x.dev x.fn msi power
 
-let parse_pci vm_id (x, idx) = match Re_str.split (Re_str.regexp "[,]") x with
+let parse_pci vm_id (x, idx) = match Re_str.split_delim (Re_str.regexp "[,]") x with
 	| bdf :: options ->
 		let hex x = int_of_string ("0x" ^ x) in
-		let parse_dev_fn x = match Re_str.split (Re_str.regexp "[.]") x with
+		let parse_dev_fn x = match Re_str.split_delim (Re_str.regexp "[.]") x with
 			| [ dev; fn ] -> hex dev, hex fn
 			| _ ->
 				Printf.fprintf stderr "Failed to parse BDF: %s. It should be '[DDDD:]BB:VV.F'\n" bdf;
 				exit 2 in
-		let domain, bus, dev, fn = match Re_str.split (Re_str.regexp "[:]") bdf with
+		let domain, bus, dev, fn = match Re_str.split_delim (Re_str.regexp "[:]") bdf with
 			| [ domain; bus; dev_dot_fn ] ->
 				let dev, fn = parse_dev_fn dev_dot_fn in
 				hex domain, hex bus, dev, fn
@@ -163,7 +163,7 @@ let parse_pci vm_id (x, idx) = match Re_str.split (Re_str.regexp "[,]") x with
 			| _ ->
 				Printf.fprintf stderr "Failed to parse BDF: %s. It should be '[DDDD:]BB:VV.F'\n" bdf;
 				exit 2 in
-		let options = List.map (fun x -> match Re_str.bounded_split (Re_str.regexp "[=]") x 2 with
+		let options = List.map (fun x -> match Re_str.bounded_split_delim (Re_str.regexp "[=]") x 2 with
 			| [k; v] -> k, v
 			| _ ->
 				Printf.fprintf stderr "Failed to parse PCI option: %s. It should be key=value.\n" x;
@@ -200,9 +200,9 @@ let print_disk vbd =
 	let source = print_source vbd.Vbd.backend in
 	Printf.sprintf "%s,%s%s,%s" source device_number ty mode
 
-let parse_disk vm_id x = match Re_str.split (Re_str.regexp "[,]") x with
+let parse_disk vm_id x = match Re_str.split_delim (Re_str.regexp "[,]") x with
 	| [ source; device_number; rw ] ->
-		let ty, device_number, device_number' = match Re_str.split (Re_str.regexp "[:]") device_number with
+		let ty, device_number, device_number' = match Re_str.split_delim (Re_str.regexp "[:]") device_number with
 			| [ x ] -> Vbd.Disk, x, Device_number.of_string false x
 			| [ x; "cdrom" ] -> Vbd.CDROM, x, Device_number.of_string false x
 			| _ ->
@@ -252,8 +252,8 @@ let print_vif vif =
 
 let parse_vif vm_id (x, idx) =
 	let open Xn_cfg_types in
-	let xs = List.filter (fun x -> x <> "") (Re_str.split (Re_str.regexp_string "[ \t]*,[ \t]*") x) in
-	let kvpairs = List.map (fun x -> match Re_str.bounded_split (Re_str.regexp "[=]") x 2 with
+	let xs = List.filter (fun x -> x <> "") (Re_str.split_delim (Re_str.regexp_string "[ \t]*,[ \t]*") x) in
+	let kvpairs = List.map (fun x -> match Re_str.bounded_split_delim (Re_str.regexp "[=]") x 2 with
 		| [ k; v ] -> k, v
 		| _ ->
 			Printf.fprintf stderr "I don't understand '%s'. Please use 'mac=xx:xx:xx:xx:xx:xx,bridge=xenbrX'.\n" x;
@@ -753,7 +753,7 @@ let pci_list x =
 	List.iter print_endline (header :: lines)
 
 let find_vbd id =
-	let vbd_id : Vbd.id = match Re_str.bounded_split (Re_str.regexp "[.]") id 2 with
+	let vbd_id : Vbd.id = match Re_str.bounded_split_delim (Re_str.regexp "[.]") id 2 with
 		| [ a; b ] -> a, b
 		| _ ->
 			Printf.fprintf stderr "Failed to parse VBD id: %s (expected VM.device)\n" id;
