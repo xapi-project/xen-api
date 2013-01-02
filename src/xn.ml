@@ -528,7 +528,7 @@ let need_vm f x () = match x with
 
 let remove copts x = diagnose_error (need_vm (remove copts) x)
 
-let export_metadata x filename =
+let export_metadata copts filename x =
 	let open Vm in
 	let vm, _ = find_by_name x in
 	let txt = Client.VM.export_metadata dbg vm.id in
@@ -538,7 +538,7 @@ let export_metadata x filename =
 			output_string oc txt
 		) (fun () -> close_out oc)
 
-let export_metadata_xm x filename =
+let export_metadata_xm copts filename x : unit =
 	let open Vm in
 	let vm, _ = find_by_name x in
 	let txt = print_vm vm.id in
@@ -547,6 +547,25 @@ let export_metadata_xm x filename =
 		(fun () ->
 			output_string oc txt
 		) (fun () -> close_out oc)
+
+let export copts metadata xm filename (x: Vm.id option) () =
+	if not(metadata)
+	then `Error(false, "Unfortunately I only support metadata import")
+	else
+		match x with
+			| None -> `Error(false, "Please supply a VM uuid or name")
+			| Some x ->
+				begin match filename with
+				| None ->
+					`Error(false, "Please provide a filename")
+				| Some f ->
+					(if xm
+					 then export_metadata_xm
+					 else export_metadata) copts f x;
+					`Ok ()
+				end
+
+let export copts metadata xm filename x = diagnose_error(export copts metadata xm filename x)
 
 let delay x t =
 	let open Vm in
@@ -850,10 +869,6 @@ let old_main () =
 		| [ "help" ] | [] ->
 			usage ();
 			exit 0
-		| [ "export-metadata"; id; filename ] ->
-			export_metadata id filename
-		| [ "export-metadata-xm"; id; filename ] ->
-			export_metadata_xm id filename
 		| [ "migrate"; id; url ] ->
 			migrate id url |> task
 		| [ "vbd-list"; id ] ->

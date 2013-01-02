@@ -219,10 +219,34 @@ let import_cmd =
     `S "DESCRIPTION";
     `P "Import a VM from a filesystem";
     `P "A previously exported VM is reloaded from the filesystem.";
+    `P "The VM should have been exported in native (not xm/xl) format
+       by \"export\". If you have an xm/xl format metadata file, it
+       can be imported using \"add\".";
     `S "ERRORS";
     `P "Something about duplicate uuids." ] @ help in
   Term.(ret (pure Xn.import $common_options_t $ metadata $ filename)),
   Term.info "import" ~sdocs:_common_options ~doc ~man
+
+let export_cmd =
+  let vm = vm_arg "exported" in
+  let filename =
+    let doc = "Path to create in the filesystem" in
+    Arg.(value & opt (some file) None & info [ "filename" ] ~doc) in
+  let metadata =
+    let doc = "Export the VM metadata only" in
+    Arg.(value & flag & info [ "metadata-only" ] ~doc) in
+  let xm =
+    let doc = "Export in xm/xl format, instead of native" in
+    Arg.(value & flag & info [ "xm" ] ~doc) in
+  let doc = "export a VM" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Export a VM to the filesystem";
+    `P "A currently registered VM is exported to the filesystem.";
+    `S "ERRORS";
+    `P "Something about power states." ] @ help in
+  Term.(ret (pure Xn.export $common_options_t $ metadata $ xm $ filename $ vm)),
+  Term.info "export" ~sdocs:_common_options ~doc ~man
 
 let default_cmd = 
   let doc = "interact with the XCP xenopsd VM management service" in 
@@ -231,7 +255,8 @@ let default_cmd =
   Term.info "xenops-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
        
 let cmds = [list_cmd; add_cmd; remove_cmd; start_cmd; shutdown_cmd; reboot_cmd;
-            suspend_cmd; resume_cmd; pause_cmd; unpause_cmd; import_cmd ]
+            suspend_cmd; resume_cmd; pause_cmd; unpause_cmd;
+            import_cmd; export_cmd ]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
