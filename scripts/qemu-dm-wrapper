@@ -33,6 +33,10 @@ def main(argv):
 	domid = int(argv[1])
 	qemu_args = ['qemu-dm-%d'%domid] + argv[2:]
 
+	# Workaround http://unix.stackexchange.com/questions/39495/domain-ubuntu-hvm-does-not-exists-xen-ubuntu-hvm-guest-os-installation-pro
+	if os.path.exists("/usr/share/qemu-linaro/qemu"):
+		qemu_args = qemu_args + [ "-L", "/usr/share/qemu-linaro/qemu" ]
+
 	print "qemu-dm-wrapper in python:"
 	print "Using domid: %d" % domid
 	print "Arguments: %s" % " ".join(argv[1:])
