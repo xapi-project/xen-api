@@ -13,11 +13,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Lesser General Public License for more details.
 
-from xen.lowlevel import xs
-
-def write_dm_pid(domid, pid):
-	store = xs.xs()
-	store.write('', '/local/domain/%d/qemu-pid'%domid, '%d'%pid)
+import subprocess
 
 def enable_core_dumps():
 	from resource import getrlimit, RLIMIT_CORE, setrlimit
@@ -45,7 +41,7 @@ def main(argv):
 	core_dump_limit = enable_core_dumps()
 	print "core dump limit: %d" % core_dump_limit
 
-	write_dm_pid(domid, os.getpid())
+	subprocess.call(["xenstore-write", "/local/domain/%d/qemu-pid" % domid, "%d" % os.getpid()])
 
 	os.dup2(1, 2)
 	os.execve(qemu_dm, qemu_args, qemu_env)
