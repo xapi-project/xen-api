@@ -364,7 +364,7 @@ module FileFS = struct
 	let write path x =
 		let filename = filename_of path in
 		Unixext.mkdir_rec (Filename.dirname filename) 0o755;
-		let oc = open_out_gen [ Open_trunc ] 0o644 filename in
+		let oc = open_out_gen [ Open_trunc; Open_creat; Open_wronly ] 0o0644 filename in
 		finally
 			(fun () ->
 				Jsonrpc.to_fct x (output_string oc)
