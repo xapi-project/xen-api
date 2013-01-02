@@ -603,10 +603,18 @@ let reboot copts timeout x =
 
 let reboot copts timeout x = diagnose_error (need_vm (reboot copts timeout) x)
 
-let suspend x disk =
+let suspend copts disk x =
+    (* We don't currently know how to create a fresh disk *)
+	let disk = match disk with
+	| None ->
+		Printf.fprintf stderr "Please specify a block device.\n";
+		exit 1
+	| Some disk -> disk in
 	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.suspend dbg vm.id (Local disk) |> wait_for_task dbg
+	Client.VM.suspend dbg vm.id (Local disk) |> wait_for_task dbg |> success_task ignore_task
+
+let suspend copts disk x = diagnose_error (need_vm (suspend copts disk) x)
 
 let resume x disk =
 	let open Vm in
@@ -828,8 +836,6 @@ let old_main () =
 			pause id |> task
 		| [ "unpause"; id ] ->
 			unpause id |> task
-		| [ "suspend"; id; disk ] ->
-			suspend id disk |> task
 		| [ "resume"; id; disk ] ->
 			resume id disk |> task
 		| [ "migrate"; id; url ] ->
