@@ -43,9 +43,7 @@ Executable xenguest
   Build$:             flag(xen)
   Custom:             true
   Install:            false
-  BuildDepends:       unix
-  CSources:           xenguest_stubs.c
-  CCLib:              -lxenctrl-4.1 -lxenguest-4.1 -lxenstore
+  BuildDepends:       xenctrl, unix
 
 Executable xenopsd_simulator
   CompiledObject:     best
