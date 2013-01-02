@@ -26,23 +26,25 @@ let ionice = ref "/usr/bin/ionice"
 let setup_vif_rules = ref "/usr/lib/xcp/lib/setup-vif-rules"
 let hvmloader = ref "/usr/lib/xen-4.1/boot/hvmloader"
 
+open Unix
+
 let essentials = [
-	"vif-script", vif_script, "path to the vif backend script";
-	"vncterm-wrapper", vncterm_wrapper, "path to the vncterm-wrapper script";
-	"vncterm", vncterm, "path to the vncterm binary";
-	"xenguest", xenguest, "path to the xenguest binary";
-	"qemu-dm-wrapper", qemu_dm_wrapper, "path to the qemu-dm-wrapper script";
-	"tune2fs", tune2fs, "path to the tune2fs binary";
-	"mkfs", mkfs, "path to the mkfs binary";
-	"mount", mount, "path to the mount binary";
-	"umount", umount, "path to the umount binary";
-	"ionice", ionice, "path to the ionice binary";
-	"setup-vif-rules", setup_vif_rules, "path to the setup-vif-rules script";
-	"hvmloader", hvmloader, "path to the hvmloader binary for HVM guests";
+	X_OK, "vif-script", vif_script, "path to the vif backend script";
+	X_OK, "vncterm-wrapper", vncterm_wrapper, "path to the vncterm-wrapper script";
+	X_OK, "vncterm", vncterm, "path to the vncterm binary";
+	X_OK, "xenguest", xenguest, "path to the xenguest binary";
+	X_OK, "qemu-dm-wrapper", qemu_dm_wrapper, "path to the qemu-dm-wrapper script";
+	X_OK, "tune2fs", tune2fs, "path to the tune2fs binary";
+	X_OK, "mkfs", mkfs, "path to the mkfs binary";
+	X_OK, "mount", mount, "path to the mount binary";
+	X_OK, "umount", umount, "path to the umount binary";
+	X_OK, "ionice", ionice, "path to the ionice binary";
+	X_OK, "setup-vif-rules", setup_vif_rules, "path to the setup-vif-rules script";
+	R_OK, "hvmloader", hvmloader, "path to the hvmloader binary for HVM guests";
 ]
 
 let nonessentials = [
-	"pci-flr-script", pci_flr_script, "path to the PCI function-level reset script";
+	X_OK, "pci-flr-script", pci_flr_script, "path to the PCI function-level reset script";
 ]
 
-let config_spec = List.map (fun (a, b, c) -> a, Arg.Set_string b, c) (essentials @ nonessentials)
+let config_spec = List.map (fun (_, a, b, c) -> a, Arg.Set_string b, c) (essentials @ nonessentials)

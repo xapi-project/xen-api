@@ -68,11 +68,11 @@ let read_config_file () =
     end;
 	(* Check the required binaries are all available *)
 	List.iter
-		(fun (name, path, descr) ->
+		(fun (access, name, path, descr) ->
 			try
-				Unix.access !path [ Unix.X_OK ]
+				Unix.access !path [ access ]
 			with _ ->
-				error "Cannot execute %s: please set %s in %s" !path descr !config_file;
+				error "Cannot access %s: please set %s in %s" !path descr !config_file;
 				error "For example:";
 				error "    # %s" descr;
 				error "    %s=/path/to/%s" name name;
