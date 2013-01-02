@@ -15,14 +15,6 @@
 
 from xen.lowlevel import xs
 
-def do_cloexec(fd):
-	from fcntl import fcntl, F_GETFD, F_SETFD, FD_CLOEXEC
-
-	ret = fcntl(fd, F_GETFD, FD_CLOEXEC)
-	if ret < 0:
-		return
-	fcntl(fd, F_SETFD, ret|FD_CLOEXEC)
-
 def write_dm_pid(domid, pid):
 	store = xs.xs()
 	store.write('', '/local/domain/%d/qemu-pid'%domid, '%d'%pid)
