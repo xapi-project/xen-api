@@ -207,6 +207,23 @@ let unpause_cmd =
   Term.(ret (pure Xn.unpause $ common_options_t $ vm)),
   Term.info "unpause" ~sdocs:_common_options ~doc ~man
 
+let import_cmd =
+  let filename =
+    let doc = "Path of a previously-exported VM" in
+    Arg.(value & opt (some file) None & info [ "filename" ] ~doc) in
+  let metadata =
+    let doc = "Import the VM metadata only." in
+    Arg.(value & flag & info [ "metadata-only" ] ~doc) in
+  let doc = "import a VM" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Import a VM from a filesystem";
+    `P "A previously exported VM is reloaded from the filesystem.";
+    `S "ERRORS";
+    `P "Something about duplicate uuids." ] @ help in
+  Term.(ret (pure Xn.import $common_options_t $ metadata $ filename)),
+  Term.info "import" ~sdocs:_common_options ~doc ~man
+
 let default_cmd = 
   let doc = "interact with the XCP xenopsd VM management service" in 
   let man = help in
@@ -214,7 +231,7 @@ let default_cmd =
   Term.info "xenops-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
        
 let cmds = [list_cmd; add_cmd; remove_cmd; start_cmd; shutdown_cmd; reboot_cmd;
-            suspend_cmd; resume_cmd; pause_cmd; unpause_cmd ]
+            suspend_cmd; resume_cmd; pause_cmd; unpause_cmd; import_cmd ]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 

@@ -553,7 +553,7 @@ let delay x t =
 	let vm, _ = find_by_name x in
 	Client.VM.delay dbg vm.id t |> wait_for_task dbg |> success_task ignore_task
 
-let import_metadata filename =
+let import_metadata copts filename =
 	let ic = open_in filename in
 	let buf = Buffer.create 128 in
 	let line = String.make 128 '\000' in
@@ -569,6 +569,18 @@ let import_metadata filename =
 	let txt = Buffer.contents buf in
 	let id = Client.VM.import_metadata dbg txt in
 	Printf.printf "%s\n" id
+
+let import copts metadata filename () =
+	if not(metadata)
+	then `Error(false, "Unfortunately I only support metadata import")
+	else match filename with
+	| None ->
+		`Error(false, "Please provide a filename")
+	| Some f ->
+		import_metadata copts f;
+		`Ok ()
+
+let import copts metadata filename = diagnose_error (import copts metadata filename)
 
 let start copts paused x =
 	let open Vm in
@@ -842,8 +854,6 @@ let old_main () =
 			export_metadata id filename
 		| [ "export-metadata-xm"; id; filename ] ->
 			export_metadata_xm id filename
-		| [ "import-metadata"; filename ] ->
-			import_metadata filename
 		| [ "migrate"; id; url ] ->
 			migrate id url |> task
 		| [ "vbd-list"; id ] ->
