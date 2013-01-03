@@ -45,7 +45,7 @@ def main(argv):
 	core_dump_limit = enable_core_dumps()
 	print "core dump limit: %d" % core_dump_limit
 
-	subprocess.call(["xenstore-write", "/local/domain/%d/qemu-pid" % domid, "%d" % os.getpid()])
+	subprocess.call(["/usr/sbin/xenstore-write", "/local/domain/%d/qemu-pid" % domid, "%d" % os.getpid()])
 
 	os.dup2(1, 2)
 	os.execve(qemu_dm, qemu_args, qemu_env)
