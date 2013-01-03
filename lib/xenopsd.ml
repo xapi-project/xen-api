@@ -36,6 +36,8 @@ let worker_pool_size = ref 4
 let hotplug_timeout = ref 300.
 let qemu_dm_ready_timeout = ref 300.
 
+let watch_queue_length = ref 1000
+
 let config_spec = [
 	"sockets-path", Arg.Set_string sockets_path, "Directory to create listening sockets";
     "pidfile", Arg.Set_string pidfile, "Location to store the process pid";
@@ -54,6 +56,7 @@ let config_spec = [
     "config", Arg.Set_string config_file, "Location of configuration file";
     "hotplug_timeout", Arg.Set_float hotplug_timeout, "Time before we assume hotplug scripts have failed";
     "qemu_dm_ready_timeout", Arg.Set_float qemu_dm_ready_timeout, "Time before we assume qemu has become stuck";
+    "watch_queue_length", Arg.Set_int watch_queue_length, "Maximum number of unprocessed xenstore watch events before we restart";
 ] @ Path.config_spec
 
 let arg_spec = List.map (fun (a, b, c) -> "-" ^ a, b, c) config_spec
