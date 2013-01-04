@@ -11,19 +11,16 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Xenops_utils
 
-module D = Debug.Make(struct let name = "xenctrl" end)
-open D
-
-include Xc
+let bytes_of_handle h =
+	let s = String.make 16 '\000' in
+	for i = 0 to 15 do
+		s.[i] <- char_of_int h.(i)
+	done;
+	s
 
 let uuid_of_handle h =
-	let h' = Uuid.(to_string (uuid_of_int_array h)) in
-	match Uuidm.of_string h' with
+	let h' = bytes_of_handle h in
+	match Uuidm.of_bytes h' with
 	| Some x -> x
 	| None -> failwith (Printf.sprintf "VM handle '%s' is in invalid uuid" h')
-
-let handle_of_uuid u = Uuid.of_string (Uuidm.to_string u)
-
-let handle_of_string = Uuid.of_string

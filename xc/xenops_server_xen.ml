@@ -111,7 +111,7 @@ let uuid_of_string x = match Uuidm.of_string x with
 
 let uuid_of_vm vm = uuid_of_string vm.Vm.id
 
-let uuid_of_di di = Xenctrl.uuid_of_handle di.Xenctrl.handle
+let uuid_of_di di = Xenctrl_uuid.uuid_of_handle di.Xenctrl.handle
 
 (* During a live migrate, there will be multiple domains with the same uuid.
    The convention is: we construct things on the newest domain (e.g. VBD.plug)
@@ -2126,7 +2126,7 @@ let look_for_different_domains xc xs =
 			debug "Domain %d may have changed state" domid;
 			(* The uuid is either in the new domains map or the old map. *)
 			let di = IntMap.find domid (if IntMap.mem domid domains' then domains' else !domains) in
-			let id = Xenctrl.uuid_of_handle di.Xenctrl.handle |> Uuidm.to_string in
+			let id = Xenctrl_uuid.uuid_of_handle di.Xenctrl.handle |> Uuidm.to_string in
 			if domid > 0 && not (DB.exists id)
 			then begin
 				debug "However domain %d is not managed by us: ignoring" domid;
@@ -2214,7 +2214,7 @@ let process_one_watch xc xs (path, token) =
 		then debug "Ignoring watch on shutdown domain %d" d
 		else
 			let di = IntMap.find d !domains in
-			let id = Xenctrl.uuid_of_handle di.Xenctrl.handle |> Uuidm.to_string in
+			let id = Xenctrl_uuid.uuid_of_handle di.Xenctrl.handle |> Uuidm.to_string in
 			Updates.add (Dynamic.Vm id) updates in
 
 	let fire_event_on_device domid kind devid =
@@ -2223,7 +2223,7 @@ let process_one_watch xc xs (path, token) =
 		then debug "Ignoring watch on shutdown domain %d" d
 		else
 			let di = IntMap.find d !domains in
-			let id = Xenctrl.uuid_of_handle di.Xenctrl.handle |> Uuidm.to_string in
+			let id = Xenctrl_uuid.uuid_of_handle di.Xenctrl.handle |> Uuidm.to_string in
 			let update = match kind with
 				| "vbd" ->
 					let devid' = devid |> int_of_string |> Device_number.of_xenstore_key |> Device_number.to_linux_device in

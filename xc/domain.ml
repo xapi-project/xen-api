@@ -110,7 +110,7 @@ let domarch_of_string = function
 	| _     -> Arch_native
 
 let get_uuid ~xc domid =
-	Xenctrl.uuid_of_handle (Xenctrl.domain_getinfo xc domid).Xenctrl.handle
+	Xenctrl_uuid.uuid_of_handle (Xenctrl.domain_getinfo xc domid).Xenctrl.handle
 
 let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds=64) required_memory_kib : bool =
 	let open Memory in
@@ -165,7 +165,7 @@ let make ~xc ~xs vm_info uuid =
 			default_flags
 		end
 	end else [] in
-	let domid = Xenctrl.domain_create xc vm_info.ssidref flags (Xenctrl.handle_of_uuid uuid) in
+	let domid = Xenctrl.domain_create xc vm_info.ssidref flags (Uuidm.to_string uuid) in
 	let name = if vm_info.name <> "" then vm_info.name else sprintf "Domain-%d" domid in
 	try
 		let dom_path = xs.Xs.getdomainpath domid in
@@ -436,7 +436,7 @@ let destroy (task: Xenops_task.t) ~xc ~xs ~qemu_domid domid =
 	  (* CA-13801: to avoid confusing people, we shall change this domain's uuid *)
 	  let s = Printf.sprintf "deadbeef-dead-beef-dead-beef0000%04x" domid in
 	  error "VM = %s; domid = %d; Domain stuck in dying state after 30s; resetting UUID to %s. This probably indicates a backend driver bug." (Uuid.to_string uuid) domid s;
-	  Xenctrl.domain_sethandle xc domid (Xenctrl.handle_of_string s);
+	  Xenctrl.domain_sethandle xc domid s;
 	  raise (Domain_stuck_in_dying_state domid)
 	end
 
