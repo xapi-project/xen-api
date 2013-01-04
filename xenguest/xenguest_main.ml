@@ -256,20 +256,20 @@ let with_xenguest f =
 	let xc = Xenguest.init () in
 	finally (fun () -> f xc) (fun () -> Xenguest.close xc)
 
-let linux_build_real domid mem_max_mib mem_start_mib image ramdisk cmdline features flags store_port console_port =
+let linux_build_real domid mem_max_mib mem_start_mib image ramdisk cmdline features flags store_port store_domid console_port console_domid =
 	with_xenguest (fun xc ->
 		let store_mfn, console_mfn, proto =
 			Xenguest.linux_build xc domid mem_max_mib mem_start_mib image
-			                     ramdisk cmdline features flags store_port console_port in
+			                     ramdisk cmdline features flags store_port store_domid console_port console_domid in
 		String.concat " " [ Nativeint.to_string store_mfn;
 		                    Nativeint.to_string console_mfn; proto ]
 	)
 
-let hvm_build_real domid mem_max_mib mem_start_mib image store_port console_port=
+let hvm_build_real domid mem_max_mib mem_start_mib image store_port store_domid console_port console_domid =
 	with_xenguest (fun xc ->
 		let store_mfn, console_mfn =
 			Xenguest.hvm_build xc domid mem_max_mib mem_start_mib image
-			                   store_port console_port in
+			                   store_port store_domid console_port console_domid in
 		String.concat " " [Nativeint.to_string store_mfn;
 		                   Nativeint.to_string console_mfn]
 	)
@@ -290,15 +290,15 @@ let domain_restore_real fd domid store_port store_domid console_port console_dom
 	)
 
 (** fake operations *)
-let linux_build_fake domid mem_max_mib mem_start_mib image ramdisk cmdline features flags store_port console_port = "10 10 x86-32"
-let hvm_build_fake domid mem_max_mib mem_start_mib image store_port console_port = "2901 2901"
+let linux_build_fake domid mem_max_mib mem_start_mib image ramdisk cmdline features flags store_port store_domid console_port console_domid = "10 10 x86-32"
+let hvm_build_fake domid mem_max_mib mem_start_mib image store_port store_domid console_port console_domid = "2901 2901"
 let domain_save_fake fd domid x y flags hvm = Unix.sleep 1; ignore (suspend_callback domid); ""
 let domain_restore_fake fd domid store_port store_domid console_port console_domid hvm no_incr_generationid = "10 10"
 
 (** operation vector *)
 type ops = {
-	linux_build: int -> int -> int -> string -> string option -> string -> string -> int -> int -> int -> string;
-	hvm_build: int -> int -> int -> string -> int -> int -> string;
+	linux_build: int -> int -> int -> string -> string option -> string -> string -> int -> int -> int -> int -> int -> string;
+	hvm_build: int -> int -> int -> string -> int -> int -> int -> int -> string;
 	domain_save: Unix.file_descr -> int -> int -> int -> Xenguest.suspend_flags list -> bool -> string;
 	domain_restore: Unix.file_descr -> int -> int -> int -> int -> int -> bool -> bool -> string;
 }
@@ -429,11 +429,13 @@ let _ =
 		  and features = get_param "features"
 		  and flags = int_of_string (get_param "flags")
 		  and store_port = int_of_string (get_param "store_port")
-		  and console_port = int_of_string (get_param "console_port") in
+		  and store_domid = int_of_string (get_param "store_domid")
+		  and console_port = int_of_string (get_param "console_port")
+		  and console_domid = int_of_string (get_param "console_domid") in
 
 		  with_logging (fun () -> ops.linux_build domid mem_max_mib mem_start_mib image
 		                          (if ramdisk = "" then None else Some ramdisk)
-		                          cmdline features flags store_port console_port)
+		                          cmdline features flags store_port store_domid console_port console_domid)
 	      | Some "hvm_build" ->
 		  debug "hvm_build mode selected";
 		      require [ "domid"; "mem_max_mib"; "mem_start_mib"; "image";
@@ -443,10 +445,12 @@ let _ =
 		  and mem_start_mib = int_of_string (get_param "mem_start_mib")
 		  and image = get_param "image"
 		  and store_port = int_of_string (get_param "store_port")
-	    and console_port = int_of_string (get_param "console_port") in
+		  and store_domid = int_of_string (get_param "store_domid")
+	      and console_port = int_of_string (get_param "console_port")
+		  and console_domid = int_of_string (get_param "console_domid") in
 
 		  with_logging (fun () -> ops.hvm_build domid mem_max_mib mem_start_mib image
-			  store_port console_port)
+			  store_port store_domid console_port console_domid)
 	      | Some "test" ->
 		  debug "test mode selected";
 		  with_logging (fun () -> ignore(Unix.system "/tmp/test"); "result")
