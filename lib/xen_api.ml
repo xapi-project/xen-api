@@ -86,16 +86,16 @@ module Make(IO:IO) = struct
 
 let counter = ref 0
 
-	let one_attempt (ic, oc) xml =
+	let one_attempt t (ic, oc) request =
 		let open Printf in
-		let body = Xml.to_string xml in
+		let body = request in
 
 		let headers = Cohttp.Header.of_list [
 			"user-agent", user_agent;
 			"content-length", string_of_int (String.length body);
 			"connection", "keep-alive";
 		] in
-		let request = Request.make ~meth:`POST ~version:`HTTP_1_1 ~headers ~body (Uri.of_string "/") in
+		let request = Request.make ~meth:`POST ~version:`HTTP_1_1 ~headers ~body t.uri in
 		Request.write (fun req oc -> Request.write_body req oc body) request oc
 		>>= fun () ->
 		Response.read ic
@@ -113,7 +113,7 @@ let (_: int) = Unix.write fd result 0 (String.length result) in
 Unix.close fd; *)
 				match Response.status response with
 					| `OK ->
-						return (Ok (Xml.parse_string result))
+						return (Ok result)
 					| s ->
 						return (Error (Http_error(Cohttp.Code.code_of_status s, result)))
 
@@ -137,7 +137,7 @@ Unix.close fd; *)
 		let ideal_time = float_of_int next_n *. ideal_interval in
 		max 0. (ideal_time -. time_so_far)
 
-	let rpc ?(timeout=30.) t xml =
+	let rpc ?(timeout=30.) t req =
 		let is_finished = function
 			| Ok _ -> true
 			| Error (Http_error (_, _)) -> true  (* wrong server? *)
@@ -154,7 +154,7 @@ Unix.close fd; *)
 						>>= fun () ->
 						return (Error e)
 					| Ok io ->
-						one_attempt io xml
+						one_attempt t io req
 			)
 end
 

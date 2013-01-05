@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 716a1472b053406ca348c1010a0ad391)
+# DO NOT EDIT (digest: c8aff6ac278df3f3b3b63f555b49017b)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -16,6 +16,7 @@
 # Library xen-api-client
 "lib/xen-api-client.cmxs": use_xen-api-client
 <lib/*.ml{,i}>: pkg_xmlm
+<lib/*.ml{,i}>: pkg_rpclib
 <lib/*.ml{,i}>: pkg_cohttp
 # Library xen-api-client-lwt
 "lwt/xen-api-client-lwt.cmxs": use_xen-api-client-lwt
@@ -24,6 +25,7 @@
 <lwt/*.ml{,i}>: pkg_lwt.ssl
 <lwt/*.ml{,i}>: pkg_lwt.unix
 <lwt/*.ml{,i}>: pkg_xmlm
+<lwt/*.ml{,i}>: pkg_rpclib
 <lwt/*.ml{,i}>: pkg_cohttp
 <lwt/*.ml{,i}>: pkg_uri
 # Library xen-api-client-async
@@ -35,16 +37,19 @@
 <async/*.ml{,i}>: pkg_threads
 <async/*.ml{,i}>: pkg_xmlm
 <async/*.ml{,i}>: pkg_async_core
+<async/*.ml{,i}>: pkg_rpclib
 <async/*.ml{,i}>: pkg_cohttp
 <async/*.ml{,i}>: pkg_uri
 # Executable xen_api_test
 <lib_test/xen_api_test.{native,byte}>: use_xen-api-client
 <lib_test/xen_api_test.{native,byte}>: pkg_oUnit
 <lib_test/xen_api_test.{native,byte}>: pkg_xmlm
+<lib_test/xen_api_test.{native,byte}>: pkg_rpclib
 <lib_test/xen_api_test.{native,byte}>: pkg_cohttp
 <lib_test/*.ml{,i}>: use_xen-api-client
 <lib_test/*.ml{,i}>: pkg_oUnit
 <lib_test/*.ml{,i}>: pkg_xmlm
+<lib_test/*.ml{,i}>: pkg_rpclib
 <lib_test/*.ml{,i}>: pkg_cohttp
 <lib_test/xen_api_test.{native,byte}>: custom
 # Executable list_vms_lwt
@@ -54,6 +59,7 @@
 <lwt_test/list_vms.{native,byte}>: pkg_lwt.ssl
 <lwt_test/list_vms.{native,byte}>: pkg_lwt.unix
 <lwt_test/list_vms.{native,byte}>: pkg_xmlm
+<lwt_test/list_vms.{native,byte}>: pkg_rpclib
 <lwt_test/list_vms.{native,byte}>: pkg_cohttp
 <lwt_test/list_vms.{native,byte}>: pkg_uri
 <lwt_test/*.ml{,i}>: use_xen-api-client-lwt
@@ -62,6 +68,7 @@
 <lwt_test/*.ml{,i}>: pkg_lwt.ssl
 <lwt_test/*.ml{,i}>: pkg_lwt.unix
 <lwt_test/*.ml{,i}>: pkg_xmlm
+<lwt_test/*.ml{,i}>: pkg_rpclib
 <lwt_test/*.ml{,i}>: pkg_cohttp
 <lwt_test/*.ml{,i}>: pkg_uri
 # Executable list_vms_async
@@ -73,6 +80,7 @@
 <async_test/list_vms.{native,byte}>: pkg_threads
 <async_test/list_vms.{native,byte}>: pkg_xmlm
 <async_test/list_vms.{native,byte}>: pkg_async_core
+<async_test/list_vms.{native,byte}>: pkg_rpclib
 <async_test/list_vms.{native,byte}>: pkg_cohttp
 <async_test/list_vms.{native,byte}>: pkg_uri
 <async_test/*.ml{,i}>: use_xen-api-client-async
@@ -83,8 +91,12 @@
 <async_test/*.ml{,i}>: pkg_threads
 <async_test/*.ml{,i}>: pkg_xmlm
 <async_test/*.ml{,i}>: pkg_async_core
+<async_test/*.ml{,i}>: pkg_rpclib
 <async_test/*.ml{,i}>: pkg_cohttp
 <async_test/*.ml{,i}>: pkg_uri
 # OASIS_STOP
 <lwt/*.ml{,i}>: syntax_camlp4o, pkg_lwt.syntax
 <lwt_test/*.ml{,i}>: syntax_camlp4o, pkg_lwt.syntax
+<lib/*.ml{,i}>: syntax_camlp4o, pkg_rpclib.syntax
+true: annot
+
