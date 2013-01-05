@@ -108,10 +108,13 @@ let gen_client highapi =
 				 "open API";
 				 "open Rpc";
 				 "module type RPC = sig val rpc: Rpc.t -> Rpc.t end";
+				 "module type IO = sig type 'a t val bind : 'a t -> ('a -> 'b t) -> 'b t val return : 'a -> 'a t end";
 				 "";
 				 "let server_failure code args = raise (Api_errors.Server_error (code, args))";
 			 ];
-			O.Module.strings_of (Gen_client.gen_module highapi);
+		         O.Module.strings_of (Gen_client.gen_module highapi);
+			 [ "module Id = struct type 'a t = 'a let bind x f = f x let return x = x end";
+			   "module Client = ClientF(Id)" ]      
 		])
 
 let add_set_enums types =
