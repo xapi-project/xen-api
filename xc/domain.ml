@@ -500,7 +500,14 @@ let build_pre ~xc ~xs ~vcpus ~xen_max_mib ~shadow_mib ~required_host_free_mib do
 	debug "VM = %s; domid = %d; domain_max_vcpus %d" (Uuid.to_string uuid) domid vcpus;
 	Xenctrl.domain_max_vcpus xc domid vcpus;
 	debug "VM = %s; domid = %d; domain_set_memmap_limit %Ld MiB" (Uuid.to_string uuid) domid xen_max_mib;
-	Xenctrl.domain_set_memmap_limit xc domid (Memory.kib_of_mib xen_max_mib);
+	begin
+		let kib = Memory.kib_of_mib xen_max_mib in
+		try
+			Xenctrl.domain_set_memmap_limit xc domid kib
+		with e ->
+			error "VM = %s; domid = %d; domain_set_mmap_limit %Ld KiB failed: %s"
+				(Uuid.to_string uuid) domid kib (Printexc.to_string e)
+	end;
 	debug "VM = %s; domid = %d; shadow_allocation_set %d MiB" (Uuid.to_string uuid) domid shadow_mib;
 	Xenctrl.shadow_allocation_set xc domid shadow_mib;
 
