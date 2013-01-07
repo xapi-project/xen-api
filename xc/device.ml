@@ -57,14 +57,6 @@ let add_device ~xs device backend_list frontend_list private_list =
 
 	debug "adding device  B%d[%s]  F%d[%s]  H[%s]" device.backend.domid backend_path device.frontend.domid frontend_path hotplug_path;
 	Xs.transaction xs (fun t ->
-		(* Sanity check: ensure the backend domain exists *)
-		let _ =
-			try
-				let (_: string) = t.Xst.read (sprintf "/local/domain/%d/vm" device.backend.domid) in
-				()
-			with Xs_protocol.Enoent _ ->
-				raise (Device_backend_vanished device) in
-
 		begin try
 			ignore (t.Xst.read frontend_path);
 			raise (Device_frontend_already_connected device)

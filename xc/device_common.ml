@@ -31,7 +31,6 @@ type device = {
 with rpc
 
 exception Device_frontend_already_connected of device
-exception Device_backend_vanished of device
 exception Device_disconnect_timeout of device
 exception Device_error of device * string
 exception Device_unrecognized of string
