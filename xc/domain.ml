@@ -547,7 +547,7 @@ let build_post ~xc ~xs ~vcpus ~static_max_mib ~target_mib domid
 	xs.Xs.introduce domid store_mfn store_port
 
 (** build a linux type of domain *)
-let build_linux (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~kernel ~cmdline ~ramdisk
+let build_linux (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~static_max_kib ~target_kib ~kernel ~cmdline ~ramdisk
 		~vcpus domid =
 	let uuid = get_uuid ~xc domid in
 	assert_file_is_readable kernel;
@@ -590,7 +590,9 @@ let build_linux (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~kerne
 	    "-features"; "";
 	    "-flags"; "0";
 	    "-store_port"; string_of_int store_port;
+		"-store_domid"; string_of_int store_domid;
 	    "-console_port"; string_of_int console_port;
+		"-console_domid"; string_of_int console_domid;
 	    "-fork"; "true";
 	  ] []
 		XenguestHelper.receive_success in
@@ -618,7 +620,7 @@ let build_linux (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~kerne
 	| _            -> Arch_native
 
 (** build hvm type of domain *)
-let build_hvm (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
+let build_hvm (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
               ~kernel ~timeoffset ~video_mib domid =
 	let uuid = get_uuid ~xc domid in
 	assert_file_is_readable kernel;
@@ -650,7 +652,9 @@ let build_hvm (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~shadow_
 	    "-mode"; "hvm_build";
 	    "-domid"; string_of_int domid;
 	    "-store_port"; string_of_int store_port;
+		"-store_domid"; string_of_int store_domid;
 	    "-console_port"; string_of_int console_port;
+		"-console_domid"; string_of_int console_domid;
 	    "-image"; kernel;
 	    "-mem_max_mib"; Int64.to_string build_max_mib;
 	    "-mem_start_mib"; Int64.to_string build_start_mib;
@@ -703,14 +707,14 @@ let build_hvm (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~shadow_
 
 	Arch_HVM
 
-let build (task: Xenops_task.t) ~xc ~xs info timeoffset domid =
+let build (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid info timeoffset domid =
 	match info.priv with
 	| BuildHVM hvminfo ->
-		build_hvm task ~xc ~xs ~static_max_kib:info.memory_max ~target_kib:info.memory_target
+		build_hvm task ~xc ~xs ~store_domid ~console_domid ~static_max_kib:info.memory_max ~target_kib:info.memory_target
 		          ~shadow_multiplier:hvminfo.shadow_multiplier ~vcpus:info.vcpus
 		          ~kernel:info.kernel ~timeoffset ~video_mib:hvminfo.video_mib domid
 	| BuildPV pvinfo   ->
-		build_linux task ~xc ~xs ~static_max_kib:info.memory_max ~target_kib:info.memory_target
+		build_linux task ~xc ~xs ~store_domid ~console_domid ~static_max_kib:info.memory_max ~target_kib:info.memory_target
 		            ~kernel:info.kernel ~cmdline:pvinfo.cmdline ~ramdisk:pvinfo.ramdisk
 		            ~vcpus:info.vcpus domid
 
@@ -718,7 +722,7 @@ let build (task: Xenops_task.t) ~xc ~xs info timeoffset domid =
  * to be we are not trying to restore from random data.
  * the linux_restore process is in charge to allocate memory as it's needed
  *)
-let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~console_port ~vcpus ~extras domid fd =
+let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~store_domid ~console_port ~console_domid ~vcpus ~extras domid fd =
 	let uuid = get_uuid ~xc domid in
 	let read_signature = Io.read fd (String.length save_signature) in
 	if read_signature <> save_signature then begin
@@ -734,7 +738,9 @@ let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~console_port 
 	    "-domid"; string_of_int domid;
 	    "-fd"; fd_uuid;
 	    "-store_port"; string_of_int store_port;
+		"-store_domid"; string_of_int store_domid;
 	    "-console_port"; string_of_int console_port;
+		"-console_domid"; string_of_int console_domid;
 	    "-fork"; "true";
 	  ] @ extras) [ fd_uuid, fd ] XenguestHelper.receive_success in
 
@@ -776,7 +782,7 @@ let resume (task: Xenops_task.t) ~xc ~xs ~hvm ~cooperative ~qemu_domid domid =
 	resume_post ~xc	~xs domid;
 	if hvm then Device.Dm.resume task ~xs ~qemu_domid domid
 
-let pv_restore (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~vcpus domid fd =
+let pv_restore (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~static_max_kib ~target_kib ~vcpus domid fd =
 
 	(* Convert memory configuration values into the correct units. *)
 	let static_max_mib = Memory.mib_of_kib_used static_max_kib in
@@ -798,7 +804,7 @@ let pv_restore (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~vcpus 
 	let store_port, console_port = build_pre ~xc ~xs
 		~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
 
-	let store_mfn, console_mfn = restore_common task ~xc ~xs ~hvm:false
+	let store_mfn, console_mfn = restore_common task ~xc ~xs ~store_domid ~console_domid ~hvm:false
 	                                            ~store_port ~console_port
 	                                            ~vcpus ~extras:[] domid fd in
 	let local_stuff = [
@@ -810,7 +816,7 @@ let pv_restore (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~vcpus 
 	build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
 		domid store_mfn store_port local_stuff vm_stuff
 
-let hvm_restore (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus  ~timeoffset domid fd =
+let hvm_restore (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus  ~timeoffset domid fd =
 
 	(* Convert memory configuration values into the correct units. *)
 	let static_max_mib = Memory.mib_of_kib_used static_max_kib in
@@ -830,7 +836,7 @@ let hvm_restore (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~shado
 	let store_port, console_port = build_pre ~xc ~xs
 		~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
 
-	let store_mfn, console_mfn = restore_common task ~xc ~xs ~hvm:true
+	let store_mfn, console_mfn = restore_common task ~xc ~xs ~store_domid ~console_domid ~hvm:true
 	                                            ~store_port ~console_port
 	                                            ~vcpus ~extras:[] domid fd in
 	let local_stuff = [
@@ -847,7 +853,7 @@ let hvm_restore (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~shado
 	build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
 		domid store_mfn store_port local_stuff vm_stuff
 
-let restore (task: Xenops_task.t) ~xc ~xs info timeoffset domid fd =
+let restore (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid info timeoffset domid fd =
 	let restore_fct = match info.priv with
 	| BuildHVM hvminfo ->
 		hvm_restore task ~shadow_multiplier:hvminfo.shadow_multiplier
@@ -855,7 +861,7 @@ let restore (task: Xenops_task.t) ~xc ~xs info timeoffset domid fd =
 	| BuildPV pvinfo   ->
 		pv_restore task
 		in
-	restore_fct ~xc ~xs
+	restore_fct ~xc ~xs ~store_domid ~console_domid
 	            ~static_max_kib:info.memory_max ~target_kib:info.memory_target ~vcpus:info.vcpus
 	            domid fd
 

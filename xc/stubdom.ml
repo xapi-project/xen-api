@@ -45,9 +45,9 @@ let create ~xc ~xs domid =
     Domain.set_machine_address_size ~xc stubdom_domid (Some 32);
 	stubdom_domid
 
-let build (task: Xenops_task.t) ~xc ~xs info domid stubdom_domid =
+let build (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid info domid stubdom_domid =
     (* Now build it as a PV domain *)
-    let (_: Domain.domarch) = Domain.build task ~xc ~xs {
+    let (_: Domain.domarch) = Domain.build task ~xc ~xs ~store_domid ~console_domid {
         Domain.memory_max=memory_kib;
         Domain.memory_target=memory_kib;
         Domain.kernel="/usr/lib/xen/boot/ioemu-stubdom.gz";

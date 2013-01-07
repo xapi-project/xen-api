@@ -24,6 +24,8 @@ module D = Debug.Make(struct let name = service_name end)
 open D
 
 let _sys_hypervisor_type = "/sys/hypervisor/type"
+let store_domid = 0
+let console_domid = 0
 
 let run cmd args =
 	debug "%s %s" cmd (String.concat " " args);
@@ -983,7 +985,7 @@ module VM = struct
 								} in
 								((make_build_info b.Bootloader.kernel_path builder_spec_info), "")
 							) in
-			let arch = Domain.build task ~xc ~xs build_info timeoffset domid in
+			let arch = Domain.build task ~xc ~xs ~store_domid ~console_domid build_info timeoffset domid in
 			Int64.(
 				let min = to_int (div vm.Vm.memory_dynamic_min 1024L)
 				and max = to_int (div vm.Vm.memory_dynamic_max 1024L) in
@@ -1041,7 +1043,7 @@ module VM = struct
 					if saved_state then failwith "Cannot resume with stubdom yet";
 					Opt.iter
 						(fun stubdom_domid ->
-							Stubdom.build task ~xc ~xs info di.Xenctrl.domid stubdom_domid;
+							Stubdom.build task ~xc ~xs ~store_domid ~console_domid info di.Xenctrl.domid stubdom_domid;
 							Device.Dm.start_vnconly task ~xs ~dmpath:!Path.qemu_dm_wrapper info stubdom_domid
 						) (get_stubdom ~xs di.Xenctrl.domid);
 				| Vm.HVM { Vm.qemu_stubdom = false } ->
@@ -1237,7 +1239,7 @@ module VM = struct
 					try
 						with_data ~xc ~xs task data false
 							(fun fd ->
-								Domain.restore task ~xc ~xs (* XXX progress_callback *) build_info timeoffset domid fd
+								Domain.restore task ~xc ~xs ~store_domid ~console_domid (* XXX progress_callback *) build_info timeoffset domid fd
 							);
 					with e ->
 						error "VM %s: restore failed: %s" vm.Vm.id (Printexc.to_string e);
