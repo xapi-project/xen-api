@@ -90,6 +90,7 @@ module Vm = struct
 		video: video_card;
 		acpi: bool;
 		serial: string option;
+		parallel: string option;
 		keymap: string option;
 		vnc_ip: string option;
 		pci_emulations: string list;

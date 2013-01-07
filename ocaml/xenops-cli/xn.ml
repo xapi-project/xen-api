@@ -317,6 +317,7 @@ let add filename =
 					video = Cirrus;
 					acpi = true;
 					serial = None;
+					parallel = None;
 					keymap = None;
 					vnc_ip = Some "0.0.0.0";
 					pci_emulations = [];

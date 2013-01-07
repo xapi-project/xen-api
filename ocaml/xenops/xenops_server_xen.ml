@@ -917,8 +917,8 @@ module VM = struct
 			VmExtra.qemu_vbds = qemu_vbds
 		} ->
 			let make ?(boot_order="cd") ?(serial="pty") ?(monitor="pty") 
-					?(nics=[])
-					?(disks=[]) ?(pci_emulations=[]) ?(usb=["tablet"])
+					?(nics=[]) ?(disks=[])
+					?(pci_emulations=[]) ?(usb=["tablet"]) ?parallel
 					?(acpi=true) ?(video=Cirrus) ?(keymap="en-us")
 					?vnc_ip ?(pci_passthrough=false) ?(hvm=true) ?(video_mib=4) () =
 				let video = match video with
@@ -934,6 +934,7 @@ module VM = struct
 					disks = disks;
 					pci_emulations = pci_emulations;
 					usb = usb;
+					parallel = parallel;
 					acpi = acpi;
 					disp = VNC (video, vnc_ip, true, 0, keymap);
 					pci_passthrough = pci_passthrough;
@@ -976,7 +977,7 @@ module VM = struct
 					Some (make ~video_mib:hvm_info.video_mib
 						~video:hvm_info.video ~acpi:hvm_info.acpi
 						?serial:hvm_info.serial ?keymap:hvm_info.keymap
-						?vnc_ip:hvm_info.vnc_ip
+						?parallel:hvm_info.parallel ?vnc_ip:hvm_info.vnc_ip
 						~pci_emulations:hvm_info.pci_emulations
 						~pci_passthrough:hvm_info.pci_passthrough
 						~boot_order:hvm_info.boot_order ~nics ~disks ())

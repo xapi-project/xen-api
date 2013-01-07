@@ -38,7 +38,7 @@ let filtered_platform_flags = ["acpi"; "apic"; "nx"; "pae"; "viridian";
                                "tsc_mode"; "device-model"; "xenguest";
                                "pv-kernel-max-size"; "pv-ramdisk-max-size";
                                "pv-postinstall-kernel-max-size"; "pv-postinstall-ramdisk-max-size"
-                             ]
+                               "parallel"]
 
 let xenops_vdi_locator_of_strings sr_uuid vdi_location =
 	Printf.sprintf "%s/%s" sr_uuid vdi_location
@@ -147,6 +147,9 @@ let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
 			end;
 			acpi = bool vm.API.vM_platform true "acpi";
 			serial = Some (string vm.API.vM_other_config "pty" "hvm_serial");
+			parallel = if List.mem_assoc "parallel" vm.API.vM_platform
+				then Some (List.assoc "parallel" vm.API.vM_platform)
+				else None;
 			keymap = Some (string vm.API.vM_platform "en-us" "keymap");
 			vnc_ip = Some "0.0.0.0" (*None PR-1255*);
 			pci_emulations = pci_emulations;

@@ -171,6 +171,7 @@ let create_vm id =
 		video = Cirrus;
 		acpi = true;
 		serial = None;
+		parallel = None;
 		keymap = Some "en-gb";
 		vnc_ip = Some "hello";
 		pci_emulations = [ "1" ];
