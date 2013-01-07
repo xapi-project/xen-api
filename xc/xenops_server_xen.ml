@@ -100,7 +100,11 @@ let safe_rm xs path =
 		xs.Xs.rm path
 	with _ -> ()
 
-let this_domid ~xs = int_of_string (xs.Xs.read "domid")
+let this_domid ~xs =
+	(* If we're in dom0 then no-one will have created the "domid" key. *)
+	try
+		int_of_string (xs.Xs.read "domid")
+	with _ -> 0
 
 let uuid_of_string x = match Uuidm.of_string x with
 	| Some x -> x
