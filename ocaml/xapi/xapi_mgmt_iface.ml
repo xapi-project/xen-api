@@ -24,7 +24,7 @@ let himn_addr = ref None
 
 (* Stores a key into the table in Http_srv which identifies the server thread bound
 	 to the management IP. *)
-let management_interface_server = ref None
+let management_interface_server = ref []
 let himn_only = ref false
 let management_m = Mutex.create ()
 
@@ -41,8 +41,8 @@ let restart_stunnel () =
 
 let stop () =
 	debug "Shutting down the old management interface (if any)";
-	maybe Http_svr.stop !management_interface_server;
-	management_interface_server := None
+	List.iter (fun i -> Http_svr.stop i) !management_interface_server;	
+	management_interface_server := []
 
 (* Even though xapi listens on all IP addresses, there is still an interface appointed as
  * _the_ management interface. Slaves in a pool use the IP address of this interface to connect
@@ -69,7 +69,7 @@ let start ~__context ?addr () =
 	in
 	let socket = Xapi_http.bind (Unix.ADDR_INET(addr, Xapi_globs.http_port)) in
 	Http_svr.start Xapi_http.server socket;
-	management_interface_server := Some socket;
+	management_interface_server := socket :: !management_interface_server;
 
 	debug "Restarting stunnel";
 	restart_stunnel ();
@@ -92,15 +92,14 @@ let change interface primary_address_type =
 let run ~__context interface primary_address_type =
 	Mutex.execute management_m (fun () ->
 		change interface primary_address_type;
-		if !himn_only then
-			stop ();
-		if !management_interface_server = None then
+		stop ();
+		if !management_interface_server = [] then
 			start ~__context ()
 	)
 
 let rebind ~__context =
 	Mutex.execute management_m (fun () ->
-		if !management_interface_server <> None then
+		if !management_interface_server <> [] then
 		begin
 			stop ();
 			start ~__context ();
@@ -118,8 +117,13 @@ let shutdown () =
 let maybe_start_himn ~__context ?addr () =
 	Mutex.execute management_m (fun () ->
 		Opt.iter (fun addr -> himn_addr := Some addr) addr;
-		if !management_interface_server = None then
+		if !management_interface_server = [] then
 			Opt.iter (fun addr -> start ~__context ~addr ()) !himn_addr
+	)
+
+let start_localhost_interface ~__context =
+	Mutex.execute management_m (fun () ->
+	  start ~__context ~addr:"127.0.0.1"
 	)
 
 let management_ip_mutex = Mutex.create ()
