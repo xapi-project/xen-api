@@ -38,3 +38,6 @@ val shutdown : unit -> unit
 (** Start a server thread on the given HIMN address if the server is not yet running *)
 val maybe_start_himn : __context:Context.t -> ?addr:string -> unit -> unit
 
+(** Start a server thread on 127.0.0.1 *)
+val start_localhost_interface : __context:Context.t -> unit -> unit
+
