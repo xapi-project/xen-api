@@ -252,7 +252,7 @@ let print_vif vif =
 
 let parse_vif vm_id (x, idx) =
 	let open Xn_cfg_types in
-	let xs = List.filter (fun x -> x <> "") (Re_str.split_delim (Re_str.regexp_string "[ \t]*,[ \t]*") x) in
+	let xs = List.filter (fun x -> x <> "") (Re_str.split_delim (Re_str.regexp "[ \t]*,[ \t]*") x) in
 	let kvpairs = List.map (fun x -> match Re_str.bounded_split_delim (Re_str.regexp "[=]") x 2 with
 		| [ k; v ] -> k, v
 		| _ ->
