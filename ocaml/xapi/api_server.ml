@@ -184,7 +184,7 @@ let jsoncallback req bio _ =
 	debug "Got the jsonrpc body: %s" body;
     let rpc = Jsonrpc.call_of_string body in
 	debug "Got the jsonrpc body: %s" body;
-    let response = Xmlrpc.a_of_response 
+    let response = Jsonrpc.a_of_response 
 		~empty:Bigbuffer.make 
 		~append:(fun buf s -> Bigbuffer.append_substring buf s 0 (String.length s)) 
 		(callback1 false req fd (Some body) rpc) in
