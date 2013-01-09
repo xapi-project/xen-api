@@ -18,7 +18,7 @@ module OU = Ocaml_utils
 open DT
 open Printf
 
-let module_name = "Client"
+let module_name = "ClientF"
 let async_module_name = "Async"
 let signature_name = "API"
 
@@ -156,10 +156,10 @@ let gen_module api : O.Module.t =
       ~ty:return_type
       ~body:(List.map to_rpc args @ [
 	       if is_ctor then ctor_record else "";
-	       Printf.sprintf "%s(rpc_wrapper rpc \"%s\" [ %s ])"
-		 (from_xmlrpc x.msg_result)
+	       Printf.sprintf "rpc_wrapper rpc \"%s\" [ %s ] >>= fun x -> return (%s x)"
 		 wire_name
 		 (String.concat "; " rpc_args)
+		 (from_xmlrpc x.msg_result)
 	     ]) () in
 
   (* Convert an object into a Module *)
@@ -176,13 +176,15 @@ let gen_module api : O.Module.t =
       ~elements:fields ()
   in
   let preamble = [
+    "let (>>=) = X.bind";
+    "let return = X.return";
       "let rpc_wrapper rpc name args = ";
-      "  let response = rpc (Rpc.call name args) in";
+      "  rpc (Rpc.call name args) >>= fun response -> ";
       "  if response.Rpc.success then";
-      "    response.Rpc.contents";
+      "    return response.Rpc.contents";
       "  else match response.Rpc.contents with";
       "    | Rpc.Enum [ Rpc.String \"Fault\"; Rpc.String code ] -> failwith (\"INTERNAL ERROR: \"^code)";
-      "    | Rpc.Enum [ Rpc.String code; args ] -> server_failure code (API.string_set_of_rpc args)";
+      "    | Rpc.Enum [ Rpc.String code; args ] -> return (server_failure code (API.string_set_of_rpc args))";
       "    | rpc -> failwith (\"Client.rpc: \" ^ Rpc.to_string rpc)";
   ]
   in
@@ -201,7 +203,7 @@ let gen_module api : O.Module.t =
   O.Module.make
     ~name:module_name
     ~preamble:preamble
-    ~args:[]
+    ~args:["X : IO"]
     ~elements:(O.Module.Module async ::
 		 List.map (fun x -> O.Module.Module (obj ~sync:true x)) all_objs) ()
 
