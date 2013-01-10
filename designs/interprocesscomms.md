@@ -143,10 +143,17 @@ channel will be established. See the later section, "High bandwidth channel comm
 Responsibilities of a service
 -----------------------------
 
-Dealing with duplicate messages
-  simplest, preferred: ensure idempotency
-  more complicated: journalling
-Only access the switch through the provided switch access library. No direct wire protocol access.
+All services need to be able to deal with duplicate messages, if for example, they
+receive a message and then reboot. The simplest way to handle this is to ensure the
+requests are *idempotent* and simply execute the request again. In the event that
+idempotency is not possible then the service must instead use some form of *journalling*
+to record progress executing a request so that the processing may be restarted when
+the service restarts. To test the abilities of services to deal with duplicate messages,
+the switch shall have a special debug mode where it randomly duplicates messages.
+
+All services must only access the switch through the provided switch access library,
+available in python and OCaml. No direct wire protocol access is permitted, since
+the wire protocol is considered *unstable* and will *change with zero notice*.
 
 
 Low-level design
@@ -154,6 +161,87 @@ Low-level design
 
 The message switch
 ------------------
+
+The message switch is an OCaml daemon running in domain 0. In
+later deployments we may move the daemon to another domU, we may split it up into
+multiple federated daemons and we may choose to run the whole thing in kernel space
+with [mirage](http://openmirage.org/).
+
+The message switch will use lightweight threads via the "lwt" library and the link-level
+protocol shall be based on top of HTTP using the "cohttp" library.
+
+The message switch needs the following datastructures:
+  1. a mapping of raw protocol connections to "session option". When a fresh connection
+     is created it is mapped by default to "None". After a "Login x" message is received,
+     the protocol connection is mapped to "Some x".
+  2. a mapping of sessions to "transient" queues, to allow these queues to be removed
+     when the sessions are destroyed.
+  3. a mapping of sessions to "subscribed" queues
+  3. a mapping of message queue name to queue structure, for fast enqueue.
+  4. a mapping of unique message id to queue structure, for fast dequeue.
+
+A functional prototype of the message switch can be found
+[here](https://github.com/djs55/dbus-test/blob/master/broker/switch/switch.ml)
+
+
+The link-level protocol
+-----------------------
+
+The link-level protocol is used by the python/OCaml protocol library to talk directly
+to the message switch. The following link-level
+messages are defined (in OCaml syntax):
+
+    module Message = struct
+        type t = {
+                payload: string; (* switch to Rpc.t *)
+                correlation_id: int;
+                reply_to: string option;
+        } with rpc
+    end
+    
+    module In = struct
+        type t =
+        | Login of string            (** Associate this transport-level channel with a session *)
+        | Create of string option    (** Create a queue with a well-known or fresh name *)
+        | Subscribe of string        (** Subscribe to messages from a queue *)
+        | Send of string * Message.t (** Send a message to a queue *)
+        | Transfer of int64 * float  (** blocking wait for new messages *)
+        | Trace of int64 * float     (** blocking wait for trace data *)
+        | Ack of int64               (** ACK this particular message *)
+        | Diagnostics                (** return a diagnostic dump *)
+        | Get of string list         (** return a web interface resource *)
+        with rpc
+    end
+    
+    module Event = struct
+        type message =
+                | Message of int64 * Message.t
+                | Ack of int64
+        with rpc
+    end
+    
+    module Out = struct
+        type transfer = {
+                messages: (int64 * Message.t) list;
+        } with rpc
+
+        type trace = {
+                events: (int64 * Event.t) list;
+        } with rpc
+
+        type t =
+        | Login
+        | Create of string
+        | Subscribe
+        | Send
+        | Transfer of transfer
+        | Trace of trace
+        | Ack
+        | Diagnostics of string
+        | Not_logged_in
+        | Get of string
+    end
+
 
 Link-level messages
 Per-session statistics
