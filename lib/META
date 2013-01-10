@@ -1,0 +1,12 @@
+# OASIS_START
+# DO NOT EDIT (digest: 9c973581e379e307de469970cbeadc8a)
+version = "0.1"
+description = "Tapdisk control utility"
+requires = "rpclib rpclib.syntax threads stdext"
+archive(byte) = "tapctl.cma"
+archive(byte, plugin) = "tapctl.cma"
+archive(native) = "tapctl.cmxa"
+archive(native, plugin) = "tapctl.cmxs"
+exists_if = "tapctl.cma"
+# OASIS_STOP
+

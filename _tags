@@ -1,0 +1,23 @@
+# OASIS_START
+# DO NOT EDIT (digest: cdbcbb71f0f6785ec03add74758590ba)
+# Ignore VCS directories, you can use the same kind of rule outside 
+# OASIS_START/STOP if you want to exclude directories that contains 
+# useless stuff for the build process
+<**/.svn>: -traverse
+<**/.svn>: not_hygienic
+".bzr": -traverse
+".bzr": not_hygienic
+".hg": -traverse
+".hg": not_hygienic
+".git": -traverse
+".git": not_hygienic
+"_darcs": -traverse
+"_darcs": not_hygienic
+# Library tapctl
+"lib/tapctl.cmxs": use_tapctl
+<lib/*.ml{,i}>: pkg_rpclib
+<lib/*.ml{,i}>: pkg_rpclib.syntax
+<lib/*.ml{,i}>: pkg_threads
+<lib/*.ml{,i}>: pkg_stdext
+# OASIS_STOP
+<lib/*.ml{,i}>: syntax_camlp4o
