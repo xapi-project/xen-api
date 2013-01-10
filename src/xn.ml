@@ -200,7 +200,15 @@ let print_disk vbd =
 	let source = print_source vbd.Vbd.backend in
 	Printf.sprintf "%s,%s%s,%s" source device_number ty mode
 
-let parse_disk vm_id x = match Re_str.split_delim (Re_str.regexp "[,]") x with
+type disk_info = {
+  id: string;
+  ty: Vbd.ty;
+  position: Device_number.t;
+  mode: Vbd.mode;
+  disk: disk option;
+}
+
+let parse_disk_info x = match Re_str.split_delim (Re_str.regexp "[,]") x with
 	| [ source; device_number; rw ] ->
 		let ty, device_number, device_number' = match Re_str.split_delim (Re_str.regexp "[:]") device_number with
 			| [ x ] -> Vbd.Disk, x, Device_number.of_string false x
@@ -214,21 +222,29 @@ let parse_disk vm_id x = match Re_str.split_delim (Re_str.regexp "[,]") x with
 			| x ->
 				Printf.fprintf stderr "Failed to understand disk mode '%s'. It should be 'r' or 'w'\n" x;
 				exit 2 in
-		let backend = parse_source source in
-		{
-			Vbd.id = vm_id, device_number;
-			position = Some device_number';
-			mode = mode;
-			backend = backend;
+		let backend = parse_source source in {
+			id = device_number;
 			ty = ty;
-			unpluggable = true;
-			extra_backend_keys = [];
-			extra_private_keys = [];
-			qos = None;
+			position = device_number';
+			mode = mode;
+			disk = backend;
 		}
 	| _ ->
 		Printf.fprintf stderr "I don't understand '%s'. Please use 'phy:path,xvda,w'\n" x;
 		exit 2
+
+let vbd_of_disk_info vm_id info =
+	{
+		Vbd.id = vm_id, info.id;
+		position = Some info.position;
+		mode = info.mode;
+		backend = info.disk;
+		ty = info.ty;
+		unpluggable = true;
+		extra_backend_keys = [];
+		extra_private_keys = [];
+		qos = None;
+	}
 
 let print_disk vbd =
 	let device_number = snd vbd.Vbd.id in
@@ -332,6 +348,14 @@ let add copts x () = match x with
 					false
 					|| (mem _builder && (find _builder |> string = "linux"))
 					|| (not(mem _builder) && (any [ _bootloader; _kernel ])) in
+				(* We need to have the disk information ready so we can set the
+				   PV indirect boot info in the VM record *)
+				let disks = if mem _disk then find _disk |> list string else [] in
+				let disks = List.map parse_disk_info disks in
+				let devices = List.rev (List.fold_left (fun acc x -> match x.disk with
+					| None -> acc
+					| Some x -> x :: acc
+				) [] disks) in
 				let open Vm in
 				let builder_info = match pv with
 					| true -> PV {
@@ -345,7 +369,7 @@ let add copts x () = match x with
 								extra_args = "";
 								legacy_args = "";
 								bootloader_args = "";
-								devices = [];
+								devices = devices;
 							} else if mem _kernel then Direct {
 								kernel = find _kernel |> string;
 								cmdline = if mem _root then find _root |> string else "";
@@ -410,8 +434,8 @@ let add copts x () = match x with
 					pci_power_mgmt = pci_power_mgmt;
 				} in
 				let (id: Vm.id) = Client.VM.add dbg vm in
-				let disks = if mem _disk then find _disk |> list string else [] in
-				let one x = x |> parse_disk id |> Client.VBD.add dbg in
+
+				let one x = x |> vbd_of_disk_info id |> Client.VBD.add dbg in
 				let (_: Vbd.id list) = List.map one disks in
 				let vifs = if mem _vif then find _vif |> list string else [] in
 				let rec ints first last = if first > last then [] else first :: (ints (first + 1) last) in
