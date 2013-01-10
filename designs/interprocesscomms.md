@@ -171,15 +171,17 @@ The message switch will use lightweight threads via the "lwt" library and the li
 protocol shall be based on top of HTTP using the "cohttp" library.
 
 The message switch needs the following datastructures:
-  1. a mapping of raw protocol connections to "session option". When a fresh connection
-     is created it is mapped by default to "None". After a "Login x" message is received,
-     the protocol connection is mapped to "Some x".
+  1. a bidirectional mapping of raw protocol connections to session_ids. Sometimes
+     we need to know the session_id associated with a raw connection. Sometimes we
+     need to know how many raw protocol connections still exist, to determine whether
+     a session should be deleted.
   2. a mapping of sessions to "transient" queues, to allow these queues to be removed
      when the sessions are destroyed.
   3. a mapping of sessions to "subscribed" queues
   3. a mapping of message queue name to queue structure, for fast enqueue.
   4. a mapping of unique message id to queue structure, for fast dequeue.
-
+  5. a circular buffer of logged events for message tracing.
+ 
 A functional prototype of the message switch can be found
 [here](https://github.com/djs55/dbus-test/blob/master/broker/switch/switch.ml)
 
