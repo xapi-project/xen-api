@@ -1,0 +1,35 @@
+# OASIS_START
+# DO NOT EDIT (digest: 27fb733ba22844f22e886085490e8e05)
+Arrayext
+Backtrace
+Base64
+Bigbuffer
+Config
+Date
+Either
+Encodings
+ExtentlistSet
+Filenameext
+Fring
+Fun
+Gzip
+Hashtblext
+Int64ext
+LazyList
+Listext
+Mapext
+Monad
+Opt
+Pervasiveext
+Qring
+Range
+Ring
+Sha1sum
+Stringext
+Tar
+Threadext
+Trie
+Unixext
+VIO
+Zerocheck
+# OASIS_STOP

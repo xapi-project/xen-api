@@ -1,0 +1,12 @@
+# OASIS_START
+# DO NOT EDIT (digest: 7a78a259a7957a9cdde948237e0bf2d5)
+version = "0.1"
+description = "Standard extension library"
+requires = "threads uuidm forkexec unix"
+archive(byte) = "stdext.cma"
+archive(byte, plugin) = "stdext.cma"
+archive(native) = "stdext.cmxa"
+archive(native, plugin) = "stdext.cmxs"
+exists_if = "stdext.cma"
+# OASIS_STOP
+

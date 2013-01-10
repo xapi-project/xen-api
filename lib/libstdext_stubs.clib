@@ -1,0 +1,7 @@
+# OASIS_START
+# DO NOT EDIT (digest: 6a87487702231dfad360de7126120d50)
+unixext_open_stubs.o
+unixext_stubs.o
+unixext_write_stubs.o
+zerocheck_stub.o
+# OASIS_STOP

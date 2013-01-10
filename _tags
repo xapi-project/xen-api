@@ -1,0 +1,39 @@
+# OASIS_START
+# DO NOT EDIT (digest: 7560e1cd1f3b4dabc60a9f8ebb35ba86)
+# Ignore VCS directories, you can use the same kind of rule outside 
+# OASIS_START/STOP if you want to exclude directories that contains 
+# useless stuff for the build process
+<**/.svn>: -traverse
+<**/.svn>: not_hygienic
+".bzr": -traverse
+".bzr": not_hygienic
+".hg": -traverse
+".hg": not_hygienic
+".git": -traverse
+".git": not_hygienic
+"_darcs": -traverse
+"_darcs": not_hygienic
+# Library stdext
+"lib/stdext.cmxs": use_stdext
+<lib/stdext.{cma,cmxa}>: use_libstdext_stubs
+<lib/*.ml{,i}>: pkg_threads
+<lib/*.ml{,i}>: pkg_uuidm
+<lib/*.ml{,i}>: pkg_forkexec
+<lib/*.ml{,i}>: pkg_unix
+"lib/unixext_open_stubs.c": pkg_threads
+"lib/unixext_open_stubs.c": pkg_uuidm
+"lib/unixext_open_stubs.c": pkg_forkexec
+"lib/unixext_open_stubs.c": pkg_unix
+"lib/unixext_stubs.c": pkg_threads
+"lib/unixext_stubs.c": pkg_uuidm
+"lib/unixext_stubs.c": pkg_forkexec
+"lib/unixext_stubs.c": pkg_unix
+"lib/unixext_write_stubs.c": pkg_threads
+"lib/unixext_write_stubs.c": pkg_uuidm
+"lib/unixext_write_stubs.c": pkg_forkexec
+"lib/unixext_write_stubs.c": pkg_unix
+"lib/zerocheck_stub.c": pkg_threads
+"lib/zerocheck_stub.c": pkg_uuidm
+"lib/zerocheck_stub.c": pkg_forkexec
+"lib/zerocheck_stub.c": pkg_unix
+# OASIS_STOP
