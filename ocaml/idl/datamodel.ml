@@ -5587,7 +5587,7 @@ let vbd =
        field ~qualifier:StaticRO ~ty:(Ref _vdi) "VDI" "the virtual disk";
 
        field ~qualifier:DynamicRO "device" "device seen by the guest e.g. hda1";
-       field "userdevice" "user-friendly device name e.g. 0,1,2,etc.";
+       field ~qualifier:StaticRO "userdevice" "user-friendly device name e.g. 0,1,2,etc.";
        field ~ty:Bool "bootable" "true if this VBD is bootable";
        field ~effect:true ~ty:vbd_mode "mode" "the mode the VBD should be mounted with";
        field ~ty:vbd_type "type" "how the VBD will appear to the guest (e.g. disk or CD)";
