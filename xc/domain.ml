@@ -598,10 +598,17 @@ let build_linux (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~stati
 		XenguestHelper.receive_success in
 
 	let store_mfn, console_mfn, protocol =
+		(* the "protocol" (ie the domU architecture) was only needed for very
+		   old kernels which had bugs preventing them succesfully autonegotiating
+		   the 64-bit version of the protocol. If we don't know the architecture,
+		   it should be safe to assume "native" i.e. let the domU do its thing. *)
 		match Re_str.split (Re_str.regexp "[ ]") line with
 		| [ store_mfn; console_mfn; protocol ] ->
 			debug "VM = %s; domid = %d; store_mfn = %s; console_mfn = %s; protocol = %s" (Uuid.to_string uuid) domid store_mfn console_mfn protocol;
-		    Nativeint.of_string store_mfn, Nativeint.of_string console_mfn, protocol
+			Nativeint.of_string store_mfn, Nativeint.of_string console_mfn, protocol
+		| [ store_mfn; console_mfn ] ->
+			debug "VM = %s; domid = %d; store_mfn = %s; console_mfn = %s; protocol unavailable, assuming 'native'" (Uuid.to_string uuid) domid store_mfn console_mfn;
+			Nativeint.of_string store_mfn, Nativeint.of_string console_mfn, ""
 		| _ ->
 			error "VM = %s; domid = %d; domain builder returned invalid result: \"%s\"" (Uuid.to_string uuid) domid line;
 		    raise Domain_build_failed in
