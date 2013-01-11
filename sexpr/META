@@ -1,0 +1,12 @@
+# OASIS_START
+# DO NOT EDIT (digest: 6b8d95a37ea37f4a85efab260fad4e80)
+version = "0.1"
+description = "Temporary set of to-be-deprecated libraries"
+requires = "stdext threads"
+archive(byte) = "sexpr.cma"
+archive(byte, plugin) = "sexpr.cma"
+archive(native) = "sexpr.cmxa"
+archive(native, plugin) = "sexpr.cmxs"
+exists_if = "sexpr.cma"
+# OASIS_STOP
+

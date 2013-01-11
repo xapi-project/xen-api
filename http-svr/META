@@ -1,0 +1,12 @@
+# OASIS_START
+# DO NOT EDIT (digest: a106cbb5968a8ae3975aa49b4ef3ec2f)
+version = "0.1"
+description = "Temporary set of to-be-deprecated libraries"
+requires = "stdext threads rpclib rpclib.syntax xml-light2 log stunnel"
+archive(byte) = "httpsvr.cma"
+archive(byte, plugin) = "httpsvr.cma"
+archive(native) = "httpsvr.cmxa"
+archive(native, plugin) = "httpsvr.cmxs"
+exists_if = "httpsvr.cma"
+# OASIS_STOP
+

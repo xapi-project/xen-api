@@ -1,0 +1,12 @@
+# OASIS_START
+# DO NOT EDIT (digest: ce0c919ec9454c03050de339a4963d04)
+version = "0.1"
+description = "Temporary set of to-be-deprecated libraries"
+requires = "forkexec threads stdext log"
+archive(byte) = "stunnel.cma"
+archive(byte, plugin) = "stunnel.cma"
+archive(native) = "stunnel.cmxa"
+archive(native, plugin) = "stunnel.cmxs"
+exists_if = "stunnel.cma"
+# OASIS_STOP
+

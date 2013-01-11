@@ -1,0 +1,12 @@
+# OASIS_START
+# DO NOT EDIT (digest: 129a9df5b6bd9ce756d65fb2afbe2403)
+version = "0.1"
+description = "Temporary set of to-be-deprecated libraries"
+requires = "xmlm stdext threads"
+archive(byte) = "xmllight2.cma"
+archive(byte, plugin) = "xmllight2.cma"
+archive(native) = "xmllight2.cmxa"
+archive(native, plugin) = "xmllight2.cmxs"
+exists_if = "xmllight2.cma"
+# OASIS_STOP
+

@@ -1,0 +1,12 @@
+# OASIS_START
+# DO NOT EDIT (digest: be92856ef1abb4d5ede51b36925806d2)
+version = "0.1"
+description = "Temporary set of to-be-deprecated libraries"
+requires = "stdext threads"
+archive(byte) = "log.cma"
+archive(byte, plugin) = "log.cma"
+archive(native) = "log.cmxa"
+archive(native, plugin) = "log.cmxs"
+exists_if = "log.cma"
+# OASIS_STOP
+

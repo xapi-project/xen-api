@@ -1,0 +1,50 @@
+# OASIS_START
+# DO NOT EDIT (digest: 54618b5e2b4036426e442a1f036807e7)
+# Ignore VCS directories, you can use the same kind of rule outside 
+# OASIS_START/STOP if you want to exclude directories that contains 
+# useless stuff for the build process
+<**/.svn>: -traverse
+<**/.svn>: not_hygienic
+".bzr": -traverse
+".bzr": not_hygienic
+".hg": -traverse
+".hg": not_hygienic
+".git": -traverse
+".git": not_hygienic
+"_darcs": -traverse
+"_darcs": not_hygienic
+# Library xmllight2
+"xml-light2/xmllight2.cmxs": use_xmllight2
+<xml-light2/*.ml{,i}>: pkg_stdext
+<xml-light2/*.ml{,i}>: pkg_threads
+<xml-light2/*.ml{,i}>: pkg_xmlm
+# Library log
+"log/log.cmxs": use_log
+<log/log.{cma,cmxa}>: use_liblog_stubs
+<log/*.ml{,i}>: pkg_stdext
+<log/*.ml{,i}>: pkg_threads
+"log/syslog_stubs.c": pkg_stdext
+"log/syslog_stubs.c": pkg_threads
+# Library stunnel
+"stunnel/stunnel.cmxs": use_stunnel
+<stunnel/*.ml{,i}>: use_log
+<stunnel/*.ml{,i}>: pkg_stdext
+<stunnel/*.ml{,i}>: pkg_threads
+<stunnel/*.ml{,i}>: pkg_forkexec
+# Library httpsvr
+"http-svr/httpsvr.cmxs": use_httpsvr
+<http-svr/*.ml{,i}>: use_xmllight2
+<http-svr/*.ml{,i}>: use_stunnel
+<http-svr/*.ml{,i}>: use_log
+<http-svr/*.ml{,i}>: pkg_stdext
+<http-svr/*.ml{,i}>: pkg_threads
+<http-svr/*.ml{,i}>: pkg_rpclib
+<http-svr/*.ml{,i}>: pkg_rpclib.syntax
+<http-svr/*.ml{,i}>: pkg_forkexec
+<http-svr/*.ml{,i}>: pkg_xmlm
+# Library sexpr
+"sexpr/sexpr.cmxs": use_sexpr
+<sexpr/*.ml{,i}>: pkg_stdext
+<sexpr/*.ml{,i}>: pkg_threads
+# OASIS_STOP
+<http-svr/*.ml{,i}>: syntax_camlp4o
