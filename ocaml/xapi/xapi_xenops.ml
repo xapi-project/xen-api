@@ -1047,7 +1047,8 @@ let update_vm ~__context id =
 							Opt.iter
 								(fun (_, state) ->
 									debug "xenopsd event: Updating VM %s shadow_multiplier <- %.2f" id state.shadow_multiplier_target;
-									Db.VM.set_HVM_shadow_multiplier ~__context ~self ~value:state.shadow_multiplier_target
+									if state.power_state <> Halted then
+										Db.VM.set_HVM_shadow_multiplier ~__context ~self ~value:state.shadow_multiplier_target
 								) info
 						with e ->
 							error "Caught %s: while updating VM %s HVM_shadow_multiplier" (Printexc.to_string e) id
