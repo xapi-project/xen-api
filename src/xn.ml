@@ -331,6 +331,13 @@ let print_vm id =
 	String.concat "\n" (List.map (fun (k, v) -> Printf.sprintf "%s=%s" k v)
 		(name @ boot @ vcpus @ memory @ vbds @ vifs @ pcis @ global_pci_opts))
 
+let canonicalise_filename x =
+	try
+		Unix.access x [ Unix.R_OK ];
+		Filename.(if is_relative x then concat (Unix.getcwd ()) x else x)
+	with _ ->
+		Printf.fprintf stderr "Cannot find file: %s\n%!" x;
+		exit 1
 
 let add copts x () = match x with
 	| None -> `Error (false, "You must supply a path to a VM metadata file.")
@@ -371,9 +378,9 @@ let add copts x () = match x with
 								bootloader_args = "";
 								devices = devices;
 							} else if mem _kernel then Direct {
-								kernel = find _kernel |> string;
+								kernel = find _kernel |> string |> canonicalise_filename;
 								cmdline = if mem _root then find _root |> string else "";
-								ramdisk = if mem _ramdisk then Some (find _ramdisk |> string) else None;
+								ramdisk = if mem _ramdisk then Some (find _ramdisk |> string |> canonicalise_filename) else None;
 							} else begin
 								List.iter (Printf.fprintf stderr "%s\n") [
 									"I couldn't determine how to start this VM.";
