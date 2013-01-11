@@ -47,4 +47,8 @@ let nonessentials = [
 	X_OK, "pci-flr-script", pci_flr_script, "path to the PCI function-level reset script";
 ]
 
-let config_spec = List.map (fun (_, a, b, c) -> a, Arg.Set_string b, c) (essentials @ nonessentials)
+(* Sometimes we tell other services to execute programs (e.g. udev calling the vif script)
+   and they will have a different working directory *)
+let canonicalise x = Filename.(if is_relative x then concat (Unix.getcwd ()) x else x)
+
+let config_spec = List.map (fun (_, a, b, c) -> a, Arg.String (fun x -> b := canonicalise x), c) (essentials @ nonessentials)
