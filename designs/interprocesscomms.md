@@ -293,10 +293,70 @@ will be able to find the documentation.
 The Interface Definition Language
 ---------------------------------
 
-IDL: types, channels, inputs, outputs
-IDL: documentation
-Versioning
-Change control policy
+The IDL shall support the following primitive types (in OCaml syntax):
+
+    type basic =
+      | Int64
+      | String
+      | Double
+      | Boolean
+
+A value passed as an input or output parameter shall have values drawn
+from the following type (in OCaml syntax):
+
+    type t =
+      | Basic of basic
+      | Struct of (string * t * string) * ((string * t * string) list)
+        (** (name, t, description) :: rest *)
+      | Variant of (string * t * string) * ((string * t * string) list)
+        (** (name, t, description) :: rest *)
+      | Array of t
+      | Dict of basic * t
+      | Name of string
+      | Unit
+      | Option of t
+      | Pair of t * t
+      | Abstract of string
+
+The automatically generated code in python and OCaml will be able to
+marshal and unmarshal values of these types. In the case of a value of
+type "Abstract x", the marshalling and unmarshalling code shall be delegated
+to the client library in a module called "Abstract_x" (in OCaml, python
+may use a slightly different naming convention)
+
+In the first version of the software the only provided "Abstract" type
+will be a "channel". From the application's point of view, passing or
+receiving a value of type "channel" will give them an entity which
+supports "read" and "write" operations. In the python and client libraries,
+we will expose channels as Unix file descriptors.
+
+When a channel value is created for marshalling, the client-side library
+will fork/exec a multi-protocol proxy which will take the file descriptor
+and then listen() on a set of network connections including any available
+unix domain sockets, internal networks and v4v (if available).
+The wire representation of a
+marshalled channel is a list of URLs, each of which describes a means of
+contacting the proxy. When a channel value is unmarshalled, the client
+side library will decide which of the protocols will be most efficient
+and will connect() to it.
+
+Interfaces in the IDL consist of sets of functions, each of which has zero
+or more named input values and zero or more named output values. Each input and output
+also has an english description. The names and descriptions shall be used
+in automatically generated hyperlinked HTML documentation. Each function
+will have generated boilerplate in both python and OCaml for both client
+and server. There will also be example client and server code which will be
+inline in the documentation, and which can be cut 'n pasted directly into
+OCaml and python toplevels.
+
+Each interface will have an associated version number. The code generators
+will generate separate modules for each distinct interface version and it
+will be possible to link multiple version of the interface modules into
+application code.
+
+The interface definitions themselves will live in a well-known public repository.
+All changes to interface definitions shall be reviewed by a defined stakeholder
+list. Each interface will have a (possibly different) stakeholder list.
 
 The OCaml generated code
 ------------------------
