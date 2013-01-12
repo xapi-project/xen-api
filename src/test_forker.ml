@@ -2,7 +2,7 @@
 let _ = 
   let die_at = int_of_string Sys.argv.(1) in
   let sock = Fecomms.open_unix_domain_sock_client "/var/xapi/forker/main" in
-  let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+  let uuid = Uuidm.to_string (Uuidm.create `V4) in
   Printf.fprintf stderr "About to write raw rpc\n%!";
   Fecomms.write_raw_rpc sock (Fe.Setup {Fe.cmdargs=["/bin/fecho";"hello";"test"]; id_to_fd_map = [(uuid,Some (Unixext.int_of_file_descr Unix.stdout))]; env=[]});
   if die_at=1 then exit(1);

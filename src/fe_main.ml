@@ -6,7 +6,7 @@ open Fe_debug
 
 let setup sock cmdargs id_to_fd_map syslog_stdout env =
   let fd_sock_path = Printf.sprintf "/var/xapi/forker/fd_%s" 
-    (Uuid.to_string (Uuid.make_uuid ())) in
+    (Uuidm.to_string (Uuidm.create `V4)) in
   let fd_sock = Fecomms.open_unix_domain_sock () in
   Unixext.unlink_safe fd_sock_path;
   debug "About to bind to %s" fd_sock_path;
