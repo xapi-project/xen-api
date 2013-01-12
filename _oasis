@@ -1,0 +1,44 @@
+OASISFormat: 0.2
+Name:        forkexecd
+Version:     0.1
+Synopsis:    Fork and exec daemon
+Authors:     see CREDITS.md
+License:     LGPL-2.1 with OCaml linking exception
+Plugins:     META (0.2)
+BuildTools:  ocamlbuild
+
+Flag tests
+  Description:        Build and run tests
+  Default:            true
+
+Library forkexec
+  CompiledObject:     best
+  Path:               lib
+  Findlibname:        forkexec
+  Modules:            Forkhelpers, Fecomms, Fe
+  BuildDepends:       stdext, syslog, threads, uuidm, rpclib, rpclib.syntax, fd-send-recv
+
+Executable forexecd
+  CompiledObject:     best
+  Path:               src
+  MainIs:             fe_main.ml
+  Custom:             true
+  Install:            false
+  BuildDepends:       stdext, forkexec, uuidm, syslog, re.str
+
+Executable fe_test
+  CompiledObject:     best
+  Path:               test
+  MainIs:             fe_test.ml
+  Custom:             true
+  Install:            false
+  BuildDepends:       stdext, forkexec, uuidm, syslog
+
+
+Executable fe_cli
+  CompiledObject:     best
+  Path:               cli
+  MainIs:             fe_cli.ml
+  Custom:             true
+  Install:            false
+  BuildDepends:       stdext, forkexec, uuidm, syslog
