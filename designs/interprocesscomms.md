@@ -199,20 +199,11 @@ messages are defined (in OCaml syntax):
                 correlation_id: int;
                 reply_to: string option;
         } with rpc
-    end
-    
-    module In = struct
-        type t =
-        | Login of string            (** Associate this transport-level channel with a session *)
-        | Create of string option    (** Create a queue with a well-known or fresh name *)
-        | Subscribe of string        (** Subscribe to messages from a queue *)
-        | Send of string * Message.t (** Send a message to a queue *)
-        | Transfer of int64 * float  (** blocking wait for new messages *)
-        | Trace of int64 * float     (** blocking wait for trace data *)
-        | Ack of int64               (** ACK this particular message *)
-        | Diagnostics                (** return a diagnostic dump *)
-        | Get of string list         (** return a web interface resource *)
-        with rpc
+        
+        type transfer = {
+                messages: (int64 * Message.t) list;
+        } with rpc
+        
     end
     
     module Event = struct
@@ -220,33 +211,84 @@ messages are defined (in OCaml syntax):
                 | Message of int64 * Message.t
                 | Ack of int64
         with rpc
-    end
-    
-    module Out = struct
-        type transfer = {
-                messages: (int64 * Message.t) list;
-        } with rpc
-
+        
         type trace = {
                 events: (int64 * Event.t) list;
         } with rpc
-
-        type t =
-        | Login
-        | Create of string
-        | Subscribe
-        | Send
-        | Transfer of transfer
-        | Trace of trace
-        | Ack
-        | Diagnostics of string
-        | Not_logged_in
-        | Get of string
+        
     end
+    
+    val login: string -> unit
+    (** Associate this transport-level channel with a session *)
+    
+    val create: string option -> string
+    (** [create None] creates a queue with a fresh name; [create (Some x)]
+        creates a queue with a well-known name x *)
+    
+    val subscribe: string -> unit
+    (** Subscribes the current session to messages arriving in the named queue *)
+    
+    val send: string -> Message.t -> unit
+    (** Send a message to a queue (never blocks). The only exception this can
+        throw is Queue_full *)
+    
+    val transfer: int64 -> float -> Message.transfer
+    (** [transfer id timeout] blocks for up to [timeout] seconds for messages
+        with ids higher than [id] to arrive in any of this session's subscribed
+        queues. This is the "blocking poll" pattern already used in the XenAPI *)
+    
+    val trace: int64 -> float -> Event.trace
+    (** [trace id timeout] blocks for up to [timeout] seconds for event traces
+        with ids higher than [id] to arrive. *)
+    
+    val Ack: int64 -> unit
+    (** [ack id] acknowledges that message [id] has been processed and may
+        be removed from the queue. *)
+    
+    val diagnostics: unit -> string
+    (** creates a dump of diagnostic data suitable for inclusion in a bug report *)
 
+Each of the above link-level messages consists of a request and a response,
+encoded as an HTTP request and a response.
+The request messages shall look as follows:
 
-Link-level messages
-Per-session statistics
+    Request                             HTTP encoding
+    -------                             -------------
+    
+    Login token                         GET /login/token
+    Create                              GET /create
+    Create queue                        GET /create/queue
+    Subscribe queue                     GET /subscribe/queue
+    Ack id                              GET /ack/id
+    Transfer(ack_to, timeout)           GET /transfer/ack_to/timeout
+    Trace(ack_to, timeout)              GET /trace/ack_to/timeout
+    Send(name, cid, payload)            POST /send/name/cid with payload as the body
+    Send(name, cid, payload, reply_to)  POST /send/name/cid/reply_to with payload as the body
+    Diagnostics                         GET /
+
+If a request is processed successfully then an HTTP 200 OK response will
+be returned. Any non-unit result value will be returned in the request
+body using a json encoding.
+
+The following errors are possible:
+  * any request other "Login" must be preceeded by a successful Login,
+    otherwise an HTTP 403 forbidden will be returned
+  * an attempt to subscribe to a queue that doesn't exist will return
+    an HTTP 404 not found.
+  * an attempt to acknowledge a message id that doesn't exist will return
+    an HTTP 404 not found.
+
+Note it is not an error to:
+  * create a queue which already exists: the creation of a well-known queue name
+    is idempotent; or
+  * send a message to a queue which doesn't exist: the message will be silently
+    dropped.
+
+Note no detailed documentation shall be created for this wire format because
+no-one else should implement it. We should add an extra HTTP header to all
+requests and responses giving the URL of a wiki page describing the library-based
+API that people should use. Then, anyone who inspects the messages on the wire
+will be able to find the documentation.
 
 The Interface Definition Language
 ---------------------------------
