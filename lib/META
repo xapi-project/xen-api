@@ -1,8 +1,8 @@
 # OASIS_START
-# DO NOT EDIT (digest: fc0ac7d6d2798724ed50aead23c84438)
+# DO NOT EDIT (digest: 953ff1b692d5fb02d2f1208d433082b8)
 version = "0.1"
 description = "Standard extension library"
-requires = "threads uuidm unix"
+requires = "threads uuidm unix fd-send-recv"
 archive(byte) = "stdext.cma"
 archive(byte, plugin) = "stdext.cma"
 archive(native) = "stdext.cmxa"
