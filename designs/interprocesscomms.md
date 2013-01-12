@@ -484,8 +484,90 @@ The python generated code
 Versioning
 package layout
 
+class Vm_server_dispatcher:
+    """Types used to represent a VM configuration"""
+    def __init__(self, impl):
+        """impl is a proxy object whose methods contain the implementation"""
+        self._impl = impl
+    def start(self, args):
+        """type-check inputs, call implementation, type-check outputs and return"""
+        if type(args) <> type({}):
+            raise (UnmarshalException('arguments', 'dict', repr(args)))
+        if not(args.has_key('dbg')):
+            raise UnmarshalException('argument missing', 'dbg', '')
+        dbg = args["dbg"]
+        if type(dbg) <> type(""):
+            raise (TypeError("string", repr(dbg)))
+        if not(args.has_key('id')):
+            raise UnmarshalException('argument missing', 'id', '')
+        id = args["id"]
+        if type(id) <> type(""):
+            raise (TypeError("string", repr(id)))
+        results = self._impl.start(dbg, id)
+        if type(results) <> type(""):
+            raise (TypeError("string", repr(results)))
+        return results
+    def _dispatch(self, method, params):
+        """type check inputs, call implementation, type check outputs and return"""
+        args = params[0]
+        elif method == "Vm.start":
+            return success(self.start(args))
+
+class Vm_skeleton:
+    """Types used to represent a VM configuration"""
+    def __init__(self):
+        pass
+    def start(self, dbg, id):
+        """Types used to represent a VM configuration"""
+        raise Unimplemented("Vm.start")
+
+class Vm_test:
+    """Types used to represent a VM configuration"""
+    def __init__(self):
+        pass
+    def start(self, dbg, id):
+        """Types used to represent a VM configuration"""
+        result = {}
+        result["task"] = "string"
+        return result
+
+class domains_server_dispatcher:
+    """Demux calls to individual interface server_dispatchers"""
+    def __init__(self, Vm = None):
+        self.Vm = Vm
+    def _dispatch(self, method, params):
+        try:
+            log("method = %s params = %s" % (method, repr(params)))
+            if method.startswith("Vm") and self.Vm:
+                return self.Vm._dispatch(method, params)
+        except Exception, e:
+            log("caught %s" % e)
+            traceback.print_exc()
+            try:
+                # A declared (expected) failure will have a .failure() method
+                log("returning %s" % (repr(e.failure())))
+                return e.failure()
+            except:
+                # An undeclared (unexpected) failure is wrapped as InternalError
+                return (InternalError(str(e)).failure())
+
 The RPC pattern
 ---------------
+
+Client:
+  1. tmp <- Create: to create a temporary reply queue
+  2. Subscribe tmp
+  3. Create <service name>: to ensure the service queue exists
+  4. Send <service name>, reply_to
+  5. Transfer(0, timeout): to wait for a reply to the tmp queue
+
+Server:
+  1. Create <service name>: to ensure the service queue exists
+  2. Subscribe <service name>
+  3. Transfer(0, timeout):
+  4. Send <reply_to>
+  5. Ack <message id>
+
 
 High bandwidth channel communication
 ------------------------------------
