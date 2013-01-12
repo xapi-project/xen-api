@@ -361,10 +361,123 @@ list. Each interface will have a (possibly different) stakeholder list.
 The OCaml generated code
 ------------------------
 
-Modules and records for all arguments
-Also generate labelled arguments for utop
-Versioning
-OCamlfind package layout
+Consider a xenops API
+    val VM.start: id -> unit
+
+There will be records for the arguments and the results, as follows:
+
+    module Start = struct
+         module In = struct
+             type t = {
+                 dbg: debug_info;
+                 id: id;
+             } with rpc
+         end
+         module Out = struct
+             type t = id with rpc
+         end
+    end
+
+Note the additional argument 'dbg' -- this is for associating low-level
+operations with higher level (probably XenAPI) tasks.
+
+There will be a "VM operation" request type:
+
+    module In = struct
+        type t =
+            | Start of Start.In.t
+    
+        let of_call (call: Rpc.call) : (t, 'b) Result.t =
+             match call.Rpc.name, call.Rpc.params with
+                | "Vm.start", [ args ] ->
+                    Result.return (Start(Start.In.t_of_rpc args))
+        let call_of = function
+            | Start args -> Rpc.call "Vm.start" [ Start.In.rpc_of_t args ]
+    end
+
+and a "VM operation" response type:
+
+    module Out = struct
+        type t =
+            | Start of Start.Out.t
+        let response_of = function
+            | Result.Error exn ->
+                Rpc.failure (Rpc.String (Printf.sprintf "Internal_error: %s" (Printexc.to_s
+tring exn)))
+            | Result.Ok (Start x) ->
+                Rpc.success (Start.Out.rpc_of_t x)
+    end
+
+There will be an RPC client signature:
+
+    module type Vm = sig
+        val start: Types.Vm.Start.In.t -> (Types.Vm.Start.Out.t, exn) Result.t t
+    end
+
+and an RPC server functor:
+
+    module Vm_server_dispatcher = functor(Impl: Vm) -> struct
+        type 'a t = 'a Impl.t
+        let (>>=) = Impl.(>>=)
+        let return = Impl.return
+        let dispatch (request: Types.Vm.In.t) : (Types.Vm.Out.t, 'b) Result.t Impl.t = match request with
+        | Types.Vm.In.Start x ->
+            Impl.start x
+            >>= fun result ->
+            return (Result.(>>=) result (fun ok ->
+                Result.return (Types.Vm.Out.Start ok)
+            ))
+    end
+
+And an example skeleton implementation which raises an exception:
+
+    module Vm_skeleton = functor(M: Xcp.M) -> struct
+        include M
+        open Types
+    
+        let start x =
+            let open Vm.Start in
+            return (Result.Error (Unimplemented "Vm.start"))
+    end
+
+And an example implementation which returns successfully from each operation:
+
+    module Vm_test = functor(M: Xcp.M) -> struct
+        include M
+        open Types
+    
+        let start x =
+            let open Vm.Start in
+            return (Result.Ok (Out.("string")))
+    end
+
+There will be a client functor which offers both record and labelled argument variants.
+Note the labelled arguments work particularly well in "utop" since they can be
+tab-completed:
+
+    module Vm_client = functor(RPC: RPC) -> struct
+        open RPC
+        let start_r x =
+            let call = Types.Vm.In.call_of (Types.Vm.In.Start x) in
+            RPC.rpc call >>= fun response ->
+            let result = Result.(>>=) (result_of_response response) (fun x -> Result.return (Types.Vm.Start.Out.t_of_rpc x)) in
+            return result
+        let start ~dbg ~id =
+            let r = Types.Vm.Start.In.({ dbg = dbg; id = id }) in
+            start_r r
+    end
+
+XXX: need to put protocol version numbers in here somewhere
+
+The code will be arranged into nested OCamlfind packages as follows:
+
+    $ ocamlfind list | grep xcp
+    xcp                 (version: 0.1)
+    xcp.storage         (version: 0.1)
+    xcp.xen             (version: 0.1)
+
+The parent package contains the client library and boilerplate code. There
+is one subpackage per interface.
 
 The python generated code
 -------------------------
