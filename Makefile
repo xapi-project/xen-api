@@ -4,6 +4,10 @@ all: build doc
 NAME=forkexec
 J=4
 
+BINDIR ?= /usr/bin
+SBINDIR ?= /usr/sbin
+DESTDIR ?= /
+
 export OCAMLRUNPARAM=b
 
 setup.bin: setup.ml
@@ -21,6 +25,8 @@ doc: setup.data setup.bin
 
 install: setup.bin
 	@./setup.bin -install
+	install ./fe_main.native $(DESTDIR)/$(SBINDIR)/xcp-fe
+	install ./fe_cli.native $(DESTDIR)/$(BINDIR)/xcp-fe-cli
 
 test: setup.bin build
 	@./setup.bin -test
@@ -28,6 +34,13 @@ test: setup.bin build
 reinstall: setup.bin
 	@ocamlfind remove $(NAME) || true
 	@./setup.bin -reinstall
+	install ./fe_main.native $(DESTDIR)/$(SBINDIR)/xcp-fe
+	install ./fe_cli.native $(DESTDIR)/$(BINDIR)/xcp-fe-cli
+
+uninstall:
+	@ocamlfind remove $(NAME) || true
+	rm -f $(DESTDIR)/$(SBINDIR)/xcp-fe
+	rm -f $(DESTDIR)/$(BINDIR)/xcp-fe-cli
 
 clean:
 	@ocamlbuild -clean
