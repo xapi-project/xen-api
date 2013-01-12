@@ -1,5 +1,0 @@
-version = "@VERSION@"
-description = "forking executioner script"
-requires = "unix,stdext"
-archive(byte) = "felib.cma"
-archive(native) = "felib.cmxa"

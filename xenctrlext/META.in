@@ -1,5 +1,0 @@
-version = "@VERSION@"
-description = "Xenctrlext - Extensions to xenctrl not yet provided upstream"
-requires = "unix,stdext"
-archive(byte) = "xenctrlext.cma"
-archive(native) = "xenctrlext.cmxa"

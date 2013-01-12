@@ -1,5 +1,0 @@
-version = "@VERSION@"
-description = "Stdext - Common stdlib extensions"
-requires = "unix,uuid,bigarray,rpc-light.json"
-archive(byte) = "stdext.cma"
-archive(native) = "stdext.cmxa"

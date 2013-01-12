@@ -1,5 +1,0 @@
-version = "@VERSION@"
-description = "PCI utilities"
-requires = "unix,stdext"
-archive(byte) = "pciutil.cma"
-archive(native) = "pciutil.cmxa"

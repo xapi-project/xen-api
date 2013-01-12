@@ -1,4 +1,0 @@
-version = "@VERSION@"
-description = "LVM2 ocaml interface"
-archive(byte) = "lvm.cma"
-archive(native) = "lvm.cmxa"

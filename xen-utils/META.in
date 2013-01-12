@@ -1,5 +1,0 @@
-version = "@VERSION@"
-description = "Xen utility modules"
-requires = "stdext"
-archive(byte) = "xen-utils.cma"
-archive(native) = "xen-utils.cmxa"

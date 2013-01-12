@@ -1,5 +1,0 @@
-version = "@VERSION@"
-description = "Bindings to network APIs"
-requires = "stdext"
-archive(native) = "netdev.cmxa"
-archive(byte) = "netdev.cma"

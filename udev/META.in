@@ -1,4 +1,0 @@
-version = "@VERSION@"
-description = "Udev simple events interface"
-archive(byte) = "udev.cma"
-archive(native) = "udev.cmxa"

@@ -1,4 +1,0 @@
-version = "@VERSION@"
-description = "libvhd bindings"
-archive(byte) = "vhd.cma"
-archive(native) = "vhd.cmxa"

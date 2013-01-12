@@ -1,5 +1,0 @@
-version = "@VERSION@"
-description = "Log - logging library"
-requires = "unix,stdext"
-archive(byte) = "log.cma"
-archive(native) = "log.cmxa"

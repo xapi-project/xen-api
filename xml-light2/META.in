@@ -1,5 +1,0 @@
-version = "@VERSION@"
-description = "Xml-light2 - Xml-light replacement"
-requires = "stdext,xmlm"
-archive(byte) = "xml-light2.cma"
-archive(native) = "xml-light2.cmxa"

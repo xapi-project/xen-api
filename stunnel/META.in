@@ -1,5 +1,0 @@
-version = "@VERSION@"
-description = "Secure Tunneling"
-requires = "uuid,unix,stdext,log"
-archive(byte) = "stunnel.cma"
-archive(native) = "stunnel.cmxa"

@@ -1,5 +1,0 @@
-version = "@VERSION@"
-description = "device-mapper ocaml interface"
-requires = "unix,rpc-light.json"
-archive(byte) = "camldm.cma"
-archive(native) = "camldm.cmxa"

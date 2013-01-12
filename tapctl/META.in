@@ -1,5 +1,0 @@
-version = "@VERSION@"
-description = "tapctl ocaml interface"
-requires = "unix,stdext,rpc-light.json"
-archive(byte) = "tapctl.cma"
-archive(native) = "tapctl.cmxa"

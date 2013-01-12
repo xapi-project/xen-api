@@ -1,8 +1,0 @@
-#!/bin/sh
-
-export REPO=/myrepos/xen-api-libs
-
-set -e 
-make clean
-make uninstall
-make all && make install

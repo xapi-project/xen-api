@@ -1,5 +1,0 @@
-version = "@VERSION@"
-description = "close-and-exec script"
-requires = "unix,stdext"
-archive(byte) = "closeandexec.cma"
-archive(native) = "closeandexec.cmxa"

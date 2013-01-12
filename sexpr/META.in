@@ -1,5 +1,0 @@
-version = "@VERSION@"
-description = "S-Expr marshaller and unmarshaller"
-requires = "stdext"
-archive(byte) = "sexpr.cma"
-archive(native) = "sexpr.cmxa"
