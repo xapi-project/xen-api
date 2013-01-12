@@ -1,0 +1,12 @@
+# OASIS_START
+# DO NOT EDIT (digest: 9fcee6d8726b3131bb62f05283bd4d6d)
+version = "0.1"
+description = "Fork and exec daemon"
+requires = "stdext syslog threads uuidm rpclib rpclib.syntax fd-send-recv"
+archive(byte) = "forkexec.cma"
+archive(byte, plugin) = "forkexec.cma"
+archive(native) = "forkexec.cmxa"
+archive(native, plugin) = "forkexec.cmxs"
+exists_if = "forkexec.cma"
+# OASIS_STOP
+
