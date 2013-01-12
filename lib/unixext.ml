@@ -657,9 +657,8 @@ let wait_for_path path delay timeout =
 
 let _ = Callback.register_exception "unixext.unix_error" (Unix_error (0))
 
-external send_fd : Unix.file_descr -> string -> int -> int -> Unix.msg_flag list -> Unix.file_descr -> int = "stub_unix_send_fd_bytecode" "stub_unix_send_fd"
-external recv_fd : Unix.file_descr -> string -> int -> int -> Unix.msg_flag list -> int * Unix.sockaddr * Unix.file_descr = "stub_unix_recv_fd"
-
+let send_fd = Fd_send_recv.send_fd
+let recv_fd = Fd_send_recv.recv_fd
 
 type statvfs_t = {
 	f_bsize : int64;
