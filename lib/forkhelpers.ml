@@ -27,7 +27,7 @@ open Pervasiveext
 
 type pidty = (Unix.file_descr * int) (* The forking executioner has been used, therefore we need to tell *it* to waitpid *)
 
-let string_of_pidty (fd, pid) = Printf.sprintf "(FEFork (%d,%d))" (Unixext.int_of_file_descr fd) pid
+let string_of_pidty (fd, pid) = Printf.sprintf "(FEFork (%d,%d))" (Fd_send_recv.int_of_fd fd) pid
 
 exception Subprocess_failed of int
 exception Subprocess_killed of int

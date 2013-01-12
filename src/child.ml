@@ -25,7 +25,7 @@ open Fe_debug
 let handle_fd_sock fd_sock state =
   try
     let (newfd,buffer) = Fecomms.receive_named_fd fd_sock in
-    if Unixext.int_of_file_descr newfd = -1 then begin
+    if Fd_send_recv.int_of_fd newfd = -1 then begin
       debug "Failed to receive an fd associated with the message '%s'" buffer;
       failwith "Didn't get an fd"
     end;
@@ -33,8 +33,8 @@ let handle_fd_sock fd_sock state =
     let fd = begin 
       match dest_fd with 
 	| Some d -> 
-	    debug "Received fd named: %s - duping to %d (from %d)" buffer d (Unixext.int_of_file_descr newfd);
-	    let d = Unixext.file_descr_of_int d in
+	    debug "Received fd named: %s - duping to %d (from %d)" buffer d (Fd_send_recv.int_of_fd newfd);
+	    let d = Fd_send_recv.fd_of_int d in
 	    begin
 	      if d = newfd
 	      then ()
@@ -45,7 +45,7 @@ let handle_fd_sock fd_sock state =
 	    end;
 	    d
 	| None -> 
-	    debug "Received fd named: %s (%d)" buffer (Unixext.int_of_file_descr newfd);
+	    debug "Received fd named: %s (%d)" buffer (Fd_send_recv.int_of_fd newfd);
 	    newfd
     end in
     {state with ids_received = (buffer,fd) :: state.ids_received}
@@ -123,7 +123,7 @@ let run state comms_sock fd_sock fd_sock_path =
       try 
 	let (id_received,fd) = List.find (fun (id_received,fd) -> String.endswith id_received arg) state.ids_received in
 	let stem = String.sub arg 0 (String.length arg - String.length id_received) in
-	stem ^ (string_of_int (Unixext.int_of_file_descr fd));
+	stem ^ (string_of_int (Fd_send_recv.int_of_fd fd));
       with _ -> arg) state.cmdargs in
 
     debug "Args after replacement = [%s]" (String.concat ";" args);    
@@ -132,7 +132,7 @@ let run state comms_sock fd_sock fd_sock_path =
     let fds = List.map snd state.ids_received in
     
     debug "I've received the following fds: [%s]\n" 
-      (String.concat ";" (List.map (fun fd -> string_of_int (Unixext.int_of_file_descr fd)) fds));
+      (String.concat ";" (List.map (fun fd -> string_of_int (Fd_send_recv.int_of_fd fd)) fds));
 
     let in_childlogging = ref None in
     let out_childlogging = ref None in
