@@ -79,3 +79,5 @@
 <cli/*.ml{,i}>: pkg_fd-send-recv
 <cli/fe_cli.{native,byte}>: custom
 # OASIS_STOP
+<lib/fe.ml>: syntax_camlp4o, pkg_rpclib.syntax
+
