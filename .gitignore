@@ -10,9 +10,11 @@
 *.annot
 setup.bin
 setup.data
+setup.log
 *~
 *.rej
 *.orig
 *.spit
 *.spot
+*.native
 _build
