@@ -48,9 +48,13 @@ Once a valid session_id has been acquired, a client may issue
   1. HTTP GET
   2. HTTP PUT
   3. HTTP POST
+
 requests to the URI:
+
     /services/plugin/<well known service name>
+
 with either the following key/value pair in a query parameter or set as a cookie:
+
     session_id=<session_id>
 
 The following HTTP error codes may be returned by the XS management software:
