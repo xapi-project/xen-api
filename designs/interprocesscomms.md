@@ -54,6 +54,8 @@ Remote Procedure Calls, based on how OpenStack uses AMQP. Regular link-level
 messages will serve as a source of basic liveness information which can
 be consumed by any interested health and liveness monitoring infrastructure.
 
+![Message switch used to store and forward messages](switch.svg)
+
 Services on an XCP host will be identified only by their well-known message
 queue name. When a service moves between domains (e.g. through a reconfiguration
 or as the result of a domain reboot), no client will observe the name changing.
