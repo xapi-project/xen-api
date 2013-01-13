@@ -361,7 +361,24 @@ list. Each interface will have a (possibly different) stakeholder list.
 The OCaml generated code
 ------------------------
 
-Consider a xenops API
+Types in the IDL are mapped onto OCaml types as follows:
+
+    IDL type       OCaml projection
+    --------       ----------------
+    Basic Int64    int64
+    Basic String   string
+    Basic Double   float
+    Basic Boolean  bool
+    Struct         record
+    Variant        Closed (non-polymorphic) variant
+    Array          list
+    Dict           ('a * 'b) list
+    Unit           unit
+    Option         'a option
+    Pair(a, b)     ('a * 'b)
+    Abstract t     type t
+
+To understand the mapping of an RPC, consider the xenops API
     val VM.start: id -> unit
 
 There will be records for the arguments and the results, as follows:
@@ -484,72 +501,72 @@ The python generated code
 Versioning
 package layout
 
-class Vm_server_dispatcher:
-    """Types used to represent a VM configuration"""
-    def __init__(self, impl):
-        """impl is a proxy object whose methods contain the implementation"""
-        self._impl = impl
-    def start(self, args):
-        """type-check inputs, call implementation, type-check outputs and return"""
-        if type(args) <> type({}):
-            raise (UnmarshalException('arguments', 'dict', repr(args)))
-        if not(args.has_key('dbg')):
-            raise UnmarshalException('argument missing', 'dbg', '')
-        dbg = args["dbg"]
-        if type(dbg) <> type(""):
-            raise (TypeError("string", repr(dbg)))
-        if not(args.has_key('id')):
-            raise UnmarshalException('argument missing', 'id', '')
-        id = args["id"]
-        if type(id) <> type(""):
-            raise (TypeError("string", repr(id)))
-        results = self._impl.start(dbg, id)
-        if type(results) <> type(""):
-            raise (TypeError("string", repr(results)))
-        return results
-    def _dispatch(self, method, params):
-        """type check inputs, call implementation, type check outputs and return"""
-        args = params[0]
-        elif method == "Vm.start":
-            return success(self.start(args))
+	class Vm_server_dispatcher:
+		"""Types used to represent a VM configuration"""
+		def __init__(self, impl):
+			"""impl is a proxy object whose methods contain the implementation"""
+			self._impl = impl
+		def start(self, args):
+			"""type-check inputs, call implementation, type-check outputs and return"""
+			if type(args) <> type({}):
+				raise (UnmarshalException('arguments', 'dict', repr(args)))
+			if not(args.has_key('dbg')):
+				raise UnmarshalException('argument missing', 'dbg', '')
+			dbg = args["dbg"]
+			if type(dbg) <> type(""):
+				raise (TypeError("string", repr(dbg)))
+			if not(args.has_key('id')):
+				raise UnmarshalException('argument missing', 'id', '')
+			id = args["id"]
+			if type(id) <> type(""):
+				raise (TypeError("string", repr(id)))
+			results = self._impl.start(dbg, id)
+			if type(results) <> type(""):
+				raise (TypeError("string", repr(results)))
+			return results
+		def _dispatch(self, method, params):
+			"""type check inputs, call implementation, type check outputs and return"""
+			args = params[0]
+			elif method == "Vm.start":
+				return success(self.start(args))
 
-class Vm_skeleton:
-    """Types used to represent a VM configuration"""
-    def __init__(self):
-        pass
-    def start(self, dbg, id):
-        """Types used to represent a VM configuration"""
-        raise Unimplemented("Vm.start")
+	class Vm_skeleton:
+		"""Types used to represent a VM configuration"""
+		def __init__(self):
+			pass
+		def start(self, dbg, id):
+			"""Types used to represent a VM configuration"""
+			raise Unimplemented("Vm.start")
 
-class Vm_test:
-    """Types used to represent a VM configuration"""
-    def __init__(self):
-        pass
-    def start(self, dbg, id):
-        """Types used to represent a VM configuration"""
-        result = {}
-        result["task"] = "string"
-        return result
+	class Vm_test:
+		"""Types used to represent a VM configuration"""
+		def __init__(self):
+			pass
+		def start(self, dbg, id):
+			"""Types used to represent a VM configuration"""
+			result = {}
+			result["task"] = "string"
+			return result
 
-class domains_server_dispatcher:
-    """Demux calls to individual interface server_dispatchers"""
-    def __init__(self, Vm = None):
-        self.Vm = Vm
-    def _dispatch(self, method, params):
-        try:
-            log("method = %s params = %s" % (method, repr(params)))
-            if method.startswith("Vm") and self.Vm:
-                return self.Vm._dispatch(method, params)
-        except Exception, e:
-            log("caught %s" % e)
-            traceback.print_exc()
-            try:
-                # A declared (expected) failure will have a .failure() method
-                log("returning %s" % (repr(e.failure())))
-                return e.failure()
-            except:
-                # An undeclared (unexpected) failure is wrapped as InternalError
-                return (InternalError(str(e)).failure())
+	class domains_server_dispatcher:
+		"""Demux calls to individual interface server_dispatchers"""
+		def __init__(self, Vm = None):
+			self.Vm = Vm
+		def _dispatch(self, method, params):
+			try:
+				log("method = %s params = %s" % (method, repr(params)))
+				if method.startswith("Vm") and self.Vm:
+					return self.Vm._dispatch(method, params)
+			except Exception, e:
+				log("caught %s" % e)
+				traceback.print_exc()
+				try:
+					# A declared (expected) failure will have a .failure() method
+					log("returning %s" % (repr(e.failure())))
+					return e.failure()
+				except:
+					# An undeclared (unexpected) failure is wrapped as InternalError
+					return (InternalError(str(e)).failure())
 
 The RPC pattern
 ---------------
