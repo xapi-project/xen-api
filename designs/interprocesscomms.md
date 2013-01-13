@@ -498,8 +498,37 @@ is one subpackage per interface.
 
 The python generated code
 -------------------------
+
+Values of IDL types are mapped onto python values as follows:
+
+    IDL type       Example python value
+    --------       --------------------
+    Basic Int64    0L
+    Basic String   "hello"
+    Basic Double   0.0
+    Basic Boolean  False
+    Struct         { "key": "value" }
+    Variant        <xcp.Running instance at 0xfoo>
+    Array          list
+    Dict           { "key": "value" }
+    Unit           None
+    Option         None
+    Pair(a, b)     (1, 2)
+    Abstract t     <xcp.Channel instance at 0xfoo>
+
 Versioning
 package layout
+
+Since the IDL contains type information, generated python code will check these
+types during marshalling and unmarshalling. If an invalid type is encountered then
+a run-time type exception will be raised.
+
+To understand the mapping of an RPC, consider the xenops API
+    val VM.start: id -> unit
+
+We will generate a server-side proxy object which will type-check and unmarshal
+the request, call an implementation object and then type-check and marshal the
+response:
 
 	class Vm_server_dispatcher:
 		"""Types used to represent a VM configuration"""
@@ -530,6 +559,11 @@ package layout
 			elif method == "Vm.start":
 				return success(self.start(args))
 
+To make it easy to create new server implementations, we will create example
+server skeletons, where each method raises an Unimplemented exception. New
+applications may choose to subclass this skeleton and selectively override
+methods:
+
 	class Vm_skeleton:
 		"""Types used to represent a VM configuration"""
 		def __init__(self):
@@ -537,6 +571,10 @@ package layout
 		def start(self, dbg, id):
 			"""Types used to represent a VM configuration"""
 			raise Unimplemented("Vm.start")
+
+To facilitate very simple component testing, we will generate an example
+implementation which returns a successful response (i.e. a non-exceptional
+value is returned:)
 
 	class Vm_test:
 		"""Types used to represent a VM configuration"""
@@ -547,6 +585,12 @@ package layout
 			result = {}
 			result["task"] = "string"
 			return result
+
+To interface directly with a HTTP server's main loop, we will generate
+a master dispatcher class, which looks up the class and method name by
+inspecting the name given to the method on the wire. This class will
+also catch and log any exception, paying particular attention to any
+undeclared exceptions, converting them into InternalErrors:
 
 	class domains_server_dispatcher:
 		"""Demux calls to individual interface server_dispatchers"""
