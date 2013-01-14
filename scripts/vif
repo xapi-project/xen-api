@@ -166,13 +166,13 @@ add_to_bridge()
         ;;
     esac
 
-    local setup_vif_rules=$(xenstore-read "${PRIVATE}/other-config/setup-vif-rules" 2>/dev/null)
+    local setup_vif_rules=$(xenstore-read "${PRIVATE}/setup-vif-rules" 2>/dev/null)
     $setup_vif_rules $TYPE $DOMID $DEVID filter         || logger -t scripts-vif "Failed to setup-vif-rules $TYPE $DOMID $DEVID filter"
 }
 
 remove_from_bridge()
 {
-    local setup_vif_rules=$(xenstore-read "${PRIVATE}/other-config/setup-vif-rules" 2>/dev/null)
+    local setup_vif_rules=$(xenstore-read "${PRIVATE}/setup-vif-rules" 2>/dev/null)
     $setup_vif_rules $TYPE $DOMID $DEVID clear          || logger -t scripts-vif "Failed to setup-vif-rules $TYPE $DOMID $DEVID clear"
 
     case $NETWORK_MODE in
@@ -221,7 +221,7 @@ call_hook_script() {
     fi
 }
 
-NETWORK_MODE=$(cat @ETCDIR@/network.conf)
+
 ACTION=$1
 
 # Older versions of XenServer do not pass in the type as an argument
@@ -235,15 +235,6 @@ else
 # like: type_if=vif. In this case, we here set TYPE to 'vif'.
     TYPE=`echo $2 | cut -d= -f2`
 fi
-
-case $NETWORK_MODE in
-    bridge|openvswitch) ;;
-    vswitch) NETWORK_MODE=openvswitch ;;
-    *)
-        logger -t scripts-vif "Unknown network mode $NETWORK_MODE"
-        exit 1
-        ;;
-esac
 
 case ${TYPE} in
     vif)
@@ -273,6 +264,17 @@ HOTPLUG=/xapi/${DOMID}/hotplug/vif/${DEVID}
 PRIVATE=/xapi/${DOMID}/private/vif/${DEVID}
 HOTPLUG_STATUS="${XENBUS_PATH}/hotplug-status"
 HOTPLUG_ERROR="${XENBUS_PATH}/hotplug-error"
+
+NETWORK_MODE=$(xenstore-read "${PRIVATE}/network-backend" 2>/dev/null)
+
+case $NETWORK_MODE in
+    bridge|openvswitch) ;;
+    vswitch) NETWORK_MODE=openvswitch ;;
+    *)
+        logger -t scripts-vif "Unknown network mode $NETWORK_MODE"
+        exit 1
+        ;;
+esac
 
 logger -t scripts-vif "Called as \"$@\" domid:$DOMID devid:$DEVID mode:$NETWORK_MODE"
 case "${ACTION}" in

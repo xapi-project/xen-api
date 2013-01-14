@@ -1763,6 +1763,19 @@ module VBD = struct
 			)
 end
 
+let strip x =
+	if x.[String.length x - 1] = '\n'
+	then String.sub x 0 (String.length x - 1)
+	else x
+let get_network_backend () =
+	try
+		Unixext.string_of_file !Path.network_conf
+	|>  strip
+	|>  Re_str.split (Re_str.regexp " ")
+	|>  List.hd
+	with _ ->
+		failwith (Printf.sprintf "Failed to read network backend from: %s" !Path.network_conf)
+
 module VIF = struct
 	open Vif
 
@@ -1827,6 +1840,7 @@ module VIF = struct
 				let id = _device_id Device_common.Vif, id_of vif in
 
 				let setup_vif_rules = [ "setup-vif-rules", !Path.setup_vif_rules ] in
+				let network_backend = [ "network-backend", get_network_backend () ] in
 				let locking_mode = xenstore_of_locking_mode vif.locking_mode in
 
 				Xenops_task.with_subtask task (Printf.sprintf "Vif.add %s" (id_of vif))
@@ -1839,7 +1853,7 @@ module VIF = struct
 								~mac:vif.mac ~carrier:vif.carrier ~mtu:vif.mtu
 								~rate:vif.rate ~backend_domid
 								~other_config:vif.other_config
-								~extra_private_keys:(id :: vif.extra_private_keys @ locking_mode @ setup_vif_rules)
+								~extra_private_keys:(id :: vif.extra_private_keys @ locking_mode @ setup_vif_rules @ network_backend)
 								frontend_domid in
 						let device = create task frontend_domid in
 						let disconnect_path, flag = disconnect_flag device vif.locking_mode in
@@ -2288,11 +2302,7 @@ let look_for_xen () =
 			error "Please check your bootloader configuration, reboot to xen and try again.";
 			exit 1;
 		end;
-		let hypervisor = Unixext.string_of_file _sys_hypervisor_type in
-		let hypervisor =
-			if hypervisor.[String.length hypervisor - 1] = '\n'
-			then String.sub hypervisor 0 (String.length hypervisor - 1)
-			else hypervisor in
+		let hypervisor = strip (Unixext.string_of_file _sys_hypervisor_type) in
 		match hypervisor with
 		| "xen" ->
 			debug "You are running xen -- this is good.";
