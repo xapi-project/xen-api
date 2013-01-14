@@ -734,8 +734,9 @@ let vbd_list x =
 		) vbds in
 	List.iter print_endline (header :: lines)
 
-let console_list x =
+let console_list copts x =
 	let _, s = find_by_name x in
+	Printf.fprintf stderr "json=[%s]\n%!" (Jsonrpc.to_string (Vm.rpc_of_state s));
 	let line protocol port =
 		Printf.sprintf "%-10s %-6s" protocol port in
 	let header = line "protocol" "port" in
@@ -747,6 +748,134 @@ let console_list x =
 			line protocol (string_of_int c.Vm.port)
 		) s.Vm.consoles in
 	List.iter print_endline (header :: lines)
+
+let raw_console_proxy port =
+	let long_connection_retry_timeout = 5. in
+	let with_raw_mode f =
+		(* Remember the current terminal state so we can restore it *)
+		let tc = Unix.tcgetattr Unix.stdin in
+		(* Switch into a raw mode, passing through stuff like Control + C *)
+		let tc' = {
+			tc with
+				Unix.c_ignbrk = false;
+				Unix.c_brkint = false;
+				Unix.c_parmrk = false;
+				Unix.c_istrip = false;
+				Unix.c_inlcr = false;
+				Unix.c_igncr = false;
+				Unix.c_icrnl = false;
+				Unix.c_ixon = false;
+				Unix.c_opost = false;
+				Unix.c_echo = false;
+				Unix.c_echonl = false;
+				Unix.c_icanon = false;
+				Unix.c_isig = false;
+				(* IEXTEN? *)
+				Unix.c_csize = 8;
+				Unix.c_parenb = false;
+				Unix.c_vmin = 0;
+				Unix.c_vtime = 0;
+		} in
+		Unix.tcsetattr Unix.stdin Unix.TCSANOW tc';
+		finally f (fun () -> Unix.tcsetattr Unix.stdin Unix.TCSANOW tc) in
+
+	let proxy fd =
+		(* The releatively complex design here helps to buffer input/output
+		   when the underlying connection temporarily breaks, hence provides
+		   seemingly continous connection. *)
+		let block = 65536 in
+		let buf_local = String.make block '\000' in
+		let buf_local_end = ref 0 in
+		let buf_local_start = ref 0 in
+		let buf_remote = String.make block '\000' in
+		let buf_remote_end = ref 0 in
+		let buf_remote_start = ref 0 in
+		let final = ref false in
+
+		let finished = ref false in
+		while not !finished do
+			if !buf_local_start <> !buf_local_end then begin
+			let b = Unix.write Unix.stdout buf_local
+				!buf_local_start (!buf_local_end - !buf_local_start)
+			in
+			buf_local_start := !buf_local_start + b;
+			if !buf_local_start = !buf_local_end then
+				(buf_local_start := 0; buf_local_end := 0)
+			end
+			else if !buf_remote_start <> !buf_remote_end then begin
+				let b = Unix.write fd buf_remote !buf_remote_start
+					(!buf_remote_end - !buf_remote_start) in
+				buf_remote_start := !buf_remote_start + b;
+				if !buf_remote_start = !buf_remote_end then
+					(buf_remote_start := 0; buf_remote_end := 0)
+			end
+			else if !final then finished := true
+			else begin
+				let r, _, _ =
+					Unix.select [Unix.stdin; fd] [] [] (-1.) in
+				if List.mem Unix.stdin r then begin
+					let b = Unix.read Unix.stdin buf_remote
+						!buf_remote_end (block - !buf_remote_end) in
+					let i = ref !buf_remote_end in
+					while !i < !buf_remote_end + b && Char.code buf_remote.[!i] <> 0x1d do incr i; done;
+					if !i < !buf_remote_end + b then final := true;
+					buf_remote_end := !i
+				end;
+				if List.mem fd r then begin
+					let b = Unix.read fd buf_local
+						!buf_local_end (block - !buf_local_end) in
+					buf_local_end := !buf_local_end + b
+				end
+			end
+		done in
+	let delay = ref 0.1 in
+	let rec keep_connection () =
+		try
+			let s = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
+			finally
+				(fun () ->
+					let addr = Unix.ADDR_INET(Unix.inet_addr_of_string "127.0.0.1", port) in
+					Unix.connect s addr;
+					delay := 0.1;
+					proxy s
+				) (fun () -> Unix.close s)
+		with
+		| Unix.Unix_error (_, _, _) when !delay <= long_connection_retry_timeout ->
+			ignore (Unix.select [] [] [] !delay);
+			delay := !delay *. 2.;
+			keep_connection ()
+		| e ->
+			Printf.fprintf stderr "Console error: %s\n%!" (Printexc.to_string e) in
+	with_raw_mode keep_connection
+
+let xenconsoles = [
+	"/usr/lib/xen-4.1/bin/xenconsole";
+	"/usr/lib/xen-4.2/bin/xenconsole";
+]
+
+let console_connect copts x =
+	let _, s = find_by_name x in
+	(* Find a VT100 console *)
+	let console = List.fold_left
+		(fun best c -> match best, c with
+		| Some x, _ -> Some x
+		| None, { Vm.protocol = Vm.Vt100; port = p } -> Some p
+		| None, _ ->  None
+		) None s.Vm.consoles in
+	match console with
+	| None ->
+		Printf.fprintf stderr "No vncterm is running: looking for xenconsole\n%!";
+		List.iter
+			(fun exe ->
+				if Sys.file_exists exe
+				then Unix.execv exe [| exe; string_of_int (List.hd s.Vm.domids) |]
+			) xenconsoles;
+		Printf.fprintf stderr "Failed to find a text console.\n%!";
+		exit 1
+	| Some port ->
+		raw_console_proxy port
+
+let console_connect copts x = diagnose_error (need_vm (console_connect copts) x)
 
 let pci_add x idx bdf =
 	let vm, _ = find_by_name x in
@@ -904,8 +1033,6 @@ let old_main () =
 			migrate id url |> task
 		| [ "vbd-list"; id ] ->
 			vbd_list id
-		| [ "console-list"; id ] ->
-			console_list id
 		| [ "pci-add"; id; idx; bdf ] ->
 			pci_add id idx bdf
 		| [ "pci-remove"; id; idx] ->

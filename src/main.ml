@@ -113,6 +113,21 @@ let start_cmd =
   Term.(ret (pure Xn.start $ common_options_t $ paused $ vm)),
   Term.info "start" ~sdocs:_common_options ~doc ~man
 
+let console_cmd =
+  let vm =
+    let doc = "The name or UUID of the VM whose console to be accessed." in
+    Arg.(value & pos 0 (some string) None & info [] ~docv:"VM" ~doc) in
+  let doc = "attach to the console of a VM" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Attach to the console of a VM.";
+    `S "ERRORS";
+    `P "Something about memory.";
+    `P "Something about disks.";
+    `P "Something about the current power state." ] @ help in
+  Term.(ret (pure Xn.console_connect $ common_options_t $ vm)),
+  Term.info "console" ~sdocs:_common_options ~doc ~man
+
 let shutdown_cmd =
   let vm = vm_arg "shutdown and powered off" in
   let timeout =
@@ -256,7 +271,7 @@ let default_cmd =
        
 let cmds = [list_cmd; add_cmd; remove_cmd; start_cmd; shutdown_cmd; reboot_cmd;
             suspend_cmd; resume_cmd; pause_cmd; unpause_cmd;
-            import_cmd; export_cmd ]
+            import_cmd; export_cmd; console_cmd ]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
