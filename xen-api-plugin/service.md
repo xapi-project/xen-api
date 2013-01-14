@@ -57,15 +57,15 @@ with either the following key/value pair in a query parameter or set as a cookie
 
     session_id=<session_id>
 
-The following HTTP error codes may be returned by the XS management software:
-  * if the service is not running then an HTTP 404 will be returned
-  * if the session_id is not present or the session not recognised, then an HTTP 403
-    forbidden will be returned
-  * if the service is actually running on a different IP address (in a configuration
-    where the XenServer has multiple management IP addresses), an HTTP 302 redirect
-    will be issued. Clients are expected to follow the redirect.
+The following HTTP error codes will be returned by the XS management software (in
+priority order):
+  * HTTP 403 forbidden: if a valid session_id is not found
+  * HTTP 404 not found: if the session is valid but the named service isn't running
+  * HTTP 302 redirect: if the service is running on a different IP/URI. Clients
+    are expected to follow the redirect.
 
-The custom service may return any valid HTTP response, whether a success or failure.
+Once the request has been properly authenticated and forwarded, the custom service
+may return any valid HTTP response, whether a success or failure.
 
 Example code
 ------------
