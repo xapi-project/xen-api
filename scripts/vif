@@ -28,8 +28,6 @@ IP="/sbin/ip"
 
 vsctl="/usr/bin/ovs-vsctl"
 
-setup_vif_rules="@LIBEXECDIR@/setup-vif-rules"
-
 handle_promiscuous()
 {
     # other-config keys are optional
@@ -167,12 +165,14 @@ add_to_bridge()
         $vsctl --timeout=30 -- --if-exists del-port $dev -- add-port $bridge $dev $vif_details
         ;;
     esac
-        
+
+    local setup_vif_rules=$(xenstore-read "${PRIVATE}/other-config/setup-vif-rules" 2>/dev/null)
     $setup_vif_rules $TYPE $DOMID $DEVID filter         || logger -t scripts-vif "Failed to setup-vif-rules $TYPE $DOMID $DEVID filter"
 }
 
 remove_from_bridge()
 {
+    local setup_vif_rules=$(xenstore-read "${PRIVATE}/other-config/setup-vif-rules" 2>/dev/null)
     $setup_vif_rules $TYPE $DOMID $DEVID clear          || logger -t scripts-vif "Failed to setup-vif-rules $TYPE $DOMID $DEVID clear"
 
     case $NETWORK_MODE in

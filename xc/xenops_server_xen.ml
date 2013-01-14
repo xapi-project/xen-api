@@ -1826,6 +1826,7 @@ module VIF = struct
 				(* Remember the VIF id with the device *)
 				let id = _device_id Device_common.Vif, id_of vif in
 
+				let setup_vif_rules = [ "setup-vif-rules", !Path.setup_vif_rules ] in
 				let locking_mode = xenstore_of_locking_mode vif.locking_mode in
 
 				Xenops_task.with_subtask task (Printf.sprintf "Vif.add %s" (id_of vif))
@@ -1838,7 +1839,7 @@ module VIF = struct
 								~mac:vif.mac ~carrier:vif.carrier ~mtu:vif.mtu
 								~rate:vif.rate ~backend_domid
 								~other_config:vif.other_config
-								~extra_private_keys:(id :: vif.extra_private_keys @ locking_mode)
+								~extra_private_keys:(id :: vif.extra_private_keys @ locking_mode @ setup_vif_rules)
 								frontend_domid in
 						let device = create task frontend_domid in
 						let disconnect_path, flag = disconnect_flag device vif.locking_mode in
