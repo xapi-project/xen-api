@@ -632,15 +632,6 @@ let import copts metadata filename () =
 
 let import copts metadata filename = diagnose_error (import copts metadata filename)
 
-let start copts paused x =
-	let open Vm in
-	let vm, _ = find_by_name x in
-	Client.VM.start dbg vm.id |> wait_for_task dbg |> success_task ignore_task;
-	if not paused
-	then Client.VM.unpause dbg vm.id |> wait_for_task dbg |> success_task ignore_task
-
-let start copts paused x = diagnose_error (need_vm (start copts paused) x)
-
 let shutdown copts timeout x =
 	let open Vm in
 	let vm, _ = find_by_name x in
@@ -853,7 +844,7 @@ let xenconsoles = [
 	"/usr/lib/xen-4.2/bin/xenconsole";
 ]
 
-let console_connect copts x =
+let console_connect' copts x =
 	let _, s = find_by_name x in
 	(* Find a VT100 console *)
 	let console = List.fold_left
@@ -875,7 +866,19 @@ let console_connect copts x =
 	| Some port ->
 		raw_console_proxy port
 
-let console_connect copts x = diagnose_error (need_vm (console_connect copts) x)
+let console_connect copts x = diagnose_error (need_vm (console_connect' copts) x)
+
+let start copts paused console x =
+	let open Vm in
+	let vm, _ = find_by_name x in
+	Client.VM.start dbg vm.id |> wait_for_task dbg |> success_task ignore_task;
+	if not paused
+	then Client.VM.unpause dbg vm.id |> wait_for_task dbg |> success_task ignore_task;
+	if console
+	then console_connect' copts x
+
+let start copts paused console x = diagnose_error (need_vm (start copts paused console) x)
+
 
 let pci_add x idx bdf =
 	let vm, _ = find_by_name x in

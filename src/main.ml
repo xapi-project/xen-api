@@ -97,6 +97,9 @@ let start_cmd =
   let paused =
     let doc = "Leave the VM in a Paused state." in
     Arg.(value & flag & info [ "paused" ] ~doc) in
+  let console =
+    let doc = "Connect to the VM's console." in
+    Arg.(value & flag & info [ "console" ] ~doc) in
   let doc = "start a VM" in
   let man = [
     `S "DESCRIPTION";
@@ -110,7 +113,7 @@ let start_cmd =
     `P "Something about memory.";
     `P "Something about disks.";
     `P "Something about the current power state." ] @ help in
-  Term.(ret (pure Xn.start $ common_options_t $ paused $ vm)),
+  Term.(ret (pure Xn.start $ common_options_t $ paused $ console $ vm)),
   Term.info "start" ~sdocs:_common_options ~doc ~man
 
 let console_cmd =
