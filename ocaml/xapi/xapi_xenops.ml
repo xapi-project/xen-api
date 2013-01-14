@@ -233,7 +233,7 @@ module MD = struct
 			mode = if vbd.API.vBD_mode = `RO then ReadOnly else ReadWrite;
 			backend = disk_of_vdi ~__context ~self:vbd.API.vBD_VDI;
 			ty = if vbd.API.vBD_type = `Disk then Disk else CDROM;
-			unpluggable = true;
+			unpluggable = vbd.API.vBD_unpluggable;
 			extra_backend_keys = [];
 			extra_private_keys = [];
 			qos = qos ty;
