@@ -249,8 +249,8 @@ and create_domain_zero_default_memory_constraints host_info : Vm_memory_constrai
 		{
 			static_min = static_min;
 			static_max = vm.Vm.memory_static_max;
-			dynamic_min = vm.Vm.memory_dynamic_min;
-			dynamic_max = vm.Vm.memory_dynamic_max;
+			dynamic_min = state.Vm.memory_target;
+			dynamic_max = state.Vm.memory_target;
 			target = state.Vm.memory_target;
 		}
 	with _ -> 
