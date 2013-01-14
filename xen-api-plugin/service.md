@@ -4,8 +4,10 @@ API for contacting custom services
 Summary
 -------
 
-This API allows you to interact securely with a custom service that has been
-installed in a XenServer/XCP system.
+This API allows you to interact securely and efficiently with a custom service
+that has been installed in a XenServer/XCP system. This is an extension of
+the existing "XenAPI plugin" mechanism which achieves lower overhead, by
+avoiding calling fork() and exec() per request.
 
 All requests to communicate with the custom service are authenticated by
 the XenServer/XCP host before the request is forwarded.
