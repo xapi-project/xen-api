@@ -567,13 +567,35 @@ let on_enable config_params =
 	let _user = List.assoc "user" config_params in
 	let pass = List.assoc "pass" config_params in
 	let (ou_conf,ou_params) = if (List.mem_assoc "ou" config_params) then let ou=(List.assoc "ou" config_params) in ([("ou",ou)],["--ou";ou]) else ([],[]) in
+	(* Adding the config parameter "config:disable_modules=X,Y,Z"
+	 * will disable the modules X, Y and Z in domainjoin-cli. *)
+	let disabled_modules =
+		try
+			match List.assoc "disable_modules" config_params with
+			| "" -> []
+			| disabled_modules_string ->
+				Stringext.String.split ',' disabled_modules_string
+		with Not_found ->
+			[]
+	in
+	let disabled_module_params =
+		List.concat
+			(List.map
+				(fun disabled_module -> ["--disable"; disabled_module])
+				disabled_modules)
+	in
 	
 	(* we need to make sure that the user passed to domaijoin-cli command is in the UPN syntax (user@domain.com) *)
 	let user = convert_nt_to_upn_username _user in
 	
 	(* execute the likewise domain join cmd *)
 	try
-		let (_: (string*string) list) = likewise_common ~stdin_string:pass (["--minimal";"join"]@ou_params@["--ignore-pam";"--ignore-ssh";domain;user])
+		let (_: (string*string) list) =
+			likewise_common
+				~stdin_string:pass
+				(["--minimal";"join"]
+					@ ou_params @ disabled_module_params @
+					["--ignore-pam";"--ignore-ssh";domain;user])
 			"/usr/bin/domainjoin-cli" in
 
 		let max_tries = 60 in (* tests 60 x 5.0 seconds = 300 seconds = 5minutes trying *)
