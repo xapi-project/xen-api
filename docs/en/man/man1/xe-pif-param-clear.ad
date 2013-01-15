@@ -1,7 +1,7 @@
 XE(1)
 =======
 :doctype: manpage
-:man source:   xe 
+:man source:   xe pif-param-clear
 :man version:  {1}
 :man manual:   xe pif-param-clear manual
 
@@ -11,7 +11,6 @@ xe-pif-param-clear - Clears a specific writable parameter for a PIF.
 
 SYNOPSIS
 --------
-
 *xe pif-param-clear* uuid=<PIF UUID> param-name=<parameter> 
 
 
@@ -38,14 +37,15 @@ SEE ALSO
 --------
 *xe-pif-list*(1), *xe-pif-param-list*(1), *xe-pif-param-remove*(1), *xe-pif-param-set*(1), *xe-network-list*(1), *xe-vlan-list*(1)
 
-BUGS
-----
-Send bugs to xen-devel@lists.xen.org, see http://wiki.xen.org/wiki/Reporting_Bugs_against_XCP on how to send bug reports. General questions can be sent to xen-api@lists.xen.org.
-
 AUTHORS
 -------
-Matthew Spah <spahmatthew@xenapiadmin.com>::
+Man Page Author(s)::
+Matthew Spah <spahmatthew@xenapiadmin.com>
 Lisa Nguyen <lisa@xenapiadmin.com>
+
+BUGS
+----
+See http://wiki.xen.org/wiki/Reporting_Bugs_against_XCP on how to send bug reports, send bugs and general questions to xen-api@lists.xen.org.
 
 COPYRIGHT
 ---------

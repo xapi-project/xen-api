@@ -1,51 +1,59 @@
 XE(1)
 =======
 :doctype: manpage
-:man source:   xe pif-param-remove
+:man source:   xe network-create 
 :man version:  {1}
-:man manual:   xe pif-param-remove manual
+:man manual:   xe network-create manual
 
 NAME
 ----
-xe-pif-param-remove - Removes a writable parameter key for a PIF.
+xe-network-create - Create a network
 
 SYNOPSIS
 --------
-*xe pif-param-remove* uuid=<PIF UUID> param-name=<Parameter> param-key=<Parameter Key>
+
+*xe network-create* name-label=<network name> [ MTU=<MTU Size> ] [ name-description=<description> ] 
+
 
 DESCRIPTION
 -----------
 
-*xe pif-param-remove* removes a set or map writable parameter key assigned to a PIF interface. 
-
+*xe network-create* will create an internal network. Name-labels and name-descriptions containing spaces need to be enclosed in quotes.  The resulting network UUID is returned. 
 
 REQUIRED PARAMETERS
 -------------------
 
-*uuid*::
-	UUID of PIF interface - Use *xe pif-list* to obtain PIF interface UUIDs.
+*name-label*::
+	Name of the network. 
 
-*param-name*::
-	Parameter that contains parameter keys (e.g. other-config).
+OPTIONAL PARAMETER
+-------------------
 
-*param-key*::
-	Parameter key that will be removed (e.g. ethtool-speed).
+*MTU*::
+	MTU for the network. The MTU default is 1500.
+	
+*name-description*::
+	Description of the network.
 
 EXAMPLES
 --------
 
-To remove the *ethtool-speed* value: ::
-	*xe pif-param-remove* uuid=<PIF UUID> param-name="other-config" param-key="ethtool-speed"
+To create a network with a name description: ::
+	*xe network-create* name-label="Example Network" name-description="This is an Example Network"
+
+To create a network with a custom MTU: ::
+	*xe network-create* name-label="MTU Example Network" MTU="9000"
 
 SEE ALSO
 --------
-*xe-pif-param-set*(1), *xe-pif-param-add*(1), *xe-pif-list*(1), *xe-pif-introduce*(1), *xe-network-list*(1), *xe-vif-list*(1)
+*xe-network-list*(1), *xe-network-param-set*(1), *xe-pool-vlan-create*(1), *xe-network-param-set*(1), *xe-vif-create*(1), *xe-pif-list*(1)
+
 
 AUTHORS
 -------
 Man Page Author(s)::
 Matthew Spah <spahmatthew@xenapiadmin.com>
-Lisa Nguyen <lisa@xenapiadmin.com>
+
 
 BUGS
 ----
@@ -53,7 +61,7 @@ See http://wiki.xen.org/wiki/Reporting_Bugs_against_XCP on how to send bug repor
 
 COPYRIGHT
 ---------
-Copyright \(C) 2013 - Matthew Spah, Lisa Nguyen
+Copyright \(C) 2012 - Matthew Spah
 
 The Howto containing this example, was offered under the following conditions:
 
@@ -63,7 +71,6 @@ met:
 [options="compact"]
 . Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
 . Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-
 
 
 

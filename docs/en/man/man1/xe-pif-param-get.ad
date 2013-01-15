@@ -1,7 +1,7 @@
 XE(1)
 =======
 :doctype: manpage
-:man source:   xe 
+:man source:   xe pif-param-get
 :man version:  {1}
 :man manual:   xe pif-param-get manual
 
@@ -18,7 +18,7 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-*xe pif-param-get* returns parameter or key value for a specific PIF interface.
+*xe pif-param-get* returns a parameter or a key value for a specific PIF interface.
 
 REQUIRED PARAMETERS
 -------------------
@@ -38,6 +38,7 @@ OPTIONAL PARAMETERS
 
 EXAMPLES
 --------
+
 To display the management parameter for a PIF interface: ::
 	*xe pif-param-get* uuid=<PIF UUID> param-name="management"
 
@@ -53,12 +54,13 @@ SEE ALSO
 
 AUTHORS
 -------
-Matthew Spah <spahmatthew@xenapiadmin.com>::
+Man Page Author(s)::
+Matthew Spah <spahmatthew@xenapiadmin.com>
 Lisa Nguyen <lisa@xenapiadmin.com>
 
 BUGS
 ----
-See http://wiki.xen.org/wiki/Reporting_Bugs_against_XCP on how to send bug reports, send bugs to xen-devel@lists.xen.org, General questions can be sent to xen-api@lists.xen.org.
+See http://wiki.xen.org/wiki/Reporting_Bugs_against_XCP on how to send bug reports, send bugs and general questions to xen-api@lists.xen.org.
 
 COPYRIGHT
 ---------
