@@ -536,6 +536,9 @@ let add_async ~xs ~hvm x domid =
 	device
 
 let add_wait (task: Xenops_task.t) ~xs device =
+	if Hotplug.is_udev_disabled ~xs
+	then Hotplug.run_hotplug_script device [ "add" ];
+
 	Hotplug.wait_for_plug task ~xs device;
 	debug "Device.Vbd successfully added; device_is_online = %b" (Hotplug.device_is_online ~xs device);
 	(* 'Normally' we connect devices to other domains, and cannot know whether the

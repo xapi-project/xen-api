@@ -13,6 +13,7 @@
  *)
 
 let vif_script = ref "/usr/lib/xcp/scripts/vif"
+let vbd_script = ref "/etc/xen/scripts/block"
 let pci_flr_script = ref "/usr/lib/xcp/lib/pci-flr"
 let vncterm_wrapper = ref "/usr/lib/xcp/lib/vncterm-wrapper"
 let vncterm = ref "/usr/lib/xcp/lib/vncterm"
@@ -29,6 +30,7 @@ let hvmloader = ref "/usr/lib/xen-4.1/boot/hvmloader"
 open Unix
 
 let essentials = [
+	X_OK, "vbd-script", vbd_script, "path to the vbd backend script";
 	X_OK, "vif-script", vif_script, "path to the vif backend script";
 	X_OK, "vncterm-wrapper", vncterm_wrapper, "path to the vncterm-wrapper script";
 	X_OK, "vncterm", vncterm, "path to the vncterm binary";

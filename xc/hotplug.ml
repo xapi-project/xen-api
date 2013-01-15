@@ -242,3 +242,29 @@ let release (task:Xenops_task.t) ~xs (x: device) =
 		  ) all;
 	xs.Xs.rm path
 
+let disable_udev_path  = "libxl/disable_udev"
+
+let is_udev_disabled ~xs = true (* XXX *)
+
+let run_hotplug_script device args =
+	let kind = string_of_kind device.backend.kind in
+	let script = match device.backend.kind with
+	| Vbd -> !Path.vbd_script
+	| Vif -> !Path.vif_script
+	| _ -> failwith (Printf.sprintf "don't know how to run a hotplug script for: %s" kind) in
+	let env = Array.concat [ Unix.environment (); [|
+		"script=" ^ script;
+		"XENBUS_TYPE=" ^ kind;
+		"XENBUS_PATH=" ^ (Printf.sprintf "backend/%s/%d/%d" kind device.frontend.domid device.frontend.devid);
+		"XENBUS_BASE_PATH=backend"
+	|] ] in
+	try
+		debug "Running hotplug script %s %s" script (String.concat " " args);
+		let stdout, stderr = Forkhelpers.execute_command_get_output ~env script args in
+		debug "Got %s %s" stdout stderr;
+		()
+	with Forkhelpers.Spawn_internal_error(stdout, stderr, Unix.WEXITED n) as e ->
+		error "%s exitted with %d (%s; %s)" script n stdout stderr;
+		raise e
+
+
