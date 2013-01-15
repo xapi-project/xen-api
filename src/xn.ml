@@ -339,7 +339,7 @@ let canonicalise_filename x =
 		Printf.fprintf stderr "Cannot find file: %s\n%!" x;
 		exit 1
 
-let add copts x () = match x with
+let add' copts x () = match x with
 	| None -> `Error (false, "You must supply a path to a VM metadata file.")
 	| Some filename ->
 		let ic = open_in filename in
@@ -454,9 +454,16 @@ let add copts x () = match x with
 				let one x = x |> parse_pci id |> Client.PCI.add dbg in
 				let (_: Pci.id list) = List.map one pcis in
 				Printf.fprintf stdout "%s\n" id;
-				`Ok ()
+				`Ok id
 			)
 			(fun () -> close_in ic)
+
+let add copts x () = match add' copts x () with
+| `Ok id ->
+    Printf.fprintf stdout "%s\n" id;
+    `Ok ()
+| `Error(a, b) -> `Error(a, b)
+
 let add copts x = diagnose_error (add copts x)
 
 let string_of_power_state = function
@@ -868,7 +875,7 @@ let console_connect' copts x =
 
 let console_connect copts x = diagnose_error (need_vm (console_connect' copts) x)
 
-let start copts paused console x =
+let start' copts paused console x =
 	let open Vm in
 	let vm, _ = find_by_name x in
 	Client.VM.start dbg vm.id |> wait_for_task dbg |> success_task ignore_task;
@@ -877,8 +884,15 @@ let start copts paused console x =
 	if console
 	then console_connect' copts x
 
-let start copts paused console x = diagnose_error (need_vm (start copts paused console) x)
+let start copts paused console x = diagnose_error (need_vm (start' copts paused console) x)
 
+let create copts x console () = match add' copts x () with
+| `Ok id ->
+	start' copts false console id;
+	`Ok ()
+| `Error(a, b) -> `Error(a, b)
+
+let create copts console x = diagnose_error(create copts console x)
 
 let pci_add x idx bdf =
 	let vm, _ = find_by_name x in

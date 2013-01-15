@@ -45,6 +45,21 @@ let common_options_t =
     
 (* Commands *)
 
+let create_cmd =
+  let doc = "register a VM and start it immediately" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Registers a new VM with the xenopsd service and starts it immediately.";
+  ] @ help in
+  let filename =
+    let doc = Printf.sprintf "Path to the VM metadata." in
+    Arg.(value & pos 0 (some file) None & info [] ~doc) in
+  let console =
+    let doc = "Connect to the VM's console." in
+    Arg.(value & flag & info [ "console" ] ~doc) in
+  Term.(ret(pure Xn.create $ common_options_t $ filename $ console)),
+  Term.info "create" ~sdocs:_common_options ~doc ~man
+
 let add_cmd =
   let doc = "register a new VM with xenopsd" in
   let man = [
@@ -272,7 +287,7 @@ let default_cmd =
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
   Term.info "xenops-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
        
-let cmds = [list_cmd; add_cmd; remove_cmd; start_cmd; shutdown_cmd; reboot_cmd;
+let cmds = [list_cmd; create_cmd; add_cmd; remove_cmd; start_cmd; shutdown_cmd; reboot_cmd;
             suspend_cmd; resume_cmd; pause_cmd; unpause_cmd;
             import_cmd; export_cmd; console_cmd ]
 
