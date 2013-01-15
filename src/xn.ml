@@ -296,19 +296,19 @@ let print_vm id =
 		| PV { boot = boot } ->
 			begin match boot with
 				| Direct { kernel = k; cmdline = c; ramdisk = i } -> [
-					_builder, quote "linux";
+					_builder, quote "generic";
 					_kernel, quote k;
 					_root, quote c
 				] @ (match i with
 				| None -> []
 				| Some x -> [ _ramdisk, x ])
 				| Indirect { bootloader = b } -> [
-					_builder, quote "linux";
+					_builder, quote "generic";
 					_bootloader, quote b;
 				]
 			end
 		| HVM { boot_order = b } -> [
-			_builder, quote "hvmloader";
+			_builder, quote "hvm";
 			_boot, quote b
 		] in
 	let name = [ _name, quote vm_t.name ] in
@@ -353,7 +353,7 @@ let add copts x () = match x with
 				let any xs = List.fold_left (||) false (List.map mem xs) in
 				let pv =
 					false
-					|| (mem _builder && (find _builder |> string = "linux"))
+					|| (mem _builder && (List.mem (find _builder |> string) [ "linux"; "generic" ]))
 					|| (not(mem _builder) && (any [ _bootloader; _kernel ])) in
 				(* We need to have the disk information ready so we can set the
 				   PV indirect boot info in the VM record *)
