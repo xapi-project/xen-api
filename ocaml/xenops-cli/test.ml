@@ -172,6 +172,7 @@ let create_vm id =
 		acpi = true;
 		serial = None;
 		parallel = None;
+		usb = [ "tablet" ];
 		keymap = Some "en-gb";
 		vnc_ip = Some "hello";
 		pci_emulations = [ "1" ];

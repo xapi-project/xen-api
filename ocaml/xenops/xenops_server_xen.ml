@@ -978,6 +978,7 @@ module VM = struct
 						~video:hvm_info.video ~acpi:hvm_info.acpi
 						?serial:hvm_info.serial ?keymap:hvm_info.keymap
 						?parallel:hvm_info.parallel ?vnc_ip:hvm_info.vnc_ip
+						~usb:hvm_info.usb
 						~pci_emulations:hvm_info.pci_emulations
 						~pci_passthrough:hvm_info.pci_passthrough
 						~boot_order:hvm_info.boot_order ~nics ~disks ())
