@@ -44,6 +44,7 @@ install-scripts:
 	install -D ./scripts/vncterm-wrapper $(DESTDIR)/$(LIBEXECDIR)/vncterm-wrapper
 	install -D ./scripts/qemu-dm-wrapper $(DESTDIR)/$(LIBEXECDIR)/qemu-dm-wrapper
 	install -D ./scripts/setup-vif-rules $(DESTDIR)/$(LIBEXECDIR)/setup-vif-rules
+	install -D ./scripts/network.conf $(DESTDIR)/$(ETCDIR)/xcp/network.conf
 	DESTDIR=$(DESTDIR) SBINDIR=$(SBINDIR) LIBEXECDIR=$(LIBEXECDIR) SCRIPTSDIR=$(SCRIPTSDIR) ./scripts/make-custom-xenopsd.conf
 
 test: setup.bin build
@@ -63,6 +64,7 @@ uninstall:
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/vncterm-wrapper
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/qemu-dm-wrapper
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/setup-vif-rules
+	rm -f $(DESTDIR)/$(ETCDIR)/xcp/network.conf
 
 clean:
 	@ocamlbuild -clean
