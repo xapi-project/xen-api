@@ -132,11 +132,11 @@ let gen_client_types highapi =
 		(List.between [""] [
 			[ "open Date" ];
 			[
-				"type failure = string * (string list) with rpc";
+				"type failure = (string list) with rpc";
 				"let response_of_failure code params =";
-				"  Rpc.failure (rpc_of_failure (code, params))";
+				"  Rpc.failure (rpc_of_failure (code::params))";
 				"let response_of_fault code =";
-				"  Rpc.failure (rpc_of_failure (\"Fault\", [code]))";
+				"  Rpc.failure (rpc_of_failure ([\"Fault\"; code]))";
 			]; [
 				"include Rpc";
 				"type string_list = string list with rpc";
