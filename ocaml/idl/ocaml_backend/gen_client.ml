@@ -184,7 +184,7 @@ let gen_module api : O.Module.t =
       "    return response.Rpc.contents";
       "  else match response.Rpc.contents with";
       "    | Rpc.Enum [ Rpc.String \"Fault\"; Rpc.String code ] -> failwith (\"INTERNAL ERROR: \"^code)";
-      "    | Rpc.Enum [ Rpc.String code; args ] -> return (server_failure code (API.string_set_of_rpc args))";
+      "    | Rpc.Enum ((Rpc.String code) :: args) -> return (server_failure code (List.map Rpc.string_of_rpc args))";
       "    | rpc -> failwith (\"Client.rpc: \" ^ Rpc.to_string rpc)";
   ]
   in
