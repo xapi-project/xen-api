@@ -243,7 +243,14 @@ module SMAPIv1 = struct
 		let vdi_read_write = Hashtbl.create 10
 		let vdi_read_write_m = Mutex.create ()
 
-		let epoch_begin context ~dbg ~sr ~vdi = ()
+		let epoch_begin context ~dbg ~sr ~vdi =
+			try
+				for_vdi ~dbg ~sr ~vdi "VDI.epoch_begin"
+					(fun device_config _type sr self ->
+						Sm.vdi_epoch_begin device_config _type sr self)
+			with
+				| Api_errors.Server_error(code, params) ->
+						raise (Backend_error(code, params))
 
 		let attach context ~dbg ~dp ~sr ~vdi ~read_write =
 			try
@@ -310,7 +317,14 @@ module SMAPIv1 = struct
 			with Api_errors.Server_error(code, params) ->
 				raise (Backend_error(code, params))
 
-		let epoch_end context ~dbg ~sr ~vdi = ()
+		let epoch_end context ~dbg ~sr ~vdi =
+			try
+				for_vdi ~dbg ~sr ~vdi "VDI.epoch_end"
+					(fun device_config _type sr self ->
+						Sm.vdi_epoch_end device_config _type sr self)
+			with
+				| Api_errors.Server_error(code, params) ->
+						raise (Backend_error(code, params))
 
         let require_uuid vdi_info =
             match vdi_info.Smint.vdi_info_uuid with
