@@ -550,8 +550,6 @@ let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
 		raise (Api_errors.Server_error
 			(Api_errors.pif_is_management_iface, [ Ref.string_of self ]));
 
-	let old_mode = Db.PIF.get_ipv6_configuration_mode ~__context ~self in
-
 	(* Set the values in the DB *)
 	Db.PIF.set_ipv6_configuration_mode ~__context ~self ~value:mode;
 	Db.PIF.set_ipv6_gateway ~__context ~self ~value:gateway;
@@ -569,12 +567,7 @@ let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
 			 * we are not getting a host-signal-networking-change callback. *)
 			Helpers.update_pif_address ~__context ~self
 	end;
-	Monitor_dbcalls.clear_cache_for_pif ~pif_name:(Db.PIF.get_device ~__context ~self);
-	if ((old_mode == `None && mode <> `None) || (old_mode <> `None && mode == `None)) then
-	begin
-		debug "IPv6 mode has changed - updating management interface";
-		Xapi_mgmt_iface.rebind ~__context;
-	end
+	Monitor_dbcalls.clear_cache_for_pif ~pif_name:(Db.PIF.get_device ~__context ~self)
 
 let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
 	assert_no_protection_enabled ~__context ~self;
