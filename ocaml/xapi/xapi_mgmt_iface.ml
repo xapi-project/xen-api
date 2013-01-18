@@ -25,7 +25,7 @@ let himn_addr = ref None
 (* Stores a key into the table in Http_srv which identifies the server thread bound
 	 to the management IP. *)
 let management_interface_server = ref []
-let himn_only = ref false
+let specific_addresses_only = ref false
 let management_m = Mutex.create ()
 
 let update_mh_info_script = Filename.concat Fhs.libexecdir "update-mh-info"
@@ -53,6 +53,7 @@ let start ~__context ?addr () =
 		match addr with
 			| None ->
 					begin
+						specific_addresses_only := false;
 						try (* Is it IPv6 ? *)
 							let addr = Unix.inet6_addr_any in
 							addr, Xapi_http.bind (Unix.ADDR_INET(addr, Xapi_globs.http_port))
@@ -62,7 +63,7 @@ let start ~__context ?addr () =
 					end
 			| Some ip ->
 					debug "Starting new server (listening on HIMN only: %s)" ip;
-					himn_only := true;
+					specific_addresses_only := true;
 					let addr = Unix.inet_addr_of_string ip in
 					addr, Xapi_http.bind (Unix.ADDR_INET(addr, Xapi_globs.http_port))
 	in
@@ -90,7 +91,8 @@ let change interface primary_address_type =
 let run ~__context interface primary_address_type =
 	Mutex.execute management_m (fun () ->
 		change interface primary_address_type;
-		stop ();
+		if !specific_addresses_only then
+			stop ();
 		if !management_interface_server = [] then
 			start ~__context ()
 	)
@@ -106,7 +108,8 @@ let shutdown () =
 let maybe_start_himn ~__context ?addr () =
 	Mutex.execute management_m (fun () ->
 		Opt.iter (fun addr -> himn_addr := Some addr) addr;
-		if !management_interface_server = [] then
+		if !management_interface_server = [] || 
+		  ((List.length !management_interface_server) = 1 && !specific_addresses_only) then
 			Opt.iter (fun addr -> start ~__context ~addr ()) !himn_addr
 	)
 
