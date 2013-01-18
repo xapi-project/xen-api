@@ -25,7 +25,7 @@ let himn_addr = ref None
 (* Stores a key into the table in Http_srv which identifies the server thread bound
 	 to the management IP. *)
 let management_interface_server = ref []
-let himn_only = ref false
+let specific_addresses_only = ref false
 let management_m = Mutex.create ()
 
 let update_mh_info_script = Filename.concat Fhs.libexecdir "update-mh-info"
@@ -92,7 +92,8 @@ let change interface primary_address_type =
 let run ~__context interface primary_address_type =
 	Mutex.execute management_m (fun () ->
 		change interface primary_address_type;
-		stop ();
+		if !specific_addresses_only then
+			stop ();
 		if !management_interface_server = [] then
 			start ~__context ()
 	)
@@ -108,7 +109,8 @@ let shutdown () =
 let maybe_start_himn ~__context ?addr () =
 	Mutex.execute management_m (fun () ->
 		Opt.iter (fun addr -> himn_addr := Some addr) addr;
-		if !management_interface_server = [] then
+		if !management_interface_server = [] || 
+		  ((List.length !management_interface_server) = 1 && !specific_addresses_only) then
 			Opt.iter (fun addr -> start ~__context ~addr ()) !himn_addr
 	)
 
