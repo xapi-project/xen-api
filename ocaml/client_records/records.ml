@@ -1314,6 +1314,9 @@ let sm_record rpc session_id sm =
     make_field ~name:"copyright" ~get:(fun () -> (x ()).API.sM_copyright) ();
     make_field ~name:"required-api-version" ~get:(fun () -> (x ()).API.sM_required_api_version) ();
     make_field ~name:"capabilities" ~get:(fun () -> String.concat "; " (x ()).API.sM_capabilities) ();
+    make_field ~name:"features"
+		~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.sM_features)
+		~get_map:(fun () -> (x ()).API.sM_features) ();
     make_field ~name:"configuration" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.sM_configuration) ();
     make_field ~name:"driver-filename" ~get:(fun () -> (x ()).API.sM_driver_filename) ();
   ]}
