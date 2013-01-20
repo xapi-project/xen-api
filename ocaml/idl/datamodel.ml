@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 66
+let schema_minor_vsn = 67
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -166,6 +166,12 @@ let get_product_releases in_product_since =
 
 let sarasota_release =
 	{ internal = get_product_releases rel_sarasota
+	; opensource=get_oss_releases None
+	; internal_deprecated_since=None
+	}
+
+let clearwater_release =
+	{ internal=get_product_releases rel_clearwater
 	; opensource=get_oss_releases None
 	; internal_deprecated_since=None
 	}
