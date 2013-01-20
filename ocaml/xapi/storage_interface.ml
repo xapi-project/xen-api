@@ -167,7 +167,7 @@ type query_result = {
 	copyright: string;
 	version: string;
 	required_api_version: string;
-	features: string list;
+	features: (string * string) list;
 	configuration: (string * string) list;
 }
 

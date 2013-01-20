@@ -74,16 +74,39 @@ let string_to_capability_table = [
 ]
 let capability_to_string_table = List.map (fun (k, v) -> v, k) string_to_capability_table
 
-let string_of_capability x = List.assoc x capability_to_string_table
+let string_of_capability_and_version x =
+	(List.assoc (fst x) capability_to_string_table, string_of_int (snd x))
+
+let string_of_capability x = List.assoc (fst x) capability_to_string_table
 
 let parse_capabilities strings =
-	(* Parse the capabilities *)
-	List.iter (fun s -> 
-	    if not(List.mem s (List.map fst string_to_capability_table))
-	    then debug "SR.capabilities: unknown capability %s" s) strings;
-	let text_capabilities = List.filter (fun s -> List.mem s (List.map fst string_to_capability_table)) strings in
-	List.map (fun key -> List.assoc key string_to_capability_table) text_capabilities
-
+	let text_capabilities =
+		List.filter
+			(fun s ->
+				let s = List.hd (Stringext.String.split '/' s) in
+				let p = List.mem s (List.map fst string_to_capability_table) in
+				if not p then debug "SR.capabilities: unknown capability %s" s;
+				p)
+			strings in
+	let capabilities_versions =
+		List.map
+			(fun c ->
+				match Stringext.String.split '/' c with
+					| [] -> failwith "parse_capability" (* not possible *)
+					| [cs] -> (cs, 1) (* default version *)
+					| [cs; vs]
+					| cs :: vs :: _ ->
+						try
+							let v = int_of_string vs in
+							(cs, if v < 1 then 1 else v)
+						with _ ->
+							debug "SR.capability %s has bad version %s, defaulting to 1" cs vs;
+							(cs, 1))
+			text_capabilities in
+	List.map
+		(function c,v ->
+			((List.assoc c string_to_capability_table), v))
+		capabilities_versions
 
 type sr_driver_info = {
     sr_driver_filename: string;
@@ -93,8 +116,8 @@ type sr_driver_info = {
 	sr_driver_copyright: string;
 	sr_driver_version: string;
 	sr_driver_required_api_version: string;
-	sr_driver_capabilities: capability list;
-	sr_driver_text_capabilities: string list;
+	sr_driver_capabilities: (capability * int) list;
+	sr_driver_text_capabilities: (string * string) list;
 	sr_driver_configuration: (string * string) list;
 }
 
