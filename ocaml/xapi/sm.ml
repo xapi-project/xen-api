@@ -102,7 +102,7 @@ let sr_detach dconf driver sr =
     (fun () -> Hashtbl.remove sr_content_type_cache sr)
 	 
 let sr_probe dconf driver sr_sm_config =
-  if List.mem Sr_probe (capabilities_of_driver driver)
+  if List.mem_assoc Sr_probe (capabilities_of_driver driver)
   then
 	Locking_helpers.Named_mutex.execute serialize_attach_detach
       (fun ()->

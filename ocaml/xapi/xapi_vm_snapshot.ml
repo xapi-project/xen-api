@@ -178,7 +178,7 @@ let checkpoint ~__context ~vm ~new_name =
 			try
 				(* Save the state of the vm *)
 				snapshot_info := Xapi_vm_clone.snapshot_info ~power_state ~is_a_snapshot:true;
-				
+
 				(* Get all the VM's VDI's except CD's *)
 				let vbds = Db.VM.get_VBDs ~__context ~self:vm in
 				let vbds = List.filter (fun x -> Db.VBD.get_type ~__context ~self:x <> `CD) vbds in
@@ -190,8 +190,8 @@ let checkpoint ~__context ~vm ~new_name =
 				let sr_records = List.map (fun self -> Db.SR.get_record_internal ~__context ~self) vdi_sr in
 
 				(* Check if SR has snapshot capability *)
-				let sr_has_snapshot_capability sr = 
-					if not (List.mem Smint.Vdi_snapshot (Xapi_sr_operations.capabilities_of_sr sr)) then false
+				let sr_has_snapshot_capability sr =
+					if not (List.mem_assoc Smint.Vdi_snapshot (Xapi_sr_operations.capabilities_of_sr sr)) then false
 					else true
 				in
 

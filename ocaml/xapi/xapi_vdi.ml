@@ -104,29 +104,29 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 							if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 							then Some (Api_errors.ha_is_enabled, [])
 							else
-								if not (List.mem Smint.Vdi_delete sm_caps)
+								if not (List.mem_assoc Smint.Vdi_delete sm_caps)
 								then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 								else None
 				| `resize ->
 					if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 					then Some (Api_errors.ha_is_enabled, [])
 					else
-						if not (List.mem Smint.Vdi_resize sm_caps)
+						if not (List.mem_assoc Smint.Vdi_resize sm_caps)
 						then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 						else None
 				| `update ->
-					if not (List.mem Smint.Vdi_update sm_caps)
+					if not (List.mem_assoc Smint.Vdi_update sm_caps)
 					then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 					else None
 				| `resize_online ->
 					if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 					then Some (Api_errors.ha_is_enabled, [])
 					else
-						if not (List.mem Smint.Vdi_resize_online sm_caps)
+						if not (List.mem_assoc Smint.Vdi_resize_online sm_caps)
 						then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 						else None
 				| `generate_config ->
-					if not (List.mem Smint.Vdi_generate_config sm_caps)
+					if not (List.mem_assoc Smint.Vdi_generate_config sm_caps)
 					then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 					else None
 				| `snapshot when record.Db_actions.vDI_sharable ->
@@ -138,7 +138,7 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 					then Some (Api_errors.operation_not_allowed, ["VDI containing HA statefile or redo log cannot be copied (check the VDI's allowed operations)."])
 					else None
 				| `clone ->
-					if not (List.mem Smint.Vdi_clone sm_caps)
+					if not (List.mem_assoc Smint.Vdi_clone sm_caps)
 					then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 					else None
 				| _ -> None
@@ -616,7 +616,7 @@ let set_on_boot ~__context ~self ~value =
 	let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
 	let sm_caps = Xapi_sr_operations.capabilities_of_sr sr_record in
 
-	if not (List.mem Smint.Vdi_reset_on_boot sm_caps) then 
+	if not (List.mem_assoc Smint.Vdi_reset_on_boot sm_caps) then
 		raise (Api_errors.Server_error(Api_errors.sr_operation_not_supported,[Ref.string_of sr]));
 	Sm.assert_pbd_is_plugged ~__context ~sr;
 
