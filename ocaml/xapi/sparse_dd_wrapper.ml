@@ -72,7 +72,7 @@ let dd_internal progress_cb base prezeroed infile outfile size =
 		| Forkhelpers.Success _ -> progress_cb (Finished None)
 		| Forkhelpers.Failure (log, exn) ->
 			error "Failure from sparse_dd: %s raising %s" log (Printexc.to_string exn);
-			raise (Api_errors.Server_error (("VDI_COPY_FAILED", [Printexc.to_string exn])));		
+			raise (Api_errors.Server_error ((Api_errors.vdi_copy_failed , [Printexc.to_string exn])));		
 		with e -> 
 			progress_cb (Finished (Some e));
 			raise e
