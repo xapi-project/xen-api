@@ -45,6 +45,9 @@ let find_content ~__context ?sr name =
 let redirect sr =
 	raise (Redirect (Some (Pool_role.get_master_address ())))
 
+let string_of_vdi_type vdi_type =
+	Rpc.string_of_rpc (API.rpc_of_vdi_type vdi_type)
+
 module SMAPIv1 = struct
 	(** xapi's builtin ability to call local SM plugins using the existing
 	    protocol. The code here should only call the SM functions and encapsulate
@@ -182,7 +185,7 @@ module SMAPIv1 = struct
 				content_id = content_id; (* PR-1255 *)
 				name_label = vdi_rec.API.vDI_name_label;
 				name_description = vdi_rec.API.vDI_name_description;
-				ty = Record_util.vdi_type_to_string vdi_rec.API.vDI_type;
+				ty = string_of_vdi_type vdi_rec.API.vDI_type;
 				metadata_of_pool = Ref.string_of vdi_rec.API.vDI_metadata_of_pool;
 				is_a_snapshot = vdi_rec.API.vDI_is_a_snapshot;
 				snapshot_time = Date.to_string vdi_rec.API.vDI_snapshot_time;
@@ -335,7 +338,7 @@ module SMAPIv1 = struct
 				content_id = r.API.vDI_location; (* PR-1255 *)
                 name_label = r.API.vDI_name_label;
                 name_description = r.API.vDI_name_description;
-                ty = Record_util.vdi_type_to_string r.API.vDI_type;
+                ty = string_of_vdi_type r.API.vDI_type;
 				metadata_of_pool = Ref.string_of r.API.vDI_metadata_of_pool;
                 is_a_snapshot = r.API.vDI_is_a_snapshot;
                 snapshot_time = Date.to_string r.API.vDI_snapshot_time;
