@@ -26,6 +26,7 @@ let himn_addr = ref None
 	 to the management IP. *)
 let management_interface_server = ref []
 let specific_addresses_only = ref false
+let localhost_server_started = ref false
 let management_m = Mutex.create ()
 
 let update_mh_info_script = Filename.concat Fhs.libexecdir "update-mh-info"
@@ -42,7 +43,8 @@ let restart_stunnel () =
 let stop () =
 	debug "Shutting down the old management interface (if any)";
 	List.iter (fun i -> Http_svr.stop i) !management_interface_server;	
-	management_interface_server := []
+	management_interface_server := [];
+	localhost_server_started := false
 
 (* Even though xapi listens on all IP addresses, there is still an interface appointed as
  * _the_ management interface. Slaves in a pool use the IP address of this interface to connect
@@ -114,9 +116,11 @@ let maybe_start_himn ~__context ?addr () =
 	)
 
 let start_localhost_interface ~__context =
-	Mutex.execute management_m (fun () ->
-	  start ~__context ~addr:"127.0.0.1"
-	)
+	if not (!localhost_server_started) then
+		Mutex.execute management_m (fun () ->
+	  		start ~__context ~addr:"127.0.0.1" ();
+			localhost_server_started := true
+		)
 
 let management_ip_mutex = Mutex.create ()
 let management_ip_cond = Condition.create ()
