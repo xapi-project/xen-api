@@ -130,9 +130,10 @@ let create_bond ~__context bond mtu =
 			if List.mem_assoc p props
 			then List.assoc p props
 			else ""
-		and get_prop_assoc p = [ p, get_prop p ]
 		and get_prop_assoc_if_mode m p = if mode = m
-			then get_prop_assoc p
+			then if List.mem_assoc p props
+				then [ p, List.assoc p props ]
+				else []
 			else []
 		in
 
