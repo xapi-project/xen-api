@@ -514,3 +514,7 @@ let set_property ~__context ~self ~name ~value =
 
 	let master = Db.Bond.get_master ~__context ~self in
 	Nm.bring_pif_up ~__context master
+
+(* Functions to export for testing only *)
+
+let __test_add_lacp_defaults = add_defaults (requirements_of_mode `lacp)

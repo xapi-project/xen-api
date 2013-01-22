@@ -53,3 +53,6 @@ val fix_bond :
   __context:Context.t ->
   bond:[ `Bond ] Ref.t ->
   unit
+
+(** Functions for test cases *)
+val __test_add_lacp_defaults : (string * string) list -> (string * string) list
