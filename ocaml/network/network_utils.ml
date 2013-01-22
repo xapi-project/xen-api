@@ -731,7 +731,9 @@ module Ovs = struct
 		and get_prop (prop, ovs_key) =
 			if List.mem_assoc prop properties
 			then let value = List.assoc prop properties in
-					 [ovs_key ^ "=" ^ value]
+					(* XXX DEBUG *)
+					debug "property: %s; value: %s" prop value;
+					[ovs_key ^ "=\"" ^ value ^ "\""]
 			else []
 		in
 		(* Don't add new properties here, these use the legacy converter *)
@@ -759,7 +761,9 @@ module Ovs = struct
 			| Some mac -> ["--"; "set"; "port"; name; "MAC=\"" ^ (String.escaped mac) ^ "\""]
 		in
 		let per_iface_args =
-			List.flatten
+			if per_iface_args = []
+			then []
+			else List.flatten
 				 (List.map
 						(fun iface ->
 							["--"; "set"; "interface"; iface ] @ per_iface_args)

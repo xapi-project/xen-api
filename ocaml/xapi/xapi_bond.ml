@@ -221,7 +221,7 @@ let with_local_lock f = Mutex.execute local_m f
 type requirement =
 	{
 		name:string;
-		default_value:string;
+		default_value:string option;
 		is_valid_value:string -> bool;
 	}
 
@@ -229,17 +229,17 @@ let requirements_of_mode = function
 	| `lacp -> [
 		{
 			name = "hashing_algorithm";
-			default_value = "tcpudp_ports";
+			default_value = Some "tcpudp_ports";
 			is_valid_value = (fun str -> List.mem str ["src_mac"; "tcpudp_ports"]);
 		};
 		{
 			name = "lacp-time";
-			default_value = "fast";
+			default_value = Some "slow";
 			is_valid_value = (fun str -> List.mem str ["fast"; "slow"]);
 		};
 		{
 			name = "lacp-aggregation-key";
-			default_value = "";
+			default_value = None;
 			is_valid_value = (fun i -> try ignore (int_of_string i); true with _ -> false);
 		};
 	]
@@ -270,8 +270,12 @@ let add_defaults requirements properties =
 	in
 	List.fold_left
 		(fun acc requirement ->
-			if property_is_present requirement then acc
-			else (requirement.name, requirement.default_value)::acc)
+			if property_is_present requirement
+			then acc
+			else match requirement.default_value with
+				| None -> acc
+				| Some default_value ->
+					(requirement.name, default_value)::acc)
 		properties requirements
 
 let create ~__context ~network ~members ~mAC ~mode ~properties =
