@@ -24,6 +24,9 @@ module D = Debug.Make(struct let name = service_name end)
 open D
 
 let _sys_hypervisor_type = "/sys/hypervisor/type"
+let _sys_hypervisor_version_major = "/sys/hypervisor/version/major"
+let _sys_hypervisor_version_minor = "/sys/hypervisor/version/minor"
+
 let store_domid = 0
 let console_domid = 0
 
@@ -2291,35 +2294,41 @@ let look_for_forkexec () =
 		exit 1
 
 let look_for_xen () =
+	if not (Sys.file_exists _sys_hypervisor_type) then begin
+		error "The file %s does not exist: you are not running xen." _sys_hypervisor_type;
+		error "Please check your bootloader configuration, reboot to xen and try again.";
+		exit 1;
+	end;
+	let hypervisor = strip (Unixext.string_of_file _sys_hypervisor_type) in
+	match hypervisor with
+	| "xen" ->
+		debug "You are running xen -- this is good.";
+		let major = strip (Unixext.string_of_file _sys_hypervisor_version_major) in
+		let minor = strip (Unixext.string_of_file _sys_hypervisor_version_minor) in
+		major, minor
+	| x ->
+		error "You are running a different hypervisor (%s)" x;
+		error "Please check your bootloader configuration, reboot to xen and try again.";
+		exit 1
+
+let look_for_xenctrl () =
 	try
-		let _ = Xenctrl.interface_open () in
-		debug "xenctrl interface is available"
+		let xc = Xenctrl.interface_open () in
+		debug "xenctrl interface is available";
+		Xenctrl.interface_close xc;
 	with e ->
 		error "I failed to open the low-level xen control interface (xenctrl)";
 		error "The raw error was: %s" (Printexc.to_string e);
-		if not (Sys.file_exists _sys_hypervisor_type) then begin
-			error "The file %s does not exist: you are not running xen." _sys_hypervisor_type;
-			error "Please check your bootloader configuration, reboot to xen and try again.";
+		if Unix.geteuid () = 0 then begin
+			debug "You are running as root -- this is good.";
+			error "Please check you have a matching hypervisor, xenctrl libraries and xenopsd.";
+			error "If the problem persists then contact: <xen-api@lists.xen.org>";
 			exit 1;
-		end;
-		let hypervisor = strip (Unixext.string_of_file _sys_hypervisor_type) in
-		match hypervisor with
-		| "xen" ->
-			debug "You are running xen -- this is good.";
-			if Unix.geteuid () = 0 then begin
-				debug "You are running as root -- this is good.";
-				error "Please check you have a matching hypervisor, xenctrl libraries and xenopsd.";
-				error "If the problem persists then contact: <xen-api@lists.xen.org>";
-				exit 1;
-			end else begin
-				error "You are not running as root.";
-				error "Please switch to root and try again.";
-				exit 1;
-			end
-		| x ->
-			error "You are running a different hypervisor (%s)" x;
-			error "Please check your bootloader configuration, reboot to xen and try again.";
-			exit 1
+		end else begin
+			error "You are not running as root.";
+			error "Please switch to root and try again.";
+			exit 1;
+		end
 
 let register_for_watches xc =
 	let client = Xenstore.Client.make () in
@@ -2341,7 +2350,16 @@ let register_for_watches xc =
 let init () =
 	look_for_forkexec ();
 
-	look_for_xen ();
+	let major, minor = look_for_xen () in
+
+	look_for_xenctrl ();
+
+	if major < "4" || (major = "4" && minor < "2") && not !Xenopsd.use_hotplug_scripts then begin
+		error "This is xen version %s.%s. On all versions < 4.1 we must use hotplug/udev scripts" major minor;
+		error "To fix this error either upgrade xen or set use_hotplug_scripts=true in xenopsd.conf";
+		error "Setting use_hotplug_scripts to true so we can continue: this may cause device timeouts.";
+		Xenopsd.use_hotplug_scripts := true
+	end;
 
 	(* XXX: is this completely redundant now? The Citrix PV drivers don't need this any more *)
 	(* Special XS entry looked for by the XenSource PV drivers (see xenagentd.hg:src/xad.c) *)

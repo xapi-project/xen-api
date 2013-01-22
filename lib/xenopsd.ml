@@ -33,6 +33,7 @@ let persist = ref true
 let daemon = ref false
 let worker_pool_size = ref 4
 
+let use_hotplug_scripts = ref false
 let hotplug_timeout = ref 300.
 let qemu_dm_ready_timeout = ref 300.
 
@@ -54,6 +55,7 @@ let config_spec = [
     "worker-pool-size", Arg.Set_int worker_pool_size, "Number of threads for the worker pool";
     "database-path", Arg.Set_string Xenops_utils.root, "Location to store the metadata";
     "config", Arg.Set_string config_file, "Location of configuration file";
+    "use_hotplug_scripts", Arg.Set use_hotplug_scripts, "True if we should use hotplug/udev scripts";
     "hotplug_timeout", Arg.Set_float hotplug_timeout, "Time before we assume hotplug scripts have failed";
     "qemu_dm_ready_timeout", Arg.Set_float qemu_dm_ready_timeout, "Time before we assume qemu has become stuck";
     "watch_queue_length", Arg.Set_int watch_queue_length, "Maximum number of unprocessed xenstore watch events before we restart";
