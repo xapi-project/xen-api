@@ -27,6 +27,9 @@ let _sys_hypervisor_type = "/sys/hypervisor/type"
 let _sys_hypervisor_version_major = "/sys/hypervisor/version/major"
 let _sys_hypervisor_version_minor = "/sys/hypervisor/version/minor"
 
+(* libxl_internal.h:DISABLE_UDEV_PATH *)
+let disable_udev_path = "libxl/disable_udev"
+
 let store_domid = 0
 let console_domid = 0
 
@@ -2361,6 +2364,13 @@ let init () =
 		Xenopsd.use_hotplug_scripts := true
 	end;
 
+	if not !Xenopsd.use_hotplug_scripts then begin
+		with_xs
+			(fun xs ->
+				xs.Xs.write disable_udev_path "1";
+				info "Written %s to disable the hotplug/udev scripts" disable_udev_path;
+			)
+	end;
 	(* XXX: is this completely redundant now? The Citrix PV drivers don't need this any more *)
 	(* Special XS entry looked for by the XenSource PV drivers (see xenagentd.hg:src/xad.c) *)
 	let xe_key = "/mh/XenSource-TM_XenEnterprise-TM" in
