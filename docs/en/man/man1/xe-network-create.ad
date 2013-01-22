@@ -12,7 +12,7 @@ xe-network-create - Create a network
 SYNOPSIS
 --------
 
-*xe network-create* name-label=<network name> [ MTU=<MTU Size> ] [ name-description=<description> ] 
+*xe network-create* name-label=<Network Name> [ MTU=<MTU Size> ] [ name-description=<description> ] 
 
 
 DESCRIPTION
@@ -38,10 +38,10 @@ OPTIONAL PARAMETER
 EXAMPLES
 --------
 
-To create a network with a name description: ::
+To create a network with a *name-description*: ::
 	*xe network-create* name-label="Example Network" name-description="This is an Example Network"
 
-To create a network with a custom MTU: ::
+To create a network with a custom *MTU*: ::
 	*xe network-create* name-label="MTU Example Network" MTU="9000"
 
 SEE ALSO
@@ -51,7 +51,7 @@ SEE ALSO
 
 AUTHORS
 -------
-Manpage Author(s)::
+Manpage Author(s): ::
 Matthew Spah <spahmatthew@xenapiadmin.com>
 
 
@@ -61,23 +61,7 @@ See http://wiki.xen.org/wiki/Reporting_Bugs_against_XCP on how to send bug repor
 
 COPYRIGHT
 ---------
-Copyright \(C) 2012 - Matthew Spah
+Copyright \(C)  2012 - Matthew Spah
+Permission is granted to copy, distribute and/or modify this document under the terms of the GNU Free Documentation License, Version 1.3 or any later version published by the Free Software Foundation; with no Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts. A copy of the license is included in the section entitled "GNU Free Documentation License"
 
-The Howto containing this example, was offered under the following conditions:
-
-Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are
-met:
-
-[options="compact"]
-. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-
-
-
-THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT,
-INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-POSSIBILITY OF SUCH DAMAGE.
 
