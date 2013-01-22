@@ -868,6 +868,8 @@ let _ =
     ~doc:"This operation cannot be performed because the system does not manage this VDI" ();
   error Api_errors.vdi_not_in_map [ "vdi" ]
     ~doc:"This VDI was not mapped to a destination SR in VM.migrate_send operation" () ;
+  error Api_errors.vdi_copy_failed []
+    ~doc:"The VDI copy action has failed" (); 
   error Api_errors.cannot_create_state_file []
     ~doc:"An HA statefile could not be created, perhaps because no SR with the appropriate capability was found." ();
 
