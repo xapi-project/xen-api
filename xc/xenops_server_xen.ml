@@ -2357,14 +2357,14 @@ let init () =
 
 	look_for_xenctrl ();
 
-	if major < "4" || (major = "4" && minor < "2") && not !Xenopsd.use_hotplug_scripts then begin
+	if major < "4" || (major = "4" && minor < "2") && !Xenopsd.run_hotplug_scripts then begin
 		error "This is xen version %s.%s. On all versions < 4.1 we must use hotplug/udev scripts" major minor;
-		error "To fix this error either upgrade xen or set use_hotplug_scripts=true in xenopsd.conf";
-		error "Setting use_hotplug_scripts to true so we can continue: this may cause device timeouts.";
-		Xenopsd.use_hotplug_scripts := true
+		error "To fix this error either upgrade xen or set run_hotplug_scripts=false in xenopsd.conf";
+		error "Setting run_hotplug_scripts to false so we can continue: this may cause device timeouts.";
+		Xenopsd.run_hotplug_scripts := false
 	end;
 
-	if not !Xenopsd.use_hotplug_scripts then begin
+	if !Xenopsd.run_hotplug_scripts then begin
 		with_xs
 			(fun xs ->
 				xs.Xs.write disable_udev_path "1";

@@ -447,7 +447,7 @@ let release (task: Xenops_task.t) ~xs (x: device) =
 	Generic.safe_rm ~xs (backend_path_of_device ~xs x);
 	Hotplug.release task ~xs x;
 
-	if not !Xenopsd.use_hotplug_scripts
+	if !Xenopsd.run_hotplug_scripts
 	then Hotplug.run_hotplug_script x [ "remove" ];
 
 	(* As for add above, if the frontend is in dom0, we can wait for the frontend 
@@ -540,7 +540,7 @@ let add_async ~xs ~hvm x domid =
 	device
 
 let add_wait (task: Xenops_task.t) ~xs device =
-	if not !Xenopsd.use_hotplug_scripts
+	if !Xenopsd.run_hotplug_scripts
 	then Hotplug.run_hotplug_script device [ "add" ];
 
 	Hotplug.wait_for_plug task ~xs device;
@@ -714,7 +714,7 @@ let add (task: Xenops_task.t) ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) 
 
 	Generic.add_device ~xs device back front extra_private_keys;
 
-	if not !Xenopsd.use_hotplug_scripts then begin
+	if !Xenopsd.run_hotplug_scripts then begin
 		(* The VIF device won't be created until the backend is
 		   in state InitWait: *)
 		Hotplug.wait_for_connect task ~xs device;
@@ -741,7 +741,7 @@ let release (task: Xenops_task.t) ~xs (x: device) =
 	debug "Device.Vif.release %s" (string_of_device x);
 	Hotplug.release task ~xs x;
 
-	if not !Xenopsd.use_hotplug_scripts then begin
+	if !Xenopsd.run_hotplug_scripts then begin
 		let tap = { x with backend = { x.backend with kind = Tap } } in
 		Hotplug.run_hotplug_script x [ "remove" ];
 		Hotplug.run_hotplug_script tap [ "remove" ];
