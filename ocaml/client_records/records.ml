@@ -1313,7 +1313,7 @@ let sm_record rpc session_id sm =
     make_field ~name:"vendor" ~get:(fun () -> (x ()).API.sM_vendor) ();
     make_field ~name:"copyright" ~get:(fun () -> (x ()).API.sM_copyright) ();
     make_field ~name:"required-api-version" ~get:(fun () -> (x ()).API.sM_required_api_version) ();
-    make_field ~name:"capabilities" ~get:(fun () -> String.concat "; " (x ()).API.sM_capabilities) ();
+    make_field ~name:"capabilities" ~deprecated:true ~get:(fun () -> String.concat "; " (x ()).API.sM_capabilities) ();
     make_field ~name:"features"
 		~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.sM_features)
 		~get_map:(fun () -> (x ()).API.sM_features) ();
