@@ -35,7 +35,10 @@ def enable_core_dumps():
 
 	limit = 64 * 1024 * 1024
 	oldlimits = getrlimit(RLIMIT_CORE)
-	setrlimit(RLIMIT_CORE, (limit, oldlimits[1]))
+	hardlimit = oldlimits[1]
+	if limit > hardlimit:
+		hardlimit = limit
+	setrlimit(RLIMIT_CORE, (limit, hardlimit))
 	return limit
 
 def main(argv):
