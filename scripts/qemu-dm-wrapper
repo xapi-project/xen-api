@@ -15,6 +15,21 @@
 
 import subprocess
 
+path = "/sbin:/usr/sbin:/bin:/usr/bin"
+
+xenstore_write_cmd = "xenstore-write"
+
+def doexec(args):
+	"""Execute a subprocess, then return its return code, stdout and stderr"""
+	proc = subprocess.Popen([ "/usr/bin/env", "PATH=%s" % path ] + args,stdin=None,stdout=subprocess.PIPE,stderr=subprocess.PIPE,close_fds=True)
+	rc = proc.wait()
+	stdout = proc.stdout
+	stderr = proc.stderr
+	return (rc, stdout, stderr)
+
+def xenstore_write(path, value):
+	(rc, stdout, stderr) = doexec([xenstore_write_cmd, path, value])
+
 def enable_core_dumps():
 	from resource import getrlimit, RLIMIT_CORE, setrlimit
 
@@ -47,7 +62,7 @@ def main(argv):
 	core_dump_limit = enable_core_dumps()
 	print "core dump limit: %d" % core_dump_limit
 
-	subprocess.call(["/usr/sbin/xenstore-write", "/local/domain/%d/qemu-pid" % domid, "%d" % os.getpid()])
+	xenstore_write("/local/domain/%d/qemu-pid" % domid, "%d" % os.getpid())
 
 	os.dup2(1, 2)
 	os.execve(qemu_dm, qemu_args, qemu_env)
