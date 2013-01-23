@@ -45,6 +45,15 @@ let parse_line data spec =
 		| x :: _ ->
 			begin match Re_str.bounded_split_delim (Re_str.regexp "[ \t]*=[ \t]*") x 2 with
 				| key :: v :: [] ->
+					(* For values we will accept "v" and 'v' *)
+					let v =
+						if String.length v < 2
+						then v
+						else
+							let first = v.[0] and last = v.[String.length v - 1] in
+							if first = last && (first = '"' || first = '\'')
+							then String.sub v 1 (String.length v - 2)
+							else v in
 					if List.mem_assoc key spec then apply v (List.assoc key spec)
 				| _ -> ()
 			end
