@@ -446,6 +446,10 @@ let release (task: Xenops_task.t) ~xs (x: device) =
 	   backend now *)
 	Generic.safe_rm ~xs (backend_path_of_device ~xs x);
 	Hotplug.release task ~xs x;
+
+	if not !Xenopsd.use_hotplug_scripts
+	then Hotplug.run_hotplug_script x [ "remove" ];
+
 	(* As for add above, if the frontend is in dom0, we can wait for the frontend 
 	 * to unplug as well as the backend. CA-13506 *)
 	if x.frontend.domid = 0 then Hotplug.wait_for_frontend_unplug task ~xs x
@@ -536,7 +540,7 @@ let add_async ~xs ~hvm x domid =
 	device
 
 let add_wait (task: Xenops_task.t) ~xs device =
-	if Hotplug.is_udev_disabled ~xs
+	if not !Xenopsd.use_hotplug_scripts
 	then Hotplug.run_hotplug_script device [ "add" ];
 
 	Hotplug.wait_for_plug task ~xs device;
@@ -709,6 +713,18 @@ let add (task: Xenops_task.t) ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) 
 	  (match rate with | None -> [] | Some(rate, timeslice) -> [ "rate", Int64.to_string rate; "timeslice", Int64.to_string timeslice ]) in
 
 	Generic.add_device ~xs device back front extra_private_keys;
+
+	if not !Xenopsd.use_hotplug_scripts then begin
+		(* The VIF device won't be created until the backend is
+		   in state InitWait: *)
+		Hotplug.wait_for_connect task ~xs device;
+		let tap = { device with backend = { device.backend with kind = Tap } } in
+		Hotplug.run_hotplug_script device [ "add" ];
+		Hotplug.run_hotplug_script device [ "online" ];
+		Hotplug.run_hotplug_script tap [ "add" ];
+		Hotplug.run_hotplug_script tap [ "online" ];
+	end;
+
 	Hotplug.wait_for_plug task ~xs device;
 	device
 
@@ -723,7 +739,14 @@ let set_carrier ~xs (x: device) carrier =
 
 let release (task: Xenops_task.t) ~xs (x: device) =
 	debug "Device.Vif.release %s" (string_of_device x);
-	Hotplug.release task ~xs x
+	Hotplug.release task ~xs x;
+
+	if not !Xenopsd.use_hotplug_scripts then begin
+		let tap = { x with backend = { x.backend with kind = Tap } } in
+		Hotplug.run_hotplug_script x [ "remove" ];
+		Hotplug.run_hotplug_script tap [ "remove" ];
+	end
+
 
 let move ~xs (x: device) bridge =
 	let xs_bridge_path = Hotplug.get_private_data_path_of_device x ^ "/bridge" in

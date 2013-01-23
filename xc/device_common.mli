@@ -47,6 +47,7 @@ val backend_shutdown_done_path_of_device : xs:Xenstore.Xs.xsh -> device -> strin
 val backend_pause_request_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
 val backend_pause_token_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
 val backend_pause_done_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
+val backend_state_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
 
 val string_of_endpoint : endpoint -> string
 val string_of_device : device -> string

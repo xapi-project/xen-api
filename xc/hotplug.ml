@@ -171,6 +171,22 @@ let wait_for_frontend_unplug (task: Xenops_task.t) ~xs (x: device) =
   with Watch.Timeout _ ->
     raise (Frontend_device_timeout x)
 
+(* If we're running the hotplug scripts ourselves then we must wait
+   for the VIF device to actually be created. libxl waits until the
+   backend gets into state 2 (InitWait): see libxl__wait_device_connection *)
+let wait_for_connect (task: Xenops_task.t) ~xs (x: device) = 
+  debug "Hotplug.wait_for_connect: %s" (string_of_device x);
+  try
+    Stats.time_this "device backend in state 2" 
+      (fun () ->
+		  let path = backend_state_path_of_device ~xs x in
+		  let (_: bool) = cancellable_watch (Device x) [ Watch.map (fun _ -> ()) (Watch.value_to_become path (Xenbus_utils.(string_of InitWait))) ] [] task ~xs ~timeout:!Xenopsd.hotplug_timeout () in
+		  ()
+      );
+    debug "Synchronised ok with device backend: %s" (string_of_device x)
+  with Watch.Timeout _ ->
+    raise (Device_timeout x)
+
 let losetup = "/sbin/losetup"
 
 (* Create a /dev/loop* device attached to file 'path' *)
@@ -242,21 +258,17 @@ let release (task:Xenops_task.t) ~xs (x: device) =
 		  ) all;
 	xs.Xs.rm path
 
-let disable_udev_path  = "libxl/disable_udev"
-
-let is_udev_disabled ~xs = true (* XXX *)
-
 let run_hotplug_script device args =
 	let kind = string_of_kind device.backend.kind in
 	let script = match device.backend.kind with
 	| Vbd -> !Path.vbd_script
-	| Vif -> !Path.vif_script
+	| Vif | Tap -> !Path.vif_script
 	| _ -> failwith (Printf.sprintf "don't know how to run a hotplug script for: %s" kind) in
 	let env = Array.concat [ Unix.environment (); [|
 		"script=" ^ script;
 		"XENBUS_TYPE=" ^ kind;
 		"XENBUS_PATH=" ^ (Printf.sprintf "backend/%s/%d/%d" kind device.frontend.domid device.frontend.devid);
-		"XENBUS_BASE_PATH=backend"
+		"XENBUS_BASE_PATH=backend";
 	|] ] in
 	try
 		debug "Running hotplug script %s %s" script (String.concat " " args);

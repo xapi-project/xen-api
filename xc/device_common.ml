@@ -116,6 +116,9 @@ let backend_pause_token_path_of_device ~xs (x: device) =
 let backend_pause_done_path_of_device ~xs (x: device) = 
   sprintf "%s/pause-done" (backend_path_of_device ~xs x)
 
+let backend_state_path_of_device ~xs (x: device) =
+  sprintf "%s/state" (backend_path_of_device ~xs x)
+
 let string_of_device (x: device) = 
   sprintf "frontend %s; backend %s" (string_of_endpoint x.frontend) (string_of_endpoint x.backend)
 
