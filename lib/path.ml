@@ -27,6 +27,8 @@ let umount = ref "/bin/umount"
 let ionice = ref "/usr/bin/ionice"
 let setup_vif_rules = ref "/usr/lib/xcp/lib/setup-vif-rules"
 let hvmloader = ref "/usr/lib/xen-4.1/boot/hvmloader"
+let pygrub = ref "/usr/lib/xen-4.1/bin/pygrub"
+let eliloader = ref "/usr/bin/eliloader"
 
 open Unix
 
@@ -45,6 +47,8 @@ let essentials = [
 	X_OK, "ionice", ionice, "path to the ionice binary";
 	X_OK, "setup-vif-rules", setup_vif_rules, "path to the setup-vif-rules script";
 	R_OK, "hvmloader", hvmloader, "path to the hvmloader binary for HVM guests";
+	X_OK, "pygrub", pygrub, "path to the pygrub bootloader binary";
+	X_OK, "eliloader", eliloader, "path to the eliloader bootloader binary";
 ]
 
 let nonessentials = [
