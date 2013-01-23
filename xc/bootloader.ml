@@ -97,6 +97,8 @@ let parse_exception x =
 
 (** Extract the default kernel using the -q option *)
 let extract (task: Xenops_task.t) ~bootloader ~disk ?(legacy_args="") ?(extra_args="") ?(pv_bootloader_args="") ~vm:vm_uuid () =
+	(* Without this path, pygrub will fail: *)
+	Unixext.mkdir_rec "/var/run/xend/boot" 0o0755;
 	if not(List.mem_assoc bootloader supported_bootloader_paths)
 	then raise (Unknown_bootloader bootloader);
 	let bootloader_path = List.assoc bootloader supported_bootloader_paths in
