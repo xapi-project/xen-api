@@ -655,7 +655,7 @@ class HOSTMonitor(ObjectMonitor):
        * consolidation_fn: how to combine variables from rrd_updates into one value
          (default is 'average' for 'cpu_usage' & 'sum' for everything else)
        * rrd_regex matches the names of variables from (xe host-data-sources-list uuid=$hostuuid) used to compute value
-         (only has defaults for "cpu_usage", "network_usage" and "memory_total_kib")
+         (only has defaults for "cpu_usage", "network_usage", "memory_total_kib" and "sr_io_throughput_total_xxxxxxxx")
     """
     def __init__(self, *args):
         self.monitortype = "HOST"
@@ -671,6 +671,7 @@ class HOSTMonitor(ObjectMonitor):
             if variable_name == "cpu_usage": return "cpu[0-9]+"
             elif variable_name == "network_usage": return "pif_eth[0-9]+_[rt]x"
             elif variable_name == "memory_total_kib": return variable_name
+            elif re.match("sr_io_throughput_total_[0-9a-f]{8}$", variable_name): return variable_name[3:]
             else: raise XmlConfigException, "variable %s: no default rrd_regex - please specify one" % variable_name
         elif config_tag == 'alarm_trigger_period':      return '60'   # 1 minute
         elif config_tag == 'alarm_auto_inhibit_period': return '3600' # 1 hour
