@@ -276,6 +276,22 @@ type ops = {
 	domain_restore: Unix.file_descr -> int -> int -> int -> int -> int -> bool -> bool -> string;
 }
 
+let tcp_keepcnt = 5
+let tcp_keepidle = 30
+let tcp_keepintvl = 2
+
+(* CA-94829: Set the TCP keepalive options if it's a socket *)
+let fix_fd fd =
+  let stats = Unix.fstat fd in
+  if stats.Unix.st_kind = Unix.S_SOCK then begin
+    Unix.setsockopt fd Unix.SO_KEEPALIVE true;
+    Unixext.set_sock_keepalives fd tcp_keepcnt tcp_keepidle tcp_keepintvl;
+    debug "Set socket TCP keepalive values to TCP_KEEPCNT=%d TCP_KEEPIDLE=%d TCP_KEEPINTVL=%d" tcp_keepcnt tcp_keepidle tcp_keepintvl
+  end else begin
+    debug "Skipping TCP keepalive setting as fd is not a socket"
+  end
+    
+
 (* main *)
 let _ =
 	(* Union of all the options required by all modes: *)
@@ -373,7 +389,7 @@ let _ =
 		  and domid = int_of_string (get_param "domid")
 		  and flags = List.concat [ if has_param "live" then [ Xenguest.Live ] else [];
 					    if has_param "debug" then [ Xenguest.Debug ] else [] ] in
-
+		  fix_fd fd;
 		  with_logging (fun () -> ops.domain_save fd domid 0 0 flags hvm)
 	      | Some "hvm_restore"
 	      | Some "restore" ->
@@ -387,7 +403,7 @@ let _ =
 		  and console_port = int_of_string (get_param "console_port")
 		  and console_domid = int_of_string (get_param "console_domid")
 		  and no_incr_generationid = bool_of_string (get_param "no_incr_generationid") in
-
+		  fix_fd fd;
 		  with_logging (fun () -> ops.domain_restore fd domid store_port store_domid console_port console_domid hvm no_incr_generationid)
 	      | Some "linux_build" ->
 		  debug "linux_build mode selected";
