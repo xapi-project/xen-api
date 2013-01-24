@@ -238,22 +238,21 @@ module Storage = struct
 	open Storage_interface
 
 	module Client = Client(struct
-		let rec retry_econnrefused upto f =
+		let rec retry_econnrefused f =
 			try
 				f ()
 			with
-				| Unix.Unix_error(Unix.ECONNREFUSED, "connect", _) as e ->
-					if upto = 0 then raise e;
+				| Unix.Unix_error(Unix.ECONNREFUSED, "connect", _) ->
 					debug "Caught ECONNREFUSED; retrying in 5s";
 					Thread.delay 5.;
-					retry_econnrefused (upto - 1) f
+					retry_econnrefused f
 				| e ->
 					error "Caught %s: does the storage service need restarting?" (Printexc.to_string e);
 					raise e
 
 		let rpc call =
 			let open Xmlrpc_client in
-			retry_econnrefused 10
+			retry_econnrefused
 				(fun () ->
 					XMLRPC_protocol.rpc ~srcstr:"xenops" ~dststr:"smapiv2" ~transport:(Unix "/var/xapi/storage") ~http:(xmlrpc ~version:"1.0" "/") call
 				)
@@ -303,13 +302,25 @@ module Storage = struct
 	let dp_destroy task dp =
 		Xenops_task.with_subtask task (Printf.sprintf "DP.destroy %s" dp)
 			(transform_exception (fun () ->
-				try 
-					Client.DP.destroy "dp_destroy" dp false
-			    with e ->
-					(* Backends aren't supposed to return exceptions on deactivate/detach, but they
-					   frequently do. Log and ignore *)
-					warn "DP destroy returned unexpected exception: %s" (Printexc.to_string e)
-			        ))
+				let waiting_for_plugin = ref true in
+				while !waiting_for_plugin do
+					try
+						Client.DP.destroy "dp_destroy" dp false;
+						waiting_for_plugin := false
+					with
+						| Storage_interface.No_storage_plugin_for_sr sr as e ->
+							(* Since we have an activated disk in this SR, assume we are still
+							   waiting for xapi to register the SR's plugin. *)
+							debug "Caught %s - waiting for xapi to register storage plugins."
+								(Printexc.to_string e);
+							Thread.delay 5.0
+						| e ->
+							(* Backends aren't supposed to return exceptions on deactivate/detach, but they
+							   frequently do. Log and ignore *)
+							warn "DP destroy returned unexpected exception: %s" (Printexc.to_string e);
+							waiting_for_plugin := false
+				done
+			))
 
 	let get_disk_by_name task path =
 		debug "Storage.get_disk_by_name %s" path;
