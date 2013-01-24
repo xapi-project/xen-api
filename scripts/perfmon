@@ -654,7 +654,7 @@ class HOSTMonitor(ObjectMonitor):
        * alarm_auto_inhibit_period: num seconds this alarm disabled after an alarm is sent (default '3600')
        * consolidation_fn: how to combine variables from rrd_updates into one value
          (default is 'average' for 'cpu_usage' & 'sum' for everything else)
-       * rrd_regex matches the names of variables from (xe host-data-sources-list uuid=$hostuuid) used to compute value
+       * rrd_regex matches the names of variables from (xe host-data-source-list uuid=$hostuuid) used to compute value
          (only has defaults for "cpu_usage", "network_usage", "memory_total_kib" and "sr_io_throughput_total_xxxxxxxx")
     """
     def __init__(self, *args):
