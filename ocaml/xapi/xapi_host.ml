@@ -1356,7 +1356,7 @@ let enable_local_storage_caching ~__context ~host ~sr =
 	let pbds = Db.SR.get_PBDs ~__context ~self:sr in
 	let shared = Db.SR.get_shared ~__context ~self:sr in
 	let has_required_capability =
-		let caps = Sm.capabilities_of_driver ty in
+		let caps = Sm.features_of_driver ty in
 		List.mem_assoc Smint.Sr_supports_local_caching caps
 	in
 	debug "shared: %b. List.length pbds: %d. has_required_capability: %b" shared (List.length pbds) has_required_capability;

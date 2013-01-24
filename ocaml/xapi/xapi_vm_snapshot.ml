@@ -189,15 +189,15 @@ let checkpoint ~__context ~vm ~new_name =
 				let vdi_sr = List.setify vdi_sr in
 				let sr_records = List.map (fun self -> Db.SR.get_record_internal ~__context ~self) vdi_sr in
 
-				(* Check if SR has snapshot capability *)
-				let sr_has_snapshot_capability sr =
-					if not (List.mem_assoc Smint.Vdi_snapshot (Xapi_sr_operations.capabilities_of_sr sr)) then false
+				(* Check if SR has snapshot feature *)
+				let sr_has_snapshot_feature sr =
+					if not Smint.(has_capability Vdi_snapshot (Xapi_sr_operations.features_of_sr sr)) then false
 					else true
 				in
 
 				List.iter
 					(fun sr ->
-						if not (sr_has_snapshot_capability sr)
+						if not (sr_has_snapshot_feature sr)
 						then raise (Api_errors.Server_error (Api_errors.sr_operation_not_supported, [Ref.string_of vm])) )
 				sr_records ;
 				(* suspend the VM *)
