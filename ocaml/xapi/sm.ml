@@ -49,7 +49,7 @@ let info_of_driver (name: string) =
 	then raise (Unknown_driver name)
 	else (Hashtbl.find driver_info_cache name)
 
-let capabilities_of_driver (name: string) = (info_of_driver name).sr_driver_capabilities
+let features_of_driver (name: string) = (info_of_driver name).sr_driver_features
 
 let driver_filename driver = 
   let info=info_of_driver driver in
@@ -102,7 +102,7 @@ let sr_detach dconf driver sr =
     (fun () -> Hashtbl.remove sr_content_type_cache sr)
 	 
 let sr_probe dconf driver sr_sm_config =
-  if List.mem_assoc Sr_probe (capabilities_of_driver driver)
+  if List.mem_assoc Sr_probe (features_of_driver driver)
   then
 	Locking_helpers.Named_mutex.execute serialize_attach_detach
       (fun ()->

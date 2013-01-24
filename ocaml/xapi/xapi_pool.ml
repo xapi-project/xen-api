@@ -1661,7 +1661,7 @@ let enable_local_storage_caching ~__context ~self =
 			(List.length srrec.API.sR_PBDs = 1) && 
 			(List.mem_assoc
 				Smint.Sr_supports_local_caching
-				(Sm.capabilities_of_driver srrec.API.sR_type))
+				(Sm.features_of_driver srrec.API.sR_type))
 	) hosts_and_srs in
 
 	let failed_hosts = 
