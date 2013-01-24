@@ -282,7 +282,7 @@ module SMAPIv1 = struct
 								(if read_write 
 								then Db.VDI.remove_from_other_config ~__context ~self ~key:"content_id"));
 						(* If the backend doesn't advertise the capability then do nothing *)
-						if List.mem_assoc Smint.Vdi_activate (Sm.capabilities_of_driver _type)
+						if List.mem_assoc Smint.Vdi_activate (Sm.features_of_driver _type)
 						then Sm.vdi_activate device_config _type sr self read_write
 						else info "%s sr:%s does not support vdi_activate: doing nothing" dp (Ref.string_of sr)
 					)
@@ -299,7 +299,7 @@ module SMAPIv1 = struct
 								if not (List.mem_assoc "content_id" other_config)
 								then Db.VDI.add_to_other_config ~__context ~self ~key:"content_id" ~value:(Uuid.string_of_uuid (Uuid.make_uuid ())));
 						(* If the backend doesn't advertise the capability then do nothing *)
-						if List.mem_assoc Smint.Vdi_activate (Sm.capabilities_of_driver _type)
+						if List.mem_assoc Smint.Vdi_activate (Sm.features_of_driver _type)
 						then Sm.vdi_deactivate device_config _type sr self
 						else info "%s sr:%s does not support vdi_activate: doing nothing" dp (Ref.string_of sr)
 					)
