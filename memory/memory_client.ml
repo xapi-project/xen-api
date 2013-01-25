@@ -13,15 +13,10 @@
  *)
 
 open Memory_interface
-open Xenops_utils
-
-module D = Debug.Make(struct let name = "memory_client" end)
-open D
-module E = Debug.Make(struct let name = "mscgen" end)
 
 let json_url () = "file:" ^ json_path
 
-let json_binary_rpc = Xenops_client.binary_rpc Jsonrpc.string_of_call Jsonrpc.response_of_string
+let json_binary_rpc = Xcp_client.binary_rpc Jsonrpc.string_of_call Jsonrpc.response_of_string
 
 module Client = Memory_interface.Client(struct let rpc = json_binary_rpc ~srcstr:"xenops" ~dststr:"squeezed" json_url end)
 
