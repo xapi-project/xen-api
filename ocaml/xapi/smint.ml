@@ -42,7 +42,7 @@ type capability =
     | Vdi_generate_config
 	| Vdi_reset_on_boot
 
-type feature = capability * int
+type feature = capability * int64
 
 let all_capabilites =
   [ Sr_create; Sr_delete; Sr_attach; Sr_detach; Sr_scan; Sr_probe; Sr_update;
@@ -76,14 +76,18 @@ let string_to_capability_table = [
 ]
 let capability_to_string_table = List.map (fun (k, v) -> v, k) string_to_capability_table
 
-let string_of_feature x =
-	(List.assoc (fst x) capability_to_string_table, string_of_int (snd x))
+let string_of_feature (c,v) =
+	List.assoc c capability_to_string_table, Int64.to_string v
 
-let string_of_capability x = List.assoc (fst x) capability_to_string_table
+let string_of_feature_capability (c,v) = List.assoc c capability_to_string_table, v
+
+let string_of_capability c = List.assoc c capability_to_string_table
 
 let has_feature (f : feature) fl = List.mem f fl
 
 let has_capability (c : capability) fl = List.mem_assoc c fl
+
+let capability_of_feature : feature -> capability = fst
 
 let parse_features strings =
 	let text_features =
@@ -99,15 +103,15 @@ let parse_features strings =
 			(fun c ->
 				match Stringext.String.split '/' c with
 					| [] -> failwith "parse_feature" (* not possible *)
-					| [cs] -> (cs, 1) (* default version *)
+					| [cs] -> (cs, 1L) (* default version *)
 					| [cs; vs]
 					| cs :: vs :: _ ->
 						try
 							let v = int_of_string vs in
-							(cs, if v < 1 then 1 else v)
+							(cs, if v < 1 then 1L else Int64.of_int v)
 						with _ ->
 							debug "SM.feature %s has bad version %s, defaulting to 1" cs vs;
-							(cs, 1))
+							(cs, 1L))
 			text_features in
 	List.map
 		(function c,v ->
@@ -135,7 +139,7 @@ let query_result_of_sr_driver_info x = {
 	copyright = x.sr_driver_copyright;
 	version = x.sr_driver_version;
 	required_api_version = x.sr_driver_required_api_version;
-	features = x.sr_driver_text_features;
+	features = List.map string_of_feature_capability x.sr_driver_features;
 	configuration = x.sr_driver_configuration
 }
 

@@ -22,6 +22,7 @@ open Listext
 open Db_filter_types
 open API
 open Client
+open Fun
 
 (* internal api *)
 
@@ -79,14 +80,16 @@ let valid_operations ~__context record _ref' : table =
   (* First consider the backend SM features *)
   let sm_features = features_of_sr record in
 
-  info "SR %s has features: [ %s ]" _ref (String.concat ", " (List.map Smint.string_of_capability sm_features));
+  info "SR %s has features: [ %s ]" _ref (String.concat ", "
+    (List.map
+      (fun f -> Smint.(f |> capability_of_feature |> string_of_capability))
+      sm_features));
 
   (* Then filter out the operations we don't want to see for the magic tools SR *)
   let sm_features =
     if Helpers.is_tools_sr ~__context ~sr:_ref'
     then List.filter
-		(* (fun cap -> not(List.mem (fst cap) [ Smint.Vdi_create; Smint.Vdi_delete ])) *)
-		(fun feat -> not Smint.(has_feature feat [ Vdi_create, 0; Vdi_delete, 0 ]))
+		(fun f -> not Smint.(List.mem (capability_of_feature f) [Vdi_create; Vdi_delete]))
 		sm_features
     else sm_features in
 

@@ -1300,6 +1300,7 @@ let sm_record rpc session_id sm =
   let empty_record = ToGet (fun () -> Client.SM.get_record rpc session_id !_ref) in
   let record = ref empty_record in
   let x () = lzy_get record in
+  let s2i64_to_string m = List.map (fun (c,v) -> (c, Int64.to_string v)) m in
   { setref=(fun r -> _ref := r; record := empty_record );
     setrefrec=(fun (a,b) -> _ref := a; record := Got b);
     record=x;
@@ -1315,8 +1316,8 @@ let sm_record rpc session_id sm =
     make_field ~name:"required-api-version" ~get:(fun () -> (x ()).API.sM_required_api_version) ();
     make_field ~name:"capabilities" ~deprecated:true ~get:(fun () -> String.concat "; " (x ()).API.sM_capabilities) ();
     make_field ~name:"features"
-		~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.sM_features)
-		~get_map:(fun () -> (x ()).API.sM_features) ();
+		~get:(fun () -> Record_util.s2sm_to_string "; " (s2i64_to_string (x ()).API.sM_features))
+		~get_map:(fun () -> s2i64_to_string (x ()).API.sM_features) ();
     make_field ~name:"configuration" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.sM_configuration) ();
     make_field ~name:"driver-filename" ~get:(fun () -> (x ()).API.sM_driver_filename) ();
   ]}
