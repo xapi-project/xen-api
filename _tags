@@ -65,7 +65,8 @@
 # OASIS_STOP
 <storage/*.ml{,i}>: syntax_camlp4o
 <xen/*.ml{,i}>: syntax_camlp4o
+<memory/*.ml{,i}>: syntax_camlp4o
 <storage/storage_interface.ml>: pkg_rpclib.idl
 <xen/xenops_interface.ml>: pkg_rpclib.idl
-
+<memory/memory_interface.ml>: pkg_rpclib.idl
 
