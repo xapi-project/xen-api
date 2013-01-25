@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 3b0a196d7d97fbfbc7665d6434eeba16)
+# DO NOT EDIT (digest: 4d3663091f8f831bd515b4514ad55593)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -49,6 +49,19 @@
 <xen/*.ml{,i}>: pkg_unix
 <xen/*.ml{,i}>: pkg_rpclib.xml
 <xen/*.ml{,i}>: pkg_rpclib.js
+# Library xcp_memory
+"memory/xcp_memory.cmxs": use_xcp_memory
+<memory/*.ml{,i}>: use_xcp
+<memory/*.ml{,i}>: pkg_threads
+<memory/*.ml{,i}>: pkg_rpclib
+<memory/*.ml{,i}>: pkg_rpclib.syntax
+<memory/*.ml{,i}>: pkg_uri
+<memory/*.ml{,i}>: pkg_re
+<memory/*.ml{,i}>: pkg_cohttp
+<memory/*.ml{,i}>: pkg_xmlm
+<memory/*.ml{,i}>: pkg_unix
+<memory/*.ml{,i}>: pkg_rpclib.xml
+<memory/*.ml{,i}>: pkg_rpclib.js
 # OASIS_STOP
 <storage/*.ml{,i}>: syntax_camlp4o
 <xen/*.ml{,i}>: syntax_camlp4o
