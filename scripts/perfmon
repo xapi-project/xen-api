@@ -658,7 +658,7 @@ class HOSTMonitor(ObjectMonitor):
          (only has defaults for "cpu_usage", "network_usage", "memory_total_kib" and "sr_io_throughput_total_xxxxxxxx")
     """
     def __init__(self, *args):
-        self.monitortype = "HOST"
+        self.monitortype = "Host"
         ObjectMonitor.__init__(self, *args)
         print_debug("Created HOSTMonitor with uuid %s" % self.uuid)
 
@@ -951,17 +951,29 @@ if __name__ == "__main__":
         pass
 
     except Exception, e:
+        rc = 2
+        log_err("FATAL ERROR: perfmon will exit")
+        log_err("Exception is of class %s" % e.__class__)
         ex = sys.exc_info()
         err = traceback.format_exception(*ex)
-        errmsg = "\n".join([ str(x) for x in e.args ])
-
-        # print the exception args nicely
-        log_err(errmsg)
+        
+        # Python built-in Exception has args,
+        # but XenAPI.Failure has details instead. Sigh.
+        try:
+            errmsg = "\n".join([ str(x) for x in e.args ])
+            # print the exception args nicely
+            log_err(errmsg)
+        except Exception, ignored:
+            try:
+                errmsg = "\n".join([ str(x) for x in e.details ])
+                # print the exception args nicely
+                log_err(errmsg)
+            except Exception, ignored:
+                pass
 
         # now log the traceback to syslog
         for exline in err:
             log_err(exline)
-        rc = 2
 
     # remove pidfile and exit
     os.unlink(pidfile)
