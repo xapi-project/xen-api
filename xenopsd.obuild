@@ -1,0 +1,37 @@
+name: xenopsd
+version: 1.0.0
+synopsis: Xen domain manager
+obuild-ver: 1
+
+library xenops
+  src-dir: lib
+  modules: Config, Ionice, Mac, Xenops_migrate, Xenops_hooks, Task_server, Xenops_task, Updates, Xenops_utils, Xenops_server, Xenopsd, Xenops_server_plugin, Scheduler, Path
+  build-deps: syslog, threads, uuidm, xmlm, cohttp, uri, rpclib, rpclib.syntax, forkexec, fd-send-recv, xcp, xcp.xen
+
+executable xenopsd
+  main: xenops_xc_main.ml
+  src-dir: xc
+  cdir: ./
+  build-deps: xenctrl, xenops, xenstore, xenstore.unix, xenstore_transport, xenstore_transport.unix, rpclib, forkexec, xcp, xcp.storage, sexplib
+  c-sources: fsync_stubs.c, xenctrlext_stubs.c
+
+executable xenguest
+  main: xenguest_main.ml
+  src-dir: xenguest
+  build-deps: xenctrl, unix
+
+executable xenopsd_simulator
+  main: xenops_simulator_main.ml
+  src-dir: simulator
+  build-deps: xenops
+
+executable test
+  main: test.ml
+  src-dir: test
+  build-deps: xenops, oUnit, unix
+
+executable lib_test
+  main: test.ml
+  src-dir: lib_test
+  build-deps: xenops, oUnit, unix
+
