@@ -30,3 +30,10 @@ Library xcp_xen
   Modules:            Xenops_interface, Xenops_client, Device_number
   BuildDepends:       xcp, threads, rpclib, rpclib.syntax
 
+Library xcp_memory
+  CompiledObject:     best
+  Path:               memory
+  Findlibname:        memory
+  Findlibparent:      xcp
+  Modules:            Memory_interface
+  BuildDepends:       xcp, threads, rpclib, rpclib.syntax
