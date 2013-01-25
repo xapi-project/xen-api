@@ -35,5 +35,5 @@ Library xcp_memory
   Path:               memory
   Findlibname:        memory
   Findlibparent:      xcp
-  Modules:            Memory_interface
+  Modules:            Memory_interface, Memory_client
   BuildDepends:       xcp, threads, rpclib, rpclib.syntax
