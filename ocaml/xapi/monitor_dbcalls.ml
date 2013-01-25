@@ -89,10 +89,13 @@ let get_vm_memory_changes xc =
 	let domains = Xenctrl.domain_getinfolist xc 0 in
 	let process_vm dom =
 		let open Xenctrl.Domain_info in
-		let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.handle) in
-		let kib = Xenctrl.pages_to_kib (Int64.of_nativeint dom.total_memory_pages) in
-		let memory = Int64.mul kib 1024L in
-		Hashtbl.add vm_memory_tmp uuid memory
+		if not dom.dying then
+			begin
+				let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.handle) in
+				let kib = Xenctrl.pages_to_kib (Int64.of_nativeint dom.total_memory_pages) in
+				let memory = Int64.mul kib 1024L in
+				Hashtbl.add vm_memory_tmp uuid memory
+			end
 	in
 	List.iter process_vm domains;
 	Mutex.execute vm_memory_cached_m (fun _ ->
