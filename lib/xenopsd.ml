@@ -289,3 +289,6 @@ let main backend =
 		with e ->
 			debug "Thread.delay caught: %s" (Printexc.to_string e)
 	done
+
+(* Verify the signature matches *)
+module S = (Xenops_server_skeleton : Xenops_server_plugin.S)
