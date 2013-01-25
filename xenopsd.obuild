@@ -6,14 +6,16 @@ obuild-ver: 1
 library xenops
   src-dir: lib
   modules: Config, Ionice, Mac, Xenops_migrate, Xenops_hooks, Task_server, Xenops_task, Updates, Xenops_utils, Xenops_server, Xenopsd, Xenops_server_plugin, Scheduler, Path
-  build-deps: syslog, threads, uuidm, xmlm, cohttp, uri, rpclib, rpclib.syntax, forkexec, fd-send-recv, xcp, xcp.xen
+  build-deps: syslog, threads.posix, uuidm, xmlm, cohttp, uri, rpclib, rpclib.syntax, forkexec, fd-send-recv, xcp, xcp.xen, rpclib.syntax
+  pp: camlp4o
 
 executable xenopsd
   main: xenops_xc_main.ml
   src-dir: xc
-  cdir: ./
-  build-deps: xenctrl, xenops, xenstore, xenstore.unix, xenstore_transport, xenstore_transport.unix, rpclib, forkexec, xcp, xcp.storage, sexplib
+  cdir: xc
+  build-deps: xenctrl, xenops, xenstore, xenstore.unix, xenstore_transport, xenstore_transport.unix, rpclib, forkexec, xcp, xcp.storage, xcp.memory, sexplib, rpclib.syntax
   c-sources: fsync_stubs.c, xenctrlext_stubs.c
+  pp: camlp4o
 
 executable xenguest
   main: xenguest_main.ml
@@ -23,15 +25,16 @@ executable xenguest
 executable xenopsd_simulator
   main: xenops_simulator_main.ml
   src-dir: simulator
-  build-deps: xenops
+  build-deps: xenops, rpclib.syntax
+  pp: camlp4o
+ 
+#executable test
+#  main: test.ml
+#  src-dir: test
+#  build-deps: xenops, oUnit, unix, xcp, xcp.xen
 
-executable test
-  main: test.ml
-  src-dir: test
-  build-deps: xenops, oUnit, unix
-
-executable lib_test
-  main: test.ml
-  src-dir: lib_test
-  build-deps: xenops, oUnit, unix
+#executable lib_test
+#  main: test.ml
+#  src-dir: lib_test
+#  build-deps: xenops, oUnit, unix
 
