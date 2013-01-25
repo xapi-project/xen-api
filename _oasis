@@ -33,7 +33,7 @@ Executable xenopsd_xc_main
   Build$:             flag(xen)
   Custom:             true
   Install:            false
-  BuildDepends:       xenctrl, xenops, xenstore, xenstore.unix, xenstore_transport, xenstore_transport.unix, rpclib, forkexec, xcp, xcp.storage, sexplib
+  BuildDepends:       xenctrl, xenops, xenstore, xenstore.unix, xenstore_transport, xenstore_transport.unix, rpclib, forkexec, xcp, xcp.storage, xcp.memory, sexplib
   CSources:           fsync_stubs.c, xenctrlext_stubs.c
 
 Executable xenguest
