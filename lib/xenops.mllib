@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 551aa2ec4984d804596c872bbec971cf)
+# DO NOT EDIT (digest: 9092fc95e9e6eddefc071eaa361b80e2)
 Config
 Ionice
 Mac
@@ -12,6 +12,7 @@ Xenops_utils
 Xenops_server
 Xenopsd
 Xenops_server_plugin
+Xenops_server_skeleton
 Scheduler
 Path
 # OASIS_STOP
