@@ -27,6 +27,12 @@ executable xenopsd_simulator
   src-dir: simulator
   build-deps: xenops, rpclib.syntax
   pp: camlp4o
+
+executable xenopsd_qemu
+  main: xenops_qemu_main.ml
+  src-dir: qemu
+  build-deps: xenops, rpclib.syntax
+  pp: camlp4o
  
 #executable test
 #  main: test.ml

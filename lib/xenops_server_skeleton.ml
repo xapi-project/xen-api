@@ -26,8 +26,8 @@ module HOST = struct
 	let send_debug_keys _ = ()
 end
 module VM = struct
-	let add _ = unimplemented "VM.add"
-	let remove _ = unimplemented "VM.remove"
+	let add _ = ()
+	let remove _ = ()
 	let create _ _ _ = unimplemented "VM.create"
 	let build _ _ _ _ = unimplemented "VM.build"
 	let create_device_model _ _ _ _ _ = unimplemented "VM.create_device_model"
