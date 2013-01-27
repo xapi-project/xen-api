@@ -220,8 +220,9 @@ module VM = struct
 	let get_state vm =
 		if DB.exists vm.Vm.id then begin
 			let d = DB.read_exn vm.Vm.id in
+			let path = Filename.concat Qemu.qmp_dir vm.Vm.id in
 			{ halted_vm with
-				Vm.power_state = Running;
+				Vm.power_state = if Sys.file_exists path then Running else Halted;
 				domids = [ ];
 				vcpu_target = d.Domain.vcpus;
 				last_start_time = d.Domain.last_create_time;
