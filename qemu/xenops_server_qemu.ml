@@ -74,7 +74,7 @@ module Qemu = struct
 			let mac = [ "macaddr", x.mac ] in
 			let model = [ "model", "virtio" (* "rtl8139" *) ] in
 			let nic = [ "-net"; commas ("nic" :: (kv (vlan @ mac @ model))) ] in
-			let bridge = [ "-net"; commas ("bridge" :: (kv (vlan @ bridge))) ] in
+			let bridge = [ "-net"; commas ("tap" :: (kv (vlan  (* @ bridge *)))) ] in
 			nic @ bridge
 
 		type t = {
