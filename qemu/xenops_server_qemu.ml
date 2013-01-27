@@ -102,38 +102,72 @@ module Qemu = struct
 			  qmp = qmp_path
 			}
 
-		let fds_to_uuids = Hashtbl.create 128
+		let qmp_to_uuid = Hashtbl.create 128
+		let uuid_to_qmp = Hashtbl.create 128
 
 		let monitor () =
-			(* Close any currently-open QMP fds *)
-			Hashtbl.iter (fun c _ -> Qmp_protocol.close c) fds_to_uuids;
-			Hashtbl.clear fds_to_uuids;
+			(* Close any currently-open QMP connections *)
+			Hashtbl.iter (fun c _ -> Qmp_protocol.close c) qmp_to_uuid;
+			Hashtbl.clear qmp_to_uuid;
+			Hashtbl.clear uuid_to_qmp;
 
-			let uuids = Sys.readdir qmp_dir in
-			Array.iter
-				(fun uuid ->
-					let path = Filename.concat qmp_dir uuid in
-					match DB.read uuid with
-					| None ->
-						debug "QMP socket %s: no corresponding VM, removing socket" uuid;
-						Sys.remove path
-						(* XXX: shutdown a qemu too? *)
-					| Some d ->
-						debug "QMP socket %s: performing negotiation" uuid;
-						begin
-							try
-								let fd = Qmp_protocol.connect path in
-								Qmp_protocol.negotiate fd;
-								Hashtbl.replace fds_to_uuids fd uuid;
-								debug "QMP socket %s: negotiation complete" uuid
-							with e ->
-								info "QMP socket %s: negotiation failed (%s): removing socket" uuid (Printexc.to_string e);
-								Sys.remove path
-								(* XXX: shutdown a qemu too? *)
-						end
-				) uuids;
+			let remove uuid =
+				(* XXX: shutdown a qemu too? *)
+				let path = Filename.concat qmp_dir uuid in
+				if Hashtbl.mem uuid_to_qmp uuid then begin
+					let c = Hashtbl.find uuid_to_qmp uuid in
+					Hashtbl.remove qmp_to_uuid c;
+					Qmp_protocol.close c
+				end;
+				debug "QMP %s: removing socket" uuid;
+				Sys.remove path in
+
+			let add uuid =
+				debug "QMP %s: performing negotiation" uuid;
+				let path = Filename.concat qmp_dir uuid in
+				try
+					let c = Qmp_protocol.connect path in
+					Qmp_protocol.negotiate c;
+					Hashtbl.replace qmp_to_uuid c uuid;
+					Hashtbl.replace uuid_to_qmp uuid c;
+					debug "QMP %s: negotiation complete" uuid
+				with e ->
+					info "QMP %s: negotiation failed (%s): removing socket" uuid (Printexc.to_string e);
+					remove uuid in
+
 			(* Monitor the QMP sockets for events *)
-			()
+			while true do
+				(* Look for any new sockets and negotiate *)
+				let uuids = Sys.readdir qmp_dir in
+				Array.iter
+					(fun uuid ->
+						match DB.read uuid with
+						| None ->
+							debug "QMP %s: no corresponding VM, removing socket" uuid;
+							remove uuid
+						| Some d ->
+							if not(Hashtbl.mem uuid_to_qmp uuid)
+							then add uuid
+				) uuids;
+
+				let cs = Hashtbl.fold (fun c _ acc -> c :: acc) qmp_to_uuid [] in
+				let fds = List.map (fun x -> Qmp_protocol.to_fd x, x) cs in
+				(* Re-select every 1s as a cheap way to re-scan *)
+				let rs, _, _ = Unix.select (List.map fst fds) [] [] 1. in
+				List.iter
+					(fun fd ->
+						let c = List.assoc fd fds in
+						let uuid = Hashtbl.find qmp_to_uuid c in
+						try
+							let m = Qmp_protocol.read c in
+							debug "QMP %s: %s" uuid (Qmp.string_of_message m)
+						with End_of_file ->
+							(* End_of_file means the VM has shutdown *)
+							debug "QMP %s: End_of_file" uuid;
+							remove uuid;
+							Updates.add (Dynamic.Vm uuid) updates
+					) rs
+			done
 
 end
 
