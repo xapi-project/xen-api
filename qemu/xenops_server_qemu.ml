@@ -182,36 +182,37 @@ module VM = struct
 
 	let create _ memory_limit vm =
 		debug "Domain.create vm=%s" vm.Vm.id;
-		if DB.exists vm.Vm.id then begin
-			debug "VM.create_nolock %s: Already_exists" vm.Vm.id;
-			raise (Already_exists("domain", vm.Vm.id))
-		end else begin
-			let open Domain in
-			let domain = {
-				uuid = vm.Vm.id;
-				vcpus = vm.Vm.vcpus;
-				memory = vm.Vm.memory_dynamic_max;
-				vifs = [];
-				vbds = [];
-				pcis = [];
-				last_create_time = Unix.gettimeofday ();
-			} in
-			DB.write vm.Vm.id domain
-		end
+		(* Idempotent *)
+		if DB.exists vm.Vm.id then DB.delete vm.Vm.id;
+		let open Domain in
+		let domain = {
+			uuid = vm.Vm.id;
+			vcpus = vm.Vm.vcpus;
+			memory = vm.Vm.memory_dynamic_max;
+			vifs = [];
+			vbds = [];
+			pcis = [];
+			last_create_time = Unix.gettimeofday ();
+		} in
+		DB.write vm.Vm.id domain
 
 	let destroy _ vm =
 		debug "Domain.destroy vm=%s" vm.Vm.id;
 		(* Idempotent *)
 		if DB.exists vm.Vm.id then DB.delete vm.Vm.id
 
-	let unpause _ vm = ()
-	let build _ vm vbds vifs = ()
-	let create_device_model _ vm vbds vifs _ =
+	let unpause _ vm =
 		let d = DB.read_exn vm.Vm.id in
 		let qemu = Qemu.of_domain d in
 		debug "%s %s" qemu.Qemu.cmd (String.concat " " qemu.Qemu.args);
 		debug "<- listening on %s" qemu.Qemu.qmp;
-		()
+		let syslog_stdout = Forkhelpers.Syslog_WithKey (Printf.sprintf "qemu-%s" vm.Vm.id) in
+		let pid = Forkhelpers.safe_close_and_exec None None None [] ~syslog_stdout qemu.Qemu.cmd qemu.Qemu.args in
+		(* At this point we expect qemu to outlive us; we will never call waitpid *)	
+		Forkhelpers.dontwaitpid pid
+
+	let build _ vm vbds vifs = ()
+	let create_device_model _ vm vbds vifs _ = ()
 	let destroy_device_model _ vm = ()
 	let request_shutdown _ vm reason ack_delay = false
 	let wait_shutdown _ vm reason timeout = true
