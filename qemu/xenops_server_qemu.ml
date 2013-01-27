@@ -34,6 +34,8 @@ end
 let mib = Int64.mul 1024L 1024L
 
 module Qemu = struct
+		let qmp_dir = Filename.concat !Xenops_utils.root "qmp"
+
 		let commas = String.concat ","
 		let kv = List.map (fun (k, v) -> k ^ "=" ^ v)
 
@@ -83,11 +85,12 @@ module Qemu = struct
 			let kvm = [ "-enable-kvm" ] in
 			let boot = [ "-boot"; "cd" ] in
 			let vnc = [ "-vnc"; ":0" ] in
-			let qmp = [ "-qmp"; "unix:/tmp/qemu,server" ] in
+			let qmp_path = Filename.concat qmp_dir d.uuid in
+			let qmp = [ "-qmp"; Printf.sprintf "unix:%s,server" qmp_path ] in
 			{ cmd = Printf.sprintf "qemu-system-%s" arch;
 			  args = memory @ vga @ vbds @ vifs @ kvm @ boot @ vnc @ qmp;
 			  vnc = ":0";
-			  qmp = "/tmp/qemu"
+			  qmp = qmp_path
 			}
 end
 
@@ -252,4 +255,21 @@ module DEBUG = struct
 	include Xenops_server_skeleton.DEBUG
 end
 
-let init () = ()
+let qmp_thread () =
+	()
+
+let init () =
+	debug "Creating QMP directory: %s" Qemu.qmp_dir;
+	Unixext.mkdir_rec Qemu.qmp_dir 0o0755;
+	let (_: Thread.t) = Thread.create
+		(fun () ->
+			while true do
+				finally
+				(fun () ->
+					debug "(re)starting QMP thread";
+					qmp_thread ())
+				(fun () ->
+					Thread.delay 5.)
+			done
+		) () in
+	()
