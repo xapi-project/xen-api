@@ -21,6 +21,7 @@ open D
 
 module Domain = struct
 	type t = {
+		domid: int;
 		uuid: string;
 		vcpus: int;
 		memory: int64;
@@ -65,23 +66,29 @@ module Qemu = struct
 			let params = file @ intf @ media @ index in
 			[ "-drive"; commas (kv params) ]
 
-		let of_vif x =
+		let of_vif domid x =
 			let open Vif in
-			let bridge = match x.backend with
-				| Network.Local bridge -> [ "br", bridge ]
-				| Network.Remote (_, _) -> failwith "need driver domains" in
 			let vlan = [ "vlan", string_of_int x.position ] in
 			let mac = [ "macaddr", x.mac ] in
 			let model = [ "model", "virtio" (* "rtl8139" *) ] in
-			let nic = [ "-net"; commas ("nic" :: (kv (vlan @ mac @ model))) ] in
-			let bridge = [ "-net"; commas ("tap" :: (kv (vlan  (* @ bridge *)))) ] in
-			nic @ bridge
+			let ifname = [ "ifname", Printf.sprintf "tap%d.%d" domid x.position ] in
+			[ "-net"; commas ("nic" :: (kv (vlan @ mac @ model)));
+			  "-net"; commas ("tap" :: (kv (vlan @ ifname))) ]
+
+		let port_of_vif domid x =
+			let open Vif in
+			let bridge = match x.backend with
+				| Network.Local bridge -> bridge
+				| Network.Remote (_, _) -> failwith "need driver domains" in
+			let ifname = Printf.sprintf "tap%d.%d" domid x.position in
+			ifname, bridge
 
 		type t = {
 			cmd: string;
 			args: string list;
 			vnc: string; (* where to find the display *)
 			qmp: string; (* where to find the QMP socket *)
+			ports: (string * string) list; (* ifname * bridge list *)
 		}
 
 		let of_domain d =
@@ -89,7 +96,8 @@ module Qemu = struct
 			let memory = [ "-m"; Int64.to_string (Int64.div d.memory mib) ] in
 			let vga = [ "-vga"; "std" ] in
 			let vbds = List.concat (List.map of_vbd d.vbds) in
-			let vifs = List.concat (List.map of_vif d.vifs) in
+			let vifs = List.concat (List.map (of_vif d.domid) d.vifs) in
+			let ports = List.map (port_of_vif d.domid) d.vifs in
 			let arch = "x86_64" in
 			let kvm = [ "-enable-kvm" ] in
 			let boot = [ "-boot"; "cd" ] in
@@ -99,7 +107,8 @@ module Qemu = struct
 			{ cmd = Printf.sprintf "/usr/bin/qemu-system-%s" arch;
 			  args = memory @ vga @ vbds @ vifs @ kvm @ boot @ vnc @ qmp;
 			  vnc = ":0";
-			  qmp = qmp_path
+			  qmp = qmp_path;
+			  ports = ports;
 			}
 
 		let qmp_to_uuid = Hashtbl.create 128
@@ -177,6 +186,9 @@ module HOST = struct
 	let get_total_memory_mib () = 0L
 	let send_debug_keys _ = ()
 end
+
+let next_domid = ref 1
+
 module VM = struct
 	include Xenops_server_skeleton.VM
 
@@ -186,6 +198,7 @@ module VM = struct
 		if DB.exists vm.Vm.id then DB.delete vm.Vm.id;
 		let open Domain in
 		let domain = {
+			domid = !next_domid;
 			uuid = vm.Vm.id;
 			vcpus = vm.Vm.vcpus;
 			memory = vm.Vm.memory_dynamic_max;
@@ -194,6 +207,7 @@ module VM = struct
 			pcis = [];
 			last_create_time = Unix.gettimeofday ();
 		} in
+		incr next_domid;
 		DB.write vm.Vm.id domain
 
 	let destroy _ vm =
@@ -209,7 +223,18 @@ module VM = struct
 		let syslog_stdout = Forkhelpers.Syslog_WithKey (Printf.sprintf "qemu-%s" vm.Vm.id) in
 		let pid = Forkhelpers.safe_close_and_exec None None None [] ~syslog_stdout qemu.Qemu.cmd qemu.Qemu.args in
 		(* At this point we expect qemu to outlive us; we will never call waitpid *)	
-		Forkhelpers.dontwaitpid pid
+		Forkhelpers.dontwaitpid pid;
+		(* XXX: hack *)
+		let (_: Thread.t) = Thread.create
+			(fun () ->
+				Thread.delay 5.;
+				List.iter
+					(fun (ifname, bridge) ->
+						debug "/sbin/brctl addif %s %s" bridge ifname;
+						ignore (Forkhelpers.execute_command_get_output "/sbin/brctl" [ "addif"; bridge; ifname ])
+					) qemu.Qemu.ports
+			) () in
+		()
 
 	let build _ vm vbds vifs = ()
 	let create_device_model _ vm vbds vifs _ = ()
@@ -328,6 +353,12 @@ module DEBUG = struct
 end
 
 let init () =
+	List.iter
+		(fun id ->
+			let d = DB.read_exn id in
+			next_domid := max !next_domid (d.Domain.domid + 1)
+		) (DB.list []);
+
 	debug "Creating QMP directory: %s" Qemu.qmp_dir;
 	Unixext.mkdir_rec Qemu.qmp_dir 0o0755;
 	let (_: Thread.t) = Thread.create
