@@ -31,6 +31,68 @@ module Domain = struct
 	} with rpc
 end
 
+let mib = Int64.mul 1024L 1024L
+
+module Qemu = struct
+		let commas = String.concat ","
+		let kv = List.map (fun (k, v) -> k ^ "=" ^ v)
+
+		let of_vbd x =
+			let open Vbd in
+			let file = match x.backend with
+				| None -> []
+				| Some (Local path) -> [ "file", path ]
+				| Some (VDI x) -> failwith "Need SM interface" in
+			let intf, media = match x.ty with
+				| CDROM -> "ide", "cdrom"
+				| Disk  -> "virtio", "disk" in
+			let intf = [ "if", intf ] in
+			let media = [ "media", media ] in
+			let index = match x.position with
+				| None -> failwith "unresolved disk position"
+				| Some p -> [ "index", string_of_int (Device_number.to_disk_number p) ] in
+			let params = file @ intf @ media @ index in
+			[ "-drive"; commas (kv params) ]
+
+		let of_vif x =
+			let open Vif in
+			let bridge = match x.backend with
+				| Network.Local bridge -> [ "br", bridge ]
+				| Network.Remote (_, _) -> failwith "need driver domains" in
+			let vlan = [ "vlan", string_of_int x.position ] in
+			let mac = [ "macaddr", x.mac ] in
+			let model = [ "model", "virtio" (* "rtl8139" *) ] in
+			let nic = [ "-net"; commas ("nic" :: (kv (vlan @ mac @ model))) ] in
+			let bridge = [ "-net"; commas ("bridge" :: (kv (vlan @ bridge))) ] in
+			nic @ bridge
+
+		type t = {
+			cmd: string;
+			args: string list;
+			vnc: string; (* where to find the display *)
+			qmp: string; (* where to find the QMP socket *)
+		}
+
+		let of_domain d =
+			let open Domain in
+			let memory = [ "-m"; Int64.to_string (Int64.div d.memory mib) ] in
+			let vga = [ "-vga"; "std" ] in
+			let vbds = List.concat (List.map of_vbd d.vbds) in
+			let vifs = List.concat (List.map of_vif d.vifs) in
+			let arch = "x86_64" in
+			let kvm = [ "-enable-kvm" ] in
+			let boot = [ "-boot"; "cd" ] in
+			let vnc = [ "-vnc"; ":0" ] in
+			let qmp = [ "-qmp"; "unix:/tmp/qemu,server" ] in
+			{ cmd = Printf.sprintf "qemu-system-%s" arch;
+			  args = memory @ vga @ vbds @ vifs @ kvm @ boot @ vnc @ qmp;
+			  vnc = ":0";
+			  qmp = "/tmp/qemu"
+			}
+end
+
+
+
 module DB = TypedTable(struct
 	include Domain
 	let namespace = "domain"
@@ -74,7 +136,12 @@ module VM = struct
 
 	let unpause _ vm = ()
 	let build _ vm vbds vifs = ()
-	let create_device_model _ vm vbds vifs _ = ()
+	let create_device_model _ vm vbds vifs _ =
+		let d = DB.read_exn vm.Vm.id in
+		let qemu = Qemu.of_domain d in
+		debug "%s %s" qemu.Qemu.cmd (String.concat " " qemu.Qemu.args);
+		debug "<- listening on %s" qemu.Qemu.qmp;
+		()
 	let destroy_device_model _ vm = ()
 	let request_shutdown _ vm reason ack_delay = false
 	let wait_shutdown _ vm reason timeout = true
