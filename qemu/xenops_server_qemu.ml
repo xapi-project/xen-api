@@ -117,6 +117,7 @@ module Qemu = struct
 				if Hashtbl.mem uuid_to_qmp uuid then begin
 					let c = Hashtbl.find uuid_to_qmp uuid in
 					Hashtbl.remove qmp_to_uuid c;
+					Hashtbl.remove uuid_to_qmp uuid;
 					Qmp_protocol.close c
 				end;
 				debug "QMP %s: removing socket" uuid;
