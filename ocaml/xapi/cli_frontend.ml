@@ -1060,7 +1060,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
      optn=[];
      help="Attach to a particular console.";
      implementation=With_fd Cli_operations.console;
-     flags=[Hidden; Vm_selectors];
+     flags=[Vm_selectors];
    };
 
    "vm-query-services",
