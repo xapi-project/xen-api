@@ -31,6 +31,15 @@ module Domain = struct
 	} with rpc
 end
 
+module DB = TypedTable(struct
+	include Domain
+	let namespace = "domain"
+	type key = string
+	let key x = [ x ]
+end)
+
+let updates = Updates.empty ()
+
 let mib = Int64.mul 1024L 1024L
 
 module Qemu = struct
@@ -92,18 +101,41 @@ module Qemu = struct
 			  vnc = ":0";
 			  qmp = qmp_path
 			}
+
+		let fds_to_uuids = Hashtbl.create 128
+
+		let monitor () =
+			(* Close any currently-open QMP fds *)
+			Hashtbl.iter (fun c _ -> Qmp_protocol.close c) fds_to_uuids;
+			Hashtbl.clear fds_to_uuids;
+
+			let uuids = Sys.readdir qmp_dir in
+			Array.iter
+				(fun uuid ->
+					let path = Filename.concat qmp_dir uuid in
+					match DB.read uuid with
+					| None ->
+						debug "QMP socket %s: no corresponding VM, removing socket" uuid;
+						Sys.remove path
+						(* XXX: shutdown a qemu too? *)
+					| Some d ->
+						debug "QMP socket %s: performing negotiation" uuid;
+						begin
+							try
+								let fd = Qmp_protocol.connect path in
+								Qmp_protocol.negotiate fd;
+								Hashtbl.replace fds_to_uuids fd uuid;
+								debug "QMP socket %s: negotiation complete" uuid
+							with e ->
+								info "QMP socket %s: negotiation failed (%s): removing socket" uuid (Printexc.to_string e);
+								Sys.remove path
+								(* XXX: shutdown a qemu too? *)
+						end
+				) uuids;
+			(* Monitor the QMP sockets for events *)
+			()
+
 end
-
-
-
-module DB = TypedTable(struct
-	include Domain
-	let namespace = "domain"
-	type key = string
-	let key x = [ x ]
-end)
-
-let updates = Updates.empty ()
 
 module HOST = struct
 	let get_console_data () = "should run 'dmesg' here"
@@ -161,7 +193,10 @@ module VM = struct
 		end else halted_vm
 
 	let set_domain_action_request vm request = ()
-	let get_domain_action_request vm = None
+	let get_domain_action_request vm =
+		(* If the QMP socket has been deleted then the VM needs shutdown *)
+		let path = Filename.concat Qemu.qmp_dir vm.Vm.id in
+		if Sys.file_exists path then None else Some Needs_poweroff
 
 	let minimum_reboot_delay = 0.
 end
@@ -255,9 +290,6 @@ module DEBUG = struct
 	include Xenops_server_skeleton.DEBUG
 end
 
-let qmp_thread () =
-	()
-
 let init () =
 	debug "Creating QMP directory: %s" Qemu.qmp_dir;
 	Unixext.mkdir_rec Qemu.qmp_dir 0o0755;
@@ -267,7 +299,7 @@ let init () =
 				finally
 				(fun () ->
 					debug "(re)starting QMP thread";
-					qmp_thread ())
+					Qemu.monitor ())
 				(fun () ->
 					Thread.delay 5.)
 			done
