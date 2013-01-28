@@ -67,12 +67,12 @@ let valid_operations ~__context record _ref' : table =
   *)
 
   (* First consider the backend SM capabilities *)
-  let sm_caps = 
+  let sm_features =
       try
-		  Sm.capabilities_of_driver record.Db_actions.sR_type
+		  Sm.features_of_driver record.Db_actions.sR_type
       with Sm.Unknown_driver _ ->
 		  (* then look to see if this supports the SMAPIv2 *)
-		  Smint.parse_capabilities (Storage_mux.capabilities_of_sr _ref)
+		  List.map Smint.feature_of_string_int64 (Storage_mux.features_of_sr _ref)
   in
   info "SR %s has capabilities: [ %s ]" _ref (String.concat ", " (List.map Smint.string_of_capability sm_caps));
 

@@ -89,6 +89,8 @@ let has_capability (c : capability) fl = List.mem_assoc c fl
 
 let capability_of_feature : feature -> capability = fst
 
+let feature_of_string_int64 (c,v) = (List.assoc c string_to_capability_table, v : feature)
+
 let parse_features strings =
 	let text_features =
 		List.filter
