@@ -30,7 +30,7 @@ let make_vdi_info ~location ?uuid () =
     vdi_info_location = location;
   }
 
-(** Very primitive first attempt at a set of backend capabilities *)
+(** Very primitive first attempt at a set of backend features *)
 type capability =
     | Sr_create | Sr_delete | Sr_attach | Sr_detach | Sr_scan | Sr_probe | Sr_update 
 	| Sr_supports_local_caching
@@ -42,7 +42,9 @@ type capability =
     | Vdi_generate_config
 	| Vdi_reset_on_boot
 
-let all_capabilities =
+type feature = capability * int64
+
+let all_capabilites =
   [ Sr_create; Sr_delete; Sr_attach; Sr_detach; Sr_scan; Sr_probe; Sr_update;
     Sr_supports_local_caching;
     Sr_metadata;
@@ -74,16 +76,49 @@ let string_to_capability_table = [
 ]
 let capability_to_string_table = List.map (fun (k, v) -> v, k) string_to_capability_table
 
-let string_of_capability x = List.assoc x capability_to_string_table
+let string_of_feature (c,v) =
+	List.assoc c capability_to_string_table, Int64.to_string v
 
-let parse_capabilities strings =
-	(* Parse the capabilities *)
-	List.iter (fun s -> 
-	    if not(List.mem s (List.map fst string_to_capability_table))
-	    then debug "SR.capabilities: unknown capability %s" s) strings;
-	let text_capabilities = List.filter (fun s -> List.mem s (List.map fst string_to_capability_table)) strings in
-	List.map (fun key -> List.assoc key string_to_capability_table) text_capabilities
+let string_of_feature_capability (c,v) = List.assoc c capability_to_string_table, v
 
+let string_of_capability c = List.assoc c capability_to_string_table
+
+let has_feature (f : feature) fl = List.mem f fl
+
+let has_capability (c : capability) fl = List.mem_assoc c fl
+
+let capability_of_feature : feature -> capability = fst
+
+let feature_of_string_int64 (c,v) = (List.assoc c string_to_capability_table, v : feature)
+
+let parse_features strings =
+	let text_features =
+		List.filter
+			(fun s ->
+				let s = List.hd (Stringext.String.split '/' s) in
+				let p = List.mem s (List.map fst string_to_capability_table) in
+				if not p then debug "SM.feature: unknown feature %s" s;
+				p)
+			strings in
+	let features =
+		List.map
+			(fun c ->
+				match Stringext.String.split '/' c with
+					| [] -> failwith "parse_feature" (* not possible *)
+					| [cs] -> (cs, 1L) (* default version *)
+					| [cs; vs]
+					| cs :: vs :: _ ->
+						try
+							let v = int_of_string vs in
+							(cs, if v < 1 then 1L else Int64.of_int v)
+						with _ ->
+							debug "SM.feature %s has bad version %s, defaulting to 1" cs vs;
+							(cs, 1L))
+			text_features in
+	List.map
+		(function c,v ->
+			((List.assoc c string_to_capability_table), v))
+		features
 
 type sr_driver_info = {
     sr_driver_filename: string;
@@ -93,8 +128,8 @@ type sr_driver_info = {
 	sr_driver_copyright: string;
 	sr_driver_version: string;
 	sr_driver_required_api_version: string;
-	sr_driver_capabilities: capability list;
-	sr_driver_text_capabilities: string list;
+	sr_driver_features: feature list;
+	sr_driver_text_features: (string * string) list;
 	sr_driver_configuration: (string * string) list;
 }
 
@@ -106,7 +141,7 @@ let query_result_of_sr_driver_info x = {
 	copyright = x.sr_driver_copyright;
 	version = x.sr_driver_version;
 	required_api_version = x.sr_driver_required_api_version;
-	features = x.sr_driver_text_capabilities;
+	features = List.map string_of_feature_capability x.sr_driver_features;
 	configuration = x.sr_driver_configuration
 }
 

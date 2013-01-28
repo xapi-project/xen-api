@@ -22,6 +22,7 @@ open Listext
 open Db_filter_types
 open API
 open Client
+open Fun
 
 (* internal api *)
 
@@ -48,15 +49,15 @@ let sm_cap_table =
 
 type table = (API.storage_operations, ((string * (string list)) option)) Hashtbl.t
 
-let capabilities_of_sr_internal ~_type ~uuid =
+let features_of_sr_internal ~_type ~uuid =
 	try
-		Sm.capabilities_of_driver _type
+		Sm.features_of_driver _type
 	with Sm.Unknown_driver _ ->
 		(* then look to see if this supports the SMAPIv2 *)
-		Smint.parse_capabilities (Storage_mux.capabilities_of_sr uuid)
+		Smint.parse_features (List.map fst (Storage_mux.features_of_sr uuid))
 
-let capabilities_of_sr record =
-	capabilities_of_sr_internal record.Db_actions.sR_type record.Db_actions.sR_uuid
+let features_of_sr record =
+	features_of_sr_internal record.Db_actions.sR_type record.Db_actions.sR_uuid
 
 (** Returns a table of operations -> API error options (None if the operation would be ok) *)
 let valid_operations ~__context record _ref' : table = 
@@ -76,19 +77,25 @@ let valid_operations ~__context record _ref' : table =
      Multiple simultaneous PBD.unplug operations are ok.
   *)
 
-  (* First consider the backend SM capabilities *)
-  let sm_caps = capabilities_of_sr record in
+  (* First consider the backend SM features *)
+  let sm_features = features_of_sr record in
 
-  info "SR %s has capabilities: [ %s ]" _ref (String.concat ", " (List.map Smint.string_of_capability sm_caps));
+  info "SR %s has features: [ %s ]" _ref (String.concat ", "
+    (List.map
+      (fun f -> Smint.(f |> capability_of_feature |> string_of_capability))
+      sm_features));
 
   (* Then filter out the operations we don't want to see for the magic tools SR *)
-  let sm_caps = 
+  let sm_features =
     if Helpers.is_tools_sr ~__context ~sr:_ref'
-    then List.filter (fun cap -> not(List.mem cap [ Smint.Vdi_create; Smint.Vdi_delete ])) sm_caps
-    else sm_caps in
+    then List.filter
+		(fun f -> not Smint.(List.mem (capability_of_feature f) [Vdi_create; Vdi_delete]))
+		sm_features
+    else sm_features in
 
   let forbidden_by_backend = 
-    List.filter (fun op -> List.mem_assoc op sm_cap_table && not(List.mem (List.assoc op sm_cap_table) sm_caps))
+    List.filter (fun op -> List.mem_assoc op sm_cap_table
+	                       && not (Smint.has_capability (List.assoc op sm_cap_table) sm_features))
       all_ops in
   set_errors Api_errors.sr_operation_not_supported [ _ref ] forbidden_by_backend;
 
