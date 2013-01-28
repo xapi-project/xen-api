@@ -54,7 +54,7 @@ let features_of_sr_internal ~_type ~uuid =
 		Sm.features_of_driver _type
 	with Sm.Unknown_driver _ ->
 		(* then look to see if this supports the SMAPIv2 *)
-		Smint.parse_features (List.map fst (Storage_mux.features_of_sr uuid))
+		List.map Smint.feature_of_string_int64 (Storage_mux.features_of_sr uuid)
 
 let features_of_sr record =
 	features_of_sr_internal record.Db_actions.sR_type record.Db_actions.sR_uuid
