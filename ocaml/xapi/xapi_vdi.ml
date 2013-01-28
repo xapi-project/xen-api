@@ -81,7 +81,7 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 			(* NB RO vs RW sharing checks are done in xapi_vbd.ml *)
 
 			let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
-			let sm_caps = Xapi_sr_operations.capabilities_of_sr_internal ~_type:sr_type ~uuid:sr_uuid in
+			let sm_features = Xapi_sr_operations.features_of_sr_internal ~_type:sr_type ~uuid:sr_uuid in
 
 			let any_vbd p = List.fold_left (||) false (List.map p my_vbd_records) in
 			if not operation_can_be_performed_live && (any_vbd is_active)
@@ -100,29 +100,29 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 							if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 							then Some (Api_errors.ha_is_enabled, [])
 							else
-								if not (List.mem Smint.Vdi_delete sm_caps)
+								if not Smint.(has_capability Vdi_delete sm_features)
 								then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 								else None
 				| `resize ->
 					if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 					then Some (Api_errors.ha_is_enabled, [])
 					else
-						if not (List.mem Smint.Vdi_resize sm_caps)
+						if not Smint.(has_capability Vdi_resize sm_features)
 						then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 						else None
 				| `update ->
-					if not (List.mem Smint.Vdi_update sm_caps)
+					if not Smint.(has_capability Vdi_update sm_features)
 					then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 					else None
 				| `resize_online ->
 					if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 					then Some (Api_errors.ha_is_enabled, [])
 					else
-						if not (List.mem Smint.Vdi_resize_online sm_caps)
+						if not Smint.(has_capability Vdi_resize_online sm_features)
 						then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 						else None
 				| `generate_config ->
-					if not (List.mem Smint.Vdi_generate_config sm_caps)
+					if not Smint.(has_capability Vdi_generate_config sm_features)
 					then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 					else None
 				| `snapshot when record.Db_actions.vDI_sharable ->
@@ -134,7 +134,7 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 					then Some (Api_errors.operation_not_allowed, ["VDI containing HA statefile or redo log cannot be copied (check the VDI's allowed operations)."])
 					else None
 				| `clone ->
-					if not (List.mem Smint.Vdi_clone sm_caps)
+					if not Smint.(has_capability Vdi_clone sm_features)
 					then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 					else None
 				| _ -> None
@@ -410,7 +410,7 @@ let snapshot ~__context ~vdi ~driver_params =
 				snapshot_and_clone C.VDI.snapshot ~__context ~vdi ~driver_params
 			with Storage_interface.Unimplemented _ ->
 				(* CA-28598 *)
-				debug "Backend reported not implemented despite it offering the capability; assuming this is an LVHD upgrade issue";
+				debug "Backend reported not implemented despite it offering the feature; assuming this is an LVHD upgrade issue";
 				raise (Api_errors.Server_error(Api_errors.sr_requires_upgrade, [ Ref.string_of (Db.VDI.get_SR ~__context ~self:vdi) ]))
 		) in
 	(* Record the fact this is a snapshot *)
@@ -610,9 +610,9 @@ let set_metadata_of_pool ~__context ~self ~value =
 let set_on_boot ~__context ~self ~value =
 	let sr = Db.VDI.get_SR ~__context ~self in
 	let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
-	let sm_caps = Xapi_sr_operations.capabilities_of_sr sr_record in
+	let sm_features = Xapi_sr_operations.features_of_sr sr_record in
 
-	if not (List.mem Smint.Vdi_reset_on_boot sm_caps) then 
+	if not Smint.(has_capability Vdi_reset_on_boot sm_features) then
 		raise (Api_errors.Server_error(Api_errors.sr_operation_not_supported,[Ref.string_of sr]));
 	Sm.assert_pbd_is_plugged ~__context ~sr;
 

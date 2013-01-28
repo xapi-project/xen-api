@@ -290,8 +290,8 @@ let parse_sr_get_driver_info driver (xml: Xml.xml) =
 
   let strings = XMLRPC.From.array XMLRPC.From.string (safe_assoc "capabilities" info) in
   
-  let capabilities = Smint.parse_capabilities strings in
-  let text_capabilities = List.map Smint.string_of_capability capabilities in
+  let features = Smint.parse_features strings in
+  let text_features = List.map Smint.string_of_feature features in
   
   (* Parse the driver options *)
   let configuration = 
@@ -307,9 +307,9 @@ let parse_sr_get_driver_info driver (xml: Xml.xml) =
     sr_driver_copyright = copyright;
     sr_driver_version = driver_version;
     sr_driver_required_api_version = required_api_version;
-    sr_driver_capabilities = capabilities;
+    sr_driver_features = features;
     sr_driver_configuration = configuration;
-    sr_driver_text_capabilities = text_capabilities;
+    sr_driver_text_features = text_features;
   }
 
 let sr_get_driver_info driver = 

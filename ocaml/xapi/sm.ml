@@ -49,7 +49,7 @@ let info_of_driver (name: string) =
 	then raise (Unknown_driver name)
 	else (Hashtbl.find driver_info_cache name)
 
-let capabilities_of_driver (name: string) = (info_of_driver name).sr_driver_capabilities
+let features_of_driver (name: string) = (info_of_driver name).sr_driver_features
 
 let driver_filename driver = 
   let info=info_of_driver driver in
@@ -102,7 +102,7 @@ let sr_detach dconf driver sr =
     (fun () -> Hashtbl.remove sr_content_type_cache sr)
 	 
 let sr_probe dconf driver sr_sm_config =
-  if List.mem Sr_probe (capabilities_of_driver driver)
+  if List.mem_assoc Sr_probe (features_of_driver driver)
   then
 	Locking_helpers.Named_mutex.execute serialize_attach_detach
       (fun ()->
@@ -208,6 +208,18 @@ let vdi_compose dconf driver sr vdi1 vdi2 =
 	debug "vdi_compose" driver (sprintf "sr=%s vdi1=%s vdi2=%s" (Ref.string_of sr) (Ref.string_of vdi1) (Ref.string_of vdi2));
 	srmaster_only dconf;
 	let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi2 dconf "vdi_compose" [ Ref.string_of vdi1] in
+	Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
+
+let vdi_epoch_begin dconf driver sr vdi =
+	debug "vdi_epoch_begin" driver (sprintf "sr=%s vdi=%s"
+		(Ref.string_of sr) (Ref.string_of vdi));
+	let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi dconf "vdi_epoch_begin" [] in
+	Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
+
+let vdi_epoch_end dconf driver sr vdi =
+	debug "vdi_epoch_end" driver (sprintf "sr=%s vdi=%s"
+		(Ref.string_of sr) (Ref.string_of vdi));
+	let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi dconf "vdi_epoch_end" [] in
 	Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
 let session_has_internal_sr_access ~__context ~sr = 

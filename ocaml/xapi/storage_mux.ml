@@ -56,7 +56,7 @@ let query_result_of_sr sr =
 			)
 	with _ -> None
 
-let capabilities_of_sr sr = Opt.default [] (Opt.map (fun x -> x.features) (query_result_of_sr sr))
+let features_of_sr sr = Opt.default [] (Opt.map (fun x -> x.features) (query_result_of_sr sr))
 
 (* This is the policy: *)
 let of_sr sr =
