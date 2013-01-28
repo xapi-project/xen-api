@@ -392,7 +392,7 @@ class VariableConfig:
 
         self.name = name
         try:
-            self.rrd_regex = re.compile(rrd_regex)
+            self.rrd_regex = re.compile("^%s$" % rrd_regex)
         except:
             raise XmlConfigException, "variable %s: regex %s does not compile" % (name, rrd_regex)
 
@@ -573,7 +573,7 @@ class ObjectMonitor:
         params_in_obj_report = obj_report.get_var_names()
         for var in self.variables:
             # find the subset of the params returned for this object that we need to consolidate into var
-            params_to_consolidate = filter(var.rrd_regex.search, params_in_obj_report)
+            params_to_consolidate = filter(var.rrd_regex.match, params_in_obj_report)
             for row in range(num_rows):
                 # Get the values to consolidate
                 values_to_consolidate = map(lambda param: obj_report.get_value(param, row), params_to_consolidate)
@@ -604,7 +604,7 @@ class VMMonitor(ObjectMonitor):
        * alarm_trigger_period: num seconds of 'bad' values before an alarm is sent (default '60')
        * alarm_auto_inhibit_period: num seconds this alarm disabled after an alarm is sent (default '3600')
        * consolidation_fn: how to combine variables from rrd_updates into one value
-         (default is 'average' for 'cpu_usage' & 'sum' for everything else)
+         (default is 'average' for 'cpu_usage', 'get_percent_fs_usage' for 'fs_usage', & 'sum' for everything else)
        * rrd_regex matches the names of variables from (xe vm-data-sources-list uuid=$vmuuid) used to compute value
          (only has defaults for "cpu_usage", "network_usage", and "disk_usage")
     """
@@ -623,7 +623,7 @@ class VMMonitor(ObjectMonitor):
             if variable_name == "cpu_usage": return "cpu[0-9]+"
             elif variable_name == "network_usage": return "vif_[0-9]+_[rt]x"
             elif variable_name == "disk_usage": return "vbd_(xvd|hd)[a-z]+_(read|write)"
-            elif variable_name == "fs_usage": return "__DUMMY__"      # match nothing
+            elif variable_name == "fs_usage": return "_$_DUMMY__"     # match nothing
             else: raise XmlConfigException, "variable %s: no default rrd_regex - please specify one" % variable_name
         elif config_tag == 'alarm_trigger_period':      return '60'   # 1 minute
         elif config_tag == 'alarm_auto_inhibit_period': 
@@ -654,11 +654,11 @@ class HOSTMonitor(ObjectMonitor):
        * alarm_auto_inhibit_period: num seconds this alarm disabled after an alarm is sent (default '3600')
        * consolidation_fn: how to combine variables from rrd_updates into one value
          (default is 'average' for 'cpu_usage' & 'sum' for everything else)
-       * rrd_regex matches the names of variables from (xe host-data-sources-list uuid=$hostuuid) used to compute value
-         (only has defaults for "cpu_usage" and "network_usage")
+       * rrd_regex matches the names of variables from (xe host-data-source-list uuid=$hostuuid) used to compute value
+         (only has defaults for "cpu_usage", "network_usage", "memory_total_kib" and "sr_io_throughput_total_xxxxxxxx")
     """
     def __init__(self, *args):
-        self.monitortype = "HOST"
+        self.monitortype = "Host"
         ObjectMonitor.__init__(self, *args)
         print_debug("Created HOSTMonitor with uuid %s" % self.uuid)
 
@@ -670,6 +670,8 @@ class HOSTMonitor(ObjectMonitor):
         elif config_tag == 'rrd_regex':
             if variable_name == "cpu_usage": return "cpu[0-9]+"
             elif variable_name == "network_usage": return "pif_eth[0-9]+_[rt]x"
+            elif variable_name == "memory_total_kib": return variable_name
+            elif re.match("sr_io_throughput_total_[0-9a-f]{8}$", variable_name): return variable_name[3:]
             else: raise XmlConfigException, "variable %s: no default rrd_regex - please specify one" % variable_name
         elif config_tag == 'alarm_trigger_period':      return '60'   # 1 minute
         elif config_tag == 'alarm_auto_inhibit_period': return '3600' # 1 hour
@@ -949,17 +951,29 @@ if __name__ == "__main__":
         pass
 
     except Exception, e:
+        rc = 2
+        log_err("FATAL ERROR: perfmon will exit")
+        log_err("Exception is of class %s" % e.__class__)
         ex = sys.exc_info()
         err = traceback.format_exception(*ex)
-        errmsg = "\n".join([ str(x) for x in e.args ])
-
-        # print the exception args nicely
-        log_err(errmsg)
+        
+        # Python built-in Exception has args,
+        # but XenAPI.Failure has details instead. Sigh.
+        try:
+            errmsg = "\n".join([ str(x) for x in e.args ])
+            # print the exception args nicely
+            log_err(errmsg)
+        except Exception, ignored:
+            try:
+                errmsg = "\n".join([ str(x) for x in e.details ])
+                # print the exception args nicely
+                log_err(errmsg)
+            except Exception, ignored:
+                pass
 
         # now log the traceback to syslog
         for exline in err:
             log_err(exline)
-        rc = 2
 
     # remove pidfile and exit
     os.unlink(pidfile)
