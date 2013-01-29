@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 54618b5e2b4036426e442a1f036807e7)
+# DO NOT EDIT (digest: 091689f1cbe2edf55f2428fe32530218)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -13,6 +13,8 @@
 ".git": not_hygienic
 "_darcs": -traverse
 "_darcs": not_hygienic
+# Library uuid
+"uuid/uuid.cmxs": use_uuid
 # Library xmllight2
 "xml-light2/xmllight2.cmxs": use_xmllight2
 <xml-light2/*.ml{,i}>: pkg_stdext

@@ -1,7 +1,7 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 708917b329c0ab73b71af2d40f3a2d7b) *)
+(* DO NOT EDIT (digest: a0985aef5f1efca5a149741bddbd043b) *)
 module OASISGettext = struct
-(* # 21 "/home/jludlam/.opam/4.00.1/build/oasis.0.3.0/src/oasis/OASISGettext.ml" *)
+(* # 21 "/local/scratch/djs/.opam/system/build/oasis.0.3.0/src/oasis/OASISGettext.ml" *)
 
   let ns_ str =
     str
@@ -24,7 +24,7 @@ module OASISGettext = struct
 end
 
 module OASISExpr = struct
-(* # 21 "/home/jludlam/.opam/4.00.1/build/oasis.0.3.0/src/oasis/OASISExpr.ml" *)
+(* # 21 "/local/scratch/djs/.opam/system/build/oasis.0.3.0/src/oasis/OASISExpr.ml" *)
 
 
 
@@ -116,7 +116,7 @@ end
 
 # 117 "myocamlbuild.ml"
 module BaseEnvLight = struct
-(* # 21 "/home/jludlam/.opam/4.00.1/build/oasis.0.3.0/src/base/BaseEnvLight.ml" *)
+(* # 21 "/local/scratch/djs/.opam/system/build/oasis.0.3.0/src/base/BaseEnvLight.ml" *)
 
   module MapString = Map.Make(String)
 
@@ -214,7 +214,7 @@ end
 
 # 215 "myocamlbuild.ml"
 module MyOCamlbuildFindlib = struct
-(* # 21 "/home/jludlam/.opam/4.00.1/build/oasis.0.3.0/src/plugins/ocamlbuild/MyOCamlbuildFindlib.ml" *)
+(* # 21 "/local/scratch/djs/.opam/system/build/oasis.0.3.0/src/plugins/ocamlbuild/MyOCamlbuildFindlib.ml" *)
 
   (** OCamlbuild extension, copied from 
     * http://brion.inria.fr/gallium/index.php/Using_ocamlfind_with_ocamlbuild
@@ -323,7 +323,7 @@ module MyOCamlbuildFindlib = struct
 end
 
 module MyOCamlbuildBase = struct
-(* # 21 "/home/jludlam/.opam/4.00.1/build/oasis.0.3.0/src/plugins/ocamlbuild/MyOCamlbuildBase.ml" *)
+(* # 21 "/local/scratch/djs/.opam/system/build/oasis.0.3.0/src/plugins/ocamlbuild/MyOCamlbuildBase.ml" *)
 
   (** Base functions for writing myocamlbuild.ml
       @author Sylvain Le Gall
@@ -339,7 +339,7 @@ module MyOCamlbuildBase = struct
   type name = string 
   type tag = string 
 
-(* # 56 "/home/jludlam/.opam/4.00.1/build/oasis.0.3.0/src/plugins/ocamlbuild/MyOCamlbuildBase.ml" *)
+(* # 56 "/local/scratch/djs/.opam/system/build/oasis.0.3.0/src/plugins/ocamlbuild/MyOCamlbuildBase.ml" *)
 
   type t =
       {
@@ -479,6 +479,7 @@ let package_default =
   {
      MyOCamlbuildBase.lib_ocaml =
        [
+          ("uuid", ["uuid"]);
           ("xmllight2", ["xml-light2"]);
           ("log", ["log"]);
           ("stunnel", ["stunnel"]);
@@ -494,6 +495,6 @@ let package_default =
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default package_default;;
 
-# 498 "myocamlbuild.ml"
+# 499 "myocamlbuild.ml"
 (* OASIS_STOP *)
 Ocamlbuild_plugin.dispatch dispatch_default;;
