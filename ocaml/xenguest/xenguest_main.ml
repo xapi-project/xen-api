@@ -282,15 +282,22 @@ let tcp_keepintvl = 2
 
 (* CA-94829: Set the TCP keepalive options if it's a socket *)
 let fix_fd fd =
-  let stats = Unix.fstat fd in
-  if stats.Unix.st_kind = Unix.S_SOCK then begin
-    Unix.setsockopt fd Unix.SO_KEEPALIVE true;
-    Unixext.set_sock_keepalives fd tcp_keepcnt tcp_keepidle tcp_keepintvl;
-    debug "Set socket TCP keepalive values to TCP_KEEPCNT=%d TCP_KEEPIDLE=%d TCP_KEEPINTVL=%d" tcp_keepcnt tcp_keepidle tcp_keepintvl
-  end else begin
-    debug "Skipping TCP keepalive setting as fd is not a socket"
-  end
-    
+	try
+		let stats = Unix.fstat fd in
+		if stats.Unix.st_kind = Unix.S_SOCK then begin
+			Unix.setsockopt fd Unix.SO_KEEPALIVE true;
+			Unixext.set_sock_keepalives fd tcp_keepcnt tcp_keepidle tcp_keepintvl;
+			debug "Set socket TCP keepalive values to TCP_KEEPCNT=%d TCP_KEEPIDLE=%d TCP_KEEPINTVL=%d" tcp_keepcnt tcp_keepidle tcp_keepintvl
+		end else begin
+			debug "Skipping TCP keepalive setting as fd is not a socket"
+		end
+	with 
+		| Unix.Unix_error (Unix.EOVERFLOW, _, _) ->
+			(* Ignoring EOVERFLOW: can't get this on a socket *)
+			debug "Skipping TCP keepalive setting as fd is not a socket";
+			()
+		| e ->
+			debug "Caught exception: '%s' - ignoring" (Printexc.to_string e)    
 
 (* main *)
 let _ =
