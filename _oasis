@@ -8,6 +8,26 @@ Copyrights:   (C) 2012 Citrix
 BuildTools:   ocamlbuild
 Plugins:      DevFiles (0.3), META (0.3)
 
+Library cpuid
+  Path: cpuid
+  Findlibname: cpuid
+  Modules: Cpuid
+  CSources: cpuid_stubs.c
+  BuildDepends: stdext, threads, xenctrl, xenctrlext, xen-utils
+
+Library xenstoreext
+  Path: xenstoreext
+  Findlibname: xenstoreext
+  Modules: Watch
+  BuildDepends: xenctrl, xenstore, log
+
+Library xenctrlext
+  Path: xenctrlext
+  Findlibname: xenctrlext
+  Modules: Xenctrlext
+  CSources: xenctrlext_stubs.c
+  BuildDepends: xenctrl, xenstore
+
 Library xenutils
   Path: xen-utils
   Findlibname: xen-utils
@@ -19,12 +39,6 @@ Library pciutil
   Findlibname: pciutil
   Modules: Pciutil
   BuildDepends: stdext, threads
-
-Library cdrom
-  Path: cdrom
-  Findlibname: cdrom
-  Modules: Cdrom
-  CSources: cdrom_stubs.c
 
 Library uuid
   Path: uuid

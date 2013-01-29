@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 4b5ec649f163705ab696968df41b89e1) *)
+(* DO NOT EDIT (digest: 4eece454102d507e4384ef1ced236441) *)
 module OASISGettext = struct
 (* # 21 "/local/scratch/djs/.opam/system/build/oasis.0.3.0/src/oasis/OASISGettext.ml" *)
 
@@ -479,25 +479,37 @@ let package_default =
   {
      MyOCamlbuildBase.lib_ocaml =
        [
+          ("xenctrlext", ["xenctrlext"]);
           ("xenutils", ["xen-utils"]);
+          ("cpuid", ["cpuid"]);
           ("pciutil", ["pciutil"]);
-          ("cdrom", ["cdrom"]);
           ("uuid", ["uuid"]);
           ("xmllight2", ["xml-light2"]);
           ("log", ["log"]);
+          ("xenstoreext", ["xenstoreext"]);
           ("stunnel", ["stunnel"]);
           ("httpsvr", ["http-svr"]);
           ("sexpr", ["sexpr"])
        ];
-     lib_c = [("cdrom", "cdrom", []); ("log", "log", [])];
+     lib_c =
+       [
+          ("xenctrlext", "xenctrlext", []);
+          ("cpuid", "cpuid", []);
+          ("log", "log", [])
+       ];
      flags = [];
      includes =
-       [("stunnel", ["log"]); ("http-svr", ["log"; "stunnel"; "xml-light2"])];
+       [
+          ("xenstoreext", ["log"]);
+          ("stunnel", ["log"]);
+          ("http-svr", ["log"; "stunnel"; "xml-light2"]);
+          ("cpuid", ["xen-utils"; "xenctrlext"])
+       ];
      }
   ;;
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default package_default;;
 
-# 502 "myocamlbuild.ml"
+# 514 "myocamlbuild.ml"
 (* OASIS_STOP *)
 Ocamlbuild_plugin.dispatch dispatch_default;;
