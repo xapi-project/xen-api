@@ -11,6 +11,6 @@ Plugins:      DevFiles (0.3), META (0.3)
 Library tapctl
   Path: lib
   Modules: Tapctl 
-  BuildDepends: rpclib, rpclib.syntax, threads, stdext
+  BuildDepends: rpclib, rpclib.syntax, threads, stdext, forkexec
 
 
