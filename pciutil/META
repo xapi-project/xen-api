@@ -1,0 +1,12 @@
+# OASIS_START
+# DO NOT EDIT (digest: 75c536d07e6437176d7afbc41f225505)
+version = "0.1"
+description = "Temporary set of to-be-deprecated libraries"
+requires = "stdext threads"
+archive(byte) = "pciutil.cma"
+archive(byte, plugin) = "pciutil.cma"
+archive(native) = "pciutil.cmxa"
+archive(native, plugin) = "pciutil.cmxs"
+exists_if = "pciutil.cma"
+# OASIS_STOP
+

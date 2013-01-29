@@ -1,0 +1,12 @@
+# OASIS_START
+# DO NOT EDIT (digest: 473b458527df1945d37b3e002ea563dc)
+version = "0.1"
+description = "Temporary set of to-be-deprecated libraries"
+requires = "stdext threads forkexec"
+archive(byte) = "xenutils.cma"
+archive(byte, plugin) = "xenutils.cma"
+archive(native) = "xenutils.cmxa"
+archive(native, plugin) = "xenutils.cmxs"
+exists_if = "xenutils.cma"
+# OASIS_STOP
+

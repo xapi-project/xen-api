@@ -8,6 +8,18 @@ Copyrights:   (C) 2012 Citrix
 BuildTools:   ocamlbuild
 Plugins:      DevFiles (0.3), META (0.3)
 
+Library xenutils
+  Path: xen-utils
+  Findlibname: xen-utils
+  Modules: Xen_cmdline
+  BuildDepends: stdext, threads, forkexec
+
+Library pciutil
+  Path: pciutil
+  Findlibname: pciutil
+  Modules: Pciutil
+  BuildDepends: stdext, threads
+
 Library cdrom
   Path: cdrom
   Findlibname: cdrom

@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 091689f1cbe2edf55f2428fe32530218)
+# DO NOT EDIT (digest: 3dda97326cfa38386f4593b7315690ad)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -13,6 +13,18 @@
 ".git": not_hygienic
 "_darcs": -traverse
 "_darcs": not_hygienic
+# Library xenutils
+"xen-utils/xenutils.cmxs": use_xenutils
+<xen-utils/*.ml{,i}>: pkg_stdext
+<xen-utils/*.ml{,i}>: pkg_threads
+<xen-utils/*.ml{,i}>: pkg_forkexec
+# Library pciutil
+"pciutil/pciutil.cmxs": use_pciutil
+<pciutil/*.ml{,i}>: pkg_stdext
+<pciutil/*.ml{,i}>: pkg_threads
+# Library cdrom
+"cdrom/cdrom.cmxs": use_cdrom
+<cdrom/cdrom.{cma,cmxa}>: use_libcdrom_stubs
 # Library uuid
 "uuid/uuid.cmxs": use_uuid
 # Library xmllight2
@@ -25,8 +37,8 @@
 <log/log.{cma,cmxa}>: use_liblog_stubs
 <log/*.ml{,i}>: pkg_stdext
 <log/*.ml{,i}>: pkg_threads
-"log/syslog_stubs.c": pkg_stdext
-"log/syslog_stubs.c": pkg_threads
+"log/syslog_transitional_stubs.c": pkg_stdext
+"log/syslog_transitional_stubs.c": pkg_threads
 # Library stunnel
 "stunnel/stunnel.cmxs": use_stunnel
 <stunnel/*.ml{,i}>: use_log

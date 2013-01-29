@@ -1,0 +1,11 @@
+# OASIS_START
+# DO NOT EDIT (digest: 2287739245ed1d8c27e2cd79315fc6d3)
+version = "0.1"
+description = "Temporary set of to-be-deprecated libraries"
+archive(byte) = "uuid.cma"
+archive(byte, plugin) = "uuid.cma"
+archive(native) = "uuid.cmxa"
+archive(native, plugin) = "uuid.cmxs"
+exists_if = "uuid.cma"
+# OASIS_STOP
+

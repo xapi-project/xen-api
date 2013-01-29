@@ -15,6 +15,8 @@ open Stringext
 open Pervasiveext
 open Threadext
 
+module Syslog = Syslog_transitional
+
 (** Associate a task with each active thread *)
 let thread_tasks : (int, string) Hashtbl.t = Hashtbl.create 256 
 let thread_tasks_m = Mutex.create ()

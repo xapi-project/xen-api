@@ -1,0 +1,11 @@
+# OASIS_START
+# DO NOT EDIT (digest: 938953be1843f79344b641840c5fd64b)
+version = "0.1"
+description = "Temporary set of to-be-deprecated libraries"
+archive(byte) = "cdrom.cma"
+archive(byte, plugin) = "cdrom.cma"
+archive(native) = "cdrom.cmxa"
+archive(native, plugin) = "cdrom.cmxs"
+exists_if = "cdrom.cma"
+# OASIS_STOP
+
