@@ -8,6 +8,11 @@ Copyrights:   (C) 2012 Citrix
 BuildTools:   ocamlbuild
 Plugins:      DevFiles (0.3), META (0.3)
 
+Library uuid
+  Path: uuid
+  Findlibname: uuid
+  Modules: Uuid
+
 Library xmllight2
   Path: xml-light2
   Findlibname: xml-light2
