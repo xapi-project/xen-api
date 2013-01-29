@@ -95,7 +95,7 @@ let create ~__context ~_type ~device_config ~whitelist =
 	if (not (Pool_features.is_enabled ~__context Features.DR)) then
 		raise (Api_errors.Server_error(Api_errors.license_restriction, []));
 	(* Check that the SR type supports metadata. *)
-	if not (List.mem Smint.Sr_metadata (Sm.capabilities_of_driver _type)) then
+	if not (List.mem_assoc Smint.Sr_metadata (Sm.features_of_driver _type)) then
 		raise (Api_errors.Server_error (Api_errors.operation_not_allowed,
 			[Printf.sprintf "Disaster recovery not supported on SRs of type %s" _type]));
 	(* Probe the specified device for SRs. *)
