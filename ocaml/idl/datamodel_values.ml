@@ -54,6 +54,7 @@ let to_ocaml_string v =
 		| Rpc.Null -> "Rpc.Null"
 		| Rpc.String s -> sprintf "Rpc.String \"%s\"" s
 		| Rpc.Int i -> sprintf "Rpc.Int %LdL" i
+		| Rpc.Int32 i -> sprintf "Rpc.Int32 %ldl" i
 		| Rpc.Float f -> sprintf "Rpc.Float %f" f
 		| Rpc.Bool b -> sprintf "Rpc.Bool %b" b
 		| Rpc.Dict d -> sprintf "Rpc.Dict [%s]" (String.concat ";" (List.map (fun (n,v) -> sprintf "(\"%s\",%s)" n (aux v)) d))
