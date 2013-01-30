@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 4eece454102d507e4384ef1ced236441) *)
+(* DO NOT EDIT (digest: 53a1c6d6b939679cb6a3df5be2952697) *)
 module OASISGettext = struct
 (* # 21 "/local/scratch/djs/.opam/system/build/oasis.0.3.0/src/oasis/OASISGettext.ml" *)
 
@@ -479,6 +479,7 @@ let package_default =
   {
      MyOCamlbuildBase.lib_ocaml =
        [
+          ("gzip", ["gzip"]);
           ("xenctrlext", ["xenctrlext"]);
           ("xenutils", ["xen-utils"]);
           ("cpuid", ["cpuid"]);
@@ -510,6 +511,6 @@ let package_default =
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default package_default;;
 
-# 514 "myocamlbuild.ml"
+# 515 "myocamlbuild.ml"
 (* OASIS_STOP *)
 Ocamlbuild_plugin.dispatch dispatch_default;;

@@ -1,0 +1,12 @@
+# OASIS_START
+# DO NOT EDIT (digest: dcc97d9fb3e285bd47b9b7ed8951b156)
+version = "0.1"
+description = "Temporary set of to-be-deprecated libraries"
+requires = "stdext forkexec threads"
+archive(byte) = "gzip.cma"
+archive(byte, plugin) = "gzip.cma"
+archive(native) = "gzip.cmxa"
+archive(native, plugin) = "gzip.cmxs"
+exists_if = "gzip.cma"
+# OASIS_STOP
+
