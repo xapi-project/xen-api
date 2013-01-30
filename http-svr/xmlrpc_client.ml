@@ -157,18 +157,18 @@ module SSL = struct
 	type t = {
 		use_fork_exec_helper: bool;
 		use_stunnel_cache: bool;
-		verify_cert: bool;
+		verify_cert: bool option;
 		task_id: string option
 	}
-	let make ?(use_fork_exec_helper=true) ?(use_stunnel_cache=false) ?(verify_cert=false) ?task_id () = {
+	let make ?(use_fork_exec_helper=true) ?(use_stunnel_cache=false) ?(verify_cert) ?task_id () = {
 		use_fork_exec_helper = use_fork_exec_helper;
 		use_stunnel_cache = use_stunnel_cache;
 		verify_cert = verify_cert;
 		task_id = task_id
 	}
 	let to_string (x: t) =
-		Printf.sprintf "{ use_fork_exec_helper = %b; use_stunnel_cache = %b; verify_cert = %b; task_id = %s }"
-			x.use_fork_exec_helper x.use_stunnel_cache x.verify_cert
+		Printf.sprintf "{ use_fork_exec_helper = %b; use_stunnel_cache = %b; verify_cert = %s; task_id = %s }"
+			x.use_fork_exec_helper x.use_stunnel_cache (Opt.default "None" (Opt.map (fun x -> string_of_bool x) x.verify_cert))
 			(Opt.default "None" (Opt.map (fun x -> "Some " ^ x) x.task_id))
 end
 
@@ -216,7 +216,7 @@ let with_transport transport f = match transport with
 			then get_reusable_stunnel ~use_fork_exec_helper ~write_to_log host port verify_cert
 			else
 				let unique_id = get_new_stunnel_id () in
-				Stunnel.connect ~use_fork_exec_helper ~write_to_log ~unique_id ~verify_cert ~extended_diagnosis:true host port in
+				Stunnel.connect ~use_fork_exec_helper ~write_to_log ~unique_id ?verify_cert ~extended_diagnosis:true host port in
 		let s = st_proc.Stunnel.fd in
 		let s_pid = Stunnel.getpid st_proc.Stunnel.pid in
 		debug "stunnel pid: %d (cached = %b) connected to %s:%d" s_pid use_stunnel_cache host port;
