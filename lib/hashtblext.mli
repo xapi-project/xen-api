@@ -12,8 +12,13 @@
  * GNU Lesser General Public License for more details.
  *)
     val to_list : ('a, 'b) Hashtbl.t -> ('a * 'b) list
+
+(* this is not a fold ... *)
     val fold_keys : ('a, 'b) Hashtbl.t -> 'a list
+
+(* ... neither is this *)
     val fold_values : ('a, 'b) Hashtbl.t -> 'b list
+
     val add_empty : ('a, 'b) Hashtbl.t -> 'a -> 'b -> unit
     val add_list : ('a, 'b) Hashtbl.t -> ('a * 'b) list -> unit
     val remove_other_keys : ('a, 'b) Hashtbl.t -> 'a list -> unit

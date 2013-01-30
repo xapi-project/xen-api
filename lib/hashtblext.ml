@@ -15,9 +15,11 @@
 let to_list tbl =
 	Hashtbl.fold (fun k v acc -> (k, v) :: acc) tbl []
 
+(* this is not a fold ... *)
 let fold_keys tbl =
 	Hashtbl.fold (fun k v acc -> k :: acc) tbl []
 
+(* ... neither is this *)
 let fold_values tbl =
 	Hashtbl.fold (fun k v acc -> v :: acc) tbl []
 
