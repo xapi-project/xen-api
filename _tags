@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 6df83048ae500ffad30f5e460538e443)
+# DO NOT EDIT (digest: 958a0e7fa1b977bba0b49885c9efc56a)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -13,6 +13,11 @@
 ".git": not_hygienic
 "_darcs": -traverse
 "_darcs": not_hygienic
+# Library sha1
+"sha1/sha1.cmxs": use_sha1
+<sha1/*.ml{,i}>: pkg_stdext
+<sha1/*.ml{,i}>: pkg_threads
+<sha1/*.ml{,i}>: pkg_forkexec
 # Library gzip
 "gzip/gzip.cmxs": use_gzip
 <gzip/*.ml{,i}>: pkg_stdext

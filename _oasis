@@ -8,6 +8,12 @@ Copyrights:   (C) 2012 Citrix
 BuildTools:   ocamlbuild
 Plugins:      DevFiles (0.3), META (0.3)
 
+Library sha1
+  Path: sha1
+  Findlibname: sha1
+  Modules: Sha1sum
+  BuildDepends: stdext, forkexec, threads
+
 Library gzip
   Path: gzip
   Findlibname: gzip

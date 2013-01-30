@@ -1,0 +1,12 @@
+# OASIS_START
+# DO NOT EDIT (digest: 71cd9a2751ae1f0b76d53d6304783a1d)
+version = "0.1"
+description = "Temporary set of to-be-deprecated libraries"
+requires = "stdext forkexec threads"
+archive(byte) = "sha1.cma"
+archive(byte, plugin) = "sha1.cma"
+archive(native) = "sha1.cmxa"
+archive(native, plugin) = "sha1.cmxs"
+exists_if = "sha1.cma"
+# OASIS_STOP
+
