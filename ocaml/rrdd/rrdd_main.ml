@@ -427,7 +427,7 @@ let read_mem_metrics xc =
 	let xapiactualfree_kib = Int64.of_int (gcstat.Gc.free_words / 256) in
 	let xapiactuallive_kib = Int64.of_int (gcstat.Gc.live_words / 256) in
 	[
-		(Host, ds_make ~name:"memory_total_kib" ~description:"Total amount of memory in use"
+		(Host, ds_make ~name:"memory_total_kib" ~description:"Total amount of memory in the host"
 		~value:(Rrd.VT_Int64 total_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true ~units:"KiB" ());
 		(Host, ds_make ~name:"memory_free_kib" ~description:"Total amount of free memory"
 		 ~value:(Rrd.VT_Int64 free_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true ~units:"KiB" ());
