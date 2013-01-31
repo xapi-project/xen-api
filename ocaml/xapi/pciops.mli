@@ -14,7 +14,16 @@
 (** Module that handles assigning PCI devices to VMs.
  * @group Virtual-Machine Management
  *)
- 
+
+(** Check whether a given PCI device is free. If so, make a temporary
+ *  reservation, such that no other VM can steal it before the device
+ *  has been passed through. A reservation automatically expires after
+ *  5 minutes. *)
+val reserve : __context:Context.t -> [ `PCI ] Ref.t -> bool
+
+(** Explicitly release any temporary reservation on a given PCI device. *)
+val unreserve : __context:Context.t -> [ `PCI ] Ref.t -> unit
+
 (** Check if a given PCI device is free. *)
 val get_free_functions : __context:Context.t -> [ `PCI ] Ref.t -> int
 

@@ -1213,6 +1213,10 @@ let update_pci ~__context id =
 							else if (not attached_in_db) && state.plugged
 							then Db.PCI.add_attached_VMs ~__context ~self:pci ~value:vm;
 
+							(* Release any temporary reservations of this PCI device, as it is now permanently
+							 * assigned or unassigned. *)
+							Pciops.unreserve ~__context pci;
+
 							Opt.iter
 								(fun gpu ->
 									debug "xenopsd event: Update VGPU %s.%s currently_attached <- %b" (fst id) (snd id) state.plugged;
