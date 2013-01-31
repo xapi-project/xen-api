@@ -113,6 +113,7 @@ type t = { mutable pid: pid; fd: Unix.file_descr; host: string; port: int;
 	   connected_time: float;
 	   unique_id: int option;
 	   mutable logfile: string;
+	   verified: bool;
 	 }
 
 let config_file verify_cert extended_diagnosis host port = 
@@ -187,7 +188,7 @@ let attempt_one_connect ?unique_id ?(use_fork_exec_helper = true)
   let t = 
     { pid = Nopid; fd = data_out; host = host; port = port; 
       connected_time = Unix.gettimeofday (); unique_id = unique_id; 
-      logfile = "" } in
+      logfile = ""; verified = verify_cert } in
   let result = Forkhelpers.with_logfile_fd "stunnel"
     ~delete:(not extended_diagnosis)
     (fun logfd ->

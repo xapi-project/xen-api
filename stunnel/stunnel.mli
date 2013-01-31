@@ -34,6 +34,7 @@ type t = { mutable pid: pid;
 	   connected_time: float; (** time when the connection opened, for 'early retirement' *)
 	   unique_id: int option;
 	   mutable logfile: string;
+	   verified: bool;
 	 }
 
 (** Connects via stunnel (optionally via an external 'fork/exec' helper) to
