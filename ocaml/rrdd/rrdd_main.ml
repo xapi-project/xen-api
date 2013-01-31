@@ -240,6 +240,8 @@ let update_memory xc doms =
 				)) memory_target_opt
 		in
 		let other_ds =
+			if domid = 0 then None
+			else begin
 			try
 				let memfree_xs_key = Printf.sprintf "/local/domain/%d/data/meminfo_free" domid in
 				let mem_free = with_xs (fun xs -> Int64.of_string (xs.Xs.read memfree_xs_key)) in
@@ -250,6 +252,7 @@ let update_memory xc doms =
 						~value:(Rrd.VT_Int64 mem_free) ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
 				)
 			with _ -> None
+			end
 		in
 		main_mem_ds :: (Opt.to_list other_ds) @ (Opt.to_list mem_target_ds) @ acc
 	) [] doms
