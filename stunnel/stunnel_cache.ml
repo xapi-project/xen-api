@@ -23,7 +23,7 @@
 module D=Debug.Debugger(struct let name="stunnel_cache" end)
 open D
 
-type endpoint = { host: string; port: int }
+type endpoint = { host: string; port: int; verified: bool }
 
 (* Need to limit the absolute number of stunnels as well as the maximum age *)
 let max_stunnel = 22
@@ -127,7 +127,7 @@ let add (x: Stunnel.t) =
        incr counter;
        Hashtbl.add !times idx now;
        Hashtbl.add !stunnels idx x;
-       let ep = { host = x.Stunnel.host; port = x.Stunnel.port } in
+       let ep = { host = x.Stunnel.host; port = x.Stunnel.port; verified = x.Stunnel.verified } in
        let existing = 
 	 if Hashtbl.mem !index ep
 	 then Hashtbl.find !index ep
@@ -140,8 +140,8 @@ let add (x: Stunnel.t) =
   
 (** Returns an Stunnel.t for this endpoint (oldest first), raising Not_found
     if none can be found *)
-let remove host port = 
-  let ep = { host = host; port = port } in
+let remove host port verified =
+  let ep = { host = host; port = port; verified = verified } in
   Mutex.execute m
     (fun () ->
        unlocked_gc ();
@@ -174,10 +174,10 @@ let flush () =
       info "Flushed!")
 
 
-let connect ?use_fork_exec_helper ?write_to_log host port =
+let connect ?use_fork_exec_helper ?write_to_log host port verify_cert =
   try
-    remove host port
+    remove host port verify_cert
   with Not_found ->
     error "Failed to find stunnel in cache for endpoint %s:%d" host port;
-    Stunnel.connect ?use_fork_exec_helper ?write_to_log host port
+    Stunnel.connect ?use_fork_exec_helper ?write_to_log ~verify_cert host port
     

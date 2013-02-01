@@ -96,14 +96,14 @@ let get_new_stunnel_id =
 
 (** Returns an stunnel, either from the persistent cache or a fresh one which
     has been checked out and guaranteed to work. *)
-let get_reusable_stunnel ?use_fork_exec_helper ?write_to_log host port =
+let get_reusable_stunnel ?use_fork_exec_helper ?write_to_log host port verify_cert =
   let start_time = Unix.gettimeofday () in
   let found = ref None in
   (* 1. First check if there is a suitable stunnel in the cache. *)
   begin
     try
       while !found = None do
-	let (x: Stunnel.t) = Stunnel_cache.remove host port in
+	let (x: Stunnel.t) = Stunnel_cache.remove host port verify_cert in
 	if check_reusable x.Stunnel.fd
 	then found := Some x
 	else begin
@@ -129,7 +129,7 @@ let get_reusable_stunnel ?use_fork_exec_helper ?write_to_log host port =
 	  incr attempt_number;
 	  try
 	    let unique_id = get_new_stunnel_id () in
-	    let (x: Stunnel.t) = Stunnel.connect ~unique_id ?use_fork_exec_helper ?write_to_log host port in
+	    let (x: Stunnel.t) = Stunnel.connect ~unique_id ?use_fork_exec_helper ?write_to_log ~verify_cert host port in
 	    if check_reusable x.Stunnel.fd
 	    then found := Some x
 	    else begin
@@ -211,10 +211,9 @@ let with_transport transport f = match transport with
 		use_stunnel_cache = use_stunnel_cache;
 		verify_cert = verify_cert;
 		task_id = task_id}, host, port) ->
-		assert (not (verify_cert && use_stunnel_cache));
 		let st_proc =
 			if use_stunnel_cache
-			then get_reusable_stunnel ~use_fork_exec_helper ~write_to_log host port
+			then get_reusable_stunnel ~use_fork_exec_helper ~write_to_log host port verify_cert
 			else
 				let unique_id = get_new_stunnel_id () in
 				Stunnel.connect ~use_fork_exec_helper ~write_to_log ~unique_id ~verify_cert ~extended_diagnosis:true host port in
