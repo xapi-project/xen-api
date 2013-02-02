@@ -56,9 +56,11 @@ type progress_cb = float -> unit
 module type S = sig
 	val init: unit -> unit
 	module HOST : sig
+		val stat: unit -> Host.t
 		val get_console_data: unit -> string
 		val get_total_memory_mib: unit -> int64
 		val send_debug_keys: string -> unit
+		val mask_features: string -> string -> string
 	end
 	module VM : sig
 		val add: Vm.t -> unit

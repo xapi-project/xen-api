@@ -309,6 +309,8 @@ let set_qos_vbd vm vbd () =
 	()
 
 module HOST = struct
+	include Xenops_server_skeleton.HOST
+
 	let get_console_data () = "Xen simulator"
 	let get_total_memory_mib () = Int64.mul 1024L 1024L (* 1 TiB *)
 	let send_debug_keys _ = ()

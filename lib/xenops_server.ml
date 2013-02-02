@@ -1584,6 +1584,13 @@ module VIF = struct
 end
 
 module HOST = struct
+	let stat _ dbg =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				debug "HOST.stat";
+				let module B = (val get_backend () : S) in
+				B.HOST.stat ()
+			) ()
 	let get_console_data _ dbg =
 		Debug.with_thread_associated dbg
 			(fun () ->
@@ -1612,6 +1619,14 @@ module HOST = struct
 			(fun () ->
 				debug "HOST.set_worker_pool_size %d" size;
 				WorkerPool.set_size size
+			) ()
+
+	let mask_features _ dbg features mask =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				debug "HOST.mask_features %s %s" features mask;
+				let module B = (val get_backend () : S) in
+				B.HOST.mask_features features mask
 			) ()
 end
 

@@ -182,6 +182,8 @@ module Qemu = struct
 end
 
 module HOST = struct
+	include Xenops_server_skeleton.HOST
+
 	let get_console_data () = "should run 'dmesg' here"
 	let get_total_memory_mib () = 0L
 	let send_debug_keys _ = ()

@@ -21,9 +21,31 @@ let unimplemented x = raise (Unimplemented x)
 let init () = ()
 
 module HOST = struct
+	let stat () = {
+		Host.nr_cpus = 0;
+		cpu_info = {
+			Host.vendor = "unknown";
+			speed = "";
+			modelname = "";
+			family = "";
+			model = "";
+			stepping = "";
+			flags = "";
+			features = "";
+			features_after_reboot = "";
+			physical_features = "";
+			maskable = "";
+		};
+		hypervisor = {
+			Host.name = "unknown";
+			version = "";
+			capabilities = "";
+		}
+	}
 	let get_console_data () = ""
 	let get_total_memory_mib () = 0L
 	let send_debug_keys _ = ()
+	let mask_features features mask = features
 end
 module VM = struct
 	let add _ = ()
