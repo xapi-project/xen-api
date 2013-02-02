@@ -351,6 +351,33 @@ module Dynamic = struct
 		| Task_t of Task.id * (Task.t option)
 end
 
+module Host = struct
+	type cpu_info = {
+		vendor: string;
+		speed: string;
+		modelname: string;
+		family: string;
+		model: string;
+		stepping: string;
+		flags: string;
+		features: string;
+		features_after_reboot: string;
+		physical_features: string;
+		maskable: string;
+	}
+	type hypervisor = {
+		name: string;
+		version: string;
+		capabilities: string;
+	}
+
+	type t = {
+		nr_cpus: int;
+		cpu_info: cpu_info;
+		hypervisor: hypervisor;
+	}
+end
+
 module TASK = struct
 	external stat: debug_info -> Task.id -> Task.t = ""
 	external cancel: debug_info -> Task.id -> unit = ""
@@ -359,10 +386,12 @@ module TASK = struct
 end
 
 module HOST = struct
+	external stat: debug_info -> Host.t = ""
 	external get_console_data: debug_info -> string = ""
 	external get_total_memory_mib: debug_info -> int64 = ""
 	external send_debug_keys: debug_info -> string -> unit = ""
 	external set_worker_pool_size: debug_info -> int -> unit = ""
+	external mask_features: debug_info -> string -> string -> string = ""
 end
 
 module VM = struct
