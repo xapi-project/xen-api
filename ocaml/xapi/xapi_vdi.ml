@@ -274,13 +274,16 @@ let create ~__context ~name_label ~name_description
 		sm_config = sm_config;
 	} in
 	let module C = Client(struct let rpc = rpc end) in
-	let vi = transform_storage_exn
+	let sm_vdi = transform_storage_exn
 		(fun () -> C.VDI.create ~dbg:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sR) ~vdi_info) in
-	if virtual_size < vi.virtual_size
-	then info "sr:%s vdi:%s requested virtual size %Ld < actual virtual size %Ld" (Ref.string_of sR) vi.vdi virtual_size vi.virtual_size;
-	newvdi ~__context ~sr:sR vi
-
-
+	if virtual_size < sm_vdi.virtual_size
+	then info "sr:%s vdi:%s requested virtual size %Ld < actual virtual size %Ld" (Ref.string_of sR) sm_vdi.vdi virtual_size sm_vdi.virtual_size;
+	let db_vdi = newvdi ~__context ~sr:sR sm_vdi in
+	Db.VDI.set_other_config ~__context ~self:db_vdi ~value:other_config;
+	Db.VDI.set_sharable ~__context ~self:db_vdi ~value:sharable;
+	Db.VDI.set_tags ~__context ~self:db_vdi ~value:tags;
+	Db.VDI.set_xenstore_data ~__context ~self:db_vdi ~value:xenstore_data;
+	db_vdi
 
 (* Make the database record only *)
 let introduce_dbonly  ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config  ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of =
