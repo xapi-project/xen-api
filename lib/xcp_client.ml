@@ -24,8 +24,11 @@ let get_user_agent () = Sys.argv.(0)
 (* Use HTTP to frame RPC messages *)
 let http_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset") url call =
 	let uri = Uri.of_string (url ()) in
+	let req = string_of_call call in
+
 	let headers = Cohttp.Header.of_list [
-		"User-agent", get_user_agent ()
+		"User-agent", get_user_agent ();
+		"content-length", string_of_int (String.length req);
 	] in
 	(* If we have a username:password@ then use basic authentication *)
 	let userinfo = Uri.userinfo uri in
@@ -38,7 +41,6 @@ let http_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset
 			end
 		| None -> headers in
 	
-	let req = string_of_call call in
 
 	let http_req = Request.make ~meth:`POST ~version:`HTTP_1_1 ~headers ~body:req uri in
 
