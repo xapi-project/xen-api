@@ -1,6 +1,8 @@
 # OASIS_START
-# DO NOT EDIT (digest: 8df12af75d17f8a83cc3f30f7fd29ae1)
+# DO NOT EDIT (digest: e657684e087ec3889e61d5a033ea6ad8)
 Storage_interface
 Vdi_automaton
 Storage_client
+Storage_skeleton
+Storage_skeleton_test
 # OASIS_STOP
