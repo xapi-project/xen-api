@@ -18,23 +18,10 @@
 open Listext
 open Fun
 open Stringext
-open Xmlrpc_client
-
-let url = Http.Url.(ref (File { path = Filename.concat Fhs.vardir "storage" }, { uri = "/"; query_params = [] }))
+open Storage_interface
+open Storage_client
 
 let verbose = ref false
-
-module RPC = struct
-	let rpc call =
-		let response = XMLRPC_protocol.rpc ~transport:(transport_of_url !url) ~srcstr:"sm-cli" ~dststr:"smapiv2"
-			~http:(xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of !url) ~query:(Http.Url.get_query_params !url) (Http.Url.get_uri !url)) call in
-		if !verbose
-		then Printf.fprintf stderr "Received: %s\n%!" (Xmlrpc.string_of_response response);
-		response
-end
-
-open Storage_interface
-module Client = Client(RPC)
 
 let dbg = "sm-cli"
 
@@ -65,12 +52,12 @@ let _ =
 	(* Look for url=foo *)
 	let args = Array.to_list Sys.argv in
 	begin
-		match List.filter (String.startswith "url=") args with
+		match List.filter (String.startswith "socket=") args with
 			| x :: _ ->
-				url := Http.Url.of_string (String.sub x 4 (String.length x - 4))
+				set_sockets_dir (String.sub x 7 (String.length x - 7));
 			| _ -> ()
 	end;
-	let args = List.filter (not ++ (String.startswith "url=")) args |> List.tl in
+	let args = List.filter (not ++ (String.startswith "socket=")) args |> List.tl in
 	verbose := List.mem "-v" args;
 	let args = List.filter (not ++ ((=) "-v")) args in
 	match args with
@@ -189,17 +176,5 @@ let _ =
 					) tasks
 		| ["task-cancel"; task ] ->
 			Client.TASK.cancel ~dbg ~task
-		| ["GET"; uri ] ->
-			Xmlrpc_client.with_transport (transport_of_url !url)
-				(fun fd ->
-					Http_client.rpc fd (Http.Request.make ~version:"1.0" ~keep_alive:false ~user_agent:"smcli" ~body:"" Http.Get uri)
-						(fun response fd ->
-							if response.Http.Response.code <> "200" then begin
-								Printf.fprintf stderr "%s\n" (Http.Response.to_string response);
-								exit 1;
-							end;
-							ignore(Unixext.copy_file ?limit:response.Http.Response.content_length fd Unix.stdout)
-						)
-				)
 		| _ ->
 			usage_and_exit ()
