@@ -56,7 +56,7 @@ module Opt = struct
 	let map f = function None -> None | Some x -> Some (f x)
 end
 
-let _ =
+let old_main () =
 	if Array.length Sys.argv < 2 then usage_and_exit ();
 	(* Look for url=foo *)
 	let args = Array.to_list Sys.argv in
@@ -187,3 +187,89 @@ let _ =
 			Client.TASK.cancel ~dbg ~task
 		| _ ->
 			usage_and_exit ()
+
+let project_url = "http://github.com/djs55/sm-cli"
+
+open Cmdliner
+
+module Common = struct
+	type t = {
+        verbose: bool;
+        debug: bool;
+        socket: string;
+	} with rpc
+
+	let make verbose debug socket = { verbose; debug; socket }
+
+	let to_string x = Jsonrpc.to_string (rpc_of_t x)
+end
+
+let _common_options = "COMMON OPTIONS"
+
+(* Options common to all commands *)
+let common_options_t = 
+  let docs = _common_options in 
+  let debug = 
+    let doc = "Give only debug output." in
+    Arg.(value & flag & info ["debug"] ~docs ~doc) in
+  let verb =
+    let doc = "Give verbose output." in
+    let verbose = true, Arg.info ["v"; "verbose"] ~docs ~doc in 
+    Arg.(last & vflag_all [false] [verbose]) in 
+  let socket = 
+    let doc = Printf.sprintf "Specify path to the server Unix domain socket." in
+    Arg.(value & opt file !Storage_interface.default_path & info ["socket"] ~docs ~doc) in
+  Term.(pure Common.make $ debug $ verb $ socket)
+
+
+(* Help sections common to all commands *)
+let help = [ 
+ `S _common_options; 
+ `P "These options are common to all commands.";
+ `S "MORE HELP";
+ `P "Use `$(mname) $(i,COMMAND) --help' for help on a single command."; `Noblank;
+ `S "BUGS"; `P (Printf.sprintf "Check bug reports at %s" project_url);
+]
+
+(* Commands *)
+
+let query () =
+	let q = Client.Query.query ~dbg in
+	Printf.printf "%s\n" (q |> rpc_of_query_result |> Jsonrpc.to_string)
+
+let wrap f common_opts =
+	Storage_interface.default_path := common_opts.Common.socket;
+	try
+		f ();
+		`Ok ()
+	with
+	| Unix.Unix_error((Unix.ECONNREFUSED|Unix.ENOENT), "connect", _) as e->
+		Printf.fprintf stderr "Failed to connect to %s: %s\n%!" common_opts.Common.socket (Printexc.to_string e);
+		Printf.fprintf stderr "Check whether the storage service is listening and try again.\n%!";
+		`Error(false, "could not connect to service")
+	| Unix.Unix_error(Unix.EACCES, "connect", _) as e ->
+		Printf.fprintf stderr "Failed to connect to %s: %s\n%!" common_opts.Common.socket (Printexc.to_string e);
+		Printf.fprintf stderr "Ensure this program is being run as root and try again.\n%!";
+		`Error(false, "permission denied")
+
+let query_cmd =
+  let doc = "query the capabilities of a storage service" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Queries the capabilities, vendor and version information from a storage service.";
+  ] @ help in
+  Term.(ret(pure (wrap query) $ common_options_t)),
+  Term.info "query" ~sdocs:_common_options ~doc ~man
+
+let default_cmd = 
+  let doc = "interact with an XCP storage management service" in 
+  let man = help in
+  Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
+  Term.info "sm-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
+       
+let cmds = [query_cmd]
+
+let _ =
+  match Term.eval_choice default_cmd cmds with 
+  | `Error _ -> exit 1
+  | _ -> exit 0
