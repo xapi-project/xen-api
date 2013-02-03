@@ -149,7 +149,13 @@ module Buffered_IO = struct
 	type ic = in_channel
 	type oc = out_channel
 
-	let read_line ic = try Some(input_line ic) with End_of_file -> None
+	let read_line ic =
+		try
+			Some (match input_line ic with
+			| "" -> ""
+			| x when x.[String.length x - 1] = '\r' -> String.sub x 0 (String.length x - 1)
+			| x -> x)
+		with End_of_file -> None
 
 	let read_exactly ic buf ofs len = try really_input ic buf ofs len; true with _ -> false
 
