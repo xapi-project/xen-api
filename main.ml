@@ -15,11 +15,11 @@
  * @group Storage
  *)
 
-open Listext
-open Fun
-open Stringext
 open Storage_interface
 open Storage_client
+
+let ( |> ) a b = b a
+let ( ++ ) a b x = a (b x)
 
 let verbose = ref false
 
@@ -42,22 +42,31 @@ let usage_and_exit () =
 	Printf.fprintf stderr "  %s GET <uri>\n" Sys.argv.(0);
 	exit 1
 
-let kvpairs = List.filter_map
-	(fun x -> match String.split ~limit:2 '=' x with
-		| [k; v] -> Some (k, v)
-		| _ -> None)
+let kvpairs = List.fold_left
+	(fun acc x -> match Re_str.bounded_split_delim (Re_str.regexp_string "=") x 2 with
+	| [k; v] -> (k, v) :: acc
+	| _ -> acc) []
+
+let startswith prefix x =
+	let x' = String.length x and prefix' = String.length prefix in
+	x' >= prefix' && (String.sub x 0 prefix') = prefix
+
+module Opt = struct
+	let default d = function None -> d | Some x -> x
+	let map f = function None -> None | Some x -> Some (f x)
+end
 
 let _ =
 	if Array.length Sys.argv < 2 then usage_and_exit ();
 	(* Look for url=foo *)
 	let args = Array.to_list Sys.argv in
 	begin
-		match List.filter (String.startswith "socket=") args with
+		match List.filter (startswith "socket=") args with
 			| x :: _ ->
 				set_sockets_dir (String.sub x 7 (String.length x - 7));
 			| _ -> ()
 	end;
-	let args = List.filter (not ++ (String.startswith "socket=")) args |> List.tl in
+	let args = List.filter (not ++ (startswith "socket=")) args |> List.tl in
 	verbose := List.mem "-v" args;
 	let args = List.filter (not ++ ((=) "-v")) args in
 	match args with
@@ -89,13 +98,13 @@ let _ =
 			if Array.length Sys.argv < 3 then usage_and_exit ();
 			let kvpairs = kvpairs args in
 			let find key = if List.mem_assoc key kvpairs then Some (List.assoc key kvpairs) else None in
-			let params = List.filter_map
-				(fun (k, v) ->
+			let params = List.fold_left
+				(fun acc (k, v) ->
 					let prefix = "params:" in
 					let l = String.length prefix in
-					if String.startswith prefix k
-					then Some (String.sub k l (String.length k - l), v)
-					else None) kvpairs in
+					if startswith prefix k
+					then (String.sub k l (String.length k - l), v) :: acc
+					else acc) [] kvpairs in
 			let vdi_info = {
 				vdi = "";
 				content_id = ""; (* PR-1255 *)
@@ -168,7 +177,7 @@ let _ =
 			let open Storage_interface.Task in
 
 			List.iter (fun t ->
-				Printf.printf "%-8s %-12s %-30s %s\n" t.Task.id (t.Task.ctime |> Date.of_float |> Date.to_string) t.Task.debug_info (t.Task.state |> Task.rpc_of_state |> Jsonrpc.to_string);
+				Printf.printf "%-8s %-12f %-30s %s\n" t.Task.id t.Task.ctime t.Task.debug_info (t.Task.state |> Task.rpc_of_state |> Jsonrpc.to_string);
 				List.iter
 					(fun (name, state) ->
 						Printf.printf "  |_ %-30s %s\n" name (state |> Task.rpc_of_state |> Jsonrpc.to_string)

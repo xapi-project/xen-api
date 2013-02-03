@@ -6,4 +6,4 @@ obuild-ver: 1
 executable sm-cli
   main: main.ml
   src-dir: .
-  build-deps: xcp, xcp.storage, stdext
+  build-deps: xcp, xcp.storage, re, re.str, rpclib, rpclib.json
