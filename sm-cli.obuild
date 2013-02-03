@@ -1,0 +1,9 @@
+name: sm-cli
+version: 0.0.0
+synopsis: CLI for interacting with SMAPI implementations
+obuild-ver: 1
+
+executable sm-cli
+  main: main.ml
+  src-dir: .
+  build-deps: xcp, xcp.storage, stdext, http-svr
