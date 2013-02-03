@@ -19,7 +19,7 @@ Library xcp_storage
   Path:               storage
   Findlibname:        storage
   Findlibparent:      xcp
-  Modules:            Storage_interface, Vdi_automaton, Storage_client
+  Modules:            Storage_interface, Vdi_automaton, Storage_client, Storage_skeleton, Storage_skeleton_test
   BuildDepends:       xcp, threads, rpclib, rpclib.syntax
 
 Library xcp_xen
