@@ -17,8 +17,13 @@
 
 let service_name="storage"
 
-let unix_domain_socket = "/var/xapi/storage"
-let uri () = Printf.sprintf "file:%s" unix_domain_socket
+let default_sockets_dir = "/var/xapi"
+let default_path = ref (Filename.concat default_sockets_dir service_name)
+
+let set_sockets_dir x =
+        default_path := Filename.concat x service_name
+
+let uri () = "file:" ^ !default_path
 
 open Vdi_automaton
 
