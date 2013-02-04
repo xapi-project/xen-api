@@ -267,6 +267,13 @@ let sr_attach common_opts sr device_config = match sr with
       Client.SR.attach ~dbg ~sr ~device_config
     )
 
+let sr_detach common_opts sr = match sr with
+  | None -> `Error(true, "must supply SR")
+  | Some sr ->
+    wrap common_opts (fun () ->
+      Client.SR.detach ~dbg ~sr
+    )
+
 let query_cmd =
   let doc = "query the capabilities of a storage service" in
   let man = [
@@ -289,13 +296,24 @@ let sr_attach_cmd =
   Term.(ret(pure sr_attach $ common_options_t $ sr $ device_config)),
   Term.info "sr-attach" ~sdocs:_common_options ~doc ~man
 
+let sr_detach_cmd =
+  let doc = "unique identifier for this storage repository (typically a uuid)" in
+  let sr = Arg.(value & pos 0 (some string) None & info [] ~docv:"SR" ~doc) in
+  let doc = "disconnect from a storage repository" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Disconnects from a connected storage repository, and frees any associated resources (e.g. iSCSI sessions, other control connections etc).";
+  ] @ help in
+  Term.(ret(pure sr_detach $ common_options_t $ sr)),
+  Term.info "sr-detach" ~sdocs:_common_options ~doc ~man
+
 let default_cmd = 
   let doc = "interact with an XCP storage management service" in 
   let man = help in
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
   Term.info "sm-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
        
-let cmds = [query_cmd; sr_attach_cmd]
+let cmds = [query_cmd; sr_attach_cmd; sr_detach_cmd]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
