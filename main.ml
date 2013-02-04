@@ -357,6 +357,11 @@ let vdi_activate common_opts sr vdi =
     Client.VDI.activate ~dbg ~dp:dbg ~sr ~vdi
   ) common_opts sr vdi
 
+let vdi_deactivate common_opts sr vdi =
+  on_vdi (fun sr vdi ->
+    Client.VDI.deactivate ~dbg ~dp:dbg ~sr ~vdi
+  ) common_opts sr vdi
+
 let query_cmd =
   let doc = "query the capabilities of a storage service" in
   let man = [
@@ -458,6 +463,15 @@ let vdi_activate_cmd =
   Term.(ret(pure vdi_activate $ common_options_t $ sr_arg $ vdi_arg)),
   Term.info "vdi-activate" ~sdocs:_common_options ~doc ~man
 
+let vdi_deactivate_cmd =
+  let doc = "deactivate a virtual disk." in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Deactivate a virtual disk. It will nolonger be possible for a Virtual Machine to read or write the disk. When this command completes, all outstanding I/O will have been flushed.";
+  ] @ help in
+  Term.(ret(pure vdi_deactivate $ common_options_t $ sr_arg $ vdi_arg)),
+  Term.info "vdi-deactivate" ~sdocs:_common_options ~doc ~man
+
 let default_cmd = 
   let doc = "interact with an XCP storage management service" in 
   let man = help in
@@ -466,7 +480,7 @@ let default_cmd =
        
 let cmds = [query_cmd; sr_attach_cmd; sr_detach_cmd; sr_scan_cmd;
             vdi_create_cmd; vdi_destroy_cmd; vdi_attach_cmd; vdi_detach_cmd;
-            vdi_activate_cmd]
+            vdi_activate_cmd; vdi_deactivate_cmd]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
