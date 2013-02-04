@@ -233,11 +233,7 @@ let help = [
 
 (* Commands *)
 
-let query () =
-	let q = Client.Query.query ~dbg in
-	Printf.printf "%s\n" (q |> rpc_of_query_result |> Jsonrpc.to_string)
-
-let wrap f common_opts =
+let wrap common_opts f =
 	Storage_interface.default_path := common_opts.Common.socket;
 	try
 		f ();
@@ -252,14 +248,46 @@ let wrap f common_opts =
 		Printf.fprintf stderr "Ensure this program is being run as root and try again.\n%!";
 		`Error(false, "permission denied")
 
+let query common_opts =
+  wrap common_opts (fun () ->
+    let q = Client.Query.query ~dbg in
+    Printf.printf "%s\n" (q |> rpc_of_query_result |> Jsonrpc.to_string)
+  )
+
+let sr_attach common_opts sr device_config = match sr with
+  | None -> `Error(true, "must supply SR")
+  | Some sr ->
+    (* The first 'device_config' will actually be the sr *)
+    let device_config = List.tl device_config in
+    let device_config = List.map (fun x -> match Re_str.bounded_split (Re_str.regexp_string "=") x 2 with
+    | [ k; v ] -> k, v
+    | _ -> failwith (Printf.sprintf "device_config arguments need to be of the form key=value (got '%s')" x)
+    ) device_config in
+    wrap common_opts (fun () ->
+      Client.SR.attach ~dbg ~sr ~device_config
+    )
+
 let query_cmd =
   let doc = "query the capabilities of a storage service" in
   let man = [
     `S "DESCRIPTION";
     `P "Queries the capabilities, vendor and version information from a storage service.";
   ] @ help in
-  Term.(ret(pure (wrap query) $ common_options_t)),
+  Term.(ret(pure query $ common_options_t)),
   Term.info "query" ~sdocs:_common_options ~doc ~man
+
+let sr_attach_cmd =
+  let doc = "unique identifier for this storage repository (typically a uuid)" in
+  let sr = Arg.(value & pos 0 (some string) None & info [] ~docv:"SR" ~doc) in
+  let doc = "storage repository configuration in the form of key=value pairs" in
+  let device_config = Arg.(value & (pos_all string []) & info [] ~docv:"DEVICE-CONFIG" ~doc) in
+  let doc = "connect to a storage repository" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Once a storage repository has been attached, it is possible to query metadata, create/destroy/attach/detach virtual disks."
+  ] @ help in
+  Term.(ret(pure sr_attach $ common_options_t $ sr $ device_config)),
+  Term.info "sr-attach" ~sdocs:_common_options ~doc ~man
 
 let default_cmd = 
   let doc = "interact with an XCP storage management service" in 
@@ -267,7 +295,7 @@ let default_cmd =
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
   Term.info "sm-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
        
-let cmds = [query_cmd]
+let cmds = [query_cmd; sr_attach_cmd]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
