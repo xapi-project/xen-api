@@ -284,6 +284,52 @@ let sr_scan common_opts sr = match sr with
       ) vdis
     )
 
+let parse_size x =
+  let kib = 1024L in
+  let mib = Int64.mul kib kib in
+  let gib = Int64.mul mib kib in
+  let tib = Int64.mul gib kib in
+  let endswith suffix x =
+    let suffix' = String.length suffix in
+    let x' = String.length x in
+    x' >= suffix' && (String.sub x (x' - suffix') suffix' = suffix) in
+  let remove suffix x =
+    let suffix' = String.length suffix in
+    let x' = String.length x in
+    String.sub x 0 (x' - suffix') in
+  try
+    if endswith "KiB" x then Int64.(mul kib (of_string (remove "KiB" x)))
+    else if endswith "MiB" x then Int64.(mul mib (of_string (remove "MiB" x)))
+    else if endswith "GiB" x then Int64.(mul gib (of_string (remove "GiB" x)))
+    else if endswith "TiB" x then Int64.(mul tib (of_string (remove "TiB" x)))
+    else Int64.of_string x
+  with _ ->
+    failwith (Printf.sprintf "Cannot parse size: %s" x)
+
+let vdi_create common_opts sr name descr virtual_size = match sr with
+  | None -> `Error(true, "must supply SR")
+  | Some sr ->
+    wrap common_opts (fun () ->
+      let vdi_info = {
+        vdi = "";
+        content_id = "";
+        name_label = name;
+        name_description = descr;
+        ty = "user";
+        metadata_of_pool = "";
+        is_a_snapshot = false;
+        snapshot_time = "";
+        snapshot_of = "";
+        read_only = false;
+        virtual_size = parse_size virtual_size;
+        physical_utilisation = 0L;
+        sm_config = [];
+        persistent = true;
+      } in
+      let vdi_info = Client.VDI.create ~dbg ~sr ~vdi_info in
+      Printf.sprintf "%s\n" vdi_info.vdi
+    )
+
 let query_cmd =
   let doc = "query the capabilities of a storage service" in
   let man = [
@@ -326,13 +372,33 @@ let sr_scan_cmd =
   Term.(ret(pure sr_scan $ common_options_t $ sr_arg)),
   Term.info "sr-scan" ~sdocs:_common_options ~doc ~man
 
+let vdi_create_cmd =
+  let name_arg =
+    let doc = "short name for the virtual disk" in
+    Arg.(value & opt string "name" & info ["name"] ~docv:"NAME" ~doc) in
+  let descr_arg =
+    let doc = "longer description for the virtual disk" in
+    Arg.(value & opt string "" & info ["description"] ~docv:"DESCRIPTION" ~doc) in
+  let virtual_size_arg =
+    let doc = "size of the disk" in
+    Arg.(value & opt string "0" & info ["size"] ~docv:"SIZE" ~doc) in
+
+  let doc = "create a new virtual disk in a storage repository" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Create an empty virtual disk in a storage repository.";
+  ] @ help in
+  Term.(ret(pure vdi_create $ common_options_t $ sr_arg $ name_arg $ descr_arg $ virtual_size_arg)),
+  Term.info "vdi-create" ~sdocs:_common_options ~doc ~man
+
 let default_cmd = 
   let doc = "interact with an XCP storage management service" in 
   let man = help in
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
   Term.info "sm-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
        
-let cmds = [query_cmd; sr_attach_cmd; sr_detach_cmd; sr_scan_cmd]
+let cmds = [query_cmd; sr_attach_cmd; sr_detach_cmd; sr_scan_cmd;
+            vdi_create_cmd]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
