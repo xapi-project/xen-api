@@ -166,6 +166,7 @@ exception Sr_attached of string
 exception Unimplemented of string
 exception Duplicated_key of string
 exception No_storage_plugin_for_sr of string
+exception Missing_configuration_parameter of string
 
 type query_result = {
 	driver: string;
