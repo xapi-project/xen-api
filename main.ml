@@ -274,6 +274,16 @@ let sr_detach common_opts sr = match sr with
       Client.SR.detach ~dbg ~sr
     )
 
+let sr_scan common_opts sr = match sr with
+  | None -> `Error(true, "must supply SR")
+  | Some sr ->
+    wrap common_opts (fun () ->
+      let vdis = Client.SR.scan ~dbg ~sr in
+      List.iter (fun vdi ->
+        Printf.fprintf stdout "%s: %s\n" vdi.vdi (Jsonrpc.to_string (rpc_of_vdi_info vdi))
+      ) vdis
+    )
+
 let query_cmd =
   let doc = "query the capabilities of a storage service" in
   let man = [
@@ -283,9 +293,11 @@ let query_cmd =
   Term.(ret(pure query $ common_options_t)),
   Term.info "query" ~sdocs:_common_options ~doc ~man
 
-let sr_attach_cmd =
+let sr_arg =
   let doc = "unique identifier for this storage repository (typically a uuid)" in
-  let sr = Arg.(value & pos 0 (some string) None & info [] ~docv:"SR" ~doc) in
+  Arg.(value & pos 0 (some string) None & info [] ~docv:"SR" ~doc)
+
+let sr_attach_cmd =
   let doc = "storage repository configuration in the form of key=value pairs" in
   let device_config = Arg.(value & (pos_all string []) & info [] ~docv:"DEVICE-CONFIG" ~doc) in
   let doc = "connect to a storage repository" in
@@ -293,19 +305,26 @@ let sr_attach_cmd =
     `S "DESCRIPTION";
     `P "Once a storage repository has been attached, it is possible to query metadata, create/destroy/attach/detach virtual disks."
   ] @ help in
-  Term.(ret(pure sr_attach $ common_options_t $ sr $ device_config)),
+  Term.(ret(pure sr_attach $ common_options_t $ sr_arg $ device_config)),
   Term.info "sr-attach" ~sdocs:_common_options ~doc ~man
 
 let sr_detach_cmd =
-  let doc = "unique identifier for this storage repository (typically a uuid)" in
-  let sr = Arg.(value & pos 0 (some string) None & info [] ~docv:"SR" ~doc) in
   let doc = "disconnect from a storage repository" in
   let man = [
     `S "DESCRIPTION";
     `P "Disconnects from a connected storage repository, and frees any associated resources (e.g. iSCSI sessions, other control connections etc).";
   ] @ help in
-  Term.(ret(pure sr_detach $ common_options_t $ sr)),
+  Term.(ret(pure sr_detach $ common_options_t $ sr_arg)),
   Term.info "sr-detach" ~sdocs:_common_options ~doc ~man
+
+let sr_scan_cmd =
+  let doc = "list all the virtual disks in a storage repository" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Lists all virtual disks and all their associated metadata within a given storage repository.";
+  ] @ help in
+  Term.(ret(pure sr_scan $ common_options_t $ sr_arg)),
+  Term.info "sr-scan" ~sdocs:_common_options ~doc ~man
 
 let default_cmd = 
   let doc = "interact with an XCP storage management service" in 
@@ -313,7 +332,7 @@ let default_cmd =
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
   Term.info "sm-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
        
-let cmds = [query_cmd; sr_attach_cmd; sr_detach_cmd]
+let cmds = [query_cmd; sr_attach_cmd; sr_detach_cmd; sr_scan_cmd]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
