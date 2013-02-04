@@ -327,16 +327,25 @@ let vdi_create common_opts sr name descr virtual_size = match sr with
         persistent = true;
       } in
       let vdi_info = Client.VDI.create ~dbg ~sr ~vdi_info in
-      Printf.sprintf "%s\n" vdi_info.vdi
+      Printf.printf "%s\n" vdi_info.vdi
     )
 
-let vdi_destroy common_opts sr vdi = match sr, vdi with
+let on_vdi f common_opts sr vdi = match sr, vdi with
   | None, _ -> `Error(true, "must supply SR")
   | _, None -> `Error(true, "must supply VDI")
   | Some sr, Some vdi ->
-    wrap common_opts (fun () ->
-      Client.VDI.destroy ~dbg ~sr ~vdi
-    )
+    wrap common_opts (fun () -> f sr vdi)
+
+let vdi_destroy common_opts sr vdi =
+  on_vdi (fun sr vdi ->
+    Client.VDI.destroy ~dbg ~sr ~vdi
+  ) common_opts sr vdi
+
+let vdi_attach common_opts sr vdi =
+  on_vdi (fun sr vdi ->
+    let info = Client.VDI.attach ~dbg ~dp:dbg ~sr ~vdi ~read_write:true in
+    Printf.printf "%s\n" (Jsonrpc.to_string (rpc_of_attach_info info))
+  ) common_opts sr vdi
 
 let query_cmd =
   let doc = "query the capabilities of a storage service" in
@@ -412,6 +421,15 @@ let vdi_destroy_cmd =
   Term.(ret(pure vdi_destroy $ common_options_t $ sr_arg $ vdi_arg)),
   Term.info "vdi-destroy" ~sdocs:_common_options ~doc ~man
 
+let vdi_attach_cmd =
+  let doc = "attach a virtual disk in a storage repository." in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Attach a virtual disk. This will allocate resources and prepare the disk to be used by a Virtual Machine. The disk won't be readable or writable until a call to vdi-activate.";
+  ] @ help in
+  Term.(ret(pure vdi_attach $ common_options_t $ sr_arg $ vdi_arg)),
+  Term.info "vdi-attach" ~sdocs:_common_options ~doc ~man
+
 let default_cmd = 
   let doc = "interact with an XCP storage management service" in 
   let man = help in
@@ -419,7 +437,7 @@ let default_cmd =
   Term.info "sm-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
        
 let cmds = [query_cmd; sr_attach_cmd; sr_detach_cmd; sr_scan_cmd;
-            vdi_create_cmd; vdi_destroy_cmd]
+            vdi_create_cmd; vdi_destroy_cmd; vdi_attach_cmd]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
