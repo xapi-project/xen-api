@@ -352,6 +352,11 @@ let vdi_detach common_opts sr vdi =
     Client.VDI.detach ~dbg ~dp:dbg ~sr ~vdi
   ) common_opts sr vdi
 
+let vdi_activate common_opts sr vdi =
+  on_vdi (fun sr vdi ->
+    Client.VDI.activate ~dbg ~dp:dbg ~sr ~vdi
+  ) common_opts sr vdi
+
 let query_cmd =
   let doc = "query the capabilities of a storage service" in
   let man = [
@@ -444,6 +449,15 @@ let vdi_detach_cmd =
   Term.(ret(pure vdi_detach $ common_options_t $ sr_arg $ vdi_arg)),
   Term.info "vdi-detach" ~sdocs:_common_options ~doc ~man
 
+let vdi_activate_cmd =
+  let doc = "activate a virtual disk." in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Activate a virtual disk. This makes it possible for a Virtual Machine to read or write the disk.";
+  ] @ help in
+  Term.(ret(pure vdi_activate $ common_options_t $ sr_arg $ vdi_arg)),
+  Term.info "vdi-activate" ~sdocs:_common_options ~doc ~man
+
 let default_cmd = 
   let doc = "interact with an XCP storage management service" in 
   let man = help in
@@ -451,7 +465,8 @@ let default_cmd =
   Term.info "sm-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
        
 let cmds = [query_cmd; sr_attach_cmd; sr_detach_cmd; sr_scan_cmd;
-            vdi_create_cmd; vdi_destroy_cmd; vdi_attach_cmd; vdi_detach_cmd]
+            vdi_create_cmd; vdi_destroy_cmd; vdi_attach_cmd; vdi_detach_cmd;
+            vdi_activate_cmd]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
