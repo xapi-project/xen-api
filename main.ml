@@ -330,6 +330,14 @@ let vdi_create common_opts sr name descr virtual_size = match sr with
       Printf.sprintf "%s\n" vdi_info.vdi
     )
 
+let vdi_destroy common_opts sr vdi = match sr, vdi with
+  | None, _ -> `Error(true, "must supply SR")
+  | _, None -> `Error(true, "must supply VDI")
+  | Some sr, Some vdi ->
+    wrap common_opts (fun () ->
+      Client.VDI.destroy ~dbg ~sr ~vdi
+    )
+
 let query_cmd =
   let doc = "query the capabilities of a storage service" in
   let man = [
@@ -342,6 +350,10 @@ let query_cmd =
 let sr_arg =
   let doc = "unique identifier for this storage repository (typically a uuid)" in
   Arg.(value & pos 0 (some string) None & info [] ~docv:"SR" ~doc)
+
+let vdi_arg =
+  let doc = "unique identifier for this VDI within this storage repository" in
+  Arg.(value & pos 1 (some string) None & info [] ~docv:"VDI" ~doc)
 
 let sr_attach_cmd =
   let doc = "storage repository configuration in the form of key=value pairs" in
@@ -391,6 +403,15 @@ let vdi_create_cmd =
   Term.(ret(pure vdi_create $ common_options_t $ sr_arg $ name_arg $ descr_arg $ virtual_size_arg)),
   Term.info "vdi-create" ~sdocs:_common_options ~doc ~man
 
+let vdi_destroy_cmd =
+  let doc = "destroy an existing virtual disk in a storage repository." in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Destroy an existing virtual disk in a storage repository.";
+  ] @ help in
+  Term.(ret(pure vdi_destroy $ common_options_t $ sr_arg $ vdi_arg)),
+  Term.info "vdi-destroy" ~sdocs:_common_options ~doc ~man
+
 let default_cmd = 
   let doc = "interact with an XCP storage management service" in 
   let man = help in
@@ -398,7 +419,7 @@ let default_cmd =
   Term.info "sm-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
        
 let cmds = [query_cmd; sr_attach_cmd; sr_detach_cmd; sr_scan_cmd;
-            vdi_create_cmd]
+            vdi_create_cmd; vdi_destroy_cmd]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
