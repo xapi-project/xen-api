@@ -565,7 +565,7 @@ let handler (req: Request.t) s _ =
 		    else go s
 		 )
 		 
-       	     (* Exceptions are handled by Server_helpers.with_context *)
+       	     (* Exceptions are handled by Xapi_http.with_context *)
 	     ))
 	 end
     )
