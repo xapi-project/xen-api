@@ -43,7 +43,7 @@ let epoch_end task sr vdi =
 			Client.VDI.epoch_end task.Xenops_task.dbg sr vdi
 		) ()
 
-let attach_and_activate ~xc ~xs task vm dp sr vdi read_write =
+let attach_and_activate task vm dp sr vdi read_write =
 	let result =
 		Xenops_task.with_subtask task (Printf.sprintf "VDI.attach %s" dp)
 			(transform_exception (fun () -> Client.VDI.attach "attach_and_activate" dp sr vdi read_write)) in

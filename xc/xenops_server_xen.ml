@@ -226,7 +226,7 @@ module Storage = struct
 
 	(* We need to deal with driver domains here: *)
 	let attach_and_activate ~xc ~xs task vm dp sr vdi read_write =
-		let result = attach_and_activate ~xc ~xs task vm dp sr vdi read_write in
+		let result = attach_and_activate task vm dp sr vdi read_write in
 		let backend = Xenops_task.with_subtask task (Printf.sprintf "Policy.get_backend_vm %s %s %s" vm sr vdi)
 			(transform_exception (fun () -> Client.Policy.get_backend_vm "attach_and_activate" vm sr vdi)) in
 		match domid_of_uuid ~xc ~xs Newest (uuid_of_string backend) with

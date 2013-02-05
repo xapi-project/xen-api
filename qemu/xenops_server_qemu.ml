@@ -26,6 +26,7 @@ module Domain = struct
 		vcpus: int;
 		memory: int64;
 		vbds: Vbd.t list; (* maintained in reverse-plug order *)
+		attach_infos: (Vbd.id * Storage_interface.attach_info option) list;
 		vifs: Vif.t list;
 		pcis: Pci.t list;
 		last_create_time: float;
@@ -49,12 +50,14 @@ module Qemu = struct
 		let commas = String.concat ","
 		let kv = List.map (fun (k, v) -> k ^ "=" ^ v)
 
-		let of_vbd x =
+		let of_vbd attach_infos x =
 			let open Vbd in
-			let file = match x.backend with
-				| None -> []
-				| Some (Local path) -> [ "file", path ]
-				| Some (VDI x) -> failwith "Need SM interface" in
+			let file =
+				if List.mem_assoc x.id attach_infos
+				then match List.assoc x.id attach_infos with
+					| Some x -> [ "file", x.Storage_interface.params ]
+					| None -> []
+				else [] in
 			let intf, media = match x.ty with
 				| CDROM -> "ide", "cdrom"
 				| Disk  -> "virtio", "disk" in
@@ -95,7 +98,7 @@ module Qemu = struct
 			let open Domain in
 			let memory = [ "-m"; Int64.to_string (Int64.div d.memory mib) ] in
 			let vga = [ "-vga"; "std" ] in
-			let vbds = List.concat (List.map of_vbd d.vbds) in
+			let vbds = List.concat (List.map (of_vbd d.attach_infos) d.vbds) in
 			let vifs = List.concat (List.map (of_vif d.domid) d.vifs) in
 			let ports = List.map (port_of_vif d.domid) d.vifs in
 			let arch = "x86_64" in
@@ -206,6 +209,7 @@ module VM = struct
 			memory = vm.Vm.memory_dynamic_max;
 			vifs = [];
 			vbds = [];
+			attach_infos = [];
 			pcis = [];
 			last_create_time = Unix.gettimeofday ();
 		} in
@@ -292,7 +296,19 @@ end
 module VBD = struct
 	include Xenops_server_skeleton.VBD
 
-	let plug _ (vm: Vm.id) (vbd: Vbd.t) =
+	let dp_of domain vbd = Storage.id_of domain.Domain.domid vbd.Vbd.id
+
+	let attach_and_activate task dp vbd = match vbd.Vbd.backend with
+	| None ->
+		None
+	| Some (Local path) ->
+		Some { Storage_interface.params=path; xenstore_data=[]; }
+	| Some (VDI path) ->
+		let sr, vdi = Storage.get_disk_by_name task path in
+		let vm = fst vbd.Vbd.id in
+		Some (Storage.attach_and_activate task vm dp sr vdi (vbd.Vbd.mode = Vbd.ReadWrite))
+
+	let plug task (vm: Vm.id) (vbd: Vbd.t) =
 		debug "add_vbd";
 		let d = DB.read_exn vm in
 		(* there shouldn't be any None values in here anyway *)
@@ -306,14 +322,27 @@ module VBD = struct
 		if List.mem this_dn dns then begin
 			debug "VBD.plug %s.%s: Already exists" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
 			raise (Already_exists("vbd", Device_number.to_debug_string this_dn))
-		end else DB.write vm { d with Domain.vbds = { vbd with Vbd.position = Some this_dn } :: d.Domain.vbds }
-
-	let unplug _ vm vbd _ =
+		end else begin
+			let dp = dp_of d vbd in
+			let attach_info = attach_and_activate task dp vbd in
+			DB.write vm { d with
+				Domain.vbds = { vbd with Vbd.position = Some this_dn } :: d.Domain.vbds;
+				attach_infos = (vbd.Vbd.id, attach_info) :: d.Domain.attach_infos;
+			}
+		end
+	let unplug task vm vbd _ =
 		let d = DB.read_exn vm in
 		let this_one x = x.Vbd.id = vbd.Vbd.id in
 		if List.filter this_one d.Domain.vbds = []
 		then raise (Does_not_exist("VBD", Printf.sprintf "%s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id)))
-		else DB.write vm { d with Domain.vbds = List.filter (fun x -> not (this_one x)) d.Domain.vbds }
+		else begin
+			let dp = dp_of d vbd in
+			Storage.dp_destroy task dp;
+			DB.write vm { d with
+				Domain.vbds = List.filter (fun x -> not (this_one x)) d.Domain.vbds;
+				attach_infos = List.filter (fun (x, _) -> x <> vbd.Vbd.id) d.Domain.attach_infos;
+			}
+		end
 
 	let insert _ vm vbd disk = ()
 	let eject _ vm vbd = ()
