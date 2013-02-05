@@ -211,7 +211,7 @@ module HOST = struct
 
 
 	let get_console_data () = "should run 'dmesg' here"
-	let get_total_memory_mib () = 0L
+	let get_total_memory_mib () = Int64.mul 1024L 1024L
 	let send_debug_keys _ = ()
 end
 
