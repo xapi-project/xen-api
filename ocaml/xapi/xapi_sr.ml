@@ -14,7 +14,7 @@
 (** Module that defines API functions for SR objects
  * @group XenAPI functions
  *)
- 
+
 open Printf
 open Threadext
 open Pervasiveext
@@ -37,11 +37,11 @@ let scans_in_progress_m = Mutex.create ()
 let scans_in_progress_c = Condition.create ()
 
 let i_should_scan_sr sr =
-  Mutex.execute scans_in_progress_m
-    (fun () ->
-       if Hashtbl.mem scans_in_progress sr
-       then false (* someone else already is *)
-       else (Hashtbl.replace scans_in_progress sr true; true))
+	Mutex.execute scans_in_progress_m
+		(fun () ->
+			if Hashtbl.mem scans_in_progress sr
+			then false (* someone else already is *)
+			else (Hashtbl.replace scans_in_progress sr true; true))
 
 let scan_finished sr =
 	Mutex.execute scans_in_progress_m
@@ -54,7 +54,7 @@ let scan_finished sr =
 let scan_one ~__context ?callback sr =
 	let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
 	if i_should_scan_sr sr
-	then 
+	then
 		ignore(Thread.create
 			(fun () ->
 				Server_helpers.exec_with_subtask ~__context "scan one" (fun ~__context ->
@@ -64,7 +64,7 @@ let scan_one ~__context ?callback sr =
 								Helpers.call_api_functions ~__context
 									(fun rpc session_id ->
 										Helpers.log_exn_continue (Printf.sprintf "scanning SR %s" (Ref.string_of sr))
-											(fun sr -> 
+											(fun sr ->
 												Client.SR.scan rpc session_id sr) sr)
 							with e ->
 								error "Caught exception attempting an SR.scan: %s" (ExnHelper.string_of_exn e)
@@ -94,77 +94,77 @@ let scan_one ~__context ?callback sr =
 			)) callback
 
 let get_all_plugged_srs ~__context =
-  let pbds = Db.PBD.get_all ~__context in
-  let pbds_plugged_in = List.filter (fun self -> Db.PBD.get_currently_attached ~__context ~self) pbds in
-  List.setify (List.map (fun self -> Db.PBD.get_SR ~__context ~self) pbds_plugged_in)
+	let pbds = Db.PBD.get_all ~__context in
+	let pbds_plugged_in = List.filter (fun self -> Db.PBD.get_currently_attached ~__context ~self) pbds in
+	List.setify (List.map (fun self -> Db.PBD.get_SR ~__context ~self) pbds_plugged_in)
 
 let scan_all ~__context =
-  let srs = get_all_plugged_srs ~__context in
-  (* only scan those with the dirty/auto_scan key set *)
-  let scannable_srs = 
-    List.filter (fun sr ->
-		   let oc = Db.SR.get_other_config ~__context ~self:sr in
-		   (List.mem_assoc Xapi_globs.auto_scan oc && (List.assoc Xapi_globs.auto_scan oc = "true"))
-		   || (List.mem_assoc "dirty" oc)) srs in
-  if List.length scannable_srs > 0 then
-    debug "Automatically scanning SRs = [ %s ]" (String.concat ";" (List.map Ref.string_of scannable_srs));
-  List.iter (scan_one ~__context) scannable_srs
+	let srs = get_all_plugged_srs ~__context in
+	(* only scan those with the dirty/auto_scan key set *)
+	let scannable_srs =
+		List.filter (fun sr ->
+			let oc = Db.SR.get_other_config ~__context ~self:sr in
+			(List.mem_assoc Xapi_globs.auto_scan oc && (List.assoc Xapi_globs.auto_scan oc = "true"))
+			|| (List.mem_assoc "dirty" oc)) srs in
+	if List.length scannable_srs > 0 then
+		debug "Automatically scanning SRs = [ %s ]" (String.concat ";" (List.map Ref.string_of scannable_srs));
+	List.iter (scan_one ~__context) scannable_srs
 
 let scanning_thread () =
-  Debug.name_thread "sr_scan";
-  Server_helpers.exec_with_new_task "SR scanner" (fun __context ->
-  let host = Helpers.get_localhost ~__context in
+	Debug.name_thread "sr_scan";
+	Server_helpers.exec_with_new_task "SR scanner" (fun __context ->
+		let host = Helpers.get_localhost ~__context in
 
-  let get_delay () =
-    try
-      let oc = Db.Host.get_other_config ~__context ~self:host in
-      float_of_string (List.assoc Xapi_globs.auto_scan_interval oc)
-    with _ -> 30.
-    in
+		let get_delay () =
+			try
+				let oc = Db.Host.get_other_config ~__context ~self:host in
+				float_of_string (List.assoc Xapi_globs.auto_scan_interval oc)
+			with _ -> 30.
+		in
 
-  while true do
-    Thread.delay (get_delay ());
-    try scan_all ~__context
-    with e -> debug "Exception in SR scanning thread: %s" (Printexc.to_string e)
-  done)
+		while true do
+			Thread.delay (get_delay ());
+			try scan_all ~__context
+			with e -> debug "Exception in SR scanning thread: %s" (Printexc.to_string e)
+		done)
 
 (* introduce, creates a record for the SR in the database. It has no other side effect *)
 let introduce  ~__context ~uuid ~name_label
-    ~name_description ~_type ~content_type ~shared ~sm_config =
-  let _type = String.lowercase _type in
-  let uuid = if uuid="" then Uuid.to_string (Uuid.make_uuid()) else uuid in (* fill in uuid if none specified *)
-  let sr_ref = Ref.make () in
-    (* Create SR record in DB *)
-  let () = Db.SR.create ~__context ~ref:sr_ref ~uuid
-      ~name_label ~name_description 
-      ~allowed_operations:[] ~current_operations:[]
-      ~virtual_allocation:0L
-      ~physical_utilisation: (-1L)
-      ~physical_size: (-1L)
-      ~content_type
-      ~_type ~shared ~other_config:[] ~default_vdi_visibility:true
-      ~sm_config ~blobs:[] ~tags:[] ~local_cache_enabled:false
-      ~introduced_by:Ref.null in
+		~name_description ~_type ~content_type ~shared ~sm_config =
+	let _type = String.lowercase _type in
+	let uuid = if uuid="" then Uuid.to_string (Uuid.make_uuid()) else uuid in (* fill in uuid if none specified *)
+	let sr_ref = Ref.make () in
+	(* Create SR record in DB *)
+	let () = Db.SR.create ~__context ~ref:sr_ref ~uuid
+		~name_label ~name_description
+		~allowed_operations:[] ~current_operations:[]
+		~virtual_allocation:0L
+		~physical_utilisation: (-1L)
+		~physical_size: (-1L)
+		~content_type
+		~_type ~shared ~other_config:[] ~default_vdi_visibility:true
+		~sm_config ~blobs:[] ~tags:[] ~local_cache_enabled:false
+		~introduced_by:Ref.null in
 
-    Xapi_sr_operations.update_allowed_operations ~__context ~self:sr_ref;
-    (* Return ref of newly created sr *)
-    sr_ref
+	Xapi_sr_operations.update_allowed_operations ~__context ~self:sr_ref;
+	(* Return ref of newly created sr *)
+	sr_ref
 
-let make ~__context ~host ~device_config ~physical_size ~name_label ~name_description ~_type ~content_type ~sm_config = 
-  raise (Api_errors.Server_error (Api_errors.message_deprecated, []))
+let make ~__context ~host ~device_config ~physical_size ~name_label ~name_description ~_type ~content_type ~sm_config =
+	raise (Api_errors.Server_error (Api_errors.message_deprecated, []))
 
 
 (** Before destroying an SR record, unplug and destroy referencing PBDs. If any of these
     operations fails, the ensuing exception should keep the SR record around. *)
-let unplug_and_destroy_pbds ~__context ~self = 
-  let pbds = Db.SR.get_PBDs ~__context ~self in
-  Helpers.call_api_functions
-    (fun rpc session_id ->
-       List.iter
-	 (fun pbd ->
-	    Client.PBD.unplug ~rpc ~session_id ~self:pbd;
-	    Client.PBD.destroy ~rpc ~session_id ~self:pbd)
-	 pbds)
+let unplug_and_destroy_pbds ~__context ~self =
+	let pbds = Db.SR.get_PBDs ~__context ~self in
+	Helpers.call_api_functions
+		(fun rpc session_id ->
+			List.iter
+				(fun pbd ->
+					Client.PBD.unplug ~rpc ~session_id ~self:pbd;
+					Client.PBD.destroy ~rpc ~session_id ~self:pbd)
+				pbds)
 
 let probe ~__context ~host ~device_config ~_type ~sm_config =
 	debug "SR.probe sm_config=[ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
@@ -183,10 +183,10 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
 	(* This breaks the udev SR which doesn't support sr_probe *)
 (*
 	let probe_result = probe ~__context ~host ~device_config ~_type ~sm_config in
-	begin 
+	begin
 	  match Xml.parse_string probe_result with
 	    | Xml.Element("SRlist", _, children) -> ()
-	    | _ -> 
+	    | _ ->
 		(* Figure out what was missing, then throw the appropriate error *)
 		match String.lowercase _type with
 		  | "lvmoiscsi" ->
@@ -204,7 +204,7 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
 	let sr_ref =
 		introduce  ~__context ~uuid:sr_uuid_str ~name_label
 			~name_description ~_type ~content_type ~shared ~sm_config
-	in 
+	in
 
 	let pbds =
 		if shared then
@@ -238,10 +238,10 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
 		sr_ref
 
 let check_no_pbds_attached ~__context ~sr =
-  let all_pbds_attached_to_this_sr =
-    Db.PBD.get_records_where ~__context ~expr:(And(Eq(Field "SR", Literal (Ref.string_of sr)), Eq(Field "currently_attached", Literal "true"))) in
-    if List.length all_pbds_attached_to_this_sr > 0
-    then raise (Api_errors.Server_error(Api_errors.sr_has_pbd, [ Ref.string_of sr ]))
+	let all_pbds_attached_to_this_sr =
+		Db.PBD.get_records_where ~__context ~expr:(And(Eq(Field "SR", Literal (Ref.string_of sr)), Eq(Field "currently_attached", Literal "true"))) in
+	if List.length all_pbds_attached_to_this_sr > 0
+		then raise (Api_errors.Server_error(Api_errors.sr_has_pbd, [ Ref.string_of sr ]))
 
 (* Remove SR record from database without attempting to remove SR from disk.
    Fail if any PBD still is attached (plugged); force the user to unplug it
@@ -277,9 +277,9 @@ let destroy  ~__context ~sr =
 	Db.SR.destroy ~__context ~self:sr
 
 let update ~__context ~sr =
-  Sm.assert_pbd_is_plugged ~__context ~sr;
-  Sm.call_sm_functions ~__context ~sR:sr
-    (fun device_config driver -> Sm.sr_update device_config driver sr)
+	Sm.assert_pbd_is_plugged ~__context ~sr;
+	Sm.call_sm_functions ~__context ~sR:sr
+		(fun device_config driver -> Sm.sr_update device_config driver sr)
 
 let get_supported_types ~__context = Sm.supported_drivers ()
 
@@ -288,7 +288,7 @@ module StringMap = Map.Make(struct type t = string let compare = compare end)
 (* Update VDI records in the database to be in sync with new information
    from a storage backend. *)
 let update_vdis ~__context ~sr db_vdis vdi_infos =
-    let open Storage_interface in
+	let open Storage_interface in
 	let db_vdi_map = List.fold_left
 		(fun m (r, v) ->
 			StringMap.add v.API.vDI_location (r, v) m
@@ -392,7 +392,7 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
 		) to_update
 
 (* Perform a scan of this locally-attached SR *)
-let scan ~__context ~sr = 
+let scan ~__context ~sr =
 	let open Storage_access in
     let task = Context.get_task_id __context in
     let open Storage_interface in
@@ -407,17 +407,17 @@ let scan ~__context ~sr =
 		)
 
 let set_shared ~__context ~sr ~value =
-  if value then
-    (* We can always set an SR to be shared... *)
-    Db.SR.set_shared ~__context ~self:sr ~value
-  else
-    begin
-      let pbds = Db.PBD.get_all ~__context in
-      let pbds = List.filter (fun pbd -> Db.PBD.get_SR ~__context ~self:pbd = sr) pbds in
-      if List.length pbds > 1 then
-	raise (Api_errors.Server_error (Api_errors.sr_has_multiple_pbds,List.map (fun pbd -> Ref.string_of pbd) pbds));
-      Db.SR.set_shared ~__context ~self:sr ~value
-    end
+	if value then
+		(* We can always set an SR to be shared... *)
+		Db.SR.set_shared ~__context ~self:sr ~value
+	else
+		begin
+			let pbds = Db.PBD.get_all ~__context in
+			let pbds = List.filter (fun pbd -> Db.PBD.get_SR ~__context ~self:pbd = sr) pbds in
+			if List.length pbds > 1 then
+				raise (Api_errors.Server_error (Api_errors.sr_has_multiple_pbds,List.map (fun pbd -> Ref.string_of pbd) pbds));
+			Db.SR.set_shared ~__context ~self:sr ~value
+		end
 
 (* set_name_label and set_name_description attempt to persist the change to the storage backend. *)
 (* If the SR is detached this will fail, but this is OK since the SR will persist metadata on sr_attach. *)
@@ -436,17 +436,17 @@ let set_name_description ~__context ~sr ~value =
 	Db.SR.set_name_description ~__context ~self:sr ~value;
 	try_update_sr ~__context ~sr
 
-let set_virtual_allocation ~__context ~self ~value = 
-  Db.SR.set_virtual_allocation ~__context ~self ~value
+let set_virtual_allocation ~__context ~self ~value =
+	Db.SR.set_virtual_allocation ~__context ~self ~value
 
-let set_physical_size ~__context ~self ~value = 
-  Db.SR.set_physical_size ~__context ~self ~value
+let set_physical_size ~__context ~self ~value =
+	Db.SR.set_physical_size ~__context ~self ~value
 
-let set_physical_utilisation ~__context ~self ~value = 
-  Db.SR.set_physical_utilisation ~__context ~self ~value
+let set_physical_utilisation ~__context ~self ~value =
+	Db.SR.set_physical_utilisation ~__context ~self ~value
 
-let assert_can_host_ha_statefile ~__context ~sr = 
-  Xha_statefile.assert_sr_can_host_statefile ~__context ~sr
+let assert_can_host_ha_statefile ~__context ~sr =
+	Xha_statefile.assert_sr_can_host_statefile ~__context ~sr
 
 let assert_supports_database_replication ~__context ~sr =
 	(* Check that each host has a PBD to this SR *)
@@ -529,6 +529,6 @@ let disable_database_replication ~__context ~sr =
 		metadata_vdis
 
 let create_new_blob ~__context ~sr ~name ~mime_type ~public =
-  let blob = Xapi_blob.create ~__context ~mime_type ~public in
-  Db.SR.add_to_blobs ~__context ~self:sr ~key:name ~value:blob;
-  blob
+	let blob = Xapi_blob.create ~__context ~mime_type ~public in
+	Db.SR.add_to_blobs ~__context ~self:sr ~key:name ~value:blob;
+	blob
