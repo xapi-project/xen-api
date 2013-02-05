@@ -135,20 +135,23 @@ let introduce  ~__context ~uuid ~name_label
 	let uuid = if uuid="" then Uuid.to_string (Uuid.make_uuid()) else uuid in (* fill in uuid if none specified *)
 	let sr_ref = Ref.make () in
 	(* Create SR record in DB *)
-	let () = Db.SR.create ~__context ~ref:sr_ref ~uuid
-		~name_label ~name_description
-		~allowed_operations:[] ~current_operations:[]
-		~virtual_allocation:0L
-		~physical_utilisation: (-1L)
-		~physical_size: (-1L)
-		~content_type
-		~_type ~shared ~other_config:[] ~default_vdi_visibility:true
-		~sm_config ~blobs:[] ~tags:[] ~local_cache_enabled:false
-		~introduced_by:Ref.null in
+	try
+		Db.SR.create ~__context ~ref:sr_ref ~uuid
+			~name_label ~name_description
+			~allowed_operations:[] ~current_operations:[]
+			~virtual_allocation:0L
+			~physical_utilisation: (-1L)
+			~physical_size: (-1L)
+			~content_type
+			~_type ~shared ~other_config:[] ~default_vdi_visibility:true
+			~sm_config ~blobs:[] ~tags:[] ~local_cache_enabled:false
+			~introduced_by:Ref.null;
 
-	Xapi_sr_operations.update_allowed_operations ~__context ~self:sr_ref;
-	(* Return ref of newly created sr *)
-	sr_ref
+		Xapi_sr_operations.update_allowed_operations ~__context ~self:sr_ref;
+		(* Return ref of newly created sr *)
+		sr_ref
+	with Db_exn.Uniqueness_constraint_violation("SR", "uuid", _) ->
+		raise (Api_errors.Server_error (Api_errors.sr_uuid_exists, [uuid]))
 
 let make ~__context ~host ~device_config ~physical_size ~name_label ~name_description ~_type ~content_type ~sm_config =
 	raise (Api_errors.Server_error (Api_errors.message_deprecated, []))
