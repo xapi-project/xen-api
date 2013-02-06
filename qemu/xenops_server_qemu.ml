@@ -105,7 +105,8 @@ module Qemu = struct
 			let arch = "x86_64" in
 			let kvm = [ "-enable-kvm" ] in
 			let boot = [ "-boot"; "cd" ] in
-			let vnc = [ "-vnc"; ":0" ] in
+			(* XXX: use a Unix domain socket for VNC once xapi supports it *)
+			let vnc = [ "-vnc"; Printf.sprintf ":%d" d.domid] in
 			let qmp_path = Filename.concat qmp_dir d.uuid in
 			let qmp = [ "-qmp"; Printf.sprintf "unix:%s,server" qmp_path ] in
 			{ cmd = Printf.sprintf "/usr/bin/qemu-system-%s" arch;
@@ -300,9 +301,18 @@ module VM = struct
 			| Some pid ->
 				let path = Filename.concat Qemu.qmp_dir vm.Vm.id in
 				if Sys.file_exists path then Running else Halted in
+			let domids =
+				if power_state = Halted
+				then []
+				else [ d.Domain.domid ] in
+			let consoles =
+				if power_state = Halted
+				then []
+				else [ { Vm.protocol = Vm.Rfb; port = 5900 + d.Domain.domid } ] in
 			{ halted_vm with
 				Vm.power_state = power_state;
-				domids = [ ];
+				domids = domids;
+				consoles = consoles;
 				vcpu_target = d.Domain.vcpus;
 				last_start_time = d.Domain.last_create_time;
 			}
