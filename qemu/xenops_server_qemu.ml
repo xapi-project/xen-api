@@ -367,7 +367,7 @@ module VBD = struct
 		Some (Storage.attach_and_activate task vm dp sr vdi (vbd.Vbd.mode = Vbd.ReadWrite))
 
 	let plug task (vm: Vm.id) (vbd: Vbd.t) =
-		debug "add_vbd";
+		info "VBD.plug %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
 		let d = DB.read_exn vm in
 		(* there shouldn't be any None values in here anyway *)
 		let ps = List.map (fun vbd -> vbd.Vbd.position) d.Domain.vbds in
@@ -389,18 +389,15 @@ module VBD = struct
 			}
 		end
 	let unplug task vm vbd _ =
-		let d = DB.read_exn vm in
+		info "VBD.unplug %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
 		let this_one x = x.Vbd.id = vbd.Vbd.id in
-		if List.filter this_one d.Domain.vbds = []
-		then raise (Does_not_exist("VBD", Printf.sprintf "%s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id)))
-		else begin
-			let dp = dp_of d vbd in
-			Storage.dp_destroy task dp;
-			DB.write vm { d with
-				Domain.vbds = List.filter (fun x -> not (this_one x)) d.Domain.vbds;
-				attach_infos = List.filter (fun (x, _) -> x <> vbd.Vbd.id) d.Domain.attach_infos;
-			}
-		end
+		let d = DB.read_exn vm in
+		let dp = dp_of d vbd in
+		Storage.dp_destroy task dp;
+		DB.write vm { d with
+			Domain.vbds = List.filter (fun x -> not (this_one x)) d.Domain.vbds;
+			attach_infos = List.filter (fun (x, _) -> x <> vbd.Vbd.id) d.Domain.attach_infos;
+		}
 
 	let insert _ vm vbd disk = ()
 	let eject _ vm vbd = ()
@@ -414,6 +411,7 @@ module VIF = struct
 	include Xenops_server_skeleton.VIF
 
 	let plug _ vm vif =
+		info "VIF.plug %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
 		let d = DB.read_exn vm in
 		let existing_positions = List.map (fun vif -> vif.Vif.position) d.Domain.vifs in
 		if List.mem vif.Vif.position existing_positions then begin
@@ -422,6 +420,7 @@ module VIF = struct
 		end else DB.write vm { d with Domain.vifs = vif :: d.Domain.vifs }
 
 	let unplug _ vm vif _ =
+		info "VIF.unplug %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
 		let d = DB.read_exn vm in
 		let this_one x = x.Vif.id = vif.Vif.id in
 		if List.filter this_one d.Domain.vifs = []
