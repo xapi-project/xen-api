@@ -18,7 +18,9 @@ type t = {
 	socket: string;
 } with rpc
 
-let make verbose debug socket = { verbose; debug; socket }
+let make verbose debug socket =
+        Xenops_interface.default_path := socket;
+	{ verbose; debug; socket }
 
 let to_string x = Jsonrpc.to_string (rpc_of_t x)
 
