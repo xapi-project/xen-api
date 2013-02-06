@@ -22,6 +22,7 @@ open D
 module Domain = struct
 	type t = {
 		domid: int;
+		qemu_pid: int option;
 		uuid: string;
 		vcpus: int;
 		memory: int64;
@@ -227,6 +228,7 @@ module VM = struct
 		let open Domain in
 		let domain = {
 			domid = !next_domid;
+			qemu_pid = None;
 			uuid = vm.Vm.id;
 			vcpus = vm.Vm.vcpus;
 			memory = vm.Vm.memory_dynamic_max;
@@ -242,18 +244,37 @@ module VM = struct
 	let destroy _ vm =
 		debug "Domain.destroy vm=%s" vm.Vm.id;
 		(* Idempotent *)
-		if DB.exists vm.Vm.id then DB.delete vm.Vm.id
+		match DB.read vm.Vm.id with
+		| Some d ->
+			begin match d.Domain.qemu_pid with
+			| Some x ->
+				info "Sending SIGTERM to qemu pid %d" x;
+				Unix.kill x Sys.sigterm
+			| None -> ()
+			end;
+			DB.delete vm.Vm.id
+		| None -> ()
 
 	let unpause _ vm =
 		let d = DB.read_exn vm.Vm.id in
 		let qemu = Qemu.of_domain d in
+		let syslog_stdout = Forkhelpers.Syslog_WithKey (Printf.sprintf "qemu-%s" vm.Vm.id) in
+		let t = Forkhelpers.safe_close_and_exec None None None [] ~syslog_stdout qemu.Qemu.cmd qemu.Qemu.args in
+		let pid = Forkhelpers.getpid t in
 		debug "%s %s" qemu.Qemu.cmd (String.concat " " qemu.Qemu.args);
 		debug "<- listening on %s" qemu.Qemu.qmp;
-		let syslog_stdout = Forkhelpers.Syslog_WithKey (Printf.sprintf "qemu-%s" vm.Vm.id) in
-		let pid = Forkhelpers.safe_close_and_exec None None None [] ~syslog_stdout qemu.Qemu.cmd qemu.Qemu.args in
+		debug "<- with PID %d" pid;
+		(* wait for the QMP path to exist *)
+		let path = Filename.concat Qemu.qmp_dir vm.Vm.id in
+		while not(Sys.file_exists path); do
+			debug "waiting for %s" path;
+			Thread.delay 0.2
+		done;
+		DB.write vm.Vm.id { d with Domain.qemu_pid = Some pid };
 		(* At this point we expect qemu to outlive us; we will never call waitpid *)	
-		Forkhelpers.dontwaitpid pid;
+		Forkhelpers.dontwaitpid t;
 		(* XXX: hack *)
+		(* 1. we need for qemu to create the tap -- use a script? *)
 		let (_: Thread.t) = Thread.create
 			(fun () ->
 				Thread.delay 5.;
@@ -263,7 +284,7 @@ module VM = struct
 						ignore (Forkhelpers.execute_command_get_output "/sbin/brctl" [ "addif"; bridge; ifname ])
 					) qemu.Qemu.ports
 			) () in
-		()
+		Updates.add (Dynamic.Vm vm.Vm.id) updates
 
 	let build _ vm vbds vifs = ()
 	let create_device_model _ vm vbds vifs _ = ()
@@ -274,9 +295,13 @@ module VM = struct
 	let get_state vm =
 		if DB.exists vm.Vm.id then begin
 			let d = DB.read_exn vm.Vm.id in
-			let path = Filename.concat Qemu.qmp_dir vm.Vm.id in
+			let power_state = match d.Domain.qemu_pid with
+			| None -> Halted
+			| Some pid ->
+				let path = Filename.concat Qemu.qmp_dir vm.Vm.id in
+				if Sys.file_exists path then Running else Halted in
 			{ halted_vm with
-				Vm.power_state = if Sys.file_exists path then Running else Halted;
+				Vm.power_state = power_state;
 				domids = [ ];
 				vcpu_target = d.Domain.vcpus;
 				last_start_time = d.Domain.last_create_time;
