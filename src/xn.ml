@@ -532,8 +532,11 @@ let pp x =
 		| Null -> [] in
 	x |> to_t |> flatten |> List.map to_string_list |> List.concat |> List.iter (Printf.printf "%s\n")
 
-let diagnostics () =
-	Client.get_diagnostics dbg () |> Jsonrpc.of_string |> pp
+let diagnostics' () =
+	Client.get_diagnostics dbg () |> Jsonrpc.of_string |> pp;
+	`Ok ()
+
+let diagnostics copts = diagnose_error diagnostics'
 
 let find_by_name x =
 	let open Vm in
@@ -1066,8 +1069,6 @@ let old_main () =
 			events_watch None
 		| [ "set-worker-pool-size"; size ] ->
 			set_worker_pool_size (int_of_string size)
-		| [ "diagnostics" ] ->
-			diagnostics ()
 		| [ "task-list" ] ->
 			task_list ()
 		| [ "task-cancel"; id ] ->

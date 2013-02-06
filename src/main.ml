@@ -281,6 +281,15 @@ let export_cmd =
   Term.(ret (pure Xn.export $common_options_t $ metadata $ xm $ filename $ vm)),
   Term.info "export" ~sdocs:_common_options ~doc ~man
 
+let diagnostics_cmd =
+  let doc = "retrieve diagnostic information" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Retrieve diagnostic information from the xenopsd service.";
+  ] @ help in
+  Term.(ret (pure Xn.diagnostics $ common_options_t)),
+  Term.info "diagnostics" ~sdocs:_common_options ~doc ~man
+
 let default_cmd = 
   let doc = "interact with the XCP xenopsd VM management service" in 
   let man = help in
@@ -289,7 +298,7 @@ let default_cmd =
        
 let cmds = [list_cmd; create_cmd; add_cmd; remove_cmd; start_cmd; shutdown_cmd; reboot_cmd;
             suspend_cmd; resume_cmd; pause_cmd; unpause_cmd;
-            import_cmd; export_cmd; console_cmd ]
+            import_cmd; export_cmd; console_cmd; diagnostics_cmd ]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
