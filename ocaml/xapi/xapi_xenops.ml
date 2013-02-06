@@ -1289,9 +1289,10 @@ let rec events_watch ~__context from =
 		) events;
 	events_watch ~__context (Some next)
 
-let manage_dom0 dbg =
+let manage_dom0 ~__context =
 	(* Tell xenopsd to manage domain 0 *)
 	let open Xenctrl.Domain_info in
+	let dbg = Context.string_of_task __context in
 	let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
 	let di = Vmopshelpers.with_xc (fun xc -> Xenctrl.domain_getinfo xc 0) in
 	let memory_actual_bytes = Xenctrl.pages_to_kib Int64.(mul (of_nativeint di.total_memory_pages) 1024L) in
@@ -1328,7 +1329,6 @@ let manage_dom0 dbg =
 
 let on_xapi_restart ~__context =
 	let dbg = Context.string_of_task __context in
-	manage_dom0 dbg;
 	(* Destroy each active task in xenopsd, since the previous xapi
 	   is not able to do it. *)
 	let tasks = Client.TASK.list dbg in
