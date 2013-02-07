@@ -28,23 +28,33 @@ IP="/sbin/ip"
 
 vsctl="/usr/bin/ovs-vsctl"
 
-handle_promiscuous()
+get_promiscuous()
 {
     # other-config keys are optional
     local arg=$(xenstore-read "${PRIVATE}/other-config/promiscuous" 2>/dev/null)
     if [ $? -eq 0 -a -n "${arg}" ] ; then
-        case $NETWORK_MODE in
-            bridge)
-                case "${arg}" in 
-                    true|on) echo 1 > /sys/class/net/${dev}/brport/promisc ;;
-                    *) echo 0 > /sys/class/net/${dev}/brport/promisc ;;
-                esac
-                ;;
-            openvswitch)
-                logger -t script-vif "${dev}: Promiscuous ports are not supported via Open vSwitch."
-                ;;
+        case "${arg}" in
+            true|on) promiscuous=1 ;;
+            *) promiscuous=0 ;;
         esac
+    else
+        promiscuous=0
     fi
+}
+
+
+handle_promiscuous()
+{
+    case $NETWORK_MODE in
+        bridge)
+            echo $promiscuous > /sys/class/net/${dev}/brport/promisc
+            ;;
+        openvswitch)
+            if [ $promiscuous -eq 1 ]; then
+                    logger -t script-vif "${dev}: Promiscuous ports are not supported via Open vSwitch"
+            fi
+            ;;
+    esac
 }
 
 handle_ethtool()
@@ -298,6 +308,7 @@ online)
 
         handle_mtu
         add_to_bridge
+        get_promiscuous
         handle_promiscuous
 
         # only for the benefit of xenrt test case, see CA-61528
