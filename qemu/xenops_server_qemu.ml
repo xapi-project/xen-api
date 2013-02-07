@@ -107,12 +107,13 @@ module Qemu = struct
 			let arch = "x86_64" in
 			let kvm = [ "-enable-kvm" ] in
 			let boot = [ "-boot"; "cd" ] in
+			let usb = [ "-usb"; "-usbdevice"; "tablet" ] in
 			(* XXX: use a Unix domain socket for VNC once xapi supports it *)
 			let vnc = [ "-vnc"; Printf.sprintf ":%d" d.domid] in
 			let qmp_path = Filename.concat qmp_dir d.uuid in
 			let qmp = [ "-qmp"; Printf.sprintf "unix:%s,server" qmp_path ] in
 			{ cmd = Printf.sprintf "/usr/bin/qemu-system-%s" arch;
-			  args = memory @ vga @ vbds @ vifs @ kvm @ boot @ vnc @ qmp;
+			  args = memory @ vga @ vbds @ vifs @ kvm @ boot @ vnc @ qmp @ usb;
 			  vnc = ":0";
 			  qmp = qmp_path;
 			  ports = ports;
