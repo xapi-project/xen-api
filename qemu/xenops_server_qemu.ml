@@ -59,16 +59,18 @@ module Qemu = struct
 					| Some x -> [ "file", x.Storage_interface.params ]
 					| None -> []
 				else [] in
-			let intf, media = match x.ty with
-				| CDROM -> "ide", "cdrom"
-				| Disk  -> "virtio", "disk" in
-			let intf = [ "if", intf ] in
+			let intfs, media = match x.ty with
+				| CDROM -> [ "ide" ], "cdrom"
+				| Disk  -> [ (* "scsi"; "virtio"*) "ide" ], "disk" in
+			let intfs = List.map (fun intf -> [ "if", intf ]) intfs in
 			let media = [ "media", media ] in
+			let format = [ "format", "raw" ] in
 			let index = match x.position with
 				| None -> failwith "unresolved disk position"
 				| Some p -> [ "index", string_of_int (Device_number.to_disk_number p) ] in
-			let params = file @ intf @ media @ index in
-			[ "-drive"; commas (kv params) ]
+			List.concat (List.map (fun intf ->
+				let params = file @ intf @ media @ format @ index in
+				[ "-drive"; commas (kv params) ]) intfs)
 
 		let of_vif domid x =
 			let open Vif in
