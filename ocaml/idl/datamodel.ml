@@ -2712,6 +2712,14 @@ let host_detach_static_vdis = call
   ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
+let host_declare_dead = call
+  ~name:"declare_dead"
+	~in_product_since:rel_clearwater
+  ~doc:"Declare that a host is dead. This is a dangerous operation, and should only be called if the administrator is absolutely sure the host is definitely dead"
+  ~params:[Ref _host, "host", "The Host to declare is dead"]
+  ~allowed_roles:_R_POOL_OP
+  ()
+
 let host_forget_data_source_archives = call
   ~name:"forget_data_source_archives"
   ~in_oss_since:None
@@ -4185,6 +4193,7 @@ let host =
 		 host_sync_tunnels;
 		 host_sync_pif_currently_attached;
 		 host_migrate_receive;
+		 host_declare_dead;
 		 ]
       ~contents:
         ([ uid _host;
