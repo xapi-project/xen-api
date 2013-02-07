@@ -423,6 +423,15 @@ let rec cmdtable_data : (string*cmd_spec) list =
       flags=[];
     };
 
+   "host-declare-dead",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Declare that the the host is dead without contacting it explicitly. WARNING: This call is dangerous and can cause data loss if the host is not actually dead";
+      implementation=With_fd Cli_operations.host_declare_dead;
+      flags=[];
+    };
+
    "host-disable",
     {
       reqd=[];

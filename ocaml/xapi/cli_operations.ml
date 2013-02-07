@@ -2765,7 +2765,7 @@ let vm_cd_insert printer rpc session_id params =
 	in
 	ignore(do_vm_op printer rpc session_id op params ["cd-name"])
 
-let host_forget fd printer rpc session_id params =
+let host_careful_op op fd printer rpc session_id params =
 	let uuid = List.assoc "uuid" params in
 	let host = Client.Host.get_by_uuid rpc session_id uuid in
 	let pool = List.hd (Client.Pool.get_all rpc session_id) in
@@ -2774,7 +2774,7 @@ let host_forget fd printer rpc session_id params =
 
 	let force = get_bool_param params "force" in
 
-	let go () = ignore (Client.Host.destroy rpc session_id host) in
+	let go () = ignore (op ~rpc ~session_id ~self:host) in
 
 	if force
 	then go ()
@@ -2787,6 +2787,9 @@ let host_forget fd printer rpc session_id params =
 		if user_says_yes fd
 		then go ()
 	end
+
+let host_forget x = host_careful_op Client.Host.destroy x
+let host_declare_dead x = host_careful_op (fun ~rpc ~session_id ~self -> Client.Host.declare_dead ~rpc ~session_id ~host:self) x
 
 let host_license_view printer rpc session_id params =
 	let host =
