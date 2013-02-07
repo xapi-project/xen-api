@@ -76,8 +76,10 @@ module Qemu = struct
 			let mac = [ "macaddr", x.mac ] in
 			let model = [ "model", "virtio" (* "rtl8139" *) ] in
 			let ifname = [ "ifname", Printf.sprintf "tap%d.%d" domid x.position ] in
+			(* XXX: we need to make our vif script compatible *)
+			let script = [ "script", "no" ] in
 			[ "-net"; commas ("nic" :: (kv (vlan @ mac @ model)));
-			  "-net"; commas ("tap" :: (kv (vlan @ ifname))) ]
+			  "-net"; commas ("tap" :: (kv (vlan @ ifname @ script))) ]
 
 		let port_of_vif domid x =
 			let open Vif in
