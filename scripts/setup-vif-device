@@ -80,17 +80,20 @@ handle_ethtool()
     esac
 }
 
-handle_mtu()
+get_mtu()
 {
-    local mtu=$(xenstore-read "${PRIVATE}/MTU" 2>/dev/null)
-    if [ $? -eq 0 -a -n "${mtu}" ]; then
-        logger -t scripts-vif "Setting ${dev} MTU ${mtu}"
-        ${IP} link set "${dev}" mtu ${mtu} || logger -t scripts-vif "Failed to ip link set ${dev} mtu ${mtu}. Error code $?"
-    else
+    mtu=$(xenstore-read "${PRIVATE}/MTU" 2>/dev/null)
+    if [ $? -ne 0 -o -z "${mtu}" ]; then
         logger -t scripts-vif "Failed to read ${PRIVATE}/MTU"
         xenstore-write "${HOTPLUG_ERROR}" "Failed to read ${PRIVATE}/MTU"
         exit 1
     fi
+}
+
+handle_mtu()
+{
+    logger -t scripts-vif "Setting ${dev} MTU ${mtu}"
+    ${IP} link set "${dev}" mtu ${mtu} || logger -t scripts-vif "Failed to ip link set ${dev} mtu ${mtu}. Error code $?"
 }
 
 set_vif_external_id()
@@ -313,6 +316,7 @@ online)
             handle_ethtool $opt
         done
 
+        get_mtu
         handle_mtu
         add_to_bridge
         get_promiscuous
