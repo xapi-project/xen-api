@@ -57,18 +57,27 @@ handle_promiscuous()
     esac
 }
 
-handle_ethtool()
+get_ethtool()
 {
-    local opt=$1
-    # other-config keys are optional
+    local opt = $1
     local arg=$(xenstore-read "${PRIVATE}/other-config/ethtool-${opt}" 2>/dev/null)
+    ethtool=unknown
     if [ $? -eq 0 -a -n "${arg}" ] ; then
         case "${arg}" in
-            true|on)   /sbin/ethtool -K "${dev}" "${opt}" on ;;
-            false|off) /sbin/ethtool -K "${dev}" "${opt}" off ;;
+            true|on)   ethtool = on;;
+            false|off) ethtool = off;;
             *) logger -t scripts-vif "Unknown ethtool argument ${opt}=${arg} on ${dev}/${VIFUUID}" ;;
         esac
     fi
+
+}
+
+handle_ethtool()
+{
+    local opt = $1
+    case "${ethtool}" in
+      on|off) /sbin/ethtool -K "${dev}" "${opt}" "${ethtool}";;
+    esac
 }
 
 handle_mtu()
@@ -299,12 +308,10 @@ logger -t scripts-vif "Called as \"$@\" domid:$DOMID devid:$DEVID mode:$NETWORK_
 case "${ACTION}" in
 online)
     if [ "${TYPE}" = "vif" ] ; then
-        handle_ethtool rx
-        handle_ethtool tx
-        handle_ethtool sg
-        handle_ethtool tso
-        handle_ethtool ufo
-        handle_ethtool gso
+        for opt in rx tx sg tso ufo gso; do
+            get_ethtool $opt
+            handle_ethtool $opt
+        done
 
         handle_mtu
         add_to_bridge
