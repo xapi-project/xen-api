@@ -89,6 +89,7 @@ val create :
   chipset_info:(string * string) list ->
   [ `host ] Ref.t
 val destroy : __context:Context.t -> self:API.ref_host -> unit
+val declare_dead : __context:Context.t -> host:API.ref_host -> unit
 val ha_disable_failover_decisions : __context:'a -> host:'b -> unit
 val ha_disarm_fencing : __context:'a -> host:'b -> unit
 val ha_stop_daemon : __context:'a -> host:'b -> unit
