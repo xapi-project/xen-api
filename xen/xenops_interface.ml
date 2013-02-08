@@ -183,6 +183,7 @@ module Vm = struct
 	type console = {
 		protocol: console_protocol;
 		port: int;
+		path: string;
 	}
 
 	type state = {
