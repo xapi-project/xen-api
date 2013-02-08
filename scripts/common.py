@@ -154,6 +154,8 @@ class VIF:
                 else:
                     send_to_syslog("VIF %s/%d: ignoring ethtool argument %s=%s (use true/false)" % (self.vm_uuid, self.devid, k, v))
         return results
+    def get_mac(self):
+        return self.json["mac"]
     def get_mtu(self):
         return self.json["mtu"]
     def get_promiscuous(self):
@@ -169,7 +171,28 @@ class VIF:
             results["xs-vif-uuid"] = self.json["extra_private_keys"]["vif-uuid"]
         if "network-uuid" in self.json["extra_private_keys"]:
             results["xs-network-uuid"] = self.json["extra_private_keys"]["network-uuid"]
-        results["attached-mac"] = self.json["mac"]
+        results["attached-mac"] = self.get_mac()
+        return results
+    def get_locking_mode(self):
+        def get_words(value, separator):
+            if string.strip(value) == "":
+                return []
+            else:
+               return string.split(value, separator)
+        results = {
+            "mac": self.get_mac(),
+            "locking_mode": "",
+            "ipv4_allowed": [],
+            "ipv6_allowed": []
+        }
+        private = self.json["extra_private_keys"]
+        if "locking-mode" in private:
+            results["locking_mode"] = private["locking-mode"]
+        if "ipv4-allowed" in private:
+            results["ipv4_allowed"] = get_words(private["ipv4-allowed"], ",")
+        if "ipv6-allowed" in private:
+            results["ipv6_allowed"] = get_words(private["ipv6-allowed"], ",")
+        send_to_syslog("Got locking config: %s" % (repr(results)))
         return results
 
 class Interface:
