@@ -725,8 +725,6 @@ module Ovs = struct
 		and get_prop (prop, ovs_key) =
 			if List.mem_assoc prop properties
 			then let value = List.assoc prop properties in
-					(* XXX DEBUG *)
-					debug "property: %s; value: %s" prop value;
 					[ovs_key ^ "=\"" ^ value ^ "\""]
 			else []
 		in
