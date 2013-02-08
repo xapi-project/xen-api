@@ -18,7 +18,7 @@ import sys
 import syslog
 import subprocess
 
-path = "/sbin:/usr/sbin:/bin:/usr/bin"
+path = "/sbin:/usr/sbin:/bin:/usr/bin:" + os.path.dirname(sys.argv[0])
 vif_hotplug = "/etc/xapi.d/vif-hotplug"
 xenops_path = "/var/run/nonpersistent/xenops"
 
@@ -108,6 +108,14 @@ def call_hook_script(action, vif_uuid, vm_uuid):
     if os.path.exists(vif_hotplug):
         send_to_syslog("Calling VIF hotplug hook for VM %s, VIF %s" % (vm_uuid, vif_uuid))
         run(ON_ERROR_LOG, [vif_hotplug, "-action", action, "-vifuuid", vif_uuid, "-vmuuid", vm_uuid])
+
+def add_vif_rules(name):
+    # ideally we would convert setup-vif-rules into a shared library and call
+    # the functions directly
+    type = name[0:3]
+    rest = name[3:]
+    domid, devid = rest.split(".")
+    run(ON_ERROR_FAIL, ["setup-vif-rules", type, domid, devid, "filter"])     
 
 ## Read xenopsd internal VIF metadata
 import json
@@ -214,6 +222,7 @@ class Interface:
             set_ethtool(mode, self.name, key, value)
         set_mtu(mode, self.name, v.get_mtu())
         add_to_bridge(mode, self.name, v.get_bridge(), v.get_address(), v.get_external_ids())
+        add_vif_rules(self.name)
         set_promiscuous(mode, self.name, v.get_promiscuous())
 
 #def add(mode, dev, bridge, address, external_ids):
