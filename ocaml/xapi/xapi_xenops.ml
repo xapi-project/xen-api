@@ -840,7 +840,8 @@ let update_vm ~__context id =
 										error "Suspended VM has no domain-specific metadata"
 									| Some x ->
 										Db.VM.set_last_booted_record ~__context ~self ~value:x;
-										debug "VM %s last_booted_record set to %s" (Ref.string_of self) x
+										debug "VM %s last_booted_record set to %s" (Ref.string_of self) x;
+								Xenopsd_metadata.delete ~__context id
 							end;
 							if power_state = `Halted
 							then !trigger_xenapi_reregister ();
