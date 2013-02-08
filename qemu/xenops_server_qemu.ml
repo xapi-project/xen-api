@@ -47,6 +47,7 @@ let mib = Int64.mul 1024L 1024L
 
 module Qemu = struct
 		let qmp_dir = Filename.concat !Xenops_utils.root "qmp"
+		let vnc_dir = Filename.concat !Xenops_utils.root "vnc"
 
 		let commas = String.concat ","
 		let kv = List.map (fun (k, v) -> k ^ "=" ^ v)
@@ -106,8 +107,8 @@ module Qemu = struct
 			let kvm = [ "-enable-kvm" ] in
 			let boot = [ "-boot"; "cd" ] in
 			let usb = [ "-usb"; "-usbdevice"; "tablet" ] in
-			(* XXX: use a Unix domain socket for VNC once xapi supports it *)
-			let vnc = [ "-vnc"; Printf.sprintf ":%d" d.domid] in
+			let vnc_path = Filename.concat vnc_dir d.uuid in
+			let vnc = [ "-vnc"; Printf.sprintf "unix:%s" vnc_path ] in
 			let qmp_path = Filename.concat qmp_dir d.uuid in
 			let qmp = [ "-qmp"; Printf.sprintf "unix:%s,server" qmp_path ] in
 			{ cmd = Printf.sprintf "/usr/bin/qemu-system-%s" arch;
@@ -277,6 +278,16 @@ module VM = struct
 			debug "waiting for %s" path;
 			Thread.delay 0.2
 		done;
+		(* wait for the VNC path to exist *)
+		let path = Filename.concat Qemu.vnc_dir vm.Vm.id in
+		while not(Sys.file_exists path); do
+			debug "waiting for %s" path;
+			Thread.delay 0.2
+		done;
+		debug "%s %s %s" !Path.chgrp !Xenopsd.sockets_group path;
+		ignore(Forkhelpers.execute_command_get_output !Path.chgrp [!Xenopsd.sockets_group; path]);
+		Unix.chmod path 0o0770;
+		
 		DB.write vm.Vm.id { d with Domain.qemu_pid = Some pid };
 		(* At this point we expect qemu to outlive us; we will never call waitpid *)	
 		Forkhelpers.dontwaitpid t;
@@ -303,7 +314,7 @@ module VM = struct
 			let consoles =
 				if power_state = Halted
 				then []
-				else [ { Vm.protocol = Vm.Rfb; port = 5900 + d.Domain.domid } ] in
+				else [ { Vm.protocol = Vm.Rfb; port = 0; path = Filename.concat Qemu.vnc_dir d.Domain.uuid } ] in
 			{ halted_vm with
 				Vm.power_state = power_state;
 				domids = domids;
@@ -444,6 +455,8 @@ let init () =
 
 	debug "Creating QMP directory: %s" Qemu.qmp_dir;
 	Unixext.mkdir_rec Qemu.qmp_dir 0o0755;
+	debug "Creating VNC directory: %s" Qemu.vnc_dir;
+	Unixext.mkdir_rec Qemu.vnc_dir 0o0755;
 	let (_: Thread.t) = Thread.create
 		(fun () ->
 			while true do
