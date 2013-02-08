@@ -59,14 +59,18 @@ def set_promiscuous(mode, dev, value):
     if mode == MODE_OPENVSWITCH and value:
         send_to_syslog("%s: Promiscuous ports are not supported via Open vSwitch")
     elif mode == MODE_BRIDGE:
-        f = open("/sys/class/net/%s/brport/promisc" % dev)
-        try:
-            x = "0"
-            if value:
-                x = "1"
-            f.write(x)
-        finally:
-            f.close()
+        promisc = "/sys/class/net/%s/brport/promisc" % dev
+        if os.path.exists(promisc):
+            f = open("/sys/class/net/%s/brport/promisc" % dev)
+            try:
+                x = "0"
+                if value:
+                    x = "1"
+                f.write(x)
+            finally:
+                f.close()
+        else:
+            send_to_syslog("cannot set promiscuous mode: %s doesn't exist" % promisc)
 
 def set_ethtool(mode, dev, key, value):
     x = "off"
@@ -107,6 +111,7 @@ def call_hook_script(action, vif_uuid, vm_uuid):
 
 ## Read xenopsd internal VIF metadata
 import json
+
 class VIF:
     def __init__(self, vm_uuid, devid):
         self.vm_uuid = vm_uuid
@@ -167,13 +172,26 @@ class VIF:
         results["attached-mac"] = self.json["mac"]
         return results
 
-
-#def online(mode, dev, bridge, address, ethtool, mtu, promiscuous, external_ids):
-#    for (key, value) in ethtool:
-#        set_ethtool(mode, dev, key, value)
-#    set_mtu(mode, dev, mtu)
-#    add_to_bridge(mode, dev, bridge, address, external_ids)
-#    set_promiscuous(mode, dev, promiscuous)
+class Interface:
+    def __init__(self, name):
+        self.name = name
+        f = open("%s/interface/%s" % (xenops_path, name))
+        try:
+            self.json = json.loads(f.read())
+        finally:
+            f.close()
+    def get_vif(self):
+        vm_uuid, devid = self.json["vif"]
+        devid = int(devid)
+        return VIF(vm_uuid, devid)
+    def online(self):
+        v = self.get_vif()
+        mode = v.get_mode()
+        for (key, value) in v.get_ethtool():
+            set_ethtool(mode, self.name, key, value)
+        set_mtu(mode, self.name, v.get_mtu())
+        add_to_bridge(mode, self.name, v.get_bridge(), v.get_address(), v.get_external_ids())
+        set_promiscuous(mode, self.name, v.get_promiscuous())
 
 #def add(mode, dev, bridge, address, external_ids):
 #    add_to_bridge(mode, dev, bridge, address, external_ids)
