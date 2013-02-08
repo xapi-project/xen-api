@@ -750,7 +750,7 @@ let console_list copts x =
 		) s.Vm.consoles in
 	List.iter print_endline (header :: lines)
 
-let raw_console_proxy port =
+let raw_console_proxy sockaddr =
 	let long_connection_retry_timeout = 5. in
 	let with_raw_mode f =
 		(* Remember the current terminal state so we can restore it *)
@@ -832,11 +832,10 @@ let raw_console_proxy port =
 	let delay = ref 0.1 in
 	let rec keep_connection () =
 		try
-			let s = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
+			let s = Unix.socket (Unix.domain_of_sockaddr sockaddr) Unix.SOCK_STREAM 0 in
 			finally
 				(fun () ->
-					let addr = Unix.ADDR_INET(Unix.inet_addr_of_string "127.0.0.1", port) in
-					Unix.connect s addr;
+					Unix.connect s sockaddr;
 					delay := 0.1;
 					proxy s
 				) (fun () -> Unix.close s)
@@ -854,7 +853,7 @@ let xenconsoles = [
 	"/usr/lib/xen-4.2/bin/xenconsole";
 ]
 
-let vncviewer =
+let vncviewer_binary =
 	let n = "vncviewer" in
 	let dirs = Re_str.split_delim (Re_str.regexp_string ":") (Unix.getenv "PATH") in
         List.fold_left (fun result dir -> match result with
@@ -866,39 +865,66 @@ let vncviewer =
 		else None
 	) None dirs
 
+let unix_proxy path =
+	let unix = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
+	Unix.connect unix (Unix.ADDR_UNIX path);
+	let listen = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
+	Unix.bind listen (Unix.ADDR_INET(Unix.inet_addr_any, 0));
+	Unix.listen listen 5;
+	let addr = Unix.getsockname listen in
+	let port = match addr with
+	| Unix.ADDR_INET(_, port) -> port
+	| 	_ -> assert false in
+	match Unix.fork () with
+	| 0 ->
+		let buf = String.make 16384 '\000' in
+		let accept, _ = Unix.accept listen in
+		let copy a b =
+			while true do
+				let n = Unix.read a buf 0 (String.length buf) in
+				if n = 0 then exit 0;
+				let m = Unix.write b buf 0 n in
+				if m = 0 then exit 0
+			done in
+		begin match Unix.fork () with
+		| 0 -> copy unix accept
+		| _ -> copy accept unix
+		end;
+		0
+	| _ -> port
+
+let vncviewer port = match vncviewer_binary with
+	| Some path ->
+		Unix.execv path [| path; Printf.sprintf "localhost:%d" port |]
+	| None ->
+		()
+			
+
 let console_connect' copts x =
 	let _, s = find_by_name x in
-	(* Find a VNC console *)
-	let console = List.fold_left
-		(fun best c -> match best, c with
-		| Some x, _ -> Some x
-		| None, { Vm.protocol = Vm.Rfb; port = p } -> Some p
-		| None, _ ->  None
-		) None s.Vm.consoles in
-	begin match vncviewer, console with
-	| Some vncviewer, Some port ->
-		Unix.execv vncviewer [| vncviewer; Printf.sprintf "localhost:%d" port |]
-	| _, _ -> ()
-	end;
-	(* Find a VT100 console *)
-	let console = List.fold_left
-		(fun best c -> match best, c with
-		| Some x, _ -> Some x
-		| None, { Vm.protocol = Vm.Vt100; port = p } -> Some p
-		| None, _ ->  None
-		) None s.Vm.consoles in
-	match console with
-	| None ->
-		Printf.fprintf stderr "No vncterm is running: looking for xenconsole\n%!";
-		List.iter
-			(fun exe ->
-				if Sys.file_exists exe
-				then Unix.execv exe [| exe; string_of_int (List.hd s.Vm.domids) |]
-			) xenconsoles;
-		Printf.fprintf stderr "Failed to find a text console.\n%!";
-		exit 1
-	| Some port ->
-		raw_console_proxy port
+	let preference a b = match a, b with
+	| { Vm.protocol = Vm.Rfb }, { Vm.protocol = Vm.Vt100 } -> 1
+	| { Vm.protocol = Vm.Vt100 }, { Vm.protocol = Vm.Rfb } -> -1
+	| _, _ -> 0 in
+	let consoles = List.sort preference s.Vm.consoles in
+	let connect = function
+	| { Vm.protocol = Vm.Vt100; path = path } when path <> "" ->
+		raw_console_proxy (Unix.ADDR_UNIX path)
+	| { Vm.protocol = Vm.Vt100; port = port } when port <> 0 ->
+		raw_console_proxy (Unix.ADDR_INET(Unix.inet_addr_of_string "127.0.0.1", port))
+	| { Vm.protocol = Vm.Rfb; path = path } when path <> "" ->
+		let port = unix_proxy path in
+		vncviewer port
+	| { Vm.protocol = Vm.Rfb; port = port } when port <> 0 ->
+		vncviewer port in
+	List.iter connect consoles;
+	List.iter
+		(fun exe ->
+			if Sys.file_exists exe
+			then Unix.execv exe [| exe; string_of_int (List.hd s.Vm.domids) |]
+		) xenconsoles;
+	Printf.fprintf stderr "Failed to find a text console.\n%!";
+	exit 1
 
 let console_connect copts x = diagnose_error (need_vm (console_connect' copts) x)
 
