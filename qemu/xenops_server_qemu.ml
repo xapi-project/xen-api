@@ -79,24 +79,20 @@ module Qemu = struct
 			let model = [ "model", "virtio" (* "rtl8139" *) ] in
 			let ifname = [ "ifname", Printf.sprintf "tap%d.%d" domid x.position ] in
 			(* XXX: we need to make our vif script compatible *)
-			let script = [ "script", "no" ] in
+			let script = [ "script", !Path.qemu_vif_script ] in
 			[ "-net"; commas ("nic" :: (kv (vlan @ mac @ model)));
 			  "-net"; commas ("tap" :: (kv (vlan @ ifname @ script))) ]
 
-		let port_of_vif domid x =
-			let open Vif in
-			let bridge = match x.backend with
-				| Network.Local bridge -> bridge
-				| Network.Remote (_, _) -> failwith "need driver domains" in
-			let ifname = Printf.sprintf "tap%d.%d" domid x.position in
-			ifname, bridge
+		let interface_of_vif domid x =
+			let name = Printf.sprintf "tap%d.%d" domid x.Vif.position in
+			{ Interface.Interface.vif = x.Vif.id; name = name }
 
 		type t = {
 			cmd: string;
 			args: string list;
 			vnc: string; (* where to find the display *)
 			qmp: string; (* where to find the QMP socket *)
-			ports: (string * string) list; (* ifname * bridge list *)
+			interfaces: Interface.Interface.t list;
 		}
 
 		let of_domain d =
@@ -105,7 +101,7 @@ module Qemu = struct
 			let vga = [ "-vga"; "std" ] in
 			let vbds = List.concat (List.map (of_vbd d.attach_infos) d.vbds) in
 			let vifs = List.concat (List.map (of_vif d.domid) d.vifs) in
-			let ports = List.map (port_of_vif d.domid) d.vifs in
+			let interfaces = List.map (interface_of_vif d.domid) d.vifs in
 			let arch = "x86_64" in
 			let kvm = [ "-enable-kvm" ] in
 			let boot = [ "-boot"; "cd" ] in
@@ -118,7 +114,7 @@ module Qemu = struct
 			  args = memory @ vga @ vbds @ vifs @ kvm @ boot @ vnc @ qmp @ usb;
 			  vnc = ":0";
 			  qmp = qmp_path;
-			  ports = ports;
+			  interfaces;
 			}
 
 		let qmp_to_uuid = Hashtbl.create 128
@@ -264,6 +260,11 @@ module VM = struct
 	let unpause _ vm =
 		let d = DB.read_exn vm.Vm.id in
 		let qemu = Qemu.of_domain d in
+		List.iter
+			(fun interface ->
+				let open Interface in
+				DB.write interface.Interface.name interface
+			) qemu.Qemu.interfaces;
 		let syslog_stdout = Forkhelpers.Syslog_WithKey (Printf.sprintf "qemu-%s" vm.Vm.id) in
 		let t = Forkhelpers.safe_close_and_exec None None None [] ~syslog_stdout qemu.Qemu.cmd qemu.Qemu.args in
 		let pid = Forkhelpers.getpid t in
@@ -279,17 +280,6 @@ module VM = struct
 		DB.write vm.Vm.id { d with Domain.qemu_pid = Some pid };
 		(* At this point we expect qemu to outlive us; we will never call waitpid *)	
 		Forkhelpers.dontwaitpid t;
-		(* XXX: hack *)
-		(* 1. we need for qemu to create the tap -- use a script? *)
-		let (_: Thread.t) = Thread.create
-			(fun () ->
-				Thread.delay 5.;
-				List.iter
-					(fun (ifname, bridge) ->
-						debug "/sbin/brctl addif %s %s" bridge ifname;
-						ignore (Forkhelpers.execute_command_get_output "/sbin/brctl" [ "addif"; bridge; ifname ])
-					) qemu.Qemu.ports
-			) () in
 		Updates.add (Dynamic.Vm vm.Vm.id) updates
 
 	let build _ vm vbds vifs = ()

@@ -20,6 +20,7 @@ open Xenops_utils
 
 module Interface = struct
 	type t = {
+		name: string;
 		vif: Vif.id;
 	} with rpc
 end
