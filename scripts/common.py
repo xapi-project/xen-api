@@ -52,8 +52,8 @@ def run(on_error, args):
         if on_error <> ON_ERROR_LOG:
              send_to_syslog("... and an unrecognised on_error code was used (%d)" % on_error)
 
-MODE_OPENVSWITCH = 1
-MODE_BRIDGE      = 2
+MODE_OPENVSWITCH = "openvswitch"
+MODE_BRIDGE      = "bridge"
 
 def set_promiscuous(mode, dev, value):
     if mode == MODE_OPENVSWITCH and value:

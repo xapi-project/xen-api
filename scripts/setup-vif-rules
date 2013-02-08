@@ -21,6 +21,8 @@ import subprocess
 import sys
 import syslog
 import time
+import common
+from common import send_to_syslog, doexec
 
 path = "/sbin:/usr/sbin:/bin:/usr/bin"
 
@@ -34,50 +36,16 @@ vsctl = "ovs-vsctl"
 ofctl = "ovs-ofctl"
 
 ip = "/sbin/ip"
-xenstore_read_cmd = "xenstore-read"
 
-def send_to_syslog(msg):
-    pid = os.getpid()
-    syslog.syslog("%s[%d] - %s" %(command_name, pid, msg))
+def get_host_network_mode(name):
+    i = common.Interface(name)
+    v = i.get_vif()
+    return v.get_mode()
 
-def doexec(args):
-    """Execute a subprocess, then return its return code, stdout and stderr"""
-    send_to_syslog(args)
-    proc = subprocess.Popen([ "/usr/bin/env", "PATH=%s" % path ] + args,stdin=None,stdout=subprocess.PIPE,stderr=subprocess.PIPE,close_fds=True)
-    rc = proc.wait()
-    stdout = proc.stdout
-    stderr = proc.stderr
-    return (rc, stdout, stderr)
-
-def xenstore_read(path):
-    (rc, stdout, stderr) = doexec([xenstore_read_cmd, path])
-    return stdout.readline().strip()
-
-def get_words(value, separator):
-    if string.strip(value) == "":
-        return []
-    else:
-        return string.split(value, separator)
-
-def get_host_network_mode(domid, devid):
-    private_path = "/xapi/%s/private/vif/%s" % (domid, devid)
-    network_mode = xenstore_read("/".join([private_path, "network-backend"]))
-    return network_mode
-
-def get_locking_config(domid, devid):
-    mac = xenstore_read("/local/domain/0/backend/vif/%s/%s/mac" % (domid, devid))
-    private_path = "/xapi/%s/private/vif/%s" % (domid, devid)
-    locking_mode = xenstore_read("/".join([private_path, "locking-mode"]))
-    ipv4_allowed = xenstore_read("/".join([private_path, "ipv4-allowed"]))
-    ipv6_allowed = xenstore_read("/".join([private_path, "ipv6-allowed"]))
-    send_to_syslog("Got locking config: MAC=%s; locking_mode=%s; ipv4_allowed=%s; ipv6_allowed=%s"
-                    % (mac, locking_mode, ipv4_allowed, ipv6_allowed))
-    return {
-        "mac": mac,
-        "locking_mode": locking_mode,
-        "ipv4_allowed": get_words(ipv4_allowed, ","),
-        "ipv6_allowed": get_words(ipv6_allowed, ",")
-    }
+def get_locking_config(name):
+    i = common.Interface(name)
+    v = i.get_vif()
+    return v.get_locking_mode()
 
 def ip_link_set(device, direction):
     doexec([ip, "link", "set", device, direction])
@@ -155,7 +123,7 @@ def handle_bridge(vif_type, domid, devid, action):
         ip_link_set(vif_name, "down")
         clear_bridge_rules(vif_name)
         if action == "filter":
-            config = get_locking_config(domid, devid)
+            config = get_locking_config(vif_name)
             locking_mode = config["locking_mode"]
             if locking_mode == "locked":
                 create_bridge_rules(vif_name, config)
@@ -235,7 +203,7 @@ def handle_vswitch(vif_type, domid, devid, action):
         port = get_vswitch_port(vif_name)
         clear_vswitch_rules(bridge_name, port)
         if action == "filter":
-            config = get_locking_config(domid, devid)
+            config = get_locking_config(vif_name)
             locking_mode = config["locking_mode"]
             if locking_mode == "locked":
                 create_vswitch_rules(bridge_name, port, config)
@@ -269,7 +237,8 @@ if __name__ == "__main__":
         sys.exit(1)
     else:
         vif_type, domid, devid, action = sys.argv[1:5]
-        network_mode = get_host_network_mode (domid, devid)
+        vif_name = "%s%s.%s" % (vif_type, domid, devid)
+        network_mode = get_host_network_mode (vif_name)
 
         send_to_syslog("Called with vif_type=%s, domid=%s, devid=%s, network_mode=%s, action=%s" %
             (vif_type, domid, devid, network_mode, action))
