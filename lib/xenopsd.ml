@@ -29,6 +29,7 @@ let minor_version = 9
 let config_file = ref (Printf.sprintf "/etc/%s.conf" name)
 let pidfile = ref (Printf.sprintf "/var/run/%s.pid" name)
 let sockets_path = ref Xenops_interface.default_sockets_dir
+let sockets_group = ref "xapi"
 let persist = ref true
 let daemon = ref false
 let worker_pool_size = ref 4
@@ -41,6 +42,7 @@ let watch_queue_length = ref 1000
 
 let config_spec = [
 	"sockets-path", Arg.Set_string sockets_path, "Directory to create listening sockets";
+    "sockets-group", Arg.Set_string sockets_group, "Group to allow access to the control socket";
     "pidfile", Arg.Set_string pidfile, "Location to store the process pid";
     "persist", Arg.Bool (fun b -> persist := b), "True if we want to persist metadata across restarts";
     "daemon", Arg.Bool (fun b -> daemon := b), "True if we want to daemonize";
@@ -230,6 +232,8 @@ let prepare_unix_domain_socket path =
 		Unixext.unlink_safe path;
 		let sock = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
 		Unix.bind sock (Unix.ADDR_UNIX path);
+		ignore(Forkhelpers.execute_command_get_output !Path.chgrp [!sockets_group; path]);
+		Unix.chmod path 0o0770;
 		Unix.listen sock 5;
 		sock
 	with e ->
@@ -255,6 +259,15 @@ let main backend =
 
 	read_config_file ();
 	dump_config_file ();
+
+	(* Check the sockets-group exists *)
+	if try ignore(Unix.getgrnam !sockets_group); false with _ -> true then begin
+		error "Group %s doesn't exist." !sockets_group;
+		error "Either create the group, or select a different group by modifying the config file:";
+		error "# Group which can access the control socket";
+		error "sockets-group=<some group name>";
+		exit 1
+	end;
 
 	if !daemon then begin
 		debug "About to daemonize";

@@ -26,6 +26,7 @@ let mkfs = ref "/sbin/mkfs"
 let mount = ref "/bin/mount"
 let umount = ref "/bin/umount"
 let ionice = ref "/usr/bin/ionice"
+let chgrp = ref "/bin/chgrp"
 let setup_vif_rules = ref "/usr/lib/xcp/lib/setup-vif-rules"
 let hvmloader = ref "/usr/lib/xen-4.1/boot/hvmloader"
 let pygrub = ref "/usr/lib/xen-4.1/bin/pygrub"
@@ -47,6 +48,7 @@ let essentials = [
 	X_OK, "mount", mount, "path to the mount binary";
 	X_OK, "umount", umount, "path to the umount binary";
 	X_OK, "ionice", ionice, "path to the ionice binary";
+	X_OK, "chgrp", chgrp, "path to the chgrp binary";
 	X_OK, "setup-vif-rules", setup_vif_rules, "path to the setup-vif-rules script";
 	R_OK, "hvmloader", hvmloader, "path to the hvmloader binary for HVM guests";
 	X_OK, "pygrub", pygrub, "path to the pygrub bootloader binary";
