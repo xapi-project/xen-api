@@ -16,6 +16,7 @@ import os
 import os.path
 import sys
 import syslog
+import subprocess
 
 path = "/sbin:/usr/sbin:/bin:/usr/bin"
 vif_hotplug = "/etc/xapi.d/vif-hotplug"
@@ -35,7 +36,6 @@ def doexec(args):
     rc = proc.wait()
     stdout = proc.stdout
     stderr = proc.stderr
-    if rc <> 0:
     return (rc, stdout, stderr)
 
 ON_ERROR_LOG  = 1

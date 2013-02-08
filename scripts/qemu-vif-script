@@ -1,0 +1,13 @@
+#!/usr/bin/env python
+
+from common import *
+
+if __name__ == "__main__":
+    if len(sys.argv) <> 2:
+        print >>sys.stderr, "Usage:"
+        print >>sys.stderr, "  %s <interface>" % sys.argv[0]
+        sys.exit(1)
+    name = sys.argv[1]
+    send_to_syslog("setting up interface %s" % name)
+    i = Interface(name)
+    i.online()
