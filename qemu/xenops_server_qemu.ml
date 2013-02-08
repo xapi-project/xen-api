@@ -419,8 +419,8 @@ module VIF = struct
 		let d = DB.read_exn vm in
 		let this_one x = x.Vif.id = vif.Vif.id in
 		DB.write vm { d with Domain.vifs = List.filter (fun x -> not (this_one x)) d.Domain.vifs };
-		let interface = Qemu.of_vif d.Domain.domid vif in
-		Interface.Interface.DB.delete interface.Interface.name
+		let interface = Qemu.interface_of_vif d.Domain.domid vif in
+		Interface.DB.remove interface.Interface.Interface.name
 
 	let get_state vm vif = unplugged_vif
 
