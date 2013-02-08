@@ -854,8 +854,32 @@ let xenconsoles = [
 	"/usr/lib/xen-4.2/bin/xenconsole";
 ]
 
+let vncviewer =
+	let n = "vncviewer" in
+	let dirs = Re_str.split_delim (Re_str.regexp_string ":") (Unix.getenv "PATH") in
+        List.fold_left (fun result dir -> match result with
+	| Some x -> Some x
+	| None ->
+		let path = Filename.concat dir n in
+		if try Unix.access path [ Unix.X_OK ]; true with _ -> false
+		then Some path
+		else None
+	) None dirs
+
 let console_connect' copts x =
 	let _, s = find_by_name x in
+	(* Find a VNC console *)
+	let console = List.fold_left
+		(fun best c -> match best, c with
+		| Some x, _ -> Some x
+		| None, { Vm.protocol = Vm.Rfb; port = p } -> Some p
+		| None, _ ->  None
+		) None s.Vm.consoles in
+	begin match vncviewer, console with
+	| Some vncviewer, Some port ->
+		Unix.execv vncviewer [| vncviewer; Printf.sprintf "localhost:%d" port |]
+	| _, _ -> ()
+	end;
 	(* Find a VT100 console *)
 	let console = List.fold_left
 		(fun best c -> match best, c with
