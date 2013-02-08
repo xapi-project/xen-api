@@ -418,9 +418,9 @@ module VIF = struct
 		info "VIF.unplug %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
 		let d = DB.read_exn vm in
 		let this_one x = x.Vif.id = vif.Vif.id in
-		if List.filter this_one d.Domain.vifs = []
-		then raise (Does_not_exist("VIF", Printf.sprintf "%s.%s" (fst vif.Vif.id) (snd vif.Vif.id)))
-		else DB.write vm { d with Domain.vifs = List.filter (fun x -> not (this_one x)) d.Domain.vifs }
+		DB.write vm { d with Domain.vifs = List.filter (fun x -> not (this_one x)) d.Domain.vifs };
+		let interface = Qemu.of_vif d.Domain.domid vif in
+		Interface.Interface.DB.delete interface.Interface.name
 
 	let get_state vm vif = unplugged_vif
 
