@@ -186,6 +186,15 @@ module Qemu = struct
 					) rs
 			done
 
+		let send_async uuid cmd =
+			try
+				let c = Hashtbl.find uuid_to_qmp uuid in
+				Qmp_protocol.write c (Qmp.Command(None, cmd));
+				true
+			with Not_found ->
+				error "Race with qmp monitor thread: type more slowly, try again";
+				false
+
 end
 
 module HOST = struct
@@ -296,8 +305,17 @@ module VM = struct
 	let build _ vm vbds vifs = ()
 	let create_device_model _ vm vbds vifs _ = ()
 	let destroy_device_model _ vm = ()
-	let request_shutdown _ vm reason ack_delay = false
-	let wait_shutdown _ vm reason timeout = true
+	let request_shutdown _ vm reason ack_delay =
+		Qemu.send_async vm.Vm.id Qmp.System_powerdown
+	let wait_shutdown _ vm reason timeout =
+		(* wait for the QMP path to be removed *)
+		let now = Oclock.gettime Oclock.monotonic in
+		let path = Filename.concat Qemu.qmp_dir vm.Vm.id in
+		while Sys.file_exists path && (Int64.(sub (Oclock.gettime Oclock.monotonic) now < (mul (of_float timeout) 1_000_000_000L))) do
+			debug "wait_shutdown: %s still exists" path;
+			Thread.delay 0.2
+		done;
+		not(Sys.file_exists path)
 
 	let get_state vm =
 		if DB.exists vm.Vm.id then begin
