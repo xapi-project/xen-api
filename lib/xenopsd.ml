@@ -271,7 +271,7 @@ let main backend =
 
 	if !daemon then begin
 		debug "About to daemonize";
-		Debug.output := Debug.syslog "xenopd_simulator" ();
+		Debug.output := Debug.syslog "xenopsd" ();
 		Unixext.daemonize();
 	end;
 
