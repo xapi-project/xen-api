@@ -445,16 +445,12 @@ module VBD = struct
 	let insert _ vm vbd disk = ()
 	let eject _ vm vbd = ()
 
-	let get_state vm vbd =
-		match DB.read vm with
-		| Some d ->
-			if List.mem vbd.Vbd.id d.Domain.active_vbds then {
-				Vbd.active = true;
-				plugged = true;
-				backend_present = vbd.Vbd.backend;
-				qos_target = None
-			} else unplugged_vbd
-		| None -> unplugged_vbd
+	let get_state vm vbd = {
+		Vbd.active = true;
+		plugged = true;
+		backend_present = vbd.Vbd.backend;
+		qos_target = None
+	}
 
 	let get_device_action_request vm vbd = None
 end
@@ -489,18 +485,12 @@ module VIF = struct
 		let id = interface.Interface.Interface.name in
 		if Interface.DB.exists id then Interface.DB.delete id
 
-	let get_state vm vif = unplugged_vif
-
-	let get_state vm vif =
-		match DB.read vm with
-		| Some d ->
-			if List.mem vif.Vif.id d.Domain.active_vifs then {
-				Vif.active = true;
-				plugged = true;
-				media_present = true;
-				kthread_pid = 0;
-			} else unplugged_vif
-		| None -> unplugged_vif
+	let get_state vm vif = {
+		Vif.active = true;
+		plugged = true;
+		media_present = true;
+		kthread_pid = 0;
+	}
 
 	let get_device_action_request vm vif = None
 end
