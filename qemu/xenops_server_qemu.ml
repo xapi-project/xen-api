@@ -317,7 +317,7 @@ module VM = struct
 			debug "wait_shutdown: %s still exists" path;
 			Thread.delay 0.2;
 			incr counter;
-			if !counter div (5 * 10) = 0 then request_shutdown task vm reason 0.
+			if !counter mod (5 * 10) = 0 then ignore(request_shutdown task vm reason 0.)
 		done;
 		not(Sys.file_exists path)
 
