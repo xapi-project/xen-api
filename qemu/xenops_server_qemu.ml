@@ -305,15 +305,19 @@ module VM = struct
 	let build _ vm vbds vifs = ()
 	let create_device_model _ vm vbds vifs _ = ()
 	let destroy_device_model _ vm = ()
-	let request_shutdown _ vm reason ack_delay =
+	let request_shutdown task vm reason ack_delay =
+		debug "pushing ACPI power button";
 		Qemu.send_async vm.Vm.id Qmp.System_powerdown
-	let wait_shutdown _ vm reason timeout =
+	let wait_shutdown task vm reason timeout =
 		(* wait for the QMP path to be removed *)
 		let now = Oclock.gettime Oclock.monotonic in
 		let path = Filename.concat Qemu.qmp_dir vm.Vm.id in
+		let counter = ref 0 in
 		while Sys.file_exists path && (Int64.(sub (Oclock.gettime Oclock.monotonic) now < (mul (of_float timeout) 1_000_000_000L))) do
 			debug "wait_shutdown: %s still exists" path;
-			Thread.delay 0.2
+			Thread.delay 0.2;
+			incr counter;
+			if !counter div (5 * 10) = 0 then request_shutdown task vm reason 0.
 		done;
 		not(Sys.file_exists path)
 
