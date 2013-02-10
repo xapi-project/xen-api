@@ -29,6 +29,8 @@ module Domain = struct
 		vbds: Vbd.t list; (* maintained in reverse-plug order *)
 		attach_infos: (Vbd.id * Storage_interface.attach_info option) list;
 		vifs: Vif.t list;
+		active_vbds: Vbd.id list;
+		active_vifs: Vif.id list;
 		pcis: Pci.t list;
 		last_create_time: float;
 	} with rpc
@@ -246,6 +248,8 @@ module VM = struct
 			memory = vm.Vm.memory_dynamic_max;
 			vifs = [];
 			vbds = [];
+			active_vifs = [];
+			active_vbds = [];
 			attach_infos = [];
 			pcis = [];
 			last_create_time = Unix.gettimeofday ();
@@ -391,6 +395,13 @@ module VBD = struct
 		let vm = fst vbd.Vbd.id in
 		Some (Storage.attach_and_activate task vm dp sr vdi (vbd.Vbd.mode = Vbd.ReadWrite))
 
+	let set_active task (vm: Vm.id) (vbd: Vbd.t) setting =
+		info "VBD.set_active %s.%s %b" (fst vbd.Vbd.id) (snd vbd.Vbd.id) setting;
+		let d = DB.read_exn vm in
+		let active_vbds = List.filter (fun x -> x <> vbd.Vbd.id) d.Domain.active_vbds in
+		let active_vbds' = if setting then vbd.Vbd.id :: active_vbds else active_vbds in
+		DB.write vm { d with Domain.active_vbds = active_vbds' }
+
 	let plug task (vm: Vm.id) (vbd: Vbd.t) =
 		info "VBD.plug %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
 		let d = DB.read_exn vm in
@@ -427,13 +438,29 @@ module VBD = struct
 	let insert _ vm vbd disk = ()
 	let eject _ vm vbd = ()
 
-	let get_state vm vbd = unplugged_vbd
+	let get_state vm vbd =
+		match DB.read vm with
+		| Some d ->
+			if List.mem vbd.Vbd.id d.Domain.active_vbds then {
+				Vbd.active = true;
+				plugged = true;
+				backend_present = vbd.Vbd.backend;
+				qos_target = None
+			} else unplugged_vbd
+		| None -> unplugged_vbd
 
 	let get_device_action_request vm vbd = None
 end
 
 module VIF = struct
 	include Xenops_server_skeleton.VIF
+
+	let set_active task (vm: Vm.id) (vif: Vif.t) setting =
+		info "VIF.set_active %s.%s %b" (fst vif.Vif.id) (snd vif.Vif.id) setting;
+		let d = DB.read_exn vm in
+		let active_vifs = List.filter (fun x -> x <> vif.Vif.id) d.Domain.active_vifs in
+		let active_vifs' = if setting then vif.Vif.id :: active_vifs else active_vifs in
+		DB.write vm { d with Domain.active_vifs = active_vifs' }
 
 	let plug _ vm vif =
 		info "VIF.plug %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
@@ -456,6 +483,17 @@ module VIF = struct
 		if Interface.DB.exists id then Interface.DB.delete id
 
 	let get_state vm vif = unplugged_vif
+
+	let get_state vm vif =
+		match DB.read vm with
+		| Some d ->
+			if List.mem vif.Vif.id d.Domain.active_vifs then {
+				Vif.active = true;
+				plugged = true;
+				media_present = true;
+				kthread_pid = 0;
+			} else unplugged_vif
+		| None -> unplugged_vif
 
 	let get_device_action_request vm vif = None
 end
