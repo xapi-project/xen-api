@@ -261,7 +261,7 @@ module VM = struct
 			begin match d.Domain.qemu_pid with
 			| Some x ->
 				info "Sending SIGTERM to qemu pid %d" x;
-				Unix.kill x Sys.sigterm
+				(try Unix.kill x Sys.sigterm with Unix.Unix_error(Unix.ESRCH, _, _) -> ())
 			| None -> ()
 			end;
 			DB.delete vm.Vm.id
@@ -344,10 +344,11 @@ module VM = struct
 
 	let set_domain_action_request vm request = ()
 	let get_domain_action_request vm =
-		(* If the QMP socket has been deleted then the VM needs shutdown *)
-		let path = Filename.concat Qemu.qmp_dir vm.Vm.id in
-		if Sys.file_exists path then None else Some Needs_poweroff
-
+		if DB.exists vm.Vm.id then begin
+			(* If the QMP socket has been deleted then the VM needs shutdown *)
+			let path = Filename.concat Qemu.qmp_dir vm.Vm.id in
+			if Sys.file_exists path then None else Some Needs_poweroff
+		end else None
 	let minimum_reboot_delay = 0.
 end
 
@@ -437,6 +438,8 @@ module VIF = struct
 	let plug _ vm vif =
 		info "VIF.plug %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
 		let d = DB.read_exn vm in
+		let interface = Qemu.interface_of_vif d.Domain.domid vif in
+		Interface.DB.write interface.Interface.Interface.name interface;
 		let existing_positions = List.map (fun vif -> vif.Vif.position) d.Domain.vifs in
 		if List.mem vif.Vif.position existing_positions then begin
 			debug "VIF.plug %s.%s: Already exists" (fst vif.Vif.id) (snd vif.Vif.id);
@@ -449,7 +452,8 @@ module VIF = struct
 		let this_one x = x.Vif.id = vif.Vif.id in
 		DB.write vm { d with Domain.vifs = List.filter (fun x -> not (this_one x)) d.Domain.vifs };
 		let interface = Qemu.interface_of_vif d.Domain.domid vif in
-		Interface.DB.remove interface.Interface.Interface.name
+		let id = interface.Interface.Interface.name in
+		if Interface.DB.exists id then Interface.DB.delete id
 
 	let get_state vm vif = unplugged_vif
 
