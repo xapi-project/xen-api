@@ -297,10 +297,6 @@ module VM = struct
 			debug "waiting for %s" path;
 			Thread.delay 0.2
 		done;
-		debug "%s %s %s" !Path.chgrp !Xenopsd.sockets_group path;
-		ignore(Forkhelpers.execute_command_get_output !Path.chgrp [!Xenopsd.sockets_group; path]);
-		Unix.chmod path 0o0770;
-		
 		DB.write vm.Vm.id { d with Domain.qemu_pid = Some pid };
 		(* At this point we expect qemu to outlive us; we will never call waitpid *)	
 		Forkhelpers.dontwaitpid t;
@@ -329,6 +325,13 @@ module VM = struct
 			| Some pid ->
 				let path = Filename.concat Qemu.qmp_dir vm.Vm.id in
 				if Sys.file_exists path then Running else Halted in
+			if power_state = Running then begin
+				(* XXX: stat the file first *)
+				let path = Filename.concat Qemu.vnc_dir vm.Vm.id in
+				debug "%s %s %s" !Path.chgrp !Xenopsd.sockets_group path;
+				ignore(Forkhelpers.execute_command_get_output !Path.chgrp [!Xenopsd.sockets_group; path]);
+				Unix.chmod path 0o0770;
+			end;
 			let domids =
 				if power_state = Halted
 				then []
