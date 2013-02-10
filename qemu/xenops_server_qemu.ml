@@ -404,10 +404,14 @@ module VBD = struct
 
 	let set_active task (vm: Vm.id) (vbd: Vbd.t) setting =
 		info "VBD.set_active %s.%s %b" (fst vbd.Vbd.id) (snd vbd.Vbd.id) setting;
-		let d = DB.read_exn vm in
-		let active_vbds = List.filter (fun x -> x <> vbd.Vbd.id) d.Domain.active_vbds in
-		let active_vbds' = if setting then vbd.Vbd.id :: active_vbds else active_vbds in
-		DB.write vm { d with Domain.active_vbds = active_vbds' }
+		match DB.read vm with
+		| Some d ->
+			let d = DB.read_exn vm in
+			let active_vbds = List.filter (fun x -> x <> vbd.Vbd.id) d.Domain.active_vbds in
+			let active_vbds' = if setting then vbd.Vbd.id :: active_vbds else active_vbds in
+			DB.write vm { d with Domain.active_vbds = active_vbds' }
+		| None ->
+			info "ignoring because domain has been destroyed"
 
 	let plug task (vm: Vm.id) (vbd: Vbd.t) =
 		info "VBD.plug %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
@@ -460,10 +464,13 @@ module VIF = struct
 
 	let set_active task (vm: Vm.id) (vif: Vif.t) setting =
 		info "VIF.set_active %s.%s %b" (fst vif.Vif.id) (snd vif.Vif.id) setting;
-		let d = DB.read_exn vm in
-		let active_vifs = List.filter (fun x -> x <> vif.Vif.id) d.Domain.active_vifs in
-		let active_vifs' = if setting then vif.Vif.id :: active_vifs else active_vifs in
-		DB.write vm { d with Domain.active_vifs = active_vifs' }
+		match DB.read vm with
+		| Some d ->
+			let active_vifs = List.filter (fun x -> x <> vif.Vif.id) d.Domain.active_vifs in
+			let active_vifs' = if setting then vif.Vif.id :: active_vifs else active_vifs in
+			DB.write vm { d with Domain.active_vifs = active_vifs' }
+		| None ->
+			info "ignoring because domain has been destroyed"
 
 	let plug _ vm vif =
 		info "VIF.plug %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
