@@ -452,6 +452,8 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				~session_id ~remote_address:remote_master_address;
 			Xapi_blob.migrate_push ~__context ~rpc:remote_rpc
 				~remote_address:remote_master_address ~session_id ~old_vm:vm ~new_vm ;
+			(* Remove rrd-data for the vm from the source host *)
+			Rrdd.remove_rrd ~uuid:vm_uuid ();
 			(* Signal the remote pool that we're done *)
 		end;
 		
