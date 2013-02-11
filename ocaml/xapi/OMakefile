@@ -86,6 +86,7 @@ XAPI_MODULES = $(COMMON) \
 	storage_mux \
 	storage_migrate \
 	storage_proxy \
+	storage_utils \
 	xapi_services \
 	sm_exec \
 	sm \
