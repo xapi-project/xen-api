@@ -1,0 +1,21 @@
+name: squeezed
+version: 1.0.0
+synopsis: Xen host memory ballooning daemon
+obuild-ver: 1
+
+library squeeze
+  src-dir: lib
+  modules: Squeeze, Config_parser, Debug, Memory
+  build-deps: stdext, syslog, re, re.str
+
+executable squeezed
+  main: squeezed.ml
+  src-dir: src
+  build-deps: stdext, squeeze, xenctrl, xenstore, xenstore.unix, xenstore_transport, xenstore_transport.unix, rpclib, xcp, xcp.memory, rpclib.syntax, uuidm
+  pp: camlp4o
+
+executable test
+  main: squeeze_test.ml
+  src-dir: test
+  build-deps: stdext, xenctrl, unix, squeeze
+
