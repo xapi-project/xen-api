@@ -47,4 +47,10 @@ let test_prepare_restore () =
 	(* new_context should have correct master dom0 uuid *)
 	let dom0 = List.hd (Db.Host.get_resident_VMs ~__context:new_context ~self:master) in
 	let dom0_uuid = Db.VM.get_uuid ~__context:new_context ~self:dom0 in
-	assert_equal ~msg:"test_prepare_restore: master dom0 uuid wrong" dom0_uuid my_control_uuid;
+	assert_equal ~msg:"test_prepare_restore: master dom0 uuid wrong" dom0_uuid my_control_uuid
+
+let test =
+	"test_db_backup" >:::
+		[
+			"test_prepare_restore" >:: test_prepare_restore;
+		]
