@@ -704,6 +704,8 @@ let make_param_funs getall getallrecs getbyuuid record class_name def_filters de
 		match field_lookup record param_name with
 			| { get_set = Some g; remove_from_set = Some f } -> if List.mem param_key (g ()) then f param_key else failwith "Key is not in the set"
 			| { get_map = Some g; remove_from_map = Some f } -> if List.mem_assoc param_key (g ()) then f param_key else failwith "Key is not in map"
+			| { get_set = Some _; remove_from_set = None }
+			| { get_map = Some _; remove_from_map = None } -> failwith "Cannot remove parameters from read-only map"
 			| _ -> failwith "Can only remove from parameters of type Set or Map"
 	in
 
