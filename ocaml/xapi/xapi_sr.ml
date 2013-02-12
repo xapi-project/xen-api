@@ -333,7 +333,7 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
 				~snapshot_time:(Date.of_string vdi.snapshot_time)
 				~sR:sr ~virtual_size:vdi.virtual_size
 				~physical_utilisation:vdi.physical_utilisation
-				~_type:(Opt.default `user (Record_util.string_to_vdi_type vdi.ty))
+				~_type:(try Storage_utils.vdi_type_of_string vdi.ty with _ -> `user)
 				~sharable:false ~read_only:vdi.read_only
 				~xenstore_data:[] ~sm_config:[]
 				~other_config:[] ~storage_lock:false ~location:vdi.vdi
@@ -354,7 +354,7 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
 				debug "%s name_description <- %s" (Ref.string_of r) vi.name_description;
 				Db.VDI.set_name_description ~__context ~self:r ~value:vi.name_description
 			end;
-			let ty = Opt.default `user (Record_util.string_to_vdi_type vi.ty) in
+			let ty = (try Storage_utils.vdi_type_of_string vi.ty with _ -> `user) in
 			if v.API.vDI_type <> ty then begin
 				debug "%s type <- %s" (Ref.string_of r) vi.ty;
 				Db.VDI.set_type ~__context ~self:r ~value:ty
