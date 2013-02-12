@@ -13,9 +13,9 @@ Squeezed is an optional component of the [xapi toolstack](http://wiki.xen.org/wi
 building the design documentation
 ---------------------------------
 
-  git clone git://github.com/xen-org/squeezed
-  cd squeezed/doc
-  make
+    git clone git://github.com/xen-org/squeezed
+    cd squeezed/doc
+    make
 
 building the development version
 --------------------------------
@@ -24,8 +24,8 @@ First follow the [xenopsd build instructions](http://wiki.xen.org/wiki/Building_
 
 To build squeezed:
 
-  git clone git://github.com/xen-org/squeezed
-  cd squeezed
-  obuild configure
-  obuild build
+    git clone git://github.com/xen-org/squeezed
+    cd squeezed
+    obuild configure
+    obuild build
 
