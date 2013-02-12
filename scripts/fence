@@ -1,6 +1,0 @@
-#!/bin/sh
-
-# Do not use the ocaml XIU stuff for this -- we want the real
-# hypervisor to fence this domain.
-unset XIU
-@LIBEXECDIR@/fence.bin $*

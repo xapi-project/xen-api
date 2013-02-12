@@ -1,4 +1,0 @@
-#!/bin/bash
-
-# Run quicktest with support for exception backtraces.
-OCAMLRUNPARAM=b "@OPTDIR@/debug/quicktestbin" "$@"

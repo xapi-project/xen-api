@@ -1,9 +1,0 @@
-#!/bin/sh
-
-# Run by xen-bugtool
-
-export PATH=$PATH:@OPTDIR@/xha
-echo Running ha_query_liveset $*:
-"@OPTDIR@/xha/ha_query_liveset" $*
-echo Output of command: $?
-
