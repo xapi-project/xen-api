@@ -1238,7 +1238,7 @@ let vbd_record rpc session_id vbd =
     make_field ~name:"empty" ~get:(fun () -> string_of_bool (x ()).API.vBD_empty) ();
     make_field ~name:"device" ~get:(fun () -> (x ()).API.vBD_device) ();
     make_field ~name:"userdevice" ~get:(fun () -> (x ()).API.vBD_userdevice)
-      ~set:(fun dev -> Client.VBD.set_userdevice rpc session_id vbd dev) ();
+      ~set:(fun dev -> if (x ()).API.vBD_userdevice <> dev then raise (Api_errors.Server_error(Api_errors.vbd_modify_userdevice, [Ref.string_of vbd ]))) ();
     make_field ~name:"bootable" ~get:(fun () -> string_of_bool (x ()).API.vBD_bootable)
       ~set:(fun boot -> Client.VBD.set_bootable rpc session_id vbd (safe_bool_of_string "bootable" boot)) ();
     make_field ~name:"mode" ~get:(fun () -> match (x ()).API.vBD_mode with `RO -> "RO" | `RW -> "RW") 
