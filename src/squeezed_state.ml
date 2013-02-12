@@ -11,15 +11,17 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Xenstore
+open Squeezed_xenstore
 
-module D = Debug.Debugger(struct let name = Memory_interface.service_name end)
+module D = Debug.Make(struct let name = Memory_interface.service_name end)
 open D
+
+let ( |> ) a b = b a
 
 let _service = "squeezed"
 
-let listdir xs path = try List.filter (fun x -> x <> "") (xs.Xs.directory path) with Xenbus.Xb.Noent -> []
-let xs_read xs path = try xs.Xs.read path with Xenbus.Xb.Noent as e -> begin debug "xenstore-read %s returned ENOENT" path; raise e end
+let listdir path = try List.filter (fun x -> x <> "") (Client.with_xs client (fun xs -> Client.directory xs path)) with Xs_protocol.Enoent _ -> []
+let xs_read path = try Client.with_xs client (fun xs -> Client.read xs path) with Xs_protocol.Enoent _ as e -> begin debug "xenstsore-read %s returned ENOENT" path; raise e end
 
 let path = String.concat "/"
 
@@ -32,16 +34,16 @@ let reserved_host_memory_path service = path [ ""; service; "reserved-host-memor
 (** Path where a specific reservation is stored *)
 let reservation_path service session_id reservation_id = path [ ""; service; "state"; session_id; reservation_id ]
 
-let add_reservation xs service session_id reservation_id kib = 
-  xs.Xs.write (reservation_path service session_id reservation_id) kib
+let add_reservation service session_id reservation_id kib = 
+  Client.with_xs client (fun xs -> Client.write xs (reservation_path service session_id reservation_id) kib)
 
-let del_reservation xs service session_id reservation_id = 
-  xs.Xs.rm (reservation_path service session_id reservation_id)
+let del_reservation service session_id reservation_id = 
+  Client.with_xs client (fun xs -> Client.rm xs (reservation_path service session_id reservation_id))
 
 (** Return the total amount of memory reserved *)
-let total_reservations xs service = 
-  let session_ids = listdir xs (path [ ""; service; "state" ]) in
+let total_reservations service = 
+  let session_ids = listdir (path [ ""; service; "state" ]) in
   let session_total session_id = 
-    let rids = listdir xs (path [ ""; service; "state"; session_id ]) in
-    List.fold_left Int64.add 0L (List.map (fun r -> Int64.of_string (xs_read xs (path [ ""; service; "state"; session_id; r]))) rids) in
+    let rids = listdir (path [ ""; service; "state"; session_id ]) in
+    List.fold_left Int64.add 0L (List.map (fun r -> Int64.of_string (xs_read (path [ ""; service; "state"; session_id; r]))) rids) in
   List.fold_left Int64.add 0L (List.map session_total session_ids)

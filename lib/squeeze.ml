@@ -28,7 +28,7 @@
 (* Make debug printing work both when linked into a daemon and from the commandline *)
 let start = Unix.gettimeofday ()
 
-module D = Debug.Debugger(struct let name = "xenops" end)
+module D = Debug.Make(struct let name = "xenops" end)
 
 let debug_oc = ref stdout
 
