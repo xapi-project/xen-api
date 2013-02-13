@@ -296,7 +296,7 @@ class RRDUpdates:
         self.params['start'] = int(time.time()) - interval # interval seconds ago
         self.params['host'] = 'true'   # include data for host (as well as for VMs)
         self.params['cf'] = 'AVERAGE'  # consolidation function, each sample averages 12 from the 5 second RRD
-        self.params['interval'] = str(rrd_step)
+        self.params['interval'] = str(rrd_step) # distinct from the perfmon interval
         self.report = RRDReport()      # data structure updated by RRDContentHandler
 
     def __repr__(self):
@@ -373,7 +373,7 @@ class VariableConfig:
     """
     def __init__(self, xmldoc, alarm_create_callback, get_default_variable_config):
         try: name = xmldoc.getElementsByTagName('name')[0].getAttribute('value')
-        except IndexError: raise XmlConfigException, "variable missing 'name' tag" 
+        except IndexError: raise XmlConfigException, "variable missing 'name' tag"
         def get_value(tag): 
             try:
                 return xmldoc.getElementsByTagName(tag)[0].getAttribute('value')
@@ -445,7 +445,16 @@ class Variable(VariableConfig, VariableState):
     def __init__(self, *args):
         VariableConfig.__init__(self, *args)
         VariableState.__init__(self)
+        self.active = True
         print_debug("Created Variable %s" % self.name)
+
+    def set_active(self, active):
+        print_debug("set_active on %s. (old, new) = (%s, %s)" % (self.name, self.active, active))
+        if active == self.active:
+            return # nothing to do
+        self.active = active
+        if active:
+            VariableState.__init__(self) # reset when reactivating
 
     def __generate_alarm(self, session):
         """ Generate an alarm using callback provided by creator
@@ -455,6 +464,7 @@ class Variable(VariableConfig, VariableState):
         """
         t = time.time()
         delta = t - self.timeof_last_alarm
+        print_debug("Time since last alarm for var %s is %d - %d = %d. Refractory period = %d." % (self.name, t, self.timeof_last_alarm, delta, self.alarm_auto_inhibit_period))
         if delta < self.alarm_auto_inhibit_period:
             return # we are in the auto inhibit period - do nothing
         self.timeof_last_alarm = t
@@ -506,16 +516,20 @@ class ObjectMonitor:
             except ExpatError, e:
                 errmsg = "\n".join([ str(x) for x in e.args ])
                 log_err("%s %s XML parse error: %s" % (self.monitortype, self.uuid, errmsg))
+            return True
+        else:
+            return False # config unchanged
 
     def __update_xmlconfig(self):
         if not all_xmlconfigs.has_key(self.uuid):
             xmlconfig = None
         else:
             xmlconfig = all_xmlconfigs[self.uuid]
-        
+        changed = False
         if xmlconfig != self.xmlconfig:
             self.xmlconfig = xmlconfig
-            return True
+            changed = True
+        return changed
             
     def __parse_xmlconfig(self):
         if not self.xmlconfig:
@@ -554,7 +568,7 @@ class ObjectMonitor:
                     append_var = False
             
             if append_var:
-                print_debug("Appending %s to list of variables for UUID=%s" % (var.name, self.uuid))
+                print_debug("Appending %s to list of variables for %s UUID=%s" % (var.name, self.monitortype, self.uuid))
                 self.variables.append(var)
 
         # Now delete any old variables that do not appear in the new variable_nodes
@@ -564,6 +578,9 @@ class ObjectMonitor:
             self.variables.remove(v)
         
 
+    def get_active_variables(self):
+        return self.variables
+
     def process_rrd_updates(self, rrd_updates, session):
         print_debug("%sMonitor processing rrd_updates for %s" % (self.monitortype, self.uuid))
         obj_report = rrd_updates.get_obj_report_by_uuid(self.uuid)
@@ -571,7 +588,8 @@ class ObjectMonitor:
         if not obj_report:
             return
         params_in_obj_report = obj_report.get_var_names()
-        for var in self.variables:
+        
+        for var in self.get_active_variables():
             # find the subset of the params returned for this object that we need to consolidate into var
             params_to_consolidate = filter(var.rrd_regex.match, params_in_obj_report)
             for row in range(num_rows):
@@ -655,10 +673,21 @@ class HOSTMonitor(ObjectMonitor):
        * consolidation_fn: how to combine variables from rrd_updates into one value
          (default is 'average' for 'cpu_usage' & 'sum' for everything else)
        * rrd_regex matches the names of variables from (xe host-data-source-list uuid=$hostuuid) used to compute value
-         (only has defaults for "cpu_usage", "network_usage", "memory_free_kib" and "sr_io_throughput_total_xxxxxxxx")
+         (only has defaults for "cpu_usage", "network_usage", "memory_free_kib" and "sr_io_throughput_total_xxxxxxxx"
+         where that last one ends with the first eight characters of the SR uuid)
+
+    Also, as a special case for SR throughput, it is possible to configure a Host by
+    writing xml into the other-config key of an SR connected to it, e.g.
+    xe sr-param-set uuid=$sruuid other-config:perfmon=\
+       '<config><variable><name value="sr_io_throughput_total_per_host"/><alarm_trigger_level value="0.01"/></variable></config>
+       
+    This only works for that one specific variable-name, and rrd_regex must not be specified.
+    Configuration done on the host directly (variable-name sr_io_throughput_total_xxxxxxxx) takes priority.
     """
     def __init__(self, *args):
         self.monitortype = "Host"
+        self.secondary_variables = set()
+        self.secondary_xmlconfigs = {} # map of sr uuid to xml text
         ObjectMonitor.__init__(self, *args)
         print_debug("Created HOSTMonitor with uuid %s" % self.uuid)
 
@@ -681,26 +710,141 @@ class HOSTMonitor(ObjectMonitor):
         elif config_tag == 'alarm_priority':             return '5'    # the minimum priority required for mail-alarm to send
         else: raise XmlConfigException, "variable %s: no default available for tag %s" % (variable_name, config_tag)
 
+    def get_active_variables(self):
+        r = self.variables + [v for v in self.secondary_variables if v.active]
+        print_debug("Returning active variables: %d main, %d total" % (len(self.variables), len(r)))
+        return r
+
+    def refresh_config(self):
+        main_changed = ObjectMonitor.refresh_config(self)
+
+        # Now handle any extra config from SRs.
+        # This functionality makes this file inelegant but means that it is
+        # possible to set up an alarm on each host that uses an SR by setting
+        # appropriate configuration in the SR's other-config.
+        if self.uuid not in sruuids_by_hostuuid:
+            print_debug("%s not in sruuids_by_hostuuid")
+            self.secondary_variables.clear()
+            self.secondary_xmlconfigs.clear()
+            return
+
+        secondary_changed = False
+        old_sruuids = set(self.secondary_xmlconfigs) # create set of keys
+        current_sruuids = sruuids_by_hostuuid[self.uuid] # a set already
+        if old_sruuids != current_sruuids:
+            print_debug("Changed set of perfmon sruuids for host %s" % self.uuid)
+            secondary_changed = True
+        else:
+            for sruuid in sruuids_by_hostuuid[self.uuid]:
+                sr_xmlconfig = all_xmlconfigs[sruuid]
+                # As an optimisation, if xml unchanged then do not re-parse.
+                # Otherwise we would create Variables which would turn out to be same as existing ones so we would ignore them.
+                if sruuid in self.secondary_xmlconfigs and self.secondary_xmlconfigs[sruuid] == sr_xmlconfig:
+                    print_debug("Unchanged sr_xmlconfig for sruuid %s" % sruuid)
+                else:
+                    print_debug("Found new/different sr_xmlconfig for sruuid %s" % sruuid)
+                    secondary_changed = True
+                    break
+
+        if secondary_changed:
+            try:
+                self.__parse_secondary_xmlconfigs()
+            except XmlConfigException, e:
+                errmsg = "\n".join([ str(x) for x in e.args ])
+                log_err("%s %s secondary config error: %s" % (self.monitortype, self.uuid, errmsg))
+            except ExpatError, e:
+                errmsg = "\n".join([ str(x) for x in e.args ])
+                log_err("%s %s secondary XML parse error: %s" % (self.monitortype, self.uuid, errmsg))
+
+        if main_changed or secondary_changed:
+            # Calculate which secondary variables are active, i.e. not overridden by ones configured on the host rather than the SR.
+            main_names = set([v.name for v in self.variables])
+            for v in self.secondary_variables:
+                v.set_active(v.name not in main_names)
+
+    def __parse_secondary_xmlconfigs(self):
+        variable_names = set() # Names of the Variable objects we create based on the xml nodes we find
+        self.secondary_xmlconfigs.clear()
+        for sruuid in sruuids_by_hostuuid[self.uuid]:
+            print_debug("Looking for config on SR uuid %s" % sruuid)
+            sr_xmlconfig = all_xmlconfigs[sruuid]
+            self.secondary_xmlconfigs[sruuid] = sr_xmlconfig
+            xmldoc = minidom.parseString(sr_xmlconfig)
+            variable_nodes = xmldoc.getElementsByTagName('variable')
+            found = False
+            for vn in variable_nodes:
+                try:
+                    name_element = vn.getElementsByTagName('name')[0]
+                    name = name_element.getAttribute('value')
+                except IndexError:
+                    log_err("variable missing 'name' tag in perfmon xml config of SR %s" % sruuid)
+                    continue # perhaps other nodes are valid
+                print_debug("Found variable with name %s on SR uuid %s" % (name, sruuid))
+                if name != 'sr_io_throughput_total_per_host':
+                    continue # Do nothing unless the variable is meant for the host
+                if len(vn.getElementsByTagName('rrd_regex')) > 0:
+                    log_err("Configuration error: rrd_regex must not be specified in config on SR meant for each host")
+                    continue # perhaps another node is valid
+                if found:
+                    log_err("Configuration error: duplicate variable %s on SR %s" % (name, sruuid))
+                    # A host can only have one Variable from a given SR since we only accept one kind (one name).
+                    break
+                found = True
+                name_override = 'sr_io_throughput_total_%s' % sruuid[0:8]
+                name_element.setAttribute('value', name_override)
+                provenance_element = xmldoc.createElement('configured_on')
+                provenance_element.setAttribute('class', 'SR')
+                provenance_element.setAttribute('uuid', sruuid)
+                vn.appendChild(provenance_element)
+                var = Variable(vn, self.alarm_create, self.get_default_variable_config)
+                variable_names.add(var.name)
+                append_var = True
+                vars_with_same_name = [ v for v in self.secondary_variables if v.name == var.name ]
+                for v in vars_with_same_name:
+                    # this list should be 0 or 1 long!
+                    # only replace variable in self.secondary_variables if its config has changed.
+                    # This way we don't reset its state
+                    if variable_configs_differ(var, v):
+                        print_debug("Removing existing secondary variable to replace with new: %s" % v.name)
+                        self.secondary_variables.remove(v)
+                    else:
+                        print_debug("Found existing secondary variable with same config: %s" % v.name)
+                        append_var = False
+                if append_var:
+                    print_debug("Adding %s to set of secondary variables for host UUID=%s" % (var.name, self.uuid))
+                    self.secondary_variables.add(var)
+
+        # Now that we have read all the xml items,
+        # delete any old variables that do not appear in the new variable_nodes
+        print_debug("Going to delete any secondary_variables not in %s" % variable_names)
+        variables_to_remove = [ v for v in self.secondary_variables if v.name not in variable_names ]
+        for v in variables_to_remove:
+            print_debug("Deleting %s from set of secondary variables for UUID=%s" % (v.name, self.uuid))
+            self.secondary_variables.remove(v)
+
 all_xmlconfigs = {}
+sruuids_by_hostuuid = {} # Maps host uuid to a set of the uuids of the host's SRs that have other-config:perfmon
 def update_all_xmlconfigs(session):
     """Update all_xmlconfigs, a global dictionary that maps any uuid
-    (host or VM) to the xml config string in other-config:perfmon keys"""
+    (SR, host or VM) to the xml config string in other-config:perfmon keys
+    and update sruuids_by_hostuuid which together with all_xmlconfigs allows
+    lookup of the other-config:perfmon xml of the SRs connected to a host"""
     global all_xmlconfigs
+    global sruuids_by_hostuuid
     
     all_host_recs = session.xenapi.host.get_all_records()
     all_vm_recs   = session.xenapi.VM.get_all_records()
-    
+    all_sr_recs   = session.xenapi.SR.get_all_records()
+
     # build dictionary mapping uuids to other_configs
     all_otherconfigs = {}
-    all_otherconfigs.update([
-            (all_host_recs[ref]['uuid'], all_host_recs[ref]['other_config'])
-            for ref in all_host_recs.keys()
-            ])
-    all_otherconfigs.update([
-            (all_vm_recs[ref]['uuid'], all_vm_recs[ref]['other_config'])
-            for ref in all_vm_recs.keys()
-            ])
-    
+
+    for recs in (all_host_recs, all_vm_recs, all_sr_recs):
+        all_otherconfigs.update([
+                (recs[ref]['uuid'], recs[ref]['other_config'])
+                for ref in recs.keys()
+                ])
+
     # rebuild dictionary mapping uuids to xmlconfigs
     all_xmlconfigs.clear()
     all_xmlconfigs.update([
@@ -708,6 +852,20 @@ def update_all_xmlconfigs(session):
             for (uuid, other_config) in all_otherconfigs.items()
             if other_config.has_key('perfmon')
             ])
+
+    # Rebuild another map
+    sruuids_by_hostuuid.clear()
+    for (sr, rec) in all_sr_recs.items():
+        if rec['other_config'].has_key('perfmon'):
+            sruuid = rec['uuid']
+            # If we hadn't done SR.get_all_records we would now do SR.get_PBDs.
+            host_refs = [session.xenapi.PBD.get_host(pbd) for pbd in rec['PBDs']]
+            host_uuids = [all_host_recs[ref]['uuid'] for ref in host_refs]
+            for hu in host_uuids:
+                if hu in sruuids_by_hostuuid:
+                    sruuids_by_hostuuid[hu].add(sruuid)
+                else:
+                    sruuids_by_hostuuid[hu] = set([sruuid])
 
 # 5 minute default interval
 interval = 300
