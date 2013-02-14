@@ -41,7 +41,7 @@
 
 #ifndef HVM_PARAM_NX_ENABLED
 #define XEN_UNSTABLE
-#endif 
+#endif
 
 #ifndef HVM_PARAM_VIRIDIAN
 #warning missing viridian parameter
@@ -150,8 +150,8 @@ xenstore_get(int domid, const char *fmt, ...)
     return value;
 }
 
-static void 
-get_flags(struct flags *f, int domid) 
+static void
+get_flags(struct flags *f, int domid)
 {
   int n;
   f->vcpus    = xenstore_get(domid, "vcpu/number");
@@ -181,7 +181,7 @@ get_flags(struct flags *f, int domid)
 	syslog(LOG_INFO|LOG_DAEMON,"vcpu/%d/affinity:%s", n, (f->vcpu_affinity[n])?f->vcpu_affinity[n]:"unset");
   }
   closelog();
-  
+
 }
 
 
@@ -454,7 +454,7 @@ CAMLprim value stub_xc_hvm_build_native(value xc_handle, value domid,
 		failwith_oss_xc(xch, "hvm_build");
 
 
-	r = hvm_build_set_params(xch, _D(domid), Int_val(store_evtchn), &store_mfn, 
+	r = hvm_build_set_params(xch, _D(domid), Int_val(store_evtchn), &store_mfn,
                            Int_val(console_evtchn), &console_mfn, f);
 	if (r)
 		failwith_oss_xc(xch, "hvm_build_params");
@@ -572,7 +572,7 @@ CAMLprim value stub_xc_domain_restore(value handle, value fd, value domid,
 	c_console_evtchn = Int_val(console_evtchn);
 
 #ifdef HVM_PARAM_VIRIDIAN
-	xc_set_hvm_param(_H(handle), _D(domid), HVM_PARAM_VIRIDIAN, f.viridian);	
+	xc_set_hvm_param(_H(handle), _D(domid), HVM_PARAM_VIRIDIAN, f.viridian);
 #endif
 	configure_vcpus(_H(handle), _D(domid), f);
 
