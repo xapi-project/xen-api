@@ -45,7 +45,8 @@ let stop () =
 	List.iter (fun i -> Http_svr.stop i) !management_interface_server;	
 	management_interface_server := [];
 	localhost_server_started := false;
-	himn_addr := None
+	himn_addr := None;
+	specific_addresses_only := false
 
 (* Even though xapi listens on all IP addresses, there is still an interface appointed as
  * _the_ management interface. Slaves in a pool use the IP address of this interface to connect
@@ -55,6 +56,7 @@ let start ~__context ?addr () =
 	let addr, socket =
 		match addr with
 			| None ->
+					specific_addresses_only := false;
 					begin
 						try (* Is it IPv6 ? *)
 							let addr = Unix.inet6_addr_any in
@@ -65,7 +67,7 @@ let start ~__context ?addr () =
 					end
 			| Some ip ->
 					debug "Starting new server (listening on HIMN only: %s)" ip;
-					himn_only := true;
+					specific_addresses_only := true;
 					let addr = Unix.inet_addr_of_string ip in
 					addr, Xapi_http.bind (Unix.ADDR_INET(addr, Xapi_globs.http_port))
 	in
@@ -121,9 +123,10 @@ let maybe_start_himn ~__context ?addr () =
 		match !himn_addr with
 		| Some a -> warn "There is already a server started on HIMN address %s: new address %s !"
 			a (match addr with None -> "None" | Some b -> b)
-		| None -> Opt.iter (fun addr ->
-			himn_addr := Some addr;
-			start ~__context ~addr ()) addr
+		| None -> if (List.length !management_interface_server) <> 1 ||
+				!specific_addresses_only then (* Not already listening on Any *)
+					Opt.iter (fun addr -> himn_addr := Some addr;
+					start ~__context ~addr ()) addr
 	)
 
 let start_localhost_interface ~__context =
