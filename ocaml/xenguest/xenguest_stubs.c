@@ -272,7 +272,6 @@ get_flags(struct flags *f, int domid)
     f->kernel_max_size = vm_pv_kernel_max_size ? vm_pv_kernel_max_size : host_pv_kernel_max_size;
     f->ramdisk_max_size = vm_pv_ramdisk_max_size ? vm_pv_ramdisk_max_size : host_pv_ramdisk_max_size;
 
-    openlog("xenguest",LOG_NDELAY,LOG_DAEMON);
     syslog(LOG_INFO|LOG_DAEMON,"Determined the following parameters from xenstore:");
     syslog(LOG_INFO|LOG_DAEMON,"vcpu/number:%d vcpu/weight:%d vcpu/cap:%d nx: %d viridian: %d apic: %d acpi: %d pae: %d acpi_s4: %d acpi_s3: %d mmio_size_mib: %ld tsc_mode %d",
            f->vcpus,f->vcpu_weight,f->vcpu_cap,f->nx,f->viridian,f->apic,f->acpi,f->pae,f->acpi_s4,f->acpi_s3,f->mmio_size_mib,f->tsc_mode);
@@ -282,8 +281,6 @@ get_flags(struct flags *f, int domid)
     syslog(LOG_INFO|LOG_DAEMON,"kernel/ramdisk host limits: (%zu,%zu), VM overrides: (%zu,%zu)",
            host_pv_kernel_max_size, host_pv_ramdisk_max_size,
            vm_pv_kernel_max_size, vm_pv_ramdisk_max_size);
-    closelog();
-
 }
 
 
@@ -323,6 +320,8 @@ static int suspend_flag_list[] = {
 CAMLprim value stub_xenguest_init()
 {
     xc_interface *xch;
+
+    openlog("xenguest", LOG_DAEMON);
 
     xch = xc_interface_open(NULL, NULL, 0);
     if (xch == NULL)
@@ -430,9 +429,7 @@ CAMLprim value stub_xc_linux_build_native(value xc_handle, value domid,
         failwith_oss_xc(xch, "xc_dom_ramdisk_max_size");
 #else
     if ( f.kernel_max_size || f.ramdisk_max_size ) {
-        openlog("xenguest",LOG_NDELAY,LOG_DAEMON);
         syslog(LOG_WARNING|LOG_DAEMON,"Kernel/Ramdisk limits set, but no support compiled in");
-        closelog();
     }
 #endif
 
