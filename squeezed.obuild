@@ -15,7 +15,7 @@ executable squeezed
   pp: camlp4o
 
 executable test
-  main: squeeze_test.ml
+  main: squeeze_test_main.ml
   src-dir: test
   build-deps: stdext, xenctrl, unix, squeeze
 
