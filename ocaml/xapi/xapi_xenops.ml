@@ -64,7 +64,12 @@ let vdi_of_disk ~__context x = match String.split ~limit:2 '/' x with
 			None
 
 let backend_of_network net =
-	Network.Local net.API.network_bridge (* PR-1255 *)
+	if List.mem_assoc "backend_vm" net.API.network_other_config then begin
+		let backend_vm = List.assoc "backend_vm" net.API.network_other_config in
+		debug "Using VM %s as backend for VIF on network %s" backend_vm net.API.network_uuid;
+		Network.Remote (backend_vm, net.API.network_bridge)
+	end else
+		Network.Local net.API.network_bridge (* PR-1255 *)
 
 let find f map default feature =
 	try f (List.assoc feature map)
