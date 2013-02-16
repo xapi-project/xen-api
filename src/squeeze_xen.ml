@@ -19,6 +19,7 @@
 	1. make this code robust to domains being created and destroyed around it.
 	2. not depend on any other info beyond domain_getinfolist and xenstore.
 *)
+open Xcp_service
 open Squeezed_xenstore
 open Pervasiveext
 open Threadext

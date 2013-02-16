@@ -25,6 +25,8 @@
 	Can we calibrate on boot if the offset is const?
 *)
 
+open Xcp_service
+
 (* Make debug printing work both when linked into a daemon and from the commandline *)
 let start = Unix.gettimeofday ()
 

@@ -11,6 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+open Xcp_service
 open Squeezed_xenstore
 
 module D = Debug.Make(struct let name = Memory_interface.service_name end)

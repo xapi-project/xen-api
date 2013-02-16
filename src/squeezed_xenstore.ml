@@ -11,7 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-let _ = Debug.disable "foo"
+open Xcp_service
+
 module D = Debug.Make(struct let name = Memory_interface.service_name end)
 open D
 
