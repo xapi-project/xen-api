@@ -11,8 +11,8 @@ Library xcp
   CompiledObject:     best
   Path:               lib
   Findlibname:        xcp
-  Modules:            Cohttp_posix_io, Xcp_client
-  BuildDepends:       uri, re, cohttp, xmlm, unix, rpclib, rpclib.xml, rpclib.js
+  Modules:            Cohttp_posix_io, Xcp_client, Xcp_service
+  BuildDepends:       uri, re, cohttp, xmlm, unix, rpclib, rpclib.xml, rpclib.js, syslog, threads
 
 Library xcp_storage
   CompiledObject:     best

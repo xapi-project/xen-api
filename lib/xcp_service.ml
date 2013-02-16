@@ -1,0 +1,291 @@
+(*
+ * Copyright (C) Citrix Systems Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation; version 2.1 only. with the special
+ * exception on linking described in file LICENSE.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *)
+
+module type BRAND = sig val name: string end
+
+module Debug = struct
+type level =
+| Debug
+| Warn
+| Info
+| Error
+
+let disabled_modules = ref []
+let disable m =
+  disabled_modules := m :: !disabled_modules
+
+let stderr key level x =
+  output_string stderr (Printf.sprintf "[%s|%s] %s" key (match level with
+  | Debug -> "debug"
+  | Warn -> "warn"
+  | Info -> "info"
+  | Error -> "error") x);
+    output_string stderr "\n";
+    flush stderr
+
+let syslog ?(facility=`LOG_LOCAL5) name () =
+  let t = Syslog.openlog ~facility name in
+  fun key level x ->
+    Syslog.syslog t (match level with
+      | Debug -> `LOG_DEBUG
+      | Warn -> `LOG_WARNING
+      | Info -> `LOG_INFO
+      | Error -> `LOG_ERR
+    ) (Printf.sprintf "[%s] %s" key x)
+
+let output = ref stderr
+
+let write key level x =
+  if not(List.mem key !disabled_modules)
+  then !output key level x
+
+module Make = functor(Brand: BRAND) -> struct
+  let debug fmt = Printf.ksprintf (write Brand.name Debug) fmt
+  let error fmt = Printf.ksprintf (write Brand.name Error) fmt
+  let info fmt = Printf.ksprintf (write Brand.name Info) fmt
+  let warn fmt = Printf.ksprintf (write Brand.name Warn) fmt
+end
+end
+
+let finally f g =
+	try
+ 		let result = f () in
+		g ();
+		result
+	with e ->
+		g ();
+		raise e
+
+type spec = string * Arg.spec * (unit -> string) * string
+
+
+(* Server configuration. We have built-in (hopefully) sensible defaults,
+   together with command-line arguments and a configuration file. They
+   are applied in order: (latest takes precedence)
+      defaults < arguments < config file
+*)
+let sockets_group = ref "xapi"
+let default_service_name = Filename.basename Sys.argv.(0)
+let config_file = ref (Printf.sprintf "/etc/%s.conf" default_service_name)
+let pidfile = ref (Printf.sprintf "/var/run/%s.pid" default_service_name)
+let log_destination = ref "syslog:daemon"
+let daemon = ref false
+
+module D = Debug.Make(struct let name = default_service_name end)
+open D
+
+
+module Config_file = struct
+	open Arg
+
+	let apply v = function
+	| Unit f -> f ()
+	| Set_string s -> s := v
+	| String f -> f v
+	| Bool f -> f (bool_of_string v)
+	| Set_int i -> i := (int_of_string v)
+	| Int f -> f (int_of_string v)
+	| Set_float f -> f := (float_of_string v)
+	| Float f -> f (float_of_string v)
+	| _ -> failwith "Unsupported type in config file"
+
+	let parse_line data spec =
+		let spec = List.map (fun (a, b, _, _) -> a, b) spec in
+		(* Strip comments *)
+		match Re_str.(split_delim (regexp (quote "#"))) data with
+		| [] -> ()
+		| x :: _ ->
+			begin match Re_str.bounded_split_delim (Re_str.regexp "[ \t]*=[ \t]*") x 2 with
+			| key :: v :: [] ->
+				(* For values we will accept "v" and 'v' *)
+				let v =
+					if String.length v < 2
+					then v
+					else
+						let first = v.[0] and last = v.[String.length v - 1] in
+						if first = last && (first = '"' || first = '\'')
+						then String.sub v 1 (String.length v - 2)
+						else v in
+				if List.mem_assoc key spec then apply v (List.assoc key spec)
+			| _ -> ()
+			end
+
+	let parse filename spec =
+		(* Remove the unnecessary doc parameter *)
+		let ic = open_in filename in
+		finally
+		(fun () ->
+			try
+				while true do
+					let line = input_line ic in
+					parse_line line spec
+				done
+			with End_of_file -> ()
+		) (fun () -> close_in ic)
+
+	let dump spec =
+		List.iter (fun (name, _, printer, description) ->
+			debug "%s = %s (%s)" name (printer ()) description
+		) spec
+
+end
+
+let common_config_spec = [
+	"sockets-group", Arg.Set_string sockets_group, (fun () -> !sockets_group), "Group to allow access to the control socket";
+	"pidfile", Arg.Set_string pidfile, (fun () -> !pidfile), "Filename to write process PID";
+	"log", Arg.Set_string log_destination, (fun () -> !log_destination), "Where to write log messages";
+	"daemon", Arg.Bool (fun x -> daemon := x), (fun () -> string_of_bool !daemon), "True if we are to daemonise";
+	"disable-logging-for", Arg.String
+		(fun x ->
+			try
+				let modules = Re_str.split (Re_str.regexp "[ ]+") x in
+				List.iter Debug.disable modules
+			with e ->
+				error "Processing disabled-logging-for = %s: %s" x (Printexc.to_string e)
+		), (fun () -> String.concat " " (!Debug.disabled_modules)), "A space-separated list of debug modules to suppress logging from";
+	"config", Arg.Set_string config_file, (fun () -> !config_file), "Location of configuration file";
+]
+
+let arg_spec = List.map (fun (a, b, _, c) -> "-" ^ a, b, c)
+
+let read_config_file config_spec =
+	if Sys.file_exists !config_file then begin
+		(* Will raise exception if config is mis-formatted. It's up to the
+		   caller to inspect and handle the failure.
+		*)
+		Config_file.parse !config_file config_spec;
+	end
+
+let configure config_spec =
+	let config_spec = common_config_spec @ config_spec in
+	let arg_spec = arg_spec config_spec in
+	Arg.parse (Arg.align arg_spec)
+		(fun _ -> failwith "Invalid argument")
+		(Printf.sprintf "Usage: %s [-config filename]" Sys.argv.(0));
+	read_config_file config_spec;
+	Config_file.dump config_spec
+
+(* Apply a binary message framing protocol where the first 16 bytes are an integer length
+   stored as an ASCII string *)
+let binary_handler call_of_string string_of_response process s context =
+	let ic = Unix.in_channel_of_descr s in
+	let oc = Unix.out_channel_of_descr s in
+	(* Read a 16 byte length encoded as a string *)
+	let len_buf = String.make 16 '\000' in
+	really_input ic len_buf 0 (String.length len_buf);
+	let len = int_of_string len_buf in
+	let msg_buf = String.make len '\000' in
+	really_input ic msg_buf 0 (String.length msg_buf);
+	let (request: Rpc.call) = call_of_string msg_buf in
+	let (result: Rpc.response) = process context request in
+	let msg_buf = string_of_response result in
+	let len_buf = Printf.sprintf "%016d" (String.length msg_buf) in
+	output_string oc len_buf;
+	output_string oc msg_buf;
+	flush oc
+
+let accept_forever sock f =
+	let (_: Thread.t) = Thread.create
+		(fun () ->
+			while true do
+				let this_connection, _ = Unix.accept sock in
+				let (_: Thread.t) = Thread.create
+					(fun () ->
+						finally
+							(fun () -> f this_connection)
+							(fun () -> Unix.close this_connection)
+					) () in
+				()
+			done
+		) () in
+	()
+
+let mkdir_rec dir perm =
+	let rec p_mkdir dir =
+		let p_name = Filename.dirname dir in
+		if p_name <> "/" && p_name <> "." 
+		then p_mkdir p_name;
+		(try Unix.mkdir dir perm  with Unix.Unix_error(Unix.EEXIST, _, _) -> ()) in
+	p_mkdir dir
+
+(* Start accepting connections on sockets before we daemonize *)
+let listen path =
+	(* Check the sockets-group exists *)
+	if try ignore(Unix.getgrnam !sockets_group); false with _ -> true then begin
+		error "Group %s doesn't exist." !sockets_group;
+		error "Either create the group, or select a different group by modifying the config file:";
+		error "# Group which can access the control socket";
+		error "sockets-group=<some group name>";
+		exit 1
+	end;
+
+	(* Start receiving local binary messages *)
+	(try Unix.unlink path with Unix.Unix_error(Unix.ENOENT, _, _) -> ());
+	mkdir_rec (Filename.dirname path) 0o0755;
+	let sock = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
+	Unix.bind sock (Unix.ADDR_UNIX path);
+	Unix.listen sock 5;
+	info "Listening on %s" path;
+	sock
+
+let pidfile_write filename =
+	let fd = Unix.openfile filename
+		[ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC; ]
+		0o640 in
+	finally
+	(fun () ->
+		let pid = Unix.getpid () in
+		let buf = string_of_int pid ^ "\n" in
+		let len = String.length buf in
+		if Unix.write fd buf 0 len <> len 
+		then failwith "pidfile_write failed";
+	)
+	(fun () -> Unix.close fd)
+
+let have_daemonized = ref false
+
+let daemonize () =
+	if not(!have_daemonized)
+	then match Unix.fork () with
+	| 0 ->
+		have_daemonized := true;
+		if Unix.setsid () == -1 then
+			failwith "Unix.setsid failed";
+
+		begin match Unix.fork () with
+		| 0 ->
+			mkdir_rec (Filename.dirname !pidfile) 0o755;
+			pidfile_write !pidfile;
+
+			let nullfd = Unix.openfile "/dev/null" [ Unix.O_WRONLY ] 0 in
+ 			begin try
+				Unix.close Unix.stdin;
+				Unix.dup2 nullfd Unix.stdout;
+				Unix.dup2 nullfd Unix.stderr;
+				with exn -> Unix.close nullfd; raise exn
+			end;
+			Unix.close nullfd
+		| _ -> exit 0
+		end
+	| _ -> exit 0
+
+
+let wait_forever () =
+	while true do
+		try
+			Thread.delay 60.
+		with e ->
+			debug "Thread.delay caught: %s" (Printexc.to_string e)
+	done
+
