@@ -5,8 +5,8 @@ obuild-ver: 1
 
 library squeeze
   src-dir: lib
-  modules: Squeeze, Config_parser, Debug, Memory
-  build-deps: stdext, syslog, re, re.str
+  modules: Squeeze, Memory
+  build-deps: stdext, syslog, re, re.str, xcp
 
 executable squeezed
   main: squeezed.ml

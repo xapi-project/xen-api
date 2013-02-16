@@ -11,6 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+open Xcp_service
+
 (** Functions relating to memory requirements of Xen domains *)
 open Printf
 
