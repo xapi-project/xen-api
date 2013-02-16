@@ -24,9 +24,17 @@ module Debug : sig
 	end
 end
 
-type spec = string * Arg.spec * (unit -> string) * string
+type opt = string * Arg.spec * (unit -> string) * string
 
-val configure: spec list -> unit
+type res = {
+	name: string;
+	description: string;
+	essential: bool;
+	path: string ref;
+	perms: Unix.access_permission list;
+}
+
+val configure: ?options:opt list -> ?resources:res list -> unit -> unit
 
 val listen: string -> Unix.file_descr
 
@@ -34,13 +42,16 @@ val daemonize: unit -> unit
 
 val accept_forever: Unix.file_descr -> (Unix.file_descr -> unit) -> unit
 
-val binary_handler:
+type 'a handler =
 	(string -> Rpc.call) ->
 	(Rpc.response -> string) ->
 	('a -> Rpc.call -> Rpc.response) ->
 	Unix.file_descr ->
 	'a->
 	unit
+
+val binary_handler: 'a handler
+val http_handler: 'a handler
 
 val wait_forever: unit -> unit
 

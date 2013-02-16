@@ -67,7 +67,7 @@ let finally f g =
 		g ();
 		raise e
 
-type spec = string * Arg.spec * (unit -> string) * string
+type opt = string * Arg.spec * (unit -> string) * string
 
 
 (* Server configuration. We have built-in (hopefully) sensible defaults,
@@ -141,7 +141,7 @@ module Config_file = struct
 
 end
 
-let common_config_spec = [
+let common_options = [
 	"sockets-group", Arg.Set_string sockets_group, (fun () -> !sockets_group), "Group to allow access to the control socket";
 	"pidfile", Arg.Set_string pidfile, (fun () -> !pidfile), "Filename to write process PID";
 	"log", Arg.Set_string log_destination, (fun () -> !log_destination), "Where to write log messages";
@@ -159,22 +159,57 @@ let common_config_spec = [
 
 let arg_spec = List.map (fun (a, b, _, c) -> "-" ^ a, b, c)
 
-let read_config_file config_spec =
+type res = {
+	name: string;
+	description: string;
+	essential: bool;
+	path: string ref;
+	perms: Unix.access_permission list
+}
+
+let canonicalise x = Filename.(if is_relative x then concat (Unix.getcwd ()) x else x)
+
+let to_opt = List.map (fun f -> f.name, Arg.String (fun x -> f.path := canonicalise x), (fun () -> !(f.path)), f.description)
+
+let read_config_file x =
 	if Sys.file_exists !config_file then begin
 		(* Will raise exception if config is mis-formatted. It's up to the
 		   caller to inspect and handle the failure.
 		*)
-		Config_file.parse !config_file config_spec;
+		Config_file.parse !config_file x;
 	end
 
-let configure config_spec =
-	let config_spec = common_config_spec @ config_spec in
+let configure ?(options=[]) ?(resources=[]) () =
+	let config_spec = common_options @ options @ (to_opt resources) in
 	let arg_spec = arg_spec config_spec in
 	Arg.parse (Arg.align arg_spec)
 		(fun _ -> failwith "Invalid argument")
 		(Printf.sprintf "Usage: %s [-config filename]" Sys.argv.(0));
 	read_config_file config_spec;
-	Config_file.dump config_spec
+	Config_file.dump config_spec;
+	(* Check the required binaries are all available *)
+	List.iter
+		(fun f ->
+			try
+				if f.essential
+				then Unix.access !(f.path) f.perms
+			with _ ->
+				error "Cannot access %s: please set %s in %s" !(f.path) f.description !config_file;
+				error "For example:";
+				error "    # %s" f.description;
+				error "    %s=/path/to/%s" f.name f.name;
+				exit 1
+		) resources;
+
+	Sys.set_signal Sys.sigpipe Sys.Signal_ignore
+
+type 'a handler =
+	(string -> Rpc.call) ->
+	(Rpc.response -> string) ->
+	('a -> Rpc.call -> Rpc.response) ->
+	Unix.file_descr ->
+	'a->
+	unit
 
 (* Apply a binary message framing protocol where the first 16 bytes are an integer length
    stored as an ASCII string *)
@@ -194,6 +229,48 @@ let binary_handler call_of_string string_of_response process s context =
 	output_string oc len_buf;
 	output_string oc msg_buf;
 	flush oc
+
+let http_handler call_of_string string_of_response process s context =
+	let ic = Unix.in_channel_of_descr s in
+	let oc = Unix.out_channel_of_descr s in
+	let module Request = Cohttp.Request.Make(Cohttp_posix_io.Buffered_IO) in
+	let module Response = Cohttp.Response.Make(Cohttp_posix_io.Buffered_IO) in
+	match Request.read ic with
+	| None ->
+		debug "Failed to read HTTP request"
+	| Some req ->
+		begin match Request.meth req, Uri.path (Request.uri req) with
+		| `POST, _ ->
+			begin match Request.header req "content-length" with
+			| None ->
+				debug "Failed to read content-length"
+			| Some content_length ->
+				let content_length = int_of_string content_length in
+				let request_txt = String.make content_length '\000' in
+				really_input ic request_txt 0 content_length;
+				let rpc_call = call_of_string request_txt in
+				debug "%s" (Rpc.string_of_call rpc_call);
+				let rpc_response = process context rpc_call in
+				debug "   %s" (Rpc.string_of_response rpc_response);
+				let response_txt = string_of_response rpc_response in
+				let content_length = String.length response_txt in
+				let headers = Cohttp.Header.of_list [
+					"user-agent", default_service_name;
+					"content-length", string_of_int content_length;
+				] in
+				let response = Response.make ~version:`HTTP_1_1 ~status:`OK ~headers ~encoding:(Cohttp.Transfer.Fixed content_length) () in
+				Response.write (fun t oc -> Response.write_body t oc response_txt) response oc
+			end
+		| _, _ ->
+			let content_length = 0 in
+			let headers = Cohttp.Header.of_list [
+				"user-agent", default_service_name;
+				"content-length", string_of_int content_length;
+			] in
+			let response = Response.make ~version:`HTTP_1_1 ~status:`Not_found ~headers ~encoding:(Cohttp.Transfer.Fixed content_length) () in
+			Response.write (fun t oc -> ()) response oc
+		end
+
 
 let accept_forever sock f =
 	let (_: Thread.t) = Thread.create
@@ -229,15 +306,28 @@ let listen path =
 		error "sockets-group=<some group name>";
 		exit 1
 	end;
+	try
+		(try Unix.unlink path with Unix.Unix_error(Unix.ENOENT, _, _) -> ());
+		mkdir_rec (Filename.dirname path) 0o0755;
+		let sock = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
+		Unix.bind sock (Unix.ADDR_UNIX path);
+		Unix.listen sock 5;
+		info "Listening on %s" path;
+		sock
+	with e ->
+		error "Failed to listen on Unix domain socket %s. Raw error was: %s" path (Printexc.to_string e);
+		begin match e with
+		| Unix.Unix_error(Unix.EACCES, _, _) ->
+			error "Access was denied.";
+			error "Possible fixes include:";
+			error "1. Run this program as root (recommended)";
+			error "2. Make the permissions in the filesystem more permissive (my effective uid is %d)" (Unix.geteuid ());
+			error "3. Adjust the sockets-path directive in %s" !config_file;
+			exit 1
+		| _ -> ()
+		end;
+		raise e
 
-	(* Start receiving local binary messages *)
-	(try Unix.unlink path with Unix.Unix_error(Unix.ENOENT, _, _) -> ());
-	mkdir_rec (Filename.dirname path) 0o0755;
-	let sock = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
-	Unix.bind sock (Unix.ADDR_UNIX path);
-	Unix.listen sock 5;
-	info "Listening on %s" path;
-	sock
 
 let pidfile_write filename =
 	let fd = Unix.openfile filename
