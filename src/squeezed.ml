@@ -25,14 +25,14 @@ let minor_version = 1
 
 let balance_check_interval = ref 10.
 
-let config_spec = [
+let options = [
 	"balance-check-interval", Arg.Set_float balance_check_interval, (fun () -> string_of_float !balance_check_interval), "Seconds between memory balancing attempts";
 ]
 
 let _ = 
 	debug "squeezed version %d.%d starting" major_version minor_version;
 
-	configure config_spec;
+	configure ~options ();
 	let socket = listen Memory_interface.json_path in
 	daemonize ();
 
