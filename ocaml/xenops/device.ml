@@ -1558,6 +1558,7 @@ type info = {
 	monitor: string option;
 	vcpus: int;
 	usb: string list;
+	parallel: string option;
 	nics: (string * string * int) list;
 	disks: (int * string * media) list;
 	acpi: bool;
@@ -1731,6 +1732,7 @@ let cmdline_of_info info restore domid =
 	@ (if info.pci_passthrough then ["-priv"] else [])
 	@ (List.fold_left (fun l (k, v) -> ("-" ^ k) :: (match v with None -> l | Some v -> v :: l)) [] info.extras)
 	@ (Opt.default [] (Opt.map (fun x -> [ "-monitor"; x ]) info.monitor))
+	@ (Opt.default [] (Opt.map (fun x -> [ "-parallel"; x]) info.parallel))
 
 
 let vnconly_cmdline ~info ?(extras=[]) domid =

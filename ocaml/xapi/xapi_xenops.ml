@@ -38,7 +38,7 @@ let filtered_platform_flags = ["acpi"; "apic"; "nx"; "pae"; "viridian";
                                "tsc_mode"; "device-model"; "xenguest";
                                "pv-kernel-max-size"; "pv-ramdisk-max-size";
                                "pv-postinstall-kernel-max-size"; "pv-postinstall-ramdisk-max-size";
-                               "nousb"]
+                               "nousb"; "parallel"]
 
 let xenops_vdi_locator_of_strings sr_uuid vdi_location =
 	Printf.sprintf "%s/%s" sr_uuid vdi_location
