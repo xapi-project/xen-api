@@ -318,7 +318,6 @@ let add filename =
 					acpi = true;
 					serial = None;
 					parallel = None;
-					usb = [ "tablet" ];
 					keymap = None;
 					vnc_ip = Some "0.0.0.0";
 					pci_emulations = [];
