@@ -1692,7 +1692,6 @@ let cmdline_of_info info restore domid =
 		else
 			("-usb" :: (List.concat (List.map (fun device ->
 					   [ "-usbdevice"; device ]) info.usb))) in
-
 	(* Sort the VIF devices by devid *)
 	let nics = List.stable_sort (fun (_,_,a) (_,_,b) -> compare a b) info.nics in
 	if List.length nics > max_emulated_nics then debug "Limiting the number of emulated NICs to %d" max_emulated_nics;
@@ -1733,7 +1732,7 @@ let cmdline_of_info info restore domid =
 	@ (if info.pci_passthrough then ["-priv"] else [])
 	@ (List.fold_left (fun l (k, v) -> ("-" ^ k) :: (match v with None -> l | Some v -> v :: l)) [] info.extras)
 	@ (Opt.default [] (Opt.map (fun x -> [ "-monitor"; x ]) info.monitor))
-	@ (Opt.default [] (Opt.map (fun x -> [ "-parallel"; x ]) info.parallel))
+	@ (Opt.default [] (Opt.map (fun x -> [ "-parallel"; x]) info.parallel))
 
 
 let vnconly_cmdline ~info ?(extras=[]) domid =
