@@ -1,5 +1,5 @@
 .PHONY: all clean install build
-all: build doc
+all: build
 
 NAME=xenops
 J=4
@@ -19,28 +19,16 @@ XEN       ?= $(shell if ocamlfind query xenctrl >/dev/null 2>&1; then echo --ena
 XEN := --enable-xen
 SIMULATOR := --enable-simulator
 
-setup.bin: setup.ml
-	@ocamlopt.opt -o $@ $< || ocamlopt -o $@ $< || ocamlc -o $@ $<
-	@rm -f setup.cmx setup.cmi setup.o setup.cmo
+build:
+	obuild configure
+	obuild build
 
-setup.data: setup.bin
-	@./setup.bin -configure $(TESTS) $(XEN) $(SIMULATOR)
-
-build: setup.data setup.bin
-	@./setup.bin -build -j $(J)
-
-doc: setup.data setup.bin
-	@./setup.bin -doc -j $(J)
-
-install: setup.bin install-scripts
-	@./setup.bin -install
-
-.PHONY: install-scripts
-install-scripts:
-	install -D ./xenops_qemu_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-qemu
-	install -D ./xenops_xc_main.native $(DESTDIR)/$(SBINDIR)/xenopsd
-	install -D ./xenops_simulator_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
-	install -D ./xenguest_main.native $(DESTDIR)/$(LIBEXECDIR)/xenguest
+.PHONY: install
+install:
+	install -D ./dist/build/xenopsd_qemu/xenops_qemu $(DESTDIR)/$(SBINDIR)/xenopsd_qemu
+	install -D ./dist/build/xenopsd/xenopsd $(DESTDIR)/$(SBINDIR)/xenopsd
+	install -D ./dist/build/xenopsd_simulator/xenopsd_simulator $(DESTDIR)/$(SBINDIR)/xenopsd_simulator
+	install -D ./dist/build/xenguest/xenguest $(DESTDIR)/$(LIBEXECDIR)/xenguest
 	install -D ./scripts/vif $(DESTDIR)/$(SCRIPTSDIR)/vif
 	install -D ./scripts/vncterm-wrapper $(DESTDIR)/$(LIBEXECDIR)/vncterm-wrapper
 	install -D ./scripts/qemu-dm-wrapper $(DESTDIR)/$(LIBEXECDIR)/qemu-dm-wrapper
@@ -49,12 +37,8 @@ install-scripts:
 	install -D ./scripts/network.conf $(DESTDIR)/$(ETCDIR)/xcp/network.conf
 	DESTDIR=$(DESTDIR) SBINDIR=$(SBINDIR) LIBEXECDIR=$(LIBEXECDIR) SCRIPTSDIR=$(SCRIPTSDIR) ./scripts/make-custom-xenopsd.conf
 
-test: setup.bin build
-	@./setup.bin -test
-
-reinstall: setup.bin install-scripts
+reinstall: install
 	@ocamlfind remove $(NAME) || true
-	@./setup.bin -reinstall
 
 uninstall:
 	@ocamlfind remove $(NAME) || true
@@ -70,5 +54,5 @@ uninstall:
 	rm -f $(DESTDIR)/$(ETCDIR)/xcp/network.conf
 
 clean:
-	@ocamlbuild -clean
+	@obuild clean
 	@rm -f setup.data setup.log setup.bin
