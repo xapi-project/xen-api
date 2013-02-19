@@ -12,7 +12,11 @@
  * GNU Lesser General Public License for more details.
  *)
 
-val make: ?timeout:float -> string -> Xml.xml -> Xml.xml Lwt.t
+val make: ?timeout:float -> string -> Rpc.call -> Rpc.response Lwt.t
+(** [make ?timeout uri] returns an 'rpc' function which can be
+	passed to Client.* functions *)
+
+val make_json: ?timeout:float -> string -> Rpc.call -> Rpc.response Lwt.t
 (** [make ?timeout uri] returns an 'rpc' function which can be
 	passed to Client.* functions *)
 

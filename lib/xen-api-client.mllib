@@ -1,11 +1,9 @@
 # OASIS_START
-# DO NOT EDIT (digest: 5a7c4da49eb47f16e515d418a69f5b45)
+# DO NOT EDIT (digest: 42dd1c90502f44a6b00b532746376bfa)
 API
 Api_errors
 Client
 Date
-XMLRPC
-Xml
 Xen_api
 Event_helper
 Event_types

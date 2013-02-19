@@ -12,10 +12,12 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Async.Std
-
-val make: ?timeout:float -> string -> Xml.xml -> Xml.xml Deferred.t
+val make: ?timeout:float -> string -> Rpc.call -> Rpc.response Async.Std.Deferred.t
 (** [make ?timeout uri] returns an 'rpc' function which can be
 	passed to Client.* functions *)
 
-include (module type of (Client.ClientF(Deferred)))
+val make_json: ?timeout:float -> string -> Rpc.call -> Rpc.response Async.Std.Deferred.t
+(** [make_json ?timeout uri] returns an 'rpc' function which can be
+	passed to Client.* functions *)
+
+include (module type of (Client.ClientF(Async.Std.Deferred)))

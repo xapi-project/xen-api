@@ -88,7 +88,8 @@ module C = Client.Client
 let test_login_fail _ =
 	let module M = Xen_api.Make(Fake_IO) in
 	let open Fake_IO in
-	let rpc xml =
+	let rpc req =
+		let xml = Xmlrpc.string_of_call req in
 		M.rpc (M.make (Uri.of_string "http://127.0.0.1/")) xml
 		>>= function
 			| Ok x -> failwith "should have failed with No_response"
@@ -122,10 +123,11 @@ let test_login_success _ =
 	end in
 	let open Fake_IO in
 	let module M = Xen_api.Make(Fake_IO) in
-	let rpc xml =
-		M.rpc (M.make (Uri.of_string "http://127.0.0.1/")) xml
+	let rpc call =
+		let s = Xmlrpc.string_of_call call in
+		M.rpc (M.make (Uri.of_string "http://127.0.0.1/")) s
 		>>= function
-			| Ok x -> x
+			| Ok x -> Xmlrpc.response_of_string x
 			| Error e -> raise e in
 	let session_id' = C.Session.login_with_password rpc "root" "password" "1.0" in
 	assert_equal ~msg:"session_id" session_id session_id'

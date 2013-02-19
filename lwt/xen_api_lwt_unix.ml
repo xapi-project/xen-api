@@ -102,15 +102,25 @@ let exn_to_string = function
 		Printf.sprintf "%s %s" code (String.concat " " params)
 	| e -> Printexc.to_string e
 
-let make ?(timeout=30.) uri xml =
+let do_it uri string =
 	let uri = Uri.of_string uri in
 	let connection = M.make uri in
-	lwt result = M.rpc connection xml in
+	lwt result = M.rpc connection string in
 	match result with
 		| Ok x -> return x
 		| Error e ->
 			Printf.fprintf stderr "Caught: %s\n%!" (exn_to_string e);
 			fail e
+
+let make ?(timeout=30.) uri call =
+	let string = Xmlrpc.string_of_call call in
+	lwt result = do_it uri string in
+    Lwt.return (Xmlrpc.response_of_string result)
+
+let make_json ?(timeout=30.) uri call =
+	let string = Jsonrpc.string_of_call call in
+	lwt result = do_it uri string in
+    Lwt.return (Jsonrpc.response_of_string result)
 
 module Client = Client.ClientF(Lwt)
 include Client

@@ -19,8 +19,8 @@ Library "xen-api-client"
   CompiledObject:     best
   Path: lib
   Findlibname: xen-api-client
-  Modules: API,	Api_errors, Client, Date, XMLRPC, Xml, Xen_api, Event_helper, Event_types
-  BuildDepends:	xmlm, cohttp
+  Modules: API,	Api_errors, Client, Date, Xen_api, Event_helper, Event_types
+  BuildDepends:	xmlm, rpclib, cohttp
 
 Library "xen-api-client-lwt"
   CompiledObject:     best
@@ -30,7 +30,7 @@ Library "xen-api-client-lwt"
   Findlibparent: xen-api-client
   Findlibname: lwt
   Modules: Xen_api_lwt_unix
-  BuildDepends:	xen-api-client, xmlm, lwt, lwt.ssl, lwt.unix, cohttp, uri
+  BuildDepends:	xen-api-client, rpclib, xmlm, lwt, lwt.ssl, lwt.unix, cohttp, uri
 
 Library "xen-api-client-async"
   CompiledObject:     best
@@ -40,7 +40,7 @@ Library "xen-api-client-async"
   Findlibparent: xen-api-client
   Findlibname: async
   Modules: Xen_api_async_unix
-  BuildDepends:	xen-api-client, xmlm, core, async, async_core, async_unix, cohttp, uri, threads
+  BuildDepends:	xen-api-client, xmlm, core, async, async_core, async_unix, rpclib, cohttp, uri, threads
 
 Executable xen_api_test
   Path:               lib_test
