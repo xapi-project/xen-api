@@ -15,9 +15,6 @@
 DOMID=$1
 shift 1
 
-#For security reasons, we only listen on locahost by default
-export VNCTERM_LISTEN="-v 127.0.0.1:1"
-
 # 64MiB core dumps
 ulimit -c 67108864
 
