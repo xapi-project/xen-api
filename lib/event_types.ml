@@ -100,7 +100,7 @@ let event_from_of_xmlrpc x =
 	let find = find kvpairs in
 	{
 		events = events_of_xmlrpc (find "events");
-		valid_ref_counts = List.map (fun (tbl, int) -> tbl, XMLRPC.From.int int) (XMLRPC.From.structure (find "valid_ref_counts"));
+		valid_ref_counts = List.map (fun (tbl, int) -> tbl, try (XMLRPC.From.int int) with _ -> Int32.of_string (XMLRPC.From.string int)) (XMLRPC.From.structure (find "valid_ref_counts"));
 		token = XMLRPC.From.string (find "token");
 	}
 
