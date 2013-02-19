@@ -37,6 +37,7 @@ install: setup.bin install-scripts
 
 .PHONY: install-scripts
 install-scripts:
+	install -D ./xenops_qemu_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-qemu
 	install -D ./xenops_xc_main.native $(DESTDIR)/$(SBINDIR)/xenopsd
 	install -D ./xenops_simulator_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
 	install -D ./xenguest_main.native $(DESTDIR)/$(LIBEXECDIR)/xenguest
@@ -57,6 +58,7 @@ reinstall: setup.bin install-scripts
 
 uninstall:
 	@ocamlfind remove $(NAME) || true
+	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd-qemu
 	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd
 	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/xenguest
