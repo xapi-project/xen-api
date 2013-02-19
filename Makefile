@@ -25,7 +25,7 @@ build:
 
 .PHONY: install
 install:
-	install -D ./dist/build/xenopsd_qemu/xenops_qemu $(DESTDIR)/$(SBINDIR)/xenopsd_qemu
+	install -D ./dist/build/xenopsd_qemu/xenopsd_qemu $(DESTDIR)/$(SBINDIR)/xenopsd_qemu
 	install -D ./dist/build/xenopsd/xenopsd $(DESTDIR)/$(SBINDIR)/xenopsd
 	install -D ./dist/build/xenopsd_simulator/xenopsd_simulator $(DESTDIR)/$(SBINDIR)/xenopsd_simulator
 	install -D ./dist/build/xenguest/xenguest $(DESTDIR)/$(LIBEXECDIR)/xenguest
