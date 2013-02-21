@@ -17,8 +17,7 @@ open Pervasiveext
 open Threadext
 open Stringext
 open Listext
-
-module Net = (val (Network.get_client ()) : Network.CLIENT)
+open Network
 
 module L = Debug.Debugger(struct let name="license" end)
 module D=Debug.Debugger(struct let name="xapi" end)
@@ -312,21 +311,23 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 	let assert_homogeneous_vswitch_configuration () =
 		(* The network backend must be the same as the remote master's backend *)
 		let my_pool = Helpers.get_pool __context in
-		let my_backend = Netdev.string_of_kind Netdev.network.Netdev.kind in
+		let dbg = Context.string_of_task __context in
+		let my_backend' = Net.Bridge.get_kind dbg () in
+		let my_backend = Network_interface.string_of_kind my_backend' in
 		let pool = List.hd (Client.Pool.get_all rpc session_id) in
 		let remote_master = Client.Pool.get_master ~rpc ~session_id ~self:pool in
 		let remote_masters_backend =
 			let v = Client.Host.get_software_version ~rpc ~session_id ~self:remote_master in
 			if not (List.mem_assoc "network_backend" v) then
-				Netdev.string_of_kind Netdev.Bridge
+				Network_interface.string_of_kind Network_interface.Bridge
 			else
 				List.assoc "network_backend" v
 		in
 		if my_backend <> remote_masters_backend then
 			raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["Network backends differ"]));
 
-		match Netdev.network.Netdev.kind with
-		| Netdev.Vswitch ->
+		match my_backend' with
+		| Network_interface.Openvswitch ->
 			let my_controller = Db.Pool.get_vswitch_controller ~__context ~self:my_pool in
 			let controller = Client.Pool.get_vswitch_controller ~rpc ~session_id ~self:pool in
 			if my_controller <> controller && my_controller <> "" then
@@ -1617,8 +1618,9 @@ let assert_is_valid_ip ip_addr =
 	with _ -> raise (Api_errors.Server_error (Api_errors.invalid_ip_address_specified, [ "address" ]))
 
 let set_vswitch_controller ~__context ~address =
-	match Netdev.network.Netdev.kind with
-	| Netdev.Vswitch ->
+	let dbg = Context.string_of_task __context in
+	match Net.Bridge.get_kind dbg () with
+	| Network_interface.Openvswitch ->
 		let pool = Helpers.get_pool ~__context in
 		let current_address = Db.Pool.get_vswitch_controller ~__context ~self:pool in
 		if current_address <> address then begin

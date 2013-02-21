@@ -23,13 +23,13 @@ open Pervasiveext
 open Stringext
 open Threadext
 
-module Net = (val (Network.get_client ()) : Network.CLIENT)
+open Network
 
 let refresh_internal ~__context ~self =
-
 	let device = Db.PIF.get_device ~__context ~self in
 	let network = Db.PIF.get_network ~__context ~self in
 	let bridge = Db.Network.get_bridge ~__context ~self:network in
+	let dbg = Context.string_of_task __context in
 
 	(* Update the specified PIF field in the database, if
 	 * and only if a corresponding value can be read from
@@ -54,12 +54,12 @@ let refresh_internal ~__context ~self =
 		maybe_update_database "MAC"
 			(Db.PIF.get_MAC)
 			(Db.PIF.set_MAC)
-			(fun () -> Netdev.get_address device)
+			(fun () -> Net.Interface.get_mac dbg ~name:device)
 			(id);
 	maybe_update_database "MTU"
 		(Db.PIF.get_MTU)
 		(Db.PIF.set_MTU)
-		(fun () -> Int64.of_string (Netdev.get_mtu bridge))
+		(Int64.of_int ++ (fun () -> Net.Interface.get_mtu dbg ~name:bridge))
 		(Int64.to_string)
 
 let refresh ~__context ~host ~self =
@@ -245,10 +245,11 @@ type tables = {
 }
 
 let make_tables ~__context ~host =
+	let dbg = Context.string_of_task __context in
 	let devices =
 		List.filter
-			(Netdev.is_physical)
-			(Netdev.list ()) in
+			(fun name -> Net.Interface.is_physical dbg ~name)
+			(Net.Interface.get_all dbg ()) in
 	let pifs = Db.PIF.get_records_where ~__context
 		~expr:(And (Eq (Field "host", Literal (Ref.string_of host)),
 			Eq (Field "physical", Literal "true"))) in
@@ -256,7 +257,7 @@ let make_tables ~__context ~host =
 		device_to_mac_table =
 			List.combine
 				(devices)
-				(List.map Netdev.get_address devices);
+				(List.map (fun name -> Net.Interface.get_mac dbg ~name) devices);
 		pif_to_device_table =
 			List.map (fun (pref, prec) -> pref, prec.API.pIF_device) pifs;
 	}
@@ -407,6 +408,7 @@ let introduce ~__context ~host ~mAC ~device =
 
 	let mAC = String.lowercase mAC in (* just a convention *)
 	let t = make_tables ~__context ~host in
+	let dbg = Context.string_of_task __context in
 
 	(* Allow callers to omit the MAC address. Ideally, we should
 	 * use an option type (instead of treating the empty string
@@ -437,7 +439,7 @@ let introduce ~__context ~host ~mAC ~device =
 	info
 		"Introducing PIF: device = %s; MAC = %s"
 		device mAC;
-	let mTU = Int64.of_string (Netdev.get_mtu device) in
+	let mTU = Int64.of_int (Net.Interface.get_mtu dbg ~name:device) in
 	introduce_internal
 		~t ~__context ~host ~mAC ~device ~mTU
 		~vLAN:(-1L) ~vLAN_master_of:Ref.null ()
@@ -455,6 +457,7 @@ let forget ~__context ~self =
 
 let scan ~__context ~host =
 	let t = make_tables ~__context ~host in
+	let dbg = Context.string_of_task __context in
 
 	refresh_all ~__context ~host;
 	let devices_not_yet_represented_by_pifs =
@@ -466,7 +469,7 @@ let scan ~__context ~host =
 	List.iter
 		(fun device ->
 			let mAC = List.assoc device t.device_to_mac_table in
-			let mTU = Int64.of_string (Netdev.get_mtu device) in
+			let mTU = Int64.of_int (Net.Interface.get_mtu dbg ~name:device) in
 			let (_: API.ref_PIF) =
 				introduce_internal
 					~t ~__context ~host ~mAC ~mTU ~vLAN:(-1L)
@@ -708,15 +711,16 @@ let calculate_pifs_required_at_start_of_day ~__context =
 
 let start_of_day_best_effort_bring_up () =
 	begin
-		debug
-			"Configured network backend: %s"
-			(Netdev.string_of_kind Netdev.network.Netdev.kind);
-		(* Clear the state of the network daemon, before refreshing it by plugging
-		 * the most important PIFs (see above). *)
-		Net.clear_state ();
 		Server_helpers.exec_with_new_task
 			"Bringing up physical PIFs"
 			(fun __context ->
+				let dbg = Context.string_of_task __context in
+				debug
+					"Configured network backend: %s"
+					(Network_interface.string_of_kind (Net.Bridge.get_kind dbg ()));
+				(* Clear the state of the network daemon, before refreshing it by plugging
+				 * the most important PIFs (see above). *)
+				Net.clear_state ();
 				List.iter
 					(fun (pif, pifr) ->
 						Helpers.log_exn_continue
