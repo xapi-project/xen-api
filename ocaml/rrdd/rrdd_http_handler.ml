@@ -77,7 +77,7 @@ let get_rrd_updates_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
 	let json = List.mem_assoc "json" query in
 	let reply = get_host_stats ~json ~start ~interval ~cfopt ~is_host ?uuid () in
 	let headers = Http.http_200_ok_with_content (Int64.of_int (String.length reply))
-		~version:"1.1" ~keep_alive:false () in
+		~version:"1.1" ~keep_alive:true () in
 	let headers =
 		if json then headers else headers @ [Http.Hdr.content_type ^ ": text/xml"] in
 	let headers = headers @ [
