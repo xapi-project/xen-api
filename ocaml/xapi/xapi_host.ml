@@ -21,8 +21,7 @@ open Xapi_support
 open Db_filter_types
 open Create_misc
 open Workload_balancing
-
-module Net = (val (Network.get_client ()) : Network.CLIENT)
+open Network
 
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
@@ -1267,7 +1266,7 @@ let license_apply ~__context ~host ~contents =
 
 let refresh_pack_info ~__context ~host =
 	debug "Refreshing software_version";
-	let software_version = Create_misc.make_software_version () in
+	let software_version = Create_misc.make_software_version ~__context in
 	Db.Host.set_software_version ~__context ~self:host ~value:software_version
 
 (* Network reset *)

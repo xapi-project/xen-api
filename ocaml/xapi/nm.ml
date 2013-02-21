@@ -20,7 +20,7 @@ open Threadext
 open Fun
 open Db_filter_types
 
-module Net = (val (Network.get_client ()) : Network.CLIENT)
+open Network
 open Network_interface
 
 (* Protect a bunch of local operations with a mutex *)
@@ -487,7 +487,7 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 
 			(* sync MTU *)
 			(try
-				let mtu = Int64.of_string (Netdev.get_mtu bridge) in
+				let mtu = Int64.of_int (Net.Interface.get_mtu dbg ~name:bridge) in
 				Db.PIF.set_MTU ~__context ~self:pif ~value:mtu
 			with _ ->
 				debug "could not update MTU field on PIF %s" rc.API.pIF_uuid
