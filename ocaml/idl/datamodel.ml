@@ -345,6 +345,8 @@ let _ =
 
   error Api_errors.message_deprecated []
     ~doc:"This message has been deprecated." ();
+  error Api_errors.message_removed []
+    ~doc:"This message has been removed." ();
 
   error Api_errors.permission_denied ["message"]
     ~doc:"Caller not allowed to perform this operation." ();
