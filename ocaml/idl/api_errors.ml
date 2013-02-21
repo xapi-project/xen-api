@@ -19,6 +19,7 @@ let to_string = function
   | e -> Printexc.to_string e
 
 let message_deprecated = "MESSAGE_DEPRECATED"
+let message_removed = "MESSAGE_REMOVED"
 
 let permission_denied = "PERMISSION_DENIED"
 let internal_error = "INTERNAL_ERROR"

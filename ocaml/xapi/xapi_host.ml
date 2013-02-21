@@ -1238,27 +1238,7 @@ let apply_edition ~__context ~host ~edition =
 	end
 
 let license_apply ~__context ~host ~contents =
-	let license = Base64.decode contents in
-	let tmp = "/tmp/new_license" in
-	let fd = Unix.openfile tmp [Unix.O_WRONLY; Unix.O_CREAT] 0o644 in
-	let length = String.length license in
-	let written = Unix.write fd license 0 length in
-	Unix.close fd;
-	finally
-		(fun () ->
-			if written <> length then begin
-				debug "Short write!";
-				raise (Api_errors.Server_error(Api_errors.license_processing_error, []))
-			end;
-			let edition', features, additional = V6client.apply_edition ~__context "" ["license_file", tmp] in
-			Db.Host.set_edition ~__context ~self:host ~value:edition';
-			copy_license_to_db ~__context ~host ~features ~additional
-		)
-		(fun () ->
-			(* The language will have been moved to a standard location if it was valid, and
-			 * should be removed otherwise -> always remove the file at the tmp path, if any. *)
-			Unixext.unlink_safe tmp
-		)
+	raise (Api_errors.Server_error (Api_errors.message_removed, []))
 
 (* Supplemental packs *)
 
