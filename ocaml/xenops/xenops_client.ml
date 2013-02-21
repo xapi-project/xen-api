@@ -31,7 +31,7 @@ let http_rpc string_of_call response_of_string ~srcstr ~dststr url call =
 	E.debug "%s=>%s [label=\"%s\"];" srcstr dststr call.Rpc.name;
 	let req = string_of_call call in
 	let http_req =
-		Http.Request.make ~version:"1.1" ~frame:false ~keep_alive:false ?auth:(Http.Url.auth_of url) ~user_agent:"xenopsd" ~query:(Http.Url.get_query_params url) ~body:req Http.Post (Http.Url.get_uri url) in
+		Http.Request.make ~version:"1.1" ~frame:false ~keep_alive:true ?auth:(Http.Url.auth_of url) ~user_agent:"xenopsd" ~query:(Http.Url.get_query_params url) ~body:req Http.Post (Http.Url.get_uri url) in
 	Xmlrpc_client.with_transport (transport_of_url url)
 		(fun fd ->
 			Http_client.rpc ~use_fastpath:false fd http_req
