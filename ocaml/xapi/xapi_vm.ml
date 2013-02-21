@@ -36,21 +36,21 @@ exception InvalidOperation of string
 let assert_operation_valid = Xapi_vm_lifecycle.assert_operation_valid
 
 let update_allowed_operations ~__context ~self =
-  Helpers.log_exn_continue "updating allowed operations of VBDs/VIFs/VDIs in VM.update_allowed_operations"
-    (fun () ->
-       List.iter
-         (fun vbd ->
-            Xapi_vbd_helpers.update_allowed_operations ~__context ~self:vbd;
-            try
-              if not(Db.VBD.get_empty ~__context ~self:vbd)
-              then Xapi_vdi.update_allowed_operations ~__context ~self:(Db.VBD.get_VDI ~__context ~self:vbd)
-            with _ -> ()) (Db.VM.get_VBDs ~__context ~self);
-       List.iter
-         (fun vif ->
-            Xapi_vif_helpers.update_allowed_operations ~__context ~self:vif)
-         (Db.VM.get_VIFs ~__context ~self)
-    ) ();
-  Xapi_vm_lifecycle.update_allowed_operations ~__context ~self
+	Helpers.log_exn_continue "updating allowed operations of VBDs/VIFs/VDIs in VM.update_allowed_operations"
+		(fun () ->
+			List.iter
+				(fun vbd ->
+					Xapi_vbd_helpers.update_allowed_operations ~__context ~self:vbd;
+					try
+						if not(Db.VBD.get_empty ~__context ~self:vbd)
+						then Xapi_vdi.update_allowed_operations ~__context ~self:(Db.VBD.get_VDI ~__context ~self:vbd)
+					with _ -> ()) (Db.VM.get_VBDs ~__context ~self);
+			List.iter
+				(fun vif ->
+					Xapi_vif_helpers.update_allowed_operations ~__context ~self:vif)
+				(Db.VM.get_VIFs ~__context ~self)
+		) ();
+	Xapi_vm_lifecycle.update_allowed_operations ~__context ~self
 
 let assert_can_boot_here ~__context ~self ~host =
 	let snapshot = Db.VM.get_record ~__context ~self in
@@ -59,8 +59,8 @@ let assert_can_boot_here ~__context ~self ~host =
 	assert_can_boot_here ~__context ~self ~host ~snapshot ()
 
 let retrieve_wlb_recommendations ~__context ~vm =
-  let snapshot = Db.VM.get_record ~__context ~self:vm in
-  retrieve_wlb_recommendations ~__context ~vm ~snapshot
+	let snapshot = Db.VM.get_record ~__context ~self:vm in
+	retrieve_wlb_recommendations ~__context ~vm ~snapshot
 
 let assert_agile ~__context ~self = Helpers.vm_assert_agile ~__context ~self
 
@@ -161,29 +161,29 @@ let set_memory_limits ~__context ~self
 
 (* CA-12940: sanity check to make sure this never happens again *)
 let assert_power_state_is ~__context ~vm ~expected =
-  let actual = Db.VM.get_power_state ~__context ~self:vm in
-  if actual <> expected
-  then raise (Api_errors.Server_error(Api_errors.vm_bad_power_state,
-				      [ Ref.string_of vm;
-					Record_util.power_to_string expected;
-					Record_util.power_to_string actual ]))
+	let actual = Db.VM.get_power_state ~__context ~self:vm in
+	if actual <> expected
+	then raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [
+								Ref.string_of vm;
+								Record_util.power_to_string expected;
+								Record_util.power_to_string actual ]))
 
 (* If HA is enabled on the Pool and the VM is marked as always_run then block the action *)
 let assert_not_ha_protected ~__context ~vm =
-  let pool = Helpers.get_pool ~__context in
-  let always_run = Db.VM.get_ha_always_run ~__context ~self:vm in
-  let priority = Db.VM.get_ha_restart_priority ~__context ~self:vm in
-  if Db.Pool.get_ha_enabled ~__context ~self:pool && (Helpers.vm_should_always_run always_run priority)
-  then raise (Api_errors.Server_error(Api_errors.vm_is_protected, [ Ref.string_of vm ]))
+	let pool = Helpers.get_pool ~__context in
+	let always_run = Db.VM.get_ha_always_run ~__context ~self:vm in
+	let priority = Db.VM.get_ha_restart_priority ~__context ~self:vm in
+	if Db.Pool.get_ha_enabled ~__context ~self:pool && (Helpers.vm_should_always_run always_run priority)
+	then raise (Api_errors.Server_error(Api_errors.vm_is_protected, [ Ref.string_of vm ]))
 
 let pause ~__context ~vm =
 	Xapi_xenops.pause ~__context ~self:vm
 
 let unpause ~__context ~vm =
-  License_check.with_vm_license_check ~__context vm
-    (fun () ->
-		Xapi_xenops.unpause ~__context ~self:vm
-	)
+	License_check.with_vm_license_check ~__context vm
+		(fun () ->
+			Xapi_xenops.unpause ~__context ~self:vm
+		)
 
 let set_xenstore_data ~__context ~self ~value =
 	Xapi_xenops.set_xenstore_data ~__context ~self value
@@ -212,8 +212,8 @@ let start ~__context ~vm ~start_paused ~force =
 let assert_host_is_localhost ~__context ~host =
 	let localhost = Helpers.get_localhost ~__context in
 	if host <> localhost then
-	  let msg = "Error in message forwarding layer: host parameter was not localhost" in
-	  raise (Api_errors.Server_error (Api_errors.internal_error, [ msg ]))
+		let msg = "Error in message forwarding layer: host parameter was not localhost" in
+	raise (Api_errors.Server_error (Api_errors.internal_error, [ msg ]))
 
 let start_on  ~__context ~vm ~host ~start_paused ~force =
 	(* If we modify this to support start_on other-than-localhost,
@@ -231,7 +231,7 @@ let hard_reboot ~__context ~vm =
 
 let hard_shutdown ~__context ~vm =
 	Db.VM.set_ha_always_run ~__context ~self:vm ~value:false;
-    if Db.VM.get_power_state ~__context ~self:vm = `Suspended then begin
+	if Db.VM.get_power_state ~__context ~self:vm = `Suspended then begin
 		debug "hard_shutdown: destroying any suspend VDI";
 		let vdi = Db.VM.get_suspend_VDI ~__context ~self:vm in
 		if vdi <> Ref.null (* avoid spurious but scary messages *)
@@ -242,7 +242,7 @@ let hard_shutdown ~__context ~vm =
 		(* Whether or not that worked, forget about the VDI *)
 		Db.VM.set_suspend_VDI ~__context ~self:vm ~value:Ref.null;
 		Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted;
-    end else 
+	end else
 	Xapi_xenops.shutdown ~__context ~self:vm None
 
 let clean_reboot ~__context ~vm =
@@ -263,53 +263,53 @@ let hard_reboot_internal ~__context ~vm = assert false
 (***************************************************************************************)
 
 let power_state_reset ~__context ~vm =
-  (* CA-31428: Block if the VM is a control domain *)
-  if Db.VM.get_is_control_domain ~__context ~self:vm then begin
-    error "VM.power_state_reset vm=%s blocked because VM is a control domain" (Ref.string_of vm);
-    raise (Api_errors.Server_error(Api_errors.cannot_reset_control_domain, [ Ref.string_of vm ]));
-  end;
+	(* CA-31428: Block if the VM is a control domain *)
+	if Db.VM.get_is_control_domain ~__context ~self:vm then begin
+		error "VM.power_state_reset vm=%s blocked because VM is a control domain" (Ref.string_of vm);
+		raise (Api_errors.Server_error(Api_errors.cannot_reset_control_domain, [ Ref.string_of vm ]));
+	end;
   (* Perform sanity checks if VM is Running or Paused since we don't want to
      lose track of running domains. *)
-  let power_state = Db.VM.get_power_state ~__context ~self:vm in
-  if power_state = `Running || power_state = `Paused then begin
-    debug "VM.power_state_reset vm=%s power state is either running or paused: performing sanity checks" (Ref.string_of vm);
-    let localhost = Helpers.get_localhost ~__context in
-	let resident = Db.VM.get_resident_on ~__context ~self:vm in
-	if resident = localhost then begin
-		let open Xenops_interface in
-		let open Xenops_client in
-		let running =
-			try
-				let dbg = Context.string_of_task __context in
-				let id = Db.VM.get_uuid ~__context ~self:vm in
-				let _, s = Client.VM.stat dbg id in
-				if s.Vm.power_state = Running then begin
-					debug "VM.power_state_reset vm=%s xenopsd reports running;" (Ref.string_of vm);
-					true
-				end else begin
-					(* Delete the metadata from xenopsd *)
-					Xapi_xenops.Xenopsd_metadata.delete ~__context id;
-					false
-				end
-			with _ -> false in
-		if running then raise (Api_errors.Server_error(Api_errors.domain_exists, [ Ref.string_of vm ]))
-    end else begin
-      (* If resident on another host, check if that host is alive: if so
-	 then refuse to perform the reset, since we have delegated state management
-	 to this host and we trust it -- this call is intended for coping with
-	 host failures and backup restores, not for working around agent bugs.
-	 If the host agent software is malfunctioning, then it should be restarted
-	 (via Host.restart_agent or 'service xapi restart') *)
-      debug "VM.power_state_reset vm=%s resident_on<>localhost; checking liveness of remote host" (Ref.string_of vm);
-      if Xapi_host.is_host_alive ~__context ~host:resident then begin
-	error "VM.power_state_reset vm=%s resident_on=%s; host is alive so refusing to reset power-state"
-	  (Ref.string_of vm) (Ref.string_of resident);
-	raise (Api_errors.Server_error(Api_errors.host_is_live, [ Ref.string_of resident ]))
-      end
-    end
-  end;
+	let power_state = Db.VM.get_power_state ~__context ~self:vm in
+	if power_state = `Running || power_state = `Paused then begin
+		debug "VM.power_state_reset vm=%s power state is either running or paused: performing sanity checks" (Ref.string_of vm);
+		let localhost = Helpers.get_localhost ~__context in
+		let resident = Db.VM.get_resident_on ~__context ~self:vm in
+		if resident = localhost then begin
+			let open Xenops_interface in
+			let open Xenops_client in
+			let running =
+				try
+					let dbg = Context.string_of_task __context in
+					let id = Db.VM.get_uuid ~__context ~self:vm in
+					let _, s = Client.VM.stat dbg id in
+					if s.Vm.power_state = Running then begin
+						debug "VM.power_state_reset vm=%s xenopsd reports running;" (Ref.string_of vm);
+						true
+					end else begin
+						(* Delete the metadata from xenopsd *)
+						Xapi_xenops.Xenopsd_metadata.delete ~__context id;
+						false
+					end
+				with _ -> false in
+			if running then raise (Api_errors.Server_error(Api_errors.domain_exists, [ Ref.string_of vm ]))
+		end else begin
+			(* If resident on another host, check if that host is alive: if so
+			then refuse to perform the reset, since we have delegated state management
+			to this host and we trust it -- this call is intended for coping with
+			host failures and backup restores, not for working around agent bugs.
+			If the host agent software is malfunctioning, then it should be restarted
+			(via Host.restart_agent or 'service xapi restart') *)
+			debug "VM.power_state_reset vm=%s resident_on<>localhost; checking liveness of remote host" (Ref.string_of vm);
+			if Xapi_host.is_host_alive ~__context ~host:resident then begin
+				error "VM.power_state_reset vm=%s resident_on=%s; host is alive so refusing to reset power-state"
+					(Ref.string_of vm) (Ref.string_of resident);
+				raise (Api_errors.Server_error(Api_errors.host_is_live, [ Ref.string_of resident ]))
+			end
+		end
+	end;
 
-  Xapi_vm_lifecycle.force_state_reset ~__context ~value:`Halted ~self:vm
+	Xapi_vm_lifecycle.force_state_reset ~__context ~value:`Halted ~self:vm
 
 let suspend ~__context ~vm =
 	Db.VM.set_ha_always_run ~__context ~self:vm ~value:false;
@@ -448,13 +448,13 @@ let destroy  ~__context ~self =
    event monitoring thread on live VMs. Since clone does not deal with live VMs we ommit lock_vm. *)
 
 let clone ~__context ~vm ~new_name =
-  TaskHelper.set_cancellable ~__context;
-  (* !!! Note - please do not be tempted to put this on the "long_running_queue", even though it may be long
-     running.. XenRT relies on fast clones being parallelizable wrt other long-running ops such as
-     suspend/resume/migrate etc. *)
-  (* Now that clones are "fast", there's no need to put this operation in the "normal_vm_queue". Indeed,
-     putting it in there would mean that clones are serialized on a host-basis whereas they may be able
-     to proceed in parallel. *)
+	TaskHelper.set_cancellable ~__context;
+	(* !!! Note - please do not be tempted to put this on the "long_running_queue", even though it may be long
+	   running.. XenRT relies on fast clones being parallelizable wrt other long-running ops such as
+	   suspend/resume/migrate etc. *)
+	(* Now that clones are "fast", there's no need to put this operation in the "normal_vm_queue". Indeed,
+	   putting it in there would mean that clones are serialized on a host-basis whereas they may be able
+	   to proceed in parallel. *)
 	let new_vm = Xapi_vm_clone.clone Xapi_vm_clone.Disk_op_clone ~__context ~vm ~new_name in
 	if Db.VM.get_is_a_snapshot ~__context ~self:vm && Db.VM.get_power_state ~__context ~self:new_vm <> `Halted then
 		hard_shutdown ~__context ~vm:new_vm;
@@ -503,51 +503,52 @@ let copy ~__context ~vm ~new_name ~sr =
 	let sr = try ignore(Db.SR.get_uuid ~__context ~self:sr); Some sr with _ -> None in
 	maybe (fun sr -> debug "Copying disks to SR: %s" (Db.SR.get_uuid ~__context ~self:sr)) sr;
 	(* Second the non-iso check. It is an error to be an iso SR *)
-	maybe (fun sr -> if Db.SR.get_content_type ~__context ~self:sr = "iso"
-	       then raise (Api_errors.Server_error(Api_errors.operation_not_allowed,
-						   [ "Cannot copy a VM's disks to an ISO SR" ]))) sr;
+	maybe (fun sr ->
+		if Db.SR.get_content_type ~__context ~self:sr = "iso"
+		then raise (Api_errors.Server_error(Api_errors.operation_not_allowed,
+			[ "Cannot copy a VM's disks to an ISO SR" ]))) sr;
 	Local_work_queue.wait_in_line Local_work_queue.long_running_queue
-	  (Printf.sprintf "VM.copy %s" (Context.string_of_task __context))
-	  (fun () ->
-		let new_vm = Xapi_vm_clone.clone (Xapi_vm_clone.Disk_op_copy sr) ~__context ~vm ~new_name in
-		if Db.VM.get_is_a_snapshot ~__context ~self:vm && Db.VM.get_power_state ~__context ~self:new_vm <> `Halted then
-			hard_shutdown ~__context ~vm:new_vm;
-		new_vm
-	  )
+		(Printf.sprintf "VM.copy %s" (Context.string_of_task __context))
+		(fun () ->
+			let new_vm = Xapi_vm_clone.clone (Xapi_vm_clone.Disk_op_copy sr) ~__context ~vm ~new_name in
+			if Db.VM.get_is_a_snapshot ~__context ~self:vm && Db.VM.get_power_state ~__context ~self:new_vm <> `Halted then
+				hard_shutdown ~__context ~vm:new_vm;
+			new_vm
+		)
 
 let provision ~__context ~vm =
 	Local_work_queue.wait_in_line Local_work_queue.long_running_queue
-	  (Printf.sprintf "VM.provision %s" (Context.string_of_task __context))
-	  (fun () ->
-	(* This bit could be done in the guest: *)
-	debug "start: checking to see whether VM needs 'installing'";
-	Helpers.call_api_functions ~__context (fun rpc session_id ->
-	     set_is_a_template ~__context ~self:vm ~value:false;
-	     if Xapi_templates.needs_to_be_installed rpc session_id vm
-	     then begin
-	       TaskHelper.set_progress ~__context 0.1;
-	       debug "install: phase 1/3: creating VBDs and VDIs";
-	       let script, vbds = Xapi_templates.pre_install rpc session_id vm in
-	       (* If an error occurs after this then delete the created VDIs, VBDs... *)
-	       begin
-		 try
-		   debug "install: phase 2/3: running optional script (in domain 0)";
-		   let dom0 = Helpers.get_domain_zero __context in
-		   Xapi_templates_install.post_install_script rpc session_id __context dom0 vm (script, vbds);
-		   debug "install: phase 3/3: removing install information from VM";
-		   Xapi_templates.post_install rpc session_id vm;
-		   debug "finished install";
-		 with e ->
-		   (* On error delete the VBDs and their associated VDIs *)
-		   let vdis = List.map (fun self -> Client.VBD.get_VDI rpc session_id self) vbds in
-		   List.iter (Helpers.log_exn_continue "deleting auto-provisioned VBD"
-				 (fun self -> Client.VBD.destroy rpc session_id self)) vbds;
-		   List.iter (Helpers.log_exn_continue "deleting auto-provisioned VDI"
-				 (fun self -> Client.VDI.destroy rpc session_id self)) vdis;
-		   raise e
-	       end
-	     end)
-	  )
+		(Printf.sprintf "VM.provision %s" (Context.string_of_task __context))
+		(fun () ->
+			(* This bit could be done in the guest: *)
+			debug "start: checking to see whether VM needs 'installing'";
+			Helpers.call_api_functions ~__context (fun rpc session_id ->
+				set_is_a_template ~__context ~self:vm ~value:false;
+				if Xapi_templates.needs_to_be_installed rpc session_id vm
+				then begin
+					TaskHelper.set_progress ~__context 0.1;
+					debug "install: phase 1/3: creating VBDs and VDIs";
+					let script, vbds = Xapi_templates.pre_install rpc session_id vm in
+					(* If an error occurs after this then delete the created VDIs, VBDs... *)
+					begin
+						try
+							debug "install: phase 2/3: running optional script (in domain 0)";
+							let dom0 = Helpers.get_domain_zero __context in
+							Xapi_templates_install.post_install_script rpc session_id __context dom0 vm (script, vbds);
+							debug "install: phase 3/3: removing install information from VM";
+							Xapi_templates.post_install rpc session_id vm;
+							debug "finished install";
+						with e ->
+							(* On error delete the VBDs and their associated VDIs *)
+							let vdis = List.map (fun self -> Client.VBD.get_VDI rpc session_id self) vbds in
+							List.iter (Helpers.log_exn_continue "deleting auto-provisioned VBD"
+								(fun self -> Client.VBD.destroy rpc session_id self)) vbds;
+							List.iter (Helpers.log_exn_continue "deleting auto-provisioned VDI"
+								(fun self -> Client.VDI.destroy rpc session_id self)) vdis;
+						raise e
+					end
+				end)
+		)
 
 (** Sets the maximum number of VCPUs for a {b Halted} guest. *)
 let set_VCPUs_max ~__context ~self ~value =
@@ -690,13 +691,13 @@ let set_memory_dynamic_range ~__context ~self ~min ~max =
 	then Xapi_xenops.set_memory_dynamic_range ~__context ~self min max
 
 let send_sysrq ~__context ~vm ~key =
-  raise (Api_errors.Server_error (Api_errors.not_implemented, [ "send_sysrq" ]))
+	raise (Api_errors.Server_error (Api_errors.not_implemented, [ "send_sysrq" ]))
 
 let send_trigger ~__context ~vm ~trigger =
-  raise (Api_errors.Server_error (Api_errors.not_implemented, [ "send_trigger" ]))
+	raise (Api_errors.Server_error (Api_errors.not_implemented, [ "send_trigger" ]))
 
 let get_boot_record ~__context ~self =
-  Helpers.get_boot_record ~__context ~self
+	Helpers.get_boot_record ~__context ~self
 
 let get_data_sources ~__context ~self =
 	List.map Data_source.to_API_data_source (Rrdd.query_possible_vm_dss ~vm_uuid:(Db.VM.get_uuid ~__context ~self))
@@ -711,8 +712,8 @@ let query_data_source ~__context ~self ~data_source = Rrdd.query_vm_ds ~vm_uuid:
 let forget_data_source_archives ~__context ~self ~data_source = Rrdd.forget_vm_ds ~vm_uuid:(Db.VM.get_uuid ~__context ~self) ~ds_name:data_source
 
 let get_possible_hosts ~__context ~vm =
-  let snapshot = Db.VM.get_record ~__context ~self:vm in
-  get_possible_hosts_for_vm ~__context ~vm ~snapshot
+	let snapshot = Db.VM.get_record ~__context ~self:vm in
+	get_possible_hosts_for_vm ~__context ~vm ~snapshot
 
 let get_allowed_VBD_devices ~__context ~vm = List.map (fun d -> string_of_int (Device_number.to_disk_number d)) (allowed_VBD_devices ~__context ~vm)
 let get_allowed_VIF_devices = allowed_VIF_devices
@@ -733,21 +734,21 @@ let reserve_vbds_and_vifs ~__context ~vm f =
 
 (* Undocumented Rio message, deprecated in favour of standard VM.clone *)
 let csvm ~__context ~vm =
-  Xapi_vm_clone.clone ~__context  Xapi_vm_clone.Disk_op_clone ~vm
-    ~new_name:(Db.VM.get_name_label ~__context ~self:vm ^ "-cloned-suspended")
+	Xapi_vm_clone.clone ~__context  Xapi_vm_clone.Disk_op_clone ~vm
+		~new_name:(Db.VM.get_name_label ~__context ~self:vm ^ "-cloned-suspended")
 
 (* XXX: NOT IN RIO *)
 (** Return the largest possible static-max setting which will fit in a given amount of
     free physical memory. If 'approximate' is true then we return a more conservative value
     which allows for the number of vCPUs to be changed (for example).
     NB function is related to Vmops.check_enough_memory.
- *)
+*)
 let maximise_memory ~__context ~self ~total ~approximate =
 	let r = Db.VM.get_record ~__context ~self in
 	let r = { r with API.vM_VCPUs_max = if approximate then 64L else r.API.vM_VCPUs_max } in
 
 	(* Need to find the maximum input value to this function so that it still evaluates
-       to true *)
+	   to true *)
 	let will_fit static_max =
 		let r = { r with API.vM_memory_static_max = static_max } in
 		let normal, shadow = Memory_check.vm_compute_start_memory ~__context ~policy:Memory_check.Static_max r in
@@ -755,7 +756,7 @@ let maximise_memory ~__context ~self ~total ~approximate =
 
 	let max = Helpers.bisect will_fit 0L total in
 	(* Round down to the nearest MiB boundary... there's a slight mismatch between the
-       boot_free_mem - sum(static_max) value and the results of querying the free pages in Xen.*)
+	   boot_free_mem - sum(static_max) value and the results of querying the free pages in Xen.*)
 	Int64.(mul (mul (div (div max 1024L) 1024L) 1024L) 1024L)
 
 (* In the master's forwarding layer with the global forwarding lock *)
@@ -763,9 +764,9 @@ let atomic_set_resident_on ~__context ~vm ~host = assert false
 let update_snapshot_metadata ~__context ~vm ~snapshot_of ~snapshot_time = assert false
 
 let create_new_blob ~__context ~vm ~name ~mime_type ~public =
-  let blob = Xapi_blob.create ~__context ~mime_type ~public in
-  Db.VM.add_to_blobs ~__context ~self:vm ~key:name ~value:blob;
-  blob
+	let blob = Xapi_blob.create ~__context ~mime_type ~public in
+	Db.VM.add_to_blobs ~__context ~self:vm ~key:name ~value:blob;
+	blob
 
 let s3_suspend ~__context ~vm = Xapi_xenops.s3suspend ~__context ~self:vm
 
@@ -819,8 +820,7 @@ let set_suspend_VDI ~__context ~self ~value =
 	let vm_state =  Db.VM.get_power_state ~__context ~self in
 	if vm_state <> `Suspended then
 		raise (Api_errors.Server_error(Api_errors.vm_bad_power_state,
-		                               [Ref.string_of self; "suspended";
-		                                Record_util.power_to_string vm_state]));
+			[Ref.string_of self; "suspended"; Record_util.power_to_string vm_state]));
 	let src_vdi = Db.VM.get_suspend_VDI ~__context ~self in
 	let dst_vdi = value in
 	if src_vdi <> dst_vdi then
@@ -864,9 +864,9 @@ let set_suspend_VDI ~__context ~self ~value =
 		else
 			raise
 				(Api_errors.Server_error
-					 (Api_errors.suspend_vdi_replacement_is_not_identical,
-					  [(Db.VDI.get_uuid ~__context ~self:src_vdi ^ " : " ^ src_checksum);
-					   (Db.VDI.get_uuid ~__context ~self:dst_vdi ^ " : " ^ dst_checksum)]))
+					(Api_errors.suspend_vdi_replacement_is_not_identical,
+						[(Db.VDI.get_uuid ~__context ~self:src_vdi ^ " : " ^ src_checksum);
+							(Db.VDI.get_uuid ~__context ~self:dst_vdi ^ " : " ^ dst_checksum)]))
 
 let set_appliance ~__context ~self ~value =
 	if
