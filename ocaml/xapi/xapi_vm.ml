@@ -517,38 +517,34 @@ let copy ~__context ~vm ~new_name ~sr =
 		)
 
 let provision ~__context ~vm =
-	Local_work_queue.wait_in_line Local_work_queue.long_running_queue
-		(Printf.sprintf "VM.provision %s" (Context.string_of_task __context))
-		(fun () ->
-			(* This bit could be done in the guest: *)
-			debug "start: checking to see whether VM needs 'installing'";
-			Helpers.call_api_functions ~__context (fun rpc session_id ->
-				set_is_a_template ~__context ~self:vm ~value:false;
-				if Xapi_templates.needs_to_be_installed rpc session_id vm
-				then begin
-					TaskHelper.set_progress ~__context 0.1;
-					debug "install: phase 1/3: creating VBDs and VDIs";
-					let script, vbds = Xapi_templates.pre_install rpc session_id vm in
-					(* If an error occurs after this then delete the created VDIs, VBDs... *)
-					begin
-						try
-							debug "install: phase 2/3: running optional script (in domain 0)";
-							let dom0 = Helpers.get_domain_zero __context in
-							Xapi_templates_install.post_install_script rpc session_id __context dom0 vm (script, vbds);
-							debug "install: phase 3/3: removing install information from VM";
-							Xapi_templates.post_install rpc session_id vm;
-							debug "finished install";
-						with e ->
-							(* On error delete the VBDs and their associated VDIs *)
-							let vdis = List.map (fun self -> Client.VBD.get_VDI rpc session_id self) vbds in
-							List.iter (Helpers.log_exn_continue "deleting auto-provisioned VBD"
-								(fun self -> Client.VBD.destroy rpc session_id self)) vbds;
-							List.iter (Helpers.log_exn_continue "deleting auto-provisioned VDI"
-								(fun self -> Client.VDI.destroy rpc session_id self)) vdis;
-						raise e
-					end
-				end)
-		)
+	(* This bit could be done in the guest: *)
+	debug "start: checking to see whether VM needs 'installing'";
+	Helpers.call_api_functions ~__context (fun rpc session_id ->
+		set_is_a_template ~__context ~self:vm ~value:false;
+		if Xapi_templates.needs_to_be_installed rpc session_id vm
+		then begin
+			TaskHelper.set_progress ~__context 0.1;
+			debug "install: phase 1/3: creating VBDs and VDIs";
+			let script, vbds = Xapi_templates.pre_install rpc session_id vm in
+			(* If an error occurs after this then delete the created VDIs, VBDs... *)
+			begin
+				try
+					debug "install: phase 2/3: running optional script (in domain 0)";
+					let dom0 = Helpers.get_domain_zero __context in
+					Xapi_templates_install.post_install_script rpc session_id __context dom0 vm (script, vbds);
+					debug "install: phase 3/3: removing install information from VM";
+					Xapi_templates.post_install rpc session_id vm;
+					debug "finished install";
+				with e ->
+					(* On error delete the VBDs and their associated VDIs *)
+					let vdis = List.map (fun self -> Client.VBD.get_VDI rpc session_id self) vbds in
+					List.iter (Helpers.log_exn_continue "deleting auto-provisioned VBD"
+						(fun self -> Client.VBD.destroy rpc session_id self)) vbds;
+					List.iter (Helpers.log_exn_continue "deleting auto-provisioned VDI"
+						(fun self -> Client.VDI.destroy rpc session_id self)) vdis;
+				raise e
+			end
+		end)
 
 (** Sets the maximum number of VCPUs for a {b Halted} guest. *)
 let set_VCPUs_max ~__context ~self ~value =
