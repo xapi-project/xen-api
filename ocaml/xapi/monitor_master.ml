@@ -17,6 +17,7 @@ open Listext
 open Threadext
 open Monitor_types
 open Db_filter_types
+open Network
 
 module D = Debug.Debugger(struct let name = "monitor_master" end)
 open D
@@ -233,13 +234,12 @@ let update_pifs ~__context host pifs =
 					in
 					let bridges = List.map (fun network -> Db.Network.get_bridge ~__context ~self:network)
 						(network :: vlan_networks @ tunnel_networks) in
-					let n = Netdev.network in
-					let ifs = List.flatten (List.map (fun bridge -> n.Netdev.intf_list bridge) bridges) in
+					let dbg = Context.string_of_task __context in
+					let ifs = List.flatten (List.map (fun bridge -> Net.Bridge.get_interfaces dbg ~name:bridge) bridges) in
 					let open Vif_device in
 					let set_carrier vif =
 						if vif.pv then (
 							let open Xenops_client in
-							let dbg = Context.string_of_task __context in
 							Client.VIF.set_carrier dbg vif.vif carrier |> Xapi_xenops.sync __context
 						)
 					in List.iter set_carrier (List.filter_map vif_device_of_string ifs)

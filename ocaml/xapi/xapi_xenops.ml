@@ -15,7 +15,7 @@
 module D=Debug.Debugger(struct let name="xenops" end)
 open D
 
-module Net = (val (Network.get_client ()) : Network.CLIENT)
+open Network
 
 open Stringext
 open Listext
