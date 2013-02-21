@@ -1151,8 +1151,15 @@ let destroy_sr ~__context ~sr =
 			Client.SR.attach dbg (Db.SR.get_uuid ~__context ~self:sr) pbd_t.API.pBD_device_config;
 			(* The current backends expect the PBD to be temporarily set to currently_attached = true *)
 			Db.PBD.set_currently_attached ~__context ~self:pbd ~value:true;
-			Pervasiveext.finally (fun () ->
-				Client.SR.destroy dbg (Db.SR.get_uuid ~__context ~self:sr))
+			Pervasiveext.finally
+				(fun () ->
+					try
+						Client.SR.destroy dbg (Db.SR.get_uuid ~__context ~self:sr)
+					with exn ->
+						(* Clean up: SR is left attached if destroy fails *)
+						Client.SR.detach dbg (Db.SR.get_uuid ~__context ~self:sr);
+						raise exn
+				)
 				(fun () -> 
 					(* All PBDs are clearly currently_attached = false now *)
 					Db.PBD.set_currently_attached ~__context ~self:pbd ~value:false);
