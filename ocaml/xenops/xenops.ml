@@ -206,8 +206,8 @@ let device_state_to_sl ds =
 	[ int ds.device.backend.domid; ds.backend_proto; ds.backend_device; ds.backend_state; "->"; ds.frontend_state; ds.frontend_type; ds.frontend_device; int ds.device.frontend.domid; ]
 
 let stat ~xs d =
-	let frontend_state = try xs.Xs.read (sprintf "%s/state" (frontend_path_of_device ~xs d)) with Xenbus.Xb.Noent -> "??" in
-	let backend_state = try xs.Xs.read (sprintf "%s/state" (backend_path_of_device ~xs d)) with Xenbus.Xb.Noent -> "??" in
+	let frontend_state = try xs.Xs.read (sprintf "%s/state" (frontend_path_of_device ~xs d)) with Xs_protocol.Enoent _ -> "??" in
+	let backend_state = try xs.Xs.read (sprintf "%s/state" (backend_path_of_device ~xs d)) with Xs_protocol.Enoent _ -> "??" in
 	(* The params string can be very long, truncate to a more reasonable width *)
 	let truncate params =
 		let limit = 10 in
@@ -231,9 +231,9 @@ let stat ~xs d =
 		| Vbd | Tap ->
 			let be = backend_path_of_device ~xs d in
 			(try xs.Xs.read (sprintf "%s/physical-device" be)
-			with Xenbus.Xb.Noent ->
+			with Xs_protocol.Enoent _ ->
 				(try truncate (xs.Xs.read (sprintf "%s/params" be))
-				with Xenbus.Xb.Noent -> "??"))
+				with Xs_protocol.Enoent _ -> "??"))
 		| Vif -> "-"
 		| _ -> string_of_int d.backend.devid in
 	let frontend_device = match d.frontend.kind with

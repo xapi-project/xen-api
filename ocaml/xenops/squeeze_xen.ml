@@ -223,14 +223,14 @@ module Domain = struct
 				  else begin
 					  let x =
 						  try Some (xs.Xs.read (per_domain.path ^ key))
-						  with Xenbus.Xb.Noent -> None in
+						  with Xs_protocol.Enoent _ -> None in
 					  Hashtbl.replace per_domain.keys key x;
 					  x
 				  end) in
 	match x with
 	| Some y -> y
 	| None ->
-		  raise Xenbus.Xb.Noent
+		  raise Xs_protocol.Enoent key
 
   (** Write a new (key, value) pair into a domain's directory in xenstore. Don't write anything
 	  if the domain's directory doesn't exist. Don't throw exceptions. *)
@@ -252,7 +252,7 @@ module Domain = struct
 				error "xenstore-write %d %s = %s failed: %s" domid key value (Printexc.to_string e)
 		end
   (** Returns true if the key exists, false otherwise *)
-  let exists (xc, xs) domid key = try ignore(read (xc, xs) domid key); true with Xenbus.Xb.Noent -> false
+  let exists (xc, xs) domid key = try ignore(read (xc, xs) domid key); true with Xs_protocol.Enoent _ -> false
   (** Delete the key. Don't throw exceptions. *)
   let rm_noexn (xc, xs) domid key = 
 	match get_per_domain (xc, xs) domid with
@@ -268,7 +268,7 @@ module Domain = struct
   let set_target_noexn cnx domid target_kib = 
 	write_noexn cnx domid _target (Int64.to_string target_kib)
 
-  (** Get a domain's memory target. Throws Xenbus.Xb.Noent if the domain has been destroyed *)
+  (** Get a domain's memory target. Throws Xs_protocol.Enoent _ if the domain has been destroyed *)
   let get_target cnx domid = 
 	Int64.of_string (read cnx domid _target)
 
@@ -278,14 +278,14 @@ module Domain = struct
 	then write_noexn cnx domid _uncooperative ""
 	else rm_noexn cnx domid _uncooperative
 
-  (** Query a domain's uncooperative status. Throws Xenbus.Xb.Noent if the domain has been destroyed *)
+  (** Query a domain's uncooperative status. Throws Xs_protocol.Enoent _ if the domain has been destroyed *)
   let get_uncooperative_noexn cnx domid = exists cnx domid _uncooperative
 
   (** Set a domain's memory-offset. Don't throw an exception if the domain has been destroyed *)
   let set_memory_offset_noexn cnx domid offset_kib =
 	write_noexn cnx domid _memory_offset (Int64.to_string offset_kib)
 
-  (** Query a domain's memory-offset. Throws Xenbus.Xb.Noent if the domain has been destroyed *)
+  (** Query a domain's memory-offset. Throws Xs_protocol.Enoent _ if the domain has been destroyed *)
   let get_memory_offset cnx domid =
 	Int64.of_string (read cnx domid _memory_offset)
 
@@ -295,20 +295,20 @@ module Domain = struct
 	set_maxmem_noexn cnx domid maxmem_kib
 
   (** Return true if feature_balloon has been advertised *)
-  let get_feature_balloon cnx domid = try ignore(read cnx domid _feature_balloon); true with Xenbus.Xb.Noent -> false
+  let get_feature_balloon cnx domid = try ignore(read cnx domid _feature_balloon); true with Xs_protocol.Enoent _ -> false
 
   (** Return true if the guest agent has been advertised *)
-  let get_guest_agent cnx domid = try ignore(read cnx domid _data_updated); true with Xenbus.Xb.Noent -> false
+  let get_guest_agent cnx domid = try ignore(read cnx domid _data_updated); true with Xs_protocol.Enoent _ -> false
 
-  (** Query a domain's initial reservation. Throws Xenbus.Xb.Noent if the domain has been destroyed *)
+  (** Query a domain's initial reservation. Throws Xs_protocol.Enoent _ if the domain has been destroyed *)
   let get_initial_reservation cnx domid = 
 	Int64.of_string (read cnx domid _initial_reservation)
 
-  (** Query a domain's dynamic_min. Throws Xenbus.Xb.Noent if the domain has been destroyed *)
+  (** Query a domain's dynamic_min. Throws Xs_protocol.Enoent _ if the domain has been destroyed *)
   let get_dynamic_min cnx domid = 
 	Int64.of_string (read cnx domid _dynamic_min)
 
-  (** Query a domain's dynamic_max. Throws Xenbus.Xb.Noent if the domain has been destroyed *)
+  (** Query a domain's dynamic_max. Throws Xs_protocol.Enoent _ if the domain has been destroyed *)
   let get_dynamic_max cnx domid = 
 	Int64.of_string (read cnx domid _dynamic_max)
 end
@@ -408,7 +408,7 @@ let make_host ~verbose ~xc ~xs =
 					  else begin
 					    try
 					      Domain.get_memory_offset cnx di.domid
-					    with Xenbus.Xb.Noent ->
+					    with Xs_protocol.Enoent _ ->
 							(* Our memory_actual_kib value was sampled before reading xenstore which means there is a slight race.
 							   The race is probably only noticable in the hypercall simulator. However we can fix it by resampling
 							   memory_actual *after* noticing the feature-balloon flag. *)
@@ -476,7 +476,7 @@ let make_host ~verbose ~xc ~xs =
 						  } ]
 					end
 				with
-				| Xenbus.Xb.Noent ->
+				| Xs_protocol.Enoent _ ->
 				    (* useful debug message is printed by the Domain.read* functions *)
 				    []
 				|  e ->
