@@ -148,10 +148,10 @@ module Domain = struct
 			look_for_different_domains ();
 
 			while true do
-				let path, _ =
-					if Xs.has_watchevents xs
+				let path, _ = "",() (*
+					if false Xs.has_watchevents xs
 					then Xs.get_watchevent xs
-					else Xs.read_watchevent xs in
+					else Xs.read_watchevent xs*) in
 				if path = _introduceDomain || path = _releaseDomain
 				then look_for_different_domains ()
 				else match List.filter (fun x -> x <> "") (String.split '/' path) with
