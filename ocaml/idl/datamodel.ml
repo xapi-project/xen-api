@@ -2533,7 +2533,7 @@ let host_get_management_interface = call
   ~name:"get_management_interface"
   ~doc:"Returns the management interface for the specified host"
   ~params:[Ref _host, "host", "Which host's management interface is required"]
-  ~result:(Ref _pif, "The managment interface for the host")
+  ~result:(Ref _pif, "The management interface for the host")
   ~allowed_roles:_R_POOL_OP
   ()
 
