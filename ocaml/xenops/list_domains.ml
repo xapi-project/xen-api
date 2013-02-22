@@ -22,7 +22,7 @@ let all_the_rest = ref false
 
 let xc_handle = Xenctrl.interface_open() 
 
-let hashtbl_of_domaininfo (x : Xenctrl.Domain_info.t) : (string, string) Hashtbl.t =
+let hashtbl_of_domaininfo x : (string, string) Hashtbl.t =
   let table = Hashtbl.create 10 in
 
   let pages_to_string_bytes    x = Int64.to_string (Memory.bytes_of_pages    (Int64.of_nativeint (x))) in
@@ -30,7 +30,7 @@ let hashtbl_of_domaininfo (x : Xenctrl.Domain_info.t) : (string, string) Hashtbl
   let pages_to_string_pages    x = Int64.to_string (                         (Int64.of_nativeint (x))) in
 
   let int = string_of_int and int64 = Int64.to_string and int32 = Int32.to_string in
-  let open Xenctrl.Domain_info in
+  let open Xenctrl in
   Hashtbl.add table "id" (int x.domid);
   let state = let bool ch = function true -> ch | _ -> " " in
   (bool "D" x.dying) ^ (bool "S" x.shutdown) ^

@@ -111,13 +111,13 @@ let domarch_of_string = function
 	| _     -> Arch_native
 
 let get_uuid ~xc domid =
-	Uuid.uuid_of_int_array (Xenctrl.domain_getinfo xc domid).Xenctrl.Domain_info.handle
+	Uuid.uuid_of_int_array (Xenctrl.domain_getinfo xc domid).Xenctrl.handle
 
 let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds=64) required_memory_kib : bool =
 	let open Memory in
 	let rec wait accumulated_wait_time_seconds =
 		let host_info = Xenctrl.physinfo xc in
-		let open Xenctrl.Phys_info in
+		let open Xenctrl in
 		let free_memory_kib =
 			kib_of_pages (Int64.of_nativeint host_info.free_pages) in
 		let scrub_memory_kib =
@@ -304,8 +304,8 @@ let shutdown ~xc ~xs domid req =
 let shutdown_wait_for_ack (t: Xenops_task.t) ?(timeout=60.) ~xc ~xs domid req =
 	let di = Xenctrl.domain_getinfo xc domid in
 	let uuid = get_uuid ~xc domid in
-	if di.Xenctrl.Domain_info.hvm_guest then begin
-		if not (Xenctrl.hvm_check_pvdriver xc domid)
+	if di.Xenctrl.hvm_guest then begin
+		if not true (* - assume we've got drivers! (Xenctrl.hvm_check_pvdriver xc domid)*)
 		then begin
 			debug "VM = %s; domid = %d; HVM guest without PV drivers: not expecting any acknowledgement" (Uuid.to_string uuid) domid;
 			Xenctrl.domain_shutdown xc domid (shutdown_to_xc_shutdown req)

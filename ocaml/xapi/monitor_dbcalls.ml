@@ -73,8 +73,8 @@ let get_host_memory_changes xc =
 		let kib = Xenctrl.pages_to_kib (Int64.of_nativeint pages) in
 		Int64.shift_left kib 10
 	in
-	let free_bytes = bytes_of_pages physinfo.Xenctrl.Phys_info.free_pages in
-	let total_bytes = bytes_of_pages physinfo.Xenctrl.Phys_info.total_pages in
+	let free_bytes = bytes_of_pages physinfo.Xenctrl.free_pages in
+	let total_bytes = bytes_of_pages physinfo.Xenctrl.total_pages in
 	Mutex.execute host_memory_m (fun _ ->
 		let host_memory_changed =
 			!host_memory_free_cached <> free_bytes ||
@@ -88,7 +88,7 @@ let get_host_memory_changes xc =
 let get_vm_memory_changes xc =
 	let domains = Xenctrl.domain_getinfolist xc 0 in
 	let process_vm dom =
-		let open Xenctrl.Domain_info in
+		let open Xenctrl in
 		if not dom.dying then
 			begin
 				let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.handle) in

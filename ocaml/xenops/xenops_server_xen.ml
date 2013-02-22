@@ -137,7 +137,7 @@ let safe_rm xs path =
 let this_domid ~xs = int_of_string (xs.Xs.read "domid")
 
 let uuid_of_vm vm = Uuid.uuid_of_string vm.Vm.id
-let uuid_of_di di = Uuid.uuid_of_int_array di.Xenctrl.Domain_info.handle
+let uuid_of_di di = Uuid.uuid_of_int_array di.Xenctrl.handle
 
 (* During a live migrate, there will be multiple domains with the same uuid.
    The convention is: we construct things on the newest domain (e.g. VBD.plug)
@@ -150,7 +150,7 @@ type domain_selection =
 	| Expect_only_one
 
 let di_of_uuid ~xc ~xs domain_selection uuid =
-	let open Xenctrl.Domain_info in
+	let open Xenctrl in
 	let uuid' = Uuid.string_of_uuid uuid in
 	let all = Xenctrl.domain_getinfolist xc 0 in
 	let possible = List.filter (fun x -> uuid_of_di x = uuid) all in
@@ -535,7 +535,7 @@ module HOST = struct
 		with_xc_and_xs
 			(fun xc xs ->
 				let pages_per_mib = 256L in
-				Int64.(div ((Xenctrl.physinfo xc).Xenctrl.Phys_info.total_pages |> of_nativeint) pages_per_mib)
+				Int64.(div ((Xenctrl.physinfo xc).Xenctrl.total_pages |> of_nativeint) pages_per_mib)
 			)
 	let send_debug_keys keys =
 		with_xc_and_xs
@@ -753,7 +753,7 @@ module VM = struct
 		with Does_not_exist("domain", _) ->
 			debug "Domain for VM %s does not exist: ignoring" vm.Vm.id
 
-	open Xenctrl.Domain_info
+	open Xenctrl
 
 	let add vm =
 		with_xc_and_xs
@@ -1219,9 +1219,9 @@ module VM = struct
 					(fun fd ->
 						Domain.suspend task ~xc ~xs ~hvm ~progress_callback ~qemu_domid (choose_xenguest vm.Vm.platformdata) domid fd flags'
 							(fun () ->
-								if not(request_shutdown task vm Suspend 30.)
+								if not(request_shutdown task vm Xenops_server_plugin.Suspend 30.)
 								then raise (Failed_to_acknowledge_shutdown_request);
-								if not(wait_shutdown task vm Suspend 1200.)
+								if not(wait_shutdown task vm Xenops_server_plugin.Suspend 1200.)
 								then raise (Failed_to_shutdown(vm.Vm.id, 1200.));
 							);
 						(* Record the final memory usage of the domain so we know how
@@ -1393,7 +1393,7 @@ module VM = struct
 								| None -> 0.
 							end;
 							shadow_multiplier_target = shadow_multiplier_target;
-							hvm = di.Xenctrl.Domain_info.hvm_guest;
+							hvm = di.Xenctrl.hvm_guest;
 						}
 			)
 
@@ -1460,7 +1460,7 @@ let on_frontend f domain_selection frontend =
 			let frontend_di = match frontend |> Uuid.uuid_of_string |> di_of_uuid ~xc ~xs domain_selection with
 				| None -> raise (Does_not_exist ("domain", frontend))
 				| Some x -> x in
-			let open Xenctrl.Domain_info in
+			let open Xenctrl in
 			f xc xs frontend_di.domid frontend_di.hvm_guest
 		)
 
@@ -1653,7 +1653,7 @@ module VBD = struct
 				end
 			) Newest vm
 
-	open Xenctrl.Domain_info
+	open Xenctrl
 
 	let unplug task vm vbd force =
 		let vm_t = DB.read vm in
@@ -2038,7 +2038,7 @@ module VIF = struct
                 ignore (run (Filename.concat Fhs.libexecdir "setup-vif-rules") ["vif"; domid; devid; "filter"]);
                 (* Update rules for the tap device if the VM has booted HVM with no PV drivers. *)
 				let di = Xenctrl.domain_getinfo xc device.frontend.domid in
-				if di.Xenctrl.Domain_info.hvm_guest
+				if di.Xenctrl.hvm_guest
 				then ignore (run (Filename.concat Fhs.libexecdir "setup-vif-rules") ["tap"; domid; devid; "filter"])
 			)
 
@@ -2105,7 +2105,7 @@ module IntSet = Set.Make(struct type t = int let compare = compare end)
 
 let list_domains xc =
 	let dis = Xenctrl.domain_getinfolist xc 0 in
-	let ids = List.map (fun x -> x.Xenctrl.Domain_info.domid) dis in
+	let ids = List.map (fun x -> x.Xenctrl.domid) dis in
 	List.fold_left (fun map (k, v) -> IntMap.add k v map) IntMap.empty (List.combine ids dis)
 
 
@@ -2114,7 +2114,7 @@ let domain_looks_different a b = match a, b with
 	| Some _, None -> true
 	| None, None -> false
 	| Some a', Some b' ->
-		let open Xenctrl.Domain_info in
+		let open Xenctrl in
 		a'.shutdown <> b'.shutdown
 		|| (a'.shutdown && b'.shutdown && (a'.shutdown_code <> b'.shutdown_code))
 
@@ -2211,7 +2211,7 @@ let watch_xenstore () =
 				let different = list_different_domains !domains domains' in
 				List.iter
 					(fun domid ->
-						let open Xenctrl.Domain_info in
+						let open Xenctrl in
 						debug "Domain %d may have changed state" domid;
 						(* The uuid is either in the new domains map or the old map. *)
 						let di = IntMap.find domid (if IntMap.mem domid domains' then domains' else !domains) in
@@ -2256,7 +2256,7 @@ let watch_xenstore () =
 			xs.Xs.watch _releaseDomain "";
 			look_for_different_domains ();
 
-			let open Xenctrl.Domain_info in
+			let open Xenctrl in
 
 			let fire_event_on_vm domid =
 				let d = int_of_string domid in
@@ -2343,7 +2343,7 @@ let init () =
 	()
 
 module DEBUG = struct
-	open Xenctrl.Domain_info
+	open Xenctrl
 
 	let trigger cmd args = match cmd, args with
 		| "reboot", [ k ] ->

@@ -429,7 +429,7 @@ let vif_of_devid ~__context ~vm devid =
 let domid_of_vm ~__context ~self =
   let uuid = Uuid.uuid_of_string (Db.VM.get_uuid ~__context ~self) in
   let all = Xenctrl.with_intf (fun xc -> Xenctrl.domain_getinfolist xc 0) in
-  let open Xenctrl.Domain_info in
+  let open Xenctrl in
   let uuid_to_domid = List.map (fun di -> Uuid.uuid_of_int_array di.handle, di.domid) all in
   if List.mem_assoc uuid uuid_to_domid
   then List.assoc uuid uuid_to_domid

@@ -274,7 +274,7 @@ let update_use_min_max _ ~(value : bool) () : unit =
 	use_min_max := value
 
 let string_of_domain_handle dh =
-	Uuid.string_of_uuid (Uuid.uuid_of_int_array dh.Xenctrl.Domain_info.handle)
+	Uuid.string_of_uuid (Uuid.uuid_of_int_array dh.Xenctrl.handle)
 
 let update_vm_memory_target _ ~(domid : int) ~(target : int64) : unit =
 	Mutex.execute memory_targets_m
