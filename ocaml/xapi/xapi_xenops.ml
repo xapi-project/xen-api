@@ -1572,7 +1572,7 @@ let events_from_xapi () =
 										XenAPI.Session.logout ~rpc ~session_id
 									with
 										| Api_errors.Server_error(code, _) when code = Api_errors.session_invalid ->
-											debug "Event thead has already woken up"
+											debug "Event thread has already woken up"
 										| e ->
 											error "Waking up the xapi event thread: %s" (string_of_exn e)
 								);
