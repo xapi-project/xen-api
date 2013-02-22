@@ -711,7 +711,7 @@ let _ =
     ~doc:"There was an error connecting to the host while joining it in the pool." ();
   error Api_errors.pool_joining_host_service_failed []
     ~doc:"There was an error connecting to the host. the service contacted didn't reply properly." ();
-  error Api_errors.pool_joining_host_must_have_physical_managment_nic []
+  error Api_errors.pool_joining_host_must_have_physical_management_nic []
     ~doc:"The host joining the pool must have a physical management NIC (i.e. the management NIC must not be on a VLAN or bonded PIF)." ();
   error Api_errors.pool_joining_external_auth_mismatch []
     ~doc:"Cannot join pool whose external authentication configuration is different." ();

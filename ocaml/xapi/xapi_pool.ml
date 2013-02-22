@@ -196,7 +196,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 		)) in
 		if pifs <> [] then begin
 			error "The current host has a management interface which is not physical: cannot join a new pool";
-			raise (Api_errors.Server_error(Api_errors.pool_joining_host_must_have_physical_managment_nic, []));
+			raise (Api_errors.Server_error(Api_errors.pool_joining_host_must_have_physical_management_nic, []));
 		end in
 
 	(* Used to tell XCP and XenServer apart - use PRODUCT_BRAND if present, else use PLATFORM_NAME. *)
