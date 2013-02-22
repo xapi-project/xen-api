@@ -582,7 +582,7 @@ let on_enable config_params =
 				disabled_modules)
 	in
 	
-	(* we need to make sure that the user passed to domaijoin-cli command is in the UPN syntax (user@domain.com) *)
+	(* we need to make sure that the user passed to domainjoin-cli command is in the UPN syntax (user@domain.com) *)
 	let user = convert_nt_to_upn_username _user in
 	
 	(* execute the likewise domain join cmd *)
