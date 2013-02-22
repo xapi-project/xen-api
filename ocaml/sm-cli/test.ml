@@ -74,7 +74,7 @@ let write_char fd c start len =
 	Printf.printf "write_char: %c sector:%Ld nsectors:%d\n%!" c start len;
 	if len*512 > Sys.max_string_length then failwith "len too large";
 	let s = String.make (len*512) c in
-	ignore(Nbd.write fd (Int64.mul 512L start) s 0 (String.length s))
+	ignore(Nbd_unix.write fd (Int64.mul 512L start) s 0 (String.length s))
 		
 let write_junk fd size n current_junk =
 	let maxsize = (1024*2) (*Sys.max_string_length*) in
@@ -96,7 +96,7 @@ let check_junk fd junk =
             | (extentlist,c)::rest ->
                 List.iter (fun (start,len64) ->
                     let len = 512 * (Int64.to_int len64) in
-                    let s = match Nbd.read fd (Int64.mul start 512L) (Int32.of_int len) with Some s -> s | None -> failwith "Failed to read" in
+                    let s = match Nbd_unix.read fd (Int64.mul start 512L) (Int32.of_int len) with Some s -> s | None -> failwith "Failed to read" in
                     let check = String.make len c in
 					Printf.printf "Checking %d at sector offset %Ld, size %Ld sectors\n" (Char.code c) start len64;
                     if String.compare s check <> 0 then raise Bad_junk)
@@ -211,7 +211,7 @@ let test_attach_activate url sr _ =
 	let _ = SMClient.VDI.attach ~dbg ~sr ~dp ~vdi:vdi_info.vdi ~read_write:true in
 	SMClient.VDI.activate ~dbg ~sr ~dp ~vdi:vdi_info.vdi;
 	do_nbd url sr vdi_info.vdi dp (fun s ->
-		let (size,_) = Nbd.negotiate s in
+		let (size,_) = Nbd_unix.negotiate s in
 		Printf.printf "size=%Ld\n" size;
 		let secsize = Int64.div size 512L in
 		let junk = write_junk s secsize 10 [(Int64extentlist.of_list [(0L,secsize)],Char.chr 0)] in
@@ -234,7 +234,7 @@ let test_mirror_1 url sr rurl rsr _ =
 	ignore(SMClient.VDI.attach ~dbg ~sr ~dp ~vdi:vdi_info.vdi ~read_write:true);
 	SMClient.VDI.activate ~dbg ~sr ~dp ~vdi:vdi_info.vdi;
 	let junk = do_nbd url sr vdi_info.vdi dp (fun s ->
-		let (size,_) = Nbd.negotiate s in
+		let (size,_) = Nbd_unix.negotiate s in
 		Printf.printf "size=%Ld\n" size;
 		let secsize = Int64.div size 512L in
 		let junk = write_junk s secsize 10 [(Int64extentlist.of_list [(0L,secsize)],Char.chr 0)] in
@@ -274,7 +274,7 @@ let test_mirror_1 url sr rurl rsr _ =
 	let remote_vdi = mirror.Mirror.dest_vdi in
 
 	let junk = do_nbd url sr vdi_info.vdi dp (fun s ->
-		let (size,_) = Nbd.negotiate s in
+		let (size,_) = Nbd_unix.negotiate s in
 		Printf.printf "size=%Ld\n" size;
 		let secsize = Int64.div size 512L in
 		let junk = write_junk s secsize 10 junk in
@@ -301,7 +301,7 @@ let test_mirror_1 url sr rurl rsr _ =
 	ignore(RSMClient.VDI.attach ~dbg ~sr:rsr ~dp ~vdi:remote_vdi ~read_write:true);
 	RSMClient.VDI.activate ~dbg ~sr:rsr ~dp ~vdi:remote_vdi;
 	do_nbd rurl rsr remote_vdi dp (fun s ->
-		let (size,_) = Nbd.negotiate s in
+		let (size,_) = Nbd_unix.negotiate s in
 		Printf.printf "Mirror VDI: size=%Ld\n" size;
 		check_junk s junk;
 		let junk2 = 

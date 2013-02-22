@@ -101,7 +101,6 @@ let start (xmlrpc_path, http_fwd_path) process =
 
 (* Monitoring code --- START. *)
 
-open Hashtblext
 open Listext
 open Stringext
 open Threadext
@@ -111,11 +110,6 @@ open Ds
 open Monitor_types
 open Rrd
 open Xenstore
-
-(* This function (and its clones) should probably be moved to xen-api-libs. *)
-let with_xs f =
-	let xs = Xs.daemon_open () in
-	finally (fun () -> f xs) (fun () -> Xs.close xs)
 
 let uuid_of_domid domains domid =
 	try
@@ -544,7 +538,7 @@ let read_all_dom0_stats xc =
 			[]
 	in
 	let vcpus, uuid_domids, domids = update_vcpus xc domains in
-	Hashtbl.remove_other_keys memory_targets domids;
+	Hashtblext.remove_other_keys memory_targets domids;
 	let real_stats = List.concat [
 		handle_exn "ha_stats" (fun _ -> Rrdd_ha_stats.all ()) [];
 		handle_exn "read_mem_metrics" (fun _ -> read_mem_metrics xc) [];
@@ -609,7 +603,7 @@ let _ =
 	Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
 
 	(* Enable the new logging library. *)
-	Debug.set_facility Syslog.Local5;
+	Debug.set_facility Syslog_transitional.Local5;
 
 	(* Read configuration file. *)
 	debug "Reading configuration file ..";

@@ -11,7 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Xenstore
 
 type state = Unknown | Initialising | InitWait | Initialised | Connected
 	     | Closing | Closed
@@ -50,8 +49,8 @@ let to_string_desc = function
 
 (** Allows a guest to read/write this node and children *)
 let rwperm_for_guest domid = 
-	(domid, Xsraw.PERM_NONE, [])
+	(domid, Xs_protocol.ACL.NONE, [])
 
 (** Dom0 can read/write this node and children, domU can only read children *)
 let roperm_for_guest domid =
-	(0, Xsraw.PERM_NONE, [ (domid, Xsraw.PERM_READ) ])
+	(0, Xs_protocol.ACL.NONE, [ (domid, Xs_protocol.ACL.NONE) ])
