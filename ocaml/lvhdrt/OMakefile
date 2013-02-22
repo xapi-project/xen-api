@@ -1,6 +1,6 @@
 OCAML_LIBS    = ../fhs ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client 
 OCAMLINCLUDES = ../xapi ../idl/ocaml_backend/ ../idl ../autogen
-OCAMLPACKS    = xml-light2 stdext stunnel http-svr log rpc-light
+OCAMLPACKS    = xml-light2 stdext stunnel http-svr log rpclib
 
 OCamlProgram(lvhdrt, lvhdrt lvhdrt_exceptions utils globs fists tc_8670 tc_8682 tc_8699 tc_8700 tc_8707 tc_8766 tc_8775)
 
