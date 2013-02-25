@@ -559,7 +559,7 @@ let double_fork f =
 	| pid -> ignore(Unix.waitpid [] pid)
 
 external set_tcp_nodelay : Unix.file_descr -> bool -> unit = "stub_unixext_set_tcp_nodelay"
-
+external set_sock_keepalives : Unix.file_descr -> int -> int -> int -> unit = "stub_unixext_set_sock_keepalives"
 external fsync : Unix.file_descr -> unit = "stub_unixext_fsync"
 external blkgetsize64 : Unix.file_descr -> int64 = "stub_unixext_blkgetsize64"
 

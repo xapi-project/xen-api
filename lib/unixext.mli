@@ -118,6 +118,7 @@ val spawnvp :
 val double_fork : (unit -> unit) -> unit
 external set_tcp_nodelay : Unix.file_descr -> bool -> unit
   = "stub_unixext_set_tcp_nodelay"
+external set_sock_keepalives : Unix.file_descr -> int -> int -> int -> unit = "stub_unixext_set_sock_keepalives"
 external fsync : Unix.file_descr -> unit = "stub_unixext_fsync"
 external get_max_fd : unit -> int = "stub_unixext_get_max_fd"
 external blkgetsize64 : Unix.file_descr -> int64 = "stub_unixext_blkgetsize64"

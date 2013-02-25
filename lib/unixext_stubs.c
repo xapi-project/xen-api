@@ -72,6 +72,32 @@ CAMLprim value stub_unixext_get_max_fd (value unit)
 	CAMLreturn(Val_int(maxfd));
 }
 
+CAMLprim value stub_unixext_set_sock_keepalives(value fd, value count, value idle, value interval)
+{
+    CAMLparam4(fd, count, idle, interval);
+
+	int c_fd = Int_val(fd);
+	int optval;
+	socklen_t optlen=sizeof(optval);
+	
+	optval = Int_val(count);
+	if(setsockopt(c_fd, SOL_TCP, TCP_KEEPCNT, &optval, optlen) < 0) {
+	  uerror("setsockopt(TCP_KEEPCNT)", Nothing);
+	}
+	
+	optval = Int_val(idle);
+	if(setsockopt(c_fd, SOL_TCP, TCP_KEEPIDLE, &optval, optlen) < 0) {
+	  uerror("setsockopt(TCP_KEEPIDLE)", Nothing);
+	}
+	 
+	optval = Int_val(interval);
+	if(setsockopt(c_fd, SOL_TCP, TCP_KEEPINTVL, &optval, optlen) < 0) {
+	  uerror("setsockopt(TCP_KEEPINTVL)", Nothing);
+	}
+
+	CAMLreturn(Val_unit);
+}
+
 #define FDSET_OF_VALUE(v) (&(((struct fdset_t *) v)->fds))
 #define MAXFD_OF_VALUE(v) (((struct fdset_t *) v)->max)
 struct fdset_t { fd_set fds; int max; };
