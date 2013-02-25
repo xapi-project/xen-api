@@ -8,7 +8,7 @@ OCAML_LINK_FLAGS+= $(XEN_OCAML_LINK_FLAGS) # $(XENLIGHT_LINK_FLAGS)
 
 CFLAGS          += $(XEN_CFLAGS)
 
-OCAMLPACKS     = oclock xml-light2 sexpr stunnel http-svr netdev rpclib threads xenctrl xenstore-compat xenctrlext stdext log cdrom netdev oUnit # xenlight
+OCAMLPACKS     = oclock xml-light2 sexpr stunnel http-svr netdev rpclib threads xenctrl xenstore-compat xenctrlext stdext log cdrom netdev oUnit uuid # xenlight
 OCAMLFLAGS    += -thread
 
 UseCamlp4(rpclib.syntax, device_number xenops_utils xenops_server xenops_server_simulator xenops_migrate xenops_server_xen updates xenops_server_plugin domain device device_common xenops_hooks task_server)

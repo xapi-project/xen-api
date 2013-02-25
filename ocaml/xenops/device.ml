@@ -60,14 +60,6 @@ let add_device ~xs device backend_list frontend_list private_list =
 
 	debug "adding device  B%d[%s]  F%d[%s]  H[%s]" device.backend.domid backend_path device.frontend.domid frontend_path hotplug_path;
 	Xs.transaction xs (fun t ->
-		(* Sanity check: ensure the backend domain exists *)
-		let _ =
-			try
-				let (_: string) = t.Xst.read (sprintf "/local/domain/%d/vm" device.backend.domid) in
-				()
-			with Xs_protocol.Enoent _ ->
-				raise (Device_backend_vanished device) in
-
 		begin try
 			ignore (t.Xst.read frontend_path);
 			raise (Device_frontend_already_connected device)
@@ -80,13 +72,13 @@ let add_device ~xs device backend_list frontend_list private_list =
 		   one per PV .iso *)
 
 		t.Xst.mkdir frontend_path;
-		t.Xst.setperms frontend_path (device.frontend.domid, Xsraw.PERM_NONE, [ (device.backend.domid, Xsraw.PERM_READ) ]);
+		t.Xst.setperms frontend_path (Xenbus_utils.device_frontend device); 
 
 		t.Xst.mkdir backend_path;
-		t.Xst.setperms backend_path (device.backend.domid, Xsraw.PERM_NONE, [ (device.frontend.domid, Xsraw.PERM_READ) ]);
+		t.Xst.setperms backend_path (Xenbus_utils.device_backend device);
 
 		t.Xst.mkdir hotplug_path;
-		t.Xst.setperms hotplug_path (device.backend.domid, Xsraw.PERM_NONE, []);
+		t.Xst.setperms hotplug_path (Xenbus_utils.hotplug device);
 
 		t.Xst.writev frontend_path
 		             (("backend", backend_path) :: frontend_list);
@@ -94,7 +86,7 @@ let add_device ~xs device backend_list frontend_list private_list =
 		             (("frontend", frontend_path) :: backend_list);
 
 		t.Xst.mkdir private_data_path;
-		t.Xst.setperms private_data_path (device.backend.domid, Xsraw.PERM_NONE, []);
+		t.Xst.setperms private_data_path (device.backend.domid, Xs_protocol.ACL.NONE, []);
 		t.Xst.writev private_data_path
 			(("backend-kind", string_of_kind device.backend.kind) ::
 				("backend-id", string_of_int device.backend.domid) :: private_list);
@@ -1340,7 +1332,7 @@ let ensure_device_frontend_exists ~xs backend_domid frontend_domid =
 		then debug "PCI frontend already exists: no work to do"
 		else begin
 			t.Xst.mkdir frontend_path;
-			t.Xst.setperms frontend_path (frontend_domid, Xsraw.PERM_NONE, [ (backend_domid, Xsraw.PERM_READ) ]);
+			t.Xst.setperms frontend_path (frontend_domid, Xs_protocol.ACL.NONE, [ (backend_domid, Xs_protocol.ACL.READ) ]);
 			t.Xst.writev frontend_path [
 				"backend", backend_path;
 				"backend-id", string_of_int backend_domid;
@@ -1419,13 +1411,13 @@ let add ~xc ~xs ?(backend_domid=0) domid =
     ] in
     Xs.transaction xs (fun t ->
         (* Add the frontend *)
-        let perms = (domid, Xsraw.PERM_NONE, [(0, Xsraw.PERM_READ)]) in
+        let perms = (domid, Xs_protocol.ACL.NONE, [(0, Xs_protocol.ACL.READ)]) in
         t.Xst.mkdir frontend_path;
         t.Xst.setperms frontend_path perms;
         t.Xst.writev frontend_path front;
 
         (* Now make the request *)
-        let perms = (domid, Xsraw.PERM_NONE, []) in
+        let perms = (domid, Xs_protocol.ACL.NONE, []) in
         let request_path = Printf.sprintf "%s/%d" request_path 0 in
         t.Xst.mkdir request_path;
         t.Xst.setperms request_path perms;
