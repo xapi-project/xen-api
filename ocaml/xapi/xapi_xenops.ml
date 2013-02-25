@@ -32,13 +32,55 @@ let xenapi_of_xenops_power_state = function
 	| Some Paused -> `Paused
 	| None -> `Halted
 
-(* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
-let filtered_platform_flags = ["acpi"; "apic"; "nx"; "pae"; "viridian";
-                               "acpi_s3";"acpi_s4"; "mmio_size_mib"; "revision"; "device_id";
-                               "tsc_mode"; "device-model"; "xenguest";
-                               "pv-kernel-max-size"; "pv-ramdisk-max-size";
-                               "pv-postinstall-kernel-max-size"; "pv-postinstall-ramdisk-max-size";
-                               "nousb"; "parallel"]
+module Platform = struct
+	(* Keys we push through to xenstore. *)
+	let acpi = "acpi"
+	let apic = "apic"
+	let nx = "nx"
+	let pae = "pae"
+	let viridian = "viridian"
+	let acpi_s3 = "acpi_s3"
+	let acpi_s4 = "acpi_s4"
+	let mmio_size_mib = "mmio_size_mib"
+	let revision = "revision"
+	let device_id = "device_id"
+	let tsc_mode = "tsc_mode"
+	let device_model = "device-model"
+	let xenguest = "xenguest"
+	let pv_kernel_max_size = "pv-kernel-max-size"
+	let pv_ramdisk_max_size = "pv-ramdisk-max-size"
+	let pv_postinstall_kernel_max_size = "pv-postinstall-kernel-max-size"
+	let pv_postinstall_ramdisk_max_size = "pv-postinstall-ramdisk-max-size"
+	let nousb = "nousb"
+	let parallel = "parallel"
+
+	(* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
+	let filtered_flags = [
+		acpi;
+		apic;
+		nx;
+		pae;
+		viridian;
+		acpi_s3;
+		acpi_s4;
+		mmio_size_mib;
+		revision;
+		device_id;
+		tsc_mode;
+		device_model;
+		xenguest;
+		pv_kernel_max_size;
+		pv_ramdisk_max_size;
+		pv_postinstall_kernel_max_size;
+		pv_postinstall_ramdisk_max_size;
+		nousb;
+		parallel;
+	]
+
+	(* Other keys we might want to write to the platform map. *)
+	let timeoffset = "timeoffset"
+	let generation_id = "generation-id"
+end
 
 let xenops_vdi_locator_of_strings sr_uuid vdi_location =
 	Printf.sprintf "%s/%s" sr_uuid vdi_location
@@ -82,7 +124,7 @@ let int = find int_of_string
 let bool = find bool_of_string
 
 let rtc_timeoffset_of_vm ~__context (vm, vm_t) vbds =
-	let timeoffset = string vm_t.API.vM_platform "0" "timeoffset" in
+	let timeoffset = string vm_t.API.vM_platform "0" Platform.timeoffset in
 	(* If any VDI has on_boot = reset AND has a VDI.other_config:timeoffset
 	   then we override the platform/timeoffset. This is needed because windows
 	   stores the local time in timeoffset (the BIOS clock) but records whether
@@ -98,7 +140,7 @@ let rtc_timeoffset_of_vm ~__context (vm, vm_t) vbds =
 		|> List.filter_map (fun (reference, record) ->
 			Opt.of_exception (fun () ->
 				reference,
-				List.assoc "timeoffset"
+				List.assoc Platform.timeoffset
 					record.API.vDI_other_config)) in
 	match vdis_with_timeoffset_to_be_reset_on_boot with
 		| [] ->
@@ -391,23 +433,23 @@ module MD = struct
 		let platformdata =
 			let p = vm.API.vM_platform in
 			if not (Pool_features.is_enabled ~__context Features.No_platform_filter) then
-				List.filter (fun (k, v) -> List.mem k filtered_platform_flags) p
+				List.filter (fun (k, v) -> List.mem k Platform.filtered_flags) p
 			else p in
 		let timeoffset = rtc_timeoffset_of_vm ~__context (vmref, vm) vbds in
 		(* Replace the timeoffset in the platform data too, to avoid confusion *)
 		let platformdata =
-			("timeoffset", timeoffset) ::
-				(List.filter (fun (key, _) -> key <> "timeoffset") platformdata) in
+			(Platform.timeoffset, timeoffset) ::
+				(List.filter (fun (key, _) -> key <> Platform.timeoffset) platformdata) in
 		(* Filter out invalid TSC modes. *)
 		let platformdata =
 			List.filter
-				(fun (k, v) -> k <> "tsc_mode" || List.mem v ["0"; "1"; "2"; "3"])
+				(fun (k, v) -> k <> Platform.tsc_mode || List.mem v ["0"; "1"; "2"; "3"])
 				platformdata in
 		let platformdata =
 			let genid = match vm.API.vM_generation_id with
 				| "0:0" -> Xapi_vm_helpers.vm_fresh_genid ~__context ~self:vmref
 				| _ -> vm.API.vM_generation_id in
-			("generation-id", genid) :: platformdata
+			(Platform.generation_id, genid) :: platformdata
 		in
 
 		let pci_msitranslate = true in (* default setting *)
@@ -932,9 +974,8 @@ let update_vm ~__context id =
 								(fun (_, state) ->
 									if state.rtc_timeoffset <> "" then begin
 										debug "xenopsd event: Updating VM %s platform:timeoffset <- %s" id state.rtc_timeoffset;
-										let key = "timeoffset" in
-										(try Db.VM.remove_from_platform ~__context ~self ~key with _ -> ());
-										Db.VM.add_to_platform ~__context ~self ~key ~value:state.rtc_timeoffset;
+										(try Db.VM.remove_from_platform ~__context ~self ~key:Platform.timeoffset with _ -> ());
+										Db.VM.add_to_platform ~__context ~self ~key:Platform.timeoffset ~value:state.rtc_timeoffset;
 									end
 								) info
 						with e ->
