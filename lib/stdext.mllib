@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 27fb733ba22844f22e886085490e8e05)
+# DO NOT EDIT (digest: c0d4900aa146cbadd2648012f63e1a0d)
 Arrayext
 Backtrace
 Base64
@@ -12,7 +12,6 @@ ExtentlistSet
 Filenameext
 Fring
 Fun
-Gzip
 Hashtblext
 Int64ext
 LazyList
@@ -24,7 +23,6 @@ Pervasiveext
 Qring
 Range
 Ring
-Sha1sum
 Stringext
 Tar
 Threadext
