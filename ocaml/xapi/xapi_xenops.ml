@@ -47,7 +47,8 @@ module Platform = struct
 	let tsc_mode = "tsc_mode"
 	let device_model = "device-model"
 	let xenguest = "xenguest"
-	let nousb = "nousb"
+	let usb = "usb"
+	let usb_tablet = "usb_tablet"
 	let parallel = "parallel"
 
 	(* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
@@ -65,13 +66,24 @@ module Platform = struct
 		tsc_mode;
 		device_model;
 		xenguest;
-		nousb;
+		usb;
+		usb_tablet;
 		parallel;
 	]
 
 	(* Other keys we might want to write to the platform map. *)
 	let timeoffset = "timeoffset"
 	let generation_id = "generation-id"
+
+	(* Helper functions. *)
+	let is_true ~key ~platformdata ~default =
+		try
+			match List.assoc key platformdata with
+			| "true" | "1" -> true
+			| "false" | "0" -> false
+			| _ -> default
+		with Not_found ->
+			default
 end
 
 let xenops_vdi_locator_of_strings sr_uuid vdi_location =
@@ -442,6 +454,22 @@ module MD = struct
 				| "0:0" -> Xapi_vm_helpers.vm_fresh_genid ~__context ~self:vmref
 				| _ -> vm.API.vM_generation_id in
 			(Platform.generation_id, genid) :: platformdata
+		in
+		(* Add usb emulation flags.
+		   Make sure we don't send usb=false and usb_tablet=true,
+		   as that wouldn't make sense. *)
+		let usb_enabled =
+			Platform.is_true ~key:Platform.usb ~platformdata ~default:true in
+		let usb_tablet_enabled =
+			if usb_enabled
+			then Platform.is_true ~key:Platform.usb_tablet ~platformdata ~default:true
+			else false
+		in
+		let platformdata =
+			List.update_assoc
+				[(Platform.usb, string_of_bool usb_enabled);
+					(Platform.usb_tablet, string_of_bool usb_tablet_enabled)]
+				platformdata
 		in
 
 		let pci_msitranslate = true in (* default setting *)
