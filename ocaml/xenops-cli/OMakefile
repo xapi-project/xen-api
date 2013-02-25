@@ -1,6 +1,6 @@
 OCAML_LIBS    = ../xenops/xenops_client ../fhs
 OCAMLINCLUDES = ../xenops ../util ..
-OCAMLPACKS    = xml-light2 stdext stunnel log http-svr oUnit
+OCAMLPACKS    = xml-light2 stdext stunnel log http-svr oUnit uuid
 
 UseCamlp4(rpclib.syntax, xn_cfg_types)
 

@@ -1,6 +1,6 @@
 OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client 
 OCAMLINCLUDES = ../idl/ocaml_backend ../autogen
-OCAMLPACKS    = xml-light2 stdext stunnel http-svr log rpclib
+OCAMLPACKS    = xml-light2 stdext stunnel http-svr log rpclib uuid
 
 OCamlProgram(event_listen, event_listen)
 

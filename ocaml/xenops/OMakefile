@@ -61,12 +61,12 @@ section
 	OCAMLINCLUDES   = ../idl/ocaml_backend ../idl
 	OCAMLFLAGS = -dtypes -warn-error F # -cclib -static
 	OCAMLPACKS = xenctrl xenstore-compat
-	OCamlProgram(xs, xenstore_readdir)
+#	OCamlProgram(xs, xenstore_readdir)
 
 OCamlProgram(squeeze_test, squeeze_test squeeze_test_main)
 
 BIN_PROGS=list_domains
-DEBUG_PROGS=xs xenops memory_breakdown memory_summary
+DEBUG_PROGS=xenops memory_breakdown memory_summary
 SYMLINK_PROGS=destroy_domain shutdown_domain create_domain build_domain build_hvm add_vbd add_vif unpause_domain pause_domain suspend_domain restore_domain
 OTHER_PROGS=fence dbgring squeezed xenopsd domain_sethandle
 

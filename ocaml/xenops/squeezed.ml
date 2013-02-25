@@ -117,7 +117,7 @@ let start json_sock process =
 
 
 let _ = 
-	Debug.set_facility Syslog.Local5;
+	Debug.set_facility Syslog_transitional.Local5;
 
   let daemonize = ref false in
  

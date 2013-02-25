@@ -14,7 +14,6 @@
 open Printf
 
 open Stringext
-open Hashtblext
 open Pervasiveext
 open Fun
 open Listext
@@ -86,7 +85,7 @@ let add_device ~xs device backend_list frontend_list private_list =
 		             (("frontend", frontend_path) :: backend_list);
 
 		t.Xst.mkdir private_data_path;
-		t.Xst.setperms private_data_path (device.backend.domid, Xs_protocol.ACL.NONE, []);
+		t.Xst.setperms private_data_path (Xenbus_utils.hotplug device);
 		t.Xst.writev private_data_path
 			(("backend-kind", string_of_kind device.backend.kind) ::
 				("backend-id", string_of_int device.backend.domid) :: private_list);
@@ -505,13 +504,13 @@ let add_async ~xs ~hvm x domid =
 
 	List.iter (fun (k, v) -> Hashtbl.add back_tbl k v) x.extra_backend_keys;
 
-	Hashtbl.add_list front_tbl [
+	Hashtblext.add_list front_tbl [
 		"backend-id", string_of_int x.backend_domid;
 		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
 		"virtual-device", string_of_int devid;
 		"device-type", if x.dev_type = CDROM then "cdrom" else "disk";
 	];
-	Hashtbl.add_list back_tbl [
+	Hashtblext.add_list back_tbl [
 		"frontend-id", sprintf "%u" domid;
 		(* Prevents the backend hotplug scripts from running if the frontend disconnects.
 		   This allows the xenbus connection to re-establish itself *)
@@ -534,8 +533,8 @@ let add_async ~xs ~hvm x domid =
 			Hashtbl.add front_tbl "protocol" (string_of_protocol protocol)
 		) x.protocol;
 
-	let back = Hashtbl.to_list back_tbl in
-	let front = Hashtbl.to_list front_tbl in
+	let back = Hashtblext.to_list back_tbl in
+	let front = Hashtblext.to_list front_tbl in
 
 
 	Generic.add_device ~xs device back front x.extra_private_keys;
@@ -1332,7 +1331,7 @@ let ensure_device_frontend_exists ~xs backend_domid frontend_domid =
 		then debug "PCI frontend already exists: no work to do"
 		else begin
 			t.Xst.mkdir frontend_path;
-			t.Xst.setperms frontend_path (frontend_domid, Xs_protocol.ACL.NONE, [ (backend_domid, Xs_protocol.ACL.READ) ]);
+			t.Xst.setperms frontend_path (Xs_protocol.ACL.({owner = frontend_domid; other = NONE; acl = [ (backend_domid, READ) ]}));
 			t.Xst.writev frontend_path [
 				"backend", backend_path;
 				"backend-id", string_of_int backend_domid;
@@ -1411,13 +1410,13 @@ let add ~xc ~xs ?(backend_domid=0) domid =
     ] in
     Xs.transaction xs (fun t ->
         (* Add the frontend *)
-        let perms = (domid, Xs_protocol.ACL.NONE, [(0, Xs_protocol.ACL.READ)]) in
+        let perms = Xs_protocol.ACL.({owner = domid; other = NONE; acl =[(0, READ)]}) in
         t.Xst.mkdir frontend_path;
         t.Xst.setperms frontend_path perms;
         t.Xst.writev frontend_path front;
 
         (* Now make the request *)
-        let perms = (domid, Xs_protocol.ACL.NONE, []) in
+        let perms = Xs_protocol.ACL.({owner = domid; other = NONE; acl = []}) in
         let request_path = Printf.sprintf "%s/%d" request_path 0 in
         t.Xst.mkdir request_path;
         t.Xst.setperms request_path perms;
