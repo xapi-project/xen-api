@@ -211,6 +211,8 @@ srpm: xapi.spec noarch.spec
 	while ! [ -d .git ]; do cd ..; done; \
 	git archive --prefix=xapi-0.2/ --format=tar HEAD | bzip2 -z > $(RPM_SOURCESDIR)/xapi-0.2.tar.bz2 # xen-api/Makefile
 	git archive --prefix=xapi-noarch-0.2/ --format=tar HEAD | bzip2 -z > $(RPM_SOURCESDIR)/xapi-noarch-0.2.tar.bz2 # xen-api/Makefile
+	$(REPO)/mk/rewrite-opam-repo.sh /repos/opam-repo-dev
+	$(shell cd /repos; cd `readlink opam-repo-dev || echo opam-repo-dev`/..; tar jcf $(RPM_SOURCESDIR)/opam-repo-dev.tar.bz2 opam-repo-dev)
 	cp $(JQUERY) $(JQUERY_TREEVIEW) $(RPM_SOURCESDIR)
 	make -C $(REPO) version
 	rm -f $(RPM_SOURCESDIR)/xapi-version.patch

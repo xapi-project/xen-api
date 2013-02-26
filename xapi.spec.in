@@ -10,9 +10,10 @@ URL:  http://www.xen.org
 Source0: xapi-%{version}.tar.bz2
 Source1: jquery-1.1.3.1.pack.js
 Source2: jquery.treeview.zip
+Source3: opam-repo-dev.tar.bz2
 Patch0: xapi-version.patch
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
-BuildRequires: pam-devel tetex-latex xapi-libs-devel ocaml omake ocaml-findlib ocaml-xmlm ocaml-type-conv ocaml-xmlm-devel xen-devel zlib-devel
+BuildRequires: pam-devel tetex-latex ocaml ocaml-opam opam-repository xen-devel zlib-devel
 
 %description
 XCP toolstack.
@@ -110,11 +111,18 @@ related to rrd. Needed for rrd2csv and rrdd-plugins.
 
 %prep 
 %setup -q
+%setup -a 3 -T -D -c opam-repo-dev
 %patch0 -p0 -b xapi-version.patch
 
 %build
+export OPAMROOT=$RPM_BUILD_ROOT/.opam
+rm -rf $OPAMROOT
+opam init /usr/local/opam-repository
+eval `opam config -env`
+opam remote add dev opam-repo-dev
+opam install -y cdrom fd-send-recv forkexecd libvhd nbd netdev oclock ounit rpc ssl stdext syslog tapctl xen-api-libs-transitional xenctrl xenstore
+
 COMPILE_JAVA=no %{__make}
-COMPILE_JAVA=no %{__make} test
 
 %install
 rm -rf %{buildroot}
