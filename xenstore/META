@@ -1,0 +1,12 @@
+# OASIS_START
+# DO NOT EDIT (digest: 05c2bdb94e60851503981aaca2084977)
+version = "0.1"
+description = "Temporary set of to-be-deprecated libraries"
+requires = "xenstore.unix xenstore_transport.unix threads stdext"
+archive(byte) = "xenstore.cma"
+archive(byte, plugin) = "xenstore.cma"
+archive(native) = "xenstore.cmxa"
+archive(native, plugin) = "xenstore.cmxs"
+exists_if = "xenstore.cma"
+# OASIS_STOP
+
