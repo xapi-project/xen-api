@@ -13,8 +13,14 @@
  *)
 
 module Client = Xs_client_unix.Client(Xs_transport_unix_client)
-let client =
-	Client.make ()
+let _client = ref None
+let client () =
+	match !_client with
+ 	| Some x -> x
+	| None ->
+		let c = Client.make () in
+		_client := Some c;
+		c
 
 type domid = int
 
@@ -63,9 +69,9 @@ module Xs = struct
         introduce = Client.introduce h;
         set_target = Client.set_target h;
     }
-    let with_xs f = Client.with_xs client (fun h -> f (ops h))
-    let wait f = Client.wait client (fun h -> f (ops h))
-	let transaction _ f = Client.with_xst client (fun h -> f (ops h))
+    let with_xs f = Client.with_xs (client ()) (fun h -> f (ops h))
+    let wait f = Client.wait (client ()) (fun h -> f (ops h))
+	let transaction _ f = Client.with_xst (client ()) (fun h -> f (ops h))
 
 end
 
