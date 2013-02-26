@@ -1,5 +1,5 @@
 OCAMLPACKS = oUnit sexpr log xmlm stunnel xml-light2 http-svr uuid netdev \
-             tapctl xenctrl xenctrlext xenstore-compat cpuid pciutil
+             tapctl xenctrl xenctrlext xenstore-compat cpuid pciutil gzip sha1
 
 OCAMLINCLUDES = \
 	../database \

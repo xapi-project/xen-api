@@ -2176,7 +2176,7 @@ let remove_domU_watches xs domid =
 		let uuid = IntMap.find domid !uuids in
 		List.iter (unwatch xs) (all_domU_watches domid uuid);
 		List.iter (fun d ->
-			List.iter unwatch (watches_of_device d)
+			List.iter (unwatch xs) (watches_of_device d)
 		) (try IntMap.find domid !watches with Not_found -> []);
 		watches := IntMap.remove domid !watches;
 		uuids := IntMap.remove domid !uuids;
@@ -2205,6 +2205,7 @@ let remove_device_watch xs device =
 
 
 let look_for_different_domains xc xs =
+	let open Xenctrl in
 	let domains' = list_domains xc in
 	let different = list_different_domains !domains domains' in
 	List.iter
@@ -2250,7 +2251,7 @@ let incoming_watches_c = Condition.create ()
 let enqueue_watches event =
 	Mutex.execute incoming_watches_m
 		(fun () ->
-			if Queue.length incoming_watches = !Xenopsd.watch_queue_length
+			if Queue.length incoming_watches = 1000
 			then queue_overflowed := true
 			else Queue.push event incoming_watches;
 			Condition.signal incoming_watches_c
@@ -2278,9 +2279,7 @@ let dequeue_watches callback =
 	with Watch_overflow -> ()
 
 let process_one_watch xc xs (path, token) =
-
-
-
+	let open Xenctrl in
 
 	let look_for_different_devices domid =
 		if not(IntMap.mem domid !watches)
@@ -2321,7 +2320,7 @@ let process_one_watch xc xs (path, token) =
 			Opt.iter (fun x -> Updates.add x updates) update in
 
 	if path = _introduceDomain || path = _releaseDomain
-	then look_for_different_domains ()
+	then look_for_different_domains xc xs
 	else match List.filter (fun x -> x <> "") (String.split '/' path) with
 		| "local" :: "domain" :: domid :: "backend" :: kind :: frontend :: devid :: _ ->
 			debug "Watch on backend domid: %s kind: %s -> frontend domid: %s devid: %s" domid kind frontend devid;

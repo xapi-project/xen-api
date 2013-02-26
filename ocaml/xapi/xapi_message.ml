@@ -598,58 +598,6 @@ let register_event_hook () =
 	repopulate_cache ();
 	Xapi_event.message_get_since_for_events := get_since_for_events
 
-(* Query params: cls=VM etc, obj_uuid=<..>, min_priority. Returns the last
-   days worth of messages as an RSS feed. *)
-let rss_handler (req: Http.Request.t) (bio: Buf_io.t) _ =
-  let query = req.Http.Request.query in
-  req.Http.Request.close <- true;
-  debug "Message handler";
-  let s = Buf_io.fd_of bio in
-  Buf_io.assert_buffer_empty bio;
-  Xapi_http.with_context ~dummy:true "Obtaining the RSS message feed" req s
-	(fun __context ->
-	  let now = Unix.gettimeofday () in
-	  let since =
-	if List.mem_assoc "since" query then
-	  Date.of_float (float_of_string (List.assoc "since" query))
-	else
-	  let since=now -. (3600.0 *. 24.0) in
-	  Date.of_float since
-	  in
-	  let messages =
-	if List.mem_assoc "cls" query then
-	  let cls = string_to_class (List.assoc "cls" query) in
-	  let obj_uuid = List.assoc "obj_uuid" query in
-	  get ~__context ~cls ~obj_uuid ~since
-	else
-	  get_since ~__context ~since
-	  in
-	  let items = List.map (fun (_ref,message) ->
-	let body = Printf.sprintf "<h3>%s: %s</h3><p>%s</p>"
-	  (class_to_string message.API.message_cls)
-	  message.API.message_obj_uuid
-	  message.API.message_body
-	in
-	{Rss.item_title=message.API.message_name;
-	 Rss.item_link=None;
-	 Rss.item_description=body;
-	 Rss.item_pubdate=Date.rfc822_to_string
-		(Date.rfc822_of_float (Date.to_float message.API.message_timestamp))}) messages
-	  in
-	  let channel =
-	{Rss.chan_title="XenServer Messages";
-	 Rss.chan_description="Message from the XenServer";
-	 Rss.chan_language="en";
-	 Rss.chan_pubdate=Date.to_string (Date.of_float now);
-	 Rss.chan_items=items;}
-	  in
-	  let body = Xml.to_string (Rss.to_xml [channel]) in
-	  let body = "<?xml version=\"1.0\"?>" ^ body in
-	  Http_svr.headers s ((Http.http_200_ok_with_content
-				  (Int64.of_int (String.length body))
-				  ~version:"1.1" ~keep_alive:false ())@[Http.Hdr.content_type ^": application/rss+xml"]);
-	  ignore(Unix.write s body 0 (String.length body)))
-
 (** Handler for PUTing messages to a host.
 	Query params: { cls=<obj class>, uuid=<obj uuid> } *)
 let handler (req: Http.Request.t) fd _ =

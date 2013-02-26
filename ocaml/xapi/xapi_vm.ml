@@ -20,7 +20,6 @@ open Client
 open Threadext
 open Xmlrpc_sexpr
 open Listext
-open Xenstore
 
 (* Notes re: VM.{start,resume}{on,}:
  * Until we support pools properly VM.start and VM.start_on both try

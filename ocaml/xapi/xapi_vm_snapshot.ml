@@ -17,7 +17,6 @@
  
 open Client
 open Vmopshelpers
-open Xenstore
 open Listext
 open Client
 module D = Debug.Debugger(struct let name="xapi" end)
@@ -39,13 +38,13 @@ let snapshot ~__context ~vm ~new_name =
 (*************************************************************************************************)
 (* xenstore paths *)
 let control_path ~xs ~domid x =
-	xs.Xs.getdomainpath domid ^ "/control/" ^ x
+	xs.Xenstore.Xs.getdomainpath domid ^ "/control/" ^ x
 
 let snapshot_path ~xs ~domid x =
-	xs.Xs.getdomainpath domid ^ "/control/snapshot/" ^ x
+	xs.Xenstore.Xs.getdomainpath domid ^ "/control/snapshot/" ^ x
 
 let snapshot_cleanup_path ~xs ~domid =
-	xs.Xs.getdomainpath domid ^ "/control/snapshot"
+	xs.Xenstore.Xs.getdomainpath domid ^ "/control/snapshot"
 
 (* check if [flag] is set in the control_path of the VM [vm]. This looks like this code is a kind  *)
 (* of duplicate of the one in {!xal.ml}, {!events.ml} and {!xapi_guest_agent.ml} which are looking *)
@@ -53,7 +52,7 @@ let snapshot_cleanup_path ~xs ~domid =
 (* always allowing the operation and checking if it is enabled when it is triggered is sufficient. *)
 let is_flag_set ~xs ~flag ~domid ~vm =
 	try
-		xs.Xs.read (control_path ~xs ~domid flag) = "1"
+		xs.Xenstore.Xs.read (control_path ~xs ~domid flag) = "1"
 	with e ->
 		debug "Exception while reading %s flag of VM %s (domain %i): %s"
 			flag (Ref.string_of vm) domid (Printexc.to_string e);
@@ -79,15 +78,15 @@ let wait_for_snapshot ~__context ~vm ~xs ~domid ~new_name =
 	| "snapshot-created" ->
 		(* Get the transportable snap ID *)
 		debug "wait_for_snapshot: getting the transportable ID";
-		let snapid = xs.Xs.directory (snapshot_path ~xs ~domid "snapid") in
+		let snapid = xs.Xenstore.Xs.directory (snapshot_path ~xs ~domid "snapid") in
 		let snapid = List.sort compare_snapid_chunks snapid in
-		let read_chunk x = xs.Xs.read (snapshot_path ~xs ~domid ("snapid/" ^ x)) in
+		let read_chunk x = xs.Xenstore.Xs.read (snapshot_path ~xs ~domid ("snapid/" ^ x)) in
 		let snapid = String.concat "" (List.map read_chunk snapid) in
 
 		(* Get the uuid of the snapshot VM *)
 		debug "wait_for_snapshot: getting uuid of the snapshot VM";
 		let snapshot_uuid =
-			try xs.Xs.read (snapshot_path ~xs ~domid "snapuuid")
+			try xs.Xenstore.Xs.read (snapshot_path ~xs ~domid "snapuuid")
 			with _ ->
 				error "The snapshot has not been correctly created; did snapwatchd create a full VM snapshot?";
 				raise (Api_errors.Server_error (Api_errors.vm_snapshot_with_quiesce_failed, [ Ref.string_of vm ])) in
@@ -108,8 +107,8 @@ let wait_for_snapshot ~__context ~vm ~xs ~domid ~new_name =
 
 	| "snapshot-error" ->
 		(* If an error was occured we get the error type and return *)
-		let error_str = xs.Xs.read (snapshot_path ~xs ~domid "error") in
-		let error_code () = try xs.Xs.read (snapshot_path ~xs ~domid "error/code") with _ -> "0" in
+		let error_str = xs.Xenstore.Xs.read (snapshot_path ~xs ~domid "error") in
+		let error_code () = try xs.Xenstore.Xs.read (snapshot_path ~xs ~domid "error/code") with _ -> "0" in
 		error "wait_for_snapshot: %s" error_str;
 		if List.mem error_str [
 			Api_errors.xen_vss_req_error_init_failed;
@@ -138,8 +137,8 @@ let snapshot_with_quiesce ~__context ~vm ~new_name =
 		then begin Pervasiveext.finally
 			(fun () ->
 				(* 2. if it the case, we can trigger a VSS snapshot *)
-				xs.Xs.rm (snapshot_cleanup_path ~xs ~domid);
-				xs.Xs.write (snapshot_path ~xs ~domid "action") "create-snapshot";
+				xs.Xenstore.Xs.rm (snapshot_cleanup_path ~xs ~domid);
+				xs.Xenstore.Xs.write (snapshot_path ~xs ~domid "action") "create-snapshot";
 
 				try 
 					debug "Snapshot_with_quiesce: waiting for the VSS agent to proceed";
@@ -156,7 +155,7 @@ let snapshot_with_quiesce ~__context ~vm ~new_name =
 					raise (Api_errors.Server_error (Api_errors.vm_snapshot_with_quiesce_plugin_does_not_respond, [ Ref.string_of vm ])))
 
 			(fun () -> 
-				 xs.Xs.rm (snapshot_cleanup_path ~xs ~domid))
+				 xs.Xenstore.Xs.rm (snapshot_cleanup_path ~xs ~domid))
 
 		end else begin
 			error "Quiesce snapshot not supported";

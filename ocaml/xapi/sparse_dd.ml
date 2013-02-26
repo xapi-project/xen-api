@@ -255,7 +255,7 @@ module Nbd_writer = struct
 			(* Consume replies forever *)
 			debug "receiver thread started consuming replies";
 			while true do
-				match Nbd.write_wait fd with
+				match Nbd_unix.write_wait fd with
 					| offset, None ->
 						Mutex.execute m
 							(fun () ->
@@ -287,7 +287,7 @@ module Nbd_writer = struct
 							Condition.wait c m
 						done;
 						debug "DISCONNECT";
-						Nbd.disconnect_async fd (-1L);
+						Nbd_unix.disconnect_async fd (-1L);
 			)
 
 	let op fd' offset { buf = buf; offset = ofs; len = len } =
@@ -309,7 +309,7 @@ module Nbd_writer = struct
 				request_sent_times := Int64Map.add offset (Unix.gettimeofday ()) !request_sent_times;
 			);
 		(* debug "REQUEST offset=%Ld buf ofs=%d len=%d num_inflight_requests=%Ld [ %s ]" offset ofs len reqs (string_of_inflight_requests ()); *)
-		Nbd.write_async fd' offset buf ofs len offset
+		Nbd_unix.write_async fd' offset buf ofs len offset
 end
 
 module Null_writer = struct
@@ -399,7 +399,7 @@ let file_dd ?(progress_cb = (fun _ -> ())) ?size ?bat erase write_zeroes src dst
 				if is_nbd 
 				then begin
 					debug "Writing NBD encoding to fd: %d" (Unixext.int_of_file_descr ofd);
-					let (size,flags) = Nbd.negotiate ofd in
+					let (size,flags) = Nbd_unix.negotiate ofd in
 					ignore((size,flags));
 					let stats = Nbd_copy.copy progress_cb bat erase write_zeroes ifd ofd !blocksize size in
 					Nbd_writer.wait_for_last_reply ();
@@ -504,6 +504,7 @@ let test_lots_of_strings () =
 let vhd_of_device path =
 	let find_underlying_tapdisk path =
 		try 
+			let open Xenstore in
 		(* If we're looking at a xen frontend device, see if the backend
 		   is in the same domain. If so check if it looks like a .vhd *)
 			let rdev = (Unix.stat path).Unix.st_rdev in
@@ -512,9 +513,7 @@ let vhd_of_device path =
 			match List.rev (String.split '/' link) with
 			| id :: "xen" :: "devices" :: _ when String.startswith "vbd-" id ->
 				let id = int_of_string (String.sub id 4 (String.length id - 4)) in
-				let xs = Xs.domain_open () in
-				finally
-				(fun () ->
+				with_xs (fun xs -> 
 					let self = xs.Xs.read "domid" in
 					let backend = xs.Xs.read (Printf.sprintf "device/vbd/%d/backend" id) in
 					let params = xs.Xs.read (Printf.sprintf "%s/params" backend) in
@@ -524,7 +523,6 @@ let vhd_of_device path =
 						Some params
 					| _ -> raise Not_found
 				)
-				(fun () -> Xs.close xs)
 			| _ -> raise Not_found
 		with _ -> None in
 	let tapdisk_of_path path =

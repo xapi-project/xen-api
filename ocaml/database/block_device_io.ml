@@ -118,7 +118,7 @@ exception EndOfDeltas
 exception NotEnoughSpace
 
 (* Make informational output go to the syslog *)
-let initialise_logging () = Debug.set_facility Syslog.Local5
+let initialise_logging () = Debug.set_facility Syslog_transitional.Local5
 
 (* --------------------------------------------- *)
 (* Functions to deal with layout of block device *)

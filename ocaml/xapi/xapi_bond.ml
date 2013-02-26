@@ -17,7 +17,6 @@ open D
 open Fun
 open Listext
 open Threadext
-open Hashtblext
 open Db_filter_types
 
 (* Returns the name of a new bond device, which is the string "bond" followed
@@ -79,7 +78,7 @@ let get_local_vifs ~__context host networks =
 	in
 
 	(* Make a list of the VIFs for local VMs *)
-	let vms = Hashtbl.fold_keys vms_with_vifs in
+	let vms = Hashtblext.fold_keys vms_with_vifs in
 	let local_vifs = List.concat (List.map (fun vm ->
 		if is_local vm then Hashtbl.find_all vms_with_vifs vm else []
 	) vms) in
