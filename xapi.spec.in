@@ -362,7 +362,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/debug/unpause_domain
 @OPTDIR@/debug/vncproxy
 @OPTDIR@/debug/with-vdi
-@OPTDIR@/debug/xs
 
 %files tests
 %defattr(-,root,root,-)
