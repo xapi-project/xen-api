@@ -115,7 +115,7 @@ related to rrd. Needed for rrd2csv and rrdd-plugins.
 %patch0 -p0 -b xapi-version.patch
 
 %build
-export OPAMROOT=$RPM_BUILD_ROOT/.opam
+export OPAMROOT=/tmp/.opam
 rm -rf $OPAMROOT
 opam init /usr/local/opam-repository
 eval `opam config -env`

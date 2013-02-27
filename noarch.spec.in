@@ -50,7 +50,7 @@ cp $RPM_SOURCE_DIR/jquery* $RPM_BUILD_DIR/xapi-noarch-0.2/ocaml/idl
 %patch0 -p0 -b xapi-version.patch
 
 %build
-export OPAMROOT=$RPM_BUILD_ROOT/.opam
+export OPAMROOT=/tmp/.opam
 rm -rf $OPAMROOT
 opam init /usr/local/opam-repository
 eval `opam config -env`
@@ -60,6 +60,7 @@ opam install -y cdrom fd-send-recv forkexecd libvhd nbd netdev oclock ounit rpc 
 COMPILE_JAVA=no %{__make}
 
 %install
+
 rm -rf %{buildroot}
 
 DESTDIR=$RPM_BUILD_ROOT %{__make} noarch-install
