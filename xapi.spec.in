@@ -13,7 +13,7 @@ Source2: jquery.treeview.zip
 Source3: opam-repo-dev.tar.bz2
 Patch0: xapi-version.patch
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
-BuildRequires: pam-devel tetex-latex ocaml ocaml-opam opam-repository xen-devel zlib-devel
+BuildRequires: pam-devel tetex-latex ocaml ocaml-opam opam-repository opam-system xen-devel zlib-devel
 
 %description
 XCP toolstack.
@@ -115,11 +115,9 @@ related to rrd. Needed for rrd2csv and rrdd-plugins.
 %patch0 -p0 -b xapi-version.patch
 
 %build
-export OPAMROOT=/tmp/.opam
-rm -rf $OPAMROOT
-opam init /usr/local/opam-repository
+export OPAMROOT=/usr/local/opam
 eval `opam config -env`
-opam remote add dev opam-repo-dev
+opam remote add dev opam-repo-dev || true
 opam install -y cdrom fd-send-recv forkexecd libvhd nbd netdev oclock ounit rpc ssl stdext syslog tapctl xen-api-libs-transitional xenctrl xenstore
 
 COMPILE_JAVA=no %{__make}
@@ -382,15 +380,15 @@ rm -rf $RPM_BUILD_ROOT
 
 %files client-devel
 %defattr(-,root,root,-)
-/usr/lib/ocaml/xapi-client/*
+/usr/local/opam/system/lib/xapi-client/*
 
 %files datamodel-devel
 %defattr(-,root,root,-)
-/usr/lib/ocaml/xapi-datamodel/*
+/usr/local/opam/system/lib/xapi-datamodel/*
 
 %files rrd-devel
 %defattr(-,root,root,-)
-/usr/lib/ocaml/rrd-client/*
+/usr/local/opam/system/lib/rrd-client/*
 
 %changelog
 

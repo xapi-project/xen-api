@@ -13,7 +13,7 @@ Source2: jquery.treeview.zip
 Source3: opam-repo-dev.tar.bz2
 Patch0: xapi-version.patch
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
-BuildRequires: pam-devel tetex-latex ocaml ocaml-opam opam-repository xen-devel zlib-devel
+BuildRequires: pam-devel tetex-latex ocaml ocaml-opam opam-repository opam-system xen-devel zlib-devel
 BuildArch: noarch
 
 %description
@@ -50,11 +50,9 @@ cp $RPM_SOURCE_DIR/jquery* $RPM_BUILD_DIR/xapi-noarch-0.2/ocaml/idl
 %patch0 -p0 -b xapi-version.patch
 
 %build
-export OPAMROOT=/tmp/.opam
-rm -rf $OPAMROOT
-opam init /usr/local/opam-repository
+export OPAMROOT=/usr/local/opam
 eval `opam config -env`
-opam remote add dev opam-repo-dev
+opam remote add dev opam-repo-dev || true
 opam install -y cdrom fd-send-recv forkexecd libvhd nbd netdev oclock ounit rpc ssl stdext syslog tapctl xen-api-libs-transitional xenctrl xenstore
 
 COMPILE_JAVA=no %{__make}
@@ -62,7 +60,7 @@ COMPILE_JAVA=no %{__make}
 %install
 
 rm -rf %{buildroot}
-export OPAMROOT=/tmp/.opam
+export OPAMROOT=/usr/local/opam
 eval `opam config -env`
 
 DESTDIR=$RPM_BUILD_ROOT %{__make} noarch-install
