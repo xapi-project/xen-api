@@ -19,9 +19,6 @@ open Threadext
 module D = Debug.Debugger(struct let name = "dispatcher" end)
 open D
 
-module Real = Debug.Debugger(struct let name = "taskhelper" end)
-module Dummy = Debug.Debugger(struct let name = "dummytaskhelper" end)
-
 exception Dispatcher_FieldNotFound of string
 let my_assoc fld assoc_list =
   try
