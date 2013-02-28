@@ -44,9 +44,7 @@ let stop () =
 	debug "Shutting down the old management interface (if any)";
 	List.iter (fun i -> Http_svr.stop i) !management_interface_server;	
 	management_interface_server := [];
-	localhost_server_started := false;
-	himn_addr := None;
-	specific_addresses_only := false
+	localhost_server_started := false
 
 (* Even though xapi listens on all IP addresses, there is still an interface appointed as
  * _the_ management interface. Slaves in a pool use the IP address of this interface to connect
@@ -120,13 +118,9 @@ let shutdown () =
 
 let maybe_start_himn ~__context ?addr () =
 	Mutex.execute management_m (fun () ->
-		match !himn_addr with
-		| Some a -> warn "There is already a server started on HIMN address %s: new address %s !"
-			a (match addr with None -> "None" | Some b -> b)
-		| None -> if (List.length !management_interface_server) <> 1 ||
-				!specific_addresses_only then (* Not already listening on Any *)
-					Opt.iter (fun addr -> himn_addr := Some addr;
-					start ~__context ~addr ()) addr
+		Opt.iter (fun addr -> himn_addr := Some addr) addr;
+		if !management_interface_server = [] then
+			Opt.iter (fun addr -> start ~__context ~addr ()) !himn_addr
 	)
 
 let start_localhost_interface ~__context =
