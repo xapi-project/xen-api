@@ -40,19 +40,22 @@ let create_vgpu ~__context ~vm vgpu available_pgpus pcis =
 	debug "Create vGPUs";
 	let compatible_pgpus = Db.GPU_group.get_PGPUs ~__context ~self:vgpu.gpu_group_ref in
 	let pgpus = List.intersect compatible_pgpus available_pgpus in
-	let free_pgpus = List.filter_map (fun pgpu ->
-		let pci = Db.PGPU.get_PCI ~__context ~self:pgpu in
-		if Pciops.get_free_functions ~__context pci <= 0
-		then None
-		else Some (pgpu, pci)
-	) pgpus in
-	match free_pgpus with
-	| [] ->
+	let rec reserve_one = function
+		| [] -> None
+		| pgpu :: remaining ->
+			let pci = Db.PGPU.get_PCI ~__context ~self:pgpu in
+			if Pciops.reserve ~__context pci then
+				Some (pgpu, pci)
+			else
+				reserve_one remaining
+	in
+	match reserve_one pgpus with
+	| None ->
 		raise (Api_errors.Server_error (Api_errors.vm_requires_gpu, [
 			Ref.string_of vm;
 			Ref.string_of vgpu.gpu_group_ref
 		]))
-	| (pgpu, pci) :: _ ->
+	| Some (pgpu, pci) ->
 		List.filter (fun g -> g <> pgpu) available_pgpus,
 		pci :: pcis
 
