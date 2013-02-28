@@ -346,6 +346,11 @@ module VM : HandlerTools = struct
 			in
 			(* Clear the appliance field - in the case of DR we will reconstruct the appliance separately. *)
 			let vm_record = {vm_record with API.vM_appliance = Ref.null} in
+			(* Correct ha-restart-priority for pre boston imports*)
+			let vm_record = match vm_record.API.vM_ha_restart_priority with
+					"0"|"1"|"2"|"3" as order -> { vm_record with API.vM_ha_restart_priority = "restart"; API.vM_order = Int64.of_string (order) }
+					| _ -> vm_record;
+			in
 
 			let vm = log_reraise
 				("failed to create VM with name-label " ^ vm_record.API.vM_name_label)
