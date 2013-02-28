@@ -1,5 +1,0 @@
-OCAMLPACKS = stdext xml-light2 log
-
-.PHONY: clean
-clean:
-	rm -f $(CLEAN_OBJS)

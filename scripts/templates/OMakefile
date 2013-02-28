@@ -1,7 +1,0 @@
-.PHONY: install
-install:
-	mkdir -p $(DESTDIR)$(OPTDIR)/packages/post-install-scripts
-	$(IPROG) debug $(DESTDIR)$(OPTDIR)/packages/post-install-scripts
-	$(IPROG) debian $(DESTDIR)$(OPTDIR)/packages/post-install-scripts/debian-etch
-#	ln -f $(BASE_PATH)/packages/post-install-scripts/debian-etch
-#	      $(BASE_PATH)/packages/post-install-scripts/debian-sarge

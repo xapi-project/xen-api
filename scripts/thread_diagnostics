@@ -1,6 +1,0 @@
-#!/bin/sh
-
-. @INVENTORY@
-echo Host: ${INSTALLATION_UUID}
-echo
-xe host-get-thread-diagnostics uuid=${INSTALLATION_UUID}

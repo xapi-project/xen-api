@@ -1,4 +1,0 @@
-[@VARDIR@/state.db]
-mode:no_limit
-format:xml
-available_this_boot:true

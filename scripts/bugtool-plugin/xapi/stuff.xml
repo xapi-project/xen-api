@@ -1,5 +1,0 @@
-<collect>
-<command label="sm_diagnostics">@LIBEXECDIR@/sm_diagnostics</command>
-<command label="thread_diagnostics">@LIBEXECDIR@/thread_diagnostics</command>
-<command label="list_plugins">@LIBEXECDIR@/list_plugins</command>
-</collect>

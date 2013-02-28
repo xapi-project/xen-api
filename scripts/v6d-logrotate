@@ -1,9 +1,0 @@
-/var/log/v6d.log {
-    missingok
-    notifempty
-    size 30k
-    sharedscripts
-    postrotate
-               /usr/bin/killall -HUP syslogd
-    endscript
-}
