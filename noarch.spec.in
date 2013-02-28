@@ -62,6 +62,8 @@ COMPILE_JAVA=no %{__make}
 %install
 
 rm -rf %{buildroot}
+export OPAMROOT=/tmp/.opam
+eval `opam config -env`
 
 DESTDIR=$RPM_BUILD_ROOT %{__make} noarch-install
 
