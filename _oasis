@@ -1,0 +1,38 @@
+OASISFormat: 0.3
+Name:        xcp-networkd
+Version:     0.1.0
+Synopsis:    The XCP networking daemon
+Authors:     Various
+License:     LGPL-2.1 with OCaml linking exception
+Plugins:     META (0.3)
+BuildTools:  ocamlbuild
+
+Library "xcp-networkd-interface"
+  CompiledObject:     best
+  Modules:            Network_interface
+  Path:               lib
+  BuildDepends:       threads, rpclib, stdext
+
+Executable "xcp-networkd"
+  CompiledObject:     best
+  Path:               networkd
+  MainIs:             networkd.ml
+  Custom:             true
+  Install:            false
+  BuildDepends:       threads, rpclib, stdext, log, xcp-fhs, xcp-networkd-interface
+
+Executable networkd_db
+  CompiledObject:     best
+  Path:               networkd_db
+  MainIs:             networkd_db.ml
+  Custom:             true
+  Install:            false
+  BuildDepends:       stdext
+
+Executable network_test
+  CompiledObject:     best
+  Path:               test
+  MainIs:             network_test.ml
+  Custom:             true
+  Install:            false
+  BuildDepends:       xcp-networkd-interface
