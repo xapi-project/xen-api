@@ -80,11 +80,6 @@ let valid_operations ~__context record _ref' : table =
   (* First consider the backend SM features *)
   let sm_features = features_of_sr record in
 
-  info "SR %s has features: [ %s ]" _ref (String.concat ", "
-    (List.map
-      (fun f -> Smint.(f |> capability_of_feature |> string_of_capability))
-      sm_features));
-
   (* Then filter out the operations we don't want to see for the magic tools SR *)
   let sm_features =
     if Helpers.is_tools_sr ~__context ~sr:_ref'
