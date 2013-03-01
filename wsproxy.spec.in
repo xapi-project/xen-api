@@ -9,7 +9,7 @@ License: LGPL+linking exception
 URL:  https://github.com/jonludlam/wsproxy
 Source0: wsproxy.tar.bz2
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
-BuildRequires: ocaml, ocaml-findlib, ocaml-camlp4, ocaml-lwt-devel
+BuildRequires: ocaml, ocaml-findlib, ocaml-camlp4, opam-system, ocaml-opam
 
 %description
 Websockets proxy for VNC traffic
@@ -17,6 +17,8 @@ Websockets proxy for VNC traffic
 %prep 
 %setup -q
 %build
+export OPAMROOT=/usr/local/opam
+eval `opam config -env`
 mkdir $RPM_BUILD_ROOT
 DESTDIR=$RPM_BUILD_ROOT %{__make}
 
