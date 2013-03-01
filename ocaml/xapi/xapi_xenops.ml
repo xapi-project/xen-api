@@ -651,8 +651,6 @@ module Xenopsd_metadata = struct
 				delete_nolock ~__context id
 			)
 
-	let counter = ref 0
-
 	let update ~__context ~self =
 		let id = id_of_vm ~__context ~self in
 		Mutex.execute metadata_m
@@ -661,15 +659,6 @@ module Xenopsd_metadata = struct
 				if vm_exists_in_xenopsd dbg id
 				then
 					let txt = create_metadata ~__context ~upgrade:false ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
-					begin match Xapi_cache.find_nolock id with
-						| Some old ->
-							if old <> txt then begin
-								Unixext.write_string_to_file (Printf.sprintf "/tmp/metadata.old.%d" !counter) old;
-								Unixext.write_string_to_file (Printf.sprintf "/tmp/metadata.new.%d" !counter) txt;
-								incr counter
-							end
-						| None -> ()
-					end;
 					begin match Xapi_cache.find_nolock id with
 						| Some old when old = txt -> ()
 						| _ ->
@@ -1034,7 +1023,8 @@ let update_vm ~__context id =
 							Opt.iter
 								(fun (_, state) ->
 									debug "xenopsd event: Updating VM %s shadow_multiplier <- %.2f" id state.shadow_multiplier_target;
-									Db.VM.set_HVM_shadow_multiplier ~__context ~self ~value:state.shadow_multiplier_target
+									if state.power_state <> Halted then
+										Db.VM.set_HVM_shadow_multiplier ~__context ~self ~value:state.shadow_multiplier_target
 								) info
 						with e ->
 							error "Caught %s: while updating VM %s HVM_shadow_multiplier" (Printexc.to_string e) id
@@ -1072,9 +1062,10 @@ let update_vbd ~__context (id: (string * string)) =
 					let vbd, vbd_r = List.find (fun (_, vbdr) -> vbdr.API.vBD_userdevice = linux_device || vbdr.API.vBD_userdevice = disk_number) vbdrs in
 					Opt.iter
 						(fun (vb, state) ->
-							debug "xenopsd event: Updating VBD %s.%s device <- %s; currently_attached <- %b" (fst id) (snd id) linux_device state.plugged;
+							let currently_attached = state.plugged || state.active in
+							debug "xenopsd event: Updating VBD %s.%s device <- %s; currently_attached <- %b" (fst id) (snd id) linux_device currently_attached;
 							Db.VBD.set_device ~__context ~self:vbd ~value:linux_device;
-							Db.VBD.set_currently_attached ~__context ~self:vbd ~value:(state.plugged || state.active);
+							Db.VBD.set_currently_attached ~__context ~self:vbd ~value:currently_attached;
 							if state.plugged then begin
 								match state.backend_present with
 									| Some (VDI x) ->

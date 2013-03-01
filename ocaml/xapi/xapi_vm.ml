@@ -717,20 +717,6 @@ let get_possible_hosts ~__context ~vm =
 let get_allowed_VBD_devices ~__context ~vm = List.map (fun d -> string_of_int (Device_number.to_disk_number d)) (allowed_VBD_devices ~__context ~vm)
 let get_allowed_VIF_devices = allowed_VIF_devices
 
-(** Mark all currently-attached VBDs and VIFs as reserved, call some function and then
-    unmark them again. This allows us to (eg) safeguard them across reboot operations. *)
-let reserve_vbds_and_vifs ~__context ~vm f =
-  let vbds = Db.VM.get_VBDs ~__context ~self:vm in
-  let vbds = List.filter (fun self -> try Db.VBD.get_currently_attached ~__context ~self with _ -> false) vbds in
-  let vifs = Db.VM.get_VIFs ~__context ~self:vm in
-  let vifs = List.filter (fun self -> try Db.VIF.get_currently_attached ~__context ~self with _ -> false) vifs in
-
-  let set_all value =
-    List.iter (fun self -> try Db.VBD.set_reserved ~__context ~self ~value with _ -> ()) vbds;
-    List.iter (fun self -> try Db.VIF.set_reserved ~__context ~self ~value with _ -> ()) vifs in
-  set_all true;
-  finally f (fun () -> set_all false)
-
 (* Undocumented Rio message, deprecated in favour of standard VM.clone *)
 let csvm ~__context ~vm =
   Xapi_vm_clone.clone ~__context  Xapi_vm_clone.Disk_op_clone ~vm
