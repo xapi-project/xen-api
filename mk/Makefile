@@ -76,7 +76,7 @@ $(OUTPUT_CLI_RT) $(OUTPUT_SDK): $(MY_MAIN_PACKAGES)/.dirstamp $(RPM_DIRECTORIES)
 	rm -rf $(OUTPUT_DATAMODEL_DIR)
 	mkdir -p $(OUTPUT_DATAMODEL_DIR)/tmp
 	(cd $(OUTPUT_DATAMODEL_DIR)/tmp; rpm2cpio $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-datamodel-devel*.rpm | cpio -i --make-directories)
-	mv $(OUTPUT_DATAMODEL_DIR)/tmp/usr/lib/ocaml/xapi-datamodel/* $(OUTPUT_DATAMODEL_DIR)
+	mv $(OUTPUT_DATAMODEL_DIR)/tmp/usr/local/opam/system/lib/xapi-datamodel/* $(OUTPUT_DATAMODEL_DIR)
 	rm -rf $(OUTPUT_DATAMODEL_DIR)/tmp
 
 	# Make sure the right RPMs appear on the install CD
