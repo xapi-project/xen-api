@@ -47,10 +47,21 @@ mgmt_ip() {
 }
 
 
-ACCEPT=443
-ss -ln | grep -q :::80
+ss -lnp | grep xapi | grep -q ::
 if [ $? -eq 0 ]; then
-    ACCEPT=:::443
+    ss -lnp | grep xapi | sed -re "s/[ ]+/ /g" | cut -f3 -d" " | grep -q "^:::"
+    if [ $? -eq 0 ]; then
+        ACCEPT=:::443
+    else
+        ACCEPT=::1:443
+    fi
+else
+    ss -lnp | grep xapi | sed -re "s/[ ]+/ /g" | cut -f3 -d" " | grep -q "^*"
+    if [ $? -eq 0 ]; then
+        ACCEPT=443
+    else
+        ACCEPT=127.0.0.1:443
+    fi
 fi
 
 # Write out the stunnel config file. This requires the management
