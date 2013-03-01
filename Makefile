@@ -1,5 +1,5 @@
-PACKS=lwt,lwt.syntax,lwt.unix,stdext
-OBJS=helpers iteratees lwt_support test websockets wsproxy
+PACKS=lwt,lwt.syntax,lwt.unix,re.str
+OBJS=base64 helpers iteratees lwt_support test websockets wsproxy
 OCAMLC=ocamlc
 OCAMLOPT=ocamlopt
 OCAMLFIND=ocamlfind
@@ -17,7 +17,7 @@ wsproxy : $(foreach obj,$(OBJS),$(obj).cmx)
 	$(OCAMLFIND) $(OCAMLC) $(OCAMLCFLAGS) -c -o $@ $<
 
 %.cmx: %.ml %.cmi
-	$(OCAMLFIND) $(OCAMLOPT) $(OCAMLOPTFLAGS) $(RPCLIGHTFLAGS) -c -thread -I ../rpc-light -I ../stdext -I ../log -I ../stunnel -o $@ $<
+	$(OCAMLFIND) $(OCAMLOPT) $(OCAMLOPTFLAGS) $(RPCLIGHTFLAGS) -c -thread -o $@ $<
 
 .PHONY: clean install
 clean:
@@ -37,6 +37,8 @@ srpm: wsproxy.spec
 	git archive --prefix=wsproxy-0/ --format=tar HEAD | bzip2 -z > $(RPM_SOURCESDIR)/wsproxy.tar.bz2
 	rpmbuild -bs --nodeps --define "_sourcedir ${RPM_SOURCESDIR}" --define "_srcrpmdir ${RPM_SRPMSDIR}" wsproxy.spec
 
+base64.cmo: base64.cmi
+base64.cmx: base64.cmi
 helpers.cmo: helpers.cmi
 helpers.cmx: helpers.cmi
 iteratees.cmo: helpers.cmi iteratees.cmi
@@ -45,8 +47,8 @@ lwt_support.cmo: iteratees.cmi lwt_support.cmi
 lwt_support.cmx: iteratees.cmx lwt_support.cmi
 test.cmo: iteratees.cmi test.cmi
 test.cmx: iteratees.cmx test.cmi
-websockets.cmo: test.cmi iteratees.cmi helpers.cmi websockets.cmi
-websockets.cmx: test.cmx iteratees.cmx helpers.cmx websockets.cmi
+websockets.cmo: test.cmi iteratees.cmi helpers.cmi base64.cmi websockets.cmi
+websockets.cmx: test.cmx iteratees.cmx helpers.cmx base64.cmx websockets.cmi
 wsproxy.cmo: websockets.cmi lwt_support.cmi wsproxy.cmi
 wsproxy.cmx: websockets.cmx lwt_support.cmx wsproxy.cmi
 helpers.cmi:
