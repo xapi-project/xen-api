@@ -1,0 +1,12 @@
+# OASIS_START
+# DO NOT EDIT (digest: fc25ed94636ea5b36181ae92d50ce133)
+version = "0.1.0"
+description = "XCP inventory library"
+requires = "threads stdext log xcp-fhs uuid"
+archive(byte) = "xcp-inventory.cma"
+archive(byte, plugin) = "xcp-inventory.cma"
+archive(native) = "xcp-inventory.cmxa"
+archive(native, plugin) = "xcp-inventory.cmxs"
+exists_if = "xcp-inventory.cma"
+# OASIS_STOP
+
