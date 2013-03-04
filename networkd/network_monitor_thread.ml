@@ -37,7 +37,7 @@ let send_bond_change_alert dev interfaces message =
 		~rpc:xapi_rpc ~uname:"" ~pwd:"" ~version:"1.4" in
 	Pervasiveext.finally
 		(fun _ ->
-			let obj_uuid = Util_inventory.lookup Util_inventory._installation_uuid in
+			let obj_uuid = Inventory.lookup Inventory._installation_uuid in
 			let body = Printf.sprintf	"The status of the %s bond %s" ifaces message in
 			try
 				let (name, priority) = Api_messages.bond_status_changed in
