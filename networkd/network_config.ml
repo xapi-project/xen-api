@@ -27,7 +27,7 @@ let config_file_path = Filename.concat Fhs.vardir "networkd.db"
 
 let read_management_conf () =
 	try
-		let management_conf = Unixext.string_of_file (Xapi_globs.first_boot_dir ^ "data/management.conf") in
+		let management_conf = Unixext.string_of_file (Fhs.firstbootdir ^ "data/management.conf") in
 		let args = String.split '\n' (String.rtrim management_conf) in
 		let args = List.map (fun s -> match (String.split '=' s) with k :: [v] -> k, String.strip ((=) '\'') v | _ -> "", "") args in
 		debug "Firstboot file management.conf has: %s" (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) args));
