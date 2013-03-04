@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 0dfc7968f0be109b08815ddad88af9b0)
+# DO NOT EDIT (digest: cb2d3d29bd434aa6d4e9dec446e6f228)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -15,37 +15,64 @@
 "_darcs": not_hygienic
 # Library xcp-networkd-interface
 "lib/xcp-networkd-interface.cmxs": use_xcp-networkd-interface
-<lib/*.ml{,i}>: pkg_stdext
 <lib/*.ml{,i}>: pkg_threads
+<lib/*.ml{,i}>: pkg_stdext
 <lib/*.ml{,i}>: pkg_rpclib
+<lib/*.ml{,i}>: pkg_log
+<lib/*.ml{,i}>: pkg_xcp-fhs
+<lib/*.ml{,i}>: pkg_xcp-inventory
 # Executable xcp-networkd
+<networkd/networkd.{native,byte}>: use_libxcp-networkd_stubs
 <networkd/networkd.{native,byte}>: use_xcp-networkd-interface
-<networkd/networkd.{native,byte}>: pkg_stdext
 <networkd/networkd.{native,byte}>: pkg_threads
+<networkd/networkd.{native,byte}>: pkg_stdext
 <networkd/networkd.{native,byte}>: pkg_rpclib
+<networkd/networkd.{native,byte}>: pkg_rpclib.unix
+<networkd/networkd.{native,byte}>: pkg_forkexec
 <networkd/networkd.{native,byte}>: pkg_log
+<networkd/networkd.{native,byte}>: pkg_http-svr
 <networkd/networkd.{native,byte}>: pkg_xcp-fhs
+<networkd/networkd.{native,byte}>: pkg_xcp-inventory
+<networkd/networkd.{native,byte}>: pkg_xen-api-client
 <networkd/*.ml{,i}>: use_xcp-networkd-interface
-<networkd/*.ml{,i}>: pkg_stdext
 <networkd/*.ml{,i}>: pkg_threads
+<networkd/*.ml{,i}>: pkg_stdext
 <networkd/*.ml{,i}>: pkg_rpclib
+<networkd/*.ml{,i}>: pkg_rpclib.unix
+<networkd/*.ml{,i}>: pkg_forkexec
 <networkd/*.ml{,i}>: pkg_log
+<networkd/*.ml{,i}>: pkg_http-svr
 <networkd/*.ml{,i}>: pkg_xcp-fhs
+<networkd/*.ml{,i}>: pkg_xcp-inventory
+<networkd/*.ml{,i}>: pkg_xen-api-client
+"networkd/link_stubs.c": use_xcp-networkd-interface
+"networkd/link_stubs.c": pkg_threads
+"networkd/link_stubs.c": pkg_stdext
+"networkd/link_stubs.c": pkg_rpclib
+"networkd/link_stubs.c": pkg_rpclib.unix
+"networkd/link_stubs.c": pkg_forkexec
+"networkd/link_stubs.c": pkg_log
+"networkd/link_stubs.c": pkg_http-svr
+"networkd/link_stubs.c": pkg_xcp-fhs
+"networkd/link_stubs.c": pkg_xcp-inventory
+"networkd/link_stubs.c": pkg_xen-api-client
 <networkd/networkd.{native,byte}>: custom
 # Executable networkd_db
+<networkd_db/networkd_db.{native,byte}>: use_xcp-networkd-interface
+<networkd_db/networkd_db.{native,byte}>: pkg_threads
 <networkd_db/networkd_db.{native,byte}>: pkg_stdext
+<networkd_db/networkd_db.{native,byte}>: pkg_rpclib
+<networkd_db/networkd_db.{native,byte}>: pkg_log
+<networkd_db/networkd_db.{native,byte}>: pkg_xcp-fhs
+<networkd_db/networkd_db.{native,byte}>: pkg_xcp-inventory
+<networkd_db/*.ml{,i}>: use_xcp-networkd-interface
+<networkd_db/*.ml{,i}>: pkg_threads
 <networkd_db/*.ml{,i}>: pkg_stdext
+<networkd_db/*.ml{,i}>: pkg_rpclib
+<networkd_db/*.ml{,i}>: pkg_log
+<networkd_db/*.ml{,i}>: pkg_xcp-fhs
+<networkd_db/*.ml{,i}>: pkg_xcp-inventory
 <networkd_db/networkd_db.{native,byte}>: custom
-# Executable network_test
-<test/network_test.{native,byte}>: use_xcp-networkd-interface
-<test/network_test.{native,byte}>: pkg_stdext
-<test/network_test.{native,byte}>: pkg_threads
-<test/network_test.{native,byte}>: pkg_rpclib
-<test/*.ml{,i}>: use_xcp-networkd-interface
-<test/*.ml{,i}>: pkg_stdext
-<test/*.ml{,i}>: pkg_threads
-<test/*.ml{,i}>: pkg_rpclib
-<test/network_test.{native,byte}>: custom
 # OASIS_STOP
 <lib/network_interface.ml{,i}>: syntax_camlp4o, pkg_rpclib.idl
 <networkd/network_monitor.ml{,i}>: syntax_camlp4o, pkg_rpclib.syntax

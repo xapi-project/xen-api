@@ -1,8 +1,8 @@
 # OASIS_START
-# DO NOT EDIT (digest: 8b3a63a966f1bd33cfc9d7ff33d33b2a)
+# DO NOT EDIT (digest: 56af63666e7d20200dbc03fb51904ebe)
 version = "0.1.0"
 description = "The XCP networking daemon"
-requires = "threads rpclib stdext"
+requires = "threads rpclib log stdext xcp-fhs xcp-inventory"
 archive(byte) = "xcp-networkd-interface.cma"
 archive(byte, plugin) = "xcp-networkd-interface.cma"
 archive(native) = "xcp-networkd-interface.cmxa"

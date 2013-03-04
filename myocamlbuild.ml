@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 36d42cdca31a3b6f05f5dcdcef495ca0) *)
+(* DO NOT EDIT (digest: 988b99c10c782430a69f5e2efe4bd47e) *)
 module OASISGettext = struct
 (* # 21 "/usr/local2/.opam/system/build/oasis.0.3.0/src/oasis/OASISGettext.ml" *)
 
@@ -478,9 +478,9 @@ open Ocamlbuild_plugin;;
 let package_default =
   {
      MyOCamlbuildBase.lib_ocaml = [("xcp-networkd-interface", ["lib"])];
-     lib_c = [];
+     lib_c = [("xcp-networkd", "networkd", ["networkd/netdev.h"])];
      flags = [];
-     includes = [("test", ["lib"]); ("networkd", ["lib"])];
+     includes = [("networkd_db", ["lib"]); ("networkd", ["lib"])];
      }
   ;;
 
