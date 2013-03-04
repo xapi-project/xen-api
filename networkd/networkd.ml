@@ -73,7 +73,7 @@ let handle_shutdown () =
 let _ =
 	let pidfile = ref "" in
 	let daemonize = ref false in
-	Debug.set_facility Syslog.Local5;
+	Debug.set_facility Syslog_transitional.Local5;
 
 	(* We should make the following configurable *)
 	Debug.disable "http";
