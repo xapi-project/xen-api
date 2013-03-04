@@ -19,6 +19,7 @@ Executable "xcp-networkd"
   MainIs:             networkd.ml
   Custom:             true
   Install:            false
+  CSources:           link_stubs.c, netdev.h
   BuildDepends:       threads, rpclib, rpclib.unix, forkexec, stdext, log, http-svr, xcp-fhs, xcp-inventory, xen-api-client, xcp-networkd-interface
 
 Executable networkd_db
