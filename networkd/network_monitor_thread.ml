@@ -25,10 +25,11 @@ open D
 (** Table for bonds status. *)
 let bonds_status : (string, (int * int)) Hashtbl.t = Hashtbl.create 10
 
-let xapi_rpc =
-	let open Xmlrpc_client in
-	XMLRPC_protocol.rpc ~http:(xmlrpc ~version:"1.0" "/")
-		~transport:(Unix (Filename.concat Fhs.vardir "xapi"))
+let xapi_rpc request =
+	Rpc_client.do_rpc_unix
+		~content_type:(Rpc_client.content_type_of_string "text/xml")
+		~filename:(Filename.concat Fhs.vardir "xapi")
+		~path:"/" request
 
 let send_bond_change_alert dev interfaces message =
 	let ifaces = String.concat "+" (List.sort String.compare interfaces) in
@@ -41,7 +42,7 @@ let send_bond_change_alert dev interfaces message =
 			let body = Printf.sprintf	"The status of the %s bond %s" ifaces message in
 			try
 				let (name, priority) = Api_messages.bond_status_changed in
-				let (_: 'a Ref.t) = XenAPI.Message.create ~rpc:xapi_rpc ~session_id
+				let (_ : API.ref_message) = XenAPI.Message.create ~rpc:xapi_rpc ~session_id
 					~name ~priority ~cls:`Host ~obj_uuid ~body in ()
 			with _ ->
 				warn "Exception sending a bond-status-change alert."
