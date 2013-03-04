@@ -1,0 +1,49 @@
+# OASIS_START
+# DO NOT EDIT (digest: 0dfc7968f0be109b08815ddad88af9b0)
+# Ignore VCS directories, you can use the same kind of rule outside 
+# OASIS_START/STOP if you want to exclude directories that contains 
+# useless stuff for the build process
+<**/.svn>: -traverse
+<**/.svn>: not_hygienic
+".bzr": -traverse
+".bzr": not_hygienic
+".hg": -traverse
+".hg": not_hygienic
+".git": -traverse
+".git": not_hygienic
+"_darcs": -traverse
+"_darcs": not_hygienic
+# Library xcp-networkd-interface
+"lib/xcp-networkd-interface.cmxs": use_xcp-networkd-interface
+<lib/*.ml{,i}>: pkg_stdext
+<lib/*.ml{,i}>: pkg_threads
+<lib/*.ml{,i}>: pkg_rpclib
+# Executable xcp-networkd
+<networkd/networkd.{native,byte}>: use_xcp-networkd-interface
+<networkd/networkd.{native,byte}>: pkg_stdext
+<networkd/networkd.{native,byte}>: pkg_threads
+<networkd/networkd.{native,byte}>: pkg_rpclib
+<networkd/networkd.{native,byte}>: pkg_log
+<networkd/networkd.{native,byte}>: pkg_xcp-fhs
+<networkd/*.ml{,i}>: use_xcp-networkd-interface
+<networkd/*.ml{,i}>: pkg_stdext
+<networkd/*.ml{,i}>: pkg_threads
+<networkd/*.ml{,i}>: pkg_rpclib
+<networkd/*.ml{,i}>: pkg_log
+<networkd/*.ml{,i}>: pkg_xcp-fhs
+<networkd/networkd.{native,byte}>: custom
+# Executable networkd_db
+<networkd_db/networkd_db.{native,byte}>: pkg_stdext
+<networkd_db/*.ml{,i}>: pkg_stdext
+<networkd_db/networkd_db.{native,byte}>: custom
+# Executable network_test
+<test/network_test.{native,byte}>: use_xcp-networkd-interface
+<test/network_test.{native,byte}>: pkg_stdext
+<test/network_test.{native,byte}>: pkg_threads
+<test/network_test.{native,byte}>: pkg_rpclib
+<test/*.ml{,i}>: use_xcp-networkd-interface
+<test/*.ml{,i}>: pkg_stdext
+<test/*.ml{,i}>: pkg_threads
+<test/*.ml{,i}>: pkg_rpclib
+<test/network_test.{native,byte}>: custom
+# OASIS_STOP
