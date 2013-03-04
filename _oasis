@@ -19,7 +19,7 @@ Executable "xcp-networkd"
   MainIs:             networkd.ml
   Custom:             true
   Install:            false
-  BuildDepends:       threads, rpclib, stdext, log, xcp-fhs, xcp-inventory, xcp-networkd-interface
+  BuildDepends:       threads, rpclib, forkexec, stdext, log, xcp-fhs, xcp-inventory, xcp-networkd-interface
 
 Executable networkd_db
   CompiledObject:     best
