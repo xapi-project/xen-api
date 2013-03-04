@@ -47,3 +47,6 @@
 <test/*.ml{,i}>: pkg_rpclib
 <test/network_test.{native,byte}>: custom
 # OASIS_STOP
+<lib/network_interface.ml{,i}>: syntax_camlp4o, pkg_rpclib.idl
+<networkd/network_monitor.ml{,i}>: syntax_camlp4o, pkg_rpclib.syntax
+<networkd/network_server.ml{,i}>: syntax_camlp4o, pkg_rpclib.syntax
