@@ -3,3 +3,6 @@ _build/
 setup.data
 setup.log
 setup.bin
+
+networkd.native
+networkd_db.native
