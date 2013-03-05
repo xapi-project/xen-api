@@ -710,6 +710,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let set_vswitch_controller ~__context ~address =
 			info "Pool.set_vswitch_controller: pool = '%s'; address = '%s'" (current_pool_uuid ~__context) address;
 			Local.Pool.set_vswitch_controller ~__context ~address
+
+		let get_license_state ~__context ~self =
+			info "Pool.get_license_state: pool = '%s'" (pool_uuid ~__context self);
+			Local.Pool.get_license_state ~__context ~self
 	end
 
 	module VM = struct

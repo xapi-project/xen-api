@@ -119,6 +119,7 @@ XAPI_MODULES = $(COMMON) \
 	xapi_http \
 	xapi_host_patch \
 	xapi_pool_patch \
+	xapi_pool_license \
 	xapi_support \
 	xapi_session \
 	xapi_auth \
