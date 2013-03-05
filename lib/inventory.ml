@@ -20,7 +20,7 @@ open Threadext
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
-let inventory_filename = Inventory_globs.inventory_filename
+let inventory_filename = Fhs.inventory
 
 (* Keys which must exist: *)
 let _installation_uuid = "INSTALLATION_UUID"
