@@ -30,10 +30,10 @@ Executable networkd_db
   Install:            false
   BuildDepends:       threads, stdext, xcp-networkd-interface
 
-Executable network_test
-  CompiledObject:     best
-  Path:               test
-  MainIs:             network_test.ml
-  Custom:             true
-  Install:            false
-  BuildDepends:       xcp-networkd-interface
+#Executable network_test
+#  CompiledObject:     best
+#  Path:               test
+#  MainIs:             network_test.ml
+#  Custom:             true
+#  Install:            false
+#  BuildDepends:       xcp-networkd-interface
