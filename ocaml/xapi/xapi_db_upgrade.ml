@@ -46,6 +46,7 @@ let apply_upgrade_rules ~__context rules previous_version =
 let george = Datamodel.george_release_schema_major_vsn, Datamodel.george_release_schema_minor_vsn
 let cowley = Datamodel.cowley_release_schema_major_vsn, Datamodel.cowley_release_schema_minor_vsn
 let boston = Datamodel.boston_release_schema_major_vsn, Datamodel.boston_release_schema_minor_vsn
+let tampa = Datamodel.tampa_release_schema_major_vsn, Datamodel.tampa_release_schema_minor_vsn
 
 let upgrade_vm_memory_overheads = {
 	description = "Upgrade VM.memory_overhead fields";
@@ -311,6 +312,24 @@ let upgrade_pif_metrics = {
 		) phy_and_bond_pifs
 }
 
+let upgrade_host_editions = {
+	description = "Upgrading host editions";
+	version = (fun x -> x <= tampa);
+	fn = fun ~__context ->
+		let hosts = Db.Host.get_all ~__context in
+		List.iter
+			(fun host ->
+				match Db.Host.get_edition ~__context ~self:host with
+				| "free" -> ()
+				| "enterprise-xd" ->
+					Db.Host.set_edition ~__context ~self:host ~value:"xendesktop"
+				| "advanced" | "enterprise" | "platinum" ->
+					Db.Host.set_edition ~__context ~self:host ~value:"per-socket"
+				| _ ->
+					Db.Host.set_edition ~__context ~self:host ~value:"free")
+			hosts
+}
+
 let rules = [
 	upgrade_vm_memory_overheads;
 	upgrade_wlb_configuration;
@@ -323,6 +342,7 @@ let rules = [
 	upgrade_cpu_flags;
 	upgrade_auto_poweron;
 	upgrade_pif_metrics;
+	upgrade_host_editions;
 ]
 
 (* Maybe upgrade most recent db *)
