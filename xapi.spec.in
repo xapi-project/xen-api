@@ -85,6 +85,13 @@ Group: System/Hypervisor
 %description xenops
 This package contains the xenops-based low-level debugging tools.
 
+%package opam-system-libs-devel
+Summary: opam libraries for xapi
+Group:   Development/Libraries
+
+%description opam-system-libs-devel
+This package contains some extra ocaml libraries
+
 %package client-devel
 Summary: xapi Development Headers and Libraries
 Group:   Development/Libraries
@@ -142,6 +149,15 @@ for e in py pyc pyo; do
 done > rrdd-files
 
 ln -s /var/lib/xcp $RPM_BUILD_ROOT/var/xapi
+
+mkdir -p $RPM_BUILD_ROOT/usr/local/opam/system
+for i in cdrom cpuid cstruct fd-send-recv forkexec gzip http-svr libxcpvhd log nbd netdev oclock ocplib-endian optcomp pciutil sexpr sha1 stdext stublibs stunnel syslog tapctl uuid uuidm xen-utils xenctrl xenctrlext xenstore-compat xenstore xenstore_transport xml-light2
+do
+    rsync -av /usr/local/opam/system/lib/$i $RPM_BUILD_ROOT/usr/local/opam/system/lib/
+done
+
+cd $RPM_BUILD_ROOT/usr/local/opam/system/lib/stublibs
+rm dllbitstring.so* dlljs_of_ocaml.so* dlllwt-unix_stubs.so* dllssl_stubs.so* dllssl_threads_stubs.so*
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -380,6 +396,61 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/debug/quicktest
 @OPTDIR@/debug/quicktestbin
 /cli-rt/*
+
+%files opam-system-libs-devel
+%defattr(-,root,root,-)
+/usr/local/opam/system/lib/cdrom/
+/usr/local/opam/system/lib/cpuid/
+/usr/local/opam/system/lib/cstruct/
+/usr/local/opam/system/lib/fd-send-recv/
+/usr/local/opam/system/lib/forkexec/
+/usr/local/opam/system/lib/gzip/
+/usr/local/opam/system/lib/http-svr/
+/usr/local/opam/system/lib/libxcpvhd/
+/usr/local/opam/system/lib/log/
+/usr/local/opam/system/lib/nbd/
+/usr/local/opam/system/lib/netdev/
+/usr/local/opam/system/lib/oclock/
+/usr/local/opam/system/lib/ocplib-endian/
+/usr/local/opam/system/lib/optcomp/
+/usr/local/opam/system/lib/pciutil/
+/usr/local/opam/system/lib/sexpr/
+/usr/local/opam/system/lib/sha1/
+/usr/local/opam/system/lib/stdext/
+/usr/local/opam/system/lib/stublibs/dllcdrom_stubs.so
+/usr/local/opam/system/lib/stublibs/dllcdrom_stubs.so.owner
+/usr/local/opam/system/lib/stublibs/dllcpuid_stubs.so
+/usr/local/opam/system/lib/stublibs/dllcpuid_stubs.so.owner
+/usr/local/opam/system/lib/stublibs/dllcstruct_stubs.so
+/usr/local/opam/system/lib/stublibs/dllcstruct_stubs.so.owner
+/usr/local/opam/system/lib/stublibs/dllfd_send_recv_stubs.so
+/usr/local/opam/system/lib/stublibs/dllfd_send_recv_stubs.so.owner
+/usr/local/opam/system/lib/stublibs/dlllibxcpvhd_stubs.so
+/usr/local/opam/system/lib/stublibs/dlllibxcpvhd_stubs.so.owner
+/usr/local/opam/system/lib/stublibs/dlllog_stubs.so
+/usr/local/opam/system/lib/stublibs/dlllog_stubs.so.owner
+/usr/local/opam/system/lib/stublibs/dllnetdev_stubs.so
+/usr/local/opam/system/lib/stublibs/dllnetdev_stubs.so.owner
+/usr/local/opam/system/lib/stublibs/dlloclock_stubs.so
+/usr/local/opam/system/lib/stublibs/dlloclock_stubs.so.owner
+/usr/local/opam/system/lib/stublibs/dllstdext_stubs.so
+/usr/local/opam/system/lib/stublibs/dllstdext_stubs.so.owner
+/usr/local/opam/system/lib/stublibs/dllxenctrl_stubs.so
+/usr/local/opam/system/lib/stublibs/dllxenctrl_stubs.so.owner
+/usr/local/opam/system/lib/stublibs/dllxenctrlext_stubs.so
+/usr/local/opam/system/lib/stublibs/dllxenctrlext_stubs.so.owner
+/usr/local/opam/system/lib/stunnel/
+/usr/local/opam/system/lib/syslog/
+/usr/local/opam/system/lib/tapctl/
+/usr/local/opam/system/lib/uuid/
+/usr/local/opam/system/lib/uuidm/
+/usr/local/opam/system/lib/xen-utils/
+/usr/local/opam/system/lib/xenctrl/
+/usr/local/opam/system/lib/xenctrlext/
+/usr/local/opam/system/lib/xenstore-compat/
+/usr/local/opam/system/lib/xenstore/
+/usr/local/opam/system/lib/xenstore_transport/
+/usr/local/opam/system/lib/xml-light2/
 
 %files client-devel
 %defattr(-,root,root,-)
