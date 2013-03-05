@@ -345,6 +345,8 @@ let _ =
 
   error Api_errors.message_deprecated []
     ~doc:"This message has been deprecated." ();
+  error Api_errors.message_removed []
+    ~doc:"This message has been removed." ();
 
   error Api_errors.permission_denied ["message"]
     ~doc:"Caller not allowed to perform this operation." ();
@@ -3675,7 +3677,10 @@ let host_list_methods = call
 let host_license_apply = call
   ~name:"license_apply"
   ~in_oss_since:None
-  ~in_product_since:rel_rio
+  ~lifecycle:[
+    Published, rel_rio, "Apply a new license to a host";
+    Removed, rel_clearwater, "Free licenses no longer handled by xapi";
+  ]
   ~params:[Ref _host, "host", "The host to upload the license to";
 	   String, "contents", "The contents of the license file, base64 encoded"]
   ~doc:"Apply a new license to a host"
