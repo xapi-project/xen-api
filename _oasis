@@ -9,9 +9,9 @@ BuildTools:  ocamlbuild
 
 Library "xcp-networkd-interface"
   CompiledObject:     best
-  Modules:            Network_interface
+  Modules:            Network_config, Network_interface
   Path:               lib
-  BuildDepends:       threads, rpclib, stdext
+  BuildDepends:       threads, rpclib, log, stdext, xcp-fhs, xcp-inventory
 
 Executable "xcp-networkd"
   CompiledObject:     best
@@ -28,7 +28,7 @@ Executable networkd_db
   MainIs:             networkd_db.ml
   Custom:             true
   Install:            false
-  BuildDepends:       stdext
+  BuildDepends:       threads, stdext, xcp-networkd-interface
 
 Executable network_test
   CompiledObject:     best
