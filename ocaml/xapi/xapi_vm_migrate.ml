@@ -536,6 +536,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				TaskHelper.exn_if_cancelling ~__context;
 				begin match e with
 					| Storage_interface.Backend_error(code, params) -> raise (Api_errors.Server_error(code, params))
+					| Storage_interface.Unimplemented(code) -> raise (Api_errors.Server_error(Api_errors.unimplemented_in_sm_backend, [code]))
 					| _ -> raise e
 				end
 

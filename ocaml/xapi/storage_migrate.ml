@@ -651,7 +651,8 @@ let wrap ~dbg f =
 			| Backend_error(code, params)
 			| Api_errors.Server_error(code, params) ->
 				raise (Backend_error(code, params))
-			| e ->
+			| Unimplemented msg -> raise (Unimplemented msg) 
+			| e -> 
 				raise (Internal_error(Printexc.to_string e))) in
 	let _ = Thread.create 
 		(Debug.with_thread_associated dbg (fun () ->
