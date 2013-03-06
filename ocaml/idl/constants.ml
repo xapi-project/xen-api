@@ -79,6 +79,7 @@ let ha_valid_restart_priorities = [ ha_restart; ha_restart_best_effort; "" ]
 let ha_base_t = "ha_base_t"
 let ballooning_enabled = "ballooning.enabled"
 let redo_log_enabled = "redo_log.enabled"
+let himn_address = "himn_address"
 
 (* Set in the local db to cause us to emit an alert when we come up as a master after
    a transition or HA failover *)

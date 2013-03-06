@@ -22,6 +22,19 @@ open D
 
 let himn_addr = ref None
 
+let get_himn_address () =
+	match !himn_addr with
+		None -> (try
+			   let addr = Localdb.get Constants.himn_address in
+			   himn_addr := Some addr;
+			   !himn_addr
+		  with Localdb.Missing_key _ -> None)
+	| _ -> !himn_addr
+
+let set_himn_address addr =
+	himn_addr := Some addr;
+	Localdb.put Constants.himn_address addr
+
 (* Stores a key into the table in Http_srv which identifies the server thread bound
 	 to the management IP. *)
 let management_interface_server = ref []
@@ -120,16 +133,17 @@ let run ~__context ~mgmt_enabled =
 					start ~__context ~addr ();
 					listening_himn := true
 				end
-			) !himn_addr;
+			) (get_himn_address ());
 		end;
 		resync ~__context;
 	)
 
 let enable_himn ~__context ~addr =
 	Mutex.execute management_m (fun () ->
-		himn_addr := Some addr;
+		set_himn_address addr;
 	);
 	run ~__context ~mgmt_enabled:!listening_all
+
 
 let rebind ~__context =
 	run ~__context ~mgmt_enabled:!listening_all
