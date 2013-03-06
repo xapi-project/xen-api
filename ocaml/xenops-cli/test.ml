@@ -61,7 +61,7 @@ let event_wait p =
 	let finished = ref false in
 	let event_id = ref None in
 	while not !finished do
-		let deltas, next_id = Client.UPDATES.get dbg !event_id (Some 30) in
+		let _, deltas, next_id = Client.UPDATES.get dbg !event_id (Some 30) in
 		event_id := Some next_id;
 		List.iter (fun d -> if p d then finished := true) deltas;
 	done
@@ -84,7 +84,7 @@ let wait_for_tasks id =
 	let ids = ref (List.fold_left (fun set x -> StringSet.add x set) StringSet.empty id) in
 	let event_id = ref None in
 	while not(StringSet.is_empty !ids) do
-		let deltas, next_id = Client.UPDATES.get dbg !event_id (Some 30) in
+		let _, deltas, next_id = Client.UPDATES.get dbg !event_id (Some 30) in
 		if !verbose_timings
 		then (Printf.fprintf stderr "next_id = %d; deltas = %d" next_id (List.length deltas); flush stderr);
 		if List.length deltas = 0 then failwith (Printf.sprintf "no deltas, next_id = %d" next_id);
