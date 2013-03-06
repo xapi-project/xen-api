@@ -22,6 +22,7 @@ let base_suite =
 			Test_xapi_db_upgrade.test;
 			Test_ca91480.test;
 			Test_pr1510.suite;
+			Test_pool_license.test;
 		]
 
 let _ = run_test_tt_main base_suite
