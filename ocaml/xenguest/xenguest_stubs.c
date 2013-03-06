@@ -17,7 +17,6 @@
 #include <errno.h>
 #include <string.h>
 #include <stdarg.h>
-#include <syslog.h>
 
 #include <xenctrl.h>
 #include <xenguest.h>
@@ -173,11 +172,11 @@ get_flags(struct flags *f, int domid)
     f->mmio_size_mib = xenstore_get(domid, "mmio_size_mib");
     f->tsc_mode = xenstore_get(domid, "tsc_mode");
 
-    syslog(LOG_INFO|LOG_DAEMON,"Determined the following parameters from xenstore:");
-    syslog(LOG_INFO|LOG_DAEMON,"vcpu/number:%d vcpu/weight:%d vcpu/cap:%d nx: %d viridian: %d apic: %d acpi: %d pae: %d acpi_s4: %d acpi_s3: %d mmio_size_mib: %ld tsc_mode %d",
+    printf("Determined the following parameters from xenstore:");
+    printf("vcpu/number:%d vcpu/weight:%d vcpu/cap:%d nx: %d viridian: %d apic: %d acpi: %d pae: %d acpi_s4: %d acpi_s3: %d mmio_size_mib: %ld tsc_mode %d",
            f->vcpus,f->vcpu_weight,f->vcpu_cap,f->nx,f->viridian,f->apic,f->acpi,f->pae,f->acpi_s4,f->acpi_s3,f->mmio_size_mib,f->tsc_mode);
     for (n = 0; n < f->vcpus; n++){
-        syslog(LOG_INFO|LOG_DAEMON,"vcpu/%d/affinity:%s", n, (f->vcpu_affinity[n])?f->vcpu_affinity[n]:"unset");
+        printf("vcpu/%d/affinity:%s", n, (f->vcpu_affinity[n])?f->vcpu_affinity[n]:"unset");
     }
 }
 
@@ -218,8 +217,6 @@ static int suspend_flag_list[] = {
 CAMLprim value stub_xenguest_init()
 {
     xc_interface *xch;
-
-    openlog("xenguest", LOG_NDELAY, LOG_DAEMON);
 
     xch = xc_interface_open(NULL, NULL, 0);
     if (xch == NULL)
@@ -266,7 +263,7 @@ static void configure_vcpus(xc_interface *xch, int domid, struct flags f){
     r = xc_sched_credit_domain_get(xch, domid, &sdom);
     /* This should only happen when a different scheduler is set */
     if (r) {
-        syslog(LOG_WARNING|LOG_DAEMON, "Failed to get credit scheduler parameters: scheduler not enabled?");
+        fprintf(stderr, "Failed to get credit scheduler parameters: scheduler not enabled?");
         return;
     }
     if (f.vcpu_weight != 0L) sdom.weight = f.vcpu_weight;
