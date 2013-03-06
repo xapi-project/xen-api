@@ -266,9 +266,7 @@ let revalidate_all_sessions ~__context =
 	)with e -> (*unexpected exception: we absorb it and print out a debug line *)
 		debug "Unexpected exception while revalidating external sessions: %s" (ExnHelper.string_of_exn e)
 
-(* XXX: only used internally by the code which grants the guest access to the API.
-   Needs to be protected by a proper access control system *)
-let login_no_password ~__context ~uname ~host ~pool ~is_local_superuser ~subject ~auth_user_sid ~auth_user_name ~rbac_permissions =
+let login_no_password_common ~__context ~uname ~originator ~host ~pool ~is_local_superuser ~subject ~auth_user_sid ~auth_user_name ~rbac_permissions =
 	let session_id = Ref.make () in
 	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
 	let user = Ref.null in (* always return a null reference to the deprecated user object *)
@@ -282,21 +280,25 @@ let login_no_password ~__context ~uname ~host ~pool ~is_local_superuser ~subject
 	(* see also task creation in context.ml *)
 	(* CP-982: promote tracking debug line to info status *)
 	(* CP-982: create tracking id in log files to link username to actions *)
-	info "Session.create %s pool=%b uname=%s is_local_superuser=%b auth_user_sid=%s parent=%s"
-		(trackid session_id) pool (match uname with None->""|Some u->u) is_local_superuser auth_user_sid (trackid parent);
+	info "Session.create %s pool=%b uname=%s originator=%s is_local_superuser=%b auth_user_sid=%s parent=%s"
+		(trackid session_id) pool (match uname with None->""|Some u->u) originator is_local_superuser auth_user_sid (trackid parent);
 	Db.Session.create ~__context ~ref:session_id ~uuid
 	                  ~this_user:user ~this_host:host ~pool:pool
 	                  ~last_active:(Date.of_float (Unix.time ())) ~other_config:[] 
 	                  ~subject:subject ~is_local_superuser:is_local_superuser
 	                  ~auth_user_sid ~validation_time:(Date.of_float (Unix.time ()))
-	                  ~auth_user_name ~rbac_permissions ~parent;
+	                  ~auth_user_name ~rbac_permissions ~parent ~originator;
 	Rbac_audit.session_create ~__context ~session_id ~uname;
 	(* At this point, the session is created, but with an incorrect time *)
 	(* Force the time to be updated by calling an API function with this session *)
 	let rpc = Helpers.make_rpc ~__context in
 	ignore(Client.Session.get_uuid rpc session_id session_id);
-	
 	session_id
+
+(* XXX: only used internally by the code which grants the guest access to the API.
+   Needs to be protected by a proper access control system *)
+let login_no_password  ~__context ~uname ~host ~pool ~is_local_superuser ~subject ~auth_user_sid ~auth_user_name ~rbac_permissions =
+	login_no_password_common ~__context ~uname ~originator:"" ~host ~pool ~is_local_superuser ~subject ~auth_user_sid ~auth_user_name ~rbac_permissions
 
 (** Cause the master to update the session last_active every 30s or so *)
 let consider_touching_session rpc session_id = 
@@ -354,13 +356,13 @@ let slave_local_login_with_password ~__context ~uname ~pwd = wipe_params_after_f
       - try and authenticate remotely, passing the supplied username/password to the external auth/directory service. (Note: see below for definition of 'authenticate remotely')
    2. otherwise, Session.login_with_password will only attempt to authenticate against the local superuser credentials
 *)
-let login_with_password ~__context ~uname ~pwd ~version = wipe_params_after_fn [pwd] (fun () ->
+let login_with_password ~__context ~uname ~pwd ~version ~originator = wipe_params_after_fn [pwd] (fun () ->
   (* !!! Do something with the version number *)
 	if (Context.preauth ~__context) then
 	begin
 		(* in this case, the context origin of this login request is a unix socket bound locally to a filename *)
 		(* we trust requests from local unix filename sockets, so no need to authenticate them before login *)
-		login_no_password ~__context ~uname:(Some uname) ~host:(Helpers.get_localhost ~__context) 
+		login_no_password_common ~__context ~uname:(Some uname) ~originator ~host:(Helpers.get_localhost ~__context) 
 			~pool:false ~is_local_superuser:true ~subject:(Ref.null)
 			~auth_user_sid:"" ~auth_user_name:uname ~rbac_permissions:[]
 	end 
@@ -372,7 +374,7 @@ let login_with_password ~__context ~uname ~pwd ~version = wipe_params_after_fn [
 		else begin
 			do_local_auth uname pwd;
 			debug "Successful local authentication user %s from %s" uname (Context.get_origin __context);
-			login_no_password ~__context ~uname:(Some uname) ~host:(Helpers.get_localhost ~__context) 
+			login_no_password_common ~__context ~uname:(Some uname) ~originator ~host:(Helpers.get_localhost ~__context) 
 				~pool:false ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:"" ~auth_user_name:uname
 				~rbac_permissions:[]
 		end
@@ -529,8 +531,8 @@ let login_with_password ~__context ~uname ~pwd ~version = wipe_params_after_fn [
 									debug "%s" msg; 
 									thread_delay_and_raise_error uname msg
 								end
-						) in 
-						login_no_password ~__context ~uname:(Some uname) ~host:(Helpers.get_localhost ~__context) 
+							) in 
+						login_no_password_common ~__context ~uname:(Some uname) ~originator ~host:(Helpers.get_localhost ~__context) 
 							~pool:false ~is_local_superuser:false ~subject:subject ~auth_user_sid:subject_identifier ~auth_user_name:subject_name
 							~rbac_permissions
 					end
