@@ -11,19 +11,19 @@ xe-pif-param-remove - Removes a writable parameter key for a PIF.
 
 SYNOPSIS
 --------
-*xe pif-param-remove* uuid=<PIF UUID> param-name=<Parameter> param-key=<Parameter Key>
+*xe pif-param-remove* uuid=<PIF UUID> param-name=<PARAMETER> param-key=<PARAMETER KEY>
 
 DESCRIPTION
 -----------
 
-*xe pif-param-remove* removes a set or map writable parameter key assigned to a PIF interface. 
+*xe pif-param-remove* removes any writable set or map parameter. Use *xe pif-list* and *xe pif-param-list* to identify writable set or map parameters (SRW, MRW).﻿
 
 
 REQUIRED PARAMETERS
 -------------------
 
 *uuid*::
-	UUID of PIF interface - Use *xe pif-list* to obtain PIF interface UUIDs.
+	PIF UUID - Use *xe pif-list* to obtain PIF UUIDs.
 
 *param-name*::
 	Parameter that contains parameter keys (e.g. other-config).
@@ -44,12 +44,12 @@ SEE ALSO
 AUTHORS
 -------
 Manpage Author(s): ::
-Matthew Spah <spahmatthew@xenapiadmin.com>
+Matthew Spah <spahmatthew@xenapiadmin.com> +
 Lisa Nguyen <lisa@xenapiadmin.com>
 
 BUGS
 ----
-See http://wiki.xen.org/wiki/Reporting_Bugs_against_XCP on how to send bug reports, send bugs and general questions to xen-api@lists.xen.org.
+For guidelines on submitting bug reports see http://wiki.xen.org/wiki/Reporting_Bugs_against_XCP. Submit bugs and general questions to xen-api@lists.xen.org.
 
 COPYRIGHT
 ---------

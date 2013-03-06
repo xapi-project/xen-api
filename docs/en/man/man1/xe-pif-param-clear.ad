@@ -7,22 +7,22 @@ XE(1)
 
 NAME
 ----
-xe-pif-param-clear - Clears a specific writable parameter for a PIF.
+xe-pif-param-clear - Clears a specific writable parameter for a PIF
 
 SYNOPSIS
 --------
-*xe pif-param-clear* uuid=<PIF UUID> param-name=<parameter> 
+*xe pif-param-clear* uuid=<PIF UUID> param-name=<PARAMETER> 
 
 
 DESCRIPTION
 -----------
-*xe pif-param-clear* attempts to clear all values for a specific writable parameter for a PIF interface. 
+*xe pif-param-clear* attempts to clear any writable parameter. Use *xe pif-list* and *xe pif-param-list* to identify writable parameters (RW, SRW, MRW).
 
 REQUIRED PARAMETERS
 -------------------
 
 *uuid*::
-	UUID of PIF interface - Use *xe pif-list* to obtain PIF interface UUIDs.
+	PIF UUID - Use *xe pif-list* to obtain PIF UUIDs.
 	
 *param-name*::
 	Parameter to be cleared for a PIF interface (e.g. other-config). 
@@ -30,7 +30,7 @@ REQUIRED PARAMETERS
 EXAMPLES
 --------
 
-To clear all values found in the other-config parameter: ::
+To clear all values found in the *other-config* parameter: ::
 	*xe pif-param-clear* uuid=<PIF UUID> param-name="other-config"
 
 SEE ALSO
@@ -40,12 +40,12 @@ SEE ALSO
 AUTHORS
 -------
 Manpage Author(s): ::
-Matthew Spah <spahmatthew@xenapiadmin.com>
+Matthew Spah <spahmatthew@xenapiadmin.com> +
 Lisa Nguyen <lisa@xenapiadmin.com>
 
 BUGS
 ----
-See http://wiki.xen.org/wiki/Reporting_Bugs_against_XCP on how to send bug reports, send bugs and general questions to xen-api@lists.xen.org.
+For guidelines on submitting bug reports see http://wiki.xen.org/wiki/Reporting_Bugs_against_XCP. Submit bugs and general questions to xen-api@lists.xen.org.
 
 
 COPYRIGHT
