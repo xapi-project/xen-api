@@ -14,10 +14,10 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <errno.h>
 #include <string.h>
 #include <stdarg.h>
-#include <syslog.h>
 
 #include <xenctrl.h>
 #include <xenguest.h>
@@ -272,13 +272,13 @@ get_flags(struct flags *f, int domid)
     f->kernel_max_size = vm_pv_kernel_max_size ? vm_pv_kernel_max_size : host_pv_kernel_max_size;
     f->ramdisk_max_size = vm_pv_ramdisk_max_size ? vm_pv_ramdisk_max_size : host_pv_ramdisk_max_size;
 
-    syslog(LOG_INFO|LOG_DAEMON,"Determined the following parameters from xenstore:");
-    syslog(LOG_INFO|LOG_DAEMON,"vcpu/number:%d vcpu/weight:%d vcpu/cap:%d nx: %d viridian: %d apic: %d acpi: %d pae: %d acpi_s4: %d acpi_s3: %d mmio_size_mib: %ld tsc_mode %d",
+    printf("Determined the following parameters from xenstore:");
+    printf("vcpu/number:%d vcpu/weight:%d vcpu/cap:%d nx: %d viridian: %d apic: %d acpi: %d pae: %d acpi_s4: %d acpi_s3: %d mmio_size_mib: %ld tsc_mode %d",
            f->vcpus,f->vcpu_weight,f->vcpu_cap,f->nx,f->viridian,f->apic,f->acpi,f->pae,f->acpi_s4,f->acpi_s3,f->mmio_size_mib,f->tsc_mode);
     for (n = 0; n < f->vcpus; n++){
-        syslog(LOG_INFO|LOG_DAEMON,"vcpu/%d/affinity:%s", n, (f->vcpu_affinity[n])?f->vcpu_affinity[n]:"unset");
+        printf("vcpu/%d/affinity:%s", n, (f->vcpu_affinity[n])?f->vcpu_affinity[n]:"unset");
     }
-    syslog(LOG_INFO|LOG_DAEMON,"kernel/ramdisk host limits: (%zu,%zu), VM overrides: (%zu,%zu)",
+    printf("kernel/ramdisk host limits: (%zu,%zu), VM overrides: (%zu,%zu)",
            host_pv_kernel_max_size, host_pv_ramdisk_max_size,
            vm_pv_kernel_max_size, vm_pv_ramdisk_max_size);
 }
@@ -320,8 +320,6 @@ static int suspend_flag_list[] = {
 CAMLprim value stub_xenguest_init()
 {
     xc_interface *xch;
-
-    openlog("xenguest", LOG_NDELAY, LOG_DAEMON);
 
     xch = xc_interface_open(NULL, NULL, 0);
     if (xch == NULL)
@@ -368,7 +366,7 @@ static void configure_vcpus(xc_interface *xch, int domid, struct flags f){
     r = xc_sched_credit_domain_get(xch, domid, &sdom);
     /* This should only happen when a different scheduler is set */
     if (r) {
-        syslog(LOG_WARNING|LOG_DAEMON, "Failed to get credit scheduler parameters: scheduler not enabled?");
+        fprintf(stderr, "Failed to get credit scheduler parameters: scheduler not enabled?");
         return;
     }
     if (f.vcpu_weight != 0L) sdom.weight = f.vcpu_weight;
@@ -429,7 +427,7 @@ CAMLprim value stub_xc_linux_build_native(value xc_handle, value domid,
         failwith_oss_xc(xch, "xc_dom_ramdisk_max_size");
 #else
     if ( f.kernel_max_size || f.ramdisk_max_size ) {
-        syslog(LOG_WARNING|LOG_DAEMON,"Kernel/Ramdisk limits set, but no support compiled in");
+        fprintf(stderr,"Kernel/Ramdisk limits set, but no support compiled in");
     }
 #endif
 
@@ -626,7 +624,7 @@ CAMLprim value stub_xc_domain_save(value handle, value fd, value domid,
     uint32_t c_flags;
     uint32_t c_domid;
     int r;
-    unsigned long generation_id_addr;
+    uint64_t generation_id_addr;
 
     c_flags = caml_convert_flag_list(flags, suspend_flag_list);
     c_domid = _D(domid);
@@ -641,7 +639,7 @@ CAMLprim value stub_xc_domain_save(value handle, value fd, value domid,
     r = xc_domain_save(_H(handle), Int_val(fd), c_domid,
                        Int_val(max_iters), Int_val(max_factors),
                        c_flags, &callbacks, Bool_val(hvm)
-#ifdef XENGUEST_4_2
+#if defined(XENGUEST_4_2) || defined(XC_HAS_4_1_NEW_GENERATION_ID_INTERFACE)
                        ,generation_id_addr
 #endif
         );
@@ -672,6 +670,74 @@ CAMLprim value stub_xc_domain_resume_slow(value handle, value domid)
     CAMLreturn(Val_unit);
 }
 
+#ifdef XC_HAS_4_1_NEW_GENERATION_ID_INTERFACE
+typedef struct
+{
+    const uint16_t domid;
+} genid_cb_data_t;
+
+/* Callback from libxc when a generation ID marker is found in the migration
+ * stream. The new generation ID must be written into XenStore before migration
+ * starts. */
+static int genid_callback(uint64_t *vm_genid_addr, void *genid_page, void *_data)
+{
+    genid_cb_data_t *data = _data;
+    uint64_t *genid = genid_page;
+    const char *genid_str;
+    char *end = NULL, *genid_addr_str = NULL;
+
+    if ( ! data )
+    {
+        fprintf(stderr,"Bad data for callback");
+        return -1;
+    }
+    else if ( ! genid_page || ! vm_genid_addr )
+    {
+        fprintf(stderr, "Bad genid parameters for callback");
+        return -1;
+    }
+
+    genid_str = xenstore_gets(data->domid, "platform/generation-id");
+
+    errno = 0;
+    genid[0] = strtoull(genid_str, &end, 0);
+    genid[1] = 0;
+    if ( end && end[0] == ':' )
+        genid[1] = strtoull(end+1, NULL, 0);
+
+    if ( errno )
+    {
+        fprintf(stderr, "strtoull failed: %s", strerror(errno));
+        return -1;
+    }
+    else if ( genid[0] == 0 || genid[1] == 0 )
+    {
+        fprintf(stderr, "Valid genid not extraced from '%s'", genid_str);
+        return -1;
+    }
+
+    if ( -1 == asprintf(&genid_addr_str, "0x%"PRIx64, *vm_genid_addr) )
+    {
+        fprintf(stderr, "Failed to format genid address: %s",
+               strerror(errno));
+        return -1;
+    }
+
+    if ( xenstore_puts(data->domid, genid_addr_str,
+                       "hvmloader/generation-id-address") )
+    {
+        fprintf(stderr, "Failed to write generation id to xenstore");
+        free(genid_addr_str);
+        return -1;
+    }
+
+    printf("Wrote generation ID %"PRIx64":%"PRIx64" at 0x%"PRIx64,
+           genid[0], genid[1], *vm_genid_addr);
+
+    free(genid_addr_str);
+    return 0;
+}
+#endif
 
 CAMLprim value stub_xc_domain_restore(value handle, value fd, value domid,
                                       value store_evtchn, value store_domid,
@@ -688,6 +754,10 @@ CAMLprim value stub_xc_domain_restore(value handle, value fd, value domid,
     unsigned int c_store_evtchn, c_console_evtchn;
     int r;
     size_t size, written;
+
+#ifdef XC_HAS_4_1_NEW_GENERATION_ID_INTERFACE
+    genid_cb_data_t genid_cb_data = { _D(domid) };
+#endif
 
     struct flags f;
     get_flags(&f,_D(domid));
@@ -719,18 +789,10 @@ CAMLprim value stub_xc_domain_restore(value handle, value fd, value domid,
                           Bool_val(no_incr_generationid),
                           &c_vm_generationid_addr,
                           NULL /* restore_callbacks */
+#elif defined(XC_HAS_4_1_NEW_GENERATION_ID_INTERFACE)
+                          ,genid_callback, &genid_cb_data
 #endif
         );
-    if (!r) {
-        size = sizeof(c_vm_generationid_addr_s) - 1; /* guarantee a NULL remains on the end */
-        written = snprintf(c_vm_generationid_addr_s, size, "0x%lx", c_vm_generationid_addr);
-        if (written < size)
-            r = xenstore_puts(_D(domid), c_vm_generationid_addr_s, GENERATION_ID_ADDRESS);
-        else {
-            syslog(LOG_ERR|LOG_DAEMON,"Failed to write %s (%d >= %d)", GENERATION_ID_ADDRESS, written, size);
-            r = 1;
-        }
-    }
     caml_leave_blocking_section();
     if (r)
         failwith_oss_xc(_H(handle), "xc_domain_restore");
