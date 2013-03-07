@@ -817,6 +817,7 @@ let server_init() =
 	"Checking for non-HA redo-log", [], start_redo_log;
     (* It is a pre-requisite for starting db engine *)
     "Setup DB configuration", [], setup_db_conf;
+	"Manage Dom0", [], (fun () -> Xapi_xenops.manage_dom0 ~__context);
     (* Start up database engine if we're a master.
      NOTE: We have to start up the database engine before attempting to bring up network etc. because
      the database engine start may attempt a schema upgrade + restart xapi. The last thing we want
