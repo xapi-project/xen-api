@@ -163,21 +163,37 @@ gracefully, terminating forcefully"
     return 1
 }
 
-status() {
+check_status() {
     if [ -e ${XAPISSL_LOCK} ] &&
         [ -e ${SSLPIDFILE} ] &&
         [ -e /proc/`cat ${SSLPIDFILE}` ];
     then
-        status_of_proc ${STUNNEL} `basename ${STUNNEL}` && exit 0 || exit $?
+        return 0
     else
-        echo "stunnel is not running ... failed!"
-        exit 1
+        return 1
     fi
 }
 
+status() {
+    check_status
+    RETVAL=$?
+
+    if [ ${RETVAL} -ne 0 ];
+    then
+        echo "stunnel is not running ... failed!"
+    fi
+    exit ${RETVAL}
+}
+
 restart() {
-    grep "accept = ${ACCEPT}" ${SSLCONFFILE} && exit 0
-    stop
+    check_status
+    RETVAL=$?
+
+    if [ ${RETVAL} -eq 0 ];
+    then
+	grep "accept = ${ACCEPT}" ${SSLCONFFILE} && exit 0
+	stop
+    fi
     start
 }
 
