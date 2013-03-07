@@ -38,6 +38,8 @@ val configure: ?options:opt list -> ?resources:res list -> unit -> unit
 
 val listen: string -> Unix.file_descr
 
+val daemon: bool ref
+
 val daemonize: unit -> unit
 
 val accept_forever: Unix.file_descr -> (Unix.file_descr -> unit) -> unit
