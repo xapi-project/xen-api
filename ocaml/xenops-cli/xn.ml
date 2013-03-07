@@ -638,7 +638,7 @@ let cd_insert id disk =
 	Client.VBD.insert dbg vbd.Vbd.id backend |> wait_for_task dbg
 
 let rec events_watch from =
-	let events, next = Client.UPDATES.get dbg from None in
+	let b_events, events, next = Client.UPDATES.get dbg from None in
 	let open Dynamic in
 	let lines = List.map
 		(function
@@ -651,10 +651,11 @@ let rec events_watch from =
 			| Pci id ->
 				Printf.sprintf "PCI %s.%s" (fst id) (snd id)
 			| Task id ->
-				Printf.sprintf "Task %s" id
-			| Barrier id ->
-				Printf.sprintf "Barrier %d" id
-		) events in
+				Printf.sprintf "Task %s" id) events in
+	let b_lines = List.map
+		(fun (id,_) ->
+				Printf.sprintf "Barrier %d" id) b_events in
+	List.iter (fun x -> Printf.printf "%-8d %s\n" next x) b_lines;
 	List.iter (fun x -> Printf.printf "%-8d %s\n" next x) lines;
 	flush stdout;
 	events_watch (Some next)
