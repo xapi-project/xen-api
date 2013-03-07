@@ -33,6 +33,12 @@ executable xenopsd_qemu
   src-dir: qemu
   build-deps: xenops, rpclib.syntax, qmp, oclock
   pp: camlp4o
+
+executable xenopsd_libvirt
+  main: xenops_libvirt_main.ml
+  src-dir: libvirt
+  build-deps: xenops, rpclib.syntax, libvirt
+  pp: camlp4o
  
 #executable test
 #  main: test.ml
