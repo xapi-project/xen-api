@@ -42,7 +42,7 @@ let close_all_fds_except (fds: Unix.file_descr list) =
 (* Code to log internal debug messages ***************************************)
 let debug_fd = ref None
 let openlog filename =
-  debug_fd := Some (Unix.openfile filename [ Unix.O_CREAT; Unix.O_APPEND ] 0o644)
+  debug_fd := Some (Unix.openfile filename [ Unix.O_CREAT; Unix.O_APPEND; Unix.O_RDWR ] 0o644)
 let log_writer prefix (x: string) = match !debug_fd with
   | Some fd ->
       let x = prefix ^ x ^ "\n" in
