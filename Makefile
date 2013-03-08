@@ -6,6 +6,7 @@ J=4
 
 BINDIR ?= /usr/bin
 SBINDIR ?= /usr/sbin
+ETCDIR ?= /etc
 DESTDIR ?= /
 
 export OCAMLRUNPARAM=b
@@ -25,6 +26,8 @@ doc: setup.data setup.bin
 
 install: setup.bin
 	@./setup.bin -install
+	mkdir -p $(DESTDIR)/$(ETCDIR)/init.d
+	install ./src/init.d-fe $(DESTDIR)/$(ETCDIR)/init.d/fe
 	install ./fe_main.native $(DESTDIR)/$(SBINDIR)/xcp-fe
 	install ./fe_cli.native $(DESTDIR)/$(BINDIR)/xcp-fe-cli
 
@@ -34,11 +37,14 @@ test: setup.bin build
 reinstall: setup.bin
 	@ocamlfind remove $(NAME) || true
 	@./setup.bin -reinstall
+	mkdir -p $(DESTDIR)/$(ETCDIR)/init.d
+	install ./src/init.d-fe $(DESTDIR)/$(ETCDIR)/init.d/fe
 	install ./fe_main.native $(DESTDIR)/$(SBINDIR)/xcp-fe
 	install ./fe_cli.native $(DESTDIR)/$(BINDIR)/xcp-fe-cli
 
 uninstall:
 	@ocamlfind remove $(NAME) || true
+	rm -f $(DESTDIR)/$(ETCDIR)/init.d/fe
 	rm -f $(DESTDIR)/$(SBINDIR)/xcp-fe
 	rm -f $(DESTDIR)/$(BINDIR)/xcp-fe-cli
 
