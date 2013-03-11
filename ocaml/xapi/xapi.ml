@@ -187,7 +187,7 @@ let random_setup () =
   Random.full_init (Array.init n (fun i -> Char.code s.[i]))
 
 let register_callback_fns() =
-	let fake_rpc req sock xml : Xml.xml =
+	let fake_rpc req sock xml : Rpc.response =
 		Api_server.callback1 false req sock None xml in
 	Helpers.rpc_fun := Some fake_rpc;
 	let set_stunnelpid task_opt pid =
@@ -323,6 +323,7 @@ let bring_up_management_if ~__context () =
 			(Xapi_inventory.lookup Xapi_inventory._management_address_type) in
 		if management_if = "" then begin
 			debug "No management interface defined (management is disabled)";
+			Xapi_mgmt_iface.start_localhost_interface ~__context
 		end else begin
 			Xapi_mgmt_iface.run ~__context management_if management_address_type;
 			match Helpers.get_management_ip_addr ~__context with
@@ -616,24 +617,6 @@ let handle_licensing () =
 			License_init.initialise ~__context ~host
 		)
 
-(** Writes the memory policy to xenstore and triggers the ballooning daemon. *)
-let control_domain_memory () =
-	(* We write this policy regardless of whether or not on_system_boot *)
-	(* is true, since Xapi sets on_system_boot to false for the initial *)
-	(* Xapi restart after a database upgrade.                           *)
-	Server_helpers.exec_with_new_task "control domain memory"
-		(fun __context ->
-			Helpers.call_api_functions ~__context
-				(fun rpc session_id ->
-					let self = Helpers.get_domain_zero ~__context in
-					let vm_r = Db.VM.get_record ~__context ~self in
-					Client.Client.VM.set_memory_dynamic_range
-						rpc session_id self
-						vm_r.API.vM_memory_dynamic_min
-						vm_r.API.vM_memory_dynamic_max
-				)
-		)
-
 let startup_script () =
 	let startup_script_hook = Xapi_globs.startup_script_hook in
 	if (try Unix.access startup_script_hook [ Unix.X_OK ]; true with _ -> false) then begin
@@ -694,8 +677,10 @@ let common_http_handlers = [
   ("get_audit_log", (Http_svr.BufIO Audit_log.handler));
   ("post_root", (Http_svr.BufIO (Api_server.callback false)));
   ("post_json", (Http_svr.BufIO (Api_server.callback true)));
+  ("post_jsonrpc", (Http_svr.BufIO (Api_server.jsoncallback)));
   ("post_root_options", (Http_svr.BufIO (Api_server.options_callback)));
   ("post_json_options", (Http_svr.BufIO (Api_server.options_callback)));
+  ("post_jsonrpc_options", (Http_svr.BufIO (Api_server.options_callback)));
   ("connect_migrate", (Http_svr.FdIO Xapi_vm_migrate.handler));
 ]
 
@@ -910,7 +895,6 @@ let server_init() =
       "Synchronising tunnels on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_tunnels_from_master ~__context;
       "Initialise monitor configuration", [], Monitor_master.update_configuration_from_master;
       "Initialising licensing", [], handle_licensing;
-      "control domain memory", [ Startup.OnThread ], control_domain_memory;
       "message_hook_thread", [ Startup.NoExnRaising ], (Xapi_message.start_message_hook_thread ~__context);
       "heartbeat thread", [ Startup.NoExnRaising; Startup.OnThread ], Db_gc.start_heartbeat_thread;
       "resynchronising HA state", [ Startup.NoExnRaising ], resynchronise_ha_state;

@@ -22,7 +22,7 @@ let password = ref ""
 let rpc xml =
 	let open Xmlrpc_client in
 	let http = xmlrpc ~version:"1.0" "/" in
-	XML_protocol.rpc ~srcstr:"event_listen" ~dststr:"xapi" ~transport:(TCP(!host, !port)) ~http xml
+	XMLRPC_protocol.rpc ~srcstr:"event_listen" ~dststr:"xapi" ~transport:(TCP(!host, !port)) ~http xml
 
 open Client
 open Printf
@@ -44,7 +44,7 @@ let _ =
   let session_id = Client.Session.login_with_password ~rpc ~uname:!username ~pwd:!password ~version:"1.2" in
   Client.Event.register ~rpc ~session_id ~classes:["*"];
   while true do
-    let events = events_of_xmlrpc (Client.Event.next ~rpc ~session_id) in
+    let events = events_of_rpc (Client.Event.next ~rpc ~session_id) in
     List.iter (fun event -> print_endline (string_of_event event)) events;
     flush stdout
   done

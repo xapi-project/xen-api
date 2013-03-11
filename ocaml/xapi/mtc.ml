@@ -27,6 +27,8 @@
 open Pervasiveext
 open Printf
 
+open Network
+
 module DD=Debug.Debugger(struct let name="MTC:" end)
 open DD
 
@@ -218,7 +220,8 @@ let is_pif_attached_to_mtc_vms_and_should_not_be_offline ~__context ~self =
 
     (* If we have protected VMs using this PIF, then decide whether it should be marked offline *)
     if protected_vms <> [] then begin
-      let current = Netdev.network.Netdev.list () in
+      let dbg = Context.string_of_task __context in
+      let current = Net.Bridge.get_all dbg () in
       let bridge = Db.Network.get_bridge ~__context ~self:network in
       let nic = Db.PIF.get_device ~__context ~self in
       debug "The following MTC VMs are using %s for PIF %s: [%s]" 
@@ -239,7 +242,7 @@ let is_pif_attached_to_mtc_vms_and_should_not_be_offline ~__context ~self =
          4) the bridge operational state is up (unknown is also up).
        *)
        let mark_online = (List.mem bridge current) && 
-                         (Netdev.Link.is_up bridge) && 
+                         (Net.Interface.is_up dbg ~name:bridge) && 
                           nic_device_state = "up" &&
                           (bridge_device_state = "up" ||
                           bridge_device_state = "unknown") in

@@ -23,7 +23,7 @@ val login_no_password: __context:Context.t -> uname:string option -> host:[ `hos
 (* public functions *)
 val destroy_db_session: __context:Context.t -> self:API.ref_session -> unit
 val revalidate_all_sessions: __context:Context.t -> unit
-val consider_touching_session: (XMLRPC.xmlrpc -> XMLRPC.xmlrpc) -> API.ref_session -> unit -> unit
+val consider_touching_session: (Rpc.call -> Rpc.response) -> API.ref_session -> unit -> unit
 val slave_login: __context:Context.t -> host:[ `host ] Ref.t -> psecret:string -> [ `session ] Ref.t
 val slave_local_login: __context:Context.t -> psecret:string -> API.ref_session
 val slave_local_login_with_password: __context:Context.t -> uname:string -> pwd:string -> API.ref_session

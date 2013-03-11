@@ -14,11 +14,11 @@
 module D = Debug.Debugger(struct let name = "sql" end)
 open D
 
-type getrecord = unit -> XMLRPC.xmlrpc 
+type getrecord = unit -> Rpc.t
 
 let get_record_table : (string, __context:Context.t -> self:string -> getrecord ) Hashtbl.t = Hashtbl.create 20
 
-let find_get_record x ~__context ~self () : XMLRPC.xmlrpc option = 
+let find_get_record x ~__context ~self () : Rpc.t option = 
 	if Hashtbl.mem get_record_table x
 	then Some (Hashtbl.find get_record_table x ~__context ~self ())
 	else None

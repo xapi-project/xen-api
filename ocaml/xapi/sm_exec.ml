@@ -26,6 +26,8 @@ module E=Debug.Debugger(struct let name="mscgen" end)
 
 let cmd_name driver = sprintf "%s/%sSR" Xapi_globs.sm_dir driver
 
+let sm_username = "__sm__backend"
+
 (*********************************************************************************************)
 (* Random utility functions *)
 
@@ -151,7 +153,7 @@ let with_session sr f =
   Server_helpers.exec_with_new_task "sm_exec" (fun __context ->
   let create_session () =
     let host = !Xapi_globs.localhost_ref in
-    let session=Xapi_session.login_no_password ~__context ~uname:None ~host ~pool:false ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:"" ~auth_user_name:"" ~rbac_permissions:[] in
+    let session=Xapi_session.login_no_password ~__context ~uname:None ~host ~pool:false ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:"" ~auth_user_name:sm_username ~rbac_permissions:[] in
     (* Give this session access to this particular SR *)
     maybe (fun sr ->
 	     Db.Session.add_to_other_config ~__context ~self:session 
@@ -290,8 +292,8 @@ let parse_sr_get_driver_info driver (xml: Xml.xml) =
 
   let strings = XMLRPC.From.array XMLRPC.From.string (safe_assoc "capabilities" info) in
   
-  let capabilities = Smint.parse_capabilities strings in
-  let text_capabilities = List.map Smint.string_of_capability capabilities in
+  let features = Smint.parse_features strings in
+  let text_features = List.map Smint.string_of_feature features in
   
   (* Parse the driver options *)
   let configuration = 
@@ -307,9 +309,9 @@ let parse_sr_get_driver_info driver (xml: Xml.xml) =
     sr_driver_copyright = copyright;
     sr_driver_version = driver_version;
     sr_driver_required_api_version = required_api_version;
-    sr_driver_capabilities = capabilities;
+    sr_driver_features = features;
     sr_driver_configuration = configuration;
-    sr_driver_text_capabilities = text_capabilities;
+    sr_driver_text_features = text_features;
   }
 
 let sr_get_driver_info driver = 

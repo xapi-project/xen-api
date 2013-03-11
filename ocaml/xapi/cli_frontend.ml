@@ -1060,7 +1060,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
      optn=[];
      help="Attach to a particular console.";
      implementation=With_fd Cli_operations.console;
-     flags=[Hidden; Vm_selectors];
+     flags=[Vm_selectors];
    };
 
    "vm-query-services",
@@ -1293,7 +1293,7 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
    "vm-export",
     {
       reqd=["filename"];
-      optn=["preserve-power-state"; "compress"; "include-snapshots"];
+      optn=["preserve-power-state"; "compress"];
       help="Export a VM to <filename>.";
       implementation=With_fd Cli_operations.vm_export;
       flags=[Standard; Vm_selectors];

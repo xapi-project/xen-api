@@ -1,5 +1,5 @@
 (*
- * Copyright (C) Citrix Systems Inc.
+ * Copyright (C) 2006-2013 Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -12,6 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(** [wait_for_all ~rpc ~session_id ~tasks] returns when all of [tasks]
-    are in some non-pending state. *)
-val wait_for_all : rpc:(Rpc.call -> Rpc.response) -> session_id:API.ref_session -> tasks:API.ref_task list -> unit
+let string_of_vdi_type vdi_type =
+	Rpc.string_of_rpc (API.rpc_of_vdi_type vdi_type)
+
+let vdi_type_of_string str =
+	API.vdi_type_of_rpc (Rpc.String str)

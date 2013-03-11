@@ -86,7 +86,7 @@ let destroy ~__context ~self =
 
 		Xapi_pif.unplug ~__context ~self:untagged_PIF;
 
-		Xapi_network.detach bridge;
+		Xapi_network.detach ~__context bridge;
 
 		(try
 			let vlan = Db.PIF.get_VLAN_master_of ~__context ~self:untagged_PIF in

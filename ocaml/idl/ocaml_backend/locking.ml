@@ -45,7 +45,7 @@ let of_message (obj: obj) (x: message) =
 		if obj <> class' then failwith "relationship lookup failed";
 		let fld' = Dm_api.get_field_by_name DM.all_api ~objname:class' ~fieldname:name' in
 		if fld'.DT.field_has_effect
-		then [ class', OU.escape(OU.ocaml_of_id arg.full_name) ]
+		then [ class', OU.ocaml_of_record_field arg.full_name ]
 		else []
 	      with Failure(_) -> [] 
 	    end

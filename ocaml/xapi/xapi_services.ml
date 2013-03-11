@@ -187,7 +187,7 @@ let get_handler (req: Http.Request.t) s _ =
 						copyright = "see the source code";
 						version = "2.0";
 						required_api_version = "2.0";
-						features = List.map (fun x -> path [_services; x]) [ _SM ];
+						features = List.map (fun x -> (path [_services; x]), (0L)) [ _SM ];
 						configuration = []
 					} in
 					respond req (Storage_interface.rpc_of_query_result q) s

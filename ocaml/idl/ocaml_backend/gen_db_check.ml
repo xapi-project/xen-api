@@ -82,13 +82,13 @@ let db_check api : O.Module.t =
       (OU.ocaml_of_obj_name x) 
       Gen_common.context
       Client._self
-      (OU.ocaml_of_record_field obj.name full_name)
+      (OU.ocaml_of_record_field (obj.DT.name :: full_name))
 		  | _ -> assert false
  in
     let wrapper f = 
       Printf.sprintf "(runcheck \"%s\" %s \"%s\" %s)"
 	obj.name Client._self (String.concat "/" f.full_name) (check f) in
-    let body = if fields = [] then ["true"] else [getrecord; String.concat "&&\n" (List.map wrapper fields)] in
+    let body = if fields = [] then ["true"] else [getrecord; String.concat " &&\n     " (List.map wrapper fields)] in
 
     O.Let.make
       ~name: ("_" ^ (OU.ocaml_of_obj_name obj.name))

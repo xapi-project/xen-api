@@ -30,7 +30,7 @@ let log_exn_continue msg f x = try f x with e -> debug "Ignoring exception: %s w
 exception Cli_failure of string
 
 (** call [callback task_record] on every update to the task, until it completes or fails *)
-let track callback rpc session_id task = 
+let track callback rpc (session_id:API.ref_session) task = 
   let classes = [ "task" ] in
   finally 
     (fun () ->
@@ -42,7 +42,7 @@ let track callback rpc session_id task =
 	   finished := Client.Task.get_status ~rpc ~session_id ~self:task <> `pending;
 
 	   while not(!finished) do
-	     let events = Event_types.events_of_xmlrpc (Client.Event.next ~rpc ~session_id) in
+	     let events = Event_types.events_of_rpc (Client.Event.next ~rpc ~session_id) in
 	     let events = List.map Event_helper.record_of_event events in
 		 List.iter (function
 			 | Event_helper.Task (t, Some t_rec) when t = task -> callback t_rec

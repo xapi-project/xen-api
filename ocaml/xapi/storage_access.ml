@@ -182,7 +182,7 @@ module SMAPIv1 = struct
 				content_id = content_id; (* PR-1255 *)
 				name_label = vdi_rec.API.vDI_name_label;
 				name_description = vdi_rec.API.vDI_name_description;
-				ty = Record_util.vdi_type_to_string vdi_rec.API.vDI_type;
+				ty = Storage_utils.string_of_vdi_type vdi_rec.API.vDI_type;
 				metadata_of_pool = Ref.string_of vdi_rec.API.vDI_metadata_of_pool;
 				is_a_snapshot = vdi_rec.API.vDI_is_a_snapshot;
 				snapshot_time = Date.to_string vdi_rec.API.vDI_snapshot_time;
@@ -240,7 +240,14 @@ module SMAPIv1 = struct
 		let vdi_read_write = Hashtbl.create 10
 		let vdi_read_write_m = Mutex.create ()
 
-		let epoch_begin context ~dbg ~sr ~vdi = ()
+		let epoch_begin context ~dbg ~sr ~vdi =
+			try
+				for_vdi ~dbg ~sr ~vdi "VDI.epoch_begin"
+					(fun device_config _type sr self ->
+						Sm.vdi_epoch_begin device_config _type sr self)
+			with
+				| Api_errors.Server_error(code, params) ->
+						raise (Backend_error(code, params))
 
 		let attach context ~dbg ~dp ~sr ~vdi ~read_write =
 			try
@@ -272,7 +279,7 @@ module SMAPIv1 = struct
 								(if read_write 
 								then Db.VDI.remove_from_other_config ~__context ~self ~key:"content_id"));
 						(* If the backend doesn't advertise the capability then do nothing *)
-						if List.mem Smint.Vdi_activate (Sm.capabilities_of_driver _type)
+						if List.mem_assoc Smint.Vdi_activate (Sm.features_of_driver _type)
 						then Sm.vdi_activate device_config _type sr self read_write
 						else info "%s sr:%s does not support vdi_activate: doing nothing" dp (Ref.string_of sr)
 					)
@@ -289,7 +296,7 @@ module SMAPIv1 = struct
 								if not (List.mem_assoc "content_id" other_config)
 								then Db.VDI.add_to_other_config ~__context ~self ~key:"content_id" ~value:(Uuid.string_of_uuid (Uuid.make_uuid ())));
 						(* If the backend doesn't advertise the capability then do nothing *)
-						if List.mem Smint.Vdi_activate (Sm.capabilities_of_driver _type)
+						if List.mem_assoc Smint.Vdi_activate (Sm.features_of_driver _type)
 						then Sm.vdi_deactivate device_config _type sr self
 						else info "%s sr:%s does not support vdi_activate: doing nothing" dp (Ref.string_of sr)
 					)
@@ -307,7 +314,14 @@ module SMAPIv1 = struct
 			with Api_errors.Server_error(code, params) ->
 				raise (Backend_error(code, params))
 
-		let epoch_end context ~dbg ~sr ~vdi = ()
+		let epoch_end context ~dbg ~sr ~vdi =
+			try
+				for_vdi ~dbg ~sr ~vdi "VDI.epoch_end"
+					(fun device_config _type sr self ->
+						Sm.vdi_epoch_end device_config _type sr self)
+			with
+				| Api_errors.Server_error(code, params) ->
+						raise (Backend_error(code, params))
 
         let require_uuid vdi_info =
             match vdi_info.Smint.vdi_info_uuid with
@@ -321,7 +335,7 @@ module SMAPIv1 = struct
 				content_id = r.API.vDI_location; (* PR-1255 *)
                 name_label = r.API.vDI_name_label;
                 name_description = r.API.vDI_name_description;
-                ty = Record_util.vdi_type_to_string r.API.vDI_type;
+                ty = Storage_utils.string_of_vdi_type r.API.vDI_type;
 				metadata_of_pool = Ref.string_of r.API.vDI_metadata_of_pool;
                 is_a_snapshot = r.API.vDI_is_a_snapshot;
                 snapshot_time = Date.to_string r.API.vDI_snapshot_time;
@@ -1137,8 +1151,15 @@ let destroy_sr ~__context ~sr =
 			Client.SR.attach dbg (Db.SR.get_uuid ~__context ~self:sr) pbd_t.API.pBD_device_config;
 			(* The current backends expect the PBD to be temporarily set to currently_attached = true *)
 			Db.PBD.set_currently_attached ~__context ~self:pbd ~value:true;
-			Pervasiveext.finally (fun () ->
-				Client.SR.destroy dbg (Db.SR.get_uuid ~__context ~self:sr))
+			Pervasiveext.finally
+				(fun () ->
+					try
+						Client.SR.destroy dbg (Db.SR.get_uuid ~__context ~self:sr)
+					with exn ->
+						(* Clean up: SR is left attached if destroy fails *)
+						Client.SR.detach dbg (Db.SR.get_uuid ~__context ~self:sr);
+						raise exn
+				)
 				(fun () -> 
 					(* All PBDs are clearly currently_attached = false now *)
 					Db.PBD.set_currently_attached ~__context ~self:pbd ~value:false);

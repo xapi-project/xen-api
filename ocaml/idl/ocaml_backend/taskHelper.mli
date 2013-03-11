@@ -22,9 +22,9 @@ val set_progress : __context:Context.t -> float -> unit
 val set_external_pid : __context:Context.t -> int -> unit
 val clear_external_pid : __context:Context.t -> unit
 val set_result_on_task :
-  __context:Context.t -> [ `task ] Ref.t -> Xml.xml list -> unit
-val set_result : __context:Context.t -> Xml.xml list -> unit
-val complete : __context:Context.t -> Xml.xml list -> unit
+  __context:Context.t -> [ `task ] Ref.t -> Rpc.t option -> unit
+val set_result : __context:Context.t -> Rpc.t option -> unit
+val complete : __context:Context.t -> Rpc.t option -> unit
 val set_cancellable : __context:Context.t -> unit
 val set_not_cancellable : __context:Context.t -> unit
 val is_cancelling : __context:Context.t -> bool

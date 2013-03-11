@@ -22,6 +22,7 @@ open Printf
 open Stringext
 open Db_filter
 open Db_filter_types
+open Network
 
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
@@ -125,18 +126,15 @@ and ensure_domain_zero_record ~__context (host_info: host_info): [`VM] Ref.t =
 	domain_zero_ref
 
 and ensure_domain_zero_console_record ~__context ~domain_zero_ref : unit =
-	match Db.VM.get_consoles ~__context ~self: domain_zero_ref with
-		| [] ->
-			(* if there are no consoles then make one *)
-			create_domain_zero_console_record ~__context ~domain_zero_ref
-		| [console_ref] ->
-			(* if there's a single reference but it's invalid, make a new one: *)
-			if not (Db.is_valid_ref __context console_ref) then
-				create_domain_zero_console_record ~__context ~domain_zero_ref
+	let dom0_consoles =  Db.VM.get_consoles ~__context ~self: domain_zero_ref in
+	let console_records_rfb = List.filter (fun x -> Db.Console.get_protocol ~__context ~self:x = `rfb) dom0_consoles in 
+	let console_records_vt100 = List.filter (fun x -> Db.Console.get_protocol ~__context ~self:x = `vt100) dom0_consoles in
+
+ match List.length console_records_rfb, List.length console_records_vt100 with
+		| 1, 1 -> debug "1 RFB, 1 VT100 console found";
 		| _ ->
-			(* if there's more than one console then something strange is *)
-			(* going on; make a new one                                   *)
-			create_domain_zero_console_record ~__context ~domain_zero_ref
+			(* if there's not more than one console of each type then something strange is happening*)
+			create_domain_zero_console_record ~__context ~domain_zero_ref ~console_records_rfb ~console_records_vt100;
 
 and ensure_domain_zero_guest_metrics_record ~__context ~domain_zero_ref (host_info: host_info) : unit =
 	if not (Db.is_valid_ref __context (Db.VM.get_metrics ~__context ~self:domain_zero_ref)) then
@@ -198,22 +196,32 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info)
 	;
 	Xapi_vm_helpers.update_memory_overhead ~__context ~vm:domain_zero_ref
 
-and create_domain_zero_console_record ~__context ~domain_zero_ref : unit =
-	debug "Domain 0 record does not have associated console record. Creating now";
-	(* first delete any old dom0 console records that may be kicking around: *)
-	let this_dom0s_consoles = Db.Console.get_refs_where ~__context ~expr: (Eq(Field "_ref", Literal (Ref.string_of domain_zero_ref))) in
-	List.iter (fun console -> debug "Deleted old dom0 console record"; Db.Console.destroy ~__context ~self: console) this_dom0s_consoles;
-	(* now make a new console record for dom0 *)
+and create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref ~dom0_console_protocol = 
 	let console_ref = Ref.make () in
 	let address = Db.Host.get_address ~__context ~self: (Helpers.get_localhost ~__context) in
 	let location = Printf.sprintf "https://%s%s?ref=%s" address Constants.console_uri (Ref.string_of domain_zero_ref) in
 	Db.Console.create ~__context ~ref: console_ref
 		~uuid: (Uuid.to_string (Uuid.make_uuid ()))
-		~protocol:`rfb
-		~location
+		~protocol: dom0_console_protocol
+		~location 
 		~vM: domain_zero_ref
 		~other_config:[]
 		~port: (Int64.of_int Xapi_globs.host_console_vncport)
+
+and create_domain_zero_console_record ~__context ~domain_zero_ref ~console_records_rfb ~console_records_vt100 =
+	if List.length console_records_rfb = 0 then create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref ~dom0_console_protocol: `rfb ;
+	if List.length console_records_vt100 = 0 then create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref ~dom0_console_protocol: `vt100 ;
+
+	if List.length console_records_rfb > 1 then
+		begin
+			List.iter (fun console -> Db.Console.destroy ~__context ~self: console ) console_records_rfb ;
+			create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref ~dom0_console_protocol: `rfb ;
+		end;
+	if List.length console_records_vt100 > 1 then
+		begin
+			List.iter (fun console -> Db.Console.destroy ~__context ~self: console ) console_records_vt100 ;
+			create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref ~dom0_console_protocol: `vt100 ;
+		end
 
 and create_domain_zero_guest_metrics_record ~__context ~domain_zero_metrics_ref ~memory_constraints ~vcpus : unit =
 	let rec mkints = function
@@ -242,8 +250,8 @@ and create_domain_zero_default_memory_constraints host_info : Vm_memory_constrai
 		{
 			static_min = static_min;
 			static_max = vm.Vm.memory_static_max;
-			dynamic_min = vm.Vm.memory_dynamic_min;
-			dynamic_max = vm.Vm.memory_dynamic_max;
+			dynamic_min = state.Vm.memory_target;
+			dynamic_max = state.Vm.memory_target;
 			target = state.Vm.memory_target;
 		}
 	with _ -> 
@@ -371,7 +379,8 @@ let make_packs_info () =
 	with _ -> []
   
 (** Create a complete assoc list of version information *)
-let make_software_version () =
+let make_software_version ~__context =
+	let dbg = Context.string_of_task __context in
 	let option_to_list k o = match o with None -> [] | Some x -> [ k, x ] in
 	let info = read_localhost_info () in
 	let v6_version = V6client.get_version "make_software_version" in
@@ -383,7 +392,7 @@ let make_software_version () =
 	"linux", info.linux_verstring;
 	"xencenter_min", Xapi_globs.xencenter_min_verstring;
 	"xencenter_max", Xapi_globs.xencenter_max_verstring;
-	"network_backend", Netdev.string_of_kind Netdev.network.Netdev.kind;
+	"network_backend", Network_interface.string_of_kind (Net.Bridge.get_kind dbg ());
 	] @
 	(option_to_list "oem_manufacturer" info.oem_manufacturer) @
 	(option_to_list "oem_model" info.oem_model) @

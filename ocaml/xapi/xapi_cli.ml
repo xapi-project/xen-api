@@ -144,7 +144,18 @@ let exec_command req cmd s session args =
 		else false in
 	let u = try List.assoc "username" params with _ -> "" in
 	let p = try List.assoc "password" params with _ -> "" in
-	let params = List.replace_assoc "password" "null" params in
+	(* Before we log, hide the values of any keys which might be sensitive. *)
+	let param_keys_to_hide = [
+		"config:pass"; (* AD authentication password. *)
+		"remote-password"; (* Cross-pool migration remote XS password. *)
+		"password"; (* Local XS password. *)
+	] in
+	let params = List.fold_left
+		(fun acc param ->
+			if List.mem_assoc param acc
+			then List.replace_assoc param "null" acc
+			else acc)
+		params param_keys_to_hide in
 	let rpc = Helpers.get_rpc () req s in
 	Cli_frontend.populate_cmdtable rpc Ref.null;
 	(* Log the actual CLI command to help diagnose failures like CA-25516 *)

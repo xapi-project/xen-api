@@ -44,6 +44,7 @@ let rel_midnight_ride = "midnight-ride"
 let rel_cowley = "cowley"
 let rel_boston = "boston"
 let rel_tampa = "tampa"
+let rel_clearwater = "clearwater"
 let rel_sarasota = "sarasota"
 
 let release_order =
@@ -57,6 +58,7 @@ let release_order =
 	; rel_cowley
 	; rel_boston
 	; rel_tampa
+	; rel_clearwater
 	; rel_sarasota
 	]
 

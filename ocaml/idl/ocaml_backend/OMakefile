@@ -1,5 +1,3 @@
-OCAMLPACKS += xml-light2 stunnel
-
 # -----------------------------------------------------------------------
 # autogen stuff
 # -----------------------------------------------------------------------
@@ -11,10 +9,14 @@ AUTOGEN_HELPER_DIR = ../../database
 
 OCAMLINCLUDES += .. ../.. ../../database $(AUTOGEN_DIR) ../../xapi ../../client_records ../../util
 
-OCAMLPACKS += sexpr http-svr rpc-light
+OCAMLPACKS += sexpr xml-light2 http-svr rpc-light stunnel
+
+CAMLP4_FILES = event_types
+
+UseCamlp4(rpc-light.syntax, $(CAMLP4_FILES))
 
 # only gen_api requires datamodel library:
-GEN_API_FILES = gen_api genOCaml ref ocaml_syntax gen_db_actions gen_db_check gen_empty_custom gen_client gen_server gen_common gen_rbac ../../database/escaping locking ../api_lowlevel gen_api_main ../datamodel ../constants ../api_errors ../api_messages ../datamodel_utils ../datamodel_values ocaml_utils ../datamodel_types ../dm_api $(AUTOGEN_HELPER_DIR)/string_marshall_helper
+GEN_API_FILES = gen_api gen_test genOCaml ref ocaml_syntax gen_db_actions gen_db_check gen_empty_custom gen_client gen_server gen_common gen_rbac ../../database/escaping locking ../api_lowlevel gen_api_main ../datamodel ../constants ../api_errors ../api_messages ../datamodel_utils ../datamodel_values ocaml_utils ../datamodel_types ../dm_api $(AUTOGEN_HELPER_DIR)/string_marshall_helper
 OCamlProgram(gen_api_main, $(GEN_API_FILES))
 OCamlDocProgram(gen_api_main, $(GEN_API_FILES))
 
@@ -51,10 +53,10 @@ autogen_idl: $(AUTOGEN_DIR)/client.ml $(AUTOGEN_DIR)/aPI.ml $(AUTOGEN_DIR)/serve
 # -----------------------------------------------------------------------
 
 COMMON_OBJS = ref \
-	../datamodel_types event_types \
+	../datamodel_types $(AUTOGEN_DIR)/aPI event_types \
 	../api_errors ../api_messages ../../xapi/xapi_globs \
 	../constants
-CLIENT_OBJS = $(AUTOGEN_DIR)/aPI $(AUTOGEN_DIR)/client event_helper tasks
+CLIENT_OBJS = $(AUTOGEN_DIR)/client event_helper tasks
 SERVER_OBJS = ../../database/escaping locking_helpers \
 	$(AUTOGEN_DIR)/server \
 	$(AUTOGEN_DIR)/db_actions $(AUTOGEN_DIR)/custom_actions \

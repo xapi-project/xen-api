@@ -36,7 +36,7 @@ let inet_rpc xml =
 		then TCP("127.0.0.1", http)
 		else SSL(SSL.make (), Pool_role.get_master_address (), https) in
 	let http = xmlrpc ~version path in
-	XML_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http xml
+	XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http xml
 
 open Client
 
@@ -79,7 +79,7 @@ let rbac_audit_params_of (req: Request.t) =
 	let all = req.Request.cookie @ req.Request.query in
 	List.fold_right (fun (n,v) (acc_n,acc_v) ->
 											(n::acc_n,
-												 (Xml.PCData v)::acc_v
+												 (Rpc.String v)::acc_v
 												)
 											)
 	all

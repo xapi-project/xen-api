@@ -428,6 +428,7 @@ let pp x =
 		aux "" xs in
 	let rec to_t = function
 		| Int x -> [ Line (Printf.sprintf "%Ld" x) ]
+		| Int32 x -> [ Line (Printf.sprintf "%ld" x) ]
 		| Bool x -> [ Line (Printf.sprintf "%b" x) ]
 		| Float x -> [ Line (Printf.sprintf "%g" x) ]
 		| String x -> [ Line x ]

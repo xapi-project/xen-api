@@ -356,7 +356,7 @@ let wait_for_fist rpc session sr ?(delay=90.0) fist =
 
   try
     while not !finished do
-      let events = Event_types.events_of_xmlrpc (Client.Event.next rpc session2) in
+      let events = Event_types.events_of_rpc (Client.Event.next rpc session2) in
       debug "Got %d events..." (List.length events);
       let checkevent ev = 
 	match Event_helper.record_of_event ev with
@@ -392,12 +392,12 @@ let wait_for_vdi_deletion rpc session sr ?(delay=90.0) vdis =
 
   try
     while not !finished do
-      let events = Event_types.events_of_xmlrpc (Client.Event.next rpc session2) in
+      let events = Event_types.events_of_rpc (Client.Event.next rpc session2) in
       debug "Got %d events..." (List.length events);
       let checkevent ev = 
 	match Event_helper.record_of_event ev with
 	  | Event_helper.VDI (r,_) ->
-              if ev.Event_types.op = Event_types.Del then begin
+              if ev.Event_types.op = `del then begin
                 (match Event_helper.record_of_event ev with Event_helper.VDI(vdi,_) -> debug "Received a VDI deletion event concerning VDI with ref %s" (Ref.string_of vdi) | _ -> assert false);
                 (* Remove it from the list of VDIs we are waiting to be deleted *)
                 vdis_remaining := List.filter (fun (vdi_ref,vdi_rec) -> vdi_ref <> r) !vdis_remaining;

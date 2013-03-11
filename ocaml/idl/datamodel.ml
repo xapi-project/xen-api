@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 66
+let schema_minor_vsn = 67
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -166,6 +166,12 @@ let get_product_releases in_product_since =
 
 let sarasota_release =
 	{ internal = get_product_releases rel_sarasota
+	; opensource=get_oss_releases None
+	; internal_deprecated_since=None
+	}
+
+let clearwater_release =
+	{ internal=get_product_releases rel_clearwater
 	; opensource=get_oss_releases None
 	; internal_deprecated_since=None
 	}
@@ -521,7 +527,7 @@ let _ =
   error Api_errors.vm_duplicate_vbd_device [ "vm"; "vbd"; "device" ]
     ~doc:"The specified VM has a duplicate VBD device and cannot be started." ();
   error Api_errors.illegal_vbd_device [ "vbd"; "device" ]
-	  ~doc:"The specified VBD device is not recognised: please use a non-negative integer" ();
+	  ~doc:"The specified VBD device is not recognized: please use a non-negative integer" ();
   error Api_errors.vm_not_resident_here [ "vm"; "host" ]
     ~doc:"The specified VM is not currently resident on the specified host." ();
   error Api_errors.domain_exists [ "vm"; "domid" ]
@@ -576,7 +582,7 @@ let _ =
   error Api_errors.vm_snapshot_with_quiesce_not_supported [ "vm"; "error" ]
     ~doc:"The VSS plug-in is not installed on this virtual machine" ();
   error Api_errors.xen_vss_req_error_init_failed [ "vm"; "error_code" ]
-    ~doc:"Initialization of the VSS requestor failed" ();
+    ~doc:"Initialization of the VSS requester failed" ();
   error Api_errors.xen_vss_req_error_prov_not_loaded [ "vm"; "error_code" ]
     ~doc:"The Citrix XenServer Vss Provider is not loaded" ();
   error Api_errors.xen_vss_req_error_no_volumes_supported [ "vm"; "error_code" ]
@@ -782,7 +788,7 @@ let _ =
   error Api_errors.vm_requires_gpu ["vm"; "GPU_group"]
     ~doc:"You attempted to run a VM on a host which doesn't have a pGPU available in the GPU group needed by the VM. The VM has a vGPU attached to this GPU group." ();
   error Api_errors.vm_requires_iommu ["host"]
-    ~doc:"You attempted to run a VM on a host which doesn't have I/O virtualisation (IOMMU/VT-d) enabled, which is needed by the VM." ();
+    ~doc:"You attempted to run a VM on a host which doesn't have I/O virtualization (IOMMU/VT-d) enabled, which is needed by the VM." ();
   error Api_errors.vm_host_incompatible_version ["host"; "vm"]
     ~doc:"This VM operation cannot be performed on an older-versioned host during an upgrade." ();
   error Api_errors.vm_has_pci_attached ["vm"]
@@ -798,7 +804,7 @@ let _ =
   error Api_errors.vm_has_checkpoint [ "vm" ]
     ~doc:"You attempted to migrate a VM which has a checkpoint." ();
   error Api_errors.vdi_needs_vm_for_migrate [ "vdi" ]
-    ~doc:"You attempted to migrate a VDI which is not attached to a runnning VM." ();
+    ~doc:"You attempted to migrate a VDI which is not attached to a running VM." ();
   error Api_errors.mirror_failed [ "vdi" ]
     ~doc:"The VDI mirroring cannot be performed" ();
   error Api_errors.too_many_storage_migrates [ "number" ]
@@ -868,6 +874,8 @@ let _ =
     ~doc:"This operation cannot be performed because the system does not manage this VDI" ();
   error Api_errors.vdi_not_in_map [ "vdi" ]
     ~doc:"This VDI was not mapped to a destination SR in VM.migrate_send operation" () ;
+  error Api_errors.vdi_copy_failed []
+    ~doc:"The VDI copy action has failed" (); 
   error Api_errors.cannot_create_state_file []
     ~doc:"An HA statefile could not be created, perhaps because no SR with the appropriate capability was found." ();
 
@@ -4218,6 +4226,7 @@ let host =
 		"chipset_info" "Information about chipset features";
 	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pci)) "PCIs" "List of PCI devices in the host";
 	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pgpu)) "PGPUs" "List of physical GPUs in the host";
+	field ~qualifier:RW ~in_product_since:rel_tampa ~default_value:(Some (VMap [])) ~ty:(Map (String, String)) "guest_VCPUs_params" "VCPUs params to apply to all resident guests";
  ])
 	()
 
@@ -5144,7 +5153,8 @@ let storage_plugin =
        field ~in_oss_since:None ~qualifier:DynamicRO "version" "Version of the plugin";
        field ~in_oss_since:None ~qualifier:DynamicRO "required_api_version" "Minimum SM API version required on the server";
        field ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Map(String,String)) "configuration" "names and descriptions of device config keys";
-       field ~in_oss_since:None ~qualifier:DynamicRO ~in_product_since:rel_miami ~ty:(Set(String)) "capabilities" "capabilities of the SM plugin" ~default_value:(Some (VSet []));
+       field ~in_oss_since:None ~qualifier:DynamicRO ~in_product_since:rel_miami ~lifecycle:[ Deprecated, rel_clearwater, "Use SM.features instead"; ] ~ty:(Set(String)) "capabilities" "capabilities of the SM plugin" ~default_value:(Some (VSet []));
+       field ~in_oss_since:None ~qualifier:DynamicRO ~in_product_since:rel_clearwater ~ty:(Map(String, Int)) "features" "capabilities of the SM plugin, with capability version numbers" ~default_value:(Some (VMap []));
        field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
        field ~in_product_since:rel_orlando ~qualifier:DynamicRO ~default_value:(Some (VString "")) ~ty:String "driver_filename" "filename of the storage driver";
      ])
@@ -7960,6 +7970,8 @@ let http_actions = [
   ("post_json", (Post, Constants.json_uri, false, [], _R_READ_ONLY, []));
   ("post_root_options", (Options, "/", false, [], _R_READ_ONLY, []));
   ("post_json_options", (Options, Constants.json_uri, false, [], _R_READ_ONLY, []));
+  ("post_jsonrpc", (Post, Constants.jsonrpc_uri, false, [], _R_READ_ONLY, []));
+  ("post_jsonrpc_options", (Options, Constants.jsonrpc_uri, false, [], _R_READ_ONLY, []));
 ]
 
 (* these public http actions will NOT be checked by RBAC *)
@@ -7975,6 +7987,8 @@ let public_http_actions_with_no_rbac_check =
 		"get_blob"; (* Public blobs don't need authentication *)
 		"post_root_options"; (* Preflight-requests are not RBAC checked *)
 		"post_json_options"; 
+		"post_jsonrpc";
+		"post_jsonrpc_options";
 	]
 
 (* permissions not associated with any object message or field *)

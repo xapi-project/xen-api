@@ -16,20 +16,6 @@ open Client
 
 module TaskSet = Set.Make(struct type t = API.ref_task let compare = compare end)
 
-exception Key_missing of string
-let find kvpairs key =
-	if List.mem_assoc key kvpairs
-	then List.assoc key kvpairs
-	else raise (Key_missing key)
-
-let events_of x =
-	let kvpairs = XMLRPC.From.structure x in
-	Event_types.events_of_xmlrpc (find kvpairs "events")
-
-let token_of x =
-	let kvpairs = XMLRPC.From.structure x in
-	XMLRPC.From.string (find kvpairs "token")
-
 (* Return once none of the tasks have a `pending status. *)
 let wait_for_all ~rpc ~session_id ~tasks =
 	let classes = List.map
@@ -41,8 +27,9 @@ let wait_for_all ~rpc ~session_id ~tasks =
 		if TaskSet.is_empty task_set then ()
 		else begin
 			let open Event_types in
-			let event_from = Client.Event.from ~rpc ~session_id ~classes ~token ~timeout in
-			let records = List.map Event_helper.record_of_event (events_of event_from) in
+			let event_from_rpc = Client.Event.from ~rpc ~session_id ~classes ~token ~timeout in
+			let event_from = Event_types.event_from_of_rpc event_from_rpc in
+			let records = List.map Event_helper.record_of_event event_from.events in
 			(* If any records indicate that a task is no longer pending, remove that task from the set. *)
 			let pending_task_set = List.fold_left (fun task_set' record ->
 				match record with
@@ -52,7 +39,7 @@ let wait_for_all ~rpc ~session_id ~tasks =
 					else
 						task_set'
 				| _ -> task_set') task_set records in
-			wait ~token:(token_of event_from) ~task_set:pending_task_set
+			wait ~token:(event_from.Event_types.token) ~task_set:pending_task_set
 		end
 	in
 	let token = "" in

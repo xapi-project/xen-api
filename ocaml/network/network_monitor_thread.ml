@@ -27,7 +27,7 @@ let bonds_status : (string, (int * int)) Hashtbl.t = Hashtbl.create 10
 
 let xapi_rpc =
 	let open Xmlrpc_client in
-	XML_protocol.rpc ~http:(xmlrpc ~version:"1.0" "/")
+	XMLRPC_protocol.rpc ~http:(xmlrpc ~version:"1.0" "/")
 		~transport:(Unix (Filename.concat Fhs.vardir "xapi"))
 
 let send_bond_change_alert dev interfaces message =

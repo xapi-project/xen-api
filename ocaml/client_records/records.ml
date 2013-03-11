@@ -571,16 +571,16 @@ let vmpp_record rpc session_id vmpp =
     ~set:(fun x -> Client.VMPP.set_is_policy_enabled rpc session_id vmpp (safe_bool_of_string "is-policy-enabled" x))
     ();
   make_field ~name:"backup-type"
-    ~get:(fun () -> XMLRPC.From.string (API.To.vmpp_backup_type (x ()).API.vMPP_backup_type))
-    ~set:(fun x -> Client.VMPP.set_backup_type rpc session_id vmpp (API.From.vmpp_backup_type "backup-type" (XMLRPC.To.string x)))
+    ~get:(fun () -> Record_util.backup_type_to_string (x ()).API.vMPP_backup_type)
+    ~set:(fun x -> Client.VMPP.set_backup_type rpc session_id vmpp (Record_util.string_to_backup_type x))
     ();
   make_field ~name:"backup-retention-value"
     ~get:(fun () -> string_of_int (Int64.to_int (x ()).API.vMPP_backup_retention_value))
     ~set:(fun x -> Client.VMPP.set_backup_retention_value rpc session_id vmpp (safe_i64_of_string "backup-retention-value" x))
     ();
   make_field ~name:"backup-frequency"
-    ~get:(fun () -> XMLRPC.From.string (API.To.vmpp_backup_frequency (x ()).API.vMPP_backup_frequency))
-    ~set:(fun x -> Client.VMPP.set_backup_frequency rpc session_id vmpp (API.From.vmpp_backup_frequency "backup-frequency" (XMLRPC.To.string x)))
+    ~get:(fun () -> Record_util.backup_frequency_to_string (x ()).API.vMPP_backup_frequency)
+    ~set:(fun x -> Client.VMPP.set_backup_frequency rpc session_id vmpp (Record_util.string_to_backup_frequency x))
     ();
   make_field ~name:"backup-schedule"
     ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vMPP_backup_schedule) 
@@ -595,8 +595,8 @@ let vmpp_record rpc session_id vmpp =
     ~get:(fun () -> Date.to_string (x ()).API.vMPP_backup_last_run_time)
     ();
   make_field ~name:"archive-target-type"
-    ~get:(fun () -> XMLRPC.From.string (API.To.vmpp_archive_target_type (x ()).API.vMPP_archive_target_type))
-    ~set:(fun x -> Client.VMPP.set_archive_target_type rpc session_id vmpp (API.From.vmpp_archive_target_type "archive-target-type" (XMLRPC.To.string x)))
+    ~get:(fun () -> Record_util.archive_target_type_to_string (x ()).API.vMPP_archive_target_type)
+    ~set:(fun x -> Client.VMPP.set_archive_target_type rpc session_id vmpp (Record_util.string_to_archive_target_type x))
     ();
   make_field ~name:"archive-target-config"
     ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vMPP_archive_target_config)
@@ -606,8 +606,8 @@ let vmpp_record rpc session_id vmpp =
 				Client.VMPP.remove_from_archive_target_config rpc session_id vmpp k)
     ();
   make_field ~name:"archive-frequency"
-    ~get:(fun () -> XMLRPC.From.string (API.To.vmpp_archive_frequency (x ()).API.vMPP_archive_frequency))
-    ~set:(fun x -> Client.VMPP.set_archive_frequency rpc session_id vmpp (API.From.vmpp_archive_frequency "archive-frequency" (XMLRPC.To.string x)))
+    ~get:(fun () -> Record_util.archive_frequency_to_string (x ()).API.vMPP_archive_frequency)
+    ~set:(fun x -> Client.VMPP.set_archive_frequency rpc session_id vmpp (Record_util.string_to_archive_frequency x))
     ();
   make_field ~name:"archive-schedule" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vMPP_archive_schedule)
     ~get_map:(fun () -> (x ()).API.vMPP_archive_schedule)
@@ -1129,6 +1129,10 @@ let host_record rpc session_id host =
 				~get_set:(fun () -> (x ()).API.host_tags)
 				~add_to_set:(fun tag -> Client.Host.add_tags rpc session_id host tag)
 				~remove_from_set:(fun tag -> Client.Host.remove_tags rpc session_id host tag) ();
+			make_field ~name:"guest_VCPUs_params" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.host_guest_VCPUs_params) 
+				~get_map:(fun () -> (x ()).API.host_guest_VCPUs_params) 
+				~add_to_map:(fun k v -> Client.Host.add_to_guest_VCPUs_params rpc session_id host k v)
+				~remove_from_map:(fun k -> Client.Host.remove_from_guest_VCPUs_params rpc session_id host k) ();
 		]}
 
 let vdi_record rpc session_id vdi =
@@ -1296,6 +1300,7 @@ let sm_record rpc session_id sm =
   let empty_record = ToGet (fun () -> Client.SM.get_record rpc session_id !_ref) in
   let record = ref empty_record in
   let x () = lzy_get record in
+  let s2i64_to_string m = List.map (fun (c,v) -> (c, Int64.to_string v)) m in
   { setref=(fun r -> _ref := r; record := empty_record );
     setrefrec=(fun (a,b) -> _ref := a; record := Got b);
     record=x;
@@ -1309,7 +1314,10 @@ let sm_record rpc session_id sm =
     make_field ~name:"vendor" ~get:(fun () -> (x ()).API.sM_vendor) ();
     make_field ~name:"copyright" ~get:(fun () -> (x ()).API.sM_copyright) ();
     make_field ~name:"required-api-version" ~get:(fun () -> (x ()).API.sM_required_api_version) ();
-    make_field ~name:"capabilities" ~get:(fun () -> String.concat "; " (x ()).API.sM_capabilities) ();
+    make_field ~name:"capabilities" ~deprecated:true ~get:(fun () -> String.concat "; " (x ()).API.sM_capabilities) ();
+    make_field ~name:"features"
+		~get:(fun () -> Record_util.s2sm_to_string "; " (s2i64_to_string (x ()).API.sM_features))
+		~get_map:(fun () -> s2i64_to_string (x ()).API.sM_features) ();
     make_field ~name:"configuration" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.sM_configuration) ();
     make_field ~name:"driver-filename" ~get:(fun () -> (x ()).API.sM_driver_filename) ();
   ]}

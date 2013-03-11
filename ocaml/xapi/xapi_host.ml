@@ -21,8 +21,7 @@ open Xapi_support
 open Db_filter_types
 open Create_misc
 open Workload_balancing
-
-module Net = (val (Network.get_client ()) : Network.CLIENT)
+open Network
 
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
@@ -609,6 +608,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
 	~power_on_mode:""
 	~power_on_config:[]
 	~local_cache_sr
+	~guest_VCPUs_params:[]
   ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.of_float (Unix.gettimeofday ()));
@@ -797,6 +797,7 @@ let management_disable ~__context =
 
   Xapi_mgmt_iface.shutdown ();
   Xapi_mgmt_iface.maybe_start_himn ~__context ();
+  Xapi_mgmt_iface.start_localhost_interface ~__context;
 
   (* Make sure all my PIFs are marked appropriately *)
   Xapi_pif.update_management_flags ~__context ~host:(Helpers.get_localhost ~__context)
@@ -1265,7 +1266,7 @@ let license_apply ~__context ~host ~contents =
 
 let refresh_pack_info ~__context ~host =
 	debug "Refreshing software_version";
-	let software_version = Create_misc.make_software_version () in
+	let software_version = Create_misc.make_software_version ~__context in
 	Db.Host.set_software_version ~__context ~self:host ~value:software_version
 
 (* Network reset *)
@@ -1354,8 +1355,8 @@ let enable_local_storage_caching ~__context ~host ~sr =
 	let pbds = Db.SR.get_PBDs ~__context ~self:sr in
 	let shared = Db.SR.get_shared ~__context ~self:sr in
 	let has_required_capability =
-		let caps = Sm.capabilities_of_driver ty in
-		List.mem Smint.Sr_supports_local_caching caps
+		let caps = Sm.features_of_driver ty in
+		List.mem_assoc Smint.Sr_supports_local_caching caps
 	in
 	debug "shared: %b. List.length pbds: %d. has_required_capability: %b" shared (List.length pbds) has_required_capability;
 	if (shared=false) && (List.length pbds = 1) && has_required_capability then begin

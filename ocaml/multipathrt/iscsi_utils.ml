@@ -183,7 +183,7 @@ let wait_for_vm_to_run rpc session ?(delay=60.0) vm =
 
   try
     while not !finished do
-      let events = Event_types.events_of_xmlrpc (Client.Event.next rpc session2) in
+      let events = Event_types.events_of_rpc (Client.Event.next rpc session2) in
       debug "Got %d events..." (List.length events);
       let checkevent ev =
         match Event_helper.record_of_event ev with

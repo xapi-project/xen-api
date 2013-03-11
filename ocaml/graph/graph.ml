@@ -25,9 +25,9 @@ let refs_of_record cls record =
   let fields = Datamodel_utils.fields_of_obj obj in
   let rec refs_of ty xml = match ty with
     | Ref _ -> [ XMLRPC.From.string xml ]
-    | Set t -> List.concat (API.From.set (refs_of t) xml)
+    | Set t -> List.concat (API.Legacy.From.set (refs_of t) xml)
     | Map(k, v) ->
-	let pairs = API.From.map (fun x -> x) (refs_of v) xml in
+	let pairs = API.Legacy.From.map (fun x -> x) (refs_of v) xml in
 	let vs = List.concat (List.map snd pairs) in 
 	begin match k with
 	  | Ref _ -> List.map fst pairs @ vs 
@@ -63,7 +63,7 @@ let do_rpc rpc name args =
 let get_all rpc session_id cls = 
   let name = Printf.sprintf "%s.get_all_records_where" cls in
   let args = [ To.string (Ref.string_of session_id); To.string "true" ] in
-  API.From.map (fun x -> x) (fun x -> x) (do_rpc rpc name args)
+  API.Legacy.From.map (fun x -> x) (fun x -> x) (do_rpc rpc name args)
 
 type node = { id: string; label: string; cls: string }
 type edge = { a: string; b: string }
@@ -127,6 +127,10 @@ let singleton = ref false
 let rpc xml = 
 	let open Xmlrpc_client in
 	XML_protocol.rpc ~srcstr:"graph" ~dststr:"xapi" ~transport:(TCP(!host, !port)) ~http:(xmlrpc ~version:"1.0" "/") xml
+		
+let newrpc xml = 
+	let open Xmlrpc_client in
+	XMLRPC_protocol.rpc ~srcstr:"graph" ~dststr:"xapi" ~transport:(TCP(!host, !port)) ~http:(xmlrpc ~version:"1.0" "/") xml
 
 let _ =
   let wanted = ref [] in
@@ -142,7 +146,7 @@ let _ =
     "Display an object graph";
 
   (* Interesting event stuff starts here: *)
-  let session_id = Client.Session.login_with_password ~rpc ~uname:!username ~pwd:!password ~version:"1.2" in
+  let session_id = Client.Session.login_with_password ~rpc:newrpc ~uname:!username ~pwd:!password ~version:"1.2" in
   let classes = List.filter (fun x -> List.mem x Datamodel.expose_get_all_messages_for) all_classes in
   List.iter (fun x -> if not(List.mem x classes) then failwith (Printf.sprintf "Class %s not available" x)) !wanted;
 

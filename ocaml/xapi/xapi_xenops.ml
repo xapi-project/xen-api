@@ -15,7 +15,7 @@
 module D=Debug.Debugger(struct let name="xenops" end)
 open D
 
-module Net = (val (Network.get_client ()) : Network.CLIENT)
+open Network
 
 open Stringext
 open Listext
@@ -234,7 +234,7 @@ module MD = struct
 			mode = if vbd.API.vBD_mode = `RO then ReadOnly else ReadWrite;
 			backend = disk_of_vdi ~__context ~self:vbd.API.vBD_VDI;
 			ty = if vbd.API.vBD_type = `Disk then Disk else CDROM;
-			unpluggable = true;
+			unpluggable = vbd.API.vBD_unpluggable;
 			extra_backend_keys = [];
 			extra_private_keys = [];
 			qos = qos ty;
@@ -361,6 +361,21 @@ module MD = struct
 						(fun x -> List.map int_of_string (String.split ',' x))
 						(String.split ';' (List.assoc "mask" vm.API.vM_VCPUs_params))
 				with _ -> [] in
+			let localhost = Helpers.get_localhost ~__context in
+			let host_guest_VCPUs_params = Db.Host.get_guest_VCPUs_params ~__context ~self:localhost in
+			let host_cpu_mask =
+				try 
+					List.map int_of_string (String.split ',' (List.assoc "mask" host_guest_VCPUs_params))
+				with _ -> [] in
+			let affinity = 
+				match affinity,host_cpu_mask with 
+					| [],[] -> []
+					| [],h -> [h]
+					| v,[] -> v
+					| affinity,mask -> 
+						List.map
+							(fun vcpu_affinity ->
+								List.filter (fun x -> List.mem x mask) vcpu_affinity) affinity in
 			let priority =
 				try
 					let weight = List.assoc "weight" vm.API.vM_VCPUs_params in
@@ -650,8 +665,6 @@ module Xenopsd_metadata = struct
 				delete_nolock ~__context id
 			)
 
-	let counter = ref 0
-
 	let update ~__context ~self =
 		let id = id_of_vm ~__context ~self in
 		Mutex.execute metadata_m
@@ -660,15 +673,6 @@ module Xenopsd_metadata = struct
 				if vm_exists_in_xenopsd dbg id
 				then
 					let txt = create_metadata ~__context ~upgrade:false ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
-					begin match Xapi_cache.find_nolock id with
-						| Some old ->
-							if old <> txt then begin
-								Unixext.write_string_to_file (Printf.sprintf "/tmp/metadata.old.%d" !counter) old;
-								Unixext.write_string_to_file (Printf.sprintf "/tmp/metadata.new.%d" !counter) txt;
-								incr counter
-							end
-						| None -> ()
-					end;
 					begin match Xapi_cache.find_nolock id with
 						| Some old when old = txt -> ()
 						| _ ->
@@ -826,7 +830,8 @@ let update_vm ~__context id =
 										error "Suspended VM has no domain-specific metadata"
 									| Some x ->
 										Db.VM.set_last_booted_record ~__context ~self ~value:x;
-										debug "VM %s last_booted_record set to %s" (Ref.string_of self) x
+										debug "VM %s last_booted_record set to %s" (Ref.string_of self) x;
+								Xenopsd_metadata.delete ~__context id
 							end;
 							if power_state = `Halted
 							then !trigger_xenapi_reregister ();
@@ -1033,7 +1038,8 @@ let update_vm ~__context id =
 							Opt.iter
 								(fun (_, state) ->
 									debug "xenopsd event: Updating VM %s shadow_multiplier <- %.2f" id state.shadow_multiplier_target;
-									Db.VM.set_HVM_shadow_multiplier ~__context ~self ~value:state.shadow_multiplier_target
+									if state.power_state <> Halted then
+										Db.VM.set_HVM_shadow_multiplier ~__context ~self ~value:state.shadow_multiplier_target
 								) info
 						with e ->
 							error "Caught %s: while updating VM %s HVM_shadow_multiplier" (Printexc.to_string e) id
@@ -1389,7 +1395,7 @@ module Events_from_xapi = struct
 		assert_resident_on ~__context ~self;
 		let t = Helpers.call_api_functions ~__context
 			(fun rpc session_id ->
-				XenAPI.Event.inject ~rpc ~session_id ~_class:"VM" ~ref:(Ref.string_of self)
+				XenAPI.Event.inject ~rpc ~session_id ~_class:"VM" ~_ref:(Ref.string_of self)
 			) in
 		debug "Waiting for token greater than: %s" t;
 		Mutex.execute m
@@ -1447,7 +1453,7 @@ let events_from_xapi () =
 							   received BUT we will not necessarily receive events for the new VMs *)
 
 							while true do
-								let from = XenAPI.Event.from ~rpc ~session_id ~classes ~token:!token ~timeout:60. |> event_from_of_xmlrpc in
+								let from = XenAPI.Event.from ~rpc ~session_id ~classes ~token:!token ~timeout:60. |> event_from_of_rpc in
 								if List.length from.events > 200 then warn "Warning: received more than 200 events!";
 								List.iter
 									(function
