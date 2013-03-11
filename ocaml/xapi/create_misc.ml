@@ -402,12 +402,16 @@ let make_software_version ~__context =
 	make_packs_info ()
 
 let create_host_cpu ~__context =
-	let get_nb_cpus () =
-		let xc = Xenctrl.interface_open () in
-		let p = Xenctrl.physinfo xc in
-		Xenctrl.interface_close xc;
-		p.Xenctrl.Phys_info.nr_cpus
+	let get_cpu_counts () =
+		let open Xenctrl in
+		let p = Vmopshelpers.with_xc (fun xc -> physinfo xc) in
+		let cpu_count = p.Phys_info.nr_cpus in
+		let socket_count =
+			p.Phys_info.nr_cpus /
+			(p.Phys_info.threads_per_core * p.Phys_info.cores_per_socket)
 		in
+		cpu_count, socket_count
+	in
 	let trim_end s =
 		let i = ref (String.length s - 1) in
 		while !i > 0 && (List.mem s.[!i] [ ' '; '\t'; '\n'; '\r' ])
@@ -454,7 +458,7 @@ let create_host_cpu ~__context =
 		Hashtbl.find tbl "cpu family"
 		in
 	let vendor, modelname, cpu_mhz, flags, stepping, model, family = get_cpuinfo () in
-	let number = get_nb_cpus () in
+	let cpu_count, socket_count = get_cpu_counts () in
 	let host = Helpers.get_localhost ~__context in
 	
 	(* Fill in Host.cpu_info *)
@@ -468,7 +472,8 @@ let create_host_cpu ~__context =
 		| Cpuid.Full -> "full"
 	in
 	let cpu = [
-		"cpu_count", string_of_int number;
+		"cpu_count", string_of_int cpu_count;
+		"socket_count", string_of_int socket_count;
 		"vendor", vendor;
 		"speed", cpu_mhz;
 		"modelname", modelname;
@@ -492,7 +497,7 @@ let create_host_cpu ~__context =
 	(* Recreate all Host_cpu objects *)
 	let host_cpus = List.filter (fun (_, s) -> s.API.host_cpu_host = host) (Db.Host_cpu.get_all_records ~__context) in
 	List.iter (fun (r, _) -> Db.Host_cpu.destroy ~__context ~self:r) host_cpus;
-	for i = 0 to number - 1
+	for i = 0 to cpu_count - 1
 	do
 		let uuid = Uuid.to_string (Uuid.make_uuid ())
 		and ref = Ref.make () in
