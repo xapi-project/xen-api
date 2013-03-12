@@ -334,7 +334,7 @@ let create_vdi_tree rpc session sr name_label size ?resize ?(pattern_type=1) pat
 
 
 let wait_for_fist rpc session sr ?(delay=90.0) fist =
-  let session2 = Client.Session.login_with_password rpc !Globs.username !Globs.password "1.4" in
+  let session2 = Client.Session.login_with_password rpc !Globs.username !Globs.password "1.4" "lvhdrt" in
  
   Client.Event.register rpc session2 ["sr"];
 
@@ -373,7 +373,7 @@ let wait_for_fist rpc session sr ?(delay=90.0) fist =
  * delay will be used if at least one VDI is not deleted (e.g. because it didn't
  * exist. *)
 let wait_for_vdi_deletion rpc session sr ?(delay=90.0) vdis =
-  let session2 = Client.Session.login_with_password rpc !Globs.username !Globs.password "1.4" in
+  let session2 = Client.Session.login_with_password rpc !Globs.username !Globs.password "1.4" "lvhdrt" in
  
   Client.Event.register rpc session2 ["vdi"];
   debug "Registered for vdi events";
