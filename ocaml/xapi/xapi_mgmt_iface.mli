@@ -16,7 +16,7 @@
  *)
 
 (** Local IP address of the HIMN (if any) *)
-val get_himn_address : unit -> string option
+val himn_addr : string option ref
 
 (** Block until an IP address appears on the management interface *)
 val wait_for_management_ip : __context:Context.t -> string
