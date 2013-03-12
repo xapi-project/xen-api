@@ -14,6 +14,9 @@
 
 open Fun
 
+module D=Debug.Debugger(struct let name="xapi" end)
+open D
+
 (* Compare two date options, where None is always greater than (Some _) *)
 let compare_dates (a: Date.iso8601 option) (b: Date.iso8601 option) =
 	match a, b with
@@ -41,3 +44,36 @@ let get_lowest_edition ~__context ~hosts =
 	if List.mem "free" all_editions
 	then "free"
 	else List.hd all_editions
+
+(* Separate this logic out from Xapi_pool.apply_edition for testing purposes. *)
+let apply_edition_with_rollback ~__context ~hosts ~edition ~apply_fn =
+	(* Filter out the hosts which already have the correct edition;
+	 * list the other hosts against the edition we're upgrading *from*. *)
+	let to_apply =
+		List.fold_left
+			(fun acc host ->
+				let old_edition = Db.Host.get_edition ~__context ~self:host in
+				if old_edition <> edition
+				then (host, old_edition) :: acc
+				else acc)
+			[] hosts
+	in
+	(* This list will be added to as hosts have the new edition applied. *)
+	let to_rollback = ref [] in
+	try
+		List.iter
+			(fun (host, old_edition) ->
+				apply_fn ~__context ~host ~edition;
+				to_rollback := (host, old_edition) :: !to_rollback)
+			to_apply
+	with e ->
+		debug
+			"Caught %s while trying to upgrade pool to edition %s - attempting rollback"
+			(Printexc.to_string e) edition;
+		(* Best-effort attempt to roll everything back. *)
+		List.iter
+			(fun (host, old_edition) ->
+				try apply_fn ~__context ~host ~edition:old_edition with _ -> ())
+			!to_rollback;
+		(* Raise the original exception. *)
+		raise e
