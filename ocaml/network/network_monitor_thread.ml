@@ -34,7 +34,7 @@ let send_bond_change_alert dev interfaces message =
 	let ifaces = String.concat "+" (List.sort String.compare interfaces) in
 	let module XenAPI = Client.Client in
 	let session_id = XenAPI.Session.login_with_password
-		~rpc:xapi_rpc ~uname:"" ~pwd:"" ~version:"1.4" in
+		~rpc:xapi_rpc ~uname:"" ~pwd:"" ~version:"1.4" ~originator:"networkd" in
 	Pervasiveext.finally
 		(fun _ ->
 			let obj_uuid = Util_inventory.lookup Util_inventory._installation_uuid in

@@ -31,6 +31,6 @@ let _ =
   let http = xmlrpc ~version:"1.0" "/" in
   let rpc xml = XML_protocol.rpc ~transport:(TCP(!host, !port)) ~http xml in
   let session_id = Client.Session.login_with_password ~rpc 
-    ~uname:!username ~pwd:!password ~version:Xapi_globs.api_version_string in
+    ~uname:!username ~pwd:!password ~version:Xapi_globs.api_version_string ~originator:"" in
   create_storage_localhost rpc session_id;
   Client.Session.logout ~rpc ~session_id

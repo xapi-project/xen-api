@@ -104,7 +104,7 @@ let check_path_counts entry max_paths current_paths =
 
 (* For all messages m matching the check_message predicate, execute f m *)
 let wait_for_alert rpc session ?(delay=180.0) check_message f =
-  let session2 = Client.Session.login_with_password rpc !Globs.username !Globs.password "1.4" in
+  let session2 = Client.Session.login_with_password rpc !Globs.username !Globs.password "1.4" "multipathrt"in
   Client.Event.register rpc session2 ["message"];
 
   let finished = ref false in
