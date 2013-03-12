@@ -248,7 +248,7 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
 			if firstboot.(i) then true else begin
 				let rpc = remoterpc ip in
 				try
-					let s = Client.Session.login_with_password rpc "root" "xensource" "1.1" in    
+					let s = Client.Session.login_with_password rpc "root" "xensource" "1.1" "perftest" in
 					finally
 						(fun () ->
 							let host = List.hd (Client.Host.get_all rpc s) in (* only one host because it hasn't joined the pool yet *)
@@ -282,7 +282,7 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
 	let host_uuids = Array.mapi (fun i vm -> 
 		let n = i + 1 in
 		let rpc = remoterpc (Printf.sprintf "192.168.%d.%d" pool.ipbase n) in
-		let s = Client.Session.login_with_password rpc "root" "xensource" "1.1" in
+		let s = Client.Session.login_with_password rpc "root" "xensource" "1.1" "perftest" in
 		let h = List.hd (Client.Host.get_all rpc s) in
 		let u = Client.Host.get_uuid rpc s h in
 		debug "Setting name of host %d" n;
@@ -295,7 +295,7 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
 	) hosts in
 
 	let poolrpc = remoterpc (Printf.sprintf "192.168.%d.1" pool.ipbase) in
-	let poolses = Client.Session.login_with_password poolrpc "root" "xensource" "1.1" in
+	let poolses = Client.Session.login_with_password poolrpc "root" "xensource" "1.1" "perftest" in
 
 	let vpool=List.hd (Client.Pool.get_all poolrpc poolses) in
 	Client.Pool.add_to_other_config poolrpc poolses vpool "scenario" pool_name;
