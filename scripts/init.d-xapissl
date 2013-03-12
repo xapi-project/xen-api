@@ -176,7 +176,6 @@ status() {
 }
 
 restart() {
-    grep "accept = ${ACCEPT}" ${SSLCONFFILE} && exit 0
     stop
     start
 }
