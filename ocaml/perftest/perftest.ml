@@ -95,7 +95,7 @@ let _ =
 	List.iter (fun x -> debug "* %s" x) lines
     | _ ->
 
-	let session = Client.Session.login_with_password rpc "root" "xenroot" "1.2" in
+	let session = Client.Session.login_with_password rpc "root" "xenroot" "1.2" "perftest" in
 	let (_: API.string_to_string_map) = get_metadata rpc session in
 	finally
 	  (fun () ->
@@ -111,7 +111,7 @@ let _ =
 		 debug ~out:stderr "Not yet implemented ... ";
 	     | "run" ->
 		 let newrpc = if pool.Scenario.sdk then remoterpc (Printf.sprintf "192.168.%d.1" !ipbase) else rpc in
-		 let session = if pool.Scenario.sdk then Client.Session.login_with_password newrpc "root" "xensource" "1.2" else session in
+		 let session = if pool.Scenario.sdk then Client.Session.login_with_password newrpc "root" "xensource" "1.2" "perftest" else session in
 		 finally
 		   (fun () -> marshall pool (get_metadata newrpc session) (Tests.run newrpc session !key !run_all !iter))
 		   (fun () -> if pool.Scenario.sdk then Client.Session.logout newrpc session)

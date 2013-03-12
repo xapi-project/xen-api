@@ -402,7 +402,7 @@ let _ =
     "Test VM lifecycle cancellation leaves the system in a valid state";
 
 	let rpc = make_rpc () in
-	let session_id = Client.Session.login_with_password ~rpc ~uname:!username ~pwd:!password ~version:"1.2" in
+	let session_id = Client.Session.login_with_password ~rpc ~uname:!username ~pwd:!password ~version:"1.2" ~originator:"cancel_tests" in
 	finally
 		(fun () ->
 			match Client.VM.get_by_name_label ~rpc ~session_id ~label:!vm with
