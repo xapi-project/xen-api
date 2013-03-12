@@ -504,8 +504,8 @@ let single_pass () =
 						"VGPU_types", gc_VGPU_types;
 						"Host patches", gc_Host_patches;
 						"Host CPUs", gc_host_cpus;
-						"Sessions", timeout_sessions;
 						"Tasks", timeout_tasks;
+						"Sessions", timeout_sessions;
 						"Messages", gc_messages;
 						(* timeout_alerts; *)
 						(* CA-29253: wake up all blocked clients *)
