@@ -28,21 +28,12 @@ let management_interface_server = ref []
 let listening_all = ref false
 let listening_localhost = ref false
 let listening_himn = ref false
-(*
-let specific_addresses_only = ref false
-let localhost_server_started = ref false
-*)
 let management_m = Mutex.create ()
 
 let update_mh_info_script = Filename.concat Fhs.libexecdir "update-mh-info"
 
 let update_mh_info interface =
 	let (_: string*string) = Forkhelpers.execute_command_get_output update_mh_info_script [ interface ] in
-	()
-
-let stop_stunnel () =
-	let (_ : Thread.t) = Thread.create (fun () ->
-		Forkhelpers.execute_command_get_output (Filename.concat Fhs.libexecdir "xapissl") [ "stop" ]) () in
 	()
 
 let restart_stunnel () =
