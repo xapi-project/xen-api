@@ -2,7 +2,7 @@
 #
 # squeezed          Start/Stop the fork/exec daemon
 #
-# chkconfig: 2345 12 78
+# chkconfig: 2345 13 78
 # description: Fork/exec daemon
 # processname: fe
 # pidfile: /var/run/fe.pid
