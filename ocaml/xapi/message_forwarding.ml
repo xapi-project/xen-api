@@ -714,6 +714,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let get_license_state ~__context ~self =
 			info "Pool.get_license_state: pool = '%s'" (pool_uuid ~__context self);
 			Local.Pool.get_license_state ~__context ~self
+
+		let apply_edition ~__context ~self ~edition =
+			info "Pool.apply_edition: pool = '%s'; edition = '%s'" (pool_uuid ~__context self) edition;
+			Local.Pool.apply_edition ~__context ~self ~edition
 	end
 
 	module VM = struct

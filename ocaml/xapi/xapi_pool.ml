@@ -1715,3 +1715,12 @@ let get_license_state ~__context ~self =
 		"edition", pool_edition;
 		"expiry", pool_expiry_date;
 	]
+
+let apply_edition ~__context ~self ~edition =
+	let hosts = Db.Host.get_all ~__context in
+	let apply_fn =
+		(fun ~__context ~host ~edition -> Helpers.call_api_functions ~__context
+			(fun rpc session_id ->
+				Client.Host.apply_edition ~rpc ~session_id ~host ~edition))
+	in
+	Xapi_pool_license.apply_edition_with_rollback ~__context ~hosts ~edition ~apply_fn
