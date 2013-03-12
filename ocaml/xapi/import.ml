@@ -773,7 +773,14 @@ module VBD : HandlerTools = struct
 			(* If the VBD is supposed to be attached to a PV guest (which doesn't support
 				 currently_attached empty drives) then throw a fatal error. *)
 			let original_vm = API.Legacy.From.vM_t "" (find_in_export (Ref.string_of vbd_record.API.vBD_VM) state.export) in
-			if vbd_record.API.vBD_currently_attached && not(exists vbd_record.API.vBD_VDI state.table) then begin
+			(* In the case of dry_run live migration, don't check for
+				 missing disks as CDs will be ejected before the real migration. *)
+			let dry_run, live = match config.import_type with
+			| Metadata_import {dry_run = dry_run; live = live} -> dry_run, live
+			| _ -> false, false
+			in
+			if not (dry_run && live) then begin
+				if vbd_record.API.vBD_currently_attached && not(exists vbd_record.API.vBD_VDI state.table) then begin
 				(* It's only ok if it's a CDROM attached to an HVM guest *)
 				let has_booted_hvm =
 					let lbr =
@@ -783,6 +790,7 @@ module VBD : HandlerTools = struct
 				in
 				if not(vbd_record.API.vBD_type = `CD && has_booted_hvm)
 				then raise (IFailure Attached_disks_not_found)
+				end
 			end;
 
 			let vbd_record = { vbd_record with API.vBD_VM = vm } in
