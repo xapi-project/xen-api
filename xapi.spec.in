@@ -197,6 +197,9 @@ rm -rf $RPM_BUILD_ROOT
 %post v6d
 [ ! -x /sbin/chkconfig ] || chkconfig --add v6d
 
+%post fe
+[ ! -x /sbin/chkconfig ] || chkconfig --add fe
+
 %files core -f core-files
 %defattr(-,root,root,-)
 @OPTDIR@/bin/xapi
