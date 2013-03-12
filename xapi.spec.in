@@ -206,6 +206,8 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/bin/xe-set-iscsi-iqn
 @OPTDIR@/bin/xe-toolstack-restart
 @OPTDIR@/bin/xe-xentrace
+@OPTDIR@/bin/xe-switch-network-backend
+/etc/bash_completion.d/xe-switch-network-backend
 @OPTDIR@/bin/xsh
 /etc/xensource/bugtool/xapi.xml
 /etc/xensource/bugtool/xapi/stuff.xml
