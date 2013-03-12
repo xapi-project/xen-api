@@ -71,9 +71,8 @@ let start ~__context ?addr () =
 					addr, Xapi_http.bind (Unix.ADDR_INET(addr, Xapi_globs.http_port))
 	in
 	Http_svr.start Xapi_http.server socket;
-	management_interface_server := socket :: !management_interface_server
+	management_interface_server := socket :: !management_interface_server;
 
-let resync ~__context =
 	debug "Restarting stunnel";
 	restart_stunnel ();
 	if Pool_role.is_master () && !listening_all then begin
@@ -112,8 +111,7 @@ let run ~__context ~mgmt_enabled =
 					listening_himn := true
 				end
 			) !himn_addr;
-		end;
-		resync ~__context;
+		end
 	)
 
 let enable_himn ~__context ~addr =
