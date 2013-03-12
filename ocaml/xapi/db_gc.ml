@@ -221,7 +221,7 @@ let check_host_liveness ~__context =
 let task_status_is_completed task_status =
     (task_status=`success) || (task_status=`failure) || (task_status=`cancelled)
 
-let timeout_sessions_common ~__context sessions =
+let timeout_sessions_common ~__context sessions limit session_group =
   let unused_sessions = List.filter
     (fun (x, _) -> 
 	  let rec is_session_unused s = 
@@ -243,19 +243,18 @@ let timeout_sessions_common ~__context sessions =
     )
     sessions
   in
-  let disposable_sessions = unused_sessions in
   (* Only keep a list of (ref, last_active, uuid) *)
-  let disposable_sessions = List.map (fun (x, y) -> x, Date.to_float y.Db_actions.session_last_active, y.Db_actions.session_uuid) disposable_sessions in
+  let disposable_sessions = List.map (fun (x, y) -> x, Date.to_float y.Db_actions.session_last_active, y.Db_actions.session_uuid) unused_sessions in
   (* Definitely invalidate sessions last used long ago *)
   let threshold_time = Unix.time () -. !Xapi_globs.inactive_session_timeout in
   let young, old = List.partition (fun (_, y, _) -> y > threshold_time) disposable_sessions in
   (* If there are too many young sessions then we need to delete the oldest *)
   let lucky, unlucky = 
-    if List.length young <= Xapi_globs.max_sessions
+    if List.length young <= limit
     then young, [] (* keep them all *)
     else 
       (* Need to reverse sort by last active and drop the oldest *)
-      List.chop Xapi_globs.max_sessions (List.sort (fun (_,a, _) (_,b, _) -> compare b a) young) in
+      List.chop limit (List.sort (fun (_,a, _) (_,b, _) -> compare b a) young) in
   let cancel doc sessions = 
     List.iter
       (fun (s, active, uuid) ->
@@ -264,19 +263,31 @@ let timeout_sessions_common ~__context sessions =
 	 ) sessions in
   (* Only the 'lucky' survive: the 'old' and 'unlucky' are destroyed *)
   if unlucky <> [] 
-  then debug "Number of disposable sessions in database (%d/%d) exceeds limit (%d): will delete the oldest" (List.length disposable_sessions) (List.length sessions) Xapi_globs.max_sessions;
+  then debug "Number of disposable sessions in database (%d/%d) exceeds limit (%d): will delete the oldest" (List.length disposable_sessions) (List.length sessions) limit;
   cancel "Timed out session because of its age" old;
   cancel "Timed out session because max number of sessions was exceeded" unlucky
 
 let timeout_sessions ~__context =
-  let all_sessions =
-    Db.Session.get_internal_records_where ~__context ~expr:Db_filter_types.True
-  in
-  let (intrapool_sessions, normal_sessions) =
-    List.partition (fun (_, y) -> y.Db_actions.session_pool) all_sessions
-  in begin
-    timeout_sessions_common ~__context normal_sessions;
-    timeout_sessions_common ~__context intrapool_sessions;
+	let all_sessions = Db.Session.get_internal_records_where ~__context ~expr:Db_filter_types.True in
+	let pool_sessions, nonpool_sessions = List.partition (fun (_, s) -> s.Db_actions.session_pool) all_sessions in
+	let use_root_auth_name s = s.Db_actions.session_auth_user_name = "" || s.Db_actions.session_auth_user_name = "root" in
+	let anon_sessions, named_sessions = List.partition (fun (_, s) -> s.Db_actions.session_originator = "" && use_root_auth_name s) nonpool_sessions in
+	let session_groups = Hashtbl.create 37 in
+	List.iter (function (_, s) as rs ->
+		let key = if use_root_auth_name s then `Orig s.Db_actions.session_originator else `Name s.Db_actions.session_auth_user_name in
+		let current_sessions =
+			try Hashtbl.find session_groups key
+			with Not_found -> [] in
+		Hashtbl.replace session_groups key (rs :: current_sessions)
+	) named_sessions;
+	begin
+		Hashtbl.iter
+			(fun key ss -> match key with
+			| `Orig orig -> timeout_sessions_common ~__context ss Xapi_globs.max_sessions_per_originator ("originator:"^orig)
+			| `Name name -> timeout_sessions_common ~__context ss Xapi_globs.max_sessions_per_user_name ("username:"^name))
+			session_groups;
+		timeout_sessions_common ~__context anon_sessions Xapi_globs.max_sessions "external";
+		timeout_sessions_common ~__context pool_sessions Xapi_globs.max_sessions "internal";
   end
 
 let probation_pending_tasks = Hashtbl.create 53
