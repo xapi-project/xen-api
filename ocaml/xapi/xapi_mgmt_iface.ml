@@ -22,40 +22,18 @@ open D
 
 let himn_addr = ref None
 
-let get_himn_address () =
-	match !himn_addr with
-		None -> (try
-			   let addr = Localdb.get Constants.himn_address in
-			   himn_addr := Some addr;
-			   !himn_addr
-		  with Localdb.Missing_key _ -> None)
-	| _ -> !himn_addr
-
-let set_himn_address addr =
-	himn_addr := Some addr;
-	Localdb.put Constants.himn_address addr
-
 (* Stores a key into the table in Http_srv which identifies the server thread bound
 	 to the management IP. *)
 let management_interface_server = ref []
 let listening_all = ref false
 let listening_localhost = ref false
 let listening_himn = ref false
-(*
-let specific_addresses_only = ref false
-let localhost_server_started = ref false
-*)
 let management_m = Mutex.create ()
 
 let update_mh_info_script = Filename.concat Fhs.libexecdir "update-mh-info"
 
 let update_mh_info interface =
 	let (_: string*string) = Forkhelpers.execute_command_get_output update_mh_info_script [ interface ] in
-	()
-
-let stop_stunnel () =
-	let (_ : Thread.t) = Thread.create (fun () ->
-		Forkhelpers.execute_command_get_output (Filename.concat Fhs.libexecdir "xapissl") [ "stop" ]) () in
 	()
 
 let restart_stunnel () =
@@ -93,9 +71,8 @@ let start ~__context ?addr () =
 					addr, Xapi_http.bind (Unix.ADDR_INET(addr, Xapi_globs.http_port))
 	in
 	Http_svr.start Xapi_http.server socket;
-	management_interface_server := socket :: !management_interface_server
+	management_interface_server := socket :: !management_interface_server;
 
-let resync ~__context =
 	debug "Restarting stunnel";
 	restart_stunnel ();
 	if Pool_role.is_master () && !listening_all then begin
@@ -133,17 +110,15 @@ let run ~__context ~mgmt_enabled =
 					start ~__context ~addr ();
 					listening_himn := true
 				end
-			) (get_himn_address ());
-		end;
-		resync ~__context;
+			) !himn_addr;
+		end
 	)
 
 let enable_himn ~__context ~addr =
 	Mutex.execute management_m (fun () ->
-		set_himn_address addr;
+		himn_addr := Some addr;
 	);
 	run ~__context ~mgmt_enabled:!listening_all
-
 
 let rebind ~__context =
 	run ~__context ~mgmt_enabled:!listening_all

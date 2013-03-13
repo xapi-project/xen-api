@@ -110,7 +110,7 @@ let emergency_call_list = List.map (fun (obj,msg) -> Datamodel_utils.wire_name ~
 let is_himn_req req =
 	match req.Http.Request.host with
 	| Some h ->
-		(match Xapi_mgmt_iface.get_himn_address () with
+		(match !Xapi_mgmt_iface.himn_addr with
 		| Some himn -> himn = h
 		| None -> false)
 	| None -> false
