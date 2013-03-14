@@ -1,0 +1,43 @@
+<domain type='xen' id='3'>
+  <name>fv0</name>
+  <uuid>4dea22b31d52d8f32516782e98ab3fa0</uuid>
+  <os>
+    <type>hvm</type>
+    <loader>/usr/lib/xen/boot/hvmloader</loader>
+    <boot dev='hd'/>
+  </os>
+  <memory>524288</memory>
+  <vcpu>1</vcpu>
+  <on_poweroff>destroy</on_poweroff>
+  <on_reboot>restart</on_reboot>
+  <on_crash>restart</on_crash>
+  <features>
+    <pae/>
+    <acpi/>
+    <apic/>
+  </features>
+  <clock sync="localtime"/>
+  <devices>
+    <emulator>/usr/lib/xen/bin/qemu-dm</emulator>
+    <interface type='bridge'>
+      <source bridge='xenbr0'/>
+      <mac address='00:16:3e:5d:c7:9e'/>
+      <script path='vif-bridge'/>
+    </interface>
+    <disk type='file'>
+      <source file='/var/lib/xen/images/fv0'/>
+      <target dev='hda'/>
+    </disk>
+    <disk type='file' device='cdrom'>
+      <source file='/var/lib/xen/images/fc5-x86_64-boot.iso'/>
+      <target dev='hdc'/>
+      <readonly/>
+    </disk>
+    <disk type='file' device='floppy'>
+      <source file='/root/fd.img'/>
+      <target dev='fda'/>
+    </disk>
+    <graphics type='vnc' port='5904'/>
+  </devices>
+</domain>
+
