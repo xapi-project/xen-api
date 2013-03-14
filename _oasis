@@ -22,6 +22,14 @@ Library xcp_storage
   Modules:            Storage_interface, Vdi_automaton, Storage_client, Storage_skeleton, Storage_skeleton_test
   BuildDepends:       xcp, threads, rpclib, rpclib.syntax
 
+Library xcp_network
+  CompiledObject:     best
+  Path:               network
+  Findlibname:        network
+  Findlibparent:      xcp
+  Modules:            Network_interface, Network_client
+  BuildDepends:       xcp, threads, rpclib, rpclib.syntax
+
 Library xcp_xen
   CompiledObject:     best
   Path:               xen

@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 7e854a6674237f911432ec345b166bf6)
+# DO NOT EDIT (digest: 486247bf4351f198b4accf2c8d057242)
 version = "0.1"
 description = "Interface definitions for XCP hosts"
 requires =
@@ -29,6 +29,17 @@ package "storage" (
  archive(native) = "xcp_storage.cmxa"
  archive(native, plugin) = "xcp_storage.cmxs"
  exists_if = "xcp_storage.cma"
+)
+
+package "network" (
+ version = "0.1"
+ description = "Interface definitions for XCP hosts"
+ requires = "xcp threads rpclib rpclib.syntax"
+ archive(byte) = "xcp_network.cma"
+ archive(byte, plugin) = "xcp_network.cma"
+ archive(native) = "xcp_network.cmxa"
+ archive(native, plugin) = "xcp_network.cmxs"
+ exists_if = "xcp_network.cma"
 )
 
 package "memory" (

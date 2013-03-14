@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 59ccd8cfcde4d60b66cff9188239ab7f)
+# DO NOT EDIT (digest: 9ea54940841d7b20a1e8ed6bd1ab5a74)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -39,6 +39,20 @@
 <storage/*.ml{,i}>: pkg_rpclib.xml
 <storage/*.ml{,i}>: pkg_rpclib.js
 <storage/*.ml{,i}>: pkg_syslog
+# Library xcp_network
+"network/xcp_network.cmxs": use_xcp_network
+<network/*.ml{,i}>: use_xcp
+<network/*.ml{,i}>: pkg_threads
+<network/*.ml{,i}>: pkg_rpclib
+<network/*.ml{,i}>: pkg_rpclib.syntax
+<network/*.ml{,i}>: pkg_uri
+<network/*.ml{,i}>: pkg_re
+<network/*.ml{,i}>: pkg_cohttp
+<network/*.ml{,i}>: pkg_xmlm
+<network/*.ml{,i}>: pkg_unix
+<network/*.ml{,i}>: pkg_rpclib.xml
+<network/*.ml{,i}>: pkg_rpclib.js
+<network/*.ml{,i}>: pkg_syslog
 # Library xcp_xen
 "xen/xcp_xen.cmxs": use_xcp_xen
 <xen/*.ml{,i}>: use_xcp
@@ -71,7 +85,8 @@
 <storage/*.ml{,i}>: syntax_camlp4o
 <xen/*.ml{,i}>: syntax_camlp4o
 <memory/*.ml{,i}>: syntax_camlp4o
+<network/*.ml{,i}>: syntax_camlp4o
 <storage/storage_interface.ml>: pkg_rpclib.idl
 <xen/xenops_interface.ml>: pkg_rpclib.idl
 <memory/memory_interface.ml>: pkg_rpclib.idl
-
+<network/network_interface.ml>: pkg_rpclib.idl
