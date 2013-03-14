@@ -7,11 +7,11 @@ License:     LGPL-2.1 with OCaml linking exception
 Plugins:     META (0.3)
 BuildTools:  ocamlbuild
 
-Library "xcp-networkd-interface"
+Library "xcp-networkd"
   CompiledObject:     best
-  Modules:            Network_config, Network_interface
+  Modules:            Network_config
   Path:               lib
-  BuildDepends:       threads, rpclib, log, stdext, xcp-inventory
+  BuildDepends:       threads, rpclib, log, stdext, xcp-inventory, xcp.network
 
 Executable "xcp-networkd"
   CompiledObject:     best
@@ -20,7 +20,7 @@ Executable "xcp-networkd"
   Custom:             true
   Install:            false
   CSources:           link_stubs.c, netdev.h
-  BuildDepends:       threads, rpclib, rpclib.unix, forkexec, stdext, log, http-svr, xcp-inventory, xen-api-client, xcp-networkd-interface, xcp
+  BuildDepends:       threads, rpclib, rpclib.unix, forkexec, stdext, log, http-svr, xcp-inventory, xcp-networkd, xen-api-client, xcp, xcp.network
 
 Executable networkd_db
   CompiledObject:     best
@@ -28,7 +28,7 @@ Executable networkd_db
   MainIs:             networkd_db.ml
   Custom:             true
   Install:            false
-  BuildDepends:       threads, stdext, xcp-networkd-interface
+  BuildDepends:       threads, stdext, xcp-networkd, xcp.network
 
 #Executable network_test
 #  CompiledObject:     best
