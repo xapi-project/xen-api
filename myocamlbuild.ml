@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: cb3eb4aea883f78d87e9a7a2ce49b775) *)
+(* DO NOT EDIT (digest: 95f8618eedfa4deb441c04f26687ea83) *)
 module OASISGettext = struct
 (* # 21 "/home/jludlam/.opam/std/build/oasis.0.3.0/src/oasis/OASISGettext.ml" *)
 
@@ -480,12 +480,13 @@ let package_default =
      MyOCamlbuildBase.lib_ocaml = [("xcp-networkd", ["lib"])];
      lib_c = [("xcp-networkd", "networkd", ["networkd/netdev.h"])];
      flags = [];
-     includes = [("networkd_db", ["lib"]); ("networkd", ["lib"])];
+     includes =
+       [("test", ["lib"]); ("networkd_db", ["lib"]); ("networkd", ["lib"])];
      }
   ;;
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default package_default;;
 
-# 490 "myocamlbuild.ml"
+# 491 "myocamlbuild.ml"
 (* OASIS_STOP *)
 Ocamlbuild_plugin.dispatch dispatch_default;;

@@ -36,4 +36,4 @@ Executable networkd_db
 #  MainIs:             network_test.ml
 #  Custom:             true
 #  Install:            false
-#  BuildDepends:       xcp-networkd-interface
+#  BuildDepends:       xcp-networkd, xcp.network
