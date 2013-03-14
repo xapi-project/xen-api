@@ -370,6 +370,11 @@ let daemonize () =
 		end
 	| _ -> exit 0
 
+let maybe_daemonize () =
+	if !daemon then
+		daemonize ()
+	else 
+		()
 
 let wait_forever () =
 	while true do
