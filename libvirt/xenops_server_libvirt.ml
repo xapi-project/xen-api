@@ -33,6 +33,27 @@ module Domain = struct
 		pcis: Pci.t list;
 		last_create_time: float;
 	} with rpc
+
+        module To_xml = struct
+		let string key v output =
+			tag_start output key;
+			data output v;
+			tag_end output in
+		let name = string "name"
+		let uuid = string "uuid"
+		let memory bytes = string "memory" (Int64.(to_string (div bytes 1024L)))
+		let vcpu n = string "vcpu" (Int64.to_string n)
+		let emulator = string "emulator"
+
+			tag_start output "name";
+			data output x;
+			tag_end output in
+
+
+	end
+
+	let to_xml (x: t) =
+
 end
 
 module DB = TypedTable(struct
