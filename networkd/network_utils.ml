@@ -28,7 +28,7 @@ let ovs_vsctl = "/usr/bin/ovs-vsctl"
 let ovs_ofctl = "/usr/bin/ovs-ofctl"
 let ovs_appctl = "/usr/bin/ovs-appctl"
 let ovs_vlan_bug_workaround = "/usr/sbin/ovs-vlan-bug-workaround"
-let brctl = match Fhs.distroty with | Fhs.Debianlike -> "/sbin/brctl" | Fhs.Centoslike -> "/usr/sbin/brctl"
+let brctl = ref "/sbin/brctl"
 let modprobe = "/sbin/modprobe"
 let ethtool = "/sbin/ethtool"
 let bonding_dir = "/proc/net/bonding/"
@@ -400,11 +400,11 @@ module Dhclient = struct
 
 	let lease_file ?(ipv6=false) interface =
 		let ipv6' = if ipv6 then "6" else "" in
-		Filename.concat Fhs.vardir (Printf.sprintf "dhclient%s-%s.leases" ipv6' interface)
+		Filename.concat "/var/lib/xcp" (Printf.sprintf "dhclient%s-%s.leases" ipv6' interface)
 
 	let conf_file ?(ipv6=false) interface =
 		let ipv6' = if ipv6 then "6" else "" in
-		Filename.concat Fhs.vardir (Printf.sprintf "dhclient%s-%s.conf" ipv6' interface)
+		Filename.concat "/var/lib/xcp" (Printf.sprintf "dhclient%s-%s.conf" ipv6' interface)
 
 	let generate_conf ?(ipv6=false) interface options =
 		let minimal = ["subnet-mask"; "broadcast-address"; "time-offset"; "host-name"; "nis-domain";
@@ -796,7 +796,7 @@ end
 
 module Brctl = struct
 	let call ?(log=false) args =
-		call_script ~log_successful_output:log brctl args
+		call_script ~log_successful_output:log !brctl args
 
 	let create_bridge name =
 		if not (List.mem name (Sysfs.list ())) then

@@ -28,7 +28,7 @@ let bonds_status : (string, (int * int)) Hashtbl.t = Hashtbl.create 10
 let xapi_rpc request =
 	Rpc_client.do_rpc_unix
 		~content_type:(Rpc_client.content_type_of_string "text/xml")
-		~filename:(Filename.concat Fhs.vardir "xapi")
+		~filename:(Filename.concat "/var/lib/xcp" "xapi")
 		~path:"/" request
 
 let send_bond_change_alert dev interfaces message =
@@ -41,7 +41,7 @@ let send_bond_change_alert dev interfaces message =
 			let obj_uuid = Inventory.lookup Inventory._installation_uuid in
 			let body = Printf.sprintf	"The status of the %s bond %s" ifaces message in
 			try
-				let (name, priority) = Api_messages.bond_status_changed in
+				let (name, priority) = ("bond_status_changed",3L) (* Api_messages.bond_status_changed *) in
 				let (_ : API.ref_message) = XenAPI.Message.create ~rpc:xapi_rpc ~session_id
 					~name ~priority ~cls:`Host ~obj_uuid ~body in ()
 			with _ ->

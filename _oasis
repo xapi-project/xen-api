@@ -11,7 +11,7 @@ Library "xcp-networkd-interface"
   CompiledObject:     best
   Modules:            Network_config, Network_interface
   Path:               lib
-  BuildDepends:       threads, rpclib, log, stdext, xcp-fhs, xcp-inventory
+  BuildDepends:       threads, rpclib, log, stdext, xcp-inventory
 
 Executable "xcp-networkd"
   CompiledObject:     best
@@ -20,7 +20,7 @@ Executable "xcp-networkd"
   Custom:             true
   Install:            false
   CSources:           link_stubs.c, netdev.h
-  BuildDepends:       threads, rpclib, rpclib.unix, forkexec, stdext, log, http-svr, xcp-fhs, xcp-inventory, xen-api-client, xcp-networkd-interface
+  BuildDepends:       threads, rpclib, rpclib.unix, forkexec, stdext, log, http-svr, xcp-inventory, xen-api-client, xcp-networkd-interface, xcp
 
 Executable networkd_db
   CompiledObject:     best

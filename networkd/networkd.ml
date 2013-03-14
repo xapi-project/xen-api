@@ -23,7 +23,7 @@ open D
 
 let server = Http_svr.Server.empty ()
 
-let path = Filename.concat Fhs.vardir name
+let path = Filename.concat "/var/lib/xcp" name
 
 module Server = Network_interface.Server(Network_server)
 
@@ -55,6 +55,15 @@ let start_server path process =
 
 	()
 
+let resources = [
+  { Xcp_service.name = "brctl";
+    description = "used to set up bridges";
+    essential = true;
+    path = Network_utils.brctl;
+    perms = [ Unix.X_OK ];
+  }
+]
+
 let start () =
 	Network_monitor_thread.start ();
 	Network_server.on_startup ();
@@ -72,25 +81,16 @@ let handle_shutdown () =
 
 let _ =
 	let pidfile = ref "" in
-	let daemonize = ref false in
+	Xcp_service.configure ~resources ();
+
+	if !Xcp_service.daemon then begin
+	  Xcp_service.daemonize ();
+	end;
+
 	Debug.set_facility Syslog_transitional.Local5;
 
 	(* We should make the following configurable *)
 	Debug.disable "http";
-
-	Arg.parse (Arg.align [
-			"-daemon", Arg.Set daemonize, "Create a daemon";
-			"-pidfile", Arg.Set_string pidfile, Printf.sprintf "Set the pid file (default \"%s\")" !pidfile;
-		])
-		(fun _ -> failwith "Invalid argument")
-		(Printf.sprintf "Usage: %s [-daemon] [-pidfile filename]" name);
-
-	debug "%s" (String.concat ", " (Debug.get_all_debug_keys()));
-
-	if !daemonize then
-		Unixext.daemonize ()
-	else
-		Debug.log_to_stdout ();
 
 	handle_shutdown ();
 	Debug.with_thread_associated "main" start ();
