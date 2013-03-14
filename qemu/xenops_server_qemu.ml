@@ -390,7 +390,7 @@ end
 module VBD = struct
 	include Xenops_server_skeleton.VBD
 
-	let dp_of domain vbd = Storage.id_of domain.Domain.domid vbd.Vbd.id
+	let dp_of domain vbd = Storage.id_of (string_of_int domain.Domain.domid) vbd.Vbd.id
 
 	let attach_and_activate task dp vbd = match vbd.Vbd.backend with
 	| None ->

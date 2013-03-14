@@ -21,10 +21,7 @@ open D
 
 module Domain = struct
 	type t = {
-		domid: int;
-		uuid: string;
-		vcpus: int;
-		memory: int64;
+		vm: Vm.t;
 		vbds: Vbd.t list; (* maintained in reverse-plug order *)
 		attach_infos: (Vbd.id * Storage_interface.attach_info option) list;
 		vifs: Vif.t list;
@@ -35,24 +32,22 @@ module Domain = struct
 	} with rpc
 
         module To_xml = struct
+		let tag_start output key = Xmlm.output output (`El_start (("", key), []))
+		let tag_end output = Xmlm.output output `El_end
+		let data output x = Xmlm.output output (`Data x)
 		let string key v output =
 			tag_start output key;
 			data output v;
-			tag_end output in
+			tag_end output
 		let name = string "name"
 		let uuid = string "uuid"
 		let memory bytes = string "memory" (Int64.(to_string (div bytes 1024L)))
 		let vcpu n = string "vcpu" (Int64.to_string n)
 		let emulator = string "emulator"
 
-			tag_start output "name";
-			data output x;
-			tag_end output in
-
-
 	end
 
-	let to_xml (x: t) =
+	let to_xml (x: t) = assert false
 
 end
 
@@ -107,10 +102,7 @@ module VM = struct
 		if DB.exists vm.Vm.id then DB.delete vm.Vm.id;
 		let open Domain in
 		let domain = {
-			domid = -1;
-			uuid = vm.Vm.id;
-			vcpus = vm.Vm.vcpus;
-			memory = vm.Vm.memory_dynamic_max;
+			vm = vm;
 			vifs = [];
 			vbds = [];
 			active_vifs = [];
@@ -130,7 +122,6 @@ module VM = struct
 		| None -> ()
 
 	let unpause _ vm =
-		let d = DB.read_exn vm.Vm.id in
 		Updates.add (Dynamic.Vm vm.Vm.id) updates
 
 	let build _ vm vbds vifs = ()
@@ -178,7 +169,7 @@ end
 module VBD = struct
 	include Xenops_server_skeleton.VBD
 
-	let dp_of domain vbd = Storage.id_of domain.Domain.domid vbd.Vbd.id
+	let dp_of domain vbd = Storage.id_of domain.Domain.vm.Vm.id vbd.Vbd.id
 
 	let attach_and_activate task dp vbd = match vbd.Vbd.backend with
 	| None ->

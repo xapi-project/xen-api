@@ -1467,7 +1467,7 @@ module VBD = struct
 			{ domid = this_domid ~xs; attach_info = { Storage_interface.params=path; xenstore_data=[]; } }
 		| Some (VDI path) ->
 			let sr, vdi = Storage.get_disk_by_name task path in
-			let dp = Storage.id_of frontend_domid vbd.id in
+			let dp = Storage.id_of (string_of_int frontend_domid) vbd.id in
 			let vm = fst vbd.id in
 			Storage.attach_and_activate ~xc ~xs task vm dp sr vdi (vbd.mode = ReadWrite)
 
@@ -1522,7 +1522,7 @@ module VBD = struct
 					let vbd_id = _device_id Device_common.Vbd, id_of vbd in
 					(* Remember the VDI with the device (for later deactivation) *)
 					let vdi_id = _vdi_id, vbd.backend |> rpc_of_backend |> Jsonrpc.to_string in
-					let dp_id = _dp_id, Storage.id_of frontend_domid vbd.Vbd.id in
+					let dp_id = _dp_id, Storage.id_of (string_of_int frontend_domid) vbd.Vbd.id in
 					let x = {
 						Device.Vbd.mode = (match vbd.mode with
 							| ReadOnly -> Device.Vbd.ReadOnly 
@@ -1603,7 +1603,7 @@ module VBD = struct
 						)
 						(fun () ->
 							Opt.iter (fun domid ->
-								Storage.dp_destroy task (Storage.id_of domid vbd.Vbd.id)
+								Storage.dp_destroy task (Storage.id_of (string_of_int domid) vbd.Vbd.id)
 							) domid
 						)
 				with 
@@ -1641,7 +1641,7 @@ module VBD = struct
 					let device_number = device_number_of_device device in
 					Device.Vbd.media_eject ~xs ~device_number frontend_domid;
 				end;
-				Storage.dp_destroy task (Storage.id_of (frontend_domid_of_device device) vbd.Vbd.id)
+				Storage.dp_destroy task (Storage.id_of (string_of_int (frontend_domid_of_device device)) vbd.Vbd.id)
 			) Oldest vm
 
 	let ionice qos pid =

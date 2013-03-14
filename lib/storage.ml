@@ -29,7 +29,7 @@ let transform_exception f x =
 		| e -> raise e
 
 (* Used to identify this VBD to the storage layer *)
-let id_of frontend_domid vbd = Printf.sprintf "vbd/%d/%s" frontend_domid (snd vbd)
+let id_of frontend vbd = Printf.sprintf "vbd/%s/%s" frontend (snd vbd)
 
 let epoch_begin task sr vdi =
 	transform_exception
