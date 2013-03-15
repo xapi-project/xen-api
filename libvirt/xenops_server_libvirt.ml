@@ -73,7 +73,13 @@ module Domain = struct
 			tag_start "os" output;
 			string "type" "linux" output;
 			tag_end output
-		| _ -> failwith "boot type"
+		| PV { boot = Direct { kernel; cmdline; ramdisk } } ->
+			tag_start "os" output;
+			string "type" "linux" output;
+			string "kernel" kernel output;
+			begin match ramdisk with Some x -> string "initrd" x output | None -> () end;
+			string "cmdline" cmdline output;
+			tag_end output
 
 		let xen output x =
 			let open Vm in
