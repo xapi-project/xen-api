@@ -32,18 +32,103 @@ module Domain = struct
 	} with rpc
 
         module To_xml = struct
-		let tag_start output key = Xmlm.output output (`El_start (("", key), []))
+		let tag_start ?(attr=[]) key output = Xmlm.output output (`El_start (("", key), List.map (fun (x, y) -> ("", x), y) attr))
 		let tag_end output = Xmlm.output output `El_end
-		let data output x = Xmlm.output output (`Data x)
+		let data x output = Xmlm.output output (`Data x)
 		let string key v output =
-			tag_start output key;
-			data output v;
+			tag_start key output;
+			data v output;
 			tag_end output
+		let empty ?(attr=[]) key output =
+			tag_start ~attr key output;
+			tag_end output
+
 		let name = string "name"
 		let uuid = string "uuid"
 		let memory bytes = string "memory" (Int64.(to_string (div bytes 1024L)))
-		let vcpu n = string "vcpu" (Int64.to_string n)
+		let vcpu n = string "vcpu" (string_of_int n)
 		let emulator = string "emulator"
+
+		open Vm
+		let action x = match x with
+		| [ Shutdown ] -> "destroy"
+		| [ Shutdown; Start ] -> "restart"
+		| [ Pause ] -> "preserve"
+		| _ -> "destroy"
+		let platform key x =
+			let x = x.platformdata in
+			List.mem_assoc key x && (let x = List.assoc key x in x = "1" || String.lowercase x = "true")
+
+		let os bi output = match bi with
+		| HVM hvm_info ->
+			tag_start "os" output;
+			string "type" "hvm" output;
+			string "loader" !Path.hvmloader output;
+			tag_start ~attr:["dev", "hd"] "boot" output;
+			tag_end output;
+			tag_end output
+		| PV pv_info ->
+			failwith "pv not implemented"
+
+		let xen output x =
+			let open Vm in
+			tag_start ~attr:["type", "xen"; "id", "3"] "domain" output;
+			name x.vm.name output;
+			uuid x.vm.id output;
+			os x.vm.ty output;
+			memory x.vm.memory_static_max output;
+			vcpu x.vm.vcpus output;
+			string "on_shutdown" (action x.vm.on_shutdown) output;
+			string "on_reboot" (action x.vm.on_reboot) output;
+			string "on_crash" (action x.vm.on_crash) output;
+			tag_start "features" output;
+			if platform "pae" x.vm then empty "pae" output;
+			if platform "acpi" x.vm then empty "acpi" output;
+			if platform "apic" x.vm then empty "apic" output;	
+			tag_end output;
+			empty ~attr:["sync", "localtime"] "clock" output;
+			tag_start "devices" output;
+			emulator !Path.qemu_dm_wrapper output;
+			List.iter
+				(fun vif ->
+					let bridge = match vif.Vif.backend with
+					| Network.Local x -> x
+					| Network.Remote _ -> failwith "Network.Remote" in
+					tag_start ~attr:["type", "bridge"] "interface" output;
+					empty ~attr:["bridge", bridge] "source";
+					empty ~attr:["address", vif.Vif.mac] "mac";
+					empty ~attr:["path", !Path.vif_script] "script";
+					tag_end output;
+				) x.vifs;
+			List.iter
+				(fun vbd ->
+					let disk_opt =
+						if List.mem_assoc vbd.Vbd.id x.attach_infos
+						then List.assoc vbd.Vbd.id x.attach_infos
+						else None in
+					let virtual_media_type = match vbd.Vbd.ty with
+					| Vbd.CDROM -> ["device", "cdrom"]
+					| Vbd.Disk  -> [] in
+					let physical_media_type = [ "type", "file" ] in
+					let attr = virtual_media_type @ physical_media_type in
+					tag_start ~attr "disk" output;
+					begin match disk_opt with
+					| Some x -> empty ~attr:["file", x.Storage_interface.params] "source" output
+					| None -> ()
+					end;
+					let linux = match vbd.Vbd.position with
+					| None -> failwith "unresolved disk position"
+					| Some p -> Device_number.to_linux_device p in
+					let attr = [ "dev", linux ] in
+					empty ~attr "target";
+					if vbd.Vbd.mode = Vbd.ReadOnly then empty "readonly" output;
+
+					tag_end output;
+				) x.vbds;
+			let attr = [ "type", "vnc"; "port", "5904" ] in
+			empty ~attr "graphics" output;
+			tag_end output;
+			tag_end output
 
 	end
 
