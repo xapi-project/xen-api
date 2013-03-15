@@ -1,0 +1,21 @@
+<domain type='xen' >
+  <name>fc8</name>
+  <bootloader>/usr/bin/pygrub</bootloader>
+  <os>
+    <type>linux</type>
+  </os>
+  <memory>131072</memory>
+  <vcpu>1</vcpu>
+  <devices>
+    <disk type='file'>
+      <source file='/var/lib/xen/images/fc4.img'/>
+      <target dev='sda1'/>
+    </disk>
+    <interface type='bridge'>
+      <source bridge='xenbr0'/>
+      <mac address='aa:00:00:00:00:11'/>
+      <script path='/etc/xen/scripts/vif-bridge'/>
+    </interface>
+    <console tty='/dev/pts/5'/>
+  </devices>
+</domain>

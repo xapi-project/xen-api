@@ -48,6 +48,7 @@ module Domain = struct
 		let memory bytes = string "memory" (Int64.(to_string (div bytes 1024L)))
 		let vcpu n = string "vcpu" (string_of_int n)
 		let emulator = string "emulator"
+		let bootloader = string "bootloader"
 
 		open Vm
 		let action x = match x with
@@ -67,8 +68,12 @@ module Domain = struct
 			tag_start ~attr:["dev", "hd"] "boot" output;
 			tag_end output;
 			tag_end output
-		| PV pv_info ->
-			failwith "pv not implemented"
+		| PV { boot = Indirect { bootloader = b } } ->
+			bootloader b output;
+			tag_start "os" output;
+			string "type" "linux" output;
+			tag_end output
+		| _ -> failwith "boot type"
 
 		let xen output x =
 			let open Vm in
