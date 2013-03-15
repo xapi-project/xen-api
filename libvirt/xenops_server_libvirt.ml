@@ -136,7 +136,7 @@ module Domain = struct
 
 					tag_end output;
 				) x.vbds;
-			let attr = [ "type", "vnc"; "port", "5904" ] in
+			let attr = [ "type", "vnc"; "port", "-1"; "autoport", "yes"; "listen", "0.0.0.0" ] in
 			empty ~attr "graphics" output;
 			tag_end output;
 			tag_end output
