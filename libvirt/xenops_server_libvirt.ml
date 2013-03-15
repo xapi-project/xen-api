@@ -100,9 +100,9 @@ module Domain = struct
 					| Network.Local x -> x
 					| Network.Remote _ -> failwith "Network.Remote" in
 					tag_start ~attr:["type", "bridge"] "interface" output;
-					empty ~attr:["bridge", bridge] "source";
-					empty ~attr:["address", vif.Vif.mac] "mac";
-					empty ~attr:["path", !Path.vif_script] "script";
+					empty ~attr:["bridge", bridge] "source" output;
+					empty ~attr:["address", vif.Vif.mac] "mac" output;
+					empty ~attr:["path", !Path.vif_script] "script" output;
 					tag_end output;
 				) x.vifs;
 			List.iter
@@ -125,7 +125,7 @@ module Domain = struct
 					| None -> failwith "unresolved disk position"
 					| Some p -> Device_number.to_linux_device p in
 					let attr = [ "dev", linux ] in
-					empty ~attr "target";
+					empty ~attr "target" output;
 					if vbd.Vbd.mode = Vbd.ReadOnly then empty "readonly" output;
 
 					tag_end output;
