@@ -37,7 +37,7 @@ build: idl
 	${MAKE} -C ocaml
 
 .PHONY: install
-install: build
+install:
 	${MKDIR} -p ${DESTDIR}${PYPATH}
 	${INSTALL} python/fs.py ${DESTDIR}${PYPATH}
 	${INSTALL} python/mount.py ${DESTDIR}${PYPATH}
