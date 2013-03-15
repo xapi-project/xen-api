@@ -366,8 +366,9 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 		(* Create master PIF and Bond objects *)
 		let device = choose_bond_device_name ~__context ~host in
 		let device_name = device in
+		let metrics = Xapi_pif.make_pif_metrics ~__context in
 		Db.PIF.create ~__context ~ref:master ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
-			~device ~device_name ~network ~host ~mAC ~mTU:(-1L) ~vLAN:(-1L) ~metrics:Ref.null
+			~device ~device_name ~network ~host ~mAC ~mTU:(-1L) ~vLAN:(-1L) ~metrics
 			~physical:false ~currently_attached:false
 			~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null
 			~vLAN_master_of:Ref.null ~management:false ~other_config:[] ~disallow_unplug:false
