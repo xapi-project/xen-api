@@ -6,7 +6,6 @@ let _ =
 		Smapiv2.api;
 		Xenops.api;
 		Memory.api;
-		Clocksource.api;
 	] in
 	(* Prepend the debug_info argument *)
 	let apis = List.map Types.prepend_dbg apis in
