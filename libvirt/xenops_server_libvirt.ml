@@ -72,7 +72,7 @@ module Domain = struct
 
 		let xen output x =
 			let open Vm in
-			tag_start ~attr:["type", "xen"; "id", "3"] "domain" output;
+			tag_start ~attr:["type", "xen"] "domain" output;
 			name x.vm.name output;
 			uuid x.vm.id output;
 			os x.vm.ty output;
