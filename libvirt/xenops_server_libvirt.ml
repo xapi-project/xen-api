@@ -19,6 +19,8 @@ open Xenops_task
 module D = Debug.Make(struct let name = "xenops_server_libvirt" end)
 open D
 
+let domain_xml_dir = "/var/run/nonpersistent/libvirt"
+
 module Domain = struct
 	type t = {
 		vm: Vm.t;
@@ -81,7 +83,7 @@ module Domain = struct
 			string "cmdline" cmdline output;
 			tag_end output
 
-		let xen output x =
+		let xen x output =
 			let open Vm in
 			tag_start ~attr:["type", "xen"] "domain" output;
 			name x.vm.name output;
@@ -142,8 +144,6 @@ module Domain = struct
 			tag_end output
 
 	end
-
-	let to_xml (x: t) = assert false
 
 end
 
@@ -218,6 +218,13 @@ module VM = struct
 		| None -> ()
 
 	let unpause _ vm =
+		let tmp = Filename.concat domain_xml_dir vm.Vm.id in
+		let d = DB.read_exn vm.Vm.id in
+		let oc = open_out tmp in	
+		let output = Xmlm.make_output ~decl:false (`Channel oc) in
+		Xmlm.output output (`Dtd None);
+		Domain.To_xml.xen d output;
+		close_out oc;
 		Updates.add (Dynamic.Vm vm.Vm.id) updates
 
 	let build _ vm vbds vifs = ()
@@ -381,4 +388,5 @@ module DEBUG = struct
 end
 
 let init () =
+	Unixext.mkdir_rec domain_xml_dir 0o0755;
 	()
