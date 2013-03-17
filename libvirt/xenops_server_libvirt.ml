@@ -48,6 +48,7 @@ module Domain = struct
 		let name = string "name"
 		let uuid = string "uuid"
 		let memory bytes = string "memory" (Int64.(to_string (div bytes 1024L)))
+		let currentMemory bytes = string "currentMemory" (Int64.(to_string (div bytes 1024L)))
 		let vcpu n = string "vcpu" (string_of_int n)
 		let emulator = string "emulator"
 		let bootloader = string "bootloader"
@@ -90,6 +91,7 @@ module Domain = struct
 			uuid x.vm.id output;
 			os x.vm.ty output;
 			memory x.vm.memory_static_max output;
+			currentMemory x.vm.memory_dynamic_max output;
 			vcpu x.vm.vcpus output;
 			string "on_shutdown" (action x.vm.on_shutdown) output;
 			string "on_reboot" (action x.vm.on_reboot) output;
