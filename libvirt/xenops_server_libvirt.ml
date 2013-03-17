@@ -22,6 +22,8 @@ open D
 let domain_xml_dir () = Filename.concat !Xenops_utils.root "libvirt"
 let vnc_dir () = Filename.concat !Xenops_utils.root "vnc"
 
+let insecure_vnc = ref true
+
 module Domain = struct
 	type t = {
 		vm: Vm.t;
@@ -154,7 +156,10 @@ module Domain = struct
 			emulator !Path.qemu_dm_wrapper output;
 			List.iter (fun vif -> of_vif vif output) x.vifs;
 			List.iter (fun vbd -> of_vbd x vbd output) x.vbds;
-			let attr = [ "type", "vnc"; "socket", Filename.concat (vnc_dir ()) x.vm.id ] in
+			let attr =
+				if !insecure_vnc
+				then [ "type", "vnc"; "port", "-1"; "autoport", "yes"; "listen", "0.0.0.0" ]
+				else [ "type", "vnc"; "socket", Filename.concat (vnc_dir ()) x.vm.id ] in
 			empty ~attr "graphics" output;
 			tag_end output;
 			tag_end output
