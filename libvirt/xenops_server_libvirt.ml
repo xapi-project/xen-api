@@ -16,8 +16,8 @@ open Xenops_server_plugin
 open Xenops_utils
 open Xenops_task
 
-module D = Debug.Make(struct let name = "xenops_server_libvirt" end)
-open D
+module D' = Debug.Make(struct let name = "xenops_server_libvirt" end)
+open D'
 
 let hypervisor = detect_hypervisor ()
 
@@ -27,6 +27,24 @@ let domain_xml_dir () = Filename.concat !Xenops_utils.root "libvirt"
 let vnc_dir () = Filename.concat !Xenops_utils.root "vnc"
 
 let insecure_vnc = ref true
+
+module C = Libvirt.Connect
+module D = Libvirt.Domain
+
+let conn = ref None
+
+let get_connection ?name () = match !conn with
+  | None ->
+    let c = C.connect ?name () in
+    conn := Some c;
+    c
+  | Some c -> c
+
+let debug_libvirterror = function
+| Libvirt.Virterror t ->
+	debug "%s" (Libvirt.Virterror.to_string t)
+| e ->
+	debug "%s" (Printexc.to_string e)
 
 module Domain = struct
 	type t = {
@@ -273,12 +291,40 @@ module VM = struct
 	let wait_shutdown task vm reason timeout =
 		false
 
-	let get_state vm =
-		halted_vm
+	let get_info vm =
+		let c = get_connection () in
+		try
+			let d = D.lookup_by_uuid_string c vm.Vm.id in
+			Some (D.get_info d)
 
+		with e ->
+			debug_libvirterror e;
+			None
+
+	let get_state vm =
+		match get_info vm with
+		| None -> halted_vm
+		| Some i ->
+			let power_state = match i.D.state with
+			| D.InfoBlocked
+			| D.InfoRunning -> Running
+			| D.InfoPaused -> Paused
+			| D.InfoShutdown
+			| D.InfoShutoff
+			| D.InfoCrashed -> Running (* but need action *)
+			| D.InfoNoState -> Running in (* transient? *)
+			{
+				halted_vm with
+				Vm.power_state = power_state
+			}
 	let set_domain_action_request vm request = ()
 	let get_domain_action_request vm =
-		None	
+		match get_info vm with
+		| None -> None
+		| Some { D.state = D.InfoCrashed } -> Some Needs_crashdump
+		| Some { D.state = D.InfoShutdown } -> Some Needs_poweroff
+		| Some { D.state = D.InfoShutoff } -> Some Needs_poweroff
+		| _ -> None
 	let minimum_reboot_delay = 0.
 end
 
