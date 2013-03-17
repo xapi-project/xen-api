@@ -107,7 +107,8 @@ module Domain = struct
 			tag_start ~attr:["type", "bridge"] "interface" output;
 			empty ~attr:["bridge", bridge] "source" output;
 			empty ~attr:["address", vif.Vif.mac] "mac" output;
-			empty ~attr:["path", !Path.vif_script] "script" output;
+			(* TODO: the 'bridge' type doesn't like a script *)
+			(* empty ~attr:["path", !Path.vif_script] "script" output; *)
 			if get_network_backend () = "openvswitch" then begin
 				tag_start ~attr:["type", "openvswitch"] "virtualport" output;
 				if List.mem_assoc "vif-uuid" vif.Vif.extra_private_keys then begin
