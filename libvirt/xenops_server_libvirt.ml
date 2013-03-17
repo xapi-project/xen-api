@@ -119,11 +119,11 @@ module Domain = struct
 			let virtual_media_type = match vbd.Vbd.ty with
 			| Vbd.CDROM -> ["device", "cdrom"]
 			| Vbd.Disk  -> ["device", "disk"] in
-			let physical_media_type = [ "type", "file" ] in
+			let physical_media_type = [ "type", "block" ] in
 			let attr = virtual_media_type @ physical_media_type in
 			tag_start ~attr "disk" output;
 			begin match disk_opt with
-			| Some x -> empty ~attr:["file", x.Storage_interface.params] "source" output
+			| Some x -> empty ~attr:["dev", x.Storage_interface.params] "source" output
 			| None -> ()
 			end;
 			let linux = match vbd.Vbd.position with
