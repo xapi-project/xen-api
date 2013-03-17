@@ -46,6 +46,14 @@ let debug_libvirterror = function
 | e ->
 	debug "%s" (Printexc.to_string e)
 
+let get_domain vm =
+	let c = get_connection () in
+	try
+		Some (D.lookup_by_uuid_string c vm.Vm.id)
+	with e ->
+		debug_libvirterror e;
+		None
+
 module Domain = struct
 	type t = {
 		vm: Vm.t;
@@ -286,18 +294,18 @@ module VM = struct
 	let create_device_model _ vm vbds vifs _ = ()
 	let destroy_device_model _ vm = ()
 	let request_shutdown task vm reason ack_delay =
-		debug "pushing ACPI power button";
+		let d = match get_domain vm with
+		| Some d -> d
+		| None -> failwith (Printf.sprintf "request_shutdown unknown domain %s" vm.Vm.id) in
+		begin match reason with
+		| Halt
+		| PowerOff -> D.shutdown d
+		| Reboot -> D.reboot d
+		| _ -> failwith "unimplemented"
+		end;
 		true
 	let wait_shutdown task vm reason timeout =
-		false
-
-	let get_domain vm =
-		let c = get_connection () in
-		try
-			Some (D.lookup_by_uuid_string c vm.Vm.id)
-		with e ->
-			debug_libvirterror e;
-			None
+		true	
 
 	let get_info vm = match get_domain vm with
 		| Some d -> Some (D.get_info d)
