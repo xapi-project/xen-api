@@ -23,10 +23,6 @@ open Xenops_task
 module D = Debug.Make(struct let name = service_name end)
 open D
 
-let _sys_hypervisor_type = "/sys/hypervisor/type"
-let _sys_hypervisor_version_major = "/sys/hypervisor/version/major"
-let _sys_hypervisor_version_minor = "/sys/hypervisor/version/minor"
-
 (* libxl_internal.h:DISABLE_UDEV_PATH *)
 let disable_udev_path = "libxl/disable_udev"
 
