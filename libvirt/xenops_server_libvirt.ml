@@ -19,6 +19,8 @@ open Xenops_task
 module D = Debug.Make(struct let name = "xenops_server_libvirt" end)
 open D
 
+let hypervisor = detect_hypervisor ()
+
 let domain_xml_dir () = Filename.concat !Xenops_utils.root "libvirt"
 let vnc_dir () = Filename.concat !Xenops_utils.root "vnc"
 
@@ -136,7 +138,12 @@ module Domain = struct
 
 		let xen x output =
 			let open Vm in
-			tag_start ~attr:["type", "xen"] "domain" output;
+			let h = match hypervisor with
+			| Some (Xen(_, _)) -> "xen"
+			| _ ->
+				warn "falling back to KVM";
+				"kvm" in
+			tag_start ~attr:["type", h] "domain" output;
 			name x.vm.name output;
 			uuid x.vm.id output;
 			os x.vm.ty output;
