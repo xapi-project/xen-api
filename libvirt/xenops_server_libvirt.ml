@@ -19,7 +19,8 @@ open Xenops_task
 module D = Debug.Make(struct let name = "xenops_server_libvirt" end)
 open D
 
-let domain_xml_dir = "/var/run/nonpersistent/libvirt"
+let domain_xml_dir () = Filename.concat !Xenops_utils.root "libvirt"
+let vnc_dir () = Filename.concat !Xenops_utils.root "vnc"
 
 module Domain = struct
 	type t = {
@@ -153,7 +154,7 @@ module Domain = struct
 			emulator !Path.qemu_dm_wrapper output;
 			List.iter (fun vif -> of_vif vif output) x.vifs;
 			List.iter (fun vbd -> of_vbd x vbd output) x.vbds;
-			let attr = [ "type", "vnc"; "port", "-1"; "autoport", "yes"; "listen", "0.0.0.0" ] in
+			let attr = [ "type", "vnc"; "socket", Filename.concat (vnc_dir ()) x.vm.id ] in
 			empty ~attr "graphics" output;
 			tag_end output;
 			tag_end output
@@ -233,7 +234,7 @@ module VM = struct
 		| None -> ()
 
 	let unpause _ vm =
-		let tmp = Filename.concat domain_xml_dir vm.Vm.id in
+		let tmp = Filename.concat (domain_xml_dir ()) vm.Vm.id in
 		let d = DB.read_exn vm.Vm.id in
 		let oc = open_out tmp in	
 		let output = Xmlm.make_output ~decl:false (`Channel oc) in
@@ -403,5 +404,6 @@ module DEBUG = struct
 end
 
 let init () =
-	Unixext.mkdir_rec domain_xml_dir 0o0755;
+	Unixext.mkdir_rec (domain_xml_dir ()) 0o0755;
+	Unixext.mkdir_rec (vnc_dir ()) 0o0755;
 	()
