@@ -74,7 +74,10 @@ module Domain = struct
 		| HVM hvm_info ->
 			tag_start "os" output;
 			string "type" "hvm" output;
-			string "loader" !Path.hvmloader output;
+			begin match hypervisor with
+			| Some (Xen(_, _)) -> string "loader" !Path.hvmloader output
+			| _ -> ()
+			end;
 			for i = 0 to String.length hvm_info.boot_order - 1 do
 				let device = match hvm_info.boot_order.[i] with
 				| 'c' -> "cdrom"
