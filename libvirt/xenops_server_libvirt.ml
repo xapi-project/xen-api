@@ -21,6 +21,8 @@ open D
 
 let hypervisor = detect_hypervisor ()
 
+let qemu_path = "/usr/bin/qemu-system-x86_64"
+
 let domain_xml_dir () = Filename.concat !Xenops_utils.root "libvirt"
 let vnc_dir () = Filename.concat !Xenops_utils.root "vnc"
 
@@ -160,7 +162,10 @@ module Domain = struct
 			tag_end output;
 			empty ~attr:["sync", "localtime"] "clock" output;
 			tag_start "devices" output;
-			emulator !Path.qemu_dm_wrapper output;
+			let e = match hypervisor with
+			| Some (Xen(_, _)) -> !Path.qemu_dm_wrapper
+			| _ -> qemu_path in
+			emulator e output;
 			List.iter (fun vif -> of_vif vif output) x.vifs;
 			List.iter (fun vbd -> of_vbd x vbd output) x.vbds;
 			let attr =
