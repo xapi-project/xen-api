@@ -108,6 +108,29 @@ module Domain = struct
 			end;
 			tag_end output
 
+		let of_vbd x vbd output =
+			let disk_opt =
+				if List.mem_assoc vbd.Vbd.id x.attach_infos
+				then List.assoc vbd.Vbd.id x.attach_infos
+				else None in
+			let virtual_media_type = match vbd.Vbd.ty with
+			| Vbd.CDROM -> ["device", "cdrom"]
+			| Vbd.Disk  -> ["device", "disk"] in
+			let physical_media_type = [ "type", "file" ] in
+			let attr = virtual_media_type @ physical_media_type in
+			tag_start ~attr "disk" output;
+			begin match disk_opt with
+			| Some x -> empty ~attr:["file", x.Storage_interface.params] "source" output
+			| None -> ()
+			end;
+			let linux = match vbd.Vbd.position with
+			| None -> failwith "unresolved disk position"
+			| Some p -> Device_number.to_linux_device p in
+			let attr = [ "dev", linux ] in
+			empty ~attr "target" output;
+			if vbd.Vbd.mode = Vbd.ReadOnly then empty "readonly" output;
+			tag_end output
+
 		let xen x output =
 			let open Vm in
 			tag_start ~attr:["type", "xen"] "domain" output;
@@ -129,31 +152,7 @@ module Domain = struct
 			tag_start "devices" output;
 			emulator !Path.qemu_dm_wrapper output;
 			List.iter (fun vif -> of_vif vif output) x.vifs;
-			List.iter
-				(fun vbd ->
-					let disk_opt =
-						if List.mem_assoc vbd.Vbd.id x.attach_infos
-						then List.assoc vbd.Vbd.id x.attach_infos
-						else None in
-					let virtual_media_type = match vbd.Vbd.ty with
-					| Vbd.CDROM -> ["device", "cdrom"]
-					| Vbd.Disk  -> ["device", "disk"] in
-					let physical_media_type = [ "type", "file" ] in
-					let attr = virtual_media_type @ physical_media_type in
-					tag_start ~attr "disk" output;
-					begin match disk_opt with
-					| Some x -> empty ~attr:["file", x.Storage_interface.params] "source" output
-					| None -> ()
-					end;
-					let linux = match vbd.Vbd.position with
-					| None -> failwith "unresolved disk position"
-					| Some p -> Device_number.to_linux_device p in
-					let attr = [ "dev", linux ] in
-					empty ~attr "target" output;
-					if vbd.Vbd.mode = Vbd.ReadOnly then empty "readonly" output;
-
-					tag_end output;
-				) x.vbds;
+			List.iter (fun vbd -> of_vbd x vbd output) x.vbds;
 			let attr = [ "type", "vnc"; "port", "-1"; "autoport", "yes"; "listen", "0.0.0.0" ] in
 			empty ~attr "graphics" output;
 			tag_end output;
