@@ -291,20 +291,41 @@ module VM = struct
 	let wait_shutdown task vm reason timeout =
 		false
 
-	let get_info vm =
+	let get_domain vm =
 		let c = get_connection () in
 		try
-			let d = D.lookup_by_uuid_string c vm.Vm.id in
-			Some (D.get_info d)
-
+			Some (D.lookup_by_uuid_string c vm.Vm.id)
 		with e ->
 			debug_libvirterror e;
 			None
 
+	let get_info vm = match get_domain vm with
+		| Some d -> Some (D.get_info d)
+		| None -> None
+
+	let read_xml_until path' xml =
+		let input = Xmlm.make_input (`String (0, xml)) in
+		let rec search path = match Xmlm.input input with
+		| `Dtd _ -> search path
+		| `El_start ((_, x), _) as element ->
+			let path = x :: path in
+			if path = path' then element else search path
+		| `El_end -> search (List.tl path)
+		| `Data _ -> search path in
+		search []
+
+	let attr element key = match element with
+		| `El_start ((_, _), attr) ->
+			if List.mem_assoc ("", key) attr
+			then Some (List.assoc ("", key) attr)
+			else None
+		| _ -> None
+
 	let get_state vm =
-		match get_info vm with
+		match get_domain vm with
 		| None -> halted_vm
-		| Some i ->
+		| Some d ->
+			let i = D.get_info d in
 			let power_state = match i.D.state with
 			| D.InfoBlocked
 			| D.InfoRunning -> Running
@@ -313,9 +334,26 @@ module VM = struct
 			| D.InfoShutoff
 			| D.InfoCrashed -> Running (* but need action *)
 			| D.InfoNoState -> Running in (* transient? *)
+			let xml = D.get_xml_desc d in
+			let element = read_xml_until ["domain"] xml in
+			let domid = attr element "id" in
+			let domids = match domid with
+			| Some domid -> [ int_of_string domid ]
+			| None -> [] in
+			let element = read_xml_until ["graphics"; "devices"; "domain"] xml in
+			let port = attr element "port" in
+			let consoles = match port with
+			| Some port -> [ {
+				Vm.protocol = Vm.Rfb;
+				port = int_of_string port;
+				path = "";
+				} ]
+			| None -> [] in
 			{
 				halted_vm with
-				Vm.power_state = power_state
+				Vm.power_state;
+				domids;
+				consoles;
 			}
 	let set_domain_action_request vm request = ()
 	let get_domain_action_request vm =
