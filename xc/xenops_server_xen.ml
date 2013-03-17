@@ -2241,23 +2241,16 @@ let look_for_forkexec () =
 		error "Please start (or restart) the fork/exec service and try again.";
 		exit 1
 
-let look_for_xen () =
-	if not (Sys.file_exists _sys_hypervisor_type) then begin
-		error "The file %s does not exist: you are not running xen." _sys_hypervisor_type;
-		error "Please check your bootloader configuration, reboot to xen and try again.";
-		exit 1;
-	end;
-	let hypervisor = strip (Unixext.string_of_file _sys_hypervisor_type) in
-	match hypervisor with
-	| "xen" ->
-		debug "You are running xen -- this is good.";
-		let major = strip (Unixext.string_of_file _sys_hypervisor_version_major) in
-		let minor = strip (Unixext.string_of_file _sys_hypervisor_version_minor) in
-		major, minor
-	| x ->
-		error "You are running a different hypervisor (%s)" x;
-		error "Please check your bootloader configuration, reboot to xen and try again.";
-		exit 1
+let look_for_xen () = match detect_hypervisor () with
+| Some (Xen (major, minor)) -> major, minor
+| Some (Other x) ->
+	error "You are running a different hypervisor (%s)" x;
+	error "Please check your bootloader configuration, reboot to xen and try again.";
+	exit 1
+| None ->
+	error "The file %s does not exist: you are not running xen." _sys_hypervisor_type;
+	error "Please check your bootloader configuration, reboot to xen and try again.";
+	exit 1
 
 let look_for_xenctrl () =
 	try

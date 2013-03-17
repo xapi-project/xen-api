@@ -587,4 +587,18 @@ let _sys_hypervisor_type = "/sys/hypervisor/type"
 let _sys_hypervisor_version_major = "/sys/hypervisor/version/major"
 let _sys_hypervisor_version_minor = "/sys/hypervisor/version/minor"
 
+type hypervisor =
+| Xen of string * string (* major, minor *)
+| Other of string
 
+let detect_hypervisor () =
+	if Sys.file_exists _sys_hypervisor_type then begin
+
+		let hypervisor = strip (Unixext.string_of_file _sys_hypervisor_type) in
+		match hypervisor with
+		| "xen" ->
+			let major = strip (Unixext.string_of_file _sys_hypervisor_version_major) in
+			let minor = strip (Unixext.string_of_file _sys_hypervisor_version_minor) in
+			Some (Xen(major, minor))
+		| x -> Some (Other x)
+	end else None
