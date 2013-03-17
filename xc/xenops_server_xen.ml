@@ -1731,19 +1731,6 @@ module VBD = struct
 			)
 end
 
-let strip x =
-	if x.[String.length x - 1] = '\n'
-	then String.sub x 0 (String.length x - 1)
-	else x
-let get_network_backend () =
-	try
-		Unixext.string_of_file !Path.network_conf
-	|>  strip
-	|>  Re_str.split (Re_str.regexp " ")
-	|>  List.hd
-	with _ ->
-		failwith (Printf.sprintf "Failed to read network backend from: %s" !Path.network_conf)
-
 module VIF = struct
 	open Vif
 
