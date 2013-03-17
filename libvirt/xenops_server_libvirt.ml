@@ -68,8 +68,14 @@ module Domain = struct
 			tag_start "os" output;
 			string "type" "hvm" output;
 			string "loader" !Path.hvmloader output;
-			tag_start ~attr:["dev", "hd"] "boot" output;
-			tag_end output;
+			for i = 0 to String.length hvm_info.boot_order - 1 do
+				let device = match hvm_info.boot_order.[i] with
+				| 'c' -> "cdrom"
+				| 'd' -> "hd"
+				| 'n' -> "network"
+				| x -> failwith (Printf.sprintf "Unknown HVM boot order: %c" x) in
+				empty ~attr:["dev", device] "boot" output;
+			done;
 			tag_end output
 		| PV { boot = Indirect { bootloader = b } } ->
 			bootloader b output;
