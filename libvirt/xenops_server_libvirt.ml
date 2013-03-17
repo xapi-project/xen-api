@@ -98,6 +98,14 @@ module Domain = struct
 			empty ~attr:["bridge", bridge] "source" output;
 			empty ~attr:["address", vif.Vif.mac] "mac" output;
 			empty ~attr:["path", !Path.vif_script] "script" output;
+			if get_network_backend () = "openvswitch" then begin
+				tag_start ~attr:["type", "openvswitch"] "virtualport" output;
+				if List.mem_assoc "vif-uuid" vif.Vif.extra_private_keys then begin
+					let vif_uuid = List.assoc "vif-uuid" vif.Vif.extra_private_keys in
+					empty ~attr:["interfaceid", vif_uuid] "parameters" output
+				end;
+				tag_end output
+			end;
 			tag_end output
 
 		let xen x output =
