@@ -137,7 +137,7 @@ module Domain = struct
 						else None in
 					let virtual_media_type = match vbd.Vbd.ty with
 					| Vbd.CDROM -> ["device", "cdrom"]
-					| Vbd.Disk  -> [] in
+					| Vbd.Disk  -> ["device", "disk"] in
 					let physical_media_type = [ "type", "file" ] in
 					let attr = virtual_media_type @ physical_media_type in
 					tag_start ~attr "disk" output;
