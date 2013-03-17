@@ -168,13 +168,14 @@ module Domain = struct
 			if vbd.Vbd.mode = Vbd.ReadOnly then empty "readonly" output;
 			tag_end output
 
-		let xen x output =
+		let of_vm x output =
 			let open Vm in
 			let h = match hypervisor with
 			| Some (Xen(_, _)) -> "xen"
 			| _ ->
 				warn "falling back to KVM";
 				"kvm" in
+			Xmlm.output output (`Dtd None);
 			tag_start ~attr:["type", h] "domain" output;
 			name x.vm.name output;
 			uuid x.vm.id output;
@@ -275,19 +276,30 @@ module VM = struct
 	let destroy _ vm =
 		debug "Domain.destroy vm=%s" vm.Vm.id;
 		(* Idempotent *)
-		match DB.read vm.Vm.id with
+		begin match get_domain vm with
+		| Some d ->
+			D.destroy d
+		| None -> ()
+		end;
+		begin match DB.read vm.Vm.id with
 		| Some d ->
 			DB.delete vm.Vm.id
 		| None -> ()
+		end
 
 	let unpause _ vm =
 		let tmp = Filename.concat (domain_xml_dir ()) vm.Vm.id in
 		let d = DB.read_exn vm.Vm.id in
 		let oc = open_out tmp in	
 		let output = Xmlm.make_output ~decl:false (`Channel oc) in
-		Xmlm.output output (`Dtd None);
-		Domain.To_xml.xen d output;
+		Domain.To_xml.of_vm d output;
 		close_out oc;
+		let b = Buffer.create 1024 in
+		let output = Xmlm.make_output ~decl:false (`Buffer b) in
+		Domain.To_xml.of_vm d output;
+		let xml = Buffer.contents b in
+		let c = get_connection () in
+		let d = D.create_linux c xml in
 		Updates.add (Dynamic.Vm vm.Vm.id) updates
 
 	let build _ vm vbds vifs = ()
