@@ -90,6 +90,16 @@ module Domain = struct
 			string "cmdline" cmdline output;
 			tag_end output
 
+		let of_vif vif output =
+			let bridge = match vif.Vif.backend with
+			| Network.Local x -> x
+			| Network.Remote _ -> failwith "Network.Remote" in
+			tag_start ~attr:["type", "bridge"] "interface" output;
+			empty ~attr:["bridge", bridge] "source" output;
+			empty ~attr:["address", vif.Vif.mac] "mac" output;
+			empty ~attr:["path", !Path.vif_script] "script" output;
+			tag_end output
+
 		let xen x output =
 			let open Vm in
 			tag_start ~attr:["type", "xen"] "domain" output;
@@ -110,17 +120,7 @@ module Domain = struct
 			empty ~attr:["sync", "localtime"] "clock" output;
 			tag_start "devices" output;
 			emulator !Path.qemu_dm_wrapper output;
-			List.iter
-				(fun vif ->
-					let bridge = match vif.Vif.backend with
-					| Network.Local x -> x
-					| Network.Remote _ -> failwith "Network.Remote" in
-					tag_start ~attr:["type", "bridge"] "interface" output;
-					empty ~attr:["bridge", bridge] "source" output;
-					empty ~attr:["address", vif.Vif.mac] "mac" output;
-					empty ~attr:["path", !Path.vif_script] "script" output;
-					tag_end output;
-				) x.vifs;
+			List.iter (fun vif -> of_vif vif output) x.vifs;
 			List.iter
 				(fun vbd ->
 					let disk_opt =
