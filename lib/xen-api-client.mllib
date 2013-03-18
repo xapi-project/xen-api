@@ -1,7 +1,8 @@
 # OASIS_START
-# DO NOT EDIT (digest: 42dd1c90502f44a6b00b532746376bfa)
+# DO NOT EDIT (digest: 2b315a6d3fb44e6789d63e4f86a22da7)
 API
 Api_errors
+Api_messages
 Client
 Date
 Xen_api
