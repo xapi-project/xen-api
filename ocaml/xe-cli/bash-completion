@@ -3,6 +3,9 @@
 
 _xe()
 {
+    # CA-100561 Tab completion bug when grep_options is set different then default --color=auto
+    local GREP_OPTIONS=--color=never
+
     local IFS=$'\n,'
     local cur prev opts xe IFS
 
