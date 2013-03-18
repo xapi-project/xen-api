@@ -415,6 +415,17 @@ let force_state_reset ~__context ~self ~value:state =
 			(fun pci ->
 				Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:self)
 			(Db.VM.get_attached_PCIs ~__context ~self);
+		(* The following should not be necessary if many-to-many relations in the DB
+		 * work properly. People have reported issues that may indicate that this is
+		 * not the case, but we have not yet found the root cause. Therefore, the
+		 * following code is there "just to be sure".
+		 *)
+		List.iter
+			(fun pci ->
+				if List.mem self (Db.PCI.get_attached_VMs ~__context ~self:pci) then
+					Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:self
+			)
+			(Db.PCI.get_all ~__context);
 	end;
 
 	if state = `Halted || state = `Suspended then begin
