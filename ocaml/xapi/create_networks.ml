@@ -29,15 +29,20 @@ let internal_management_network_oc =
 let internal_management_bridge = "xenapi"
 
 let create_guest_installer_network ~__context =
-	if try ignore(Helpers.get_host_internal_management_network ~__context); false with _ -> true then begin
+	try
+		(* We've already got one; check if it has got the right bridge name and fix if needed *)
+		let net = Helpers.get_host_internal_management_network ~__context in
+		if Db.Network.get_bridge ~__context ~self:net <> internal_management_bridge then
+			Db.Network.set_bridge ~__context ~self:net ~value:internal_management_bridge
+	with _ ->
+		(* It is not there yet; make one *)
 		(* The new "host internal management network" is created with both other_config keys *)
 		let h' = Xapi_network.create ~__context ~name_label:internal_management_network_name
 			~name_description:internal_management_network_desc ~mTU:1500L
 			~other_config:internal_management_network_oc ~tags:[] in
 		Db.Network.set_bridge ~__context ~self:h' ~value:internal_management_bridge;
-		debug "Created new host internal management network: %s" (Ref.string_of h');
-	end
-			
+		debug "Created new host internal management network: %s" (Ref.string_of h')
+
 let create_networks_localhost () = 
   Server_helpers.exec_with_new_task "creating networks"
     (fun __context->
