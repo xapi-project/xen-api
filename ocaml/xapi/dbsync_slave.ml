@@ -245,7 +245,6 @@ let update_vms ~xal ~__context =
 	  debug "domain running on me, but corresponding db record doesn't have resident_on=me && powerstate=running: %s" (uuid_from_vmref vmref);
 	  Db.VM.set_resident_on ~__context ~self:vmref ~value:this_host;
 	end;
-
     (* CA-13878: if we've restarted xapi in the middle of starting or rebooting a VM, restart
        the VM again under the assumption that the devices haven't been attached or the memory
        image is not built.
@@ -266,9 +265,14 @@ let update_vms ~xal ~__context =
 	set_db_state_and_domid vmref `Running dinfo.Xc.domid;
 	Events.callback_release xal dinfo.Xc.domid (Uuid.string_of_uuid (Uuid.uuid_of_int_array dinfo.Xc.handle))
       end else begin
-	(* Reset the power state, this also clears VBD operations etc *)
-	let state = if dinfo.Xc.paused then `Paused else `Running in
-	set_db_state_and_domid vmref state dinfo.Xc.domid;
+	let domain_is_shutdown =
+		try
+			let dinfo'= Xc.domain_getinfo xc dinfo.Xc.domid in dinfo'.Xc.shutdown
+		with _ -> true in
+		if not domain_is_shutdown then
+		 (* Reset the power state, this also clears VBD operations etc *)
+		 let state = if dinfo.Xc.paused then `Paused else `Running in
+		 set_db_state_and_domid vmref state dinfo.Xc.domid;
       end;
     (* Now sync devices *)
     debug "syncing devices and registering vm for monitoring: %s" (uuid_from_dinfo dinfo);
