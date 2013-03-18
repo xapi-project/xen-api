@@ -125,6 +125,9 @@ install:
 	mkdir -p $(DESTDIR)$(HOOKSDIR)/host-post-declare-dead
 	$(IPROG) 10resetvdis $(DESTDIR)$(HOOKSDIR)/host-post-declare-dead
 	$(IPROG) pci-info $(DESTDIR)$(LIBEXECDIR)
+	mkdir -p $(DESTDIR)/etc/bash_completion.d
+	$(IPROG) xe-switch-network-backend-bash-completion $(DESTDIR)/etc/bash_completion.d/xe-switch-network-backend
+	$(IPROG) xe-switch-network-backend $(DESTDIR)$(BINDIR)
 
 sdk-install: install
 	mkdir -p $(SDK)
