@@ -85,11 +85,11 @@ let query dbg url =
 	let module Remote = Xenops_interface.Client(struct let rpc = xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" (fun () -> url) end) in
 	Remote.query dbg ()
 
-let event_wait dbg p =
+let event_wait dbg ?from p =
 	let finished = ref false in
-	let event_id = ref None in
+	let event_id = ref from in
 	while not !finished do
-		let deltas, next_id = Client.UPDATES.get dbg !event_id (Some 30) in
+		let _, deltas, next_id = Client.UPDATES.get dbg !event_id (Some 30) in
 		event_id := Some next_id;
 		List.iter (fun d -> if p d then finished := true) deltas;
 	done
@@ -113,8 +113,9 @@ let wait_for_task dbg id =
 		| Dynamic.Task id' ->
 			id = id' && (task_ended dbg id)
 		| _ ->
-			false in 
-	event_wait dbg finished;
+			false in
+	let from = Client.UPDATES.last_id dbg in
+	if not(task_ended dbg id) then event_wait dbg ~from finished;
 	id
 
 let ignore_task (t: Task.t) = ()
