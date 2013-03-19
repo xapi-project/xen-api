@@ -14,16 +14,17 @@
 module L = Debug.Debugger(struct let name="license" end)
 open Stringext
 
-let check_expiry ~__context ~host = 
+let get_expiry_date ~__context ~host =
 	let license = Db.Host.get_license_params ~__context ~self:host in
+	if List.mem_assoc "expiry" license
+	then Some (Date.of_string (List.assoc "expiry" license))
+	else None
+
+let check_expiry ~__context ~host =
 	let expired =
-		if List.mem_assoc "expiry" license = false then
-			(* No expiry date means no expiry :) *)
-			false
-		else begin
-			let expiry = (Date.to_float (Date.of_string (List.assoc "expiry" license))) in
-			Unix.time () > expiry
-		end
+		match get_expiry_date ~__context ~host with
+		| None -> false (* No expiry date means no expiry :) *)
+		| Some date -> Unix.time () > (Date.to_float date)
 	in
 	if expired then raise (Api_errors.Server_error (Api_errors.license_expired, []))
 
