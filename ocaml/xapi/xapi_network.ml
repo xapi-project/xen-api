@@ -18,14 +18,15 @@ module D=Debug.Debugger(struct let name="xapi" end)
 open D
 
 open Db_filter
+open Network
 
-module Net = (val (Network.get_client ()) : Network.CLIENT)
-
-let create_internal_bridge ~bridge ~uuid =
+let create_internal_bridge ~__context ~bridge ~uuid =
 	debug "Creating internal bridge %s (uuid:%s)" bridge uuid;
-	let current = Netdev.network.Netdev.list () in
-	if not(List.mem bridge current) then Netdev.network.Netdev.add bridge ?uuid:(Some uuid);
-	if not(Netdev.Link.is_up bridge) then Netdev.Link.up bridge
+	let dbg = Context.string_of_task __context in
+	let current = Net.Bridge.get_all dbg () in
+	if not(List.mem bridge current) then
+		let other_config = ["network-uuids", uuid] in
+		Net.Bridge.create dbg ~name:bridge ~other_config ()
 
 let set_himn_ip ~__context bridge other_config =
 	if not(List.mem_assoc "ip_begin" other_config) then
@@ -34,7 +35,7 @@ let set_himn_ip ~__context bridge other_config =
 		(* Set the ip address of the bridge *)
 		let ip = List.assoc "ip_begin" other_config in
 		ignore(Forkhelpers.execute_command_get_output "/sbin/ifconfig" [bridge; ip; "up"]);
-		Xapi_mgmt_iface.maybe_start_himn ~__context ~addr:ip ()
+		Xapi_mgmt_iface.enable_himn ~__context ~addr:ip
 	end
 
 let check_himn ~__context =
@@ -61,7 +62,8 @@ let attach_internal ?(management_interface=false) ~__context ~self () =
 
 	(* Ensure internal bridge exists and is up. external bridges will be
 	   brought up by call to interface-reconfigure. *)
-	if List.length(local_pifs) = 0 then create_internal_bridge ~bridge:net.API.network_bridge ~uuid:net.API.network_uuid;
+	if List.length(local_pifs) = 0 then create_internal_bridge ~__context
+		~bridge:net.API.network_bridge ~uuid:net.API.network_uuid;
 
 	(* Check if we're a Host-Internal Management Network (HIMN) (a.k.a. guest-installer network) *)
 	if (List.mem_assoc Xapi_globs.is_guest_installer_network net.API.network_other_config)
@@ -80,15 +82,15 @@ let attach_internal ?(management_interface=false) ~__context ~self () =
 		end
 	) local_pifs
 
-let detach bridge_name =
-	if Netdev.network.Netdev.exists bridge_name then begin
+let detach ~__context bridge_name =
+	let dbg = Context.string_of_task __context in
+	if Net.Interface.exists dbg ~name:bridge_name then begin
 		List.iter (fun iface ->
 			D.warn "Untracked interface %s exists on bridge %s: deleting" iface bridge_name;
-			Netdev.Link.down iface;
-			Netdev.network.Netdev.intf_del bridge_name iface
-		) (Netdev.network.Netdev.intf_list bridge_name);
-		Netdev.Link.down bridge_name;
-		Netdev.network.Netdev.del bridge_name
+			Net.Interface.bring_down dbg ~name:iface;
+			Net.Bridge.remove_port dbg ~bridge:bridge_name ~name:iface
+		) (Net.Bridge.get_interfaces dbg ~name:bridge_name);
+		Net.Bridge.destroy dbg ~name:bridge_name ()
 	end
 
 let attach ~__context ~network ~host = attach_internal ~__context ~self:network ()
@@ -120,9 +122,10 @@ let deregister_vif ~__context vif =
 					active_vifs_to_networks [] in
 				debug "deregister_vif vif=%s network=%s remaining vifs = [ %s ]" (Ref.string_of vif) (Ref.string_of network) (String.concat "; " (List.map Helpers.short_string_of_ref others));
 				if others = [] then begin
-					let ifs = Netdev.network.Netdev.intf_list bridge in
+					let dbg = Context.string_of_task __context in
+					let ifs = Net.Bridge.get_interfaces dbg ~name:bridge in
 					if ifs = []
-					then detach bridge
+					then detach ~__context bridge
 					else error "Cannot remove bridge %s: other interfaces still present [ %s ]" bridge (String.concat "; " ifs)
 				end
 			end

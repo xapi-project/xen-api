@@ -28,7 +28,7 @@ open Api_errors
 include Helper_hostname
 include Helper_process
 
-module Net = (val (Network.get_client ()) : Network.CLIENT)
+open Network
 
 module D=Debug.Debugger(struct let name="helpers" end)
 open D
@@ -976,8 +976,9 @@ let update_vswitch_controller ~__context ~host =
 let assert_vswitch_controller_not_active ~__context =
 	let pool = get_pool ~__context in
 	let controller = Db.Pool.get_vswitch_controller ~__context ~self:pool in
-	let net_type = Netdev.network.Netdev.kind in
-	if (controller <> "") && (net_type = Netdev.Vswitch) then
+	let dbg = Context.string_of_task __context in
+	let backend = Net.Bridge.get_kind dbg () in
+	if (controller <> "") && (backend = Network_interface.Openvswitch) then
 		raise (Api_errors.Server_error (Api_errors.operation_not_allowed, ["A vswitch controller is active"]))
 
 (* Useful for making readable(ish) logs: *)

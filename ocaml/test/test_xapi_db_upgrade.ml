@@ -95,4 +95,12 @@ let update_snapshots () =
 
 	(* b_snap2.parent = b_snap *)
 	assert_equal ~msg:"b_snap2.parent <> b_snap"
-		(Db.VM.get_parent ~__context ~self:b_snap2)b_snap;
+		(Db.VM.get_parent ~__context ~self:b_snap2)b_snap
+
+let test =
+	"test_db_upgrade" >:::
+		[
+			"upgrade_vm_memory_for_dmc" >:: upgrade_vm_memory_for_dmc;
+			"upgrade_bios" >:: upgrade_bios;
+			"update_snapshots" >:: update_snapshots;
+		]

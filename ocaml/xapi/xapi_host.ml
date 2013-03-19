@@ -21,8 +21,7 @@ open Xapi_support
 open Db_filter_types
 open Create_misc
 open Workload_balancing
-
-module Net = (val (Network.get_client ()) : Network.CLIENT)
+open Network
 
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
@@ -737,7 +736,8 @@ let get_management_interface ~__context ~host =
 
 let change_management_interface ~__context interface primary_address_type =
 	debug "Changing management interface";
-	Xapi_mgmt_iface.run ~__context interface primary_address_type;
+	Xapi_mgmt_iface.change interface primary_address_type;
+	Xapi_mgmt_iface.run ~__context ~mgmt_enabled:true;
 	(* once the inventory file has been rewritten to specify new interface, sync up db with
 	   state of world.. *)
 	Xapi_mgmt_iface.on_dom0_networking_change ~__context
@@ -796,9 +796,9 @@ let management_disable ~__context =
   if Pool_role.is_slave ()
   then raise (Api_errors.Server_error (Api_errors.slave_requires_management_iface, []));
 
-  Xapi_mgmt_iface.shutdown ();
-  Xapi_mgmt_iface.maybe_start_himn ~__context ();
-  Xapi_mgmt_iface.start_localhost_interface ~__context ();
+  (* Reset the management server *)
+  Xapi_mgmt_iface.change "" `IPv4;
+  Xapi_mgmt_iface.run ~__context ~mgmt_enabled:false;
 
   (* Make sure all my PIFs are marked appropriately *)
   Xapi_pif.update_management_flags ~__context ~host:(Helpers.get_localhost ~__context)
@@ -1241,33 +1241,13 @@ let apply_edition ~__context ~host ~edition =
 	end
 
 let license_apply ~__context ~host ~contents =
-	let license = Base64.decode contents in
-	let tmp = "/tmp/new_license" in
-	let fd = Unix.openfile tmp [Unix.O_WRONLY; Unix.O_CREAT] 0o644 in
-	let length = String.length license in
-	let written = Unix.write fd license 0 length in
-	Unix.close fd;
-	finally
-		(fun () ->
-			if written <> length then begin
-				debug "Short write!";
-				raise (Api_errors.Server_error(Api_errors.license_processing_error, []))
-			end;
-			let edition', features, additional = V6client.apply_edition ~__context "" ["license_file", tmp] in
-			Db.Host.set_edition ~__context ~self:host ~value:edition';
-			copy_license_to_db ~__context ~host ~features ~additional
-		)
-		(fun () ->
-			(* The language will have been moved to a standard location if it was valid, and
-			 * should be removed otherwise -> always remove the file at the tmp path, if any. *)
-			Unixext.unlink_safe tmp
-		)
+	raise (Api_errors.Server_error (Api_errors.message_removed, []))
 
 (* Supplemental packs *)
 
 let refresh_pack_info ~__context ~host =
 	debug "Refreshing software_version";
-	let software_version = Create_misc.make_software_version () in
+	let software_version = Create_misc.make_software_version ~__context in
 	Db.Host.set_software_version ~__context ~self:host ~value:software_version
 
 (* Network reset *)

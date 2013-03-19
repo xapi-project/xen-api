@@ -1060,7 +1060,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
      optn=[];
      help="Attach to a particular console.";
      implementation=With_fd Cli_operations.console;
-     flags=[Hidden; Vm_selectors];
+     flags=[Vm_selectors];
    };
 
    "vm-query-services",
@@ -1984,14 +1984,6 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
      flags=[Host_selectors];
    };
 
-   "host-license-add",
-    {
-      reqd=["license-file"];
-      optn=["host-uuid"];
-      help="Add a license to a host.";
-      implementation=With_fd Cli_operations.host_license_add;
-      flags=[];
-    };    
    "host-license-view",
     {
       reqd=[];

@@ -220,18 +220,28 @@ let with_local_lock f = Mutex.execute local_m f
 type requirement =
 	{
 		name:string;
-		default_value:string;
+		default_value:string option;
 		is_valid_value:string -> bool;
 	}
 
 let requirements_of_mode = function
 	| `lacp -> [
-			{
-				name = "hashing_algorithm";
-				default_value = "tcpudp_ports";
-				is_valid_value = (fun str -> List.mem str ["src_mac"; "tcpudp_ports"]);
-			};
-		]
+		{
+			name = "hashing_algorithm";
+			default_value = Some "tcpudp_ports";
+			is_valid_value = (fun str -> List.mem str ["src_mac"; "tcpudp_ports"]);
+		};
+		{
+			name = "lacp-time";
+			default_value = Some "slow";
+			is_valid_value = (fun str -> List.mem str ["fast"; "slow"]);
+		};
+		{
+			name = "lacp-aggregation-key";
+			default_value = None;
+			is_valid_value = (fun i -> try ignore (int_of_string i); true with _ -> false);
+		};
+	]
 	| _ -> []
 
 (* Validate a key-value pair against a list of property requirements. *)
@@ -259,8 +269,12 @@ let add_defaults requirements properties =
 	in
 	List.fold_left
 		(fun acc requirement ->
-			if property_is_present requirement then acc
-			else (requirement.name, requirement.default_value)::acc)
+			if property_is_present requirement
+			then acc
+			else match requirement.default_value with
+				| None -> acc
+				| Some default_value ->
+					(requirement.name, default_value)::acc)
 		properties requirements
 
 let create ~__context ~network ~members ~mAC ~mode ~properties =
@@ -351,8 +365,9 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 		(* Create master PIF and Bond objects *)
 		let device = choose_bond_device_name ~__context ~host in
 		let device_name = device in
+		let metrics = Xapi_pif.make_pif_metrics ~__context in
 		Db.PIF.create ~__context ~ref:master ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
-			~device ~device_name ~network ~host ~mAC ~mTU:(-1L) ~vLAN:(-1L) ~metrics:Ref.null
+			~device ~device_name ~network ~host ~mAC ~mTU:(-1L) ~vLAN:(-1L) ~metrics
 			~physical:false ~currently_attached:false
 			~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null
 			~vLAN_master_of:Ref.null ~management:false ~other_config:[] ~disallow_unplug:false
@@ -499,3 +514,7 @@ let set_property ~__context ~self ~name ~value =
 
 	let master = Db.Bond.get_master ~__context ~self in
 	Nm.bring_pif_up ~__context master
+
+(* Functions to export for testing only *)
+
+let __test_add_lacp_defaults = add_defaults (requirements_of_mode `lacp)

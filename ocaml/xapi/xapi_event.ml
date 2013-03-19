@@ -155,7 +155,7 @@ let event_add ?snapshot ty op reference  =
 		let to_keep, to_drop = if too_many <= 0 then !queue, []
 		  else
 		    (* Reverse-sort by ID and preserve the first 'max_stored_events' *)
-		    List.chop max_stored_events (List.sort (fun a b -> compare b.id a.id) !queue) in
+		    List.chop max_stored_events (List.sort (fun a b -> compare (Int64.of_string b.id) (Int64.of_string a.id)) !queue) in
 		queue := to_keep;
 		(* Remember the highest ID of the list of events to drop *)
 		if to_drop <> [] then

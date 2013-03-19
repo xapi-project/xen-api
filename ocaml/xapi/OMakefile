@@ -49,8 +49,8 @@ OCamlProgram(cancel_tests, cancel_tests ../xenops/xenops_helpers)
 COMMON = \
 	xapi_templates \
 	../idl/api_lowlevel \
+	network \
 	../network/network_interface \
-	../network/network \
 	../network/network_monitor \
 	nm \
 	xapi_mgmt_iface \

@@ -33,7 +33,7 @@ let file_descr_of_int (x: int) : Unix.file_descr = Obj.magic x
 let int_of_file_descr (x: Unix.file_descr) : int = Obj.magic x
 
 let close_all_fds_except (fds: Unix.file_descr list) =
-  let all_open = Sys.readdir (sprintf "/proc/%d/fd" (Unix.getpid ())) in
+  let all_open = Sys.readdir "/proc/self/fd" in
   let all_open = List.map int_of_string (Array.to_list all_open) in
   let all_open = List.map file_descr_of_int all_open in
   let to_close = set_difference all_open fds in
@@ -42,7 +42,7 @@ let close_all_fds_except (fds: Unix.file_descr list) =
 (* Code to log internal debug messages ***************************************)
 let debug_fd = ref None
 let openlog filename =
-  debug_fd := Some (Unix.openfile filename [ Unix.O_CREAT; Unix.O_WRONLY ] 0o644)
+  debug_fd := Some (Unix.openfile filename [ Unix.O_CREAT; Unix.O_APPEND; Unix.O_RDWR ] 0o644)
 let log_writer prefix (x: string) = match !debug_fd with
   | Some fd ->
       let x = prefix ^ x ^ "\n" in

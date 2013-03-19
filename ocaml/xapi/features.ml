@@ -17,6 +17,7 @@ open D
 (* Features and restrictions *)
 
 type feature =
+	| Hotfix_apply
 	| VLAN
 	| QoS
 	| Shared_storage

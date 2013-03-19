@@ -22,6 +22,7 @@ open Printf
 open Stringext
 open Db_filter
 open Db_filter_types
+open Network
 
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
@@ -378,7 +379,8 @@ let make_packs_info () =
 	with _ -> []
   
 (** Create a complete assoc list of version information *)
-let make_software_version () =
+let make_software_version ~__context =
+	let dbg = Context.string_of_task __context in
 	let option_to_list k o = match o with None -> [] | Some x -> [ k, x ] in
 	let info = read_localhost_info () in
 	let v6_version = V6client.get_version "make_software_version" in
@@ -390,7 +392,7 @@ let make_software_version () =
 	"linux", info.linux_verstring;
 	"xencenter_min", Xapi_globs.xencenter_min_verstring;
 	"xencenter_max", Xapi_globs.xencenter_max_verstring;
-	"network_backend", Netdev.string_of_kind Netdev.network.Netdev.kind;
+	"network_backend", Network_interface.string_of_kind (Net.Bridge.get_kind dbg ());
 	] @
 	(option_to_list "oem_manufacturer" info.oem_manufacturer) @
 	(option_to_list "oem_model" info.oem_model) @

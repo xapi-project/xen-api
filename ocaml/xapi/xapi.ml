@@ -323,9 +323,10 @@ let bring_up_management_if ~__context () =
 			(Xapi_inventory.lookup Xapi_inventory._management_address_type) in
 		if management_if = "" then begin
 			debug "No management interface defined (management is disabled)";
-			Xapi_mgmt_iface.start_localhost_interface ~__context ()
+			Xapi_mgmt_iface.run ~__context ~mgmt_enabled:false;
 		end else begin
-			Xapi_mgmt_iface.run ~__context management_if management_address_type;
+			Xapi_mgmt_iface.change management_if management_address_type;
+			Xapi_mgmt_iface.run ~__context ~mgmt_enabled:true;
 			match Helpers.get_management_ip_addr ~__context with
 			| Some "127.0.0.1" ->
 				debug "Received 127.0.0.1 as a management IP address; ignoring"
@@ -817,6 +818,7 @@ let server_init() =
 	"Checking for non-HA redo-log", [], start_redo_log;
     (* It is a pre-requisite for starting db engine *)
     "Setup DB configuration", [], setup_db_conf;
+	"Manage Dom0", [], (fun () -> Xapi_xenops.manage_dom0 ~__context);
     (* Start up database engine if we're a master.
      NOTE: We have to start up the database engine before attempting to bring up network etc. because
      the database engine start may attempt a schema upgrade + restart xapi. The last thing we want

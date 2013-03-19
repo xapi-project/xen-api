@@ -52,10 +52,7 @@ let make_rpc path  =
 	(module Rpc : RPC)
 
 module Rpc = (val (make_rpc (Filename.concat Fhs.vardir "xcp-networkd")) : RPC)
-module type CLIENT = module type of Client(Rpc)
-
-let get_client () =
-	(module Client(Rpc): CLIENT)
+module Net = Client(Rpc)
 
 (* Catch any uncaught networkd exceptions and transform into the most relevant XenAPI error.
    We do not want a XenAPI client to see a raw network error. *)

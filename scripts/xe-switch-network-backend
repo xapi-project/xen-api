@@ -1,0 +1,72 @@
+#!/bin/sh
+#########################################################################
+# Script to switch between Linux Bridge network stack and OpenvSwitch
+# 
+# Usage:
+#   xe-switch-network-backend  <option>
+#
+# where <option> is either:
+#   bridge      - Linux standard Bridge network stack
+#   openvswitch - OpenvSwitch stack
+#
+#########################################################################
+
+set -e
+
+if [ $# -ne 1 ] ; then
+	echo "Need bridge or openvswitch..."
+	exit 1
+fi
+
+source /etc/xensource-inventory
+
+new=$1
+case $new in
+    bridge) ;;
+    vswitch|openvswitch) ;;
+    *)
+	echo "Mode must be \"bridge\" or \"vswitch\""
+	exit 1
+esac
+
+if [ X"$new" = Xvswitch ] ; then
+    new="openvswitch"
+fi
+
+curr=$(cat /etc/xensource/network.conf)
+if [ X"$curr" = Xvswitch ] ; then
+    new="openvswitch"
+fi
+
+
+echo "Cleaning up old ifcfg files"
+for i in /etc/sysconfig/network-scripts/ifcfg-* ; do
+	if [ "$i" = "/etc/sysconfig/network-scripts/ifcfg-lo" ] ; then
+		continue
+	fi
+	echo " Remove... $(basename $i)"
+	rm $i
+done
+
+
+BLACKLIST=/etc/modprobe.d/blacklist-bridge
+if [ "$new" = "openvswitch" ] ; then
+	# Add blacklist of bridge module so it can't be loaded.
+	echo "install bridge /bin/true" > $BLACKLIST
+elif [ -e $BLACKLIST ] ; then
+	# Remove blacklist of bridge.
+	rm $BLACKLIST
+fi
+
+if [ "$new" = "openvswitch" ] ; then
+	echo "Enabling openvswitch daemon"
+	chkconfig --add openvswitch
+else
+	echo "Disabling openvswitch daemon"
+	chkconfig --del openvswitch
+fi
+
+echo "Configure system for $new networking"
+echo $new > /etc/xensource/network.conf
+
+echo "You *MUST* now reboot your system" 1>&2

@@ -14,38 +14,14 @@
 
 open OUnit
 
-let test_basic =
-	let open Test_basic in
-	"test_basic" >:::
-		[
-			"test_always_pass" >:: test_always_pass ;
-			"test_always_fail" >:: test_always_fail ;
-			"test_mock_db" >:: test_mock_db ;
-			"test_assert_licensed_storage_motion" >:: test_assert_licensed_storage_motion ;
-		]
-
-let test_db_backup =
-	"test_db_backup" >:::
-		[
-			"test_prepare_restore" >:: Test_pool_db_backup.test_prepare_restore;
-		]
-
-let test_db_upgrade =
-	let open Test_xapi_db_upgrade in
-	"test_db_upgrade" >:::
-		[
-			"upgrade_vm_memory_for_dmc" >:: upgrade_vm_memory_for_dmc;
-			"upgrade_bios" >:: upgrade_bios;
-			"update_snapshots" >:: update_snapshots;
-		]
-
 let base_suite =
 	"base_suite" >:::
 		[
-			test_basic;
-			test_db_backup;
-			test_db_upgrade;
+			Test_basic.test;
+			Test_pool_db_backup.test;
+			Test_xapi_db_upgrade.test;
 			Test_ca91480.test;
+			Test_pr1510.suite;
 		]
 
 let _ = run_test_tt_main base_suite

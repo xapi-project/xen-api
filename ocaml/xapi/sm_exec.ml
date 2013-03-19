@@ -26,6 +26,8 @@ module E=Debug.Debugger(struct let name="mscgen" end)
 
 let cmd_name driver = sprintf "%s/%sSR" Xapi_globs.sm_dir driver
 
+let sm_username = "__sm__backend"
+
 (*********************************************************************************************)
 (* Random utility functions *)
 
@@ -151,7 +153,7 @@ let with_session sr f =
   Server_helpers.exec_with_new_task "sm_exec" (fun __context ->
   let create_session () =
     let host = !Xapi_globs.localhost_ref in
-    let session=Xapi_session.login_no_password ~__context ~uname:None ~host ~pool:false ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:"" ~auth_user_name:"" ~rbac_permissions:[] in
+    let session=Xapi_session.login_no_password ~__context ~uname:None ~host ~pool:false ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:"" ~auth_user_name:sm_username ~rbac_permissions:[] in
     (* Give this session access to this particular SR *)
     maybe (fun sr ->
 	     Db.Session.add_to_other_config ~__context ~self:session 

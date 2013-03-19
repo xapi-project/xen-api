@@ -25,7 +25,9 @@ let himn_addr = ref None
 (* Stores a key into the table in Http_srv which identifies the server thread bound
 	 to the management IP. *)
 let management_interface_server = ref []
-let himn_only = ref false
+let listening_all = ref false
+let listening_localhost = ref false
+let listening_himn = ref false
 let management_m = Mutex.create ()
 
 let update_mh_info_script = Filename.concat Fhs.libexecdir "update-mh-info"
@@ -42,16 +44,19 @@ let restart_stunnel () =
 let stop () =
 	debug "Shutting down the old management interface (if any)";
 	List.iter (fun i -> Http_svr.stop i) !management_interface_server;	
-	management_interface_server := []
+	management_interface_server := [];
+	listening_all := false;
+	listening_localhost := false;
+	listening_himn := false
 
 (* Even though xapi listens on all IP addresses, there is still an interface appointed as
  * _the_ management interface. Slaves in a pool use the IP address of this interface to connect
  * the pool master. *)
 let start ~__context ?addr () =
-	debug "Starting new server";
 	let addr, socket =
 		match addr with
 			| None ->
+					info "Starting new server (listening on all IP addresses)";
 					begin
 						try (* Is it IPv6 ? *)
 							let addr = Unix.inet6_addr_any in
@@ -61,8 +66,7 @@ let start ~__context ?addr () =
 							addr, Xapi_http.bind (Unix.ADDR_INET(addr, Xapi_globs.http_port))
 					end
 			| Some ip ->
-					debug "Starting new server (listening on HIMN only: %s)" ip;
-					himn_only := true;
+					info "Starting new server (listening on %s)" ip;
 					let addr = Unix.inet_addr_of_string ip in
 					addr, Xapi_http.bind (Unix.ADDR_INET(addr, Xapi_globs.http_port))
 	in
@@ -71,8 +75,7 @@ let start ~__context ?addr () =
 
 	debug "Restarting stunnel";
 	restart_stunnel ();
-
-	if Pool_role.is_master () && (addr = Unix.inet_addr_any || addr = Unix.inet6_addr_any) then begin
+	if Pool_role.is_master () && !listening_all then begin
 		(* NB if we synchronously bring up the management interface on a master with a blank
 		   database this can fail... this is ok because the database will be synchronised later *)
 		Server_helpers.exec_with_new_task "refreshing consoles"
@@ -87,42 +90,38 @@ let change interface primary_address_type =
 		(Record_util.primary_address_type_to_string primary_address_type);
 	update_mh_info interface
 
-let run ~__context interface primary_address_type =
+let run ~__context ~mgmt_enabled =
 	Mutex.execute management_m (fun () ->
-		change interface primary_address_type;
-		stop ();
-		if !management_interface_server = [] then
-			start ~__context ()
+		if mgmt_enabled then begin
+			if not !listening_all then begin
+				stop ();
+				start ~__context ();
+				listening_all := true
+			end
+		end else begin
+			if !listening_all then
+				stop ();
+			if not !listening_localhost then begin
+				start ~__context ~addr:"127.0.0.1" ();
+				listening_localhost := true
+			end;
+			Opt.iter (fun addr ->
+				if not !listening_himn then begin
+					start ~__context ~addr ();
+					listening_himn := true
+				end
+			) !himn_addr;
+		end
 	)
+
+let enable_himn ~__context ~addr =
+	Mutex.execute management_m (fun () ->
+		himn_addr := Some addr;
+	);
+	run ~__context ~mgmt_enabled:!listening_all
 
 let rebind ~__context =
-	Mutex.execute management_m (fun () ->
-		if !management_interface_server <> [] then
-		begin
-			stop ();
-			start ~__context ();
-		end;
-	)
-
-let shutdown () =
-	Mutex.execute management_m (fun () ->
-		change "" `IPv4;
-		stop ();
-		debug "Restarting stunnel";
-		restart_stunnel ();
-	)
-
-let maybe_start_himn ~__context ?addr () =
-	Mutex.execute management_m (fun () ->
-		Opt.iter (fun addr -> himn_addr := Some addr) addr;
-		if !management_interface_server = [] then
-			Opt.iter (fun addr -> start ~__context ~addr ()) !himn_addr
-	)
-
-let start_localhost_interface ~__context =
-	Mutex.execute management_m (fun () ->
-	  start ~__context ~addr:"127.0.0.1"
-	)
+	run ~__context ~mgmt_enabled:!listening_all
 
 let management_ip_mutex = Mutex.create ()
 let management_ip_cond = Condition.create ()

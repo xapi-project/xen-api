@@ -121,7 +121,7 @@ let event_wait task timeout p =
 	let success = ref false in
 	let event_id = ref None in
 	while not !finished do
-		let deltas, next_id = Updates.get (Printf.sprintf "event_wait task %s" task.Xenops_task.id) !event_id timeout updates in
+		let _, deltas, next_id = Updates.get (Printf.sprintf "event_wait task %s" task.Xenops_task.id) !event_id timeout updates in
 		if deltas = [] then finished := true;
 		List.iter (fun d -> if p d then (success := true; finished := true)) deltas;
 		event_id := Some next_id;
@@ -791,7 +791,8 @@ module VM = struct
 			(fun xc xs ->
 				safe_rm xs (Printf.sprintf "/vm/%s" vm.Vm.id);
 				safe_rm xs (Printf.sprintf "/vss/%s" vm.Vm.id);
-			)
+			);
+		DB.remove vm.Vm.id
 
 	let log_exn_continue msg f x = try f x with e -> debug "Safely ignoring exception: %s while %s" (Printexc.to_string e) msg
 

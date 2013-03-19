@@ -23,6 +23,8 @@ open Create_misc
 open Client
 open Pervasiveext
 
+open Network
+
 module D=Debug.Debugger(struct let name="dbsync" end)
 open D
 
@@ -73,7 +75,7 @@ let get_start_time () =
 (* not sufficient just to fill in this data on create time [Xen caps may change if VT enabled in BIOS etc.] *)
 let refresh_localhost_info ~__context info =
   let host = !Xapi_globs.localhost_ref in
-  let software_version = Create_misc.make_software_version () in
+  let software_version = Create_misc.make_software_version ~__context in
 
   (* Xapi_ha_flags.resync_host_armed_flag __context host; *)
   debug "Updating host software_version";
@@ -185,7 +187,8 @@ let resynchronise_pif_params ~__context =
 	(* Determine all bridges that are currently up, and ask the master to sync the currently_attached
 	 * fields on all my PIFs *)
 	Helpers.call_api_functions ~__context (fun rpc session_id ->
-		let bridges = Netdev.network.Netdev.list () in
+		let dbg = Context.string_of_task __context in
+		let bridges = Net.Bridge.get_all dbg () in
 		Client.Host.sync_pif_currently_attached rpc session_id localhost bridges
 	);
 

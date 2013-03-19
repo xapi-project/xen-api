@@ -704,6 +704,8 @@ let make_param_funs getall getallrecs getbyuuid record class_name def_filters de
 		match field_lookup record param_name with
 			| { get_set = Some g; remove_from_set = Some f } -> if List.mem param_key (g ()) then f param_key else failwith "Key is not in the set"
 			| { get_map = Some g; remove_from_map = Some f } -> if List.mem_assoc param_key (g ()) then f param_key else failwith "Key is not in map"
+			| { get_set = Some _; remove_from_set = None }
+			| { get_map = Some _; remove_from_map = None } -> failwith "Cannot remove parameters from read-only map"
 			| _ -> failwith "Can only remove from parameters of type Set or Map"
 	in
 
@@ -2785,22 +2787,6 @@ let host_forget fd printer rpc session_id params =
 		if user_says_yes fd
 		then go ()
 	end
-
-let host_license_add fd printer rpc session_id params =
-	let host =
-		if List.mem_assoc "host-uuid" params then
-			Client.Host.get_by_uuid rpc session_id (List.assoc "host-uuid" params)
-		else
-			get_host_from_session rpc session_id in
-	let license_file = List.assoc "license-file" params in
-	match get_client_file fd license_file with
-		| Some license ->
-			debug "Checking license [%s]" license;
-			Client.Host.license_apply rpc session_id host (Base64.encode license);
-			marshal fd (Command (Print "License applied."))
-		| None ->
-			marshal fd (Command (PrintStderr "Failed to read license file\n"));
-			raise (ExitWithError 1)
 
 let host_license_view printer rpc session_id params =
 	let host =
