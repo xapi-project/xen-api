@@ -6227,6 +6227,18 @@ let pool_apply_edition = call
 	~allowed_roles:_R_POOL_OP
 	()
 
+let pool_assert_mac_seeds_available = call
+	~name:"assert_mac_seeds_available"
+	~in_oss_since:None
+	~in_product_since:rel_clearwater
+	~params:[
+		Ref _pool, "self", "Reference to the pool";
+		Set(String), "seeds", "A list of MAC seeds to check";
+	]
+	~doc:"Assert that none of a list of MAC seeds are in use by VMs in the pool"
+	~allowed_roles:_R_READ_ONLY
+	()
+
 (** A pool class *)
 let pool =
 	create_obj

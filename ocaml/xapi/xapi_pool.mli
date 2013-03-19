@@ -179,3 +179,5 @@ val disable_local_storage_caching : __context:Context.t -> self:API.ref_pool -> 
 
 val get_license_state : __context:Context.t -> self:API.ref_pool -> (string * string) list
 val apply_edition : __context:Context.t -> self:API.ref_pool -> edition:string -> unit
+
+val assert_mac_seeds_available : __context:Context.t -> self:API.ref_pool -> seeds:string list -> unit
