@@ -485,6 +485,8 @@ let pool_record rpc session_id pool =
 				~get_set:(fun () -> (x ()).API.pool_tags)
 				~add_to_set:(fun tag -> Client.Pool.add_tags rpc session_id pool tag)
 				~remove_from_set:(fun tag -> Client.Pool.remove_tags rpc session_id pool tag) ();
+			make_field ~name:"license-state"
+				~get:(fun () -> Record_util.s2sm_to_string "; " (Client.Pool.get_license_state rpc session_id pool)) ();
 		]}
 
 let subject_record rpc session_id subject = 

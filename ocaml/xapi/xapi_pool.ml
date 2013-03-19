@@ -1697,3 +1697,32 @@ let disable_local_storage_caching ~__context ~self =
 	if List.length failed_hosts > 0 then
 		raise (Api_errors.Server_error (Api_errors.hosts_failed_to_disable_caching, List.map Ref.string_of failed_hosts))
 	else ()
+
+let get_license_state ~__context ~self =
+	let hosts = Db.Host.get_all ~__context in
+	let pool_edition = Xapi_pool_license.get_lowest_edition ~__context ~hosts in
+	(* If any hosts are free edition then the pool is free edition with no expiry
+	 * date. If all hosts are licensed then the pool has that license, and the
+	 * earliest expiry date applies to the pool. *)
+	let pool_expiry_date =
+		match pool_edition with
+		| "free" -> "never"
+		| _ -> begin
+			match Xapi_pool_license.get_earliest_expiry_date ~__context ~hosts with
+			| None -> "never"
+			| Some date -> Date.to_string date
+		end
+	in
+	[
+		"edition", pool_edition;
+		"expiry", pool_expiry_date;
+	]
+
+let apply_edition ~__context ~self ~edition =
+	let hosts = Db.Host.get_all ~__context in
+	let apply_fn =
+		(fun ~__context ~host ~edition -> Helpers.call_api_functions ~__context
+			(fun rpc session_id ->
+				Client.Host.apply_edition ~rpc ~session_id ~host ~edition))
+	in
+	Xapi_pool_license.apply_edition_with_rollback ~__context ~hosts ~edition ~apply_fn
