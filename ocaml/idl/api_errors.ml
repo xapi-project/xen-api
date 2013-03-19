@@ -336,6 +336,7 @@ let feature_restricted = "FEATURE_RESTRICTED"
 let xmlrpc_unmarshal_failure = "XMLRPC_UNMARSHAL_FAILURE"
 
 let duplicate_vm = "DUPLICATE_VM"
+let duplicate_mac_seed = "DUPLICATE_MAC_SEED"
 
 let client_error = "CLIENT_ERROR"
 
