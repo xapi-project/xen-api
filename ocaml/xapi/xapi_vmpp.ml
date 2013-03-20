@@ -71,18 +71,11 @@ let create_alert ~__context ~vmpp ~name ~priority ~body ~data =
 		^(Xml.to_string (Xml.PCData body))
     ^"</email><data>"^value^"</data></message>"
   in
-  let successful = priority < 5L in
-  if successful
-  then ( (* alert indicates a vmpp success *)
-		add_to_recent_alerts ~__context ~vmpp ~value;
-  )
-  else ( (* alert indicates a vmpp failure *)
-    add_to_recent_alerts ~__context ~vmpp ~value;
-    let cls = `VMPP in
-    let obj_uuid = Db.VMPP.get_uuid ~__context ~self:vmpp in
-    let (_: API.ref_message) = Xapi_message.create ~__context ~name ~priority ~cls ~obj_uuid ~body:msg in
-    ()
-  )
+  add_to_recent_alerts ~__context ~vmpp ~value;
+  let cls = `VMPP in
+  let obj_uuid = Db.VMPP.get_uuid ~__context ~self:vmpp in
+  let (_: API.ref_message) = Xapi_message.create ~__context ~name ~priority ~cls ~obj_uuid ~body:msg in
+  ()
 
 let unzip b64zdata = (* todo: remove i/o, make this more efficient *)
   try
