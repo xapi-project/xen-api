@@ -81,7 +81,7 @@ let rec make_vifs __context vmref i =
   else
     begin
       ignore(Xapi_vif.create  ~__context ~device:(string_of_int i) ~network:(get_random nws) ~vM:vmref
-		~mAC:"de:ad:be:ef:99:88" ~mTU:Int64.zero ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[]);
+		~mAC:"de:ad:be:ef:99:88" ~mTU:Int64.zero ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[] ~locking_mode:`network_default ~ipv4_allowed:[] ~ipv6_allowed:[]);
       make_vifs __context vmref (i-1)
     end
 
