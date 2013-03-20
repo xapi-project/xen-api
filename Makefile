@@ -62,9 +62,7 @@ test:
 	@echo @
 #	Pipe ugly bash output to /dev/null
 	@echo @ xapi unit test suite
-	@./ocaml/test/suite
-	@echo @ xapi_unit_test
-	@./ocaml/xapi/xapi_unit_test
+	@./ocaml/test/suite -verbose
 	@echo @ xenops-cli unit test
 	@./ocaml/xenops-cli/runtest.sh 2> /dev/null
 	@echo
