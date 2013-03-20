@@ -392,6 +392,7 @@ module VM : HandlerTools = struct
 				 it use the export ref. However, as the corresponding VM object may have not been created
 				 yet, this fiels contains some useful information to update it later. *)
 			Db.VM.set_is_a_snapshot ~__context ~self:vm ~value:vm_record.API.vM_is_a_snapshot;
+			Db.VM.set_snapshot_info ~__context ~self:vm ~value:vm_record.API.vM_snapshot_info;
 			Db.VM.set_snapshot_of ~__context ~self:vm ~value:vm_record.API.vM_snapshot_of;
 			Db.VM.set_snapshot_time ~__context ~self:vm ~value:vm_record.API.vM_snapshot_time;
 			Db.VM.set_transportable_snapshot_id ~__context ~self:vm ~value:vm_record.API.vM_transportable_snapshot_id;
