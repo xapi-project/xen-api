@@ -42,9 +42,12 @@ let cowley_release_schema_minor_vsn = 61
 let boston_release_schema_major_vsn = 5
 let boston_release_schema_minor_vsn = 63
 
+let tampa_release_schema_major_vsn = 5
+let tampa_release_schema_minor_vsn = 66
+
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
-let last_release_schema_major_vsn = boston_release_schema_major_vsn
-let last_release_schema_minor_vsn = boston_release_schema_minor_vsn
+let last_release_schema_major_vsn = tampa_release_schema_major_vsn
+let last_release_schema_minor_vsn = tampa_release_schema_minor_vsn
 
 (** Bindings for currently specified releases *)
 
