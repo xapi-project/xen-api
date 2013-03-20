@@ -283,17 +283,17 @@ module Monitor = struct
 			(* Set up our per-host alert triggers *)
 
 			let localhost_uuid = Helpers.get_localhost_uuid () in
-			let boolean_warning alert_name alert_body_and_priority_option =
+			let boolean_warning msg body_option =
 				let trigger =
 					Xapi_alert.edge_trigger
 						(fun old newvalue ->
 							if newvalue then begin
-								warn "%s" alert_name;
+								warn "%s" (fst msg);
 								begin
-									match alert_body_and_priority_option with
+									match body_option with
 											None -> ()
-										| (Some (body, priority)) ->
-											Xapi_alert.add ~name:alert_name ~priority ~cls:`Host ~obj_uuid:localhost_uuid ~body
+										| (Some body) ->
+											Xapi_alert.add ~msg ~cls:`Host ~obj_uuid:localhost_uuid ~body
 								end
 							end) in
 				(* make sure we spot the case where the warning triggers immediately *)
@@ -307,15 +307,13 @@ module Monitor = struct
 			(* Per-host warnings which are logged *and* generate alerts: *)
 			let warning_network_bonding_error =
 				boolean_warning Api_messages.ha_network_bonding_error
-					(Some (Printf.sprintf "The network bond used for transmitting HA heartbeat messages on host '%s' has failed" localhost_uuid,
-					Api_messages.ha_network_bonding_error_priority))  in
+					(Some (Printf.sprintf "The network bond used for transmitting HA heartbeat messages on host '%s' has failed" localhost_uuid)) in
 
 			(* Pool-wide warning which is logged by the master *and* generates an alert. Since this call is only ever made on the master we're
 			   ok to make database calls to compute the message body without worrying about the db call blocking: *)
 			let warning_all_live_nodes_lost_statefile =
 				boolean_warning Api_messages.ha_statefile_lost
-					(Some (Printf.sprintf "All live servers have lost access to the HA statefile",
-					Api_messages.ha_statefile_lost_priority)) in
+					(Some (Printf.sprintf "All live servers have lost access to the HA statefile")) in
 
 			let last_liveset_uuids = ref [] in
 			let last_plan_time = ref 0. in
@@ -1406,7 +1404,8 @@ let enable __context heartbeat_srs configuration =
 		in
 		warn "Warning: A possible network anomaly was found. The following hosts possibly have storage PIFs that can be unplugged: %s"
 			(String.concat ", " bodylines);
-		ignore(Xapi_message.create ~__context ~name:Api_messages.ip_configured_pif_can_unplug ~priority:5L ~cls:`Pool ~obj_uuid:(Db.Pool.get_uuid ~__context ~self:(Helpers.get_pool ~__context))
+		let (name, priority) = Api_messages.ip_configured_pif_can_unplug in
+		ignore(Xapi_message.create ~__context ~name ~priority ~cls:`Pool ~obj_uuid:(Db.Pool.get_uuid ~__context ~self:(Helpers.get_pool ~__context))
 			~body:(String.concat "\n" bodylines))
 	end;
 

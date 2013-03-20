@@ -1193,11 +1193,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					(Db.Host.get_name_label ~__context ~self:host)
 					(Db.Host.get_uuid ~__context ~self:host)
 			in
+			let (name, priority) = Api_messages.vm_started in
 			(try ignore
 				(Xapi_message.create
 					~__context
-					~name:Api_messages.vm_started
-					~priority:1L
+					~name
+					~priority
 					~cls:`VM
 					~obj_uuid:uuid
 					~body:message_body)
@@ -1243,11 +1244,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					(Db.VM.get_name_label ~__context ~self:vm)
 					(Db.Host.get_name_label ~__context ~self:host)
 					(Db.Host.get_uuid ~__context ~self:host) in
+			let (name, priority) = Api_messages.vm_started in
 			(try ignore
 				(Xapi_message.create
 					~__context
-					~name:Api_messages.vm_started
-					~priority:1L
+					~name
+					~priority
 					~cls:`VM
 					~obj_uuid:(Db.VM.get_uuid ~__context ~self:vm)
 					~body:message_body)
@@ -1294,8 +1296,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				Printf.sprintf "VM '%s' shutdown"
 					(Db.VM.get_name_label ~__context ~self:vm)
 			in
-			(try ignore(Xapi_message.create ~__context ~name:Api_messages.vm_shutdown
-				~priority:1L ~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ());
+			let (name, priority) = Api_messages.vm_shutdown in
+			(try ignore(Xapi_message.create ~__context ~name ~priority
+				~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ());
 			update_vbd_operations ~__context ~vm;
 			update_vif_operations ~__context ~vm
 
@@ -1319,8 +1322,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				Printf.sprintf "VM '%s' rebooted cleanly"
 					(Db.VM.get_name_label ~__context ~self:vm)
 			in
-			(try ignore(Xapi_message.create ~__context ~name:Api_messages.vm_rebooted
-				~priority:1L ~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ());
+			let (name, priority) = Api_messages.vm_rebooted in
+			(try ignore(Xapi_message.create ~__context ~name ~priority
+				~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ());
 			update_vbd_operations ~__context ~vm;
 			update_vif_operations ~__context ~vm
 
@@ -1367,8 +1371,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				Printf.sprintf "VM '%s' shutdown forcibly"
 					(Db.VM.get_name_label ~__context ~self:vm)
 			in
-			(try ignore(Xapi_message.create ~__context ~name:Api_messages.vm_shutdown
-				~priority:1L ~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ());
+			let (name, priority) = Api_messages.vm_shutdown in
+			(try ignore(Xapi_message.create ~__context ~name ~priority
+				~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ());
 			update_vbd_operations ~__context ~vm;
 			update_vif_operations ~__context ~vm
 
@@ -1390,8 +1395,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				Printf.sprintf "VM '%s' rebooted forcibly"
 					(Db.VM.get_name_label ~__context ~self:vm)
 			in
-			(try ignore(Xapi_message.create ~__context ~name:Api_messages.vm_rebooted
-				~priority:1L ~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ());
+			let (name, priority) = Api_messages.vm_rebooted in
+			(try ignore(Xapi_message.create ~__context ~name ~priority
+				~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ());
 			update_vbd_operations ~__context ~vm;
 			update_vif_operations ~__context ~vm
 
@@ -1422,8 +1428,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				Printf.sprintf "VM '%s' suspended"
 					(Db.VM.get_name_label ~__context ~self:vm)
 			in
-			(try ignore(Xapi_message.create ~__context ~name:Api_messages.vm_suspended
-				~priority:1L ~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ());
+			let (name, priority) = Api_messages.vm_suspended in
+			(try ignore(Xapi_message.create ~__context ~name ~priority
+				~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ());
 			update_vbd_operations ~__context ~vm;
 			update_vif_operations ~__context ~vm
 
@@ -1482,8 +1489,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					(Db.VM.get_name_label ~__context ~self:vm)
 					(Db.VM.get_uuid ~__context ~self:result)
 			in
-			(try ignore(Xapi_message.create ~__context ~name:Api_messages.vm_cloned
-				~priority:1L ~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ());
+			let (name, priority) = Api_messages.vm_cloned in
+			(try ignore(Xapi_message.create ~__context ~name ~priority
+				~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ());
 			result
 
 		(* Like start.. resume on any suitable host *)
@@ -1512,8 +1520,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					(Db.Host.get_name_label ~__context ~self:host)
 					(Db.Host.get_uuid ~__context ~self:host)
 			in
-			(try ignore(Xapi_message.create ~__context ~name:Api_messages.vm_resumed
-				~priority:1L ~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ());
+			let (name, priority) = Api_messages.vm_resumed in
+			(try ignore(Xapi_message.create ~__context ~name ~priority
+				~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ());
 			Rrdd_proxy.push_rrd ~__context ~vm_uuid:(Db.VM.get_uuid ~__context ~self:vm)
 
 		let resume_on ~__context ~vm ~host ~start_paused ~force =
@@ -1543,8 +1552,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					(Db.Host.get_name_label ~__context ~self:host)
 					(Db.Host.get_uuid ~__context ~self:host)
 			in
-			(try ignore(Xapi_message.create ~__context ~name:Api_messages.vm_resumed
-				~priority:1L ~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ());
+			let (name, priority) = Api_messages.vm_resumed in
+			(try ignore(Xapi_message.create ~__context ~name ~priority
+				~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ());
 			Rrdd_proxy.push_rrd ~__context ~vm_uuid:(Db.VM.get_uuid ~__context ~self:vm)
 
 		let pool_migrate_complete ~__context ~vm ~host =
