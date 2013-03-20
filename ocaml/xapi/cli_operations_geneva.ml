@@ -368,7 +368,7 @@ let vm_install fd printer rpc session_id params =
 	let add_vif net =
 	  let mac = Record_util.random_mac_local () in
 	  marshal fd (Command (Print ("Adding VIF, device "^(string_of_int !device)^" to network '"^(Client.Network.get_name_label rpc session_id net)^"' mac="^mac)));
-	  ignore(Client.VIF.create rpc session_id (string_of_int !device) net new_vm mac 1500L [] "" []);
+	  ignore(Client.VIF.create rpc session_id (string_of_int !device) net new_vm mac 1500L [] "" [] `network_default [] [] );
 	  device := !device + 1
 	in 
 	List.iter add_vif filtered_nets;
@@ -481,7 +481,7 @@ let vm_vif_add printer rpc session_id params =
       | [] -> failwith "Bridge not found"
       |	n::ns ->
 	  begin
-	    let vif = Client.VIF.create rpc session_id device n vm mac 1500L [] "" [] in
+	    let vif = Client.VIF.create rpc session_id device n vm mac 1500L [] "" [] `network_default [] [] in
 	    if List.mem_assoc "rate" params then
 	      (Client.VIF.set_qos_algorithm_type rpc session_id vif "ratelimit";
 	       Client.VIF.add_to_qos_algorithm_params rpc session_id vif "kbs" (List.assoc "rate" params))

@@ -33,10 +33,9 @@ let unplug_force ~__context ~self =
 	Xapi_xenops.vif_unplug ~__context ~self true
 
 let create  ~__context ~device ~network ~vM
-           ~mAC ~mTU ~other_config ~qos_algorithm_type ~qos_algorithm_params : API.ref_VIF =
+           ~mAC ~mTU ~other_config ~qos_algorithm_type ~qos_algorithm_params ~locking_mode ~ipv4_allowed ~ipv6_allowed : API.ref_VIF =
   create ~__context ~device ~network ~vM ~currently_attached:false
-    ~mAC ~mTU ~other_config ~qos_algorithm_type ~qos_algorithm_params
-    ~locking_mode:`network_default ~ipv4_allowed:[] ~ipv6_allowed:[]
+    ~mAC ~mTU ~other_config ~qos_algorithm_type ~qos_algorithm_params ~locking_mode ~ipv4_allowed ~ipv6_allowed
 
 let destroy  ~__context ~self = destroy ~__context ~self
 
@@ -59,10 +58,6 @@ let move ~__context ~network vif =
 	Db.VIF.set_network ~__context ~self:vif ~value:network;
 	if device_active ~__context ~self:vif
 	then Xapi_xenops.vif_move ~__context ~self:vif network
-
-let assert_locking_licensed ~__context =
-	if (not (Pool_features.is_enabled ~__context Features.VIF_locking)) then
-		raise (Api_errors.Server_error(Api_errors.license_restriction, []))
 
 let change_locking_config ~__context ~self ~licence_check f =
 	if licence_check then assert_locking_licensed ~__context;
