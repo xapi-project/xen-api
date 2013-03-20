@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2011 Citrix Systems Inc.
+ * Copyright (C) 2006-2012 Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -12,13 +12,14 @@
  * GNU Lesser General Public License for more details.
  *)
 
+open API
+open OUnit
+
+let skip str = skip_if true str
+
 (** Make a simple in-memory database containing a single host and dom0 VM record. *)
 let make_test_database () = 
-	let db = Db_upgrade.generic_database_upgrade (Db_cache_types.Database.make (Datamodel_schema.of_datamodel ())) in
-	let db_ref = Db_ref.in_memory (ref (ref db)) in
-	let __context = Context.make ~database:db_ref "upgrade_vm_memory_for_dmc" in
-
-	(* Db_xml.To.file "/tmp/new3.db" (Db_ref.get_database (Context.database_of __context)); *)
+	let __context = Mock.make_context_with_new_db "Mock context" in
 
 	let host_info = {
 		Create_misc.name_label = "test host";
@@ -82,5 +83,3 @@ let make_pif ~__context ~network ~host ?(device="eth0") ?(mAC="C0:FF:EE:C0:FF:EE
 let make_network ~__context ?(name_label="net") ?(name_description="description") ?(mTU=1500L)
 		?(other_config=[]) ?(bridge="xenbr0") () = 
 	Xapi_network.pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~bridge
-
-

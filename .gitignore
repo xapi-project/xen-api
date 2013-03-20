@@ -48,6 +48,7 @@ ocaml/stdlib2/t*.ml
 ocaml/auth/testauth
 ocaml/auth/testauthx
 ocaml/xapi/at_least_once_more
+ocaml/xapi/cancel_tests
 ocaml/xapi/config_constants.ml
 ocaml/xapi/storage_impl_test
 ocaml/xapi/storage_interface.mli
@@ -122,6 +123,7 @@ ocaml/database/db_filter_lex.ml
 ocaml/database/db_filter_parse.ml
 ocaml/database/db_filter_parse.mli
 ocaml/database/dbupdate
+ocaml/database/database_test
 ocaml/database/unit_test_marshall
 ocaml/database/block_device_io
 ocaml/db_process/xapi-db-process
@@ -195,12 +197,12 @@ ocaml/idl/META
 ocaml/idl/ocaml_backend/META
 ocaml/xapi/rrddump
 ocaml/xapi/sparse_dd
-ocaml/xapi/xapi_unit_test
 ocaml/license/v6d
 ocaml/license/v6d-reopen-logs
 ocaml/license/v6testd
 ocaml/network/xcp-networkd
 ocaml/network/xcp-networkd-reopen-logs
+ocaml/network/networkd_db
 ocaml/ptoken/genptoken
 ocaml/xenops/memory_breakdown
 ocaml/xenops/squeezed
@@ -209,6 +211,7 @@ ocaml/xenops-cli/xenopstest
 ocaml/xenops-cli/xn
 ocaml/xenops/xenopsd
 
+noarch.spec
 xapi.spec
 
 ocaml/fhs.*
