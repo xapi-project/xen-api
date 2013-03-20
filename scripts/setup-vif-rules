@@ -229,10 +229,15 @@ def create_vswitch_rules(bridge_name, port, config):
     # Drop everything else.
     add_flow(bridge_name, "in_port=%s,priority=4000,idle_timeout=0,action=drop" % port)
 
+def get_bridge_name_vswitch(vif_name):
+    '''return bridge vif belong to'''
+    (rc, stdout, stderr) = doexec([vsctl, "iface-to-br",  vif_name ])
+    return stdout.readline().strip()
+
 def handle_vswitch(vif_type, domid, devid, action):
     if (action == "clear") or (action == "filter"):
-        bridge_name = "xenbr%s" % devid
         vif_name = "%s%s.%s" % (vif_type, domid, devid)
+        bridge_name = get_bridge_name_vswitch(vif_name) 
         ip_link_set(vif_name, "down")
         port = get_vswitch_port(vif_name)
         clear_vswitch_rules(bridge_name, port)
