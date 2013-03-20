@@ -90,6 +90,10 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 			then Some (Api_errors.other_operation_in_progress, [ "VDI"; _ref ])
 			else (
 				match op with
+				| `forget ->
+					if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
+					then Some (Api_errors.ha_is_enabled, [])
+					else None
 				| `destroy ->
 					if sr_type = "udev"
 					then Some (Api_errors.vdi_is_a_physical_device, [_ref])
@@ -157,7 +161,7 @@ let update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records
   let allowed = 
     let check x = match check_operation_error ~__context ~sr_records ~pbd_records ~vbd_records ha_enabled all self x with None ->  [ x ] | _ -> [] in
 	List.fold_left (fun accu op -> check op @ accu) []
-		[ `snapshot; `copy; `clone; `destroy; `resize; `update; `generate_config; `resize_online ] in
+		[ `snapshot; `copy; `clone; `destroy; `resize; `update; `generate_config; `resize_online; `forget ] in
   Db.VDI.set_allowed_operations ~__context ~self ~value:allowed
 
 let update_allowed_operations ~__context ~self : unit =
