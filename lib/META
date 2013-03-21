@@ -1,8 +1,8 @@
 # OASIS_START
-# DO NOT EDIT (digest: 7c50fb77b40d71f2d7f0114bf282cc16)
+# DO NOT EDIT (digest: 558fc31f79527e19896586e81e04cbf0)
 version = "0.1.0"
 description = "XCP inventory library"
-requires = "uuidm stdext threads log"
+requires = "uuidm stdext threads"
 archive(byte) = "xcp-inventory.cma"
 archive(byte, plugin) = "xcp-inventory.cma"
 archive(native) = "xcp-inventory.cmxa"

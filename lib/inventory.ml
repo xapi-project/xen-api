@@ -17,9 +17,6 @@ open Pervasiveext
 open Stringext
 open Threadext
 
-module D = Debug.Debugger(struct let name="xapi" end)
-open D
-
 let inventory_filename = ref "/etc/xcp/inventory"
 
 (* Keys which must exist: *)
@@ -75,7 +72,6 @@ let string_of_table h =
 
 let read_inventory_contents () =
 	if not (Sys.file_exists !inventory_filename) then begin
-		warn "%s does not exist: generating a minimal one" !inventory_filename;
 		Unixext.write_string_to_file !inventory_filename (
 			string_of_table (minimum_default_entries ()))
 	end;
@@ -84,8 +80,7 @@ let read_inventory_contents () =
 	Unixext.file_lines_iter (fun line ->
 		match parse_inventory_entry line with
 			| Some (k, v) -> Hashtbl.add inventory k v
-			| None -> warn
-				"Failed to parse line from inventory file: %s" line)
+			| None -> ())
 		!inventory_filename;
 	loaded_inventory := true
 
