@@ -1,6 +1,6 @@
-name: xenopsd
+name: xcp-networkd
 version: 1.0.0
-synopsis: Xen domain manager
+synopsis: XCP Network Daemon
 obuild-ver: 1
 
 library network_config
@@ -11,7 +11,7 @@ library network_config
 executable xcp-networkd
   main: networkd.ml
   src-dir: networkd
-  build-deps: threads, rpclib, rpclib.unix, forkexec, stdext, log, http-svr, xcp-inventory, xcp-networkd, xen-api-client, xcp, xcp.network
+  build-deps: threads, rpclib, rpclib.unix, forkexec, stdext, log, http-svr, xcp-inventory, network_config, xen-api-client, xcp, xcp.network
   cdir: networkd
   c-sources: link_stubs.c
   pp: camlp4o
@@ -19,4 +19,4 @@ executable xcp-networkd
 executable networkd_db
   main: networkd_db.ml
   src-dir: networkd_db
-  build-deps: xcp-networkd, stdext, threads, xcp.network
+  build-deps: network_config, stdext, threads, xcp.network
