@@ -11,4 +11,4 @@ Library "xcp-inventory"
   CompiledObject:     best
   Modules:            Inventory
   Path:               lib
-  BuildDepends:       threads, stdext, log, uuid
+  BuildDepends:       uuidm, stdext, threads, log

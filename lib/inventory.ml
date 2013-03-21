@@ -43,8 +43,8 @@ let inventory_m = Mutex.create ()
 
 (* Compute the minimum necessary inventory file contents *)
 let minimum_default_entries () = 
-	let host_uuid = Uuid.string_of_uuid (Uuid.make_uuid ()) in
-	let dom0_uuid = Uuid.string_of_uuid (Uuid.make_uuid ()) in
+	let host_uuid = Uuidm.to_string (Uuidm.create `V4) in
+	let dom0_uuid = Uuidm.to_string (Uuidm.create `V4) in
 	[
 		_installation_uuid, host_uuid;
 		_control_domain_uuid, dom0_uuid;
