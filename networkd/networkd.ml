@@ -61,6 +61,12 @@ let resources = [
     essential = true;
     path = Network_utils.brctl;
     perms = [ Unix.X_OK ];
+  };
+  { Xcp_service.name = "ethtool";
+    description = "used to configure network interfaces";
+    essential = true;
+    path = Network_utils.ethtool;
+    perms = [ Unix.X_OK ];
   }
 ]
 

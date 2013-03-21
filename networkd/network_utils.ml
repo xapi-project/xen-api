@@ -30,7 +30,7 @@ let ovs_appctl = "/usr/bin/ovs-appctl"
 let ovs_vlan_bug_workaround = "/usr/sbin/ovs-vlan-bug-workaround"
 let brctl = ref "/sbin/brctl"
 let modprobe = "/sbin/modprobe"
-let ethtool = "/sbin/ethtool"
+let ethtool = ref "/sbin/ethtool"
 let bonding_dir = "/proc/net/bonding/"
 let dhcp6c = "/sbin/dhcp6c"
 
@@ -818,7 +818,7 @@ end
 
 module Ethtool = struct
 	let call ?(log=false) args =
-		call_script ~log_successful_output:log ethtool args
+		call_script ~log_successful_output:log !ethtool args
 
 	let set_options name options =
 		if options <> [] then
