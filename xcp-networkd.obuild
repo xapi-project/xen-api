@@ -1,0 +1,22 @@
+name: xenopsd
+version: 1.0.0
+synopsis: Xen domain manager
+obuild-ver: 1
+
+library network_config
+  src-dir: lib
+  modules: network_config
+  build-deps: stdext, threads, rpclib, log, stdext, xcp-inventory, xcp.network
+
+executable xcp-networkd
+  main: networkd.ml
+  src-dir: networkd
+  build-deps: threads, rpclib, rpclib.unix, forkexec, stdext, log, http-svr, xcp-inventory, xcp-networkd, xen-api-client, xcp, xcp.network
+  cdir: networkd
+  c-sources: link_stubs.c
+  pp: camlp4o
+
+executable networkd_db
+  main: networkd_db.ml
+  src-dir: networkd_db
+  build-deps: xcp-networkd, stdext, threads, xcp.network

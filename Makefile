@@ -1,31 +1,20 @@
-.PHONY: all clean install build
-all: build doc
+BINDIR ?= /usr/bin
+SBINDIR ?= /usr/sbin
+ETCDIR ?= /etc
 
-NAME=xcp-networkd
-J=4
+.PHONY: install uninstall clean
 
-export OCAMLRUNPARAM=b
+dist/build/xcp-networkd/xcp-networkd:
+	obuild configure
+	obuild build
 
-setup.bin: setup.ml
-	@ocamlopt.opt -o $@ $< || ocamlopt -o $@ $< || ocamlc -o $@ $<
-	@rm -f setup.cmx setup.cmi setup.o setup.cmo
+install:
+	install -D dist/build/xcp-networkd/xcp-networkd $(DESTDIR)$(SBINDIR)/xcp-networkd
+	install -D dist/build/networkd_db/networkd_db $(DESTDIR)$(BINDIR)/networkd_db
 
-setup.data: setup.bin
-	@./setup.bin -configure
-
-build: setup.data setup.bin
-	@./setup.bin -build -j $(J)
-
-doc: setup.data setup.bin
-	@./setup.bin -doc -j $(J)
-
-install: setup.bin
-	@./setup.bin -install
-
-reinstall: setup.bin
-	@ocamlfind remove $(NAME) || true
-	@./setup.bin -reinstall
+uninstall:
+	rm -f $(DESTDIR)$(SBINDIR)/xcp-networkd
+	rm -f $(DESTDIR)$(SBINDIR)/networkd_db
 
 clean:
-	@ocamlbuild -clean
-	@rm -f setup.data setup.log setup.bin
+	rm -rf dist	
