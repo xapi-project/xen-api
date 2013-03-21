@@ -96,10 +96,11 @@ let get_new_stunnel_id =
 
 (** Returns an stunnel, either from the persistent cache or a fresh one which
     has been checked out and guaranteed to work. *)
-let get_reusable_stunnel ?use_fork_exec_helper ?write_to_log host port verify_cert =
+let get_reusable_stunnel ?use_fork_exec_helper ?write_to_log host port ?verify_cert =
   let start_time = Unix.gettimeofday () in
   let found = ref None in
   (* 1. First check if there is a suitable stunnel in the cache. *)
+  let verify_cert = Stunnel.must_verify_cert verify_cert in
   begin
     try
       while !found = None do
@@ -213,7 +214,7 @@ let with_transport transport f = match transport with
 		task_id = task_id}, host, port) ->
 		let st_proc =
 			if use_stunnel_cache
-			then get_reusable_stunnel ~use_fork_exec_helper ~write_to_log host port verify_cert
+			then get_reusable_stunnel ~use_fork_exec_helper ~write_to_log host port ?verify_cert
 			else
 				let unique_id = get_new_stunnel_id () in
 				Stunnel.connect ~use_fork_exec_helper ~write_to_log ~unique_id ?verify_cert ~extended_diagnosis:true host port in

@@ -254,6 +254,11 @@ let rec retry f = function
 	ignore(Unix.select [] [] [] 3.);
 	retry f (n - 1)
 
+let must_verify_cert verify_cert =
+  match verify_cert with
+  | Some x -> x
+  | None -> Sys.file_exists verify_certificates_ctrl
+
 (** Establish a fresh stunnel to a (host, port)
     @param extended_diagnosis If true, the stunnel log file will not be
     deleted.  Instead, it is the caller's responsibility to delete it.  This
@@ -266,9 +271,7 @@ let connect
 		?(extended_diagnosis=false)
 		host
 		port = 
-	let _verify_cert = match verify_cert with
-		| Some x -> x
-		| None -> Sys.file_exists verify_certificates_ctrl in
+	let _verify_cert = must_verify_cert verify_cert in
   let _ = match write_to_log with 
     | Some logger -> stunnel_logger := logger
     | None -> () in

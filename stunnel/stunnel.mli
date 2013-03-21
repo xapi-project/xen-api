@@ -56,3 +56,5 @@ val disconnect : ?wait:bool -> ?force:bool -> t -> unit
 val diagnose_failure : t -> unit
 
 val test : string -> int -> unit
+
+val must_verify_cert : bool option -> bool
