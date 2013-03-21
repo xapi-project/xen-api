@@ -180,10 +180,7 @@ let pause ~__context ~vm =
 	Xapi_xenops.pause ~__context ~self:vm
 
 let unpause ~__context ~vm =
-	License_check.with_vm_license_check ~__context vm
-		(fun () ->
-			Xapi_xenops.unpause ~__context ~self:vm
-		)
+	Xapi_xenops.unpause ~__context ~self:vm
 
 let set_xenstore_data ~__context ~self ~value =
 	Xapi_xenops.set_xenstore_data ~__context ~self value
@@ -194,18 +191,15 @@ let set_xenstore_data ~__context ~self ~value =
 *)
 
 let start ~__context ~vm ~start_paused ~force =
-	License_check.with_vm_license_check ~__context vm
-		(fun () ->
-			let vmr = Db.VM.get_record ~__context ~self:vm in
-			Vgpuops.create_vgpus ~__context (vm, vmr) (Helpers.will_boot_hvm ~__context ~self:vm);
+	let vmr = Db.VM.get_record ~__context ~self:vm in
+	Vgpuops.create_vgpus ~__context (vm, vmr) (Helpers.will_boot_hvm ~__context ~self:vm);
 
-			if vmr.API.vM_ha_restart_priority = Constants.ha_restart
-			then begin
-				Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context vm;
-				Db.VM.set_ha_always_run ~__context ~self:vm ~value:true
-			end;
-			Xapi_xenops.start ~__context ~self:vm start_paused
-		)
+	if vmr.API.vM_ha_restart_priority = Constants.ha_restart
+	then begin
+		Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context vm;
+		Db.VM.set_ha_always_run ~__context ~self:vm ~value:true
+	end;
+	Xapi_xenops.start ~__context ~self:vm start_paused
 
 (** For VM.start_on and VM.resume_on the message forwarding layer should only forward here
     if 'host' = localhost *)
@@ -224,10 +218,7 @@ let start_on  ~__context ~vm ~host ~start_paused ~force =
 	start ~__context ~vm ~start_paused ~force
 
 let hard_reboot ~__context ~vm =
-	License_check.with_vm_license_check ~__context vm
-		(fun () ->
-			Xapi_xenops.reboot ~__context ~self:vm None
-		)
+	Xapi_xenops.reboot ~__context ~self:vm None
 
 let hard_shutdown ~__context ~vm =
 	Db.VM.set_ha_always_run ~__context ~self:vm ~value:false;
@@ -246,10 +237,7 @@ let hard_shutdown ~__context ~vm =
 	Xapi_xenops.shutdown ~__context ~self:vm None
 
 let clean_reboot ~__context ~vm =
-	License_check.with_vm_license_check ~__context vm
-		(fun () ->
-			Xapi_xenops.reboot ~__context ~self:vm (Some 1200.0)
-		)
+	Xapi_xenops.reboot ~__context ~self:vm (Some 1200.0)
 
 let clean_shutdown ~__context ~vm =
 	Db.VM.set_ha_always_run ~__context ~self:vm ~value:false;
@@ -316,19 +304,16 @@ let suspend ~__context ~vm =
 	Xapi_xenops.suspend ~__context ~self:vm
 
 let resume ~__context ~vm ~start_paused ~force = 
-	License_check.with_vm_license_check ~__context vm
-		(fun () ->
-			if Db.VM.get_ha_restart_priority ~__context ~self:vm = Constants.ha_restart
-			then begin
-				Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context vm;
-				Db.VM.set_ha_always_run ~__context ~self:vm ~value:true
-			end;
+	if Db.VM.get_ha_restart_priority ~__context ~self:vm = Constants.ha_restart
+	then begin
+		Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context vm;
+		Db.VM.set_ha_always_run ~__context ~self:vm ~value:true
+	end;
 
-			let host = Helpers.get_localhost ~__context in
-			if not force then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ();
+	let host = Helpers.get_localhost ~__context in
+	if not force then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ();
 
-			Xapi_xenops.resume ~__context ~self:vm ~start_paused ~force
-		)
+	Xapi_xenops.resume ~__context ~self:vm ~start_paused ~force
 
 let resume_on  ~__context ~vm ~host ~start_paused ~force =
 	(* If we modify this to support resume_on other-than-localhost,
