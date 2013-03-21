@@ -20,7 +20,7 @@ open Threadext
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
-let inventory_filename = Fhs.inventory
+let inventory_filename = ref "/etc/xcp/inventory"
 
 (* Keys which must exist: *)
 let _installation_uuid = "INSTALLATION_UUID"
@@ -74,9 +74,9 @@ let string_of_table h =
 	String.concat "" lines
 
 let read_inventory_contents () =
-	if not (Sys.file_exists inventory_filename) then begin
-		warn "%s does not exist: generating a minimal one" inventory_filename;
-		Unixext.write_string_to_file inventory_filename (
+	if not (Sys.file_exists !inventory_filename) then begin
+		warn "%s does not exist: generating a minimal one" !inventory_filename;
+		Unixext.write_string_to_file !inventory_filename (
 			string_of_table (minimum_default_entries ()))
 	end;
 	(* Perhaps we should blank the old inventory before we read the new one?
@@ -86,7 +86,7 @@ let read_inventory_contents () =
 			| Some (k, v) -> Hashtbl.add inventory k v
 			| None -> warn
 				"Failed to parse line from inventory file: %s" line)
-		inventory_filename;
+		!inventory_filename;
 	loaded_inventory := true
 
 let read_inventory () = Mutex.execute inventory_m read_inventory_contents
@@ -109,7 +109,7 @@ let lookup ?default key =
 
 let flush_to_disk_locked () =
 	let h = Hashtbl.fold (fun k v acc -> (k, v) :: acc) inventory [] in
-	Unixext.write_string_to_file inventory_filename (string_of_table h)
+	Unixext.write_string_to_file !inventory_filename (string_of_table h)
 
 let update key value = Mutex.execute inventory_m (fun () ->
 	Hashtbl.clear inventory;
