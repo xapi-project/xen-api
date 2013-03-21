@@ -1,0 +1,12 @@
+Name:        xcp-inventory
+Version:     0.1
+Synopsis:    Library to handle reading and writing the XCP inventory file 
+Authors:     Citrix
+License:     LGPL-2.1 with OCaml linking exception
+obuild-ver:  1
+
+Library xcp-inventory
+  Path: lib/
+  Modules: Inventory
+  BuildDepends: uuidm, stdext, threads
+
