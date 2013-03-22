@@ -2,11 +2,14 @@ BINDIR ?= /usr/bin
 SBINDIR ?= /usr/sbin
 ETCDIR ?= /etc
 
-.PHONY: install uninstall clean
+.PHONY: test install uninstall clean
 
 dist/build/xcp-networkd/xcp-networkd:
 	obuild configure
 	obuild build
+
+test:
+	./dist/build/network_test/network_test -verbose
 
 install:
 	install -D dist/build/xcp-networkd/xcp-networkd $(DESTDIR)$(SBINDIR)/xcp-networkd
@@ -17,4 +20,4 @@ uninstall:
 	rm -f $(DESTDIR)$(SBINDIR)/networkd_db
 
 clean:
-	rm -rf dist	
+	rm -rf dist
