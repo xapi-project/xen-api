@@ -3,20 +3,25 @@ version: 1.0.0
 synopsis: XCP Network Daemon
 obuild-ver: 1
 
-library network_config
+library network-libs
   src-dir: lib
-  modules: network_config
-  build-deps: stdext, threads, rpclib, log, stdext, xcp-inventory, xcp.network
+  modules: network_config, network_utils
+  build-deps: forkexec, stdext, threads, rpclib, log, stdext, xcp-inventory, xcp.network
+  cdir: lib
+  c-sources: link_stubs.c
 
 executable xcp-networkd
   main: networkd.ml
   src-dir: networkd
-  build-deps: threads, rpclib, rpclib.unix, forkexec, stdext, log, http-svr, xcp-inventory, network_config, xen-api-client, xcp, xcp.network
-  cdir: networkd
-  c-sources: link_stubs.c
+  build-deps: threads, rpclib, rpclib.unix, forkexec, stdext, log, http-svr, xcp-inventory, network-libs, xen-api-client, xcp, xcp.network
   pp: camlp4o
 
 executable networkd_db
   main: networkd_db.ml
   src-dir: networkd_db
-  build-deps: network_config, stdext, threads, xcp.network
+  build-deps: network-libs, stdext, threads, xcp.network
+
+executable network_test
+  main: network_test.ml
+  src-dir: test
+  build-deps: stdext, oUnit, network-libs
