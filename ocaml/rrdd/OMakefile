@@ -10,7 +10,7 @@ OCAMLINCLUDES = \
 	interface
 # ocaml/xapi only needed for xapi_fist : should move xapi_first to libs
 OCAMLPACKS = oclock xml-light2 stunnel http-svr xenctrl xenctrlext xenstore
-OCAML_LIBS = $(ROOT)/ocaml/fhs ../idl/ocaml_backend/xapi_client
+OCAML_LIBS = $(ROOT)/ocaml/fhs ../idl/ocaml_backend/xapi_client ../xenops/xenstore_watch
 # ../xenops/xenops_client
 
 UseCamlp4(rpc-light.syntax, rrdd_server)
