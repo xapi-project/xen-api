@@ -90,7 +90,11 @@ let test_lacp_defaults_bond_create () =
 	let bond = "bond0"
 	and ifaces = ["eth0"; "eth1"]
 	and bridge = "xapi1"
-	and default_props = Xapi_bond.__test_add_lacp_defaults [ "mode", "lacp" ]
+	and default_props = [
+		"mode", "lacp";
+		"lacp-time", "slow";
+		"hashing_algorithm", "tcpudp_ports";
+	]
 	in
 	Ovs.create_bond bond ifaces bridge default_props |> ignore;
 	(* should not have any strings which contain lacp-aggregation-key *)
