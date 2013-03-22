@@ -120,7 +120,7 @@ let test_lacp_defaults_bond_create () =
 		!OVS_Cli_test.vsctl_output
 
 let suite =
-	"pr1510_suite" >:::
+	"lacp_properties" >:::
 		[
 			"test_lacp_timeout_prop(slow)" >:: test_lacp_timeout_prop "slow";
 			"test_lacp_timeout_prop(fast)" >:: test_lacp_timeout_prop "fast";
