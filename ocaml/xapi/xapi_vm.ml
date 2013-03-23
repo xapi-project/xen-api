@@ -505,7 +505,8 @@ let copy ~__context ~vm ~new_name ~sr =
 		(fun () ->
 			let new_vm = Xapi_vm_clone.clone (Xapi_vm_clone.Disk_op_copy sr) ~__context ~vm ~new_name in
 			if Db.VM.get_is_a_snapshot ~__context ~self:vm && Db.VM.get_power_state ~__context ~self:new_vm <> `Halted then
-				hard_shutdown ~__context ~vm:new_vm;
+				Helpers.call_api_functions ~__context
+					(fun rpc session_id -> Client.VM.hard_shutdown ~rpc ~session_id ~vm:new_vm);
 			new_vm
 		)
 
