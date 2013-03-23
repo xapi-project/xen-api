@@ -1,6 +1,0 @@
-Changeset 499:
-  Now that the HTTP server is running in single-threaded mode, all tests pass.
-    (100000 VM.get_otherConfig via looper.py and 
-       7000 Debug.recycle_int_float_map via looper2.py)
-  When in multi-threaded mode, it invariably dies after about 100 connections
-    with a "Bad file descriptor" error. Server keeps running though.

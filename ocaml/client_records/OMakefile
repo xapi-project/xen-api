@@ -1,6 +1,0 @@
-OCAMLPACKS += http-svr
-OCAMLINCLUDES += ../autogen ../idl ../idl/ocaml_backend ../database
-
-.PHONY: clean
-clean:
-	rm -f *.cmi *.cmx *.o
