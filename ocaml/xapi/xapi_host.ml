@@ -413,9 +413,14 @@ let evacuate ~__context ~host =
 		let individual_progress = 1.0 /. float (Hashtbl.length plans) in
 		let migrate_vm  vm plan = match plan with
 			| Migrate host ->
-				Helpers.call_api_functions ~__context
+				(try
+					Helpers.call_api_functions ~__context
 					(fun rpc session_id -> Client.Client.VM.pool_migrate
-						~rpc ~session_id ~vm ~host ~options:[ "live", "true" ]);
+						~rpc ~session_id ~vm ~host ~options:[ "live", "true" ])
+				with
+				|Api_errors.Server_error(code, params) when code = Api_errors.vm_bad_power_state -> ()
+				| e -> raise e
+				);
 				let progress = Db.Task.get_progress ~__context ~self:task in
 				TaskHelper.set_progress ~__context (progress +. individual_progress)
 			| Error(code, params) -> (* should never happen *)
