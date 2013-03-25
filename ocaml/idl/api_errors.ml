@@ -368,6 +368,7 @@ let ha_constraint_violation_network_not_shared = "HA_CONSTRAINT_VIOLATION_NETWOR
 let ha_operation_would_break_failover_plan = "HA_OPERATION_WOULD_BREAK_FAILOVER_PLAN"
 
 let cannot_evacuate_host = "CANNOT_EVACUATE_HOST"
+let host_evacuate_in_progress = "HOST_EVACUATE_IN_PROGRESS"
 
 let system_status_retrieval_failed = "SYSTEM_STATUS_RETRIEVAL_FAILED"
 let system_status_must_use_tar_on_oem = "SYSTEM_STATUS_MUST_USE_TAR_ON_OEM"
