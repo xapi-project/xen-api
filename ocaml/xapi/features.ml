@@ -17,7 +17,6 @@ open D
 (* Features and restrictions *)
 
 type feature =
-	| Hotfix_apply
 	| VLAN
 	| QoS
 	| Shared_storage
@@ -72,7 +71,6 @@ let keys_of_features =
 		DR, ("restrict_dr", Negative, "DR");
 		VIF_locking, ("restrict_vif_locking", Negative, "VIFLock");
 		Storage_motion, ("restrict_storage_xen_motion", Negative, "SXM");
-		Hotfix_apply, ("restrict_hotfix_apply", Negative, "HFX");
 	]
 
 let string_of_feature f =
