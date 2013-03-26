@@ -36,7 +36,10 @@ start() {
     [ -e /var/lib/xenstored/tdb ] && mv -f /var/lib/xenstored/tdb /var/lib/xenstored/tdb.bak
     "@BINDIR@/xenstored" ${XENSTORED_ARG}
 
+	OLD_ULIMIT_N=$(ulimit -n)
+	ulimit -n 4096
 	/usr/sbin/xenconsoled
+	ulimit -n $OLD_ULIMIT_N
 	[ -d /var/log/blktap ] || mkdir /var/log/blktap
 	
 	# Delete rubbish from xapi's private tree in xenstore, once per boot (not once per
