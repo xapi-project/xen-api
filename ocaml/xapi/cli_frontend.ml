@@ -2361,22 +2361,6 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
 			; implementation = No_fd Cli_operations.secret_destroy
 			; flags = []
 			};
-    "vmpp-create",
-    {
-      reqd=["name-label";"backup-type";"backup-frequency"];
-      optn=["name-description";"is-policy-enabled";"backup-schedule:";"backup-retention-value";"archive-target-type";"archive-target-config:";"archive-frequency";"archive-schedule:";"is-alarm-enabled";"alarm-config:"];
-      help="Create a new VM protection policy.";
-      implementation=No_fd Cli_operations.vmpp_create;
-      flags=[];
-    };
-    "vmpp-destroy",
-    {
-      reqd=["uuid"];
-      optn=[];
-      help="Destroy a VM protection policy.";
-      implementation=No_fd Cli_operations.vmpp_destroy;
-      flags=[];
-    };
 		"appliance-create",
 		{
 			reqd=["name-label"];
