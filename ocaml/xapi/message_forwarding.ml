@@ -2803,18 +2803,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				(pif_uuid ~__context self)
 				(Record_util.ip_configuration_mode_to_string mode) iP netmask gateway dNS;
 
-			(*      let host = Db.PIF.get_host ~__context ~self in
-			        let pbds = Db.Host.get_PBDs ~__context ~self:host in
-
-			        if Db.Host.get_enabled ~__context ~self then
-			        raise (Api_errors.Server_error (Api_errors.host_not_disabled, [host]));
-
-			        List.iter (fun pbd -> if Db.PBD.get_currently_attached ~__context ~self:pbd then
-			        raise (Api_errors.Server_error (Api_errors.sr_attached, [Db.PBD.get_SR ~__context ~self:pbd]))) pbds;
-
-			        if List.length (Db.Host.get_resident_VMs ~__context ~self:host) > 1 then
-			        raise (Api_errors.Server_error (Api_errors.host_in_use, ["VM",""]));*)
-
 			let local_fn = Local.PIF.reconfigure_ip ~self ~mode ~iP ~netmask ~gateway ~dNS in
 			do_op_on ~local_fn ~__context ~host:(Db.PIF.get_host ~__context ~self)
 				(fun session_id rpc ->
