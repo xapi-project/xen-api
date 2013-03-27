@@ -1035,6 +1035,30 @@ module VM = struct
 
 			Domain.cpuid_apply ~xc ~hvm:(will_be_hvm vm) domid;
 			debug "VM = %s; domid = %d; Domain built with architecture %s" vm.Vm.id domid (Domain.string_of_domarch arch);
+			(* PR-1061: Preliminary support for VGPUS *)
+			(* Display vgpus related params in the log *)
+			List.iter (fun (k,v) -> if try String.sub k 0 4 = "vgpu" with
+			Invalid_argument _ -> false then
+				debug "VGPU config: %s -> %s" k v) vm.Vm.platformdata;
+            let start_demu domid n_vcpus vgpu_pciid config =
+	            (* Execute demu, forwarding stdout to the syslog, with the key "demu-<domid>" *)
+	            let syslog_stdout = Forkhelpers.Syslog_WithKey (Printf.sprintf "demu-%d" domid) in
+			    let _demu = "/usr/lib/xen/bin/demu" in
+			    let _demu_args =
+				    [ "--domain=" ^ (string_of_int domid);
+				      "--vcpus=" ^ (string_of_int n_vcpus);
+				      "--gpu=" ^ vgpu_pciid;
+				      "--config=" ^ config
+				    ] in
+			    let demu_pid = Forkhelpers.safe_close_and_exec None None None [] ~syslog_stdout _demu _demu_args in
+                debug "demu: should be running in the background (stdout redirected to syslog)";
+			    Forkhelpers.dontwaitpid demu_pid in
+			(* Launch demu if the keys are in *)
+            let () = if List.mem_assoc "vgpu_pci_id" vm.Vm.platformdata
+                    && List.mem_assoc "vgpu_config" vm.Vm.platformdata then
+                    start_demu domid vm.Vm.vcpus
+                        (List.assoc "vgpu_pci_id" vm.Vm.platformdata)
+                        (List.assoc "vgpu_config" vm.Vm.platformdata) in
 			let k = vm.Vm.id in
 			let d = DB.read_exn vm.Vm.id in
 			let persistent = { d.VmExtra.persistent with
