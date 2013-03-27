@@ -87,102 +87,57 @@ module Domain = struct
 			  Hashtbl.remove cache domid;
 			  None
 
-  let _introduceDomain = "@introduceDomain"
-  let _releaseDomain = "@releaseDomain"
-  let watch_xenstore () =
-	  with_xc_and_xs
-		  (fun xc xs ->
-			  let interesting_paths = [
-				  [ "memory";  "initial-reservation" ];
-				  [ "memory";  "target" ];
-				  [ "control"; "feature-balloon" ];
-				  [ "data";    "updated" ];
-				  [ "memory";  "memory-offset" ];
-				  [ "memory";  "uncooperative" ];
-				  [ "memory";  "dynamic-min" ];
-				  [ "memory";  "dynamic-max" ];
-			  ] in
-			  let watches domid =
-				  List.map (fun p -> Printf.sprintf "/local/domain/%d/%s" domid (String.concat "/" p)) interesting_paths in
+  module MemoryActions = struct
+	let interesting_paths = [
+	        [ "memory";  "initial-reservation" ];
+	        [ "memory";  "target" ];
+	        [ "control"; "feature-balloon" ];
+	        [ "data";    "updated" ];
+	        [ "memory";  "memory-offset" ];
+	        [ "memory";  "uncooperative" ];
+	        [ "memory";  "dynamic-min" ];
+	        [ "memory";  "dynamic-max" ];
+	]
 
-			  let module IntSet = Set.Make(struct type t = int let compare = compare end) in
-			  let watching_domids = ref IntSet.empty in
+	let interesting_paths_for_domain domid uuid = 
+		List.map (fun p -> Printf.sprintf "/local/domain/%d/%s" domid (String.concat "/" p)) interesting_paths
 
-			  let look_for_different_domains () =
-				  let list_domains xc =
-					  let open Xenctrl.Domain_info in
-					  let dis = Xenctrl.domain_getinfolist xc 0 in
-					  List.fold_left (fun set x -> if not x.shutdown then IntSet.add x.domid set else set) IntSet.empty dis in
-				  let existing = list_domains xc in
-				  let arrived = IntSet.diff existing !watching_domids in
-				  IntSet.iter
-					  (fun domid ->
-						  debug "Adding watches for domid: %d" domid;
-						  List.iter (fun x ->
-							  try
-								  xs.Xs.watch x x
-							  with e ->
-								  error "watch %s: %s" x (Printexc.to_string e)
-						  ) (watches domid);
-					  ) arrived;
-				  let gone = IntSet.diff !watching_domids existing in
-				  IntSet.iter
-					  (fun domid ->
-						  debug "Removing watches for domid: %d" domid;
-						  List.iter (fun x ->
-							  try
-								  xs.Xs.unwatch x x
-							  with e ->
-								  error "unwatch %s: %s" x (Printexc.to_string e)
-						  ) (watches domid);
-					  ) gone;
-				  watching_domids := existing;
-				  Mutex.execute m
-					  (fun () ->
-						  IntSet.iter (Hashtbl.remove cache) gone;
-						  IntSet.iter (fun domid -> try ignore(get_per_domain (xc, xs) domid) with _ -> ()) arrived
-					  ) in
+	let unmanaged_domain _ _ = false
 
-			xs.Xs.watch _introduceDomain "";
-			xs.Xs.watch _releaseDomain "";
-			look_for_different_domains ();
+	let found_running_domain _ _ = ()
 
-			while true do
-				let path, _ =
-					if Xs.has_watchevents xs
-					then Xs.get_watchevent xs
-					else Xs.read_watchevent xs in
-				if path = _introduceDomain || path = _releaseDomain
-				then look_for_different_domains ()
-				else match List.filter (fun x -> x <> "") (String.split '/' path) with
-					| "local" :: "domain" :: domid :: rest when List.mem rest interesting_paths ->
-						let value = try Some (xs.Xs.read path) with _ -> None in
-						let domid = int_of_string domid in
-						Mutex.execute m
-							(fun () ->
-								match get_per_domain (xc, xs) domid with
-								| None -> ()
-								| Some per_domain ->
-									let key = "/" ^ (String.concat "/" rest) in
-									debug "watch %s <- %s" key (Opt.default "None" value);
-									Hashtbl.replace per_domain.keys key value
-							)
-					| _  -> debug "Ignoring unexpected watch: %s" path
-			done
-		  )
+	let domain_disappeared xc xs domid =
+		Mutex.execute m
+			(fun () ->
+				Hashtbl.remove cache domid
+			)
 
-  let start_watch_xenstore_thread () =
-	  let (_: Thread.t) = Thread.create
-		  (fun () ->
-			  while true do
-				  try
-					  watch_xenstore ()
-				  with e ->
-					  error "watch_xenstore: %s" (Printexc.to_string e);
-					  Thread.delay 1.
-			  done
-		  ) () in
-	  ()
+	let domain_appeared xc xs domid =
+		Mutex.execute m
+			(fun () ->
+				try ignore(get_per_domain (xc, xs) domid) with _ -> ()
+			)
+
+	let watch_fired xc xs path domains watches =
+		match List.filter (fun x -> x <> "") (String.split '/' path) with
+			| "local" :: "domain" :: domid :: rest when List.mem rest interesting_paths ->
+				let value = try Some (xs.Xs.read path) with _ -> None in
+				let domid = int_of_string domid in
+				Mutex.execute m
+					(fun () ->
+						match get_per_domain (xc, xs) domid with
+						| None -> ()
+						| Some per_domain ->
+							let key = "/" ^ (String.concat "/" rest) in
+							debug "watch %s <- %s" key (Opt.default "None" value);
+							Hashtbl.replace per_domain.keys key value
+					)
+			| _  -> debug "Ignoring unexpected watch: %s" path
+  end
+
+  module Watcher = Xenstore_watch.WatchXenstore(MemoryActions)
+
+  let start_watch_xenstore_thread () = ignore (Watcher.create_watcher_thread ())
 
   let get_hvm cnx domid =
 	  Mutex.execute m (fun () ->
