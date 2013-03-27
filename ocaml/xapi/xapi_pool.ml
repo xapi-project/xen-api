@@ -1624,11 +1624,7 @@ let audit_log_append ~__context ~line =
 	()
 
 let test_archive_target ~__context ~self ~config =
-  Xapi_plugins.call_plugin
-    (Context.get_session_id __context)
-    Xapi_vmpp.vmpr_plugin
-    "test_archive_target"
-    config
+	raise (Api_errors.Server_error (Api_errors.message_removed, []))
 
 let enable_local_storage_caching ~__context ~self =
     let srs = Db.SR.get_all_records ~__context in
