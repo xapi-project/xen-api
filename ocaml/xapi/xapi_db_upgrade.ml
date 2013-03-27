@@ -330,6 +330,19 @@ let upgrade_host_editions = {
 			hosts
 }
 
+let remove_vmpp = {
+	description = "Removing VMPP metadata (feature was removed)";
+	version = (fun x -> x <= tampa);
+	fn = fun ~__context ->
+		let vmpps = Db.VMPP.get_all ~__context in
+		List.iter (fun self -> Db.VMPP.destroy ~__context ~self) vmpps;
+		let open Db_filter_types in
+		let vms = Db.VM.get_refs_where ~__context ~expr:(
+			Not (Eq (Field "protection_policy", Literal (Ref.string_of Ref.null)))
+		) in
+		List.iter (fun self -> Db.VM.set_protection_policy ~__context ~self ~value:Ref.null) vms
+}
+
 let rules = [
 	upgrade_vm_memory_overheads;
 	upgrade_wlb_configuration;
@@ -343,6 +356,7 @@ let rules = [
 	upgrade_auto_poweron;
 	upgrade_pif_metrics;
 	upgrade_host_editions;
+	remove_vmpp;
 ]
 
 (* Maybe upgrade most recent db *)
