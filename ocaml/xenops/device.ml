@@ -922,27 +922,29 @@ let stop ~xs domid =
 
 end
 
-module Qemu = struct
+module type DAEMONPIDPATH = sig
+	val pid_path : int -> string
+end
 
-	(* Where qemu-dm-wrapper writes its pid *)
-	let qemu_pid_path domid = sprintf "/local/domain/%d/qemu-pid" domid
-
+module DaemonMgmt (D : DAEMONPIDPATH) = struct
+	let pid_path = D.pid_path
 	let pid ~xs domid =
 		try
-			let pid = xs.Xs.read (qemu_pid_path domid) in
+			let pid = xs.Xs.read (pid_path domid) in
 			Some (int_of_string pid)
-		with _ ->
-			None
+		with _ -> None
 	let is_running ~xs domid =
-
 		match pid ~xs domid with
 			| None -> false
 			| Some p ->
 				try
-					Unix.kill p 0;
+					Unix.kill p 0; (* This checks the existence of pid p *)
 					true
 				with _ -> false
 end
+
+module Qemu = DaemonMgmt(struct let pid_path domid = sprintf "/local/domain/%d/qemu-pid" domid end)
+module Demu = DaemonMgmt(struct let pid_path domid = sprintf "/local/domain/%d/demu-pid" domid end)
 
 module PCI = struct
 
@@ -1296,7 +1298,7 @@ let wait_device_model (task: Xenops_task.t) ~xc ~xs domid =
   let be_domid = 0 in
   let path = device_model_state_path xs be_domid domid in
   let watch = Watch.value_to_appear path |> Watch.map (fun _ -> ()) in
-  let shutdown = Watch.key_to_disappear (Qemu.qemu_pid_path domid) in
+  let shutdown = Watch.key_to_disappear (Qemu.pid_path domid) in
   let cancel = Domain domid in
   let (_: bool) = cancellable_watch cancel [ watch; shutdown ] [] task ~xs ~timeout:!Xapi_globs.hotplug_timeout () in
   if Qemu.is_running ~xs domid then begin
@@ -1820,25 +1822,41 @@ let resume (task: Xenops_task.t) ~xs ~qemu_domid domid =
 
 (* Called by every domain destroy, even non-HVM *)
 let stop ~xs ~qemu_domid domid  =
-	let qemu_pid_path = Qemu.qemu_pid_path domid in
-	match (Qemu.pid ~xs domid) with
-		| None -> () (* nothing to do *)
+	let qemu_pid_path = Qemu.pid_path domid
+	and demu_pid_path = Demu.pid_path domid in
+    let stop_qemu () = (match (Qemu.pid ~xs domid) with
+	    | None -> () (* nothing to do *)
 		| Some qemu_pid ->
 			debug "qemu-dm: stopping qemu-dm with SIGTERM (domid = %d)" domid;
-
 			let open Generic in
-			best_effort "killing qemu-dm"
-				(fun () -> really_kill qemu_pid);
-			best_effort "removing qemu-pid from xenstore"
-				(fun () -> xs.Xs.rm qemu_pid_path);
-			(* best effort to delete the qemu chroot dir; we deliberately want this to fail if the dir is not empty cos it may contain
-			   core files that bugtool will pick up; the xapi init script cleans out this directory with "rm -rf" on boot *)
-			best_effort "removing core files from /var/xen/qemu"
-				(fun () -> Unix.rmdir ("/var/xen/qemu/"^(string_of_int qemu_pid)));
-			best_effort "removing device model path from xenstore"
-				(fun () -> xs.Xs.rm (device_model_path ~qemu_domid domid))
+			    best_effort "killing qemu-dm"
+				    (fun () -> really_kill qemu_pid);
+			    best_effort "removing qemu-pid from xenstore"
+				    (fun () -> xs.Xs.rm qemu_pid_path);
+			    (* best effort to delete the qemu chroot dir; we
+			       deliberately want this to fail if the dir is not
+			       empty cos it may contain core files that bugtool
+			       will pick up; the xapi init script cleans out this
+			       directory with "rm -rf" on boot *)
+			    best_effort "removing core files from /var/xen/qemu"
+				    (fun () -> Unix.rmdir ("/var/xen/qemu/"^(string_of_int qemu_pid)));
+			    best_effort "removing device model path from xenstore"
+				    (fun () -> xs.Xs.rm (device_model_path ~qemu_domid domid)))
+    in
+    let stop_demu () = (match (Demu.pid ~xs domid) with
+        | None -> ()
+        | Some demu_pid ->
+            debug "demu: stopping demu with SIGTERM (domid = %d)" domid;
+            let open Generic in
+                best_effort "killing demu"
+                    (fun () -> really_kill demu_pid);
+                best_effort "removing demu-pid from xenstore"
+                    (fun () -> xs.Xs.rm demu_pid_path))
+    in
+    stop_qemu ();
+    stop_demu ()
 
-end
+end (* End of module Dm *)
 
 let get_vnc_port ~xs domid = 
 	(* Check whether a qemu exists for this domain *)

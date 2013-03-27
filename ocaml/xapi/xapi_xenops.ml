@@ -37,7 +37,8 @@ let filtered_platform_flags = ["acpi"; "apic"; "nx"; "pae"; "viridian";
                                "acpi_s3";"acpi_s4"; "mmio_size_mib"; "revision"; "device_id";
                                "tsc_mode"; "device-model"; "xenguest";
                                "pv-kernel-max-size"; "pv-ramdisk-max-size";
-                               "pv-postinstall-kernel-max-size"; "pv-postinstall-ramdisk-max-size"
+                               "pv-postinstall-kernel-max-size"; "pv-postinstall-ramdisk-max-size";
+                               "vgpu_pci_id"; "vgpu_config"
                              ]
 
 let xenops_vdi_locator_of_strings sr_uuid vdi_location =
