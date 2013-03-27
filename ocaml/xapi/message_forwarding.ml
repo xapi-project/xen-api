@@ -2822,17 +2822,23 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					   this end to die quickly. To get around this, we spawn a new thread to do the
 					   work and monitor the status of the task, which will be completed on the slave.
 					   We ignore errors at the moment (only on slaves) *)
+					let exc = ref None in
 					let (_: Thread.t) = Thread.create (fun () ->
-						Client.PIF.reconfigure_ip rpc session_id self mode iP netmask gateway dNS) () in
+						try
+							Client.PIF.reconfigure_ip rpc session_id self mode iP netmask gateway dNS
+						with e -> exc := Some e) () in
 					let task_id = Context.get_task_id __context in
 					let start_time = Unix.gettimeofday () in
 					let progress = ref 0.0 in
 					while !progress = 0.0 do
-						if Unix.gettimeofday () -. start_time > !Xapi_globs.pif_reconfigure_ip_timeout then
-							failwith "Failed to see host on network after timeout expired";
-						Thread.delay 1.0;
-						progress := Db.Task.get_progress ~__context ~self:task_id;
-						debug "Polling task %s progress" (Ref.string_of task_id)
+						match !exc with
+							| Some e -> raise e
+							| None ->
+								if Unix.gettimeofday () -. start_time > !Xapi_globs.pif_reconfigure_ip_timeout then
+									failwith "Failed to see host on network after timeout expired";
+								Thread.delay 1.0;
+								progress := Db.Task.get_progress ~__context ~self:task_id;
+								debug "Polling task %s progress" (Ref.string_of task_id)
 					done)
 
 		let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
