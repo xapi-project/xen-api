@@ -779,17 +779,18 @@ module VBD : HandlerTools = struct
 			| Metadata_import {dry_run = dry_run; live = live} -> dry_run, live
 			| _ -> false, false
 			in
-			if not (dry_run && live) then begin
-				if vbd_record.API.vBD_currently_attached && not(exists vbd_record.API.vBD_VDI state.table) then begin
-				(* It's only ok if it's a CDROM attached to an HVM guest *)
-				let has_booted_hvm =
-					let lbr =
-						try Helpers.parse_boot_record original_vm.API.vM_last_booted_record with _ -> original_vm
+			if not (dry_run && live) then 
+				begin
+					if vbd_record.API.vBD_currently_attached && not(exists vbd_record.API.vBD_VDI state.table) then begin
+					(* It's only ok if it's a CDROM attached to an HVM guest *)
+					let has_booted_hvm =
+						let lbr =
+							try Helpers.parse_boot_record original_vm.API.vM_last_booted_record with _ -> original_vm
+						in
+						lbr.API.vM_HVM_boot_policy <> ""
 					in
-					lbr.API.vM_HVM_boot_policy <> ""
-				in
-				if not(vbd_record.API.vBD_type = `CD && has_booted_hvm)
-				then raise (IFailure Attached_disks_not_found)
+					if not(vbd_record.API.vBD_type = `CD && has_booted_hvm)
+					then raise (IFailure Attached_disks_not_found)
 				end
 			end;
 
