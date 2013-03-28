@@ -2802,38 +2802,20 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			info "PIF.reconfigure_ip: PIF = '%s'; mode = '%s'; IP = '%s'; netmask = '%s'; gateway = '%s'; DNS = %s"
 				(pif_uuid ~__context self)
 				(Record_util.ip_configuration_mode_to_string mode) iP netmask gateway dNS;
-
-			(*      let host = Db.PIF.get_host ~__context ~self in
-			        let pbds = Db.Host.get_PBDs ~__context ~self:host in
-
-			        if Db.Host.get_enabled ~__context ~self then
-			        raise (Api_errors.Server_error (Api_errors.host_not_disabled, [host]));
-
-			        List.iter (fun pbd -> if Db.PBD.get_currently_attached ~__context ~self:pbd then
-			        raise (Api_errors.Server_error (Api_errors.sr_attached, [Db.PBD.get_SR ~__context ~self:pbd]))) pbds;
-
-			        if List.length (Db.Host.get_resident_VMs ~__context ~self:host) > 1 then
-			        raise (Api_errors.Server_error (Api_errors.host_in_use, ["VM",""]));*)
-
+			let host = Db.PIF.get_host ~__context ~self in
 			let local_fn = Local.PIF.reconfigure_ip ~self ~mode ~iP ~netmask ~gateway ~dNS in
-			do_op_on ~local_fn ~__context ~host:(Db.PIF.get_host ~__context ~self)
-				(fun session_id rpc ->
-					(* Reconfiguring the IP will potentially kill the connection without causing
-					   this end to die quickly. To get around this, we spawn a new thread to do the
-					   work and monitor the status of the task, which will be completed on the slave.
-					   We ignore errors at the moment (only on slaves) *)
-					let (_: Thread.t) = Thread.create (fun () ->
-						Client.PIF.reconfigure_ip rpc session_id self mode iP netmask gateway dNS) () in
-					let task_id = Context.get_task_id __context in
-					let start_time = Unix.gettimeofday () in
-					let progress = ref 0.0 in
-					while !progress = 0.0 do
-						if Unix.gettimeofday () -. start_time > !Xapi_globs.pif_reconfigure_ip_timeout then
-							failwith "Failed to see host on network after timeout expired";
-						Thread.delay 1.0;
-						progress := Db.Task.get_progress ~__context ~self:task_id;
-						debug "Polling task %s progress" (Ref.string_of task_id)
-					done)
+			let task = Context.get_task_id __context in
+			let success () =
+				let status = Db.Task.get_status ~__context ~self:task in
+				if status <> `pending then
+					Some ()
+				else
+					None
+			in
+			let fn () =
+				do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
+					Client.PIF.reconfigure_ip rpc session_id self mode iP netmask gateway dNS) in
+			tolerate_connection_loss fn success !Xapi_globs.pif_reconfigure_ip_timeout
 
 		let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
 			info "PIF.reconfigure_ipv6: PIF = '%s'; mode = '%s'; IPv6 = '%s'; gateway = '%s'; DNS = %s"
