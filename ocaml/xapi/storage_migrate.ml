@@ -340,7 +340,7 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 
 		let uri = (Printf.sprintf "/services/SM/nbd/%s/%s/%s" dest result.Mirror.mirror_vdi.vdi mirror_dp) in
 		let dest_url = Http.Url.set_uri remote_url uri in
-		let request = Http.Request.make ~query:(Http.Url.get_query_params dest_url) ~user_agent:"smapiv2" Http.Put uri in
+		let request = Http.Request.make ~query:(Http.Url.get_query_params dest_url) ~version:"1.0" ~user_agent:"smapiv2" Http.Put uri in
 		let transport = Xmlrpc_client.transport_of_url dest_url in
 		debug "Searching for data path: %s" dp;
 		let attach_info = Local.DP.attach_info ~dbg:"nbd" ~sr ~vdi ~dp in
@@ -573,6 +573,7 @@ let post_detach_hook ~sr ~vdi ~dp =
 let nbd_handler req s sr vdi dp =
 	debug "sr=%s vdi=%s dp=%s" sr vdi dp;
 	let attach_info = Local.DP.attach_info ~dbg:"nbd" ~sr ~vdi ~dp in
+        req.Http.Request.close <- true;
 	match tapdisk_of_attach_info attach_info with
 		| Some tapdev ->
 			let minor = Tapctl.get_minor tapdev in
