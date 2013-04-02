@@ -546,108 +546,6 @@ let role_record rpc session_id role =
   (*make_field ~name:"is_basic"             ~get:(fun () -> string_of_bool (x ()).API.role_is_basic) ();*)
 ]}
 
-let vmpp_record rpc session_id vmpp =
-  let _ref = ref vmpp in
-  let empty_record = ToGet (fun () -> Client.VMPP.get_record rpc session_id !_ref) in
-  let record = ref empty_record in
-  let x () = lzy_get record in
-  { setref=(fun r -> _ref := r; record := empty_record );
-    setrefrec=(fun (a,b) -> _ref := a; record := Got b);
-    record=x;
-    getref=(fun () -> !_ref);
-    fields =
-[
-  make_field ~name:"uuid"
-    ~get:(fun () -> (x ()).API.vMPP_uuid)
-    ();
-  make_field ~name:"name-label"
-    ~get:(fun () -> (x ()).API.vMPP_name_label)
-    ~set:(fun x -> Client.VMPP.set_name_label rpc session_id vmpp x)
-    ();
-  make_field ~name:"name-description"
-    ~get:(fun () -> (x ()).API.vMPP_name_description)
-    ~set:(fun x -> Client.VMPP.set_name_description rpc session_id vmpp x)
-    ();
-  make_field ~name:"is-policy-enabled"
-    ~get:(fun () -> string_of_bool (x ()).API.vMPP_is_policy_enabled)
-    ~set:(fun x -> Client.VMPP.set_is_policy_enabled rpc session_id vmpp (safe_bool_of_string "is-policy-enabled" x))
-    ();
-  make_field ~name:"backup-type"
-    ~get:(fun () -> Record_util.backup_type_to_string (x ()).API.vMPP_backup_type)
-    ~set:(fun x -> Client.VMPP.set_backup_type rpc session_id vmpp (Record_util.string_to_backup_type x))
-    ();
-  make_field ~name:"backup-retention-value"
-    ~get:(fun () -> string_of_int (Int64.to_int (x ()).API.vMPP_backup_retention_value))
-    ~set:(fun x -> Client.VMPP.set_backup_retention_value rpc session_id vmpp (safe_i64_of_string "backup-retention-value" x))
-    ();
-  make_field ~name:"backup-frequency"
-    ~get:(fun () -> Record_util.backup_frequency_to_string (x ()).API.vMPP_backup_frequency)
-    ~set:(fun x -> Client.VMPP.set_backup_frequency rpc session_id vmpp (Record_util.string_to_backup_frequency x))
-    ();
-  make_field ~name:"backup-schedule"
-    ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vMPP_backup_schedule) 
-    ~get_map:(fun () -> (x ()).API.vMPP_backup_schedule)
-    ~add_to_map:(fun k v -> Client.VMPP.add_to_backup_schedule rpc session_id vmpp k v)
-    ~remove_from_map:(fun k -> Client.VMPP.remove_from_backup_schedule rpc session_id vmpp k)
-    ();
-  make_field ~name:"is-backup-running"
-    ~get:(fun () -> string_of_bool (x ()).API.vMPP_is_backup_running)
-    ();
-  make_field ~name:"backup-last-run-time"
-    ~get:(fun () -> Date.to_string (x ()).API.vMPP_backup_last_run_time)
-    ();
-  make_field ~name:"archive-target-type"
-    ~get:(fun () -> Record_util.archive_target_type_to_string (x ()).API.vMPP_archive_target_type)
-    ~set:(fun x -> Client.VMPP.set_archive_target_type rpc session_id vmpp (Record_util.string_to_archive_target_type x))
-    ();
-  make_field ~name:"archive-target-config"
-    ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vMPP_archive_target_config)
-    ~get_map:(fun () -> (x ()).API.vMPP_archive_target_config)
-    ~add_to_map:(fun k v -> Client.VMPP.add_to_archive_target_config rpc session_id vmpp k v)
-    ~remove_from_map:(fun k -> 
-				Client.VMPP.remove_from_archive_target_config rpc session_id vmpp k)
-    ();
-  make_field ~name:"archive-frequency"
-    ~get:(fun () -> Record_util.archive_frequency_to_string (x ()).API.vMPP_archive_frequency)
-    ~set:(fun x -> Client.VMPP.set_archive_frequency rpc session_id vmpp (Record_util.string_to_archive_frequency x))
-    ();
-  make_field ~name:"archive-schedule" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vMPP_archive_schedule)
-    ~get_map:(fun () -> (x ()).API.vMPP_archive_schedule)
-    ~add_to_map:(fun k v -> Client.VMPP.add_to_archive_schedule rpc session_id vmpp k v)
-    ~remove_from_map:(fun k -> 
-				Client.VMPP.remove_from_archive_schedule rpc session_id vmpp k)
-    ();
-  make_field ~name:"is-archive-running"
-    ~get:(fun () -> string_of_bool (x ()).API.vMPP_is_archive_running)
-    ();
-  make_field ~name:"archive-last-run-time" ~get:(fun () -> Date.to_string (x ()).API.vMPP_archive_last_run_time)
-    ();
-  make_field ~name:"is-alarm-enabled"
-    ~get:(fun () -> string_of_bool (x ()).API.vMPP_is_alarm_enabled)
-    ~set:(fun x -> Client.VMPP.set_is_alarm_enabled rpc session_id vmpp (safe_bool_of_string "is-alarm-enabled" x))
-    ();
-  make_field ~name:"alarm-config"     ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vMPP_alarm_config)
-    ~get_map:(fun () -> (x ()).API.vMPP_alarm_config)
-    ~add_to_map:(fun k v -> Client.VMPP.add_to_alarm_config rpc session_id vmpp k v)
-    ~remove_from_map:(fun k -> 
-				Client.VMPP.remove_from_alarm_config rpc session_id vmpp k)
-    ();
-  make_field ~name:"VMs"
-     ~get:(fun () -> String.concat "; "
-       (try
-          List.map
-            (fun self -> try Client.VM.get_uuid rpc session_id self with _ -> nid)
-            (Client.VMPP.get_VMs rpc session_id vmpp)
-        with _ -> []
-       )
-					)
-     ~expensive:false
-     ~get_set:(fun () -> try List.map
-        (fun self -> try Client.VM.get_uuid rpc session_id self with _ -> nid)
-        (Client.VMPP.get_VMs rpc session_id vmpp) with _ -> [])
-     ();
-]}
-
 (*
 let alert_record rpc session_id pool = 
   let _ref = ref pool in
@@ -943,11 +841,6 @@ let vm_record rpc session_id vm =
 				(* NB this can receive VM_IS_SNAPSHOT *)
 				~get:(fun () -> string_of_bool (try Client.VM.get_cooperative rpc session_id vm with _ -> true))
 				~expensive:true ~deprecated:true ();
-			make_field ~name:"protection-policy"
-				~get:(fun () -> get_uuid_from_ref (x ()).API.vM_protection_policy)
-				~set:(fun x -> if x="" then Client.VM.set_protection_policy rpc session_id vm Ref.null else Client.VM.set_protection_policy rpc session_id vm (Client.VMPP.get_by_uuid rpc session_id x)) ();
-			make_field ~name:"is-snapshot-from-vmpp"
-				~get:(fun () -> string_of_bool (x ()).API.vM_is_snapshot_from_vmpp) ();
 			make_field ~name:"tags"
 				~get:(fun () -> String.concat ", " (x ()).API.vM_tags)
 				~get_set:(fun () -> (x ()).API.vM_tags)
