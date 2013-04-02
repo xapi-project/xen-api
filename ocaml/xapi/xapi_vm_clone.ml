@@ -255,11 +255,6 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
 		| Disk_op_clone | Disk_op_copy _-> Ref.null
 		| Disk_op_snapshot | Disk_op_checkpoint -> all.Db_actions.vM_parent in
 
-  (* verify if this action is happening due to a VM protection policy *)
-  let is_snapshot_from_vmpp =
-      is_a_snapshot && (Xapi_vmpp.is_snapshot_from_vmpp ~__context)
-	in
-
 	(* create a new VM *)
 	Db.VM.create ~__context 
 		~ref
@@ -324,7 +319,7 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
 		~tags:all.Db_actions.vM_tags
 		~bios_strings:all.Db_actions.vM_bios_strings
 		~protection_policy:Ref.null
-		~is_snapshot_from_vmpp
+		~is_snapshot_from_vmpp:false
 		~appliance:Ref.null
 		~start_delay:0L
 		~shutdown_delay:0L
