@@ -199,7 +199,7 @@ let register_callback_fns() =
     Pervasiveext.exnhook := Some (fun _ -> log_backtrace ());
     TaskHelper.init ()
 
-let nowatchdog = ref false
+
 let noevents = ref false
 let debug_dummy_data = ref false
 
@@ -220,22 +220,7 @@ let init_args() =
   Debug.name_thread "thread_zero";
   (* Immediately register callback functions *)
   register_callback_fns();
-  Arg.parse [
-	       "-daemon", Arg.Set daemonize, "run as a daemon in the background";
-	       "-config", Arg.Set_string Xapi_globs.config_file, "set config file to use";
-	       "-logconfig", Arg.Set_string Xapi_globs.log_config_file, "set log config file to use";
-	       "-writereadyfile", Arg.Set_string Xapi_globs.ready_file, "touch specified file when xapi is ready to accept requests";
-	       "-writeinitcomplete", Arg.Set_string Xapi_globs.init_complete, "touch specified file when xapi init process is complete";
-	       "-nowatchdog", Arg.Set nowatchdog, "turn watchdog off, avoiding initial fork";
-	       "-setdom0mem", Arg.Unit (fun () -> ()), "(ignored)";
-	       "-dom0memgradient", Arg.Unit (fun () -> ()), "(ignored)";
-	       "-dom0memintercept", Arg.Unit (fun () -> ()), "(ignored)";
-	       "-onsystemboot", Arg.Set Xapi_globs.on_system_boot, "indicates that this server start is the first since the host rebooted";
-	       "-noevents", Arg.Set noevents, "turn event thread off for debugging -leaves crashed guests undestroyed";
-	       "-dummydata", Arg.Set debug_dummy_data, "populate with dummy data for demo/debugging purposes";
-	       "-version", Arg.Unit show_version, "show version of the binary"
-	     ] (fun x -> printf "Warning, ignoring unknown argument: %s" x)
-    "XenAPI server"
+  Xcp_service.configure ~options:Xapi_globs.all_options ~resources:[] ()
 
 let wait_to_die() =
   (* don't call Thread.join cos this interacts strangely with OCAML runtime and stops
@@ -794,8 +779,6 @@ let server_init() =
   try
     Server_helpers.exec_with_new_task "server_init" (fun __context ->
     Startup.run ~__context [
-    "Reading config file", [], (fun () -> Xapi_config.read_config !Xapi_globs.config_file);
-    "Reading external global variables definition", [ Startup.NoExnRaising ], Xapi_globs.read_external_config;
     "XAPI SERVER STARTING", [], print_server_starting_message;
     "Parsing inventory file", [], Xapi_inventory.read_inventory;
     "Initialising local database", [], init_local_database;
@@ -985,7 +968,7 @@ let delay_on_eintr f =
   | e -> raise e
 
 let watchdog f =
-	if !nowatchdog then begin
+	if !Xapi_globs.nowatchdog then begin
 		try
 			ignore(Unix.sigprocmask Unix.SIG_UNBLOCK [Sys.sigint]);
 			delay_on_eintr f;

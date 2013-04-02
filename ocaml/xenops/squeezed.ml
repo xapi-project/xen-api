@@ -133,11 +133,6 @@ let _ =
 
 	dump_config_file ();
 
-  begin
-    try Xapi_globs.read_external_config ()
-    with e -> debug "Read global variables config from %s failed: %s. Continue with default setting." Xapi_globs.xapi_globs_conf (Printexc.to_string e)
-  end;
-
 	(* Accept connections before we have daemonized *)
 	let sockets = prepare_sockets path in
 
