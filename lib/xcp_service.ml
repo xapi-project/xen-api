@@ -91,13 +91,15 @@ module Config_file = struct
 
 	let apply v = function
 	| Unit f -> f ()
-	| Set_string s -> s := v
-	| String f -> f v
 	| Bool f -> f (bool_of_string v)
-	| Set_int i -> i := (int_of_string v)
+	| Set f -> f := true
+	| Clear f -> f := false
+	| String f -> f v
+	| Set_string s -> s := v
 	| Int f -> f (int_of_string v)
-	| Set_float f -> f := (float_of_string v)
+	| Set_int i -> i := (int_of_string v)
 	| Float f -> f (float_of_string v)
+	| Set_float f -> f := (float_of_string v)
 	| _ -> failwith "Unsupported type in config file"
 
 	let parse_line data spec =
