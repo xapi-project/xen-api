@@ -45,7 +45,7 @@ let rel_cowley = "cowley"
 let rel_boston = "boston"
 let rel_tampa = "tampa"
 let rel_clearwater = "clearwater"
-let rel_sarasota = "sarasota"
+let rel_augusta = "augusta"
 
 let release_order =
 	[ rel_rio
@@ -59,7 +59,7 @@ let release_order =
 	; rel_boston
 	; rel_tampa
 	; rel_clearwater
-	; rel_sarasota
+	; rel_augusta
 	]
 
 exception Unknown_release of string

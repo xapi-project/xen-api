@@ -45,9 +45,15 @@ let boston_release_schema_minor_vsn = 63
 let tampa_release_schema_major_vsn = 5
 let tampa_release_schema_minor_vsn = 66
 
+let clearwater_release_schema_major_vsn = 5
+let clearwater_release_schema_minor_vsn = 70
+
+let augusta_release_schema_major_vsn = 5
+let augusta_release_schema_minor_vsn = 75
+
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
-let last_release_schema_major_vsn = tampa_release_schema_major_vsn
-let last_release_schema_minor_vsn = tampa_release_schema_minor_vsn
+let last_release_schema_major_vsn = augusta_release_schema_major_vsn
+let last_release_schema_minor_vsn = augusta_release_schema_minor_vsn
 
 (** Bindings for currently specified releases *)
 
@@ -164,8 +170,8 @@ let get_product_releases in_product_since =
     | x::xs -> if x=in_product_since then "closed"::x::xs else go_through_release_order xs
   in go_through_release_order release_order
 
-let sarasota_release =
-	{ internal = get_product_releases rel_sarasota
+let autusta_release =
+	{ internal = get_product_releases rel_augusta
 	; opensource=get_oss_releases None
 	; internal_deprecated_since=None
 	}
