@@ -83,3 +83,23 @@ let make_pif ~__context ~network ~host ?(device="eth0") ?(mAC="C0:FF:EE:C0:FF:EE
 let make_network ~__context ?(name_label="net") ?(name_description="description") ?(mTU=1500L)
 		?(other_config=[]) ?(bridge="xenbr0") () = 
 	Xapi_network.pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~bridge
+
+let make_pool ~__context ~master ?(name_label="") ?(name_description="")
+		?(default_SR=Ref.null) ?(suspend_image_SR=Ref.null) ?(crash_dump_SR=Ref.null)
+		?(ha_enabled=false) ?(ha_configuration=[]) ?(ha_statefiles=[])
+		?(ha_host_failures_to_tolerate=0L) ?(ha_plan_exists_for=0L)
+		?(ha_allow_overcommit=false) ?(ha_overcommitted=false) ?(blobs=[]) ?(tags=[])
+		?(gui_config=[]) ?(wlb_url="") ?(wlb_username="") ?(wlb_password=Ref.null)
+		?(wlb_enabled=false) ?(wlb_verify_cert=false) ?(redo_log_enabled=false)
+		?(redo_log_vdi=Ref.null) ?(vswitch_controller="") ?(restrictions=[])
+		?(other_config=[Xapi_globs.memory_ratio_hvm; Xapi_globs.memory_ratio_pv]) () =
+	let pool_ref = Ref.make () in
+	Db.Pool.create ~__context ~ref:pool_ref
+		~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~name_label ~name_description
+		~master ~default_SR ~suspend_image_SR ~crash_dump_SR ~ha_enabled
+		~ha_configuration ~ha_statefiles ~ha_host_failures_to_tolerate
+		~ha_plan_exists_for ~ha_allow_overcommit ~ha_overcommitted ~blobs ~tags
+		~gui_config ~wlb_url ~wlb_username ~wlb_password ~wlb_enabled
+		~wlb_verify_cert ~redo_log_enabled ~redo_log_vdi ~vswitch_controller
+		~restrictions ~other_config;
+	pool_ref
