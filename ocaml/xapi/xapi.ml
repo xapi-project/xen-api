@@ -177,7 +177,6 @@ let signals_handling () =
   Sys.set_signal Sys.sigint (Sys.Signal_handle cleanup_handler)
 
 let random_setup () =
-  Random.self_init ();
   let n = 8 in
   let s = String.create n in
 
