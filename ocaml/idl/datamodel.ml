@@ -6156,6 +6156,28 @@ let pool_disable_local_storage_caching = call
 	~allowed_roles:_R_POOL_OP
 	()
 
+let pool_get_license_state = call
+	~name:"get_license_state"
+	~in_oss_since:None
+	~in_product_since:rel_clearwater
+	~params:[Ref _pool, "self", "Reference to the pool"]
+	~doc:"This call returns the license state for the pool"
+	~allowed_roles:_R_READ_ONLY
+	~result:(Map(String,String), "The pool's license state")
+	()
+
+let pool_apply_edition = call
+	~name:"apply_edition"
+	~in_oss_since:None
+	~in_product_since:rel_clearwater
+	~params:[
+		Ref _pool, "self", "Reference to the pool";
+		String, "edition", "The requested edition";
+	]
+	~doc:"Apply an edition to all hosts in the pool"
+	~allowed_roles:_R_POOL_OP
+	()
+
 (** A pool class *)
 let pool =
 	create_obj
@@ -6220,6 +6242,8 @@ let pool =
 			; pool_test_archive_target
 			; pool_enable_local_storage_caching
 			; pool_disable_local_storage_caching
+			; pool_get_license_state
+			; pool_apply_edition
 			]
 		~contents:
 			[uid ~in_oss_since:None _pool

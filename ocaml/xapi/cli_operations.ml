@@ -3686,6 +3686,17 @@ let pool_disable_local_storage_caching printer rpc session_id params =
 	let pool = List.hd (Client.Pool.get_all rpc session_id) in
 	Client.Pool.disable_local_storage_caching rpc session_id pool
 
+let pool_apply_edition printer rpc session_id params =
+	let pool =
+		if (List.mem_assoc "uuid" params) then (*user provided a pool uuid*)
+			let pool_uuid = List.assoc "uuid" params in
+			Client.Pool.get_by_uuid rpc session_id pool_uuid
+		else (*user didn't provide a pool uuid: let's fetch the default pool*)
+			List.hd (Client.Pool.get_all rpc session_id)
+	in
+	let edition = List.assoc "edition" params in
+	Client.Pool.apply_edition rpc session_id pool edition
+
 let host_set_power_on_mode printer rpc session_id params =
 	let power_on_mode = List.assoc "power-on-mode" params in
 	let power_on_config = read_map_params "power-on-config" params in

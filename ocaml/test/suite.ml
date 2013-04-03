@@ -20,6 +20,7 @@ let base_suite =
 			Test_basic.test;
 			Test_pool_db_backup.test;
 			Test_xapi_db_upgrade.test;
+			Test_pool_license.test;
 		]
 
 let _ = run_test_tt_main base_suite
