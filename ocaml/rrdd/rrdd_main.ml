@@ -31,6 +31,7 @@ open D
 
 open Fun
 open Pervasiveext
+open Xenstore
 
 (* A helper method for processing XMLRPC requests. *)
 let xmlrpc_handler process req bio context =
@@ -123,6 +124,48 @@ let uuid_of_domid domains domid =
 			(List.find (fun di -> di.Xenctrl.Domain_info.domid = domid) domains)
 	with Not_found ->
 		failwith (Printf.sprintf "Failed to find uuid corresponding to domid: %d" domid)
+
+(*****************************************************)
+(* xenstore related code                             *)
+(*****************************************************)
+
+open Xenstore_watch
+
+(* Map from domid to the latest seen meminfo_free value *)
+let current_meminfofree_values = ref IntMap.empty
+
+module Meminfo = struct
+	let meminfo_path domid = Printf.sprintf "/local/domain/%d/data/meminfo_free" domid
+
+	let all_domU_watches domid uuid = [ meminfo_path domid ]
+
+	let watches_of_device device = []
+
+	let fire_event_on_vm xs domid domains =
+		let d = int_of_string domid in
+		if not(IntMap.mem d domains)
+		then debug "Ignoring watch on shutdown domain %d" d
+		else
+			let path = meminfo_path d in
+			try
+				let meminfo_free = Int64.of_string (xs.Xs.read path) in
+				debug "memfree has changed to %Ld in domain %d" meminfo_free d;
+				current_meminfofree_values := IntMap.add d meminfo_free !current_meminfofree_values
+			with Xenbus.Xb.Noent ->
+				debug "Couldn't read path %s; forgetting last known memfree value for domain %d" path d;
+				current_meminfofree_values := IntMap.remove d !current_meminfofree_values
+
+	let watch_fired xs path domains _ _ =
+		match List.filter (fun x -> x <> "") (Stringext.String.split '/' path) with
+			| "local" :: "domain" :: domid :: "data" :: "meminfo_free" :: [] ->
+				fire_event_on_vm xs domid domains
+			| _  -> debug "Ignoring unexpected watch: %s" path
+
+	let unmanaged_domain domid id = false
+	let found_running_domain domid id = ()
+end
+
+module Watcher = WatchXenstore(Meminfo)
 
 (*****************************************************)
 (* cpu related code                                  *)
@@ -243,8 +286,7 @@ let update_memory xc doms =
 			if domid = 0 then None
 			else begin
 			try
-				let memfree_xs_key = Printf.sprintf "/local/domain/%d/data/meminfo_free" domid in
-				let mem_free = with_xs (fun xs -> Int64.of_string (xs.Xs.read memfree_xs_key)) in
+				let mem_free = IntMap.find domid !current_meminfofree_values in
 				Some (
 					VM uuid,
 					ds_make ~name:"memory_internal_free" ~units:"B"
@@ -641,6 +683,9 @@ let _ =
 
 	debug "Starting the HTTP server ..";
 	start (Rrdd_interface.xmlrpc_path, Rrdd_interface.http_fwd_path) Server.process;
+
+	debug "Starting xenstore-watching thread ..";
+        let (_: Thread.t) = Watcher.create_watcher_thread () in
 
 	debug "Creating monitoring loop thread ..";
 	Debug.with_thread_associated "main" monitor_loop ();
