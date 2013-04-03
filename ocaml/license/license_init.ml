@@ -15,12 +15,20 @@
 module D = Debug.Debugger(struct let name="license" end)
 open D
 
+let v6_initialise ~__context ~edition ~params =
+	try
+		V6client.apply_edition ~__context edition params
+	with Api_errors.Server_error (code, []) when code = Api_errors.v6d_failure ->
+		(* Couldn't communicate with v6d, so fall back to running in free mode,
+		 * with all standard features enabled and no additional features advertised. *)
+		"free", Features.all_features, []
+
 (* xapi calls this function upon startup *)
 let initialise ~__context ~host =
 	try
 		let edition = Db.Host.get_edition ~__context ~self:host in
 		let edition', features, additional =
-			V6client.apply_edition ~__context edition ["startup", "true"] in
+			v6_initialise ~__context ~edition ~params:["startup", "true"] in
 		Db.Host.set_edition ~__context ~self:host ~value:edition';
 		(* Copy resulting license to the database *)
 		Xapi_host.copy_license_to_db ~__context ~host ~features ~additional
