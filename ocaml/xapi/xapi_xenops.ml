@@ -402,7 +402,12 @@ module MD = struct
 		let platformdata =
 			List.filter
 				(fun (k, v) -> k <> "tsc_mode" || List.mem v ["0"; "1"; "2"; "3"])
-				platformdata
+				platformdata in
+		let platformdata =
+			let genid = match vm.API.vM_generation_id with
+				| "0:0" -> Xapi_vm_helpers.vm_fresh_genid ~__context ~self:vmref
+				| _ -> vm.API.vM_generation_id in
+			("generation-id", genid) :: platformdata
 		in
 
 		let pci_msitranslate = true in (* default setting *)

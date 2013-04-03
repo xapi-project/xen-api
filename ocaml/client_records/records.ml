@@ -867,6 +867,8 @@ let vm_record rpc session_id vm =
 				~set:(fun x -> Client.VM.set_order rpc session_id vm (safe_i64_of_string "order" x)) ();
 			make_field ~name:"version"
 				~get:(fun () -> Int64.to_string (x ()).API.vM_version) ();
+			make_field ~name:"generation-id"
+				~get:(fun () -> (x ()).API.vM_generation_id) ();
 		]}
 
 let host_crashdump_record rpc session_id host = 
