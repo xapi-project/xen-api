@@ -28,6 +28,9 @@ OCAML_OBJS = \
 	test_basic \
 	test_pool_db_backup \
 	test_xapi_db_upgrade \
+	test_ca91480 \
+	test_ca98944 \
+	test_pr1510 \
 	test_pool_license \
 	test_platformdata \
 
