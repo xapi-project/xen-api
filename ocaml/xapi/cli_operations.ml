@@ -1543,7 +1543,8 @@ let vm_create printer rpc session_id params =
 		~shutdown_delay:0L
 		~order:0L
 		~suspend_SR:Ref.null
-		~version:0L in
+		~version:0L
+		~generation_id:(Xapi_vm_helpers.fresh_genid ()) in
 	let uuid=Client.VM.get_uuid rpc session_id vm in
 	printer (Cli_printer.PList [uuid])
 
