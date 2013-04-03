@@ -21,6 +21,7 @@ let base_suite =
 			Test_pool_db_backup.test;
 			Test_xapi_db_upgrade.test;
 			Test_ca91480.test;
+			Test_ca98944.test;
 			Test_pr1510.suite;
 			Test_pool_license.test;
 		]
