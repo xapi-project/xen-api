@@ -59,6 +59,32 @@ module SMAPIv1 = struct
 
 	type context = Smint.request
 
+	let vdi_info_of_vdi_rec __context vdi_rec =
+		let content_id =
+			if List.mem_assoc "content_id" vdi_rec.API.vDI_other_config
+			then List.assoc "content_id" vdi_rec.API.vDI_other_config
+			else vdi_rec.API.vDI_location (* PR-1255 *)
+		in {
+			vdi = vdi_rec.API.vDI_location;
+			content_id = content_id; (* PR-1255 *)
+			name_label = vdi_rec.API.vDI_name_label;
+			name_description = vdi_rec.API.vDI_name_description;
+			ty = Record_util.vdi_type_to_string vdi_rec.API.vDI_type;
+			metadata_of_pool = Ref.string_of vdi_rec.API.vDI_metadata_of_pool;
+			is_a_snapshot = vdi_rec.API.vDI_is_a_snapshot;
+			snapshot_time = Date.to_string vdi_rec.API.vDI_snapshot_time;
+			snapshot_of = Ref.string_of vdi_rec.API.vDI_snapshot_of;
+			read_only = vdi_rec.API.vDI_read_only;
+			virtual_size = vdi_rec.API.vDI_virtual_size;
+			physical_utilisation = vdi_rec.API.vDI_physical_utilisation;
+			persistent = vdi_rec.API.vDI_on_boot = `persist;
+			sm_config = vdi_rec.API.vDI_sm_config;
+		}
+
+	let vdi_info_from_db ~__context self =
+		let vdi_rec = Db.VDI.get_record ~__context ~self in
+		vdi_info_of_vdi_rec __context vdi_rec
+
 	module Query = struct
 		let query context ~dbg = {
 			driver = "storage_access";
@@ -171,28 +197,6 @@ module SMAPIv1 = struct
 									raise e
 						)
 				)
-
-		let vdi_info_of_vdi_rec __context vdi_rec =
-			let content_id =
-				if List.mem_assoc "content_id" vdi_rec.API.vDI_other_config
-				then List.assoc "content_id" vdi_rec.API.vDI_other_config
-				else vdi_rec.API.vDI_location (* PR-1255 *)
-			in {
-				vdi = vdi_rec.API.vDI_location;
-				content_id = content_id; (* PR-1255 *)
-				name_label = vdi_rec.API.vDI_name_label;
-				name_description = vdi_rec.API.vDI_name_description;
-				ty = Record_util.vdi_type_to_string vdi_rec.API.vDI_type;
-				metadata_of_pool = Ref.string_of vdi_rec.API.vDI_metadata_of_pool;
-				is_a_snapshot = vdi_rec.API.vDI_is_a_snapshot;
-				snapshot_time = Date.to_string vdi_rec.API.vDI_snapshot_time;
-				snapshot_of = Ref.string_of vdi_rec.API.vDI_snapshot_of;
-				read_only = vdi_rec.API.vDI_read_only;
-				virtual_size = vdi_rec.API.vDI_virtual_size;
-				physical_utilisation = vdi_rec.API.vDI_physical_utilisation;
-				persistent = vdi_rec.API.vDI_on_boot = `persist;
-				sm_config = vdi_rec.API.vDI_sm_config;
-			}
 
 		let scan context ~dbg ~sr:sr' =
 			Server_helpers.exec_with_new_task "SR.scan" ~subtask_of:(Ref.of_string dbg)
@@ -314,25 +318,6 @@ module SMAPIv1 = struct
                 | Some uuid -> uuid
                 | None -> failwith "SM backend failed to return <uuid> field"
 
-		let vdi_info_from_db ~__context self =
-            let r = Db.VDI.get_record ~__context ~self in
-            {
-                vdi = r.API.vDI_location;
-				content_id = r.API.vDI_location; (* PR-1255 *)
-                name_label = r.API.vDI_name_label;
-                name_description = r.API.vDI_name_description;
-                ty = Record_util.vdi_type_to_string r.API.vDI_type;
-				metadata_of_pool = Ref.string_of r.API.vDI_metadata_of_pool;
-                is_a_snapshot = r.API.vDI_is_a_snapshot;
-                snapshot_time = Date.to_string r.API.vDI_snapshot_time;
-                snapshot_of = Ref.string_of r.API.vDI_snapshot_of;
-                read_only = r.API.vDI_read_only;
-                virtual_size = r.API.vDI_virtual_size;
-                physical_utilisation = r.API.vDI_physical_utilisation;
-				persistent = r.API.vDI_on_boot = `persist;
-				sm_config = r.API.vDI_sm_config;
-            }
-
         let newvdi ~__context vi =
             (* The current backends stash data directly in the db *)
             let uuid = require_uuid vi in
@@ -432,7 +417,7 @@ module SMAPIv1 = struct
 					(fun __context ->
 						for_vdi ~dbg ~sr ~vdi "VDI.stat"
 							(fun device_config _type _ self ->
-								SR.vdi_info_of_vdi_rec __context (Db.VDI.get_record ~__context ~self)
+								vdi_info_of_vdi_rec __context (Db.VDI.get_record ~__context ~self)
 							)
 					)
 			with e ->
@@ -468,7 +453,7 @@ module SMAPIv1 = struct
 					(* PR-1255: the backend should do this for us *)
 					try
 						let _, vdi = find_content ~__context ~sr name in
-						let vi = SR.vdi_info_of_vdi_rec __context vdi in
+						let vi = vdi_info_of_vdi_rec __context vdi in
 						debug "VDI.get_by_name returning successfully";
 						vi
 					with e ->
@@ -533,7 +518,7 @@ module SMAPIv1 = struct
 					let _, vdi_rec = find_vdi ~__context sr vdi in
 					let vdis = explore 0 StringMap.empty vdi_rec.API.vDI_location |> invert |> IntMap.bindings |> List.map snd |> List.concat in
 					let vdi_recs = List.map (fun l -> StringMap.find l locations) vdis in
-					List.map (fun x -> SR.vdi_info_of_vdi_rec __context x) vdi_recs
+					List.map (fun x -> vdi_info_of_vdi_rec __context x) vdi_recs
 				)
 
 		let compose context ~dbg ~sr ~vdi1 ~vdi2 =
