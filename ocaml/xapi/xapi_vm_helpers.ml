@@ -23,7 +23,6 @@ open Xenstore
 
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
-open Workload_balancing
 
 let compute_memory_overhead ~__context ~vm =
 	let snapshot = match Db.VM.get_power_state ~__context ~self:vm with
@@ -490,24 +489,6 @@ let assert_can_boot_here ~__context ~self ~host ~snapshot ?(do_sr_check=true) ?(
 		assert_enough_memory_available ~__context ~self ~host ~snapshot;
 	debug "All fine, VM %s can run on host %s!" (Ref.string_of self) (Ref.string_of host)
 
-let retrieve_wlb_recommendations ~__context ~vm ~snapshot =
-	(* we have already checked the number of returned entries is correct in retrieve_vm_recommendations
-	   But checking that there are no duplicates is also quite cheap, put them in a hash and overwrite duplicates *)
-	let recs = Hashtbl.create 12 in
-	List.iter
-		(fun (h, r) ->
-			try
-				assert_can_boot_here ~__context ~self:vm ~host:h ~snapshot ();
-				Hashtbl.replace recs h r;
-			with
-			| Api_errors.Server_error(x, y) -> Hashtbl.replace recs h (x :: y))
-		(retrieve_vm_recommendations ~__context ~vm);
-	if ((Hashtbl.length recs) <> (List.length (Helpers.get_live_hosts ~__context)))
-	then
-		raise_malformed_response' "VMGetRecommendations"
-			"Number of unique recommendations does not match number of potential hosts" "Unknown"
-	else
-		Hashtbl.fold (fun k v tl -> (k,v) :: tl) recs []
 
 (** Returns the subset of all hosts to which the given function [choose_fn]
 can be applied without raising an exception. If the optional [vm] argument is
@@ -592,108 +573,10 @@ let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
 	let validate_host = vm_can_run_on_host __context vm snapshot in
 	Xapi_vm_placement.select_host __context vm validate_host
 
-(* choose_host_for_vm will use WLB as long as it is enabled and there *)
-(* is no pool.other_config["wlb_choose_host_disable"] = "true".       *)
-let choose_host_uses_wlb ~__context =
-	Workload_balancing.check_wlb_enabled ~__context &&
-		not (
-			List.exists
-				(fun (k,v) ->
-					k = "wlb_choose_host_disable"
-					&& (String.lowercase v = "true"))
-				(Db.Pool.get_other_config ~__context
-					~self:(Helpers.get_pool ~__context)))
-
 (** Given a virtual machine, returns a host it can boot on, giving   *)
 (** priority to an affinity host if one is present. WARNING: called  *)
 (** while holding the global lock from the message forwarding layer. *)
 let choose_host_for_vm ~__context ~vm ~snapshot =
-	if choose_host_uses_wlb ~__context then
-		try
-			let rec filter_and_convert recs =
-				match recs with
-				| (h, recom) :: tl ->
-					begin
-						debug "\n%s\n" (String.concat ";" recom);
-						match recom with
-						| ["WLB"; "0.0"; rec_id; zero_reason] ->
-							filter_and_convert tl
-						| ["WLB"; stars; rec_id] ->
-							(h, float_of_string stars, rec_id)
-								:: filter_and_convert tl
-						| _ -> filter_and_convert tl
-					end
-				| [] -> []
-			in
-			begin
-				let all_hosts =
-					(List.sort
-						(fun (h, s, r) (h', s', r') ->
-							if s < s' then 1 else if s > s' then -1 else 0)
-						(filter_and_convert (retrieve_wlb_recommendations
-							~__context ~vm ~snapshot))
-					)
-				in
-				debug "Hosts sorted in priority: %s"
-					(List.fold_left
-						(fun a (h,s,r) ->
-							a ^ (Printf.sprintf "%s %f,"
-								(Db.Host.get_name_label ~__context ~self:h) s)
-						) "" all_hosts
-					);
-				match all_hosts with
-				| (h,s,r)::_ ->
-					debug "Wlb has recommended host %s"
-						(Db.Host.get_name_label ~__context ~self:h);
-					let action = Db.Task.get_name_label ~__context
-						~self:(Context.get_task_id __context) in
-					let oc = Db.Pool.get_other_config ~__context
-						~self:(Helpers.get_pool ~__context) in
-					Db.Task.set_other_config ~__context
-						~self:(Context.get_task_id __context)
-						~value:([
-							("wlb_advised", r);
-							("wlb_action", action);
-							("wlb_action_obj_type", "VM");
-							("wlb_action_obj_ref", (Ref.string_of vm))
-						] @ oc);
-					h
-				| _ ->
-					debug "Wlb has no recommendations. \
-						Using original algorithm";
-					choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
-			end
-		with
-		| Api_errors.Server_error(error_type, error_detail) ->
-			debug "Encountered error when using wlb for choosing host \
-				\"%s: %s\". Using original algorithm"
-				error_type
-				(String.concat "" error_detail);
-			begin
-				try
-					let uuid = Db.VM.get_uuid ~__context ~self:vm in
-					let message_body =
-						Printf.sprintf
-							"Wlb consultation for VM '%s' failed (pool uuid: %s)"
-							(Db.VM.get_name_label ~__context ~self:vm)
-							(Db.Pool.get_uuid ~__context
-								~self:(Helpers.get_pool ~__context))
-					in
-					let (name, priority) = Api_messages.wlb_failed in
-					ignore (Xapi_message.create ~__context ~name ~priority
-						~cls:`VM ~obj_uuid:uuid ~body:message_body)
-				with _ -> ()
-			end;
-			choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
-		| Failure "float_of_string" ->
-			debug "Star ratings from wlb could not be parsed to floats. \
-				Using original algorithm";
-			choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
-		| _ ->
-			debug "Encountered an unknown error when using wlb for \
-				choosing host. Using original algorithm";
-			choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
-	else
 		begin
 			debug "Using wlb recommendations for choosing a host has been \
 				disabled or wlb is not available. Using original algorithm";
