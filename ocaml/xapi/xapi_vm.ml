@@ -468,6 +468,7 @@ let revert ~__context ~snapshot =
 		if Db.is_valid_ref __context vm
 		then vm
 		else Xapi_vm_snapshot.create_vm_from_snapshot ~__context ~snapshot in
+	ignore (Xapi_vm_helpers.vm_fresh_genid ~__context ~self:vm);
 	Xapi_vm_snapshot.revert ~__context ~snapshot ~vm
 
 (* As the checkpoint operation modify the domain state, we take the vm_lock to do not let the event *)
