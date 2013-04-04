@@ -691,8 +691,6 @@ let common_http_handlers = [
   ("put_messages", (Http_svr.FdIO Xapi_message.handler));
   ("connect_remotecmd", (Http_svr.FdIO Xapi_remotecmd.handler));
   ("post_remote_stats", (Http_svr.BufIO remote_stats_handler));
-  ("get_wlb_report", (Http_svr.BufIO Wlb_reports.report_handler));
-  ("get_wlb_diagnostics", (Http_svr.BufIO Wlb_reports.diagnostics_handler));
   ("get_audit_log", (Http_svr.BufIO Audit_log.handler));
   ("post_root", (Http_svr.BufIO (Api_server.callback false)));
   ("post_json", (Http_svr.BufIO (Api_server.callback true)));
