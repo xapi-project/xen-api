@@ -73,7 +73,10 @@ module SMAPIv1 = struct
 			metadata_of_pool = Ref.string_of vdi_rec.API.vDI_metadata_of_pool;
 			is_a_snapshot = vdi_rec.API.vDI_is_a_snapshot;
 			snapshot_time = Date.to_string vdi_rec.API.vDI_snapshot_time;
-			snapshot_of = Ref.string_of vdi_rec.API.vDI_snapshot_of;
+			snapshot_of =
+				if Db.is_valid_ref __context vdi_rec.API.vDI_snapshot_of
+				then Db.VDI.get_uuid ~__context ~self:vdi_rec.API.vDI_snapshot_of
+				else "";
 			read_only = vdi_rec.API.vDI_read_only;
 			virtual_size = vdi_rec.API.vDI_virtual_size;
 			physical_utilisation = vdi_rec.API.vDI_physical_utilisation;
