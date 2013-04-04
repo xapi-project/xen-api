@@ -2173,10 +2173,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let local_fn = Local.Host.get_log ~host in
 			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.get_log rpc session_id host)
 
+		(* The message is already marked as Removed, it should be safe to remove the dispatching logic here 
+ 
 		let license_apply ~__context ~host ~contents =
 			info "Host.license_apply: host = '%s'" (host_uuid ~__context host);
 			let local_fn = Local.Host.license_apply ~host ~contents in
 			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.license_apply rpc session_id host contents)
+		*)
 
 		let assert_can_evacuate ~__context ~host =
 			info "Host.assert_can_evacuate: host = '%s'" (host_uuid ~__context host);
