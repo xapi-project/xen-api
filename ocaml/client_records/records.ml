@@ -276,7 +276,14 @@ let pif_record rpc session_id pif =
 	make_field ~name:"device-id" ~get:(fun () -> default nid (may (fun m -> m.API.pIF_metrics_device_id) (xm ()))) ();
 	make_field ~name:"device-name" ~get:(fun () -> default nid (may (fun m -> m.API.pIF_metrics_device_name) (xm ()))) ();
 	make_field ~name:"speed" ~get:(fun () -> default nid (may (fun m -> (Int64.to_string m.API.pIF_metrics_speed) ^ " Mbit/s") (xm ()))) ();
-	make_field ~name:"duplex" ~get:(fun () -> default nid (may (fun m -> if m.API.pIF_metrics_duplex then "full" else "half") (xm ()))) ();
+	make_field ~name:"duplex" ~get:(fun () -> default nid (may (fun m ->
+		if m.API.pIF_metrics_duplex then
+			"full"
+		else if m.API.pIF_metrics_carrier then
+			"half"
+		else
+			"unknown"
+		) (xm ()))) ();
 	make_field ~name:"disallow-unplug" ~get:(fun () -> string_of_bool ((x ()).API.pIF_disallow_unplug))
 	  ~set:(fun disallow_unplug -> Client.PIF.set_disallow_unplug rpc session_id pif (safe_bool_of_string "disallow-unplug" disallow_unplug)) ();
 	make_field ~name:"pci-bus-path" ~get:(fun () -> default nid (may (fun m -> m.API.pIF_metrics_pci_bus_path) (xm ()))) ();
