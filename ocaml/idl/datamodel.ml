@@ -523,7 +523,7 @@ let _ =
   error Api_errors.vm_duplicate_vbd_device [ "vm"; "vbd"; "device" ]
     ~doc:"The specified VM has a duplicate VBD device and cannot be started." ();
   error Api_errors.illegal_vbd_device [ "vbd"; "device" ]
-	  ~doc:"The specified VBD device is not recognised: please use a non-negative integer" ();
+	  ~doc:"The specified VBD device is not recognized: please use a non-negative integer" ();
   error Api_errors.vm_not_resident_here [ "vm"; "host" ]
     ~doc:"The specified VM is not currently resident on the specified host." ();
   error Api_errors.domain_exists [ "vm"; "domid" ]
@@ -578,7 +578,7 @@ let _ =
   error Api_errors.vm_snapshot_with_quiesce_not_supported [ "vm"; "error" ]
     ~doc:"The VSS plug-in is not installed on this virtual machine" ();
   error Api_errors.xen_vss_req_error_init_failed [ "vm"; "error_code" ]
-    ~doc:"Initialization of the VSS requestor failed" ();
+    ~doc:"Initialization of the VSS requester failed" ();
   error Api_errors.xen_vss_req_error_prov_not_loaded [ "vm"; "error_code" ]
     ~doc:"The Citrix XenServer Vss Provider is not loaded" ();
   error Api_errors.xen_vss_req_error_no_volumes_supported [ "vm"; "error_code" ]
@@ -784,7 +784,7 @@ let _ =
   error Api_errors.vm_requires_gpu ["vm"; "GPU_group"]
     ~doc:"You attempted to run a VM on a host which doesn't have a pGPU available in the GPU group needed by the VM. The VM has a vGPU attached to this GPU group." ();
   error Api_errors.vm_requires_iommu ["host"]
-    ~doc:"You attempted to run a VM on a host which doesn't have I/O virtualisation (IOMMU/VT-d) enabled, which is needed by the VM." ();
+    ~doc:"You attempted to run a VM on a host which doesn't have I/O virtualization (IOMMU/VT-d) enabled, which is needed by the VM." ();
   error Api_errors.vm_host_incompatible_version ["host"; "vm"]
     ~doc:"This VM operation cannot be performed on an older-versioned host during an upgrade." ();
   error Api_errors.vm_has_pci_attached ["vm"]
@@ -800,7 +800,7 @@ let _ =
   error Api_errors.vm_has_checkpoint [ "vm" ]
     ~doc:"You attempted to migrate a VM which has a checkpoint." ();
   error Api_errors.vdi_needs_vm_for_migrate [ "vdi" ]
-    ~doc:"You attempted to migrate a VDI which is not attached to a runnning VM." ();
+    ~doc:"You attempted to migrate a VDI which is not attached to a running VM." ();
   error Api_errors.mirror_failed [ "vdi" ]
     ~doc:"The VDI mirroring cannot be performed" ();
   error Api_errors.too_many_storage_migrates [ "number" ]
