@@ -188,6 +188,15 @@ module Mux = struct
 		let set_persistent context ~dbg ~sr ~vdi ~persistent =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.set_persistent ~dbg ~sr ~vdi ~persistent
+		let set_is_a_snapshot context ~dbg ~sr ~vdi ~is_a_snapshot =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.VDI.set_is_a_snapshot ~dbg ~sr ~vdi ~is_a_snapshot
+		let set_snapshot_time context ~dbg ~sr ~vdi ~snapshot_time =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.VDI.set_snapshot_time ~dbg ~sr ~vdi ~snapshot_time
+		let set_snapshot_of context ~dbg ~sr ~vdi ~snapshot_of =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.VDI.set_snapshot_of ~dbg ~sr ~vdi ~snapshot_of
 		let epoch_begin context ~dbg ~sr ~vdi =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.epoch_begin ~dbg ~sr ~vdi
