@@ -75,7 +75,7 @@ let login _ dbg service_name =
 		(* remove any existing reservations associated with this service *)
 		Xenctrl.with_intf
 		(fun xc ->
-			Client.with_xs client (fun xs -> Client.rm xs (state_path _service ^ "/" ^ service_name))
+			try Client.with_xs client (fun xs -> Client.rm xs (state_path _service ^ "/" ^ service_name)) with Xs_protocol.Enoent _ -> ()
 		);
 		service_name
 	)
