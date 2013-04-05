@@ -448,6 +448,35 @@ module SMAPIv1 = struct
 				| Api_errors.Server_error(code, params) -> raise (Backend_error(code, params))
 				| Sm.MasterOnly -> redirect sr
 
+		(* For SMAPIv1, is_a_snapshot, snapshot_time and snapshot_of are stored in
+		 * xapi's database. For SMAPIv2 they should be implemented by the storage
+		 * backend. *)
+		let set_is_a_snapshot context ~dbg ~sr ~vdi ~is_a_snapshot =
+			Server_helpers.exec_with_new_task "VDI.set_is_a_snapshot"
+				~subtask_of:(Ref.of_string dbg)
+				(fun __context ->
+					let vdi, _ = find_vdi ~__context sr vdi in
+					Db.VDI.set_is_a_snapshot ~__context ~self:vdi ~value:is_a_snapshot
+				)
+
+		let set_snapshot_time context ~dbg ~sr ~vdi ~snapshot_time =
+			Server_helpers.exec_with_new_task "VDI.set_snapshot_time"
+				~subtask_of:(Ref.of_string dbg)
+				(fun __context ->
+					let vdi, _ = find_vdi ~__context sr vdi in
+					let snapshot_time = Date.of_string snapshot_time in
+					Db.VDI.set_snapshot_time ~__context ~self:vdi ~value:snapshot_time
+				)
+
+		let set_snapshot_of context ~dbg ~sr ~vdi ~snapshot_of =
+			Server_helpers.exec_with_new_task "VDI.set_snapshot_of"
+				~subtask_of:(Ref.of_string dbg)
+				(fun __context ->
+					let vdi, _ = find_vdi ~__context sr vdi in
+					let snapshot_of, _ = find_vdi ~__context sr snapshot_of in
+					Db.VDI.set_snapshot_of ~__context ~self:vdi ~value:snapshot_of
+				)
+
 		let get_by_name context ~dbg ~sr ~name =
 			info "VDI.get_by_name dbg:%s sr:%s name:%s" dbg sr name;
 			(* PR-1255: the backend should do this for us *)
