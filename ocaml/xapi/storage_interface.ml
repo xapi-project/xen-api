@@ -257,6 +257,16 @@ module VDI = struct
 	(** [set_persistent dbg sr vdi persistent] sets [vdi]'s persistent flag to [persistent] *)
 	external set_persistent : dbg:debug_info -> sr:sr -> vdi:vdi -> persistent:bool -> unit = ""
 
+	(** [set_is_a_snapshot dbg sr vdi is_a_snapshot] sets [vdi]'s is_a_snapshot
+	 *  flag to [is_a_snapshot] *)
+	external set_is_a_snapshot : dbg:debug_info -> sr:sr -> vdi:vdi -> is_a_snapshot:bool -> unit = ""
+
+	(** [set_snapshot_time dbg sr vdi snapshot_time] sets [vdi]'s snapshot_time to [snapshot_time] *)
+	external set_snapshot_time : dbg:debug_info -> sr:sr -> vdi:vdi -> snapshot_time:string -> unit = ""
+
+	(** [set_snapshot_of dbg sr vdi parent] marks [vdi] as a snapshot of [snapshot_of] *)
+	external set_snapshot_of : dbg:debug_info -> sr:sr -> vdi:vdi -> snapshot_of:vdi -> unit = ""
+
 	(** [epoch_begin sr vdi] declares that [vdi] is about to be added to a starting/rebooting VM.
         This is not called over suspend/resume or migrate. *)
 	external epoch_begin : dbg:debug_info -> sr:sr -> vdi:vdi -> unit = ""
