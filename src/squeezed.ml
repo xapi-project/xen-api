@@ -34,7 +34,7 @@ let _ =
 
 	configure ~options ();
 	let socket = listen Memory_interface.json_path in
-	daemonize ();
+	maybe_daemonize ();
 
 	let module Server = Memory_interface.Server(Memory_server) in
 
