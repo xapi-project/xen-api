@@ -791,7 +791,8 @@ module VM = struct
 			(fun xc xs ->
 				safe_rm xs (Printf.sprintf "/vm/%s" vm.Vm.id);
 				safe_rm xs (Printf.sprintf "/vss/%s" vm.Vm.id);
-			)
+			);
+		DB.remove vm.Vm.id
 
 	let log_exn_continue msg f x = try f x with e -> debug "Safely ignoring exception: %s while %s" (Printexc.to_string e) msg
 
