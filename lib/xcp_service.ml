@@ -365,7 +365,9 @@ let daemonize () =
 				Unix.dup2 nullfd Unix.stderr;
 				with exn -> Unix.close nullfd; raise exn
 			end;
-			Unix.close nullfd
+			Unix.close nullfd;
+			let debug_output = Debug.syslog default_service_name () in
+			Debug.output := debug_output
 		| _ -> exit 0
 		end
 	| _ -> exit 0
