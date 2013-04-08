@@ -17,7 +17,6 @@
 
 (** Features than can be enabled and disabled. *)
 type feature =
-	| Hotfix_apply                 (** Enable GUI hotfix application. *)
 	| VLAN                         (** Enable VLAN. Currently not used. *)
 	| QoS                          (** Enable QoS control. Currently not used. *)
 	| Shared_storage               (** Enable shared storage. Currently not used? *)
