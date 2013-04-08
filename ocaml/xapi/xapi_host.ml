@@ -1259,11 +1259,8 @@ let apply_edition ~__context ~host ~edition =
 	if Db.Pool.get_ha_enabled ~__context ~self:pool then
 		raise (Api_errors.Server_error (Api_errors.ha_is_enabled, []))
 	else begin
-		let cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
-		let socket_count = List.assoc "socket_count" cpu_info in
 		let edition', features, additional =
-			V6client.apply_edition ~__context edition
-				["sockets", socket_count]
+			V6client.apply_edition ~__context edition []
 		in
 		Db.Host.set_edition ~__context ~self:host ~value:edition';
 		copy_license_to_db ~__context ~host ~features ~additional
