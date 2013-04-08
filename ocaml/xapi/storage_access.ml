@@ -1133,7 +1133,7 @@ let resynchronise_pbds ~__context ~pbds =
 (* This is a layering violation. The layers are:
      xapi: has a pool-wide view
      storage_impl: has a host-wide view of SRs and VDIs
-     SM: has a SR-wide viep
+     SM: has a SR-wide view
    Unfortunately the SM is storing some of its critical state (VDI-host locks) in the xapi
    metadata rather than on the backend storage. The xapi metadata is generally not authoritative
    and must be synchronised against the state of the world. Therefore we must synchronise the
