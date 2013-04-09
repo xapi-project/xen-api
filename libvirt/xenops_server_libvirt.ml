@@ -30,11 +30,14 @@ let insecure_vnc = ref true
 
 module C = Libvirt.Connect
 module D = Libvirt.Domain
+module E = Libvirt.Event
 
 let conn = ref None
 
 let get_connection ?name () = match !conn with
   | None ->
+    (* ensure we do this before the first connection *)
+    E.register_default_impl ();
     let c = C.connect ?name () in
     conn := Some c;
     c
@@ -545,4 +548,22 @@ end
 let init () =
 	Unixext.mkdir_rec (domain_xml_dir ()) 0o0755;
 	Unixext.mkdir_rec (vnc_dir ()) 0o0755;
+	(* Start watching for libvirt events *)
+	let c = get_connection () in
+	E.register_any c (E.Lifecycle (fun dom e ->
+		let uuid = D.get_uuid_string dom in
+		debug "received libvirt Lifecycle event on dom: %s" uuid;
+		Updates.add (Dynamic.Vm uuid) updates;
+	));
+	let (_: Thread.t) = Thread.create (fun () ->
+		C.set_keep_alive c 5 3;
+		while true do
+			try
+				E.run_default_impl ()
+			with e ->
+				error "Caught %s from Libvirt.Event.run_default_impl. Sleeping for 5.0 seconds" (Printexc.to_string e);
+				debug_libvirterror e;
+				Thread.delay 5.0
+		done
+	) () in
 	()
