@@ -159,14 +159,27 @@ module Domain = struct
 				if List.mem_assoc vbd.Vbd.id x.attach_infos
 				then List.assoc vbd.Vbd.id x.attach_infos
 				else None in
+			let open Storage_interface in
 			let virtual_media_type = match vbd.Vbd.ty with
 			| Vbd.CDROM -> ["device", "cdrom"]
 			| Vbd.Disk  -> ["device", "disk"] in
-			let physical_media_type = [ "type", "block" ] in
+			let physical_media_type = match disk_opt with
+			| Some { xenstore_data } when List.mem ("type", "volume") xenstore_data ->
+				[ "type", "volume" ]
+			| _ ->
+				[ "type", "block" ] in
 			let attr = virtual_media_type @ physical_media_type in
 			tag_start ~attr "disk" output;
 			begin match disk_opt with
-			| Some x -> empty ~attr:["dev", x.Storage_interface.params] "source" output
+			| Some { xenstore_data } when List.mem ("type", "volume") xenstore_data ->
+				empty ~attr:[
+					"pool", List.assoc "pool" xenstore_data;
+					"volume", List.assoc "volume" xenstore_data;
+				] "source" output
+			| Some x ->
+				empty ~attr:[
+					"dev", x.Storage_interface.params
+				] "source" output
 			| None -> ()
 			end;
 			let linux = match vbd.Vbd.position with
