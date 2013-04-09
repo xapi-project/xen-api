@@ -55,7 +55,7 @@ let reraise_libvirterror f =
 let get_domain vm =
 	let c = get_connection () in
 	try
-		Some (D.lookup_by_uuid_string c vm.Vm.id)
+		Some (D.lookup_by_uuid_string c vm)
 	with e ->
 		debug_libvirterror e;
 		None
@@ -282,7 +282,7 @@ module VM = struct
 	let destroy _ vm =
 		debug "Domain.destroy vm=%s" vm.Vm.id;
 		(* Idempotent *)
-		begin match get_domain vm with
+		begin match get_domain vm.Vm.id with
 		| Some d ->
 			D.destroy d
 		| None -> ()
@@ -316,7 +316,7 @@ module VM = struct
 	let create_device_model _ vm vbds vifs _ = ()
 	let destroy_device_model _ vm = ()
 	let request_shutdown task vm reason ack_delay =
-		let d = match get_domain vm with
+		let d = match get_domain vm.Vm.id with
 		| Some d -> d
 		| None -> failwith (Printf.sprintf "request_shutdown unknown domain %s" vm.Vm.id) in
 		begin match reason with
@@ -329,7 +329,7 @@ module VM = struct
 	let wait_shutdown task vm reason timeout =
 		true	
 
-	let get_info vm = match get_domain vm with
+	let get_info vm = match get_domain vm.Vm.id with
 		| Some d -> Some (D.get_info d)
 		| None -> None
 
@@ -352,7 +352,7 @@ module VM = struct
 		| _ -> None
 
 	let get_state vm =
-		match get_domain vm with
+		match get_domain vm.Vm.id with
 		| None -> halted_vm
 		| Some d ->
 			let i = D.get_info d in
@@ -482,9 +482,11 @@ module VBD = struct
 	let insert _ vm vbd disk = ()
 	let eject _ vm vbd = ()
 
-	let get_state vm vbd = {
+	let get_state vm vbd =
+		let d = get_domain vm in
+	{
 		Vbd.active = true;
-		plugged = true;
+		plugged = d <> None;
 		backend_present = vbd.Vbd.backend;
 		qos_target = None
 	}
@@ -520,9 +522,11 @@ module VIF = struct
 		let this_one x = x.Vif.id = vif.Vif.id in
 		DB.write vm { d with Domain.vifs = List.filter (fun x -> not (this_one x)) d.Domain.vifs }
 
-	let get_state vm vif = {
+	let get_state vm vif =
+		let d = get_domain vm in
+	{
 		Vif.active = true;
-		plugged = true;
+		plugged = d <> None;
 		media_present = true;
 		kthread_pid = 0;
 	}
