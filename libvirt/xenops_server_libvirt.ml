@@ -166,6 +166,8 @@ module Domain = struct
 			let physical_media_type = match disk_opt with
 			| Some { xenstore_data } when List.mem ("type", "volume") xenstore_data ->
 				[ "type", "volume" ]
+			| Some { xenstore_data } when List.mem ("type", "rbd") xenstore_data ->
+				[ "type", "network" ]
 			| _ ->
 				[ "type", "block" ] in
 			let attr = virtual_media_type @ physical_media_type in
@@ -175,6 +177,11 @@ module Domain = struct
 				empty ~attr:[
 					"pool", List.assoc "pool" xenstore_data;
 					"volume", List.assoc "volume" xenstore_data;
+				] "source" output
+			| Some { xenstore_data } when List.mem ("type", "rbd") xenstore_data ->
+				empty ~attr:[
+					"protocol", "rbd";
+					"name", List.assoc "name" xenstore_data;
 				] "source" output
 			| Some x ->
 				empty ~attr:[
