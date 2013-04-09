@@ -46,6 +46,12 @@ let debug_libvirterror = function
 | e ->
 	debug "%s" (Printexc.to_string e)
 
+let reraise_libvirterror f =
+	try
+		f ()
+	with Libvirt.Virterror t ->
+		raise (Xenops_interface.Internal_error ("from libvirt: " ^ (Libvirt.Virterror.to_string t)))
+
 let get_domain vm =
 	let c = get_connection () in
 	try
@@ -298,8 +304,12 @@ module VM = struct
 		let output = Xmlm.make_output ~decl:false (`Buffer b) in
 		Domain.To_xml.of_vm d output;
 		let xml = Buffer.contents b in
-		let c = get_connection () in
-		let d = D.create_linux c xml in
+		reraise_libvirterror
+		(fun () ->
+			let c = get_connection () in
+			let d = D.create_linux c xml in
+			()
+		);
 		Updates.add (Dynamic.Vm vm.Vm.id) updates
 
 	let build _ vm vbds vifs = ()
