@@ -12,9 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 open Xcp_service
-open Pervasiveext 
-open Squeezed_state
-open Memory_interface
 
 module D = Debug.Make(struct let name = Memory_interface.service_name end)
 open D
