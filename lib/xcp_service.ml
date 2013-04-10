@@ -14,48 +14,56 @@
 
 module type BRAND = sig val name: string end
 
+module StringSet = Set.Make(String)
+
 module Debug = struct
-type level =
-| Debug
-| Warn
-| Info
-| Error
+	type level = Debug | Warn | Info | Error
+	type backend = Backend_syslog of string | Backend_stderr
 
-let disabled_modules = ref []
-let disable m =
-  disabled_modules := m :: !disabled_modules
-
-let stderr key level x =
-  output_string stderr (Printf.sprintf "[%s|%s] %s" key (match level with
-  | Debug -> "debug"
-  | Warn -> "warn"
-  | Info -> "info"
-  | Error -> "error") x);
+	let stderr_ key level x =
+		output_string stderr (Printf.sprintf "[%s|%s] %s" key (match level with
+			| Debug -> "debug"
+			| Warn -> "warn"
+			| Info -> "info"
+			| Error -> "error") x);
     output_string stderr "\n";
     flush stderr
 
-let syslog ?(facility=`LOG_LOCAL5) name () =
-  let t = Syslog.openlog ~facility name in
-  fun key level x ->
-    Syslog.syslog t (match level with
-      | Debug -> `LOG_DEBUG
-      | Warn -> `LOG_WARNING
-      | Info -> `LOG_INFO
-      | Error -> `LOG_ERR
-    ) (Printf.sprintf "[%s] %s" key x)
+	let syslog ?(facility=`LOG_LOCAL5) name =
+		let t = Syslog.openlog ~facility name in
+		fun key level x ->
+			Syslog.syslog t (match level with
+				| Debug -> `LOG_DEBUG
+				| Warn -> `LOG_WARNING
+				| Info -> `LOG_INFO
+				| Error -> `LOG_ERR
+			) (Printf.sprintf "[%s] %s" key x)
 
-let output = ref stderr
+	let current_backend = ref Backend_stderr
 
-let write key level x =
-  if not(List.mem key !disabled_modules)
-  then !output key level x
+	let get_backend () = !current_backend
+	let set_backend b  = current_backend := b
 
-module Make = functor(Brand: BRAND) -> struct
-  let debug fmt = Printf.ksprintf (write Brand.name Debug) fmt
-  let error fmt = Printf.ksprintf (write Brand.name Error) fmt
-  let info fmt = Printf.ksprintf (write Brand.name Info) fmt
-  let warn fmt = Printf.ksprintf (write Brand.name Warn) fmt
-end
+	let get_backend_fun () = match !current_backend with
+		| Backend_stderr -> stderr_
+		| Backend_syslog n -> syslog n
+
+	let disabled_modules = ref StringSet.empty
+	let disable m =
+		disabled_modules := StringSet.add m !disabled_modules
+	let enable m =
+		disabled_modules := StringSet.remove m !disabled_modules
+
+	let write key level x =
+		if not (StringSet.mem key !disabled_modules)
+		then get_backend_fun () key level x
+
+	module Make = functor(Brand: BRAND) -> struct
+		let debug fmt = Printf.ksprintf (write Brand.name Debug) fmt
+		let error fmt = Printf.ksprintf (write Brand.name Error) fmt
+		let info fmt = Printf.ksprintf (write Brand.name Info) fmt
+		let warn fmt = Printf.ksprintf (write Brand.name Warn) fmt
+	end
 end
 
 let finally f g =
@@ -153,7 +161,7 @@ let common_options = [
 				List.iter Debug.disable modules
 			with e ->
 				error "Processing disabled-logging-for = %s: %s" x (Printexc.to_string e)
-		), (fun () -> String.concat " " (!Debug.disabled_modules)), "A space-separated list of debug modules to suppress logging from";
+		), (fun () -> String.concat " " (StringSet.elements !Debug.disabled_modules)), "A space-separated list of debug modules to suppress logging from";
 	"config", Arg.Set_string config_file, (fun () -> !config_file), "Location of configuration file";
 ]
 
@@ -346,7 +354,7 @@ let pidfile_write filename =
 let have_daemonized = ref false
 
 let daemonize () =
-	if not(!have_daemonized)
+	if not !have_daemonized
 	then match Unix.fork () with
 	| 0 ->
 		have_daemonized := true;
@@ -366,8 +374,7 @@ let daemonize () =
 				with exn -> Unix.close nullfd; raise exn
 			end;
 			Unix.close nullfd;
-			let debug_output = Debug.syslog default_service_name () in
-			Debug.output := debug_output
+			Debug.set_backend (Debug.Backend_syslog default_service_name)
 		| _ -> exit 0
 		end
 	| _ -> exit 0
