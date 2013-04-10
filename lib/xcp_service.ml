@@ -279,22 +279,14 @@ let http_handler call_of_string string_of_response process s context =
 			Response.write (fun t oc -> ()) response oc
 		end
 
-
 let accept_forever sock f =
-	let (_: Thread.t) = Thread.create
-		(fun () ->
-			while true do
-				let this_connection, this_sockaddr = Unix.accept sock in
-				let (_: Thread.t) = Thread.create
-					(fun () ->
-						finally
-							(fun () -> f this_connection this_sockaddr)
-							(fun () -> Unix.close this_connection)
-					) () in
-				()
-			done
-		) () in
-	()
+	ignore(Thread.create (fun () ->
+		while true do
+			let this_connection, this_sockaddr = Unix.accept sock in
+			ignore (Thread.create (fun (c, s) -> finally (fun () -> f c s) (fun () -> Unix.close c))
+								(this_connection, this_sockaddr))
+		done
+	) ())
 
 let mkdir_rec dir perm =
 	let rec p_mkdir dir =
