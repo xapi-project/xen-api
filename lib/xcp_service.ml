@@ -276,11 +276,11 @@ let accept_forever sock f =
 	let (_: Thread.t) = Thread.create
 		(fun () ->
 			while true do
-				let this_connection, _ = Unix.accept sock in
+				let this_connection, this_sockaddr = Unix.accept sock in
 				let (_: Thread.t) = Thread.create
 					(fun () ->
 						finally
-							(fun () -> f this_connection)
+							(fun () -> f this_connection this_sockaddr)
 							(fun () -> Unix.close this_connection)
 					) () in
 				()
