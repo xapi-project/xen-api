@@ -618,24 +618,6 @@ let handle_licensing () =
 			License_init.initialise ~__context ~host
 		)
 
-(** Writes the memory policy to xenstore and triggers the ballooning daemon. *)
-let control_domain_memory () =
-	(* We write this policy regardless of whether or not on_system_boot *)
-	(* is true, since Xapi sets on_system_boot to false for the initial *)
-	(* Xapi restart after a database upgrade.                           *)
-	Server_helpers.exec_with_new_task "control domain memory"
-		(fun __context ->
-			Helpers.call_api_functions ~__context
-				(fun rpc session_id ->
-					let self = Helpers.get_domain_zero ~__context in
-					let vm_r = Db.VM.get_record ~__context ~self in
-					Client.Client.VM.set_memory_dynamic_range
-						rpc session_id self
-						vm_r.API.vM_memory_dynamic_min
-						vm_r.API.vM_memory_dynamic_max
-				)
-		)
-
 let startup_script () =
 	let startup_script_hook = Xapi_globs.startup_script_hook in
 	if (try Unix.access startup_script_hook [ Unix.X_OK ]; true with _ -> false) then begin
@@ -834,6 +816,7 @@ let server_init() =
 	"Checking for non-HA redo-log", [], start_redo_log;
     (* It is a pre-requisite for starting db engine *)
     "Setup DB configuration", [], setup_db_conf;
+	"Manage Dom0", [], (fun () -> Xapi_xenops.manage_dom0 ~__context);
     (* Start up database engine if we're a master.
      NOTE: We have to start up the database engine before attempting to bring up network etc. because
      the database engine start may attempt a schema upgrade + restart xapi. The last thing we want
@@ -912,7 +895,6 @@ let server_init() =
       "Synchronising tunnels on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_tunnels_from_master ~__context;
       "Initialise monitor configuration", [], Monitor_master.update_configuration_from_master;
       "Initialising licensing", [], handle_licensing;
-      "control domain memory", [ Startup.OnThread ], control_domain_memory;
       "message_hook_thread", [ Startup.NoExnRaising ], (Xapi_message.start_message_hook_thread ~__context);
       "heartbeat thread", [ Startup.NoExnRaising; Startup.OnThread ], Db_gc.start_heartbeat_thread;
       "resynchronising HA state", [ Startup.NoExnRaising ], resynchronise_ha_state;
