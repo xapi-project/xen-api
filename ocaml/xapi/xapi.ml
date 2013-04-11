@@ -43,7 +43,7 @@ let startup_check () =
 *)
 let setup_db_conf() =
   debug "parsing db config file";
-  let dbs = Parse_db_conf.parse_db_conf Xapi_globs.db_conf_path in
+  let dbs = Parse_db_conf.get_db_conf Xapi_globs.db_conf_path in
   (* initialise our internal record of db conections from db.conf *)
   Db_conn_store.initialise_db_connections dbs
 
