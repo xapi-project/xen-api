@@ -28,10 +28,13 @@ let read_config filename =
 	] in
 	try
 		Config.read filename configargs (fun _ _ -> ())
-	with Config.Error ls ->
+	with
+	|  Config.Error ls ->
 		List.iter (fun (p,s) ->
 								 eprintf "config file error: %s: %s\n" p s) ls;
 		exit 2
+	| _ ->
+	  eprintf "Ignoring missing config file"
 
 let log_if_not_empty format_string value =
 	if value <> "" then debug format_string value
