@@ -758,6 +758,8 @@ let options_of_xapi_globs_spec =
     (fun () -> match ty with Float x -> string_of_float !x | Int x -> string_of_int !x),
     (Printf.sprintf "Set the value of '%s'" name)) xapi_globs_spec
 
+let xapissl_path = ref (Filename.concat Fhs.libexecdir "xapissl")
+
 let other_options = [
   "logconfig", Arg.Set_string log_config_file, 
     (fun () -> !log_config_file), "Log config file to use";
@@ -768,13 +770,22 @@ let other_options = [
   "writeinitcomplete", Arg.Set_string init_complete, 
     (fun () -> !init_complete), "touch specified file when xapi init process is complete";
 
-  "nowatchdog", Arg.Bool (fun b -> nowatchdog := b), 
+  "nowatchdog", Arg.Set nowatchdog, 
     (fun () -> string_of_bool !nowatchdog), "turn watchdog off, avoiding initial fork";
 
   "onsystemboot", Arg.Set on_system_boot, 
     (fun () -> string_of_bool !on_system_boot), "indicates that this server start is the first since the host rebooted";
 
 ] 
+
+let resources = [
+  { Xcp_service.name = "xapissl";
+    description = "Script for starting stunnel";
+    essential = true;
+    path = xapissl_path;
+    perms = [ Unix.X_OK ];
+  };
+]
 
 let all_options = options_of_xapi_globs_spec @ other_options
 

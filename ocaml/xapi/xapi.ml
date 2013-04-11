@@ -220,7 +220,7 @@ let init_args() =
   Debug.name_thread "thread_zero";
   (* Immediately register callback functions *)
   register_callback_fns();
-  Xcp_service.configure ~options:Xapi_globs.all_options ~resources:[] ()
+  Xcp_service.configure ~options:Xapi_globs.all_options ~resources:Xapi_globs.resources ()
 
 let wait_to_die() =
   (* don't call Thread.join cos this interacts strangely with OCAML runtime and stops
