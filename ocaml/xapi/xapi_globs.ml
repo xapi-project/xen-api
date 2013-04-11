@@ -779,6 +779,8 @@ let options_of_xapi_globs_spec =
     (fun () -> match ty with Float x -> string_of_float !x | Int x -> string_of_int !x),
     (Printf.sprintf "Set the value of '%s'" name)) xapi_globs_spec
 
+let xapissl_path = ref (Filename.concat Fhs.libexecdir "xapissl")
+
 let other_options = [
   "logconfig", Arg.Set_string log_config_file, 
     (fun () -> !log_config_file), "Log config file to use";
@@ -812,6 +814,15 @@ let other_options = [
     ), (fun () -> "<default>"), (* no API to query the current list *)
     "comma-separated list of modules to suppress logging from";
 ] 
+
+let resources = [
+  { Xcp_service.name = "xapissl";
+    description = "Script for starting stunnel";
+    essential = true;
+    path = xapissl_path;
+    perms = [ Unix.X_OK ];
+  };
+]
 
 let all_options = options_of_xapi_globs_spec @ other_options
 

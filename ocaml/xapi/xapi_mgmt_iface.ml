@@ -42,7 +42,7 @@ let restart_stunnel accept =
 	info "Restarting stunnel (accepting connections on %s)" accept;
 	let (_ : Thread.t) = Thread.create (fun () ->
 		Mutex.execute management_m (fun () ->
-			Forkhelpers.execute_command_get_output (Filename.concat Fhs.libexecdir "xapissl") [ "restart"; accept ]
+			Forkhelpers.execute_command_get_output !Xapi_globs.xapissl_path [ "restart"; accept ]
 		)
 	) () in
 	()
