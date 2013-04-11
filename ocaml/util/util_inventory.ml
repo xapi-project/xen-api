@@ -74,6 +74,7 @@ let string_of_table h =
 let read_inventory_contents () =
 	if not (Sys.file_exists inventory_filename) then begin
 		warn "%s does not exist: generating a minimal one" inventory_filename;
+	        Unixext.mkdir_rec (Filename.dirname inventory_filename) 0o644;
 		Unixext.write_string_to_file inventory_filename (
 			string_of_table (minimum_default_entries ()))
 	end;
