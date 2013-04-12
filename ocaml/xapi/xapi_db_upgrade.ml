@@ -57,27 +57,6 @@ let upgrade_vm_memory_overheads = {
 			(Db.VM.get_all ~__context)
 }
 
-let upgrade_wlb_configuration = {
-	description = "Upgrade WLB to use secrets";
-    version = (fun _ -> true);
-    fn = fun ~__context ->
-		(* there can be only one pool *)
-		let pool = List.hd (Db.Pool.get_all ~__context) in
-		(* get a Secret reference that makes sense, if there is no password ("")
-		   then use null, otherwise convert if clear-text and else keep what's
-		   there *)
-		let wlb_passwd_ref = 
-			let old_wlb_pwd = Ref.string_of
-				(Db.Pool.get_wlb_password ~__context ~self:pool) in
-			if old_wlb_pwd = ""
-			then Ref.null
-			else if String.startswith "OpaqueRef:" old_wlb_pwd
-			then Db.Pool.get_wlb_password ~__context ~self:pool
-			else Xapi_secret.create ~__context ~value:old_wlb_pwd ~other_config:[]
-		in
-		Db.Pool.set_wlb_password ~__context ~self:pool ~value:wlb_passwd_ref
-}
-
 (** On upgrade to the first ballooning-enabled XenServer, we reset memory
 properties to safe defaults to avoid triggering something bad.
 {ul
@@ -343,9 +322,24 @@ let remove_vmpp = {
 		List.iter (fun self -> Db.VM.set_protection_policy ~__context ~self ~value:Ref.null) vms
 }
 
+let remove_wlb = {
+	description = "Removing WLB metadata (feature removed)";
+	version = (fun x -> x <= tampa);
+	fn = fun ~__context ->
+		List.iter (fun self ->
+			let password = Db.Pool.get_wlb_password ~__context ~self in
+			if String.startswith "OpaqueRef:" (Ref.string_of password) && password <> Ref.null then
+				(try Xapi_secret.destroy ~__context ~self:password with _ -> ());
+			Db.Pool.set_wlb_url ~__context ~self ~value:"";
+			Db.Pool.set_wlb_username ~__context ~self ~value:"";
+			Db.Pool.set_wlb_password ~__context ~self ~value:Ref.null;
+			Db.Pool.set_wlb_enabled ~__context ~self ~value:false;
+			Db.Pool.set_wlb_verify_cert ~__context ~self ~value:false)
+			(Db.Pool.get_all ~__context)
+}
+
 let rules = [
 	upgrade_vm_memory_overheads;
-	upgrade_wlb_configuration;
 	upgrade_vm_memory_for_dmc;
 	upgrade_bios_strings;
 	update_snapshots;
@@ -357,6 +351,7 @@ let rules = [
 	upgrade_pif_metrics;
 	upgrade_host_editions;
 	remove_vmpp;
+	remove_wlb;
 ]
 
 (* Maybe upgrade most recent db *)

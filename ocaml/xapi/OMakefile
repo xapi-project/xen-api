@@ -248,8 +248,6 @@ XAPI_MODULES = $(COMMON) \
 	xapi_remotecmd \
 	redo_log_usage \
 	redo_log_alert \
-	workload_balancing \
-	wlb_reports \
 	remote_requests \
 	xapi_secret \
 	certificates \

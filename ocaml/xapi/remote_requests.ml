@@ -199,9 +199,6 @@ let send_test_post ~__context ~host ~port ~body =
         ~handler:(read_response result) ~enable_log:true;
       !result
   with
-    | Timed_out ->
-        raise (Api_errors.Server_error
-                 (Api_errors.wlb_timeout, ["30.0"]))
     | Stunnel.Stunnel_verify_error reason ->
         raise (Api_errors.Server_error
                  (Api_errors.ssl_verify_error, [reason]))

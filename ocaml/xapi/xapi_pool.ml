@@ -22,7 +22,6 @@ open Network
 module L = Debug.Debugger(struct let name="license" end)
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
-open Workload_balancing
 
 (* Surpress exceptions *)
 let no_exn f x = 
@@ -1244,21 +1243,6 @@ let enable_binary_storage ~__context =
 
 let disable_binary_storage ~__context =
   call_fn_on_hosts ~__context Client.Host.disable_binary_storage
-
-let initialize_wlb ~__context ~wlb_url ~wlb_username ~wlb_password ~xenserver_username ~xenserver_password =
-  init_wlb ~__context ~wlb_url ~wlb_username ~wlb_password ~xenserver_username ~xenserver_password
-
-let deconfigure_wlb ~__context =
-  decon_wlb ~__context
-
-let send_wlb_configuration ~__context ~config =
-  send_wlb_config ~__context ~config
-
-let retrieve_wlb_configuration ~__context =
-  retrieve_wlb_config ~__context
-
-let retrieve_wlb_recommendations ~__context =
-  get_opt_recommendations ~__context
 
 let send_test_post = Remote_requests.send_test_post
 
