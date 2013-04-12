@@ -24,6 +24,7 @@ let base_suite =
 			Test_ca98944.test;
 			Test_pr1510.suite;
 			Test_pool_license.test;
+			Test_platformdata.test;
 		]
 
 let _ = run_test_tt_main base_suite

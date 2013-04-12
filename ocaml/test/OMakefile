@@ -34,5 +34,6 @@ OCAML_OBJS = \
 	test_ca98944 \
 	test_pr1510 \
 	test_pool_license \
+	test_platformdata \
 
 OCamlProgram(suite, suite $(OCAML_OBJS) )
