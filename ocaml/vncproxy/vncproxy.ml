@@ -73,7 +73,7 @@ let _ =
     with _ ->
       List.hd (Client.VM.get_by_name_label rpc session_id vm) in
 
-  let session_id = Client.Session.login_with_password rpc !username !password "1.1" in
+  let session_id = Client.Session.login_with_password rpc !username !password "1.1" "vncproxy" in
   finally
     (fun () ->
        let vm = find_vm rpc session_id !vm in

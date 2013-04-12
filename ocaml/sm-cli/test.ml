@@ -342,10 +342,10 @@ let _ =
 	rxtransport := (TCP (!host2, 80));
 	rtransport := (TCP (!host2, 80));
 
-	let localsession = XapiClient.Session.login_with_password xrpc !username !password "1.0" in
+	let localsession = XapiClient.Session.login_with_password xrpc !username !password "1.0" "sm-cli" in
 	session := Ref.string_of localsession;
 
-	let remotesession = XapiClient.Session.login_with_password rxrpc !username !password "1.0" in
+	let remotesession = XapiClient.Session.login_with_password rxrpc !username !password "1.0" "sm-cli" in
 	rsession := Ref.string_of remotesession;
 
 	let url = Printf.sprintf "http://%s/services/SM?session_id=%s" !host !session in

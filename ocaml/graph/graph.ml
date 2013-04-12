@@ -146,7 +146,7 @@ let _ =
     "Display an object graph";
 
   (* Interesting event stuff starts here: *)
-  let session_id = Client.Session.login_with_password ~rpc:newrpc ~uname:!username ~pwd:!password ~version:"1.2" in
+  let session_id = Client.Session.login_with_password ~rpc:newrpc ~uname:!username ~pwd:!password ~version:"1.2" ~originator:"graph" in
   let classes = List.filter (fun x -> List.mem x Datamodel.expose_get_all_messages_for) all_classes in
   List.iter (fun x -> if not(List.mem x classes) then failwith (Printf.sprintf "Class %s not available" x)) !wanted;
 
