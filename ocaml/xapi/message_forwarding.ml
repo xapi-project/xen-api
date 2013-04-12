@@ -1217,6 +1217,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			if Helpers.rolling_upgrade_in_progress ~__context
 			then Helpers.assert_host_has_highest_version_in_pool
 				~__context ~host ;
+			(* Prevent VM start on a host that is being evacuated *)
+			List.iter (fun op ->
+				match op with
+				| ( _ , `evacuate ) -> raise (Api_errors.Server_error(Api_errors.host_evacuate_in_progress, [(Ref.string_of host)]));
+				| _ -> ())
+				(Db.Host.get_current_operations ~__context ~self:host);
+			
 			info "VM.start_on: VM = '%s'; host '%s'"
 				(vm_uuid ~__context vm) (host_uuid ~__context host);
 			let local_fn = Local.VM.start_on ~vm ~host ~start_paused ~force in
