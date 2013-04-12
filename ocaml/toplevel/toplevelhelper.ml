@@ -24,4 +24,4 @@ let rpc xml =
 open Client
 
 let init_session username password =
-  Client.Session.login_with_password ~rpc ~uname:username ~pwd:password ~version:"1.2"
+  Client.Session.login_with_password ~rpc ~uname:username ~pwd:password ~version:"1.2" ~originator:"toplevel"

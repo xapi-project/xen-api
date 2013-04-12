@@ -37,7 +37,7 @@ let _ =
 
   (* Get a session *)
   let rpc = rpc_of_hostname !hostname in
-  let session = Client.Session.login_with_password ~rpc ~uname:!username ~pwd:!password ~version:"1.4" in
+  let session = Client.Session.login_with_password ~rpc ~uname:!username ~pwd:!password ~version:"1.4" ~originator:"multipathrt" in
   try
     begin
       match !tc with
