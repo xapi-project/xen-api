@@ -21,13 +21,9 @@ type host_license_state = {
 	edition: string;
 }
 
-let string_of_string_map map =
-	Printf.sprintf "[%s]"
-		(List.map (fun (k, v) -> k ^ ": " ^ v) map |> String.concat "; ")
-
 let string_of_host_license_state state =
 	Printf.sprintf "{license_params = %s; edition = %s"
-		(string_of_string_map state.license_params)
+		(Test_common.string_of_string_map state.license_params)
 		state.edition
 
 let string_of_date_opt = function
@@ -158,7 +154,7 @@ module PoolLicenseState = struct
 			let string_of_input_t input =
 				Printf.sprintf "[%s]"
 					(List.map string_of_host_license_state input |> String.concat "; ")
-			let string_of_output_t = string_of_string_map
+			let string_of_output_t = Test_common.string_of_string_map
 		end
 		module State = XapiDb
 
