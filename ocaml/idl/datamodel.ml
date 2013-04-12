@@ -7976,6 +7976,7 @@ let http_actions = [
   ("put_import_raw_vdi", (Put, Constants.import_raw_vdi_uri, true, [String_query_arg "vdi"], _R_VM_ADMIN, []));
   ("get_export", (Get, Constants.export_uri, true, [String_query_arg "uuid"], _R_VM_ADMIN, []));
   ("get_export_metadata", (Get, Constants.export_metadata_uri, true, [String_query_arg "uuid"], _R_VM_ADMIN, []));
+  ("get_export_raw_vdi", (Get, Constants.export_raw_vdi_uri, true, [String_query_arg "vdi"], _R_VM_ADMIN, []));
   ("connect_console", (Connect, Constants.console_uri, false, [], _R_VM_OP, 
     [("host_console", _R_POOL_ADMIN)])); (* only _R_POOL_ADMIN can access the host/Dom0 console *)
   ("connect_console_ws", (Get, Constants.console_uri, false, [], _R_VM_OP, 
