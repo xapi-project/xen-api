@@ -328,7 +328,6 @@ let listen path =
 		end;
 		raise e
 
-
 let pidfile_write filename =
 	let fd = Unix.openfile filename
 		[ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC; ]
@@ -338,42 +337,39 @@ let pidfile_write filename =
 		let pid = Unix.getpid () in
 		let buf = string_of_int pid ^ "\n" in
 		let len = String.length buf in
-		if Unix.write fd buf 0 len <> len 
-		then failwith "pidfile_write failed";
-	)
+		if Unix.write fd buf 0 len <> len
+		then failwith "pidfile_write failed")
 	(fun () -> Unix.close fd)
 
-let have_daemonized = ref false
+let have_daemonized () = Unix.getppid () = 1
 
+(* Cf Stevens et al, Advanced Programming in the UNIX Environment,
+	 Section 13.3 *)
 let daemonize () =
-	if not !have_daemonized
-	then match Unix.fork () with
+	if not (have_daemonized ())
+	then
+		ignore (Unix.umask 0);
+		match Unix.fork () with
 	| 0 ->
-		have_daemonized := true;
-		if Unix.setsid () == -1 then
-			failwith "Unix.setsid failed";
-
-		begin match Unix.fork () with
+		if Unix.setsid () == -1 then failwith "Unix.setsid failed";
+		Sys.set_signal Sys.sighup Sys.Signal_ignore;
+		(match Unix.fork () with
 		| 0 ->
+			Unix.chdir "/";
 			mkdir_rec (Filename.dirname !pidfile) 0o755;
 			pidfile_write !pidfile;
-			let nullfd = Unix.openfile "/dev/null" [ Unix.O_WRONLY ] 0 in
-		  finally
-				(fun () ->
-					Unix.close Unix.stdin;
-					Unix.dup2 nullfd Unix.stdout;
-					Unix.dup2 nullfd Unix.stderr)
-				(fun () -> Unix.close nullfd);
-		  Debug.set_backend (Debug.Backend_syslog default_service_name)
-		| _ -> exit 0
-		end
+			Unix.close Unix.stdin;
+			Unix.close Unix.stdout;
+			Unix.close Unix.stderr;
+			let nullfd = Unix.openfile "/dev/null" [ Unix.O_RDWR ] 0 in
+			assert (nullfd = Unix.stdin);
+			ignore(Unix.dup nullfd);
+			ignore(Unix.dup nullfd);
+			Debug.set_backend (Debug.Backend_syslog default_service_name)
+	  | _ -> exit 0)
 	| _ -> exit 0
 
-let maybe_daemonize () =
-	if !daemon then
-		daemonize ()
-	else 
-		()
+let maybe_daemonize () = if !daemon then daemonize ()
 
 let wait_forever () =
 	while true do
