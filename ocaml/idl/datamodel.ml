@@ -680,6 +680,8 @@ let _ =
     ~doc:"The host failed to disable external authentication." ();
   error Api_errors.auth_disable_failed_permission_denied ["message"]
     ~doc:"The host failed to disable external authentication." ();
+  error Api_errors.host_evacuate_in_progress [ "host" ]
+    ~doc:"This host is being evacuated." ();
 
 
   (* Pool errors *)
