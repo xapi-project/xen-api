@@ -84,6 +84,37 @@ module Platform = struct
 			| _ -> default
 		with Not_found ->
 			default
+
+	let sanity_check ~platformdata ~filter_out_unknowns =
+		(* Filter out unknown flags, if applicable *)
+		let platformdata =
+			if filter_out_unknowns
+			then List.filter (fun (k, v) -> List.mem k filtered_flags) platformdata
+			else platformdata
+		in
+		(* Filter out invalid TSC modes. *)
+		let platformdata =
+			List.filter
+				(fun (k, v) -> k <> tsc_mode || List.mem v ["0"; "1"; "2"; "3"])
+				platformdata
+		in
+		(* Add usb emulation flags.
+		   Make sure we don't send usb=false and usb_tablet=true,
+		   as that wouldn't make sense. *)
+		let usb_enabled =
+			is_true ~key:usb ~platformdata ~default:true in
+		let usb_tablet_enabled =
+			if usb_enabled
+			then is_true ~key:usb_tablet ~platformdata ~default:true
+			else false
+		in
+		let platformdata =
+			List.update_assoc
+				[(usb, string_of_bool usb_enabled);
+					(usb_tablet, string_of_bool usb_tablet_enabled)]
+				platformdata
+		in
+		platformdata
 end
 
 let xenops_vdi_locator_of_strings sr_uuid vdi_location =
@@ -435,41 +466,21 @@ module MD = struct
 			{ priority = priority; affinity = affinity } in
 
 		let platformdata =
-			let p = vm.API.vM_platform in
-			if not (Pool_features.is_enabled ~__context Features.No_platform_filter) then
-				List.filter (fun (k, v) -> List.mem k Platform.filtered_flags) p
-			else p in
-		let timeoffset = rtc_timeoffset_of_vm ~__context (vmref, vm) vbds in
+			Platform.sanity_check
+				~platformdata:vm.API.vM_platform
+				~filter_out_unknowns:
+					(not(Pool_features.is_enabled ~__context Features.No_platform_filter))
+		in
 		(* Replace the timeoffset in the platform data too, to avoid confusion *)
+		let timeoffset = rtc_timeoffset_of_vm ~__context (vmref, vm) vbds in
 		let platformdata =
 			(Platform.timeoffset, timeoffset) ::
 				(List.filter (fun (key, _) -> key <> Platform.timeoffset) platformdata) in
-		(* Filter out invalid TSC modes. *)
-		let platformdata =
-			List.filter
-				(fun (k, v) -> k <> Platform.tsc_mode || List.mem v ["0"; "1"; "2"; "3"])
-				platformdata in
 		let platformdata =
 			let genid = match vm.API.vM_generation_id with
 				| "0:0" -> Xapi_vm_helpers.vm_fresh_genid ~__context ~self:vmref
 				| _ -> vm.API.vM_generation_id in
 			(Platform.generation_id, genid) :: platformdata
-		in
-		(* Add usb emulation flags.
-		   Make sure we don't send usb=false and usb_tablet=true,
-		   as that wouldn't make sense. *)
-		let usb_enabled =
-			Platform.is_true ~key:Platform.usb ~platformdata ~default:true in
-		let usb_tablet_enabled =
-			if usb_enabled
-			then Platform.is_true ~key:Platform.usb_tablet ~platformdata ~default:true
-			else false
-		in
-		let platformdata =
-			List.update_assoc
-				[(Platform.usb, string_of_bool usb_enabled);
-					(Platform.usb_tablet, string_of_bool usb_tablet_enabled)]
-				platformdata
 		in
 
 		let pci_msitranslate = true in (* default setting *)
