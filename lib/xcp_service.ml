@@ -12,10 +12,22 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module type BRAND = sig val name: string end
-
 module StringSet = Set.Make(String)
 
+(* Server configuration. We have built-in (hopefully) sensible defaults,
+   together with command-line arguments and a configuration file. They
+   are applied in order: (latest takes precedence)
+      defaults < arguments < config file
+*)
+let sockets_group = ref "xapi"
+let default_service_name = Filename.basename Sys.argv.(0)
+let config_file = ref (Printf.sprintf "/etc/%s.conf" default_service_name)
+let pidfile = ref (Printf.sprintf "/var/run/%s.pid" default_service_name)
+let log_destination = ref "syslog:daemon"
+let daemon = ref false
+let have_daemonized () = Unix.getppid () = 1
+
+module type BRAND = sig val name: string end
 module Debug = struct
 	type level = Debug | Warn | Info | Error
 	type backend = Backend_syslog of string | Backend_stderr
@@ -39,7 +51,9 @@ module Debug = struct
 				| Error -> `LOG_ERR
 			) (Printf.sprintf "[%s] %s" key x)
 
-	let current_backend = ref Backend_stderr
+	let current_backend = ref (if have_daemonized ()
+		then Backend_syslog default_service_name
+		else Backend_stderr)
 
 	let get_backend () = !current_backend
 	let set_backend b  = current_backend := b
@@ -77,22 +91,8 @@ let finally f g =
 
 type opt = string * Arg.spec * (unit -> string) * string
 
-
-(* Server configuration. We have built-in (hopefully) sensible defaults,
-   together with command-line arguments and a configuration file. They
-   are applied in order: (latest takes precedence)
-      defaults < arguments < config file
-*)
-let sockets_group = ref "xapi"
-let default_service_name = Filename.basename Sys.argv.(0)
-let config_file = ref (Printf.sprintf "/etc/%s.conf" default_service_name)
-let pidfile = ref (Printf.sprintf "/var/run/%s.pid" default_service_name)
-let log_destination = ref "syslog:daemon"
-let daemon = ref false
-
 module D = Debug.Make(struct let name = default_service_name end)
 open D
-
 
 module Config_file = struct
 	open Arg
@@ -341,7 +341,6 @@ let pidfile_write filename =
 		then failwith "pidfile_write failed")
 	(fun () -> Unix.close fd)
 
-let have_daemonized () = Unix.getppid () = 1
 
 (* Cf Stevens et al, Advanced Programming in the UNIX Environment,
 	 Section 13.3 *)
