@@ -114,6 +114,17 @@ module Platform = struct
 					(usb_tablet, string_of_bool usb_tablet_enabled)]
 				platformdata
 		in
+		(* Filter out invalid values for the "parallel" key. We don't want to give
+		 * guests access to anything other than a real parallel port. *)
+		let platformdata =
+			let is_valid_parallel_flag = function
+				| "none" -> true
+				| dev -> String.startswith "/dev/parport" dev
+			in
+			List.filter
+				(fun (k, v) -> k <> parallel || is_valid_parallel_flag v)
+				platformdata
+		in
 		platformdata
 end
 
