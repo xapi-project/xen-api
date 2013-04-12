@@ -31,11 +31,13 @@ let memory_targets_m = Mutex.create ()
 let cache_sr_uuid : string option ref = ref None
 let cache_sr_lock = Mutex.create ()
 
+let pool_secret_path = ref "/etc/xcp/ptoken"
+
 (** Pool secret. *)
 let get_pool_secret () =
 	try
-		Unix.access Constants.pool_secret_path [Unix.F_OK];
-		Unixext.string_of_file Constants.pool_secret_path
+		Unix.access !pool_secret_path [Unix.F_OK];
+		Unixext.string_of_file !pool_secret_path
 	with _ ->
 		failwith "Unable to read the pool secret."
 

@@ -704,6 +704,13 @@ let redo_log_connect_delay = ref 0.1
 
 let nowatchdog = ref false
 
+(* Path to the pool configuration file. *)
+let pool_config_file = ref "/etc/xcp/pool.conf"
+
+(* Path to the pool secret file. *)
+let pool_secret_path = ref "/etc/xcp/ptoken"
+
+
 type xapi_globs_spec_ty = | Float of float ref | Int of int ref
 
 let xapi_globs_spec =
@@ -785,6 +792,18 @@ let resources = [
     path = xapissl_path;
     perms = [ Unix.X_OK ];
   };
+  { Xcp_service.name = "pool_config_file";
+    description = "Pool configuration file";
+    essential = true;
+    path = pool_config_file;
+    perms = [ Unix.R_OK; Unix.W_OK ];
+  };
+  { Xcp_service.name = "pool_secret_path";
+    description = "Pool configuration file";
+    essential = false;
+    path = pool_secret_path;
+    perms = [ Unix.R_OK; Unix.W_OK ];
+  }
 ]
 
 let all_options = options_of_xapi_globs_spec @ other_options
