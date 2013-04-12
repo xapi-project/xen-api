@@ -357,16 +357,14 @@ let daemonize () =
 		| 0 ->
 			mkdir_rec (Filename.dirname !pidfile) 0o755;
 			pidfile_write !pidfile;
-
 			let nullfd = Unix.openfile "/dev/null" [ Unix.O_WRONLY ] 0 in
- 			begin try
-				Unix.close Unix.stdin;
-				Unix.dup2 nullfd Unix.stdout;
-				Unix.dup2 nullfd Unix.stderr;
-				with exn -> Unix.close nullfd; raise exn
-			end;
-			Unix.close nullfd;
-			Debug.set_backend (Debug.Backend_syslog default_service_name)
+		  finally
+				(fun () ->
+					Unix.close Unix.stdin;
+					Unix.dup2 nullfd Unix.stdout;
+					Unix.dup2 nullfd Unix.stderr)
+				(fun () -> Unix.close nullfd);
+		  Debug.set_backend (Debug.Backend_syslog default_service_name)
 		| _ -> exit 0
 		end
 	| _ -> exit 0
