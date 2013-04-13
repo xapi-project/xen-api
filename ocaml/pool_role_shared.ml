@@ -34,7 +34,7 @@ let string_of = function
 	| Broken -> "broken"
 
 let read_pool_role () =
-	try
+	try	   
 		let s = String.strip String.isspace
 			(Unixext.string_of_file !filename) in
 		match String.split ~limit:2 ':' s with
@@ -50,7 +50,7 @@ let get_role () =
 		| Some x -> x
 		| None ->
 			let r = read_pool_role () in
-			role := Some r;
+			if r != Broken then role := Some r;
 			r
 	)
 
