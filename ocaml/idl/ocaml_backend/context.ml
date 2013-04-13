@@ -104,15 +104,15 @@ let preauth ~__context =
       Internal -> false
     | Http (req,s) -> is_unix_socket s
 
-let initial =
+let get_initial () =
   { session_id = None;
     task_id = Ref.of_string "initial_task";
     task_in_database = false;
     forwarded_task = false;
     origin = Internal;
     task_name = "initial_task";
-	database = default_database ();
-	dbg = "initial_task";
+    database = default_database ();
+    dbg = "initial_task";
   }
 
 (* ref fn used to break the cyclic dependency between context, db_actions and taskhelper *)
@@ -161,11 +161,12 @@ let make_dbg http_other_config task_name task_id =
 
 (** constructors *)
 
-let from_forwarded_task ?(__context=initial) ?(http_other_config=[]) ?session_id ?(origin=Internal) task_id =
+let from_forwarded_task ?__context ?(http_other_config=[]) ?session_id ?(origin=Internal) task_id =
+  let ctx = match __context with Some x -> x | None -> get_initial () in
   let task_name = 
     if Ref.is_dummy task_id 
     then Ref.name_of_dummy task_id
-    else !__get_task_name ~__context task_id 
+    else !__get_task_name ~__context:ctx task_id 
     in   
     let info = if not (Ref.is_dummy task_id) then Real.info else Dummy.debug in
       (* CP-982: promote tracking debug line to info status *)
@@ -181,10 +182,11 @@ let from_forwarded_task ?(__context=initial) ?(http_other_config=[]) ?session_id
 		dbg = dbg;
 	  } 
 
-let make ?(__context=initial) ?(http_other_config=[]) ?(quiet=false) ?subtask_of ?session_id ?(database=default_database ()) ?(task_in_database=false) ?task_description ?(origin=Internal) task_name =
+let make ?__context ?(http_other_config=[]) ?(quiet=false) ?subtask_of ?session_id ?(database=default_database ()) ?(task_in_database=false) ?task_description ?(origin=Internal) task_name =
+  let ctx = match __context with Some x -> x | None -> get_initial () in
   let task_id, task_uuid =
     if task_in_database 
-    then !__make_task ~__context ~http_other_config ?description:task_description ?session_id ?subtask_of task_name
+    then !__make_task ~__context:ctx ~http_other_config ?description:task_description ?session_id ?subtask_of task_name
     else Ref.make_dummy task_name, Uuid.null
   in
   let task_uuid =

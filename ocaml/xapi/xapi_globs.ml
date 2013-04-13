@@ -710,6 +710,9 @@ let pool_config_file = ref "/etc/xcp/pool.conf"
 (* Path to the pool secret file. *)
 let pool_secret_path = ref "/etc/xcp/ptoken"
 
+let pci_info_path = ref "/usr/lib/xcp/lib/pci-info"
+
+
 
 type xapi_globs_spec_ty = | Float of float ref | Int of int ref
 
@@ -803,6 +806,12 @@ let resources = [
     essential = false;
     path = pool_secret_path;
     perms = [ Unix.R_OK; Unix.W_OK ];
+  };
+  { Xcp_service.name = "pci-info";
+    description = "PCI info helper script";
+    essential = true;
+    path = pci_info_path;
+    perms = [ Unix.X_OK ];
   }
 ]
 

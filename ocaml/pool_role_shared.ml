@@ -42,7 +42,7 @@ let read_pool_role () =
 			| [ "slave"; m_ip ] -> Slave m_ip
 			| [ "broken" ]      -> Broken
 			| _ -> failwith "cannot parse pool_role from pool config file"
-	with _ -> Broken
+	with _ -> failwith "Baaah!" (*Broken*)
 
 let get_role () =
 	Mutex.execute role_m (fun _ ->

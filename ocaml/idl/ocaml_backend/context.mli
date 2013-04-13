@@ -22,7 +22,7 @@ type origin =
 (** {6 Constructors} *)
 
 (** [initial] is the initial context. *)
-val initial : t
+val get_initial : unit -> t
 
 (** [make ~__context ~subtask_of ~database ~session_id ~task_in_database ~task_description ~origin name] creates a new context. 
     [__context] is the calling context,
