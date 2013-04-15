@@ -61,9 +61,6 @@ let real_proxy __context _ _ vnc_port s =
     debug "Proxy exited"
   with
     exn -> debug "error: %s" (ExnHelper.string_of_exn exn)
-		
-let fake_proxy __context _ _ console s = 
-  Rfb_randomtest.server s
 
 let check_wsproxy () =
 	try 

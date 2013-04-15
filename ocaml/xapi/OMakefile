@@ -4,7 +4,7 @@ OCAML_LIBS    = ../fhs ../util/version ../util/vm_memory_constraints ../util/san
 OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
 	../autogen ../database/ \
 	../xenops ../xva ../util \
-	../auth ../license ../client_records ../rfb ../gpg ../network ../rrdd/interface ..
+	../auth ../license ../client_records ../gpg ../network ../rrdd/interface ..
 
 UseCamlp4(rpclib.syntax, features vdi_automaton storage_impl xapi_udhcpd storage_migrate xapi_services system_domains cancel_tests)
 UseCamlp4(rpclib.idl, storage_interface)
@@ -75,8 +75,6 @@ XAPI_MODULES = $(COMMON) \
 	local_work_queue \
 	../xva/xva \
 	../idl/ocaml_backend/json \
-	../rfb/rfb \
-	../rfb/rfb_randomtest \
 	../client_records/records \
 	../client_records/record_util \
 	../xenops/task_server \

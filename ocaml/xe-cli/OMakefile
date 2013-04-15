@@ -95,8 +95,6 @@ clean:
 	rm -f ./rt/gtserver_linux
 	rm -f ./rt/test_host
 
-.SUBDIRS: rt
-
 .PHONY: install
 install:
 	mkdir -p $(DESTDIR)$(OPTDIR)/bin

@@ -157,18 +157,15 @@ JAVA_PHASE3_TARGETS = $(if $(COMPILE_JAVA), $(JAVA_PHASE3))
 OCAML_PHASE3_XEN = \
 	ocaml/xapi/xapi \
 	allxenops \
-	ocaml/xenops-cli/xn \
-	ocaml/xenops-cli/xenopstest \
 	ocaml/xenops/cancel_utils_test \
-	ocaml/xenguest/xenguest \
-	ocaml/xenguest/dumpcore \
 	ocaml/xapi/quicktestbin \
 	ocaml/xapi/sparse_dd \
 	ocaml/xapi/storage_impl_test \
 	ocaml/xapi/cancel_tests \
 	ocaml/license/v6d \
 	ocaml/network/xcp-networkd \
-	ocaml/network/networkd_db
+	ocaml/network/networkd_db \
+	ocaml/xsh/xsh
 
 #ocaml/xapi/monitor_fake_plugin
 
@@ -177,33 +174,12 @@ OCAML_PHASE3_NOXEN = \
 	ocaml/auth/testauth \
 	ocaml/auth/testauthx \
 	ocaml/xe-cli/xe \
-	ocaml/sm-cli/sm \
-	ocaml/sm-cli/smtest \
-	ocaml/xsh/xsh \
-	ocaml/xe-cli/rt/test_host \
-	ocaml/xe-cli/rt/gtclient \
-	ocaml/xe-cli/rt/gtserver_linux \
-	ocaml/xe-cli/rt/xgetip \
-	ocaml/xe-cli/rt/geneva/cli_test \
-	ocaml/xe-cli/rt/geneva/sm_stress \
-	ocaml/events/event_listen \
-	ocaml/console/console \
-	ocaml/graph/graph \
-	ocaml/rfb/rfb_randomtest \
 	ocaml/database/unit_test_marshall \
 	ocaml/database/block_device_io \
-	ocaml/toplevel \
-	ocaml/cdrommon/cdrommon \
 	ocaml/xapi/binpack \
 	ocaml/idl/datamodel \
-	ocaml/db_process/xapi-db-process \
-	ocaml/vncproxy/vncproxy \
-	ocaml/perftest/perftest \
-	ocaml/perftest/histogram \
-	ocaml/perftest/cumulative_time \
-	ocaml/lvhdrt/lvhdrt \
-	ocaml/mpathalert/mpathalert \
-	ocaml/multipathrt/multipathrt
+	ocaml/events/event_listen \
+	ocaml/db_process/xapi-db-process
 
 # ocaml/xapi/rrddump
 
@@ -229,4 +205,4 @@ phase2: $(OCAML_PHASE2_TARGETS) $(JS_PHASE2_TARGETS) $(JAVA_PHASE2_TARGETS)
 phase3: $(OCAML_PHASE3_TARGETS) $(JS_PHASE3_TARGETS) $(JAVA_PHASE3_TARGETS)
 
 .PHONY: test
-test: ocaml/xenops/xenopsd ocaml/xenops-cli/xenopstest ocaml/xenops-cli/runtest.sh ocaml/test/suite ocaml/database/database_test ocaml/xenops/squeeze_test
+test: ocaml/xenops/xenopsd ocaml/xenops-cli/xenopstest ocaml/test/suite ocaml/database/database_test ocaml/xenops/squeeze_test

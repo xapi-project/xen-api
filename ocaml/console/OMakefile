@@ -1,6 +1,0 @@
-OCAMLPACKS += unix
-
-OCamlProgram(console, client)
-
-clean:
-	rm -f $(CLEAN_OBJS) console

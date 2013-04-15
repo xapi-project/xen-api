@@ -10,36 +10,21 @@ OCamlLibrary(fhs, fhs)
 	ptoken \
 	autogen \
 	xe-cli \
-	sm-cli \
 	client_records \
 	idl \
 	util \
 	xapi \
-	xenguest \
 	xenops \
-	xva \
-	console \
 	auth \
 	events \
-	graph \
 	license \
-	rfb \
 	database \
-	toplevel \
-	cdrommon \
 	gpg \
-	db_process \
-	vncproxy \
 	xsh \
-	perftest \
-	lvhdrt \
-	mpathalert \
-	multipathrt \
 	doc \
-	network \
-	xenops-cli \
-	network \
 	rrdd \
+	network \
+	xva \
 	test
 
 clean:
