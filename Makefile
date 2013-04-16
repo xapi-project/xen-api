@@ -19,9 +19,13 @@ XEN       ?= $(shell if ocamlfind query xenctrl >/dev/null 2>&1; then echo --ena
 XEN := --enable-xen
 SIMULATOR := --enable-simulator
 
-build:
-	obuild configure
+.PHONY: build
+build: configure.done
 	obuild build
+
+configure.done: xenopsd.obuild
+	obuild configure
+	touch configure.done
 
 .PHONY: install
 install:

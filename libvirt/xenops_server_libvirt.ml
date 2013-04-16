@@ -30,6 +30,7 @@ let insecure_vnc = ref true
 
 module C = Libvirt.Connect
 module D = Libvirt.Domain
+module E = Libvirt.Event
 
 let conn = ref None
 
@@ -39,6 +40,8 @@ let connection_name = match hypervisor with
 
 let get_connection () = match !conn with
   | None ->
+    (* ensure we do this before the first connection *)
+    E.register_default_impl ();
     let c = C.connect ?name:connection_name () in
     conn := Some c;
     c
@@ -50,10 +53,16 @@ let debug_libvirterror = function
 | e ->
 	debug "%s" (Printexc.to_string e)
 
+let reraise_libvirterror f =
+	try
+		f ()
+	with Libvirt.Virterror t ->
+		raise (Xenops_interface.Internal_error ("from libvirt: " ^ (Libvirt.Virterror.to_string t)))
+
 let get_domain vm =
 	let c = get_connection () in
 	try
-		Some (D.lookup_by_uuid_string c vm.Vm.id)
+		Some (D.lookup_by_uuid_string c vm)
 	with e ->
 		debug_libvirterror e;
 		None
@@ -154,14 +163,34 @@ module Domain = struct
 				if List.mem_assoc vbd.Vbd.id x.attach_infos
 				then List.assoc vbd.Vbd.id x.attach_infos
 				else None in
+			let open Storage_interface in
 			let virtual_media_type = match vbd.Vbd.ty with
 			| Vbd.CDROM -> ["device", "cdrom"]
 			| Vbd.Disk  -> ["device", "disk"] in
-			let physical_media_type = [ "type", "block" ] in
+			let physical_media_type = match disk_opt with
+			| Some { xenstore_data } when List.mem ("type", "volume") xenstore_data ->
+				[ "type", "volume" ]
+			| Some { xenstore_data } when List.mem ("type", "rbd") xenstore_data ->
+				[ "type", "network" ]
+			| _ ->
+				[ "type", "block" ] in
 			let attr = virtual_media_type @ physical_media_type in
 			tag_start ~attr "disk" output;
 			begin match disk_opt with
-			| Some x -> empty ~attr:["dev", x.Storage_interface.params] "source" output
+			| Some { xenstore_data } when List.mem ("type", "volume") xenstore_data ->
+				empty ~attr:[
+					"pool", List.assoc "pool" xenstore_data;
+					"volume", List.assoc "volume" xenstore_data;
+				] "source" output
+			| Some { xenstore_data } when List.mem ("type", "rbd") xenstore_data ->
+				empty ~attr:[
+					"protocol", "rbd";
+					"name", List.assoc "name" xenstore_data;
+				] "source" output
+			| Some x ->
+				empty ~attr:[
+					"dev", x.Storage_interface.params
+				] "source" output
 			| None -> ()
 			end;
 			let linux = match vbd.Vbd.position with
@@ -280,7 +309,7 @@ module VM = struct
 	let destroy _ vm =
 		debug "Domain.destroy vm=%s" vm.Vm.id;
 		(* Idempotent *)
-		begin match get_domain vm with
+		begin match get_domain vm.Vm.id with
 		| Some d ->
 			D.destroy d
 		| None -> ()
@@ -302,15 +331,19 @@ module VM = struct
 		let output = Xmlm.make_output ~decl:false (`Buffer b) in
 		Domain.To_xml.of_vm d output;
 		let xml = Buffer.contents b in
-		let c = get_connection () in
-		let d = D.create_linux c xml in
+		reraise_libvirterror
+		(fun () ->
+			let c = get_connection () in
+			let d = D.create_linux c xml in
+			()
+		);
 		Updates.add (Dynamic.Vm vm.Vm.id) updates
 
 	let build _ vm vbds vifs = ()
 	let create_device_model _ vm vbds vifs _ = ()
 	let destroy_device_model _ vm = ()
 	let request_shutdown task vm reason ack_delay =
-		let d = match get_domain vm with
+		let d = match get_domain vm.Vm.id with
 		| Some d -> d
 		| None -> failwith (Printf.sprintf "request_shutdown unknown domain %s" vm.Vm.id) in
 		begin match reason with
@@ -323,7 +356,7 @@ module VM = struct
 	let wait_shutdown task vm reason timeout =
 		true	
 
-	let get_info vm = match get_domain vm with
+	let get_info vm = match get_domain vm.Vm.id with
 		| Some d -> Some (D.get_info d)
 		| None -> None
 
@@ -346,7 +379,7 @@ module VM = struct
 		| _ -> None
 
 	let get_state vm =
-		match get_domain vm with
+		match get_domain vm.Vm.id with
 		| None -> halted_vm
 		| Some d ->
 			let i = D.get_info d in
@@ -476,9 +509,11 @@ module VBD = struct
 	let insert _ vm vbd disk = ()
 	let eject _ vm vbd = ()
 
-	let get_state vm vbd = {
+	let get_state vm vbd =
+		let d = get_domain vm in
+	{
 		Vbd.active = true;
-		plugged = true;
+		plugged = d <> None;
 		backend_present = vbd.Vbd.backend;
 		qos_target = None
 	}
@@ -514,9 +549,11 @@ module VIF = struct
 		let this_one x = x.Vif.id = vif.Vif.id in
 		DB.write vm { d with Domain.vifs = List.filter (fun x -> not (this_one x)) d.Domain.vifs }
 
-	let get_state vm vif = {
+	let get_state vm vif =
+		let d = get_domain vm in
+	{
 		Vif.active = true;
-		plugged = true;
+		plugged = d <> None;
 		media_present = true;
 		kthread_pid = 0;
 	}
@@ -535,4 +572,22 @@ end
 let init () =
 	Unixext.mkdir_rec (domain_xml_dir ()) 0o0755;
 	Unixext.mkdir_rec (vnc_dir ()) 0o0755;
+	(* Start watching for libvirt events *)
+	let c = get_connection () in
+	E.register_any c (E.Lifecycle (fun dom e ->
+		let uuid = D.get_uuid_string dom in
+		debug "received libvirt Lifecycle event on dom: %s" uuid;
+		Updates.add (Dynamic.Vm uuid) updates;
+	));
+	let (_: Thread.t) = Thread.create (fun () ->
+		C.set_keep_alive c 5 3;
+		while true do
+			try
+				E.run_default_impl ()
+			with e ->
+				error "Caught %s from Libvirt.Event.run_default_impl. Sleeping for 5.0 seconds" (Printexc.to_string e);
+				debug_libvirterror e;
+				Thread.delay 5.0
+		done
+	) () in
 	()

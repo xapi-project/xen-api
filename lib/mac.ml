@@ -32,6 +32,9 @@ let xensource_mac () =
 let make_local_mac bytes =
 	(* make sure bit 1 (local) is set and bit 0 (unicast) is clear *)
 	bytes.(0) <- ((bytes.(0) lor 0x2) land (lnot 0x1));
+	(* libvirt:virnetdevtap.c rejects MAC addresses starting with
+	   reserved value 0xfe *)
+	if bytes.(0) = 0xfe then bytes.(0) <- 0xfd;
 	Printf.sprintf "%02x:%02x:%02x:%02x:%02x:%02x"
 		bytes.(0) bytes.(1) bytes.(2) bytes.(3) bytes.(4) bytes.(5)
 
