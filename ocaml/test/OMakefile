@@ -32,6 +32,7 @@ OCAML_OBJS = \
 	test_xapi_db_upgrade \
 	test_ca91480 \
 	test_pr1510 \
+	test_pool_apply_edition \
 	test_pool_license \
 
 OCamlProgram(suite, suite $(OCAML_OBJS) )
