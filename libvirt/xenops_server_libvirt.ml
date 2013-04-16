@@ -33,9 +33,13 @@ module D = Libvirt.Domain
 
 let conn = ref None
 
-let get_connection ?name () = match !conn with
+let connection_name = match hypervisor with
+  | Some (Xen(_, _)) -> Some "xenlight:///"
+  | _ -> None
+
+let get_connection () = match !conn with
   | None ->
-    let c = C.connect ?name () in
+    let c = C.connect ?name:connection_name () in
     conn := Some c;
     c
   | Some c -> c

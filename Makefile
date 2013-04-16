@@ -25,6 +25,7 @@ build:
 
 .PHONY: install
 install:
+	install -D ./dist/build/xenopsd_libvirt/xenopsd_libvirt $(DESTDIR)/$(SBINDIR)/xenopsd_libvirt
 	install -D ./dist/build/xenopsd_qemu/xenopsd_qemu $(DESTDIR)/$(SBINDIR)/xenopsd_qemu
 	install -D ./dist/build/xenopsd/xenopsd $(DESTDIR)/$(SBINDIR)/xenopsd
 	install -D ./dist/build/xenopsd_simulator/xenopsd_simulator $(DESTDIR)/$(SBINDIR)/xenopsd_simulator
@@ -42,9 +43,10 @@ reinstall: install
 
 uninstall:
 	@ocamlfind remove $(NAME) || true
-	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd-qemu
+	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd_libvirt
+	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd_qemu
 	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd
-	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
+	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd_simulator
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/xenguest
 	rm -f $(DESTDIR)/$(ETCDIR)/xenopsd.conf
 	rm -f $(DESTDIR)/$(SCRIPTSDIR)/vif
