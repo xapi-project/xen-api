@@ -597,6 +597,8 @@ let parse_patch_precheck_xml patch = function
         <info>Any message in text - for errors that don't fit into another category</info>
       </error> *)
       raise (Api_errors.Server_error (Api_errors.patch_precheck_failed_unknown_error, [Ref.string_of patch; info]))
+  | Element("error" , [("errorcode","PATCH_PRECHECK_FAILED_ISO_MOUNTED")], [Element ("info",_, [PCData info])]) ->
+      raise (Api_errors.Server_error (Api_errors.patch_precheck_tools_iso_mounted, [Ref.string_of patch; info]))
   | Element ("error", [("errorcode", "PATCH_PRECHECK_FAILED_PREREQUISITE_MISSING")], children) ->
       (* <error errorcode="PATCH_PRECHECK_FAILED_PREREQUISITE_MISSING">
         <prerequisite uuid="ABCD1234-FEED-DEAD-BEEF-000000000000" />

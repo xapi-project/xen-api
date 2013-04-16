@@ -289,6 +289,7 @@ let patch_precheck_failed_prerequisite_missing = "PATCH_PRECHECK_FAILED_PREREQUI
 let patch_precheck_failed_wrong_server_version = "PATCH_PRECHECK_FAILED_WRONG_SERVER_VERSION"
 let patch_precheck_failed_wrong_server_build = "PATCH_PRECHECK_FAILED_WRONG_SERVER_BUILD"
 let patch_precheck_failed_vm_running = "PATCH_PRECHECK_FAILED_VM_RUNNING"
+let patch_precheck_tools_iso_mounted = "PATCH_PRECHECK_FAILED_ISO_MOUNTED"
 let patch_apply_failed = "PATCH_APPLY_FAILED"
 let cannot_find_oem_backup_partition = "CANNOT_FIND_OEM_BACKUP_PARTITION"
 let only_allowed_on_oem_edition = "ONLY_ALLOWED_ON_OEM_EDITION"
