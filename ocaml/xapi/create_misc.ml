@@ -289,6 +289,8 @@ and update_domain_zero_memory_constraints (host_info: host_info) (constraints: V
 (** Calculates the range of memory to which domain 0 is constrained, in bytes. *)
 and calculate_domain_zero_memory_static_range (host_info: host_info) : int64 * int64 =
 
+  (*
+
 	(** Calculates the minimum amount of memory needed by domain 0, in bytes. *)
 	let calculate_domain_zero_memory_static_min () =
 		(* Base our calculation on the total amount of host memory. *)
@@ -304,7 +306,9 @@ and calculate_domain_zero_memory_static_range (host_info: host_info) : int64 * i
 	let static_min = calculate_domain_zero_memory_static_min () in
 	let static_max = host_info.dom0_static_max in
 	let static_min = minimum static_min static_max in
-	static_min, static_max
+	static_min, static_max*)
+  let fourgigs = Int64.mul 4L (Int64.mul 1024L (Int64.mul 1024L 1024L)) in
+  (fourgigs, fourgigs)
 
 and calculate_domain_zero_vcpu_count ~__context : int =
 	List.length (Db.Host.get_host_CPUs ~__context ~self:(Helpers.get_localhost ~__context))
