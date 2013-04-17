@@ -36,10 +36,15 @@ let update_mh_info interface =
 	let (_: string*string) = Forkhelpers.execute_command_get_output update_mh_info_script [ interface ] in
 	()
 
+let stunnel_m = Mutex.create ()
+
 let restart_stunnel accept =
 	info "Restarting stunnel (accepting connections on %s)" accept;
 	let (_ : Thread.t) = Thread.create (fun () ->
-		Forkhelpers.execute_command_get_output (Filename.concat Fhs.libexecdir "xapissl") [ "restart"; accept ]) () in
+		Mutex.execute management_m (fun () ->
+			Forkhelpers.execute_command_get_output (Filename.concat Fhs.libexecdir "xapissl") [ "restart"; accept ]
+		)
+	) () in
 	()
 
 let stop () =
