@@ -797,7 +797,7 @@ let resources = [
   };
   { Xcp_service.name = "pool_config_file";
     description = "Pool configuration file";
-    essential = true;
+    essential = false;
     path = pool_config_file;
     perms = [ Unix.R_OK; Unix.W_OK ];
   };

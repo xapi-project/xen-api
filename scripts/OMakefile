@@ -89,8 +89,8 @@ install:
 #	$(IPROG) xe-get-network-backend $(DESTDIR)$(BINDIR)
 #	$(IPROG) static-vdis $(DESTDIR)$(BINDIR)
 #	$(IPROG) with-vdi $(DESTDIR)$(OPTDIR)/debug
-#	$(IPROG) pool.conf $(DESTDIR)$(ETCDIR)
-	mkdir -p $(DESTDIR)/etc/pam.d
+	$(IPROG) pool.conf $(DESTDIR)$(ETCDIR)
+#	mkdir -p $(DESTDIR)/etc/pam.d
 #	$(IPROG) pam.d-xapi $(DESTDIR)/etc/pam.d/xapi
 #	$(IPROG) qemu-dm-wrapper vncterm-wrapper upload-wrapper logs-download $(DESTDIR)$(LIBEXECDIR)
 #	mkdir -p $(DESTDIR)$(OPTDIR)/packages/iso #omg XXX
@@ -127,5 +127,6 @@ install:
 #	mkdir -p $(DESTDIR)/etc/bash_completion.d
 #	$(IPROG) xe-switch-network-backend-bash-completion $(DESTDIR)/etc/bash_completion.d/xe-switch-network-backend
 #	$(IPROG) xe-switch-network-backend $(DESTDIR)$(BINDIR)
+	./customise_xapi_conf.sh $(DESTDIR)$(XAPICONF)
 
 
