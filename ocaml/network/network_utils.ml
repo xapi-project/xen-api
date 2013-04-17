@@ -193,13 +193,18 @@ module Ip = struct
 		if is_up dev then
 			ignore (link_set dev ["down"])
 
+	let link ?(version=V46) dev attr =
+		let v = string_of_version version in
+		let output = call (v @ ["link"; "show"; "dev"; dev]) in
+		find output attr
+
 	let addr ?(version=V46) dev attr =
 		let v = string_of_version version in
 		let output = call (v @ ["addr"; "show"; "dev"; dev]) in
 		find output attr
 
 	let get_mtu dev =
-		int_of_string (List.hd (addr dev "mtu"))
+		int_of_string (List.hd (link dev "mtu"))
 
 	let get_state dev =
 		match addr dev "state" with
@@ -207,7 +212,7 @@ module Ip = struct
 		| _ -> false
 
 	let get_mac dev =
-		List.hd (addr dev "link/ether")
+		List.hd (link dev "link/ether")
 
 	let set_mac dev mac =
 		try
