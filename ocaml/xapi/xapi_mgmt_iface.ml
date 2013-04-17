@@ -36,9 +36,15 @@ let update_mh_info interface =
 	let (_: string*string) = Forkhelpers.execute_command_get_output update_mh_info_script [ interface ] in
 	()
 
-let restart_stunnel () =
+let stunnel_m = Mutex.create ()
+
+let restart_stunnel accept =
+	info "Restarting stunnel (accepting connections on %s)" accept;
 	let (_ : Thread.t) = Thread.create (fun () ->
-		Forkhelpers.execute_command_get_output (Filename.concat Fhs.libexecdir "xapissl") [ "restart" ]) () in
+		Mutex.execute management_m (fun () ->
+			Forkhelpers.execute_command_get_output (Filename.concat Fhs.libexecdir "xapissl") [ "restart"; accept ]
+		)
+	) () in
 	()
 
 let stop () =
@@ -53,28 +59,33 @@ let stop () =
  * _the_ management interface. Slaves in a pool use the IP address of this interface to connect
  * the pool master. *)
 let start ~__context ?addr () =
-	let addr, socket =
+	let socket, accept =
 		match addr with
 			| None ->
 					info "Starting new server (listening on all IP addresses)";
 					begin
 						try (* Is it IPv6 ? *)
 							let addr = Unix.inet6_addr_any in
-							addr, Xapi_http.bind (Unix.ADDR_INET(addr, Xapi_globs.http_port))
+							Xapi_http.bind (Unix.ADDR_INET(addr, Xapi_globs.http_port)),
+							":::443"
 						with _ -> (* No. *)
 							let addr = Unix.inet_addr_any in
-							addr, Xapi_http.bind (Unix.ADDR_INET(addr, Xapi_globs.http_port))
+							Xapi_http.bind (Unix.ADDR_INET(addr, Xapi_globs.http_port)),
+							"443"
 					end
 			| Some ip ->
 					info "Starting new server (listening on %s)" ip;
 					let addr = Unix.inet_addr_of_string ip in
-					addr, Xapi_http.bind (Unix.ADDR_INET(addr, Xapi_globs.http_port))
+					let sockaddr = Unix.ADDR_INET(addr, Xapi_globs.http_port) in
+					Xapi_http.bind sockaddr,
+					match Unix.domain_of_sockaddr sockaddr with
+					| Unix.PF_INET6 -> "::1:443"
+					| _ -> "127.0.0.1:443"
 	in
 	Http_svr.start Xapi_http.server socket;
 	management_interface_server := socket :: !management_interface_server;
 
-	debug "Restarting stunnel";
-	restart_stunnel ();
+	restart_stunnel accept;
 	if Pool_role.is_master () && !listening_all then begin
 		(* NB if we synchronously bring up the management interface on a master with a blank
 		   database this can fail... this is ok because the database will be synchronised later *)
