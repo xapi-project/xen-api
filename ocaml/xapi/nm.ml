@@ -126,17 +126,24 @@ let create_bond ~__context bond mtu =
 
 	(* set bond properties *)
 	let props =
+		let rec get_prop p =
+			if List.mem_assoc p props
+			then List.assoc p props
+			else ""
+		and get_prop_assoc_if_mode m p = if mode = m
+			then if List.mem_assoc p props
+				then [ p, List.assoc p props ]
+				else []
+			else []
+		in
+
 		if List.length slaves > 1 then
-			let hashing_algorithm =
-				if List.mem_assoc "hashing_algorithm" props then
-					List.assoc "hashing_algorithm" props
-				else
-					""
-			in
-			let rebalance_interval =
-				if mode = `lacp
+			let hashing_algorithm = get_prop "hashing_algorithm"
+			and rebalance_interval = if mode = `lacp
 				then []
 				else ["rebalance-interval", "1800000"]
+			and lacp_timeout = get_prop_assoc_if_mode `lacp "lacp-time"
+			and lacp_aggregation_key = get_prop_assoc_if_mode `lacp "lacp-aggregation-key"
 			in
 			let props = [
 				"mode", Record_util.bond_mode_to_string mode;
@@ -145,7 +152,9 @@ let create_bond ~__context bond mtu =
 				"updelay", "31000";
 				"use_carrier", "1";
 				"hashing-algorithm", hashing_algorithm;
-			] @ rebalance_interval in
+			] @ rebalance_interval
+			  @ lacp_timeout
+			  @ lacp_aggregation_key in
 			let overrides = List.filter_map (fun (k, v) ->
 				if String.startswith "bond-" k then
 					Some ((String.sub_to_end k 5), v)
