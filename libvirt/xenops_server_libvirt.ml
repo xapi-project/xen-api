@@ -35,7 +35,7 @@ module E = Libvirt.Event
 let conn = ref None
 
 let connection_name = match hypervisor with
-  | Some (Xen(_, _)) -> Some "xenlight:///"
+  | Some (Xen(_, _)) -> Some "xen:///"
   | _ -> None
 
 let get_connection () = match !conn with
