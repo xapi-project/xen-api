@@ -36,7 +36,7 @@ let choose_bond_device_name ~__context ~host =
 		else name in
 	choose 0
 
-let copy_configuration ~__context from_pif to_pif =
+let move_configuration ~__context from_pif to_pif =
 	debug "Moving IP configuration from PIF %s to PIF %s" (Db.PIF.get_uuid ~__context ~self:from_pif)
 		(Db.PIF.get_uuid ~__context ~self:to_pif);
 	let mode =	Db.PIF.get_ip_configuration_mode ~__context ~self:from_pif in
@@ -48,7 +48,12 @@ let copy_configuration ~__context from_pif to_pif =
 	Db.PIF.set_IP ~__context ~self:to_pif ~value:ip;
 	Db.PIF.set_netmask ~__context ~self:to_pif ~value:netmask;
 	Db.PIF.set_gateway ~__context ~self:to_pif ~value:gateway;
-	Db.PIF.set_DNS ~__context ~self:to_pif ~value:dns
+	Db.PIF.set_DNS ~__context ~self:to_pif ~value:dns;
+	Db.PIF.set_ip_configuration_mode ~__context ~self:from_pif ~value:`None;
+	Db.PIF.set_IP ~__context ~self:from_pif ~value:"";
+	Db.PIF.set_netmask ~__context ~self:from_pif ~value:"";
+	Db.PIF.set_gateway ~__context ~self:from_pif ~value:"";
+	Db.PIF.set_DNS ~__context ~self:from_pif ~value:""
 
 (* Determine local VIFs: candidates for moving to the bond.
  * Local VIFs are those VIFs on the given networks that belong to VMs that
@@ -221,18 +226,28 @@ let with_local_lock f = Mutex.execute local_m f
 type requirement =
 	{
 		name:string;
-		default_value:string;
+		default_value:string option;
 		is_valid_value:string -> bool;
 	}
 
 let requirements_of_mode = function
 	| `lacp -> [
-			{
-				name = "hashing_algorithm";
-				default_value = "tcpudp_ports";
-				is_valid_value = (fun str -> List.mem str ["src_mac"; "tcpudp_ports"]);
-			};
-		]
+		{
+			name = "hashing_algorithm";
+			default_value = Some "tcpudp_ports";
+			is_valid_value = (fun str -> List.mem str ["src_mac"; "tcpudp_ports"]);
+		};
+		{
+			name = "lacp-time";
+			default_value = Some "slow";
+			is_valid_value = (fun str -> List.mem str ["fast"; "slow"]);
+		};
+		{
+			name = "lacp-aggregation-key";
+			default_value = None;
+			is_valid_value = (fun i -> try ignore (int_of_string i); true with _ -> false);
+		};
+	]
 	| _ -> []
 
 (* Validate a key-value pair against a list of property requirements. *)
@@ -260,8 +275,12 @@ let add_defaults requirements properties =
 	in
 	List.fold_left
 		(fun acc requirement ->
-			if property_is_present requirement then acc
-			else (requirement.name, requirement.default_value)::acc)
+			if property_is_present requirement
+			then acc
+			else match requirement.default_value with
+				| None -> acc
+				| Some default_value ->
+					(requirement.name, default_value)::acc)
 		properties requirements
 
 let create ~__context ~network ~members ~mAC ~mode ~properties =
@@ -366,7 +385,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 		List.iter (fun slave -> Db.PIF.set_bond_slave_of ~__context ~self:slave ~value:bond) members;
 
 		(* Copy the IP configuration of the primary member to the master *)
-		copy_configuration ~__context primary_slave master;
+		move_configuration ~__context primary_slave master;
 
 		begin match management_pif with
 		| Some management_pif ->
@@ -395,16 +414,15 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 		List.iter (Xapi_vif.move ~__context ~network) local_vifs;
 		TaskHelper.set_progress ~__context 0.8;
 
-		(* Set disallow_unplug on the master, if one of the slaves had disallow_unplug = true (see above) *)
-		if disallow_unplug then
+		(* Set disallow_unplug on the master, if one of the slaves had disallow_unplug = true (see above),
+		 * and reset disallow_unplug of members. *)
+		if disallow_unplug then begin
+			debug "Setting disallow_unplug on master, and clearing slaves";
 			Db.PIF.set_disallow_unplug ~__context ~self:master ~value:true;
-
-		(* Reset IP configuration and disallow_unplug of members *)
-		debug "Resetting IP config and disallow_unplug on slaves";
-		List.iter (fun pif ->
-			Db.PIF.set_ip_configuration_mode ~__context ~self:pif ~value:`None;
-			Db.PIF.set_disallow_unplug ~__context ~self:pif ~value:false)
-			members;
+			List.iter (fun pif ->
+				Db.PIF.set_disallow_unplug ~__context ~self:pif ~value:false)
+				members
+		end;
 		TaskHelper.set_progress ~__context 1.0;
 	);
 	(* return a ref to the new Bond object *)
@@ -430,7 +448,7 @@ let destroy ~__context ~self =
 		then raise (Api_errors.Server_error(Api_errors.ha_cannot_change_bond_status_of_mgmt_iface, []));
 
 		(* Copy IP configuration from master to primary member *)
-		copy_configuration ~__context master primary_slave;
+		move_configuration ~__context master primary_slave;
 
 		if Db.PIF.get_management ~__context ~self:master = true then begin
 			(* The master is the management interface: move management to first slave *)
@@ -459,8 +477,10 @@ let destroy ~__context ~self =
 		List.iter (move_tunnel ~__context host primary_slave) local_tunnels;
 		TaskHelper.set_progress ~__context 0.8;
 
-		if Db.PIF.get_disallow_unplug ~__context ~self:master = true then
-			Db.PIF.set_disallow_unplug ~__context ~self:primary_slave ~value:true;
+		if Db.PIF.get_disallow_unplug ~__context ~self:master = true then begin
+			debug "Setting disallow_unplug on primary slave";
+			Db.PIF.set_disallow_unplug ~__context ~self:primary_slave ~value:true
+		end;
 
 		(* Destroy the Bond and master PIF *)
 		Db.Bond.destroy ~__context ~self;

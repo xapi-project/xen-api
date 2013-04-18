@@ -1080,7 +1080,7 @@ let assert_filename_is hdr =
 (** Takes an fd and a function, tries first to read the first tar block
     and checks for the existence of 'ova.xml'. If that fails then pipe
     the lot through gzip and try again *)
-let with_open_archive fd f =
+let with_open_archive fd ?length f =
 	(* Read the first header's worth into a buffer *)
 	let buffer = String.make Tar.Header.length ' ' in
 	let retry_with_gzip = ref true in
@@ -1107,7 +1107,9 @@ let with_open_archive fd f =
 				Unix.set_close_on_exec compressed_in;
 				debug "Writing initial buffer";
 				let (_: int) = Unix.write compressed_in buffer 0 Tar.Header.length in
-				let n = Unixext.copy_file fd compressed_in in
+				let limit = (Opt.map
+					(fun x -> Int64.sub x (Int64.of_int Tar.Header.length)) length) in
+				let n = Unixext.copy_file ?limit fd compressed_in in
 				debug "Written a total of %d + %Ld bytes" Tar.Header.length n;
 			) in
 		finally
@@ -1149,6 +1151,7 @@ let find_query_flag query key =
 (** Import metadata only *)
 let metadata_handler (req: Request.t) s _ =
 	debug "metadata_handler called";
+	req.Request.close <- true;
 	Xapi_http.with_context "VM.metadata_import" req s
 		(fun __context -> Helpers.call_api_functions ~__context (fun rpc session_id ->
 			let full_restore = find_query_flag req.Request.query "restore" in
@@ -1167,7 +1170,7 @@ let metadata_handler (req: Request.t) s _ =
 				[ Http.Hdr.task_id ^ ":" ^ (Ref.string_of (Context.get_task_id __context));
 				content_type ] in
 			Http_svr.headers s headers;
-			with_open_archive s
+			with_open_archive s ?length:req.Request.content_length
 				(fun metadata s ->
 					debug "Got XML";
 					(* Skip trailing two zero blocks *)
@@ -1286,13 +1289,13 @@ let handler (req: Request.t) s _ =
 									error "Encoding not yet implemented in the import code: %s" x;
 									Http_svr.headers s (http_403_forbidden ());
 									raise (IFailure Cannot_handle_chunked)
-								| None, _ ->
+								| None, content_length ->
 									let headers = Http.http_200_ok ~keep_alive:false () @
 										[ Http.Hdr.task_id ^ ":" ^ (Ref.string_of (Context.get_task_id __context));
 										content_type ] in
 									Http_svr.headers s headers;
 									debug "Reading XML";
-									with_open_archive s
+									with_open_archive s ?length:content_length
 										(fun metadata s ->
 											debug "Got XML";
 											let old_zurich_or_geneva = try ignore(Xva.of_xml metadata); true with _ -> false in

@@ -34,7 +34,7 @@ let set_himn_ip ~__context bridge other_config =
 		(* Set the ip address of the bridge *)
 		let ip = List.assoc "ip_begin" other_config in
 		ignore(Forkhelpers.execute_command_get_output "/sbin/ifconfig" [bridge; ip; "up"]);
-		Xapi_mgmt_iface.maybe_start_himn ~__context ~addr:ip ()
+		Xapi_mgmt_iface.enable_himn ~__context ~addr:ip
 	end
 
 let check_himn ~__context =
