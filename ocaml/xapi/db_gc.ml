@@ -538,8 +538,8 @@ let start_heartbeat_thread() =
 						(fun rpc session_id ->
 							while(true) do
 								try
-									Thread.delay !Xapi_globs.host_heartbeat_interval;
-									send_one_heartbeat ~__context rpc session_id
+									send_one_heartbeat ~__context rpc session_id;
+									Thread.delay !Xapi_globs.host_heartbeat_interval
 								with
 								| (Api_errors.Server_error (x,y)) as e ->
 									if x=Api_errors.session_invalid
