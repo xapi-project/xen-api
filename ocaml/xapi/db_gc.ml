@@ -511,51 +511,49 @@ let start_db_gc_thread() =
     ) ()
 
 let send_one_heartbeat ~__context ?(shutting_down=false) rpc session_id =
-  let localhost = Helpers.get_localhost ~__context in
-  let time = Unix.gettimeofday () +. (if Xapi_fist.insert_clock_skew () then Xapi_globs.max_clock_skew *. 2. else 0.) in
-  let stuff =
-    [ _time, string_of_float time ]
-	  @ (if shutting_down then [ _shutting_down, "true" ] else [])
-  in
-      
-  let (_: (string*string) list) = Client.Client.Host.tickle_heartbeat rpc session_id localhost stuff in
-  ()
-  (* debug "Master responded with [ %s ]" (String.concat ";" (List.map (fun (a, b) -> a ^ "=" ^ b) response)); *)
-    
+	let localhost = Helpers.get_localhost ~__context in
+	let time = Unix.gettimeofday () +. (if Xapi_fist.insert_clock_skew () then Xapi_globs.max_clock_skew *. 2. else 0.) in
+	let stuff = [
+		_time, string_of_float time
+	] @ (if shutting_down then [ _shutting_down, "true" ] else [])
+	in
+	let (_: (string*string) list) = Client.Client.Host.tickle_heartbeat rpc session_id localhost stuff in
+	()
+	(* debug "Master responded with [ %s ]" (String.concat ";" (List.map (fun (a, b) -> a ^ "=" ^ b) response)); *)
+
 let start_heartbeat_thread() =
-      Debug.name_thread "heartbeat";
-      
-      Server_helpers.exec_with_new_task "Heartbeat" (fun __context ->
-      let localhost = Helpers.get_localhost __context in
-      let pool = Helpers.get_pool __context in
-      let master = Db.Pool.get_master ~__context ~self:pool in
-      let address = Db.Host.get_address ~__context ~self:master in
+	Debug.name_thread "heartbeat";
 
-      if localhost=master then () else begin
+	Server_helpers.exec_with_new_task "Heartbeat" (fun __context ->
+		let localhost = Helpers.get_localhost __context in
+		let pool = Helpers.get_pool __context in
+		let master = Db.Pool.get_master ~__context ~self:pool in
+		let address = Db.Host.get_address ~__context ~self:master in
 
-      while (true) do
-	try
-	  Helpers.call_emergency_mode_functions address
-      (fun rpc session_id ->
-	    
-	    while(true) do
-	      try
-		Thread.delay !Xapi_globs.host_heartbeat_interval;
-		send_one_heartbeat ~__context rpc session_id
-	      with 
-		| (Api_errors.Server_error (x,y)) as e ->
-		    if x=Api_errors.session_invalid 
-		    then raise e 
-		    else debug "Caught exception in heartbeat thread: %s" (ExnHelper.string_of_exn e);
-		| e ->
-		    debug "Caught exception in heartbeat thread: %s" (ExnHelper.string_of_exn e);
-	    done)	    
-	with
-	| Api_errors.Server_error(code, params) when code = Api_errors.session_authentication_failed ->
-	    debug "Master did not recognise our pool secret: we must be pointing at the wrong master. Restarting.";
-	    exit Xapi_globs.restart_return_code
-	| e -> 
-	  debug "Caught %s - logging in again" (ExnHelper.string_of_exn e);
-	  Thread.delay !Xapi_globs.host_heartbeat_interval;
-      done
-      end)
+		if localhost=master then () else begin
+
+			while (true) do
+				try
+					Helpers.call_emergency_mode_functions address
+						(fun rpc session_id ->
+							while(true) do
+								try
+									Thread.delay !Xapi_globs.host_heartbeat_interval;
+									send_one_heartbeat ~__context rpc session_id
+								with
+								| (Api_errors.Server_error (x,y)) as e ->
+									if x=Api_errors.session_invalid
+									then raise e
+									else debug "Caught exception in heartbeat thread: %s" (ExnHelper.string_of_exn e);
+								| e ->
+									debug "Caught exception in heartbeat thread: %s" (ExnHelper.string_of_exn e);
+							done)
+				with
+				| Api_errors.Server_error(code, params) when code = Api_errors.session_authentication_failed ->
+					debug "Master did not recognise our pool secret: we must be pointing at the wrong master. Restarting.";
+					exit Xapi_globs.restart_return_code
+				| e ->
+					debug "Caught %s - logging in again" (ExnHelper.string_of_exn e);
+					Thread.delay !Xapi_globs.host_heartbeat_interval;
+			done
+		end)
