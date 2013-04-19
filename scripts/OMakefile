@@ -75,7 +75,7 @@ install:
 #	$(IPROG) mpathalert-daemon $(DESTDIR)$(ETCDIR)/master.d/03-mpathalert-daemon
 #	mkdir -p $(DESTDIR)/etc/sysconfig
 #	$(IPROG) sysconfig-xapi $(DESTDIR)/etc/sysconfig/xapi
-#	$(IPROG) generate_ssl_cert $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) generate_ssl_cert $(DESTDIR)$(LIBEXECDIR)
 #	$(IPROG) fix_firewall.sh $(DESTDIR)$(BINDIR)
 #	mkdir -p $(DESTDIR)$(OPTDIR)/debug
 #	$(IPROG) debug_ha_query_liveset $(DESTDIR)$(OPTDIR)/debug
