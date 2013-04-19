@@ -754,6 +754,41 @@ let _ =
   error Api_errors.rbac_permission_denied ["permission";"message"]
     ~doc: "RBAC permission denied." ();
 
+  (* wlb errors, deprecated since clearwater *)
+  error Api_errors.wlb_not_initialized []
+    ~doc:"No WLB connection is configured." ();
+  error Api_errors.wlb_disabled []
+    ~doc:"This pool has wlb-enabled set to false." ();
+  error Api_errors.wlb_connection_refused []
+    ~doc:"The WLB server refused a connection to XenServer." ();
+  error Api_errors.wlb_unknown_host []
+    ~doc:"The configured WLB server name failed to resolve in DNS." ();
+  error Api_errors.wlb_timeout ["configured_timeout"]
+    ~doc:"The communication with the WLB server timed out." ();
+  error Api_errors.wlb_authentication_failed []
+    ~doc:"The WLB server rejected our configured authentication details." ();
+  error Api_errors.wlb_malformed_request []
+    ~doc:"The WLB server rejected XenServer's request as malformed." ();
+  error Api_errors.wlb_malformed_response ["method"; "reason"; "response"]
+    ~doc:"The WLB server said something that XenServer wasn't expecting or didn't understand.  The method called on the WLB server, a diagnostic reason, and the response from WLB are returned." ();
+  error Api_errors.wlb_xenserver_connection_refused []
+    ~doc:"The WLB server reported that XenServer refused it a connection (even though we're connecting perfectly fine in the other direction)." ();
+  error Api_errors.wlb_xenserver_unknown_host []
+    ~doc:"The WLB server reported that its configured server name for this XenServer instance failed to resolve in DNS." ();
+  error Api_errors.wlb_xenserver_timeout []
+    ~doc:"The WLB server reported that communication with XenServer timed out." ();
+  error Api_errors.wlb_xenserver_authentication_failed []
+    ~doc:"The WLB server reported that XenServer rejected its configured authentication details." ();
+  error Api_errors.wlb_xenserver_malformed_response []
+    ~doc:"The WLB server reported that XenServer said something to it that WLB wasn't expecting or didn't understand." ();
+  error Api_errors.wlb_internal_error []
+    ~doc:"The WLB server reported an internal error." ();
+  error Api_errors.wlb_connection_reset []
+    ~doc:"The connection to the WLB server was reset." ();
+  error Api_errors.wlb_url_invalid ["url"]
+    ~doc:"The WLB URL is invalid. Ensure it is in format: <ipaddress>:<port>.  The configured/given URL is returned." ();
+
+
   (* Api_errors specific to running VMs on multiple hosts *)
   error Api_errors.vm_unsafe_boot ["vm"]
     ~doc:"You attempted an operation on a VM that was judged to be unsafe by the server. This can happen if the VM would run on a CPU that has a potentially incompatible set of feature flags to those the VM requires. If you want to override this warning then use the 'force' option." ();
@@ -7961,6 +7996,8 @@ let http_actions = [
   ("put_messages", (Put, Constants.message_put_uri, false, [], _R_VM_POWER_ADMIN, []));
   ("connect_remotecmd", (Connect, Constants.remotecmd_uri, false, [], _R_POOL_ADMIN, []));
   ("post_remote_stats", (Post, Constants.remote_stats_uri, false, [], _R_POOL_ADMIN, []));  (* deprecated *)
+  ("get_wlb_report", (Get, Constants.wlb_report_uri, true, [String_query_arg "report"; Varargs_query_arg], _R_READ_ONLY, [])); (* deprecated since Clearwater *)
+  ("get_wlb_diagnostics", (Get, Constants.wlb_diagnostics_uri, true, [], _R_READ_ONLY, [])); (* deprecated since Clearwater *)
   ("get_audit_log", (Get, Constants.audit_log_uri, true, [], _R_READ_ONLY, []));
 
   (* XMLRPC callback *)
