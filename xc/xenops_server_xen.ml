@@ -1741,6 +1741,10 @@ module VIF = struct
 					| Some x -> x
 				end
 
+	let interfaces_of_vif domid id position =
+	  let mkif name = { Interface.Interface.vif = id; name = Printf.sprintf "%s%d.%d" name domid position; } in
+	  List.map mkif [ "tap"; "vif" ]
+
 	let _locking_mode = "locking-mode"
 	let _ipv4_allowed = "ipv4-allowed"
 	let _ipv6_allowed = "ipv6-allowed"
@@ -1793,6 +1797,11 @@ module VIF = struct
 				let setup_vif_rules = [ "setup-vif-rules", !Path.setup_vif_rules ] in
 				let network_backend = [ "network-backend", get_network_backend () ] in
 				let locking_mode = xenstore_of_locking_mode vif.locking_mode in
+
+				let interfaces = interfaces_of_vif frontend_domid vif.id vif.position in
+
+				List.iter (fun interface ->
+				  Interface.DB.write interface.Interface.Interface.name interface) interfaces;
 
 				Xenops_task.with_subtask task (Printf.sprintf "Vif.add %s" (id_of vif))
 					(fun () ->
@@ -1855,7 +1864,12 @@ module VIF = struct
 									DB.write vm { vm_t with VmExtra.non_persistent = non_persistent }
 								| _, _ -> ()
 						end;
-					) vm_t
+					) vm_t;
+
+					let domid = device.Device_common.frontend.Device_common.domid in
+					let interfaces = interfaces_of_vif domid vif.id vif.position in
+					List.iter (fun interface ->
+					  Interface.DB.remove interface.Interface.Interface.name) interfaces
 				with
 					| (Does_not_exist(_,_)) ->
 						debug "VM = %s; Ignoring missing domain" (id_of vif)
