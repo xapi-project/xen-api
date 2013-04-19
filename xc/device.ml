@@ -869,15 +869,16 @@ let save ~xs domid =
 	| None     -> ()
 
 let start ?statefile ~xs ?ip domid =
+        debug "In PV_Vnc.start";
 	let ip = Opt.default "127.0.0.1" ip in
-	let l = [ string_of_int domid; (* absorbed by vncterm-wrapper *)
-		  (* everything else goes straight through to vncterm: *)
-		  "-x"; sprintf "/local/domain/%d/console" domid;
+	let l = [ "-x"; sprintf "/local/domain/%d/console" domid;
 		  "-T"; (* listen for raw connections *)
 		  "-v"; ip ^ ":1";
 		] @ load_args statefile in
 	(* Now add the close fds wrapper *)
-	let pid = Forkhelpers.safe_close_and_exec None None None [] !Path.vncterm_wrapper l in
+	let pid = Forkhelpers.safe_close_and_exec None None None [] !Path.vncterm l in
+	let path = vnc_pid_path domid in
+	xs.Xs.write path (string_of_int (Forkhelpers.getpid pid));
 	Forkhelpers.dontwaitpid pid
 
 let stop ~xs domid =
