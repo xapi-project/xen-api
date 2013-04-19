@@ -194,12 +194,12 @@ class VIF:
             "ipv6_allowed": []
         }
         private = self.json["extra_private_keys"]
-        if "locking-mode" in private:
-            results["locking_mode"] = private["locking-mode"]
+        if "locking_mode" in self.json:
+            results["locking_mode"] = self.json["locking_mode"].lower()
         if "ipv4-allowed" in private:
-            results["ipv4_allowed"] = get_words(private["ipv4-allowed"], ",")
+            results["ipv4_allowed"] = get_words(private["ipv4-allowed"].lower(), ",")
         if "ipv6-allowed" in private:
-            results["ipv6_allowed"] = get_words(private["ipv6-allowed"], ",")
+            results["ipv6_allowed"] = get_words(private["ipv6-allowed"].lower(), ",")
         send_to_syslog("Got locking config: %s" % (repr(results)))
         return results
 

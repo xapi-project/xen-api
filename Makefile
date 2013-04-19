@@ -39,6 +39,7 @@ install:
 	install -D ./scripts/qemu-dm-wrapper $(DESTDIR)/$(LIBEXECDIR)/qemu-dm-wrapper
 	install -D ./scripts/qemu-vif-script $(DESTDIR)/$(LIBEXECDIR)/qemu-vif-script
 	install -D ./scripts/setup-vif-rules $(DESTDIR)/$(LIBEXECDIR)/setup-vif-rules
+	install -D ./scripts/common.py $(DESTDIR)/$(LIBEXECDIR)/common.py
 	install -D ./scripts/network.conf $(DESTDIR)/$(ETCDIR)/xcp/network.conf
 	DESTDIR=$(DESTDIR) SBINDIR=$(SBINDIR) LIBEXECDIR=$(LIBEXECDIR) SCRIPTSDIR=$(SCRIPTSDIR) ./scripts/make-custom-xenopsd.conf
 
