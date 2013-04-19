@@ -56,23 +56,17 @@ type t = {
 }
 
 (** Helper function to generate a bootloader commandline *)
-let command bootloader q extra_args legacy_args pv_bootloader_args image vm_uuid = 
+let command bootloader q pv_bootloader_args image vm_uuid = 
   (* Let's not do anything fancy while parsing the pv_bootloader_args string:
      no escaping of spaces or quotes for now *)
   let pv_bootloader_args = if pv_bootloader_args = "" then [] else Re_str.split (Re_str.regexp "[ ]") pv_bootloader_args in
   let q = if q then [ "-q" ] else [] in
-  (* NB legacy and extra are very rarely used and are not supported
-     by the upstream pygrub. *)
-  let legacy_args = if legacy_args = "" then [] else [ "--default_args"; legacy_args ] in
-  let extra_args = if extra_args = "" then [] else [ "--extra_args"; extra_args ] in
   let vm = [ "--vm"; vm_uuid ] in
   let image = [ image ] in
   match bootloader_of_string bootloader with
   | Some Pygrub ->
     let args = [
       q;
-      legacy_args;
-      extra_args;
       (* --vm is unnecessary for pygrub and not supported upstream *)
       pv_bootloader_args;
       image;
@@ -81,8 +75,6 @@ let command bootloader q extra_args legacy_args pv_bootloader_args image vm_uuid
   | Some Eliloader ->
     let args = [
       q;
-      legacy_args;
-      extra_args;
       vm;
       pv_bootloader_args;
       image;
@@ -128,11 +120,12 @@ let parse_exception x =
 let extract (task: Xenops_task.t) ~bootloader ~disk ?(legacy_args="") ?(extra_args="") ?(pv_bootloader_args="") ~vm:vm_uuid () =
 	(* Without this path, pygrub will fail: *)
 	Unixext.mkdir_rec "/var/run/xend/boot" 0o0755;
-	let bootloader_path, cmdline = command bootloader true extra_args legacy_args pv_bootloader_args disk vm_uuid in
+	let bootloader_path, cmdline = command bootloader true pv_bootloader_args disk vm_uuid in
 	debug "Bootloader commandline: %s %s\n" bootloader_path (String.concat " " cmdline);
 	try
 		let output, _ = Cancel_utils.cancellable_subprocess task bootloader_path cmdline in
-		parse_output output
+		let result = parse_output output in
+		{ result with kernel_args = Printf.sprintf "%s %s %s" result.kernel_args legacy_args extra_args }
 	with Forkhelpers.Spawn_internal_error(stderr, stdout, _) ->
 		parse_exception stderr
 
