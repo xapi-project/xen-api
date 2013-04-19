@@ -127,6 +127,7 @@ install:
 #	mkdir -p $(DESTDIR)/etc/bash_completion.d
 #	$(IPROG) xe-switch-network-backend-bash-completion $(DESTDIR)/etc/bash_completion.d/xe-switch-network-backend
 #	$(IPROG) xe-switch-network-backend $(DESTDIR)$(BINDIR)
+	$(IPROG) dev_run_xapi.sh $(DESTDIR)$(BINDIR)/dev_run_xapi.sh
 	./customise_xapi_conf.sh $(DESTDIR)$(XAPICONF)
 
 
