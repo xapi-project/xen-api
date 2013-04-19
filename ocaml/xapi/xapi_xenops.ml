@@ -173,7 +173,7 @@ let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
 				framebuffer = bool vm.API.vM_platform false "pvfb";
 				framebuffer_ip = Some "0.0.0.0"; (* None PR-1255 *)
 				vncterm = true;
-				vncterm_ip = Some "0.0.0.0" (*None PR-1255*);
+				vncterm_ip = None (*None PR-1255*);
 			}
 		| Helpers.IndirectPV { Helpers.bootloader = b; extra_args = e; legacy_args = l; pv_bootloader_args = p; vdis = vdis } ->
 			PV {
