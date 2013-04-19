@@ -54,6 +54,8 @@ let blob_uri = "/blob"                                (* ocaml/xapi/xapi_blob.ml
 let remotecmd_uri = "/remotecmd"                      (* ocaml/xapi/xapi_remotecmd.ml *)
 let message_rss_feed = "/rss"                         (* ocaml/xapi/xapi_message.ml *)
 let message_put_uri = "/messages"                     (* ocaml/xapi/xapi_message.ml *)
+let wlb_report_uri = "/wlb_report"                    (* deprecated since Clearwater *)
+let wlb_diagnostics_uri = "/wlb_diagnostics"          (* deprecated since Clearwater *)
 let audit_log_uri = "/audit_log"                      (* ocaml/xapi/audit.ml *)
 
 let use_compression = "use_compression"

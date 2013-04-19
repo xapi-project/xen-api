@@ -267,6 +267,25 @@ let pool_joining_host_must_have_physical_managment_nic = "POOL_JOINING_HOST_MUST
 let pool_joining_external_auth_mismatch = "POOL_JOINING_EXTERNAL_AUTH_MISMATCH"
 let pool_joining_host_must_have_same_product_version = "POOL_JOINING_HOST_MUST_HAVE_SAME_PRODUCT_VERSION"
 
+(* workload balancing, deprecated since Clearwater *)
+let wlb_not_initialized = "WLB_NOT_INITIALIZED"
+let wlb_disabled = "WLB_DISABLED"
+let wlb_connection_refused = "WLB_CONNECTION_REFUSED"
+let wlb_unknown_host = "WLB_UNKNOWN_HOST"
+let wlb_timeout = "WLB_TIMEOUT"
+let wlb_authentication_failed = "WLB_AUTHENTICATION_FAILED"
+let wlb_malformed_request = "WLB_MALFORMED_REQUEST"
+let wlb_malformed_response = "WLB_MALFORMED_RESPONSE"
+let wlb_xenserver_connection_refused = "WLB_XENSERVER_CONNECTION_REFUSED"
+let wlb_xenserver_unknown_host = "WLB_XENSERVER_UNKNOWN_HOST"
+let wlb_xenserver_timeout = "WLB_XENSERVER_TIMEOUT"
+let wlb_xenserver_authentication_failed = "WLB_XENSERVER_AUTHENTICATION_FAILED"
+let wlb_xenserver_malformed_response = "WLB_XENSERVER_MALFORMED_RESPONSE"
+let wlb_internal_error = "WLB_INTERNAL_ERROR"
+let wlb_url_invalid = "WLB_URL_INVALID"
+let wlb_connection_reset = "WLB_CONNECTION_RESET"
+
+
 let sr_not_shared = "SR_NOT_SHARED"
 
 let default_sr_not_found = "DEFAULT_SR_NOT_FOUND"
