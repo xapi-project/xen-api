@@ -17,7 +17,6 @@ let vif_script = ref "/usr/lib/xcp/scripts/vif"
 let qemu_vif_script = ref "/usr/lib/xcp/scripts/qemu-vif-script"
 let vbd_script = ref "/etc/xen/scripts/block"
 let pci_flr_script = ref "/usr/lib/xcp/lib/pci-flr"
-let vncterm_wrapper = ref "/usr/lib/xcp/lib/vncterm-wrapper"
 let vncterm = ref "/usr/lib/xcp/lib/vncterm"
 let xenguest = ref "/usr/lib/xcp/lib/xenguest"
 let qemu_dm_wrapper = ref "/usr/lib/xcp/lib/qemu-dm-wrapper"
@@ -39,7 +38,6 @@ let essentials = [
 	R_OK, "network-conf", network_conf, "path to the network backend switch";
 	X_OK, "vif-script", vif_script, "path to the vif backend script";
 	X_OK, "qemu-vif-script", qemu_vif_script, "path to the qemu vif script";
-	X_OK, "vncterm-wrapper", vncterm_wrapper, "path to the vncterm-wrapper script";
 	X_OK, "vncterm", vncterm, "path to the vncterm binary";
 	X_OK, "xenguest", xenguest, "path to the xenguest binary";
 	X_OK, "qemu-dm-wrapper", qemu_dm_wrapper, "path to the qemu-dm-wrapper script";

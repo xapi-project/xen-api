@@ -35,7 +35,6 @@ install:
 	install -D ./dist/build/xenopsd_simulator/xenopsd_simulator $(DESTDIR)/$(SBINDIR)/xenopsd_simulator
 	install -D ./dist/build/xenguest/xenguest $(DESTDIR)/$(LIBEXECDIR)/xenguest
 	install -D ./scripts/vif $(DESTDIR)/$(SCRIPTSDIR)/vif
-	install -D ./scripts/vncterm-wrapper $(DESTDIR)/$(LIBEXECDIR)/vncterm-wrapper
 	install -D ./scripts/qemu-dm-wrapper $(DESTDIR)/$(LIBEXECDIR)/qemu-dm-wrapper
 	install -D ./scripts/qemu-vif-script $(DESTDIR)/$(LIBEXECDIR)/qemu-vif-script
 	install -D ./scripts/setup-vif-rules $(DESTDIR)/$(LIBEXECDIR)/setup-vif-rules
@@ -55,7 +54,6 @@ uninstall:
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/xenguest
 	rm -f $(DESTDIR)/$(ETCDIR)/xenopsd.conf
 	rm -f $(DESTDIR)/$(SCRIPTSDIR)/vif
-	rm -f $(DESTDIR)/$(LIBEXECDIR)/vncterm-wrapper
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/qemu-dm-wrapper
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/setup-vif-rules
 	rm -f $(DESTDIR)/$(ETCDIR)/xcp/network.conf
