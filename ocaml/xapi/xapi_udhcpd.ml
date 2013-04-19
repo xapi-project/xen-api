@@ -26,7 +26,7 @@ let ip_begin_key = "ip_begin"
 let ip_end_key = "ip_end"
 
 let udhcpd_conf = Filename.concat Fhs.vardir "udhcpd.conf"
-let udhcpd_skel = Filename.concat Fhs.vardir "udhcpd.skel"
+let udhcpd_skel = Filename.concat Fhs.etcdir "udhcpd.skel"
 let leases_db = Filename.concat Fhs.vardir "dhcp-leases.db"
 let pidfile = "/var/run/udhcpd.pid"
 
@@ -123,12 +123,12 @@ let write_config_nolock ~__context ip_router =
 	Unixext.unlink_safe udhcpd_conf;
 	Unixext.write_string_to_file udhcpd_conf (Udhcpd_conf.to_string config)
 
-let command = Filename.concat Fhs.libexecdir "udhcpd"
+
   
 let restart_nolock () =
 	let pid = try Unixext.pidfile_read pidfile with _ -> None in
 	Opt.iter Unixext.kill_and_wait pid;
-	let (_: string * string) = execute_command_get_output command [ udhcpd_conf ] in
+	let (_: string * string) = execute_command_get_output !Xapi_globs.udhcpd_cmd [ udhcpd_conf ] in
 	()
 
 let find_lease_nolock vif =

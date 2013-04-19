@@ -712,7 +712,7 @@ let pool_secret_path = ref "/etc/xcp/ptoken"
 
 let pci_info_path = ref "/usr/lib/xcp/lib/pci-info"
 
-
+let udhcpd_cmd = ref (Filename.concat Fhs.libexecdir "udhcpd")
 
 type xapi_globs_spec_ty = | Float of float ref | Int of int ref
 
@@ -812,7 +812,13 @@ let resources = [
     essential = true;
     path = pci_info_path;
     perms = [ Unix.X_OK ];
-  }
+  };
+  { Xcp_service.name = "udhcpd";
+    description = "DHCP server";
+    essential = true;
+    path = udhcpd_cmd;
+    perms = [ Unix.X_OK ];
+  };
 ]
 
 let all_options = options_of_xapi_globs_spec @ other_options
