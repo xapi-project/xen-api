@@ -370,15 +370,15 @@ class XapiMessage:
 
 def main():
     other_config = get_pool_other_config()
-    if other_config.has_key('mail-max-priority'):
-        max_priority = int(other_config['mail-max-priority'])
+    if other_config.has_key('mail-min-priority'):
+        min_priority = int(other_config['mail-min-priority'])
     else:
-        max_priority = 4
+        min_priority = 3
 
     msg = XapiMessage(sys.argv[1])
 
     # We only mail messages with priority lower than or equal to max_priority
-    if msg.get_priority() > max_priority:
+    if msg.get_priority() > min_priority:
         return 0
 
     config = get_config_file()
