@@ -1,0 +1,5 @@
+version = "@VERSION@"
+description = "xenstore watching library"
+requires = "stdext,xenstore,log"
+archive(byte) = "xenstore_watch.cma"
+archive(native) = "xenstore_watch.cmxa"

@@ -14,7 +14,7 @@ OCAMLFLAGS    += -thread
 UseCamlp4(rpc-light.syntax, device_number xenops_utils xenops_server xenops_server_simulator xenops_migrate xenops_server_xen updates xenops_server_plugin domain device device_common xenops_hooks task_server)
 UseCamlp4(rpc-light.idl, xenops_interface memory_interface)
 
-LIBFILES = ../util/table xenops_helpers cancel_utils xenbus_utils xenguestHelper domain hotplug device io statdev netman memory device_common squeeze squeeze_xen squeezed_state device_number stubdom bootloader xenops_interface memory_interface memory_client updates xenops_utils xenops_client xenops_server_plugin ../xapi/storage_interface ../xapi/vdi_automaton xenops_server xenops_migrate task_server xenops_task xenops_hooks ionice xenops_server_xen xenops_server_simulator
+LIBFILES = ../util/table xenops_helpers cancel_utils xenbus_utils xenguestHelper domain hotplug device io statdev netman memory device_common squeeze squeeze_xen squeezed_state device_number stubdom bootloader xenops_interface memory_interface memory_client updates xenops_utils xenops_client xenops_server_plugin ../xapi/storage_interface ../xapi/vdi_automaton xenops_server xenops_migrate task_server xenops_task xenops_hooks ionice xenops_server_xen xenops_server_simulator xenstore_watch
 
 StaticCLibrary(statdev_stubs, statdev_stubs)
 OCamlLibraryClib(xenops, $(LIBFILES), statdev_stubs)
@@ -22,6 +22,10 @@ OCamlDocLibrary(xenops, $(LIBFILES))
 
 OCamlLibrary(xenops_client, xenops_interface device_number memory xenops_client ionice)
 OCamlLibrary(memory_client, memory_interface memory_client)
+
+XENSTORE_WATCH_OBJS=xenstore_watch xenops_helpers
+XENSTORE_WATCH_LIBNAME=xenstore_watch
+OCamlLibrary($(XENSTORE_WATCH_LIBNAME), $(XENSTORE_WATCH_OBJS))
 
 OCAML_LIBS += ../util/version ../idl/ocaml_backend/common xenops
 
@@ -94,3 +98,24 @@ sdk-install: install
 .PHONY: clean
 clean:
 	rm -f *.cmi *.cmx *.cmo *.a *.cma *.cmxa *.o *.annot *.run *.opt $(DEBUG_PROGS) $(BIN_PROGS) $(SYMLINK_PROGS) $(OTHER_PROGS)
+
+if $(defined-env DESTDIR)
+	INSTALL_PATH = $(DESTDIR)/$(shell ocamlfind printconf destdir)
+	export
+else
+	INSTALL_PATH = $(shell ocamlfind printconf destdir)
+	export
+
+XENSTORE_WATCH_PACKNAME=xenstore-watch
+
+META: META.in
+	sed 's/@VERSION@/$(PRODUCT_VERSION)/g' < $< > $@
+
+.PHONY: lib-install
+lib-install: META
+	mkdir -p $(INSTALL_PATH)
+	ocamlfind install -destdir $(INSTALL_PATH) -ldconf ignore $(XENSTORE_WATCH_PACKNAME) META $(addsuffixes .cmi,$(XENSTORE_WATCH_OBJS)) $(if $(BYTE_ENABLED), $(XENSTORE_WATCH_LIBNAME).cma) $(if $(NATIVE_ENABLED), $(XENSTORE_WATCH_LIBNAME).cmxa $(XENSTORE_WATCH_LIBNAME).a $(addsuffixes .cmx, $(XENSTORE_WATCH_OBJS)))
+
+.PHONY: lib-uninstall
+lib-uninstall:
+	ocamlfind remove -destdir $(INSTALL_PATH) $(XENSTORE_WATCH_PACKNAME)
