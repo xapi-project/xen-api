@@ -195,6 +195,7 @@ ocaml/xstest/xscheckperms
 js
 ocaml/idl/META
 ocaml/idl/ocaml_backend/META
+ocaml/xenops/META
 ocaml/xapi/rrddump
 ocaml/xapi/sparse_dd
 ocaml/license/v6d
