@@ -362,6 +362,7 @@ let create ~__context
 		~order
 		~suspend_SR
 		~version
+		~generation_id
 		: API.ref_VM =
 	let gen_mac_seed () = Uuid.to_string (Uuid.make_uuid ()) in
 	(* Add random mac_seed if there isn't one specified already *)
@@ -412,6 +413,7 @@ let create ~__context
 		~order
 		~suspend_SR
 		~version
+		~generation_id
 
 let destroy  ~__context ~self =
 	let parent = Db.VM.get_parent ~__context ~self in
@@ -462,6 +464,7 @@ let revert ~__context ~snapshot =
 		if Db.is_valid_ref __context vm
 		then vm
 		else Xapi_vm_snapshot.create_vm_from_snapshot ~__context ~snapshot in
+	ignore (Xapi_vm_helpers.vm_fresh_genid ~__context ~self:vm);
 	Xapi_vm_snapshot.revert ~__context ~snapshot ~vm
 
 (* As the checkpoint operation modify the domain state, we take the vm_lock to do not let the event *)

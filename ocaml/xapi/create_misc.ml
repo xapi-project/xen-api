@@ -193,7 +193,8 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info)
 		~shutdown_delay:0L
 		~order:0L
 		~suspend_SR:Ref.null
-		~version:0L;
+		~version:0L
+		~generation_id:(Xapi_vm_helpers.fresh_genid ());
 	Xapi_vm_helpers.update_memory_overhead ~__context ~vm:domain_zero_ref
 
 and create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref ~dom0_console_protocol =

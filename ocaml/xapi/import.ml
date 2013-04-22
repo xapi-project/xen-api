@@ -316,6 +316,10 @@ module VM : HandlerTools = struct
 						(List.filter (fun (x, _) -> x <> Xapi_globs.mac_seed) other_config) in
 			let vm_record = { vm_record with API.vM_other_config = other_config } in
 
+			(* An imported VM always needs a fresh generation ID *)
+			let vm_record =
+			  { vm_record with API.vM_generation_id = Xapi_vm_helpers.fresh_genid () } in
+
 			let vm_record =
 				if vm_exported_pre_dmc x
 				then begin
