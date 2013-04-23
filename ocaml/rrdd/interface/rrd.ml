@@ -630,119 +630,148 @@ let export ?(json=false) prefixandrrds start interval cfopt =
     Buffer.contents buffer
 
 let from_xml input =
-  (* build tree in memory first *)
-  let tree = 
-    let data d = D d in
-    let el ((prefix,tag_name),attr) children = El (tag_name, children) in
-    match Xmlm.peek input with
-    | `Dtd _ -> snd (Xmlm.input_doc_tree ~data ~el input)
-    | _ -> Xmlm.input_tree ~data ~el input
-  in
+	let tag n = ("", n), [] in
+	let start_tag n = (`El_start (tag n)) in
+	let accept s i = if Xmlm.input i = s then () else raise Parse_error in
 
-  let kvs elts = List.filter_map 
-    (function | El(key,[D value]) -> Some (key,value) | _ -> None) elts in
-
-  let find key elts =
-    match List.find (function | El(k,elts) -> k=key | _ -> false) elts with
-      | El(k,elts) -> elts
-      | _ -> failwith "Can't happen!"
-  in
-
-  let process_ds elts =
-    let kvs = kvs elts in
-    {ds_name=List.assoc "name" kvs;
-     ds_ty=(match List.assoc "type" kvs with | "GAUGE" -> Gauge | "ABSOLUTE" -> Absolute | "DERIVE" -> Derive | _ -> failwith "Bad format");
-     ds_mrhb=float_of_string (List.assoc "minimal_heartbeat" kvs);
-     ds_min=float_of_string (List.assoc "min" kvs);
-     ds_max=float_of_string (List.assoc "max" kvs);
-     ds_last=VT_Unknown; (* float_of_string (List.assoc "last_ds" kvs);*)
-     ds_value=float_of_string (List.assoc "value" kvs);
-     ds_unknown_sec=float_of_string (List.assoc "unknown_sec" kvs)}
-  in
-
-  let process_rra elts =
-
-    let process_params elts =
-      kvs elts in
-
-    let process_cdp_prep elts =
-      let kvs = kvs elts in
-      {cdp_value=float_of_string (List.assoc "value" kvs);
-       cdp_unknown_pdps=int_of_string (List.assoc "unknown_datapoints" kvs)}
-    in
-
-    let process_cdp_preps elts =
-      let cdps =
-	List.filter_map (function | El ("ds",elts) -> Some (process_cdp_prep elts) | _ -> None) elts in
-      cdps
-    in
-
-    let database =
-      let elts = find "database" elts in
-      let rows = List.length elts in
-      let cols = match List.hd elts with | El("row",cols) -> List.length cols | _ -> -1 in
-      let db = Array.init cols (fun i -> Fring.make rows nan) in
-
-      let data = Array.of_list 
-	(List.map (function 
-	  | El("row",cols) -> 
-	      Array.of_list (List.map 
-				(function 
-				  | El ("v",[D x]) -> x 
-				  | _ -> raise Parse_error) cols) 
-	  | _ -> raise Parse_error) elts) in
-
-      for i=0 to cols-1 do
-	for j=0 to rows-1 do
-	  Fring.push db.(i) (float_of_string data.(j).(i))
-	done
-      done;
-      db
-    in 
-    let cdps = 
-      let elts = find "cdp_prep" elts in
-      process_cdp_preps elts
-    in
-    let main_kvs = kvs elts in
-    let params = 
-      let elts = find "params" elts in 
-      process_params elts
-    in
-    {rra_cf = (match List.assoc "cf" main_kvs with | "AVERAGE" -> CF_Average | "MIN" -> CF_Min | "MAX" -> CF_Max | "LAST" -> CF_Last | _ -> raise Parse_error);
-     rra_row_cnt = Fring.length database.(0);
-     rra_pdp_cnt = int_of_string (List.assoc "pdp_per_row" main_kvs);
-     rra_xff = float_of_string (List.assoc "xff" params);
-     rra_data = database;
-     rra_cdps = Array.of_list cdps;
-     rra_updatehook = None
-    }
-  in
-  match tree with
-    | El ("rrd",elts) ->
-	let dss = List.filter_map (function El ("ds",elts) -> Some (process_ds elts) | _ -> None) elts in
-	let rras = List.filter_map (function El ("rra",elts) -> Some (process_rra elts) | _ -> None) elts in 	
-	let kvs = kvs elts in
-	let rrd = {last_updated=float_of_string (List.assoc "lastupdate" kvs);
-	timestep=Int64.of_string (List.assoc "step" kvs);
-	rrd_dss=Array.of_list dss;
-	rrd_rras=Array.of_list rras} in
-	(* Purge any repeated data sources from the RRD *)
-	let ds_names = ds_names rrd in
-	let ds_names_set = Listext.List.setify ds_names in
-	let ds_name_counts = List.map (fun name ->
-		let (x,y) = List.partition ((=) name) ds_names in
-		(name,List.length x)) ds_names_set
+	let rec iter_seq el acc i = match Xmlm.peek i with
+	  | `El_start _ -> iter_seq el ((el i) :: acc) i
+	  | `El_end -> List.rev acc
+	  | _ -> raise Parse_error
 	in
-	let removals_required = List.filter (fun (_,x) -> x > 1) ds_name_counts in
-	List.fold_left (fun rrd (name,n) -> 
-		(* Remove n-1 lots of this data source *)
-		let rec inner rrd n =
-			if n=1 
-			then rrd
-			else inner (rrd_remove_ds rrd name) (n-1)
-		in
-		inner rrd n) rrd removals_required
-    | _ -> failwith "Bad xml!"
+
+	let get_el n i =
+	  if Xmlm.input i = (start_tag n) then
+	    let d = match Xmlm.peek i with
+	      | `Data d -> ignore (Xmlm.input i); d
+	      | `El_end -> ""
+	      | _ -> raise Parse_error
+	    in
+	    accept (`El_end) i;
+	    d
+	  else raise Parse_error
+	in
+
+	let rec read_all t read_f i acc =
+	  if (Xmlm.peek i) = (start_tag t) then
+	    read_all t read_f i ((read_f i) :: acc)
+	  else
+	    List.rev acc
+	in
+
+	let read_block t f i =
+	  accept (start_tag t) i;
+	  let res = f i in
+	  accept (`El_end) i;
+	  res
+	in
+
+	let read_header i =
+	  ignore(get_el "version" i);
+	  let step = get_el "step" i in
+	  let last_update = get_el "lastupdate" i in
+	  (step,last_update)
+	in
+
+	let read_dss i =
+	  let read_ds i =
+	    read_block "ds" (fun i ->
+	      let name = get_el "name" i in
+	      let type_ = get_el "type" i in
+	      let min_hb = get_el "minimal_heartbeat" i in
+	      let min = get_el "min" i in
+	      let max = get_el "max" i in
+	      ignore(get_el "last_ds" i);
+	      let value = get_el "value" i in
+	      let unknown_sec = get_el "unknown_sec" i in
+	      {ds_name=name;
+	       ds_ty=(match type_ with | "GAUGE" -> Gauge | "ABSOLUTE" -> Absolute | "DERIVE" -> Derive | _ -> failwith "Bad format");
+	       ds_mrhb=float_of_string min_hb;
+	       ds_min=float_of_string min;
+	       ds_max=float_of_string max;
+	       ds_last=VT_Unknown; (* float_of_string "last_ds";*)
+	       ds_value=float_of_string value;
+	       ds_unknown_sec=float_of_string unknown_sec}) i
+	  in
+	  let dss = read_all "ds" read_ds i [] in
+	  dss
+	in
+
+	let read_rras i =
+	  let read_rra i =
+	    let read_cdp_prep i =
+	      let read_ds i =
+		read_block "ds" (fun i ->
+		  ignore(get_el "primary_value" i);
+		  ignore(get_el "secondary_value" i);
+		  let value = get_el "value" i in
+		  let unknown_datapoints = get_el "unknown_datapoints" i in
+		  {cdp_value=float_of_string value;
+		   cdp_unknown_pdps=int_of_string unknown_datapoints}) i
+	      in
+	      let cdps = read_block "cdp_prep" (fun i -> read_all "ds" read_ds i []) i in
+	      cdps
+	    in
+	    let read_database i =
+	      let read_row i =  (* should directly write in fring *)
+		let row = read_block "row" (fun i -> Array.of_list (iter_seq (get_el "v") [] i)) i in
+		row
+	      in
+	      let data = read_block "database" (fun i -> Array.of_list (read_all "row" read_row i [])) i in
+	      let rows = Array.length data in
+	      let cols = try Array.length data.(0) with _ -> -1 in
+	      let db = Array.init cols (fun i -> Fring.make rows nan) in
+	      for i=0 to cols-1 do
+		for j=0 to rows-1 do
+		  Fring.push db.(i) (float_of_string data.(j).(i))
+		done
+	      done;
+	      db
+	    in
+	    let rra = read_block "rra" (fun i ->
+	      let cf = get_el "cf" i in
+	      let pdp_cnt = get_el "pdp_per_row" i in
+	      let xff = read_block "params" (fun i -> get_el "xff" i) i in
+	      let cdps = read_cdp_prep i in
+	      let database = read_database i in
+	      {rra_cf = (match cf with | "AVERAGE" -> CF_Average | "MIN" -> CF_Min | "MAX" -> CF_Max | "LAST" -> CF_Last | _ -> raise Parse_error);
+	       rra_row_cnt = Fring.length database.(0);
+	       rra_pdp_cnt = int_of_string pdp_cnt;
+	       rra_xff = float_of_string xff;
+	       rra_data = database;
+	       rra_cdps = Array.of_list cdps;
+	       rra_updatehook = None}) i in
+	    rra
+	  in
+	  let rras = read_all "rra" read_rra i [] in
+	  rras
+	in
+
+	accept (`Dtd None) input;
+	read_block "rrd" (fun i ->
+	  let (step,last_update) = read_header i in (* ok *)
+	  let dss = read_dss i in (* ok *)
+	  let rras = read_rras i in
+	  let rrd = {last_updated=float_of_string last_update;
+		     timestep=Int64.of_string step;
+		     rrd_dss=Array.of_list dss;
+		     rrd_rras=Array.of_list rras} in
+	  (* Purge any repeated data sources from the RRD *)
+	  let ds_names = ds_names rrd in
+	  let ds_names_set = Listext.List.setify ds_names in
+	  let ds_name_counts = List.map (fun name ->
+	    let (x,y) = List.partition ((=) name) ds_names in
+	    (name,List.length x)) ds_names_set
+	  in
+	  let removals_required = List.filter (fun (_,x) -> x > 1) ds_name_counts in
+	  List.fold_left (fun rrd (name,n) ->
+	    (* Remove n-1 lots of this data source *)
+	    let rec inner rrd n =
+	      if n=1
+	      then rrd
+	      else inner (rrd_remove_ds rrd name) (n-1)
+	    in
+	    inner rrd n) rrd removals_required) input
 
 (** Repeatedly call [f string] where [string] contains a fragment of the RRD XML *)
 let xml_to_fd rrd fd =

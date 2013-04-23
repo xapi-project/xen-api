@@ -79,7 +79,7 @@ let host_rrd : rrd_info option ref = ref None
 
 let rrd_of_fd fd =
 	let ic = Unix.in_channel_of_descr fd in
-	let input = Xmlm.make_input (`Channel ic) in
+	let input = Xmlm.make_input ~strip:true (`Channel ic) in
 	Rrd.from_xml input
 
 (** Helper function - path is the path to the file _without the extension .gz_ *)
