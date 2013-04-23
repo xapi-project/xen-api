@@ -23,6 +23,17 @@
 module D=Debug.Debugger(struct let name="stunnel_cache" end)
 open D
 
+(* Disable debug-level logging but leave higher-priority enabled.  It would be
+ * better to handle this sort of configuration in the Debug module itself.
+ *)
+let debug_enabled = false
+
+let ignore_log fmt =
+    Printf.ksprintf (fun s -> ()) fmt
+
+(* Use and overlay the definition from D. *)
+let debug = if debug_enabled then debug else ignore_log
+
 type endpoint = { host: string; port: int; verified: bool }
 
 (* Need to limit the absolute number of stunnels as well as the maximum age *)
@@ -51,16 +62,18 @@ let id_of_stunnel stunnel =
     Opt.default "unknown" (Opt.map string_of_int stunnel.Stunnel.unique_id)
 
 let unlocked_gc () = 
-  let now = Unix.gettimeofday () in
-  let string_of_id id = 
-    let stunnel = Hashtbl.find !stunnels id in
-    Printf.sprintf "(id %s / idle %.2f age %.2f)" 
-      (id_of_stunnel stunnel)
-      (now -. (Hashtbl.find !times id))
-      (now -. stunnel.Stunnel.connected_time) in
-  let string_of_endpoint ep = Printf.sprintf "%s:%d" ep.host ep.port in
-  let string_of_index ep xs = Printf.sprintf "[ %s %s ]" (string_of_endpoint ep) (String.concat "; " (List.map string_of_id xs)) in
-  debug "Cache contents: %s" (Hashtbl.fold (fun ep xs acc -> string_of_index ep xs ^ " " ^ acc) !index "");
+	if debug_enabled then begin
+		let now = Unix.gettimeofday () in
+		let string_of_id id = 
+			let stunnel = Hashtbl.find !stunnels id in
+			Printf.sprintf "(id %s / idle %.2f age %.2f)" 
+				(id_of_stunnel stunnel)
+				(now -. (Hashtbl.find !times id))
+				(now -. stunnel.Stunnel.connected_time) in
+		let string_of_endpoint ep = Printf.sprintf "%s:%d" ep.host ep.port in
+		let string_of_index ep xs = Printf.sprintf "[ %s %s ]" (string_of_endpoint ep) (String.concat "; " (List.map string_of_id xs)) in
+		debug "Cache contents: %s" (Hashtbl.fold (fun ep xs acc -> string_of_index ep xs ^ " " ^ acc) !index "");
+	end;
 
   let all_ids = Hashtbl.fold (fun k _ acc -> k :: acc) !stunnels [] in
 
