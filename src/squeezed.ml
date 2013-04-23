@@ -36,6 +36,9 @@ let _ =
 	let socket = listen Memory_interface.json_path in
 	maybe_daemonize ();
 
+	(* Initialise the xenstore connection after daemonising, but before we make more threads *)
+	let _ = Squeezed_xenstore.get_client () in
+
 	let module Server = Memory_interface.Server(Memory_server) in
 
 	Memory_server.start_balance_thread balance_check_interval;

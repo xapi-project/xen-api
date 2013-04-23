@@ -19,7 +19,9 @@ open D
 open Xs_protocol
 module Client = Xs_client_unix.Client(Xs_transport_unix_client)
 
-let client =
+let myclient = ref None 
+
+let open_client () =
         try
                 Client.make ()
         with e ->
@@ -40,4 +42,12 @@ let client =
                 | _ -> ()
                 end;
                 raise e
+
+let get_client () =
+	match !myclient with 
+	| None -> 
+		let client = open_client () in
+		myclient := Some client;
+		client
+	| Some c -> c
 

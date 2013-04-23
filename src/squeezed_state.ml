@@ -21,8 +21,8 @@ let ( |> ) a b = b a
 
 let _service = "squeezed"
 
-let listdir path = try List.filter (fun x -> x <> "") (Client.with_xs client (fun xs -> Client.directory xs path)) with Xs_protocol.Enoent _ -> []
-let xs_read path = try Client.with_xs client (fun xs -> Client.read xs path) with Xs_protocol.Enoent _ as e -> begin debug "xenstsore-read %s returned ENOENT" path; raise e end
+let listdir path = try List.filter (fun x -> x <> "") (Client.with_xs (get_client ()) (fun xs -> Client.directory xs path)) with Xs_protocol.Enoent _ -> []
+let xs_read path = try Client.with_xs (get_client ()) (fun xs -> Client.read xs path) with Xs_protocol.Enoent _ as e -> begin debug "xenstsore-read %s returned ENOENT" path; raise e end
 
 let path = String.concat "/"
 
@@ -36,10 +36,10 @@ let reserved_host_memory_path service = path [ ""; service; "reserved-host-memor
 let reservation_path service session_id reservation_id = path [ ""; service; "state"; session_id; reservation_id ]
 
 let add_reservation service session_id reservation_id kib = 
-  Client.with_xs client (fun xs -> Client.write xs (reservation_path service session_id reservation_id) kib)
+  Client.with_xs (get_client ()) (fun xs -> Client.write xs (reservation_path service session_id reservation_id) kib)
 
 let del_reservation service session_id reservation_id = 
-  Client.with_xs client (fun xs -> Client.rm xs (reservation_path service session_id reservation_id))
+  Client.with_xs (get_client ()) (fun xs -> Client.rm xs (reservation_path service session_id reservation_id))
 
 (** Return the total amount of memory reserved *)
 let total_reservations service = 
