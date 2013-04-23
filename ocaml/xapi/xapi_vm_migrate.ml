@@ -274,11 +274,46 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 							let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
 							failwith ("No SR specified in VDI map for VDI " ^ vdi_uuid)
 				in
-			let mirror = (not is_intra_pool) || (dest_sr <> sr) in
+
+
+			let rec dest_vdi_exists_on_sr vdi_uuid sr_ref retry =
+				try
+					let dest_vdi_ref = XenAPI.VDI.get_by_uuid remote_rpc session_id vdi_uuid in
+					let dest_vdi_sr_ref = XenAPI.VDI.get_SR remote_rpc session_id dest_vdi_ref in
+					if dest_vdi_sr_ref = sr_ref then
+						true
+					else
+						false
+				with _ ->
+					if retry then
+					begin
+						XenAPI.SR.scan remote_rpc session_id sr_ref;
+						dest_vdi_exists_on_sr vdi_uuid sr_ref false
+					end
+					else
+						false
+			in
+
+			let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
+			let mirror = if !Xapi_globs.relax_xsm_sr_check then
+				if (dest_sr = sr) then
+				begin
+					(* Check if the VDI uuid already exists in the target SR *)
+					if (dest_vdi_exists_on_sr vdi_uuid dest_sr_ref true) then
+						false
+					else
+						failwith ("SR UUID matches on destination but VDI does not exist")
+				end
+				else
+					true
+			else
+				(not is_intra_pool) || (dest_sr <> sr)
+			in
 
 			let remote_vdi,remote_vdi_reference,newdp =
 				if not mirror then
-					location,vdi,"none"
+					let dest_vdi_ref = XenAPI.VDI.get_by_uuid remote_rpc session_id vdi_uuid in
+					location,dest_vdi_ref,"none"
 				else begin
 					let newdp = Printf.sprintf "mirror_%s" dp in
 					ignore(SMAPI.VDI.attach ~dbg ~dp:newdp ~sr ~vdi:location ~read_write:false);
