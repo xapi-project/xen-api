@@ -25,6 +25,7 @@ let read_config filename =
 	let configargs = [
 		"use-xenopsd", Config.Set_bool Xapi_globs.use_xenopsd;
 		Config_shared.disable_logging_for;
+		"relax-xsm-sr-check", Config.Set_bool Xapi_globs.relax_xsm_sr_check;
 	] in
 	try
 		Config.read filename configargs (fun _ _ -> ())
