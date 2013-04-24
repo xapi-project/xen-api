@@ -241,7 +241,7 @@ let operation (obj: obj) (x: message) =
 			if not (List.exists (fun (l, _, _) -> l = DT.Removed) x.DT.msg_lifecycle) then
 				(comments @ unmarshall_code @ session_check_exp @ rbac_check_begin @ gen_body () @ rbac_check_end)
 			else
-				(comments @ ["let session_id = ref_session_of_rpc session_id_rpc in"] @ session_check_exp @ ["response_of_failure Api_errors.message_removed []"]) in
+				(comments @ List.filter (Stringext.String.startswith "let session_id") unmarshall_code @ session_check_exp @ ["Server_helpers.message_removed_failure"]) in
 		String.concat "\n            " ("" :: all_list) in
 
 	name_pattern_match ^ "\n"

@@ -55,6 +55,9 @@ let parameter_count_mismatch_failure func expected received =
   XMLRPC.Failure (Api_errors.message_parameter_count_mismatch,
                   [func; expected; received])
 
+let message_removed_failure =
+  XMLRPC.Failure (Api_errors.message_removed, [])
+
 (* Execute fn f in specified __context, marshalling result with "marshaller".
    If has_task is set then __context has a real task in it that has to be completed. *)
 let exec ?marshaller ?f_forward ~__context f =
