@@ -425,9 +425,11 @@ module Plugin = struct
 	(* Throw No_update exception if previous checksum is the same as the current
 	 * one for this plugin. Otherwise, replace previous with current.*)
 	let verify_checksum_freshness ~(uid : string) ~(checksum : string) : unit =
-		try
-			if checksum = Hashtbl.find last_read_checksum uid then raise No_update
-		with Not_found -> ();
+		begin
+			try
+				if checksum = Hashtbl.find last_read_checksum uid then raise No_update
+			with Not_found -> ()
+		end;
 		Hashtbl.replace last_read_checksum uid checksum
 
 	(* The function that reads the file that corresponds to the plugin with the
