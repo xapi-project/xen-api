@@ -85,6 +85,40 @@ static int pasprintf(char **buf, const char *fmt, ...)
     return ret;
 }
 
+static int
+xenstore_putsv(int domid, const char *val, const char *fmt, va_list ap)
+{
+    char *path = NULL;
+    struct xs_handle *xsh = NULL;
+    int n, m, rc;
+    char key[1024];
+    bool success;
+
+    rc = 1;
+    bzero(key, sizeof(key));
+    xsh = xs_daemon_open();
+    if (xsh == NULL)
+        goto out;
+
+    path = xs_get_domain_path(xsh, domid);
+    if (path == NULL)
+        goto out;
+
+    n = snprintf(key, sizeof(key), "%s/", path);
+    if (n < 0)
+        goto out;
+    m = vsnprintf(key + n, sizeof(key) - n, fmt, ap);
+    if (m < 0)
+        goto out;
+
+    success = xs_write(xsh, XBT_NULL, key, val, strlen(val));
+    rc = success? 0 : 1;
+out:
+    xs_daemon_close(xsh);
+    free(path);
+    return rc;
+}
+
 static char *
 xenstore_getsv(int domid, const char *fmt, va_list ap)
 {
@@ -104,7 +138,7 @@ xenstore_getsv(int domid, const char *fmt, va_list ap)
     if (path == NULL)
         goto out;
 
-    n = snprintf(key, sizeof(key), "%s/platform/", path);
+    n = snprintf(key, sizeof(key), "%s/", path);
     if (n < 0)
         goto out;
     m = vsnprintf(key + n, sizeof(key) - n, fmt, ap);
@@ -116,6 +150,18 @@ out:
     xs_daemon_close(xsh);
     free(path);
     return s;
+}
+
+static int
+xenstore_puts(int domid, const char *val, const char *fmt, ...)
+{
+    int rc;
+    va_list ap;
+
+    va_start(ap, fmt);
+    rc = xenstore_putsv(domid, val, fmt, ap);
+    va_end(ap);
+    return rc;
 }
 
 static char *
@@ -158,20 +204,20 @@ get_flags(struct flags *f, int domid)
     f->vcpu_affinity = (const char**)(malloc(sizeof(char*) * f->vcpus));
 
     for (n = 0; n < f->vcpus; n++) {
-        f->vcpu_affinity[n] = xenstore_gets(domid, "vcpu/%d/affinity", n);
+        f->vcpu_affinity[n] = xenstore_gets(domid, "platform/vcpu/%d/affinity", n);
     }
-    f->vcpus_current = xenstore_get(domid, "vcpu/current");
-    f->vcpu_weight = xenstore_get(domid, "vcpu/weight");
-    f->vcpu_cap = xenstore_get(domid, "vcpu/cap");
-    f->nx       = xenstore_get(domid, "nx");
-    f->viridian = xenstore_get(domid, "viridian");
-    f->apic     = xenstore_get(domid, "apic");
-    f->acpi     = xenstore_get(domid, "acpi");
-    f->pae      = xenstore_get(domid, "pae");
-    f->acpi_s4  = xenstore_get(domid, "acpi_s4");
-    f->acpi_s3  = xenstore_get(domid, "acpi_s3");
-    f->mmio_size_mib = xenstore_get(domid, "mmio_size_mib");
-    f->tsc_mode = xenstore_get(domid, "tsc_mode");
+    f->vcpus_current = xenstore_get(domid, "platform/vcpu/current");
+    f->vcpu_weight = xenstore_get(domid, "platform/vcpu/weight");
+    f->vcpu_cap = xenstore_get(domid, "platform/vcpu/cap");
+    f->nx       = xenstore_get(domid, "platform/nx");
+    f->viridian = xenstore_get(domid, "platform/viridian");
+    f->apic     = xenstore_get(domid, "platform/apic");
+    f->acpi     = xenstore_get(domid, "platform/acpi");
+    f->pae      = xenstore_get(domid, "platform/pae");
+    f->acpi_s4  = xenstore_get(domid, "platform/acpi_s4");
+    f->acpi_s3  = xenstore_get(domid, "platform/acpi_s3");
+    f->mmio_size_mib = xenstore_get(domid, "platform/mmio_size_mib");
+    f->tsc_mode = xenstore_get(domid, "platform/tsc_mode");
 
     printf("Determined the following parameters from xenstore:");
     printf("vcpu/number:%d vcpu/weight:%d vcpu/cap:%d nx: %d viridian: %d apic: %d acpi: %d pae: %d acpi_s4: %d acpi_s3: %d mmio_size_mib: %ld tsc_mode %d",
