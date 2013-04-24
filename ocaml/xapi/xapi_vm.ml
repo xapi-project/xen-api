@@ -248,6 +248,7 @@ let shutdown ~__context ~vm =
 		try
 			clean_shutdown ~__context ~vm 
 		with e ->
+			warn "Failed to perform clean_shutdown on VM:%s. Now attempting hard_shutdown." (Ref.string_of vm);
 			hard_shutdown ~__context ~vm
 	end 	
 
