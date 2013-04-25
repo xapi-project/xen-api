@@ -279,11 +279,15 @@ let http_handler call_of_string string_of_response process s context =
 			Response.write (fun t oc -> ()) response oc
 		end
 
+let ign_thread (t:Thread.t) = ignore t
+let ign_int (t:int)         = ignore t
+let ign_string (t:string)   = ignore t
+
 let accept_forever sock f =
-	ignore(Thread.create (fun () ->
+	ign_thread (Thread.create (fun () ->
 		while true do
 			let this_connection, _ = Unix.accept sock in
-			ignore (Thread.create (fun c -> finally (fun () -> f c)  (fun () -> Unix.close c)) this_connection)
+			ign_thread (Thread.create (fun c -> finally (fun () -> f c)  (fun () -> Unix.close c)) this_connection)
 		done
 	) ())
 
@@ -298,13 +302,12 @@ let mkdir_rec dir perm =
 (* Start accepting connections on sockets before we daemonize *)
 let listen path =
 	(* Check the sockets-group exists *)
-	if try ignore(Unix.getgrnam !sockets_group); false with _ -> true then begin
-		error "Group %s doesn't exist." !sockets_group;
-		error "Either create the group, or select a different group by modifying the config file:";
-		error "# Group which can access the control socket";
-		error "sockets-group=<some group name>";
-		exit 1
-	end;
+  let (_:Unix.group_entry) = try Unix.getgrnam !sockets_group with _ ->
+		(error "Group %s doesn't exist." !sockets_group;
+		 error "Either create the group, or select a different group by modifying the config file:";
+		 error "# Group which can access the control socket";
+		 error "sockets-group=<some group name>";
+		 exit 1) in ();
 	try
 		(try Unix.unlink path with Unix.Unix_error(Unix.ENOENT, _, _) -> ());
 		mkdir_rec (Filename.dirname path) 0o0755;
@@ -346,7 +349,7 @@ let pidfile_write filename =
 let daemonize () =
 	if not (have_daemonized ())
 	then
-		ignore (Unix.umask 0);
+		ign_int (Unix.umask 0);
 		match Unix.fork () with
 	| 0 ->
 		if Unix.setsid () == -1 then failwith "Unix.setsid failed";
@@ -361,8 +364,8 @@ let daemonize () =
 			Unix.close Unix.stderr;
 			let nullfd = Unix.openfile "/dev/null" [ Unix.O_RDWR ] 0 in
 			assert (nullfd = Unix.stdin);
-			ignore(Unix.dup nullfd);
-			ignore(Unix.dup nullfd);
+			let (_:Unix.file_descr) = Unix.dup nullfd in ();
+			let (_:Unix.file_descr) = Unix.dup nullfd in ();
 			Debug.set_backend (Debug.Backend_syslog default_service_name)
 	  | _ -> exit 0)
 	| _ -> exit 0
