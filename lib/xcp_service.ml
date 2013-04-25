@@ -12,50 +12,72 @@
  * GNU Lesser General Public License for more details.
  *)
 
+module StringSet = Set.Make(String)
+
+(* Server configuration. We have built-in (hopefully) sensible defaults,
+   together with command-line arguments and a configuration file. They
+   are applied in order: (latest takes precedence)
+      defaults < arguments < config file
+*)
+let sockets_group = ref "xapi"
+let default_service_name = Filename.basename Sys.argv.(0)
+let config_file = ref (Printf.sprintf "/etc/%s.conf" default_service_name)
+let pidfile = ref (Printf.sprintf "/var/run/%s.pid" default_service_name)
+let log_destination = ref "syslog:daemon"
+let daemon = ref false
+let have_daemonized () = Unix.getppid () = 1
+
 module type BRAND = sig val name: string end
-
 module Debug = struct
-type level =
-| Debug
-| Warn
-| Info
-| Error
+	type level = Debug | Warn | Info | Error
+	type backend = Backend_syslog of string | Backend_stderr
 
-let disabled_modules = ref []
-let disable m =
-  disabled_modules := m :: !disabled_modules
-
-let stderr key level x =
-  output_string stderr (Printf.sprintf "[%s|%s] %s" key (match level with
-  | Debug -> "debug"
-  | Warn -> "warn"
-  | Info -> "info"
-  | Error -> "error") x);
+	let stderr_ key level x =
+		output_string stderr (Printf.sprintf "[%s|%s] %s" key (match level with
+			| Debug -> "debug"
+			| Warn -> "warn"
+			| Info -> "info"
+			| Error -> "error") x);
     output_string stderr "\n";
     flush stderr
 
-let syslog ?(facility=`LOG_LOCAL5) name () =
-  let t = Syslog.openlog ~facility name in
-  fun key level x ->
-    Syslog.syslog t (match level with
-      | Debug -> `LOG_DEBUG
-      | Warn -> `LOG_WARNING
-      | Info -> `LOG_INFO
-      | Error -> `LOG_ERR
-    ) (Printf.sprintf "[%s] %s" key x)
+	let syslog ?(facility=`LOG_LOCAL5) name =
+		let t = Syslog.openlog ~facility name in
+		fun key level x ->
+			Syslog.syslog t (match level with
+				| Debug -> `LOG_DEBUG
+				| Warn -> `LOG_WARNING
+				| Info -> `LOG_INFO
+				| Error -> `LOG_ERR
+			) (Printf.sprintf "[%s] %s" key x)
 
-let output = ref stderr
+	let current_backend = ref (if have_daemonized ()
+		then Backend_syslog default_service_name
+		else Backend_stderr)
 
-let write key level x =
-  if not(List.mem key !disabled_modules)
-  then !output key level x
+	let get_backend () = !current_backend
+	let set_backend b  = current_backend := b
 
-module Make = functor(Brand: BRAND) -> struct
-  let debug fmt = Printf.ksprintf (write Brand.name Debug) fmt
-  let error fmt = Printf.ksprintf (write Brand.name Error) fmt
-  let info fmt = Printf.ksprintf (write Brand.name Info) fmt
-  let warn fmt = Printf.ksprintf (write Brand.name Warn) fmt
-end
+	let get_backend_fun () = match !current_backend with
+		| Backend_stderr -> stderr_
+		| Backend_syslog n -> syslog n
+
+	let disabled_modules = ref StringSet.empty
+	let disable m =
+		disabled_modules := StringSet.add m !disabled_modules
+	let enable m =
+		disabled_modules := StringSet.remove m !disabled_modules
+
+	let write key level x =
+		if not (StringSet.mem key !disabled_modules)
+		then get_backend_fun () key level x
+
+	module Make = functor(Brand: BRAND) -> struct
+		let debug fmt = Printf.ksprintf (write Brand.name Debug) fmt
+		let error fmt = Printf.ksprintf (write Brand.name Error) fmt
+		let info fmt = Printf.ksprintf (write Brand.name Info) fmt
+		let warn fmt = Printf.ksprintf (write Brand.name Warn) fmt
+	end
 end
 
 let finally f g =
@@ -69,22 +91,8 @@ let finally f g =
 
 type opt = string * Arg.spec * (unit -> string) * string
 
-
-(* Server configuration. We have built-in (hopefully) sensible defaults,
-   together with command-line arguments and a configuration file. They
-   are applied in order: (latest takes precedence)
-      defaults < arguments < config file
-*)
-let sockets_group = ref "xapi"
-let default_service_name = Filename.basename Sys.argv.(0)
-let config_file = ref (Printf.sprintf "/etc/%s.conf" default_service_name)
-let pidfile = ref (Printf.sprintf "/var/run/%s.pid" default_service_name)
-let log_destination = ref "syslog:daemon"
-let daemon = ref false
-
 module D = Debug.Make(struct let name = default_service_name end)
 open D
-
 
 module Config_file = struct
 	open Arg
@@ -153,7 +161,7 @@ let common_options = [
 				List.iter Debug.disable modules
 			with e ->
 				error "Processing disabled-logging-for = %s: %s" x (Printexc.to_string e)
-		), (fun () -> String.concat " " (!Debug.disabled_modules)), "A space-separated list of debug modules to suppress logging from";
+		), (fun () -> String.concat " " (StringSet.elements !Debug.disabled_modules)), "A space-separated list of debug modules to suppress logging from";
 	"config", Arg.Set_string config_file, (fun () -> !config_file), "Location of configuration file";
 ]
 
@@ -271,22 +279,17 @@ let http_handler call_of_string string_of_response process s context =
 			Response.write (fun t oc -> ()) response oc
 		end
 
+let ign_thread (t:Thread.t) = ignore t
+let ign_int (t:int)         = ignore t
+let ign_string (t:string)   = ignore t
 
 let accept_forever sock f =
-	let (_: Thread.t) = Thread.create
-		(fun () ->
-			while true do
-				let this_connection, _ = Unix.accept sock in
-				let (_: Thread.t) = Thread.create
-					(fun () ->
-						finally
-							(fun () -> f this_connection)
-							(fun () -> Unix.close this_connection)
-					) () in
-				()
-			done
-		) () in
-	()
+	ign_thread (Thread.create (fun () ->
+		while true do
+			let this_connection, _ = Unix.accept sock in
+			ign_thread (Thread.create (fun c -> finally (fun () -> f c)  (fun () -> Unix.close c)) this_connection)
+		done
+	) ())
 
 let mkdir_rec dir perm =
 	let rec p_mkdir dir =
@@ -299,13 +302,12 @@ let mkdir_rec dir perm =
 (* Start accepting connections on sockets before we daemonize *)
 let listen path =
 	(* Check the sockets-group exists *)
-	if try ignore(Unix.getgrnam !sockets_group); false with _ -> true then begin
-		error "Group %s doesn't exist." !sockets_group;
-		error "Either create the group, or select a different group by modifying the config file:";
-		error "# Group which can access the control socket";
-		error "sockets-group=<some group name>";
-		exit 1
-	end;
+  let (_:Unix.group_entry) = try Unix.getgrnam !sockets_group with _ ->
+		(error "Group %s doesn't exist." !sockets_group;
+		 error "Either create the group, or select a different group by modifying the config file:";
+		 error "# Group which can access the control socket";
+		 error "sockets-group=<some group name>";
+		 exit 1) in ();
 	try
 		(try Unix.unlink path with Unix.Unix_error(Unix.ENOENT, _, _) -> ());
 		mkdir_rec (Filename.dirname path) 0o0755;
@@ -328,7 +330,6 @@ let listen path =
 		end;
 		raise e
 
-
 let pidfile_write filename =
 	let fd = Unix.openfile filename
 		[ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC; ]
@@ -338,45 +339,38 @@ let pidfile_write filename =
 		let pid = Unix.getpid () in
 		let buf = string_of_int pid ^ "\n" in
 		let len = String.length buf in
-		if Unix.write fd buf 0 len <> len 
-		then failwith "pidfile_write failed";
-	)
+		if Unix.write fd buf 0 len <> len
+		then failwith "pidfile_write failed")
 	(fun () -> Unix.close fd)
 
-let have_daemonized = ref false
 
+(* Cf Stevens et al, Advanced Programming in the UNIX Environment,
+	 Section 13.3 *)
 let daemonize () =
-	if not(!have_daemonized)
-	then match Unix.fork () with
+	if not (have_daemonized ())
+	then
+		ign_int (Unix.umask 0);
+		match Unix.fork () with
 	| 0 ->
-		have_daemonized := true;
-		if Unix.setsid () == -1 then
-			failwith "Unix.setsid failed";
-
-		begin match Unix.fork () with
+		if Unix.setsid () == -1 then failwith "Unix.setsid failed";
+		Sys.set_signal Sys.sighup Sys.Signal_ignore;
+		(match Unix.fork () with
 		| 0 ->
+			Unix.chdir "/";
 			mkdir_rec (Filename.dirname !pidfile) 0o755;
 			pidfile_write !pidfile;
-
-			let nullfd = Unix.openfile "/dev/null" [ Unix.O_WRONLY ] 0 in
- 			begin try
-				Unix.close Unix.stdin;
-				Unix.dup2 nullfd Unix.stdout;
-				Unix.dup2 nullfd Unix.stderr;
-				with exn -> Unix.close nullfd; raise exn
-			end;
-			Unix.close nullfd;
-			let debug_output = Debug.syslog default_service_name () in
-			Debug.output := debug_output
-		| _ -> exit 0
-		end
+			Unix.close Unix.stdin;
+			Unix.close Unix.stdout;
+			Unix.close Unix.stderr;
+			let nullfd = Unix.openfile "/dev/null" [ Unix.O_RDWR ] 0 in
+			assert (nullfd = Unix.stdin);
+			let (_:Unix.file_descr) = Unix.dup nullfd in ();
+			let (_:Unix.file_descr) = Unix.dup nullfd in ();
+			Debug.set_backend (Debug.Backend_syslog default_service_name)
+	  | _ -> exit 0)
 	| _ -> exit 0
 
-let maybe_daemonize () =
-	if !daemon then
-		daemonize ()
-	else 
-		()
+let maybe_daemonize () = if !daemon then daemonize ()
 
 let wait_forever () =
 	while true do
