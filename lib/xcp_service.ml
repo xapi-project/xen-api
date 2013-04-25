@@ -282,9 +282,8 @@ let http_handler call_of_string string_of_response process s context =
 let accept_forever sock f =
 	ignore(Thread.create (fun () ->
 		while true do
-			let this_connection, this_sockaddr = Unix.accept sock in
-			ignore (Thread.create (fun (c, s) -> finally (fun () -> f c s) (fun () -> Unix.close c))
-								(this_connection, this_sockaddr))
+			let this_connection, _ = Unix.accept sock in
+			ignore (Thread.create (fun c -> finally (fun () -> f c)  (fun () -> Unix.close c)) this_connection)
 		done
 	) ())
 

@@ -44,7 +44,7 @@ val daemonize: unit -> unit
 
 val maybe_daemonize: unit -> unit
 
-val accept_forever: Unix.file_descr -> (Unix.file_descr -> Unix.sockaddr -> unit) -> unit
+val accept_forever: Unix.file_descr -> (Unix.file_descr -> unit) -> unit
 
 type 'a handler =
 	(string -> Rpc.call) ->
