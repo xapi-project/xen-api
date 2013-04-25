@@ -910,7 +910,7 @@ module VM = struct
 
 	(* NB: the arguments which affect the qemu configuration must be saved and
 	   restored with the VM. *)
-	let create_device_model_config vbds vifs vmextra = match vmextra.VmExtra.persistent, vmextra.VmExtra.non_persistent with
+	let create_device_model_config vm vmextra vbds vifs = match vmextra.VmExtra.persistent, vmextra.VmExtra.non_persistent with
 		| { VmExtra.build_info = None }, _
 		| { VmExtra.ty = None }, _ -> raise (Domain_not_built)
 		| {
@@ -921,7 +921,8 @@ module VM = struct
 		} ->
 			let make ?(boot_order="cd") ?(serial="pty") ?(monitor="pty") 
 					?(nics=[])
-					?(disks=[]) ?(pci_emulations=[]) ?(usb=["tablet"])
+					?(disks=[]) ?(pci_emulations=[]) ?(usb=Device.Dm.Disabled)
+					?(parallel=None)
 					?(acpi=true) ?(video=Cirrus) ?(keymap="en-us")
 					?vnc_ip ?(pci_passthrough=false) ?(hvm=true) ?(video_mib=4) () =
 				let video = match video with
@@ -937,6 +938,7 @@ module VM = struct
 					disks = disks;
 					pci_emulations = pci_emulations;
 					usb = usb;
+					parallel = parallel;
 					acpi = acpi;
 					disp = VNC (video, vnc_ip, true, 0, keymap);
 					pci_passthrough = pci_passthrough;
@@ -976,10 +978,28 @@ module VM = struct
 							Some (index, path, media)
 						else None
 					) vbds in
+					let usb_enabled =
+						try (List.assoc "usb" vm.Vm.platformdata) = "true"
+						with Not_found -> false
+					in
+					let usb_tablet_enabled =
+						try (List.assoc "usb_tablet" vm.Vm.platformdata) = "true"
+						with Not_found -> false
+					in
+					let usb =
+						match usb_enabled, usb_tablet_enabled with
+						| true, false -> Device.Dm.Enabled []
+						| true, true -> Device.Dm.Enabled ["tablet"]
+						| false, _ -> Device.Dm.Disabled
+					in
+					let parallel =
+						if (List.mem_assoc "parallel" vm.Vm.platformdata)
+						then Some (List.assoc "parallel" vm.Vm.platformdata)
+						else None in
 					Some (make ~video_mib:hvm_info.video_mib
 						~video:hvm_info.video ~acpi:hvm_info.acpi
 						?serial:hvm_info.serial ?keymap:hvm_info.keymap
-						?vnc_ip:hvm_info.vnc_ip
+						?vnc_ip:hvm_info.vnc_ip ~usb ~parallel
 						~pci_emulations:hvm_info.pci_emulations
 						~pci_passthrough:hvm_info.pci_passthrough
 						~boot_order:hvm_info.boot_order ~nics ~disks ())
@@ -1099,7 +1119,7 @@ module VM = struct
 					Device.Vfb.add ~xc ~xs di.domid;
 					Device.Vkbd.add ~xc ~xs di.domid;
 					Device.Dm.start_vnconly task ~xs ~dmpath:qemu_dm info di.domid
-		) (create_device_model_config vbds vifs vmextra);
+		) (create_device_model_config vm vmextra vbds vifs);
 		match vm.Vm.ty with
 			| Vm.PV { vncterm = true; vncterm_ip = ip } -> Device.PV_Vnc.start ~xs ?ip di.domid
 			| _ -> ()
