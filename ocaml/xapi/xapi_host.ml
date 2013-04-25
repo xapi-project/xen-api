@@ -246,6 +246,14 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
 						true
 					with (Api_errors.Server_error (code, params)) -> Hashtbl.replace plans vm (Error (code, params)); false
 				end) protected_vms in
+			
+			(* Check for impediments before attempting to perform pool_migrate *)
+			List.iter
+				(fun (vm, _) ->
+					match Xapi_vm_lifecycle.get_operation_error ~__context ~self:vm ~op:`pool_migrate with
+						| None -> ()
+						| Some (a,b) -> Hashtbl.replace plans vm (Error ( a, b))
+				)all_user_vms;
 
 			(* Check for the presence of PV drivers that support migration. *)
 			List.iter
