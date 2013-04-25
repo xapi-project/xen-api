@@ -175,7 +175,10 @@ let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
 				boot = Direct { kernel = k; cmdline = ka; ramdisk = initrd };
 				framebuffer = bool vm.API.vM_platform false "pvfb";
 				framebuffer_ip = Some "0.0.0.0"; (* None PR-1255 *)
-				vncterm = true;
+				vncterm = begin match List.mem_assoc "disable_pv_vnc" vm.API.vM_other_config with
+					|true -> false
+					|false -> true
+				end;
 				vncterm_ip = None (*None PR-1255*);
 			}
 		| Helpers.IndirectPV { Helpers.bootloader = b; extra_args = e; legacy_args = l; pv_bootloader_args = p; vdis = vdis } ->
@@ -183,7 +186,10 @@ let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
 				boot = Indirect { bootloader = b; extra_args = e; legacy_args = l; bootloader_args = p; devices = List.filter_map (fun x -> disk_of_vdi ~__context ~self:x) vdis };
 				framebuffer = bool vm.API.vM_platform false "pvfb";
 				framebuffer_ip = Some "0.0.0.0"; (* None PR-1255 *)
-				vncterm = true;
+				vncterm = begin match List.mem_assoc "disable_pv_vnc" vm.API.vM_other_config with
+					|true -> false
+					|false -> true
+				end;
 				vncterm_ip = Some "0.0.0.0" (*None PR-1255*);
 			}
 
