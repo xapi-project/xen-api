@@ -546,6 +546,8 @@ int switch_qemu_logdirty(int domid, unsigned enable, void *data)
 /*    .checkpoint = NULL, */
 /* }; */
 
+#define GENERATION_ID_ADDRESS "hvmloader/generation-id-address"
+
 CAMLprim value stub_xc_domain_save(value handle, value fd, value domid,
                                    value max_iters, value max_factors,
                                    value flags, value hvm)
