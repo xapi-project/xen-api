@@ -979,8 +979,10 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			PCI_DB.signal id
 		| PCI_unplug id ->
 			debug "PCI.unplug %s" (PCI_DB.string_of_id id);
-			B.PCI.unplug t (PCI_DB.vm_of id) (PCI_DB.read_exn id);
-			PCI_DB.signal id
+			finally
+				(fun () ->
+					B.PCI.unplug t (PCI_DB.vm_of id) (PCI_DB.read_exn id);
+				) (fun () -> PCI_DB.signal id)
 		| VM_set_xsdata (id, xsdata) ->
 			debug "VM.set_xsdata (%s, [ %s ])" id (String.concat "; " (List.map (fun (k, v) -> k ^ ": " ^ v) xsdata));
 			B.VM.set_xsdata t (VM_DB.read_exn id) xsdata
