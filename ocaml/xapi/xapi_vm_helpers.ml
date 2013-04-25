@@ -20,6 +20,7 @@ open Printf
 open Xapi_vm_memory_constraints
 open Listext
 open Xenstore
+open Fun
 
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
@@ -50,32 +51,33 @@ let set_is_a_template ~__context ~self ~value =
 	Db.VM.set_is_a_template ~__context ~self ~value
 
 let create ~__context ~name_label ~name_description
-           ~user_version ~is_a_template
-           ~affinity
-           ~memory_target
-           ~memory_static_max
-           ~memory_dynamic_max
-           ~memory_dynamic_min
-           ~memory_static_min
-           ~vCPUs_params
-           ~vCPUs_max ~vCPUs_at_startup
-           ~actions_after_shutdown ~actions_after_reboot
-           ~actions_after_crash
-	   ~pV_bootloader
-           ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args
-	   ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier
-           ~platform
-           ~pCI_bus ~other_config ~xenstore_data ~recommendations
-	   ~ha_always_run ~ha_restart_priority ~tags 
-	   ~blocked_operations ~protection_policy
-     ~is_snapshot_from_vmpp
-		 ~appliance
-		 ~start_delay
-		 ~shutdown_delay
-		 ~order
-		 ~suspend_SR 
-		 ~version
-	   : API.ref_VM =
+		~user_version ~is_a_template
+		~affinity
+		~memory_target
+		~memory_static_max
+		~memory_dynamic_max
+		~memory_dynamic_min
+		~memory_static_min
+		~vCPUs_params
+		~vCPUs_max ~vCPUs_at_startup
+		~actions_after_shutdown ~actions_after_reboot
+		~actions_after_crash
+		~pV_bootloader
+		~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args
+		~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier
+		~platform
+		~pCI_bus ~other_config ~xenstore_data ~recommendations
+		~ha_always_run ~ha_restart_priority ~tags
+		~blocked_operations ~protection_policy
+		~is_snapshot_from_vmpp
+		~appliance
+		~start_delay
+		~shutdown_delay
+		~order
+		~suspend_SR
+		~version
+		~generation_id
+		: API.ref_VM =
 
 	(* NB parameter validation is delayed until VM.start *)
 
@@ -140,6 +142,7 @@ let create ~__context ~name_label ~name_description
 		~order
 		~suspend_SR
 		~version
+		~generation_id
 		;
 	Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Halted;
 	Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref;
@@ -879,3 +882,17 @@ let consider_generic_bios_strings ~__context ~vm =
 		info "The VM's BIOS strings were not yet filled in. The VM is now made BIOS-generic.";
 		Db.VM.set_bios_strings ~__context ~self:vm ~value:Xapi_globs.generic_bios_strings
 	end
+
+(* Windows VM Generation ID *)
+
+let fresh_genid () =
+	Printf.sprintf "%019Ld:%019Ld" (* 19 is max digits of Int64 *)
+		(Random.int64 Int64.max_int)
+		(Random.int64 Int64.max_int)
+
+let vm_fresh_genid ~__context ~self =
+	let genid = fresh_genid ()
+	and uuid = Db.VM.get_uuid ~__context ~self in
+	debug "Refreshing GenID for VM %s to %s" uuid genid;
+	Db.VM.set_generation_id ~__context ~self ~value:genid ;
+	genid

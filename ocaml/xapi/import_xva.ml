@@ -89,6 +89,7 @@ let make __context rpc session_id srid (vms, vdis) =
 				~order:0L
 				~suspend_SR:Ref.null
 				~version:0L
+				~generation_id:(Xapi_vm_helpers.fresh_genid ())
 			      in
 
                  TaskHelper.operate_on_db_task ~__context
