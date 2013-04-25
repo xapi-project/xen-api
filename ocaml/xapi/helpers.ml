@@ -992,3 +992,11 @@ let force_loopback_vbd ~__context =
 	let pool = get_pool ~__context in
 	let other_config = Db.Pool.get_other_config ~__context ~self:pool in
 	List.mem_assoc "force_loopback_vbd" other_config
+
+let vm_using_intellicache ~__context ~vm=
+	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
+	let vbds = List.filter (fun x -> Db.VBD.get_type ~__context ~self:x <> `CD) vbds in
+	let vdis = List.map (fun self -> Db.VBD.get_VDI ~__context ~self) vbds in
+
+	let vdi_intellicache = List.filter (fun vdi -> Db.VDI.get_allow_caching ~__context ~self:vdi = true) vdis in
+	if (List.length vdi_intellicache = 0) then false else true
