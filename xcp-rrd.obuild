@@ -8,6 +8,6 @@ obuild-ver:  1
 library xcp-rrd
   src-dir: lib
   modules: Rrd
-  build-deps: stdext, rpclib, rpclib.syntax, xen-api-client
+  build-deps: stdext, rpclib, rpclib.syntax
   pp: camlp4o
 

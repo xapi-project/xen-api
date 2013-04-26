@@ -24,6 +24,10 @@ open Arrayext
 open Listext
 open Pervasiveext
 
+exception No_RRA_Available
+exception Parse_error
+exception Invalid_data_source of string
+
 type ds_owner = VM of string | Host | SR of string
 
 (** Data source types - see ds datatype *)
@@ -432,7 +436,7 @@ let rrd_add_ds rrd newds =
 let rrd_remove_ds rrd ds_name =
 	let n = Array.index ds_name (Array.map (fun ds -> ds.ds_name) rrd.rrd_dss) in
 	if n = -1 then
-		raise (Api_errors.Server_error(Api_errors.invalid_value, ["data-source"; ds_name]))
+		raise (Invalid_data_source ds_name)
 	else
 		{ rrd with
 			rrd_dss = Array.remove n rrd.rrd_dss;
@@ -440,8 +444,6 @@ let rrd_remove_ds rrd ds_name =
 				{ rra with
 					rra_data = Array.remove n rra.rra_data;
 					rra_cdps = Array.remove n rra.rra_cdps }) rrd.rrd_rras; }
-
-exception No_RRA_Available
 
 (** Find the RRA with a particular CF that contains a particular start
     time, and also has a minimum pdp_cnt. If it can't find an
@@ -474,7 +476,7 @@ let find_best_rras rrd pdp_interval cf start =
 let query_named_ds rrd ds_name cf =
 	let n = Array.index ds_name (Array.map (fun ds -> ds.ds_name) rrd.rrd_dss) in
 	if n = -1 then
-		raise (Api_errors.Server_error(Api_errors.invalid_value, ["data-source"; ds_name]))
+		raise (Invalid_data_source ds_name)
 	else
 		let rras = find_best_rras rrd 0 (Some cf) (Int64.of_float (Unix.gettimeofday())) in
 		Fring.peek (List.hd rras).rra_data.(n) 0
@@ -484,7 +486,6 @@ let query_named_ds rrd ds_name cf =
 (******************************************************************************)
 
 (** This is for making an in-memory representation of the xml tree *)
-exception Parse_error
 type t = El of string * t list | D of string 
 
 (** C# and JS representation of special floats are 'NaN' and 'Infinity' which
