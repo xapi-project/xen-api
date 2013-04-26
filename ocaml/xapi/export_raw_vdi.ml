@@ -62,7 +62,7 @@ let export_raw vdi (req: Http.Request.t) (s: Unix.file_descr) _ =
 
 let handler (req: Http.Request.t) (s: Unix.file_descr) _  =
 	debug "export_raw_vdi handler";
-	Xapi_http.assert_credentials_ok "VDI.eport_raw" ~http_action:"get_export_raw_vdi" req;
+	Xapi_http.assert_credentials_ok "VDI.export_raw" ~http_action:"get_export_raw_vdi" req;
 
 	Server_helpers.exec_with_new_task "VDI.export_raw_vdi"
 		(fun __context ->
