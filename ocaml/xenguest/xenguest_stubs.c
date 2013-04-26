@@ -202,7 +202,7 @@ static void
 get_flags(struct flags *f, int domid)
 {
     int n;
-    f->vcpus    = xenstore_get(domid, "vcpu/number");
+    f->vcpus    = xenstore_get(domid, "platform/vcpu/number");
     f->vcpu_affinity = (const char**)(malloc(sizeof(char*) * f->vcpus));
 
     for (n = 0; n < f->vcpus; n++) {
