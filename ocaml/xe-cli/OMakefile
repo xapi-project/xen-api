@@ -99,10 +99,10 @@ clean:
 install:
 	mkdir -p $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) xe $(DESTDIR)$(OPTDIR)/bin
-	mkdir -p $(DESTDIR)/usr/bin
-	ln -sf $(OPTDIR)/bin/xe $(DESTDIR)/usr/bin/xe
-	mkdir -p $(DESTDIR)/etc/bash_completion.d
-	$(IPROG) bash-completion $(DESTDIR)/etc/bash_completion.d/xe
+	mkdir -p $(DESTDIR)$(BINDIR)
+	ln -sf $(OPTDIR)/bin/xe $(DESTDIR)$(BINDIR)/xe
+	mkdir -p $(DESTDIR)$(ETCDIR)/bash_completion.d
+	$(IPROG) bash-completion $(DESTDIR)$(ETCDIR)/bash_completion.d/xe
 
 .PHONY: sdk-install
 sdk-install: install
