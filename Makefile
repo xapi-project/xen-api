@@ -3,10 +3,10 @@ dist/build/lib-rrd/rrd.cmxa:
 	obuild build
 
 install:
-	ocamlfind install rrd src/META $(wildcard dist/build/lib-rrd/*)
+	ocamlfind install xcp-rrd lib/META $(wildcard dist/build/lib-xcp-rrd/*)
 
 uninstall:
-	ocamlfind remove rrd
+	ocamlfind remove xcp-rrd
 
 .PHONY: clean
 clean:

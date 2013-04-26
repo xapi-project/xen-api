@@ -1,11 +1,11 @@
-name:        rrd
+name:        xcp-rrd
 version:     0.1
-synopsis:    RRD library
+synopsis:    XCP RRD library
 authors:     Citrix
 license:     LGPL-2.1 with OCaml linking exception
 obuild-ver:  1
 
-library rrd
+library xcp-rrd
   src-dir: lib
   modules: Rrd
   build-deps: stdext, rpclib, rpclib.syntax, xen-api-client
