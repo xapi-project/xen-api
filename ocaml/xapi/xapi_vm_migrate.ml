@@ -294,6 +294,8 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 						false
 			in
 
+			(* CP-4498 added an unsupported mode to use cross-pool shared SRs - the initial
+			   use case is for a shared raw iSCSI SR (same uuid, same VDI uuid) *)
 			let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
 			let mirror = if !Xapi_globs.relax_xsm_sr_check then
 				if (dest_sr = sr) then
