@@ -50,9 +50,9 @@ install:
 #	$(IPROG) xapi-autostart-vms $(DESTDIR)$(BINDIR)
 	$(IPROG) udhcpd.skel $(DESTDIR)$(ETCDIR)/udhcpd.skel
 	$(IDATA) xapi.conf $(DESTDIR)$(XAPICONF)
-	$(IDATA) sparse_dd.conf $(DESTDIR)/etc/sparse_dd.conf
-	$(IDATA) xcp-rrdd.conf $(DESTDIR)/etc/xcp-rrdd.conf
-#	$(IDATA) xenopsd.conf $(DESTDIR)/etc/xenopsd.conf
+	$(IDATA) sparse_dd.conf $(DESTDIR)$(ETCDIR)/sparse_dd.conf
+	$(IDATA) xcp-rrdd.conf $(DESTDIR)$(ETCDIR)/xcp-rrdd.conf
+#	$(IDATA) xenopsd.conf $(DESTDIR)$(ETCDIR)/xenopsd.conf
 #	$(IDATA) squeezed.conf $(DESTDIR)/etc/squeezed.conf
 #	$(IPROG) db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf
 #	$(IPROG) rio.db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf.rio
