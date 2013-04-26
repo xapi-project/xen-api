@@ -178,8 +178,7 @@ OCAML_PHASE3_NOXEN = \
 	ocaml/database/block_device_io \
 	ocaml/xapi/binpack \
 	ocaml/idl/datamodel \
-	ocaml/events/event_listen \
-	ocaml/db_process/xapi-db-process
+	ocaml/events/event_listen 
 
 # ocaml/xapi/rrddump
 
