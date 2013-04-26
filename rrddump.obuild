@@ -1,0 +1,9 @@
+name: rrddump
+version: 1.0.0
+synopsis: Program for dumping RRD files
+obuild-ver: 1
+
+executable rrddump
+  main: rrddump.ml
+  src-dir: src
+  build-deps: xcp-rrd, stdext, xmlm
