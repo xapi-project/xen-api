@@ -1316,6 +1316,25 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			update_vbd_operations ~__context ~vm;
 			update_vif_operations ~__context ~vm
 
+		let shutdown ~__context ~vm =
+			info "VM.shutdown: VM = '%s'" (vm_uuid ~__context vm);
+			let local_fn = Local.VM.shutdown ~vm in
+			with_vm_operation ~__context ~self:vm ~doc:"VM.shutdown" ~op:`shutdown
+				(fun () ->
+					forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc -> Client.VM.shutdown rpc session_id vm);
+					Xapi_vm_helpers.shutdown_delay ~__context ~vm
+				);
+			update_vbd_operations ~__context ~vm;
+			update_vif_operations ~__context ~vm;
+			let uuid = Db.VM.get_uuid ~__context ~self:vm in
+			let message_body =
+				Printf.sprintf "VM '%s' shutdown"
+					(Db.VM.get_name_label ~__context ~self:vm)
+			in
+			let (name, priority) = Api_messages.vm_shutdown in
+			(try ignore(Xapi_message.create ~__context ~name 
+				~priority ~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ())
+
 		let clean_reboot ~__context ~vm =
 			info "VM.clean_reboot: VM = '%s'" (vm_uuid ~__context vm);
 			let local_fn = Local.VM.clean_reboot ~vm in

@@ -48,6 +48,7 @@ let allowed_power_states ~__context ~vmr ~(op:API.vm_operations) =
 	| `awaiting_memory_live
 	| `clean_reboot
 	| `clean_shutdown
+	| `shutdown
 	| `changing_memory_live
 	| `changing_shadow_memory_live
 	| `changing_VCPUs_live
