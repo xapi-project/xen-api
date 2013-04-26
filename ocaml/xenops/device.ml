@@ -1534,6 +1534,10 @@ module Dm = struct
 
 let max_emulated_nics = 8 (** Should be <= the hardcoded maximum number of emulated NICs *)
 
+type usb_opt =
+	| Enabled of string list
+	| Disabled
+
 (* How the display appears to the guest *)
 type disp_intf_opt =
     | Std_vga
@@ -1557,7 +1561,8 @@ type info = {
 	serial: string option;
 	monitor: string option;
 	vcpus: int;
-	usb: string list;
+	usb: usb_opt;
+	parallel: string option;
 	nics: (string * string * int) list;
 	disks: (int * string * media) list;
 	acpi: bool;
@@ -1686,11 +1691,11 @@ let cmdline_of_disp info =
 
 let cmdline_of_info info restore domid =
 	let usb' =
-		if info.usb = [] then
-			[]
-		else
+		match info.usb with
+		| Disabled -> []
+		| Enabled devices ->
 			("-usb" :: (List.concat (List.map (fun device ->
-					   [ "-usbdevice"; device ]) info.usb))) in
+				[ "-usbdevice"; device ]) devices))) in
 	(* Sort the VIF devices by devid *)
 	let nics = List.stable_sort (fun (_,_,a) (_,_,b) -> compare a b) info.nics in
 	if List.length nics > max_emulated_nics then debug "Limiting the number of emulated NICs to %d" max_emulated_nics;
@@ -1731,6 +1736,7 @@ let cmdline_of_info info restore domid =
 	@ (if info.pci_passthrough then ["-priv"] else [])
 	@ (List.fold_left (fun l (k, v) -> ("-" ^ k) :: (match v with None -> l | Some v -> v :: l)) [] info.extras)
 	@ (Opt.default [] (Opt.map (fun x -> [ "-monitor"; x ]) info.monitor))
+	@ (Opt.default [] (Opt.map (fun x -> [ "-parallel"; x]) info.parallel))
 
 
 let vnconly_cmdline ~info ?(extras=[]) domid =

@@ -166,6 +166,10 @@ end
 
 module Dm :
 sig
+	type usb_opt =
+		| Enabled of string list
+		| Disabled
+
 	type disp_intf_opt =
 	    | Std_vga
 	    | Cirrus
@@ -187,7 +191,8 @@ sig
 		serial: string option;
 		monitor: string option;
 		vcpus: int;
-		usb: string list;
+		usb: usb_opt;
+		parallel: string option;
 		nics: (string * string * int) list;
 		disks: (int * string * media) list;
 		acpi: bool;
