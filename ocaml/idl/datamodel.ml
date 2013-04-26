@@ -1869,7 +1869,7 @@ let vm_hardShutdown = call
 (* VM.Shutdown *)
 
 let vm_shutdown = call
-  ~in_product_since:rel_rio
+  ~in_product_since:rel_clearwater
   ~name:"shutdown"
   ~doc:"Attempts to first clean shutdown a VM and if it should fail then perform a hard shutdown on it."
   ~params:[Ref _vm, "vm", "The VM to shutdown"]

@@ -248,7 +248,7 @@ let shutdown ~__context ~vm =
 		try
 			clean_shutdown ~__context ~vm 
 		with e ->
-			warn "Failed to perform clean_shutdown on VM:%s. Now attempting hard_shutdown." (Ref.string_of vm);
+			warn "Failed to perform clean_shutdown on VM:%s due to exception %s. Now attempting hard_shutdown." (Ref.string_of vm) (Printexc.to_string e);
 			hard_shutdown ~__context ~vm
 	end 	
 
