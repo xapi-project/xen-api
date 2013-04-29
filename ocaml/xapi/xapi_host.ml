@@ -621,33 +621,57 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
   Db.Host_metrics.set_live ~__context ~self:metrics ~value:(uuid=(Helpers.get_localhost_uuid ()));
   host
 
-let destroy ~__context ~self =
+let precheck_destroy_declare_dead ~__context ~self call =
   (* Fail if the host is still online: the user should either isolate the machine from the network
 	 or use Pool.eject. *)
   let hostname = Db.Host.get_hostname ~__context ~self in
   if is_host_alive ~__context ~host:self then begin
-	error "Host.destroy successfully contacted host %s; host is not offline; refusing to destroy record" hostname;
+	error "Host.%s successfully contacted host %s; host is not offline; refusing to %s" call hostname call;
 	raise (Api_errors.Server_error(Api_errors.host_is_live, [ Ref.string_of self ]))
   end;
 
   (* This check is probably redundant since the Pool master should always be 'alive': *)
   (* It doesn't make any sense to destroy the master's own record *)
   let me = Helpers.get_localhost ~__context in
-  if self=me then raise (Api_errors.Server_error(Api_errors.host_cannot_destroy_self, [ Ref.string_of self ]));
+  if self=me then raise (Api_errors.Server_error(Api_errors.host_is_live, [ Ref.string_of self ]))
+
+
+(* Returns a tuple of lists: The first containing the control domains, and the second containing the regular VMs *)
+let get_resident_vms ~__context ~self =
+  let my_resident_vms = Db.Host.get_resident_VMs ~__context ~self in
+  List.partition (fun vm -> Db.VM.get_is_control_domain ~__context ~self:vm) my_resident_vms
+
+let destroy ~__context ~self =
+  precheck_destroy_declare_dead ~__context ~self "destroy";
 
   (* CA-23732: Block if HA is enabled *)
   let pool = Helpers.get_pool ~__context in
   if Db.Pool.get_ha_enabled ~__context ~self:pool
   then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));
 
-  let my_resident_vms = Db.Host.get_resident_VMs ~__context ~self in
-  let my_control_domains, my_regular_vms = List.partition (fun vm -> Db.VM.get_is_control_domain ~__context ~self:vm) my_resident_vms in
+  let my_control_domains, my_regular_vms = get_resident_vms ~__context ~self in
 
   if List.length my_regular_vms > 0
   then raise (Api_errors.Server_error(Api_errors.host_has_resident_vms, [ Ref.string_of self ]));
 
+  (* Call the hook before we destroy the stuff as it will likely need the
+     database records *)
+  Xapi_hooks.host_post_declare_dead ~__context ~host:self ~reason:Xapi_hooks.reason__dbdestroy;
+
   Db.Host.destroy ~__context ~self;
   List.iter (fun vm -> Db.VM.destroy ~__context ~self:vm) my_control_domains
+
+let declare_dead ~__context ~host =
+	precheck_destroy_declare_dead ~__context ~self:host "declare_dead";
+	
+	let my_control_domains, my_regular_vms = get_resident_vms ~__context ~self:host in
+
+	Helpers.call_api_functions ~__context (fun rpc session_id -> 
+		List.iter (fun vm -> Client.Client.VM.power_state_reset rpc session_id vm) my_regular_vms);
+
+	Db.Host.set_enabled ~__context ~self:host ~value:false;
+
+	Xapi_hooks.host_post_declare_dead ~__context ~host ~reason:Xapi_hooks.reason__user
 
 let ha_disable_failover_decisions ~__context ~host = Xapi_ha.ha_disable_failover_decisions __context host
 let ha_disarm_fencing ~__context ~host = Xapi_ha.ha_disarm_fencing __context host

@@ -6,15 +6,28 @@
 HOSTUUID=$2
 REASON=$4
 
-# Only reset the VDIs if the host is actually fenced!
-if [ ! $REASON = "fenced" ]; then
-  exit 0
+function reset {
+	echo Resetting VDIs on host $HOSTUUID
+	IFS=","
+	for i in `xe pbd-list host-uuid=$HOSTUUID --minimal`
+	do
+		SR=`xe pbd-param-get uuid=$i param-name=sr-uuid`  
+		"@OPTDIR@/sm/resetvdis.py" $HOSTUUID $SR
+	done
+}
+
+# Only reset the VDIs if the host is actually fenced, or the user has requested it.
+if [ $REASON = "fenced" ]; then
+	reset
 fi
 
-echo Resetting VDIs on host $HOSTUUID
-IFS=","
-for i in `xe pbd-list host-uuid=$HOSTUUID --minimal`
-do
-   SR=`xe pbd-param-get uuid=$i param-name=sr-uuid`  
-   "@OPTDIR@/sm/resetvdis.py" $HOSTUUID $SR
-done
+if [ $REASON = "user" ]; then
+	reset
+fi
+
+if [ $REASON = "dbdestroy" ]; then
+        reset
+fi
+
+
+
