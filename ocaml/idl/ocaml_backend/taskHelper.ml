@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 module D = Debug.Debugger(struct let name = "taskhelper" end)
-module Dummy = Debug.Debugger(struct let name = "dummytaskhelper" end)
 open D
 
 (*open API*)
