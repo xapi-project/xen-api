@@ -58,10 +58,6 @@ let assert_can_boot_here ~__context ~self ~host =
 		Helpers.assert_platform_version_is_same_on_master ~__context ~host ~self;
 	assert_can_boot_here ~__context ~self ~host ~snapshot ()
 
-let retrieve_wlb_recommendations ~__context ~vm =
-	let snapshot = Db.VM.get_record ~__context ~self:vm in
-	retrieve_wlb_recommendations ~__context ~vm ~snapshot
-
 let assert_agile ~__context ~self = Helpers.vm_assert_agile ~__context ~self
 
 (* helpers *)

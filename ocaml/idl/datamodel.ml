@@ -128,7 +128,7 @@ let roles_all =
 	]
 let role_description = [
 	role_pool_admin,"The Pool Administrator role has full access to all features and settings, including accessing Dom0 and managing subjects, roles and external authentication";
-	role_pool_operator,"The Pool Operator role manages host- and pool-wide resources, including setting up storage, creating resource pools and managing patches, high availability (HA) and workload balancing (WLB)";
+	role_pool_operator,"The Pool Operator role manages host- and pool-wide resources, including setting up storage, creating resource pools and managing patches and high availability (HA)";
 	role_vm_power_admin,"The VM Power Administrator role has full access to VM and template management and can choose where to start VMs and use the dynamic memory control and VM snapshot features";
 	role_vm_admin,"The VM Administrator role can manage VMs and templates";
 	role_vm_operator,"The VM Operator role can use VMs and interact with VM consoles";
@@ -754,7 +754,7 @@ let _ =
   error Api_errors.rbac_permission_denied ["permission";"message"]
     ~doc: "RBAC permission denied." ();
 
-  (* wlb errors*)
+  (* wlb errors, deprecated since clearwater *)
   error Api_errors.wlb_not_initialized []
     ~doc:"No WLB connection is configured." ();
   error Api_errors.wlb_disabled []
@@ -787,7 +787,8 @@ let _ =
     ~doc:"The connection to the WLB server was reset." ();
   error Api_errors.wlb_url_invalid ["url"]
     ~doc:"The WLB URL is invalid. Ensure it is in format: <ipaddress>:<port>.  The configured/given URL is returned." ();
-    
+
+
   (* Api_errors specific to running VMs on multiple hosts *)
   error Api_errors.vm_unsafe_boot ["vm"]
     ~doc:"You attempted an operation on a VM that was judged to be unsafe by the server. This can happen if the VM would run on a CPU that has a potentially incompatible set of feature flags to those the VM requires. If you want to override this warning then use the 'force' option." ();
@@ -1601,9 +1602,13 @@ let vm_get_possible_hosts = call
 	~allowed_roles:_R_READ_ONLY
 	()
 
+let wlb_removed =
+	[ Published, rel_george, "";
+	  Removed, rel_clearwater, "The WLB feature has been removed" ]
+
 let vm_retrieve_wlb_recommendations = call
 	~name:"retrieve_wlb_recommendations"
-	~in_product_since:rel_george
+	~lifecycle:wlb_removed
 	~doc:"Returns mapping of hosts to ratings, indicating the suitability of starting the VM at that location according to wlb. Rating is replaced with an error if the VM cannot boot there."
 	~params:[Ref _vm, "vm", "The VM";]
 	~result:(Map (Ref _host, Set(String)), "The potential hosts and their corresponding recommendations or errors")
@@ -2547,7 +2552,7 @@ let host_get_uncooperative_domains = call
 
 let host_retrieve_wlb_evacuate_recommendations = call
   ~name:"retrieve_wlb_evacuate_recommendations"
-  ~in_product_since:rel_george
+  ~lifecycle:wlb_removed
   ~doc:"Retrieves recommended host migrations to perform when evacuating the host from the wlb server. If a VM cannot be migrated from the host the reason is listed instead of a recommendation."
   ~params:[Ref _host, "self", "The host to query"]
   ~result:(Map(Ref _vm, Set(String)), "VMs and the reasons why they would block evacuation, or their target host recommended by the wlb server")
@@ -5991,8 +5996,8 @@ let pool_detect_nonhomogeneous_external_auth = call ~flags:[`Session]
   ()
 
 let pool_initialize_wlb = call
-  ~name:"initialize_wlb"
-  ~in_product_since:rel_george
+	~name:"initialize_wlb"
+	~lifecycle:wlb_removed
   ~doc:"Initializes workload balancing monitoring on this pool with the specified wlb server"
   ~params:[String, "wlb_url", "The ip address and port to use when accessing the wlb server";
     String, "wlb_username", "The username used to authenticate with the wlb server";
@@ -6003,8 +6008,8 @@ let pool_initialize_wlb = call
    ()
 
 let pool_deconfigure_wlb = call
-  ~name:"deconfigure_wlb"
-  ~in_product_since:rel_george
+	~name:"deconfigure_wlb"
+	~lifecycle:wlb_removed
   ~doc:"Permanently deconfigures workload balancing monitoring on this pool"
   ~params:[]
   ~allowed_roles:_R_POOL_OP
@@ -6012,7 +6017,7 @@ let pool_deconfigure_wlb = call
 
 let pool_send_wlb_configuration = call
   ~name:"send_wlb_configuration"
-  ~in_product_since:rel_george
+  ~lifecycle:wlb_removed
   ~doc:"Sets the pool optimization criteria for the workload balancing server"
   ~params:[Map(String, String), "config", "The configuration to use in optimizing this pool"]
   ~allowed_roles:_R_POOL_OP
@@ -6020,7 +6025,7 @@ let pool_send_wlb_configuration = call
  
 let pool_retrieve_wlb_configuration = call
   ~name:"retrieve_wlb_configuration"
-  ~in_product_since:rel_george
+  ~lifecycle:wlb_removed
   ~doc:"Retrieves the pool optimization criteria from the workload balancing server"
   ~params:[]
   ~result:(Map(String,String), "The configuration used in optimizing this pool")
@@ -6029,7 +6034,7 @@ let pool_retrieve_wlb_configuration = call
    
 let pool_retrieve_wlb_recommendations = call
   ~name:"retrieve_wlb_recommendations"
-  ~in_product_since:rel_george
+  ~lifecycle:wlb_removed
   ~doc:"Retrieves vm migrate recommendations for the pool from the workload balancing server"
   ~params:[]
   ~result:(Map(Ref _vm,Set(String)), "The list of vm migration recommendations")
@@ -6287,11 +6292,11 @@ let pool =
 			; field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this pool"
 			; field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes"
 			; field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "gui_config" "gui-specific configuration for pool"
-			; field ~in_product_since:rel_george ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "wlb_url" "Url for the configured workload balancing host"
-			; field ~in_product_since:rel_george ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "wlb_username" "Username for accessing the workload balancing host"
-			; field ~in_product_since:rel_george ~internal_only:true ~qualifier:DynamicRO ~ty:(Ref _secret) "wlb_password" "Password for accessing the workload balancing host"
-			; field ~in_product_since:rel_george ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "wlb_enabled" "true if workload balancing is enabled on the pool, false otherwise"
-			; field ~in_product_since:rel_george ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "wlb_verify_cert" "true if communication with the WLB server should enforce SSL certificate verification."
+			; field ~lifecycle:wlb_removed ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "wlb_url" "Url for the configured workload balancing host"
+			; field ~lifecycle:wlb_removed ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "wlb_username" "Username for accessing the workload balancing host"
+			; field ~lifecycle:wlb_removed ~internal_only:true ~qualifier:DynamicRO ~ty:(Ref _secret) "wlb_password" "Password for accessing the workload balancing host"
+			; field ~lifecycle:wlb_removed ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "wlb_enabled" "true if workload balancing is enabled on the pool, false otherwise"
+			; field ~lifecycle:wlb_removed ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "wlb_verify_cert" "true if communication with the WLB server should enforce SSL certificate verification."
 			; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "redo_log_enabled" "true a redo-log is to be used other than when HA is enabled, false otherwise"
 			; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Ref _vdi) ~default_value:(Some (VRef (Ref.string_of Ref.null))) "redo_log_vdi" "indicates the VDI to use for the redo-log other than when HA is enabled"
 			; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "vswitch_controller" "address of the vswitch controller"
@@ -8004,9 +8009,8 @@ let http_actions = [
   ("put_messages", (Put, Constants.message_put_uri, false, [], _R_VM_POWER_ADMIN, []));
   ("connect_remotecmd", (Connect, Constants.remotecmd_uri, false, [], _R_POOL_ADMIN, []));
   ("post_remote_stats", (Post, Constants.remote_stats_uri, false, [], _R_POOL_ADMIN, []));  (* deprecated *)
-  ("get_wlb_report", (Get, Constants.wlb_report_uri, true,
-		      [String_query_arg "report"; Varargs_query_arg], _R_READ_ONLY, []));
-  ("get_wlb_diagnostics", (Get, Constants.wlb_diagnostics_uri, true, [], _R_READ_ONLY, []));
+  ("get_wlb_report", (Get, Constants.wlb_report_uri, true, [String_query_arg "report"; Varargs_query_arg], _R_READ_ONLY, [])); (* deprecated since Clearwater *)
+  ("get_wlb_diagnostics", (Get, Constants.wlb_diagnostics_uri, true, [], _R_READ_ONLY, [])); (* deprecated since Clearwater *)
   ("get_audit_log", (Get, Constants.audit_log_uri, true, [], _R_READ_ONLY, []));
 
   (* XMLRPC callback *)

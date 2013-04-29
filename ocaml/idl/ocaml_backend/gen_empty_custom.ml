@@ -93,8 +93,8 @@ let gen_debug_module name_override result_type_override body_override api : O.Mo
       () in
 
   let obj (obj: obj) =
-    let fields = List.map (fun x -> O.Module.Let (operation obj x)) obj.messages in
-
+    let messages = List.filter (fun x -> not (List.exists (fun (l, _, _) -> l = DT.Removed) x.DT.msg_lifecycle)) obj.messages in
+    let fields = List.map (fun x -> O.Module.Let (operation obj x)) messages in
     O.Module.make
     ~name:(OU.ocaml_of_obj_name obj.DT.name)
     ~elements:fields ()

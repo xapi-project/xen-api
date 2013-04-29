@@ -131,22 +131,6 @@ val call_fn_on_host :
 val enable_binary_storage : __context:Context.t -> unit
 val disable_binary_storage : __context:Context.t -> unit
 
-(** {2 Workload balancing} *)
-
-val initialize_wlb :
-  __context:Context.t ->
-  wlb_url:string ->
-  wlb_username:string ->
-  wlb_password:string ->
-  xenserver_username:string -> xenserver_password:string -> unit
-val deconfigure_wlb : __context:Context.t -> unit
-val send_wlb_configuration :
-  __context:Context.t -> config:(string * string) list -> unit
-val retrieve_wlb_configuration :
-  __context:Context.t -> (string * string) list
-val retrieve_wlb_recommendations :
-  __context:Context.t -> ([ `VM ] Ref.t * string list) list
-
 (** {2 (Fill in Title!)} *)
 
 val send_test_post :
