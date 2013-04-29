@@ -127,3 +127,6 @@ let storage_motion_keep_vdi () = fistpoint "storage_motion_keep_vdi"
 let allow_test_patches () = fistpoint "allow_test_patches"
 
 let delay_xenopsd_event_threads () = fistpoint "delay_xenopsd_event_threads"
+
+let allowed_unsigned_patches () = fistpoint_read "allowed_unsigned_patches"
+
