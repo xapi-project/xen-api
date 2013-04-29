@@ -54,6 +54,8 @@ module Platform = struct
 	let usb = "usb"
 	let usb_tablet = "usb_tablet"
 	let parallel = "parallel"
+  let vgpu_pci_id = "vgpu_pci_id"
+  let vgpu_config = "vgpu_config"
 
 	(* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
 	let filtered_flags = [
@@ -77,6 +79,8 @@ module Platform = struct
 		usb;
 		usb_tablet;
 		parallel;
+    vgpu_pci_id;
+    vgpu_config;
 	]
 
 	(* Other keys we might want to write to the platform map. *)
