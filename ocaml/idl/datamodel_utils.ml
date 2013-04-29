@@ -214,7 +214,7 @@ let new_messages_of_field x order fld =
 		 msg_session = true;
 		 msg_secret = false;
 		 msg_release = fld.release;
-		 msg_lifecycle = [];
+		 msg_lifecycle = fld.lifecycle;
 		 msg_has_effect = fld.field_has_effect;
 		 msg_force_custom = x.force_custom_actions;
 		 msg_no_current_operations = false;
@@ -332,7 +332,7 @@ let messages_of_obj (x: obj) document_order : message list =
 		 msg_async=false; msg_custom_marshaller = false; msg_db_only = false;
 		 msg_no_current_operations = false;
 		 msg_hide_from_docs = false; msg_pool_internal = false;
-		 msg_session=false; msg_release=x.obj_release; msg_lifecycle=[]; msg_has_effect=false; msg_tag=Custom;
+		 msg_session=false; msg_release=x.obj_release; msg_lifecycle=x.obj_lifecycle; msg_has_effect=false; msg_tag=Custom;
 		 msg_force_custom = x.force_custom_actions;
 		 msg_allowed_roles = None;
 		 msg_map_keys_roles = [];

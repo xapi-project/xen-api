@@ -1853,10 +1853,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			info "VM.assert_can_boot_here: VM = '%s'; host = '%s'" (vm_uuid ~__context self) (host_uuid ~__context host);
 			Local.VM.assert_can_boot_here ~__context ~self ~host
 
-		let retrieve_wlb_recommendations ~__context ~vm  =
-			info "VM.retrieve_wlb_recommendations: VM = '%s'" (vm_uuid ~__context vm);
-			Local.VM.retrieve_wlb_recommendations ~__context ~vm
-
 		let assert_agile ~__context ~self =
 			info "VM.assert_agile: VM = '%s'" (vm_uuid ~__context self);
 			Local.VM.assert_agile ~__context ~self
@@ -2178,10 +2174,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let local_fn = Local.Host.get_log ~host in
 			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.get_log rpc session_id host)
 
+		(* The message is already marked as Removed, it should be safe to remove the dispatching logic here 
+ 
 		let license_apply ~__context ~host ~contents =
 			info "Host.license_apply: host = '%s'" (host_uuid ~__context host);
 			let local_fn = Local.Host.license_apply ~host ~contents in
 			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.license_apply rpc session_id host contents)
+		*)
 
 		let assert_can_evacuate ~__context ~host =
 			info "Host.assert_can_evacuate: host = '%s'" (host_uuid ~__context host);
@@ -2199,10 +2198,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				(fun () ->
 					Local.Host.evacuate ~__context ~host
 				)
-
-		let retrieve_wlb_evacuate_recommendations ~__context ~self =
-			info "Host.retrieve_wlb_evacuate_recommendations: host = '%s'" (host_uuid ~__context self);
-			Local.Host.retrieve_wlb_evacuate_recommendations ~__context ~self
 
 		let update_pool_secret ~__context ~host ~pool_secret =
 			info "Host.update_pool_secret: host = '%s'" (host_uuid ~__context host);
