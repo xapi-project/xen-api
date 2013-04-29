@@ -425,9 +425,11 @@ module Plugin = struct
 	(* Throw No_update exception if previous checksum is the same as the current
 	 * one for this plugin. Otherwise, replace previous with current.*)
 	let verify_checksum_freshness ~(uid : string) ~(checksum : string) : unit =
-		try
-			if checksum = Hashtbl.find last_read_checksum uid then raise No_update
-		with Not_found -> ();
+		begin
+			try
+				if checksum = Hashtbl.find last_read_checksum uid then raise No_update
+			with Not_found -> ()
+		end;
 		Hashtbl.replace last_read_checksum uid checksum
 
 	(* The function that reads the file that corresponds to the plugin with the
@@ -452,7 +454,7 @@ module Plugin = struct
 			verify_checksum_freshness ~uid ~checksum;
 			parse_payload ~json:payload
 		with e ->
-			error "Failed to process plugin: %s" uid;
+			error "Failed to process plugin: %s (%s)" uid (Printexc.to_string e);
 			log_backtrace ();
 			match e with
 			| Invalid_header_string | Invalid_length | Invalid_checksum
