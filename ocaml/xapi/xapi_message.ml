@@ -372,6 +372,14 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
 	let timestamp = Mutex.execute event_mutex (fun () ->
 		Unix.gettimeofday ()) in
 
+	(* During rolling upgrade, upgraded master might have a alerts grading
+	   system different from the not yet upgraded slaves, during that process we
+	   transform the priority of received messages as a special case. *)
+	let priority =
+		if Helpers.rolling_upgrade_in_progress ~__context && List.mem_assoc name !Api_messages.msgList then
+			List.assoc name !Api_messages.msgList
+		else priority in
+
 	let message = {API.message_name=name;
 				   API.message_uuid=uuid;
 				   API.message_priority=priority;
