@@ -645,6 +645,7 @@ let common_http_handlers = [
   ("put_import_raw_vdi", (Http_svr.FdIO Import_raw_vdi.handler));
   ("get_export", (Http_svr.FdIO Export.handler));
   ("get_export_metadata", (Http_svr.FdIO Export.metadata_handler));
+  ("get_export_raw_vdi", (Http_svr.FdIO Export_raw_vdi.handler));
   ("connect_console", Http_svr.FdIO (Console.handler Console.real_proxy));
   ("connect_console_ws", Http_svr.FdIO (Console.handler Console.ws_proxy));
   ("get_root", Http_svr.BufIO (Fileserver.send_file "/" Fhs.webdir));
