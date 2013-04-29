@@ -2114,6 +2114,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.disable rpc session_id host);
 			Xapi_host_helpers.update_allowed_operations ~__context ~self:host
 
+		let declare_dead ~__context ~host =
+			info "Host.declare_dead: host = '%s'" (host_uuid ~__context host);
+			Local.Host.declare_dead ~__context ~host;
+			Xapi_host_helpers.update_allowed_operations ~__context ~self:host
+
 		let enable ~__context ~host =
 			info "Host.enable: host = '%s'" (host_uuid ~__context host);
 			let local_fn = Local.Host.enable ~host in
