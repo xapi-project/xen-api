@@ -18,6 +18,7 @@ let xenops_uri = "/services/xenops"                   (* ocaml/xapi/xapi_service
 let sm_uri = "/services/SM"                           (* ocaml/xapi/xapi_services.ml *)
 let import_vdi_uri = "/import_vdi"                    (* Currently unused *)
 let import_raw_vdi_uri = "/import_raw_vdi"            (* ocaml/xapi/import_raw_vdi.ml *)
+let export_raw_vdi_uri = "/export_raw_vdi"            (* ocaml/xapi/export_raw_vdi.ml *)
 let export_uri = "/export"                            (* ocaml/xapi/export.ml *)
 let export_metadata_uri = "/export_metadata"
 let import_uri = "/import"                            (* ocaml/xapi/import.ml *)
