@@ -33,6 +33,7 @@ OCAML_OBJS = \
 	test_ca91480 \
 	test_ca98944 \
 	test_pr1510 \
+	test_pool_apply_edition \
 	test_pool_license \
 	test_platformdata \
 

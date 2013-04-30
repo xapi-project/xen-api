@@ -23,6 +23,7 @@ let base_suite =
 			Test_ca91480.test;
 			Test_ca98944.test;
 			Test_pr1510.suite;
+			Test_pool_apply_edition.test;
 			Test_pool_license.test;
 			Test_platformdata.test;
 		]
