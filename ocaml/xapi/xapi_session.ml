@@ -371,7 +371,7 @@ let login_with_password ~__context ~uname ~pwd ~version = wipe_params_after_fn [
 		     failwith ("Local superuser must be "^local_superuser)
 		else begin
 			do_local_auth uname pwd;
-			debug "Successful local authentication user %s from %s" uname (Context.get_origin __context);
+			debug "Success: local auth, user %s from %s" uname (Context.get_origin __context);
 			login_no_password ~__context ~uname:(Some uname) ~host:(Helpers.get_localhost ~__context) 
 				~pool:false ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:"" ~auth_user_name:uname
 				~rbac_permissions:[]
