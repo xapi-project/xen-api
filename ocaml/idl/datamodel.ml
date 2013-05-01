@@ -46,14 +46,11 @@ let tampa_release_schema_major_vsn = 5
 let tampa_release_schema_minor_vsn = 66
 
 let clearwater_release_schema_major_vsn = 5
-let clearwater_release_schema_minor_vsn = 70
-
-let augusta_release_schema_major_vsn = 5
-let augusta_release_schema_minor_vsn = 75
+let clearwater_release_schema_minor_vsn = 75
 
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
-let last_release_schema_major_vsn = augusta_release_schema_major_vsn
-let last_release_schema_minor_vsn = augusta_release_schema_minor_vsn
+let last_release_schema_major_vsn = clearwater_release_schema_major_vsn
+let last_release_schema_minor_vsn = clearwater_release_schema_minor_vsn
 
 (** Bindings for currently specified releases *)
 
@@ -169,12 +166,6 @@ let get_product_releases in_product_since =
       [] -> raise UnspecifiedRelease
     | x::xs -> if x=in_product_since then "closed"::x::xs else go_through_release_order xs
   in go_through_release_order release_order
-
-let autusta_release =
-	{ internal = get_product_releases rel_augusta
-	; opensource=get_oss_releases None
-	; internal_deprecated_since=None
-	}
 
 let clearwater_release =
 	{ internal=get_product_releases rel_clearwater
@@ -6770,7 +6761,7 @@ let vm =
 	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pci)) "attached_PCIs" "Currently passed-through PCI devices";
 	field ~writer_roles:_R_VM_ADMIN ~qualifier:RW ~in_product_since:rel_boston ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _sr) "suspend_SR" "The SR on which a suspend image is stored";
 	field ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "version" "The number of times this VM has been recovered";
-	field ~qualifier:StaticRO ~in_product_since:rel_augusta ~default_value:(Some (VString "0:0")) ~ty:(String) "generation_id" "Generation ID of the VM";
+	field ~qualifier:StaticRO ~in_product_since:rel_clearwater ~default_value:(Some (VString "0:0")) ~ty:(String) "generation_id" "Generation ID of the VM";
       ])
 	()
 
