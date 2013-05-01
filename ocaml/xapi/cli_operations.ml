@@ -3716,7 +3716,9 @@ let get_pool_with_default rpc session_id params key =
 let pool_apply_edition printer rpc session_id params =
 	let pool = get_pool_with_default rpc session_id params "uuid" in
 	let edition = List.assoc "edition" params in
-	Client.Pool.apply_edition rpc session_id pool edition
+	let hosts = Client.Host.get_all rpc session_id in
+	with_license_server_changes printer rpc session_id params hosts
+		(fun rpc session_id -> Client.Pool.apply_edition rpc session_id pool edition)
 
 let host_set_power_on_mode printer rpc session_id params =
 	let power_on_mode = List.assoc "power-on-mode" params in
