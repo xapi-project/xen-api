@@ -67,5 +67,31 @@ let register () =
   if master then Xapi_periodic_scheduler.add_to_queue "Trying to update subjects' info using external directory service (if any)" 
     (Xapi_periodic_scheduler.Periodic !Xapi_globs.update_all_subjects_interval) update_all_subjects_delay update_all_subjects_func;
   Xapi_periodic_scheduler.add_to_queue "Periodic scheduler heartbeat" (Xapi_periodic_scheduler.Periodic hb_timer) 240.0 hb_func;
-  Xapi_periodic_scheduler.add_to_queue "Update monitor configuration" (Xapi_periodic_scheduler.Periodic 3600.0) 3600.0 Monitor_master.update_configuration_from_master
+  Xapi_periodic_scheduler.add_to_queue "Update monitor configuration" (Xapi_periodic_scheduler.Periodic 3600.0) 3600.0 Monitor_master.update_configuration_from_master;
 
+	(* CA-103762: If we have a license when xapi starts, we schedule
+	   this task to run after the license should have expired. This
+	   causes xapi to ask v6d for the same edition, at which point v6d
+	   will reply with the "effective" license parameters, which,
+	   because of license expiry, may be fewer than if the license
+	   hadn't expired. *)
+	if master then
+		let expiry = Server_helpers.exec_with_new_task "License expiry check"
+			(fun __context ->
+				(License_check.get_expiry_date ~__context ~host:(Helpers.get_localhost ~__context)))
+		in match expiry with
+			| None -> ()
+			| Some d ->
+					let date = (Date.to_float d -. Unix.gettimeofday ()) +. (60. *. 60.) in
+					Xapi_periodic_scheduler.add_to_queue "Checking license expiry"
+						Xapi_periodic_scheduler.OneShot date
+						(fun () ->
+							Server_helpers.exec_with_new_task "License expiry check"
+								(fun __context ->
+									let host = Helpers.get_localhost ~__context in
+									let edition = Db.Host.get_edition ~__context ~self:host in
+									(* Pretend that this is xapi startup time, to allow
+									   v6d to return a set of "effective" license parameters. *)
+									let additional = ["startup","true"] in
+									info "License has probably expired; reapplying edition" ;
+									Xapi_host.apply_edition_internal ~__context ~host ~edition ~additional))

@@ -248,7 +248,8 @@ val license_apply : __context:Context.t -> host:API.ref_host -> contents:string 
  *  Also call this function to change to a different license server, after the
  *  connection details in host.license_server have been amended. *)
 val apply_edition : __context:Context.t -> host:API.ref_host -> edition:string -> unit 
-
+val apply_edition_internal : __context:Context.t -> host:API.ref_host ->
+	edition:string -> additional:(string * string) list -> unit
 
 (** {2 CPU Feature Masking} *)
  
