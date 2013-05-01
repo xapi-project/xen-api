@@ -49,7 +49,7 @@ let clearwater_release_schema_major_vsn = 5
 let clearwater_release_schema_minor_vsn = 70
 
 let augusta_release_schema_major_vsn = 5
-let augusta_release_schema_minor_vsn = 75
+let augusta_release_schema_minor_vsn = 80
 
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
 let last_release_schema_major_vsn = tampa_release_schema_major_vsn
@@ -6766,7 +6766,7 @@ let vm =
 	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pci)) "attached_PCIs" "Currently passed-through PCI devices";
 	field ~writer_roles:_R_VM_ADMIN ~qualifier:RW ~in_product_since:rel_boston ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _sr) "suspend_SR" "The SR on which a suspend image is stored";
 	field ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "version" "The number of times this VM has been recovered";
-	field ~qualifier:StaticRO ~in_product_since:rel_augusta ~default_value:(Some (VString "0:0")) ~ty:(String) "generation_id" "Generation ID of the VM";
+	field ~qualifier:StaticRO ~in_product_since:rel_clearwater ~default_value:(Some (VString "0:0")) ~ty:(String) "generation_id" "Generation ID of the VM";
       ])
 	()
 
