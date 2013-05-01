@@ -3677,14 +3677,17 @@ let pool_disable_local_storage_caching printer rpc session_id params =
 	let pool = List.hd (Client.Pool.get_all rpc session_id) in
 	Client.Pool.disable_local_storage_caching rpc session_id pool
 
+let get_pool_with_default rpc session_id params key =
+	if List.mem_assoc key params then
+		(* User provided a pool uuid. *)
+		let pool_uuid = List.assoc key params in
+		Client.Pool.get_by_uuid rpc session_id pool_uuid
+	else
+		(* User didn't provide a pool uuid: let's fetch the default pool. *)
+		List.hd (Client.Pool.get_all rpc session_id)
+
 let pool_apply_edition printer rpc session_id params =
-	let pool =
-		if (List.mem_assoc "uuid" params) then (*user provided a pool uuid*)
-			let pool_uuid = List.assoc "uuid" params in
-			Client.Pool.get_by_uuid rpc session_id pool_uuid
-		else (*user didn't provide a pool uuid: let's fetch the default pool*)
-			List.hd (Client.Pool.get_all rpc session_id)
-	in
+	let pool = get_pool_with_default rpc session_id params "uuid" in
 	let edition = List.assoc "edition" params in
 	Client.Pool.apply_edition rpc session_id pool edition
 
@@ -3762,26 +3765,14 @@ let pool_restore_db fd printer rpc session_id params =
 
 
 let pool_enable_external_auth printer rpc session_id params =
-	let pool =
-		if (List.mem_assoc "uuid" params) then (*user provided a pool uuid*)
-			let pool_uuid = List.assoc "uuid" params in
-			Client.Pool.get_by_uuid rpc session_id pool_uuid
-		else (*user didn't provide a pool uuid: let's fetch the default pool*)
-			List.hd (Client.Pool.get_all rpc session_id)
-	in
+	let pool = get_pool_with_default rpc session_id params "uuid" in
 	let auth_type = List.assoc "auth-type" params in
 	let service_name = List.assoc "service-name" params in
 	let config = read_map_params "config" params in
 	Client.Pool.enable_external_auth rpc session_id pool config service_name auth_type
 
 let pool_disable_external_auth printer rpc session_id params =
-	let pool =
-		if (List.mem_assoc "uuid" params) then (*user provided a pool uuid*)
-			let pool_uuid = List.assoc "uuid" params in
-			Client.Pool.get_by_uuid rpc session_id pool_uuid
-		else (*user didn't provide a pool uuid: let's fetch the default pool*)
-			List.hd (Client.Pool.get_all rpc session_id)
-	in
+	let pool = get_pool_with_default rpc session_id params "uuid" in
 	let config = read_map_params "config" params in
 	Client.Pool.disable_external_auth rpc session_id pool config
 
