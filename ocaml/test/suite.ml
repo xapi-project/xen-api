@@ -21,6 +21,7 @@ let base_suite =
 			Test_pool_db_backup.test;
 			Test_xapi_db_upgrade.test;
 			Test_pool_license.test;
+			Test_platformdata.test;
 		]
 
 let _ = run_test_tt_main base_suite
