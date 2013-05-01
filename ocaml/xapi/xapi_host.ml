@@ -47,7 +47,6 @@ let set_power_on_mode ~__context ~self ~power_on_mode ~power_on_config =
 	+ xapi hasn't properly started up yet.
 	+ HA is enabled and this host has broken storage or networking which would cause protected VMs
 	to become non-agile
-	+ our license doesn't support pooling and we're a slave
  *)
 let assert_safe_to_reenable ~__context ~self =
 	assert_startup_complete ();
@@ -63,8 +62,6 @@ let assert_safe_to_reenable ~__context ~self =
 	  let unplugged_pifs = List.filter (fun pif -> not(Db.PIF.get_currently_attached ~__context ~self:pif)) pifs in
 	  (* Make sure it is 'ok' to have these PIFs remain unplugged *)
 	  List.iter (fun self -> Xapi_pif.abort_if_network_attached_to_protected_vms ~__context ~self) unplugged_pifs;
-	  (* Make sure our license hasn't expired (an exception is raised is it is) *)
-	  License_check.check_expiry ~__context ~host:self
 	end
 
 let xen_bugtool = "/usr/sbin/xen-bugtool"
