@@ -108,6 +108,13 @@ Group:   Development/Libraries
 This package contains rrd functions as a library suitable for writing tools 
 related to rrd. Needed for rrd2csv and rrdd-plugins.
 
+%package xenstore-watch-devel
+Summary: xenstore-watch headers and libraries
+Group:   Development/Libraries
+
+%description xenstore-watch-devel
+This package contains a library of functions for watching xenstore.
+
 %prep 
 %setup -q
 %patch0 -p0 -b xapi-version.patch
@@ -386,6 +393,10 @@ rm -rf $RPM_BUILD_ROOT
 %files rrd-devel
 %defattr(-,root,root,-)
 /usr/lib/ocaml/rrd-client/*
+
+%files xenstore-watch-devel
+%defattr(-,root,root,-)
+/usr/lib/ocaml/xenstore-watch/*
 
 %changelog
 
