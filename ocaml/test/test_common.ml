@@ -13,7 +13,13 @@
  *)
 
 open API
+open Fun
 open OUnit
+
+(** Utility functions *)
+let string_of_string_map map =
+	Printf.sprintf "[%s]"
+		(List.map (fun (k, v) -> k ^ ": " ^ v) map |> String.concat "; ")
 
 let skip str = skip_if true str
 

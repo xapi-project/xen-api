@@ -919,7 +919,7 @@ module VM = struct
 		} ->
 			let make ?(boot_order="cd") ?(serial="pty") ?(monitor="pty") 
 					?(nics=[])
-					?(disks=[]) ?(pci_emulations=[]) ?(usb=["tablet"])
+					?(disks=[]) ?(pci_emulations=[]) ?(usb=Device.Dm.Disabled)
 					?(parallel=None)
 					?(acpi=true) ?(video=Cirrus) ?(keymap="en-us")
 					?vnc_ip ?(pci_passthrough=false) ?(hvm=true) ?(video_mib=4) () =
@@ -976,11 +976,20 @@ module VM = struct
 							Some (index, path, media)
 						else None
 					) vbds in
+					let usb_enabled =
+						try (List.assoc "usb" vm.Vm.platformdata) = "true"
+						with Not_found -> false
+					in
+					let usb_tablet_enabled =
+						try (List.assoc "usb_tablet" vm.Vm.platformdata) = "true"
+						with Not_found -> false
+					in
 					let usb =
-						if (List.mem_assoc "nousb" vm.Vm.platformdata)
-							&& (List.assoc "nousb" vm.Vm.platformdata = "true")
-						then []
-						else ["tablet"] in
+						match usb_enabled, usb_tablet_enabled with
+						| true, false -> Device.Dm.Enabled []
+						| true, true -> Device.Dm.Enabled ["tablet"]
+						| false, _ -> Device.Dm.Disabled
+					in
 					let parallel =
 						if (List.mem_assoc "parallel" vm.Vm.platformdata)
 						then Some (List.assoc "parallel" vm.Vm.platformdata)
