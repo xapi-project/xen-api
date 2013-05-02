@@ -47,16 +47,12 @@ let get_lowest_edition ~__context ~hosts =
 
 (* Separate this logic out from Xapi_pool.apply_edition for testing purposes. *)
 let apply_edition_with_rollback ~__context ~hosts ~edition ~apply_fn =
-	(* Filter out the hosts which already have the correct edition;
-	 * list the other hosts against the edition we're upgrading *from*. *)
-	let to_apply =
-		List.fold_left
-			(fun acc host ->
-				let old_edition = Db.Host.get_edition ~__context ~self:host in
-				if old_edition <> edition
-				then (host, old_edition) :: acc
-				else acc)
-			[] hosts
+	(* Snapshot the current state of the pool in case we need to roll back;
+	 * list the hosts against the edition we're upgrading them *from*. *)
+	let pool_license_state =
+		List.map
+			(fun host -> (host, Db.Host.get_edition ~__context ~self:host))
+			hosts
 	in
 	(* This list will be added to as hosts have the new edition applied. *)
 	let to_rollback = ref [] in
@@ -65,9 +61,9 @@ let apply_edition_with_rollback ~__context ~hosts ~edition ~apply_fn =
 			(fun (host, old_edition) ->
 				apply_fn ~__context ~host ~edition;
 				to_rollback := (host, old_edition) :: !to_rollback)
-			to_apply
+			pool_license_state
 	with e ->
-		debug
+		error
 			"Caught %s while trying to upgrade pool to edition %s - attempting rollback"
 			(Printexc.to_string e) edition;
 		(* Best-effort attempt to roll everything back. *)
