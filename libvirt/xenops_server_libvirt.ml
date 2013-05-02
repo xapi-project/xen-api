@@ -183,6 +183,7 @@ module Domain = struct
 					"volume", List.assoc "volume" xenstore_data;
 				] "source" output
 			| Some { xenstore_data } when List.mem ("type", "rbd") xenstore_data ->
+				empty ~attr:["name", "qemu"] "driver" output;
 				empty ~attr:[
 					"protocol", "rbd";
 					"name", List.assoc "name" xenstore_data;
