@@ -227,7 +227,7 @@ module Domain = struct
 			empty ~attr:["sync", "localtime"] "clock" output;
 			tag_start "devices" output;
 			let e = match hypervisor with
-			| Some (Xen(_, _)) -> !Path.qemu_dm_wrapper
+			| Some (Xen(_, _)) -> !Path.qemu_system_i386
 			| _ -> qemu_path in
 			emulator e output;
 			List.iter (fun vif -> of_vif vif output) x.vifs;
