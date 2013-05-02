@@ -37,7 +37,7 @@ let run_assert_equal_with_vdi ~__context ?(cmp = my_cmp) ?(ha_enabled=false) vbd
 
 (* This is to test Xapi_vdi.check_operation_error against CA-98944
    code. This DO NOT fully test the aforementionned function *)
-let test_vdi () =
+let test_ca98944 () =
 	let __context = Mock.make_context_with_new_db "Mock context" in
 	(* Should raise vdi_in_use *)
 	run_assert_equal_with_vdi ~__context
@@ -72,7 +72,7 @@ let test_vdi () =
 		`forget None
 
 let test =
-	"test_ca98944" >:::
+	"test_vdi_allowed_operations" >:::
 		[
-			"test_vdi" >:: test_vdi
+			"test_ca98944" >:: test_ca98944
 		]
