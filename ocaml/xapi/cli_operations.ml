@@ -2801,54 +2801,81 @@ let host_license_view printer rpc session_id params =
 	let params = List.filter (fun (x, _) -> not (List.mem x tohide)) params in
 	printer (Cli_printer.PTable [params])
 
-let host_apply_edition printer rpc session_id params =
-	let host =
-		if List.mem_assoc "host-uuid" params then
-			Client.Host.get_by_uuid rpc session_id (List.assoc "host-uuid" params)
-		else
-			get_host_from_session rpc session_id in
-	let current_license_server = Client.Host.get_license_server rpc session_id host in
-	let edition = List.assoc "edition" params in
+let with_license_server_changes printer rpc session_id params hosts f =
+	(* Save the original license server details for each host;
+	 * in case of failure we will need to roll back. *)
+	let current_license_servers =
+		List.map
+			(fun host -> (host, Client.Host.get_license_server rpc session_id host))
+			hosts
+	in
+	(* Set any new license server address across the pool. *)
 	if List.mem_assoc "license-server-address" params then begin
 		let address = List.assoc "license-server-address" params in
-		Client.Host.remove_from_license_server rpc session_id host "address";
-		Client.Host.add_to_license_server rpc session_id host "address" address
+		List.iter
+			(fun host ->
+				Client.Host.remove_from_license_server rpc session_id host "address";
+				Client.Host.add_to_license_server rpc session_id host "address" address)
+			hosts
 	end;
+	(* Set any new license server port across the pool. *)
 	if List.mem_assoc "license-server-port" params then begin
 		let port = List.assoc "license-server-port" params in
 		let port_int = try int_of_string port with _ -> -1 in
 		if port_int < 0 || port_int > 65535 then
 			printer (Cli_printer.PStderr "NOTE: The given port number is invalid; reverting to the current value.\n")
 		else begin
-			Client.Host.remove_from_license_server rpc session_id host "port";
-			Client.Host.add_to_license_server rpc session_id host "port" port
+			List.iter
+				(fun host ->
+					Client.Host.remove_from_license_server rpc session_id host "port";
+					Client.Host.add_to_license_server rpc session_id host "port" port)
+				hosts
 		end
 	end;
 	let now = (Unix.gettimeofday ()) in
 	try
-		Client.Host.apply_edition rpc session_id host edition
+		f rpc session_id
 	with
-		| Api_errors.Server_error (name, args) as e when name = Api_errors.license_checkout_error ->
-			(* Put back original license server details *)
-			Client.Host.set_license_server rpc session_id host current_license_server;
-			let alerts = Client.Message.get_since rpc session_id (Date.of_float now) in
-			let print_if_checkout_error (ref, msg) =
-				if msg.API.message_name = "LICENSE_NOT_AVAILABLE" || msg.API.message_name = "LICENSE_SERVER_UNREACHABLE" then
-					(* the body of the alert message is specified in the v6 daemon *)
-					printer (Cli_printer.PStderr (msg.API.message_body ^ "\n"))
-			in
-			if alerts = [] then
-				raise e
-			else begin
-				List.iter print_if_checkout_error alerts;
-				raise (ExitWithError 1)
-			end
-		| Api_errors.Server_error (name, args) as e when name = Api_errors.invalid_edition ->
-			let editions = List.map (fun (x, _, _, _) -> x) (V6client.get_editions "host_apply_edition") in
-			let editions = String.concat ", " editions in
-			printer (Cli_printer.PStderr ("Valid editions are: " ^ editions ^ "\n"));
-			raise e
-		| e -> raise e
+	| Api_errors.Server_error (name, args) as e
+			when name = Api_errors.license_checkout_error ->
+		(* Put back original license_server_details *)
+		List.iter
+			(fun (host, license_server) ->
+				Client.Host.set_license_server rpc session_id host license_server)
+			current_license_servers;
+		let alerts = Client.Message.get_since rpc session_id (Date.of_float now) in
+		let print_if_checkout_error (ref, msg) =
+			if false
+				|| msg.API.message_name = (fst Api_messages.v6_rejected)
+				|| msg.API.message_name = (fst Api_messages.v6_comm_error)
+			then
+				printer (Cli_printer.PStderr (msg.API.message_body ^ "\n"))
+		in
+		if alerts = []
+		then raise e
+		else begin
+			List.iter print_if_checkout_error alerts;
+			raise (ExitWithError 1)
+		end
+	| Api_errors.Server_error (name, args) as e
+			when name = Api_errors.invalid_edition ->
+		let editions = (V6client.get_editions "host_apply_edition")
+			|> List.map (fun (x, _, _, _) -> x)
+			|> String.concat ", "
+		in
+		printer (Cli_printer.PStderr ("Valid editions are: " ^ editions ^ "\n"));
+		raise e
+	| e -> raise e
+
+let host_apply_edition printer rpc session_id params =
+	let host =
+		if List.mem_assoc "host-uuid" params then
+			Client.Host.get_by_uuid rpc session_id (List.assoc "host-uuid" params)
+		else
+			get_host_from_session rpc session_id in
+	let edition = List.assoc "edition" params in
+	with_license_server_changes printer rpc session_id params [host]
+		(fun rpc session_id -> Client.Host.apply_edition rpc session_id host edition)
 
 let host_all_editions printer rpc session_id params =
 	let editions = List.map (fun (e, _, _, _) -> e) (V6client.get_editions "host_all_editions") in
@@ -3677,16 +3704,21 @@ let pool_disable_local_storage_caching printer rpc session_id params =
 	let pool = List.hd (Client.Pool.get_all rpc session_id) in
 	Client.Pool.disable_local_storage_caching rpc session_id pool
 
+let get_pool_with_default rpc session_id params key =
+	if List.mem_assoc key params then
+		(* User provided a pool uuid. *)
+		let pool_uuid = List.assoc key params in
+		Client.Pool.get_by_uuid rpc session_id pool_uuid
+	else
+		(* User didn't provide a pool uuid: let's fetch the default pool. *)
+		List.hd (Client.Pool.get_all rpc session_id)
+
 let pool_apply_edition printer rpc session_id params =
-	let pool =
-		if (List.mem_assoc "uuid" params) then (*user provided a pool uuid*)
-			let pool_uuid = List.assoc "uuid" params in
-			Client.Pool.get_by_uuid rpc session_id pool_uuid
-		else (*user didn't provide a pool uuid: let's fetch the default pool*)
-			List.hd (Client.Pool.get_all rpc session_id)
-	in
+	let pool = get_pool_with_default rpc session_id params "uuid" in
 	let edition = List.assoc "edition" params in
-	Client.Pool.apply_edition rpc session_id pool edition
+	let hosts = Client.Host.get_all rpc session_id in
+	with_license_server_changes printer rpc session_id params hosts
+		(fun rpc session_id -> Client.Pool.apply_edition rpc session_id pool edition)
 
 let host_set_power_on_mode printer rpc session_id params =
 	let power_on_mode = List.assoc "power-on-mode" params in
@@ -3762,26 +3794,14 @@ let pool_restore_db fd printer rpc session_id params =
 
 
 let pool_enable_external_auth printer rpc session_id params =
-	let pool =
-		if (List.mem_assoc "uuid" params) then (*user provided a pool uuid*)
-			let pool_uuid = List.assoc "uuid" params in
-			Client.Pool.get_by_uuid rpc session_id pool_uuid
-		else (*user didn't provide a pool uuid: let's fetch the default pool*)
-			List.hd (Client.Pool.get_all rpc session_id)
-	in
+	let pool = get_pool_with_default rpc session_id params "uuid" in
 	let auth_type = List.assoc "auth-type" params in
 	let service_name = List.assoc "service-name" params in
 	let config = read_map_params "config" params in
 	Client.Pool.enable_external_auth rpc session_id pool config service_name auth_type
 
 let pool_disable_external_auth printer rpc session_id params =
-	let pool =
-		if (List.mem_assoc "uuid" params) then (*user provided a pool uuid*)
-			let pool_uuid = List.assoc "uuid" params in
-			Client.Pool.get_by_uuid rpc session_id pool_uuid
-		else (*user didn't provide a pool uuid: let's fetch the default pool*)
-			List.hd (Client.Pool.get_all rpc session_id)
-	in
+	let pool = get_pool_with_default rpc session_id params "uuid" in
 	let config = read_map_params "config" params in
 	Client.Pool.disable_external_auth rpc session_id pool config
 
