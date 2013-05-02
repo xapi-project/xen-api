@@ -63,7 +63,7 @@ let apply_edition_with_rollback ~__context ~hosts ~edition ~apply_fn =
 				to_rollback := (host, old_edition) :: !to_rollback)
 			pool_license_state
 	with e ->
-		debug
+		error
 			"Caught %s while trying to upgrade pool to edition %s - attempting rollback"
 			(Printexc.to_string e) edition;
 		(* Best-effort attempt to roll everything back. *)
