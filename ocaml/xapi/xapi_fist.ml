@@ -123,3 +123,6 @@ let pause_storage_migrate () = fistpoint "pause_storage_migrate"
 let pause_storage_migrate2 () = fistpoint "pause_storage_migrate2"
 
 let storage_motion_keep_vdi () = fistpoint "storage_motion_keep_vdi"
+
+let allowed_unsigned_patches () = fistpoint_read "allowed_unsigned_patches"
+
