@@ -132,36 +132,34 @@ let t_of_rpc rpc =
 	  m = Mutex.create ();
 }
 	
-
-let get dbg from timeout t =
+let get dbg ?(with_cancel=(fun _ f -> f ())) from timeout t =
 	let from = Opt.default U.initial from in
 	let cancel = ref false in
-	let id = Opt.map (fun timeout ->
-		Scheduler.one_shot (Scheduler.Delta timeout) dbg
+	let cancel_fn () =
+		debug "Cancelling: Update.get";
+		Mutex.execute t.m
 			(fun () ->
-				debug "Cancelling: Update.get after %d" timeout;
-				Mutex.execute t.m
-					(fun () ->
-						cancel := true;
-						Condition.broadcast t.c
-					)
-			)
+				cancel := true;
+				Condition.broadcast t.c
+			)  
+	in
+	let id = Opt.map (fun timeout ->
+		Scheduler.one_shot (Scheduler.Delta timeout) dbg cancel_fn
 	) timeout in
-	finally
-		(fun () ->
-			Mutex.execute t.m
-				(fun () ->
-					let is_empty (x,y,_) = x=[] && y=[] in
+	with_cancel cancel_fn (fun () -> 
+		finally (fun () ->
+			Mutex.execute t.m (fun () ->
+				let is_empty (x,y,_) = x=[] && y=[] in
 
-					let rec wait () =
-						let result = U.get from t.u in
-						if is_empty result && not (!cancel) then 
-							begin Condition.wait t.c t.m; wait () end
-						else result
-					in
-					wait ()
-				)
-		) (fun () -> Opt.iter Scheduler.cancel id)
+				let rec wait () =
+					let result = U.get from t.u in
+					if is_empty result && not (!cancel) then 
+					begin Condition.wait t.c t.m; wait () end
+					else result
+				in
+				wait ()
+			)
+		) (fun () -> Opt.iter Scheduler.cancel id))
 
 let last_id dbg t =
 	Mutex.execute t.m
