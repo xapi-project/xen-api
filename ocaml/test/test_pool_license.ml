@@ -33,25 +33,23 @@ let string_of_date_opt = function
 let f2d = Date.of_float
 let f2d2s = Date.to_string ++ Date.of_float
 
-module CompareDates = struct
-	module Tests = Generic.Make(struct
-		module Io = struct
-			type input_t = (Date.iso8601 option * Date.iso8601 option)
-			type output_t = int
+module CompareDates = Generic.Make(struct
+	module Io = struct
+		type input_t = (Date.iso8601 option * Date.iso8601 option)
+		type output_t = int
 
-			let string_of_input_t input =
-				Printf.sprintf "(%s, %s)"
-					(string_of_date_opt (fst input))
-					(string_of_date_opt (snd input))
+		let string_of_input_t input =
+			Printf.sprintf "(%s, %s)"
+				(string_of_date_opt (fst input))
+				(string_of_date_opt (snd input))
 
-			let string_of_output_t = string_of_int
-		end
+		let string_of_output_t = string_of_int
+	end
 
-			let transform (date1, date2) = Xapi_pool_license.compare_dates date1 date2
-	end)
+	let transform (date1, date2) = Xapi_pool_license.compare_dates date1 date2
 
 	(* Tuples of ((value 1, value 2), expected result from comparing values) *)
-	let compare_date_tests = [
+	let tests = [
 		((None, None), 0);
 		((None, Some (f2d 5.0)), 1);
 		((Some (f2d 10.0), Some (f2d 5.0)), 1);
@@ -59,126 +57,110 @@ module CompareDates = struct
 		((Some (f2d 20.0), Some (f2d 30.0)), -1);
 		((Some (f2d 150.0), Some (f2d 150.0)), 0);
 	]
+end)
 
-	(* Compare each pair of date options, and check that the result is what we expect. *)
-	let test () =
-		Tests.test_equal_multiple ~input_output_pairs:compare_date_tests
-end
+module PoolExpiryDate = Generic.Make(Generic.EncapsulateState(struct
+	module Io = struct
+		type input_t = Date.iso8601 option list
+		type output_t = Date.iso8601 option
 
-module PoolExpiryDate = struct
-	module Tests = Generic.Make(Generic.EncapsulateState(struct
-		module Io = struct
-			type input_t = Date.iso8601 option list
-			type output_t = Date.iso8601 option
+		let string_of_input_t input =
+			Printf.sprintf "[%s]"
+				(input |> List.map string_of_date_opt |> String.concat "; ")
 
-			let string_of_input_t input =
-				Printf.sprintf "[%s]"
-					(input |> List.map string_of_date_opt |> String.concat "; ")
+		let string_of_output_t = string_of_date_opt
+	end
+	module State = XapiDb
 
-			let string_of_output_t = string_of_date_opt
-		end
-		module State = XapiDb
+	(* Create a host in the database for each expiry date in the list. *)
+	let load_input __context expiry_dates =
+		List.iter
+			(fun expiry_date ->
+				let license_params = match expiry_date with
+				| None -> []
+				| Some date -> ["expiry", (Date.to_string date)]
+				in
+				let (_: API.ref_host) = Test_common.make_host ~__context ~license_params () in ())
+			expiry_dates
 
-		(* Create a host in the database for each expiry date in the list. *)
-		let load_input __context expiry_dates =
-			List.iter
-				(fun expiry_date ->
-					let license_params = match expiry_date with
-					| None -> []
-					| Some date -> ["expiry", (Date.to_string date)]
-					in
-					let (_: API.ref_host) = Test_common.make_host ~__context ~license_params () in ())
-				expiry_dates
-
-		let extract_output __context =
-			let hosts = Db.Host.get_all ~__context in
-			Xapi_pool_license.get_earliest_expiry_date ~__context ~hosts
-	end))
+	let extract_output __context =
+		let hosts = Db.Host.get_all ~__context in
+		Xapi_pool_license.get_earliest_expiry_date ~__context ~hosts
 
 	(* Tuples of ((host expiry date) list, expected pool expiry date) *)
-	let expiry_date_tests = [
+	let tests = [
 		([None; None; Some (f2d 500.0); None], Some (f2d 500.0));
 		([None; None; None; None], None);
 		([Some (f2d 100.0)], Some (f2d 100.0));
 		([Some (f2d 300.0); Some (f2d 150.0); Some (f2d 450.0)], Some (f2d 150.0));
 		([None; Some (f2d 650.0); None; Some (f2d 350.0)], Some (f2d 350.0));
 	]
+end))
 
-	let test () =
-		Tests.test_equal_multiple ~input_output_pairs:expiry_date_tests
-end
+module PoolEdition = Generic.Make(Generic.EncapsulateState(struct
+	module Io = struct
+		type input_t = string list
+		type output_t = string
 
-module PoolEdition = struct
-	module Tests = Generic.Make(Generic.EncapsulateState(struct
-		module Io = struct
-			type input_t = string list
-			type output_t = string
+		let string_of_input_t input =
+			Printf.sprintf "[%s]" (String.concat "; " input)
+		let string_of_output_t = (fun x -> x)
+	end
+	module State = XapiDb
 
-			let string_of_input_t input =
-				Printf.sprintf "[%s]" (String.concat "; " input)
-			let string_of_output_t = (fun x -> x)
-		end
-		module State = XapiDb
+	(* Create a host for each edition in the list. *)
+	let load_input __context editions =
+		List.iter
+			(fun edition ->
+				let (_: API.ref_host) = Test_common.make_host ~__context ~edition () in ())
+			editions
 
-		(* Create a host for each edition in the list. *)
-		let load_input __context editions =
-			List.iter
-				(fun edition ->
-					let (_: API.ref_host) = Test_common.make_host ~__context ~edition () in ())
-				editions
-
-		let extract_output __context =
-			let hosts = Db.Host.get_all ~__context in
-			Xapi_pool_license.get_lowest_edition ~__context ~hosts
-	end))
+	let extract_output __context =
+		let hosts = Db.Host.get_all ~__context in
+		Xapi_pool_license.get_lowest_edition ~__context ~hosts
 
 	(* Tuples of ((host edition) list, expected pool edition) *)
-	let pool_edition_tests = [
+	let tests = [
 		(["free"], "free");
 		(["free"; "per-socket"; "free"; "per-socket"], "free");
 		(["xendesktop"; "xendesktop"; "xendesktop"; "xendesktop"], "xendesktop");
 		(["per-socket"; "per-socket"; "per-socket"], "per-socket");
 		(["xendesktop"; "xendesktop"; "free"; "free"], "free");
 	]
+end))
 
-	let test () =
-		Tests.test_equal_multiple ~input_output_pairs:pool_edition_tests
-end
+module PoolLicenseState = Generic.Make(Generic.EncapsulateState(struct
+	module Io = struct
+		type input_t = host_license_state list
+		type output_t = (string * string) list
 
-module PoolLicenseState = struct
-	module Tests = Generic.Make(Generic.EncapsulateState(struct
-		module Io = struct
-			type input_t = host_license_state list
-			type output_t = (string * string) list
+		let string_of_input_t input =
+			Printf.sprintf "[%s]"
+				(List.map string_of_host_license_state input |> String.concat "; ")
+		let string_of_output_t = Test_common.string_of_string_map
+	end
+	module State = XapiDb
 
-			let string_of_input_t input =
-				Printf.sprintf "[%s]"
-					(List.map string_of_host_license_state input |> String.concat "; ")
-			let string_of_output_t = Test_common.string_of_string_map
-		end
-		module State = XapiDb
+	(* For each (license_params, edition) pair, create a host.
+	 * Also create a pool object. *)
+	let load_input __context hosts =
+		List.iter
+			(fun host ->
+				let (_: API.ref_host) =
+					Test_common.make_host ~__context
+						~edition:host.edition
+						~license_params:host.license_params () in ())
+			hosts;
+		let (_: API.ref_pool) =
+			Test_common.make_pool ~__context
+				~master:(List.hd (Db.Host.get_all ~__context)) () in ()
 
-		(* For each (license_params, edition) pair, create a host.
-		 * Also create a pool object. *)
-		let load_input __context hosts =
-			List.iter
-				(fun host ->
-					let (_: API.ref_host) =
-						Test_common.make_host ~__context
-							~edition:host.edition
-							~license_params:host.license_params () in ())
-				hosts;
-			let (_: API.ref_pool) =
-				Test_common.make_pool ~__context
-					~master:(List.hd (Db.Host.get_all ~__context)) () in ()
-
-		let extract_output __context =
-			let pool = Helpers.get_pool ~__context in
-			Xapi_pool.get_license_state ~__context ~self:pool
-	end))
+	let extract_output __context =
+		let pool = Helpers.get_pool ~__context in
+		Xapi_pool.get_license_state ~__context ~self:pool
 
 	(* Tuples of (host_license_state list, expected pool license state) *)
-	let pool_license_tests = [
+	let tests = [
 		(* A pool of free edition hosts, none of which has an expiry date. *)
 		([
 			{license_params = []; edition = "free"};
@@ -215,10 +197,7 @@ module PoolLicenseState = struct
 		],
 		["edition", "free"; "expiry", "never"]);
 	]
-
-	let test () =
-		Tests.test_equal_multiple ~input_output_pairs:pool_license_tests
-end
+end))
 
 let test =
 	"pool_license" >:::

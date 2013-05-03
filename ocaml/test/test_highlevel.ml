@@ -55,6 +55,8 @@ module Generic = struct
 		module Io : IO
 		(* A function to transform an input into an output. *)
 		val transform : Io.input_t -> Io.output_t
+		(* A list of input/output pairs. *)
+		val tests : (Io.input_t * Io.output_t) list
 	end
 
 	module type STATEFUL_TEST = sig
@@ -64,6 +66,8 @@ module Generic = struct
 		val load_input : State.state_t -> Io.input_t -> unit
 		(* A function to extract an output from the system state. *)
 		val extract_output : State.state_t -> Io.output_t
+		(* A list of input/output pairs. *)
+		val tests : (Io.input_t * Io.output_t) list
 	end
 
 	(* Turn a stateful test module into a stateless test module. *)
@@ -74,6 +78,8 @@ module Generic = struct
 			let state = T.State.create_default_state () in
 			T.load_input state input;
 			T.extract_output state
+
+		let tests = T.tests
 	end
 
 	(* Create functions which will actually run a test or tests. *)
@@ -88,10 +94,10 @@ module Generic = struct
 					(T.Io.string_of_output_t expected_output))
 				actual_output expected_output
 
-		let test_equal_multiple ~input_output_pairs =
+		let test () =
 			List.iter
 				(fun (input, expected_output) -> test_equal ~input ~expected_output)
-				input_output_pairs
+				T.tests
 	end
 end
 
