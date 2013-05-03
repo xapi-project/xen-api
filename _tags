@@ -126,10 +126,13 @@
 <xen/*.ml{,i}>: syntax_camlp4o
 <memory/*.ml{,i}>: syntax_camlp4o
 <network/*.ml{,i}>: syntax_camlp4o
+<rrd/*.ml{,i}>: syntax_camlp4o
 <lib/*.ml>: syntax_camlp4o
 <storage/storage_interface.ml>: pkg_rpclib.idl
 <xen/xenops_interface.ml>: pkg_rpclib.idl
 <memory/memory_interface.ml>: pkg_rpclib.idl
 <network/network_interface.ml>: pkg_rpclib.idl
+<rrd/data_source.ml>: pkg_rpclib.idl
+<rrd/rrd_interface.ml>: pkg_rpclib.idl
 <lib/xcp_channel.ml>: pkg_rpclib.syntax
 <lib/channel_helper.ml>: pkg_lwt.syntax
