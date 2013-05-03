@@ -22,8 +22,8 @@
 let name = "xcp-rrdd"
 
 (* Full path to the paths the daemon is listening on. *)
-let xmlrpc_path = Filename.concat Fhs.vardir name
-let http_fwd_path = xmlrpc_path  ^ ".forwarded"
+let uri = "file:/var/lib/xcp/xcp-rrdd"
+let http_fwd_path = "/var/lib/xcp/xcp-rrdd.forwarded"
 
 (* The interface is defined by extern function declarations. *)
 
