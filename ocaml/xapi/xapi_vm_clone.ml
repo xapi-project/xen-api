@@ -322,7 +322,7 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
 		~tags:all.Db_actions.vM_tags
 		~bios_strings:all.Db_actions.vM_bios_strings
 		~protection_policy:Ref.null
-                ~is_snapshot_from_vmpp:false
+		~is_snapshot_from_vmpp:false
 		~appliance:Ref.null
 		~start_delay:0L
 		~shutdown_delay:0L

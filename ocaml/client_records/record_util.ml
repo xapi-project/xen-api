@@ -431,6 +431,10 @@ let on_boot_to_string onboot =
 		| `reset -> "reset"
 		| `persist -> "persist"
 
+let wrap f err x = try f x with _ -> err x
+let generic_error x = raise (Record_failure ("Unknown value: "^x))
+let rpc_to_string = function | Rpc.String s -> s | _ -> failwith "Bad RPC type in record_util"
+
 (** Parse a string which might have a units suffix on the end *)
 let bytes_of_string field x =
   let isdigit c = c >= '0' && c <= '9' in
