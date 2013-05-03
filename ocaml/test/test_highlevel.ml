@@ -24,10 +24,12 @@
  *
  * and then pass the STATELESS_TEST into the Make functor.
  *
- * This gives you a module with the functions test_equal and
- * test_equal_multiple, which take an input-output pair or a list of
- * input-output pairs and check that the output of the system is as expected
- * for each input.
+ * This gives you a module with two functions:
+ *   * test_equal, which takes an input and expected output, and tests that the
+ *     actual output equals the expected output.
+ *   * test, which is just a function of type (unit -> unit). This runs
+ *     test_equal on all the input/output pairs specified as tests in the
+ *     original STATELESS_TEST or STATEFUL_TEST module.
  *)
 
 open OUnit
