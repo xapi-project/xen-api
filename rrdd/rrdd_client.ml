@@ -12,15 +12,26 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Rpc : Rrdd_interface.RPC = Rpc_retry.Make(
-	struct
-		let client_name = "xapi"
-		let server_name = Rrdd_interface.name
-		let server_path = Filename.concat Fhs.vardir Rrdd_interface.name
-		let should_retry = false
-	end
-)
-module Client = Rrdd_interface.Client(Rpc)
+let rec retry_econnrefused f =
+  try
+    f ()
+  with
+  | Unix.Unix_error(Unix.ECONNREFUSED, "connect", _) ->
+      (* debug "Caught ECONNREFUSED; retrying in 5s"; *)
+      Thread.delay 5.;
+      retry_econnrefused f
+  | e ->
+      (* error "Caught %s: does the rrdd service need restarting?" (Printexc.to_string e); *)
 
-(* Make the interface available directly to anyone using this module.*)
-include Client
+      raise e
+
+module Client = Rrdd_interface.Client(struct
+  let rpc =
+    retry_econnrefused
+      (fun () ->
+        Xcp_client.xml_http_rpc
+          ~srcstr:(Xcp_client.get_user_agent ())
+          ~dststr:"rrdd"
+          (fun () -> Rrdd_interface.uri)
+      )
+end)
