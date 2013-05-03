@@ -304,12 +304,10 @@ let shutdown ~xc ~xs domid req =
 let shutdown_wait_for_ack (t: Xenops_task.t) ?(timeout=60.) ~xc ~xs domid req =
 	let di = Xenctrl.domain_getinfo xc domid in
 	let uuid = get_uuid ~xc domid in
-	if di.Xenctrl.Domain_info.hvm_guest then begin
-		if not (Xenctrl.hvm_check_pvdriver xc domid)
-		then begin
-			debug "VM = %s; domid = %d; HVM guest without PV drivers: not expecting any acknowledgement" (Uuid.to_string uuid) domid;
-			Xenctrl.domain_shutdown xc domid (shutdown_to_xc_shutdown req)
-		end
+	if ((di.Xenctrl.Domain_info.hvm_guest)
+	&& not (Xenctrl.hvm_check_pvdriver xc domid)) then begin
+		debug "VM = %s; domid = %d; HVM guest without PV drivers: not expecting any acknowledgement" (Uuid.to_string uuid) domid;
+		Xenctrl.domain_shutdown xc domid (shutdown_to_xc_shutdown req)
 	end else begin
 		debug "VM = %s; domid = %d; Waiting for PV domain to acknowledge shutdown request" (Uuid.to_string uuid) domid;
 		let path = control_shutdown ~xs domid in
