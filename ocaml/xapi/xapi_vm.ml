@@ -755,18 +755,7 @@ let s3_resume ~__context ~vm = Xapi_xenops.s3resume ~__context ~self:vm
 let copy_bios_strings = Xapi_vm_helpers.copy_bios_strings
 
 let set_protection_policy ~__context ~self ~value =
-	if value <> Ref.null then begin
-		if Db.VM.get_is_control_domain ~__context ~self then
-			(* do not assign vmpps to the dom0 vm of any host in the pool *)
-			raise (Api_errors.Server_error(Api_errors.invalid_value, [Ref.string_of value]));
-		if Db.VM.get_is_a_template ~__context ~self then
-			(* Do not assign templates to a VMPP. *)
-			raise (Api_errors.Server_error(Api_errors.vm_is_template, [Ref.string_of self]));
-		(* if unlicensed, allow only to change to protection policy to null *)
-		Xapi_vmpp.assert_licensed ~__context;
-	end;
-	Db.VM.set_protection_policy ~__context ~self ~value;
-	update_allowed_operations ~__context ~self
+	raise (Api_errors.Server_error (Api_errors.message_removed, []))
 
 let set_start_delay ~__context ~self ~value =
 	if value < 0L then invalid_value
