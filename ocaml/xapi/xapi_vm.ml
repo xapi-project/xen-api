@@ -248,12 +248,12 @@ let hard_shutdown ~__context ~vm =
 let clean_reboot ~__context ~vm =
 	License_check.with_vm_license_check ~__context vm
 		(fun () ->
-			Xapi_xenops.reboot ~__context ~self:vm (Some 1200.0)
+	Xapi_xenops.reboot ~__context ~self:vm (Some !Xapi_globs.domain_shutdown_total_timeout)
 		)
 
 let clean_shutdown ~__context ~vm =
 	Db.VM.set_ha_always_run ~__context ~self:vm ~value:false;
-	Xapi_xenops.shutdown ~__context ~self:vm (Some 1200.0)
+	Xapi_xenops.shutdown ~__context ~self:vm (Some !Xapi_globs.domain_shutdown_total_timeout)
 
 (***************************************************************************************)
 

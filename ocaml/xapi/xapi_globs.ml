@@ -616,7 +616,7 @@ let pool_db_sync_interval = ref 300.
 let pool_data_sync_interval = ref 86400.
 
 let domain_shutdown_ack_timeout = ref 10.
-let domain_shutdown_total_timeout = ref 720.
+let domain_shutdown_total_timeout = ref 1200.
 
 (* The actual reboot delay will be a random value between base and base + extra *)
 let emergency_reboot_delay_base = ref 60.
