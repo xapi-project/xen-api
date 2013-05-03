@@ -31,14 +31,3 @@ let to_key_value_map ds = [
 	"max", string_of_float ds.max;
 	"units", ds.units;
 ]
-
-let to_API_data_source (ds : t) = {
-	API.data_source_name_label = ds.name;
-	data_source_name_description = ds.description;
-	data_source_enabled = ds.enabled;
-	data_source_standard = ds.standard;
-	data_source_units = ds.units;
-	data_source_min = ds.min;
-	data_source_max = ds.max;
-	data_source_value = 0.;
-}
