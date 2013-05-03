@@ -67,7 +67,7 @@ let to_string alert =
 let rec retry_with_session f rpc x =
 	let session =
 		let rec aux () = 
-			try Client.Session.login_with_password ~rpc ~uname:"" ~pwd:"" ~version:"1.4"
+			try Client.Session.login_with_password ~rpc ~uname:"" ~pwd:"" ~version:"1.4" ~originator:"mpathalert"
 			with _ -> Thread.delay !delay; aux () in
 		aux () in
 	try

@@ -68,7 +68,7 @@ let with_session ~local rpc u p session f =
   let session, logout = 
     match local, session with 
       | false, None -> 
-	  Client.Client.Session.login_with_password ~rpc ~uname:u ~pwd:p ~version:Xapi_globs.api_version_string, true
+	  Client.Client.Session.login_with_password ~rpc ~uname:u ~pwd:p ~version:Xapi_globs.api_version_string ~originator:"cli", true
       | true, None ->
 	  Client.Client.Session.slave_local_login_with_password ~rpc ~uname:u ~pwd:p, true
       | _, Some session -> session, false in

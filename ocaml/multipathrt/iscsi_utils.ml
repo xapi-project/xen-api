@@ -160,7 +160,7 @@ let setup_iscsi_sr rpc session host iscsi_vm =
       (scsiid, sr)
 
 let wait_for_vm_to_run rpc session ?(delay=60.0) vm =
-  let session2 = Client.Session.login_with_password rpc !Globs.username !Globs.password "1.4" in
+  let session2 = Client.Session.login_with_password rpc !Globs.username !Globs.password "1.4" "multipathrt" in
   Client.Event.register rpc session2 ["vm"];
 
   let finished = ref false in
