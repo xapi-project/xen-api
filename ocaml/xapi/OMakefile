@@ -210,6 +210,7 @@ XAPI_MODULES = $(COMMON) \
 	import \
 	import_raw_vdi \
 	export \
+	export_raw_vdi \
 	stream_vdi \
 	fileupload \
 	smint \

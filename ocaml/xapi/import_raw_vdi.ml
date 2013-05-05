@@ -28,16 +28,6 @@ open Client
 let receive_chunks (s: Unix.file_descr) (fd: Unix.file_descr) = 
 	Chunk.fold (fun () -> Chunk.write fd) () s
 
-let vdi_of_req ~__context (req: Request.t) = 
-	let all = req.Request.query @ req.Request.cookie in
-	let vdi = 
-		if List.mem_assoc "vdi" all
-		then List.assoc "vdi" all
-		else raise (Failure "Missing vdi query parameter") in
-	if Db.is_valid_ref __context (Ref.of_string vdi) 
-	then Ref.of_string vdi 
-	else Db.VDI.get_by_uuid ~__context ~uuid:vdi
-
 let localhost_handler rpc session_id vdi (req: Request.t) (s: Unix.file_descr) =
   req.Request.close <- true;
   Xapi_http.with_context "Importing raw VDI" req s
@@ -76,12 +66,6 @@ let localhost_handler rpc session_id vdi (req: Request.t) (s: Unix.file_descr) =
 	log_backtrace ();
 	TaskHelper.failed ~__context (Api_errors.internal_error, ["Caught exception: " ^ (ExnHelper.string_of_exn e)]);
 	raise e)
-
-let return_302_redirect (req: Request.t) s address =
-	let url = Printf.sprintf "%s://%s%s?%s" (if Context.is_unencrypted s then "http" else "https") address req.Request.uri (String.concat "&" (List.map (fun (a,b) -> a^"="^b) req.Request.query)) in
-	let headers = Http.http_302_redirect url in
-	debug "HTTP 302 redirect to: %s" url;
-	Http_svr.headers s headers
 
 let import vdi (req: Request.t) (s: Unix.file_descr) _ =
 	Xapi_http.assert_credentials_ok "VDI.import" ~http_action:"put_import_raw_vdi" req;
