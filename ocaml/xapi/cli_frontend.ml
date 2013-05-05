@@ -498,7 +498,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
 		"pool-apply-edition",
 		{
 			reqd=["edition"];
-			optn=["uuid"];
+			optn=["uuid"; "license-server-address"; "license-server-port"];
 			help="Apply an edition across the pool";
 			implementation=No_fd Cli_operations.pool_apply_edition;
 			flags=[];
