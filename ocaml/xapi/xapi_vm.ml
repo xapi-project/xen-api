@@ -378,7 +378,13 @@ let create ~__context
 	let other_config =
 		if not (List.mem_assoc Xapi_globs.mac_seed other_config)
 		then (Xapi_globs.mac_seed, gen_mac_seed ()) :: other_config
-		else other_config in
+		else begin
+			let  pool= Helpers.get_pool ~__context in
+			let current_mac_seed = (List.assoc Xapi_globs.mac_seed other_config) in
+			Xapi_pool.assert_mac_seeds_available ~__context ~self:pool ~seeds:[current_mac_seed];
+			other_config
+		end
+	in
 	create ~__context
 		~name_label
 		~name_description

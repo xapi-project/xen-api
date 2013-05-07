@@ -581,6 +581,8 @@ let _ =
     ~doc:"Not enough host memory is available to perform this operation" ();
   error Api_errors.duplicate_vm [ "vm" ]
     ~doc:"Cannot restore this VM because it would create a duplicate" ();
+  error Api_errors.duplicate_mac_seed [ "seed" ]
+    ~doc:"This MAC seed is already in use by a VM in the pool" ();
   error Api_errors.vm_snapshot_with_quiesce_failed [ "vm" ]
     ~doc:"The quiesced-snapshot operation failed for an unexpected reason" ();
   error Api_errors.vm_snapshot_with_quiesce_timeout [ "vm" ]

@@ -1706,3 +1706,37 @@ let apply_edition ~__context ~self ~edition =
 				Client.Host.apply_edition ~rpc ~session_id ~host ~edition))
 	in
 	Xapi_pool_license.apply_edition_with_rollback ~__context ~hosts ~edition ~apply_fn
+
+(* This is expensive, so should always be run on the master. *)
+let assert_mac_seeds_available ~__context ~self ~seeds =
+	let module StringSet = Set.Make(String) in
+	let all_guests =
+		Db.VM.get_records_where
+			~__context
+			~expr:(Eq(Field "is_control_domain", Literal "false"))
+	in
+	(* Create a set of all MAC seeds in use by guests in the pool. *)
+	let mac_seeds_in_use =
+		List.fold_left
+			(fun acc (_, vm_rec) ->
+				try
+					let mac_seed =
+						List.assoc
+							Xapi_globs.mac_seed
+							vm_rec.API.vM_other_config
+					in
+					StringSet.add mac_seed acc
+				with Not_found ->
+					acc)
+			StringSet.empty all_guests
+	in
+	(* Create a set of the MAC seeds we want to test. *)
+	let mac_seeds_to_test =
+		List.fold_left
+			(fun acc mac_seed -> StringSet.add mac_seed acc) StringSet.empty seeds
+	in
+	(* Check if the intersection of these sets is non-empty. *)
+	let problem_mac_seeds = StringSet.inter mac_seeds_in_use mac_seeds_to_test in
+	if not(StringSet.is_empty problem_mac_seeds) then
+		raise (Api_errors.Server_error
+			(Api_errors.duplicate_mac_seed, [StringSet.choose problem_mac_seeds]))
