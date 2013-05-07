@@ -141,11 +141,9 @@ let check_drivers ~__context ~vmr ~vmgmr ~op ~ref =
 
 let need_pv_drivers_check ~__context ~vmr ~power_state ~op =
 	let need_pv_drivers = [ `clean_shutdown; `clean_reboot; `changing_VCPUs_live ] in
-	let tricky_without_pv_drivers = [ `suspend; `checkpoint; `pool_migrate; `migrate_send ] in
 	power_state = `Running
 	&& Helpers.has_booted_hvm_of_record ~__context vmr
-	&& (List.mem op need_pv_drivers
-	|| (List.mem op tricky_without_pv_drivers && not (bool_of_assoc "unrestricted_save" vmr.Db_actions.vM_platform)))
+	&& List.mem op need_pv_drivers
 
 (* templates support clone operations, destroy (if not default),
    export, provision and memory settings change *)
