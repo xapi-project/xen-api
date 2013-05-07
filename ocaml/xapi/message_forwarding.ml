@@ -1373,7 +1373,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				(fun () ->
 				  List.iter (fun (task,op) ->
 				    if op = `clean_shutdown then
-				      Local.Task.cancel ~__context ~task:(Ref.of_string task)) (Db.VM.get_current_operations ~__context ~self:vm);
+				      try Local.Task.cancel ~__context ~task:(Ref.of_string task) with _ -> ()) (Db.VM.get_current_operations ~__context ~self:vm);
 
 					(* If VM is actually suspended and we ask to hard_shutdown, we need to
 					   forward to any host that can see the VDIs *)
@@ -1421,7 +1421,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				(fun () ->
 				  List.iter (fun (task,op) ->
 				    if op = `clean_reboot then
-				      Local.Task.cancel ~__context ~task:(Ref.of_string task)) (Db.VM.get_current_operations ~__context ~self:vm);
+				      try Local.Task.cancel ~__context ~task:(Ref.of_string task) with _ -> ()) (Db.VM.get_current_operations ~__context ~self:vm);
 
 
 					with_vbds_marked ~__context ~vm ~doc:"VM.hard_reboot" ~op:`attach
