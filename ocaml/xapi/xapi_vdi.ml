@@ -29,7 +29,6 @@ open Printf
 let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_records=[]) ha_enabled record _ref' op =
 	let _ref = Ref.string_of _ref' in
 	let current_ops = record.Db_actions.vDI_current_operations in
-
 	let reset_on_boot = record.Db_actions.vDI_on_boot = `reset in
 
 	(* Policy:
@@ -58,24 +57,37 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 		then Some(Api_errors.sr_no_pbds, [Ref.string_of sr])
 		else
 			(* check to see whether VBDs exist which are using this VDI *)
-			let my_vbd_records = match vbd_records with
-			| [] -> List.map (fun vbd -> Db.VBD.get_record_internal ~__context ~self:vbd) record.Db_actions.vDI_VBDs
-			| _ -> List.map snd (List.filter (fun (_, vbd_record) -> vbd_record.Db_actions.vBD_VDI = _ref') vbd_records)
-			in
 
 			(* Only a 'live' operation can be performed if there are active (even RO) devices *)
-			let is_active v = v.Db_actions.vBD_currently_attached || v.Db_actions.vBD_reserved in
+			let my_active_vbd_records = match vbd_records with
+			| [] -> List.map snd (Db.VBD.get_internal_records_where ~__context
+									  ~expr:(
+										  And(Eq (Field "VDI", Literal _ref),
+											  Or(
+												  Eq (Field "currently_attached", Literal "true"),
+												  Eq (Field "reserved", Literal "true")))
+									  ))
+			| _ -> List.map snd (List.filter (fun (_, vbd_record) ->
+				vbd_record.Db_actions.vBD_VDI = _ref' && (vbd_record.Db_actions.vBD_currently_attached || vbd_record.Db_actions.vBD_reserved)
+			) vbd_records)
+			in
+
 			(* VBD operations (plug/unplug) (which should be transient) cause us to serialise *)
-			let has_current_operation v = v.Db_actions.vBD_current_operations <> [] in
+			let my_has_current_operation_vbd_records = match vbd_records with
+			| [] -> List.map snd (Db.VBD.get_internal_records_where ~__context
+									  ~expr:(
+										  And(Eq (Field "VDI", Literal _ref), Not (Eq (Field "current_operations", Literal "()")))
+									  ))
+			| _ -> List.map snd (List.filter (fun (_, vbd_record) ->
+				vbd_record.Db_actions.vBD_VDI = _ref' && vbd_record.Db_actions.vBD_current_operations <> []
+			) vbd_records)
+			in
 
 			(* If the VBD is currently_attached then some operations can still be performed ie:
 			   VDI.clone (if the VM is suspended we have to have the 'allow_clone_suspended_vm'' flag)
 			   VDI.snapshot; VDI.resize_online; 'blocked' (CP-831) *)
 			let operation_can_be_performed_live = match op with
-			| `snapshot -> true
-			| `resize_online -> true
-			| `blocked -> true
-			| `clone -> true
+			| `snapshot | `resize_online | `blocked | `clone -> true
 			| _ -> false in
 
 			(* NB RO vs RW sharing checks are done in xapi_vbd.ml *)
@@ -83,10 +95,9 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 			let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
 			let sm_features = Xapi_sr_operations.features_of_sr_internal ~_type:sr_type ~uuid:sr_uuid in
 
-			let any_vbd p = List.fold_left (||) false (List.map p my_vbd_records) in
-			if not operation_can_be_performed_live && (any_vbd is_active)
+			if not operation_can_be_performed_live && (my_active_vbd_records <> [])
 			then Some (Api_errors.vdi_in_use,[_ref; (Record_util.vdi_operation_to_string op)])
-			else if any_vbd has_current_operation
+			else if my_has_current_operation_vbd_records <> []
 			then Some (Api_errors.other_operation_in_progress, [ "VDI"; _ref ])
 			else (
 				match op with
