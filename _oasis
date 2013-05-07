@@ -16,7 +16,7 @@ Library message_switch
   Path:               core
   Findlibname:        message_switch
   Modules:            Protocol
-  BuildDepends:       cohttp,rpc,rpc.json,rpc.syntax
+  BuildDepends:       cohttp,rpclib,rpclib.json,rpclib.syntax
 
 Library message_switch_lwt
   CompiledObject:     best
@@ -24,7 +24,7 @@ Library message_switch_lwt
   Findlibparent:      message_switch
   Findlibname:        lwt
   Modules:            Protocol_lwt
-  BuildDepends:       lwt,lwt.unix,lwt.syntax,cohttp,cohttp.lwt,rpc,rpc.json,rpc.syntax,message_switch
+  BuildDepends:       lwt,lwt.unix,lwt.syntax,cohttp,cohttp.lwt,rpclib,rpclib.json,rpclib.syntax,message_switch
 
 Library message_switch_unix
   CompiledObject:     best
@@ -32,7 +32,7 @@ Library message_switch_unix
   Findlibparent:      message_switch
   Findlibname:        unix
   Modules:            Protocol_unix
-  BuildDepends:       unix,threads,cohttp,rpc,rpc.json,rpc.syntax,message_switch
+  BuildDepends:       unix,threads,cohttp,rpclib,rpclib.json,rpclib.syntax,message_switch
 
 Executable link_test
   CompiledObject:     best
