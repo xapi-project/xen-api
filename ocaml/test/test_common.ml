@@ -143,7 +143,7 @@ let make_vdi ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(name_label="")
 		?(virtual_size=0L) ?(physical_utilisation=0L) ?(_type=`user) ?(sharable=true) ?(read_only=false)
 		?(other_config=[]) ?(storage_lock=false) ?(location="") ?(managed=false) ?(missing=false)
 		?(parent=Ref.null) ?(xenstore_data=[]) ?(sm_config=[]) ?(is_a_snapshot=false)
-		?(snapshot_of=Ref.null) ?(snapshot_time=API.Date.never) ?(tags=[]) ?(allow_caching=true)
+		?(snapshot_of=Ref.null) ?(snapshot_time=Date.never) ?(tags=[]) ?(allow_caching=true)
 		?(on_boot=`persist) ?(metadata_of_pool=Ref.make ()) ?(metadata_latest=true) () =
 	Db.VDI.create ~__context ~ref ~uuid ~name_label ~name_description ~allowed_operations
 		~current_operations ~sR ~virtual_size ~physical_utilisation ~_type ~sharable ~read_only ~other_config
