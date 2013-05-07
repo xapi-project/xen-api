@@ -291,6 +291,20 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 		then Some (Api_errors.vm_snapshot_with_quiesce_not_supported, [ ref_str ])
 		else None) in
 
+	(* check if a VM has any VDI using IntelliCache *)
+	let current_error = check current_error (fun () ->
+		if op = `pool_migrate then
+			begin
+				let vbds = vmr.Db_actions.vM_VBDs in
+				let vbds = List.filter (fun x -> Db.VBD.get_type ~__context ~self:x <> `CD) vbds in
+				let vdis = List.map (fun self -> Db.VBD.get_VDI ~__context ~self) vbds in
+				let vdi_intellicache = List.filter (fun vdi -> Db.VDI.get_allow_caching ~__context ~self:vdi) vdis in
+				if (vdi_intellicache <> [])
+				then Some (Api_errors.vdi_on_boot_mode_incompatable_with_operation,[]) 
+				else None
+			end
+		else None) in
+	
 	(* Check for an error due to VDI caching/reset behaviour *)
 	let current_error = check current_error (fun () ->
 		if op = `checkpoint || op = `snapshot || op = `suspend || op = `snapshot_with_quiesce
@@ -452,3 +466,9 @@ let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
 	let ops = Db.VM.get_current_operations ~__context ~self in
 	let set = (fun value -> Db.VM.set_current_operations ~__context ~self ~value) in
 	Helpers.cancel_tasks ~__context ~ops ~all_tasks_in_db ~task_ids ~set
+
+let get_operation_error ~__context ~self ~op=
+	let all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching = get_info ~__context ~self in
+	match check_operation_error __context all gm self clone_suspended_vm_enabled vdis_reset_and_caching op with
+	| Some _ -> true
+	| None   -> false
