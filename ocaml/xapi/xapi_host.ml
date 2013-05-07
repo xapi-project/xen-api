@@ -1152,18 +1152,19 @@ let set_license_params ~__context ~self ~value =
 	Db.Host.set_license_params ~__context ~self ~value;
 	Pool_features.update_pool_features ~__context
 
+let apply_edition_internal  ~__context ~host ~edition ~additional =
+	let edition', features, additional =
+		V6client.apply_edition ~__context edition additional
+	in
+	Db.Host.set_edition ~__context ~self:host ~value:edition';
+	copy_license_to_db ~__context ~host ~features ~additional
+
 let apply_edition ~__context ~host ~edition =
 	(* if HA is enabled do not allow the edition to be changed *)
 	let pool = List.hd (Db.Pool.get_all ~__context) in
 	if Db.Pool.get_ha_enabled ~__context ~self:pool then
 		raise (Api_errors.Server_error (Api_errors.ha_is_enabled, []))
-	else begin
-		let edition', features, additional =
-			V6client.apply_edition ~__context edition []
-		in
-		Db.Host.set_edition ~__context ~self:host ~value:edition';
-		copy_license_to_db ~__context ~host ~features ~additional
-	end
+	else apply_edition_internal ~__context ~host ~edition ~additional:[]
 
 let license_apply ~__context ~host ~contents =
 	raise (Api_errors.Server_error (Api_errors.message_removed, []))
