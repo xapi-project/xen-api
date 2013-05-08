@@ -92,7 +92,7 @@ module Connection(IO: Cohttp.Make.IO) : sig
 end
 
 module Server(IO: Cohttp.Make.IO) : sig
-	val listen: (string -> string IO.t) -> (IO.ic * IO.oc) -> string -> string -> unit IO.t
+	val listen: (string -> string IO.t) -> (IO.ic * IO.oc) -> string -> unit IO.t
 end
 
 val fresh_correlation_id: unit -> int

@@ -193,8 +193,9 @@ module Server = functor(IO: Cohttp.Make.IO) -> struct
 
 	module Connection = Connection(IO)
 
-	let listen process c token name =
+	let listen process c name =
 		let open IO in
+		let token = Printf.sprintf "%d" (Unix.getpid ()) in
 		Connection.rpc c (In.Login token) >>= fun _ ->
 		Connection.rpc c (In.Create (Some name)) >>= fun _ ->
 		Connection.rpc c (In.Subscribe name) >>= fun _ ->
