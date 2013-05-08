@@ -82,7 +82,7 @@ let register () =
 		in match expiry with
 			| None -> ()
 			| Some d ->
-					let date = (Date.to_float d -. Unix.gettimeofday ()) +. (25. * 60. *. 60.) in
+					let date = (Date.to_float d -. Unix.gettimeofday ()) +. (25. *. 60. *. 60.) in
 					Xapi_periodic_scheduler.add_to_queue "Checking license expiry"
 						Xapi_periodic_scheduler.OneShot date
 						(fun () ->
