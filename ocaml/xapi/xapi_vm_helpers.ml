@@ -565,7 +565,7 @@ let vm_can_run_on_host __context vm snapshot host =
 		let host_metrics = Db.Host.get_metrics ~__context ~self:host in
 		Db.Host_metrics.get_live ~__context ~self:host_metrics in
 	let host_can_run_vm () =
-		assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_memory_check:false ();
+		assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_memory_check:true ();
 		true in
 	let host_evacuate_in_progress =
 		try let _ = List.find (fun s -> snd s = `evacuate) (Db.Host.get_current_operations ~__context ~self:host) in false with _ -> true
