@@ -12,7 +12,7 @@ Library xcp
   Path:               lib
   Findlibname:        xcp
   Modules:            Cohttp_posix_io, Xcp_client, Xcp_service
-  BuildDepends:       uri, re, cohttp, xmlm, unix, rpclib, rpclib.xml, rpclib.js, syslog, threads
+  BuildDepends:       uri, re, cohttp, xmlm, unix, rpclib, rpclib.xml, rpclib.js, syslog, threads, message_switch, message_switch.unix
 
 Library xcp_storage
   CompiledObject:     best

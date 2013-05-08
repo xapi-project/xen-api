@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 9ea54940841d7b20a1e8ed6bd1ab5a74)
+# DO NOT EDIT (digest: 89a6a6b4981deb71a099f0a53f4d8996)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -25,6 +25,8 @@
 <lib/*.ml{,i}>: pkg_rpclib.xml
 <lib/*.ml{,i}>: pkg_rpclib.js
 <lib/*.ml{,i}>: pkg_syslog
+<lib/*.ml{,i}>: pkg_message_switch
+<lib/*.ml{,i}>: pkg_message_switch.unix
 # Library xcp_storage
 "storage/xcp_storage.cmxs": use_xcp_storage
 <storage/*.ml{,i}>: use_xcp
@@ -39,6 +41,8 @@
 <storage/*.ml{,i}>: pkg_rpclib.xml
 <storage/*.ml{,i}>: pkg_rpclib.js
 <storage/*.ml{,i}>: pkg_syslog
+<storage/*.ml{,i}>: pkg_message_switch
+<storage/*.ml{,i}>: pkg_message_switch.unix
 # Library xcp_network
 "network/xcp_network.cmxs": use_xcp_network
 <network/*.ml{,i}>: use_xcp
@@ -53,6 +57,8 @@
 <network/*.ml{,i}>: pkg_rpclib.xml
 <network/*.ml{,i}>: pkg_rpclib.js
 <network/*.ml{,i}>: pkg_syslog
+<network/*.ml{,i}>: pkg_message_switch
+<network/*.ml{,i}>: pkg_message_switch.unix
 # Library xcp_xen
 "xen/xcp_xen.cmxs": use_xcp_xen
 <xen/*.ml{,i}>: use_xcp
@@ -67,6 +73,8 @@
 <xen/*.ml{,i}>: pkg_rpclib.xml
 <xen/*.ml{,i}>: pkg_rpclib.js
 <xen/*.ml{,i}>: pkg_syslog
+<xen/*.ml{,i}>: pkg_message_switch
+<xen/*.ml{,i}>: pkg_message_switch.unix
 # Library xcp_memory
 "memory/xcp_memory.cmxs": use_xcp_memory
 <memory/*.ml{,i}>: use_xcp
@@ -81,6 +89,8 @@
 <memory/*.ml{,i}>: pkg_rpclib.xml
 <memory/*.ml{,i}>: pkg_rpclib.js
 <memory/*.ml{,i}>: pkg_syslog
+<memory/*.ml{,i}>: pkg_message_switch
+<memory/*.ml{,i}>: pkg_message_switch.unix
 # OASIS_STOP
 <storage/*.ml{,i}>: syntax_camlp4o
 <xen/*.ml{,i}>: syntax_camlp4o
