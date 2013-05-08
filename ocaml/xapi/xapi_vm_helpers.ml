@@ -555,7 +555,7 @@ let get_possible_hosts_for_vm ~__context ~vm ~snapshot =
 (** Performs an expensive and comprehensive check to determine whether the
 given [guest] can run on the given [host]. Returns true if and only if the
 guest can run on the host. *)
-let vm_can_run_on_host __context vm snapshot host =
+let vm_can_run_on_host __context vm snapshot do_memory_check host =
 	let host_has_proper_version () =
 		if Helpers.rolling_upgrade_in_progress ~__context
 		then Helpers.host_has_highest_version_in_pool ~__context ~host:host
@@ -565,7 +565,7 @@ let vm_can_run_on_host __context vm snapshot host =
 		let host_metrics = Db.Host.get_metrics ~__context ~self:host in
 		Db.Host_metrics.get_live ~__context ~self:host_metrics in
 	let host_can_run_vm () =
-		assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_memory_check:false ();
+		assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_memory_check ();
 		true in
 	let host_evacuate_in_progress =
 		try let _ = List.find (fun s -> snd s = `evacuate) (Db.Host.get_current_operations ~__context ~self:host) in false with _ -> true
@@ -576,8 +576,14 @@ let vm_can_run_on_host __context vm snapshot host =
 (** Selects a single host from the set of all hosts on which the given [vm]
 can boot. Raises [Api_errors.no_hosts_available] if no such host exists. *)
 let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
-	let validate_host = vm_can_run_on_host __context vm snapshot in
-	Xapi_vm_placement.select_host __context vm validate_host
+	let validate_host = vm_can_run_on_host __context vm snapshot true in
+	try 
+	  Xapi_vm_placement.select_host __context vm validate_host
+	with 
+	  | Api_errors.Server_error(x,[]) when x=Api_errors.no_hosts_available ->
+	    debug "No hosts guaranteed to satisfy VM constraints. Trying again ignoring memory checks";
+	    let validate_host = vm_can_run_on_host __context vm snapshot false in
+	    Xapi_vm_placement.select_host __context vm validate_host
 
 (** Given a virtual machine, returns a host it can boot on, giving   *)
 (** priority to an affinity host if one is present. WARNING: called  *)
