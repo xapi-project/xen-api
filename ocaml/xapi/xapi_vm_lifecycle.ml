@@ -21,6 +21,11 @@ open Listext
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
+let assoc_opt key assocs = Opt.of_exception (fun () -> List.assoc key assocs)
+let bool_of_assoc key assocs = match assoc_opt key assocs with
+	| Some v -> v = "1" || String.lowercase v = "true"
+	| _ -> false
+
 (** Given an operation, [allowed_power_states] returns all the possible power state for
 	wich this operation can be performed. *)
 let allowed_power_states ~__context ~vmr ~(op:API.vm_operations) =
@@ -117,13 +122,11 @@ let is_allowed_concurrently ~(op:API.vm_operations) ~current_ops =
 	aux long_copies || aux snapshot || aux boot_record || state_machine ()
 
 (** Special handling is required for RedHat version 3 *)
-let is_rhel3 gmr =
-	match gmr with
+let is_rhel3 = function
 	| Some gmr ->
 		let version = gmr.Db_actions.vM_guest_metrics_os_version in
-		true
-		&& List.mem_assoc "distro" version && List.assoc "distro" version = "rhel"
-		&& List.mem_assoc "major" version && List.assoc "major" version = "3"
+		assoc_opt "distro" version = Some "rhel"
+		&& assoc_opt "major" version = Some "3"
 	| None ->
 		false
 
@@ -137,18 +140,18 @@ let check_drivers ~__context ~vmr ~vmgmr ~op ~ref =
 	else None
 
 let need_pv_drivers_check ~__context ~vmr ~power_state ~op =
-	let op_list = [ `suspend; `checkpoint; `pool_migrate; `migrate_send
-	              ; `clean_shutdown; `clean_reboot; `changing_VCPUs_live ] in
+	let need_pv_drivers = [ `clean_shutdown; `clean_reboot; `changing_VCPUs_live ] in
+	let tricky_without_pv_drivers = [ `suspend; `checkpoint; `pool_migrate; `migrate_send ] in
 	power_state = `Running
 	&& Helpers.has_booted_hvm_of_record ~__context vmr
-	&& List.mem op op_list
+	&& (List.mem op need_pv_drivers
+	|| (List.mem op tricky_without_pv_drivers && not (bool_of_assoc "unrestricted_save" vmr.Db_actions.vM_platform)))
 
-(* templates support clone operations, destroy (if not default), export, provision and memory settings change *)
+(* templates support clone operations, destroy (if not default),
+   export, provision and memory settings change *)
 let check_template ~vmr ~op ~ref_str =
-	let default_template =
-		List.mem_assoc Xapi_globs.default_template_key vmr.Db_actions.vM_other_config
-		&& (List.assoc Xapi_globs.default_template_key vmr.Db_actions.vM_other_config) = "true"
-	in
+	let default_template = 
+		bool_of_assoc Xapi_globs.default_template_key vmr.Db_actions.vM_other_config in
 	let allowed_operations = [
 		`changing_dynamic_range;
 		`changing_static_range;
@@ -223,10 +226,9 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 
 	let check c f = match c with | Some e -> Some e | None -> f () in
 
-	let current_error = check current_error (fun () -> 
-		if List.mem_assoc op vmr.Db_actions.vM_blocked_operations
-		then Some (Api_errors.operation_blocked, [ ref_str; List.assoc op vmr.Db_actions.vM_blocked_operations ]) 
-		else None) in
+	let current_error = check current_error (fun () ->
+		Opt.map (fun v -> Api_errors.operation_blocked, [ref_str; v]) 
+			(assoc_opt op vmr.Db_actions.vM_blocked_operations)) in
 
 	(* Always check the power state constrain of the operation first *)
 	let current_error = check current_error (fun () -> 
@@ -327,7 +329,7 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 
 	(* Check whether this VM needs to be a system domain. *)
 	let current_error = check current_error (fun () ->
-		if op = `query_services && not(List.mem_assoc "is_system_domain" vmr.Db_actions.vM_other_config && List.assoc "is_system_domain" vmr.Db_actions.vM_other_config = "true")
+		if op = `query_services && not (bool_of_assoc "is_system_domain" vmr.Db_actions.vM_other_config)
 		then Some (Api_errors.not_system_domain, [ ref_str ])
 			else None) in
 
@@ -346,9 +348,7 @@ let get_info ~__context ~self =
 		try 
 			let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
 	        let sm_config = Db.VDI.get_sm_config ~__context ~self:vdi in
-			Some 
-				((try List.assoc "on_boot" sm_config = "reset" with _ -> false),
-				(try String.lowercase (List.assoc "caching" sm_config) = "true" with _ -> false))
+			Some ((assoc_opt "on_boot" sm_config = Some "reset"), (bool_of_assoc "caching" sm_config))
 		with _ -> None) all.Db_actions.vM_VBDs in	
 	all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching
 
