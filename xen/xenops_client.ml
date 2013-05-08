@@ -18,7 +18,7 @@ open Xcp_client
 module Client = Xenops_interface.Client(struct
 	let rpc call =
 		if !use_switch
-		then json_switch_rpc queue_name call
+		then json_switch_rpc !queue_name call
 		else json_binary_rpc ~srcstr:"xapi" ~dststr:"xenops" json_url call
 end)
 

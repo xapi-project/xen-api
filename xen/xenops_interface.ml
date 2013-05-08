@@ -16,7 +16,7 @@
  *)
 
 let service_name = "xenops"
-let queue_name = Xcp_service.common_prefix ^ service_name
+let queue_name = ref (Xcp_service.common_prefix ^ service_name)
 
 let default_sockets_dir = "/var/lib/xcp"
 let default_path = ref (Filename.concat default_sockets_dir "xenopsd")
