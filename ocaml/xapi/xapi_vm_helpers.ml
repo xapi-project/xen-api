@@ -768,7 +768,7 @@ let consider_generic_bios_strings ~__context ~vm =
 (* Windows VM Generation ID *)
 
 let fresh_genid () =
-	Printf.sprintf "%019Ld:%019Ld" (* 19 is max digits of Int64 *)
+	Printf.sprintf "%Ld:%Ld" (* 19 is max digits of Int64 *)
 		(Random.int64 Int64.max_int)
 		(Random.int64 Int64.max_int)
 
