@@ -105,13 +105,15 @@ let is_allowed_concurrently ~(op:API.vm_operations) ~current_ops =
 	and allowed_operations = (* a list of valid state -> operation *)
 		[ [`snapshot_with_quiesce], `snapshot;
 		  [`reverting],             `hard_shutdown;
-		  [`migrate_send],               `metadata_export;
+		  [`migrate_send],          `metadata_export;
 		  [`migrate_send],          `hard_shutdown;
 		  [`migrate_send],          `clean_shutdown;
-          [`migrate_send],          `hard_reboot;
+        	  [`migrate_send],          `hard_reboot;
 		  [`migrate_send],          `clean_reboot;
-          [`migrate_send],          `start;
-          [`migrate_send],          `start_on;] in
+        	  [`migrate_send],          `start;
+        	  [`migrate_send],          `start_on;
+		  [`clean_shutdown],        `hard_shutdown;
+		  [`clean_reboot],          `hard_reboot;] in
 	let state_machine () = 
 		let current_state = List.map snd current_ops in
 		List.exists (fun (state, transition) -> state = current_state && transition = op) allowed_operations
