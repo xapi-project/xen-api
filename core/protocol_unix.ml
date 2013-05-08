@@ -95,11 +95,12 @@ module Client = struct
 		| Error e -> raise e
 		| Ok raw -> raw
 
-	let connect myname port dest_queue_name =
+	let connect port dest_queue_name =
+		let token = Printf.sprintf "%d" (Unix.getpid ()) in
 		let requests_conn = IO.connect port in
-		let (_: string) = rpc requests_conn (In.Login myname) in
+		let (_: string) = rpc requests_conn (In.Login token) in
 		let events_conn = IO.connect port in
-		let (_: string) = rpc events_conn (In.Login myname) in
+		let (_: string) = rpc events_conn (In.Login token) in
 
 		let wakener = Hashtbl.create 10 in
 		let (_ : Thread.t) =
