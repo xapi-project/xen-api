@@ -16,11 +16,13 @@ type t = {
 	verbose: bool;
 	debug: bool;
 	socket: string;
+	queue: string;
 } with rpc
 
-let make verbose debug socket =
+let make verbose debug socket queue =
         Xenops_interface.default_path := socket;
-	{ verbose; debug; socket }
+	Xenops_interface.queue_name := queue;
+	{ verbose; debug; socket; queue }
 
 let to_string x = Jsonrpc.to_string (rpc_of_t x)
 
