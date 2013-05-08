@@ -134,7 +134,9 @@ let event_wait task timeout p =
 				success
 		end else false
 	in 
-	inner timeout None
+	let result = inner timeout None in
+	Xenops_task.check_cancelling task;
+	result
 
 let safe_rm xs path =
 	debug "xenstore-rm %s" path;
