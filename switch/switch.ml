@@ -20,7 +20,6 @@ let rec logging_thread logger =
 			) lines in
 	logging_thread logger
 
-
 let make_path p = Store.Path.create p (Store.Path.getdomainpath 0)
 
 
@@ -454,9 +453,10 @@ let process_request conn_id session request = match session, request with
 		end
 
 let make_server () =
-	debug "Started server on unix domain socket";
-    let (_: 'a) = logging_thread Logging.logger in
-    let (_: 'a) = logging_thread message_logger in
+	debug "Started server on localhost:%d" !port;
+
+	let (_: 'a) = logging_thread Logging.logger in
+	let (_: 'a) = logging_thread message_logger in
 
   	(* (Response.t * Body.t) Lwt.t *)
 	let callback conn_id ?body req =
@@ -492,8 +492,6 @@ let make_server () =
 			end in
 
 	debug "Message switch starting";
-	let (_: 'a Lwt.t) = logging_thread Logging.logger in
-
 	let config = { Cohttp_lwt_unix.Server.callback; conn_closed } in
 	server ~address:"127.0.0.1" ~port:!port config
     
