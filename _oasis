@@ -70,6 +70,15 @@ Executable server
   Install:            false
   BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
 
+Executable server_unix
+  CompiledObject:     best
+  Path:               core_test
+  MainIs:             server_unix_main.ml
+  Build$:             flag(tests)
+  Custom:             true
+  Install:            false
+  BuildDepends:       message_switch, message_switch.unix
+
 Executable dump
   CompiledObject:     best
   Path:               core_test
