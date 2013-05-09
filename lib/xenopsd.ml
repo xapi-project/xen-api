@@ -135,17 +135,20 @@ let main backend =
 
 	Xcp_service.configure ~options ~resources:Path.resources ();
 
+	(* TODO: these should both be indirected through the switch *)
+(*
 	(* Listen for arbitrary HTTP *)
 	let domain_server = Xcp_service.make_socket_server (path ()) raw_fn in
 
 	(* Listen for transferred file descriptors *)
 	let forwarded_server = Xcp_service.make_socket_server (forwarded_path ())
 		handle_received_fd in
+*)
 
 	(* Listen for regular API calls *)
 	let json_server = Xcp_service.make
 		~path:(json_path ())
-		~queue_name:Xenops_interface.queue_name
+		~queue_name:!Xenops_interface.queue_name
 		~raw_fn
 		~rpc_fn in
 
@@ -163,8 +166,10 @@ let main backend =
 
 	Debug.with_thread_associated "main"
 	(fun () ->
+(*
 		let (_: Thread.t) = Thread.create (fun () -> Xcp_service.serve_forever domain_server) () in
 		let (_: Thread.t) = Thread.create (fun () -> Xcp_service.serve_forever forwarded_server) () in
+*)
 		let (_: Thread.t) = Thread.create (fun () -> Xcp_service.serve_forever json_server) () in
 		()
 	) ();
