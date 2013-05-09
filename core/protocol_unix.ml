@@ -38,6 +38,7 @@ module IO = struct
 		let sockaddr = Unix.ADDR_INET(Unix.inet_addr_of_string "127.0.0.1", port) in
 		let fd = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
 		let () = Unix.connect fd sockaddr in
+		Unix.setsockopt fd Unix.TCP_NODELAY true;
 		let ic = Unix.in_channel_of_descr fd in
 		let oc = Unix.out_channel_of_descr fd in
 		(ic, oc)
