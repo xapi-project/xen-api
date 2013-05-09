@@ -44,17 +44,11 @@ module In = struct
 	| Get of string list         (** return a web interface resource *)
 	with rpc
 
-	let rec split ?limit:(limit=(-1)) c s =
-		let i = try String.index s c with Not_found -> -1 in
-		let nlimit = if limit = -1 || limit = 0 then limit else limit - 1 in
-		if i = -1 || nlimit = 0 then
-			[ s ]
-		else
-			let a = String.sub s 0 i
-			and b = String.sub s (i + 1) (String.length s - i - 1) in
-			a :: (split ~limit: nlimit c b)
+	let slash = Re_str.regexp_string "/"
+	let split = Re_str.split_delim slash
 
-	let of_request body meth path = match body, meth, split '/' path with
+	let of_request body meth path =
+		match body, meth, split path with
 		| None, `GET, "" :: "admin" :: path     -> Some (Get path)
 		| None, `GET, [ ""; "" ]                -> Some Diagnostics
 		| None, `GET, [ ""; "login"; token ]    -> Some (Login token)

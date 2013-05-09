@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 36ad8431c5a9ec07cb99f07f19a6326e)
+# DO NOT EDIT (digest: 3bcc0d976e1dee270ba5446f22c6656c)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -30,6 +30,8 @@
 <core/*.ml{,i}>: pkg_rpclib
 <core/*.ml{,i}>: pkg_rpclib.json
 <core/*.ml{,i}>: pkg_rpclib.syntax
+<core/*.ml{,i}>: pkg_re
+<core/*.ml{,i}>: pkg_re.str
 # Executable link_test
 <core_test/link_test_main.{native,byte}>: use_message_switch_lwt
 <core_test/link_test_main.{native,byte}>: use_message_switch
@@ -41,6 +43,8 @@
 <core_test/link_test_main.{native,byte}>: pkg_rpclib
 <core_test/link_test_main.{native,byte}>: pkg_rpclib.json
 <core_test/link_test_main.{native,byte}>: pkg_rpclib.syntax
+<core_test/link_test_main.{native,byte}>: pkg_re
+<core_test/link_test_main.{native,byte}>: pkg_re.str
 <core_test/link_test_main.{native,byte}>: custom
 # Executable client
 <core_test/client_main.{native,byte}>: use_message_switch_lwt
@@ -53,6 +57,8 @@
 <core_test/client_main.{native,byte}>: pkg_rpclib
 <core_test/client_main.{native,byte}>: pkg_rpclib.json
 <core_test/client_main.{native,byte}>: pkg_rpclib.syntax
+<core_test/client_main.{native,byte}>: pkg_re
+<core_test/client_main.{native,byte}>: pkg_re.str
 <core_test/client_main.{native,byte}>: custom
 # Executable server
 <core_test/server_main.{native,byte}>: use_message_switch_lwt
@@ -65,6 +71,8 @@
 <core_test/server_main.{native,byte}>: pkg_rpclib
 <core_test/server_main.{native,byte}>: pkg_rpclib.json
 <core_test/server_main.{native,byte}>: pkg_rpclib.syntax
+<core_test/server_main.{native,byte}>: pkg_re
+<core_test/server_main.{native,byte}>: pkg_re.str
 <core_test/server_main.{native,byte}>: custom
 # Executable dump
 <core_test/dump.{native,byte}>: use_message_switch_lwt
@@ -77,6 +85,8 @@
 <core_test/dump.{native,byte}>: pkg_rpclib
 <core_test/dump.{native,byte}>: pkg_rpclib.json
 <core_test/dump.{native,byte}>: pkg_rpclib.syntax
+<core_test/dump.{native,byte}>: pkg_re
+<core_test/dump.{native,byte}>: pkg_re.str
 <core_test/*.ml{,i}>: use_message_switch_lwt
 <core_test/*.ml{,i}>: use_message_switch
 <core_test/*.ml{,i}>: pkg_lwt
@@ -87,6 +97,8 @@
 <core_test/*.ml{,i}>: pkg_rpclib
 <core_test/*.ml{,i}>: pkg_rpclib.json
 <core_test/*.ml{,i}>: pkg_rpclib.syntax
+<core_test/*.ml{,i}>: pkg_re
+<core_test/*.ml{,i}>: pkg_re.str
 <core_test/dump.{native,byte}>: custom
 # Executable switch
 <switch/switch.{native,byte}>: use_message_switch_lwt
@@ -101,6 +113,8 @@
 <switch/switch.{native,byte}>: pkg_rpclib
 <switch/switch.{native,byte}>: pkg_rpclib.json
 <switch/switch.{native,byte}>: pkg_rpclib.syntax
+<switch/switch.{native,byte}>: pkg_re
+<switch/switch.{native,byte}>: pkg_re.str
 <switch/*.ml{,i}>: use_message_switch_lwt
 <switch/*.ml{,i}>: use_message_switch
 <switch/*.ml{,i}>: pkg_xenstore
@@ -113,6 +127,8 @@
 <switch/*.ml{,i}>: pkg_rpclib
 <switch/*.ml{,i}>: pkg_rpclib.json
 <switch/*.ml{,i}>: pkg_rpclib.syntax
+<switch/*.ml{,i}>: pkg_re
+<switch/*.ml{,i}>: pkg_re.str
 <switch/switch.{native,byte}>: custom
 # OASIS_STOP
 <*/*>: syntax_camlp4o
