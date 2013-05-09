@@ -32,7 +32,7 @@ module Client = Storage_interface.Client(struct
     retry_econnrefused
       (fun () ->
         if !use_switch
-        then json_switch_rpc queue_name call
+        then json_switch_rpc !queue_name call
         else xml_http_rpc
           ~srcstr:(get_user_agent ())
           ~dststr:"storage"
