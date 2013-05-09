@@ -468,6 +468,8 @@ let make_server () =
 				return (Some s) in
 		match In.of_request body (Request.meth req) (Request.path req) with
 		| None ->
+			debug "<- [unparsable request; path = %s; body = %s]" (Request.path req) (match body with Some x -> "\"" ^ x ^ "\"" | None -> "None");
+			debug "-> 404 [Not_found]";
 			Cohttp_lwt_unix.Server.respond_not_found ~uri:(Request.uri req) ()
 		| Some request ->
 			debug "<- %s [%s]" (Request.path req) (match body with None -> "" | Some x -> x);
