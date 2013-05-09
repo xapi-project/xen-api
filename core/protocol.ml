@@ -213,10 +213,8 @@ module Server = functor(IO: Cohttp.Make.IO) -> struct
 							begin
 								match m.Message.reply_to with
 								| None ->
-									Printf.fprintf stderr "No reply_to\n%!";
 									return ()
 								| Some reply_to ->
-									Printf.fprintf stderr "Sending reply to %s\n%!" reply_to;
 									let request = In.Send(reply_to, { m with Message.reply_to = None; payload = response }) in
 									Connection.rpc c request >>= fun _ ->
 									return ()
