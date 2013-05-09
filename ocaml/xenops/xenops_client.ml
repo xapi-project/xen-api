@@ -47,6 +47,8 @@ let json_http_rpc = http_rpc Jsonrpc.string_of_call Jsonrpc.response_of_string
 
 (* Use a binary 16-byte length to frame RPC messages *)
 let binary_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset") url (call: Rpc.call) : Rpc.response =
+	(* Logging call.Rpc.name is safe, but we must not log the args or the whole
+	 * string_of_call since these can sometimes contain sensitive data such as passwords. *)
 	E.debug "%s=>%s [label=\"%s\"];" srcstr dststr call.Rpc.name;
 	let transport = transport_of_url url in
 	with_transport transport

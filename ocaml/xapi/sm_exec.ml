@@ -173,6 +173,7 @@ let exec_xmlrpc ?context ?(needs_session=true) (driver: string) (call: call) =
     let (xml,stderr) = Stats.time_this name (fun () -> 
 		let exe = cmd_name driver in
 		begin try
+			(* Logging call.cmd is safe, but call.args could contain a password. *)
 			E.debug "smapiv2=>smapiv1 [label=\"%s\"];" call.cmd;
 			let output, stderr = Forkhelpers.execute_command_get_output exe [ Xml.to_string xml ] in
 			begin try
