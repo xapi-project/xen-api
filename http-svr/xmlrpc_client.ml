@@ -277,7 +277,7 @@ module XML = struct
 	let response_of_file_descr fd = Xml.parse_in (Unix.in_channel_of_descr fd)
 	type request = Xml.xml
 	let request_to_string = Xml.to_string
-	let request_to_short_string = Xml.to_string
+	let request_to_short_string = fun _ -> "(XML)"
 end
 
 module XMLRPC = struct
@@ -302,6 +302,9 @@ module Protocol = functor(F: FORMAT) -> struct
 			| Unix.Unix_error(Unix.ECONNRESET, _, _) -> raise Connection_reset
 
 	let rpc ?(srcstr="unset") ?(dststr="unset") ~transport ~http req =
+		(* Caution: req can contain sensitive information such as passwords in its parameters,
+		 * so we should not log the parameters or a string representation of the whole thing.
+		 * The name should be safe though, e.g. req.Rpc.name when F is XMLRPC. *)
 		E.debug "%s=>%s [label=\"%s\"];" srcstr dststr (F.request_to_short_string req) ;
 		let body = F.request_to_string req in
 		let http = { http with Http.Request.body = Some body } in
