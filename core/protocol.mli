@@ -36,6 +36,7 @@ module In : sig
 	| Transfer of int64 * float  (** blocking wait for new messages *)
 	| Trace of int64 * float     (** blocking wait for trace data *)
 	| Ack of int64               (** ACK this particular message *)
+	| List of string             (** return a list of queue names with a prefix *)
 	| Diagnostics                (** return a diagnostic dump *)
 	| Get of string list         (** return a web interface resource *)
 
@@ -64,6 +65,9 @@ module Out : sig
 	val trace_of_rpc: Rpc.t -> trace
 	val rpc_of_trace: trace -> Rpc.t
 
+	val string_list_of_rpc: Rpc.t -> string list
+	val rpc_of_string_list: string list -> Rpc.t
+
 	type t =
 	| Login
 	| Create of string
@@ -72,6 +76,7 @@ module Out : sig
 	| Transfer of transfer
 	| Trace of trace
 	| Ack
+	| List of string list
 	| Diagnostics of string
 	| Not_logged_in
 	| Get of string

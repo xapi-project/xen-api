@@ -214,6 +214,11 @@ module Q = struct
 
 	let exists name = Hashtbl.mem queues name
 
+	let list prefix = Hashtbl.fold (fun name _ acc ->
+		if startswith prefix name
+		then name :: acc
+		else acc) queues []
+
 	let add name =
 		if not(exists name) then begin
 			Hashtbl.replace queues name Int64Map.empty;
@@ -380,6 +385,8 @@ let process_request conn_id session request = match session, request with
 		return (Out.Get txt)
 	| None, _ ->
 		return Out.Not_logged_in
+	| Some session, In.List prefix ->
+		return (Out.List (Q.list prefix))
 	| Some session, In.Create name ->
 		let name = begin match name with
 			| Some name ->

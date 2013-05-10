@@ -40,6 +40,7 @@ module In = struct
 	| Transfer of int64 * float  (** blocking wait for new messages *)
 	| Trace of int64 * float     (** blocking wait for trace data *)
 	| Ack of int64               (** ACK this particular message *)
+	| List of string             (** return a list of queue names with a prefix *)
 	| Diagnostics                (** return a diagnostic dump *)
 	| Get of string list         (** return a web interface resource *)
 	with rpc
@@ -56,6 +57,7 @@ module In = struct
 		| None, `GET, [ ""; "create"; name ]    -> Some (Create (Some name))
 		| None, `GET, [ ""; "subscribe"; name ] -> Some (Subscribe name)
 		| None, `GET, [ ""; "ack"; id ]         -> Some (Ack (Int64.of_string id))
+		| None, `GET, [ ""; "list"; prefix ]    -> Some (List prefix)
 		| None, `GET, [ ""; "transfer"; ack_to; timeout ] ->
 			Some (Transfer(Int64.of_string ack_to, float_of_string timeout))
 		| None, `GET, [ ""; "trace"; ack_to; timeout ] ->
@@ -87,6 +89,8 @@ module In = struct
 			None, `GET, (Uri.make ~path:(Printf.sprintf "/subscribe/%s" name) ())
 		| Ack x ->
 			None, `GET, (Uri.make ~path:(Printf.sprintf "/ack/%Ld" x) ())
+		| List x ->
+			None, `GET, (Uri.make ~path:(Printf.sprintf "/list/%s" x) ())
 		| Transfer(ack_to, timeout) ->
 			None, `GET, (Uri.make ~path:(Printf.sprintf "/transfer/%Ld/%.16g" ack_to timeout) ())
 		| Trace(ack_to, timeout) ->
@@ -110,6 +114,10 @@ module Out = struct
 		events: (int64 * Event.t) list;
 	} with rpc
 
+	type queue_list = string list with rpc
+	let rpc_of_string_list = rpc_of_queue_list
+	let string_list_of_rpc = queue_list_of_rpc
+
 	type t =
 	| Login
 	| Create of string
@@ -118,6 +126,7 @@ module Out = struct
 	| Transfer of transfer
 	| Trace of trace
 	| Ack
+	| List of string list
 	| Diagnostics of string
 	| Not_logged_in
 	| Get of string
@@ -134,6 +143,8 @@ module Out = struct
 			`OK, (Jsonrpc.to_string (rpc_of_transfer transfer))
 		| Trace trace ->
 			`OK, (Jsonrpc.to_string (rpc_of_trace trace))
+		| List l ->
+			`OK, (Jsonrpc.to_string (rpc_of_queue_list l))
 		| Diagnostics x ->
 			`OK, x
 		| Not_logged_in ->
