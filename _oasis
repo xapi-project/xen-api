@@ -34,6 +34,14 @@ Library message_switch_unix
   Modules:            Protocol_unix
   BuildDepends:       unix,threads,cohttp,rpclib,rpclib.json,rpclib.syntax,message_switch
 
+Executable m_cli
+  CompiledObject:     best
+  Path:               cli
+  MainIs:             main.ml
+  Custom:             true
+  Install:            false
+  BuildDepends:       message_switch, message_switch.unix, cmdliner
+
 Executable link_test
   CompiledObject:     best
   Path:               core_test

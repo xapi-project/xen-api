@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 7d29f42d64963189c5296b34bdcf5cd7)
+# DO NOT EDIT (digest: 1b28f187aae07e905dc8a66691122267)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -32,6 +32,30 @@
 <core/*.ml{,i}>: pkg_rpclib.syntax
 <core/*.ml{,i}>: pkg_re
 <core/*.ml{,i}>: pkg_re.str
+# Executable m_cli
+<cli/main.{native,byte}>: use_message_switch_unix
+<cli/main.{native,byte}>: use_message_switch
+<cli/main.{native,byte}>: pkg_cohttp
+<cli/main.{native,byte}>: pkg_cmdliner
+<cli/main.{native,byte}>: pkg_unix
+<cli/main.{native,byte}>: pkg_threads
+<cli/main.{native,byte}>: pkg_rpclib
+<cli/main.{native,byte}>: pkg_rpclib.json
+<cli/main.{native,byte}>: pkg_rpclib.syntax
+<cli/main.{native,byte}>: pkg_re
+<cli/main.{native,byte}>: pkg_re.str
+<cli/*.ml{,i}>: use_message_switch_unix
+<cli/*.ml{,i}>: use_message_switch
+<cli/*.ml{,i}>: pkg_cohttp
+<cli/*.ml{,i}>: pkg_cmdliner
+<cli/*.ml{,i}>: pkg_unix
+<cli/*.ml{,i}>: pkg_threads
+<cli/*.ml{,i}>: pkg_rpclib
+<cli/*.ml{,i}>: pkg_rpclib.json
+<cli/*.ml{,i}>: pkg_rpclib.syntax
+<cli/*.ml{,i}>: pkg_re
+<cli/*.ml{,i}>: pkg_re.str
+<cli/main.{native,byte}>: custom
 # Executable link_test
 <core_test/link_test_main.{native,byte}>: use_message_switch_lwt
 <core_test/link_test_main.{native,byte}>: use_message_switch
