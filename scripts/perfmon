@@ -651,7 +651,7 @@ class VMMonitor(ObjectMonitor):
             if variable_name == "fs_usage": return '0.9'               # trigger when 90% full
             else: raise XmlConfigException, "variable %s: no default alarm_trigger_level - please specify one" % variable_name
         elif config_tag == 'alarm_trigger_sense':       return 'high' # trigger if *above*
-        elif config_tag == 'alarm_priority':             return '5'    # the minimum priority required for mail-alarm to send
+        elif config_tag == 'alarm_priority':             return '3'   # Service degradation level defined in PR-1455
         else: raise XmlConfigException, "variable %s: no default available for tag %s" % (variable_name, config_tag)
 
 class HOSTMonitor(ObjectMonitor):
@@ -707,7 +707,7 @@ class HOSTMonitor(ObjectMonitor):
         elif config_tag == 'alarm_trigger_sense':
             if variable_name == "memory_free_kib": return "low"
             else: return 'high' # trigger if *above* level
-        elif config_tag == 'alarm_priority':             return '5'    # the minimum priority required for mail-alarm to send
+        elif config_tag == 'alarm_priority':             return '3'    # Service degradation level defined in PR-1455
         else: raise XmlConfigException, "variable %s: no default available for tag %s" % (variable_name, config_tag)
 
     def get_active_variables(self):
