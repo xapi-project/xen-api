@@ -416,7 +416,8 @@ let _ =
     ~doc:"You attempted an operation that was explicitly blocked (see the blocked_operations field of the given object)." ();
   error Api_errors.not_implemented ["function"] 
     ~doc:"The function is not implemented" ();
-
+  error Api_errors.unimplemented_in_sm_backend ["message"]
+		~doc:"You have attempted a function which is not implemented" ();
   (* DB errors *)
   error Api_errors.handle_invalid ["class"; "handle"]
     ~doc:"You gave an invalid object reference.  The object may have recently been deleted.  The class parameter gives the type of reference given, and the handle parameter echoes the bad value given." ();
