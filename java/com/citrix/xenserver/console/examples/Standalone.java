@@ -159,7 +159,7 @@ public class Standalone extends JFrame {
 		return scroll;
 	}
 	
-	private void showVmConsole(int firstIndex) throws BadServerResponse, XenAPIException, XmlRpcException {
+	private void showVmConsole(int firstIndex) throws BadServerResponse, XenAPIException, XmlRpcException, Exception {
 		
 		// Get the console ID for the VM
 		VMEntry vm = (VMEntry) model.getElementAt(firstIndex);
@@ -172,13 +172,26 @@ public class Standalone extends JFrame {
 		
 		System.out.println("Session reference: "+conn.getSessionReference());
 		String location = c.getLocation(conn);
+		
+		URL consoleURL = new URL(location);
+		URL connURL = new URL(server_url.getText());
+		if ("".equals(consoleURL.getHost())) {
+			// If console URL is missing the host, HMN may be disabled.
+			// Use http and host from the original connection in this case
+			location = "http://" + connURL.getHost() + consoleURL.getFile();
+			System.out.println("HMN appears disabled. Fixing location to " + location);
+			consoleURL = new URL(location);
+		}
 		System.out.println("Setting up terminal connection to "+location+" for VM "+vm);
-		
-//		location = server_url.getText()+"/"+location.substring(location.indexOf("console?"));
-//		System.out.println("Setting up terminal connection to "+location+" for VM "+vm);
-		
+				
+		String usessl = "false";
+		String port = "80";
+		if ("https".equals(consoleURL.getProtocol())) {
+			usessl = "true";
+			port = "443";
+		}
 		JavaInitialize ji = new JavaInitialize();
-		ji.init(new String[] {location, conn.getSessionReference(), "true"});
+		ji.init(new String[] {location, conn.getSessionReference(), usessl, port});
 		ji.start();
 		ji.setSize(800,600);
 		ji.setVisible(true);
