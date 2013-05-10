@@ -12,10 +12,10 @@
             includes="**/*.class **/*.properties **/*.png">
         </jar>
         <zip destfile="XenServerConsole.zip" basedir="." 
-            includes="XenServerConsole.jar, Console.html"/>
+            includes="XenServerConsole.jar, Console.html, applet_test.py"/>
 
         <zip destfile="XenServerConsole-src.zip" basedir="." 
-            includes="**/*.java **/*.properties **/*.png **/*.html build.xml LICENSE GPL-2"/>
+            includes="**/*.java **/*.properties **/*.png **/*.html applet_test.py build.xml LICENSE GPL-2"/>
     </target>
     
     <target name="clean">
