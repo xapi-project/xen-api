@@ -347,6 +347,19 @@ let write ~__context ~_ref ~message =
 		List.iter (fun (dir,newpath) ->
 			Unixext.mkdir_rec dir 0o700;
 			Unix.symlink filename newpath) symlinks;
+
+		(* Insert a written message into in_memory_cache *)
+		cache_insert _ref message !gen;
+
+		(* Emit a create event (with the old event API). If the message
+		   hasn't been written, we may want to also emit a del even, for
+		   consistency (since the reference for the message will never be
+		   valid again. *)
+		let rpc = API.rpc_of_message_t message in
+		Xapi_event.event_add ~snapshot:rpc "message" "add" (Ref.string_of _ref);
+		let (_: bool) = (!queue_push) message.API.message_name (message_to_string (_ref,message)) in
+		(*Xapi_event.event_add ~snapshot:xml "message" "del" (Ref.string_of _ref);*)
+
 		Some !gen
 	)
 	with _ -> None
@@ -372,6 +385,14 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
 	let timestamp = Mutex.execute event_mutex (fun () ->
 		Unix.gettimeofday ()) in
 
+	(* During rolling upgrade, upgraded master might have a alerts grading
+	   system different from the not yet upgraded slaves, during that process we
+	   transform the priority of received messages as a special case. *)
+	let priority =
+		if Helpers.rolling_upgrade_in_progress ~__context && List.mem_assoc name !Api_messages.msgList then
+			List.assoc name !Api_messages.msgList
+		else priority in
+
 	let message = {API.message_name=name;
 				   API.message_uuid=uuid;
 				   API.message_priority=priority;
@@ -383,18 +404,6 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
 
 	(* Write the message to disk *)
 	let gen = write ~__context ~_ref ~message in
-
-	(* Insert a written message into in_memory_cache *)
-	Opt.iter (cache_insert _ref message) gen;
-
-	(* Emit a create event (with the old event API). If the message
-	   hasn't been written, we may want to also emit a del even, for
-	   consistency (since the reference for the message will never be
-	   valid again. *)
-	let rpc = API.rpc_of_message_t message in
-	Xapi_event.event_add ~snapshot:rpc "message" "add" (Ref.string_of _ref);
-	let (_: bool) = (!queue_push) name (message_to_string (_ref,message)) in
-	(*Xapi_event.event_add ~snapshot:xml "message" "del" (Ref.string_of _ref);*)
 
 	(* Return the message ref, or Ref.null if the message wasn't written *)
 	match gen with
