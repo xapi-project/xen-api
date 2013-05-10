@@ -1250,10 +1250,10 @@ module VM = struct
 					(fun fd ->
 						Domain.suspend task ~xc ~xs ~hvm ~progress_callback ~qemu_domid (choose_xenguest vm.Vm.platformdata) domid fd flags'
 							(fun () ->
-								if not(request_shutdown task vm Suspend 30.)
-								then raise (Failed_to_acknowledge_shutdown_request);
-								if not(wait_shutdown task vm Suspend 1200.)
-								then raise (Failed_to_shutdown(vm.Vm.id, 1200.));
+								if not (request_shutdown task vm Suspend 30.)
+								then Xenctrl.domain_shutdown xc domid Xenctrl.Suspend;
+								if not (wait_shutdown task vm Suspend 120.)
+								then Xenctrl.domain_shutdown xc domid Xenctrl.Suspend;
 							);
 						(* Record the final memory usage of the domain so we know how
 						   much to allocate for the resume *)
