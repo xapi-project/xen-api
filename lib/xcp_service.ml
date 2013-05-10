@@ -344,7 +344,7 @@ let make_socket_server path fn =
 let make_queue_server name fn =
 	Queue(name, fn) (* TODO: connect to the message switch *)
 
-let make ~path ~queue_name ?raw_fn ~rpc_fn =
+let make ~path ~queue_name ?raw_fn ~rpc_fn () =
 	if !Xcp_client.use_switch
 	then make_queue_server queue_name rpc_fn
 	else make_socket_server path (match raw_fn with
