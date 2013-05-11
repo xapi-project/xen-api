@@ -47,9 +47,10 @@ let help = [
 
 (* Commands *)
 
-let list common_opts =
+let list common_opts prefix =
   let c = IO.connect common_opts.Common.port in
-  match Connection.rpc c (In.List "") with
+  let _ = Connection.rpc c (In.Login (Protocol_unix.whoami ())) in
+  match Connection.rpc c (In.List prefix) with
   | Error e -> `Error(true, Printexc.to_string e)
   | Ok raw ->
     let all = Out.string_list_of_rpc (Jsonrpc.of_string raw) in
@@ -63,7 +64,10 @@ let list_cmd =
     `S "DESCRIPTION";
     `P "Print a list of all queues registered with the message switch";
   ] @ help in
-  Term.(ret(pure list $ common_options_t)),
+  let prefix =
+    let doc = Printf.sprintf "List queues with a specific prefix." in
+    Arg.(value & opt string "" & info ["prefix"] ~docv:"PREFIX" ~doc) in
+  Term.(ret(pure list $ common_options_t $ prefix)),
   Term.info "list" ~sdocs:_common_options ~doc ~man
 
 let default_cmd = 
