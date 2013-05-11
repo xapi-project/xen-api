@@ -113,16 +113,18 @@ let dump_cmd =
   Term.(ret(pure dump $ common_options_t)),
   Term.info "dump" ~sdocs:_common_options ~doc ~man
 
-let call common_options_t name body path =
-  let string_of_ic ic =
-    let lines = ref [] in
-    try
-      while true do
-        lines := input_line ic :: !lines
-      done;
-      ""
-    with End_of_file -> String.concat "\n" (List.rev !lines) in
+let string_of_ic ?end_marker ic =
+  let lines = ref [] in
+  try
+    while true do
+      let line = input_line ic in
+      (match end_marker with None -> () | Some x -> if x = line then raise End_of_file);
+      lines := line :: !lines
+    done;
+    ""
+  with End_of_file -> String.concat "\n" (List.rev !lines)
 
+let call common_options_t name body path =
   match name with
   | None -> `Error(true, "a queue name is required")
   | Some name ->
@@ -165,8 +167,27 @@ let call_cmd =
   Term.(ret(pure call $ common_options_t $ qname $ body $ path)), 
   Term.info "call" ~sdocs:_common_options ~doc ~man
 
-let serve common_optons_t name program =
-  `Error(true, "unimplemented")
+let serve common_options_t name program =
+  match name with
+  | None ->
+    `Error(true, "a queue name is required")
+  | Some name ->
+    let c = Protocol_unix.IO.connect common_options_t.Common.port in
+    Protocol_unix.Server.listen (fun req ->
+      match program with
+      | None ->
+        print_endline "Received:";
+        print_endline req;
+        print_endline "Enter body text: (end with a \".\")";
+        string_of_ic ~end_marker:"." stdin
+      | Some program ->
+        let stdout, stdin, stderr = Unix.open_process_full program [| program |] in
+        output_string stdin req; close_out stdin;
+        let res = string_of_ic stdout in
+        let (_: Unix.process_status) = Unix.close_process_full (stdout, stdin, stderr) in
+        res
+    ) c name;
+    `Ok ()
 
 let serve_cmd =
   let doc = "respond to remote procedure calls" in
@@ -176,10 +197,10 @@ let serve_cmd =
   ] @ help in
   let qname =
     let doc = "Name of service to implement." in
-    Arg.(value & pos 0 string "" & info [] ~doc) in
+    Arg.(value & pos 0 (some string) None & info [] ~doc) in
   let program =
     let doc = "Path of the program to invoke on every call." in
-    Arg.(value & pos 0 (some file) None & info [] ~doc) in
+    Arg.(value & opt (some file) None & info ["program"] ~doc) in
 
   Term.(ret(pure serve $ common_options_t $ qname $ program)),
   Term.info "serve" ~sdocs:_common_options ~doc ~man
