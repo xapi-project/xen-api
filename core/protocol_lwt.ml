@@ -3,6 +3,9 @@ open Lwt
 open Cohttp
 open Cohttp_lwt_unix
 
+let whoami () = Printf.sprintf "%s:%d"
+	(Filename.basename Sys.argv.(0)) (Unix.getpid ())
+
 module IO = struct
 	type 'a t = 'a Lwt.t
 	let ( >>= ) = Lwt.bind
@@ -51,7 +54,7 @@ module Client = struct
 		| Ok raw -> return raw
 
 	let connect port dest_queue_name =
-		let token = Printf.sprintf "%d" (Unix.getpid ()) in
+		let token = whoami () in
 		lwt requests_conn = IO.connect port in
 		lwt (_: string) = rpc requests_conn (In.Login token) in
 		lwt events_conn = IO.connect port in

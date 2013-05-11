@@ -1,5 +1,7 @@
 open Protocol
 
+val whoami : unit -> string
+
 module IO : sig
 	type ic
 	type oc

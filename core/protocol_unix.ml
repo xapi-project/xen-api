@@ -1,6 +1,9 @@
 open Protocol
 open Cohttp
 
+let whoami () = Printf.sprintf "%s:%d"
+	(Filename.basename Sys.argv.(0)) (Unix.getpid ())
+
 module IO = struct
 	type 'a t = 'a
 	let ( >>= ) a f = f a
@@ -97,7 +100,7 @@ module Client = struct
 		| Ok raw -> raw
 
 	let connect port dest_queue_name =
-		let token = Printf.sprintf "%d" (Unix.getpid ()) in
+		let token = whoami () in
 		let requests_conn = IO.connect port in
 		let (_: string) = rpc requests_conn (In.Login token) in
 		let events_conn = IO.connect port in
