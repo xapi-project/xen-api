@@ -57,6 +57,40 @@ let list common_opts prefix =
     List.iter print_endline all;
     `Ok ()
 
+let dump common_opts =
+  let c = IO.connect common_opts.Common.port in
+  let from = ref 0L in
+  let timeout = 5. in
+  let start = ref None in
+  while true do
+    match Connection.rpc c (In.Trace (!from, timeout)) with
+      | Error e -> raise e
+      | Ok raw ->
+        let trace = Out.trace_of_rpc (Jsonrpc.of_string raw) in
+        let endpoint = function
+          | None -> "-"
+          | Some x -> x in
+        let message = function
+          | Event.Message (id, m) -> m.Message.payload
+          | Event.Ack id -> Printf.sprintf "ack %Ld" id in
+        List.iter (fun (id, event) ->
+          let time = match !start with
+            | None ->
+              start := Some event.Event.time;
+              0.
+            | Some t ->
+              event.Event.time -. t in
+          Printf.fprintf stdout "%Ld: %.1f: %10s -> %10s -> %10s: %s\n%!" id time
+            (endpoint event.Event.input) event.Event.queue
+            (endpoint event.Event.output) (message event.Event.message)
+        ) trace.Out.events;
+        from :=
+          begin match trace.Out.events with
+            | [] -> !from
+            | (id, _) :: ms -> Int64.add 1L (List.fold_left max id (List.map fst ms))
+          end;
+    done;
+    `Ok ()
 
 let list_cmd =
   let doc = "list the currently-known queues" in
@@ -70,13 +104,22 @@ let list_cmd =
   Term.(ret(pure list $ common_options_t $ prefix)),
   Term.info "list" ~sdocs:_common_options ~doc ~man
 
+let dump_cmd =
+  let doc = "display a live stream of trace events" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Display a live stream of trace events captured within the message switch";
+  ] @ help in
+  Term.(ret(pure dump $ common_options_t)),
+  Term.info "dump" ~sdocs:_common_options ~doc ~man
+
 let default_cmd = 
   let doc = "interact with an XCP message switch" in 
   let man = help in
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
   Term.info "m-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
        
-let cmds = [list_cmd]
+let cmds = [list_cmd; dump_cmd]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
