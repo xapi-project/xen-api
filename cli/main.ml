@@ -114,7 +114,37 @@ let dump_cmd =
   Term.info "dump" ~sdocs:_common_options ~doc ~man
 
 let call common_options_t name body path =
-  `Error(true, "unimplemented")
+  let string_of_ic ic =
+    let lines = ref [] in
+    try
+      while true do
+        lines := input_line ic :: !lines
+      done;
+      ""
+    with End_of_file -> String.concat "\n" (List.rev !lines) in
+
+  match name with
+  | None -> `Error(true, "a queue name is required")
+  | Some name ->
+    begin
+    let txt = match body, path with
+    | None, None ->
+      Printf.printf "Enter body text:\n%!";
+      string_of_ic stdin
+    | Some _, Some _ ->
+      failwith "please supply either a body or a file, not both"
+    | Some x, _ -> x
+    | None, Some x ->
+      let ic = open_in x in
+      let txt = string_of_ic ic in
+      close_in ic;
+      txt in
+
+    let c = Client.connect common_options_t.Common.port name in
+    let result = Client.rpc c txt in
+    print_endline result;
+    `Ok ()
+    end
 
 let call_cmd =
   let doc = "perform a remote procedure call" in
@@ -124,7 +154,7 @@ let call_cmd =
   ] @ help in
   let qname =
     let doc = "Name of remote service to invoke." in
-    Arg.(value & pos 0 string "" & info [] ~doc) in
+    Arg.(value & pos 0 (some string) None & info [] ~doc) in
   let body =
     let doc = "Request text to send to the remote service." in
     Arg.(value & opt (some string) None & info ["body"] ~docv:"BODY" ~doc) in
