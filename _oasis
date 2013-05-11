@@ -87,14 +87,6 @@ Executable server_unix
   Install:            false
   BuildDepends:       message_switch, message_switch.unix
 
-Executable dump
-  CompiledObject:     best
-  Path:               core_test
-  MainIs:             dump.ml
-  Custom:             true
-  Install:            false
-  BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
-
 Executable switch
   CompiledObject:     best
   Path:               switch
