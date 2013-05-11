@@ -113,13 +113,35 @@ let dump_cmd =
   Term.(ret(pure dump $ common_options_t)),
   Term.info "dump" ~sdocs:_common_options ~doc ~man
 
+let call common_options_t name body path =
+  `Error(true, "unimplemented")
+
+let call_cmd =
+  let doc = "perform a remote procedure call" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Perform a remote procedure call against a named service.";
+  ] @ help in
+  let filename =
+    let doc = "Name of remote service to invoke." in
+    Arg.(value & pos 0 string "" & info [] ~doc) in
+  let body =
+    let doc = "Request text to send to the remote service." in
+    Arg.(value & opt (some string) None & info ["body"] ~docv:"BODY" ~doc) in
+  let path =
+    let doc = "File containing request text to send to the remote service." in
+    Arg.(value & opt (some file) None & info ["file"] ~docv:"FILE" ~doc) in
+
+  Term.(ret(pure call $ common_options_t $ filename $ body $ path)), 
+  Term.info "call" ~sdocs:_common_options ~doc ~man
+
 let default_cmd = 
   let doc = "interact with an XCP message switch" in 
   let man = help in
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
   Term.info "m-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
        
-let cmds = [list_cmd; dump_cmd]
+let cmds = [list_cmd; dump_cmd; call_cmd]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
