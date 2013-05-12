@@ -2,22 +2,28 @@ let project_url = "https://github.com/xen-org/xcp-idl"
 
 open Lwt
 
+let my_domid = 0 (* TODO: figure this out *)
+
 exception Short_write of int * int
 exception End_of_file
+exception No_useful_protocol
+
+let copy_all src dst =
+  let buffer = String.make 16384 '\000' in
+  while_lwt true do
+    lwt n = Lwt_unix.read src buffer 0 (String.length buffer) in
+    if n = 0
+    then raise_lwt End_of_file
+    else
+      lwt m = Lwt_unix.write dst buffer 0 n in
+      if n <> m then raise_lwt (Short_write(m, n))
+      else return ()
+  done
 
 let proxy a b =
   let copy id src dst =
-    let buffer = String.make 16384 '\000' in
       try_lwt
-        while_lwt true do
-          lwt n = Lwt_unix.read src buffer 0 (String.length buffer) in
-          if n = 0
-          then raise_lwt End_of_file
-          else
-            lwt m = Lwt_unix.write dst buffer 0 n in
-            if n <> m then raise_lwt (Short_write(m, n))
-            else return ()
-        done
+        copy_all src dst
       with e ->
         (try Lwt_unix.shutdown src Lwt_unix.SHUTDOWN_RECEIVE with _ -> ());
         (try Lwt_unix.shutdown dst Lwt_unix.SHUTDOWN_SEND with _ -> ());
@@ -101,7 +107,7 @@ let advertise_t common_options_t proxy_socket =
     let open Xcp_channel in
     [
       TCP_proxy(!ip, port);
-      Unix_sendmsg(0, path, token);
+      Unix_sendmsg(my_domid, path, token);
     ] in
     Printf.fprintf stdout "%s\n%!" (Jsonrpc.to_string (Xcp_channel.rpc_of_protocols protocols));
 
@@ -145,13 +151,64 @@ let advertise_cmd =
   Term.(ret(pure advertise $ common_options_t $ fd)),
   Term.info "advertise" ~sdocs:_common_options ~doc ~man
 
+let connect_t common_options_t =
+  lwt advertisement = match_lwt Lwt_io.read_line_opt Lwt_io.stdin with None -> return "" | Some x -> return x in
+  let open Xcp_channel in
+  let protocols = protocols_of_rpc (Jsonrpc.of_string advertisement) in
+  let weight = function
+  | TCP_proxy(_, _) -> 2
+  | Unix_sendmsg(domid, _, _) -> if my_domid = domid then 2 else 0
+  | V4V_proxy(_, _) -> 0 in
+  lwt protocol = match List.sort (fun a b -> compare (weight a) (weight b)) protocols with
+  | [] ->
+    Printf.fprintf stderr "the advertisement included zero protocols\n";
+    fail No_useful_protocol
+  | best :: _ ->
+    if weight best = 0 then begin
+      Printf.fprintf stderr "none of the advertised protocols will work\n";
+      fail No_useful_protocol
+    end else return best in
+  lwt fd = match protocol with
+  | V4V_proxy(_, _) -> assert false (* weight is 0 above *)
+  | TCP_proxy(ip, port) ->
+    let s = Lwt_unix.socket Lwt_unix.PF_INET Lwt_unix.SOCK_STREAM 0 in
+    lwt () = Lwt_unix.connect s (Lwt_unix.ADDR_INET(Unix.inet_addr_of_string ip, port)) in
+    return s
+  | Unix_sendmsg(_, path, token) ->
+    let s = Lwt_unix.socket Lwt_unix.PF_UNIX Lwt_unix.SOCK_STREAM 0 in
+    lwt () = Lwt_unix.connect s (Lwt_unix.ADDR_UNIX path) in
+    let buffer = String.make (String.length token) '\000' in
+    let io_vector = Lwt_unix.io_vector ~buffer ~offset:0 ~length:(String.length buffer) in
+    lwt _ = Lwt_unix.send_msg ~socket:s ~io_vectors:[io_vector] ~fds:[] in
+    lwt _, fds = Lwt_unix.recv_msg ~socket:s ~io_vectors:[io_vector] in
+    if fds = [] then begin
+      Printf.fprintf stderr "received no file descriptors in recv_msg\n";
+      fail Not_found
+    end else return (Lwt_unix.of_unix_file_descr (List.hd fds)) in
+  let a = copy_all Lwt_unix.stdin fd in
+  let b = copy_all fd Lwt_unix.stdout in
+  Lwt.join [a; b] 
+
+let connect common_options_t =
+  Lwt_main.run(connect_t common_options_t);
+  `Ok ()
+
+let connect_cmd =
+  let doc = "connect to a channel and proxy to the terminal" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Connect to a channel which has been advertised and proxy I/O to the console. The advertisement will be read from stdin as a single line of text.";
+  ] @ help in
+  Term.(ret(pure connect $ common_options_t)),
+  Term.info "connect" ~sdocs:_common_options ~doc ~man
+
 let default_cmd = 
   let doc = "channel (file-descriptor) passing helper program" in 
   let man = help in
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
   Term.info "proxy" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
        
-let cmds = [advertise_cmd]
+let cmds = [advertise_cmd; connect_cmd]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
