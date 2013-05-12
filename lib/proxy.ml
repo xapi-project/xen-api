@@ -159,7 +159,7 @@ let connect_t common_options_t =
   | TCP_proxy(_, _) -> 2
   | Unix_sendmsg(domid, _, _) -> if my_domid = domid then 2 else 0
   | V4V_proxy(_, _) -> 0 in
-  lwt protocol = match List.sort (fun a b -> compare (weight a) (weight b)) protocols with
+  lwt protocol = match List.sort (fun a b -> compare (weight b) (weight a)) protocols with
   | [] ->
     Printf.fprintf stderr "the advertisement included zero protocols\n";
     fail No_useful_protocol
