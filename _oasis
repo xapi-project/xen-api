@@ -45,3 +45,11 @@ Library xcp_memory
   Findlibparent:      xcp
   Modules:            Memory_interface, Memory_client
   BuildDepends:       xcp, threads, rpclib, rpclib.syntax
+
+Executable proxy
+  CompiledObject:     best
+  Path:               lib
+  MainIs:             proxy.ml
+  Custom:             true
+  Install:            false
+  BuildDepends:       xcp, lwt, lwt.unix
