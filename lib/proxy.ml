@@ -1,3 +1,5 @@
+let project_url = "https://github.com/xen-org/xcp-idl"
+
 open Lwt
 
 exception Short_write of int * int
@@ -27,24 +29,52 @@ let proxy a b =
 let file_descr_of_int (x: int) : Unix.file_descr =
   Obj.magic x (* Keep this in sync with ocaml's file_descr type *)
 
-let proxy_socket = ref None
 let ip = ref "127.0.0.1"
 let unix = ref "/tmp"
 
-let main () =
-  Arg.parse [
-    "-ip", Arg.Set_string ip, (Printf.sprintf "IP address to bind to (default %s)" !ip);
-    "-unix", Arg.Set_string unix, (Printf.sprintf "Path to bind a unix domain socket in (default %s)" !unix);
-    "-proxy", Arg.Int (fun x -> proxy_socket := Some x), "file-descriptor to proxy I/O to";
-  ] (fun x -> Printf.fprintf stderr "Unknown argument: %s" x)
-    "accept one connection and proxy I/O to a second file-desriptor";
+module Common = struct
+  type t = {
+    verbose: bool;
+    debug: bool;
+    port: int;
+  } with rpc
 
-  let proxy_socket = match !proxy_socket with
-  | Some x ->
-    file_descr_of_int x
-  | None ->
-    Printf.fprintf stderr "You must provide a -proxy argument\n%!";
-    exit 1 in
+  let make verbose debug port =
+    { verbose; debug; port }
+
+  let to_string x = Jsonrpc.to_string (rpc_of_t x)
+end
+
+let _common_options = "COMMON OPTIONS"
+
+open Cmdliner
+
+(* Options common to all commands *)
+let common_options_t = 
+  let docs = _common_options in 
+  let debug = 
+    let doc = "Give only debug output." in
+    Arg.(value & flag & info ["debug"] ~docs ~doc) in
+  let verb =
+    let doc = "Give verbose output." in
+    let verbose = true, Arg.info ["v"; "verbose"] ~docs ~doc in 
+    Arg.(last & vflag_all [false] [verbose]) in 
+  let port = 
+    let doc = Printf.sprintf "Specify port to connect to the message switch." in
+    Arg.(value & opt int 8080 & info ["port"] ~docs ~doc) in
+  Term.(pure Common.make $ debug $ verb $ port)
+
+(* Help sections common to all commands *)
+let help = [ 
+ `S _common_options; 
+ `P "These options are common to all commands.";
+ `S "MORE HELP";
+ `P "Use `$(mname) $(i,COMMAND) --help' for help on a single command."; `Noblank;
+ `S "BUGS"; `P (Printf.sprintf "Check bug reports at %s" project_url);
+]
+
+(* Commands *)
+let advertise_t common_options_t proxy_socket =
 
   let s_ip = Lwt_unix.socket Lwt_unix.PF_INET Lwt_unix.SOCK_STREAM 0 in
   Lwt_unix.bind s_ip (Lwt_unix.ADDR_INET(Unix.inet_addr_of_string !ip, 0));
@@ -96,5 +126,34 @@ let main () =
   Unix.unlink path;
   return ()
 
+let advertise common_options_t fd = match fd with
+  | Some x ->
+    Lwt_main.run (advertise_t common_options_t (file_descr_of_int x));
+    `Ok ()
+  | None ->
+    `Error(true, "you must provide a file descriptor to proxy")
+
+let advertise_cmd =
+  let doc = "advertise a given channel represented as a file-descriptor" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Advertises a given channel over as many protocols as possible, and waits for someone to connect.";
+  ] @ help in
+  let fd =
+    let doc = Printf.sprintf "File descriptor to advertise" in
+    Arg.(value & pos 0 (some int) None & info [] ~docv:"FD" ~doc) in
+  Term.(ret(pure advertise $ common_options_t $ fd)),
+  Term.info "advertise" ~sdocs:_common_options ~doc ~man
+
+let default_cmd = 
+  let doc = "channel (file-descriptor) passing helper program" in 
+  let man = help in
+  Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
+  Term.info "proxy" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
+       
+let cmds = [advertise_cmd]
+
 let _ =
-  Lwt_main.run (main ())
+  match Term.eval_choice default_cmd cmds with 
+  | `Error _ -> exit 1
+  | _ -> exit 0

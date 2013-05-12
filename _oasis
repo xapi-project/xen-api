@@ -52,4 +52,4 @@ Executable proxy
   MainIs:             proxy.ml
   Custom:             true
   Install:            false
-  BuildDepends:       xcp, lwt, lwt.unix
+  BuildDepends:       xcp, lwt, lwt.unix, cmdliner
