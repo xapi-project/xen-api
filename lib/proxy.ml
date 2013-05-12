@@ -54,9 +54,16 @@ let main () =
   | _ -> assert false in
 
   let s_unix = Lwt_unix.socket Lwt_unix.PF_UNIX Lwt_unix.SOCK_STREAM 0 in
-  let path = Printf.sprintf "%s/%d" !unix (Unix.getpid ()) in
+
+  (* Try to avoid polluting the filesystem with unused unix domain sockets *)
+  let path = Printf.sprintf "%s/%s.%d" !unix
+    (Filename.basename Sys.argv.(0)) (Unix.getpid ()) in
   if Sys.file_exists path then Unix.unlink path;
   Lwt_unix.bind s_unix (Lwt_unix.ADDR_UNIX path);
+  List.iter (fun signal ->
+    ignore(Lwt_unix.on_signal signal (fun _ -> Unix.unlink path; exit 1))
+  ) [ Sys.sigterm; Sys.sigint ];
+
   Lwt_unix.listen s_unix 5;
 
   let token = "token" in
@@ -85,7 +92,9 @@ let main () =
       lwt _ = Lwt_unix.send_msg ~socket:fd ~io_vectors:[io_vector'] ~fds:[proxy_socket] in
       return ()
     else return () in
-  Lwt.pick [ t_ip; t_unix ]
+  lwt () = Lwt.pick [ t_ip; t_unix ] in
+  Unix.unlink path;
+  return ()
 
 let _ =
   Lwt_main.run (main ())
