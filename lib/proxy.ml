@@ -75,7 +75,7 @@ let main () =
   let t_unix =
     lwt fd, peer = Lwt_unix.accept s_unix in
     let buffer = String.make (String.length token) '\000' in
-    let io_vector = Lwt_unix.io_vector ~buffer:"" ~offset:0 ~length:(String.length buffer) in
+    let io_vector = Lwt_unix.io_vector ~buffer ~offset:0 ~length:(String.length buffer) in
     lwt n, fds = Lwt_unix.recv_msg ~socket:fd ~io_vectors:[io_vector] in
     List.iter Unix.close fds;
     let token' = String.sub buffer 0 n in
