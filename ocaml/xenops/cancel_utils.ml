@@ -74,7 +74,12 @@ let on_shutdown ~xs domid =
 		(fun t ->
 			let exists = try ignore(t.Xst.read (xs.Xs.getdomainpath domid)); true with _ -> false in
 			if exists
-			then t.Xst.write path ""
+			then begin
+				let control_path = Printf.sprintf "%s/control/shutdown" (xs.Xs.getdomainpath domid) in
+				let shutdown_in_progress = try t.Xst.read control_path <> "" with _ -> false in
+				if shutdown_in_progress then t.Xst.rm control_path
+				else t.Xst.write path ""
+			end
 			else info "Not cancelling watches associated with domid: %d- domain nolonger exists" domid
 		)
 
