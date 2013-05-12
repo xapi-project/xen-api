@@ -171,10 +171,12 @@ let connect_t common_options_t =
   lwt fd = match protocol with
   | V4V_proxy(_, _) -> assert false (* weight is 0 above *)
   | TCP_proxy(ip, port) ->
+    Printf.fprintf stderr "Attempting to connect to %s:%d\n%!" ip port;
     let s = Lwt_unix.socket Lwt_unix.PF_INET Lwt_unix.SOCK_STREAM 0 in
     lwt () = Lwt_unix.connect s (Lwt_unix.ADDR_INET(Unix.inet_addr_of_string ip, port)) in
     return s
   | Unix_sendmsg(_, path, token) ->
+    Printf.fprintf stderr "Attempting to exchange a fd over %s\n%!" path;
     let s = Lwt_unix.socket Lwt_unix.PF_UNIX Lwt_unix.SOCK_STREAM 0 in
     lwt () = Lwt_unix.connect s (Lwt_unix.ADDR_UNIX path) in
     let buffer = String.make (String.length token) '\000' in
