@@ -179,6 +179,17 @@ type res = {
 	perms: Unix.access_permission list
 }
 
+let channel_helper = ref "/usr/bin/xcp_channel_helper"
+
+let default_resources = [
+  { name = "channel_helper";
+    description = "performs file descriptor passing and general proxying";
+    essential = false;
+    path = channel_helper;
+    perms = [ Unix.X_OK ];
+  }
+]
+
 let canonicalise x = Filename.(if is_relative x then concat (Unix.getcwd ()) x else x)
 
 let to_opt = List.map (fun f -> f.name, Arg.String (fun x -> f.path := canonicalise x), (fun () -> !(f.path)), f.description)
@@ -192,6 +203,7 @@ let read_config_file x =
 	end
 
 let configure ?(options=[]) ?(resources=[]) () =
+	let resources = default_resources @ resources in
 	let config_spec = common_options @ options @ (to_opt resources) in
 	let arg_spec = arg_spec config_spec in
 	Arg.parse (Arg.align arg_spec)
