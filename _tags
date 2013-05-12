@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 937a208ad9d5553eb926d9e3b2508f1f)
+# DO NOT EDIT (digest: 9c9905b582a7ebcf3ea5b0d41c18dc5d)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -79,24 +79,24 @@
 <memory/*.ml{,i}>: pkg_syslog
 <memory/*.ml{,i}>: pkg_message_switch
 <memory/*.ml{,i}>: pkg_message_switch.unix
-# Executable proxy
-<lib/proxy.{native,byte}>: use_xcp
-<lib/proxy.{native,byte}>: pkg_lwt
-<lib/proxy.{native,byte}>: pkg_lwt.unix
-<lib/proxy.{native,byte}>: pkg_cmdliner
-<lib/proxy.{native,byte}>: pkg_threads
-<lib/proxy.{native,byte}>: pkg_rpclib
-<lib/proxy.{native,byte}>: pkg_rpclib.syntax
-<lib/proxy.{native,byte}>: pkg_uri
-<lib/proxy.{native,byte}>: pkg_re
-<lib/proxy.{native,byte}>: pkg_cohttp
-<lib/proxy.{native,byte}>: pkg_xmlm
-<lib/proxy.{native,byte}>: pkg_unix
-<lib/proxy.{native,byte}>: pkg_rpclib.xml
-<lib/proxy.{native,byte}>: pkg_rpclib.js
-<lib/proxy.{native,byte}>: pkg_syslog
-<lib/proxy.{native,byte}>: pkg_message_switch
-<lib/proxy.{native,byte}>: pkg_message_switch.unix
+# Executable channel_helper
+<lib/channel_helper.{native,byte}>: use_xcp
+<lib/channel_helper.{native,byte}>: pkg_lwt
+<lib/channel_helper.{native,byte}>: pkg_lwt.unix
+<lib/channel_helper.{native,byte}>: pkg_cmdliner
+<lib/channel_helper.{native,byte}>: pkg_threads
+<lib/channel_helper.{native,byte}>: pkg_rpclib
+<lib/channel_helper.{native,byte}>: pkg_rpclib.syntax
+<lib/channel_helper.{native,byte}>: pkg_uri
+<lib/channel_helper.{native,byte}>: pkg_re
+<lib/channel_helper.{native,byte}>: pkg_cohttp
+<lib/channel_helper.{native,byte}>: pkg_xmlm
+<lib/channel_helper.{native,byte}>: pkg_unix
+<lib/channel_helper.{native,byte}>: pkg_rpclib.xml
+<lib/channel_helper.{native,byte}>: pkg_rpclib.js
+<lib/channel_helper.{native,byte}>: pkg_syslog
+<lib/channel_helper.{native,byte}>: pkg_message_switch
+<lib/channel_helper.{native,byte}>: pkg_message_switch.unix
 <lib/*.ml{,i}>: use_xcp
 <lib/*.ml{,i}>: pkg_lwt
 <lib/*.ml{,i}>: pkg_lwt.unix
@@ -114,7 +114,7 @@
 <lib/*.ml{,i}>: pkg_syslog
 <lib/*.ml{,i}>: pkg_message_switch
 <lib/*.ml{,i}>: pkg_message_switch.unix
-<lib/proxy.{native,byte}>: custom
+<lib/channel_helper.{native,byte}>: custom
 # OASIS_STOP
 <storage/*.ml{,i}>: syntax_camlp4o
 <xen/*.ml{,i}>: syntax_camlp4o
@@ -126,4 +126,4 @@
 <memory/memory_interface.ml>: pkg_rpclib.idl
 <network/network_interface.ml>: pkg_rpclib.idl
 <lib/xcp_channel.ml>: pkg_rpclib.syntax
-<lib/proxy.ml>: pkg_lwt.syntax
+<lib/channel_helper.ml>: pkg_lwt.syntax

@@ -46,10 +46,10 @@ Library xcp_memory
   Modules:            Memory_interface, Memory_client
   BuildDepends:       xcp, threads, rpclib, rpclib.syntax
 
-Executable proxy
+Executable channel_helper
   CompiledObject:     best
   Path:               lib
-  MainIs:             proxy.ml
+  MainIs:             channel_helper.ml
   Custom:             true
   Install:            false
   BuildDepends:       xcp, lwt, lwt.unix, cmdliner
