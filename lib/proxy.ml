@@ -157,7 +157,7 @@ let connect_t common_options_t =
   let protocols = protocols_of_rpc (Jsonrpc.of_string advertisement) in
   let weight = function
   | TCP_proxy(_, _) -> 2
-  | Unix_sendmsg(domid, _, _) -> if my_domid = domid then 2 else 0
+  | Unix_sendmsg(domid, _, _) -> if my_domid = domid then 3 else 0
   | V4V_proxy(_, _) -> 0 in
   lwt protocol = match List.sort (fun a b -> compare (weight b) (weight a)) protocols with
   | [] ->
