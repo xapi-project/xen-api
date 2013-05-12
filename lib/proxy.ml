@@ -179,8 +179,7 @@ let connect_t common_options_t =
     Printf.fprintf stderr "Attempting to exchange a fd over %s\n%!" path;
     let s = Lwt_unix.socket Lwt_unix.PF_UNIX Lwt_unix.SOCK_STREAM 0 in
     lwt () = Lwt_unix.connect s (Lwt_unix.ADDR_UNIX path) in
-    let buffer = String.make (String.length token) '\000' in
-    let io_vector = Lwt_unix.io_vector ~buffer ~offset:0 ~length:(String.length buffer) in
+    let io_vector = Lwt_unix.io_vector ~buffer:token ~offset:0 ~length:(String.length token) in
     lwt _ = Lwt_unix.send_msg ~socket:s ~io_vectors:[io_vector] ~fds:[] in
     lwt _, fds = Lwt_unix.recv_msg ~socket:s ~io_vectors:[io_vector] in
     if fds = [] then begin
