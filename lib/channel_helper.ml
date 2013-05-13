@@ -154,38 +154,7 @@ let advertise_cmd =
 let connect_t common_options_t =
   lwt advertisement = match_lwt Lwt_io.read_line_opt Lwt_io.stdin with None -> return "" | Some x -> return x in
   let open Xcp_channel in
-  let protocols = protocols_of_rpc (Jsonrpc.of_string advertisement) in
-  let weight = function
-  | TCP_proxy(_, _) -> 2
-  | Unix_sendmsg(domid, _, _) -> if my_domid = domid then 3 else 0
-  | V4V_proxy(_, _) -> 0 in
-  lwt protocol = match List.sort (fun a b -> compare (weight b) (weight a)) protocols with
-  | [] ->
-    Printf.fprintf stderr "the advertisement included zero protocols\n";
-    fail No_useful_protocol
-  | best :: _ ->
-    if weight best = 0 then begin
-      Printf.fprintf stderr "none of the advertised protocols will work\n";
-      fail No_useful_protocol
-    end else return best in
-  lwt fd = match protocol with
-  | V4V_proxy(_, _) -> assert false (* weight is 0 above *)
-  | TCP_proxy(ip, port) ->
-    Printf.fprintf stderr "Attempting to connect to %s:%d\n%!" ip port;
-    let s = Lwt_unix.socket Lwt_unix.PF_INET Lwt_unix.SOCK_STREAM 0 in
-    lwt () = Lwt_unix.connect s (Lwt_unix.ADDR_INET(Unix.inet_addr_of_string ip, port)) in
-    return s
-  | Unix_sendmsg(_, path, token) ->
-    Printf.fprintf stderr "Attempting to exchange a fd over %s\n%!" path;
-    let s = Lwt_unix.socket Lwt_unix.PF_UNIX Lwt_unix.SOCK_STREAM 0 in
-    lwt () = Lwt_unix.connect s (Lwt_unix.ADDR_UNIX path) in
-    let io_vector = Lwt_unix.io_vector ~buffer:token ~offset:0 ~length:(String.length token) in
-    lwt _ = Lwt_unix.send_msg ~socket:s ~io_vectors:[io_vector] ~fds:[] in
-    lwt _, fds = Lwt_unix.recv_msg ~socket:s ~io_vectors:[io_vector] in
-    if fds = [] then begin
-      Printf.fprintf stderr "received no file descriptors in recv_msg\n";
-      fail Not_found
-    end else return (Lwt_unix.of_unix_file_descr (List.hd fds)) in
+  let fd = Lwt_unix.of_unix_file_descr (file_descr_of_t (t_of_rpc (Jsonrpc.of_string advertisement))) in
   let a = copy_all Lwt_unix.stdin fd in
   let b = copy_all fd Lwt_unix.stdout in
   Lwt.join [a; b] 
