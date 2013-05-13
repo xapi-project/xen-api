@@ -49,14 +49,18 @@ end
 
 module Connection = Protocol.Connection(IO)
 
+exception Timeout
+
 module Client = struct
 	type 'a response = {
 		mutable v: 'a option;
+		mutable timed_out: bool;
 		m: Mutex.t;
 		c: Condition.t;
 	}
 	let task () = {
 		v = None;
+		timed_out = false;
 		m = Mutex.create ();
 		c = Condition.create ();
 	}
@@ -75,15 +79,22 @@ module Client = struct
 				r.v <- Some x;
 				Condition.signal r.c
 			)
+	let timeout_later r =
+		with_lock r.m
+			(fun () ->
+				r.timed_out <- true;
+				Condition.signal r.c
+			)
 	let wait r =
 		with_lock r.m
 			(fun () ->
-				while r.v = None do
+				while r.v = None && not r.timed_out do
 					Condition.wait r.c r.m
 				done;
-				match r.v with
-				| None -> assert false
-				| Some x -> x
+				match r.v, r.timed_out with
+				| _, true -> raise Timeout
+				| Some x, _ -> x
+				| None, false -> assert false
 			)
 
 	type t = {
@@ -92,7 +103,7 @@ module Client = struct
 		requests_m: Mutex.t;
 		wakener: (int, Protocol.Message.t response) Hashtbl.t;
 		dest_queue_name: string;
-		reply_queue_name: string;
+		reply_queue_name: string; 
 	}
 
 	let rpc c frame = match Connection.rpc c frame with
@@ -107,6 +118,9 @@ module Client = struct
 		let (_: string) = rpc events_conn (In.Login token) in
 
 		let wakener = Hashtbl.create 10 in
+
+		Scheduler.start ();
+
 		let (_ : Thread.t) =
 			let rec loop from =
 				let timeout = 5. in
@@ -137,7 +151,7 @@ module Client = struct
 			reply_queue_name = reply_queue_name;
 		}
 
-	let rpc c x =
+	let rpc c ?timeout x =
 		let correlation_id = Protocol.fresh_correlation_id () in
 		let t = task () in
 		Hashtbl.add c.wakener correlation_id t;
@@ -146,8 +160,15 @@ module Client = struct
 			correlation_id;
 			reply_to = Some c.reply_queue_name
 		}) in
+		let timer = match timeout with
+		| Some timeout ->
+			Some (Scheduler.one_shot (Scheduler.Delta timeout) "rpc"
+				(fun () -> timeout_later t))
+		| None ->
+			None in
 		let (_: string) = rpc c.requests_conn msg in
 		let response = wait t in
+		begin match timer with Some x -> Scheduler.cancel x | None -> () end;
 		response.Message.payload
 end
 

@@ -31,7 +31,7 @@ Library message_switch_unix
   Path:               core
   Findlibparent:      message_switch
   Findlibname:        unix
-  Modules:            Protocol_unix
+  Modules:            Protocol_unix, Scheduler
   BuildDepends:       unix,threads,cohttp,rpclib,rpclib.json,rpclib.syntax,message_switch
 
 Executable m_cli

@@ -124,7 +124,7 @@ let string_of_ic ?end_marker ic =
     ""
   with End_of_file -> String.concat "\n" (List.rev !lines)
 
-let call common_options_t name body path =
+let call common_options_t name body path timeout =
   match name with
   | None -> `Error(true, "a queue name is required")
   | Some name ->
@@ -143,7 +143,7 @@ let call common_options_t name body path =
       txt in
 
     let c = Client.connect common_options_t.Common.port name in
-    let result = Client.rpc c txt in
+    let result = Client.rpc c ?timeout txt in
     print_endline result;
     `Ok ()
     end
@@ -163,8 +163,11 @@ let call_cmd =
   let path =
     let doc = "File containing request text to send to the remote service." in
     Arg.(value & opt (some file) None & info ["file"] ~docv:"FILE" ~doc) in
+  let timeout =
+    let doc = "Time to wait for a response before failing." in
+    Arg.(value & opt (some int) None & info ["timeout"] ~docv:"TIMEOUT" ~doc) in
 
-  Term.(ret(pure call $ common_options_t $ qname $ body $ path)), 
+  Term.(ret(pure call $ common_options_t $ qname $ body $ path $ timeout)), 
   Term.info "call" ~sdocs:_common_options ~doc ~man
 
 let serve common_options_t name program =
