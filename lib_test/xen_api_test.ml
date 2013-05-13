@@ -25,6 +25,8 @@ module Fake_IO = struct
 	let (>>=) t f = match t with
 		| T x -> f x
 
+	let (>>) m n = m >>= fun _ -> n
+
 	let rec iter f = function
 		| [] -> return ()
 		| x :: xs -> f x >>= fun () -> (iter f xs)
@@ -54,6 +56,13 @@ module Fake_IO = struct
 			String.blit chunk 0 buf off len;
 			true
 		end)
+
+	let read_exactly ic len =
+	  let buf = String.create len in
+	  read_exactly ic buf 0 len >>= function
+	  | true -> return (Some buf)
+	  | false -> return None
+
 
 	let write oc string = Queue.push string oc; return ()
 	

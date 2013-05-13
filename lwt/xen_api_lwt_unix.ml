@@ -20,6 +20,7 @@ module Lwt_unix_IO = struct
 	type 'a t = 'a Lwt.t
 	let (>>=) = Lwt.bind
 	let return = Lwt.return
+	let (>>) m n = m >>= fun _ -> n
 
 	type ic = (unit -> unit Lwt.t) * Lwt_io.input_channel
 	type oc = (unit -> unit Lwt.t) * Lwt_io.output_channel
@@ -35,6 +36,12 @@ module Lwt_unix_IO = struct
 	let read_exactly (_, ic) buf off len =
         try_lwt Lwt_io.read_into_exactly ic buf off len >> return true
 		with End_of_file -> return false
+
+	let read_exactly ic len =
+	  let buf = String.create len in
+	  read_exactly ic buf 0 len >>= function
+	  | true -> return (Some buf)
+	  | false -> return None
 
 	let write (_, oc) = Lwt_io.write oc
 
