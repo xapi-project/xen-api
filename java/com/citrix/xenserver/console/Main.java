@@ -63,6 +63,7 @@ public class Main {
 
         if ("true".equals(args[2])) {
             usessl = true;
+            port = 443;
         } else {
             usessl = false;
             port = Integer.parseInt(args[3]);
@@ -78,23 +79,14 @@ public class Main {
 
     public void connect() {
         try {
-            if (usessl) {
-                stream_.disconnect();
-                URL uri = new URL(path);
-                String uuid = auth;
-                RawHTTP http = new RawHTTP("CONNECT", uri.getHost(), 443, uri
-                        .getPath().concat("?").concat(uri.getQuery()), uuid,
-                        "https".equals(uri.getProtocol()), _listener, _console);
-                http.connect();
-                stream_.connect(http, new char[0]);
-            } else {
-                stream_.disconnect();
-                String password = auth;
-                int n = password.length();
-                char[] c = new char[n];
-                password.getChars(0, n, c, 0);
-                stream_.connectSocket(new Socket(path, port), c);
-            }
+            stream_.disconnect();
+            URL uri = new URL(path);
+            String uuid = auth;
+            RawHTTP http = new RawHTTP("CONNECT", uri.getHost(), port, 
+					uri.getPath().concat("?").concat(uri.getQuery()), uuid,
+                    "https".equals(uri.getProtocol()), _listener, _console);
+            http.connect();
+            stream_.connect(http, new char[0]);
         } catch (final Throwable t) {
             if (_listener != null) {
                 SwingUtilities.invokeLater(new Runnable() {
