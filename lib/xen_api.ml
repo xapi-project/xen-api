@@ -37,7 +37,7 @@ type ('a, 'b) result =
 	| Error of 'b
 
 module type IO = sig
-	include Cohttp.Make.IO
+	include Cohttp.IO.S
 
 	val close : (ic * oc) -> unit t
 
@@ -95,7 +95,7 @@ let counter = ref 0
 			"content-length", string_of_int (String.length body);
 			"connection", "keep-alive";
 		] in
-		let request = Request.make ~meth:`POST ~version:`HTTP_1_1 ~headers ~body t.uri in
+		let request = Request.make ~meth:`POST ~version:`HTTP_1_1 ~headers t.uri in
 		Request.write (fun req oc -> Request.write_body req oc body) request oc
 		>>= fun () ->
 		Response.read ic
@@ -104,8 +104,12 @@ let counter = ref 0
 				Printf.fprintf stderr "failed to read response\n%!";
 				return (Error No_response)
 			| Some response ->
-				Response.read_body_to_string response ic
+				Response.read_body_chunk response ic
 				>>= fun result ->
+			  let body = match result with 
+			      Cohttp.Transfer.Chunk body 
+			    | Cohttp.Transfer.Final_chunk body  -> body 
+			    | _ -> "" in
 (* for debugging --
 incr counter;
 let fd = Unix.openfile (Printf.sprintf "/tmp/response.%d.xml" !counter) [ Unix.O_WRONLY; Unix.O_CREAT ] 0o644 in
@@ -113,9 +117,9 @@ let (_: int) = Unix.write fd result 0 (String.length result) in
 Unix.close fd; *)
 				match Response.status response with
 					| `OK ->
-						return (Ok result)
+						return (Ok body)
 					| s ->
-						return (Error (Http_error(Cohttp.Code.code_of_status s, result)))
+					  return (Error (Http_error(Cohttp.Code.code_of_status s, body)))
 
 	let retry timeout delay_between_attempts is_finished f =
 		let start = gettimeofday () in
