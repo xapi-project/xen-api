@@ -26,16 +26,35 @@ let rpc_of_t fd =
   (* Advertise the fd's availability over a list of protocols *)
   rpc_of_protocols (export fd)
 
+let my_domid = 0 (* TODO *)
+
 let t_of_rpc x =
   let protocols = protocols_of_rpc x in
   (* Choose the best transport mechanism from the list of options *)
-  try
-    match List.find (function TCP_proxy(_, _)-> true | _ -> false) protocols with
-    | TCP_proxy(ip, port) ->
-      let s = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
-      Unix.connect s (Unix.ADDR_INET(Unix.inet_addr_of_string ip, port));
-      s
-    | _ -> assert false
-  with Not_found ->
+  let weight = function
+  | TCP_proxy(_, _) -> 2
+  | Unix_sendmsg(domid, _, _) -> if my_domid = domid then 3 else 0
+  | V4V_proxy(_, _) -> 0 in
+  let protocol = match List.sort (fun a b -> compare (weight b) (weight a)) protocols with
+  | [] ->
+    Printf.fprintf stderr "the advertisement included zero protocols\n";
     raise Channel_setup_failed
-
+  | best :: _ ->
+    if weight best = 0 then begin
+      Printf.fprintf stderr "none of the advertised protocols will work\n";
+      raise Channel_setup_failed
+    end else best in
+  match protocol with
+  | V4V_proxy(_, _) -> assert false (* weight is 0 above *)
+  | TCP_proxy(ip, port) ->
+    Printf.fprintf stderr "Attempting to connect to %s:%d\n%!" ip port;
+    let s = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
+    Unix.connect s (Unix.ADDR_INET(Unix.inet_addr_of_string ip, port));
+    s
+  | Unix_sendmsg(_, path, token) ->
+    Printf.fprintf stderr "Attempting to exchange a fd over %s\n%!" path;
+    let s = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
+    Unix.connect s (Unix.ADDR_UNIX path);
+    let (_: int) = Unix.send s token 0 (String.length token) [] in
+    let (_, _, fd) = Fd_send_recv.recv_fd s token 0 (String.length token) [] in
+    fd
