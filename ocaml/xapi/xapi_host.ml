@@ -243,6 +243,12 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
 						true
 					with (Api_errors.Server_error (code, params)) -> Hashtbl.replace plans vm (Error (code, params)); false
 				end) protected_vms in
+			(* Check for VMs that have VDI's using IntelliCache *)
+			List.iter
+				(fun (vm, _) ->
+					if (Xapi_vm_lifecycle.get_operation_error ~__context ~self:vm ~op:`pool_migrate) then
+						Hashtbl.replace plans vm(Error (Api_errors.vdi_on_boot_mode_incompatable_with_operation, [ Ref.string_of vm ])))
+						all_user_vms;
 
 			(* Check for the presence of PV drivers that support migration. *)
 			List.iter
