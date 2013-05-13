@@ -17,7 +17,7 @@ type protocols = protocol list with rpc
 let int_of_file_descr (fd: Unix.file_descr) : int = Obj.magic fd
 
 let export fd =
-  let ic = Unix.open_process_in (Printf.sprintf "%s -proxy %d" !Xcp_service.channel_helper (int_of_file_descr fd)) in
+  let ic = Unix.open_process_in (Printf.sprintf "%s advertise %d" !Xcp_service.channel_helper (int_of_file_descr fd)) in
   let json = input_line ic in
   close_in ic;
   protocols_of_rpc (Jsonrpc.of_string json)
