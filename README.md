@@ -54,8 +54,43 @@ Use the diagnostics command to see the message has been removed:
 Low-level protocol
 ==================
 
+(I'd like to improve this, if you have any ideas then let me know)
+
+The low-level protocol is currently using HTTP. Clients make the following
+requests:
+
+  * Login <client identifier>: allows the switch to associate the socket
+    with a single client. When the last socket is closed resources associated
+    with the client are deallocated.
+  * Create <Some name>: creates a persistent queue with name <name>
+  * Create <None>: creates a queue with a fresh name which will be deallocated
+    when the last connection opened by the client closes. These queues are
+    created temporarily for RPC replies.
+  * Send <string, Message.t>: enqueue a message in a particular queue
+  * Ack <message id>: signal that a message has been processed and may be
+    deleted
+  * Subscribe <name>: subscribe to new messages in a named queue
+  * Transfer <id, timeout>: blocking poll for new messages in subscribed queues
+ 
 The RPC pattern
 ===============
 
+A client will:
+
+  * Login <some client id>
+  * reply_to <- Create <None> (used for the RPC reply)
+  * Subscribe <reply_to>
+  * Create <service name> (in case it doesn't exist)
+  * Send <payload, service name>
+  * repeatedly poll <Transfer> until a reply turns up
+
+The server will:
+
+  * Login <some client id>
+  * Create <service name> (in case it doesn't exist)
+  * Subscribe <service name>
+  * repeatedly poll <Transfer> until a request turns up
+  * process a request, Send <reply, reply_to>
+  * Ack <message id> to mark the message as processed and delete it
 
 
