@@ -211,7 +211,9 @@ module Debug_print_impl = struct
 		let destroy context ~dbg ~sr =
 			info "SR.destroy sr:%s" sr;
 			fail_if_anything_leaked ()
-
+		let update_snapshot_info context ~dbg ~sr ~vdi
+				~url ~dest ~dest_vdi ~snapshot_pairs =
+			assert false
 	end
 
 	module Policy = struct
