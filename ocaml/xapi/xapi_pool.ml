@@ -1076,47 +1076,57 @@ let create_VLAN ~__context ~device ~network ~vLAN =
    explicitly instead of a device name we ensure that this call works for creating VLANs on bonds across pools..
 *)
 let create_VLAN_from_PIF ~__context ~pif ~network ~vLAN =
-  (* Destroy the list of VLANs, best-effort *)
-  let safe_destroy_VLANs ~__context vlans =
-    Helpers.call_api_functions ~__context
-      (fun rpc session_id ->
-	 List.iter 
-	   (fun vlan -> try Client.VLAN.destroy rpc session_id vlan with _ -> ()) vlans) in
-  (* Read the network that the pif is attached to; get the list of all pifs on that network
-     -- that'll be the pif for each host that we want to make the vlan on. Then go and make
-     the vlan on all these pifs. Then attempt to do a best-effort plug of the newly created pifs
-     in order to satisfy ca-22381 *)
-  let network_to_get_pifs_from = Db.PIF.get_network ~__context ~self:pif in
-  let pifs_on_network = Db.Network.get_PIFs ~__context ~self:network_to_get_pifs_from in
-  let pifs_on_live_hosts =
-    List.filter (fun p -> 
-      let h = Db.PIF.get_host ~__context ~self:p in
-      Db.Host.get_enabled ~__context ~self:h = true
-    ) pifs_on_network in
-  (* Keep track of what we've created *)
-  let created = ref [] in
-  Helpers.call_api_functions ~__context
-    (fun rpc session_id ->
-       let vlans =
-	 List.map
-	   (fun pif ->
-	      try
-		let vlan = Client.VLAN.create rpc session_id pif vLAN network in
-		created := vlan :: !created;
-		vlan
-	      with
-	      | e ->
-		  (* Any error and we'll clean up and exit *)
-		  safe_destroy_VLANs ~__context !created;
-		  raise e
-	   )
-	   pifs_on_live_hosts in
-       let vlan_pifs = List.map (fun vlan -> Db.VLAN.get_untagged_PIF ~__context ~self:vlan) vlans in
-       (* CA-22381: best-effort plug of the newly-created VLAN PIFs. Note if any of these calls fail
-	  then nothing is rolled-back and the system will be left with some unplugged VLAN PIFs, which may
-	  confuse the HA agility calculation (but nothing else since everything else can plug on demand) *)
-       List.iter (fun pif -> Helpers.log_exn_continue (Printf.sprintf "Plugging VLAN PIF %s" (Ref.string_of pif)) (fun () -> Client.PIF.plug rpc session_id pif) ()) vlan_pifs;
-       vlan_pifs)
+	(* Destroy the list of VLANs, best-effort *)
+	let safe_destroy_VLANs ~__context vlans =
+		Helpers.call_api_functions ~__context
+			(fun rpc session_id ->
+				List.iter
+					(fun vlan ->
+						try Client.VLAN.destroy rpc session_id vlan
+						with _ -> ()
+					) vlans
+			) in
+	(* Read the network that the pif is attached to; get the list of all pifs on that network
+	   -- that'll be the pif for each host that we want to make the vlan on. Then go and make
+	   the vlan on all these pifs. Then attempt to do a best-effort plug of the newly created pifs
+	   in order to satisfy ca-22381 *)
+	let network_to_get_pifs_from = Db.PIF.get_network ~__context ~self:pif in
+	let pifs_on_network = Db.Network.get_PIFs ~__context ~self:network_to_get_pifs_from in
+	let pifs_on_live_hosts =
+		List.filter
+			(fun p ->
+				let h = Db.PIF.get_host ~__context ~self:p in
+				Db.Host.get_enabled ~__context ~self:h = true
+			) pifs_on_network in
+	(* Keep track of what we've created *)
+	let created = ref [] in
+	Helpers.call_api_functions ~__context
+		(fun rpc session_id ->
+			let vlans =
+				List.map
+					(fun pif ->
+						try
+							let vlan = Client.VLAN.create rpc session_id pif vLAN network in
+							created := vlan :: !created;
+							vlan
+						with
+						| e ->
+							(* Any error and we'll clean up and exit *)
+							safe_destroy_VLANs ~__context !created;
+							raise e
+					) pifs_on_live_hosts in
+			let vlan_pifs = List.map (fun vlan -> Db.VLAN.get_untagged_PIF ~__context ~self:vlan) vlans in
+			(* CA-22381: best-effort plug of the newly-created VLAN PIFs. Note if any of these calls fail
+			   then nothing is rolled-back and the system will be left with some unplugged VLAN PIFs, which may
+			   confuse the HA agility calculation (but nothing else since everything else can plug on demand) *)
+			List.iter
+				(fun pif ->
+					Helpers.log_exn_continue
+						(Printf.sprintf "Plugging VLAN PIF %s" (Ref.string_of pif))
+						(fun () -> Client.PIF.plug rpc session_id pif) ()
+				) vlan_pifs;
+			vlan_pifs
+		)
 
 let slave_network_report ~__context ~phydevs ~dev_to_mac ~dev_to_mtu ~slave_host =
   []
