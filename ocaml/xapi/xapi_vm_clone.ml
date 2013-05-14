@@ -16,6 +16,8 @@
  *)
 open Client
 open Pervasiveext
+open Event_types
+open Fun
 
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
@@ -62,32 +64,26 @@ let wait_for_subtask ?progress_minmax ~__context task =
 		if List.exists (fun (_,x) -> x = `cancel) current_ops then cancel_task()
 	in
 
-	let register () =
-		debug "Listening for events relating to tasks %s and %s" (Ref.string_of task) (Ref.string_of main_task);
-		Client.Event.register rpc session ["task"];
-		(* Check for the initial state before entering the event-wait loop in case the task has already finished *)
-		process_copy_task (Client.Task.get_record rpc session task);
-		process_main_task (Client.Task.get_record rpc session main_task);
-	in
-	register();
+	(* Check for the initial state before entering the event-wait loop
+	   in case the task has already finished *)
+	process_copy_task (Client.Task.get_record rpc session task);
+	process_main_task (Client.Task.get_record rpc session main_task);
+
+	let token = ref "" in
 
 	(* Watch for events relating to the VDI copy sub-task and the over-arching task *)
 	while not !finished do
-		try
-			let xml = Client.Event.next rpc session in
-			let events = Event_types.events_of_xmlrpc xml in
-			refresh_session ();
-			let checkevent ev =
-				match Event_helper.record_of_event ev with
-				| Event_helper.Task (r, Some x) ->
-					if r=task then process_copy_task x
-					else if r=main_task then process_main_task x
-				| _ -> () (* received an irrelevant event *)
-			in
-			List.iter checkevent events
-		with Api_errors.Server_error("EVENTS_LOST",_) ->
-			debug "Events were lost; re-registering...";
-			register()
+		let events = Client.Event.from rpc session ["task"] !token 1. |> Event_types.event_from_of_xmlrpc in
+		token := events.token;
+		refresh_session ();
+		let checkevent ev =
+			match Event_helper.record_of_event ev with
+			  | Event_helper.Task (r, Some x) ->
+				  if r=task then process_copy_task x
+				  else if r=main_task then process_main_task x
+			  | _ -> () (* received an irrelevant event *)
+		in
+		List.iter checkevent events.events
 	done;
 	debug "Finished listening for events relating to tasks %s and %s" (Ref.string_of task) (Ref.string_of main_task);
 
