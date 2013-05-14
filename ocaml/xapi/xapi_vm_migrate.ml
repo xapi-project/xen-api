@@ -387,8 +387,6 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		let snapshots_map = List.map vdi_copy_fun snapshots_vdis in
 		let vdi_map = List.map vdi_copy_fun vdis in
 
-		(* Move the xapi VM metadata *)
-
 		let xenops_vdi_map = List.map (fun (_, mirror_record) -> (mirror_record.mr_local_xenops_locator, mirror_record.mr_remote_xenops_locator)) (snapshots_map @ vdi_map) in
 		
 		(* Wait for delay fist to disappear *)
@@ -416,7 +414,11 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 					intra_pool_fix_suspend_sr ~__context (Ref.of_string dest_host) vm')
 				vm_and_snapshots
 		end
-		else inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address ~vm ~vdi_map:(snapshots_map @ vdi_map) ~vif_map ~dry_run:false ~live:true;
+		else
+			(* Move the xapi VM metadata to the remote pool. *)
+			inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id
+				~remote_address ~vm ~vdi_map:(snapshots_map @ vdi_map)
+				~vif_map ~dry_run:false ~live:true;
 
 		if Xapi_fist.pause_storage_migrate2 () then begin
 			TaskHelper.add_to_other_config ~__context "fist" "pause_storage_migrate2";
