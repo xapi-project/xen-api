@@ -21,54 +21,59 @@ RPC clients and servers. Other patterns (e.g. for pub/sub) could be added.
 Quick Start
 ===========
 
-  $ git clone git://github.com/djs55/message-switch
-  $ cd message-switch
-  $ make
+    $ git clone git://github.com/djs55/message-switch
+    $ cd message-switch
+    $ make
 
 Run the server (by default it will bind to 127.0.0.1:8080)
 
-  $ ./switch.native 
+    $ ./switch.native 
 
 Use the CLI to list the available queues (there will be none):
 
-  $ ./main.native list
+    $ ./main.native list
 
 Use the CLI to execute an RPC against a service with queue name "foo" (this will block):
 
-  $ ./main.native call foo --body hello
+    $ ./main.native call foo --body hello
 
 Use the diagnostics command to see the queued message:
 
-  $ ./main.native diagnostics
+    $ ./main.native diagnostics
 
 Use the CLI to start an RPC server servicing the queue name "foo"
 
-  $ ./main.native serve foo --program /bin/cat
+    $ ./main.native serve foo --program /bin/cat
 
 At this point the original RPC call will unblock and print "hello".
 
 Use the diagnostics command to see the message has been removed:
 
-  $ ./main.native diagnostics
+    $ ./main.native diagnostics
 
 Low-level protocol
 ==================
 
 (I'd like to improve this, if you have any ideas then let me know)
 
-The low-level protocol is currently using HTTP. Clients make the following
-requests:
+The low-level protocol is currently using HTTP. Perhaps in future we should
+use something a bit quicker: a binary protocol using ZeroMQ? Clients make the
+following requests:
 
   * Login <client identifier>: allows the switch to associate the socket
     with a single client. When the last socket is closed resources associated
-    with the client are deallocated.
+    with the client are deallocated. I'm currently using a Unix PID as an
+    identifier.
   * Create <Some name>: creates a persistent queue with name <name>
   * Create <None>: creates a queue with a fresh name which will be deallocated
     when the last connection opened by the client closes. These queues are
-    created temporarily for RPC replies.
+    created temporarily for RPC replies, the idea being that a client that
+    has closed all connections has given up waiting for the reply and so
+    the queue is not needed.
   * Send <string, Message.t>: enqueue a message in a particular queue
-  * Ack <message id>: signal that a message has been processed and may be
-    deleted
+  * Ack <message id>: signal that a message has been processed and should be
+    deleted. A service should presumably only Ack a message once it has committed
+    its effects to disk.
   * Subscribe <name>: subscribe to new messages in a named queue
   * Transfer <id, timeout>: blocking poll for new messages in subscribed queues
  
