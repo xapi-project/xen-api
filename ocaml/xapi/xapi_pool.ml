@@ -1092,12 +1092,12 @@ let create_VLAN_from_PIF ~__context ~pif ~network ~vLAN =
 	   in order to satisfy ca-22381 *)
 	let network_to_get_pifs_from = Db.PIF.get_network ~__context ~self:pif in
 	let pifs_on_network = Db.Network.get_PIFs ~__context ~self:network_to_get_pifs_from in
-	let pifs_on_live_hosts =
-		List.filter
-			(fun p ->
-				let h = Db.PIF.get_host ~__context ~self:p in
-				Db.Host.get_enabled ~__context ~self:h = true
-			) pifs_on_network in
+	let is_host_live pif =
+		let h = Db.PIF.get_host ~__context ~self:pif in
+		let host_metric = Db.Host.get_metrics ~__context ~self:h in
+		Db.Host_metrics.get_live ~__context ~self:host_metric in
+	let pifs_on_live_hosts = List.filter is_host_live pifs_on_network in
+
 	(* Keep track of what we've created *)
 	let created = ref [] in
 	Helpers.call_api_functions ~__context
