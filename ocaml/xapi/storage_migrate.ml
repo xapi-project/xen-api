@@ -668,3 +668,41 @@ let copy ~dbg ~sr ~vdi ~dp ~url ~dest =
 
 let copy_into ~dbg ~sr ~vdi ~url ~dest ~dest_vdi = 
 	wrap ~dbg (fun task -> copy_into ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi)
+
+let update_snapshot_info ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~snapshot_pairs =
+	let remote_url = Http.Url.of_string url in
+	let module Remote =
+		Client(struct
+			let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url
+		end)
+	in
+	let local_vdis = Local.SR.scan ~dbg ~sr in
+	let remote_vdis = Remote.SR.scan ~dbg ~sr:dest in
+	let find_vdi ~vdi ~vdi_info_list =
+		try List.find (fun x -> x.vdi = vdi) vdi_info_list
+		with Not_found -> raise (Vdi_does_not_exist vdi)
+	in
+	let assert_content_ids_match ~vdi_info1 ~vdi_info2 =
+		if vdi_info1.content_id <> vdi_info2.content_id
+		then raise (Content_ids_do_not_match (vdi_info1.vdi, vdi_info2.vdi))
+	in
+	(* For each (local snapshot vdi, remote snapshot vdi) pair:
+	 * - Check that the content_ids are the same
+	 * - Copy snapshot_time from the local VDI to the remote VDI
+	 * - Set the remote VDI's snapshot_of to dest_vdi
+	 * - Set is_a_snapshot = true for the remote snapshot *)
+	let remote_vdi_info = find_vdi ~vdi:dest_vdi ~vdi_info_list:remote_vdis in
+	List.iter
+		(fun (local_snapshot, remote_snapshot) ->
+			let local_snapshot_info =
+				find_vdi ~vdi:local_snapshot ~vdi_info_list:local_vdis in
+			let remote_snapshot_info =
+				find_vdi ~vdi:remote_snapshot ~vdi_info_list:remote_vdis in
+			assert_content_ids_match local_snapshot_info remote_snapshot_info;
+			Remote.VDI.set_snapshot_time ~dbg ~sr:dest
+				~vdi:remote_snapshot ~snapshot_time:local_snapshot_info.snapshot_time;
+			Remote.VDI.set_snapshot_of ~dbg ~sr:dest
+				~vdi:remote_snapshot ~snapshot_of:remote_vdi_info.vdi;
+			Remote.VDI.set_is_a_snapshot ~dbg ~sr:dest
+				~vdi:remote_snapshot ~is_a_snapshot:true)
+		snapshot_pairs
