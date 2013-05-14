@@ -126,7 +126,7 @@ module Client = struct
 
 		let wakener = Hashtbl.create 10 in
 
-		Scheduler.start ();
+		Protocol_unix_scheduler.start ();
 
 		let (_ : Thread.t) =
 			let rec loop from =
@@ -169,13 +169,13 @@ module Client = struct
 		}) in
 		let timer = match timeout with
 		| Some timeout ->
-			Some (Scheduler.one_shot (Scheduler.Delta timeout) "rpc"
-				(fun () -> timeout_later t))
+			Some (Protocol_unix_scheduler.(one_shot (Delta timeout) "rpc"
+				(fun () -> timeout_later t)))
 		| None ->
 			None in
 		let (_: string) = rpc c.requests_conn msg in
 		let response = wait t in
-		begin match timer with Some x -> Scheduler.cancel x | None -> () end;
+		begin match timer with Some x -> Protocol_unix_scheduler.cancel x | None -> () end;
 		response.Message.payload
 end
 
