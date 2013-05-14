@@ -47,6 +47,15 @@ let help = [
 
 (* Commands *)
 
+let diagnostics common_opts =
+  let c = IO.connect common_opts.Common.port in
+  let _ = Connection.rpc c (In.Login (Protocol_unix.whoami ())) in
+  match Connection.rpc c In.Diagnostics with
+  | Error e -> `Error(true, Printexc.to_string e)
+  | Ok raw ->
+    print_endline raw;
+    `Ok ()
+
 let list common_opts prefix =
   let c = IO.connect common_opts.Common.port in
   let _ = Connection.rpc c (In.Login (Protocol_unix.whoami ())) in
@@ -91,6 +100,15 @@ let dump common_opts =
           end;
     done;
     `Ok ()
+
+let diagnostics_cmd =
+  let doc = "dump the current switch state" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Dumps the current switch state for diagnostic purposes.";
+  ] @ help in
+  Term.(ret(pure diagnostics $ common_options_t)),
+  Term.info "diagnostics" ~sdocs:_common_options ~doc ~man
 
 let list_cmd =
   let doc = "list the currently-known queues" in
@@ -214,7 +232,7 @@ let default_cmd =
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
   Term.info "m-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
        
-let cmds = [list_cmd; dump_cmd; call_cmd; serve_cmd]
+let cmds = [list_cmd; dump_cmd; call_cmd; serve_cmd; diagnostics_cmd]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
