@@ -123,8 +123,10 @@ let pool_migrate_complete ~__context ~vm ~host =
 type mirror_record = {
 	mr_mirrored : bool;
 	mr_dp : Storage_interface.dp;
-	mr_vdi : Storage_interface.vdi;
-	mr_sr : Storage_interface.sr;
+	mr_local_sr : Storage_interface.sr;
+	mr_local_vdi : Storage_interface.vdi;
+	mr_remote_sr : Storage_interface.sr;
+	mr_remote_vdi : Storage_interface.vdi;
 	mr_local_xenops_locator : string;
 	mr_remote_xenops_locator : string;
 	mr_remote_vdi_reference : API.ref_VDI;
@@ -391,8 +393,10 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			in
 				(vdi, { mr_dp = newdp;
 								mr_mirrored = mirror;
-								mr_vdi = location;
-								mr_sr = sr;
+								mr_local_sr = sr;
+								mr_local_vdi = location;
+								mr_remote_sr = dest_sr;
+								mr_remote_vdi = remote_vdi;
 								mr_local_xenops_locator = xenops_locator;
 								mr_remote_xenops_locator = Xapi_xenops.xenops_vdi_locator_of_strings dest_sr remote_vdi;
 								mr_remote_vdi_reference = remote_vdi_reference; }) in
