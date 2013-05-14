@@ -25,6 +25,7 @@ module Unbuffered_IO = struct
   type 'a t = 'a
 
   let (>>=) x f = f x
+  let (>>) m n = m >>= fun _ -> n
 
   let return x = x
 
@@ -92,10 +93,16 @@ module Unbuffered_IO = struct
   | Some _, _ ->
     Some ""
 
-  let rec read_exactly ic buf ofs len =
+  let rec read_into_exactly ic buf ofs len =
     let n = Unix.read ic.fd buf ofs len in
     let remaining = len - n in
-    remaining = 0 || (n > 0 && (read_exactly ic buf (ofs + n) (len - n)))
+    remaining = 0 || (n > 0 && (read_into_exactly ic buf (ofs + n) (len - n)))
+
+  let read_exactly ic len =
+    let buf = String.create len in
+    read_into_exactly ic buf 0 len >>= function
+    | true -> return (Some buf)
+    | false -> return None
 
   let read ic n =
     let buf = String.make n '\000' in
@@ -140,6 +147,7 @@ module Buffered_IO = struct
   type 'a t = 'a
 
   let (>>=) x f = f x
+  let (>>) m n = m >>= fun _ -> n
 
   let return x = x
 
@@ -156,7 +164,13 @@ module Buffered_IO = struct
       | x -> x)
     with End_of_file -> None
 
-  let read_exactly ic buf ofs len = try really_input ic buf ofs len; true with _ -> false
+  let read_into_exactly ic buf ofs len = try really_input ic buf ofs len; true with _ -> false
+
+  let read_exactly ic len =
+    let buf = String.create len in
+    read_into_exactly ic buf 0 len >>= function
+    | true -> return (Some buf)
+    | false -> return None
 
   let read ic n =
     let buf = String.make n '\000' in

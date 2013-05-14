@@ -42,7 +42,7 @@ let http_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset
 		| None -> headers in
 	
 
-	let http_req = Request.make ~meth:`POST ~version:`HTTP_1_1 ~headers ~body:req uri in
+	let http_req = Request.make ~meth:`POST ~version:`HTTP_1_1 ~headers uri in
 
 	Cohttp_posix_io.Buffered_IO.open_uri uri
 		(fun ic oc ->
@@ -52,7 +52,10 @@ let http_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset
 				| Some t ->
 					begin match Response.status t with
 						| `OK ->
-							let body = Response.read_body_to_string t ic in
+							let body = match Response.read_body_chunk t ic with
+							| Cohttp.Transfer.Chunk body
+							| Cohttp.Transfer.Final_chunk body -> body
+							| _ -> "" in
 							response_of_string body
 						| bad -> failwith (Printf.sprintf "Unexpected HTTP response code: %s" (Cohttp.Code.string_of_status bad))
 					end
