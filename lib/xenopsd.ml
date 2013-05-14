@@ -48,55 +48,6 @@ let json_path () = path () ^ ".json"
 
 module Server = Xenops_interface.Server(Xenops_server)
 
-(* Normal HTTP POST and GET *)
-let http_handler s (context: Xenops_server.context) =
-	let ic = Unix.in_channel_of_descr s in
-	let oc = Unix.out_channel_of_descr s in
-	let module Request = Cohttp.Request.Make(Cohttp_posix_io.Buffered_IO) in
-	let module Response = Cohttp.Response.Make(Cohttp_posix_io.Buffered_IO) in
-	match Request.read ic with
-		| None ->
-			debug "Failed to read HTTP request"
-		| Some req ->
-			begin match Request.meth req, Uri.path (Request.uri req) with
-				| `GET, "/" ->
-					let response_txt = "<html><body>Hello there</body></html>" in
-					let headers = Cohttp.Header.of_list [
-						"user-agent", "xenopsd";
-						"content-length", string_of_int (String.length response_txt)
-					] in
-					let response = Response.make ~version:`HTTP_1_1 ~status:`OK ~headers () in
-					Response.write (fun t oc -> Response.write_body t oc response_txt) response oc
-				| `POST, "/" ->
-					begin match Request.header req "content-length" with
-						| None ->
-							debug "Failed to read content-length"
-						| Some content_length ->
-							let content_length = int_of_string content_length in
-							let request_txt = String.make content_length '\000' in
-							really_input ic request_txt 0 content_length;
-							let rpc_call = Jsonrpc.call_of_string request_txt in
-							let rpc_response = Server.process context rpc_call in
-							let response_txt = Jsonrpc.string_of_response rpc_response in
-							let headers = Cohttp.Header.of_list [
-								"user-agent", "xenopsd";
-								"content-length", string_of_int (String.length response_txt)
-							] in
-							let response = Response.make ~version:`HTTP_1_1 ~status:`OK ~headers () in
-							Response.write (fun t oc -> Response.write_body t oc response_txt) response oc
-					end
-				| _, _ ->
-					let headers = Cohttp.Header.of_list [
-						"user-agent", "xenopsd";
-					] in
-					let response = Response.make ~version:`HTTP_1_1 ~status:`Not_found ~headers () in
-					Response.write (fun t oc -> ()) response oc
-			end
-
-let raw_fn s =
-	let context = { Xenops_server.transferred_fd = None } in
-	http_handler s context
-
 let rpc_fn call =
 	let context = { Xenops_server.transferred_fd = None } in
 	Server.process context call
@@ -149,8 +100,8 @@ let main backend =
 	let json_server = Xcp_service.make
 		~path:(json_path ())
 		~queue_name:!Xenops_interface.queue_name
-		~raw_fn
-		~rpc_fn in
+		~rpc_fn
+	        () in
 
 	Xcp_service.maybe_daemonize ();
 
