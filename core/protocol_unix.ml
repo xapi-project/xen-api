@@ -7,6 +7,8 @@ let whoami () = Printf.sprintf "%s:%d"
 module IO = struct
 	type 'a t = 'a
 	let ( >>= ) a f = f a
+	let (>>) m n = m >>= fun _ -> n
+
 	let return a = a
 
 	let iter = List.iter
@@ -22,10 +24,15 @@ module IO = struct
 			Some line
 		with _ -> None
 
-	let read_exactly ic buf ofs len =
+	let read_into_exactly ic buf ofs len =
 		try
 			really_input ic buf ofs len; true
 		with _ -> false
+	let read_exactly ic len =
+		let buf = String.create len in
+		read_into_exactly ic buf 0 len >>= function
+		| true -> return (Some buf)
+		| false -> return None
 
 	let read ic n =
 		let buf = String.make n '\000' in

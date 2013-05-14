@@ -161,7 +161,7 @@ type ('a, 'b) result =
 | Ok of 'a
 | Error of 'b
 
-module Connection = functor(IO: Cohttp.Make.IO) -> struct
+module Connection = functor(IO: Cohttp.IO.S) -> struct
 	open IO
 	module Request = Cohttp.Request.Make(IO)
 	module Response = Cohttp.Response.Make(IO)
@@ -170,7 +170,7 @@ module Connection = functor(IO: Cohttp.Make.IO) -> struct
 		let b, meth, uri = In.to_request frame in
 		let body = match b with None -> "" | Some x -> x in
 		let headers = In.headers body in
-		let req = Request.make ~meth ~headers ~body uri in
+		let req = Request.make ~meth ~headers uri in
 		Request.write (fun req oc -> match b with
 		| Some body ->
 			Request.write_body req oc body
@@ -184,7 +184,7 @@ module Connection = functor(IO: Cohttp.Make.IO) -> struct
 				(* Response.write (fun _ _ -> return ()) response Lwt_io.stderr >>= fun () -> *)
 				return (Error Unsuccessful_response)
 			end else begin
-				Response.read_body response ic >>= function
+				Response.read_body_chunk response ic >>= function
 				| Transfer.Final_chunk x -> return (Ok x)
 				| Transfer.Chunk x -> return (Ok x)
 				| Transfer.Done -> return (Ok "")
@@ -194,7 +194,7 @@ module Connection = functor(IO: Cohttp.Make.IO) -> struct
 			return (Error Failed_to_read_response)
 end
 
-module Server = functor(IO: Cohttp.Make.IO) -> struct
+module Server = functor(IO: Cohttp.IO.S) -> struct
 
 	module Connection = Connection(IO)
 

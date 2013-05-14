@@ -92,11 +92,11 @@ exception Failed_to_read_response
 
 exception Unsuccessful_response
 
-module Connection(IO: Cohttp.Make.IO) : sig
+module Connection(IO: Cohttp.IO.S) : sig
 	val rpc: (IO.ic * IO.oc) -> In.t -> (string, exn) result IO.t
 end
 
-module Server(IO: Cohttp.Make.IO) : sig
+module Server(IO: Cohttp.IO.S) : sig
 	val listen: (string -> string IO.t) -> (IO.ic * IO.oc) -> string -> unit IO.t
 end
 

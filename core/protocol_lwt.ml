@@ -9,6 +9,7 @@ let whoami () = Printf.sprintf "%s:%d"
 module IO = struct
 	type 'a t = 'a Lwt.t
 	let ( >>= ) = Lwt.bind
+	let (>>) m n = m >>= fun _ -> n
 	let return = Lwt.return
 
 	type ic = Lwt_io.input Lwt_io.channel
@@ -20,11 +21,17 @@ module IO = struct
 	let read ic count =
 		try_lwt Lwt_io.read ~count ic
 		with End_of_file -> return ""
-	let read_exactly ic buf off len =
+	let read_into_exactly ic buf off len =
 		try_lwt
 			lwt () = Lwt_io.read_into_exactly ic buf off len in
 			return true
 		with End_of_file -> return false
+	let read_exactly ic len =
+		let buf = String.create len in
+		read_into_exactly ic buf 0 len >>= function
+		| true -> return (Some buf)
+		| false -> return None
+
 	let write = Lwt_io.write
 	let write_line = Lwt_io.write_line
 
