@@ -73,7 +73,10 @@ let wait_for_subtask ?progress_minmax ~__context task =
 
 	(* Watch for events relating to the VDI copy sub-task and the over-arching task *)
 	while not !finished do
-		let events = Client.Event.from rpc session ["task"] !token 1. |> Event_types.event_from_of_xmlrpc in
+		let events = Client.Event.from rpc session
+			[Printf.sprintf "task/%s" (Ref.string_of task);
+			 Printf.sprintf "task/%s" (Ref.string_of main_task)]
+			!token 30. |> Event_types.event_from_of_xmlrpc in
 		token := events.token;
 		refresh_session ();
 		let checkevent ev =
