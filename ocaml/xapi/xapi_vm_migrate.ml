@@ -191,6 +191,56 @@ let inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_addr
 				(fun (vif, _) -> Db.VIF.remove_from_other_config ~__context ~self:vif ~key:Constants.storage_migrate_vif_map_key)
 				vif_map)
 
+module VDIMap = Map.Make(struct type t = API.ref_VDI let compare = compare end)
+let update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map =
+	(* Construct a map of type:
+	 *   API.ref_VDI -> (mirror_record, (API.ref_VDI * mirror_record) list)
+	 *
+	 * Each VDI is mapped to its own mirror record, as well as a list of
+	 * all its snapshots and their mirror records. *)
+	let empty_vdi_map =
+		(* Add the VDIs to the map along with empty lists of snapshots. *)
+		List.fold_left
+			(fun acc (vdi_ref, mirror) -> VDIMap.add vdi_ref (mirror, []) acc)
+			VDIMap.empty vdi_map
+	in
+	let vdi_to_snapshots_map =
+		(* Add the snapshots to the map. *)
+		List.fold_left
+			(fun acc (snapshot_ref, snapshot_mirror) ->
+				let snapshot_of = Db.VDI.get_snapshot_of ~__context ~self:snapshot_ref in
+				try
+					let (mirror, snapshots) = VDIMap.find snapshot_of acc in
+					VDIMap.add
+						snapshot_of
+						(mirror, (snapshot_ref, snapshot_mirror) :: snapshots)
+						acc
+				with Not_found -> begin
+					warn
+						"Snapshot %s is in the snapshot_map; corresponding VDI %s is not in the vdi_map"
+						(Ref.string_of snapshot_ref) (Ref.string_of snapshot_of);
+					acc
+				end)
+			empty_vdi_map snapshots_map
+	in
+	(* Build the snapshot chain for each leaf VDI. *)
+	VDIMap.iter
+		(fun vdi_ref (mirror, snapshots) ->
+			let sr = mirror.mr_local_sr in
+			let vdi = mirror.mr_local_vdi in
+			let dest = mirror.mr_remote_sr in
+			let dest_vdi = mirror.mr_remote_vdi in
+			let snapshot_pairs =
+				List.map
+					(fun (local_snapshot_ref, snapshot_mirror) ->
+						Db.VDI.get_uuid ~__context ~self:local_snapshot_ref,
+						snapshot_mirror.mr_remote_vdi)
+					snapshots
+			in
+			SMAPI.SR.update_snapshot_info
+				~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~snapshot_pairs)
+		vdi_to_snapshots_map
+
 let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	SMPERF.debug "vm.migrate_send called vm:%s" (Db.VM.get_uuid ~__context ~self:vm);
 	(* Create mirrors of all the disks on the remote *)
@@ -390,6 +440,11 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
 		let snapshots_map = List.map vdi_copy_fun snapshots_vdis in
 		let vdi_map = List.map vdi_copy_fun vdis in
+
+		(* All the disks and snapshots have been created in the remote SR(s),
+		 * so update the snapshot links if there are any snapshots. *)
+		if snapshots_map <> [] then
+			update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map;
 
 		let xenops_vdi_map = List.map (fun (_, mirror_record) -> (mirror_record.mr_local_xenops_locator, mirror_record.mr_remote_xenops_locator)) (snapshots_map @ vdi_map) in
 		
