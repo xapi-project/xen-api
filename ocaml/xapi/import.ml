@@ -783,7 +783,7 @@ module VBD : HandlerTools = struct
 			| Metadata_import {dry_run = dry_run; live = live} -> dry_run, live
 			| _ -> false, false
 			in
-			if not (dry_run && live) then 
+			if not (dry_run && live) then
 				begin
 					if vbd_record.API.vBD_currently_attached && not(exists vbd_record.API.vBD_VDI state.table) then begin
 					(* It's only ok if it's a CDROM attached to an HVM guest *)
@@ -890,19 +890,20 @@ module VIF : HandlerTools = struct
 					vif_record.API.vIF_other_config
 			in
 			(* Construct the VIF record we're going to try to create locally. *)
-			let vif_record = if (Pool_features.is_enabled ~__context Features.VIF_locking) then
-			       			 vif_record 
-					else begin
-						if vif_record.API.vIF_locking_mode = `locked then
-	        		                	{ vif_record with API.vIF_locking_mode = `network_default; 
-									  API.vIF_ipv4_allowed = [];      	
-									  API.vIF_ipv6_allowed = [];
-							} 
-						else            	
-	                    			    	{ vif_record with API.vIF_ipv4_allowed = [];
-									  API.vIF_ipv6_allowed = [];
-							}      
-					end in		
+			let vif_record = if (Pool_features.is_enabled ~__context Features.VIF_locking)
+			then vif_record
+			else begin
+				if vif_record.API.vIF_locking_mode = `locked
+				then {
+					vif_record with API.vIF_locking_mode = `network_default;
+					API.vIF_ipv4_allowed = [];
+					API.vIF_ipv6_allowed = [];
+				}
+				else {
+					vif_record with API.vIF_ipv4_allowed = [];
+					API.vIF_ipv6_allowed = [];
+				}
+			end in
 			let vif_record = { vif_record with
 				API.vIF_VM = vm;
 				API.vIF_network = net;
