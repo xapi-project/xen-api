@@ -876,19 +876,20 @@ module VIF : HandlerTools = struct
 					vif_record.API.vIF_other_config
 			in
 			(* Construct the VIF record we're going to try to create locally. *)
-			let vif_record = if (Pool_features.is_enabled ~__context Features.VIF_locking) then
-			       			 vif_record 
-					else begin
-						if vif_record.API.vIF_locking_mode = `locked then
-	        		                	{ vif_record with API.vIF_locking_mode = `network_default; 
-									  API.vIF_ipv4_allowed = [];      	
-									  API.vIF_ipv6_allowed = [];
-							} 
-						else            	
-	                    			    	{ vif_record with API.vIF_ipv4_allowed = [];
-									  API.vIF_ipv6_allowed = [];
-							}      
-					end in		
+			let vif_record = if (Pool_features.is_enabled ~__context Features.VIF_locking)
+			then vif_record
+			else begin
+				if vif_record.API.vIF_locking_mode = `locked
+				then {
+					vif_record with API.vIF_locking_mode = `network_default;
+					API.vIF_ipv4_allowed = [];
+					API.vIF_ipv6_allowed = [];
+				}
+				else {
+					vif_record with API.vIF_ipv4_allowed = [];
+					API.vIF_ipv6_allowed = [];
+				}
+			end in
 			let vif_record = { vif_record with
 				API.vIF_VM = vm;
 				API.vIF_network = net;
