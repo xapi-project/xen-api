@@ -223,23 +223,27 @@ let update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map =
 				end)
 			empty_vdi_map snapshots_map
 	in
-	(* Build the snapshot chain for each leaf VDI. *)
-	VDIMap.iter
-		(fun vdi_ref (mirror, snapshots) ->
-			let sr = mirror.mr_local_sr in
-			let vdi = mirror.mr_local_vdi in
-			let dest = mirror.mr_remote_sr in
-			let dest_vdi = mirror.mr_remote_vdi in
-			let snapshot_pairs =
-				List.map
-					(fun (local_snapshot_ref, snapshot_mirror) ->
-						Db.VDI.get_uuid ~__context ~self:local_snapshot_ref,
-						snapshot_mirror.mr_remote_vdi)
-					snapshots
-			in
-			SMAPI.SR.update_snapshot_info
-				~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~snapshot_pairs)
-		vdi_to_snapshots_map
+	(* Build the snapshot chain for each leaf VDI.
+	 * Best-effort in case we're talking to an old SMAPI. *)
+	try
+		VDIMap.iter
+			(fun vdi_ref (mirror, snapshots) ->
+				let sr = mirror.mr_local_sr in
+				let vdi = mirror.mr_local_vdi in
+				let dest = mirror.mr_remote_sr in
+				let dest_vdi = mirror.mr_remote_vdi in
+				let snapshot_pairs =
+					List.map
+						(fun (local_snapshot_ref, snapshot_mirror) ->
+							Db.VDI.get_uuid ~__context ~self:local_snapshot_ref,
+							snapshot_mirror.mr_remote_vdi)
+						snapshots
+				in
+				SMAPI.SR.update_snapshot_info
+					~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~snapshot_pairs)
+			vdi_to_snapshots_map
+	with Storage_interface.Unknown_RPC call ->
+		debug "Remote SMAPI doesn't implement %s - ignoring" call
 
 let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	SMPERF.debug "vm.migrate_send called vm:%s" (Db.VM.get_uuid ~__context ~self:vm);
