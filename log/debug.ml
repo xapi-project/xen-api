@@ -93,17 +93,33 @@ let facility_m = Mutex.create ()
 let set_facility f = Mutex.execute facility_m (fun () -> facility := f)
 let get_facility () = Mutex.execute facility_m (fun () -> !facility)
 
-let logging_disabled_for = ref []
+let all_levels = [Syslog.Debug; Syslog.Info; Syslog.Warning; Syslog.Err]
+let logging_disabled_for : (string * Syslog.level) list ref = ref []
 let logging_disabled_for_m = Mutex.create ()
-let disable brand =
-	Mutex.execute logging_disabled_for_m
-		(fun () -> logging_disabled_for := brand :: !logging_disabled_for)
-let enable brand =
-	Mutex.execute logging_disabled_for_m
-		(fun () -> logging_disabled_for := List.filter (fun x -> x <> brand) !logging_disabled_for)
-let is_disabled brand =
-	Mutex.execute logging_disabled_for_m
-		(fun () -> List.mem brand !logging_disabled_for)
+
+let disable ?level brand =
+	let levels = match level with
+		| None -> all_levels
+		| Some l -> [l]
+	in
+	Mutex.execute logging_disabled_for_m (fun () ->
+		let disable' brand level = logging_disabled_for := (brand, level) :: !logging_disabled_for in
+		List.iter (disable' brand) levels
+	)
+
+let enable ?level brand =
+	let levels = match level with
+		| None -> all_levels
+		| Some l -> [l]
+	in
+	Mutex.execute logging_disabled_for_m (fun () ->
+		logging_disabled_for := List.filter (fun (x, y) -> not (x = brand && List.mem y levels)) !logging_disabled_for
+	)
+
+let is_disabled brand level =
+	Mutex.execute logging_disabled_for_m (fun () ->
+		List.mem (brand, level) !logging_disabled_for
+	)
 
 let gettimestring () =
 	let time = Unix.gettimeofday () in
@@ -148,7 +164,7 @@ module Debugger = functor(Brand: BRAND) -> struct
 	let output level priority (fmt: ('a, unit, string, 'b) format4) =
 		Printf.kprintf
 			(fun s ->
-				if not(is_disabled Brand.name) then begin
+				if not(is_disabled Brand.name level) then begin
 					let msg = make_log_message false Brand.name priority s in
 
 					if !print_debug
