@@ -11,7 +11,7 @@ allows clients to connect to the switch server process and:
 
 Messages contain:
 
-  1. a unique "correlation id", allowing replies to be asssociated to requests
+  1. a unique "correlation id", allowing replies to be associated to requests
   2. an optional "reply to" queue name
   3. a string payload
 
@@ -60,42 +60,42 @@ The low-level protocol is currently using HTTP. Perhaps in future we should
 use something a bit quicker: a binary protocol using ZeroMQ? Clients make the
 following requests:
 
-  * Login <client identifier>: allows the switch to associate the socket
+  * Login `<client identifier>`: allows the switch to associate the socket
     with a single client. When the last socket is closed resources associated
     with the client are deallocated. I'm currently using a Unix PID as an
     identifier.
-  * Create <Some name>: creates a persistent queue with name <name>
-  * Create <None>: creates a queue with a fresh name which will be deallocated
+  * Create `<Some name>`: creates a persistent queue with name <name>
+  * Create `<None>`: creates a queue with a fresh name which will be deallocated
     when the last connection opened by the client closes. These queues are
     created temporarily for RPC replies, the idea being that a client that
     has closed all connections has given up waiting for the reply and so
     the queue is not needed.
-  * Send <string, Message.t>: enqueue a message in a particular queue
-  * Ack <message id>: signal that a message has been processed and should be
+  * Send `<string, Message.t>`: enqueue a message in a particular queue
+  * Ack `<message id>`: signal that a message has been processed and should be
     deleted. A service should presumably only Ack a message once it has committed
     its effects to disk.
-  * Subscribe <name>: subscribe to new messages in a named queue
-  * Transfer <id, timeout>: blocking poll for new messages in subscribed queues
+  * Subscribe `<name>`: subscribe to new messages in a named queue
+  * Transfer `<id, timeout>`: blocking poll for new messages in subscribed queues
  
 The RPC pattern
 ===============
 
 A client will:
 
-  * Login <some client id>
-  * reply_to <- Create <None> (used for the RPC reply)
-  * Subscribe <reply_to>
+  * Login `<some client id>`
+  * Reply_to <- `Create <None>` (used for the RPC reply)
+  * Subscribe `<reply_to>`
   * Create <service name> (in case it doesn't exist)
   * Send <payload, service name>
   * repeatedly poll <Transfer> until a reply turns up
 
 The server will:
 
-  * Login <some client id>
-  * Create <service name> (in case it doesn't exist)
-  * Subscribe <service name>
-  * repeatedly poll <Transfer> until a request turns up
-  * process a request, Send <reply, reply_to>
-  * Ack <message id> to mark the message as processed and delete it
+  * Login `<client id>`
+  * Create `<service name>` (in case it doesn't exist)
+  * Subscribe `<service name>`
+  * repeatedly poll `<Transfer>` until a request turns up
+  * process a request, Send `<reply, reply_to>`
+  * Ack `<message id>` to mark the message as processed and delete it
 
 
