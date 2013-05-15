@@ -20,6 +20,8 @@ module Client : sig
 	val connect: int -> string -> t
 
 	val rpc: t -> ?timeout:int -> string  -> string
+
+	val list: t -> string -> string list
 end
 
 module Server : sig

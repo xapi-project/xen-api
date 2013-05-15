@@ -113,16 +113,16 @@ module Client = struct
 		reply_queue_name: string; 
 	}
 
-	let rpc c frame = match Connection.rpc c frame with
+	let rpc_exn c frame = match Connection.rpc c frame with
 		| Error e -> raise e
 		| Ok raw -> raw
 
 	let connect port dest_queue_name =
 		let token = whoami () in
 		let requests_conn = IO.connect port in
-		let (_: string) = rpc requests_conn (In.Login token) in
+		let (_: string) = rpc_exn requests_conn (In.Login token) in
 		let events_conn = IO.connect port in
-		let (_: string) = rpc events_conn (In.Login token) in
+		let (_: string) = rpc_exn events_conn (In.Login token) in
 
 		let wakener = Hashtbl.create 10 in
 
@@ -132,23 +132,23 @@ module Client = struct
 			let rec loop from =
 				let timeout = 5. in
 				let frame = In.Transfer(from, timeout) in
-				let raw = rpc events_conn frame in
+				let raw = rpc_exn events_conn frame in
 				let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
 				match transfer.Out.messages with
 				| [] -> loop from
 				| m :: ms ->
 					List.iter
 						(fun (i, m) ->
-							let (_: string) = rpc events_conn (In.Ack i) in
+							let (_: string) = rpc_exn events_conn (In.Ack i) in
 							if Hashtbl.mem wakener m.Message.correlation_id
 							then wakeup_later (Hashtbl.find wakener m.Message.correlation_id) m;
 						) transfer.Out.messages;
 					let from = List.fold_left max (fst m) (List.map fst ms) in
 					loop from in
 			Thread.create loop (-1L) in
-		let reply_queue_name = rpc requests_conn (In.Create None) in
-		let (_: string) = rpc requests_conn (In.Subscribe reply_queue_name) in
-		let (_: string) = rpc requests_conn (In.Create (Some dest_queue_name)) in
+		let reply_queue_name = rpc_exn requests_conn (In.Create None) in
+		let (_: string) = rpc_exn requests_conn (In.Subscribe reply_queue_name) in
+		let (_: string) = rpc_exn requests_conn (In.Create (Some dest_queue_name)) in
 		{
 			requests_conn = requests_conn;
 			events_conn = events_conn;
@@ -173,10 +173,14 @@ module Client = struct
 				(fun () -> timeout_later t)))
 		| None ->
 			None in
-		let (_: string) = rpc c.requests_conn msg in
+		let (_: string) = rpc_exn c.requests_conn msg in
 		let response = wait t in
 		begin match timer with Some x -> Protocol_unix_scheduler.cancel x | None -> () end;
 		response.Message.payload
+
+	let list c prefix =
+		let (result: string) = rpc_exn c.requests_conn (In.List prefix) in
+		Out.string_list_of_rpc (Jsonrpc.of_string result)
 end
 
 module Server = Protocol.Server(IO)

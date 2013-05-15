@@ -20,6 +20,8 @@ module Client : sig
 	val connect: int -> string -> t Lwt.t
 
 	val rpc: t -> string  -> string Lwt.t
+
+	val list: t -> string -> string list Lwt.t
 end
 
 module Server : sig

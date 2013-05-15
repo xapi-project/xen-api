@@ -56,30 +56,30 @@ module Client = struct
 		reply_queue_name: string;
 	}
 
-	let rpc c frame = match_lwt Connection.rpc c frame with
+	let lwt_rpc c frame = match_lwt Connection.rpc c frame with
 		| Error e -> fail e
 		| Ok raw -> return raw
 
 	let connect port dest_queue_name =
 		let token = whoami () in
 		lwt requests_conn = IO.connect port in
-		lwt (_: string) = rpc requests_conn (In.Login token) in
+		lwt (_: string) = lwt_rpc requests_conn (In.Login token) in
 		lwt events_conn = IO.connect port in
-		lwt (_: string) = rpc events_conn (In.Login token) in
+		lwt (_: string) = lwt_rpc events_conn (In.Login token) in
 
 		let wakener = Hashtbl.create 10 in
 		let (_ : unit Lwt.t) =
 			let rec loop from =
 				let timeout = 5. in
 				let frame = In.Transfer(from, timeout) in
-				lwt raw = rpc events_conn frame in
+				lwt raw = lwt_rpc events_conn frame in
 				let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
 				match transfer.Out.messages with
 				| [] -> loop from
 				| m :: ms ->
 					lwt () = Lwt_list.iter_s
 						(fun (i, m) ->
-							lwt _ = rpc events_conn (In.Ack i) in
+							lwt _ = lwt_rpc events_conn (In.Ack i) in
 							if Hashtbl.mem wakener m.Message.correlation_id
 							then Lwt.wakeup_later (Hashtbl.find wakener m.Message.correlation_id) m;
 							return ()
@@ -87,9 +87,9 @@ module Client = struct
 					let from = List.fold_left max (fst m) (List.map fst ms) in
 					loop from in
 			loop (-1L) in
-		lwt reply_queue_name = rpc requests_conn (In.Create None) in
-		lwt (_: string) = rpc requests_conn (In.Subscribe reply_queue_name) in
-		lwt (_: string) = rpc requests_conn (In.Create (Some dest_queue_name)) in
+		lwt reply_queue_name = lwt_rpc requests_conn (In.Create None) in
+		lwt (_: string) = lwt_rpc requests_conn (In.Subscribe reply_queue_name) in
+		lwt (_: string) = lwt_rpc requests_conn (In.Create (Some dest_queue_name)) in
 		return {
 			requests_conn = requests_conn;
 			events_conn = events_conn;
@@ -108,9 +108,13 @@ module Client = struct
 			correlation_id;
 			reply_to = Some c.reply_queue_name
 		}) in
-		lwt (_: string) = rpc c.requests_conn msg in
+		lwt (_: string) = lwt_rpc c.requests_conn msg in
 		lwt response = t in
 		return response.Message.payload
+
+	let list c prefix =
+		lwt (result: string) = lwt_rpc c.requests_conn (In.List prefix) in
+		return (Out.string_list_of_rpc (Jsonrpc.of_string result))
 end
 
 module Server = Protocol.Server(IO)
