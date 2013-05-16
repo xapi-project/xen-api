@@ -1227,7 +1227,7 @@ and perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			then debug "This is a localhost migration.";
 			Xenops_hooks.vm_pre_migrate ~reason:Xenops_hooks.reason__migrate_source ~id;
 
-			let module Remote = Xenops_interface.Client(struct let rpc = xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" (fun () -> url') end) in
+			let module Remote = Xenops_interface.Client(struct let rpc = Xcp_client.xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" (fun () -> url') end) in
 			let id = Remote.VM.import_metadata t.Xenops_task.dbg(export_metadata vdi_map vif_map id) in
 			debug "Received id = %s" id;
 			let memory_url = Uri.make ?scheme:(Uri.scheme url) ?host:(Uri.host url) ?port:(Uri.port url)
