@@ -17,7 +17,7 @@ open Pervasiveext
 open Stringext
 open Threadext
 
-let inventory_filename = ref "/etc/xcp/inventory"
+let inventory_filename = ref Xcp_inventory_config.default_inventory
 
 (* Keys which must exist: *)
 let _installation_uuid = "INSTALLATION_UUID"
