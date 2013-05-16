@@ -26,8 +26,7 @@ let online vif netty =
 		Netdev.Link.down dev;
 		Netdev.Link.arp dev false;
 		Netdev.Link.multicast dev false;
-		Netdev.Link.set_addr dev 
-		 (if(Xenctrl.is_fake ()) then "fe:fe:fe:fe:fe:fe" else "fe:ff:ff:ff:ff:ff");
+		Netdev.Link.set_addr dev "fe:ff:ff:ff:ff:ff";
 		Netdev.Addr.flush dev
 		in
 	match netty with

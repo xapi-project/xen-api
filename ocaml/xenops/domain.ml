@@ -1138,11 +1138,10 @@ let cpuid_set ~xc ~hvm domid cfg =
 	cfgout
 
 let cpuid_apply ~xc ~hvm domid =
-	if not (Xenctrl.is_fake()) then begin
-		let uuid = get_uuid ~xc domid in
-		debug "VM = %s; domid = %d; cpuid_apply" (Uuid.to_string uuid) domid;
-		Xenctrl.domain_cpuid_apply_policy xc domid
-	end
+	let uuid = get_uuid ~xc domid in
+	debug "VM = %s; domid = %d; cpuid_apply" (Uuid.to_string uuid) domid;
+	Xenctrl.domain_cpuid_apply_policy xc domid
+
 
 let cpuid_check ~xc cfg =
 	let tmp = Array.create 4 None in

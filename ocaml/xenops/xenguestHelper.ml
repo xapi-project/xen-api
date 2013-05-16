@@ -41,8 +41,6 @@ let connect path domid (args: string list) (fds: (string * Unix.file_descr) list
 	(* Need to send commands and receive responses from the
 	   slave process *)
 
-	let using_xiu = Xenctrl.is_fake () in
-
 	let last_log_file = Printf.sprintf "/tmp/xenguest.%d.log" domid in
 	(try Unix.unlink last_log_file with _ -> ());
 
@@ -56,7 +54,7 @@ let connect path domid (args: string list) (fds: (string * Unix.file_descr) list
 		     "-controlinfd"; server_to_slave_r_uuid;
 		     "-debuglog";
 		     last_log_file
-	] @ (if using_xiu then [ "-fake" ] else []) @ args in
+	] @ args in
 	let pid = Forkhelpers.safe_close_and_exec None None None 
 	  ([ slave_to_server_w_uuid, slave_to_server_w;
 	    server_to_slave_r_uuid, server_to_slave_r ] @ fds)
