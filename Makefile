@@ -1,15 +1,17 @@
-.PHONY: all clean install build
+.PHONY: all clean install build reinstall uninstall distclean
 all: build
 
 NAME=xenops
 J=4
 
-BINDIR ?= /usr/bin
-SBINDIR ?= /usr/sbin
-LIBEXECDIR ?= /usr/lib/xcp/lib
-SCRIPTSDIR ?= /usr/lib/xcp/scripts
-ETCDIR ?= /etc
-DESTDIR ?= /
+clean:
+	@obuild clean
+	@rm -f setup.data setup.log setup.bin
+
+distclean: clean
+	@rm -f config.mk
+
+-include config.mk
 
 export OCAMLRUNPARAM=b
 
@@ -20,14 +22,18 @@ XEN := --enable-xen
 SIMULATOR := --enable-simulator
 
 .PHONY: build
-build: configure.done
+build: dist/setup
 	obuild build
 
-configure.done: xenopsd.obuild
+dist/setup: xenopsd.obuild config.mk
 	obuild configure
-	touch configure.done
 
-.PHONY: install
+config.mk:
+	@echo
+	@echo "Please run configure before building"
+	@echo
+	@exit 1
+
 install:
 	install -D ./dist/build/xenopsd_libvirt/xenopsd_libvirt $(DESTDIR)/$(SBINDIR)/xenopsd_libvirt
 	install -D ./dist/build/xenopsd_qemu/xenopsd_qemu $(DESTDIR)/$(SBINDIR)/xenopsd_qemu
@@ -40,7 +46,7 @@ install:
 	install -D ./scripts/setup-vif-rules $(DESTDIR)/$(LIBEXECDIR)/setup-vif-rules
 	install -D ./scripts/common.py $(DESTDIR)/$(LIBEXECDIR)/common.py
 	install -D ./scripts/network.conf $(DESTDIR)/$(ETCDIR)/xcp/network.conf
-	DESTDIR=$(DESTDIR) SBINDIR=$(SBINDIR) LIBEXECDIR=$(LIBEXECDIR) SCRIPTSDIR=$(SCRIPTSDIR) ./scripts/make-custom-xenopsd.conf
+	DESTDIR=$(DESTDIR) SBINDIR=$(SBINDIR) LIBEXECDIR=$(LIBEXECDIR) SCRIPTSDIR=$(SCRIPTSDIR) ETCDIR=$(ETCDIR) ./scripts/make-custom-xenopsd.conf
 
 reinstall: install
 	@ocamlfind remove $(NAME) || true
@@ -58,6 +64,3 @@ uninstall:
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/setup-vif-rules
 	rm -f $(DESTDIR)/$(ETCDIR)/xcp/network.conf
 
-clean:
-	@obuild clean
-	@rm -f setup.data setup.log setup.bin
