@@ -18,7 +18,7 @@ let support_url = "ftp://support.xensource.com/uploads/"
 
 (* URL to which the crashdump/whatever will be uploaded *)
 let upload_url name =
-	let uuid = Xapi_inventory.lookup Xapi_inventory._installation_uuid in
+	let uuid = Inventory.lookup Inventory._installation_uuid in
 	Printf.sprintf "%s%s-%s" support_url uuid name
 
 open Forkhelpers

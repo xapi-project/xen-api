@@ -450,7 +450,7 @@ let init_wlb ~__context ~wlb_url ~wlb_username ~wlb_password ~xenserver_username
 		(pool_uuid_param ~__context)
 		(generate_safe_param "UserName" xenserver_username)
 		(generate_safe_param "XenServerUrl" 
-			(let address_type = Record_util.primary_address_type_of_string (Xapi_inventory.lookup Xapi_inventory._management_address_type ~default:"ipv4") in
+			(let address_type = Record_util.primary_address_type_of_string (Inventory.lookup Inventory._management_address_type ~default:"ipv4") in
 			let master_address = Db.Host.get_address ~__context ~self:master in
 			if address_type = `IPv4 then
 				sprintf "http://%s:80/" master_address

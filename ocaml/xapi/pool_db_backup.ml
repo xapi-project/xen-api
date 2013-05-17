@@ -69,11 +69,11 @@ let prepare_database_for_restore ~old_context ~new_context =
 		(Db.Host.get_all ~__context:new_context);
 
 	(* Set the master's uuid to ours *)
-	let my_installation_uuid = Xapi_inventory.lookup Xapi_inventory._installation_uuid in
+	let my_installation_uuid = Inventory.lookup Inventory._installation_uuid in
 	Db.Host.set_uuid ~__context:new_context ~self:master ~value:my_installation_uuid;
 
 	(* Set the master's dom0 to ours *)
-	let my_control_uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
+	let my_control_uuid = Inventory.lookup Inventory._control_domain_uuid in
 	begin match List.filter (fun self -> Db.VM.get_is_control_domain ~__context:new_context ~self)
 		(Db.Host.get_resident_VMs ~__context:new_context ~self:master) with
 			| [ dom0 ] ->

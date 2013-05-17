@@ -18,7 +18,6 @@ section
 		../xapi/xapi_cli \
 		../xapi/pool_role \
 		../xapi/helpers \
-		../xapi/xapi_inventory \
 		../xapi/db \
 		../xapi/importexport \
 		../xapi/parse_db_conf \

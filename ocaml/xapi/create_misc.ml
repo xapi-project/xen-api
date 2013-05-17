@@ -59,7 +59,7 @@ let read_localhost_info () =
 		!verstring
 	in
 	let me = Helpers.get_localhost_uuid () in
-	let lookup_inventory_nofail k = try Some (Xapi_inventory.lookup k) with _ -> None in
+	let lookup_inventory_nofail k = try Some (Inventory.lookup k) with _ -> None in
 	let this_host_name = Helpers.get_hostname() in
 	let total_memory_mib =
 		let open Xenops_client in
@@ -81,12 +81,12 @@ let read_localhost_info () =
 	   linux_verstring=linux_verstring;
 	   hostname=this_host_name;
 	   uuid=me;
-	   dom0_uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid;
-	   oem_manufacturer = lookup_inventory_nofail Xapi_inventory._oem_manufacturer;
-	   oem_model = lookup_inventory_nofail Xapi_inventory._oem_model;
-	   oem_build_number = lookup_inventory_nofail Xapi_inventory._oem_build_number;
-	   machine_serial_number = lookup_inventory_nofail Xapi_inventory._machine_serial_number;
-	   machine_serial_name = lookup_inventory_nofail Xapi_inventory._machine_serial_name;
+	   dom0_uuid = Inventory.lookup Inventory._control_domain_uuid;
+	   oem_manufacturer = lookup_inventory_nofail Inventory._oem_manufacturer;
+	   oem_model = lookup_inventory_nofail Inventory._oem_model;
+	   oem_build_number = lookup_inventory_nofail Inventory._oem_build_number;
+	   machine_serial_number = lookup_inventory_nofail Inventory._machine_serial_number;
+	   machine_serial_name = lookup_inventory_nofail Inventory._machine_serial_name;
 	   total_memory_mib = total_memory_mib;
 	   dom0_static_max = dom0_static_max;
 	   }

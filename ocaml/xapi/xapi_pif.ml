@@ -85,7 +85,7 @@ let read_bridges_from_inventory () =
 	try
 		String.split
 			(' ')
-			(Xapi_inventory.lookup Xapi_inventory._current_interfaces)
+			(Inventory.lookup Inventory._current_interfaces)
 	with _ ->
 		[]
 
@@ -265,7 +265,7 @@ let make_tables ~__context ~host =
 let is_my_management_pif ~__context ~self =
 	let net = Db.PIF.get_network ~__context ~self in
 	let management_if =
-		Xapi_inventory.lookup Xapi_inventory._management_interface in
+		Inventory.lookup Inventory._management_interface in
 	Db.Network.get_bridge ~__context ~self:net = management_if
 
 let make_pif_metrics ~__context =
@@ -376,7 +376,7 @@ let forget_internal ~t ~__context ~self =
 
 let update_management_flags ~__context ~host =
 	try
-		let management_bridge = Xapi_inventory.lookup Xapi_inventory._management_interface in
+		let management_bridge = Inventory.lookup Inventory._management_interface in
 		let management_networks = Db.Network.get_refs_where ~__context ~expr:(
 			Eq (Field "bridge", Literal management_bridge)
 		) in
@@ -401,7 +401,7 @@ let update_management_flags ~__context ~host =
 		List.iter (set_management true) (List.set_difference current_management_pifs management_pifs_in_db);
 		(* Clear management flag of PIFs that are no longer management PIFs *)
 		List.iter (set_management false) (List.set_difference management_pifs_in_db current_management_pifs)
-	with Xapi_inventory.Missing_inventory_key _ ->
+	with Inventory.Missing_inventory_key _ ->
 		error "Missing field MANAGEMENT_INTERFACE in inventory file"
 
 let introduce ~__context ~host ~mAC ~device =

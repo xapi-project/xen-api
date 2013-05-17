@@ -748,7 +748,7 @@ let local_management_reconfigure ~__context ~interface =
   if not !Xapi_globs.slave_emergency_mode
   then raise (Api_errors.Server_error (Api_errors.pool_not_in_emergency_mode, []));
   change_management_interface ~__context interface
-    (Record_util.primary_address_type_of_string (Xapi_inventory.lookup Xapi_inventory._management_address_type ~default:"ipv4"))
+    (Record_util.primary_address_type_of_string (Inventory.lookup Inventory._management_address_type ~default:"ipv4"))
 
 let management_reconfigure ~__context ~pif =
   (* Disallow if HA is enabled *)

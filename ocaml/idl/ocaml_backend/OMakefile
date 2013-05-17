@@ -105,7 +105,6 @@ SERVER_OBJS = ../../database/escaping locking_helpers \
 	server_helpers session_check context \
 	../../pool_role_shared \
 	../../xapi/pool_role \
-	../../xapi/xapi_inventory \
 	../../xapi/hashtbl_xml \
 	../../xapi/localdb \
 	../../xapi/xapi_role \
@@ -119,10 +118,7 @@ SERVER_OBJS = ../../database/escaping locking_helpers \
 
 XAPI_CLIENT_OBJS = \
 	../../fhs \
-	../../util/util_globs_inventory \
-	../../util/util_inventory \
 	../../util/version \
-	../../xapi/xapi_inventory \
 	../../xapi/xapi_fist \
 	../../xapi/features \
 	../../license/v6rpc \

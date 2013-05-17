@@ -85,8 +85,8 @@ let start ~__context ?addr () =
 	end
 
 let change interface primary_address_type =
-	Xapi_inventory.update Xapi_inventory._management_interface interface;
-	Xapi_inventory.update Xapi_inventory._management_address_type
+	Inventory.update Inventory._management_interface interface;
+	Inventory.update Inventory._management_address_type
 		(Record_util.primary_address_type_to_string primary_address_type);
 	update_mh_info interface
 

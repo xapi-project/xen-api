@@ -1301,7 +1301,7 @@ let manage_dom0 ~__context =
 	(* Tell xenopsd to manage domain 0 *)
 	let open Xenctrl in
 	let dbg = Context.string_of_task __context in
-	let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
+	let uuid = Inventory.lookup Inventory._control_domain_uuid in
 	let di = Vmopshelpers.with_xc (fun xc -> Xenctrl.domain_getinfo xc 0) in
 	let memory_actual_bytes = Xenctrl.pages_to_kib Int64.(mul (of_nativeint di.total_memory_pages) 1024L) in
 	let open Vm in

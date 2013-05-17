@@ -28,8 +28,8 @@ let test_prepare_restore () =
 		let (_: API.ref_PIF) = make_pif ~__context ~network:management_net ~device:"eth0" ~host:master ~management:true ~mAC:mac1 () in
 		let (_: API.ref_PIF) = make_pif ~__context ~network:management_net ~device:"eth0" ~host:slave ~management:true ~mAC:mac2 () in
 		__context in
-	let my_installation_uuid = Xapi_inventory.lookup Xapi_inventory._installation_uuid in
-	let my_control_uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
+	let my_installation_uuid = Inventory.lookup Inventory._installation_uuid in
+	let my_control_uuid = Inventory.lookup Inventory._control_domain_uuid in
 	let old_context = make_context "1" "2" my_installation_uuid my_control_uuid in
 	let new_context = make_context "a" "b" "host-uuid" "dom0-uuid" in
 	Pool_db_backup.prepare_database_for_restore ~old_context ~new_context;
