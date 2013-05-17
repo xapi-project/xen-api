@@ -87,16 +87,22 @@ end
 let updates = Updates.empty ()
 
 let event_wait task timeout p =
-	let finished = ref false in
-	let success = ref false in
-	let event_id = ref None in
-	while not !finished do
-		let _, deltas, next_id = Updates.get (Printf.sprintf "event_wait task %s" task.Xenops_task.id) !event_id timeout updates in
-		if deltas = [] then finished := true;
-		List.iter (fun d -> if p d then (success := true; finished := true)) deltas;
-		event_id := Some next_id;
-	done;
-	!success
+	let start = Unix.gettimeofday () in
+	let rec inner remaining event_id =
+		if (remaining > 0.0) then begin
+			let _, deltas, next_id = Updates.get (Printf.sprintf "event_wait task %s" task.Xenops_task.id) 
+				~with_cancel:(Xenops_task.with_cancel task) event_id (Some (remaining |> ceil |> int_of_float)) updates in
+			let success = List.fold_left (fun acc d -> acc || (p d)) false deltas in
+			let finished = success || deltas = [] in
+			if not finished
+			then
+				let elapsed = Unix.gettimeofday () -. start in
+				inner (timeout -. elapsed) (Some next_id)
+			else
+				success
+		end else false
+	in 
+	inner timeout None
 
 let safe_rm xs path =
 	debug "xenstore-rm %s" path;
@@ -1038,7 +1044,7 @@ module VM = struct
 			) Oldest task vm
 
 	let wait_shutdown task vm reason timeout =
-		event_wait task (Some (timeout |> ceil |> int_of_float))
+		event_wait task timeout
 			(function
 				| Dynamic.Vm id when id = vm.Vm.id ->
 					debug "EVENT on our VM: %s" id;
