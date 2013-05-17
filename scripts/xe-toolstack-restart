@@ -11,6 +11,13 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Lesser General Public License for more details.
 #
+FILENAME=`basename $0`
+LOCKFILE='/dev/shm/xe_toolstack_restart.lock'
+
+(
+flock -x -n 200
+if [ "$?" != 0 ]; then echo "Exiting: cannot lock $LOCKFILE. Is an instance of $0 running already?"; exit 1; fi
+echo "Executing $FILENAME"
 
 POOLCONF=`cat @ETCDIR@/pool.conf`
 
@@ -41,4 +48,9 @@ service perfmon start
 service squeezed start
 service v6d start
 service xapi start
+
+rm -f $LOCKFILE
 echo "done."
+)200>$LOCKFILE
+
+exit $?
