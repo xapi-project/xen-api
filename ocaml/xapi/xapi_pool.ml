@@ -821,9 +821,9 @@ let eject ~__context ~host =
 
 		let write_first_boot_management_interface_configuration_file () =
 			let bridge = Xapi_pif.bridge_naming_convention management_device in
-			Xapi_inventory.update Xapi_inventory._management_interface bridge;
+			Inventory.update Inventory._management_interface bridge;
 			let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self:management_pif in
-			Xapi_inventory.update Xapi_inventory._management_address_type
+			Inventory.update Inventory._management_address_type
 			  (Record_util.primary_address_type_to_string primary_address_type);
 			let configuration_file_contents = begin
 				"LABEL='" ^ management_device ^ "'\nMODE=" ^ mode ^
@@ -842,7 +842,7 @@ let eject ~__context ~host =
 		write_first_boot_management_interface_configuration_file ();
 
 		Net.reset_state ();
-		Xapi_inventory.update Xapi_inventory._current_interfaces "";
+		Inventory.update Inventory._current_interfaces "";
 
 		debug "Pool.eject: deleting Host record (the point of no return)";
 		(* delete me from the database - this will in turn cause PBDs and PIFs to be GCed *)

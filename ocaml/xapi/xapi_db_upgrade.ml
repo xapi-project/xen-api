@@ -143,7 +143,7 @@ let upgrade_bios_strings = {
 				let ic = open_in "/var/tmp/.previousInventory" in
 				let rec find_oem_manufacturer () =
 					let line = input_line ic in
-					match Xapi_inventory.parse_inventory_entry line with
+					match Inventory.parse_inventory_entry line with
 						| Some (k, v) when k = "OEM_MANUFACTURER" -> Some v
 						| Some _ -> find_oem_manufacturer () 
 						| None -> None

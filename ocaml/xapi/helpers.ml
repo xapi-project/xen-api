@@ -75,11 +75,11 @@ let get_primary_ip_addr ~__context iface primary_address_type =
 
 let get_management_ip_addr ~__context =
 	get_primary_ip_addr ~__context
-		(Xapi_inventory.lookup Xapi_inventory._management_interface)
-		(Record_util.primary_address_type_of_string (Xapi_inventory.lookup Xapi_inventory._management_address_type ~default:"ipv4"))
+		(Inventory.lookup Inventory._management_interface)
+		(Record_util.primary_address_type_of_string (Inventory.lookup Inventory._management_address_type ~default:"ipv4"))
 
 let get_localhost_uuid () =
-  Xapi_inventory.lookup Xapi_inventory._installation_uuid
+  Inventory.lookup Inventory._installation_uuid
 
 let get_localhost ~__context : API.ref_host  =
     let uuid = get_localhost_uuid () in
@@ -223,7 +223,7 @@ let get_domain_zero ~__context : API.ref_VM =
        Some r -> r
      | None ->
 	 (* Read the control domain uuid from the inventory file *)
-	 let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
+	 let uuid = Inventory.lookup Inventory._control_domain_uuid in
 	 try
 	   let vm = Db.VM.get_by_uuid ~__context ~uuid in
 	   if not (Db.VM.get_is_control_domain ~__context ~self:vm) then begin
@@ -711,7 +711,7 @@ let validate_ip_address str =
 (** Returns true if the supplied IP address looks like one of mine *)
 let this_is_my_address ~__context address =
   let dbg = Context.string_of_task __context in
-  let inet_addrs = Net.Interface.get_ipv4_addr dbg ~name:(Xapi_inventory.lookup Xapi_inventory._management_interface) in
+  let inet_addrs = Net.Interface.get_ipv4_addr dbg ~name:(Inventory.lookup Inventory._management_interface) in
   let addresses = List.map Unix.string_of_inet_addr (List.map fst inet_addrs) in
   List.mem address addresses
 
@@ -734,7 +734,7 @@ let gethostbyname_family host family =
 let gethostbyname host =
   let throw_resolve_error() = failwith (Printf.sprintf "Couldn't resolve hostname: %s" host) in
   let pref = Record_util.primary_address_type_of_string
-      (Xapi_inventory.lookup Xapi_inventory._management_address_type) in
+      (Inventory.lookup Inventory._management_address_type) in
   try
     gethostbyname_family host (if (pref == `IPv4) then Unix.PF_INET else Unix.PF_INET6)
   with _ ->

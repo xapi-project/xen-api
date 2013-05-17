@@ -2,7 +2,7 @@
 XEN_CFLAGS    = -I$(XEN_ROOT)/usr/include
 OCAMLINCLUDES = $(ROOT)/ocaml/idl +ocamldoc
 OCAML_LIBS    = $(ROOT)/ocaml/fhs $(ROOT)/ocaml/util/version $(ROOT)/ocaml/util/stats
-OCAMLPACKS    = stdext uuid log gzip
+OCAMLPACKS    = stdext uuid log gzip xcp-inventory
 
 OCamlLibrary(fhs, fhs)
 
@@ -28,4 +28,4 @@ OCamlLibrary(fhs, fhs)
 	test
 
 clean:
-	rm -f fhs.*
+	rm -f fhs.cmi fhs.cmx fhs.cmo fhs.cmxa fhs.a fhs.o fhs.annot

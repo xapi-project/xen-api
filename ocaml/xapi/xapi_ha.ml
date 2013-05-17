@@ -985,7 +985,7 @@ let attach_metadata_vdi ~__context vdi =
 
 (** Write the local configfile *)
 let write_config_file ~__context statevdi_paths generation =
-	let local_heart_beat_interface = Xapi_inventory.lookup Xapi_inventory._management_interface in
+	let local_heart_beat_interface = Inventory.lookup Inventory._management_interface in
 	(* Need to find the name of the physical interface, so xHA can monitor the bonding status (if appropriate).
 	   Note that this interface isn't used for sending packets so VLANs don't matter: the physical NIC or bond device is all we need. *)
 	let localhost = Helpers.get_localhost ~__context in
