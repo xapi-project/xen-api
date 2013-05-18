@@ -90,13 +90,9 @@ test:
 #	Pipe ugly bash output to /dev/null
 	@echo @ xapi unit test suite
 	@./ocaml/test/suite -verbose
-	@echo @ xenops-cli unit test
-	@./ocaml/xenops-cli/runtest.sh 2> /dev/null
 	@echo
 	@echo @ HA binpack test
 	@./ocaml/xapi/binpack
-	@echo @ squeezed test
-	@./ocaml/xenops/squeeze_test
 #	The following test no longer runs:
 #	./ocaml/database/database_test
 #	The following test no longer compiles:

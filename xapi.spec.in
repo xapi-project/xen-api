@@ -45,13 +45,6 @@ Group: System/Hypervisor
 %description squeezed
 This package contains the Xen virtual firmware (hvmloader)
 
-%package xenopsd
-Summary: The xenops daemon
-Group: System/Hypervisor
-
-%description xenopsd
-This package contains the xenops daemon.
-
 %package v6d
 Summary: The editions and features daemon
 Group: System/Hypervisor
@@ -124,9 +117,6 @@ rm -rf $RPM_BUILD_ROOT
 
 %post squeezed
 [ ! -x /sbin/chkconfig ] || chkconfig squeezed on
-
-%post xenopsd
-[ ! -x /sbin/chkconfig ] || chkconfig xenopsd on
 
 %post v6d
 [ ! -x /sbin/chkconfig ] || chkconfig --add v6d
@@ -236,7 +226,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/print-custom-templates
 @OPTDIR@/libexec/probe-device-for-file
 @OPTDIR@/libexec/genptoken
-@OPTDIR@/libexec/qemu-dm-wrapper
 @OPTDIR@/libexec/restore-sr-metadata.py
 @OPTDIR@/libexec/restore-sr-metadata.pyo
 @OPTDIR@/libexec/restore-sr-metadata.pyc
@@ -275,18 +264,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/squeezed
 /etc/rc.d/init.d/squeezed
 %config(noreplace) /etc/squeezed.conf
-
-%files xenopsd
-%defattr(-,root,root,-)
-@OPTDIR@/libexec/xenopsd
-/etc/rc.d/init.d/xenopsd
-%config(noreplace) /etc/xenopsd.conf
-@OPTDIR@/bin/xn
-/usr/bin/xn
-/etc/xensource/bugtool/xenopsd.xml
-/etc/xensource/bugtool/xenopsd/stuff.xml
-@OPTDIR@/libexec/xn_diagnostics
-@OPTDIR@/libexec/domain_sethandle
 
 %files v6d
 %defattr(-,root,root,-)

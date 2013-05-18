@@ -152,8 +152,6 @@ JAVA_PHASE3_TARGETS = $(if $(COMPILE_JAVA), $(JAVA_PHASE3))
 OCAML_PHASE3_XEN = \
 	ocaml/xapi/xapi \
 	allxenops \
-	ocaml/xenops-cli/xn \
-	ocaml/xenops-cli/xenopstest \
 	ocaml/xenops/cancel_utils_test \
 	ocaml/xenguest/xenguest \
 	ocaml/xenguest/dumpcore \
@@ -161,9 +159,7 @@ OCAML_PHASE3_XEN = \
 	ocaml/xapi/sparse_dd \
 	ocaml/xapi/storage_impl_test \
 	ocaml/xapi/cancel_tests \
-	ocaml/license/v6d \
-	$(if $(BYTE_ENABLED), ocaml/xenops/xenstore_watch.cma) \
-	$(if $(NATIVE_ENABLED), ocaml/xenops/xenstore_watch.cmxa)
+	ocaml/license/v6d
 
 #ocaml/xapi/monitor_fake_plugin
 
@@ -222,4 +218,4 @@ phase2: $(OCAML_PHASE2_TARGETS) $(JS_PHASE2_TARGETS) $(JAVA_PHASE2_TARGETS)
 phase3: $(OCAML_PHASE3_TARGETS) $(JS_PHASE3_TARGETS) $(JAVA_PHASE3_TARGETS)
 
 .PHONY: test
-test: ocaml/xenops/xenopsd ocaml/xenops-cli/xenopstest ocaml/xenops-cli/runtest.sh ocaml/test/suite ocaml/database/database_test ocaml/xenops/squeeze_test
+test: ocaml/test/suite ocaml/database/database_test

@@ -35,7 +35,6 @@ OCamlLibrary(fhs, fhs)
 	mpathalert \
 	multipathrt \
 	doc \
-	xenops-cli \
 	rrdd \
 	test
 
