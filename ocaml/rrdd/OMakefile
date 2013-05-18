@@ -9,21 +9,18 @@ OCAMLINCLUDES = \
 	$(ROOT)/ocaml/xenops \
 	interface
 # ocaml/xapi only needed for xapi_fist : should move xapi_first to libs
-OCAMLPACKS = oclock xml-light2 stunnel http-svr xenctrl xenctrlext xenstore gzip stdext uuid xcp-inventory
+OCAMLPACKS = oclock xml-light2 stunnel http-svr xenctrl xenctrlext xenstore gzip stdext uuid xcp-inventory xcp xcp.xen xcp.network
 OCAML_LIBS = $(ROOT)/ocaml/fhs ../idl/ocaml_backend/xapi_client
-# ../xenops/xenops_client
 
 UseCamlp4(rpclib.syntax, rrdd_server)
 
 RRDD = xcp-rrdd
 RRDD_FILES = \
 	../pool_role_shared \
-	../network/network_interface \
 	../network/network_monitor \
 	../util/config_shared \
 	../util/stats \
 	../xapi/xapi_fist \
-	../xenops/device_number \
 	interface/ds \
 	interface/data_source \
 	interface/rrd \

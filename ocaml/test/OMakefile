@@ -1,5 +1,6 @@
 OCAMLPACKS = oUnit sexpr log xmlm stunnel xml-light2 http-svr uuid netdev \
-             tapctl xenctrl xenctrlext xenstore-compat cpuid pciutil gzip sha1 oclock
+             tapctl xenctrl xenctrlext xenstore-compat cpuid pciutil gzip sha1 oclock \
+             xcp xcp.xen
 
 OCAMLINCLUDES = \
 	../database \
@@ -16,7 +17,6 @@ OCAML_LIBS = \
 	../idl/ocaml_backend/common \
 	../idl/ocaml_backend/client \
 	../idl/ocaml_backend/server \
-	../xenops/xenops_client \
 	../auth/pam \
 	../util/stats \
 	../xapi/xapi \

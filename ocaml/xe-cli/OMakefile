@@ -4,7 +4,7 @@ OCAMLPACKS    = xml-light2 stdext stunnel log
 
 section
 	OCAMLINCLUDES += .
-	OCAMLFLAGS = -dtypes -thread -warn-error F -cclib -static
+	OCAMLFLAGS = -dtypes -thread -warn-error F
 	CLI_FILES = newcli ../xapi/cli_protocol options
 	OCamlProgram(xe, $(CLI_FILES))
 	OCamlDocProgram(xe, $(CLI_FILES))

@@ -1,8 +1,7 @@
 OCAML_LIBS    = ../util/version ../idl/ocaml_backend/xapi_client
 OCAMLINCLUDES = .. ../idl/ocaml_backend ../idl ../autogen ../xapi ../gpg ../util
-OCAMLPACKS    = xml-light2 stdext stunnel http-svr log rpclib oUnit uuid xcp-inventory
+OCAMLPACKS    = xml-light2 stdext stunnel http-svr log rpclib oUnit uuid xcp-inventory xcp xcp.network
 
-UseCamlp4(rpclib.idl, network_interface)
 UseCamlp4(rpclib.syntax, network_server network_monitor)
 
 # Name of daemon to install in dom0:
@@ -10,7 +9,7 @@ NETWORKD = xcp-networkd
 NETWORK_TEST = network_test
 NETWORKD_DB = networkd_db
 
-NETWORKD_FILES = networkd network_utils network_interface network_server network_config \
+NETWORKD_FILES = networkd network_utils network_server network_config \
 	network_monitor network_monitor_thread
 OCAML_CLIBS = link_stubs
 
@@ -19,8 +18,8 @@ OCamlLibraryClib(network_utils, network_utils, link_stubs)
 
 OCamlProgram($(NETWORKD), $(NETWORKD_FILES))
 OCamlDocProgram($(NETWORKD), $(NETWORKD_FILES))
-OCamlProgram($(NETWORK_TEST), ../fhs network_test network_interface)
-OCamlProgram($(NETWORKD_DB), network_interface network_config networkd_db)
+OCamlProgram($(NETWORK_TEST), ../fhs network_test)
+OCamlProgram($(NETWORKD_DB), network_config networkd_db)
 
 .PHONY: install
 install:
