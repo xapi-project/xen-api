@@ -680,7 +680,7 @@ let is_tools_sr ~__context ~sr =
 	try
 		Mutex.execute is_tools_sr_cache_m
 			(fun () -> List.assoc sr !is_tools_sr_cache)
-	with Not_found _ ->
+	with Not_found ->
 		let other_config = Db.SR.get_other_config ~__context ~self:sr in
 		(* Miami GA *)
 		let result =
