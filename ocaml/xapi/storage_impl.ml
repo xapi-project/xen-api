@@ -787,6 +787,19 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 					|> Printf.sprintf "[%s]");
 			Impl.SR.update_snapshot_info_src context ~dbg ~sr ~vdi ~url
 				~dest ~dest_vdi ~snapshot_pairs
+
+		let update_snapshot_info_dest context ~dbg ~sr ~vdi ~src_vdi ~snapshot_pairs =
+			info
+				"SR.update_snapshot_info_dest dbg:%s sr:%s vdi:%s ~src_vdi:%s snapshot_pairs:%s"
+				dbg sr vdi src_vdi.vdi
+				(List.map
+					(fun (local_snapshot, src_snapshot_info) ->
+						Printf.sprintf "local:%s, src:%s" local_snapshot src_snapshot_info.vdi)
+					snapshot_pairs
+					|> String.concat "; "
+					|> Printf.sprintf "[%s]");
+			Impl.SR.update_snapshot_info_dest context ~dbg ~sr ~vdi
+				~src_vdi ~snapshot_pairs
 	end
 
 	module Policy = struct
