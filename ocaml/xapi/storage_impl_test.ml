@@ -92,12 +92,6 @@ module Debug_print_impl = struct
 
 		let set_persistent context ~dbg ~sr ~vdi ~persistent = ()
 
-		let set_is_a_snapshot context ~dbg ~sr ~vdi ~is_a_snapshot = assert false
-
-		let set_snapshot_time context ~dbg ~sr ~vdi ~snapshot_time = assert false
-
-		let set_snapshot_of context ~dbg ~sr ~vdi ~snapshot_of = assert false
-
 		let attach context ~dbg ~dp ~sr ~vdi ~read_write =
 			info "VDI.attach dp:%s sr:%s vdi:%s read_write:%b" dp sr vdi read_write;
 			if dp = "error"
