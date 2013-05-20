@@ -239,7 +239,7 @@ let update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map =
 							snapshot_mirror.mr_remote_vdi)
 						snapshots
 				in
-				SMAPI.SR.update_snapshot_info
+				SMAPI.SR.update_snapshot_info_src
 					~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~snapshot_pairs)
 			vdi_to_snapshots_map
 	with Storage_interface.Unknown_RPC call ->

@@ -230,10 +230,10 @@ module SR = struct
 	(** [scan task sr] returns a list of VDIs contained within an attached SR *)
 	external scan: dbg:debug_info -> sr:sr -> vdi_info list = ""
 
-	(** [update_snapshot_info sr vdi url dest dest_vdi snapshot_pairs] updates
-	 *  the fields is_a_snapshot, snapshot_time and snapshot_of for a list of
-	 *  snapshots on a remote SR. *)
-	external update_snapshot_info: dbg:debug_info ->
+	(** [update_snapshot_info_src sr vdi url dest dest_vdi snapshot_pairs]
+	 *  updates the fields is_a_snapshot, snapshot_time and snapshot_of for a
+	 *  list of snapshots on a remote SR. *)
+	external update_snapshot_info_src: dbg:debug_info ->
 		sr:sr -> vdi:vdi -> url:string -> dest:sr -> dest_vdi:vdi ->
 		snapshot_pairs:(vdi * vdi) list -> unit = ""
 
