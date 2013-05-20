@@ -670,7 +670,7 @@ let copy ~dbg ~sr ~vdi ~dp ~url ~dest =
 let copy_into ~dbg ~sr ~vdi ~url ~dest ~dest_vdi = 
 	wrap ~dbg (fun task -> copy_into ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi)
 
-let update_snapshot_info ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~snapshot_pairs =
+let update_snapshot_info_src ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~snapshot_pairs =
 	let remote_url = Http.Url.of_string url in
 	let module Remote =
 		Client(struct

@@ -229,7 +229,7 @@ module SMAPIv1 = struct
 
 		let list context ~dbg = assert false
 
-		let update_snapshot_info context ~dbg ~sr ~vdi
+		let update_snapshot_info_src context ~dbg ~sr ~vdi
 				~url ~dest ~dest_vdi ~snapshot_pairs =
 			assert false
 	end

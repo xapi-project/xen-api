@@ -774,9 +774,9 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			info "SR.destroy dbg:%s sr:%s" dbg sr;
 			detach_destroy_common context ~dbg ~sr Impl.SR.destroy			
 
-		let update_snapshot_info context ~dbg ~sr ~vdi =
-			info "SR.update_snapshot_info";
-			Impl.SR.update_snapshot_info context ~dbg ~sr ~vdi
+		let update_snapshot_info_src context ~dbg ~sr ~vdi =
+			info "SR.update_snapshot_info_src";
+			Impl.SR.update_snapshot_info_src context ~dbg ~sr ~vdi
 	end
 
 	module Policy = struct

@@ -45,7 +45,7 @@ module Proxy = functor(RPC: RPC) -> struct
 		let destroy _ = Client.SR.destroy
 		let scan _ = Client.SR.scan
 		let list _ = Client.SR.list
-		let update_snapshot_info _ = Client.SR.update_snapshot_info
+		let update_snapshot_info_src _ = Client.SR.update_snapshot_info_src
 	end
 	module VDI = struct
 		let epoch_begin _ = Client.VDI.epoch_begin
