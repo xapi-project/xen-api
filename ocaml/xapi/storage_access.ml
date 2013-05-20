@@ -232,6 +232,9 @@ module SMAPIv1 = struct
 		let update_snapshot_info_src context ~dbg ~sr ~vdi
 				~url ~dest ~dest_vdi ~snapshot_pairs =
 			assert false
+
+		let update_snapshot_info_dest context ~dbg ~sr ~vdi ~src_vdi ~snapshot_pairs =
+			assert false
 	end
 
 	module VDI = struct
