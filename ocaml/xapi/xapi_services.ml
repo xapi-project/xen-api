@@ -93,21 +93,6 @@ let http_proxy_to_plugin req from name =
 	end else
 		http_proxy_to req from (Unix.ADDR_UNIX path)
 
-let http_proxy_to_driver req from uuid ty instance rest =
-	try
-		(* Remove the URI prefix /service/driver/uuid/ty/instance *)
-		let uri = "/" ^ (String.concat "/" rest) in
-		let req = { req with Http.Request.uri = uri } in
-		match System_domains.get_service (Storage_access.make_service uuid instance) with
-			| Some address ->
-				http_proxy_to req from address
-			| None ->
-				error "There is no registered driver: %s/%s/%s" uuid ty instance;
-				Http_svr.headers from (Http.http_404_missing ~version:"1.0" ())
-	with e ->
-		error "Failed to proxy to %s/%s/%s: %s" uuid ty instance (Printexc.to_string e);
-		raise e
-
 let post_handler (req: Http.Request.t) s _ =
 	Xapi_http.with_context ~dummy:true "Querying services" req s
 		(fun __context ->
@@ -116,8 +101,6 @@ let post_handler (req: Http.Request.t) s _ =
 					ignore (hand_over_connection req s (Filename.concat Fhs.vardir "xenopsd.forwarded"))
 				| "" :: services :: "plugin" :: name :: _ when services = _services ->
 					http_proxy_to_plugin req s name
-				| "" :: services :: "driver" :: uuid :: ty :: instance :: rest when services = _services ->
-					http_proxy_to_driver req s uuid ty instance rest
 				| [ ""; services; "SM" ] when services = _services ->
 					Storage_impl.Local_domain_socket.xmlrpc_handler Storage_mux.Server.process req (Buf_io.of_fd s) ()
 				| _ ->
@@ -142,8 +125,6 @@ let put_handler (req: Http.Request.t) s _ =
 					ignore (hand_over_connection req s (Filename.concat Fhs.vardir "xenopsd.forwarded"))
 				| "" :: services :: "plugin" :: name :: _ when services = _services ->
 					http_proxy_to_plugin req s name
-				| "" :: services :: "driver" :: uuid :: ty :: instance :: rest when services = _services ->
-					http_proxy_to_driver req s uuid ty instance rest
 				| [ ""; services; "SM"; "data"; sr; vdi ] when services = _services ->
 					let vdi, _ = Storage_access.find_vdi ~__context sr vdi in
 					Import_raw_vdi.import vdi req s ()
@@ -163,8 +144,6 @@ let get_handler (req: Http.Request.t) s _ =
 					ignore (hand_over_connection req s (Filename.concat Fhs.vardir "xenopsd.forwarded"))
 				| "" :: services :: "plugin" :: name :: _ when services = _services ->
 					http_proxy_to_plugin req s name
-				| "" :: services :: "driver" :: uuid :: ty :: instance :: rest when services = _services ->
-					http_proxy_to_driver req s uuid ty instance rest
 				| "" :: services :: "driver" :: [] when services = _services ->
 					list_drivers req s
 				| [ ""; services; "SM"; driver ] when services = _services ->

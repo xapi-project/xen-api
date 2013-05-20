@@ -61,14 +61,14 @@ type services = service list
 val rpc_of_services: services -> Rpc.t
 val services_of_rpc: Rpc.t -> services
 
-(** [register_service service sockaddr] associates [sockaddr] with [service] *)
-val register_service: service -> Unix.sockaddr -> unit
+(** [register_service service queue_name] associates [queue_name] with [service] *)
+val register_service: service -> string -> unit
 
 (** [unregister_service service] forgets service [service] *)
 val unregister_service: service -> unit
 
-(** [get_service_address service] returns the sockaddr associated with [service] or None *)
-val get_service: service -> Unix.sockaddr option
+(** [get_service_address service] returns the queue_name associated with [service] or None *)
+val get_service: service -> string option
 
 (** [list_services ()] returns all the registered services *)
 val list_services: unit -> services
