@@ -18,41 +18,7 @@ open Network_interface
 module D=Debug.Debugger(struct let name="network" end)
 open D
 
-let make_rpc path  =
-	let module Rpc = struct
-		let transport = ref (Unix path)
-		let retrying = ref false
-		let rec rpc call =
-			let response' =
-				try
-					let response =
-						XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"networkd" ~transport:!transport
-							~http:(xmlrpc ~version:"1.0" "/") call in
-					if !retrying then begin
-						debug "Successfully communicated with service at %s after retrying!" path;
-						retrying := false
-					end;
-					Some response
-				with Unix.Unix_error (code, _, _) as e ->
-					if code = Unix.ECONNREFUSED || code = Unix.ENOENT then begin
-						if not !retrying then
-							error "Could not reach the service at %s. Retrying every second..." path;
-						Thread.delay 1.;
-						retrying := true;
-						None
-					end else begin
-						retrying := false;
-						raise e
-					end
-			in
-			match response' with
-			| Some response -> response
-			| None -> rpc call
-	end in
-	(module Rpc : RPC)
-
-module Rpc = (val (make_rpc (Filename.concat Fhs.vardir "xcp-networkd")) : RPC)
-module Net = Client(Rpc)
+module Net = Network_client.Client
 
 (* Catch any uncaught networkd exceptions and transform into the most relevant XenAPI error.
    We do not want a XenAPI client to see a raw network error. *)
