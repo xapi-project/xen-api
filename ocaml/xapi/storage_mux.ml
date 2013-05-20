@@ -169,6 +169,9 @@ module Mux = struct
 				C.SR.list ~dbg)) 
 		let reset context ~dbg ~sr = assert false
 		let update_snapshot_info_src context = Storage_migrate.update_snapshot_info_src
+		let update_snapshot_info_dest context ~dbg ~sr ~vdi ~src_vdi ~snapshot_pairs =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.SR.update_snapshot_info_dest ~dbg ~sr ~vdi ~src_vdi ~snapshot_pairs
 	end
 	module VDI = struct
 		let create context ~dbg ~sr ~vdi_info =
