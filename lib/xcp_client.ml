@@ -52,8 +52,10 @@ let http_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset
 
 	let http_req = Request.make ~meth:`POST ~version:`HTTP_1_1 ~headers uri in
 
-	Cohttp_posix_io.Buffered_IO.open_uri uri
-		(fun ic oc ->
+	Open_uri.with_open_uri uri
+		(fun fd ->
+			let ic = Unix.in_channel_of_descr fd in
+			let oc = Unix.out_channel_of_descr fd in
 			Request.write (fun t oc -> Request.write_body t oc req) http_req oc;
 			match Response.read ic with
 				| None -> failwith (Printf.sprintf "Failed to read HTTP response from: %s" (url ()))
@@ -74,8 +76,10 @@ let json_switch_rpc queue_name = switch_rpc queue_name Jsonrpc.string_of_call Js
 (* Use a binary 16-byte length to frame RPC messages *)
 let binary_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset") url (call: Rpc.call) : Rpc.response =
 	let uri = Uri.of_string (url ()) in
-	Cohttp_posix_io.Buffered_IO.open_uri uri
-		(fun ic oc ->
+	Open_uri.with_open_uri uri
+		(fun fd ->
+			let ic = Unix.in_channel_of_descr fd in
+			let oc = Unix.out_channel_of_descr fd in
 			let msg_buf = string_of_call call in
 			let len = Printf.sprintf "%016d" (String.length msg_buf) in
 			output_string oc len;
