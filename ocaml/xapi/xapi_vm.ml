@@ -500,14 +500,11 @@ let copy ~__context ~vm ~new_name ~sr =
 		if Db.SR.get_content_type ~__context ~self:sr = "iso"
 		then raise (Api_errors.Server_error(Api_errors.operation_not_allowed,
 			[ "Cannot copy a VM's disks to an ISO SR" ]))) sr;
-	Local_work_queue.wait_in_line Local_work_queue.long_running_queue
-		(Printf.sprintf "VM.copy %s" (Context.string_of_task __context))
-		(fun () ->
-			let new_vm = Xapi_vm_clone.clone (Xapi_vm_clone.Disk_op_copy sr) ~__context ~vm ~new_name in
-			if Db.VM.get_is_a_snapshot ~__context ~self:vm && Db.VM.get_power_state ~__context ~self:new_vm <> `Halted then
-				hard_shutdown ~__context ~vm:new_vm;
-			new_vm
-		)
+	let new_vm = Xapi_vm_clone.clone (Xapi_vm_clone.Disk_op_copy sr) ~__context ~vm ~new_name in
+	if Db.VM.get_is_a_snapshot ~__context ~self:vm && Db.VM.get_power_state ~__context ~self:new_vm <> `Halted then
+		Helpers.call_api_functions ~__context
+			(fun rpc session_id -> Client.VM.hard_shutdown ~rpc ~session_id ~vm:new_vm);
+	new_vm
 
 let provision ~__context ~vm =
 	(* This bit could be done in the guest: *)
