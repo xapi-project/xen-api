@@ -37,7 +37,7 @@ let run_assert_equal_with_vdi ~__context ?(cmp = my_cmp) ?(ha_enabled=false) vbd
 
 (* This is to test Xapi_vdi.check_operation_error against CA-98944
    code. This DO NOT fully test the aforementionned function *)
-let test_vdi () =
+let test_ca98944 () =
 	let __context = Mock.make_context_with_new_db "Mock context" in
 	(* Should raise vdi_in_use *)
 	run_assert_equal_with_vdi ~__context
@@ -71,8 +71,30 @@ let test_vdi () =
 			~__context ~reserved:false ~currently_attached:false ~current_operations:[] ())
 		`forget None
 
+(* VDI.copy should be allowed if all attached VBDs are read-only. *)
+let test_ca101699 () =
+	let __context = Mock.make_context_with_new_db "Mock context" in
+
+	(* Attempting to copy a RW-attached VDI should fail with VDI_IN_USE. *)
+	run_assert_equal_with_vdi ~__context
+		(fun vdi_ref ->
+			make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RW ())
+		`copy (Some (Api_errors.vdi_in_use, []));
+
+	(* Attempting to copy a RO-attached VDI should pass. *)
+	run_assert_equal_with_vdi ~__context
+		(fun vdi_ref ->
+			make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RO ())
+		`copy None;
+
+	(* Attempting to copy an unattached VDI should pass. *)
+	run_assert_equal_with_vdi ~__context
+		(fun vdi_ref -> ())
+		`copy None
+
 let test =
-	"test_ca98944" >:::
+	"test_vdi_allowed_operations" >:::
 		[
-			"test_vdi" >:: test_vdi
+			"test_ca98944" >:: test_ca98944;
+			"test_ca101699" >:: test_ca101699;
 		]
