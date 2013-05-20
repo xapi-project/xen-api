@@ -503,33 +503,6 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 					Impl.VDI.set_persistent context ~dbg ~sr ~vdi ~persistent
 				)
 
-		let set_is_a_snapshot context ~dbg ~sr ~vdi ~is_a_snapshot =
-			info
-				"VDI.set_is_a_snapshot dbg:%s sr:%s vdi:%s is_a_snapshot:%b"
-				dbg sr vdi is_a_snapshot;
-			with_vdi sr vdi
-				(fun () ->
-					Impl.VDI.set_is_a_snapshot context ~dbg ~sr ~vdi ~is_a_snapshot
-				)
-
-		let set_snapshot_time context ~dbg ~sr ~vdi ~snapshot_time =
-			info
-				"VDI.set_snapshot_time dbg:%s sr:%s vdi:%s snapshot_time:%s"
-				dbg sr vdi snapshot_time;
-			with_vdi sr vdi
-				(fun () ->
-					Impl.VDI.set_snapshot_time context ~dbg ~sr ~vdi ~snapshot_time
-				)
-
-		let set_snapshot_of context ~dbg ~sr ~vdi ~snapshot_of =
-			info
-				"VDI.set_snapshot_of dbg:%s sr:%s vdi:%s snapshot_of:%s"
-				dbg sr vdi snapshot_of;
-			with_vdi sr vdi
-				(fun () ->
-					Impl.VDI.set_snapshot_of context ~dbg ~sr ~vdi ~snapshot_of
-				)
-
 		let get_by_name context ~dbg ~sr ~name =
 			info "VDI.get_by_name dbg:%s sr:%s name:%s" dbg sr name;
 			Impl.VDI.get_by_name context ~dbg ~sr ~name

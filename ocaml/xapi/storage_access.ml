@@ -88,6 +88,35 @@ module SMAPIv1 = struct
 		let vdi_rec = Db.VDI.get_record ~__context ~self in
 		vdi_info_of_vdi_rec __context vdi_rec
 
+	(* For SMAPIv1, is_a_snapshot, snapshot_time and snapshot_of are stored in
+	 * xapi's database. For SMAPIv2 they should be implemented by the storage
+	 * backend. *)
+	let set_is_a_snapshot context ~dbg ~sr ~vdi ~is_a_snapshot =
+		Server_helpers.exec_with_new_task "VDI.set_is_a_snapshot"
+			~subtask_of:(Ref.of_string dbg)
+			(fun __context ->
+				let vdi, _ = find_vdi ~__context sr vdi in
+				Db.VDI.set_is_a_snapshot ~__context ~self:vdi ~value:is_a_snapshot
+			)
+
+	let set_snapshot_time context ~dbg ~sr ~vdi ~snapshot_time =
+		Server_helpers.exec_with_new_task "VDI.set_snapshot_time"
+			~subtask_of:(Ref.of_string dbg)
+			(fun __context ->
+				let vdi, _ = find_vdi ~__context sr vdi in
+				let snapshot_time = Date.of_string snapshot_time in
+				Db.VDI.set_snapshot_time ~__context ~self:vdi ~value:snapshot_time
+			)
+
+	let set_snapshot_of context ~dbg ~sr ~vdi ~snapshot_of =
+		Server_helpers.exec_with_new_task "VDI.set_snapshot_of"
+			~subtask_of:(Ref.of_string dbg)
+			(fun __context ->
+				let vdi, _ = find_vdi ~__context sr vdi in
+				let snapshot_of, _ = find_vdi ~__context sr snapshot_of in
+				Db.VDI.set_snapshot_of ~__context ~self:vdi ~value:snapshot_of
+			)
+
 	module Query = struct
 		let query context ~dbg = {
 			driver = "storage_access";
@@ -234,7 +263,36 @@ module SMAPIv1 = struct
 			assert false
 
 		let update_snapshot_info_dest context ~dbg ~sr ~vdi ~src_vdi ~snapshot_pairs =
-			assert false
+			Server_helpers.exec_with_new_task "SR.update_snapshot_info_dest"
+				~subtask_of:(Ref.of_string dbg)
+				(fun __context ->
+					let local_vdis = scan __context ~dbg ~sr in
+					let find_sm_vdi ~vdi ~vdi_info_list =
+						try List.find (fun x -> x.vdi = vdi) vdi_info_list
+						with Not_found -> raise (Vdi_does_not_exist vdi)
+					in
+					let assert_content_ids_match ~vdi_info1 ~vdi_info2 =
+						if vdi_info1.content_id <> vdi_info2.content_id
+						then raise (Content_ids_do_not_match (vdi_info1.vdi, vdi_info2.vdi))
+					in
+					(* For each (local snapshot vdi, source snapshot vdi) pair:
+					 * - Check that the content_ids are the same
+					 * - Copy snapshot_time from the source VDI to the local VDI
+					 * - Set the local VDI's snapshot_of to vdi
+					 * - Set is_a_snapshot = true for the local snapshot *)
+					List.iter
+						(fun (local_snapshot, src_snapshot_info) ->
+							let local_snapshot_info =
+								find_sm_vdi ~vdi:local_snapshot ~vdi_info_list:local_vdis in
+							assert_content_ids_match local_snapshot_info src_snapshot_info;
+							set_snapshot_time __context ~dbg ~sr
+								~vdi:local_snapshot
+								~snapshot_time:src_snapshot_info.snapshot_time;
+							set_snapshot_of __context ~dbg ~sr
+								~vdi:local_snapshot ~snapshot_of:vdi;
+							set_is_a_snapshot __context ~dbg ~sr
+								~vdi:local_snapshot ~is_a_snapshot:true;)
+						snapshot_pairs)
 	end
 
 	module VDI = struct
@@ -467,35 +525,6 @@ module SMAPIv1 = struct
             with
 				| Api_errors.Server_error(code, params) -> raise (Backend_error(code, params))
 				| Sm.MasterOnly -> redirect sr
-
-		(* For SMAPIv1, is_a_snapshot, snapshot_time and snapshot_of are stored in
-		 * xapi's database. For SMAPIv2 they should be implemented by the storage
-		 * backend. *)
-		let set_is_a_snapshot context ~dbg ~sr ~vdi ~is_a_snapshot =
-			Server_helpers.exec_with_new_task "VDI.set_is_a_snapshot"
-				~subtask_of:(Ref.of_string dbg)
-				(fun __context ->
-					let vdi, _ = find_vdi ~__context sr vdi in
-					Db.VDI.set_is_a_snapshot ~__context ~self:vdi ~value:is_a_snapshot
-				)
-
-		let set_snapshot_time context ~dbg ~sr ~vdi ~snapshot_time =
-			Server_helpers.exec_with_new_task "VDI.set_snapshot_time"
-				~subtask_of:(Ref.of_string dbg)
-				(fun __context ->
-					let vdi, _ = find_vdi ~__context sr vdi in
-					let snapshot_time = Date.of_string snapshot_time in
-					Db.VDI.set_snapshot_time ~__context ~self:vdi ~value:snapshot_time
-				)
-
-		let set_snapshot_of context ~dbg ~sr ~vdi ~snapshot_of =
-			Server_helpers.exec_with_new_task "VDI.set_snapshot_of"
-				~subtask_of:(Ref.of_string dbg)
-				(fun __context ->
-					let vdi, _ = find_vdi ~__context sr vdi in
-					let snapshot_of, _ = find_vdi ~__context sr snapshot_of in
-					Db.VDI.set_snapshot_of ~__context ~self:vdi ~value:snapshot_of
-				)
 
 		let get_by_name context ~dbg ~sr ~name =
 			info "VDI.get_by_name dbg:%s sr:%s name:%s" dbg sr name;
