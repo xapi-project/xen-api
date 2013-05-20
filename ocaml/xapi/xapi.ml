@@ -790,6 +790,7 @@ let server_init() =
     "Initialising random number generator", [], random_setup;
     "Running startup check", [], startup_check;
     "Registering SMAPIv1 plugins", [Startup.OnlyMaster], Sm.register;
+    "Starting SMAPIv1 proxies", [], Storage_access.start_smapiv1_servers;
 	"Initialising SM state", [], Storage_impl.initialise;
 	"Starting SM internal event service", [], Storage_task.Updates.Scheduler.start;
 	"Starting SM service", [], Storage_access.start;

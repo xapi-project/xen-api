@@ -637,6 +637,17 @@ module type SERVER = sig
     val process : Smint.request -> Rpc.call -> Rpc.response
 end
 
+(* Start a set of servers for all SMAPIv1 plugins *)
+let start_smapiv1_servers () =
+	List.iter (fun ty ->
+		let path = !Storage_interface.default_path ^ "/" ^ ty in
+		let queue_name = !Storage_interface.queue_name ^ "." ^ ty in
+		let module S = Storage_interface.Server(SMAPIv1) in
+		let s = Xcp_service.make ~path ~queue_name ~rpc_fn:(S.process None) () in
+		let (_: Thread.t) = Thread.create (fun () -> Xcp_service.serve_forever s) () in
+		()
+	) (Sm.supported_drivers ())
+
 module Driver_kind = struct
 	type t =
 		| SMAPIv1
