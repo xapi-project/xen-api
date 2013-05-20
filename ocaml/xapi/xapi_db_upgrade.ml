@@ -48,6 +48,58 @@ let cowley = Datamodel.cowley_release_schema_major_vsn, Datamodel.cowley_release
 let boston = Datamodel.boston_release_schema_major_vsn, Datamodel.boston_release_schema_minor_vsn
 let tampa = Datamodel.tampa_release_schema_major_vsn, Datamodel.tampa_release_schema_minor_vsn
 
+let upgrade_alert_priority = {
+	description = "Upgrade alert priority";
+	version = (fun _ -> true);
+	fn = fun ~__context ->
+		let alert_refs = Xapi_message.get_all () in
+		List.iter
+			(fun r ->
+				try
+					let m = Xapi_message.get_record ~__context ~self:r in
+					if List.mem_assoc m.API.message_name !Api_messages.msgList then
+						let prio = List.assoc m.API.message_name !Api_messages.msgList in
+						if prio <> m.API.message_priority then begin
+							Xapi_message.destroy ~__context ~self:r;
+							let gen = Xapi_message.write ~__context ~_ref:r
+								~message:{m with API.message_priority=prio} in
+							match gen with
+							| Some _ ->
+								debug "Update message %s with new priority %Ld" (Ref.string_of r) prio
+							| None -> ()
+						end
+				with e ->
+					warn "Update message %s failed due to exception %s" (Ref.string_of r) (Printexc.to_string e))
+			alert_refs
+}
+
+let update_mail_min_priority = {
+	description = "Update pool's other-config:mail-min-priority";
+	version = (fun x -> x <= tampa);
+	fn = fun ~__context ->
+		List.iter (fun self ->
+			let oc = Db.Pool.get_other_config ~__context ~self in
+			let key = "mail-min-priority" in
+			if List.mem_assoc key oc then
+				try
+					let prio = int_of_string (List.assoc key oc) in
+					let prio' =
+						if prio > 10 then 0
+						else if prio = 10 then 1
+						else if prio > 5 then 2
+						else if prio = 5 then 3
+						else if prio > 1 then 4
+						else 5 in
+					Db.Pool.remove_from_other_config ~__context ~self ~key;
+					Db.Pool.add_to_other_config ~__context ~self ~key ~value:(string_of_int prio');
+					debug "Upgrade pool's other-config:mail-min-priority: %d -> %d" prio prio'
+				with e ->
+					warn "Failed to update other-config:mail-min-priority of the pool: %s, remove to reset"
+						(Printexc.to_string e);
+					Db.Pool.remove_from_other_config ~__context ~self ~key)
+			(Db.Pool.get_all ~__context)
+}
+
 let upgrade_vm_memory_overheads = {
 	description = "Upgrade VM.memory_overhead fields";
 	version = (fun _ -> true);
@@ -339,6 +391,8 @@ let remove_vmpp = {
 }
 
 let rules = [
+	upgrade_alert_priority;
+	update_mail_min_priority;
 	upgrade_vm_memory_overheads;
 	upgrade_vm_memory_for_dmc;
 	upgrade_bios_strings;
