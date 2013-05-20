@@ -494,7 +494,8 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 						Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid;
 						Xapi_xenops.Events_from_xenopsd.wait dbg vm_uuid ())
 			with
-				| Xenops_interface.Does_not_exist ("VM",_) ->
+				| Xenops_interface.Does_not_exist ("VM",_)
+				| Xenops_interface.Does_not_exist ("extra",_) ->
 					()	
 		end;
 
