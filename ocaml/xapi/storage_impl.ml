@@ -776,7 +776,15 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 
 		let update_snapshot_info_src context ~dbg ~sr ~vdi ~url
 				~dest ~dest_vdi ~snapshot_pairs=
-			info "SR.update_snapshot_info_src";
+			info
+				"SR.update_snapshot_info_src dbg:%s sr:%s vdi:%s url:%s dest:%s dest_vdi:%s snapshot_pairs:%s"
+				dbg sr vdi url dest dest_vdi
+				(List.map
+					(fun (local_snapshot, dest_snapshot) ->
+						Printf.sprintf "local:%s, dest:%s" local_snapshot dest_snapshot)
+					snapshot_pairs
+					|> String.concat "; "
+					|> Printf.sprintf "[%s]");
 			Impl.SR.update_snapshot_info_src context ~dbg ~sr ~vdi ~url
 				~dest ~dest_vdi ~snapshot_pairs
 	end
