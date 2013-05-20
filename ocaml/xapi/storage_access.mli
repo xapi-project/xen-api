@@ -15,6 +15,9 @@
  * @group Storage
  *)
 
+val start_smapiv1_servers: unit -> unit
+(** start listening for requests backed by SMAPIv1-style plugins *)
+
 val start: unit -> unit
 (** once [start ()] returns the storage service is listening for requests on
     its unix domain socket. *)
