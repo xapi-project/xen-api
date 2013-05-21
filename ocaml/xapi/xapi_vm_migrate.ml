@@ -53,7 +53,6 @@ let with_migrate f =
 module XenAPI = Client
 module SMAPI = Storage_interface.Client(struct let rpc = Storage_migrate.rpc ~srcstr:"xapi" ~dststr:"smapiv2" Storage_migrate.local_url end)
 
-module XenopsAPI = Xenops_client.Client
 open Storage_interface
 open Listext
 open Fun
@@ -69,22 +68,27 @@ let get_ip_from_url url =
 
 let pool_migrate ~__context ~vm ~host ~options =
 	let dbg = Context.string_of_task __context in
+	let open Xapi_xenops in
+	let queue_name = queue_of_vm ~__context ~self:vm in
+	let module XenopsAPI = (val make_client queue_name : XENOPS) in
 	let session_id = Ref.string_of (Context.get_session_id __context) in
 	let ip = Db.Host.get_address ~__context ~self:host in
 	let xenops_url = Printf.sprintf "http://%s/services/xenops?session_id=%s" ip session_id in
-	let open Xenops_client in
 	let vm' = Db.VM.get_uuid ~__context ~self:vm in
 	begin try
 		Xapi_network.with_networks_attached_for_vm ~__context ~vm ~host (fun () ->
 			Xapi_xenops.with_events_suppressed ~__context ~self:vm (fun () ->
 				(* XXX: PR-1255: the live flag *)
 				info "xenops: VM.migrate %s to %s" vm' xenops_url;
-				XenopsAPI.VM.migrate dbg vm' [] [] xenops_url |> wait_for_task dbg |> success_task dbg |> ignore;
+				XenopsAPI.VM.migrate dbg vm' [] [] xenops_url
+				|> wait_for_task queue_name dbg
+				|> assume_task_succeeded queue_name dbg
+				|> ignore;
 				(* Delete all record of this VM locally (including caches) *)
 				Xapi_xenops.Xenopsd_metadata.delete ~__context vm';
 				(* Flush xenopsd events through: we don't want the pool database to
 				   be updated on this host ever again. *)
-				Xapi_xenops.Events_from_xenopsd.wait dbg vm' ()
+				Xapi_xenops.Events_from_xenopsd.wait queue_name dbg vm' ()
 			)
 		);
 	with e ->
@@ -111,7 +115,8 @@ let pool_migrate_complete ~__context ~vm ~host =
 	let id = Db.VM.get_uuid ~__context ~self:vm in
 	debug "VM.pool_migrate_complete %s" id;
 	let dbg = Context.string_of_task __context in
-	if Xapi_xenops.vm_exists_in_xenopsd dbg id then begin
+	let queue_name = Xapi_xenops.queue_of_vm ~__context ~self:vm in
+	if Xapi_xenops.vm_exists_in_xenopsd queue_name dbg id then begin
 		Helpers.call_api_functions ~__context
 			(fun rpc session_id ->
 				XenAPI.VM.atomic_set_resident_on rpc session_id vm host
@@ -191,6 +196,7 @@ let inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_addr
 
 let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	SMPERF.debug "vm.migrate_send called vm:%s" (Db.VM.get_uuid ~__context ~self:vm);
+	let open Xapi_xenops in
 	(* Create mirrors of all the disks on the remote *)
 	let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
 	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
@@ -233,6 +239,9 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let snapshots_vdis = List.filter_map (vdi_filter true) snapshots_vbds in
 	let total_size = List.fold_left (fun acc (_,_,_,_,_,sz,_,_) -> Int64.add acc sz) 0L (vdis @ snapshots_vdis) in
 	let dbg = Context.string_of_task __context in
+	let open Xapi_xenops in
+	let queue_name = queue_of_vm ~__context ~self:vm in
+	let module XenopsAPI = (val make_client queue_name : XENOPS) in
 	let dest_host = List.assoc _host dest in
 	let url = List.assoc _sm dest in
 	let xenops = List.assoc _xenops dest in
@@ -300,9 +309,9 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 					in
 
 					vdis_to_destroy := vdi :: !vdis_to_destroy;
-
+					let open Storage_access in
 					let task_result = 
-						task |> register_task __context 
+						task |> register_task __context
 							 |> add_to_progress_map mapfn 
 							 |> wait_for_task dbg 
 							 |> remove_from_progress_map 
@@ -395,7 +404,6 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		end;
 
 		(* Migrate the VM *)
-		let open Xenops_client in
 		let new_vm = XenAPI.VM.get_by_uuid remote_rpc session_id vm_uuid in
 
 		(* Attach networks on remote *)
@@ -424,9 +432,9 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			try
 				Xapi_xenops.with_events_suppressed ~__context ~self:vm
 					(fun () ->
-						XenopsAPI.VM.migrate dbg vm_uuid xenops_vdi_map xenops_vif_map xenops |> wait_for_task dbg |> success_task dbg |> ignore;
+						XenopsAPI.VM.migrate dbg vm_uuid xenops_vdi_map xenops_vif_map xenops |> wait_for_task queue_name dbg |> assume_task_succeeded queue_name dbg |> ignore;
 						Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid;
-						Xapi_xenops.Events_from_xenopsd.wait dbg vm_uuid ())
+						Xapi_xenops.Events_from_xenopsd.wait queue_name dbg vm_uuid ())
 			with
 				| Xenops_interface.Does_not_exist ("VM",_) ->
 					()	
@@ -659,8 +667,9 @@ let handler req fd _ =
 			debug "overhead_bytes = %Ld; free_memory_required = %Ld KiB" overhead_bytes free_memory_required_kib;
 
 			let dbg = Context.string_of_task __context in
+			let queue_name = Xapi_xenops.queue_of_vm ~__context ~self:vm in
 			Xapi_network.with_networks_attached_for_vm ~__context ~vm (fun () ->
-				Xapi_xenops.transform_xenops_exn ~__context (fun () ->
+				Xapi_xenops.transform_xenops_exn ~__context queue_name (fun () ->
 					debug "Sending VM %s configuration to xenopsd" (Ref.string_of vm);
 					let id = Xapi_xenops.Xenopsd_metadata.push ~__context ~upgrade:true ~self:vm in
 					info "xenops: VM.receive_memory %s" id;
@@ -670,10 +679,10 @@ let handler req fd _ =
 						~user_agent:"xapi" Http.Put uri in
 					let path = Filename.concat Fhs.vardir "xenopsd.forwarded" in
 					let response = Xapi_services.hand_over_connection req fd path in
+					let open Xapi_xenops in
 					begin match response with
 						| Some task ->
-							let open Xenops_client in
-							task |> wait_for_task dbg |> success_task dbg |> ignore
+							task |> wait_for_task queue_name dbg |> assume_task_succeeded queue_name dbg |> ignore
 						| None ->
 							debug "We did not get a task id to wait for!!"
 					end;

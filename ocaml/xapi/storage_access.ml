@@ -769,8 +769,8 @@ let get_mirror_task vdi = Mutex.execute progress_map_m (fun () -> Hashtbl.find m
 exception Not_an_sm_task
 let wrap id = TaskHelper.Sm id
 let unwrap x = match x with | TaskHelper.Sm id -> id | _ -> raise Not_an_sm_task
-let register_task __context id = TaskHelper.register_task __context (wrap id) |> unwrap
-let unregister_task __context id = TaskHelper.unregister_task __context (wrap id) |> unwrap
+let register_task __context id = TaskHelper.register_task __context (wrap id); id
+let unregister_task __context id = TaskHelper.unregister_task __context (wrap id); id
 
 let update_task ~__context id =
 	try

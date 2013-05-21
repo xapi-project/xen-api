@@ -803,7 +803,6 @@ let server_init() =
 	"Checking for non-HA redo-log", [], start_redo_log;
     (* It is a pre-requisite for starting db engine *)
     "Setup DB configuration", [], setup_db_conf;
-	"Manage Dom0", [], (fun () -> Xapi_xenops.manage_dom0 ~__context);
     (* Start up database engine if we're a master.
      NOTE: We have to start up the database engine before attempting to bring up network etc. because
      the database engine start may attempt a schema upgrade + restart xapi. The last thing we want
@@ -904,7 +903,6 @@ let server_init() =
                 (fun () -> Helpers.call_api_functions ~__context Create_storage.create_storage_localhost);
       (* CA-13878: make sure PBD plugging has happened before attempting to reboot any VMs *)
 	  "resynchronising VM state", [], (fun () -> Xapi_xenops.on_xapi_restart ~__context);
-      "listening to events from xenopsd", [], (fun () -> ignore (Thread.create Xapi_xenops.events_from_xenopsd ()));
       "listening to events from xapi", [], (fun () -> ignore (Thread.create Xapi_xenops.events_from_xapi ()));
 
       "SR scanning", [ Startup.OnlyMaster; Startup.OnThread ], Xapi_sr.scanning_thread;

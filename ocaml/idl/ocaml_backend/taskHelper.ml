@@ -210,7 +210,7 @@ let failed ~__context (code, params) =
 
 type id = 
 	| Sm of string
-	| Xenops of string
+	| Xenops of string * string (* queue name * id *)
 
 let id_to_task_tbl : (id, API.ref_task) Hashtbl.t = Hashtbl.create 10
 let task_to_id_tbl : (API.ref_task, id) Hashtbl.t = Hashtbl.create 10
@@ -238,7 +238,7 @@ let register_task __context id =
 	(* Since we've bound the XenAPI Task to the xenopsd Task, and the xenopsd Task
 	   is cancellable, mark the XenAPI Task as cancellable too. *)
 	set_cancellable ~__context;
-	id
+	()
 
 let unregister_task __context id =
 	(* The rest of the XenAPI Task won't be cancellable *)
@@ -249,5 +249,5 @@ let unregister_task __context id =
 			Hashtbl.remove id_to_task_tbl id;
 			Hashtbl.remove task_to_id_tbl task;
 		);
-	id
+	()
 
