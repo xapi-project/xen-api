@@ -33,7 +33,8 @@ let port_of_proxy __context console =
 	let vnc_port_option =
 		try
 			let open Xenops_interface in
-			let open Xenops_client in
+			let open Xapi_xenops_queue in
+			let module Client = (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS) in
 			let id = Xapi_xenops.id_of_vm ~__context ~self:vm in
 			let dbg = Context.string_of_task __context in		
 			let _, s = Client.VM.stat dbg id in

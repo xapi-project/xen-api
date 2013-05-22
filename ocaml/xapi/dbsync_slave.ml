@@ -115,8 +115,9 @@ let refresh_localhost_info ~__context info =
 let record_host_memory_properties ~__context =
 	let self = !Xapi_globs.localhost_ref in
 	let total_memory_bytes =
-		let open Xenops_client in
+		let open Xapi_xenops_queue in
 		let dbg = Context.string_of_task __context in
+		let module Client = (val make_client default_xenopsd : XENOPS) in
 		let mib = Client.HOST.get_total_memory_mib dbg in
 		Int64.mul 1024L (Int64.mul 1024L mib) in
 	let metrics = Db.Host.get_metrics ~__context ~self in

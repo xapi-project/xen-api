@@ -239,8 +239,7 @@ let update_pifs ~__context host pifs =
 					let open Vif_device in
 					let set_carrier vif =
 						if vif.pv then (
-							let open Xenops_client in
-							let open Xapi_xenops in
+							let open Xapi_xenops_queue in
 							let vm_uuid = fst vif.vif in
 							let queue_name = queue_of_vm ~__context ~self:(Db.VM.get_by_uuid ~__context ~uuid:vm_uuid) in
 							let module Client = (val make_client queue_name : XENOPS) in

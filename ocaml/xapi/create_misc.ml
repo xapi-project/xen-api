@@ -62,7 +62,8 @@ let read_localhost_info () =
 	let lookup_inventory_nofail k = try Some (Inventory.lookup k) with _ -> None in
 	let this_host_name = Helpers.get_hostname() in
 	let total_memory_mib =
-		let open Xenops_client in
+		let open Xapi_xenops_queue in
+		let module Client = (val make_client default_xenopsd : XENOPS) in
 		Client.HOST.get_total_memory_mib "read_localhost_info" in
 
 	let dom0_static_max = 
@@ -243,16 +244,13 @@ and create_domain_zero_guest_metrics_record ~__context ~domain_zero_metrics_ref 
 and create_domain_zero_default_memory_constraints host_info : Vm_memory_constraints.t =
 	let static_min, static_max = calculate_domain_zero_memory_static_range host_info in
 	try
-		(* Look up the current domain zero record in xenopsd *)
-		let open Xenops_interface in
-		let open Xenops_client in
-		let vm, state = Client.VM.stat "dbsync" host_info.dom0_uuid in
+		(* XXX TODO what should we do with this VM record? *)
 		{
-			static_min = static_min;
-			static_max = vm.Vm.memory_static_max;
-			dynamic_min = state.Vm.memory_target;
-			dynamic_max = state.Vm.memory_target;
-			target = state.Vm.memory_target;
+			static_min = 0L;
+			static_max = 0L;
+			dynamic_min = 0L;
+			dynamic_max = 0L;
+			target = 0L;
 		}
 	with _ -> 
 	  let target = static_min +++ (Int64.(mul 100L (mul 1024L 1024L))) in
@@ -510,7 +508,8 @@ let create_chipset_info ~__context =
 	let host = Helpers.get_localhost ~__context in
 	let current_info = Db.Host.get_chipset_info ~__context ~self:host in
 	let iommu =
-		let open Xenops_client in
+		let open Xapi_xenops_queue in
+		let module Client = (val make_client default_xenopsd : XENOPS) in
 		let dbg = Context.string_of_task __context in
 		let xen_dmesg = Client.HOST.get_console_data dbg in
 		if String.has_substr xen_dmesg "I/O virtualisation enabled" then

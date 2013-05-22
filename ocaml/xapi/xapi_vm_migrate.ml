@@ -57,6 +57,8 @@ open Storage_interface
 open Listext
 open Fun
 
+open Xapi_xenops_queue
+
 let assert_licensed_storage_motion ~__context =
 	if (not (Pool_features.is_enabled ~__context Features.Storage_motion)) then
 		raise (Api_errors.Server_error(Api_errors.license_restriction, []))
@@ -115,7 +117,7 @@ let pool_migrate_complete ~__context ~vm ~host =
 	let id = Db.VM.get_uuid ~__context ~self:vm in
 	debug "VM.pool_migrate_complete %s" id;
 	let dbg = Context.string_of_task __context in
-	let queue_name = Xapi_xenops.queue_of_vm ~__context ~self:vm in
+	let queue_name = Xapi_xenops_queue.queue_of_vm ~__context ~self:vm in
 	if Xapi_xenops.vm_exists_in_xenopsd queue_name dbg id then begin
 		Helpers.call_api_functions ~__context
 			(fun rpc session_id ->
@@ -667,7 +669,7 @@ let handler req fd _ =
 			debug "overhead_bytes = %Ld; free_memory_required = %Ld KiB" overhead_bytes free_memory_required_kib;
 
 			let dbg = Context.string_of_task __context in
-			let queue_name = Xapi_xenops.queue_of_vm ~__context ~self:vm in
+			let queue_name = Xapi_xenops_queue.queue_of_vm ~__context ~self:vm in
 			Xapi_network.with_networks_attached_for_vm ~__context ~vm (fun () ->
 				Xapi_xenops.transform_xenops_exn ~__context queue_name (fun () ->
 					debug "Sending VM %s configuration to xenopsd" (Ref.string_of vm);

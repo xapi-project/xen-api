@@ -122,6 +122,7 @@ XAPI_MODULES = $(COMMON) \
 	xapi_subject \
 	audit_log \
 	xapi_xenops \
+	xapi_xenops_queue \
 	xapi_vmpp \
 	xapi_vm_appliance \
 	xapi_vm_appliance_lifecycle \
