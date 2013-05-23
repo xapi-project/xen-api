@@ -6,7 +6,7 @@ J=4
 
 clean:
 	@obuild clean
-	@rm -f setup.data setup.log setup.bin configure.done
+	@rm -f setup.data setup.log setup.bin
 
 distclean: clean
 	@rm -f config.mk
