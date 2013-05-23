@@ -12,5 +12,11 @@
  * GNU Lesser General Public License for more details.
  *)
 
+let specific_essential_paths = Path.hvm_guests @ Path.network_configuration
+
 (* Start the program with the libvirt backend *)
-let _ = Xenopsd.main (module Xenops_server_libvirt: Xenops_server_plugin.S)
+let _ =
+	Xenops_interface.queue_name := !Xenops_interface.queue_name ^ ".libvirt";
+	Xenopsd.main
+		~specific_essential_paths
+		(module Xenops_server_libvirt: Xenops_server_plugin.S)

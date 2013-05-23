@@ -82,7 +82,7 @@ module Qemu = struct
 			let model = [ "model", "virtio" (* "rtl8139" *) ] in
 			let ifname = [ "ifname", Printf.sprintf "tap%d.%d" domid x.position ] in
 			(* XXX: we need to make our vif script compatible *)
-			let script = [ "script", !Path.qemu_vif_script ] in
+			let script = [ "script", !Qemu_path.qemu_vif_script ] in
 			[ "-net"; commas ("nic" :: (kv (vlan @ mac @ model)));
 			  "-net"; commas ("tap" :: (kv (vlan @ ifname @ script))) ]
 
@@ -332,8 +332,8 @@ module VM = struct
 			if power_state = Running then begin
 				(* XXX: stat the file first *)
 				let path = Filename.concat Qemu.vnc_dir vm.Vm.id in
-				debug "%s %s %s" !Path.chgrp !Xenopsd.sockets_group path;
-				ignore(Forkhelpers.execute_command_get_output !Path.chgrp [!Xenopsd.sockets_group; path]);
+				debug "%s %s %s" !Path.chgrp !Qemu_path.sockets_group path;
+				ignore(Forkhelpers.execute_command_get_output !Path.chgrp [!Qemu_path.sockets_group; path]);
 				Unix.chmod path 0o0770;
 			end;
 			let domids =

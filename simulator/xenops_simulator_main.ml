@@ -13,4 +13,6 @@
  *)
 
 (* Start the program with the simulator backend *)
-let _ = Xenopsd.main (module Xenops_server_simulator: Xenops_server_plugin.S)
+let _ =
+	Xenops_interface.queue_name := !Xenops_interface.queue_name ^ ".simulator";
+	Xenopsd.main (module Xenops_server_simulator: Xenops_server_plugin.S)

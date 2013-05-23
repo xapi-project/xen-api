@@ -682,7 +682,7 @@ let add (task: Xenops_task.t) ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) 
 		"frontend-id", sprintf "%u" domid;
 		"online", "1";
 		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
-		"script", !Path.vif_script;
+		"script", !Xc_path.vif_script;
 		"mac", mac;
 		"handle", string_of_int devid
 	] @ back_options in
@@ -753,7 +753,7 @@ let move ~xs (x: device) bridge =
 	xs.Xs.write xs_bridge_path bridge;
 	let domid = string_of_int x.frontend.domid in
 	let devid = string_of_int x.frontend.devid in
-	ignore (Forkhelpers.execute_command_get_output !Path.vif_script ["move"; "vif"; domid; devid])
+	ignore (Forkhelpers.execute_command_get_output !Xc_path.vif_script ["move"; "vif"; domid; devid])
 end
 
 (*****************************************************************************)
@@ -805,7 +805,7 @@ let is_cmdline_valid domid pid =
 		|> Unixext.string_of_file
 		|> Re_str.split null
 	in
-	if (List.mem !Path.vncterm cmdline) && (List.mem (vnc_console_path domid) cmdline)
+	if (List.mem !Xc_path.vncterm cmdline) && (List.mem (vnc_console_path domid) cmdline)
 	then true
 	else false
 
@@ -876,7 +876,7 @@ let start ?statefile ~xs ?ip domid =
 		  "-v"; ip ^ ":1";
 		] @ load_args statefile in
 	(* Now add the close fds wrapper *)
-	let pid = Forkhelpers.safe_close_and_exec None None None [] !Path.vncterm l in
+	let pid = Forkhelpers.safe_close_and_exec None None None [] !Xc_path.vncterm l in
 	let path = vnc_pid_path domid in
 	xs.Xs.write path (string_of_int (Forkhelpers.getpid pid));
 	Forkhelpers.dontwaitpid pid
@@ -1161,8 +1161,8 @@ let do_flr device =
 	debug "Doing FLR on pci device: %s" device;
 	let doflr = "/sys/bus/pci/drivers/pciback/do_flr" in
 	let callscript s devstr =
-		if Sys.file_exists !Path.pci_flr_script then begin
-			try ignore (Forkhelpers.execute_command_get_output !Path.pci_flr_script [ s; devstr; ])
+		if Sys.file_exists !Xc_path.pci_flr_script then begin
+			try ignore (Forkhelpers.execute_command_get_output !Xc_path.pci_flr_script [ s; devstr; ])
 			with _ -> ()
 		end
 	in

@@ -13,4 +13,9 @@
  *)
 
 (* Start the program with the xen backend *)
-let _ = Xenopsd.main (module Xenops_server_xen: Xenops_server_plugin.S)
+let _ =
+	Xenops_interface.queue_name := !Xenops_interface.queue_name ^ ".classic";
+	Xenopsd.main
+		~specific_essential_paths:Xc_path.essentials
+		~specific_nonessential_paths:Xc_path.nonessentials
+		(module Xenops_server_xen: Xenops_server_plugin.S)

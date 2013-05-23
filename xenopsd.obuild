@@ -5,7 +5,7 @@ obuild-ver: 1
 
 library xenops
   src-dir: lib
-  modules: Config, Ionice, Mac, Xenops_migrate, Xenops_hooks, Task_server, Xenops_task, Updates, Xenops_utils, Xenops_server, Xenopsd, Xenops_server_plugin, Xenops_server_skeleton, Scheduler, Path, Storage, Interface
+  modules: Ionice, Mac, Xenops_migrate, Xenops_hooks, Task_server, Xenops_task, Updates, Xenops_utils, Xenops_server, Xenopsd, Xenops_server_plugin, Xenops_server_skeleton, Scheduler, Path, Storage, Interface
   build-deps: syslog, threads.posix, uuidm, xmlm, cohttp, uri, rpclib, rpclib.syntax, forkexec, fd-send-recv, xcp, xcp.xen, xcp.storage, rpclib.syntax
   pp: camlp4o
 
