@@ -190,8 +190,27 @@ end
 module Q = struct
 
 	let queues : (string, Protocol.Entry.t Int64Map.t) Hashtbl.t = Hashtbl.create 128
+	let queue_lengths : (string, int) Hashtbl.t = Hashtbl.create 128
 	let next_transfer_expected : (string, int64) Hashtbl.t = Hashtbl.create 128
 	let message_id_to_queue : string Int64Map.t ref = ref Int64Map.empty
+
+	let list prefix = Hashtbl.fold (fun name _ acc ->
+		if startswith prefix name
+		then name :: acc
+		else acc) queues []
+
+	module Lengths = struct
+		open Measurable
+		let d x =Description.({ description = "length of queue " ^ x })
+		let list_available () =
+			Hashtbl.fold (fun name _ acc ->
+				(name, d name) :: acc
+			) queues []
+		let measure name =
+			if Hashtbl.mem queues name
+			then Some (Measurement.Int (Hashtbl.find queue_lengths name))
+			else None
+	end
 
 	type wait = {
 		c: unit Lwt_condition.t;
@@ -202,14 +221,10 @@ module Q = struct
 
 	let exists name = Hashtbl.mem queues name
 
-	let list prefix = Hashtbl.fold (fun name _ acc ->
-		if startswith prefix name
-		then name :: acc
-		else acc) queues []
-
 	let add name =
 		if not(exists name) then begin
 			Hashtbl.replace queues name Int64Map.empty;
+			Hashtbl.replace queue_lengths name 0;
 			Hashtbl.replace waiters name {
 				c = Lwt_condition.create ();
 				m = Lwt_mutex.create ()
@@ -228,6 +243,7 @@ module Q = struct
 			message_id_to_queue := Int64Map.remove id !message_id_to_queue
 		) entries;
 		Hashtbl.remove queues name;
+		Hashtbl.remove queue_lengths name;
 		Hashtbl.remove next_transfer_expected name;
 		Hashtbl.remove waiters name;
 		Subscription.remove name
@@ -249,6 +265,8 @@ module Q = struct
 			let q = get name in
 			message_id_to_queue := Int64Map.remove id !message_id_to_queue;
 			Printf.fprintf stderr "Removing id %Ld from queue %s\n%!" id name;
+			if Int64Map.mem id q
+			then Hashtbl.replace queue_lengths name (Hashtbl.find queue_lengths name - 1);
 			Hashtbl.replace queues name (Int64Map.remove id q);
 		end
 
@@ -281,6 +299,7 @@ module Q = struct
 					let id = make_unique_id () in
 					message_id_to_queue := Int64Map.add id name !message_id_to_queue;
 					Hashtbl.replace queues name (Int64Map.add id (Protocol.Entry.make (get_time ()) origin data) q);
+					Hashtbl.replace queue_lengths name (Hashtbl.find queue_lengths name + 1);
 					Lwt_condition.broadcast w.c ();
 					return (Some id)
 				)
