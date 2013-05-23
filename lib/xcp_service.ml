@@ -19,7 +19,6 @@ module StringSet = Set.Make(String)
    are applied in order: (latest takes precedence)
       defaults < arguments < config file
 *)
-let sockets_group = ref "xapi"
 let default_service_name = Filename.basename Sys.argv.(0)
 let config_file = ref (Printf.sprintf "/etc/%s.conf" default_service_name)
 let pidfile = ref (Printf.sprintf "/var/run/%s.pid" default_service_name)
@@ -154,7 +153,6 @@ end
 let common_options = [
 	"use-switch", Arg.Bool (fun b -> Xcp_client.use_switch := b), (fun () -> string_of_bool !Xcp_client.use_switch), "true if the message switch is to be enabled";
 	"switch-port", Arg.Set_int Xcp_client.switch_port, (fun () -> string_of_int !Xcp_client.switch_port), "port on localhost where the message switch is listening";
-	"sockets-group", Arg.Set_string sockets_group, (fun () -> !sockets_group), "Group to allow access to the control socket";
 	"pidfile", Arg.Set_string pidfile, (fun () -> !pidfile), "Filename to write process PID";
 	"log", Arg.Set_string log_destination, (fun () -> !log_destination), "Where to write log messages";
 	"daemon", Arg.Bool (fun x -> daemon := x), (fun () -> string_of_bool !daemon), "True if we are to daemonise";
@@ -324,13 +322,6 @@ type server =
 
 (* Start accepting connections on sockets before we daemonize *)
 let make_socket_server path fn =
-	(* Check the sockets-group exists *)
-  let (_:Unix.group_entry) = try Unix.getgrnam !sockets_group with _ ->
-		(error "Group %s doesn't exist." !sockets_group;
-		 error "Either create the group, or select a different group by modifying the config file:";
-		 error "# Group which can access the control socket";
-		 error "sockets-group=<some group name>";
-		 exit 1) in ();
 	try
 		(try Unix.unlink path with Unix.Unix_error(Unix.ENOENT, _, _) -> ());
 		mkdir_rec (Filename.dirname path) 0o0755;

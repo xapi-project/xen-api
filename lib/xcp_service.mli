@@ -28,8 +28,6 @@ val common_prefix: string
 
 val channel_helper: string ref
 
-val sockets_group: string ref
-
 type opt = string * Arg.spec * (unit -> string) * string
 
 type res = {
