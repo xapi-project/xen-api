@@ -105,9 +105,41 @@ module In = struct
 			None, `GET, (Uri.make ~path:(String.concat "/" ("" :: "admin" :: path)) ())
 end
 
+type origin =
+	| Anonymous of int (** An un-named connection, probably a temporary client connection *)
+	| Name of string   (** A service with a well-known name *)
+with rpc
+(** identifies where a message came from *)
+
+module Entry = struct
+	type t = {
+		origin: origin;
+		time: float; (* XXX this is for judging age: use oclock/clock_monotonic *)
+		message: Message.t;
+	} with rpc
+	(** an enqueued message *)
+
+	let make origin message =
+		let time = 0. in
+		{ origin; time; message }
+end
+
+type message_id = int64 with rpc
+(** uniquely identifier for this message *)
+
+module Diagnostics = struct
+	type queue_contents = (message_id * Entry.t) list with rpc
+
+	type t = {
+		permanent_queues: (string * queue_contents) list;
+		transient_queues: (string * queue_contents) list;
+	}
+	with rpc
+end
+
 module Out = struct
 	type transfer = {
-		messages: (int64 * Message.t) list;
+		messages: (message_id * Message.t) list;
 	} with rpc
 
 	type trace = {
@@ -127,7 +159,7 @@ module Out = struct
 	| Trace of trace
 	| Ack
 	| List of string list
-	| Diagnostics of string
+	| Diagnostics of Diagnostics.t
 	| Not_logged_in
 	| Get of string
 
@@ -146,7 +178,7 @@ module Out = struct
 		| List l ->
 			`OK, (Jsonrpc.to_string (rpc_of_queue_list l))
 		| Diagnostics x ->
-			`OK, x
+			`OK, (Jsonrpc.to_string (Diagnostics.rpc_of_t x))
 		| Not_logged_in ->
 			`Not_found, "Please log in."
 		| Get x ->

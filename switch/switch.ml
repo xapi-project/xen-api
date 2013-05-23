@@ -134,23 +134,6 @@ module Relation = functor(A: Map.OrderedType) -> functor(B: Map.OrderedType) -> 
 
 end
 
-type origin =
-	| Anonymous of int (** An un-named connection, probably a temporary client connection *)
-	| Name of string   (** A service with a well-known name *)
-with rpc
-
-module Entry = struct
-	type t = {
-		origin: origin;
-		time: float; (* XXX this is for judging age: use oclock/clock_monotonic *)
-		message: Protocol.Message.t;
-	} with rpc
-
-	let make origin message =
-		let time = 0. in
-		{ origin; time; message }
-end
-
 module StringStringRelation = Relation(String)(String)
 
 module Subscription = struct
@@ -185,8 +168,8 @@ module Connections = struct
 		else Some(IntStringRelation.B_Set.choose sessions)
 
 	let get_origin conn_id = match get_session conn_id with
-		| None -> Anonymous conn_id
-		| Some x -> Name x
+		| None -> Protocol.Anonymous conn_id
+		| Some x -> Protocol.Name x
 
 	let add conn_id session =
 		debug "+ connection %d" conn_id;
@@ -203,7 +186,7 @@ end
 
 module Q = struct
 
-	let queues : (string, Entry.t Int64Map.t) Hashtbl.t = Hashtbl.create 128
+	let queues : (string, Protocol.Entry.t Int64Map.t) Hashtbl.t = Hashtbl.create 128
 	let message_id_to_queue : string Int64Map.t ref = ref Int64Map.empty
 
 	type wait = {
@@ -283,7 +266,7 @@ module Q = struct
 					let origin = Connections.get_origin conn_id in
 					let id = make_unique_id () in
 					message_id_to_queue := Int64Map.add id name !message_id_to_queue;
-					Hashtbl.replace queues name (Int64Map.add id (Entry.make origin data) q);
+					Hashtbl.replace queues name (Int64Map.add id (Protocol.Entry.make origin data) q);
 					Lwt_condition.broadcast w.c ();
 					return (Some id)
 				)
@@ -291,38 +274,42 @@ module Q = struct
 
 end
 
-module Private_queue = struct
+module Transient_queue = struct
 
 	(* Session -> set of queues which will be GCed on session cleanup *)
-	let private_queues : (string, StringSet.t) Hashtbl.t = Hashtbl.create 128
+	let queues : (string, StringSet.t) Hashtbl.t = Hashtbl.create 128
 
 	let add session name =
 		let existing =
-			if Hashtbl.mem private_queues session
-			then Hashtbl.find private_queues session
+			if Hashtbl.mem queues session
+			then Hashtbl.find queues session
 			else StringSet.empty in
-		Hashtbl.replace private_queues session (StringSet.add name existing)
+		Hashtbl.replace queues session (StringSet.add name existing)
 
 	let remove session =
-		if Hashtbl.mem private_queues session then begin
-			let qs = Hashtbl.find private_queues session in
+		if Hashtbl.mem queues session then begin
+			let qs = Hashtbl.find queues session in
 			StringSet.iter
 				(fun name ->
-					debug "Deleting private queue: %s" name;
+					debug "Deleting transient queue: %s" name;
 					Q.remove name;
 				) qs;
-			Hashtbl.remove private_queues session
+			Hashtbl.remove queues session
 		end
+
+	let all () = Hashtbl.fold (fun _ set acc -> StringSet.union set acc) queues StringSet.empty
 end
 
-module Diagnostics = struct
-	type queue = (int64 * Entry.t) list with rpc
-	let queue q = Int64Map.fold (fun i e acc -> (i, e) :: acc) q []
-
-	type queues = (string * queue) list with rpc
-
-	let snapshot () = Hashtbl.fold (fun n q acc -> (n, queue q) :: acc) Q.queues []
-end
+let snapshot () =
+	let queue_contents q = Int64Map.fold (fun i e acc -> (i, e) :: acc) q [] in
+	let queues qs = Hashtbl.fold (fun n q acc -> (n, queue_contents q) :: acc) qs [] in
+	let is_transient =
+		let all = Transient_queue.all () in
+		fun (x, _) -> StringSet.mem x all in
+	let all_queues = queues Q.queues in
+	let permanent_queues, transient_queues = List.partition is_transient all_queues in
+	let open Protocol.Diagnostics in
+	{ permanent_queues; transient_queues }
 
 module Trace_buffer = struct
 	let size = 128
@@ -373,8 +360,7 @@ let process_request conn_id session request = match session, request with
 		Connections.add conn_id session;
 		return Out.Login
 	| _, In.Diagnostics ->
-		let d = Diagnostics.(Jsonrpc.to_string (rpc_of_queues (snapshot ()))) in
-		return (Out.Diagnostics d)
+		return (Out.Diagnostics (snapshot ()))
 	| _, In.Trace(from, timeout) ->
 		lwt events = Trace_buffer.get from timeout in
 		return (Out.Trace {Out.events = events})
@@ -393,9 +379,9 @@ let process_request conn_id session request = match session, request with
 			| Some name ->
 				name
 			| None ->
-				(* Create a session-local private queue name *)
+				(* Create a session-local transient queue name *)
 				let name = make_fresh_name () in
-				Private_queue.add session name;
+				Transient_queue.add session name;
 				name
 		end in
 		Q.add name;
@@ -444,7 +430,7 @@ let process_request conn_id session request = match session, request with
 				in
 		lwt messages = wait () in
 		let transfer = {
-			Out.messages = Int64Map.fold (fun id e acc -> (id, e.Entry.message) :: acc) messages [];
+			Out.messages = Int64Map.fold (fun id e acc -> (id, e.Protocol.Entry.message) :: acc) messages [];
 		} in
 		List.iter
 			(fun (id, m) ->
@@ -496,7 +482,7 @@ let make_server () =
 		| Some session ->
 			if not(Connections.is_session_active session) then begin
 				debug "Session %s cleaning up" session;
-				Private_queue.remove session
+				Transient_queue.remove session
 			end in
 
 	debug "Message switch starting";

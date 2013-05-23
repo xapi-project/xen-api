@@ -52,6 +52,37 @@ module In : sig
 	(** print a [t] to an HTTP request and body *)
 end
 
+type origin =
+	| Anonymous of int (** An un-named connection, probably a temporary client connection *)
+	| Name of string   (** A service with a well-known name *)
+(** identifies where a message came from *)
+
+module Entry : sig
+	type t = {
+		origin: origin;
+		time: float; (* XXX this is for judging age: use oclock/clock_monotonic *)
+		message: Message.t;
+	}
+	(** an enqueued message *)
+
+	val make: origin -> Message.t -> t
+end
+
+type message_id = int64
+(** uniquely identifier for this message *)
+
+module Diagnostics : sig
+	type queue_contents = (message_id * Entry.t) list
+
+	type t = {
+		permanent_queues: (string * queue_contents) list;
+		transient_queues: (string * queue_contents) list;
+	}
+	val rpc_of_t: t -> Rpc.t
+	val t_of_rpc: Rpc.t -> t
+end
+
+
 module Out : sig
 	type transfer = {
 		messages: (int64 * Message.t) list;
@@ -77,7 +108,7 @@ module Out : sig
 	| Trace of trace
 	| Ack
 	| List of string list
-	| Diagnostics of string
+	| Diagnostics of Diagnostics.t
 	| Not_logged_in
 	| Get of string
 
