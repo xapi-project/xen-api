@@ -22,7 +22,7 @@ let colon = Re_str.regexp "[:]"
 let get_user_agent () = Sys.argv.(0)
 
 let switch_port = ref 8080
-let use_switch = ref false
+let use_switch = ref true 
 
 let switch_rpc queue_name string_of_call response_of_string =
 	let c = Protocol_unix.Client.connect !switch_port queue_name in
