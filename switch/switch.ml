@@ -190,6 +190,7 @@ end
 module Q = struct
 
 	let queues : (string, Protocol.Entry.t Int64Map.t) Hashtbl.t = Hashtbl.create 128
+	let last_transfer : (string, int64) Hashtbl.t = Hashtbl.create 128
 	let message_id_to_queue : string Int64Map.t ref = ref Int64Map.empty
 
 	type wait = {
@@ -227,8 +228,16 @@ module Q = struct
 			message_id_to_queue := Int64Map.remove id !message_id_to_queue
 		) entries;
 		Hashtbl.remove queues name;
+		Hashtbl.remove last_transfer name;
 		Hashtbl.remove waiters name;
 		Subscription.remove name
+
+	let transfer name = Hashtbl.replace last_transfer name (get_time ())
+
+	let get_last_transfer name =
+		if Hashtbl.mem last_transfer name
+		then Some (Hashtbl.find last_transfer name)
+		else None
 
 	let queue_of_id id = Int64Map.find id !message_id_to_queue
 
@@ -304,15 +313,20 @@ module Transient_queue = struct
 end
 
 let snapshot () =
-	let queue_contents q = Int64Map.fold (fun i e acc -> (i, e) :: acc) q [] in
-	let queues qs = Hashtbl.fold (fun n q acc -> (n, queue_contents q) :: acc) qs [] in
+	let get_queue_contents q = Int64Map.fold (fun i e acc -> (i, e) :: acc) q [] in
+	let open Protocol.Diagnostics in
+	let queues qs =
+		Hashtbl.fold (fun n q acc ->
+			let queue_contents = get_queue_contents q in
+			let last_transfer = Q.get_last_transfer n in
+			(n, { queue_contents; last_transfer }) :: acc
+		) qs [] in
 	let is_transient =
 		let all = Transient_queue.all () in
 		fun (x, _) -> StringSet.mem x all in
 	let all_queues = queues Q.queues in
-	let permanent_queues, transient_queues = List.partition is_transient all_queues in
+	let transient_queues, permanent_queues = List.partition is_transient all_queues in
 	let current_time = get_time () in
-	let open Protocol.Diagnostics in
 	{ start_time; current_time; permanent_queues; transient_queues }
 
 module Trace_buffer = struct
@@ -404,6 +418,7 @@ let process_request conn_id session request = match session, request with
 			let names = Subscription.get session in
 			let not_seen = StringStringRelation.B_Set.fold (fun name map ->
 				let q = Q.get name in
+				Q.transfer name;
 				let _, _, not_seen = Int64Map.split from q in
 				Int64Map.fold Int64Map.add map not_seen
 			) names Int64Map.empty in

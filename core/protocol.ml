@@ -129,11 +129,16 @@ type message_id = int64 with rpc
 module Diagnostics = struct
 	type queue_contents = (message_id * Entry.t) list with rpc
 
+	type queue = {
+		last_transfer: int64 option;
+		queue_contents: queue_contents;
+	} with rpc
+
 	type t = {
 		start_time: int64;
 		current_time: int64;
-		permanent_queues: (string * queue_contents) list;
-		transient_queues: (string * queue_contents) list;
+		permanent_queues: (string * queue) list;
+		transient_queues: (string * queue) list;
 	}
 	with rpc
 end

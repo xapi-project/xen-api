@@ -62,8 +62,8 @@ let diagnostics common_opts =
     let origin = function
       | Anonymous id -> Printf.sprintf "anonymous-%d" id
       | Name x -> x in
-    let queue (name, contents) =
-      Printf.printf "  %s (active/inactive?)\n" name;
+    let queue (name, queue) =
+      Printf.printf "  %s age: %s\n" name (match queue.Diagnostics.last_transfer with None -> "None" | Some x -> time x);
       List.iter
         (fun (id, entry) ->
           Printf.printf "    %Ld:  from: %s  age: %s\n" id (origin entry.Entry.origin) (time entry.Entry.time);
@@ -73,7 +73,7 @@ let diagnostics common_opts =
           let max_len = 70 in
           Printf.printf "      %s\n" (if common_opts.Common.verbose || len < max_len then payload else String.sub payload 0 max_len);
           Printf.printf "        reply_to: %s  correlation_id: %d\n" (match message.Message.reply_to with None -> "None" | Some x -> x) message.Message.correlation_id;
-        ) contents in
+        ) queue.Diagnostics.queue_contents in
     Printf.printf "Switch uptime: %s\n" (time d.Diagnostics.start_time); 
     print_endline "Permanent queues";
     if d.Diagnostics.permanent_queues = []

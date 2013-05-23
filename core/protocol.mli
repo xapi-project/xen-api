@@ -74,11 +74,16 @@ type message_id = int64
 module Diagnostics : sig
 	type queue_contents = (message_id * Entry.t) list
 
+	type queue = {
+		last_transfer: int64 option;
+		queue_contents: queue_contents;
+	}
+
 	type t = {
 		start_time: int64;
 		current_time: int64;
-		permanent_queues: (string * queue_contents) list;
-		transient_queues: (string * queue_contents) list;
+		permanent_queues: (string * queue) list;
+		transient_queues: (string * queue) list;
 	}
 	val rpc_of_t: t -> Rpc.t
 	val t_of_rpc: Rpc.t -> t
