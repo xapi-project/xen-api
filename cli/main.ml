@@ -64,7 +64,7 @@ let diagnostics common_opts =
         (fun (id, entry) ->
           Printf.printf "    %Ld:  from: %s  age: %.2f\n" id (origin entry.Entry.origin) entry.Entry.time;
           let message = entry.Entry.message in
-          let payload = message.Message.payload in
+          let payload = String.escaped message.Message.payload in
           let len = String.length payload in
           let max_len = 70 in
           Printf.printf "      %s\n" (if common_opts.Common.verbose || len < max_len then payload else String.sub payload 0 max_len);
