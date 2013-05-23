@@ -19,13 +19,14 @@ module StringSet = Set.Make(String)
    are applied in order: (latest takes precedence)
       defaults < arguments < config file
 *)
-let sockets_group = ref "xapi"
 let default_service_name = Filename.basename Sys.argv.(0)
 let config_file = ref (Printf.sprintf "/etc/%s.conf" default_service_name)
 let pidfile = ref (Printf.sprintf "/var/run/%s.pid" default_service_name)
 let log_destination = ref "syslog:daemon"
 let daemon = ref false
 let have_daemonized () = Unix.getppid () = 1
+
+let common_prefix = "org.xen.xcp."
 
 module type BRAND = sig val name: string end
 module Debug = struct
@@ -150,7 +151,8 @@ module Config_file = struct
 end
 
 let common_options = [
-	"sockets-group", Arg.Set_string sockets_group, (fun () -> !sockets_group), "Group to allow access to the control socket";
+	"use-switch", Arg.Bool (fun b -> Xcp_client.use_switch := b), (fun () -> string_of_bool !Xcp_client.use_switch), "true if the message switch is to be enabled";
+	"switch-port", Arg.Set_int Xcp_client.switch_port, (fun () -> string_of_int !Xcp_client.switch_port), "port on localhost where the message switch is listening";
 	"pidfile", Arg.Set_string pidfile, (fun () -> !pidfile), "Filename to write process PID";
 	"log", Arg.Set_string log_destination, (fun () -> !log_destination), "Where to write log messages";
 	"daemon", Arg.Bool (fun x -> daemon := x), (fun () -> string_of_bool !daemon), "True if we are to daemonise";
@@ -175,6 +177,17 @@ type res = {
 	perms: Unix.access_permission list
 }
 
+let channel_helper = ref "/usr/bin/xcp_channel_helper"
+
+let default_resources = [
+  { name = "channel_helper";
+    description = "performs file descriptor passing and general proxying";
+    essential = false;
+    path = channel_helper;
+    perms = [ Unix.X_OK ];
+  }
+]
+
 let canonicalise x = Filename.(if is_relative x then concat (Unix.getcwd ()) x else x)
 
 let to_opt = List.map (fun f -> f.name, Arg.String (fun x -> f.path := canonicalise x), (fun () -> !(f.path)), f.description)
@@ -188,6 +201,7 @@ let read_config_file x =
 	end
 
 let configure ?(options=[]) ?(resources=[]) () =
+	let resources = default_resources @ resources in
 	let config_spec = common_options @ options @ (to_opt resources) in
 	let arg_spec = arg_spec config_spec in
 	Arg.parse (Arg.align arg_spec)
@@ -238,7 +252,7 @@ let binary_handler call_of_string string_of_response process s context =
 	output_string oc msg_buf;
 	flush oc
 
-let http_handler call_of_string string_of_response process s context =
+let http_handler call_of_string string_of_response process s =
 	let ic = Unix.in_channel_of_descr s in
 	let oc = Unix.out_channel_of_descr s in
 	let module Request = Cohttp.Request.Make(Cohttp_posix_io.Buffered_IO) in
@@ -258,7 +272,7 @@ let http_handler call_of_string string_of_response process s context =
 				really_input ic request_txt 0 content_length;
 				let rpc_call = call_of_string request_txt in
 				debug "%s" (Rpc.string_of_call rpc_call);
-				let rpc_response = process context rpc_call in
+				let rpc_response = process rpc_call in
 				debug "   %s" (Rpc.string_of_response rpc_response);
 				let response_txt = string_of_response rpc_response in
 				let content_length = String.length response_txt in
@@ -283,6 +297,9 @@ let ign_thread (t:Thread.t) = ignore t
 let ign_int (t:int)         = ignore t
 let ign_string (t:string)   = ignore t
 
+let default_raw_fn rpc_fn s =
+	http_handler Jsonrpc.call_of_string Jsonrpc.string_of_response rpc_fn s
+
 let accept_forever sock f =
 	ign_thread (Thread.create (fun () ->
 		while true do
@@ -299,15 +316,12 @@ let mkdir_rec dir perm =
 		(try Unix.mkdir dir perm  with Unix.Unix_error(Unix.EEXIST, _, _) -> ()) in
 	p_mkdir dir
 
+type server =
+  | Socket of Unix.file_descr * (Unix.file_descr -> unit)
+  | Queue of string * (Rpc.call -> Rpc.response)
+
 (* Start accepting connections on sockets before we daemonize *)
-let listen path =
-	(* Check the sockets-group exists *)
-  let (_:Unix.group_entry) = try Unix.getgrnam !sockets_group with _ ->
-		(error "Group %s doesn't exist." !sockets_group;
-		 error "Either create the group, or select a different group by modifying the config file:";
-		 error "# Group which can access the control socket";
-		 error "sockets-group=<some group name>";
-		 exit 1) in ();
+let make_socket_server path fn =
 	try
 		(try Unix.unlink path with Unix.Unix_error(Unix.ENOENT, _, _) -> ());
 		mkdir_rec (Filename.dirname path) 0o0755;
@@ -315,7 +329,7 @@ let listen path =
 		Unix.bind sock (Unix.ADDR_UNIX path);
 		Unix.listen sock 5;
 		info "Listening on %s" path;
-		sock
+		Socket (sock, fn)
 	with e ->
 		error "Failed to listen on Unix domain socket %s. Raw error was: %s" path (Printexc.to_string e);
 		begin match e with
@@ -329,6 +343,34 @@ let listen path =
 		| _ -> ()
 		end;
 		raise e
+
+let make_queue_server name fn =
+	Queue(name, fn) (* TODO: connect to the message switch *)
+
+let make ~path ~queue_name ?raw_fn ~rpc_fn () =
+	if !Xcp_client.use_switch
+	then make_queue_server queue_name rpc_fn
+	else make_socket_server path (match raw_fn with
+		| Some x -> x
+		| None -> default_raw_fn rpc_fn
+		)
+
+let serve_forever = function
+	| Socket(listening_sock, fn) ->
+		while true do
+			let this_connection, _ = Unix.accept listening_sock in
+			let (_: Thread.t) = Thread.create
+				(fun () ->
+					finally
+						(fun () -> fn this_connection)
+						(fun () -> Unix.close this_connection)
+				) () in
+			()
+		done
+	| Queue(queue_name, fn) ->
+		let process x = Jsonrpc.string_of_response (fn (Jsonrpc.call_of_string x)) in
+		let c = Protocol_unix.IO.connect !Xcp_client.switch_port in
+		Protocol_unix.Server.listen process c queue_name
 
 let pidfile_write filename =
 	let fd = Unix.openfile filename

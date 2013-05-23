@@ -11,8 +11,8 @@ Library xcp
   CompiledObject:     best
   Path:               lib
   Findlibname:        xcp
-  Modules:            Cohttp_posix_io, Xcp_client, Xcp_service
-  BuildDepends:       uri, re, cohttp, xmlm, unix, rpclib, rpclib.xml, rpclib.js, syslog, threads
+  Modules:            Cohttp_posix_io, Open_uri, Xcp_client, Xcp_service, Xcp_channel
+  BuildDepends:       uri, re, cohttp, xmlm, unix, rpclib, rpclib.syntax, rpclib.xml, rpclib.js, syslog, threads, message_switch, message_switch.unix, fd-send-recv
 
 Library xcp_storage
   CompiledObject:     best
@@ -45,3 +45,11 @@ Library xcp_memory
   Findlibparent:      xcp
   Modules:            Memory_interface, Memory_client
   BuildDepends:       xcp, threads, rpclib, rpclib.syntax
+
+Executable channel_helper
+  CompiledObject:     best
+  Path:               lib
+  MainIs:             channel_helper.ml
+  Custom:             true
+  Install:            false
+  BuildDepends:       xcp, lwt, lwt.unix, cmdliner

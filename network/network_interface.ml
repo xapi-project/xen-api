@@ -14,7 +14,13 @@
 
 (** {2 Helper functions} *)
 
-let uri = "file:/var/lib/xcp/networkd.json"
+let service_name = "networkd"
+let queue_name = ref (Xcp_service.common_prefix ^ service_name)
+
+let default_sockets_dir = "/var/lib/xcp"
+let default_path = ref (Filename.concat default_sockets_dir service_name)
+
+let uri () = "file:" ^ !default_path
 
 let comp f g x = f (g x)
 let (++) f g x = comp f g x

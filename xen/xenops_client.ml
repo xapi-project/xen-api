@@ -15,7 +15,12 @@
 open Xenops_interface
 open Xcp_client
 
-module Client = Xenops_interface.Client(struct let rpc = json_binary_rpc ~srcstr:"xapi" ~dststr:"xenops" json_url end)
+module Client = Xenops_interface.Client(struct
+	let rpc call =
+		if !use_switch
+		then json_switch_rpc !queue_name call
+		else json_binary_rpc ~srcstr:"xapi" ~dststr:"xenops" json_url call
+end)
 
 let query dbg url =
 	let module Remote = Xenops_interface.Client(struct let rpc = xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" (fun () -> url) end) in

@@ -12,25 +12,32 @@
  * GNU Lesser General Public License for more details.
  *)
 
-let rec retry_econnrefused f =
-  try
-    f ()
-  with
-  | Unix.Unix_error(Unix.ECONNREFUSED, "connect", _) ->
-      (* debug "Caught ECONNREFUSED; retrying in 5s"; *)
-      Thread.delay 5.;
-      retry_econnrefused f
-  | e ->
-      (* error "Caught %s: does the network service need restarting?" (Printexc.to_string e); *)
-      raise e
+open Network_interface
+open Xcp_client
+
+let retry_econnrefused f =
+  let rec loop () =
+    let result =
+      try
+        Some (f ())
+      with Unix.Unix_error((Unix.ECONNREFUSED | Unix.ENOENT), _, _) ->
+        Thread.delay 1.;
+        None in
+    match result with
+    | Some x -> x
+    | None -> loop () in
+  loop ()
 
 module Client = Network_interface.Client(struct
-  let rpc =
+  let rpc call =
     retry_econnrefused
       (fun () ->
-        Xcp_client.xml_http_rpc
+	if !use_switch
+	then json_switch_rpc !queue_name call
+        else xml_http_rpc
           ~srcstr:(Xcp_client.get_user_agent ())
           ~dststr:"network"
-          (fun () -> Network_interface.uri)
+          Network_interface.uri
+	  call
       )
 end)

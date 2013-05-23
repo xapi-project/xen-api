@@ -16,6 +16,7 @@
  *)
 
 let service_name = "memory"
+let queue_name = Xcp_service.common_prefix ^ service_name
 let json_path = "/var/xapi/memory.json"
 
 type reservation_id = string
@@ -44,3 +45,6 @@ external transfer_reservation_to_domain: debug_info -> session_id -> reservation
 external balance_memory: debug_info -> unit = ""
 
 external get_host_reserved_memory: debug_info -> int64 = ""
+
+external get_host_initial_free_memory: debug_info -> int64 = ""
+

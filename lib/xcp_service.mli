@@ -24,6 +24,10 @@ module Debug : sig
 	end
 end
 
+val common_prefix: string
+
+val channel_helper: string ref
+
 type opt = string * Arg.spec * (unit -> string) * string
 
 type res = {
@@ -36,27 +40,22 @@ type res = {
 
 val configure: ?options:opt list -> ?resources:res list -> unit -> unit
 
-val listen: string -> Unix.file_descr
+type server
+
+val make_socket_server: string -> (Unix.file_descr -> unit) -> server
+
+val make: path:string ->
+	queue_name:string ->
+	?raw_fn: (Unix.file_descr -> unit) ->
+	rpc_fn: (Rpc.call -> Rpc.response) ->
+	unit ->
+	server
+
+val serve_forever: server -> unit
 
 val daemon: bool ref
 
 val daemonize: unit -> unit
 
 val maybe_daemonize: unit -> unit
-
-val accept_forever: Unix.file_descr -> (Unix.file_descr -> unit) -> unit
-
-type 'a handler =
-	(string -> Rpc.call) ->
-	(Rpc.response -> string) ->
-	('a -> Rpc.call -> Rpc.response) ->
-	Unix.file_descr ->
-	'a->
-	unit
-
-val binary_handler: 'a handler
-val http_handler: 'a handler
-
-val wait_forever: unit -> unit
-
 

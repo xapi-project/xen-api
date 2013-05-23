@@ -112,35 +112,6 @@ module Unbuffered_IO = struct
     else String.sub buf 0 actually_read
 
   let write oc x = ignore(Unix.write oc x 0 (String.length x))
-
-  let open_uri uri f =
-    let handle_socket s =
-      try
-        let result = f s in
-        Unix.close s;
-        result
-      with e ->
-        Unix.close s;
-        raise e in
-    match Uri.scheme uri with
-    | Some "http" ->
-      begin match Uri.host uri, Uri.port uri with
-      | Some host, Some port ->
-        let inet_addr = Unix.inet_addr_of_string host in
-        let sockaddr = Unix.ADDR_INET(inet_addr, port) in
-        let s = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
-        Unix.connect s sockaddr;
-        handle_socket s
-      | _, _ -> failwith (Printf.sprintf "Failed to parse host and port from URI: %s" (Uri.to_string uri))
-      end
-    | Some "file" ->
-      let filename = Uri.path_and_query uri in
-      let sockaddr = Unix.ADDR_UNIX filename in
-      let s = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
-      Unix.connect s sockaddr;
-      handle_socket s
-    | Some x -> failwith (Printf.sprintf "Unsupported URI scheme: %s" x)
-    | None -> failwith (Printf.sprintf "Failed to parse URI: %s" (Uri.to_string uri))
 end
 
 module Buffered_IO = struct
@@ -180,6 +151,4 @@ module Buffered_IO = struct
     else String.sub buf 0 actually_read
 
   let write oc x = output_string oc x; flush oc
-
-  let open_uri uri f = Unbuffered_IO.open_uri uri (fun fd -> f (Unix.in_channel_of_descr fd) (Unix.out_channel_of_descr fd))
 end
