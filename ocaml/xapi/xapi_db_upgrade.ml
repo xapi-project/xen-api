@@ -309,9 +309,14 @@ let upgrade_host_editions = {
 				let new_license_params =
 					let sku_type_key = "sku_type" in
 					let old_license_params = Db.Host.get_license_params ~__context ~self:host in
-					let old_sku_type = List.assoc sku_type_key old_license_params in
-					let new_sku_type = new_sku old_sku_type in
-					(sku_type_key, new_sku_type) :: (List.remove_assoc sku_type_key old_license_params)
+					if List.mem_assoc sku_type_key old_license_params
+					then begin
+						let old_sku_type = List.assoc sku_type_key old_license_params in
+						let new_sku_type = new_sku old_sku_type in
+						(sku_type_key, new_sku_type) ::
+							(List.remove_assoc sku_type_key old_license_params)
+					end
+					else old_license_params
 				in Db.Host.set_license_params ~__context ~self:host ~value:new_license_params)
 			hosts
 }
