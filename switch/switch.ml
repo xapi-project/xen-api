@@ -190,7 +190,7 @@ end
 module Q = struct
 
 	let queues : (string, Protocol.Entry.t Int64Map.t) Hashtbl.t = Hashtbl.create 128
-	let last_transfer : (string, int64) Hashtbl.t = Hashtbl.create 128
+	let next_transfer_expected : (string, int64) Hashtbl.t = Hashtbl.create 128
 	let message_id_to_queue : string Int64Map.t ref = ref Int64Map.empty
 
 	type wait = {
@@ -228,15 +228,17 @@ module Q = struct
 			message_id_to_queue := Int64Map.remove id !message_id_to_queue
 		) entries;
 		Hashtbl.remove queues name;
-		Hashtbl.remove last_transfer name;
+		Hashtbl.remove next_transfer_expected name;
 		Hashtbl.remove waiters name;
 		Subscription.remove name
 
-	let transfer name = Hashtbl.replace last_transfer name (get_time ())
+	let transfer name next_expected =
+		let time = Int64.add (get_time ()) (Int64.of_float (next_expected *. 1e9)) in
+		Hashtbl.replace next_transfer_expected name time
 
-	let get_last_transfer name =
-		if Hashtbl.mem last_transfer name
-		then Some (Hashtbl.find last_transfer name)
+	let get_next_transfer_expected name =
+		if Hashtbl.mem next_transfer_expected name
+		then Some (Hashtbl.find next_transfer_expected name)
 		else None
 
 	let queue_of_id id = Int64Map.find id !message_id_to_queue
@@ -318,8 +320,8 @@ let snapshot () =
 	let queues qs =
 		Hashtbl.fold (fun n q acc ->
 			let queue_contents = get_queue_contents q in
-			let last_transfer = Q.get_last_transfer n in
-			(n, { queue_contents; last_transfer }) :: acc
+			let next_transfer_expected = Q.get_next_transfer_expected n in
+			(n, { queue_contents; next_transfer_expected }) :: acc
 		) qs [] in
 	let is_transient =
 		let all = Transient_queue.all () in
@@ -418,7 +420,7 @@ let process_request conn_id session request = match session, request with
 			let names = Subscription.get session in
 			let not_seen = StringStringRelation.B_Set.fold (fun name map ->
 				let q = Q.get name in
-				Q.transfer name;
+				Q.transfer name timeout;
 				let _, _, not_seen = Int64Map.split from q in
 				Int64Map.fold Int64Map.add map not_seen
 			) names Int64Map.empty in

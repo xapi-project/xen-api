@@ -55,18 +55,19 @@ let diagnostics common_opts =
   | Ok raw ->
     let d = Diagnostics.t_of_rpc (Jsonrpc.of_string raw) in
     let open Protocol in
-    let time x =
-      let ns = Int64.sub d.Diagnostics.current_time x in
-      let ms = Int64.div ns 1_000_000L in
+    let in_the_past = Int64.sub d.Diagnostics.current_time in
+    let in_the_future x = Int64.sub x d.Diagnostics.current_time in
+    let time f x =
+      let ms = Int64.div (f x) 1_000_000L in
       Printf.sprintf "%Ld ms" ms in
     let origin = function
       | Anonymous id -> Printf.sprintf "anonymous-%d" id
       | Name x -> x in
     let queue (name, queue) =
-      Printf.printf "  %s age: %s\n" name (match queue.Diagnostics.last_transfer with None -> "None" | Some x -> time x);
+      Printf.printf "  %s next update expected: %s\n" name (match queue.Diagnostics.next_transfer_expected with None -> "None" | Some x -> time in_the_future x);
       List.iter
         (fun (id, entry) ->
-          Printf.printf "    %Ld:  from: %s  age: %s\n" id (origin entry.Entry.origin) (time entry.Entry.time);
+          Printf.printf "    %Ld:  from: %s  age: %s\n" id (origin entry.Entry.origin) (time in_the_past entry.Entry.time);
           let message = entry.Entry.message in
           let payload = String.escaped message.Message.payload in
           let len = String.length payload in
@@ -74,7 +75,7 @@ let diagnostics common_opts =
           Printf.printf "      %s\n" (if common_opts.Common.verbose || len < max_len then payload else String.sub payload 0 max_len);
           Printf.printf "        reply_to: %s  correlation_id: %d\n" (match message.Message.reply_to with None -> "None" | Some x -> x) message.Message.correlation_id;
         ) queue.Diagnostics.queue_contents in
-    Printf.printf "Switch uptime: %s\n" (time d.Diagnostics.start_time); 
+    Printf.printf "Switch uptime: %s\n" (time in_the_past d.Diagnostics.start_time); 
     print_endline "Permanent queues";
     if d.Diagnostics.permanent_queues = []
     then print_endline "  None"

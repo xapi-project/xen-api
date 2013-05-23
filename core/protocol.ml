@@ -130,7 +130,7 @@ module Diagnostics = struct
 	type queue_contents = (message_id * Entry.t) list with rpc
 
 	type queue = {
-		last_transfer: int64 option;
+		next_transfer_expected: int64 option;
 		queue_contents: queue_contents;
 	} with rpc
 
