@@ -27,7 +27,7 @@ let log_destination = ref "syslog:daemon"
 let daemon = ref false
 let have_daemonized () = Unix.getppid () = 1
 
-let common_prefix = "org/xen/xcp/"
+let common_prefix = "org.xen.xcp."
 
 module type BRAND = sig val name: string end
 module Debug = struct
