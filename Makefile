@@ -29,8 +29,6 @@ OCAML := $(shell ocamlc -where)
 PYTHON := $(OCAML)/../python
 
 install: setup.bin
-	@mkdir -p $(PYTHON)
-	@cp -f core/message_switch.py $(PYTHON)/
 	@./setup.bin -install
 
 # oasis bug?
