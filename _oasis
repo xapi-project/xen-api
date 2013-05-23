@@ -16,7 +16,7 @@ Library message_switch
   Path:               core
   Findlibname:        message_switch
   Modules:            Protocol
-  BuildDepends:       cohttp,rpclib,rpclib.json,rpclib.syntax,re,re.str
+  BuildDepends:       cohttp,rpclib,rpclib.json,rpclib.syntax,re,re.str,oclock
 
 Library message_switch_lwt
   CompiledObject:     best

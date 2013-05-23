@@ -6,6 +6,9 @@ let debug fmt = Logging.debug "server_xen" fmt
 let warn  fmt = Logging.warn  "server_xen" fmt
 let error fmt = Logging.error "server_xen" fmt
 
+let get_time () = Oclock.gettime Oclock.monotonic
+let start_time = get_time ()
+
 let message_logger = Logging.create 512
 let message conn_id session (fmt: (_,_,_,_) format4) =
     Printf.ksprintf message_logger.Logging.push ("[%3d] [%s]" ^^ fmt) conn_id (match session with None -> "None" | Some x -> x)
@@ -266,7 +269,7 @@ module Q = struct
 					let origin = Connections.get_origin conn_id in
 					let id = make_unique_id () in
 					message_id_to_queue := Int64Map.add id name !message_id_to_queue;
-					Hashtbl.replace queues name (Int64Map.add id (Protocol.Entry.make origin data) q);
+					Hashtbl.replace queues name (Int64Map.add id (Protocol.Entry.make (get_time ()) origin data) q);
 					Lwt_condition.broadcast w.c ();
 					return (Some id)
 				)
@@ -308,8 +311,9 @@ let snapshot () =
 		fun (x, _) -> StringSet.mem x all in
 	let all_queues = queues Q.queues in
 	let permanent_queues, transient_queues = List.partition is_transient all_queues in
+	let current_time = get_time () in
 	let open Protocol.Diagnostics in
-	{ permanent_queues; transient_queues }
+	{ start_time; current_time; permanent_queues; transient_queues }
 
 module Trace_buffer = struct
 	let size = 128

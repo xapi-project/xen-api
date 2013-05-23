@@ -60,12 +60,12 @@ type origin =
 module Entry : sig
 	type t = {
 		origin: origin;
-		time: float; (* XXX this is for judging age: use oclock/clock_monotonic *)
+		time: int64; (** ns *)
 		message: Message.t;
 	}
 	(** an enqueued message *)
 
-	val make: origin -> Message.t -> t
+	val make: int64 -> origin -> Message.t -> t
 end
 
 type message_id = int64
@@ -75,6 +75,8 @@ module Diagnostics : sig
 	type queue_contents = (message_id * Entry.t) list
 
 	type t = {
+		start_time: int64;
+		current_time: int64;
 		permanent_queues: (string * queue_contents) list;
 		transient_queues: (string * queue_contents) list;
 	}

@@ -55,6 +55,10 @@ let diagnostics common_opts =
   | Ok raw ->
     let d = Diagnostics.t_of_rpc (Jsonrpc.of_string raw) in
     let open Protocol in
+    let time x =
+      let ns = Int64.sub d.Diagnostics.current_time x in
+      let ms = Int64.div ns 1_000_000L in
+      Printf.sprintf "%Ld ms" ms in
     let origin = function
       | Anonymous id -> Printf.sprintf "anonymous-%d" id
       | Name x -> x in
@@ -62,18 +66,23 @@ let diagnostics common_opts =
       Printf.printf "  %s (active/inactive?)\n" name;
       List.iter
         (fun (id, entry) ->
-          Printf.printf "    %Ld:  from: %s  age: %.2f\n" id (origin entry.Entry.origin) entry.Entry.time;
+          Printf.printf "    %Ld:  from: %s  age: %s\n" id (origin entry.Entry.origin) (time entry.Entry.time);
           let message = entry.Entry.message in
           let payload = String.escaped message.Message.payload in
           let len = String.length payload in
           let max_len = 70 in
           Printf.printf "      %s\n" (if common_opts.Common.verbose || len < max_len then payload else String.sub payload 0 max_len);
           Printf.printf "        reply_to: %s  correlation_id: %d\n" (match message.Message.reply_to with None -> "None" | Some x -> x) message.Message.correlation_id;
-        ) contents in 
+        ) contents in
+    Printf.printf "Switch uptime: %s\n" (time d.Diagnostics.start_time); 
     print_endline "Permanent queues";
-    List.iter queue d.Diagnostics.permanent_queues;
+    if d.Diagnostics.permanent_queues = []
+    then print_endline "  None"
+    else List.iter queue d.Diagnostics.permanent_queues;
     print_endline "Transient queues";
-    List.iter queue d.Diagnostics.transient_queues;
+    if d.Diagnostics.transient_queues = []
+    then print_endline "  None"
+    else List.iter queue d.Diagnostics.transient_queues;
     `Ok ()
 
 let list common_opts prefix =

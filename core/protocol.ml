@@ -114,13 +114,12 @@ with rpc
 module Entry = struct
 	type t = {
 		origin: origin;
-		time: float; (* XXX this is for judging age: use oclock/clock_monotonic *)
+		time: int64;
 		message: Message.t;
 	} with rpc
 	(** an enqueued message *)
 
-	let make origin message =
-		let time = 0. in
+	let make time origin message =
 		{ origin; time; message }
 end
 
@@ -131,6 +130,8 @@ module Diagnostics = struct
 	type queue_contents = (message_id * Entry.t) list with rpc
 
 	type t = {
+		start_time: int64;
+		current_time: int64;
 		permanent_queues: (string * queue_contents) list;
 		transient_queues: (string * queue_contents) list;
 	}
