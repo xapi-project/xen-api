@@ -11,6 +11,20 @@ ifneq "$(MIRAGE_OS)" ""
 TESTS := --disable-tests
 endif
 
+clean:
+	@obuild clean
+	@rm -f setup.data setup.log setup.bin
+
+distclean: clean
+	@rm -f config.mk
+
+-include config.mk
+
+config.mk:
+	@echo
+	@echo "Please run configure before building"
+	@echo
+	@exit 1
 
 setup.bin: setup.ml
 	@ocamlopt.opt -o $@ $< || ocamlopt -o $@ $< || ocamlc -o $@ $<
@@ -30,6 +44,8 @@ PYTHON := $(OCAML)/../python
 
 install: setup.bin
 	@./setup.bin -install
+	install -D _build/cli/main.native $(DESTDIR)/$(BINDIR)/ms
+	install -D _build/switch/switch.native $(DESTDIR)/$(BINDIR)/message-switch
 
 # oasis bug?
 #test: setup.bin build
@@ -44,6 +60,3 @@ reinstall: setup.bin
 	@cp -f core/message_switch.py $(PYTHON)/
 	@./setup.bin -reinstall
 
-clean:
-	@ocamlbuild -clean
-	@rm -f setup.data setup.log setup.bin
