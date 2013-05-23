@@ -201,7 +201,7 @@ module Q = struct
 
 	module Lengths = struct
 		open Measurable
-		let d x =Description.({ description = "length of queue " ^ x })
+		let d x =Description.({ description = "length of queue " ^ x; units = "" })
 		let list_available () =
 			Hashtbl.fold (fun name _ acc ->
 				(name, d name) :: acc

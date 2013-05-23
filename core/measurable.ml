@@ -1,6 +1,7 @@
 module Description = struct
   type t = {
     description: string;
+    units: string;
   }
 end
 
