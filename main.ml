@@ -199,7 +199,14 @@ module Common = struct
         socket: string;
 	} with rpc
 
-	let make verbose debug socket = { verbose; debug; socket }
+	let make verbose debug socket queue =
+		begin match queue with
+		| None -> ();
+		| Some name ->
+			Storage_interface.queue_name := name;
+			Xcp_client.use_switch := true
+		end;
+		{ verbose; debug; socket }
 
 	let to_string x = Jsonrpc.to_string (rpc_of_t x)
 end
@@ -219,7 +226,10 @@ let common_options_t =
   let socket = 
     let doc = Printf.sprintf "Specify path to the server Unix domain socket." in
     Arg.(value & opt file !Storage_interface.default_path & info ["socket"] ~docs ~doc) in
-  Term.(pure Common.make $ debug $ verb $ socket)
+  let queue =
+    let doc = Printf.sprintf "Specify queue name in message switch." in
+    Arg.(value & opt (some string) None & info ["queue"] ~docs ~doc) in
+  Term.(pure Common.make $ debug $ verb $ socket $ queue)
 
 
 (* Help sections common to all commands *)
