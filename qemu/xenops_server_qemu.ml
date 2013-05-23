@@ -332,8 +332,8 @@ module VM = struct
 			if power_state = Running then begin
 				(* XXX: stat the file first *)
 				let path = Filename.concat Qemu.vnc_dir vm.Vm.id in
-				debug "%s %s %s" !Path.chgrp !Xenopsd.sockets_group path;
-				ignore(Forkhelpers.execute_command_get_output !Path.chgrp [!Xenopsd.sockets_group; path]);
+				debug "%s %s %s" !Path.chgrp !Xcp_service.sockets_group path;
+				ignore(Forkhelpers.execute_command_get_output !Path.chgrp [!Xcp_service.sockets_group; path]);
 				Unix.chmod path 0o0770;
 			end;
 			let domids =
