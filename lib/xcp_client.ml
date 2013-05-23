@@ -21,6 +21,14 @@ let colon = Re_str.regexp "[:]"
 
 let get_user_agent () = Sys.argv.(0)
 
+let switch_port = ref 8080
+let use_switch = ref false
+
+let switch_rpc queue_name string_of_call response_of_string =
+	let c = Protocol_unix.Client.connect !switch_port queue_name in
+	fun call ->
+		response_of_string (Protocol_unix.Client.rpc c (string_of_call call))
+
 (* Use HTTP to frame RPC messages *)
 let http_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset") url call =
 	let uri = Uri.of_string (url ()) in
@@ -60,9 +68,8 @@ let http_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset
 						| bad -> failwith (Printf.sprintf "Unexpected HTTP response code: %s" (Cohttp.Code.string_of_status bad))
 					end
 		)
-
 let xml_http_rpc = http_rpc Xmlrpc.string_of_call Xmlrpc.response_of_string
-let json_http_rpc = http_rpc Jsonrpc.string_of_call Jsonrpc.response_of_string
+let json_switch_rpc queue_name = switch_rpc queue_name Jsonrpc.string_of_call Jsonrpc.response_of_string
 
 (* Use a binary 16-byte length to frame RPC messages *)
 let binary_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset") url (call: Rpc.call) : Rpc.response =
@@ -83,5 +90,5 @@ let binary_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="uns
 			response
 		)
 
-let marshal_binary_rpc = binary_rpc (fun x -> Marshal.to_string x []) (fun x -> Marshal.from_string x 0)
 let json_binary_rpc = binary_rpc Jsonrpc.string_of_call Jsonrpc.response_of_string
+

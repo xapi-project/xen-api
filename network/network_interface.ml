@@ -14,7 +14,9 @@
 
 (** {2 Helper functions} *)
 
-let uri = "file:/var/lib/xcp/networkd.json"
+let service_name = "networkd"
+let queue_name = Xcp_service.common_prefix ^ service_name
+let uri = Printf.sprintf "file:/var/lib/xcp/%s.json" service_name
 
 let comp f g x = f (g x)
 let (++) f g x = comp f g x

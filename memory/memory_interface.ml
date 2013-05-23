@@ -16,6 +16,7 @@
  *)
 
 let service_name = "memory"
+let queue_name = Xcp_service.common_prefix ^ service_name
 let json_path = "/var/xapi/memory.json"
 
 type reservation_id = string

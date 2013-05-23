@@ -24,6 +24,8 @@ module Debug : sig
 	end
 end
 
+val common_prefix: string
+
 type opt = string * Arg.spec * (unit -> string) * string
 
 type res = {

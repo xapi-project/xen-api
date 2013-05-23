@@ -13,10 +13,14 @@
  *)
 
 open Memory_interface
+open Xcp_client
 
 let json_url () = "file:" ^ json_path
 
-let json_binary_rpc = Xcp_client.binary_rpc Jsonrpc.string_of_call Jsonrpc.response_of_string
-
-module Client = Memory_interface.Client(struct let rpc = json_binary_rpc ~srcstr:"xenops" ~dststr:"squeezed" json_url end)
+module Client = Memory_interface.Client(struct
+	let rpc call =
+		if !use_switch
+		then json_switch_rpc queue_name call
+		else json_binary_rpc ~srcstr:"xenops" ~dststr:"squeezed" json_url call
+end)
 

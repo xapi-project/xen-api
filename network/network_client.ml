@@ -12,6 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
+open Network_interface
+open Xcp_client
+
 let rec retry_econnrefused f =
   try
     f ()
@@ -25,12 +28,15 @@ let rec retry_econnrefused f =
       raise e
 
 module Client = Network_interface.Client(struct
-  let rpc =
+  let rpc call =
     retry_econnrefused
       (fun () ->
-        Xcp_client.xml_http_rpc
+	if !use_switch
+	then json_switch_rpc queue_name call
+        else xml_http_rpc
           ~srcstr:(Xcp_client.get_user_agent ())
           ~dststr:"network"
           (fun () -> Network_interface.uri)
+	  call
       )
 end)
