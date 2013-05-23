@@ -1059,13 +1059,13 @@ module VM = struct
 	(* Create an ext2 filesystem without maximal mount count and
 	   checking interval. *)
 	let mke2fs device =
-		run !Path.mkfs ["-t"; "ext2"; device] |> ignore_string;
-		run !Path.tune2fs  ["-i"; "0"; "-c"; "0"; device] |> ignore_string
+		run !Xc_path.mkfs ["-t"; "ext2"; device] |> ignore_string;
+		run !Xc_path.tune2fs  ["-i"; "0"; "-c"; "0"; device] |> ignore_string
 
 	(* Mount a filesystem somewhere, with optional type *)
 	let mount ?ty:(ty = None) src dest =
 		let ty = match ty with None -> [] | Some ty -> [ "-t"; ty ] in
-		run !Path.mount (ty @ [ src; dest ]) |> ignore_string
+		run !Xc_path.mount (ty @ [ src; dest ]) |> ignore_string
 
 	let timeout = 300. (* 5 minutes: something is seriously wrong if we hit this timeout *)
 	exception Umount_timeout
@@ -1077,7 +1077,7 @@ module VM = struct
 
 		while not(!finished) && (Unix.gettimeofday () -. start < timeout) do
 			try
-				run !Path.umount [dest] |> ignore_string;
+				run !Xc_path.umount [dest] |> ignore_string;
 				finished := true
 			with e ->
 				if not(retry) then raise e;
@@ -1648,7 +1648,7 @@ module VBD = struct
 
 	let ionice qos pid =
 		try
-			run !Path.ionice (Ionice.set_args qos pid) |> ignore_string
+			run !Xc_path.ionice (Ionice.set_args qos pid) |> ignore_string
 		with e ->
 			error "Ionice failed on pid %d: %s" pid (Printexc.to_string e)
 
@@ -1675,7 +1675,7 @@ module VBD = struct
 		try
 			let path = Device_common.kthread_pid_path_of_device ~xs device in
 			let kthread_pid = xs.Xs.read path |> int_of_string in
-			let i = run !Path.ionice (Ionice.get_args kthread_pid) |> Ionice.parse_result_exn in
+			let i = run !Xc_path.ionice (Ionice.get_args kthread_pid) |> Ionice.parse_result_exn in
 			Opt.map (fun i -> Ionice i) i
 		with
 			| Ionice.Parse_failed x ->
@@ -1800,7 +1800,7 @@ module VIF = struct
 				(* Remember the VIF id with the device *)
 				let id = _device_id Device_common.Vif, id_of vif in
 
-				let setup_vif_rules = [ "setup-vif-rules", !Path.setup_vif_rules ] in
+				let setup_vif_rules = [ "setup-vif-rules", !Xc_path.setup_vif_rules ] in
 				let network_backend = [ "network-backend", get_network_backend () ] in
 				let locking_mode = xenstore_of_locking_mode vif.locking_mode in
 
@@ -1946,11 +1946,11 @@ module VIF = struct
 
 				let domid = string_of_int device.frontend.domid in
 				let devid = string_of_int device.frontend.devid in
-                ignore (run !Path.setup_vif_rules ["vif"; domid; devid; "filter"]);
+                ignore (run !Xc_path.setup_vif_rules ["vif"; domid; devid; "filter"]);
                 (* Update rules for the tap device if the VM has booted HVM with no PV drivers. *)
 				let di = Xenctrl.domain_getinfo xc device.frontend.domid in
 				if di.Xenctrl.hvm_guest
-				then ignore (run !Path.setup_vif_rules ["tap"; domid; devid; "filter"])
+				then ignore (run !Xc_path.setup_vif_rules ["tap"; domid; devid; "filter"])
 			)
 
 	let get_state vm vif =

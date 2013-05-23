@@ -81,10 +81,14 @@ let handle_received_fd this_connection =
 			end
 		) (fun () -> Unix.close received_fd)
 
-let main backend =
+let main ?(specific_options=[]) ?(specific_essential_paths=[]) ?(specific_nonessential_paths=[]) backend =
 	debug "xenopsd version %d.%d starting" major_version minor_version;
 
-	Xcp_service.configure ~options ~resources:Path.resources ();
+	let options = options @ specific_options in
+	let resources = Path.make_resources
+		~essentials:(Path.essentials @ specific_essential_paths)
+		~nonessentials:(Path.nonessentials @ specific_nonessential_paths) in
+	Xcp_service.configure ~options ~resources ();
 
 	(* TODO: these should both be indirected through the switch *)
 (*

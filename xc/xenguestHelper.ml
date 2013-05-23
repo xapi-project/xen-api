@@ -57,7 +57,7 @@ let connect domid (args: string list) (fds: (string * Unix.file_descr) list) : t
 	let pid = Forkhelpers.safe_close_and_exec None None None 
 	  ([ slave_to_server_w_uuid, slave_to_server_w;
 	    server_to_slave_r_uuid, server_to_slave_r ] @ fds)
-	  !Path.xenguest args in
+	  !Xc_path.xenguest args in
 	
 	Unix.close slave_to_server_w;
 	Unix.close server_to_slave_r;

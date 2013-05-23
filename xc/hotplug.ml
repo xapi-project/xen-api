@@ -261,8 +261,8 @@ let release (task:Xenops_task.t) ~xs (x: device) =
 let run_hotplug_script device args =
 	let kind = string_of_kind device.backend.kind in
 	let script = match device.backend.kind with
-	| Vbd -> !Path.vbd_script
-	| Vif | Tap -> !Path.vif_script
+	| Vbd -> !Xc_path.vbd_script
+	| Vif | Tap -> !Xc_path.vif_script
 	| _ -> failwith (Printf.sprintf "don't know how to run a hotplug script for: %s" kind) in
 	let env = Array.concat [ Unix.environment (); [|
 		"script=" ^ script;

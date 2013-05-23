@@ -12,9 +12,13 @@
  * GNU Lesser General Public License for more details.
  *)
 
-let specific_essential_paths = Path.hvm_guests @ Path.network_configuration
 
-(* Start the program with the libvirt backend *)
-let _ = Xenopsd.main
-	~specific_essential_paths
-	(module Xenops_server_libvirt: Xenops_server_plugin.S)
+let sockets_group = ref "xapi"
+
+let qemu_vif_script = ref "/usr/lib/xcp/scripts/qemu-vif-script"
+
+open Unix
+
+let essentials = [
+        X_OK, "qemu-vif-script", qemu_vif_script, "path to the qemu vif script";
+]

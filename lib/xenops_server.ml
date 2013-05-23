@@ -1241,7 +1241,7 @@ and perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			let state = B.VM.get_state vm in
 			info "VM %s has memory_limit = %Ld" id state.Vm.memory_limit;
 
-			Cohttp_posix_io.Unbuffered_IO.open_uri memory_url
+			Open_uri.with_open_uri memory_url
 				(fun mfd ->
 					let open Xenops_migrate in
 					let module Request = Cohttp.Request.Make(Cohttp_posix_io.Unbuffered_IO) in
