@@ -242,7 +242,7 @@ let binary_handler call_of_string string_of_response process s context =
 	output_string oc msg_buf;
 	flush oc
 
-let http_handler call_of_string string_of_response process s context =
+let http_handler call_of_string string_of_response process s =
 	let ic = Unix.in_channel_of_descr s in
 	let oc = Unix.out_channel_of_descr s in
 	let module Request = Cohttp.Request.Make(Cohttp_posix_io.Buffered_IO) in
@@ -262,7 +262,7 @@ let http_handler call_of_string string_of_response process s context =
 				really_input ic request_txt 0 content_length;
 				let rpc_call = call_of_string request_txt in
 				debug "%s" (Rpc.string_of_call rpc_call);
-				let rpc_response = process context rpc_call in
+				let rpc_response = process rpc_call in
 				debug "   %s" (Rpc.string_of_response rpc_response);
 				let response_txt = string_of_response rpc_response in
 				let content_length = String.length response_txt in
@@ -286,6 +286,9 @@ let http_handler call_of_string string_of_response process s context =
 let ign_thread (t:Thread.t) = ignore t
 let ign_int (t:int)         = ignore t
 let ign_string (t:string)   = ignore t
+
+let default_raw_fn rpc_fn s =
+	http_handler Jsonrpc.call_of_string Jsonrpc.string_of_response rpc_fn s
 
 let accept_forever sock f =
 	ign_thread (Thread.create (fun () ->
@@ -341,10 +344,13 @@ let make_socket_server path fn =
 let make_queue_server name fn =
 	Queue(name, fn) (* TODO: connect to the message switch *)
 
-let make ~path ~queue_name ~raw_fn ~rpc_fn =
+let make ~path ~queue_name ?raw_fn ~rpc_fn =
 	if !Xcp_client.use_switch
 	then make_queue_server queue_name rpc_fn
-	else make_socket_server path raw_fn
+	else make_socket_server path (match raw_fn with
+		| Some x -> x
+		| None -> default_raw_fn rpc_fn
+		)
 
 let serve_forever = function
 	| Socket(listening_sock, fn) ->
