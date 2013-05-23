@@ -42,7 +42,6 @@ let essentials = [
 	X_OK, "umount", umount, "path to the umount binary";
 	X_OK, "ionice", ionice, "path to the ionice binary";
 	X_OK, "setup-vif-rules", setup_vif_rules, "path to the setup-vif-rules script";
-	R_OK, "hvmloader", hvmloader, "path to the hvmloader binary for HVM guests";
 	X_OK, "pygrub", pygrub, "path to the pygrub bootloader binary";
 	X_OK, "eliloader", eliloader, "path to the eliloader bootloader binary";
 ] @ Path.hvm_guests @ Path.network_configuration
