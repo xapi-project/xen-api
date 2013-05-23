@@ -53,7 +53,27 @@ let diagnostics common_opts =
   match Connection.rpc c In.Diagnostics with
   | Error e -> `Error(true, Printexc.to_string e)
   | Ok raw ->
-    print_endline raw;
+    let d = Diagnostics.t_of_rpc (Jsonrpc.of_string raw) in
+    let open Protocol in
+    let origin = function
+      | Anonymous id -> Printf.sprintf "anonymous-%d" id
+      | Name x -> x in
+    let queue (name, contents) =
+      Printf.printf "  %s (active/inactive?)\n" name;
+      List.iter
+        (fun (id, entry) ->
+          Printf.printf "    %Ld:  from: %s  age: %.2f\n" id (origin entry.Entry.origin) entry.Entry.time;
+          let message = entry.Entry.message in
+          let payload = message.Message.payload in
+          let len = String.length payload in
+          let max_len = 70 in
+          Printf.printf "      %s\n" (if common_opts.Common.verbose || len < max_len then payload else String.sub payload 0 max_len);
+          Printf.printf "        reply_to: %s  correlation_id: %d\n" (match message.Message.reply_to with None -> "None" | Some x -> x) message.Message.correlation_id;
+        ) contents in 
+    print_endline "Permanent queues";
+    List.iter queue d.Diagnostics.permanent_queues;
+    print_endline "Transient queues";
+    List.iter queue d.Diagnostics.transient_queues;
     `Ok ()
 
 let list common_opts prefix =
