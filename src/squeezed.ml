@@ -30,22 +30,22 @@ let _ =
 	debug "squeezed version %d.%d starting" major_version minor_version;
 
 	configure ~options ();
-	let socket = listen Memory_interface.json_path in
+
+	let module Server = Memory_interface.Server(Memory_server) in
+
+	let server = Xcp_service.make 
+		~path:Memory_interface.json_path
+		~queue_name:Memory_interface.queue_name
+		~rpc_fn:(Server.process ())
+		() in
+
 	maybe_daemonize ();
 
 	(* Initialise the xenstore connection after daemonising, but before we make more threads *)
 	let _ = Squeezed_xenstore.get_client () in
 
-	let module Server = Memory_interface.Server(Memory_server) in
-
 	Memory_server.start_balance_thread balance_check_interval;
 	Squeeze_xen.Domain.start_watch_xenstore_thread ();
 
-	accept_forever socket
-		(fun this_connection ->
-			let context = () in
-			binary_handler Jsonrpc.call_of_string Jsonrpc.string_of_response Server.process (* no req *) this_connection context
-		);
-
-	wait_forever ()
+	Xcp_service.serve_forever server
 
