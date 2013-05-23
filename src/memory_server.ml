@@ -150,3 +150,5 @@ let balance_memory _ dbg =
 	)
 
 let get_host_reserved_memory _ dbg = Squeeze_xen.target_host_free_mem_kib
+
+let get_host_initial_free_memory _ dbg = 0L (* XXX *)
