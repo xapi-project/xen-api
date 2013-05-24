@@ -16,25 +16,23 @@ open Fun
 open OUnit
 open Test_highlevel
 
-module SanityCheck = struct
-	module Tests = Generic.Make(struct
-		module Io = struct
-			type input_t = ((string * string) list * bool)
-			type output_t = (string * string) list
+module SanityCheck = Generic.Make(struct
+	module Io = struct
+		type input_t = ((string * string) list * bool)
+		type output_t = (string * string) list
 
-			let string_of_input_t input =
-				Printf.sprintf "(platformdata = %s, filter_out_unknowns = %b)"
-					(fst input |> Test_common.string_of_string_map)
-					(snd input)
+		let string_of_input_t input =
+			Printf.sprintf "(platformdata = %s, filter_out_unknowns = %b)"
+				(fst input |> Test_common.string_of_string_map)
+				(snd input)
 
-			let string_of_output_t = Test_common.string_of_string_map
-		end
+		let string_of_output_t = Test_common.string_of_string_map
+	end
 
-		let transform (platformdata, filter_out_unknowns) =
-			Xapi_xenops.Platform.sanity_check ~platformdata ~filter_out_unknowns
-	end)
+	let transform (platformdata, filter_out_unknowns) =
+		Xapi_xenops.Platform.sanity_check ~platformdata ~filter_out_unknowns
 
-	let sanity_check_tests =
+	let tests =
 		let usb_defaults = [
 			"usb", "true";
 			"usb_tablet", "true";
@@ -115,10 +113,7 @@ module SanityCheck = struct
 				"parallel", "/dev/parport0";
 			]);
 		]
-
-	let test () =
-		Tests.test_equal_multiple ~input_output_pairs:sanity_check_tests
-end
+end)
 
 let test =
 	"platformdata" >:::

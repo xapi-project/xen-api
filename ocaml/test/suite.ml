@@ -23,6 +23,7 @@ let base_suite =
 			Test_vdi_allowed_operations.test;
 			Test_pool_license.test;
 			Test_platformdata.test;
+			Test_sm_features.test;
 		]
 
 let _ = run_test_tt_main base_suite
