@@ -51,6 +51,7 @@ module In = struct
 	let of_request body meth path =
 		match body, meth, split path with
 		| None, `GET, "" :: "admin" :: path     -> Some (Get path)
+		| None, `GET, "" :: ((("js" | "css" | "images") :: _) as path) -> Some (Get path)
 		| None, `GET, [ ""; "" ]                -> Some Diagnostics
 		| None, `GET, [ ""; "login"; token ]    -> Some (Login token)
 		| None, `GET, [ ""; "create" ]          -> Some (Create None)
