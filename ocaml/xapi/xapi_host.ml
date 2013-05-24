@@ -1165,12 +1165,14 @@ let apply_edition_internal  ~__context ~host ~edition ~additional =
 	Db.Host.set_edition ~__context ~self:host ~value:edition';
 	copy_license_to_db ~__context ~host ~features ~additional
 
-let apply_edition ~__context ~host ~edition =
+let apply_edition ~__context ~host ~edition ~force =
 	(* if HA is enabled do not allow the edition to be changed *)
 	let pool = List.hd (Db.Pool.get_all ~__context) in
 	if Db.Pool.get_ha_enabled ~__context ~self:pool then
 		raise (Api_errors.Server_error (Api_errors.ha_is_enabled, []))
-	else apply_edition_internal ~__context ~host ~edition ~additional:[]
+	else
+		let additional = if force then ["force", "true"] else [] in
+		apply_edition_internal ~__context ~host ~edition ~additional
 
 let license_apply ~__context ~host ~contents =
 	raise (Api_errors.Server_error (Api_errors.message_removed, []))
