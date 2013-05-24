@@ -282,11 +282,12 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 let copy_into ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi = 
 	copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi
 
+let remove_from_sm_config vdi_info key =
+  { vdi_info with sm_config = List.filter (fun (k,v) -> k <> key) vdi_info.sm_config }
+
 let add_to_sm_config vdi_info key value =
-	if not (List.mem_assoc key vdi_info.sm_config) then
-		{ vdi_info with sm_config = (key,value) :: vdi_info.sm_config }
-	else
-		raise (Duplicated_key key)
+	let vdi_info = remove_from_sm_config vdi_info key in
+	{ vdi_info with sm_config = (key,value) :: vdi_info.sm_config }
 
 let stop ~dbg ~id =
 	(* Find the local VDI *)
@@ -299,7 +300,7 @@ let stop ~dbg ~id =
 				try List.find (fun x -> x.vdi = vdi) vdis
 				with Not_found -> failwith (Printf.sprintf "Local VDI %s not found" vdi) in
 			let local_vdi = add_to_sm_config local_vdi "mirror" "null" in
-			let local_vdi = add_to_sm_config local_vdi "base_mirror" id in
+			let local_vdi = remove_from_sm_config local_vdi "base_mirror" in
 			(* Disable mirroring on the local machine *)
 			let snapshot = Local.VDI.snapshot ~dbg ~sr ~vdi_info:local_vdi in
 			Local.VDI.destroy ~dbg ~sr ~vdi:snapshot.vdi;
