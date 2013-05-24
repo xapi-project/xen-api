@@ -58,6 +58,15 @@ module Connection = Protocol.Connection(IO)
 
 exception Timeout
 
+module Opt = struct
+	let iter f = function
+	| None -> ()
+	| Some x -> f x
+	let map f = function
+	| None -> None
+	| Some x -> Some (f x)
+end
+
 module Client = struct
 	type 'a response = {
 		mutable v: 'a option;
@@ -159,28 +168,37 @@ module Client = struct
 		}
 
 	let rpc c ?timeout x =
-		let correlation_id = Protocol.fresh_correlation_id () in
 		let t = task () in
-		Hashtbl.add c.wakener correlation_id t;
-		let msg = In.Send(c.dest_queue_name, {
-			Message.payload = x;
-			correlation_id;
-			reply_to = Some c.reply_queue_name
-		}) in
-		let timer = match timeout with
-		| Some timeout ->
-			Some (Protocol_unix_scheduler.(one_shot (Delta timeout) "rpc"
-				(fun () -> timeout_later t)))
-		| None ->
-			None in
-		let (_: string) = rpc_exn c.requests_conn msg in
+		let timer = Opt.map (fun timeout ->
+			Protocol_unix_scheduler.(one_shot (Delta timeout) "rpc" (fun () -> timeout_later t))
+		) timeout in
+
+		let correlation_id = with_lock c.requests_m
+		(fun () ->
+			let correlation_id = Protocol.fresh_correlation_id () in
+			Hashtbl.add c.wakener correlation_id t;
+			let msg = In.Send(c.dest_queue_name, {
+				Message.payload = x;
+				correlation_id;
+				reply_to = Some c.reply_queue_name
+			}) in
+			let (_: string) = rpc_exn c.requests_conn msg in
+			correlation_id
+		) in
+		(* now block waiting for our response *)
 		let response = wait t in
-		begin match timer with Some x -> Protocol_unix_scheduler.cancel x | None -> () end;
+		(* release resources *)
+		Opt.iter Protocol_unix_scheduler.cancel timer;
+		with_lock c.requests_m (fun () -> Hashtbl.remove c.wakener correlation_id);
+
 		response.Message.payload
 
 	let list c prefix =
-		let (result: string) = rpc_exn c.requests_conn (In.List prefix) in
-		Out.string_list_of_rpc (Jsonrpc.of_string result)
+		with_lock c.requests_m
+		(fun () ->
+			let (result: string) = rpc_exn c.requests_conn (In.List prefix) in
+			Out.string_list_of_rpc (Jsonrpc.of_string result)
+		)
 end
 
 module Server = Protocol.Server(IO)
