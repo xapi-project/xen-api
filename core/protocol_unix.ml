@@ -148,9 +148,11 @@ module Client = struct
 				| m :: ms ->
 					List.iter
 						(fun (i, m) ->
-							let (_: string) = rpc_exn events_conn (In.Ack i) in
-							if Hashtbl.mem wakener m.Message.correlation_id
-							then wakeup_later (Hashtbl.find wakener m.Message.correlation_id) m;
+							(* If the Ack doesn't belong to us then assume it's another thread *)
+							if Hashtbl.mem wakener m.Message.correlation_id then begin
+								let (_: string) = rpc_exn events_conn (In.Ack i) in
+								wakeup_later (Hashtbl.find wakener m.Message.correlation_id) m;
+							end
 						) transfer.Out.messages;
 					let from = List.fold_left max (fst m) (List.map fst ms) in
 					loop from in
