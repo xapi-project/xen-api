@@ -28,7 +28,7 @@ let initialise ~__context ~host =
 	try
 		let edition = Db.Host.get_edition ~__context ~self:host in
 		let edition', features, additional =
-			v6_initialise ~__context ~edition ~params:["startup", "true"] in
+			v6_initialise ~__context ~edition ~params:["force", "true"] in
 		Db.Host.set_edition ~__context ~self:host ~value:edition';
 		(* Copy resulting license to the database *)
 		Xapi_host.copy_license_to_db ~__context ~host ~features ~additional

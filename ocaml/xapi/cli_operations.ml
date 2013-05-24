@@ -2873,7 +2873,7 @@ let host_apply_edition printer rpc session_id params =
 			get_host_from_session rpc session_id in
 	let edition = List.assoc "edition" params in
 	with_license_server_changes printer rpc session_id params [host]
-		(fun rpc session_id -> Client.Host.apply_edition rpc session_id host edition)
+		(fun rpc session_id -> Client.Host.apply_edition rpc session_id host edition false)
 
 let host_all_editions printer rpc session_id params =
 	let editions = List.map (fun (e, _, _, _) -> e) (V6client.get_editions "host_all_editions") in

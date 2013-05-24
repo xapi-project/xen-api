@@ -1701,6 +1701,6 @@ let apply_edition ~__context ~self ~edition =
 	let apply_fn =
 		(fun ~__context ~host ~edition -> Helpers.call_api_functions ~__context
 			(fun rpc session_id ->
-				Client.Host.apply_edition ~rpc ~session_id ~host ~edition))
+				Client.Host.apply_edition ~rpc ~session_id ~host ~edition ~force:false))
 	in
 	Xapi_pool_license.apply_edition_with_rollback ~__context ~hosts ~edition ~apply_fn
