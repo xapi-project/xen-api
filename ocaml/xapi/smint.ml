@@ -76,12 +76,10 @@ let string_to_capability_table = [
 ]
 let capability_to_string_table = List.map (fun (k, v) -> v, k) string_to_capability_table
 
-let string_of_feature (c,v) =
-	List.assoc c capability_to_string_table, Int64.to_string v
-
-let string_of_feature_capability (c,v) = List.assoc c capability_to_string_table, v
-
 let string_of_capability c = List.assoc c capability_to_string_table
+
+let string_of_feature (c,v) =
+	Printf.sprintf "%s/%Ld" (string_of_capability c) v
 
 let has_feature (f : feature) fl = List.mem f fl
 
@@ -89,9 +87,7 @@ let has_capability (c : capability) fl = List.mem_assoc c fl
 
 let capability_of_feature : feature -> capability = fst
 
-let feature_of_string_int64 (c,v) = (List.assoc c string_to_capability_table, v : feature)
-
-let parse_features strings =
+let parse_string_int64_features strings =
 	let text_features =
 		List.filter
 			(fun s ->
@@ -100,25 +96,26 @@ let parse_features strings =
 				if not p then debug "SM.feature: unknown feature %s" s;
 				p)
 			strings in
-	let features =
-		List.map
-			(fun c ->
-				match Stringext.String.split '/' c with
-					| [] -> failwith "parse_feature" (* not possible *)
-					| [cs] -> (cs, 1L) (* default version *)
-					| [cs; vs]
-					| cs :: vs :: _ ->
-						try
-							let v = int_of_string vs in
-							(cs, if v < 1 then 1L else Int64.of_int v)
-						with _ ->
-							debug "SM.feature %s has bad version %s, defaulting to 1" cs vs;
-							(cs, 1L))
-			text_features in
+	List.map
+		(fun c ->
+			match Stringext.String.split '/' c with
+				| [] -> failwith "parse_feature" (* not possible *)
+				| [cs] -> (cs, 1L) (* default version *)
+				| [cs; vs]
+				| cs :: vs :: _ ->
+					try
+						let v = int_of_string vs in
+						(cs, if v < 1 then 1L else Int64.of_int v)
+					with _ ->
+						debug "SM.feature %s has bad version %s, defaulting to 1" cs vs;
+						(cs, 1L))
+		text_features
+
+let parse_capability_int64_features strings =
 	List.map
 		(function c,v ->
 			((List.assoc c string_to_capability_table), v))
-		features
+		(parse_string_int64_features strings)
 
 type sr_driver_info = {
     sr_driver_filename: string;
@@ -129,7 +126,7 @@ type sr_driver_info = {
 	sr_driver_version: string;
 	sr_driver_required_api_version: string;
 	sr_driver_features: feature list;
-	sr_driver_text_features: (string * string) list;
+	sr_driver_text_features: string list;
 	sr_driver_configuration: (string * string) list;
 }
 
@@ -141,7 +138,7 @@ let query_result_of_sr_driver_info x = {
 	copyright = x.sr_driver_copyright;
 	version = x.sr_driver_version;
 	required_api_version = x.sr_driver_required_api_version;
-	features = List.map string_of_feature_capability x.sr_driver_features;
+	features = x.sr_driver_text_features;
 	configuration = x.sr_driver_configuration
 }
 
