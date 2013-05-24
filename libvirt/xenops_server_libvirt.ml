@@ -23,8 +23,8 @@ let hypervisor = detect_hypervisor ()
 
 let qemu_path = "/usr/bin/qemu-system-x86_64"
 
-let domain_xml_dir () = Filename.concat !Xenops_utils.root "libvirt"
-let vnc_dir () = Filename.concat !Xenops_utils.root "vnc"
+let domain_xml_dir () = Filename.concat (Xenops_utils.get_root ()) "libvirt"
+let vnc_dir () = Filename.concat (Xenops_utils.get_root ()) "vnc"
 
 let insecure_vnc = ref true
 

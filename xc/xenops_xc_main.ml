@@ -15,6 +15,7 @@
 (* Start the program with the xen backend *)
 let _ =
 	Xenops_interface.queue_name := !Xenops_interface.queue_name ^ ".classic";
+	Xenops_utils.set_root "xenopsd/classic";
 	Xenopsd.main
 		~specific_essential_paths:Xc_path.essentials
 		~specific_nonessential_paths:Xc_path.nonessentials

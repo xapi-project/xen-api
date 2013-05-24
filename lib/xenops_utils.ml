@@ -92,7 +92,12 @@ end
 (******************************************************************************)
 (* Metadata storage                                                           *)
 
-let root = ref ("/var/run/nonpersistent/" ^ service_name)
+let root = ref None
+let set_root service_name =
+	root := Some ("/var/run/nonpersistent/" ^ service_name)
+let get_root () = match !root with
+	| None -> failwith "Xenops_utils.root not set"
+	| Some x -> x
 
 module StringMap = Map.Make(struct type t = string let compare = compare end)
 type 'a fs =
@@ -346,7 +351,7 @@ let dropnone x = List.filter_map (Opt.map (fun x -> x)) x
 module FileFS = struct
 	(** A directory tree containiign files, each of which contain strings *)
 
-	let filename_of k = Printf.sprintf "%s/%s" !root (String.concat "/" k)
+	let filename_of k = Printf.sprintf "%s/%s" (get_root ()) (String.concat "/" k)
 	let paths_of k = List.map filename_of (prefixes_of k)
 
 	let mkdir path = Unixext.mkdir_rec (filename_of path) 0o755

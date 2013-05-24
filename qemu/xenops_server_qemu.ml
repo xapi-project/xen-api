@@ -48,8 +48,8 @@ let updates = Updates.empty ()
 let mib = Int64.mul 1024L 1024L
 
 module Qemu = struct
-		let qmp_dir = Filename.concat !Xenops_utils.root "qmp"
-		let vnc_dir = Filename.concat !Xenops_utils.root "vnc"
+		let qmp_dir = Filename.concat (Xenops_utils.get_root ()) "qmp"
+		let vnc_dir = Filename.concat (Xenops_utils.get_root ()) "vnc"
 
 		let commas = String.concat ","
 		let kv = List.map (fun (k, v) -> k ^ "=" ^ v)

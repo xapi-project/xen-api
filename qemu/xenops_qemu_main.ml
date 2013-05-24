@@ -19,7 +19,10 @@ let specific_options = [
 let specific_essential_paths = Qemu_path.essentials
 
 (* Start the program with the qemu backend *)
-let _ = Xenopsd.main
+let _ =
+	Xenops_interface.queue_name := !Xenops_interface.queue_name ^ ".qemu";
+	Xenops_utils.set_root "xenopsd/qemu";
+	Xenopsd.main
 	~specific_options
 	~specific_essential_paths
 	(module Xenops_server_qemu: Xenops_server_plugin.S)

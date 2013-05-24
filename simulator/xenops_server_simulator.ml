@@ -132,7 +132,9 @@ let create_device_model_nolock vm () =
 
 let destroy_device_model_nolock vm () =
 	debug "Domain.destroy_device_model vm=%s" vm.Vm.id;
-	DB.write vm.Vm.id { DB.read_exn vm.Vm.id with Domain.qemu_created = false }
+	if DB.exists vm.Vm.id
+	then DB.write vm.Vm.id { DB.read_exn vm.Vm.id with Domain.qemu_created = false }
+	else warn "Domain.destroy_device_model vm=%s: no device model exists" vm.Vm.id
 
 let request_shutdown_nolock vm reason () =
 	DB.write vm.Vm.id { DB.read_exn vm.Vm.id with Domain.domain_action_request =
