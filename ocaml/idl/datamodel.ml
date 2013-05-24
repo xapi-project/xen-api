@@ -3991,9 +3991,10 @@ let host_apply_edition = call ~flags:[`Session]
   ~name:"apply_edition"
   ~in_product_since:rel_midnight_ride
   ~doc:"Change to another edition, or reactivate the current edition after a license has expired. This may be subject to the successful checkout of an appropriate license."
-  ~params:[ 
-    Ref _host, "host", "The host";
-    String, "edition", "The requested edition"
+  ~versioned_params:[
+    {param_type=Ref _host; param_name="host"; param_doc="The host"; param_release=midnight_ride_release; param_default=None};
+    {param_type=String; param_name="edition"; param_doc="The requested edition"; param_release=midnight_ride_release; param_default=None};
+    {param_type=Bool; param_name="force"; param_doc="Update the license params even if the apply call fails"; param_release=clearwater_release; param_default=Some (VBool false)};
   ]
   ~allowed_roles:_R_POOL_OP
   ()
