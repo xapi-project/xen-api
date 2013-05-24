@@ -31,6 +31,7 @@ let startswith prefix x = String.length x >= (String.length prefix) && (String.s
 
 
 let port = ref 8080
+let ip = ref "0.0.0.0"
 
 open Cohttp_lwt_unix
 
@@ -527,11 +528,12 @@ let make_server () =
 
 	debug "Message switch starting";
 	let config = { Cohttp_lwt_unix.Server.callback; conn_closed } in
-	server ~address:"127.0.0.1" ~port:!port config
+	server ~address:!ip ~port:!port config
     
 let _ =
 	Arg.parse [
 		"-port", Arg.Set_int port, "port to listen on";
+		"-ip", Arg.Set_string ip, "IP to bind to";
 	] (fun x -> Printf.fprintf stderr "Ignoring: %s" x)
 		"A simple message switch";
 
