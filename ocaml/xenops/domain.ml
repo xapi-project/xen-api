@@ -324,6 +324,11 @@ let sysrq ~xs domid key =
 let destroy (task: Xenops_task.t) ~xc ~xs ~qemu_domid domid =
 	let dom_path = xs.Xs.getdomainpath domid in
 	let uuid = get_uuid ~xc domid in
+
+	(* Move this out of the way immediately *)
+	let s = Printf.sprintf "deadbeef-dead-beef-dead-beef0000%04x" domid in
+	Xenctrl.domain_sethandle xc domid s;
+
 	(* These are the devices with a frontend in [domid] and a well-formed backend
 	   in some other domain *)
 	let all_devices = list_frontends ~xs domid in
@@ -425,10 +430,7 @@ let destroy (task: Xenops_task.t) ~xc ~xs ~qemu_domid domid =
 	  Thread.delay 5.
 	done;
 	if still_exists () then begin
-	  (* CA-13801: to avoid confusing people, we shall change this domain's uuid *)
-	  let s = Printf.sprintf "deadbeef-dead-beef-dead-beef0000%04x" domid in
 	  error "VM = %s; domid = %d; Domain stuck in dying state after 30s; resetting UUID to %s. This probably indicates a backend driver bug." (Uuid.to_string uuid) domid s;
-	  Xenctrl.domain_sethandle xc domid s;
 	  raise (Domain_stuck_in_dying_state domid)
 	end
 

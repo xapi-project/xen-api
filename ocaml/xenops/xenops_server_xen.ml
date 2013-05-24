@@ -165,7 +165,13 @@ let di_of_uuid ~xc ~xs domain_selection uuid =
 
 	let oldest_first = List.sort
 		(fun a b ->
-			let create_time x = xs.Xs.read (Printf.sprintf "/vm/%s/domains/%d/create-time" uuid' x.domid) |> Int64.of_string in
+			let create_time x = 
+			  try 
+			    xs.Xs.read (Printf.sprintf "/vm/%s/domains/%d/create-time" uuid' x.domid) |> Int64.of_string 
+			  with e ->
+			    warn "Caught exception trying to find creation time of domid %d (uuid %s)" x.domid uuid';
+			    0L
+			in
 			compare (create_time a) (create_time b)
 		) possible in
 	let domid_list = String.concat ", " (List.map (fun x -> string_of_int x.domid) oldest_first) in
