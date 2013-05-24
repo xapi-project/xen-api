@@ -110,7 +110,7 @@ let dump common_opts =
           | None -> "-"
           | Some x -> x in
         let message = function
-          | Event.Message (id, m) -> m.Message.payload
+          | Event.Message (id, m) -> Printf.sprintf "%Ld:%s" id m.Message.payload
           | Event.Ack id -> Printf.sprintf "ack %Ld" id in
         List.iter (fun (id, event) ->
           let time = match !start with
