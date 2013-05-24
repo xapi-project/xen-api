@@ -318,9 +318,17 @@ module VM : HandlerTools = struct
 						(List.filter (fun (x, _) -> x <> Xapi_globs.mac_seed) other_config) in
 			let vm_record = { vm_record with API.vM_other_config = other_config } in
 
-			(* An imported VM always needs a fresh generation ID *)
+			(* Preserve genid for cross-pool migrates, because to the guest the
+			 * disk looks like it hasn't changed.
+			 * Preserve genid for templates, since they're not going to be started.
+			 * Generate a fresh genid for normal VM imports. *)
 			let vm_record =
-			  { vm_record with API.vM_generation_id = Xapi_vm_helpers.fresh_genid () } in
+				if (is_live config) || vm_record.API.vM_is_a_template
+				then vm_record
+				else {
+					vm_record with API.vM_generation_id = Xapi_vm_helpers.fresh_genid ()
+				}
+			in
 
 			let vm_record =
 				if vm_exported_pre_dmc x
