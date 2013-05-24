@@ -2427,10 +2427,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let local_fn = Local.Host.set_localdb_key ~host ~key ~value in
 			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.set_localdb_key rpc session_id host key value)
 
-		let apply_edition ~__context ~host ~edition =
-			info "Host.apply_edition: host = '%s'; edition = '%s'" (host_uuid ~__context host) edition;
-			let local_fn = Local.Host.apply_edition ~host ~edition in
-			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.apply_edition rpc session_id host edition)
+		let apply_edition ~__context ~host ~edition ~force =
+			info "Host.apply_edition: host = '%s'; edition = '%s'; force = '%s'" (host_uuid ~__context host) edition (string_of_bool force);
+			let local_fn = Local.Host.apply_edition ~host ~edition ~force in
+			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.apply_edition rpc session_id host edition force)
 
 		let refresh_pack_info ~__context ~host =
 			info "Host.refresh_pack_info: host = '%s'" (host_uuid ~__context host);
