@@ -70,6 +70,11 @@ type config =
 		force: bool;
 	}
 
+let is_live config =
+	match config.import_type with
+	| Metadata_import {live=live} -> live
+	| _ -> false
+
 (** List of (datamodel classname * Reference in export * Reference in database) *)
 type table = (string * string * string) list
 
@@ -282,11 +287,8 @@ module VM : HandlerTools = struct
 			in
 			match import_action with
 			| Replace (_, vm_record) | Clean_import vm_record ->
-					let live = match config.import_type with
-					| Metadata_import {live=live} -> live
-					| _ -> false
-					in
-					if live then assert_can_live_import __context rpc session_id vm_record;
+					if is_live config
+					then assert_can_live_import __context rpc session_id vm_record;
 					import_action
 			| _ -> import_action
 		end
