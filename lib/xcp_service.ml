@@ -369,8 +369,7 @@ let serve_forever = function
 		done
 	| Queue(queue_name, fn) ->
 		let process x = Jsonrpc.string_of_response (fn (Jsonrpc.call_of_string x)) in
-		let c = Protocol_unix.IO.connect !Xcp_client.switch_port in
-		Protocol_unix.Server.listen process c queue_name
+		Protocol_unix.Server.listen process !Xcp_client.switch_port queue_name
 
 let pidfile_write filename =
 	let fd = Unix.openfile filename
