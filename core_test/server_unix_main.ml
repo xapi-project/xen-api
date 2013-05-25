@@ -5,8 +5,7 @@ let name = ref "server"
 let process x = x
 
 let main () =
-	let c = Protocol_unix.IO.connect !port in
-	Protocol_unix.Server.listen process c !name
+	Protocol_unix.Server.listen process !port !name
 
 let _ =
 	Arg.parse [

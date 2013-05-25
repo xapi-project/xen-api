@@ -26,5 +26,5 @@ end
 
 module Server : sig
 
-	val listen: (string -> string) -> (IO.ic * IO.oc) -> string -> unit
+	val listen: (string -> string) -> int -> string -> unit
 end

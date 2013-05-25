@@ -223,7 +223,6 @@ let serve common_options_t name program =
   | None ->
     `Error(true, "a queue name is required")
   | Some name ->
-    let c = Protocol_unix.IO.connect common_options_t.Common.port in
     Protocol_unix.Server.listen (fun req ->
       match program with
       | None ->
@@ -237,7 +236,7 @@ let serve common_options_t name program =
         let res = string_of_ic stdout in
         let (_: Unix.process_status) = Unix.close_process_full (stdout, stdin, stderr) in
         res
-    ) c name;
+    ) common_options_t.Common.port name;
     `Ok ()
 
 let serve_cmd =

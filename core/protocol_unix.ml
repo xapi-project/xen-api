@@ -67,6 +67,20 @@ module Opt = struct
 	| Some x -> Some (f x)
 end
 
+let with_lock m f =
+	Mutex.lock m;
+	try
+		let r = f () in
+		Mutex.unlock m;
+		r
+	with e ->
+		Mutex.unlock m;
+		raise e
+
+let rpc_exn c frame = match Connection.rpc c frame with
+	| Error e -> raise e
+	| Ok raw -> raw
+
 module Client = struct
 	type 'a response = {
 		mutable v: 'a option;
@@ -80,15 +94,6 @@ module Client = struct
 		m = Mutex.create ();
 		c = Condition.create ();
 	}
-	let with_lock m f =
-		Mutex.lock m;
-		try
-			let r = f () in
-			Mutex.unlock m;
-			r
-		with e ->
-			Mutex.unlock m;
-			raise e
 	let wakeup_later r x =
 		with_lock r.m
 			(fun () ->
@@ -121,10 +126,6 @@ module Client = struct
 		dest_queue_name: string;
 		reply_queue_name: string; 
 	}
-
-	let rpc_exn c frame = match Connection.rpc c frame with
-		| Error e -> raise e
-		| Ok raw -> raw
 
 	let connect port dest_queue_name =
 		let token = whoami () in
@@ -203,4 +204,60 @@ module Client = struct
 		)
 end
 
-module Server = Protocol.Server(IO)
+module Server = struct
+
+	let listen process port name =
+		let open IO in
+
+		let token = whoami () in
+		let request_conn = IO.connect port in
+		let (_: string) = rpc_exn request_conn (In.Login token) in
+		let reply_conn = IO.connect port in
+		let (_: string) = rpc_exn reply_conn (In.Login token) in
+
+		(* Only allow one reply RPC at a time (no pipelining) *)
+		let m = Mutex.create () in
+		let reply req = with_lock m (fun () -> Connection.rpc reply_conn req) in
+
+		Connection.rpc request_conn (In.Login token) >>= fun _ ->
+		Connection.rpc request_conn (In.Create (Some name)) >>= fun _ ->
+		Connection.rpc request_conn (In.Subscribe name) >>= fun _ ->
+		Printf.fprintf stdout "Serving requests forever\n%!";
+
+		let rec loop from =
+			let timeout = 5. in
+			let frame = In.Transfer(from, timeout) in
+			Connection.rpc request_conn frame >>= function
+			| Error e ->
+				Printf.fprintf stderr "Server.listen.loop: %s\n%!" (Printexc.to_string e);
+				return ()
+			| Ok raw ->
+				let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
+				begin match transfer.Out.messages with
+				| [] -> loop from
+				| m :: ms ->
+					List.iter
+						(fun (i, m) ->
+							let (_: Thread.t) = Thread.create
+							(fun () ->
+								process m.Message.payload >>= fun response ->
+								begin
+									match m.Message.reply_to with
+									| None ->
+										return ()
+									| Some reply_to ->
+										let request = In.Send(reply_to, { m with Message.reply_to = None; payload = response }) in
+										reply request >>= fun _ ->
+										return ()
+								end >>= fun () ->
+								let request = In.Ack i in
+								reply request >>= fun _ ->
+								()
+							) () in ()
+						) transfer.Out.messages;
+					let from = List.fold_left max (fst m) (List.map fst ms) in
+					loop from
+				end in
+		loop (-1L)
+end
+
