@@ -45,6 +45,15 @@ let common_options_t =
     
 (* Commands *)
 
+let events_cmd =
+  let doc = "display a live stream of events" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Displays a live stream of events received from xenopsd. These events include VM powercycle events and VM configuration changes."
+  ] @ help in
+  Term.(ret(pure Xn.events $ common_options_t)),
+  Term.info "events" ~sdocs:_common_options ~doc ~man
+
 let create_cmd =
   let doc = "register a VM and start it immediately" in
   let man = [
@@ -298,7 +307,7 @@ let default_cmd =
        
 let cmds = [list_cmd; create_cmd; add_cmd; remove_cmd; start_cmd; shutdown_cmd; reboot_cmd;
             suspend_cmd; resume_cmd; pause_cmd; unpause_cmd;
-            import_cmd; export_cmd; console_cmd; diagnostics_cmd ]
+            import_cmd; export_cmd; console_cmd; diagnostics_cmd; events_cmd ]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 

@@ -1031,6 +1031,9 @@ let rec events_watch from =
 	flush stdout;
 	events_watch (Some next)
 
+let events copts =
+  events_watch None
+
 let set_worker_pool_size size =
 	Client.HOST.set_worker_pool_size dbg size
 
