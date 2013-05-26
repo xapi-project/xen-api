@@ -8,11 +8,11 @@ let payload = ref "hello"
 let timeout = ref None
 
 let main () =
-	let c = Client.connect !port !name in
+	let c = Client.connect !port in
 	let counter = ref 0 in
 	let one () =
 		incr counter;
-		let _ = Client.rpc c !payload in
+		let _ = Client.rpc c ~dest:!name !payload in
 		() in
 	let start = Unix.gettimeofday () in
 	begin match !timeout with

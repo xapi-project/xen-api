@@ -15,7 +15,7 @@ module IO = struct
 	type ic = Lwt_io.input Lwt_io.channel
 	type oc = Lwt_io.output Lwt_io.channel
 
-	let iter fn x = Lwt_list.iter_s fn x
+	let iter = Lwt_list.iter_s
 
 	let read_line = Lwt_io.read_line_opt
 	let read ic count =

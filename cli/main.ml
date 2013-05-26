@@ -190,8 +190,8 @@ let call common_options_t name body path timeout =
       close_in ic;
       txt in
 
-    let c = Client.connect common_options_t.Common.port name in
-    let result = Client.rpc c ?timeout txt in
+    let c = Client.connect common_options_t.Common.port in
+    let result = Client.rpc c ?timeout ~dest:name txt in
     print_endline result;
     `Ok ()
     end

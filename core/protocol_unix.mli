@@ -17,9 +17,9 @@ end
 module Client : sig
 	type t
 
-	val connect: int -> string -> t
+	val connect: int -> t
 
-	val rpc: t -> ?timeout:int -> string  -> string
+	val rpc: t -> ?timeout:int -> dest:string -> string  -> string
 
 	val list: t -> string -> string list
 end

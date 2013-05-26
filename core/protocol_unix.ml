@@ -123,11 +123,10 @@ module Client = struct
 		events_conn: (IO.ic * IO.oc);
 		requests_m: Mutex.t;
 		wakener: (int, Protocol.Message.t response) Hashtbl.t;
-		dest_queue_name: string;
 		reply_queue_name: string; 
 	}
 
-	let connect port dest_queue_name =
+	let connect port =
 		let token = whoami () in
 		let requests_conn = IO.connect port in
 		let (_: string) = rpc_exn requests_conn (In.Login token) in
@@ -160,17 +159,29 @@ module Client = struct
 			Thread.create loop (-1L) in
 		let reply_queue_name = rpc_exn requests_conn (In.Create None) in
 		let (_: string) = rpc_exn requests_conn (In.Subscribe reply_queue_name) in
-		let (_: string) = rpc_exn requests_conn (In.Create (Some dest_queue_name)) in
 		{
 			requests_conn = requests_conn;
 			events_conn = events_conn;
 			requests_m = Mutex.create ();
 			wakener = wakener;
-			dest_queue_name = dest_queue_name;
 			reply_queue_name = reply_queue_name;
 		}
 
-	let rpc c ?timeout x =
+	(* Maintain at most one connection per process *)
+	let connect =
+		let c = ref None in
+		let m = Mutex.create () in
+		fun port ->
+			with_lock m (fun () ->
+				match !c with
+				| Some x -> x
+				| None ->
+					let c' = connect port in
+					c := Some c';
+					c'
+			)
+
+	let rpc c ?timeout ~dest:dest_queue_name x =
 		let t = task () in
 		let timer = Opt.map (fun timeout ->
 			Protocol_unix_scheduler.(one_shot (Delta timeout) "rpc" (fun () -> timeout_later t))
@@ -178,9 +189,10 @@ module Client = struct
 
 		let correlation_id = with_lock c.requests_m
 		(fun () ->
+			let (_: string) = rpc_exn c.requests_conn (In.Create (Some dest_queue_name)) in
 			let correlation_id = Protocol.fresh_correlation_id () in
 			Hashtbl.add c.wakener correlation_id t;
-			let msg = In.Send(c.dest_queue_name, {
+			let msg = In.Send(dest_queue_name, {
 				Message.payload = x;
 				correlation_id;
 				reply_to = Some c.reply_queue_name
