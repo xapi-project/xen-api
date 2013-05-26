@@ -101,6 +101,18 @@ let dump common_opts =
   let from = ref 0L in
   let timeout = 5. in
   let start = ref None in
+  let widths = [ Some 5; Some 15; Some 4; Some 30; Some 4; Some 15; None ] in
+  let print_row row =
+    List.iter (fun (txt, size) ->
+      let txt = match size with
+      | None -> txt
+      | Some size ->
+      let txt' = String.length txt in
+      if txt' > size then String.sub txt (txt'-size) size else txt ^ (String.make (size - txt') ' ') in
+      print_string txt;
+      print_string " "
+    ) (List.combine row widths);
+    print_endline "" in
   while true do
     match Connection.rpc c (In.Trace (!from, timeout)) with
       | Error e -> raise e
@@ -111,18 +123,28 @@ let dump common_opts =
           | Some x -> x in
         let message = function
           | Event.Message (id, m) -> Printf.sprintf "%Ld:%s" id m.Message.payload
-          | Event.Ack id -> Printf.sprintf "ack %Ld" id in
-        List.iter (fun (id, event) ->
-          let time = match !start with
-            | None ->
-              start := Some event.Event.time;
-              0.
-            | Some t ->
-              event.Event.time -. t in
-          Printf.fprintf stdout "%Ld: %.1f: %10s -> %10s -> %10s: %s\n%!" id time
-            (endpoint event.Event.input) event.Event.queue
-            (endpoint event.Event.output) (message event.Event.message)
-        ) trace.Out.events;
+          | Event.Ack id -> Printf.sprintf "%Ld:ack" id in
+        let relative_time event = match !start with
+          | None ->
+            start := Some event.Event.time;
+            0.
+          | Some t ->
+            event.Event.time -. t in
+
+        let rows = List.map (fun (id, event) ->
+          let time = relative_time event in
+          let m = event.Event.message in
+          [ Printf.sprintf "%.1f" time ] @ (match m with
+            | Event.Message(_, { Message.reply_to = None }) ->
+              [ endpoint event.Event.output; "<-"; event.Event.queue; "<-"; endpoint event.Event.input ]
+            | Event.Message(_, { Message.reply_to = Some _ }) ->              
+              [ endpoint event.Event.input; "->"; event.Event.queue; "->"; endpoint event.Event.output ]
+            | Event.Ack id ->
+              [ endpoint event.Event.input; "->"; event.Event.queue; ""; "" ]
+          ) @ [ message m ]
+        ) trace.Out.events in
+        List.iter print_row rows;
+        flush stdout;
         from :=
           begin match trace.Out.events with
             | [] -> !from
