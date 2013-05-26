@@ -25,9 +25,9 @@ let switch_port = ref 8080
 let use_switch = ref true 
 
 let switch_rpc queue_name string_of_call response_of_string =
-	let c = Protocol_unix.Client.connect !switch_port queue_name in
+	let c = Protocol_unix.Client.connect !switch_port in
 	fun call ->
-		response_of_string (Protocol_unix.Client.rpc c (string_of_call call))
+		response_of_string (Protocol_unix.Client.rpc c ~dest:queue_name (string_of_call call))
 
 (* Use HTTP to frame RPC messages *)
 let http_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset") url call =
