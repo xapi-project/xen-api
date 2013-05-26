@@ -5,8 +5,8 @@ open Protocol_lwt
 
 let basedir = ref "/tmp/link_test"
 
-let rpc_req = { Message.payload = "hello"; correlation_id = 1; reply_to = Some "reply_to" }
-let rpc_res = { Message.payload = "hello"; correlation_id = 1; reply_to = None }
+let rpc_req = { Message.payload = "hello"; kind = Message.Request "reply to" }
+let rpc_res = { Message.payload = "hello"; kind = Message.Response 1L }
 
 let in_frames =
 	let open In in [

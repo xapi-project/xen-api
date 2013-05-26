@@ -1,18 +1,17 @@
 open Cohttp
 
+exception Queue_deleted of string
 
 module Message = struct
+	type kind =
+	| Request of string
+	| Response of int64
+	with rpc
 	type t = {
 		payload: string; (* switch to Rpc.t *)
-		correlation_id: int;
-		reply_to: string option;
+		kind: kind;
 	} with rpc
 
-	let one_way payload = {
-		payload = payload;
-		correlation_id = 0;
-		reply_to = None;
-	}
 end
 
 module Event = struct
@@ -26,7 +25,8 @@ module Event = struct
 		input: string option;
 		queue: string;
 		output: string option;
-		message: message
+		message: message;
+		processing_time: int64 option;
 	} with rpc
 
 end
@@ -66,10 +66,10 @@ module In = struct
 			Some (Trace(Int64.of_string ack_to, float_of_string timeout))
 		| None, `GET, [ ""; "trace" ] ->
 			Some (Trace(-1L, 5.))
-		| Some body, `POST, [ ""; "send"; name; correlation_id ] ->
-			Some (Send (name, { Message.correlation_id = int_of_string correlation_id; reply_to = None; payload = body }))
-		| Some body, `POST, [ ""; "send"; name; correlation_id; reply_to ] ->
-			Some (Send (name, { Message.correlation_id = int_of_string correlation_id; reply_to = Some reply_to; payload = body }))
+		| Some body, `POST, [ ""; "request"; name; reply_to ] ->
+			Some (Send (name, { Message.kind = Message.Request reply_to; payload = body }))
+		| Some body, `POST, [ ""; "response"; name; in_reply_to ] ->
+			Some (Send (name, { Message.kind = Message.Response (Int64.of_string in_reply_to); payload = body }))
 		| _, _, _ -> None
 
 	let headers payload =
@@ -97,10 +97,10 @@ module In = struct
 			None, `GET, (Uri.make ~path:(Printf.sprintf "/transfer/%Ld/%.16g" ack_to timeout) ())
 		| Trace(ack_to, timeout) ->
 			None, `GET, (Uri.make ~path:(Printf.sprintf "/trace/%Ld/%.16g" ack_to timeout) ())
-		| Send (name, { Message.correlation_id = c; reply_to = None; payload = p }) ->
-			Some p, `POST, (Uri.make ~path:(Printf.sprintf "/send/%s/%d" name c) ())
-		| Send (name, { Message.correlation_id = c; reply_to = Some r; payload = p }) ->
-			Some p, `POST, (Uri.make ~path:(Printf.sprintf "/send/%s/%d/%s" name c r) ())
+		| Send (name, { Message.kind = Message.Request r; payload = p }) ->
+			Some p, `POST, (Uri.make ~path:(Printf.sprintf "/request/%s/%s" name r) ())
+		| Send (name, { Message.kind = Message.Response i; payload = p }) ->
+			Some p, `POST, (Uri.make ~path:(Printf.sprintf "/response/%s/%Ld" name i) ())
 		| Diagnostics ->
 			None, `GET, (Uri.make ~path:"/" ())
 		| Get path ->
@@ -162,7 +162,7 @@ module Out = struct
 	| Login
 	| Create of string
 	| Subscribe
-	| Send
+	| Send of int64 option
 	| Transfer of transfer
 	| Trace of trace
 	| Ack
@@ -175,8 +175,10 @@ module Out = struct
 		| Login
 		| Ack
 		| Subscribe
-		| Send ->
+		| Send None ->
 			`OK, ""
+		| Send (Some x) ->
+			`OK, Int64.to_string x
 		| Create name ->
 			`OK, name
 		| Transfer transfer ->
@@ -262,11 +264,11 @@ module Server = functor(IO: Cohttp.IO.S) -> struct
 						(fun (i, m) ->
 							process m.Message.payload >>= fun response ->
 							begin
-								match m.Message.reply_to with
-								| None ->
-									return ()
-								| Some reply_to ->
-									let request = In.Send(reply_to, { m with Message.reply_to = None; payload = response }) in
+								match m.Message.kind with
+								| Message.Response _ ->
+									return () (* configuration error *)
+								| Message.Request reply_to ->
+									let request = In.Send(reply_to, { Message.kind = Message.Response i; payload = response }) in
 									Connection.rpc c request >>= fun _ ->
 									return ()
 					 		end >>= fun () ->
@@ -279,12 +281,4 @@ module Server = functor(IO: Cohttp.IO.S) -> struct
 				end in
 		loop (-1L)
 end
-
-
-let fresh_correlation_id =
-	let counter = ref 0 in
-	fun () ->
-		let result = !counter in
-		incr counter;
-		result
 

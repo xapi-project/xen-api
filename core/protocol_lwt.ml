@@ -51,7 +51,7 @@ module Client = struct
 		requests_conn: (IO.ic * IO.oc);
 		events_conn: (IO.ic * IO.oc);
 		requests_m: Lwt_mutex.t;
-		wakener: (int, Message.t Lwt.u) Hashtbl.t;
+		wakener: (int64, Message.t Lwt.u) Hashtbl.t;
 		dest_queue_name: string;
 		reply_queue_name: string;
 	}
@@ -68,6 +68,7 @@ module Client = struct
 		lwt (_: string) = lwt_rpc events_conn (In.Login token) in
 
 		let wakener = Hashtbl.create 10 in
+		let requests_m = Lwt_mutex.create () in
 		let (_ : unit Lwt.t) =
 			let rec loop from =
 				let timeout = 5. in
@@ -80,9 +81,11 @@ module Client = struct
 					lwt () = Lwt_list.iter_s
 						(fun (i, m) ->
 							lwt _ = lwt_rpc events_conn (In.Ack i) in
-							if Hashtbl.mem wakener m.Message.correlation_id
-							then Lwt.wakeup_later (Hashtbl.find wakener m.Message.correlation_id) m;
-							return ()
+							Lwt_mutex.with_lock requests_m (fun () ->
+								if Hashtbl.mem wakener i
+								then Lwt.wakeup_later (Hashtbl.find wakener i) m;
+								return ()
+							)
 						) transfer.Out.messages in
 					let from = List.fold_left max (fst m) (List.map fst ms) in
 					loop from in
@@ -93,22 +96,26 @@ module Client = struct
 		return {
 			requests_conn = requests_conn;
 			events_conn = events_conn;
-			requests_m = Lwt_mutex.create ();
+			requests_m;
 			wakener = wakener;
 			dest_queue_name = dest_queue_name;
 			reply_queue_name = reply_queue_name;
 		}
 
 	let rpc c x =
-		let correlation_id = Protocol.fresh_correlation_id () in
 		let t, u = Lwt.task () in
-		Hashtbl.add c.wakener correlation_id u;
 		let msg = In.Send(c.dest_queue_name, {
 			Message.payload = x;
-			correlation_id;
-			reply_to = Some c.reply_queue_name
+			kind = Message.Request c.reply_queue_name
 		}) in
-		lwt (_: string) = lwt_rpc c.requests_conn msg in
+		lwt () = Lwt_mutex.with_lock c.requests_m
+		(fun () ->
+			lwt (id: string) = lwt_rpc c.requests_conn msg in
+			if id = "" then raise (Queue_deleted c.dest_queue_name);
+			let id = Int64.of_string id in
+			Hashtbl.add c.wakener id u;
+			return ()
+		) in
 		lwt response = t in
 		return response.Message.payload
 

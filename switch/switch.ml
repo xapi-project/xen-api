@@ -237,7 +237,6 @@ module Q = struct
 		then Hashtbl.find queues name
 		else Int64Map.empty
 
-
 	let remove name =
 		let entries = get name in
 		Int64Map.iter (fun id _ ->
@@ -259,6 +258,10 @@ module Q = struct
 		else None
 
 	let queue_of_id id = Int64Map.find id !message_id_to_queue
+
+	let find_exn id =
+		let q = get(queue_of_id id) in
+		Int64Map.find id q
 
 	let ack id =
 		let name = queue_of_id id in
@@ -426,7 +429,7 @@ let process_request conn_id session request = match session, request with
 		return Out.Subscribe
 	| Some session, In.Ack id ->
 		let name = Q.queue_of_id id in
-		Trace_buffer.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Ack id }));
+		Trace_buffer.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Ack id; processing_time = None }));
 		Q.ack id;
 		return Out.Ack
 	| Some session, In.Transfer(from, timeout) ->
@@ -468,18 +471,26 @@ let process_request conn_id session request = match session, request with
 		let transfer = {
 			Out.messages = Int64Map.fold (fun id e acc -> (id, e.Protocol.Entry.message) :: acc) messages [];
 		} in
+		let now = Unix.gettimeofday () in
 		List.iter
 			(fun (id, m) ->
 				let name = Q.queue_of_id id in
-				Trace_buffer.add (Event.({time = Unix.gettimeofday (); input = None; queue = name; output = Some session; message = Message (id, m) }))
+				let processing_time = match m.Message.kind with
+				| Message.Request _ -> None
+				| Message.Response id' ->
+					try
+						let request_entry = Q.find_exn id' in
+						Some (Int64.sub (get_time ()) request_entry.Entry.time)
+					with _ -> None in
+				Trace_buffer.add (Event.({time = now; input = None; queue = name; output = Some session; message = Message (id, m); processing_time }))
 			) transfer.Out.messages;
 		return (Out.Transfer transfer)
 	| Some session, In.Send (name, data) ->
 		begin match_lwt Q.send conn_id name data with
-		| None -> return Out.Send
+		| None -> return (Out.Send None)
 		| Some id ->
-			Trace_buffer.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Message (id, data) }));
-			return Out.Send
+			Trace_buffer.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Message (id, data); processing_time = None }));
+			return (Out.Send (Some id))
 		end
 
 let make_server () =

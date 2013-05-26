@@ -1,14 +1,15 @@
+exception Queue_deleted of string
 
 module Message : sig
+	type kind =
+	| Request of string
+	| Response of int64
 	type t = {
 		payload: string; (* switch to Rpc.t *)
-		correlation_id: int;
-		reply_to: string option;
+		kind: kind;
 	}
 	val t_of_rpc: Rpc.t -> t
 	val rpc_of_t: t -> Rpc.t
-
-	val one_way: string -> t
 end
 
 module Event : sig
@@ -21,7 +22,8 @@ module Event : sig
 		input: string option;
 		queue: string;
 		output: string option;
-		message: message
+		message: message;
+		processing_time: int64 option;
 	}
 	val t_of_rpc: Rpc.t -> t
 	val rpc_of_t: t -> Rpc.t
@@ -111,7 +113,7 @@ module Out : sig
 	| Login
 	| Create of string
 	| Subscribe
-	| Send
+	| Send of int64 option
 	| Transfer of transfer
 	| Trace of trace
 	| Ack
@@ -139,4 +141,3 @@ module Server(IO: Cohttp.IO.S) : sig
 	val listen: (string -> string IO.t) -> (IO.ic * IO.oc) -> string -> unit IO.t
 end
 
-val fresh_correlation_id: unit -> int

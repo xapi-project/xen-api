@@ -63,6 +63,9 @@ let diagnostics common_opts =
     let origin = function
       | Anonymous id -> Printf.sprintf "anonymous-%d" id
       | Name x -> x in
+    let kind = function
+      | Message.Request q -> q
+      | Message.Response _ -> "-" in
     let queue (name, queue) =
       Printf.printf "  %s next update expected: %s\n" name (match queue.Diagnostics.next_transfer_expected with None -> "None" | Some x -> time in_the_future x);
       List.iter
@@ -73,7 +76,7 @@ let diagnostics common_opts =
           let len = String.length payload in
           let max_len = 70 in
           Printf.printf "      %s\n" (if common_opts.Common.verbose || len < max_len then payload else String.sub payload 0 max_len);
-          Printf.printf "        reply_to: %s  correlation_id: %d\n" (match message.Message.reply_to with None -> "None" | Some x -> x) message.Message.correlation_id;
+          Printf.printf "        reply_to: %s\n" (kind message.Message.kind);
         ) queue.Diagnostics.queue_contents in
     Printf.printf "Switch uptime: %s\n" (time in_the_past d.Diagnostics.start_time); 
     print_endline "Permanent queues";
@@ -101,7 +104,7 @@ let dump common_opts =
   let from = ref 0L in
   let timeout = 5. in
   let start = ref None in
-  let widths = [ Some 5; Some 15; Some 4; Some 30; Some 4; Some 15; None ] in
+  let widths = [ Some 5; Some 15; Some 4; Some 30; Some 4; Some 15; Some 5; None ] in
   let print_row row =
     List.iter (fun (txt, size) ->
       let txt = match size with
@@ -130,18 +133,20 @@ let dump common_opts =
             0.
           | Some t ->
             event.Event.time -. t in
-
+	let secs = function
+          | None -> ""
+          | Some x -> Printf.sprintf "%.1f" (Int64.(to_float (div x 1_000_000_000L)) /. 1000.) in
         let rows = List.map (fun (id, event) ->
           let time = relative_time event in
           let m = event.Event.message in
           [ Printf.sprintf "%.1f" time ] @ (match m with
-            | Event.Message(_, { Message.reply_to = None }) ->
+            | Event.Message(_, { Message.kind = Message.Response _ }) ->
               [ endpoint event.Event.output; "<-"; event.Event.queue; "<-"; endpoint event.Event.input ]
-            | Event.Message(_, { Message.reply_to = Some _ }) ->              
+            | Event.Message(_, { Message.kind = Message.Request _ }) ->
               [ endpoint event.Event.input; "->"; event.Event.queue; "->"; endpoint event.Event.output ]
             | Event.Ack id ->
               [ endpoint event.Event.input; "->"; event.Event.queue; ""; "" ]
-          ) @ [ message m ]
+          ) @ [ secs event.Event.processing_time; message m ]
         ) trace.Out.events in
         List.iter print_row rows;
         flush stdout;

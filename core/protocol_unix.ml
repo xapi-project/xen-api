@@ -122,7 +122,7 @@ module Client = struct
 		requests_conn: (IO.ic * IO.oc);
 		events_conn: (IO.ic * IO.oc);
 		requests_m: Mutex.t;
-		wakener: (int, Protocol.Message.t response) Hashtbl.t;
+		wakener: (int64, Protocol.Message.t response) Hashtbl.t;
 		reply_queue_name: string; 
 	}
 
@@ -137,6 +137,7 @@ module Client = struct
 
 		Protocol_unix_scheduler.start ();
 
+		let requests_m = Mutex.create () in
 		let (_ : Thread.t) =
 			let rec loop from =
 				let timeout = 5. in
@@ -149,10 +150,15 @@ module Client = struct
 					List.iter
 						(fun (i, m) ->
 							(* If the Ack doesn't belong to us then assume it's another thread *)
-							if Hashtbl.mem wakener m.Message.correlation_id then begin
-								let (_: string) = rpc_exn events_conn (In.Ack i) in
-								wakeup_later (Hashtbl.find wakener m.Message.correlation_id) m;
-							end
+							with_lock requests_m (fun () ->
+								match m.Message.kind with
+								| Message.Response j ->
+									if Hashtbl.mem wakener j then begin
+										let (_: string) = rpc_exn events_conn (In.Ack i) in
+										wakeup_later (Hashtbl.find wakener j) m;
+									end else Printf.printf "no wakener for id %Ld\n%!" i
+								| Message.Request _ -> ()
+							)
 						) transfer.Out.messages;
 					let from = List.fold_left max (fst m) (List.map fst ms) in
 					loop from in
@@ -162,7 +168,7 @@ module Client = struct
 		{
 			requests_conn = requests_conn;
 			events_conn = events_conn;
-			requests_m = Mutex.create ();
+			requests_m;
 			wakener = wakener;
 			reply_queue_name = reply_queue_name;
 		}
@@ -187,24 +193,24 @@ module Client = struct
 			Protocol_unix_scheduler.(one_shot (Delta timeout) "rpc" (fun () -> timeout_later t))
 		) timeout in
 
-		let correlation_id = with_lock c.requests_m
+		let id = with_lock c.requests_m
 		(fun () ->
 			let (_: string) = rpc_exn c.requests_conn (In.CreatePersistent dest_queue_name) in
-			let correlation_id = Protocol.fresh_correlation_id () in
-			Hashtbl.add c.wakener correlation_id t;
 			let msg = In.Send(dest_queue_name, {
 				Message.payload = x;
-				correlation_id;
-				reply_to = Some c.reply_queue_name
+				kind = Message.Request c.reply_queue_name
 			}) in
-			let (_: string) = rpc_exn c.requests_conn msg in
-			correlation_id
+			let (id: string) = rpc_exn c.requests_conn msg in
+			if id = "" then raise (Protocol.Queue_deleted dest_queue_name);
+			let id = Int64.of_string id in
+			Hashtbl.add c.wakener id t;
+			id
 		) in
 		(* now block waiting for our response *)
 		let response = wait t in
 		(* release resources *)
 		Opt.iter Protocol_unix_scheduler.cancel timer;
-		with_lock c.requests_m (fun () -> Hashtbl.remove c.wakener correlation_id);
+		with_lock c.requests_m (fun () -> Hashtbl.remove c.wakener id);
 
 		response.Message.payload
 
@@ -254,11 +260,12 @@ module Server = struct
 							(fun () ->
 								process m.Message.payload >>= fun response ->
 								begin
-									match m.Message.reply_to with
-									| None ->
+									match m.Message.kind with
+									| Message.Response _ ->
+										(* response where a request should be: configuration error? *)
 										return ()
-									| Some reply_to ->
-										let request = In.Send(reply_to, { m with Message.reply_to = None; payload = response }) in
+									| Message.Request reply_to ->
+										let request = In.Send(reply_to, { Message.kind = Message.Response i; payload = response }) in
 										reply request >>= fun _ ->
 										return ()
 								end >>= fun () ->
