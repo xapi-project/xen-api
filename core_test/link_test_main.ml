@@ -11,8 +11,8 @@ let rpc_res = { Message.payload = "hello"; correlation_id = 1; reply_to = None }
 let in_frames =
 	let open In in [
 		"login", Login "hello";
-		"create", Create (Some "service");
-		"create.anon", Create None;
+		"persistent", CreatePersistent "service";
+		"transient", CreateTransient "client";
 		"subscribe", Subscribe "service";
 		"request", Send("service", rpc_req);
 		"reply", Send("service", rpc_res);

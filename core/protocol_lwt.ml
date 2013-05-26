@@ -87,9 +87,9 @@ module Client = struct
 					let from = List.fold_left max (fst m) (List.map fst ms) in
 					loop from in
 			loop (-1L) in
-		lwt reply_queue_name = lwt_rpc requests_conn (In.Create None) in
+		lwt reply_queue_name = lwt_rpc requests_conn (In.CreateTransient token) in
 		lwt (_: string) = lwt_rpc requests_conn (In.Subscribe reply_queue_name) in
-		lwt (_: string) = lwt_rpc requests_conn (In.Create (Some dest_queue_name)) in
+		lwt (_: string) = lwt_rpc requests_conn (In.CreatePersistent dest_queue_name) in
 		return {
 			requests_conn = requests_conn;
 			events_conn = events_conn;

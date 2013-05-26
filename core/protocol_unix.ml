@@ -157,7 +157,7 @@ module Client = struct
 					let from = List.fold_left max (fst m) (List.map fst ms) in
 					loop from in
 			Thread.create loop (-1L) in
-		let reply_queue_name = rpc_exn requests_conn (In.Create None) in
+		let reply_queue_name = rpc_exn requests_conn (In.CreateTransient token) in
 		let (_: string) = rpc_exn requests_conn (In.Subscribe reply_queue_name) in
 		{
 			requests_conn = requests_conn;
@@ -189,7 +189,7 @@ module Client = struct
 
 		let correlation_id = with_lock c.requests_m
 		(fun () ->
-			let (_: string) = rpc_exn c.requests_conn (In.Create (Some dest_queue_name)) in
+			let (_: string) = rpc_exn c.requests_conn (In.CreatePersistent dest_queue_name) in
 			let correlation_id = Protocol.fresh_correlation_id () in
 			Hashtbl.add c.wakener correlation_id t;
 			let msg = In.Send(dest_queue_name, {
@@ -232,7 +232,7 @@ module Server = struct
 		let reply req = with_lock m (fun () -> Connection.rpc reply_conn req) in
 
 		Connection.rpc request_conn (In.Login token) >>= fun _ ->
-		Connection.rpc request_conn (In.Create (Some name)) >>= fun _ ->
+		Connection.rpc request_conn (In.CreatePersistent name) >>= fun _ ->
 		Connection.rpc request_conn (In.Subscribe name) >>= fun _ ->
 		Printf.fprintf stdout "Serving requests forever\n%!";
 

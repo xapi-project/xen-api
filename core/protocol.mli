@@ -30,7 +30,8 @@ end
 module In : sig
 	type t =
 	| Login of string            (** Associate this transport-level channel with a session *)
-	| Create of string option    (** Create a queue with a well-known or fresh name *)
+	| CreatePersistent of string (** Create a persistent named queue *)
+	| CreateTransient of string  (** Create a transient named queue which will be deleted when the client disconnects *)
 	| Subscribe of string        (** Subscribe to messages from a queue *)
 	| Send of string * Message.t (** Send a message to a queue *)
 	| Transfer of int64 * float  (** blocking wait for new messages *)

@@ -414,16 +414,11 @@ let process_request conn_id session request = match session, request with
 		return Out.Not_logged_in
 	| Some session, In.List prefix ->
 		return (Out.List (Q.list prefix))
-	| Some session, In.Create name ->
-		let name = begin match name with
-			| Some name ->
-				name
-			| None ->
-				(* Create a session-local transient queue name *)
-				let name = make_fresh_name () in
-				Transient_queue.add session name;
-				name
-		end in
+	| Some session, In.CreatePersistent name ->
+		Q.add name;
+		return (Out.Create name)
+	| Some session, In.CreateTransient name ->
+		Transient_queue.add session name;
 		Q.add name;
 		return (Out.Create name)
 	| Some session, In.Subscribe name ->

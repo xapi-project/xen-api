@@ -34,7 +34,8 @@ end
 module In = struct
 	type t =
 	| Login of string            (** Associate this transport-level channel with a session *)
-	| Create of string option    (** Create a queue with a well-known or fresh name *)
+	| CreatePersistent of string
+	| CreateTransient of string
 	| Subscribe of string        (** Subscribe to messages from a queue *)
 	| Send of string * Message.t (** Send a message to a queue *)
 	| Transfer of int64 * float  (** blocking wait for new messages *)
@@ -54,8 +55,8 @@ module In = struct
 		| None, `GET, "" :: ((("js" | "css" | "images") :: _) as path) -> Some (Get path)
 		| None, `GET, [ ""; "" ]                -> Some Diagnostics
 		| None, `GET, [ ""; "login"; token ]    -> Some (Login token)
-		| None, `GET, [ ""; "create" ]          -> Some (Create None)
-		| None, `GET, [ ""; "create"; name ]    -> Some (Create (Some name))
+		| None, `GET, [ ""; "persistent"; name ] -> Some (CreatePersistent name)
+		| None, `GET, [ ""; "transient"; name ] -> Some (CreateTransient name)
 		| None, `GET, [ ""; "subscribe"; name ] -> Some (Subscribe name)
 		| None, `GET, [ ""; "ack"; id ]         -> Some (Ack (Int64.of_string id))
 		| None, `GET, [ ""; "list"; prefix ]    -> Some (List prefix)
@@ -82,10 +83,10 @@ module In = struct
 	let to_request = function
 		| Login token ->
 			None, `GET, (Uri.make ~path:(Printf.sprintf "/login/%s" token) ())
-		| Create None ->
-			None, `GET, (Uri.make ~path:"/create" ())
-		| Create (Some name) ->
-			None, `GET, (Uri.make ~path:(Printf.sprintf "/create/%s" name) ())
+		| CreatePersistent name ->
+			None, `GET, (Uri.make ~path:(Printf.sprintf "/persistent/%s" name) ())
+		| CreateTransient name ->
+			None, `GET, (Uri.make ~path:(Printf.sprintf "/transient/%s" name) ())
 		| Subscribe name ->
 			None, `GET, (Uri.make ~path:(Printf.sprintf "/subscribe/%s" name) ())
 		| Ack x ->
@@ -241,7 +242,7 @@ module Server = functor(IO: Cohttp.IO.S) -> struct
 		let open IO in
 		let token = Printf.sprintf "%d" (Unix.getpid ()) in
 		Connection.rpc c (In.Login token) >>= fun _ ->
-		Connection.rpc c (In.Create (Some name)) >>= fun _ ->
+		Connection.rpc c (In.CreatePersistent name) >>= fun _ ->
 		Connection.rpc c (In.Subscribe name) >>= fun _ ->
 		Printf.fprintf stdout "Serving requests forever\n%!";
 
