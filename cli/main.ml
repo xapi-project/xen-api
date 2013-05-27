@@ -105,8 +105,29 @@ module Opt = struct
     | Some x -> f x
 end
 
-let message = function
-  | Event.Message (id, m) -> Printf.sprintf "%Ld:%s" id m.Message.payload
+let summarise_payload m =
+  try    
+    let call = Jsonrpc.call_of_string m in
+    call.Rpc.name
+  with _ ->
+    begin
+      try
+        let response = Jsonrpc.response_of_string m in
+        if response.Rpc.success
+        then "OK"
+        else "FAILURE"
+      with _ -> 
+        let limit = 10 in
+        if String.length m > limit
+        then String.sub m 0 limit
+        else m
+    end
+
+let message ?(concise=false) = function
+  | Event.Message (id, m) ->
+    if concise
+    then summarise_payload m.Message.payload
+    else Printf.sprintf "%Ld:%s" id m.Message.payload
   | Event.Ack id -> Printf.sprintf "%Ld:ack" id
 
 let mscgen common_opts =
@@ -127,7 +148,7 @@ let mscgen common_opts =
     | Some x -> StringSet.add x acc
   ) StringSet.empty trace.Out.events in
   let print_event (_, e) =
-    let body = String.escaped (message e.Event.message) in
+    let body = String.escaped (message ~concise:true e.Event.message) in
     let to_arrow arrow queue connection =
       Printf.printf "%s %s %s [ label = \"%s\" ] ;\n" (quote connection) arrow (quote queue) body in
     let from_arrow arrow queue connection =
