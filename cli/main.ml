@@ -99,7 +99,7 @@ let list common_opts prefix =
     List.iter print_endline all;
     `Ok ()
 
-let dump common_opts =
+let tail common_opts follow =
   let c = IO.connect common_opts.Common.port in
   let from = ref 0L in
   let timeout = 5. in
@@ -116,7 +116,8 @@ let dump common_opts =
       print_string " "
     ) (List.combine row widths);
     print_endline "" in
-  while true do
+  let finished = ref false in
+  while not(!finished) do
     match Connection.rpc c (In.Trace (!from, timeout)) with
       | Error e -> raise e
       | Ok raw ->
@@ -150,6 +151,7 @@ let dump common_opts =
         ) trace.Out.events in
         List.iter print_row rows;
         flush stdout;
+        finished := not follow;
         from :=
           begin match trace.Out.events with
             | [] -> !from
@@ -179,14 +181,17 @@ let list_cmd =
   Term.(ret(pure list $ common_options_t $ prefix)),
   Term.info "list" ~sdocs:_common_options ~doc ~man
 
-let dump_cmd =
-  let doc = "display a live stream of trace events" in
+let tail_cmd =
+  let doc = "display the most recent trace events" in
   let man = [
     `S "DESCRIPTION";
-    `P "Display a live stream of trace events captured within the message switch";
+    `P "Display the most recent trace events captured within the message switch. Similar to the shell command 'tail'";
   ] @ help in
-  Term.(ret(pure dump $ common_options_t)),
-  Term.info "dump" ~sdocs:_common_options ~doc ~man
+  let follow =
+    let doc = "keep waiting for new events to display." in
+    Arg.(value & flag & info ["follow"] ~docv:"FOLLOW" ~doc) in
+  Term.(ret(pure tail $ common_options_t $ follow)),
+  Term.info "tail" ~sdocs:_common_options ~doc ~man
 
 let string_of_ic ?end_marker ic =
   let lines = ref [] in
@@ -288,7 +293,7 @@ let default_cmd =
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
   Term.info "m-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
        
-let cmds = [list_cmd; dump_cmd; call_cmd; serve_cmd; diagnostics_cmd]
+let cmds = [list_cmd; tail_cmd; call_cmd; serve_cmd; diagnostics_cmd]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
