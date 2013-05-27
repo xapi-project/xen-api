@@ -57,7 +57,9 @@
         <tr>
          <th class="span2">Time</td>
          <th class="span2">Input</td>
+         <th class="span1"></th>
          <th class="span2">Queue</td>
+         <th class="span1"></th>
          <th class="span2">Output</td>
        </tr>
       </thead>
@@ -127,14 +129,20 @@ $(document).ready(function(){
           };
           var bgcolor = "white";
           if (next_id % 2 == 0) { bgcolor = "lightgrey" };
+          var input_arrow = "";
+          if (event.input) { input_arrow = "<i class=\"icon-arrow-right\">-&gt;</i>"; };
+          var output_arrow = "";
+          if (event.output) { output_arrow = "<i class=\"icon-arrow-right\">-&gt;</i>"; };
           $('#logger tr:last').after(
             "<tr bgcolor=\"" + bgcolor + "\" id=\"item-" + next_id + "\"><td>"+
              m.format('LLL')+"</td><td>"+
              input+"</td><td>"+
+             input_arrow+"</td><td>" +
              queue+"</td><td>"+
+             output_arrow+"</td><td>" +
              output+"</td></tr>");
           $('#logger tr:last').after(
-            "<tr bgcolor=\"" + bgcolor + "\" id=\"item-msg-" + next_id + "\"><td/><td colspan=3>" + descr + "</td></tr>"
+            "<tr bgcolor=\"" + bgcolor + "\" id=\"item-msg-" + next_id + "\"><td/><td colspan=5>" + descr + "</td></tr>"
           );
           total = total + 1;
           if (next_id < earliest_id){
