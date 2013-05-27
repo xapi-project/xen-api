@@ -1,9 +1,9 @@
 OASISFormat: 0.2
 Name:        message_switch
-Version:     1.0
+Version:     0.1
 Synopsis:    A simple store-and-forward message switch
-Authors:     see CREDITS.md
-License:     LGPL-2.1 with OCaml linking exception
+Authors:     Dave Scott
+License:     FreeBSD
 Plugins:     META (0.2)
 BuildTools:  ocamlbuild
 
