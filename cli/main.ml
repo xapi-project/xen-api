@@ -114,14 +114,8 @@ let mscgen common_opts =
   let trace = match Connection.rpc c (In.Trace(0L, 0.)) with
     | Error e -> raise e
     | Ok raw -> Out.trace_of_rpc (Jsonrpc.of_string raw) in
-  let escape x =
-    let x' = String.copy x in
-    for i = 0 to String.length x' - 1 do
-      x'.[i] <- match x'.[i] with
-                | 'a'..'z' | 'A'..'Z' | '0'..'9' -> x'.[i]
-                | _ -> '_'
-    done;
-    x' in
+  let quote x = "\"" ^ x ^ "\""
+ in
   let module StringSet = Set.Make(struct type t = string let compare = compare end) in
   let queues = List.fold_left (fun acc (_, event) -> StringSet.add event.Event.queue acc) StringSet.empty trace.Out.events in
   let inputs = List.fold_left (fun acc (_, event) -> match event.Event.input with
@@ -135,9 +129,9 @@ let mscgen common_opts =
   let print_event (_, e) =
     let body = String.escaped (message e.Event.message) in
     let to_arrow arrow queue connection =
-      Printf.printf "%s %s %s [ label = \"%s\" ] ;\n" (escape connection) arrow (escape queue) body in
+      Printf.printf "%s %s %s [ label = \"%s\" ] ;\n" (quote connection) arrow (quote queue) body in
     let from_arrow arrow queue connection =
-      Printf.printf "%s %s %s [ label = \"%s\" ] ;\n" (escape queue) arrow (escape connection) body in
+      Printf.printf "%s %s %s [ label = \"%s\" ] ;\n" (quote queue) arrow (quote connection) body in
     match e.Event.message with
     | Event.Message(_, { Message.kind = Message.Response _ }) ->
       Opt.iter (to_arrow "<-" e.Event.queue) e.Event.output;
@@ -147,7 +141,7 @@ let mscgen common_opts =
       Opt.iter (from_arrow "->" e.Event.queue) e.Event.input;
     | Event.Ack _ -> () in
   Printf.printf "msc {\n";
-  Printf.printf "%s;\n" (String.concat "," (List.map escape (StringSet.(elements ((union (union inputs outputs) queues))))));
+  Printf.printf "%s;\n" (String.concat "," (List.map quote (StringSet.(elements ((union (union inputs outputs) queues))))));
   List.iter print_event trace.Out.events;
   Printf.printf "}\n";
   `Ok ()
