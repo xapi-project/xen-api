@@ -99,6 +99,59 @@ let list common_opts prefix =
     List.iter print_endline all;
     `Ok ()
 
+module Opt = struct
+  let iter f = function
+    | None -> ()
+    | Some x -> f x
+end
+
+let message = function
+  | Event.Message (id, m) -> Printf.sprintf "%Ld:%s" id m.Message.payload
+  | Event.Ack id -> Printf.sprintf "%Ld:ack" id
+
+let mscgen common_opts =
+  let c = IO.connect common_opts.Common.port in
+  let trace = match Connection.rpc c (In.Trace(0L, 0.)) with
+    | Error e -> raise e
+    | Ok raw -> Out.trace_of_rpc (Jsonrpc.of_string raw) in
+  let escape x =
+    let x' = String.copy x in
+    for i = 0 to String.length x' - 1 do
+      x'.[i] <- match x'.[i] with
+                | 'a'..'z' | 'A'..'Z' | '0'..'9' -> x'.[i]
+                | _ -> '_'
+    done;
+    x' in
+  let module StringSet = Set.Make(struct type t = string let compare = compare end) in
+  let queues = List.fold_left (fun acc (_, event) -> StringSet.add event.Event.queue acc) StringSet.empty trace.Out.events in
+  let inputs = List.fold_left (fun acc (_, event) -> match event.Event.input with
+    | None -> acc
+    | Some x -> StringSet.add x acc
+  ) StringSet.empty trace.Out.events in
+  let outputs = List.fold_left (fun acc (_, event) -> match event.Event.output with
+    | None -> acc
+    | Some x -> StringSet.add x acc
+  ) StringSet.empty trace.Out.events in
+  let print_event (_, e) =
+    let body = String.escaped (message e.Event.message) in
+    let to_arrow arrow queue connection =
+      Printf.printf "%s %s %s [ label = \"%s\" ] ;\n" (escape connection) arrow (escape queue) body in
+    let from_arrow arrow queue connection =
+      Printf.printf "%s %s %s [ label = \"%s\" ] ;\n" (escape queue) arrow (escape connection) body in
+    match e.Event.message with
+    | Event.Message(_, { Message.kind = Message.Response _ }) ->
+      Opt.iter (to_arrow "<-" e.Event.queue) e.Event.output;
+      Opt.iter (from_arrow "<-" e.Event.queue) e.Event.input
+    | Event.Message(_, { Message.kind = Message.Request _ }) ->
+      Opt.iter (to_arrow "->" e.Event.queue) e.Event.output;
+      Opt.iter (from_arrow "->" e.Event.queue) e.Event.input;
+    | Event.Ack _ -> () in
+  Printf.printf "msc {\n";
+  Printf.printf "%s;\n" (String.concat "," (List.map escape (StringSet.(elements ((union (union inputs outputs) queues))))));
+  List.iter print_event trace.Out.events;
+  Printf.printf "}\n";
+  `Ok ()
+
 let tail common_opts follow =
   let c = IO.connect common_opts.Common.port in
   let from = ref 0L in
@@ -125,9 +178,6 @@ let tail common_opts follow =
         let endpoint = function
           | None -> "-"
           | Some x -> x in
-        let message = function
-          | Event.Message (id, m) -> Printf.sprintf "%Ld:%s" id m.Message.payload
-          | Event.Ack id -> Printf.sprintf "%Ld:ack" id in
         let relative_time event = match !start with
           | None ->
             start := Some event.Event.time;
@@ -192,6 +242,15 @@ let tail_cmd =
     Arg.(value & flag & info ["follow"] ~docv:"FOLLOW" ~doc) in
   Term.(ret(pure tail $ common_options_t $ follow)),
   Term.info "tail" ~sdocs:_common_options ~doc ~man
+
+let mscgen_cmd =
+  let doc = "display the most recent trace events in mscgen input format" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Display the most recent trace events in mscgen input format, allowing message sequence charts to be rendered";
+  ] @ help in
+  Term.(ret(pure mscgen $ common_options_t)),
+  Term.info "mscgen" ~sdocs:_common_options ~doc ~man
 
 let string_of_ic ?end_marker ic =
   let lines = ref [] in
@@ -293,7 +352,7 @@ let default_cmd =
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
   Term.info "m-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
        
-let cmds = [list_cmd; tail_cmd; call_cmd; serve_cmd; diagnostics_cmd]
+let cmds = [list_cmd; tail_cmd; mscgen_cmd; call_cmd; serve_cmd; diagnostics_cmd]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
