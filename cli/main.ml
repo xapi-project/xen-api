@@ -155,14 +155,14 @@ let mscgen common_opts =
       Printf.printf "%s %s %s [ label = \"%s\" ] ;\n" (quote queue) arrow (quote connection) body in
     match e.Event.message with
     | Event.Message(_, { Message.kind = Message.Response _ }) ->
-      Opt.iter (to_arrow "<-" e.Event.queue) e.Event.output;
-      Opt.iter (from_arrow "<-" e.Event.queue) e.Event.input
+      (* Opt.iter (to_arrow "<<" e.Event.queue) e.Event.output; *)
+      Opt.iter (from_arrow "<<" e.Event.queue) e.Event.input
     | Event.Message(_, { Message.kind = Message.Request _ }) ->
-      Opt.iter (to_arrow "->" e.Event.queue) e.Event.output;
-      Opt.iter (from_arrow "->" e.Event.queue) e.Event.input;
+      Opt.iter (from_arrow "=>" e.Event.queue) e.Event.output;
+      Opt.iter (to_arrow "=>" e.Event.queue) e.Event.input;
     | Event.Ack _ -> () in
   Printf.printf "msc {\n";
-  Printf.printf "%s;\n" (String.concat "," (List.map quote (StringSet.(elements ((union (union inputs outputs) queues))))));
+  Printf.printf "%s;\n" (String.concat "," (List.map quote (StringSet.((elements (union(union inputs outputs) queues))))));
   List.iter print_event trace.Out.events;
   Printf.printf "}\n";
   `Ok ()
