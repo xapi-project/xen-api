@@ -43,8 +43,8 @@ let remove_from_queue name =
 
 let loop () =
 	debug "Periodic scheduler started";
-	while true do
-		try
+	try
+		while true do
 			let empty = Mutex.execute lock (fun () -> Ipq.is_empty queue) in
 			if empty
 			then
@@ -61,10 +61,21 @@ let loop () =
 					| Periodic timer -> add_to_queue ~signal:false todo.name todo.ty timer todo.func
 				end else begin
 					(* Sleep until next event. *)
-					ignore(Delay.wait delay (next.Ipq.time -. now +. 0.001))
+					let sleep = next.Ipq.time -. now +. 0.001 in
+					try
+						ignore(Delay.wait delay sleep)
+					with e ->
+						let detailed_msg =
+							match e with
+							| Unix.Unix_error (code, _, _) -> Unix.error_message code
+							| _ -> "unknown error"
+						in
+						error "Could not schedule interruptable delay (%s). Falling back to normal delay. New events may be missed." detailed_msg;
+						Thread.delay sleep
 				end
 			end
-		with _ -> ()
-	done
+		done
+	with _ ->
+		error "Periodic scheduler died! Xapi will no longer function well and should be restarted."
 
 
