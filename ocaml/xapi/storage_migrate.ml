@@ -385,6 +385,8 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 		SMPERF.debug "mirror.start: snapshot created, mirror initiated vdi:%s snapshot_of:%s"
 			snapshot.vdi local_vdi.vdi ;
 
+		on_fail := (fun () -> Local.VDI.destroy ~dbg ~sr ~vdi:snapshot.vdi) :: !on_fail;
+
 		begin
 			let rec inner () =
 				debug "tapdisk watchdog";
@@ -412,7 +414,7 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 		Some (Mirror_id id)
 	with e ->
 		error "Caught %s: performing cleanup actions" (Printexc.to_string e);
-		(try stop dbg id; with _ -> ());
+		perform_cleanup_actions !on_fail;
 		raise e
 
 
