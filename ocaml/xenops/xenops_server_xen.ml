@@ -413,7 +413,7 @@ module Mem = struct
 	let retry f =
 		let start = Unix.gettimeofday () in
 		let interval = 10. in
-		let timeout = 0. in
+		let timeout = 60. in
 		let rec loop () =
 			try
 				f ()
