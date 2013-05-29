@@ -123,8 +123,10 @@ let pool_migrate_complete ~__context ~vm ~host =
 type mirror_record = {
 	mr_mirrored : bool;
 	mr_dp : Storage_interface.dp;
-	mr_vdi : Storage_interface.vdi;
-	mr_sr : Storage_interface.sr;
+	mr_local_sr : Storage_interface.sr;
+	mr_local_vdi : Storage_interface.vdi;
+	mr_remote_sr : Storage_interface.sr;
+	mr_remote_vdi : Storage_interface.vdi;
 	mr_local_xenops_locator : string;
 	mr_remote_xenops_locator : string;
 	mr_remote_vdi_reference : API.ref_VDI;
@@ -188,6 +190,60 @@ let inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_addr
 			List.iter
 				(fun (vif, _) -> Db.VIF.remove_from_other_config ~__context ~self:vif ~key:Constants.storage_migrate_vif_map_key)
 				vif_map)
+
+module VDIMap = Map.Make(struct type t = API.ref_VDI let compare = compare end)
+let update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map =
+	(* Construct a map of type:
+	 *   API.ref_VDI -> (mirror_record, (API.ref_VDI * mirror_record) list)
+	 *
+	 * Each VDI is mapped to its own mirror record, as well as a list of
+	 * all its snapshots and their mirror records. *)
+	let empty_vdi_map =
+		(* Add the VDIs to the map along with empty lists of snapshots. *)
+		List.fold_left
+			(fun acc (vdi_ref, mirror) -> VDIMap.add vdi_ref (mirror, []) acc)
+			VDIMap.empty vdi_map
+	in
+	let vdi_to_snapshots_map =
+		(* Add the snapshots to the map. *)
+		List.fold_left
+			(fun acc (snapshot_ref, snapshot_mirror) ->
+				let snapshot_of = Db.VDI.get_snapshot_of ~__context ~self:snapshot_ref in
+				try
+					let (mirror, snapshots) = VDIMap.find snapshot_of acc in
+					VDIMap.add
+						snapshot_of
+						(mirror, (snapshot_ref, snapshot_mirror) :: snapshots)
+						acc
+				with Not_found -> begin
+					warn
+						"Snapshot %s is in the snapshot_map; corresponding VDI %s is not in the vdi_map"
+						(Ref.string_of snapshot_ref) (Ref.string_of snapshot_of);
+					acc
+				end)
+			empty_vdi_map snapshots_map
+	in
+	(* Build the snapshot chain for each leaf VDI.
+	 * Best-effort in case we're talking to an old SMAPI. *)
+	try
+		VDIMap.iter
+			(fun vdi_ref (mirror, snapshots) ->
+				let sr = mirror.mr_local_sr in
+				let vdi = mirror.mr_local_vdi in
+				let dest = mirror.mr_remote_sr in
+				let dest_vdi = mirror.mr_remote_vdi in
+				let snapshot_pairs =
+					List.map
+						(fun (local_snapshot_ref, snapshot_mirror) ->
+							Db.VDI.get_uuid ~__context ~self:local_snapshot_ref,
+							snapshot_mirror.mr_remote_vdi)
+						snapshots
+				in
+				SMAPI.SR.update_snapshot_info_src
+					~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~snapshot_pairs)
+			vdi_to_snapshots_map
+	with Storage_interface.Unknown_RPC call ->
+		debug "Remote SMAPI doesn't implement %s - ignoring" call
 
 let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	SMPERF.debug "vm.migrate_send called vm:%s" (Db.VM.get_uuid ~__context ~self:vm);
@@ -378,8 +434,10 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			in
 				(vdi, { mr_dp = newdp;
 								mr_mirrored = mirror;
-								mr_vdi = location;
-								mr_sr = sr;
+								mr_local_sr = sr;
+								mr_local_vdi = location;
+								mr_remote_sr = dest_sr;
+								mr_remote_vdi = remote_vdi;
 								mr_local_xenops_locator = xenops_locator;
 								mr_remote_xenops_locator = Xapi_xenops.xenops_vdi_locator_of_strings dest_sr remote_vdi;
 								mr_remote_vdi_reference = remote_vdi_reference; }) in
@@ -387,7 +445,10 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		let snapshots_map = List.map vdi_copy_fun snapshots_vdis in
 		let vdi_map = List.map vdi_copy_fun vdis in
 
-		(* Move the xapi VM metadata *)
+		(* All the disks and snapshots have been created in the remote SR(s),
+		 * so update the snapshot links if there are any snapshots. *)
+		if snapshots_map <> [] then
+			update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map;
 
 		let xenops_vdi_map = List.map (fun (_, mirror_record) -> (mirror_record.mr_local_xenops_locator, mirror_record.mr_remote_xenops_locator)) (snapshots_map @ vdi_map) in
 		
@@ -416,7 +477,11 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 					intra_pool_fix_suspend_sr ~__context (Ref.of_string dest_host) vm')
 				vm_and_snapshots
 		end
-		else inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address ~vm ~vdi_map:(snapshots_map @ vdi_map) ~vif_map ~dry_run:false ~live:true;
+		else
+			(* Move the xapi VM metadata to the remote pool. *)
+			inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id
+				~remote_address ~vm ~vdi_map:(snapshots_map @ vdi_map)
+				~vif_map ~dry_run:false ~live:true;
 
 		if Xapi_fist.pause_storage_migrate2 () then begin
 			TaskHelper.add_to_other_config ~__context "fist" "pause_storage_migrate2";

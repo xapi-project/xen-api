@@ -304,9 +304,6 @@ let i18n_original_value_prefix = "i18n-original-value-"
 (* Primitive access control mechanism: CA-12313 *)
 let _sm_session = "_sm_session"
 
-let snapshot_of = "snapshot_of"
-let snapshot_time = "snapshot_time"
-
 (* Mark objects created by an import for CA-11743 on their 'other-config' field *)
 let import_task = "import_task"
 

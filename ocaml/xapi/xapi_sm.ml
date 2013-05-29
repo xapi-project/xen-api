@@ -33,6 +33,8 @@ open D
 let create_from_query_result ~__context q =
 	let r = Ref.make () and u = Uuid.string_of_uuid (Uuid.make_uuid ()) in
 	let open Storage_interface in
+	let features = Smint.parse_string_int64_features q.features in
+	let capabilities = List.map fst features in
 	info "Registering SM plugin %s (version %s)" (String.lowercase q.driver) q.version;
 	Db.SM.create ~__context ~ref:r ~uuid:u ~_type:(String.lowercase q.driver)
 		 ~name_label:q.name
@@ -41,8 +43,8 @@ let create_from_query_result ~__context q =
 		 ~copyright:q.copyright
 		 ~version:q.version
 		 ~required_api_version:q.required_api_version
-		 ~capabilities:(List.map fst q.features)
-		 ~features:q.features
+		 ~capabilities
+		 ~features
 		 ~configuration:q.configuration
 		 ~other_config:[]
 		 ~driver_filename:(Sm_exec.cmd_name q.driver)
@@ -51,6 +53,8 @@ let update_from_query_result ~__context (self, r) query_result =
 	let open Storage_interface in
 	let _type = String.lowercase query_result.driver in
 	let driver_filename = Sm_exec.cmd_name query_result.driver in
+	let features = Smint.parse_string_int64_features query_result.features in
+	let capabilities = List.map fst features in
 	info "Registering SM plugin %s (version %s)" (String.lowercase query_result.driver) query_result.version;
 	if r.API.sM_type <> _type
 	then Db.SM.set_type ~__context ~self ~value:_type;
@@ -64,11 +68,10 @@ let update_from_query_result ~__context (self, r) query_result =
 	then Db.SM.set_copyright ~__context ~self ~value:query_result.copyright;
 	if r.API.sM_required_api_version <> query_result.required_api_version
 	then Db.SM.set_required_api_version ~__context ~self ~value:query_result.required_api_version;
-	if (r.API.sM_capabilities <> (List.map fst query_result.features) ||
-	    r.API.sM_features <> query_result.features)
+	if (r.API.sM_capabilities <> capabilities || r.API.sM_features <> features)
 	then begin
-		Db.SM.set_capabilities ~__context ~self ~value:(List.map fst query_result.features);
-		Db.SM.set_features ~__context ~self ~value:query_result.features;
+		Db.SM.set_capabilities ~__context ~self ~value:capabilities;
+		Db.SM.set_features ~__context ~self ~value:features;
 	end;
 	if r.API.sM_configuration <> query_result.configuration
 	then Db.SM.set_configuration ~__context ~self ~value:query_result.configuration;
