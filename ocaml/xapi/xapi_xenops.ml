@@ -247,7 +247,11 @@ let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
 					Cirrus
 			end;
 			acpi = bool vm.API.vM_platform true "acpi";
-			serial = Some (string vm.API.vM_other_config "pty" "hvm_serial");
+			serial = begin
+				if ((string vm.API.vM_platform "" "hvm_serial") = "none") then Some (string vm.API.vM_platform "none" "hvm_serial")
+				else if ((string vm.API.vM_other_config "" "hvm_serial") = "none") then Some (string vm.API.vM_platform "none" "hvm_serial")
+				else Some (string vm.API.vM_platform "pty" "hvm_serial")
+			end;
 			keymap = Some (string vm.API.vM_platform "en-us" "keymap");
 			vnc_ip = Some "0.0.0.0" (*None PR-1255*);
 			pci_emulations = pci_emulations;
