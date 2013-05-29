@@ -280,7 +280,7 @@ let control_shutdown ~xs domid = xs.Xs.getdomainpath domid ^ "/control/shutdown"
 (** Raised if a domain has vanished *)
 exception Domain_does_not_exist
 
-(** Request a shutdown, return without waiting for acknowledgement *)
+(** Signal the guest agent to shut it down, return without waiting for acknowledgement *)
 let shutdown ~xc ~xs domid req =
 	let uuid = get_uuid ~xc domid in
 	debug "VM = %s; domid = %d; Requesting domain %s" (Uuid.to_string uuid) domid (string_of_shutdown_reason req);
@@ -299,7 +299,7 @@ let shutdown ~xc ~xs domid req =
 			 t.Xst.write path reason
 		)
 
-(** If domain is PV, signal it to shutdown. If the PV domain fails to respond then throw a Watch.Timeout exception.
+(** If the guest agent fails to respond then throw a Watch.Timeout exception.
 	All other exceptions imply the domain has disappeared. *)
 let shutdown_wait_for_ack (t: Xenops_task.t) ?(timeout=60.) ~xc ~xs domid req =
 	let di = Xenctrl.domain_getinfo xc domid in
