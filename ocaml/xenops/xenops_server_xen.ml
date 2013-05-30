@@ -996,11 +996,11 @@ module VM = struct
 					) vbds in
 					let usb_enabled =
 						try (List.assoc "usb" vm.Vm.platformdata) = "true"
-						with Not_found -> false
+						with Not_found -> true
 					in
 					let usb_tablet_enabled =
 						try (List.assoc "usb_tablet" vm.Vm.platformdata) = "true"
-						with Not_found -> false
+						with Not_found -> true
 					in
 					let usb =
 						match usb_enabled, usb_tablet_enabled with
