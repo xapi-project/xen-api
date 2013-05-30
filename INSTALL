@@ -1,0 +1,19 @@
+The following dependencies are required:
+
+  * OCaml
+  * findlib
+  * uri
+  * re
+  * cohttp
+  * xmlm
+  * rpc
+  * syslog
+  * message_switch
+
+To build:
+
+    make
+
+To install:
+
+    make install
