@@ -34,9 +34,11 @@ open Lwt
 open Cohttp
 open Xenstore_server
 
-let debug fmt = Logging.debug "server_xen" fmt
-let warn  fmt = Logging.warn  "server_xen" fmt
-let error fmt = Logging.error "server_xen" fmt
+let program = Filename.basename Sys.argv.(0)
+
+let debug fmt = Logging.debug program fmt
+let warn  fmt = Logging.warn  program fmt
+let error fmt = Logging.error program fmt
 
 let get_time () = Oclock.gettime Oclock.monotonic
 let start_time = get_time ()
