@@ -119,7 +119,9 @@ $(document).ready(function(){
           if (event.output) { output = event.output };
           var queue = event.queue;
           var descr = "Unknown";
-          if (event.message[0] == "Message"){ descr = event.message[1] + ":" + event.message[2].payload };
+          if (event.message[0] == "Message"){
+            descr = event.message[1] + ":" + event.message[2].payload
+          };
           if (event.message[0] == "Ack") { descr = event.message[1] + ":Ack"};
           while (total > 50){
              $('#item-' + earliest_id).remove();
