@@ -570,15 +570,27 @@ let make_server () =
     
 let _ =
 	let daemonize = ref false in
+	let pidfile = ref None in
 	Arg.parse [
 		"-daemon", Arg.Set daemonize, "run as a background daemon";
 		"-port", Arg.Set_int port, "port to listen on";
 		"-ip", Arg.Set_string ip, "IP to bind to";
+		"-pidfile", Arg.String (fun x -> pidfile := Some x), "write PID to file";
 	] (fun x -> Printf.fprintf stderr "Ignoring: %s" x)
 		"A simple message switch";
 
 	if !daemonize
 	then Lwt_daemon.daemonize ();
+
+	let (_ : unit Lwt.t) =
+		match !pidfile with
+		| None -> return ()
+		| Some x ->
+			Lwt_io.with_file ~flags:[Unix.O_WRONLY; Unix.O_CREAT] ~perm:0o0644
+			  ~mode:Lwt_io.Output x (fun oc ->
+				lwt () = Lwt_io.write oc (Printf.sprintf "%d" (Unix.getpid ())) in
+				Lwt_io.flush oc
+			) in
 
 	Lwt_unix.run (make_server ()) 
 
