@@ -1,0 +1,14 @@
+Build dependencies include:
+
+  * OCaml
+  * findlib
+  * cmdliner
+  * xcp
+
+To build:
+
+    make
+
+To install:
+
+    make install
