@@ -21,17 +21,17 @@ let rec retry_econnrefused f =
       Thread.delay 5.;
       retry_econnrefused f
   | e ->
-      (* error "Caught %s: does the rrdd service need restarting?" (Printexc.to_string e); *)
+      (* error "Caught %s: does the rrd service need restarting?" (Printexc.to_string e); *)
 
       raise e
 
-module Client = Rrdd_interface.Client(struct
+module Client = Rrd_interface.Client(struct
   let rpc =
     retry_econnrefused
       (fun () ->
         Xcp_client.xml_http_rpc
           ~srcstr:(Xcp_client.get_user_agent ())
-          ~dststr:"rrdd"
-          (fun () -> Rrdd_interface.uri)
+          ~dststr:"rrd"
+          (fun () -> Rrd_interface.uri)
       )
 end)
