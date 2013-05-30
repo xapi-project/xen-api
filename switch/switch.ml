@@ -47,8 +47,6 @@ let message_logger = Logging.create 512
 let message conn_id session (fmt: (_,_,_,_) format4) =
     Printf.ksprintf message_logger.Logging.push ("[%3d] [%s]" ^^ fmt) conn_id (match session with None -> "None" | Some x -> x)
 
-let syslog = Lwt_log.syslog ~facility:`Local3 ()
-
 let rec logging_thread logger =
     lwt lines = Logging.get logger in
 	lwt () = Lwt_list.iter_s
@@ -571,11 +569,16 @@ let make_server () =
 	server ~address:!ip ~port:!port config
     
 let _ =
+	let daemonize = ref false in
 	Arg.parse [
+		"-daemon", Arg.Set daemonize, "run as a background daemon";
 		"-port", Arg.Set_int port, "port to listen on";
 		"-ip", Arg.Set_string ip, "IP to bind to";
 	] (fun x -> Printf.fprintf stderr "Ignoring: %s" x)
 		"A simple message switch";
+
+	if !daemonize
+	then Lwt_daemon.daemonize ();
 
 	Lwt_unix.run (make_server ()) 
 
