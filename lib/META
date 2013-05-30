@@ -1,7 +1,8 @@
 # OASIS_START
-# DO NOT EDIT (digest: 0e6354699875401ab498e5f4f8a2499b)
-version = "0.1"
-description = "Interface definitions for XCP hosts"
+# DO NOT EDIT (digest: 4ba6293c8b49e35901d3b1dbc60c832c)
+version = "0.9.0"
+description =
+"Interface definitions and common boilerplate for the xapi toolstack"
 requires =
 "uri re cohttp xmlm unix rpclib rpclib.syntax rpclib.xml rpclib.js syslog threads message_switch message_switch.unix fd-send-recv"
 archive(byte) = "xcp.cma"
@@ -10,8 +11,9 @@ archive(native) = "xcp.cmxa"
 archive(native, plugin) = "xcp.cmxs"
 exists_if = "xcp.cma"
 package "xen" (
- version = "0.1"
- description = "Interface definitions for XCP hosts"
+ version = "0.9.0"
+ description =
+ "Interface definitions and common boilerplate for the xapi toolstack"
  requires = "xcp threads rpclib rpclib.syntax"
  archive(byte) = "xcp_xen.cma"
  archive(byte, plugin) = "xcp_xen.cma"
@@ -21,8 +23,9 @@ package "xen" (
 )
 
 package "storage" (
- version = "0.1"
- description = "Interface definitions for XCP hosts"
+ version = "0.9.0"
+ description =
+ "Interface definitions and common boilerplate for the xapi toolstack"
  requires = "xcp threads rpclib rpclib.syntax"
  archive(byte) = "xcp_storage.cma"
  archive(byte, plugin) = "xcp_storage.cma"
@@ -32,8 +35,9 @@ package "storage" (
 )
 
 package "network" (
- version = "0.1"
- description = "Interface definitions for XCP hosts"
+ version = "0.9.0"
+ description =
+ "Interface definitions and common boilerplate for the xapi toolstack"
  requires = "xcp threads rpclib rpclib.syntax"
  archive(byte) = "xcp_network.cma"
  archive(byte, plugin) = "xcp_network.cma"
@@ -43,8 +47,9 @@ package "network" (
 )
 
 package "memory" (
- version = "0.1"
- description = "Interface definitions for XCP hosts"
+ version = "0.9.0"
+ description =
+ "Interface definitions and common boilerplate for the xapi toolstack"
  requires = "xcp threads rpclib rpclib.syntax"
  archive(byte) = "xcp_memory.cma"
  archive(byte, plugin) = "xcp_memory.cma"
