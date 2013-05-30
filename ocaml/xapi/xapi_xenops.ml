@@ -150,7 +150,7 @@ let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
 			acpi = bool vm.API.vM_platform true "acpi";
 			serial = Some (string vm.API.vM_other_config "pty" "hvm_serial");
 			keymap = Some (string vm.API.vM_platform "en-us" "keymap");
-			vnc_ip = Some "0.0.0.0" (*None PR-1255*);
+			vnc_ip = None (*None PR-1255*);
 			pci_emulations = pci_emulations;
 			pci_passthrough = pci_passthrough;
 			boot_order = string vm.API.vM_HVM_boot_params "cd" "order";
@@ -171,7 +171,7 @@ let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
 			PV {
 				boot = Direct { kernel = k; cmdline = ka; ramdisk = initrd };
 				framebuffer = bool vm.API.vM_platform false "pvfb";
-				framebuffer_ip = Some "0.0.0.0"; (* None PR-1255 *)
+				framebuffer_ip = None; (* None PR-1255 *)
 				vncterm = true;
 				vncterm_ip = None (*None PR-1255*);
 			}
@@ -179,9 +179,9 @@ let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
 			PV {
 				boot = Indirect { bootloader = b; extra_args = e; legacy_args = l; bootloader_args = p; devices = List.filter_map (fun x -> disk_of_vdi ~__context ~self:x) vdis };
 				framebuffer = bool vm.API.vM_platform false "pvfb";
-				framebuffer_ip = Some "0.0.0.0"; (* None PR-1255 *)
+				framebuffer_ip = None; (* None PR-1255 *)
 				vncterm = true;
-				vncterm_ip = Some "0.0.0.0" (*None PR-1255*);
+				vncterm_ip = None (*None PR-1255*);
 			}
 
 let pass_through_pif_carrier = ref false
