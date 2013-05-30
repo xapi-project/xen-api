@@ -383,11 +383,7 @@ let detect_rolling_upgrade ~__context =
 		(* If my platform version is different to any host (including myself) then we're in a rolling upgrade mode *)
 		(* NB: it is critical this code runs once in the master of a pool of one before the dbsync, since this
 		   is the only time at which the master's Version will be out of sync with its database record *)
-		let all_hosts = Db.Host.get_all ~__context in
-		let platform_versions = List.map (fun host -> Helpers.version_string_of ~__context host) all_hosts in
-
-		let is_different_to_me platform_version = platform_version <> Version.platform_version in
-		let actually_in_progress = List.fold_left (||) false (List.map is_different_to_me platform_versions) in
+		let actually_in_progress = Helpers.pool_has_different_host_platform_versions ~__context in
 		(* Check the current state of the Pool as indicated by the Pool.other_config:rolling_upgrade_in_progress *)
 		let pools = Db.Pool.get_all ~__context in
 		match pools with
@@ -398,6 +394,7 @@ let detect_rolling_upgrade ~__context =
 					List.mem_assoc Xapi_globs.rolling_upgrade_in_progress (Db.Pool.get_other_config ~__context ~self:pool) in
 				(* Resynchronise *)
 				if actually_in_progress <> pool_says_in_progress then begin
+					let platform_versions = List.map (fun host -> Helpers.version_string_of ~__context host) (Db.Host.get_all ~__context) in
 					debug "xapi platform version = %s; host platform versions = [ %s ]"
 						Version.platform_version (String.concat "; " platform_versions);
 
