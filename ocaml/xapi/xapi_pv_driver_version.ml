@@ -189,11 +189,8 @@ let of_guest_metrics gmr =
 				gmr.Db_actions.vM_guest_metrics_PV_drivers_version
 		| None -> Unknown
 
-(** Returns an API error option if the PV drivers are missing or not the most recent version *)
+(** Returns an API error option if the PV drivers are missing *)
 let make_error_opt version vm self =
 	match version with
 		| Unknown -> Some(Api_errors.vm_missing_pv_drivers, [ Ref.string_of vm ])
-		| (Linux(major, minor, micro, _) | Windows(major, minor, micro, _)) as x ->
-			if is_up_to_date x
-			then None
-			else Some(Api_errors.vm_old_pv_drivers, [ Ref.string_of vm; string_of_int major; string_of_int minor; string_of_int micro])
+		| (Linux(major, minor, micro, _) | Windows(major, minor, micro, _)) -> None
