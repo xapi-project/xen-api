@@ -95,7 +95,7 @@ let counter = ref 0
 			"content-length", string_of_int (String.length body);
 			"connection", "keep-alive";
 		] in
-		let request = Request.make ~meth:`POST ~version:`HTTP_1_1 ~headers t.uri in
+		let request = Cohttp.Request.make ~meth:`POST ~version:`HTTP_1_1 ~headers t.uri in
 		Request.write (fun req oc -> Request.write_body req oc body) request oc
 		>>= fun () ->
 		Response.read ic
@@ -115,7 +115,7 @@ incr counter;
 let fd = Unix.openfile (Printf.sprintf "/tmp/response.%d.xml" !counter) [ Unix.O_WRONLY; Unix.O_CREAT ] 0o644 in
 let (_: int) = Unix.write fd result 0 (String.length result) in
 Unix.close fd; *)
-				match Response.status response with
+				match Cohttp.Response.status response with
 					| `OK ->
 						return (Ok body)
 					| s ->
