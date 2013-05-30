@@ -1133,13 +1133,15 @@ let slave_network_report ~__context ~phydevs ~dev_to_mac ~dev_to_mtu ~slave_host
 (*
   Dbsync_slave.create_physical_networks ~__context phydevs dev_to_mac dev_to_mtu slave_host
 *)
-
 (* Let's only process one enable/disable at a time. I would have used an allowed_operation for this but
    it would involve a datamodel change and it's too late for Orlando. *)
 let enable_disable_m = Mutex.create ()
 let enable_ha ~__context ~heartbeat_srs ~configuration = 
-	Helpers.assert_rolling_upgrade_not_in_progress ~__context;
-	Mutex.execute enable_disable_m (fun () -> Xapi_ha.enable __context heartbeat_srs configuration)
+	if not (Helpers.pool_has_different_host_platform_versions ~__context)
+	then Mutex.execute enable_disable_m (fun () -> Xapi_ha.enable __context heartbeat_srs configuration)
+	else
+		raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []))
+
 let disable_ha ~__context = Mutex.execute enable_disable_m (fun () -> Xapi_ha.disable __context)
 
 let ha_prevent_restarts_for ~__context ~seconds = Xapi_ha.ha_prevent_restarts_for __context seconds
