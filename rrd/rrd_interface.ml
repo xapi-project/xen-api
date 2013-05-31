@@ -18,12 +18,18 @@
  * thread), used by RRD client (part of xapi).
  *)
 
-(* Daemon's name. *)
-let name = "xcp-rrdd"
+let service_name = "rrd"
+let queue_name = ref (Xcp_service.common_prefix ^ service_name)
 
-(* Full path to the paths the daemon is listening on. *)
-let uri = "file:/var/lib/xcp/xcp-rrdd"
-let http_fwd_path = "/var/lib/xcp/xcp-rrdd.forwarded"
+let default_sockets_dir = "/var/lib/xcp"
+let default_path = ref (Filename.concat default_sockets_dir "rrdd")
+let forwarded_path = ref (Filename.concat default_sockets_dir "rrdd" ^ ".forwarded")
+
+let set_sockets_dir x =
+  default_path := Filename.concat x "rrdd";
+  forwarded_path := !default_path ^ ".forwarded"
+
+let uri () = "file:" ^ !default_path
 
 (* The interface is defined by extern function declarations. *)
 
