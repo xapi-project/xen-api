@@ -117,7 +117,7 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
 	  let bad_ops' = if power_state = `Paused then bad_ops else `pause :: `unpause :: bad_ops in
       set_errors Api_errors.vm_bad_power_state [ Ref.string_of vm; expected; actual ] bad_ops');
 
-  (* HVM guests only support plug/unplug IF they have recent PV drivers *)
+  (* HVM guests only support plug/unplug IF they have PV drivers *)
   (* They can only eject/insert CDs not plug/unplug *)
   let vm_gm = Db.VM.get_guest_metrics ~__context ~self:vm in
   let vm_gmr = try Some (Db.VM_guest_metrics.get_record_internal ~__context ~self:vm_gm) with _ -> None in  

@@ -67,7 +67,7 @@ let valid_operations ~__context record _ref' : table =
       let expected = Record_util.power_to_string `Running in
       set_errors Api_errors.vm_bad_power_state [ Ref.string_of vm; expected; actual ] [ `plug; `unplug ]);
 
-  (* HVM guests only support plug/unplug IF they have recent PV drivers *)
+  (* HVM guests only support plug/unplug IF they have PV drivers *)
   let vm_gm = Db.VM.get_guest_metrics ~__context ~self:vm in
   let vm_gmr = try Some (Db.VM_guest_metrics.get_record_internal ~__context ~self:vm_gm) with _ -> None in
   if power_state = `Running && Helpers.has_booted_hvm ~__context ~self:vm
