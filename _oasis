@@ -1,8 +1,8 @@
 OASISFormat: 0.2
 Name:        forkexecd
-Version:     0.1
+Version:     0.9.0
 Synopsis:    Fork and exec daemon
-Authors:     see CREDITS.md
+Authors:     see CREDITS
 License:     LGPL-2.1 with OCaml linking exception
 Plugins:     META (0.2)
 BuildTools:  ocamlbuild
