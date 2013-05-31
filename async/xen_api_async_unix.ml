@@ -43,11 +43,12 @@ module IO = struct
 				|`Ok len' -> return (String.sub buf 0 len')
 				|`Eof -> return ""
 
-	let read_exactly (_, ic) buf pos len =
-		Async.Std.Reader.really_read ic ~pos ~len buf >>=
-			function
-			|`Ok -> return true
-			|`Eof _ -> return false
+	let read_exactly (_, ic) len =
+		let buf = String.create len in
+		Async.Std.Reader.really_read ic ~pos:0 ~len buf >>=
+		function
+		|`Ok -> return (Some buf)
+		|`Eof _ -> return None
 
 	let read_exactly ic len =
 	  let buf = String.create len in
