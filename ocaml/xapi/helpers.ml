@@ -556,6 +556,12 @@ let assert_host_versions_not_decreasing :
 		if not (host_versions_not_decreasing ~__context ~host_from ~host_to) then
 			raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []))
 
+let pool_has_different_host_platform_versions ~__context =
+	let all_hosts = Db.Host.get_all ~__context in
+	let platform_versions = List.map (fun host -> version_string_of ~__context host) all_hosts in
+	let is_different_to_me platform_version = platform_version <> Version.platform_version in
+	List.fold_left (||) false (List.map is_different_to_me platform_versions)
+
 (** Indicates whether ballooning is enabled for the given virtual machine. *)
 let ballooning_enabled_for_vm ~__context vm_record =
 	not vm_record.API.vM_is_control_domain
@@ -991,3 +997,4 @@ let force_loopback_vbd ~__context =
 	let pool = get_pool ~__context in
 	let other_config = Db.Pool.get_other_config ~__context ~self:pool in
 	List.mem_assoc "force_loopback_vbd" other_config
+
