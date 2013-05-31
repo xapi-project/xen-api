@@ -1,7 +1,7 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: efb02c2009ca376e148e6dca9ff087b2) *)
+(* DO NOT EDIT (digest: 273d6abad7f6304166b760a353da932f) *)
 module OASISGettext = struct
-(* # 21 "/usr/local2/.opam/system/build/oasis.0.3.0/src/oasis/OASISGettext.ml" *)
+(* # 21 "/home/mike/.opam/4.00.1/build/oasis.0.3.0-1/src/oasis/OASISGettext.ml" *)
 
   let ns_ str =
     str
@@ -24,7 +24,7 @@ module OASISGettext = struct
 end
 
 module OASISExpr = struct
-(* # 21 "/usr/local2/.opam/system/build/oasis.0.3.0/src/oasis/OASISExpr.ml" *)
+(* # 21 "/home/mike/.opam/4.00.1/build/oasis.0.3.0-1/src/oasis/OASISExpr.ml" *)
 
 
 
@@ -116,7 +116,7 @@ end
 
 # 117 "myocamlbuild.ml"
 module BaseEnvLight = struct
-(* # 21 "/usr/local2/.opam/system/build/oasis.0.3.0/src/base/BaseEnvLight.ml" *)
+(* # 21 "/home/mike/.opam/4.00.1/build/oasis.0.3.0-1/src/base/BaseEnvLight.ml" *)
 
   module MapString = Map.Make(String)
 
@@ -214,7 +214,7 @@ end
 
 # 215 "myocamlbuild.ml"
 module MyOCamlbuildFindlib = struct
-(* # 21 "/usr/local2/.opam/system/build/oasis.0.3.0/src/plugins/ocamlbuild/MyOCamlbuildFindlib.ml" *)
+(* # 21 "/home/mike/.opam/4.00.1/build/oasis.0.3.0-1/src/plugins/ocamlbuild/MyOCamlbuildFindlib.ml" *)
 
   (** OCamlbuild extension, copied from 
     * http://brion.inria.fr/gallium/index.php/Using_ocamlfind_with_ocamlbuild
@@ -255,15 +255,24 @@ module MyOCamlbuildFindlib = struct
       String.before s (String.index s ' ')
     with Not_found -> s
 
+  (* ocamlfind command *)
+  let env_filename = Pathname.basename BaseEnvLight.default_filename
+  let env = BaseEnvLight.load ~filename:env_filename ~allow_empty:true ()
+
+  let ocamlfind_prog =
+    try
+      BaseEnvLight.var_get "ocamlfind" env
+    with Not_found ->
+      Printf.eprintf "W: Cannot get variable ocamlfind";
+      "ocamlfind"
+  let ocamlfind x = S[Sh ocamlfind_prog; x]
+
   (* this lists all supported packages *)
   let find_packages () =
-    List.map before_space (split_nl & run_and_read "ocamlfind list")
+    List.map before_space (split_nl & run_and_read (ocamlfind_prog ^ " list"))
 
   (* this is supposed to list available syntaxes, but I don't know how to do it. *)
   let find_syntaxes () = ["camlp4o"; "camlp4r"]
-
-  (* ocamlfind command *)
-  let ocamlfind x = S[A"ocamlfind"; x]
 
   let dispatch =
     function
@@ -275,7 +284,8 @@ module MyOCamlbuildFindlib = struct
           Options.ocamlopt   := ocamlfind & A"ocamlopt";
           Options.ocamldep   := ocamlfind & A"ocamldep";
           Options.ocamldoc   := ocamlfind & A"ocamldoc";
-          Options.ocamlmktop := ocamlfind & A"ocamlmktop"
+          Options.ocamlmktop := ocamlfind & A"ocamlmktop";
+          Options.ocamlmklib := ocamlfind & A"ocamlmklib"
                                   
       | After_rules ->
           
@@ -323,7 +333,7 @@ module MyOCamlbuildFindlib = struct
 end
 
 module MyOCamlbuildBase = struct
-(* # 21 "/usr/local2/.opam/system/build/oasis.0.3.0/src/plugins/ocamlbuild/MyOCamlbuildBase.ml" *)
+(* # 21 "/home/mike/.opam/4.00.1/build/oasis.0.3.0-1/src/plugins/ocamlbuild/MyOCamlbuildBase.ml" *)
 
   (** Base functions for writing myocamlbuild.ml
       @author Sylvain Le Gall
@@ -339,7 +349,7 @@ module MyOCamlbuildBase = struct
   type name = string 
   type tag = string 
 
-(* # 56 "/usr/local2/.opam/system/build/oasis.0.3.0/src/plugins/ocamlbuild/MyOCamlbuildBase.ml" *)
+(* # 56 "/home/mike/.opam/4.00.1/build/oasis.0.3.0-1/src/plugins/ocamlbuild/MyOCamlbuildBase.ml" *)
 
   type t =
       {
@@ -473,7 +483,7 @@ module MyOCamlbuildBase = struct
 end
 
 
-# 476 "myocamlbuild.ml"
+# 486 "myocamlbuild.ml"
 open Ocamlbuild_plugin;;
 let package_default =
   {
@@ -498,6 +508,6 @@ let package_default =
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default package_default;;
 
-# 502 "myocamlbuild.ml"
+# 512 "myocamlbuild.ml"
 (* OASIS_STOP *)
 Ocamlbuild_plugin.dispatch dispatch_default;;
