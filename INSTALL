@@ -1,0 +1,18 @@
+This software depends on:
+
+  * OCaml
+  * findlib
+  * syslog
+  * threads
+  * uuidm
+  * rpc
+  * fd-send-recv
+  * stdext
+
+To build:
+
+    make
+
+To install:
+
+    make install
