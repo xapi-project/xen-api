@@ -70,6 +70,11 @@ type config =
 		force: bool;
 	}
 
+let is_live config =
+	match config.import_type with
+	| Metadata_import {live=live} -> live
+	| _ -> false
+
 (** List of (datamodel classname * Reference in export * Reference in database) *)
 type table = (string * string * string) list
 
@@ -282,11 +287,8 @@ module VM : HandlerTools = struct
 			in
 			match import_action with
 			| Replace (_, vm_record) | Clean_import vm_record ->
-					let live = match config.import_type with
-					| Metadata_import {live=live} -> live
-					| _ -> false
-					in
-					if live then assert_can_live_import __context rpc session_id vm_record;
+					if is_live config
+					then assert_can_live_import __context rpc session_id vm_record;
 					import_action
 			| _ -> import_action
 		end
@@ -316,9 +318,17 @@ module VM : HandlerTools = struct
 						(List.filter (fun (x, _) -> x <> Xapi_globs.mac_seed) other_config) in
 			let vm_record = { vm_record with API.vM_other_config = other_config } in
 
-			(* An imported VM always needs a fresh generation ID *)
+			(* Preserve genid for cross-pool migrates, because to the guest the
+			 * disk looks like it hasn't changed.
+			 * Preserve genid for templates, since they're not going to be started.
+			 * Generate a fresh genid for normal VM imports. *)
 			let vm_record =
-			  { vm_record with API.vM_generation_id = Xapi_vm_helpers.fresh_genid () } in
+				if (is_live config) || vm_record.API.vM_is_a_template
+				then vm_record
+				else {
+					vm_record with API.vM_generation_id = Xapi_vm_helpers.fresh_genid ()
+				}
+			in
 
 			let vm_record =
 				if vm_exported_pre_dmc x
@@ -783,7 +793,7 @@ module VBD : HandlerTools = struct
 			| Metadata_import {dry_run = dry_run; live = live} -> dry_run, live
 			| _ -> false, false
 			in
-			if not (dry_run && live) then 
+			if not (dry_run && live) then
 				begin
 					if vbd_record.API.vBD_currently_attached && not(exists vbd_record.API.vBD_VDI state.table) then begin
 					(* It's only ok if it's a CDROM attached to an HVM guest *)
@@ -890,19 +900,20 @@ module VIF : HandlerTools = struct
 					vif_record.API.vIF_other_config
 			in
 			(* Construct the VIF record we're going to try to create locally. *)
-			let vif_record = if (Pool_features.is_enabled ~__context Features.VIF_locking) then
-			       			 vif_record 
-					else begin
-						if vif_record.API.vIF_locking_mode = `locked then
-	        		                	{ vif_record with API.vIF_locking_mode = `network_default; 
-									  API.vIF_ipv4_allowed = [];      	
-									  API.vIF_ipv6_allowed = [];
-							} 
-						else            	
-	                    			    	{ vif_record with API.vIF_ipv4_allowed = [];
-									  API.vIF_ipv6_allowed = [];
-							}      
-					end in		
+			let vif_record = if (Pool_features.is_enabled ~__context Features.VIF_locking)
+			then vif_record
+			else begin
+				if vif_record.API.vIF_locking_mode = `locked
+				then {
+					vif_record with API.vIF_locking_mode = `network_default;
+					API.vIF_ipv4_allowed = [];
+					API.vIF_ipv6_allowed = [];
+				}
+				else {
+					vif_record with API.vIF_ipv4_allowed = [];
+					API.vIF_ipv6_allowed = [];
+				}
+			end in
 			let vif_record = { vif_record with
 				API.vIF_VM = vm;
 				API.vIF_network = net;
