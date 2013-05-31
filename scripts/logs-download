@@ -1,6 +1,0 @@
-#!/bin/sh
-#
-# Copyright (c) Citrix Systems 2008. All rights reserved.
-#
-
-tar --preserve-permissions --to-stdout --gzip --one-file-system -c /var/log/ 2>/dev/null

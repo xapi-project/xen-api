@@ -1,8 +1,0 @@
-/var/log/xensource.log {
-    missingok
-	size 16M
-    sharedscripts
-    postrotate
-               /usr/bin/killall -HUP syslogd
-    endscript
-}

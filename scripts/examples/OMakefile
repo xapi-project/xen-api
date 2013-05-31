@@ -1,5 +1,0 @@
-IEXE=install -m 755 
-
-.SUBDIRS: bash-cli python
-
-
