@@ -1,6 +1,6 @@
 # OASIS_START
 # DO NOT EDIT (digest: 86a7593e41ce3161fe495a612f106ce9)
-version = "0.1.0"
+version = "0.9.3"
 description = "Xen API client"
 requires = "xmlm rpclib cohttp"
 archive(byte) = "xen-api-client.cma"
@@ -20,7 +20,7 @@ package "lwt" (
 )
 
 package "async" (
- version = "0.1.0"
+ version = "0.9.3"
  description = "Xen API client"
  requires =
  "xen-api-client xmlm core async async_core async_unix rpclib cohttp uri threads"

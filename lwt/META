@@ -1,6 +1,6 @@
 # OASIS_START
 # DO NOT EDIT (digest: 4aa281a458b6913ffb062f872ece6014)
-version = "0.1.0"
+version = "0.9.3"
 description = "Xen API client"
 archive(byte) = "xen-api-client-lwt.cma"
 archive(byte, plugin) = "xen-api-client-lwt.cma"
