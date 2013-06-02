@@ -1,6 +1,6 @@
 OASISFormat: 0.2
 Name:        message_switch
-Version:     0.9.1
+Version:     0.9.2
 Synopsis:    A simple store-and-forward message switch
 Authors:     Dave Scott
 License:     FreeBSD

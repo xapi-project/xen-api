@@ -1,3 +1,6 @@
+0.9.2 (02-Jun-2013):
+* update to cohttp 0.9.8
+
 0.9.1 (29-May-2013):
 * commandline arguments: -pidfile <some file> and -daemon
 
