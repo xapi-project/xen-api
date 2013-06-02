@@ -261,9 +261,10 @@ let http_handler call_of_string string_of_response process s =
 	| None ->
 		debug "Failed to read HTTP request"
 	| Some req ->
-		begin match Request.meth req, Uri.path (Request.uri req) with
+		begin match Cohttp.Request.meth req, Uri.path (Cohttp.Request.uri req) with
 		| `POST, _ ->
-			begin match Request.header req "content-length" with
+			let headers = Cohttp.Request.headers req in
+			begin match Cohttp.Header.get headers "content-length" with
 			| None ->
 				debug "Failed to read content-length"
 			| Some content_length ->
@@ -280,7 +281,7 @@ let http_handler call_of_string string_of_response process s =
 					"user-agent", default_service_name;
 					"content-length", string_of_int content_length;
 				] in
-				let response = Response.make ~version:`HTTP_1_1 ~status:`OK ~headers ~encoding:(Cohttp.Transfer.Fixed content_length) () in
+				let response = Cohttp.Response.make ~version:`HTTP_1_1 ~status:`OK ~headers ~encoding:(Cohttp.Transfer.Fixed content_length) () in
 				Response.write (fun t oc -> Response.write_body t oc response_txt) response oc
 			end
 		| _, _ ->
@@ -289,7 +290,7 @@ let http_handler call_of_string string_of_response process s =
 				"user-agent", default_service_name;
 				"content-length", string_of_int content_length;
 			] in
-			let response = Response.make ~version:`HTTP_1_1 ~status:`Not_found ~headers ~encoding:(Cohttp.Transfer.Fixed content_length) () in
+			let response = Cohttp.Response.make ~version:`HTTP_1_1 ~status:`Not_found ~headers ~encoding:(Cohttp.Transfer.Fixed content_length) () in
 			Response.write (fun t oc -> ()) response oc
 		end
 

@@ -50,7 +50,7 @@ let http_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset
 		| None -> headers in
 	
 
-	let http_req = Request.make ~meth:`POST ~version:`HTTP_1_1 ~headers uri in
+	let http_req = Cohttp.Request.make ~meth:`POST ~version:`HTTP_1_1 ~headers uri in
 
 	Open_uri.with_open_uri uri
 		(fun fd ->
@@ -60,7 +60,7 @@ let http_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset
 			match Response.read ic with
 				| None -> failwith (Printf.sprintf "Failed to read HTTP response from: %s" (url ()))
 				| Some t ->
-					begin match Response.status t with
+					begin match Cohttp.Response.status t with
 						| `OK ->
 							let body = match Response.read_body_chunk t ic with
 							| Cohttp.Transfer.Chunk body
