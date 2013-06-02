@@ -244,7 +244,7 @@ module Connection = functor(IO: Cohttp.IO.S) -> struct
 		let b, meth, uri = In.to_request frame in
 		let body = match b with None -> "" | Some x -> x in
 		let headers = In.headers body in
-		let req = Request.make ~meth ~headers uri in
+		let req = Cohttp.Request.make ~meth ~headers uri in
 		Request.write (fun req oc -> match b with
 		| Some body ->
 			Request.write_body req oc body
@@ -253,8 +253,8 @@ module Connection = functor(IO: Cohttp.IO.S) -> struct
 
 		Response.read ic >>= function
 		| Some response ->
-			if Response.status response <> `OK then begin
-				Printf.fprintf stderr "Server sent: %s\n%!" (Cohttp.Code.string_of_status (Response.status response));
+			if Cohttp.Response.status response <> `OK then begin
+				Printf.fprintf stderr "Server sent: %s\n%!" (Cohttp.Code.string_of_status (Cohttp.Response.status response));
 				(* Response.write (fun _ _ -> return ()) response Lwt_io.stderr >>= fun () -> *)
 				return (Error Unsuccessful_response)
 			end else begin

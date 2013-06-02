@@ -537,15 +537,17 @@ let make_server () =
 		lwt body = match body with
 			| None -> return None
 			| Some b ->
-				lwt s = Body.string_of_body (Some b) in
+				lwt s = Cohttp_lwt_body.string_of_body (Some b) in
 				return (Some s) in
-		match In.of_request body (Request.meth req) (Request.path req) with
+		let uri = Cohttp.Request.uri req in
+		let path = Uri.path uri in
+		match In.of_request body (Cohttp.Request.meth req) path with
 		| None ->
-			debug "<- [unparsable request; path = %s; body = %s]" (Request.path req) (match body with Some x -> "\"" ^ x ^ "\"" | None -> "None");
+			debug "<- [unparsable request; path = %s; body = %s]" path (match body with Some x -> "\"" ^ x ^ "\"" | None -> "None");
 			debug "-> 404 [Not_found]";
-			Cohttp_lwt_unix.Server.respond_not_found ~uri:(Request.uri req) ()
+			Cohttp_lwt_unix.Server.respond_not_found ~uri ()
 		| Some request ->
-			debug "<- %s [%s]" (Request.path req) (match body with None -> "" | Some x -> x);
+			debug "<- %s [%s]" path (match body with None -> "" | Some x -> x);
 			let session = Connections.get_session conn_id in
 			message conn_id session "%s" (Jsonrpc.to_string (In.rpc_of_t request));
 			lwt response = process_request conn_id session request in
@@ -566,7 +568,7 @@ let make_server () =
 
 	debug "Message switch starting";
 	let config = { Cohttp_lwt_unix.Server.callback; conn_closed } in
-	server ~address:!ip ~port:!port config
+	Cohttp_lwt_unix.Server.create ~address:!ip ~port:!port config
     
 let _ =
 	let daemonize = ref false in
@@ -587,7 +589,7 @@ let _ =
 		| None -> return ()
 		| Some x ->
 			Lwt_io.with_file ~flags:[Unix.O_WRONLY; Unix.O_CREAT] ~perm:0o0644
-			  ~mode:Lwt_io.Output x (fun oc ->
+			  ~mode:Lwt_io.output x (fun oc ->
 				lwt () = Lwt_io.write oc (Printf.sprintf "%d" (Unix.getpid ())) in
 				Lwt_io.flush oc
 			) in
