@@ -238,7 +238,7 @@ let rra_update rrd proc_pdp_st elapsed_pdp_st pdps =
    it's dependent on the time interval between updates. To be able to 
    deal with guage DSs, we multiply by the interval so that it cancels 
    the subsequent divide by interval later on *)
-let process_ds_value ds value interval =
+let process_ds_value ds value interval new_domid =
   if interval > ds.ds_mrhb 
   then nan 
   else
@@ -261,22 +261,28 @@ let process_ds_value ds value interval =
 	      end
 	  | Derive ->
 	      begin
-		match ds.ds_last, value with
-		  | VT_Int64 x, VT_Int64 y -> 
-		      let result = (Int64.sub y x) in
-		      let result = if result < 0L then Int64.add result 0x100000000L else result in (* for wrapping 32 bit counters *)
-		      Int64.to_float result
-		  | VT_Float x, VT_Float y -> y -. x
-		  | VT_Unknown, _ -> nan
-		  | _, VT_Unknown -> nan
-		  | _ -> failwith ("Bad type updating ds: "^ds.ds_name)
+					if new_domid then
+						match value with
+							| VT_Int64 y -> Int64.to_float y
+							| VT_Float y -> y
+							| VT_Unknown -> nan
+					else
+						match ds.ds_last, value with
+							| VT_Int64 x, VT_Int64 y ->
+									let result = (Int64.sub y x) in
+									let result = if result < 0L then Int64.add result 0x100000000L else result in (* for wrapping 32 bit counters *)
+									Int64.to_float result
+							| VT_Float x, VT_Float y -> y -. x
+							| VT_Unknown, _ -> nan
+							| _, VT_Unknown -> nan
+							| _ -> failwith ("Bad type updating ds: "^ds.ds_name)
 	      end
       in 
       ds.ds_last <- value;
       rate
     end
 
-let ds_update rrd timestamp values transforms =
+let ds_update rrd timestamp values transforms new_domid =
   (* Interval is the time between this and the last update *)
   let interval = timestamp -. rrd.last_updated in
   (* Work around the clock going backwards *)
@@ -309,7 +315,7 @@ let ds_update rrd timestamp values transforms =
   rrd.last_updated <- timestamp;
 
   (* Calculate the values we're going to store based on the input data and the type of the DS *)
-  let v2s = Array.mapi (fun i value -> process_ds_value rrd.rrd_dss.(i) value interval) values in
+  let v2s = Array.mapi (fun i value -> process_ds_value rrd.rrd_dss.(i) value interval new_domid) values in
   (*  debug "Got values: %s\n" (String.concat "," (Array.to_list (Array.mapi (fun i p -> Printf.sprintf "(%s: %f)" rrd.rrd_dss.(i).ds_name p) v2s)));*)
 
   (* Update the PDP accumulators up until the most recent PDP *)
@@ -355,14 +361,14 @@ let ds_update rrd timestamp values transforms =
     end
 
 (** Update the rrd with named values rather than just an ordered array *)
-let ds_update_named rrd timestamp valuesandtransforms =
+let ds_update_named rrd timestamp new_domid valuesandtransforms =
   let identity x = x in
   let ds_names = Array.map (fun ds -> ds.ds_name) rrd.rrd_dss in
 (*  Array.iter (fun x -> debug "registered ds name: %s" x) ds_names;
   List.iter (fun (x,_) -> debug "ds value name: %s" x) values; *)
   let ds_values = Array.map (fun name -> try fst (List.assoc name valuesandtransforms) with _ -> VT_Unknown) ds_names in
   let ds_transforms = Array.map (fun name -> try snd (List.assoc name valuesandtransforms) with _ -> identity) ds_names in
-  ds_update rrd timestamp ds_values ds_transforms
+	ds_update rrd timestamp ds_values ds_transforms new_domid
 
 (** Get registered DS names *)
 let ds_names rrd =
@@ -418,7 +424,7 @@ let rrd_create dss rras timestep inittime =
   } in
   let values = Array.map (fun ds -> ds.ds_last) dss in
   let transforms = Array.make (Array.length values) (fun x -> x) in
-  ds_update rrd inittime values transforms;
+	ds_update rrd inittime values transforms true;
   rrd
 
 (** Add in a new DS into a pre-existing RRD. Preserves data of all the other archives 
