@@ -1,6 +1,6 @@
 OASISFormat:  0.3
 Name:         stdext
-Version:      0.1
+Version:      0.9.0
 Synopsis:     Standard extension library
 License:      LGPL-2.1 with OCaml linking exception
 Authors:      various
