@@ -19,7 +19,7 @@ open Printf
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
 
-(* A comparision function suitable for passing to List.sort and Array.sort. 
+(* A comparison function suitable for passing to List.sort and Array.sort.
    Sorts into oldest first *)
 let compare_vsn =
 	List.fold_left2 (fun r x y -> if r <> 0 then r else compare x y) 0
@@ -46,7 +46,7 @@ let string_of_vsn vsn =
 	let rec postfix accu = function
 		| [], _ -> accu
 		| num :: nums , sep :: seps ->
-			  postfix (accu ^ sep ^ (string_of_int num)) (nums, seps)
+			postfix (accu ^ sep ^ (string_of_int num)) (nums, seps)
 		| _, _ -> assert false in
 	postfix (string_of_int maj) (rest, seps)
 
@@ -58,47 +58,46 @@ let string_of_vsn2 (maj, min) = string_of_vsn [maj; min]
 
 (* Find the most recent xs tools version from the local filesystem -- avoids having to synchronise
    with the master's SR scanning thread. Called from the startup code only *)
-let get_latest_tools_vsn () = 
-  let all = Sys.readdir Xapi_globs.tools_sr_dir in
-  let none = Xapi_globs.tools_version_none in
-  let vsn_of_filename f = 
-    try
-      let prefix = "xs-tools-" and suffix = ".iso" in
-      if not(String.startswith prefix f) && (not(String.endswith suffix f)) then none else begin
-	let mid = String.sub f (String.length prefix) (String.length f - (String.length prefix) - (String.length suffix)) in
-	match String.split '.' mid with
-	| [ maj; min; mic_plus_build ] ->
-	    begin match String.split '-' mic_plus_build with
-	    | [ mic; build ] -> 
-			  (* Build numbers often have a non-digit suffix: remove this *)
-			  let isdigit c = Char.code c >= (Char.code '0') && (Char.code c <= (Char.code '9')) in
-			  let build = String.strip (fun c -> not (isdigit c)) build in
-
-			  int_of_string maj, int_of_string min, int_of_string mic, int_of_string build
-	    | [ mic ] -> int_of_string maj, int_of_string min, int_of_string mic, -1
-	    | _ -> none (* never happens *)
-	    end
-	| _ -> none (* should never happen either *)
-      end 
-    with e ->
-      (* just in case *)
-      debug "Caught error discovering latest tools ISO: %s" (ExnHelper.string_of_exn e);
-      none in
-  let sorted = List.sort compare_vsn4 (List.map vsn_of_filename (Array.to_list all)) in
-  let latest = if sorted = [] then none else List.hd (List.rev sorted) in
-  debug "Latest xs-tools version: %s" (string_of_vsn4 latest);
-  Xapi_globs.tools_version := latest;
+let get_latest_tools_vsn () =
+	let all = Sys.readdir Xapi_globs.tools_sr_dir in
+	let none = Xapi_globs.tools_version_none in
+	let vsn_of_filename f =
+		try
+			let prefix = "xs-tools-" and suffix = ".iso" in
+			if not(String.startswith prefix f) && (not(String.endswith suffix f)) then none else begin
+				let mid = String.sub f (String.length prefix) (String.length f - (String.length prefix) - (String.length suffix)) in
+				match String.split '.' mid with
+					| [ maj; min; mic_plus_build ] ->
+						begin match String.split '-' mic_plus_build with
+							| [ mic; build ] ->
+								(* Build numbers often have a non-digit suffix: remove this *)
+								let isdigit c = Char.code c >= (Char.code '0') && (Char.code c <= (Char.code '9')) in
+								let build = String.strip (fun c -> not (isdigit c)) build in
+								int_of_string maj, int_of_string min, int_of_string mic, int_of_string build
+							| [ mic ] -> int_of_string maj, int_of_string min, int_of_string mic, -1
+							| _ -> none (* never happens *)
+						end
+					| _ -> none (* should never happen either *)
+			end
+		with e ->
+			(* just in case *)
+			debug "Caught error discovering latest tools ISO: %s" (ExnHelper.string_of_exn e);
+			none in
+	let sorted = List.sort compare_vsn4 (List.map vsn_of_filename (Array.to_list all)) in
+	let latest = if sorted = [] then none else List.hd (List.rev sorted) in
+	debug "Latest xs-tools version: %s" (string_of_vsn4 latest);
+	Xapi_globs.tools_version := latest;
 
 (** Represents the detected PV driver version *)
-type t = 
-  | Linux of int * int * int * int
-  | Windows of int * int * int * int
-  | Unknown
+type t =
+	| Linux of int * int * int * int
+	| Windows of int * int * int * int
+	| Unknown
 
 let string_of = function
-  | Linux(major, minor, micro, build) -> Printf.sprintf "Linux %d.%d.%d-%d" major minor micro build
-  | Windows(major, minor, micro, build) -> Printf.sprintf "Windows %d.%d.%d-%d" major minor micro build
-  | Unknown -> "Unknown"
+	| Linux(major, minor, micro, build) -> Printf.sprintf "Linux %d.%d.%d-%d" major minor micro build
+	| Windows(major, minor, micro, build) -> Printf.sprintf "Windows %d.%d.%d-%d" major minor micro build
+	| Unknown -> "Unknown"
 
 let get_product_vsn () =
 	match (Stringext.String.split '.' Version.product_version) with
@@ -106,7 +105,7 @@ let get_product_vsn () =
 			Some (int_of_string maj, int_of_string min, int_of_string mic)
 		| _ ->
 			(* This can happen if you're running a dev build *)
-			warn "PRODUCT_VERSION is wrong format: \"%s\": is this a development build?" Version.product_version; 
+			warn "PRODUCT_VERSION is wrong format: \"%s\": is this a development build?" Version.product_version;
 			None
 
 (** Compares the given version tuple with the product version on this host.
@@ -141,7 +140,7 @@ let compare_vsn_with_tools_iso ?(relaxed=false) pv_vsn =
 let has_pv_drivers x = x <> Unknown
 
 (** Returns true if the PV drivers are up to date *)
-let is_up_to_date pv_driver_vsn = 
+let is_up_to_date pv_driver_vsn =
 	match get_product_vsn () with
 		| None ->
 			(* Since we must be running a dev build, assuming guest PV drivers are up-to-date *)
@@ -163,32 +162,38 @@ let is_up_to_date pv_driver_vsn =
 (** We can migrate as long as PV drivers are present. *)
 let is_ok_for_migrate = has_pv_drivers
 
-let of_drivers_version drivers_version = 
-  try
-    let is_windows = List.mem_assoc "xenvbd" drivers_version in
-    let lookup_driver_key_with_default key default =
-      if not (List.mem_assoc key drivers_version) then default
-      else int_of_string (List.assoc key drivers_version) in
-    let major = int_of_string (List.assoc "major" drivers_version) in
-    let minor = int_of_string (List.assoc "minor" drivers_version) in
-    (* in rolling upgrade rio slaves will not put micro vsn in database, but we musn't report
-       "Unknown", since then is_ok_for_migrate check will fail... *)
-    let micro = lookup_driver_key_with_default "micro" (-1) in
-    (* added in Orlando *)
-    let build = lookup_driver_key_with_default "build" (-1) in
-    if is_windows then Windows(major, minor, micro, build) else Linux(major, minor, micro, build)
-  with _ -> Unknown
+let get_drivers_version os_version drivers_version =
+	try
+		let is_windows =
+			try List.assoc "distro" os_version = "windows"
+			with Not_found -> false
+		in
+		let lookup_driver_key_with_default key default =
+			if not (List.mem_assoc key drivers_version) then default
+			else int_of_string (List.assoc key drivers_version) in
+		let major = int_of_string (List.assoc "major" drivers_version) in
+		let minor = int_of_string (List.assoc "minor" drivers_version) in
+		(* in rolling upgrade rio slaves will not put micro vsn in database, but we musn't report
+			 "Unknown", since then is_ok_for_migrate check will fail... *)
+		let micro = lookup_driver_key_with_default "micro" (-1) in
+		(* added in Orlando *)
+		let build = lookup_driver_key_with_default "build" (-1) in
+		if is_windows then Windows(major, minor, micro, build) else Linux(major, minor, micro, build)
+	with _ -> Unknown
 
 let of_guest_metrics gmr =
-  match gmr with 
-    | Some gmr -> of_drivers_version gmr.Db_actions.vM_guest_metrics_PV_drivers_version
-    | None -> Unknown
+	match gmr with
+		| Some gmr ->
+			get_drivers_version
+				gmr.Db_actions.vM_guest_metrics_os_version
+				gmr.Db_actions.vM_guest_metrics_PV_drivers_version
+		| None -> Unknown
 
 (** Returns an API error option if the PV drivers are missing or not the most recent version *)
-let make_error_opt version vm self = 
-  match version with
-    | Unknown -> Some(Api_errors.vm_missing_pv_drivers, [ Ref.string_of vm ])
-    | (Linux(major, minor, micro, _) | Windows(major, minor, micro, _)) as x -> 
-	if is_up_to_date x 
-	then None
-	else Some(Api_errors.vm_old_pv_drivers, [ Ref.string_of vm; string_of_int major; string_of_int minor; string_of_int micro])
+let make_error_opt version vm self =
+	match version with
+		| Unknown -> Some(Api_errors.vm_missing_pv_drivers, [ Ref.string_of vm ])
+		| (Linux(major, minor, micro, _) | Windows(major, minor, micro, _)) as x ->
+			if is_up_to_date x
+			then None
+			else Some(Api_errors.vm_old_pv_drivers, [ Ref.string_of vm; string_of_int major; string_of_int minor; string_of_int micro])
