@@ -71,7 +71,7 @@ let handle_received_fd this_connection =
 				let headers = Cohttp.Header.of_list [
 					"User-agent", "xenopsd"
 				] in
-				let response = Response.make ~version:`HTTP_1_1 ~status:`Not_found ~headers () in
+				let response = Cohttp.Response.make ~version:`HTTP_1_1 ~status:`Not_found ~headers () in
 				Response.write (fun _ _ -> ()) response this_connection;
 			end else begin
 				let context = {

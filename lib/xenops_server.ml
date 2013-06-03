@@ -1255,7 +1255,7 @@ and perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 							"Connection", "keep-alive";
 							"User-agent", "xenopsd";
 						]) in
-					let request = Request.make ~meth:`PUT ~version:`HTTP_1_1 ~headers memory_url in
+					let request = Cohttp.Request.make ~meth:`PUT ~version:`HTTP_1_1 ~headers memory_url in
 
 					Request.write (fun t _ -> ()) request mfd;
 
@@ -1778,14 +1778,14 @@ module VM = struct
 				] @ (match task with
 					| None -> []
 					| Some task -> [ "task-id", task ])) in
-				let response = Response.make ~version:`HTTP_1_1 ~status:`OK ~headers () in
+				let response = Cohttp.Response.make ~version:`HTTP_1_1 ~status:`OK ~headers () in
 				Response.write (fun _ _ -> ()) response s;
 				Opt.iter (fun t -> t |> Xenops_client.wait_for_task dbg |> ignore) task
 			| None ->
 				let headers = Cohttp.Header.of_list [
 					"User-agent", "xenopsd"
 				] in
-				let response = Response.make ~version:`HTTP_1_1 ~status:`Not_found ~headers () in
+				let response = Cohttp.Response.make ~version:`HTTP_1_1 ~status:`Not_found ~headers () in
 				Response.write (fun _ _ -> ()) response s;
 		) ()
 end
