@@ -457,7 +457,7 @@ type last_vals = {
 let last_cache_stats = ref None
 let cached_cache_dss = ref []
 
-let tapdisk_cache_stats : string = Filename.concat Fhs.bindir "tapdisk-cache-stats"
+let tapdisk_cache_stats : string = Filename.concat "/opt/xensource/bin" "tapdisk-cache-stats"
 
 let read_cache_stats timestamp =
 	let cache_sr_opt = Mutex.execute cache_sr_lock (fun _ -> !cache_sr_uuid) in
