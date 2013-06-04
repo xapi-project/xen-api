@@ -1,0 +1,15 @@
+name: xcp-rrdd
+version: 1.0.0
+synopsis: XCP RRD Daemon
+obuild-ver: 1
+
+library rrdd-libs
+  src-dir: lib
+  modules: config_shared, stats
+  build-deps: log
+
+executable xcp-rrdd
+  main: rrdd_main.ml
+  src-dir: rrdd
+  build-deps: threads, rpclib, rpclib.unix, gzip, forkexec, stdext, log, http-svr, xcp-inventory, xcp-rrd, rrdd-libs, xcp, xcp.rrd
+  pp: camlp4o
