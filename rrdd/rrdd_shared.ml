@@ -48,7 +48,7 @@ let get_pool_secret () =
  * This is the function where tuning could be done to change this. *)
 let timescales =
 	(* These are purely for xenrt testing. *)
-	if Xapi_fist.reduce_rra_times then [
+	if Rrdd_fist.reduce_rra_times then [
 		(120, 1);
 		(20, 12);
 		(15, 24);
