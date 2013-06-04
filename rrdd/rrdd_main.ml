@@ -406,7 +406,7 @@ let read_mem_metrics xc =
 	let total_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.Phys_info.total_pages)
 	and free_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.Phys_info.free_pages) in
 	let gcstat =
-		if !Xapi_globs.xapi_gc_debug then (
+		if !Rrdd_shared.gc_debug then (
 			if !previous_oldness > 5 then (
 				let stat = Gc.stat () in
 				previous_free_words := stat.Gc.free_words;

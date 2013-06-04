@@ -31,6 +31,8 @@ let memory_targets_m = Mutex.create ()
 let cache_sr_uuid : string option ref = ref None
 let cache_sr_lock = Mutex.create ()
 
+let gc_debug = ref true
+
 (** Pool secret. *)
 let get_pool_secret () =
 	try
