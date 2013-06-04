@@ -17,7 +17,7 @@ module D = Debug.Make(struct let name = "xenstore" end)
 open D
 
 module Client = Xs_client_unix.Client(Xs_transport_unix_client)
-let client =
+let make_client () =
 	try
 		Client.make ()
 	with e ->
@@ -38,6 +38,15 @@ let client =
 		| _ -> ()
 		end;
 		raise e
+
+let get_client =
+	let client = ref None in
+	fun () -> match !client with
+		| None ->
+			let c = make_client () in
+			client := Some c;
+			c
+		| Some c -> c
 
 type domid = int
 
@@ -86,9 +95,9 @@ module Xs = struct
         introduce = Client.introduce h;
         set_target = Client.set_target h;
     }
-    let with_xs f = Client.with_xs client (fun h -> f (ops h))
-    let wait f = Client.wait client (fun h -> f (ops h))
-	let transaction _ f = Client.with_xst client (fun h -> f (ops h))
+    let with_xs f = Client.with_xs (get_client ()) (fun h -> f (ops h))
+    let wait f = Client.wait (get_client ()) (fun h -> f (ops h))
+	let transaction _ f = Client.with_xst (get_client ()) (fun h -> f (ops h))
 
 end
 
