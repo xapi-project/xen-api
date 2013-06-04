@@ -27,6 +27,9 @@ let rrd_unarchive_uri = "/" ^ rrd_unarchive
 (* Path to the pool secret file. *)
 let pool_secret_path = Filename.concat "/etc/xensource" "ptoken"
 
+(* Path to the pool configuration file. *)
+let pool_config_file = Filename.concat "/etc/xensource" "pool.conf"
+
 (* RRD storage location. *)
 let rrd_location = Filename.concat "/var/lib/xcp" "blobs/rrds"
 
