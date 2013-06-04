@@ -34,8 +34,8 @@ let cache_sr_lock = Mutex.create ()
 (** Pool secret. *)
 let get_pool_secret () =
 	try
-		Unix.access Constants.pool_secret_path [Unix.F_OK];
-		Unixext.string_of_file Constants.pool_secret_path
+		Unix.access Rrdd_constants.pool_secret_path [Unix.F_OK];
+		Unixext.string_of_file Rrdd_constants.pool_secret_path
 	with _ ->
 		failwith "Unable to read the pool secret."
 
@@ -108,7 +108,7 @@ let send_rrd ?(session_id : string option) ~(address : string)
 		if sid_query = [] then ["pool_secret", get_pool_secret ()] else [] in
 	let request =
 		Http.Request.make ~user_agent:Xapi_globs.xapi_user_agent
-			~query ~cookie Http.Put Constants.put_rrd_uri in
+			~query ~cookie Http.Put Rrdd_constants.put_rrd_uri in
 	let open Xmlrpc_client in
 	let transport = SSL(SSL.make (), address, !Xapi_globs.https_port) in
 	with_transport transport (
