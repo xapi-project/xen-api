@@ -3,7 +3,6 @@ open Threadext
 open Rrdd_shared
 open Rrd
 open Ds
-open Monitor_types
 
 module D = Debug.Debugger(struct let name = "rrdd_monitor" end)
 open D

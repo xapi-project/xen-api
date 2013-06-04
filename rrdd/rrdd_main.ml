@@ -107,7 +107,6 @@ open Threadext
 open Network_monitor
 open Rrdd_shared
 open Ds
-open Monitor_types
 open Rrd
 open Xenstore
 
