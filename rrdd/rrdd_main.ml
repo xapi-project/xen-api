@@ -591,16 +591,27 @@ let monitor_loop () =
 (* Monitoring code --- END. *)
 
 (* Read the xcp-rrdd.conf. *)
+let options = [
+	"disable-logging-for",
+	Arg.String
+		(fun x ->
+			try
+				let modules = String.split_f String.isspace x in
+				List.iter
+					(fun x ->
+						debug "Disabling logging for: %s" x;
+						Debug.disable x
+					) modules
+			with e ->
+				error "Processing disabled-logging-for = %s" x;
+				log_backtrace ()
+		),
+	(fun () -> ""),
+	"Disable logging for certain components";
+]
+
 let read_config () =
-	let config_args = [
-		Config_shared.disable_logging_for;
-	] in
-	try
-		if Unixext.file_exists Fhs.rrddconf then
-			Config.read Fhs.rrddconf config_args (fun _ _ -> ())
-		else error "Missing configuration file."
-	with Config.Error ls ->
-		List.iter (fun (p, s) -> debug "Config file error: %s: %s\n" p s) ls
+	Xcp_service.configure ~options ()
 
 (* Entry point. *)
 let _ =
