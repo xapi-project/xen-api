@@ -47,7 +47,7 @@ let xmlrpc_handler process req bio context =
 		Http_svr.response_unauthorised ~req (Printf.sprintf "Go away: %s" (Printexc.to_string e)) s
 
 (* Bind the service interface to the server implementation. *)
-module Server = Rrdd_interface.Server(Rrdd_server)
+module Server = Rrd_interface.Server(Rrdd_server)
 
 (* A helper function for processing HTTP requests on a socket. *)
 let accept_forever sock f =
@@ -629,7 +629,7 @@ let _ =
 				Printf.sprintf "Set the pid file (default \"%s\")" !pidfile;
 		])
 		(fun _ -> failwith "Invalid argument")
-		(Printf.sprintf "Usage: %s [-daemon] [-pidfile filename]" Rrdd_interface.name);
+		(Printf.sprintf "Usage: %s [-daemon] [-pidfile filename]" Rrd_interface.name);
 
 	if !daemonize then (
 		debug "Daemonizing ..";
@@ -646,7 +646,7 @@ let _ =
 	end;
 
 	debug "Starting the HTTP server ..";
-	start (Rrdd_interface.xmlrpc_path, Rrdd_interface.http_fwd_path) Server.process;
+	start (Rrd_interface.xmlrpc_path, Rrd_interface.http_fwd_path) Server.process;
 
 	debug "Creating monitoring loop thread ..";
 	Debug.with_thread_associated "main" monitor_loop ();
