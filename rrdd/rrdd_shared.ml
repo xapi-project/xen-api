@@ -130,13 +130,13 @@ let archive_rrd ?(save_stats_locally = Pool_role_shared.is_master ()) ~uuid
 			(* Stash away the rrd onto disk. *)
 			let exists =
 				try
-					let (_: Unix.stats) = Unix.stat Xapi_globs.xapi_blob_location in
+					let (_: Unix.stats) = Unix.stat Rrdd_constants.blob_location in
 					true
 				with _ -> false
 			in
 			if exists then begin
-				Unixext.mkdir_safe Xapi_globs.xapi_rrd_location 0o755;
-				let base_filename = Xapi_globs.xapi_rrd_location ^ "/" ^ uuid in
+				Unixext.mkdir_safe Rrdd_constants.rrd_location 0o755;
+				let base_filename = Rrdd_constants.rrd_location ^ "/" ^ uuid in
 				Unixext.atomic_write_to_file (base_filename ^ ".gz") 0o644
 					(fun fd -> Gzip.compress fd (Rrd.to_fd rrd));
 				(* If there's an uncompressed one hanging around, remove it. *)

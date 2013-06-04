@@ -67,7 +67,7 @@ let backup_rrds _ ?(save_stats_locally = true) () : unit =
 (* Load an RRD from the local filesystem. Will return an RRD or throw an exception. *)
 let load_rrd_from_local_filesystem uuid =
 	debug "Loading RRD from local filesystem for object uuid=%s" uuid;
-	let path = Xapi_globs.xapi_rrd_location ^ "/" ^ uuid in
+	let path = Rrdd_constants.rrd_location ^ "/" ^ uuid in
 	rrd_of_gzip path
 
 module Deprecated = struct
@@ -140,7 +140,7 @@ end
 let push_rrd _ ~(vm_uuid : string) ~(domid : int) ~(is_on_localhost : bool) ()
 		: unit =
 	try
-		let path = Xapi_globs.xapi_rrd_location ^ "/" ^ vm_uuid in
+		let path = Rrdd_constants.rrd_location ^ "/" ^ vm_uuid in
 		let rrd = rrd_of_gzip path in
 		debug "Pushing RRD for VM uuid=%s" vm_uuid;
 		if is_on_localhost then
@@ -156,7 +156,7 @@ let push_rrd _ ~(vm_uuid : string) ~(domid : int) ~(is_on_localhost : bool) ()
 
 (** Remove an RRD from the local filesystem, if it exists. *)
 let remove_rrd _ ~(uuid : string) () : unit =
-	let path = Xapi_globs.xapi_rrd_location ^ "/" ^ uuid in
+	let path = Rrdd_constants.rrd_location ^ "/" ^ uuid in
 	let gz_path = path ^ ".gz" in
 	(try Unix.unlink path with _ -> ());
 	(try Unix.unlink gz_path with _ -> ())
