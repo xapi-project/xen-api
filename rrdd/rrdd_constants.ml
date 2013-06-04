@@ -26,3 +26,7 @@ let rrd_unarchive_uri = "/" ^ rrd_unarchive
 
 (* Path to the pool secret file. *)
 let pool_secret_path = Filename.concat "/etc/xensource" "ptoken"
+
+let version_major = 1
+let version_minor = 0
+let rrdd_user_agent = Printf.sprintf "rrdd/%d.%d" version_major version_minor

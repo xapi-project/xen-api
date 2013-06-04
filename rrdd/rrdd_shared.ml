@@ -107,7 +107,7 @@ let send_rrd ?(session_id : string option) ~(address : string)
 	let cookie =
 		if sid_query = [] then ["pool_secret", get_pool_secret ()] else [] in
 	let request =
-		Http.Request.make ~user_agent:Xapi_globs.xapi_user_agent
+		Http.Request.make ~user_agent:Rrdd_constants.rrdd_user_agent
 			~query ~cookie Http.Put Rrdd_constants.put_rrd_uri in
 	let open Xmlrpc_client in
 	let transport = SSL(SSL.make (), address, !Xapi_globs.https_port) in

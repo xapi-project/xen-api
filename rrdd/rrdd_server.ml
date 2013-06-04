@@ -80,7 +80,7 @@ module Deprecated = struct
 		 * doesn't try to redirect here! *)
 		let uri = uri ^ "?uuid=" ^ uuid ^ "&dbsync=true" in
 		let request =
-			Http.Request.make ~user_agent:Xapi_globs.xapi_user_agent
+			Http.Request.make ~user_agent:Rrdd_constants.rrdd_user_agent
 			~cookie:["pool_secret", pool_secret] Http.Get uri in
 		let open Xmlrpc_client in
 		let master_address = Pool_role_shared.get_master_address () in
