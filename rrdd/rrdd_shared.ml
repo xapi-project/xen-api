@@ -33,6 +33,9 @@ let cache_sr_lock = Mutex.create ()
 
 let gc_debug = ref true
 
+let default_ssl_port = 443
+let https_port = ref default_ssl_port
+
 (** Pool secret. *)
 let get_pool_secret () =
 	try
@@ -112,7 +115,7 @@ let send_rrd ?(session_id : string option) ~(address : string)
 		Http.Request.make ~user_agent:Rrdd_constants.rrdd_user_agent
 			~query ~cookie Http.Put Rrdd_constants.put_rrd_uri in
 	let open Xmlrpc_client in
-	let transport = SSL(SSL.make (), address, !Xapi_globs.https_port) in
+	let transport = SSL(SSL.make (), address, !https_port) in
 	with_transport transport (
 		with_http request (fun (response, fd) ->
 			try Rrd.to_fd rrd fd

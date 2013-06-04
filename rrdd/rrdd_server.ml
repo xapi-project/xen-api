@@ -84,7 +84,7 @@ module Deprecated = struct
 			~cookie:["pool_secret", pool_secret] Http.Get uri in
 		let open Xmlrpc_client in
 		let master_address = Pool_role_shared.get_master_address () in
-		let transport = SSL(SSL.make (), master_address, !Xapi_globs.https_port) in
+		let transport = SSL(SSL.make (), master_address, !Rrdd_shared.https_port) in
 		with_transport transport (
 			with_http request (fun (response, s) ->
 				match response.Http.Response.content_length with
