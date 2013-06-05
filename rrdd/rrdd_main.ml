@@ -615,7 +615,7 @@ let _ =
 	Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
 
 	(* Enable the new logging library. *)
-	Debug.set_facility Syslog.Local5;
+	Debug.set_facility Syslog_transitional.Local5;
 
 	(* Read configuration file. *)
 	debug "Reading configuration file ..";
