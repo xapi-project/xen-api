@@ -27,7 +27,7 @@ Library xcp_network
   Path:               network
   Findlibname:        network
   Findlibparent:      xcp
-  Modules:            Network_interface, Network_client
+  Modules:            Network_interface, Network_client, Network_stats
   BuildDepends:       xcp, threads, rpclib, rpclib.syntax
 
 Library xcp_rrd
