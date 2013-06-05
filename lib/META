@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: eae37eeed1558e294b79220ecaf12f1c)
+# DO NOT EDIT (digest: fb78f978a631f2b207a57a175c2c0b6f)
 version = "0.9.1"
 description =
 "Interface definitions and common boilerplate for the xapi toolstack"
@@ -32,6 +32,18 @@ package "storage" (
  archive(native) = "xcp_storage.cmxa"
  archive(native, plugin) = "xcp_storage.cmxs"
  exists_if = "xcp_storage.cma"
+)
+
+package "rrd" (
+ version = "0.9.1"
+ description =
+ "Interface definitions and common boilerplate for the xapi toolstack"
+ requires = "xcp threads rpclib rpclib.syntax xcp-rrd"
+ archive(byte) = "xcp_rrd.cma"
+ archive(byte, plugin) = "xcp_rrd.cma"
+ archive(native) = "xcp_rrd.cmxa"
+ archive(native, plugin) = "xcp_rrd.cmxs"
+ exists_if = "xcp_rrd.cma"
 )
 
 package "network" (

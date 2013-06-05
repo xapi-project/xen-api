@@ -7,3 +7,10 @@
 *.cmx
 *.cmxs
 *.cmxa
+
+*.swp
+
+_build
+setup.bin
+setup.data
+setup.log
