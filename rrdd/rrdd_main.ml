@@ -629,7 +629,7 @@ let _ =
 				Printf.sprintf "Set the pid file (default \"%s\")" !pidfile;
 		])
 		(fun _ -> failwith "Invalid argument")
-		(Printf.sprintf "Usage: %s [-daemon] [-pidfile filename]" Rrd_interface.name);
+		(Printf.sprintf "Usage: %s [-daemon] [-pidfile filename]" Rrd_interface.service_name);
 
 	if !daemonize then (
 		debug "Daemonizing ..";
@@ -646,7 +646,7 @@ let _ =
 	end;
 
 	debug "Starting the HTTP server ..";
-	start (Rrd_interface.xmlrpc_path, Rrd_interface.http_fwd_path) Server.process;
+	start (!Rrd_interface.default_path, !Rrd_interface.forwarded_path) Server.process;
 
 	debug "Creating monitoring loop thread ..";
 	Debug.with_thread_associated "main" monitor_loop ();
