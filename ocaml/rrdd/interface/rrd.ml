@@ -839,19 +839,19 @@ let xml_to_fd rrd fd =
       tag "database" (do_database rra.rra_data)]) rra_list)]
   in
 	
-	with_out_channel_output fd
-	(fun output ->
-		Xmlm.output output (`Dtd None);
-		tag "rrd"
-		(List.concat
-			[[tag "version" [data "0003"];
-			tag "step" [data (Int64.to_string rrd.timestep)];
-			tag "lastupdate" [data (Printf.sprintf "%Ld" (Int64.of_float (rrd.last_updated)))]];
-			do_dss (Array.to_list rrd.rrd_dss);
-			do_rras (Array.to_list rrd.rrd_rras);
-		]) output
-	)
-
+  with_out_channel_output fd
+    (fun output ->
+      Xmlm.output output (`Dtd None);
+      tag "rrd"
+	(List.concat
+	   [[tag "version" [data "0003"];
+	     tag "step" [data (Int64.to_string rrd.timestep)];
+	     tag "lastupdate" [data (Printf.sprintf "%Ld" (Int64.of_float (rrd.last_updated)))]];
+	    do_dss (Array.to_list rrd.rrd_dss);
+	    do_rras (Array.to_list rrd.rrd_rras);
+	   ]) output
+    )
+    
 let json_to_fd rrd fd =
 	let write x = if Unix.write fd x 0 (String.length x) <> String.length x then failwith "json_to_fd: short write" in
 
