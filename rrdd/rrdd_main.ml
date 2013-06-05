@@ -108,12 +108,22 @@ open Network_stats
 open Rrdd_shared
 open Ds
 open Rrd
-open Xenstore
 
-(* This function (and its clones) should probably be moved to xen-api-libs. *)
-let with_xs f =
-	let xs = Xs.daemon_open () in
-	finally (fun () -> f xs) (fun () -> Xs.close xs)
+module Xs = struct
+	module Client = Xs_client_unix.Client(Xs_transport_unix_client)
+	include Client
+
+	let cached_client = ref None
+
+	(* Initialise the client on demand - must be done after daemonisation! *)
+	let get_client () =
+		match !cached_client with
+		| Some client -> client
+		| None ->
+			let client = Client.make () in
+			cached_client := Some client;
+			client
+end
 
 let uuid_of_domid domains domid =
 	try
@@ -240,7 +250,7 @@ let update_memory xc doms =
 			else begin
 			try
 				let memfree_xs_key = Printf.sprintf "/local/domain/%d/data/meminfo_free" domid in
-				let mem_free = with_xs (fun xs -> Int64.of_string (xs.Xs.read memfree_xs_key)) in
+				let mem_free = Xs.with_xs (Xs.get_client ()) (fun xs -> Int64.of_string (Xs.read xs memfree_xs_key)) in
 				Some (
 					VM uuid,
 					ds_make ~name:"memory_internal_free" ~units:"B"
