@@ -11,5 +11,5 @@ library rrdd-libs
 executable xcp-rrdd
   main: rrdd_main.ml
   src-dir: rrdd
-  build-deps: threads, rpclib, rpclib.unix, gzip, forkexec, stdext, uuid, log, http-svr, xcp-inventory, xcp-rrd, rrdd-libs, xcp, xcp.rrd, xenctrl
+  build-deps: threads, rpclib, rpclib.unix, gzip, forkexec, stdext, uuid, log, http-svr, xcp-inventory, xcp-rrd, rrdd-libs, xcp, xcp.rrd, xenctrl, xenctrlext
   pp: camlp4o
