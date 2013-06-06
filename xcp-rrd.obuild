@@ -1,5 +1,5 @@
 name:        xcp-rrd
-version:     0.1
+version:     0.9.0
 synopsis:    XCP RRD library
 authors:     Citrix
 license:     LGPL-2.1 with OCaml linking exception
