@@ -32,7 +32,7 @@ SUCH DAMAGE.
 
 open Lwt
 open Cohttp
-(*  open Xenstore_server *)
+(* open Xenstore_server *)
 
 let program = Filename.basename Sys.argv.(0)
 
