@@ -1,0 +1,6 @@
+The easiest install method is via opam:
+
+    opam init
+    opam remote add xen-org git://github.com/xen-org/opam-repo-dev
+    opam install xcp-rrd
+
