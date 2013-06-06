@@ -106,7 +106,7 @@ let operation (obj: obj) (x: message) =
     else arg_pattern^"::[]" in
   let name_pattern_match =
     Printf.sprintf
-      "| \"%s\"\n| \"%s\" ->\n" wire_name alternative_wire_name in
+      "| \"%s\" | \"%s\" -> " wire_name alternative_wire_name in
 
   (* Lookup the various fields from the constructor record *)
   let from_ctor_record =
@@ -236,21 +236,20 @@ let operation (obj: obj) (x: message) =
 			] in
 		common_let_decs @ side_effect_let_decs @ body_exp in
 
-  let all = String.concat "\n        "
-    (comments @ unmarshall_code @ session_check_exp @ rbac_check_begin @ (gen_body()) @ rbac_check_end) in
-    
-    ("    " ^ name_pattern_match ^ "\n" ^
-    ("begin\n"
-   ^ "    match __params with\n"
-   ^ "    | " ^ arg_pattern ^ " -> "
-   ^ "         begin\n " ^ all ^ "\n"
-   ^ "         end\n"
-   ^ "    | _ -> "
-   ^ "        Server_helpers.parameter_count_mismatch_failure __call " ^ 
-              "\"" ^ (string_of_int (count_mandatory_message_parameters x)) ^ "\"" ^ 
-              " (string_of_int ((List.length __params) - " ^ (if x.msg_session then "1" else "0") ^ "))"
-   ^ "\nend"))
+	let all =
+		let all_list =
+			if not (List.exists (fun (l, _, _) -> l = DT.Removed) x.DT.msg_lifecycle) then
+				(comments @ unmarshall_code @ session_check_exp @ rbac_check_begin @ gen_body () @ rbac_check_end)
+			else
+				(comments @ ["let session_id = ref_session_of_rpc session_id_rpc in"] @ session_check_exp @ ["response_of_failure Api_errors.message_removed []"]) in
+		String.concat "\n            " ("" :: all_list) in
 
+	name_pattern_match ^ "\n"
+	^ "        begin match __params with\n"
+	^ "        | " ^ arg_pattern ^ " -> " ^ all ^ "\n"
+	^ "        | _ ->\n"
+	^ "            Server_helpers.parameter_count_mismatch_failure __call " ^ "\"" ^ (string_of_int (count_mandatory_message_parameters x)) ^ "\"" ^ " (string_of_int ((List.length __params) - " ^ (if x.msg_session then "1" else "0") ^ "))\n"
+	^ "        end"
 
 (* ------------------------------------------------------------------------------------------
     Code to generate whole module

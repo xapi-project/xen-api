@@ -276,7 +276,14 @@ let pif_record rpc session_id pif =
 	make_field ~name:"device-id" ~get:(fun () -> default nid (may (fun m -> m.API.pIF_metrics_device_id) (xm ()))) ();
 	make_field ~name:"device-name" ~get:(fun () -> default nid (may (fun m -> m.API.pIF_metrics_device_name) (xm ()))) ();
 	make_field ~name:"speed" ~get:(fun () -> default nid (may (fun m -> (Int64.to_string m.API.pIF_metrics_speed) ^ " Mbit/s") (xm ()))) ();
-	make_field ~name:"duplex" ~get:(fun () -> default nid (may (fun m -> if m.API.pIF_metrics_duplex then "full" else "half") (xm ()))) ();
+	make_field ~name:"duplex" ~get:(fun () -> default nid (may (fun m ->
+		if m.API.pIF_metrics_duplex then
+			"full"
+		else if m.API.pIF_metrics_carrier then
+			"half"
+		else
+			"unknown"
+		) (xm ()))) ();
 	make_field ~name:"disallow-unplug" ~get:(fun () -> string_of_bool ((x ()).API.pIF_disallow_unplug))
 	  ~set:(fun disallow_unplug -> Client.PIF.set_disallow_unplug rpc session_id pif (safe_bool_of_string "disallow-unplug" disallow_unplug)) ();
 	make_field ~name:"pci-bus-path" ~get:(fun () -> default nid (may (fun m -> m.API.pIF_metrics_pci_bus_path) (xm ()))) ();
@@ -468,10 +475,6 @@ let pool_record rpc session_id pool =
 			make_field ~name:"ha-allow-overcommit" ~get:(fun () -> string_of_bool (x ()).API.pool_ha_allow_overcommit) ~set:(fun x -> Client.Pool.set_ha_allow_overcommit rpc session_id pool (bool_of_string x)) ();
 			make_field ~name:"ha-overcommitted" ~get:(fun () -> string_of_bool (x ()).API.pool_ha_overcommitted) ();
 			make_field ~name:"blobs" ~get:(fun () -> Record_util.s2brm_to_string get_uuid_from_ref "; " (x ()).API.pool_blobs) ();
-			make_field ~name:"wlb-url" ~get:(fun () -> (x ()).API.pool_wlb_url) ();
-			make_field ~name:"wlb-username" ~get:(fun () -> (x ()).API.pool_wlb_username) ();
-			make_field ~name:"wlb-enabled" ~get:(fun () -> string_of_bool (x ()).API.pool_wlb_enabled) ~set:(fun x -> Client.Pool.set_wlb_enabled rpc session_id pool (bool_of_string x)) ();
-			make_field ~name:"wlb-verify-cert" ~get:(fun () -> string_of_bool (x ()).API.pool_wlb_verify_cert) ~set:(fun x -> Client.Pool.set_wlb_verify_cert rpc session_id pool (bool_of_string x)) ();
 			make_field ~name:"gui-config"
 				~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.pool_gui_config)
 				~add_to_map:(fun k v -> Client.Pool.add_to_gui_config rpc session_id pool k v)
@@ -485,6 +488,8 @@ let pool_record rpc session_id pool =
 				~get_set:(fun () -> (x ()).API.pool_tags)
 				~add_to_set:(fun tag -> Client.Pool.add_tags rpc session_id pool tag)
 				~remove_from_set:(fun tag -> Client.Pool.remove_tags rpc session_id pool tag) ();
+			make_field ~name:"license-state"
+				~get:(fun () -> Record_util.s2sm_to_string "; " (Client.Pool.get_license_state rpc session_id pool)) ();
 		]}
 
 let subject_record rpc session_id subject = 
@@ -542,108 +547,6 @@ let role_record rpc session_id role =
     ();*)
   (*make_field ~name:"is_complete"             ~get:(fun () -> string_of_bool (x ()).API.role_is_complete) ();*)
   (*make_field ~name:"is_basic"             ~get:(fun () -> string_of_bool (x ()).API.role_is_basic) ();*)
-]}
-
-let vmpp_record rpc session_id vmpp =
-  let _ref = ref vmpp in
-  let empty_record = ToGet (fun () -> Client.VMPP.get_record rpc session_id !_ref) in
-  let record = ref empty_record in
-  let x () = lzy_get record in
-  { setref=(fun r -> _ref := r; record := empty_record );
-    setrefrec=(fun (a,b) -> _ref := a; record := Got b);
-    record=x;
-    getref=(fun () -> !_ref);
-    fields =
-[
-  make_field ~name:"uuid"
-    ~get:(fun () -> (x ()).API.vMPP_uuid)
-    ();
-  make_field ~name:"name-label"
-    ~get:(fun () -> (x ()).API.vMPP_name_label)
-    ~set:(fun x -> Client.VMPP.set_name_label rpc session_id vmpp x)
-    ();
-  make_field ~name:"name-description"
-    ~get:(fun () -> (x ()).API.vMPP_name_description)
-    ~set:(fun x -> Client.VMPP.set_name_description rpc session_id vmpp x)
-    ();
-  make_field ~name:"is-policy-enabled"
-    ~get:(fun () -> string_of_bool (x ()).API.vMPP_is_policy_enabled)
-    ~set:(fun x -> Client.VMPP.set_is_policy_enabled rpc session_id vmpp (safe_bool_of_string "is-policy-enabled" x))
-    ();
-  make_field ~name:"backup-type"
-    ~get:(fun () -> Record_util.backup_type_to_string (x ()).API.vMPP_backup_type)
-    ~set:(fun x -> Client.VMPP.set_backup_type rpc session_id vmpp (Record_util.string_to_backup_type x))
-    ();
-  make_field ~name:"backup-retention-value"
-    ~get:(fun () -> string_of_int (Int64.to_int (x ()).API.vMPP_backup_retention_value))
-    ~set:(fun x -> Client.VMPP.set_backup_retention_value rpc session_id vmpp (safe_i64_of_string "backup-retention-value" x))
-    ();
-  make_field ~name:"backup-frequency"
-    ~get:(fun () -> Record_util.backup_frequency_to_string (x ()).API.vMPP_backup_frequency)
-    ~set:(fun x -> Client.VMPP.set_backup_frequency rpc session_id vmpp (Record_util.string_to_backup_frequency x))
-    ();
-  make_field ~name:"backup-schedule"
-    ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vMPP_backup_schedule) 
-    ~get_map:(fun () -> (x ()).API.vMPP_backup_schedule)
-    ~add_to_map:(fun k v -> Client.VMPP.add_to_backup_schedule rpc session_id vmpp k v)
-    ~remove_from_map:(fun k -> Client.VMPP.remove_from_backup_schedule rpc session_id vmpp k)
-    ();
-  make_field ~name:"is-backup-running"
-    ~get:(fun () -> string_of_bool (x ()).API.vMPP_is_backup_running)
-    ();
-  make_field ~name:"backup-last-run-time"
-    ~get:(fun () -> Date.to_string (x ()).API.vMPP_backup_last_run_time)
-    ();
-  make_field ~name:"archive-target-type"
-    ~get:(fun () -> Record_util.archive_target_type_to_string (x ()).API.vMPP_archive_target_type)
-    ~set:(fun x -> Client.VMPP.set_archive_target_type rpc session_id vmpp (Record_util.string_to_archive_target_type x))
-    ();
-  make_field ~name:"archive-target-config"
-    ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vMPP_archive_target_config)
-    ~get_map:(fun () -> (x ()).API.vMPP_archive_target_config)
-    ~add_to_map:(fun k v -> Client.VMPP.add_to_archive_target_config rpc session_id vmpp k v)
-    ~remove_from_map:(fun k -> 
-				Client.VMPP.remove_from_archive_target_config rpc session_id vmpp k)
-    ();
-  make_field ~name:"archive-frequency"
-    ~get:(fun () -> Record_util.archive_frequency_to_string (x ()).API.vMPP_archive_frequency)
-    ~set:(fun x -> Client.VMPP.set_archive_frequency rpc session_id vmpp (Record_util.string_to_archive_frequency x))
-    ();
-  make_field ~name:"archive-schedule" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vMPP_archive_schedule)
-    ~get_map:(fun () -> (x ()).API.vMPP_archive_schedule)
-    ~add_to_map:(fun k v -> Client.VMPP.add_to_archive_schedule rpc session_id vmpp k v)
-    ~remove_from_map:(fun k -> 
-				Client.VMPP.remove_from_archive_schedule rpc session_id vmpp k)
-    ();
-  make_field ~name:"is-archive-running"
-    ~get:(fun () -> string_of_bool (x ()).API.vMPP_is_archive_running)
-    ();
-  make_field ~name:"archive-last-run-time" ~get:(fun () -> Date.to_string (x ()).API.vMPP_archive_last_run_time)
-    ();
-  make_field ~name:"is-alarm-enabled"
-    ~get:(fun () -> string_of_bool (x ()).API.vMPP_is_alarm_enabled)
-    ~set:(fun x -> Client.VMPP.set_is_alarm_enabled rpc session_id vmpp (safe_bool_of_string "is-alarm-enabled" x))
-    ();
-  make_field ~name:"alarm-config"     ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vMPP_alarm_config)
-    ~get_map:(fun () -> (x ()).API.vMPP_alarm_config)
-    ~add_to_map:(fun k v -> Client.VMPP.add_to_alarm_config rpc session_id vmpp k v)
-    ~remove_from_map:(fun k -> 
-				Client.VMPP.remove_from_alarm_config rpc session_id vmpp k)
-    ();
-  make_field ~name:"VMs"
-     ~get:(fun () -> String.concat "; "
-       (try
-          List.map
-            (fun self -> try Client.VM.get_uuid rpc session_id self with _ -> nid)
-            (Client.VMPP.get_VMs rpc session_id vmpp)
-        with _ -> []
-       )
-					)
-     ~expensive:false
-     ~get_set:(fun () -> try List.map
-        (fun self -> try Client.VM.get_uuid rpc session_id self with _ -> nid)
-        (Client.VMPP.get_VMs rpc session_id vmpp) with _ -> [])
-     ();
 ]}
 
 (*
@@ -941,11 +844,6 @@ let vm_record rpc session_id vm =
 				(* NB this can receive VM_IS_SNAPSHOT *)
 				~get:(fun () -> string_of_bool (try Client.VM.get_cooperative rpc session_id vm with _ -> true))
 				~expensive:true ~deprecated:true ();
-			make_field ~name:"protection-policy"
-				~get:(fun () -> get_uuid_from_ref (x ()).API.vM_protection_policy)
-				~set:(fun x -> if x="" then Client.VM.set_protection_policy rpc session_id vm Ref.null else Client.VM.set_protection_policy rpc session_id vm (Client.VMPP.get_by_uuid rpc session_id x)) ();
-			make_field ~name:"is-snapshot-from-vmpp"
-				~get:(fun () -> string_of_bool (x ()).API.vM_is_snapshot_from_vmpp) ();
 			make_field ~name:"tags"
 				~get:(fun () -> String.concat ", " (x ()).API.vM_tags)
 				~get_set:(fun () -> (x ()).API.vM_tags)
@@ -965,6 +863,8 @@ let vm_record rpc session_id vm =
 				~set:(fun x -> Client.VM.set_order rpc session_id vm (safe_i64_of_string "order" x)) ();
 			make_field ~name:"version"
 				~get:(fun () -> Int64.to_string (x ()).API.vM_version) ();
+			make_field ~name:"generation-id"
+				~get:(fun () -> (x ()).API.vM_generation_id) ();
 		]}
 
 let host_crashdump_record rpc session_id host = 

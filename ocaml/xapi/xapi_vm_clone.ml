@@ -16,6 +16,8 @@
  *)
 open Client
 open Pervasiveext
+open Event_types
+open Fun
 
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
@@ -62,32 +64,29 @@ let wait_for_subtask ?progress_minmax ~__context task =
 		if List.exists (fun (_,x) -> x = `cancel) current_ops then cancel_task()
 	in
 
-	let register () =
-		debug "Listening for events relating to tasks %s and %s" (Ref.string_of task) (Ref.string_of main_task);
-		Client.Event.register rpc session ["task"];
-		(* Check for the initial state before entering the event-wait loop in case the task has already finished *)
-		process_copy_task (Client.Task.get_record rpc session task);
-		process_main_task (Client.Task.get_record rpc session main_task);
-	in
-	register();
+	(* Check for the initial state before entering the event-wait loop
+	   in case the task has already finished *)
+	process_copy_task (Client.Task.get_record rpc session task);
+	process_main_task (Client.Task.get_record rpc session main_task);
+
+	let token = ref "" in
 
 	(* Watch for events relating to the VDI copy sub-task and the over-arching task *)
 	while not !finished do
-		try
-			let xml = Client.Event.next rpc session in
-			let events = Event_types.events_of_rpc xml in
-			refresh_session ();
-			let checkevent ev =
-				match Event_helper.record_of_event ev with
-				| Event_helper.Task (r, Some x) ->
-					if r=task then process_copy_task x
-					else if r=main_task then process_main_task x
-				| _ -> () (* received an irrelevant event *)
-			in
-			List.iter checkevent events
-		with Api_errors.Server_error("EVENTS_LOST",_) ->
-			debug "Events were lost; re-registering...";
-			register()
+		let events = Client.Event.from rpc session
+			[Printf.sprintf "task/%s" (Ref.string_of task);
+			 Printf.sprintf "task/%s" (Ref.string_of main_task)]
+			!token 30. |> Event_types.event_from_of_rpc in
+		token := events.token;
+		refresh_session ();
+		let checkevent ev =
+			match Event_helper.record_of_event ev with
+			  | Event_helper.Task (r, Some x) ->
+				  if r=task then process_copy_task x
+				  else if r=main_task then process_main_task x
+			  | _ -> () (* received an irrelevant event *)
+		in
+		List.iter checkevent events.events
 	done;
 	debug "Finished listening for events relating to tasks %s and %s" (Ref.string_of task) (Ref.string_of main_task);
 
@@ -255,10 +254,8 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
 		| Disk_op_clone | Disk_op_copy _-> Ref.null
 		| Disk_op_snapshot | Disk_op_checkpoint -> all.Db_actions.vM_parent in
 
-  (* verify if this action is happening due to a VM protection policy *)
-  let is_snapshot_from_vmpp =
-      is_a_snapshot && (Xapi_vmpp.is_snapshot_from_vmpp ~__context)
-	in
+	(* We always reset the generation ID on VM.clone *)
+	let generation_id = Xapi_vm_helpers.fresh_genid () in
 
 	(* create a new VM *)
 	Db.VM.create ~__context 
@@ -324,13 +321,14 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
 		~tags:all.Db_actions.vM_tags
 		~bios_strings:all.Db_actions.vM_bios_strings
 		~protection_policy:Ref.null
-		~is_snapshot_from_vmpp
+		~is_snapshot_from_vmpp:false
 		~appliance:Ref.null
 		~start_delay:0L
 		~shutdown_delay:0L
 		~order:0L
 		~suspend_SR:Ref.null
 		~version:0L
+		~generation_id
 	;
 
 	(* update the VM's parent field in case of snapshot. Note this must be done after "ref"

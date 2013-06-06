@@ -57,25 +57,6 @@ def get_pool_other_config():
     finally:
         session.xenapi.session.logout()
 
-def get_vmpp_alarm_config(uuid):
-    session = XenAPI.xapi_local()
-    session.xenapi.login_with_password(ma_username, "")
-    try:
-        opaque_ref = session.xenapi.VMPP.get_by_uuid(uuid)
-        vmpp_alarm_config = session.xenapi.VMPP.get_alarm_config(opaque_ref)
-        vmpp_is_alarm_enabled = session.xenapi.VMPP.get_is_alarm_enabled(opaque_ref)
-        try:
-            vmpp_smtp_server=vmpp_alarm_config['smtp_server']
-            vmpp_smtp_port=vmpp_alarm_config['smtp_port']
-            vmpp_email_address=vmpp_alarm_config['email_address']
-        except:
-            log_err("VMPP uuid=%s: not sending email alert due to incomplete configuration" % uuid)
-            sys.exit(1)
-        other_config = {'ssmtp-mailhub':"%s %s" % (vmpp_smtp_server,vmpp_smtp_port),'mail-destination':vmpp_email_address}
-        return vmpp_is_alarm_enabled,other_config
-    finally:
-        session.xenapi.session.logout()
-
 def get_VM_params(uuid):
     session = XenAPI.xapi_local()
     session.xenapi.login_with_password(ma_username, "")
@@ -287,29 +268,6 @@ class HAHostFailedETG(EmailTextGenerator):
             'This alarm is set to be triggered when a host belonging to a high availability pool fails.' \
             '\n' % self.text
 
-class VmppETG(EmailTextGenerator):
-    def __init__(self, msg):
-        self.msg = msg
-
-    def generate_subject(self):
-        msg = self.msg
-        return "[%s] XenServer Message: %s %s %s" % (msg.pool_name, msg.cls, msg.obj_uuid, msg.name)
-
-    def generate_body(self):
-        msg = self.msg
-        msg_body = unescape(msg.body)
-        try:
-            xmldoc = minidom.parseString(msg_body)
-            body_message = xmldoc.getElementsByTagName('message')[0]
-            email_message = body_message.getElementsByTagName('email')[0].firstChild.data
-            return \
-            "Field\t\tValue\n-----\t\t-----\nName:\t\t%s\nPriority:\t%s\nClass:\t\t%s\n" \
-            "Object UUID:\t%s\nTimestamp:\t%s\nMessage UUID:\t%s\nPool name:\t%s\nBody:\t\t%s\n" % \
-            (msg.name,msg.priority,msg.cls,msg.obj_uuid,msg.timestamp,msg.uuid,msg.pool_name,email_message)
-        except:
-            log_err("Badly formatted XML, or missing field")
-            sys.exit(1)
-
 class XapiMessage:
     def __init__(self, xml):
         "Parse message XML"
@@ -346,9 +304,7 @@ class XapiMessage:
         if hasattr(self,'cached_etg'):
             return self.cached_etg
 
-        if self.cls == 'VMPP':
-            etg = VmppETG(self)
-        elif self.name == 'ALARM':
+        if self.name == 'ALARM':
             # Extract the current level of the variable
             # (this will raise an exception if the 1st line of <body> is not in the correct format, namely "value: %f\n")
             value_line = self.body.split("\n",2)[0]
@@ -414,24 +370,18 @@ class XapiMessage:
 
 def main():
     other_config = get_pool_other_config()
-    if other_config.has_key('mail-max-priority'):
-        max_priority = int(other_config['mail-max-priority'])
+    if other_config.has_key('mail-min-priority'):
+        min_priority = int(other_config['mail-min-priority'])
     else:
-        max_priority = 4
+        min_priority = 3
 
     msg = XapiMessage(sys.argv[1])
 
     # We only mail messages with priority lower than or equal to max_priority
-    if msg.get_priority() > max_priority:
+    if msg.get_priority() > min_priority:
         return 0
 
-    if msg.get_cls() == "VMPP":
-        config = default_config
-        vmpp_is_alarm_enabled, other_config = get_vmpp_alarm_config(msg.get_obj_uuid())
-        if not vmpp_is_alarm_enabled:
-          return 0
-    else:        
-        config = get_config_file()
+    config = get_config_file()
 
     search_replace = get_search_replace(other_config)
     destination = get_destination(other_config)

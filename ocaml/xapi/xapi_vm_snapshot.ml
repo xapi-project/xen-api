@@ -28,7 +28,6 @@ open D
 let snapshot ~__context ~vm ~new_name =
 	debug "Snapshot: begin";
 	TaskHelper.set_cancellable ~__context;
-	Xapi_vmpp.show_task_in_xencenter ~__context ~vm;
 	let res = Xapi_vm_clone.clone Xapi_vm_clone.Disk_op_snapshot ~__context ~vm ~new_name in
 	debug "Snapshot: end"; 
 	res
@@ -129,7 +128,6 @@ let wait_for_snapshot ~__context ~vm ~xs ~domid ~new_name =
 (* dynamically by the xapi_vm_lifecycle.update_allowed_operations call.                  *)
 let snapshot_with_quiesce ~__context ~vm ~new_name =
 	debug "snapshot_with_quiesce: begin";
-	Xapi_vmpp.show_task_in_xencenter ~__context ~vm;
 	let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
 	let result = Vmopshelpers.with_xs (fun xs ->
 		(* 1. We first check if the VM supports quiesce-mode *)
@@ -168,7 +166,6 @@ let snapshot_with_quiesce ~__context ~vm ~new_name =
 (* Checkpoint                                                                                    *)
 (*************************************************************************************************)
 let checkpoint ~__context ~vm ~new_name =
-	Xapi_vmpp.show_task_in_xencenter ~__context ~vm;
 	let power_state = Db.VM.get_power_state ~__context ~self:vm in
 	let snapshot_info = ref [] in
 		(* live-suspend the VM if the VM is running *)

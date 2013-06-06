@@ -22,7 +22,6 @@ open Network
 module L = Debug.Debugger(struct let name="license" end)
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
-open Workload_balancing
 
 (* Surpress exceptions *)
 let no_exn f x = 
@@ -667,7 +666,7 @@ let join_common ~__context ~master_address ~master_username ~master_password ~fo
 	a host that does not support pooling then an error will be thrown at this stage *)
 	let rpc = rpc master_address in
 	let session_id =
-	try Client.Session.login_with_password rpc master_username master_password Xapi_globs.api_version_string
+		try Client.Session.login_with_password rpc master_username master_password Xapi_globs.api_version_string ""
 		with Http_client.Http_request_rejected _ | Http_client.Http_error _ ->
 			raise (Api_errors.Server_error(Api_errors.pool_joining_host_service_failed, [])) in
 
@@ -1077,60 +1076,72 @@ let create_VLAN ~__context ~device ~network ~vLAN =
    explicitly instead of a device name we ensure that this call works for creating VLANs on bonds across pools..
 *)
 let create_VLAN_from_PIF ~__context ~pif ~network ~vLAN =
-  (* Destroy the list of VLANs, best-effort *)
-  let safe_destroy_VLANs ~__context vlans =
-    Helpers.call_api_functions ~__context
-      (fun rpc session_id ->
-	 List.iter 
-	   (fun vlan -> try Client.VLAN.destroy rpc session_id vlan with _ -> ()) vlans) in
-  (* Read the network that the pif is attached to; get the list of all pifs on that network
-     -- that'll be the pif for each host that we want to make the vlan on. Then go and make
-     the vlan on all these pifs. Then attempt to do a best-effort plug of the newly created pifs
-     in order to satisfy ca-22381 *)
-  let network_to_get_pifs_from = Db.PIF.get_network ~__context ~self:pif in
-  let pifs_on_network = Db.Network.get_PIFs ~__context ~self:network_to_get_pifs_from in
-  let pifs_on_live_hosts =
-    List.filter (fun p -> 
-      let h = Db.PIF.get_host ~__context ~self:p in
-      Db.Host.get_enabled ~__context ~self:h = true
-    ) pifs_on_network in
-  (* Keep track of what we've created *)
-  let created = ref [] in
-  Helpers.call_api_functions ~__context
-    (fun rpc session_id ->
-       let vlans =
-	 List.map
-	   (fun pif ->
-	      try
-		let vlan = Client.VLAN.create rpc session_id pif vLAN network in
-		created := vlan :: !created;
-		vlan
-	      with
-	      | e ->
-		  (* Any error and we'll clean up and exit *)
-		  safe_destroy_VLANs ~__context !created;
-		  raise e
-	   )
-	   pifs_on_live_hosts in
-       let vlan_pifs = List.map (fun vlan -> Db.VLAN.get_untagged_PIF ~__context ~self:vlan) vlans in
-       (* CA-22381: best-effort plug of the newly-created VLAN PIFs. Note if any of these calls fail
-	  then nothing is rolled-back and the system will be left with some unplugged VLAN PIFs, which may
-	  confuse the HA agility calculation (but nothing else since everything else can plug on demand) *)
-       List.iter (fun pif -> Helpers.log_exn_continue (Printf.sprintf "Plugging VLAN PIF %s" (Ref.string_of pif)) (fun () -> Client.PIF.plug rpc session_id pif) ()) vlan_pifs;
-       vlan_pifs)
+	(* Destroy the list of VLANs, best-effort *)
+	let safe_destroy_VLANs ~__context vlans =
+		Helpers.call_api_functions ~__context
+			(fun rpc session_id ->
+				List.iter
+					(fun vlan ->
+						try Client.VLAN.destroy rpc session_id vlan
+						with _ -> ()
+					) vlans
+			) in
+	(* Read the network that the pif is attached to; get the list of all pifs on that network
+	   -- that'll be the pif for each host that we want to make the vlan on. Then go and make
+	   the vlan on all these pifs. Then attempt to do a best-effort plug of the newly created pifs
+	   in order to satisfy ca-22381 *)
+	let network_to_get_pifs_from = Db.PIF.get_network ~__context ~self:pif in
+	let pifs_on_network = Db.Network.get_PIFs ~__context ~self:network_to_get_pifs_from in
+	let is_host_live pif =
+		let h = Db.PIF.get_host ~__context ~self:pif in
+		let host_metric = Db.Host.get_metrics ~__context ~self:h in
+		Db.Host_metrics.get_live ~__context ~self:host_metric in
+	let pifs_on_live_hosts = List.filter is_host_live pifs_on_network in
+
+	(* Keep track of what we've created *)
+	let created = ref [] in
+	Helpers.call_api_functions ~__context
+		(fun rpc session_id ->
+			let vlans =
+				List.map
+					(fun pif ->
+						try
+							let vlan = Client.VLAN.create rpc session_id pif vLAN network in
+							created := vlan :: !created;
+							vlan
+						with
+						| e ->
+							(* Any error and we'll clean up and exit *)
+							safe_destroy_VLANs ~__context !created;
+							raise e
+					) pifs_on_live_hosts in
+			let vlan_pifs = List.map (fun vlan -> Db.VLAN.get_untagged_PIF ~__context ~self:vlan) vlans in
+			(* CA-22381: best-effort plug of the newly-created VLAN PIFs. Note if any of these calls fail
+			   then nothing is rolled-back and the system will be left with some unplugged VLAN PIFs, which may
+			   confuse the HA agility calculation (but nothing else since everything else can plug on demand) *)
+			List.iter
+				(fun pif ->
+					Helpers.log_exn_continue
+						(Printf.sprintf "Plugging VLAN PIF %s" (Ref.string_of pif))
+						(fun () -> Client.PIF.plug rpc session_id pif) ()
+				) vlan_pifs;
+			vlan_pifs
+		)
 
 let slave_network_report ~__context ~phydevs ~dev_to_mac ~dev_to_mtu ~slave_host =
   []
 (*
   Dbsync_slave.create_physical_networks ~__context phydevs dev_to_mac dev_to_mtu slave_host
 *)
-
 (* Let's only process one enable/disable at a time. I would have used an allowed_operation for this but
    it would involve a datamodel change and it's too late for Orlando. *)
 let enable_disable_m = Mutex.create ()
 let enable_ha ~__context ~heartbeat_srs ~configuration = 
-	Helpers.assert_rolling_upgrade_not_in_progress ~__context;
-	Mutex.execute enable_disable_m (fun () -> Xapi_ha.enable __context heartbeat_srs configuration)
+	if not (Helpers.pool_has_different_host_platform_versions ~__context)
+	then Mutex.execute enable_disable_m (fun () -> Xapi_ha.enable __context heartbeat_srs configuration)
+	else
+		raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []))
+
 let disable_ha ~__context = Mutex.execute enable_disable_m (fun () -> Xapi_ha.disable __context)
 
 let ha_prevent_restarts_for ~__context ~seconds = Xapi_ha.ha_prevent_restarts_for __context seconds
@@ -1244,21 +1255,6 @@ let enable_binary_storage ~__context =
 
 let disable_binary_storage ~__context =
   call_fn_on_hosts ~__context Client.Host.disable_binary_storage
-
-let initialize_wlb ~__context ~wlb_url ~wlb_username ~wlb_password ~xenserver_username ~xenserver_password =
-  init_wlb ~__context ~wlb_url ~wlb_username ~wlb_password ~xenserver_username ~xenserver_password
-
-let deconfigure_wlb ~__context =
-  decon_wlb ~__context
-
-let send_wlb_configuration ~__context ~config =
-  send_wlb_config ~__context ~config
-
-let retrieve_wlb_configuration ~__context =
-  retrieve_wlb_config ~__context
-
-let retrieve_wlb_recommendations ~__context =
-  get_opt_recommendations ~__context
 
 let send_test_post = Remote_requests.send_test_post
 
@@ -1642,11 +1638,7 @@ let audit_log_append ~__context ~line =
 	()
 
 let test_archive_target ~__context ~self ~config =
-  Xapi_plugins.call_plugin
-    (Context.get_session_id __context)
-    Xapi_vmpp.vmpr_plugin
-    "test_archive_target"
-    config
+	raise (Api_errors.Server_error (Api_errors.message_removed, []))
 
 let enable_local_storage_caching ~__context ~self =
     let srs = Db.SR.get_all_records ~__context in
@@ -1697,3 +1689,66 @@ let disable_local_storage_caching ~__context ~self =
 	if List.length failed_hosts > 0 then
 		raise (Api_errors.Server_error (Api_errors.hosts_failed_to_disable_caching, List.map Ref.string_of failed_hosts))
 	else ()
+
+let get_license_state ~__context ~self =
+	let hosts = Db.Host.get_all ~__context in
+	let pool_edition = Xapi_pool_license.get_lowest_edition ~__context ~hosts in
+	(* If any hosts are free edition then the pool is free edition with no expiry
+	 * date. If all hosts are licensed then the pool has that license, and the
+	 * earliest expiry date applies to the pool. *)
+	let pool_expiry_date =
+		match pool_edition with
+		| "free" -> "never"
+		| _ -> begin
+			match Xapi_pool_license.get_earliest_expiry_date ~__context ~hosts with
+			| None -> "never"
+			| Some date -> Date.to_string date
+		end
+	in
+	[
+		"edition", pool_edition;
+		"expiry", pool_expiry_date;
+	]
+
+let apply_edition ~__context ~self ~edition =
+	let hosts = Db.Host.get_all ~__context in
+	let apply_fn =
+		(fun ~__context ~host ~edition -> Helpers.call_api_functions ~__context
+			(fun rpc session_id ->
+				Client.Host.apply_edition ~rpc ~session_id ~host ~edition ~force:false))
+	in
+	Xapi_pool_license.apply_edition_with_rollback ~__context ~hosts ~edition ~apply_fn
+
+(* This is expensive, so should always be run on the master. *)
+let assert_mac_seeds_available ~__context ~self ~seeds =
+	let module StringSet = Set.Make(String) in
+	let all_guests =
+		Db.VM.get_records_where
+			~__context
+			~expr:(Eq(Field "is_control_domain", Literal "false"))
+	in
+	(* Create a set of all MAC seeds in use by guests in the pool. *)
+	let mac_seeds_in_use =
+		List.fold_left
+			(fun acc (_, vm_rec) ->
+				try
+					let mac_seed =
+						List.assoc
+							Xapi_globs.mac_seed
+							vm_rec.API.vM_other_config
+					in
+					StringSet.add mac_seed acc
+				with Not_found ->
+					acc)
+			StringSet.empty all_guests
+	in
+	(* Create a set of the MAC seeds we want to test. *)
+	let mac_seeds_to_test =
+		List.fold_left
+			(fun acc mac_seed -> StringSet.add mac_seed acc) StringSet.empty seeds
+	in
+	(* Check if the intersection of these sets is non-empty. *)
+	let problem_mac_seeds = StringSet.inter mac_seeds_in_use mac_seeds_to_test in
+	if not(StringSet.is_empty problem_mac_seeds) then
+		raise (Api_errors.Server_error
+			(Api_errors.duplicate_mac_seed, [StringSet.choose problem_mac_seeds]))

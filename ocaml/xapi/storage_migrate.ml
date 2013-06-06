@@ -282,11 +282,12 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 let copy_into ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi = 
 	copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi
 
+let remove_from_sm_config vdi_info key =
+  { vdi_info with sm_config = List.filter (fun (k,v) -> k <> key) vdi_info.sm_config }
+
 let add_to_sm_config vdi_info key value =
-	if not (List.mem_assoc key vdi_info.sm_config) then
-		{ vdi_info with sm_config = (key,value) :: vdi_info.sm_config }
-	else
-		raise (Duplicated_key key)
+	let vdi_info = remove_from_sm_config vdi_info key in
+	{ vdi_info with sm_config = (key,value) :: vdi_info.sm_config }
 
 let stop ~dbg ~id =
 	(* Find the local VDI *)
@@ -299,7 +300,7 @@ let stop ~dbg ~id =
 				try List.find (fun x -> x.vdi = vdi) vdis
 				with Not_found -> failwith (Printf.sprintf "Local VDI %s not found" vdi) in
 			let local_vdi = add_to_sm_config local_vdi "mirror" "null" in
-			let local_vdi = add_to_sm_config local_vdi "base_mirror" id in
+			let local_vdi = remove_from_sm_config local_vdi "base_mirror" in
 			(* Disable mirroring on the local machine *)
 			let snapshot = Local.VDI.snapshot ~dbg ~sr ~vdi_info:local_vdi in
 			Local.VDI.destroy ~dbg ~sr ~vdi:snapshot.vdi;
@@ -340,7 +341,7 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 
 		let uri = (Printf.sprintf "/services/SM/nbd/%s/%s/%s" dest result.Mirror.mirror_vdi.vdi mirror_dp) in
 		let dest_url = Http.Url.set_uri remote_url uri in
-		let request = Http.Request.make ~query:(Http.Url.get_query_params dest_url) ~user_agent:"smapiv2" Http.Put uri in
+		let request = Http.Request.make ~query:(Http.Url.get_query_params dest_url) ~version:"1.0" ~user_agent:"smapiv2" Http.Put uri in
 		let transport = Xmlrpc_client.transport_of_url dest_url in
 		debug "Searching for data path: %s" dp;
 		let attach_info = Local.DP.attach_info ~dbg:"nbd" ~sr ~vdi ~dp in
@@ -385,6 +386,8 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 		SMPERF.debug "mirror.start: snapshot created, mirror initiated vdi:%s snapshot_of:%s"
 			snapshot.vdi local_vdi.vdi ;
 
+		on_fail := (fun () -> Local.VDI.destroy ~dbg ~sr ~vdi:snapshot.vdi) :: !on_fail;
+
 		begin
 			let rec inner () =
 				debug "tapdisk watchdog";
@@ -412,7 +415,7 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 		Some (Mirror_id id)
 	with e ->
 		error "Caught %s: performing cleanup actions" (Printexc.to_string e);
-		(try stop dbg id; with _ -> ());
+		perform_cleanup_actions !on_fail;
 		raise e
 
 
@@ -573,6 +576,7 @@ let post_detach_hook ~sr ~vdi ~dp =
 let nbd_handler req s sr vdi dp =
 	debug "sr=%s vdi=%s dp=%s" sr vdi dp;
 	let attach_info = Local.DP.attach_info ~dbg:"nbd" ~sr ~vdi ~dp in
+        req.Http.Request.close <- true;
 	match tapdisk_of_attach_info attach_info with
 		| Some tapdev ->
 			let minor = Tapctl.get_minor tapdev in
@@ -651,7 +655,8 @@ let wrap ~dbg f =
 			| Backend_error(code, params)
 			| Api_errors.Server_error(code, params) ->
 				raise (Backend_error(code, params))
-			| e ->
+			| Unimplemented msg -> raise (Unimplemented msg) 
+			| e -> 
 				raise (Internal_error(Printexc.to_string e))) in
 	let _ = Thread.create 
 		(Debug.with_thread_associated dbg (fun () ->
@@ -668,3 +673,30 @@ let copy ~dbg ~sr ~vdi ~dp ~url ~dest =
 
 let copy_into ~dbg ~sr ~vdi ~url ~dest ~dest_vdi = 
 	wrap ~dbg (fun task -> copy_into ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi)
+
+(* The remote end of this call, SR.update_snapshot_info_dest, is implemented in
+ * the SMAPIv1 section of storage_migrate.ml. It needs to access the setters
+ * for snapshot_of, snapshot_time and is_a_snapshot, which we don't want to add
+ * to SMAPI. *)
+let update_snapshot_info_src ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~snapshot_pairs =
+	let remote_url = Http.Url.of_string url in
+	let module Remote =
+		Client(struct
+			let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url
+		end)
+	in
+	let local_vdis = Local.SR.scan ~dbg ~sr in
+	let find_vdi ~vdi ~vdi_info_list =
+		try List.find (fun x -> x.vdi = vdi) vdi_info_list
+		with Not_found -> raise (Vdi_does_not_exist vdi)
+	in
+	let snapshot_pairs_for_remote =
+		List.map
+			(fun (local_snapshot, remote_snapshot) ->
+				(remote_snapshot,
+				find_vdi ~vdi:local_snapshot ~vdi_info_list:local_vdis))
+			snapshot_pairs
+	in
+	Remote.SR.update_snapshot_info_dest ~dbg ~sr:dest ~vdi:dest_vdi
+		~src_vdi:(find_vdi ~vdi ~vdi_info_list:local_vdis)
+		~snapshot_pairs:snapshot_pairs_for_remote

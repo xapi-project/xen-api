@@ -13,9 +13,20 @@
  *)
 
 open API
+open Fun
 open OUnit
 
+(** Utility functions *)
+let string_of_string_list strings =
+	Printf.sprintf "[%s]"
+		(String.concat "; " strings)
+
+let string_of_string_map map =
+	Printf.sprintf "[%s]"
+		(List.map (fun (k, v) -> k ^ ": " ^ v) map |> String.concat "; ")
+
 let skip str = skip_if true str
+let make_uuid () = Uuid.string_of_uuid (Uuid.make_uuid ())
 
 (** Make a simple in-memory database containing a single host and dom0 VM record. *)
 let make_test_database () = 
@@ -53,7 +64,7 @@ let make_vm ~__context ?(name_label="name_label") ?(name_description="descriptio
 		?(other_config=[]) ?(xenstore_data=[]) ?(recommendations="") ?(ha_always_run=false)
 		?(ha_restart_priority="") ?(tags=[]) ?(blocked_operations=[]) ?(protection_policy=Ref.null)
 		?(is_snapshot_from_vmpp=false) ?(appliance=Ref.null) ?(start_delay=0L)
-		?(shutdown_delay=0L) ?(order=0L) ?(suspend_SR=Ref.null) ?(version=0L) () = 
+		?(shutdown_delay=0L) ?(order=0L) ?(suspend_SR=Ref.null) ?(version=0L) ?(generation_id="0:0") () =
 	Xapi_vm.create ~__context ~name_label ~name_description ~user_version ~is_a_template
 		~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min
         ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown 
@@ -61,9 +72,10 @@ let make_vm ~__context ?(name_label="name_label") ?(name_description="descriptio
 		~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params 
 		~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~xenstore_data ~recommendations
 		~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy
-		~is_snapshot_from_vmpp ~appliance ~start_delay ~shutdown_delay ~order ~suspend_SR ~version
+		~is_snapshot_from_vmpp ~appliance ~start_delay ~shutdown_delay ~order ~suspend_SR
+		~version ~generation_id
 
-let make_host ~__context ?(uuid=Uuid.string_of_uuid (Uuid.make_uuid ())) ?(name_label="host")
+let make_host ~__context ?(uuid=make_uuid ()) ?(name_label="host")
 		?(name_description="description") ?(hostname="localhost") ?(address="127.0.0.1")
 		?(external_auth_type="") ?(external_auth_service_name="") ?(external_auth_configuration=[])
 		?(license_params=[]) ?(edition="free") ?(license_server=[]) ?(local_cache_sr=Ref.null) ?(chipset_info=[]) () = 
@@ -83,3 +95,61 @@ let make_pif ~__context ~network ~host ?(device="eth0") ?(mAC="C0:FF:EE:C0:FF:EE
 let make_network ~__context ?(name_label="net") ?(name_description="description") ?(mTU=1500L)
 		?(other_config=[]) ?(bridge="xenbr0") () = 
 	Xapi_network.pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~bridge
+
+let make_pool ~__context ~master ?(name_label="") ?(name_description="")
+		?(default_SR=Ref.null) ?(suspend_image_SR=Ref.null) ?(crash_dump_SR=Ref.null)
+		?(ha_enabled=false) ?(ha_configuration=[]) ?(ha_statefiles=[])
+		?(ha_host_failures_to_tolerate=0L) ?(ha_plan_exists_for=0L)
+		?(ha_allow_overcommit=false) ?(ha_overcommitted=false) ?(blobs=[]) ?(tags=[])
+		?(gui_config=[]) ?(wlb_url="") ?(wlb_username="") ?(wlb_password=Ref.null)
+		?(wlb_enabled=false) ?(wlb_verify_cert=false) ?(redo_log_enabled=false)
+		?(redo_log_vdi=Ref.null) ?(vswitch_controller="") ?(restrictions=[])
+		?(other_config=[Xapi_globs.memory_ratio_hvm; Xapi_globs.memory_ratio_pv]) () =
+	let pool_ref = Ref.make () in
+	Db.Pool.create ~__context ~ref:pool_ref
+		~uuid:(make_uuid ()) ~name_label ~name_description
+		~master ~default_SR ~suspend_image_SR ~crash_dump_SR ~ha_enabled
+		~ha_configuration ~ha_statefiles ~ha_host_failures_to_tolerate
+		~ha_plan_exists_for ~ha_allow_overcommit ~ha_overcommitted ~blobs ~tags
+		~gui_config ~wlb_url ~wlb_username ~wlb_password ~wlb_enabled
+		~wlb_verify_cert ~redo_log_enabled ~redo_log_vdi ~vswitch_controller
+		~restrictions ~other_config;
+	pool_ref
+
+let make_sr ~__context ~ref ?(uuid=make_uuid ()) ?(name_label="") ?(name_description="") ?(allowed_operations=[])
+		?(current_operations=[]) ?(virtual_allocation=0L) ?(physical_utilisation=0L) ?(physical_size=0L) ?(_type="")
+		?(content_type="") ?(shared=true) ?(other_config=[]) ?(tags=[]) ?(default_vdi_visibility=true)
+		?(sm_config=[]) ?(blobs=[]) ?(local_cache_enabled=false) ?(introduced_by=Ref.make ()) () =
+	Db.SR.create ~__context ~ref ~uuid ~name_label ~name_description ~allowed_operations
+		~current_operations ~virtual_allocation ~physical_utilisation ~physical_size ~_type
+		~content_type ~shared ~other_config ~tags ~default_vdi_visibility ~sm_config ~blobs
+		~local_cache_enabled ~introduced_by
+
+let make_pbd ~__context ~ref ?(uuid=make_uuid ()) ?(host=Ref.make ()) ?(sR=Ref.make ())
+		?(device_config=[]) ?(currently_attached=true) ?(other_config=[]) () =
+	Db.PBD.create ~__context ~ref ~uuid ~host ~sR ~device_config ~currently_attached ~other_config
+
+let make_vbd ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(allowed_operations=[])
+		?(current_operations=[]) ?(vM=Ref.make ()) ?(vDI=Ref.make ()) ?(device="")
+		?(userdevice="") ?(bootable=true) ?(mode=`RW) ?(_type=`Disk)
+		?(unpluggable=false) ?(storage_lock=false) ?(empty=false)
+		?(reserved=false) ?(other_config=[]) ?(currently_attached=false)
+		?(status_code=0L) ?(status_detail="") ?(runtime_properties=[])
+		?(qos_algorithm_type="") ?(qos_algorithm_params=[]) ?(qos_supported_algorithms=[])
+		?(metrics = Ref.make ()) () =
+	Db.VBD.create ~__context ~ref ~uuid ~allowed_operations ~current_operations ~vM ~vDI ~device
+		~userdevice ~bootable ~mode ~_type ~unpluggable ~storage_lock ~empty ~reserved ~other_config
+		~currently_attached ~status_code ~status_detail ~runtime_properties ~qos_algorithm_type
+		~qos_algorithm_params ~qos_supported_algorithms ~metrics
+
+let make_vdi ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(name_label="")
+		?(name_description="") ?(allowed_operations=[]) ?(current_operations=[]) ?(sR=Ref.make ())
+		?(virtual_size=0L) ?(physical_utilisation=0L) ?(_type=`user) ?(sharable=true) ?(read_only=false)
+		?(other_config=[]) ?(storage_lock=false) ?(location="") ?(managed=false) ?(missing=false)
+		?(parent=Ref.null) ?(xenstore_data=[]) ?(sm_config=[]) ?(is_a_snapshot=false)
+		?(snapshot_of=Ref.null) ?(snapshot_time=API.Date.never) ?(tags=[]) ?(allow_caching=true)
+		?(on_boot=`persist) ?(metadata_of_pool=Ref.make ()) ?(metadata_latest=true) () =
+	Db.VDI.create ~__context ~ref ~uuid ~name_label ~name_description ~allowed_operations
+		~current_operations ~sR ~virtual_size ~physical_utilisation ~_type ~sharable ~read_only ~other_config
+		~storage_lock ~location ~managed ~missing ~parent ~xenstore_data ~sm_config ~is_a_snapshot ~snapshot_of
+		~snapshot_time ~tags ~allow_caching ~on_boot ~metadata_of_pool ~metadata_latest

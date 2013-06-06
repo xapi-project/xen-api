@@ -15,6 +15,8 @@
 module D=Debug.Debugger(struct let name="v6client" end)
 open D
 
+open Listext
+
 exception V6DaemonFailure
 
 let retry = ref true
@@ -26,10 +28,19 @@ let v6rpc call =
 	XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"v6d" ~transport:(Unix socket) ~http:(xmlrpc ~version:"1.0" "/") call
 
 let rec apply_edition ~__context edition additional =
+	(* Get localhost's current license state. *)
 	let host = Helpers.get_localhost ~__context in
 	let license_server = Db.Host.get_license_server ~__context ~self:host in
 	let current_edition = Db.Host.get_edition ~__context ~self:host in
 	let current_license_params = Db.Host.get_license_params ~__context ~self:host in
+	(* Make sure the socket count in license_params is correct.
+	 * At first boot, the key won't exist, and it may be wrong if we've restored
+	 * a database dump from a different host. *)
+	let cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
+	let socket_count = List.assoc "socket_count" cpu_info in
+	let current_license_params =
+		List.replace_assoc "sockets" socket_count current_license_params in
+	(* Construct the RPC params to be sent to v6d *)
 	let additional = ("current_edition", current_edition) ::
 		license_server @ current_license_params @ additional in
 	let params = [ Rpc.rpc_of_string (Context.string_of_task __context)

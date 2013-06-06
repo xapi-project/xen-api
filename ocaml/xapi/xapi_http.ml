@@ -144,7 +144,7 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: Reque
 	| Some (Http.Basic(username, password)) ->
 	  begin
 	    let session_id = try
-	      Client.Session.login_with_password inet_rpc username password Xapi_globs.api_version_string
+	      Client.Session.login_with_password inet_rpc username password Xapi_globs.api_version_string ""
 	    with _ -> raise (Http.Unauthorised realm)
 	    in
 	    Pervasiveext.finally
@@ -181,7 +181,7 @@ let with_context ?(dummy=false) label (req: Request.t) (s: Unix.file_descr) f =
 	        | Some (Http.Basic(username, password)) ->
 		    begin
 		      try
-			Client.Session.login_with_password inet_rpc username password Xapi_globs.api_version_string, true
+			Client.Session.login_with_password inet_rpc username password Xapi_globs.api_version_string "", true
 		      with Api_errors.Server_error(code, params) when code = Api_errors.session_authentication_failed ->
 			raise (Http.Unauthorised label)
 		    end
@@ -229,24 +229,31 @@ let server =
 	  
 let http_request = Http.Request.make ~user_agent:Xapi_globs.xapi_user_agent
 
-let bind inetaddr = 
+let bind inetaddr =
 	let description = match inetaddr with
 		| Unix.ADDR_INET(ip, port) -> Printf.sprintf "INET %s:%d" (Unix.string_of_inet_addr ip) port
 		| Unix.ADDR_UNIX path -> Printf.sprintf "UNIX %s" path in
 	(* Sometimes we see failures which we hope are transient. If this
 	   happens then we'll retry a couple of times before failing. *)
-	let result = ref None in
 	let start = Unix.gettimeofday () in
 	let timeout = 30.0 in (* 30s *)
-	while !result = None && (Unix.gettimeofday () -. start < timeout) do
+	let rec bind' () =
 		try
-			result := Some (Http_svr.bind ~listen_backlog:Xapi_globs.listen_backlog inetaddr description);
-		with Unix.Unix_error(code, _, _) ->
+			Some (Http_svr.bind ~listen_backlog:Xapi_globs.listen_backlog inetaddr description)
+		with
+		| Unix.Unix_error(code, _, _) when code = Unix.EAFNOSUPPORT ->
+			info "Kernel does not support IPv6";
+			None
+		| Unix.Unix_error(code, _, _) ->
 			debug "While binding %s: %s" description (Unix.error_message code);
-			Thread.delay 5.
-	done;
-	match !result with
-		| None -> failwith (Printf.sprintf "Repeatedly failed to bind: %s" description)
+			if Unix.gettimeofday () -. start < timeout then begin
+				Thread.delay 5.;
+				bind' ()
+			end else
+				None
+	in
+	match bind' () with
+		| None -> failwith (Printf.sprintf "Failed to bind: %s" description)
 		| Some s -> 
 			info "Successfully bound socket to: %s" description;
 			s

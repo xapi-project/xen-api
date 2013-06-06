@@ -34,7 +34,7 @@ let send_bond_change_alert dev interfaces message =
 	let ifaces = String.concat "+" (List.sort String.compare interfaces) in
 	let module XenAPI = Client.Client in
 	let session_id = XenAPI.Session.login_with_password
-		~rpc:xapi_rpc ~uname:"" ~pwd:"" ~version:"1.4" in
+		~rpc:xapi_rpc ~uname:"" ~pwd:"" ~version:"1.4" ~originator:"networkd" in
 	Pervasiveext.finally
 		(fun _ ->
 			let obj_uuid = Inventory.lookup Inventory._installation_uuid in
@@ -170,31 +170,21 @@ let rec monitor dbg () =
 				let vendor_id, device_id = if List.length devs = 1 then Sysfs.get_pci_ids dev else "", "" in
 				let carriers = List.map Sysfs.get_carrier devs in
 				let speed, duplex =
-					let int_of_duplex = function
-						| Duplex_half -> 1
-						| Duplex_full -> 2
-						| Duplex_unknown -> 0
+					let combine_duplex = function
+						| Duplex_full, Duplex_full -> Duplex_full
+						| Duplex_unknown, a | a, Duplex_unknown -> a
+						| _ -> Duplex_half
 					in
-					let duplex_of_int = function
-						| 1 -> Duplex_half
-						| 2 -> Duplex_full
-						| _ -> Duplex_unknown
-					in
-					let statuses = List.map2 (fun dev carrier ->
-						let speed, duplex =
-							try
-								if not carrier then failwith "no carrier";
-								Bindings.get_status dev
-							with _ ->
-								0,
-								Duplex_unknown
-						in
-						speed, int_of_duplex duplex
-					) devs carriers in
-					let speed, duplex =
-						List.fold_left (fun (speed, duplex) (speed', duplex') -> (speed + speed'), (min duplex duplex')) (0, 2) statuses
-					in
-					speed, duplex_of_int duplex
+					List.fold_left2 (fun (speed, duplex) dev carrier ->
+						try
+							if not carrier then
+								speed, duplex
+							else
+								let speed', duplex' = Bindings.get_status dev in
+								speed + speed', combine_duplex (duplex, duplex')
+						with _ ->
+							speed, duplex
+					) (0, Duplex_unknown) devs carriers
 				in
 				let nb_links = List.length devs in
 				let carrier = List.mem true carriers in

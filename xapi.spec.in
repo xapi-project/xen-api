@@ -116,12 +116,12 @@ Group:   Development/Libraries
 This package contains rrd functions as a library suitable for writing tools 
 related to rrd. Needed for rrd2csv and rrdd-plugins.
 
-%package fe
-Summary: The fork and exec daemon
-Group: System/Hypervisor
+%package xenstore-watch-devel
+Summary: xenstore-watch headers and libraries
+Group:   Development/Libraries
 
-%description fe
-This package contains the fork and exec daemon.
+%description xenstore-watch-devel
+This package contains a library of functions for watching xenstore.
 
 %prep 
 %setup -q
@@ -486,6 +486,10 @@ rm -rf $RPM_BUILD_ROOT
 /etc/rc.d/init.d/fe
 /opt/xensource/libexec/fe
 
+
+%files xenstore-watch-devel
+%defattr(-,root,root,-)
+/usr/lib/ocaml/xenstore-watch/*
 
 %changelog
 

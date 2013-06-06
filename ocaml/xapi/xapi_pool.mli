@@ -131,22 +131,6 @@ val call_fn_on_host :
 val enable_binary_storage : __context:Context.t -> unit
 val disable_binary_storage : __context:Context.t -> unit
 
-(** {2 Workload balancing} *)
-
-val initialize_wlb :
-  __context:Context.t ->
-  wlb_url:string ->
-  wlb_username:string ->
-  wlb_password:string ->
-  xenserver_username:string -> xenserver_password:string -> unit
-val deconfigure_wlb : __context:Context.t -> unit
-val send_wlb_configuration :
-  __context:Context.t -> config:(string * string) list -> unit
-val retrieve_wlb_configuration :
-  __context:Context.t -> (string * string) list
-val retrieve_wlb_recommendations :
-  __context:Context.t -> ([ `VM ] Ref.t * string list) list
-
 (** {2 (Fill in Title!)} *)
 
 val send_test_post :
@@ -192,3 +176,8 @@ val audit_log_append : __context:Context.t -> line:string -> unit
 val test_archive_target : __context:Context.t -> self:API.ref_pool -> config:API.string_to_string_map -> string
 val enable_local_storage_caching : __context:Context.t -> self:API.ref_pool -> unit
 val disable_local_storage_caching : __context:Context.t -> self:API.ref_pool -> unit
+
+val get_license_state : __context:Context.t -> self:API.ref_pool -> (string * string) list
+val apply_edition : __context:Context.t -> self:API.ref_pool -> edition:string -> unit
+
+val assert_mac_seeds_available : __context:Context.t -> self:API.ref_pool -> seeds:string list -> unit

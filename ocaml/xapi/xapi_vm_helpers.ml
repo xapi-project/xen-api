@@ -20,10 +20,10 @@ open Printf
 open Xapi_vm_memory_constraints
 open Listext
 open Xenstore
+open Fun
 
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
-open Workload_balancing
 
 let compute_memory_overhead ~__context ~vm =
 	let snapshot = match Db.VM.get_power_state ~__context ~self:vm with
@@ -94,6 +94,7 @@ let create ~__context ~name_label ~name_description
 		~order
 		~suspend_SR
 		~version
+		~generation_id
 		: API.ref_VM =
 
 	(* NB parameter validation is delayed until VM.start *)
@@ -159,6 +160,7 @@ let create ~__context ~name_label ~name_description
 		~order
 		~suspend_SR
 		~version
+		~generation_id
 		;
 	Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Halted;
 	Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref;
@@ -490,24 +492,6 @@ let assert_can_boot_here ~__context ~self ~host ~snapshot ?(do_sr_check=true) ?(
 		assert_enough_memory_available ~__context ~self ~host ~snapshot;
 	debug "All fine, VM %s can run on host %s!" (Ref.string_of self) (Ref.string_of host)
 
-let retrieve_wlb_recommendations ~__context ~vm ~snapshot =
-	(* we have already checked the number of returned entries is correct in retrieve_vm_recommendations
-	   But checking that there are no duplicates is also quite cheap, put them in a hash and overwrite duplicates *)
-	let recs = Hashtbl.create 12 in
-	List.iter
-		(fun (h, r) ->
-			try
-				assert_can_boot_here ~__context ~self:vm ~host:h ~snapshot ();
-				Hashtbl.replace recs h r;
-			with
-			| Api_errors.Server_error(x, y) -> Hashtbl.replace recs h (x :: y))
-		(retrieve_vm_recommendations ~__context ~vm);
-	if ((Hashtbl.length recs) <> (List.length (Helpers.get_live_hosts ~__context)))
-	then
-		raise_malformed_response' "VMGetRecommendations"
-			"Number of unique recommendations does not match number of potential hosts" "Unknown"
-	else
-		Hashtbl.fold (fun k v tl -> (k,v) :: tl) recs []
 
 (** Returns the subset of all hosts to which the given function [choose_fn]
 can be applied without raising an exception. If the optional [vm] argument is
@@ -571,7 +555,7 @@ let get_possible_hosts_for_vm ~__context ~vm ~snapshot =
 (** Performs an expensive and comprehensive check to determine whether the
 given [guest] can run on the given [host]. Returns true if and only if the
 guest can run on the host. *)
-let vm_can_run_on_host __context vm snapshot host =
+let vm_can_run_on_host __context vm snapshot do_memory_check host =
 	let host_has_proper_version () =
 		if Helpers.rolling_upgrade_in_progress ~__context
 		then Helpers.host_has_highest_version_in_pool ~__context ~host:host
@@ -581,119 +565,30 @@ let vm_can_run_on_host __context vm snapshot host =
 		let host_metrics = Db.Host.get_metrics ~__context ~self:host in
 		Db.Host_metrics.get_live ~__context ~self:host_metrics in
 	let host_can_run_vm () =
-		assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_memory_check:false ();
+		assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_memory_check ();
 		true in
-	try host_has_proper_version () && host_enabled () && host_live () && host_can_run_vm ()
+	let host_evacuate_in_progress =
+		try let _ = List.find (fun s -> snd s = `evacuate) (Db.Host.get_current_operations ~__context ~self:host) in false with _ -> true
+	in
+	try host_has_proper_version () && host_enabled () && host_live () && host_can_run_vm () && host_evacuate_in_progress
 	with _ -> false
 
 (** Selects a single host from the set of all hosts on which the given [vm]
 can boot. Raises [Api_errors.no_hosts_available] if no such host exists. *)
 let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
-	let validate_host = vm_can_run_on_host __context vm snapshot in
-	Xapi_vm_placement.select_host __context vm validate_host
-
-(* choose_host_for_vm will use WLB as long as it is enabled and there *)
-(* is no pool.other_config["wlb_choose_host_disable"] = "true".       *)
-let choose_host_uses_wlb ~__context =
-	Workload_balancing.check_wlb_enabled ~__context &&
-		not (
-			List.exists
-				(fun (k,v) ->
-					k = "wlb_choose_host_disable"
-					&& (String.lowercase v = "true"))
-				(Db.Pool.get_other_config ~__context
-					~self:(Helpers.get_pool ~__context)))
+	let validate_host = vm_can_run_on_host __context vm snapshot true in
+	try 
+	  Xapi_vm_placement.select_host __context vm validate_host
+	with 
+	  | Api_errors.Server_error(x,[]) when x=Api_errors.no_hosts_available ->
+	    debug "No hosts guaranteed to satisfy VM constraints. Trying again ignoring memory checks";
+	    let validate_host = vm_can_run_on_host __context vm snapshot false in
+	    Xapi_vm_placement.select_host __context vm validate_host
 
 (** Given a virtual machine, returns a host it can boot on, giving   *)
 (** priority to an affinity host if one is present. WARNING: called  *)
 (** while holding the global lock from the message forwarding layer. *)
 let choose_host_for_vm ~__context ~vm ~snapshot =
-	if choose_host_uses_wlb ~__context then
-		try
-			let rec filter_and_convert recs =
-				match recs with
-				| (h, recom) :: tl ->
-					begin
-						debug "\n%s\n" (String.concat ";" recom);
-						match recom with
-						| ["WLB"; "0.0"; rec_id; zero_reason] ->
-							filter_and_convert tl
-						| ["WLB"; stars; rec_id] ->
-							(h, float_of_string stars, rec_id)
-								:: filter_and_convert tl
-						| _ -> filter_and_convert tl
-					end
-				| [] -> []
-			in
-			begin
-				let all_hosts =
-					(List.sort
-						(fun (h, s, r) (h', s', r') ->
-							if s < s' then 1 else if s > s' then -1 else 0)
-						(filter_and_convert (retrieve_wlb_recommendations
-							~__context ~vm ~snapshot))
-					)
-				in
-				debug "Hosts sorted in priority: %s"
-					(List.fold_left
-						(fun a (h,s,r) ->
-							a ^ (Printf.sprintf "%s %f,"
-								(Db.Host.get_name_label ~__context ~self:h) s)
-						) "" all_hosts
-					);
-				match all_hosts with
-				| (h,s,r)::_ ->
-					debug "Wlb has recommended host %s"
-						(Db.Host.get_name_label ~__context ~self:h);
-					let action = Db.Task.get_name_label ~__context
-						~self:(Context.get_task_id __context) in
-					let oc = Db.Pool.get_other_config ~__context
-						~self:(Helpers.get_pool ~__context) in
-					Db.Task.set_other_config ~__context
-						~self:(Context.get_task_id __context)
-						~value:([
-							("wlb_advised", r);
-							("wlb_action", action);
-							("wlb_action_obj_type", "VM");
-							("wlb_action_obj_ref", (Ref.string_of vm))
-						] @ oc);
-					h
-				| _ ->
-					debug "Wlb has no recommendations. \
-						Using original algorithm";
-					choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
-			end
-		with
-		| Api_errors.Server_error(error_type, error_detail) ->
-			debug "Encountered error when using wlb for choosing host \
-				\"%s: %s\". Using original algorithm"
-				error_type
-				(String.concat "" error_detail);
-			begin
-				try
-					let uuid = Db.VM.get_uuid ~__context ~self:vm in
-					let message_body =
-						Printf.sprintf
-							"Wlb consultation for VM '%s' failed (pool uuid: %s)"
-							(Db.VM.get_name_label ~__context ~self:vm)
-							(Db.Pool.get_uuid ~__context
-								~self:(Helpers.get_pool ~__context))
-					in
-					let (name, priority) = Api_messages.wlb_failed in
-					ignore (Xapi_message.create ~__context ~name ~priority
-						~cls:`VM ~obj_uuid:uuid ~body:message_body)
-				with _ -> ()
-			end;
-			choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
-		| Failure "float_of_string" ->
-			debug "Star ratings from wlb could not be parsed to floats. \
-				Using original algorithm";
-			choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
-		| _ ->
-			debug "Encountered an unknown error when using wlb for \
-				choosing host. Using original algorithm";
-			choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
-	else
 		begin
 			debug "Using wlb recommendations for choosing a host has been \
 				disabled or wlb is not available. Using original algorithm";
@@ -893,3 +788,17 @@ let consider_generic_bios_strings ~__context ~vm =
 		info "The VM's BIOS strings were not yet filled in. The VM is now made BIOS-generic.";
 		Db.VM.set_bios_strings ~__context ~self:vm ~value:Xapi_globs.generic_bios_strings
 	end
+
+(* Windows VM Generation ID *)
+
+let fresh_genid () =
+	Printf.sprintf "%Ld:%Ld"
+		(Random.int64 Int64.max_int)
+		(Random.int64 Int64.max_int)
+
+let vm_fresh_genid ~__context ~self =
+	let genid = fresh_genid ()
+	and uuid = Db.VM.get_uuid ~__context ~self in
+	debug "Refreshing GenID for VM %s to %s" uuid genid;
+	Db.VM.set_generation_id ~__context ~self ~value:genid ;
+	genid

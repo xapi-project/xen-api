@@ -74,12 +74,12 @@ let create_domain ~xc ~xs ~hvm =
 let default_xenguest = "/opt/xensource/libexec/xenguest"
 
 let build_domain ~xc ~xs ~kernel ?(ramdisk=None) ~cmdline ~domid ~vcpus ~static_max_kib ~target_kib =
-	let (_: Domain.domarch) = Domain.build_linux task xc xs static_max_kib target_kib
+	let (_: Domain.domarch) = Domain.build_linux task xc xs 0 0 static_max_kib target_kib
 	                                             kernel cmdline ramdisk vcpus default_xenguest domid in
 	printf "built domain: %u\n" domid
 
 let build_hvm ~xc ~xs ~kernel ~domid ~vcpus ~static_max_kib ~target_kib =
-	let (_: Domain.domarch) = Domain.build_hvm task xc xs static_max_kib target_kib 1.
+	let (_: Domain.domarch) = Domain.build_hvm task xc xs 0 0 static_max_kib target_kib 1.
 	                                           vcpus kernel "" 4 default_xenguest domid in
 	printf "built hvm domain: %u\n" domid
 
@@ -322,13 +322,14 @@ let add_dm ~xs ~domid ~static_max_kib ~vcpus ~boot =
  	  Device.Dm.memory = static_max_kib;
  	  Device.Dm.boot = boot;
  	  Device.Dm.serial = Some "pty";
-	  Device.Dm.monitor = Some "pty";
+	  Device.Dm.monitor = Some "null";
  	  Device.Dm.vcpus = vcpus;
  	  Device.Dm.nics = [];
 	  Device.Dm.disks = [];
  	  Device.Dm.pci_emulations = [];
 	  Device.Dm.pci_passthrough = false;
- 	  Device.Dm.usb = [];
+ 	  Device.Dm.usb = Device.Dm.Disabled;
+ 	  Device.Dm.parallel = None;
  	  Device.Dm.acpi = true;
  	  Device.Dm.disp = Device.Dm.NONE;
 

@@ -267,7 +267,7 @@ let pool_joining_host_must_have_physical_managment_nic = "POOL_JOINING_HOST_MUST
 let pool_joining_external_auth_mismatch = "POOL_JOINING_EXTERNAL_AUTH_MISMATCH"
 let pool_joining_host_must_have_same_product_version = "POOL_JOINING_HOST_MUST_HAVE_SAME_PRODUCT_VERSION"
 
-(*workload balancing*)
+(* workload balancing, deprecated since Clearwater *)
 let wlb_not_initialized = "WLB_NOT_INITIALIZED"
 let wlb_disabled = "WLB_DISABLED"
 let wlb_connection_refused = "WLB_CONNECTION_REFUSED"
@@ -308,6 +308,7 @@ let patch_precheck_failed_prerequisite_missing = "PATCH_PRECHECK_FAILED_PREREQUI
 let patch_precheck_failed_wrong_server_version = "PATCH_PRECHECK_FAILED_WRONG_SERVER_VERSION"
 let patch_precheck_failed_wrong_server_build = "PATCH_PRECHECK_FAILED_WRONG_SERVER_BUILD"
 let patch_precheck_failed_vm_running = "PATCH_PRECHECK_FAILED_VM_RUNNING"
+let patch_precheck_tools_iso_mounted = "PATCH_PRECHECK_FAILED_ISO_MOUNTED"
 let patch_apply_failed = "PATCH_APPLY_FAILED"
 let cannot_find_oem_backup_partition = "CANNOT_FIND_OEM_BACKUP_PARTITION"
 let only_allowed_on_oem_edition = "ONLY_ALLOWED_ON_OEM_EDITION"
@@ -335,6 +336,7 @@ let feature_restricted = "FEATURE_RESTRICTED"
 let xmlrpc_unmarshal_failure = "XMLRPC_UNMARSHAL_FAILURE"
 
 let duplicate_vm = "DUPLICATE_VM"
+let duplicate_mac_seed = "DUPLICATE_MAC_SEED"
 
 let client_error = "CLIENT_ERROR"
 
@@ -368,6 +370,7 @@ let ha_constraint_violation_network_not_shared = "HA_CONSTRAINT_VIOLATION_NETWOR
 let ha_operation_would_break_failover_plan = "HA_OPERATION_WOULD_BREAK_FAILOVER_PLAN"
 
 let cannot_evacuate_host = "CANNOT_EVACUATE_HOST"
+let host_evacuate_in_progress = "HOST_EVACUATE_IN_PROGRESS"
 
 let system_status_retrieval_failed = "SYSTEM_STATUS_RETRIEVAL_FAILED"
 let system_status_must_use_tar_on_oem = "SYSTEM_STATUS_MUST_USE_TAR_ON_OEM"
@@ -462,3 +465,4 @@ let vm_has_checkpoint = "VM_HAS_CHECKPOINT"
 
 let mirror_failed = "MIRROR_FAILED"
 let too_many_storage_migrates = "TOO_MANY_STORAGE_MIGRATES"
+let unimplemented_in_sm_backend = "UNIMPLEMENTED_IN_SM_BACKEND"

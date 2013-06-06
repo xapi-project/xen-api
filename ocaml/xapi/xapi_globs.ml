@@ -22,6 +22,9 @@ module D = Debug.Debugger(struct let name="xapi_globs" end)
 (* set this to true to use the experimental codepath *)
 let use_xenopsd = ref false
 
+(* set this to true to enable XSM to out-of-pool SRs with matching UUID *)
+let relax_xsm_sr_check = ref false
+
 (* xapi process returns this code on exit when it wants to be restarted *)
 let restart_return_code = 123
 
@@ -35,8 +38,8 @@ let version_minor = Version.xapi_version_minor
 let xapi_user_agent = "xapi/"^(string_of_int version_major)^"."^(string_of_int version_minor)
 
 (* api version *)
-let api_version_major = 1L
-let api_version_minor = 10L
+let api_version_major = 2L
+let api_version_minor = 0L
 let api_version_string =
   Printf.sprintf "%Ld.%Ld" api_version_major api_version_minor
 let api_version_vendor = "XenSource"
@@ -49,7 +52,7 @@ let tools_version = ref tools_version_none
 
 (* client min/max version range *)
 let xencenter_min_verstring = "1.10"
-let xencenter_max_verstring = "1.10"
+let xencenter_max_verstring = "2.0"
 
 (* linux pack vsn key in host.software_version (used for a pool join restriction *)
 let linux_pack_vsn_key = "xs:linux"
@@ -234,6 +237,12 @@ let max_tasks = 200
 (* We must allow for more sessions than running tasks *)
 let max_sessions = max_tasks * 2
 
+(* For sessions with specified originator, their session limits are counted independently. *)
+let max_sessions_per_originator = 50
+
+(* For sessions with specifiied user name (non-root), their session limit are counted independently *)
+let max_sessions_per_user_name = 50
+
 (* The Unix.time that represents the maximum time in the future that a 32 bit time can cope with *)
 let the_future = 2147483647.0
 
@@ -294,9 +303,6 @@ let i18n_original_value_prefix = "i18n-original-value-"
 
 (* Primitive access control mechanism: CA-12313 *)
 let _sm_session = "_sm_session"
-
-let snapshot_of = "snapshot_of"
-let snapshot_time = "snapshot_time"
 
 (* Mark objects created by an import for CA-11743 on their 'other-config' field *)
 let import_task = "import_task"
@@ -465,11 +471,6 @@ let vgpu_pci = "vgpu_pci"
 
 let dev_zero = "/dev/zero"
 
-let wlb_timeout = "wlb_timeout"
-let wlb_reports_timeout = "wlb_reports_timeout"
-let default_wlb_timeout = 30.0
-let default_wlb_reports_timeout = 600.0
-
 (** {2 Settings relating to dynamic memory control} *)
 
 (** A pool-wide configuration key that specifies for HVM guests a lower bound
@@ -616,7 +617,7 @@ let pool_db_sync_interval = ref 300.
 let pool_data_sync_interval = ref 86400.
 
 let domain_shutdown_ack_timeout = ref 10.
-let domain_shutdown_total_timeout = ref 720.
+let domain_shutdown_total_timeout = ref 1200.
 
 (* The actual reboot delay will be a random value between base and base + extra *)
 let emergency_reboot_delay_base = ref 60.

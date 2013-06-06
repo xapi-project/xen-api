@@ -177,7 +177,6 @@ let signals_handling () =
   Sys.set_signal Sys.sigint (Sys.Signal_handle cleanup_handler)
 
 let random_setup () =
-  Random.self_init ();
   let n = 8 in
   let s = String.create n in
 
@@ -629,6 +628,7 @@ let common_http_handlers = [
   ("put_import_raw_vdi", (Http_svr.FdIO Import_raw_vdi.handler));
   ("get_export", (Http_svr.FdIO Export.handler));
   ("get_export_metadata", (Http_svr.FdIO Export.metadata_handler));
+  ("get_export_raw_vdi", (Http_svr.FdIO Export_raw_vdi.handler));
   ("connect_console", Http_svr.FdIO (Console.handler Console.real_proxy));
   ("connect_console_ws", Http_svr.FdIO (Console.handler Console.ws_proxy));
   ("get_root", Http_svr.BufIO (Fileserver.send_file "/" Fhs.webdir));
@@ -656,8 +656,6 @@ let common_http_handlers = [
   ("put_messages", (Http_svr.FdIO Xapi_message.handler));
   ("connect_remotecmd", (Http_svr.FdIO Xapi_remotecmd.handler));
   ("post_remote_stats", (Http_svr.BufIO remote_stats_handler));
-  ("get_wlb_report", (Http_svr.BufIO Wlb_reports.report_handler));
-  ("get_wlb_diagnostics", (Http_svr.BufIO Wlb_reports.diagnostics_handler));
   ("get_audit_log", (Http_svr.BufIO Audit_log.handler));
   ("post_root", (Http_svr.BufIO (Api_server.callback false)));
   ("post_json", (Http_svr.BufIO (Api_server.callback true)));

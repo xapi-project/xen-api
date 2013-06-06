@@ -710,6 +710,14 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let set_vswitch_controller ~__context ~address =
 			info "Pool.set_vswitch_controller: pool = '%s'; address = '%s'" (current_pool_uuid ~__context) address;
 			Local.Pool.set_vswitch_controller ~__context ~address
+
+		let get_license_state ~__context ~self =
+			info "Pool.get_license_state: pool = '%s'" (pool_uuid ~__context self);
+			Local.Pool.get_license_state ~__context ~self
+
+		let apply_edition ~__context ~self ~edition =
+			info "Pool.apply_edition: pool = '%s'; edition = '%s'" (pool_uuid ~__context self) edition;
+			Local.Pool.apply_edition ~__context ~self ~edition
 	end
 
 	module VM = struct
@@ -985,9 +993,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		(* -------------------------------------------------------------------------- *)
 
 		(* don't forward create. this just makes a db record *)
-		let create ~__context ~name_label ~name_description ~user_version ~is_a_template ~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~recommendations ~xenstore_data  ~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy ~is_snapshot_from_vmpp ~appliance ~start_delay ~shutdown_delay ~order ~suspend_SR ~version =
+		let create ~__context ~name_label ~name_description ~user_version ~is_a_template ~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~recommendations ~xenstore_data  ~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy ~is_snapshot_from_vmpp ~appliance ~start_delay ~shutdown_delay ~order ~suspend_SR ~version ~generation_id =
 			info "VM.create: name_label = '%s' name_description = '%s'" name_label name_description;
-			Local.VM.create ~__context ~name_label ~name_description ~user_version ~is_a_template ~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config  ~recommendations ~xenstore_data  ~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy ~is_snapshot_from_vmpp ~appliance ~start_delay ~shutdown_delay ~order ~suspend_SR ~version
+			Local.VM.create ~__context ~name_label ~name_description ~user_version ~is_a_template ~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config  ~recommendations ~xenstore_data  ~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy ~is_snapshot_from_vmpp ~appliance ~start_delay ~shutdown_delay ~order ~suspend_SR ~version ~generation_id
 
 		(* don't forward destroy. this just deletes db record *)
 		let destroy ~__context ~self =
@@ -1090,15 +1098,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 		let copy ~__context ~vm ~new_name ~sr =
 			info "VM.copy: VM = '%s'; new_name = '%s'; SR = '%s'" (vm_uuid ~__context vm) new_name (sr_uuid ~__context sr);
-			let local_fn = Local.VM.copy ~vm ~new_name ~sr in
 			(* We mark the VM as cloning. We don't mark the disks; the implementation of the clone
 			   uses the API to clone and lock the individual VDIs. We don't give any atomicity
-			   guarantees here but we do prevent disk corruption. *)
+			   guarantees here but we do prevent disk corruption.
+			   VM.copy is always run on the master - the VDI.copy subtask(s) will be
+			   forwarded to suitable hosts. *)
 			with_vm_operation ~__context ~self:vm ~doc:"VM.copy" ~op:`copy
-				(fun () ->
-					forward_to_access_srs ~local_fn ~__context ~vm
-						(fun session_id rpc -> Client.VM.copy rpc session_id vm new_name sr))
-
+				(fun () -> Local.VM.copy ~__context ~vm ~new_name ~sr)
 
 		exception Ambigious_provision_spec
 		exception Not_forwarding
@@ -1209,6 +1215,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			if Helpers.rolling_upgrade_in_progress ~__context
 			then Helpers.assert_host_has_highest_version_in_pool
 				~__context ~host ;
+			(* Prevent VM start on a host that is evacuating *)
+			List.iter (fun op ->
+				match op with
+				| ( _ , `evacuate ) -> raise (Api_errors.Server_error(Api_errors.host_evacuate_in_progress, [(Ref.string_of host)]));
+				| _ -> ())
+			(Db.Host.get_current_operations ~__context ~self:host);
 			info "VM.start_on: VM = '%s'; host '%s'"
 				(vm_uuid ~__context vm) (host_uuid ~__context host);
 			let local_fn = Local.VM.start_on ~vm ~host ~start_paused ~force in
@@ -1302,6 +1314,25 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			update_vbd_operations ~__context ~vm;
 			update_vif_operations ~__context ~vm
 
+		let shutdown ~__context ~vm =
+			info "VM.shutdown: VM = '%s'" (vm_uuid ~__context vm);
+			let local_fn = Local.VM.shutdown ~vm in
+			with_vm_operation ~__context ~self:vm ~doc:"VM.shutdown" ~op:`shutdown
+				(fun () ->
+					forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc -> Client.VM.shutdown rpc session_id vm);
+					Xapi_vm_helpers.shutdown_delay ~__context ~vm
+				);
+			update_vbd_operations ~__context ~vm;
+			update_vif_operations ~__context ~vm;
+			let uuid = Db.VM.get_uuid ~__context ~self:vm in
+			let message_body =
+				Printf.sprintf "VM '%s' shutdown"
+					(Db.VM.get_name_label ~__context ~self:vm)
+			in
+			let (name, priority) = Api_messages.vm_shutdown in
+			(try ignore(Xapi_message.create ~__context ~name 
+				~priority ~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ())
+
 		let clean_reboot ~__context ~vm =
 			info "VM.clean_reboot: VM = '%s'" (vm_uuid ~__context vm);
 			let local_fn = Local.VM.clean_reboot ~vm in
@@ -1338,6 +1369,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let local_fn = Local.VM.hard_shutdown ~vm in
 			with_vm_operation ~__context ~self:vm ~doc:"VM.hard_shutdown" ~op:`hard_shutdown
 				(fun () ->
+				  List.iter (fun (task,op) ->
+				    if op = `clean_shutdown then
+				      try Local.Task.cancel ~__context ~task:(Ref.of_string task) with _ -> ()) (Db.VM.get_current_operations ~__context ~self:vm);
+
 					(* If VM is actually suspended and we ask to hard_shutdown, we need to
 					   forward to any host that can see the VDIs *)
 					let policy =
@@ -1382,6 +1417,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let local_fn = Local.VM.hard_reboot ~vm in
 			with_vm_operation ~__context ~self:vm ~doc:"VM.hard_reboot" ~op:`hard_reboot
 				(fun () ->
+				  List.iter (fun (task,op) ->
+				    if op = `clean_reboot then
+				      try Local.Task.cancel ~__context ~task:(Ref.of_string task) with _ -> ()) (Db.VM.get_current_operations ~__context ~self:vm);
+
+
 					with_vbds_marked ~__context ~vm ~doc:"VM.hard_reboot" ~op:`attach
 						(fun vbds ->
 							with_vifs_marked ~__context ~vm ~doc:"VM.hard_reboot" ~op:`attach
@@ -1838,10 +1878,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			info "VM.assert_can_boot_here: VM = '%s'; host = '%s'" (vm_uuid ~__context self) (host_uuid ~__context host);
 			Local.VM.assert_can_boot_here ~__context ~self ~host
 
-		let retrieve_wlb_recommendations ~__context ~vm  =
-			info "VM.retrieve_wlb_recommendations: VM = '%s'" (vm_uuid ~__context vm);
-			Local.VM.retrieve_wlb_recommendations ~__context ~vm
-
 		let assert_agile ~__context ~self =
 			info "VM.assert_agile: VM = '%s'" (vm_uuid ~__context self);
 			Local.VM.assert_agile ~__context ~self
@@ -2099,6 +2135,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.disable rpc session_id host);
 			Xapi_host_helpers.update_allowed_operations ~__context ~self:host
 
+		let declare_dead ~__context ~host =
+			info "Host.declare_dead: host = '%s'" (host_uuid ~__context host);
+			Local.Host.declare_dead ~__context ~host;
+			Xapi_host_helpers.update_allowed_operations ~__context ~self:host
+
 		let enable ~__context ~host =
 			info "Host.enable: host = '%s'" (host_uuid ~__context host);
 			let local_fn = Local.Host.enable ~host in
@@ -2158,10 +2199,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let local_fn = Local.Host.get_log ~host in
 			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.get_log rpc session_id host)
 
+		(* The message is already marked as Removed, it should be safe to remove the dispatching logic here 
+ 
 		let license_apply ~__context ~host ~contents =
 			info "Host.license_apply: host = '%s'" (host_uuid ~__context host);
 			let local_fn = Local.Host.license_apply ~host ~contents in
 			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.license_apply rpc session_id host contents)
+		*)
 
 		let assert_can_evacuate ~__context ~host =
 			info "Host.assert_can_evacuate: host = '%s'" (host_uuid ~__context host);
@@ -2179,10 +2223,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				(fun () ->
 					Local.Host.evacuate ~__context ~host
 				)
-
-		let retrieve_wlb_evacuate_recommendations ~__context ~self =
-			info "Host.retrieve_wlb_evacuate_recommendations: host = '%s'" (host_uuid ~__context self);
-			Local.Host.retrieve_wlb_evacuate_recommendations ~__context ~self
 
 		let update_pool_secret ~__context ~host ~pool_secret =
 			info "Host.update_pool_secret: host = '%s'" (host_uuid ~__context host);
@@ -2386,10 +2426,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let local_fn = Local.Host.set_localdb_key ~host ~key ~value in
 			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.set_localdb_key rpc session_id host key value)
 
-		let apply_edition ~__context ~host ~edition =
-			info "Host.apply_edition: host = '%s'; edition = '%s'" (host_uuid ~__context host) edition;
-			let local_fn = Local.Host.apply_edition ~host ~edition in
-			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.apply_edition rpc session_id host edition)
+		let apply_edition ~__context ~host ~edition ~force =
+			info "Host.apply_edition: host = '%s'; edition = '%s'; force = '%s'" (host_uuid ~__context host) edition (string_of_bool force);
+			let local_fn = Local.Host.apply_edition ~host ~edition ~force in
+			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.apply_edition rpc session_id host edition force)
 
 		let refresh_pack_info ~__context ~host =
 			info "Host.refresh_pack_info: host = '%s'" (host_uuid ~__context host);
@@ -2794,38 +2834,20 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			info "PIF.reconfigure_ip: PIF = '%s'; mode = '%s'; IP = '%s'; netmask = '%s'; gateway = '%s'; DNS = %s"
 				(pif_uuid ~__context self)
 				(Record_util.ip_configuration_mode_to_string mode) iP netmask gateway dNS;
-
-			(*      let host = Db.PIF.get_host ~__context ~self in
-			        let pbds = Db.Host.get_PBDs ~__context ~self:host in
-
-			        if Db.Host.get_enabled ~__context ~self then
-			        raise (Api_errors.Server_error (Api_errors.host_not_disabled, [host]));
-
-			        List.iter (fun pbd -> if Db.PBD.get_currently_attached ~__context ~self:pbd then
-			        raise (Api_errors.Server_error (Api_errors.sr_attached, [Db.PBD.get_SR ~__context ~self:pbd]))) pbds;
-
-			        if List.length (Db.Host.get_resident_VMs ~__context ~self:host) > 1 then
-			        raise (Api_errors.Server_error (Api_errors.host_in_use, ["VM",""]));*)
-
+			let host = Db.PIF.get_host ~__context ~self in
 			let local_fn = Local.PIF.reconfigure_ip ~self ~mode ~iP ~netmask ~gateway ~dNS in
-			do_op_on ~local_fn ~__context ~host:(Db.PIF.get_host ~__context ~self)
-				(fun session_id rpc ->
-					(* Reconfiguring the IP will potentially kill the connection without causing
-					   this end to die quickly. To get around this, we spawn a new thread to do the
-					   work and monitor the status of the task, which will be completed on the slave.
-					   We ignore errors at the moment (only on slaves) *)
-					let (_: Thread.t) = Thread.create (fun () ->
-						Client.PIF.reconfigure_ip rpc session_id self mode iP netmask gateway dNS) () in
-					let task_id = Context.get_task_id __context in
-					let start_time = Unix.gettimeofday () in
-					let progress = ref 0.0 in
-					while !progress = 0.0 do
-						if Unix.gettimeofday () -. start_time > !Xapi_globs.pif_reconfigure_ip_timeout then
-							failwith "Failed to see host on network after timeout expired";
-						Thread.delay 1.0;
-						progress := Db.Task.get_progress ~__context ~self:task_id;
-						debug "Polling task %s progress" (Ref.string_of task_id)
-					done)
+			let task = Context.get_task_id __context in
+			let success () =
+				let status = Db.Task.get_status ~__context ~self:task in
+				if status <> `pending then
+					Some ()
+				else
+					None
+			in
+			let fn () =
+				do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
+					Client.PIF.reconfigure_ip rpc session_id self mode iP netmask gateway dNS) in
+			tolerate_connection_loss fn success !Xapi_globs.pif_reconfigure_ip_timeout
 
 		let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
 			info "PIF.reconfigure_ipv6: PIF = '%s'; mode = '%s'; IPv6 = '%s'; gateway = '%s'; DNS = %s"
@@ -3276,6 +3298,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 			info "VDI.pool_migrate: VDI = '%s'; SR = '%s'; VM = '%s'"
 			    (vdi_uuid ~__context vdi) (sr_uuid ~__context sr) (vm_uuid ~__context vm);
+
+			Xapi_vm_lifecycle.assert_operation_valid ~__context ~self:vm ~op:`migrate_send;
 
 			VM.with_vm_operation ~__context ~self:vm ~doc:"VDI.pool_migrate" ~op:`migrate_send
 			    (fun () ->

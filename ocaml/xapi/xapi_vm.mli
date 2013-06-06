@@ -24,9 +24,6 @@ val update_allowed_operations :
   __context:Context.t -> self:[ `VM ] Ref.t -> unit
 val assert_can_boot_here :
   __context:Context.t -> self:[ `VM ] Ref.t -> host:API.ref_host -> unit
-val retrieve_wlb_recommendations :
-  __context:Context.t ->
-  vm:[ `VM ] Ref.t -> (API.ref_host * string list) list
 val assert_agile : __context:Context.t -> self:[ `VM ] Ref.t -> unit
 val immediate_complete : __context:Context.t -> unit
 val set_actions_after_shutdown :
@@ -92,6 +89,7 @@ val hard_reboot : __context:Context.t -> vm:API.ref_VM -> unit
 val hard_shutdown : __context:Context.t -> vm:API.ref_VM -> unit
 val clean_reboot : __context:Context.t -> vm:API.ref_VM -> unit
 val clean_shutdown : __context:Context.t -> vm:API.ref_VM -> unit
+val shutdown : __context:Context.t -> vm:API.ref_VM -> unit
 val hard_reboot_internal : __context:Context.t -> vm:API.ref_VM -> unit
 val power_state_reset : __context:Context.t -> vm:API.ref_VM -> unit
 val suspend : __context:Context.t -> vm:API.ref_VM -> unit
@@ -148,7 +146,8 @@ val create :
   shutdown_delay:int64 ->
   order:int64 ->
   suspend_SR:[ `SR ] Ref.t ->
-  version:int64
+  version:int64 ->
+  generation_id:string
 -> API.ref_VM
 val destroy : __context:Context.t -> self:[ `VM ] Ref.t -> unit
 val clone :

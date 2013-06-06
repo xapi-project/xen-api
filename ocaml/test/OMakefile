@@ -25,11 +25,17 @@ OCAML_LIBS = \
 OCAML_OBJS = \
 	../idl/api_lowlevel \
 	mock \
+	test_highlevel \
 	test_common \
 	test_basic \
 	test_pool_db_backup \
 	test_xapi_db_upgrade \
 	test_ca91480 \
+	test_vdi_allowed_operations \
 	test_pr1510 \
+	test_pool_apply_edition \
+	test_pool_license \
+	test_platformdata \
+	test_sm_features \
 
 OCamlProgram(suite, suite $(OCAML_OBJS) )

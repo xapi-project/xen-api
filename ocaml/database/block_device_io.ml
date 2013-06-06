@@ -90,7 +90,8 @@
 
 open Pervasiveext
 
-module R = Debug.Debugger(struct let name = "block_device_io" end)
+let name = "block_device_io"
+module R = Debug.Debugger(struct let name = name end)
 
 let magic = "redo-log--------" (* 16 bytes *)
 
@@ -118,7 +119,9 @@ exception EndOfDeltas
 exception NotEnoughSpace
 
 (* Make informational output go to the syslog *)
-let initialise_logging () = Debug.set_facility Syslog_transitional.Local5
+let initialise_logging () =
+	Debug.set_facility Syslog.Local5;
+	Debug.disable ~level:Syslog.Debug name
 
 (* --------------------------------------------- *)
 (* Functions to deal with layout of block device *)
@@ -499,8 +502,6 @@ let action_writedelta block_dev_fd client datasock target_response_time =
   let failure_mesg = "writedelta|nack" in
   let success_mesg = "writedelta|ack_" in
 
-  R.debug "Received writedelta command";
-
   (* Read marker, generation count, length and delta from client *)
   read_separator client;
   let marker = read_marker client in
@@ -512,12 +513,11 @@ let action_writedelta block_dev_fd client datasock target_response_time =
   read_separator client;
   let data = read_data client length in
 
-  R.debug "Read params from the client: generation count [%d] length [%d]" (int_of_string generation_count) length;
+  R.debug "writedelta command read params from client: generation count [%d] length [%d]" (int_of_string generation_count) length;
 
   try
     (* Read the validity byte *)
     let validity = read_validity_byte block_dev_fd target_response_time in
-    R.debug "Read validity byte: %s" validity;
 
     (* Decide which half of the double-buffered file to use *)
     let half_to_use = match validity with
@@ -542,9 +542,7 @@ let action_writedelta block_dev_fd client datasock target_response_time =
     if str_len > available_space then raise NotEnoughSpace;
 
     (* Write the delta *)
-    R.debug "Writing delta...";
     Unixext.time_limited_write block_dev_fd str_len str target_response_time;
-    R.debug "Written delta";
 
     (* Set the internal pointer for this half to the position after this point *)
     set_pointer half_to_use (str_len + pos);
@@ -561,7 +559,7 @@ let action_writedelta block_dev_fd client datasock target_response_time =
     R.warn "Received timeout during delta write. Sending failure message.";
     send_failure client failure_mesg Block_device_io_errors.timeout_error_msg
   | InvalidBlockDevice ->
-    R.error "Block device is invalid. Sending failure message.";
+    R.error "Block device is invalid (in action_writedelta). Sending failure message.";
     send_failure client failure_mesg Block_device_io_errors.not_initialised_error_msg
   | NotEnoughSpace ->
     R.warn "Not enough space on block device. Sending failure message.";

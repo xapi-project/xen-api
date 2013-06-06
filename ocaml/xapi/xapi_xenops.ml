@@ -70,13 +70,109 @@ let xenapi_of_xenops_power_state = function
 	| Some Paused -> `Paused
 	| None -> `Halted
 
-(* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
-let filtered_platform_flags = ["acpi"; "apic"; "nx"; "pae"; "viridian";
-                               "acpi_s3";"acpi_s4"; "mmio_size_mib"; "revision"; "device_id";
-                               "tsc_mode"; "device-model"; "xenguest";
-                               "pv-kernel-max-size"; "pv-ramdisk-max-size";
-                               "pv-postinstall-kernel-max-size"; "pv-postinstall-ramdisk-max-size"
-                             ]
+module Platform = struct
+	(* Keys we push through to xenstore. *)
+	let acpi = "acpi"
+	let apic = "apic"
+	let nx = "nx"
+	let pae = "pae"
+	let viridian = "viridian"
+	let acpi_s3 = "acpi_s3"
+	let acpi_s4 = "acpi_s4"
+	let mmio_size_mib = "mmio_size_mib"
+	let revision = "revision"
+	let device_id = "device_id"
+	let tsc_mode = "tsc_mode"
+	let device_model = "device-model"
+	let xenguest = "xenguest"
+	let pv_kernel_max_size = "pv-kernel-max-size"
+	let pv_ramdisk_max_size = "pv-ramdisk-max-size"
+	let pv_postinstall_kernel_max_size = "pv-postinstall-kernel-max-size"
+	let pv_postinstall_ramdisk_max_size = "pv-postinstall-ramdisk-max-size"
+	let usb = "usb"
+	let usb_tablet = "usb_tablet"
+	let parallel = "parallel"
+
+	(* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
+	let filtered_flags = [
+		acpi;
+		apic;
+		nx;
+		pae;
+		viridian;
+		acpi_s3;
+		acpi_s4;
+		mmio_size_mib;
+		revision;
+		device_id;
+		tsc_mode;
+		device_model;
+		xenguest;
+		pv_kernel_max_size;
+		pv_ramdisk_max_size;
+		pv_postinstall_kernel_max_size;
+		pv_postinstall_ramdisk_max_size;
+		usb;
+		usb_tablet;
+		parallel;
+	]
+
+	(* Other keys we might want to write to the platform map. *)
+	let timeoffset = "timeoffset"
+	let generation_id = "generation-id"
+
+	(* Helper functions. *)
+	let is_true ~key ~platformdata ~default =
+		try
+			match List.assoc key platformdata with
+			| "true" | "1" -> true
+			| "false" | "0" -> false
+			| _ -> default
+		with Not_found ->
+			default
+
+	let sanity_check ~platformdata ~filter_out_unknowns =
+		(* Filter out unknown flags, if applicable *)
+		let platformdata =
+			if filter_out_unknowns
+			then List.filter (fun (k, v) -> List.mem k filtered_flags) platformdata
+			else platformdata
+		in
+		(* Filter out invalid TSC modes. *)
+		let platformdata =
+			List.filter
+				(fun (k, v) -> k <> tsc_mode || List.mem v ["0"; "1"; "2"; "3"])
+				platformdata
+		in
+		(* Add usb emulation flags.
+		   Make sure we don't send usb=false and usb_tablet=true,
+		   as that wouldn't make sense. *)
+		let usb_enabled =
+			is_true ~key:usb ~platformdata ~default:true in
+		let usb_tablet_enabled =
+			if usb_enabled
+			then is_true ~key:usb_tablet ~platformdata ~default:true
+			else false
+		in
+		let platformdata =
+			List.update_assoc
+				[(usb, string_of_bool usb_enabled);
+					(usb_tablet, string_of_bool usb_tablet_enabled)]
+				platformdata
+		in
+		(* Filter out invalid values for the "parallel" key. We don't want to give
+		 * guests access to anything other than a real parallel port. *)
+		let platformdata =
+			let is_valid_parallel_flag = function
+				| "none" -> true
+				| dev -> String.startswith "/dev/parport" dev
+			in
+			List.filter
+				(fun (k, v) -> k <> parallel || is_valid_parallel_flag v)
+				platformdata
+		in
+		platformdata
+end
 
 let xenops_vdi_locator_of_strings sr_uuid vdi_location =
 	Printf.sprintf "%s/%s" sr_uuid vdi_location
@@ -105,7 +201,12 @@ let vdi_of_disk ~__context x = match String.split ~limit:2 '/' x with
 			None
 
 let backend_of_network net =
-	Network.Local net.API.network_bridge (* PR-1255 *)
+	if List.mem_assoc "backend_vm" net.API.network_other_config then begin
+		let backend_vm = List.assoc "backend_vm" net.API.network_other_config in
+		debug "Using VM %s as backend for VIF on network %s" backend_vm net.API.network_uuid;
+		Network.Remote (backend_vm, net.API.network_bridge)
+	end else
+		Network.Local net.API.network_bridge (* PR-1255 *)
 
 let find f map default feature =
 	try f (List.assoc feature map)
@@ -115,7 +216,7 @@ let int = find int_of_string
 let bool = find bool_of_string
 
 let rtc_timeoffset_of_vm ~__context (vm, vm_t) vbds =
-	let timeoffset = string vm_t.API.vM_platform "0" "timeoffset" in
+	let timeoffset = string vm_t.API.vM_platform "0" Platform.timeoffset in
 	(* If any VDI has on_boot = reset AND has a VDI.other_config:timeoffset
 	   then we override the platform/timeoffset. This is needed because windows
 	   stores the local time in timeoffset (the BIOS clock) but records whether
@@ -131,7 +232,7 @@ let rtc_timeoffset_of_vm ~__context (vm, vm_t) vbds =
 		|> List.filter_map (fun (reference, record) ->
 			Opt.of_exception (fun () ->
 				reference,
-				List.assoc "timeoffset"
+				List.assoc Platform.timeoffset
 					record.API.vDI_other_config)) in
 	match vdis_with_timeoffset_to_be_reset_on_boot with
 		| [] ->
@@ -184,9 +285,13 @@ let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
 					Cirrus
 			end;
 			acpi = bool vm.API.vM_platform true "acpi";
-			serial = Some (string vm.API.vM_other_config "pty" "hvm_serial");
+			serial = begin
+				if ((string vm.API.vM_platform "" "hvm_serial") = "none") then Some (string vm.API.vM_platform "none" "hvm_serial")
+				else if ((string vm.API.vM_other_config "" "hvm_serial") = "none") then Some (string vm.API.vM_platform "none" "hvm_serial")
+				else Some (string vm.API.vM_platform "pty" "hvm_serial")
+			end;
 			keymap = Some (string vm.API.vM_platform "en-us" "keymap");
-			vnc_ip = Some "0.0.0.0" (*None PR-1255*);
+			vnc_ip = None (*None PR-1255*);
 			pci_emulations = pci_emulations;
 			pci_passthrough = pci_passthrough;
 			boot_order = string vm.API.vM_HVM_boot_params "cd" "order";
@@ -207,17 +312,23 @@ let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
 			PV {
 				boot = Direct { kernel = k; cmdline = ka; ramdisk = initrd };
 				framebuffer = bool vm.API.vM_platform false "pvfb";
-				framebuffer_ip = Some "0.0.0.0"; (* None PR-1255 *)
-				vncterm = true;
+				framebuffer_ip = None; (* None PR-1255 *)
+				vncterm = begin match List.mem_assoc "disable_pv_vnc" vm.API.vM_other_config with
+					|true -> false
+					|false -> true
+				end;
 				vncterm_ip = None (*None PR-1255*);
 			}
 		| Helpers.IndirectPV { Helpers.bootloader = b; extra_args = e; legacy_args = l; pv_bootloader_args = p; vdis = vdis } ->
 			PV {
 				boot = Indirect { bootloader = b; extra_args = e; legacy_args = l; bootloader_args = p; devices = List.filter_map (fun x -> disk_of_vdi ~__context ~self:x) vdis };
 				framebuffer = bool vm.API.vM_platform false "pvfb";
-				framebuffer_ip = Some "0.0.0.0"; (* None PR-1255 *)
-				vncterm = true;
-				vncterm_ip = Some "0.0.0.0" (*None PR-1255*);
+				framebuffer_ip = None; (* None PR-1255 *)
+				vncterm = begin match List.mem_assoc "disable_pv_vnc" vm.API.vM_other_config with
+					|true -> false
+					|false -> true
+				end;
+				vncterm_ip = None (*None PR-1255*);
 			}
 
 let pass_through_pif_carrier = ref false
@@ -422,20 +533,21 @@ module MD = struct
 			{ priority = priority; affinity = affinity } in
 
 		let platformdata =
-			let p = vm.API.vM_platform in
-			if not (Pool_features.is_enabled ~__context Features.No_platform_filter) then
-				List.filter (fun (k, v) -> List.mem k filtered_platform_flags) p
-			else p in
-		let timeoffset = rtc_timeoffset_of_vm ~__context (vmref, vm) vbds in
+			Platform.sanity_check
+				~platformdata:vm.API.vM_platform
+				~filter_out_unknowns:
+					(not(Pool_features.is_enabled ~__context Features.No_platform_filter))
+		in
 		(* Replace the timeoffset in the platform data too, to avoid confusion *)
+		let timeoffset = rtc_timeoffset_of_vm ~__context (vmref, vm) vbds in
 		let platformdata =
-			("timeoffset", timeoffset) ::
-				(List.filter (fun (key, _) -> key <> "timeoffset") platformdata) in
-		(* Filter out invalid TSC modes. *)
+			(Platform.timeoffset, timeoffset) ::
+				(List.filter (fun (key, _) -> key <> Platform.timeoffset) platformdata) in
 		let platformdata =
-			List.filter
-				(fun (k, v) -> k <> "tsc_mode" || List.mem v ["0"; "1"; "2"; "3"])
-				platformdata
+			let genid = match vm.API.vM_generation_id with
+				| "0:0" -> Xapi_vm_helpers.vm_fresh_genid ~__context ~self:vmref
+				| _ -> vm.API.vM_generation_id in
+			(Platform.generation_id, genid) :: platformdata
 		in
 
 		let pci_msitranslate = true in (* default setting *)
@@ -969,9 +1081,8 @@ let update_vm ~__context id =
 								(fun (_, state) ->
 									if state.rtc_timeoffset <> "" then begin
 										debug "xenopsd event: Updating VM %s platform:timeoffset <- %s" id state.rtc_timeoffset;
-										let key = "timeoffset" in
-										(try Db.VM.remove_from_platform ~__context ~self ~key with _ -> ());
-										Db.VM.add_to_platform ~__context ~self ~key ~value:state.rtc_timeoffset;
+										(try Db.VM.remove_from_platform ~__context ~self ~key:Platform.timeoffset with _ -> ());
+										Db.VM.add_to_platform ~__context ~self ~key:Platform.timeoffset ~value:state.rtc_timeoffset;
 									end
 								) info
 						with e ->
@@ -1084,7 +1195,7 @@ let update_vm ~__context id =
 							Opt.iter
 								(fun (_, state) ->
 									debug "xenopsd event: Updating VM %s shadow_multiplier <- %.2f" id state.shadow_multiplier_target;
-									if state.power_state <> Halted then
+									if state.power_state <> Halted && state.shadow_multiplier_target >= 0.0 then
 										Db.VM.set_HVM_shadow_multiplier ~__context ~self ~value:state.shadow_multiplier_target
 								) info
 						with e ->

@@ -80,3 +80,24 @@ sdk-install: install
 .PHONY: clean
 clean:
 	rm -f *.cmi *.cmx *.cmo *.a *.cma *.cmxa *.o *.annot *.run *.opt $(DEBUG_PROGS) $(BIN_PROGS) $(SYMLINK_PROGS) $(OTHER_PROGS)
+
+if $(defined-env DESTDIR)
+	INSTALL_PATH = $(DESTDIR)/$(shell ocamlfind printconf destdir)
+	export
+else
+	INSTALL_PATH = $(shell ocamlfind printconf destdir)
+	export
+
+XENSTORE_WATCH_PACKNAME=xenstore-watch
+
+META: META.in
+	sed 's/@VERSION@/$(PRODUCT_VERSION)/g' < $< > $@
+
+.PHONY: lib-install
+lib-install: META
+	mkdir -p $(INSTALL_PATH)
+	ocamlfind install -destdir $(INSTALL_PATH) -ldconf ignore $(XENSTORE_WATCH_PACKNAME) META $(addsuffixes .cmi,$(XENSTORE_WATCH_OBJS)) $(if $(BYTE_ENABLED), $(XENSTORE_WATCH_LIBNAME).cma) $(if $(NATIVE_ENABLED), $(XENSTORE_WATCH_LIBNAME).cmxa $(XENSTORE_WATCH_LIBNAME).a $(addsuffixes .cmx, $(XENSTORE_WATCH_OBJS)))
+
+.PHONY: lib-uninstall
+lib-uninstall:
+	ocamlfind remove -destdir $(INSTALL_PATH) $(XENSTORE_WATCH_PACKNAME)

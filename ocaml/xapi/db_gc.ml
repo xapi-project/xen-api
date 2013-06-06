@@ -221,7 +221,7 @@ let check_host_liveness ~__context =
 let task_status_is_completed task_status =
     (task_status=`success) || (task_status=`failure) || (task_status=`cancelled)
 
-let timeout_sessions_common ~__context sessions =
+let timeout_sessions_common ~__context sessions limit session_group =
   let unused_sessions = List.filter
     (fun (x, _) -> 
 	  let rec is_session_unused s = 
@@ -243,19 +243,18 @@ let timeout_sessions_common ~__context sessions =
     )
     sessions
   in
-  let disposable_sessions = unused_sessions in
   (* Only keep a list of (ref, last_active, uuid) *)
-  let disposable_sessions = List.map (fun (x, y) -> x, Date.to_float y.Db_actions.session_last_active, y.Db_actions.session_uuid) disposable_sessions in
+  let disposable_sessions = List.map (fun (x, y) -> x, Date.to_float y.Db_actions.session_last_active, y.Db_actions.session_uuid) unused_sessions in
   (* Definitely invalidate sessions last used long ago *)
   let threshold_time = Unix.time () -. !Xapi_globs.inactive_session_timeout in
   let young, old = List.partition (fun (_, y, _) -> y > threshold_time) disposable_sessions in
   (* If there are too many young sessions then we need to delete the oldest *)
   let lucky, unlucky = 
-    if List.length young <= Xapi_globs.max_sessions
+    if List.length young <= limit
     then young, [] (* keep them all *)
     else 
       (* Need to reverse sort by last active and drop the oldest *)
-      List.chop Xapi_globs.max_sessions (List.sort (fun (_,a, _) (_,b, _) -> compare b a) young) in
+      List.chop limit (List.sort (fun (_,a, _) (_,b, _) -> compare b a) young) in
   let cancel doc sessions = 
     List.iter
       (fun (s, active, uuid) ->
@@ -264,19 +263,31 @@ let timeout_sessions_common ~__context sessions =
 	 ) sessions in
   (* Only the 'lucky' survive: the 'old' and 'unlucky' are destroyed *)
   if unlucky <> [] 
-  then debug "Number of disposable sessions in database (%d/%d) exceeds limit (%d): will delete the oldest" (List.length disposable_sessions) (List.length sessions) Xapi_globs.max_sessions;
+  then debug "Number of disposable sessions in database (%d/%d) exceeds limit (%d): will delete the oldest" (List.length disposable_sessions) (List.length sessions) limit;
   cancel "Timed out session because of its age" old;
   cancel "Timed out session because max number of sessions was exceeded" unlucky
 
 let timeout_sessions ~__context =
-  let all_sessions =
-    Db.Session.get_internal_records_where ~__context ~expr:Db_filter_types.True
-  in
-  let (intrapool_sessions, normal_sessions) =
-    List.partition (fun (_, y) -> y.Db_actions.session_pool) all_sessions
-  in begin
-    timeout_sessions_common ~__context normal_sessions;
-    timeout_sessions_common ~__context intrapool_sessions;
+	let all_sessions = Db.Session.get_internal_records_where ~__context ~expr:Db_filter_types.True in
+	let pool_sessions, nonpool_sessions = List.partition (fun (_, s) -> s.Db_actions.session_pool) all_sessions in
+	let use_root_auth_name s = s.Db_actions.session_auth_user_name = "" || s.Db_actions.session_auth_user_name = "root" in
+	let anon_sessions, named_sessions = List.partition (fun (_, s) -> s.Db_actions.session_originator = "" && use_root_auth_name s) nonpool_sessions in
+	let session_groups = Hashtbl.create 37 in
+	List.iter (function (_, s) as rs ->
+		let key = if use_root_auth_name s then `Orig s.Db_actions.session_originator else `Name s.Db_actions.session_auth_user_name in
+		let current_sessions =
+			try Hashtbl.find session_groups key
+			with Not_found -> [] in
+		Hashtbl.replace session_groups key (rs :: current_sessions)
+	) named_sessions;
+	begin
+		Hashtbl.iter
+			(fun key ss -> match key with
+			| `Orig orig -> timeout_sessions_common ~__context ss Xapi_globs.max_sessions_per_originator ("originator:"^orig)
+			| `Name name -> timeout_sessions_common ~__context ss Xapi_globs.max_sessions_per_user_name ("username:"^name))
+			session_groups;
+		timeout_sessions_common ~__context anon_sessions Xapi_globs.max_sessions "external";
+		timeout_sessions_common ~__context pool_sessions Xapi_globs.max_sessions "internal";
   end
 
 let probation_pending_tasks = Hashtbl.create 53
@@ -372,11 +383,7 @@ let detect_rolling_upgrade ~__context =
 		(* If my platform version is different to any host (including myself) then we're in a rolling upgrade mode *)
 		(* NB: it is critical this code runs once in the master of a pool of one before the dbsync, since this
 		   is the only time at which the master's Version will be out of sync with its database record *)
-		let all_hosts = Db.Host.get_all ~__context in
-		let platform_versions = List.map (fun host -> Helpers.version_string_of ~__context host) all_hosts in
-
-		let is_different_to_me platform_version = platform_version <> Version.platform_version in
-		let actually_in_progress = List.fold_left (||) false (List.map is_different_to_me platform_versions) in
+		let actually_in_progress = Helpers.pool_has_different_host_platform_versions ~__context in
 		(* Check the current state of the Pool as indicated by the Pool.other_config:rolling_upgrade_in_progress *)
 		let pools = Db.Pool.get_all ~__context in
 		match pools with
@@ -387,6 +394,7 @@ let detect_rolling_upgrade ~__context =
 					List.mem_assoc Xapi_globs.rolling_upgrade_in_progress (Db.Pool.get_other_config ~__context ~self:pool) in
 				(* Resynchronise *)
 				if actually_in_progress <> pool_says_in_progress then begin
+					let platform_versions = List.map (fun host -> Helpers.version_string_of ~__context host) (Db.Host.get_all ~__context) in
 					debug "xapi platform version = %s; host platform versions = [ %s ]"
 						Version.platform_version (String.concat "; " platform_versions);
 
@@ -470,8 +478,8 @@ let single_pass () =
 						"PGPUs", gc_PGPUs;
 						"Host patches", gc_Host_patches;
 						"Host CPUs", gc_host_cpus;
-						"Sessions", timeout_sessions;
 						"Tasks", timeout_tasks;
+						"Sessions", timeout_sessions;
 						"Messages", gc_messages;
 						(* timeout_alerts; *)
 						(* CA-29253: wake up all blocked clients *)
@@ -500,51 +508,49 @@ let start_db_gc_thread() =
     ) ()
 
 let send_one_heartbeat ~__context ?(shutting_down=false) rpc session_id =
-  let localhost = Helpers.get_localhost ~__context in
-  let time = Unix.gettimeofday () +. (if Xapi_fist.insert_clock_skew () then Xapi_globs.max_clock_skew *. 2. else 0.) in
-  let stuff =
-    [ _time, string_of_float time ]
-	  @ (if shutting_down then [ _shutting_down, "true" ] else [])
-  in
-      
-  let (_: (string*string) list) = Client.Client.Host.tickle_heartbeat rpc session_id localhost stuff in
-  ()
-  (* debug "Master responded with [ %s ]" (String.concat ";" (List.map (fun (a, b) -> a ^ "=" ^ b) response)); *)
-    
+	let localhost = Helpers.get_localhost ~__context in
+	let time = Unix.gettimeofday () +. (if Xapi_fist.insert_clock_skew () then Xapi_globs.max_clock_skew *. 2. else 0.) in
+	let stuff = [
+		_time, string_of_float time
+	] @ (if shutting_down then [ _shutting_down, "true" ] else [])
+	in
+	let (_: (string*string) list) = Client.Client.Host.tickle_heartbeat rpc session_id localhost stuff in
+	()
+	(* debug "Master responded with [ %s ]" (String.concat ";" (List.map (fun (a, b) -> a ^ "=" ^ b) response)); *)
+
 let start_heartbeat_thread() =
-      Debug.name_thread "heartbeat";
-      
-      Server_helpers.exec_with_new_task "Heartbeat" (fun __context ->
-      let localhost = Helpers.get_localhost __context in
-      let pool = Helpers.get_pool __context in
-      let master = Db.Pool.get_master ~__context ~self:pool in
-      let address = Db.Host.get_address ~__context ~self:master in
+	Debug.name_thread "heartbeat";
 
-      if localhost=master then () else begin
+	Server_helpers.exec_with_new_task "Heartbeat" (fun __context ->
+		let localhost = Helpers.get_localhost __context in
+		let pool = Helpers.get_pool __context in
+		let master = Db.Pool.get_master ~__context ~self:pool in
+		let address = Db.Host.get_address ~__context ~self:master in
 
-      while (true) do
-	try
-	  Helpers.call_emergency_mode_functions address
-      (fun rpc session_id ->
-	    
-	    while(true) do
-	      try
-		Thread.delay !Xapi_globs.host_heartbeat_interval;
-		send_one_heartbeat ~__context rpc session_id
-	      with 
-		| (Api_errors.Server_error (x,y)) as e ->
-		    if x=Api_errors.session_invalid 
-		    then raise e 
-		    else debug "Caught exception in heartbeat thread: %s" (ExnHelper.string_of_exn e);
-		| e ->
-		    debug "Caught exception in heartbeat thread: %s" (ExnHelper.string_of_exn e);
-	    done)	    
-	with
-	| Api_errors.Server_error(code, params) when code = Api_errors.session_authentication_failed ->
-	    debug "Master did not recognise our pool secret: we must be pointing at the wrong master. Restarting.";
-	    exit Xapi_globs.restart_return_code
-	| e -> 
-	  debug "Caught %s - logging in again" (ExnHelper.string_of_exn e);
-	  Thread.delay !Xapi_globs.host_heartbeat_interval;
-      done
-      end)
+		if localhost=master then () else begin
+
+			while (true) do
+				try
+					Helpers.call_emergency_mode_functions address
+						(fun rpc session_id ->
+							while(true) do
+								try
+									send_one_heartbeat ~__context rpc session_id;
+									Thread.delay !Xapi_globs.host_heartbeat_interval
+								with
+								| (Api_errors.Server_error (x,y)) as e ->
+									if x=Api_errors.session_invalid
+									then raise e
+									else debug "Caught exception in heartbeat thread: %s" (ExnHelper.string_of_exn e);
+								| e ->
+									debug "Caught exception in heartbeat thread: %s" (ExnHelper.string_of_exn e);
+							done)
+				with
+				| Api_errors.Server_error(code, params) when code = Api_errors.session_authentication_failed ->
+					debug "Master did not recognise our pool secret: we must be pointing at the wrong master. Restarting.";
+					exit Xapi_globs.restart_return_code
+				| e ->
+					debug "Caught %s - logging in again" (ExnHelper.string_of_exn e);
+					Thread.delay !Xapi_globs.host_heartbeat_interval;
+			done
+		end)

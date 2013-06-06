@@ -55,6 +55,23 @@ let oem_patch_keys = [
 	"NEJDMzFFN0Q3M0EwRjdBNzY3QzM3NEMyQTk3NjkwNTYzMERBQTkxNA=="; (* pub=30DAA914 public key *)
 ]
 
+let check_unsigned_patch_fist path =
+	match Xapi_fist.allowed_unsigned_patches () with
+	| None -> false
+	| Some fist ->
+		let sha1 =
+			Sha1sum.sha1sum (fun checksum_fd ->
+				let (_: int64) = Unixext.with_file path [ Unix.O_RDONLY ] 0 (fun fd ->
+					Unixext.copy_file fd checksum_fd
+				) in
+				()
+			)
+		in
+		debug "Patch Sha1sum: %s" sha1;
+		let fist_sha1s = String.split_f String.isspace fist in
+		debug "FIST allowed_unsigned_patches: %s" fist;
+		List.mem sha1 fist_sha1s
+
 let extract_patch path =
   let run_path = path ^ ".run" in
   try
@@ -86,9 +103,21 @@ let extract_patch path =
           )
       );
     run_path
-  with e -> 
-    Unixext.unlink_safe run_path;
-    raise e
+  with e ->
+    if check_unsigned_patch_fist path then begin
+      debug "Patch not signed, but still letting it through";
+      Unixext.with_file run_path [ Unix.O_WRONLY; Unix.O_CREAT ] 0o755
+        (fun fd ->
+          Unixext.with_file path [ Unix.O_RDONLY ] 0
+            (fun fd' ->
+              let (_: int64) = Unixext.copy_file fd' fd in
+              run_path
+            )
+        )
+    end else begin
+      Unixext.unlink_safe run_path;
+      raise e
+    end
 
 
 
@@ -597,6 +626,8 @@ let parse_patch_precheck_xml patch = function
         <info>Any message in text - for errors that don't fit into another category</info>
       </error> *)
       raise (Api_errors.Server_error (Api_errors.patch_precheck_failed_unknown_error, [Ref.string_of patch; info]))
+  | Element("error" , [("errorcode","PATCH_PRECHECK_FAILED_ISO_MOUNTED")], [Element ("info",_, [PCData info])]) ->
+      raise (Api_errors.Server_error (Api_errors.patch_precheck_tools_iso_mounted, [Ref.string_of patch; info]))
   | Element ("error", [("errorcode", "PATCH_PRECHECK_FAILED_PREREQUISITE_MISSING")], children) ->
       (* <error errorcode="PATCH_PRECHECK_FAILED_PREREQUISITE_MISSING">
         <prerequisite uuid="ABCD1234-FEED-DEAD-BEEF-000000000000" />

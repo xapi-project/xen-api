@@ -128,10 +128,10 @@ and ensure_domain_zero_record ~__context (host_info: host_info): [`VM] Ref.t =
 
 and ensure_domain_zero_console_record ~__context ~domain_zero_ref : unit =
 	let dom0_consoles =  Db.VM.get_consoles ~__context ~self: domain_zero_ref in
-	let console_records_rfb = List.filter (fun x -> Db.Console.get_protocol ~__context ~self:x = `rfb) dom0_consoles in 
+	let console_records_rfb = List.filter (fun x -> Db.Console.get_protocol ~__context ~self:x = `rfb) dom0_consoles in
 	let console_records_vt100 = List.filter (fun x -> Db.Console.get_protocol ~__context ~self:x = `vt100) dom0_consoles in
 
- match List.length console_records_rfb, List.length console_records_vt100 with
+	match List.length console_records_rfb, List.length console_records_vt100 with
 		| 1, 1 -> debug "1 RFB, 1 VT100 console found";
 		| _ ->
 			(* if there's not more than one console of each type then something strange is happening*)
@@ -192,12 +192,12 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info)
 		~start_delay:0L
 		~shutdown_delay:0L
 		~order:0L
-		~suspend_SR:Ref.null 
+		~suspend_SR:Ref.null
 		~version:0L
-	;
+		~generation_id:(Xapi_vm_helpers.fresh_genid ());
 	Xapi_vm_helpers.update_memory_overhead ~__context ~vm:domain_zero_ref
 
-and create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref ~dom0_console_protocol = 
+and create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref ~dom0_console_protocol =
 	let console_ref = Ref.make () in
 	let address = Db.Host.get_address ~__context ~self: (Helpers.get_localhost ~__context) in
 	let location = Printf.sprintf "https://%s%s?ref=%s" address Constants.console_uri (Ref.string_of domain_zero_ref) in
@@ -252,16 +252,16 @@ and create_domain_zero_default_memory_constraints host_info : Vm_memory_constrai
 			dynamic_max = 0L;
 			target = 0L;
 		}
-	with _ -> 
-	  let target = static_min +++ (Int64.(mul 100L (mul 1024L 1024L))) in
-	  let target = if target > static_max then static_max else target in
-	  {
-	    static_min  = static_min;
-	    dynamic_min = target;
-	    target      = target;
-	    dynamic_max = target;
-	    static_max  = static_max;
-	  }
+	with _ ->
+		let target = static_min +++ (Int64.(mul 100L (mul 1024L 1024L))) in
+		let target = if target > static_max then static_max else target in
+		{
+			static_min  = static_min;
+			dynamic_min = target;
+			target      = target;
+			dynamic_max = target;
+			static_max  = static_max;
+		}
 
 and update_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info) : unit =
 	(* Fetch existing memory constraints for domain 0. *)
@@ -324,8 +324,8 @@ let create_root_user ~__context =
 	if all = [] then Db.User.create ~__context ~ref ~fullname ~short_name ~uuid ~other_config:[]
 
 let get_xapi_verstring () =
-  Printf.sprintf "%d.%d" Xapi_globs.version_major Xapi_globs.version_minor  
-  
+	Printf.sprintf "%d.%d" Xapi_globs.version_major Xapi_globs.version_minor
+
 (** Create assoc list of Supplemental-Pack information.
  *  The package information is taking from the [XS-REPOSITORY] XML file in the package
  *  directory.
@@ -385,16 +385,24 @@ let make_software_version ~__context =
 	let dbg = Context.string_of_task __context in
 	let option_to_list k o = match o with None -> [] | Some x -> [ k, x ] in
 	let info = read_localhost_info () in
-	let v6_version = V6client.get_version "make_software_version" in
+	let v6_version =
+		(* Best-effort attempt to read the date-based version from v6d *)
+		try
+			match V6client.get_version "make_software_version" with
+			| "" -> []
+			| dbv -> ["dbv", dbv]
+		with Api_errors.Server_error (code, []) when code = Api_errors.v6d_failure ->
+			[]
+	in
 	Xapi_globs.software_version @
-	(if v6_version = "" then [] else ["dbv", v6_version]) @
+	v6_version @
 	[
-	"xapi", get_xapi_verstring ();
-	"xen", info.xen_verstring;
-	"linux", info.linux_verstring;
-	"xencenter_min", Xapi_globs.xencenter_min_verstring;
-	"xencenter_max", Xapi_globs.xencenter_max_verstring;
-	"network_backend", Network_interface.string_of_kind (Net.Bridge.get_kind dbg ());
+		"xapi", get_xapi_verstring ();
+		"xen", info.xen_verstring;
+		"linux", info.linux_verstring;
+		"xencenter_min", Xapi_globs.xencenter_min_verstring;
+		"xencenter_max", Xapi_globs.xencenter_max_verstring;
+		"network_backend", Network_interface.string_of_kind (Net.Bridge.get_kind dbg ());
 	] @
 	(option_to_list "oem_manufacturer" info.oem_manufacturer) @
 	(option_to_list "oem_model" info.oem_model) @
@@ -404,14 +412,19 @@ let make_software_version ~__context =
 	make_packs_info ()
 
 let create_host_cpu ~__context =
-	let get_nb_cpus () =
-		let xc = Xenctrl.interface_open () in
-		let p = Xenctrl.physinfo xc in
-		Xenctrl.interface_close xc;
-		p.Xenctrl.nr_cpus
-		in
+	let get_cpu_layout () =
+		let open Xenctrl in
+		let xc = interface_open () in
+		let p = physinfo xc in
+		let cpu_count = p.Phys_info.nr_cpus in
+		let socket_count =
+			p.Phys_info.nr_cpus /
+			(p.Phys_info.threads_per_core * p.Phys_info.cores_per_socket)
+	in
+		cpu_count, socket_count
+	in
 	let trim_end s =
-        	let i = ref (String.length s - 1) in
+		let i = ref (String.length s - 1) in
 		while !i > 0 && (List.mem s.[!i] [ ' '; '\t'; '\n'; '\r' ])
 		do
 			decr i
@@ -424,9 +437,9 @@ let create_host_cpu ~__context =
 	   modified dom0's VCPUs we don't change out host config... [Important to get this right, otherwise
 	   pool homogeneity checks fail] *)
 	let get_cpuinfo () =
-	        let cpu_info_file =
-		  try Unix.access Xapi_globs.cpu_info_file [ Unix.F_OK ]; Xapi_globs.cpu_info_file
-		  with _ -> "/proc/cpuinfo" in
+		let cpu_info_file =
+			try Unix.access Xapi_globs.cpu_info_file [ Unix.F_OK ]; Xapi_globs.cpu_info_file
+			with _ -> "/proc/cpuinfo" in
 		let in_chan = open_in cpu_info_file in
 		let tbl = Hashtbl.create 32 in
 		let rec get_lines () =
@@ -436,10 +449,11 @@ let create_host_cpu ~__context =
 			else (
 				let i = String.index s ':' in
 				let k = trim_end (String.sub s 0 i) in
-				let v = if String.length s < i + 2 then
-					""
-				else
-					String.sub s (i + 2) (String.length s - i - 2) in
+				let v =
+					if String.length s < i + 2
+					then ""
+					else String.sub s (i + 2) (String.length s - i - 2)
+				in
 				Hashtbl.add tbl k v;
 				get_lines ()
 			)
@@ -450,12 +464,12 @@ let create_host_cpu ~__context =
 		Hashtbl.find tbl "model name",
 		Hashtbl.find tbl "cpu MHz",
 		Hashtbl.find tbl "flags",
-	        Hashtbl.find tbl "stepping",
-	        Hashtbl.find tbl "model",
-	        Hashtbl.find tbl "cpu family"
+		Hashtbl.find tbl "stepping",
+		Hashtbl.find tbl "model",
+		Hashtbl.find tbl "cpu family"
 		in
 	let vendor, modelname, cpu_mhz, flags, stepping, model, family = get_cpuinfo () in
-	let number = get_nb_cpus () in
+	let cpu_count, socket_count = get_cpu_layout () in
 	let host = Helpers.get_localhost ~__context in
 	
 	(* Fill in Host.cpu_info *)
@@ -469,7 +483,8 @@ let create_host_cpu ~__context =
 		| Cpuid.Full -> "full"
 	in
 	let cpu = [
-		"cpu_count", string_of_int number;
+		"cpu_count", string_of_int cpu_count;
+		"socket_count", string_of_int socket_count;
 		"vendor", vendor;
 		"speed", cpu_mhz;
 		"modelname", modelname;
@@ -483,8 +498,8 @@ let create_host_cpu ~__context =
 		"maskable", maskable;
 	] in
 	Db.Host.set_cpu_info ~__context ~self:host ~value:cpu;
- 
- 	(* Recreate all Host_cpu objects *)
+
+	(* Recreate all Host_cpu objects *)
 	
 	let speed = Int64.of_float (float_of_string cpu_mhz) in
 	let model = Int64.of_string model in
@@ -493,10 +508,10 @@ let create_host_cpu ~__context =
 	(* Recreate all Host_cpu objects *)
 	let host_cpus = List.filter (fun (_, s) -> s.API.host_cpu_host = host) (Db.Host_cpu.get_all_records ~__context) in
 	List.iter (fun (r, _) -> Db.Host_cpu.destroy ~__context ~self:r) host_cpus;
-	for i = 0 to number - 1
+	for i = 0 to cpu_count - 1
 	do
 		let uuid = Uuid.to_string (Uuid.make_uuid ())
-	    and ref = Ref.make () in
+		and ref = Ref.make () in
 		debug "Creating CPU %d: %s" i uuid;
 		ignore (Db.Host_cpu.create ~__context ~ref ~uuid ~host ~number:(Int64.of_int i)
 			~vendor ~speed ~modelname

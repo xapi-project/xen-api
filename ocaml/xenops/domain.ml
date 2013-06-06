@@ -304,12 +304,10 @@ let shutdown ~xc ~xs domid req =
 let shutdown_wait_for_ack (t: Xenops_task.t) ?(timeout=60.) ~xc ~xs domid req =
 	let di = Xenctrl.domain_getinfo xc domid in
 	let uuid = get_uuid ~xc domid in
-	if di.Xenctrl.hvm_guest then begin
-		if not true (* - assume we've got drivers! (Xenctrl.hvm_check_pvdriver xc domid)*)
-		then begin
-			debug "VM = %s; domid = %d; HVM guest without PV drivers: not expecting any acknowledgement" (Uuid.to_string uuid) domid;
-			Xenctrl.domain_shutdown xc domid (shutdown_to_xc_shutdown req)
-		end
+	if ((di.Xenctrl.Domain_info.hvm_guest)
+	&& not (Xenctrl.hvm_check_pvdriver xc domid)) then begin
+		debug "VM = %s; domid = %d; HVM guest without PV drivers: not expecting any acknowledgement" (Uuid.to_string uuid) domid;
+		Xenctrl.domain_shutdown xc domid (shutdown_to_xc_shutdown req)
 	end else begin
 		debug "VM = %s; domid = %d; Waiting for PV domain to acknowledge shutdown request" (Uuid.to_string uuid) domid;
 		let path = control_shutdown ~xs domid in
@@ -326,6 +324,11 @@ let sysrq ~xs domid key =
 let destroy (task: Xenops_task.t) ~xc ~xs ~qemu_domid domid =
 	let dom_path = xs.Xs.getdomainpath domid in
 	let uuid = get_uuid ~xc domid in
+
+	(* Move this out of the way immediately *)
+	let s = Printf.sprintf "deadbeef-dead-beef-dead-beef0000%04x" domid in
+	Xenctrl.domain_sethandle xc domid s;
+
 	(* These are the devices with a frontend in [domid] and a well-formed backend
 	   in some other domain *)
 	let all_devices = list_frontends ~xs domid in
@@ -427,10 +430,7 @@ let destroy (task: Xenops_task.t) ~xc ~xs ~qemu_domid domid =
 	  Thread.delay 5.
 	done;
 	if still_exists () then begin
-	  (* CA-13801: to avoid confusing people, we shall change this domain's uuid *)
-	  let s = Printf.sprintf "deadbeef-dead-beef-dead-beef0000%04x" domid in
 	  error "VM = %s; domid = %d; Domain stuck in dying state after 30s; resetting UUID to %s. This probably indicates a backend driver bug." (Uuid.to_string uuid) domid s;
-	  Xenctrl.domain_sethandle xc domid s;
 	  raise (Domain_stuck_in_dying_state domid)
 	end
 
@@ -539,8 +539,8 @@ let build_post ~xc ~xs ~vcpus ~static_max_mib ~target_mib domid
 	xs.Xs.introduce domid store_mfn store_port
 
 (** build a linux type of domain *)
-let build_linux (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~kernel ~cmdline ~ramdisk
-		~vcpus xenguest_path domid =
+let build_linux (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~static_max_kib ~target_kib
+		~kernel ~cmdline ~ramdisk ~vcpus xenguest_path domid =
 	let uuid = get_uuid ~xc domid in
 	assert_file_is_readable kernel;
 	maybe assert_file_is_readable ramdisk;
@@ -582,7 +582,9 @@ let build_linux (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~kerne
 	    "-features"; "";
 	    "-flags"; "0";
 	    "-store_port"; string_of_int store_port;
+		"-store_domid"; string_of_int store_domid;
 	    "-console_port"; string_of_int console_port;
+		"-console_domid"; string_of_int console_domid;
 	    "-fork"; "true";
 	  ] []
 		XenguestHelper.receive_success in
@@ -610,7 +612,7 @@ let build_linux (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~kerne
 	| _            -> Arch_native
 
 (** build hvm type of domain *)
-let build_hvm (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
+let build_hvm (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
               ~kernel ~timeoffset ~video_mib xenguest_path domid =
 	let uuid = get_uuid ~xc domid in
 	assert_file_is_readable kernel;
@@ -642,7 +644,9 @@ let build_hvm (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~shadow_
 	    "-mode"; "hvm_build";
 	    "-domid"; string_of_int domid;
 	    "-store_port"; string_of_int store_port;
+		"-store_domid"; string_of_int store_domid;
 	    "-console_port"; string_of_int console_port;
+		"-console_domid"; string_of_int console_domid;
 	    "-image"; kernel;
 	    "-mem_max_mib"; Int64.to_string build_max_mib;
 	    "-mem_start_mib"; Int64.to_string build_start_mib;
@@ -695,14 +699,14 @@ let build_hvm (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~shadow_
 
 	Arch_HVM
 
-let build (task: Xenops_task.t) ~xc ~xs info timeoffset xenguest_path domid =
+let build (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid info timeoffset xenguest_path domid =
 	match info.priv with
 	| BuildHVM hvminfo ->
-		build_hvm task ~xc ~xs ~static_max_kib:info.memory_max ~target_kib:info.memory_target
+		build_hvm task ~xc ~xs ~store_domid ~console_domid ~static_max_kib:info.memory_max ~target_kib:info.memory_target
 		          ~shadow_multiplier:hvminfo.shadow_multiplier ~vcpus:info.vcpus
 		          ~kernel:info.kernel ~timeoffset ~video_mib:hvminfo.video_mib xenguest_path domid
 	| BuildPV pvinfo   ->
-		build_linux task ~xc ~xs ~static_max_kib:info.memory_max ~target_kib:info.memory_target
+		build_linux task ~xc ~xs ~store_domid ~console_domid ~static_max_kib:info.memory_max ~target_kib:info.memory_target
 		            ~kernel:info.kernel ~cmdline:pvinfo.cmdline ~ramdisk:pvinfo.ramdisk
 		            ~vcpus:info.vcpus xenguest_path domid
 

@@ -46,6 +46,59 @@ let apply_upgrade_rules ~__context rules previous_version =
 let george = Datamodel.george_release_schema_major_vsn, Datamodel.george_release_schema_minor_vsn
 let cowley = Datamodel.cowley_release_schema_major_vsn, Datamodel.cowley_release_schema_minor_vsn
 let boston = Datamodel.boston_release_schema_major_vsn, Datamodel.boston_release_schema_minor_vsn
+let tampa = Datamodel.tampa_release_schema_major_vsn, Datamodel.tampa_release_schema_minor_vsn
+
+let upgrade_alert_priority = {
+	description = "Upgrade alert priority";
+	version = (fun _ -> true);
+	fn = fun ~__context ->
+		let alert_refs = Xapi_message.get_all () in
+		List.iter
+			(fun r ->
+				try
+					let m = Xapi_message.get_record ~__context ~self:r in
+					if List.mem_assoc m.API.message_name !Api_messages.msgList then
+						let prio = List.assoc m.API.message_name !Api_messages.msgList in
+						if prio <> m.API.message_priority then begin
+							Xapi_message.destroy ~__context ~self:r;
+							let gen = Xapi_message.write ~__context ~_ref:r
+								~message:{m with API.message_priority=prio} in
+							match gen with
+							| Some _ ->
+								debug "Update message %s with new priority %Ld" (Ref.string_of r) prio
+							| None -> ()
+						end
+				with e ->
+					warn "Update message %s failed due to exception %s" (Ref.string_of r) (Printexc.to_string e))
+			alert_refs
+}
+
+let update_mail_min_priority = {
+	description = "Update pool's other-config:mail-min-priority";
+	version = (fun x -> x <= tampa);
+	fn = fun ~__context ->
+		List.iter (fun self ->
+			let oc = Db.Pool.get_other_config ~__context ~self in
+			let key = "mail-min-priority" in
+			if List.mem_assoc key oc then
+				try
+					let prio = int_of_string (List.assoc key oc) in
+					let prio' =
+						if prio > 10 then 0
+						else if prio = 10 then 1
+						else if prio > 5 then 2
+						else if prio = 5 then 3
+						else if prio > 1 then 4
+						else 5 in
+					Db.Pool.remove_from_other_config ~__context ~self ~key;
+					Db.Pool.add_to_other_config ~__context ~self ~key ~value:(string_of_int prio');
+					debug "Upgrade pool's other-config:mail-min-priority: %d -> %d" prio prio'
+				with e ->
+					warn "Failed to update other-config:mail-min-priority of the pool: %s, remove to reset"
+						(Printexc.to_string e);
+					Db.Pool.remove_from_other_config ~__context ~self ~key)
+			(Db.Pool.get_all ~__context)
+}
 
 let upgrade_vm_memory_overheads = {
 	description = "Upgrade VM.memory_overhead fields";
@@ -54,27 +107,6 @@ let upgrade_vm_memory_overheads = {
 		List.iter
 			(fun vm -> Xapi_vm_helpers.update_memory_overhead ~__context ~vm)
 			(Db.VM.get_all ~__context)
-}
-
-let upgrade_wlb_configuration = {
-	description = "Upgrade WLB to use secrets";
-    version = (fun _ -> true);
-    fn = fun ~__context ->
-		(* there can be only one pool *)
-		let pool = List.hd (Db.Pool.get_all ~__context) in
-		(* get a Secret reference that makes sense, if there is no password ("")
-		   then use null, otherwise convert if clear-text and else keep what's
-		   there *)
-		let wlb_passwd_ref = 
-			let old_wlb_pwd = Ref.string_of
-				(Db.Pool.get_wlb_password ~__context ~self:pool) in
-			if old_wlb_pwd = ""
-			then Ref.null
-			else if String.startswith "OpaqueRef:" old_wlb_pwd
-			then Db.Pool.get_wlb_password ~__context ~self:pool
-			else Xapi_secret.create ~__context ~value:old_wlb_pwd ~other_config:[]
-		in
-		Db.Pool.set_wlb_password ~__context ~self:pool ~value:wlb_passwd_ref
 }
 
 (** On upgrade to the first ballooning-enabled XenServer, we reset memory
@@ -311,9 +343,69 @@ let upgrade_pif_metrics = {
 		) phy_and_bond_pifs
 }
 
+let upgrade_host_editions = {
+	description = "Upgrading host editions";
+	version = (fun x -> x <= tampa);
+	fn = fun ~__context ->
+		let hosts = Db.Host.get_all ~__context in
+		let new_sku = function
+				| "enterprise-xd" -> "xendesktop"
+				| "advanced" | "enterprise" | "platinum" -> "per-socket"
+				| "free" | _ -> "free" in
+		List.iter
+			(fun host ->
+				(* Modify edition *)
+				let edition = new_sku (Db.Host.get_edition ~__context ~self:host) in
+				Db.Host.set_edition ~__context ~self:host ~value:edition ;
+				(* Modify license_params.sku_type *)
+				let new_license_params =
+					let sku_type_key = "sku_type" in
+					let old_license_params = Db.Host.get_license_params ~__context ~self:host in
+					if List.mem_assoc sku_type_key old_license_params
+					then begin
+						let old_sku_type = List.assoc sku_type_key old_license_params in
+						let new_sku_type = new_sku old_sku_type in
+						(sku_type_key, new_sku_type) ::
+							(List.remove_assoc sku_type_key old_license_params)
+					end
+					else old_license_params
+				in Db.Host.set_license_params ~__context ~self:host ~value:new_license_params)
+			hosts
+}
+
+let remove_vmpp = {
+	description = "Removing VMPP metadata (feature was removed)";
+	version = (fun x -> x <= tampa);
+	fn = fun ~__context ->
+		let vmpps = Db.VMPP.get_all ~__context in
+		List.iter (fun self -> Db.VMPP.destroy ~__context ~self) vmpps;
+		let open Db_filter_types in
+		let vms = Db.VM.get_refs_where ~__context ~expr:(
+			Not (Eq (Field "protection_policy", Literal (Ref.string_of Ref.null)))
+		) in
+		List.iter (fun self -> Db.VM.set_protection_policy ~__context ~self ~value:Ref.null) vms
+}
+
+let remove_wlb = {
+	description = "Removing WLB metadata (feature removed)";
+	version = (fun x -> x <= tampa);
+	fn = fun ~__context ->
+		List.iter (fun self ->
+			let password = Db.Pool.get_wlb_password ~__context ~self in
+			if String.startswith "OpaqueRef:" (Ref.string_of password) && password <> Ref.null then
+				(try Xapi_secret.destroy ~__context ~self:password with _ -> ());
+			Db.Pool.set_wlb_url ~__context ~self ~value:"";
+			Db.Pool.set_wlb_username ~__context ~self ~value:"";
+			Db.Pool.set_wlb_password ~__context ~self ~value:Ref.null;
+			Db.Pool.set_wlb_enabled ~__context ~self ~value:false;
+			Db.Pool.set_wlb_verify_cert ~__context ~self ~value:false)
+			(Db.Pool.get_all ~__context)
+}
+
 let rules = [
+	upgrade_alert_priority;
+	update_mail_min_priority;
 	upgrade_vm_memory_overheads;
-	upgrade_wlb_configuration;
 	upgrade_vm_memory_for_dmc;
 	upgrade_bios_strings;
 	update_snapshots;
@@ -323,6 +415,9 @@ let rules = [
 	upgrade_cpu_flags;
 	upgrade_auto_poweron;
 	upgrade_pif_metrics;
+	upgrade_host_editions;
+	remove_vmpp;
+	remove_wlb;
 ]
 
 (* Maybe upgrade most recent db *)

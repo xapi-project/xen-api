@@ -435,25 +435,6 @@ module Monitor = struct
 						) ()
 				) livemap;
 
-				(* Find hosts whose license expiry is in the past and forcibly disable them if necessary. *)
-				let license_has_expired host =
-				try
-					License_check.check_expiry ~__context ~host;
-					false
-				with 
-					| Api_errors.Server_error (code, []) when code = Api_errors.license_expired -> true
-					| _ -> false (* fail safe *) in
-				let expired_hosts = List.filter license_has_expired all_hosts in
-				(* Find the expired ones which are still enabled *)
-				let enabled_but_expired = List.filter (fun self -> Db.Host.get_enabled ~__context ~self) expired_hosts in
-				List.iter 
-					(fun host ->
-						warn "Host uuid %s: license expired in the past; forcibly disabling" (Db.Host.get_uuid ~__context ~self:host);
-						Db.Host.set_enabled ~__context ~self:host ~value:false
-					) enabled_but_expired;
-				(* If any host was forcibly disabled then mark the plan as out-of-date *)
-				if enabled_but_expired <> [] then plan_out_of_date := true;
-
 				(* Next update the Host.ha_statefiles and Host.ha_network_peers fields. For the network
 				   peers we use whichever view is more recent: network or statefile *)
 				let statefiles = Db.Pool.get_ha_statefiles ~__context ~self:pool in

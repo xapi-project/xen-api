@@ -24,6 +24,7 @@ open Threadext
 
 let ip_begin_key = "ip_begin"
 let ip_end_key = "ip_end"
+let ip_disable_gw_key = "ip_disable_gw"
 
 let udhcpd_conf = Filename.concat Fhs.vardir "udhcpd.conf"
 let udhcpd_skel = Filename.concat Fhs.etcdir "udhcpd.skel"
@@ -106,7 +107,7 @@ module Udhcpd_conf = struct
 		  leases = leases
 	  }
 	
-	let to_string t =
+	let to_string ~__context t =
 		let skel = Unixext.string_of_file udhcpd_skel in
 		let interface = Printf.sprintf "interface\t%s" t.interface in
 		let subnet = Printf.sprintf "option\tsubnet\t%s" t.subnet in
@@ -114,14 +115,21 @@ module Udhcpd_conf = struct
 		let string_of_lease l =
 			Printf.sprintf "static_lease\t%s\t%s # %s\n" l.mac (Ip.string_of l.ip) l.vif in
 		let leases = List.map string_of_lease t.leases in
-		String.concat "\n" (skel :: interface :: subnet :: router :: leases)
+        let network = Helpers.get_guest_installer_network ~__context in
+        let other_config = Db.Network.get_other_config ~__context ~self:network in
+        let config_list = 
+            if (List.mem_assoc ip_disable_gw_key other_config && List.assoc ip_disable_gw_key other_config = "true")
+                (*Check whether the default gateway should be defined*)
+                then (skel :: interface :: subnet :: leases)
+                else (skel :: interface :: subnet :: router :: leases) in
+		String.concat "\n" config_list
 
 end
 
 let write_config_nolock ~__context ip_router =
 	let config = Udhcpd_conf.make ~__context (!assigned) ip_router in
 	Unixext.unlink_safe udhcpd_conf;
-	Unixext.write_string_to_file udhcpd_conf (Udhcpd_conf.to_string config)
+	Unixext.write_string_to_file udhcpd_conf (Udhcpd_conf.to_string ~__context config)
 
 
   

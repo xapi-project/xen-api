@@ -45,9 +45,15 @@ let boston_release_schema_minor_vsn = 63
 let tampa_release_schema_major_vsn = 5
 let tampa_release_schema_minor_vsn = 66
 
+let clearwater_release_schema_major_vsn = 5
+let clearwater_release_schema_minor_vsn = 70
+
+let augusta_release_schema_major_vsn = 5
+let augusta_release_schema_minor_vsn = 80
+
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
-let last_release_schema_major_vsn = tampa_release_schema_major_vsn
-let last_release_schema_minor_vsn = tampa_release_schema_minor_vsn
+let last_release_schema_major_vsn = augusta_release_schema_major_vsn
+let last_release_schema_minor_vsn = augusta_release_schema_minor_vsn
 
 (** Bindings for currently specified releases *)
 
@@ -122,7 +128,7 @@ let roles_all =
 	]
 let role_description = [
 	role_pool_admin,"The Pool Administrator role has full access to all features and settings, including accessing Dom0 and managing subjects, roles and external authentication";
-	role_pool_operator,"The Pool Operator role manages host- and pool-wide resources, including setting up storage, creating resource pools and managing patches, high availability (HA) and workload balancing (WLB)";
+	role_pool_operator,"The Pool Operator role manages host- and pool-wide resources, including setting up storage, creating resource pools and managing patches and high availability (HA)";
 	role_vm_power_admin,"The VM Power Administrator role has full access to VM and template management and can choose where to start VMs and use the dynamic memory control and VM snapshot features";
 	role_vm_admin,"The VM Administrator role can manage VMs and templates";
 	role_vm_operator,"The VM Operator role can use VMs and interact with VM consoles";
@@ -164,8 +170,8 @@ let get_product_releases in_product_since =
     | x::xs -> if x=in_product_since then "closed"::x::xs else go_through_release_order xs
   in go_through_release_order release_order
 
-let sarasota_release =
-	{ internal = get_product_releases rel_sarasota
+let autusta_release =
+	{ internal = get_product_releases rel_augusta
 	; opensource=get_oss_releases None
 	; internal_deprecated_since=None
 	}
@@ -346,7 +352,7 @@ let _ =
   error Api_errors.message_deprecated []
     ~doc:"This message has been deprecated." ();
   error Api_errors.message_removed []
-    ~doc:"This message has been removed." ();
+    ~doc:"This function is no longer available." ();
 
   error Api_errors.permission_denied ["message"]
     ~doc:"Caller not allowed to perform this operation." ();
@@ -410,7 +416,8 @@ let _ =
     ~doc:"You attempted an operation that was explicitly blocked (see the blocked_operations field of the given object)." ();
   error Api_errors.not_implemented ["function"] 
     ~doc:"The function is not implemented" ();
-
+  error Api_errors.unimplemented_in_sm_backend ["message"]
+		~doc:"You have attempted a function which is not implemented" ();
   (* DB errors *)
   error Api_errors.handle_invalid ["class"; "handle"]
     ~doc:"You gave an invalid object reference.  The object may have recently been deleted.  The class parameter gives the type of reference given, and the handle parameter echoes the bad value given." ();
@@ -575,6 +582,8 @@ let _ =
     ~doc:"Not enough host memory is available to perform this operation" ();
   error Api_errors.duplicate_vm [ "vm" ]
     ~doc:"Cannot restore this VM because it would create a duplicate" ();
+  error Api_errors.duplicate_mac_seed [ "seed" ]
+    ~doc:"This MAC seed is already in use by a VM in the pool" ();
   error Api_errors.vm_snapshot_with_quiesce_failed [ "vm" ]
     ~doc:"The quiesced-snapshot operation failed for an unexpected reason" ();
   error Api_errors.vm_snapshot_with_quiesce_timeout [ "vm" ]
@@ -680,6 +689,8 @@ let _ =
     ~doc:"The host failed to disable external authentication." ();
   error Api_errors.auth_disable_failed_permission_denied ["message"]
     ~doc:"The host failed to disable external authentication." ();
+  error Api_errors.host_evacuate_in_progress [ "host" ]
+    ~doc:"This host is being evacuated." ();
 
 
   (* Pool errors *)
@@ -746,7 +757,7 @@ let _ =
   error Api_errors.rbac_permission_denied ["permission";"message"]
     ~doc: "RBAC permission denied." ();
 
-  (* wlb errors*)
+  (* wlb errors, deprecated since clearwater *)
   error Api_errors.wlb_not_initialized []
     ~doc:"No WLB connection is configured." ();
   error Api_errors.wlb_disabled []
@@ -779,7 +790,8 @@ let _ =
     ~doc:"The connection to the WLB server was reset." ();
   error Api_errors.wlb_url_invalid ["url"]
     ~doc:"The WLB URL is invalid. Ensure it is in format: <ipaddress>:<port>.  The configured/given URL is returned." ();
-    
+
+
   (* Api_errors specific to running VMs on multiple hosts *)
   error Api_errors.vm_unsafe_boot ["vm"]
     ~doc:"You attempted an operation on a VM that was judged to be unsafe by the server. This can happen if the VM would run on a CPU that has a potentially incompatible set of feature flags to those the VM requires. If you want to override this warning then use the 'force' option." ();
@@ -993,6 +1005,8 @@ let _ =
     ~doc:"The patch precheck stage failed: the server is of an incorrect build." ();
   error Api_errors.patch_precheck_failed_vm_running [ "patch" ]
     ~doc:"The patch precheck stage failed: there are one or more VMs still running on the server.  All VMs must be suspended before the patch can be applied." ();
+  error Api_errors.patch_precheck_tools_iso_mounted ["patch"]
+    ~doc:"XenServer Tools ISO must be ejected from all running VMs." ();
 
   error Api_errors.cannot_find_oem_backup_partition []
     ~doc:"The backup partition to stream the updat to cannot be found" ();
@@ -1181,7 +1195,9 @@ let session_login  = call ~flags:[]
   ~versioned_params:
   [{param_type=String; param_name="uname"; param_doc="Username for login."; param_release=rio_release; param_default=None};
    {param_type=String; param_name="pwd"; param_doc="Password for login."; param_release=rio_release; param_default=None};
-   {param_type=String; param_name="version"; param_doc="Client API version."; param_release=miami_release; param_default=Some (VString "1.1")}]
+   {param_type=String; param_name="version"; param_doc="Client API version."; param_release=miami_release; param_default=Some (VString "1.1")};
+   {param_type=String; param_name="originator"; param_doc="Key string for distinguishing different API users sharing the same login name."; param_release=clearwater_release; param_default=Some (VString "")}
+  ]
   ~errs:[Api_errors.session_authentication_failed]
   ~secret:true
   ~allowed_roles:_R_ALL (*any static role can try to create a user session*)
@@ -1595,9 +1611,13 @@ let vm_get_possible_hosts = call
 	~allowed_roles:_R_READ_ONLY
 	()
 
+let wlb_removed =
+	[ Published, rel_george, "";
+	  Removed, rel_clearwater, "The WLB feature has been removed" ]
+
 let vm_retrieve_wlb_recommendations = call
 	~name:"retrieve_wlb_recommendations"
-	~in_product_since:rel_george
+	~lifecycle:wlb_removed
 	~doc:"Returns mapping of hosts to ratings, indicating the suitability of starting the VM at that location according to wlb. Rating is replaced with an error if the VM cannot boot there."
 	~params:[Ref _vm, "vm", "The VM";]
 	~result:(Map (Ref _host, Set(String)), "The potential hosts and their corresponding recommendations or errors")
@@ -1861,6 +1881,18 @@ let vm_hardShutdown = call
   ~name:"hard_shutdown"
   ~doc:"Stop executing the specified VM without attempting a clean shutdown."
   ~params:[Ref _vm, "vm", "The VM to destroy"]
+  ~errs:[Api_errors.vm_bad_power_state; Api_errors.other_operation_in_progress; Api_errors.operation_not_allowed;
+         Api_errors.vm_is_template]
+  ~allowed_roles:_R_VM_OP
+  ()
+
+(* VM.Shutdown *)
+
+let vm_shutdown = call
+  ~in_product_since:rel_clearwater
+  ~name:"shutdown"
+  ~doc:"Attempts to first clean shutdown a VM and if it should fail then perform a hard shutdown on it."
+  ~params:[Ref _vm, "vm", "The VM to shutdown"]
   ~errs:[Api_errors.vm_bad_power_state; Api_errors.other_operation_in_progress; Api_errors.operation_not_allowed;
          Api_errors.vm_is_template]
   ~allowed_roles:_R_VM_OP
@@ -2541,7 +2573,7 @@ let host_get_uncooperative_domains = call
 
 let host_retrieve_wlb_evacuate_recommendations = call
   ~name:"retrieve_wlb_evacuate_recommendations"
-  ~in_product_since:rel_george
+  ~lifecycle:wlb_removed
   ~doc:"Retrieves recommended host migrations to perform when evacuating the host from the wlb server. If a VM cannot be migrated from the host the reason is listed instead of a recommendation."
   ~params:[Ref _host, "self", "The host to query"]
   ~result:(Map(Ref _vm, Set(String)), "VMs and the reasons why they would block evacuation, or their target host recommended by the wlb server")
@@ -2710,6 +2742,14 @@ let host_detach_static_vdis = call
   ~pool_internal:true
   ~hide_from_docs:true
   ~allowed_roles:_R_LOCAL_ROOT_ONLY
+  ()
+
+let host_declare_dead = call
+  ~name:"declare_dead"
+	~in_product_since:rel_clearwater
+  ~doc:"Declare that a host is dead. This is a dangerous operation, and should only be called if the administrator is absolutely sure the host is definitely dead"
+  ~params:[Ref _host, "host", "The Host to declare is dead"]
+  ~allowed_roles:_R_POOL_OP
   ()
 
 let host_forget_data_source_archives = call
@@ -3327,6 +3367,7 @@ let session =
 		  field ~in_product_since:rel_midnight_ride ~qualifier:StaticRO ~default_value:(Some(VSet [])) ~ty:(Set(String)) "rbac_permissions" "list with all RBAC permissions for this session";
 		  field ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Set(Ref _task)) "tasks" "list of tasks created using the current session";
 		  field ~in_product_since:rel_midnight_ride ~qualifier:StaticRO ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _session) "parent" "references the parent session that created this session"; 
+		  field ~in_product_since:rel_clearwater ~qualifier:DynamicRO ~default_value:(Some(VString(""))) ~ty:String  "originator" "a key string provided by a API user to distinguish itself from other users sharing the same login name";
 		]
 	()
 
@@ -3958,9 +3999,10 @@ let host_apply_edition = call ~flags:[`Session]
   ~name:"apply_edition"
   ~in_product_since:rel_midnight_ride
   ~doc:"Change to another edition, or reactivate the current edition after a license has expired. This may be subject to the successful checkout of an appropriate license."
-  ~params:[ 
-    Ref _host, "host", "The host";
-    String, "edition", "The requested edition"
+  ~versioned_params:[
+    {param_type=Ref _host; param_name="host"; param_doc="The host"; param_release=midnight_ride_release; param_default=None};
+    {param_type=String; param_name="edition"; param_doc="The requested edition"; param_release=midnight_ride_release; param_default=None};
+    {param_type=Bool; param_name="force"; param_doc="Update the license params even if the apply call fails"; param_release=clearwater_release; param_default=Some (VBool false)};
   ]
   ~allowed_roles:_R_POOL_OP
   ()
@@ -4185,6 +4227,7 @@ let host =
 		 host_sync_tunnels;
 		 host_sync_pif_currently_attached;
 		 host_migrate_receive;
+		 host_declare_dead;
 		 ]
       ~contents:
         ([ uid _host;
@@ -5976,8 +6019,8 @@ let pool_detect_nonhomogeneous_external_auth = call ~flags:[`Session]
   ()
 
 let pool_initialize_wlb = call
-  ~name:"initialize_wlb"
-  ~in_product_since:rel_george
+	~name:"initialize_wlb"
+	~lifecycle:wlb_removed
   ~doc:"Initializes workload balancing monitoring on this pool with the specified wlb server"
   ~params:[String, "wlb_url", "The ip address and port to use when accessing the wlb server";
     String, "wlb_username", "The username used to authenticate with the wlb server";
@@ -5988,8 +6031,8 @@ let pool_initialize_wlb = call
    ()
 
 let pool_deconfigure_wlb = call
-  ~name:"deconfigure_wlb"
-  ~in_product_since:rel_george
+	~name:"deconfigure_wlb"
+	~lifecycle:wlb_removed
   ~doc:"Permanently deconfigures workload balancing monitoring on this pool"
   ~params:[]
   ~allowed_roles:_R_POOL_OP
@@ -5997,7 +6040,7 @@ let pool_deconfigure_wlb = call
 
 let pool_send_wlb_configuration = call
   ~name:"send_wlb_configuration"
-  ~in_product_since:rel_george
+  ~lifecycle:wlb_removed
   ~doc:"Sets the pool optimization criteria for the workload balancing server"
   ~params:[Map(String, String), "config", "The configuration to use in optimizing this pool"]
   ~allowed_roles:_R_POOL_OP
@@ -6005,7 +6048,7 @@ let pool_send_wlb_configuration = call
  
 let pool_retrieve_wlb_configuration = call
   ~name:"retrieve_wlb_configuration"
-  ~in_product_since:rel_george
+  ~lifecycle:wlb_removed
   ~doc:"Retrieves the pool optimization criteria from the workload balancing server"
   ~params:[]
   ~result:(Map(String,String), "The configuration used in optimizing this pool")
@@ -6014,7 +6057,7 @@ let pool_retrieve_wlb_configuration = call
    
 let pool_retrieve_wlb_recommendations = call
   ~name:"retrieve_wlb_recommendations"
-  ~in_product_since:rel_george
+  ~lifecycle:wlb_removed
   ~doc:"Retrieves vm migrate recommendations for the pool from the workload balancing server"
   ~params:[]
   ~result:(Map(Ref _vm,Set(String)), "The list of vm migration recommendations")
@@ -6164,6 +6207,28 @@ let pool_disable_local_storage_caching = call
 	~allowed_roles:_R_POOL_OP
 	()
 
+let pool_get_license_state = call
+	~name:"get_license_state"
+	~in_oss_since:None
+	~in_product_since:rel_clearwater
+	~params:[Ref _pool, "self", "Reference to the pool"]
+	~doc:"This call returns the license state for the pool"
+	~allowed_roles:_R_READ_ONLY
+	~result:(Map(String,String), "The pool's license state")
+	()
+
+let pool_apply_edition = call
+	~name:"apply_edition"
+	~in_oss_since:None
+	~in_product_since:rel_clearwater
+	~params:[
+		Ref _pool, "self", "Reference to the pool";
+		String, "edition", "The requested edition";
+	]
+	~doc:"Apply an edition to all hosts in the pool"
+	~allowed_roles:_R_POOL_OP
+	()
+
 (** A pool class *)
 let pool =
 	create_obj
@@ -6228,6 +6293,8 @@ let pool =
 			; pool_test_archive_target
 			; pool_enable_local_storage_caching
 			; pool_disable_local_storage_caching
+			; pool_get_license_state
+			; pool_apply_edition
 			]
 		~contents:
 			[uid ~in_oss_since:None _pool
@@ -6248,11 +6315,11 @@ let pool =
 			; field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this pool"
 			; field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes"
 			; field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "gui_config" "gui-specific configuration for pool"
-			; field ~in_product_since:rel_george ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "wlb_url" "Url for the configured workload balancing host"
-			; field ~in_product_since:rel_george ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "wlb_username" "Username for accessing the workload balancing host"
-			; field ~in_product_since:rel_george ~internal_only:true ~qualifier:DynamicRO ~ty:(Ref _secret) "wlb_password" "Password for accessing the workload balancing host"
-			; field ~in_product_since:rel_george ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "wlb_enabled" "true if workload balancing is enabled on the pool, false otherwise"
-			; field ~in_product_since:rel_george ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "wlb_verify_cert" "true if communication with the WLB server should enforce SSL certificate verification."
+			; field ~lifecycle:wlb_removed ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "wlb_url" "Url for the configured workload balancing host"
+			; field ~lifecycle:wlb_removed ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "wlb_username" "Username for accessing the workload balancing host"
+			; field ~lifecycle:wlb_removed ~internal_only:true ~qualifier:DynamicRO ~ty:(Ref _secret) "wlb_password" "Password for accessing the workload balancing host"
+			; field ~lifecycle:wlb_removed ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "wlb_enabled" "true if workload balancing is enabled on the pool, false otherwise"
+			; field ~lifecycle:wlb_removed ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "wlb_verify_cert" "true if communication with the WLB server should enforce SSL certificate verification."
 			; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "redo_log_enabled" "true a redo-log is to be used other than when HA is enabled, false otherwise"
 			; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Ref _vdi) ~default_value:(Some (VRef (Ref.string_of Ref.null))) "redo_log_vdi" "indicates the VDI to use for the redo-log other than when HA is enabled"
 			; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "vswitch_controller" "address of the vswitch controller"
@@ -6550,7 +6617,7 @@ let vm_operations =
 	    vm_pool_migrate;
         vm_migrate_send;
 	    vm_get_boot_record; vm_send_sysrq; vm_send_trigger;
-		vm_query_services;
+		vm_query_services;vm_shutdown;
 	  ]
 	@ [ "changing_memory_live", "Changing the memory settings";
 	    "awaiting_memory_live", "Waiting for the memory settings to change";
@@ -6579,7 +6646,7 @@ let vm =
       ~doccomments:[ "destroy", "Destroy the specified VM.  The VM is completely removed from the system.  This function can only be called when the VM is in the Halted State." ]
       ~messages_default_allowed_roles:_R_VM_ADMIN
       ~messages:[ vm_snapshot; vm_snapshot_with_quiesce; vm_clone; vm_copy; vm_revert; vm_checkpoint;
-		vm_provision; vm_start; vm_start_on; vm_pause; vm_unpause; vm_cleanShutdown;
+		vm_provision; vm_start; vm_start_on; vm_pause; vm_unpause; vm_cleanShutdown;vm_shutdown;
 		vm_cleanReboot; vm_hardShutdown; vm_stateReset; vm_hardReboot; vm_suspend; csvm; vm_resume;
 		vm_hardReboot_internal;
 		vm_resume_on;
@@ -6697,8 +6764,8 @@ let vm =
 	field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride                                 ~ty:(Set (Ref _vm)) "children"     "List pointing to all the children of this VM";
 
 	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [])) ~ty:(Map (String,String)) "bios_strings" "BIOS strings";
-	field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO ~in_product_since:rel_cowley ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _vmpp) "protection_policy" "Ref pointing to a protection policy for this VM";
-	field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~in_product_since:rel_cowley ~default_value:(Some (VBool false)) ~ty:Bool "is_snapshot_from_vmpp" "true if this snapshot was created by the protection policy";
+	field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO ~lifecycle:[Published, rel_cowley, ""; Deprecated, rel_clearwater, "The VMPR feature was removed"] ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _vmpp) "protection_policy" "Ref pointing to a protection policy for this VM";
+	field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~lifecycle:[Published, rel_cowley, ""; Deprecated, rel_clearwater, "The VMPR feature was removed"] ~default_value:(Some (VBool false)) ~ty:Bool "is_snapshot_from_vmpp" "true if this snapshot was created by the protection policy";
 	field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~ty:(Ref _vm_appliance) ~default_value:(Some (VRef (Ref.string_of Ref.null))) "appliance" "the appliance to which this VM belongs";
 	field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "start_delay" "The delay to wait before proceeding to the next order in the startup sequence (seconds)";
 	field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "shutdown_delay" "The delay to wait before proceeding to the next order in the shutdown sequence (seconds)";
@@ -6707,6 +6774,7 @@ let vm =
 	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pci)) "attached_PCIs" "Currently passed-through PCI devices";
 	field ~writer_roles:_R_VM_ADMIN ~qualifier:RW ~in_product_since:rel_boston ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _sr) "suspend_SR" "The SR on which a suspend image is stored";
 	field ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "version" "The number of times this VM has been recovered";
+	field ~qualifier:StaticRO ~in_product_since:rel_clearwater ~default_value:(Some (VString "0:0")) ~ty:(String) "generation_id" "Generation ID of the VM";
       ])
 	()
 
@@ -6767,10 +6835,13 @@ let vm_guest_metrics =
     ()
 
 (* VM protection policy *)
+let vmpr_removed = [
+  Published, rel_cowley, "";
+  Removed, rel_clearwater, "The VMPR feature was removed";
+]
 let vmpp_protect_now = call ~flags:[`Session]
   ~name:"protect_now"
-  ~in_oss_since:None
-  ~in_product_since:rel_cowley
+  ~lifecycle:vmpr_removed
   ~params:[Ref _vmpp, "vmpp", "The protection policy to execute";]
   ~doc:"This call executes the protection policy immediately"
   ~allowed_roles:_R_POOL_OP
@@ -6778,8 +6849,7 @@ let vmpp_protect_now = call ~flags:[`Session]
   ()
 let vmpp_archive_now = call ~flags:[`Session]
   ~name:"archive_now"
-  ~in_oss_since:None
-  ~in_product_since:rel_cowley
+  ~lifecycle:vmpr_removed
   ~params:[Ref _vm, "snapshot", "The snapshot to archive";]
   ~doc:"This call archives the snapshot provided as a parameter"
   ~allowed_roles:_R_VM_POWER_ADMIN
@@ -6787,8 +6857,7 @@ let vmpp_archive_now = call ~flags:[`Session]
   ()
 let vmpp_create_alert = call ~flags:[`Session]
   ~name:"create_alert"
-  ~in_oss_since:None
-  ~in_product_since:rel_cowley
+  ~lifecycle:vmpr_removed
   ~params:[Ref _vmpp, "vmpp", "The protection policy where the alert should be created";
      String, "name", "The name of the message";
 	   Int, "priority", "The priority of the message";
@@ -6801,8 +6870,7 @@ let vmpp_create_alert = call ~flags:[`Session]
   ()
 let vmpp_get_alerts = call ~flags:[`Session]
   ~name:"get_alerts"
-  ~in_oss_since:None
-  ~in_product_since:rel_cowley
+  ~lifecycle:vmpr_removed
   ~params:[Ref _vmpp, "vmpp", "The protection policy";
     Int, "hours_from_now", "how many hours in the past the oldest record to fetch is";
   ]
@@ -6842,8 +6910,7 @@ let vmpp_archive_target_config_username = "username"
 let vmpp_archive_target_config_password = "password"
 let vmpp_set_backup_retention_value = call ~flags:[`Session]
   ~name:"set_backup_retention_value"
-  ~in_oss_since:None
-  ~in_product_since:rel_cowley
+  ~lifecycle:vmpr_removed
   ~allowed_roles:_R_POOL_OP
   ~params:[
     Ref _vmpp, "self", "The protection policy";
@@ -6852,8 +6919,7 @@ let vmpp_set_backup_retention_value = call ~flags:[`Session]
   ()
 let vmpp_set_is_backup_running = call ~flags:[`Session]
   ~name:"set_is_backup_running"
-  ~in_oss_since:None
-  ~in_product_since:rel_cowley
+  ~lifecycle:vmpr_removed
   ~params:[
     Ref _vmpp, "self", "The protection policy";
     Bool, "value", "true to mark this protection policy's backup is running"
@@ -6864,8 +6930,7 @@ let vmpp_set_is_backup_running = call ~flags:[`Session]
   ()
 let vmpp_set_is_archive_running = call ~flags:[`Session]
   ~name:"set_is_archive_running"
-  ~in_oss_since:None
-  ~in_product_since:rel_cowley
+  ~lifecycle:vmpr_removed
   ~params:[
     Ref _vmpp, "self", "The protection policy";
     Bool, "value", "true to mark this protection policy's archive is running"
@@ -6876,8 +6941,7 @@ let vmpp_set_is_archive_running = call ~flags:[`Session]
   ()
 let vmpp_set_is_alarm_enabled = call ~flags:[`Session]
   ~name:"set_is_alarm_enabled"
-  ~in_oss_since:None
-  ~in_product_since:rel_cowley
+  ~lifecycle:vmpr_removed
   ~params:[
     Ref _vmpp, "self", "The protection policy";
     Bool, "value", "true if alarm is enabled for this policy"
@@ -6887,8 +6951,7 @@ let vmpp_set_is_alarm_enabled = call ~flags:[`Session]
   ()
 let vmpp_set_archive_frequency = call ~flags:[`Session]
   ~name:"set_archive_frequency"
-  ~in_oss_since:None
-  ~in_product_since:rel_cowley
+  ~lifecycle:vmpr_removed
   ~params:[
     Ref _vmpp, "self", "The protection policy";
     vmpp_archive_frequency, "value", "the archive frequency"
@@ -6898,8 +6961,7 @@ let vmpp_set_archive_frequency = call ~flags:[`Session]
   ()
 let vmpp_set_archive_target_type = call ~flags:[`Session]
   ~name:"set_archive_target_type"
-  ~in_oss_since:None
-  ~in_product_since:rel_cowley
+  ~lifecycle:vmpr_removed
   ~params:[
     Ref _vmpp, "self", "The protection policy";
     vmpp_archive_target_type, "value", "the archive target config type"
@@ -6909,8 +6971,7 @@ let vmpp_set_archive_target_type = call ~flags:[`Session]
   ()
 let vmpp_set_backup_frequency = call ~flags:[`Session]
   ~name:"set_backup_frequency"
-  ~in_oss_since:None
-  ~in_product_since:rel_cowley
+  ~lifecycle:vmpr_removed
   ~params:[
     Ref _vmpp, "self", "The protection policy";
     vmpp_backup_frequency, "value", "the backup frequency"
@@ -6920,8 +6981,7 @@ let vmpp_set_backup_frequency = call ~flags:[`Session]
   ()
 let vmpp_set_backup_schedule = call ~flags:[`Session]
   ~name:"set_backup_schedule"
-  ~in_oss_since:None
-  ~in_product_since:rel_cowley
+  ~lifecycle:vmpr_removed
   ~allowed_roles:_R_POOL_OP
   ~params:[
     Ref _vmpp, "self", "The protection policy";
@@ -6930,8 +6990,7 @@ let vmpp_set_backup_schedule = call ~flags:[`Session]
   ()
 let vmpp_set_archive_target_config = call ~flags:[`Session]
   ~name:"set_archive_target_config"
-  ~in_oss_since:None
-  ~in_product_since:rel_cowley
+  ~lifecycle:vmpr_removed
   ~allowed_roles:_R_POOL_OP
   ~params:[
     Ref _vmpp, "self", "The protection policy";
@@ -6940,8 +6999,7 @@ let vmpp_set_archive_target_config = call ~flags:[`Session]
   ()
 let vmpp_set_archive_schedule = call ~flags:[`Session]
   ~name:"set_archive_schedule"
-  ~in_oss_since:None
-  ~in_product_since:rel_cowley
+  ~lifecycle:vmpr_removed
   ~allowed_roles:_R_POOL_OP
   ~params:[
     Ref _vmpp, "self", "The protection policy";
@@ -6950,8 +7008,7 @@ let vmpp_set_archive_schedule = call ~flags:[`Session]
   ()
 let vmpp_set_alarm_config = call ~flags:[`Session]
   ~name:"set_alarm_config"
-  ~in_oss_since:None
-  ~in_product_since:rel_cowley
+  ~lifecycle:vmpr_removed
   ~allowed_roles:_R_POOL_OP
   ~params:[
     Ref _vmpp, "self", "The protection policy";
@@ -6960,8 +7017,7 @@ let vmpp_set_alarm_config = call ~flags:[`Session]
   ()
 let vmpp_set_backup_last_run_time = call ~flags:[`Session]
   ~name:"set_backup_last_run_time"
-  ~in_oss_since:None
-  ~in_product_since:rel_cowley
+  ~lifecycle:vmpr_removed
   ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ~params:[
     Ref _vmpp, "self", "The protection policy";
@@ -6970,8 +7026,7 @@ let vmpp_set_backup_last_run_time = call ~flags:[`Session]
   ()
 let vmpp_set_archive_last_run_time = call ~flags:[`Session]
   ~name:"set_archive_last_run_time"
-  ~in_oss_since:None
-  ~in_product_since:rel_cowley
+  ~lifecycle:vmpr_removed
   ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ~params:[
     Ref _vmpp, "self", "The protection policy";
@@ -6980,8 +7035,7 @@ let vmpp_set_archive_last_run_time = call ~flags:[`Session]
   ()
 let vmpp_add_to_backup_schedule = call ~flags:[`Session]
   ~name:"add_to_backup_schedule"
-  ~in_oss_since:None
-  ~in_product_since:rel_cowley
+  ~lifecycle:vmpr_removed
   ~allowed_roles:_R_POOL_OP
   ~params:[
     Ref _vmpp, "self", "The protection policy";
@@ -6991,8 +7045,7 @@ let vmpp_add_to_backup_schedule = call ~flags:[`Session]
   ()
 let vmpp_add_to_archive_target_config = call ~flags:[`Session]
   ~name:"add_to_archive_target_config"
-  ~in_oss_since:None
-  ~in_product_since:rel_cowley
+  ~lifecycle:vmpr_removed
   ~allowed_roles:_R_POOL_OP
   ~params:[
     Ref _vmpp, "self", "The protection policy";
@@ -7002,8 +7055,7 @@ let vmpp_add_to_archive_target_config = call ~flags:[`Session]
   ()
 let vmpp_add_to_archive_schedule = call ~flags:[`Session]
   ~name:"add_to_archive_schedule"
-  ~in_oss_since:None
-  ~in_product_since:rel_cowley
+  ~lifecycle:vmpr_removed
   ~allowed_roles:_R_POOL_OP
   ~params:[
     Ref _vmpp, "self", "The protection policy";
@@ -7013,8 +7065,7 @@ let vmpp_add_to_archive_schedule = call ~flags:[`Session]
   ()
 let vmpp_add_to_alarm_config = call ~flags:[`Session]
   ~name:"add_to_alarm_config"
-  ~in_oss_since:None
-  ~in_product_since:rel_cowley
+  ~lifecycle:vmpr_removed
   ~allowed_roles:_R_POOL_OP
   ~params:[
     Ref _vmpp, "self", "The protection policy";
@@ -7024,8 +7075,7 @@ let vmpp_add_to_alarm_config = call ~flags:[`Session]
   ()
 let vmpp_remove_from_backup_schedule = call ~flags:[`Session]
   ~name:"remove_from_backup_schedule"
-  ~in_oss_since:None
-  ~in_product_since:rel_cowley
+  ~lifecycle:vmpr_removed
   ~allowed_roles:_R_POOL_OP
   ~params:[
     Ref _vmpp, "self", "The protection policy";
@@ -7034,8 +7084,7 @@ let vmpp_remove_from_backup_schedule = call ~flags:[`Session]
   ()
 let vmpp_remove_from_archive_target_config = call ~flags:[`Session]
   ~name:"remove_from_archive_target_config"
-  ~in_oss_since:None
-  ~in_product_since:rel_cowley
+  ~lifecycle:vmpr_removed
   ~allowed_roles:_R_POOL_OP
   ~params:[
     Ref _vmpp, "self", "The protection policy";
@@ -7044,8 +7093,7 @@ let vmpp_remove_from_archive_target_config = call ~flags:[`Session]
   ()
 let vmpp_remove_from_archive_schedule = call ~flags:[`Session]
   ~name:"remove_from_archive_schedule"
-  ~in_oss_since:None
-  ~in_product_since:rel_cowley
+  ~lifecycle:vmpr_removed
   ~allowed_roles:_R_POOL_OP
   ~params:[
     Ref _vmpp, "self", "The protection policy";
@@ -7054,8 +7102,7 @@ let vmpp_remove_from_archive_schedule = call ~flags:[`Session]
   ()
 let vmpp_remove_from_alarm_config = call ~flags:[`Session]
   ~name:"remove_from_alarm_config"
-  ~in_oss_since:None
-  ~in_product_since:rel_cowley
+  ~lifecycle:vmpr_removed
   ~allowed_roles:_R_POOL_OP
   ~params:[
     Ref _vmpp, "self", "The protection policy";
@@ -7063,8 +7110,9 @@ let vmpp_remove_from_alarm_config = call ~flags:[`Session]
   ]
   ()
 let vmpp =
-  create_obj ~in_db:true ~in_product_since:rel_cowley ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vmpp ~descr:"VM Protection Policy"
+  create_obj ~in_db:true ~in_oss_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vmpp ~descr:"VM Protection Policy"
     ~gen_events:true
+    ~lifecycle:vmpr_removed
     ~doccomments:[]
     ~messages_default_allowed_roles:_R_POOL_OP
     ~messages:[
@@ -7095,25 +7143,25 @@ let vmpp =
       vmpp_set_archive_last_run_time;
     ]
     ~contents:[
-      uid _vmpp;
+      uid ~lifecycle:vmpr_removed _vmpp;
       namespace ~name:"name" ~contents:(names None RW) ();
-      field ~qualifier:RW ~ty:Bool "is_policy_enabled" "enable or disable this policy" ~default_value:(Some (VBool true));
-      field ~qualifier:RW ~ty:vmpp_backup_type "backup_type" "type of the backup sub-policy";
-      field ~qualifier:StaticRO ~ty:Int "backup_retention_value" "maximum number of backups that should be stored at any time" ~default_value:(Some (VInt 7L));
-      field ~qualifier:StaticRO ~ty:vmpp_backup_frequency "backup_frequency" "frequency of the backup schedule";
-      field ~qualifier:StaticRO ~ty:(Map (String,String)) "backup_schedule" "schedule of the backup containing 'hour', 'min', 'days'. Date/time-related information is in XenServer Local Timezone";
-      field ~qualifier:DynamicRO ~ty:Bool "is_backup_running" "true if this protection policy's backup is running";
-      field ~qualifier:DynamicRO ~ty:DateTime "backup_last_run_time" "time of the last backup" ~default_value:(Some(VDateTime(Date.of_float 0.)));
-      field ~qualifier:StaticRO ~ty:vmpp_archive_target_type "archive_target_type" "type of the archive target config" ~default_value:(Some (VEnum "none"));
-      field ~qualifier:StaticRO ~ty:(Map (String,String)) "archive_target_config" "configuration for the archive, including its 'location', 'username', 'password'" ~default_value:(Some (VMap []));
-      field ~qualifier:StaticRO ~ty:vmpp_archive_frequency "archive_frequency" "frequency of the archive schedule" ~default_value:(Some (VEnum "never"));
-      field ~qualifier:StaticRO ~ty:(Map (String,String)) "archive_schedule" "schedule of the archive containing 'hour', 'min', 'days'. Date/time-related information is in XenServer Local Timezone" ~default_value:(Some (VMap []));
-      field ~qualifier:DynamicRO ~ty:Bool "is_archive_running" "true if this protection policy's archive is running";
-      field ~qualifier:DynamicRO ~ty:DateTime "archive_last_run_time" "time of the last archive" ~default_value:(Some(VDateTime(Date.of_float 0.)));
-      field ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) "VMs" "all VMs attached to this protection policy";
-      field ~qualifier:StaticRO ~ty:Bool "is_alarm_enabled" "true if alarm is enabled for this policy" ~default_value:(Some (VBool false));
-      field ~qualifier:StaticRO ~ty:(Map (String,String)) "alarm_config" "configuration for the alarm" ~default_value:(Some (VMap []));
-      field ~qualifier:DynamicRO ~ty:(Set (String)) "recent_alerts" "recent alerts" ~default_value:(Some (VSet []));
+      field ~lifecycle:vmpr_removed ~qualifier:RW ~ty:Bool "is_policy_enabled" "enable or disable this policy" ~default_value:(Some (VBool true));
+      field ~lifecycle:vmpr_removed ~qualifier:RW ~ty:vmpp_backup_type "backup_type" "type of the backup sub-policy" ~default_value:(Some (VEnum "snapshot"));
+      field ~lifecycle:vmpr_removed ~qualifier:StaticRO ~ty:Int "backup_retention_value" "maximum number of backups that should be stored at any time" ~default_value:(Some (VInt 7L));
+      field ~lifecycle:vmpr_removed ~qualifier:StaticRO ~ty:vmpp_backup_frequency "backup_frequency" "frequency of the backup schedule" ~default_value:(Some (VEnum "daily"));
+      field ~lifecycle:vmpr_removed ~qualifier:StaticRO ~ty:(Map (String,String)) "backup_schedule" "schedule of the backup containing 'hour', 'min', 'days'. Date/time-related information is in XenServer Local Timezone" ~default_value:(Some (VMap []));
+      field ~lifecycle:vmpr_removed ~qualifier:DynamicRO ~ty:Bool "is_backup_running" "true if this protection policy's backup is running";
+      field ~lifecycle:vmpr_removed ~qualifier:DynamicRO ~ty:DateTime "backup_last_run_time" "time of the last backup" ~default_value:(Some(VDateTime(Date.of_float 0.)));
+      field ~lifecycle:vmpr_removed ~qualifier:StaticRO ~ty:vmpp_archive_target_type "archive_target_type" "type of the archive target config" ~default_value:(Some (VEnum "none"));
+      field ~lifecycle:vmpr_removed ~qualifier:StaticRO ~ty:(Map (String,String)) "archive_target_config" "configuration for the archive, including its 'location', 'username', 'password'" ~default_value:(Some (VMap []));
+      field ~lifecycle:vmpr_removed ~qualifier:StaticRO ~ty:vmpp_archive_frequency "archive_frequency" "frequency of the archive schedule" ~default_value:(Some (VEnum "never"));
+      field ~lifecycle:vmpr_removed ~qualifier:StaticRO ~ty:(Map (String,String)) "archive_schedule" "schedule of the archive containing 'hour', 'min', 'days'. Date/time-related information is in XenServer Local Timezone" ~default_value:(Some (VMap []));
+      field ~lifecycle:vmpr_removed ~qualifier:DynamicRO ~ty:Bool "is_archive_running" "true if this protection policy's archive is running";
+      field ~lifecycle:vmpr_removed ~qualifier:DynamicRO ~ty:DateTime "archive_last_run_time" "time of the last archive" ~default_value:(Some(VDateTime(Date.of_float 0.)));
+      field ~lifecycle:vmpr_removed ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) "VMs" "all VMs attached to this protection policy";
+      field ~lifecycle:vmpr_removed ~qualifier:StaticRO ~ty:Bool "is_alarm_enabled" "true if alarm is enabled for this policy" ~default_value:(Some (VBool false));
+      field ~lifecycle:vmpr_removed ~qualifier:StaticRO ~ty:(Map (String,String)) "alarm_config" "configuration for the alarm" ~default_value:(Some (VMap []));
+      field ~lifecycle:vmpr_removed ~qualifier:DynamicRO ~ty:(Set (String)) "recent_alerts" "recent alerts" ~default_value:(Some (VSet []));
     ]
     ()
 
@@ -7931,6 +7979,7 @@ let http_actions = [
   ("put_import_raw_vdi", (Put, Constants.import_raw_vdi_uri, true, [String_query_arg "vdi"], _R_VM_ADMIN, []));
   ("get_export", (Get, Constants.export_uri, true, [String_query_arg "uuid"], _R_VM_ADMIN, []));
   ("get_export_metadata", (Get, Constants.export_metadata_uri, true, [String_query_arg "uuid"], _R_VM_ADMIN, []));
+  ("get_export_raw_vdi", (Get, Constants.export_raw_vdi_uri, true, [String_query_arg "vdi"], _R_VM_ADMIN, []));
   ("connect_console", (Connect, Constants.console_uri, false, [], _R_VM_OP, 
     [("host_console", _R_POOL_ADMIN)])); (* only _R_POOL_ADMIN can access the host/Dom0 console *)
   ("connect_console_ws", (Get, Constants.console_uri, false, [], _R_VM_OP, 
@@ -7964,9 +8013,8 @@ let http_actions = [
   ("put_messages", (Put, Constants.message_put_uri, false, [], _R_VM_POWER_ADMIN, []));
   ("connect_remotecmd", (Connect, Constants.remotecmd_uri, false, [], _R_POOL_ADMIN, []));
   ("post_remote_stats", (Post, Constants.remote_stats_uri, false, [], _R_POOL_ADMIN, []));  (* deprecated *)
-  ("get_wlb_report", (Get, Constants.wlb_report_uri, true,
-		      [String_query_arg "report"; Varargs_query_arg], _R_READ_ONLY, []));
-  ("get_wlb_diagnostics", (Get, Constants.wlb_diagnostics_uri, true, [], _R_READ_ONLY, []));
+  ("get_wlb_report", (Get, Constants.wlb_report_uri, true, [String_query_arg "report"; Varargs_query_arg], _R_READ_ONLY, [])); (* deprecated since Clearwater *)
+  ("get_wlb_diagnostics", (Get, Constants.wlb_diagnostics_uri, true, [], _R_READ_ONLY, [])); (* deprecated since Clearwater *)
   ("get_audit_log", (Get, Constants.audit_log_uri, true, [], _R_READ_ONLY, []));
 
   (* XMLRPC callback *)
