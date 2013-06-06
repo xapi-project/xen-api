@@ -203,9 +203,6 @@ let register_callback_fns() =
 let noevents = ref false
 let debug_dummy_data = ref false
 
-(** Start the XML-RPC server. *)
-let daemonize = ref false
-
 let show_version () = 
   List.iter (fun (x, y) -> printf "%s=%s\n" x y)
     [ "git_id", Version.git_id;
@@ -999,15 +996,20 @@ let watchdog f =
 				let cmd = Sys.argv.(0) in
 
 				let overriden_args = [ "-onsystemboot"; "-daemon" ] in
+				let overriden_args1 = [ "-daemon" ] in
 				let core_args = 
-					List.filter (fun x -> not(List.mem x overriden_args))
-						(List.tl (Array.to_list Sys.argv)) in
+					List.rev(fst(List.fold_left (fun (acc, delete_next) x ->
+						let acc = if List.mem x overriden_args || delete_next then acc else x :: acc in
+						let delete_next = List.mem x overriden_args1 in
+						acc, delete_next
+					) ([], false) (List.tl (Array.to_list Sys.argv)))) in
+
 				let args = 
 					"-nowatchdog" :: core_args 
 					@ (if !Xapi_globs.on_system_boot then [ "-onsystemboot" ] else []) in
-
+error "XXX about to fork with [ %s ]" (String.concat " " args);
 				let newpid = Forkhelpers.safe_close_and_exec ~env:(Unix.environment ()) None None None [] cmd args in
-
+error "YYY forked";
 				(* parent just reset the sighandler *)
 				Sys.set_signal Sys.sigterm (Sys.Signal_handle (fun i -> restart := false; Unix.kill (Forkhelpers.getpid newpid) Sys.sigterm));
 				pid := Some newpid;
@@ -1148,10 +1150,7 @@ tolerance, the next tweak will be %f seconds away at the earliest."
 
 let _ =
 	init_args(); (* need to read args to find out whether to daemonize or not *)
-
-  if !daemonize then
-    Unixext.daemonize ();
-  Unixext.pidfile_write "/var/run/xapi.pid";
+  Xcp_service.maybe_daemonize ();
 
   (* chdir to @VARDIR@/debug so that's where xapi coredumps go 
      (in the unlikely event that there are any ;) *)
