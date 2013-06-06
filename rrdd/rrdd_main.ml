@@ -595,29 +595,6 @@ let monitor_loop () =
 	)
 (* Monitoring code --- END. *)
 
-(* Read the xcp-rrdd.conf. *)
-let options = [
-	"disable-logging-for",
-	Arg.String
-		(fun x ->
-			try
-				let modules = String.split_f String.isspace x in
-				List.iter
-					(fun x ->
-						debug "Disabling logging for: %s" x;
-						Debug.disable x
-					) modules
-			with e ->
-				error "Processing disabled-logging-for = %s" x;
-				log_backtrace ()
-		),
-	(fun () -> ""),
-	"Disable logging for certain components";
-]
-
-let read_config () =
-	Xcp_service.configure ~options ()
-
 (* Entry point. *)
 let _ =
 	(* Prevent shutdown due to sigpipe interrupt. This protects against
@@ -629,31 +606,8 @@ let _ =
 
 	(* Read configuration file. *)
 	debug "Reading configuration file ..";
-	read_config ();
-
-	let pidfile = ref "" in
-	let daemonize = ref false in
-	Arg.parse (Arg.align [
-			"-daemon", Arg.Set daemonize, "Create a daemon";
-			"-pidfile", Arg.Set_string pidfile,
-				Printf.sprintf "Set the pid file (default \"%s\")" !pidfile;
-		])
-		(fun _ -> failwith "Invalid argument")
-		(Printf.sprintf "Usage: %s [-daemon] [-pidfile filename]" Rrd_interface.service_name);
-
-	if !daemonize then (
-		debug "Daemonizing ..";
-		Unixext.daemonize ()
-	) else (
-		debug "Not daemonizing ..";
-		Debug.log_to_stdout ()
-	);
-
-	if !pidfile <> "" then begin
-		debug "Storing process id into specified file ..";
-		Unixext.mkdir_rec (Filename.dirname !pidfile) 0o755;
-		Unixext.pidfile_write !pidfile;
-	end;
+	Xcp_service.configure ();
+	Xcp_service.maybe_daemonize ();
 
 	debug "Starting the HTTP server ..";
 	start (!Rrd_interface.default_path, !Rrd_interface.forwarded_path) Server.process;
