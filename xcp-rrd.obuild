@@ -11,3 +11,13 @@ library xcp-rrd
   build-deps: stdext, rpclib, rpclib.syntax
   pp: camlp4o
 
+executable rewrite
+  src-dir: test
+  main: rewrite.ml
+  build-deps: xcp-rrd
+
+executable dummy
+  src-dir: test
+  main: dummy.ml
+  build-deps: xcp-rrd
+
