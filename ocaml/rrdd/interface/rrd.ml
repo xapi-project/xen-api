@@ -786,72 +786,84 @@ let xml_to_fd rrd fd =
 		)
 		(fun () -> flush oc) in
 
-  let tag n next output = 
+  let tag n fn output = 
     Xmlm.output output (`El_start (("",n),[])); 
-    List.iter (fun x -> x output) next; 
+    fn output;
     Xmlm.output output (`El_end) 
   in
-  let tags n next output =
-    List.iter (fun next -> tag n next output) next
-  in
+
   let data dat output = Xmlm.output output (`Data dat) in
 
-  let do_dss ds_list =
-    [tags "ds" (List.map (fun ds -> [
-      tag "name" [data ds.ds_name];
-      tag "type" [data (match ds.ds_ty with Gauge -> "GAUGE" | Absolute -> "ABSOLUTE" | Derive -> "DERIVE")];
-      tag "minimal_heartbeat" [data (f_to_s ds.ds_mrhb)];
-      tag "min" [data (f_to_s ds.ds_min)];
-      tag "max" [data (f_to_s ds.ds_max)];
-      tag "last_ds" [data (match ds.ds_last with VT_Float x -> f_to_s x | VT_Int64 x -> Printf.sprintf "%Ld" x | _ -> "0.0")];
-      tag "value" [data (f_to_s ds.ds_value)];
-      tag "unknown_sec" [data (Printf.sprintf "%d" (int_of_float ds.ds_unknown_sec))];
-    ]) ds_list)] in
+  let do_ds ds output =
+    tag "ds" (fun output ->
+      tag "name" (data ds.ds_name) output;
+      tag "type" (data (match ds.ds_ty with Gauge -> "GAUGE" | Absolute -> "ABSOLUTE" | Derive -> "DERIVE")) output;
+      tag "minimal_heartbeat" (data (f_to_s ds.ds_mrhb)) output;
+      tag "min" (data (f_to_s ds.ds_min)) output;
+      tag "max" (data (f_to_s ds.ds_max)) output;
+      tag "last_ds" (data (match ds.ds_last with VT_Float x -> f_to_s x | VT_Int64 x -> Printf.sprintf "%Ld" x | _ -> "0.0")) output;
+      tag "value" (data (f_to_s ds.ds_value)) output;
+      tag "unknown_sec" (data (Printf.sprintf "%d" (int_of_float ds.ds_unknown_sec))) output) 
+      output
+  in
+      
+  let do_dss dss output =
+    Array.iter (fun ds -> do_ds ds output) dss
+  in 
 
-  let do_rra_cdps cdp_list =
-    [tags "ds" (List.map (fun cdp -> [
-      tag "primary_value" [data "0.0"];
-      tag "secondary_value" [data "0.0"];
-      tag "value" [data (f_to_s cdp.cdp_value)];
-      tag "unknown_datapoints" [data (Printf.sprintf "%d" cdp.cdp_unknown_pdps)]
-    ]) cdp_list)] in
+  let do_rra_cdp cdp output =
+    tag "ds" (fun output ->
+      tag "primary_value" (data "0.0") output;
+      tag "secondary_value" (data "0.0") output;
+      tag "value" (data (f_to_s cdp.cdp_value)) output;
+      tag "unknown_datapoints" (data (Printf.sprintf "%d" cdp.cdp_unknown_pdps)) output)
+      output
+  in
 
-  let do_database rings =
-    if Array.length rings = 0 then [] else
-      let rows = Fring.length rings.(0) in
-      let cols = Array.length rings in
-      let db = Array.to_list 
-	(Array.init rows (fun row ->
-	  [tags "v" 
-	      (Array.to_list (Array.init cols 
-				 (fun col ->
-				   [ data (f_to_s (Fring.peek rings.(col) 
-						      (rows-row-1))) ])))]))
-      in [tags "row" db]
+  let do_rra_cdps cdps output =
+    Array.iter (fun cdp -> do_rra_cdp cdp output) cdps
   in
   
-  let do_rras rra_list =
-    [tags "rra" (List.map (fun rra -> [
-      tag "cf" [data (match rra.rra_cf with CF_Average -> "AVERAGE" | CF_Max -> "MAX" | CF_Min -> "MIN" | CF_Last -> "LAST")];
-      tag "pdp_per_row" [data (string_of_int rra.rra_pdp_cnt)];
-      tag "params" [tag "xff" [data (f_to_s rra.rra_xff)]];
-      tag "cdp_prep" (do_rra_cdps (Array.to_list rra.rra_cdps));
-      tag "database" (do_database rra.rra_data)]) rra_list)]
+  let do_database rings output =
+    if Array.length rings = 0 then () else
+      let rows = Fring.length rings.(0) in
+      let cols = Array.length rings in
+      for row=0 to rows-1 do
+	tag "row" (fun output ->
+	  for col=0 to cols-1 do
+	    tag "v" (data (f_to_s (Fring.peek rings.(col) (rows-row-1)))) output
+	  done) output
+      done
+  in
+
+  let do_rra rra output =
+    tag "rra" (fun output ->
+      tag "cf" (data (match rra.rra_cf with CF_Average -> "AVERAGE" | CF_Max -> "MAX" | CF_Min -> "MIN" | CF_Last -> "LAST")) output;
+      tag "pdp_per_row" (data (string_of_int rra.rra_pdp_cnt)) output;
+      tag "params" (tag "xff" (data (f_to_s rra.rra_xff))) output;
+      tag "cdp_prep" (fun output ->
+	do_rra_cdps rra.rra_cdps output) output;
+      tag "database" (fun output -> 
+	do_database rra.rra_data output) output) output
+  in
+      
+  let do_rras rras output =
+    Array.iter (fun rra -> do_rra rra output) rras
   in
 	
-	with_out_channel_output fd
+  with_out_channel_output fd
+    (fun output ->
+      Xmlm.output output (`Dtd None);
+      tag "rrd"
 	(fun output ->
-		Xmlm.output output (`Dtd None);
-		tag "rrd"
-		(List.concat
-			[[tag "version" [data "0003"];
-			tag "step" [data (Int64.to_string rrd.timestep)];
-			tag "lastupdate" [data (Printf.sprintf "%Ld" (Int64.of_float (rrd.last_updated)))]];
-			do_dss (Array.to_list rrd.rrd_dss);
-			do_rras (Array.to_list rrd.rrd_rras);
-		]) output
-	)
-
+	  tag "version" (data "0003") output;
+	  tag "step" (data (Int64.to_string rrd.timestep)) output;
+	  tag "lastupdate" (data (Printf.sprintf "%Ld" (Int64.of_float (rrd.last_updated)))) output;
+	  do_dss rrd.rrd_dss output;
+	  do_rras rrd.rrd_rras output)
+	output
+    )
+    
 let json_to_fd rrd fd =
 	let write x = if Unix.write fd x 0 (String.length x) <> String.length x then failwith "json_to_fd: short write" in
 
