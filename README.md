@@ -1,3 +1,3 @@
-Standalone RRD library for use with XCP.
+Round-Robin Datasources (RRDs) for OCaml.
 
 Requires [rpclib](https://github.com/samoht/ocaml-rpc)
