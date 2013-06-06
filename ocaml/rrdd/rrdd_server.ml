@@ -400,7 +400,7 @@ module Plugin = struct
 			let owner =
 				owner_of_string (assoc_opt ~key:"owner" ~default:"host" kvs) in
 			let ds = Ds.ds_make ~name ~description ~units ~ty ~value ~min ~max
-				~default:true () in
+				~default:false () in
 			owner, ds
 		with e ->
 			error "Failed to process datasource: %s" name;
