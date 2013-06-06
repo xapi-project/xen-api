@@ -22,11 +22,12 @@ let service_name = "rrd"
 let queue_name = ref (Xcp_service.common_prefix ^ service_name)
 
 let default_sockets_dir = "/var/lib/xcp"
-let default_path = ref (Filename.concat default_sockets_dir "rrdd")
-let forwarded_path = ref (Filename.concat default_sockets_dir "rrdd" ^ ".forwarded")
+let daemon_name = "xcp-rrdd"
+let default_path = ref (Filename.concat default_sockets_dir daemon_name)
+let forwarded_path = ref (Filename.concat default_sockets_dir daemon_name ^ ".forwarded")
 
 let set_sockets_dir x =
-  default_path := Filename.concat x "rrdd";
+  default_path := Filename.concat x daemon_name;
   forwarded_path := !default_path ^ ".forwarded"
 
 let uri () = "file:" ^ !default_path
