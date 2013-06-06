@@ -1,3 +1,6 @@
+0.9.2 (6-Jun-2013):
+* Fix #require under a toplevel by removing unused javascript dependency
+
 0.9.1 (02-Jun-2013):
 * Update to cohttp 0.9.8
 
