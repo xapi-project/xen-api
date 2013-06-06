@@ -721,7 +721,11 @@ let from_xml input =
 			inner rrd n) rrd removals_required
 	| _ -> failwith "Bad xml!"
 
-(** Repeatedly call [f string] where [string] contains a fragment of the RRD XML *)
+let of_file filename =
+	let body = Unixext.string_of_file filename in
+	let input = Xmlm.make_input (`String (0,body)) in
+	from_xml input
+
 let xml_to_fd rrd fd =
 	(* We use an output channel for Xmlm-compat buffered output. Provided we flush
 	   at the end we should be safe. *)  
@@ -730,75 +734,84 @@ let xml_to_fd rrd fd =
 		finally
 		(fun () ->
 			let output = Xmlm.make_output (`Channel oc) in
-			f output
-		)
-		(fun () -> flush oc) in
-
-	let tag n next output = 
-		Xmlm.output output (`El_start (("",n),[])); 
-		List.iter (fun x -> x output) next; 
-		Xmlm.output output (`El_end) 
+			f output)
+		(fun () -> flush oc)
 	in
-	let tags n next output =
-		List.iter (fun next -> tag n next output) next
+
+	let tag n fn output = 
+		Xmlm.output output (`El_start (("",n),[])); 
+		fn output;
+		Xmlm.output output (`El_end) 
 	in
 	let data dat output = Xmlm.output output (`Data dat) in
 
-	let do_dss ds_list =
-		[tags "ds" (List.map (fun ds -> [
-			tag "name" [data ds.ds_name];
-			tag "type" [data (match ds.ds_ty with Gauge -> "GAUGE" | Absolute -> "ABSOLUTE" | Derive -> "DERIVE")];
-			tag "minimal_heartbeat" [data (f_to_s ds.ds_mrhb)];
-			tag "min" [data (f_to_s ds.ds_min)];
-			tag "max" [data (f_to_s ds.ds_max)];
-			tag "last_ds" [data (match ds.ds_last with VT_Float x -> f_to_s x | VT_Int64 x -> Printf.sprintf "%Ld" x | _ -> "0.0")];
-			tag "value" [data (f_to_s ds.ds_value)];
-			tag "unknown_sec" [data (Printf.sprintf "%d" (int_of_float ds.ds_unknown_sec))];
-		]) ds_list)] in
+	let do_ds ds output =
+		tag "ds" (fun output ->
+			tag "name" (data ds.ds_name) output;
+			tag "type" (data (match ds.ds_ty with Gauge -> "GAUGE" | Absolute -> "ABSOLUTE" | Derive -> "DERIVE")) output;
+			tag "minimal_heartbeat" (data (f_to_s ds.ds_mrhb)) output;
+			tag "min" (data (f_to_s ds.ds_min)) output;
+			tag "max" (data (f_to_s ds.ds_max)) output;
+			tag "last_ds" (data (match ds.ds_last with VT_Float x -> f_to_s x | VT_Int64 x -> Printf.sprintf "%Ld" x | _ -> "0.0")) output;
+			tag "value" (data (f_to_s ds.ds_value)) output;
+			tag "unknown_sec" (data (Printf.sprintf "%d" (int_of_float ds.ds_unknown_sec))) output) 
+			output
+	in
+  
+	let do_dss dss output =
+		Array.iter (fun ds -> do_ds ds output) dss
+	in 
 
-	let do_rra_cdps cdp_list =
-		[tags "ds" (List.map (fun cdp -> [
-			tag "primary_value" [data "0.0"];
-			tag "secondary_value" [data "0.0"];
-			tag "value" [data (f_to_s cdp.cdp_value)];
-			tag "unknown_datapoints" [data (Printf.sprintf "%d" cdp.cdp_unknown_pdps)]
-		]) cdp_list)] in
-
-	let do_database rings =
-		if Array.length rings = 0 then [] else
-			let rows = Fring.length rings.(0) in
-			let cols = Array.length rings in
-			let db = Array.to_list 
-				(Array.init rows (fun row ->
-					[tags "v" 
-						(Array.to_list (Array.init cols 
-						(fun col ->
-							[ data (f_to_s (Fring.peek rings.(col) 
-							(rows-row-1))) ])))]))
-			in [tags "row" db]
+	let do_rra_cdp cdp output =
+		tag "ds" (fun output ->
+			tag "primary_value" (data "0.0") output;
+			tag "secondary_value" (data "0.0") output;
+			tag "value" (data (f_to_s cdp.cdp_value)) output;
+			tag "unknown_datapoints" (data (Printf.sprintf "%d" cdp.cdp_unknown_pdps)) output)
+			output
 	in
 
-	let do_rras rra_list =
-		[tags "rra" (List.map (fun rra -> [
-			tag "cf" [data (match rra.rra_cf with CF_Average -> "AVERAGE" | CF_Max -> "MAX" | CF_Min -> "MIN" | CF_Last -> "LAST")];
-			tag "pdp_per_row" [data (string_of_int rra.rra_pdp_cnt)];
-			tag "params" [tag "xff" [data (f_to_s rra.rra_xff)]];
-			tag "cdp_prep" (do_rra_cdps (Array.to_list rra.rra_cdps));
-			tag "database" (do_database rra.rra_data)]) rra_list)]
+	let do_rra_cdps cdps output =
+		Array.iter (fun cdp -> do_rra_cdp cdp output) cdps
+	in
+
+	let do_database rings output =
+		if Array.length rings = 0 then () else
+			let rows = Fring.length rings.(0) in
+			let cols = Array.length rings in
+			for row=0 to rows-1 do
+				tag "row" (fun output ->
+					for col=0 to cols-1 do
+						tag "v" (data (f_to_s (Fring.peek rings.(col) (rows-row-1)))) output
+					done) output
+			done
+	in
+
+	let do_rra rra output =
+		tag "rra" (fun output ->
+				tag "cf" (data (match rra.rra_cf with CF_Average -> "AVERAGE" | CF_Max -> "MAX" | CF_Min -> "MIN" | CF_Last -> "LAST")) output;
+				tag "pdp_per_row" (data (string_of_int rra.rra_pdp_cnt)) output;
+				tag "params" (tag "xff" (data (f_to_s rra.rra_xff))) output;
+				tag "cdp_prep" (fun output ->
+					do_rra_cdps rra.rra_cdps output) output;
+				tag "database" (fun output -> 
+					do_database rra.rra_data output) output) output
+	in
+
+	let do_rras rras output =
+		Array.iter (fun rra -> do_rra rra output) rras
 	in
 
 	with_out_channel_output fd
-	(fun output ->
-		Xmlm.output output (`Dtd None);
-		tag "rrd"
-		(List.concat
-			[[tag "version" [data "0003"];
-			tag "step" [data (Int64.to_string rrd.timestep)];
-			tag "lastupdate" [data (Printf.sprintf "%Ld" (Int64.of_float (rrd.last_updated)))]];
-			do_dss (Array.to_list rrd.rrd_dss);
-			do_rras (Array.to_list rrd.rrd_rras);
-		]) output
-	)
+		(fun output ->
+			Xmlm.output output (`Dtd None);
+			tag "rrd" (fun output ->
+	  			tag "version" (data "0003") output;
+	  			tag "step" (data (Int64.to_string rrd.timestep)) output;
+	  			tag "lastupdate" (data (Printf.sprintf "%Ld" (Int64.of_float (rrd.last_updated)))) output;
+	  			do_dss rrd.rrd_dss output;
+	 			do_rras rrd.rrd_rras output)
+				output)
 
 let json_to_fd rrd fd =
 	let write x = if Unix.write fd x 0 (String.length x) <> String.length x then failwith "json_to_fd: short write" in
@@ -848,11 +861,6 @@ let json_to_fd rrd fd =
 	write ",";
 	write (do_rras (Array.to_list rrd.rrd_rras)^"}") (* XXX need to split this *)
 
-let iter_to_string_list f x = 
-	let acc = ref [] in
-	f x (fun string -> acc := string :: !acc);
-	List.rev !acc
-
 (*
 (* XXX: we copy and return to avoid holding locks: this is why we aren't exposing
    an iter/fold interface here. It would be better to copy the original (compact)
@@ -868,6 +876,9 @@ let to_bigbuffer ?(json=false) rrd =
 *)
 
 let to_fd ?(json=false) rrd fd = (if json then json_to_fd else xml_to_fd) rrd fd
+
+let to_file ?(json=false) rrd filename = 
+  Unixext.atomic_write_to_file filename 0o644 (to_fd ~json rrd)
 
 (** WARNING WARNING: Do not call the following function from within xapi! *)
 let text_export rrd grouping =
@@ -894,31 +905,6 @@ let text_export rrd grouping =
 			close_out oc
 		done
 	done
-
-
-(*
-let _ =
-   let rra = rra_create CF_Average 100 1 0.5 in
-   let rra2 = rra_create CF_Average 100 10 0.5 in
-   let rra3 = rra_create CF_Average 100 100 0.5 in
-   let rra4 = rra_create CF_Average 100 1000 0.5 in
-   let ds = ds_create "foo" Gauge ~mrhb:10.0 (VT_Float 0.0) in
-   let ds2 = ds_create "bar" Gauge ~mrhb:10.0 (VT_Float 0.0) in
-   let rrd = rrd_create [|ds; ds2|] [|rra; rra2; rra3; rra4 |] 1L 1000000000.0 in
-   let v = VT_Float 1.0 in
-   let v2 = VT_Float 0.5 in
-   for i=1 to 1000 do
-    let t = 1000000000.0 +. 0.7 *. (float_of_int i) in
-    let v1 = VT_Float (0.5 +. 0.5 *. sin ( t /. 10.0 )) in
-    let v2 = VT_Float (0.5 +. 0.5 *. cos ( t /. 20.0 )) in
-    ds_update rrd t [|v1; v2|]
-   done;
-   let rra = find_best_rra rrd CF_Average 1000000650L in
-   Printf.printf "found rra: pdp_cnt=%d row_cnt=%d" rra.rra_pdp_cnt rra.rra_row_cnt
-  let oc = open_out "rrd.xml" in
-  let s = to_string rrd in
-  Printf.fprintf oc "%s" s;
-*)
 
 module Statefile_latency = struct
 	type t = {id: string; latency: float option} with rpc
