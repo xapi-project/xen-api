@@ -5,11 +5,11 @@ ETCDIR ?= /etc
 .PHONY: test install uninstall clean
 
 dist/build/xcp-networkd/xcp-networkd:
-	obuild configure
+	obuild configure --enable-tests
 	obuild build
 
 test:
-	./dist/build/network_test/network_test -verbose
+	obuild test --output
 
 install:
 	install -D dist/build/xcp-networkd/xcp-networkd $(DESTDIR)$(SBINDIR)/xcp-networkd

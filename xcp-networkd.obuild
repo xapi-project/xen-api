@@ -21,7 +21,7 @@ executable networkd_db
   src-dir: networkd_db
   build-deps: network-libs, stdext, threads, xcp.network
 
-executable network_test
+test network_test
   main: network_test.ml
   src-dir: test
   build-deps: stdext, oUnit, network-libs
