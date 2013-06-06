@@ -267,6 +267,7 @@ let power_state_reset ~__context ~vm =
 		error "VM.power_state_reset vm=%s blocked because VM is a control domain" (Ref.string_of vm);
 		raise (Api_errors.Server_error(Api_errors.cannot_reset_control_domain, [ Ref.string_of vm ]));
 	end;
+	let id = Db.VM.get_uuid ~__context ~self:vm in
   (* Perform sanity checks if VM is Running or Paused since we don't want to
      lose track of running domains. *)
 	let power_state = Db.VM.get_power_state ~__context ~self:vm in

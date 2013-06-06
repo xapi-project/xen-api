@@ -33,7 +33,7 @@ open D
 let create_from_query_result ~__context q =
 	let r = Ref.make () and u = Uuid.string_of_uuid (Uuid.make_uuid ()) in
 	let open Storage_interface in
-	let features = Smint.parse_string_int64_features q.features in
+	let features = Smint.parse_string_int64_features (List.map fst q.features) in
 	let capabilities = List.map fst features in
 	info "Registering SM plugin %s (version %s)" (String.lowercase q.driver) q.version;
 	Db.SM.create ~__context ~ref:r ~uuid:u ~_type:(String.lowercase q.driver)
@@ -53,7 +53,7 @@ let update_from_query_result ~__context (self, r) query_result =
 	let open Storage_interface in
 	let _type = String.lowercase query_result.driver in
 	let driver_filename = Sm_exec.cmd_name query_result.driver in
-	let features = Smint.parse_string_int64_features query_result.features in
+	let features = Smint.parse_string_int64_features (List.map fst query_result.features) in
 	let capabilities = List.map fst features in
 	info "Registering SM plugin %s (version %s)" (String.lowercase query_result.driver) query_result.version;
 	if r.API.sM_type <> _type

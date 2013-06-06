@@ -157,6 +157,7 @@ let get_handler (req: Http.Request.t) s _ =
 				| [ ""; services; "SM" ] when services = _services ->
 					let rpc = list_sm_drivers ~__context in
 					respond req rpc s
+(* XXX
 				| [ ""; services ] when services = _services ->
 					let q = {
 						Storage_interface.driver = "mux";
@@ -170,6 +171,7 @@ let get_handler (req: Http.Request.t) s _ =
 						configuration = []
 					} in
 					respond req (Storage_interface.rpc_of_query_result q) s
+*)
 				| _ ->
 					Http_svr.headers s (Http.http_404_missing ~version:"1.0" ());
 					req.Http.Request.close <- true

@@ -138,7 +138,7 @@ let query_result_of_sr_driver_info x = {
 	copyright = x.sr_driver_copyright;
 	version = x.sr_driver_version;
 	required_api_version = x.sr_driver_required_api_version;
-	features = x.sr_driver_text_features;
+	features = List.map (fun x -> x, 0L) x.sr_driver_text_features;
 	configuration = x.sr_driver_configuration
 }
 

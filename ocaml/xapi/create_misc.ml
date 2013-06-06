@@ -416,10 +416,10 @@ let create_host_cpu ~__context =
 		let open Xenctrl in
 		let xc = interface_open () in
 		let p = physinfo xc in
-		let cpu_count = p.Phys_info.nr_cpus in
+		let cpu_count = p.nr_cpus in
 		let socket_count =
-			p.Phys_info.nr_cpus /
-			(p.Phys_info.threads_per_core * p.Phys_info.cores_per_socket)
+			p.nr_cpus /
+			(p.threads_per_core * p.cores_per_socket)
 	in
 		cpu_count, socket_count
 	in
