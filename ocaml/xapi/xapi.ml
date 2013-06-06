@@ -1147,8 +1147,6 @@ tolerance, the next tweak will be %f seconds away at the earliest."
 
 
 let _ =
-	Debug.set_facility Syslog_transitional.Local5;
-
 	init_args(); (* need to read args to find out whether to daemonize or not *)
 
   if !daemonize then
