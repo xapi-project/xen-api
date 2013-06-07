@@ -1,5 +1,5 @@
 name: xcp-networkd
-version: 1.0.0
+version: 0.9.1
 synopsis: XCP Network Daemon
 obuild-ver: 1
 
