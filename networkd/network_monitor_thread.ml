@@ -249,15 +249,14 @@ let signal_networking_change () =
 
 let ip_watcher () =
 	let cmd = Network_utils.iproute2 in
-	(* Only monitor IPv6 addresses at the moment *)
-	let args = ["-6"; "monitor"; "address"] in
+	let args = ["monitor"; "address"] in
 	let readme, writeme = Unix.pipe () in
 	Mutex.execute watcher_m (fun () ->
 		watcher_pid := Some (Forkhelpers.safe_close_and_exec ~env:(Unix.environment ()) None (Some writeme) None [] cmd args)
 	);
 	Unix.close writeme;
 	let in_channel = Unix.in_channel_of_descr readme in
-	debug "Started IPv6 watcher thread";
+	debug "Started IP watcher thread";
 	let rec loop () =
 		let line = input_line in_channel in
 		(* Do not send events for link-local IPv6 addresses *)
