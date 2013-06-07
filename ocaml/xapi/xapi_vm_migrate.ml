@@ -679,6 +679,9 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		if (not force) && live then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ();
 		let snapshot = Helpers.get_boot_record ~__context ~self:vm in
 		Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_sr_check:false ();
+		(* Prevent VMs from being migrated onto a host with a lower platform version *)
+		let source_host = Db.VM.get_resident_on ~__context ~self:vm in
+		Helpers.assert_host_versions_not_decreasing ~__context ~host_from:source_host ~host_to:dest_host_ref ;
 		if vif_map <> [] then
 			raise (Api_errors.Server_error(Api_errors.not_implemented, [
 				"VIF mapping is not supported for intra-pool migration"]))
