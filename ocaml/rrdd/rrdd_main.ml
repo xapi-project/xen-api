@@ -649,6 +649,7 @@ let monitor_loop () =
 let read_config () =
 	let config_args = [
 		Config_shared.disable_logging_for;
+	        "plugin-default", Config.Set_bool Rrdd_server.plugin_default
 	] in
 	try
 		if Unixext.file_exists Fhs.rrddconf then
