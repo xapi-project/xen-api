@@ -26,6 +26,8 @@ open Rrdd_shared
 module D = Debug.Debugger(struct let name="rrdd_server" end)
 open D
 
+let plugin_default = ref false
+
 let has_vm_rrd _ ~(vm_uuid : string) =
 	Mutex.execute mutex (fun _ -> Hashtbl.mem vm_rrds vm_uuid)
 
@@ -551,7 +553,7 @@ module Plugin = struct
 			let owner =
 				owner_of_string (assoc_opt ~key:"owner" ~default:"host" kvs) in
 			let ds = Ds.ds_make ~name ~description ~units ~ty ~value ~min ~max
-				~default:true () in
+				~default:(!plugin_default) () in
 			owner, ds
 		with e ->
 			error "Failed to process datasource: %s" name;
