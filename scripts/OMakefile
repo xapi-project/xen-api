@@ -89,6 +89,7 @@ install:
 	$(IPROG) xe-xentrace $(DESTDIR)$(BINDIR)
 	$(IPROG) xe-edit-bootloader $(DESTDIR)$(BINDIR)
 	$(IPROG) xe-get-network-backend $(DESTDIR)$(BINDIR)
+	$(IPROG) xe-enable-all-plugin-metrics $(DESTDIR)$(BINDIR)
 	$(IPROG) static-vdis $(DESTDIR)$(BINDIR)
 	$(IPROG) with-vdi $(DESTDIR)$(OPTDIR)/debug
 	$(IPROG) pool.conf $(DESTDIR)$(ETCDIR)
