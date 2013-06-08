@@ -42,14 +42,17 @@ OPTIONAL PARAMETERS
 
 EXAMPLES
 --------
-To add a CD to a specified VM: ::
-	*xe vm-cd-add* cd-name=<CD NAME> device=<DEVICE> uuid=<VM UUID>
+To add a CD to a specified VM:
 
-To add a CD to all VMs resident on a host: ::
-	*xe vm-cd-add* cd-name=<CD NAME> device=<DEVICE> resident-on=<HOST UUID> --multiple
+- *xe vm-cd-add* cd-name=<CD NAME> device=<DEVICE> uuid=<VM UUID>
 
-To add a CD to all running VMs that are not control domains: ::
-	*xe vm-cd-add* cd-name=<CD NAME> device=<DEVICE> power-state=running is-control-domain=false --multiple
+To add a CD to all VMs resident on a host:
+	
+- *xe vm-cd-add* cd-name=<CD NAME> device=<DEVICE> resident-on=<HOST UUID> --multiple
+
+To add a CD to all running VMs that are not control domains:
+
+- *xe vm-cd-add* cd-name=<CD NAME> device=<DEVICE> power-state=running is-control-domain=false --multiple
 
 
 SEE ALSO
@@ -59,8 +62,9 @@ SEE ALSO
 
 AUTHORS
 -------
-Manpage Author(s): ::
-Grant McWilliams <grant@xenapiadmin.com>
+Manpage Author(s):
+
+- Grant McWilliams <grant@xenapiadmin.com>
 
 
 BUGS
