@@ -1406,7 +1406,7 @@ let rec events_watch ~__context queue_name from =
 	let dbg = Context.string_of_task __context in
 	if Xapi_fist.delay_xenopsd_event_threads () then Thread.delay 30.0;
 	let module Client = (val make_client queue_name : XENOPS) in
-	let barriers, events, next = Client.UPDATES.get dbg from None in
+	let barriers, events, next = Client.UPDATES.get dbg from (Some 30) in
 	let done_events = ref [] in
 	let already_done x = List.mem x !done_events in
 	let add_event x = done_events := (x :: !done_events) in		
