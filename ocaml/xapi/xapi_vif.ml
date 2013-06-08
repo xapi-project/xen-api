@@ -120,4 +120,4 @@ let add_ipv6_allowed ~__context ~self ~value =
 
 let remove_ipv6_allowed ~__context ~self ~value =
 	change_locking_config ~__context ~self ~licence_check:false
-		(fun () -> Db.VIF.remove_ipv4_allowed ~__context ~self ~value)
+		(fun () -> Db.VIF.remove_ipv6_allowed ~__context ~self ~value)
