@@ -11,49 +11,43 @@ xe-network-create - Create a network
 
 SYNOPSIS
 --------
-
-*xe network-create* name-label=<Network Name> [ MTU=<MTU Size> ] [ name-description=<description> ] 
-
+*xe network-create* name-label=<NETWORK NAME> [ MTU=<MTU SIZE> ] [ name-description=<DESCRIPTION> ] 
 
 DESCRIPTION
 -----------
-
-*xe network-create* creates an internal network. Name-labels and name-descriptions containing spaces need to be enclosed in quotes.  The resulting network UUID is returned. 
+*xe network-create* creates an internal network. Name-labels and name-descriptions containing spaces need to be enclosed in quotes. The resulting network UUID is returned. 
 
 REQUIRED PARAMETERS
 -------------------
-
 *name-label*::
-	Name of the network. 
+	Name of the network
 
 OPTIONAL PARAMETER
 -------------------
-
 *MTU*::
-	MTU for the network. The MTU default is 1500.
-	
+	MTU for the network. The MTU default is 1500.	
 *name-description*::
-	Description of the network.
+	Description of the network
 
 EXAMPLES
 --------
+To create a network with a *name-description*
 
-To create a network with a *name-description*: ::
-	*xe network-create* name-label="Example Network" name-description="This is an Example Network"
+- *xe network-create* name-label="Example Network" name-description="This is an Example Network"
 
 To create a network with a custom *MTU*: ::
-	*xe network-create* name-label="MTU Example Network" MTU="9000"
+
+- *xe network-create* name-label="MTU Example Network" MTU="9000"
 
 SEE ALSO
 --------
-*xe-network-list*(1), *xe-network-param-set*(1), *xe-pool-vlan-create*(1), *xe-network-param-set*(1), *xe-vif-create*(1), *xe-pif-list*(1)
-
+*xe-network-list*(1), *xe-network-param-set*(1), *xe-pool-vlan-create*(1), *xe-network-param-set*(1), *xe-vif-create*(1),
 
 AUTHORS
 -------
-Manpage Author(s): ::
-Matthew Spah <spahmatthew@xenapiadmin.com>
+Manpage Author(s):
 
+- Matthew Spah <spahmatthew@xenapiadmin.com>
 
 BUGS
 ----
