@@ -77,12 +77,16 @@ let read_localhost_info () =
 		(* Query the balloon driver to determine how much memory is available for domain 0. *)
 		(* We cannot ask XenControl for this information, since for domain 0, the value of  *)
 		(* max_memory_pages is hard-wired to the maximum native integer value ("infinity"). *)
-		let map = Balloon.parse_proc_xen_balloon () in
-		let lookup = fun x -> Opt.unbox (List.assoc x map) in
-		let keys = [Balloon._low_mem_balloon; Balloon._high_mem_balloon; Balloon._current_allocation] in
-		let values = List.map lookup keys in
-		let result = List.fold_left Int64.add 0L values in
-		Int64.mul 1024L result in
+		try
+			let map = Balloon.parse_proc_xen_balloon () in
+			let lookup = fun x -> Opt.unbox (List.assoc x map) in
+			let keys = [Balloon._low_mem_balloon; Balloon._high_mem_balloon; Balloon._current_allocation] in
+			let values = List.map lookup keys in
+			let result = List.fold_left Int64.add 0L values in
+			Int64.mul 1024L result
+		with _ ->
+			warn "Failed to read balloon driver state, assuming dom0 static max = host total memory";
+			Int64.mul (Int64.mul 1024L 1024L) total_memory_mib in
 
 	  {name_label=this_host_name;
 	   xen_verstring=xen_verstring;
