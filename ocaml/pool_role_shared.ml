@@ -58,7 +58,8 @@ let read_pool_role () =
 		then (debug "Executable name is not 'xapi', so we must be running \
 		             in unit-test mode; setting pool-role to 'Master'";
 		      Master)
-		else Broken
+		else (error "Failed to read pool role from %s" Constants.pool_config_file;
+		      Broken)
 
 let get_role () =
 	Mutex.execute role_m (fun _ ->
