@@ -536,8 +536,11 @@ let create_host_cpu ~__context =
 
 let create_chipset_info ~__context =
 	let host = Helpers.get_localhost ~__context in
-	let current_info = Db.Host.get_chipset_info ~__context ~self:host in
 	let iommu =
+		warn "XXX: assuming host has IO virtualisation enabled";
+		"true"
+(* XXX
+		let current_info = Db.Host.get_chipset_info ~__context ~self:host in
 		let open Xapi_xenops_queue in
 		let module Client = (val make_client default_xenopsd : XENOPS) in
 		let dbg = Context.string_of_task __context in
@@ -550,6 +553,7 @@ let create_chipset_info ~__context =
 			List.assoc "iommu" current_info
 		else
 			"false"
+*)
 	in
 	let info = ["iommu", iommu] in
 	Db.Host.set_chipset_info ~__context ~self:host ~value:info
