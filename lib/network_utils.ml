@@ -39,10 +39,17 @@ let call_script ?(log_successful_output=false) script args =
 		Unix.access script [ Unix.X_OK ];
 		(* Use the same $PATH as xapi *)
 		let env = [| "PATH=" ^ (Sys.getenv "PATH") |] in
-		let output, _ = Forkhelpers.execute_command_get_output ~env script args in
-		if log_successful_output then
-			debug "Call '%s %s' succeeded [output = '%s']" script (String.concat " " args) output;
-		output
+		info "%s %s" script (String.concat " " args);
+
+        	let readme, writeme = Unix.pipe () in
+                let pid = Forkhelpers.safe_close_and_exec ~env None (Some writeme) None [] script args in
+		Unix.close writeme;
+		(* assume output is never larger than a pipe buffer *)
+		Forkhelpers.waitpid pid;
+		let output = String.make 16384 '\000' in
+		let n = Unix.read readme output 0 (String.length output) in
+		Unix.close readme;
+		String.sub output 0 n
 	with
 	| Unix.Unix_error (e, a, b) ->
 		error "Caught unix error: %s [%s, %s]" (Unix.error_message e) a b;
@@ -161,8 +168,10 @@ module Ip = struct
 		call_script ~log_successful_output:log iproute2 args
 
 	let find output attr =
+info "Looking for %s in [%s]" attr output;
 		let args = String.split_f String.isspace output in
 		let indices = (List.position (fun s -> s = attr) args) in
+info "Found at [ %s ]" (String.concat ", " (List.map string_of_int indices));
 		List.map (fun i -> List.nth args (succ i)) indices
 
 	let get_link_flags dev =
