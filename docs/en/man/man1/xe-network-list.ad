@@ -11,102 +11,83 @@ xe-network-list - Displays all networks and their parameters.
 
 SYNOPSIS
 --------
-
 *xe network-list*  [ params=<PARAMETER> ] [--minimal]
-
 
 DESCRIPTION
 -----------
-
 *xe network-list* displays networks and their parameters.
 
-Output can be filtered by using the *params* parameter and a value (separate multiple parameters with commas): ::
-	*xe network-list params=PIF-uuids* +
-	*xe network-list params=PIF-uuids,VIF-uuids,name-label,name-description*
+Output can be filtered by using the *params* parameter and a value (separate multiple parameters with commas):
 
-Output can be filtered by using parameter values and the desired value: ::
-	*xe network-list bridge=xapi0*
+- *xe network-list params="PIF-uuids"*
+- *xe network-list params=PIF-uuids,VIF-uuids,name-label,name-description*
 
-Append --minimal to display values for one parameter on a single line separated by commas: ::
-	*xe network-list params="MTU" --minimal*
+Output can be filtered by using parameter values and the desired value:
+	
+- *xe network-list bridge="xapi0"*
 
-
+Append --minimal to display values for one parameter on a single line separated by commas:
+	
+- *xe network-list params="MTU" --minimal*
 
 OPTIONAL PARAMETERS
 -------------------
-
 *all*::
 	Display all parameter values
-
 *uuid*::
 	Display network UUIDs
-
 *name-label*::	
 	Display network name-labels
-	
 *name-description*::	
 	Display network descriptions
-
 *VIF-uuids*::	
 	Display VIFs attached to networks
-	
 *PIF-uuids*:: 	
  	Display PIFs attached to networks
-
 *MTU*::	
 	Display network MTU values
-	
 *bridge*::
 	Display network bridge names
-
 *blobs*::	
 	Display binary data stores
-
 *tags*::	
 	Display writable tag parameters
-
 *other-config:static-routes*::	
 	Display comma seperated list of Static routes present on network [ <SOURCE NETWORK ADDRESS>/<CIDR MASK>/<NEXT HOP ADDRESS> ] 
-
 *other-config:ethtool-autoneg*::
 	Display ethernet Autonegotiation status [ on | off ]
-
 *other-config:ethtool-rx*:: 
 	Display receive checksum status [ on | off ]
-
 *other-config:ethtool-tx*::
 	Display transmit checksum status [ on | off ]
-
 *other-config:ethtool-sg*:: 
 	Display scatter gather status [ on | off ]
-
 *other-config:ethtool-tso*::
 	Display TCP segmentation offload status [ on | off ]
-
 *other-config:ethtool-ufo*::
 	Display UDP fragment offload status [ on | off ]
-
 *other-config:ethtool-gso*::
 	Display generic segmentation offload status [ on | off ]
-	
 *--minimal*::
 	Specify --minimal to only show minimal output
 
 EXAMPLES
 --------
-
-To display all parameters for all networks in a pool: ::
-	*xe network-list* params="all"
-
-To display all paramters for a specific network: ::
-	*xe network-list* uuid=<NETWORK UUID> params="all"
+To display all parameters for all networks:
 	
-To display *VIF-uuids* for a specific network: ::
-	*xe network-list* uuid=<NETWORK UUID> params="VIF-uuids"
-	
-To display the *name-label* and *UUID* parameters of all networks with a *MTU* of 1500: ::
-	*xe network-list* MTU="1500" params="name-label,uuid"
+- *xe network-list* params="all"
 
+To display all paramters for a specific network:
+
+- *xe network-list* uuid=<NETWORK UUID> params="all"
+	
+To display *VIF-uuids* for a specific network:
+
+- *xe network-list* uuid=<NETWORK UUID> params="VIF-uuids"
+	
+To display the *name-label* and *UUID* parameters of all networks with a *MTU* of 1500:
+
+- *xe network-list* MTU="1500" params="name-label,uuid"
 
 SEE ALSO
 --------
@@ -114,9 +95,9 @@ SEE ALSO
 
 AUTHORS
 -------
-Manpage Author(s): ::
-Matthew Spah <spahmatthew@xenapiadmin.com>
+Manpage Author(s):
 
+- Matthew Spah <spahmatthew@xenapiadmin.com>
 
 BUGS
 ----
