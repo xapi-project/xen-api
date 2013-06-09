@@ -26,7 +26,7 @@ type t =
 
 let role = ref None
 let role_m = Mutex.create ()
-let filename = ref (Filename.concat Fhs.etcdir "pool.conf")
+let filename = ref "" (* set in xapi.ml from xapi_globs.ml *)
 
 let string_of = function
 	| Master -> "master"
