@@ -119,11 +119,15 @@ let refresh_localhost_info ~__context info =
 let record_host_memory_properties ~__context =
 	let self = !Xapi_globs.localhost_ref in
 	let total_memory_bytes =
+		warn "XXX hard-wiring host total memory to 16GiB";
+		Int64.(mul (mul 1024L 1024L) (mul 1024L 16L)) in
+(*
 		let open Xapi_xenops_queue in
 		let dbg = Context.string_of_task __context in
 		let module Client = (val make_client default_xenopsd : XENOPS) in
 		let mib = Client.HOST.get_total_memory_mib dbg in
 		Int64.mul 1024L (Int64.mul 1024L mib) in
+*)
 	let metrics = Db.Host.get_metrics ~__context ~self in
 	Db.Host_metrics.set_memory_total ~__context ~self:metrics ~value:total_memory_bytes;
 	let boot_memory_file = Xapi_globs.initial_host_free_memory_file in
