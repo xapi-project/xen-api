@@ -45,11 +45,15 @@ type host_info = {
 
 let read_localhost_info () =
 	let xen_verstring =
-		let xc = Xenctrl.interface_open () in
-		let v = Xenctrl.version xc in
-		Xenctrl.interface_close xc;
-		let open Xenctrl in
-		Printf.sprintf "%d.%d%s" v.major v.minor v.extra
+		try
+			let xc = Xenctrl.interface_open () in
+			let v = Xenctrl.version xc in
+			Xenctrl.interface_close xc;
+			let open Xenctrl in
+			Printf.sprintf "%d.%d%s" v.major v.minor v.extra
+		with _ ->
+			warn "Failed to read xen version";
+			""
 	and linux_verstring =
 		let verstring = ref "" in
 		let f line =
@@ -413,15 +417,19 @@ let make_software_version ~__context =
 
 let create_host_cpu ~__context =
 	let get_cpu_layout () =
-		let open Xenctrl in
-		let xc = interface_open () in
-		let p = physinfo xc in
-		let cpu_count = p.nr_cpus in
-		let socket_count =
-			p.nr_cpus /
-			(p.threads_per_core * p.cores_per_socket)
-	in
-		cpu_count, socket_count
+		try
+			let open Xenctrl in
+			let xc = interface_open () in
+			let p = physinfo xc in
+			let cpu_count = p.nr_cpus in
+			let socket_count =
+				p.nr_cpus /
+				(p.threads_per_core * p.cores_per_socket)
+			in
+			cpu_count, socket_count
+		with _ ->
+			warn "Failed to query physical CPU information";
+			0, 0
 	in
 	let trim_end s =
 		let i = ref (String.length s - 1) in
