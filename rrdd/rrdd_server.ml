@@ -66,7 +66,7 @@ let backup_rrds _ ?(save_stats_locally = true) () : unit =
 (* Load an RRD from the local filesystem. Will return an RRD or throw an exception. *)
 let load_rrd_from_local_filesystem uuid =
 	debug "Loading RRD from local filesystem for object uuid=%s" uuid;
-	let path = Rrdd_constants.rrd_location ^ "/" ^ uuid in
+	let path = Constants.rrd_location ^ "/" ^ uuid in
 	rrd_of_gzip path
 
 module Deprecated = struct
@@ -74,12 +74,12 @@ module Deprecated = struct
 	(* Fetch an RRD from the master *)
 	let pull_rrd_from_master ~uuid ~is_host =
 		let pool_secret = get_pool_secret () in
-		let uri = if is_host then Rrdd_constants.get_host_rrd_uri else Rrdd_constants.get_vm_rrd_uri in
+		let uri = if is_host then Constants.get_host_rrd_uri else Constants.get_vm_rrd_uri in
 		(* Add in "dbsync = true" to the query to make sure the master
 		 * doesn't try to redirect here! *)
 		let uri = uri ^ "?uuid=" ^ uuid ^ "&dbsync=true" in
 		let request =
-			Http.Request.make ~user_agent:Rrdd_constants.rrdd_user_agent
+			Http.Request.make ~user_agent:Constants.rrdd_user_agent
 			~cookie:["pool_secret", pool_secret] Http.Get uri in
 		let open Xmlrpc_client in
 		let master_address = Pool_role_shared.get_master_address () in
@@ -139,7 +139,7 @@ end
 let push_rrd _ ~(vm_uuid : string) ~(domid : int) ~(is_on_localhost : bool) ()
 		: unit =
 	try
-		let path = Rrdd_constants.rrd_location ^ "/" ^ vm_uuid in
+		let path = Constants.rrd_location ^ "/" ^ vm_uuid in
 		let rrd = rrd_of_gzip path in
 		debug "Pushing RRD for VM uuid=%s" vm_uuid;
 		if is_on_localhost then
@@ -155,7 +155,7 @@ let push_rrd _ ~(vm_uuid : string) ~(domid : int) ~(is_on_localhost : bool) ()
 
 (** Remove an RRD from the local filesystem, if it exists. *)
 let remove_rrd _ ~(uuid : string) () : unit =
-	let path = Rrdd_constants.rrd_location ^ "/" ^ uuid in
+	let path = Constants.rrd_location ^ "/" ^ uuid in
 	let gz_path = path ^ ".gz" in
 	(try Unix.unlink path with _ -> ());
 	(try Unix.unlink gz_path with _ -> ())

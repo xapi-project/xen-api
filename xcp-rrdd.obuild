@@ -5,7 +5,7 @@ obuild-ver: 1
 
 library rrdd-libs
   src-dir: lib
-  modules: stats
+  modules: stats, constants
   build-deps: log
 
 executable xcp-rrdd

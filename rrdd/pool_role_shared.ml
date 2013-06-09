@@ -35,7 +35,7 @@ let string_of = function
 let read_pool_role () =
 	try
 		let s = String.strip String.isspace
-			(Unixext.string_of_file Rrdd_constants.pool_config_file) in
+			(Unixext.string_of_file Constants.pool_config_file) in
 		match String.split ~limit:2 ':' s with
 			| [ "master" ]      -> Master
 			| [ "slave"; m_ip ] -> Slave m_ip

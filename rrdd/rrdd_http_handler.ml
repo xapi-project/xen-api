@@ -9,7 +9,7 @@ let unarchive_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
 	debug "unarchive_rrd_handler: start";
 	let query = req.Http.Request.query in
 	let uuid = List.assoc "uuid" query in
-	let path = Rrdd_constants.rrd_location ^ "/" ^ uuid in
+	let path = Constants.rrd_location ^ "/" ^ uuid in
 	let rrd = rrd_of_gzip path in
 	let header_content =
 		Http.http_200_ok ~version:"1.0" ~keep_alive:false ()
