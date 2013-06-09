@@ -18,6 +18,9 @@
 open Stringext
 open Threadext
 
+module D=Debug.Debugger(struct let name="xapi" end)
+open D
+
 (** The role of this node *)
 type t =
 	| Master
@@ -42,7 +45,9 @@ let read_pool_role () =
 			| [ "slave"; m_ip ] -> Slave m_ip
 			| [ "broken" ]      -> Broken
 			| _ -> failwith "cannot parse pool_role from pool config file"
-	with _ -> failwith "Baaah!" (*Broken*)
+	with _ ->
+		error "Failed to read pool role from %s" !filename;
+		failwith "Baaah!" (*Broken*)
 
 let get_role () =
 	Mutex.execute role_m (fun _ ->
