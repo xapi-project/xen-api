@@ -54,7 +54,10 @@ let read_localhost_info () =
 		with e ->
 			if Pool_role.is_unit_test ()
 			then "0.0.0"
-			else raise e
+			else begin
+			        warn "Failed to read xen version";
+                                "unknown"
+                        end
 	and linux_verstring =
 		let verstring = ref "" in
 		let f line =
@@ -417,15 +420,19 @@ let make_software_version ~__context =
 
 let create_host_cpu ~__context =
 	let get_cpu_layout () =
-	        let open Xenctrl in
-		let p = Xenctrl.with_intf (fun xc ->
-			Xenctrl.physinfo xc) in
-		let cpu_count = p.nr_cpus in
-		let socket_count =
-			p.nr_cpus /
-			(p.threads_per_core * p.cores_per_socket)
-		in
-		cpu_count, socket_count
+                try
+	                let open Xenctrl in
+                        let p = Xenctrl.with_intf (fun xc ->
+	                        Xenctrl.physinfo xc) in
+                        let cpu_count = p.nr_cpus in
+		        let socket_count =
+		        	p.nr_cpus /
+		        	(p.threads_per_core * p.cores_per_socket)
+		        in
+                        cpu_count, socket_count
+		with _ ->
+			warn "Failed to query physical CPU information";
+			1, 1
 	in
 	let trim_end s =
 		let i = ref (String.length s - 1) in
