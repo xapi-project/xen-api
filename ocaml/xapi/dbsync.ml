@@ -50,14 +50,15 @@ let update_env () =
   Server_helpers.exec_with_new_task "dbsync (update_env)"
     (fun __context ->
       let other_config = 
-	try
-	  match Db.Pool.get_all ~__context with
-	  | [ pool ] ->
-	    Db.Pool.get_other_config ~__context ~self:pool 
-	  | [] -> warn "no pool object"; assert false
-	  | _  -> warn "multiple pool objects"; assert false
-	with _ -> [] 
-      in
+	match Db.Pool.get_all ~__context with
+	| [ pool ] ->
+	  Db.Pool.get_other_config ~__context ~self:pool 
+	| [] ->
+          (* Happens before the pool object has been created *)
+          []
+        | _ ->
+          error "Multiple pool objects detected -- this should never happen";
+          [] in
        if Pool_role.is_master () then create_host_metrics ~__context;
        Dbsync_slave.update_env __context other_config;
        if Pool_role.is_master () then Dbsync_master.update_env __context;
