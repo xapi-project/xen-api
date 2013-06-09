@@ -706,7 +706,7 @@ let redo_log_connect_delay = ref 0.1
 let nowatchdog = ref false
 
 (* Path to the pool configuration file. *)
-let pool_config_file = ref "/etc/xcp/pool.conf"
+let pool_config_file = ref (Filename.(concat (concat Fhs.etcdir "xcp") "pool.conf"))
 
 (* Path to the pool secret file. *)
 let pool_secret_path = ref "/etc/xcp/ptoken"
