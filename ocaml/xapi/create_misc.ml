@@ -66,10 +66,13 @@ let read_localhost_info () =
 	let lookup_inventory_nofail k = try Some (Inventory.lookup k) with _ -> None in
 	let this_host_name = Helpers.get_hostname() in
 	let total_memory_mib =
+		warn "XXX: guessing that host has 16GiB total memory";
+		16384L in
+(*
 		let open Xapi_xenops_queue in
 		let module Client = (val make_client default_xenopsd : XENOPS) in
 		Client.HOST.get_total_memory_mib "read_localhost_info" in
-
+*)
 	let dom0_static_max = 
 		(* Query the balloon driver to determine how much memory is available for domain 0. *)
 		(* We cannot ask XenControl for this information, since for domain 0, the value of  *)
