@@ -228,7 +228,7 @@ let update_env __context sync_keys =
       with _ -> false
     in 
     if (not skip_sync)
-    then (debug "Sync: %s" key; f ())
+    then (info "Sync: %s" key; f ())
     else debug "Skipping sync keyed: %s" key
   in
 
