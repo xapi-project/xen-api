@@ -1,4 +1,0 @@
-install:
-	mkdir -p $(DESTDIR)$(SITE_DIR)
-	$(IDATA) rrdd.py $(DESTDIR)$(SITE_DIR)/
-	$(IPROG) rrdd-example.py $(DESTDIR)$(LIBEXECDIR)
