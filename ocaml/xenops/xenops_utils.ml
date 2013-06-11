@@ -18,6 +18,7 @@ open Pervasiveext
 open Threadext
 open Fun
 open Xenops_interface
+open Xenstore
 
 module D = Debug.Debugger(struct let name = service_name end)
 open D
@@ -33,6 +34,14 @@ end
 
 let all = List.fold_left (&&) true
 let any = List.fold_left (||) false
+
+(* Recursively iterate over a directory and all its children, calling fn for each *)
+let rec xenstore_iter t fn path =
+       fn path;
+       match t.Xst.directory path with
+       | [] -> ()
+       | names -> List.iter (fun n -> if n <> "" then xenstore_iter t fn (path ^ "/" ^ n)) names
+
 
 let dropnone x = List.filter_map (fun x -> x) x
 
