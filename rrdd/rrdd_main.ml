@@ -383,12 +383,12 @@ let update_vbds doms =
 					~units:"B/s" ())::
 				(VM uuid, ds_make ~name:(vbd_name^"_read_latency")
 					~description:("Reads from device '" ^ device_name ^ "' in microseconds")
-					~units:"ms" ~value:(Rrd.VT_Int64 rd_avg_usecs)
+					~units:"μs" ~value:(Rrd.VT_Int64 rd_avg_usecs)
 					~ty:Rrd.Gauge ~min:0.0 ~default:false ())::
 				(VM uuid, ds_make ~name:(vbd_name^"_write_latency")
 					~description:("Reads from device '" ^ device_name ^ "' in microseconds")
 					~value:(Rrd.VT_Int64 wr_avg_usecs) ~ty:Rrd.Gauge ~min:0.0
-					~default:false ~units:"ms" ())::
+					~default:false ~units:"μs" ())::
 				acc
 			with _ -> acc
 		in
