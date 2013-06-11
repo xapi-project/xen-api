@@ -595,6 +595,13 @@ let monitor_loop () =
 	)
 (* Monitoring code --- END. *)
 
+let options = [
+	"plugin-default",
+		Arg.Set Rrdd_server.plugin_default,
+		(fun () -> string_of_bool !Rrdd_server.plugin_default),
+		"True if datasources provided by plugins should be exported by default";
+]
+
 (* Entry point. *)
 let _ =
 	(* Prevent shutdown due to sigpipe interrupt. This protects against
@@ -606,7 +613,7 @@ let _ =
 
 	(* Read configuration file. *)
 	debug "Reading configuration file ..";
-	Xcp_service.configure ();
+	Xcp_service.configure ~options ();
 	Xcp_service.maybe_daemonize ();
 
 	debug "Starting the HTTP server ..";
