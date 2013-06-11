@@ -36,7 +36,7 @@ start() {
 	# Enable backtraces
 	export OCAMLRUNPARAM="b"
 
-	${NETWORKD} -daemon -pidfile ${PID_FILE} >/dev/null 2>&1 </dev/null
+	${NETWORKD} -daemon true -pidfile ${PID_FILE} >/dev/null 2>&1 </dev/null
 
 	MAX_RETRIES=100
 	RETRY=0
