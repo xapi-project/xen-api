@@ -451,7 +451,7 @@ module Plugin = struct
 			verify_checksum_freshness ~uid ~checksum;
 			parse_payload ~json:payload
 		with e ->
-			error "Failed to process plugin: %s" uid;
+			error "Failed to process plugin: %s (%s)" uid (Printexc.to_string e);
 			log_backtrace ();
 			match e with
 			| Invalid_header_string | Invalid_length | Invalid_checksum
