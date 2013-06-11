@@ -137,26 +137,66 @@ let non_cdrom_vdis (x: header) =
 
 (* Check to see if another VM exists with the same MAC seed. *)
 (* Check VM uuids don't already exist. Check that if a VDI exists then it is a CDROM. *)
-let assert_can_restore_backup rpc session_id (x: header) =
-	let all_vms = List.filter (fun x -> x.cls = Datamodel._vm) x.objects in
-	let all_vms = List.map (fun x -> API.Legacy.From.vM_t "" x.snapshot) all_vms in
-	let all_vms = List.filter (fun x -> try let (_:[`VM] Ref.t) = Client.VM.get_by_uuid rpc session_id x.API.vM_uuid in false with _ -> true) all_vms in
+let assert_can_restore_backup ~__context rpc session_id (x: header) =
 
-	let get_mac_seed (vm: API.vM_t): string option =
+	let get_mac_seed vm =
 		if List.mem_assoc Xapi_globs.mac_seed vm.API.vM_other_config
-		then Some(List.assoc Xapi_globs.mac_seed vm.API.vM_other_config)
+		then Some(List.assoc Xapi_globs.mac_seed vm.API.vM_other_config, vm)
 		else None in
 
-	let existing_vms = Client.VM.get_all_records rpc session_id in
-	(* Make a table of seed -> VM reference, for error message generation *)
-	let existing_seeds_table = List.map (fun (r, rr) -> get_mac_seed rr, Ref.string_of r) existing_vms in
-	let existing_seeds : string option list = List.map fst existing_seeds_table in
+	let get_vm_uuid_of_snap s =
+		let snapshot_of = Ref.string_of s.API.vM_snapshot_of in
+		try
+			if Stringext.String.startswith "Ref:" snapshot_of then
+				(* This should be a snapshot in the archive *)
+				let v = Listext.List.find (fun v -> v.cls = Datamodel._vm && v.id = snapshot_of) x.objects in
+				let v = API.Legacy.From.vM_t "" v.snapshot in
+				Some v.API.vM_uuid
+			else if Stringext.String.startswith Ref.ref_prefix snapshot_of then
+				(* This should be a snapshot in a live system *)
+				if Db.is_valid_ref __context s.API.vM_snapshot_of then
+					Some (Db.VM.get_uuid ~__context ~self:s.API.vM_snapshot_of)
+				else
+					Some (List.assoc Db_names.uuid (Helpers.vm_string_to_assoc s.API.vM_snapshot_metadata))
+			else None
+		with _ -> None in
+
+	let is_compatible v1 v2 =
+		match v1.API.vM_is_a_snapshot, v2.API.vM_is_a_snapshot with
+		| false, false ->
+			v1.API.vM_uuid = v2.API.vM_uuid
+		| true, true ->
+			let v1' = get_vm_uuid_of_snap v1 in
+			let v2' = get_vm_uuid_of_snap v2 in
+			v1' <> None && v2' <> None && v1' = v2'
+		| true, false ->
+			let v1' = get_vm_uuid_of_snap v1 in
+			v1' = Some v2.API.vM_uuid
+		| false, true ->
+			let v2' = get_vm_uuid_of_snap v2 in
+			v2' = Some v1.API.vM_uuid in
+
+	let import_vms =
+		Listext.List.filter_map
+			(fun x ->
+				if x.cls <> Datamodel._vm then None else
+					let x = API.Legacy.From.vM_t "" x.snapshot in
+					get_mac_seed x
+			) x.objects in
+
+	let existing_vms =
+		Listext.List.filter_map
+			(fun (_, v) -> get_mac_seed v)
+			(Client.VM.get_all_records rpc session_id) in
+
 	List.iter
-		(function Some _ as x ->
-			if List.mem x existing_seeds
-			then raise (Api_errors.Server_error(Api_errors.duplicate_vm, [ List.assoc x existing_seeds_table ]))
-		| None -> ())
-		(List.map get_mac_seed all_vms)
+		(fun (mac, vm) ->
+			List.iter
+				(fun (mac', vm') ->
+					if mac = mac' && not (is_compatible vm vm') then
+						raise (Api_errors.Server_error(Api_errors.duplicate_vm, [ vm'.API.vM_uuid ])))
+				existing_vms)
+		import_vms
 
 let assert_can_live_import __context rpc session_id vm_record =
 	let assert_memory_available () =
@@ -1211,7 +1251,7 @@ let metadata_handler (req: Request.t) s _ =
 
 					let header = header_of_xmlrpc metadata in
 					assert_compatable ~__context header.version;
-					if full_restore then assert_can_restore_backup rpc session_id header;
+					if full_restore then assert_can_restore_backup ~__context rpc session_id header;
 
 					let state = handle_all __context config rpc session_id header.objects in
 					let table = state.table in
@@ -1339,7 +1379,7 @@ let handler (req: Request.t) s _ =
 													debug "importing new style VM";
 													let header = header_of_xmlrpc metadata in
 													assert_compatable ~__context header.version;
-													if full_restore then assert_can_restore_backup rpc session_id header;
+													if full_restore then assert_can_restore_backup ~__context rpc session_id header;
 
 													(* objects created here: *)
 													let state = handle_all __context config rpc session_id header.objects in
