@@ -190,7 +190,8 @@ info "Found at [ %s ]" (String.concat ", " (List.map string_of_int indices));
 		ignore (call ~log:true ("link" :: "set" :: dev :: args))
 
 	let link_set_mtu dev mtu =
-		ignore (link_set dev ["mtu"; string_of_int mtu])
+		try ignore (link_set dev ["mtu"; string_of_int mtu])
+		with e -> error "MTU size is not supported: %s" (string_of_int mtu)
 
 	let link_set_up dev =
 		ignore (link_set dev ["up"])
