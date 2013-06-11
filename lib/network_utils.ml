@@ -45,7 +45,7 @@ let call_script ?(log_successful_output=false) script args =
                 let pid = Forkhelpers.safe_close_and_exec ~env None (Some writeme) None [] script args in
 		Unix.close writeme;
 		(* assume output is never larger than a pipe buffer *)
-		Forkhelpers.waitpid pid;
+		let (_: (int * Unix.process_status)) = Forkhelpers.waitpid pid in
 		let output = String.make 16384 '\000' in
 		let n = Unix.read readme output 0 (String.length output) in
 		Unix.close readme;
