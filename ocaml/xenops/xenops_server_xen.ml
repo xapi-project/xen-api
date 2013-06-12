@@ -1513,6 +1513,8 @@ let on_frontend f domain_selection frontend =
 			f xc xs frontend_di.domid frontend_di.hvm_guest
 		)
 
+exception PCIBack_not_loaded
+
 module PCI = struct
 	open Pci
 
@@ -1551,6 +1553,11 @@ module PCI = struct
 				(* Apply overrides (if provided) *)
 				let msitranslate = if (Opt.default non_persistent.VmExtra.pci_msitranslate pci.msitranslate) then 1 else 0 in
 				let pci_power_mgmt = if (Opt.default non_persistent.VmExtra.pci_power_mgmt pci.power_mgmt) then 1 else 0 in
+
+				if not (Sys.file_exists "/sys/bus/pci/drivers/pciback") then begin
+					error "PCIBack has not been loaded";
+					raise PCIBack_not_loaded;
+				end;
 
 				Device.PCI.bind [ device ];
 				(* If the guest is HVM then we plug via qemu *)
