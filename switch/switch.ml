@@ -239,7 +239,7 @@ module Q = struct
 				(name, d name) :: acc
 			) queues []
 		let measure name =
-			if Hashtbl.mem queues name
+			if Hashtbl.mem queue_lengths name
 			then Some (Measurement.Int (Hashtbl.find queue_lengths name))
 			else None
 	end
@@ -288,14 +288,25 @@ module Q = struct
 		then Some (Hashtbl.find next_transfer_expected name)
 		else None
 
-	let queue_of_id id = Int64Map.find id !message_id_to_queue
+	let queue_of_id id =
+		if Int64Map.mem id !message_id_to_queue
+		then Some (Int64Map.find id !message_id_to_queue)
+		else begin
+			error "Message id %Ld not in message_id_to_queue" id;
+			None
+		end
 
-	let find_exn id =
-		let q = get(queue_of_id id) in
-		Int64Map.find id q
+	let find id = match queue_of_id id with
+	| None -> None
+	| Some name ->
+		let q = get name in
+		if Int64Map.mem id q
+		then Some (Int64Map.find id q)
+		else None
 
-	let ack id =
-		let name = queue_of_id id in
+	let ack id = match queue_of_id id with
+	| None -> ()
+	| Some name ->
 		if exists name then begin
 			let q = get name in
 			message_id_to_queue := Int64Map.remove id !message_id_to_queue;
@@ -459,9 +470,13 @@ let process_request conn_id session request = match session, request with
 		Subscription.add session name;
 		return Out.Subscribe
 	| Some session, In.Ack id ->
-		let name = Q.queue_of_id id in
-		Trace_buffer.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Ack id; processing_time = None }));
-		Q.ack id;
+		begin match Q.queue_of_id id with
+		| None ->
+			error "Ack %Ld: message doesn't exist" id
+		| Some name ->
+			Trace_buffer.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Ack id; processing_time = None }));
+			Q.ack id;
+		end;
 		return Out.Ack
 	| Some session, In.Transfer(from, timeout) ->
 		let start = Unix.gettimeofday () in
@@ -504,15 +519,17 @@ let process_request conn_id session request = match session, request with
 		} in
 		let now = Unix.gettimeofday () in
 		List.iter
-			(fun (id, m) ->
-				let name = Q.queue_of_id id in
+			(fun (id, m) -> match Q.queue_of_id id with
+			| None -> ()
+			| Some name ->
 				let processing_time = match m.Message.kind with
 				| Message.Request _ -> None
-				| Message.Response id' ->
-					try
-						let request_entry = Q.find_exn id' in
+				| Message.Response id' -> begin match Q.find id' with
+					| Some request_entry ->
 						Some (Int64.sub (get_time ()) request_entry.Entry.time)
-					with _ -> None in
+					| None ->
+						None
+				end in
 				Trace_buffer.add (Event.({time = now; input = None; queue = name; output = Some session; message = Message (id, m); processing_time }))
 			) transfer.Out.messages;
 		return (Out.Transfer transfer)
