@@ -131,6 +131,15 @@ let list common_opts prefix =
     List.iter print_endline all;
     `Ok ()
 
+let ack common_opts id = match id with
+  | None ->
+    `Error(true, "Please supply a message ID")
+  | Some id ->
+    let c = IO.connect common_opts.Common.port in
+    let _ = Connection.rpc c (In.Login (Protocol_unix.whoami ())) in
+    let _ = Connection.rpc c (In.Ack id) in
+    `Ok ()
+
 module Opt = struct
   let iter f = function
     | None -> ()
@@ -299,6 +308,18 @@ let mscgen_cmd =
   Term.(ret(pure mscgen $ common_options_t)),
   Term.info "mscgen" ~sdocs:_common_options ~doc ~man
 
+let ack_cmd =
+  let doc = "acknowledge processing of a specific message" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Acknowledge processing of a specific message and remove it from any queue.";
+  ] @ help in
+  let id =
+    let doc = "message id" in
+    Arg.(value & pos 0 (some int64) None & info [] ~docv:"ACK" ~doc) in
+  Term.(ret(pure ack $ common_options_t $ id)),
+  Term.info "ack" ~sdocs:_common_options ~doc ~man
+
 let string_of_ic ?end_marker ic =
   let lines = ref [] in
   try
@@ -399,7 +420,7 @@ let default_cmd =
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
   Term.info "m-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
        
-let cmds = [list_cmd; tail_cmd; mscgen_cmd; call_cmd; serve_cmd; diagnostics_cmd]
+let cmds = [list_cmd; tail_cmd; mscgen_cmd; ack_cmd; call_cmd; serve_cmd; diagnostics_cmd]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
