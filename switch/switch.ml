@@ -465,6 +465,9 @@ let process_request conn_id session request = match session, request with
 		Transient_queue.add session name;
 		Q.add name;
 		return (Out.Create name)
+	| Some session, In.Destroy name ->
+		Q.remove name;
+		return Out.Destroy
 	| Some session, In.Subscribe name ->
 		Subscription.add session name;
 		return Out.Subscribe
