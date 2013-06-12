@@ -114,9 +114,17 @@ module Client = struct
 						(fun (i, m) ->
 							lwt _ = lwt_rpc events_conn (In.Ack i) in
 							Lwt_mutex.with_lock requests_m (fun () ->
-								if Hashtbl.mem wakener i
-								then Lwt.wakeup_later (Hashtbl.find wakener i) m;
-								return ()
+								match m.Message.kind with
+								| Message.Response j ->
+									if Hashtbl.mem wakener j then begin
+										lwt (_: string) = lwt_rpc events_conn (In.Ack i) in
+										wakeup_later (Hashtbl.find wakener j) m;
+										return ()
+									end else begin
+										Printf.printf "no wakener for id %Ld\n%!" i;
+										return ()
+									end
+								| Message.Request _ -> return ()
 							)
 						) transfer.Out.messages in
 					let from = List.fold_left max (fst m) (List.map fst ms) in
