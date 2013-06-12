@@ -112,7 +112,6 @@ module Client = struct
 				| m :: ms ->
 					lwt () = Lwt_list.iter_s
 						(fun (i, m) ->
-							lwt _ = lwt_rpc events_conn (In.Ack i) in
 							Lwt_mutex.with_lock requests_m (fun () ->
 								match m.Message.kind with
 								| Message.Response j ->
