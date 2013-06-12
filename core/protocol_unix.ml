@@ -290,7 +290,12 @@ module Server = struct
 						(fun (i, m) ->
 							let (_: Thread.t) = Thread.create
 							(fun () ->
-								process m.Message.payload >>= fun response ->
+								let response =
+									try
+										process m.Message.payload
+									with e ->
+										Printexc.to_string e in
+								response >>= fun response ->
 								begin
 									match m.Message.kind with
 									| Message.Response _ ->
