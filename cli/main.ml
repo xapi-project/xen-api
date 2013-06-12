@@ -140,6 +140,15 @@ let ack common_opts id = match id with
     let _ = Connection.rpc c (In.Ack id) in
     `Ok ()
 
+let destroy common_opts name = match name with
+  | None ->
+    `Error(true, "Please supply a queue name")
+  | Some name ->
+    let c = IO.connect common_opts.Common.port in
+    let _ = Connection.rpc c (In.Login (Protocol_unix.whoami ())) in
+    let _ = Connection.rpc c (In.Destroy name) in
+    `Ok ()
+
 module Opt = struct
   let iter f = function
     | None -> ()
@@ -320,6 +329,18 @@ let ack_cmd =
   Term.(ret(pure ack $ common_options_t $ id)),
   Term.info "ack" ~sdocs:_common_options ~doc ~man
 
+let destroy_cmd =
+  let doc = "destroy a named queue" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Destroy a whole named queue, including all the messages queued inside.";
+  ] @ help in
+  let n =
+    let doc = "queue name" in
+    Arg.(value & pos 0 (some string) None & info [] ~docv:"QUEUE" ~doc) in
+  Term.(ret(pure destroy $ common_options_t $ n)),
+  Term.info "destroy" ~sdocs:_common_options ~doc ~man
+
 let string_of_ic ?end_marker ic =
   let lines = ref [] in
   try
@@ -420,7 +441,7 @@ let default_cmd =
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
   Term.info "m-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
        
-let cmds = [list_cmd; tail_cmd; mscgen_cmd; ack_cmd; call_cmd; serve_cmd; diagnostics_cmd]
+let cmds = [list_cmd; tail_cmd; mscgen_cmd; ack_cmd; destroy_cmd; call_cmd; serve_cmd; diagnostics_cmd]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
