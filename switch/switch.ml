@@ -310,7 +310,6 @@ module Q = struct
 		if exists name then begin
 			let q = get name in
 			message_id_to_queue := Int64Map.remove id !message_id_to_queue;
-			Printf.fprintf stderr "Removing id %Ld from queue %s\n%!" id name;
 			if Int64Map.mem id q
 			then Hashtbl.replace queue_lengths name (Hashtbl.find queue_lengths name - 1);
 			Hashtbl.replace queues name (Int64Map.remove id q);
