@@ -75,15 +75,16 @@ Maintainers
 
 This is a short list of people who currently maintain this project.
 
-* Mike McClurg <mike.mcclurg@citrix.com>
-* Jon Ludlam <jonathan.ludlam@citrix.com>
-* John Else <john.else@citrix.com>
-* Jerome Maloberti <jerome.maloberti@citrix.com>
-* Rob Hoes <rob.hoes@citrix.com>
-* Zheng Li <zheng.li@citrix.com>
-* Dave Scott <dave.scott@citrix.com>
 * Akshay Ramani <akshay.ramani@citrix.com>
+* Dave Scott <dave.scott@citrix.com>
+* Jerome Maloberti <jerome.maloberti@citrix.com>
+* John Else <john.else@citrix.com>
+* Jon Ludlam <jonathan.ludlam@citrix.com>
+* Mike McClurg <mike.mcclurg@citrix.com>
+* Rob Hoes <rob.hoes@citrix.com>
 * Siddharth Vinoth Kumar <siddharth.vinothkumar@citrix.com>
+* Thomas Sanders <thomas.sanders@citrix.com>
+* Zheng Li <zheng.li@citrix.com>
 
 You can usually find the developers hanging out in #xen-api on
 freenode. We are also reachable on the xen-api@list.xen.org mailing
