@@ -21,12 +21,14 @@ DESCRIPTION
 
 *xe cd-list* displays cds and their parameters.
 
-Output can be filtered by using the *params* parameter and a value (separate multiple parameters with commas): ::
-	*xe cd-list params=uuid* +
-	*xe cd-list params=uuid,name-label,name-description*
+Output can be filtered by using the *params* parameter and a value (separate multiple parameters with commas):
+	
+- *xe cd-list params=uuid*
+- *xe cd-list params=uuid,name-label,name-description*
 
-Append --minimal to display values for one parameter on a single line separated by commas: ::
-	*xe cd-list params="name-label" --minimal*
+Append --minimal to display values for one parameter on a single line separated by commas:
+	
+- *xe cd-list params="name-label" --minimal*
 
 
 OPTIONAL PARAMETERS
@@ -99,37 +101,33 @@ OPTIONAL PARAMETERS
 *--minimal*::
 	Specify --minimal to only show minimal output.
 
-	
-
 EXAMPLES
 --------
+To display all CD name-labels:
 
-To display all CD name-labels: ::
-	*xe cd-list* params="name-label"
-
-To display all parameters for all CDs: ::
-	*xe cd-list* params="all"
+- *xe cd-list* params="name-label"
 	
-To display minimal output for all CDs: ::
-	*xe cd-list* --minimal
+To display all parameters for all CDs:
 
-
+- *xe cd-list* params="all"
+	
+To display minimal output for all CDs:
+	
+- *xe cd-list* --minimal
 
 SEE ALSO
 --------
 *xe help cd-list*, *xe-vm-cd-add*(1), *xe-vm-cd-eject*(1), *xe-vm-cd-insert*(1), *xe-vm-cd-list*(1), *xe-vm-cd-remove*(1)
 
-
 AUTHORS
 -------
-Manpage Author(s): ::
-Grant McWilliams <grant@soundlinuxtraining.com>
+Manpage Author(s):
 
+- Grant McWilliams <grant@xenapiadmin.com>
 
 BUGS
 ----
 For guidelines on submitting bug reports see http://wiki.xen.org/wiki/Reporting_Bugs_against_XCP. Submit bugs and general questions to xen-api@lists.xen.org.
-
 
 COPYRIGHT
 ---------

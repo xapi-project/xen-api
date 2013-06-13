@@ -9,7 +9,6 @@ NAME
 ----
 xe-vlan-param-list - Lists all parameters for a VLAN.
 
-
 SYNOPSIS
 --------
 *xe vlan-param-list* uuid=<VLAN UUID>
@@ -25,23 +24,23 @@ REQUIRED PARAMETERS
 
 EXAMPLES
 --------
-To list all the parameters for a specific VLAN: ::
-	*xe vlan-param-list* uuid=<VLAN UUID>
-
-                 
+To list all the parameters for a specific VLAN:
+	
+- *xe vlan-param-list* uuid=<VLAN UUID>
+        
 SEE ALSO
 --------
-*xe-vlan-list*(1), *xe-vlan-param-get*(1), *xe-pool-vlan-create*(1), *xe-vlan-create*(1), *xe-network-list*(1), *xe-pif-list*(1)
+*xe help vlan-param-list*, *xe-vlan-list*(1), *xe-vlan-param-get*(1), *xe-pool-vlan-create*(1), *xe-vlan-create*(1), *xe-network-list*(1), *xe-pif-list*(1)
 
 AUTHORS
 -------
-Manpage Author(s): ::
-Matthew Spah <spahmatthew@xenapiadmin.com>
+Manpage Author(s):
+
+- Matthew Spah <spahmatthew@xenapiadmin.com>
 
 BUGS
 ----
 For guidelines on submitting bug reports see http://wiki.xen.org/wiki/Reporting_Bugs_against_XCP. Submit bugs and general questions to xen-api@lists.xen.org.
-
 
 COPYRIGHT
 ---------

@@ -1,0 +1,65 @@
+#!/bin/sh
+
+##############################################################################
+# script to enable automatic recording of all metrics coming from
+# RRDD plugins
+# 
+# Note that this will cause a large number of data sources to be recorded
+# both for VMs and for the host, which may cause delays and/or large amounts
+# of network traffic when XenCenter is displaying performance graphs.
+# 
+##############################################################################
+
+set -e
+
+if [ $# -ne 1 ]; then
+    echo "Need to specify true or false"
+fi
+
+if [ ! -e /etc/xcp-rrdd.conf ]; then
+    echo "Missing xcp-rrdd config file: expecting it in /etc/xcp-rrdd.conf"
+    exit 1
+fi
+
+enable=$1
+case $enable in
+    true|false) ;;
+    *)
+	echo "Argument 1 must be either 'true' or 'false'"
+        exit 1
+esac
+
+# Remove the line specifying this from the config file:
+
+grep -v "^plugin-default" /etc/xcp-rrdd.conf > /tmp/xcp-rrdd.conf
+mv /etc/xcp-rrdd.conf /etc/xcp-rrdd.conf.old
+cp /tmp/xcp-rrdd.conf /etc/xcp-rrdd.conf
+echo "plugin-default = $enable" >> /etc/xcp-rrdd.conf
+
+case $enable in
+    true)
+	echo "Enabling all metrics delivered by plugins"
+	;;
+    false)
+	echo "Disabling any new metrics delivered by plugins"
+	;;
+esac
+
+echo
+
+# We do a toolstack restart at this point to ensure the RRDs are
+# written to disk (by xapi shutting down!)
+xe-toolstack-restart
+
+ 
+case $enable in
+    false)
+	echo
+	echo "Note that anything that was already being recorded"
+	echo "will continue to be recorded. If you wish to stop"
+	echo "this the data source archives must be explicitly"
+	echo "forgotten."
+	;;
+esac
+
+
