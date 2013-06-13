@@ -664,6 +664,10 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	| _ ->
 			raise (Api_errors.Server_error (Api_errors.vm_has_too_many_snapshots, [Ref.string_of vm])));
 
+	(* Prevent VMs from being migrated onto a host with a lower host version *)
+	let source_host = Db.VM.get_resident_on ~__context ~self:vm in
+	Helpers.assert_host_versions_not_decreasing ~__context ~host_from:source_host ~host_to:dest_host_ref ;
+	
 	let migration_type =
 		try
 			ignore(Db.Host.get_uuid ~__context ~self:dest_host_ref);
