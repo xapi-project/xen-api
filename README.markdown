@@ -8,8 +8,8 @@ languages and is a component of the Xen Cloud Platform (XCP) project.
 Xen API is written mostly in [OCaml](http://caml.inria.fr/ocaml/)
 3.12.1.
 
-Xapi is the main compoent produced by the Linux Foundation's
-[Xapi Project](http://xenproject.org/developers/teams/xapi.html). 
+Xapi is the main component produced by the Linux Foundation's
+[Xapi Project](http://xenproject.org/developers/teams/xapi.html).
 
 Xen Cloud Platform
 ------------------
@@ -88,3 +88,9 @@ This is a short list of people who currently maintain this project.
 You can usually find the developers hanging out in #xen-api on
 freenode. We are also reachable on the xen-api@list.xen.org mailing
 list.
+
+Licensing
+---------
+
+This software is licensed under the GNU LGPLv2 license. Please see the
+LICENSE file for more information.
