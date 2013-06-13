@@ -33,7 +33,7 @@ function usage {
     echo " -x: Specify the VDI UUID to override probing"
     echo " -p: Just scan for a metadata VDI and print out its UUID to stdout"
     echo " -u: UUID of the SR you wish to restore from"
-    echo " -n: Perform a dry run and just echo the metadata import commands (default: false)"
+    echo " -n: Perform a dry run of the metadata import commands (default: false)"
     echo " -l: Just list the available backup dates"
     echo " -d: Specify which date to restore from (default: latest)"
     echo " -m: Either 'sr' to restore only the VMs on the SR, or 'all' for VMs (default: ${default_restore_mode})"
@@ -282,17 +282,19 @@ trap - ERR
 IFS=" "
 error_count=0
 good_count=0
+if [ ${dry_run} -gt 0 ]; then
+    dry_run_flag=" --dry-run"
+else
+    dry_run_flag=""
+fi
 shopt -s nullglob
 for meta in *.vmmeta; do
-   if [ ${dry_run} -gt 0 ]; then
-       echo xe vm-import filename=${meta} sr-uuid=${sr_uuid} --metadata --preserve
+   echo xe vm-import filename=${meta} sr-uuid=${sr_uuid} --metadata --preserve${dry_run_flag}
+   "@BINDIR@/xe" vm-import filename="${full_dir}/${meta}" sr-uuid=${sr_uuid} --metadata --preserve${dry_run_flag}
+   if [ $? -gt 0 ]; then
+      error_count=$(( $error_count + 1 ))
    else
-       "@BINDIR@/xe" vm-import filename="${full_dir}/${meta}" sr-uuid=${sr_uuid} --metadata --preserve
-       if [ $? -gt 0 ]; then
-          error_count=$(( $error_count + 1 ))
-       else
-          good_count=$(( $good_count + 1 ))
-       fi
+      good_count=$(( $good_count + 1 ))
    fi
 done
 
