@@ -23,6 +23,7 @@ open Cancel_utils
 open Xenops_helpers
 open Device_common
 open Xenops_task
+open Xenops_utils
 
 module D = Debug.Debugger(struct let name = "xenops" end)
 open D
@@ -186,7 +187,9 @@ let make ~xc ~xs vm_info uuid =
 
 			(* The /vm path needs to be shared over a localhost migrate *)
 			let vm_exists = try ignore(t.Xst.read vm_path); true with _ -> false in
-			if not vm_exists then begin
+			if vm_exists then 
+				xenstore_iter t (fun d -> t.Xst.setperms d roperm) vm_path
+			else begin
 				t.Xst.mkdir vm_path;
 				t.Xst.setperms vm_path roperm;
 				t.Xst.writev vm_path [
