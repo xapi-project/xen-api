@@ -32,16 +32,33 @@ SUCH DAMAGE.
 
 open Lwt
 open Cohttp
-(* open Xenstore_server *)
 
 let program = Filename.basename Sys.argv.(0)
 
 let ignore_fmt fmt = Printf.ksprintf (fun _ -> ()) fmt
 
+(* General system logging *)
+let logger = Logging.create 512
+
+type level = Debug | Info | Warn | Error | Null
+
+let log_level = ref Warn
+
+let string_of_level = function
+        | Debug -> "debug" | Info -> "info" | Warn -> "warn"
+        | Error -> "error" | Null -> "null"
+
+let log level key (fmt: (_,_,_,_) format4) =
+        let level = string_of_level level in
+        Printf.ksprintf logger.Logging.push ("[%5s|%s] " ^^ fmt) level key
+
+let key = "message-switch"
+
+(* let debug = log Debug key *)
 let debug fmt = ignore_fmt fmt
-let warn  fmt = Logging.warn  program fmt
-let info  fmt = Logging.info  program fmt
-let error fmt = Logging.error program fmt
+let info fmt = log Info key fmt
+let warn fmt = log Warn key fmt
+let error fmt = log Error key fmt
 
 let get_time () = Oclock.gettime Oclock.monotonic
 let start_time = get_time ()
@@ -54,9 +71,6 @@ let rec logging_thread logger =
 				return ()
 			) lines in
 	logging_thread logger
-
-let make_path p = Store.Path.create p (Store.Path.getdomainpath 0)
-
 
 let startswith prefix x = String.length x >= (String.length prefix) && (String.sub x 0 (String.length prefix) = prefix)
 
@@ -546,8 +560,7 @@ let process_request conn_id session request = match session, request with
 let make_server () =
 	info "Started server on localhost:%d" !port;
 
-	let (_: 'a) = logging_thread Logging.logger in
-(*	let (_: 'a) = logging_thread message_logger in *)
+	let (_: 'a) = logging_thread logger in
 
   	(* (Response.t * Body.t) Lwt.t *)
 	let callback conn_id ?body req =
