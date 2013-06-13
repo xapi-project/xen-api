@@ -101,6 +101,8 @@ module Config_file = struct
 	let apply v = function
 	| Unit f -> f ()
 	| Bool f -> f (bool_of_string v)
+	| Set b -> b := (bool_of_string v)
+	| Clear b -> b := not (bool_of_string v)
 	| String f -> f v
 	| Set_string s -> s := v
 	| Int f -> f (int_of_string v)
