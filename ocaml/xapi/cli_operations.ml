@@ -3038,6 +3038,12 @@ let vm_import fd printer rpc session_id params =
 		let full_restore = get_bool_param params "preserve" in
 		let vm_metadata_only = get_bool_param params "metadata" in
 		let force = get_bool_param params "force" in
+		let dry_run = get_bool_param params "dry-run" in
+		if not vm_metadata_only && dry_run then begin
+			marshal fd (Command (PrintStderr "Only metadata import function support dry-run\n"));
+			raise (ExitWithError 1)
+		end;
+
 		(* Special-case where the user accidentally sets filename=<path to ova.xml file> *)
 		let filename =
 			if String.endswith "ova.xml" (String.lowercase filename)
@@ -3197,12 +3203,10 @@ let vm_import fd printer rpc session_id params =
 			(* possibly a Rio import *)
 					let make_command task_id =
 						let prefix = uri_of_someone rpc session_id Master in
-						let uri = Printf.sprintf "%s%s?session_id=%s&task_id=%s&restore=%s&force=%s%s"
+						let uri = Printf.sprintf "%s%s?session_id=%s&task_id=%s&restore=%b&force=%b&dry_run=%b%s"
 							prefix
 							(if vm_metadata_only then Constants.import_metadata_uri else Constants.import_uri)
-							(Ref.string_of session_id) (Ref.string_of task_id)
-							(if full_restore then "true" else "false")
-							(if force then "true" else "false")
+							(Ref.string_of session_id) (Ref.string_of task_id) full_restore force dry_run
 							(if sr <> Ref.null then "&sr_id=" ^ (Ref.string_of sr) else "") in
 						debug "requesting HttpPut('%s','%s')" filename uri;
 						HttpPut (filename, uri) in
@@ -3213,6 +3217,7 @@ let vm_import fd printer rpc session_id params =
 					let result = track_http_operation ?use_existing_task:importtask fd rpc session_id make_command "VM import" in
 					let vmrefs = API.Legacy.From.ref_VM_set "" (Xml.parse_string result) in
 					let uuids = List.map (fun vm -> Client.VM.get_uuid rpc session_id vm) vmrefs in
+					let uuids = if uuids = [] && dry_run then ["xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"] else uuids in
 					marshal fd (Command (Print (String.concat "," uuids)))
 			| _ -> failwith "Thin CLI protocol error"
 	end
