@@ -32,20 +32,19 @@ SUCH DAMAGE.
 
 open Lwt
 open Cohttp
-open Xenstore_server
+(* open Xenstore_server *)
 
 let program = Filename.basename Sys.argv.(0)
 
-let debug fmt = Logging.debug program fmt
+let ignore_fmt fmt = Printf.ksprintf (fun _ -> ()) fmt
+
+let debug fmt = ignore_fmt fmt
 let warn  fmt = Logging.warn  program fmt
+let info  fmt = Logging.info  program fmt
 let error fmt = Logging.error program fmt
 
 let get_time () = Oclock.gettime Oclock.monotonic
 let start_time = get_time ()
-
-let message_logger = Logging.create 512
-let message conn_id session (fmt: (_,_,_,_) format4) =
-    Printf.ksprintf message_logger.Logging.push ("[%3d] [%s]" ^^ fmt) conn_id (match session with None -> "None" | Some x -> x)
 
 let rec logging_thread logger =
     lwt lines = Logging.get logger in
@@ -240,7 +239,7 @@ module Q = struct
 				(name, d name) :: acc
 			) queues []
 		let measure name =
-			if Hashtbl.mem queues name
+			if Hashtbl.mem queue_lengths name
 			then Some (Measurement.Int (Hashtbl.find queue_lengths name))
 			else None
 	end
@@ -289,18 +288,28 @@ module Q = struct
 		then Some (Hashtbl.find next_transfer_expected name)
 		else None
 
-	let queue_of_id id = Int64Map.find id !message_id_to_queue
+	let queue_of_id id =
+		if Int64Map.mem id !message_id_to_queue
+		then Some (Int64Map.find id !message_id_to_queue)
+		else begin
+			error "Message id %Ld not in message_id_to_queue" id;
+			None
+		end
 
-	let find_exn id =
-		let q = get(queue_of_id id) in
-		Int64Map.find id q
+	let find id = match queue_of_id id with
+	| None -> None
+	| Some name ->
+		let q = get name in
+		if Int64Map.mem id q
+		then Some (Int64Map.find id q)
+		else None
 
-	let ack id =
-		let name = queue_of_id id in
+	let ack id = match queue_of_id id with
+	| None -> ()
+	| Some name ->
 		if exists name then begin
 			let q = get name in
 			message_id_to_queue := Int64Map.remove id !message_id_to_queue;
-			Printf.fprintf stderr "Removing id %Ld from queue %s\n%!" id name;
 			if Int64Map.mem id q
 			then Hashtbl.replace queue_lengths name (Hashtbl.find queue_lengths name - 1);
 			Hashtbl.replace queues name (Int64Map.remove id q);
@@ -360,7 +369,7 @@ module Transient_queue = struct
 			let qs = Hashtbl.find queues session in
 			StringSet.iter
 				(fun name ->
-					debug "Deleting transient queue: %s" name;
+					info "Deleting transient queue: %s" name;
 					Q.remove name;
 				) qs;
 			Hashtbl.remove queues session
@@ -456,13 +465,20 @@ let process_request conn_id session request = match session, request with
 		Transient_queue.add session name;
 		Q.add name;
 		return (Out.Create name)
+	| Some session, In.Destroy name ->
+		Q.remove name;
+		return Out.Destroy
 	| Some session, In.Subscribe name ->
 		Subscription.add session name;
 		return Out.Subscribe
 	| Some session, In.Ack id ->
-		let name = Q.queue_of_id id in
-		Trace_buffer.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Ack id; processing_time = None }));
-		Q.ack id;
+		begin match Q.queue_of_id id with
+		| None ->
+			error "Ack %Ld: message doesn't exist" id
+		| Some name ->
+			Trace_buffer.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Ack id; processing_time = None }));
+			Q.ack id;
+		end;
 		return Out.Ack
 	| Some session, In.Transfer(from, timeout) ->
 		let start = Unix.gettimeofday () in
@@ -505,15 +521,17 @@ let process_request conn_id session request = match session, request with
 		} in
 		let now = Unix.gettimeofday () in
 		List.iter
-			(fun (id, m) ->
-				let name = Q.queue_of_id id in
+			(fun (id, m) -> match Q.queue_of_id id with
+			| None -> ()
+			| Some name ->
 				let processing_time = match m.Message.kind with
 				| Message.Request _ -> None
-				| Message.Response id' ->
-					try
-						let request_entry = Q.find_exn id' in
+				| Message.Response id' -> begin match Q.find id' with
+					| Some request_entry ->
 						Some (Int64.sub (get_time ()) request_entry.Entry.time)
-					with _ -> None in
+					| None ->
+						None
+				end in
 				Trace_buffer.add (Event.({time = now; input = None; queue = name; output = Some session; message = Message (id, m); processing_time }))
 			) transfer.Out.messages;
 		return (Out.Transfer transfer)
@@ -526,10 +544,10 @@ let process_request conn_id session request = match session, request with
 		end
 
 let make_server () =
-	debug "Started server on localhost:%d" !port;
+	info "Started server on localhost:%d" !port;
 
 	let (_: 'a) = logging_thread Logging.logger in
-	let (_: 'a) = logging_thread message_logger in
+(*	let (_: 'a) = logging_thread message_logger in *)
 
   	(* (Response.t * Body.t) Lwt.t *)
 	let callback conn_id ?body req =
@@ -543,13 +561,12 @@ let make_server () =
 		let path = Uri.path uri in
 		match In.of_request body (Cohttp.Request.meth req) path with
 		| None ->
-			debug "<- [unparsable request; path = %s; body = %s]" path (match body with Some x -> "\"" ^ x ^ "\"" | None -> "None");
-			debug "-> 404 [Not_found]";
+			error "<- [unparsable request; path = %s; body = %s]" path (match body with Some x -> "\"" ^ x ^ "\"" | None -> "None");
+			error "-> 404 [Not_found]";
 			Cohttp_lwt_unix.Server.respond_not_found ~uri ()
 		| Some request ->
 			debug "<- %s [%s]" path (match body with None -> "" | Some x -> x);
 			let session = Connections.get_session conn_id in
-			message conn_id session "%s" (Jsonrpc.to_string (In.rpc_of_t request));
 			lwt response = process_request conn_id session request in
 			let status, body = Out.to_response response in
 			debug "-> %s [%s]" (Cohttp.Code.string_of_status status) body;
@@ -562,11 +579,11 @@ let make_server () =
 		| None -> ()
 		| Some session ->
 			if not(Connections.is_session_active session) then begin
-				debug "Session %s cleaning up" session;
+				info "Session %s cleaning up" session;
 				Transient_queue.remove session
 			end in
 
-	debug "Message switch starting";
+	info "Message switch starting";
 	let config = { Cohttp_lwt_unix.Server.callback; conn_closed } in
 	Cohttp_lwt_unix.Server.create ~address:!ip ~port:!port config
     

@@ -68,6 +68,7 @@ module In = struct
 	| Login of string            (** Associate this transport-level channel with a session *)
 	| CreatePersistent of string
 	| CreateTransient of string
+	| Destroy of string          (** Explicitly remove a named queue *)
 	| Subscribe of string        (** Subscribe to messages from a queue *)
 	| Send of string * Message.t (** Send a message to a queue *)
 	| Transfer of int64 * float  (** blocking wait for new messages *)
@@ -89,6 +90,7 @@ module In = struct
 		| None, `GET, [ ""; "login"; token ]    -> Some (Login token)
 		| None, `GET, [ ""; "persistent"; name ] -> Some (CreatePersistent name)
 		| None, `GET, [ ""; "transient"; name ] -> Some (CreateTransient name)
+		| None, `GET, [ ""; "destroy"; name ]   -> Some (Destroy name)
 		| None, `GET, [ ""; "subscribe"; name ] -> Some (Subscribe name)
 		| None, `GET, [ ""; "ack"; id ]         -> Some (Ack (Int64.of_string id))
 		| None, `GET, [ ""; "list"; prefix ]    -> Some (List prefix)
@@ -119,6 +121,8 @@ module In = struct
 			None, `GET, (Uri.make ~path:(Printf.sprintf "/persistent/%s" name) ())
 		| CreateTransient name ->
 			None, `GET, (Uri.make ~path:(Printf.sprintf "/transient/%s" name) ())
+		| Destroy name ->
+			None, `GET, (Uri.make ~path:(Printf.sprintf "/destroy/%s" name) ())
 		| Subscribe name ->
 			None, `GET, (Uri.make ~path:(Printf.sprintf "/subscribe/%s" name) ())
 		| Ack x ->
@@ -193,6 +197,7 @@ module Out = struct
 	type t =
 	| Login
 	| Create of string
+	| Destroy
 	| Subscribe
 	| Send of int64 option
 	| Transfer of transfer
@@ -207,6 +212,7 @@ module Out = struct
 		| Login
 		| Ack
 		| Subscribe
+		| Destroy
 		| Send None ->
 			`OK, ""
 		| Send (Some x) ->

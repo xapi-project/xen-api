@@ -12,8 +12,8 @@ TESTS := --disable-tests
 endif
 
 clean:
-	@obuild clean
 	@rm -f setup.data setup.log setup.bin
+	@rm -rf _build
 
 distclean: clean
 	@rm -f config.mk
