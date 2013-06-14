@@ -33,12 +33,7 @@ SUCH DAMAGE.
 open Lwt
 open Cohttp
 open Logging
-
-let get_time () = Oclock.gettime Oclock.monotonic
-let start_time = get_time ()
-
-
-let startswith prefix x = String.length x >= (String.length prefix) && (String.sub x 0 (String.length prefix) = prefix)
+open Clock
 
 
 let port = ref 8080
@@ -56,16 +51,8 @@ let redirect x =
 	let headers = Header.add (Header.init()) "Location" x in
 	Server.respond_string ~headers ~status:`Found ~body:"" ()
 
-let make_unique_id =
-	let counter = ref 0L in
-	fun () ->
-		let result = !counter in
-		counter := Int64.add 1L !counter;
-		result
 
-let make_fresh_name () = Printf.sprintf "client-%Ld" (make_unique_id ())
 
-module Int64Map = Map.Make(struct type t = int64 let compare = Int64.compare end)
 module IntMap = Map.Make(struct type t = int let compare = compare end)
 module StringSet = Set.Make(struct type t = string let compare = String.compare end)
 module IntSet = Set.Make(struct type t = int let compare = compare end)
@@ -85,7 +72,10 @@ module Subscription = struct
 			Lwt.wakeup_later (Hashtbl.find session_to_wakeup session) ()
 		end
 
-	let get session = StringStringRelation.get_bs session !t
+	let get session =
+		StringStringRelation.B_Set.fold (fun name acc -> name :: acc)
+		(StringStringRelation.get_bs session !t)
+		[]
 
 	let remove subscription =
 		t := StringStringRelation.remove_b subscription !t
@@ -121,138 +111,6 @@ module Connections = struct
 
 end
 
-module Q = struct
-
-	let queues : (string, Protocol.Entry.t Int64Map.t) Hashtbl.t = Hashtbl.create 128
-	let queue_lengths : (string, int) Hashtbl.t = Hashtbl.create 128
-	let next_transfer_expected : (string, int64) Hashtbl.t = Hashtbl.create 128
-	let message_id_to_queue : string Int64Map.t ref = ref Int64Map.empty
-
-	let list prefix = Hashtbl.fold (fun name _ acc ->
-		if startswith prefix name
-		then name :: acc
-		else acc) queues []
-
-	module Lengths = struct
-		open Measurable
-		let d x =Description.({ description = "length of queue " ^ x; units = "" })
-		let list_available () =
-			Hashtbl.fold (fun name _ acc ->
-				(name, d name) :: acc
-			) queues []
-		let measure name =
-			if Hashtbl.mem queue_lengths name
-			then Some (Measurement.Int (Hashtbl.find queue_lengths name))
-			else None
-	end
-
-	type wait = {
-		c: unit Lwt_condition.t;
-		m: Lwt_mutex.t
-	}
-
-	let waiters = Hashtbl.create 128
-
-	let exists name = Hashtbl.mem queues name
-
-	let add name =
-		if not(exists name) then begin
-			Hashtbl.replace queues name Int64Map.empty;
-			Hashtbl.replace queue_lengths name 0;
-			Hashtbl.replace waiters name {
-				c = Lwt_condition.create ();
-				m = Lwt_mutex.create ()
-			}
-		end
-
-	let get name =
-		if exists name
-		then Hashtbl.find queues name
-		else Int64Map.empty
-
-	let remove name =
-		let entries = get name in
-		Int64Map.iter (fun id _ ->
-			message_id_to_queue := Int64Map.remove id !message_id_to_queue
-		) entries;
-		Hashtbl.remove queues name;
-		Hashtbl.remove queue_lengths name;
-		Hashtbl.remove next_transfer_expected name;
-		Hashtbl.remove waiters name;
-		Subscription.remove name
-
-	let transfer name next_expected =
-		let time = Int64.add (get_time ()) (Int64.of_float (next_expected *. 1e9)) in
-		Hashtbl.replace next_transfer_expected name time
-
-	let get_next_transfer_expected name =
-		if Hashtbl.mem next_transfer_expected name
-		then Some (Hashtbl.find next_transfer_expected name)
-		else None
-
-	let queue_of_id id =
-		if Int64Map.mem id !message_id_to_queue
-		then Some (Int64Map.find id !message_id_to_queue)
-		else begin
-			error "Message id %Ld not in message_id_to_queue" id;
-			None
-		end
-
-	let find id = match queue_of_id id with
-	| None -> None
-	| Some name ->
-		let q = get name in
-		if Int64Map.mem id q
-		then Some (Int64Map.find id q)
-		else None
-
-	let ack id = match queue_of_id id with
-	| None -> ()
-	| Some name ->
-		if exists name then begin
-			let q = get name in
-			message_id_to_queue := Int64Map.remove id !message_id_to_queue;
-			if Int64Map.mem id q
-			then Hashtbl.replace queue_lengths name (Hashtbl.find queue_lengths name - 1);
-			Hashtbl.replace queues name (Int64Map.remove id q);
-		end
-
-	let wait from name =
-		if Hashtbl.mem waiters name then begin
-			let w = Hashtbl.find waiters name in
-			Lwt_mutex.with_lock w.m
-				(fun () ->
-					let rec loop () =
-						let _, _, not_seen = Int64Map.split from (get name) in
-						if not_seen = Int64Map.empty then begin
-							lwt () = Lwt_condition.wait ~mutex:w.m w.c in
-							loop ()
-						end else return () in
-					loop ()
-				)
-		end else begin
-			let t, _ = Lwt.task () in
-			t (* block forever *)
-		end
-
-	let send origin name data =
-		(* If a queue doesn't exist then drop the message *)
-		if exists name then begin
-			let w = Hashtbl.find waiters name in
-			Lwt_mutex.with_lock w.m
-				(fun () ->
-					let q = get name in
-					let id = make_unique_id () in
-					message_id_to_queue := Int64Map.add id name !message_id_to_queue;
-					Hashtbl.replace queues name (Int64Map.add id (Protocol.Entry.make (get_time ()) origin data) q);
-					Hashtbl.replace queue_lengths name (Hashtbl.find queue_lengths name + 1);
-					Lwt_condition.broadcast w.c ();
-					return (Some id)
-				)
-		end else return None
-
-end
-
 module Transient_queue = struct
 
 	(* Session -> set of queues which will be GCed on session cleanup *)
@@ -272,6 +130,7 @@ module Transient_queue = struct
 				(fun name ->
 					info "Deleting transient queue: %s" name;
 					Q.remove name;
+					Subscription.remove name
 				) qs;
 			Hashtbl.remove queues session
 		end
@@ -279,21 +138,28 @@ module Transient_queue = struct
 	let all () = Hashtbl.fold (fun _ set acc -> StringSet.union set acc) queues StringSet.empty
 end
 
+let next_transfer_expected : (string, int64) Hashtbl.t = Hashtbl.create 128
+let get_next_transfer_expected name =
+	if Hashtbl.mem next_transfer_expected name
+	then Some (Hashtbl.find next_transfer_expected name)
+	else None
+let record_transfer time name =
+	Hashtbl.replace next_transfer_expected name time
+
 let snapshot () =
-	let get_queue_contents q = Int64Map.fold (fun i e acc -> (i, e) :: acc) q [] in
 	let open Protocol.Diagnostics in
-	let queues qs =
-		Hashtbl.fold (fun n q acc ->
-			let queue_contents = get_queue_contents q in
-			let next_transfer_expected = Q.get_next_transfer_expected n in
+	let queues =
+		List.fold_left (fun acc (n, q)->
+			let queue_contents = Q.contents q in
+			let next_transfer_expected = get_next_transfer_expected n in
 			(n, { queue_contents; next_transfer_expected }) :: acc
-		) qs [] in
+		) [] in
 	let is_transient =
 		let all = Transient_queue.all () in
 		fun (x, _) -> StringSet.mem x all in
-	let all_queues = queues Q.queues in
+	let all_queues = queues (List.map (fun n -> n, (Q.find n)) (Q.list "")) in
 	let transient_queues, permanent_queues = List.partition is_transient all_queues in
-	let current_time = get_time () in
+	let current_time = time () in
 	{ start_time; current_time; permanent_queues; transient_queues }
 
 open Protocol
@@ -327,6 +193,7 @@ let process_request conn_id session request = match session, request with
 		return (Out.Create name)
 	| Some session, In.Destroy name ->
 		Q.remove name;
+		Subscription.remove name;
 		return Out.Destroy
 	| Some session, In.Subscribe name ->
 		Subscription.add session name;
@@ -344,29 +211,27 @@ let process_request conn_id session request = match session, request with
 		let start = Unix.gettimeofday () in
 		let rec wait () =
 			let names = Subscription.get session in
-			let not_seen = StringStringRelation.B_Set.fold (fun name map ->
-				let q = Q.get name in
-				Q.transfer name timeout;
-				let _, _, not_seen = Int64Map.split from q in
-				Int64Map.fold Int64Map.add map not_seen
-			) names Int64Map.empty in
-			if not_seen <> Int64Map.empty
+			let time = Int64.add (time ()) (Int64.of_float (timeout *. 1e9)) in
+			List.iter (record_transfer time) names;
+
+			let not_seen = Q.transfer from names in
+			if not_seen <> []
 			then return not_seen
 			else
 				let remaining_timeout = max 0. (start +. timeout -. (Unix.gettimeofday ())) in
 				if remaining_timeout <= 0.
-				then return Int64Map.empty
+				then return []
 				else
 					let timeout = Lwt.map (fun () -> `Timeout) (Lwt_unix.sleep remaining_timeout) in
-					let more = StringStringRelation.B_Set.fold (fun name acc ->
-						Lwt.map (fun () -> `Data) (Q.wait from name) :: acc
-					) names [] in
+					let more = List.map (fun name ->
+						Lwt.map (fun () -> `Data) (Q.wait from name)
+					) names in
 					let t, u = Lwt.task () in
 					Hashtbl.replace Subscription.session_to_wakeup session u;
 					let sub = Lwt.map (fun () -> `Subscription) t in
 					try_lwt
 						match_lwt Lwt.pick (sub :: timeout :: more) with
-						| `Timeout -> return Int64Map.empty
+						| `Timeout -> return []
 						| `Data ->
 							wait ()
 						| `Subscription ->
@@ -377,7 +242,7 @@ let process_request conn_id session request = match session, request with
 				in
 		lwt messages = wait () in
 		let transfer = {
-			Out.messages = Int64Map.fold (fun id e acc -> (id, e.Protocol.Entry.message) :: acc) messages [];
+			Out.messages = messages;
 		} in
 		let now = Unix.gettimeofday () in
 		List.iter
@@ -386,9 +251,9 @@ let process_request conn_id session request = match session, request with
 			| Some name ->
 				let processing_time = match m.Message.kind with
 				| Message.Request _ -> None
-				| Message.Response id' -> begin match Q.find id' with
+				| Message.Response id' -> begin match Q.entry id' with
 					| Some request_entry ->
-						Some (Int64.sub (get_time ()) request_entry.Entry.time)
+						Some (Int64.sub (time ()) request_entry.Entry.time)
 					| None ->
 						None
 				end in
