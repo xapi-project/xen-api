@@ -664,6 +664,7 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	| _ ->
 			raise (Api_errors.Server_error (Api_errors.vm_has_too_many_snapshots, [Ref.string_of vm])));
 
+	let source_host_ref = Db.VM.get_resident_on ~__context ~self:vm in
 	let migration_type =
 		try
 			ignore(Db.Host.get_uuid ~__context ~self:dest_host_ref);
@@ -680,7 +681,6 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		let snapshot = Helpers.get_boot_record ~__context ~self:vm in
 		Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_sr_check:false ();
 		(* Prevent VMs from being migrated onto a host with a lower platform version *)
-		let source_host_ref = Db.VM.get_resident_on ~__context ~self:vm in
 		Helpers.assert_host_versions_not_decreasing ~__context
 			~host_from:(Helpers.LocalObject source_host_ref)
 			~host_to:(Helpers.LocalObject dest_host_ref);
@@ -691,6 +691,10 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		if (not force) && live then
 			Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host:dest_host_ref
 				~remote:(remote_rpc, session_id) ();
+		(* Prevent VMs from being migrated onto a host with a lower platform version *)
+		Helpers.assert_host_versions_not_decreasing ~__context
+			~host_from:(Helpers.LocalObject source_host_ref)
+			~host_to:(Helpers.RemoteObject (remote_rpc, session_id, dest_host_ref));
 
 		(* Ignore vdi_map for now since we won't be doing any mirroring. *)
 		try inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address ~vm ~vdi_map:[] ~vif_map ~dry_run:true ~live:true
