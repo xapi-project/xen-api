@@ -126,16 +126,22 @@ module Xs = struct
 	module Client = Xs_client_unix.Client(Xs_transport_unix_client)
 	include Client
 
-	let cached_client = ref None
+	(* Use one client for watching and one for reading. The xenstore client
+	 * deadlocks if used to read from within a watch callback. *)
+	let watch_client = ref None
+	let read_client = ref None
 
-	(* Initialise the client on demand - must be done after daemonisation! *)
-	let get_client () =
-		match !cached_client with
+	(* Initialise the clients on demand - must be done after daemonisation! *)
+	let get_client cache =
+		match !cache with
 		| Some client -> client
 		| None ->
 			let client = Client.make () in
-			cached_client := Some client;
+			cache := Some client;
 			client
+
+	let get_watch_client () = get_client watch_client
+	let get_read_client () = get_client read_client
 end
 
 (* Map from domid to the latest seen meminfo_free value *)
@@ -153,7 +159,9 @@ module Meminfo = struct
 		else
 			let path = meminfo_path d in
 			try
-				let meminfo_free = Int64.of_string (Xs.read xs path) in
+				let xs_client = Xs.get_read_client () in
+				let meminfo_free_string = Xs.with_xs xs_client (fun xs -> Xs.read xs path) in
+				let meminfo_free = Int64.of_string meminfo_free_string in
 				debug "memfree has changed to %Ld in domain %d" meminfo_free d;
 				current_meminfofree_values := IntMap.add d meminfo_free !current_meminfofree_values
 			with Xs_protocol.Enoent hint ->
@@ -661,7 +669,7 @@ let _ =
 	start (!Rrd_interface.default_path, !Rrd_interface.forwarded_path) Server.process;
 
 	debug "Starting xenstore-watching thread ..";
-	Watcher.create_watcher_thread (Xs.get_client());
+	Watcher.create_watcher_thread (Xs.get_watch_client ());
 
 	debug "Creating monitoring loop thread ..";
 	Debug.with_thread_associated "main" monitor_loop ();
