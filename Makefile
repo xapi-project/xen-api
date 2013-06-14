@@ -3,7 +3,7 @@ dist/build/lib-xenops/xenops.cmxa:
 	obuild build
 
 install:
-	ocamlfind install xenops lib/META $(wildcard dist/build/lib-xenops/*)
+	ocamlfind install xenops src/META $(wildcard dist/build/lib-xenops/*)
 
 uninstall:
 	ocamlfind remove xenopsd
