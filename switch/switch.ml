@@ -331,47 +331,6 @@ let snapshot () =
 	let current_time = get_time () in
 	{ start_time; current_time; permanent_queues; transient_queues }
 
-module Trace_buffer = struct
-	let size = 128
-
-	let buffer : (int64 * Protocol.Event.t) option array = Array.create size None
-	let c = Lwt_condition.create ()
-
-	let next_id = ref 0L
-
-	let add event =
-		let next_slot = Int64.(to_int (rem !next_id (of_int size))) in
-		buffer.(next_slot) <- Some (!next_id, event);
-		next_id := Int64.succ !next_id;
-		Lwt_condition.broadcast c ()
-
-	(* fold [f] over buffered items in chronological order *)
-	let fold f acc =
-		let next_slot = Int64.(to_int (rem !next_id (of_int size))) in
-		let rec range start finish acc =
-			if start > finish
-			then acc
-			else range (start + 1) finish (f buffer.(start) acc) in
-		range 0 (next_slot - 1) (range next_slot (size - 1) acc)
-
-	let get from timeout : (int64 * Protocol.Event.t) list Lwt.t =
-		let sleep = Lwt_unix.sleep timeout in
-		let wait_for_data =
-			while_lwt !next_id <= from do
-	   			Lwt_condition.wait c
-			done in
-		(* Wait until some data is available ie. when next_id > from (or timeout) *)
-		lwt () = Lwt.pick [ sleep; wait_for_data ] in
-		(* start from next_slot, looking for non-None entries which
-		   are > from *)
-		let reversed_results = fold (fun x acc -> match x with
-			| None -> acc
-			| Some (id, _) when id < from -> acc
-			| Some (id, x) -> (id, x) :: acc) [] in
-		return (List.rev reversed_results)
-
-end
-
 open Protocol
 let process_request conn_id session request = match session, request with
 	(* Only allow Login, Get, Trace and Diagnostic messages if there is no session *)
@@ -382,7 +341,7 @@ let process_request conn_id session request = match session, request with
 	| _, In.Diagnostics ->
 		return (Out.Diagnostics (snapshot ()))
 	| _, In.Trace(from, timeout) ->
-		lwt events = Trace_buffer.get from timeout in
+		lwt events = Trace.get from timeout in
 		return (Out.Trace {Out.events = events})
 	| _, In.Get path ->
 		let path = if path = [] || path = [ "" ] then [ "index.html" ] else path in
@@ -412,7 +371,7 @@ let process_request conn_id session request = match session, request with
 		| None ->
 			error "Ack %Ld: message doesn't exist" id
 		| Some name ->
-			Trace_buffer.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Ack id; processing_time = None }));
+			Trace.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Ack id; processing_time = None }));
 			Q.ack id;
 		end;
 		return Out.Ack
@@ -468,14 +427,14 @@ let process_request conn_id session request = match session, request with
 					| None ->
 						None
 				end in
-				Trace_buffer.add (Event.({time = now; input = None; queue = name; output = Some session; message = Message (id, m); processing_time }))
+				Trace.add (Event.({time = now; input = None; queue = name; output = Some session; message = Message (id, m); processing_time }))
 			) transfer.Out.messages;
 		return (Out.Transfer transfer)
 	| Some session, In.Send (name, data) ->
 		begin match_lwt Q.send conn_id name data with
 		| None -> return (Out.Send None)
 		| Some id ->
-			Trace_buffer.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Message (id, data); processing_time = None }));
+			Trace.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Message (id, data); processing_time = None }));
 			return (Out.Send (Some id))
 		end
 
