@@ -27,7 +27,7 @@ let ( /// ) = Int64.div
 
 let bytes_per_kib  = 1024L
 let bytes_per_mib  = 1048576L
-let bytes_per_page = Int64.of_int (Mmap.getpagesize ())
+let bytes_per_page = Int64.of_int (Xenmmap.getpagesize ())
 let kib_per_page   = bytes_per_page /// bytes_per_kib
 let kib_per_mib    = 1024L
 let pages_per_mib  = bytes_per_mib /// bytes_per_page
@@ -90,13 +90,13 @@ let mib_of_pages_used   value = divide_rounding_up value pages_per_mib
 (* === Host memory properties =============================================== *)
 
 let get_free_memory_kib ~xc =
-	kib_of_pages (Int64.of_nativeint (Xc.physinfo xc).Xc.free_pages)
+	kib_of_pages (Int64.of_nativeint (Xenctrl.physinfo xc).Xenctrl.free_pages)
 let get_scrub_memory_kib ~xc =
-	kib_of_pages (Int64.of_nativeint (Xc.physinfo xc).Xc.scrub_pages)
+	kib_of_pages (Int64.of_nativeint (Xenctrl.physinfo xc).Xenctrl.scrub_pages)
 let get_total_memory_mib ~xc =
-	mib_of_pages_free (Int64.of_nativeint ((Xc.physinfo xc).Xc.total_pages))
+	mib_of_pages_free (Int64.of_nativeint ((Xenctrl.physinfo xc).Xenctrl.total_pages))
 let get_total_memory_bytes ~xc =
-	bytes_of_pages (Int64.of_nativeint ((Xc.physinfo xc).Xc.total_pages))
+	bytes_of_pages (Int64.of_nativeint ((Xenctrl.physinfo xc).Xenctrl.total_pages))
 
 (* === Domain memory breakdown ============================================== *)
 
@@ -162,9 +162,9 @@ module HVM = struct
 		let shadow_mib = shadow_mib static_max_mib vcpu_count in
 		let requested_shadow_mib = shadow_mib requested_multiplier in
 		let default_shadow_mib = shadow_mib 1. in
-		Xc.with_intf (fun xc ->
+		Xenctrl.with_intf (fun xc ->
 			let actual_shadow_mib =
-				Int64.of_int (Xc.shadow_allocation_get xc domid) in
+				Int64.of_int (Xenctrl.shadow_allocation_get xc domid) in
 			let actual_multiplier =
 				(Int64.to_float actual_shadow_mib) /.
 				(Int64.to_float default_shadow_mib) in
@@ -218,11 +218,11 @@ let required_to_boot hvm vcpus mem_kib mem_target_kib shadow_multiplier =
 
 let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds=64) required_memory_kib =
 	let rec wait accumulated_wait_time_seconds =
-		let host_info = Xc.physinfo xc in
+		let host_info = Xenctrl.physinfo xc in
 		let free_memory_kib =
-			kib_of_pages (Int64.of_nativeint host_info.Xc.free_pages) in
+			kib_of_pages (Int64.of_nativeint host_info.Xenctrl.free_pages) in
 		let scrub_memory_kib =
-			kib_of_pages (Int64.of_nativeint host_info.Xc.scrub_pages) in
+			kib_of_pages (Int64.of_nativeint host_info.Xenctrl.scrub_pages) in
 		(* At exponentially increasing intervals, write  *)
 		(* a debug message saying how long we've waited: *)
 		if is_power_of_2 accumulated_wait_time_seconds then debug
