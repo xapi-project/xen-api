@@ -32,45 +32,11 @@ SUCH DAMAGE.
 
 open Lwt
 open Cohttp
-
-let program = Filename.basename Sys.argv.(0)
-
-let ignore_fmt fmt = Printf.ksprintf (fun _ -> ()) fmt
-
-(* General system logging *)
-let logger = Logging.create 512
-
-type level = Debug | Info | Warn | Error | Null
-
-let log_level = ref Warn
-
-let string_of_level = function
-        | Debug -> "debug" | Info -> "info" | Warn -> "warn"
-        | Error -> "error" | Null -> "null"
-
-let log level key (fmt: (_,_,_,_) format4) =
-        let level = string_of_level level in
-        Printf.ksprintf logger.Logging.push ("[%5s|%s] " ^^ fmt) level key
-
-let key = "message-switch"
-
-(* let debug = log Debug key *)
-let debug fmt = ignore_fmt fmt
-let info fmt = log Info key fmt
-let warn fmt = log Warn key fmt
-let error fmt = log Error key fmt
+open Logging
 
 let get_time () = Oclock.gettime Oclock.monotonic
 let start_time = get_time ()
 
-let rec logging_thread logger =
-    lwt lines = Logging.get logger in
-	lwt () = Lwt_list.iter_s
-            (fun x ->
-                lwt () = Lwt_log.log ~logger:!Lwt_log.default ~level:Lwt_log.Notice x in
-				return ()
-			) lines in
-	logging_thread logger
 
 let startswith prefix x = String.length x >= (String.length prefix) && (String.sub x 0 (String.length prefix) = prefix)
 
@@ -269,14 +235,13 @@ module Q = struct
 			t (* block forever *)
 		end
 
-	let send conn_id name data =
+	let send origin name data =
 		(* If a queue doesn't exist then drop the message *)
 		if exists name then begin
 			let w = Hashtbl.find waiters name in
 			Lwt_mutex.with_lock w.m
 				(fun () ->
 					let q = get name in
-					let origin = Connections.get_origin conn_id in
 					let id = make_unique_id () in
 					message_id_to_queue := Int64Map.add id name !message_id_to_queue;
 					Hashtbl.replace queues name (Int64Map.add id (Protocol.Entry.make (get_time ()) origin data) q);
@@ -431,7 +396,8 @@ let process_request conn_id session request = match session, request with
 			) transfer.Out.messages;
 		return (Out.Transfer transfer)
 	| Some session, In.Send (name, data) ->
-		begin match_lwt Q.send conn_id name data with
+		let origin = Connections.get_origin conn_id in
+		begin match_lwt Q.send origin name data with
 		| None -> return (Out.Send None)
 		| Some id ->
 			Trace.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Message (id, data); processing_time = None }));
@@ -441,7 +407,7 @@ let process_request conn_id session request = match session, request with
 let make_server () =
 	info "Started server on localhost:%d" !port;
 
-	let (_: 'a) = logging_thread logger in
+	let (_: 'a) = logging_thread () in
 
   	(* (Response.t * Body.t) Lwt.t *)
 	let callback conn_id ?body req =

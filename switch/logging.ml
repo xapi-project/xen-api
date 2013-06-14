@@ -79,3 +79,36 @@ let get (logger: logger) =
 		return_lines all
 	end
 
+let program = Filename.basename Sys.argv.(0)
+
+let ignore_fmt fmt = Printf.ksprintf (fun _ -> ()) fmt
+
+(* General system logging *)
+let logger = create 512
+
+type level = Debug | Info | Warn | Error | Null
+
+let log_level = ref Warn
+
+let string_of_level = function
+        | Debug -> "debug" | Info -> "info" | Warn -> "warn"
+        | Error -> "error" | Null -> "null"
+
+let log level key (fmt: (_,_,_,_) format4) =
+        let level = string_of_level level in
+        Printf.ksprintf logger.push ("[%5s|%s] " ^^ fmt) level key
+
+(* let debug = log Debug key *)
+let debug fmt = ignore_fmt fmt
+let info fmt = log Info program fmt
+let warn fmt = log Warn program fmt
+let error fmt = log Error program fmt
+
+let rec logging_thread () =
+    lwt lines = get logger in
+	lwt () = Lwt_list.iter_s
+            (fun x ->
+                lwt () = Lwt_log.log ~logger:!Lwt_log.default ~level:Lwt_log.Notice x in
+				return ()
+			) lines in
+	logging_thread ()
