@@ -158,29 +158,29 @@ let update_vcpus xc doms =
 		(* Runstate info is per-domain rather than per-vcpu *)
 		let dss =
 			try
-				let ri = Xenctrlext.domain_get_runstate_info xc domid in
+				let ri = Xenctrl.domain_get_runstate_info xc domid in
 				(VM uuid, ds_make ~name:"runstate_fullrun" ~units:"(fraction)"
-					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrlext.time0) /. 1.0e9))
+					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time0) /. 1.0e9))
 					~description:"Fraction of time that all VCPUs are running"
 					~ty:Rrd.Derive ~default:false ~min:0.0 ())::
 				(VM uuid, ds_make ~name:"runstate_full_contention" ~units:"(fraction)"
-					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrlext.time1) /. 1.0e9))
+					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time1) /. 1.0e9))
 					~description:"Fraction of time that all VCPUs are runnable (i.e., waiting for CPU)"
 					~ty:Rrd.Derive ~default:false ~min:0.0 ())::
 				(VM uuid, ds_make ~name:"runstate_concurrency_hazard" ~units:"(fraction)"
-					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrlext.time2) /. 1.0e9))
+					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time2) /. 1.0e9))
 					~description:"Fraction of time that some VCPUs are running and some are runnable"
 					~ty:Rrd.Derive ~default:false ~min:0.0 ())::
 				(VM uuid, ds_make ~name:"runstate_blocked" ~units:"(fraction)"
-					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrlext.time3) /. 1.0e9))
+					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time3) /. 1.0e9))
 					~description:"Fraction of time that all VCPUs are blocked or offline"
 					~ty:Rrd.Derive ~default:false ~min:0.0 ())::
 				(VM uuid, ds_make ~name:"runstate_partial_run" ~units:"(fraction)"
-					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrlext.time4) /. 1.0e9))
+					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time4) /. 1.0e9))
 					~description:"Fraction of time that some VCPUs are running, and some are blocked"
 					~ty:Rrd.Derive ~default:false ~min:0.0 ())::
 				(VM uuid, ds_make ~name:"runstate_partial_contention" ~units:"(fraction)"
-					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrlext.time5) /. 1.0e9))
+					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time5) /. 1.0e9))
 					~description:"Fraction of time that some VCPUs are runnable and some are blocked"
 					~ty:Rrd.Derive ~default:false ~min:0.0 ())::dss
 			with e ->
