@@ -5,5 +5,5 @@ obuild-ver: 1
 
 library xenops
   src-dir: src
-  modules: memory, xenops_helpers
-  build-deps: log, xenctrl, xenstore, xenstore_transport.unix
+  modules: memory, xenops_helpers, xenstore_watch
+  build-deps: log, xenctrl, xenstore, xenstore_transport.unix, uuid
