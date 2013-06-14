@@ -6,7 +6,7 @@ install:
 	ocamlfind install xenops src/META $(wildcard dist/build/lib-xenops/*)
 
 uninstall:
-	ocamlfind remove xenopsd
+	ocamlfind remove xenops
 
 .PHONY: clean
 clean:
