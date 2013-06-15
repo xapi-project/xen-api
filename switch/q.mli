@@ -38,19 +38,22 @@ type t
 val contents: t -> (int64 * Protocol.Entry.t) list
 (** [contents t] returns the elements within a queue *)
 
-val add: string -> unit
-(** [add name] adds an empty queue with name [name] *)
+module Directory : sig
 
-val remove: string -> unit
-(** [remove name] removes the queue with name [name] *)
+	val add: string -> unit
+	(** [add name] adds an empty queue with name [name] *)
 
-val find: string -> t
-(** [find name] returns the queue with name [name].
-    XXX should we switch to an option type? *)
+	val remove: string -> unit
+	(** [remove name] removes the queue with name [name] *)
 
-val list: string -> string list
-(** [list prefix] returns the names of non-empty queues whose
-    names have prefix [prefix] *)
+	val find: string -> t
+	(** [find name] returns the queue with name [name].
+	    XXX should we switch to an option type? *)
+
+	val list: string -> string list
+	(** [list prefix] returns the names of non-empty queues whose
+	    names have prefix [prefix] *)
+end
 
 val queue_of_id: int64 -> string option
 (** [queue_of_id id] returns the name of the queue containing

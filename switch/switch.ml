@@ -129,7 +129,7 @@ module Transient_queue = struct
 			StringSet.iter
 				(fun name ->
 					info "Deleting transient queue: %s" name;
-					Q.remove name;
+					Q.Directory.remove name;
 					Subscription.remove name
 				) qs;
 			Hashtbl.remove queues session
@@ -157,7 +157,7 @@ let snapshot () =
 	let is_transient =
 		let all = Transient_queue.all () in
 		fun (x, _) -> StringSet.mem x all in
-	let all_queues = queues (List.map (fun n -> n, (Q.find n)) (Q.list "")) in
+	let all_queues = queues (List.map (fun n -> n, (Q.Directory.find n)) (Q.Directory.list "")) in
 	let transient_queues, permanent_queues = List.partition is_transient all_queues in
 	let current_time = time () in
 	{ start_time; current_time; permanent_queues; transient_queues }
@@ -183,16 +183,16 @@ let process_request conn_id session request = match session, request with
 	| None, _ ->
 		return Out.Not_logged_in
 	| Some session, In.List prefix ->
-		return (Out.List (Q.list prefix))
+		return (Out.List (Q.Directory.list prefix))
 	| Some session, In.CreatePersistent name ->
-		Q.add name;
+		Q.Directory.add name;
 		return (Out.Create name)
 	| Some session, In.CreateTransient name ->
 		Transient_queue.add session name;
-		Q.add name;
+		Q.Directory.add name;
 		return (Out.Create name)
 	| Some session, In.Destroy name ->
-		Q.remove name;
+		Q.Directory.remove name;
 		Subscription.remove name;
 		return Out.Destroy
 	| Some session, In.Subscribe name ->
