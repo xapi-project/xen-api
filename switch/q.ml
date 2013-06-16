@@ -35,10 +35,25 @@ open Clock
 
 module Int64Map = Map.Make(struct type t = int64 let compare = Int64.compare end)
 
-type t = Protocol.Entry.t Int64Map.t
+type t = {
+	q: Protocol.Entry.t Int64Map.t;
+	name: string;
+	length: int;
+	next_id: int64;
+	c: unit Lwt_condition.t;
+	m: Lwt_mutex.t
+}
+
+let make name = {
+	q = Int64Map.empty;
+	name = name;
+	length = 0;
+	next_id = 0L;
+	c = Lwt_condition.create ();
+	m = Lwt_mutex.create ();
+}
 
 let queues : (string, t) Hashtbl.t = Hashtbl.create 128
-let queue_lengths : (string, int) Hashtbl.t = Hashtbl.create 128
 
 let startswith prefix x = String.length x >= (String.length prefix) && (String.sub x 0 (String.length prefix) = prefix)
 
@@ -50,48 +65,26 @@ module Lengths = struct
 			(name, d name) :: acc
 		) queues []
 	let measure name =
-		if Hashtbl.mem queue_lengths name
-		then Some (Measurement.Int (Hashtbl.find queue_lengths name))
+		if Hashtbl.mem queues name
+		then Some (Measurement.Int (Hashtbl.find queues name).length)
 		else None
 end
-
-let make_unique_id =
-	let counter = ref 0L in
-	fun () ->
-		let result = !counter in
-		counter := Int64.add 1L !counter;
-		result
-
-type wait = {
-	c: unit Lwt_condition.t;
-	m: Lwt_mutex.t
-}
-
-let waiters = Hashtbl.create 128
 
 module Directory = struct
 
 	let exists name = Hashtbl.mem queues name
 
 	let add name =
-		if not(exists name) then begin
-			Hashtbl.replace queues name Int64Map.empty;
-			Hashtbl.replace queue_lengths name 0;
-			Hashtbl.replace waiters name {
-				c = Lwt_condition.create ();
-				m = Lwt_mutex.create ()
-			}
-		end
+		if not(exists name)
+		then Hashtbl.replace queues name (make name)
 
 	let find name =
 		if exists name
 		then Hashtbl.find queues name
-		else Int64Map.empty
+		else make name
 
 	let remove name =
-		Hashtbl.remove queues name;
-		Hashtbl.remove queue_lengths name;
-		Hashtbl.remove waiters name
+		Hashtbl.remove queues name
 
 	let list prefix = Hashtbl.fold (fun name _ acc ->
 		if startswith prefix name
@@ -102,7 +95,7 @@ end
 let transfer from names =
 	let messages = List.map (fun name ->
 		let q = Directory.find name in
-		let _, _, not_seen = Int64Map.split from q in
+		let _, _, not_seen = Int64Map.split from q.q in
 		Int64Map.fold (fun id e acc ->
 			((name, id), e.Protocol.Entry.message) :: acc
 		) not_seen []
@@ -113,49 +106,53 @@ let queue_of_id = fst
 
 let entry (name, id) =
 	let q = Directory.find name in
-	if Int64Map.mem id q
-	then Some (Int64Map.find id q)
+	if Int64Map.mem id q.q
+	then Some (Int64Map.find id q.q)
 	else None
 
 let ack (name, id) =
 	if Directory.exists name then begin
 		let q = Directory.find name in
-		if Int64Map.mem id q
-		then Hashtbl.replace queue_lengths name (Hashtbl.find queue_lengths name - 1);
-		Hashtbl.replace queues name (Int64Map.remove id q);
+		if Int64Map.mem id q.q then begin
+			let q' = { q with
+				length = q.length - 1;
+				q = Int64Map.remove id q.q
+			} in
+			Hashtbl.replace queues name q'
+		end
 	end
 
 let wait from name =
-	if Hashtbl.mem waiters name then begin
-		let w = Hashtbl.find waiters name in
-		Lwt_mutex.with_lock w.m
-			(fun () ->
-				let rec loop () =
-					let _, _, not_seen = Int64Map.split from (Directory.find name) in
-					if not_seen = Int64Map.empty then begin
-						lwt () = Lwt_condition.wait ~mutex:w.m w.c in
-						loop ()
-					end else return () in
-				loop ()
-			)
-	end else begin
-		let t, _ = Lwt.task () in
-		t (* block forever *)
-	end
+	let q = Directory.find name in
+	(* if name didn't exist, we end up with a fresh queue and will block
+	   forever (until cancelled) *)
+	Lwt_mutex.with_lock q.m
+		(fun () ->
+			let rec loop () =
+				let _, _, not_seen = Int64Map.split from ((Directory.find name).q) in
+				if not_seen = Int64Map.empty then begin
+					lwt () = Lwt_condition.wait ~mutex:q.m q.c in
+					loop ()
+				end else return () in
+			loop ()
+		)
 
 let send origin name data =
 	(* If a queue doesn't exist then drop the message *)
 	if Directory.exists name then begin
-		let w = Hashtbl.find waiters name in
-		Lwt_mutex.with_lock w.m
+		let q = Directory.find name in
+		Lwt_mutex.with_lock q.m
 			(fun () ->
-				let q = Directory.find name in
-				let id = make_unique_id () in
-				Hashtbl.replace queues name (Int64Map.add id (Protocol.Entry.make (time ()) origin data) q);
-				Hashtbl.replace queue_lengths name (Hashtbl.find queue_lengths name + 1);
-				Lwt_condition.broadcast w.c ();
+				let id = q.next_id in
+				let q' = { q with
+					next_id = Int64.add q.next_id 1L;
+					length = q.length + 1;
+					q = Int64Map.add q.next_id (Protocol.Entry.make (time ()) origin data) q.q
+				} in
+				Hashtbl.replace queues name q';
+				Lwt_condition.broadcast q.c ();
 				return (Some (name, id))
 			)
 	end else return None
 
-let contents q = Int64Map.fold (fun i e acc -> (("XXX", i), e) :: acc) q []
+let contents q = Int64Map.fold (fun i e acc -> ((q.name, i), e) :: acc) q.q []
