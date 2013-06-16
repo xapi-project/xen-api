@@ -1,15 +1,11 @@
-OASISFormat: 0.2
+OASISFormat: 0.3
 Name:        message_switch
-Version:     0.9.6
+Version:     0.9.7
 Synopsis:    A simple store-and-forward message switch
 Authors:     Dave Scott
 License:     FreeBSD
 Plugins:     META (0.2)
 BuildTools:  ocamlbuild
-
-Flag tests
-  Description:        Build and run tests
-  Default:            true
 
 Library message_switch
   CompiledObject:     best
@@ -36,6 +32,7 @@ Library message_switch_unix
 
 Library message_switch_server
   CompiledObject:     best
+  Pack:               true
   Path:               switch
   Findlibparent:      message_switch
   Findlibname:        server
