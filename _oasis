@@ -33,6 +33,7 @@ Library message_switch_unix
 Library message_switch_server
   CompiledObject:     best
   Pack:               true
+  Install:            false
   Path:               switch
   Findlibparent:      message_switch
   Findlibname:        server
