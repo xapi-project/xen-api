@@ -32,10 +32,19 @@ SUCH DAMAGE.
 
 exception Queue_deleted of string
 
+type message_id = string * int64
+(** uniquely identifier for this message *)
+
+val rpc_of_message_id: message_id -> Rpc.t
+val message_id_of_rpc: Rpc.t -> message_id
+
+val rpc_of_message_id_opt: message_id option -> Rpc.t
+val message_id_opt_of_rpc: Rpc.t -> message_id option
+
 module Message : sig
 	type kind =
 	| Request of string
-	| Response of int64
+	| Response of message_id 
 	type t = {
 		payload: string; (* switch to Rpc.t *)
 		kind: kind;
@@ -46,8 +55,8 @@ end
 
 module Event : sig
 	type message =
-		| Message of int64 * Message.t
-		| Ack of int64
+		| Message of message_id * Message.t
+		| Ack of message_id
 
 	type t = {
 		time: float;
@@ -71,7 +80,7 @@ module In : sig
 	| Send of string * Message.t (** Send a message to a queue *)
 	| Transfer of int64 * float  (** blocking wait for new messages *)
 	| Trace of int64 * float     (** blocking wait for trace data *)
-	| Ack of int64               (** ACK this particular message *)
+	| Ack of message_id          (** ACK this particular message *)
 	| List of string             (** return a list of queue names with a prefix *)
 	| Diagnostics                (** return a diagnostic dump *)
 	| Get of string list         (** return a web interface resource *)
@@ -104,9 +113,6 @@ module Entry : sig
 	val make: int64 -> origin -> Message.t -> t
 end
 
-type message_id = int64
-(** uniquely identifier for this message *)
-
 module Diagnostics : sig
 	type queue_contents = (message_id * Entry.t) list
 
@@ -128,7 +134,8 @@ end
 
 module Out : sig
 	type transfer = {
-		messages: (int64 * Message.t) list;
+		messages: (message_id * Message.t) list;
+		next: int64;
 	}
 	val transfer_of_rpc: Rpc.t -> transfer
 	val rpc_of_transfer: transfer -> Rpc.t
@@ -147,7 +154,7 @@ module Out : sig
 	| Create of string
 	| Destroy
 	| Subscribe
-	| Send of int64 option
+	| Send of message_id option
 	| Transfer of transfer
 	| Trace of trace
 	| Ack

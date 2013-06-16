@@ -34,10 +34,15 @@ open Cohttp
 
 exception Queue_deleted of string
 
+type message_id = (string * int64) with rpc
+(** uniquely identifier for this message *)
+
+type message_id_opt = message_id option with rpc
+
 module Message = struct
 	type kind =
 	| Request of string
-	| Response of int64
+	| Response of message_id
 	with rpc
 	type t = {
 		payload: string; (* switch to Rpc.t *)
@@ -48,8 +53,8 @@ end
 
 module Event = struct
 	type message =
-		| Message of int64 * Message.t
-		| Ack of int64
+		| Message of message_id * Message.t
+		| Ack of message_id
 	with rpc
 
 	type t = {
@@ -73,7 +78,7 @@ module In = struct
 	| Send of string * Message.t (** Send a message to a queue *)
 	| Transfer of int64 * float  (** blocking wait for new messages *)
 	| Trace of int64 * float     (** blocking wait for trace data *)
-	| Ack of int64               (** ACK this particular message *)
+	| Ack of message_id          (** ACK this particular message *)
 	| List of string             (** return a list of queue names with a prefix *)
 	| Diagnostics                (** return a diagnostic dump *)
 	| Get of string list         (** return a web interface resource *)
@@ -92,7 +97,7 @@ module In = struct
 		| None, `GET, [ ""; "transient"; name ] -> Some (CreateTransient name)
 		| None, `GET, [ ""; "destroy"; name ]   -> Some (Destroy name)
 		| None, `GET, [ ""; "subscribe"; name ] -> Some (Subscribe name)
-		| None, `GET, [ ""; "ack"; id ]         -> Some (Ack (Int64.of_string id))
+		| None, `GET, [ ""; "ack"; name; id ]   -> Some (Ack (name, Int64.of_string id))
 		| None, `GET, [ ""; "list"; prefix ]    -> Some (List prefix)
 		| None, `GET, [ ""; "transfer"; ack_to; timeout ] ->
 			Some (Transfer(Int64.of_string ack_to, float_of_string timeout))
@@ -102,8 +107,8 @@ module In = struct
 			Some (Trace(-1L, 5.))
 		| Some body, `POST, [ ""; "request"; name; reply_to ] ->
 			Some (Send (name, { Message.kind = Message.Request reply_to; payload = body }))
-		| Some body, `POST, [ ""; "response"; name; in_reply_to ] ->
-			Some (Send (name, { Message.kind = Message.Response (Int64.of_string in_reply_to); payload = body }))
+		| Some body, `POST, [ ""; "response"; name; from_q; from_n ] ->
+			Some (Send (name, { Message.kind = Message.Response (from_q, Int64.of_string from_n); payload = body }))
 		| _, _, _ -> None
 
 	let headers payload =
@@ -125,8 +130,8 @@ module In = struct
 			None, `GET, (Uri.make ~path:(Printf.sprintf "/destroy/%s" name) ())
 		| Subscribe name ->
 			None, `GET, (Uri.make ~path:(Printf.sprintf "/subscribe/%s" name) ())
-		| Ack x ->
-			None, `GET, (Uri.make ~path:(Printf.sprintf "/ack/%Ld" x) ())
+		| Ack (name, x) ->
+			None, `GET, (Uri.make ~path:(Printf.sprintf "/ack/%s/%Ld" name x) ())
 		| List x ->
 			None, `GET, (Uri.make ~path:(Printf.sprintf "/list/%s" x) ())
 		| Transfer(ack_to, timeout) ->
@@ -135,8 +140,8 @@ module In = struct
 			None, `GET, (Uri.make ~path:(Printf.sprintf "/trace/%Ld/%.16g" ack_to timeout) ())
 		| Send (name, { Message.kind = Message.Request r; payload = p }) ->
 			Some p, `POST, (Uri.make ~path:(Printf.sprintf "/request/%s/%s" name r) ())
-		| Send (name, { Message.kind = Message.Response i; payload = p }) ->
-			Some p, `POST, (Uri.make ~path:(Printf.sprintf "/response/%s/%Ld" name i) ())
+		| Send (name, { Message.kind = Message.Response (q, i); payload = p }) ->
+			Some p, `POST, (Uri.make ~path:(Printf.sprintf "/response/%s/%s/%Ld" name q i) ())
 		| Diagnostics ->
 			None, `GET, (Uri.make ~path:"/" ())
 		| Get path ->
@@ -161,9 +166,6 @@ module Entry = struct
 		{ origin; time; message }
 end
 
-type message_id = int64 with rpc
-(** uniquely identifier for this message *)
-
 module Diagnostics = struct
 	type queue_contents = (message_id * Entry.t) list with rpc
 
@@ -184,6 +186,7 @@ end
 module Out = struct
 	type transfer = {
 		messages: (message_id * Message.t) list;
+		next: int64;
 	} with rpc
 
 	type trace = {
@@ -199,7 +202,7 @@ module Out = struct
 	| Create of string
 	| Destroy
 	| Subscribe
-	| Send of int64 option
+	| Send of message_id option
 	| Transfer of transfer
 	| Trace of trace
 	| Ack
@@ -215,8 +218,8 @@ module Out = struct
 		| Destroy
 		| Send None ->
 			`OK, ""
-		| Send (Some x) ->
-			`OK, Int64.to_string x
+		| Send (Some mid) ->
+			`OK, (Jsonrpc.to_string (rpc_of_message_id mid))
 		| Create name ->
 			`OK, name
 		| Transfer transfer ->
@@ -314,8 +317,7 @@ module Server = functor(IO: Cohttp.IO.S) -> struct
 							Connection.rpc c request >>= fun _ ->
 							return ()
 						) transfer.Out.messages >>= fun () ->
-					let from = List.fold_left max (fst m) (List.map fst ms) in
-					loop from
+					loop transfer.Out.next
 				end in
 		loop (-1L)
 end

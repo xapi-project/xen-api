@@ -102,7 +102,7 @@ let diagnostics common_opts =
       Printf.printf "  %s next update expected: %s\n" name (match queue.Diagnostics.next_transfer_expected with None -> "None" | Some x -> time in_the_future x);
       List.iter
         (fun (id, entry) ->
-          Printf.printf "    %Ld:  from: %s  age: %s\n" id (origin entry.Entry.origin) (time in_the_past entry.Entry.time);
+          Printf.printf "    %Ld:  from: %s  age: %s\n" (snd id) (origin entry.Entry.origin) (time in_the_past entry.Entry.time);
           let message = entry.Entry.message in
           let payload = String.escaped message.Message.payload in
           let len = String.length payload in
@@ -131,14 +131,14 @@ let list common_opts prefix =
     List.iter print_endline all;
     `Ok ()
 
-let ack common_opts id = match id with
-  | None ->
-    `Error(true, "Please supply a message ID")
-  | Some id ->
+let ack common_opts name id = match name, id with
+  | Some name, Some id ->
     let c = IO.connect common_opts.Common.port in
     let _ = Connection.rpc c (In.Login (Protocol_unix.whoami ())) in
-    let _ = Connection.rpc c (In.Ack id) in
+    let _ = Connection.rpc c (In.Ack (name, id)) in
     `Ok ()
+  | _, _ ->
+    `Error(true, "Please supply both a queue name and message ID")
 
 let destroy common_opts name = match name with
   | None ->
@@ -177,8 +177,8 @@ let message ?(concise=false) = function
   | Event.Message (id, m) ->
     if concise
     then summarise_payload m.Message.payload
-    else Printf.sprintf "%Ld:%s" id m.Message.payload
-  | Event.Ack id -> Printf.sprintf "%Ld:ack" id
+    else Printf.sprintf "%s.%Ld:%s" (fst id) (snd id) m.Message.payload
+  | Event.Ack id -> Printf.sprintf "%s.%Ld:ack" (fst id) (snd id)
 
 let mscgen common_opts =
   let c = IO.connect common_opts.Common.port in
@@ -323,10 +323,13 @@ let ack_cmd =
     `S "DESCRIPTION";
     `P "Acknowledge processing of a specific message and remove it from any queue.";
   ] @ help in
+  let qname =
+    let doc = "queue name" in
+    Arg.(value & pos 0 (some string) None & info [] ~docv:"QUEUE" ~doc) in
   let id =
     let doc = "message id" in
-    Arg.(value & pos 0 (some int64) None & info [] ~docv:"ACK" ~doc) in
-  Term.(ret(pure ack $ common_options_t $ id)),
+    Arg.(value & pos 1 (some int64) None & info [] ~docv:"ACK" ~doc) in
+  Term.(ret(pure ack $ common_options_t $ qname $ id)),
   Term.info "ack" ~sdocs:_common_options ~doc ~man
 
 let destroy_cmd =

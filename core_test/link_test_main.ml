@@ -38,7 +38,7 @@ open Protocol_lwt
 let basedir = ref "/tmp/link_test"
 
 let rpc_req = { Message.payload = "hello"; kind = Message.Request "reply to" }
-let rpc_res = { Message.payload = "hello"; kind = Message.Response 1L }
+let rpc_res = { Message.payload = "hello"; kind = Message.Response ("q", 1L) }
 
 let in_frames =
 	let open In in [
@@ -49,16 +49,16 @@ let in_frames =
 		"request", Send("service", rpc_req);
 		"reply", Send("service", rpc_res);
 		"transfer", Transfer(3L, 5.);
-		"ack", Ack 3L;
+		"ack", Ack ("q", 3L);
 	]
 
 let out_frames =
 	let open Out in [
 		"create.reply", Create "service";
 		"transfer.reply", Transfer { messages = [
-			1L, rpc_req;
-			2L, rpc_res;
-		] }
+			("q", 1L), rpc_req;
+			("q2", 2L), rpc_res;
+		]; next = 0L }
 	]
 
 let make_file name f =

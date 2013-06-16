@@ -35,7 +35,7 @@ type t
     XXX these aren't really queues as messages are removed
     from the middle *)
 
-val contents: t -> (int64 * Protocol.Entry.t) list
+val contents: t -> (Protocol.message_id * Protocol.Entry.t) list
 (** [contents t] returns the elements within a queue *)
 
 module Directory : sig
@@ -55,14 +55,14 @@ module Directory : sig
 	    names have prefix [prefix] *)
 end
 
-val queue_of_id: int64 -> string option
+val queue_of_id: Protocol.message_id -> string
 (** [queue_of_id id] returns the name of the queue containing
     message id [id] *)
 
-val ack: int64 -> unit
+val ack: Protocol.message_id -> unit
 (** [ack id] removes message [id] from whichever queue it is in *)
 
-val transfer: int64 -> string list -> (int64 * Protocol.Message.t) list
+val transfer: int64 -> string list -> (Protocol.message_id * Protocol.Message.t) list
 (** [transfer from names] returns all messages which are newer
     than [from] from all queues in [names] *)
 
@@ -70,9 +70,9 @@ val wait: int64 -> string -> unit Lwt.t
 (** [wait from name] returns a thread which blocks until a message
     newer than [from] is added to queue with name [name] *)
 
-val entry: int64 -> Protocol.Entry.t option
+val entry: Protocol.message_id -> Protocol.Entry.t option
 (** [entry id] returns the entry containing message id [id] *)
 
-val send: Protocol.origin -> string -> Protocol.Message.t -> int64 option Lwt.t
+val send: Protocol.origin -> string -> Protocol.Message.t -> Protocol.message_id option Lwt.t
 (** [send origin name payload] sends a message with contents
     [payload] to the queue with name [name] *)

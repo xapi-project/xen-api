@@ -198,14 +198,9 @@ let process_request conn_id session request = match session, request with
 	| Some session, In.Subscribe name ->
 		Subscription.add session name;
 		return Out.Subscribe
-	| Some session, In.Ack id ->
-		begin match Q.queue_of_id id with
-		| None ->
-			error "Ack %Ld: message doesn't exist" id
-		| Some name ->
-			Trace.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Ack id; processing_time = None }));
-			Q.ack id;
-		end;
+	| Some session, In.Ack (name, id) ->
+		Trace.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Ack (name, id); processing_time = None }));
+		Q.ack (name, id);
 		return Out.Ack
 	| Some session, In.Transfer(from, timeout) ->
 		let start = Unix.gettimeofday () in
@@ -241,14 +236,17 @@ let process_request conn_id session request = match session, request with
 			   			return ()
 				in
 		lwt messages = wait () in
+		let next = match messages with
+		| [] -> from
+		| x :: xs -> List.fold_left max (snd (fst x)) (List.map (fun x -> snd (fst x)) xs) in
 		let transfer = {
 			Out.messages = messages;
+			next = next
 		} in
 		let now = Unix.gettimeofday () in
 		List.iter
-			(fun (id, m) -> match Q.queue_of_id id with
-			| None -> ()
-			| Some name ->
+			(fun (id, m) ->
+				let name = Q.queue_of_id id in
 				let processing_time = match m.Message.kind with
 				| Message.Request _ -> None
 				| Message.Response id' -> begin match Q.entry id' with

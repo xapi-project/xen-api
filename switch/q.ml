@@ -39,8 +39,6 @@ type t = Protocol.Entry.t Int64Map.t
 
 let queues : (string, t) Hashtbl.t = Hashtbl.create 128
 let queue_lengths : (string, int) Hashtbl.t = Hashtbl.create 128
-let next_transfer_expected : (string, int64) Hashtbl.t = Hashtbl.create 128
-let message_id_to_queue : string Int64Map.t ref = ref Int64Map.empty
 
 let startswith prefix x = String.length x >= (String.length prefix) && (String.sub x 0 (String.length prefix) = prefix)
 
@@ -91,13 +89,8 @@ module Directory = struct
 		else Int64Map.empty
 
 	let remove name =
-		let entries = find name in
-		Int64Map.iter (fun id _ ->
-			message_id_to_queue := Int64Map.remove id !message_id_to_queue
-		) entries;
 		Hashtbl.remove queues name;
 		Hashtbl.remove queue_lengths name;
-		Hashtbl.remove next_transfer_expected name;
 		Hashtbl.remove waiters name
 
 	let list prefix = Hashtbl.fold (fun name _ acc ->
@@ -107,36 +100,26 @@ module Directory = struct
 end
 
 let transfer from names =
-	let messages = List.fold_left (fun map name ->
+	let messages = List.map (fun name ->
 		let q = Directory.find name in
-		(* Q.transfer name timeout; *)
 		let _, _, not_seen = Int64Map.split from q in
-		Int64Map.fold Int64Map.add map not_seen
-	) Int64Map.empty names in
-	Int64Map.fold (fun id e acc -> (id, e.Protocol.Entry.message) :: acc) messages []
+		Int64Map.fold (fun id e acc ->
+			((name, id), e.Protocol.Entry.message) :: acc
+		) not_seen []
+	) names in
+	List.concat messages
 
-let queue_of_id id =
-	if Int64Map.mem id !message_id_to_queue
-	then Some (Int64Map.find id !message_id_to_queue)
-	else begin
-		error "Message id %Ld not in message_id_to_queue" id;
-		None
-	end
+let queue_of_id = fst
 
-let entry id = match queue_of_id id with
-| None -> None
-| Some name ->
+let entry (name, id) =
 	let q = Directory.find name in
 	if Int64Map.mem id q
 	then Some (Int64Map.find id q)
 	else None
 
-let ack id = match queue_of_id id with
-| None -> ()
-| Some name ->
+let ack (name, id) =
 	if Directory.exists name then begin
 		let q = Directory.find name in
-		message_id_to_queue := Int64Map.remove id !message_id_to_queue;
 		if Int64Map.mem id q
 		then Hashtbl.replace queue_lengths name (Hashtbl.find queue_lengths name - 1);
 		Hashtbl.replace queues name (Int64Map.remove id q);
@@ -168,12 +151,11 @@ let send origin name data =
 			(fun () ->
 				let q = Directory.find name in
 				let id = make_unique_id () in
-				message_id_to_queue := Int64Map.add id name !message_id_to_queue;
 				Hashtbl.replace queues name (Int64Map.add id (Protocol.Entry.make (time ()) origin data) q);
 				Hashtbl.replace queue_lengths name (Hashtbl.find queue_lengths name + 1);
 				Lwt_condition.broadcast w.c ();
-				return (Some id)
+				return (Some (name, id))
 			)
 	end else return None
 
-let contents q = Int64Map.fold (fun i e acc -> (i, e) :: acc) q []
+let contents q = Int64Map.fold (fun i e acc -> (("XXX", i), e) :: acc) q []

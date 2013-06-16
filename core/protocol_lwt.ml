@@ -83,7 +83,7 @@ module Client = struct
 		requests_conn: (IO.ic * IO.oc);
 		events_conn: (IO.ic * IO.oc);
 		requests_m: Lwt_mutex.t;
-		wakener: (int64, Message.t Lwt.u) Hashtbl.t;
+		wakener: (Protocol.message_id, Message.t Lwt.u) Hashtbl.t;
 		dest_queue_name: string;
 		reply_queue_name: string;
 	}
@@ -120,14 +120,13 @@ module Client = struct
 										wakeup_later (Hashtbl.find wakener j) m;
 										return ()
 									end else begin
-										Printf.printf "no wakener for id %Ld\n%!" i;
+										Printf.printf "no wakener for id %s, %Ld\n%!" (fst i) (snd i);
 										return ()
 									end
 								| Message.Request _ -> return ()
 							)
 						) transfer.Out.messages in
-					let from = List.fold_left max (fst m) (List.map fst ms) in
-					loop from in
+					loop transfer.Out.next in
 			loop (-1L) in
 		lwt reply_queue_name = lwt_rpc requests_conn (In.CreateTransient token) in
 		lwt (_: string) = lwt_rpc requests_conn (In.Subscribe reply_queue_name) in
@@ -150,10 +149,12 @@ module Client = struct
 		lwt () = Lwt_mutex.with_lock c.requests_m
 		(fun () ->
 			lwt (id: string) = lwt_rpc c.requests_conn msg in
-			if id = "" then raise (Queue_deleted c.dest_queue_name);
-			let id = Int64.of_string id in
-			Hashtbl.add c.wakener id u;
-			return ()
+			match message_id_opt_of_rpc (Jsonrpc.of_string id) with
+			| None ->
+				fail (Queue_deleted c.dest_queue_name)
+			| Some mid ->
+				Hashtbl.add c.wakener mid u;
+				return ()
 		) in
 		lwt response = t in
 		return response.Message.payload

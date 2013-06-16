@@ -154,7 +154,7 @@ module Client = struct
 		requests_conn: (IO.ic * IO.oc);
 		events_conn: (IO.ic * IO.oc);
 		requests_m: Mutex.t;
-		wakener: (int64, Protocol.Message.t response) Hashtbl.t;
+		wakener: (Protocol.message_id, Protocol.Message.t response) Hashtbl.t;
 		reply_queue_name: string; 
 	}
 
@@ -188,12 +188,11 @@ module Client = struct
 									if Hashtbl.mem wakener j then begin
 										let (_: string) = rpc_exn events_conn (In.Ack i) in
 										wakeup_later (Hashtbl.find wakener j) m;
-									end else Printf.printf "no wakener for id %Ld\n%!" i
+									end else Printf.printf "no wakener for id %s,%Ld\n%!" (fst i) (snd i)
 								| Message.Request _ -> ()
 							)
 						) transfer.Out.messages;
-					let from = List.fold_left max (fst m) (List.map fst ms) in
-					loop from in
+					loop transfer.Out.next in
 			Thread.create loop (-1L) in
 		let reply_queue_name = rpc_exn requests_conn (In.CreateTransient token) in
 		let (_: string) = rpc_exn requests_conn (In.Subscribe reply_queue_name) in
@@ -233,10 +232,12 @@ module Client = struct
 				kind = Message.Request c.reply_queue_name
 			}) in
 			let (id: string) = rpc_exn c.requests_conn msg in
-			if id = "" then raise (Protocol.Queue_deleted dest_queue_name);
-			let id = Int64.of_string id in
-			Hashtbl.add c.wakener id t;
-			id
+			match message_id_opt_of_rpc (Jsonrpc.of_string id) with
+			| None ->
+				raise (Protocol.Queue_deleted dest_queue_name);
+			| Some mid ->
+				Hashtbl.add c.wakener mid t;
+				mid
 		) in
 		(* now block waiting for our response *)
 		let response = wait t in
@@ -311,8 +312,7 @@ module Server = struct
 								()
 							) () in ()
 						) transfer.Out.messages;
-					let from = List.fold_left max (fst m) (List.map fst ms) in
-					loop from
+					loop transfer.Out.next 
 				end in
 		loop (-1L)
 end
