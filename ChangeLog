@@ -1,3 +1,6 @@
+0.9.6 (16-Jun-2013):
+* minor protocol changes
+
 0.9.3 (6-Jun-2013):
 * turn off debug logging (considered too spammy)
 

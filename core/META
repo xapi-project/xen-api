@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: f20a663773a2f93da7d5a9672a956072)
-version = "1.0.0"
+# DO NOT EDIT (digest: a1961b9a569f01807b584b5ddb2438b7)
+version = "0.9.6"
 description = "A simple store-and-forward message switch"
 requires = "cohttp rpclib rpclib.json rpclib.syntax re re.str oclock"
 archive(byte) = "message_switch.cma"
@@ -9,7 +9,7 @@ archive(native) = "message_switch.cmxa"
 archive(native, plugin) = "message_switch.cmxs"
 exists_if = "message_switch.cma"
 package "unix" (
- version = "1.0.0"
+ version = "0.9.6"
  description = "A simple store-and-forward message switch"
  requires =
  "unix threads cohttp rpclib rpclib.json rpclib.syntax message_switch"
@@ -21,7 +21,7 @@ package "unix" (
 )
 
 package "server" (
- version = "1.0.0"
+ version = "0.9.6"
  description = "A simple store-and-forward message switch"
  requires =
  "lwt lwt.syntax cohttp cohttp.lwt rpclib rpclib.json rpclib.syntax message_switch"
@@ -33,7 +33,7 @@ package "server" (
 )
 
 package "lwt" (
- version = "1.0.0"
+ version = "0.9.6"
  description = "A simple store-and-forward message switch"
  requires =
  "lwt lwt.unix lwt.syntax cohttp cohttp.lwt rpclib rpclib.json rpclib.syntax message_switch"
