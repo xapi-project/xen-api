@@ -34,6 +34,14 @@ Library message_switch_unix
   Modules:            Protocol_unix, Protocol_unix_scheduler
   BuildDepends:       unix,threads,cohttp,rpclib,rpclib.json,rpclib.syntax,message_switch
 
+Library message_switch_server
+  CompiledObject:     best
+  Path:               switch
+  Findlibparent:      message_switch
+  Findlibname:        server
+  Modules:            Clock, Relation, Q, Logging, Switch
+  BuildDepends:       lwt,lwt.syntax,cohttp,cohttp.lwt,rpclib,rpclib.json,rpclib.syntax,message_switch
+
 Executable m_cli
   CompiledObject:     best
   Path:               cli
@@ -90,8 +98,8 @@ Executable server_unix
 Executable switch
   CompiledObject:     best
   Path:               switch
-  MainIs:             switch.ml
+  MainIs:             switch_main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
+  BuildDepends:       message_switch, message_switch.lwt, message_switch.server, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
 
