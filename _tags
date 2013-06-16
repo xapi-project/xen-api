@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: e984b3ff1385079f088050e3165b694e)
+# DO NOT EDIT (digest: 5c46f0bf87e7ccd314b7b426d99c1fc4)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -25,24 +25,26 @@
 "core/message_switch_unix.cmxs": use_message_switch_unix
 <core/*.ml{,i}>: use_message_switch
 <core/*.ml{,i}>: pkg_cohttp
-<core/*.ml{,i}>: pkg_unix
-<core/*.ml{,i}>: pkg_threads
 <core/*.ml{,i}>: pkg_rpclib
 <core/*.ml{,i}>: pkg_rpclib.json
 <core/*.ml{,i}>: pkg_rpclib.syntax
+<core/*.ml{,i}>: pkg_unix
+<core/*.ml{,i}>: pkg_threads
 <core/*.ml{,i}>: pkg_re
 <core/*.ml{,i}>: pkg_re.str
 <core/*.ml{,i}>: pkg_oclock
+# Library message_switch_server
+"switch/message_switch_server.cmxs": use_message_switch_server
 # Executable m_cli
 <cli/main.{native,byte}>: use_message_switch_unix
 <cli/main.{native,byte}>: use_message_switch
 <cli/main.{native,byte}>: pkg_cohttp
 <cli/main.{native,byte}>: pkg_cmdliner
-<cli/main.{native,byte}>: pkg_unix
-<cli/main.{native,byte}>: pkg_threads
 <cli/main.{native,byte}>: pkg_rpclib
 <cli/main.{native,byte}>: pkg_rpclib.json
 <cli/main.{native,byte}>: pkg_rpclib.syntax
+<cli/main.{native,byte}>: pkg_unix
+<cli/main.{native,byte}>: pkg_threads
 <cli/main.{native,byte}>: pkg_re
 <cli/main.{native,byte}>: pkg_re.str
 <cli/main.{native,byte}>: pkg_oclock
@@ -50,11 +52,11 @@
 <cli/*.ml{,i}>: use_message_switch
 <cli/*.ml{,i}>: pkg_cohttp
 <cli/*.ml{,i}>: pkg_cmdliner
-<cli/*.ml{,i}>: pkg_unix
-<cli/*.ml{,i}>: pkg_threads
 <cli/*.ml{,i}>: pkg_rpclib
 <cli/*.ml{,i}>: pkg_rpclib.json
 <cli/*.ml{,i}>: pkg_rpclib.syntax
+<cli/*.ml{,i}>: pkg_unix
+<cli/*.ml{,i}>: pkg_threads
 <cli/*.ml{,i}>: pkg_re
 <cli/*.ml{,i}>: pkg_re.str
 <cli/*.ml{,i}>: pkg_oclock
@@ -93,11 +95,11 @@
 <core_test/client_unix_main.{native,byte}>: use_message_switch_unix
 <core_test/client_unix_main.{native,byte}>: use_message_switch
 <core_test/client_unix_main.{native,byte}>: pkg_cohttp
-<core_test/client_unix_main.{native,byte}>: pkg_unix
-<core_test/client_unix_main.{native,byte}>: pkg_threads
 <core_test/client_unix_main.{native,byte}>: pkg_rpclib
 <core_test/client_unix_main.{native,byte}>: pkg_rpclib.json
 <core_test/client_unix_main.{native,byte}>: pkg_rpclib.syntax
+<core_test/client_unix_main.{native,byte}>: pkg_unix
+<core_test/client_unix_main.{native,byte}>: pkg_threads
 <core_test/client_unix_main.{native,byte}>: pkg_re
 <core_test/client_unix_main.{native,byte}>: pkg_re.str
 <core_test/client_unix_main.{native,byte}>: pkg_oclock
@@ -126,40 +128,42 @@
 <core_test/server_unix_main.{native,byte}>: use_message_switch_unix
 <core_test/server_unix_main.{native,byte}>: use_message_switch
 <core_test/server_unix_main.{native,byte}>: pkg_cohttp
-<core_test/server_unix_main.{native,byte}>: pkg_unix
-<core_test/server_unix_main.{native,byte}>: pkg_threads
 <core_test/server_unix_main.{native,byte}>: pkg_rpclib
 <core_test/server_unix_main.{native,byte}>: pkg_rpclib.json
 <core_test/server_unix_main.{native,byte}>: pkg_rpclib.syntax
+<core_test/server_unix_main.{native,byte}>: pkg_unix
+<core_test/server_unix_main.{native,byte}>: pkg_threads
 <core_test/server_unix_main.{native,byte}>: pkg_re
 <core_test/server_unix_main.{native,byte}>: pkg_re.str
 <core_test/server_unix_main.{native,byte}>: pkg_oclock
 <core_test/*.ml{,i}>: use_message_switch_unix
 <core_test/*.ml{,i}>: use_message_switch
 <core_test/*.ml{,i}>: pkg_cohttp
-<core_test/*.ml{,i}>: pkg_unix
-<core_test/*.ml{,i}>: pkg_threads
 <core_test/*.ml{,i}>: pkg_rpclib
 <core_test/*.ml{,i}>: pkg_rpclib.json
 <core_test/*.ml{,i}>: pkg_rpclib.syntax
+<core_test/*.ml{,i}>: pkg_unix
+<core_test/*.ml{,i}>: pkg_threads
 <core_test/*.ml{,i}>: pkg_re
 <core_test/*.ml{,i}>: pkg_re.str
 <core_test/*.ml{,i}>: pkg_oclock
 <core_test/server_unix_main.{native,byte}>: custom
 # Executable switch
-<switch/switch.{native,byte}>: use_message_switch_lwt
-<switch/switch.{native,byte}>: use_message_switch
-<switch/switch.{native,byte}>: pkg_lwt
-<switch/switch.{native,byte}>: pkg_lwt.unix
-<switch/switch.{native,byte}>: pkg_lwt.syntax
-<switch/switch.{native,byte}>: pkg_cohttp
-<switch/switch.{native,byte}>: pkg_cohttp.lwt
-<switch/switch.{native,byte}>: pkg_rpclib
-<switch/switch.{native,byte}>: pkg_rpclib.json
-<switch/switch.{native,byte}>: pkg_rpclib.syntax
-<switch/switch.{native,byte}>: pkg_re
-<switch/switch.{native,byte}>: pkg_re.str
-<switch/switch.{native,byte}>: pkg_oclock
+<switch/switch_main.{native,byte}>: use_message_switch_server
+<switch/switch_main.{native,byte}>: use_message_switch_lwt
+<switch/switch_main.{native,byte}>: use_message_switch
+<switch/switch_main.{native,byte}>: pkg_lwt
+<switch/switch_main.{native,byte}>: pkg_lwt.unix
+<switch/switch_main.{native,byte}>: pkg_lwt.syntax
+<switch/switch_main.{native,byte}>: pkg_cohttp
+<switch/switch_main.{native,byte}>: pkg_cohttp.lwt
+<switch/switch_main.{native,byte}>: pkg_rpclib
+<switch/switch_main.{native,byte}>: pkg_rpclib.json
+<switch/switch_main.{native,byte}>: pkg_rpclib.syntax
+<switch/switch_main.{native,byte}>: pkg_re
+<switch/switch_main.{native,byte}>: pkg_re.str
+<switch/switch_main.{native,byte}>: pkg_oclock
+<switch/*.ml{,i}>: use_message_switch_server
 <switch/*.ml{,i}>: use_message_switch_lwt
 <switch/*.ml{,i}>: use_message_switch
 <switch/*.ml{,i}>: pkg_lwt
@@ -173,7 +177,7 @@
 <switch/*.ml{,i}>: pkg_re
 <switch/*.ml{,i}>: pkg_re.str
 <switch/*.ml{,i}>: pkg_oclock
-<switch/switch.{native,byte}>: custom
+<switch/switch_main.{native,byte}>: custom
 # OASIS_STOP
 <*/*>: syntax_camlp4o
 <core/protocol.ml>: pkg_rpc.syntax
