@@ -215,11 +215,10 @@ module Out = struct
 		| Login
 		| Ack
 		| Subscribe
-		| Destroy
-		| Send None ->
+		| Destroy ->
 			`OK, ""
-		| Send (Some mid) ->
-			`OK, (Jsonrpc.to_string (rpc_of_message_id mid))
+		| Send x ->
+			`OK, (Jsonrpc.to_string (rpc_of_message_id_opt x))
 		| Create name ->
 			`OK, name
 		| Transfer transfer ->
