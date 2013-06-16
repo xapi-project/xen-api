@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 5c46f0bf87e7ccd314b7b426d99c1fc4)
+# DO NOT EDIT (digest: 101364bb4fdd319f3d0f38312454140f)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -35,6 +35,11 @@
 <core/*.ml{,i}>: pkg_oclock
 # Library message_switch_server
 "switch/message_switch_server.cmxs": use_message_switch_server
+"switch/clock.cmx": for-pack(Message_switch_server)
+"switch/relation.cmx": for-pack(Message_switch_server)
+"switch/q.cmx": for-pack(Message_switch_server)
+"switch/logging.cmx": for-pack(Message_switch_server)
+"switch/switch.cmx": for-pack(Message_switch_server)
 # Executable m_cli
 <cli/main.{native,byte}>: use_message_switch_unix
 <cli/main.{native,byte}>: use_message_switch
