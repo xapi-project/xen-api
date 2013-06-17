@@ -45,7 +45,7 @@ PYTHON := $(OCAML)/../python
 install: setup.bin
 	@./setup.bin -install
 	install -D _build/cli/main.native $(DESTDIR)/$(BINDIR)/ms
-	install -D _build/switch/switch.native $(DESTDIR)/$(BINDIR)/message-switch
+	install -D _build/switch/switch_main.native $(DESTDIR)/$(BINDIR)/message-switch
 
 # oasis bug?
 #test: setup.bin build
