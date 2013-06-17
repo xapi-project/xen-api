@@ -1,0 +1,9 @@
+name: rrd-protocol
+version: 0.1.0
+synopsis: Program for testing shared-memory communication protocols
+obuild-ver: 1
+
+executable writer
+  src-dir: writer
+  main: writer.ml
+  build-deps: threads, xenctrl
