@@ -27,7 +27,7 @@ let ( /// ) = Int64.div
 
 let bytes_per_kib  = 1024L
 let bytes_per_mib  = 1048576L
-let bytes_per_page = Int64.of_int (Mmap.getpagesize ())
+let bytes_per_page = Int64.of_int (Xenmmap.getpagesize ())
 let kib_per_page   = bytes_per_page /// bytes_per_kib
 let kib_per_mib    = 1024L
 let pages_per_mib  = bytes_per_mib /// bytes_per_page
@@ -90,13 +90,13 @@ let mib_of_pages_used   value = divide_rounding_up value pages_per_mib
 (* === Host memory properties =============================================== *)
 
 let get_free_memory_kib ~xc =
-	kib_of_pages (Int64.of_nativeint (Xc.physinfo xc).Xc.free_pages)
+	kib_of_pages (Int64.of_nativeint (Xenctrl.physinfo xc).Xenctrl.free_pages)
 let get_scrub_memory_kib ~xc =
-	kib_of_pages (Int64.of_nativeint (Xc.physinfo xc).Xc.scrub_pages)
+	kib_of_pages (Int64.of_nativeint (Xenctrl.physinfo xc).Xenctrl.scrub_pages)
 let get_total_memory_mib ~xc =
-	mib_of_pages_free (Int64.of_nativeint ((Xc.physinfo xc).Xc.total_pages))
+	mib_of_pages_free (Int64.of_nativeint ((Xenctrl.physinfo xc).Xenctrl.total_pages))
 let get_total_memory_bytes ~xc =
-	bytes_of_pages (Int64.of_nativeint ((Xc.physinfo xc).Xc.total_pages))
+	bytes_of_pages (Int64.of_nativeint ((Xenctrl.physinfo xc).Xenctrl.total_pages))
 
 (* === Domain memory breakdown ============================================== *)
 
@@ -126,17 +126,29 @@ let get_total_memory_bytes ~xc =
 
 (* === Domain memory breakdown: HVM guests ================================== *)
 
-module HVM = struct
+module type MEMORY_MODEL_DATA = sig
+	val extra_internal_mib : int64
+	val extra_external_mib : int64
+end
 
-	let video_mib = 4L
-
+module HVM_memory_model_data : MEMORY_MODEL_DATA = struct
 	let extra_internal_mib = 1L
 	let extra_external_mib = 1L
+end
 
-	let build_max_mib static_max_mib = static_max_mib --- video_mib
-	let build_start_mib target_mib = target_mib --- video_mib
+module Linux_memory_model_data : MEMORY_MODEL_DATA = struct
+	let extra_internal_mib = 0L
+	let extra_external_mib = 1L
+end
 
-	let xen_max_offset_mib = extra_internal_mib
+module Memory_model (D : MEMORY_MODEL_DATA) = struct
+
+	let build_max_mib static_max_mib video_mib = static_max_mib --- (Int64.of_int video_mib)
+
+	let build_start_mib target_mib video_mib = target_mib --- (Int64.of_int video_mib)
+
+	let xen_max_offset_mib = D.extra_internal_mib
+
 	let xen_max_mib target_mib = target_mib +++ xen_max_offset_mib
 
 	let shadow_mib static_max_mib vcpu_count multiplier =
@@ -150,97 +162,18 @@ module HVM = struct
 		max 1L total_mib_multiplied
 
 	let overhead_mib static_max_mib vcpu_count multiplier =
-		extra_internal_mib +++
-		extra_external_mib +++
+		D.extra_internal_mib +++
+		D.extra_external_mib +++
 		(shadow_mib static_max_mib vcpu_count multiplier)
 
 	let footprint_mib target_mib static_max_mib vcpu_count multiplier =
 		target_mib +++ (overhead_mib static_max_mib vcpu_count multiplier)
 
-	let round_shadow_multiplier static_max_mib vcpu_count
-			requested_multiplier domid =
-		let shadow_mib = shadow_mib static_max_mib vcpu_count in
-		let requested_shadow_mib = shadow_mib requested_multiplier in
-		let default_shadow_mib = shadow_mib 1. in
-		Xc.with_intf (fun xc ->
-			let actual_shadow_mib =
-				Int64.of_int (Xc.shadow_allocation_get xc domid) in
-			let actual_multiplier =
-				(Int64.to_float actual_shadow_mib) /.
-				(Int64.to_float default_shadow_mib) in
-			debug
-				"actual shadow value is %Ld MiB [multiplier = %0.2f]; \
-				requested value was %Ld MiB [multiplier = %.2f]"
-				actual_shadow_mib actual_multiplier
-				requested_shadow_mib requested_multiplier;
-				(* Inevitably due to rounding the actual multiplier may   *)
-				(* be different from the supplied value. However if the   *)
-				(* supplied value was accepted then we record that value. *)
-				(* If Xen overrode us then we record the actual value.    *)
-			if actual_shadow_mib <> requested_shadow_mib
-			then actual_multiplier
-			else requested_multiplier
-		)
+	let shadow_multiplier_default = 1.0
 
 end
 
-(* === Domain memory breakdown: Linux guests ================================ *)
+module HVM = Memory_model (HVM_memory_model_data)
+module Linux = Memory_model (Linux_memory_model_data)
 
-module Linux = struct
 
-	let video_mib = 0L
-
-	let extra_internal_mib = 0L
-	let extra_external_mib = 1L
-
-	let build_max_mib static_max_mib = static_max_mib
-	let build_start_mib target_mib = target_mib
-
-	let xen_max_offset_mib = 0L
-	let xen_max_mib target_mib = target_mib
-
-	let shadow_mib = 0L
-
-	let overhead_mib = extra_external_mib
-	let footprint_mib target_mib = extra_external_mib +++ target_mib
-
-end
-
-(* === Miscellaneous functions ============================================== *)
-
-(** @deprecated Use [memory_check.vm_compute_start_memory] instead. *)
-let required_to_boot hvm vcpus mem_kib mem_target_kib shadow_multiplier =
-	let max_mib = mib_of_kib_used mem_kib in
-	let target_mib = mib_of_kib_used mem_target_kib in
-	if hvm
-	then HVM.footprint_mib target_mib max_mib vcpus shadow_multiplier
-	else Linux.footprint_mib target_mib
-
-let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds=64) required_memory_kib =
-	let rec wait accumulated_wait_time_seconds =
-		let host_info = Xc.physinfo xc in
-		let free_memory_kib =
-			kib_of_pages (Int64.of_nativeint host_info.Xc.free_pages) in
-		let scrub_memory_kib =
-			kib_of_pages (Int64.of_nativeint host_info.Xc.scrub_pages) in
-		(* At exponentially increasing intervals, write  *)
-		(* a debug message saying how long we've waited: *)
-		if is_power_of_2 accumulated_wait_time_seconds then debug
-			"Waited %i second(s) for memory to become available: \
-			%Ld KiB free, %Ld KiB scrub, %Ld KiB required"
-			accumulated_wait_time_seconds
-			free_memory_kib scrub_memory_kib required_memory_kib;
-		if free_memory_kib >= required_memory_kib
-			(* We already have enough memory. *)
-			then true else
-		if scrub_memory_kib = 0L
-			(* We'll never have enough memory. *)
-			then false else
-		if accumulated_wait_time_seconds >= maximum_wait_time_seconds
-			(* We've waited long enough. *)
-			then false else
-		begin
-			Thread.delay 1.0;
-			wait (accumulated_wait_time_seconds + 1)
-		end in
-	wait 0

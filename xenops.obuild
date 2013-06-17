@@ -1,0 +1,11 @@
+name: xenops
+version: 0.1.0
+synopsis: High-level libraries for interacting with Xen
+obuild-ver: 1
+
+library xenops
+  src-dir: src
+  modules: io, memory, netman, statdev, xenops_helpers, xenstore_watch
+  build-deps: log, xenctrl, xenstore, xenstore_transport.unix, uuid
+  cdir: src
+  c-sources: statdev_stubs.c

@@ -13,20 +13,11 @@
  *)
 open Pervasiveext
 
-(** {2 XC, XS and XAL interface helpers.} *)
+module Xs = Xs_client_unix.Client(Xs_transport_unix_client)
 
-let with_xc f = Xc.with_intf f
+(** {2 XC and XS interface helpers.} *)
+let with_xc_and_xs xs_client f =
+	Xenctrl.with_intf (fun xc -> Xs.with_xs xs_client (fun xs -> f xc xs))
 
-let with_xs f =
-	let xs = Xs.daemon_open () in
-	finally (fun () -> f xs) (fun () -> Xs.close xs)
-
-let with_xal f =
-	let xal = Xal.init () in
-	finally (fun () -> f xal) (fun () -> Xal.close xal)
-
-let with_xc_and_xs f =
-	Xc.with_intf (fun xc -> with_xs (fun xs -> f xc xs))
-
-let with_xc_and_xs_final f cf =
-	with_xc_and_xs (fun xc xs -> finally (fun () -> f xc xs) cf)
+let with_xc_and_xs_final xs_client f cf =
+	with_xc_and_xs xs_client (fun xc xs -> finally (fun () -> f xc xs) cf)

@@ -2,7 +2,7 @@
 # DO NOT EDIT (digest: 0b9315b47f520b3250f9e7f96db2909b)
 version = "0.1"
 description = "xenops library"
-requires = "uuid xc xs stdext log cdrom netdev xcputil"
+requires = "log stdext uuid xenctrl xenstore.unix xenstore_transport.unix"
 archive(byte) = "xenops.cma"
 archive(native) = "xenops.cmxa"
 exists_if = "xenops.cma"
