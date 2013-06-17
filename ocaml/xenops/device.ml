@@ -1376,7 +1376,7 @@ let plug (task: Xenops_task.t) ~xc ~xs (domain, bus, dev, func) domid =
 
 let unplug (task: Xenops_task.t) ~xc ~xs (domain, bus, dev, func) domid =
 	try
-		let current = list ~xc ~xs domid in
+		let current = read_pcidir ~xc ~xs domid in
 
 		let pci = to_string (domain, bus, dev, func) in
 		let idx = fst (List.find (fun x -> snd x = (domain, bus, dev, func)) current) in
