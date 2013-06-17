@@ -130,14 +130,20 @@ let record_host_memory_properties ~__context =
 *)
 	let metrics = Db.Host.get_metrics ~__context ~self in
 	Db.Host_metrics.set_memory_total ~__context ~self:metrics ~value:total_memory_bytes;
+(*
 	let boot_memory_file = Xapi_globs.initial_host_free_memory_file in
+*)
 	let boot_memory_string =
+(* XXX
 		try
 			Some (Unixext.string_of_file boot_memory_file)
 		with e ->
 			warn "Could not read host free memory file. This may prevent \
 			VMs from being started on this host. (%s)" (Printexc.to_string e);
 			None in
+*)
+                Some (Int64.(to_string (mul (mul 1024L 1024L) (mul 1024L 16L)))) in
+
 	maybe
 		(fun boot_memory_string ->
 			let boot_memory_bytes = Int64.of_string boot_memory_string in
@@ -149,6 +155,7 @@ let record_host_memory_properties ~__context =
 			let obvious_overhead_memory_bytes =
 				total_memory_bytes -- boot_memory_bytes in
 			let nonobvious_overhead_memory_kib = 
+(* XXX
 				try
 					Memory_client.Client.get_host_reserved_memory "dbsync"
 				with e ->
@@ -157,6 +164,8 @@ let record_host_memory_properties ~__context =
 						(Printexc.to_string e);
 					0L
 			in
+*)
+0L in
 			let nonobvious_overhead_memory_bytes =
 				Int64.mul 1024L nonobvious_overhead_memory_kib in
 			Db.Host.set_boot_free_mem ~__context ~self
