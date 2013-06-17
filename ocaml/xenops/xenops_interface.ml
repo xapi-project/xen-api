@@ -48,6 +48,7 @@ exception Hook_failed of (string * string * string * string)
 exception Not_enough_memory of int64
 exception Cancelled of string
 exception Storage_backend_error of (string * (string list))
+exception PCIBack_not_loaded
 
 type debug_info = string
 

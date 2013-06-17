@@ -1696,7 +1696,7 @@ let transform_xenops_exn ~__context f =
 					Ref.null in
 			reraise Api_errors.task_cancelled [ Ref.string_of task ]
 		| Storage_backend_error(code, params) -> reraise code params
-
+		| PCIBack_not_loaded -> internal "pciback has not loaded"
 
 let refresh_vm ~__context ~self =
 	let id = id_of_vm ~__context ~self in
