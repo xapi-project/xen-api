@@ -341,21 +341,6 @@ let destroy (task: Xenops_task.t) ~xc ~xs ~qemu_domid domid =
 		(fun () -> String.concat "; ")
         (List.map string_of_device all_devices);
 
-	(* reset PCI devices before xc.domain_destroy otherwise we lot all IOMMU mapping *)
-	let _, all_pci_devices = List.split (Device.PCI.list xc xs domid) in
-	List.iter
-		(fun pcidev ->
-			log_exn_continue
-				("Deassign PCI device " ^ Device.PCI.to_string pcidev)
-				(fun () -> Xenctrl.domain_deassign_device xc domid pcidev) ())
-		all_pci_devices;
-	List.iter
-		(fun pcidev ->
-			log_exn_continue
-				("Reset PCI device " ^ Device.PCI.to_string pcidev)
-				(fun () -> Device.PCI.reset ~xs pcidev) ())
-		all_pci_devices;
-
 	(* Now we should kill the domain itself *)
 	debug "VM = %s; domid = %d; Domain.destroy calling Xenctrl.domain_destroy" (Uuid.to_string uuid) domid;
 	log_exn_continue "Xenctrl.domain_destroy" (Xenctrl.domain_destroy xc) domid;
