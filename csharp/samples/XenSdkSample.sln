@@ -1,0 +1,32 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 9.00
+# Visual Studio 2005
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GetVmRecords", "GetVmRecords\GetVmRecords.csproj", "{869DC514-BCC0-42D7-BFA7-077005B23107}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GetVariousRecords", "GetVariousRecords\GetVariousRecords.csproj", "{099064D3-BC8B-4320-AF43-ECADD0F97D09}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VmPowerStates", "VmPowerStates\VmPowerStates.csproj", "{213BE079-C8D8-4A63-86C4-9853562F4F45}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{869DC514-BCC0-42D7-BFA7-077005B23107}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{869DC514-BCC0-42D7-BFA7-077005B23107}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{869DC514-BCC0-42D7-BFA7-077005B23107}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{869DC514-BCC0-42D7-BFA7-077005B23107}.Release|Any CPU.Build.0 = Release|Any CPU
+		{099064D3-BC8B-4320-AF43-ECADD0F97D09}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{099064D3-BC8B-4320-AF43-ECADD0F97D09}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{099064D3-BC8B-4320-AF43-ECADD0F97D09}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{099064D3-BC8B-4320-AF43-ECADD0F97D09}.Release|Any CPU.Build.0 = Release|Any CPU
+		{213BE079-C8D8-4A63-86C4-9853562F4F45}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{213BE079-C8D8-4A63-86C4-9853562F4F45}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{213BE079-C8D8-4A63-86C4-9853562F4F45}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{213BE079-C8D8-4A63-86C4-9853562F4F45}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

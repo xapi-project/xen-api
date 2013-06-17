@@ -1,0 +1,43 @@
+
+Welcome to the XenServer PowerShell SnapIn v@PRODUCT_VERSION@
+---------------------------------------------------
+
+For specific help with any command use:
+
+Get-Help [CommandName]
+
+For a list of all possible commands type:
+
+Get-Command -PSSnapIn XenServerPSSnapIn
+
+
+Many XenServer cmdlets allow you to identify target objects in several
+different ways. For example a VM could be identified by its uuid, name,
+opaque_ref, a VM XenRef, or a VM object itself. These indentifiers can
+be piped in from other commands as well as passed as parameters.
+The following example shows several ways to set the SR name
+by identifying the storage repository in several different ways.
+
+1) Set-XenSR -Uuid 2689f540-082b-11cf-5598-b0648578a35b -NameLabel "My new SR label"
+
+2) Set-XenSR -Ref OpaqueRef:7bd971d4-0fa9-5639-f6ba-7376680bd2e0 -NameLabel "My new SR label"
+
+3) Set-XenSR -Name "My old SR label" -NameLabel "My new SR label"
+
+4) Get-XenSR -Name "My old SR label" | ConvertTo-XenRef | Set-XenSR -NameLabel "My new SR label"
+
+5) Get-XenSR -Name "My old SR label" | Set-XenSR -NameLabel "My new SR label"
+
+
+In addition, all cmdlets have an extra parameter which, in case of multiple
+sessions, allows you to specify which of the open XenServer sessions to use:
+
+Verb-Noun [-SessionOpaqueRef [<String>]]
+
+This parameter is not necessary when only one open session exists or when a default
+session has been specified. The default session can be set in one of the following
+ways:
+
+1) Connect-XenServer -Server svrname -UserName user -Password pwd -SetDefaultSession
+
+2) $XenServer_Default_Session = Get-XenSession -Server svrname

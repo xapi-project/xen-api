@@ -1,0 +1,107 @@
+#
+# Copyright (c) Citrix Systems, Inc.
+# All rights reserved.
+# 
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 
+#   1) Redistributions of source code must retain the above copyright
+#      notice, this list of conditions and the following disclaimer.
+# 
+#   2) Redistributions in binary form must reproduce the above
+#      copyright notice, this list of conditions and the following
+#      disclaimer in the documentation and/or other materials
+#      provided with the distribution.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+# STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+# OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+
+JAVAGEN_DIR = $(BINDINGS_TMP)/javagen
+JAVATMP_DIR = $(BINDINGS_TMP)/XenServerJava-tmp
+JAVABIN_DIR = $(BINDINGS_TMP)/XenServerJava-bin/XenServerJava
+JAVASRC_DIR = $(BINDINGS_TMP)/XenServerJava-src/XenServerJava
+JAVASAM_DIR = $(BINDINGS_TMP)/XenServerJava-samples/XenServerJava
+JAVADOC_DIR = $(BINDINGS_TMP)/XenServerJavadoc/javadoc
+
+SDK_JAVA_FOLDER=$(SDK_FOLDER)/XenServerJava
+
+if $(defined-env COMPILE_JAVA)
+  COMPILE_JAVA = $(getenv COMPILE_JAVA)
+  export
+else
+  COMPILE_JAVA = yes
+  export
+
+OCAMLPACKS += str
+OCamlProgram(main$(EXE), main ../licence)
+
+
+LicenceJava(dir) =
+	$(INSTALL) ../LICENSE $(dir)/LICENSE.txt
+	$(INSTALL) LICENSE.Apache-2.0.txt $(dir)
+
+Empty(dirs) =
+	rm -rf $(dirs)
+	mkdir -p $(dirs)
+
+Brand(src, dst) =
+	mkdir -p $(JAVATMP_DIR)
+	sed -e 's/@PRODUCT_VERSION@/$(PRODUCT_VERSION)/g' $(src) >$(JAVATMP_DIR)/t-$(basename $(dst))
+	$(INSTALL) $(JAVATMP_DIR)/t-$(basename $(dst)) $(dst)
+
+
+$(JAVATMP_DIR)/README.txt:
+	mkdir -p $(JAVATMP_DIR)
+	Brand(README.dist, $@)
+
+
+.PHONY: java_bindings_all
+java_bindings_all: $(glob samples/*.java) main$(EXE) $(JAVATMP_DIR)/README.txt
+  if $(equal $(COMPILE_JAVA), yes)
+	Empty($(JAVAGEN_DIR) $(JAVASRC_DIR) $(JAVABIN_DIR) $(JAVADOC_DIR))
+	Brand(lib/Makefile.dist, $(JAVAGEN_DIR)/Makefile)
+	mkdir -p $(JAVAGEN_DIR)/com/xensource/xenapi
+	$(INSTALL) lib/com/xensource/xenapi/*.java $(JAVAGEN_DIR)/com/xensource/xenapi
+	Brand(lib/com/xensource/xenapi/Connection.java, $(JAVAGEN_DIR)/com/xensource/xenapi/Connection.java)
+	$(INSTALL) $(XMLRPC_DIST)/{xmlrpc-common-3.1,xmlrpc-client-3.1,ws-commons-util-1.0.2}.jar $(JAVAGEN_DIR)
+	./main$(EXE) $(JAVAGEN_DIR)
+	make -C $(JAVAGEN_DIR) all docs cleanclass    
+	mv $(JAVAGEN_DIR)/*.jar $(JAVABIN_DIR)
+	$(INSTALL) $(JAVATMP_DIR)/README.txt $(JAVABIN_DIR)
+	LicenceJava($(JAVABIN_DIR))
+	mv $(JAVAGEN_DIR)/doc/* $(JAVADOC_DIR)
+	rmdir $(JAVAGEN_DIR)/doc
+	mv $(JAVAGEN_DIR)/* $(JAVASRC_DIR)
+	$(INSTALL) $(JAVATMP_DIR)/README.txt $(JAVASRC_DIR)
+	LicenceJava($(JAVASRC_DIR))
+	Empty($(JAVASAM_DIR))
+	$(INSTALL) $^ $(JAVASAM_DIR)
+	LicenceJava($(JAVASAM_DIR))
+  else
+	Empty($(JAVASRC_DIR) $(JAVABIN_DIR) $(JAVADOC_DIR))
+
+.PHONY: java_folders
+java_folders: java_bindings_all
+	mkdir -p $(SDK_JAVA_FOLDER)/bin && cp -r $(JAVABIN_DIR)/* $(SDK_JAVA_FOLDER)/bin
+	mkdir -p $(SDK_JAVA_FOLDER)/src && cp -r $(JAVASRC_DIR)/* $(SDK_JAVA_FOLDER)/src
+	mkdir -p $(SDK_JAVA_FOLDER)/samples && cp -r $(JAVASAM_DIR)/{*.java,README.txt} $(SDK_JAVA_FOLDER)/samples
+	mkdir -p $(SDK_JAVA_FOLDER)/javadoc && cp -r $(JAVADOC_DIR)/* $(SDK_JAVA_FOLDER)/javadoc
+
+.PHONY: clean
+clean:
+  rm -f *.annot *.o *.cmi *.cmx *.cmo *.cma *.cmxa *.run *.omc
+  rm -f main$(EXE)
+
+.DEFAULT: java_bindings_all

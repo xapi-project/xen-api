@@ -1,0 +1,13 @@
+Getting Started
+---------------
+
+1.  Extract the XenServer.NET binary archive.
+
+2.  Move both DLLs into your own workspace.
+
+3.  In Visual Studio, add references to both DLLs from your own program.
+    Project > Add Reference > Browse.
+
+4.  You should now be ready to compile against XenServer.NET. Refer to
+    our sample code (see Downloads above) for examples on how to use the
+    library.

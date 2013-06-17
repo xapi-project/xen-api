@@ -1,0 +1,8 @@
+Getting Started
+---------------
+
+1.  Extract the XenServer.NET source archive.
+
+2.  Open XenServer.csproj inside Visual Studio (2005 or greater).
+
+3.  The library should now be ready to compile.

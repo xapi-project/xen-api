@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ Copyright (c) Citrix Systems Inc.
+ All rights reserved.
+ 
+ Redistribution and use in source and binary forms, 
+ with or without modification, are permitted provided 
+ that the following conditions are met: 
+ 
+ *   Redistributions of source code must retain the above 
+     copyright notice, this list of conditions and the 
+     following disclaimer. 
+ *   Redistributions in binary form must reproduce the above 
+     copyright notice, this list of conditions and the 
+     following disclaimer in the documentation and/or other 
+     materials provided with the distribution. 
+
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND 
+ CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, 
+ INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF 
+ MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
+ DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR 
+ CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, 
+ BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
+ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS 
+ INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
+ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING 
+ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF 
+ SUCH DAMAGE. 
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2003/01/wi">
+  <?define ProductVersion="1.0.0" ?>
+  <?define UpgradeCode="{70F3B7CA-E58D-49BC-8E82-4D3DA9D3141A}"?>
+  <?define ProductCode="{3285AFCC-B1FA-4D78-8F94-AF1F4C2C8027}"?>
+  <Product Id='$(var.ProductCode)' Name="Citrix XenServerPSSnapIn" Language="1033" Version='$(var.ProductVersion)' Manufacturer="Citrix Systems, Inc" UpgradeCode='$(var.UpgradeCode)'>
+    <Package Id="????????-????-????-????-????????????" Description="Citrix XenServer PowerShell SnapIn" InstallerVersion="200" Compressed="yes" />
+    <Media Id="1" Cabinet="XenServerPSSnapIn.cab" EmbedCab="yes" />
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="Citrix" Name="Citrix">
+          <Directory Id="INSTALLDIR" Name="XenSvrPS" LongName="XenServerPSSnapIn">
+            <Component Id='MainDll' Guid="FE32075C-D14A-4E36-8F6B-69E5525A9393">
+              <File Id='XenServerPSSnapInDLL' Name='XSSnapIn.dll' LongName='XenServerPSSnapIn.dll' DiskId='1' Source='XenServerPSSnapIn.dll' Vital='yes' />
+              <File Id='XmlRpcDLL' Name='ccXmlRpc.dll' LongName='CookComputing.XmlRpcV2.dll' DiskId='1' Source='CookComputing.XmlRpcV2.dll' Vital='yes' />
+              <File Id='XenServerDLL' Name='XenServe.dll' LongName='XenServer.dll' DiskId='1' Source='XenServer.dll' Vital='yes' />
+              <File Id='EnvironPS1' Name='environ.ps1' LongName='Initialize-Environment.ps1' DiskId='1' Source='Initialize-Environment.ps1' Vital='yes' />
+<!--              <File Id='XenServerPowerShellHelp' Name='XSHelp.xml' LongName='XenServerPSSnapIn.dll-Help.xml' DiskId='1' Source='XenServerPSSnapIn.dll-Help.xml' Vital='yes' />-->
+              <File Id='XenServerPowerShellPSC1' Name='XSPoshPC.psc' LongName='XenServerPSSnapIn.psc1' DiskId='1' Source='XenServerPSSnapIn.psc1' Vital='yes' />
+              <File Id='XenServerFormatPS1XML' Name='XSFormat.xml' LongName='XenServer.format.ps1xml' DiskId='1' Source='XenServer.format.ps1xml' Vital='yes' />
+              <File Id='XenServerTypesPS1XML' Name='XSTypes.xml' LongName='XenServer.types.ps1xml' DiskId='1' Source='XenServer.types.ps1xml' Vital='yes' />
+              <File Id='AutomatedTestCorePS1' Name='AutoTest.ps1' LongName='AutomatedTestCore.ps1' DiskId='1' Source='AutomatedTestCore.ps1' Vital='yes' />
+              <File Id='LICENSE' Name='LICENSE.txt' LongName='LICENSE.txt' DiskId='1' Source='LICENSE.txt' Vital='yes'/>
+              <File Id='XmlRpcLicense' Name='XmlRpcLS.txt' LongName='LICENSE.CookComputing.XmlRpcV2' DiskId='1' Source='LICENSE.CookComputing.XmlRpcV2' Vital='yes'/>
+              <File Id='README' Name='README.txt' LongName='README.txt' DiskId='1' Source='README.txt' Vital='yes'/>
+              <File Id='aboutXS' Name='aboutXS.txt' LongName='about_XenServer.help.txt' DiskId='1' Source='about_XenServer.help.txt' Vital='yes'/>
+              <File Id='XenServerPSSnapinBAT' Name='XSPSSnap.bat' LongName='XenServerPSSnapIn.bat' DiskId='1' Source='XenServerPSSnapIn.bat' Vital='yes'>		  
+                  <Shortcut Id="XenServerPowerShellShortcut" Directory="ProgramMenuFolder" Name="XSPosh" LongName="Citrix XenServer PowerShell SnapIn" WorkingDirectory='INSTALLDIR' Icon='XenCenterICO' />
+              </File>
+              <Registry Id='InstallLocationKEY' Root='HKMU' Key='Software\Citrix\XenServerPSSnapIn' Name='ConsoleFile' Action='write' Type='string' Value='[INSTALLDIR]XenServerPSSnapIn.psc1' />
+            </Component>
+            <Component Id='Supportx86' Guid="E617B3B1-93AC-4E07-A6AB-0f986710AD82">
+              <Condition>NOT <![CDATA[SYSTEMARCHITECTURE >< "x86"]]></Condition>
+              <File Id='XenServerPSSnapinBAT86' Name='XSSnap86.bat' LongName='XenServerPSSnapIn86.bat' DiskId='1' Source='XenServerPSSnapIn86.bat' Vital='yes'>		  
+                <Shortcut Id="XenServerPowerShellShortcut86" Directory="ProgramMenuFolder" Name="XSPosh86" LongName="Citrix XenServer PowerShell SnapIn (x86)" WorkingDirectory='INSTALLDIR' Icon='XenCenterICO' />
+              </File>
+            </Component>
+          </Directory>
+        </Directory>
+      </Directory>
+      <Directory Id='ProgramMenuFolder' />
+      <Directory Id='DesktopFolder' />
+    </Directory>
+    <Feature Id ='MainProgram' Title='XenServer PowerShell SnapIn' Description='Manage XenServer with PowerShell scripts.' Display ='expand' Level ='1' ConfigurableDirectory ='INSTALLDIR' AllowAdvertise ="no" InstallDefault="local" Absent ="disallow">
+      <ComponentRef Id="MainDll" />
+      <ComponentRef Id="Supportx86" />
+    </Feature>
+    <UIRef Id="My_WixUI_InstallDir" />
+    <UIRef Id="WixUI_ErrorProgressText" />
+    <Property Id="Install_All" Value="0" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLDIR" />
+    <Property Id="SYSTEMARCHITECTURE">
+      <!--See http://www/support.microsoft.com/kb/556009/en-gb-->
+      <RegistrySearch Id='ArchitectureRegistry' Type='raw' Root='HKLM' Key='Hardware\Description\System\CentralProcessor\0' Name='Identifier' />
+    </Property>
+    <Property Id='FRAMEWORK35'>
+      <RegistrySearch Id='Framework35Registry' Type='raw' Root='HKLM' Key='Software\Microsoft\NET Framework Setup\NDP\v3.5' Name='Install' />
+    </Property>
+    <Property Id='POWERSHELL20'>
+      <RegistrySearch Id='PowerShell20Registry' Type='raw' Root='HKLM' Key='Software\Microsoft\PowerShell\1\PowerShellEngine' Name='PowerShellVersion' />
+    </Property>
+    <Property Id="ARPPRODUCTICON" Value="XenCenterICO" />
+    <Upgrade Id='$(var.UpgradeCode)'>
+      <UpgradeVersion Property='UPGRADEFOUND' ExcludeLanguages='yes' Minimum='0.0.0' IncludeMinimum='yes' Maximum='$(var.ProductVersion)' IncludeMaximum='yes' />
+      <UpgradeVersion OnlyDetect='yes' ExcludeLanguages='yes' Property='NEWERPRODUCTFOUND' Minimum='$(var.ProductVersion)' IncludeMinimum='no' />
+    </Upgrade>
+    <CustomAction Id="PreventDowngrading" Error="There is a newer product already installed" />
+    <Condition Message='.NET Framework 3.5 is not present on the computer.'>
+      FRAMEWORK35 = "#1"
+    </Condition>
+    <Condition Message='Microsoft PowerShell 2.0 is not present on the computer.'>
+      POWERSHELL20 = "2.0"
+    </Condition>
+    <InstallExecuteSequence>
+      <AppSearch Sequence="50" />
+      <LaunchConditions Sequence="100" />
+      <ValidateProductID Sequence="700" />
+      <CostInitialize Sequence="800" />
+      <FileCost Sequence="900" />
+      <CostFinalize Sequence="1000" />
+      <FindRelatedProducts Sequence="1100" />
+      <Custom Action="PreventDowngrading" Sequence="1101">NEWERPRODUCTFOUND</Custom>
+      <MigrateFeatureStates Sequence="1200" />
+      <InstallValidate Sequence="1400" />
+      <InstallInitialize Sequence="1500" />
+      <Custom Action="RemoveInstallUtil" Sequence="1501">Installed</Custom>
+      <Custom Action="RemoveInstallUtil64" Sequence="1502">Installed AND (NOT <![CDATA[SYSTEMARCHITECTURE >< "x86"]]>)</Custom>
+      <RemoveExistingProducts Sequence="1503" />
+      <ProcessComponents Sequence="1600" />
+      <UnpublishFeatures Sequence="1800" />
+      <RemoveRegistryValues Sequence="2600" />
+      <RemoveShortcuts Sequence="3200" />
+      <RemoveFiles Sequence="3500" />
+      <InstallFiles Sequence="4000" />
+      <CreateShortcuts Sequence="4500" />
+      <WriteRegistryValues Sequence="5000" />
+      <RegisterUser Sequence="6000" />
+      <RegisterProduct Sequence="6100" />
+      <PublishFeatures Sequence="6300" />
+      <PublishProduct Sequence="6400" />
+      <Custom Action="InstallUtil" Sequence="6550">NOT WixUI_InstallMode = "Remove"</Custom>
+      <Custom Action="InstallUtil64" Sequence="6551">(NOT WixUI_InstallMode = "Remove")  AND (NOT <![CDATA[SYSTEMARCHITECTURE >< "x86"]]>)</Custom>
+      <InstallFinalize Sequence="6600" />
+    </InstallExecuteSequence>
+    <InstallUISequence>
+      <FindRelatedProducts Sequence="1100" />
+      <ExecuteAction Sequence="1102" />
+    </InstallUISequence>
+    <!--Note that 3.5 uses the 2.0 installUtil.exe-->
+    <CustomAction Id="InstallUtil"
+      Directory='INSTALLDIR'
+      ExeCommand='"[WindowsFolder]Microsoft.NET\Framework\v2.0.50727\installUtil.exe" /LogToConsole=false XenServerPSSnapIn.dll'
+      Return='ignore'
+      Impersonate='no'
+      Execute='deferred' />
+    <CustomAction Id="RemoveInstallUtil"
+      Directory='INSTALLDIR'
+      ExeCommand='"[WindowsFolder]Microsoft.NET\Framework\v2.0.50727\installUtil.exe" /u /LogToConsole=false XenServerPSSnapIn.dll'
+      Return='ignore'
+      Impersonate='no'
+      Execute='deferred' />
+    <CustomAction Id="InstallUtil64"
+      Directory='INSTALLDIR'
+      ExeCommand='"[WindowsFolder]Microsoft.NET\Framework64\v2.0.50727\installUtil.exe" /LogToConsole=false XenServerPSSnapIn.dll'
+      Return='ignore'
+      Impersonate='no'
+      Execute='deferred' />
+    <CustomAction Id="RemoveInstallUtil64"
+      Directory='INSTALLDIR'
+      ExeCommand='"[WindowsFolder]Microsoft.NET\Framework64\v2.0.50727\installUtil.exe" /u /LogToConsole=false XenServerPSSnapIn.dll'
+      Return='ignore'
+      Impersonate='no'
+      Execute='deferred' />
+    <Icon Id="XenCenterICO" SourceFile="AppIcon.ico" />
+  </Product>
+</Wix>

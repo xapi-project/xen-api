@@ -1,0 +1,130 @@
+#
+# Copyright (c) Citrix Systems, Inc.
+# All rights reserved.
+# 
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 
+#   1) Redistributions of source code must retain the above copyright
+#      notice, this list of conditions and the following disclaimer.
+# 
+#   2) Redistributions in binary form must reproduce the above
+#      copyright notice, this list of conditions and the following
+#      disclaimer in the documentation and/or other materials
+#      provided with the distribution.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+# STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+# OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+
+USE_OCAMLFIND = true
+
+SUPPORT_CS = csharp/src/*.cs
+
+POWERSHELL_TMP=$(BINDINGS_TMP)/XenServerPSSnapIn
+POWERSHELL_GEN=$(BINDINGS_TMP)/powershell_autogen
+CSHARP_GEN=$(BINDINGS_TMP)/csharp_gen
+CSHARP_SRC_TMP=$(BINDINGS_TMP)/XenServer.NET-src/XenServer.NET
+CSHARP_BIN_TMP=$(BINDINGS_TMP)/XenServer.NET-bin/XenServer.NET
+CSHARP_GUI_TMP=$(BINDINGS_TMP)/XenCenterBindings/XenServer.NET
+CSHARP_SAM_TMP=$(BINDINGS_TMP)/XenServer.NET-sam/XenServer.NET
+
+OCAMLINCLUDES += .. $(DATAMODEL_DIR)
+OCAMLFLAGS += -dtypes -I $(DATAMODEL_DIR)
+OCAMLPACKS += getopt xmlm xml-light2 uuid stdext log unix
+OCAML_LIBS += $(DATAMODEL_DIR)/datamodel
+
+.PHONY: clean dist
+.SUBDIRS: powershell csharp c java
+
+.PHONY: csharp_samples csharp_src csharp_gui csharp_bin_readmes powershell_src
+csharp_gui: $(BINDINGS_TMP)/XenCenterBindings.zip
+
+dist: powershell_src csharp_samples csharp_src csharp_gui csharp_bin_readmes c_folders java_folders
+
+
+Flip(dir) =
+	cd $(dir) && sh $(shell readlink -f $(ROOT))/windows-line-endings.sh
+
+ZipUp(dir, dest) =
+	d = $(basename $(dest))
+	cd $(dir)/.. && zip -q -r9 $(d) $(basename $(dir)) && mv $(d) $(dest)
+
+CSharpReadme(dir, specific) =
+	sed -e 's/@PRODUCT_VERSION@/$(PRODUCT_VERSION)/g' csharp/README-common.txt.dist >$(dir)/README.txt
+	cat csharp/README-$(specific).txt.dist >>$(dir)/README.txt
+	$(INSTALL) $(XMLRPCLICENSE) $(dir)/LICENSE.CookComputing.XmlRpcV2
+	$(INSTALL) LICENSE $(dir)/LICENSE.txt
+
+InstallAndBrand(sourcefile, targetfile) =
+	$(INSTALL) $(sourcefile) $(targetfile)
+	sed -i -e 's/@PRODUCT_VERSION@/$(PRODUCT_VERSION)/g' $(targetfile)
+
+csharp_src: gen_gui_csharp_bindings
+	mkdir -p $(CSHARP_SRC_TMP)/Properties
+	mv $(CSHARP_GEN)/XenObjectDownloader.cs $(CSHARP_GEN)/XenObjectDownloader.tmp
+	sh csharp/subst-autogen-csproj.sh $(CSHARP_GEN) csharp/src/XenServer.csproj $(CSHARP_SRC_TMP)/XenServer.csproj
+	$(INSTALL) $(CSHARP_GEN)/*.cs $(CSHARP_SRC_TMP)
+	$(INSTALL) $(CSHARP_GEN)/FriendlyErrorNames.resx $(CSHARP_SRC_TMP)
+	$(INSTALL) $(SUPPORT_CS) $(CSHARP_SRC_TMP)
+	mv $(CSHARP_SRC_TMP)/AssemblyInfo.cs $(CSHARP_SRC_TMP)/Properties/AssemblyInfo.cs
+	sed -i -e 's/1\.0\.0\.0/$(PRODUCT_VERSION).0/g' $(CSHARP_SRC_TMP)/Properties/AssemblyInfo.cs
+	mv $(CSHARP_GEN)/XenObjectDownloader.tmp $(CSHARP_GEN)/XenObjectDownloader.cs
+	CSharpReadme($(CSHARP_SRC_TMP), src)
+	Flip($(CSHARP_SRC_TMP))
+	mkdir -p $(SDK_NET_FOLDER)/src && cp -r $(CSHARP_SRC_TMP)/* $(SDK_NET_FOLDER)/src
+	cp $(CSHARP_GEN)/callVersions.csv $(MY_OUTPUT_DIR)
+
+csharp_samples:
+	mkdir -p $(CSHARP_SAM_TMP)
+	$(INSTALL) csharp/samples/XenSdkSample.sln $(CSHARP_SAM_TMP)
+	foreach(example, GetVariousRecords GetVmRecords VmPowerStates)
+		mkdir -p $(CSHARP_SAM_TMP)/$(example)/Properties
+		$(INSTALL) csharp/samples/$(example)/Properties/AssemblyInfo.cs $(CSHARP_SAM_TMP)/$(example)/Properties
+		$(INSTALL) csharp/samples/$(example)/$(example).csproj $(CSHARP_SAM_TMP)/$(example)
+		$(INSTALL) csharp/samples/$(example)/Program.cs $(CSHARP_SAM_TMP)/$(example)
+	CSharpReadme($(CSHARP_SAM_TMP), samples)
+	Flip($(CSHARP_SAM_TMP))
+	mkdir -p $(SDK_NET_FOLDER)/samples && cp -r $(CSHARP_SAM_TMP)/* $(SDK_NET_FOLDER)/samples
+
+$(BINDINGS_TMP)/XenCenterBindings.zip: gen_gui_csharp_bindings
+	mkdir -p $(CSHARP_GUI_TMP)
+	$(INSTALL) $(CSHARP_GEN)/*.cs $(CSHARP_GUI_TMP)
+	$(INSTALL) $(CSHARP_GEN)/FriendlyErrorNames.resx $(CSHARP_GUI_TMP)
+	$(INSTALL) $(SUPPORT_CS) $(CSHARP_GUI_TMP)
+	rm $(CSHARP_GUI_TMP)/AssemblyInfo.cs
+	Flip($(CSHARP_GUI_TMP))
+	ZipUp($(CSHARP_GUI_TMP), $@)
+
+powershell_src: csharp_src gen_powershell_bindings powershell_samples 
+	mkdir -p $(POWERSHELL_TMP)
+	$(INSTALL) powershell/src/*.cs $(POWERSHELL_TMP)
+	sed -i -e 's/1\.0\.0\.0/$(PRODUCT_VERSION)/g' $(POWERSHELL_TMP)/AssemblyInfo.cs
+	sed -i -e 's/1000/$(PRODUCT_VERSION).0/g' $(POWERSHELL_TMP)/AssemblyInfo.cs
+	$(INSTALL) $(POWERSHELL_GEN)/* $(POWERSHELL_TMP)
+	InstallAndBrand(powershell/README.txt.dist, $(POWERSHELL_TMP)/README.txt)
+	InstallAndBrand(powershell/about_XenServer.help.txt, $(POWERSHELL_TMP)/about_XenServer.help.txt)
+	$(INSTALL) LICENSE $(POWERSHELL_TMP)/LICENSE.txt
+	$(INSTALL) $(XMLRPCLICENSE) $(POWERSHELL_TMP)/LICENSE.CookComputing.XmlRpcV2
+	Flip($(POWERSHELL_TMP))
+	mkdir -p $(SDK_PS_FOLDER)/src && cp $(POWERSHELL_TMP)/* $(SDK_PS_FOLDER)/src
+
+csharp_bin_readmes:
+	mkdir -p $(CSHARP_BIN_TMP)
+	CSharpReadme($(CSHARP_BIN_TMP), bin)
+	Flip($(CSHARP_BIN_TMP))
+
+clean:
+	rm -f *.annot *.o *.cmi *.cmx *.cmo *.cma *.cmxa *.run *.opt *.omc *.dll
+	rm -Rf $(BINDINGS_TMP)

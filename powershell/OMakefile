@@ -1,0 +1,56 @@
+#
+# Copyright (c) Citrix Systems, Inc.
+# All rights reserved.
+# 
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 
+#   1) Redistributions of source code must retain the above copyright
+#      notice, this list of conditions and the following disclaimer.
+# 
+#   2) Redistributions in binary form must reproduce the above
+#      copyright notice, this list of conditions and the following
+#      disclaimer in the documentation and/or other materials
+#      provided with the distribution.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+# STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+# OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+
+if $(defined-env COMPILE_POWERSHELL)
+  COMPILE_POWERSHELL = $(getenv COMPILE_POWERSHELL)
+  export
+else
+  COMPILE_POWERSHELL = yes
+  export
+
+OCamlProgram(gen_powershell_binding, gen_powershell_binding common_functions ../licence)
+
+.PHONY: gen_powershell_bindings
+gen_powershell_bindings: gen_powershell_binding$(EXE)
+	rm -Rf $(POWERSHELL_GEN)
+	mkdir -p $(POWERSHELL_GEN)
+	if $(equal $(COMPILE_POWERSHELL), yes)
+		./gen_powershell_binding$(EXE) $(POWERSHELL_GEN)
+
+.PHONY: powershell_samples
+powershell_samples:
+	mkdir -p $(SDK_PS_FOLDER)/samples && $(INSTALL) samples/*.ps1 $(SDK_PS_FOLDER)/samples
+
+.PHONY: clean
+clean:
+  rm -f *.annot *.o *.cmi *.cmx *.cmo *.cma *.cmxa *.run *.opt *.omc
+  rm -f gen_powershell_binding$(EXE)
+
+.DEFAULT: gen_powershell_bindings

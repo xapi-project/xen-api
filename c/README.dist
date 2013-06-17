@@ -1,0 +1,72 @@
+libxenserver
+============
+
+Version @PRODUCT_VERSION@
+
+libxenserver is a complete SDK for Citrix XenServer, exposing the XenServer
+API to C programmers.
+
+For XenServer documentation, see http://docs.xensource.com. 
+libxenserver includes a C function call for each XenServer API call, so API
+documentation and examples written for for other languages can be easily
+mapped to C. In particular, the SDK Guide and API Documentation are ideal
+for developers wishing to use libxenserver.
+
+libxenserver comes with the usual complexities inherent with programming
+in C, and it is recommended that you study the test programs carefully
+to understand the approach to error reporting and memory management taken
+by this library.
+
+For community content, blogs, and downloads, visit the XenServer Developer
+Network at http://community.citrix.com/cdn/xs.
+
+libxenserver is free sofware. You can redistribute and modify it under the
+terms of the BSD license. See COPYING for details.
+
+This library may be accompanied by pedagogical examples. These do not form
+part of this library, and are licensed for redistribution and modification
+under the BSD license. Such examples are licensed clearly at the top
+of each file.
+
+Dependencies
+------------
+
+This library is dependent upon libxml2, the XML toolkit from the GNOME
+project, by Daniel Veillard, et al.  This can be obtained from
+http://xmlsoft.org/.
+
+The test programs are dependent also upon libcurl3, by Daniel Stenberg, et al.
+This can be downloaded from http://curl.haxx.se/. You may choose to use
+libcurl3 in your application, just as we have for the test programs, though
+it's not required to do so, and you may use a different network layer if you
+prefer.
+
+On Debian, these are packaged as libxml2-dev and libcurl3-dev.
+
+
+Downloads
+---------
+
+libxenserver is available in the XenServer-@PRODUCT_VERSION@-SDK.zip in two separate
+folders, one for the compiled binaries, and one for the source code.
+The binaries are compiled for the XenServer SDK virtual machine, and we
+recommend compiling from source if you wish to use the library in a
+different environment.
+
+The XenServer-@PRODUCT_VERSION@-SDK.zip is available from
+http://www.citrix.com/downloads/xenserver/.
+
+
+Compiling from Source
+---------------------
+
+To build, simply type "make" in the libxenserver directory.
+
+To run any of the tests, for example the test_vm_ops, do
+
+./test/test_vm_ops <url> <sr-name> <username> <password>
+
+The <url> should be of the form: https://hostname.domain/
+
+You can obtain a suitable <sr-name> by typing in "xe sr-list" on the host, e.g.:
+"Auto-created spanning LVM SR on /dev/sda3"

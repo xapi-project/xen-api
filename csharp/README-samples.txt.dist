@@ -1,0 +1,31 @@
+Getting Started
+---------------
+
+1.  Extract the XenServer.NET samples archive.
+
+2.  Extract the XenServer.NET binaries archive, making sure to place the
+    binaries in the same directory as the samples.
+	
+3.  Open XenSdkSample.sln inside Visual Studio (2005 or greater).
+
+4.  If you are using Visual Studio 2005, the samples are now ready to
+    compile. On later versions, Visual Studio will offer to convert
+    the solution file to a later format. Proceed with this conversion
+    (there should be no need to take a backup) and then you too will
+    be ready to compile the samples.
+
+
+Three console applications are produced:
+
+GetVariousRecords:
+   Displays some information on Hosts, Storage Repositories and VMs.
+
+VmPowerStates:
+   Clones an existing VM and takes the clone through the various power states.
+
+GetVmRecords:
+   Displays the list of VM records on the server.
+
+
+Each application expects the parameters <host> <username> <password> to be
+passed to its Main method.
