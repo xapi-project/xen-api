@@ -71,12 +71,32 @@ module Lengths = struct
 end
 
 module Directory = struct
+	let waiters = Hashtbl.create 128
+
+	let wait_for name =
+		let t, u = Lwt.task () in
+		let existing = if Hashtbl.mem waiters name then Hashtbl.find waiters name else [] in
+		Hashtbl.replace waiters name (u :: existing);
+		Lwt.on_cancel t
+			(fun () ->
+				if Hashtbl.mem waiters name then begin
+					let existing = Hashtbl.find waiters name in
+					Hashtbl.replace waiters name (List.filter (fun x -> x <> u) existing)
+				end
+			);
+		t
 
 	let exists name = Hashtbl.mem queues name
 
 	let add name =
-		if not(exists name)
-		then Hashtbl.replace queues name (make name)
+		if not(exists name) then begin
+			Hashtbl.replace queues name (make name);
+			if Hashtbl.mem waiters name then begin
+				let threads = Hashtbl.find waiters name in
+				Hashtbl.remove waiters name;
+				List.iter (fun u -> Lwt.wakeup_later u ()) threads
+			end
+		end
 
 	let find name =
 		if exists name
@@ -123,19 +143,23 @@ let ack (name, id) =
 	end
 
 let wait from name =
-	let q = Directory.find name in
-	(* if name didn't exist, we end up with a fresh queue and will block
-	   forever (until cancelled) *)
-	Lwt_mutex.with_lock q.m
-		(fun () ->
-			let rec loop () =
-				let _, _, not_seen = Int64Map.split from ((Directory.find name).q) in
-				if not_seen = Int64Map.empty then begin
-					lwt () = Lwt_condition.wait ~mutex:q.m q.c in
-					loop ()
-				end else return () in
-			loop ()
-		)
+	if Directory.exists name then begin
+		(* Wait for some messages to turn up *)
+		let q = Directory.find name in
+		Lwt_mutex.with_lock q.m
+			(fun () ->
+				let rec loop () =
+					let _, _, not_seen = Int64Map.split from ((Directory.find name).q) in
+					if not_seen = Int64Map.empty then begin
+						lwt () = Lwt_condition.wait ~mutex:q.m q.c in
+						loop ()
+					end else return () in
+				loop ()
+			)
+	end else begin
+		(* Wait for the queue to be created *)
+		Directory.wait_for name;
+	end
 
 let send origin name data =
 	(* If a queue doesn't exist then drop the message *)

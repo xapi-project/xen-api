@@ -209,8 +209,12 @@ end
 		let (_: bool) = Delay.wait delay (Int64.to_float seconds) in
 		main_loop ()
 
-	let start () =
-		let (_: Thread.t) = Thread.create main_loop () in
-		()
+	let start =
+		let t = ref None in
+		fun () -> match !t with
+			| None ->
+				t := Some (Thread.create main_loop ())
+			| Some _ ->
+				()
 
 

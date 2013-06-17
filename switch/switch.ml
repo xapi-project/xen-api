@@ -35,34 +35,7 @@ open Cohttp
 open Logging
 open Clock
 
-module IntMap = Map.Make(struct type t = int let compare = compare end)
 module StringSet = Set.Make(struct type t = string let compare = String.compare end)
-module IntSet = Set.Make(struct type t = int let compare = compare end)
-module StringMap = Map.Make(struct type t = string let compare = compare end)
-
-module StringStringRelation = Relation.Make(String)(String)
-
-module Subscription = struct
-	(* Session token -> queue bindings *)
-	let t = ref (StringStringRelation.empty)
-
-	let session_to_wakeup : (string, unit Lwt.u) Hashtbl.t = Hashtbl.create 128
-
-	let add session subscription =
-		t := StringStringRelation.add session subscription !t;
-		if Hashtbl.mem session_to_wakeup session then begin
-			Lwt.wakeup_later (Hashtbl.find session_to_wakeup session) ()
-		end
-
-	let get session =
-		StringStringRelation.B_Set.fold (fun name acc -> name :: acc)
-		(StringStringRelation.get_bs session !t)
-		[]
-
-	let remove subscription =
-		t := StringStringRelation.remove_b subscription !t
-
-end
 
 module IntStringRelation = Relation.Make(struct type t = int let compare = compare end)(String)
 
@@ -112,7 +85,6 @@ module Transient_queue = struct
 				(fun name ->
 					info "Deleting transient queue: %s" name;
 					Q.Directory.remove name;
-					Subscription.remove name
 				) qs;
 			Hashtbl.remove queues session
 		end
@@ -175,23 +147,18 @@ let process_request conn_id session request = match session, request with
 		return (Out.Create name)
 	| Some session, In.Destroy name ->
 		Q.Directory.remove name;
-		Subscription.remove name;
 		return Out.Destroy
-	| Some session, In.Subscribe name ->
-		Subscription.add session name;
-		return Out.Subscribe
 	| Some session, In.Ack (name, id) ->
 		Trace.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Ack (name, id); processing_time = None }));
 		Q.ack (name, id);
 		return Out.Ack
-	| Some session, In.Transfer(from, timeout) ->
+	| Some session, In.Transfer { In.from = from; timeout = timeout; queues = queues } ->
 		let start = Unix.gettimeofday () in
+		let from = match from with None -> -1L | Some x -> Int64.of_string x in
 		let rec wait () =
-			let names = Subscription.get session in
 			let time = Int64.add (time ()) (Int64.of_float (timeout *. 1e9)) in
-			List.iter (record_transfer time) names;
-
-			let not_seen = Q.transfer from names in
+			List.iter (record_transfer time) queues;
+			let not_seen = Q.transfer from queues in
 			if not_seen <> []
 			then return not_seen
 			else
@@ -202,19 +169,13 @@ let process_request conn_id session request = match session, request with
 					let timeout = Lwt.map (fun () -> `Timeout) (Lwt_unix.sleep remaining_timeout) in
 					let more = List.map (fun name ->
 						Lwt.map (fun () -> `Data) (Q.wait from name)
-					) names in
-					let t, u = Lwt.task () in
-					Hashtbl.replace Subscription.session_to_wakeup session u;
-					let sub = Lwt.map (fun () -> `Subscription) t in
+					) queues in
 					try_lwt
-						match_lwt Lwt.pick (sub :: timeout :: more) with
+						match_lwt Lwt.pick (timeout :: more) with
 						| `Timeout -> return []
 						| `Data ->
 							wait ()
-						| `Subscription ->
-							wait ()
 					finally
-		   				Hashtbl.remove Subscription.session_to_wakeup session;
 			   			return ()
 				in
 		lwt messages = wait () in
@@ -223,7 +184,7 @@ let process_request conn_id session request = match session, request with
 		| x :: xs -> List.fold_left max (snd (fst x)) (List.map (fun x -> snd (fst x)) xs) in
 		let transfer = {
 			Out.messages = messages;
-			next = next
+			next = Int64.to_string next
 		} in
 		let now = Unix.gettimeofday () in
 		List.iter

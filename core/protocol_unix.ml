@@ -169,11 +169,18 @@ module Client = struct
 
 		Protocol_unix_scheduler.start ();
 
+		let reply_queue_name = rpc_exn requests_conn (In.CreateTransient token) in
+
 		let requests_m = Mutex.create () in
 		let (_ : Thread.t) =
 			let rec loop from =
 				let timeout = 5. in
-				let frame = In.Transfer(from, timeout) in
+				let transfer = {
+					In.from = from;
+					timeout = timeout;
+					queues = [ reply_queue_name ]
+				} in
+				let frame = In.Transfer transfer in
 				let raw = rpc_exn events_conn frame in
 				let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
 				match transfer.Out.messages with
@@ -192,10 +199,8 @@ module Client = struct
 								| Message.Request _ -> ()
 							)
 						) transfer.Out.messages;
-					loop transfer.Out.next in
-			Thread.create loop (-1L) in
-		let reply_queue_name = rpc_exn requests_conn (In.CreateTransient token) in
-		let (_: string) = rpc_exn requests_conn (In.Subscribe reply_queue_name) in
+					loop (Some transfer.Out.next) in
+			Thread.create loop None in
 		{
 			requests_conn = requests_conn;
 			events_conn = events_conn;
@@ -272,12 +277,16 @@ module Server = struct
 
 		Connection.rpc request_conn (In.Login token) >>= fun _ ->
 		Connection.rpc request_conn (In.CreatePersistent name) >>= fun _ ->
-		Connection.rpc request_conn (In.Subscribe name) >>= fun _ ->
 		Printf.fprintf stdout "Serving requests forever\n%!";
 
 		let rec loop from =
 			let timeout = 5. in
-			let frame = In.Transfer(from, timeout) in
+			let transfer = {
+				In.from = from;
+				timeout = timeout;
+				queues = [ name ];
+			} in
+			let frame = In.Transfer transfer in
 			Connection.rpc request_conn frame >>= function
 			| Error e ->
 				Printf.fprintf stderr "Server.listen.loop: %s\n%!" (Printexc.to_string e);
@@ -312,8 +321,8 @@ module Server = struct
 								()
 							) () in ()
 						) transfer.Out.messages;
-					loop transfer.Out.next 
+					loop (Some transfer.Out.next)
 				end in
-		loop (-1L)
+		loop None
 end
 

@@ -101,10 +101,18 @@ module Client = struct
 
 		let wakener = Hashtbl.create 10 in
 		let requests_m = Lwt_mutex.create () in
+
+		lwt reply_queue_name = lwt_rpc requests_conn (In.CreateTransient token) in
+
 		let (_ : unit Lwt.t) =
 			let rec loop from =
 				let timeout = 5. in
-				let frame = In.Transfer(from, timeout) in
+				let transfer = {
+					In.from = from;
+					timeout = timeout;
+					queues = [ reply_queue_name ]
+				} in
+				let frame = In.Transfer transfer in
 				lwt raw = lwt_rpc events_conn frame in
 				let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
 				match transfer.Out.messages with
@@ -126,10 +134,8 @@ module Client = struct
 								| Message.Request _ -> return ()
 							)
 						) transfer.Out.messages in
-					loop transfer.Out.next in
-			loop (-1L) in
-		lwt reply_queue_name = lwt_rpc requests_conn (In.CreateTransient token) in
-		lwt (_: string) = lwt_rpc requests_conn (In.Subscribe reply_queue_name) in
+					loop (Some transfer.Out.next) in
+			loop None in
 		lwt (_: string) = lwt_rpc requests_conn (In.CreatePersistent dest_queue_name) in
 		return {
 			requests_conn = requests_conn;

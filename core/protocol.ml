@@ -69,14 +69,19 @@ module Event = struct
 end
 
 module In = struct
+	type transfer = {
+		from: string option;
+		timeout: float;
+		queues: string list;
+	} with rpc
+
 	type t =
 	| Login of string            (** Associate this transport-level channel with a session *)
 	| CreatePersistent of string
 	| CreateTransient of string
 	| Destroy of string          (** Explicitly remove a named queue *)
-	| Subscribe of string        (** Subscribe to messages from a queue *)
 	| Send of string * Message.t (** Send a message to a queue *)
-	| Transfer of int64 * float  (** blocking wait for new messages *)
+	| Transfer of transfer       (** blocking wait for new messages *)
 	| Trace of int64 * float     (** blocking wait for trace data *)
 	| Ack of message_id          (** ACK this particular message *)
 	| List of string             (** return a list of queue names with a prefix *)
@@ -96,15 +101,14 @@ module In = struct
 		| None, `GET, [ ""; "persistent"; name ] -> Some (CreatePersistent name)
 		| None, `GET, [ ""; "transient"; name ] -> Some (CreateTransient name)
 		| None, `GET, [ ""; "destroy"; name ]   -> Some (Destroy name)
-		| None, `GET, [ ""; "subscribe"; name ] -> Some (Subscribe name)
 		| None, `GET, [ ""; "ack"; name; id ]   -> Some (Ack (name, Int64.of_string id))
 		| None, `GET, [ ""; "list"; prefix ]    -> Some (List prefix)
-		| None, `GET, [ ""; "transfer"; ack_to; timeout ] ->
-			Some (Transfer(Int64.of_string ack_to, float_of_string timeout))
 		| None, `GET, [ ""; "trace"; ack_to; timeout ] ->
 			Some (Trace(Int64.of_string ack_to, float_of_string timeout))
 		| None, `GET, [ ""; "trace" ] ->
 			Some (Trace(-1L, 5.))
+		| Some body, `POST, [ ""; "transfer" ] ->
+			Some (Transfer(transfer_of_rpc (Jsonrpc.of_string body)))
 		| Some body, `POST, [ ""; "request"; name; reply_to ] ->
 			Some (Send (name, { Message.kind = Message.Request reply_to; payload = body }))
 		| Some body, `POST, [ ""; "response"; name; from_q; from_n ] ->
@@ -128,14 +132,13 @@ module In = struct
 			None, `GET, (Uri.make ~path:(Printf.sprintf "/transient/%s" name) ())
 		| Destroy name ->
 			None, `GET, (Uri.make ~path:(Printf.sprintf "/destroy/%s" name) ())
-		| Subscribe name ->
-			None, `GET, (Uri.make ~path:(Printf.sprintf "/subscribe/%s" name) ())
 		| Ack (name, x) ->
 			None, `GET, (Uri.make ~path:(Printf.sprintf "/ack/%s/%Ld" name x) ())
 		| List x ->
 			None, `GET, (Uri.make ~path:(Printf.sprintf "/list/%s" x) ())
-		| Transfer(ack_to, timeout) ->
-			None, `GET, (Uri.make ~path:(Printf.sprintf "/transfer/%Ld/%.16g" ack_to timeout) ())
+		| Transfer t ->
+			let body = Jsonrpc.to_string (rpc_of_transfer t) in
+			Some body, `POST, (Uri.make ~path:"/transfer" ())
 		| Trace(ack_to, timeout) ->
 			None, `GET, (Uri.make ~path:(Printf.sprintf "/trace/%Ld/%.16g" ack_to timeout) ())
 		| Send (name, { Message.kind = Message.Request r; payload = p }) ->
@@ -186,7 +189,7 @@ end
 module Out = struct
 	type transfer = {
 		messages: (message_id * Message.t) list;
-		next: int64;
+		next: string;
 	} with rpc
 
 	type trace = {
@@ -201,7 +204,6 @@ module Out = struct
 	| Login
 	| Create of string
 	| Destroy
-	| Subscribe
 	| Send of message_id option
 	| Transfer of transfer
 	| Trace of trace
@@ -214,7 +216,6 @@ module Out = struct
 	let to_response = function
 		| Login
 		| Ack
-		| Subscribe
 		| Destroy ->
 			`OK, ""
 		| Send x ->
@@ -285,12 +286,16 @@ module Server = functor(IO: Cohttp.IO.S) -> struct
 		let token = Printf.sprintf "%d" (Unix.getpid ()) in
 		Connection.rpc c (In.Login token) >>= fun _ ->
 		Connection.rpc c (In.CreatePersistent name) >>= fun _ ->
-		Connection.rpc c (In.Subscribe name) >>= fun _ ->
 		Printf.fprintf stdout "Serving requests forever\n%!";
 
 		let rec loop from =
 			let timeout = 5. in
-			let frame = In.Transfer(from, timeout) in
+			let transfer = {
+				In.from = from;
+				timeout = timeout;
+				queues = [ name ];
+			} in
+			let frame = In.Transfer transfer in
 			Connection.rpc c frame >>= function
 			| Error e ->
 				Printf.fprintf stderr "Server.listen.loop: %s\n%!" (Printexc.to_string e);
@@ -316,8 +321,8 @@ module Server = functor(IO: Cohttp.IO.S) -> struct
 							Connection.rpc c request >>= fun _ ->
 							return ()
 						) transfer.Out.messages >>= fun () ->
-					loop transfer.Out.next
+					loop (Some transfer.Out.next)
 				end in
-		loop (-1L)
+		loop None
 end
 

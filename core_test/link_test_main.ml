@@ -45,10 +45,9 @@ let in_frames =
 		"login", Login "hello";
 		"persistent", CreatePersistent "service";
 		"transient", CreateTransient "client";
-		"subscribe", Subscribe "service";
 		"request", Send("service", rpc_req);
 		"reply", Send("service", rpc_res);
-		"transfer", Transfer(3L, 5.);
+		"transfer", Transfer { from = Some "3"; timeout = 5.; queues = ["one"; "two"]};
 		"ack", Ack ("q", 3L);
 	]
 
@@ -58,7 +57,7 @@ let out_frames =
 		"transfer.reply", Transfer { messages = [
 			("q", 1L), rpc_req;
 			("q2", 2L), rpc_res;
-		]; next = 0L }
+		]; next = "0" }
 	]
 
 let make_file name f =

@@ -71,14 +71,19 @@ module Event : sig
 end
 
 module In : sig
+	type transfer = {
+		from: string option;
+		timeout: float;
+		queues: string list;
+	}
+
 	type t =
 	| Login of string            (** Associate this transport-level channel with a session *)
 	| CreatePersistent of string (** Create a persistent named queue *)
 	| CreateTransient of string  (** Create a transient named queue which will be deleted when the client disconnects *)
 	| Destroy of string          (** Destroy a named queue *)
-	| Subscribe of string        (** Subscribe to messages from a queue *)
 	| Send of string * Message.t (** Send a message to a queue *)
-	| Transfer of int64 * float  (** blocking wait for new messages *)
+	| Transfer of transfer       (** blocking wait for new messages *)
 	| Trace of int64 * float     (** blocking wait for trace data *)
 	| Ack of message_id          (** ACK this particular message *)
 	| List of string             (** return a list of queue names with a prefix *)
@@ -135,7 +140,7 @@ end
 module Out : sig
 	type transfer = {
 		messages: (message_id * Message.t) list;
-		next: int64;
+		next: string;
 	}
 	val transfer_of_rpc: Rpc.t -> transfer
 	val rpc_of_transfer: transfer -> Rpc.t
@@ -153,7 +158,6 @@ module Out : sig
 	| Login
 	| Create of string
 	| Destroy
-	| Subscribe
 	| Send of message_id option
 	| Transfer of transfer
 	| Trace of trace
