@@ -1513,8 +1513,6 @@ let on_frontend f domain_selection frontend =
 			f xc xs frontend_di.domid frontend_di.hvm_guest
 		)
 
-exception PCIBack_not_loaded
-
 module PCI = struct
 	open Pci
 
