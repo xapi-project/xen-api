@@ -109,28 +109,78 @@ open Rrdd_shared
 open Ds
 open Rrd
 
-module Xs = struct
-	module Client = Xs_client_unix.Client(Xs_transport_unix_client)
-	include Client
-
-	let cached_client = ref None
-
-	(* Initialise the client on demand - must be done after daemonisation! *)
-	let get_client () =
-		match !cached_client with
-		| Some client -> client
-		| None ->
-			let client = Client.make () in
-			cached_client := Some client;
-			client
-end
-
 let uuid_of_domid domains domid =
 	try
 		Rrdd_server.string_of_domain_handle
 			(List.find (fun di -> di.Xenctrl.domid = domid) domains)
 	with Not_found ->
 		failwith (Printf.sprintf "Failed to find uuid corresponding to domid: %d" domid)
+
+(*****************************************************)
+(* xenstore related code                             *)
+(*****************************************************)
+
+open Xenstore_watch
+
+module Xs = struct
+	module Client = Xs_client_unix.Client(Xs_transport_unix_client)
+	include Client
+
+	(* Use one client for watching and one for reading. The xenstore client
+	 * deadlocks if used to read from within a watch callback. *)
+	let watch_client = ref None
+	let read_client = ref None
+
+	(* Initialise the clients on demand - must be done after daemonisation! *)
+	let get_client cache =
+		match !cache with
+		| Some client -> client
+		| None ->
+			let client = Client.make () in
+			cache := Some client;
+			client
+
+	let get_watch_client () = get_client watch_client
+	let get_read_client () = get_client read_client
+end
+
+(* Map from domid to the latest seen meminfo_free value *)
+let current_meminfofree_values = ref IntMap.empty
+
+let meminfo_path domid = Printf.sprintf "/local/domain/%d/data/meminfo_free" domid
+
+module Meminfo = struct
+	let interesting_paths_for_domain domid uuid = [ meminfo_path domid ]
+
+	let fire_event_on_vm xs domid domains =
+		let d = int_of_string domid in
+		if not(IntMap.mem d domains)
+		then debug "Ignoring watch on shutdown domain %d" d
+		else
+			let path = meminfo_path d in
+			try
+				let xs_client = Xs.get_read_client () in
+				let meminfo_free_string = Xs.with_xs xs_client (fun xs -> Xs.read xs path) in
+				let meminfo_free = Int64.of_string meminfo_free_string in
+				debug "memfree has changed to %Ld in domain %d" meminfo_free d;
+				current_meminfofree_values := IntMap.add d meminfo_free !current_meminfofree_values
+			with Xs_protocol.Enoent hint ->
+				debug "Couldn't read path %s; forgetting last known memfree value for domain %d" path d;
+				current_meminfofree_values := IntMap.remove d !current_meminfofree_values
+
+	let watch_fired xc xs path domains _ =
+		match List.filter (fun x -> x <> "") (Stringext.String.split '/' path) with
+		| "local" :: "domain" :: domid :: "data" :: "meminfo_free" :: [] ->
+			fire_event_on_vm xs domid domains
+		| _ -> debug "Ignoring unexpected watch: %s" path
+
+	let unmanaged_domain _ _ = false
+	let found_running_domain _ _ = ()
+	let domain_appeared _ _ _ = ()
+	let domain_disappeared _ _ _ = ()
+end
+
+module Watcher = WatchXenstore(Meminfo)
 
 (*****************************************************)
 (* cpu related code                                  *)
@@ -158,29 +208,29 @@ let update_vcpus xc doms =
 		(* Runstate info is per-domain rather than per-vcpu *)
 		let dss =
 			try
-				let ri = Xenctrlext.domain_get_runstate_info xc domid in
+				let ri = Xenctrl.domain_get_runstate_info xc domid in
 				(VM uuid, ds_make ~name:"runstate_fullrun" ~units:"(fraction)"
-					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrlext.time0) /. 1.0e9))
+					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time0) /. 1.0e9))
 					~description:"Fraction of time that all VCPUs are running"
 					~ty:Rrd.Derive ~default:false ~min:0.0 ())::
 				(VM uuid, ds_make ~name:"runstate_full_contention" ~units:"(fraction)"
-					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrlext.time1) /. 1.0e9))
+					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time1) /. 1.0e9))
 					~description:"Fraction of time that all VCPUs are runnable (i.e., waiting for CPU)"
 					~ty:Rrd.Derive ~default:false ~min:0.0 ())::
 				(VM uuid, ds_make ~name:"runstate_concurrency_hazard" ~units:"(fraction)"
-					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrlext.time2) /. 1.0e9))
+					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time2) /. 1.0e9))
 					~description:"Fraction of time that some VCPUs are running and some are runnable"
 					~ty:Rrd.Derive ~default:false ~min:0.0 ())::
 				(VM uuid, ds_make ~name:"runstate_blocked" ~units:"(fraction)"
-					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrlext.time3) /. 1.0e9))
+					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time3) /. 1.0e9))
 					~description:"Fraction of time that all VCPUs are blocked or offline"
 					~ty:Rrd.Derive ~default:false ~min:0.0 ())::
 				(VM uuid, ds_make ~name:"runstate_partial_run" ~units:"(fraction)"
-					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrlext.time4) /. 1.0e9))
+					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time4) /. 1.0e9))
 					~description:"Fraction of time that some VCPUs are running, and some are blocked"
 					~ty:Rrd.Derive ~default:false ~min:0.0 ())::
 				(VM uuid, ds_make ~name:"runstate_partial_contention" ~units:"(fraction)"
-					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrlext.time5) /. 1.0e9))
+					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time5) /. 1.0e9))
 					~description:"Fraction of time that some VCPUs are runnable and some are blocked"
 					~ty:Rrd.Derive ~default:false ~min:0.0 ())::dss
 			with e ->
@@ -249,15 +299,14 @@ let update_memory xc doms =
 			if domid = 0 then None
 			else begin
 			try
-				let memfree_xs_key = Printf.sprintf "/local/domain/%d/data/meminfo_free" domid in
-				let mem_free = Xs.with_xs (Xs.get_client ()) (fun xs -> Int64.of_string (Xs.read xs memfree_xs_key)) in
+				let mem_free = IntMap.find domid !current_meminfofree_values in
 				Some (
 					VM uuid,
 					ds_make ~name:"memory_internal_free" ~units:"B"
 						~description:"Memory used as reported by the guest agent"
 						~value:(Rrd.VT_Int64 mem_free) ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
 				)
-			with _ -> None
+			with Not_found -> None
 			end
 		in
 		main_mem_ds :: (Opt.to_list other_ds) @ (Opt.to_list mem_target_ds) @ acc
@@ -383,12 +432,12 @@ let update_vbds doms =
 					~units:"B/s" ())::
 				(VM uuid, ds_make ~name:(vbd_name^"_read_latency")
 					~description:("Reads from device '" ^ device_name ^ "' in microseconds")
-					~units:"ms" ~value:(Rrd.VT_Int64 rd_avg_usecs)
+					~units:"μs" ~value:(Rrd.VT_Int64 rd_avg_usecs)
 					~ty:Rrd.Gauge ~min:0.0 ~default:false ())::
 				(VM uuid, ds_make ~name:(vbd_name^"_write_latency")
 					~description:("Reads from device '" ^ device_name ^ "' in microseconds")
 					~value:(Rrd.VT_Int64 wr_avg_usecs) ~ty:Rrd.Gauge ~min:0.0
-					~default:false ~units:"ms" ())::
+					~default:false ~units:"μs" ())::
 				acc
 			with _ -> acc
 		in
@@ -595,6 +644,13 @@ let monitor_loop () =
 	)
 (* Monitoring code --- END. *)
 
+let options = [
+	"plugin-default",
+		Arg.Set Rrdd_server.plugin_default,
+		(fun () -> string_of_bool !Rrdd_server.plugin_default),
+		"True if datasources provided by plugins should be exported by default";
+]
+
 (* Entry point. *)
 let _ =
 	(* Prevent shutdown due to sigpipe interrupt. This protects against
@@ -606,11 +662,14 @@ let _ =
 
 	(* Read configuration file. *)
 	debug "Reading configuration file ..";
-	Xcp_service.configure ();
+	Xcp_service.configure ~options ();
 	Xcp_service.maybe_daemonize ();
 
 	debug "Starting the HTTP server ..";
 	start (!Rrd_interface.default_path, !Rrd_interface.forwarded_path) Server.process;
+
+	debug "Starting xenstore-watching thread ..";
+	Watcher.create_watcher_thread (Xs.get_watch_client ());
 
 	debug "Creating monitoring loop thread ..";
 	Debug.with_thread_associated "main" monitor_loop ();
