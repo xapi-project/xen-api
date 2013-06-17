@@ -55,7 +55,7 @@ module Lwt_unix_IO = struct
 		Ssl.create_context Ssl.SSLv23 Ssl.Client_context
 
 	let open_connection uri =
-		lwt domain, addr = match Uri.host uri with
+		let domain_addr_t = match Uri.host uri with
 			| Some host ->
 				begin
 					try_lwt
@@ -68,14 +68,20 @@ module Lwt_unix_IO = struct
 		lwt ssl = match Uri.scheme uri with
 			| Some "http" -> return false
 			| Some "https" -> return true
+			| Some "file" -> return false
 			| Some x -> fail (Unsupported_scheme x)
 			| None -> fail (Unsupported_scheme "") in
 		let port = match Uri.port uri with
 			| Some x -> x
 			| None -> if ssl then 443 else 80 in
-		let sockaddr = match domain with
-			| Unix.PF_INET | Unix.PF_INET6 -> Unix.ADDR_INET(addr, port)
-			| Unix.PF_UNIX -> assert false in (* XXX: it would be good to support this *)
+		lwt domain, sockaddr = match Uri.scheme uri with
+			| Some "file" ->
+				return (Unix.PF_UNIX, Unix.ADDR_UNIX (Uri.path uri))
+			| Some "http" | Some "https" ->
+				lwt domain, addr = domain_addr_t in
+				return (domain, Unix.ADDR_INET(addr, port))
+			| _ -> assert false in
+
 		if ssl then begin
 			let fd = Lwt_unix.socket domain Unix.SOCK_STREAM 0 in
 			try_lwt
