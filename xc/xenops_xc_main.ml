@@ -12,10 +12,23 @@
  * GNU Lesser General Public License for more details.
  *)
 
+(* Ensure domain 0 has a sensible uuid *)
+let check_domain0_uuid () =
+	let xc = Xenctrl.interface_open () in
+	let uuid =
+		try
+			Inventory.lookup Inventory._control_domain_uuid
+		with _ ->
+			let uuid = Uuidm.(to_string (create `V4)) in
+			Inventory.update Inventory._control_domain_uuid uuid;
+			uuid in
+	Xenctrl.domain_sethandle xc 0 uuid
+
 (* Start the program with the xen backend *)
 let _ =
 	Xenops_interface.queue_name := !Xenops_interface.queue_name ^ ".classic";
 	Xenops_utils.set_root "xenopsd/classic";
+	check_domain0_uuid ();
 	Xenopsd.main
 		~specific_essential_paths:Xc_path.essentials
 		~specific_nonessential_paths:Xc_path.nonessentials

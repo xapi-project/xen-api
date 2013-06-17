@@ -13,7 +13,7 @@ executable xenopsd
   main: xenops_xc_main.ml
   src-dir: xc
   cdir: xc
-  build-deps: xenctrl, xenops, xenstore, xenstore.unix, xenstore_transport, xenstore_transport.unix, rpclib, forkexec, xcp, xcp.storage, xcp.memory, sexplib, rpclib.syntax
+  build-deps: xcp-inventory, xenctrl, xenops, xenstore, xenstore.unix, xenstore_transport, xenstore_transport.unix, rpclib, forkexec, xcp, xcp.storage, xcp.memory, sexplib, rpclib.syntax
   c-sources: fsync_stubs.c, xenctrlext_stubs.c
   pp: camlp4o
 
