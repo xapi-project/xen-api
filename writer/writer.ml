@@ -1,5 +1,38 @@
 open Gnt
 
+module type Writer = sig
+	type id
+	type handle
+
+	val setup: unit -> unit
+	val cleanup: handle -> unit
+
+	val open_handle: id -> handle
+	val write_data: handle -> string -> unit
+end
+
+module MakeWriter = functor (W: Writer) -> struct
+	let state = ref None
+
+	let setup_signals () =
+		let cleanup _ =
+			match !state with
+			| Some handle -> W.cleanup handle
+			| None -> ()
+		in
+		Sys.set_signal Sys.sigint (Sys.Signal_handle cleanup);
+		Sys.set_signal Sys.sigkill (Sys.Signal_handle cleanup)
+
+	let start interval id =
+		setup_signals ();
+		let handle = W.open_handle id in
+		state := Some handle;
+		while true do
+			W.write_data handle "data goes here";
+			Thread.delay 5.0
+		done
+end
+
 let with_gntshr f =
 	let handle = Gntshr.interface_open () in
 	let result = try
