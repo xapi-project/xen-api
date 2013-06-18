@@ -1,3 +1,5 @@
+open Gnt
+
 let with_gntshr f =
 	let handle = Gntshr.interface_open () in
 	let result = try
@@ -15,7 +17,7 @@ let cleanup _ =
 	match !share with
 	| None -> ()
 	| Some s ->
-		with_gntshr (fun handle -> Gntshr.munmap handle s)
+		with_gntshr (fun handle -> Gntshr.munmap_exn handle s)
 
 let setup_signals () =
 	Sys.set_signal Sys.sigint (Sys.Signal_handle cleanup);
@@ -23,10 +25,10 @@ let setup_signals () =
 
 let () =
 	setup_signals ();
-	let target_domid = Int32.of_string Sys.argv.(1) in
+	let target_domid = int_of_string Sys.argv.(1) in
 	share :=
 		Some (with_gntshr
-			(fun handle -> Gntshr.share_pages handle target_domid 1 false));
+			(fun handle -> Gntshr.share_pages_exn handle target_domid 1 false));
 	while true do
 		Thread.delay 5.0
 	done

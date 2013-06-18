@@ -6,4 +6,4 @@ obuild-ver: 1
 executable writer
   src-dir: writer
   main: writer.ml
-  build-deps: threads, xenctrl
+  build-deps: bigarray, threads, xenctrl
