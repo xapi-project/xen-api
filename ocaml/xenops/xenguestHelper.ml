@@ -75,8 +75,6 @@ let connect path domid (args: string list) (fds: (string * Unix.file_descr) list
 let disconnect (_, _, r, w, pid) =
 	Unix.close r;
 	Unix.close w;
-	(* just in case *)
-	(try Unix.kill (Forkhelpers.getpid pid) Sys.sigterm with _ -> ());
 	ignore(Forkhelpers.waitpid pid)
 
 let with_connection (task: Xenops_task.t) path domid (args: string list) (fds: (string * Unix.file_descr) list) f =
