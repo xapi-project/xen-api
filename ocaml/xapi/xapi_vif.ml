@@ -79,7 +79,7 @@ let set_locking_mode ~__context ~self ~value =
 		(fun () -> Db.VIF.set_locking_mode ~__context ~self ~value)
 
 let assert_ip_address_is domain field_name addr =
-	match Helpers.validate_ip_address addr with
+	match Unixext.domain_of_addr addr with
 	| Some x when x = domain -> ()
 	| _ -> raise (Api_errors.Server_error (Api_errors.invalid_value, [field_name; addr]))
 
