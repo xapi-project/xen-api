@@ -268,6 +268,9 @@ let destroy  ~__context ~sr =
 	if (List.mem_assoc "indestructible" oc) && (List.assoc "indestructible" oc = "true") then
 		raise (Api_errors.Server_error(Api_errors.sr_indestructible, [ Ref.string_of sr ]));
 
+	if (Db.SR.get_local_cache_enabled ~__context ~self:sr) then
+		raise (Api_errors.Server_error(Api_errors.sr_device_in_use, [ Ref.string_of sr ]));
+	
 	Storage_access.destroy_sr ~__context ~sr;
 	
 	(* The sr_delete may have deleted some VDI records *)
