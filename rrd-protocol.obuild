@@ -3,6 +3,11 @@ version: 0.1.0
 synopsis: Programs for testing shared-memory communication protocols
 obuild-ver: 1
 
+library rrd-protocol-lib
+  src-dir: lib
+  modules: gnt_helpers
+  build-deps: bigarray, xenctrl
+
 executable writer
   src-dir: writer
   main: writer.ml
