@@ -1475,6 +1475,7 @@ let events_from_xenopsd queue_name =
 
 let on_xapi_restart ~__context =
 	let dbg = Context.string_of_task __context in
+	let all_known_xenopsds = all_known_xenopsds () in
 
 	(* For all available xenopsds, start the event thread *)
 	List.iter (fun queue_name ->

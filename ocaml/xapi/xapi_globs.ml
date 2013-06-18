@@ -771,6 +771,9 @@ let options_of_xapi_globs_spec =
 
 let xapissl_path = ref (Filename.concat Fhs.libexecdir "xapissl")
 
+let use_xenlight = ref false
+let use_libvirt = ref false
+
 let other_options = [
   "logconfig", Arg.Set_string log_config_file, 
     (fun () -> !log_config_file), "Log config file to use";
@@ -787,6 +790,11 @@ let other_options = [
   "onsystemboot", Arg.Set on_system_boot, 
     (fun () -> string_of_bool !on_system_boot), "indicates that this server start is the first since the host rebooted";
 
+  "xenlight", Arg.Set use_xenlight,
+    (fun () -> string_of_bool !use_xenlight), "true if we expect a libxl xenopsd";
+
+  "libvirt", Arg.Set use_libvirt,
+    (fun () -> string_of_bool !use_libvirt), "true if we expect a libvirt xenopsd";
 ] 
 
 let resources = [

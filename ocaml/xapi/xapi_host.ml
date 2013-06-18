@@ -428,7 +428,7 @@ let power_on ~__context ~host =
 let dmesg ~__context ~host =
 	let open Xapi_xenops_queue in
 	let dbg = Context.string_of_task __context in
-	let module Client = (val make_client default_xenopsd : XENOPS) in
+	let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
 	Client.HOST.get_console_data dbg
 
 let dmesg_clear ~__context ~host =
@@ -439,7 +439,7 @@ let get_log ~__context ~host =
 
 let send_debug_keys ~__context ~host ~keys =
 	let open Xapi_xenops_queue in
-	let module Client = (val make_client default_xenopsd : XENOPS) in
+	let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
 	let dbg = Context.string_of_task __context in
 	Client.HOST.send_debug_keys dbg keys
 
