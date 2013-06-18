@@ -239,8 +239,10 @@ let handle_message ~__context message =
 	if not (Pool_features.is_enabled ~__context Features.Email)
 	then info "Email alerting is restricted by current license: not generating email"
 	else begin
-	  let output, log = Forkhelpers.execute_command_get_output Xapi_globs.xapi_message_script [message] in
-	  debug "Executed message hook: output='%s' log='%s'" output log
+          if Sys.file_exists Xapi_globs.xapi_message_script then begin
+	    let output, log = Forkhelpers.execute_command_get_output Xapi_globs.xapi_message_script [message] in
+	    debug "Executed message hook: output='%s' log='%s'" output log
+	  end else info "%s not found, skipping" Xapi_globs.xapi_message_script
 	end
   with e ->
 	error "Unexpected exception in message hook. Exception='%s'" (ExnHelper.string_of_exn e);
