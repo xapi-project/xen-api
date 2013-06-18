@@ -707,13 +707,6 @@ let is_valid_MAC mac =
     let validchar c = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') in
     List.length l = 6 && (List.fold_left (fun acc s -> acc && String.length s = 2 && validchar s.[0] && validchar s.[1]) true l)
 
-(** Returns Some Unix.PF_INET or Some Unix.PF_INET6 if passed a valid IP address, otherwise returns None. *)
-let validate_ip_address str =
-	try
-		let addr = Unix.inet_addr_of_string str in
-		Some (Unix.domain_of_sockaddr (Unix.ADDR_INET (addr, 1)))
-	with _ -> None
-
 (** Returns true if the supplied IP address looks like one of mine *)
 let this_is_my_address ~__context address =
   let dbg = Context.string_of_task __context in
