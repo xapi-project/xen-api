@@ -30,7 +30,7 @@ module MakeWriter = functor (W: Writer) -> struct
 		try
 			while true do
 				W.write_data handle (generate_data ());
-				Thread.delay 5.0
+				Thread.delay interval
 			done
 		with _ ->
 			W.cleanup handle
