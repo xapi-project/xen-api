@@ -1,3 +1,4 @@
+module Ocaml_event = Event
 open Xenlight
 open Xenops_utils
 
@@ -8,7 +9,7 @@ module E = Async(
 	struct
 		type osevent_user = int
 		type event_user = string
-		type async_user = Condition.t
+		type async_user = error option Ocaml_event.channel
 	end)
 open E
 
@@ -32,36 +33,21 @@ let event_disaster_callback user event_type msg errnoval =
 
 (* async callbacks *)
 
-let m = Mutex.create ()
-let fired = ref None
-
 let async f =
 	debug "ASYNC call";
-	let user = Condition.create () in
-	let result = Mutex.execute xl_m (fun () -> E.async f user) in
+	let channel = Ocaml_event.new_channel () in
+	let result = Mutex.execute xl_m (fun () -> E.async f channel) in
 	debug "ASYNC call returned";
-	Mutex.lock m;
-	if !fired = None then
-		Condition.wait user m;
-	match !fired with
+	let ret = Ocaml_event.sync (Ocaml_event.receive channel) in
+	match ret with
 	| None ->
-		failwith "help!"
-	| Some (Some e) ->
-		fired := None;
-		Mutex.unlock m;
-		raise (Error (e, "async call"))
-	| Some None ->
-		fired := None;
-		Mutex.unlock m;
 		result
+	| Some e ->
+		raise (Error (e, "async call"))
 
 let async_callback ~result ~user =
 	debug "ASYNC callback";
-	Mutex.lock m;
-	fired := Some result;
-	Condition.signal user;
-	Mutex.unlock m;
-	()
+	ignore (Ocaml_event.send user result)
 
 (* event registration and main loop *)
 
