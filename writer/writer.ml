@@ -1,13 +1,14 @@
 open Gnt
 
 module type Writer = sig
+	type t
 	type id
 	type handle
 
 	val open_handle: id -> handle
 	val cleanup: handle -> unit
 
-	val write_data: handle -> string -> unit
+	val write_data: handle -> t -> unit
 end
 
 module MakeWriter = functor (W: Writer) -> struct
@@ -22,17 +23,18 @@ module MakeWriter = functor (W: Writer) -> struct
 		Sys.set_signal Sys.sigint
 			(Sys.Signal_handle (fun _ -> cleanup ()))
 
-	let start interval id =
+	let start interval id generate_data =
 		setup_signals ();
 		let handle = W.open_handle id in
 		state := Some handle;
 		while true do
-			W.write_data handle "data goes here";
+			W.write_data handle (generate_data ());
 			Thread.delay 5.0
 		done
 end
 
 module FileWriter = MakeWriter(struct
+	type t = string
 	type id = string
 	type handle = out_channel
 
@@ -46,6 +48,7 @@ module FileWriter = MakeWriter(struct
 end)
 
 module PageWriter = MakeWriter(struct
+	type t = Local_mapping.t
 	type id = (int * int) (* remote domid * page count *)
 	type handle = Gntshr.share
 
