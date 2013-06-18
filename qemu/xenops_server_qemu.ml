@@ -19,6 +19,8 @@ open Xenops_task
 module D = Debug.Make(struct let name = "xenops_server_qemu" end)
 open D
 
+let simplified = false
+
 module Domain = struct
 	type t = {
 		domid: int;
@@ -302,7 +304,7 @@ module VM = struct
 		Forkhelpers.dontwaitpid t;
 		Updates.add (Dynamic.Vm vm.Vm.id) updates
 
-	let build _ vm vbds vifs = ()
+	let build ?restore_fd _ vm vbds vifs = ()
 	let create_device_model _ vm vbds vifs _ = ()
 	let destroy_device_model _ vm = ()
 	let request_shutdown task vm reason ack_delay =
