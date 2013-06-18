@@ -4,7 +4,6 @@ module type Writer = sig
 	type id
 	type handle
 
-	val setup: unit -> unit
 	val cleanup: handle -> unit
 
 	val open_handle: id -> handle
