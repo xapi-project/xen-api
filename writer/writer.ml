@@ -20,8 +20,7 @@ module MakeWriter = functor (W: Writer) -> struct
 			| Some handle -> W.cleanup handle
 			| None -> ()
 		in
-		Sys.set_signal Sys.sigint (Sys.Signal_handle cleanup);
-		Sys.set_signal Sys.sigkill (Sys.Signal_handle cleanup)
+		Sys.set_signal Sys.sigint (Sys.Signal_handle cleanup)
 
 	let start interval id =
 		setup_signals ();
