@@ -11,4 +11,4 @@ library rrd-protocol-lib
 executable writer
   src-dir: writer
   main: writer.ml
-  build-deps: bigarray, threads, xenctrl
+  build-deps: bigarray, threads, xenctrl, rrd-protocol-lib

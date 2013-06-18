@@ -44,6 +44,22 @@ module FileWriter = MakeWriter(struct
 		seek_out chan 0
 end)
 
+module PageWriter = MakeWriter(struct
+	type id = (int * int) (* remote domid * page count *)
+	type handle = Gntshr.share
+
+	let open_handle (domid, count) =
+		Gnt_helpers.with_gntshr
+			(fun gntshr -> Gntshr.share_pages_exn gntshr domid count false)
+
+	let cleanup share =
+		Gnt_helpers.with_gntshr
+			(fun gntshr -> Gntshr.munmap_exn gntshr share)
+
+	let write_data share data =
+		failwith "not implemented"
+end)
+
 let with_gntshr f =
 	let handle = Gntshr.interface_open () in
 	let result = try
