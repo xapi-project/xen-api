@@ -13,13 +13,14 @@ end
 module MakeWriter = functor (W: Writer) -> struct
 	let state = ref None
 
+	let cleanup () =
+		match !state with
+		| Some handle -> W.cleanup handle
+		| None -> ()
+
 	let setup_signals () =
-		let cleanup _ =
-			match !state with
-			| Some handle -> W.cleanup handle
-			| None -> ()
-		in
-		Sys.set_signal Sys.sigint (Sys.Signal_handle cleanup)
+		Sys.set_signal Sys.sigint
+			(Sys.Signal_handle (fun _ -> cleanup ()))
 
 	let start interval id =
 		setup_signals ();
