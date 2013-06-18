@@ -27,10 +27,13 @@ module MakeWriter = functor (W: Writer) -> struct
 		setup_signals ();
 		let handle = W.open_handle id in
 		state := Some handle;
-		while true do
-			W.write_data handle (generate_data ());
-			Thread.delay 5.0
-		done
+		try
+			while true do
+				W.write_data handle (generate_data ());
+				Thread.delay 5.0
+			done
+		with _ ->
+			W.cleanup handle
 end
 
 module FileWriter = MakeWriter(struct
