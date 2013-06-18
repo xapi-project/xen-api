@@ -27,7 +27,7 @@ let make_client queue_name =
 
 let all_known_xenopsds = List.map
 	(fun x -> !Xenops_interface.queue_name ^ "." ^ x)
-	[ "simulator"; "classic"; "libvirt"; "simulator" ]
+	[ "classic"; "libvirt"; "xenlight"; "simulator" ]
 let default_xenopsd = List.hd all_known_xenopsds
 
 let queue_of_other_config oc =
