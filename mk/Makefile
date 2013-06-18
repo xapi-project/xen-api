@@ -37,7 +37,8 @@ include $(B_BASE)/winbuild.mk
 
 INSTALL=install -m 644 -o root -g root
 
-REPO=$(call hg_loc,api-bindings)
+REPONAME=xen-api-sdk
+REPO=$(call git_loc,$(REPONAME))
 BINDINGS_TMP=$(MY_OBJ_DIR)/tmp
 PS_TAR_TMP=$(BINDINGS_TMP)/powershell_tar
 INSTALLER_TMP=$(BINDINGS_TMP)/installer_tar
@@ -182,9 +183,9 @@ $(MY_OUTPUT_DIR)/$(SDK_ZIP): bins python-module
 build: clean $(MY_OUTPUT_DIR)/$(SDK_ZIP) $(MY_SOURCES)/MANIFEST
 
 $(MY_SOURCES)/MANIFEST: $(MY_SOURCES_DIRSTAMP)
-	echo api-bindings apache2 file $(XMLRPC_COMMON_DIST) > $@
-	echo api-bindings apache2 file $(XMLRPC_CLIENT_DIST) >> $@
-	echo api-bindings apache2 file $(WS_COMMONS_DIST) >> $@
+	echo $(REPONAME) apache2 file $(XMLRPC_COMMON_DIST) > $@
+	echo $(REPONAME) apache2 file $(XMLRPC_CLIENT_DIST) >> $@
+	echo $(REPONAME) apache2 file $(WS_COMMONS_DIST) >> $@
 
 .PHONY: clean
 clean:
