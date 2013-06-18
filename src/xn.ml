@@ -1059,8 +1059,12 @@ let task_list _ =
 		) all;
 	`Ok ()
 
-let task_cancel id =
-	Client.TASK.cancel dbg id
+let task_cancel _ = function
+| None ->
+	`Error(true, "Please supply a task id")
+| Some id ->
+	Client.TASK.cancel dbg id;
+	`Ok ()
 
 let debug_shutdown () =
 	Client.DEBUG.shutdown dbg ()
@@ -1121,8 +1125,6 @@ let old_main () =
 			events_watch None
 		| [ "set-worker-pool-size"; size ] ->
 			set_worker_pool_size (int_of_string size)
-		| [ "task-cancel"; id ] ->
-			task_cancel id
 		| [ "shutdown" ] ->
 			debug_shutdown ()
 		| cmd :: _ ->

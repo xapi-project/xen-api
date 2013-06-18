@@ -311,6 +311,18 @@ let tasks_cmd =
   Term.(ret (pure Xn.task_list $ common_options_t)),
   Term.info "tasks" ~sdocs:_common_options ~doc ~man
 
+let task_cancel_cmd =
+  let doc = "Cancel an in-progress task" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Attempt to cancel an in-progress task. The task should either complete, fail within a short amount of time.";
+  ] @ help in
+  let task =
+    let doc = "Task id to cancel" in
+    Arg.(value & pos 0 (some string) None & info [] ~doc) in
+  Term.(ret (pure Xn.task_cancel $ common_options_t $ task)),
+  Term.info "task-cancel" ~sdocs:_common_options ~doc ~man
+
 let default_cmd = 
   let doc = "interact with the XCP xenopsd VM management service" in 
   let man = help in
@@ -320,7 +332,7 @@ let default_cmd =
 let cmds = [list_cmd; create_cmd; add_cmd; remove_cmd; start_cmd; shutdown_cmd; reboot_cmd;
             suspend_cmd; resume_cmd; pause_cmd; unpause_cmd;
             import_cmd; export_cmd; console_cmd; diagnostics_cmd; events_cmd;
-            tasks_cmd ]
+            tasks_cmd; task_cancel_cmd ]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
