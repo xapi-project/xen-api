@@ -1047,7 +1047,7 @@ let print_date float =
     time.Unix.tm_min
     time.Unix.tm_sec
 
-let task_list () =
+let task_list _ =
 	let all = Client.TASK.list dbg in
 	List.iter
 		(fun t ->
@@ -1056,7 +1056,8 @@ let task_list () =
 				(fun (name, state) ->
 					Printf.printf "  |_ %-30s %s\n" name (state |> Task.rpc_of_state |> Jsonrpc.to_string)
 				) t.Task.subtasks
-		) all
+		) all;
+	`Ok ()
 
 let task_cancel id =
 	Client.TASK.cancel dbg id
@@ -1120,8 +1121,6 @@ let old_main () =
 			events_watch None
 		| [ "set-worker-pool-size"; size ] ->
 			set_worker_pool_size (int_of_string size)
-		| [ "task-list" ] ->
-			task_list ()
 		| [ "task-cancel"; id ] ->
 			task_cancel id
 		| [ "shutdown" ] ->

@@ -302,6 +302,15 @@ let diagnostics_cmd =
   Term.(ret (pure Xn.diagnostics $ common_options_t)),
   Term.info "diagnostics" ~sdocs:_common_options ~doc ~man
 
+let tasks_cmd =
+  let doc = "List in-progress tasks" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Describe the set of in-progress tasks.";
+  ] @ help in
+  Term.(ret (pure Xn.task_list $ common_options_t)),
+  Term.info "tasks" ~sdocs:_common_options ~doc ~man
+
 let default_cmd = 
   let doc = "interact with the XCP xenopsd VM management service" in 
   let man = help in
@@ -310,7 +319,8 @@ let default_cmd =
        
 let cmds = [list_cmd; create_cmd; add_cmd; remove_cmd; start_cmd; shutdown_cmd; reboot_cmd;
             suspend_cmd; resume_cmd; pause_cmd; unpause_cmd;
-            import_cmd; export_cmd; console_cmd; diagnostics_cmd; events_cmd ]
+            import_cmd; export_cmd; console_cmd; diagnostics_cmd; events_cmd;
+            tasks_cmd ]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
