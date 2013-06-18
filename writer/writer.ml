@@ -31,6 +31,19 @@ module MakeWriter = functor (W: Writer) -> struct
 		done
 end
 
+module FileWriter = MakeWriter(struct
+	type id = string
+	type handle = out_channel
+
+	let open_handle path = open_out path
+	let cleanup chan = close_out chan
+
+	let write_data chan data =
+		output_string chan data;
+		flush chan;
+		seek_out chan 0
+end)
+
 let with_gntshr f =
 	let handle = Gntshr.interface_open () in
 	let result = try
