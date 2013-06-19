@@ -39,7 +39,3 @@ val make_error_opt: t -> API.ref_VM -> API.ref_VM_guest_metrics -> (string * str
 val get_latest_tools_vsn: unit -> unit
 (** [get_latest_tools_vsn ()] sets the global variable Xapi_globs.tools_version with
     the latest PV tools iso detected in the root filesystem. *)
-
-val transform_for_up_to_date_check: t -> bool -> t
-(** [transform_for_up_to_date_check x hvm_guest] changes the version type to Windows
-    if the guest is HVM linux. *)

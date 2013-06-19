@@ -192,8 +192,3 @@ let make_error_opt version vm self =
 	if is_up_to_date x 
 	then None
 	else Some(Api_errors.vm_old_pv_drivers, [ Ref.string_of vm; string_of_int major; string_of_int minor; string_of_int micro])
-
-let transform_for_up_to_date_check version hvm_guest =
-	match version, hvm_guest with
-	| Linux (maj, min, mic, bd), true -> debug "Treating HVM guest as Windows"; Windows (maj, min, mic, bd)
-	| other, _ -> other

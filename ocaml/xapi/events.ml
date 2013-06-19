@@ -591,7 +591,7 @@ let guest_agent_update ctx domid uuid =
     (fun () ->
        let xs = Xal.xs_of_ctx ctx in
        let xc = Xal.xc_of_ctx ctx in
-       let hvm_guest = ((Xc.domain_getinfo xc domid).Xc.hvm_guest) in
+       let hvm_guest = (Xc.domain_getinfo xc domid).Xc.hvm_guest) in
        let path = xs.Xs.getdomainpath domid in
        let lookup (key: string) = try Some (xs.Xs.read (path ^ "/" ^ key)) with Xb.Noent -> None in
        let list (dir: string) = try List.filter (fun x -> x <> "") (xs.Xs.directory (path ^ dir)) with Xb.Noent -> [] in

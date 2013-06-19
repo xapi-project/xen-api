@@ -202,7 +202,10 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	  (* Update the 'up to date' flag afterwards *)
 	  let gmr = Db.VM_guest_metrics.get_record_internal ~__context ~self:gm in
 		let version = Xapi_pv_driver_version.of_guest_metrics (Some gmr) in
-		let version = Xapi_pv_driver_version.transform_for_up_to_date_check version hvm_guest in
+		let version = match version, hvm_guest with
+		| Linux v, true -> debug "Treating HVM guest as Windows"; Windows v
+		| other, _ -> other
+		in
 	  let up_to_date = Xapi_pv_driver_version.is_up_to_date version in
 	  Db.VM_guest_metrics.set_PV_drivers_up_to_date ~__context ~self:gm ~value:up_to_date;
 
