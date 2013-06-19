@@ -275,8 +275,8 @@ let run_hotplug_script device args =
 		let stdout, stderr = Forkhelpers.execute_command_get_output ~env script args in
 		debug "Got %s %s" stdout stderr;
 		()
-	with Forkhelpers.Spawn_internal_error(stdout, stderr, Unix.WEXITED n) as e ->
-		error "%s exitted with %d (%s; %s)" script n stdout stderr;
-		raise e
+	with Forkhelpers.Spawn_internal_error(stdout, stderr, Unix.WEXITED n) ->
+		(* suppress the error: the only thing to do is continue to cleanup *)
+		error "%s exitted with %d (%s; %s)" script n stdout stderr
 
 
