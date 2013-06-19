@@ -158,7 +158,7 @@ let initialise () =
 		signals_to_catch;
 
 	(* CA-92551, CA-97938: Use syslog's local0 facility *)
-	Debug.set_facility Syslog.Local0;
+	Debug.set_facility Syslog_transitional.Local0;
 
 	let pidfile = ref "" in
 	let daemonize = ref false in
