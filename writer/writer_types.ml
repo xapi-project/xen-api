@@ -2,21 +2,21 @@ open Gnt
 
 module type Writer = sig
 	type t
-	type id
-	type handle
+	type id_t
+	type state_t
 
-	val open_handle: id -> handle
-	val cleanup: handle -> unit
+	val init: id_t -> state_t
+	val cleanup: state_t -> unit
 
-	val write_data: handle -> t -> unit
+	val write_data: state_t -> t -> unit
 end
 
 module MakeWriter = functor (W: Writer) -> struct
-	let state = ref None
+	let cached_state = ref None
 
 	let cleanup () =
-		match !state with
-		| Some handle -> W.cleanup handle
+		match !cached_state with
+		| Some state -> W.cleanup state
 		| None -> ()
 
 	let setup_signals () =
@@ -25,23 +25,23 @@ module MakeWriter = functor (W: Writer) -> struct
 
 	let start interval id generate_data =
 		setup_signals ();
-		let handle = W.open_handle id in
-		state := Some handle;
+		let state = W.init id in
+		cached_state := Some state;
 		try
 			while true do
-				W.write_data handle (generate_data ());
+				W.write_data state (generate_data ());
 				Thread.delay interval
 			done
 		with _ ->
-			W.cleanup handle
+			W.cleanup state
 end
 
 module FileWriter = MakeWriter(struct
 	type t = string
-	type id = string
-	type handle = out_channel
+	type id_t = string
+	type state_t = out_channel
 
-	let open_handle path = open_out path
+	let init path = open_out path
 	let cleanup chan = close_out chan
 
 	let write_data chan data =
@@ -52,10 +52,10 @@ end)
 
 module PageWriter = MakeWriter(struct
 	type t = Local_mapping.t
-	type id = (int * int) (* remote domid * page count *)
-	type handle = Gntshr.share
+	type id_t = (int * int) (* remote domid * page count *)
+	type state_t = Gntshr.share
 
-	let open_handle (domid, count) =
+	let init (domid, count) =
 		Gnt_helpers.with_gntshr
 			(fun gntshr -> Gntshr.share_pages_exn gntshr domid count false)
 
