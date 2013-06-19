@@ -323,6 +323,18 @@ let task_cancel_cmd =
   Term.(ret (pure Xn.task_cancel $ common_options_t $ task)),
   Term.info "task-cancel" ~sdocs:_common_options ~doc ~man
 
+let cd_eject_cmd =
+  let doc = "Eject a CDROM" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Eject a CDROM from a CDROM drive";
+  ] @ help in
+  let vbd =
+    let doc = "VBD id" in
+    Arg.(value & pos 0 (some string) None & info [] ~doc) in
+  Term.(ret (pure Xn.cd_eject $ common_options_t $ vbd)),
+  Term.info "cd-eject" ~sdocs:_common_options ~doc ~man  
+
 let default_cmd = 
   let doc = "interact with the XCP xenopsd VM management service" in 
   let man = help in
@@ -332,7 +344,7 @@ let default_cmd =
 let cmds = [list_cmd; create_cmd; add_cmd; remove_cmd; start_cmd; shutdown_cmd; reboot_cmd;
             suspend_cmd; resume_cmd; pause_cmd; unpause_cmd;
             import_cmd; export_cmd; console_cmd; diagnostics_cmd; events_cmd;
-            tasks_cmd; task_cancel_cmd ]
+            tasks_cmd; task_cancel_cmd; cd_eject_cmd ]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 

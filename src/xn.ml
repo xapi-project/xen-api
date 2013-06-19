@@ -998,9 +998,13 @@ let find_vbd id =
 		Printf.fprintf stderr "Failed to find VBD: %s\n" id;
 		exit 1
 
-let cd_eject id =
+let cd_eject _ = function
+| None ->
+	`Error(true, "Please supply a VBD id")
+| Some id ->
 	let vbd, _ = find_vbd id in
-	Client.VBD.eject dbg vbd.Vbd.id |> wait_for_task dbg
+	Client.VBD.eject dbg vbd.Vbd.id |> wait_for_task dbg;
+	`Ok ()
 
 let cd_insert id disk =
 	let vbd, _ = find_vbd id in
@@ -1117,8 +1121,6 @@ let old_main () =
 			pci_list id
 		| [ "cd-insert"; id; disk ] ->
 			cd_insert id disk |> task
-		| [ "cd-eject"; id ] ->
-			cd_eject id |> task
 		| [ "delay"; id; t ] ->
 			delay id (float_of_string t)
 		| [ "events-watch" ] ->
