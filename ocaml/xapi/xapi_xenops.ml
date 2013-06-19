@@ -1525,6 +1525,8 @@ let on_xapi_restart ~__context =
 	   has forgotten about it: this means it has shut down *)
 	let localhost = Helpers.get_localhost ~__context in
 	let vms = Db.Host.get_resident_VMs ~__context ~self:localhost in
+	(* xenopsd doesn't manage control domains *)
+	let vms = List.filter (fun self -> not(Db.VM.get_is_control_domain ~__context ~self)) vms in
 	let in_db = List.map (fun self -> id_of_vm ~__context ~self) vms in
 	let in_xenopsd = Client.VM.list dbg () |> List.map (fun (vm, _) -> vm.Vm.id) in
 	List.iter add_caches in_xenopsd;
