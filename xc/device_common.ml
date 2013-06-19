@@ -140,11 +140,11 @@ let parse_int i =
 		Some (int_of_string i)
 	with _ -> None
 
-let slash = Re_str.regexp "[/]"
+let slash = Re_str.regexp_string "/"
 
 let parse_frontend_link x =
 	match Re_str.split slash x with
-		| [ ""; "local"; "domain"; domid; "device"; kind; devid ] ->
+		| [ "local"; "domain"; domid; "device"; kind; devid ] ->
 			begin
 				match parse_int domid, parse_kind kind, parse_int devid with
 					| Some domid, Some kind, Some devid ->
@@ -155,7 +155,7 @@ let parse_frontend_link x =
 
 let parse_backend_link x = 
 	match Re_str.split slash x with
-		| [ ""; "local"; "domain"; domid; "backend"; kind; _; devid ] ->
+		| [ "local"; "domain"; domid; "backend"; kind; _; devid ] ->
 			begin
 				match parse_int domid, parse_kind kind, parse_int devid with
 					| Some domid, Some kind, Some devid ->
