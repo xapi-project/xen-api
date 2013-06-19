@@ -21,7 +21,7 @@ module MakeWriter = functor (W: Writer) -> struct
 
 	let setup_signals () =
 		Sys.set_signal Sys.sigint
-			(Sys.Signal_handle (fun _ -> cleanup ()))
+			(Sys.Signal_handle (fun _ -> cleanup (); exit 0))
 
 	let start interval id generate_data =
 		setup_signals ();
