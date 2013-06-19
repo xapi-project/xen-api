@@ -42,7 +42,10 @@ module FileWriter = MakeWriter(struct
 	type state_t = string * out_channel
 
 	let init path = path, open_out path
-	let cleanup (path, chan) = close_out chan
+
+	let cleanup (path, chan) =
+		close_out chan;
+		Unix.unlink path
 
 	let write_data (_, chan) data =
 		output_string chan data;
