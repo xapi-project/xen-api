@@ -590,14 +590,12 @@ let guest_agent_update ctx domid uuid =
   Helpers.log_exn_continue (Printf.sprintf "callback_guest_agent (domid: %d)" domid)
     (fun () ->
        let xs = Xal.xs_of_ctx ctx in
-       let xc = Xal.xc_of_ctx ctx in
-       let hvm_guest = (Xc.domain_getinfo xc domid).Xc.hvm_guest) in
        let path = xs.Xs.getdomainpath domid in
        let lookup (key: string) = try Some (xs.Xs.read (path ^ "/" ^ key)) with Xb.Noent -> None in
        let list (dir: string) = try List.filter (fun x -> x <> "") (xs.Xs.directory (path ^ dir)) with Xb.Noent -> [] in
        (* NB Xapi_guest_agent.all is robust to spurious events *)
        Server_helpers.exec_with_new_task (Printf.sprintf "Event thread updating guest metrics (domid: %d)" domid)
-	 (fun __context -> Xapi_guest_agent.all lookup list ~__context ~domid ~uuid ~hvm_guest)
+	 (fun __context -> Xapi_guest_agent.all lookup list ~__context ~domid ~uuid)
     ) ()
 
 (** Called from Xal *)
