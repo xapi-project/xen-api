@@ -39,12 +39,12 @@ end
 module FileWriter = MakeWriter(struct
 	type t = string
 	type id_t = string
-	type state_t = out_channel
+	type state_t = string * out_channel
 
-	let init path = open_out path
-	let cleanup chan = close_out chan
+	let init path = path, open_out path
+	let cleanup (path, chan) = close_out chan
 
-	let write_data chan data =
+	let write_data (_, chan) data =
 		output_string chan data;
 		flush chan;
 		seek_out chan 0
