@@ -188,7 +188,7 @@ let main_loop ~neg_shift ~dss_f =
 		with 
 			| Unix.Unix_error (Unix.ENOENT, _, _) ->
 				warn "The %s seems not installed. You probably need to upgrade your version of XenServer.\n" 
-					Rrdd_interface.name;
+					Rrd_interface.daemon_name;
 				exit 1
 			| Sys.Break ->
 				warn "Caught Sys.Break; exiting...";
