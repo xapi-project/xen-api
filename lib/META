@@ -1,0 +1,9 @@
+version = "0.9.0"
+description = "RRD plugin library"
+requires = "forkexec log rpclib xcp-rrd xcp.rrd stdext"
+archive(byte) = "xcp-rrd-plugin.cma"
+archive(byte, plugin) = "xcp-rrd-plugin.cma"
+archive(native) = "xcp-rrd-plugin.cmxa"
+archive(native, plugin) = "xcp-rrd-plugin.cmxa"
+exists_if = "xcp-rrd-plugin.cma"
+
