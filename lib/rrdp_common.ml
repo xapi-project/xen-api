@@ -5,23 +5,7 @@ open Unixext
 open Threadext
 open Stringext
 
-module RRDD = struct
-	let make_rpc path  =
-		let open Xmlrpc_client in
-			let module Rpc = struct
-				let transport = ref (Unix path)
-				let rpc call =
-					XMLRPC_protocol.rpc ~transport:!transport ~http:(xmlrpc ~keep_alive:false ~version:"1.0" "/") call
-			end in
-			(module Rpc : Rrdd_interface.RPC)
-				
-	module Rpc =
-		(val (make_rpc Rrdd_interface.xmlrpc_path) : Rrdd_interface.RPC)
-			
-	module Client = Rrdd_interface.Client(Rpc)
-		
-	include Client
-end
+module RRDD = Rrd_client.Client
 
 module Common = functor (N : (sig val name : string end)) -> struct
 
