@@ -186,12 +186,6 @@ let main_loop ~neg_shift ~dss_f =
 				done)
 				(fun () -> close_out oc)
 		with 
-			| Unix.Unix_error (Unix.ECONNREFUSED, _, _)
-			| Xmlrpc_client.Connection_reset -> (* CA-102833: this is thrown if connection is reset during RPC *)
-				warn "The %s daemon seems installed. but not started. Try 'service %s start'\n\
-Connection to the server is not available, sleeping for 10 seconds..." Rrdd_interface.name Rrdd_interface.name;
-				Unix.sleep 10;
-				main ()
 			| Unix.Unix_error (Unix.ENOENT, _, _) ->
 				warn "The %s seems not installed. You probably need to upgrade your version of XenServer.\n" 
 					Rrdd_interface.name;
