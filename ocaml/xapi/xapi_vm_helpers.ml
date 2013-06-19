@@ -791,14 +791,16 @@ let consider_generic_bios_strings ~__context ~vm =
 
 (* Windows VM Generation ID *)
 
-let fresh_genid () =
-	Printf.sprintf "%Ld:%Ld"
-		(Random.int64 Int64.max_int)
-		(Random.int64 Int64.max_int)
+let fresh_genid ?(current_genid="0:0") () =
+	if current_genid = "" then "" else
+		Printf.sprintf "%Ld:%Ld"
+			(Random.int64 Int64.max_int)
+			(Random.int64 Int64.max_int)
 
 let vm_fresh_genid ~__context ~self =
-	let genid = fresh_genid ()
+	let current_genid = Db.VM.get_generation_id ~__context ~self in
+	let new_genid = fresh_genid ~current_genid ()
 	and uuid = Db.VM.get_uuid ~__context ~self in
-	debug "Refreshing GenID for VM %s to %s" uuid genid;
-	Db.VM.set_generation_id ~__context ~self ~value:genid ;
-	genid
+	debug "Refreshing GenID for VM %s to %s" uuid new_genid;
+	Db.VM.set_generation_id ~__context ~self ~value:new_genid ;
+	new_genid
