@@ -39,7 +39,7 @@ end
 module FileWriter = MakeWriter(struct
 	type t = string
 	type id_t = string
-	type state_t = string * out_channel
+	type state_t = string * out_channel (* path to shared file * channel for writing to shared file *)
 
 	let init path = path, open_out path
 
