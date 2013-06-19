@@ -155,6 +155,7 @@ let clean_shutdown_async ~xs (x: device) =
 let unplug_watch ~xs (x: device) = Hotplug.path_written_by_hotplug_scripts x |> Watch.key_to_disappear
 let error_watch ~xs (x: device) = Watch.value_to_appear (error_path_of_device ~xs x)
 let frontend_closed ~xs (x: device) = Watch.map (fun () -> "") (Watch.value_to_become (frontend_path_of_device ~xs x ^ "/state") (Xenbus_utils.string_of Xenbus_utils.Closed))
+let backend_closed ~xs (x: device) = Watch.value_to_become (backend_path_of_device ~xs x ^ "/state") (Xenbus_utils.string_of Xenbus_utils.Closed)
 
 let clean_shutdown_wait (task: Xenops_task.t) ~xs ~ignore_transients (x: device) =
 	debug "Device.Generic.clean_shutdown_wait %s" (string_of_device x);
@@ -198,7 +199,10 @@ let hard_shutdown_request ~xs (x: device) =
 	let frontend_path = frontend_path_of_device ~xs x in
 	safe_rm xs frontend_path
 
-let hard_shutdown_complete ~xs (x: device) = unplug_watch ~xs x
+let hard_shutdown_complete ~xs (x: device) =
+	if !Xenopsd.run_hotplug_scripts
+	then backend_closed ~xs x
+	else unplug_watch ~xs x
 
 let hard_shutdown (task: Xenops_task.t) ~xs (x: device) = 
 	hard_shutdown_request ~xs x;
