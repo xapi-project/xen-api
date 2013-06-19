@@ -1,3 +1,5 @@
+0.9.1 (19-Jun-2013):
+* several new subcommands: tasks, task-cancel, cd-eject
 
 0.9.0 (30-May-2013):
 * first public release
