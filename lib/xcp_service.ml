@@ -39,8 +39,8 @@ module Debug = struct
 			| Warn -> "warn"
 			| Info -> "info"
 			| Error -> "error") x);
-    output_string stderr "\n";
-    flush stderr
+		output_string stderr "\n";
+		flush stderr
 
 	let syslog ?(facility=`LOG_LOCAL5) name =
 		let t = Syslog.openlog ~facility name in
