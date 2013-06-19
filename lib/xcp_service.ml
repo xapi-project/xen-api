@@ -42,9 +42,9 @@ module Debug = struct
 		output_string stderr "\n";
 		flush stderr
 
-	let syslog ?(facility=`LOG_LOCAL5) name =
+	let make_syslog ?(facility=`LOG_LOCAL5) name =
 		let t = Syslog.openlog ~facility name in
-		fun key level x ->
+		t, fun key level x ->
 			Syslog.syslog t (match level with
 				| Debug -> `LOG_DEBUG
 				| Warn -> `LOG_WARNING
@@ -52,16 +52,27 @@ module Debug = struct
 				| Error -> `LOG_ERR
 			) (Printf.sprintf "[%s] %s" key x)
 
-	let current_backend = ref (if have_daemonized ()
-		then Backend_syslog default_service_name
-		else Backend_stderr)
+	let current_backend = ref Backend_stderr
+	let current_function = ref stderr_
+	let current_syslog_connection = ref None
 
 	let get_backend () = !current_backend
-	let set_backend b  = current_backend := b
+	let set_backend b  =
+		begin match !current_syslog_connection with
+		| None -> ()
+		| Some t ->
+			current_syslog_connection := None;
+			Syslog.closelog t
+		end;
+		current_backend := b;
+		match b with
+		| Backend_stderr -> current_function := stderr_
+		| Backend_syslog n ->
+			let t, f = make_syslog n in
+			current_syslog_connection := Some t;
+			current_function := f
 
-	let get_backend_fun () = match !current_backend with
-		| Backend_stderr -> stderr_
-		| Backend_syslog n -> syslog n
+	let get_backend_fun () = !current_function
 
 	let disabled_modules = ref StringSet.empty
 	let disable m =
