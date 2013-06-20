@@ -19,7 +19,7 @@ let write_file_cmd =
 	in
 	let protocol =
 		let doc = "The protocol to use to write the rrd data" in
-		Arg.(required & pos 0 (some string) None & info [] ~docv:"PROTOCOL" ~doc)
+		Arg.(required & pos 1 (some string) None & info [] ~docv:"PROTOCOL" ~doc)
 	in
 	let doc = "write to a file" in
 	let man = [
