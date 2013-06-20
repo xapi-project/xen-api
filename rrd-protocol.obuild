@@ -5,8 +5,8 @@ obuild-ver: 1
 
 library rrd-protocol-lib
   src-dir: lib
-  modules: gnt_helpers
-  build-deps: bigarray, xenctrl
+  modules: gnt_helpers, rrd_protocol
+  build-deps: bigarray, xenctrl, xcp-rrd-plugin
 
 executable reader
   src-dir: reader
