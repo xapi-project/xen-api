@@ -60,7 +60,7 @@ let update_env () =
       in
        if Pool_role.is_master () then create_host_metrics ~__context;
        Dbsync_slave.update_env __context other_config;
-       if Pool_role.is_master () then Dbsync_master.update_env __context;
+       if Pool_role.is_master () then Dbsync_master.update_env __context other_config;
        (* we sync dom0 config files on slaves; however, we don't want
 	  to do this in dbsync_slave since we want the master to have
 	  been set on the pool record before we run it [otherwise we
