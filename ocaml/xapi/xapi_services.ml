@@ -97,8 +97,6 @@ let post_handler (req: Http.Request.t) s _ =
 	Xapi_http.with_context ~dummy:true "Querying services" req s
 		(fun __context ->
 			match String.split '/' req.Http.Request.uri with
-				| "" :: services :: "xenops" :: _ when services = _services ->
-					ignore (hand_over_connection req s (Filename.concat Fhs.vardir "xenopsd.forwarded"))
 				| "" :: services :: "plugin" :: name :: _ when services = _services ->
 					http_proxy_to_plugin req s name
 				| [ ""; services; "SM" ] when services = _services ->
@@ -121,8 +119,15 @@ let put_handler (req: Http.Request.t) s _ =
 	Xapi_http.with_context ~dummy:true "Querying services" req s
 		(fun __context ->
 			match String.split '/' req.Http.Request.uri with
-				| "" :: services :: "xenops" :: _ when services = _services ->
-					ignore (hand_over_connection req s (Filename.concat Fhs.vardir "xenopsd.forwarded"))
+				| "" :: services :: "xenops" :: "memory" :: [ id ] when services = _services ->
+					let open Xapi_xenops_queue in
+					let dbg = Context.string_of_task __context in
+					let instance_id = List.assoc "instance_of" req.Http.Request.cookie in
+					let memory_limit = Int64.of_string (List.assoc "memory_limit" req.Http.Request.cookie) in
+					let self = Xapi_xenops.vm_of_id ~__context id in
+					let queue_name = queue_of_vm ~__context ~self in
+					let module Client = (val (make_client queue_name) : XENOPS) in
+					ignore(Client.VM.migrate_receive_memory dbg id memory_limit instance_id (Xcp_channel.t_of_file_descr s))
 				| "" :: services :: "plugin" :: name :: _ when services = _services ->
 					http_proxy_to_plugin req s name
 				| [ ""; services; "SM"; "data"; sr; vdi ] when services = _services ->
