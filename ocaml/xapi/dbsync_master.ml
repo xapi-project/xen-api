@@ -183,9 +183,21 @@ let ensure_vm_metrics_records_exist __context =
 
 let ensure_vm_metrics_records_exist_noexn __context = Helpers.log_exn_continue "ensuring VM_metrics flags exist" ensure_vm_metrics_records_exist __context
 
+(** Helper function to allow us to switch off particular types of
+    syncing (copy-pasted from Dbsync_slave) *)
+let switched_sync sync_keys key f =
+	let skip_sync =
+		try
+			List.assoc key sync_keys = Xapi_globs.sync_switch_off
+		with _ -> false
+	in
+	if (not skip_sync)
+	then (debug "Sync: %s" key; f ())
+	else debug "Skipping sync keyed: %s" key
+
 (* Update the database to reflect current state. Called for both start of day and after
    an agent restart. *)
-let update_env __context =
+let update_env __context sync_keys =
   debug "creating root user";
   Create_misc.create_root_user ~__context;
 
@@ -202,7 +214,8 @@ let update_env __context =
   reset_vms_running_on_missing_hosts ~__context;
 
   (* CA-104674: see comment in Xapi_vm_helpers *)
-  Xapi_vm_helpers.remove_superfluous_genids ~__context;
+  switched_sync sync_keys "genid" (fun () ->
+    Xapi_vm_helpers.remove_superfluous_genids ~__context);
 
   (* Resets all Halted VMs to a known good state *)
   release_locks ~__context;
