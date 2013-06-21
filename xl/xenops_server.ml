@@ -12,12 +12,17 @@
  * GNU Lesser General Public License for more details.
  *)
 
+open Listext
+open Stringext
+open Threadext
+open Pervasiveext
+open Fun
 open Xenops_interface
 open Xenops_server_plugin
 open Xenops_utils
 open Xenops_task
 
-module D = Debug.Make(struct let name = "xenops_server" end)
+module D = Debug.Debugger(struct let name = service_name end)
 open D
 
 type context = {
@@ -29,7 +34,7 @@ let make_context () = {
 	transferred_fd = None
 }
 
-let instance_id = Uuidm.to_string (Uuidm.create `V4)
+let instance_id = Uuid.string_of_uuid (Uuid.make_uuid ())
 
 let query _ _ _ = {
 	Query.name = "xenops";
@@ -41,7 +46,7 @@ let query _ _ _ = {
 
 let backend = ref None
 let get_backend () = match !backend with
- | Some x -> x 
+  | Some x -> x 
   | None -> failwith "No backend implementation set"
 
 let ignore_exception msg f x =
@@ -614,7 +619,7 @@ module WorkerPool = struct
 	let count_active () =
 		Mutex.execute m
 			(fun () ->
-				List.map Worker.is_active !pool |> List.filter (fun x -> x) |> List.length
+				List.map Worker.is_active !pool |> List.filter id |> List.length
 			)
 
 	let find_one f = List.fold_left (fun acc x -> acc || (f x)) false
@@ -729,29 +734,23 @@ let vif_plug_order vifs =
 let pci_plug_order pcis =
 	List.sort (fun a b -> compare a.Pci.position b.Pci.position) pcis
 
-let simplify f =
-	let module B = (val get_backend () : S) in
-	if B.simplified then [] else f
-
 let rec atomics_of_operation = function
 	| VM_start id ->
 		[
 			VM_hook_script(id, Xenops_hooks.VM_pre_start, Xenops_hooks.reason__none);
-		] @ simplify [
-			VM_create (id, None)
-		] @ [	
+	(*		VM_create (id, None);*)
 			VM_build id;
 		] @ (List.map (fun vbd -> VBD_set_active (vbd.Vbd.id, true))
 			(VBD_DB.vbds id)
 		) @	(List.concat (List.map (fun vbd -> Opt.default [] (Opt.map (fun x -> [ VBD_epoch_begin (vbd.Vbd.id, x) ]) vbd.Vbd.backend))
 			(VBD_DB.vbds id)
-		)) @ simplify (List.map (fun vbd -> VBD_plug vbd.Vbd.id)
+		)) @ (*(List.map (fun vbd -> VBD_plug vbd.Vbd.id)
 			(VBD_DB.vbds id |> vbd_plug_order |> List.tl)
-		) @ (List.map (fun vif -> VIF_set_active (vif.Vif.id, true))
+		) @*) (List.map (fun vif -> VIF_set_active (vif.Vif.id, true))
 			(VIF_DB.vifs id)
-		) @ simplify (List.map (fun vif -> VIF_plug vif.Vif.id)
+		) @(* (List.map (fun vif -> VIF_plug vif.Vif.id)
 			(VIF_DB.vifs id |> vif_plug_order)
-		) @ simplify [
+		) @ [
 			(* Unfortunately this has to be done after the vbd,vif 
 			   devices have been created since qemu reads xenstore keys
 			   in preference to its own commandline. After this is
@@ -761,7 +760,7 @@ let rec atomics_of_operation = function
 			(* We hotplug PCI devices into HVM guests via qemu, since
 			   otherwise hotunplug triggers some kind of unfixed race
 			   condition causing an interrupt storm. *)
-		] @ simplify (List.map (fun pci -> PCI_plug pci.Pci.id)
+		] @*) (List.map (fun pci -> PCI_plug pci.Pci.id)
 			(PCI_DB.pcis id |> pci_plug_order)
 		) @ [
 			(* At this point the domain is considered survivable. *)
@@ -769,7 +768,7 @@ let rec atomics_of_operation = function
 		]
 	| VM_shutdown (id, timeout) ->
 		(Opt.default [] (Opt.map (fun x -> [ VM_shutdown_domain(id, Halt, x) ]) timeout)
-		) @ simplify ([
+		)(* @ [
 			(* At this point we have a shutdown domain (ie Needs_poweroff) *)
 			VM_destroy_device_model id;
 		] @ (List.map (fun vbd -> VBD_unplug (vbd.Vbd.id, true))
@@ -778,27 +777,27 @@ let rec atomics_of_operation = function
 			(VIF_DB.vifs id)
 		) @ (List.map (fun pci -> PCI_unplug pci.Pci.id)
 			(PCI_DB.pcis id)
-		)) @ [
+		)*) @ [
 			VM_destroy id
 		]
 	| VM_restore_devices id ->
 		[
 		] @ (List.map (fun vbd -> VBD_set_active (vbd.Vbd.id, true))
 			(VBD_DB.vbds id)
-		) @ simplify (List.map (fun vbd -> VBD_plug vbd.Vbd.id)
+		) @(* (List.map (fun vbd -> VBD_plug vbd.Vbd.id)
 			(VBD_DB.vbds id |> vbd_plug_order)
-		) @ (List.map (fun vif -> VIF_set_active (vif.Vif.id, true))
+		) @*) (List.map (fun vif -> VIF_set_active (vif.Vif.id, true))
 			(VIF_DB.vifs id)
-		) @ simplify (List.map (fun vif -> VIF_plug vif.Vif.id)
+		) @(* (List.map (fun vif -> VIF_plug vif.Vif.id)
 			(VIF_DB.vifs id |> vif_plug_order)
-		) @ simplify [
+		) @ [
 			(* Unfortunately this has to be done after the devices have been created since
 			   qemu reads xenstore keys in preference to its own commandline. After this is
 			   fixed we can consider creating qemu as a part of the 'build' *)
 			VM_create_device_model (id, true);
 			(* We hotplug PCI devices into HVM guests via qemu, since otherwise hotunplug triggers
 			   some kind of unfixed race condition causing an interrupt storm. *)
-		] @ simplify (List.map (fun pci -> PCI_plug pci.Pci.id)
+		] @*) (List.map (fun pci -> PCI_plug pci.Pci.id)
 			(PCI_DB.pcis id |> pci_plug_order)
 		)
 	| VM_poweroff (id, timeout) ->
@@ -845,9 +844,8 @@ let rec atomics_of_operation = function
 			VM_hook_script(id, Xenops_hooks.VM_post_destroy, Xenops_hooks.reason__suspend)
 		]
 	| VM_resume (id, data) ->
-		simplify [
-			VM_create (id, None);
-		] @ [
+		[
+(*			VM_create (id, None);*)
 			VM_restore (id, data);
 		] @ (atomics_of_operation (VM_restore_devices id)
 		) @ [
@@ -1219,26 +1217,27 @@ and perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 		| VM_migrate (id, vdi_map, vif_map, url') ->
 			debug "VM.migrate %s -> %s" id url';
 			let vm = VM_DB.read_exn id in
+			let open Xmlrpc_client in
 			let open Xenops_client in
-			let url = Uri.of_string url' in
+			let url = url' |> Http.Url.of_string in
 			(* We need to perform version exchange here *)
 			let is_localhost =
 				try
-					let q = query t.Xenops_task.dbg url' in
+					let q = query t.Xenops_task.dbg url in
 					debug "Remote system is: %s" (q |> Query.rpc_of_t |> Jsonrpc.to_string);
 					q.Query.instance_id = instance_id
 				with e ->
 					debug "Failed to contact remote system on %s: is it running? (%s)" url' (Printexc.to_string e);
-					raise (Failed_to_contact_remote_service url') in
+					raise (Failed_to_contact_remote_service (url |> transport_of_url |> string_of_transport)) in
 			if is_localhost
 			then debug "This is a localhost migration.";
 			Xenops_hooks.vm_pre_migrate ~reason:Xenops_hooks.reason__migrate_source ~id;
 
-			let module Remote = Xenops_interface.Client(struct let rpc = Xcp_client.xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" (fun () -> url') end) in
-			let id = Remote.VM.import_metadata t.Xenops_task.dbg(export_metadata vdi_map vif_map id) in
+			let module Remote = Xenops_interface.Client(struct let rpc = xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" url end) in
+			let id = Remote.VM.import_metadata t.Xenops_task.dbg (export_metadata vdi_map vif_map id) in
 			debug "Received id = %s" id;
-			let memory_url = Uri.make ?scheme:(Uri.scheme url) ?host:(Uri.host url) ?port:(Uri.port url)
-				~path:(Uri.path url ^ "/memory/" ^ id) ~query:(Uri.query url) () in
+			let suffix = Printf.sprintf "/memory/%s" id in
+			let memory_url = Http.Url.(set_uri url (get_uri url ^ suffix)) in
 
 			(* CA-78365: set the memory dynamic range to a single value to stop ballooning. *)
 			let atomic = VM_set_memory_dynamic_range(id, vm.Vm.memory_dynamic_min, vm.Vm.memory_dynamic_min) in
@@ -1248,23 +1247,15 @@ and perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			let state = B.VM.get_state vm in
 			info "VM %s has memory_limit = %Ld" id state.Vm.memory_limit;
 
-			Open_uri.with_open_uri memory_url
+			with_transport (transport_of_url memory_url)
 				(fun mfd ->
 					let open Xenops_migrate in
-					let module Request = Cohttp.Request.Make(Cohttp_posix_io.Unbuffered_IO) in
-					let cookies = [
+					let request = http_put memory_url ~cookie:[
 						"instance_id", instance_id;
 						"dbg", t.Xenops_task.dbg;
 						"memory_limit", Int64.to_string state.Vm.memory_limit;
 					] in
-					let headers = Cohttp.Header.of_list (
-						Cohttp.Cookie.Cookie_hdr.serialize cookies :: [
-							"Connection", "keep-alive";
-							"User-agent", "xenopsd";
-						]) in
-					let request = Cohttp.Request.make ~meth:`PUT ~version:`HTTP_1_1 ~headers memory_url in
-
-					Request.write (fun t _ -> ()) request mfd;
+					request |> Http.Request.to_wire_string |> Unixext.really_write_string mfd;
 
 					begin match Handshake.recv mfd with
 						| Handshake.Success -> ()
@@ -1306,11 +1297,10 @@ and perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			debug "Synchronisation point 1";
 
 			debug "VM.receive_memory calling create";
-			perform_atomics (
-				simplify [VM_create (id, Some memory_limit);
-			] @ [
+			perform_atomics [
+		(*		VM_create (id, Some memory_limit);*)
 				VM_restore (id, FD s);
-			]) t;
+			] t;
 			debug "VM.receive_memory restore complete";
 			debug "Synchronisation point 2";
 
@@ -1551,8 +1541,8 @@ module VIF = struct
 		end;
 		(* Generate MAC if necessary *)
 		let mac = match x.mac with
-			| "random" -> Mac.random_local_mac ()
-			| "" -> Mac.hashchain_local_mac x.position (DB.vm_of x.id)
+			| "random" -> Device.Vif.random_local_mac ()
+			| "" -> Device.Vif.hashchain_local_mac x.position (DB.vm_of x.id)
 			| mac -> mac in
 		DB.write x.id { x with mac = mac };
 		x.id
@@ -1593,13 +1583,6 @@ module VIF = struct
 end
 
 module HOST = struct
-	let stat _ dbg =
-		Debug.with_thread_associated dbg
-			(fun () ->
-				debug "HOST.stat";
-				let module B = (val get_backend () : S) in
-				B.HOST.stat ()
-			) ()
 	let get_console_data _ dbg =
 		Debug.with_thread_associated dbg
 			(fun () ->
@@ -1629,14 +1612,6 @@ module HOST = struct
 				debug "HOST.set_worker_pool_size %d" size;
 				WorkerPool.set_size size
 			) ()
-
-	let mask_features _ dbg features mask =
-		Debug.with_thread_associated dbg
-			(fun () ->
-				debug "HOST.mask_features %s %s" features mask;
-				let module B = (val get_backend () : S) in
-				B.HOST.mask_features features mask
-			) ()
 end
 
 module VM = struct
@@ -1665,11 +1640,6 @@ module VM = struct
 		vm_t, state
 	let stat _ dbg id =
 		Debug.with_thread_associated dbg (fun () -> (stat' id)) ()
-
-	let exists _ dbg id =
-		match DB.read id with
-		| Some _ -> true
-		| None -> false
 
 	let list _ dbg () =
 		Debug.with_thread_associated dbg (fun () -> DB.list ()) ()
@@ -1735,8 +1705,7 @@ module VM = struct
 				(* Remove any VBDs, VIFs and PCIs not passed in - they must have been destroyed in the higher level *)
 
 				let gc old cur remove =
-					let set_difference a b = List.filter (fun x -> not(List.mem x b)) a in
-				    let to_remove = set_difference old cur in
+				    let to_remove = List.set_difference old cur in
                     List.iter remove to_remove
                 in
 
@@ -1751,21 +1720,18 @@ module VM = struct
 				vm 
 			) ()
 
-	let path_separator = Re_str.regexp_string "/"
-
-	let receive_memory uri cookies s context : unit =
-		let module Request = Cohttp.Request.Make(Cohttp_posix_io.Unbuffered_IO) in
-		let module Response = Cohttp.Response.Make(Cohttp_posix_io.Unbuffered_IO) in
-		let dbg = List.assoc "dbg" cookies in
-		let memory_limit = List.assoc "memory_limit" cookies |> Int64.of_string in
+	let receive_memory req s context : unit =
+		let dbg = List.assoc "dbg" req.Http.Request.cookie in
+		let memory_limit = List.assoc "memory_limit" req.Http.Request.cookie |> Int64.of_string in
 		Debug.with_thread_associated dbg
 		(fun () ->
 			let is_localhost, id = Debug.with_thread_associated dbg
 				debug "VM.receive_memory";
-				let remote_instance = List.assoc "instance_id" cookies in
+				req.Http.Request.close <- true;
+				let remote_instance = List.assoc "instance_id" req.Http.Request.cookie in
 				let is_localhost = instance_id = remote_instance in
 				(* The URI is /service/xenops/memory/id *)
-				let bits = Re_str.split_delim path_separator (Uri.path uri) in
+				let bits = String.split '/' req.Http.Request.uri in
 				let id = bits |> List.rev |> List.hd in
 				debug "VM.receive_memory id = %s is_localhost = %b" id is_localhost;
 				is_localhost, id
@@ -1774,6 +1740,7 @@ module VM = struct
 			| Some transferred_fd ->
 				let op = VM_receive_memory(id, memory_limit, transferred_fd) in
 				(* If it's a localhost migration then we're already in the queue *)
+				let open Xenops_client in
 				let task =
 					if is_localhost then begin
 						immediate_operation dbg id op;
@@ -1781,20 +1748,12 @@ module VM = struct
 					end else
 						Some (queue_operation dbg id op)
 				in
-				let headers = Cohttp.Header.of_list ([
-					"User-agent", "xenopsd"
-				] @ (match task with
-					| None -> []
-					| Some task -> [ "task-id", task ])) in
-				let response = Cohttp.Response.make ~version:`HTTP_1_1 ~status:`OK ~headers () in
-				Response.write (fun _ _ -> ()) response s;
-				Opt.iter (fun t -> t |> Xenops_client.wait_for_task dbg |> ignore) task
+				let response = Http.Response.make ?task ~version:"1.1" "200" "OK" in
+				response |> Http.Response.to_wire_string |> Unixext.really_write_string s;
+				Opt.iter (fun t -> t |> wait_for_task dbg |> ignore) task
 			| None ->
-				let headers = Cohttp.Header.of_list [
-					"User-agent", "xenopsd"
-				] in
-				let response = Cohttp.Response.make ~version:`HTTP_1_1 ~status:`Not_found ~headers () in
-				Response.write (fun _ _ -> ()) response s;
+				let response = Http.Response.make ~version:"1.1" "404" "File descriptor missing" in
+				response |> Http.Response.to_wire_string |> Unixext.really_write_string s
 		) ()
 end
 
@@ -1832,26 +1791,20 @@ module UPDATES = struct
 				Updates.last_id dbg updates
 			) ()
 
-	let inject_barrier _ dbg vm_id id =
+	let inject_barrier _ dbg id =
 		Debug.with_thread_associated dbg
 			(fun () ->
-				debug "UPDATES.inject_barrier %s %d" vm_id id;
-				let filter k _ = 
-					match k with 
-						| Dynamic.Task _ -> false
-						| Dynamic.Vm id 
-						| Dynamic.Vbd (id,_) 
-						| Dynamic.Vif (id,_) 
-						| Dynamic.Pci (id,_) -> id=vm_id
-				in
-				Updates.inject_barrier id filter updates
+				debug "UPDATES.inject_barrier %d" id;
+				Updates.add (Dynamic.Barrier id) updates;
+				()
 			) ()
 
 	let remove_barrier _ dbg id =
 		Debug.with_thread_associated dbg
 			(fun () ->
 				debug "UPDATES.remove_barrier %d" id;
-				Updates.remove_barrier id updates;
+				Updates.remove (Dynamic.Barrier id) updates;
+				()
 			) ()
 
 	let refresh_vm _ dbg id =
@@ -1874,7 +1827,7 @@ let internal_event_thread_body = Debug.with_thread_associated "events" (fun () -
 	let module B = (val get_backend () : S) in
 	let id = ref None in
 	while true do
-		let _, updates, next_id = B.UPDATES.get !id None in
+		let updates, next_id = B.UPDATES.get !id None in
 		assert (updates <> []);
 		List.iter
 			(function
@@ -1919,7 +1872,7 @@ module Diagnostics = struct
 	type t = {
 		queues: Redirector.Dump.t;
 		workers: WorkerPool.Dump.t;
-		scheduler: Scheduler.Dump.t;
+		scheduler: Updates.Scheduler.Dump.t;
 		updates: Updates.Dump.t;
 		tasks: WorkerPool.Dump.task list;
 		vm_actions: (string * domain_action_request option) list;
@@ -1929,7 +1882,7 @@ module Diagnostics = struct
 		let module B = (val get_backend (): S) in {
 			queues = Redirector.Dump.make ();
 			workers = WorkerPool.Dump.make ();
-			scheduler = Scheduler.Dump.make ();
+			scheduler = Updates.Scheduler.Dump.make ();
 			updates = Updates.Dump.make updates;
 			tasks = List.map WorkerPool.Dump.of_task (Xenops_task.list tasks);
 			vm_actions = List.filter_map (fun id -> match VM_DB.read id with

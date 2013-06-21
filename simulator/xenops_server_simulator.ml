@@ -19,6 +19,8 @@ open Xenops_task
 module D = Debug.Make(struct let name = "xenops_server_simulator" end)
 open D
 
+let simplified = false
+
 module Domain = struct
 	type t = {
 		domid: int;
@@ -328,7 +330,7 @@ module VM = struct
 	let set_vcpus _ vm n = Mutex.execute m (do_set_vcpus_nolock vm n)
 	let set_shadow_multiplier _ vm n = Mutex.execute m (do_set_shadow_multiplier_nolock vm n)
 	let set_memory_dynamic_range _ vm min max = Mutex.execute m (do_set_memory_dynamic_range_nolock vm min max)
-	let build _ vm vbds vifs = Mutex.execute m (build_nolock vm vbds vifs)
+	let build ?restore_fd _ vm vbds vifs = Mutex.execute m (build_nolock vm vbds vifs)
 	let create_device_model _ vm vbds vifs _ = Mutex.execute m (create_device_model_nolock vm)
 	let destroy_device_model _ vm = Mutex.execute m (destroy_device_model_nolock vm)
 	let request_shutdown _ vm reason ack_delay = Mutex.execute m (request_shutdown_nolock vm reason)

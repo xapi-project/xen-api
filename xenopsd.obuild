@@ -40,6 +40,14 @@ executable xenopsd_libvirt
   build-deps: xenops, rpclib.syntax, libvirt
   pp: camlp4o
  
+executable xenopsd_xenlight
+  main: xenops_xl_main.ml
+  src-dir: xl
+  cdir: xl
+  build-deps: xcp-inventory, xenctrl, xenlight, xenlight.xentoollog, xenops, xenstore, xenstore.unix, xenstore_transport, xenstore_transport.unix, rpclib, forkexec, xcp, xcp.storage, xcp.memory, sexplib, rpclib.syntax, oclock
+  c-sources: fsync_stubs.c, xenctrlext_stubs.c, poll_stubs.c
+  pp: camlp4o
+
 #executable test
 #  main: test.ml
 #  src-dir: test

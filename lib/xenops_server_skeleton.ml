@@ -18,6 +18,7 @@ open Xenops_utils
 
 let unimplemented x = raise (Unimplemented x) 
 
+let simplified = false
 let init () = ()
 
 module HOST = struct
@@ -51,7 +52,7 @@ module VM = struct
 	let add _ = ()
 	let remove _ = ()
 	let create _ _ _ = unimplemented "VM.create"
-	let build _ _ _ _ = unimplemented "VM.build"
+	let build ?restore_fd _ _ _ _ = unimplemented "VM.build"
 	let create_device_model _ _ _ _ _ = unimplemented "VM.create_device_model"
 	let destroy_device_model _ _ = unimplemented "VM.destroy_device_model"
 	let destroy _ _ = unimplemented "VM.destroy"
