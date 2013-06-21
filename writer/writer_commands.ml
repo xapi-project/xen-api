@@ -34,5 +34,9 @@ let generate_data_sources () =
 let write_file path protocol =
 	Random.self_init ();
 	let module W = Writer_types.FileWriter in
+	let marshal_data = match protocol with
+	| "v1" -> V1.of_dss
+	| _ -> failwith "Unknown protocol"
+	in
 	W.start 5.0 path
-		(fun () -> V1.of_dss (generate_data_sources ()))
+		(fun () -> marshal_data (generate_data_sources ()))
