@@ -28,7 +28,7 @@ module MakeReader = functor (R: Reader) -> struct
 		try
 			while true do
 				let data = R.read_data state in
-				Printf.printf "Got data:\n%s%!" (interpret_data data);
+				interpret_data data;
 				Thread.delay interval
 			done
 		with _ ->
