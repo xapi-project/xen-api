@@ -401,8 +401,8 @@ CAMLprim value stub_xc_linux_build_native(value xc_handle, value domid,
     CAMLxparam1(console_evtchn);
     CAMLlocal1(result);
 
-    unsigned long store_mfn;
-    unsigned long console_mfn;
+    unsigned long store_mfn = 0;
+    unsigned long console_mfn = 0;
     int r;
     struct xc_dom_image *dom;
     char c_protocol[64];
@@ -764,7 +764,7 @@ CAMLprim value stub_xc_domain_restore(value handle, value fd, value domid,
     CAMLparam5(handle, fd, domid, store_evtchn, console_evtchn);
     CAMLxparam2(hvm, no_incr_generationid);
     CAMLlocal1(result);
-    unsigned long store_mfn, console_mfn;
+    unsigned long store_mfn = 0, console_mfn = 0;
     domid_t c_store_domid, c_console_domid;
 
 #ifdef XENGUEST_4_2
