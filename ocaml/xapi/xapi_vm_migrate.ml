@@ -783,16 +783,12 @@ let handler req fd _ =
 					debug "Sending VM %s configuration to xenopsd" (Ref.string_of vm);
 					let id = Xapi_xenops.Xenopsd_metadata.push ~__context ~upgrade:true ~self:vm in
 					info "xenops: VM.receive_memory %s" id;
-					let uri = Printf.sprintf "/services/xenops/memory/%s" id in
-					let memory_limit = free_memory_required_kib |> Memory.bytes_of_kib |> Int64.to_string in
-					let req = Http.Request.make ~cookie:["dbg", dbg; "instance_id", "upgrade"; "memory_limit", memory_limit]
-						~user_agent:"xapi" Http.Put uri in
-					let path = Filename.concat Fhs.vardir "xenopsd.forwarded" in
-					let response = Xapi_services.hand_over_connection req fd path in
-					let open Xapi_xenops in
-					begin match response with
+					let module Client = (val (Xapi_xenops_queue.make_client queue_name) : XENOPS) in
+					let memory_limit = free_memory_required_kib |> Memory.bytes_of_kib in
+					begin
+						match Client.VM.migrate_receive_memory dbg id memory_limit "upgrade" (Xcp_channel.t_of_file_descr fd) with
 						| Some task ->
-							task |> wait_for_task queue_name dbg |> assume_task_succeeded queue_name dbg |> ignore
+							task |> Xapi_xenops.wait_for_task queue_name dbg |> Xapi_xenops.assume_task_succeeded queue_name dbg |> ignore
 						| None ->
 							debug "We did not get a task id to wait for!!"
 					end;
