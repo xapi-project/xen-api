@@ -792,14 +792,13 @@ let vm_fresh_genid ~__context ~self =
     can tell that they are Win8/12 because they have vga=std in the
     platform flag map. A bit of a hack, but it works. *)
 let remove_superfluous_genids ~__context =
-	debug "Removing superfluous Generation IDs from VMs" ;
-	let vms = Db.VM.get_all_records ~__context in
-	let vms = List.filter
-		(fun (_,vm) ->
-			try List.assoc "vga" vm.API.vM_platform <> "std"
-			with _ -> true)
-		vms in
-	List.iter
-		(fun (self,_) ->
-			Db.VM.set_generation_id ~__context ~self ~value:"")
-		vms
+	Db.VM.get_all_records ~__context
+	|> List.filter (fun (_,vm) ->
+		try List.assoc "vga" vm.API.vM_platform <> "std" with _ -> true)
+	|> List.iter (fun (self,vm) ->
+		if vm.API.vM_generation_id <> "" then
+			begin
+				debug "Removing superfluous Generation ID (%s) from VM %s"
+					vm.API.vM_generation_id vm.API.vM_uuid ;
+				Db.VM.set_generation_id ~__context ~self ~value:""
+			end)
