@@ -301,6 +301,13 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		try ignore(Db.Host.get_uuid ~__context ~self:(Ref.of_string dest_host)); true with _ -> false 
 	in
 
+	(* Block SXM when VM has a VDI with on_boot=reset *)
+	if not (is_intra_pool) then begin
+	List.(iter (fun (vdi,_,_,_,_,_,_,_) ->
+	if (Db.VDI.get_on_boot ~__context ~self:vdi ==`reset) then
+		raise (Api_errors.Server_error(Api_errors.vdi_on_boot_mode_incompatable_with_operation, [Ref.string_of vdi]))) vdis) ;
+	end;
+	
 	let mirrors = ref [] in
 	let remote_vdis = ref [] in
 	let new_dps = ref [] in
