@@ -54,7 +54,7 @@ module FileWriter = MakeWriter(struct
 end)
 
 module PageWriter = MakeWriter(struct
-	type t = Local_mapping.t
+	type t = Gnttab.Local_mapping.t
 	type id_t = (int * int) (* remote domid * page count *)
 	type state_t = Gntshr.share
 
