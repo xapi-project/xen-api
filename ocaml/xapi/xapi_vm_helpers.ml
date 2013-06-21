@@ -786,3 +786,19 @@ let vm_fresh_genid ~__context ~self =
 	debug "Refreshing GenID for VM %s to %s" uuid new_genid;
 	Db.VM.set_generation_id ~__context ~self ~value:new_genid ;
 	new_genid
+
+(** CA-104674: we accidentally gave genids to all guests. This
+    function removes them from all VMs that aren't Win8 or Win2012. We
+    can tell that they are Win8/12 because they have vga=std in the
+    platform flag map. A bit of a hack, but it works. *)
+let remove_superfluous_genids ~__context =
+	Db.VM.get_all_records ~__context
+	|> List.filter (fun (_,vm) ->
+		try List.assoc "vga" vm.API.vM_platform <> "std" with _ -> true)
+	|> List.iter (fun (self,vm) ->
+		if vm.API.vM_generation_id <> "" then
+			begin
+				debug "Removing superfluous Generation ID (%s) from VM %s"
+					vm.API.vM_generation_id vm.API.vM_uuid ;
+				Db.VM.set_generation_id ~__context ~self ~value:""
+			end)
