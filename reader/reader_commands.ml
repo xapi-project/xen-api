@@ -20,18 +20,18 @@ let string_of_data_source owner ds =
 		"owner: %s\nname: %s\ntype: %s\nvalue: %s\nunits: %s"
 		owner_string ds.Ds.ds_name type_string value_string ds.Ds.ds_units
 
-let interpret_data text =
+let interpret_data_v1 text =
 	print_endline "------------ Metadata ------------";
-	let length, checksum, payload = Json.to_dss text in
+	let length, checksum, payload = V1.to_dss text in
 	Printf.printf "length = %d\n" length;
 	Printf.printf "checksum = %s\n" checksum;
-	Printf.printf "timestamp = %d\n%!" payload.Json.timestamp;
+	Printf.printf "timestamp = %d\n%!" payload.V1.timestamp;
 	print_endline "---------- Data sources ----------";
 	List.iter
 		(fun (owner, ds) ->
 			print_endline (string_of_data_source owner ds))
-		payload.Json.datasources
+		payload.V1.datasources
 
 let read_file path protocol =
 	let module R = Reader_types.FileReader in
-	R.start 5.0 path interpret_data
+	R.start 5.0 path interpret_data_v1

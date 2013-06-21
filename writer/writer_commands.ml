@@ -11,4 +11,4 @@ let generate_data_sources () =
 let write_file path protocol =
 	let module W = Writer_types.FileWriter in
 	W.start 5.0 path
-		(fun () -> Json.of_dss (generate_data_sources ()))
+		(fun () -> V1.of_dss (generate_data_sources ()))

@@ -15,7 +15,7 @@ exception Invalid_payload
 exception No_update
 exception Read_error
 
-module Json = struct
+module V1 = struct
 	module Rrdp = Rrdp_common.Common(struct let name = "test_rrd_writer" end)
 
 	let header = "DATASOURCES\n"
