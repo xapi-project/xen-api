@@ -201,6 +201,9 @@ let update_env __context =
      and reset the rest to Halted. *)
   reset_vms_running_on_missing_hosts ~__context;
 
+  (* CA-104674: see comment in Xapi_vm_helpers *)
+  Xapi_vm_helpers.remove_superfluous_genids ~__context;
+
   (* Resets all Halted VMs to a known good state *)
   release_locks ~__context;
   (* Cancel tasks that were running on the master - by setting host=None we consider all tasks
