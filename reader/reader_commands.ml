@@ -29,7 +29,8 @@ let interpret_data_v1 text =
 	print_endline "---------- Data sources ----------";
 	List.iter
 		(fun (owner, ds) ->
-			print_endline (string_of_data_source owner ds))
+			print_endline (string_of_data_source owner ds);
+			print_endline "----------")
 		payload.V1.datasources
 
 let read_file path protocol =
