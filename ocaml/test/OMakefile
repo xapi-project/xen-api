@@ -37,5 +37,6 @@ OCAML_OBJS = \
 	test_vgpu_type \
 	test_vgpu_common \
 	test_pgpu_helpers \
+	test_xenopsd_metadata \
 
 OCamlProgram(suite, suite $(OCAML_OBJS) )
