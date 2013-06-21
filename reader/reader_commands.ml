@@ -25,7 +25,7 @@ let interpret_data_v1 text =
 	let length, checksum, payload = V1.to_dss text in
 	Printf.printf "length = %d\n" length;
 	Printf.printf "checksum = %s\n" checksum;
-	Printf.printf "timestamp = %d\n%!" payload.V1.timestamp;
+	Printf.printf "timestamp = %Ld\n%!" payload.V1.timestamp;
 	print_endline "---------- Data sources ----------";
 	List.iter
 		(fun (owner, ds) ->

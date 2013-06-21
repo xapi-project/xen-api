@@ -28,7 +28,7 @@ module V1 = struct
 
 	(* The payload type that corresponds to the plugin output file format. *)
 	type payload = {
-		timestamp : int;
+		timestamp : int64;
 		datasources : (Rrd.ds_owner * Ds.ds) list;
 	}
 
@@ -114,7 +114,7 @@ module V1 = struct
 			let open Rpc in
 			let rpc = Jsonrpc.of_string json in
 			let kvs = dict_of_rpc ~rpc in
-			let timestamp = int_of_rpc (List.assoc "timestamp" kvs) in
+			let timestamp = int64_of_rpc (List.assoc "timestamp" kvs) in
 			let datasource_rpcs = dict_of_rpc (List.assoc "datasources" kvs) in
 			{timestamp; datasources = List.map ds_of_rpc datasource_rpcs}
 		with _ -> raise Invalid_payload
