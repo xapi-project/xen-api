@@ -20,10 +20,15 @@ import subprocess
 
 path = "/sbin:/usr/sbin:/bin:/usr/bin:" + os.path.dirname(sys.argv[0])
 vif_hotplug = "/etc/xapi.d/vif-hotplug"
-xenops_path = "/var/run/nonpersistent/xenops"
+xenops_base_path = "/var/run/nonpersistent/xenopsd"
+xenops_path = None
 
 command_name = sys.argv[0]
 short_command_name = os.path.basename(command_name)
+
+def set_xenopsd_backend(b):
+    global xenops_path
+    xenops_path = os.path.join(xenops_base_path, b)
 
 def send_to_syslog(msg):
     pid = os.getpid()

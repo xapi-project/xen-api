@@ -224,7 +224,7 @@ def main(vif_type, domid, devid, network_mode, action):
 
 def usage():
     print "Usage:"
-    print "%s vif_type domid devid action" % short_command_name
+    print "%s xenopsd_backend vif_type domid devid action" % short_command_name
     print ""
     print "vif_type: [vif|tap]"
     print "    The type of the vif for which rules will be created."
@@ -232,11 +232,12 @@ def usage():
     print "    Specifies whether to create filtering rules for the vif, or to clear all rules associated with the vif."
 
 if __name__ == "__main__":
-    if len(sys.argv) != 5:
+    if len(sys.argv) != 6:
         usage()
         sys.exit(1)
     else:
-        vif_type, domid, devid, action = sys.argv[1:5]
+        xenopsd_backend, vif_type, domid, devid, action = sys.argv[1:6]
+        common.set_xenopsd_backend(xenopsd_backend)
         vif_name = "%s%s.%s" % (vif_type, domid, devid)
         network_mode = get_host_network_mode (vif_name)
 
