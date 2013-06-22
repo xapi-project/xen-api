@@ -746,7 +746,7 @@ let rec atomics_of_operation = function
 		) @	(List.concat (List.map (fun vbd -> Opt.default [] (Opt.map (fun x -> [ VBD_epoch_begin (vbd.Vbd.id, x) ]) vbd.Vbd.backend))
 			(VBD_DB.vbds id)
 		)) @ simplify (List.map (fun vbd -> VBD_plug vbd.Vbd.id)
-			(VBD_DB.vbds id |> vbd_plug_order |> List.tl)
+			(VBD_DB.vbds id |> vbd_plug_order)
 		) @ (List.map (fun vif -> VIF_set_active (vif.Vif.id, true))
 			(VIF_DB.vifs id)
 		) @ simplify (List.map (fun vif -> VIF_plug vif.Vif.id)
