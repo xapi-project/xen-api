@@ -25,8 +25,12 @@ module Client = Storage_client.Client
 let transform_exception f x =
 	try f x
 	with
-		| Backend_error(code, params) -> raise (Storage_backend_error(code, params))
-		| e -> raise e
+		| Backend_error(code, params) ->
+			error "Re-raising exception %s: %s" code (String.concat "; " params);
+			raise (Storage_backend_error(code, params))
+		| e ->
+			error "Re-raising exception %s" (Printexc.to_string e);
+			raise e
 
 (* Used to identify this VBD to the storage layer *)
 let id_of frontend vbd = Printf.sprintf "vbd/%s/%s" frontend (snd vbd)
@@ -69,9 +73,10 @@ let dp_destroy task dp =
 			        ))
 
 let get_disk_by_name task path =
-	debug "Storage.get_disk_by_name %s" path;
-	match Re_str.bounded_split (Re_str.regexp "[/]") path 2 with
-		| [ sr; vdi ] -> sr, vdi
+	match Re_str.bounded_split (Re_str.regexp_string "/") path 2 with
+		| [ sr; vdi ] ->
+			info "Processing disk SR=%s VDI=%s" sr vdi;
+			sr, vdi
 		| _ ->
 			error "Failed to parse VDI name %s (expected SR/VDI)" path;
 			raise (Storage_interface.Vdi_does_not_exist path)
