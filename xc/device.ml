@@ -743,13 +743,13 @@ let set_carrier ~xs (x: device) carrier =
 
 let release (task: Xenops_task.t) ~xs (x: device) =
 	debug "Device.Vif.release %s" (string_of_device x);
-	Hotplug.release task ~xs x;
 
 	if !Xenopsd.run_hotplug_scripts then begin
 		let tap = { x with backend = { x.backend with kind = Tap } } in
 		Hotplug.run_hotplug_script x [ "remove" ];
 		Hotplug.run_hotplug_script tap [ "remove" ];
-	end
+	end;
+	Hotplug.release task ~xs x
 
 
 let move ~xs (x: device) bridge =
