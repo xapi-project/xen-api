@@ -187,53 +187,6 @@ let wait_for_connect (task: Xenops_task.t) ~xs (x: device) =
   with Watch.Timeout _ ->
     raise (Device_timeout x)
 
-let losetup = "/sbin/losetup"
-
-(* Create a /dev/loop* device attached to file 'path' *)
-let mount_loopdev_file readonly path =
-        (* 1. Check to see if the path actually looks ok *)
-        begin
-                try
-                        Unix.access path [ Unix.R_OK; Unix.F_OK ]
-                with _ ->
-			raise (Loopdev_error path)
-        end;
-        (* 2. Inefficiently work through the /dev/loop* devices, attempting to g rab one *)
-        let all_loop_devices = List.filter (String.startswith "loop") (Array.to_list (Sys.readdir "/dev/")) in
-        let rec allocate = function
-        | []    -> raise Loopdev_all_busy
-        | x::xs ->
-                let loopdev = "/dev/" ^ x in debug "Checking loop device %s" loopdev;
-		let args = (if readonly then [ "-r" ] else []) @ [ loopdev; path ] in
-		debug "Executing: losetup [ %s ]" (String.concat "; " args);
-		let success = 
-		  try
-		    ignore(Forkhelpers.execute_command_get_output losetup args);
-		    debug "losetup successful";
-		    true
-		  with _ ->
-		    debug "losetup unsuccessful";
-		    false in
-		if success then loopdev else allocate xs
-                in
-        allocate all_loop_devices
-
-
-let umount_loopdev loopdev =
-	ignore(Forkhelpers.execute_command_get_output losetup ["-d"; loopdev])
-
-(* Allocate a loopback device and associate it with this device so that
-   it can be deallocated by the release call. *)
-let mount_loopdev ~xs (x: device) file readonly =
-	let path = get_hotplug_path x ^ "/loop-device" in
-	(* Make sure any previous loop device is gone *)
-	(try umount_loopdev (xs.Xs.read path) with Xs_protocol.Enoent _ -> ());
-	let loopdev = mount_loopdev_file readonly file in
-	debug "Allocated loop device %s" loopdev;
-	debug "xenstore-write %s = %s" path loopdev;
-	xs.Xs.write path loopdev;
-	loopdev
-
 (* Wait for the device to be released by the backend driver (via udev) and
    then deallocate any resources which are registered (in our private bit of
    xenstore) *)
@@ -241,21 +194,6 @@ let release (task:Xenops_task.t) ~xs (x: device) =
 	debug "Hotplug.release: %s" (string_of_device x);
 	wait_for_unplug task ~xs x;
 	let path = get_hotplug_path x in
-	let all = try xs.Xs.directory path with _ -> [] in
-	List.iter (function
-		   | "loop-device" ->
-			let loopdev = xs.Xs.read (path ^ "/loop-device") in
-			debug "Hotplug.release releasing %s" loopdev;
-			umount_loopdev loopdev;
-			xs.Xs.rm (path ^ "/loop-device")
-		   | "hotplug" ->
-			debug "xenstore-rm %s/online" path;
-			xs.Xs.rm (path ^ "/online")
-		   | "" -> () (* XXX? *)
-		   | x ->
-			warn "Warning, deleting unexpected '%s' entry from %s" x path;
-			xs.Xs.rm (path ^ "/" ^ x)
-		  ) all;
 	xs.Xs.rm path
 
 let run_hotplug_script device args =
