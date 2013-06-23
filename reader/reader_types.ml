@@ -1,4 +1,4 @@
-module type Reader = sig
+module type READER = sig
 	type t
 	type id_t
 	type state_t
@@ -9,7 +9,7 @@ module type Reader = sig
 	val read_data: state_t -> t
 end
 
-module MakeReader = functor (R: Reader) -> struct
+module MakeReader = functor (R: READER) -> struct
 	let cached_state = ref None
 
 	let cleanup () =

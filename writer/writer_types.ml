@@ -1,6 +1,6 @@
 open Gnt
 
-module type Writer = sig
+module type WRITER = sig
 	type t
 	type id_t
 	type state_t
@@ -11,7 +11,7 @@ module type Writer = sig
 	val write_data: state_t -> t -> unit
 end
 
-module MakeWriter = functor (W: Writer) -> struct
+module MakeWriter = functor (W: WRITER) -> struct
 	let cached_state = ref None
 
 	let cleanup () =
