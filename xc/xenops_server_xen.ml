@@ -1207,11 +1207,13 @@ module VM = struct
 								Some x -> (match x with HVM hvm_info -> hvm_info.timeoffset | _ -> "")
 							| _ -> "" in
 						({ x with Domain.memory_target = initial_target }, timeoffset) in
+				let no_incr_generationid = false in
 				begin
 					try
+
 						with_data ~xc ~xs task data false
 							(fun fd ->
-								Domain.restore task ~xc ~xs ~store_domid ~console_domid (* XXX progress_callback *) build_info timeoffset domid fd
+								Domain.restore task ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid (* XXX progress_callback *) build_info timeoffset domid fd
 							);
 					with e ->
 						error "VM %s: restore failed: %s" vm.Vm.id (Printexc.to_string e);
