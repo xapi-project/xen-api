@@ -12,10 +12,11 @@
  * GNU Lesser General Public License for more details.
  *)
 
-val send: Unix.file_descr -> Xcp_channel_protocol.t list
-(** [send fd] attempts to send the channel represented by [fd] to a
-    remote process. The act of sending the channel closes it in
-    the local process. *)
+type t =
+  | TCP_proxy of string * int             (** IP, port *)
+  | V4V_proxy of int * int                (** domid, port *)
+  | Unix_sendmsg of int * string * string (** domid, path, token *)
 
-val receive: Xcp_channel_protocol.t list -> Unix.file_descr
-(** [receive protocols] receives a channel from a remote. *)
+val rpc_of_t: t -> Rpc.t
+val t_of_rpc: Rpc.t -> t
+

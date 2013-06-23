@@ -117,32 +117,34 @@ let send proxy_socket =
 
   let token = "token" in
   let protocols =
-    let open Xcp_channel in
+    let open Xcp_channel_protocol in
     [
       TCP_proxy(!ip, port);
       Unix_sendmsg(my_domid, path, token);
     ] in
   let (_: Thread.t) = Thread.create (fun () ->
     let readable, _, _ = Unix.select [ s_ip; s_unix ] [] [] (-1.0) in
-    if List.mem t_unix readable then begin
+    if List.mem s_unix readable then begin
       let fd, peer = Unix.accept s_unix in
       let buffer = String.make (String.length token) '\000' in
-      let n = Unix.recv fd buffer 0 (String.length buffer( [] in
+      let n = Unix.recv fd buffer 0 (String.length buffer) [] in
       let token' = String.sub buffer 0 n in
       if token = token' then begin
-        Fd_send_recv.send_fd fd token 0 (String.length token) [] proxy_socket;
+        let (_: int) = Fd_send_recv.send_fd fd token 0 (String.length token) [] proxy_socket in
+        ()
       end;
       Unix.close fd;
       Unix.close proxy_socket
-    end else if List.mem t_ip then begin
+    end else if List.mem s_ip readable then begin
       let fd, peer = Unix.accept s_ip in
       Unix.close s_ip;
       proxy_and_close fd proxy_socket
     end else assert false (* can never happen *)
-  ) in
+  ) () in
   protocols
 
 let receive protocols =
+  let open Xcp_channel_protocol in
   let weight = function
   | TCP_proxy(_, _) -> 2
   | Unix_sendmsg(domid, _, _) -> if my_domid = domid then 3 else 0
