@@ -15,6 +15,16 @@ exception Invalid_payload
 exception No_update
 exception Read_error
 
+type payload = {
+	timestamp: int64;
+	datasources : (Rrd.ds_owner * Ds.ds) list;
+}
+
+module type PROTOCOL = sig
+	val read_payload : Cstruct.t -> payload
+	val write_payload : Cstruct.t -> payload -> unit
+end
+
 module V1 = struct
 	module Rrdp = Rrdp_common.Common(struct let name = "test_rrd_writer" end)
 
