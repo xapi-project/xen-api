@@ -122,13 +122,12 @@ let get_args () =
 let require xs = List.iter (fun param ->
 	if not(Hashtbl.mem params param)
 	then begin
-	    let msg = sprintf "Internal error; unexpected parameter %s" param in
+	    let msg = sprintf "required parameter %s not defined in table [ %s ]" param (String.concat ", " (Hashtbl.fold (fun k _ acc -> k :: acc) params []))in
 	    error "%s" msg;
 	    failwith msg
 	end else match Hashtbl.find params param with
 	| None ->
-	    let msg = sprintf "This option requires parameters [ %s ]. You missed %s"
-	      (String.concat ", " xs) param in
+	    let msg = sprintf "required parameter %s not provided" param in
 	    error "%s" msg;
 	    failwith msg
 	| Some v -> ()) xs
