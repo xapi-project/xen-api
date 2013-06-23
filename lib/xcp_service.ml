@@ -190,12 +190,12 @@ type res = {
 	perms: Unix.access_permission list
 }
 
-let channel_helper = ref "/usr/bin/xcp_channel_helper"
+let channel_helper = ref "/usr/libexec/xapi/channel_helper"
 
 let default_resources = [
   { name = "channel_helper";
     description = "performs file descriptor passing and general proxying";
-    essential = false;
+    essential = true;
     path = channel_helper;
     perms = [ Unix.X_OK ];
   }

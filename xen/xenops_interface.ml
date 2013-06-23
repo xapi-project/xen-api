@@ -403,7 +403,7 @@ module VM = struct
 	external generate_state_string: debug_info -> Vm.t -> string = ""
 
 	external migrate: debug_info -> Vm.id -> (string * string) list -> (string * Network.t) list -> string -> Task.id = ""
-	external migrate_receive_memory: debug_info -> Vm.id -> int64 -> Xcp_channel.t -> unit = ""
+	external migrate_receive_memory: debug_info -> Vm.id -> int64 -> string -> Xcp_channel.t -> Task.id option = ""
 
 	external create: debug_info -> Vm.id -> Task.id = ""
 	external build: debug_info -> Vm.id -> Task.id = ""
