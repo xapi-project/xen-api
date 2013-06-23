@@ -25,6 +25,28 @@ module type PROTOCOL = sig
 	val write_payload : Cstruct.t -> payload -> unit
 end
 
+module MakeProtocol = functor (P: PROTOCOL) -> struct
+	module Page = struct
+		open Gnt
+
+		let read mapping =
+			let cs = Cstruct.of_bigarray (Gnttab.Local_mapping.to_buf mapping) in
+			P.read_payload cs
+
+		let write share payload =
+			let cs = Cstruct.of_bigarray share.Gntshr.mapping in
+			P.write_payload cs payload
+	end
+
+	module File = struct
+		let read fd =
+			P.read_payload (Unix_cstruct.of_fd fd)
+
+		let write fd payload =
+			P.write_payload (Unix_cstruct.of_fd fd) payload
+	end
+end
+
 module V1 = struct
 	module Rrdp = Rrdp_common.Common(struct let name = "test_rrd_writer" end)
 
