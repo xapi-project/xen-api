@@ -40,10 +40,14 @@ module MakeProtocol = functor (P: PROTOCOL) -> struct
 
 	module File = struct
 		let read fd =
-			P.read_payload (Unix_cstruct.of_fd fd)
+			let buf = Bigarray.(Array1.map_file fd char c_layout false (-1)) in
+			let cs = Cstruct.of_bigarray buf in
+			P.read_payload cs
 
 		let write fd payload =
-			P.write_payload (Unix_cstruct.of_fd fd) payload
+			let buf = Bigarray.(Array1.map_file fd char c_layout true (-1)) in
+			let cs = Cstruct.of_bigarray buf in
+			P.write_payload cs payload
 	end
 end
 
