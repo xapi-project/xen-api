@@ -26,8 +26,6 @@ end
 
 val common_prefix: string
 
-val channel_helper: string ref
-
 type opt = string * Arg.spec * (unit -> string) * string
 
 type res = {

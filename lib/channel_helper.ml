@@ -104,7 +104,7 @@ let advertise_t common_options_t proxy_socket =
 
   let token = "token" in
   let protocols =
-    let open Xcp_channel in
+    let open Xcp_channel_protocol in
     [
       TCP_proxy(!ip, port);
       Unix_sendmsg(my_domid, path, token);
