@@ -1,6 +1,7 @@
 # OASIS_START
-# DO NOT EDIT (digest: 362de7336ca86b99050ae61d139edf48)
+# DO NOT EDIT (digest: 1ce4ec23750268d3a09719409b92bddb)
 Cohttp_posix_io
+Posix_channel
 Open_uri
 Xcp_client
 Xcp_service
