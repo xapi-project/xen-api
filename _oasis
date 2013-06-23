@@ -11,7 +11,7 @@ Library xcp
   CompiledObject:     best
   Path:               lib
   Findlibname:        xcp
-  Modules:            Cohttp_posix_io, Posix_channel, Open_uri, Xcp_client, Xcp_service, Xcp_channel
+  Modules:            Cohttp_posix_io, Posix_channel, Open_uri, Xcp_client, Xcp_service, Xcp_channel, Xcp_channel_protocol
   BuildDepends:       uri, re, cohttp, xmlm, unix, rpclib, rpclib.syntax, rpclib.xml, syslog, threads, message_switch, message_switch.unix, fd-send-recv
 
 Library xcp_storage
