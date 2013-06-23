@@ -97,6 +97,17 @@ let post_handler (req: Http.Request.t) s _ =
 	Xapi_http.with_context ~dummy:true "Querying services" req s
 		(fun __context ->
 			match String.split '/' req.Http.Request.uri with
+				| "" :: services :: "xenops" :: _ when services = _services ->
+					let queue_name =
+						if List.mem_assoc "queue" req.Http.Request.cookie
+						then List.assoc "queue" req.Http.Request.cookie
+						else "org.xen.xcp.xenops.classic" in (* upgrade *)
+					(* over the network we still use XMLRPC *)
+					let request = Http_svr.read_body req (Buf_io.of_fd s) in
+					let request = Jsonrpc.string_of_call (Xmlrpc.call_of_string request) in
+					let response = Xcp_client.switch_rpc queue_name (fun x -> x) (fun x -> x) request in
+					let response = Xmlrpc.string_of_response (Jsonrpc.response_of_string response) in
+					Http_svr.response_str req ~hdrs:[] s response
 				| "" :: services :: "plugin" :: name :: _ when services = _services ->
 					http_proxy_to_plugin req s name
 				| [ ""; services; "SM" ] when services = _services ->
@@ -120,12 +131,28 @@ let put_handler (req: Http.Request.t) s _ =
 		(fun __context ->
 			match String.split '/' req.Http.Request.uri with
 				| "" :: services :: "xenops" :: "memory" :: [ id ] when services = _services ->
+					info "XXX cookie = [ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ ", " ^ v) req.Http.Request.cookie));
 					let open Xapi_xenops_queue in
 					let dbg = Context.string_of_task __context in
-					let instance_id = List.assoc "instance_of" req.Http.Request.cookie in
+					if not(List.mem_assoc "instance_id" req.Http.Request.cookie) then begin
+						error "remote did not include an instance_id cookie.";
+						Http_svr.response_str req ~hdrs:[] s "instance_id cookie is missing.";
+						failwith "remote did not include an instance_id cookie"
+					end;
+					let instance_id = List.assoc "instance_id" req.Http.Request.cookie in
+					info "instance_id ok";
+					if not(List.mem_assoc "memory_limit" req.Http.Request.cookie) then begin
+						error "remote did not include a memory_limit cookie.";
+						Http_svr.response_str req ~hdrs:[] s "memory_limit cookie is missing.";
+						failwith "remote did not include a memory_limit cookie"
+					end;
 					let memory_limit = Int64.of_string (List.assoc "memory_limit" req.Http.Request.cookie) in
+					info "memory_limit ok";
 					let self = Xapi_xenops.vm_of_id ~__context id in
+					info "got self";
 					let queue_name = queue_of_vm ~__context ~self in
+					info "got queue";
+					info "importing VM %s memory image via %s" id queue_name;
 					let module Client = (val (make_client queue_name) : XENOPS) in
 					ignore(Client.VM.migrate_receive_memory dbg id memory_limit instance_id (Xcp_channel.t_of_file_descr s))
 				| "" :: services :: "plugin" :: name :: _ when services = _services ->
