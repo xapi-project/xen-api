@@ -1,0 +1,20 @@
+List of maintainers and how to submit changes
+=============================================
+
+This is an early public release of the rrd2csv.
+
+At the moment we are working hard on improving this early release, to make
+it simple to build, install and test on your own environment. As such things
+are in a state of flux, and we may well find it difficult to take submissions.
+
+If you do wish to submit code, please fork the repository on Github, work on
+your branch and then submit a pull request.
+
+Maintainers List
+----------------
+
+* Felipe Franciosi <felipe.franciosi@citrix.com>
+
+* Jonathan Davies <jonathan.davies@citrix.com>
+
+* Marcus Granado <marcus.granado@citrix.com>

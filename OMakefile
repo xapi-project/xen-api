@@ -1,0 +1,17 @@
+OCAMLPACKS = rrd-client
+
+RRD2CSV = rrd2csv
+RRD2CSV_FILES = rrd2csv
+
+OCamlProgram($(RRD2CSV), $(RRD2CSV_FILES))
+
+.PHONY: install
+install: $(RRD2CSV)
+	mkdir -p $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) $(RRD2CSV) $(DESTDIR)$(OPTDIR)/bin
+
+.PHONY: clean
+clean:
+	rm -f *.cmi *.cmx *.cmo *.a *.cma *.run *.opt *.annot *.o *.orig *.spit *.spot *.omc
+	rm -f $(RRD2CSV)
+
