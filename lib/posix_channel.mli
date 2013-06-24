@@ -14,8 +14,8 @@
 
 val send: Unix.file_descr -> Xcp_channel_protocol.t list
 (** [send fd] attempts to send the channel represented by [fd] to a
-    remote process. The act of sending the channel closes it in
-    the local process. *)
+    remote process. Note the file descriptor remains open in the
+    original process and should still be closed normally.  *)
 
 val receive: Xcp_channel_protocol.t list -> Unix.file_descr
 (** [receive protocols] receives a channel from a remote. *)

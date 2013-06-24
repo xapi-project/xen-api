@@ -52,7 +52,7 @@ module CBuf = struct
     x.len <- x.len + read    
 end
 
-let proxy_and_close (a: Unix.file_descr) (b: Unix.file_descr) =
+let proxy (a: Unix.file_descr) (b: Unix.file_descr) =
   let size = 64 * 1024 in
   (* [a'] is read from [a] and will be written to [b] *)
   (* [b'] is read from [b] and will be written to [a] *)
@@ -81,10 +81,16 @@ let proxy_and_close (a: Unix.file_descr) (b: Unix.file_descr) =
     done
   with _ ->
     (try Unix.clear_nonblock a with _ -> ());
-    (try Unix.clear_nonblock b with _ -> ());
-    (try Unix.close a with _ -> ());
-    (try Unix.close b with _ -> ())
+    (try Unix.clear_nonblock b with _ -> ())
 
+let finally f g =
+  try
+    let result = f () in
+    g ();
+    result
+  with e ->
+    g ();
+    raise e
 
 let file_descr_of_int (x: int) : Unix.file_descr =
   Obj.magic x (* Keep this in sync with ocaml's file_descr type *)
@@ -93,55 +99,75 @@ let ip = ref "127.0.0.1"
 let unix = ref "/tmp"
 
 let send proxy_socket =
+  let to_close = ref [] in
+  let to_unlink = ref [] in
+  finally
+    (fun () ->
+      let s_ip = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
+      to_close := s_ip :: !to_close;
+      Unix.bind s_ip (Unix.ADDR_INET(Unix.inet_addr_of_string !ip, 0));
+      Unix.listen s_ip 5;
+      let port = match Unix.getsockname s_ip with
+      | Unix.ADDR_INET(_, port) -> port
+      | _ -> assert false in
 
-  let s_ip = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
-  Unix.bind s_ip (Unix.ADDR_INET(Unix.inet_addr_of_string !ip, 0));
-  Unix.listen s_ip 5;
-  let port = match Unix.getsockname s_ip with
-  | Unix.ADDR_INET(_, port) -> port
-  | _ -> assert false in
+      let s_unix = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
+      to_close := s_unix :: !to_close;
+      let path = Filename.temp_file "channel" "" in
+      to_unlink := path :: !to_unlink;
+      if Sys.file_exists path then Unix.unlink path;
+      Unix.bind s_unix (Unix.ADDR_UNIX path);
+      Unix.listen s_unix 5;
 
-  let s_unix = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
+      let token = "token" in
+      let protocols =
+      let open Xcp_channel_protocol in
+      [
+        TCP_proxy(!ip, port);
+        Unix_sendmsg(my_domid, path, token);
+      ] in
 
-  let path = Filename.temp_file "channel" "" in
-  if Sys.file_exists path then Unix.unlink path;
-  Unix.bind s_unix (Unix.ADDR_UNIX path);
-  List.iter (fun signal ->
-    Sys.set_signal signal (Sys.Signal_handle (fun _ ->
-      Unix.unlink path;
-      exit 1
-    ))
-  ) [ Sys.sigterm; Sys.sigint ];
+      (* We need to hang onto a copy of the proxy_socket so we can
+         run a proxy in a background thread, allowing the caller to
+         close their copy. *)
+      let proxy_socket = Unix.dup proxy_socket in
+      to_close := proxy_socket :: !to_close;
 
-  Unix.listen s_unix 5;
-
-  let token = "token" in
-  let protocols =
-    let open Xcp_channel_protocol in
-    [
-      TCP_proxy(!ip, port);
-      Unix_sendmsg(my_domid, path, token);
-    ] in
-  let (_: Thread.t) = Thread.create (fun () ->
-    let readable, _, _ = Unix.select [ s_ip; s_unix ] [] [] (-1.0) in
-    if List.mem s_unix readable then begin
-      let fd, peer = Unix.accept s_unix in
-      let buffer = String.make (String.length token) '\000' in
-      let n = Unix.recv fd buffer 0 (String.length buffer) [] in
-      let token' = String.sub buffer 0 n in
-      if token = token' then begin
-        let (_: int) = Fd_send_recv.send_fd fd token 0 (String.length token) [] proxy_socket in
-        ()
-      end;
-      Unix.close fd;
-      Unix.close proxy_socket
-    end else if List.mem s_ip readable then begin
-      let fd, peer = Unix.accept s_ip in
-      Unix.close s_ip;
-      proxy_and_close fd proxy_socket
-    end else assert false (* can never happen *)
-  ) () in
-  protocols
+      let (_: Thread.t) = Thread.create (fun (fds, paths) ->
+        (* The thread takes over management of the listening sockets *)
+        let to_close = ref fds in
+        let to_unlink = ref paths in
+        finally
+          (fun () -> 
+            let readable, _, _ = Unix.select [ s_ip; s_unix ] [] [] (-1.0) in
+            if List.mem s_unix readable then begin
+              let fd, peer = Unix.accept s_unix in
+              to_close := fd :: !to_close;
+              let buffer = String.make (String.length token) '\000' in
+              let n = Unix.recv fd buffer 0 (String.length buffer) [] in
+              let token' = String.sub buffer 0 n in
+              if token = token' then begin
+                let (_: int) = Fd_send_recv.send_fd fd token 0 (String.length token) [] proxy_socket in
+                ()
+              end
+            end else if List.mem s_ip readable then begin
+              let fd, peer = Unix.accept s_ip in
+              to_close := fd :: !to_close;
+              proxy fd proxy_socket
+            end else assert false (* can never happen *)
+         ) (fun () ->
+           List.iter Unix.close !to_close;
+           List.iter Unix.unlink !to_unlink;
+         )
+      ) (!to_close, !to_unlink) in
+      (* Handover of listening sockets successful *)
+      to_close := [];
+      to_unlink := [];
+      protocols
+    ) (fun () ->
+      List.iter Unix.close !to_close;
+      List.iter Unix.unlink !to_unlink;
+    )
 
 let receive protocols =
   let open Xcp_channel_protocol in
