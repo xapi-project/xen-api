@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-let vif_script = ref "/usr/lib/xcp/scripts/vif"
+let vif_script = ref "/usr/lib/xcp/scripts/vif-xl"
 let vbd_script = ref "/etc/xen/scripts/block"
 
 let pci_flr_script = ref "/usr/lib/xcp/lib/pci-flr"
