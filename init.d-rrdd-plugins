@@ -1,0 +1,125 @@
+#! /bin/bash
+#
+# xcp-rrdd     Start/Stop the XCP RRD daemon
+#
+# chkconfig: 2345 18 82
+# description: XCP RRD daemon plugins
+
+# Source function library.
+. /etc/init.d/functions
+
+# names
+NAME="xcp-rrdd-plugins"
+FULL_NAME="the XCP RRDD daemon plugins"
+
+# Loading active plugins (define $PLUGINS)
+if [ -f /etc/sysconfig/xcp-rrdd-plugins ]; then
+  . /etc/sysconfig/xcp-rrdd-plugins
+fi
+
+# executable command:
+#CMD_PREFIX="@LIBEXECDIR@/${NAME}/"
+CMD_PREFIX="/opt/xensource/libexec/${NAME}/"
+
+# pidfile:
+PID_PREFIX="/var/run/"
+
+# lock file
+SUBSYS_PREFIX="/var/lock/subsys/"
+
+start() {
+	WORST_RETVAL=0
+	for NAME in ${PLUGINS}; do
+		local PID_FILE=${PID_PREFIX}${NAME}".pid"
+		local SUBSYS_FILE=${SUBSYS_PREFIX}${NAME}
+		local CMD=${CMD_PREFIX}${NAME}
+
+		echo -n $"Starting XCP RRDD plugin ${NAME}: "
+		
+		if [ -e ${SUBSYS_FILE} ]; then
+			if [ -e ${PID_FILE} ] && [ -e /proc/`cat ${PID_FILE}` ]; then
+				echo -n $"cannot start ${NAME}: already running."
+				failure $"cannot start ${NAME}: already running."
+				echo
+				WORST_RETVAL=1
+				continue
+			fi
+		fi
+		
+    	# Enable backtraces
+		export OCAMLRUNPARAM="b"
+
+		${CMD} -daemon -pidfile ${PID_FILE} >/dev/null 2>&1 </dev/null
+
+		MAX_RETRIES=30
+		RETRY=0
+		SUCCESS=0
+		while [ ${RETRY} -lt ${MAX_RETRIES} ]; do
+			PID=$(cat ${PID_FILE} 2>/dev/null)
+			kill -0 ${PID} 2> /dev/null
+			if [ $? -eq 0 ]; then
+				touch ${SUBSYS_FILE}
+				SUCCESS=1
+				success
+				echo
+				break
+			fi
+			sleep 1
+			echo -n .
+			RETRY=$(( ${RETRY} + 1 ))
+		done
+		if [ ${SUCCESS} -eq 1 ]; then
+			continue
+		fi
+		echo -n $"failed to start ${NAME}."
+		failure $"failed to start ${NAME}."
+		killproc ${NAME}
+		rm -f ${SUBSYS_FILE} ${PID_FILE}
+		echo
+	done
+	return $WORST_RETVAL
+}
+
+stop() {
+	WORST_RETVAL=0
+	for NAME in ${PLUGINS}; do
+		echo -n $"Stopping XCP RRDD plugin ${NAME}: "
+		
+		if [ ! -e ${SUBSYS_FILE} ]; then
+			echo -n $"cannot stop ${NAME}: daemon is not running."
+			failure $"cannot stop ${NAME}: daemon is not running."
+			echo
+			continue
+		fi
+		
+		killproc ${NAME}
+		RETVAL=$?
+		echo
+		[ $RETVAL -eq 0 ] && rm -f ${SUBSYS_FILE} ${PID_FILE}
+
+		if [ $RETVAL -ne 0 ]; then
+			WORST_RETVAL=$RETVAL
+		fi
+	done
+	return $WORST_RETVAL
+}
+
+restart() {
+	stop
+	start
+}
+
+case "$1" in
+	start)
+		start
+		;;
+	stop)
+		stop
+		;;
+	restart)
+		restart
+		;;
+	*)
+		echo $"Usage: $0 {start|stop|restart}"
+		exit 1
+esac

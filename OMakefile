@@ -1,0 +1,86 @@
+IPROG=install -m 755
+IDATA=install -m 644
+
+OCAMLDEP_MODULES_ENABLED = false
+
+USE_OCAMLFIND = true
+
+OCAMLFLAGS = -g -dtypes -thread -warn-error +a-4-6-9-27-28-29
+
+if $(not $(defined-env DESTDIR))
+  DESTDIR = 
+  export
+if $(not $(defined-env ETCDIR))
+  ETCDIR=/etc/xensource
+  export
+if $(not $(defined-env OPTDIR))
+  OPTDIR=/opt/xensource
+  export
+if $(not $(defined-env LIBEXECDIR))
+  LIBEXECDIR=/opt/xensource/libexec
+  export
+if $(not $(defined-env SHAREDIR))
+  SHAREDIR=/opt/xensource
+  export
+if $(not $(defined-env WEBDIR))
+  WEBDIR=/opt/xensource/www
+  export
+if $(not $(defined-env BINDIR))
+  BINDIR=/opt/xensource/bin
+  export
+if $(not $(defined-env SBINDIR))
+  SBINDIR=/opt/xensource/bin
+  export
+
+CLEAN_OBJS = *.cmi *.cmo *.cmx *.cma *.cmxa *.annot *.run *.opt *.o *.a *.cmt *.cmti *.omc *.spec
+export CLEAN_OBJS
+
+PRODUCT_VERSION=$(getenv PRODUCT_VERSION, unknown)
+PRODUCT_BRAND=$(getenv PRODUCT_BRAND, unknown)
+BUILD_NUMBER=$(getenv BUILD_NUMBER, -1)
+export
+
+OCAMLPACKS = str xenctrl xenstore-watch rrd-client
+
+RRDP_DUMMY = rrdp_dummy
+RRDP_DUMMY_FILES = \
+	rrdp_common \
+	rrdp_dummy
+RRDP_IOSTAT = rrdp_iostat
+RRDP_IOSTAT_FILES = \
+	rrdp_common \
+	rrdp_iostat
+RRDP_XENPM = rrdp_xenpm
+RRDP_XENPM_FILES = \
+	rrdp_common \
+	rrdp_xenpm
+RRDP_SQUEEZED = rrdp_squeezed
+RRDP_SQUEEZED_FILES = \
+	rrdp_common \
+	rrdp_squeezed
+
+# OCamlProgram($(RRDP_DUMMY), $(RRDP_DUMMY_FILES))
+OCamlProgram($(RRDP_IOSTAT), $(RRDP_IOSTAT_FILES))
+OCamlProgram($(RRDP_SQUEEZED), $(RRDP_SQUEEZED_FILES))
+OCamlProgram($(RRDP_XENPM), $(RRDP_XENPM_FILES))
+
+.PHONY: install
+install: $(RRDP_IOSTAT) $(RRDP_XENPM) $(RRDP_SQUEEZED)
+	mkdir -p $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/
+	# $(IPROG) $(RRDP_DUMMY) $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/
+	$(IPROG) $(RRDP_IOSTAT) $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-iostat
+	$(IPROG) $(RRDP_SQUEEZED) $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-squeezed
+	$(IPROG) $(RRDP_XENPM) $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-xenpm
+	mkdir -p $(DESTDIR)$(ETCDIR)/bugtool/xcp-rrdd-plugins
+	$(IDATA) bugtool-plugin/rrdd-plugins.xml $(DESTDIR)$(ETCDIR)/bugtool/xcp-rrdd-plugins.xml
+	$(IDATA) bugtool-plugin/rrdd-plugins/stuff.xml $(DESTDIR)$(ETCDIR)/bugtool/xcp-rrdd-plugins/
+	mkdir -p $(DESTDIR)/etc/init.d
+	mkdir -p $(DESTDIR)/etc/rc.d/init.d
+	install -m 755 init.d-rrdd-plugins $(DESTDIR)/etc/rc.d/init.d/xcp-rrdd-plugins
+	mkdir -p $(DESTDIR)/etc/sysconfig
+	install -m 755 sysconfig-rrdd-plugins $(DESTDIR)/etc/sysconfig/xcp-rrdd-plugins
+
+.PHONY: clean
+clean:
+	rm -f *.cmi *.cmx *.cmo *.a *.cma *.run *.opt *.annot *.o *.orig *.spit *.spot *.omc
+	rm -f $(RRDP_DUMMY) $(RRDP_IOSTAT) $(RRDP_XENPM) $(RRDP_SQUEEZED)
