@@ -1800,9 +1800,9 @@ module VM = struct
 					video_memkb;
 					shadow_memkb;
 					rtc_timeoffset = 0l;
-					device_model_version = Xenlight.DEVICE_MODEL_VERSION_QEMU_XEN_TRADITIONAL;
-					device_model_stubdomain = None;
-					device_model = Some "/usr/lib/xen/bin/qemu-dm";
+					device_model_version = Xenlight.DEVICE_MODEL_VERSION_QEMU_XEN;
+					(* device_model_stubdomain = None; *)
+					(* device_model = Some "/usr/lib/xen/bin/qemu-system-i386"; *)
 					extra = [];
 					extra_pv = [];
 					extra_hvm = [];
