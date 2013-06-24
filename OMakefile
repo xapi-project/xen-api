@@ -1,3 +1,49 @@
+SCRIPTS=$(shell pwd)/scripts
+IPROG=install -m 755
+IDATA=install -m 644
+
+OCAMLDEP_MODULES_ENABLED = false
+
+USE_OCAMLFIND = true
+
+OCAMLFLAGS = -g -dtypes -thread -warn-error +a-4-6-9-27-28-29
+
+if $(not $(defined-env DESTDIR))
+  DESTDIR = 
+  export
+if $(not $(defined-env ETCDIR))
+  ETCDIR=/etc/xensource
+  export
+if $(not $(defined-env OPTDIR))
+  OPTDIR=/opt/xensource
+  export
+if $(not $(defined-env LIBEXECDIR))
+  LIBEXECDIR=/opt/xensource/libexec
+  export
+if $(not $(defined-env SHAREDIR))
+  SHAREDIR=/opt/xensource
+  export
+if $(not $(defined-env WEBDIR))
+  WEBDIR=/opt/xensource/www
+  export
+if $(not $(defined-env BINDIR))
+  BINDIR=/opt/xensource/bin
+  export
+if $(not $(defined-env SBINDIR))
+  SBINDIR=/opt/xensource/bin
+  export
+
+CLEAN_OBJS = *.cmi *.cmo *.cmx *.cma *.cmxa *.annot *.run *.opt *.o *.a *.cmt *.cmti *.omc *.spec
+export CLEAN_OBJS
+
+PRODUCT_VERSION=$(getenv PRODUCT_VERSION, unknown)
+PRODUCT_BRAND=$(getenv PRODUCT_BRAND, unknown)
+BUILD_NUMBER=$(getenv BUILD_NUMBER, -1)
+export
+
+#.SUBDIRS: rrd2csv rrdd-plugins scripts doc
+#export
+
 OCAMLPACKS = rrd-client
 
 RRD2CSV = rrd2csv
@@ -6,9 +52,11 @@ RRD2CSV_FILES = rrd2csv
 OCamlProgram($(RRD2CSV), $(RRD2CSV_FILES))
 
 .PHONY: install
-install: $(RRD2CSV)
+install: $(RRD2CSV) $(RRD2CSV).1.man
 	mkdir -p $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) $(RRD2CSV) $(DESTDIR)$(OPTDIR)/bin
+	mkdir -p $(DESTDIR)/$(OPTDIR)/man/man1
+	$(IDATA) $(RRD2CSV).1.man $(DESTDIR)/$(OPTDIR)/man/man1/
 
 .PHONY: clean
 clean:
