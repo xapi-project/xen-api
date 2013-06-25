@@ -32,6 +32,8 @@ let set_sockets_dir x =
 
 let uri () = "file:" ^ !default_path
 
+type plugin_protocol = | V1 | V2
+
 (* The interface is defined by extern function declarations. *)
 
 external has_vm_rrd : vm_uuid:string -> bool = ""
@@ -64,6 +66,22 @@ external unset_cache_sr : unit -> unit = ""
 module Plugin = struct
 	external get_header : unit -> string = ""
 	external get_path : uid:string -> string = ""
+
+	module Local = struct
+		external register : uid:string -> info:Rrd.sampling_frequency ->
+			protocol:plugin_protocol -> float = ""
+		external deregister : uid:string -> unit = ""
+		external next_reading : uid:string -> float = ""
+	end
+
+	module Interdomain = struct
+		external register : uid:(string * int) ->
+			info:(Rrd.sampling_frequency * int list) ->
+			protocol:plugin_protocol -> float = ""
+		external deregister : uid:(string * int) -> unit = ""
+		external next_reading : uid:(string * int) -> float = ""
+	end
+
 	external register : uid:string -> frequency:Rrd.sampling_frequency ->
 		float = ""
 	external deregister : uid:string -> unit = ""
