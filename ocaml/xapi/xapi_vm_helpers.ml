@@ -767,6 +767,23 @@ let assert_can_be_recovered ~__context ~self ~session_to =
 		raise (Api_errors.Server_error(Api_errors.vm_requires_sr,
 			[Ref.string_of self; Ref.string_of sr]))
 
+let required_list_of_SRs ~__context ~self ~session_to =
+	let required_SR_list = list_required_SRs ~__context ~self in
+	try
+		Server_helpers.exec_with_new_task ~session_id:session_to
+			"Looking for the required SRs"
+				(fun __context_to -> List.filter
+					( fun sr_ref ->
+							let pbds = Db.SR.get_PBDs ~__context:__context_to ~self:sr_ref in
+							let attached_pbds = List.filter
+								(fun pbd -> Db.PBD.get_currently_attached ~__context:__context_to ~self:pbd)
+								pbds
+							in
+							 if attached_pbds = [] then true else false
+					)
+					required_SR_list)
+	with e -> raise e;;
+
 (* BIOS strings *)
 
 let copy_bios_strings ~__context ~vm ~host =

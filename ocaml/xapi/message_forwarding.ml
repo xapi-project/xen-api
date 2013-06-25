@@ -1942,6 +1942,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			info "VM.assert_can_be_recovered: self = '%s';" (vm_uuid ~__context self);
 			Local.VM.assert_can_be_recovered ~__context ~self ~session_to
 
+		let required_list_of_SRs ~__context ~self ~session_to =
+			info "VM.required_list_of_SRs: self = '%s';" (vm_uuid ~__context self);
+			Local.VM.required_list_of_SRs ~__context ~self ~session_to
+
 		let recover ~__context ~self ~session_to ~force =
 			info "VM.recover: self = '%s'; force = %b;" (vm_uuid ~__context self) force;
 			(* If a VM is part of an appliance, the appliance *)
