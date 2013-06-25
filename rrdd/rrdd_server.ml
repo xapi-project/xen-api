@@ -428,7 +428,7 @@ module Plugin = struct
 		val string_of_uid: uid:uid -> string
 		(* Given a plugin uid, open a handle which can be used to read
 		 * a plugin's data. *)
-		val open_handle: uid:uid -> handle
+		val open_handle: uid:uid -> info:info -> handle
 		(* Read a checksum and a payload string from an open handle to a plugin's data. *)
 		val read_data: uid:uid -> handle:handle -> (string * string)
 	end
@@ -448,6 +448,19 @@ module Plugin = struct
 			end;
 			Hashtbl.replace last_read_checksum uid checksum
 
+		(* A map storing currently registered plugins, and any data required to
+		 * process the plugins. *)
+		let registered: (P.uid, P.info) Hashtbl.t = Hashtbl.create 20
+
+		(* The mutex that protects the list of registered plugins against race
+		 * conditions and data corruption. *)
+		let registered_m = Mutex.create ()
+
+		(* Helper function to find plugin info from a uid. *)
+		let find ~(uid: P.uid) : P.info =
+			Mutex.execute registered_m
+				(fun () -> Hashtbl.find registered uid)
+
 		(* A cache of open handles to plugin data. *)
 		let open_handles : (P.uid, P.handle) Hashtbl.t = Hashtbl.create 10
 
@@ -457,9 +470,10 @@ module Plugin = struct
 		(* A function that opens handles using the above cache. *)
 		let get_handle ~(uid: P.uid) : P.handle =
 			Mutex.execute open_handles_m (fun () ->
+				let info = find uid in
 				try Hashtbl.find open_handles uid
 				with Not_found ->
-					let handle = P.open_handle uid in
+					let handle = P.open_handle uid info in
 					Hashtbl.add open_handles uid handle;
 					handle)
 
@@ -478,14 +492,6 @@ module Plugin = struct
 				| Invalid_header_string | Invalid_length | Invalid_checksum
 				| No_update as e -> raise e
 				| _ -> raise Read_error
-
-		(* A map storing currently registered plugins, and any data required to
-		 * process the plugins. *)
-		let registered: (P.uid, P.info) Hashtbl.t = Hashtbl.create 20
-
-		(* The mutex that protects the list of registered plugins against race
-		 * conditions and data corruption. *)
-		let registered_m = Mutex.create ()
 
 		(* Returns the number of seconds until the next reading phase for the
 		 * sampling frequency given at registration by the plugin with the specified
@@ -534,7 +540,7 @@ module Plugin = struct
 
 		let string_of_uid ~(uid: string) = uid
 
-		let open_handle ~(uid: string) : Unix.file_descr =
+		let open_handle ~(uid: string) ~(info: Rrd.sampling_frequency) : Unix.file_descr =
 			let path = get_path () ~uid in
 			Unix.openfile path [Unix.O_RDONLY] 0
 
@@ -564,7 +570,7 @@ module Plugin = struct
 		let string_of_uid ~(uid: (string * int)) : string =
 			Printf.sprintf "%s:domid%d" (fst uid) (snd uid)
 
-		let open_handle ~(uid: (string * int)) : Gnttab.Local_mapping.t = failwith "Not implemented"
+		let open_handle ~(uid: (string * int)) ~(info: (Rrd.sampling_frequency * int list)) : Gnttab.Local_mapping.t = failwith "Not implemented"
 
 		let read_data ~(uid: (string * int)) ~(handle: Gnttab.Local_mapping.t) = failwith "Not implemented"
 	end)
