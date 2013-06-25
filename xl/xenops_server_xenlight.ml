@@ -1715,6 +1715,7 @@ module VM = struct
 								b_info_hvm_default
 							| _ -> failwith "Expected HVM build_info here!"
 						in
+						let console_path = Printf.sprintf "unix:%s/%s" !Xl_path.vnc_dir vm.Vm.id in
 						{ b_info_default with
 							ty = Hvm { b_info_hvm_default with
 								pae = Some true;
@@ -1723,7 +1724,7 @@ module VM = struct
 								nx = Some true;
 								timeoffset = Some hvm_info.Xenops_interface.Vm.timeoffset;
 								nested_hvm = Some true;
-								vnc = Xenlight.Vnc_info.({enable = Some true; listen = None; passwd = None; display = 0; findunused = None});
+								vnc = Xenlight.Vnc_info.({enable = Some true; listen = Some console_path; passwd = None; display = 0; findunused = None});
 								keymap = hvm_info.Xenops_interface.Vm.keymap;
 								serial = hvm_info.Xenops_interface.Vm.serial;
 								boot = Some hvm_info.Xenops_interface.Vm.boot_order;
@@ -1826,8 +1827,11 @@ module VM = struct
 					match restore_fd with
 					| None ->
 						debug "Calling Xenlight.domain_create_new";
+						(try
 					(*	with_ctx (fun ctx -> Xenlight_events.async (Xenlight.Domain.create_new ctx domain_config))*)
 						Mutex.execute Xenlight_events.xl_m (fun () -> with_ctx (fun ctx -> Xenlight.Domain.create_new ctx domain_config ()))
+						with e ->
+							exit 1)
 					| Some fd ->
 						debug "Calling Xenlight.domain_create_restore";
 						with_ctx (fun ctx -> Xenlight_events.async (Xenlight.Domain.create_restore ctx domain_config fd))
@@ -2081,6 +2085,11 @@ module VM = struct
 						let hvm = di.domain_type = Xenlight.DOMAIN_TYPE_HVM in
 						let vnc = Opt.map (fun port -> { Vm.protocol = Vm.Rfb; port = port; path = "" })
 							(Device.get_vnc_port ~xs di.domid) in
+						(* Using the upstream qemu we access the console over a Unix domain socket *)
+						let qemu_unix_vnc =
+							if hvm
+							then [ { Vm.protocol = Vm.Rfb; port = 0; path = Filename.concat !Xl_path.vnc_dir (Uuidm.to_string uuid) } ]
+							else [] in
 						let tc = Opt.map (fun port -> { Vm.protocol = Vm.Vt100; port = port; path = "" })
 							(Device.get_tc_port ~xs di.domid) in
 						let local x = Printf.sprintf "/local/domain/%d/%s" di.domid x in
@@ -2120,7 +2129,7 @@ module VM = struct
 						{
 							Vm.power_state = if di.paused then Paused else Running;
 							domids = [ di.domid ];
-							consoles = Opt.to_list vnc @ (Opt.to_list tc);
+							consoles = Opt.to_list vnc @ (Opt.to_list tc) @ qemu_unix_vnc;
 							uncooperative_balloon_driver = uncooperative;
 							guest_agent = guest_agent;
 							xsdata_state = xsdata_state;

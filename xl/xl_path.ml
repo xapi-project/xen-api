@@ -28,6 +28,7 @@ let setup_vif_rules = ref "/usr/lib/xcp/lib/setup-vif-rules"
 let hvmloader = ref "/usr/lib/xen-4.1/boot/hvmloader"
 let pygrub = ref "/usr/lib/xen-4.1/bin/pygrub"
 let eliloader = ref "/usr/bin/eliloader"
+let vnc_dir = ref ""
 
 open Unix
 
