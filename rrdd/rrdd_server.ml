@@ -614,7 +614,7 @@ module Plugin = struct
 
 	(* Read, parse, and combine metrics from all registered plugins. *)
 	let read_stats () : (Rrd.ds_owner * Ds.ds) list =
-		Local.read_stats ()
+		List.rev_append (Local.read_stats ()) (Interdomain.read_stats ())
 end
 
 module HA = struct
