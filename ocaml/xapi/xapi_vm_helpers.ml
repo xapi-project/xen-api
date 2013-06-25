@@ -558,7 +558,9 @@ guest can run on the host. *)
 let vm_can_run_on_host __context vm snapshot do_memory_check host =
 	let host_has_proper_version () =
 		if Helpers.rolling_upgrade_in_progress ~__context
-		then Helpers.host_has_highest_version_in_pool ~__context ~host:host
+		then
+			Helpers.host_has_highest_version_in_pool
+				~__context ~host:(Helpers.LocalObject host)
 		else true in
 	let host_enabled () = Db.Host.get_enabled ~__context ~self:host in
 	let host_live () =

@@ -1614,7 +1614,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			then begin
 				let source_host = Db.VM.get_resident_on ~__context ~self:vm in
 				Helpers.assert_host_versions_not_decreasing
-					~__context ~host_from:source_host ~host_to:host ;
+					~__context
+					~host_from:(Helpers.LocalObject source_host)
+					~host_to:(Helpers.LocalObject host);
 			end;
 			let local_fn = Local.VM.pool_migrate ~vm ~host ~options in
 

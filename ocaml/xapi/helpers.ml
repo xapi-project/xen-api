@@ -146,6 +146,11 @@ let make_remote_rpc remote_address xml =
 	let http = xmlrpc ~version:"1.0" "/" in
 	XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"remote_xapi" ~transport ~http xml
 
+(* Helper type for an object which may or may not be in the local database. *)
+type 'a api_object =
+	| LocalObject of 'a Ref.t
+	| RemoteObject of ((Rpc.call -> Rpc.response) * API.ref_session * ('a Ref.t))
+
 (** Log into pool master using the client code, call a function
     passing it the rpc function and session id, logout when finished. *)
 let call_api_functions ~__context f =
@@ -484,21 +489,25 @@ let compare_int_lists : int list -> int list -> int =
 		let first_non_zero is = List.fold_left (fun a b -> if (a<>0) then a else b) 0 is in
 		first_non_zero (List.map2 compare a b)
 
-let version_string_of : __context:Context.t -> API.ref_host -> string =
+let version_string_of : __context:Context.t -> [`host] api_object -> string =
 	fun ~__context host ->
 		try
-			List.assoc Xapi_globs._platform_version
-				(Db.Host.get_software_version ~__context ~self:host)
+			let software_version = match host with
+			| LocalObject host_ref -> (Db.Host.get_software_version ~__context ~self:host_ref)
+			| RemoteObject (rpc, session_id, host_ref) ->
+				Client.Client.Host.get_software_version ~rpc ~session_id ~self:host_ref
+			in
+			List.assoc Xapi_globs._platform_version software_version
 		with Not_found ->
 			Xapi_globs.default_platform_version
 
-let version_of : __context:Context.t -> API.ref_host -> int list =
+let version_of : __context:Context.t -> [`host] api_object -> int list =
 	fun ~__context host ->
 		let vs = version_string_of ~__context host
 		in List.map int_of_string (String.split '.' vs)
 
 (* Compares host versions, analogous to Pervasives.compare. *)
-let compare_host_platform_versions : __context:Context.t -> API.ref_host -> API.ref_host -> int =
+let compare_host_platform_versions : __context:Context.t -> [`host] api_object -> [`host] api_object -> int =
 	fun ~__context host_a host_b ->
 		let version_of = version_of ~__context in
 		compare_int_lists (version_of host_a) (version_of host_b)
@@ -506,7 +515,7 @@ let compare_host_platform_versions : __context:Context.t -> API.ref_host -> API.
 let max_version_in_pool : __context:Context.t -> int list =
 	fun ~__context ->
 		let max_version a b = if a = [] then b else if (compare_int_lists a b) > 0 then a else b
-		and versions = List.map (version_of ~__context) (Db.Host.get_all ~__context) in
+		and versions = List.map (fun host_ref -> version_of ~__context (LocalObject host_ref)) (Db.Host.get_all ~__context) in
 		List.fold_left max_version [] versions
 
 let rec string_of_int_list : int list -> string = function
@@ -516,7 +525,7 @@ let rec string_of_int_list : int list -> string = function
 			then string_of_int x
 			else string_of_int x ^ "." ^ string_of_int_list xs
 
-let host_has_highest_version_in_pool : __context:Context.t -> host:API.ref_host -> bool =
+let host_has_highest_version_in_pool : __context:Context.t -> host:[`host] api_object -> bool =
 	fun ~__context ~host ->
 		let host_version = version_of ~__context host
 		and max_version = max_version_in_pool ~__context in
@@ -529,7 +538,7 @@ let is_platform_version_same_on_master ~__context ~host =
 	if is_pool_master ~__context ~host then true else
 	let pool = get_pool ~__context in
 	let master = Db.Pool.get_master ~__context ~self:pool in
-	compare_host_platform_versions ~__context master host = 0
+	compare_host_platform_versions ~__context (LocalObject master) (LocalObject host) = 0
 
 let assert_platform_version_is_same_on_master ~__context ~host ~self =
 	if not (is_platform_version_same_on_master ~__context ~host) then
@@ -547,18 +556,18 @@ let assert_rolling_upgrade_not_in_progress : __context:Context.t -> unit =
 
 let assert_host_has_highest_version_in_pool : __context:Context.t -> host:API.ref_host -> unit =
 	fun ~__context ~host ->
-		if not (host_has_highest_version_in_pool ~__context ~host:host) then
+		if not (host_has_highest_version_in_pool ~__context ~host:(LocalObject host)) then
 			raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []))
 
 let assert_host_versions_not_decreasing :
-		__context:Context.t -> host_from:API.ref_host -> host_to:API.ref_host -> unit =
+	__context:Context.t -> host_from:[`host] api_object -> host_to:[`host] api_object -> unit =
 	fun ~__context ~host_from ~host_to ->
 		if not (host_versions_not_decreasing ~__context ~host_from ~host_to) then
 			raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []))
 
 let pool_has_different_host_platform_versions ~__context =
 	let all_hosts = Db.Host.get_all ~__context in
-	let platform_versions = List.map (fun host -> version_string_of ~__context host) all_hosts in
+	let platform_versions = List.map (fun host -> version_string_of ~__context (LocalObject host)) all_hosts in
 	let is_different_to_me platform_version = platform_version <> Version.platform_version in
 	List.fold_left (||) false (List.map is_different_to_me platform_versions)
 

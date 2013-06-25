@@ -191,13 +191,16 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
 	   migrate VMs to hosts that have the same or higher version as
 	   the source host. So as long as host versions aren't decreasing,
 	   we're allowed to migrate VMs between hosts. *)
-	debug "evacuating host version: %s" (Helpers.version_string_of ~__context host) ;
+	debug "evacuating host version: %s"
+		(Helpers.version_string_of ~__context (Helpers.LocalObject host));
 	let target_hosts = List.filter
 		(fun target ->
 			debug "host %s version: %s"
 				(Db.Host.get_hostname ~__context ~self:target)
-				(Helpers.version_string_of ~__context target) ;
-			Helpers.host_versions_not_decreasing ~__context ~host_from:host ~host_to:target)
+				(Helpers.version_string_of ~__context (Helpers.LocalObject target)) ;
+			Helpers.host_versions_not_decreasing ~__context
+				~host_from:(Helpers.LocalObject host)
+				~host_to:(Helpers.LocalObject target))
 		target_hosts
 	in
 	debug "evacuation target hosts are [%s]"
