@@ -1717,7 +1717,6 @@ module VM = struct
 						in
 						{ b_info_default with
 							ty = Hvm { b_info_hvm_default with
-								bios = Xenlight.BIOS_TYPE_ROMBIOS;
 								pae = Some true;
 								apic = Some true;
 								acpi = Some hvm_info.Xenops_interface.Vm.acpi;
