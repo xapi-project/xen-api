@@ -275,8 +275,8 @@ case $NETWORK_MODE in
     bridge|openvswitch) ;;
     vswitch) NETWORK_MODE=openvswitch ;;
     *)
-        logger -t scripts-vif "Unknown network mode $NETWORK_MODE"
-        exit 1
+        logger -t scripts-vif "Unknown network mode $NETWORK_MODE: switching to bridge"
+	NETWORK_MODE=bridge
         ;;
 esac
 
