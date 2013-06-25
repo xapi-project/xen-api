@@ -238,8 +238,7 @@ let validate_memory ~__context ~snapshot:vm_record =
 			raise (Api_errors.Server_error (Api_errors.memory_constraint_violation, []))
 
 let validate_shadow_multiplier ~hVM_shadow_multiplier =
-	if hVM_shadow_multiplier < 1.
-	then invalid_value "HVM_shadow_multiplier" (string_of_float hVM_shadow_multiplier)
+	hVM_shadow_multiplier >= 1.
 
 let validate_actions_after_crash ~__context ~self ~value =
 	let fld = "VM.actions_after_crash" in
@@ -259,8 +258,11 @@ let validate_basic_parameters ~__context ~self ~snapshot:x =
 		~vCPUs_max:x.API.vM_VCPUs_max
 		~vCPUs_at_startup:x.API.vM_VCPUs_at_startup;
 	validate_memory ~__context ~snapshot:x;
-	validate_shadow_multiplier
-		~hVM_shadow_multiplier:x.API.vM_HVM_shadow_multiplier;
+	if not(validate_shadow_multiplier
+		~hVM_shadow_multiplier:x.API.vM_HVM_shadow_multiplier) then begin
+		warn "requested shadow_multiplier value (%.4f) is invalid (< 1.0): resetting" x.API.vM_HVM_shadow_multiplier;
+		Db.VM.set_HVM_shadow_multiplier ~__context ~self ~value:1.
+	end;
 	validate_actions_after_crash ~__context ~self ~value:x.API.vM_actions_after_crash
 
 
