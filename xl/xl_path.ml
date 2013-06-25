@@ -34,7 +34,7 @@ open Unix
 
 let essentials = [
 	X_OK, "vbd-script", vbd_script, "path to the vbd backend script";
-	X_OK, "vif-script", vif_script, "path to the vif backend script";
+	X_OK, "vif-xl-script", vif_script, "path to the vif-xl backend script";
 	X_OK, "vncterm", vncterm, "path to the vncterm binary";
 	X_OK, "xenguest", xenguest, "path to the xenguest binary";
 	X_OK, "tune2fs", tune2fs, "path to the tune2fs binary";
