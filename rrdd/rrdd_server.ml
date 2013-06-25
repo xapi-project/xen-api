@@ -592,7 +592,18 @@ module Plugin = struct
 					| Some mapping -> mapping
 					| None -> raise Read_error)
 
-		let read_data ~(uid: (string * int)) ~(handle: Gnttab.Local_mapping.t) = failwith "Not implemented"
+		let read_data ~(uid: (string * int)) ~(handle: Gnttab.Local_mapping.t) =
+			let buf = Gnttab.Local_mapping.to_buf handle in
+			let cs = Cstruct.of_bigarray buf in
+			if Cstruct.copy cs 0 header_bytes <> header then
+				raise Invalid_header_string;
+			let length =
+				let length_str = String.rtrim (Cstruct.copy cs header_bytes length_bytes) in
+				try int_of_string ("0x" ^ length_str) with _ -> raise Invalid_length
+			in
+			let checksum = String.rtrim (Cstruct.copy cs (header_bytes + length_bytes) checksum_bytes) in
+			let payload_string = Cstruct.copy cs (header_bytes + length_bytes + checksum_bytes) length in
+			checksum, payload_string
 	end)
 
 	(* Kept for backwards compatibility. *)
