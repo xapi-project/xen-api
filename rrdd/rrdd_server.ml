@@ -302,6 +302,14 @@ module Plugin = struct
 	let length_bytes = 8 (* hex length of payload *) + 1 (* newline char *)
 	let checksum_bytes = 32 (* hex length of checksum *) + 1 (* newline char *)
 
+	(* The function that tells the plugin what to write at the top of its output
+	 * file. *)
+	let get_header _ () : string = header
+
+	(* The function that a plugin can use to determine which file to write to. *)
+	let get_path _ ~(uid : string) : string =
+		Filename.concat base_path uid
+
 	(* Cache of open file handles to files written by plugins. *)
 	let open_files : (string, Unix.file_descr) Hashtbl.t = Hashtbl.create 10
 
@@ -419,6 +427,130 @@ module Plugin = struct
 			{timestamp; datasources = List.map ds_of_rpc datasource_rpcs}
 		with _ -> log_backtrace (); raise Invalid_payload
 
+	module type PLUGIN = sig
+		(* A type to uniquely identify a plugin. *)
+		type uid
+		(* Other information needed to describe this type of plugin. *)
+		type info
+		(* An open handle to the data shared by this type of plugin. *)
+		type handle
+
+		(* Create a string representation of a plugin's uid. *)
+		val string_of_uid: uid:uid -> string
+		(* Given a plugin uid, open a handle which can be used to read
+		 * a plugin's data. *)
+		val open_handle: uid:uid -> handle
+		(* Read a checksum and a payload string from an open handle to a plugin's data. *)
+		val read_data: uid:uid -> handle:handle -> (string * string)
+	end
+
+	module Make = functor(P: PLUGIN) -> struct
+		(* A map storing the last read checksum of the data written by each plugin. *)
+		let last_read_checksum : (P.uid, string) Hashtbl.t =
+			Hashtbl.create 20
+
+		(* Throw No_update exception if previous checksum is the same as the current
+		 * one for this plugin. Otherwise, replace previous with current.*)
+		let verify_checksum_freshness ~(uid: P.uid) ~(checksum: string) : unit =
+			begin
+				try
+					if checksum = Hashtbl.find last_read_checksum uid then raise No_update
+				with Not_found -> ()
+			end;
+			Hashtbl.replace last_read_checksum uid checksum
+
+		(* A cache of open handles to plugin data. *)
+		let open_handles : (P.uid, P.handle) Hashtbl.t = Hashtbl.create 10
+
+		(* A mutex to protect the above cache. *)
+		let open_handles_m = Mutex.create ()
+
+		(* A function that opens handles using the above cache. *)
+		let get_handle ~(uid: P.uid) : P.handle =
+			Mutex.execute open_handles_m (fun () ->
+				try Hashtbl.find open_handles uid
+				with Not_found ->
+					let handle = P.open_handle uid in
+					Hashtbl.add open_handles uid handle;
+					handle)
+
+		let get_payload ~(uid: P.uid) : payload =
+			try
+				let handle = get_handle ~uid in
+				let checksum, payload_string = P.read_data ~uid ~handle in
+				if payload_string |> Digest.string |> Digest.to_hex <> checksum then
+					raise Invalid_checksum;
+				verify_checksum_freshness ~uid ~checksum;
+				parse_payload ~json:payload_string
+			with e ->
+				error "Failed to process plugin: %s" (P.string_of_uid uid);
+				log_backtrace ();
+				match e with
+				| Invalid_header_string | Invalid_length | Invalid_checksum
+				| No_update as e -> raise e
+				| _ -> raise Read_error
+
+		(* A map storing currently registered plugins, and any data required to
+		 * process the plugins. *)
+		let registered: (P.uid, P.info) Hashtbl.t = Hashtbl.create 20
+
+		(* The mutex that protects the list of registered plugins against race
+		 * conditions and data corruption. *)
+		let registered_m = Mutex.create ()
+
+		(* Returns the number of seconds until the next reading phase for the
+		 * sampling frequency given at registration by the plugin with the specified
+		 * unique ID. If the plugin is not registered, -1 is returned. *)
+		let next_reading _ ~(uid: P.uid) : float =
+			let open Rrdd_shared in
+			if Mutex.execute registered_m (fun _ -> Hashtbl.mem registered uid)
+			then Mutex.execute last_loop_end_time_m (fun _ ->
+				!last_loop_end_time +. !timeslice -. (Unix.gettimeofday ())
+			)
+			else -1.
+
+		(* The function registers a plugin, and returns the number of seconds until
+		 * the next reading phase for the specified sampling frequency. *)
+		let register _ ~(uid: P.uid) ~(info: P.info) : float =
+			Mutex.execute registered_m (fun _ ->
+				if not (Hashtbl.mem registered uid) then
+					Hashtbl.add registered uid info
+			);
+			next_reading ~uid ()
+
+		(* The function deregisters a plugin. After this call, the framework will
+		 * process its output at most once more. *)
+		let deregister _ ~(uid: P.uid) : unit =
+			Mutex.execute registered_m (fun _ ->
+				Hashtbl.remove registered uid
+			)
+	end
+
+	module Local = Make(struct
+		type uid = string
+		type info = Rrd.sampling_frequency
+		type handle = Unix.file_descr
+
+		let string_of_uid ~(uid: string) = uid
+
+		let open_handle ~(uid: string) : Unix.file_descr =
+			let path = get_path () ~uid in
+			Unix.openfile path [Unix.O_RDONLY] 0
+
+		let read_data ~(uid: string) ~(handle: Unix.file_descr) : (string * string) =
+			if Unix.lseek handle 0 Unix.SEEK_SET <> 0 then
+				raise Read_error;
+			if read_string ~fd:handle ~length:header_bytes <> header then
+				raise Invalid_header_string;
+			let length =
+				let length_str = String.rtrim (read_string ~fd:handle ~length:length_bytes) in
+				try int_of_string ("0x" ^ length_str) with _ -> raise Invalid_length
+			in
+			let checksum = String.rtrim (read_string ~fd:handle ~length:checksum_bytes) in
+			let payload_string = read_string ~fd:handle ~length in
+			checksum, payload_string
+	end)
+
 	(* A map storing the last read checksum of the file written by each plugin. *)
 	let last_read_checksum : (string, string) Hashtbl.t =
 		Hashtbl.create 20
@@ -461,14 +593,6 @@ module Plugin = struct
 			| Invalid_header_string | Invalid_length | Invalid_checksum
 			| No_update as e -> raise e
 			| _ -> raise Read_error
-
-	(* The function that tells the plugin what to write at the top of its output
-	 * file. *)
-	let get_header _ () : string = header
-
-	(* The function that a plugin can use to determine which file to write to. *)
-	let get_path _ ~(uid : string) : string =
-		Filename.concat base_path uid
 
 	(* A map storing currently registered plugins, and their sampling
 	 * frequencies. *)
