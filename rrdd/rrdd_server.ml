@@ -416,6 +416,18 @@ module Plugin = struct
 			{timestamp; datasources = List.map ds_of_rpc datasource_rpcs}
 		with _ -> log_backtrace (); raise Invalid_payload
 
+	let with_gnttab f =
+		let open Gnt in
+		let gnttab = Gnttab.interface_open () in
+		let result = try
+			f gnttab
+		with e ->
+			Gnttab.interface_close gnttab;
+			raise e
+		in
+		Gnttab.interface_close gnttab;
+		result
+
 	module type PLUGIN = sig
 		(* A type to uniquely identify a plugin. *)
 		type uid
@@ -570,7 +582,15 @@ module Plugin = struct
 		let string_of_uid ~(uid: (string * int)) : string =
 			Printf.sprintf "%s:domid%d" (fst uid) (snd uid)
 
-		let open_handle ~(uid: (string * int)) ~(info: (Rrd.sampling_frequency * int list)) : Gnttab.Local_mapping.t = failwith "Not implemented"
+		let open_handle ~(uid: (string * int)) ~(info: (Rrd.sampling_frequency * int list)) : Gnttab.Local_mapping.t =
+			with_gnttab
+				(fun gnttab ->
+					let grants = List.map
+						(fun grant_ref -> {Gnttab.domid = snd uid; ref = Int32.of_int grant_ref |> grant_table_index_of_int32})
+						(snd info) in
+					match Gnttab.mapv gnttab grants false with
+					| Some mapping -> mapping
+					| None -> raise Read_error)
 
 		let read_data ~(uid: (string * int)) ~(handle: Gnttab.Local_mapping.t) = failwith "Not implemented"
 	end)
