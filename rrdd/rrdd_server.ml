@@ -551,6 +551,23 @@ module Plugin = struct
 			checksum, payload_string
 	end)
 
+	module Interdomain = Make(struct
+		open Gnt
+
+		(* name, frontend domid *)
+		type uid = (string * int)
+		(* sampling frequency, list of grant refs *)
+		type info = (Rrd.sampling_frequency * int list)
+		type handle = Gnttab.Local_mapping.t
+
+		let string_of_uid ~(uid: (string * int)) : string =
+			Printf.sprintf "%s:domid%d" (fst uid) (snd uid)
+
+		let open_handle ~(uid: (string * int)) : Gnttab.Local_mapping.t = failwith "Not implemented"
+
+		let read_data ~(uid: (string * int)) ~(handle: Gnttab.Local_mapping.t) = failwith "Not implemented"
+	end)
+
 	(* A map storing the last read checksum of the file written by each plugin. *)
 	let last_read_checksum : (string, string) Hashtbl.t =
 		Hashtbl.create 20
