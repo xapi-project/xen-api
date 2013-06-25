@@ -524,6 +524,18 @@ module Plugin = struct
 			Mutex.execute registered_m (fun _ ->
 				Hashtbl.remove registered uid
 			)
+
+		(* Read, parse, and combine metrics from all registered plugins. *)
+		let read_stats () : (Rrd.ds_owner * Ds.ds) list =
+			let uids =
+				Mutex.execute registered_m (fun _ -> Hashtblext.fold_keys registered) in
+			let process_plugin acc uid =
+				try
+					let payload = get_payload uid in
+					List.rev_append payload.datasources acc
+				with _ -> acc
+			in
+			List.fold_left process_plugin [] uids
 	end
 
 	module Local = Make(struct
@@ -620,45 +632,15 @@ module Plugin = struct
 	 * conditions and data corruption. *)
 	let registered_m : Mutex.t = Mutex.create ()
 
-	(* Returns the number of seconds until the next reading phase for the
-	 * sampling frequency given at registration by the plugin with the specified
-	 * unique ID. If the plugin is not registered, -1 is returned. *)
-	let next_reading _ ~(uid : string) : float =
-		let open Rrdd_shared in
-		if Mutex.execute registered_m (fun _ -> Hashtbl.mem registered uid)
-		then Mutex.execute last_loop_end_time_m (fun _ ->
-			!last_loop_end_time +. !timeslice -. (Unix.gettimeofday ())
-		)
-		else -1.
-
-	(* The function registers a plugin, and returns the number of seconds until
-	 * the next reading phase for the specified sampling frequency. *)
-	let register _ ~(uid : string) ~(frequency : Rrd.sampling_frequency)
-			: float =
-		Mutex.execute registered_m (fun _ ->
-			if not (Hashtbl.mem registered uid) then
-				Hashtbl.add registered uid frequency
-		);
-		next_reading ~uid ()
-
-	(* The function deregisters a plugin. After this call, the framework will
-	 * process its output file at most once more. *)
-	let deregister _ ~(uid : string) : unit =
-		Mutex.execute registered_m (fun _ ->
-			Hashtbl.remove registered uid
-		)
+	(* Kept for backwards compatibility. *)
+	let next_reading = Local.next_reading
+	let register _ ~(uid: string) ~(frequency: Rrd.sampling_frequency) =
+		Local.register () ~uid ~info:frequency
+	let deregister = Local.deregister
 
 	(* Read, parse, and combine metrics from all registered plugins. *)
 	let read_stats () : (Rrd.ds_owner * Ds.ds) list =
-		let uids =
-			Mutex.execute registered_m (fun _ -> Hashtblext.fold_keys registered) in
-		let process_plugin acc uid =
-			try
-				let payload = read_file uid in
-				List.rev_append payload.datasources acc
-			with _ -> acc
-		in
-		List.fold_left process_plugin [] uids
+		Local.read_stats ()
 end
 
 module HA = struct
