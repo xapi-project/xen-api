@@ -131,7 +131,7 @@ def parallel_clean_shutdown(session, vms):
         if tasks == []:
             return 0
 
-        if not(wait_for_tasks(session, map(lambda x:x[0], tasks), 60)):
+        if not(wait_for_tasks(session, map(lambda x:x[0], tasks), 600)):
             # Cancel any remaining tasks.
             for (task,_,record) in tasks:
                 try:
