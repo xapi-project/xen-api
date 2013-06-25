@@ -310,17 +310,6 @@ module Plugin = struct
 	let get_path _ ~(uid : string) : string =
 		Filename.concat base_path uid
 
-	(* Cache of open file handles to files written by plugins. *)
-	let open_files : (string, Unix.file_descr) Hashtbl.t = Hashtbl.create 10
-
-	(* A function that opens files using the above cache. *)
-	let open_file ~(path : string) : Unix.file_descr =
-		try Hashtbl.find open_files path
-		with Not_found ->
-			let fd = Unix.openfile path [Unix.O_RDONLY] 0 in
-			Hashtbl.add open_files path fd;
-			fd
-
 	(* A function that reads using Unixext.really_read a string of specified
 	 * length from the specified file. *)
 	let read_string ~(fd : Unix.file_descr) ~(length : int) : string =
@@ -579,58 +568,6 @@ module Plugin = struct
 
 		let read_data ~(uid: (string * int)) ~(handle: Gnttab.Local_mapping.t) = failwith "Not implemented"
 	end)
-
-	(* A map storing the last read checksum of the file written by each plugin. *)
-	let last_read_checksum : (string, string) Hashtbl.t =
-		Hashtbl.create 20
-
-	(* Throw No_update exception if previous checksum is the same as the current
-	 * one for this plugin. Otherwise, replace previous with current.*)
-	let verify_checksum_freshness ~(uid : string) ~(checksum : string) : unit =
-		begin
-			try
-				if checksum = Hashtbl.find last_read_checksum uid then raise No_update
-			with Not_found -> ()
-		end;
-		Hashtbl.replace last_read_checksum uid checksum
-
-	(* The function that reads the file that corresponds to the plugin with the
-	 * specified uid, and returns the contents of the file in terms of the
-	 * payload type, or throws an exception. *)
-	let read_file (uid : string) : payload =
-		try
-			let path = Filename.concat base_path uid in
-			let fd = open_file ~path in
-			if Unix.lseek fd 0 Unix.SEEK_SET <> 0 then
-				raise Read_error;
-			if read_string ~fd ~length:header_bytes <> header then
-				raise Invalid_header_string;
-			let length =
-				let length_str = String.rtrim (read_string ~fd ~length:length_bytes) in
-				try int_of_string ("0x" ^ length_str) with _ -> raise Invalid_length
-			in
-			let checksum = String.rtrim (read_string ~fd ~length:checksum_bytes) in
-			let payload = read_string ~fd ~length in
-			if payload |> Digest.string |> Digest.to_hex <> checksum then
-				raise Invalid_checksum;
-			verify_checksum_freshness ~uid ~checksum;
-			parse_payload ~json:payload
-		with e ->
-			error "Failed to process plugin: %s (%s)" uid (Printexc.to_string e);
-			log_backtrace ();
-			match e with
-			| Invalid_header_string | Invalid_length | Invalid_checksum
-			| No_update as e -> raise e
-			| _ -> raise Read_error
-
-	(* A map storing currently registered plugins, and their sampling
-	 * frequencies. *)
-	let registered : (string, Rrd.sampling_frequency) Hashtbl.t =
-		Hashtbl.create 20
-
-	(* The mutex that protects the list of registered plugins against race
-	 * conditions and data corruption. *)
-	let registered_m : Mutex.t = Mutex.create ()
 
 	(* Kept for backwards compatibility. *)
 	let next_reading = Local.next_reading
