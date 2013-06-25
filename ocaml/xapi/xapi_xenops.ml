@@ -1866,11 +1866,10 @@ let start ~__context ~self paused =
 							Xapi_network.with_networks_attached_for_vm ~__context ~vm:self
 								(fun () ->
 									info "xenops: VM.start %s" id;
-									Client.VM.start dbg id |> sync_with_task __context;
-									if not paused then begin
-										info "xenops: VM.unpause %s" id;
-										Client.VM.unpause dbg id |> sync __context;
-									end;
+									let vm_start = Client.VM.start dbg id in
+									let vm_unpause = Client.VM.unpause dbg id in
+									sync_with_task __context vm_start;
+									sync_with_task __context vm_unpause;
 								)
 						with e ->
 							let dbg = Context.string_of_task __context in
