@@ -237,6 +237,19 @@ let signal_networking_change () =
 		(fun () -> XenAPI.Host.signal_networking_change xapi_rpc session)
 		(fun () -> XenAPI.Session.local_logout xapi_rpc session)
 
+(* Remove all outstanding reads on a file descriptor *)
+let clear_input fd =
+	let buf = String.make 255 ' ' in
+	let rec loop () =
+		try
+			ignore (Unix.read fd buf 0 255);
+			loop ()
+		with _ -> ()
+	in
+	Unix.set_nonblock fd;
+	loop ();
+	Unix.clear_nonblock fd
+
 let ip_watcher () =
 	let cmd = Network_utils.iproute2 in
 	let args = ["monitor"; "address"] in
@@ -249,8 +262,13 @@ let ip_watcher () =
 	debug "Started IP watcher thread";
 	let rec loop () =
 		let line = input_line in_channel in
-		(* Do not send events for link-local IPv6 addresses *)
-		if String.has_substr line "inet" && not (String.has_substr line "inet6 fe80") then begin
+		(* Do not send events for link-local IPv6 addresses, and removed IPs *)
+		if String.has_substr line "inet" && not (String.has_substr line "inet6 fe80") &&
+			not (String.has_substr line "Deleted") then begin
+			(* Ignore changes for the next second, since they usually come in bursts,
+			 * and signal only once. *)
+			Thread.delay 1.;
+			clear_input readme;
 			signal_networking_change ()
 		end;
 		loop ()
