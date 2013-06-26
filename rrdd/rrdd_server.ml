@@ -441,6 +441,8 @@ module Plugin = struct
 		(* Given a plugin uid, open a handle which can be used to read
 		 * a plugin's data. *)
 		val open_handle: uid:uid -> info:info -> handle
+		(* Clean up once we no longer need to read data from the plugin. *)
+		val close_handle: handle:handle -> unit
 		(* Read a checksum and a payload string from an open handle to a plugin's data. *)
 		val read_data: uid:uid -> handle:handle -> (string * string)
 	end
@@ -528,9 +530,15 @@ module Plugin = struct
 		(* The function deregisters a plugin. After this call, the framework will
 		 * process its output at most once more. *)
 		let deregister _ ~(uid: P.uid) : unit =
-			Mutex.execute registered_m (fun _ ->
-				Hashtbl.remove registered uid
-			)
+			Mutex.execute registered_m
+				(fun _ -> Hashtbl.remove registered uid);
+			Mutex.execute open_handles_m
+				(fun _ ->
+					if Hashtbl.mem open_handles uid then begin
+						let handle = Hashtbl.find open_handles uid in
+						Hashtbl.remove open_handles uid;
+						P.close_handle handle
+					end)
 
 		(* Read, parse, and combine metrics from all registered plugins. *)
 		let read_stats () : (Rrd.ds_owner * Ds.ds) list =
@@ -555,6 +563,8 @@ module Plugin = struct
 		let open_handle ~(uid: string) ~(info: Rrd.sampling_frequency) : Unix.file_descr =
 			let path = get_path () ~uid in
 			Unix.openfile path [Unix.O_RDONLY] 0
+
+		let close_handle ~(handle: Unix.file_descr) = Unix.close handle
 
 		let read_data ~(uid: string) ~(handle: Unix.file_descr) : (string * string) =
 			if Unix.lseek handle 0 Unix.SEEK_SET <> 0 then
@@ -591,6 +601,9 @@ module Plugin = struct
 					match Gnttab.mapv gnttab grants false with
 					| Some mapping -> mapping
 					| None -> raise Read_error)
+
+		let close_handle ~(handle: Gnttab.Local_mapping.t) =
+			with_gnttab (fun gnttab -> Gnttab.unmap_exn gnttab handle)
 
 		let read_data ~(uid: (string * int)) ~(handle: Gnttab.Local_mapping.t) =
 			let buf = Gnttab.Local_mapping.to_buf handle in
