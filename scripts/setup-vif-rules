@@ -37,13 +37,13 @@ ofctl = "ovs-ofctl"
 
 ip = "/sbin/ip"
 
-def get_host_network_mode(name):
-    i = common.Interface(name)
+def get_host_network_mode(domuuid, devid):
+    i = common.Interface(domuuid, devid)
     v = i.get_vif()
     return v.get_mode()
 
-def get_locking_config(name):
-    i = common.Interface(name)
+def get_locking_config(domuuid, devid):
+    i = common.Interface(domuuid, devid)
     v = i.get_vif()
     return v.get_locking_mode()
 
@@ -115,15 +115,14 @@ def acquire_lock(path):
             send_to_syslog("failed to acquire lock %s because '%s' - waiting 1 second" % (path, e))
             time.sleep(1)
 
-def handle_bridge(vif_type, domid, devid, action):
+def handle_bridge(vif_name, domuuid, devid, action):
     if (action == "clear") or (action == "filter"):
         # ebtables fails if called concurrently, so acquire a lock before starting to call it.
         ebtables_lock_file = acquire_lock(ebtables_lock_path)
-        vif_name = "%s%s.%s" % (vif_type, domid, devid)
         ip_link_set(vif_name, "down")
         clear_bridge_rules(vif_name)
         if action == "filter":
-            config = get_locking_config(vif_name)
+            config = get_locking_config(domuuid, devid)
             locking_mode = config["locking_mode"]
             if locking_mode == "locked":
                 create_bridge_rules(vif_name, config)
@@ -195,15 +194,14 @@ def create_vswitch_rules(bridge_name, port, config):
     # Drop everything else.
     add_flow(bridge_name, "in_port=%s,priority=4000,idle_timeout=0,action=drop" % port)
 
-def handle_vswitch(vif_type, domid, devid, action):
+def handle_vswitch(vif_name, domuuid, devid, action):
     if (action == "clear") or (action == "filter"):
         bridge_name = "xenbr%s" % devid
-        vif_name = "%s%s.%s" % (vif_type, domid, devid)
         ip_link_set(vif_name, "down")
         port = get_vswitch_port(vif_name)
         clear_vswitch_rules(bridge_name, port)
         if action == "filter":
-            config = get_locking_config(vif_name)
+            config = get_locking_config(domuuid, devid)
             locking_mode = config["locking_mode"]
             if locking_mode == "locked":
                 create_vswitch_rules(bridge_name, port, config)
@@ -216,31 +214,34 @@ def handle_vswitch(vif_type, domid, devid, action):
 # Executable entry point.
 ###############################################################################
 
-def main(vif_type, domid, devid, network_mode, action):
+def main(vif_name, domuuid, devid, network_mode, action):
     if network_mode == "bridge":
-        handle_bridge(vif_type, domid, devid, action)
+        handle_bridge(vif_name, domuuid, devid, action)
     elif network_mode == "openvswitch":
-        handle_vswitch(vif_type, domid, devid, action)
+        handle_vswitch(vif_name, domuuid, devid, action)
 
 def usage():
     print "Usage:"
-    print "%s xenopsd_backend vif_type domid devid action" % short_command_name
+    print "%s xenopsd_backend interface uuid devid action" % short_command_name
     print ""
-    print "vif_type: [vif|tap]"
-    print "    The type of the vif for which rules will be created."
+    print "interface:"
+    print "    The name of the network interface connecting to the guest."
+    print "uuid:"
+    print "    The UUID of the guest."
+    print "devid:"
+    print "    The number of the network to which the interface is connected."
     print "action: [clear|filter]"
-    print "    Specifies whether to create filtering rules for the vif, or to clear all rules associated with the vif."
+    print "    Specifies whether to create filtering rules for the interface, or to clear all rules associated with the interface."
 
 if __name__ == "__main__":
     if len(sys.argv) != 6:
         usage()
         sys.exit(1)
     else:
-        xenopsd_backend, vif_type, domid, devid, action = sys.argv[1:6]
+        xenopsd_backend, vif_name, domuuid, devid, action = sys.argv[1:6]
         common.set_xenopsd_backend(xenopsd_backend)
-        vif_name = "%s%s.%s" % (vif_type, domid, devid)
-        network_mode = get_host_network_mode (vif_name)
+        network_mode = get_host_network_mode (domuuid, devid)
 
-        send_to_syslog("Called with vif_type=%s, domid=%s, devid=%s, network_mode=%s, action=%s" %
-            (vif_type, domid, devid, network_mode, action))
-        main(vif_type, domid, devid, network_mode, action)
+        send_to_syslog("Called with interface=%s, uuid=%s, devid=%s, network_mode=%s, action=%s" %
+            (vif_name, domuuid, devid, network_mode, action))
+        main(vif_name, domuuid, devid, network_mode, action)

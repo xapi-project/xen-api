@@ -1145,13 +1145,15 @@ module VIF = struct
 		let mac = Scanf.sscanf vif.mac "%02x:%02x:%02x:%02x:%02x:%02x" (fun a b c d e f -> [| a; b; c; d; e; f|]) in
 		let bridge = bridge_of_vif vif.backend in
 		let script = !Xl_path.vif_script in
-		let nictype = Xenlight.NIC_TYPE_VIF in
+		let nictype = if vif.position < 4 then Xenlight.NIC_TYPE_VIF_IOEMU else Xenlight.NIC_TYPE_VIF in
 
 		let locking_mode = xenstore_of_locking_mode vif.locking_mode in
 		let id = _device_id Device_common.Vif, id_of vif in
 		let extra_private_keys =
 			List.map (fun (k, v) -> "other-config/" ^ k, v) vif.other_config @
 			(if mtu > 0 then [ "MTU", string_of_int mtu ] else []) @
+			[ "xenopsd-backend", "xenlight" ] @
+			[ "setup-vif-rules", !Xl_path.setup_vif_rules ] @
 			(id :: vif.extra_private_keys @ locking_mode)
 		in
 		(* write private XS keys *)

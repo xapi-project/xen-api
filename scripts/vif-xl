@@ -149,7 +149,8 @@ add_to_bridge()
     ${IP} link set "${dev}" down                        || logger -t scripts-vif "Failed to ip link set ${dev} down"
     ${IP} link set "${dev}" arp off                     || logger -t scripts-vif "Failed to ip link set ${dev} arp off"
     ${IP} link set "${dev}" multicast off               || logger -t scripts-vif "Failed to ip link set ${dev} multicast off"
-    ${IP} link set "${dev}" address "${address}"        || logger -t scripts-vif "Failed to ip link set ${dev} address ${address}"
+    # This fails on VIFs but succeeds on taps, causing the bridge to be confused:
+    #${IP} link set "${dev}" address "${address}"        || logger -t scripts-vif "Failed to ip link set ${dev} address ${address}"
     ${IP} addr flush "${dev}"                           || logger -t scripts-vif "Failed to ip addr flush ${dev}"
 
     case $NETWORK_MODE in
@@ -167,13 +168,13 @@ add_to_bridge()
     esac
 
     local setup_vif_rules=$(xenstore-read "${PRIVATE}/setup-vif-rules" 2>/dev/null)
-    $setup_vif_rules $XENOPSD_BACKEND $TYPE $DOMID $DEVID filter         || logger -t scripts-vif "Failed to setup-vif-rules $TYPE $DOMID $DEVID filter"
+    $setup_vif_rules $XENOPSD_BACKEND ${dev} $DOMUUID $DEVID filter         || logger -t scripts-vif "Failed to setup-vif-rules $XENOPSD_BACKEND ${dev} $DOMUUID $DEVID filter"
 }
 
 remove_from_bridge()
 {
     local setup_vif_rules=$(xenstore-read "${PRIVATE}/setup-vif-rules" 2>/dev/null)
-    $setup_vif_rules $XENOPSD_BACKEND $TYPE $DOMID $DEVID clear          || logger -t scripts-vif "Failed to setup-vif-rules $TYPE $DOMID $DEVID clear"
+    $setup_vif_rules $XENOPSD_BACKEND ${dev} $DOMUUID $DEVID clear          || logger -t scripts-vif "Failed to setup-vif-rules $XENOPSD_BACKEND ${dev} $DOMUUID $DEVID clear"
 
     case $NETWORK_MODE in
     bridge)
@@ -250,8 +251,9 @@ case ${TYPE} in
         ;;
     tap)
         dev=$INTERFACE
-        DOMID=`echo ${dev#tap} | cut -f 1 -d '.'`
-        DEVID=`echo ${dev#tap} | cut -f 2 -d '.'`
+        # typical value: vif13.0-emu
+        DOMID=`echo ${dev#vif} | cut -d '-' -f 1 | cut -f 1 -d '.'`
+        DEVID=`echo ${dev#vif} | cut -d '-' -f 1 | cut -f 2 -d '.'`
         ;;
     *)  
         logger -t scripts-vif "unknown interface type ${TYPE}"

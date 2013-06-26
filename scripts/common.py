@@ -209,17 +209,12 @@ class VIF:
         return results
 
 class Interface:
-    def __init__(self, name):
-        self.name = name
-        f = open("%s/interface/%s" % (xenops_path, name))
-        try:
-            self.json = json.loads(f.read())
-        finally:
-            f.close()
+    def __init__(self, uuid, devid):
+        self.uuid = uuid
+	self.devid = int(devid)
+	self.vif = VIF(uuid, int(devid))
     def get_vif(self):
-        vm_uuid, devid = self.json["vif"]
-        devid = int(devid)
-        return VIF(vm_uuid, devid)
+        return self.vif
     def online(self):
         v = self.get_vif()
         mode = v.get_mode()
