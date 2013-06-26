@@ -1,3 +1,6 @@
+0.9.12 (26-Jun-2013):
+* libxl: emulated NICs are working
+
 0.9.9 (25-Jun-2013):
 * libxl: VM shutdown is more reliable
 * libxl: VM consoles work
