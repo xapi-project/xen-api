@@ -1651,6 +1651,10 @@ module VM = struct
 	let build ?restore_fd task vm vbds vifs =
 		let memory_upper_bound = None in
 		let k = vm.Vm.id in
+
+                (* We should prevent leaking files in our filesystem *)
+                let kernel_to_cleanup = ref None in
+		finally (fun () ->
 		with_xc_and_xs (fun xc xs ->
 			let persistent, non_persistent =
 				match DB.read k with
@@ -1757,12 +1761,24 @@ module VM = struct
 							| { ty = Pv b_info_pv_default } -> b_info_pv_default
 							| _ -> failwith "Expected PV build_info here!"
 						in
-						{ b_info_default with
-							ty = Pv { b_info_pv_default with
-								bootloader = Some i.Xenops_interface.Vm.bootloader;
-								bootloader_args = (*i.bootloader_args :: i.legacy_args :: i.extra_args ::*) [];
-							}
-						}
+						(* We can't use libxl's builtin support for a bootloader because it
+						   doesn't understand the convention used by eliloader. *)
+                                                with_disk ~xc ~xs task d false
+                                                        (fun dev ->
+                                                                let b = Bootloader.extract task
+									~bootloader:i.Xenops_interface.Vm.bootloader 
+                                                                        ~legacy_args:i.legacy_args ~extra_args:i.extra_args
+                                                                        ~pv_bootloader_args:i.Xenops_interface.Vm.bootloader_args 
+                                                                        ~disk:dev ~vm:vm.Vm.id () in
+                                                                kernel_to_cleanup := Some b;
+								{ b_info_default with
+									ty = Pv { b_info_pv_default with
+										kernel = Some b.Bootloader.kernel_path;
+										cmdline = Some b.Bootloader.kernel_args;
+										ramdisk = b.Bootloader.initrd_path
+									}
+								}
+							);
 				in
 				let k = vm.Vm.id in
 				let d = DB.read_exn vm.Vm.id in
@@ -1888,6 +1904,7 @@ module VM = struct
 					| _ -> ());
 			)
 		)
+		) (fun () -> Opt.iter Bootloader.delete !kernel_to_cleanup)
 
 	let request_shutdown task vm reason ack_delay =
 		on_domain
