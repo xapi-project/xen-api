@@ -767,13 +767,12 @@ let assert_can_be_recovered ~__context ~self ~session_to =
 		raise (Api_errors.Server_error(Api_errors.vm_requires_sr,
 			[Ref.string_of self; Ref.string_of sr]))
 
-let required_list_of_SRs ~__context ~self ~session_to =
+let get_SRs_required_for_recovery ~__context ~self ~session_to =
 	let required_SR_list = list_required_SRs ~__context ~self in
 	let required_SR_uuids = List.map( fun sr ->Db.SR.get_uuid ~__context ~self:sr) required_SR_list
 	in
 	try
 		let sr_uuids_list=
-			debug "AKSHAY";
 		Server_helpers.exec_with_new_task ~session_id:session_to
 			"Looking for the required SRs"
 				(fun __context_to ->  List.filter
@@ -792,11 +791,6 @@ let required_list_of_SRs ~__context ~self ~session_to =
 				in
 				List.map(fun sr -> Db.SR.get_by_uuid ~__context ~uuid:sr)sr_uuids_list
 	with e -> raise e;;
-				(*(*Finally pass a reference of the SRs*)
-				List.map(fun sr-> Db.SR.get_by_uuid ~__context ~uuid:sr_uuid)required_SR_uuids
-	with Db_exn.Read_missing_uuid(_ , _ , sr_uuid) ->
-		(*Add that SR to the required_SR_list*)
-		List.map(fun sr -> Db.SR.get_by_uuid ~__context ~uuid:sr_uuid)required_SR_uuids*)
 
 
 (* BIOS strings *)

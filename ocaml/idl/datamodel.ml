@@ -2224,14 +2224,14 @@ let vm_assert_can_be_recovered = call
   ~allowed_roles:_R_READ_ONLY
   ()
 
-let vm_required_list_of_SRs = call
-	~name:"required_list_of_SRs"
+let vm_get_SRs_required_for_recovery = call
+	~name:"get_SRs_required_for_recovery"
 	~in_product_since:rel_clearwater
 	~doc:"List all the SR's that are required for the VM to be recovered"
 	~params:[Ref _vm , "self" , "The VM for which the SRs have to be recovered";
 					Ref _session , "session_to" , "The session to which the SRs of the VM have to be recovered."]
 	~result:(Set(Ref _sr),"refs for SRs required to recover the VM")
-	~errs:[Api_errors.vm_requires_sr]
+	~errs:[]
 	~allowed_roles:_R_READ_ONLY
 	()
 
@@ -6707,7 +6707,7 @@ let vm =
 		vm_set_order;
 		vm_set_suspend_VDI;
 		vm_assert_can_be_recovered;
-		vm_required_list_of_SRs;
+		vm_get_SRs_required_for_recovery;
 		vm_recover;
 		vm_import_convert;
 		vm_set_appliance;
