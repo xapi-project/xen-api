@@ -1,6 +1,7 @@
-0.9.13 (27-Jun-2013):
+0.9.14 (27-Jun-2013):
 * libxl: PV guests install and start normally
 * libxl: fixed deadlock in clean shutdown
+* libxl: suspend and resume work
 
 0.9.12 (26-Jun-2013):
 * libxl: emulated NICs are working
