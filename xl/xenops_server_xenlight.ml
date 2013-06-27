@@ -1352,7 +1352,12 @@ module ShutdownWatchers = struct
 
 	let make domid =
 		let w = { m = Mutex.create (); c = Condition.create (); finished = false } in
-		Mutex.execute m (fun () -> Hashtbl.add domid_to_watcher domid w);
+		Mutex.execute m (fun () ->
+			let d = with_ctx (fun ctx -> Xenlight.Dominfo.get ctx domid) in
+			if d.Xenlight.Dominfo.shutdown
+			then w.finished <- true
+			else Hashtbl.add domid_to_watcher domid w
+		);
 		w
 
 	let wait w =
@@ -1888,7 +1893,8 @@ module VM = struct
 							exit 1)
 					| Some fd ->
 						debug "Calling Xenlight.domain_create_restore";
-						with_ctx (fun ctx -> Xenlight_events.async (Xenlight.Domain.create_restore ctx domain_config fd))
+						Mutex.execute Xenlight_events.xl_m (fun () -> with_ctx (fun ctx -> Xenlight.Domain.create_restore ctx domain_config fd ()))
+					(*	with_ctx (fun ctx -> Xenlight_events.async (Xenlight.Domain.create_restore ctx domain_config fd)) *)
 				in
 				debug "Xenlight has created domain %d" domid;
 
@@ -2059,7 +2065,7 @@ module VM = struct
 				with_data ~xc ~xs task data true
 					(fun fd ->
 						debug "Calling Xenlight.Domain.suspend domid=%d" domid;
-						with_ctx (fun ctx -> Xenlight_events.async (Xenlight.Domain.suspend ctx domid fd));
+						Mutex.execute Xenlight_events.xl_m (fun () -> with_ctx (fun ctx -> Xenlight.Domain.suspend ctx domid fd ()));
 						debug "Call Xenlight.Domain.suspend domid=%d completed" domid;
 						ignore (wait_shutdown task vm Suspend 1200.);
 
