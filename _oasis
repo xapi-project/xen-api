@@ -22,6 +22,13 @@ Library xcp_storage
   Modules:            Storage_interface, Vdi_automaton, Storage_client, Storage_skeleton, Storage_skeleton_test
   BuildDepends:       xcp, threads, rpclib, rpclib.syntax
 
+Executable storage_test
+  CompiledObject:     best
+  Path:               storage
+  MainIs:             storage_test.ml
+  Install:            false
+  BuildDepends:       xcp, xcp.storage, oUnit, cmdliner
+
 Library xcp_network
   CompiledObject:     best
   Path:               network
