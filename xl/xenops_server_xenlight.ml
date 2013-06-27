@@ -1118,7 +1118,7 @@ module VIF = struct
 			)
 		)
 
-	let pre_plug vm vif =
+	let pre_plug vm hvm vif =
 		debug "VIF.pre_plug";
 		let backend_domid = with_xs (fun xs -> backend_domid_of xs vif) in
 		let rate_bytes_per_interval, rate_interval_usecs =
@@ -1145,7 +1145,7 @@ module VIF = struct
 		let mac = Scanf.sscanf vif.mac "%02x:%02x:%02x:%02x:%02x:%02x" (fun a b c d e f -> [| a; b; c; d; e; f|]) in
 		let bridge = bridge_of_vif vif.backend in
 		let script = !Xl_path.vif_script in
-		let nictype = if vif.position < 4 then Xenlight.NIC_TYPE_VIF_IOEMU else Xenlight.NIC_TYPE_VIF in
+		let nictype = if hvm then Xenlight.NIC_TYPE_VIF_IOEMU else Xenlight.NIC_TYPE_VIF in
 
 		let locking_mode = xenstore_of_locking_mode vif.locking_mode in
 		let id = _device_id Device_common.Vif, id_of vif in
@@ -1171,10 +1171,10 @@ module VIF = struct
 		if not(get_active vm vif)
 		then debug "VIF %s.%s is not active: not plugging into VM" (fst vif.Vif.id) (snd vif.Vif.id)
 		else
-			on_frontend (fun xc xs frontend_domid _ ->
+			on_frontend (fun xc xs frontend_domid hvm ->
 				Xenops_task.with_subtask task (Printf.sprintf "Vif.add %s" (id_of vif))
 					(fun () ->
-						let nic = pre_plug vm vif in
+						let nic = pre_plug vm hvm vif in
 
 						(* call libxenlight to plug vif *)
 						with_ctx (fun ctx ->
@@ -1781,7 +1781,7 @@ module VM = struct
 					match VBD.pre_plug task vm.Vm.id hvm vbd with
 					| (disk, devid, extra_backend_keys, backend_domid) -> disk, (vbd, devid, extra_backend_keys, backend_domid)) vbds) in
 				let disks = Array.of_list disks in
-				let nics = Array.of_list (List.map (VIF.pre_plug vm.Vm.id) vifs) in
+				let nics = Array.of_list (List.map (VIF.pre_plug vm.Vm.id hvm) vifs) in
 				let vfbs = [||] in
 				let vkbs = [||] in
 
