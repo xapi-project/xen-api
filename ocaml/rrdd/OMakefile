@@ -47,6 +47,7 @@ RRDD_TEST_FILES = \
 	rrdd_test
 
 RRD_CLIENT_OBJS = \
+	../pool_role_shared \
 	interface/rrd \
 	interface/rrdd_interface \
 	interface/ds \
