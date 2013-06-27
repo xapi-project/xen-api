@@ -769,20 +769,35 @@ let assert_can_be_recovered ~__context ~self ~session_to =
 
 let required_list_of_SRs ~__context ~self ~session_to =
 	let required_SR_list = list_required_SRs ~__context ~self in
+	let required_SR_uuids = List.map( fun sr ->Db.SR.get_uuid ~__context ~self:sr) required_SR_list
+	in
 	try
+		let sr_uuids_list=
+			debug "AKSHAY";
 		Server_helpers.exec_with_new_task ~session_id:session_to
 			"Looking for the required SRs"
-				(fun __context_to -> List.filter
-					( fun sr_ref ->
-							let pbds = Db.SR.get_PBDs ~__context:__context_to ~self:sr_ref in
+				(fun __context_to ->  List.filter
+					( fun sr_uuid ->
+						try
+							let sr = Db.SR.get_by_uuid ~__context:__context_to ~uuid:sr_uuid in
+							let pbds = Db.SR.get_PBDs ~__context:__context_to ~self:sr in
 							let attached_pbds = List.filter
 								(fun pbd -> Db.PBD.get_currently_attached ~__context:__context_to ~self:pbd)
 								pbds
 							in
 							 if attached_pbds = [] then true else false
+						with Db_exn.Read_missing_uuid(_ , _ , sr_uuid) -> true
 					)
-					required_SR_list)
+					required_SR_uuids)
+				in
+				List.map(fun sr -> Db.SR.get_by_uuid ~__context ~uuid:sr)sr_uuids_list
 	with e -> raise e;;
+				(*(*Finally pass a reference of the SRs*)
+				List.map(fun sr-> Db.SR.get_by_uuid ~__context ~uuid:sr_uuid)required_SR_uuids
+	with Db_exn.Read_missing_uuid(_ , _ , sr_uuid) ->
+		(*Add that SR to the required_SR_list*)
+		List.map(fun sr -> Db.SR.get_by_uuid ~__context ~uuid:sr_uuid)required_SR_uuids*)
+
 
 (* BIOS strings *)
 
