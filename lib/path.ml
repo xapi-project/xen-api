@@ -17,6 +17,8 @@ let qemu_dm_wrapper = ref "/usr/lib/xcp/lib/qemu-dm-wrapper"
 let qemu_system_i386 = ref "/usr/lib/xen/bin/qemu-system-i386"
 let chgrp = ref "/bin/chgrp"
 let hvmloader = ref "/usr/lib/xen-4.1/boot/hvmloader"
+let pygrub = ref "/usr/lib/xen-4.1/bin/pygrub"
+let eliloader = ref "/usr/bin/eliloader"
 
 open Unix
 
@@ -24,6 +26,11 @@ let hvm_guests = [
 	R_OK, "hvmloader", hvmloader, "path to the hvmloader binary for HVM guests";
 	X_OK, "qemu-dm-wrapper", qemu_dm_wrapper, "path to the qemu-dm-wrapper script";
 	X_OK, "qemu-system-i386", qemu_system_i386, "path to the qemu-system-i386 binary";
+]
+
+let pv_guests = [
+	X_OK, "pygrub", pygrub, "path to the pygrub bootloader binary";
+	X_OK, "eliloader", eliloader, "path to the eliloader bootloader binary";
 ]
 
 (* libvirt xc *)

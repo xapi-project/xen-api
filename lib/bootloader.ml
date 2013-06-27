@@ -36,8 +36,8 @@ let bootloader_of_string = function
   | "pygrub" -> Some Pygrub | "eliloader" -> Some Eliloader | _ -> None
 
 let path_of_bootloader = function
-  | Pygrub -> !Xc_path.pygrub
-  | Eliloader -> !Xc_path.eliloader
+  | Pygrub -> !Path.pygrub
+  | Eliloader -> !Path.eliloader
 
 let supported_bootloaders =  List.map string_of_bootloader [ Pygrub; Eliloader ]
 
@@ -123,7 +123,7 @@ let extract (task: Xenops_task.t) ~bootloader ~disk ?(legacy_args="") ?(extra_ar
 	let bootloader_path, cmdline = command bootloader true pv_bootloader_args disk vm_uuid in
 	debug "Bootloader commandline: %s %s\n" bootloader_path (String.concat " " cmdline);
 	try
-		let output, _ = Cancel_utils.cancellable_subprocess task bootloader_path cmdline in
+		let output, _ = Cancellable_subprocess.run task bootloader_path cmdline in
 		let result = parse_output output in
 		{ result with kernel_args = Printf.sprintf "%s %s %s" result.kernel_args legacy_args extra_args }
 	with Forkhelpers.Spawn_internal_error(stderr, stdout, _) ->

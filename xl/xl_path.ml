@@ -26,8 +26,6 @@ let umount = ref "/bin/umount"
 let ionice = ref "/usr/bin/ionice"
 let setup_vif_rules = ref "/usr/lib/xcp/lib/setup-vif-rules"
 let hvmloader = ref "/usr/lib/xen-4.1/boot/hvmloader"
-let pygrub = ref "/usr/lib/xen-4.1/bin/pygrub"
-let eliloader = ref "/usr/bin/eliloader"
 let vnc_dir = ref ""
 
 open Unix
@@ -43,9 +41,7 @@ let essentials = [
 	X_OK, "umount", umount, "path to the umount binary";
 	X_OK, "ionice", ionice, "path to the ionice binary";
 	X_OK, "setup-vif-rules", setup_vif_rules, "path to the setup-vif-rules script";
-	X_OK, "pygrub", pygrub, "path to the pygrub bootloader binary";
-	X_OK, "eliloader", eliloader, "path to the eliloader bootloader binary";
-] @ Path.hvm_guests @ Path.network_configuration
+] @ Path.hvm_guests @ Path.pv_guests @ Path.network_configuration
 
 let nonessentials = [
 	X_OK, "pci-flr-script", pci_flr_script, "path to the PCI function-level reset script";
