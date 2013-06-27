@@ -1340,6 +1340,42 @@ module VIF = struct
 
 end
 
+module ShutdownWatchers = struct
+	type watcher = {
+		m: Mutex.t;
+		c: Condition.t;
+		mutable finished: bool;
+	}
+
+	let m = Mutex.create ()
+	let domid_to_watcher = Hashtbl.create 128
+
+	let make domid =
+		let w = { m = Mutex.create (); c = Condition.create (); finished = false } in
+		Mutex.execute m (fun () -> Hashtbl.add domid_to_watcher domid w);
+		w
+
+	let wait w =
+		Mutex.execute w.m
+			(fun () ->
+				while not w.finished do
+					Condition.wait w.c w.m
+				done
+			)
+	let broadcast domid =
+		let all = Mutex.execute m (fun () ->
+			let result = Hashtbl.find_all domid_to_watcher domid in
+			List.iter (fun _ -> Hashtbl.remove domid_to_watcher domid) result;
+			result
+		) in
+		List.iter (fun w ->
+			Mutex.execute w.m (fun () ->
+				w.finished <- true;
+				Condition.signal w.c;
+			)
+		) all
+end
+
 module VM = struct
 	include Xenops_server_skeleton.VM
 	open Vm
@@ -1933,8 +1969,10 @@ module VM = struct
 			(fun _ _ _ _ di ->
 				let open Xenlight.Dominfo in
 				let domid = di.domid in
-				debug "Calling Xenlight.Domain.wait_shutdown domid=%d" domid;
-				with_ctx (fun ctx -> Xenlight.Domain.wait_shutdown ctx domid);
+				debug "Registering for domid %d shutdown" domid;
+				let w = ShutdownWatchers.make domid in
+				(* The shutdown might have happened before we registered our interest *)
+				ShutdownWatchers.wait w;
 				true
 			) Oldest task vm
 
@@ -2368,6 +2406,7 @@ let look_for_different_domains xc xs =
 					remove_domU_watches xs domid;
 				end;
 			end else begin
+				ShutdownWatchers.broadcast domid;
 				Updates.add (Dynamic.Vm id) updates;
 				(* A domain is 'running' if we know it has not shutdown *)
 				let running = IntMap.mem domid domains' && (not (IntMap.find domid domains').Xenlight.Dominfo.shutdown) in
