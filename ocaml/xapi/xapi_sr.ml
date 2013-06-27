@@ -267,9 +267,15 @@ let destroy  ~__context ~sr =
 	let oc = Db.SR.get_other_config ~__context ~self:sr in
 	if (List.mem_assoc "indestructible" oc) && (List.assoc "indestructible" oc = "true") then
 		raise (Api_errors.Server_error(Api_errors.sr_indestructible, [ Ref.string_of sr ]));
-
-	if (Db.SR.get_local_cache_enabled ~__context ~self:sr) then
-		raise (Api_errors.Server_error(Api_errors.sr_device_in_use, [ Ref.string_of sr ]));
+	
+	(* raise exception if SR is being used as local_cache_sr *)
+	let all_hosts = Db.Host.get_all ~__context in
+	List.iter
+		(fun host ->
+			let local_cache_sr = Db.Host.get_local_cache_sr ~__context ~self:host in
+			if local_cache_sr = sr then
+				raise (Api_errors.Server_error(Api_errors.sr_is_cache_sr, [ Ref.string_of host ]));
+		) all_hosts;
 	
 	Storage_access.destroy_sr ~__context ~sr;
 	
