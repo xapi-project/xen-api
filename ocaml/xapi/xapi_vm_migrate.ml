@@ -285,7 +285,12 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
 			error "VDI:SR map not fully specified for VDI %s" vdi_uuid ;
 			raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ vdi_uuid ]))) vdis) ;
-
+	
+	(* Block SXM when VM has a VDI with on_boot=reset *)
+	List.(iter (fun (vdi,_,_,_,_,_,_,_) ->
+	if (Db.VDI.get_on_boot ~__context ~self:vdi ==`reset) then
+		raise (Api_errors.Server_error(Api_errors.vdi_on_boot_mode_incompatable_with_operation, [Ref.string_of vdi]))) vdis) ;
+	
 	let snapshots_vdis = List.filter_map (vdi_filter true) snapshots_vbds in
 	let total_size = List.fold_left (fun acc (_,_,_,_,_,sz,_,_) -> Int64.add acc sz) 0L (vdis @ snapshots_vdis) in
 	let dbg = Context.string_of_task __context in
