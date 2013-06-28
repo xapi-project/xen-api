@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: d8cd92728fd768f4a021452c69ab571b)
+# DO NOT EDIT (digest: 6954fa3c64e5e2e1f1940f9ae5b144c5)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -17,10 +17,31 @@
 "lib/xcp.cmxs": use_xcp
 # Library xcp_storage
 "storage/xcp_storage.cmxs": use_xcp_storage
+# Executable storage_test
+<storage/storage_test.{native,byte}>: use_xcp_storage
+<storage/storage_test.{native,byte}>: use_xcp
+<storage/storage_test.{native,byte}>: pkg_cmdliner
+<storage/storage_test.{native,byte}>: pkg_threads
+<storage/storage_test.{native,byte}>: pkg_rpclib
+<storage/storage_test.{native,byte}>: pkg_rpclib.syntax
+<storage/storage_test.{native,byte}>: pkg_oUnit
+<storage/storage_test.{native,byte}>: pkg_uri
+<storage/storage_test.{native,byte}>: pkg_re
+<storage/storage_test.{native,byte}>: pkg_cohttp
+<storage/storage_test.{native,byte}>: pkg_xmlm
+<storage/storage_test.{native,byte}>: pkg_unix
+<storage/storage_test.{native,byte}>: pkg_rpclib.xml
+<storage/storage_test.{native,byte}>: pkg_syslog
+<storage/storage_test.{native,byte}>: pkg_message_switch
+<storage/storage_test.{native,byte}>: pkg_message_switch.unix
+<storage/storage_test.{native,byte}>: pkg_fd-send-recv
+<storage/*.ml{,i}>: use_xcp_storage
 <storage/*.ml{,i}>: use_xcp
+<storage/*.ml{,i}>: pkg_cmdliner
 <storage/*.ml{,i}>: pkg_threads
 <storage/*.ml{,i}>: pkg_rpclib
 <storage/*.ml{,i}>: pkg_rpclib.syntax
+<storage/*.ml{,i}>: pkg_oUnit
 <storage/*.ml{,i}>: pkg_uri
 <storage/*.ml{,i}>: pkg_re
 <storage/*.ml{,i}>: pkg_cohttp
