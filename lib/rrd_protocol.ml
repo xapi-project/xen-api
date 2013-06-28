@@ -1,3 +1,5 @@
+external (|>) : 'a -> ('a -> 'b) -> 'b = "%revapply"
+
 let rec split ?limit:(limit=(-1)) c s =
 	let i = try String.index s c with Not_found -> -1 in
 	let nlimit = if limit = -1 || limit = 0 then limit else limit - 1 in
@@ -173,8 +175,10 @@ module V1 = struct
 		let length_str = "0x" ^ (Cstruct.copy cs length_start length_bytes) in
 		let length = int_of_string length_str in
 		let checksum = Cstruct.copy cs checksum_start checksum_bytes in
-		let payload = Cstruct.copy cs payload_start length in
-		parse_payload payload
+		let payload_string = Cstruct.copy cs payload_start length in
+		if payload_string |> Digest.string |> Digest.to_hex <> checksum then
+			raise Invalid_checksum;
+		parse_payload payload_string
 
 	let write_payload alloc_cstruct payload =
 		let json =
