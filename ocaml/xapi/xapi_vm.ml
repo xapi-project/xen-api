@@ -778,6 +778,9 @@ let set_order ~__context ~self ~value =
 let assert_can_be_recovered ~__context ~self ~session_to =
 	Xapi_vm_helpers.assert_can_be_recovered ~__context ~self ~session_to
 
+let get_SRs_required_for_recovery ~__context ~self ~session_to =
+	Xapi_vm_helpers.get_SRs_required_for_recovery ~__context ~self ~session_to
+
 let recover ~__context ~self ~session_to ~force =
 	Xapi_dr.assert_session_allows_dr ~session_id:session_to ~action:"VM.recover";
 	(* Check the VM SRs are available. *)
