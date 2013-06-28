@@ -31,12 +31,18 @@ let generate_data_sources () =
 	then [generate_random_data_source ()]
 	else []
 
+let generate_payload () = {
+	timestamp = Rrdp.now ();
+	datasources = generate_data_sources ();
+}
+
+let protocol_of_string = function
+	| "v1" -> (module V1 : PROTOCOL)
+	| _ -> failwith "Unknown protocol"
+
 let write_file path protocol =
 	Random.self_init ();
-	let module W = Writer_types.FileWriter in
-	let marshal_data = match protocol with
-	| "v1" -> V1.of_dss
-	| _ -> failwith "Unknown protocol"
-	in
-	W.start 5.0 path
-		(fun () -> marshal_data (generate_data_sources ()))
+	let module Protocol = (val protocol_of_string protocol : PROTOCOL) in
+	let module Writer = Writer_types.FileWriter(Protocol) in
+	Writer.start 5.0 path
+		(fun () -> generate_payload ())
