@@ -175,4 +175,12 @@ module V1 = struct
 		let checksum = Cstruct.copy cs checksum_start checksum_bytes in
 		let payload = Cstruct.copy cs payload_start length in
 		parse_payload payload
+
+	let write_payload alloc_cstruct payload =
+		let json =
+			Rrdp.json_of_dss ~hdr:default_header payload.timestamp payload.datasources
+		in
+		let length = String.length json in
+		let cs = alloc_cstruct length in
+		Cstruct.blit_from_string json 0 cs 0 length
 end
