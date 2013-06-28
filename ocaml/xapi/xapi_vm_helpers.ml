@@ -769,14 +769,12 @@ let assert_can_be_recovered ~__context ~self ~session_to =
 
 let get_SRs_required_for_recovery ~__context ~self ~session_to =
 	let required_SR_list = list_required_SRs ~__context ~self in
-	let required_SR_uuids = List.map( fun sr ->Db.SR.get_uuid ~__context ~self:sr) required_SR_list
-	in
 	try
-		let sr_uuids_list=
 		Server_helpers.exec_with_new_task ~session_id:session_to
 			"Looking for the required SRs"
 				(fun __context_to ->  List.filter
-					( fun sr_uuid ->
+					( fun sr_ref ->
+						let sr_uuid = Db.SR.get_uuid ~__context ~self:sr_ref in
 						try
 							let sr = Db.SR.get_by_uuid ~__context:__context_to ~uuid:sr_uuid in
 							let pbds = Db.SR.get_PBDs ~__context:__context_to ~self:sr in
@@ -787,9 +785,7 @@ let get_SRs_required_for_recovery ~__context ~self ~session_to =
 							 if attached_pbds = [] then true else false
 						with Db_exn.Read_missing_uuid(_ , _ , sr_uuid) -> true
 					)
-					required_SR_uuids)
-				in
-				List.map(fun sr -> Db.SR.get_by_uuid ~__context ~uuid:sr)sr_uuids_list
+					required_SR_list)
 	with e -> raise e;;
 
 
