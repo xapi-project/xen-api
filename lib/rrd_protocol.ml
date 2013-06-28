@@ -61,8 +61,8 @@ end
 module V1 = struct
 	module Rrdp = Rrdp_common.Common(struct let name = "test_rrd_writer" end)
 
-	let header = "DATASOURCES\n"
-	let header_bytes = String.length header
+	let default_header = "DATASOURCES\n"
+	let header_bytes = String.length default_header
 	let length_start = header_bytes
 	let length_bytes = 8 (* hex length of payload *)
 	let checksum_start = header_bytes + length_bytes + 1 (* newline *)
@@ -163,7 +163,7 @@ module V1 = struct
 		with _ -> raise Invalid_payload
 
 	let of_dss dss =
-		Rrdp.json_of_dss ~hdr:header (Rrdp.now()) dss
+		Rrdp.json_of_dss ~hdr:default_header (Rrdp.now()) dss
 
 	let to_dss text =
 		let length_str = "0x" ^ (String.sub text length_start length_bytes) in
@@ -171,4 +171,14 @@ module V1 = struct
 		let checksum = String.sub text checksum_start checksum_bytes in
 		let payload = String.sub text payload_start length in
 		length, checksum, (parse_payload payload)
+
+	let read_payload cs =
+		let header = Cstruct.copy cs 0 header_bytes in
+		if header <> default_header then
+			raise Invalid_header_string;
+		let length_str = "0x" ^ (Cstruct.copy cs length_start length_bytes) in
+		let length = int_of_string length_str in
+		let checksum = Cstruct.copy cs checksum_start checksum_bytes in
+		let payload = Cstruct.copy cs payload_start length in
+		parse_payload payload
 end
