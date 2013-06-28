@@ -18,7 +18,7 @@ exception Read_error
 
 type payload = {
 	timestamp: int64;
-	datasources : (Rrd.ds_owner * Ds.ds) list;
+	datasources : (Ds.ds * Rrd.ds_owner) list;
 }
 
 module type PROTOCOL = sig
@@ -72,7 +72,7 @@ module V1 = struct
 	(* The payload type that corresponds to the plugin output file format. *)
 	type payload = {
 		timestamp : int64;
-		datasources : (Rrd.ds_owner * Ds.ds) list;
+		datasources : (Ds.ds * Rrd.ds_owner) list;
 	}
 
 	(* A helper function for extracting the dictionary out of the RPC type. *)
@@ -125,7 +125,7 @@ module V1 = struct
 
 	(* A function that converts a JSON type into a datasource type, assigning
 	 * default values appropriately. *)
-	let ds_of_rpc ((name, rpc) : (string * Rpc.t)) : (Rrd.ds_owner * Ds.ds) =
+	let ds_of_rpc ((name, rpc) : (string * Rpc.t)) : (Ds.ds * Rrd.ds_owner) =
 		try
 			let open Rpc in
 			let kvs = dict_of_rpc ~rpc in
@@ -147,7 +147,7 @@ module V1 = struct
 				owner_of_string (assoc_opt ~key:"owner" ~default:"host" kvs) in
 			let ds = Ds.ds_make ~name ~description ~units ~ty ~value ~min ~max
 				~default:true () in
-			owner, ds
+			ds, owner
 		with e -> raise e
 
 	(* A function that parses the payload written by a plugin into the payload
