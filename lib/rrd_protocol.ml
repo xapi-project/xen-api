@@ -188,3 +188,7 @@ module V1 = struct
 		let cs = alloc_cstruct length in
 		Cstruct.blit_from_string json 0 cs 0 length
 end
+
+let of_string = function
+	| "v1" -> (module V1 : PROTOCOL)
+	| _ -> failwith "Unknown protocol"

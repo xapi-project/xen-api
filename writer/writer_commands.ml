@@ -36,13 +36,9 @@ let generate_payload () = {
 	datasources = generate_data_sources ();
 }
 
-let protocol_of_string = function
-	| "v1" -> (module V1 : PROTOCOL)
-	| _ -> failwith "Unknown protocol"
-
 let write_file path protocol =
 	Random.self_init ();
-	let module Protocol = (val protocol_of_string protocol : PROTOCOL) in
+	let module Protocol = (val Rrd_protocol.of_string protocol : PROTOCOL) in
 	let module Writer = Writer_types.FileWriter(Protocol) in
 	Writer.start 5.0 path
 		(fun () -> generate_payload ())

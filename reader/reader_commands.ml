@@ -30,11 +30,7 @@ let interpret_payload payload =
 			print_endline "----------")
 		payload.datasources
 
-let protocol_of_string = function
-	| "v1" -> (module V1 : PROTOCOL)
-	| _ -> failwith "Unknown protocol"
-
 let read_file path protocol =
-	let module Protocol = (val protocol_of_string protocol : PROTOCOL) in
+	let module Protocol = (val Rrd_protocol.of_string protocol : PROTOCOL) in
 	let module Reader = Reader_types.FileReader(Protocol) in
 	Reader.start 5.0 path interpret_payload
