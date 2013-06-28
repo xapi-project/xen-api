@@ -25,6 +25,13 @@ open Storage_client
 let safe_prefix = Printf.sprintf "storage_test.%d" (Unix.getpid ())
 let dbg = safe_prefix
 
+let _vdi_create = "VDI_CREATE"
+let _vdi_delete = "VDI_DELETE"
+let _vdi_attach = "VDI_ATTACH"
+let _vdi_detach = "VDI_DETACH"
+let _vdi_activate = "VDI_ACTIVATE"
+let _vdi_deactivate = "VDI_DEACTIVATE"
+
 open OUnit
 
 (* Names which are likely to cause problems *)
@@ -43,21 +50,41 @@ let names = [
    2. attach RO, activate, deactivate, detach works
    3. attach RW, activate, deactivate, detach works
 *)
-let test_name sr n () =
+
+let name_exists sr name =
+  let all = Client.SR.scan ~dbg ~sr in
+  List.fold_left (fun acc vdi_info -> acc || (vdi_info.name_label = name)) false all
+
+let create sr name_label =
   let vdi_info = {
     default_vdi_info with
-      name_label = safe_prefix ^ "." ^ n;
+      name_label = safe_prefix ^ "." ^ name_label;
       virtual_size = 1000000000L;
   } in
-  let name_exists name =
-    let all = Client.SR.scan ~dbg ~sr in
-    List.fold_left (fun acc vdi_info -> acc || (vdi_info.name_label = name)) false all in
-  assert(not (name_exists vdi_info.name_label));
+  assert(not (name_exists sr vdi_info.name_label));
   let vdi = Client.VDI.create ~dbg ~sr ~vdi_info in
-  assert(name_exists vdi_info.name_label);
+  assert(name_exists sr vdi_info.name_label);
   (* Check the disk has size >= the amount we requested *)
   assert(vdi.virtual_size >= vdi_info.virtual_size);
+  vdi
 
+let destroy sr vdi =
+  Client.VDI.destroy ~dbg ~sr ~vdi:vdi.vdi;
+  assert(not (name_exists sr vdi.name_label))
+
+let test_create_destroy sr n () = destroy sr (create sr n)
+
+let test_attach_detach sr n () =
+  let vdi = create sr n in
+  List.iter
+    (fun read_write ->
+      let _ = Client.VDI.attach ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi ~read_write in
+      Client.VDI.detach ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi;
+    ) [ true; false ];
+  destroy sr vdi
+
+let test_activate_deactivate sr n () =
+  let vdi = create sr n in
   List.iter
     (fun read_write ->
       let _ = Client.VDI.attach ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi ~read_write in
@@ -65,11 +92,11 @@ let test_name sr n () =
       Client.VDI.deactivate ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi;
       Client.VDI.detach ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi;
     ) [ true; false ];
+  destroy sr vdi
 
-  Client.VDI.destroy ~dbg ~sr ~vdi:vdi.vdi;
-  assert(not (name_exists vdi_info.name_label))
-
-let vdi_name_suite sr = "vdi_name_suite" >::: (List.map (fun n -> n >:: test_name sr n) names)
+let vdi_create_destroy      sr = "vdi_create_destroy"      >::: (List.map (fun n -> n >:: test_create_destroy sr n) names)
+let vdi_attach_detach       sr = "vdi_attach_detach"       >::: (List.map (fun n -> n >:: test_attach_detach  sr n) names)
+let vdi_activate_deactivate sr = "vdi_activate_deactivate" >::: (List.map (fun n -> n >:: test_activate_deactivate sr n) names)
 
 open Cmdliner
 
@@ -78,10 +105,19 @@ let start verbose queue sr = match queue, sr with
     Storage_interface.queue_name := queue;
     Xcp_client.use_switch := true;
 
+    let q = Client.Query.query ~dbg in
+    let features = q.features in
+
+    let needs_capabilities caps suite =
+      if List.fold_left (fun acc x -> acc && (List.mem_assoc x features)) true caps
+      then [ suite ] else [] in
+
     let suite = "storage" >:::
-      [
-        vdi_name_suite sr;
-      ] in
+      (List.concat [
+        needs_capabilities [ _vdi_create; _vdi_delete ] (vdi_create_destroy sr);
+        needs_capabilities [ _vdi_create; _vdi_delete; _vdi_attach; _vdi_detach ] (vdi_attach_detach sr);
+        needs_capabilities [ _vdi_create; _vdi_delete; _vdi_attach; _vdi_detach; _vdi_activate; _vdi_deactivate ] (vdi_activate_deactivate sr)
+      ]) in
     let (_: test_result list) = run_test_tt ~verbose suite in
     ()
   | _, _ ->
