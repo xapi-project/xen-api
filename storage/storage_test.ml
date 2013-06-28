@@ -21,10 +21,15 @@ open Storage_client
    3. we always clean up (as best we can) after every test.
 *)
 
+(* We assume that no-one else has made VDIs with this name prefix: *)
+let safe_prefix = Printf.sprintf "storage_test.%d" (Unix.getpid ())
+let dbg = safe_prefix
+
 open OUnit
 
 (* Names which are likely to cause problems *)
 let names = [
+  "simple"; (* start with an easy one *)
   "";
   ".";
   "..";
@@ -38,17 +43,33 @@ let names = [
    2. attach RO, activate, deactivate, detach works
    3. attach RW, activate, deactivate, detach works
 *)
-let test_name n () = ()
+let test_name sr n () =
+  let vdi_info = {
+    default_vdi_info with
+      name_label = safe_prefix ^ "." ^ n;
+      virtual_size = 1000000000L;
+  } in
+  let name_exists name =
+    let all = Client.SR.scan ~dbg ~sr in
+    List.fold_left (fun acc vdi_info -> acc || (vdi_info.name_label = name)) false all in
+  assert(not (name_exists vdi_info.name_label));
+  let vdi = Client.VDI.create ~dbg ~sr ~vdi_info in
+  assert(name_exists vdi_info.name_label);
+  Client.VDI.destroy ~dbg ~sr ~vdi:vdi.vdi;
+  assert(not (name_exists vdi_info.name_label))
 
-let vdi_name_suite = "vdi_name_suite" >::: (List.map (fun n -> n >:: test_name n) names)
+let vdi_name_suite sr = "vdi_name_suite" >::: (List.map (fun n -> n >:: test_name sr n) names)
 
 open Cmdliner
 
 let start verbose queue sr = match queue, sr with
   | Some queue, Some sr ->
+    Storage_interface.queue_name := queue;
+    Xcp_client.use_switch := true;
+
     let suite = "storage" >:::
       [
-        vdi_name_suite;
+        vdi_name_suite sr;
       ] in
     let (_: test_result list) = run_test_tt ~verbose suite in
     ()

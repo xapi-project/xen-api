@@ -40,3 +40,20 @@ module Client = Storage_interface.Client(struct
         call
       )
 end)
+
+let default_vdi_info = {
+  vdi = "";
+  content_id = "";
+  name_label = "";
+  name_description = "";
+  ty = "user";
+  metadata_of_pool = "";
+  is_a_snapshot = false;
+  snapshot_time = "19700101T00:00:00Z";
+  snapshot_of = "";
+  read_only = false;
+  virtual_size = 0L;
+  physical_utilisation = 0L;
+  persistent = true;
+  sm_config = [];
+}
