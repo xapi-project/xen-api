@@ -55,6 +55,8 @@ let test_name sr n () =
   assert(not (name_exists vdi_info.name_label));
   let vdi = Client.VDI.create ~dbg ~sr ~vdi_info in
   assert(name_exists vdi_info.name_label);
+  (* Check the disk has size >= the amount we requested *)
+  assert(vdi.virtual_size >= vdi_info.virtual_size);
   Client.VDI.destroy ~dbg ~sr ~vdi:vdi.vdi;
   assert(not (name_exists vdi_info.name_label))
 
