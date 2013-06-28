@@ -25,13 +25,13 @@ let interpret_data_v1 text =
 	let length, checksum, payload = V1.to_dss text in
 	Printf.printf "length = %d\n" length;
 	Printf.printf "checksum = %s\n" checksum;
-	Printf.printf "timestamp = %Ld\n%!" payload.V1.timestamp;
+	Printf.printf "timestamp = %Ld\n%!" payload.timestamp;
 	print_endline "---------- Data sources ----------";
 	List.iter
 		(fun (ds, owner) ->
 			print_endline (string_of_data_source ds owner);
 			print_endline "----------")
-		payload.V1.datasources
+		payload.datasources
 
 let read_file path protocol =
 	let module R = Reader_types.FileReader in

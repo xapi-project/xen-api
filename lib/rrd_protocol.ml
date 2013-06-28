@@ -69,12 +69,6 @@ module V1 = struct
 	let checksum_bytes = 32 (* hex length of checksum *)
 	let payload_start = header_bytes + length_bytes + checksum_bytes + 2 (* 2 newlines *)
 
-	(* The payload type that corresponds to the plugin output file format. *)
-	type payload = {
-		timestamp : int64;
-		datasources : (Ds.ds * Rrd.ds_owner) list;
-	}
-
 	(* A helper function for extracting the dictionary out of the RPC type. *)
 	let dict_of_rpc ~(rpc : Rpc.t) : (string * Rpc.t) list =
 		match rpc with Rpc.Dict d -> d | _ -> raise Invalid_payload
