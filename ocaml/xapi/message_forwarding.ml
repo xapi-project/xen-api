@@ -626,6 +626,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			info "VM_appliance.assert_can_be_recovered: VM_appliance = '%s'" (vm_appliance_uuid ~__context self);
 			Local.VM_appliance.assert_can_be_recovered ~__context ~self ~session_to
 
+		let get_SRs_required_for_recovery ~__context ~self ~session_to =
+			info "VM_appliance.get_SRs_required_for_recovery: VM_appliance = '%s'" (vm_appliance_uuid ~__context self);
+			Local.VM_appliance.get_SRs_required_for_recovery ~__context ~self ~session_to
+
 		let recover ~__context ~self ~session_to ~force =
 			info "VM_appliance.recover: VM_appliance = '%s'" (vm_appliance_uuid ~__context self);
 			Local.VM_appliance.recover ~__context ~self ~session_to ~force
@@ -1943,6 +1947,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let assert_can_be_recovered ~__context ~self ~session_to =
 			info "VM.assert_can_be_recovered: self = '%s';" (vm_uuid ~__context self);
 			Local.VM.assert_can_be_recovered ~__context ~self ~session_to
+
+		let get_SRs_required_for_recovery ~__context ~self ~session_to =
+			info "VM.get_SRs_required_for_recovery: self = '%s';" (vm_uuid ~__context self);
+			Local.VM.get_SRs_required_for_recovery ~__context ~self ~session_to
 
 		let recover ~__context ~self ~session_to ~force =
 			info "VM.recover: self = '%s'; force = %b;" (vm_uuid ~__context self) force;

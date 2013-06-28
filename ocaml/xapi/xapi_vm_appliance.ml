@@ -124,6 +124,13 @@ let assert_can_be_recovered ~__context ~self ~session_to =
 	List.iter
 		(fun vm -> Xapi_vm_helpers.assert_can_be_recovered ~__context ~self:vm ~session_to)
 		vms
+	
+let get_SRs_required_for_recovery ~__context ~self ~session_to =
+	let vms = Db.VM_appliance.get_VMs ~__context ~self in
+	let sr_list = List.map
+		(fun vm -> Xapi_vm_helpers.get_SRs_required_for_recovery ~__context ~self:vm ~session_to)
+		vms in
+	List.setify(List.flatten sr_list)
 
 let recover ~__context ~self ~session_to ~force =
 	Xapi_dr.assert_session_allows_dr ~session_id:session_to ~action:"VM_appliance.recover";
