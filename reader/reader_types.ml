@@ -31,8 +31,9 @@ module MakeReader (R: READER) = struct
 				interpret_payload payload;
 				Thread.delay interval
 			done
-		with _ ->
-			R.cleanup state
+		with e ->
+			R.cleanup state;
+			raise e
 end
 
 module FileReader (P: Rrd_protocol.PROTOCOL) = MakeReader(struct

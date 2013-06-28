@@ -32,8 +32,9 @@ module MakeWriter (W: WRITER) = struct
 				W.write_payload state (generate_payload ());
 				Thread.delay interval
 			done
-		with _ ->
-			W.cleanup state
+		with e ->
+			W.cleanup state;
+			raise e
 end
 
 module FileWriter (P: Rrd_protocol.PROTOCOL) = MakeWriter(struct
