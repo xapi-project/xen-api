@@ -769,7 +769,6 @@ let assert_can_be_recovered ~__context ~self ~session_to =
 
 let get_SRs_required_for_recovery ~__context ~self ~session_to =
 	let required_SR_list = list_required_SRs ~__context ~self in
-	try
 		Server_helpers.exec_with_new_task ~session_id:session_to
 			"Looking for the required SRs"
 				(fun __context_to ->  List.filter
@@ -786,7 +785,6 @@ let get_SRs_required_for_recovery ~__context ~self ~session_to =
 						with Db_exn.Read_missing_uuid(_ , _ , sr_uuid) -> true
 					)
 					required_SR_list)
-	with e -> raise e;;
 
 
 (* BIOS strings *)
