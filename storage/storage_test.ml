@@ -58,9 +58,13 @@ let test_name sr n () =
   (* Check the disk has size >= the amount we requested *)
   assert(vdi.virtual_size >= vdi_info.virtual_size);
 
-  let attach_info = Client.VDI.attach ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi ~read_write:true in
-  Client.VDI.detach ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi;
-
+  List.iter
+    (fun read_write ->
+      let _ = Client.VDI.attach ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi ~read_write in
+      Client.VDI.activate ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi;
+      Client.VDI.deactivate ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi;
+      Client.VDI.detach ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi;
+    ) [ true; false ];
 
   Client.VDI.destroy ~dbg ~sr ~vdi:vdi.vdi;
   assert(not (name_exists vdi_info.name_label))
