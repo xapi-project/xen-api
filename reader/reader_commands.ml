@@ -20,11 +20,8 @@ let string_of_data_source ds owner =
 		"owner: %s\nname: %s\ntype: %s\nvalue: %s\nunits: %s"
 		owner_string ds.Ds.ds_name type_string value_string ds.Ds.ds_units
 
-let interpret_data_v1 text =
+let interpret_payload payload =
 	print_endline "------------ Metadata ------------";
-	let length, checksum, payload = V1.to_dss text in
-	Printf.printf "length = %d\n" length;
-	Printf.printf "checksum = %s\n" checksum;
 	Printf.printf "timestamp = %Ld\n%!" payload.timestamp;
 	print_endline "---------- Data sources ----------";
 	List.iter
@@ -33,10 +30,11 @@ let interpret_data_v1 text =
 			print_endline "----------")
 		payload.datasources
 
-let read_file path protocol =
-	let module R = Reader_types.FileReader in
-	let interpret_data = match protocol with
-	| "v1" -> interpret_data_v1
+let protocol_of_string = function
+	| "v1" -> (module V1 : PROTOCOL)
 	| _ -> failwith "Unknown protocol"
-	in
-	R.start 5.0 path interpret_data
+
+let read_file path protocol =
+	let module Protocol = (val protocol_of_string protocol : PROTOCOL) in
+	let module Reader = Reader_types.FileReader(Protocol) in
+	Reader.start 5.0 path interpret_payload
