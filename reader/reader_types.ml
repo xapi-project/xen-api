@@ -41,14 +41,14 @@ module FileReader (P: Rrd_protocol.PROTOCOL) = MakeReader(struct
 	type id_t = string
 	type state_t = Unix.file_descr
 
-	let init path = Unix.openfile path [Unix.O_RDONLY] 0o600
+	let init path = Unix.openfile path [Unix.O_RDONLY] 0o400
 
 	let cleanup fd = Unix.close fd
 
 	let read_payload fd =
 		if Unix.lseek fd 0 Unix.SEEK_SET <> 0 then
 			failwith "lseek";
-		let mapping = Bigarray.(Array1.map_file fd char c_layout true (-1)) in
+		let mapping = Bigarray.(Array1.map_file fd char c_layout false (-1)) in
 		let cs = Cstruct.of_bigarray mapping in
 		P.read_payload cs
 end)
