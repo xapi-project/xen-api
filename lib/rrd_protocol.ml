@@ -13,6 +13,7 @@ exception Invalid_length
 exception Invalid_checksum
 exception Invalid_payload
 exception No_update
+exception Payload_too_large
 exception Read_error
 
 type payload = {
@@ -22,7 +23,7 @@ type payload = {
 
 module type PROTOCOL = sig
 	val read_payload : Cstruct.t -> payload
-	val write_payload : Cstruct.t -> payload -> unit
+	val write_payload : (int -> Cstruct.t) -> payload -> unit
 end
 
 module MakeProtocol = functor (P: PROTOCOL) -> struct
@@ -34,8 +35,12 @@ module MakeProtocol = functor (P: PROTOCOL) -> struct
 			P.read_payload cs
 
 		let write share payload =
-			let cs = Cstruct.of_bigarray share.Gntshr.mapping in
-			P.write_payload cs payload
+			let alloc_cstruct size =
+				if size > Bigarray.Array1.dim share.Gntshr.mapping then
+					raise Payload_too_large;
+				Cstruct.of_bigarray share.Gntshr.mapping
+			in
+			P.write_payload alloc_cstruct payload
 	end
 
 	module File = struct
@@ -45,9 +50,11 @@ module MakeProtocol = functor (P: PROTOCOL) -> struct
 			P.read_payload cs
 
 		let write fd payload =
-			let buf = Bigarray.(Array1.map_file fd char c_layout true (-1)) in
-			let cs = Cstruct.of_bigarray buf in
-			P.write_payload cs payload
+			let alloc_cstruct size =
+				let buf = Bigarray.(Array1.map_file fd char c_layout true size) in
+				Cstruct.of_bigarray buf
+			in
+			P.write_payload alloc_cstruct payload
 	end
 end
 
