@@ -41,7 +41,7 @@ module FileWriter (P: Rrd_protocol.PROTOCOL) = MakeWriter(struct
 	type id_t = string
 	type state_t = string * Unix.file_descr (* path to shared file * fd for writing to shared file *)
 
-	let init path = path, Unix.openfile path [Unix.O_RDWR] 0o600
+	let init path = path, Unix.openfile path [Unix.O_RDWR; Unix.O_CREAT] 0o600
 
 	let cleanup (path, fd) =
 		Unix.close fd;
