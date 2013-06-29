@@ -350,6 +350,19 @@ let on_vdi f common_opts sr vdi = match sr, vdi with
   | Some sr, Some vdi ->
     wrap common_opts (fun () -> f sr vdi)
 
+let vdi_clone common_opts sr vdi name descr = on_vdi
+  (fun sr vdi ->
+    wrap common_opts (fun () ->
+      let vdi_info = Client.VDI.stat ~dbg ~sr ~vdi in
+      let vdi_info = { vdi_info with
+        name_label = (match name with None -> vdi_info.name_label | Some x -> x);
+        name_description = (match descr with None -> vdi_info.name_description | Some x -> x);
+      } in
+      let vdi_info = Client.VDI.clone ~dbg ~sr ~vdi_info in
+      Printf.printf "%s\n" vdi_info.vdi
+    )
+  ) common_opts sr vdi
+
 let vdi_destroy common_opts sr vdi =
   on_vdi (fun sr vdi ->
     Client.VDI.destroy ~dbg ~sr ~vdi
@@ -444,6 +457,21 @@ let vdi_create_cmd =
   Term.(ret(pure vdi_create $ common_options_t $ sr_arg $ name_arg $ descr_arg $ virtual_size_arg $ format_arg)),
   Term.info "vdi-create" ~sdocs:_common_options ~doc ~man
 
+let vdi_clone_cmd =
+  let name_arg =
+    let doc = "short name for the virtual disk" in
+    Arg.(value & opt (some string) None & info ["name"] ~docv:"NAME" ~doc) in
+  let descr_arg =
+    let doc = "longer description for the virtual disk" in
+    Arg.(value & opt (some string) None & info ["description"] ~docv:"DESCRIPTION" ~doc) in
+  let doc = "clone a virtual disk." in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Clones an existing virtual disk. This operation produces a new virtual disk whose content is initially the same as the original virtual disk."
+  ] @ help in
+  Term.(ret(pure vdi_clone $ common_options_t $ sr_arg $ vdi_arg $ name_arg $ descr_arg)),
+  Term.info "vdi-clone" ~sdocs:_common_options ~doc ~man
+
 let vdi_destroy_cmd =
   let doc = "destroy an existing virtual disk in a storage repository." in
   let man = [
@@ -497,7 +525,7 @@ let default_cmd =
        
 let cmds = [query_cmd; sr_attach_cmd; sr_detach_cmd; sr_scan_cmd;
             vdi_create_cmd; vdi_destroy_cmd; vdi_attach_cmd; vdi_detach_cmd;
-            vdi_activate_cmd; vdi_deactivate_cmd]
+            vdi_activate_cmd; vdi_deactivate_cmd; vdi_clone_cmd]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
