@@ -52,3 +52,38 @@ module FileReader (P: Rrd_protocol.PROTOCOL) = MakeReader(struct
 		let cs = Cstruct.of_bigarray mapping in
 		P.read_payload cs
 end)
+
+module PageReader (P: Rrd_protocol.PROTOCOL) = MakeReader(struct
+	open Gnt
+
+	type t = Rrd_protocol.payload
+	type id_t = int * (int32 list)
+	type state_t = Gnttab.Local_mapping.t
+
+	let init (domid, refs) =
+		let grants =
+			List.map
+				(fun ref ->
+					{
+						Gnttab.domid = domid;
+						Gnttab.ref = grant_table_index_of_int32 ref
+					})
+				refs
+		in
+		let mapping_opt =
+			Gnt_helpers.with_gnttab
+				(fun gnttab -> Gnttab.mapv gnttab grants false)
+		in
+		match mapping_opt with
+		| Some mapping -> mapping
+		| None -> failwith "failed to map shared page(s)"
+
+	let cleanup mapping =
+		Gnt_helpers.with_gnttab
+			(fun gnttab -> Gnttab.unmap_exn gnttab mapping)
+
+	let read_payload mapping =
+		let buf = Gnttab.Local_mapping.to_buf mapping in
+		let cs = Cstruct.of_bigarray buf in
+		P.read_payload cs
+end)
