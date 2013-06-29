@@ -320,7 +320,7 @@ let parse_size x =
   with _ ->
     failwith (Printf.sprintf "Cannot parse size: %s" x)
 
-let vdi_create common_opts sr name descr virtual_size = match sr with
+let vdi_create common_opts sr name descr virtual_size format = match sr with
   | None -> `Error(true, "must supply SR")
   | Some sr ->
     wrap common_opts (fun () ->
@@ -337,7 +337,7 @@ let vdi_create common_opts sr name descr virtual_size = match sr with
         read_only = false;
         virtual_size = parse_size virtual_size;
         physical_utilisation = 0L;
-        sm_config = [];
+        sm_config = (match format with None -> [] | Some x -> ["type", x]);
         persistent = true;
       } in
       let vdi_info = Client.VDI.create ~dbg ~sr ~vdi_info in
@@ -432,13 +432,16 @@ let vdi_create_cmd =
   let virtual_size_arg =
     let doc = "size of the disk" in
     Arg.(value & opt string "0" & info ["size"] ~docv:"SIZE" ~doc) in
+  let format_arg =
+    let doc = "Request a specific format for the disk on the backend storage substrate, e.g. 'vhd' or 'raw'. Note that not all storage implementations support all formats. Every storage implementation will use its preferred format if no override is supplied." in
+    Arg.(value & opt (some string) None & info ["format"] ~docv:"FORMAT" ~doc) in
 
   let doc = "create a new virtual disk in a storage repository" in
   let man = [
     `S "DESCRIPTION";
     `P "Create an empty virtual disk in a storage repository.";
   ] @ help in
-  Term.(ret(pure vdi_create $ common_options_t $ sr_arg $ name_arg $ descr_arg $ virtual_size_arg)),
+  Term.(ret(pure vdi_create $ common_options_t $ sr_arg $ name_arg $ descr_arg $ virtual_size_arg $ format_arg)),
   Term.info "vdi-create" ~sdocs:_common_options ~doc ~man
 
 let vdi_destroy_cmd =
