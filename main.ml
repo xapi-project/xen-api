@@ -257,6 +257,10 @@ let wrap common_opts f =
 		Printf.fprintf stderr "Failed to connect to %s: %s\n%!" common_opts.Common.socket (Printexc.to_string e);
 		Printf.fprintf stderr "Ensure this program is being run as root and try again.\n%!";
 		`Error(false, "permission denied")
+	| Storage_interface.Backend_error(code, params) ->
+		Printf.fprintf stderr "Error from storage backend:\n";
+		Printf.fprintf stderr "%s: [ %s ]\n" code (String.concat "; " params);
+		exit 1
 
 let query common_opts =
   wrap common_opts (fun () ->
