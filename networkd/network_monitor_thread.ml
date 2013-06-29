@@ -263,8 +263,7 @@ let ip_watcher () =
 	let rec loop () =
 		let line = input_line in_channel in
 		(* Do not send events for link-local IPv6 addresses, and removed IPs *)
-		if String.has_substr line "inet" && not (String.has_substr line "inet6 fe80") &&
-			not (String.has_substr line "Deleted") then begin
+		if String.has_substr line "inet" && not (String.has_substr line "inet6 fe80") then begin
 			(* Ignore changes for the next second, since they usually come in bursts,
 			 * and signal only once. *)
 			Thread.delay 1.;
