@@ -72,5 +72,10 @@ module PageWriter (P: Rrd_protocol.PROTOCOL) = MakeWriter(struct
 			(fun gntshr -> Gntshr.munmap_exn gntshr share)
 
 	let write_payload share payload =
-		failwith "not implemented"
+		let alloc_cstruct size =
+			if size > Bigarray.Array1.dim share.Gntshr.mapping then
+				failwith "not enough memory";
+			Cstruct.of_bigarray share.Gntshr.mapping
+		in
+		P.write_payload alloc_cstruct payload
 end)
