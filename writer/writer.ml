@@ -29,8 +29,26 @@ let write_file_cmd =
 	Term.(pure Writer_commands.write_file $ path $ protocol),
 	Term.info "file" ~doc ~man
 
+let write_page_cmd =
+	let domid =
+		let doc = "The remote domid which will read the shared memory" in
+		Arg.(required & pos 0 (some int) None & info [] ~docv:"DOMID" ~doc)
+	in
+	let protocol =
+		let doc = "The protocol to use to write the rrd data" in
+		Arg.(required & pos 1 (some string) None & info [] ~docv:"PROTOCOL" ~doc)
+	in
+	let doc = "write to a page" in
+	let man = [
+		`S "DESCRIPTION";
+		`P "Write rrd data to page of memory shared with another domain"
+	] @ help_secs in
+	Term.(pure Writer_commands.write_page $ domid $ protocol),
+	Term.info "page" ~doc ~man
+
 let cmds = [
-	write_file_cmd
+	write_file_cmd;
+	write_page_cmd;
 ]
 
 let () =

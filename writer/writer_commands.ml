@@ -42,3 +42,10 @@ let write_file path protocol =
 	let module Writer = Writer_types.FileWriter(Protocol) in
 	Writer.start 5.0 path
 		(fun () -> generate_payload ())
+
+let write_page domid protocol =
+	Random.self_init ();
+	let module Protocol = (val Rrd_protocol.of_string protocol : PROTOCOL) in
+	let module Writer = Writer_types.PageWriter(Protocol) in
+	Writer.start 5.0 (domid, 1)
+		(fun () -> generate_payload ())
