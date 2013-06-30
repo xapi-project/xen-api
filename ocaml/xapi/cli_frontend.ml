@@ -1631,7 +1631,7 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
       reqd=["name-label";"type"];
       optn=["host-uuid";"device-config:";"shared";"physical-size";"content-type";"sm-config:"];
       help="Create an SR, also a PBD. the device-config parameters can be specified by e.g. device-config:foo=baa.";
-      implementation=No_fd Cli_operations.sr_create;
+      implementation=With_fd Cli_operations.sr_create;
       flags=[];
     };
    "sr-probe",
