@@ -1,3 +1,5 @@
+0.9.1 (30-Jun-2013):
+* add the ability to upload device_config parameters by providing a filename
 
 0.9.0 (30-May-2013):
 * first public release
