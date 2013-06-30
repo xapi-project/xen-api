@@ -744,9 +744,15 @@ module VBD = struct
 		let backend_domid = vdi.domid in
 		let pdev_path = if vbd.backend = None then None else Some (vdi.attach_info.Storage_interface.params) in
 		let devid, vdev = devid_and_vdev_of_vbd vm vbd in
-		let backend = if vbd.backend = None then Xenlight.DISK_BACKEND_QDISK else Xenlight.DISK_BACKEND_PHY in
-		let format = if vbd.backend = None then Xenlight.DISK_FORMAT_EMPTY else Xenlight.DISK_FORMAT_RAW in
-		let script = if vbd.backend = None then None else Some !Xl_path.vbd_script in
+		let backend, format, script =
+			(* empty CDROM *)
+			if vbd.backend = None
+			then Xenlight.DISK_BACKEND_QDISK, Xenlight.DISK_FORMAT_EMPTY, None
+			(* FIXME: "regular" block devices *)
+			else if vdi.attach_info.Storage_interface.xenstore_data = []
+			then Xenlight.DISK_BACKEND_PHY, Xenlight.DISK_FORMAT_RAW, Some !Xl_path.vbd_script
+			(* FIXME: "magic" block devices via qemu *)
+			else Xenlight.DISK_BACKEND_QDISK, Xenlight.DISK_FORMAT_RAW, None in
 		let removable = if vbd.unpluggable then 1 else 0 in
 		let readwrite = match vbd.mode with
 			| ReadOnly -> 0
