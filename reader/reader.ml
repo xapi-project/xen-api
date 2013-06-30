@@ -29,8 +29,30 @@ let read_file_cmd =
 	Term.(pure Reader_commands.read_file $ path $ protocol),
 	Term.info "file" ~doc ~man
 
+let read_page_cmd =
+	let domid =
+		let doc = "The remote domid which is writing to shared memory" in
+		Arg.(required & pos 0 (some int) None & info [] ~docv:"DOMID" ~doc)
+	in
+	let grantref =
+		let doc = "The grant reference of the shared page which will be read from" in
+		Arg.(required & pos 1 (some int32) None & info [] ~docv:"GRANTREF" ~doc)
+	in
+	let protocol =
+		let doc = "The protocol to use to read the rrd data" in
+		Arg.(required & pos 2 (some string) None & info [] ~docv:"PROTOCOL" ~doc)
+	in
+	let doc = "read from a page of shared memory" in
+	let man = [
+		`S "DESCRIPTION";
+		`P "Read rrd data from a page of shared memory, using the specified protocol"
+	] @ help_secs in
+	Term.(pure Reader_commands.read_page $ domid $ grantref $ protocol),
+	Term.info "page" ~doc ~man
+
 let cmds = [
-	read_file_cmd
+	read_file_cmd;
+	read_page_cmd;
 ]
 
 let () =
