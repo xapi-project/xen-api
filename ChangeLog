@@ -1,3 +1,9 @@
+0.9.6 (29-Jul-2013):
+* Add a simple storage API test
+
+0.9.5 (24-Jun-2013):
+* Channel passing nolonger leaks Unix domain sockets
+
 0.9.4 (23-Jun-2013):
 * Channel passing now works, for VM migrate
 
