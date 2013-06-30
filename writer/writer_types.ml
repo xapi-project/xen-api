@@ -64,8 +64,16 @@ module PageWriter (P: Rrd_protocol.PROTOCOL) = MakeWriter(struct
 	type state_t = Gntshr.share
 
 	let init (domid, count) =
-		Gnt_helpers.with_gntshr
-			(fun gntshr -> Gntshr.share_pages_exn gntshr domid count false)
+		let share =
+			Gnt_helpers.with_gntshr
+				(fun gntshr -> Gntshr.share_pages_exn gntshr domid count false)
+		in
+		Printf.printf
+			"sharing pages with references [%s] with domid %d\n%!"
+			(String.concat ";"
+				(List.map string_of_grant_table_index share.Gntshr.refs))
+			domid;
+		share
 
 	let cleanup share =
 		Gnt_helpers.with_gntshr
