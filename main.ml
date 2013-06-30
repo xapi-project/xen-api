@@ -268,14 +268,53 @@ let query common_opts =
     Printf.printf "%s\n" (q |> rpc_of_query_result |> Jsonrpc.to_string)
   )
 
+let filename_suffix = "-filename"
+let filename_suffix_regex = Re_str.regexp_string filename_suffix
+
+let string_of_file filename =
+  let ic = open_in filename in
+  let output = Buffer.create 1024 in
+  try
+    while true do
+      let block = String.make 4096 '\000' in
+      let n = input ic block 0 (String.length block) in
+      if n = 0 then raise End_of_file;
+      Buffer.add_substring output block 0 n
+    done;
+    "" (* never happens *)
+  with End_of_file ->
+    close_in ic;
+    Buffer.contents output
+
 let sr_attach common_opts sr device_config = match sr with
   | None -> `Error(true, "must supply SR")
   | Some sr ->
+    (* Read the advertised device_config from the driver *)
+    let q = Client.Query.query ~dbg in
+    let expected_device_config_keys = List.map fst q.configuration in
     (* The first 'device_config' will actually be the sr *)
     let device_config = List.tl device_config in
     let device_config = List.map (fun x -> match Re_str.bounded_split (Re_str.regexp_string "=") x 2 with
-    | [ k; v ] -> k, v
-    | _ -> failwith (Printf.sprintf "device_config arguments need to be of the form key=value (got '%s')" x)
+    | [ k; v ] when List.mem k expected_device_config_keys -> k, v
+    | [ k; v ] -> begin match Re_str.bounded_split_delim filename_suffix_regex k 2 with
+      | [ k'; "" ] ->
+        (* We will send the contents of the file [v] as the value and [k'] as the key *)
+        if not(Sys.file_exists v) then begin
+          Printf.fprintf stderr "File does not exist: %s\n%!" v;
+          exit 1
+        end;
+        if not (List.mem k' expected_device_config_keys) then begin
+          Printf.fprintf stderr "unexpected device_config key: %s (expected: %s)\n" k (String.concat ", " expected_device_config_keys);
+          exit 1
+        end;
+        k', string_of_file v
+      | _ ->
+        Printf.fprintf stderr "unexpected device_config key: %s (expected: %s)\n" k (String.concat ", " expected_device_config_keys);
+        exit 1
+      end
+    | _ ->
+      Printf.fprintf stderr "device_config arguments need to be of the form key=value (got '%s')\n" x;
+      exit 1
     ) device_config in
     wrap common_opts (fun () ->
       Client.SR.attach ~dbg ~sr ~device_config
@@ -412,7 +451,13 @@ let sr_attach_cmd =
   let doc = "connect to a storage repository" in
   let man = [
     `S "DESCRIPTION";
-    `P "Once a storage repository has been attached, it is possible to query metadata, create/destroy/attach/detach virtual disks."
+    `P "Prepare a storage repository so that it can be accessed from this host. Once a storage repository has been attached, it is possible to query metadata, create/destroy/attach/detach virtual disks.";
+    `P "Each storage repository requires a set of configuration key/value pairs. Use the \"query\" sub-command to list the required configuration parameters.";
+    `S "On configuration syntax:";
+    `P "Simple parameters may be written directly on the commandline as:";
+    `P "key=value";
+    `P "If a particular value is stored in a file (e.g. as XML) then you may write:";
+    `P " key-filename=<filename containing the value>.";
   ] @ help in
   Term.(ret(pure sr_attach $ common_options_t $ sr_arg $ device_config)),
   Term.info "sr-attach" ~sdocs:_common_options ~doc ~man
