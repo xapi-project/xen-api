@@ -1,4 +1,8 @@
-0.9.6 (29-Jul-2013):
+0.9.7 (30-Jun-2013):
+* storage API test now copes with implementations which have to rewrite VDI
+name_labels
+
+0.9.6 (29-Jun-2013):
 * Add a simple storage API test
 
 0.9.5 (24-Jun-2013):
