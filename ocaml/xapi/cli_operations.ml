@@ -1380,7 +1380,7 @@ let parse_device_config params =
 
 (* SR create destroy list param-list param-get param-set param-add param-remove *)
 
-let sr_create printer rpc session_id params =
+let sr_create fd printer rpc session_id params =
 	let name_label=List.assoc "name-label" params in
 	let host = parse_host_uuid rpc session_id params in
 	let physical_size=
@@ -1392,6 +1392,19 @@ let sr_create printer rpc session_id params =
 	let shared = get_bool_param params "shared" in
 
 	let device_config = parse_device_config params in
+	(* If the device-config parameter is of the form k-filename=v, then we assume the
+	   key is 'k' and the value is stored in a file named 'v' *)
+	let suffix = "-filename" in
+	let device_config = List.map (fun (k,v) ->
+		if String.endswith suffix k then begin
+			let k = String.sub k 0 (String.length k - (String.length suffix)) in
+			match get_client_file fd v with
+			| Some v -> k,v
+			| None ->
+				marshal fd (Command(PrintStderr (Printf.sprintf "File not found: %s" v)));
+				failwith "File not found"
+		end else (k, v)
+	) device_config in
 
 	let len = String.length "sm-config:" in
 	let filter_params = List.filter (fun (p,_) -> (String.startswith "sm-config" p) && (String.length p > len)) params in
@@ -1401,7 +1414,7 @@ let sr_create printer rpc session_id params =
 		~name_description:""
 		~physical_size ~_type ~content_type ~shared:shared ~sm_config in
 	let sr_uuid=Client.SR.get_uuid ~rpc ~session_id ~self:sr in
-	printer (Cli_printer.PList [sr_uuid])
+	marshal fd (Command (Print sr_uuid))
 
 let sr_introduce printer rpc session_id params =
 	let name_label=List.assoc "name-label" params in
