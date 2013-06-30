@@ -52,9 +52,9 @@ let names = [
    3. attach RW, activate, deactivate, detach works
 *)
 
-let name_exists sr name =
+let vdi_exists sr vdi =
   let all = Client.SR.scan ~dbg ~sr in
-  List.fold_left (fun acc vdi_info -> acc || (vdi_info.name_label = name)) false all
+  List.fold_left (fun acc vdi_info -> acc || (vdi_info.vdi = vdi)) false all
 
 let create sr name_label =
   let vdi_info = {
@@ -62,16 +62,15 @@ let create sr name_label =
       name_label = safe_prefix ^ "." ^ name_label;
       virtual_size = 1000000000L;
   } in
-  assert(not (name_exists sr vdi_info.name_label));
   let vdi = Client.VDI.create ~dbg ~sr ~vdi_info in
-  assert(name_exists sr vdi_info.name_label);
+  assert(vdi_exists sr vdi.vdi);
   (* Check the disk has size >= the amount we requested *)
   assert(vdi.virtual_size >= vdi_info.virtual_size);
   vdi
 
 let destroy sr vdi =
   Client.VDI.destroy ~dbg ~sr ~vdi:vdi.vdi;
-  assert(not (name_exists sr vdi.name_label))
+  assert(not (vdi_exists sr vdi.vdi))
 
 let test_create_destroy sr n () = destroy sr (create sr n)
 
