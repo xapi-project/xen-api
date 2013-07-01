@@ -1,3 +1,6 @@
+0.9.15 (1-Jul-2013):
+* libxl: use a PV frontend in dom0 for pygrub
+
 0.9.14 (27-Jun-2013):
 * libxl: PV guests install and start normally
 * libxl: fixed deadlock in clean shutdown
