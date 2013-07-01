@@ -164,6 +164,7 @@ let clean_shutdown_async ~xs (x: device) =
 let unplug_watch ~xs (x: device) = Hotplug.path_written_by_hotplug_scripts x |> Watch.key_to_disappear
 let error_watch ~xs (x: device) = Watch.value_to_appear (error_path_of_device ~xs x)
 let frontend_closed ~xs (x: device) = Watch.map (fun () -> "") (Watch.value_to_become (frontend_path_of_device ~xs x ^ "/state") (Xenbus_utils.string_of Xenbus_utils.Closed))
+let backend_closed ~xs (x: device) = Watch.map (fun () -> "") (Watch.value_to_become (backend_path_of_device ~xs x ^ "/state") (Xenbus_utils.string_of Xenbus_utils.Closed))
 
 let clean_shutdown_wait (task: Xenops_task.t) ~xs ~ignore_transients (x: device) =
 	debug "Device.Generic.clean_shutdown_wait %s" (string_of_device x);
@@ -180,15 +181,17 @@ let clean_shutdown_wait (task: Xenops_task.t) ~xs ~ignore_transients (x: device)
 
 	let cancel = Device x in
 	let frontend_closed = Watch.map (fun _ -> ()) (frontend_closed ~xs x) in
+	let backend_closed = Watch.map (fun _ -> ()) (backend_closed ~xs x) in
 	let unplug = Watch.map (fun _ -> ()) (unplug_watch ~xs x) in
 	let error = Watch.map (fun _ -> ()) (error_watch ~xs x) in
-	if cancellable_watch cancel [ frontend_closed; unplug ] (if ignore_transients then [] else [ error ]) task ~xs ~timeout:!Xenopsd.hotplug_timeout ()
-	then begin
-		safe_rm ~xs (frontend_path_of_device ~xs x);
-		if cancellable_watch cancel [ unplug ] (if ignore_transients then [] else [ error ]) task ~xs ~timeout:!Xenopsd.hotplug_timeout ()
-		then rm_device_state ~xs x
-		else on_error ()
-	end else on_error ()
+	debug "waiting for backend to close";
+	if not(cancellable_watch cancel [ backend_closed ] (if ignore_transients then [] else [ error ]) task ~xs ~timeout:!Xenopsd.hotplug_timeout ())
+	then on_error ();
+	debug "waiting for frontend to close";
+	if not(cancellable_watch cancel [ frontend_closed ] (if ignore_transients then [] else [ error ]) task ~xs ~timeout:!Xenopsd.hotplug_timeout ())
+	then on_error ();
+	safe_rm ~xs (frontend_path_of_device ~xs x);
+	rm_device_state ~xs x
 
 let clean_shutdown (task: Xenops_task.t) ~xs (x: device) =
 	debug "Device.Generic.clean_shutdown %s" (string_of_device x);
@@ -456,12 +459,19 @@ let release (task: Xenops_task.t) ~xs (x: device) =
 	Generic.safe_rm ~xs (backend_path_of_device ~xs x);
 	Hotplug.release task ~xs x;
 
-	if !Xenopsd.run_hotplug_scripts
-	then Hotplug.run_hotplug_script x [ "remove" ];
-
 	(* As for add above, if the frontend is in dom0, we can wait for the frontend 
 	 * to unplug as well as the backend. CA-13506 *)
-	if x.frontend.domid = 0 then Hotplug.wait_for_frontend_unplug task ~xs x
+	if x.frontend.domid = 0 then begin
+		let path = x.frontend.devid |> Device_number.of_xenstore_key |> Device_number.to_linux_device |> (fun x -> "/dev/" ^ x) in
+		debug "Waiting for %s to disappear" path;
+		let start = Unix.gettimeofday () in
+		while Sys.file_exists path && (Unix.gettimeofday () -. start < 30.) do
+			Thread.delay 0.2
+		done
+	end;
+
+	if !Xenopsd.run_hotplug_scripts
+	then Hotplug.run_hotplug_script x [ "remove" ]
 
 let free_device ~xs bus_type domid =
 	let disks = List.map
@@ -486,7 +496,7 @@ type t = {
 	backend_domid: int;
 }
 
-let add_async ~xs ~hvm x domid =
+let add_async ~xs ~hvm ?(backend_kind=Vbd) x domid =
 	let back_tbl = Hashtbl.create 16 and front_tbl = Hashtbl.create 16 in
 	let open Device_number in
 	(* If no device number is provided then autodetect a free one *)
@@ -496,7 +506,7 @@ let add_async ~xs ~hvm x domid =
 			make (free_device ~xs (if hvm then Ide else Xen) domid) in
 	let devid = to_xenstore_key device_number in
 	let device = 
-	  let backend = { domid = x.backend_domid; kind = Vbd; devid = devid } 
+	  let backend = { domid = x.backend_domid; kind = backend_kind; devid = devid } 
 	  in  device_of_backend backend domid
 	in
 
@@ -527,9 +537,9 @@ let add_async ~xs ~hvm x domid =
 		"removable", if x.unpluggable then "1" else "0";
 		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
 		"dev", to_linux_device device_number;
-		"type", backendty_of_physty x.phystype;
+		"type", if backend_kind = Qdisk then "qdisk" else backendty_of_physty x.phystype;
 		"mode", string_of_mode x.mode;
-		"params", x.params;
+		"params", if backend_kind = Qdisk then "aio:" ^ x.params else x.params;
 	];
     (* We don't have PV drivers for HVM guests for CDROMs. We prevent
        blkback from successfully opening the device since this can
@@ -554,6 +564,7 @@ let add_wait (task: Xenops_task.t) ~xs device =
 
 	Hotplug.wait_for_plug task ~xs device;
 	debug "Device.Vbd successfully added; device_is_online = %b" (Hotplug.device_is_online ~xs device);
+
 	(* 'Normally' we connect devices to other domains, and cannot know whether the
 	   device is 'available' from their userspace (or even if they have a userspace).
 	   The best we can do is just to wait for the backend hotplug scripts to run,
@@ -564,26 +575,24 @@ let add_wait (task: Xenops_task.t) ~xs device =
 	   NB if the custom hotplug script fires this implies that the xenbus state
 	   reached "connected", so we don't have to check for that first. *)
 	if device.frontend.domid = 0 then begin
-	  try
-	    (* CA-15605: clean up on dom0 block-attach failure *)
-	    Hotplug.wait_for_frontend_plug task ~xs device;
-	  with Hotplug.Frontend_device_error _ as e ->
-	    debug "Caught Frontend_device_error: assuming it is safe to shutdown the backend";
-	    clean_shutdown task ~xs device; (* assumes double-failure isn't possible *)
-	    release task ~xs device;
-	    raise e
+		let path = device.frontend.devid |> Device_number.of_xenstore_key |> Device_number.to_linux_device |> (fun x -> "/dev/" ^ x) in
+		debug "Waiting for %s to appear" path;
+		let start = Unix.gettimeofday () in
+		while not (Sys.file_exists path) && (Unix.gettimeofday () -. start < 30.) do
+			Thread.delay 0.2
+		done
 	end;
 	device
 
 (* Add the VBD to the domain, When this command returns, the device is ready. (This isn't as
    concurrent as xend-- xend allocates loopdevices via hotplug in parallel and then
    performs a 'waitForDevices') *)
-let add (task: Xenops_task.t) ~xs ~hvm x domid =
+let add (task: Xenops_task.t) ~xs ~hvm ?(backend_kind=Vbd) x domid =
 	let device =
 		let result = ref None in
 		while !result = None do
 			try
-				result := Some (add_async ~xs ~hvm x domid);
+				result := Some (add_async ~xs ~hvm ~backend_kind x domid);
 			with Device_frontend_already_connected _ as e ->
 				if x.device_number = None then begin
 					debug "Temporary failure to allocte a device number; retrying";
@@ -1490,7 +1499,7 @@ end
 
 let hard_shutdown (task: Xenops_task.t) ~xs (x: device) = match x.backend.kind with
   | Vif -> Vif.hard_shutdown task ~xs x
-  | Vbd | Tap -> Vbd.hard_shutdown task ~xs x
+  | Vbd | Tap | Qdisk -> Vbd.hard_shutdown task ~xs x
   | Pci -> PCI.hard_shutdown task ~xs x
   | Vfs -> Vfs.hard_shutdown task ~xs x
   | Vfb -> Vfb.hard_shutdown task ~xs x
@@ -1498,7 +1507,7 @@ let hard_shutdown (task: Xenops_task.t) ~xs (x: device) = match x.backend.kind w
 
 let clean_shutdown (task: Xenops_task.t) ~xs (x: device) = match x.backend.kind with
   | Vif -> Vif.clean_shutdown task ~xs x
-  | Vbd | Tap -> Vbd.clean_shutdown task ~xs x
+  | Vbd | Tap | Qdisk -> Vbd.clean_shutdown task ~xs x
   | Pci -> PCI.clean_shutdown task ~xs x
   | Vfs -> Vfs.clean_shutdown task ~xs x
   | Vfb -> Vfb.clean_shutdown task ~xs x

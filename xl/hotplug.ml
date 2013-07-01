@@ -68,7 +68,7 @@ let get_hotplug_path (x: device) =
 
 let path_written_by_hotplug_scripts (x: device) = match x.backend.kind with
 	| Vif -> get_hotplug_path x ^ "/hotplug"
-	| Vbd ->
+	| Vbd | Qdisk ->
 		sprintf "/local/domain/%d/backend/%s/%d/%d/hotplug-status"
 			x.backend.domid (string_of_kind x.backend.kind) x.frontend.domid x.frontend.devid
 	| k -> failwith (Printf.sprintf "No xenstore interface for this kind of device: %s" (string_of_kind k))
@@ -109,7 +109,7 @@ let device_is_online ~xs (x: device) =
   match x.backend.kind with
   | Pci | Vfs | Vkbd | Vfb -> assert false (* PCI backend doesn't create online node *)
   | Vif -> hotplugged ~xs x
-  | ( Vbd | Tap ) -> 
+  | ( Vbd | Tap | Qdisk ) -> 
       if backend_request () 
       then not(backend_shutdown ())
       else hotplugged ~xs x
@@ -139,43 +139,6 @@ let wait_for_unplug (task: Xenops_task.t) ~xs (x: device) =
     debug "Synchronised ok with hotplug script: %s" (string_of_device x)
   with Watch.Timeout _ ->
     raise (Device_timeout x)
-
-(** Wait for the frontend device to become available to userspace *)
-let wait_for_frontend_plug (task: Xenops_task.t) ~xs (x: device) =
-	debug "Hotplug.wait_for_frontend_plug: %s" (string_of_device x);
-	try
-		let ok_watch = Watch.value_to_appear (frontend_status_node x) |> Watch.map (fun _ -> ())  in
-		let tapdisk_error_watch = Watch.value_to_appear (tapdisk_error_node ~xs x) |> Watch.map (fun _ -> ()) in
-		let blkback_error_watch = Watch.value_to_appear (blkback_error_node ~xs x) |> Watch.map (fun _ -> ()) in
-		let cancel = Device x in
-		Stats.time_this "udev frontend add event" 
-			(fun () ->
-				if cancellable_watch cancel [ ok_watch ] [ tapdisk_error_watch; blkback_error_watch ] task ~xs ~timeout:!Xenopsd.hotplug_timeout ()
-				then debug "Synchronised ok with frontend hotplug script: %s" (string_of_device x)
-				else begin
-					let tapdisk_error = try xs.Xs.read (tapdisk_error_node ~xs x) with _ -> "" in
-					let blkback_error = try xs.Xs.read (blkback_error_node ~xs x) with _ -> "" in
-					let e = tapdisk_error ^ "/" ^ blkback_error in
-					error "Failed waiting for frontend device %s: %s" (string_of_device x) e;
-					raise (Frontend_device_error e)
-				end
-			)
-	with Watch.Timeout _ ->
-		error "Timed out waiting for the frontend udev event to fire on device: %s" (string_of_device x);
-		raise (Frontend_device_timeout x)
-
-let wait_for_frontend_unplug (task: Xenops_task.t) ~xs (x: device) =
-  debug "Hotplug.wait_for_frontend_unplug: %s" (string_of_device x);
-  try
-    let path = frontend_status_node x in
-    Stats.time_this "udev frontend remove event" 
-      (fun () ->
-		  let (_: bool) = cancellable_watch (Device x) [ Watch.map (fun _ -> ()) (Watch.key_to_disappear path) ] [] task ~xs ~timeout:!Xenopsd.hotplug_timeout () in
-		  ()
-      );
-    debug "Synchronised ok with frontend hotplug script: %s" (string_of_device x)
-  with Watch.Timeout _ ->
-    raise (Frontend_device_timeout x)
 
 (* If we're running the hotplug scripts ourselves then we must wait
    for the VIF device to actually be created. libxl waits until the
@@ -289,22 +252,27 @@ let release' (task:Xenops_task.t) ~xs (x: device) vm kind devid =
 let run_hotplug_script device args =
 	let kind = string_of_kind device.backend.kind in
 	let script = match device.backend.kind with
-	| Vbd -> !Xl_path.vbd_script
-	| Vif | Tap -> !Xl_path.vif_script
+	| Vbd -> Some !Xl_path.vbd_script
+	| Vif | Tap -> Some !Xl_path.vif_script
+	| Qdisk -> None
 	| _ -> failwith (Printf.sprintf "don't know how to run a hotplug script for: %s" kind) in
-	let env = Array.concat [ Unix.environment (); [|
-		"script=" ^ script;
-		"XENBUS_TYPE=" ^ kind;
-		"XENBUS_PATH=" ^ (Printf.sprintf "backend/%s/%d/%d" kind device.frontend.domid device.frontend.devid);
-		"XENBUS_BASE_PATH=backend";
-	|] ] in
-	try
-		debug "Running hotplug script %s %s" script (String.concat " " args);
-		let stdout, stderr = Forkhelpers.execute_command_get_output ~env script args in
-		debug "Got %s %s" stdout stderr;
-		()
-	with Forkhelpers.Spawn_internal_error(stdout, stderr, Unix.WEXITED n) as e ->
-		error "%s exitted with %d (%s; %s)" script n stdout stderr;
-		raise e
+	match script with
+	| Some script ->
+		begin try
+			let env = Array.concat [ Unix.environment (); [|
+				"script=" ^ script;
+				"XENBUS_TYPE=" ^ kind;
+				"XENBUS_PATH=" ^ (Printf.sprintf "backend/%s/%d/%d" kind device.frontend.domid device.frontend.devid);
+				"XENBUS_BASE_PATH=backend";
+			|] ] in
+			debug "Running hotplug script %s %s" script (String.concat " " args);
+			let stdout, stderr = Forkhelpers.execute_command_get_output ~env script args in
+			debug "Got %s %s" stdout stderr;
+			()
+		with Forkhelpers.Spawn_internal_error(stdout, stderr, Unix.WEXITED n) as e ->
+			error "%s exitted with %d (%s; %s)" script n stdout stderr;
+			raise e
+		end
+	| None -> ()
 
 

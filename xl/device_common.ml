@@ -15,7 +15,7 @@ open Printf
 open Xenstore
 open Xenops_utils
 
-type kind = Vif | Vbd | Tap | Pci | Vfs | Vfb | Vkbd
+type kind = Vif | Vbd | Tap | Pci | Vfs | Vfb | Vkbd | Qdisk
 with rpc
 
 type devid = int
@@ -44,9 +44,9 @@ open D
 open Printf
 
 let string_of_kind = function
-  | Vif -> "vif" | Vbd -> "vbd" | Tap -> "tap" | Pci -> "pci" | Vfs -> "vfs" | Vfb -> "vfb" | Vkbd -> "vkbd"
+  | Vif -> "vif" | Vbd -> "vbd" | Tap -> "tap" | Pci -> "pci" | Vfs -> "vfs" | Vfb -> "vfb" | Vkbd -> "vkbd" | Qdisk -> "qdisk"
 let kind_of_string = function
-  | "vif" -> Vif | "vbd" -> Vbd | "tap" -> Tap | "pci" -> Pci | "vfs" -> Vfs | "vfb" -> Vfb | "vkbd" -> Vkbd
+  | "vif" -> Vif | "vbd" -> Vbd | "tap" -> Tap | "pci" -> Pci | "vfs" -> Vfs | "vfb" -> Vfb | "vkbd" -> Vkbd | "qdisk" -> Qdisk
   | x -> raise (Unknown_device_type x)
 
 let string_of_endpoint (x: endpoint) =
@@ -125,7 +125,7 @@ let string_of_device (x: device) =
 let device_of_backend (backend: endpoint) (domu: Xenctrl.domid) = 
   let frontend = { domid = domu;
 		   kind = (match backend.kind with
-			   | Vbd | Tap -> Vbd
+			   | Vbd | Tap | Qdisk -> Vbd
 			   | _ -> backend.kind);
 		   devid = backend.devid } in
   { backend = backend; frontend = frontend }
@@ -140,11 +140,11 @@ let parse_int i =
 		Some (int_of_string i)
 	with _ -> None
 
-let slash = Re_str.regexp "[/]"
+let slash = Re_str.regexp_string "/"
 
 let parse_frontend_link x =
 	match Re_str.split slash x with
-		| [ ""; "local"; "domain"; domid; "device"; kind; devid ] ->
+		| [ "local"; "domain"; domid; "device"; kind; devid ] ->
 			begin
 				match parse_int domid, parse_kind kind, parse_int devid with
 					| Some domid, Some kind, Some devid ->
@@ -155,7 +155,7 @@ let parse_frontend_link x =
 
 let parse_backend_link x = 
 	match Re_str.split slash x with
-		| [ ""; "local"; "domain"; domid; "backend"; kind; _; devid ] ->
+		| [ "local"; "domain"; domid; "backend"; kind; _; devid ] ->
 			begin
 				match parse_int domid, parse_kind kind, parse_int devid with
 					| Some domid, Some kind, Some devid ->

@@ -246,7 +246,7 @@ let create_vbd_frontend ~xc ~xs task frontend_domid vdi =
 		| None ->
 			error "VM = %s; domid = %d; Failed to determine domid of backend VM id: %s" frontend_vm_id frontend_domid backend_vm_id;
 			raise (Does_not_exist("domain", backend_vm_id))
-		| Some backend_domid when backend_domid = frontend_domid ->
+		| Some backend_domid when backend_domid = frontend_domid && vdi.attach_info.Storage_interface.xenstore_data = [] -> (* FIXME *)
 			(* There's no need to use a PV disk if we're in the same domain *)
 			Name vdi.attach_info.Storage_interface.params
 		| Some backend_domid ->
@@ -263,7 +263,7 @@ let create_vbd_frontend ~xc ~xs task frontend_domid vdi =
 				backend_domid = backend_domid;
 			} in
 			let device = Xenops_task.with_subtask task "Vbd.add"
-				(fun () -> Device.Vbd.add task ~xs ~hvm:false t frontend_domid) in
+				(fun () -> Device.Vbd.add task ~xs ~hvm:false ~backend_kind:Device_common.Qdisk t frontend_domid) in
 			Device device
 
 let block_device_of_vbd_frontend = function

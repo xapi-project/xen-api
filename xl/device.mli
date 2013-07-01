@@ -59,7 +59,7 @@ sig
 		backend_domid: int;
 	}
 
-	val add : Xenops_task.t -> xs:Xenstore.Xs.xsh -> hvm:bool -> t -> Xenctrl.domid -> device
+	val add : Xenops_task.t -> xs:Xenstore.Xs.xsh -> hvm:bool -> ?backend_kind:kind -> t -> Xenctrl.domid -> device
 
 	val release : Xenops_task.t -> xs:Xenstore.Xs.xsh -> device -> unit
 	val media_eject : xs:Xenstore.Xs.xsh -> device_number:Device_number.t -> int -> unit
