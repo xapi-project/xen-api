@@ -315,10 +315,7 @@ let suspend ~__context ~vm =
 
 let resume ~__context ~vm ~start_paused ~force = 
 	if Db.VM.get_ha_restart_priority ~__context ~self:vm = Constants.ha_restart
-	then begin
-		Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context vm;
-		Db.VM.set_ha_always_run ~__context ~self:vm ~value:true
-	end;
+	then Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
 
 	let host = Helpers.get_localhost ~__context in
 	if not force then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ();
