@@ -560,7 +560,8 @@ let _ =
     ~doc:"You tried to create a VLAN or tunnel on top of a tunnel access PIF - use the underlying transport PIF instead." ();
   error Api_errors.pif_tunnel_still_exists ["PIF"]
     ~doc:"Operation cannot proceed while a tunnel exists on this interface." ();
-
+	error Api_errors.bridge_not_available [ "bridge" ]
+    ~doc:"Could not find bridge required by VM." ();
   (* VM specific errors *)
   error Api_errors.vm_is_protected [ "vm" ]
     ~doc:"This operation cannot be performed because the specified VM is protected by xHA" ();
