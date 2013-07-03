@@ -17,7 +17,8 @@ open D
 let create ~__context ~name_label ~name_description ~other_config =
 	let group = Ref.make () in
 	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
-	Db.GPU_group.create ~__context ~ref:group ~uuid ~name_label ~name_description ~gPU_types:[] ~other_config;
+	Db.GPU_group.create ~__context ~ref:group ~uuid ~name_label ~name_description
+		~gPU_types:[] ~other_config ~supported_VGPU_types:[];
 	group
 
 let destroy ~__context ~self =
