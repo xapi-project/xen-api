@@ -3708,5 +3708,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			info "VGPU.destroy: VIF = '%s'" (vgpu_uuid ~__context self);
 			Local.VGPU.destroy ~__context ~self
 	end
+
+	module VGPU_type = struct end
 end
 
