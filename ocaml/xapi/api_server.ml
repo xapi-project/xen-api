@@ -82,6 +82,7 @@ module Actions = struct
 	module PGPU = Xapi_pgpu
 	module GPU_group = Xapi_gpu_group
 	module VGPU = Xapi_vgpu
+	module VGPU_type = Xapi_vgpu_type
 end
 
 (** Use the server functor to make an XML-RPC dispatcher. *)

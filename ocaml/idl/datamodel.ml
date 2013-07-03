@@ -114,6 +114,7 @@ let _pci = "PCI"
 let _pgpu = "PGPU"
 let _gpu_group = "GPU_group"
 let _vgpu = "VGPU"
+let _vgpu_type = "VGPU_type"
 
 (** All the various static role names *)
 
@@ -7840,6 +7841,28 @@ let vgpu =
 			]
 		()
 
+(** Virtual GPU types (i.e. preset sizes) *)
+
+let vgpu_type =
+	create_obj
+		~name:_vgpu_type
+		~descr:"A type of virtual GPU"
+		~doccomments:[]
+		~gen_constructor_destructor:false
+		~gen_events:true
+		~in_db:true
+		~lifecycle:[Published, rel_vgpu_tech_preview, ""]
+		~messages:[]
+		~messages_default_allowed_roles:_R_POOL_OP
+		~persist:PersistEverything
+		~in_oss_since:None
+		~contents:[
+			uid _vgpu_type ~lifecycle:[Published, rel_vgpu_tech_preview, ""];
+			field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~default_value:(Some (VString "")) "model_name" "Model name associated with the VGPU type";
+			field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~default_value:(Some (VInt 0L)) "framebuffer_size" "Framebuffer size of the VGPU type, in bytes";
+		]
+	()
+
 (******************************************************************************************)
 
 (** All the objects in the system in order they will appear in documentation: *)
@@ -7896,6 +7919,7 @@ let all_system =
 		pgpu;
 		gpu_group;
 		vgpu;
+		vgpu_type;
 	]
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)
@@ -8046,6 +8070,7 @@ let expose_get_all_messages_for = [
 	_pgpu;
 	_gpu_group;
 	_vgpu;
+	_vgpu_type;
 	_dr_task;
 ]
 
