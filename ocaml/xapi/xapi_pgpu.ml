@@ -58,3 +58,4 @@ let update_gpus ~__context ~host =
 	let obsolete_pgpus = List.set_difference existing_pgpus current_pgpus in
 	List.iter (fun (self, _) -> Db.PGPU.destroy ~__context ~self) obsolete_pgpus
 
+let set_GPU_group ~__context ~self ~value = failwith "not implemented"

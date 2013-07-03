@@ -18,3 +18,6 @@
 (** Synchronise the PGPU objects in the database with the actual devices in the host. *)
 val update_gpus : __context:Context.t -> host:API.ref_host -> unit
 
+(** Move the PGPU to a new GPU group. *)
+val set_GPU_group : __context:Context.t -> self:API.ref_PGPU ->
+	value: API.ref_GPU_group -> unit
