@@ -82,46 +82,53 @@ let check_for_changes ~(dev : string) ~(stat : Network_monitor.iface_stats) =
 
 let failed_again = ref false
 
+let standardise_name name =
+	try
+		let (d1,d2) = Scanf.sscanf name "tap%d.%d"
+			(fun d1 d2 -> d1,d2) in
+		let newname = Printf.sprintf "vif%d.%d" d1 d2 in
+		newname
+	with _ -> name
+
+let get_link_stats () =
+	let open Network_monitor in
+	let open Netlink in
+	let s = Socket.alloc () in
+	Socket.connect s Socket.NETLINK_ROUTE;
+
+	let cache = Link.cache_alloc s in
+	let links = Link.cache_to_list cache in
+	let devs = List.map (fun link ->
+		let name = standardise_name (Link.get_name link) in
+		let convert x = Int64.of_int (Unsigned.UInt64.to_int x) in
+		let eth_stat = {default_stats with
+			rx_bytes = Link.get_stat link Link.RX_BYTES |> convert;
+			rx_pkts = Link.get_stat link Link.RX_PACKETS |> convert;
+			rx_errors = Link.get_stat link Link.RX_ERRORS |> convert;
+			tx_bytes = Link.get_stat link Link.TX_BYTES |> convert;
+			tx_pkts = Link.get_stat link Link.TX_PACKETS |> convert;
+			tx_errors = Link.get_stat link Link.TX_ERRORS |> convert;
+		} in
+		name, eth_stat
+	) links in
+	let devs = List.filter (fun (name, _) ->
+		not(String.startswith "dummy" name) &&
+			not(String.startswith "xenbr" name) &&
+			not(String.startswith "xapi" name) &&
+			not(String.startswith "eth" name && String.contains name '.')
+	) devs in
+
+	Cache.free cache;
+	Socket.close s;
+	Socket.free s;
+	devs
+
 let rec monitor dbg () =
 	let open Network_interface in
 	let open Network_monitor in
 	(try
 		let devs = ref [] in
-
-		let standardise_name name =
-			try
-				let (d1,d2) = Scanf.sscanf name "tap%d.%d"
-					(fun d1 d2 -> d1,d2) in
-				let newname = Printf.sprintf "vif%d.%d" d1 d2 in
-				newname
-			with _ -> name
-		in
-
-		let f line =
-			if String.contains line ':' then (
-				let flds = String.split_f (fun c -> c = ' ' || c = ':') line in
-				let flds = List.filter (fun field -> field <> "") flds in
-				let name = standardise_name (List.nth flds 0) in
-				let vs = List.map (fun i ->
-					try Int64.of_string (List.nth flds i) with _ -> 0L)
-					[ 1; 2; 3; 9; 10; 11; ] in
-				let eth_stat = {default_stats with
-					rx_bytes = List.nth vs 0;
-					rx_pkts = List.nth vs 1;
-					rx_errors = List.nth vs 2;
-					tx_bytes = List.nth vs 3;
-					tx_pkts = List.nth vs 4;
-					tx_errors = List.nth vs 5;
-				} in
-				(* CA-23291: no good can come of recording 'dummy' device stats *)
-				if not(String.startswith "dummy" name) &&
-					not(String.startswith "xenbr" name) &&
-					not(String.startswith "xapi" name) &&
-					not(String.startswith "eth" name && String.contains name '.')
-				then devs := (name,eth_stat) :: (!devs)
-			)
-		in
-		Unixext.readfile_line f "/proc/net/dev";
+		devs := get_link_stats ();
 
 		let make_bond_info (name, interfaces) =
 			let devs = List.filter (fun (name', _) -> List.mem name' interfaces) !devs in
