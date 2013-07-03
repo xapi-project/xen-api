@@ -3684,7 +3684,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 	module PCI = struct end
 
-	module PGPU = struct end
+	module PGPU = Local.PGPU
 
 	module GPU_group = struct
 		(* Don't forward. These are just db operations. *)

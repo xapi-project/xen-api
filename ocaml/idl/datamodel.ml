@@ -7599,6 +7599,16 @@ let pci =
 (** Physical GPUs (pGPU) *)
 
 let pgpu =
+	let set_GPU_group = call
+		~name:"set_GPU_group"
+		~lifecycle:[Published, rel_vgpu, ""]
+		~versioned_params:[
+			{param_type=(Ref _pgpu); param_name="self"; param_doc="The PGPU to move to a new group"; param_release=vgpu_release; param_default=None};
+			{param_type=(Ref _gpu_group); param_name="value"; param_doc="The group to which the PGPU will be moved"; param_release=vgpu_release; param_default=None};
+		]
+		~allowed_roles:_R_POOL_OP
+		()
+	in
 	create_obj
 		~name:_pgpu
 		~descr:"A physical GPU (pGPU)"
@@ -7607,7 +7617,7 @@ let pgpu =
 		~gen_events:true
 		~in_db:true
 		~lifecycle:[Published, rel_boston, ""]
-		~messages:[]
+		~messages:[set_GPU_group]
 		~messages_default_allowed_roles:_R_POOL_OP
 		~persist:PersistEverything
 		~in_oss_since:None
