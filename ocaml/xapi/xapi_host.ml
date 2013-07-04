@@ -1162,11 +1162,19 @@ let set_license_params ~__context ~self ~value =
 	Pool_features.update_pool_features ~__context
 
 let apply_edition_internal  ~__context ~host ~edition ~additional =
-	let edition', features, additional =
-		V6client.apply_edition ~__context edition additional
-	in
-	Db.Host.set_edition ~__context ~self:host ~value:edition';
-	copy_license_to_db ~__context ~host ~features ~additional
+	let db_update_license edition features additional =
+		Db.Host.set_edition ~__context ~self:host ~value:edition;
+		copy_license_to_db ~__context ~host ~features ~additional in
+	try
+		let edition', features, additional =
+			V6client.apply_edition ~__context edition additional in
+		db_update_license edition' features additional
+	with e ->
+		(* If we catch an exception, retry with free edition and rethrow *)
+		let edition', features, additional =
+			V6client.apply_edition ~__context "free" additional in
+		db_update_license edition' features additional ;
+		raise e
 
 let apply_edition ~__context ~host ~edition ~force =
 	(* if HA is enabled do not allow the edition to be changed *)
