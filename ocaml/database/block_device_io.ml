@@ -306,38 +306,43 @@ let accept_conn s latest_response_time =
 (* Listen on a given socket. Accept a single connection and transfer all the data from it to dest_fd, or raise Timeout if target_response_time happens first. *)
 (* Raises NotEnoughSpace if the next write would exceed the available_space. *)
 let transfer_data_from_sock_to_fd sock dest_fd available_space target_response_time =
-  (* Open the data channel *)
-  let s = listen_on sock in
-  let data_client = accept_conn s target_response_time in
-  R.info "Accepted connection on data socket";
-  ignore_exn (fun () -> Unix.close s);
+	(* Open the data channel *)
+	let s = listen_on sock in
+	try
+	  	(* May raise a Timeout exception: CA-106403 *)
+		let data_client = accept_conn s target_response_time in
+		R.info "Accepted connection on data socket";
+		ignore_exn (fun () -> Unix.close s);
 
-  (* Read all the data from the data channel, writing it straight into the block device, keeping track of accumulated length *)
-  let total_length = ref 0 in
-  R.debug "Reading from data socket, writing to the block device...";
-  let bytes_read = finally
-    (fun () -> 
-      (* Read data from the client until EOF. Returns the length read. *)
-      Unixext.read_data_in_chunks (fun chunk len ->
-        (* Check that there's enough space *)
-        if available_space - !total_length < len then raise NotEnoughSpace;
-        (* Otherwise write it *)
-        Unixext.time_limited_write dest_fd len chunk target_response_time;
-        total_length := !total_length + len
-      ) ~block_size:16384 data_client
-    )
-    (fun () -> 
-       (* Close the connection *)
-       (* CA-42914: If there was an exception, note that we are forcibly closing the connection when possibly the client (xapi) is still trying to write data. This will cause it to see a 'connection reset by peer' error. *)
-       R.info "Closing connection on data socket";
-       try
-         Unix.shutdown data_client Unix.SHUTDOWN_ALL;
-         Unix.close data_client
-       with e ->
-         R.warn "Exception %s while closing socket" (Printexc.to_string e);
-    ) in
-  R.debug "Finished reading from data socket";
-  bytes_read
+		(* Read all the data from the data channel, writing it straight into the block device, keeping track of accumulated length *)
+		let total_length = ref 0 in
+		R.debug "Reading from data socket, writing to the block device...";
+		let bytes_read = finally
+		(fun () ->
+			(* Read data from the client until EOF. Returns the length read. *)
+			Unixext.read_data_in_chunks (fun chunk len ->
+				(* Check that there's enough space *)
+				if available_space - !total_length < len then raise NotEnoughSpace;
+				(* Otherwise write it *)
+				Unixext.time_limited_write dest_fd len chunk target_response_time;
+				total_length := !total_length + len
+			) ~block_size:16384 data_client
+		)
+		(fun () ->
+			(* Close the connection *)
+			(* CA-42914: If there was an exception, note that we are forcibly closing the connection when possibly the client (xapi) is still trying to write data. This will cause it to see a 'connection reset by peer' error. *)
+			R.info "Closing connection on data socket";
+			try
+				Unix.shutdown data_client Unix.SHUTDOWN_ALL;
+				Unix.close data_client
+			with e ->
+				R.warn "Exception %s while closing socket" (Printexc.to_string e);
+		) in
+		R.debug "Finished reading from data socket";
+		bytes_read
+	with Unixext.Timeout -> (* Raised by accept_conn *)
+		ignore_exn (fun () -> Unix.close s);
+		raise Unixext.Timeout
 
 let transfer_database_to_sock sock db_fn target_response_time =
   (* Open the data channel *)
