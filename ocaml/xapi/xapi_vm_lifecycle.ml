@@ -53,7 +53,6 @@ let allowed_power_states ~__context ~vmr ~(op:API.vm_operations) =
 	| `awaiting_memory_live
 	| `clean_reboot
 	| `clean_shutdown
-	| `shutdown
 	| `changing_memory_live
 	| `changing_shadow_memory_live
 	| `changing_VCPUs_live
@@ -79,6 +78,7 @@ let allowed_power_states ~__context ~vmr ~(op:API.vm_operations) =
 	                                -> [`Paused; `Running]
 	| `checkpoint
 	| `get_boot_record
+	| `shutdown
 	| `hard_shutdown
 	                                -> [`Paused; `Suspended; `Running]
 	| `assert_operation_valid

@@ -1319,7 +1319,17 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let local_fn = Local.VM.shutdown ~vm in
 			with_vm_operation ~__context ~self:vm ~doc:"VM.shutdown" ~op:`shutdown
 				(fun () ->
-					forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc -> Client.VM.shutdown rpc session_id vm);
+						if Db.VM.get_power_state ~__context ~self:vm = `Suspended
+						then
+							begin
+								debug "VM '%s' is suspended. Shutdown will just delete suspend VDI" (Ref.string_of vm);
+								let all_vm_srs = Xapi_vm_helpers.compute_required_SRs_for_shutting_down_suspended_domains ~__context ~vm in
+								let suitable_host = Xapi_vm_helpers.choose_host ~__context ~vm:vm
+									~choose_fn:(Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:all_vm_srs) () in
+								do_op_on ~__context ~local_fn:(Local.VM.hard_shutdown ~vm) ~host:suitable_host (fun session_id rpc -> Client.VM.hard_shutdown rpc session_id vm)
+							end
+						else
+							forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc -> Client.VM.shutdown rpc session_id vm);
 					Xapi_vm_helpers.shutdown_delay ~__context ~vm
 				);
 			update_vbd_operations ~__context ~vm;
@@ -1381,16 +1391,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 							begin
 								debug "VM '%s' is suspended. Shutdown will just delete suspend VDI" (Ref.string_of vm);
 								(* this expression evaluates to a fn that forwards to a host that can see all vdis: *)
-								let all_vm_vdis =
-									List.map
-										(fun vbd->
-											if Db.VBD.get_empty ~__context ~self:vbd then
-												None
-											else
-												Some (Db.VBD.get_VDI ~__context ~self:vbd))
-										(Db.VM.get_VBDs ~__context ~self:vm) in
-								let all_vm_vdis = List.unbox_list all_vm_vdis in
-								let all_vm_srs = List.map (fun vdi -> Db.VDI.get_SR ~self:vdi ~__context) all_vm_vdis in
+								let all_vm_srs = Xapi_vm_helpers.compute_required_SRs_for_shutting_down_suspended_domains ~__context ~vm in
 								let suitable_host = Xapi_vm_helpers.choose_host ~__context ~vm:vm
 									~choose_fn:(Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:all_vm_srs) () in
 								do_op_on ~host:suitable_host

@@ -246,8 +246,8 @@ let shutdown ~__context ~vm =
 	begin
 		try
 			let db_timeout = Db.VM.get_shutdown_delay ~__context ~self:vm in
-			clean_shutdown_with_timeout ~__context ~vm 
-				(if db_timeout > 0L 
+			clean_shutdown_with_timeout ~__context ~vm
+				(if db_timeout > 0L
 				 then Int64.to_float db_timeout
 				 else !Xapi_globs.domain_shutdown_total_timeout)
 		with e ->
