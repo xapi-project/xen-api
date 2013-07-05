@@ -107,9 +107,12 @@ let test_clone_attach sr n () =
   let vdi = create sr n in
   List.iter
     (fun read_write ->
+      let vdis = Client.SR.scan ~dbg ~sr in
       let x = Client.VDI.clone ~dbg ~sr ~vdi_info:vdi in
+      let vdis' = Client.SR.scan ~dbg ~sr in
       attach_activate_deactivate_detach sr x read_write;
-      Client.VDI.destroy ~dbg ~sr ~vdi:x.vdi
+      Client.VDI.destroy ~dbg ~sr ~vdi:x.vdi;
+      assert ((List.length vdis + 1) = (List.length vdis'))
     ) [ true; false ];
   destroy sr vdi
 
