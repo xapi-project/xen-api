@@ -20,7 +20,8 @@ val create :
   __context:Context.t ->
   vM:[ `VM ] Ref.t ->
   gPU_group:[ `GPU_group ] Ref.t ->
-  device:string -> other_config:(string * string) list -> [ `VGPU ] Ref.t
+  device:string -> other_config:(string * string) list ->
+  _type:[ `VGPU_type ] Ref.t -> [ `VGPU ] Ref.t
 
 (** Destroy a VGPU. *)
 val destroy : __context:Context.t -> self:[ `VGPU ] Ref.t -> unit

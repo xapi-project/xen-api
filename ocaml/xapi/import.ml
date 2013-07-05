@@ -940,6 +940,41 @@ module VIF : HandlerTools = struct
 		end
 end
 
+module VGPU_type : HandlerTools = struct
+	type precheck_t =
+		| Found_VGPU_type of API.ref_VGPU_type
+		| Found_no_VGPU_type of exn
+
+	let precheck __context config rpc session_id state x =
+		let vgpu_type_record = API.From.vGPU_type_t "" x.snapshot in
+
+		(* Look up VGPU types using the model name and framebuffer size. *)
+		let compatible_types =
+			Client.VGPU_type.get_all_records_where rpc session_id
+				(Printf.sprintf
+					"field \"model_name\" = \"%s\" AND field \"framebuffer_size\" = \"%Ld\""
+					vgpu_type_record.API.vGPU_type_model_name
+					vgpu_type_record.API.vGPU_type_framebuffer_size)
+		in
+
+		match choose_one compatible_types with
+		| Some (vgpu_type, _) -> Found_VGPU_type vgpu_type
+		| None ->
+			let msg = ""
+			in
+			Found_no_VGPU_type (Failure msg)
+
+	let handle_dry_run __context config rpc session_id state x precheck_result =
+		match precheck_result with
+		| Found_VGPU_type vgpu_type -> begin
+			state.table <- (x.cls, x.id, Ref.string_of vgpu_type) :: state.table;
+			state.table <- (x.cls, Ref.string_of vgpu_type, Ref.string_of vgpu_type) :: state.table
+		end
+		| Found_no_VGPU_type e -> raise e
+
+	let handle = handle_dry_run
+end
+
 (** Create a new VGPU record, add the reference to the table.
     The VM and GPU_group must have already been handled first. *)
 module VGPU : HandlerTools = struct
@@ -963,9 +998,13 @@ module VGPU : HandlerTools = struct
 			let group = log_reraise
 				("Failed to find VGPU's GPU group: " ^ (Ref.string_of vgpu_record.API.vGPU_GPU_group))
 				(lookup vgpu_record.API.vGPU_GPU_group) state.table in
+			let _type = log_reraise
+				("Failed to find VGPU's type: " ^ (Ref.string_of vgpu_record.API.vGPU_type))
+				(lookup vgpu_record.API.vGPU_type) state.table in
 			let vgpu_record = { vgpu_record with
 				API.vGPU_VM = vm;
-				API.vGPU_GPU_group = group
+				API.vGPU_GPU_group = group;
+				API.vGPU_type = _type;
 			} in
 			Create vgpu_record
 
@@ -987,7 +1026,7 @@ module VGPU : HandlerTools = struct
 		| Create vgpu_record -> begin
 			let vgpu = log_reraise "failed to create VGPU" (fun value ->
 				let vgpu = Client.VGPU.create ~rpc ~session_id ~vM:value.API.vGPU_VM ~gPU_group:value.API.vGPU_GPU_group
-					~device:value.API.vGPU_device ~other_config:value.API.vGPU_other_config in
+					~device:value.API.vGPU_device ~other_config:value.API.vGPU_other_config ~_type:value.API.vGPU_type in
 				if config.full_restore then Db.VGPU.set_uuid ~__context ~self:vgpu ~value:value.API.vGPU_uuid;
 				vgpu) vgpu_record
 			in
