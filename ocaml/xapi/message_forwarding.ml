@@ -3721,9 +3721,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	end
 
 	module VGPU = struct
-		let create ~__context ~vM ~gPU_group ~device ~other_config =
+		let create ~__context ~vM ~gPU_group ~device ~other_config ~_type =
 			info "VGPU.create: VM = '%s'; GPU_group = '%s'" (vm_uuid ~__context vM) (gpu_group_uuid ~__context gPU_group);
-			Local.VGPU.create ~__context ~vM ~gPU_group ~device ~other_config
+			Local.VGPU.create ~__context ~vM ~gPU_group ~device ~other_config ~_type
 
 		let destroy ~__context ~self =
 			info "VGPU.destroy: VIF = '%s'" (vgpu_uuid ~__context self);

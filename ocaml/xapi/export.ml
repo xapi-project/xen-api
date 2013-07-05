@@ -282,12 +282,22 @@ let make_sr table __context self =
     snapshot = API.Legacy.To.sR_t sr;
   }    
 
+(** Convert a VGPU_type reference to an obj *)
+let make_vgpu_type table __context self =
+	let vgpu_type = Db.VGPU_type.get_record ~__context ~self in
+	{
+		cls = Datamodel._vgpu_type;
+		id = Ref.string_of (lookup table (Ref.string_of self));
+		snapshot = API.Legacy.To.vGPU_type_t vgpu_type
+	}
+
 (** Convert a VGPU reference to an obj *)
 let make_vgpu table ~preserve_power_state __context self = 
 	let vgpu = Db.VGPU.get_record ~__context ~self in
 	let vgpu = { vgpu with 
 		API.vGPU_currently_attached = if preserve_power_state then vgpu.API.vGPU_currently_attached else false;
 		API.vGPU_GPU_group = lookup table (Ref.string_of vgpu.API.vGPU_GPU_group);
+		API.vGPU_type = lookup table (Ref.string_of vgpu.API.vGPU_type);
 		API.vGPU_VM = lookup table (Ref.string_of vgpu.API.vGPU_VM);
 	} in
 	{
