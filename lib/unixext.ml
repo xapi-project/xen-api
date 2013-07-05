@@ -252,21 +252,19 @@ let delete_empty_file file_path =
 (** Create a new file descriptor, connect it to host:port and return it *)
 exception Host_not_found of string
 let open_connection_fd host port =
-	let s = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
-	try 
-	  let he =
-	    try
-	      Unix.gethostbyname host
-	    with
-		Not_found -> raise (Host_not_found host) in
-	  if Array.length he.Unix.h_addr_list = 0
-	  then failwith (Printf.sprintf "Couldn't resolve hostname: %s" host);
-	  let ip = he.Unix.h_addr_list.(0) in
-	  let addr = Unix.ADDR_INET(ip, port) in
-	  Unix.connect s addr;
-	  s
-	with e -> Unix.close s; raise e
-
+	let open Unix in
+	let addrinfo = getaddrinfo host (string_of_int port) [AI_SOCKTYPE SOCK_STREAM] in
+	match addrinfo with 
+	| [] -> 
+		failwith (Printf.sprintf "Couldn't resolve hostname: %s" host)
+	| ai :: _ ->
+		let s = socket ai.ai_family ai.ai_socktype 0 in
+		try
+			connect s ai.ai_addr;
+			s
+		with e ->
+			close s;
+			raise e
 
 let open_connection_unix_fd filename =
 	let s = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
@@ -675,6 +673,13 @@ type statvfs_t = {
 }
 
 external statvfs : string -> statvfs_t = "stub_statvfs"
+
+(** Returns Some Unix.PF_INET or Some Unix.PF_INET6 if passed a valid IP address, otherwise returns None. *)
+let domain_of_addr str =
+	try
+		let addr = Unix.inet_addr_of_string str in
+		Some (Unix.domain_of_sockaddr (Unix.ADDR_INET (addr, 1)))
+	with _ -> None
 
 module Direct = struct
 	type t = Unix.file_descr

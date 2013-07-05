@@ -214,4 +214,10 @@ let sub_to_end s start =
 	let length = String.length s in
 	String.sub s start (length - start)
 
+let sub_before c s = 
+	String.sub s 0 (String.index s c)
+
+let sub_after c s =
+	sub_to_end s (String.index s c + 1)
+	
 end

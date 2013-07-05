@@ -120,4 +120,10 @@ module String :
 
     (** a substring from the specified position to the end of the string *)
     val sub_to_end : string -> int -> string
+    
+    (** a substring from the start of the string to the first occurrence of a given character, excluding the character *)
+    val sub_before : char -> string -> string
+    
+    (** a substring from  the first occurrence of a given character to the end of the string, excluding the character *)
+    val sub_after : char -> string -> string
   end

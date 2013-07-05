@@ -167,6 +167,9 @@ type statvfs_t = {
 
 val statvfs : string -> statvfs_t
 
+(** Returns Some Unix.PF_INET or Some Unix.PF_INET6 if passed a valid IP address, otherwise returns None. *)
+val domain_of_addr : string -> Unix.socket_domain option
+
 module Direct : sig
 	(** Perform I/O in O_DIRECT mode using 4KiB page-aligned buffers *)
 
