@@ -21,7 +21,7 @@ let m = Mutex.create ()
 let valid_device device =
 	device = "0"
 
-let create ~__context  ~vM ~gPU_group ~device ~other_config =
+let create ~__context  ~vM ~gPU_group ~device ~other_config ~_type =
 	let vgpu = Ref.make () in
 	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
 	if not (Pool_features.is_enabled ~__context Features.GPU) then
@@ -35,7 +35,8 @@ let create ~__context  ~vM ~gPU_group ~device ~other_config =
 		if List.mem device all_devices then
 			raise (Api_errors.Server_error (Api_errors.device_already_exists, [device]));
 
-		Db.VGPU.create ~__context ~ref:vgpu ~uuid ~vM ~gPU_group ~device ~currently_attached:false ~other_config;
+		Db.VGPU.create ~__context ~ref:vgpu ~uuid ~vM ~gPU_group ~device
+			~currently_attached:false ~other_config ~_type;
 	);
 	debug "VGPU ref='%s' created (VM = '%s')" (Ref.string_of vgpu) (Ref.string_of vM);
 	vgpu
@@ -54,6 +55,7 @@ let copy ~__context ~vm vgpu =
 		~gPU_group:all.API.vGPU_GPU_group
 		~vM:vm
 		~other_config:all.API.vGPU_other_config
+		~_type:all.API.vGPU_type
 	in
 	if all.API.vGPU_currently_attached then
 		Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:true;

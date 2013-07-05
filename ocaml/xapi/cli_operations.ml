@@ -4321,7 +4321,12 @@ let vgpu_create printer rpc session_id params =
 	let vm_uuid=List.assoc "vm-uuid" params in
 	let vM=Client.VM.get_by_uuid rpc session_id vm_uuid in
 	let gPU_group=Client.GPU_group.get_by_uuid rpc session_id gpu_group_uuid in
-	let vgpu = Client.VGPU.create ~rpc ~session_id ~device ~gPU_group ~vM ~other_config:[] in
+	let _type =
+		if List.mem_assoc "vgpu-type-uuid" params
+		then Client.VGPU_type.get_by_uuid rpc session_id (List.assoc "vgpu-type-uuid" params)
+		else Ref.null
+	in
+	let vgpu = Client.VGPU.create ~rpc ~session_id ~device ~gPU_group ~vM ~other_config:[] ~_type in
 	let uuid = Client.VGPU.get_uuid rpc session_id vgpu in
 	printer (Cli_printer.PList [uuid])
 
