@@ -16,6 +16,7 @@
 
 open Stringext
 open Pervasiveext
+open Fun
 
 exception Http_parse_failure
 exception Unauthorised of string
@@ -572,12 +573,19 @@ module Url = struct
 	type t = scheme * data
 
 	let of_string url =
-		let host x = match String.split ':' x with
-			| host :: _ -> host
-			| _ -> failwith (Printf.sprintf "Failed to parse host: %s" x) in
-		let port x = match String.split ':' x with
-			| _ :: port :: _ -> Some (int_of_string port)
-			| _ -> None in
+		let host x =
+			let open String in
+			try x |> sub_after '[' |> sub_before ']' with Not_found ->   (* [<ipv6-literal>]... *)
+			try x |> sub_before ':' with Not_found ->                    (* <hostname|ipv4-literal>:... *)
+			x in                                                         (* <hostname|ipv4-literal> *)
+		let port x =
+			let port_part =
+				let open String in
+				try x |> sub_after ']' |> sub_after ':' with Not_found ->  (* ...]:port *)
+				try x |> sub_after ']' with Not_found ->                   (* ...] *)
+				try x |> sub_after ':' with Not_found ->                   (* ...:port *)
+				"" in                                                      (* no port *)
+			try Some (int_of_string port_part) with _ -> None in
 		let uname_password_host_port x = match String.split '@' x with
 			| [ _ ] -> None, host x, port x
 			| [ uname_password; host_port ] ->
@@ -608,6 +616,10 @@ module Url = struct
 		let params = if params = [] then "" else "?" ^ (kvpairs params) in
 		uri ^ params
 
+	(* Wrap a literal IPv6 address in square brackets; otherwise pass through *)
+	let maybe_wrap_IPv6_literal addr = 
+		if Unixext.domain_of_addr addr = Some Unix.PF_INET6 then "[" ^ addr ^ "]" else addr
+
 	let to_string = function
 		| File { path = path }, data -> Printf.sprintf "file:%s%s" path (data_to_string data) (* XXX *)
 		| Http h, data ->
@@ -618,7 +630,7 @@ module Url = struct
 				| Some x -> Printf.sprintf ":%d" x
 				| _ -> "" in
 			Printf.sprintf "http%s://%s%s%s%s" (if h.ssl then "s" else "")
-				userpassat h.host colonport (data_to_string data)
+				userpassat (maybe_wrap_IPv6_literal h.host) colonport (data_to_string data)
 
 	let get_uri (scheme, data) = data.uri
 	let set_uri (scheme, data) u = (scheme, { data with uri = u })
