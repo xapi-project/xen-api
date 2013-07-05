@@ -876,11 +876,13 @@ module VBD = struct
 					(* We now have a shutdown device but an active DP: we should unconditionally destroy the DP *)
 					finally
 						(fun () ->
+							(* libxl will do it:
 							Opt.iter
 								(fun device ->
 									Xenops_task.with_subtask task (Printf.sprintf "Vbd.release %s" (id_of vbd))
 										(fun () -> Device.Vbd.release task ~xs device);
 								) device;
+							*)
 							(* If we have a qemu frontend, detach this too. *)
 							Opt.iter (fun vm_t -> 
 								let non_persistent = vm_t.VmExtra.non_persistent in
