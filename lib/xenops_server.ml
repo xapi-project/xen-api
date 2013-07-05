@@ -1027,7 +1027,7 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 		| VM_build id ->
 			debug "VM.build %s" id;
 			let vbds : Vbd.t list = VBD_DB.vbds id |> vbd_plug_order in
-			let vifs : Vif.t list = VIF_DB.vifs id in
+			let vifs : Vif.t list = VIF_DB.vifs id |> vif_plug_order in
 			B.VM.build t (VM_DB.read_exn id) vbds vifs
 		| VM_shutdown_domain (id, reason, timeout) ->
 			let start = Unix.gettimeofday () in
