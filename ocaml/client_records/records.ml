@@ -1513,3 +1513,22 @@ let vgpu_record rpc session_id vgpu =
 				~get_map:(fun () -> (x ()).API.vGPU_other_config) ();
 			]
 	}
+
+let vgpu_type_record rpc session_id vgpu_type =
+	let _ref = ref vgpu_type in
+	let empty_record = ToGet (fun () -> Client.VGPU_type.get_record rpc session_id !_ref) in
+	let record = ref empty_record in
+	let x () = lzy_get record in
+	{
+		setref = (fun r -> _ref := r; record := empty_record);
+		setrefrec = (fun (a,b) -> _ref := a; record := Got b);
+		record = x;
+		getref = (fun () -> !_ref);
+		fields = [
+			make_field ~name:"uuid" ~get:(fun () -> (x ()).API.vGPU_type_uuid) ();
+			make_field ~name:"model-name"
+				~get:(fun () -> (x ()).API.vGPU_type_model_name) ();
+			make_field ~name:"framebuffer-size"
+				~get:(fun () -> Int64.to_string (x ()).API.vGPU_type_framebuffer_size) ();
+		]
+	}
