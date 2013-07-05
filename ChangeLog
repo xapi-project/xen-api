@@ -1,3 +1,6 @@
+0.9.16 (5-Jul-2013):
+* libxl: fix the network device enumeration for Linux guests
+
 0.9.15 (1-Jul-2013):
 * libxl: use a PV frontend in dom0 for pygrub
 
