@@ -74,24 +74,24 @@ let destroy sr vdi =
 
 let test_create_destroy sr n () = destroy sr (create sr n)
 
+let attach_detach sr vdi read_write =
+  let _ = Client.VDI.attach ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi ~read_write in
+  Client.VDI.detach ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi
+
 let test_attach_detach sr n () =
   let vdi = create sr n in
-  List.iter
-    (fun read_write ->
-      let _ = Client.VDI.attach ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi ~read_write in
-      Client.VDI.detach ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi;
-    ) [ true; false ];
+  List.iter (attach_detach sr vdi) [ true; false ];
   destroy sr vdi
+
+let attach_activate_deactivate_detach sr vdi read_write =
+  let _ = Client.VDI.attach ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi ~read_write in
+  Client.VDI.activate ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi;
+  Client.VDI.deactivate ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi;
+  Client.VDI.detach ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi
 
 let test_activate_deactivate sr n () =
   let vdi = create sr n in
-  List.iter
-    (fun read_write ->
-      let _ = Client.VDI.attach ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi ~read_write in
-      Client.VDI.activate ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi;
-      Client.VDI.deactivate ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi;
-      Client.VDI.detach ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi;
-    ) [ true; false ];
+  List.iter (attach_activate_deactivate_detach sr vdi) [ true; false ];
   destroy sr vdi
 
 let test_clone sr n () =
@@ -103,10 +103,21 @@ let test_clone sr n () =
     ) [ true; false ];
   destroy sr vdi
 
+let test_clone_attach sr n () =
+  let vdi = create sr n in
+  List.iter
+    (fun read_write ->
+      let x = Client.VDI.clone ~dbg ~sr ~vdi_info:vdi in
+      attach_activate_deactivate_detach sr x read_write;
+      Client.VDI.destroy ~dbg ~sr ~vdi:x.vdi
+    ) [ true; false ];
+  destroy sr vdi
+
 let vdi_create_destroy      sr = "vdi_create_destroy"      >::: (List.map (fun n -> n >:: test_create_destroy sr n) names)
 let vdi_attach_detach       sr = "vdi_attach_detach"       >::: (List.map (fun n -> n >:: test_attach_detach  sr n) names)
 let vdi_activate_deactivate sr = "vdi_activate_deactivate" >::: (List.map (fun n -> n >:: test_activate_deactivate sr n) names)
 let vdi_clone               sr = "vdi_clone"               >::: (List.map (fun n -> n >:: test_clone sr n) names)
+let vdi_clone_attach        sr = "vdi_clone_attach"        >::: (List.map (fun n -> n >:: test_clone_attach sr n) names)
 
 open Cmdliner
 
@@ -128,6 +139,7 @@ let start verbose queue sr = match queue, sr with
         needs_capabilities [ _vdi_create; _vdi_delete; _vdi_attach; _vdi_detach ] (vdi_attach_detach sr);
         needs_capabilities [ _vdi_create; _vdi_delete; _vdi_attach; _vdi_detach; _vdi_activate; _vdi_deactivate ] (vdi_activate_deactivate sr);
         needs_capabilities [ _vdi_create; _vdi_delete; _vdi_clone ] (vdi_clone sr);
+        needs_capabilities [ _vdi_create; _vdi_delete; _vdi_attach; _vdi_detach; _vdi_activate; _vdi_deactivate; _vdi_clone ] (vdi_clone_attach sr);
       ]) in
     let (_: test_result list) = run_test_tt ~verbose suite in
     ()
