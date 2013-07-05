@@ -248,7 +248,7 @@ function install_vm([String]$name, [String]$sr_name)
 
   #find a windows template
   log_info "looking for a Windows template..."
-  $template = (Get-XenVM -Name 'Windows XP*' | where {$_.is_a_template})[0]
+  $template = @(Get-XenVM -Name 'Windows XP*' | where {$_.is_a_template})[0]
 
   log_info ("installing vm '{0}' from template '{1}'" -f $template.name_label,$name)
   
