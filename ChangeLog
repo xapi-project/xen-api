@@ -1,3 +1,6 @@
+0.9.17 (5-Jul-2013):
+* libxl: fix hotplug and unplug
+
 0.9.16 (5-Jul-2013):
 * libxl: fix the network device enumeration for Linux guests
 
