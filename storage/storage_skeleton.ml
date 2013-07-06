@@ -43,6 +43,7 @@ module SR = struct
   let reset ctx ~dbg ~sr = u "SR.reset"
   let destroy ctx ~dbg ~sr = u "SR.destroy"
   let scan ctx ~dbg ~sr = u "SR.scan"
+  let stat ctx ~dbg ~sr = u "SR.stat"
   let list ctx ~dbg = u "SR.list"
 end
 

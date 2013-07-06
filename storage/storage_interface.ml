@@ -69,6 +69,11 @@ type vdi_info = {
     sm_config: (string * string) list;
 }
 
+type sr_info = {
+    total_space: int64;        (** total number of bytes on the storage substrate *)
+    free_space: int64;         (** current free space on the storage substrate *)
+}
+
 let string_of_vdi_info (x: vdi_info) = Jsonrpc.to_string (rpc_of_vdi_info x)
 
 (** Each VDI is associated with one or more "attached" or "activated" "datapaths". *)
@@ -238,6 +243,9 @@ module SR = struct
 
 	(** [scan task sr] returns a list of VDIs contained within an attached SR *)
 	external scan: dbg:debug_info -> sr:sr -> vdi_info list = ""
+
+	(** [stat task sr] returns instantaneous SR-level statistics *)
+	external stat: dbg:debug_info -> sr:sr -> sr_info = ""
 
 	(** [list task] returns the list of currently attached SRs *)
 	external list: dbg:debug_info -> sr list = ""
