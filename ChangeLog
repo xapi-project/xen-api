@@ -1,3 +1,6 @@
+0.9.2 (6-Jul-2013):
+* add 'sr-stat' subcommand
+
 0.9.1 (30-Jun-2013):
 * add the ability to upload device_config parameters by providing a filename
 
