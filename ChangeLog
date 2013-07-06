@@ -1,3 +1,6 @@
+0.9.8 (6-Jul-2013):
+* storage: add SR.stat, returning SR disk usage statistics
+
 0.9.7 (30-Jun-2013):
 * storage API test now copes with implementations which have to rewrite VDI
 name_labels
