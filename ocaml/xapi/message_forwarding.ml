@@ -3618,7 +3618,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				in
 				if should_handle_metadata_vdis then
 					Xapi_dr.signal_sr_is_processing ~__context:__scan_context ~sr;
-				Xapi_sr.scan_one ~__context:__scan_context ~callback:handle_metadata_vdis sr)
+				Xapi_sr.scan_one ~__context:__scan_context ~callback:handle_metadata_vdis sr);
+
+				Helpers.call_api_functions ~__context
+					(fun rpc session_id ->
+						Client.SR.update rpc session_id sr
+					)
 
 		let unplug ~__context ~self =
 			info "PBD.unplug: PBD = '%s'" (pbd_uuid ~__context self);
