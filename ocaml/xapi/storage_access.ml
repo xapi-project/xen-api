@@ -230,6 +230,32 @@ module SMAPIv1 = struct
 						)
 				)
 
+		let stat context ~dbg ~sr:sr' =
+			Server_helpers.exec_with_new_task "SR.stat" ~subtask_of:(Ref.of_string dbg)
+				(fun __context ->
+					let sr = Db.SR.get_by_uuid ~__context ~uuid:sr' in
+					Sm.call_sm_functions ~__context ~sR:sr
+						(fun device_config _type ->
+							try
+								Sm.sr_update device_config _type sr;
+								let r = Db.SR.get_record ~__context ~self:sr in
+								let total_space = r.API.sR_physical_size in
+								let free_space = Int64.sub r.API.sR_physical_size r.API.sR_physical_utilisation in
+								{ total_space; free_space }
+							with
+								| Smint.Not_implemented_in_backend ->
+									raise (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
+								| Api_errors.Server_error(code, params) ->
+									error "SR.scan failed SR:%s code=%s params=[%s]" (Ref.string_of sr) code (String.concat "; " params);
+									raise (Backend_error(code, params))
+								| Sm.MasterOnly -> redirect sr
+								| e ->
+									let e' = ExnHelper.string_of_exn e in
+									error "SR.scan failed SR:%s error:%s" (Ref.string_of sr) e';
+									raise e
+						)
+				)
+
 		let scan context ~dbg ~sr:sr' =
 			Server_helpers.exec_with_new_task "SR.scan" ~subtask_of:(Ref.of_string dbg)
 				(fun __context ->

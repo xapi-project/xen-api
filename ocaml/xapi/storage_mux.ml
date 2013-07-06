@@ -160,6 +160,9 @@ module Mux = struct
 		let destroy context ~dbg ~sr =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.SR.destroy ~dbg ~sr
+		let stat context ~dbg ~sr =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.SR.stat ~dbg ~sr
 		let scan context ~dbg ~sr =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.SR.scan ~dbg ~sr
