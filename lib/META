@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 9420ceedb14f0c827bc1d830dc01594d)
-version = "0.9.7"
+# DO NOT EDIT (digest: e3603c2a6c493f2b49ed92f3fca09254)
+version = "0.9.8"
 description =
 "Interface definitions and common boilerplate for the xapi toolstack"
 requires =
@@ -11,7 +11,7 @@ archive(native) = "xcp.cmxa"
 archive(native, plugin) = "xcp.cmxs"
 exists_if = "xcp.cma"
 package "xen" (
- version = "0.9.7"
+ version = "0.9.8"
  description =
  "Interface definitions and common boilerplate for the xapi toolstack"
  requires = "xcp threads rpclib rpclib.syntax"
@@ -23,7 +23,7 @@ package "xen" (
 )
 
 package "storage" (
- version = "0.9.7"
+ version = "0.9.8"
  description =
  "Interface definitions and common boilerplate for the xapi toolstack"
  requires = "xcp threads rpclib rpclib.syntax"
@@ -35,7 +35,7 @@ package "storage" (
 )
 
 package "rrd" (
- version = "0.9.7"
+ version = "0.9.8"
  description =
  "Interface definitions and common boilerplate for the xapi toolstack"
  requires = "xcp threads rpclib rpclib.syntax xcp-rrd"
@@ -47,7 +47,7 @@ package "rrd" (
 )
 
 package "network" (
- version = "0.9.7"
+ version = "0.9.8"
  description =
  "Interface definitions and common boilerplate for the xapi toolstack"
  requires = "xcp threads rpclib rpclib.syntax"
@@ -59,7 +59,7 @@ package "network" (
 )
 
 package "memory" (
- version = "0.9.7"
+ version = "0.9.8"
  description =
  "Interface definitions and common boilerplate for the xapi toolstack"
  requires = "xcp threads rpclib rpclib.syntax"
