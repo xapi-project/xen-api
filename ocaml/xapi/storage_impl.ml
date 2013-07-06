@@ -665,6 +665,16 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 		let list context ~dbg =
 			List.map fst (Host.list !Host.host)
 
+		let stat context ~dbg ~sr =
+			info "SR.stat dbg:%s sr:%s" dbg sr;
+			with_sr sr
+				(fun () ->
+					match Host.find sr !Host.host with
+						| None -> raise (Sr_not_attached sr)
+						| Some _ ->
+							Impl.SR.stat context ~dbg ~sr
+				)
+
 		let scan context ~dbg ~sr =
 			info "SR.scan dbg:%s sr:%s" dbg sr;
 			with_sr sr
