@@ -327,6 +327,15 @@ let sr_detach common_opts sr = match sr with
       Client.SR.detach ~dbg ~sr
     )
 
+let sr_stat common_opts sr = match sr with
+  | None -> `Error(true, "must supply SR")
+  | Some sr ->
+    wrap common_opts (fun () ->
+      let sr_info = Client.SR.stat ~dbg ~sr in
+      Printf.fprintf stdout "Total space on substrate:      %Ld\n" sr_info.total_space;
+      Printf.fprintf stdout "Free space on substrate:       %Ld\n" sr_info.free_space
+    )
+
 let sr_scan common_opts sr = match sr with
   | None -> `Error(true, "must supply SR")
   | Some sr ->
@@ -471,6 +480,15 @@ let sr_detach_cmd =
   Term.(ret(pure sr_detach $ common_options_t $ sr_arg)),
   Term.info "sr-detach" ~sdocs:_common_options ~doc ~man
 
+let sr_stat_cmd =
+  let doc = "query global SR statistics" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Query the global SR statistics including: (i) total virtual space allocated to VDIs; (ii) total amount of space on the storage substrate; and (iii) amount of storage instantaneously free.";
+  ] @ help in
+  Term.(ret(pure sr_stat $ common_options_t $ sr_arg)),
+  Term.info "sr-stat" ~sdocs:_common_options ~doc ~man
+
 let sr_scan_cmd =
   let doc = "list all the virtual disks in a storage repository" in
   let man = [
@@ -568,7 +586,7 @@ let default_cmd =
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
   Term.info "sm-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
        
-let cmds = [query_cmd; sr_attach_cmd; sr_detach_cmd; sr_scan_cmd;
+let cmds = [query_cmd; sr_attach_cmd; sr_detach_cmd; sr_stat_cmd; sr_scan_cmd;
             vdi_create_cmd; vdi_destroy_cmd; vdi_attach_cmd; vdi_detach_cmd;
             vdi_activate_cmd; vdi_deactivate_cmd; vdi_clone_cmd]
 
