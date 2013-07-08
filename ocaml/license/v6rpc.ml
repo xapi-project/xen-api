@@ -31,9 +31,15 @@ type get_editions_out = {
 	editions: names list;
 } with rpc
 
+type get_current_edition_in = (string * string) list with rpc
+
 module type V6api = sig
-	(* dbg_str -> edition -> additional_params -> enabled_features, additional_params *)
+	(* dbg_str -> edition -> additional_params ->
+		 edition * enabled_features * additional_params *)
 	val apply_edition : string -> string -> (string * string) list ->
+		string * Features.feature list * (string * string) list
+	(* dbg_str -> edition * enabled_features * additional_params *)
+	val get_current_edition : string -> (string * string) list ->
 		string * Features.feature list * (string * string) list
 	(* dbg_str -> list of editions (name, marketing name, short name) *)
 	val get_editions : string -> (string * string * string * int) list
@@ -60,6 +66,24 @@ module V6process = functor(V: V6api) -> struct
 				let response = rpc_of_apply_edition_out
 					{edition_out = edition; features_out = features; additional_out = additional_params} in 
 				Rpc.success response
+
+			| "get_current_edition" ->
+				let dbg_rpc, arg_rpc = match call.Rpc.params with
+					| [a;b] -> (a,b)
+					| _ ->
+						debug "Error in get_current_edition rpc" ;
+						raise (V6errors.Error ("unmarshalling_error", [])) in
+				let arg = get_current_edition_in_of_rpc arg_rpc in
+				let dbg = Rpc.string_of_rpc dbg_rpc in
+				let edition, features, additional_params =
+					V.get_current_edition dbg arg in
+				(* We reuse rpc_of_apply_edition_out for this RPC call *)
+				let response = rpc_of_apply_edition_out
+					{edition_out = edition;
+					 features_out = features;
+					 additional_out = additional_params} in
+				Rpc.success response
+
 			| "get_editions" ->
 				let dbg_rpc = match call.Rpc.params with
 					| [a] -> a

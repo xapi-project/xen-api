@@ -17,8 +17,12 @@
 (** The RPC interface of the licensing daemon *)
 module type V6api =
 	sig
-		(*  dbg_str -> edition -> additional_params -> enabled_features, additional_params *)
+		(*  dbg_str -> edition -> additional_params ->
+				edition * enabled_features * additional_params *)
 		val apply_edition : string -> string -> (string * string) list ->
+			string * Features.feature list * (string * string) list
+		(* dbg_str -> edition * enabled_features * additional_params *)
+		val get_current_edition : string -> (string * string) list ->
 			string * Features.feature list * (string * string) list
 		(* dbg_str -> list of editions *)
 		val get_editions : string -> (string * string * string * int) list
@@ -26,7 +30,7 @@ module type V6api =
 		val get_version : string -> string
 		(* () -> version *)
 		val reopen_logs : unit -> bool
-	end  
+	end
 
 (** RPC handler module *)
 module V6process : functor (V : V6api) ->
@@ -81,3 +85,12 @@ val get_editions_out_of_rpc : Rpc.t -> get_editions_out
 (** Convert {!get_editions_out} structure into RPC *)
 val rpc_of_get_editions_out : get_editions_out -> Rpc.t
 
+
+(** Definition of [get_current_edition] RPC *)
+type get_current_edition_in = (string * string) list
+
+(** Convert RPC into {!get_current_edition_in} structure *)
+val get_current_edition_in_of_rpc : Rpc.t -> get_current_edition_in
+
+(** Convert {!get_current_edition_in} structure into RPC *)
+val rpc_of_get_current_edition_in : get_current_edition_in -> Rpc.t
