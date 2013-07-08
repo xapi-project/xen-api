@@ -7772,6 +7772,16 @@ let gpu_group =
 		~hide_from_docs:true
 		()
 	in
+	let get_allowed_VGPU_types = call
+		~name:"get_allowed_VGPU_types"
+		~lifecycle:[Published, rel_vgpu_tech_preview, ""]
+		~params:[
+			Ref _gpu_group, "self", "The GPU group to query"
+		]
+		~result:(Set (Ref _vgpu_type), "The list of VGPU types which can be created in this group")
+		~allowed_roles:_R_READ_ONLY
+		()
+	in
 	create_obj
 		~name:_gpu_group
 		~descr:"A group of compatible GPUs across the resource pool"
@@ -7780,7 +7790,7 @@ let gpu_group =
 		~gen_events:true
 		~in_db:true
 		~lifecycle:[Published, rel_boston, ""]
-		~messages:[create; destroy]
+		~messages:[create; destroy; get_allowed_VGPU_types]
 		~messages_default_allowed_roles:_R_POOL_OP
 		~persist:PersistEverything
 		~in_oss_since:None
