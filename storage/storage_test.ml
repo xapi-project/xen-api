@@ -98,8 +98,11 @@ let test_clone sr n () =
   let vdi = create sr n in
   List.iter
     (fun read_write ->
+      (* Check whether the backend writes type=vhd *)
+      let vdi = { vdi with sm_config = [] } in
       let x = Client.VDI.clone ~dbg ~sr ~vdi_info:vdi in
-      Client.VDI.destroy ~dbg ~sr ~vdi:x.vdi
+      Client.VDI.destroy ~dbg ~sr ~vdi:x.vdi;
+      assert(List.mem ("type", "vhd") x.sm_config)
     ) [ true; false ];
   destroy sr vdi
 
