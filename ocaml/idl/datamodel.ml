@@ -7734,7 +7734,7 @@ let vgpu =
 			field ~qualifier:DynamicRO ~ty:String ~lifecycle:[Published, rel_boston, ""] ~default_value:(Some (VString "0")) "device" "Order in which the devices are plugged into the VM";
 			field ~qualifier:DynamicRO ~ty:Bool ~lifecycle:[Published, rel_boston, ""] ~default_value:(Some (VBool false)) "currently_attached" "Reflects whether the virtual device is currently connected to a physical device";
 			field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_boston, ""] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
-			field ~qualifier:DynamicRO ~ty:(Ref _vgpu_type) ~lifecycle:[Published, rel_vgpu, ""] "type" "Preset type for this VGPU";
+			field ~qualifier:DynamicRO ~ty:(Ref _vgpu_type) ~lifecycle:[Published, rel_vgpu, ""] "type" "Preset type for this VGPU" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
 			]
 		()
 
