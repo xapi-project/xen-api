@@ -1511,6 +1511,7 @@ let vgpu_record rpc session_id vgpu =
 				~add_to_map:(fun k v -> Client.VGPU.add_to_other_config rpc session_id vgpu k v)
 				~remove_from_map:(fun k -> Client.VGPU.remove_from_other_config rpc session_id vgpu k)
 				~get_map:(fun () -> (x ()).API.vGPU_other_config) ();
+			make_field ~name:"type" ~get:(fun () -> get_uuid_from_ref (x ()).API.vGPU_type) ();
 			]
 	}
 
