@@ -186,6 +186,9 @@ module Mux = struct
         let clone context ~dbg ~sr ~vdi_info =
             let module C = Client(struct let rpc = of_sr sr end) in
             C.VDI.clone ~dbg ~sr ~vdi_info
+		let resize context ~dbg ~sr ~vdi ~new_size =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.VDI.resize ~dbg ~sr ~vdi ~new_size
 		let destroy context ~dbg ~sr ~vdi =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.destroy ~dbg ~sr ~vdi

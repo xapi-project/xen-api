@@ -503,6 +503,24 @@ module SMAPIv1 = struct
 		let snapshot = snapshot_and_clone "VDI.snapshot" Sm.vdi_snapshot
 		let clone = snapshot_and_clone "VDI.clone" Sm.vdi_clone
 
+        let resize context ~dbg ~sr ~vdi ~new_size =
+            try
+                let vi = for_vdi ~dbg ~sr ~vdi "VDI.resize"
+                    (fun device_config _type sr self ->
+                        Sm.vdi_resize device_config _type sr self new_size
+                    ) in
+                Server_helpers.exec_with_new_task "VDI.resize" ~subtask_of:(Ref.of_string dbg)
+                    (fun __context ->
+                        let self, _ = find_vdi ~__context sr vi.Smint.vdi_info_location in
+                        Db.VDI.get_virtual_size ~__context ~self
+                    )
+            with
+                                | Api_errors.Server_error(code, params) ->
+                                        raise (Backend_error(code, params))
+                                | Smint.Not_implemented_in_backend ->
+                                        raise (Unimplemented "VDI.resize")
+                                | Sm.MasterOnly -> redirect sr
+
         let destroy context ~dbg ~sr ~vdi =
             try
                 for_vdi ~dbg ~sr ~vdi "VDI.destroy"
