@@ -266,6 +266,11 @@ module VDI = struct
 	(** [clone task sr vdi_info] creates a new VDI which is a clone of [vdi_info] in [sr] *)
 	external clone : dbg:debug_info -> sr:sr -> vdi_info:vdi_info -> vdi_info = ""
 
+	(** [resize task sr vdi new_size] makes a VDI's virtual_size  at least [new_size] bytes.
+	    The function returns the new virtual_size which may be bigger (but not less than)
+	    requested. *)
+	external resize : dbg:debug_info -> sr:sr -> vdi:vdi -> new_size:int64 -> int64 = ""
+
     (** [destroy task sr vdi] removes [vdi] from [sr] *)
     external destroy : dbg:debug_info -> sr:sr -> vdi:vdi -> unit = ""
 

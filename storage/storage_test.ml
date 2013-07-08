@@ -32,6 +32,7 @@ let _vdi_detach = "VDI_DETACH"
 let _vdi_activate = "VDI_ACTIVATE"
 let _vdi_deactivate = "VDI_DEACTIVATE"
 let _vdi_clone = "VDI_CLONE"
+let _vdi_resize = "VDI_RESIZE"
 
 open OUnit
 
@@ -119,11 +120,19 @@ let test_clone_attach sr n () =
     ) [ true; false ];
   destroy sr vdi
 
+let test_resize sr n () =
+  let vdi = create sr n in
+  let new_size_request = Int64.mul 2L vdi.virtual_size in
+  let new_size_actual = Client.VDI.resize ~dbg ~sr ~vdi:vdi.vdi ~new_size:new_size_request in
+  assert (new_size_actual >= new_size_request);
+  destroy sr vdi
+
 let vdi_create_destroy      sr = "vdi_create_destroy"      >::: (List.map (fun n -> n >:: test_create_destroy sr n) names)
 let vdi_attach_detach       sr = "vdi_attach_detach"       >::: (List.map (fun n -> n >:: test_attach_detach  sr n) names)
 let vdi_activate_deactivate sr = "vdi_activate_deactivate" >::: (List.map (fun n -> n >:: test_activate_deactivate sr n) names)
 let vdi_clone               sr = "vdi_clone"               >::: (List.map (fun n -> n >:: test_clone sr n) names)
 let vdi_clone_attach        sr = "vdi_clone_attach"        >::: (List.map (fun n -> n >:: test_clone_attach sr n) names)
+let vdi_resize              sr = "vdi_resize"              >::: (List.map (fun n -> n >:: test_resize sr n) names)
 
 open Cmdliner
 
@@ -146,6 +155,7 @@ let start verbose queue sr = match queue, sr with
         needs_capabilities [ _vdi_create; _vdi_delete; _vdi_attach; _vdi_detach; _vdi_activate; _vdi_deactivate ] (vdi_activate_deactivate sr);
         needs_capabilities [ _vdi_create; _vdi_delete; _vdi_clone ] (vdi_clone sr);
         needs_capabilities [ _vdi_create; _vdi_delete; _vdi_attach; _vdi_detach; _vdi_activate; _vdi_deactivate; _vdi_clone ] (vdi_clone_attach sr);
+        needs_capabilities [ _vdi_create; _vdi_delete; _vdi_resize ] (vdi_resize sr);
       ]) in
     let (_: test_result list) = run_test_tt ~verbose suite in
     ()

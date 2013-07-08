@@ -51,6 +51,7 @@ module VDI = struct
   let create ctx ~dbg ~sr ~vdi_info = u "VDI.create"
   let snapshot ctx ~dbg ~sr ~vdi_info = u "VDI.snapshot"
   let clone ctx ~dbg ~sr ~vdi_info = u "VDI.clone"
+  let resize ctx ~dbg ~sr ~vdi ~new_size = u "VDI.resize"
   let destroy ctx ~dbg ~sr ~vdi = u "VDI.destroy"
   let stat ctx ~dbg ~sr ~vdi = u "VDI.stat"
   let set_persistent ctx ~dbg ~sr ~vdi ~persistent = u "VDI.set_persistent"
