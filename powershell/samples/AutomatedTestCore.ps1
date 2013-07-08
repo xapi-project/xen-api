@@ -402,6 +402,21 @@ function detach_nfs_sr([String]$sr_name)
 
 # End SR Functions
 
+# Helper Functions
+
+function append_random_string_to([String]$toAppend, $length = 10)
+{
+	$randomisedString = $toAppend
+	$charSet = "0123456789abcdefghijklmnopqrstuvwxyz".ToCharArray()
+	for($i; $i -le $length; $i++)
+	{
+		$randomisedString += $charSet | Get-Random
+	}
+	return $randomisedString
+}
+
+# End Helper Functions
+
 # Test List
 
 $tests = @(
@@ -424,6 +439,9 @@ $fails = @{}
 
 prep_xml_output $out_xml
 
+$vmName = append_random_string_to "PowerShellAutoTestVM"
+$srName = append_random_string_to "PowerShellAutoTestSR"
+
 foreach($test in $tests)
 {
   trap [Exception]
@@ -433,7 +451,14 @@ foreach($test in $tests)
 	continue
   }
   $success = $false
-  $success = exec $test[0] $test[1] $test[2]
+  
+  # Add randomness to the names of the test VM and SR to 
+  # allow a parallel execution context
+  $cmd = $test[1]
+  $cmd = $cmd -replace "PowerShellAutoTestVM", $vmName
+  $cmd = $cmd -replace "PowerShellAutoTestSR", $srName
+  
+  $success = exec $test[0] $cmd $test[2]
   if ($success)
   {
     $complete++
