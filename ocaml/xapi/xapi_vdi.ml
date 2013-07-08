@@ -493,28 +493,21 @@ let destroy ~__context ~self =
 	(* Db.VDI.destroy ~__context ~self *)
       end
 
-let after_resize ~__context ~vdi ~size vdi_info = 
-  let new_size = Db.VDI.get_virtual_size ~__context ~self:vdi in
-  debug "VDI.resize requested size = %Ld; actual size = %Ld" size new_size
-
-let resize ~__context ~vdi ~size =
-  Sm.assert_pbd_is_plugged ~__context ~sr:(Db.VDI.get_SR ~__context ~self:vdi);
-  Xapi_vdi_helpers.assert_managed ~__context ~vdi;
-
-  let vdi_info = Sm.call_sm_vdi_functions ~__context ~vdi
-    (fun srconf srtype sr ->
-       Sm.vdi_resize srconf srtype sr vdi size) in
-  after_resize ~__context ~vdi ~size vdi_info
-
 let resize_online ~__context ~vdi ~size = 
   Sm.assert_pbd_is_plugged ~__context ~sr:(Db.VDI.get_SR ~__context ~self:vdi);
   Xapi_vdi_helpers.assert_managed ~__context ~vdi;
+  Storage_access.transform_storage_exn
+    (fun () ->
+      let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+      let sr = Db.VDI.get_SR ~__context ~self:vdi in
+      let sr = Db.SR.get_uuid ~__context ~self:sr in      
+      let vdi' = Db.VDI.get_location ~__context ~self:vdi in
+      let dbg = Ref.string_of (Context.get_task_id __context) in
+      let new_size = C.VDI.resize ~dbg ~sr ~vdi:vdi' ~new_size:size in
+      Db.VDI.set_virtual_size ~__context ~self:vdi ~value:new_size
+    )
 
-  let vdi_info = Sm.call_sm_vdi_functions ~__context ~vdi
-	 (fun srconf srtype sr ->
-	    Sm.vdi_resize_online srconf srtype sr vdi size
-    ) in
-  after_resize ~__context ~vdi ~size vdi_info
+let resize = resize_online
 
 let generate_config ~__context ~host ~vdi = 
   Sm.assert_pbd_is_plugged ~__context ~sr:(Db.VDI.get_SR ~__context ~self:vdi);
