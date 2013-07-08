@@ -40,7 +40,8 @@ type feature =
 	| GPU                          (** Enable use of GPU passthrough *)
 	| DR                           (** Enable disaster recovery *)
 	| VIF_locking                  (** Enable locking of VIFs to specific MAC addresses and IP addresses. *)
-	| Storage_motion			   (** Enable Storage XenMotion feature *)
+	| Storage_motion               (** Enable Storage XenMotion feature *)
+	| VGPU                         (** Enable use of virtual GPUs *)
 
 (** Convert RPC into {!feature}s *)
 val feature_of_rpc : Rpc.t -> feature
