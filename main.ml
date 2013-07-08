@@ -411,6 +411,18 @@ let vdi_clone common_opts sr vdi name descr = on_vdi
     )
   ) common_opts sr vdi
 
+let vdi_resize common_opts sr vdi new_size = on_vdi
+  (fun sr vdi ->
+    match new_size with
+    | None -> `Error(true, "must supply a new size")
+    | Some new_size ->
+      let new_size = parse_size new_size in
+      wrap common_opts (fun () ->
+        let new_size = Client.VDI.resize ~dbg ~sr ~vdi ~new_size in
+        Printf.printf "%Ld\n" new_size
+      )
+  ) common_opts sr vdi
+
 let vdi_destroy common_opts sr vdi =
   on_vdi (fun sr vdi ->
     Client.VDI.destroy ~dbg ~sr ~vdi
@@ -535,6 +547,18 @@ let vdi_clone_cmd =
   Term.(ret(pure vdi_clone $ common_options_t $ sr_arg $ vdi_arg $ name_arg $ descr_arg)),
   Term.info "vdi-clone" ~sdocs:_common_options ~doc ~man
 
+let vdi_resize_cmd =
+  let new_size_arg =
+    let doc = "new virtual_size for the disk" in
+    Arg.(value & pos 2 (some string) None & info [] ~docv:"SIZE" ~doc) in
+  let doc = "resize a virtual disk." in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Changes the virtual_size of a given disk. The VM may or may not notice the size change. The disk may or may not physically expand on the physical storage substrate."
+  ] @ help in
+  Term.(ret(pure vdi_resize $ common_options_t $ sr_arg $ vdi_arg $ new_size_arg)),
+  Term.info "vdi-resize" ~sdocs:_common_options ~doc ~man
+
 let vdi_destroy_cmd =
   let doc = "destroy an existing virtual disk in a storage repository." in
   let man = [
@@ -588,7 +612,7 @@ let default_cmd =
        
 let cmds = [query_cmd; sr_attach_cmd; sr_detach_cmd; sr_stat_cmd; sr_scan_cmd;
             vdi_create_cmd; vdi_destroy_cmd; vdi_attach_cmd; vdi_detach_cmd;
-            vdi_activate_cmd; vdi_deactivate_cmd; vdi_clone_cmd]
+            vdi_activate_cmd; vdi_deactivate_cmd; vdi_clone_cmd; vdi_resize_cmd]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
