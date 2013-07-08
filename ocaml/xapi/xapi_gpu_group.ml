@@ -55,3 +55,16 @@ let find_or_create ~__context pgpu =
 		Db.GPU_group.set_GPU_types ~__context ~self:group ~value:[gpu_type];
 		group
 
+let get_allowed_VGPU_types ~__context ~self =
+	match Db.GPU_group.get_VGPUs ~__context ~self with
+	| [] -> Db.GPU_group.get_supported_VGPU_types ~__context ~self
+	| _ ->
+		(* We will only allow VGPUs of the same type as there already exist
+		 * in this group. *)
+		let open Db_filter_types in
+		let contained_VGPUs = Db.VGPU.get_records_where ~__context ~expr:(And
+			(Eq (Field "GPU_group", Literal (Ref.string_of self)),
+			Not (Eq (Field "type", Literal (Ref.string_of Ref.null)))))
+		in
+		Listext.List.setify
+			(List.map (fun (_, vgpu) -> vgpu.API.vGPU_type) contained_VGPUs)

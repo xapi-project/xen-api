@@ -3697,6 +3697,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			(* WARNING WARNING WARNING: directly call destroy with the global lock since it does only database operations *)
 			with_global_lock (fun () ->
 				Local.GPU_group.destroy ~__context ~self)
+
+		let get_allowed_VGPU_types ~__context ~self =
+			info "GPU_group.get_allowed_VGPU_types: gpu_group = '%s'" (gpu_group_uuid ~__context self);
+			Local.GPU_group.get_allowed_VGPU_types ~__context ~self
 	end
 
 	module VGPU = struct
