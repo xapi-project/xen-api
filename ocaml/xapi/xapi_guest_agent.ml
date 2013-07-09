@@ -90,7 +90,7 @@ let mutex = Mutex.create ()
 (** Reset all the guest metrics for a particular VM. 'lookup' reads a key from xenstore
     and 'list' reads a directory from xenstore. Both are relative to the guest's 
     domainpath. *)
-let all (lookup: string -> string option) (list: string -> string list) ~__context ~domid ~uuid ~hvm_guest =
+let all (lookup: string -> string option) (list: string -> string list) ~__context ~domid ~uuid =
   let all_attr = list "/attr" and all_control = list "/control" in
   let to_map kvpairs = List.concat (List.map (fun (xskey, mapkey) -> match lookup xskey with
     | Some xsval -> [ mapkey, xsval ]
@@ -201,9 +201,7 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 
 	  (* Update the 'up to date' flag afterwards *)
 	  let gmr = Db.VM_guest_metrics.get_record_internal ~__context ~self:gm in
-		let version = Xapi_pv_driver_version.of_guest_metrics (Some gmr) in
-		let version = Xapi_pv_driver_version.transform_for_up_to_date_check version hvm_guest in
-	  let up_to_date = Xapi_pv_driver_version.is_up_to_date version in
+	  let up_to_date = Xapi_pv_driver_version.is_up_to_date (Xapi_pv_driver_version.of_guest_metrics (Some gmr)) in
 	  Db.VM_guest_metrics.set_PV_drivers_up_to_date ~__context ~self:gm ~value:up_to_date;
 
 	  (* CA-18034: If viridian flag isn't in there and we have current PV drivers then shove it in the metadata for next boot... *)
