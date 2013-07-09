@@ -191,10 +191,8 @@ let start ~__context ~vm ~start_paused ~force =
 	Vgpuops.create_vgpus ~__context (vm, vmr) (Helpers.will_boot_hvm ~__context ~self:vm);
 
 	if vmr.API.vM_ha_restart_priority = Constants.ha_restart
-	then begin
-		Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context vm;
-		Db.VM.set_ha_always_run ~__context ~self:vm ~value:true
-	end;
+	then Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
+
 	Xapi_xenops.start ~__context ~self:vm start_paused
 
 (** For VM.start_on and VM.resume_on the message forwarding layer should only forward here
@@ -317,10 +315,7 @@ let suspend ~__context ~vm =
 
 let resume ~__context ~vm ~start_paused ~force = 
 	if Db.VM.get_ha_restart_priority ~__context ~self:vm = Constants.ha_restart
-	then begin
-		Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context vm;
-		Db.VM.set_ha_always_run ~__context ~self:vm ~value:true
-	end;
+	then Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
 
 	let host = Helpers.get_localhost ~__context in
 	if not force then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ();

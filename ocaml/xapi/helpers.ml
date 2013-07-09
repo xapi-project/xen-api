@@ -866,22 +866,52 @@ let is_network_properly_shared ~__context ~self =
 		warn "Network %s not shared properly: Not all hosts have PIFs" (Ref.string_of self);
 	properly_shared
 
+module SRSet = Set.Make(struct type t = API.ref_SR let compare = compare end)
+module NetworkSet = Set.Make(struct type t = API.ref_network let compare = compare end)
+
+let empty_cache = (SRSet.empty, NetworkSet.empty)
+
+let caching_vm_t_assert_agile ~__context (ok_srs, ok_networks) vm_t =
+	(* All referenced VDIs should be in shared SRs *)
+	let check_vbd ok_srs vbd =
+		if Db.VBD.get_empty ~__context ~self:vbd
+		then ok_srs
+		else
+			let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
+			let sr = Db.VDI.get_SR ~__context ~self:vdi in
+			if SRSet.mem sr ok_srs
+			then ok_srs
+			else
+				if not (is_sr_properly_shared ~__context ~self:sr)
+				then raise (Api_errors.Server_error(Api_errors.ha_constraint_violation_sr_not_shared, [Ref.string_of sr]))
+				else SRSet.add sr ok_srs in
+	(* All referenced VIFs should be on shared networks *)
+	let check_vif ok_networks vif =
+		let network = Db.VIF.get_network ~__context ~self:vif in
+		if NetworkSet.mem network ok_networks
+		then ok_networks
+		else
+			if not (is_network_properly_shared ~__context ~self:network)
+			then raise (Api_errors.Server_error(Api_errors.ha_constraint_violation_network_not_shared, [Ref.string_of network]))
+			else NetworkSet.add network ok_networks in
+	let ok_srs = List.fold_left check_vbd ok_srs vm_t.API.vM_VBDs in
+	let ok_networks = List.fold_left check_vif ok_networks vm_t.API.vM_VIFs in
+	(ok_srs, ok_networks)
+
 let vm_assert_agile ~__context ~self =
-  (* All referenced VDIs should be in shared SRs *)
-  List.iter (fun vbd ->
-	       if not(Db.VBD.get_empty ~__context ~self:vbd) then begin
-		 let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
-		 let sr = Db.VDI.get_SR ~__context ~self:vdi in
-		 if not(is_sr_properly_shared ~__context ~self:sr)
-		 then raise (Api_errors.Server_error(Api_errors.ha_constraint_violation_sr_not_shared, [ Ref.string_of sr ]))
-	       end)
-    (Db.VM.get_VBDs ~__context ~self);
-  (* All referenced VIFs should be on shared networks *)
-  List.iter (fun vif ->
-	       let network = Db.VIF.get_network ~__context ~self:vif in
-	       if not(is_network_properly_shared ~__context ~self:network)
-	       then raise (Api_errors.Server_error(Api_errors.ha_constraint_violation_network_not_shared, [ Ref.string_of network ])))
-    (Db.VM.get_VIFs ~__context ~self)
+	let vm_t = Db.VM.get_record ~__context ~self in
+	let _ = caching_vm_t_assert_agile ~__context empty_cache vm_t in
+	()
+
+let partition_vm_ps_by_agile ~__context vm_ps =
+	let distinguish_vm (agile_vm_ps, not_agile_vm_ps, cache) ((vm, vm_t) as vm_p) =
+		try
+			let cache = caching_vm_t_assert_agile ~__context cache vm_t in
+			(vm_p :: agile_vm_ps, not_agile_vm_ps, cache)
+		with _ ->
+		  (agile_vm_ps, vm_p :: not_agile_vm_ps, cache) in
+	let agile_vm_ps, not_agile_vm_ps, _ = List.fold_left distinguish_vm ([], [], empty_cache) vm_ps in
+	(List.rev agile_vm_ps, List.rev not_agile_vm_ps)
 
 (* Select an item from a list with a probability proportional to the items weight / total weight of all items *)
 let weighted_random_choice weighted_items (* list of (item, integer) weight *) =
