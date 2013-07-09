@@ -63,21 +63,38 @@ let database_ready_for_clients = ref false (* while this is false, client calls 
 
 open Db_cache_types
 
+(** Populate the database from the default connections or the restore db file
+    (if it is present). Perform an initial flush to the database connections
+    which were already setup, then delete the restore file. *)
+let populate_db backend =
+	let schema = Datamodel_schema.of_datamodel () in
+
+	let output_connections = Db_conn_store.read_db_connections () in
+	(* If the temporary restore file is present then we must populate from that *)
+	let restoring = Sys.file_exists Xapi_globs.db_temporary_restore_path in
+	let input_connections =
+		if restoring
+		then [ Parse_db_conf.make Xapi_globs.db_temporary_restore_path ]
+		else output_connections
+	in
+	debug "Attempting to populate database from one of these locations: [%s]"
+		(String.concat "; "
+			(List.map (fun conn -> conn.Parse_db_conf.path) input_connections));
+	Db_cache_impl.make backend input_connections schema;
+	Db_cache_impl.sync output_connections (Db_ref.get_database backend);
+	(* Delete the temporary restore file so that we don't revert to it again at next startup. *)
+	if restoring then begin
+		Unixext.unlink_safe Xapi_globs.db_temporary_restore_path;
+		Unixext.unlink_safe (Xapi_globs.db_temporary_restore_path ^ ".generation")
+	end
+
 (** Starts the main database engine: this should be done only on the master node. 
     The db connections must have been parsed from db.conf file and initialised before this fn is called.
     Also this function depends on being able to call API functions through the external interface.
 *)
 let start_database_engine () =
-	let schema = Datamodel_schema.of_datamodel () in
-	
-	(* If the temporary restore file is present then we must populate from that *)
-	let connections = 
-		if Sys.file_exists Xapi_globs.db_temporary_restore_path
-		then [ Parse_db_conf.make Xapi_globs.db_temporary_restore_path ]
-		else Db_conn_store.read_db_connections () in
 	let t = Db_backend.make () in
-	Db_cache_impl.make t connections schema;
-	Db_cache_impl.sync connections (Db_ref.get_database t);
+	populate_db t;
 
 	Db_ref.update_database t (Database.register_callback "redo_log" Redo_log.database_callback);
 	Db_ref.update_database t (Database.register_callback "events" Eventgen.database_callback);
