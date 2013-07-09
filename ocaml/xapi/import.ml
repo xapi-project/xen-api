@@ -192,6 +192,11 @@ let handle_vm __context config rpc session_id (state: state) (x: obj) : unit =
 			else
 				{vm_record with API.vM_version = 0L}
 		in
+		(* Correct ha-restart-priority for pre boston imports*)
+		let vm_record = match vm_record.API.vM_ha_restart_priority with
+			"0"|"1"|"2"|"3" as order -> { vm_record with API.vM_ha_restart_priority = "restart"; API.vM_order = Int64.of_string (order) }
+			| _ -> vm_record;
+		in
 
 		let vm = log_reraise
 			("failed to create VM with name-label " ^ vm_record.API.vM_name_label)
