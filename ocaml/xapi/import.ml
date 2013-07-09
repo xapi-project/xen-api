@@ -326,7 +326,8 @@ module VM : HandlerTools = struct
 				if (is_live config) || vm_record.API.vM_is_a_template
 				then vm_record
 				else {
-					vm_record with API.vM_generation_id = Xapi_vm_helpers.fresh_genid ()
+					vm_record with API.vM_generation_id = Xapi_vm_helpers.fresh_genid
+						~current_genid:vm_record.API.vM_generation_id ()
 				}
 			in
 
