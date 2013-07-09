@@ -44,12 +44,12 @@ val gettimestring : unit -> string
 val set_facility : Syslog_transitional.facility -> unit
 (** Set the syslog facility that will be used by this program. *)
 
-val disable : ?level:Syslog.level -> string -> unit
+val disable : ?level:Syslog_transitional.level -> string -> unit
 (** [disable brand] Suppress all log output from the given [brand]. Specifying a [level] disables
  *  only this log level, otherwise all levels for the given [brand] are disabled.
  *  This function is idempotent. *)
 
-val enable : ?level:Syslog.level -> string -> unit
+val enable : ?level:Syslog_transitional.level -> string -> unit
 (** [enable brand] Enable all log output from the given [brand]. Specifying a [level] enables
  *  only this log level, otherwise all levels for the given [brand] are enabled.
  *  This function is idempotent. *)
