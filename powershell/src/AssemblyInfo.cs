@@ -35,11 +35,11 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("XenServerPSSnapIn")]
-[assembly: AssemblyDescription("Citrix XenServer PowerShell SnapIn")]
+[assembly: AssemblyTitle("XenServerPowerShell")]
+[assembly: AssemblyDescription("Citrix XenServer PowerShell Module")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Citrix")]
-[assembly: AssemblyProduct("XenServerPSSnapIn")]
+[assembly: AssemblyProduct("XenServerPowerShell")]
 [assembly: AssemblyCopyright("Copyright © Citrix Systems, Inc.")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]

@@ -50,4 +50,4 @@ then
     remote_cmd_passwd2 "cd ${TMPDIR} && ${CMD_EXEC} sign.bat XenServer.dll 'XenServer.NET'"
 fi
 
-EXTRA_FILES="XenServer.dll FriendlyErrorNames.Designer.cs"
+EXTRA_FILES="FriendlyErrorNames.Designer.cs"
