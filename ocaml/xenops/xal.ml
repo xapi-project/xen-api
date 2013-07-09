@@ -326,6 +326,7 @@ let domain_update ctx =
 		  sprintf "/local/domain/%d/memory/target" domid;
 		  sprintf "/local/domain/%d/memory/uncooperative" domid;
 		  sprintf "/local/domain/%d/console" domid;
+		  sprintf "/local/domain/%d/console/vnc-port" domid;
 		] @
 		if ctx.monitor_devices then [
 			sprintf "/local/domain/%d/device" domid;
@@ -469,8 +470,11 @@ let other_watch xs w v =
 		let xsds = read_state w in
 		Some (int_of_string domid, Frontend xsds, ty, devid)
 	| "" :: "local" :: "domain" :: domid :: "console" :: [ "vnc-port" ] ->
-		let port = int_of_string (xs.Xs.read w) in
-		Some (int_of_string domid, ConsolePort(VNC, port), "", "")
+		begin try
+			let port = int_of_string (xs.Xs.read w) in
+			Some (int_of_string domid, ConsolePort(VNC, port), "", "")
+		with _ -> None
+		end
 	| "" :: "local" :: "domain" :: domid :: "console" :: [ "tc-port" ] ->
 		let port = int_of_string (xs.Xs.read w) in
 		Some (int_of_string domid, ConsolePort(Text, port), "", "")
