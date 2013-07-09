@@ -225,69 +225,16 @@ let update_vms ~xal ~__context =
 			warn "Caught error resynchronising PCIs: %s" (ExnHelper.string_of_exn e);
       ) () in
 
-  (* We call a domain "managed" if we have some kind of vm record for
-     it [albeit an inconsistent one]; we call a domain "unmanaged" if
-     we have no record of it at all *)
-
   (* Deal with a VM whose resident-on fields indicates it should be running here, but no domain exists here... *)
   let vm_in_db_for_me_but_no_domain_on_me vm =
     debug "domain marked as running on me in db, but no active domain: %s" (uuid_from_vmref vm);
     Db.VM.set_resident_on ~__context ~self:vm ~value:Ref.null;
     Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm ~value:Ref.null;
     set_db_shutdown vm in
-    
-  (* Process a "managed domain" that's active here, syncing devices and registering monitoring events *)
-  let managed_domain_running dinfo =
-    let vmref,vmrec = vmrefrec_of_dinfo dinfo in
-      (* If this domain isn't marked as running on my in the database then make it so... *)
-      if not (List.mem vmref my_running_vm_refs_according_to_db) then
-	begin
-	  debug "domain running on me, but corresponding db record doesn't have resident_on=me && powerstate=running: %s" (uuid_from_vmref vmref);
-	  Db.VM.set_resident_on ~__context ~self:vmref ~value:this_host;
-	end;
-    (* CA-13878: if we've restarted xapi in the middle of starting or rebooting a VM, restart
-       the VM again under the assumption that the devices haven't been attached or the memory
-       image is not built.
-       We detect the starting/rebooting VM by the fact that it is paused and has used no CPU time
-         and the power-state is not marked as Paused (this distinguishes between a VM which
-         has been started paused and left alone for a long time and a VM which is being started
-         or rebooted, which would always have the power state to Halted or Running)
-       We start it again by setting the domain's state to shutdown with reason reboot (the event
-       thread will do the hard work for us). *)
-    if dinfo.Xc.paused && not(dinfo.Xc.shutdown) && dinfo.Xc.cpu_time = 0L && 
-      (vmrec.API.vM_power_state <> `Paused) then begin
-	warn "domain id %d uuid %s is paused but not in the database as paused; assuming it's broken; rebooting" 
-	  dinfo.Xc.domid (uuid_from_vmref vmref);
-	(* Mark the domain as shutdown(reboot), the power state as running and inject
-	   a fake event into the event system. This should provoke the event thread into 
-	   restarting the VM *)
-	Xc.domain_shutdown xc dinfo.Xc.domid Xc.Reboot;
-	set_db_state_and_domid vmref `Running dinfo.Xc.domid;
-	Events.callback_release xal dinfo.Xc.domid (Uuid.string_of_uuid (Uuid.uuid_of_int_array dinfo.Xc.handle))
-      end else begin
-	let domain_is_shutdown =
-		try
-			let dinfo'= Xc.domain_getinfo xc dinfo.Xc.domid in dinfo'.Xc.shutdown
-		with _ -> true in
-		if not domain_is_shutdown then
-		 (* Reset the power state, this also clears VBD operations etc *)
-		 let state = if dinfo.Xc.paused then `Paused else `Running in
-		 set_db_state_and_domid vmref state dinfo.Xc.domid;
-      end;
-    (* Now sync devices *)
-    debug "syncing devices and registering vm for monitoring: %s" (uuid_from_dinfo dinfo);
-    let uuid = Uuid.uuid_of_int_array dinfo.Xc.handle in
-	sync_devices dinfo;
-	(* Update the VM's guest metrics since: (i) while we were offline we may
-	   have missed an update; and (ii) if the tools .iso has been updated then
-	   we wish to re-evaluate whether we believe the VMs have up-to-date
-	   tools *)
 
-	Events.guest_agent_update xal dinfo.Xc.domid (uuid_from_dinfo dinfo);
-	(* Now register with monitoring thread *)
-
-      Monitor_rrds.load_rrd ~__context (Uuid.to_string uuid) false
-  in
+  (* We call a domain "managed" if we have some kind of vm record for
+     it [albeit an inconsistent one]; we call a domain "unmanaged" if
+     we have no record of it at all *)
 
   (* Process a managed domain that exists here, but is in the shutdown state *)
   let managed_domain_shutdown dinfo =
@@ -298,13 +245,77 @@ let update_vms ~xal ~__context =
       Events.callback_release xal dinfo.Xc.domid (Uuid.string_of_uuid (Uuid.uuid_of_int_array dinfo.Xc.handle))
     end else begin
       debug "VM is not resident on this host; destroying remnant of managed domain";
-      Domain.destroy ~xc ~xs dinfo.Xc.domid
+      try 
+	Domain.destroy ~xc ~xs dinfo.Xc.domid
+      with e ->
+	warn "Ignoring exception during domain.destroy: %s" (Printexc.to_string e)
     end in
-  
+
+  (* Process a "managed domain" that's active here, syncing devices and registering monitoring events *)
+  let managed_domain_running dinfo =
+	  let vmref,vmrec = vmrefrec_of_dinfo dinfo in
+	  let db_resident_on_me = List.mem vmref my_running_vm_refs_according_to_db in
+    (* CA-13878: if we've restarted xapi in the middle of starting or rebooting a VM, restart
+       the VM again under the assumption that the devices haven't been attached or the memory
+       image is not built.
+       We detect the starting/rebooting VM by the fact that it is paused and has used no CPU time
+       and the power-state is not marked as Paused (this distinguishes between a VM which
+       has been started paused and left alone for a long time and a VM which is being started
+       or rebooted, which would always have the power state to Halted or Running)
+       We start it again by setting the domain's state to shutdown with reason reboot (the event
+       thread will do the hard work for us). *)
+	  if dinfo.Xc.paused && not(dinfo.Xc.shutdown) && dinfo.Xc.cpu_time = 0L && 
+		  (vmrec.API.vM_power_state <> `Paused) then begin
+			  (* If this domain isn't marked as running on my in the database then make it so... *)
+			  if not db_resident_on_me then
+				  begin
+					  debug "domain %s running on me, but corresponding db record doesn't have resident_on=me" (uuid_from_vmref vmref);
+					  debug "Domain is paused, not shutdown and has 0 cpu time. Assuming this was a failed migration";
+					  managed_domain_shutdown dinfo;
+				  end else begin
+					  warn "domain id %d uuid %s is paused but not in the database as paused; assuming it's broken; rebooting" dinfo.Xc.domid (uuid_from_vmref vmref);
+					  (* Mark the domain as shutdown(reboot), the power state as running and inject
+					     a fake event into the event system. This should provoke the event thread into 
+					     restarting the VM *)
+					  Xc.domain_shutdown xc dinfo.Xc.domid Xc.Reboot;
+					  set_db_state_and_domid vmref `Running dinfo.Xc.domid;
+					  Events.callback_release xal dinfo.Xc.domid (Uuid.string_of_uuid (Uuid.uuid_of_int_array dinfo.Xc.handle))
+				  end
+		  end else begin
+			  if not db_resident_on_me then begin
+				  debug "domain %s running on me, but corresponding db record doesn't have resident_on=me" (uuid_from_vmref vmref);
+				  Db.VM.set_resident_on ~__context ~self:vmref ~value:this_host;
+			  end;
+			  let domain_is_shutdown =
+				  try
+					  let dinfo'= Xc.domain_getinfo xc dinfo.Xc.domid in dinfo'.Xc.shutdown
+				  with _ -> true in
+			  if not domain_is_shutdown then
+				  (* Reset the power state, this also clears VBD operations etc *)
+				  let state = if dinfo.Xc.paused then `Paused else `Running in
+				  set_db_state_and_domid vmref state dinfo.Xc.domid;
+				  (* Now sync devices *)
+				  debug "syncing devices and registering vm for monitoring: %s" (uuid_from_dinfo dinfo);
+				  let uuid = Uuid.uuid_of_int_array dinfo.Xc.handle in
+				  sync_devices dinfo;
+				  (* Update the VM's guest metrics since: (i) while we were offline we may
+				     have missed an update; and (ii) if the tools .iso has been updated then
+				     we wish to re-evaluate whether we believe the VMs have up-to-date
+				     tools *)
+				  Events.guest_agent_update xal dinfo.Xc.domid (uuid_from_dinfo dinfo);
+				  (* Now register with monitoring thread *)
+				  Monitor_rrds.load_rrd ~__context (Uuid.to_string uuid) false
+		  end
+  in
+
   (* Process an "unmanaged domain" that's running here *)
   let unmanaged_domain_running dinfo =
     debug "killing umanaged domain: %s" (uuid_from_dinfo dinfo);
-    Domain.destroy ~xc ~xs dinfo.Xc.domid (* bye-bye... *) in
+    try
+      Domain.destroy ~xc ~xs dinfo.Xc.domid (* bye-bye... *)
+    with e ->
+      warn "Ignoring exception during domain.destroy: %s" (Printexc.to_string e)
+  in
 
   let have_record_for dinfo = try let _,_ = vmrefrec_of_dinfo dinfo in true with _ -> false in
 
