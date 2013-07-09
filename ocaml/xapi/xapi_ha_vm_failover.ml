@@ -163,8 +163,7 @@ let compute_restart_plan ~__context ~all_protected_vms ?(change=no_configuration
 	(* Any deterministic ordering is fine here: *)
 	let vms_to_ensure_running = List.sort (fun (_, a) (_, b) -> compare a.API.vM_uuid b.API.vM_uuid) vms_to_ensure_running in
 
-	let agile_vms, not_agile_vms = List.partition (fun (vm,_) -> try Helpers.vm_assert_agile ~__context ~self:vm; true with _ -> false)
-		vms_to_ensure_running in
+	let agile_vms, not_agile_vms = Helpers.partition_vm_ps_by_agile ~__context vms_to_ensure_running in
 
 	(* If a VM is marked as resident on a live_host then it will already be accounted for in the host's current free memory. *)
 	let vm_accounted_to_host vm =
