@@ -44,7 +44,6 @@ let connect path domid (args: string list) (fds: (string * Unix.file_descr) list
 	let using_xiu = Xenctrl.is_fake () in
 
 	let last_log_file = Printf.sprintf "/tmp/xenguest.%d.log" domid in
-	(try Unix.unlink last_log_file with _ -> ());
 
 	let slave_to_server_w_uuid = Uuid.to_string (Uuid.make_uuid ()) in
 	let server_to_slave_r_uuid = Uuid.to_string (Uuid.make_uuid ()) in
