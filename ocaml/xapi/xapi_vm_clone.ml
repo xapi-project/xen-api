@@ -254,8 +254,9 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
 		| Disk_op_clone | Disk_op_copy _-> Ref.null
 		| Disk_op_snapshot | Disk_op_checkpoint -> all.Db_actions.vM_parent in
 
-	(* We always reset the generation ID on VM.clone *)
-	let generation_id = Xapi_vm_helpers.fresh_genid () in
+	(* We always reset an existing generation ID on VM.clone *)
+	let generation_id = Xapi_vm_helpers.fresh_genid
+		~current_genid:all.Db_actions.vM_generation_id () in
 
 	(* create a new VM *)
 	Db.VM.create ~__context 
