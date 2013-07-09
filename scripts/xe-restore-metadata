@@ -27,18 +27,19 @@ default_restore_mode="all"
 debug="/bin/true"
 
 function usage {
-    echo "Usage: $0 [-h] [-v] [-y] [-n] [-p] [-x <VDI UUID>] [-u <SR UUID>] [-m all|sr]"
+    echo "Usage: $0 [-h] [-v] [-y] [-n] [-p] [-f] [-x <VDI UUID>] [-u <SR UUID>] [-m all|sr]"
     echo
     echo " -h: Display this help message"
     echo " -x: Specify the VDI UUID to override probing"
     echo " -p: Just scan for a metadata VDI and print out its UUID to stdout"
     echo " -u: UUID of the SR you wish to restore from"
-    echo " -n: Perform a dry run and just echo the metadata import commands (default: false)"
+    echo " -n: Perform a dry run of the metadata import commands (default: false)"
     echo " -l: Just list the available backup dates"
     echo " -d: Specify which date to restore from (default: latest)"
     echo " -m: Either 'sr' to restore only the VMs on the SR, or 'all' for VMs (default: ${default_restore_mode})"
     echo " -v: Verbose output"
     echo " -y: Assume non-interactive mode and yes to all questions"
+    echo " -f: Forcibly restore VM metadata, dangerous due to its destructive nature, please always do a dry run before using this (default: false)"
     echo 
     exit 1
 }
@@ -58,7 +59,8 @@ just_list_dates=0
 just_probe=0
 chosen_date=""
 restore_mode=${default_restore_mode}
-while getopts "yhpvx:d:lnu:m:" opt ; do
+force=0
+while getopts "yhpvx:d:lnu:m:f" opt ; do
     case $opt in
     h) usage ;;
     u) sr_uuid=${OPTARG} ;;
@@ -70,6 +72,7 @@ while getopts "yhpvx:d:lnu:m:" opt ; do
     m) restore_mode=${OPTARG} ;;
     x) vdis=${OPTARG} ;;
     y) yes=1 ;;
+    f) force=1 ;;
     *) echo "Invalid option"; usage ;;
     esac
 done
@@ -282,17 +285,24 @@ trap - ERR
 IFS=" "
 error_count=0
 good_count=0
+if [ ${force} -gt 0 ]; then
+    force_flag=" --force"
+else
+    force_flag=""
+fi
+if [ ${dry_run} -gt 0 ]; then
+    dry_run_flag=" --dry-run"
+else
+    dry_run_flag=""
+fi
 shopt -s nullglob
 for meta in *.vmmeta; do
-   if [ ${dry_run} -gt 0 ]; then
-       echo xe vm-import filename=${meta} sr-uuid=${sr_uuid} --metadata --preserve
+   echo xe vm-import filename=${meta} sr-uuid=${sr_uuid} --metadata --preserve${force_flag}${dry_run_flag}
+   "@BINDIR@/xe" vm-import filename="${full_dir}/${meta}" sr-uuid=${sr_uuid} --metadata --preserve${force_flag}${dry_run_flag}
+   if [ $? -gt 0 ]; then
+      error_count=$(( $error_count + 1 ))
    else
-       "@BINDIR@/xe" vm-import filename="${full_dir}/${meta}" sr-uuid=${sr_uuid} --metadata --preserve
-       if [ $? -gt 0 ]; then
-          error_count=$(( $error_count + 1 ))
-       else
-          good_count=$(( $good_count + 1 ))
-       fi
+      good_count=$(( $good_count + 1 ))
    fi
 done
 
