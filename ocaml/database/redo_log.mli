@@ -112,7 +112,7 @@ val empty : redo_log -> unit
 (** Invalidate the block device. This means that subsequent attempts to read from the block device will not find anything.
     This function is best-effort only and does not raise any exceptions in the case of error. *)
 
-val flush_db_to_redo_log: Db_cache_types.Database.t -> redo_log -> unit
+val flush_db_to_redo_log: Db_cache_types.Database.t -> redo_log -> bool
 (** Immediately write the given database to the given redo_log instance *)
 
 val flush_db_to_all_active_redo_logs: Db_cache_types.Database.t -> unit
