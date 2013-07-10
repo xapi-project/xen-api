@@ -23,7 +23,18 @@
 module D=Debug.Debugger(struct let name="stunnel_cache" end)
 open D
 
-type endpoint = { host: string; port: int }
+(* Disable debug-level logging but leave higher-priority enabled.  It would be
+ * better to handle this sort of configuration in the Debug module itself.
+ *)
+let debug_enabled = false
+
+let ignore_log fmt =
+    Printf.ksprintf (fun s -> ()) fmt
+
+(* Use and overlay the definition from D. *)
+let debug = if debug_enabled then debug else ignore_log
+
+type endpoint = { host: string; port: int; verified: bool }
 
 (* Need to limit the absolute number of stunnels as well as the maximum age *)
 let max_stunnel = 22
@@ -51,16 +62,18 @@ let id_of_stunnel stunnel =
     Opt.default "unknown" (Opt.map string_of_int stunnel.Stunnel.unique_id)
 
 let unlocked_gc () = 
-  let now = Unix.gettimeofday () in
-  let string_of_id id = 
-    let stunnel = Hashtbl.find !stunnels id in
-    Printf.sprintf "(id %s / idle %.2f age %.2f)" 
-      (id_of_stunnel stunnel)
-      (now -. (Hashtbl.find !times id))
-      (now -. stunnel.Stunnel.connected_time) in
-  let string_of_endpoint ep = Printf.sprintf "%s:%d" ep.host ep.port in
-  let string_of_index ep xs = Printf.sprintf "[ %s %s ]" (string_of_endpoint ep) (String.concat "; " (List.map string_of_id xs)) in
-  debug "Cache contents: %s" (Hashtbl.fold (fun ep xs acc -> string_of_index ep xs ^ " " ^ acc) !index "");
+	if debug_enabled then begin
+		let now = Unix.gettimeofday () in
+		let string_of_id id = 
+			let stunnel = Hashtbl.find !stunnels id in
+			Printf.sprintf "(id %s / idle %.2f age %.2f)" 
+				(id_of_stunnel stunnel)
+				(now -. (Hashtbl.find !times id))
+				(now -. stunnel.Stunnel.connected_time) in
+		let string_of_endpoint ep = Printf.sprintf "%s:%d" ep.host ep.port in
+		let string_of_index ep xs = Printf.sprintf "[ %s %s ]" (string_of_endpoint ep) (String.concat "; " (List.map string_of_id xs)) in
+		debug "Cache contents: %s" (Hashtbl.fold (fun ep xs acc -> string_of_index ep xs ^ " " ^ acc) !index "");
+	end;
 
   let all_ids = Hashtbl.fold (fun k _ acc -> k :: acc) !stunnels [] in
 
@@ -127,7 +140,7 @@ let add (x: Stunnel.t) =
        incr counter;
        Hashtbl.add !times idx now;
        Hashtbl.add !stunnels idx x;
-       let ep = { host = x.Stunnel.host; port = x.Stunnel.port } in
+       let ep = { host = x.Stunnel.host; port = x.Stunnel.port; verified = x.Stunnel.verified } in
        let existing = 
 	 if Hashtbl.mem !index ep
 	 then Hashtbl.find !index ep
@@ -140,8 +153,8 @@ let add (x: Stunnel.t) =
   
 (** Returns an Stunnel.t for this endpoint (oldest first), raising Not_found
     if none can be found *)
-let remove host port = 
-  let ep = { host = host; port = port } in
+let remove host port verified =
+  let ep = { host = host; port = port; verified = verified } in
   Mutex.execute m
     (fun () ->
        unlocked_gc ();
@@ -174,10 +187,10 @@ let flush () =
       info "Flushed!")
 
 
-let connect ?use_fork_exec_helper ?write_to_log host port =
+let connect ?use_fork_exec_helper ?write_to_log host port verify_cert =
   try
-    remove host port
+    remove host port verify_cert
   with Not_found ->
     error "Failed to find stunnel in cache for endpoint %s:%d" host port;
-    Stunnel.connect ?use_fork_exec_helper ?write_to_log host port
+    Stunnel.connect ?use_fork_exec_helper ?write_to_log ~verify_cert host port
     

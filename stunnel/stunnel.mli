@@ -34,6 +34,7 @@ type t = { mutable pid: pid;
 	   connected_time: float; (** time when the connection opened, for 'early retirement' *)
 	   unique_id: int option;
 	   mutable logfile: string;
+	   verified: bool;
 	 }
 
 (** Connects via stunnel (optionally via an external 'fork/exec' helper) to
@@ -55,3 +56,5 @@ val disconnect : ?wait:bool -> ?force:bool -> t -> unit
 val diagnose_failure : t -> unit
 
 val test : string -> int -> unit
+
+val must_verify_cert : bool option -> bool

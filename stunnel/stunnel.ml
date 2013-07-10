@@ -113,10 +113,11 @@ type t = { mutable pid: pid; fd: Unix.file_descr; host: string; port: int;
 	   connected_time: float;
 	   unique_id: int option;
 	   mutable logfile: string;
+	   verified: bool;
 	 }
 
 let config_file verify_cert extended_diagnosis host port = 
-  let lines = ["client=yes"; "foreground=yes"; "socket = r:TCP_NODELAY=1"; Printf.sprintf "connect=%s:%d" host port ] @
+  let lines = ["client=yes"; "foreground=yes"; "socket = r:TCP_NODELAY=1"; "socket = r:SO_KEEPALIVE=1"; Printf.sprintf "connect=%s:%d" host port ] @
     (if extended_diagnosis then
        ["debug=4"]
      else
@@ -187,7 +188,7 @@ let attempt_one_connect ?unique_id ?(use_fork_exec_helper = true)
   let t = 
     { pid = Nopid; fd = data_out; host = host; port = port; 
       connected_time = Unix.gettimeofday (); unique_id = unique_id; 
-      logfile = "" } in
+      logfile = ""; verified = verify_cert } in
   let result = Forkhelpers.with_logfile_fd "stunnel"
     ~delete:(not extended_diagnosis)
     (fun logfd ->
@@ -198,8 +199,6 @@ let attempt_one_connect ?unique_id ?(use_fork_exec_helper = true)
 	         Unsafe.Dup2(logfd, Unix.stderr) ] in
        t.pid <-
          if use_fork_exec_helper then begin
-	         let cmdline = Printf.sprintf "Using commandline: %s\n" (String.concat " " (path::args)) in
-	         write_to_log cmdline;
 	         FEFork(Forkhelpers.safe_close_and_exec 
                     (Some data_in) (Some data_in) (Some logfd) configs path args)
          end else
@@ -213,8 +212,6 @@ let attempt_one_connect ?unique_id ?(use_fork_exec_helper = true)
        (* Make sure we close config_in eventually *)
          finally
 	       (fun () ->
-	          let pidmsg = Printf.sprintf "stunnel has pidty: %s" (string_of_pid t.pid) in
-	          write_to_log pidmsg;
             match config_in with
             | Some fd -> begin
 	              let config = config_file verify_cert extended_diagnosis host port in
@@ -234,8 +231,7 @@ let attempt_one_connect ?unique_id ?(use_fork_exec_helper = true)
       if extended_diagnosis then begin
         write_to_log "stunnel start";
         t.logfile <- log
-      end else
-        write_to_log ("stunnel start: Log from stunnel: [" ^ log ^ "]");
+      end;
       t
   | Forkhelpers.Failure(log, exn) ->
       write_to_log ("stunnel abort: Log from stunnel: [" ^ log ^ "]");
@@ -253,6 +249,11 @@ let rec retry f = function
 	ignore(Unix.select [] [] [] 3.);
 	retry f (n - 1)
 
+let must_verify_cert verify_cert =
+  match verify_cert with
+  | Some x -> x
+  | None -> Sys.file_exists verify_certificates_ctrl
+
 (** Establish a fresh stunnel to a (host, port)
     @param extended_diagnosis If true, the stunnel log file will not be
     deleted.  Instead, it is the caller's responsibility to delete it.  This
@@ -265,9 +266,7 @@ let connect
 		?(extended_diagnosis=false)
 		host
 		port = 
-	let _verify_cert = match verify_cert with
-		| Some x -> x
-		| None -> Sys.file_exists verify_certificates_ctrl in
+	let _verify_cert = must_verify_cert verify_cert in
   let _ = match write_to_log with 
     | Some logger -> stunnel_logger := logger
     | None -> () in

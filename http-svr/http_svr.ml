@@ -34,7 +34,6 @@ open Stringext
 open Pervasiveext
 
 module D = Debug.Debugger(struct let name="http" end)
-module DCritical = Debug.Debugger(struct let name="http_critical" end)
 open D
 
 type uri_path = string 
@@ -404,29 +403,19 @@ let request_of_bio ?(use_fastpath=false) ic =
 			| Too_many_headers ->
 				(* don't log anything, since it could fill the log *)
 				response_internal_error ss ~extra:"Too many HTTP headers were received.";
-			| Buf_io.Timeout ->
-				DCritical.debug "Idle connection closed" (* NB infinite timeout used when headers are being read *)
-			| Buf_io.Eof ->
-				DCritical.debug "Connection terminated";
-			| Buf_io.Line x ->
-				begin
-					match x with
-							Buf_io.Too_long ->
-								DCritical.debug "Line too long!"
-						| Buf_io.No_newline ->
-							DCritical.debug "Newline not found!"
-				end;
-				DCritical.debug "Buffer contains: '%s'" (Buf_io.get_data ic);
+			| Buf_io.Timeout -> ()
+				(* Idle connection closed. NB infinite timeout used when headers are being read *)
+			| Buf_io.Eof -> ()
+				(* Connection terminated *)
+			| Buf_io.Line _ ->
 				response_internal_error ss ~extra:"One of the header lines was too long.";
 				(* Generic errors thrown during parsing *)
-			| End_of_file ->
-				DCritical.debug "Premature termination of connection!";
+			| End_of_file -> ()
+				(* Premature termination of connection! *)
 			| Unix.Unix_error (a,b,c) ->
-				response_internal_error ss ~extra:(Printf.sprintf "Got UNIX error: %s %s %s" (Unix.error_message a) b c);
-				DCritical.debug "Unhandled unix exception: %s %s %s" (Unix.error_message a) b c;
+				response_internal_error ss ~extra:(Printf.sprintf "Got UNIX error: %s %s %s" (Unix.error_message a) b c)
 			| exc ->
 				response_internal_error ss ~extra:(escape (Printexc.to_string exc));
-				DCritical.debug "Unhandled exception: %s" (Printexc.to_string exc);
 				log_backtrace ();
 		);
 		None
@@ -462,15 +451,12 @@ let handle_one (x: 'a Server.t) ss context req =
 					(* Generic errors thrown by handlers *)
 			| Http.Method_not_implemented ->
 				response_method_not_implemented ~req ss
-			| End_of_file ->
-				DCritical.debug "Premature termination of connection!";
+			| End_of_file -> ()
+				(* Premature termination of connection! *)
 			| Unix.Unix_error (a,b,c) ->
-				response_internal_error ~req ss ~extra:(Printf.sprintf "Got UNIX error: %s %s %s" (Unix.error_message a) b c);
-				DCritical.debug "Unhandled unix exception: %s %s %s" (Unix.error_message a) b c;
-				
+				response_internal_error ~req ss ~extra:(Printf.sprintf "Got UNIX error: %s %s %s" (Unix.error_message a) b c)
 			| exc ->
 				response_internal_error ~req ss ~extra:(escape (Printexc.to_string exc));
-				DCritical.debug "Unhandled exception: %s" (Printexc.to_string exc);
 				log_backtrace ()			
 		);
 		!finished

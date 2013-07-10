@@ -96,14 +96,14 @@ let get_new_stunnel_id =
 
 (** Returns an stunnel, either from the persistent cache or a fresh one which
     has been checked out and guaranteed to work. *)
-let get_reusable_stunnel ?use_fork_exec_helper ?write_to_log host port =
-  let start_time = Unix.gettimeofday () in
+let get_reusable_stunnel ?use_fork_exec_helper ?write_to_log host port ?verify_cert =
   let found = ref None in
   (* 1. First check if there is a suitable stunnel in the cache. *)
+  let verify_cert = Stunnel.must_verify_cert verify_cert in
   begin
     try
       while !found = None do
-	let (x: Stunnel.t) = Stunnel_cache.remove host port in
+	let (x: Stunnel.t) = Stunnel_cache.remove host port verify_cert in
 	if check_reusable x.Stunnel.fd
 	then found := Some x
 	else begin
@@ -115,12 +115,10 @@ let get_reusable_stunnel ?use_fork_exec_helper ?write_to_log host port =
   end;
   match !found with
   | Some x ->
-      StunnelDebug.debug "get_reusable_stunnel: got from cache in %.2f ms for %s:%d." ((Unix.gettimeofday () -. start_time) *. 1000.) host port;
       x
   | None ->
       StunnelDebug.debug "get_reusable_stunnel: stunnel cache is empty; creating a fresh connection to %s:%d" host port;
       (* 2. Create a fresh connection and make sure it works *)
-      let start_time_2 = Unix.gettimeofday () in
       begin
 	let max_attempts = 10 in
 	let attempt_number = ref 0 in
@@ -129,7 +127,7 @@ let get_reusable_stunnel ?use_fork_exec_helper ?write_to_log host port =
 	  incr attempt_number;
 	  try
 	    let unique_id = get_new_stunnel_id () in
-	    let (x: Stunnel.t) = Stunnel.connect ~unique_id ?use_fork_exec_helper ?write_to_log host port in
+	    let (x: Stunnel.t) = Stunnel.connect ~unique_id ?use_fork_exec_helper ?write_to_log ~verify_cert host port in
 	    if check_reusable x.Stunnel.fd
 	    then found := Some x
 	    else begin
@@ -144,9 +142,6 @@ let get_reusable_stunnel ?use_fork_exec_helper ?write_to_log host port =
       end;
       begin match !found with
       | Some x ->
-          let now = Unix.gettimeofday () in
-          StunnelDebug.debug "get_reusable_stunnel: done in %.2f ms of which %.2f ms for new stunnel to %s:%d"
-              ((now -. start_time) *. 1000.) ((now -. start_time_2) *. 1000.) host port;
           x
       | None ->
 	  StunnelDebug.error "get_reusable_stunnel: failed to acquire a working stunnel to connect to %s:%d" host port;
@@ -157,18 +152,18 @@ module SSL = struct
 	type t = {
 		use_fork_exec_helper: bool;
 		use_stunnel_cache: bool;
-		verify_cert: bool;
+		verify_cert: bool option;
 		task_id: string option
 	}
-	let make ?(use_fork_exec_helper=true) ?(use_stunnel_cache=false) ?(verify_cert=false) ?task_id () = {
+	let make ?(use_fork_exec_helper=true) ?(use_stunnel_cache=false) ?(verify_cert) ?task_id () = {
 		use_fork_exec_helper = use_fork_exec_helper;
 		use_stunnel_cache = use_stunnel_cache;
 		verify_cert = verify_cert;
 		task_id = task_id
 	}
 	let to_string (x: t) =
-		Printf.sprintf "{ use_fork_exec_helper = %b; use_stunnel_cache = %b; verify_cert = %b; task_id = %s }"
-			x.use_fork_exec_helper x.use_stunnel_cache x.verify_cert
+		Printf.sprintf "{ use_fork_exec_helper = %b; use_stunnel_cache = %b; verify_cert = %s; task_id = %s }"
+			x.use_fork_exec_helper x.use_stunnel_cache (Opt.default "None" (Opt.map (fun x -> string_of_bool x) x.verify_cert))
 			(Opt.default "None" (Opt.map (fun x -> "Some " ^ x) x.task_id))
 end
 
@@ -211,13 +206,12 @@ let with_transport transport f = match transport with
 		use_stunnel_cache = use_stunnel_cache;
 		verify_cert = verify_cert;
 		task_id = task_id}, host, port) ->
-		assert (not (verify_cert && use_stunnel_cache));
 		let st_proc =
 			if use_stunnel_cache
-			then get_reusable_stunnel ~use_fork_exec_helper ~write_to_log host port
+			then get_reusable_stunnel ~use_fork_exec_helper ~write_to_log host port ?verify_cert
 			else
 				let unique_id = get_new_stunnel_id () in
-				Stunnel.connect ~use_fork_exec_helper ~write_to_log ~unique_id ~verify_cert ~extended_diagnosis:true host port in
+				Stunnel.connect ~use_fork_exec_helper ~write_to_log ~unique_id ?verify_cert ~extended_diagnosis:true host port in
 		let s = st_proc.Stunnel.fd in
 		let s_pid = Stunnel.getpid st_proc.Stunnel.pid in
 		debug "stunnel pid: %d (cached = %b) connected to %s:%d" s_pid use_stunnel_cache host port;
@@ -283,7 +277,7 @@ module XML = struct
 	let response_of_file_descr fd = Xml.parse_in (Unix.in_channel_of_descr fd)
 	type request = Xml.xml
 	let request_to_string = Xml.to_string
-	let request_to_short_string = Xml.to_string
+	let request_to_short_string = fun _ -> "(XML)"
 end
 
 module XMLRPC = struct
@@ -308,6 +302,9 @@ module Protocol = functor(F: FORMAT) -> struct
 			| Unix.Unix_error(Unix.ECONNRESET, _, _) -> raise Connection_reset
 
 	let rpc ?(srcstr="unset") ?(dststr="unset") ~transport ~http req =
+		(* Caution: req can contain sensitive information such as passwords in its parameters,
+		 * so we should not log the parameters or a string representation of the whole thing.
+		 * The name should be safe though, e.g. req.Rpc.name when F is XMLRPC. *)
 		E.debug "%s=>%s [label=\"%s\"];" srcstr dststr (F.request_to_short_string req) ;
 		let body = F.request_to_string req in
 		let http = { http with Http.Request.body = Some body } in

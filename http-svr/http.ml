@@ -377,7 +377,7 @@ module Request = struct
 		body = None;
 	}
 
-	let make ?(frame=false) ?(version="1.0") ?(keep_alive=false) ?accept ?cookie ?length ?auth ?subtask_of ?body ?(headers=[]) ?content_type ?host ?(query=[]) ~user_agent meth path =
+	let make ?(frame=false) ?(version="1.1") ?(keep_alive=true) ?accept ?cookie ?length ?auth ?subtask_of ?body ?(headers=[]) ?content_type ?host ?(query=[]) ~user_agent meth path =
 		{ empty with
 			version = version;
 			frame = frame;
@@ -480,7 +480,7 @@ module Response = struct
 	}
 
 	let empty = {
-		version = "1.0";
+		version = "1.1";
 		frame = false;
 		code = "500";
 		message = "Empty response";
@@ -499,7 +499,7 @@ module Response = struct
 			(kvpairs x.additional_headers)
 
 	let empty = {
-		version = "1.0";
+		version = "1.1";
 		frame = false;
 		code = "500";
 		message = "Unknown error message";
@@ -508,7 +508,7 @@ module Response = struct
 		additional_headers = [];
 		body = None;
 	}
-	let make ?(frame=false) ?(version="1.0") ?length ?task ?(headers=[]) ?body code message = {
+	let make ?(frame=false) ?(version="1.1") ?length ?task ?(headers=[]) ?body code message = {
 		version = version;
 		frame = frame;
 		code = code;
