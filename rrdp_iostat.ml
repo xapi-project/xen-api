@@ -60,14 +60,19 @@ let update_vdi_to_vm_map () =
 						let path = Printf.sprintf "%s/%d" base_path domid in
 						D.debug "Getting path %s..." path;
 						let vbds = xs.Xs.directory path in
-						List.map (fun vbd ->
-							let vdi    = xs.Xs.read (Printf.sprintf "%s/%s/sm-data/vdi-uuid" path vbd) in
-							let device = xs.Xs.read (Printf.sprintf "%s/%s/dev" path vbd) in
-							D.info "Found VDI %s at device %s in VM %s" vdi device vm;
-							(vdi, (vm, device))
+						List.filter_map (fun vbd ->
+							try
+								let vdi    = xs.Xs.read (Printf.sprintf "%s/%s/sm-data/vdi-uuid" path vbd) in
+								let device = xs.Xs.read (Printf.sprintf "%s/%s/dev" path vbd) in
+								D.info "Found VDI %s at device %s in VM %s" vdi device vm;
+								Some (vdi, (vm, device))
+							with Xenbus.Xb.Noent ->
+								(* CA-111132: an empty VBD (i.e. no ISO inserted) has no sm-data/vdi-uuid *)
+								D.debug "Got ENOENT when reading info for vbd %s in domain %d (might be empty)" vbd domid;
+								None
 						) vbds
 					with Xenbus.Xb.Noent ->
-						D.warn "Got ENOENT when reading info for domain %d" domid;
+						D.warn "Got ENOENT when listing VBDs for domain %d" domid;
 						[]
 				) domUs |> List.flatten
 			)
