@@ -4288,6 +4288,24 @@ let vm_appliance_assert_can_be_recovered printer rpc session_id params =
 			let appliance = Client.VM_appliance.get_by_uuid ~rpc ~session_id:database_session ~uuid in
 			Client.VM_appliance.assert_can_be_recovered ~rpc ~session_id:database_session ~self:appliance  ~session_to:session_id)
 
+let gpu_group_create printer rpc session_id params =
+	let name_label = List.assoc "name-label" params in
+	let name_description =
+		try List.assoc "name-description" params
+		with Not_found -> ""
+	in
+	let gpu_group =
+		Client.GPU_group.create ~rpc ~session_id
+			~name_label ~name_description ~other_config:[]
+	in
+	let uuid = Client.GPU_group.get_uuid ~rpc ~session_id ~self:gpu_group in
+	printer (Cli_printer.PList [uuid])
+
+let gpu_group_destroy printer rpc session_id params =
+	let uuid = List.assoc "gpu-group-uuid" params in
+	let gpu_group = Client.GPU_group.get_by_uuid ~rpc ~session_id ~uuid in
+	Client.GPU_group.destroy ~rpc ~session_id ~self:gpu_group
+
 let vgpu_create printer rpc session_id params =
 	let device = if List.mem_assoc "device" params then List.assoc "device" params else "0" in
 	let gpu_group_uuid = List.assoc "gpu-group-uuid" params in
