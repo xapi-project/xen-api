@@ -2418,6 +2418,14 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
 			implementation=No_fd Cli_operations.vm_appliance_assert_can_be_recovered;
 			flags=[];
 		};
+		"pgpu-set-gpu-group",
+		{
+			reqd=["uuid"; "gpu-group-uuid"];
+			optn=[];
+			help="Move a PGPU between groups";
+			implementation=No_fd Cli_operations.pgpu_set_gpu_group;
+			flags=[];
+		};
 		"gpu-group-create",
 		{
 			reqd=["name-label"];
