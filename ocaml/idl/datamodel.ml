@@ -7759,7 +7759,6 @@ let gpu_group =
 		]
 		~result:(Ref _gpu_group, "")
 		~allowed_roles:_R_POOL_OP
-		~hide_from_docs:true
 		()
 	in
 	let destroy = call
@@ -7769,7 +7768,6 @@ let gpu_group =
 			Ref _gpu_group, "self", "The vGPU to destroy"
 		]
 		~allowed_roles:_R_POOL_OP
-		~hide_from_docs:true
 		()
 	in
 	let get_allowed_VGPU_types = call
