@@ -2428,7 +2428,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
 		};
 		"gpu-group-destroy",
 		{
-			reqd=["gpu-group-uuid"];
+			reqd=["uuid"];
 			optn=[""];
 			help="Destroy a GPU group";
 			implementation=No_fd Cli_operations.gpu_group_destroy;

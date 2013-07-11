@@ -4330,7 +4330,7 @@ let gpu_group_create printer rpc session_id params =
 	printer (Cli_printer.PList [uuid])
 
 let gpu_group_destroy printer rpc session_id params =
-	let uuid = List.assoc "gpu-group-uuid" params in
+	let uuid = List.assoc "uuid" params in
 	let gpu_group = Client.GPU_group.get_by_uuid ~rpc ~session_id ~uuid in
 	Client.GPU_group.destroy ~rpc ~session_id ~self:gpu_group
 
