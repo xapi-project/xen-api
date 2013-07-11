@@ -2418,6 +2418,22 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
 			implementation=No_fd Cli_operations.vm_appliance_assert_can_be_recovered;
 			flags=[];
 		};
+		"gpu-group-create",
+		{
+			reqd=["name-label"];
+			optn=["name-description"];
+			help="Create an empty GPU group";
+			implementation=No_fd Cli_operations.gpu_group_create;
+			flags=[];
+		};
+		"gpu-group-destroy",
+		{
+			reqd=["gpu-group-uuid"];
+			optn=[""];
+			help="Destroy a GPU group";
+			implementation=No_fd Cli_operations.gpu_group_destroy;
+			flags=[];
+		};
 	"vgpu-create",
 	{
 		reqd=["vm-uuid";"gpu-group-uuid"];
