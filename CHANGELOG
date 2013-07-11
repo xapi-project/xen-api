@@ -1,2 +1,18 @@
+1.11.0 (2013-07-11):
+ * CP-5113: Queue VM.unpause immediately after VM.start
+ * CA-109295: Allow other_config:hvm_serial to set values other than "pty"
+ * CA-108913: Initialise parameters on the stack
+ * Don't automatically install rrdd-devel packages
+ * Do not try deleting the old xenguest log file
+ * CA-101777: some improvements on metadata backup/restore
+ * CA-100685: When domain disappears during VM shutdown, just do it w/ no error
+ * CA-104674: Don't add genid to VMs that don't need one
+ * Add scripts to help maintain version tags and changelog entries
+ * CA-93557: Fix poor performance for VMs in 'Restart' vs 'Restart if possible'
+ * networkd: do signal xapi when an IP address is removed
+ * CP-5095:Retrieve a list of SRs required to recover a VM through xapi
+ * CA-98077: Block SXM when VM has a VDI with on_boot=reset
+ * CA-108515: Prevent the destruction of SR configured as IntelliCache SR
+
 1.10.0 (2013-06-26):
  * Initial changelog entry, more to come after sprint wk28
