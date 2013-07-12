@@ -20,6 +20,9 @@ type pci_class = Display_controller | Network_controller
 (** Get the PCI class ID for a given class. *)
 val find_class_id : pci_class -> string
 
+(** Get the device ID for a PCI **)
+val get_device_id : __context:Context.t -> self:API.ref_PCI -> string
+
 (** Synchronise the PCI objects in the database with the actual devices in the host. *)
 val update_pcis : __context:Context.t -> host:API.ref_host -> unit
 

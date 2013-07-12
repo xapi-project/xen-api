@@ -15,6 +15,7 @@ module D=Debug.Make(struct let name="xapi" end)
 open D
 
 open Listext
+open Threadext
 
 let create ~__context ~pCI ~gPU_group ~host ~other_config =
 	let pgpu = Ref.make () in
@@ -58,4 +59,36 @@ let update_gpus ~__context ~host =
 	let obsolete_pgpus = List.set_difference existing_pgpus current_pgpus in
 	List.iter (fun (self, _) -> Db.PGPU.destroy ~__context ~self) obsolete_pgpus
 
-let set_GPU_group ~__context ~self ~value = failwith "not implemented"
+let gpu_group_m = Mutex.create ()
+let set_GPU_group ~__context ~self ~value =
+	Mutex.execute gpu_group_m (fun () ->
+		let pci = Db.PGPU.get_PCI ~__context ~self in
+
+		(* Precondition: PGPU not currently in use by a VM *)
+		if Db.PCI.get_attached_VMs ~__context ~self:pci <> []
+		then failwith "PGPU currently in use";
+
+		(* Precondition: Moving PGPU from current group can't orphan VGPU *)
+		let src_g = Db.PGPU.get_GPU_group ~__context ~self in
+		let pgpu_is_singleton =
+			(List.length (Db.GPU_group.get_PGPUs ~__context ~self:src_g) = 1)
+		and pgpu_has_vgpus =
+			((Db.GPU_group.get_VGPUs ~__context ~self:src_g) <> []) in
+		if (pgpu_is_singleton && pgpu_has_vgpus)
+		then failwith "Moving this PGPU would leave VGPUs without a PGPU";
+
+		let check_compatibility gpu_type group_types =
+			match group_types with
+			| [] -> true, [gpu_type]
+			| _ -> List.mem gpu_type group_types, group_types in
+
+		let gpu_type = Xapi_pci.get_device_id ~__context ~self:pci
+		and group_types = Db.GPU_group.get_GPU_types ~__context ~self:value in
+		match check_compatibility gpu_type group_types with
+		| true, new_types ->
+			Db.PGPU.set_GPU_group ~__context ~self ~value;
+			(* Group inherits the device type *)
+			Db.GPU_group.set_GPU_types ~__context ~self:value ~value:new_types
+		| false, _ ->
+			failwith "PGPU type not compatible with destination group"
+	)
