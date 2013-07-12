@@ -61,6 +61,10 @@ let read_pcis () =
 let get_pcis_by_class pcis cls =
 	List.filter (fun pci -> pci.class_id = find_class_id cls) pcis
 
+let get_device_id ~__context ~self =
+	let pci = Db.PCI.get_record_internal ~__context ~self in
+	pci.Db_actions.pCI_vendor_id ^ "/" ^ pci.Db_actions.pCI_device_id
+
 let create ~__context ~class_id ~class_name ~vendor_id ~vendor_name ~device_id
 		~device_name ~host ~pci_id ~functions ~dependencies ~other_config =
 	let p = Ref.make () in

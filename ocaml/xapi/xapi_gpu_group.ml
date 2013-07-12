@@ -41,8 +41,9 @@ let destroy ~__context ~self =
 	Db.GPU_group.destroy ~__context ~self
 
 let find_or_create ~__context pgpu =
-	let pci = Db.PCI.get_record_internal ~__context ~self:(Db.PGPU.get_PCI ~__context ~self:pgpu) in
-	let gpu_type = pci.Db_actions.pCI_vendor_id ^ "/" ^ pci.Db_actions.pCI_device_id in
+	let pci = Db.PGPU.get_PCI ~__context ~self:pgpu in
+	let pci_rec = Db.PCI.get_record_internal ~__context ~self:pci in
+	let gpu_type = Xapi_pci.get_device_id ~__context ~self:pci in
 	try
 		List.find (fun rf->
 			let rc = Db.GPU_group.get_record_internal ~__context ~self:rf in
@@ -50,7 +51,7 @@ let find_or_create ~__context pgpu =
 		)
 		(Db.GPU_group.get_all ~__context)
 	with Not_found ->
-		let name_label = "Group of " ^ pci.Db_actions.pCI_vendor_name ^ " " ^ pci.Db_actions.pCI_device_name ^ " GPUs" in
+		let name_label = "Group of " ^ pci_rec.Db_actions.pCI_vendor_name ^ " " ^ pci_rec.Db_actions.pCI_device_name ^ " GPUs" in
 		let group = create ~__context ~name_label ~name_description:"" ~other_config:[] in
 		Db.GPU_group.set_GPU_types ~__context ~self:group ~value:[gpu_type];
 		group
