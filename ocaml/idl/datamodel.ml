@@ -889,7 +889,9 @@ let _ =
   error Api_errors.vdi_not_in_map [ "vdi" ]
     ~doc:"This VDI was not mapped to a destination SR in VM.migrate_send operation" () ;
   error Api_errors.vdi_copy_failed []
-    ~doc:"The VDI copy action has failed" (); 
+    ~doc:"The VDI copy action has failed" ();
+	error Api_errors.vdi_on_boot_mode_incompatible_with_operation []
+		~doc:"This operation is not permitted on VMs containing VDIs in the 'on-boot=reset' mode" ();
   error Api_errors.cannot_create_state_file []
     ~doc:"An HA statefile could not be created, perhaps because no SR with the appropriate capability was found." ();
 

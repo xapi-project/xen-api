@@ -300,12 +300,12 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 		if op = `checkpoint || op = `snapshot || op = `suspend || op = `snapshot_with_quiesce
 		then (* If any vdi exists with on_boot=reset, then disallow checkpoint, snapshot, suspend *)
 			if List.exists fst vdis_reset_and_caching
-			then Some (Api_errors.vdi_on_boot_mode_incompatable_with_operation,[]) 
+			then Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation,[]) 
 			else None
 		else if op = `pool_migrate then
 			(* If any vdi exists with on_boot=reset and caching is enabled, disallow migrate *)
 			if List.exists (fun (reset,caching) -> reset && caching) vdis_reset_and_caching
-			then Some (Api_errors.vdi_on_boot_mode_incompatable_with_operation,[]) 
+			then Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation,[]) 
 			else None
 		else None) in
 

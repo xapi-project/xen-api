@@ -163,7 +163,7 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 				| `snapshot when record.Db_actions.vDI_sharable ->
 					Some (Api_errors.vdi_is_sharable, [ _ref ])
 				| `snapshot when reset_on_boot ->
-					Some (Api_errors.vdi_on_boot_mode_incompatable_with_operation, [])
+					Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation, [])
 				| `copy ->
 					if List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 					then Some (Api_errors.operation_not_allowed, ["VDI containing HA statefile or redo log cannot be copied (check the VDI's allowed operations)."])
