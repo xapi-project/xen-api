@@ -6844,7 +6844,12 @@ let vm_guest_metrics =
           Removed, rel_george, "Disabled in favour of the RRDs, to improve scalability"
         ]
         "memory" "This field exists but has no data. Use the memory and memory_internal_free RRD data-sources instead.";
-      field ~qualifier:DynamicRO ~ty:(Map(String, String)) "disks" "disk configuration/free space";
+      field ~qualifier:DynamicRO ~ty:(Map(String, String))
+        ~lifecycle:[
+          Published, rel_rio, "Disk configuration/free space";
+          Removed, rel_orlando, "No data"
+        ]
+        "disks" "This field exists but has no data.";
       field ~qualifier:DynamicRO ~ty:(Map(String, String)) "networks" "network configuration";
       field ~qualifier:DynamicRO ~ty:(Map(String, String)) "other" "anything else";
       field ~qualifier:DynamicRO ~ty:DateTime "last_updated" "Time at which this information was last updated";
