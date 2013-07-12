@@ -6838,7 +6838,12 @@ let vm_guest_metrics =
       field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None "PV_drivers_up_to_date"
 	"true if the PV drivers appear to be up to date";
 
-      field ~qualifier:DynamicRO ~ty:(Map(String, String)) "memory" "free/used/total memory";
+      field ~qualifier:DynamicRO ~ty:(Map(String, String))
+        ~lifecycle:[
+          Published, rel_rio, "free/used/total";
+          Removed, rel_george, "Disabled in favour of the RRDs, to improve scalability"
+        ]
+        "memory" "This field exists but has no data. Use the memory and memory_internal_free RRD data-sources instead.";
       field ~qualifier:DynamicRO ~ty:(Map(String, String)) "disks" "disk configuration/free space";
       field ~qualifier:DynamicRO ~ty:(Map(String, String)) "networks" "network configuration";
       field ~qualifier:DynamicRO ~ty:(Map(String, String)) "other" "anything else";
