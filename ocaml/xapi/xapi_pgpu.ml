@@ -65,8 +65,10 @@ let set_GPU_group ~__context ~self ~value =
 		let pci = Db.PGPU.get_PCI ~__context ~self in
 
 		(* Precondition: PGPU not currently in use by a VM *)
-		if Db.PCI.get_attached_VMs ~__context ~self:pci <> []
-		then failwith "PGPU currently in use";
+		let attached_vms = Db.PCI.get_attached_VMs ~__context ~self:pci in
+		if attached_vms <> [] then
+			raise (Api_errors.Server_error (Api_errors.pgpu_in_use_by_vm,
+				List.map Ref.string_of attached_vms));
 
 		(* Precondition: Moving PGPU from current group can't orphan VGPU *)
 		let src_g = Db.PGPU.get_GPU_group ~__context ~self in
@@ -74,8 +76,9 @@ let set_GPU_group ~__context ~self ~value =
 			(List.length (Db.GPU_group.get_PGPUs ~__context ~self:src_g) = 1)
 		and pgpu_has_vgpus =
 			((Db.GPU_group.get_VGPUs ~__context ~self:src_g) <> []) in
-		if (pgpu_is_singleton && pgpu_has_vgpus)
-		then failwith "Moving this PGPU would leave VGPUs without a PGPU";
+		if (pgpu_is_singleton && pgpu_has_vgpus) then
+			raise (Api_errors.Server_error
+				(Api_errors.pgpu_required_by_gpu_group, [Ref.string_of src_g]));
 
 		let check_compatibility gpu_type group_types =
 			match group_types with
@@ -90,5 +93,7 @@ let set_GPU_group ~__context ~self ~value =
 			(* Group inherits the device type *)
 			Db.GPU_group.set_GPU_types ~__context ~self:value ~value:new_types
 		| false, _ ->
-			failwith "PGPU type not compatible with destination group"
+			raise (Api_errors.Server_error
+				(Api_errors.pgpu_not_compatible_with_gpu_group,
+				[gpu_type; "[" ^ String.concat ", " group_types ^ "]"]))
 	)

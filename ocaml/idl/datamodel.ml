@@ -542,6 +542,13 @@ let _ =
   error Api_errors.pif_device_not_found []
     ~doc:"The specified device was not found." ();
 
+  error Api_errors.pgpu_in_use_by_vm ["VMs"]
+    ~doc:"This PGPU is currently in use by running VMs." ();
+  error Api_errors.pgpu_required_by_gpu_group ["gpu_group"]
+    ~doc:"Moving this PGPU would leave unbacked VGPUs in the GPU group." ();
+  error Api_errors.pgpu_not_compatible_with_gpu_group ["type"; "group_types"]
+    ~doc:"PGPU type not compatible with destination group." ();
+
   error Api_errors.openvswitch_not_active []
     ~doc:"This operation needs the OpenVSwitch networking backend to be enabled on all hosts in the pool." ();
   error Api_errors.transport_pif_not_configured ["PIF"]
