@@ -57,14 +57,20 @@ let rnd_array n =
 	Array.of_list (rnd_list n [])
 
 let read_array dev n = 
-  let ic = open_in_bin dev in
-  try
-    let result = Array.init n (fun _ -> input_byte ic) in
-    close_in ic;
-    result
-  with e ->
-    close_in ic;
-    raise e
+	let fd = Unix.openfile dev [Unix.O_RDONLY] 0o640 in
+	let finally body_f clean_f =
+		try 
+			let ret = body_f () in clean_f (); ret
+		with e -> clean_f (); raise e in
+	finally 
+		(fun () -> 
+			let buf = String.create n in
+			let read = Unix.read fd buf 0 n in
+			if read <> n then raise End_of_file
+			else 
+				Array.init n (fun i -> Char.code buf.[i])
+		)
+		(fun () -> Unix.close fd)
 
 let uuid_of_int_array uuid =
   Printf.sprintf "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x"
