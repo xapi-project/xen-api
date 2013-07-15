@@ -240,6 +240,10 @@ let event_subscription_parse_failure = "EVENT_SUBSCRIPTION_PARSE_FAILURE"
 let event_from_token_parse_failure = "EVENT_FROM_TOKEN_PARSE_FAILURE"
 let session_not_registered = "SESSION_NOT_REGISTERED"
 
+let pgpu_in_use_by_vm = "PGPU_IN_USE_BY_VM"
+let pgpu_required_by_gpu_group = "PGPU_REQUIRED_BY_GPU_GROUP"
+let pgpu_not_compatible_with_gpu_group = "PGPU_NOT_COMPATIBLE_WITH_GPU_GROUP"
+
 let import_error_generic = "IMPORT_ERROR"
 let import_error_premature_eof = "IMPORT_ERROR_PREMATURE_EOF"
 let import_error_some_checksums_failed = "IMPORT_ERROR_SOME_CHECKSUMS_FAILED"
