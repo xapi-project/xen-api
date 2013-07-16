@@ -235,9 +235,10 @@ let get_pif_type pif_rc =
 			| Some tunnel -> `tunnel_pif tunnel
 			| None -> `phy_pif
 
-let rec create_bridges ~__context pif_rc net_rc persistent =
+let rec create_bridges ~__context pif_rc net_rc =
 	let mtu = determine_mtu pif_rc net_rc in
 	let other_config = determine_other_config ~__context pif_rc net_rc in
+	let persistent = is_dom0_interface pif_rc in
 	match get_pif_type pif_rc with
 	| `tunnel_pif _ ->
 		[],
@@ -248,7 +249,7 @@ let rec create_bridges ~__context pif_rc net_rc persistent =
 		let slave = Db.VLAN.get_tagged_PIF ~__context ~self:vlan in
 		let pif_rc = Db.PIF.get_record ~__context ~self:slave in
 		let net_rc = Db.Network.get_record ~__context ~self:pif_rc.API.pIF_network in
-		let cleanup, bridge_config, interface_config = create_bridges ~__context pif_rc net_rc persistent in
+		let cleanup, bridge_config, interface_config = create_bridges ~__context pif_rc net_rc in
 		cleanup,
 		create_vlan ~__context vlan persistent @ bridge_config,
 		interface_config
@@ -389,7 +390,7 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 			Opt.iter (fun name -> Net.set_dns_interface dbg ~name) dns_if;
 
 			(* Setup network infrastructure *)
-			let cleanup, bridge_config, interface_config = create_bridges ~__context rc net_rc persistent in
+			let cleanup, bridge_config, interface_config = create_bridges ~__context rc net_rc in
 			List.iter (fun (name, force) -> Net.Bridge.destroy dbg ~name ~force ()) cleanup;
 			Net.Bridge.make_config dbg ~config:bridge_config ();
 			Net.Interface.make_config dbg ~config:interface_config ();
