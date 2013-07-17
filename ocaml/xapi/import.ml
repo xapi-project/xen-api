@@ -696,7 +696,7 @@ end
 module Net : HandlerTools = struct
 	type precheck_t =
 		| Found_net of API.ref_network
-		| Found_no_net of exn
+		| Found_no_net of API.network_t
 		| Create of API.network_t
 	
 	let precheck __context config rpc session_id state x =
@@ -716,7 +716,7 @@ module Net : HandlerTools = struct
 						net_record.API.network_name_label net_record.API.network_bridge
 					in
 					error "%s" msg;
-					Found_no_net (Failure msg)
+					Found_no_net (net_record)
 				| (net, _) :: _ -> Found_net net
 			end
 		| [], Full_import _ -> Create net_record
@@ -725,7 +725,7 @@ module Net : HandlerTools = struct
 	let handle_dry_run __context config rpc session_id state x precheck_result =
 		match precheck_result with
 		| Found_net net -> state.table <- (x.cls, x.id, Ref.string_of net) :: state.table
-		| Found_no_net e -> raise e
+		| Found_no_net n -> raise (Api_errors.Server_error(Api_errors.bridge_not_available, [n.API.network_bridge]))
 		| Create _ ->
 			let dummy_net = Ref.make () in
 			state.table <- (x.cls, x.id, Ref.string_of dummy_net) :: state.table
