@@ -443,53 +443,53 @@ let restart_auto_run_vms ~__context live_set n =
 	   an accurate way to determine 'failed' VMs but it will suffice for our 'best-effort' 
 	   category. *)
 	let reset_vms = ref [] in
-	List.iter
-		(fun h ->
-			if not (List.mem h live_set) then
-				begin
-					let hostname = Db.Host.get_hostname ~__context ~self:h in
-					debug "Setting host %s to dead" hostname;
-					(* Sample this before calling any hook scripts *)
-					let resident_on_vms = Db.Host.get_resident_VMs ~__context ~self:h in
-					reset_vms := resident_on_vms @ !reset_vms;
+	let dead_hosts = ref [] in
+	List.iter (fun h ->
+		if not (List.mem h live_set) then begin
+			let hostname = Db.Host.get_hostname ~__context ~self:h in
+			debug "Setting host %s to dead" hostname;
+			(* Sample this before calling any hook scripts *)
+			let resident_on_vms = List.filter
+				(fun vm -> not (Db.VM.get_is_control_domain ~__context ~self:vm))
+				(Db.Host.get_resident_VMs ~__context ~self:h) in
+			reset_vms := resident_on_vms @ !reset_vms;
 
-					(* ensure live=false *)
-					begin
-						try
-							let h_metrics = Db.Host.get_metrics ~__context ~self:h in
-							let current = Db.Host_metrics.get_live ~__context ~self:h_metrics in
-							if current then begin
-								(* Fire off a ha_host_failed message if the host hasn't just shut itself down *)
-								let shutting_down = Threadext.Mutex.execute Xapi_globs.hosts_which_are_shutting_down_m (fun () -> !Xapi_globs.hosts_which_are_shutting_down) in
-								if not (List.exists (fun x -> x=h) shutting_down) then begin
-									let obj_uuid = Db.Host.get_uuid ~__context ~self:h in
-									let host_name = Db.Host.get_name_label ~__context ~self:h in
-									Xapi_alert.add ~name:Api_messages.ha_host_failed ~priority:Api_messages.ha_host_failed_priority ~cls:`Host ~obj_uuid
-										~body:(Printf.sprintf "Server '%s' has failed" host_name);
-								end;
-								(* Call external host failed hook (allows a third-party to use power-fencing if desired) *)
-								Xapi_hooks.host_pre_declare_dead ~__context ~host:h ~reason:Xapi_hooks.reason__fenced;
-								Db.Host_metrics.set_live ~__context ~self:h_metrics ~value:false; (* since slave is fenced, it will not set this to true again itself *)
-								Xapi_host_helpers.update_allowed_operations ~__context ~self:h;
-								Xapi_hooks.host_post_declare_dead ~__context ~host:h ~reason:Xapi_hooks.reason__fenced;
-							end
-						with _ -> 
-							(* if exn assume h_metrics doesn't exist, then "live" is defined to be false implicitly, so do nothing *)
-							()
-					end;
-					debug "Setting all VMs running or paused on %s to Halted" hostname;
-					(* ensure all vms resident_on this host running or paused have their powerstates reset *)
+			(* ensure live=false *)
+			begin
+				try
+					let h_metrics = Db.Host.get_metrics ~__context ~self:h in
+					let current = Db.Host_metrics.get_live ~__context ~self:h_metrics in
+					if current then begin
+						(* Fire off a ha_host_failed message if the host hasn't just shut itself down *)
+						let shutting_down = Threadext.Mutex.execute Xapi_globs.hosts_which_are_shutting_down_m (fun () -> !Xapi_globs.hosts_which_are_shutting_down) in
+						if not (List.exists (fun x -> x=h) shutting_down) then begin
+							let obj_uuid = Db.Host.get_uuid ~__context ~self:h in
+							let host_name = Db.Host.get_name_label ~__context ~self:h in
+							Xapi_alert.add ~msg:Api_messages.ha_host_failed ~cls:`Host ~obj_uuid
+								~body:(Printf.sprintf "Server '%s' has failed" host_name);
+						end;
+						(* Call external host failed hook (allows a third-party to use power-fencing if desired) *)
+						Xapi_hooks.host_pre_declare_dead ~__context ~host:h ~reason:Xapi_hooks.reason__fenced;
+						Db.Host_metrics.set_live ~__context ~self:h_metrics ~value:false; (* since slave is fenced, it will not set this to true again itself *)
+						Xapi_host_helpers.update_allowed_operations ~__context ~self:h;
+						dead_hosts := h :: !dead_hosts;
+					end
+				with _ ->
+					() (* if exn assume h_metrics doesn't exist, then "live" is defined to be false implicitly, so do nothing *)
+			end
+		end) hosts;
 
-					List.iter
-						(fun vm ->
-							let vm_powerstate = Db.VM.get_power_state ~__context ~self:vm in
-							if (vm_powerstate=`Running || vm_powerstate=`Paused) then
-								Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted
-						)
-						resident_on_vms
-				end
-		)
-		hosts;
+	debug "Setting all VMs running or paused to Halted";
+	(* ensure all vms resident_on this host running or paused have their powerstates reset *)
+	List.iter (fun vm ->
+		let vm_powerstate = Db.VM.get_power_state ~__context ~self:vm in
+		if (vm_powerstate=`Running || vm_powerstate=`Paused) then
+			Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted)
+	  !reset_vms;
+	(* host_post_declare_dead may take a long time if the SR is locked *)
+	dead_hosts := List.rev !dead_hosts;
+	List.iter (fun h -> Xapi_hooks.host_post_declare_dead ~__context ~host:h ~reason:Xapi_hooks.reason__fenced)
+	  !dead_hosts;
 
 	(* If something has changed then we'd better refresh the pool status *)
 	if !reset_vms <> [] then ignore(update_pool_status ~__context ~live_set ());
