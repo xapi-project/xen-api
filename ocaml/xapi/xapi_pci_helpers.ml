@@ -49,6 +49,50 @@ module PCI_DB = struct
 		let v = Hashtbl.find t.vendors v_id in
 		let d = Hashtbl.find v.devices d_id in
 		Hashtbl.add d.subdevice_names (sv_id, sd_id) name
+
+	let strings_of_subclasses pci_class =
+		Hashtbl.fold
+			(fun sc_id sc_name lines ->
+				let line = Printf.sprintf "\t%s %s\n" sc_id sc_name in
+				line :: lines
+			) pci_class.subclass_names []
+
+	let strings_of_classes t =
+		Hashtbl.fold
+			(fun c_id pci_class class_lines ->
+				let subclass_lines = strings_of_subclasses pci_class in
+				let class_line = Printf.sprintf "C %s %s\n" c_id pci_class.c_name in
+				class_line :: subclass_lines @ class_lines
+			) t.classes []
+
+	let strings_of_subdevices device =
+		Hashtbl.fold
+			(fun (sv_id, sd_id) sd_name lines ->
+				let line = Printf.sprintf "\t\t%s %s  %s\n" sv_id sd_id sd_name in
+				line :: lines
+			) device.subdevice_names []
+
+	let strings_of_devices vendor =
+		Hashtbl.fold
+			(fun d_id device device_lines ->
+				let subdevice_lines = strings_of_subdevices device in
+				let device_line = Printf.sprintf "\t%s  %s\n" d_id device.d_name in
+				device_line :: subdevice_lines @ device_lines
+			) vendor.devices []
+
+	let strings_of_vendors t =
+		Hashtbl.fold
+			(fun v_id vendor vendor_lines ->
+				let device_lines = strings_of_devices vendor in
+				let vendor_line = Printf.sprintf "%s  %s\n" v_id vendor.v_name in
+				vendor_line :: device_lines @ vendor_lines
+			) t.vendors []
+
+	let strings_of_t t =
+		strings_of_vendors t @ strings_of_classes t
+
+	let print t =
+		List.iter (fun s -> print_string s) (strings_of_t t)
 end
 
 open PCI_DB
@@ -111,6 +155,7 @@ let parse_file path =
 
 let () =
 	try
-		ignore (parse_file "/usr/share/hwdata/pci.ids")
+		let db = parse_file "/usr/share/hwdata/pci.ids" in
+		print db
 	with e ->
 		failwith "Failed to parse pci database"
