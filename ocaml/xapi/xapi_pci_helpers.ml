@@ -56,7 +56,7 @@ open PCI_DB
 let parse_file path =
 	let lines = Unixext.read_lines ~path in
 	let lines =
-		List.filter (fun s -> (not (String.startswith s "#" || s = ""))) lines in
+		List.filter (fun s -> (not (String.startswith "#" s || s = ""))) lines in
 	let strip = String.strip String.isspace in
 	let cur_class, cur_vendor, cur_device = ref None, ref None, ref None in
 	let parse_one_line line pci_db =
