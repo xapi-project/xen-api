@@ -438,6 +438,15 @@ let restart_auto_run_vms ~__context live_set n =
 					(* Sample this before calling any hook scripts *)
 					let resident_on_vms = Db.Host.get_resident_VMs ~__context ~self:h in
 					reset_vms := resident_on_vms @ !reset_vms;
+					debug "Setting all VMs running or paused on %s to Halted" hostname;
+					(* ensure all vms resident_on this host running or paused have their powerstates reset *)
+					List.iter
+						(fun vm ->
+							let vm_powerstate = Db.VM.get_power_state ~__context ~self:vm in
+							if (vm_powerstate=`Running || vm_powerstate=`Paused) then
+								Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted
+						)
+						resident_on_vms;
 
 					(* ensure live=false *)
 					begin
@@ -462,17 +471,7 @@ let restart_auto_run_vms ~__context live_set n =
 						with _ -> 
 							(* if exn assume h_metrics doesn't exist, then "live" is defined to be false implicitly, so do nothing *)
 							()
-					end;
-					debug "Setting all VMs running or paused on %s to Halted" hostname;
-					(* ensure all vms resident_on this host running or paused have their powerstates reset *)
-
-					List.iter
-						(fun vm ->
-							let vm_powerstate = Db.VM.get_power_state ~__context ~self:vm in
-							if (vm_powerstate=`Running || vm_powerstate=`Paused) then
-								Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted
-						)
-						resident_on_vms
+					end
 				end
 		)
 		hosts;
