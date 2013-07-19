@@ -38,6 +38,8 @@ OCAML_OBJS = \
 	test_pool_license \
 	test_platformdata \
 	test_sm_features \
+	test_pci_db \
+	test_pci_helpers \
 	test_xenopsd_metadata \
 	test_ca121350 \
 

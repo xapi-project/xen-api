@@ -238,7 +238,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/xapi-health-check
 @OPTDIR@/libexec/xapi-rolling-upgrade
 @OPTDIR@/libexec/xha-lc
-@OPTDIR@/libexec/pci-info
 @OPTDIR@/libexec/xe-syslog-reconfigure
 @OPTDIR@/packages/post-install-scripts/debian-etch
 @OPTDIR@/packages/post-install-scripts/debug
