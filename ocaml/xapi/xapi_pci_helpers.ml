@@ -128,39 +128,54 @@ module PCI_DB = struct
 			| 'C' :: _ -> (* this is a class definition *)
 				cur_vendor := None; cur_device := None;
 				let line = String.sub_to_end line 2 in
-				let [id; name] = String.split ' ' line ~limit:2 in
-				let pci_class =
-					{c_name = strip name; subclass_names = Hashtbl.create 8} in
-				add_class pci_db id pci_class;
-				cur_class := Some id
+				begin match String.split ' ' line ~limit:2 with
+				| [id; name] ->
+					let pci_class =
+						{c_name = strip name; subclass_names = Hashtbl.create 8} in
+					add_class pci_db id pci_class;
+					cur_class := Some id
+				| _ -> failwith "Malformed class definition"
+				end
 			| ['\t'; '\t'] ->
 				let line = String.sub_to_end line 2 in
 				begin match !cur_device with
 				| Some d_id -> (* this is a subdevice definition *)
-					let [sv_id; sd_id; name] = String.split ' ' line ~limit:3 in
-					add_subdevice pci_db (Opt.unbox !cur_vendor) d_id sv_id sd_id (strip name)
+					begin match String.split ' ' line ~limit:3 with
+					| [sv_id; sd_id; name] ->
+						add_subdevice pci_db (Opt.unbox !cur_vendor) d_id sv_id sd_id (strip name)
+					| _ -> failwith "Malformed subdevice definition"
+					end
 				| None -> ()
 				end
 			| '\t' :: _ ->
 				let line = String.sub_to_end line 1 in
 				begin match !cur_vendor with
 				| Some v -> (* this is a device definition *)
-					let [d_id; name] = String.split ' ' line ~limit:2 in
-					let device =
-						{d_name = strip name; subdevice_names = Hashtbl.create 0} in
-					add_device pci_db (Opt.unbox !cur_vendor) d_id device;
-					cur_device := Some d_id
+					begin match String.split ' ' line ~limit:2 with
+					| [d_id; name] ->
+						let device =
+							{d_name = strip name; subdevice_names = Hashtbl.create 0} in
+						add_device pci_db (Opt.unbox !cur_vendor) d_id device;
+						cur_device := Some d_id
+					| _ -> failwith "Malformed device definition"
+					end
 				| None -> (* this is a subclass definition *)
-					let [sc_id; name] = String.split ' ' line ~limit:2 in
-					add_subclass pci_db (Opt.unbox !cur_class) sc_id (strip name)
+					begin match String.split ' ' line ~limit:2 with
+					| [sc_id; name] ->
+						add_subclass pci_db (Opt.unbox !cur_class) sc_id (strip name)
+					| _ -> failwith "Malformed subclass definition"
+					end
 				end
 			| _ -> (* this is a vendor definition *)
 				cur_class := None; cur_device := None;
-				let [v_id; name] = String.split ' ' line ~limit:2 in
-				let vendor =
-					{v_name = strip name; devices = Hashtbl.create 8} in
-				add_vendor pci_db v_id vendor;
-				cur_vendor := Some v_id
+				begin match String.split ' ' line ~limit:2 with
+				| [v_id; name] ->
+					let vendor =
+						{v_name = strip name; devices = Hashtbl.create 8} in
+					add_vendor pci_db v_id vendor;
+					cur_vendor := Some v_id
+				| _ -> failwith "Malformed vendor definition"
+				end
 		in
 		let rec parse_lines lines pci_db =
 			match lines with
