@@ -1168,7 +1168,7 @@ let set_ha_host_failures_to_tolerate ~__context ~self ~value =
   if Db.Pool.get_ha_plan_exists_for ~__context ~self:pool > 0L
   then Xapi_ha_vm_failover.assert_nfailures_change_preserves_ha_plan ~__context (Int64.to_int value);
   Db.Pool.set_ha_host_failures_to_tolerate ~__context ~self ~value;
-  let (_: bool) = Xapi_ha_vm_failover.update_pool_status ~__context in ()
+	let (_: bool) = Xapi_ha_vm_failover.update_pool_status ~__context () in ()
 
 let ha_schedule_plan_recomputation ~__context = 
   Xapi_ha.Monitor.plan_out_of_date := true
