@@ -701,6 +701,10 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			~host_from:(Helpers.LocalObject source_host_ref)
 			~host_to:(Helpers.RemoteObject (remote_rpc, session_id, dest_host_ref));
 
+		(*Check that the remote host is enabled and not in maintenance mode*)
+		let check_host_enabled = XenAPI.Host.get_enabled remote_rpc session_id (dest_host_ref) in
+			if not check_host_enabled then raise (Api_errors.Server_error (Api_errors.host_disabled,[dest_host]));
+
 		(* Ignore vdi_map for now since we won't be doing any mirroring. *)
 		try inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address ~vm ~vdi_map:[] ~vif_map ~dry_run:true ~live:true
 		with Xmlrpc_client.Connection_reset ->
