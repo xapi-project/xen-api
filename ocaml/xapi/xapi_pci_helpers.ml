@@ -15,7 +15,16 @@
 open Stringext
 open Opt
 
-open Xapi_pci
+type pci = {
+	id: string;
+	vendor_id: string;
+	vendor_name: string;
+	device_id: string;
+	device_name: string;
+	class_id: string;
+	class_name: string;
+	related: string list;
+}
 
 let parse_lspci_line pci_db line =
 	let fields = String.split ' ' line in
@@ -64,22 +73,3 @@ let get_host_pcis pci_db =
 			link_related_pcis (pci :: ac) tl
 	in
 	link_related_pcis [] pcis
-
-let () =
-	(* For testing: prints info on hosts pci devices *)
-	try
-		let db = Pci_db.of_file "/usr/share/hwdata/pci.ids" in
-		print_string "===== Host PCIs =====\n\n";
-		let pcis = get_host_pcis db in
-		List.iter
-			(fun p ->
-					List.iter
-						(fun s -> print_string (s ^ " "))
-						[p.id; p.vendor_id; p.vendor_name; p.device_id;
-						 p.device_name; p.class_id; p.class_name];
-					List.iter (fun s -> print_string (s ^ ", ")) p.related;
-					print_newline ())
-			pcis
-	with e ->
-		print_string (Printexc.to_string e);
-		failwith "Failed to parse pci database"
