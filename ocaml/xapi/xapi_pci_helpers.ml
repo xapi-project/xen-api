@@ -46,22 +46,32 @@ module PCI_DB = struct
 	let make c_size v_size =
 		{classes = Hashtbl.create c_size; vendors = Hashtbl.create v_size}
 
-	let add_class t id c = Hashtbl.add t.classes id c
+	let add_class t c_id c = Hashtbl.add t.classes c_id c
+	let get_class t c_id = Hashtbl.find t.classes c_id
 
 	let add_subclass t c_id sc_id name =
-		let c = Hashtbl.find t.classes c_id in
+		let c = get_class t c_id in
 		Hashtbl.add c.subclass_names sc_id name
+	let get_subclass t c_id sc_id =
+		let c = get_class t c_id in
+		Hashtbl.find c.subclass_names sc_id
 
 	let add_vendor t v_id v = Hashtbl.add t.vendors v_id v
+	let get_vendor t v_id = Hashtbl.find t.vendors v_id
 
 	let add_device t v_id d_id d =
-		let v = Hashtbl.find t.vendors v_id in
+		let v = get_vendor t v_id in
 		Hashtbl.add v.devices d_id d
+	let get_device t v_id d_id =
+		let v = get_vendor t v_id in
+		Hashtbl.find v.devices d_id
 
 	let add_subdevice t v_id d_id sv_id sd_id name =
-		let v = Hashtbl.find t.vendors v_id in
-		let d = Hashtbl.find v.devices d_id in
+		let d = get_device t v_id d_id in
 		Hashtbl.add d.subdevice_names (sv_id, sd_id) name
+	let get_subdevice t v_id d_id sv_id sd_id =
+		let d = get_device t v_id d_id in
+		Hashtbl.find d.subdevice_names (sv_id, sd_id)
 
 	let strings_of_subclasses pci_class =
 		Hashtbl.fold
@@ -163,9 +173,72 @@ module PCI_DB = struct
 		parse_lines lines pci_db
 end
 
+open Xapi_pci
+
+let parse_lspci_line pci_db line =
+	let fields = String.split ' ' line in
+	let fields = List.filter (fun s -> not (String.startswith "-" s)) fields in
+	match fields with
+	| "" :: _ -> failwith "Empty record"
+	| [id; class_subclass; vendor_id; device_id; subvendor_id; subdevice_id] ->
+		let class_id = String.sub class_subclass 0 2 in
+		let open PCI_DB in
+		let vendor_name = (PCI_DB.get_vendor pci_db vendor_id).v_name in
+		let device_name = (PCI_DB.get_device pci_db vendor_id device_id).d_name in
+		let class_name = (PCI_DB.get_class pci_db class_id).c_name in
+		(* we'll fill in the related field when we've finished parsing *)
+		let related = [] in
+		{id; vendor_id; vendor_name; device_id; device_name;
+			class_id; class_name; related}
+	| _ -> failwith "Malformed record"
+
+let find_related_ids pci other_pcis =
+	let slot id = String.sub id 0 (String.index id '.') in
+	List.map
+		(fun p -> p.id)
+		(List.filter
+			(fun p -> p.id <> pci.id && slot p.id = slot pci.id) other_pcis)
+
+let get_host_pcis pci_db =
+	let lspci_out, _ = Forkhelpers.execute_command_get_output "/sbin/lspci" ["-mnD"] in
+	let lspci_lines = String.split '\n' lspci_out in
+	let lspci_lines =
+		List.map (fun s -> String.filter_chars s ((<>) '"')) lspci_lines in
+
+	let rec parse_lspci_lines pci_db ac = function
+		| [] -> ac
+		| hd :: tl ->
+			try
+				let pci = parse_lspci_line pci_db hd in
+				parse_lspci_lines pci_db (pci :: ac) tl
+			with _ -> parse_lspci_lines pci_db ac tl
+	in
+	let pcis = parse_lspci_lines pci_db [] lspci_lines in
+	let rec link_related_pcis ac = function
+		| [] -> ac
+		| hd :: tl ->
+			let related = find_related_ids hd pcis in
+			let pci = {hd with related} in
+			link_related_pcis (pci :: ac) tl
+	in
+	link_related_pcis [] pcis
+
 let () =
+	(* For testing: makes full pci.ids db and then gets info from lspcis *)
 	try
 		let db = PCI_DB.of_file "/usr/share/hwdata/pci.ids" in
-		PCI_DB.print db
+		PCI_DB.print db;
+		print_string "\n===== Host PCIs =====\n\n";
+		let pcis = get_host_pcis db in
+		List.iter
+			(fun p ->
+					List.iter
+						(fun s -> print_string (s ^ " "))
+						[p.id; p.vendor_id; p.vendor_name; p.device_id;
+						 p.device_name; p.class_id; p.class_name];
+					List.iter (fun s -> print_string (s ^ ", ")) p.related;
+					print_newline ())
+			pcis
 	with e ->
+		print_string (Printexc.to_string e);
 		failwith "Failed to parse pci database"
