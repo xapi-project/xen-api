@@ -14,22 +14,11 @@
 (** Module that defines API functions for PCI objects
  *)
 
-type pci = {
-	id: string;
-	vendor_id: string;
-	vendor_name: string;
-	device_id: string;
-	device_name: string;
-	class_id: string;
-	class_name: string;
-	related: string list;
-}
-
 (** Types of PCI devices. *)
-type pci_class = Display_controller | Network_controller
+type managed_class = Display_controller | Network_controller
 
 (** Get the PCI class ID for a given class. *)
-val find_class_id : pci_class -> string
+val find_class_id : managed_class -> string
 
 (** Get the device ID for a PCI **)
 val get_device_id : __context:Context.t -> self:API.ref_PCI -> string

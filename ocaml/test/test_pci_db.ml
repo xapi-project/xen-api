@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2012 Citrix Systems Inc.
+ * Copyright (C) Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -14,18 +14,18 @@
 
 open OUnit
 
-let base_suite =
-	"base_suite" >:::
-		[
-			Test_basic.test;
-			Test_pool_db_backup.test;
-			Test_xapi_db_upgrade.test;
-			Test_vdi_allowed_operations.test;
-			Test_pool_license.test;
-			Test_platformdata.test;
-			Test_sm_features.test;
-			Test_pci_db.test;
-			Test_pci_helpers.test;
-		]
+(* This test generates a lot of print --- set skip to false to enable *)
+let skip = true
 
-let _ = run_test_tt_main base_suite
+let print_pci_db () =
+	skip_if skip "Generates lots of text...";
+	try
+		let db = Pci_db.of_file "/usr/share/hwdata/pci.ids" in
+		Pci_db.print db
+	with e ->
+		print_string (Printf.sprintf "%s\n" (Printexc.to_string e));
+		assert false (* fail *)
+
+let test =
+	"test_pci_db" >:::
+		["print_pci_db" >:: print_pci_db;]

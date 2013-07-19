@@ -184,12 +184,3 @@ let of_file path =
 	in
 	let pci_db = make 24 2048 in
 	parse_lines lines pci_db
-
-let () =
-	(* For testing: makes full pci.ids db and prints it *)
-	try
-		let db = of_file "/usr/share/hwdata/pci.ids" in
-		print db
-	with e ->
-		print_string (Printf.sprintf "%s\n" (Printexc.to_string e));
-		failwith "Failed to parse pci database"

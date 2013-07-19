@@ -278,7 +278,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/xha-lc
 @OPTDIR@/libexec/xiu
 @OPTDIR@/lib/libxenctrl_xiu.so
-@OPTDIR@/libexec/pci-info
 @OPTDIR@/packages/post-install-scripts/debian-etch
 @OPTDIR@/packages/post-install-scripts/debug
 /usr/lib/python2.4/site-packages/XenAPI.py
