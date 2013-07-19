@@ -93,13 +93,20 @@ let host_of_non_agile_vm ~__context all_hosts_and_snapshots_sorted (vm, snapshot
       warn "No host could support protected xHA VM: %s (%s)" (Helpers.short_string_of_ref vm) (snapshot.API.vM_name_label);
       []
 
+let get_live_set ~__context =
+	let all_hosts = Db.Host.get_all_records ~__context in
+	let live_hosts = List.filter (fun (rf,r) -> r.API.host_enabled
+		&& (try Db.Host_metrics.get_live ~__context ~self:r.API.host_metrics with _ -> false))
+		all_hosts in
+	List.map (fun (rf,_) -> rf) live_hosts
+
 (** Given the current number of host failures to consider (only useful for passing to the binpacker to influence its
     choice of heuristic), return an instantaneous VM restart plan which includes all protected offline VMs, and a
     planning configuration corresponding to the state of the world after the starts are complete, for use in further
     planning. 
     Returns: (VM restart plan, new planning configuration, true if some protected non-agile VMs exist)
 *)
-let compute_restart_plan ~__context ~all_protected_vms ?(change=no_configuration_change) num_failures = 
+let compute_restart_plan ~__context ~all_protected_vms ~live_set ?(change=no_configuration_change) num_failures =
 	(* This function must be deterministic: for the same set of hosts and set of VMs it must produce the same output.
 	   We rely partially on the binpacker enforcing its own ordering over hosts and vms, so it's not critical for us
 	   to sort the result of Db.*.get_all calls generally. However the handling of non-agile VMs needs special care. *)
@@ -155,7 +162,8 @@ let compute_restart_plan ~__context ~all_protected_vms ?(change=no_configuration
 		true
 		&& r.API.host_enabled
 		&& not (List.mem rf change.hosts_to_disable)
-		&& (try Db.Host_metrics.get_live ~__context ~self:r.API.host_metrics with _ -> false) in
+		&& (try Db.Host_metrics.get_live ~__context ~self:r.API.host_metrics with _ -> false)
+		&& (List.mem rf live_set) in
 	let live_hosts_and_snapshots, dead_hosts_and_snapshots = List.partition is_alive all_hosts_and_snapshots in
 
 	let live_hosts = List.map fst live_hosts_and_snapshots (* and dead_hosts = List.map fst dead_hosts_and_snapshots *) in
@@ -273,10 +281,11 @@ type result =
        breaking the plan.
 *)
 
-let plan_for_n_failures ~__context ~all_protected_vms ?(change = no_configuration_change) n =
+let plan_for_n_failures ~__context ~all_protected_vms ?live_set ?(change = no_configuration_change) n =
+	let live_set = match live_set with None -> get_live_set ~__context | Some s -> s in
   try
     (* 'changes' are applied by the compute_restart_plan function *)
-    let plan, config, vms_not_restarted, non_agile_protected_vms_exist = compute_restart_plan ~__context ~all_protected_vms ~change n in
+    let plan, config, vms_not_restarted, non_agile_protected_vms_exist = compute_restart_plan ~__context ~all_protected_vms ~live_set ~change n in
 
     (* Could some VMs not be started? If so we're overcommitted before we started. *)
     if vms_not_restarted <> [] then begin
@@ -299,7 +308,7 @@ let plan_for_n_failures ~__context ~all_protected_vms ?(change = no_configuratio
       error "Unexpected error in HA VM failover planning function: %s" (ExnHelper.string_of_exn e);
       No_plan_exists
 
-let compute_max_host_failures_to_tolerate ~__context ?protected_vms () = 
+let compute_max_host_failures_to_tolerate ~__context ?live_set ?protected_vms () =
   let protected_vms = match protected_vms with
     | None -> all_protected_vms ~__context 
     | Some vms -> vms in
@@ -307,18 +316,18 @@ let compute_max_host_failures_to_tolerate ~__context ?protected_vms () =
   (* We assume that if not(plan_exists(n)) then \forall.x>n not(plan_exists(n))
      although even if we screw this up it's not a disaster because all we need is a 
      safe approximation (so ultimately "0" will do but we'd prefer higher) *)
-  Helpers.bisect (fun n -> plan_for_n_failures ~__context ~all_protected_vms:protected_vms (Int64.to_int n) = Plan_exists_for_all_VMs) 0L (Int64.of_int nhosts)
+  Helpers.bisect (fun n -> plan_for_n_failures ~__context ~all_protected_vms:protected_vms ?live_set (Int64.to_int n) = Plan_exists_for_all_VMs) 0L (Int64.of_int nhosts)
 
 (* Make sure the pool is marked as overcommitted and the appropriate alert is generated. Return 
    true if something changed, false otherwise *)
-let mark_pool_as_overcommitted ~__context = 
+let mark_pool_as_overcommitted ~__context ~live_set =
   let pool = Helpers.get_pool ~__context in
 
   let overcommitted = Db.Pool.get_ha_overcommitted ~__context ~self:pool in
   let planned_for = Db.Pool.get_ha_plan_exists_for ~__context ~self:pool in
   let to_tolerate = Db.Pool.get_ha_host_failures_to_tolerate ~__context ~self:pool in
 
-  let max_failures = compute_max_host_failures_to_tolerate ~__context () in
+  let max_failures = compute_max_host_failures_to_tolerate ~__context ~live_set () in
   if planned_for <> max_failures then begin
     Db.Pool.set_ha_plan_exists_for ~__context ~self:pool ~value:(min to_tolerate max_failures);
     if max_failures < planned_for
@@ -345,7 +354,10 @@ let mark_pool_as_overcommitted ~__context =
   planned_for <> max_failures || (not overcommitted)
 
 (* Update the pool's HA fields *)
-let update_pool_status ~__context = 
+let update_pool_status ~__context ?live_set () =
+	let live_set = match live_set with
+		| None -> get_live_set ~__context
+		| Some s -> s in
   let pool = Helpers.get_pool ~__context in
   let overcommitted = Db.Pool.get_ha_overcommitted ~__context ~self:pool in
   let to_tolerate = Db.Pool.get_ha_host_failures_to_tolerate ~__context ~self:pool in
@@ -357,7 +369,7 @@ let update_pool_status ~__context =
      i.e. have we become overcommitted (in the sense of having too few resources to satisfy
      demand) or not?
   *)
-  match plan_for_n_failures ~__context ~all_protected_vms (Int64.to_int to_tolerate) with
+  match plan_for_n_failures ~__context ~all_protected_vms ~live_set (Int64.to_int to_tolerate) with
   | Plan_exists_for_all_VMs ->
       debug "HA failover plan exists for all protected VMs";
       Db.Pool.set_ha_overcommitted ~__context ~self:pool ~value:false;
@@ -367,10 +379,10 @@ let update_pool_status ~__context =
       overcommitted || (planned_for <> to_tolerate)
   | Plan_exists_excluding_non_agile_VMs ->
       debug "HA failover plan exists for all protected VMs, excluding some non-agile VMs";
-      mark_pool_as_overcommitted ~__context; (* might define this as false later *)
+      mark_pool_as_overcommitted ~__context ~live_set; (* might define this as false later *)
   | No_plan_exists ->
       debug "No HA failover plan exists";
-      mark_pool_as_overcommitted ~__context
+      mark_pool_as_overcommitted ~__context ~live_set
 
 let assert_configuration_change_preserves_ha_plan ~__context c = 
   debug "assert_configuration_change_preserves_ha_plan c = %s" (string_of_configuration_change ~__context c);
@@ -378,18 +390,19 @@ let assert_configuration_change_preserves_ha_plan ~__context c =
   (* Only block the operation if a plan exists now but would evaporate with the proposed changes.
      This prevents us blocking all operations should be suddenly become overcommitted eg through
      multiple host failures *)
+	let live_set = get_live_set ~__context in
   let pool = Helpers.get_pool ~__context in
   if Db.Pool.get_ha_enabled ~__context ~self:pool && not(Db.Pool.get_ha_allow_overcommit ~__context ~self:pool) then begin
     let to_tolerate = Int64.to_int (Db.Pool.get_ha_plan_exists_for ~__context ~self:pool) in
     let all_protected_vms = all_protected_vms ~__context in
 
-    match plan_for_n_failures ~__context ~all_protected_vms to_tolerate with
+    match plan_for_n_failures ~__context ~all_protected_vms ~live_set to_tolerate with
     | Plan_exists_excluding_non_agile_VMs 
     | No_plan_exists -> 
 	debug "assert_configuration_change_preserves_ha_plan: no plan currently exists; cannot get worse"
     | Plan_exists_for_all_VMs -> begin
       (* Does the plan break? *)
-      match plan_for_n_failures ~__context ~all_protected_vms ~change:c to_tolerate with
+      match plan_for_n_failures ~__context ~all_protected_vms ~live_set ~change:c to_tolerate with
       | Plan_exists_for_all_VMs -> 
 	  debug "assert_configuration_change_preserves_ha_plan: plan exists after change"
       | Plan_exists_excluding_non_agile_VMs 
@@ -479,7 +492,7 @@ let restart_auto_run_vms ~__context live_set n =
 	  !dead_hosts;
 
 	(* If something has changed then we'd better refresh the pool status *)
-	if !reset_vms <> [] then ignore(update_pool_status ~__context);
+	if !reset_vms <> [] then ignore(update_pool_status ~__context ~live_set ());
 
 	(* At this point failed protected agile VMs are Halted, not resident_on anywhere *)
 
@@ -497,7 +510,7 @@ let restart_auto_run_vms ~__context live_set n =
 			   protection.
 			   For the best-effort VMs we call the script
 			   when we have reset some VMs to halted (no guarantee there is enough resource but better safe than sorry) *)
-			let plan, config, vms_not_restarted, non_agile_protected_vms_exist = compute_restart_plan ~__context ~all_protected_vms n in
+			let plan, config, vms_not_restarted, non_agile_protected_vms_exist = compute_restart_plan ~__context ~all_protected_vms ~live_set n in
 			let plan, config, vms_not_restarted, non_agile_protected_vms_exist = 
 				if true
 					&& Xapi_hooks.pool_pre_ha_vm_restart_hook_exists ()
@@ -511,7 +524,7 @@ let restart_auto_run_vms ~__context live_set n =
 								error "pool-pre-ha-vm-restart-hook failed: %s: continuing anyway" (ExnHelper.string_of_exn e)
 						end;
 						debug "Recomputing restart plan to take into account new state of the world after running the script";
-						compute_restart_plan ~__context ~all_protected_vms n
+						compute_restart_plan ~__context ~all_protected_vms ~live_set n
 					end else plan, config, vms_not_restarted, non_agile_protected_vms_exist (* nothing needs recomputing *)
 			in
 
@@ -566,7 +579,7 @@ let restart_auto_run_vms ~__context live_set n =
 					| Api_errors.Server_error(code, params) when code = Api_errors.ha_operation_would_break_failover_plan ->
 						(* This should never happen since the planning code would always allow the restart of a protected VM... *)
 						error "Caught exception HA_OPERATION_WOULD_BREAK_FAILOVER_PLAN: setting pool as overcommitted and retrying";
-						ignore_bool(mark_pool_as_overcommitted ~__context);
+						ignore_bool(mark_pool_as_overcommitted ~__context ~live_set);
 						begin
 							try
 								go ();
