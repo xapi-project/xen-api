@@ -14,6 +14,17 @@
 (** Module that defines API functions for PCI objects
  *)
 
+type pci = {
+	id: string;
+	vendor_id: string;
+	vendor_name: string;
+	device_id: string;
+	device_name: string;
+	class_id: string;
+	class_name: string;
+	related: string list;
+}
+
 (** Types of PCI devices. *)
 type pci_class = Display_controller | Network_controller
 
