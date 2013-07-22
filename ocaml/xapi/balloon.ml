@@ -25,8 +25,6 @@ let _requested_target = "target_kb"
 let _low_mem_balloon = "info/low_kb"
 let _high_mem_balloon = "info/high_kb"
 
-(** Indicates whether or not we're running with XIU (Xen-In Userspace) *)
-
 (** Reads /proc/xen/balloon into a string * int64 option association list *)
 let parse_proc_xen_balloon () =
 	let keys = [

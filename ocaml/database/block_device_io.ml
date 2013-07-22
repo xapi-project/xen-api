@@ -120,7 +120,8 @@ exception NotEnoughSpace
 
 (* Make informational output go to the syslog *)
 let initialise_logging () =
-	Debug.set_facility Syslog_transitional.Local5
+	Debug.set_facility Syslog_transitional.Local5;
+	Debug.disable ~level:Syslog_transitional.Debug name
 
 (* --------------------------------------------- *)
 (* Functions to deal with layout of block device *)

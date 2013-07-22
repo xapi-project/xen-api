@@ -413,8 +413,8 @@ let make_software_version ~__context =
 let create_host_cpu ~__context =
 	let get_cpu_layout () =
 	        let open Xenctrl in
-		let xc = Xenctrl.interface_open() in
-		let p = Xenctrl.physinfo xc in
+		let p = Xenctrl.with_intf (fun xc ->
+			Xenctrl.physinfo xc) in
 		let cpu_count = p.nr_cpus in
 		let socket_count =
 			p.nr_cpus /
