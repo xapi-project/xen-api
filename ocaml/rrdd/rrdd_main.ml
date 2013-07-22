@@ -101,7 +101,6 @@ let start (xmlrpc_path, http_fwd_path) process =
 
 (* Monitoring code --- START. *)
 
-open Hashtblext
 open Listext
 open Stringext
 open Threadext
@@ -112,15 +111,10 @@ open Monitor_types
 open Rrd
 open Xenstore
 
-(* This function (and its clones) should probably be moved to xen-api-libs. *)
-let with_xs f =
-	let xs = Xs.daemon_open () in
-	finally (fun () -> f xs) (fun () -> Xs.close xs)
-
 let uuid_of_domid domains domid =
 	try
 		Rrdd_server.string_of_domain_handle
-			(List.find (fun di -> di.Xenctrl.Domain_info.domid = domid) domains)
+			(List.find (fun di -> di.Xenctrl.domid = domid) domains)
 	with Not_found ->
 		failwith (Printf.sprintf "Failed to find uuid corresponding to domid: %d" domid)
 
@@ -153,7 +147,7 @@ module Meminfo = struct
 				let meminfo_free = Int64.of_string (xs.Xs.read path) in
 				debug "memfree has changed to %Ld in domain %d" meminfo_free d;
 				current_meminfofree_values := IntMap.add d meminfo_free !current_meminfofree_values
-			with Xenbus.Xb.Noent ->
+			with Xs_protocol.Enoent _ ->
 				debug "Couldn't read path %s; forgetting last known memfree value for domain %d" path d;
 				current_meminfofree_values := IntMap.remove d !current_meminfofree_values
 
@@ -174,7 +168,7 @@ module Watcher = WatchXenstore(Meminfo)
  * of the VMs present on this host. *)
 let update_vcpus xc doms =
 	List.fold_left (fun (dss, uuid_domids, domids) dom ->
-		let open Xenctrl.Domain_info in
+		let open Xenctrl in
 		let domid = dom.domid in
 		let maxcpus = dom.max_vcpu_id + 1 in
 		let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.handle) in
@@ -186,7 +180,7 @@ let update_vcpus xc doms =
 				ds_make
 					~name:(Printf.sprintf "cpu%d" i) ~units:"(fraction)"
 					~description:(Printf.sprintf "CPU%d usage" i)
-					~value:(Rrd.VT_Float ((Int64.to_float vcpuinfo.Xenctrl.Vcpu_info.cputime) /. 1.0e9))
+					~value:(Rrd.VT_Float ((Int64.to_float vcpuinfo.Xenctrl.cputime) /. 1.0e9))
 					~ty:Rrd.Derive ~default:true ~min:0.0 ~max:1.0 ())::dss)
 		in
 
@@ -234,7 +228,7 @@ let update_pcpus xc =
 	let len = Array.length !physcpus in
 	let newinfos = if len = 0 then (
 		let physinfo = Xenctrl.physinfo xc in
-		let pcpus = physinfo.Xenctrl.Phys_info.nr_cpus in
+		let pcpus = physinfo.Xenctrl.nr_cpus in
 		physcpus := if pcpus > 0 then (Array.make pcpus 0L) else [| |];
 		Xenctrl.pcpu_info xc pcpus
 	) else (
@@ -258,7 +252,7 @@ let update_pcpus xc =
 
 let update_memory xc doms =
 	List.fold_left (fun acc dom ->
-		let open Xenctrl.Domain_info in
+		let open Xenctrl in
 		let domid = dom.domid in
 		let kib = Xenctrl.pages_to_kib (Int64.of_nativeint dom.total_memory_pages) in
 		let memory = Int64.mul kib 1024L in
@@ -444,8 +438,8 @@ let previous_live_words = ref 0
 
 let read_mem_metrics xc =
 	let physinfo = Xenctrl.physinfo xc in
-	let total_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.Phys_info.total_pages)
-	and free_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.Phys_info.free_pages) in
+	let total_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.total_pages)
+	and free_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.free_pages) in
 	let gcstat =
 		if !Xapi_globs.xapi_gc_debug then (
 			if !previous_oldness > 5 then (
@@ -571,7 +565,7 @@ let read_all_dom0_stats xc =
 	let timestamp = Unix.gettimeofday () in
 	let my_rebooting_vms =
 		StringSet.fold (fun uuid acc -> uuid::acc) !rebooting_vms [] in
-	let open Xenctrl.Domain_info in
+	let open Xenctrl in
 	let uuid_of_domain d =
 		Uuid.to_string (Uuid.uuid_of_int_array (d.handle)) in
 	let domain_paused d = d.paused in
@@ -585,7 +579,7 @@ let read_all_dom0_stats xc =
 			[]
 	in
 	let vcpus, uuid_domids, domids = update_vcpus xc domains in
-	Hashtbl.remove_other_keys memory_targets domids;
+	Hashtblext.remove_other_keys memory_targets domids;
 	let real_stats = List.concat [
 		handle_exn "ha_stats" (fun _ -> Rrdd_ha_stats.all ()) [];
 		handle_exn "read_mem_metrics" (fun _ -> read_mem_metrics xc) [];
@@ -651,7 +645,7 @@ let _ =
 	Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
 
 	(* Enable the new logging library. *)
-	Debug.set_facility Syslog.Local5;
+	Debug.set_facility Syslog_transitional.Local5;
 
 	(* Read configuration file. *)
 	debug "Reading configuration file ..";
@@ -685,7 +679,7 @@ let _ =
 	start (Rrdd_interface.xmlrpc_path, Rrdd_interface.http_fwd_path) Server.process;
 
 	debug "Starting xenstore-watching thread ..";
-        let (_: Thread.t) = Watcher.create_watcher_thread () in
+        let () = Watcher.create_watcher_thread () in
 
 	debug "Creating monitoring loop thread ..";
 	Debug.with_thread_associated "main" monitor_loop ();

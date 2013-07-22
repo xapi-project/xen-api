@@ -717,7 +717,7 @@ module Driver_kind = struct
 			if List.mem ty (Sm.supported_drivers ())
 			then SMAPIv1
 			else begin
-				let socket = Filename.concat Fhs.vardir (Printf.sprintf "sm/%s" ty) in
+				let socket = Filename.concat "/var/lib/xcp" (Printf.sprintf "sm/%s" ty) in
 				if not(Sys.file_exists socket) then begin
 					error "SM plugin unix domain socket does not exist: %s" socket;
 					raise (Api_errors.Server_error(Api_errors.sr_unknown_driver, [ ty ]));

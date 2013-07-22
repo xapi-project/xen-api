@@ -831,7 +831,7 @@ module Local_domain_socket = struct
 
 	let socket = ref None
 
-	let path = Filename.concat Fhs.vardir "storage"
+	let path = Filename.concat "/var/lib/xcp" "storage"
 
 	let xmlrpc_handler process req bio _ =
 		let body = Http_svr.read_body req bio in
@@ -857,7 +857,7 @@ module Local_domain_socket = struct
 end
 
 open Xmlrpc_client
-let local_url = Http.Url.(File { path = Filename.concat Fhs.vardir "storage" }, { uri = "/"; query_params = [] })
+let local_url = Http.Url.(File { path = Filename.concat "/var/lib/xcp" "storage" }, { uri = "/"; query_params = [] })
 
 let rpc ~srcstr ~dststr url call =
 	XMLRPC_protocol.rpc ~transport:(transport_of_url url)

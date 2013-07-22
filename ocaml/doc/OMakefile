@@ -6,7 +6,7 @@ OCAML_LIBS += ../idl/datamodel
 OCAMLINCLUDES += ../idl
 
 CAMLP4_FILES = jsapi
-UseCamlp4(rpc-light.syntax, $(CAMLP4_FILES))
+UseCamlp4(rpclib.syntax, $(CAMLP4_FILES))
 
 OCamlProgram(jsapi, jsapi)
 

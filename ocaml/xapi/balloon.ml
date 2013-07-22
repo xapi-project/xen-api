@@ -26,24 +26,17 @@ let _low_mem_balloon = "info/low_kb"
 let _high_mem_balloon = "info/high_kb"
 
 (** Indicates whether or not we're running with XIU (Xen-In Userspace) *)
-let on_xiu () = Xenctrl.is_fake ()
 
 (** Reads /proc/xen/balloon into a string * int64 option association list *)
 let parse_proc_xen_balloon () =
-	if on_xiu () then
-		[ _current_allocation, Some 100L;
-		  _requested_target, Some 100L;
-		  _low_mem_balloon, Some 100L;
-		  _high_mem_balloon, Some 100L;]
-	else 
-		let keys = [
-			_current_allocation;
-			_requested_target;
-			_low_mem_balloon;
-			_high_mem_balloon] in
-		List.map (fun key -> 
-					  let s = (Unixext.string_of_file (sysfs_stem ^ key)) in
-					  let stripped = Stringext.String.strip Stringext.String.isspace s in
-					  (key, Some (Int64.of_string stripped))) keys 
+	let keys = [
+		_current_allocation;
+		_requested_target;
+		_low_mem_balloon;
+		_high_mem_balloon] in
+	List.map (fun key -> 
+			  let s = (Unixext.string_of_file (sysfs_stem ^ key)) in
+			  let stripped = Stringext.String.strip Stringext.String.isspace s in
+			  (key, Some (Int64.of_string stripped))) keys 
 			
 

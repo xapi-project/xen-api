@@ -1,10 +1,10 @@
 
 OCAMLINCLUDES = ../idl/ocaml_backend ../xapi ../idl ../util ../autogen ..
-OCAMLPACKS    = xml-light2 stdext stunnel http-svr log sexpr rpc-light
+OCAMLPACKS    = xml-light2 stdext stunnel http-svr log sexpr rpclib uuid gzip
 #OCAMLPPFLAGS  = -pp "camlp4o" 
 #OCAMLDEPFLAGS = -pp "camlp4o"
 
-UseCamlp4(rpc-light.syntax, db_rpc_common_v2 db_cache_types db_filter_types)
+UseCamlp4(rpclib.syntax, db_rpc_common_v2 db_cache_types db_filter_types)
 
 OCamlGeneratedFiles(db_filter_parse.ml db_filter_parse.mli db_filter_lex.ml)
 

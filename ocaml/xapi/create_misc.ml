@@ -48,7 +48,7 @@ let read_localhost_info () =
 		let xc = Xenctrl.interface_open () in
 		let v = Xenctrl.version xc in
 		Xenctrl.interface_close xc;
-		let open Xenctrl.Version in
+		let open Xenctrl in
 		Printf.sprintf "%d.%d%s" v.major v.minor v.extra
 	and linux_verstring =
 		let verstring = ref "" in
@@ -412,12 +412,13 @@ let make_software_version ~__context =
 
 let create_host_cpu ~__context =
 	let get_cpu_layout () =
-		let open Xenctrl in
-		let p = Vmopshelpers.with_xc (fun xc -> physinfo xc) in
-		let cpu_count = p.Phys_info.nr_cpus in
+	        let open Xenctrl in
+		let xc = Xenctrl.interface_open() in
+		let p = Xenctrl.physinfo xc in
+		let cpu_count = p.nr_cpus in
 		let socket_count =
-			p.Phys_info.nr_cpus /
-			(p.Phys_info.threads_per_core * p.Phys_info.cores_per_socket)
+			p.nr_cpus /
+			(p.threads_per_core * p.cores_per_socket)
 		in
 		cpu_count, socket_count
 	in

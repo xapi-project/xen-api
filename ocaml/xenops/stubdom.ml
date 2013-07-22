@@ -57,7 +57,7 @@ let build (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid info xengues
 
     (* Tell XenStore that the stubdom should have implicit privileges over the target domain *)
     debug "jjd27: telling XenStore that stubdom %d has target %d" stubdom_domid domid;
-    Xenctrlext.Xsrawext.set_target stubdom_domid domid xs.Xs.con;
+    xs.Xs.set_target stubdom_domid domid;
 
     (* Write the guest's domid into XenStore *)
     let path = xs.Xs.getdomainpath stubdom_domid in
@@ -77,7 +77,7 @@ let build (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid info xengues
     debug "jjd27: written qemu-dm args into xenstore at %s: [%s]" path (String.concat " " args);
 
     (* Make that XenStore path readable by the stub domain *)
-    xs.Xs.setperms path (0, Xsraw.PERM_NONE, [ (domid, Xsraw.PERM_READ); (stubdom_domid, Xsraw.PERM_READ) ]);
+    xs.Xs.setperms path Xs_protocol.ACL.({owner = 0; other = NONE; acl = [ (domid, READ); (stubdom_domid, READ) ]});
     debug "jjd27: set the permissions on %s" path;
 
 	let syslog_stdout = Forkhelpers.Syslog_WithKey (Printf.sprintf "fs-backend-%d" domid) in

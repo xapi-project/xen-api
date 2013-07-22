@@ -23,7 +23,7 @@ open D
 exception Read_error
 exception Write_error
 
-let config_file_path = Filename.concat Fhs.vardir "networkd.db"
+let config_file_path = Filename.concat "/var/lib/xcp" "networkd.db"
 
 let read_management_conf () =
 	try

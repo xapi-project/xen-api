@@ -25,7 +25,7 @@ open Fun
 open Xmlrpc_client
 
 
-let default_path = Filename.concat Fhs.vardir "xenopsd"
+let default_path = Filename.concat "/var/lib/xcp" "xenopsd"
 let transport = ref (Unix default_path)
 
 open Xenops_interface

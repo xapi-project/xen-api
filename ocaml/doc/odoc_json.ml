@@ -230,7 +230,8 @@ let html_to_json l =
   
 (* the actual generator class *)
 
-class gen () =
+module Generator = struct
+class generator =
 	object (self)
 	
 	(* Attributes *)
@@ -243,11 +244,11 @@ class gen () =
 	
 	(* HTML *)
 	
-	method t_of_text = List.map self#t_of_text_element
+	method private t_of_text = List.map self#t_of_text_element
 	
-	method t_of_raw s = Leaf (remove_asterisks s)
+	method private t_of_raw s = Leaf (remove_asterisks s)
 	
-	method t_of_text_element = function
+	method private t_of_text_element = function
 	| Odoc_info.Raw s -> self#t_of_raw s
 	| Odoc_info.Code s -> node "span" ~atts:["class", "code"] [self#t_of_raw s]
 	| Odoc_info.CodePre s -> node "span" ~atts:["class", "codepre"] [self#t_of_raw s]
@@ -281,7 +282,7 @@ class gen () =
 		print_endline "Error: Unhandled element (odoc_json)!"; 
 		Leaf "unknown"
 
-	method t_of_Ref name ref_opt =
+	method private t_of_Ref name ref_opt =
 		let code = node "span" ~atts:["class", "code"] [Leaf name] in
 		let k =
 			match ref_opt with
@@ -299,19 +300,24 @@ class gen () =
 				| Odoc_info.RK_attribute -> "attribute"
 				| Odoc_info.RK_method -> "method"
 				| Odoc_info.RK_section t -> "section"
+				| Odoc_info.RK_recfield -> "recfield"
+				| Odoc_info.RK_const -> "const"
 		in
 		node "a" ~atts:[("href", "{" ^ k ^ "|" ^ name ^ "}")] [code]
 	  
 	(* JSON *)
 	
-	method json_of_loc l =
+	(* NOTE: the following needs to be fixed *)
+	method private json_of_loc l =
 		let f tag = function
 		| None -> [tag, String "unknown"]
-		| Some (s,n) -> [tag, String (Printf.sprintf "%s|%d" s n)]
+(*		| Some (s,n) -> [tag, String (Printf.sprintf "%s|%d" s n)] *)
+(*		| Some {loc_start; loc_end; loc_ghost} -> [tag, String "unknown"] *)
+		| Some _ -> [tag, String "unknown"]
 		in
 		Object ((f "implementation" l.loc_impl) @ (f "interface" l.loc_inter))
 
-    method json_of_module_type mt =
+    method private json_of_module_type mt =
     	let name = "name", String mt.Module.mt_name in
 		let loc = "location", self#json_of_loc mt.Module.mt_loc in
 		let info = "info", self#json_of_info_opt mt.Module.mt_info in
@@ -326,7 +332,7 @@ class gen () =
 		let file = "file", String mt.Module.mt_file in
 		Object (name :: file :: loc :: info :: mte :: mk :: [])
 			
-	method json_of_module_element = function
+	method private json_of_module_element = function
 	| Element_module m -> Object ["module", self#json_of_module m]
 	| Element_module_type mt -> Object ["module_type", self#json_of_module_type mt]
 	| Element_included_module im -> Object ["included_module", self#json_of_included_module im]
@@ -337,7 +343,7 @@ class gen () =
 	| Element_type t -> Object ["type", self#json_of_type t]
 	| Element_module_comment text -> Object ["comment", self#json_of_comment text]
 		
-	method json_of_parameter = function
+	method private json_of_parameter = function
 	| Parameter.Simple_name sn ->
 		Object (["name", String sn.Parameter.sn_name;
 		"type", self#json_of_type_expr sn.Parameter.sn_type] @
@@ -349,10 +355,10 @@ class gen () =
 		Object ["tuple", Object
 		["type", self#json_of_type_expr texpr; "contents", Array (List.map self#json_of_parameter l)]]
 	
-	method json_of_class c = Empty
-	method json_of_class_type c = Empty
+	method private json_of_class c = Empty
+	method private json_of_class_type c = Empty
 	
-	method json_of_value v =
+	method private json_of_value v =
 		let name = "name", String v.Value.val_name in
 		let loc = "location", self#json_of_loc v.Value.val_loc in
 		let info = "info", self#json_of_info_opt v.Value.val_info in
@@ -363,7 +369,7 @@ class gen () =
 		in*)
 		Object (name :: loc :: info :: te :: params :: []) (* @ code *)
 
-	method json_of_exception e =
+	method private json_of_exception e =
 		let name = "name", String e.Exception.ex_name in
 		let loc = "location", self#json_of_loc e.Exception.ex_loc in
 		let info = "info", self#json_of_info_opt e.Exception.ex_info in
@@ -381,7 +387,7 @@ class gen () =
 		in *)
 		Object (name :: loc :: info :: args @ alias) (*  @ code *)
 
-	method json_of_included_module im =
+	method private json_of_included_module im =
 		let name = "name", String im.Module.im_name in
 		let info = "info", self#json_of_info_opt im.Module.im_info in
 		let kind = match im.im_module with
@@ -391,10 +397,10 @@ class gen () =
 		in
 		Object (name :: info :: kind @ [])
 
-	method json_of_comment t =
+	method private json_of_comment t =
 		html_to_json (self#t_of_text t)
 		
-	method json_of_type t =
+	method private json_of_type t =
 		let name = "name", String t.Type.ty_name in
 		let loc = "location", self#json_of_loc t.Type.ty_loc in
 		let info = "info", self#json_of_info_opt t.Type.ty_info in
@@ -409,17 +415,17 @@ class gen () =
 		in*)
 		Object (name :: loc :: info :: params :: kind :: manifest @ []) (* @ code *)
 	    
-	method json_of_type_parameter (texp, covar, contravar) =
+	method private json_of_type_parameter (texp, covar, contravar) =
 		Object ["covariant", String (string_of_bool covar); "contravariant", String (string_of_bool contravar); "type", self#json_of_type_expr_param texp]
 	    
-	method json_of_type_expr t =
+	method private json_of_type_expr t =
 		Odoc_info.reset_type_names ();
 		String (Odoc_info.string_of_type_expr t)
 		
-	method json_of_type_expr_param t =
+	method private json_of_type_expr_param t =
 		String (Odoc_info.string_of_type_expr t)
 	
-	method json_of_type_kind priv = function
+	method private json_of_type_kind priv = function
 	| Type.Type_abstract -> Object ["type", String "abstract"]
 	| Type.Type_variant cons ->
 		Object ["type", String "variant"; "private", String (string_of_bool (priv = Type.Private));
@@ -428,7 +434,7 @@ class gen () =
 		Object ["type", String "record"; "private", String (string_of_bool (priv = Type.Private));
 		"fields", Array (List.map self#json_of_record_field fields)]
 
-	method json_of_variant_constructor c =
+	method private json_of_variant_constructor c =
 		let desc = match c.Type.vc_text with
 		| None -> []
 		| Some t ->
@@ -438,7 +444,7 @@ class gen () =
 		descr_cnt <- descr_cnt + 1;
 		Object (["name", String c.Type.vc_name] @ desc @ ["type", Array (List.map self#json_of_type_expr c.Type.vc_args)])
 
-	method json_of_record_field f =
+	method private json_of_record_field f =
 		let desc = match f.Type.rf_text with
 		| None -> []
 		| Some t ->
@@ -449,13 +455,13 @@ class gen () =
 		Object (["name", String f.Type.rf_name; "mutable", json_of_bool f.Type.rf_mutable] @
 		desc @ ["type", self#json_of_type_expr f.Type.rf_type])
 	    
-	method json_of_info_opt info =
+	method private json_of_info_opt info =
 		descr_cnt <- descr_cnt + 1;
 		match info with
 		| None -> Empty
 		| Some i -> self#json_of_info i
     
-	method json_of_info i =
+	method private json_of_info i =
 		let desc = match i.i_desc with
 		| None -> []
 		| Some t ->
@@ -492,19 +498,19 @@ class gen () =
 		let customs = List.map (fun (tag, t) -> tag, html_to_json (self#t_of_text t)) i.i_custom in
 		Object (desc @ authors @ version @ see @ since @ dep @ params @ raised @ return_v @ customs)
 		
-	method json_of_see = function
+	method private json_of_see = function
 	| (See_url s, t) -> Object ["url", String s; "text", html_to_json (self#t_of_text t)]
 	| (See_file s, t) -> Object ["file", String s; "text", html_to_json (self#t_of_text t)]
 	| (See_doc s, t) -> Object ["doc", String s; "text", html_to_json (self#t_of_text t)]
 
-	method json_of_raised_exception (s, t) =
+	method private json_of_raised_exception (s, t) =
 		Object ["raised_exception", String s; "text", html_to_json (self#t_of_text t)]
 
-	method json_of_module_parameter mparam =
+	method private json_of_module_parameter mparam =
 		let name = "name", String mparam.Module.mp_name in
 		Object (name :: [])
 		
-	method json_of_module_kind = function
+	method private json_of_module_kind = function
 	| Module_struct l ->
 		"module_structure", Array (List.map self#json_of_module_element l)
 	| Module_alias ma ->
@@ -531,7 +537,7 @@ class gen () =
 		print_endline "Error: Unhandled element (odoc_json)!"; 
 		"unknown", String "unavailable"
 
-	method json_of_module m =
+	method private json_of_module m =
 		let name = "name", String m.Module.m_name in
 		let loc = "location", self#json_of_loc m.Module.m_loc in
 		let deps = "dependencies", Object ["uses", Array (List.map (fun d -> String d) m.Module.m_top_deps)] in
@@ -549,12 +555,12 @@ class gen () =
 
 	method generate (modules_list : t_module list) =
 		let write_module_json (name, json, _) =
-			let oc = open_out (!Odoc_args.target_dir ^ "/" ^ name ^ ".json") in
+			let oc = open_out (!Odoc_global.target_dir ^ "/" ^ name ^ ".json") in
 			output_string oc ("odoc = " ^ (json_to_string 0 json));
 			close_out oc
 		in
 		let write_index_json ml =
-			let oc = open_out (!Odoc_args.target_dir ^ "/index.json") in
+			let oc = open_out (!Odoc_global.target_dir ^ "/index.json") in
 			let make_record = function
 			| (name, Object ["module", Object m], (dc, cdc)) ->
 				let info = List.assoc "info" m in
@@ -564,9 +570,9 @@ class gen () =
 			let modules = Array (List.map make_record ml) in
 			let component =
 				try
-					let n = String.rindex !Odoc_args.target_dir '/' in
-					slice !Odoc_args.target_dir (n+1) (-1)
-				with _ -> !Odoc_args.target_dir
+					let n = String.rindex !Odoc_global.target_dir '/' in
+					slice !Odoc_global.target_dir (n+1) (-1)
+				with _ -> !Odoc_global.target_dir
 			in
 			output_string oc ("modules_" ^ (replace "-" "" component) ^ " = " ^ (json_to_string 0 modules) ^ ";\n");
 			let stats = Object ["descr_cnt", Number (float_of_int descr_cnt); "completed_descr_cnt", Number (float_of_int completed_descr_cnt)] in
@@ -598,8 +604,8 @@ class gen () =
 		List.iter write_module_json modules;
 		write_index_json modules
 end
+end
 
-let generator = ((new gen ()) :> Odoc_args.doc_generator)
-
-let _ = Odoc_args.set_doc_generator (Some generator)
+let _ = Odoc_args.set_generator
+	(Odoc_gen.Base (module Generator : Odoc_gen.Base))
 

@@ -70,10 +70,10 @@ let https_port = ref default_ssl_port
 
 let xapi_gc_debug = ref true
 
-let unix_domain_socket = Filename.concat Fhs.vardir "xapi"
-let local_storage_unix_domain_socket = Filename.concat Fhs.vardir "storage-local"
-let storage_unix_domain_socket = Filename.concat Fhs.vardir "storage"
-let local_database = Filename.concat Fhs.vardir "local.db"
+let unix_domain_socket = Filename.concat "/var/lib/xcp" "xapi"
+let local_storage_unix_domain_socket = Filename.concat "/var/lib/xcp" "storage-local"
+let storage_unix_domain_socket = Filename.concat "/var/lib/xcp" "storage"
+let local_database = Filename.concat "/var/lib/xcp" "local.db"
 
 
 (* if a slave in emergency "cannot see master mode" then this flag is set *)
@@ -213,16 +213,16 @@ let sm_error_generic_VDI_create_failure = 78
 let sm_error_generic_VDI_delete_failure = 80
 
 (* temporary restore path for db *)
-let db_temporary_restore_path = Filename.concat Fhs.vardir "restore_db.db"
+let db_temporary_restore_path = Filename.concat "/var/lib/xcp" "restore_db.db"
 
 (* temporary path for the HA metadata database *)
-let ha_metadata_db = Filename.concat Fhs.vardir "ha_metadata.db"
+let ha_metadata_db = Filename.concat "/var/lib/xcp" "ha_metadata.db"
 
 (* temporary path for the general metadata database *)
-let gen_metadata_db = Filename.concat Fhs.vardir "gen_metadata.db"
+let gen_metadata_db = Filename.concat "/var/lib/xcp" "gen_metadata.db"
 
 (* temporary path for opening a foreign metadata database *)
-let foreign_metadata_db = Filename.concat Fhs.vardir "foreign.db"
+let foreign_metadata_db = Filename.concat "/var/lib/xcp" "foreign.db"
 
 let migration_failure_test_key = "migration_wings_fall_off" (* set in other-config to simulate migration failures *)
 
@@ -268,10 +268,10 @@ let pool_ha_num_host_failures = "ha_tolerated_host_failures"
 (* the other-config key that reflects whether the pool is overprovisioned *)
 let pool_ha_currently_over_provisioned = "ha_currently_over_provisioned"
 
-let backup_db = Filename.concat Fhs.vardir "state-backup.db"
+let backup_db = Filename.concat "/var/lib/xcp" "state-backup.db"
 
 (* Place where database XML backups are kept *)
-let backup_db_xml = Filename.concat Fhs.vardir "state-backup.xml"
+let backup_db_xml = Filename.concat "/var/lib/xcp" "state-backup.xml"
 
 (* Directory containing scripts which are executed when a node becomes master
    and when a node gives up the master role *)
@@ -284,8 +284,8 @@ let pool_allow_clone_suspended_vm = "allow_clone_suspended_vm"
 let shared_db_vdi_size = 134217728L (* 128 * 1024 * 1024 = 128 megs *)
 
 (* Mount point for the shared DB *)
-let shared_db_mount_point = Filename.concat Fhs.vardir "shared_db"
-let snapshot_db = Filename.concat Fhs.vardir "snapshot.db"
+let shared_db_mount_point = Filename.concat "/var/lib/xcp" "shared_db"
+let snapshot_db = Filename.concat "/var/lib/xcp" "snapshot.db"
 
 (* Device for shared DB VBD *)
 let shared_db_device = "15"
@@ -372,9 +372,9 @@ let artificial_reboot_delay = "artificial-reboot-delay"
 let xapi_hooks_root = Fhs.hooksdir 
 
 (* RRD storage location *)
-let xapi_rrd_location = Filename.concat Fhs.vardir "blobs/rrds"
+let xapi_rrd_location = Filename.concat "/var/lib/xcp" "blobs/rrds"
 
-let xapi_blob_location = Filename.concat Fhs.vardir "blobs"
+let xapi_blob_location = Filename.concat "/var/lib/xcp" "blobs"
 
 let last_blob_sync_time = "last_blob_sync_time"
 
@@ -530,7 +530,7 @@ let serialize_pool_enable_disable_extauth = Mutex.create()
 let event_hook_auth_on_xapi_initialize_succeeded = ref false
 
 (** Directory used by the v6 license policy engine for caching *)
-let upgrade_grace_file = Filename.concat Fhs.vardir "ugp"
+let upgrade_grace_file = Filename.concat "/var/lib/xcp" "ugp"
 
 (** Xenclient enabled *)
 let xenclient_enabled = false

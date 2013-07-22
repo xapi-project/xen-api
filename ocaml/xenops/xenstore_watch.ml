@@ -20,6 +20,8 @@ open Threadext
 module D = Debug.Debugger(struct let name = "xenstore_watch" end)
 open D
 
+exception Watch_overflow
+
 let _introduceDomain = "@introduceDomain"
 let _releaseDomain = "@releaseDomain"
 
@@ -28,7 +30,7 @@ module IntSet = Set.Make(struct type t = int let compare = compare end)
 
 module type WATCH_ACTIONS = sig
 	val interesting_paths_for_domain : int -> string -> string list
-	val watch_fired : Xenctrl.handle -> Xenstore.Xs.xsh -> string -> Xenctrl.Domain_info.t IntMap.t -> IntSet.t -> unit
+	val watch_fired : Xenctrl.handle -> Xenstore.Xs.xsh -> string -> Xenctrl.domaininfo IntMap.t -> IntSet.t -> unit
 	val unmanaged_domain : int -> string -> bool
 	val found_running_domain : int -> string -> unit
 	val domain_appeared : Xenctrl.handle -> Xenstore.Xs.xsh -> int -> unit
@@ -43,14 +45,14 @@ let unwatch ~xs path =
 	try
 		debug "xenstore unwatch %s" path;
 		xs.Xs.unwatch path path
-	with Xenbus.Xb.Noent ->
-		debug "xenstore unwatch %s threw Xb.Noent" path
+	with Xs_protocol.Enoent _ ->
+		debug "xenstore unwatch %s threw Xs_protocol.Enoent" path
 
 module WatchXenstore = functor(Actions: WATCH_ACTIONS) -> struct
 
 	let list_domains xc =
 		let dis = Xenctrl.domain_getinfolist xc 0 in
-		let ids = List.map (fun x -> x.Xenctrl.Domain_info.domid) dis in
+		let ids = List.map (fun x -> x.Xenctrl.domid) dis in
 		List.fold_left (fun map (k, v) -> IntMap.add k v map) IntMap.empty (List.combine ids dis)
 
 	let domain_looks_different a b = match a, b with
@@ -58,7 +60,7 @@ module WatchXenstore = functor(Actions: WATCH_ACTIONS) -> struct
 		| Some _, None -> true
 		| None, None -> false
 		| Some a', Some b' ->
-			let open Xenctrl.Domain_info in
+			let open Xenctrl in
 			a'.shutdown <> b'.shutdown
 			|| (a'.shutdown && b'.shutdown && (a'.shutdown_code <> b'.shutdown_code))
 
@@ -67,8 +69,10 @@ module WatchXenstore = functor(Actions: WATCH_ACTIONS) -> struct
 		List.map fst (IntMap.bindings c)
 
 	let watch_xenstore () =
-		with_xc_and_xs
-			(fun xc xs ->
+		let xc = Xenctrl.interface_open () in
+		try
+		  with_xs
+			(fun xs ->
 				let domains = ref IntMap.empty in
 				let watches = ref IntSet.empty in
 				let uuids = ref IntMap.empty in
@@ -95,7 +99,7 @@ module WatchXenstore = functor(Actions: WATCH_ACTIONS) -> struct
 					let different = list_different_domains !domains domains' in
 					List.iter
 						(fun domid ->
-							let open Xenctrl.Domain_info in
+							let open Xenctrl in
 							debug "Domain %d may have changed state" domid;
 							(* The uuid is either in the new domains map or the old map. *)
 							let di = IntMap.find domid (if IntMap.mem domid domains' then domains' else !domains) in
@@ -122,36 +126,37 @@ module WatchXenstore = functor(Actions: WATCH_ACTIONS) -> struct
 						) different;
 					domains := domains' in
 
-				xs.Xs.watch _introduceDomain "";
-				xs.Xs.watch _releaseDomain "";
-				look_for_different_domains ();
+				let process_one_watch c (path, token) =
+				  if path = _introduceDomain || path = _releaseDomain
+				  then look_for_different_domains ()
+				  else 
+				    Client.with_xs c (fun h -> 
+				      let xs = Xs.ops h in
+				      Actions.watch_fired xc xs path !domains !watches) in
 
-				let open Xenctrl.Domain_info in
+				let register_for_watches () =
+				  let c = client () in
+				  Client.with_xs c
+				    (fun xs ->
+                                      Client.set_watch_callback c (process_one_watch c);
+                                      Client.watch xs _introduceDomain "";
+                                      Client.watch xs _releaseDomain "") in
 
-				while true do
-					let path, _ =
-						if Xs.has_watchevents xs
-						then Xs.get_watchevent xs
-						else Xs.read_watchevent xs in
-					if path = _introduceDomain || path = _releaseDomain
-					then look_for_different_domains ()
-					else Actions.watch_fired xc xs path !domains !watches
-				done
+                                debug "Starting xenstore watch thread";
+                                register_for_watches ()
 			)
+		with e ->
+		  debug "Caught exception attempting to watch xenstore: %s" (Printexc.to_string e);
+		  Xenctrl.interface_close xc;
+		  raise e
 
-	let create_watcher_thread () =
-		Thread.create
-			(fun () ->
-				while true do
-					begin
-						try
-							Debug.with_thread_associated "xenstore" (watch_xenstore) ();
-							debug "watch_xenstore thread exitted"
-						with e ->
-							debug "watch_xenstore thread raised: %s" (Printexc.to_string e);
-							debug "watch_xenstore thread backtrace: %s" (Printexc.get_backtrace ())
-					end;
-					Thread.delay 5.
-				done
-			) ()
+	let rec create_watcher_thread () =
+	  try
+	    watch_xenstore ();
+	  with e -> 
+	    debug "watch_xenstore thread raised: %s" (Printexc.to_string e);
+	    debug "watch_xenstore thread backtrace: %s" (Printexc.get_backtrace ());
+	    Thread.delay 5.;
+	    create_watcher_thread ()
+
 end

@@ -1,4 +1,4 @@
-OCAMLPACKS    += threads xenctrl xenstore
+OCAMLPACKS    += threads xenctrl xenstore-compat
 OCAMLFLAGS    += -thread
 
 OCamlProgram(xstest, xstest common)

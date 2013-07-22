@@ -22,7 +22,7 @@ exception V6DaemonFailure
 let retry = ref true
 
 (* RPC function for communication with the v6 daemon *)
-let socket = Filename.concat Fhs.vardir "v6"
+let socket = Filename.concat "/var/lib/xcp" "v6"
 let v6rpc call =
 	let open Xmlrpc_client in
 	XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"v6d" ~transport:(Unix socket) ~http:(xmlrpc ~version:"1.0" "/") call
