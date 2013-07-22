@@ -22,12 +22,12 @@ install:
 	mkdir -p $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)$(VARPATCHDIR)
 	mkdir -p $(DESTDIR)$(VARPATCHDIR)/applied
-	mkdir -p $(DESTDIR)$(VARDIR)
 	mkdir -p $(DESTDIR)$(HOOKSDIR)
 	mkdir -p $(DESTDIR)$(ETCDIR)
 	mkdir -p $(DESTDIR)/etc/logrotate.d
 	mkdir -p $(DESTDIR)$(ETCDIR)/master.d
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+	mkdir -p $(DESTDIR)/var/lib/xcp
 	$(IPROG) base-path $(DESTDIR)/etc/xapi.d
 	$(IPROG) sm_diagnostics $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xn_diagnostics $(DESTDIR)$(LIBEXECDIR)
@@ -49,7 +49,7 @@ install:
 	$(IPROG) xapi-logrotate $(DESTDIR)/etc/logrotate.d/xapi
 	$(IPROG) xapi-wait-init-complete $(DESTDIR)$(BINDIR)
 	$(IPROG) xapi-autostart-vms $(DESTDIR)$(BINDIR)
-	$(IPROG) udhcpd.skel $(DESTDIR)$(VARDIR)/udhcpd.skel
+	$(IPROG) udhcpd.skel $(DESTDIR)/var/lib/xcp/udhcpd.skel
 	$(IDATA) xapi.conf $(DESTDIR)$(XAPICONF)
 	$(IDATA) sparse_dd.conf $(DESTDIR)/etc/sparse_dd.conf
 	$(IDATA) xcp-rrdd.conf $(DESTDIR)/etc/xcp-rrdd.conf

@@ -1422,7 +1422,7 @@ let rec events_watch ~__context from =
 
 let manage_dom0 ~__context =
 	(* Tell xenopsd to manage domain 0 *)
-	let open Xenctrl.Domain_info in
+	let open Xenctrl in
 	let dbg = Context.string_of_task __context in
 	let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
 	let di = Vmopshelpers.with_xc (fun xc -> Xenctrl.domain_getinfo xc 0) in

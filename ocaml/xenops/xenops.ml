@@ -27,7 +27,7 @@ let print_xen_dmesg ~xc =
 	printf "%s\n" s
 
 let print_xen_physinfo ~xc =
-	let open Xenctrl.Phys_info in
+	let open Xenctrl in
 	let physinfo = Xenctrl.physinfo xc in
 	let totalmib = Xenctrl.pages_to_mib (Int64.of_nativeint physinfo.total_pages)
 	and freemib = Xenctrl.pages_to_mib (Int64.of_nativeint physinfo.free_pages)
@@ -44,7 +44,7 @@ let print_xen_physinfo ~xc =
 
 let print_pcpus_info ~xc =
 	let physinfo = Xenctrl.physinfo xc in
-	let infos = Xenctrl.pcpu_info xc (physinfo.Xenctrl.Phys_info.nr_cpus) in
+	let infos = Xenctrl.pcpu_info xc (physinfo.Xenctrl.nr_cpus) in
 	Array.iteri (fun i info -> printf "cpu: %d  usage: %Ld\n" i info) infos
 
 let debugkeys ~xc args =
@@ -55,7 +55,7 @@ let debugkeys ~xc args =
 	) args
 
 let is_hvm ~xc domid =
-	(Xenctrl.domain_getinfo xc domid).Xenctrl.Domain_info.hvm_guest
+	(Xenctrl.domain_getinfo xc domid).Xenctrl.hvm_guest
 
 let create_domain ~xc ~xs ~hvm =
 	let uuid = Uuid.make_uuid () in
@@ -129,7 +129,7 @@ let balloon_domain ~xs ~domid ~mem_mib =
 let domain_get_uuid ~xc ~domid =
 	try
 		let h = Xenctrl.domain_getinfo xc domid in
-		let uuid = Uuid.to_string (Uuid.uuid_of_int_array h.Xenctrl.Domain_info.handle) in
+		let uuid = Uuid.to_string (Uuid.uuid_of_int_array h.Xenctrl.handle) in
 		printf "%s\n" uuid
 	with _ ->
 		()
@@ -148,8 +148,8 @@ let list_domains ~xc ~verbose =
 		else
 			[ "id"; "state"; "cpu_time"; "uuid" ]
 		in
-	let open Xenctrl.Domain_info in
-	let sl_of_domaininfo (x : Xenctrl.Domain_info.t) : string list =
+	let open Xenctrl in
+	let sl_of_domaininfo x : string list =
 		let page_to_mib pages =
 			Nativeint.to_string (Nativeint.div pages (Nativeint.of_int 256)) in
 		let int = string_of_int and int64 = Int64.to_string and int32 = Int32.to_string in
@@ -206,8 +206,8 @@ let device_state_to_sl ds =
 	[ int ds.device.backend.domid; ds.backend_proto; ds.backend_device; ds.backend_state; "->"; ds.frontend_state; ds.frontend_type; ds.frontend_device; int ds.device.frontend.domid; ]
 
 let stat ~xs d =
-	let frontend_state = try xs.Xs.read (sprintf "%s/state" (frontend_path_of_device ~xs d)) with Xenbus.Xb.Noent -> "??" in
-	let backend_state = try xs.Xs.read (sprintf "%s/state" (backend_path_of_device ~xs d)) with Xenbus.Xb.Noent -> "??" in
+	let frontend_state = try xs.Xs.read (sprintf "%s/state" (frontend_path_of_device ~xs d)) with Xs_protocol.Enoent _ -> "??" in
+	let backend_state = try xs.Xs.read (sprintf "%s/state" (backend_path_of_device ~xs d)) with Xs_protocol.Enoent _ -> "??" in
 	(* The params string can be very long, truncate to a more reasonable width *)
 	let truncate params =
 		let limit = 10 in
@@ -231,9 +231,9 @@ let stat ~xs d =
 		| Vbd | Tap ->
 			let be = backend_path_of_device ~xs d in
 			(try xs.Xs.read (sprintf "%s/physical-device" be)
-			with Xenbus.Xb.Noent ->
+			with Xs_protocol.Enoent _ ->
 				(try truncate (xs.Xs.read (sprintf "%s/params" be))
-				with Xenbus.Xb.Noent -> "??"))
+				with Xs_protocol.Enoent _ -> "??"))
 		| Vif -> "-"
 		| _ -> string_of_int d.backend.devid in
 	let frontend_device = match d.frontend.kind with
@@ -246,7 +246,7 @@ let list_devices ~xc ~xs =
 	let of_device (d: device) : string list =
 		device_state_to_sl (stat ~xs d) in
 	let l = Xenctrl.domain_getinfolist xc 0 in
-	let domids = List.map (fun x -> x.Xenctrl.Domain_info.domid) l in
+	let domids = List.map (fun x -> x.Xenctrl.domid) l in
 	let devices =
 		Listext.List.setify (
 			List.concat (
@@ -364,7 +364,7 @@ let del_irq ~xc ~domid ~irq =
 	Domain.del_irq ~xc domid irq
 
 let sched_domain ~xc ~domid ~weight ~cap =
-	let open Xenctrl.Sched_control in
+	let open Xenctrl in
 	if Xenctrl.sched_id xc <> 5 then
 		failwith "not using credit scheduler";
 	match weight, cap with
@@ -382,7 +382,7 @@ let sched_domain ~xc ~domid ~weight ~cap =
 	| None, None         -> ()
 
 let sched_domain_get ~xc ~domid =
-	let open Xenctrl.Sched_control in
+	let open Xenctrl in
 	if Xenctrl.sched_id xc <> 5 then
 		failwith "not using credit scheduler";
 	let params = Xenctrl.sched_credit_domain_get xc domid in
@@ -672,7 +672,7 @@ let _ = try
                boot, ioport_start, ioport_end, iomem_start, iomem_end, irq,
                slot, timeout, otherargs, allcommands = do_cmd_parsing subcmd init_pos in
 
-	let is_domain_hvm xc domid = (Xenctrl.domain_getinfo xc domid).Xenctrl.Domain_info.hvm_guest in
+	let is_domain_hvm xc domid = (Xenctrl.domain_getinfo xc domid).Xenctrl.hvm_guest in
 
 	(* Aliases *)
 	let target_kib = max_kib in

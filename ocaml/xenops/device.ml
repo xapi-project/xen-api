@@ -14,7 +14,6 @@
 open Printf
 
 open Stringext
-open Hashtblext
 open Pervasiveext
 open Fun
 open Listext
@@ -65,13 +64,13 @@ let add_device ~xs device backend_list frontend_list private_list =
 			try
 				let (_: string) = t.Xst.read (sprintf "/local/domain/%d/vm" device.backend.domid) in
 				()
-			with Xenbus.Xb.Noent ->
+			with Xs_protocol.Enoent _ ->
 				raise (Device_backend_vanished device) in
 
 		begin try
 			ignore (t.Xst.read frontend_path);
 			raise (Device_frontend_already_connected device)
-		with Xenbus.Xb.Noent -> () end;
+		with Xs_protocol.Enoent _ -> () end;
 
 		t.Xst.rm frontend_path;
 		t.Xst.rm backend_path;
@@ -80,13 +79,13 @@ let add_device ~xs device backend_list frontend_list private_list =
 		   one per PV .iso *)
 
 		t.Xst.mkdir frontend_path;
-		t.Xst.setperms frontend_path (device.frontend.domid, Xsraw.PERM_NONE, [ (device.backend.domid, Xsraw.PERM_READ) ]);
+		t.Xst.setperms frontend_path (Xenbus_utils.device_frontend device); 
 
 		t.Xst.mkdir backend_path;
-		t.Xst.setperms backend_path (device.backend.domid, Xsraw.PERM_NONE, [ (device.frontend.domid, Xsraw.PERM_READ) ]);
+		t.Xst.setperms backend_path (Xenbus_utils.device_backend device);
 
 		t.Xst.mkdir hotplug_path;
-		t.Xst.setperms hotplug_path (device.backend.domid, Xsraw.PERM_NONE, []);
+		t.Xst.setperms hotplug_path (Xenbus_utils.hotplug device);
 
 		t.Xst.writev frontend_path
 		             (("backend", backend_path) :: frontend_list);
@@ -94,7 +93,7 @@ let add_device ~xs device backend_list frontend_list private_list =
 		             (("frontend", frontend_path) :: backend_list);
 
 		t.Xst.mkdir private_data_path;
-		t.Xst.setperms private_data_path (device.backend.domid, Xsraw.PERM_NONE, []);
+		t.Xst.setperms private_data_path (Xenbus_utils.hotplug device);
 		t.Xst.writev private_data_path
 			(("backend-kind", string_of_kind device.backend.kind) ::
 				("backend-id", string_of_int device.backend.domid) :: private_list);
@@ -142,13 +141,13 @@ let exists ~xs (x: device) =
   try
     ignore_string(xs.Xs.read backend_stub);
     true
-  with Xenbus.Xb.Noent -> false
+  with Xs_protocol.Enoent _ -> false
 
 let assert_exists_t ~xs t (x: device) =
   let backend_stub = backend_path_of_device ~xs x in
   try
     ignore_string(t.Xst.read backend_stub)
-  with Xenbus.Xb.Noent -> raise Device_not_found
+  with Xs_protocol.Enoent _ -> raise Device_not_found
 
 (** When hot-unplugging a device we ask nicely *)
 let clean_shutdown_async ~xs (x: device) =
@@ -234,7 +233,7 @@ let wait_for_error_or ~xs ?(timeout=Hotplug.hotplug_timeout) doc predicate other
 	let finished = ref false and error = ref None in
 	let callback watch =
 		finished := predicate ();
-		error := (try Some (xs.Xs.read errorpath) with Xenbus.Xb.Noent -> None);
+		error := (try Some (xs.Xs.read errorpath) with Xs_protocol.Enoent _ -> None);
 		(* We return if the predicate is true of an error node has appeared *)
 		!finished || !error <> None in
 	begin try
@@ -513,13 +512,13 @@ let add_async ~xs ~hvm x domid =
 
 	List.iter (fun (k, v) -> Hashtbl.add back_tbl k v) x.extra_backend_keys;
 
-	Hashtbl.add_list front_tbl [
+	Hashtblext.add_list front_tbl [
 		"backend-id", string_of_int x.backend_domid;
 		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
 		"virtual-device", string_of_int devid;
 		"device-type", if x.dev_type = CDROM then "cdrom" else "disk";
 	];
-	Hashtbl.add_list back_tbl [
+	Hashtblext.add_list back_tbl [
 		"frontend-id", sprintf "%u" domid;
 		(* Prevents the backend hotplug scripts from running if the frontend disconnects.
 		   This allows the xenbus connection to re-establish itself *)
@@ -542,8 +541,8 @@ let add_async ~xs ~hvm x domid =
 			Hashtbl.add front_tbl "protocol" (string_of_protocol protocol)
 		) x.protocol;
 
-	let back = Hashtbl.to_list back_tbl in
-	let front = Hashtbl.to_list front_tbl in
+	let back = Hashtblext.to_list back_tbl in
+	let front = Hashtblext.to_list front_tbl in
 
 
 	Generic.add_device ~xs device back front x.extra_private_keys;
@@ -757,8 +756,8 @@ let add (task: Xenops_task.t) ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) 
 	let extra_private_keys = extra_private_keys @
 	  (match mtu with | Some mtu when mtu > 0 -> [ "MTU", string_of_int mtu ] | _ -> []) @
 	  (match netty with
-	     | Netman.Bridge b -> [ "bridge", b; "bridge-MAC", if(Xenctrl.is_fake ()) then "fe:fe:fe:fe:fe:fe" else "fe:ff:ff:ff:ff:ff"; ]
-	     | Netman.Vswitch b -> [ "bridge", b; "bridge-MAC", if(Xenctrl.is_fake ()) then "fe:fe:fe:fe:fe:fe" else "fe:ff:ff:ff:ff:ff"; ]
+	     | Netman.Bridge b -> [ "bridge", b; "bridge-MAC", "fe:ff:ff:ff:ff:ff"; ]
+	     | Netman.Vswitch b -> [ "bridge", b; "bridge-MAC", "fe:ff:ff:ff:ff:ff"; ]
 	     | Netman.DriverDomain -> []
 	     | Netman.Nat -> []) @
 	  (match rate with | None -> [] | Some(rate, timeslice) -> [ "rate", Int64.to_string rate; "timeslice", Int64.to_string timeslice ]) in
@@ -808,7 +807,7 @@ let status ~xs ~devid domid =
 	| "online"  -> true
 	| "offline" -> false
 	| _         -> (* garbage, assuming false *) false
-	with Xenbus.Xb.Noent -> false
+	with Xs_protocol.Enoent _ -> false
 
 end
 
@@ -1259,7 +1258,7 @@ let clean_shutdown (task: Xenops_task.t) ~xs (x: device) =
 	let devs = enumerate_devs ~xs x in
 	Xenctrl.with_intf (fun xc ->
 		let hvm =
-			try (Xenctrl.domain_getinfo xc x.frontend.domid).Xenctrl.Domain_info.hvm_guest
+			try (Xenctrl.domain_getinfo xc x.frontend.domid).Xenctrl.hvm_guest
 			with _ -> false
 			in
 		try release ~xc ~xs ~hvm devs x.frontend.domid x.frontend.devid
@@ -1313,7 +1312,7 @@ let wait_device_model (task: Xenops_task.t) ~xc ~xs domid =
 let read_pcidir ~xc ~xs domid = 
   let path = device_model_pci_device_path xs 0 domid in
   let prefix = "dev-" in
-  let all = List.filter (String.startswith prefix) (try xs.Xs.directory path with Xenbus.Xb.Noent -> []) in
+  let all = List.filter (String.startswith prefix) (try xs.Xs.directory path with Xs_protocol.Enoent _ -> []) in
   (* The values are the PCI device (domain, bus, dev, func) strings *)
   let device_number_of_string x =
     (* remove the silly prefix *)
@@ -1340,7 +1339,7 @@ let ensure_device_frontend_exists ~xs backend_domid frontend_domid =
 		then debug "PCI frontend already exists: no work to do"
 		else begin
 			t.Xst.mkdir frontend_path;
-			t.Xst.setperms frontend_path (frontend_domid, Xsraw.PERM_NONE, [ (backend_domid, Xsraw.PERM_READ) ]);
+			t.Xst.setperms frontend_path (Xs_protocol.ACL.({owner = frontend_domid; other = NONE; acl = [ (backend_domid, READ) ]}));
 			t.Xst.writev frontend_path [
 				"backend", backend_path;
 				"backend-id", string_of_int backend_domid;
@@ -1419,13 +1418,13 @@ let add ~xc ~xs ?(backend_domid=0) domid =
     ] in
     Xs.transaction xs (fun t ->
         (* Add the frontend *)
-        let perms = (domid, Xsraw.PERM_NONE, [(0, Xsraw.PERM_READ)]) in
+        let perms = Xs_protocol.ACL.({owner = domid; other = NONE; acl =[(0, READ)]}) in
         t.Xst.mkdir frontend_path;
         t.Xst.setperms frontend_path perms;
         t.Xst.writev frontend_path front;
 
         (* Now make the request *)
-        let perms = (domid, Xsraw.PERM_NONE, []) in
+        let perms = Xs_protocol.ACL.({owner = domid; other = NONE; acl = []}) in
         let request_path = Printf.sprintf "%s/%d" request_path 0 in
         t.Xst.mkdir request_path;
         t.Xst.setperms request_path perms;

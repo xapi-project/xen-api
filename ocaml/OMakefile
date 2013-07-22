@@ -2,7 +2,7 @@
 XEN_CFLAGS    = -I$(XEN_ROOT)/usr/include
 OCAMLINCLUDES = $(ROOT)/ocaml/idl +ocamldoc
 OCAML_LIBS    = $(ROOT)/ocaml/fhs $(ROOT)/ocaml/util/version $(ROOT)/ocaml/util/stats
-OCAMLPACKS    = stdext log
+OCAMLPACKS    = stdext uuid log gzip
 
 OCamlLibrary(fhs, fhs)
 
@@ -26,7 +26,6 @@ OCamlLibrary(fhs, fhs)
 	rfb \
 	database \
 	toplevel \
-	xstest \
 	cdrommon \
 	gpg \
 	db_process \

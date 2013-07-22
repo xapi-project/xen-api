@@ -40,7 +40,7 @@ open Xenctrl
 type vcpu = {
 	vcpu_sumcpus: float;
 	vcpu_vcpus: float array;
-	vcpu_rawvcpus: Vcpu_info.t array;
+	vcpu_rawvcpus: vcpuinfo array;
 	vcpu_cputime: int64;
 }
 
@@ -115,7 +115,7 @@ let vif_device_of_string x =
 		let ty = String.sub x 0 3 and params = String.sub_to_end x 3 in
 		let domid, devid = Scanf.sscanf params "%d.%d" (fun x y -> x,y) in
 		let di = Xenctrl.with_intf (fun xc -> Xenctrl.domain_getinfo xc domid) in
-		let uuid = Uuid.uuid_of_int_array di.Xenctrl.Domain_info.handle |> Uuid.to_string in
+		let uuid = Uuid.uuid_of_int_array di.Xenctrl.handle |> Uuid.to_string in
 		let vif = (uuid, string_of_int devid) in
 		match ty with
 		| "vif" -> Some { pv = true; vif = vif; domid = domid; devid = devid }

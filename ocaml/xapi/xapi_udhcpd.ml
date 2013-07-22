@@ -26,9 +26,9 @@ let ip_begin_key = "ip_begin"
 let ip_end_key = "ip_end"
 let ip_disable_gw_key = "ip_disable_gw"
 
-let udhcpd_conf = Filename.concat Fhs.vardir "udhcpd.conf"
-let udhcpd_skel = Filename.concat Fhs.vardir "udhcpd.skel"
-let leases_db = Filename.concat Fhs.vardir "dhcp-leases.db"
+let udhcpd_conf = Filename.concat "/var/lib/xcp" "udhcpd.conf"
+let udhcpd_skel = Filename.concat "/var/lib/xcp" "udhcpd.skel"
+let leases_db = Filename.concat "/var/lib/xcp" "dhcp-leases.db"
 let pidfile = "/var/run/udhcpd.pid"
 
 module Ip = struct

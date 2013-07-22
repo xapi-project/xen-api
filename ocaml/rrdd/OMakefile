@@ -9,11 +9,11 @@ OCAMLINCLUDES = \
 	$(ROOT)/ocaml/xenops \
 	interface
 # ocaml/xapi only needed for xapi_fist : should move xapi_first to libs
-OCAMLPACKS = oclock xml-light2 stunnel http-svr xenctrl xenctrlext xenstore
+OCAMLPACKS = oclock xml-light2 stunnel http-svr xenctrl xenctrlext xenstore gzip stdext uuid
 OCAML_LIBS = $(ROOT)/ocaml/fhs ../idl/ocaml_backend/xapi_client ../xenops/xenstore_watch
 # ../xenops/xenops_client
 
-UseCamlp4(rpc-light.syntax, rrdd_server)
+UseCamlp4(rpclib.syntax, rrdd_server)
 
 RRDD = xcp-rrdd
 RRDD_FILES = \
@@ -69,12 +69,8 @@ install:
 META: META.in
 	sed 's/@VERSION@/$(PRODUCT_VERSION)/g' < $< > $@
 
-if $(defined-env DESTDIR)
-	INSTALL_PATH = $(DESTDIR)/$(shell ocamlfind printconf destdir)
-	export
-else
-	INSTALL_PATH = $(shell ocamlfind printconf destdir)
-	export
+INSTALL_PATH = $(DESTDIR)/$(shell ocamlfind printconf destdir)
+export
 
 .PHONY: lib-install
 lib-install: META

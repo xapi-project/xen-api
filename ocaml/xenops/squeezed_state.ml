@@ -18,8 +18,8 @@ open D
 
 let _service = "squeezed"
 
-let listdir xs path = try List.filter (fun x -> x <> "") (xs.Xs.directory path) with Xenbus.Xb.Noent -> []
-let xs_read xs path = try xs.Xs.read path with Xenbus.Xb.Noent as e -> begin debug "xenstore-read %s returned ENOENT" path; raise e end
+let listdir xs path = try List.filter (fun x -> x <> "") (xs.Xs.directory path) with Xs_protocol.Enoent _ -> []
+let xs_read xs path = try xs.Xs.read path with Xs_protocol.Enoent _ as e -> begin debug "xenstore-read %s returned ENOENT" path; raise e end
 
 let path = String.concat "/"
 

@@ -1,4 +1,3 @@
-open Hashtblext
 open Listext
 open Threadext
 open Rrdd_shared
@@ -54,7 +53,7 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) rebooting_vms 
 		in
 		if out_of_date then
 			error "Clock just went backwards by %.0f seconds: RRD data may now be unreliable" by_how_much;
-		let registered = Hashtbl.fold_keys vm_rrds in
+		let registered = Hashtblext.fold_keys vm_rrds in
 		let gone_vms = List.filter (fun vm -> not (List.mem_assoc vm uuid_domids)) registered in
 		let to_send_back = List.map (fun uuid -> uuid, Hashtbl.find vm_rrds uuid) gone_vms in
 		(* Don't send back rebooting VMs! *)

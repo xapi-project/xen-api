@@ -22,8 +22,8 @@ open Xenstore
 let catch_invalid message f x =
   try
     f x
-  with Xenbus.Xb.Invalid as e ->
-    print_error "Caught Xenbus.Xb.Invalid while executing: %s" message;
+  with Xs_protocol.Invalid as e ->
+    print_error "Caught Xs_protocol.Invalid while executing: %s" message;
     raise e
 
 let readdir ?(full_paths=true) ~xs path =

@@ -41,7 +41,7 @@ let connect path domid (args: string list) (fds: (string * Unix.file_descr) list
 	(* Need to send commands and receive responses from the
 	   slave process *)
 
-	let using_xiu = Xenctrl.is_fake () in
+	let using_xiu = false in 
 
 	let last_log_file = Printf.sprintf "/tmp/xenguest.%d.log" domid in
 
@@ -150,7 +150,7 @@ let non_debug_receive ?debug_callback cnx =
 			let open Int64 in
 			let open Xenctrl in
 			let p = Xenctrl.physinfo xc in
-			let open Xenctrl.Phys_info in
+			let open Xenctrl in
 			error "Memory F %Ld KiB S %Ld KiB T %Ld MiB"
 				(p.free_pages |> of_nativeint |> kib_of_pages)
 				(p.scrub_pages |> of_nativeint |> kib_of_pages)

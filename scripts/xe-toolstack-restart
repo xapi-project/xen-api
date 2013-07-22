@@ -29,7 +29,7 @@ service xenopsd stop
 service xcp-rrdd-plugins stop
 service xcp-rrdd stop
 [ -e /tmp/do-not-use-networkd ] || service xcp-networkd stop
-service fe stop
+service forkexecd stop
 if [ $POOLCONF == "master" ]; then
 	@ETCDIR@/master.d/03-mpathalert-daemon stop;
 fi
@@ -39,7 +39,7 @@ set -e
 if [ $POOLCONF == "master" ]; then
 	@ETCDIR@/master.d/03-mpathalert-daemon start;
 fi
-service fe start
+service forkexecd start
 [ -e /tmp/do-not-use-networkd ] || service xcp-networkd start
 service xcp-rrdd start
 service xcp-rrdd-plugins start

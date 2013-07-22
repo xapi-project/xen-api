@@ -1,4 +1,4 @@
-OCAMLPACKS = xml-light2 uuid
+OCAMLPACKS = xml-light2 uuid rpclib
 
 # -----------------------------------------------------------------------
 # autogen stuff

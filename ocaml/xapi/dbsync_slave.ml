@@ -22,7 +22,6 @@ open Printf
 open Create_misc
 open Client
 open Pervasiveext
-open Xenstore
 
 open Network
 

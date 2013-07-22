@@ -23,7 +23,7 @@ open D
 
 let server = Http_svr.Server.empty ()
 
-let path = Filename.concat Fhs.vardir name
+let path = Filename.concat "/var/lib/xcp" name
 
 module Server = Network_interface.Server(Network_server)
 
@@ -73,7 +73,7 @@ let handle_shutdown () =
 let _ =
 	let pidfile = ref "" in
 	let daemonize = ref false in
-	Debug.set_facility Syslog.Local5;
+	Debug.set_facility Syslog_transitional.Local5;
 
 	(* We should make the following configurable *)
 	Debug.disable "http";

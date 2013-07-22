@@ -24,7 +24,7 @@ let config = ref ""
 let iqn = ref ""
 let xmltostdout = ref false
 
-let init_logs() = Debug.set_facility Syslog.Local5
+let init_logs() = Debug.set_facility Syslog_transitional.Local5
 
 let fatal_error s =
   print_string s;

@@ -49,9 +49,20 @@ let to_string_desc = function
 	| Closed       -> "closed"
 
 (** Allows a guest to read/write this node and children *)
-let rwperm_for_guest domid = 
-	(domid, Xsraw.PERM_NONE, [])
+let rwperm_for_guest domid =
+	Xs_protocol.ACL.({owner = domid; other = NONE; acl = []})
 
 (** Dom0 can read/write this node and children, domU can only read children *)
 let roperm_for_guest domid =
-	(0, Xsraw.PERM_NONE, [ (domid, Xsraw.PERM_READ) ])
+	Xs_protocol.ACL.({owner = 0; other = NONE; acl = [ (domid, READ) ]})
+
+open Device_common
+
+let device_frontend device =
+	Xs_protocol.ACL.({owner = device.frontend.domid; other = NONE; acl = [ device.backend.domid, READ ]})
+
+let device_backend device =
+	Xs_protocol.ACL.({owner = device.backend.domid; other = NONE; acl = [ device.frontend.domid, READ ]})
+
+let hotplug device =
+	Xs_protocol.ACL.({owner = device.backend.domid; other = NONE; acl = []})

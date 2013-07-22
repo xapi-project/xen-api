@@ -51,7 +51,7 @@ let make_rpc path  =
 	end in
 	(module Rpc : RPC)
 
-module Rpc = (val (make_rpc (Filename.concat Fhs.vardir "xcp-networkd")) : RPC)
+module Rpc = (val (make_rpc (Filename.concat "/var/lib/xcp" "xcp-networkd")) : RPC)
 module Net = Client(Rpc)
 
 (* Catch any uncaught networkd exceptions and transform into the most relevant XenAPI error.

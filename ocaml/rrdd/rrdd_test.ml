@@ -22,7 +22,7 @@ let make_rpc path  =
 	end in
 	(module Rpc : Rrdd_interface.RPC)
 module Rpc =
-	(val (make_rpc (Filename.concat Fhs.vardir Rrdd_interface.name)) : Rrdd_interface.RPC)
+	(val (make_rpc (Filename.concat "/var/lib/xcp" Rrdd_interface.name)) : Rrdd_interface.RPC)
 module Client = Rrdd_interface.Client(Rpc)
 
 (* Make an API call. *)

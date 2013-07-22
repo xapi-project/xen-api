@@ -16,7 +16,6 @@
 type context = unit
 
 open Fun
-open Hashtblext
 open Listext
 open Pervasiveext
 open Stringext
@@ -276,7 +275,7 @@ let update_use_min_max _ ~(value : bool) () : unit =
 	use_min_max := value
 
 let string_of_domain_handle dh =
-	Uuid.string_of_uuid (Uuid.uuid_of_int_array dh.Xenctrl.Domain_info.handle)
+	Uuid.string_of_uuid (Uuid.uuid_of_int_array dh.Xenctrl.handle)
 
 let update_vm_memory_target _ ~(domid : int) ~(target : int64) : unit =
 	Mutex.execute memory_targets_m
@@ -511,7 +510,7 @@ module Plugin = struct
 	(* Read, parse, and combine metrics from all registered plugins. *)
 	let read_stats () : (Rrd.ds_owner * Ds.ds) list =
 		let uids =
-			Mutex.execute registered_m (fun _ -> Hashtbl.fold_keys registered) in
+			Mutex.execute registered_m (fun _ -> Hashtblext.fold_keys registered) in
 		let process_plugin acc uid =
 			try
 				let payload = read_file uid in

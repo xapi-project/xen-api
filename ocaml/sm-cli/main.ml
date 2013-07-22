@@ -20,7 +20,7 @@ open Fun
 open Stringext
 open Xmlrpc_client
 
-let url = Http.Url.(ref (File { path = Filename.concat Fhs.vardir "storage" }, { uri = "/"; query_params = [] }))
+let url = Http.Url.(ref (File { path = Filename.concat "/var/lib/xcp" "storage" }, { uri = "/"; query_params = [] }))
 
 let verbose = ref false
 
