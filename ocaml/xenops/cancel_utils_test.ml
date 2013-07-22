@@ -55,16 +55,13 @@ let _ =
 		"Test cancellation functions";
 
 	(* We need xenstore anyway, so use this to verify that we're running in a domain 0 environment *)
-	let xs = try
-		Xs.daemon_open ()
-	with _ ->
-		Printf.fprintf stderr "Failed to open xenstore connection. This test suite must run in domain 0.\n";
-		exit 1 in
-
-	let suite = "cancel test" >::: 
-		[
-			"subprocess" >:: subprocess_test;
-			"xenstore" >:: xenstore_test xs;
-		] in
-
-	run_test_tt ~verbose:!verbose suite
+	with_xs (fun xs -> 
+		
+		let suite = "cancel test" >::: 
+			[
+				"subprocess" >:: subprocess_test;
+				"xenstore" >:: xenstore_test xs;
+			] in
+		
+		run_test_tt ~verbose:!verbose suite)
+			

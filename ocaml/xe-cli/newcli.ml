@@ -246,7 +246,7 @@ let open_tcp server =
 let open_channels () =
   if is_localhost !xapiserver then (
     try
-      Unix.open_connection (Unix.ADDR_UNIX (Filename.concat Fhs.vardir "xapi"))
+      Unix.open_connection (Unix.ADDR_UNIX (Filename.concat "/var/lib/xcp" "xapi"))
     with _ ->
       open_tcp !xapiserver
   ) else

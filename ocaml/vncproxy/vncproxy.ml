@@ -64,7 +64,7 @@ let _ =
 	  let open Xmlrpc_client in
 	  let http = xmlrpc ~version:"1.0" "/" in
 	  match !server with
-		  | "" -> XMLRPC_protocol.rpc ~srcstr:"vncproxy" ~dststr:"xapi" ~transport:(Unix (Filename.concat Fhs.vardir "xapi")) ~http xml
+		  | "" -> XMLRPC_protocol.rpc ~srcstr:"vncproxy" ~dststr:"xapi" ~transport:(Unix (Filename.concat "/var/lib/xcp" "xapi")) ~http xml
 		  | host -> XMLRPC_protocol.rpc ~srcstr:"vncproxy" ~dststr:"xapi" ~transport:(SSL(SSL.make ~use_fork_exec_helper:false (), host, 443)) ~http xml in
 
   let find_vm rpc session_id vm = 

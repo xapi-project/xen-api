@@ -10,7 +10,7 @@ let make_rpc path  =
 	end in
 	(module Rpc : Network_interface.RPC)
 
-module Rpc = (val (make_rpc (Filename.concat Fhs.vardir "xcp-networkd")) : Network_interface.RPC)
+module Rpc = (val (make_rpc (Filename.concat "/var/lib/xcp" "xcp-networkd")) : Network_interface.RPC)
 module Client = Client(Rpc)
 open Client
 

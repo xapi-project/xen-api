@@ -536,11 +536,11 @@ let resynchronise_ha_state () =
 let calculate_boot_time_host_free_memory () =
 	let ( + ) = Nativeint.add in
 	let host_info = with_xc (fun xc -> Xenctrl.physinfo xc) in
-	let open Xenctrl.Phys_info in
+	let open Xenctrl in
 	let host_free_pages = host_info.free_pages in
 	let host_scrub_pages = host_info.scrub_pages in
 	let domain0_info = with_xc (fun xc -> Xenctrl.domain_getinfo xc 0) in
-	let domain0_total_pages = domain0_info.Xenctrl.Domain_info.total_memory_pages in
+	let domain0_total_pages = domain0_info.Xenctrl.total_memory_pages in
 	let boot_time_host_free_pages =
 		host_free_pages + host_scrub_pages + domain0_total_pages in
 	let boot_time_host_free_kib =
@@ -1162,7 +1162,7 @@ tolerance, the next tweak will be %f seconds away at the earliest."
 
 
 let _ =
-	Debug.set_facility Syslog.Local5;
+	Debug.set_facility Syslog_transitional.Local5;
 
 	init_args(); (* need to read args to find out whether to daemonize or not *)
 
@@ -1170,10 +1170,10 @@ let _ =
     Unixext.daemonize ();
   Unixext.pidfile_write "/var/run/xapi.pid";
 
-  (* chdir to @VARDIR@/debug so that's where xapi coredumps go 
+  (* chdir to /var/lib/xcp/debug so that's where xapi coredumps go 
      (in the unlikely event that there are any ;) *)
-  Unixext.mkdir_rec (Filename.concat Fhs.vardir "debug") 0o700;
-  Unix.chdir (Filename.concat Fhs.vardir "debug");
+  Unixext.mkdir_rec (Filename.concat "/var/lib/xcp" "debug") 0o700;
+  Unix.chdir (Filename.concat "/var/lib/xcp" "debug");
 
 	set_thread_queue_params ();
 

@@ -112,13 +112,13 @@ let domarch_of_string = function
 	| _     -> Arch_native
 
 let get_uuid ~xc domid =
-	Uuid.uuid_of_int_array (Xenctrl.domain_getinfo xc domid).Xenctrl.Domain_info.handle
+	Uuid.uuid_of_int_array (Xenctrl.domain_getinfo xc domid).Xenctrl.handle
 
 let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds=64) required_memory_kib : bool =
 	let open Memory in
 	let rec wait accumulated_wait_time_seconds =
 		let host_info = Xenctrl.physinfo xc in
-		let open Xenctrl.Phys_info in
+		let open Xenctrl in
 		let free_memory_kib =
 			kib_of_pages (Int64.of_nativeint host_info.free_pages) in
 		let scrub_memory_kib =
@@ -294,7 +294,7 @@ let shutdown ~xc ~xs domid req =
 	Xs.transaction xs
 		(fun t ->
 			 (* Fail if the directory has been deleted *)
-			 let domain_exists = try ignore (t.Xst.read domainpath); true with Xenbus.Xb.Noent -> false in
+			 let domain_exists = try ignore (t.Xst.read domainpath); true with Xs_protocol.Enoent _ -> false in
 			 if not domain_exists then raise Domain_does_not_exist;
 			 (* Delete the node if it already exists. NB: the guest may well still shutdown for the
 				previous reason... we only want to give it a kick again just in case. *)
@@ -307,8 +307,8 @@ let shutdown ~xc ~xs domid req =
 let shutdown_wait_for_ack (t: Xenops_task.t) ?(timeout=60.) ~xc ~xs domid req =
 	let di = Xenctrl.domain_getinfo xc domid in
 	let uuid = get_uuid ~xc domid in
-	if ((di.Xenctrl.Domain_info.hvm_guest)
-	&& not (Xenctrl.hvm_check_pvdriver xc domid)) then begin
+	if ((di.Xenctrl.hvm_guest)
+	&& false) (* not (Xenctrl.hvm_check_pvdriver xc domid)) *) then begin
 		debug "VM = %s; domid = %d; HVM guest without PV drivers: not expecting any acknowledgement" (Uuid.to_string uuid) domid;
 		Xenctrl.domain_shutdown xc domid (shutdown_to_xc_shutdown req)
 	end else begin
@@ -454,7 +454,7 @@ let get_action_request ~xs domid =
 	let path = xs.Xs.getdomainpath domid ^ "/action-request" in
 	try
 		Some (xs.Xs.read path)
-	with Xenbus.Xb.Noent -> None
+	with Xs_protocol.Enoent _ -> None
 
 (** create store and console channels *)
 let create_channels ~xc uuid domid =
@@ -1145,11 +1145,9 @@ let cpuid_set ~xc ~hvm domid cfg =
 	cfgout
 
 let cpuid_apply ~xc ~hvm domid =
-	if not (Xenctrl.is_fake()) then begin
-		let uuid = get_uuid ~xc domid in
-		debug "VM = %s; domid = %d; cpuid_apply" (Uuid.to_string uuid) domid;
-		Xenctrl.domain_cpuid_apply_policy xc domid
-	end
+	let uuid = get_uuid ~xc domid in
+	debug "VM = %s; domid = %d; cpuid_apply" (Uuid.to_string uuid) domid;
+	Xenctrl.domain_cpuid_apply_policy xc domid
 
 let cpuid_check ~xc cfg =
 	let tmp = Array.create 4 None in

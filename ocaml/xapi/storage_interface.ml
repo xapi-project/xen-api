@@ -159,6 +159,7 @@ exception Unimplemented of string
 exception Duplicated_key of string
 exception No_storage_plugin_for_sr of string
 exception Content_ids_do_not_match of (string * string)
+exception Missing_configuration_parameter of string
 
 type query_result = {
 	driver: string;

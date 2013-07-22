@@ -16,7 +16,7 @@
  *)
 
 let service_name = "memory"
-let json_path = Filename.concat Fhs.vardir "memory.json"
+let json_path = Filename.concat "/var/lib/xcp" "memory.json"
 
 type reservation_id = string
 

@@ -132,7 +132,7 @@ let transfer_reservation_to_domain _ dbg session_id reservation_id domid =
 					(fun maxmem -> Squeeze_xen.Domain.set_maxmem_noexn (xc, xs) domid maxmem)
 					(try Some (Int64.of_string kib) with _ -> None);
 				del_reservation xs _service session_id reservation_id;
-			with Xenbus.Xb.Noent ->
+			with Xs_protocol.Enoent _ ->
 				raise (Unknown_reservation reservation_id)
 		)
 	)

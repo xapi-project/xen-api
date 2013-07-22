@@ -47,7 +47,7 @@ let read_config () =
 		(* No configuration file found. *)
 		(* Perhaps it is an upgrade from the pre-networkd era. If network.dbcache exists, try to configure the
 		 * management interface using the old scripts. *)
-		if (try Unix.access (Filename.concat Fhs.vardir "network.dbcache") [Unix.F_OK]; true with _ -> false) then
+		if (try Unix.access (Filename.concat "/var/lib/xcp" "network.dbcache") [Unix.F_OK]; true with _ -> false) then
 			legacy_management_interface_start ()
 		else
 			(* Try to get the initial network setup from the first-boot data written by the host installer. *)
@@ -752,8 +752,8 @@ let on_startup () =
 			Bridge.make_config () dbg ~conservative:true ~config:!config.bridge_config ();
 			Interface.make_config () dbg ~conservative:true ~config:!config.interface_config ();
 			(* If there is still a network.dbcache file, move it out of the way. *)
-			if (try Unix.access (Filename.concat Fhs.vardir "network.dbcache") [Unix.F_OK]; true with _ -> false) then
-				Unix.rename (Filename.concat Fhs.vardir "network.dbcache") (Filename.concat Fhs.vardir "network.dbcache.bak");
+			if (try Unix.access (Filename.concat "/var/lib/xcp" "network.dbcache") [Unix.F_OK]; true with _ -> false) then
+				Unix.rename (Filename.concat "/var/lib/xcp" "network.dbcache") (Filename.concat "/var/lib/xcp" "network.dbcache.bak");
 		with e ->
 			debug "Error while configuring networks on startup: %s\n%s"
 				(Printexc.to_string e) (Printexc.get_backtrace ())

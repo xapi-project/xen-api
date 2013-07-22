@@ -8,7 +8,6 @@
 #
 # @OPTDIR@ -> ${OPTDIR}
 # @ETCDIR@ -> ${ETCDIR}
-# @VARDIR@ -> ...etc...
 # @VARPATCHDIR@
 # @ETCDIR@
 # @OPTDIR@
@@ -43,7 +42,6 @@ for FILE in ${FILES}; do
   if file ${NEWFILE} | grep -q "text"; then
     sed -i -e "s!@OPTDIR@!${OPTDIR}!g" \
 	-e "s!@ETCDIR@!${ETCDIR}!g" \
-        -e "s!@VARDIR@!${VARDIR}!g" \
         -e "s!@VARPATCHDIR@!${VARPATCHDIR}!g" \
         -e "s!@PLUGINDIR@!${PLUGINDIR}!g" \
         -e "s!@HOOKSDIR@!${HOOKSDIR}!g" \

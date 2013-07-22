@@ -1,9 +1,9 @@
 OCAML_LIBS    = ../util/version ../idl/ocaml_backend/xapi_client
 OCAMLINCLUDES = .. ../idl/ocaml_backend ../idl ../autogen ../xapi ../gpg ../util
-OCAMLPACKS    = xml-light2 stdext stunnel http-svr log rpc-light oUnit
+OCAMLPACKS    = xml-light2 stdext stunnel http-svr log rpclib oUnit uuid
 
-UseCamlp4(rpc-light.idl, network_interface)
-UseCamlp4(rpc-light.syntax, network_server network_monitor)
+UseCamlp4(rpclib.idl, network_interface)
+UseCamlp4(rpclib.syntax, network_server network_monitor)
 
 # Name of daemon to install in dom0:
 NETWORKD = xcp-networkd

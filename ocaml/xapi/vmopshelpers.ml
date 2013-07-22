@@ -23,12 +23,10 @@ open D
 
 let with_xc f = Xenctrl.with_intf f
 
-let with_xs f =
-	let xs = Xs.daemon_open () in
-	finally (fun () -> f xs) (fun () -> Xs.close xs)
+let with_xs f = with_xs f
 
 let with_xc_and_xs f =
 	Xenctrl.with_intf (fun xc -> with_xs (fun xs -> f xc xs))
 
 let get_uuid ~xc domid =
-	Uuid.uuid_of_int_array (Xenctrl.domain_getinfo xc domid).Xenctrl.Domain_info.handle
+	Uuid.uuid_of_int_array (Xenctrl.domain_getinfo xc domid).Xenctrl.handle

@@ -1,8 +1,8 @@
 OCAML_LIBS    = ../util/version ../idl/ocaml_backend/xapi_client
 OCAMLINCLUDES = ../idl/ocaml_backend ../idl ../autogen ../xapi ../gpg ../util ..
-OCAMLPACKS    = xml-light2 stdext stunnel http-svr log rpc-light
+OCAMLPACKS    = xml-light2 stdext stunnel http-svr log rpclib
 
-UseCamlp4(rpc-light.syntax, v6rpc v6errors)
+UseCamlp4(rpclib.syntax, v6rpc v6errors)
 
 V6FILES = \
 	../fhs \
