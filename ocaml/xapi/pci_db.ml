@@ -14,6 +14,8 @@
 
 open Stringext
 
+let pci_ids_path = "/usr/share/hwdata/pci.ids"
+
 type class_id = string
 type subclass_id = string
 type vendor_id = string
@@ -70,6 +72,12 @@ let add_subdevice t v_id d_id sv_id sd_id name =
 let get_subdevice t v_id d_id sv_id sd_id =
 	let d = get_device t v_id d_id in
 	Hashtbl.find d.subdevice_names (sv_id, sd_id)
+let get_subdevice_names_by_id t v_id d_id id =
+	let d = get_device t v_id d_id in
+	Hashtbl.fold
+		(fun (sv_id, sd_id) sd_name res ->
+			(if sd_id = id then sd_name :: res else res))
+		d.subdevice_names []
 
 let strings_of_subclasses pci_class =
 	Hashtbl.fold

@@ -54,6 +54,10 @@ let find_or_create ~__context pgpu =
 		let name_label = "Group of " ^ pci_rec.Db_actions.pCI_vendor_name ^ " " ^ pci_rec.Db_actions.pCI_device_name ^ " GPUs" in
 		let group = create ~__context ~name_label ~name_description:"" ~other_config:[] in
 		Db.GPU_group.set_GPU_types ~__context ~self:group ~value:[gpu_type];
+		let vgpu_types = Xapi_vgpu_type.find_or_create_supported_types
+			~__context group in
+		Db.GPU_group.set_supported_VGPU_types ~__context ~self:group
+			~value:vgpu_types;
 		group
 
 let get_allowed_VGPU_types ~__context ~self =
