@@ -210,7 +210,7 @@ and cut_msg_name message_name fn_type =
     end
   else if (fn_type = "Remove") then
     begin
-      if (name_len > 10)&& (String.sub message_name 0 10) = "RemoveFrom" then
+      if (name_len > 10) && (String.sub message_name 0 10) = "RemoveFrom" then
         String.sub message_name 10 (name_len - 10)
       else if (name_len > 6) && (String.sub message_name 0 6) = "Remove" then 
         String.sub message_name 6 (name_len - 6)
@@ -227,3 +227,41 @@ and has_uuid x =
 
 and has_name x =
   DU.obj_has_get_by_name_label x
+
+and get_http_action_verb name meth =
+  let parts = String.split '_' name in
+    if (List.exists (fun x -> x = "import") parts) then "Import"
+    else if (List.exists (fun x -> x = "export") parts) then "Export"
+    else if (List.exists (fun x -> x = "get") parts) then "Receive"
+    else if (List.exists (fun x -> x = "put") parts) then "Send"
+    else
+      match meth with
+      | Get -> "Receive"
+      | Put -> "Send"
+      | _   -> assert false
+
+and get_common_verb_category verb =
+  match verb with
+  | "Import"
+  | "Export"  -> "VerbsData"
+  | "Receive"
+  | "Send"    -> "VerbsCommunications"
+  | _         -> assert false
+
+and get_http_action_stem name =
+  let parts = String.split '_' name in
+  let filtered = List.filter trim_http_action_stem parts in
+  let trimmed = String.concat "_" filtered in
+  match trimmed with
+  | "" -> pascal_case_ "vm"
+  | _  -> pascal_case_ trimmed
+
+and trim_http_action_stem x =
+  match x with
+  | "get"  
+  | "put" 
+  | "import"
+  | "export"
+  | "download"
+  | "upload"   -> false
+  | _          -> true

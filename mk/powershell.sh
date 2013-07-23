@@ -51,8 +51,9 @@ then
     remote_cmd_passwd2 "cd ${TMPDIR} && ${CMD_EXEC} sign.bat XenServerPowerShell.dll 'Citrix XenServer PowerShell Module'"
     remote_cmd_passwd2 "cd ${TMPDIR} && ${CMD_EXEC} sign-ps.bat Initialize-Environment.ps1"
     remote_cmd_passwd2 "cd ${TMPDIR} && ${CMD_EXEC} sign-ps.bat AutomatedTestCore.ps1"
+    remote_cmd_passwd2 "cd ${TMPDIR} && ${CMD_EXEC} sign-ps.bat HttpTest.ps1"
     remote_cmd_passwd2 "cd ${TMPDIR} && ${CMD_EXEC} sign-ps.bat XenServer.format.ps1xml"
     remote_cmd_passwd2 "cd ${TMPDIR} && ${CMD_EXEC} sign-ps.bat XenServer.types.ps1xml"
 fi
 
-EXTRA_FILES="AutomatedTestCore.ps1 Initialize-Environment.ps1 XenServer.format.ps1xml XenServer.types.ps1xml"
+EXTRA_FILES="AutomatedTestCore.ps1 HttpTest.ps1 Initialize-Environment.ps1 XenServer.format.ps1xml XenServer.types.ps1xml"
