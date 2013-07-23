@@ -35,13 +35,16 @@ type vgpu_type = {
 
 let entire_gpu = {model_name = "whole"; framebuffer_size = 0L}
 
-let create ~__context ~model_name ~framebuffer_size =
+let create ~__context ~model_name ~framebuffer_size ~gPU_groups =
 	let ref = Ref.make () in
 	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
-	Db.VGPU_type.create ~__context ~ref ~uuid ~model_name ~framebuffer_size;
+	Db.VGPU_type.create ~__context ~ref ~uuid ~model_name ~framebuffer_size
+		~gPU_groups;
+	debug "VGPU_type ref='%s' created (model_name = '%s')"
+		(Ref.string_of ref) model_name;
 	ref
 
-let find_or_create ~__context vgpu_type =
+let find_or_create ~__context vgpu_type gpu_group =
 	let open Db_filter_types in
 	let existing_types =
 		Db.VGPU_type.get_records_where ~__context
@@ -51,10 +54,16 @@ let find_or_create ~__context vgpu_type =
 					 Literal (Int64.to_string vgpu_type.framebuffer_size))))
 	in
 	match existing_types with
-	| (vgpu_type, _) :: _ -> vgpu_type
+	| [vgpu_type, rc] ->
+		let new_groups = gpu_group :: rc.API.vGPU_type_GPU_groups in
+		Db.VGPU_type.set_GPU_groups ~__context ~self:vgpu_type
+			~value:new_groups;
+		vgpu_type
 	| [] ->
 		create ~__context ~model_name:vgpu_type.model_name
-			~framebuffer_size:vgpu_type.framebuffer_size
+			~framebuffer_size:vgpu_type.framebuffer_size ~gPU_groups:[gpu_group]
+	| _ ->
+		failwith "Error: Multiple vGPU types exist with the same configuration."
 
 let of_conf_file file_path =
 	try
@@ -122,7 +131,6 @@ let find_or_create_supported_types ~__context gpu_group =
 	let gpu_dev_ids = List.map (fun s -> String.sub s 0 4) gpu_types in
 	let relevant_vgpu_types = relevant_vgpu_types gpu_dev_ids in
 	let vgpu_types = List.map
-		(fun v -> find_or_create ~__context v) relevant_vgpu_types in
-	let entire_gpu_type = find_or_create ~__context entire_gpu in
+		(fun v -> find_or_create ~__context v gpu_group) relevant_vgpu_types in
+	let entire_gpu_type = find_or_create ~__context entire_gpu gpu_group in
 	entire_gpu_type :: vgpu_types
-	(* TODO: Garbage collect types not in use by any group *)
