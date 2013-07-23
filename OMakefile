@@ -41,8 +41,8 @@ CSHARP_GUI_TMP=$(BINDINGS_TMP)/XenCenterBindings/XenServer.NET
 CSHARP_SAM_TMP=$(BINDINGS_TMP)/XenServer.NET-sam/XenServer.NET
 
 OCAMLINCLUDES += .. $(DATAMODEL_DIR)
-OCAMLFLAGS += -dtypes -I $(DATAMODEL_DIR)
-OCAMLPACKS += getopt xmlm xml-light2 uuid stdext log unix
+OCAMLFLAGS += -dtypes -I $(DATAMODEL_DIR) -thread
+OCAMLPACKS += rpclib getopt xmlm xml-light2 uuid stdext log unix
 OCAML_LIBS += $(DATAMODEL_DIR)/datamodel
 
 .PHONY: clean dist
