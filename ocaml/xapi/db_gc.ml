@@ -61,6 +61,20 @@ let gc_connector ~__context get_all get_record valid_ref1 valid_ref2 delete_reco
 	end in
   List.iter do_gc all_refs
 
+let gc_VGPU_types ~__context =
+	(* We delete a VGPU_type iff for all GPU_groups, it does not appear
+	 * in the supported_VGPU_types of that GPU_group *)
+	let group_supports_type ~__context gpu_group vgpu_type_ref =
+		List.mem vgpu_type_ref
+			gpu_group.API.gPU_group_supported_VGPU_types in
+	let all_groups = Db.GPU_group.get_all_records ~__context in
+	let garbage vgpu_type_ref = not (List.exists
+		(fun (_, g) -> group_supports_type ~__context g vgpu_type_ref)
+		all_groups) in
+	List.iter
+		(fun self -> if garbage self then Db.VGPU_type.destroy ~__context ~self)
+		(Db.VGPU_type.get_all ~__context)
+
 let gc_PIFs ~__context =
   gc_connector ~__context Db.PIF.get_all Db.PIF.get_record (fun x->valid_ref __context x.pIF_host) (fun x->valid_ref __context x.pIF_network) 
     (fun ~__context ~self ->
@@ -484,6 +498,7 @@ let single_pass () =
 						"PBDs", gc_PBDs;
 						"VGPUs", gc_VGPUs;
 						"PGPUs", gc_PGPUs;
+						"VGPU_types", gc_VGPU_types;
 						"Host patches", gc_Host_patches;
 						"Host CPUs", gc_host_cpus;
 						"Host metrics", gc_host_metrics;

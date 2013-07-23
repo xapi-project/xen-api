@@ -7878,6 +7878,7 @@ let vgpu_type =
 			uid _vgpu_type ~lifecycle:[Published, rel_vgpu_tech_preview, ""];
 			field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~default_value:(Some (VString "")) "model_name" "Model name associated with the VGPU type";
 			field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~default_value:(Some (VInt 0L)) "framebuffer_size" "Framebuffer size of the VGPU type, in bytes";
+			field ~qualifier:StaticRO ~ty:(Set (Ref _gpu_group)) ~default_value:(Some (VSet []))~lifecycle:[Published, rel_vgpu_tech_preview, ""] "GPU_groups" "List of GPU groups that support this VGPU type" ~ignore_foreign_key:true;
 		]
 	()
 
@@ -8001,6 +8002,7 @@ let all_relations =
     (_pgpu, "GPU_group"), (_gpu_group, "PGPUs");
     (_vgpu, "GPU_group"), (_gpu_group, "VGPUs");
     (_vgpu, "VM"), (_vm, "VGPUs");
+    (_vgpu_type, "GPU_groups"), (_gpu_group, "supported_VGPU_types");
     (_pci, "host"), (_host, "PCIs");
     (_pgpu, "host"), (_host, "PGPUs");
     (_pci, "attached_VMs"), (_vm, "attached_PCIs");
