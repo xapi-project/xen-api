@@ -83,7 +83,7 @@ let generate_dss () =
 				 
 let _ =
 	let open Xenctrl in
-	nr_cpu := with_intf (fun xc -> (physinfo xc).Phys_info.nr_cpus);
+	nr_cpu := with_intf (fun xc -> (physinfo xc).nr_cpus);
 	initialise ();
 	D.warn "Found %d pCPUs" !nr_cpu;
 	if !nr_cpu = 0 then exit 1;

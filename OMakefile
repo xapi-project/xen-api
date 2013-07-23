@@ -40,7 +40,7 @@ PRODUCT_BRAND=$(getenv PRODUCT_BRAND, unknown)
 BUILD_NUMBER=$(getenv BUILD_NUMBER, -1)
 export
 
-OCAMLPACKS = str xenctrl xenstore-watch rrd-client
+OCAMLPACKS = str xenctrl uuid xenstore.unix xenstore-compat xenstore-watch rrd-client
 
 RRDP_DUMMY = rrdp_dummy
 RRDP_DUMMY_FILES = \

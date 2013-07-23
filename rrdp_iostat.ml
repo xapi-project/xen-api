@@ -26,18 +26,14 @@ open Common
 
 open Xenstore
 
-let with_xs f =
-	let xs = Xs.daemon_open () in
-	finally (fun () -> f xs) (fun () -> Xs.close xs)
-
 let with_xc f = Xenctrl.with_intf f
 
 (* Return a list of (domid, uuid) pairs for domUs running on this host *)
 let get_running_domUs xc =
 	let open Xenctrl in
 	Xenctrl.domain_getinfolist xc 0 |> List.map (fun di ->
-		let domid = di.Domain_info.domid in
-		let uuid = Uuid.to_string (Uuid.uuid_of_int_array di.Domain_info.handle) in
+		let domid = di.domid in
+		let uuid = Uuid.to_string (Uuid.uuid_of_int_array di.handle) in
 		(domid, uuid)
 	) |> List.filter (fun x -> fst x <> 0)
 
@@ -66,12 +62,12 @@ let update_vdi_to_vm_map () =
 								let device = xs.Xs.read (Printf.sprintf "%s/%s/dev" path vbd) in
 								D.info "Found VDI %s at device %s in VM %s" vdi device vm;
 								Some (vdi, (vm, device))
-							with Xenbus.Xb.Noent ->
+							with Xs_protocol.Enoent _ ->
 								(* CA-111132: an empty VBD (i.e. no ISO inserted) has no sm-data/vdi-uuid *)
 								D.debug "Got ENOENT when reading info for vbd %s in domain %d (might be empty)" vbd domid;
 								None
 						) vbds
-					with Xenbus.Xb.Noent ->
+					with Xs_protocol.Enoent _ ->
 						D.warn "Got ENOENT when listing VBDs for domain %d" domid;
 						[]
 				) domUs |> List.flatten

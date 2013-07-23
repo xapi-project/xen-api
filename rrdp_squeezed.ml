@@ -26,7 +26,7 @@ let with_xc f = Xenctrl.with_intf f
 
 (* Return a list of domids of VMs running on this host *)
 let get_running_domains xc =
-	Xenctrl.domain_getinfolist xc 0 |> List.map (fun di -> di.Xenctrl.Domain_info.domid)
+	Xenctrl.domain_getinfolist xc 0 |> List.map (fun di -> di.Xenctrl.domid)
 
 open Xenstore_watch
 
@@ -49,7 +49,7 @@ module MemoryActions = struct
 				try
 					let value = xs.Xs.read path |> Int64.of_string |> Int64.mul 1024L (* convert from KiB to bytes *) in
 					current_memory_values := IntMap.add domid value !current_memory_values
-				with Xenbus.Xb.Noent ->
+				with Xs_protocol.Enoent _ ->
 					D.info "Couldn't read path %s; forgetting last known value for domain %d" path domid;
 					current_memory_values := IntMap.remove domid !current_memory_values
 		in
