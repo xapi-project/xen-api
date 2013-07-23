@@ -38,7 +38,7 @@ SDK_C_FOLDER=$(SDK_FOLDER)/libxenserver
 C_BIN_FOLDER=$(SDK_C_FOLDER)/bin/
 C_SRC_FOLDER=$(SDK_C_FOLDER)/src/
 
-OCAMLFLAGS += -dtypes
+OCAMLFLAGS += -dtypes -thread
 OCAMLPACKS += getopt str xmlm xml-light2 uuid
 CFLAGS += $(shell xml2-config --cflags) $(shell curl-config --cflags) -W -Wall -Wmissing-prototypes -Werror -std=c99 -g -O2
 
