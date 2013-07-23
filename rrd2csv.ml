@@ -69,7 +69,7 @@ module XAPI = struct
 		let open Xmlrpc_client in
 		let http = xmlrpc ~version:"1.0" "/" in
 		XMLRPC_protocol.rpc ~srcstr:"rrd2csv" ~dststr:"xapi" 
-			~transport:(Unix (Filename.concat Fhs.vardir "xapi")) ~http xml
+			~transport:(Unix (Filename.concat "/var/lib/xcp" "xapi")) ~http xml
 
 	(* execute f within an active session *)
 	let rec retry_with_session f x =
@@ -474,7 +474,7 @@ module Xport = struct
 			Stdout.debug "HTTP Query: %s" qstring;
 			qstring
 		in
-		let transport = (Xmlrpc_client.Unix (Filename.concat Fhs.vardir "xapi")) in
+		let transport = (Xmlrpc_client.Unix (Filename.concat "/var/lib/xcp" "xapi")) in
 		let request_url = gen_query ~host:true session_id in
 		let get_update socket =
 			let http_request = Http.Request.make ~user_agent:"rrd2csv" Http.Get request_url in
