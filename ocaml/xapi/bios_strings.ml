@@ -85,8 +85,9 @@ let get_hp_rombios () =
 	end;
 	if trim (remove_invisible hp_rombios) = "COMPAQ" then "COMPAQ" else ""
 
-let set_host_bios_strings ~__context ~host =
-	info "Setting host BIOS strings.";
+(* Get host bios strings *)
+let get_host_bios_strings ~__context =
+	info "Getting host BIOS strings.";
 	(* named BIOS strings *)
 	let dmidecode_strings = ["bios-vendor"; "bios-version"; "system-manufacturer";
 		"system-product-name"; "system-version"; "system-serial-number"] in
@@ -95,7 +96,4 @@ let set_host_bios_strings ~__context ~host =
 	let oem_strings = get_oem_strings () in
 	(* HP-specific ROMBIOS OEM string *)
 	let hp_rombios = ["hp-rombios", get_hp_rombios ()] in
-	(* combine *)
-	let bios_strings = named_strings @ oem_strings @ hp_rombios in
-	Db.Host.set_bios_strings ~__context ~self:host ~value:bios_strings
-
+	named_strings @ oem_strings @ hp_rombios
