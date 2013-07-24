@@ -60,14 +60,6 @@ Group: System/Hypervisor
 This package contains daemon that defines and controls XCP editions and
 associated features
 
-%package networkd
-Summary: The networking daemon
-Group: System/Hypervisor
-
-%description networkd
-This package contains a daemon that is able to configure network
-interfaces and bridges
-
 %package rrdd
 Summary: The RRD daemon
 Group: System/Hypervisor
@@ -150,9 +142,6 @@ rm -rf $RPM_BUILD_ROOT
 [ ! -x /sbin/chkconfig ] || chkconfig --add xapi-domains
 [ ! -x /sbin/chkconfig ] || chkconfig --add perfmon
 [ ! -x /sbin/chkconfig ] || chkconfig --add genptoken
-
-%post networkd
-[ ! -x /sbin/chkconfig ] || chkconfig --add xcp-networkd
 
 %post rrdd
 [ ! -x /sbin/chkconfig ] || chkconfig --add xcp-rrdd
@@ -327,12 +316,6 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root,-)
 @OPTDIR@/libexec/v6d
 /etc/rc.d/init.d/v6d
-
-%files networkd
-%defattr(-,root,root,-)
-@OPTDIR@/libexec/xcp-networkd
-/etc/rc.d/init.d/xcp-networkd
-@OPTDIR@/libexec/networkd_db
 
 %files rrdd -f rrdd-files
 %defattr(-,root,root,-)
