@@ -1,10 +1,10 @@
-OCAMLPACKS    = oclock xml-light2 cdrom pciutil sexpr log stunnel http-svr xen-utils netdev tapctl rpclib nbd.unix xenstore-compat xenctrl uuid gzip vhdlib sha1
+OCAMLPACKS    = oclock xml-light2 cdrom pciutil sexpr log stunnel http-svr xen-utils netdev tapctl rpclib nbd.unix xenstore-compat xenctrl uuid gzip vhdlib sha1 xcp.network
 OCAML_LIBS    = ../fhs ../util/version ../util/vm_memory_constraints ../util/sanitycheck ../util/stats \
 	../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server ../util/ocamltest
 OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
 	../autogen ../database/ \
 	../xenops ../xva ../util \
-	../auth ../license ../client_records ../rfb ../gpg ../network ../rrdd/interface ..
+	../auth ../license ../client_records ../rfb ../gpg ../rrdd/interface ..
 
 UseCamlp4(rpclib.syntax, features vdi_automaton storage_impl xapi_udhcpd storage_migrate xapi_services system_domains cancel_tests)
 UseCamlp4(rpclib.idl, storage_interface)
@@ -50,8 +50,6 @@ COMMON = \
 	xapi_templates \
 	../idl/api_lowlevel \
 	network \
-	../network/network_interface \
-	../network/network_monitor \
 	nm \
 	xapi_mgmt_iface \
 	smint \
