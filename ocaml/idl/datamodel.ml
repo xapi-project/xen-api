@@ -521,6 +521,8 @@ let _ =
     ~doc:"Moving this PGPU would leave unbacked VGPUs in the GPU group." ();
   error Api_errors.pgpu_not_compatible_with_gpu_group ["type"; "group_types"]
     ~doc:"PGPU type not compatible with destination group." ();
+  error Api_errors.vgpu_type_not_allowed ["type"; "allowed_types"]
+    ~doc:"VGPU type is not one of the GPU group's allowed types." ();
 
   error Api_errors.openvswitch_not_active []
     ~doc:"This operation needs the OpenVSwitch networking backend to be enabled on all hosts in the pool." ();
