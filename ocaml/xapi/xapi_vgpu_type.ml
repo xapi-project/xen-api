@@ -20,11 +20,12 @@ open Stringext
 exception Parse_error of exn
 
 let nvidia_conf_dir = "/usr/share/nvidia/vgx"
-let nvidia_vendor_id = "10ed"
+let nvidia_vendor_id = 0x10deL
 
 type vgpu_conf = {
-	pdev_id : string;
-	vdev_id : string;
+	pdev_id : int64;
+	vdev_id : int64;
+	vsubdev_id : int64;
 	framebufferlength : int64;
 }
 
@@ -77,11 +78,13 @@ let of_conf_file file_path =
 				| k :: [v] -> (k, v)
 				| _ -> ("", "")
 			) args in
-		let pdev_id = List.assoc "plugin0.pdev_id" args in
-		let vdev_id = List.assoc "plugin0.vdev_id" args in
-		let framebufferlength = Int64.of_string
-			(List.assoc "plugin0.framebufferlength" args) in
-		{pdev_id; vdev_id; framebufferlength}
+		Scanf.sscanf (List.assoc "plugin0.pdev_id" args) "\"0x%Lx\"" (fun pdev_id ->
+			(* NVIDIA key is "device_id:subdevice_id", N.B. not subvendor id *)
+			Scanf.sscanf (List.assoc "plugin0.vdev_id" args) "\"0x%Lx:0x%Lx\""
+				(fun vdev_id vsubdev_id ->
+					let framebufferlength = Int64.of_string
+						(List.assoc "plugin0.framebufferlength" args) in
+					{pdev_id; vdev_id; vsubdev_id; framebufferlength}))
 	with e ->
 		raise (Parse_error e)
 
@@ -97,6 +100,8 @@ let read_config_dir conf_dir =
 				read_configs ac tl
 	in
 	let conf_files = Array.to_list (Sys.readdir conf_dir) in
+	debug "Reading NVIDIA vGPU config files %s/{%s}"
+		conf_dir (String.concat ", " conf_files);
 	read_configs []
 		(List.map (fun conf -> String.concat "/" [conf_dir; conf]) conf_files)
 
@@ -107,30 +112,37 @@ let relevant_vgpu_types pci_dev_ids =
 			(fun c -> List.mem c.pdev_id pci_dev_ids)
 			vgpu_confs
 	in
+	debug "Relevant confs = [ %s ]" (String.concat "; " (List.map (fun c ->
+		Printf.sprintf "{pdev_id:%04Lx; vdev_id:%04Lx; vsubdev_id:%04Lx; framebufferlength:0x%Lx}"
+		c.pdev_id c.vdev_id c.vsubdev_id c.framebufferlength) relevant_vgpu_confs));
 	let rec build_vgpu_types pci_db ac = function
 		| [] -> ac
 		| conf::tl ->
-			(* NVIDIA key is "device_id:subdevice_id", N.B. not subvendor id *)
-			let key = String.filter_chars conf.vdev_id ((<>) '"') in
-			begin match String.split ':' key ~limit:2 with
-			| [dev_id; subdev_id] ->
-				let model_name = List.hd
-					(Pci_db.get_subdevice_names_by_id pci_db nvidia_vendor_id
-						dev_id subdev_id)
-				and framebuffer_size = conf.framebufferlength in
-				let vgpu_type = {model_name; framebuffer_size} in
-				build_vgpu_types pci_db (vgpu_type :: ac) tl
-			| _ -> failwith "Malformed vdev_id in NVIDIA config"
-			end
+			debug "Pci_db lookup: get_sub_device_names vendor=%04Lx device=%04Lx subdev=%04Lx"
+				nvidia_vendor_id conf.vdev_id conf.vsubdev_id;
+			let model_name = List.hd
+				(Pci_db.get_subdevice_names_by_id pci_db nvidia_vendor_id
+					conf.vdev_id conf.vsubdev_id)
+			and framebuffer_size = conf.framebufferlength in
+			let vgpu_type = {model_name; framebuffer_size} in
+			build_vgpu_types pci_db (vgpu_type :: ac) tl
 	in
 	let pci_db = Pci_db.of_file Pci_db.pci_ids_path in
 	build_vgpu_types pci_db [] relevant_vgpu_confs
 
 let find_or_create_supported_types ~__context gpu_group =
-	let gpu_types = Db.GPU_group.get_GPU_types ~__context ~self:gpu_group in
-	let gpu_dev_ids = List.map (fun s -> String.sub s 0 4) gpu_types in
-	let relevant_vgpu_types = relevant_vgpu_types gpu_dev_ids in
+	let pgpus = Db.GPU_group.get_PGPUs ~__context ~self:gpu_group in
+	let pcis = List.map (fun self -> Db.PGPU.get_PCI ~__context ~self) pgpus in
+	(* let pci_recs = List.map (fun self -> Db.PCI.get_record_internal ~__context ~self) pcis in *)
+	(* let dev_ids = List.map (fun p -> p.Db_actions.pCI_device_id) pci_recs in *)
+	let dev_ids = List.map (fun self -> Xapi_pci.int_of_id (Db.PCI.get_device_id ~__context ~self)) pcis in
+	debug "dev_ids = [ %s ]" (String.concat "; " (List.map (Printf.sprintf
+	"%04Lx") dev_ids));
+	let relevant_types = relevant_vgpu_types dev_ids in
+	debug "Relevant vGPU configurations for group = [ %s ]"
+		(String.concat "; "
+			(List.map (fun vt -> vt.model_name) relevant_types));
 	let vgpu_types = List.map
-		(fun v -> find_or_create ~__context v gpu_group) relevant_vgpu_types in
+		(fun v -> find_or_create ~__context v gpu_group) relevant_types in
 	let entire_gpu_type = find_or_create ~__context entire_gpu gpu_group in
 	entire_gpu_type :: vgpu_types

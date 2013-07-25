@@ -31,9 +31,9 @@ let update_gpus ~__context ~host =
 		| None -> []
 	in
 	let existing_pgpus = List.filter (fun (rf, rc) -> rc.API.pGPU_host = host) (Db.PGPU.get_all_records ~__context) in
-	let class_id = Xapi_pci.find_class_id Xapi_pci.Display_controller in
+	let class_id = Xapi_pci.lookup_class_id Xapi_pci.Display_controller in
 	let pcis = List.filter (fun self ->
-		Db.PCI.get_class_id ~__context ~self = class_id &&
+		Xapi_pci.int_of_id (Db.PCI.get_class_id ~__context ~self) = class_id &&
 		Db.PCI.get_host ~__context ~self = host) (Db.PCI.get_all ~__context)
 	in
 	let rec find_or_create cur = function
@@ -49,7 +49,8 @@ let update_gpus ~__context ~host =
 					with Not_found ->
 						let self = create ~__context ~pCI:pci ~gPU_group:(Ref.null) ~host ~other_config:[] in
 						let group = Xapi_gpu_group.find_or_create ~__context self in
-						Db.PGPU.set_GPU_group ~__context ~self ~value:group;
+						Helpers.call_api_functions ~__context (fun rpc session_id ->
+							Client.Client.PGPU.set_GPU_group rpc session_id self group);
 						self, Db.PGPU.get_record ~__context ~self
 				in
 				find_or_create (pgpu :: cur) remaining_pcis
@@ -61,6 +62,8 @@ let update_gpus ~__context ~host =
 
 let gpu_group_m = Mutex.create ()
 let set_GPU_group ~__context ~self ~value =
+	debug "Move PGPU %s -> GPU group %s" (Db.PGPU.get_uuid ~__context ~self)
+		(Db.GPU_group.get_uuid ~__context ~self:value);
 	Mutex.execute gpu_group_m (fun () ->
 		let pci = Db.PGPU.get_PCI ~__context ~self in
 
@@ -85,13 +88,22 @@ let set_GPU_group ~__context ~self ~value =
 			| [] -> true, [gpu_type]
 			| _ -> List.mem gpu_type group_types, group_types in
 
-		let gpu_type = Xapi_pci.get_device_id ~__context ~self:pci
+		let gpu_type = Xapi_pci.string_of_pci ~__context ~self:pci
 		and group_types = Db.GPU_group.get_GPU_types ~__context ~self:value in
 		match check_compatibility gpu_type group_types with
 		| true, new_types ->
 			Db.PGPU.set_GPU_group ~__context ~self ~value;
 			(* Group inherits the device type *)
-			Db.GPU_group.set_GPU_types ~__context ~self:value ~value:new_types
+			Xapi_gpu_group.set_GPU_types ~__context ~self:value ~value:new_types;
+			let vgpu_types = Db.GPU_group.get_supported_VGPU_types
+				~__context ~self:value in
+			debug "PGPU %s moved to GPU group %s. Group GPU types = [ %s ]; Supported vGPU types = [ %s ]."
+				(Db.PGPU.get_uuid ~__context ~self)
+				(Db.GPU_group.get_uuid ~__context ~self:value)
+				(String.concat "; " new_types)
+				(String.concat "; " (List.map
+					(fun self -> Db.VGPU_type.get_model_name ~__context ~self)
+					vgpu_types))
 		| false, _ ->
 			raise (Api_errors.Server_error
 				(Api_errors.pgpu_not_compatible_with_gpu_group,

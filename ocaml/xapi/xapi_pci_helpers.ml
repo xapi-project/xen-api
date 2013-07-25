@@ -17,11 +17,11 @@ open Opt
 
 type pci = {
 	id: string;
-	vendor_id: string;
+	vendor_id: int64;
 	vendor_name: string;
-	device_id: string;
+	device_id: int64;
 	device_name: string;
-	class_id: string;
+	class_id: int64;
 	class_name: string;
 	related: string list;
 }
@@ -29,19 +29,18 @@ type pci = {
 let parse_lspci_line pci_db line =
 	let fields = String.split ' ' line in
 	let fields = List.filter (fun s -> not (String.startswith "-" s)) fields in
-	match fields with
-	| "" :: _ -> failwith "Empty record"
-	| [id; class_subclass; vendor_id; device_id; subvendor_id; subdevice_id] ->
-		let class_id = String.sub class_subclass 0 2 in
-		let open Pci_db in
-		let vendor_name = (Pci_db.get_vendor pci_db vendor_id).v_name in
-		let device_name = (Pci_db.get_device pci_db vendor_id device_id).d_name in
-		let class_name = (Pci_db.get_class pci_db class_id).c_name in
-		(* we'll fill in the related field when we've finished parsing *)
-		let related = [] in
-		{id; vendor_id; vendor_name; device_id; device_name;
-			class_id; class_name; related}
-	| _ -> failwith "Malformed record"
+	Scanf.sscanf (String.concat " " fields) "%s %s %Lx %Lx %Lx %Lx"
+		(fun id class_subclass vendor_id device_id subvendor_id subdevice_id ->
+			let int_of_hex_str = fun s -> Scanf.sscanf s "%Lx" (fun x -> x) in
+			let class_id = int_of_hex_str (String.sub class_subclass 0 2) in
+			let open Pci_db in
+			let vendor_name = (Pci_db.get_vendor pci_db vendor_id).v_name in
+			let device_name = (Pci_db.get_device pci_db vendor_id device_id).d_name in
+			let class_name = (Pci_db.get_class pci_db class_id).c_name in
+			(* we'll fill in the related field when we've finished parsing *)
+			let related = [] in
+			{id; vendor_id; vendor_name; device_id; device_name; class_id;
+				class_name; related})
 
 let find_related_ids pci other_pcis =
 	let slot id = String.sub id 0 (String.index id '.') in

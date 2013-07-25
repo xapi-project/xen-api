@@ -40,10 +40,24 @@ let destroy ~__context ~self =
 
 	Db.GPU_group.destroy ~__context ~self
 
+let set_GPU_types ~__context ~self ~value =
+	(* Wrap this database action so we can update the supported_VGPU_types *)
+	debug "GPU group %s: GPU_types <- [ %s ]"
+		(Db.GPU_group.get_uuid ~__context ~self) (String.concat "; " value);
+	Db.GPU_group.set_GPU_types ~__context ~self ~value;
+	let vgpu_types = Xapi_vgpu_type.find_or_create_supported_types
+		~__context self in
+	debug "GPU group %s: supported_VGPU_types <- [ %s ]"
+		(Db.GPU_group.get_uuid ~__context ~self)
+		(String.concat "; " (List.map
+			(fun self -> Db.VGPU_type.get_model_name ~__context ~self) vgpu_types));
+	Db.GPU_group.set_supported_VGPU_types ~__context ~self
+		~value:vgpu_types
+
 let find_or_create ~__context pgpu =
 	let pci = Db.PGPU.get_PCI ~__context ~self:pgpu in
 	let pci_rec = Db.PCI.get_record_internal ~__context ~self:pci in
-	let gpu_type = Xapi_pci.get_device_id ~__context ~self:pci in
+	let gpu_type = Xapi_pci.string_of_pci ~__context ~self:pci in
 	try
 		List.find (fun rf->
 			let rc = Db.GPU_group.get_record_internal ~__context ~self:rf in
@@ -53,11 +67,7 @@ let find_or_create ~__context pgpu =
 	with Not_found ->
 		let name_label = "Group of " ^ pci_rec.Db_actions.pCI_vendor_name ^ " " ^ pci_rec.Db_actions.pCI_device_name ^ " GPUs" in
 		let group = create ~__context ~name_label ~name_description:"" ~other_config:[] in
-		Db.GPU_group.set_GPU_types ~__context ~self:group ~value:[gpu_type];
-		let vgpu_types = Xapi_vgpu_type.find_or_create_supported_types
-			~__context group in
-		Db.GPU_group.set_supported_VGPU_types ~__context ~self:group
-			~value:vgpu_types;
+		set_GPU_types ~__context ~self:group ~value:[gpu_type];
 		group
 
 let get_allowed_VGPU_types ~__context ~self =

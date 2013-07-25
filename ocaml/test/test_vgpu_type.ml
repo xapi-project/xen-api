@@ -20,8 +20,8 @@ let skip = true
 let k100_path = "/usr/share/nvidia/vgx/grid_k100.conf"
 
 let print_vgpu_conf conf =
-	Printf.printf "%s %s %Ld\n"
-		conf.pdev_id conf.vdev_id conf.framebufferlength
+	Printf.printf "%04Lx %04Lx %04Lx %Ld\n"
+		conf.pdev_id conf.vdev_id conf.vsubdev_id conf.framebufferlength
 
 let test_of_conf_file path () =
 	skip_if skip "Generates print...";
