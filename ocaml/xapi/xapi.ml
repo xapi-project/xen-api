@@ -939,7 +939,7 @@ let server_init() =
 	let ip = wait_for_management_ip_address ~__context in
 	debug "Management interface got IP address: %s; attempting to re-plug any unplugged PBDs" ip;
 	Helpers.call_api_functions ~__context (fun rpc session_id -> 
-	       Create_storage.plug_unplugged_pbds __context rpc session_id)
+	       Create_storage.plug_unplugged_pbds __context)
       )
       in
 
