@@ -74,6 +74,7 @@ struct flags {
     int tsc_mode;
     size_t kernel_max_size;
     size_t ramdisk_max_size;
+    int nestedhvm;
 };
 
 static int pasprintf(char **buf, const char *fmt, ...)
@@ -268,6 +269,7 @@ get_flags(struct flags *f, int domid)
     f->acpi_s3  = xenstore_get(domid, "platform/acpi_s3");
     f->mmio_size_mib = xenstore_get(domid, "platform/mmio_size_mib");
     f->tsc_mode = xenstore_get(domid, "platform/tsc_mode");
+    f->nestedhvm = xenstore_get(domid, "platform/nestedhvm");
 
     xenstore_get_host_limits(&host_pv_kernel_max_size, &host_pv_ramdisk_max_size);
     vm_pv_kernel_max_size = xenstore_get(domid, "pv-kernel-max-size");
@@ -277,8 +279,8 @@ get_flags(struct flags *f, int domid)
     f->ramdisk_max_size = vm_pv_ramdisk_max_size ? vm_pv_ramdisk_max_size : host_pv_ramdisk_max_size;
 
     printf("Determined the following parameters from xenstore:");
-    printf("vcpu/number:%d vcpu/weight:%d vcpu/cap:%d nx: %d viridian: %d apic: %d acpi: %d pae: %d acpi_s4: %d acpi_s3: %d mmio_size_mib: %lld tsc_mode %d",
-           f->vcpus,f->vcpu_weight,f->vcpu_cap,f->nx,f->viridian,f->apic,f->acpi,f->pae,f->acpi_s4,f->acpi_s3,f->mmio_size_mib,f->tsc_mode);
+    printf("vcpu/number:%d vcpu/weight:%d vcpu/cap:%d nx: %d viridian: %d apic: %d acpi: %d pae: %d acpi_s4: %d acpi_s3: %d mmio_size_mib: %lld tsc_mode: %d nestedhvm: %d",
+           f->vcpus,f->vcpu_weight,f->vcpu_cap,f->nx,f->viridian,f->apic,f->acpi,f->pae,f->acpi_s4,f->acpi_s3,f->mmio_size_mib,f->tsc_mode,f->nestedhvm);
     for (n = 0; n < f->vcpus; n++){
         printf("vcpu/%d/affinity:%s", n, (f->vcpu_affinity[n])?f->vcpu_affinity[n]:"unset");
     }
@@ -525,6 +527,7 @@ static int hvm_build_set_params(xc_interface *xch, int domid,
     xc_get_hvm_param(xch, domid, HVM_PARAM_CONSOLE_PFN, console_mfn);
     xc_set_hvm_param(xch, domid, HVM_PARAM_CONSOLE_EVTCHN, console_evtchn);
 #endif
+    xc_set_hvm_param(xch, domid, HVM_PARAM_NESTEDHVM, f.nestedhvm);
     return 0;
 }
 
