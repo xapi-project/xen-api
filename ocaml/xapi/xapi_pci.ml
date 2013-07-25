@@ -19,18 +19,25 @@ open Stringext
 
 type managed_class = Display_controller | Network_controller
 
-let find_class_id = function
-	| Display_controller -> "03"
-	| Network_controller -> "02"
+let lookup_class_id = function
+	| Display_controller -> 03L
+	| Network_controller -> 02L
 
 let managed_classes = [Display_controller]
 
 let get_pcis_by_class pcis cls =
-	List.filter (fun pci -> pci.Xapi_pci_helpers.class_id = find_class_id cls) pcis
+	List.filter (fun pci -> pci.Xapi_pci_helpers.class_id = lookup_class_id cls) pcis
 
-let get_device_id ~__context ~self =
+let string_of_pci ~__context ~self =
 	let pci = Db.PCI.get_record_internal ~__context ~self in
-	pci.Db_actions.pCI_vendor_id ^ "/" ^ pci.Db_actions.pCI_device_id
+	String.concat "/" [pci.Db_actions.pCI_vendor_id; pci.Db_actions.pCI_device_id]
+
+(* We use ints within code but schema uses hex strings _without_ leading '0x' *)
+let int_of_id string_id =
+	let int_of_hex_str = fun s -> Scanf.sscanf s "%Lx" (fun x -> x) in
+	int_of_hex_str string_id
+let id_of_int hex_id =
+	Printf.sprintf "%04Lx" hex_id
 
 let create ~__context ~class_id ~class_name ~vendor_id ~vendor_name ~device_id
 		~device_name ~host ~pci_id ~functions ~dependencies ~other_config =
@@ -61,18 +68,22 @@ let update_pcis ~__context ~host =
 				try
 					let (rf, rc) = List.find (fun (rf, rc) ->
 						rc.Db_actions.pCI_pci_id = pci.id &&
-						rc.Db_actions.pCI_vendor_id = pci.vendor_id &&
-						rc.Db_actions.pCI_device_id = pci.device_id)
+						rc.Db_actions.pCI_vendor_id = id_of_int pci.vendor_id &&
+						rc.Db_actions.pCI_device_id = id_of_int pci.device_id)
 						existing in
 					let attached_VMs = List.filter (Db.is_valid_ref __context) rc.Db_actions.pCI_attached_VMs in
 					if attached_VMs <> rc.Db_actions.pCI_attached_VMs then
 						Db.PCI.set_attached_VMs ~__context ~self:rf ~value:attached_VMs;
 					rf, rc
 				with Not_found ->
-					let self = create ~__context ~class_id:pci.class_id ~class_name:pci.class_name
-						~vendor_id:pci.vendor_id ~vendor_name:pci.vendor_name ~device_id:pci.device_id
-						~device_name:pci.device_name ~host ~pci_id:pci.id ~functions:1L
-						~dependencies:[] ~other_config:[] in
+					let self = create ~__context
+						~class_id:(id_of_int pci.class_id)
+						~class_name:pci.class_name
+						~vendor_id:(id_of_int pci.vendor_id)
+						~vendor_name:pci.vendor_name
+						~device_id:(id_of_int pci.device_id)
+						~device_name:pci.device_name ~host ~pci_id:pci.id
+						~functions:1L ~dependencies:[] ~other_config:[] in
 					self, Db.PCI.get_record_internal ~__context ~self
 			in
 			update_or_create ((obj, pci) :: cur) remaining_pcis

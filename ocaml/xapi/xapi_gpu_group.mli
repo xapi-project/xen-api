@@ -32,3 +32,6 @@ val find_or_create :
 
 val get_allowed_VGPU_types :
 	__context:Context.t -> self:[ `GPU_group ] Ref.t -> [ `VGPU_type ] Ref.t list
+
+val set_GPU_types :
+	__context:Context.t -> self:[ `GPU_group ] Ref.t -> value:string list -> unit

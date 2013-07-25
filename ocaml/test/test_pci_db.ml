@@ -17,6 +17,16 @@ open OUnit
 (* This test generates a lot of print --- set skip to false to enable *)
 let skip = true
 
+let test_lookup () =
+	skip_if skip "Skipping";
+	let db = Pci_db.of_file "/usr/share/hwdata/pci.ids" in
+	try
+		let subdevices = Pci_db.get_subdevice_names_by_id db 0x10deL 0x11b0L 0x101bL in
+		assert (List.length subdevices > 0);
+		List.iter print_string subdevices
+	with Not_found ->
+		failwith "Lookup failed"
+
 let print_pci_db () =
 	skip_if skip "Generates lots of text...";
 	try
@@ -28,4 +38,5 @@ let print_pci_db () =
 
 let test =
 	"test_pci_db" >:::
-		["print_pci_db" >:: print_pci_db;]
+		["print_pci_db" >:: print_pci_db;
+		 "test_lookup"  >:: test_lookup;]
