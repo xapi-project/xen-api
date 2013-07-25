@@ -26,12 +26,12 @@ let print_host_pcis () =
 		let pcis = get_host_pcis db in
 		List.iter
 			(fun p ->
-					List.iter
-						(fun s -> print_string (s ^ " "))
-						[p.id; p.vendor_id; p.vendor_name; p.device_id;
-						 p.device_name; p.class_id; p.class_name];
-					List.iter (fun s -> print_string (s ^ ", ")) p.related;
-					print_newline ())
+				let x_to_str = Printf.sprintf "%04Lx" in
+				Printf.printf "%s " (String.concat " "
+					[p.id; x_to_str p.vendor_id; p.vendor_name; x_to_str p.device_id;
+						p.device_name; x_to_str p.class_id; p.class_name]);
+				List.iter (fun s -> print_string (s ^ ", ")) p.related;
+				print_newline ())
 			pcis
 	with e ->
 		print_string (Printexc.to_string e);
