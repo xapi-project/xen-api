@@ -106,7 +106,7 @@ let read_config_dir conf_dir =
 		(List.map (fun conf -> String.concat "/" [conf_dir; conf]) conf_files)
 
 let relevant_vgpu_types pci_dev_ids =
-	let vgpu_confs = read_config_dir nvidia_conf_dir in
+	let vgpu_confs = try read_config_dir nvidia_conf_dir with _ -> [] in
 	let relevant_vgpu_confs =
 		List.filter
 			(fun c -> List.mem c.pdev_id pci_dev_ids)
