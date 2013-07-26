@@ -449,7 +449,9 @@ let restart_auto_run_vms ~__context live_set n =
 					let hostname = Db.Host.get_hostname ~__context ~self:h in
 					debug "Setting host %s to dead" hostname;
 					(* Sample this before calling any hook scripts *)
-					let resident_on_vms = Db.Host.get_resident_VMs ~__context ~self:h in
+					let resident_on_vms = List.filter
+						(fun vm -> not (Db.VM.get_is_control_domain ~__context ~self:vm)) 
+						(Db.Host.get_resident_VMs ~__context ~self:h) in
 					reset_vms := resident_on_vms @ !reset_vms;
 					debug "Setting all VMs running or paused on %s to Halted" hostname;
 					(* ensure all vms resident_on this host running or paused have their powerstates reset *)
