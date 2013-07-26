@@ -261,6 +261,8 @@ XAPI_MODULES = $(COMMON) \
 	pool_features \
 	../license/license_init \
 	xapi_pci \
+	pci_db \
+	xapi_pci_helpers \
 	xapi_pgpu \
 	xapi_gpu_group \
 	xapi_vgpu \
