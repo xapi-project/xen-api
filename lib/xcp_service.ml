@@ -304,7 +304,7 @@ let ign_int (t:int)         = ignore t
 let ign_string (t:string)   = ignore t
 
 let default_raw_fn rpc_fn s =
-	http_handler Jsonrpc.call_of_string Jsonrpc.string_of_response rpc_fn s
+	http_handler Xmlrpc.call_of_string Xmlrpc.string_of_response rpc_fn s
 
 let accept_forever sock f =
 	ign_thread (Thread.create (fun () ->
