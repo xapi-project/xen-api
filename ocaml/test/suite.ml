@@ -24,6 +24,9 @@ let base_suite =
 			Test_pool_license.test;
 			Test_platformdata.test;
 			Test_sm_features.test;
+			Test_pci_db.test;
+			Test_pci_helpers.test;
+			Test_vgpu_type.test;
 		]
 
 let _ = run_test_tt_main base_suite

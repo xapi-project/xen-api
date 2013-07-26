@@ -1295,8 +1295,8 @@ let update_pci ~__context id =
 
 					(* Assumption: a VM can have only one vGPU *)
 					let gpu =
-						let gpu_class_id = Xapi_pci.find_class_id (Xapi_pci.Display_controller) in
-						if Db.PCI.get_class_id ~__context ~self:pci = gpu_class_id
+						let gpu_class_id = Xapi_pci.lookup_class_id (Xapi_pci.Display_controller) in
+						if Xapi_pci.int_of_id (Db.PCI.get_class_id ~__context ~self:pci) = gpu_class_id
 						then
 							match Db.VM.get_VGPUs ~__context ~self:vm with
 								| x :: _ -> Some x

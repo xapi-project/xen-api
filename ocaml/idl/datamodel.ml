@@ -521,6 +521,8 @@ let _ =
     ~doc:"Moving this PGPU would leave unbacked VGPUs in the GPU group." ();
   error Api_errors.pgpu_not_compatible_with_gpu_group ["type"; "group_types"]
     ~doc:"PGPU type not compatible with destination group." ();
+  error Api_errors.vgpu_type_not_allowed ["type"; "allowed_types"]
+    ~doc:"VGPU type is not one of the GPU group's allowed types." ();
 
   error Api_errors.openvswitch_not_active []
     ~doc:"This operation needs the OpenVSwitch networking backend to be enabled on all hosts in the pool." ();
@@ -7772,6 +7774,7 @@ let vgpu_type =
 			uid _vgpu_type ~lifecycle:[Published, rel_vgpu, ""];
 			field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_vgpu, ""] ~default_value:(Some (VString "")) "model_name" "Model name associated with the VGPU type";
 			field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu, ""] ~default_value:(Some (VInt 0L)) "framebuffer_size" "Framebuffer size of the VGPU type, in bytes";
+			field ~qualifier:StaticRO ~ty:(Set (Ref _gpu_group)) ~default_value:(Some (VSet []))~lifecycle:[Published, rel_vgpu, ""] "GPU_groups" "List of GPU groups that support this VGPU type" ~ignore_foreign_key:true;
 		]
 	()
 
@@ -7895,6 +7898,7 @@ let all_relations =
     (_pgpu, "GPU_group"), (_gpu_group, "PGPUs");
     (_vgpu, "GPU_group"), (_gpu_group, "VGPUs");
     (_vgpu, "VM"), (_vm, "VGPUs");
+    (_vgpu_type, "GPU_groups"), (_gpu_group, "supported_VGPU_types");
     (_pci, "host"), (_host, "PCIs");
     (_pgpu, "host"), (_host, "PGPUs");
     (_pci, "attached_VMs"), (_vm, "attached_PCIs");
