@@ -65,13 +65,15 @@ let set_GPU_group ~__context ~self ~value =
 
 		(* Precondition: Moving PGPU from current group can't orphan VGPU *)
 		let src_g = Db.PGPU.get_GPU_group ~__context ~self in
-		let pgpu_is_singleton =
-			(List.length (Db.GPU_group.get_PGPUs ~__context ~self:src_g) = 1)
-		and pgpu_has_vgpus =
-			((Db.GPU_group.get_VGPUs ~__context ~self:src_g) <> []) in
-		if (pgpu_is_singleton && pgpu_has_vgpus) then
-			raise (Api_errors.Server_error
-				(Api_errors.pgpu_required_by_gpu_group, [Ref.string_of src_g]));
+		if Db.is_valid_ref __context src_g then begin
+			let pgpu_is_singleton =
+				(List.length (Db.GPU_group.get_PGPUs ~__context ~self:src_g) = 1)
+			and pgpu_has_vgpus =
+				((Db.GPU_group.get_VGPUs ~__context ~self:src_g) <> []) in
+			if (pgpu_is_singleton && pgpu_has_vgpus) then
+				raise (Api_errors.Server_error
+					(Api_errors.pgpu_required_by_gpu_group, [Ref.string_of src_g]))
+		end;
 
 		let check_compatibility gpu_type group_types =
 			match group_types with
