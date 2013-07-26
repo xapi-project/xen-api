@@ -468,7 +468,7 @@ using XenAPI;
 
 namespace Citrix.XenServer.Commands
 {
-    [Cmdlet(VerbsCommon.New, \"Xen%s\", SupportsShouldProcess = true)]
+    [Cmdlet(VerbsCommon.New, \"Xen%s\", DefaultParameterSetName = \"Hashtable\", SupportsShouldProcess = true)]
     [OutputType(typeof(%s))]%s
     [OutputType(typeof(void))]
     public class NewXen%sCommand : XenServerCmdlet
