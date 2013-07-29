@@ -19,7 +19,7 @@ module Client = Xenops_interface.Client(struct
 	let rpc call =
 		if !use_switch
 		then json_switch_rpc !queue_name call
-		else json_binary_rpc ~srcstr:"xapi" ~dststr:"xenops" json_url call
+		else xml_http_rpc ~srcstr:"xapi" ~dststr:"xenops" default_uri call
 end)
 
 let query dbg url =
