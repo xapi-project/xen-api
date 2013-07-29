@@ -32,7 +32,7 @@ USE_OCAMLFIND = true
 
 SUPPORT_CS = csharp/src/*.cs
 
-POWERSHELL_TMP=$(BINDINGS_TMP)/XenServerPSSnapIn
+POWERSHELL_TMP=$(BINDINGS_TMP)/XenServerPowerShell
 POWERSHELL_GEN=$(BINDINGS_TMP)/powershell_autogen
 CSHARP_GEN=$(BINDINGS_TMP)/csharp_gen
 CSHARP_SRC_TMP=$(BINDINGS_TMP)/XenServer.NET-src/XenServer.NET

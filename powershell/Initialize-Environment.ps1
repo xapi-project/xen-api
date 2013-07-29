@@ -29,11 +29,10 @@
 #
 
 #
-# Don't customize this script -- your changes will be lost on upgrade.
+# Please do not customize this script; your changes will be lost on upgrade.
 #
-# Instead, create and customize XenServerProfile.ps1.
-# Put it in the same folder as this script for system-wide configuration, or
-# %AppData%\Citrix\XenServerPSSnapIn for per-user configuration.
+# Instead, create and customize the file XenServerProfile.ps1.
+# Put it in $env:windir\system32\WindowsPowerShell\v1.0 for system-wide# configuration, or $env:UserProfile\Documents\WindowsPowerShell# for per-user configuration.
 #
 
 if (Get-Variable XenServer_Environment_Initialized -ValueOnly -ErrorAction SilentlyContinue)
@@ -41,25 +40,20 @@ if (Get-Variable XenServer_Environment_Initialized -ValueOnly -ErrorAction Silen
     return
 }
 
-$XenServer_thisdir = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
-$XenServer_appdata = [Environment]::GetFolderPath("ApplicationData") + "\Citrix\XenServerPSSnapIn"
+$systemWidePath = "$env:windir\system32\WindowsPowerShell\v1.0"
+$perUserPath = "$env:UserProfile\Documents\WindowsPowerShell"
 
-Update-TypeData "$XenServer_thisdir\XenServer.types.ps1xml"
-Update-FormatData "$XenServer_thisdir\XenServer.format.ps1xml"
-
-cd $Home
-
-if (Test-Path "$XenServer_thisdir\XenServerProfile.ps1")
+if (Test-Path "$systemWidePath\XenServerProfile.ps1")
 {
-    . "$XenServer_thisdir\XenServerProfile.ps1"
+    . "$systemWidePath\XenServerProfile.ps1"
 }
 
-if (Test-Path "$XenServer_appdata\XenServerProfile.ps1")
+if (Test-Path "$perUserPath\XenServerProfile.ps1")
 {
-    . "$XenServer_appdata\XenServerProfile.ps1"
+    . "$perUserPath\XenServerProfile.ps1"
 }
 
-Remove-Item variable:XenServer_thisdir
-Remove-Item variable:XenServer_appdata
+Remove-Item variable:systemWidePath
+Remove-Item variable:perUserPath
 
 $XenServer_Environment_Initialized = $true

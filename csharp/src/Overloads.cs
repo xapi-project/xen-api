@@ -45,6 +45,10 @@ namespace XenAPI
         Response<string>
         session_login_with_password(string _uname, string _pwd, string _version);
 
+        [XmlRpcMethod("host.apply_edition")]
+        Response<string>
+        host_apply_edition(string session, string _host, string _edition);
+
         #endregion
 
         #region pre-6.1 compatibility
@@ -215,6 +219,17 @@ namespace XenAPI
                 System.Diagnostics.Debug.Assert(false, "Cannot use this call on XenServer 6.1 or newer.");
 
             return XenRef<Task>.Create(session.proxy.async_host_create_new_blob(session.uuid, (_host != null) ? _host : "", (_name != null) ? _name : "", (_mime_type != null) ? _mime_type : "").parse());
+        }
+		
+        /// <summary>
+        /// Backward compatibility for Host.apply_edition in XenServer 6.1.
+        /// </summary>
+        public static void apply_edition(Session session, string _host, string _edition)
+        {
+            if (Helper.APIVersionMeets(session, API_Version.API_2_0))
+                System.Diagnostics.Debug.Assert(false, "Cannot use this call on XenServer 6.2 or newer.");
+				
+            session.proxy.host_apply_edition(session.uuid, (_host != null) ? _host : "", (_edition != null) ? _edition : "").parse();
         }
     }
 

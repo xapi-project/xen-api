@@ -41,8 +41,6 @@ REPONAME=xen-api-sdk
 REPO=$(call git_loc,$(REPONAME))
 BINDINGS_TMP=$(MY_OBJ_DIR)/tmp
 PS_TAR_TMP=$(BINDINGS_TMP)/powershell_tar
-INSTALLER_TMP=$(BINDINGS_TMP)/installer_tar
-WIX_TMP=$(BINDINGS_TMP)/wix_src
 AUTOMATION_DLL_V2=$(CARBON_DISTFILES)/powershell-v2/System.Management.Automation.dll
 CSHARP_SRC_TMP=$(BINDINGS_TMP)/XenServer.NET-src/XenServer.NET
 CSHARP_BIN_TMP=$(BINDINGS_TMP)/XenServer.NET-bin/XenServer.NET
@@ -51,12 +49,7 @@ CSHARP_XMLRPC_TMP=$(BINDINGS_TMP)/csharp_xmlrpc
 XMLRPC_DLL=CookComputing.XmlRpcV2.dll
 XMLRPCLICENSE = $(CARBON_DISTFILES)/csharp/XML-RPC.NET/LICENSE
 
-INSTALLER_DEFAULT_GUID=3285AFCC-B1FA-4D78-8F94-AF1F4C2C8027
-INSTALLER_DEFAULT_VERSION=1\.0\.0
-
 PRODUCT_GUID := $(shell uuidgen | tr a-z A-Z)
-
-PATCHES=$(REPO)/mk/patches
 
 OMAKE=DATAMODEL_DIR=$(PROJECT_OUTPUTDIR)/api/datamodel omake
 
@@ -75,7 +68,7 @@ SDK_ZIP=XenServer-SDK-$(PRODUCT_VERSION).zip
 SDK_ZIP_LN=XenServer-SDK.zip
 SDK_FOLDER=$(MY_OUTPUT_DIR)/XenServer-SDK
 SDK_NET_FOLDER=$(SDK_FOLDER)/XenServer.NET
-SDK_PS_FOLDER=$(SDK_FOLDER)/XenServerPSSnapIn
+SDK_PS_FOLDER=$(SDK_FOLDER)/XenServerPowerShell
 SDK_PY_FOLDER=$(SDK_FOLDER)/XenServerPython
 SDK_PY_FOLDER_SAMPLES=$(SDK_PY_FOLDER)/samples
 
@@ -99,10 +92,9 @@ $(MY_OBJ_DIR)/$(XMLRPC_DLL):
 $(MY_OBJ_DIR)/csharp_xmlrpc.tar.gz: $(REPO)/mk/sign.bat omake-phase $(MY_OBJ_DIR)/$(XMLRPC_DLL)
 	mkdir -p $(CSHARP_XMLRPC_TMP)
 	cp -r $(CSHARP_SRC_TMP) $(CSHARP_XMLRPC_TMP)
-	sed -i '/SignAssembly/ i <AssemblyOriginatorKeyFile>XenServer.NET.snk</AssemblyOriginatorKeyFile>' $(CSHARP_XMLRPC_TMP)/XenServer.NET/XenServer.csproj
+	sed -i '/SignAssembly/ i <AssemblyOriginatorKeyFile>xs.net.snk</AssemblyOriginatorKeyFile>' $(CSHARP_XMLRPC_TMP)/XenServer.NET/XenServer.csproj
 	cp $< $(CSHARP_XMLRPC_TMP)
 	cp $(MY_OBJ_DIR)/$(XMLRPC_DLL) $(CSHARP_XMLRPC_TMP)
-	cp $(REPO)/csharp/XenServer.NET.snk $(CSHARP_XMLRPC_TMP)/XenServer.NET
 	tar -C $(CSHARP_XMLRPC_TMP) -zcf $@ .
    
 $(MY_OBJ_DIR)/XenServer.dll: $(MY_OBJ_DIR)/csharp_xmlrpc.tar.gz $(REPO)/mk/csharp.sh
@@ -117,56 +109,38 @@ csharp-bin: $(MY_OBJ_DIR)/$(XMLRPC_DLL) $(MY_OBJ_DIR)/XenServer.dll
 	$(INSTALL) $^ $(CSHARP_BIN_TMP)
 	mkdir -p $(SDK_NET_FOLDER)/bin && cp -r $(CSHARP_BIN_TMP)/* $(SDK_NET_FOLDER)/bin
 
-$(MY_OBJ_DIR)/powershell.tar.gz: $(MY_OBJ_DIR)/XenServer.dll $(MY_OBJ_DIR)/$(XMLRPC_DLL) $(REPO)/mk/sign.bat
+$(MY_OBJ_DIR)/powershell.tar.gz: $(MY_OBJ_DIR)/XenServer.dll \
+                                 $(AUTOMATION_DLL_V2) $(MY_OBJ_DIR)/$(XMLRPC_DLL) \
+                                 $(REPO)/mk/sign.bat $(REPO)/mk/sign-ps.bat \
+                                 $(REPO)/powershell/*.ps1 \
+                                 $(REPO)/powershell/*.ps1xml $(REPO)/powershell/samples/*.ps1
 	mkdir -p $(PS_TAR_TMP)
-	cp -r $(BINDINGS_TMP)/XenServerPSSnapIn $(PS_TAR_TMP)
+	cp -r $(BINDINGS_TMP)/XenServerPowerShell $(PS_TAR_TMP)
 	cp $^ $(PS_TAR_TMP)
-	cp $(AUTOMATION_DLL_V2) $(PS_TAR_TMP)
 	tar -C $(PS_TAR_TMP) -zcf $@ .
 
-$(MY_OBJ_DIR)/XenServerPSSnapIn.dll: $(MY_OBJ_DIR)/powershell.tar.gz $(REPO)/mk/powershell.sh
+$(MY_OBJ_DIR)/XenServerPowerShell.dll: $(MY_OBJ_DIR)/powershell.tar.gz $(REPO)/mk/powershell.sh
 ifeq ($(SKIP_WINDOWS_BUILD), yes)
 	touch $@
 else
 	$(call win-build,$<,$@,$(REPO)/mk/powershell.sh)
 endif
 
-$(WIX_TMP)/src/ui/wixui:
-	mkdir -p $(WIX_TMP)
-	unzip -q -o $(CARBON_DISTFILES)/windows-build/wix-2.0.5805.0-sources.zip -d $(WIX_TMP)
-	cd $(WIX_TMP)/src/ui/wixui && patch -p1 --binary < $(PATCHES)/wix_src_patch
-
-$(MY_OBJ_DIR)/installer.tar.gz: $(WIX_TMP)/src/ui/wixui $(MY_OBJ_DIR)/XenServerPSSnapIn.dll \
-                                $(MY_OBJ_DIR)/XenServer.dll $(MY_OBJ_DIR)/$(XMLRPC_DLL) \
-                                $(REPO)/mk/sign.bat $(REPO)/mk/sign-ps.bat $(REPO)/powershell/*.ps1 \
-                                $(REPO)/powershell/*.ps1xml $(REPO)/powershell/samples/*.ps1
-	mkdir -p $(INSTALLER_TMP)
-	unzip -q -o $(CARBON_DISTFILES)/windows-build/wix-2.0.5805.0-binaries.zip -d $(INSTALLER_TMP)
-	rm $(INSTALLER_TMP)/Bitmaps/{bannrbmp,dlgbmp}.bmp
-	cp -r $(REPO)/powershell/installer/* $(INSTALLER_TMP)
-	cp $(REPO)/Bitmaps/* $(INSTALLER_TMP)/Bitmaps
-	cp -r $^ $(INSTALLER_TMP)
-	cp $(SDK_PS_FOLDER)/src/*.txt $(INSTALLER_TMP)
-	$(INSTALL) $(XMLRPCLICENSE) $(INSTALLER_TMP)/LICENSE.CookComputing.XmlRpcV2
-	chmod -R a=rwx $(INSTALLER_TMP)
-	sed -e 's/$(INSTALLER_DEFAULT_GUID)/$(PRODUCT_GUID)/g' \
-	    -e 's/$(INSTALLER_DEFAULT_VERSION)/$(PRODUCT_VERSION)/g' \
-	    $(REPO)/powershell/installer/XenServerPSSnapIn.wxs > $(INSTALLER_TMP)/XenServerPSSnapIn.wxs
-	tar -C $(INSTALLER_TMP) -zcf $@ .
-
-$(MY_OBJ_DIR)/XenServerPSSnapIn.msi: $(MY_OBJ_DIR)/installer.tar.gz $(REPO)/mk/installer.sh
-ifeq ($(SKIP_WINDOWS_BUILD), yes)
-	touch $@
-else
-	$(call win-build,$<,$@,$(REPO)/mk/installer.sh)
-endif
+.PHONY: powershell-module
+powershell-module: $(MY_OBJ_DIR)/XenServerPowerShell.dll
+	mkdir -p $(SDK_PS_FOLDER)/XenServerPSModule
+	cp $(MY_OBJ_DIR)/{*.dll,*.ps1,*.ps1xml}  $(SDK_PS_FOLDER)/XenServerPSModule
+	sed -e 's/@PRODUCT_VERSION@/$(PRODUCT_VERSION)/g' \
+		-e 's/@PRODUCT_GUID@/$(PRODUCT_GUID)/g' \
+		$(REPO)/powershell/XenServerPSModule.psd1 > $(SDK_PS_FOLDER)/XenServerPSModule/XenServerPSModule.psd1
+	cp $(SDK_PS_FOLDER)/src/*.txt $(SDK_PS_FOLDER)/XenServerPSModule
+	$(INSTALL) $(XMLRPCLICENSE) $(SDK_PS_FOLDER)/XenServerPSModule/LICENSE.CookComputing.XmlRpcV2
 
 .PHONY: bins
-bins: omake-phase $(MY_OBJ_DIR)/XenServerPSSnapIn.msi csharp-bin
+bins: omake-phase powershell-module csharp-bin
 	mkdir -p $(MY_OUTPUT_DIR)
 	cp $(BINDINGS_TMP)/XenCenterBindings.zip $(MY_OUTPUT_DIR)/XenCenterBindings-$(BUILD_NUMBER).zip
 	cp $(MY_OBJ_DIR)/FriendlyErrorNames.Designer.cs $(SDK_NET_FOLDER)/src
-	cp $(MY_OBJ_DIR)/XenServerPSSnapIn.msi $(SDK_PS_FOLDER)/XenServerPSSnapIn-$(PRODUCT_VERSION).msi
 
 .PHONY: python-module
 python-module:

@@ -91,6 +91,133 @@ let generated x =
 let rec main() =
   List.iter (fun x -> if generated x then gen_binding x) classes;
   gen_xenref_converters classes;
+  List.iter gen_http_action
+    (List.filter (fun (_, (_, _, sdk, _, _, _)) -> sdk) http_actions)
+
+(****************)
+(* Http actions *)
+(****************)
+
+and gen_http_action action =
+  match action with (name, (meth, uri, _, args, _, _)) ->
+    let commonVerb = get_http_action_verb name meth in
+    let verbCategory = get_common_verb_category commonVerb in
+    let stem = get_http_action_stem name in
+    let content = sprintf "%s
+
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Management.Automation;
+using System.Net;
+using System.Text;
+
+using XenAPI;
+
+namespace Citrix.XenServer.Commands
+{
+    [Cmdlet(%s.%s, \"Xen%s\"%s)]
+    [OutputType(typeof(void))]
+    public class %sXen%sCommand : XenServerHttpCmdlet
+    {
+        #region Cmdlet Parameters
+%s%s
+        #endregion
+        
+        #region Cmdlet Methods
+        
+        protected override void ProcessRecord()
+        {
+            GetSession();
+%s
+            RunApiCall(() => %s);
+        }
+        
+        #endregion
+    }
+}\n" Licence.bsd_two_clause
+     verbCategory commonVerb stem (gen_should_process_http_decl meth)
+     commonVerb stem
+     (gen_progress_tracker meth)
+     (gen_arg_params args)
+     (gen_should_process_http meth uri)
+     (gen_http_action_call action)
+in
+  write_file (sprintf "%s-Xen%s.cs" commonVerb stem) content
+
+and gen_should_process_http_decl meth =
+    match meth with
+  | Put -> ", SupportsShouldProcess = true"
+  | Get   -> ", SupportsShouldProcess = false"
+  | _   -> assert false
+
+and gen_should_process_http meth uri =
+    match meth with
+  | Put -> sprintf "
+            if (!ShouldProcess(\"%s\"))
+                return;\n" uri
+  | _   -> ""
+
+and gen_progress_tracker meth =
+  match meth with
+  | Get -> "
+        [Parameter]
+        public HTTP.DataCopiedDelegate DataCopiedDelegate { get; set; }\n"
+  | Put -> "
+        [Parameter]
+        public HTTP.UpdateProgressDelegate ProgressDelegate { get; set; }\n"
+  | _   -> assert false
+
+and gen_arg_params args =
+  match args with
+  | []     -> ""
+  | hd::tl -> sprintf "%s%s" (gen_arg_param hd) (gen_arg_params tl)
+    
+and gen_arg_param = function
+  | String_query_arg x -> sprintf "
+        [Parameter%s]
+        public string %s { get; set; }\n"
+                            (if (String.lowercase x) = "uuid" then
+                               "(ValueFromPipelineByPropertyName = true)"
+                             else "")
+                            (pascal_case_ x)
+  | Int64_query_arg x -> sprintf "
+        [Parameter]
+        public long %s { get; set; }\n" (pascal_case_ x)
+  | Bool_query_arg x -> 
+      let y = if x = "host" then "is_host" else x in
+      sprintf "
+        [Parameter]
+        public bool %s { get; set; }\n" (pascal_case_ y)
+  | Varargs_query_arg -> sprintf "
+        ///<summary>
+        /// Alternate names & values
+        ///</summary>
+        [Parameter]
+        public string[] Args { get; set; }\n"
+
+and gen_http_action_call (name, (meth, _, _, args, _, _)) =
+  let progressTracker = match meth with
+                        | Get -> "DataCopiedDelegate"
+                        | Put -> "ProgressDelegate"
+                        | _   -> assert false in
+  sprintf "XenAPI.HTTP_actions.%s(%s,
+                CancellingDelegate, TimeoutMs, XenHost, Proxy, Path, TaskRef,
+                session.opaque_ref%s)"
+    name progressTracker (gen_call_arg_params args)
+
+and gen_call_arg_params args =
+    match args with
+  | []     -> ""
+  | hd::tl -> sprintf "%s%s" (gen_call_arg_param hd) (gen_call_arg_params tl)
+
+and gen_call_arg_param = function
+  | String_query_arg x -> sprintf ", %s" (pascal_case_ x)
+  | Int64_query_arg x -> sprintf ", %s" (pascal_case_ x)
+  | Bool_query_arg x -> 
+      let y = if x = "host" then "is_host" else x in
+      sprintf ", %s" (pascal_case_ y)
+  | Varargs_query_arg -> sprintf ", Args"
 
 
 (***********************************)
@@ -223,7 +350,7 @@ using XenAPI;
 
 namespace Citrix.XenServer.Commands
 {
-    [Cmdlet(VerbsCommon.Get, \"Xen%s\", DefaultParameterSetName = \"Ref\")]
+    [Cmdlet(VerbsCommon.Get, \"Xen%s\", DefaultParameterSetName = \"Ref\", SupportsShouldProcess = false)]
     [OutputType(typeof(%s[]))]
     public class GetXen%sCommand : XenServerCmdlet
     {\n"
@@ -341,7 +468,7 @@ using XenAPI;
 
 namespace Citrix.XenServer.Commands
 {
-    [Cmdlet(VerbsCommon.New, \"Xen%s\", SupportsShouldProcess=true)]
+    [Cmdlet(VerbsCommon.New, \"Xen%s\", DefaultParameterSetName = \"Hashtable\", SupportsShouldProcess = true)]
     [OutputType(typeof(%s))]%s
     [OutputType(typeof(void))]
     public class NewXen%sCommand : XenServerCmdlet
@@ -562,7 +689,7 @@ using XenAPI;
 
 namespace Citrix.XenServer.Commands
 {
-    [Cmdlet(VerbsCommon.Remove, \"Xen%s\", SupportsShouldProcess=true)]
+    [Cmdlet(VerbsCommon.Remove, \"Xen%s\", SupportsShouldProcess = true)]
     [OutputType(typeof(%s))]%s
     [OutputType(typeof(void))]
     public class RemoveXen%s : XenServerCmdlet
@@ -639,7 +766,7 @@ using XenAPI;
 
 namespace Citrix.XenServer.Commands
 {
-    [Cmdlet(VerbsCommon.Remove, \"Xen%sProperty\", SupportsShouldProcess=true)]
+    [Cmdlet(VerbsCommon.Remove, \"Xen%sProperty\", SupportsShouldProcess = true)]
     [OutputType(typeof(%s))]%s
     public class RemoveXen%sProperty : XenServerCmdlet
     {
@@ -709,7 +836,7 @@ using XenAPI;
 
 namespace Citrix.XenServer.Commands
 {
-    [Cmdlet(VerbsCommon.Set, \"Xen%s\", SupportsShouldProcess=true)]
+    [Cmdlet(VerbsCommon.Set, \"Xen%s\", SupportsShouldProcess = true)]
     [OutputType(typeof(%s))]%s
     [OutputType(typeof(void))]
     public class SetXen%s : XenServerCmdlet
@@ -780,7 +907,7 @@ using XenAPI;
 
 namespace Citrix.XenServer.Commands
 {
-    [Cmdlet(VerbsCommon.Add, \"Xen%s\", SupportsShouldProcess=true)]
+    [Cmdlet(VerbsCommon.Add, \"Xen%s\", SupportsShouldProcess = true)]
     [OutputType(typeof(%s))]%s
     [OutputType(typeof(void))]
     public class AddXen%s : XenServerCmdlet
@@ -850,7 +977,7 @@ using XenAPI;
 
 namespace Citrix.XenServer.Commands
 {
-    [Cmdlet(VerbsLifecycle.Invoke, \"Xen%s\", SupportsShouldProcess=true)]
+    [Cmdlet(VerbsLifecycle.Invoke, \"Xen%s\", SupportsShouldProcess = true)]
     public class InvokeXen%s : XenServerCmdlet
     {
         #region Cmdlet Parameters
@@ -924,7 +1051,7 @@ using XenAPI;
 
 namespace Citrix.XenServer.Commands
 {
-    [Cmdlet(VerbsCommon.Get, \"Xen%sProperty\", SupportsShouldProcess=false)]
+    [Cmdlet(VerbsCommon.Get, \"Xen%sProperty\", SupportsShouldProcess = false)]
     public class GetXen%sProperty : XenServerCmdlet
     {
         #region Cmdlet Parameters

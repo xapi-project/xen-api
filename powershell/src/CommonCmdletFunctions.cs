@@ -44,11 +44,11 @@ namespace Citrix.XenServer
     {
         private const string SessionsVariable = "global:Citrix.XenServer.Sessions";
         private const string DefaultSessionVariable = "global:XenServer_Default_Session";
-        private static string CertificatePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),@"Citrix\XenServerPSSnapIn\XenServer_Known_Certificates.xml");
+        private static string CertificatePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),@"WindowsPowerShell\XenServer_Known_Certificates.xml");
 
         static CommonCmdletFunctions()
         {
-            Session.UserAgent = string.Format("XenServerPSSnapIn/{0}", Assembly.GetExecutingAssembly().GetName().Version);
+            Session.UserAgent = string.Format("XenServerPSModule/{0}", Assembly.GetExecutingAssembly().GetName().Version);
         }
 
         internal static Dictionary<string, Session> GetAllSessions(PSCmdlet cmdlet)

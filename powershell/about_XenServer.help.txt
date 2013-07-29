@@ -1,6 +1,6 @@
 
-Welcome to the XenServer PowerShell SnapIn v@PRODUCT_VERSION@
----------------------------------------------------
+XenServer PowerShell Module v@PRODUCT_VERSION@
+----------------------------------
 
 For specific help with any command use:
 
@@ -8,7 +8,7 @@ Get-Help [CommandName]
 
 For a list of all possible commands type:
 
-Get-Command -PSSnapIn XenServerPSSnapIn
+Get-Command -Module XenServerPSModule
 
 
 Many XenServer cmdlets allow you to identify target objects in several
