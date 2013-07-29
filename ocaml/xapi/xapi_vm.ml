@@ -86,7 +86,7 @@ let set_ha_restart_priority ~__context ~self ~value =
 			Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context self;
 			let pool = Helpers.get_pool ~__context in
 			if Db.Pool.get_ha_enabled ~__context ~self:pool then
-				let (_: bool) = Xapi_ha_vm_failover.update_pool_status ~__context in ()
+				let (_: bool) = Xapi_ha_vm_failover.update_pool_status ~__context () in ()
 		end;
 
 	if current <> value then begin

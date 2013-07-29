@@ -495,7 +495,7 @@ module Monitor = struct
 				let now = Unix.gettimeofday () in
 				let plan_too_old = now -. !last_plan_time > !Xapi_globs.ha_monitor_plan_interval in
 				if plan_too_old || !plan_out_of_date then begin
-					let changed = Xapi_ha_vm_failover.update_pool_status ~__context in
+					let changed = Xapi_ha_vm_failover.update_pool_status ~__context ~live_set:liveset_refs () in
 
 					(* Extremely bad: something managed to break our careful plan *)
 					if changed && not !plan_out_of_date then error "Overcommit protection failed to prevent a change which invalidated our failover plan";
@@ -1438,11 +1438,11 @@ let enable __context heartbeat_srs configuration =
 		(* Update the Pool's planning configuration (ha_overcommitted, ha_plan_exists_for) *)
 		(* Start by assuming there is no ha_plan_for: this can be revised upwards later *)
 		Db.Pool.set_ha_plan_exists_for ~__context ~self:pool ~value:0L;
-		let (_: bool) = Xapi_ha_vm_failover.update_pool_status ~__context in
-
-		let generation = Uuid.string_of_uuid (Uuid.make_uuid ()) in
+		let (_: bool) = Xapi_ha_vm_failover.update_pool_status ~__context () in
 
 		let hosts = Db.Host.get_all ~__context in
+
+		let generation = Uuid.string_of_uuid (Uuid.make_uuid ()) in
 
 		(* This code always runs on the master *)
 		let statefiles = attach_statefiles ~__context (!statefile_vdis) in

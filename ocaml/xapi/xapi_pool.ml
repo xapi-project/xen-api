@@ -1000,9 +1000,12 @@ let hello ~__context ~host_uuid ~host_address =
 	   host VMs it will mark itself as enabled again. *)
 	info "Host.enabled: setting host %s (%s) to disabled" (Ref.string_of host_ref) (Db.Host.get_hostname ~__context ~self:host_ref);
 	Db.Host.set_enabled ~__context ~self:host_ref ~value:false;
-	debug "Host_metrics.live: setting host %s (%s) to alive" (Ref.string_of host_ref) (Db.Host.get_hostname ~__context ~self:host_ref);
-	let metrics = Db.Host.get_metrics ~__context ~self:host_ref in
-	Db.Host_metrics.set_live ~__context ~self:metrics ~value:true;
+	let pool = Helpers.get_pool ~__context in
+	if not (Db.Pool.get_ha_enabled ~__context ~self:pool) then begin
+		debug "Host_metrics.live: setting host %s (%s) to alive" (Ref.string_of host_ref) (Db.Host.get_hostname ~__context ~self:host_ref);
+		let metrics = Db.Host.get_metrics ~__context ~self:host_ref in
+		Db.Host_metrics.set_live ~__context ~self:metrics ~value:true;
+	end;
 	(* Cancel tasks on behalf of slave *)
 	debug "Hello message from slave OK: cancelling tasks on behalf of slave";
 	Cancel_tasks.cancel_tasks_on_host ~__context ~host_opt:(Some host_ref);
@@ -1217,7 +1220,7 @@ let set_ha_host_failures_to_tolerate ~__context ~self ~value =
   if Db.Pool.get_ha_plan_exists_for ~__context ~self:pool > 0L
   then Xapi_ha_vm_failover.assert_nfailures_change_preserves_ha_plan ~__context (Int64.to_int value);
   Db.Pool.set_ha_host_failures_to_tolerate ~__context ~self ~value;
-  let (_: bool) = Xapi_ha_vm_failover.update_pool_status ~__context in ()
+	let (_: bool) = Xapi_ha_vm_failover.update_pool_status ~__context () in ()
 
 let ha_schedule_plan_recomputation ~__context = 
   Xapi_ha.Monitor.plan_out_of_date := true
