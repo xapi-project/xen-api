@@ -668,3 +668,30 @@ let copy ~dbg ~sr ~vdi ~dp ~url ~dest =
 
 let copy_into ~dbg ~sr ~vdi ~url ~dest ~dest_vdi = 
 	wrap ~dbg (fun task -> copy_into ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi)
+
+(* The remote end of this call, SR.update_snapshot_info_dest, is implemented in
+ * the SMAPIv1 section of storage_migrate.ml. It needs to access the setters
+ * for snapshot_of, snapshot_time and is_a_snapshot, which we don't want to add
+ * to SMAPI. *)
+let update_snapshot_info_src ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~snapshot_pairs =
+	let remote_url = Http.Url.of_string url in
+	let module Remote =
+		Client(struct
+			let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url
+		end)
+	in
+	let local_vdis = Local.SR.scan ~dbg ~sr in
+	let find_vdi ~vdi ~vdi_info_list =
+		try List.find (fun x -> x.vdi = vdi) vdi_info_list
+		with Not_found -> raise (Vdi_does_not_exist vdi)
+	in
+	let snapshot_pairs_for_remote =
+		List.map
+			(fun (local_snapshot, remote_snapshot) ->
+				(remote_snapshot,
+				find_vdi ~vdi:local_snapshot ~vdi_info_list:local_vdis))
+			snapshot_pairs
+	in
+	Remote.SR.update_snapshot_info_dest ~dbg ~sr:dest ~vdi:dest_vdi
+		~src_vdi:(find_vdi ~vdi ~vdi_info_list:local_vdis)
+		~snapshot_pairs:snapshot_pairs_for_remote

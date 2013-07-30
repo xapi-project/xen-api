@@ -158,6 +158,7 @@ exception Sr_attached of string
 exception Unimplemented of string
 exception Duplicated_key of string
 exception No_storage_plugin_for_sr of string
+exception Content_ids_do_not_match of (string * string)
 
 type query_result = {
 	driver: string;
@@ -228,6 +229,22 @@ module SR = struct
 
 	(** [scan task sr] returns a list of VDIs contained within an attached SR *)
 	external scan: dbg:debug_info -> sr:sr -> vdi_info list = ""
+
+	(** [update_snapshot_info_src sr vdi url dest dest_vdi snapshot_pairs]
+	 *  updates the fields is_a_snapshot, snapshot_time and snapshot_of for a
+	 *  list of snapshots on a remote SR. *)
+	external update_snapshot_info_src: dbg:debug_info ->
+		sr:sr -> vdi:vdi -> url:string -> dest:sr -> dest_vdi:vdi ->
+		snapshot_pairs:(vdi * vdi) list -> unit = ""
+
+	(** [update_snapshot_info_dest sr vdi dest src_vdi snapshot_pairs]
+	 *  updates the fields is_a_snapshot, snapshot_time and snapshot_of for a
+	 *  list of snapshots on a local SR. Typically, vdi will be a mirror of
+	 *  src_vdi, and for each item in snapshot_pairs the first will be a copy
+	 *  of the second. *)
+	external update_snapshot_info_dest: dbg:debug_info ->
+		sr:sr -> vdi:vdi -> src_vdi:vdi_info ->
+		snapshot_pairs:(vdi * vdi_info) list -> unit = ""
 
 	(** [list task] returns the list of currently attached SRs *)
 	external list: dbg:debug_info -> sr list = ""
