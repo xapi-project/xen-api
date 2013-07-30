@@ -1750,6 +1750,7 @@ module VM = struct
 				};
 
 				let max_vcpus = vm.vcpu_max in
+				let avail_vcpus = Array.init max_vcpus (fun i -> i < vm.vcpus) in
 				let max_memkb = vm.memory_static_max /// 1024L in
 				let target_memkb =
 					let open Memory in
@@ -1868,6 +1869,7 @@ module VM = struct
 				}) in
 				let b_info = Xenlight.Domain_build_info.({ b_info with
 					max_vcpus;
+					avail_vcpus;
 					max_memkb;
 					target_memkb;
 					video_memkb;
