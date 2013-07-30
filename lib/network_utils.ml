@@ -45,7 +45,7 @@ let call_script ?(log_successful_output=false) script args =
                 let pid = Forkhelpers.safe_close_and_exec ~env None (Some writeme) None [] script args in
 		Unix.close writeme;
 		(* assume output is never larger than a pipe buffer *)
-		Forkhelpers.waitpid pid;
+		let (_: (int * Unix.process_status)) = Forkhelpers.waitpid pid in
 		let output = String.make 16384 '\000' in
 		let n = Unix.read readme output 0 (String.length output) in
 		Unix.close readme;
@@ -190,7 +190,8 @@ info "Found at [ %s ]" (String.concat ", " (List.map string_of_int indices));
 		ignore (call ~log:true ("link" :: "set" :: dev :: args))
 
 	let link_set_mtu dev mtu =
-		ignore (link_set dev ["mtu"; string_of_int mtu])
+		try ignore (link_set dev ["mtu"; string_of_int mtu])
+		with e -> error "MTU size is not supported: %s" (string_of_int mtu)
 
 	let link_set_up dev =
 		ignore (link_set dev ["up"])
@@ -199,13 +200,18 @@ info "Found at [ %s ]" (String.concat ", " (List.map string_of_int indices));
 		if is_up dev then
 			ignore (link_set dev ["down"])
 
+	let link ?(version=V46) dev attr =
+		let v = string_of_version version in
+		let output = call (v @ ["link"; "show"; "dev"; dev]) in
+		find output attr
+
 	let addr ?(version=V46) dev attr =
 		let v = string_of_version version in
 		let output = call (v @ ["addr"; "show"; "dev"; dev]) in
 		find output attr
 
 	let get_mtu dev =
-		int_of_string (List.hd (addr dev "mtu"))
+		int_of_string (List.hd (link dev "mtu"))
 
 	let get_state dev =
 		match addr dev "state" with
@@ -213,7 +219,7 @@ info "Found at [ %s ]" (String.concat ", " (List.map string_of_int indices));
 		| _ -> false
 
 	let get_mac dev =
-		List.hd (addr dev "link/ether")
+		List.hd (link dev "link/ether")
 
 	let set_mac dev mac =
 		try

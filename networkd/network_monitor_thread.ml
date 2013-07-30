@@ -171,31 +171,21 @@ let rec monitor dbg () =
 				let vendor_id, device_id = if List.length devs = 1 then Sysfs.get_pci_ids dev else "", "" in
 				let carriers = List.map Sysfs.get_carrier devs in
 				let speed, duplex =
-					let int_of_duplex = function
-						| Duplex_half -> 1
-						| Duplex_full -> 2
-						| Duplex_unknown -> 0
+					let combine_duplex = function
+						| Duplex_full, Duplex_full -> Duplex_full
+						| Duplex_unknown, a | a, Duplex_unknown -> a
+						| _ -> Duplex_half
 					in
-					let duplex_of_int = function
-						| 1 -> Duplex_half
-						| 2 -> Duplex_full
-						| _ -> Duplex_unknown
-					in
-					let statuses = List.map2 (fun dev carrier ->
-						let speed, duplex =
-							try
-								if not carrier then failwith "no carrier";
-								Bindings.get_status dev
-							with _ ->
-								0,
-								Duplex_unknown
-						in
-						speed, int_of_duplex duplex
-					) devs carriers in
-					let speed, duplex =
-						List.fold_left (fun (speed, duplex) (speed', duplex') -> (speed + speed'), (min duplex duplex')) (0, 2) statuses
-					in
-					speed, duplex_of_int duplex
+					List.fold_left2 (fun (speed, duplex) dev carrier ->
+						try
+							if not carrier then
+								speed, duplex
+							else
+								let speed', duplex' = Bindings.get_status dev in
+								speed + speed', combine_duplex (duplex, duplex')
+						with _ ->
+							speed, duplex
+					) (0, Duplex_unknown) devs carriers
 				in
 				let nb_links = List.length devs in
 				let carrier = List.mem true carriers in
@@ -247,6 +237,19 @@ let signal_networking_change () =
 		(fun () -> XenAPI.Host.signal_networking_change xapi_rpc session)
 		(fun () -> XenAPI.Session.local_logout xapi_rpc session)
 
+(* Remove all outstanding reads on a file descriptor *)
+let clear_input fd =
+	let buf = String.make 255 ' ' in
+	let rec loop () =
+		try
+			ignore (Unix.read fd buf 0 255);
+			loop ()
+		with _ -> ()
+	in
+	Unix.set_nonblock fd;
+	loop ();
+	Unix.clear_nonblock fd
+
 let ip_watcher () =
 	let cmd = Network_utils.iproute2 in
 	let args = ["monitor"; "address"] in
@@ -256,16 +259,25 @@ let ip_watcher () =
 	);
 	Unix.close writeme;
 	let in_channel = Unix.in_channel_of_descr readme in
-	debug "Started IP watcher thread";
 	let rec loop () =
 		let line = input_line in_channel in
-		(* Do not send events for link-local IPv6 addresses *)
+		(* Do not send events for link-local IPv6 addresses, and removed IPs *)
 		if String.has_substr line "inet" && not (String.has_substr line "inet6 fe80") then begin
+			(* Ignore changes for the next second, since they usually come in bursts,
+			 * and signal only once. *)
+			Thread.delay 1.;
+			clear_input readme;
 			signal_networking_change ()
 		end;
 		loop ()
 	in
-	loop ()
+	while true do
+		try
+			info "(Re)started IP watcher thread";
+			loop ()
+		with e ->
+			warn "Error in IP watcher: %s\n%s" (Printexc.to_string e) (Printexc.get_backtrace ())
+	done
 
 let start () =
 	let dbg = "monitor_thread" in
