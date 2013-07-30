@@ -36,3 +36,7 @@ let get_version dbg =
 	Debug.with_thread_associated dbg (fun () -> "") ()
 
 let reopen_logs () = true
+
+let get_current_edition dbg additional =
+	Debug.with_thread_associated dbg (fun () ->
+		Edition.(to_string Free, to_features Free, [])) ()

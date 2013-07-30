@@ -27,7 +27,7 @@ let v6rpc call =
 	let open Xmlrpc_client in
 	XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"v6d" ~transport:(Unix socket) ~http:(xmlrpc ~version:"1.0" "/") call
 
-let rec apply_edition ~__context edition additional =
+let construct_additional ~__context additional =
 	(* Get localhost's current license state. *)
 	let host = Helpers.get_localhost ~__context in
 	let license_server = Db.Host.get_license_server ~__context ~self:host in
@@ -40,9 +40,13 @@ let rec apply_edition ~__context edition additional =
 	let socket_count = List.assoc "socket_count" cpu_info in
 	let current_license_params =
 		List.replace_assoc "sockets" socket_count current_license_params in
-	(* Construct the RPC params to be sent to v6d *)
 	let additional = ("current_edition", current_edition) ::
 		license_server @ current_license_params @ additional in
+	additional
+
+let rec apply_edition ~__context edition additional =
+	(* Construct the RPC params to be sent to v6d *)
+	let additional = construct_additional ~__context additional in
 	let params = [ Rpc.rpc_of_string (Context.string_of_task __context)
 				 ; V6rpc.rpc_of_apply_edition_in
 					 { V6rpc.edition_in = edition
@@ -98,3 +102,27 @@ let get_version dbg =
 	with _ ->
 		raise (Api_errors.Server_error (Api_errors.v6d_failure, []))
 
+let get_current_edition ~__context additional =
+	try
+		let additional = construct_additional ~__context additional in
+		let params = [ Rpc.rpc_of_string (Context.string_of_task __context)
+		             ; V6rpc.rpc_of_get_current_edition_in additional ] in
+
+		let call = Rpc.call "get_current_edition" params in
+		let response = try v6rpc call with _ -> raise V6DaemonFailure in
+
+		debug "response: %s" (Rpc.to_string response.Rpc.contents);
+
+		if response.Rpc.success then
+			(* We reuse apply_edition_out for this RPC call *)
+			let r = V6rpc.apply_edition_out_of_rpc response.Rpc.contents in
+			r.V6rpc.edition_out, r.V6rpc.features_out, r.V6rpc.additional_out
+		else
+			let e = V6errors.error_of_rpc response.Rpc.contents in
+			match e with
+			| s, _ when s = V6errors.v6d_failure ->
+				raise V6DaemonFailure
+			| name, args ->
+				raise (Api_errors.Server_error (name, args))
+	with _ ->
+		raise (Api_errors.Server_error (Api_errors.v6d_failure, []))
