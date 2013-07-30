@@ -259,7 +259,6 @@ let ip_watcher () =
 	);
 	Unix.close writeme;
 	let in_channel = Unix.in_channel_of_descr readme in
-	debug "Started IP watcher thread";
 	let rec loop () =
 		let line = input_line in_channel in
 		(* Do not send events for link-local IPv6 addresses, and removed IPs *)
@@ -272,7 +271,13 @@ let ip_watcher () =
 		end;
 		loop ()
 	in
-	loop ()
+	while true do
+		try
+			info "(Re)started IP watcher thread";
+			loop ()
+		with e ->
+			warn "Error in IP watcher: %s\n%s" (Printexc.to_string e) (Printexc.get_backtrace ())
+	done
 
 let start () =
 	let dbg = "monitor_thread" in
