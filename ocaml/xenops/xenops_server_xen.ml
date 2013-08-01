@@ -29,7 +29,7 @@ open D
 
 let _alternatives = "/opt/xensource/alternatives"
 let _qemu_dm_default = Filename.concat Fhs.libexecdir "qemu-dm-wrapper"
-let _xenguest_default = Filename.concat Fhs.libexecdir "xenguest"
+let _xenguest_default = "/usr/lib/xen/bin/xenguest"
 let _device_model = "device-model"
 let _xenguest = "xenguest"
 let store_domid = 0

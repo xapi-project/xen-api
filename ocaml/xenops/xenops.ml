@@ -71,7 +71,7 @@ let create_domain ~xc ~xs ~hvm =
 	let domid = Domain.make ~xc ~xs info uuid in
 	printf "%u\n" domid
 
-let default_xenguest = "/opt/xensource/libexec/xenguest"
+let default_xenguest = "/usr/lib/xen/bin/xenguest"
 
 let build_domain ~xc ~xs ~kernel ?(ramdisk=None) ~cmdline ~domid ~vcpus ~static_max_kib ~target_kib =
 	let (_: Domain.domarch) = Domain.build_linux task xc xs 0 0 static_max_kib target_kib
