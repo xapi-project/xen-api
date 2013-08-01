@@ -248,12 +248,28 @@ let hard_shutdown ~__context ~vm =
 let clean_reboot ~__context ~vm =
 	License_check.with_vm_license_check ~__context vm
 		(fun () ->
-			Xapi_xenops.reboot ~__context ~self:vm (Some 1200.0)
+	Xapi_xenops.reboot ~__context ~self:vm (Some !Xapi_globs.domain_shutdown_total_timeout)
 		)
 
-let clean_shutdown ~__context ~vm =
+let clean_shutdown_with_timeout ~__context ~vm timeout =
 	Db.VM.set_ha_always_run ~__context ~self:vm ~value:false;
-	Xapi_xenops.shutdown ~__context ~self:vm (Some 1200.0)
+	Xapi_xenops.shutdown ~__context ~self:vm (Some timeout)
+
+let clean_shutdown ~__context ~vm =
+	clean_shutdown_with_timeout ~__context ~vm !Xapi_globs.domain_shutdown_total_timeout
+
+let shutdown ~__context ~vm =
+	begin
+		try
+			let db_timeout = Db.VM.get_shutdown_delay ~__context ~self:vm in
+			clean_shutdown_with_timeout ~__context ~vm 
+				(if db_timeout > 0L 
+				 then Int64.to_float db_timeout
+				 else !Xapi_globs.domain_shutdown_total_timeout)
+		with e ->
+			warn "Failed to perform clean_shutdown on VM:%s due to exception %s. Now attempting hard_shutdown." (Ref.string_of vm) (Printexc.to_string e);
+			hard_shutdown ~__context ~vm
+	end 	
 
 (***************************************************************************************)
 
