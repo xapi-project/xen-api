@@ -337,6 +337,7 @@ let add_dm ~xs ~domid ~static_max_kib ~vcpus ~boot =
  	  Device.Dm.parallel = None;
  	  Device.Dm.acpi = true;
  	  Device.Dm.disp = Device.Dm.NONE;
+	  Device.Dm.vgpu = None;
 
 	  Device.Dm.xenclient_enabled=false;
 	  Device.Dm.hvm=false;
