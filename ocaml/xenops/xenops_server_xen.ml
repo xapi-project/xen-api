@@ -1376,12 +1376,23 @@ module VM = struct
 						let shadow_multiplier_target =
 							if not di.hvm_guest
 							then 1.
-							else
-								let static_max_mib = Memory.mib_of_bytes_used vm.Vm.memory_static_max in
-								let default_shadow_mib = Memory.HVM.shadow_mib static_max_mib vm.Vm.vcpu_max 1. in
-								let actual_shadow_mib =
-									Int64.of_int (Xenctrl.shadow_allocation_get xc di.domid) in
-								(Int64.to_float actual_shadow_mib) /. (Int64.to_float default_shadow_mib) in
+							else begin
+							  try 
+							    let static_max_mib = Memory.mib_of_bytes_used vm.Vm.memory_static_max in
+							    let default_shadow_mib = Memory.HVM.shadow_mib static_max_mib vm.Vm.vcpu_max 1. in
+							    let actual_shadow_mib_int = Xenctrl.shadow_allocation_get xc di.domid in
+							    let actual_shadow_mib = Int64.of_int actual_shadow_mib_int in
+							    let result = (Int64.to_float actual_shadow_mib) /. (Int64.to_float default_shadow_mib) in
+							    (* CA-104562: Work around probable bug in bindings *)
+							    if result > 1000.0 then begin
+							      warn "CA-104562: Got value '%d' from shadow_allocation_get" actual_shadow_mib_int;
+							      -1.0 
+							    end else result
+							  with e -> 
+							    warn "Caught exception in getting shadow allocation: %s" (Printexc.to_string e);
+							    -1.0
+							end
+						in	     
 						{
 							Vm.power_state = if di.paused then Paused else Running;
 							domids = [ di.domid ];
