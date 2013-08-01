@@ -287,9 +287,9 @@ let add filename =
 			let builder_info = match pv with
 				| true -> PV {
 					framebuffer = false;
-					framebuffer_ip = Some "0.0.0.0";
+					framebuffer_ip = None;
 					vncterm = true;
-					vncterm_ip = Some "0.0.0.0";
+					vncterm_ip = None;
 					boot =
 						if mem _bootloader then Indirect {
 							bootloader = find _bootloader |> string;
@@ -318,7 +318,7 @@ let add filename =
 					acpi = true;
 					serial = None;
 					keymap = None;
-					vnc_ip = Some "0.0.0.0";
+					vnc_ip = None;
 					pci_emulations = [];
 					pci_passthrough = false;
 					boot_order = if mem _boot then find _boot |> string else "cd";
