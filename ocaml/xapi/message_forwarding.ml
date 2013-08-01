@@ -1090,15 +1090,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 		let copy ~__context ~vm ~new_name ~sr =
 			info "VM.copy: VM = '%s'; new_name = '%s'; SR = '%s'" (vm_uuid ~__context vm) new_name (sr_uuid ~__context sr);
-			let local_fn = Local.VM.copy ~vm ~new_name ~sr in
 			(* We mark the VM as cloning. We don't mark the disks; the implementation of the clone
 			   uses the API to clone and lock the individual VDIs. We don't give any atomicity
-			   guarantees here but we do prevent disk corruption. *)
+			   guarantees here but we do prevent disk corruption.
+			   VM.copy is always run on the master - the VDI.copy subtask(s) will be
+			   forwarded to suitable hosts. *)
 			with_vm_operation ~__context ~self:vm ~doc:"VM.copy" ~op:`copy
-				(fun () ->
-					forward_to_access_srs ~local_fn ~__context ~vm
-						(fun session_id rpc -> Client.VM.copy rpc session_id vm new_name sr))
-
+				(fun () -> Local.VM.copy ~__context ~vm ~new_name ~sr)
 
 		exception Ambigious_provision_spec
 		exception Not_forwarding
