@@ -331,7 +331,7 @@ module Dynamic = struct
 		| Vif of Vif.id
 		| Pci of Pci.id
 		| Task of Task.id
-		| Barrier of int
+	type barrier = int * (id list)
 	type t =
 		| Vm_t of Vm.id * ((Vm.t * Vm.state) option)
 		| Vbd_t of Vbd.id * ((Vbd.t * Vbd.state) option)
@@ -373,6 +373,7 @@ module VM = struct
 	external set_shadow_multiplier : debug_info -> Vm.id -> float -> Task.id = ""
 	external set_memory_dynamic_range : debug_info -> Vm.id -> int64 -> int64 -> Task.id = ""
 	external stat: debug_info -> Vm.id -> (Vm.t * Vm.state) = ""
+	external exists: debug_info -> Vm.id -> bool = ""
 	external list: debug_info -> unit -> (Vm.t * Vm.state) list = ""
 	external delay: debug_info -> Vm.id -> float -> Task.id = ""
 
@@ -420,9 +421,9 @@ module VIF = struct
 end
 
 module UPDATES = struct
-	external get: debug_info -> int option -> int option -> Dynamic.id list * int = ""
+	external get: debug_info -> int option -> int option -> Dynamic.barrier list * Dynamic.id list * int = ""
 	external last_id: debug_info -> int = ""
-    external inject_barrier: debug_info -> int -> unit = ""
+    external inject_barrier: debug_info -> Vm.id -> int -> unit = ""
 	external remove_barrier: debug_info -> int -> unit = ""
 	external refresh_vm: debug_info -> Vm.id -> unit = ""
 end
