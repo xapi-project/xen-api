@@ -34,7 +34,7 @@ type vgpu_type = {
 	framebuffer_size : int64;
 }
 
-let entire_gpu = {model_name = "whole"; framebuffer_size = 0L}
+let entire_gpu = {model_name = "passthrough"; framebuffer_size = 0L}
 
 let create ~__context ~model_name ~framebuffer_size =
 	let ref = Ref.make () in
