@@ -44,7 +44,7 @@ export
 #.SUBDIRS: rrd2csv rrdd-plugins scripts doc
 #export
 
-OCAMLPACKS = rrd-client
+OCAMLPACKS = xcp.rrd xapi-client
 
 RRD2CSV = rrd2csv
 RRD2CSV_FILES = rrd2csv
