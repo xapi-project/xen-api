@@ -23,6 +23,8 @@ let create ~__context ~pCI ~gPU_group ~host ~other_config ~supported_VGPU_types 
 	Db.PGPU.create ~__context ~ref:pgpu ~uuid ~pCI ~gPU_group ~host ~other_config;
 	Db.PGPU.set_supported_VGPU_types ~__context
 		~self:pgpu ~value:supported_VGPU_types;
+	Db.PGPU.set_enabled_VGPU_types ~__context
+		~self:pgpu ~value:supported_VGPU_types;
 	debug "PGPU ref='%s' created (host = '%s')" (Ref.string_of pgpu) (Ref.string_of host);
 	pgpu
 
