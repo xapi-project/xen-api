@@ -62,15 +62,15 @@ let gc_connector ~__context get_all get_record valid_ref1 valid_ref2 delete_reco
   List.iter do_gc all_refs
 
 let gc_VGPU_types ~__context =
-	(* We delete a VGPU_type iff for all GPU_groups, it does not appear
-	 * in the supported_VGPU_types of that GPU_group *)
-	let group_supports_type ~__context gpu_group vgpu_type_ref =
+	(* We delete a VGPU_type iff for all PGPUs, it does not appear
+	 * in the supported_VGPU_types of that PGPU. *)
+	let pgpu_supports_type ~__context pgpu vgpu_type_ref =
 		List.mem vgpu_type_ref
-			gpu_group.API.gPU_group_supported_VGPU_types in
-	let all_groups = Db.GPU_group.get_all_records ~__context in
+			pgpu.API.pGPU_supported_VGPU_types in
+	let all_pgpus = Db.PGPU.get_all_records ~__context in
 	let garbage vgpu_type_ref = not (List.exists
-		(fun (_, g) -> group_supports_type ~__context g vgpu_type_ref)
-		all_groups) in
+		(fun (_, pgpu) -> pgpu_supports_type ~__context pgpu vgpu_type_ref)
+		all_pgpus) in
 	List.iter
 		(fun self -> if garbage self then Db.VGPU_type.destroy ~__context ~self)
 		(Db.VGPU_type.get_all ~__context)
