@@ -548,8 +548,8 @@ let _ =
     ~doc:"Moving this PGPU would leave unbacked VGPUs in the GPU group." ();
   error Api_errors.pgpu_not_compatible_with_gpu_group ["type"; "group_types"]
     ~doc:"PGPU type not compatible with destination group." ();
-  error Api_errors.vgpu_type_not_allowed ["type"; "allowed_types"]
-    ~doc:"VGPU type is not one of the GPU group's allowed types." ();
+  error Api_errors.vgpu_type_not_supported ["type"; "supported_types"]
+    ~doc:"VGPU type is not one of the PGPU's allowed types." ();
 
   error Api_errors.openvswitch_not_active []
     ~doc:"This operation needs the OpenVSwitch networking backend to be enabled on all hosts in the pool." ();
@@ -7724,6 +7724,50 @@ let pci =
 (** Physical GPUs (pGPU) *)
 
 let pgpu =
+	let add_enabled_VGPU_types = call
+		~name:"add_enabled_VGPU_types"
+		~lifecycle:[Published, rel_vgpu_tech_preview, ""]
+		~versioned_params:[
+			{
+				param_type = (Ref _pgpu);
+				param_name = "self";
+				param_doc = "The PGPU to which we are adding an enabled VGPU type";
+				param_release = vgpu_tech_preview_release;
+				param_default = None;
+			};
+			{
+				param_type = (Ref _vgpu_type);
+				param_name = "value";
+				param_doc = "The VGPU type to enable";
+				param_release = vgpu_tech_preview_release;
+				param_default = None;
+			};
+		]
+		~allowed_roles:_R_POOL_OP
+		()
+	in
+	let remove_enabled_VGPU_types = call
+		~name:"remove_enabled_VGPU_types"
+		~lifecycle:[Published, rel_vgpu_tech_preview, ""]
+		~versioned_params:[
+			{
+				param_type = (Ref _pgpu);
+				param_name = "self";
+				param_doc = "The PGPU from which we are removing an enabled VGPU type";
+				param_release = vgpu_tech_preview_release;
+				param_default = None;
+			};
+			{
+				param_type = (Ref _vgpu_type);
+				param_name = "value";
+				param_doc = "The VGPU type to disable";
+				param_release = vgpu_tech_preview_release;
+				param_default = None;
+			};
+		]
+		~allowed_roles:_R_POOL_OP
+		()
+	in
 	let set_GPU_group = call
 		~name:"set_GPU_group"
 		~lifecycle:[Published, rel_vgpu_tech_preview, ""]
@@ -7742,7 +7786,11 @@ let pgpu =
 		~gen_events:true
 		~in_db:true
 		~lifecycle:[Published, rel_boston, ""]
-		~messages:[set_GPU_group]
+		~messages:[
+			add_enabled_VGPU_types;
+			remove_enabled_VGPU_types;
+			set_GPU_group;
+		]
 		~messages_default_allowed_roles:_R_POOL_OP
 		~persist:PersistEverything
 		~in_oss_since:None
