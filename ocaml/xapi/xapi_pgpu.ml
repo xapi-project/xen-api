@@ -60,6 +60,40 @@ let update_gpus ~__context ~host =
 	let obsolete_pgpus = List.set_difference existing_pgpus current_pgpus in
 	List.iter (fun (self, _) -> Db.PGPU.destroy ~__context ~self) obsolete_pgpus
 
+let assert_VGPU_type_supported ~__context ~self ~value =
+	let supported_VGPU_types =
+		Db.PGPU.get_supported_VGPU_types ~__context ~self
+	in
+	if not (List.mem value supported_VGPU_types)
+	then raise (Api_errors.Server_error
+		(Api_errors.vgpu_type_not_supported,
+			List.map Ref.string_of (value :: supported_VGPU_types)))
+
+let assert_no_resident_VGPUs_of_type ~__context ~self ~vgpu_type =
+	let open Db_filter_types in
+	match Db.VGPU.get_records_where ~__context
+		~expr:(And
+			(Eq (Field "resident_on", Literal (Ref.string_of self)),
+			Eq (Field "vgpu_type", Literal (Ref.string_of vgpu_type))))
+	with
+	| [] -> ()
+	| vgpus_and_records ->
+		let vms =
+			List.map
+				(fun (vgpu, _) -> Db.VGPU.get_VM ~__context ~self:vgpu)
+				vgpus_and_records
+		in
+		raise (Api_errors.Server_error
+			(Api_errors.pgpu_in_use_by_vm, List.map Ref.string_of vms))
+
+let add_enabled_VGPU_types ~__context ~self ~value =
+	assert_VGPU_type_supported ~__context ~self ~value;
+	Db.PGPU.add_enabled_VGPU_types ~__context ~self ~value
+
+let remove_enabled_VGPU_types ~__context ~self ~value =
+	assert_no_resident_VGPUs_of_type ~__context ~self ~vgpu_type:value;
+	Db.PGPU.remove_enabled_VGPU_types ~__context ~self ~value
+
 let gpu_group_m = Mutex.create ()
 let set_GPU_group ~__context ~self ~value =
 	debug "Move PGPU %s -> GPU group %s" (Db.PGPU.get_uuid ~__context ~self)
