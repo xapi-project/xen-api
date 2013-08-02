@@ -7905,7 +7905,7 @@ let all_relations =
     (_pgpu, "GPU_group"), (_gpu_group, "PGPUs");
     (_vgpu, "GPU_group"), (_gpu_group, "VGPUs");
     (_vgpu, "VM"), (_vm, "VGPUs");
-    (_vgpu_type, "supported_on_PGPUs"), (_pgpu, "supported_VGPU_types");
+    (_pgpu, "supported_VGPU_types"), (_vgpu_type, "supported_on_PGPUs");
     (_pci, "host"), (_host, "PCIs");
     (_pgpu, "host"), (_host, "PGPUs");
     (_pci, "attached_VMs"), (_vm, "attached_PCIs");
