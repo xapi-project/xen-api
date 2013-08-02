@@ -20,21 +20,7 @@ open Threadext
 open Stringext
 
 module RRDD = struct
-	let make_rpc path  =
-		let open Xmlrpc_client in
-			let module Rpc = struct
-				let transport = ref (Unix path)
-				let rpc call =
-					XMLRPC_protocol.rpc ~transport:!transport ~http:(xmlrpc ~keep_alive:false ~version:"1.0" "/") call
-			end in
-			(module Rpc : Rrdd_interface.RPC)
-				
-	module Rpc =
-		(val (make_rpc Rrdd_interface.xmlrpc_path) : Rrdd_interface.RPC)
-			
-	module Client = Rrdd_interface.Client(Rpc)
-		
-	include Client
+	include Rrd_client.Client 
 end
 
 module Common = functor (N : (sig val name : string end)) -> struct
@@ -217,14 +203,14 @@ let main_loop ~neg_shift ~dss_f =
 				(fun () -> close_out oc)
 		with 
 			| Unix.Unix_error (Unix.ECONNREFUSED, _, _)
-			| Xmlrpc_client.Connection_reset -> (* CA-102833: this is thrown if connection is reset during RPC *)
+(*			| Xmlrpc_client.Connection_reset -> (* CA-102833: this is thrown if connection is reset during RPC *)
 				warn "The %s daemon seems installed. but not started. Try 'service %s start'\n\
-Connection to the server is not available, sleeping for 10 seconds..." Rrdd_interface.name Rrdd_interface.name;
+Connection to the server is not available, sleeping for 10 seconds..." Rrd_interface.name Rrd_interface.name;
 				Unix.sleep 10;
-				main ()
+				main ()*)
 			| Unix.Unix_error (Unix.ENOENT, _, _) ->
 				warn "The %s seems not installed. You probably need to upgrade your version of XenServer.\n" 
-					Rrdd_interface.name;
+					Rrd_interface.daemon_name;
 				exit 1
 			| Sys.Break ->
 				warn "Caught Sys.Break; exiting...";
