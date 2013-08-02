@@ -7648,6 +7648,7 @@ let pgpu =
 			field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_boston, ""] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu_type)) ~lifecycle:[Published, rel_vgpu, ""] "supported_VGPU_types" "List of VGPU types supported by the underlying hardware";
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu_type)) ~lifecycle:[Published, rel_vgpu, ""] "enabled_VGPU_types" "List of VGPU types which have been enabled for this PGPU";
+			field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu)) ~lifecycle:[Published, rel_vgpu, ""] "resident_VGPUs" "List of VGPUs running on this PGPU";
 			]
 		()
 
@@ -7760,6 +7761,7 @@ let vgpu =
 			field ~qualifier:DynamicRO ~ty:Bool ~lifecycle:[Published, rel_boston, ""] ~default_value:(Some (VBool false)) "currently_attached" "Reflects whether the virtual device is currently connected to a physical device";
 			field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_boston, ""] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
 			field ~qualifier:DynamicRO ~ty:(Ref _vgpu_type) ~lifecycle:[Published, rel_vgpu, ""] "type" "Preset type for this VGPU" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
+			field ~qualifier:DynamicRO ~ty:(Ref _pgpu) ~lifecycle:[Published, rel_vgpu, ""] "resident_on" "The PGPU on which this VGPU is running" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
 			]
 		()
 
@@ -7910,6 +7912,7 @@ let all_relations =
     (_pgpu, "GPU_group"), (_gpu_group, "PGPUs");
     (_vgpu, "GPU_group"), (_gpu_group, "VGPUs");
     (_vgpu, "VM"), (_vm, "VGPUs");
+    (_vgpu, "resident_on"), (_pgpu, "resident_VGPUs");
     (_pgpu, "supported_VGPU_types"), (_vgpu_type, "supported_on_PGPUs");
     (_pgpu, "enabled_VGPU_types"), (_vgpu_type, "enabled_on_PGPUs");
     (_pci, "host"), (_host, "PCIs");

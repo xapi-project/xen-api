@@ -37,7 +37,7 @@ let create ~__context  ~vM ~gPU_group ~device ~other_config ~_type =
 			raise (Api_errors.Server_error (Api_errors.device_already_exists, [device]));
 
 		Db.VGPU.create ~__context ~ref:vgpu ~uuid ~vM ~gPU_group ~device
-			~currently_attached:false ~other_config ~_type;
+			~currently_attached:false ~other_config ~_type ~resident_on:Ref.null;
 	);
 	debug "VGPU ref='%s' created (VM = '%s', type = '%s')" (Ref.string_of vgpu) (Ref.string_of vM) (Ref.string_of _type);
 	vgpu
