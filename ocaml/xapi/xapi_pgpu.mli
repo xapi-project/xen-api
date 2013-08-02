@@ -18,6 +18,14 @@
 (** Synchronise the PGPU objects in the database with the actual devices in the host. *)
 val update_gpus : __context:Context.t -> host:API.ref_host -> unit
 
+(** Enable one of the VGPU types supported by the PGPU. *)
+val add_enabled_VGPU_types : __context:Context.t ->
+	self:API.ref_PGPU -> value:API.ref_VGPU_type -> unit
+
+(** Disable one of the VGPU types supported by the PGPU. *)
+val remove_enabled_VGPU_types : __context:Context.t ->
+	self:API.ref_PGPU -> value:API.ref_VGPU_type -> unit
+
 (** Move the PGPU to a new GPU group. *)
 val set_GPU_group : __context:Context.t -> self:API.ref_PGPU ->
 	value: API.ref_GPU_group -> unit
