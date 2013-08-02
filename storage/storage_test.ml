@@ -142,7 +142,14 @@ let start verbose queue sr = match queue, sr with
     Xcp_client.use_switch := true;
 
     let q = Client.Query.query ~dbg in
-    let features = q.features in
+    let features = List.map (fun s ->
+      try 
+	match Re_str.bounded_split (Re_str.regexp "/") s 2 with
+	| [cap;vsn] -> Some (cap,Int64.of_string vsn)
+	| [cap] -> Some (cap,1L)
+	| _ -> None
+      with _ -> None) q.features in
+    let features = List.fold_left (fun acc x -> match x with Some x -> x::acc | None -> acc) [] features in
 
     let needs_capabilities caps suite =
       if List.fold_left (fun acc x -> acc && (List.mem_assoc x features)) true caps
