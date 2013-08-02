@@ -1460,6 +1460,12 @@ let pgpu_record rpc session_id pgpu =
 				~add_to_map:(fun k v -> Client.PGPU.add_to_other_config rpc session_id pgpu k v)
 				~remove_from_map:(fun k -> Client.PGPU.remove_from_other_config rpc session_id pgpu k)
 				~get_map:(fun () -> (x ()).API.pGPU_other_config) ();
+			make_field ~name:"supported-VGPU-types"
+				~get:(fun () ->
+					String.concat "; "
+						(List.map
+							get_uuid_from_ref
+							(x ()).API.pGPU_supported_VGPU_types)) ();
 			]
 	}
 
@@ -1487,12 +1493,6 @@ let gpu_group_record rpc session_id gpu_group =
 				~add_to_map:(fun k v -> Client.GPU_group.add_to_other_config rpc session_id gpu_group k v)
 				~remove_from_map:(fun k -> Client.GPU_group.remove_from_other_config rpc session_id gpu_group k)
 				~get_map:(fun () -> (x ()).API.gPU_group_other_config) ();
-			make_field ~name:"supported-VGPU-types"
-				~get:(fun () ->
-					String.concat "; "
-						(List.map
-							get_uuid_from_ref
-							(x ()).API.gPU_group_supported_VGPU_types)) ();
 			make_field ~name:"allowed-VGPU-types"
 				~get:(fun () ->
 					String.concat "; "
