@@ -33,7 +33,6 @@ PLUGINDIR=/usr/lib/xcp/plugins
 HOOKSDIR=/etc/xcp/hook-scripts
 INVENTORY=/etc/xcp/inventory
 XAPICONF=/etc/xcp/xapi.conf
-RRDDCONF=/etc/xcp/rrdd.conf
 LIBEXECDIR=/usr/lib/xcp/lib
 SCRIPTSDIR=/usr/lib/xcp/scripts
 SHAREDIR=/usr/share/xcp
@@ -54,7 +53,6 @@ PLUGINDIR=/etc/xapi.d/plugins
 HOOKSDIR=/etc/xapi.d
 INVENTORY=/etc/xensource-inventory
 XAPICONF=/etc/xapi.conf
-RRDDCONF=/etc/xcp-rrdd.conf
 LIBEXECDIR=/opt/xensource/libexec
 SCRIPTSDIR=/etc/xensource/scripts
 SHAREDIR=/opt/xensource
@@ -70,7 +68,7 @@ EXTRA_INSTALL_PATH=
 endif
 
 
-export ETCDIR OPTDIR PLUGINDIR HOOKSDIR INVENTORY VARPATCHDIR LIBEXECDIR XAPICONF RRDDCONF SCRIPTSDIR SHAREDIR WEBDIR XHADIR BINDIR SBINDIR UDEVDIR OCAMLPATH EXTRA_INSTALL_PATH
+export ETCDIR OPTDIR PLUGINDIR HOOKSDIR INVENTORY VARPATCHDIR LIBEXECDIR XAPICONF SCRIPTSDIR SHAREDIR WEBDIR XHADIR BINDIR SBINDIR UDEVDIR OCAMLPATH EXTRA_INSTALL_PATH
 
 .PHONY: all
 all: version ocaml/fhs.ml
@@ -182,7 +180,6 @@ ocaml/fhs.ml :
 	let hooksdir=\"$(HOOKSDIR)\"\n \
 	let libexecdir=\"$(LIBEXECDIR)\"\n \
 	let xapiconf=\"$(XAPICONF)\"\n \
-	let rrddconf=\"$(RRDDCONF)\"\n \
 	let scriptsdir=\"$(SCRIPTSDIR)\"\n \
 	let varpatchdir=\"$(VARPATCHDIR)\"\n \
 	let webdir=\"$(WEBDIR)\"\n \

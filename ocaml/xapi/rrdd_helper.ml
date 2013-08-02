@@ -12,25 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type t = {
-	name : string;
-	description : string;
-	enabled : bool;
-	standard : bool;
-	min : float;
-	max : float;
-	units : string
-}
 
-let to_key_value_map ds = [
-	"name_label", ds.name;
-	"name_description", ds.description;
-	"enabled", string_of_bool ds.enabled;
-	"standard", string_of_bool ds.standard;
-	"min", string_of_float ds.min;
-	"max", string_of_float ds.max;
-	"units", ds.units;
-]
+open Data_source
 
 let to_API_data_source (ds : t) = {
 	API.data_source_name_label = ds.name;

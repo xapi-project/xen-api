@@ -2,7 +2,7 @@ SITE_DIR=$(shell python -c "from distutils.sysconfig import get_python_lib; prin
 
 .PHONY: noarch-install install sdk-install
 
-.SUBDIRS: examples host-backup-restore poweron rrdd templates
+.SUBDIRS: examples host-backup-restore poweron templates
 
 noarch-install:
 	mkdir -p $(DESTDIR)$(UDEVDIR)
@@ -52,7 +52,6 @@ install:
 	$(IPROG) udhcpd.skel $(DESTDIR)/var/lib/xcp/udhcpd.skel
 	$(IDATA) xapi.conf $(DESTDIR)$(XAPICONF)
 	$(IDATA) sparse_dd.conf $(DESTDIR)/etc/sparse_dd.conf
-	$(IDATA) xcp-rrdd.conf $(DESTDIR)/etc/xcp-rrdd.conf
 	$(IDATA) xenopsd.conf $(DESTDIR)/etc/xenopsd.conf
 	$(IDATA) squeezed.conf $(DESTDIR)/etc/squeezed.conf
 	$(IPROG) db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf
@@ -67,7 +66,6 @@ install:
 	$(IPROG) init.d-xenopsd $(DESTDIR)/etc/rc.d/init.d/xenopsd
 	$(IPROG) init.d-management-interface $(DESTDIR)/etc/rc.d/init.d/management-interface
 	$(IPROG) init.d-genptoken $(DESTDIR)/etc/rc.d/init.d/genptoken
-	$(IPROG) init.d-rrdd $(DESTDIR)/etc/rc.d/init.d/xcp-rrdd
 	$(IPROG) init.d-v6d $(DESTDIR)/etc/rc.d/init.d/v6d
 	$(IDATA) v6d-logrotate $(DESTDIR)/etc/logrotate.d/v6d
 	mkdir -p $(DESTDIR)$(ETCDIR)/master.d

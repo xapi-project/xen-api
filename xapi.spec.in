@@ -60,15 +60,6 @@ Group: System/Hypervisor
 This package contains daemon that defines and controls XCP editions and
 associated features
 
-%package rrdd
-Summary: The RRD daemon
-Group: System/Hypervisor
-
-%description rrdd
-This package contains a daemon that continually collects performance metrics
-from the host and its VMs, stores the data in host's memory, and occasionally
-synchronises the data to host's local storage.
-
 %package xenops
 Summary: Low-level debugging tools
 Group: System/Hypervisor
@@ -91,14 +82,6 @@ Group:   Development/Libraries
 %description datamodel-devel
 This package contains the internal xapi datamodel as a library suitable
 for writing additional code generators.
-
-%package rrd-devel
-Summary: rrd-client headers and libraries
-Group:   Development/Libraries
-
-%description rrd-devel
-This package contains rrd functions as a library suitable for writing tools 
-related to rrd. Needed for rrd2csv and rrdd-plugins.
 
 %package xenstore-watch-devel
 Summary: xenstore-watch headers and libraries
@@ -127,10 +110,6 @@ for f in XenAPI XenAPIPlugin inventory; do
 	done
 done > core-files
 
-for e in py pyc pyo; do
-	echo $SITEDIR/rrdd.$e
-done > rrdd-files
-
 ln -s /var/lib/xcp $RPM_BUILD_ROOT/var/xapi
 
 %clean
@@ -142,9 +121,6 @@ rm -rf $RPM_BUILD_ROOT
 [ ! -x /sbin/chkconfig ] || chkconfig --add xapi-domains
 [ ! -x /sbin/chkconfig ] || chkconfig --add perfmon
 [ ! -x /sbin/chkconfig ] || chkconfig --add genptoken
-
-%post rrdd
-[ ! -x /sbin/chkconfig ] || chkconfig --add xcp-rrdd
 
 %post squeezed
 [ ! -x /sbin/chkconfig ] || chkconfig squeezed on
@@ -317,15 +293,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/v6d
 /etc/rc.d/init.d/v6d
 
-%files rrdd -f rrdd-files
-%defattr(-,root,root,-)
-@OPTDIR@/libexec/xcp-rrdd
-/etc/rc.d/init.d/xcp-rrdd
-%config(noreplace) /etc/xcp-rrdd.conf
-@OPTDIR@/libexec/rrdd-example.py
-@OPTDIR@/libexec/rrdd-example.pyc
-@OPTDIR@/libexec/rrdd-example.pyo
-
 %files xenops
 %defattr(-,root,root,-)
 @OPTDIR@/debug/xenops
@@ -373,10 +340,6 @@ rm -rf $RPM_BUILD_ROOT
 %files datamodel-devel
 %defattr(-,root,root,-)
 /usr/lib/ocaml/xapi-datamodel/*
-
-%files rrd-devel
-%defattr(-,root,root,-)
-/usr/lib/ocaml/rrd-client/*
 
 %files xenstore-watch-devel
 %defattr(-,root,root,-)

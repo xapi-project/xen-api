@@ -1,4 +1,4 @@
-OCAMLPACKS    = oclock xml-light2 cdrom pciutil sexpr log stunnel http-svr xen-utils netdev tapctl rpclib nbd.unix xenstore-compat xenctrl uuid gzip vhdlib sha1 xcp.network
+OCAMLPACKS    = oclock xml-light2 cdrom pciutil sexpr log stunnel http-svr xen-utils netdev tapctl rpclib nbd.unix xenstore-compat xenctrl uuid gzip vhdlib sha1 xcp.network xcp.rrd
 OCAML_LIBS    = ../fhs ../util/version ../util/vm_memory_constraints ../util/sanitycheck ../util/stats \
 	../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server ../util/ocamltest
 OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
@@ -264,14 +264,11 @@ XAPI_MODULES = $(COMMON) \
 	xapi_gpu_group \
 	xapi_vgpu \
 	rrdd_proxy \
+	rrdd_helper \
 	../util/rpc_retry \
 	../rrdd/interface/rrdd_fake_common \
 	../rrdd/interface/rrdd_common \
 	../rrdd/interface/monitor_types \
-	../rrdd/interface/ds \
-	../rrdd/interface/rrd \
-	../rrdd/interface/data_source \
-	../rrdd/interface/rrdd_interface \
 	../rrdd/interface/rrdd
 
 OCamlProgram(xapi, xapi $(XAPI_MODULES))
