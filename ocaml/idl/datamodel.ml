@@ -7846,6 +7846,9 @@ let all_system =
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)
 (* If the relation is one-to-many, the "many" nodes (one edge each) must come before the "one" node (many edges) *)
+(* If the relation is many-to-many, then the field which will be manually
+ * updated must come first. The second field will be automatically * kept
+ * up-to-date. *)
 let all_relations =
   [
     (* snapshots *)
