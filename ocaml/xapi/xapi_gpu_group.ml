@@ -55,18 +55,20 @@ let find_or_create ~__context pgpu =
 		let group = create ~__context ~name_label ~name_description:"" ~other_config:[] in
 		group
 
+module VGPU_type_set = Set.Make(struct type t = API.ref_VGPU_type let compare = compare end)
 let get_allowed_VGPU_types ~__context ~self =
-	(* TODO: Implement this. *)
-	failwith "not implemented"
-	(*match Db.GPU_group.get_VGPUs ~__context ~self with
-	| [] -> Db.GPU_group.get_supported_VGPU_types ~__context ~self
-	| _ ->
-		(* We will only allow VGPUs of the same type as there already exist
-		 * in this group. *)
-		let open Db_filter_types in
-		let contained_VGPUs = Db.VGPU.get_records_where ~__context ~expr:(And
-			(Eq (Field "GPU_group", Literal (Ref.string_of self)),
-			Not (Eq (Field "type", Literal (Ref.string_of Ref.null)))))
-		in
-		Listext.List.setify
-			(List.map (fun (_, vgpu) -> vgpu.API.vGPU_type) contained_VGPUs)*)
+	let pgpus = Db.GPU_group.get_PGPUs ~__context ~self in
+	let vgpu_type_set =
+		List.fold_left
+			(fun acc pgpu ->
+				(* For each PGPU in the group, fold its enabled VGPU types
+				 * into the set. *)
+				let enabled_VGPU_types =
+					Db.PGPU.get_enabled_VGPU_types ~__context ~self:pgpu
+				in
+				List.fold_left
+					(fun acc vgpu_type -> VGPU_type_set.add vgpu_type acc)
+					acc enabled_VGPU_types)
+			VGPU_type_set.empty pgpus
+	in
+	VGPU_type_set.elements vgpu_type_set
