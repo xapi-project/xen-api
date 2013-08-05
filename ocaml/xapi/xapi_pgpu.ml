@@ -17,10 +17,14 @@ open D
 open Listext
 open Threadext
 
-let create ~__context ~pCI ~gPU_group ~host ~other_config =
+let create ~__context ~pCI ~gPU_group ~host ~other_config ~supported_VGPU_types =
 	let pgpu = Ref.make () in
 	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
 	Db.PGPU.create ~__context ~ref:pgpu ~uuid ~pCI ~gPU_group ~host ~other_config;
+	Db.PGPU.set_supported_VGPU_types ~__context
+		~self:pgpu ~value:supported_VGPU_types;
+	Db.PGPU.set_enabled_VGPU_types ~__context
+		~self:pgpu ~value:supported_VGPU_types;
 	debug "PGPU ref='%s' created (host = '%s')" (Ref.string_of pgpu) (Ref.string_of host);
 	pgpu
 
@@ -38,7 +42,13 @@ let update_gpus ~__context ~host =
 				try
 					List.find (fun (rf, rc) -> rc.API.pGPU_PCI = pci) existing_pgpus
 				with Not_found ->
-					let self = create ~__context ~pCI:pci ~gPU_group:(Ref.null) ~host ~other_config:[] in
+					let supported_VGPU_types =
+						Xapi_vgpu_type.find_or_create_supported_types ~__context pci
+					in
+					let self = create ~__context ~pCI:pci
+							~gPU_group:(Ref.null) ~host ~other_config:[]
+							~supported_VGPU_types
+					in
 					let group = Xapi_gpu_group.find_or_create ~__context self in
 					Helpers.call_api_functions ~__context (fun rpc session_id ->
 						Client.Client.PGPU.set_GPU_group rpc session_id self group);
@@ -49,6 +59,40 @@ let update_gpus ~__context ~host =
 	let current_pgpus = find_or_create [] pcis in
 	let obsolete_pgpus = List.set_difference existing_pgpus current_pgpus in
 	List.iter (fun (self, _) -> Db.PGPU.destroy ~__context ~self) obsolete_pgpus
+
+let assert_VGPU_type_supported ~__context ~self ~value =
+	let supported_VGPU_types =
+		Db.PGPU.get_supported_VGPU_types ~__context ~self
+	in
+	if not (List.mem value supported_VGPU_types)
+	then raise (Api_errors.Server_error
+		(Api_errors.vgpu_type_not_supported,
+			List.map Ref.string_of (value :: supported_VGPU_types)))
+
+let assert_no_resident_VGPUs_of_type ~__context ~self ~vgpu_type =
+	let open Db_filter_types in
+	match Db.VGPU.get_records_where ~__context
+		~expr:(And
+			(Eq (Field "resident_on", Literal (Ref.string_of self)),
+			Eq (Field "vgpu_type", Literal (Ref.string_of vgpu_type))))
+	with
+	| [] -> ()
+	| vgpus_and_records ->
+		let vms =
+			List.map
+				(fun (vgpu, _) -> Db.VGPU.get_VM ~__context ~self:vgpu)
+				vgpus_and_records
+		in
+		raise (Api_errors.Server_error
+			(Api_errors.pgpu_in_use_by_vm, List.map Ref.string_of vms))
+
+let add_enabled_VGPU_types ~__context ~self ~value =
+	assert_VGPU_type_supported ~__context ~self ~value;
+	Db.PGPU.add_enabled_VGPU_types ~__context ~self ~value
+
+let remove_enabled_VGPU_types ~__context ~self ~value =
+	assert_no_resident_VGPUs_of_type ~__context ~self ~vgpu_type:value;
+	Db.PGPU.remove_enabled_VGPU_types ~__context ~self ~value
 
 let gpu_group_m = Mutex.create ()
 let set_GPU_group ~__context ~self ~value =
@@ -86,16 +130,11 @@ let set_GPU_group ~__context ~self ~value =
 		| true, new_types ->
 			Db.PGPU.set_GPU_group ~__context ~self ~value;
 			(* Group inherits the device type *)
-			Xapi_gpu_group.set_GPU_types ~__context ~self:value ~value:new_types;
-			let vgpu_types = Db.GPU_group.get_supported_VGPU_types
-				~__context ~self:value in
-			debug "PGPU %s moved to GPU group %s. Group GPU types = [ %s ]; Supported vGPU types = [ %s ]."
+			Db.GPU_group.set_GPU_types ~__context ~self:value ~value:new_types;
+			debug "PGPU %s moved to GPU group %s. Group GPU types = [ %s ]."
 				(Db.PGPU.get_uuid ~__context ~self)
 				(Db.GPU_group.get_uuid ~__context ~self:value)
 				(String.concat "; " new_types)
-				(String.concat "; " (List.map
-					(fun self -> Db.VGPU_type.get_model_name ~__context ~self)
-					vgpu_types))
 		| false, _ ->
 			raise (Api_errors.Server_error
 				(Api_errors.pgpu_not_compatible_with_gpu_group,

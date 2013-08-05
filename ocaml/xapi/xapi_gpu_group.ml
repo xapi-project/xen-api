@@ -18,7 +18,7 @@ let create ~__context ~name_label ~name_description ~other_config =
 	let group = Ref.make () in
 	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
 	Db.GPU_group.create ~__context ~ref:group ~uuid ~name_label ~name_description
-		~gPU_types:[] ~other_config ~supported_VGPU_types:[] ~allocation_algorithm:`depth_first;
+		~gPU_types:[] ~other_config ~allocation_algorithm:`depth_first;
 	group
 
 let destroy ~__context ~self =
@@ -40,20 +40,6 @@ let destroy ~__context ~self =
 
 	Db.GPU_group.destroy ~__context ~self
 
-let set_GPU_types ~__context ~self ~value =
-	(* Wrap this database action so we can update the supported_VGPU_types *)
-	debug "GPU group %s: GPU_types <- [ %s ]"
-		(Db.GPU_group.get_uuid ~__context ~self) (String.concat "; " value);
-	Db.GPU_group.set_GPU_types ~__context ~self ~value;
-	let vgpu_types = Xapi_vgpu_type.find_or_create_supported_types
-		~__context self in
-	debug "GPU group %s: supported_VGPU_types <- [ %s ]"
-		(Db.GPU_group.get_uuid ~__context ~self)
-		(String.concat "; " (List.map
-			(fun self -> Db.VGPU_type.get_model_name ~__context ~self) vgpu_types));
-	Db.GPU_group.set_supported_VGPU_types ~__context ~self
-		~value:vgpu_types
-
 let find_or_create ~__context pgpu =
 	let pci = Db.PGPU.get_PCI ~__context ~self:pgpu in
 	let pci_rec = Db.PCI.get_record_internal ~__context ~self:pci in
@@ -67,19 +53,22 @@ let find_or_create ~__context pgpu =
 	with Not_found ->
 		let name_label = "Group of " ^ pci_rec.Db_actions.pCI_vendor_name ^ " " ^ pci_rec.Db_actions.pCI_device_name ^ " GPUs" in
 		let group = create ~__context ~name_label ~name_description:"" ~other_config:[] in
-		set_GPU_types ~__context ~self:group ~value:[gpu_type];
 		group
 
+module VGPU_type_set = Set.Make(struct type t = API.ref_VGPU_type let compare = compare end)
 let get_allowed_VGPU_types ~__context ~self =
-	match Db.GPU_group.get_VGPUs ~__context ~self with
-	| [] -> Db.GPU_group.get_supported_VGPU_types ~__context ~self
-	| _ ->
-		(* We will only allow VGPUs of the same type as there already exist
-		 * in this group. *)
-		let open Db_filter_types in
-		let contained_VGPUs = Db.VGPU.get_records_where ~__context ~expr:(And
-			(Eq (Field "GPU_group", Literal (Ref.string_of self)),
-			Not (Eq (Field "type", Literal (Ref.string_of Ref.null)))))
-		in
-		Listext.List.setify
-			(List.map (fun (_, vgpu) -> vgpu.API.vGPU_type) contained_VGPUs)
+	let pgpus = Db.GPU_group.get_PGPUs ~__context ~self in
+	let vgpu_type_set =
+		List.fold_left
+			(fun acc pgpu ->
+				(* For each PGPU in the group, fold its enabled VGPU types
+				 * into the set. *)
+				let enabled_VGPU_types =
+					Db.PGPU.get_enabled_VGPU_types ~__context ~self:pgpu
+				in
+				List.fold_left
+					(fun acc vgpu_type -> VGPU_type_set.add vgpu_type acc)
+					acc enabled_VGPU_types)
+			VGPU_type_set.empty pgpus
+	in
+	VGPU_type_set.elements vgpu_type_set

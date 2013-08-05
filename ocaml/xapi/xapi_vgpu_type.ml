@@ -34,18 +34,17 @@ type vgpu_type = {
 	framebuffer_size : int64;
 }
 
-let entire_gpu = {model_name = "whole"; framebuffer_size = 0L}
+let entire_gpu = {model_name = "passthrough"; framebuffer_size = 0L}
 
-let create ~__context ~model_name ~framebuffer_size ~gPU_groups =
+let create ~__context ~model_name ~framebuffer_size =
 	let ref = Ref.make () in
 	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
-	Db.VGPU_type.create ~__context ~ref ~uuid ~model_name ~framebuffer_size
-		~gPU_groups;
+	Db.VGPU_type.create ~__context ~ref ~uuid ~model_name ~framebuffer_size;
 	debug "VGPU_type ref='%s' created (model_name = '%s')"
 		(Ref.string_of ref) model_name;
 	ref
 
-let find_or_create ~__context vgpu_type gpu_group =
+let find_or_create ~__context vgpu_type =
 	let open Db_filter_types in
 	let existing_types =
 		Db.VGPU_type.get_records_where ~__context
@@ -56,13 +55,10 @@ let find_or_create ~__context vgpu_type gpu_group =
 	in
 	match existing_types with
 	| [vgpu_type, rc] ->
-		let new_groups = gpu_group :: rc.API.vGPU_type_GPU_groups in
-		Db.VGPU_type.set_GPU_groups ~__context ~self:vgpu_type
-			~value:new_groups;
 		vgpu_type
 	| [] ->
 		create ~__context ~model_name:vgpu_type.model_name
-			~framebuffer_size:vgpu_type.framebuffer_size ~gPU_groups:[gpu_group]
+			~framebuffer_size:vgpu_type.framebuffer_size
 	| _ ->
 		failwith "Error: Multiple vGPU types exist with the same configuration."
 
@@ -130,19 +126,16 @@ let relevant_vgpu_types pci_dev_ids =
 	let pci_db = Pci_db.of_file Pci_db.pci_ids_path in
 	build_vgpu_types pci_db [] relevant_vgpu_confs
 
-let find_or_create_supported_types ~__context gpu_group =
-	let pgpus = Db.GPU_group.get_PGPUs ~__context ~self:gpu_group in
-	let pcis = List.map (fun self -> Db.PGPU.get_PCI ~__context ~self) pgpus in
+let find_or_create_supported_types ~__context pci =
 	(* let pci_recs = List.map (fun self -> Db.PCI.get_record_internal ~__context ~self) pcis in *)
 	(* let dev_ids = List.map (fun p -> p.Db_actions.pCI_device_id) pci_recs in *)
-	let dev_ids = List.map (fun self -> Xapi_pci.int_of_id (Db.PCI.get_device_id ~__context ~self)) pcis in
-	debug "dev_ids = [ %s ]" (String.concat "; " (List.map (Printf.sprintf
-	"%04Lx") dev_ids));
-	let relevant_types = relevant_vgpu_types dev_ids in
-	debug "Relevant vGPU configurations for group = [ %s ]"
+	let dev_id = Xapi_pci.int_of_id (Db.PCI.get_device_id ~__context ~self:pci) in
+	debug "dev_ids = [ %s ]" (Printf.sprintf "%04Lx" dev_id);
+	let relevant_types = relevant_vgpu_types [dev_id] in
+	debug "Relevant vGPU configurations for pgpu = [ %s ]"
 		(String.concat "; "
 			(List.map (fun vt -> vt.model_name) relevant_types));
 	let vgpu_types = List.map
-		(fun v -> find_or_create ~__context v gpu_group) relevant_types in
-	let entire_gpu_type = find_or_create ~__context entire_gpu gpu_group in
+		(fun v -> find_or_create ~__context v) relevant_types in
+	let entire_gpu_type = find_or_create ~__context entire_gpu in
 	entire_gpu_type :: vgpu_types

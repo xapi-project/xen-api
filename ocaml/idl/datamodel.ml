@@ -521,8 +521,8 @@ let _ =
     ~doc:"Moving this PGPU would leave unbacked VGPUs in the GPU group." ();
   error Api_errors.pgpu_not_compatible_with_gpu_group ["type"; "group_types"]
     ~doc:"PGPU type not compatible with destination group." ();
-  error Api_errors.vgpu_type_not_allowed ["type"; "allowed_types"]
-    ~doc:"VGPU type is not one of the GPU group's allowed types." ();
+  error Api_errors.vgpu_type_not_supported ["type"; "supported_types"]
+    ~doc:"VGPU type is not one of the PGPU's allowed types." ();
 
   error Api_errors.openvswitch_not_active []
     ~doc:"This operation needs the OpenVSwitch networking backend to be enabled on all hosts in the pool." ();
@@ -7618,6 +7618,50 @@ let pci =
 (** Physical GPUs (pGPU) *)
 
 let pgpu =
+	let add_enabled_VGPU_types = call
+		~name:"add_enabled_VGPU_types"
+		~lifecycle:[Published, rel_vgpu, ""]
+		~versioned_params:[
+			{
+				param_type = (Ref _pgpu);
+				param_name = "self";
+				param_doc = "The PGPU to which we are adding an enabled VGPU type";
+				param_release = vgpu_release;
+				param_default = None;
+			};
+			{
+				param_type = (Ref _vgpu_type);
+				param_name = "value";
+				param_doc = "The VGPU type to enable";
+				param_release = vgpu_release;
+				param_default = None;
+			};
+		]
+		~allowed_roles:_R_POOL_OP
+		()
+	in
+	let remove_enabled_VGPU_types = call
+		~name:"remove_enabled_VGPU_types"
+		~lifecycle:[Published, rel_vgpu, ""]
+		~versioned_params:[
+			{
+				param_type = (Ref _pgpu);
+				param_name = "self";
+				param_doc = "The PGPU from which we are removing an enabled VGPU type";
+				param_release = vgpu_release;
+				param_default = None;
+			};
+			{
+				param_type = (Ref _vgpu_type);
+				param_name = "value";
+				param_doc = "The VGPU type to disable";
+				param_release = vgpu_release;
+				param_default = None;
+			};
+		]
+		~allowed_roles:_R_POOL_OP
+		()
+	in
 	let set_GPU_group = call
 		~name:"set_GPU_group"
 		~lifecycle:[Published, rel_vgpu, ""]
@@ -7636,7 +7680,11 @@ let pgpu =
 		~gen_events:true
 		~in_db:true
 		~lifecycle:[Published, rel_boston, ""]
-		~messages:[set_GPU_group]
+		~messages:[
+			add_enabled_VGPU_types;
+			remove_enabled_VGPU_types;
+			set_GPU_group;
+		]
 		~messages_default_allowed_roles:_R_POOL_OP
 		~persist:PersistEverything
 		~in_oss_since:None
@@ -7646,6 +7694,9 @@ let pgpu =
 			field ~qualifier:StaticRO ~ty:(Ref _gpu_group) ~lifecycle:[Published, rel_boston, ""] "GPU_group" "GPU group the pGPU is contained in" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
 			field ~qualifier:DynamicRO ~ty:(Ref _host) ~lifecycle:[Published, rel_boston, ""] "host" "Host that own the GPU" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
 			field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_boston, ""] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
+			field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu_type)) ~lifecycle:[Published, rel_vgpu, ""] "supported_VGPU_types" "List of VGPU types supported by the underlying hardware";
+			field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu_type)) ~lifecycle:[Published, rel_vgpu, ""] "enabled_VGPU_types" "List of VGPU types which have been enabled for this PGPU";
+			field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu)) ~lifecycle:[Published, rel_vgpu, ""] "resident_VGPUs" "List of VGPUs running on this PGPU";
 			]
 		()
 
@@ -7708,7 +7759,6 @@ let gpu_group =
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu)) ~lifecycle:[Published, rel_boston, ""] "VGPUs" "List of vGPUs using the group";
 			field ~qualifier:DynamicRO ~ty:(Set String) ~lifecycle:[Published, rel_boston, ""] "GPU_types" "List of GPU types (vendor+device ID) that can be in this group" ~default_value:(Some (VSet []));
 			field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_boston, ""] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
-			field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu_type)) ~lifecycle:[Published, rel_vgpu, ""] "supported_VGPU_types" "List of VGPU types supported by the underlying hardware" ~ignore_foreign_key:true;
 			field ~qualifier:RW ~ty:allocation_algorithm "allocation_algorithm" "Current allocation of vGPUs to pGPUs for this group" ~default_value:(Some (VEnum "depth_first"));
 			]
 		()
@@ -7759,6 +7809,7 @@ let vgpu =
 			field ~qualifier:DynamicRO ~ty:Bool ~lifecycle:[Published, rel_boston, ""] ~default_value:(Some (VBool false)) "currently_attached" "Reflects whether the virtual device is currently connected to a physical device";
 			field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_boston, ""] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
 			field ~qualifier:DynamicRO ~ty:(Ref _vgpu_type) ~lifecycle:[Published, rel_vgpu, ""] "type" "Preset type for this VGPU" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
+			field ~qualifier:DynamicRO ~ty:(Ref _pgpu) ~lifecycle:[Published, rel_vgpu, ""] "resident_on" "The PGPU on which this VGPU is running" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
 			]
 		()
 
@@ -7781,7 +7832,8 @@ let vgpu_type =
 			uid _vgpu_type ~lifecycle:[Published, rel_vgpu, ""];
 			field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_vgpu, ""] ~default_value:(Some (VString "")) "model_name" "Model name associated with the VGPU type";
 			field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu, ""] ~default_value:(Some (VInt 0L)) "framebuffer_size" "Framebuffer size of the VGPU type, in bytes";
-			field ~qualifier:StaticRO ~ty:(Set (Ref _gpu_group)) ~default_value:(Some (VSet []))~lifecycle:[Published, rel_vgpu, ""] "GPU_groups" "List of GPU groups that support this VGPU type" ~ignore_foreign_key:true;
+			field ~qualifier:DynamicRO ~ty:(Set (Ref _pgpu)) ~lifecycle:[Published, rel_vgpu, ""] "supported_on_PGPUs" "List of PGPUs that support this VGPU type";
+			field ~qualifier:DynamicRO ~ty:(Set (Ref _pgpu)) ~lifecycle:[Published, rel_vgpu, ""] "enabled_on_PGPUs" "List of PGPUs that have this VGPU type enabled";
 		]
 	()
 
@@ -7846,6 +7898,9 @@ let all_system =
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)
 (* If the relation is one-to-many, the "many" nodes (one edge each) must come before the "one" node (many edges) *)
+(* If the relation is many-to-many, then the field which will be manually
+ * updated must come first. The second field will be automatically * kept
+ * up-to-date. *)
 let all_relations =
   [
     (* snapshots *)
@@ -7905,7 +7960,9 @@ let all_relations =
     (_pgpu, "GPU_group"), (_gpu_group, "PGPUs");
     (_vgpu, "GPU_group"), (_gpu_group, "VGPUs");
     (_vgpu, "VM"), (_vm, "VGPUs");
-    (_vgpu_type, "GPU_groups"), (_gpu_group, "supported_VGPU_types");
+    (_vgpu, "resident_on"), (_pgpu, "resident_VGPUs");
+    (_pgpu, "supported_VGPU_types"), (_vgpu_type, "supported_on_PGPUs");
+    (_pgpu, "enabled_VGPU_types"), (_vgpu_type, "enabled_on_PGPUs");
     (_pci, "host"), (_host, "PCIs");
     (_pgpu, "host"), (_host, "PGPUs");
     (_pci, "attached_VMs"), (_vm, "attached_PCIs");
