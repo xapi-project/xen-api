@@ -952,7 +952,7 @@ module VGPUType : HandlerTools = struct
 		let compatible_types =
 			Client.VGPU_type.get_all_records_where rpc session_id
 				(Printf.sprintf
-					"field \"model_name\" = \"%s\" AND field \"framebuffer_size\" = \"%Ld\""
+					"field \"model_name\"=\"%s\" and field \"framebuffer_size\"=\"%Ld\""
 					vgpu_type_record.API.vGPU_type_model_name
 					vgpu_type_record.API.vGPU_type_framebuffer_size)
 		in
