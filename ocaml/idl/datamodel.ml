@@ -7789,6 +7789,12 @@ let gpu_group =
 		~allowed_roles:_R_READ_ONLY
 		()
 	in
+	let allocation_algorithm =
+		Enum ("allocation_algorithm",
+			[ "breadth_first", "vGPUs of a given type are allocated evenly across supporting pGPUs.";
+			  "depth_first", "vGPUs of a given type are allocated on supporting pGPUs until they are full."]
+		)
+	in
 	create_obj
 		~name:_gpu_group
 		~descr:"A group of compatible GPUs across the resource pool"
@@ -7809,6 +7815,7 @@ let gpu_group =
 			field ~qualifier:DynamicRO ~ty:(Set String) ~lifecycle:[Published, rel_boston, ""] "GPU_types" "List of GPU types (vendor+device ID) that can be in this group" ~default_value:(Some (VSet []));
 			field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_boston, ""] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu_type)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "supported_VGPU_types" "List of VGPU types supported by the underlying hardware" ~ignore_foreign_key:true;
+			field ~qualifier:RW ~ty:allocation_algorithm "allocation_algorithm" "Current allocation of vGPUs to pGPUs for this group" ~default_value:(Some (VEnum "depth_first"));
 			]
 		()
 
