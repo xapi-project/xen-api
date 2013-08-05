@@ -1471,6 +1471,23 @@ let pgpu_record rpc session_id pgpu =
 						(List.map
 							get_uuid_from_ref
 							(x ()).API.pGPU_supported_VGPU_types)) ();
+			make_field ~name:"enabled-VGPU-types"
+				~get:(fun () ->
+					String.concat "; "
+						(List.map
+							get_uuid_from_ref
+							(x ()).API.pGPU_enabled_VGPU_types))
+				~get_set:(fun () ->
+					(List.map
+						(fun vgpu_type -> get_uuid_from_ref vgpu_type)
+						(x ()).API.pGPU_enabled_VGPU_types))
+				~add_to_set:(fun vgpu_type_uuid ->
+					Client.PGPU.add_enabled_VGPU_types rpc session_id pgpu
+						(Client.VGPU_type.get_by_uuid rpc session_id vgpu_type_uuid))
+				~remove_from_set:(fun vgpu_type_uuid ->
+					Client.PGPU.remove_enabled_VGPU_types rpc session_id pgpu
+						(Client.VGPU_type.get_by_uuid rpc session_id vgpu_type_uuid))
+				();
 			]
 	}
 
