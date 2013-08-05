@@ -229,6 +229,12 @@ _xe()
                 return 0
                 ;;
 
+            allocation-algorithm) # GPU_group.allocation_algorithm
+                IFS=$'\n,'
+                set_completions 'capacity,performance' "$value"
+                return 0
+                ;;
+
             entries) # for host-get-system-status
                 val=$(final_comma_separated_param "$value")
                 master_uuid=$(xe pool-list params=master --minimal 2>/dev/null)
