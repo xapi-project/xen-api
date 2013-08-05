@@ -7936,6 +7936,7 @@ let vgpu_type =
 		~in_oss_since:None
 		~contents:[
 			uid _vgpu_type ~lifecycle:[Published, rel_vgpu_tech_preview, ""];
+			field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~default_value:(Some (VString "")) "vendor_name" "Name of VGPU vendor";
 			field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~default_value:(Some (VString "")) "model_name" "Model name associated with the VGPU type";
 			field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~default_value:(Some (VInt 0L)) "framebuffer_size" "Framebuffer size of the VGPU type, in bytes";
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _pgpu)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "supported_on_PGPUs" "List of PGPUs that support this VGPU type";
