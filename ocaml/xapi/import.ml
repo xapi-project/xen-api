@@ -940,7 +940,7 @@ module VIF : HandlerTools = struct
 		end
 end
 
-module VGPU_type : HandlerTools = struct
+module VGPUType : HandlerTools = struct
 	type precheck_t =
 		| Found_VGPU_type of API.ref_VGPU_type
 		| Found_no_VGPU_type of exn
@@ -1048,6 +1048,7 @@ module NetworkHandler = MakeHandler(Net)
 module GPUGroupHandler = MakeHandler(GPUGroup)
 module VBDHandler = MakeHandler(VBD)
 module VIFHandler = MakeHandler(VIF)
+module VGPUTypeHandler = MakeHandler(VGPUType)
 module VGPUHandler = MakeHandler(VGPU)
 
 (** Table mapping datamodel class names to handlers, in order we have to run them *)
@@ -1062,6 +1063,7 @@ let handlers =
 		Datamodel._gpu_group, GPUGroupHandler.handle;
 		Datamodel._vbd, VBDHandler.handle;
 		Datamodel._vif, VIFHandler.handle;
+		Datamodel._vgpu_type, VGPUTypeHandler.handle;
 		Datamodel._vgpu, VGPUHandler.handle;
 	]
 
