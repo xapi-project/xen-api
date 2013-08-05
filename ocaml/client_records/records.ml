@@ -1564,6 +1564,7 @@ let vgpu_type_record rpc session_id vgpu_type =
 		getref = (fun () -> !_ref);
 		fields = [
 			make_field ~name:"uuid" ~get:(fun () -> (x ()).API.vGPU_type_uuid) ();
+			make_field ~name:"vendor-name" ~get:(fun () -> (x ()).API.vGPU_type_vendor_name) ();
 			make_field ~name:"model-name"
 				~get:(fun () -> (x ()).API.vGPU_type_model_name) ();
 			make_field ~name:"framebuffer-size"
