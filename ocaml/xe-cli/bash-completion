@@ -231,7 +231,7 @@ _xe()
 
             allocation-algorithm) # GPU_group.allocation_algorithm
                 IFS=$'\n,'
-                set_completions 'capacity,performance' "$value"
+                set_completions 'depth-first,breadth-first' "$value"
                 return 0
                 ;;
 
