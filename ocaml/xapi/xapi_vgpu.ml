@@ -29,6 +29,18 @@ let create ~__context  ~vM ~gPU_group ~device ~other_config ~_type =
 	if not(valid_device device) then
 		raise (Api_errors.Server_error (Api_errors.invalid_device, [device]));
 
+	(* For backwards compatibility, convert Ref.null into the passthrough type. *)
+	let _type =
+		if _type = Ref.null
+		then Xapi_vgpu_type.find_or_create ~__context Xapi_vgpu_type.entire_gpu
+		else begin
+			if Db.is_valid_ref __context _type
+			then _type
+			else raise (Api_errors.Server_error
+				(Api_errors.invalid_value, ["type"; Ref.string_of _type]))
+		end
+	in
+
 	Threadext.Mutex.execute m (fun () ->
 		(* Check to make sure the device is unique *)
 		let all = Db.VM.get_VGPUs ~__context ~self:vM in
