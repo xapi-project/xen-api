@@ -98,6 +98,7 @@ let rec update_table ~__context ~include_snapshots ~preserve_power_state ~includ
 	(fun vgpu -> if Db.is_valid_ref __context vgpu then begin
 	       add vgpu;
 	       let vgpu = Db.VGPU.get_record ~__context ~self:vgpu in
+	       add vgpu.API.vGPU_type;
 	       add vgpu.API.vGPU_GPU_group end)
 	vm.API.vM_VGPUs;
   (* If we need to include snapshots, update the table for VMs in the 'snapshots' field *) 
