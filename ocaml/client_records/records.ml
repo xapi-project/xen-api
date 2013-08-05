@@ -1505,6 +1505,13 @@ let gpu_group_record rpc session_id gpu_group =
 							get_uuid_from_ref
 							(Client.GPU_group.get_allowed_VGPU_types rpc session_id gpu_group)))
 				~expensive:true ();
+			make_field ~name:"allocation-algorithm"
+				~get:(fun () ->
+					Record_util.allocation_algorithm_to_string
+						(x ()).API.gPU_group_allocation_algorithm)
+				~set:(fun ty ->
+					Client.GPU_group.set_allocation_algorithm rpc session_id
+					gpu_group (Record_util.allocation_algorithm_of_string ty)) ();
 			]
 	}
 
