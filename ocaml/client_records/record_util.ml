@@ -405,13 +405,13 @@ let bond_mode_of_string m =
 	| s -> raise (Record_failure ("Invalid bond mode. Got " ^ s))
 
 let allocation_algorithm_to_string = function
-	| `depth_first -> "capacity"
-	| `breadth_first -> "performance"
+	| `depth_first -> "depth-first"
+	| `breadth_first -> "breadth-first"
 
 let allocation_algorithm_of_string a =
 	match String.lowercase a with
-	| "capacity" -> `depth_first
-	| "performance" -> `breadth_first
+	| "depth-first" -> `depth_first
+	| "breadth-first" -> `breadth_first
 	| s -> raise (Record_failure ("Invalid allocation algorithm. Got " ^ s))
 
 let bool_of_string s =
