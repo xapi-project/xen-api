@@ -36,17 +36,8 @@ let create ~__context  ~vM ~gPU_group ~device ~other_config ~_type =
 		if List.mem device all_devices then
 			raise (Api_errors.Server_error (Api_errors.device_already_exists, [device]));
 
-		(* Check to make sure it's an allowed type *)
-		let allowed_types = Xapi_gpu_group.get_allowed_VGPU_types ~__context ~self:gPU_group in
-		if not (List.mem _type allowed_types) then begin
-			let uuid_of = fun self -> Db.VGPU_type.get_uuid ~__context ~self in
-			let allowed_uuids = List.map uuid_of allowed_types in
-			raise (Api_errors.Server_error (Api_errors.vgpu_type_not_allowed,
-				[uuid_of _type; ("[" ^ (String.concat "; " allowed_uuids) ^ "]")]))
-		end;
-
 		Db.VGPU.create ~__context ~ref:vgpu ~uuid ~vM ~gPU_group ~device
-			~currently_attached:false ~other_config ~_type;
+			~currently_attached:false ~other_config ~_type ~resident_on:Ref.null;
 	);
 	debug "VGPU ref='%s' created (VM = '%s', type = '%s')" (Ref.string_of vgpu) (Ref.string_of vM) (Ref.string_of _type);
 	vgpu
