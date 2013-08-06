@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 67
+let schema_minor_vsn = 68
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
