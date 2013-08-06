@@ -413,6 +413,24 @@ let add_default_pif_properties = {
 			(Db.PIF.get_all ~__context)
 }
 
+let populate_pgpu_vgpu_types = {
+	description = "Populating lists of VGPU types on existing PGPUs";
+	version = (fun x -> x <= clearwater);
+	fn = fun ~__context ->
+		let pgpus = Db.PGPU.get_all ~__context in
+		List.iter
+			(fun pgpu ->
+				let pci = Db.PGPU.get_PCI ~__context ~self:pgpu in
+				let supported_vgpu_types =
+					Xapi_vgpu_type.find_or_create_supported_types ~__context pci
+				in
+				Db.PGPU.set_supported_VGPU_types ~__context
+					~self:pgpu ~value:supported_vgpu_types;
+				Db.PGPU.set_enabled_VGPU_types ~__context
+					~self:pgpu ~value:supported_vgpu_types)
+			pgpus;
+}
+
 let rules = [
 	upgrade_alert_priority;
 	update_mail_min_priority;
@@ -428,6 +446,7 @@ let rules = [
 	upgrade_pif_metrics;
 	upgrade_host_editions;
 	remove_vmpp;
+	populate_pgpu_vgpu_types;
 	remove_wlb;
 	add_default_pif_properties;
 ]
