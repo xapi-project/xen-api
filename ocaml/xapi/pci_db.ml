@@ -58,6 +58,7 @@ let get_subclass t c_id sc_id =
 
 let add_vendor t v_id v = Hashtbl.add t.vendors v_id v
 let get_vendor t v_id = Hashtbl.find t.vendors v_id
+let get_vendor_name t v_id = let v = get_vendor t v_id in v.v_name
 
 let add_device t v_id d_id d =
 	let v = get_vendor t v_id in
