@@ -1517,6 +1517,13 @@ let gpu_group_record rpc session_id gpu_group =
 							get_uuid_from_ref
 							(Client.GPU_group.get_enabled_VGPU_types rpc session_id gpu_group)))
 				~expensive:true ();
+			make_field ~name:"supported-VGPU-types"
+				~get:(fun () ->
+					String.concat "; "
+						(List.map
+							get_uuid_from_ref
+							(Client.GPU_group.get_supported_VGPU_types rpc session_id gpu_group)))
+				~expensive:true ();
 			make_field ~name:"allocation-algorithm"
 				~get:(fun () ->
 					Record_util.allocation_algorithm_to_string
