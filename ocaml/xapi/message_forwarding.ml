@@ -3722,6 +3722,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let get_enabled_VGPU_types ~__context ~self =
 			info "GPU_group.get_enabled_VGPU_types: gpu_group = '%s'" (gpu_group_uuid ~__context self);
 			Local.GPU_group.get_enabled_VGPU_types ~__context ~self
+
+		let get_supported_VGPU_types ~__context ~self =
+			info "GPU_group.get_supported_VGPU_types: gpu_group = '%s'" (gpu_group_uuid ~__context self);
+			Local.GPU_group.get_supported_VGPU_types ~__context ~self
 	end
 
 	module VGPU = struct
