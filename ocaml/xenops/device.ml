@@ -1572,7 +1572,8 @@ type info = {
 	disp: disp_opt;
 	pci_emulations: string list;
 	pci_passthrough: bool;
-	
+	vgpu: (string * string) option;
+
 	(* Xenclient extras *)
 	xenclient_enabled : bool;
 	hvm : bool;
@@ -1751,69 +1752,92 @@ let vnconly_cmdline ~info ?(extras=[]) domid =
     @ disp_options
     @ (List.fold_left (fun l (k, v) -> ("-" ^ k) :: (match v with None -> l | Some v -> v :: l)) [] extras)
 
+let vgpu_args_of_info info domid =
+	match info.vgpu with
+		| Some (pci_id, config) ->
+			[ "--domain=" ^ (string_of_int domid);
+			  "--vcpus=" ^ (string_of_int info.vcpus);
+			  "--gpu=" ^ pci_id;
+			  "--config=" ^ config
+			]
+		| None -> []
+
 let prepend_wrapper_args domid args =
 	(string_of_int domid) :: args
 
-(* Returns the allocated vnc port number *)
-let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xapi_globs.qemu_dm_ready_timeout) l domid =
-	debug "Device.Dm.start domid=%d args: [%s]" domid (String.concat " " l);
-
-	(* Execute qemu-dm-wrapper, forwarding stdout to the syslog, with the key "qemu-dm-<domid>" *)
-	let syslog_stdout = Forkhelpers.Syslog_WithKey (Printf.sprintf "qemu-dm-%d" domid) in
-	let pid = Forkhelpers.safe_close_and_exec None None None [] ~syslog_stdout dmpath (prepend_wrapper_args domid l) in
-
-        debug "qemu-dm: should be running in the background (stdout redirected to syslog)";
-
-	(* There are two common-cases:
-	   1. (in development) the qemu process may crash
-	   2. (in production) We know qemu is ready (and the domain may be unpaused) when
-	      device-misc/dm-ready is set in the store. See xs-xen.pq.hg:hvm-late-unpause *)
-
-	let qemu_domid = 0 in (* See stubdom.ml for the corresponding kernel code *)
-    let dm_ready = Printf.sprintf "/local/domain/%d/device-model/%d/state" qemu_domid domid in
-	let qemu_pid = Forkhelpers.getpid pid in
-	debug "qemu-dm: pid = %d. Waiting for %s" qemu_pid dm_ready;
-	(* We can't block for both a xenstore key and a process disappearing so we
-	   block for 5s at a time *)
+(* Forks a daemon and waits for a path to appear (optionally with a given value)
+ * and then returns the pid. If this doesn't happen in the timeout then an
+ * exception is raised *)
+let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel _ =
+	debug "Starting daemon: %s" path;
+	let syslog_stdout = Forkhelpers.Syslog_WithKey (Printf.sprintf "%s-%d" name domid) in
+	let pid = Forkhelpers.safe_close_and_exec None None None [] ~syslog_stdout path args in
+	debug "%s: should be running in the background (stdout -> syslog)" name;
 	begin
 		let finished = ref false in
-		let watch = Watch.value_to_appear dm_ready |> Watch.map (fun _ -> ()) in
-		let cancel = Qemu (qemu_domid, domid) in
+		let watch = Watch.value_to_appear ready_path |> Watch.map (fun _ -> ()) in
 		let start = Unix.gettimeofday () in
 		while Unix.gettimeofday () -. start < timeout && not !finished do
 			Xenops_task.check_cancelling task;
 			try
 				let (_: bool) = cancellable_watch cancel [ watch ] [] task ~xs ~timeout () in
-				let state = try xs.Xs.read dm_ready with _ -> "" in
-				if state = "running" 
-				then finished := true
-				else raise (Ioemu_failed (Printf.sprintf "qemu-dm state not running (%s)" state))
+				let state = try xs.Xs.read ready_path with _ -> "" in
+				match ready_val with
+				| Some value ->
+					if state = value
+					then finished := true
+					else raise (Ioemu_failed (Printf.sprintf "%s state not running (%s)" name state))
+				| None -> finished := true
 			with Watch.Timeout _ ->
 				begin match Forkhelpers.waitpid_nohang pid with
-					| 0, Unix.WEXITED 0 -> () (* still running *)
+					| 0, Unix.WEXITED 0 -> () (* still running => keep waiting *)
 					| _, Unix.WEXITED n ->
-						error "qemu-dm: unexpected exit with code: %d" n;
-						raise (Ioemu_failed "qemu-dm exited unexpectedly")
+						error "%s: unexpected exit with code: %d" name n;
+						raise (Ioemu_failed (Printf.sprintf "%s exited unexpectedly" name))
 					| _, (Unix.WSIGNALED n | Unix.WSTOPPED n) ->
-						error "qemu-dm: unexpected signal: %s" (Unixext.string_of_signal n);
-						raise (Ioemu_failed "qemu-dm exited unexpectedly")
+						error "%s: unexpected signal: %s" name (Unixext.string_of_signal n);
+						raise (Ioemu_failed (Printf.sprintf "%s exited unexpectedly" name))
 				end
 		done
 	end;
-		
-	(* At this point we expect qemu to outlive us; we will never call waitpid *)	
-	Forkhelpers.dontwaitpid pid
+	debug "Daemon initialised: %s" (Printf.sprintf "%s-%d" name domid);
+	pid
+
+let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xapi_globs.qemu_dm_ready_timeout) l info domid =
+	debug "Device.Dm.start domid=%d args: [%s]" domid (String.concat " " l);
+
+	(* start vgpu emulation if appropriate *)
+	let _ = match info.vgpu with
+		| Some vgpu_setting ->
+			let args = vgpu_args_of_info info domid in
+			let ready_path = Printf.sprintf "/local/domain/%d/vgpu-pid" domid in
+			let cancel = Cancel_utils.Vgpu domid in
+			let vgpu_pid = init_daemon ~task ~path:"/usr/lib/xen/bin/vgpu" ~args
+				~name:"vgpu" ~domid ~xs ~ready_path ~timeout:!Xapi_globs.vgpu_ready_timeout ~cancel () in
+			Forkhelpers.dontwaitpid vgpu_pid
+		| None -> () in
+
+	(* Execute qemu-dm-wrapper, forwarding stdout to the syslog, with the key "qemu-dm-<domid>" *)
+	let args = (prepend_wrapper_args domid l) in
+	let qemu_domid = 0 in (* See stubdom.ml for the corresponding kernel code *)
+	let ready_path =
+		Printf.sprintf "/local/domain/%d/device-model/%d/state" qemu_domid domid in
+	let cancel = Cancel_utils.Qemu (qemu_domid, domid) in
+	let qemu_pid = init_daemon ~task ~path:dmpath ~args ~name:"qemu-dm" ~domid
+		~xs ~ready_path ~ready_val:"running" ~timeout ~cancel () in
+	(* At this point we expect qemu to outlive us; we will never call waitpid *)
+	Forkhelpers.dontwaitpid qemu_pid
 
 let start (task: Xenops_task.t) ~xs ~dmpath ?timeout info domid =
 	let l = cmdline_of_info info false domid in
-	__start task ~xs ~dmpath ?timeout l domid
+	__start task ~xs ~dmpath ?timeout l info domid
 let restore (task: Xenops_task.t) ~xs ~dmpath ?timeout info domid =
 	let l = cmdline_of_info info true domid in
-	__start task ~xs ~dmpath ?timeout l domid
+	__start task ~xs ~dmpath ?timeout l info domid
 
 let start_vnconly (task: Xenops_task.t) ~xs ~dmpath ?timeout info domid =
 	let l = vnconly_cmdline ~info domid in
-	__start task ~xs ~dmpath ?timeout l domid
+	__start task ~xs ~dmpath ?timeout l info domid
 
 (* suspend/resume is a done by sending signals to qemu *)
 let suspend (task: Xenops_task.t) ~xs ~qemu_domid domid =

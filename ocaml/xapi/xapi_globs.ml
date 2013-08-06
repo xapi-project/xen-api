@@ -598,6 +598,7 @@ let master_connection_retry_timeout = ref (-1.)
 let master_connection_default_timeout = ref 10.
 
 let qemu_dm_ready_timeout = ref 300.
+let vgpu_ready_timeout = ref 30.
 
 (* Time we allow for the hotplug scripts to run before we assume something bad
    has happened and abort *)

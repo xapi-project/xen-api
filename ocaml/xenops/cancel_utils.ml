@@ -27,12 +27,14 @@ type key =
 	| Device of device
 	| Domain of int
 	| Qemu of int * int
+	| Vgpu of int
 	| TestPath of string
 
 let string_of = function
 	| Device device -> Printf.sprintf "device %s" (Device_common.string_of_device device)
 	| Domain domid -> Printf.sprintf "domid %d" domid
 	| Qemu (backend, frontend) -> Printf.sprintf "qemu backend = %d; frontend = %d" backend frontend
+	| Vgpu domid -> Printf.sprintf "domid %d" domid
 	| TestPath x -> x
 
 let cancel_path_of ~xs = function
@@ -44,6 +46,8 @@ let cancel_path_of ~xs = function
 	| Qemu (backend, frontend) ->
 		(* Domain and qemu watches are considered to be domain-global *)
 		Printf.sprintf "%s/cancel" (Device_common.device_model_path ~qemu_domid:backend frontend)
+	| Vgpu domid ->
+		Printf.sprintf "%s/vgpu/cancel" (xs.Xs.getdomainpath domid)
 	| TestPath x -> x
 
 let domain_shutdown_path_of ~xs = function
@@ -53,6 +57,7 @@ let domain_shutdown_path_of ~xs = function
 		(* We only need to cancel when the backend domain shuts down. It will
 		   break suspend if we cancel when the frontend shuts down. *)
 		Printf.sprintf "%s/tools/xenops/shutdown" (xs.Xs.getdomainpath backend)
+	| Vgpu domid -> Printf.sprintf "%s/vgpu/shutdown" (xs.Xs.getdomainpath domid)
 	| TestPath x -> x
 
 let watches_of ~xs key = [
