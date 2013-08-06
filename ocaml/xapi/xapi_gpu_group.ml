@@ -56,19 +56,28 @@ let find_or_create ~__context pgpu =
 		group
 
 module VGPU_type_set = Set.Make(struct type t = API.ref_VGPU_type let compare = compare end)
+let union_type_lists ~type_lists =
+	(* Fold each item of each list into a set,
+	 * then return the elements of the set as a list. *)
+	let union_set = List.fold_left
+		(fun acc type_list ->
+			List.fold_left
+				(fun acc vgpu_type -> VGPU_type_set.add vgpu_type acc)
+				acc type_list)
+		VGPU_type_set.empty type_lists
+	in
+	VGPU_type_set.elements union_set
+
 let get_enabled_VGPU_types ~__context ~self =
 	let pgpus = Db.GPU_group.get_PGPUs ~__context ~self in
-	let vgpu_type_set =
-		List.fold_left
-			(fun acc pgpu ->
-				(* For each PGPU in the group, fold its enabled VGPU types
-				 * into the set. *)
-				let enabled_VGPU_types =
-					Db.PGPU.get_enabled_VGPU_types ~__context ~self:pgpu
-				in
-				List.fold_left
-					(fun acc vgpu_type -> VGPU_type_set.add vgpu_type acc)
-					acc enabled_VGPU_types)
-			VGPU_type_set.empty pgpus
-	in
-	VGPU_type_set.elements vgpu_type_set
+	union_type_lists
+		(List.map
+			(fun pgpu -> Db.PGPU.get_enabled_VGPU_types ~__context ~self:pgpu)
+			pgpus)
+
+let get_supported_VGPU_types ~__context ~self =
+	let pgpus = Db.GPU_group.get_PGPUs ~__context ~self in
+	union_type_lists
+		(List.map
+			(fun pgpu -> Db.PGPU.get_supported_VGPU_types ~__context ~self:pgpu)
+			pgpus)
