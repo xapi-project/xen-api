@@ -254,6 +254,11 @@ let safe_destroy_vif ~__context ~rpc ~session_id vif =
 		Client.VIF.destroy rpc session_id vif
 	end
 
+let safe_destroy_vgpu ~__context ~rpc ~session_id vgpu =
+	if Db.is_valid_ref __context vgpu then begin
+		Client.VGPU.destroy rpc session_id vgpu
+	end
+
 let safe_destroy_vdi ~__context ~rpc ~session_id vdi =
 	if Db.is_valid_ref __context vdi then begin
 		let sr = Db.VDI.get_SR ~__context ~self:vdi in
@@ -263,12 +268,13 @@ let safe_destroy_vdi ~__context ~rpc ~session_id vdi =
 	
 (* Copy the VBDs and VIFs from a source VM to a dest VM and then delete the old disks. *)
 (* This operation destroys the data of the dest VM.                                    *)
-let update_vifs_and_vbds ~__context ~snapshot ~vm =
+let update_vifs_vbds_and_vgpus ~__context ~snapshot ~vm =
 	let snap_vbds = Db.VM.get_VBDs ~__context ~self:snapshot in
 	let snap_vbds_without_cd = List.filter (fun vbd -> Db.VBD.get_type ~__context ~self:vbd <> `CD) snap_vbds in
 	let snap_vdis = List.map (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd) snap_vbds_without_cd in
 	let vdi_snap_of = List.map (fun vdi -> Db.VDI.get_snapshot_of ~__context ~self:vdi) snap_vdis in
 	let snap_vifs = Db.VM.get_VIFs ~__context ~self:snapshot in
+	let snap_vgpus = Db.VM.get_VGPUs ~__context ~self:snapshot in
 	let snap_suspend_VDI = Db.VM.get_suspend_VDI ~__context ~self:snapshot in
 
 	let vm_VBDs = Db.VM.get_VBDs ~__context ~self:vm in
@@ -277,6 +283,7 @@ let update_vifs_and_vbds ~__context ~snapshot ~vm =
 	let vm_VDIs = List.map (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd) vbds_without_cd in
 	let vm_VDIs = List.filter (fun vdi -> List.mem vdi vdi_snap_of) vm_VDIs in
 	let vm_VIFs = Db.VM.get_VIFs ~__context ~self:vm in
+	let vm_VGPUs = Db.VM.get_VGPUs ~__context ~self:vm in
 	let vm_suspend_VDI = Db.VM.get_suspend_VDI ~__context ~self:vm in
 
 	(* clone all the disks of the snapshot *)
@@ -290,14 +297,14 @@ let update_vifs_and_vbds ~__context ~snapshot ~vm =
 		debug "Cloning the snapshoted disks";
 		let driver_params = Xapi_vm_clone.make_driver_params () in
 		let cloned_disks = Xapi_vm_clone.safe_clone_disks rpc session_id Xapi_vm_clone.Disk_op_clone ~__context snap_vbds driver_params in
-		TaskHelper.set_progress ~__context 0.6;
+		TaskHelper.set_progress ~__context 0.5;
 
 		debug "Cloning the suspend VDI if needed";
 		let cloned_suspend_VDI =
 			if snap_suspend_VDI = Ref.null
 			then Ref.null
 			else Xapi_vm_clone.clone_single_vdi rpc session_id Xapi_vm_clone.Disk_op_clone ~__context snap_suspend_VDI driver_params in
-		TaskHelper.set_progress ~__context 0.7;
+		TaskHelper.set_progress ~__context 0.6;
 
 		try
 			debug "Copying the VBDs";
@@ -309,7 +316,7 @@ let update_vifs_and_vbds ~__context ~snapshot ~vm =
 			let snapshot = Helpers.get_boot_record ~__context ~self:vm in
 			Helpers.set_boot_record ~__context ~self:vm { snapshot with API.vM_VBDs = vbds };
 			  *)
-			TaskHelper.set_progress ~__context 0.8;
+			TaskHelper.set_progress ~__context 0.7;
 
 			debug "Update the suspend_VDI";
 			Db.VM.set_suspend_VDI ~__context ~self:vm ~value:cloned_suspend_VDI;
@@ -320,10 +327,17 @@ let update_vifs_and_vbds ~__context ~snapshot ~vm =
 			debug "Setting up the new VIFs";
 			let (_ : [`VIF] Ref.t list) =
 				List.map (fun vif -> Xapi_vif_helpers.copy ~__context ~vm ~preserve_mac_address:true vif) snap_vifs in
-			TaskHelper.set_progress ~__context 0.9;
+			TaskHelper.set_progress ~__context 0.8;
 
+			debug "Cleaning up the old VGPUs";
+			List.iter (safe_destroy_vgpu ~__context ~rpc ~session_id) vm_VGPUs;
+
+			debug "Setting up the new VGPUs";
+			let (_ : [`VGPU] Ref.t list) =
+				List.map (fun vgpu -> Xapi_vgpu.copy ~__context ~vm vgpu) snap_vgpus in
+			TaskHelper.set_progress ~__context 0.9;
 		with e ->
-			error "Error while updating the new VBD, VDI and VIF records. Cleaning up the cloned VDIs.";
+			error "Error while updating the new VBD, VDI, VIF and VGPU records. Cleaning up the cloned VDIs.";
 			let vdis = cloned_suspend_VDI :: (List.fold_left (fun acc (_, vdi, on_error_delete) -> if on_error_delete then vdi::acc else acc) [] cloned_disks) in
 			List.iter (safe_destroy_vdi ~__context ~rpc ~session_id) vdis;
 			raise e)
@@ -357,8 +371,8 @@ let do_not_copy = [
 	Db_names.scheduled_to_be_resident_on;
 	(* Global persistent fields should keep *)
 	"snapshots"; "tags"; "affinity";
-	(* Current fields should remain to get destoied during revert process *)
-	"consoles"; "VBDs"; "VIFs";
+	(* Current fields should remain to get destroyed during revert process *)
+	"consoles"; "VBDs"; "VIFs"; "VGPUs";
 	(* Stateful fields that will be reset anyway *)
 	"power_state";
 ]
@@ -410,7 +424,7 @@ let revert ~__context ~snapshot ~vm =
 			Helpers.call_api_functions ~__context (fun rpc session_id -> Client.VM.hard_shutdown rpc session_id vm);
 		end;
 	
-		update_vifs_and_vbds ~__context ~snapshot ~vm;
+		update_vifs_vbds_and_vgpus ~__context ~snapshot ~vm;
 		update_guest_metrics ~__context ~snapshot ~vm;
 		update_parent ~__context ~snapshot ~vm;
 		TaskHelper.set_progress ~__context 1.;
