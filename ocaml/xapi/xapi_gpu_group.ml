@@ -56,7 +56,7 @@ let find_or_create ~__context pgpu =
 		group
 
 module VGPU_type_set = Set.Make(struct type t = API.ref_VGPU_type let compare = compare end)
-let get_allowed_VGPU_types ~__context ~self =
+let get_enabled_VGPU_types ~__context ~self =
 	let pgpus = Db.GPU_group.get_PGPUs ~__context ~self in
 	let vgpu_type_set =
 		List.fold_left

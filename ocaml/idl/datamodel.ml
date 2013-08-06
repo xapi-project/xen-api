@@ -7724,13 +7724,13 @@ let gpu_group =
 		~allowed_roles:_R_POOL_OP
 		()
 	in
-	let get_allowed_VGPU_types = call
-		~name:"get_allowed_VGPU_types"
+	let get_enabled_VGPU_types = call
+		~name:"get_enabled_VGPU_types"
 		~lifecycle:[Published, rel_vgpu, ""]
 		~params:[
 			Ref _gpu_group, "self", "The GPU group to query"
 		]
-		~result:(Set (Ref _vgpu_type), "The list of VGPU types which can be created in this group")
+		~result:(Set (Ref _vgpu_type), "The list of VGPU types which are enabled on at least one PGPU in this group")
 		~allowed_roles:_R_READ_ONLY
 		()
 	in
@@ -7748,7 +7748,7 @@ let gpu_group =
 		~gen_events:true
 		~in_db:true
 		~lifecycle:[Published, rel_boston, ""]
-		~messages:[create; destroy; get_allowed_VGPU_types]
+		~messages:[create; destroy; get_enabled_VGPU_types]
 		~messages_default_allowed_roles:_R_POOL_OP
 		~persist:PersistEverything
 		~in_oss_since:None

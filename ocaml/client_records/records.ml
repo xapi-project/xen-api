@@ -1510,12 +1510,12 @@ let gpu_group_record rpc session_id gpu_group =
 				~add_to_map:(fun k v -> Client.GPU_group.add_to_other_config rpc session_id gpu_group k v)
 				~remove_from_map:(fun k -> Client.GPU_group.remove_from_other_config rpc session_id gpu_group k)
 				~get_map:(fun () -> (x ()).API.gPU_group_other_config) ();
-			make_field ~name:"allowed-VGPU-types"
+			make_field ~name:"enabled-VGPU-types"
 				~get:(fun () ->
 					String.concat "; "
 						(List.map
 							get_uuid_from_ref
-							(Client.GPU_group.get_allowed_VGPU_types rpc session_id gpu_group)))
+							(Client.GPU_group.get_enabled_VGPU_types rpc session_id gpu_group)))
 				~expensive:true ();
 			make_field ~name:"allocation-algorithm"
 				~get:(fun () ->
