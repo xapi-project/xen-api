@@ -1,0 +1,38 @@
+#!/bin/sh
+
+remote=0
+
+while [ -n "$1" ]
+do
+  case "$1" in
+    --remote=*)
+      remote=1
+      host=${1#--remote=};;
+    --noremote)
+      remote=0;;
+  esac
+  shift
+done
+
+if [ -r /etc/rsyslog.conf ]; then
+  conf_file=/etc/rsyslog.conf
+  service=rsyslog
+fi
+
+if [ -r /etc/syslog.conf ]; then
+  conf_file=/etc/syslog.conf
+  service=syslog
+fi
+
+if [ -z "$service" ]; then
+  echo "Error: unable to determine syslog service" >&2
+  exit 1
+fi
+
+sed -e '/^\*\.\*.*@/ d' $conf_file >/etc/syslog.$$
+if [ $remote -eq 1 ]; then
+  echo "*.* @$host" >>/etc/syslog.$$
+fi
+
+[ -s /etc/syslog.$$ ] && mv -f /etc/syslog.$$ $conf_file
+service $service reload
