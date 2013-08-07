@@ -72,14 +72,11 @@ FileList = @('about_XenServer.help.txt',
              'XenServerPowerShell.dll')
 
 #Public interface
-DefaultCommandPrefix = ''
 FunctionsToExport = ''
 CmdletsToExport = '*'
 VariablesToExport = @('Citrix.XenServer.Sessions','XenServer_Default_Session')
 AliasesToExport = '*'
 
 PrivateData = ''
-
-HelpInfoURI = ''
 
 }
