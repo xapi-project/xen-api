@@ -407,12 +407,14 @@ let populate_pgpu_vgpu_types = {
 	description = "Populating lists of VGPU types on existing PGPUs";
 	version = (fun x -> x <= clearwater);
 	fn = fun ~__context ->
+		let pci_db = Pci_db.of_file Pci_db.pci_ids_path in
 		let pgpus = Db.PGPU.get_all ~__context in
 		List.iter
 			(fun pgpu ->
 				let pci = Db.PGPU.get_PCI ~__context ~self:pgpu in
 				let supported_vgpu_types =
-					Xapi_vgpu_type.find_or_create_supported_types ~__context pci
+					Xapi_vgpu_type.find_or_create_supported_types ~__context
+					~pci_db pci
 				in
 				Db.PGPU.set_supported_VGPU_types ~__context
 					~self:pgpu ~value:supported_vgpu_types;
