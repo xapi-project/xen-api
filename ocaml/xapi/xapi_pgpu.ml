@@ -35,16 +35,21 @@ let update_gpus ~__context ~host =
 		Xapi_pci.int_of_id (Db.PCI.get_class_id ~__context ~self) = class_id &&
 		Db.PCI.get_host ~__context ~self = host) (Db.PCI.get_all ~__context)
 	in
+	let pci_db = Pci_db.of_file Pci_db.pci_ids_path in
 	let rec find_or_create cur = function
 		| [] -> cur
 		| pci :: remaining_pcis ->
+			let supported_VGPU_types =
+				Xapi_vgpu_type.find_or_create_supported_types ~__context
+				~pci_db pci in
 			let pgpu =
 				try
-					List.find (fun (rf, rc) -> rc.API.pGPU_PCI = pci) existing_pgpus
+					let (rf, rc) = List.find (fun (_, rc) -> rc.API.pGPU_PCI = pci) existing_pgpus in
+					(* Pick up any new vGPU configs on the host *)
+					Db.PGPU.set_supported_VGPU_types ~__context ~self:rf ~value:supported_VGPU_types;
+					Db.PGPU.set_enabled_VGPU_types ~__context ~self:rf ~value:supported_VGPU_types;
+					(rf, rc)
 				with Not_found ->
-					let supported_VGPU_types =
-						Xapi_vgpu_type.find_or_create_supported_types ~__context pci
-					in
 					let self = create ~__context ~pCI:pci
 							~gPU_group:(Ref.null) ~host ~other_config:[]
 							~supported_VGPU_types
