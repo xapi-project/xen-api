@@ -56,6 +56,10 @@ let update_gpus ~__context ~host =
 						let (rf, rc) = List.find (fun (_, rc) -> rc.API.pGPU_PCI = pci) existing_pgpus in
 						(* Pick up any new supported vGPU configs on the host *)
 						Db.PGPU.set_supported_VGPU_types ~__context ~self:rf ~value:supported_VGPU_types;
+						let pruned_enabled_types = List.filter
+							(fun t -> List.mem t supported_VGPU_types)
+							(Db.PGPU.get_enabled_VGPU_types ~__context ~self:rf) in
+						Db.PGPU.set_enabled_VGPU_types ~__context ~self:rf ~value:pruned_enabled_types;
 						(rf, rc)
 					with Not_found ->
 						let self = create ~__context ~pCI:pci
