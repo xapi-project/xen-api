@@ -3713,7 +3713,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			Local.VGPU.create ~__context ~vM ~gPU_group ~device ~other_config ~_type
 
 		let destroy ~__context ~self =
-			info "VGPU.destroy: VIF = '%s'" (vgpu_uuid ~__context self);
+			info "VGPU.destroy: VGPU = '%s'" (vgpu_uuid ~__context self);
 			Local.VGPU.destroy ~__context ~self
 	end
 
