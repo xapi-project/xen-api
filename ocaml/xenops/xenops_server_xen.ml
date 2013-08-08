@@ -943,7 +943,7 @@ module VM = struct
 				let video, vgpu = match video with
 					| Cirrus -> Device.Dm.Cirrus, None
 					| Standard_VGA -> Device.Dm.Std_vga, None
-					| vGPU ->
+					| Vgpu ->
 						List.iter (fun (k,v) -> if try String.sub k 0 4 = "vgpu" with
 						Invalid_argument _ -> false then
 							debug "VGPU config: %s -> %s" k v) vm.Vm.platformdata;
