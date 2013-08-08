@@ -167,3 +167,9 @@ let find_or_create_supported_types ~__context ?pci_db pci =
 		(fun v -> find_or_create ~__context v) relevant_types in
 	let entire_gpu_type = find_or_create ~__context entire_gpu in
 	entire_gpu_type :: vgpu_types
+
+let requires_passthrough ~__context ~self =
+	let type_rec = Db.VGPU_type.get_record ~__context ~self in
+	type_rec.API.vGPU_type_vendor_name = entire_gpu.vendor_name &&
+	type_rec.API.vGPU_type_model_name = entire_gpu.model_name &&
+	type_rec.API.vGPU_type_framebuffer_size = entire_gpu.framebuffer_size
