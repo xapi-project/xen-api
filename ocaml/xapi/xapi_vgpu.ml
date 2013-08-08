@@ -74,3 +74,6 @@ let copy ~__context ~vm vgpu =
 		Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:true;
 	vgpu
 
+let requires_passthrough ~__context ~self =
+	let _type = Db.VGPU.get_type ~__context ~self in
+	Xapi_vgpu_type.requires_passthrough ~__context ~self:_type
