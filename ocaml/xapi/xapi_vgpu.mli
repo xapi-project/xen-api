@@ -30,3 +30,7 @@ val destroy : __context:Context.t -> self:[ `VGPU ] Ref.t -> unit
 val copy :
   __context:Context.t ->
   vm:[ `VM ] Ref.t -> [ `VGPU ] Ref.t -> [ `VGPU ] Ref.t
+
+(* Determine whether a VGPU requires passthrough of an entire PGPU, or
+ * will be only require part of the PGPU. *)
+val requires_passthrough : __context:Context.t -> self:API.ref_VGPU -> bool
