@@ -401,7 +401,8 @@ let force_state_reset ~__context ~self ~value:state =
 			(Db.VM.get_VIFs ~__context ~self);
 		List.iter 
 			(fun vgpu ->
-				 Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:false)
+				Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:false;
+				Db.VGPU.set_resident_on ~__context ~self:vgpu ~value:Ref.null)
 			(Db.VM.get_VGPUs ~__context ~self);
 		List.iter
 			(fun pci ->
