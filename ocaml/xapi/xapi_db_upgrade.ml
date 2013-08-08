@@ -47,6 +47,7 @@ let george = Datamodel.george_release_schema_major_vsn, Datamodel.george_release
 let cowley = Datamodel.cowley_release_schema_major_vsn, Datamodel.cowley_release_schema_minor_vsn
 let boston = Datamodel.boston_release_schema_major_vsn, Datamodel.boston_release_schema_minor_vsn
 let tampa = Datamodel.tampa_release_schema_major_vsn, Datamodel.tampa_release_schema_minor_vsn
+let clearwater = Datamodel.clearwater_release_schema_major_vsn, Datamodel.clearwater_release_schema_minor_vsn
 
 let upgrade_alert_priority = {
 	description = "Upgrade alert priority";
@@ -402,6 +403,40 @@ let remove_vmpp = {
 		List.iter (fun self -> Db.VM.set_protection_policy ~__context ~self ~value:Ref.null) vms
 }
 
+let populate_pgpu_vgpu_types = {
+	description = "Populating lists of VGPU types on existing PGPUs";
+	version = (fun x -> x <= clearwater);
+	fn = fun ~__context ->
+		let pci_db = Pci_db.of_file Pci_db.pci_ids_path in
+		let pgpus = Db.PGPU.get_all ~__context in
+		List.iter
+			(fun pgpu ->
+				let pci = Db.PGPU.get_PCI ~__context ~self:pgpu in
+				let supported_vgpu_types =
+					Xapi_vgpu_type.find_or_create_supported_types ~__context
+					~pci_db pci
+				in
+				Db.PGPU.set_supported_VGPU_types ~__context
+					~self:pgpu ~value:supported_vgpu_types;
+				Db.PGPU.set_enabled_VGPU_types ~__context
+					~self:pgpu ~value:supported_vgpu_types)
+			pgpus;
+}
+
+let set_vgpu_types = {
+	description = "Setting the types of existing VGPUs";
+	version = (fun x -> x <= clearwater);
+	fn = fun ~__context ->
+		let vgpus = Db.VGPU.get_all ~__context in
+		let passthrough_vgpu_type =
+			Xapi_vgpu_type.find_or_create ~__context Xapi_vgpu_type.entire_gpu
+		in
+		List.iter
+			(fun vgpu ->
+				Db.VGPU.set_type ~__context ~self:vgpu ~value:passthrough_vgpu_type)
+			vgpus;
+}
+
 let rules = [
 	upgrade_alert_priority;
 	update_mail_min_priority;
@@ -418,6 +453,8 @@ let rules = [
 	upgrade_host_editions;
 	remove_wlb;
 	remove_vmpp;
+	populate_pgpu_vgpu_types;
+	set_vgpu_types;
 ]
 
 (* Maybe upgrade most recent db *)
