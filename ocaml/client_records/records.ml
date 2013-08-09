@@ -1582,6 +1582,8 @@ let vgpu_type_record rpc session_id vgpu_type =
 				~get:(fun () -> (x ()).API.vGPU_type_model_name) ();
 			make_field ~name:"framebuffer-size"
 				~get:(fun () -> Int64.to_string (x ()).API.vGPU_type_framebuffer_size) ();
+			make_field ~name:"max-heads"
+				~get:(fun () -> Int64.to_string (x ()).API.vGPU_type_max_heads) ();
 			make_field ~name:"VGPU-uuids" ~get:(fun () -> String.concat "; " (List.map (fun v -> get_uuid_from_ref v) (x ()).API.vGPU_type_VGPUs)) ();
 		]
 	}
