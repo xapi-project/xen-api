@@ -1,3 +1,6 @@
+0.9.18 (8-Aug-2013):
+* libxl: add support for .qcow2 format disks
+
 0.9.17 (5-Jul-2013):
 * libxl: fix hotplug and unplug
 

@@ -736,6 +736,12 @@ module VBD = struct
 		let vdev = to_linux_device device_number in
 		devid, vdev
 
+	let format_of_string x = match String.lowercase x with
+	| "qcow2" -> Xenlight.DISK_FORMAT_QCOW2
+	| "raw" -> Xenlight.DISK_FORMAT_RAW
+	| "vhd" -> Xenlight.DISK_FORMAT_VHD
+	| _ -> Xenlight.DISK_FORMAT_UNKNOWN
+
 	let pre_plug task vm hvm vbd =
 		debug "VBD.pre_plug";
 		let vdi = with_xc_and_xs (fun xc xs -> attach_and_activate task xc xs vm vbd vbd.backend) in
@@ -755,6 +761,8 @@ module VBD = struct
 			else if vdi.attach_info.Storage_interface.xenstore_data = []
 			then Xenlight.DISK_BACKEND_PHY, Xenlight.DISK_FORMAT_RAW, Some !Xl_path.vbd_script
 			(* FIXME: "magic" block devices via qemu *)
+			else if List.mem_assoc "format" vdi.attach_info.Storage_interface.xenstore_data
+			then Xenlight.DISK_BACKEND_QDISK, format_of_string (List.assoc "format" vdi.attach_info.Storage_interface.xenstore_data), None
 			else Xenlight.DISK_BACKEND_QDISK, Xenlight.DISK_FORMAT_RAW, None in
 		let removable = if vbd.unpluggable then 1 else 0 in
 		let readwrite = match vbd.mode with
