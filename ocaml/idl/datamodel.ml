@@ -7697,6 +7697,7 @@ let pgpu =
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu_type)) ~lifecycle:[Published, rel_vgpu, ""] "supported_VGPU_types" "List of VGPU types supported by the underlying hardware";
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu_type)) ~lifecycle:[Published, rel_vgpu, ""] "enabled_VGPU_types" "List of VGPU types which have been enabled for this PGPU";
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu)) ~lifecycle:[Published, rel_vgpu, ""] "resident_VGPUs" "List of VGPUs running on this PGPU";
+			field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu, ""] ~internal_only:true ~default_value:(Some (VInt Constants.pgpu_default_capacity)) "capacity" "Abstract capacity of this PGPU";
 			]
 		()
 
