@@ -91,8 +91,8 @@ _xe()
                 case "${OLDSTYLE_WORDS[1]}" in
                     diagnostic-vm-status) cmd=vm-list;;
                     diagnostic-vdi-status) cmd=vdi-list;;
-                    *) cmd=`echo ${OLDSTYLE_WORDS[1]} | awk -F- '/^host-cpu-/ || /^host-crashdump-/ || /^gpu-group-/ { print $1 "-" $2 }
-                        $0 !~ /^host-cpu-/ && $0 !~ /^host-crashdump-/ && $0 !~ /^gpu-group-/ { print $1 }'`-list;;
+                    *) cmd=`echo ${OLDSTYLE_WORDS[1]} | awk -F- '/^host-cpu-/ || /^host-crashdump-/ || /^gpu-group-/ || /^vgpu-type-/ { print $1 "-" $2 }
+                        $0 !~ /^host-cpu-/ && $0 !~ /^host-crashdump-/ && $0 !~ /^gpu-group-/ && $0 !~ /^vgpu-type-/ { print $1 }'`-list;;
                 esac
                 IFS=$'\n,'
                 set_completions_for_names "$cmd" 'uuid' "$value"
