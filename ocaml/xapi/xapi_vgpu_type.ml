@@ -27,20 +27,30 @@ type vgpu_conf = {
 	vdev_id : int64;
 	vsubdev_id : int64;
 	framebufferlength : int64;
+	num_heads : int64;
+	max_instance : int64;
 }
 
 type vgpu_type = {
 	vendor_name : string;
 	model_name : string;
 	framebuffer_size : int64;
+	max_heads : int64;
+	pGPU_footprint : int64;
 }
 
-let entire_gpu = {vendor_name = ""; model_name = "passthrough"; framebuffer_size = 0L}
+let entire_gpu = {
+	vendor_name = "";
+	model_name = "passthrough";
+	framebuffer_size = 0L;
+	max_heads = 0L;
+	pGPU_footprint = 0L;
+}
 
-let create ~__context ~vendor_name ~model_name ~framebuffer_size =
+let create ~__context ~vendor_name ~model_name ~framebuffer_size ~max_heads ~pGPU_footprint =
 	let ref = Ref.make () in
 	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
-	Db.VGPU_type.create ~__context ~ref ~uuid ~vendor_name ~model_name ~framebuffer_size;
+	Db.VGPU_type.create ~__context ~ref ~uuid ~vendor_name ~model_name ~framebuffer_size ~max_heads ~pGPU_footprint;
 	debug "VGPU_type ref='%s' created (vendor_name = '%s'; model_name = '%s')"
 		(Ref.string_of ref) vendor_name model_name;
 	ref
@@ -63,6 +73,8 @@ let find_or_create ~__context vgpu_type =
 		create ~__context ~vendor_name:vgpu_type.vendor_name
 			~model_name:vgpu_type.model_name
 			~framebuffer_size:vgpu_type.framebuffer_size
+			~max_heads:vgpu_type.max_heads
+			~pGPU_footprint:vgpu_type.pGPU_footprint
 	| _ ->
 		failwith "Error: Multiple vGPU types exist with the same configuration."
 
@@ -85,7 +97,12 @@ let of_conf_file file_path =
 				(fun vdev_id vsubdev_id ->
 					let framebufferlength = Int64.of_string
 						(List.assoc "plugin0.framebufferlength" args) in
-					{pdev_id; vdev_id; vsubdev_id; framebufferlength}))
+					let num_heads = Int64.of_string
+						(List.assoc "plugin0.num_heads" args) in
+					let max_instance = Int64.of_string
+						(List.assoc "plugin0.max_instance" args) in
+					{pdev_id; vdev_id; vsubdev_id; framebufferlength;
+					 num_heads; max_instance}))
 	with e ->
 		raise (Parse_error e)
 
@@ -121,12 +138,17 @@ let relevant_vgpu_types pci_db pci_dev_ids =
 		| conf::tl ->
 			debug "Pci_db lookup: get_sub_device_names vendor=%04Lx device=%04Lx subdev=%04Lx"
 				nvidia_vendor_id conf.vdev_id conf.vsubdev_id;
-			let vendor_name = Pci_db.get_vendor_name pci_db nvidia_vendor_id in
-			let model_name = List.hd
+			let vendor_name = Pci_db.get_vendor_name pci_db nvidia_vendor_id
+			and model_name = List.hd
 				(Pci_db.get_subdevice_names_by_id pci_db nvidia_vendor_id
 					conf.vdev_id conf.vsubdev_id)
-			and framebuffer_size = conf.framebufferlength in
-			let vgpu_type = {vendor_name; model_name; framebuffer_size} in
+			and framebuffer_size = conf.framebufferlength
+			and max_heads = conf.num_heads
+			and pGPU_footprint = Int64.div Constants.pgpu_default_capacity conf.max_instance in
+			let vgpu_type = {
+				vendor_name; model_name; framebuffer_size; max_heads;
+				pGPU_footprint}
+			in
 			build_vgpu_types pci_db (vgpu_type :: ac) tl
 	in
 	build_vgpu_types pci_db [] relevant_vgpu_confs
