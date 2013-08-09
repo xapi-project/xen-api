@@ -7850,6 +7850,7 @@ let vgpu_type =
 			field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu, ""] ~default_value:(Some (VInt 0L)) "framebuffer_size" "Framebuffer size of the VGPU type, in bytes";
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _pgpu)) ~lifecycle:[Published, rel_vgpu, ""] "supported_on_PGPUs" "List of PGPUs that support this VGPU type";
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _pgpu)) ~lifecycle:[Published, rel_vgpu, ""] "enabled_on_PGPUs" "List of PGPUs that have this VGPU type enabled";
+			field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu)) ~lifecycle:[Published, rel_vgpu, ""] "VGPUs" "List of VGPUs of this type";
 		]
 	()
 
@@ -7975,6 +7976,7 @@ let all_relations =
 
     (_pgpu, "GPU_group"), (_gpu_group, "PGPUs");
     (_vgpu, "GPU_group"), (_gpu_group, "VGPUs");
+    (_vgpu, "type"), (_vgpu_type, "VGPUs");
     (_vgpu, "VM"), (_vm, "VGPUs");
     (_vgpu, "resident_on"), (_pgpu, "resident_VGPUs");
     (_pgpu, "supported_VGPU_types"), (_vgpu_type, "supported_on_PGPUs");
