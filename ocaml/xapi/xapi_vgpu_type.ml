@@ -71,6 +71,7 @@ let of_conf_file file_path =
 		let conf = Unixext.read_lines file_path in
 		let args = List.filter
 			(fun s -> not (String.startswith "#" s || s = "")) conf in
+		let args = List.map (String.strip String.isspace) args in
 		(* Expeciting space separated key value entries *)
 		let args = List.map
 			(fun s ->
