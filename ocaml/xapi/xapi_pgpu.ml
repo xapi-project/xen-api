@@ -17,10 +17,11 @@ open D
 open Listext
 open Threadext
 
-let create ~__context ~pCI ~gPU_group ~host ~other_config ~supported_VGPU_types =
+let create ~__context ~pCI ~gPU_group ~host ~other_config ~supported_VGPU_types ~capacity =
 	let pgpu = Ref.make () in
 	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
-	Db.PGPU.create ~__context ~ref:pgpu ~uuid ~pCI ~gPU_group ~host ~other_config;
+	Db.PGPU.create ~__context ~ref:pgpu ~uuid ~pCI
+		~gPU_group ~host ~other_config ~capacity;
 	Db.PGPU.set_supported_VGPU_types ~__context
 		~self:pgpu ~value:supported_VGPU_types;
 	Db.PGPU.set_enabled_VGPU_types ~__context
@@ -65,6 +66,7 @@ let update_gpus ~__context ~host =
 						let self = create ~__context ~pCI:pci
 								~gPU_group:(Ref.null) ~host ~other_config:[]
 								~supported_VGPU_types
+								~capacity:Constants.pgpu_default_capacity
 						in
 						let group = Xapi_gpu_group.find_or_create ~__context self in
 						Helpers.call_api_functions ~__context (fun rpc session_id ->
