@@ -814,6 +814,8 @@ let _ =
     ~doc:"You attempted to run a VM on a host which doesn't have a PIF on a Network needed by the VM. The VM has at least one VIF attached to the Network." ();
   error Api_errors.vm_requires_gpu ["vm"; "GPU_group"]
     ~doc:"You attempted to run a VM on a host which doesn't have a pGPU available in the GPU group needed by the VM. The VM has a vGPU attached to this GPU group." ();
+  error Api_errors.vm_requires_vgpu ["vm"; "GPU_group"; "vGPU_type"]
+    ~doc:"You attempted to run a VM on a host on which the vGPU required by the VM cannot be allocated on any pGPUs in the GPU_group needed by the VM." ();
   error Api_errors.vm_requires_iommu ["host"]
     ~doc:"You attempted to run a VM on a host which doesn't have I/O virtualization (IOMMU/VT-d) enabled, which is needed by the VM." ();
   error Api_errors.vm_host_incompatible_version ["host"; "vm"]
