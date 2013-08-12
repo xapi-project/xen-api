@@ -294,8 +294,14 @@ let update_env __context sync_keys =
   
   switched_sync Xapi_globs.sync_bios_strings (fun () ->
     debug "get BIOS strings on startup";
-    if Db.Host.get_bios_strings ~__context ~self:localhost = [] then
-      Bios_strings.set_host_bios_strings ~__context ~host:localhost
+		let current_bios_strings = Bios_strings.get_host_bios_strings ~__context in
+		let db_host_bios_strings = Db.Host.get_bios_strings ~__context ~self:localhost in
+		
+		if current_bios_strings <> db_host_bios_strings then
+			begin
+				debug "BIOS strings obtained from the host and that present in DB are different. Updating BIOS strings in xapi-db.";
+				Db.Host.set_bios_strings ~__context ~self:localhost ~value:current_bios_strings
+			end
   );
 
   (* CA-35549: In a pool rolling upgrade, the master will detect the end of upgrade when the software versions
