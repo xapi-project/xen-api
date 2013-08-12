@@ -71,11 +71,13 @@ let update_gpus ~__context ~host =
 	List.iter (fun (self, _) -> Db.PGPU.destroy ~__context ~self) obsolete_pgpus
 
 let add_enabled_VGPU_types ~__context ~self ~value =
-	Xapi_pgpu_helpers.assert_VGPU_type_supported ~__context ~self ~value;
+	Xapi_pgpu_helpers.assert_VGPU_type_supported ~__context
+		~self ~vgpu_type:value;
 	Db.PGPU.add_enabled_VGPU_types ~__context ~self ~value
 
 let remove_enabled_VGPU_types ~__context ~self ~value =
-	Xapi_pgpu_helpers.assert_no_resident_VGPUs_of_type ~__context ~self ~vgpu_type:value;
+	Xapi_pgpu_helpers.assert_no_resident_VGPUs_of_type ~__context
+		~self ~vgpu_type:value;
 	Db.PGPU.remove_enabled_VGPU_types ~__context ~self ~value
 
 let gpu_group_m = Mutex.create ()
@@ -128,9 +130,11 @@ let set_GPU_group ~__context ~self ~value =
 let assert_can_run_VGPU ~__context ~self ~vgpu =
 	let new_type = Db.VGPU.get_type ~__context ~self:vgpu in
 	(* Check user has enabled this type - this implies it's supported. *)
-	Xapi_pgpu_helpers.assert_VGPU_type_enabled ~__context ~self ~value:new_type;
+	Xapi_pgpu_helpers.assert_VGPU_type_enabled ~__context
+		~self ~vgpu_type:new_type;
 	(* Check our internal restrictions allow this VGPU to run on the PGPU. *)
-	Xapi_pgpu_helpers.assert_VGPU_type_allowed ~__context ~self ~value:new_type;
+	Xapi_pgpu_helpers.assert_VGPU_type_allowed ~__context
+		~self ~vgpu_type:new_type;
 	let pci = Db.PGPU.get_PCI ~__context ~self in
 	if Xapi_vgpu_type.requires_passthrough ~__context ~self:new_type
 	then begin
