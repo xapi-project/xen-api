@@ -210,6 +210,7 @@ ocaml/xenops/squeezed
 ocaml/xenops/squeezed_client
 ocaml/xenops-cli/xenopstest
 ocaml/xenops-cli/xn
+ocaml/xenops-cli/xn_cfg_parser.ml
 ocaml/xenops/xenopsd
 
 noarch.spec
