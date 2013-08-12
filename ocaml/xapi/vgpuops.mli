@@ -23,7 +23,7 @@ val create_vgpus :
   __context:Context.t -> (API.ref_VM * API.vM_t) -> bool -> unit
 
 (** Return a list of the GPU PCI devices which have been assigned to this VM *)
-val list_vgpus :
+val list_pcis_for_passthrough :
   __context:Context.t -> vm:API.ref_VM -> (int * (int * int * int * int)) list
 
 (** Mark all VGPUs for the given VM as unattached. *)
