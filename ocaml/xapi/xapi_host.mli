@@ -108,7 +108,6 @@ val emergency_ha_disable : __context:'a -> unit
 val request_backup :
   __context:Context.t -> host:API.ref_host -> generation:int64 -> force:bool -> unit
 val request_config_file_sync : __context:'a -> host:'b -> hash:string -> unit
-val syslog_config_write : string -> bool -> bool -> unit
 val syslog_reconfigure : __context:Context.t -> host:'a -> unit
 
 (** {2 Management Interface} *)
