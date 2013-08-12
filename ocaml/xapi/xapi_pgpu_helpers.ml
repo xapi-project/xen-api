@@ -32,8 +32,6 @@ let assert_VGPU_type_supported ~__context ~self ~value =
 		(Api_errors.vgpu_type_not_supported,
 			List.map Ref.string_of (value :: supported_VGPU_types)))
 
-(* Any VGPUs already running on this PGPU must have the same type as the new
- * For now, we only allow one VGPU_type to run on a PGPU at any one time. *)
 let assert_VGPU_type_allowed ~__context ~self ~value =
 	let resident_VGPUs = Db.PGPU.get_resident_VGPUs ~__context ~self in
 	(match resident_VGPUs with
