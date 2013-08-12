@@ -1483,6 +1483,11 @@ let pgpu_record rpc session_id pgpu =
 					Client.PGPU.remove_enabled_VGPU_types rpc session_id pgpu
 						(Client.VGPU_type.get_by_uuid rpc session_id vgpu_type_uuid))
 				();
+			make_field ~name:"resident-VGPUs"
+				~get:(fun () ->
+					String.concat "; "
+						(List.map get_uuid_from_ref
+							(x ()).API.pGPU_resident_VGPUs)) ();
 			]
 	}
 
