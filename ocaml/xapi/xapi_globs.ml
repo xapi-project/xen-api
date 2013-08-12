@@ -463,6 +463,9 @@ let pass_through_pif_carrier = "pass_through_pif_carrier"
 (* Remember the specific PCI devices needed for vGPU passthrough *)
 let vgpu_pci = "vgpu_pci"
 
+(* Name for plugin config path in VGPU_type.internal_config *)
+let vgpu_config_path = "vgpu_config"
+
 let dev_zero = "/dev/zero"
 
 (** {2 Settings relating to dynamic memory control} *)
