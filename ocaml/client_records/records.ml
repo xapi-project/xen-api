@@ -1562,6 +1562,7 @@ let vgpu_record rpc session_id vgpu =
 				~get_map:(fun () -> (x ()).API.vGPU_other_config) ();
 			make_field ~name:"type-uuid" ~get:(fun () -> get_uuid_from_ref (x ()).API.vGPU_type) ();
 			make_field ~name:"type-model-name" ~get:(fun () -> try Client.VGPU_type.get_model_name rpc session_id ((x ()).API.vGPU_type) with _ -> nid) ();
+			make_field ~name:"resident-on" ~get:(fun () -> try get_uuid_from_ref (x ()).API.vGPU_resident_on with _ -> nid) ();
 			]
 	}
 
