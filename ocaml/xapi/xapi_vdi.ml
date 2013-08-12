@@ -252,9 +252,10 @@ let require_uuid vdi_info =
 let newvdi ~__context ~sr newvdi =
 	let open Storage_interface in
 	let open Db_filter_types in
-	let db_vdis = Db.VDI.get_records_where  ~__context ~expr:(Eq(Field "location", Literal newvdi.vdi)) in
+	let expr = And(Eq(Field "location", Literal newvdi.vdi), Eq(Field "SR", Literal (Ref.string_of sr))) in
+	let db_vdis = Db.VDI.get_records_where  ~__context ~expr in
 	Xapi_sr.update_vdis ~__context ~sr db_vdis [ newvdi ];
-	match Db.VDI.get_records_where  ~__context ~expr:(Eq(Field "location", Literal newvdi.vdi)) with
+	match Db.VDI.get_records_where  ~__context ~expr with
 		| (vdi, _) :: _ -> vdi
 		| [] -> failwith (Printf.sprintf "newvdi failed to create a VDI for %s" (string_of_vdi_info newvdi))
 
