@@ -150,7 +150,7 @@ let relevant_vgpu_types pci_db pci_dev_ids =
 			and framebuffer_size = conf.framebufferlength
 			and max_heads = conf.num_heads
 			and pGPU_footprint = Int64.div Constants.pgpu_default_capacity conf.max_instance
-			and internal_config = [Xapi_globs.vgpu_config_path, conf.file_path] in
+			and internal_config = [Xapi_globs.vgpu_config_key, conf.file_path] in
 			let vgpu_type = {
 				vendor_name; model_name; framebuffer_size; max_heads;
 				pGPU_footprint; internal_config}

@@ -22,6 +22,7 @@ type vgpu = {
 	gpu_group_ref: API.ref_GPU_group;
 	devid: int;
 	other_config: (string * string) list;
+	type_ref: API.ref_VGPU_type;
 }
 
 let vgpu_of_vgpu ~__context vm_r vgpu =
@@ -30,7 +31,8 @@ let vgpu_of_vgpu ~__context vm_r vgpu =
 		vgpu_ref = vgpu;
 		gpu_group_ref = vgpu_r.API.vGPU_GPU_group;
 		devid = int_of_string vgpu_r.API.vGPU_device;
-		other_config = vgpu_r.API.vGPU_other_config
+		other_config = vgpu_r.API.vGPU_other_config;
+		type_ref = vgpu_r.API.vGPU_type;
 	}
 
 let vgpus_of_vm ~__context vm_r =
@@ -84,21 +86,66 @@ let add_pcis_to_vm ~__context vm passthru_vgpus =
 	let value = String.concat "," (List.map Pciops.to_string devs) in
 	Db.VM.add_to_other_config ~__context ~self:vm ~key:Xapi_globs.vgpu_pci ~value
 
+let m = Mutex.create ()
+let create_virtual_vgpu ~__context vm vgpu =
+	let host = Helpers.get_localhost ~__context in
+	let available_pgpus = Db.Host.get_PGPUs ~__context ~self:host in
+	let compatible_pgpus = Db.GPU_group.get_PGPUs ~__context ~self:vgpu.gpu_group_ref in
+	let pgpus = List.intersect compatible_pgpus available_pgpus in
+	let rec allocate_vgpu vgpu_type = function
+		| [] -> None
+		| pgpu :: remaining_pgpus ->
+			let open Xapi_pgpu_helpers in
+			try
+				assert_VGPU_type_allowed ~__context ~self:pgpu ~vgpu_type;
+				assert_capacity_exists_for_VGPU ~__context ~self:pgpu ~vgpu:vgpu.vgpu_ref;
+				Some pgpu
+			with _ -> allocate_vgpu vgpu_type remaining_pgpus
+	in
+	Threadext.Mutex.execute m (fun () ->
+		match allocate_vgpu vgpu.type_ref pgpus with
+		| None ->
+			raise (Api_errors.Server_error (Api_errors.vm_requires_vgpu, [
+				Ref.string_of vm;
+				Ref.string_of vgpu.gpu_group_ref;
+				Ref.string_of vgpu.type_ref
+			]))
+		| Some pgpu ->
+			Db.VGPU.set_resident_on ~__context ~self:vgpu.vgpu_ref ~value:pgpu;
+			Db.PGPU.get_PCI ~__context ~self:pgpu
+	)
+
+let add_vgpu_to_vm ~__context vm vgpu =
+	let vgpu_type = Db.VGPU_type.get_record_internal ~__context ~self:vgpu.type_ref in
+	let internal_config = vgpu_type.Db_actions.vGPU_type_internal_config in
+	let config_path = List.assoc Xapi_globs.vgpu_config_key internal_config in
+	let vgpu_pci = create_virtual_vgpu ~__context vm vgpu in
+	let pci_id = Db.PCI.get_pci_id ~__context ~self:vgpu_pci in
+	(* Update VM platform for xenops to use *)
+	List.iter
+		(fun key ->
+			try Db.VM.remove_from_platform ~__context ~self:vm ~key with _ -> ())
+		[Xapi_globs.vgpu_vga_key; Xapi_globs.vgpu_pci_key; Xapi_globs.vgpu_config_key];
+	Db.VM.add_to_platform ~__context ~self:vm ~key:Xapi_globs.vgpu_vga_key ~value:Xapi_globs.vgpu_vga_value;
+	Db.VM.add_to_platform ~__context ~self:vm ~key:Xapi_globs.vgpu_config_key ~value:config_path;
+	Db.VM.add_to_platform ~__context ~self:vm ~key:Xapi_globs.vgpu_pci_key ~value:pci_id
+
 let create_vgpus ~__context (vm, vm_r) hvm =
 	let vgpus = vgpus_of_vm ~__context vm_r in
 	if vgpus <> [] then begin
 		if not hvm then
 			raise (Api_errors.Server_error (Api_errors.feature_requires_hvm, ["vGPU- and GPU-passthrough needs HVM"]))
 	end;
-	let (passthru_vgpus, _) =
+	let (passthru_vgpus, virtual_vgpus) =
 		List.partition
 			(fun v -> Xapi_vgpu.requires_passthrough ~__context ~self:v.vgpu_ref)
 			vgpus
 	in
-	add_pcis_to_vm ~__context vm passthru_vgpus
+	add_pcis_to_vm ~__context vm passthru_vgpus;
+	add_vgpu_to_vm ~__context vm (List.hd virtual_vgpus)
 
 let list_pcis_for_passthrough ~__context ~vm =
 	try
-		let value = List.assoc Xapi_globs.vgpu_pci (Db.VM.get_other_config ~__context ~self:vm) in
+		let value = List.assoc Xapi_globs.vgpu_pci_key (Db.VM.get_other_config ~__context ~self:vm) in
 		List.map Pciops.of_string (String.split ',' value)
 	with _ -> []
