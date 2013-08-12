@@ -36,7 +36,7 @@ let vgpu_of_vgpu ~__context vm_r vgpu =
 let vgpus_of_vm ~__context vm_r =
 	List.map (vgpu_of_vgpu ~__context vm_r) vm_r.API.vM_VGPUs
 
-let create_pci_passthrough_vgpu ~__context ~vm vgpu available_pgpus pcis =
+let create_passthrough_vgpu ~__context ~vm vgpu available_pgpus pcis =
 	debug "Create vGPUs";
 	let compatible_pgpus = Db.GPU_group.get_PGPUs ~__context ~self:vgpu.gpu_group_ref in
 	let pgpus = List.intersect compatible_pgpus available_pgpus in
@@ -59,23 +59,15 @@ let create_pci_passthrough_vgpu ~__context ~vm vgpu available_pgpus pcis =
 		List.filter (fun g -> g <> pgpu) available_pgpus,
 		pci :: pcis
 
-let create_vgpus ~__context (vm, vm_r) hvm =
-	let vgpus = vgpus_of_vm ~__context vm_r in
-	let (passthru_vgpus, _) =
-		List.partition
-			(fun v -> Xapi_vgpu.requires_passthrough ~__context ~self:v.vgpu_ref)
-			vgpus
-	in
+let add_pcis_to_vm ~__context vm passthru_vgpus =
 	let pcis =
 		if passthru_vgpus <> [] then begin
-			if not hvm then
-				raise (Api_errors.Server_error (Api_errors.feature_requires_hvm, ["GPU passthrough needs HVM"]));
 			let host = Helpers.get_localhost ~__context in
 			let pgpus = Db.Host.get_PGPUs ~__context ~self:host in
 			let _, pcis =
 				List.fold_left
 					(fun (pgpus, pcis) passthru_vgpu ->
-						create_pci_passthrough_vgpu ~__context ~vm passthru_vgpu pgpus pcis)
+						create_passthrough_vgpu ~__context ~vm passthru_vgpu pgpus pcis)
 					(pgpus, []) passthru_vgpus
 			in
 			pcis
@@ -85,12 +77,25 @@ let create_vgpus ~__context (vm, vm_r) hvm =
 	let dependent_pcis = List.setify (List.flatten
 		(List.map (fun pci -> Db.PCI.get_dependencies ~__context ~self:pci) pcis)) in
 	let devs : (int * int * int * int) list = List.sort compare (List.map (Pciops.pcidev_of_pci ~__context) (pcis @ dependent_pcis)) in
-(* Add a hotplug ordering (see pcidevs_of_pci) *)
+	(* Add a hotplug ordering (see pcidevs_of_pci) *)
 	let devs : ((int * (int * int * int * int))) list = List.rev (snd (List.fold_left (fun (i, acc) pci -> i + 1, (i, pci) :: acc) (0, []) devs)) in
-
+	(* Update VM other_config for PCI passthrough *)
 	(try Db.VM.remove_from_other_config ~__context ~self:vm ~key:Xapi_globs.vgpu_pci with _ -> ());
 	let value = String.concat "," (List.map Pciops.to_string devs) in
 	Db.VM.add_to_other_config ~__context ~self:vm ~key:Xapi_globs.vgpu_pci ~value
+
+let create_vgpus ~__context (vm, vm_r) hvm =
+	let vgpus = vgpus_of_vm ~__context vm_r in
+	if vgpus <> [] then begin
+		if not hvm then
+			raise (Api_errors.Server_error (Api_errors.feature_requires_hvm, ["vGPU- and GPU-passthrough needs HVM"]))
+	end;
+	let (passthru_vgpus, _) =
+		List.partition
+			(fun v -> Xapi_vgpu.requires_passthrough ~__context ~self:v.vgpu_ref)
+			vgpus
+	in
+	add_pcis_to_vm ~__context vm passthru_vgpus
 
 let list_pcis_for_passthrough ~__context ~vm =
 	try
