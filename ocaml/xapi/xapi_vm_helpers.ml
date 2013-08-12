@@ -546,6 +546,19 @@ let choose_host ~__context ?vm ~choose_fn ?(prefer_slaves=false) () =
 			else choices in
 		List.nth choices (Random.int (List.length choices))
 
+(* Compute all SRs required for shutting down suspended domains *)
+let compute_required_SRs_for_shutting_down_suspended_domains ~__context ~vm =
+	let all_vm_vdis =
+		List.map
+			(fun vbd->
+				if Db.VBD.get_empty ~__context ~self:vbd then
+					None
+				else
+					Some (Db.VBD.get_VDI ~__context ~self:vbd))
+			(Db.VM.get_VBDs ~__context ~self:vm) in
+	let all_vm_vdis = List.unbox_list all_vm_vdis in
+	List.map (fun vdi -> Db.VDI.get_SR ~self:vdi ~__context) all_vm_vdis
+
 (** Returns the subset of all hosts on which the given [vm] can boot. This
 function also prints a debug message identifying the given [vm] and hosts. *)
 let get_possible_hosts_for_vm ~__context ~vm ~snapshot =
