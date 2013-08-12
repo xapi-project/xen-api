@@ -97,8 +97,3 @@ let list_pcis_for_passthrough ~__context ~vm =
 		let value = List.assoc Xapi_globs.vgpu_pci (Db.VM.get_other_config ~__context ~self:vm) in
 		List.map Pciops.of_string (String.split ',' value)
 	with _ -> []
-
-let clear_vgpus ~__context ~vm =
-	let vgpus = Db.VM.get_VGPUs ~__context ~self:vm in
-	List.iter (fun self -> Db.VGPU.set_currently_attached ~__context ~self ~value:false) vgpus
-
