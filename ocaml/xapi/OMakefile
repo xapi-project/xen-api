@@ -264,6 +264,7 @@ XAPI_MODULES = $(COMMON) \
 	pci_db \
 	xapi_pci_helpers \
 	xapi_pgpu \
+	xapi_pgpu_helpers \
 	xapi_gpu_group \
 	xapi_vgpu \
 	xapi_vgpu_type \
