@@ -33,6 +33,7 @@ let assert_VGPU_type_supported ~__context ~self ~vgpu_type =
 			List.map Ref.string_of (vgpu_type :: supported_VGPU_types)))
 
 let assert_VGPU_type_allowed ~__context ~self ~vgpu_type =
+	assert_VGPU_type_enabled ~__context ~self ~vgpu_type;
 	let resident_VGPUs = Db.PGPU.get_resident_VGPUs ~__context ~self in
 	(match resident_VGPUs with
 	| [] -> ()
