@@ -29,3 +29,7 @@ val assert_VGPU_type_allowed : __context:Context.t ->
 (** Check that no VMs resident on this PGPU have the specified type. *)
 val assert_no_resident_VGPUs_of_type : __context:Context.t ->
 	self:API.ref_PGPU -> vgpu_type:API.ref_VGPU_type -> unit
+
+(** Check that the PGPU has capacity to run the specified VGPU. *)
+val assert_capacity_exists_for_VGPU : __context:Context.t ->
+	self:API.ref_PGPU -> vgpu:API.ref_VGPU -> unit

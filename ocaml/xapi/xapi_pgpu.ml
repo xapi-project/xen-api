@@ -135,42 +135,5 @@ let assert_can_run_VGPU ~__context ~self ~vgpu =
 	(* Check our internal restrictions allow this VGPU to run on the PGPU. *)
 	Xapi_pgpu_helpers.assert_VGPU_type_allowed ~__context
 		~self ~vgpu_type:new_type;
-	let pci = Db.PGPU.get_PCI ~__context ~self in
-	if Xapi_vgpu_type.requires_passthrough ~__context ~self:new_type
-	then begin
-		(* For passthrough VGPUs, we just check that there are functions
-		 * available. *)
-		if Pciops.get_free_functions ~__context pci = 0
-		then
-			let attached_VMs = Db.PCI.get_attached_VMs ~__context ~self:pci in
-			raise (Api_errors.Server_error (Api_errors.pgpu_in_use_by_vm,
-				List.map Ref.string_of attached_VMs))
-	end else begin
-		(* For virtual VGPUs, we check that:
-		 * 1. The underlying PCI device is not passed through to a VM. *)
-		(match Db.PCI.get_attached_VMs ~__context ~self:pci with
-		| [] -> ()
-		| attached_VMs ->
-			raise (Api_errors.Server_error (Api_errors.pgpu_in_use_by_vm,
-				List.map Ref.string_of attached_VMs)));
-		(* 2. There is remaining capacity to run this VGPU on the PGPU. *)
-		let capacity = Db.PGPU.get_capacity ~__context ~self in
-		let resident_VGPUs = Db.PGPU.get_resident_VGPUs ~__context ~self in
-		let utilisation =
-			List.fold_left
-				(fun acc vgpu ->
-					let _type = Db.VGPU.get_type ~__context ~self:vgpu in
-					let footprint =
-						Db.VGPU_type.get_pGPU_footprint ~__context ~self:_type
-					in
-					Int64.add acc footprint)
-				0L resident_VGPUs
-		in
-		let new_footprint =
-			Db.VGPU_type.get_pGPU_footprint ~__context ~self:new_type
-		in
-		if (Int64.add utilisation new_footprint) > capacity
-		then raise (Api_errors.Server_error (
-			Api_errors.pgpu_insufficient_capacity_for_vgpu,
-			[Ref.string_of self; Ref.string_of vgpu]))
-	end
+	(* Check there's space on the PGPU to run this particular VGPU. *)
+	Xapi_pgpu_helpers.assert_capacity_exists_for_VGPU ~__context ~self ~vgpu
