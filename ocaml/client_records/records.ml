@@ -33,6 +33,12 @@ let getparam param params = try Some (List.assoc param params) with _ -> None
 
 let string_of_float f = Printf.sprintf "%.3f" f
 
+(* Splitting an empty string gives a list containing the empty string, which
+ * is usually not what we want. *)
+let get_words separator = function
+	| "" -> []
+	| str -> String.split separator str
+
 type field  = { name: string; 
 		get: (unit -> string);
 		set: (string -> unit) option;
@@ -1487,6 +1493,12 @@ let pgpu_record rpc session_id pgpu =
 				~remove_from_set:(fun vgpu_type_uuid ->
 					Client.PGPU.remove_enabled_VGPU_types rpc session_id pgpu
 						(Client.VGPU_type.get_by_uuid rpc session_id vgpu_type_uuid))
+				~set:(fun vgpu_type_uuids ->
+					Client.PGPU.set_enabled_VGPU_types rpc session_id pgpu
+						(List.map
+							(fun vgpu_type_uuid ->
+								Client.VGPU_type.get_by_uuid rpc session_id vgpu_type_uuid)
+							(get_words ',' vgpu_type_uuids)))
 				();
 			make_field ~name:"resident-VGPUs"
 				~get:(fun () ->
