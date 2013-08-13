@@ -139,10 +139,8 @@ let set_GPU_group ~__context ~self ~value =
 
 let assert_can_run_VGPU ~__context ~self ~vgpu =
 	let new_type = Db.VGPU.get_type ~__context ~self:vgpu in
-	(* Check user has enabled this type - this implies it's supported. *)
-	Xapi_pgpu_helpers.assert_VGPU_type_enabled ~__context
-		~self ~vgpu_type:new_type;
-	(* Check our internal restrictions allow this VGPU to run on the PGPU. *)
+	(* Check that the VGPU type is enabled, and can coexist with any other VGPUs
+	 * present on the PGPU. *)
 	Xapi_pgpu_helpers.assert_VGPU_type_allowed ~__context
 		~self ~vgpu_type:new_type;
 	(* Check there's space on the PGPU to run this particular VGPU. *)
