@@ -143,19 +143,23 @@ let relevant_vgpu_types pci_db pci_dev_ids =
 		| conf::tl ->
 			debug "Pci_db lookup: get_sub_device_names vendor=%04Lx device=%04Lx subdev=%04Lx"
 				nvidia_vendor_id conf.vdev_id conf.vsubdev_id;
-			let vendor_name = Pci_db.get_vendor_name pci_db nvidia_vendor_id
-			and model_name = List.hd
-				(Pci_db.get_subdevice_names_by_id pci_db nvidia_vendor_id
-					conf.vdev_id conf.vsubdev_id)
-			and framebuffer_size = conf.framebufferlength
-			and max_heads = conf.num_heads
-			and pGPU_footprint = Int64.div Constants.pgpu_default_capacity conf.max_instance
-			and internal_config = [Xapi_globs.vgpu_config_key, conf.file_path] in
-			let vgpu_type = {
-				vendor_name; model_name; framebuffer_size; max_heads;
-				pGPU_footprint; internal_config}
-			in
-			build_vgpu_types pci_db (vgpu_type :: ac) tl
+			try
+				let vendor_name = Pci_db.get_vendor_name pci_db nvidia_vendor_id
+				and model_name = List.hd
+					(Pci_db.get_subdevice_names_by_id pci_db nvidia_vendor_id
+						conf.vdev_id conf.vsubdev_id)
+				and framebuffer_size = conf.framebufferlength
+				and max_heads = conf.num_heads
+				and pGPU_footprint = Int64.div Constants.pgpu_default_capacity conf.max_instance
+				and internal_config = [Xapi_globs.vgpu_config_key, conf.file_path] in
+				let vgpu_type = {
+					vendor_name; model_name; framebuffer_size; max_heads;
+					pGPU_footprint; internal_config}
+				in
+				build_vgpu_types pci_db (vgpu_type :: ac) tl
+			with Not_found | Failure "hd" ->
+				warn "Ignoring Pci_db sub-device lookup failure.";
+				build_vgpu_types pci_db ac tl
 	in
 	build_vgpu_types pci_db [] relevant_vgpu_confs
 
