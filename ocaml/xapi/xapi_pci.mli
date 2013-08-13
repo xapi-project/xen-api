@@ -28,3 +28,6 @@ val string_of_pci : __context:Context.t -> self:API.ref_PCI -> string
 
 (** Synchronise the PCI objects in the database with the actual devices in the host. *)
 val update_pcis : __context:Context.t -> host:API.ref_host -> unit
+
+(** Get the PCI id of the host's display device. *)
+val get_system_display_device : unit -> string option
