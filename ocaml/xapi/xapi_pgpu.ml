@@ -80,6 +80,13 @@ let remove_enabled_VGPU_types ~__context ~self ~value =
 		~self ~vgpu_type:value;
 	Db.PGPU.remove_enabled_VGPU_types ~__context ~self ~value
 
+let set_enabled_VGPU_types ~__context ~self ~value =
+	List.iter
+		(fun vgpu_type ->
+			Xapi_pgpu_helpers.assert_VGPU_type_supported ~__context ~self ~vgpu_type)
+		value;
+	Db.PGPU.set_enabled_VGPU_types ~__context ~self ~value
+
 let gpu_group_m = Mutex.create ()
 let set_GPU_group ~__context ~self ~value =
 	debug "Move PGPU %s -> GPU group %s" (Db.PGPU.get_uuid ~__context ~self)
