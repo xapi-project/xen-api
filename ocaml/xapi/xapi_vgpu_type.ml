@@ -29,6 +29,7 @@ type vgpu_conf = {
 	framebufferlength : int64;
 	num_heads : int64;
 	max_instance : int64;
+	file_path : string;
 }
 
 type vgpu_type = {
@@ -37,6 +38,7 @@ type vgpu_type = {
 	framebuffer_size : int64;
 	max_heads : int64;
 	pGPU_footprint : int64;
+	internal_config : (string * string) list;
 }
 
 let entire_gpu = {
@@ -45,12 +47,14 @@ let entire_gpu = {
 	framebuffer_size = 0L;
 	max_heads = 0L;
 	pGPU_footprint = 0L;
+	internal_config = [];
 }
 
-let create ~__context ~vendor_name ~model_name ~framebuffer_size ~max_heads ~pGPU_footprint =
+let create ~__context ~vendor_name ~model_name ~framebuffer_size ~max_heads ~pGPU_footprint ~internal_config =
 	let ref = Ref.make () in
 	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
-	Db.VGPU_type.create ~__context ~ref ~uuid ~vendor_name ~model_name ~framebuffer_size ~max_heads ~pGPU_footprint;
+	Db.VGPU_type.create ~__context ~ref ~uuid ~vendor_name ~model_name
+		~framebuffer_size ~max_heads ~pGPU_footprint ~internal_config;
 	debug "VGPU_type ref='%s' created (vendor_name = '%s'; model_name = '%s')"
 		(Ref.string_of ref) vendor_name model_name;
 	ref
@@ -75,6 +79,7 @@ let find_or_create ~__context vgpu_type =
 			~framebuffer_size:vgpu_type.framebuffer_size
 			~max_heads:vgpu_type.max_heads
 			~pGPU_footprint:vgpu_type.pGPU_footprint
+			~internal_config:vgpu_type.internal_config
 	| _ ->
 		failwith "Error: Multiple vGPU types exist with the same configuration."
 
@@ -102,7 +107,7 @@ let of_conf_file file_path =
 					let max_instance = Int64.of_string
 						(List.assoc "plugin0.max_instance" args) in
 					{pdev_id; vdev_id; vsubdev_id; framebufferlength;
-					 num_heads; max_instance}))
+					 num_heads; max_instance; file_path}))
 	with e ->
 		raise (Parse_error e)
 
@@ -144,10 +149,11 @@ let relevant_vgpu_types pci_db pci_dev_ids =
 					conf.vdev_id conf.vsubdev_id)
 			and framebuffer_size = conf.framebufferlength
 			and max_heads = conf.num_heads
-			and pGPU_footprint = Int64.div Constants.pgpu_default_capacity conf.max_instance in
+			and pGPU_footprint = Int64.div Constants.pgpu_default_capacity conf.max_instance
+			and internal_config = [Xapi_globs.vgpu_config_key, conf.file_path] in
 			let vgpu_type = {
 				vendor_name; model_name; framebuffer_size; max_heads;
-				pGPU_footprint}
+				pGPU_footprint; internal_config}
 			in
 			build_vgpu_types pci_db (vgpu_type :: ac) tl
 	in
