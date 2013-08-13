@@ -74,7 +74,7 @@ let assert_capacity_exists_for_VGPU ~__context ~self ~vgpu =
 	then begin
 		(* For passthrough VGPUs, we just check that there are functions
 		 * available. *)
-		if Pciops.get_free_functions ~__context pci = 0
+		if Pciops.get_free_functions ~__context pci <= 0
 		then
 			let attached_VMs = Db.PCI.get_attached_VMs ~__context ~self:pci in
 			raise (Api_errors.Server_error (Api_errors.pgpu_in_use_by_vm,
