@@ -460,8 +460,14 @@ let create_min_max_in_new_VM_RRDs = "create_min_max_in_new_VM_RRDs"
 (* Pool.other_config key to enable pass-through of PIF carrier *)
 let pass_through_pif_carrier = "pass_through_pif_carrier"
 
-(* Remember the specific PCI devices needed for vGPU passthrough *)
+(* Remember the specific PCI devices needed for GPU passthrough *)
 let vgpu_pci = "vgpu_pci"
+
+(* Name for fields in VM.platform used for vGPU *)
+let vgpu_vga_key = "vga"
+let vgpu_vga_value = "vgpu"
+let vgpu_pci_key = "vgpu_pci_id"
+let vgpu_config_key = "vgpu_config"
 
 let dev_zero = "/dev/zero"
 

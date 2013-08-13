@@ -50,8 +50,9 @@ module Platform = struct
 	let usb = "usb"
 	let usb_tablet = "usb_tablet"
 	let parallel = "parallel"
-  let vgpu_pci_id = "vgpu_pci_id"
-  let vgpu_config = "vgpu_config"
+	let vga = Xapi_globs.vgpu_vga_key
+	let vgpu_pci_id = Xapi_globs.vgpu_pci_key
+	let vgpu_config = Xapi_globs.vgpu_config_key
 
 	(* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
 	let filtered_flags = [
@@ -71,8 +72,9 @@ module Platform = struct
 		usb;
 		usb_tablet;
 		parallel;
-    vgpu_pci_id;
-    vgpu_config;
+		vga;
+		vgpu_pci_id;
+		vgpu_config;
 	]
 
 	(* Other keys we might want to write to the platform map. *)
@@ -235,7 +237,7 @@ let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
 			shadow_multiplier = vm.API.vM_HVM_shadow_multiplier;
 			timeoffset = timeoffset;
 			video_mib = int vm.API.vM_platform 4 "videoram";
-			video = begin match string vm.API.vM_platform "cirrus" "vga" with
+			video = begin match string vm.API.vM_platform "cirrus" Platform.vga with
 				| "std" -> Standard_VGA
 				| "cirrus" -> Cirrus
 				| "vgpu" -> Vgpu
@@ -420,7 +422,7 @@ module MD = struct
 		}
 
 	let pcis_of_vm ~__context (vmref, vm) =
-		let vgpu_pcidevs = Vgpuops.list_vgpus ~__context ~vm:vmref in
+		let vgpu_pcidevs = Vgpuops.list_pcis_for_passthrough ~__context ~vm:vmref in
 		let devs = List.flatten (List.map (fun (_, dev) -> dev) (Pciops.sort_pcidevs vgpu_pcidevs)) in
 
 		(* The 'unmanaged' PCI devices are in the other_config key: *)
