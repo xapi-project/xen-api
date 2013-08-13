@@ -398,19 +398,27 @@ let assert_gpus_available ~__context ~self ~host =
 	let vgpus = Db.VM.get_VGPUs ~__context ~self in
 	let reqd_groups =
 		List.map (fun self -> Db.VGPU.get_GPU_group ~__context ~self) vgpus in
-	let is_pgpu_available pgpu =
-		let pci = Db.PGPU.get_PCI ~__context ~self:pgpu in
-		let attached = List.length (Db.PCI.get_attached_VMs ~__context ~self:pci) in
-		let functions = Int64.to_int (Db.PCI.get_functions ~__context ~self:pci) in
-		attached < functions
+	let is_pgpu_available pgpu vgpu =
+		try Xapi_pgpu.assert_can_run_VGPU ~__context ~self:pgpu ~vgpu; true
+		with _ -> false
 	in
-	let is_group_available_on host group =
+	let can_run_vgpu_on host vgpu =
+		let group = Db.VGPU.get_GPU_group ~__context ~self:vgpu in
 		let pgpus = Db.GPU_group.get_PGPUs ~__context ~self:group in
-		let avail_pgpus = List.filter is_pgpu_available pgpus in
+		let avail_pgpus =
+			List.filter
+				(fun pgpu -> is_pgpu_available pgpu vgpu)
+				pgpus
+		in
 		let hosts = List.map (fun self -> Db.PGPU.get_host ~__context ~self) avail_pgpus in
 		List.mem host hosts
 	in
-	let avail_groups = List.filter (is_group_available_on host) reqd_groups in
+	let runnable_vgpus = List.filter (can_run_vgpu_on host) vgpus in
+	let avail_groups =
+		List.map
+			(fun self -> Db.VGPU.get_GPU_group ~__context ~self)
+			runnable_vgpus
+	in
 	let not_available = List.set_difference reqd_groups avail_groups in
 
 	List.iter
