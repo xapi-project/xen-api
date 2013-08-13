@@ -521,8 +521,14 @@ let _ =
     ~doc:"Moving this PGPU would leave unbacked VGPUs in the GPU group." ();
   error Api_errors.pgpu_not_compatible_with_gpu_group ["type"; "group_types"]
     ~doc:"PGPU type not compatible with destination group." ();
+  error Api_errors.pgpu_insufficient_capacity_for_vgpu ["pgpu"; "vgpu"]
+    ~doc:"There is insufficient capacity on this PGPU to run the VGPU." ();
+  error Api_errors.vgpu_type_not_enabled ["type"; "enabled_types"]
+    ~doc:"VGPU type is not one of the PGPU's enabled types." ();
   error Api_errors.vgpu_type_not_supported ["type"; "supported_types"]
-    ~doc:"VGPU type is not one of the PGPU's allowed types." ();
+    ~doc:"VGPU type is not one of the PGPU's supported types." ();
+  error Api_errors.vgpu_type_not_compatible_with_running_type ["pgpu"; "type"; "running_type"]
+    ~doc:"VGPU type is not compatible with one or more of the VGPU types currently running on this PGPU" ();
 
   error Api_errors.openvswitch_not_active []
     ~doc:"This operation needs the OpenVSwitch networking backend to be enabled on all hosts in the pool." ();
