@@ -26,6 +26,10 @@ val add_enabled_VGPU_types : __context:Context.t ->
 val remove_enabled_VGPU_types : __context:Context.t ->
 	self:API.ref_PGPU -> value:API.ref_VGPU_type -> unit
 
+(** Enable a set of VGPU types supported by the PGPU. *)
+val set_enabled_VGPU_types : __context:Context.t ->
+	self:API.ref_PGPU -> value:API.ref_VGPU_type list -> unit
+
 (** Move the PGPU to a new GPU group. *)
 val set_GPU_group : __context:Context.t -> self:API.ref_PGPU ->
 	value: API.ref_GPU_group -> unit

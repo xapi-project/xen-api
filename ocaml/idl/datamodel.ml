@@ -7776,6 +7776,28 @@ let pgpu =
 		~allowed_roles:_R_POOL_OP
 		()
 	in
+	let set_enabled_VGPU_types = call
+		~name:"set_enabled_VGPU_types"
+		~lifecycle:[Published, rel_vgpu_tech_preview, ""]
+		~versioned_params:[
+			{
+				param_type = (Ref _pgpu);
+				param_name = "self";
+				param_doc = "The PGPU on which we are enabling a set of VGPU types";
+				param_release = vgpu_tech_preview_release;
+				param_default = None;
+			};
+			{
+				param_type = Set (Ref _vgpu_type);
+				param_name = "value";
+				param_doc = "The VGPU types to enable";
+				param_release = vgpu_tech_preview_release;
+				param_default = None;
+			};
+		]
+		~allowed_roles:_R_POOL_OP
+		()
+	in
 	let set_GPU_group = call
 		~name:"set_GPU_group"
 		~lifecycle:[Published, rel_vgpu_tech_preview, ""]
@@ -7797,6 +7819,7 @@ let pgpu =
 		~messages:[
 			add_enabled_VGPU_types;
 			remove_enabled_VGPU_types;
+			set_enabled_VGPU_types;
 			set_GPU_group;
 		]
 		~messages_default_allowed_roles:_R_POOL_OP
