@@ -37,6 +37,8 @@ exception Loopdev_error of string
 exception Loopdev_delete_error
 (** If all the loopback devices are busy *)
 exception Loopdev_all_busy
+(** If the hotplug script reports an error *)
+exception Hotplug_error of string
 
 (** Interface to synchronise with minimal hotplug scripts *)
 
@@ -66,6 +68,10 @@ let path_written_by_hotplug_scripts (x: device) = match x.backend.kind with
 		sprintf "/local/domain/%d/backend/%s/%d/%d/hotplug-status"
 			x.backend.domid (string_of_kind x.backend.kind) x.frontend.domid x.frontend.devid
 	| k -> failwith (Printf.sprintf "No xenstore interface for this kind of device: %s" (string_of_kind k))
+
+let error_path_written_by_hotplug_scripts (x: device) =
+	sprintf "/local/domain/%d/backend/%s/%d/%d/hotplug-error"
+	x.backend.domid (string_of_kind x.backend.kind) x.frontend.domid x.frontend.devid
 
 let vif_disconnect_path (x: device) =
 	sprintf "/local/domain/%d/device/vif/%d/disconnect" x.frontend.domid x.frontend.devid
@@ -114,8 +120,15 @@ let wait_for_plug (task: Xenops_task.t) ~xs (x: device) =
     Stats.time_this "udev backend add event" 
       (fun () ->
 		  let path = path_written_by_hotplug_scripts x in
-		  let (_: bool) = cancellable_watch (Device x) [ Watch.map (fun _ -> ()) (Watch.value_to_appear path) ] [] task ~xs ~timeout:!Xenopsd.hotplug_timeout () in
-		  ()
+		  let error_path = error_path_written_by_hotplug_scripts x in
+		  let (_: bool) = cancellable_watch (Device x) [
+			  Watch.map (fun _ -> ()) (Watch.value_to_appear path);
+			  Watch.map (fun _ -> ()) (Watch.value_to_appear error_path);
+		  ] [] task ~xs ~timeout:!Xenopsd.hotplug_timeout () in
+		  try
+			  (* If an error node exists, return the error *)
+			  raise (Hotplug_error (xs.Xs.read error_path))
+		  with Xs_protocol.Enoent _ -> () (* common case *)
       );
     debug "Synchronised ok with hotplug script: %s" (string_of_device x)
   with Watch.Timeout _ ->
