@@ -1163,6 +1163,7 @@ let write_string_to_file file s =
 let do_flr device =
 	debug "Doing FLR on pci device: %s" device;
 	let doflr = "/sys/bus/pci/drivers/pciback/do_flr" in
+	let device_reset_file = Printf.sprintf "/sys/bus/pci/devices/%s/reset" device in
 	let callscript s devstr =
 		if Sys.file_exists !Xc_path.pci_flr_script then begin
 			try ignore (Forkhelpers.execute_command_get_output !Xc_path.pci_flr_script [ s; devstr; ])
@@ -1170,7 +1171,12 @@ let do_flr device =
 		end
 	in
 	callscript "flr-pre" device;
-	( try write_string_to_file doflr device with _ -> (); );
+	(
+		if Sys.file_exists device_reset_file then
+			try write_string_to_file device_reset_file "1" with _ -> ()
+		else
+			try write_string_to_file doflr device with _ -> ()
+	);
 	callscript "flr-post" device
 
 let bind pcidevs =
