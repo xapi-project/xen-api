@@ -71,3 +71,61 @@ let k2_vgpu_types = [
 	k260q;
 	entire_gpu;
 ]
+
+(* Represents the state of a PGPU, its supported and enabled VGPU types, and
+ * the types of the VGPUs running on it. *)
+type pgpu_state = {
+	supported_VGPU_types: vgpu_type list;
+	enabled_VGPU_types: vgpu_type list;
+	resident_VGPU_types: vgpu_type list;
+}
+
+let default_k1 = {
+	supported_VGPU_types = k1_vgpu_types;
+	enabled_VGPU_types = k1_vgpu_types;
+	resident_VGPU_types = [];
+}
+
+let default_k2 = {
+	supported_VGPU_types = k2_vgpu_types;
+	enabled_VGPU_types = k2_vgpu_types;
+	resident_VGPU_types = [];
+}
+
+let string_of_vgpu_type vgpu_type =
+	vgpu_type.model_name
+
+let string_of_pgpu_state pgpu =
+	Printf.sprintf "{supported: %s; enabled: %s; resident: %s}"
+		(Test_common.string_of_string_list
+			(List.map string_of_vgpu_type pgpu.supported_VGPU_types))
+		(Test_common.string_of_string_list
+			(List.map string_of_vgpu_type pgpu.enabled_VGPU_types))
+		(Test_common.string_of_string_list
+			(List.map string_of_vgpu_type pgpu.resident_VGPU_types))
+
+let make_vgpu ~__context pgpu_ref vgpu_type =
+	let vgpu_type_ref = find_or_create ~__context vgpu_type in
+	let vgpu_ref = Ref.make () in
+	Test_common.make_vgpu ~__context
+		~ref:vgpu_ref ~_type:vgpu_type_ref
+		~resident_on:pgpu_ref ();
+	vgpu_ref
+
+let make_pgpu ~__context pgpu =
+	let supported_VGPU_type_refs =
+		List.map (find_or_create ~__context) pgpu.supported_VGPU_types
+	in
+	let enabled_VGPU_type_refs =
+		List.map (find_or_create ~__context) pgpu.supported_VGPU_types
+	in
+	let pgpu_ref = Ref.make () in
+	Test_common.make_pgpu ~__context
+		~ref:pgpu_ref
+		~supported_VGPU_types:supported_VGPU_type_refs
+		~enabled_VGPU_types:enabled_VGPU_type_refs ();
+	List.iter
+		(fun vgpu_type ->
+			let (_: API.ref_VGPU) = (make_vgpu ~__context pgpu_ref vgpu_type) in ())
+		pgpu.resident_VGPU_types;
+	pgpu_ref
