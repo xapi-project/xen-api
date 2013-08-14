@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 101364bb4fdd319f3d0f38312454140f)
+# DO NOT EDIT (digest: f8155b6f95766333f38fb5bfed473de3)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -154,6 +154,7 @@
 <core_test/*.ml{,i}>: pkg_oclock
 <core_test/server_unix_main.{native,byte}>: custom
 # Executable switch
+<switch/switch_main.{native,byte}>: oasis_executable_switch_cclib
 <switch/switch_main.{native,byte}>: use_message_switch_server
 <switch/switch_main.{native,byte}>: use_message_switch_lwt
 <switch/switch_main.{native,byte}>: use_message_switch
