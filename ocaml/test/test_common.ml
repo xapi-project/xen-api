@@ -153,3 +153,40 @@ let make_vdi ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(name_label="")
 		~current_operations ~sR ~virtual_size ~physical_utilisation ~_type ~sharable ~read_only ~other_config
 		~storage_lock ~location ~managed ~missing ~parent ~xenstore_data ~sm_config ~is_a_snapshot ~snapshot_of
 		~snapshot_time ~tags ~allow_caching ~on_boot ~metadata_of_pool ~metadata_latest
+
+let make_pci ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(class_id="")
+		?(class_name="") ?(vendor_id="") ?(vendor_name="") ?(device_id="")
+		?(device_name="") ?(host=Ref.null) ?(pci_id="") ?(functions=0L)
+		?(dependencies=[]) ?(other_config=[]) () =
+	Db.PCI.create ~__context ~ref ~uuid ~class_id ~class_name ~vendor_id
+		~vendor_name ~device_id ~device_name ~host ~pci_id ~functions ~dependencies
+		~other_config
+
+let make_pgpu ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(pCI=Ref.null)
+		?(gPU_group=Ref.null) ?(host=Ref.null) ?(other_config=[])
+		?(size=Constants.pgpu_default_size)
+		?(supported_VGPU_types=[]) ?(enabled_VGPU_types=[]) () =
+	Db.PGPU.create ~__context ~ref ~uuid ~pCI ~gPU_group
+		~host ~other_config ~size;
+	Db.PGPU.set_supported_VGPU_types ~__context ~self:ref
+		~value:supported_VGPU_types;
+	Db.PGPU.set_enabled_VGPU_types ~__context ~self:ref
+		~value:enabled_VGPU_types
+
+let make_gpu_group ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
+		?(name_label="") ?(name_description="") ?(gPU_types=[]) ?(other_config=[])
+		?(allocation_algorithm=`depth_first) () =
+	Db.GPU_group.create ~__context ~ref ~uuid ~name_label ~name_description
+		~gPU_types ~other_config ~allocation_algorithm
+
+let make_vgpu ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(vM=Ref.null)
+		?(gPU_group=Ref.null) ?(device="0") ?(currently_attached=false)
+		?(other_config=[]) ?(_type=Ref.null) ?(resident_on=Ref.null) () =
+	Db.VGPU.create ~__context ~ref ~uuid ~vM ~gPU_group ~device ~currently_attached
+		~other_config ~_type ~resident_on
+
+let make_vgpu_type ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
+		?(vendor_name="") ?(model_name="") ?(framebuffer_size=0L) ?(max_heads=0L)
+		?(size=0L) ?(internal_config=[]) () =
+	Db.VGPU_type.create ~__context ~ref ~uuid ~vendor_name ~model_name
+		~framebuffer_size ~max_heads ~size ~internal_config
