@@ -64,26 +64,16 @@ let gc_connector ~__context get_all get_record valid_ref1 valid_ref2 delete_reco
 let gc_VGPU_types ~__context =
 	(* We delete a VGPU_type iff it does not appear in the supported_VGPU_types
 	 * of any PGPU _and_ there doesn't exist a VGPU with this VGPU_type *)
-	let all_vgpus = Db.VGPU.get_all ~__context in
-	let in_use_types = List.map (fun self -> Db.VGPU.get_type ~__context ~self) all_vgpus in
-
-	let vgpu_type_unused self =
-		not (List.mem self in_use_types) in
-
-	let vgpu_type_unsupported self =
-		Db.VGPU_type.get_supported_on_PGPUs ~__context ~self = [] in
-
-	let is_garbage t =
-		(vgpu_type_unused t) && (vgpu_type_unsupported t) in
-
-	let garbage = List.find_all is_garbage (Db.VGPU_type.get_all ~__context) in
-
+	let open Db_filter_types in
+	let garbage = Db.VGPU_type.get_records_where ~__context
+		~expr:(And ((Eq (Field "VGPUs", Literal "()")),
+		            (Eq (Field "supported_on_PGPUs", Literal "()")))) in
 	match garbage with
 	| [] -> ()
 	| _ ->
 		debug "GC-ing the follwing unused and unsupported VGPU_types: [ %s ]"
-			(String.concat "; " (List.map Ref.string_of garbage));
-		List.iter (fun self -> Db.VGPU_type.destroy ~__context ~self) garbage
+			(String.concat "; " (List.map Ref.string_of (List.map fst garbage)));
+		List.iter (fun (self, _) -> Db.VGPU_type.destroy ~__context ~self) garbage
 
 let gc_PIFs ~__context =
   gc_connector ~__context Db.PIF.get_all Db.PIF.get_record (fun x->valid_ref __context x.pIF_host) (fun x->valid_ref __context x.pIF_network) 
