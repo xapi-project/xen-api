@@ -149,6 +149,6 @@ let create_vgpus ~__context (vm, vm_r) hvm =
 
 let list_pcis_for_passthrough ~__context ~vm =
 	try
-		let value = List.assoc Xapi_globs.vgpu_pci_key (Db.VM.get_other_config ~__context ~self:vm) in
+		let value = List.assoc Xapi_globs.vgpu_pci (Db.VM.get_other_config ~__context ~self:vm) in
 		List.map Pciops.of_string (String.split ',' value)
 	with _ -> []
