@@ -746,7 +746,8 @@ module VM = struct
 						let minimal_vm_kvs = [
 							"uuid", vm.Vm.id;
 							"name", vm.Vm.name;
-							Printf.sprintf "domains/%d" di.Xenctrl.domid, Printf.sprintf "/local/domain/%d" di.Xenctrl.domid
+							Printf.sprintf "domains/%d" di.Xenctrl.domid, Printf.sprintf "/local/domain/%d" di.Xenctrl.domid;
+							Printf.sprintf "domains/%d/create-time" di.Xenctrl.domid, "0"
 						] |> List.map (fun (k, v) -> Printf.sprintf "/vm/%s/%s" vm.Vm.id k, v) in
 						List.iter
 							(fun (k, v) ->
