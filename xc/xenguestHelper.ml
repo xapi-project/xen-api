@@ -41,7 +41,6 @@ let connect path domid (args: string list) (fds: (string * Unix.file_descr) list
 	   slave process *)
 
 	let last_log_file = Printf.sprintf "/tmp/xenguest.%d.log" domid in
-	(try Unix.unlink last_log_file with _ -> ());
 
 	let slave_to_server_w_uuid = Uuidm.to_string (Uuidm.create `V4) in
 	let server_to_slave_r_uuid = Uuidm.to_string (Uuidm.create `V4) in
