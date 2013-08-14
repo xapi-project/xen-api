@@ -95,6 +95,13 @@ let assert_file_is_readable filename =
 		raise (Could_not_read_file filename)
 let maybe f = function None -> () | Some x -> f x
 
+(* Recursively iterate over a directory and all its children, calling fn for each *)
+let rec xenstore_iter t fn path =
+	fn path;
+	match t.Xst.directory path with
+	| [] -> ()
+	| names -> List.iter (fun n -> if n <> "" then xenstore_iter t fn (path ^ "/" ^ n)) names
+
 type domarch = Arch_HVM | Arch_native | Arch_X64 | Arch_X32
 
 let string_of_domarch = function
@@ -183,7 +190,9 @@ let make ~xc ~xs vm_info uuid =
 
 			(* The /vm path needs to be shared over a localhost migrate *)
 			let vm_exists = try ignore(t.Xst.read vm_path); true with _ -> false in
-			if not vm_exists then begin
+			if vm_exists then
+				xenstore_iter t (fun d -> t.Xst.setperms d roperm) vm_path
+			else begin
 				t.Xst.mkdir vm_path;
 				t.Xst.setperms vm_path roperm;
 				t.Xst.writev vm_path [
