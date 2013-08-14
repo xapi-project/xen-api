@@ -1611,7 +1611,9 @@ module VBD = struct
 							(* If the device is gone then this is ok *)
 							let device = device_by_id xc xs vm Device_common.Vbd Oldest (id_of vbd) in
 							if force && (not (Device.can_surprise_remove ~xs device))
-							then debug "VM = %s; VBD = %s; Device is not surprise-removable" vm (id_of vbd); (* happens on normal shutdown too *)
+							then debug
+								"VM = %s; VBD = %s; Device is not surprise-removable (ignoring and removing anyway)"
+								vm (id_of vbd); (* happens on normal shutdown too *)
 							Xenops_task.with_subtask task (Printf.sprintf "Vbd.clean_shutdown %s" (id_of vbd))
 								(fun () -> (if force then Device.hard_shutdown else Device.clean_shutdown) task ~xs device);
 							Xenops_task.with_subtask task (Printf.sprintf "Vbd.release %s" (id_of vbd))
