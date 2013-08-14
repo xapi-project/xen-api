@@ -1,3 +1,6 @@
+0.9.19 (14-Aug-2013):
+* disable by default the libvirt build
+
 0.9.18 (8-Aug-2013):
 * libxl: add support for .qcow2 format disks
 
