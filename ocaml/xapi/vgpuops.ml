@@ -115,20 +115,24 @@ let create_virtual_vgpu ~__context vm vgpu =
 			Db.PGPU.get_PCI ~__context ~self:pgpu
 	)
 
-let add_vgpu_to_vm ~__context vm vgpu =
-	let vgpu_type = Db.VGPU_type.get_record_internal ~__context ~self:vgpu.type_ref in
-	let internal_config = vgpu_type.Db_actions.vGPU_type_internal_config in
-	let config_path = List.assoc Xapi_globs.vgpu_config_key internal_config in
-	let vgpu_pci = create_virtual_vgpu ~__context vm vgpu in
-	let pci_id = Db.PCI.get_pci_id ~__context ~self:vgpu_pci in
+let add_vgpus_to_vm ~__context vm vgpus =
 	(* Update VM platform for xenops to use *)
 	List.iter
 		(fun key ->
 			try Db.VM.remove_from_platform ~__context ~self:vm ~key with _ -> ())
 		[Xapi_globs.vgpu_vga_key; Xapi_globs.vgpu_pci_key; Xapi_globs.vgpu_config_key];
-	Db.VM.add_to_platform ~__context ~self:vm ~key:Xapi_globs.vgpu_vga_key ~value:Xapi_globs.vgpu_vga_value;
-	Db.VM.add_to_platform ~__context ~self:vm ~key:Xapi_globs.vgpu_config_key ~value:config_path;
-	Db.VM.add_to_platform ~__context ~self:vm ~key:Xapi_globs.vgpu_pci_key ~value:pci_id
+	(* Only support a maximum of one virtual GPU per VM for now. *)
+	match vgpus with
+	| [] -> ()
+	| vgpu :: _ ->
+		let vgpu_type = Db.VGPU_type.get_record_internal ~__context ~self:vgpu.type_ref in
+		let internal_config = vgpu_type.Db_actions.vGPU_type_internal_config in
+		let config_path = List.assoc Xapi_globs.vgpu_config_key internal_config in
+		let vgpu_pci = create_virtual_vgpu ~__context vm vgpu in
+		let pci_id = Db.PCI.get_pci_id ~__context ~self:vgpu_pci in
+		Db.VM.add_to_platform ~__context ~self:vm ~key:Xapi_globs.vgpu_vga_key ~value:Xapi_globs.vgpu_vga_value;
+		Db.VM.add_to_platform ~__context ~self:vm ~key:Xapi_globs.vgpu_config_key ~value:config_path;
+		Db.VM.add_to_platform ~__context ~self:vm ~key:Xapi_globs.vgpu_pci_key ~value:pci_id
 
 let create_vgpus ~__context (vm, vm_r) hvm =
 	let vgpus = vgpus_of_vm ~__context vm_r in
@@ -142,10 +146,7 @@ let create_vgpus ~__context (vm, vm_r) hvm =
 			vgpus
 	in
 	add_pcis_to_vm ~__context vm passthru_vgpus;
-	(* Only support a maximum of one virtual GPU per VM for now. *)
-	match virtual_vgpus with
-	| [] -> ()
-	| vgpu :: _ -> add_vgpu_to_vm ~__context vm vgpu
+	add_vgpus_to_vm ~__context vm virtual_vgpus
 
 let list_pcis_for_passthrough ~__context ~vm =
 	try
