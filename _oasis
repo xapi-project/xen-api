@@ -97,6 +97,7 @@ Executable switch
   CompiledObject:     best
   Path:               switch
   MainIs:             switch_main.ml
+  CCLib:              -lrt
   Custom:             true
   Install:            false
   BuildDepends:       message_switch, message_switch.lwt, message_switch.server, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt

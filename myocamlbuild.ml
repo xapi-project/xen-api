@@ -1,7 +1,7 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 534d082698920c94f61d5de886473a65) *)
+(* DO NOT EDIT (digest: 804f975cfa2705f1c718f0c6c5485011) *)
 module OASISGettext = struct
-(* # 21 "/local/scratch/djs/.opam/4.00.1/build/oasis.0.3.0/src/oasis/OASISGettext.ml" *)
+(* # 21 "src/oasis/OASISGettext.ml" *)
 
   let ns_ str =
     str
@@ -24,7 +24,7 @@ module OASISGettext = struct
 end
 
 module OASISExpr = struct
-(* # 21 "/local/scratch/djs/.opam/4.00.1/build/oasis.0.3.0/src/oasis/OASISExpr.ml" *)
+(* # 21 "src/oasis/OASISExpr.ml" *)
 
 
 
@@ -116,7 +116,7 @@ end
 
 # 117 "myocamlbuild.ml"
 module BaseEnvLight = struct
-(* # 21 "/local/scratch/djs/.opam/4.00.1/build/oasis.0.3.0/src/base/BaseEnvLight.ml" *)
+(* # 21 "src/base/BaseEnvLight.ml" *)
 
   module MapString = Map.Make(String)
 
@@ -214,7 +214,7 @@ end
 
 # 215 "myocamlbuild.ml"
 module MyOCamlbuildFindlib = struct
-(* # 21 "/local/scratch/djs/.opam/4.00.1/build/oasis.0.3.0/src/plugins/ocamlbuild/MyOCamlbuildFindlib.ml" *)
+(* # 21 "src/plugins/ocamlbuild/MyOCamlbuildFindlib.ml" *)
 
   (** OCamlbuild extension, copied from 
     * http://brion.inria.fr/gallium/index.php/Using_ocamlfind_with_ocamlbuild
@@ -323,7 +323,7 @@ module MyOCamlbuildFindlib = struct
 end
 
 module MyOCamlbuildBase = struct
-(* # 21 "/local/scratch/djs/.opam/4.00.1/build/oasis.0.3.0/src/plugins/ocamlbuild/MyOCamlbuildBase.ml" *)
+(* # 21 "src/plugins/ocamlbuild/MyOCamlbuildBase.ml" *)
 
   (** Base functions for writing myocamlbuild.ml
       @author Sylvain Le Gall
@@ -339,7 +339,7 @@ module MyOCamlbuildBase = struct
   type name = string 
   type tag = string 
 
-(* # 56 "/local/scratch/djs/.opam/4.00.1/build/oasis.0.3.0/src/plugins/ocamlbuild/MyOCamlbuildBase.ml" *)
+(* # 56 "src/plugins/ocamlbuild/MyOCamlbuildBase.ml" *)
 
   type t =
       {
@@ -485,7 +485,13 @@ let package_default =
           ("message_switch_server", ["switch"])
        ];
      lib_c = [];
-     flags = [];
+     flags =
+       [
+          (["oasis_executable_switch_cclib"; "link"],
+            [(OASISExpr.EBool true, S [A "-cclib"; A "-lrt"])]);
+          (["oasis_executable_switch_cclib"; "ocamlmklib"; "c"],
+            [(OASISExpr.EBool true, S [A "-lrt"])])
+       ];
      includes =
        [("switch", ["core"]); ("core_test", ["core"]); ("cli", ["core"])];
      }
@@ -493,6 +499,6 @@ let package_default =
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default package_default;;
 
-# 497 "myocamlbuild.ml"
+# 503 "myocamlbuild.ml"
 (* OASIS_STOP *)
 Ocamlbuild_plugin.dispatch dispatch_default;;
