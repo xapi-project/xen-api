@@ -146,13 +146,14 @@ let di_of_uuid ~xc ~xs domain_selection uuid =
 	let possible = List.filter (fun x -> uuid_of_di x = uuid) all in
 	let oldest_first = List.sort
 		(fun a b ->
-			let has_run x = x.cpu_time <> 0L in
-			match has_run a, has_run b with
-				| true, false -> -1 (* a is older than b *)
-				| false, true -> 1
-				| _, _ ->
-					warn "VM %s: unable to tell which of domid %d and %d is newer" uuid' a.domid b.domid;
-					compare a.domid b.domid
+			let create_time x = 
+			  try 
+			    xs.Xs.read (Printf.sprintf "/vm/%s/domains/%d/create-time" uuid' x.domid) |> Int64.of_string 
+			  with e ->
+			    warn "Caught exception trying to find creation time of domid %d (uuid %s)" x.domid uuid';
+			    0L
+			in
+			compare (create_time a) (create_time b)
 		) possible in
 	let domid_list = String.concat ", " (List.map (fun x -> string_of_int x.domid) oldest_first) in
 	if List.length oldest_first > 2
