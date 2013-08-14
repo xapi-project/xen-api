@@ -1489,15 +1489,19 @@ module PCI = struct
 
 	let unplug task vm pci =
 		let device = pci.domain, pci.bus, pci.dev, pci.fn in
-		on_frontend
-			(fun xc xs frontend_domid hvm ->
-				try
-					if hvm
-					then Device.PCI.unplug task ~xc ~xs device frontend_domid
-					else error "VM = %s; PCI.unplug for PV guests is unsupported" vm
-				with Not_found ->
-					debug "VM = %s; PCI.unplug %s.%s caught Not_found: assuming device is unplugged already" vm (fst pci.id) (snd pci.id)
-			) Oldest vm
+		try
+			on_frontend
+				(fun xc xs frontend_domid hvm ->
+					try
+						if hvm
+						then Device.PCI.unplug task ~xc ~xs device frontend_domid
+						else error "VM = %s; PCI.unplug for PV guests is unsupported" vm
+					with Not_found ->
+						debug "VM = %s; PCI.unplug %s.%s caught Not_found: assuming device is unplugged already" vm (fst pci.id) (snd pci.id)
+				) Oldest vm
+		with (Does_not_exist(_,_)) ->
+			debug "VM = %s; PCI = %s; Ignoring missing domain" vm (id_of pci)
+
 end
 
 let set_active_device path active =
