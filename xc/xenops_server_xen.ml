@@ -1599,8 +1599,11 @@ module VBD = struct
 	let plug task vm vbd =
 		(* Dom0 doesn't have a vm_t - we don't need this currently, but when we have storage driver domains, 
 		   we will. Also this causes the SMRT tests to fail, as they demand the loopback VBDs *)
-		let vm_t = DB.read vm in 
-		on_frontend
+		let vm_t = DB.read_exn vm in 
+		(* If the vbd isn't listed as "active" then we don't automatically plug this one in *)
+		if not(get_active vm vbd)
+		then debug "VBD %s.%s is not active: not plugging into VM" (fst vbd.Vbd.id) (snd vbd.Vbd.id)
+		else on_frontend
 			(fun xc xs frontend_domid hvm ->
 				if vbd.backend = None && not hvm
 				then info "VM = %s; an empty CDROM drive on a PV guest is simulated by unplugging the whole drive" vm
@@ -1655,13 +1658,11 @@ module VBD = struct
 							end
 						| _, _, _ -> None in
 					(* Remember what we've just done *)
-					Opt.iter (fun vm_t -> 
-						Opt.iter (fun q ->
-							let non_persistent = { vm_t.VmExtra.non_persistent with
-								VmExtra.qemu_vbds = (vbd.Vbd.id, q) :: vm_t.VmExtra.non_persistent.VmExtra.qemu_vbds} in
-							DB.write vm { vm_t with VmExtra.non_persistent = non_persistent }
-						) qemu_frontend
-					) vm_t
+					Opt.iter (fun q ->
+						let non_persistent = { vm_t.VmExtra.non_persistent with
+							VmExtra.qemu_vbds = (vbd.Vbd.id, q) :: vm_t.VmExtra.non_persistent.VmExtra.qemu_vbds} in
+						DB.write vm { vm_t with VmExtra.non_persistent = non_persistent }
+					) qemu_frontend
 				end
 			) Newest vm
 
@@ -1886,8 +1887,11 @@ module VIF = struct
 		with _ -> false
 
 	let plug_exn task vm vif =
-		let vm_t = DB.read vm in
-		on_frontend
+		let vm_t = DB.read_exn vm in
+		(* If the vif isn't listed as "active" then we don't automatically plug this one in *)
+		if not(get_active vm vif)
+		then debug "VIF %s.%s is not active: not plugging into VM" (fst vif.Vif.id) (snd vif.Vif.id)
+		else on_frontend
 			(fun xc xs frontend_domid hvm ->
 				let backend_domid = backend_domid_of xc xs vif in
 				(* Remember the VIF id with the device *)
@@ -1921,18 +1925,16 @@ module VIF = struct
 
 						(* If qemu is in a different domain, then plug into it *)
 						let me = this_domid ~xs in
-						Opt.iter (fun vm_t -> 
-							Opt.iter
-								(fun stubdom_domid ->
-									if vif.position < 4 && stubdom_domid <> me then begin
-										let device = create task stubdom_domid in
-										let q = vif.position, Device device in
-										let non_persistent = { vm_t.VmExtra.non_persistent with
-											VmExtra.qemu_vifs = (vif.Vif.id, q) :: vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs } in
-										DB.write vm { vm_t with VmExtra.non_persistent = non_persistent}
-									end
-								) (get_stubdom ~xs frontend_domid)
-						) vm_t
+						Opt.iter
+							(fun stubdom_domid ->
+								if vif.position < 4 && stubdom_domid <> me then begin
+									let device = create task stubdom_domid in
+									let q = vif.position, Device device in
+									let non_persistent = { vm_t.VmExtra.non_persistent with
+										VmExtra.qemu_vifs = (vif.Vif.id, q) :: vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs } in
+									DB.write vm { vm_t with VmExtra.non_persistent = non_persistent}
+								end
+							) (get_stubdom ~xs frontend_domid)
 					)
 			) Newest vm
 
