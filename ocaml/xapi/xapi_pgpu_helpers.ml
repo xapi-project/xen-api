@@ -95,13 +95,13 @@ let assert_capacity_exists_for_VGPU ~__context ~self ~vgpu =
 				(fun acc vgpu ->
 					let _type = Db.VGPU.get_type ~__context ~self:vgpu in
 					let footprint =
-						Db.VGPU_type.get_pGPU_footprint ~__context ~self:_type
+						Db.VGPU_type.get_PGPU_footprint ~__context ~self:_type
 					in
 					Int64.add acc footprint)
 				0L resident_VGPUs
 		in
 		let new_footprint =
-			Db.VGPU_type.get_pGPU_footprint ~__context ~self:new_type
+			Db.VGPU_type.get_PGPU_footprint ~__context ~self:new_type
 		in
 		if (Int64.add utilisation new_footprint) > capacity
 		then raise (Api_errors.Server_error (
