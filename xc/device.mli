@@ -182,6 +182,7 @@ sig
 		monitor: string option;
 		vcpus: int;
 		usb: string list;
+		parallel: string option;
 		nics: (string * string * int) list;
 		disks: (int * string * media) list;
 		acpi: bool;
