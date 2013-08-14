@@ -142,7 +142,10 @@ let create_vgpus ~__context (vm, vm_r) hvm =
 			vgpus
 	in
 	add_pcis_to_vm ~__context vm passthru_vgpus;
-	add_vgpu_to_vm ~__context vm (List.hd virtual_vgpus)
+	(* Only support a maximum of one virtual GPU per VM for now. *)
+	match virtual_vgpus with
+	| [] -> ()
+	| vgpu :: _ -> add_vgpu_to_vm ~__context vm vgpu
 
 let list_pcis_for_passthrough ~__context ~vm =
 	try
