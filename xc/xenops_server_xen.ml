@@ -31,9 +31,32 @@ let disable_udev_path = "libxl/disable_udev"
 let store_domid = 0
 let console_domid = 0
 
+let _device_model = "device-model"
+let _xenguest = "xenguest"
+
 let run cmd args =
 	debug "%s %s" cmd (String.concat " " args);
 	fst(Forkhelpers.execute_command_get_output cmd args)
+
+let choose_alternative kind default platformdata =
+	debug "looking for %s in [ %s ]" kind (String.concat "; " (List.map (fun (k, v) -> k ^ " : " ^v) platformdata));
+	if List.mem_assoc kind platformdata then begin
+		let x = List.assoc kind platformdata in
+		let path = Printf.sprintf "%s/%s/%s" !Xc_path.alternatives kind x in
+		try
+			Unix.access path [ Unix.X_OK ];
+			path
+		with _ ->
+			error "Invalid platform:%s=%s (check execute permissions of %s)" kind x path;
+			default
+	end else default
+
+(* We allow qemu-dm to be overriden via a platform flag *)
+let choose_qemu_dm = choose_alternative _device_model !Path.qemu_dm_wrapper
+
+(* We allow xenguest to be overriden via a platform flag *)
+let choose_xenguest = choose_alternative _xenguest !Xc_path.xenguest
+
 
 type qemu_frontend =
 	| Name of string (* block device path or bridge name *)
@@ -978,7 +1001,7 @@ module VM = struct
 								} in
 								((make_build_info b.Bootloader.kernel_path builder_spec_info), "")
 							) in
-			let arch = Domain.build task ~xc ~xs ~store_domid ~console_domid build_info timeoffset domid in
+			let arch = Domain.build task ~xc ~xs ~store_domid ~console_domid build_info timeoffset (choose_xenguest vm.Vm.platformdata) domid in
 			Int64.(
 				let min = to_int (div vm.Vm.memory_dynamic_min 1024L)
 				and max = to_int (div vm.Vm.memory_dynamic_max 1024L) in
@@ -1030,22 +1053,26 @@ module VM = struct
 
 	let create_device_model_exn vbds vifs saved_state xc xs task vm di =
 		let vmextra = DB.read_exn vm.Vm.id in
+		let qemu_dm = choose_qemu_dm vm.Vm.platformdata in
+		let xenguest = choose_xenguest vm.Vm.platformdata in
+		debug "chosen qemu_dm = %s" qemu_dm;
+		debug "chosen xenguest = %s" xenguest;
 		Opt.iter (fun info ->
 			match vm.Vm.ty with
 				| Vm.HVM { Vm.qemu_stubdom = true } ->
 					if saved_state then failwith "Cannot resume with stubdom yet";
 					Opt.iter
 						(fun stubdom_domid ->
-							Stubdom.build task ~xc ~xs ~store_domid ~console_domid info di.Xenctrl.domid stubdom_domid;
-							Device.Dm.start_vnconly task ~xs ~dmpath:!Path.qemu_dm_wrapper info stubdom_domid
+							Stubdom.build task ~xc ~xs ~store_domid ~console_domid info xenguest di.Xenctrl.domid stubdom_domid;
+							Device.Dm.start_vnconly task ~xs ~dmpath:qemu_dm info stubdom_domid
 						) (get_stubdom ~xs di.Xenctrl.domid);
 				| Vm.HVM { Vm.qemu_stubdom = false } ->
 					(if saved_state then Device.Dm.restore else Device.Dm.start)
-						task ~xs ~dmpath:!Path.qemu_dm_wrapper info di.Xenctrl.domid
+						task ~xs ~dmpath:qemu_dm info di.Xenctrl.domid
 				| Vm.PV _ ->
 					Device.Vfb.add ~xc ~xs di.Xenctrl.domid;
 					Device.Vkbd.add ~xc ~xs di.Xenctrl.domid;
-					Device.Dm.start_vnconly task ~xs ~dmpath:!Path.qemu_dm_wrapper info di.Xenctrl.domid
+					Device.Dm.start_vnconly task ~xs ~dmpath:qemu_dm info di.Xenctrl.domid
 		) (create_device_model_config vm vmextra vbds vifs);
 		match vm.Vm.ty with
 			| Vm.PV { vncterm = true; vncterm_ip = ip } -> Device.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
@@ -1169,7 +1196,7 @@ module VM = struct
 
 				with_data ~xc ~xs task data true
 					(fun fd ->
-						Domain.suspend task ~xc ~xs ~hvm ~progress_callback ~qemu_domid domid fd flags'
+						Domain.suspend task ~xc ~xs ~hvm ~progress_callback ~qemu_domid (choose_xenguest vm.Vm.platformdata) domid fd flags'
 							(fun () ->
 								if not(request_shutdown task vm Suspend 30.)
 								then raise (Failed_to_acknowledge_shutdown_request);
@@ -1234,7 +1261,7 @@ module VM = struct
 
 						with_data ~xc ~xs task data false
 							(fun fd ->
-								Domain.restore task ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid (* XXX progress_callback *) build_info timeoffset domid fd
+								Domain.restore task ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid (* XXX progress_callback *) build_info timeoffset (choose_xenguest vm.Vm.platformdata) domid fd
 							);
 					with e ->
 						error "VM %s: restore failed: %s" vm.Vm.id (Printexc.to_string e);

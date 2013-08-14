@@ -35,7 +35,7 @@ type t = in_channel * out_channel * Unix.file_descr * Unix.file_descr * Forkhelp
 
 (** Fork and run a xenguest helper with particular args, leaving 'fds' open 
     (in addition to internal control I/O fds) *)
-let connect domid (args: string list) (fds: (string * Unix.file_descr) list) : t =
+let connect path domid (args: string list) (fds: (string * Unix.file_descr) list) : t =
 	debug "connect: args = [ %s ]" (String.concat " " args);
 	(* Need to send commands and receive responses from the
 	   slave process *)
@@ -57,7 +57,7 @@ let connect domid (args: string list) (fds: (string * Unix.file_descr) list) : t
 	let pid = Forkhelpers.safe_close_and_exec None None None 
 	  ([ slave_to_server_w_uuid, slave_to_server_w;
 	    server_to_slave_r_uuid, server_to_slave_r ] @ fds)
-	  !Xc_path.xenguest args in
+	  path args in
 	
 	Unix.close slave_to_server_w;
 	Unix.close server_to_slave_r;
@@ -76,8 +76,8 @@ let disconnect (_, _, r, w, pid) =
 	(try Unix.kill (Forkhelpers.getpid pid) Sys.sigterm with _ -> ());
 	ignore(Forkhelpers.waitpid pid)
 
-let with_connection (task: Xenops_task.t) domid (args: string list) (fds: (string * Unix.file_descr) list) f =
-	let t = connect domid args fds in
+let with_connection (task: Xenops_task.t) path domid (args: string list) (fds: (string * Unix.file_descr) list) f =
+	let t = connect path domid args fds in
 	let cancel_cb () =
 		let _, _, _, _, pid = t in
 		try Unix.kill (Forkhelpers.getpid pid) Sys.sigkill with _ -> () in
