@@ -1641,6 +1641,9 @@ module VBD = struct
 						Xenops_task.with_subtask task (Printf.sprintf "Vbd.add %s" (id_of vbd))
 							(fun () -> Device.Vbd.add task ~xs ~hvm x frontend_domid) in
 
+					(* We store away the disk so we can implement VBD.stat *)
+					Opt.iter (fun disk -> xs.Xs.write (vdi_path_of_device ~xs device) (disk |> rpc_of_disk |> Jsonrpc.to_string)) vbd.backend;
+
 					(* NB now the frontend position has been resolved *)
 					let open Device_common in
 					let device_number = device.frontend.devid |> Device_number.of_xenstore_key in
