@@ -35,3 +35,5 @@
 *.cmt
 *.cmti
 *.so
+config.mk
+dist
