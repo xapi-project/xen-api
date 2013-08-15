@@ -1,6 +1,6 @@
 OASISFormat: 0.2
 Name:        xcp-idl
-Version:     0.9.9
+Version:     0.9.10
 Synopsis:    Interface definitions and common boilerplate for the xapi toolstack
 Authors:     David Scott
 License:     LGPL-2.1 with OCaml linking exception

@@ -1,3 +1,6 @@
+0.9.10 (15-Aug-2013):
+* Resync with xen-api f45d493e7ed9b5a60fed1db64ce52708c76465a6
+
 0.9.8 (8-Jul-2013):
 * storage: add VDI.resize
 
