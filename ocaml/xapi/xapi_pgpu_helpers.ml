@@ -67,27 +67,18 @@ let assert_no_resident_VGPUs_of_type ~__context ~self ~vgpu_type =
 		raise (Api_errors.Server_error
 			(Api_errors.pgpu_in_use_by_vm, List.map Ref.string_of vms))
 
-let assert_capacity_exists_for_VGPU ~__context ~self ~vgpu =
-	let new_type = Db.VGPU.get_type ~__context ~self:vgpu in
-	let pci = Db.PGPU.get_PCI ~__context ~self in
-	if Xapi_vgpu_type.requires_passthrough ~__context ~self:new_type
+let get_remaining_capacity_internal ~__context ~self ~vgpu_type =
+	(* Assume this PGPU is OK to run this type of VGPU, but we still need to check
+	 * whether there is capacity remaining. *)
+	if Xapi_vgpu_type.requires_passthrough ~__context ~self:vgpu_type
 	then begin
 		(* For passthrough VGPUs, we just check that there are functions
 		 * available. *)
-		if Pciops.get_free_functions ~__context pci <= 0
-		then
-			let attached_VMs = Db.PCI.get_attached_VMs ~__context ~self:pci in
-			raise (Api_errors.Server_error (Api_errors.pgpu_in_use_by_vm,
-				List.map Ref.string_of attached_VMs))
+		let pci = Db.PGPU.get_PCI ~__context ~self in
+		Int64.of_int (Pciops.get_free_functions ~__context pci)
 	end else begin
-		(* For virtual VGPUs, we check that:
-		 * 1. The underlying PCI device is not passed through to a VM. *)
-		(match Db.PCI.get_attached_VMs ~__context ~self:pci with
-		| [] -> ()
-		| attached_VMs ->
-			raise (Api_errors.Server_error (Api_errors.pgpu_in_use_by_vm,
-				List.map Ref.string_of attached_VMs)));
-		(* 2. There is remaining capacity to run this VGPU on the PGPU. *)
+		(* For virtual VGPUs, we calculate the number of times the VGPU_type's
+		 * size fits into the PGPU's (size - utilisation). *)
 		let pgpu_size = Db.PGPU.get_size ~__context ~self in
 		let resident_VGPUs = Db.PGPU.get_resident_VGPUs ~__context ~self in
 		let utilisation =
@@ -101,10 +92,28 @@ let assert_capacity_exists_for_VGPU ~__context ~self ~vgpu =
 				0L resident_VGPUs
 		in
 		let new_vgpu_size =
-			Db.VGPU_type.get_size ~__context ~self:new_type
+			Db.VGPU_type.get_size ~__context ~self:vgpu_type
 		in
-		if (Int64.add utilisation new_vgpu_size) > pgpu_size
-		then raise (Api_errors.Server_error (
-			Api_errors.pgpu_insufficient_capacity_for_vgpu,
-			[Ref.string_of self; Ref.string_of vgpu]))
+		Int64.div (Int64.sub pgpu_size utilisation) new_vgpu_size
 	end
+
+let get_remaining_capacity ~__context ~self ~vgpu_type =
+	try
+		assert_VGPU_type_allowed ~__context ~self ~vgpu_type;
+		get_remaining_capacity_internal ~__context ~self ~vgpu_type
+	with Api_errors.Server_error (code, args) ->
+		0L
+
+let assert_capacity_exists_for_VGPU ~__context ~self ~vgpu =
+	let new_type = Db.VGPU.get_type ~__context ~self:vgpu in
+	assert_VGPU_type_allowed ~__context ~self ~vgpu_type:new_type;
+	if get_remaining_capacity_internal ~__context ~self ~vgpu_type:new_type <= 0L
+	then
+		let resident_VGPUs = Db.PGPU.get_resident_VGPUs ~__context ~self in
+		let resident_VMs =
+			List.map
+				(fun vgpu -> Db.VGPU.get_VM ~__context ~self:vgpu)
+				resident_VGPUs
+		in
+		raise (Api_errors.Server_error (Api_errors.pgpu_in_use_by_vm,
+			List.map Ref.string_of resident_VMs))
