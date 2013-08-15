@@ -1558,6 +1558,12 @@ type disp_opt =
 type media = Disk | Cdrom
 let string_of_media = function Disk -> "disk" | Cdrom -> "cdrom"
 
+type vgpu_t = {
+	pci_id: string;
+	config: string;
+	enable_vnc: bool;
+}
+
 type info = {
 	memory: int64;
 	boot: string;
@@ -1572,7 +1578,7 @@ type info = {
 	disp: disp_opt;
 	pci_emulations: string list;
 	pci_passthrough: bool;
-	vgpu: (string * string) option;
+	vgpu: vgpu_t option;
 
 	(* Xenclient extras *)
 	xenclient_enabled : bool;
@@ -1754,11 +1760,13 @@ let vnconly_cmdline ~info ?(extras=[]) domid =
 
 let vgpu_args_of_info info domid =
 	match info.vgpu with
-		| Some (pci_id, config) ->
-			[ "--domain=" ^ (string_of_int domid);
-			  "--vcpus=" ^ (string_of_int info.vcpus);
-			  "--gpu=" ^ pci_id;
-			  "--config=" ^ config
+		| Some vgpu ->
+			[
+				"--domain=" ^ (string_of_int domid);
+				"--vcpus=" ^ (string_of_int info.vcpus);
+				"--gpu=" ^ vgpu.pci_id;
+				"--config=" ^ vgpu.config
+					^ ",disable_vnc=" ^ (if vgpu.enable_vnc then "0" else "1");
 			]
 		| None -> []
 

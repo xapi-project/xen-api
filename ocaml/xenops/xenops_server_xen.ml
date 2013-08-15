@@ -947,11 +947,20 @@ module VM = struct
 						let vgpu =
 							try
 								let vgpu_pci = List.assoc Xapi_globs.vgpu_pci_key vm.Vm.platformdata
-								and vgpu_config = List.assoc Xapi_globs.vgpu_config_key vm.Vm.platformdata in
-								debug "VGPU config: %s -> %s; %s -> %s"
+								and vgpu_config = List.assoc Xapi_globs.vgpu_config_key vm.Vm.platformdata
+								and vgpu_enable_vnc =
+									try bool_of_string (List.assoc Xapi_globs.vgpu_enable_vnc_key vm.Vm.platformdata)
+									with _ -> true
+								in
+								debug "VGPU config: %s -> %s; %s -> %s; %s -> %b"
 									Xapi_globs.vgpu_pci_key vgpu_pci
-									Xapi_globs.vgpu_config_key vgpu_config;
-								Some (vgpu_pci, vgpu_config)
+									Xapi_globs.vgpu_config_key vgpu_config
+									Xapi_globs.vgpu_enable_vnc_key vgpu_enable_vnc;
+								Some {
+									Device.Dm.pci_id = vgpu_pci;
+									config = vgpu_config;
+									enable_vnc = vgpu_enable_vnc
+								}
 							with Not_found -> failwith "Missing vGPU config in platform data" in
 						Device.Dm.Vgpu, vgpu
 				in
