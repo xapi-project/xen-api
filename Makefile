@@ -5,11 +5,8 @@ NAME=xenops
 J=4
 
 clean:
-	@rm -f setup.data setup.log setup.bin
+	@rm -f setup.data setup.log setup.bin config.mk
 	@rm -rf _build
-
-distclean: clean
-	@rm -f config.mk
 
 -include config.mk
 
