@@ -25,6 +25,13 @@ exception Timeout of float
 
 (** Represents a condition to wait for *)
 type 'a t = { evaluate: Xs.xsh -> 'a }
+
+let has_fired ~xs (x: 'a t) =
+  try
+    x.evaluate xs;
+    true
+  with Xs_protocol.Eagain ->
+    false
     
 let map f x = { evaluate = fun xs -> f (x.evaluate xs) }
   
