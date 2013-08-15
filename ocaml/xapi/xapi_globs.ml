@@ -468,6 +468,7 @@ let vgpu_vga_key = "vga"
 let vgpu_vga_value = "vgpu"
 let vgpu_pci_key = "vgpu_pci_id"
 let vgpu_config_key = "vgpu_config"
+let vgpu_vnc_enabled_key = "vgpu_vnc_enabled"
 
 let dev_zero = "/dev/zero"
 
