@@ -1,0 +1,79 @@
+OASISFormat: 0.3
+Name:        xenopsd
+Version:     0.9.21
+Synopsis:    XenServer domain managers
+Authors:     Dave Scott
+License:     LGPL-2.1 with OCaml linking exception
+Plugins:     META (0.2)
+BuildTools:  ocamlbuild
+
+Flag xen
+  Description:        Build server with xen support
+  Default:            true
+
+Flag xenlight
+  Description:        Build server with xenlight support
+  Default:            true
+
+Flag libvirt
+  Description:        build server with libvirt support
+  Default:            true
+
+Flag simulator
+  Description:        Build server with simulator support
+  Default:            true
+
+Library xenopsd
+  CompiledObject:     best
+  Path:               lib
+  Findlibname:        xenopsd
+  Modules:            Cancellable_subprocess, Bootloader, Ionice, Mac, Xenops_migrate, Xenops_hooks, Task_server, Xenops_task, Updates, Xenops_utils, Xenops_server, Xenopsd, Xenops_server_plugin, Xenops_server_skeleton, Scheduler, Path, Storage, Interface
+  BuildDepends:       syslog, threads, threads.posix, uuidm, xmlm, cohttp, uri, rpclib, rpclib.syntax, forkexec, fd-send-recv, xcp, xcp.xen, xcp.storage, rpclib.syntax, sexplib, xcp
+
+Executable xenguest
+  CompiledObject:     best
+  Path:               xenguest
+  MainIs:             xenguest_main.ml
+  Build$:             flag(xen)
+  Custom:             true
+  Install:            false
+  BuildDepends:       xenctrl, unix
+
+Executable xenopsd_xc_main
+  CompiledObject:     best
+  Path:               xc
+  MainIs:             xenops_xc_main.ml
+  Build$:             flag(xen)
+  Custom:             true
+  Install:            false
+  BuildDepends:       xenctrl, xenopsd, xenstore, xenstore.unix, xenstore_transport, xenstore_transport.unix, rpclib, forkexec, xcp, xcp.storage, xcp.memory, sexplib, xcp-inventory
+  CSources:           fsync_stubs.c, xenctrlext_stubs.c
+
+Executable xenopsd_simulator
+  CompiledObject:     best
+  Path:               simulator
+  MainIs:             xenops_simulator_main.ml
+  Build$:             flag(simulator)
+  Custom:             true
+  Install:            false
+  BuildDepends:       xenopsd
+
+Executable xenopsd_libvirt_main
+  CompiledObject:     best
+  Path:               libvirt
+  MainIs:             xenops_libvirt_main.ml
+  Build$:             flag(libvirt)
+  Custom:             true
+  Install:            false
+  BuildDepends:       xenopsd, rpclib, forkexec, xcp, xcp.storage, sexplib, libvirt
+
+Executable xenopsd_xenlight_main
+  CompiledObject:     best
+  Path:               xl
+  MainIs:             xenops_xl_main.ml
+  Build$:             flag(xenlight)
+  Custom:             true
+  Install:            false
+  BuildDepends:       xenlight, xenlight.xentoollog, xenctrl, xenopsd, xenstore, xenstore.unix, xenstore_transport, xenstore_transport.unix, rpclib, forkexec, xcp, xcp.storage, xcp.memory, sexplib, xcp-inventory
+  CSources:           fsync_stubs.c, xenctrlext_stubs.c, poll_stubs.c
+

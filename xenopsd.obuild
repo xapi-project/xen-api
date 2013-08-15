@@ -3,6 +3,9 @@ version: 0.9.18
 synopsis: Xen domain manager
 obuild-ver: 1
 
+flag foo
+  default: true
+
 library xenops
   src-dir: lib
   modules: Cancellable_subprocess, Bootloader, Ionice, Mac, Xenops_migrate, Xenops_hooks, Task_server, Xenops_task, Updates, Xenops_utils, Xenops_server, Xenopsd, Xenops_server_plugin, Xenops_server_skeleton, Scheduler, Path, Storage, Interface
@@ -18,6 +21,7 @@ executable xenopsd
   pp: camlp4o
 
 executable xenguest
+  build: foo 
   main: xenguest_main.ml
   src-dir: xenguest
   build-deps: xenctrl, unix

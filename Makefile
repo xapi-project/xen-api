@@ -5,34 +5,26 @@ NAME=xenops
 J=4
 
 clean:
-	@obuild clean
-	@rm -f setup.data setup.log setup.bin
-
-distclean: clean
-	@rm -f config.mk
+	@rm -f setup.data setup.log setup.bin config.mk
+	@rm -rf _build
 
 -include config.mk
 
-export OCAMLRUNPARAM=b
+config.mk: configure
+	./configure
 
-TESTS     := --enable-tests
-TESTS     := --disable-tests
-XEN       ?= $(shell if ocamlfind query xenctrl >/dev/null 2>&1; then echo --enable-xen; fi)
-XEN := --enable-xen
-SIMULATOR := --enable-simulator
+configure: configure.ml
+	ocamlfind ocamlc -linkpkg -package findlib,cmdliner -o configure configure.ml
 
-.PHONY: build
-build: dist/setup
-	obuild build
+setup.bin: setup.ml
+	@ocamlopt.opt -o $@ $< || ocamlopt -o $@ $< || ocamlc -o $@ $<
+	@rm -f setup.cmx setup.cmi setup.o setup.cmo
 
-dist/setup: xenopsd.obuild config.mk
-	obuild configure
+setup.data: setup.bin
+	@./setup.bin -configure $(ENABLE_XEN) $(ENABLE_XENLIGHT) $(ENABLE_LIBVIRT)
 
-config.mk:
-	@echo
-	@echo "Please run configure before building"
-	@echo
-	@exit 1
+build: setup.data setup.bin
+	@./setup.bin -build -j $(J)
 
 install:
 	install -D ./dist/build/xenopsd_libvirt/xenopsd_libvirt $(DESTDIR)/$(SBINDIR)/xenopsd_libvirt

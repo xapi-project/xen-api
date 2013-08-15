@@ -1,8 +1,3 @@
-#!/usr/bin/env ocaml
-
-#use "topfind"
-#require "cmdliner"
-
 let config_mk = "config.mk"
 
 (* Configure script *)
@@ -32,6 +27,21 @@ let info =
   let doc = "Configures a package" in
   Term.info "configure" ~version:"0.1" ~doc 
 
+let find_ocamlfind verbose name =
+  let found =
+    try
+      let (_: string) = Findlib.package_property [] name "requires" in
+      true
+    with
+    | Not_found ->
+      (* property within the package could not be found *)
+      true
+    | Findlib.No_such_package(_,_ ) ->
+      false in
+  if verbose then Printf.fprintf stderr "querying for ocamlfind package %s: %s" name (if found then "ok" else "missing");
+  found
+
+
 let output_file filename lines =
   let oc = open_out filename in
   let lines = List.map (fun line -> line ^ "\n") lines in
@@ -39,7 +49,10 @@ let output_file filename lines =
   close_out oc
 
 let configure bindir sbindir libexecdir scriptsdir etcdir =
-  Printf.printf "Configuring with:\n\tbindir=%s\n\tsbindir=%s\n\tlibexecdir=%s\n\tscriptsdir=%s\n\tetcdir=%s\n\n" bindir sbindir libexecdir scriptsdir etcdir;
+  let xenctrl = find_ocamlfind false "xenctrl" in
+  let xenlight = find_ocamlfind false "xenlight" in
+  let libvirt = find_ocamlfind false "libvirt" in
+  Printf.printf "Configuring with:\n\tbindir=%s\n\tsbindir=%s\n\tlibexecdir=%s\n\tscriptsdir=%s\n\tetcdir=%s\n\txenctrl=%b\n\txenlight=%b\n\tlibvirt=%b\n\n" bindir sbindir libexecdir scriptsdir etcdir xenctrl xenlight libvirt;
 
   (* Write config.mk *)
   let lines = 
@@ -50,6 +63,9 @@ let configure bindir sbindir libexecdir scriptsdir etcdir =
       Printf.sprintf "LIBEXECDIR=%s" libexecdir;
       Printf.sprintf "SCRIPTSDIR=%s" scriptsdir;
       Printf.sprintf "ETCDIR=%s" etcdir;
+      Printf.sprintf "ENABLE_XEN=--%s-xen" (if xenctrl then "enable" else "disable");
+      Printf.sprintf "ENABLE_XENLIGHT=--%s-xenlight" (if xenlight then "enable" else "disable");
+      Printf.sprintf "ENABLE_LIBVIRT=--%s-libvirt" (if libvirt then "enable" else "disable");
     ] in
   output_file config_mk lines
 
