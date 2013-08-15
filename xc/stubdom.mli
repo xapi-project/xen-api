@@ -22,6 +22,7 @@ val build: Xenops_task.Xenops_task.t
   -> store_domid:int
   -> console_domid:int
   -> Device.Dm.info
+  -> string
   -> Xenctrl.domid
   -> Xenctrl.domid
   -> unit

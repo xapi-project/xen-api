@@ -97,7 +97,7 @@ val can_surprise_remove : xs:Xenstore.Xs.xsh -> device -> bool
 
 module Vcpu :
 sig
-	val add : xs:Xenstore.Xs.xsh -> devid:int -> int -> unit
+	val add : xs:Xenstore.Xs.xsh -> devid:int -> int -> bool -> unit
 	val del : xs:Xenstore.Xs.xsh -> devid:int -> int -> unit
 	val set : xs:Xenstore.Xs.xsh -> devid:int -> int -> bool -> unit
 	val status : xs:Xenstore.Xs.xsh -> devid:int -> int -> bool
@@ -160,6 +160,9 @@ end
 
 module Dm :
 sig
+	type usb_opt =
+		| Enabled of string list
+		| Disabled
 	type disp_intf_opt =
 	    | Std_vga
 	    | Cirrus
@@ -181,7 +184,8 @@ sig
 		serial: string option;
 		monitor: string option;
 		vcpus: int;
-		usb: string list;
+		usb: usb_opt;
+		parallel: string option;
 		nics: (string * string * int) list;
 		disks: (int * string * media) list;
 		acpi: bool;

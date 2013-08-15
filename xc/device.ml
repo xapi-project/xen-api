@@ -85,6 +85,9 @@ let add_device ~xs device backend_list frontend_list private_list =
 		t.Xst.mkdir private_data_path;
 		t.Xst.setperms private_data_path (Xenbus_utils.hotplug device);
 		t.Xst.writev private_data_path private_list;
+		t.Xst.writev private_data_path
+			(("backend-kind", string_of_kind device.backend.kind) ::
+				("backend-id", string_of_int device.backend.domid) :: private_list);
 	)
 	)
 
@@ -115,6 +118,9 @@ let rm_device_state ~xs (x: device) =
 	safe_rm ~xs (backend_error_path_of_device ~xs x);
 	safe_rm ~xs (Filename.dirname (error_path_of_device ~xs x))
 
+(* The surprise-remove flag is now ignored: a vbd-unplug --force will
+	unplug regardless of surprise-remove. Leave this code here for now,
+	to warn the user in the logs. *)
 let can_surprise_remove ~xs (x: device) =
   (* "(info key in xenstore) && 2" tells us whether a vbd can be surprised removed *)
         let key = backend_path_of_device ~xs x ^ "/info" in
@@ -764,19 +770,15 @@ end
 (** Vcpus:                                                                   *)
 module Vcpu = struct
 
-let add ~xs ~devid domid =
-	let path = sprintf "/local/domain/%d/cpu/%d" domid devid in
-	xs.Xs.writev path [
-		"availability", "online"
-	]
+let add ~xs ~devid domid online =
+	let path = sprintf "/local/domain/%d/cpu/%d/availability" domid devid in
+	xs.Xs.write path (if online then "online" else "offline")
 
 let del ~xs ~devid domid =
 	let path = sprintf "/local/domain/%d/cpu/%d" domid devid in
 	xs.Xs.rm path
 
-let set ~xs ~devid domid online =
-	let path = sprintf "/local/domain/%d/cpu/%d/availability" domid devid in
-	xs.Xs.write path (if online then "online" else "offline")
+let set = add
 
 let status ~xs ~devid domid =
 	let path = sprintf "/local/domain/%d/cpu/%d/availability" domid devid in
@@ -890,7 +892,7 @@ let stop ~xs domid =
 	match pid ~xs domid with
 		| Some pid ->
 			best_effort "killing vncterm"
-				(fun () -> Unix.kill (-pid) Sys.sigterm);
+				(fun () -> Unix.kill pid Sys.sigterm);
 			best_effort "removing vncterm-pid from xenstore"
 				(fun () -> xs.Xs.rm (vnc_pid_path domid))
 		| None -> ()
@@ -1155,15 +1157,13 @@ let release ~xc ~xs ~hvm pcidevs domid devid =
 		release_xl pcidevs domid
 
 let write_string_to_file file s =
-	Unixext.with_file file [ Unix.O_WRONLY ] 0o640
-		(fun fd ->
-			let (_: int) = Unix.write fd s 0 (String.length s) in
-			()
-		)
+	let fn_write_string fd = Unixext.really_write fd s 0 (String.length s) in
+	Unixext.with_file file [ Unix.O_WRONLY ] 0o640 fn_write_string
 
 let do_flr device =
 	debug "Doing FLR on pci device: %s" device;
 	let doflr = "/sys/bus/pci/drivers/pciback/do_flr" in
+	let device_reset_file = Printf.sprintf "/sys/bus/pci/devices/%s/reset" device in
 	let callscript s devstr =
 		if Sys.file_exists !Xc_path.pci_flr_script then begin
 			try ignore (Forkhelpers.execute_command_get_output !Xc_path.pci_flr_script [ s; devstr; ])
@@ -1171,7 +1171,12 @@ let do_flr device =
 		end
 	in
 	callscript "flr-pre" device;
-	( try write_string_to_file doflr device with _ -> (); );
+	(
+		if Sys.file_exists device_reset_file then
+			try write_string_to_file device_reset_file "1" with _ -> ()
+		else
+			try write_string_to_file doflr device with _ -> ()
+	);
 	callscript "flr-post" device
 
 let bind pcidevs =
@@ -1350,7 +1355,7 @@ let plug (task: Xenops_task.t) ~xc ~xs (domain, bus, dev, func) domid =
 
 let unplug (task: Xenops_task.t) ~xc ~xs (domain, bus, dev, func) domid =
 	try
-		let current = list ~xc ~xs domid in
+		let current = read_pcidir ~xc ~xs domid in
 
 		let pci = to_string (domain, bus, dev, func) in
 		let idx = fst (List.find (fun x -> snd x = (domain, bus, dev, func)) current) in
@@ -1510,6 +1515,10 @@ module Dm = struct
 
 let max_emulated_nics = 8 (** Should be <= the hardcoded maximum number of emulated NICs *)
 
+type usb_opt =
+	| Enabled of string list
+	| Disabled
+
 (* How the display appears to the guest *)
 type disp_intf_opt =
     | Std_vga
@@ -1533,7 +1542,8 @@ type info = {
 	serial: string option;
 	monitor: string option;
 	vcpus: int;
-	usb: string list;
+	usb: usb_opt;
+	parallel: string option;
 	nics: (string * string * int) list;
 	disks: (int * string * media) list;
 	acpi: bool;
@@ -1553,9 +1563,6 @@ type info = {
 	extras: (string * string option) list;
 }
 
-
-(* Where qemu writes its state and is signalled *)
-let device_model_path ~qemu_domid domid = sprintf "/local/domain/%d/device-model/%d" qemu_domid domid
 
 let get_vnc_port ~xs domid =
 	if not (Qemu.is_running ~xs domid)
@@ -1616,7 +1623,7 @@ let signal (task: Xenops_task.t) ~xs ~qemu_domid ~domid ?wait_for ?param cmd =
                 * way too long for our software to recover successfully.
                 * Talk to Citrix about this
                 *)
-		let cancel = Domain qemu_domid in
+		let cancel = Qemu (qemu_domid, domid) in
 		let (_: bool) = cancellable_watch cancel [ Watch.value_to_become pw state ] [] task ~xs ~timeout:30. () in
 		()
 	| None -> ()
@@ -1666,11 +1673,11 @@ let cmdline_of_disp info =
 
 let cmdline_of_info info restore domid =
 	let usb' =
-		if info.usb = [] then
-			[]
-		else
+		match info.usb with
+		| Disabled -> []
+		| Enabled devices ->
 			("-usb" :: (List.concat (List.map (fun device ->
-					   [ "-usbdevice"; device ]) info.usb))) in
+				[ "-usbdevice"; device ]) devices))) in
 	(* Sort the VIF devices by devid *)
 	let nics = List.stable_sort (fun (_,_,a) (_,_,b) -> compare a b) info.nics in
 	if List.length nics > max_emulated_nics then debug "Limiting the number of emulated NICs to %d" max_emulated_nics;
@@ -1714,7 +1721,7 @@ let cmdline_of_info info restore domid =
 	@ (if info.pci_passthrough then ["-priv"] else [])
 	@ (List.fold_left (fun l (k, v) -> ("-" ^ k) :: (match v with None -> l | Some v -> v :: l)) [] info.extras)
 	@ (Opt.default [] (Opt.map (fun x -> [ "-monitor"; x ]) info.monitor))
-
+	@ (Opt.default [] (Opt.map (fun x -> [ "-parallel"; x]) info.parallel))
 
 let vnconly_cmdline ~info ?(extras=[]) domid =
 	let disp_options, _ = cmdline_of_disp info in
@@ -1751,7 +1758,7 @@ let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xenopsd.qemu_dm_ready
 	begin
 		let finished = ref false in
 		let watch = Watch.value_to_appear dm_ready |> Watch.map (fun _ -> ()) in
-		let cancel = Domain domid in
+		let cancel = Qemu (qemu_domid, domid) in
 		let start = Unix.gettimeofday () in
 		while Unix.gettimeofday () -. start < timeout && not !finished do
 			Xenops_task.check_cancelling task;

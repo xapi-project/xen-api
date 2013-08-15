@@ -31,9 +31,34 @@ let disable_udev_path = "libxl/disable_udev"
 let store_domid = 0
 let console_domid = 0
 
+let _device_model = "device-model"
+let _xenguest = "xenguest"
+
 let run cmd args =
 	debug "%s %s" cmd (String.concat " " args);
 	fst(Forkhelpers.execute_command_get_output cmd args)
+
+let choose_alternative kind default platformdata =
+	debug "looking for %s in [ %s ]" kind (String.concat "; " (List.map (fun (k, v) -> k ^ " : " ^v) platformdata));
+	if List.mem_assoc kind platformdata then begin
+		let x = List.assoc kind platformdata in
+		let dir = Filename.concat !Xc_path.alternatives kind in
+		let available = try Array.to_list (Sys.readdir dir) with _ -> [] in
+		(* If x has been put in the directory (by root) then it's safe to use *)
+		if List.mem x available
+		then Filename.concat dir x
+		else begin
+			error "Invalid platform:%s=%s (check execute permissions of %s)" kind x (Filename.concat dir x);
+			default
+		end
+	end else default
+
+(* We allow qemu-dm to be overriden via a platform flag *)
+let choose_qemu_dm x = choose_alternative _device_model !Path.qemu_dm_wrapper x
+
+(* We allow xenguest to be overriden via a platform flag *)
+let choose_xenguest x = choose_alternative _xenguest !Xc_path.xenguest x
+
 
 type qemu_frontend =
 	| Name of string (* block device path or bridge name *)
@@ -104,7 +129,9 @@ let event_wait task timeout p =
 				success
 		end else false
 	in 
-	inner timeout None
+	let result = inner timeout None in
+	Xenops_task.check_cancelling task;
+	result
 
 let safe_rm xs path =
 	debug "xenstore-rm %s" path;
@@ -146,13 +173,14 @@ let di_of_uuid ~xc ~xs domain_selection uuid =
 	let possible = List.filter (fun x -> uuid_of_di x = uuid) all in
 	let oldest_first = List.sort
 		(fun a b ->
-			let has_run x = x.cpu_time <> 0L in
-			match has_run a, has_run b with
-				| true, false -> -1 (* a is older than b *)
-				| false, true -> 1
-				| _, _ ->
-					warn "VM %s: unable to tell which of domid %d and %d is newer" uuid' a.domid b.domid;
-					compare a.domid b.domid
+			let create_time x = 
+			  try 
+			    xs.Xs.read (Printf.sprintf "/vm/%s/domains/%d/create-time" uuid' x.domid) |> Int64.of_string 
+			  with e ->
+			    warn "Caught exception trying to find creation time of domid %d (uuid %s)" x.domid uuid';
+			    0L
+			in
+			compare (create_time a) (create_time b)
 		) possible in
 	let domid_list = String.concat ", " (List.map (fun x -> string_of_int x.domid) oldest_first) in
 	if List.length oldest_first > 2
@@ -168,7 +196,16 @@ let di_of_uuid ~xc ~xs domain_selection uuid =
 			Some x
 
 let domid_of_uuid ~xc ~xs domain_selection uuid =
-	Opt.map (fun di -> di.Xenctrl.domid) (di_of_uuid ~xc ~xs domain_selection uuid)
+	(* We don't fully control the domain lifecycle because libxenguest will actually
+	   destroy a domain on suspend. Therefore we only rely on state in xenstore *)
+	let dir = Printf.sprintf "/vm/%s/domains" (Uuidm.to_string uuid) in
+	try
+		match xs.Xs.directory dir |> List.map int_of_string |> List.sort compare with
+			| [] -> None
+			| x -> Some (if domain_selection = Oldest then List.hd x else (List.hd (List.rev x)))
+	with e ->
+		error "Failed to read %s: has this domain already been cleaned up?" dir;
+		None
 
 let get_uuid ~xc domid = uuid_of_di (Xenctrl.domain_getinfo xc domid)
 
@@ -669,7 +706,7 @@ module VM = struct
 						then Domain.suppress_spurious_page_faults ~xc domid;
 						Domain.set_machine_address_size ~xc domid vm.machine_address_size;
 						for i = 0 to vm.vcpu_max - 1 do
-							Device.Vcpu.add ~xs ~devid:i domid
+							Device.Vcpu.add ~xs ~devid:i domid (i < vm.vcpus)
 						done
 					);
 			)
@@ -708,7 +745,9 @@ module VM = struct
 						] |> List.map (fun (k, v) -> Printf.sprintf "/local/domain/%d/%s" di.Xenctrl.domid k, v) in
 						let minimal_vm_kvs = [
 							"uuid", vm.Vm.id;
-							"name", vm.Vm.name
+							"name", vm.Vm.name;
+							Printf.sprintf "domains/%d" di.Xenctrl.domid, Printf.sprintf "/local/domain/%d" di.Xenctrl.domid;
+							Printf.sprintf "domains/%d/create-time" di.Xenctrl.domid, "0"
 						] |> List.map (fun (k, v) -> Printf.sprintf "/vm/%s/%s" vm.Vm.id k, v) in
 						List.iter
 							(fun (k, v) ->
@@ -724,7 +763,11 @@ module VM = struct
 			(fun xc xs ->
 				safe_rm xs (Printf.sprintf "/vm/%s" vm.Vm.id);
 				safe_rm xs (Printf.sprintf "/vss/%s" vm.Vm.id);
-			)
+			);
+		(* Best-effort attempt to remove metadata - if VM has been powered off
+		 * then it will have already been deleted by VM.destroy *)
+		try DB.remove vm.Vm.id
+		with Does_not_exist("extra", _) -> ()
 
 	let log_exn_continue msg f x = try f x with e -> debug "Safely ignoring exception: %s while %s" (Printexc.to_string e) msg
 
@@ -840,7 +883,7 @@ module VM = struct
 
 	(* NB: the arguments which affect the qemu configuration must be saved and
 	   restored with the VM. *)
-	let create_device_model_config vbds vifs vmextra = match vmextra.VmExtra.persistent, vmextra.VmExtra.non_persistent with
+	let create_device_model_config vm vmextra vbds vifs = match vmextra.VmExtra.persistent, vmextra.VmExtra.non_persistent with
 		| { VmExtra.build_info = None }, _
 		| { VmExtra.ty = None }, _ -> raise (Domain_not_built)
 		| {
@@ -851,7 +894,8 @@ module VM = struct
 		} ->
 			let make ?(boot_order="cd") ?(serial="pty") ?(monitor="pty") 
 					?(nics=[])
-					?(disks=[]) ?(pci_emulations=[]) ?(usb=["tablet"])
+					?(disks=[]) ?(pci_emulations=[]) ?(usb=Device.Dm.Disabled)
+					?(parallel=None)
 					?(acpi=true) ?(video=Cirrus) ?(keymap="en-us")
 					?vnc_ip ?(pci_passthrough=false) ?(hvm=true) ?(video_mib=4) () =
 				let video = match video with
@@ -867,6 +911,7 @@ module VM = struct
 					disks = disks;
 					pci_emulations = pci_emulations;
 					usb = usb;
+					parallel = parallel;
 					acpi = acpi;
 					disp = VNC (video, vnc_ip, true, 0, keymap);
 					pci_passthrough = pci_passthrough;
@@ -906,10 +951,28 @@ module VM = struct
 							Some (index, path, media)
 						else None
 					) vbds in
+					let usb_enabled =
+						try (List.assoc "usb" vm.Vm.platformdata) = "true"
+						with Not_found -> true
+					in
+					let usb_tablet_enabled =
+						try (List.assoc "usb_tablet" vm.Vm.platformdata) = "true"
+						with Not_found -> true
+					in
+					let usb =
+						match usb_enabled, usb_tablet_enabled with
+						| true, false -> Device.Dm.Enabled []
+						| true, true -> Device.Dm.Enabled ["tablet"]
+						| false, _ -> Device.Dm.Disabled
+					in
+					let parallel =
+						if (List.mem_assoc "parallel" vm.Vm.platformdata)
+						then Some (List.assoc "parallel" vm.Vm.platformdata)
+						else None in
 					Some (make ~video_mib:hvm_info.video_mib
 						~video:hvm_info.video ~acpi:hvm_info.acpi
 						?serial:hvm_info.serial ?keymap:hvm_info.keymap
-						?vnc_ip:hvm_info.vnc_ip
+						?vnc_ip:hvm_info.vnc_ip ~usb ~parallel
 						~pci_emulations:hvm_info.pci_emulations
 						~pci_passthrough:hvm_info.pci_passthrough
 						~boot_order:hvm_info.boot_order ~nics ~disks ())
@@ -957,7 +1020,7 @@ module VM = struct
 								} in
 								((make_build_info b.Bootloader.kernel_path builder_spec_info), "")
 							) in
-			let arch = Domain.build task ~xc ~xs ~store_domid ~console_domid build_info timeoffset domid in
+			let arch = Domain.build task ~xc ~xs ~store_domid ~console_domid build_info timeoffset (choose_xenguest vm.Vm.platformdata) domid in
 			Int64.(
 				let min = to_int (div vm.Vm.memory_dynamic_min 1024L)
 				and max = to_int (div vm.Vm.memory_dynamic_max 1024L) in
@@ -1009,23 +1072,27 @@ module VM = struct
 
 	let create_device_model_exn vbds vifs saved_state xc xs task vm di =
 		let vmextra = DB.read_exn vm.Vm.id in
+		let qemu_dm = choose_qemu_dm vm.Vm.platformdata in
+		let xenguest = choose_xenguest vm.Vm.platformdata in
+		debug "chosen qemu_dm = %s" qemu_dm;
+		debug "chosen xenguest = %s" xenguest;
 		Opt.iter (fun info ->
 			match vm.Vm.ty with
 				| Vm.HVM { Vm.qemu_stubdom = true } ->
 					if saved_state then failwith "Cannot resume with stubdom yet";
 					Opt.iter
 						(fun stubdom_domid ->
-							Stubdom.build task ~xc ~xs ~store_domid ~console_domid info di.Xenctrl.domid stubdom_domid;
-							Device.Dm.start_vnconly task ~xs ~dmpath:!Path.qemu_dm_wrapper info stubdom_domid
+							Stubdom.build task ~xc ~xs ~store_domid ~console_domid info xenguest di.Xenctrl.domid stubdom_domid;
+							Device.Dm.start_vnconly task ~xs ~dmpath:qemu_dm info stubdom_domid
 						) (get_stubdom ~xs di.Xenctrl.domid);
 				| Vm.HVM { Vm.qemu_stubdom = false } ->
 					(if saved_state then Device.Dm.restore else Device.Dm.start)
-						task ~xs ~dmpath:!Path.qemu_dm_wrapper info di.Xenctrl.domid
+						task ~xs ~dmpath:qemu_dm info di.Xenctrl.domid
 				| Vm.PV _ ->
 					Device.Vfb.add ~xc ~xs di.Xenctrl.domid;
 					Device.Vkbd.add ~xc ~xs di.Xenctrl.domid;
-					Device.Dm.start_vnconly task ~xs ~dmpath:!Path.qemu_dm_wrapper info di.Xenctrl.domid
-		) (create_device_model_config vbds vifs vmextra);
+					Device.Dm.start_vnconly task ~xs ~dmpath:qemu_dm info di.Xenctrl.domid
+		) (create_device_model_config vm vmextra vbds vifs);
 		match vm.Vm.ty with
 			| Vm.PV { vncterm = true; vncterm_ip = ip } -> Device.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
 			| _ -> ()
@@ -1065,9 +1132,9 @@ module VM = struct
 		run !Xc_path.tune2fs  ["-i"; "0"; "-c"; "0"; device] |> ignore_string
 
 	(* Mount a filesystem somewhere, with optional type *)
-	let mount ?ty:(ty = None) src dest =
+	let mount ?ty:(ty = None) src dest write =
 		let ty = match ty with None -> [] | Some ty -> [ "-t"; ty ] in
-		run !Xc_path.mount (ty @ [ src; dest ]) |> ignore_string
+		run !Xc_path.mount (ty @ [ src; dest; "-o"; if write then "rw" else "ro" ]) |> ignore_string
 
 	let timeout = 300. (* 5 minutes: something is seriously wrong if we hit this timeout *)
 	exception Umount_timeout
@@ -1089,13 +1156,13 @@ module VM = struct
 		done;
 		if not(!finished) then raise Umount_timeout
 
-	let with_mounted_dir device f =
+	let with_mounted_dir device write f =
 		let mount_point = Filename.temp_file "xenops_mount_" "" in
 		Unix.unlink mount_point;
 		Unix.mkdir mount_point 0o640;
 		finally
 			(fun () ->
-				mount ~ty:(Some "ext2") device mount_point;
+				mount ~ty:(Some "ext2") device mount_point write;
 				f mount_point)
 			(fun () ->
 				(try umount mount_point with e -> debug "Caught %s" (Printexc.to_string e));
@@ -1109,7 +1176,7 @@ module VM = struct
 			with_disk ~xc ~xs task disk write
 				(fun path ->
 					if write then mke2fs path;
-					with_mounted_dir path
+					with_mounted_dir path write
 						(fun dir ->
 							(* Do we really want to balloon the guest down? *)
 							let flags =
@@ -1148,7 +1215,7 @@ module VM = struct
 
 				with_data ~xc ~xs task data true
 					(fun fd ->
-						Domain.suspend task ~xc ~xs ~hvm ~progress_callback ~qemu_domid domid fd flags'
+						Domain.suspend task ~xc ~xs ~hvm ~progress_callback ~qemu_domid (choose_xenguest vm.Vm.platformdata) domid fd flags'
 							(fun () ->
 								if not(request_shutdown task vm Suspend 30.)
 								then raise (Failed_to_acknowledge_shutdown_request);
@@ -1213,7 +1280,7 @@ module VM = struct
 
 						with_data ~xc ~xs task data false
 							(fun fd ->
-								Domain.restore task ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid (* XXX progress_callback *) build_info timeoffset domid fd
+								Domain.restore task ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid (* XXX progress_callback *) build_info timeoffset (choose_xenguest vm.Vm.platformdata) domid fd
 							);
 					with e ->
 						error "VM %s: restore failed: %s" vm.Vm.id (Printexc.to_string e);
@@ -1297,12 +1364,23 @@ module VM = struct
 						let shadow_multiplier_target =
 							if not di.Xenctrl.hvm_guest
 							then 1.
-							else
-								let static_max_mib = Memory.mib_of_bytes_used vm.Vm.memory_static_max in
-								let default_shadow_mib = Memory.HVM.shadow_mib static_max_mib vm.Vm.vcpu_max 1. in
-								let actual_shadow_mib =
-									Int64.of_int (Xenctrl.shadow_allocation_get xc di.Xenctrl.domid) in
-								(Int64.to_float actual_shadow_mib) /. (Int64.to_float default_shadow_mib) in
+							else begin
+							  try
+							    let static_max_mib = Memory.mib_of_bytes_used vm.Vm.memory_static_max in
+							    let default_shadow_mib = Memory.HVM.shadow_mib static_max_mib vm.Vm.vcpu_max 1. in
+							    let actual_shadow_mib_int = Xenctrl.shadow_allocation_get xc di.Xenctrl.domid in
+							    let actual_shadow_mib = Int64.of_int actual_shadow_mib_int in
+							    let result = (Int64.to_float actual_shadow_mib) /. (Int64.to_float default_shadow_mib) in
+							    (* CA-104562: Work around probable bug in bindings *)
+							    if result > 1000.0 then begin
+							      warn "CA-104562: Got value '%d' from shadow_allocation_get" actual_shadow_mib_int;
+							      -1.0 
+							    end else result
+							  with e -> 
+							    warn "Caught exception in getting shadow allocation: %s" (Printexc.to_string e);
+							    -1.0
+							end
+						in
 						{
 							Vm.power_state = if di.Xenctrl.paused then Paused else Running;
 							domids = [ di.Xenctrl.domid ];
@@ -1432,6 +1510,11 @@ module PCI = struct
 				let msitranslate = if (Opt.default non_persistent.VmExtra.pci_msitranslate pci.msitranslate) then 1 else 0 in
 				let pci_power_mgmt = if (Opt.default non_persistent.VmExtra.pci_power_mgmt pci.power_mgmt) then 1 else 0 in
 
+				if not (Sys.file_exists "/sys/bus/pci/drivers/pciback") then begin
+					error "PCIBack has not been loaded";
+					raise PCIBack_not_loaded;
+				end;
+
 				Device.PCI.bind [ device ];
 				(* If the guest is HVM then we plug via qemu *)
 				if hvm
@@ -1441,15 +1524,19 @@ module PCI = struct
 
 	let unplug task vm pci =
 		let device = pci.domain, pci.bus, pci.dev, pci.fn in
-		on_frontend
-			(fun xc xs frontend_domid hvm ->
-				try
-					if hvm
-					then Device.PCI.unplug task ~xc ~xs device frontend_domid
-					else error "VM = %s; PCI.unplug for PV guests is unsupported" vm
-				with Not_found ->
-					debug "VM = %s; PCI.unplug %s.%s caught Not_found: assuming device is unplugged already" vm (fst pci.id) (snd pci.id)
-			) Oldest vm
+		try
+			on_frontend
+				(fun xc xs frontend_domid hvm ->
+					try
+						if hvm
+						then Device.PCI.unplug task ~xc ~xs device frontend_domid
+						else error "VM = %s; PCI.unplug for PV guests is unsupported" vm
+					with Not_found ->
+						debug "VM = %s; PCI.unplug %s.%s caught Not_found: assuming device is unplugged already" vm (fst pci.id) (snd pci.id)
+				) Oldest vm
+		with (Does_not_exist(_,_)) ->
+			debug "VM = %s; PCI = %s; Ignoring missing domain" vm (id_of pci)
+
 end
 
 let set_active_device path active =
@@ -1512,8 +1599,11 @@ module VBD = struct
 	let plug task vm vbd =
 		(* Dom0 doesn't have a vm_t - we don't need this currently, but when we have storage driver domains, 
 		   we will. Also this causes the SMRT tests to fail, as they demand the loopback VBDs *)
-		let vm_t = DB.read vm in 
-		on_frontend
+		let vm_t = DB.read_exn vm in 
+		(* If the vbd isn't listed as "active" then we don't automatically plug this one in *)
+		if not(get_active vm vbd)
+		then debug "VBD %s.%s is not active: not plugging into VM" (fst vbd.Vbd.id) (snd vbd.Vbd.id)
+		else on_frontend
 			(fun xc xs frontend_domid hvm ->
 				if vbd.backend = None && not hvm
 				then info "VM = %s; an empty CDROM drive on a PV guest is simulated by unplugging the whole drive" vm
@@ -1551,6 +1641,9 @@ module VBD = struct
 						Xenops_task.with_subtask task (Printf.sprintf "Vbd.add %s" (id_of vbd))
 							(fun () -> Device.Vbd.add task ~xs ~hvm x frontend_domid) in
 
+					(* We store away the disk so we can implement VBD.stat *)
+					Opt.iter (fun disk -> xs.Xs.write (vdi_path_of_device ~xs device) (disk |> rpc_of_disk |> Jsonrpc.to_string)) vbd.backend;
+
 					(* NB now the frontend position has been resolved *)
 					let open Device_common in
 					let device_number = device.frontend.devid |> Device_number.of_xenstore_key in
@@ -1568,13 +1661,11 @@ module VBD = struct
 							end
 						| _, _, _ -> None in
 					(* Remember what we've just done *)
-					Opt.iter (fun vm_t -> 
-						Opt.iter (fun q ->
-							let non_persistent = { vm_t.VmExtra.non_persistent with
-								VmExtra.qemu_vbds = (vbd.Vbd.id, q) :: vm_t.VmExtra.non_persistent.VmExtra.qemu_vbds} in
-							DB.write vm { vm_t with VmExtra.non_persistent = non_persistent }
-						) qemu_frontend
-					) vm_t
+					Opt.iter (fun q ->
+						let non_persistent = { vm_t.VmExtra.non_persistent with
+							VmExtra.qemu_vbds = (vbd.Vbd.id, q) :: vm_t.VmExtra.non_persistent.VmExtra.qemu_vbds} in
+						DB.write vm { vm_t with VmExtra.non_persistent = non_persistent }
+					) qemu_frontend
 				end
 			) Newest vm
 
@@ -1583,24 +1674,51 @@ module VBD = struct
 		with_xc_and_xs
 			(fun xc xs ->
 				try
-					(* We always try to destroy the datapath even if the device has
-					   already been shutdown and deactivated (as in the suspend path) *)
-					let domid = Opt.map (fun di -> di.Xenctrl.domid) (di_of_uuid ~xc ~xs Oldest (uuid_of_string vm)) in
-					finally
-						(fun () ->
-							(* If the device is gone then this is ok *)
-							let device = device_by_id xc xs vm Device_common.Vbd Oldest (id_of vbd) in
+					(* On destroying the datapath:
+					   1. if the device has already been shutdown and deactivated (as in suspend) we
+					      must call DP.destroy here to avoid leaks
+					   2. if the device is successfully shutdown here then we must call DP.destroy
+					      because no-one else will
+					   3. if the device shutdown is rejected then we should leave the DP alone and
+					      rely on the event thread calling us again later.
+					*)
+					let domid = domid_of_uuid ~xc ~xs Oldest (uuid_of_string vm) in
+					(* If the device is gone then we don't need to shut it down but we do need
+					   to free any storage resources. *)
+					let device =
+						try
+							Some (device_by_id xc xs vm Device_common.Vbd Oldest (id_of vbd))
+						with
+							| (Does_not_exist(_,_)) ->
+								debug "VM = %s; VBD = %s; Ignoring missing domain" vm (id_of vbd);
+								None
+							| Device_not_connected ->
+								debug "VM = %s; VBD = %s; Ignoring missing device" vm (id_of vbd);
+								None in
+					Opt.iter
+						(fun device ->
 							if force && (not (Device.can_surprise_remove ~xs device))
-							then debug "VM = %s; VBD = %s; Device is not surprise-removable" vm (id_of vbd); (* happens on normal shutdown too *)
+							then debug
+								"VM = %s; VBD = %s; Device is not surprise-removable (ignoring and removing anyway)"
+								vm (id_of vbd); (* this happens on normal shutdown too *)
+							(* Case (1): success; Case (2): success; Case (3): an exception is thrown *)
 							Xenops_task.with_subtask task (Printf.sprintf "Vbd.clean_shutdown %s" (id_of vbd))
 								(fun () -> (if force then Device.hard_shutdown else Device.clean_shutdown) task ~xs device);
-							Xenops_task.with_subtask task (Printf.sprintf "Vbd.release %s" (id_of vbd))
-								(fun () -> Device.Vbd.release task ~xs device);
+						) device;
+					(* We now have a shutdown device but an active DP: we should unconditionally destroy the DP *)
+					finally
+						(fun () ->
+							Opt.iter
+								(fun device ->
+									Xenops_task.with_subtask task (Printf.sprintf "Vbd.release %s" (id_of vbd))
+										(fun () -> Device.Vbd.release task ~xs device);
+								) device;
 							(* If we have a qemu frontend, detach this too. *)
 							Opt.iter (fun vm_t -> 
 								let non_persistent = vm_t.VmExtra.non_persistent in
 								if List.mem_assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds then begin
 									let _, qemu_vbd = List.assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds in
+									(* destroy_vbd_frontend ignores 'refusing to close' transients' *)
 									destroy_vbd_frontend ~xc ~xs task qemu_vbd;
 									let non_persistent = { non_persistent with
 										VmExtra.qemu_vbds = List.remove_assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds } in
@@ -1613,10 +1731,6 @@ module VBD = struct
 							) domid
 						)
 				with 
-					| (Does_not_exist(_,_)) ->
-						debug "VM = %s; VBD = %s; Ignoring missing domain" vm (id_of vbd)
-					| Device_not_connected ->
-						debug "VM = %s; VBD = %s; Ignoring missing device" vm (id_of vbd)
 					| Device_common.Device_error(_, s) ->
 						debug "Caught Device_error: %s" s;
 						raise (Device_detach_rejected("VBD", id_of vbd, s))
@@ -1632,6 +1746,8 @@ module VBD = struct
 					let vdi = attach_and_activate task xc xs frontend_domid vbd (Some disk) in
 					let device_number = device_number_of_device device in
 					let phystype = Device.Vbd.Phys in
+					(* We store away the disk so we can implement VBD.stat *)
+					xs.Xs.write (vdi_path_of_device ~xs device) (disk |> rpc_of_disk |> Jsonrpc.to_string);
 					Device.Vbd.media_insert ~xs ~device_number ~params:vdi.attach_info.Storage_interface.params ~phystype frontend_domid
 				end
 			) Newest vm
@@ -1641,12 +1757,9 @@ module VBD = struct
 			(fun xc xs frontend_domid hvm ->
 				let (device: Device_common.device) = device_by_id xc xs vm Device_common.Vbd Oldest (id_of vbd) in
 
-				if not hvm
-				then unplug task vm vbd false
-				else begin
-					let device_number = device_number_of_device device in
-					Device.Vbd.media_eject ~xs ~device_number frontend_domid;
-				end;
+				let device_number = device_number_of_device device in
+				Device.Vbd.media_eject ~xs ~device_number frontend_domid;
+				xs.Xs.rm (vdi_path_of_device ~xs device);
 				Storage.dp_destroy task (Storage.id_of (string_of_int (frontend_domid_of_device device)) vbd.Vbd.id)
 			) Oldest vm
 
@@ -1722,18 +1835,22 @@ module VBD = struct
 	let get_device_action_request vm vbd =
 		with_xc_and_xs
 			(fun xc xs ->
-				let (device: Device_common.device) = device_by_id xc xs vm Device_common.Vbd Newest (id_of vbd) in
-				if Hotplug.device_is_online ~xs device
-				then begin
-					let qos_target = get_qos xc xs vm vbd device in
-					if qos_target <> vbd.Vbd.qos then begin
-						debug "VM = %s; VBD = %s; VBD_set_qos needed, current = %s; target = %s" vm (id_of vbd) (string_of_qos qos_target) (string_of_qos vbd.Vbd.qos);
-						Some Needs_set_qos
-					end else None
-				end else begin
-					debug "VM = %s; VBD = %s; VBD_unplug needed, device offline: %s" vm (id_of vbd) (Device_common.string_of_device device);
-					Some Needs_unplug
-				end
+				try
+					let (device: Device_common.device) = device_by_id xc xs vm Device_common.Vbd Newest (id_of vbd) in
+					if Hotplug.device_is_online ~xs device
+					then begin
+						let qos_target = get_qos xc xs vm vbd device in
+						if qos_target <> vbd.Vbd.qos then begin
+							debug "VM = %s; VBD = %s; VBD_set_qos needed, current = %s; target = %s" vm (id_of vbd) (string_of_qos qos_target) (string_of_qos vbd.Vbd.qos);
+							Some Needs_set_qos
+						end else None
+					end else begin
+						debug "VM = %s; VBD = %s; VBD_unplug needed, device offline: %s" vm (id_of vbd) (Device_common.string_of_device device);
+						Some Needs_unplug
+					end
+				with Device_not_connected ->
+					debug "VM = %s; VBD = %s; Device_not_connected so no action required" vm (id_of vbd);
+					None
 			)
 end
 
@@ -1778,9 +1895,9 @@ module VIF = struct
 			_locking_mode, "disabled";
 		]
 
-	let disconnect_flag device mode =
+	let disconnect_flag device disconnected =
 		let path = Hotplug.vif_disconnect_path device in
-		let flag = match mode with Xenops_interface.Vif.Disabled -> "1" | _ -> "0" in
+		let flag = if disconnected then "1" else "0" in
 		path, flag
 
 	let active_path vm vif = Printf.sprintf "/vm/%s/devices/vif/%s" vm (snd vif.Vif.id)
@@ -1797,8 +1914,11 @@ module VIF = struct
 		with _ -> false
 
 	let plug_exn task vm vif =
-		let vm_t = DB.read vm in
-		on_frontend
+		let vm_t = DB.read_exn vm in
+		(* If the vif isn't listed as "active" then we don't automatically plug this one in *)
+		if not(get_active vm vif)
+		then debug "VIF %s.%s is not active: not plugging into VM" (fst vif.Vif.id) (snd vif.Vif.id)
+		else on_frontend
 			(fun xc xs frontend_domid hvm ->
 				let backend_domid = backend_domid_of xc xs vif in
 				(* Remember the VIF id with the device *)
@@ -1821,29 +1941,25 @@ module VIF = struct
 								~netty:(match vif.backend with
 									| Network.Local x -> Netman.Vswitch x
 									| Network.Remote (_, _) -> raise (Unimplemented "network driver domains"))
-								~mac:vif.mac ~carrier:vif.carrier ~mtu:vif.mtu
-								~rate:vif.rate ~backend_domid
+								~mac:vif.mac ~carrier:(vif.carrier && (vif.locking_mode <> Xenops_interface.Vif.Disabled))
+								~mtu:vif.mtu ~rate:vif.rate ~backend_domid
 								~other_config:vif.other_config
 								~extra_private_keys:(id :: vif.extra_private_keys @ locking_mode @ setup_vif_rules @ network_backend @ xenopsd_backend)
 								frontend_domid in
-						let device = create task frontend_domid in
-						let disconnect_path, flag = disconnect_flag device vif.locking_mode in
-						xs.Xs.write disconnect_path flag;
+						let (_: Device_common.device) = create task frontend_domid in
 
 						(* If qemu is in a different domain, then plug into it *)
 						let me = this_domid ~xs in
-						Opt.iter (fun vm_t -> 
-							Opt.iter
-								(fun stubdom_domid ->
-									if vif.position < 4 && stubdom_domid <> me then begin
-										let device = create task stubdom_domid in
-										let q = vif.position, Device device in
-										let non_persistent = { vm_t.VmExtra.non_persistent with
-											VmExtra.qemu_vifs = (vif.Vif.id, q) :: vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs } in
-										DB.write vm { vm_t with VmExtra.non_persistent = non_persistent}
-									end
-								) (get_stubdom ~xs frontend_domid)
-						) vm_t
+						Opt.iter
+							(fun stubdom_domid ->
+								if vif.position < 4 && stubdom_domid <> me then begin
+									let device = create task stubdom_domid in
+									let q = vif.position, Device device in
+									let non_persistent = { vm_t.VmExtra.non_persistent with
+										VmExtra.qemu_vifs = (vif.Vif.id, q) :: vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs } in
+									DB.write vm { vm_t with VmExtra.non_persistent = non_persistent}
+								end
+							) (get_stubdom ~xs frontend_domid)
 					)
 			) Newest vm
 
@@ -1946,7 +2062,8 @@ module VIF = struct
 				(* Delete the old keys *)
 				List.iter (fun x -> xs.Xs.rm (path ^ "/" ^ x)) locking_mode_keys;
 				List.iter (fun (x, y) -> xs.Xs.write (path ^ "/" ^ x) y) (xenstore_of_locking_mode mode);
-				let disconnect_path, flag = disconnect_flag device mode in
+				let disconnected = not (vif.carrier && (mode <> Xenops_interface.Vif.Disabled)) in
+				let disconnect_path, flag = disconnect_flag device disconnected in
 				xs.Xs.write disconnect_path flag;
 
 				let domid = string_of_int device.frontend.domid in
@@ -1986,10 +2103,13 @@ module VIF = struct
 	let get_device_action_request vm vif =
 		with_xc_and_xs
 			(fun xc xs ->
-				let (device: Device_common.device) = device_by_id xc xs vm Device_common.Vif Newest (id_of vif) in
-				if Hotplug.device_is_online ~xs device
-				then None
-				else Some Needs_unplug
+				try
+					let (device: Device_common.device) = device_by_id xc xs vm Device_common.Vif Newest (id_of vif) in
+					if Hotplug.device_is_online ~xs device
+					then None
+					else Some Needs_unplug
+				with Device_not_connected ->
+					None
 			)
 
 end
@@ -1998,259 +2118,151 @@ module UPDATES = struct
 	let get last timeout = Updates.get "UPDATES.get" last timeout updates
 end
 
-let _introduceDomain = "@introduceDomain"
-let _releaseDomain = "@releaseDomain"
-
-(* CA-76600: the rtc/timeoffset needs to be maintained over a migrate. *)
-let store_rtc_timeoffset vm timeoffset =
-	Opt.iter
-		(function { VmExtra.persistent; non_persistent } ->
-			match persistent with
-				| { VmExtra.ty = Some ( Vm.HVM hvm_info ) } ->
-					let persistent = { persistent with VmExtra.ty = Some (Vm.HVM { hvm_info with Vm.timeoffset = timeoffset }) } in
-					debug "VM = %s; rtc/timeoffset <- %s" vm timeoffset;
-					DB.write vm { VmExtra.persistent; non_persistent }
-				| _ -> ()
-		) (DB.read vm)
-
 module IntMap = Map.Make(struct type t = int let compare = compare end)
-module IntSet = Set.Make(struct type t = int let compare = compare end)
 
-let list_domains xc =
-	let dis = Xenctrl.domain_getinfolist xc 0 in
-	let ids = List.map (fun x -> x.Xenctrl.domid) dis in
-	List.fold_left (fun map (k, v) -> IntMap.add k v map) IntMap.empty (List.combine ids dis)
+module Actions = struct
+	(* CA-76600: the rtc/timeoffset needs to be maintained over a migrate. *)
+	let store_rtc_timeoffset vm timeoffset =
+		Opt.iter
+			(function { VmExtra.persistent; non_persistent } ->
+				match persistent with
+					| { VmExtra.ty = Some ( Vm.HVM hvm_info ) } ->
+						let persistent = { persistent with VmExtra.ty = Some (Vm.HVM { hvm_info with Vm.timeoffset = timeoffset }) } in
+						debug "VM = %s; rtc/timeoffset <- %s" vm timeoffset;
+						DB.write vm { VmExtra.persistent; non_persistent }
+					| _ -> ()
+			) (DB.read vm)
 
+	let interesting_paths_for_domain domid uuid =
+		let open Printf in [
+			sprintf "/local/domain/%d/data/updated" domid;
+			sprintf "/local/domain/%d/memory/target" domid;
+			sprintf "/local/domain/%d/memory/uncooperative" domid;
+			sprintf "/local/domain/%d/console/vnc-port" domid;
+			sprintf "/local/domain/%d/console/tc-port" domid;
+			sprintf "/local/domain/%d/device" domid;
+			sprintf "/local/domain/%d/vm-data" domid;
+			sprintf "/vm/%s/rtc/timeoffset" uuid;
+		]
 
-let domain_looks_different a b = match a, b with
-	| None, Some _ -> true
-	| Some _, None -> true
-	| None, None -> false
-	| Some a', Some b' ->
-		a'.Xenctrl.shutdown <> b'.Xenctrl.shutdown
-		|| (a'.Xenctrl.shutdown && b'.Xenctrl.shutdown && (a'.Xenctrl.shutdown_code <> b'.Xenctrl.shutdown_code))
+	let watches_of_device device =
+		let interesting_backend_keys = [
+			"kthread-pid";
+			"tapdisk-pid";
+			"shutdown-done";
+			"hotplug-status";
+			"params";
+		] in
+		let open Device_common in
+		let be = device.backend.domid in
+		let fe = device.frontend.domid in
+		let kind = string_of_kind device.backend.kind in
+		let devid = device.frontend.devid in
+		List.map (fun k -> Printf.sprintf "/local/domain/%d/backend/%s/%d/%d/%s" be kind fe devid k) interesting_backend_keys
 
-let list_different_domains a b =
-	let c = IntMap.merge (fun _ a b -> if domain_looks_different a b then Some () else None) a b in
-	List.map fst (IntMap.bindings c)
+	let unmanaged_domain domid id =
+		domid > 0 && not (DB.exists id)
 
-let all_domU_watches domid uuid =
-	let open Printf in [
-		sprintf "/local/domain/%d/data/updated" domid;
-		sprintf "/local/domain/%d/memory/target" domid;
-		sprintf "/local/domain/%d/memory/uncooperative" domid;
-		sprintf "/local/domain/%d/console/vnc-port" domid;
-		sprintf "/local/domain/%d/console/tc-port" domid;
-		sprintf "/local/domain/%d/device" domid;
-		sprintf "/local/domain/%d/vm-data" domid;
-		sprintf "/vm/%s/rtc/timeoffset" uuid;
-	]
+	let found_running_domain domid id =
+		Updates.add (Dynamic.Vm id) updates
 
-let watches_of_device device =
-	let interesting_backend_keys = [
-		"kthread-pid";
-		"tapdisk-pid";
-		"shutdown-done";
-		"params";
-	] in
-	let open Device_common in
-	let be = device.backend.domid in
-	let fe = device.frontend.domid in
-	let kind = string_of_kind device.backend.kind in
-	let devid = device.frontend.devid in
-	List.map (fun k -> Printf.sprintf "/local/domain/%d/backend/%s/%d/%d/%s" be kind fe devid k) interesting_backend_keys
+	let device_watches = ref IntMap.empty
 
-let domains = ref IntMap.empty
-let watches = ref IntMap.empty
-let uuids = ref IntMap.empty
+	let domain_appeared xc xs domid =
+		device_watches := IntMap.add domid [] !device_watches
 
-let watch xs path =
-	debug "xenstore watch %s" path;
-	xs.Xs.watch path path
-
-let unwatch xs path =
-	try
-		debug "xenstore unwatch %s" path;
-		xs.Xs.unwatch path path
-	with Xs_protocol.Enoent _ ->
-		debug "xenstore unwatch %s threw Xb.Noent" path
-
-let add_domU_watches xs domid uuid =
-	debug "Adding watches for: domid %d" domid;
-	List.iter (watch xs) (all_domU_watches domid uuid);
-	uuids := IntMap.add domid uuid !uuids;
-	watches := IntMap.add domid [] !watches
-
-let remove_domU_watches xs domid =
-	debug "Removing watches for: domid %d" domid;
-	if IntMap.mem domid !uuids then begin
-		let uuid = IntMap.find domid !uuids in
-		List.iter (unwatch xs) (all_domU_watches domid uuid);
+	let domain_disappeared xc xs domid =
 		List.iter (fun d ->
-			List.iter (unwatch xs) (watches_of_device d)
-		) (try IntMap.find domid !watches with Not_found -> []);
-		watches := IntMap.remove domid !watches;
-		uuids := IntMap.remove domid !uuids;
-	end
+			List.iter (Xenstore_watch.unwatch ~xs) (watches_of_device d)
+		) (try IntMap.find domid !device_watches with Not_found -> []);
+		device_watches := IntMap.remove domid !device_watches;
 
-let cancel_domU_operations xs domid =
-	(* Anyone blocked on a domain/device operation which won't happen because the domain
-	   just shutdown should be cancelled here. *)
-	debug "Cancelling watches for: domid %d" domid;
-	Cancel_utils.on_shutdown ~xs domid
+		(* Anyone blocked on a domain/device operation which won't happen because the domain
+		   just shutdown should be cancelled here. *)
+		debug "Cancelling watches for: domid %d" domid;
+		Cancel_utils.on_shutdown ~xs domid
 
-let add_device_watch xs device =
-	let open Device_common in
-	debug "Adding watches for: %s" (string_of_device device);
-	let domid = device.frontend.domid in
-	List.iter (watch xs) (watches_of_device device);
-	watches := IntMap.add domid (device :: (IntMap.find domid !watches)) !watches
+	let add_device_watch xs device =
+		let open Device_common in
+		debug "Adding watches for: %s" (string_of_device device);
+		let domid = device.frontend.domid in
+		List.iter (Xenstore_watch.watch ~xs) (watches_of_device device);
+		device_watches := IntMap.add domid (device :: (IntMap.find domid !device_watches)) !device_watches
 
-let remove_device_watch xs device =
-	let open Device_common in
-	debug "Removing watches for: %s" (string_of_device device);
-	let domid = device.frontend.domid in
-	let current = IntMap.find domid !watches in
-	List.iter (unwatch xs) (watches_of_device device);
-	watches := IntMap.add domid (List.filter (fun x -> x <> device) current) !watches
+	let remove_device_watch xs device =
+		let open Device_common in
+		debug "Removing watches for: %s" (string_of_device device);
+		let domid = device.frontend.domid in
+		let current = IntMap.find domid !device_watches in
+		List.iter (Xenstore_watch.unwatch ~xs) (watches_of_device device);
+		device_watches := IntMap.add domid (List.filter (fun x -> x <> device) current) !device_watches
 
+	let watch_fired xc xs path domains watches =
+		let look_for_different_devices domid =
+			if not(Xenstore_watch.IntSet.mem domid watches)
+			then debug "Ignoring frontend device watch on unmanaged domain: %d" domid
+			else if not(IntMap.mem domid !device_watches)
+			then warn "Xenstore watch fired, but no entry for domid %d in device watches list" domid
+			else begin
+				let devices = IntMap.find domid !device_watches in
+				let devices' = Device_common.list_frontends ~xs domid in
+				let old_devices = Listext.List.set_difference devices devices' in
+				let new_devices = Listext.List.set_difference devices' devices in
+				List.iter (add_device_watch xs) new_devices;
+				List.iter (remove_device_watch xs) old_devices;
+			end in
 
-let look_for_different_domains xc xs =
-	let domains' = list_domains xc in
-	let different = list_different_domains !domains domains' in
-	List.iter
-		(fun domid ->
-			debug "Domain %d may have changed state" domid;
-			(* The uuid is either in the new domains map or the old map. *)
-			let di = IntMap.find domid (if IntMap.mem domid domains' then domains' else !domains) in
-			let id = Xenctrl_uuid.uuid_of_handle di.Xenctrl.handle |> Uuidm.to_string in
-			if domid > 0 && not (DB.exists id)
-			then begin
-				debug "However domain %d is not managed by us: ignoring" domid;
-				if IntMap.mem domid !uuids then begin
-					debug "Cleaning-up the remaining watches for: domid %d" domid;
-					cancel_domU_operations xs domid;
-					remove_domU_watches xs domid;
-				end;
-			end else begin
-				Updates.add (Dynamic.Vm id) updates;
-				(* A domain is 'running' if we know it has not shutdown *)
-				let running = IntMap.mem domid domains' && (not (IntMap.find domid domains').Xenctrl.shutdown) in
-				match IntMap.mem domid !watches, running with
-					| true, true -> () (* still running, nothing to do *)
-					| false, false -> () (* still offline, nothing to do *)
-					| false, true ->
-						add_domU_watches xs domid id
-					| true, false ->
-						cancel_domU_operations xs domid;
-						remove_domU_watches xs domid
-			end
-		) different;
-	domains := domains'
+		let fire_event_on_vm domid =
+			let d = int_of_string domid in
+			let open Xenstore_watch in
+			if not(IntMap.mem d domains)
+			then debug "Ignoring watch on shutdown domain %d" d
+			else
+				let di = IntMap.find d domains in
+				let open Xenctrl in
+				let id = Uuidm.to_string (uuid_of_di di) in
+				Updates.add (Dynamic.Vm id) updates in
 
-(* Watches are generated by concurrent activity on the system. We must decide whether
-   to let them queue up in xenstored, or here. Since xenstored is more important for
-   system reliability, we choose to drain its queue as quickly as possible and put the
-   queue here. If this queue gets too large we should throw it away, disconnect and
-   reconnect. *)
-let incoming_watches = Queue.create ()
-let queue_overflowed = ref false
-let incoming_watches_m = Mutex.create ()
-let incoming_watches_c = Condition.create ()
+		let fire_event_on_device domid kind devid =
+			let d = int_of_string domid in
+			let open Xenstore_watch in
+			if not(IntMap.mem d domains)
+			then debug "Ignoring watch on shutdown domain %d" d
+			else
+				let di = IntMap.find d domains in
+				let open Xenctrl in
+				let id = Uuidm.to_string (uuid_of_di di) in
+				let update = match kind with
+					| "vbd" ->
+						let devid' = devid |> int_of_string |> Device_number.of_xenstore_key |> Device_number.to_linux_device in
+						Some (Dynamic.Vbd (id, devid'))
+					| "vif" -> Some (Dynamic.Vif (id, devid))
+					| x ->
+						debug "Unknown device kind: '%s'" x;
+						None in
+				Opt.iter (fun x -> Updates.add x updates) update in
 
-let enqueue_watches event =
-	Mutex.execute incoming_watches_m
-		(fun () ->
-			if Queue.length incoming_watches = !Xenopsd.watch_queue_length
-			then queue_overflowed := true
-			else Queue.push event incoming_watches;
-			Condition.signal incoming_watches_c
-		)
+		match List.filter (fun x -> x <> "") (Re_str.split (Re_str.regexp_string "/") path) with
+			| "local" :: "domain" :: domid :: "backend" :: kind :: frontend :: devid :: _ ->
+				debug "Watch on backend domid: %s kind: %s -> frontend domid: %s devid: %s" domid kind frontend devid;
+				fire_event_on_device frontend kind devid
+			| "local" :: "domain" :: frontend :: "device" :: _ ->
+				look_for_different_devices (int_of_string frontend)
+			| "local" :: "domain" :: domid :: _ ->
+				fire_event_on_vm domid
+			| "vm" :: uuid :: "rtc" :: "timeoffset" :: [] ->
+				let timeoffset = try Some (xs.Xs.read path) with _ -> None in
+				Opt.iter
+					(fun timeoffset ->
+						(* Store the rtc/timeoffset for migrate *)
+						store_rtc_timeoffset uuid timeoffset;
+						(* Tell the higher-level toolstack about this too *)
+						Updates.add (Dynamic.Vm uuid) updates
+					) timeoffset
+			| _  -> debug "Ignoring unexpected watch: %s" path
+end
 
-exception Watch_overflow
-
-let dequeue_watches callback =
-	try
-		while true do
-			let event = Mutex.execute incoming_watches_m
-				(fun () ->
-					while Queue.is_empty incoming_watches && not(!queue_overflowed) do
-						Condition.wait incoming_watches_c incoming_watches_m
-					done;
-					if !queue_overflowed then begin
-						error "xenstore watch event queue overflow: this suggests the processing thread deadlocked somehow.";
-						raise Watch_overflow;
-					end;
-					Queue.pop incoming_watches
-				) in
-			let () = callback event in
-			()
-		done
-	with Watch_overflow -> ()
-
-let process_one_watch xc xs (path, token) =
-	let set_difference a b = List.fold_left (fun acc a ->
-		if not(List.mem a b) then a :: acc else acc
-	) [] a in
-
-	let look_for_different_devices domid =
-		if not(IntMap.mem domid !watches)
-		then debug "Ignoring frontend device watch on unmanaged domain: %d" domid
-		else begin
-			let devices = IntMap.find domid !watches in
-			let devices' = Device_common.list_frontends ~xs domid in
-			let old_devices = set_difference devices devices' in
-			let new_devices = set_difference devices' devices in
-			List.iter (add_device_watch xs) new_devices;
-			List.iter (remove_device_watch xs) old_devices;
-		end in
-
-	let fire_event_on_vm domid =
-		let d = int_of_string domid in
-		if not(IntMap.mem d !domains)
-		then debug "Ignoring watch on shutdown domain %d" d
-		else
-			let di = IntMap.find d !domains in
-			let id = Xenctrl_uuid.uuid_of_handle di.Xenctrl.handle |> Uuidm.to_string in
-			Updates.add (Dynamic.Vm id) updates in
-
-	let fire_event_on_device domid kind devid =
-		let d = int_of_string domid in
-		if not(IntMap.mem d !domains)
-		then debug "Ignoring watch on shutdown domain %d" d
-		else
-			let di = IntMap.find d !domains in
-			let id = Xenctrl_uuid.uuid_of_handle di.Xenctrl.handle |> Uuidm.to_string in
-			let update = match kind with
-				| "vbd" ->
-					let devid' = devid |> int_of_string |> Device_number.of_xenstore_key |> Device_number.to_linux_device in
-					Some (Dynamic.Vbd (id, devid'))
-				| "vif" -> Some (Dynamic.Vif (id, devid))
-				| x ->
-					debug "Unknown device kind: '%s'" x;
-					None in
-			Opt.iter (fun x -> Updates.add x updates) update in
-
-	if path = _introduceDomain || path = _releaseDomain
-	then look_for_different_domains xc xs
-	else match List.filter (fun x -> x <> "") (Re_str.split (Re_str.regexp "[/]") path) with
-		| "local" :: "domain" :: domid :: "backend" :: kind :: frontend :: devid :: _ ->
-			debug "Watch on backend domid: %s kind: %s -> frontend domid: %s devid: %s" domid kind frontend devid;
-			fire_event_on_device frontend kind devid
-		| "local" :: "domain" :: frontend :: "device" :: _ ->
-			look_for_different_devices (int_of_string frontend)
-		| "local" :: "domain" :: domid :: _ ->
-			fire_event_on_vm domid
-		| "vm" :: uuid :: "rtc" :: "timeoffset" :: [] ->
-			let timeoffset = try Some (xs.Xs.read path) with _ -> None in
-			Opt.iter
-				(fun timeoffset ->
-					(* Store the rtc/timeoffset for migrate *)
-					store_rtc_timeoffset uuid timeoffset;
-					(* Tell the higher-level toolstack about this too *)
-					Updates.add (Dynamic.Vm uuid) updates
-				) timeoffset
-		| _  -> debug "Ignoring unexpected watch: %s" path
+module Watcher = Xenstore_watch.WatchXenstore(Actions)
 
 (* Here we analyse common startup errors in more detail and
    suggest the most likely fixes (e.g. switch to root, start missing
@@ -2296,23 +2308,6 @@ let look_for_xenctrl () =
 			exit 1;
 		end
 
-let register_for_watches xc =
-	let client = Xenstore.Client.make () in
-	Xenstore.Client.with_xs client
-		(fun h ->
-			let xs = Xenstore.Xs.ops h in
-			Xenstore.Client.set_watch_callback client enqueue_watches;
-
-			(* NB these two watches will be immediately fired so we will automatically
-			   check for new/missing domains. *)
-			xs.Xs.watch _introduceDomain "";
-			xs.Xs.watch _releaseDomain "";
-			debug "watching for @introduceDomain and @releaseDomain";
-
-			dequeue_watches (process_one_watch xc xs);
-		)
-
-
 let init () =
 	look_for_forkexec ();
 
@@ -2346,17 +2341,7 @@ let init () =
 	);
 
 	debug "xenstore is responding to requests";
-	let (_: Thread.t) = Thread.create
-		(fun () ->
-			while true do
-				finally
-				(fun () ->
-					debug "(re)starting xenstore watch thread";
-					with_xc register_for_watches)
-				(fun () ->
-					Thread.delay 5.)
-			done
-		) () in
+	let () = Watcher.create_watcher_thread () in
 	()
 
 module DEBUG = struct

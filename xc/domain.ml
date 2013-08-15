@@ -95,6 +95,13 @@ let assert_file_is_readable filename =
 		raise (Could_not_read_file filename)
 let maybe f = function None -> () | Some x -> f x
 
+(* Recursively iterate over a directory and all its children, calling fn for each *)
+let rec xenstore_iter t fn path =
+	fn path;
+	match t.Xst.directory path with
+	| [] -> ()
+	| names -> List.iter (fun n -> if n <> "" then xenstore_iter t fn (path ^ "/" ^ n)) names
+
 type domarch = Arch_HVM | Arch_native | Arch_X64 | Arch_X32
 
 let string_of_domarch = function
@@ -175,6 +182,7 @@ let make ~xc ~xs vm_info uuid =
 		let rwperm = Xenbus_utils.rwperm_for_guest domid in
 		debug "VM = %s; creating xenstored tree: %s" (Uuid.to_string uuid) dom_path;
 
+		let create_time = Oclock.gettime Oclock.monotonic in
 		Xs.transaction xs (fun t ->
 			(* Clear any existing rubbish in xenstored *)
 			t.Xst.rm dom_path;
@@ -183,7 +191,9 @@ let make ~xc ~xs vm_info uuid =
 
 			(* The /vm path needs to be shared over a localhost migrate *)
 			let vm_exists = try ignore(t.Xst.read vm_path); true with _ -> false in
-			if not vm_exists then begin
+			if vm_exists then
+				xenstore_iter t (fun d -> t.Xst.setperms d roperm) vm_path
+			else begin
 				t.Xst.mkdir vm_path;
 				t.Xst.setperms vm_path roperm;
 				t.Xst.writev vm_path [
@@ -192,6 +202,7 @@ let make ~xc ~xs vm_info uuid =
 				];
 			end;
 			t.Xst.write (Printf.sprintf "%s/domains/%d" vm_path domid) dom_path;
+			t.Xst.write (Printf.sprintf "%s/domains/%d/create-time" vm_path domid) (Int64.to_string create_time);
 
 			t.Xst.rm vss_path;
 			t.Xst.mkdir vss_path;
@@ -300,8 +311,9 @@ let shutdown ~xc ~xs domid req =
 let shutdown_wait_for_ack (t: Xenops_task.t) ?(timeout=60.) ~xc ~xs domid req =
 	let di = Xenctrl.domain_getinfo xc domid in
 	let uuid = get_uuid ~xc domid in
-	if di.Xenctrl.hvm_guest then begin
-		debug "VM = %s; domid = %d; HVM guest with PV drivers: not expecting any acknowledgement" (Uuid.to_string uuid) domid;
+	if (di.Xenctrl.hvm_guest) (* not (Xenctrl.hvm_check_pvdriver xc domid)) *) then begin
+		debug "VM = %s; domid = %d; HVM guest without PV drivers: not expecting any acknowledgement" (Uuid.to_string uuid) domid;
+		Xenctrl.domain_shutdown xc domid (shutdown_to_xc_shutdown req)
 	end else begin
 		debug "VM = %s; domid = %d; Waiting for PV domain to acknowledge shutdown request" (Uuid.to_string uuid) domid;
 		let path = control_shutdown ~xs domid in
@@ -318,6 +330,11 @@ let sysrq ~xs domid key =
 let destroy (task: Xenops_task.t) ~xc ~xs ~qemu_domid domid =
 	let dom_path = xs.Xs.getdomainpath domid in
 	let uuid = get_uuid ~xc domid in
+
+	(* Move this out of the way immediately *)
+	let s = Printf.sprintf "deadbeef-dead-beef-dead-beef0000%04x" domid in
+	Xenctrl.domain_sethandle xc domid s;
+
 	(* These are the devices with a frontend in [domid] and a well-formed backend
 	   in some other domain *)
 	let all_devices = list_frontends ~xs domid in
@@ -433,10 +450,7 @@ let destroy (task: Xenops_task.t) ~xc ~xs ~qemu_domid domid =
 	  Thread.delay 5.
 	done;
 	if still_exists () then begin
-	  (* CA-13801: to avoid confusing people, we shall change this domain's uuid *)
-	  let s = Printf.sprintf "deadbeef-dead-beef-dead-beef0000%04x" domid in
 	  error "VM = %s; domid = %d; Domain stuck in dying state after 30s; resetting UUID to %s. This probably indicates a backend driver bug." (Uuid.to_string uuid) domid s;
-	  Xenctrl.domain_sethandle xc domid s;
 	  raise (Domain_stuck_in_dying_state domid)
 	end
 
@@ -548,7 +562,7 @@ let build_post ~xc ~xs ~vcpus ~static_max_mib ~target_mib domid
 
 (** build a linux type of domain *)
 let build_linux (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~static_max_kib ~target_kib ~kernel ~cmdline ~ramdisk
-		~vcpus domid =
+		~vcpus xenguest_path domid =
 	let uuid = get_uuid ~xc domid in
 	assert_file_is_readable kernel;
 	maybe assert_file_is_readable ramdisk;
@@ -578,7 +592,7 @@ let build_linux (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~stati
 	let store_port, console_port = build_pre ~xc ~xs
 		~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
 
-	let line = XenguestHelper.with_connection task domid
+	let line = XenguestHelper.with_connection task xenguest_path domid
 	  [
 	    "-mode"; "linux_build";
 	    "-domid"; string_of_int domid;
@@ -628,7 +642,7 @@ let build_linux (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~stati
 
 (** build hvm type of domain *)
 let build_hvm (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
-              ~kernel ~timeoffset ~video_mib domid =
+              ~kernel ~timeoffset ~video_mib xenguest_path domid =
 	let uuid = get_uuid ~xc domid in
 	assert_file_is_readable kernel;
 
@@ -654,7 +668,7 @@ let build_hvm (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~static_
 	let store_port, console_port = build_pre ~xc ~xs
 		~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
 
-	let line = XenguestHelper.with_connection task domid
+	let line = XenguestHelper.with_connection task xenguest_path domid
 	  [
 	    "-mode"; "hvm_build";
 	    "-domid"; string_of_int domid;
@@ -714,22 +728,22 @@ let build_hvm (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~static_
 
 	Arch_HVM
 
-let build (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid info timeoffset domid =
+let build (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid info timeoffset xenguest_path domid =
 	match info.priv with
 	| BuildHVM hvminfo ->
 		build_hvm task ~xc ~xs ~store_domid ~console_domid ~static_max_kib:info.memory_max ~target_kib:info.memory_target
 		          ~shadow_multiplier:hvminfo.shadow_multiplier ~vcpus:info.vcpus
-		          ~kernel:info.kernel ~timeoffset ~video_mib:hvminfo.video_mib domid
+		          ~kernel:info.kernel ~timeoffset ~video_mib:hvminfo.video_mib xenguest_path domid
 	| BuildPV pvinfo   ->
 		build_linux task ~xc ~xs ~store_domid ~console_domid ~static_max_kib:info.memory_max ~target_kib:info.memory_target
 		            ~kernel:info.kernel ~cmdline:pvinfo.cmdline ~ramdisk:pvinfo.ramdisk
-		            ~vcpus:info.vcpus domid
+		            ~vcpus:info.vcpus xenguest_path domid
 
 (* restore a domain from a file descriptor. it read first the signature
  * to be we are not trying to restore from random data.
  * the linux_restore process is in charge to allocate memory as it's needed
  *)
-let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~store_domid ~console_port ~console_domid ~no_incr_generationid ~vcpus ~extras domid fd =
+let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~store_domid ~console_port ~console_domid ~no_incr_generationid ~vcpus ~extras xenguest_path domid fd =
 	let uuid = get_uuid ~xc domid in
 	let read_signature = Io.read fd (String.length save_signature) in
 	if read_signature <> save_signature then begin
@@ -739,7 +753,7 @@ let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~store_domid ~
 	Unix.clear_close_on_exec fd;
 	let fd_uuid = Uuid.to_string (Uuid.create `V4) in
 
-	let line = XenguestHelper.with_connection task domid
+	let line = XenguestHelper.with_connection task xenguest_path domid
 	  ([
 	    "-mode"; if hvm then "hvm_restore" else "restore";
 	    "-domid"; string_of_int domid;
@@ -790,7 +804,7 @@ let resume (task: Xenops_task.t) ~xc ~xs ~hvm ~cooperative ~qemu_domid domid =
 	resume_post ~xc	~xs domid;
 	if hvm then Device.Dm.resume task ~xs ~qemu_domid domid
 
-let pv_restore (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid ~static_max_kib ~target_kib ~vcpus domid fd =
+let pv_restore (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid ~static_max_kib ~target_kib ~vcpus xenguest_path domid fd =
 
 	(* Convert memory configuration values into the correct units. *)
 	let static_max_mib = Memory.mib_of_kib_used static_max_kib in
@@ -816,7 +830,7 @@ let pv_restore (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~no_inc
 		~store_port ~store_domid
 		~console_port ~console_domid
 		~no_incr_generationid
-		~vcpus ~extras:[] domid fd in
+		~vcpus ~extras:[] xenguest_path domid fd in
 
 	let local_stuff = [
 		"serial/0/limit",    string_of_int 65536;
@@ -827,7 +841,7 @@ let pv_restore (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~no_inc
 	build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
 		domid store_mfn store_port local_stuff vm_stuff
 
-let hvm_restore (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus  ~timeoffset domid fd =
+let hvm_restore (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus  ~timeoffset xenguest_path domid fd =
 
 	(* Convert memory configuration values into the correct units. *)
 	let static_max_mib = Memory.mib_of_kib_used static_max_kib in
@@ -851,7 +865,7 @@ let hvm_restore (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~no_in
 		~store_port ~store_domid
 		~console_port ~console_domid
 		~no_incr_generationid
-		~vcpus ~extras:[] domid fd in
+		~vcpus ~extras:[] xenguest_path domid fd in
 	let local_stuff = [
 		"serial/0/limit",    string_of_int 65536;
 (*
@@ -866,7 +880,7 @@ let hvm_restore (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~no_in
 	build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
 		domid store_mfn store_port local_stuff vm_stuff
 
-let restore (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid info timeoffset domid fd =
+let restore (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid info timeoffset xenguest_path domid fd =
 	let restore_fct = match info.priv with
 	| BuildHVM hvminfo ->
 		hvm_restore task ~shadow_multiplier:hvminfo.shadow_multiplier
@@ -876,7 +890,7 @@ let restore (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~no_incr_g
 		in
 	restore_fct ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid
 	            ~static_max_kib:info.memory_max ~target_kib:info.memory_target ~vcpus:info.vcpus
-	            domid fd
+	            xenguest_path domid fd
 
 type suspend_flag = Live | Debug
 
@@ -884,7 +898,7 @@ type suspend_flag = Live | Debug
  * and is in charge to suspend the domain when called. the whole domain
  * context is saved to fd
  *)
-let suspend (task: Xenops_task.t) ~xc ~xs ~hvm domid fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
+let suspend (task: Xenops_task.t) ~xc ~xs ~hvm xenguest_path domid fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
 	let uuid = get_uuid ~xc domid in
 	debug "VM = %s; domid = %d; suspend live = %b" (Uuid.to_string uuid) domid (List.mem Live flags);
 	Io.write fd save_signature;
@@ -904,7 +918,7 @@ let suspend (task: Xenops_task.t) ~xc ~xs ~hvm domid fd flags ?(progress_callbac
 		"-fork"; "true";
 	] @ (List.concat flags') in
 
-	XenguestHelper.with_connection task domid xenguestargs [ fd_uuid, fd ]
+	XenguestHelper.with_connection task xenguest_path domid xenguestargs [ fd_uuid, fd ]
 		(fun cnx ->
 		debug "VM = %s; domid = %d; waiting for xenguest to call suspend callback" (Uuid.to_string uuid) domid;
 

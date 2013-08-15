@@ -35,13 +35,12 @@ type t = in_channel * out_channel * Unix.file_descr * Unix.file_descr * Forkhelp
 
 (** Fork and run a xenguest helper with particular args, leaving 'fds' open 
     (in addition to internal control I/O fds) *)
-let connect domid (args: string list) (fds: (string * Unix.file_descr) list) : t =
+let connect path domid (args: string list) (fds: (string * Unix.file_descr) list) : t =
 	debug "connect: args = [ %s ]" (String.concat " " args);
 	(* Need to send commands and receive responses from the
 	   slave process *)
 
 	let last_log_file = Printf.sprintf "/tmp/xenguest.%d.log" domid in
-	(try Unix.unlink last_log_file with _ -> ());
 
 	let slave_to_server_w_uuid = Uuidm.to_string (Uuidm.create `V4) in
 	let server_to_slave_r_uuid = Uuidm.to_string (Uuidm.create `V4) in
@@ -57,7 +56,7 @@ let connect domid (args: string list) (fds: (string * Unix.file_descr) list) : t
 	let pid = Forkhelpers.safe_close_and_exec None None None 
 	  ([ slave_to_server_w_uuid, slave_to_server_w;
 	    server_to_slave_r_uuid, server_to_slave_r ] @ fds)
-	  !Xc_path.xenguest args in
+	  path args in
 	
 	Unix.close slave_to_server_w;
 	Unix.close server_to_slave_r;
@@ -72,20 +71,27 @@ let connect domid (args: string list) (fds: (string * Unix.file_descr) list) : t
 let disconnect (_, _, r, w, pid) =
 	Unix.close r;
 	Unix.close w;
-	(* just in case *)
-	(try Unix.kill (Forkhelpers.getpid pid) Sys.sigterm with _ -> ());
 	ignore(Forkhelpers.waitpid pid)
 
-let with_connection (task: Xenops_task.t) domid (args: string list) (fds: (string * Unix.file_descr) list) f =
-	let t = connect domid args fds in
+let with_connection (task: Xenops_task.t) path domid (args: string list) (fds: (string * Unix.file_descr) list) f =
+	let t = connect path domid args fds in
+	let cancelled = ref false in
 	let cancel_cb () =
 		let _, _, _, _, pid = t in
-		try Unix.kill (Forkhelpers.getpid pid) Sys.sigkill with _ -> () in
+		let pid = Forkhelpers.getpid pid in
+		cancelled := true;
+		info "Cancelling task %s by killing xenguest subprocess pid: %d" task.Xenops_task.id pid;
+		try Unix.kill pid Sys.sigkill with _ -> () in
 	finally
 		(fun () ->
 			Xenops_task.with_cancel task cancel_cb
 				(fun () ->
-					f t
+					try
+						f t
+					with e ->
+						if !cancelled
+						then Xenops_task.raise_cancelled task
+						else raise e
 				)
 		) (fun () -> disconnect t)
 

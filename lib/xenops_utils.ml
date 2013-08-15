@@ -344,6 +344,13 @@ module Unixext = struct
 		!total_bytes
 
 	let copy_file ?limit ifd ofd = copy_file_internal ?limit (Unix.read ifd) (Unix.write ofd)
+
+	let really_write fd string off n =
+		let written = ref 0 in
+		while !written < n do
+			let wr = Unix.write fd string (off + !written) (n - !written) in
+			written := wr + !written
+		done
 end
 
 let dropnone x = List.filter_map (Opt.map (fun x -> x)) x

@@ -64,13 +64,25 @@ let deactivate task dp sr vdi =
 let dp_destroy task dp =
 	Xenops_task.with_subtask task (Printf.sprintf "DP.destroy %s" dp)
 		(transform_exception (fun () ->
-			try 
-				Client.DP.destroy "dp_destroy" dp false
-			with e ->
-				(* Backends aren't supposed to return exceptions on deactivate/detach, but they
-					   frequently do. Log and ignore *)
-					warn "DP destroy returned unexpected exception: %s" (Printexc.to_string e)
-			        ))
+			let waiting_for_plugin = ref true in
+			while !waiting_for_plugin do
+				try
+					Client.DP.destroy "dp_destroy" dp false;
+					waiting_for_plugin := false
+				with
+					| Storage_interface.No_storage_plugin_for_sr sr as e ->
+						(* Since we have an activated disk in this SR, assume we are still
+						   waiting for xapi to register the SR's plugin. *)
+						debug "Caught %s - waiting for xapi to register storage plugins."
+							(Printexc.to_string e);
+						Thread.delay 5.0
+					| e ->
+						(* Backends aren't supposed to return exceptions on deactivate/detach, but they
+						   frequently do. Log and ignore *)
+						warn "DP destroy returned unexpected exception: %s" (Printexc.to_string e);
+						waiting_for_plugin := false
+			done
+	))
 
 let get_disk_by_name task path =
 	match Re_str.bounded_split (Re_str.regexp_string "/") path 2 with

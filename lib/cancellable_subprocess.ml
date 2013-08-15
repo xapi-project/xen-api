@@ -18,15 +18,6 @@ open Xenops_task
 module D = Debug.Make(struct let name = "xenops" end)
 open D
 
-let really_write fd string off n =
-        let written = ref 0 in
-        while !written < n
-        do
-                let wr = Unix.write fd string (off + !written) (n - !written) in
-                written := wr + !written
-        done
-
-
 open Forkhelpers
 let run (task: Xenops_task.t) ?env ?stdin ?(syslog_stdout=NoSyslogging) cmd args =
 	let stdinandpipes = Opt.map (fun str -> 
@@ -49,7 +40,7 @@ let run (task: Xenops_task.t) ?env ?stdin ?(syslog_stdout=NoSyslogging) cmd args
 								try Unix.kill pid' Sys.sigkill with _ -> ()
 							)
 							(fun () ->
-								Opt.iter (fun (str,_,wr) -> really_write wr str 0 (String.length str)) stdinandpipes;
+								Opt.iter (fun (str,_,wr) -> Unixext.really_write wr str 0 (String.length str)) stdinandpipes;
 								done_waitpid := true;
 								snd (Forkhelpers.waitpid t)
 							)

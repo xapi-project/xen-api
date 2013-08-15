@@ -743,8 +743,9 @@ let rec atomics_of_operation = function
 			VM_build id;
 		] @ (List.map (fun vbd -> VBD_set_active (vbd.Vbd.id, true))
 			(VBD_DB.vbds id)
-		) @	(List.concat (List.map (fun vbd -> Opt.default [] (Opt.map (fun x -> [ VBD_epoch_begin (vbd.Vbd.id, x) ]) vbd.Vbd.backend))
-			(VBD_DB.vbds id)
+		) @	(List.concat (List.map (fun vbd -> Opt.default [] (Opt.map
+			(fun x -> [ VBD_epoch_begin (vbd.Vbd.id, x) ]) vbd.Vbd.backend))
+			(VBD_DB.vbds id |> vbd_plug_order)
 		)) @ simplify (List.map (fun vbd -> VBD_plug vbd.Vbd.id)
 			(VBD_DB.vbds id |> vbd_plug_order)
 		) @ (List.map (fun vif -> VIF_set_active (vif.Vif.id, true))
@@ -980,8 +981,10 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			PCI_DB.signal id
 		| PCI_unplug id ->
 			debug "PCI.unplug %s" (PCI_DB.string_of_id id);
-			B.PCI.unplug t (PCI_DB.vm_of id) (PCI_DB.read_exn id);
-			PCI_DB.signal id
+			finally
+				(fun () ->
+					B.PCI.unplug t (PCI_DB.vm_of id) (PCI_DB.read_exn id);
+				) (fun () -> PCI_DB.signal id)
 		| VM_set_xsdata (id, xsdata) ->
 			debug "VM.set_xsdata (%s, [ %s ])" id (String.concat "; " (List.map (fun (k, v) -> k ^ ": " ^ v) xsdata));
 			B.VM.set_xsdata t (VM_DB.read_exn id) xsdata
