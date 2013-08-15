@@ -109,12 +109,17 @@ let parse_output x =
 		kernel_args = (try List.assoc "args" l with _ -> "")
 	}
 
+let runtimeError_regexp = Re_str.regexp_string "RuntimeError: "
+
 let parse_exception x =
 	debug "Bootloader failed: %s" x;
-	let lines = Re_str.split (Re_str.regexp "[\n]") x in
-	(* Since the error is a python stack trace, the last-but-one line tends to be the most useful. *)
-	let err = try List.nth (List.rev lines) 1 with _ -> raise (Bad_error x) in
-	raise (Error_from_bootloader err)
+	(* Look through the error for the prefix "RuntimeError: " - raise an exception with a message
+	 * containing the error from the end of this prefix onwards. *)
+	match Re_str.bounded_split runtimeError_regexp x 2 with
+	| [ _; suffix ] ->
+		raise (Error_from_bootloader suffix)
+	| _ -> (* no expected prefix *)
+		raise (Bad_error x)
 
 (** Extract the default kernel using the -q option *)
 let extract (task: Xenops_task.t) ~bootloader ~disk ?(legacy_args="") ?(extra_args="") ?(pv_bootloader_args="") ~vm:vm_uuid () =
