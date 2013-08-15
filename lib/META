@@ -1,13 +1,13 @@
 # OASIS_START
-# DO NOT EDIT (digest: abe71d312a59f85f10411a9abf798403)
-version = "1.0"
-description = "Xen domain manager"
+# DO NOT EDIT (digest: 3650e815e353a2f551b96e4bdfff11fe)
+version = "0.9.21"
+description = "XenServer domain managers"
 requires =
-"syslog threads uuidm xmlm cohttp uri rpclib rpclib.syntax forkexec fd-send-recv xcp xcp.xen"
-archive(byte) = "xenops.cma"
-archive(byte, plugin) = "xenops.cma"
-archive(native) = "xenops.cmxa"
-archive(native, plugin) = "xenops.cmxs"
-exists_if = "xenops.cma"
+"syslog threads threads.posix uuidm xmlm cohttp uri rpclib rpclib.syntax forkexec fd-send-recv xcp xcp.xen xcp.storage rpclib.syntax sexplib xcp"
+archive(byte) = "xenopsd.cma"
+archive(byte, plugin) = "xenopsd.cma"
+archive(native) = "xenopsd.cmxa"
+archive(native, plugin) = "xenopsd.cmxs"
+exists_if = "xenopsd.cma"
 # OASIS_STOP
 

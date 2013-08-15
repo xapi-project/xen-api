@@ -1,0 +1,21 @@
+# OASIS_START
+# DO NOT EDIT (digest: ac4bb902711bef8e45ad54ee949ab0dd)
+Cancellable_subprocess
+Bootloader
+Ionice
+Mac
+Xenops_migrate
+Xenops_hooks
+Task_server
+Xenops_task
+Updates
+Xenops_utils
+Xenops_server
+Xenopsd
+Xenops_server_plugin
+Xenops_server_skeleton
+Scheduler
+Path
+Storage
+Interface
+# OASIS_STOP
