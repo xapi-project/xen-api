@@ -2116,259 +2116,151 @@ module UPDATES = struct
 	let get last timeout = Updates.get "UPDATES.get" last timeout updates
 end
 
-let _introduceDomain = "@introduceDomain"
-let _releaseDomain = "@releaseDomain"
-
-(* CA-76600: the rtc/timeoffset needs to be maintained over a migrate. *)
-let store_rtc_timeoffset vm timeoffset =
-	Opt.iter
-		(function { VmExtra.persistent; non_persistent } ->
-			match persistent with
-				| { VmExtra.ty = Some ( Vm.HVM hvm_info ) } ->
-					let persistent = { persistent with VmExtra.ty = Some (Vm.HVM { hvm_info with Vm.timeoffset = timeoffset }) } in
-					debug "VM = %s; rtc/timeoffset <- %s" vm timeoffset;
-					DB.write vm { VmExtra.persistent; non_persistent }
-				| _ -> ()
-		) (DB.read vm)
-
 module IntMap = Map.Make(struct type t = int let compare = compare end)
-module IntSet = Set.Make(struct type t = int let compare = compare end)
 
-let list_domains xc =
-	let dis = Xenctrl.domain_getinfolist xc 0 in
-	let ids = List.map (fun x -> x.Xenctrl.domid) dis in
-	List.fold_left (fun map (k, v) -> IntMap.add k v map) IntMap.empty (List.combine ids dis)
+module Actions = struct
+	(* CA-76600: the rtc/timeoffset needs to be maintained over a migrate. *)
+	let store_rtc_timeoffset vm timeoffset =
+		Opt.iter
+			(function { VmExtra.persistent; non_persistent } ->
+				match persistent with
+					| { VmExtra.ty = Some ( Vm.HVM hvm_info ) } ->
+						let persistent = { persistent with VmExtra.ty = Some (Vm.HVM { hvm_info with Vm.timeoffset = timeoffset }) } in
+						debug "VM = %s; rtc/timeoffset <- %s" vm timeoffset;
+						DB.write vm { VmExtra.persistent; non_persistent }
+					| _ -> ()
+			) (DB.read vm)
 
+	let interesting_paths_for_domain domid uuid =
+		let open Printf in [
+			sprintf "/local/domain/%d/data/updated" domid;
+			sprintf "/local/domain/%d/memory/target" domid;
+			sprintf "/local/domain/%d/memory/uncooperative" domid;
+			sprintf "/local/domain/%d/console/vnc-port" domid;
+			sprintf "/local/domain/%d/console/tc-port" domid;
+			sprintf "/local/domain/%d/device" domid;
+			sprintf "/local/domain/%d/vm-data" domid;
+			sprintf "/vm/%s/rtc/timeoffset" uuid;
+		]
 
-let domain_looks_different a b = match a, b with
-	| None, Some _ -> true
-	| Some _, None -> true
-	| None, None -> false
-	| Some a', Some b' ->
-		a'.Xenctrl.shutdown <> b'.Xenctrl.shutdown
-		|| (a'.Xenctrl.shutdown && b'.Xenctrl.shutdown && (a'.Xenctrl.shutdown_code <> b'.Xenctrl.shutdown_code))
+	let watches_of_device device =
+		let interesting_backend_keys = [
+			"kthread-pid";
+			"tapdisk-pid";
+			"shutdown-done";
+			"hotplug-status";
+			"params";
+		] in
+		let open Device_common in
+		let be = device.backend.domid in
+		let fe = device.frontend.domid in
+		let kind = string_of_kind device.backend.kind in
+		let devid = device.frontend.devid in
+		List.map (fun k -> Printf.sprintf "/local/domain/%d/backend/%s/%d/%d/%s" be kind fe devid k) interesting_backend_keys
 
-let list_different_domains a b =
-	let c = IntMap.merge (fun _ a b -> if domain_looks_different a b then Some () else None) a b in
-	List.map fst (IntMap.bindings c)
+	let unmanaged_domain domid id =
+		domid > 0 && not (DB.exists id)
 
-let all_domU_watches domid uuid =
-	let open Printf in [
-		sprintf "/local/domain/%d/data/updated" domid;
-		sprintf "/local/domain/%d/memory/target" domid;
-		sprintf "/local/domain/%d/memory/uncooperative" domid;
-		sprintf "/local/domain/%d/console/vnc-port" domid;
-		sprintf "/local/domain/%d/console/tc-port" domid;
-		sprintf "/local/domain/%d/device" domid;
-		sprintf "/local/domain/%d/vm-data" domid;
-		sprintf "/vm/%s/rtc/timeoffset" uuid;
-	]
+	let found_running_domain domid id =
+		Updates.add (Dynamic.Vm id) updates
 
-let watches_of_device device =
-	let interesting_backend_keys = [
-		"kthread-pid";
-		"tapdisk-pid";
-		"shutdown-done";
-		"params";
-	] in
-	let open Device_common in
-	let be = device.backend.domid in
-	let fe = device.frontend.domid in
-	let kind = string_of_kind device.backend.kind in
-	let devid = device.frontend.devid in
-	List.map (fun k -> Printf.sprintf "/local/domain/%d/backend/%s/%d/%d/%s" be kind fe devid k) interesting_backend_keys
+	let device_watches = ref IntMap.empty
 
-let domains = ref IntMap.empty
-let watches = ref IntMap.empty
-let uuids = ref IntMap.empty
+	let domain_appeared xc xs domid =
+		device_watches := IntMap.add domid [] !device_watches
 
-let watch xs path =
-	debug "xenstore watch %s" path;
-	xs.Xs.watch path path
-
-let unwatch xs path =
-	try
-		debug "xenstore unwatch %s" path;
-		xs.Xs.unwatch path path
-	with Xs_protocol.Enoent _ ->
-		debug "xenstore unwatch %s threw Xb.Noent" path
-
-let add_domU_watches xs domid uuid =
-	debug "Adding watches for: domid %d" domid;
-	List.iter (watch xs) (all_domU_watches domid uuid);
-	uuids := IntMap.add domid uuid !uuids;
-	watches := IntMap.add domid [] !watches
-
-let remove_domU_watches xs domid =
-	debug "Removing watches for: domid %d" domid;
-	if IntMap.mem domid !uuids then begin
-		let uuid = IntMap.find domid !uuids in
-		List.iter (unwatch xs) (all_domU_watches domid uuid);
+	let domain_disappeared xc xs domid =
 		List.iter (fun d ->
-			List.iter (unwatch xs) (watches_of_device d)
-		) (try IntMap.find domid !watches with Not_found -> []);
-		watches := IntMap.remove domid !watches;
-		uuids := IntMap.remove domid !uuids;
-	end
+			List.iter (Xenstore_watch.unwatch ~xs) (watches_of_device d)
+		) (try IntMap.find domid !device_watches with Not_found -> []);
+		device_watches := IntMap.remove domid !device_watches;
 
-let cancel_domU_operations xs domid =
-	(* Anyone blocked on a domain/device operation which won't happen because the domain
-	   just shutdown should be cancelled here. *)
-	debug "Cancelling watches for: domid %d" domid;
-	Cancel_utils.on_shutdown ~xs domid
+		(* Anyone blocked on a domain/device operation which won't happen because the domain
+		   just shutdown should be cancelled here. *)
+		debug "Cancelling watches for: domid %d" domid;
+		Cancel_utils.on_shutdown ~xs domid
 
-let add_device_watch xs device =
-	let open Device_common in
-	debug "Adding watches for: %s" (string_of_device device);
-	let domid = device.frontend.domid in
-	List.iter (watch xs) (watches_of_device device);
-	watches := IntMap.add domid (device :: (IntMap.find domid !watches)) !watches
+	let add_device_watch xs device =
+		let open Device_common in
+		debug "Adding watches for: %s" (string_of_device device);
+		let domid = device.frontend.domid in
+		List.iter (Xenstore_watch.watch ~xs) (watches_of_device device);
+		device_watches := IntMap.add domid (device :: (IntMap.find domid !device_watches)) !device_watches
 
-let remove_device_watch xs device =
-	let open Device_common in
-	debug "Removing watches for: %s" (string_of_device device);
-	let domid = device.frontend.domid in
-	let current = IntMap.find domid !watches in
-	List.iter (unwatch xs) (watches_of_device device);
-	watches := IntMap.add domid (List.filter (fun x -> x <> device) current) !watches
+	let remove_device_watch xs device =
+		let open Device_common in
+		debug "Removing watches for: %s" (string_of_device device);
+		let domid = device.frontend.domid in
+		let current = IntMap.find domid !device_watches in
+		List.iter (Xenstore_watch.unwatch ~xs) (watches_of_device device);
+		device_watches := IntMap.add domid (List.filter (fun x -> x <> device) current) !device_watches
 
+	let watch_fired xc xs path domains watches =
+		let look_for_different_devices domid =
+			if not(Xenstore_watch.IntSet.mem domid watches)
+			then debug "Ignoring frontend device watch on unmanaged domain: %d" domid
+			else if not(IntMap.mem domid !device_watches)
+			then warn "Xenstore watch fired, but no entry for domid %d in device watches list" domid
+			else begin
+				let devices = IntMap.find domid !device_watches in
+				let devices' = Device_common.list_frontends ~xs domid in
+				let old_devices = Listext.List.set_difference devices devices' in
+				let new_devices = Listext.List.set_difference devices' devices in
+				List.iter (add_device_watch xs) new_devices;
+				List.iter (remove_device_watch xs) old_devices;
+			end in
 
-let look_for_different_domains xc xs =
-	let domains' = list_domains xc in
-	let different = list_different_domains !domains domains' in
-	List.iter
-		(fun domid ->
-			debug "Domain %d may have changed state" domid;
-			(* The uuid is either in the new domains map or the old map. *)
-			let di = IntMap.find domid (if IntMap.mem domid domains' then domains' else !domains) in
-			let id = Xenctrl_uuid.uuid_of_handle di.Xenctrl.handle |> Uuidm.to_string in
-			if domid > 0 && not (DB.exists id)
-			then begin
-				debug "However domain %d is not managed by us: ignoring" domid;
-				if IntMap.mem domid !uuids then begin
-					debug "Cleaning-up the remaining watches for: domid %d" domid;
-					cancel_domU_operations xs domid;
-					remove_domU_watches xs domid;
-				end;
-			end else begin
-				Updates.add (Dynamic.Vm id) updates;
-				(* A domain is 'running' if we know it has not shutdown *)
-				let running = IntMap.mem domid domains' && (not (IntMap.find domid domains').Xenctrl.shutdown) in
-				match IntMap.mem domid !watches, running with
-					| true, true -> () (* still running, nothing to do *)
-					| false, false -> () (* still offline, nothing to do *)
-					| false, true ->
-						add_domU_watches xs domid id
-					| true, false ->
-						cancel_domU_operations xs domid;
-						remove_domU_watches xs domid
-			end
-		) different;
-	domains := domains'
+		let fire_event_on_vm domid =
+			let d = int_of_string domid in
+			let open Xenstore_watch in
+			if not(IntMap.mem d domains)
+			then debug "Ignoring watch on shutdown domain %d" d
+			else
+				let di = IntMap.find d domains in
+				let open Xenctrl in
+				let id = Uuidm.to_string (uuid_of_di di) in
+				Updates.add (Dynamic.Vm id) updates in
 
-(* Watches are generated by concurrent activity on the system. We must decide whether
-   to let them queue up in xenstored, or here. Since xenstored is more important for
-   system reliability, we choose to drain its queue as quickly as possible and put the
-   queue here. If this queue gets too large we should throw it away, disconnect and
-   reconnect. *)
-let incoming_watches = Queue.create ()
-let queue_overflowed = ref false
-let incoming_watches_m = Mutex.create ()
-let incoming_watches_c = Condition.create ()
+		let fire_event_on_device domid kind devid =
+			let d = int_of_string domid in
+			let open Xenstore_watch in
+			if not(IntMap.mem d domains)
+			then debug "Ignoring watch on shutdown domain %d" d
+			else
+				let di = IntMap.find d domains in
+				let open Xenctrl in
+				let id = Uuidm.to_string (uuid_of_di di) in
+				let update = match kind with
+					| "vbd" ->
+						let devid' = devid |> int_of_string |> Device_number.of_xenstore_key |> Device_number.to_linux_device in
+						Some (Dynamic.Vbd (id, devid'))
+					| "vif" -> Some (Dynamic.Vif (id, devid))
+					| x ->
+						debug "Unknown device kind: '%s'" x;
+						None in
+				Opt.iter (fun x -> Updates.add x updates) update in
 
-let enqueue_watches event =
-	Mutex.execute incoming_watches_m
-		(fun () ->
-			if Queue.length incoming_watches = !Xenopsd.watch_queue_length
-			then queue_overflowed := true
-			else Queue.push event incoming_watches;
-			Condition.signal incoming_watches_c
-		)
+		match List.filter (fun x -> x <> "") (Re_str.split (Re_str.regexp_string "/") path) with
+			| "local" :: "domain" :: domid :: "backend" :: kind :: frontend :: devid :: _ ->
+				debug "Watch on backend domid: %s kind: %s -> frontend domid: %s devid: %s" domid kind frontend devid;
+				fire_event_on_device frontend kind devid
+			| "local" :: "domain" :: frontend :: "device" :: _ ->
+				look_for_different_devices (int_of_string frontend)
+			| "local" :: "domain" :: domid :: _ ->
+				fire_event_on_vm domid
+			| "vm" :: uuid :: "rtc" :: "timeoffset" :: [] ->
+				let timeoffset = try Some (xs.Xs.read path) with _ -> None in
+				Opt.iter
+					(fun timeoffset ->
+						(* Store the rtc/timeoffset for migrate *)
+						store_rtc_timeoffset uuid timeoffset;
+						(* Tell the higher-level toolstack about this too *)
+						Updates.add (Dynamic.Vm uuid) updates
+					) timeoffset
+			| _  -> debug "Ignoring unexpected watch: %s" path
+end
 
-exception Watch_overflow
-
-let dequeue_watches callback =
-	try
-		while true do
-			let event = Mutex.execute incoming_watches_m
-				(fun () ->
-					while Queue.is_empty incoming_watches && not(!queue_overflowed) do
-						Condition.wait incoming_watches_c incoming_watches_m
-					done;
-					if !queue_overflowed then begin
-						error "xenstore watch event queue overflow: this suggests the processing thread deadlocked somehow.";
-						raise Watch_overflow;
-					end;
-					Queue.pop incoming_watches
-				) in
-			let () = callback event in
-			()
-		done
-	with Watch_overflow -> ()
-
-let process_one_watch xc xs (path, token) =
-	let set_difference a b = List.fold_left (fun acc a ->
-		if not(List.mem a b) then a :: acc else acc
-	) [] a in
-
-	let look_for_different_devices domid =
-		if not(IntMap.mem domid !watches)
-		then debug "Ignoring frontend device watch on unmanaged domain: %d" domid
-		else begin
-			let devices = IntMap.find domid !watches in
-			let devices' = Device_common.list_frontends ~xs domid in
-			let old_devices = set_difference devices devices' in
-			let new_devices = set_difference devices' devices in
-			List.iter (add_device_watch xs) new_devices;
-			List.iter (remove_device_watch xs) old_devices;
-		end in
-
-	let fire_event_on_vm domid =
-		let d = int_of_string domid in
-		if not(IntMap.mem d !domains)
-		then debug "Ignoring watch on shutdown domain %d" d
-		else
-			let di = IntMap.find d !domains in
-			let id = Xenctrl_uuid.uuid_of_handle di.Xenctrl.handle |> Uuidm.to_string in
-			Updates.add (Dynamic.Vm id) updates in
-
-	let fire_event_on_device domid kind devid =
-		let d = int_of_string domid in
-		if not(IntMap.mem d !domains)
-		then debug "Ignoring watch on shutdown domain %d" d
-		else
-			let di = IntMap.find d !domains in
-			let id = Xenctrl_uuid.uuid_of_handle di.Xenctrl.handle |> Uuidm.to_string in
-			let update = match kind with
-				| "vbd" ->
-					let devid' = devid |> int_of_string |> Device_number.of_xenstore_key |> Device_number.to_linux_device in
-					Some (Dynamic.Vbd (id, devid'))
-				| "vif" -> Some (Dynamic.Vif (id, devid))
-				| x ->
-					debug "Unknown device kind: '%s'" x;
-					None in
-			Opt.iter (fun x -> Updates.add x updates) update in
-
-	if path = _introduceDomain || path = _releaseDomain
-	then look_for_different_domains xc xs
-	else match List.filter (fun x -> x <> "") (Re_str.split (Re_str.regexp "[/]") path) with
-		| "local" :: "domain" :: domid :: "backend" :: kind :: frontend :: devid :: _ ->
-			debug "Watch on backend domid: %s kind: %s -> frontend domid: %s devid: %s" domid kind frontend devid;
-			fire_event_on_device frontend kind devid
-		| "local" :: "domain" :: frontend :: "device" :: _ ->
-			look_for_different_devices (int_of_string frontend)
-		| "local" :: "domain" :: domid :: _ ->
-			fire_event_on_vm domid
-		| "vm" :: uuid :: "rtc" :: "timeoffset" :: [] ->
-			let timeoffset = try Some (xs.Xs.read path) with _ -> None in
-			Opt.iter
-				(fun timeoffset ->
-					(* Store the rtc/timeoffset for migrate *)
-					store_rtc_timeoffset uuid timeoffset;
-					(* Tell the higher-level toolstack about this too *)
-					Updates.add (Dynamic.Vm uuid) updates
-				) timeoffset
-		| _  -> debug "Ignoring unexpected watch: %s" path
+module Watcher = Xenstore_watch.WatchXenstore(Actions)
 
 (* Here we analyse common startup errors in more detail and
    suggest the most likely fixes (e.g. switch to root, start missing
@@ -2414,23 +2306,6 @@ let look_for_xenctrl () =
 			exit 1;
 		end
 
-let register_for_watches xc =
-	let client = Xenstore.Client.make () in
-	Xenstore.Client.with_xs client
-		(fun h ->
-			let xs = Xenstore.Xs.ops h in
-			Xenstore.Client.set_watch_callback client enqueue_watches;
-
-			(* NB these two watches will be immediately fired so we will automatically
-			   check for new/missing domains. *)
-			xs.Xs.watch _introduceDomain "";
-			xs.Xs.watch _releaseDomain "";
-			debug "watching for @introduceDomain and @releaseDomain";
-
-			dequeue_watches (process_one_watch xc xs);
-		)
-
-
 let init () =
 	look_for_forkexec ();
 
@@ -2464,17 +2339,7 @@ let init () =
 	);
 
 	debug "xenstore is responding to requests";
-	let (_: Thread.t) = Thread.create
-		(fun () ->
-			while true do
-				finally
-				(fun () ->
-					debug "(re)starting xenstore watch thread";
-					with_xc register_for_watches)
-				(fun () ->
-					Thread.delay 5.)
-			done
-		) () in
+	let () = Watcher.create_watcher_thread () in
 	()
 
 module DEBUG = struct
