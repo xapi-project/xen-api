@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: b7c6776883ae316b5faee3cf35aca197)
+# DO NOT EDIT (digest: b902ad5c3baf7a4f871a046bf95c3195)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -202,6 +202,7 @@
 <libvirt/*.ml{,i}>: pkg_xcp.xen
 <libvirt/xenops_libvirt_main.{native,byte}>: custom
 # Executable xenopsd_xenlight_main
+<xl/xenops_xl_main.{native,byte}>: use_libxenopsd_xenlight_main_stubs
 <xl/xenops_xl_main.{native,byte}>: use_xenopsd
 <xl/xenops_xl_main.{native,byte}>: pkg_xenlight
 <xl/xenops_xl_main.{native,byte}>: pkg_xenlight.xentoollog
@@ -252,6 +253,81 @@
 <xl/*.ml{,i}>: pkg_rpclib.syntax
 <xl/*.ml{,i}>: pkg_fd-send-recv
 <xl/*.ml{,i}>: pkg_xcp.xen
+"xl/fsync_stubs.c": use_xenopsd
+"xl/fsync_stubs.c": pkg_xenlight
+"xl/fsync_stubs.c": pkg_xenlight.xentoollog
+"xl/fsync_stubs.c": pkg_xenctrl
+"xl/fsync_stubs.c": pkg_xenstore
+"xl/fsync_stubs.c": pkg_xenstore.unix
+"xl/fsync_stubs.c": pkg_xenstore_transport
+"xl/fsync_stubs.c": pkg_xenstore_transport.unix
+"xl/fsync_stubs.c": pkg_rpclib
+"xl/fsync_stubs.c": pkg_forkexec
+"xl/fsync_stubs.c": pkg_xcp
+"xl/fsync_stubs.c": pkg_xcp.storage
+"xl/fsync_stubs.c": pkg_xcp.memory
+"xl/fsync_stubs.c": pkg_sexplib
+"xl/fsync_stubs.c": pkg_xcp-inventory
+"xl/fsync_stubs.c": pkg_syslog
+"xl/fsync_stubs.c": pkg_threads
+"xl/fsync_stubs.c": pkg_threads.posix
+"xl/fsync_stubs.c": pkg_uuidm
+"xl/fsync_stubs.c": pkg_xmlm
+"xl/fsync_stubs.c": pkg_cohttp
+"xl/fsync_stubs.c": pkg_uri
+"xl/fsync_stubs.c": pkg_rpclib.syntax
+"xl/fsync_stubs.c": pkg_fd-send-recv
+"xl/fsync_stubs.c": pkg_xcp.xen
+"xl/xenctrlext_stubs.c": use_xenopsd
+"xl/xenctrlext_stubs.c": pkg_xenlight
+"xl/xenctrlext_stubs.c": pkg_xenlight.xentoollog
+"xl/xenctrlext_stubs.c": pkg_xenctrl
+"xl/xenctrlext_stubs.c": pkg_xenstore
+"xl/xenctrlext_stubs.c": pkg_xenstore.unix
+"xl/xenctrlext_stubs.c": pkg_xenstore_transport
+"xl/xenctrlext_stubs.c": pkg_xenstore_transport.unix
+"xl/xenctrlext_stubs.c": pkg_rpclib
+"xl/xenctrlext_stubs.c": pkg_forkexec
+"xl/xenctrlext_stubs.c": pkg_xcp
+"xl/xenctrlext_stubs.c": pkg_xcp.storage
+"xl/xenctrlext_stubs.c": pkg_xcp.memory
+"xl/xenctrlext_stubs.c": pkg_sexplib
+"xl/xenctrlext_stubs.c": pkg_xcp-inventory
+"xl/xenctrlext_stubs.c": pkg_syslog
+"xl/xenctrlext_stubs.c": pkg_threads
+"xl/xenctrlext_stubs.c": pkg_threads.posix
+"xl/xenctrlext_stubs.c": pkg_uuidm
+"xl/xenctrlext_stubs.c": pkg_xmlm
+"xl/xenctrlext_stubs.c": pkg_cohttp
+"xl/xenctrlext_stubs.c": pkg_uri
+"xl/xenctrlext_stubs.c": pkg_rpclib.syntax
+"xl/xenctrlext_stubs.c": pkg_fd-send-recv
+"xl/xenctrlext_stubs.c": pkg_xcp.xen
+"xl/poll_stubs.c": use_xenopsd
+"xl/poll_stubs.c": pkg_xenlight
+"xl/poll_stubs.c": pkg_xenlight.xentoollog
+"xl/poll_stubs.c": pkg_xenctrl
+"xl/poll_stubs.c": pkg_xenstore
+"xl/poll_stubs.c": pkg_xenstore.unix
+"xl/poll_stubs.c": pkg_xenstore_transport
+"xl/poll_stubs.c": pkg_xenstore_transport.unix
+"xl/poll_stubs.c": pkg_rpclib
+"xl/poll_stubs.c": pkg_forkexec
+"xl/poll_stubs.c": pkg_xcp
+"xl/poll_stubs.c": pkg_xcp.storage
+"xl/poll_stubs.c": pkg_xcp.memory
+"xl/poll_stubs.c": pkg_sexplib
+"xl/poll_stubs.c": pkg_xcp-inventory
+"xl/poll_stubs.c": pkg_syslog
+"xl/poll_stubs.c": pkg_threads
+"xl/poll_stubs.c": pkg_threads.posix
+"xl/poll_stubs.c": pkg_uuidm
+"xl/poll_stubs.c": pkg_xmlm
+"xl/poll_stubs.c": pkg_cohttp
+"xl/poll_stubs.c": pkg_uri
+"xl/poll_stubs.c": pkg_rpclib.syntax
+"xl/poll_stubs.c": pkg_fd-send-recv
+"xl/poll_stubs.c": pkg_xcp.xen
 <xl/xenops_xl_main.{native,byte}>: custom
 # OASIS_STOP
 <lib/updates.ml>: syntax_camlp4o, pkg_rpc.syntax
