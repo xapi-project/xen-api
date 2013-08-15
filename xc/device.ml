@@ -1154,11 +1154,8 @@ let release ~xc ~xs ~hvm pcidevs domid devid =
 		release_xl pcidevs domid
 
 let write_string_to_file file s =
-	Unixext.with_file file [ Unix.O_WRONLY ] 0o640
-		(fun fd ->
-			let (_: int) = Unix.write fd s 0 (String.length s) in
-			()
-		)
+	let fn_write_string fd = Unixext.really_write fd s 0 (String.length s) in
+	Unixext.with_file file [ Unix.O_WRONLY ] 0o640 fn_write_string
 
 let do_flr device =
 	debug "Doing FLR on pci device: %s" device;
