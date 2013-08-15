@@ -1,3 +1,7 @@
+0.9.20 (15-Aug-2013):
+* update to xen-api c/s f45d493e7ed9b5a60fed1db64ce52708c76465a6; see
+https://github.com/djs55/xenopsd/pull/35
+
 0.9.19 (14-Aug-2013):
 * disable by default the libvirt build
 
