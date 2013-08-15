@@ -43,6 +43,8 @@ module SR = struct
   let reset ctx ~dbg ~sr = u "SR.reset"
   let destroy ctx ~dbg ~sr = u "SR.destroy"
   let scan ctx ~dbg ~sr = u "SR.scan"
+  let update_snapshot_info_src ctx ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~snapshot_pairs = u "SR.update_snapshot_info_src"
+  let update_snapshot_info_dest ctx ~dbg ~sr ~vdi ~src_vdi ~snapshot_pairs = u "SR.update_snapshot_info_dest"
   let stat ctx ~dbg ~sr = u "SR.stat"
   let list ctx ~dbg = u "SR.list"
 end
