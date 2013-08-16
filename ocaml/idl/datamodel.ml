@@ -7808,6 +7808,29 @@ let pgpu =
 		~allowed_roles:_R_POOL_OP
 		()
 	in
+	let get_remaining_capacity = call
+		~name:"get_remaining_capacity"
+		~lifecycle:[Published, rel_vgpu_tech_preview, ""]
+		~versioned_params:[
+			{
+				param_type = (Ref _pgpu);
+				param_name = "self";
+				param_doc = "The PGPU to query";
+				param_release = vgpu_tech_preview_release;
+				param_default = None;
+			};
+			{
+				param_type = (Ref _vgpu_type);
+				param_name = "vgpu_type";
+				param_doc = "The VGPU type for which we want to find the number of VGPUs which can still be started on this PGPU";
+				param_release = vgpu_tech_preview_release;
+				param_default = None;
+			};
+		]
+		~result:(Int, "The number of VGPUs of the specified type which can still be started on this PGPU")
+		~allowed_roles:_R_READ_ONLY
+		()
+	in
 	create_obj
 		~name:_pgpu
 		~descr:"A physical GPU (pGPU)"
@@ -7821,6 +7844,7 @@ let pgpu =
 			remove_enabled_VGPU_types;
 			set_enabled_VGPU_types;
 			set_GPU_group;
+			get_remaining_capacity;
 		]
 		~messages_default_allowed_roles:_R_POOL_OP
 		~persist:PersistEverything
