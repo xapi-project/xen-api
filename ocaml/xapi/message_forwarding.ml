@@ -557,6 +557,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			Ref.string_of vgpu
 		with _ -> "invalid"
 
+	let vgpu_type_uuid ~__context vgpu_type =
+		try if Pool_role.is_master () then
+			Db.VGPU_type.get_uuid __context vgpu_type
+		else
+			Ref.string_of vgpu_type
+		with _ -> "invalid"
+
 	module Session = Local.Session
 	module Auth = Local.Auth
 	module Subject = Local.Subject
@@ -3726,6 +3733,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let get_supported_VGPU_types ~__context ~self =
 			info "GPU_group.get_supported_VGPU_types: gpu_group = '%s'" (gpu_group_uuid ~__context self);
 			Local.GPU_group.get_supported_VGPU_types ~__context ~self
+
+		let get_remaining_capacity ~__context ~self ~vgpu_type =
+			info "GPU_group.get_remaining_capacity: gpu_group = '%s' vgpu_type = '%s'"
+				(gpu_group_uuid ~__context self)
+				(vgpu_type_uuid ~__context vgpu_type);
+			Local.GPU_group.get_remaining_capacity ~__context ~self ~vgpu_type
 	end
 
 	module VGPU = struct
