@@ -7834,7 +7834,7 @@ let pgpu =
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu_type)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "supported_VGPU_types" "List of VGPU types supported by the underlying hardware";
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu_type)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "enabled_VGPU_types" "List of VGPU types which have been enabled for this PGPU";
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "resident_VGPUs" "List of VGPUs running on this PGPU";
-			field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~internal_only:true ~default_value:(Some (VInt Constants.pgpu_default_capacity)) "capacity" "Abstract capacity of this PGPU";
+			field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~internal_only:true ~default_value:(Some (VInt Constants.pgpu_default_size)) "size" "Abstract size of this PGPU";
 			]
 		()
 
@@ -7987,7 +7987,7 @@ let vgpu_type =
 			field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~default_value:(Some (VString "")) "model_name" "Model name associated with the VGPU type";
 			field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~default_value:(Some (VInt 0L)) "framebuffer_size" "Framebuffer size of the VGPU type, in bytes";
 			field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~default_value:(Some (VInt 0L)) "max_heads" "Maximum number of displays supported by the VGPU type";
-			field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~internal_only:true ~default_value:(Some (VInt 0L)) "PGPU_footprint" "Abstract size for tracking PGPU utilisation";
+			field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~internal_only:true ~default_value:(Some (VInt 0L)) "size" "Abstract size for tracking PGPU utilisation";
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _pgpu)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "supported_on_PGPUs" "List of PGPUs that support this VGPU type";
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _pgpu)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "enabled_on_PGPUs" "List of PGPUs that have this VGPU type enabled";
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "VGPUs" "List of VGPUs of this type";
