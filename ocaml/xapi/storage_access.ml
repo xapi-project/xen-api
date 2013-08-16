@@ -298,11 +298,8 @@ module SMAPIv1 = struct
 						with Not_found -> raise (Vdi_does_not_exist vdi)
 					in
 					let assert_content_ids_match ~vdi_info1 ~vdi_info2 =
-()
-(* XXX
 						if vdi_info1.content_id <> vdi_info2.content_id
 						then raise (Content_ids_do_not_match (vdi_info1.vdi, vdi_info2.vdi))
-*)
 					in
 					(* For each (local snapshot vdi, source snapshot vdi) pair:
 					 * - Check that the content_ids are the same

@@ -235,8 +235,6 @@ let update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map =
 	try
 		VDIMap.iter
 			(fun vdi_ref (mirror, snapshots) ->
-()
-(* XXX
 				let sr = mirror.mr_local_sr in
 				let vdi = mirror.mr_local_vdi in
 				let dest = mirror.mr_remote_sr in
@@ -250,8 +248,7 @@ let update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map =
 				in
 				SMAPI.SR.update_snapshot_info_src
 					~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~snapshot_pairs
-*)
-)
+			)
 			vdi_to_snapshots_map
 	with Storage_interface.Unknown_RPC call ->
 		debug "Remote SMAPI doesn't implement %s - ignoring" call

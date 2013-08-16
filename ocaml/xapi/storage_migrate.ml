@@ -679,8 +679,6 @@ let copy_into ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
  * for snapshot_of, snapshot_time and is_a_snapshot, which we don't want to add
  * to SMAPI. *)
 let update_snapshot_info_src ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~snapshot_pairs =
-()
-(* XXX
 	let remote_url = Http.Url.of_string url in
 	let module Remote =
 		Client(struct
@@ -702,4 +700,3 @@ let update_snapshot_info_src ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~snapshot_pairs 
 	Remote.SR.update_snapshot_info_dest ~dbg ~sr:dest ~vdi:dest_vdi
 		~src_vdi:(find_vdi ~vdi ~vdi_info_list:local_vdis)
 		~snapshot_pairs:snapshot_pairs_for_remote
-*)
