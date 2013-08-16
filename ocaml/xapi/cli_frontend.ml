@@ -2442,6 +2442,14 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
 			implementation=No_fd Cli_operations.gpu_group_destroy;
 			flags=[];
 		};
+		"gpu-group-get-remaining-capacity",
+		{
+			reqd=["uuid";"vgpu-type-uuid"];
+			optn=[];
+			help="Calculate the number of VGPUs of the specified type which still be started in the group";
+			implementation = No_fd Cli_operations.gpu_group_get_remaining_capacity;
+			flags=[];
+		};
 	"vgpu-create",
 	{
 		reqd=["vm-uuid";"gpu-group-uuid"];
