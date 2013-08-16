@@ -37,7 +37,7 @@ type vgpu_type = {
 	model_name : string;
 	framebuffer_size : int64;
 	max_heads : int64;
-	pGPU_footprint : int64;
+	size : int64;
 	internal_config : (string * string) list;
 }
 
@@ -46,15 +46,15 @@ let entire_gpu = {
 	model_name = "passthrough";
 	framebuffer_size = 0L;
 	max_heads = 0L;
-	pGPU_footprint = 0L;
+	size = 0L;
 	internal_config = [];
 }
 
-let create ~__context ~vendor_name ~model_name ~framebuffer_size ~max_heads ~pGPU_footprint ~internal_config =
+let create ~__context ~vendor_name ~model_name ~framebuffer_size ~max_heads ~size ~internal_config =
 	let ref = Ref.make () in
 	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
 	Db.VGPU_type.create ~__context ~ref ~uuid ~vendor_name ~model_name
-		~framebuffer_size ~max_heads ~pGPU_footprint ~internal_config;
+		~framebuffer_size ~max_heads ~size ~internal_config;
 	debug "VGPU_type ref='%s' created (vendor_name = '%s'; model_name = '%s')"
 		(Ref.string_of ref) vendor_name model_name;
 	ref
@@ -78,7 +78,7 @@ let find_or_create ~__context vgpu_type =
 			~model_name:vgpu_type.model_name
 			~framebuffer_size:vgpu_type.framebuffer_size
 			~max_heads:vgpu_type.max_heads
-			~pGPU_footprint:vgpu_type.pGPU_footprint
+			~size:vgpu_type.size
 			~internal_config:vgpu_type.internal_config
 	| _ ->
 		failwith "Error: Multiple vGPU types exist with the same configuration."
@@ -150,11 +150,11 @@ let relevant_vgpu_types pci_db pci_dev_ids =
 						conf.vdev_id conf.vsubdev_id)
 				and framebuffer_size = conf.framebufferlength
 				and max_heads = conf.num_heads
-				and pGPU_footprint = Int64.div Constants.pgpu_default_capacity conf.max_instance
+				and size = Int64.div Constants.pgpu_default_size conf.max_instance
 				and internal_config = [Xapi_globs.vgpu_config_key, conf.file_path] in
 				let vgpu_type = {
 					vendor_name; model_name; framebuffer_size; max_heads;
-					pGPU_footprint; internal_config}
+					size; internal_config}
 				in
 				build_vgpu_types pci_db (vgpu_type :: ac) tl
 			with Not_found | Failure "hd" ->
