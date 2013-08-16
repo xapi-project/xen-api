@@ -12,17 +12,17 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(* Check that the specified type of VGPU is enabled on this PGPU. *)
+(** Check that the specified type of VGPU is enabled on this PGPU. *)
 val assert_VGPU_type_enabled : __context:Context.t ->
 	self:API.ref_PGPU -> vgpu_type:API.ref_VGPU_type -> unit
 
-(* Check that the specified type of VGPU is supported on this PGPU. *)
+(** Check that the specified type of VGPU is supported on this PGPU. *)
 val assert_VGPU_type_supported : __context:Context.t ->
 	self:API.ref_PGPU -> vgpu_type:API.ref_VGPU_type -> unit
 
-(** Any VGPUs already resident on this PGPU be compatible with the type of the
- *  VGPUs already running on the PGPU. For now, we only allow one VGPU_type to
- *  run on a PGPU at any one time. *)
+(** Any VGPUs already resident on this PGPU must be compatible with the type of
+ *  the VGPUs already running on the PGPU. For now, we only allow one VGPU_type
+ *  to run on a PGPU at any one time. *)
 val assert_VGPU_type_allowed : __context:Context.t ->
 	self:API.ref_PGPU -> vgpu_type:API.ref_VGPU_type -> unit
 
