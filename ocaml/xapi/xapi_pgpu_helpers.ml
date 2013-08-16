@@ -88,22 +88,22 @@ let assert_capacity_exists_for_VGPU ~__context ~self ~vgpu =
 			raise (Api_errors.Server_error (Api_errors.pgpu_in_use_by_vm,
 				List.map Ref.string_of attached_VMs)));
 		(* 2. There is remaining capacity to run this VGPU on the PGPU. *)
-		let capacity = Db.PGPU.get_capacity ~__context ~self in
+		let pgpu_size = Db.PGPU.get_size ~__context ~self in
 		let resident_VGPUs = Db.PGPU.get_resident_VGPUs ~__context ~self in
 		let utilisation =
 			List.fold_left
 				(fun acc vgpu ->
 					let _type = Db.VGPU.get_type ~__context ~self:vgpu in
-					let footprint =
-						Db.VGPU_type.get_PGPU_footprint ~__context ~self:_type
+					let vgpu_size =
+						Db.VGPU_type.get_size ~__context ~self:_type
 					in
-					Int64.add acc footprint)
+					Int64.add acc vgpu_size)
 				0L resident_VGPUs
 		in
-		let new_footprint =
-			Db.VGPU_type.get_PGPU_footprint ~__context ~self:new_type
+		let new_vgpu_size =
+			Db.VGPU_type.get_size ~__context ~self:new_type
 		in
-		if (Int64.add utilisation new_footprint) > capacity
+		if (Int64.add utilisation new_vgpu_size) > pgpu_size
 		then raise (Api_errors.Server_error (
 			Api_errors.pgpu_insufficient_capacity_for_vgpu,
 			[Ref.string_of self; Ref.string_of vgpu]))
