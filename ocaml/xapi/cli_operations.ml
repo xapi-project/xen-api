@@ -4342,6 +4342,17 @@ let gpu_group_destroy printer rpc session_id params =
 	let gpu_group = Client.GPU_group.get_by_uuid ~rpc ~session_id ~uuid in
 	Client.GPU_group.destroy ~rpc ~session_id ~self:gpu_group
 
+let gpu_group_get_remaining_capacity printer rpc session_id params =
+	let uuid = List.assoc "uuid" params in
+	let vgpu_type_uuid = List.assoc "vgpu-type-uuid" params in
+	let gpu_group = Client.GPU_group.get_by_uuid ~rpc ~session_id ~uuid in
+	let vgpu_type =
+		Client.VGPU_type.get_by_uuid ~rpc ~session_id ~uuid:vgpu_type_uuid
+	in
+	let result = Client.GPU_group.get_remaining_capacity ~rpc ~session_id
+		~self:gpu_group ~vgpu_type in
+	printer (Cli_printer.PMsg (Int64.to_string result))
+
 let vgpu_create printer rpc session_id params =
 	let device = if List.mem_assoc "device" params then List.assoc "device" params else "0" in
 	let gpu_group_uuid = List.assoc "gpu-group-uuid" params in
