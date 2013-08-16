@@ -7776,6 +7776,17 @@ let gpu_group =
 		~allowed_roles:_R_READ_ONLY
 		()
 	in
+	let get_remaining_capacity = call
+		~name:"get_remaining_capacity"
+		~lifecycle:[Published, rel_vgpu, ""]
+		~params:[
+			Ref _gpu_group, "self", "The GPU group to query";
+			Ref _vgpu_type, "vgpu_type", "The VGPU_type for which the remaining capacity will be calculated";
+		]
+		~result:(Int, "The number of VGPUs of the given type which can still be started on the PGPUs in the group")
+		~allowed_roles:_R_READ_ONLY
+		()
+	in
 	let allocation_algorithm =
 		Enum ("allocation_algorithm",
 			[ "breadth_first", "vGPUs of a given type are allocated evenly across supporting pGPUs.";
@@ -7795,6 +7806,7 @@ let gpu_group =
 			destroy;
 			get_enabled_VGPU_types;
 			get_supported_VGPU_types;
+			get_remaining_capacity;
 		]
 		~messages_default_allowed_roles:_R_POOL_OP
 		~persist:PersistEverything

@@ -81,3 +81,14 @@ let get_supported_VGPU_types ~__context ~self =
 		(List.map
 			(fun pgpu -> Db.PGPU.get_supported_VGPU_types ~__context ~self:pgpu)
 			pgpus)
+
+let get_remaining_capacity ~__context ~self ~vgpu_type =
+	let pgpus = Db.GPU_group.get_PGPUs ~__context ~self in
+	List.fold_left
+		(fun acc pgpu ->
+			let pgpu_remaining_capacity =
+				Xapi_pgpu_helpers.get_remaining_capacity
+					~__context ~self:pgpu ~vgpu_type
+			in
+			Int64.add acc pgpu_remaining_capacity)
+		0L pgpus

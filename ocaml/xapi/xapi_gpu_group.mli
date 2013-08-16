@@ -35,3 +35,9 @@ val get_enabled_VGPU_types :
 
 val get_supported_VGPU_types :
 	__context:Context.t -> self:[ `GPU_group ] Ref.t -> [ `VGPU_type ] Ref.t list
+
+val get_remaining_capacity :
+	__context:Context.t ->
+	self: [ `GPU_group ] Ref.t ->
+	vgpu_type:[ `VGPU_type ] Ref.t ->
+	int64
