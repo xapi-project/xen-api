@@ -34,6 +34,11 @@ val set_enabled_VGPU_types : __context:Context.t ->
 val set_GPU_group : __context:Context.t -> self:API.ref_PGPU ->
 	value: API.ref_GPU_group -> unit
 
+(* Return the number of VGPUs of the specified type for which capacity
+ * remains on the PGPU. *)
+val get_remaining_capacity : __context:Context.t ->
+	self:API.ref_PGPU -> vgpu_type:API.ref_VGPU_type -> int64
+
 (** Check whether a VGPU can run on a particular PGPU. *)
 val assert_can_run_VGPU : __context:Context.t -> self:API.ref_PGPU ->
 	vgpu:API.ref_VGPU -> unit
