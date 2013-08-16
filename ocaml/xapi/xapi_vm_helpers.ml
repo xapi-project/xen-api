@@ -565,13 +565,12 @@ let vm_can_run_on_host __context vm snapshot do_memory_check host =
 can boot. Raises [Api_errors.no_hosts_available] if no such host exists. *)
 let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
 	let validate_host = vm_can_run_on_host __context vm snapshot true in
-	try 
-	  Xapi_vm_placement.select_host __context vm validate_host
-	with 
-	  | Api_errors.Server_error(x,[]) when x=Api_errors.no_hosts_available ->
-	    debug "No hosts guaranteed to satisfy VM constraints. Trying again ignoring memory checks";
-	    let validate_host = vm_can_run_on_host __context vm snapshot false in
-	    Xapi_vm_placement.select_host __context vm validate_host
+	try
+		Xapi_vm_placement.select_host __context vm validate_host
+	with Api_errors.Server_error(x,[]) when x=Api_errors.no_hosts_available ->
+		debug "No hosts guaranteed to satisfy VM constraints. Trying again ignoring memory checks";
+		let validate_host = vm_can_run_on_host __context vm snapshot false in
+		Xapi_vm_placement.select_host __context vm validate_host
 
 (** Given a virtual machine, returns a host it can boot on, giving   *)
 (** priority to an affinity host if one is present. WARNING: called  *)
