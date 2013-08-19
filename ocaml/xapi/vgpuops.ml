@@ -92,6 +92,18 @@ let create_virtual_vgpu ~__context vm vgpu =
 	let available_pgpus = Db.Host.get_PGPUs ~__context ~self:host in
 	let compatible_pgpus = Db.GPU_group.get_PGPUs ~__context ~self:vgpu.gpu_group_ref in
 	let pgpus = List.intersect compatible_pgpus available_pgpus in
+	(* Sort the pgpus in lists of equal optimality for vGPU placement based on
+	 * the GPU groups allocation algorithm *)
+	let sort_desc =
+		match Db.GPU_group.get_allocation_algorithm ~__context ~self:vgpu.gpu_group_ref with
+		| `depth_first -> false
+		| `breadth_first -> true
+	in
+	let sorted_pgpus = Helpers.sort_by_schwarzian ~descending:sort_desc
+		(fun pgpu -> Xapi_pgpu_helpers.get_remaining_capacity ~__context
+			~self:pgpu ~vgpu_type:vgpu.type_ref)
+		pgpus
+	in
 	let rec allocate_vgpu vgpu_type = function
 		| [] -> None
 		| pgpu :: remaining_pgpus ->
@@ -103,7 +115,7 @@ let create_virtual_vgpu ~__context vm vgpu =
 			with _ -> allocate_vgpu vgpu_type remaining_pgpus
 	in
 	Threadext.Mutex.execute m (fun () ->
-		match allocate_vgpu vgpu.type_ref pgpus with
+		match allocate_vgpu vgpu.type_ref sorted_pgpus with
 		| None ->
 			raise (Api_errors.Server_error (Api_errors.vm_requires_vgpu, [
 				Ref.string_of vm;
