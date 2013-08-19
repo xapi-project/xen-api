@@ -83,7 +83,7 @@ module PoolExpiryDate = Generic.Make(Generic.EncapsulateState(struct
 				let (_: API.ref_host) = Test_common.make_host ~__context ~license_params () in ())
 			expiry_dates
 
-	let extract_output __context =
+	let extract_output __context _ =
 		let hosts = Db.Host.get_all ~__context in
 		Xapi_pool_license.get_earliest_expiry_date ~__context ~hosts
 
@@ -115,7 +115,7 @@ module PoolEdition = Generic.Make(Generic.EncapsulateState(struct
 				let (_: API.ref_host) = Test_common.make_host ~__context ~edition () in ())
 			editions
 
-	let extract_output __context =
+	let extract_output __context _ =
 		let hosts = Db.Host.get_all ~__context in
 		Xapi_pool_license.get_lowest_edition ~__context ~hosts
 
@@ -155,7 +155,7 @@ module PoolLicenseState = Generic.Make(Generic.EncapsulateState(struct
 			Test_common.make_pool ~__context
 				~master:(List.hd (Db.Host.get_all ~__context)) () in ()
 
-	let extract_output __context =
+	let extract_output __context _ =
 		let pool = Helpers.get_pool ~__context in
 		Xapi_pool.get_license_state ~__context ~self:pool
 
