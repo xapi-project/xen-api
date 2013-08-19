@@ -51,7 +51,7 @@ module HVMBuilderOfVM = Generic.Make(Generic.EncapsulateState(struct
 			()
 		in ()
 
-	let extract_output __context =
+	let extract_output __context _ =
 		let vms = Db.VM.get_by_name_label ~__context ~label:test_vm_name in
 		let vm = List.nth vms 0 in
 		let vm_record = Db.VM.get_record ~__context ~self:vm in
