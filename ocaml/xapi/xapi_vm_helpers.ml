@@ -565,13 +565,61 @@ let vm_can_run_on_host __context vm snapshot do_memory_check host =
 can boot. Raises [Api_errors.no_hosts_available] if no such host exists. *)
 let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
 	let validate_host = vm_can_run_on_host __context vm snapshot true in
-	try 
-	  Xapi_vm_placement.select_host __context vm validate_host
-	with 
-	  | Api_errors.Server_error(x,[]) when x=Api_errors.no_hosts_available ->
-	    debug "No hosts guaranteed to satisfy VM constraints. Trying again ignoring memory checks";
-	    let validate_host = vm_can_run_on_host __context vm snapshot false in
-	    Xapi_vm_placement.select_host __context vm validate_host
+	let all_hosts = Db.Host.get_all ~__context in
+	try
+		match Db.VM.get_VGPUs ~__context ~self:vm with
+		| [] -> Xapi_vm_placement.select_host __context vm validate_host all_hosts
+		| vgpu :: _ -> (* just considering first vgpu *)
+			let vgpu_type = Db.VGPU.get_type ~__context ~self:vgpu in
+			let gpu_group = Db.VGPU.get_GPU_group ~__context ~self:vgpu in
+			if not (Xapi_gpu_group.get_remaining_capacity ~__context ~self:gpu_group ~vgpu_type > 0L)
+			then raise (Api_errors.Server_error (Api_errors.vm_requires_vgpu,
+				[Ref.string_of vm; Ref.string_of gpu_group; Ref.string_of vgpu_type]));
+			let pgpus = Db.GPU_group.get_PGPUs ~__context ~self:gpu_group in
+			let can_accomodate_vgpu pgpu =
+				Xapi_pgpu_helpers.get_remaining_capacity ~__context ~self:pgpu
+					~vgpu_type > 0L
+			in
+			let viable_pgpus = List.filter can_accomodate_vgpu pgpus in
+			let viable_hosts = List.setify
+				(List.map (fun pgpu -> Db.PGPU.get_host ~__context ~self:pgpu)
+					viable_pgpus)
+			in
+			(* Group the hosts by pgpu-capacity and try to select a host based
+			 * on GPU group allocation algorithm *)
+			let host_lists = Helpers.group_by
+				(fun host ->
+					let group_by_capacity pgpus =
+						(match Db.GPU_group.get_allocation_algorithm ~__context ~self:gpu_group with
+						| `depth_first -> Helpers.group_by ~descending:false
+						| `breadth_first -> Helpers.group_by ~descending:true)
+						(fun pgpu -> Xapi_pgpu_helpers.get_remaining_capacity ~__context ~self:pgpu ~vgpu_type)
+						pgpus
+					in
+					let viable_resident_pgpus = List.filter
+						(fun self -> Db.PGPU.get_host ~__context ~self = host)
+						viable_pgpus
+					in
+					snd (List.hd (List.hd (group_by_capacity viable_resident_pgpus)))
+				) viable_hosts
+			in
+			let rec select_host_from = function
+				| [] -> raise (Api_errors.Server_error (Api_errors.no_hosts_available, []))
+				| (hosts :: less_optimal_groups_of_hosts) ->
+					let hosts = List.map (fun (h, c) -> h) hosts in
+					debug "Attempting to start VM (%s) on one of equally optimal hosts [ %s ]"
+						(Ref.string_of vm) (String.concat ";" (List.map Ref.string_of hosts));
+					try Xapi_vm_placement.select_host __context vm validate_host hosts
+					with _ ->
+						info "Failed to start VM (%s) on any of [ %s ]"
+							(Ref.string_of vm) (String.concat ";" (List.map Ref.string_of hosts));
+						select_host_from less_optimal_groups_of_hosts
+			in
+			select_host_from host_lists
+	with Api_errors.Server_error(x,[]) when x=Api_errors.no_hosts_available ->
+		debug "No hosts guaranteed to satisfy VM constraints. Trying again ignoring memory checks";
+		let validate_host = vm_can_run_on_host __context vm snapshot false in
+		Xapi_vm_placement.select_host __context vm validate_host all_hosts
 
 (** Given a virtual machine, returns a host it can boot on, giving   *)
 (** priority to an affinity host if one is present. WARNING: called  *)

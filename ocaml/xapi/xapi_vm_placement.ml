@@ -49,13 +49,10 @@ let create_host_snapshot __context host =
 	; HS.memory_total     = memory_total
 	}
 
-let create_pool_snapshot __context pool =
-	let hosts =  List.map
-		(create_host_snapshot __context)
-		(Db.Host.get_all ~__context)
-	in
+let create_pool_subset_snapshot __context pool hosts =
+	let host_snapshots =  List.map (create_host_snapshot __context) hosts in
 	{ PS.id    = Ref.string_of pool
-	; PS.hosts = hosts
+	; PS.hosts = host_snapshots
 	}
 
 (* === Snapshot summary constructors ======================================== *)
@@ -65,10 +62,10 @@ let create_host_snapshot_summary __context extra_guests host =
 		(List.map (create_guest_snapshot __context) extra_guests)
 		(create_host_snapshot __context host)
 
-let create_pool_snapshot_summary __context extra_guests pool =
+let create_pool_subset_snapshot_summary __context extra_guests pool hosts =
 	summarise_pool_snapshot
 		(List.map (create_guest_snapshot __context) extra_guests)
-		(create_pool_snapshot __context pool)
+		(create_pool_subset_snapshot __context pool hosts)
 
 (* === Plumbing code ======================================================== *)
 
@@ -80,11 +77,11 @@ let affinity_host_ids_of_guest __context guest =
 		then [Db.Host.get_uuid __context affinity_host]
 		else []
 
-(** Returns a single host (from the set of all hosts) on which the given [vm]
+(** Returns a single host (from the given list of hosts) on which the given [vm]
 can boot. @raise Api_errors.no_hosts_available if no such host exists. *)
-let select_host __context guest validate_host =
-	let pool_summary = create_pool_snapshot_summary __context [guest]
-		(Helpers.get_pool ~__context) in
+let select_host __context guest validate_host hosts =
+	let pool_summary = create_pool_subset_snapshot_summary __context [guest]
+		(Helpers.get_pool ~__context) hosts in
 	let affinity_host_ids = affinity_host_ids_of_guest __context guest in
 	let random_fn =
 		if Xapi_fist.deterministic_host_selection ()
