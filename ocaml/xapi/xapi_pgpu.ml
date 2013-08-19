@@ -134,6 +134,9 @@ let set_GPU_group ~__context ~self ~value =
 				[gpu_type; "[" ^ String.concat ", " group_types ^ "]"]))
 	)
 
+let get_remaining_capacity ~__context ~self ~vgpu_type =
+	Xapi_pgpu_helpers.get_remaining_capacity ~__context ~self ~vgpu_type
+
 let assert_can_run_VGPU ~__context ~self ~vgpu =
 	let new_type = Db.VGPU.get_type ~__context ~self:vgpu in
 	(* Check that the VGPU type is enabled, and can coexist with any other VGPUs
