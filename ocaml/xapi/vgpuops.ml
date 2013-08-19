@@ -100,8 +100,10 @@ let create_virtual_vgpu ~__context vm vgpu =
 		| `breadth_first -> true
 	in
 	let sorted_pgpus = Helpers.sort_by_schwarzian ~descending:sort_desc
-		(fun pgpu -> Xapi_pgpu_helpers.get_remaining_capacity ~__context
-			~self:pgpu ~vgpu_type:vgpu.type_ref)
+		(fun pgpu ->
+			Helpers.call_api_functions (fun rpc session_id ->
+				Client.Client.PGPU.get_remaining_capacity ~rpc ~session_id
+					~self:pgpu ~vgpu_type:vgpu.type_ref))
 		pgpus
 	in
 	let rec allocate_vgpu vgpu_type = function
