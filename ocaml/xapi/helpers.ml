@@ -489,6 +489,40 @@ let compare_int_lists : int list -> int list -> int =
 		let first_non_zero is = List.fold_left (fun a b -> if (a<>0) then a else b) 0 is in
 		first_non_zero (List.map2 compare a b)
 
+let group_by f list =
+	let evaluated_list = List.map (fun x -> (x, f x)) list in
+	let snd_equality (_, x) (_, y) = x = y in
+	let snd_compare (_, x) (_, y) = compare x y in
+	let sorted = List.sort snd_compare evaluated_list in
+	let rec take_while p ac = function
+		| [] -> (ac, [])
+		| x :: xs ->
+			if (p x) then take_while p (x :: ac) xs
+			else (ac, x :: xs)
+	in
+	let rec group ac = function
+		| [] -> ac
+		| x :: xs ->
+			let peers, rest = take_while (snd_equality x) [] (x :: xs) in
+			group (peers :: ac) rest
+	in
+	group [] sorted
+
+(** Groups list elements by equality of result of function application sorted
+ *  in order of that result *)
+let group_by ?(descending=false) f list =
+	match descending with
+	| true -> group_by f list
+	| false -> List.rev (group_by f list)
+
+(** Schwarzian transform sort *)
+let sort_by_schwarzian ?(descending=false) f list =
+	let comp x y = if descending then compare y x else compare x y in
+	let (|>) a f = f a in
+	List.map (fun x -> (x, f x)) list |>
+	List.sort (fun (_, x') (_, y') -> comp x' y') |>
+	List.map (fun (x, _) -> x)
+
 let version_string_of : __context:Context.t -> [`host] api_object -> string =
 	fun ~__context host ->
 		try
