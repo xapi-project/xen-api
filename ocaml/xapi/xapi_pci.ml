@@ -116,3 +116,21 @@ let update_pcis ~__context ~host =
 	let obsolete = List.set_difference existing current in
 	List.iter (fun (self, _) -> Db.PCI.destroy ~__context ~self) obsolete
 
+let get_system_display_device () =
+	let device = "/dev/vga_arbiter" in
+	try
+		let line =
+			Unixext.with_input_channel
+				device
+				(fun chan -> input_line chan)
+		in
+		(* Example contents of line:
+		 * count:7,PCI:0000:10:00.0,decodes=io+mem,owns=io+mem,locks=none(0:0) *)
+		let items = String.split ',' line in
+		List.fold_left
+			(fun acc item ->
+				if String.startswith "PCI" item
+				then Some (Scanf.sscanf item "PCI:%s" (fun id -> id))
+				else acc)
+			None items
+	with _ -> None
