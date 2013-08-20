@@ -80,4 +80,5 @@ Executable xenopsd_xenlight_main
   Install:            false
   BuildDepends:       xenlight, xenlight.xentoollog, xenctrl, xenopsd, xenstore, xenstore.unix, xenstore_transport, xenstore_transport.unix, rpclib, forkexec, xcp, xcp.storage, xcp.memory, sexplib, xcp-inventory
   CSources:           fsync_stubs.c, xenctrlext_stubs.c, poll_stubs.c
+  CCLib:               -Wl,-rpath=/usr/lib/xen-4.2/lib,-L/usr/lib/xen-4.2/lib
 
