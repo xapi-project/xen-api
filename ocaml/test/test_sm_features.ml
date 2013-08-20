@@ -216,7 +216,7 @@ module CreateSMObject = Generic.Make(Generic.EncapsulateState(struct
 			configuration = [];
 		}
 
-	let extract_output __context =
+	let extract_output __context _ =
 		let sm =
 			List.nth (Db.SM.get_by_name_label ~__context ~label:test_sm_name_label) 0
 		in
