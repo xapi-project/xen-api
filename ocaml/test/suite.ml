@@ -28,6 +28,7 @@ let base_suite =
 			Test_pci_helpers.test;
 			Test_vgpu_type.test;
 			Test_pgpu_helpers.test;
+			Test_xenopsd_metadata.test;
 		]
 
 let _ = run_test_tt_main base_suite
