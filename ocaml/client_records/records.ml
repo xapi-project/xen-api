@@ -1455,7 +1455,11 @@ let pgpu_record rpc session_id pgpu =
 			make_field ~name:"uuid" ~get:(fun () -> (x ()).API.pGPU_uuid) ();
 			make_field ~name:"vendor-name" ~get:(fun () -> try (xp ()).API.pCI_vendor_name with _ -> nid) ();
 			make_field ~name:"device-name" ~get:(fun () -> try (xp ()).API.pCI_device_name with _ -> nid) ();
-			make_field ~name:"gpu-group-uuid" ~get:(fun () -> try get_uuid_from_ref (x ()).API.pGPU_GPU_group with _ -> nid) ();
+			make_field ~name:"gpu-group-uuid"
+				~get:(fun () -> try get_uuid_from_ref (x ()).API.pGPU_GPU_group with _ -> nid)
+				~set:(fun gpu_group_uuid ->
+					let gpu_group = Client.GPU_group.get_by_uuid rpc session_id gpu_group_uuid in
+					Client.PGPU.set_GPU_group rpc session_id pgpu gpu_group) ();
 			make_field ~name:"gpu-group-name-label" ~get:(fun () -> try get_name_from_ref (x ()).API.pGPU_GPU_group with _ -> nid) ();
 			make_field ~name:"host-uuid"    ~get:(fun () -> try get_uuid_from_ref (x ()).API.pGPU_host with _ -> nid) ();
 			make_field ~name:"host-name-label"    ~get:(fun () -> try get_name_from_ref (x ()).API.pGPU_host with _ -> nid) ();
