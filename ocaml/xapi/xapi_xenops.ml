@@ -249,9 +249,21 @@ let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
 			end;
 			acpi = bool vm.API.vM_platform true "acpi";
 			serial = begin
-				if ((string vm.API.vM_platform "" "hvm_serial") = "none") then Some (string vm.API.vM_platform "none" "hvm_serial")
-				else if ((string vm.API.vM_other_config "" "hvm_serial") = "none") then Some (string vm.API.vM_platform "none" "hvm_serial")
-				else Some (string vm.API.vM_platform "pty" "hvm_serial")
+				(* The platform value should override the other_config value. If
+				 * neither are set, use pty. *)
+				let key = "hvm_serial" in
+				let other_config_value =
+					try Some (List.assoc key vm.API.vM_other_config)
+					with Not_found -> None
+				in
+				let platform_value =
+					try Some (List.assoc key vm.API.vM_platform)
+					with Not_found -> None
+				in
+				match other_config_value, platform_value with
+				| None, None -> Some "pty"
+				| _, Some value -> Some value
+				| Some value, None -> Some value
 			end;
 			keymap = Some (string vm.API.vM_platform "en-us" "keymap");
 			vnc_ip = None (*None PR-1255*);
