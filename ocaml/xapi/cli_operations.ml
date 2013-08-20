@@ -4316,14 +4316,6 @@ let vm_appliance_assert_can_be_recovered printer rpc session_id params =
 			let appliance = Client.VM_appliance.get_by_uuid ~rpc ~session_id:database_session ~uuid in
 			Client.VM_appliance.assert_can_be_recovered ~rpc ~session_id:database_session ~self:appliance  ~session_to:session_id)
 
-let pgpu_set_gpu_group printer rpc session_id params =
-	let pgpu_uuid = List.assoc "uuid" params in
-	let gpu_group_uuid = List.assoc "gpu-group-uuid" params in
-	let pgpu = Client.PGPU.get_by_uuid ~rpc ~session_id ~uuid:pgpu_uuid in
-	let gpu_group =
-		Client.GPU_group.get_by_uuid ~rpc ~session_id ~uuid:gpu_group_uuid in
-	Client.PGPU.set_GPU_group ~rpc ~session_id ~self:pgpu ~value:gpu_group
-
 let gpu_group_create printer rpc session_id params =
 	let name_label = List.assoc "name-label" params in
 	let name_description =
