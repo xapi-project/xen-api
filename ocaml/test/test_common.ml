@@ -17,6 +17,8 @@ open Fun
 open OUnit
 
 (** Utility functions *)
+let id (x : 'a) : 'a = x
+
 let string_of_string_list strings =
 	Printf.sprintf "[%s]"
 		(String.concat "; " strings)
@@ -27,6 +29,17 @@ let string_of_string_map map =
 
 let skip str = skip_if true str
 let make_uuid () = Uuid.string_of_uuid (Uuid.make_uuid ())
+
+let assert_raises_api_error (code : string) ?(args : string list option) (f : unit -> 'a) : unit =
+	try
+		f ();
+		assert_failure (Printf.sprintf "Function didn't raise expected API error %s" code)
+	with Api_errors.Server_error (c, a) ->
+		assert_equal ~printer:id ~msg:"Function raised unexpected API error" code c;
+		match args with
+		| None -> ()
+		| Some args ->
+			assert_equal ~printer:string_of_string_list ~msg:"Function raised API error with unexpected args" args a
 
 (** Make a simple in-memory database containing a single host and dom0 VM record. *)
 let make_test_database ?(conn=Mock.Database.conn) ?(reuse=false) () =
