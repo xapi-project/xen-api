@@ -200,6 +200,11 @@ let check_pci ~op ~ref_str =
 	|`suspend | `checkpoint | `pool_migrate -> Some (Api_errors.vm_has_pci_attached, [ref_str])
 	| _ -> None
 
+let check_vgpu ~op ~ref_str =
+	match op with
+	| `suspend | `checkpoint | `pool_migrate | `migrate_send -> Some (Api_errors.vm_has_vgpu, [ref_str])
+	| _ -> None
+
 (* VM cannot be converted into a template while it is a member of an appliance. *)
 let check_appliance ~vmr ~op ~ref_str =
 	match op with
@@ -315,6 +320,12 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 	let current_error = check current_error (fun () ->
 		if vmr.Db_actions.vM_attached_PCIs <> []
 		then check_pci ~op ~ref_str
+		else None) in
+
+	(* The VM has a VGPU, check if the operation is allowed*)
+	let current_error = check current_error (fun () ->
+		if vmr.Db_actions.vM_VGPUs <> []
+		then check_vgpu ~op ~ref_str
 		else None) in
 
 	(* Check for errors caused by VM being in an appliance. *)
