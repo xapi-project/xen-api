@@ -102,24 +102,13 @@ let set_GPU_group ~__context ~self ~value =
 	debug "Move PGPU %s -> GPU group %s" (Db.PGPU.get_uuid ~__context ~self)
 		(Db.GPU_group.get_uuid ~__context ~self:value);
 	Mutex.execute gpu_group_m (fun () ->
-		let pci = Db.PGPU.get_PCI ~__context ~self in
-
-		(* Precondition: PGPU not currently in use by a VM *)
-		let attached_vms = Db.PCI.get_attached_VMs ~__context ~self:pci in
-		if attached_vms <> [] then
+		(* Precondition: PGPU has no resident VGPUs *)
+		let resident_vgpus = Db.PGPU.get_resident_VGPUs ~__context ~self in
+		if resident_vgpus <> [] then begin
+			let resident_vms = List.map
+				(fun self -> Db.VGPU.get_VM ~__context ~self) resident_vgpus in
 			raise (Api_errors.Server_error (Api_errors.pgpu_in_use_by_vm,
-				List.map Ref.string_of attached_vms));
-
-		(* Precondition: Moving PGPU from current group can't orphan VGPU *)
-		let src_g = Db.PGPU.get_GPU_group ~__context ~self in
-		if Db.is_valid_ref __context src_g then begin
-			let pgpu_is_singleton =
-				(List.length (Db.GPU_group.get_PGPUs ~__context ~self:src_g) = 1)
-			and pgpu_has_vgpus =
-				((Db.GPU_group.get_VGPUs ~__context ~self:src_g) <> []) in
-			if (pgpu_is_singleton && pgpu_has_vgpus) then
-				raise (Api_errors.Server_error
-					(Api_errors.pgpu_required_by_gpu_group, [Ref.string_of src_g]))
+				List.map Ref.string_of resident_vms))
 		end;
 
 		let check_compatibility gpu_type group_types =
@@ -127,6 +116,7 @@ let set_GPU_group ~__context ~self ~value =
 			| [] -> true, [gpu_type]
 			| _ -> List.mem gpu_type group_types, group_types in
 
+		let pci = Db.PGPU.get_PCI ~__context ~self in
 		let gpu_type = Xapi_pci.string_of_pci ~__context ~self:pci
 		and group_types = Db.GPU_group.get_GPU_types ~__context ~self:value in
 		match check_compatibility gpu_type group_types with
