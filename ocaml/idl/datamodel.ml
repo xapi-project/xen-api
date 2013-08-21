@@ -517,8 +517,6 @@ let _ =
 
   error Api_errors.pgpu_in_use_by_vm ["VMs"]
     ~doc:"This PGPU is currently in use by running VMs." ();
-  error Api_errors.pgpu_required_by_gpu_group ["gpu_group"]
-    ~doc:"Moving this PGPU would leave unbacked VGPUs in the GPU group." ();
   error Api_errors.pgpu_not_compatible_with_gpu_group ["type"; "group_types"]
     ~doc:"PGPU type not compatible with destination group." ();
   error Api_errors.pgpu_insufficient_capacity_for_vgpu ["pgpu"; "vgpu"]
