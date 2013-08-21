@@ -246,7 +246,13 @@ let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
 			hap = true;
 			shadow_multiplier = vm.API.vM_HVM_shadow_multiplier;
 			timeoffset = timeoffset;
-			video_mib = int vm.API.vM_platform 4 "videoram";
+			video_mib = begin
+				(* For vGPU, make sure videoram is at least 16MiB. *)
+				let requested_videoram = int vm.API.vM_platform 4 "videoram" in
+				if string vm.API.vM_platform "cirrus" Platform.vga = Xapi_globs.vgpu_vga_value
+				then max requested_videoram 16
+				else requested_videoram
+			end;
 			video = begin match string vm.API.vM_platform "cirrus" Platform.vga with
 				| "std" -> Standard_VGA
 				| "cirrus" -> Cirrus
