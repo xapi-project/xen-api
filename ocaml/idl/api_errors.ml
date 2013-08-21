@@ -248,7 +248,6 @@ let event_from_token_parse_failure = "EVENT_FROM_TOKEN_PARSE_FAILURE"
 let session_not_registered = "SESSION_NOT_REGISTERED"
 
 let pgpu_in_use_by_vm = "PGPU_IN_USE_BY_VM"
-let pgpu_required_by_gpu_group = "PGPU_REQUIRED_BY_GPU_GROUP"
 let pgpu_not_compatible_with_gpu_group = "PGPU_NOT_COMPATIBLE_WITH_GPU_GROUP"
 let pgpu_insufficient_capacity_for_vgpu = "PGPU_INSUFFICIENT_CAPACITY_FOR_VGPU"
 let vgpu_type_not_enabled = "VGPU_TYPE_NOT_ENABLED"
