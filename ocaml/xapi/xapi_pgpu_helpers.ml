@@ -14,15 +14,6 @@
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
 
-let assert_VGPU_type_enabled ~__context ~self ~vgpu_type =
-	let enabled_VGPU_types =
-		Db.PGPU.get_enabled_VGPU_types ~__context ~self
-	in
-	if not (List.mem vgpu_type enabled_VGPU_types)
-	then raise (Api_errors.Server_error
-		(Api_errors.vgpu_type_not_enabled,
-			List.map Ref.string_of (vgpu_type :: enabled_VGPU_types)))
-
 let assert_VGPU_type_supported ~__context ~self ~vgpu_type =
 	let supported_VGPU_types =
 		Db.PGPU.get_supported_VGPU_types ~__context ~self
@@ -31,6 +22,16 @@ let assert_VGPU_type_supported ~__context ~self ~vgpu_type =
 	then raise (Api_errors.Server_error
 		(Api_errors.vgpu_type_not_supported,
 			List.map Ref.string_of (vgpu_type :: supported_VGPU_types)))
+
+let assert_VGPU_type_enabled ~__context ~self ~vgpu_type =
+	assert_VGPU_type_supported ~__context ~self ~vgpu_type;
+	let enabled_VGPU_types =
+		Db.PGPU.get_enabled_VGPU_types ~__context ~self
+	in
+	if not (List.mem vgpu_type enabled_VGPU_types)
+	then raise (Api_errors.Server_error
+		(Api_errors.vgpu_type_not_enabled,
+			List.map Ref.string_of (vgpu_type :: enabled_VGPU_types)))
 
 let assert_VGPU_type_allowed ~__context ~self ~vgpu_type =
 	assert_VGPU_type_enabled ~__context ~self ~vgpu_type;
