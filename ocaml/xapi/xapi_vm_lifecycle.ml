@@ -197,7 +197,7 @@ let report_concurrent_operations_error ~current_ops ~ref_str =
 (* Suspending, checkpointing and live-migrating are not (yet) allowed if a PCI device is passed through *)
 let check_pci ~op ~ref_str =
 	match op with
-	|`suspend | `checkpoint | `pool_migrate -> Some (Api_errors.vm_has_pci_attached, [ref_str])
+	| `suspend | `checkpoint | `pool_migrate | `migrate_send -> Some (Api_errors.vm_has_pci_attached, [ref_str])
 	| _ -> None
 
 let check_vgpu ~op ~ref_str =
