@@ -112,8 +112,44 @@ module HVMSerial = Generic.Make(Generic.EncapsulateState(struct
 		]
 end))
 
+module VideoRam = Generic.Make(Generic.EncapsulateState(struct
+	module Io = struct
+		type input_t = vm_config
+		type output_t = int
+
+		let string_of_input_t = string_of_vm_config
+		let string_of_output_t = string_of_int
+	end
+
+	module State = XapiDb
+
+	let load_input = load_vm_config
+
+	let extract_output __context _ =
+		match run_builder_of_vm __context with
+		| Vm.HVM {Vm.video_mib = video_mib} -> video_mib
+		| _ -> failwith "expected HVM metadata"
+
+	let tests = [
+		(* Video ram defaults to 4MiB. *)
+		{oc=[]; platform=[]}, 4;
+		(* Specifying a different amount of videoram works. *)
+		{oc=[]; platform=["videoram", "8"]}, 8;
+		(* Default videoram should be 16MiB for vGPU. *)
+		{oc = []; platform=["vga", "vgpu"]}, 16;
+		(* Insufficient videoram values should be overridden for vGPU. *)
+		{oc = []; platform=["vga", "vgpu"; "videoram", "8"]}, 16;
+		(* videoram values larger than the default should be allowed for vGPU. *)
+		{oc = []; platform=["vga", "vgpu"; "videoram", "32"]}, 32;
+		(* Other VGA options shouldn't affect the videoram setting. *)
+		{oc = []; platform=["vga", "cirrus"]}, 4;
+		{oc = []; platform=["vga", "cirrus"; "videoram", "8"]}, 8;
+	]
+end))
+
 let test =
 	"test_xenopsd_metadata" >:::
 		[
 			"test_hvm_serial" >:: HVMSerial.test;
+			"test_videoram" >:: VideoRam.test;
 		]
