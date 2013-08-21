@@ -36,6 +36,7 @@ OCAML_OBJS = \
 	test_pci_helpers \
 	test_vgpu_type \
 	test_vgpu_common \
+	test_pgpu \
 	test_pgpu_helpers \
 	test_xenopsd_metadata \
 
