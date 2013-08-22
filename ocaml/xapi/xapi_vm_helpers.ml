@@ -607,9 +607,12 @@ let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
 		| vgpu :: _ -> (* just considering first vgpu *)
 			let vgpu_type = Db.VGPU.get_type ~__context ~self:vgpu in
 			let gpu_group = Db.VGPU.get_GPU_group ~__context ~self:vgpu in
-			if not (Xapi_gpu_group.get_remaining_capacity ~__context ~self:gpu_group ~vgpu_type > 0L)
-			then raise (Api_errors.Server_error (Api_errors.vm_requires_vgpu,
-				[Ref.string_of vm; Ref.string_of gpu_group; Ref.string_of vgpu_type]));
+			match
+				Xapi_gpu_group.get_remaining_capacity_internal ~__context
+					~self:gpu_group ~vgpu_type
+			with
+			| Either.Left e -> raise e
+			| Either.Right _ -> ();
 			let pgpus = Db.GPU_group.get_PGPUs ~__context ~self:gpu_group in
 			let can_accomodate_vgpu pgpu =
 				Xapi_pgpu_helpers.get_remaining_capacity ~__context ~self:pgpu
