@@ -41,17 +41,34 @@ let find_ocamlfind verbose name =
   if verbose then Printf.fprintf stderr "querying for ocamlfind package %s: %s" name (if found then "ok" else "missing");
   found
 
-
 let output_file filename lines =
   let oc = open_out filename in
   let lines = List.map (fun line -> line ^ "\n") lines in
   List.iter (output_string oc) lines;
   close_out oc
 
+let find_ml_val verbose name libs =
+  let ml_program = [
+    Printf.sprintf "let f = %s" name;
+  ] in
+  let basename = Filename.temp_file "looking_for_val" "" in
+  let ml_file = basename ^ ".ml" in
+  let cmo_file = basename ^ ".cmo" in
+  let cmi_file = basename ^ ".cmi" in
+  output_file ml_file ml_program;
+  let found = Sys.command (Printf.sprintf "ocamlfind ocamlc -package %s -c %s %s" (String.concat "," libs) ml_file (if verbose then "" else "2>/dev/null")) = 0 in
+  if Sys.file_exists ml_file then Sys.remove ml_file;
+  if Sys.file_exists cmo_file then Sys.remove cmo_file;
+  if Sys.file_exists cmi_file then Sys.remove cmi_file;
+  Printf.printf "Looking for %s: %s\n" name (if found then "ok" else "missing");
+  found
+
 let configure bindir sbindir libexecdir scriptsdir etcdir =
   let xenctrl = find_ocamlfind false "xenctrl" in
   let xenlight = find_ocamlfind false "xenlight" in
   let libvirt = find_ocamlfind false "libvirt" in
+  let xenguest = find_ml_val true "Xenguest.init" ["xenctrl"] in
+
   Printf.printf "Configuring with:\n\tbindir=%s\n\tsbindir=%s\n\tlibexecdir=%s\n\tscriptsdir=%s\n\tetcdir=%s\n\txenctrl=%b\n\txenlight=%b\n\tlibvirt=%b\n\n" bindir sbindir libexecdir scriptsdir etcdir xenctrl xenlight libvirt;
 
   (* Write config.mk *)
@@ -66,6 +83,7 @@ let configure bindir sbindir libexecdir scriptsdir etcdir =
       Printf.sprintf "ENABLE_XEN=--%s-xen" (if xenctrl then "enable" else "disable");
       Printf.sprintf "ENABLE_XENLIGHT=--%s-xenlight" (if xenlight then "enable" else "disable");
       Printf.sprintf "ENABLE_LIBVIRT=--%s-libvirt" (if libvirt then "enable" else "disable");
+      Printf.sprintf "ENABLE_XENGUESTBIN=--%s-xenguestbin" (if xenguest then "enable" else "disable");
     ] in
   output_file config_mk lines
 
