@@ -74,7 +74,7 @@ let test_can_run_VGPU_fails_no_capacity () =
 		(* Should fail to put another one on *)
 		let vgpu = make_vgpu ~__context Ref.null k260q in
 		assert_raises_api_error
-			Api_errors.pgpu_in_use_by_vm
+			Api_errors.pgpu_insufficient_capacity_for_vgpu
 			(fun () -> Xapi_pgpu.assert_can_run_VGPU ~__context ~self:p ~vgpu))
 
 (*--- Xapi_pgpu.get_remaining_capacity tests ---*)
