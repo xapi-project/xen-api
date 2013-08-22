@@ -936,7 +936,7 @@ module VM = struct
 		},{
 			VmExtra.qemu_vbds = qemu_vbds
 		} ->
-			let make ?(boot_order="cd") ?(serial="pty") ?(monitor="pty") 
+			let make ?(boot_order="cd") ?(serial="pty") ?(monitor="null")
 					?(nics=[])
 					?(disks=[]) ?(pci_emulations=[]) ?(usb=Device.Dm.Disabled)
 					?(parallel=None)
