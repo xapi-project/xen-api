@@ -23,6 +23,10 @@ Flag simulator
   Description:        Build server with simulator support
   Default:            true
 
+Flag xenguestbin
+  Description:        Build the xenguest binary
+  Default:            true
+
 Library xenopsd
   CompiledObject:     best
   Path:               lib
@@ -34,7 +38,7 @@ Executable xenguest
   CompiledObject:     best
   Path:               xenguest
   MainIs:             xenguest_main.ml
-  Build$:             flag(xen)
+  Build$:             flag(xen) && flag(xenguestbin)
   Custom:             true
   Install:            false
   BuildDepends:       xenctrl, unix
