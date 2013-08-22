@@ -396,7 +396,7 @@ def main():
         return 1
 
     if not sender:
-        sender = "noreply@%s" % getfqdn.encode('utf-8')
+        sender = "noreply@%s" % getfqdn().encode('utf-8')
 
     # Replace macros in config file using search_replace list
     for s,r in search_replace:
