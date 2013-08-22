@@ -82,13 +82,52 @@ let get_supported_VGPU_types ~__context ~self =
 			(fun pgpu -> Db.PGPU.get_supported_VGPU_types ~__context ~self:pgpu)
 			pgpus)
 
-let get_remaining_capacity ~__context ~self ~vgpu_type =
-	let pgpus = Db.GPU_group.get_PGPUs ~__context ~self in
-	List.fold_left
-		(fun acc pgpu ->
-			let pgpu_remaining_capacity =
-				Xapi_pgpu_helpers.get_remaining_capacity
-					~__context ~self:pgpu ~vgpu_type
+let get_remaining_capacity_internal ~__context ~self ~vgpu_type =
+	(* If there is capacity in the group for this VGPU type, we return the
+	 * capacity. If there is not then we will have an exception for each PGPU,
+	 * explaining why it cannot run a VGPU of this type. We need to look through
+	 * this list of exceptions and pick one to raise as the "overall" error. *)
+	let choose_exception = function
+		| [] ->
+			(* Should only ever get here if there are no PGPUs in the GPU group. *)
+			Api_errors.Server_error
+				(Api_errors.gpu_group_contains_no_pgpus, [Ref.string_of self])
+		| exceptions ->
+			let error_code_scores = [
+				Api_errors.pgpu_insufficient_capacity_for_vgpu, 10;
+				Api_errors.vgpu_type_not_compatible_with_running_type, 8;
+				Api_errors.vgpu_type_not_enabled, 6;
+				Api_errors.vgpu_type_not_supported, 4;
+			] in
+			let score_exception = function
+				| Api_errors.Server_error (code, _) ->
+					if List.mem_assoc code error_code_scores
+					then List.assoc code error_code_scores
+					else 0
+				| _ -> 0
 			in
-			Int64.add acc pgpu_remaining_capacity)
-		0L pgpus
+			List.hd
+				(Helpers.sort_by_schwarzian ~descending:true score_exception exceptions)
+	in
+	(* For each PGPU in the group, if it is unable to run the specified VGPU type,
+	 * save the exception returned. Otherwise just add its capacity
+	 * to the total. *)
+	let pgpus = Db.GPU_group.get_PGPUs ~__context ~self in
+	let capacity, exceptions = List.fold_left
+		(fun (capacity, exceptions) pgpu ->
+			match
+				Xapi_pgpu_helpers.get_remaining_capacity_internal
+					~__context ~self:pgpu ~vgpu_type
+			with
+			| Either.Left e -> (capacity, e :: exceptions)
+			| Either.Right n -> (Int64.add n capacity, exceptions))
+		(0L, []) pgpus
+	in
+	if capacity > 0L
+	then Either.Right capacity
+	else Either.Left (choose_exception exceptions)
+
+let get_remaining_capacity ~__context ~self ~vgpu_type =
+	match get_remaining_capacity_internal ~__context ~self ~vgpu_type with
+	| Either.Left e -> 0L
+	| Either.Right capacity -> capacity

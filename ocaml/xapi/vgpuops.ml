@@ -112,7 +112,7 @@ let create_virtual_vgpu ~__context vm vgpu =
 			let open Xapi_pgpu_helpers in
 			try
 				assert_VGPU_type_allowed ~__context ~self:pgpu ~vgpu_type;
-				assert_capacity_exists_for_VGPU ~__context ~self:pgpu ~vgpu:vgpu.vgpu_ref;
+				assert_capacity_exists_for_VGPU_type ~__context ~self:pgpu ~vgpu_type;
 				Some pgpu
 			with _ -> allocate_vgpu vgpu_type remaining_pgpus
 	in
