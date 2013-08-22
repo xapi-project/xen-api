@@ -2365,7 +2365,7 @@ let template_uninstall fd printer rpc session_id params =
 let vm_clone_aux clone_op cloned_string printer include_template_vms rpc session_id params =
 	let new_name = List.assoc "new-name-label" params in
 	let desc = try Some (List.assoc "new-name-description" params) with _ -> None in
-	let new_vms = do_vm_op printer ~multiple:false ~include_template_vms rpc session_id
+	let new_vms = do_vm_op printer ~include_template_vms rpc session_id
 		(fun vm -> clone_op ~rpc ~session_id ~vm: (vm.getref()) ~new_name) params ["new-name-label"; "new-name-description"] in
 	ignore (may (fun desc -> Client.VM.set_name_description rpc session_id (List.hd new_vms) desc) desc);
 	printer (Cli_printer.PList (List.map (fun vm -> Client.VM.get_uuid rpc session_id vm) new_vms))
