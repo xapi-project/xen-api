@@ -561,6 +561,35 @@ let vm_can_run_on_host __context vm snapshot do_memory_check host =
 	try host_has_proper_version () && host_enabled () && host_live () && host_can_run_vm () && host_evacuate_in_progress
 	with _ -> false
 
+
+(* Group the hosts into lists of hosts with equal best capacity *)
+let group_hosts_by_best_pgpu_in_group ~__context gpu_group vgpu_type =
+	let pgpus = Db.GPU_group.get_PGPUs ~__context ~self:gpu_group in
+	let can_accomodate_vgpu pgpu =
+		Xapi_pgpu_helpers.get_remaining_capacity ~__context ~self:pgpu
+			~vgpu_type > 0L
+	in
+	let viable_pgpus = List.filter can_accomodate_vgpu pgpus in
+	let viable_hosts = List.setify
+		(List.map (fun pgpu -> Db.PGPU.get_host ~__context ~self:pgpu)
+			viable_pgpus)
+	in
+	Helpers.group_by
+		(fun host ->
+			let group_by_capacity pgpus =
+				(match Db.GPU_group.get_allocation_algorithm ~__context ~self:gpu_group with
+				| `depth_first -> Helpers.group_by ~descending:false
+				| `breadth_first -> Helpers.group_by ~descending:true)
+				(fun pgpu -> Xapi_pgpu_helpers.get_remaining_capacity ~__context ~self:pgpu ~vgpu_type)
+				pgpus
+			in
+			let viable_resident_pgpus = List.filter
+				(fun self -> Db.PGPU.get_host ~__context ~self = host)
+				viable_pgpus
+			in
+			snd (List.hd (List.hd (group_by_capacity viable_resident_pgpus)))
+		) viable_hosts
+
 (** Selects a single host from the set of all hosts on which the given [vm]
 can boot. Raises [Api_errors.no_hosts_available] if no such host exists. *)
 let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
@@ -578,34 +607,8 @@ let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
 			with
 			| Either.Left e -> raise e
 			| Either.Right _ -> ();
-			let pgpus = Db.GPU_group.get_PGPUs ~__context ~self:gpu_group in
-			let can_accomodate_vgpu pgpu =
-				Xapi_pgpu_helpers.get_remaining_capacity ~__context ~self:pgpu
-					~vgpu_type > 0L
-			in
-			let viable_pgpus = List.filter can_accomodate_vgpu pgpus in
-			let viable_hosts = List.setify
-				(List.map (fun pgpu -> Db.PGPU.get_host ~__context ~self:pgpu)
-					viable_pgpus)
-			in
-			(* Group the hosts by pgpu-capacity and try to select a host based
-			 * on GPU group allocation algorithm *)
-			let host_lists = Helpers.group_by
-				(fun host ->
-					let group_by_capacity pgpus =
-						(match Db.GPU_group.get_allocation_algorithm ~__context ~self:gpu_group with
-						| `depth_first -> Helpers.group_by ~descending:false
-						| `breadth_first -> Helpers.group_by ~descending:true)
-						(fun pgpu -> Xapi_pgpu_helpers.get_remaining_capacity ~__context ~self:pgpu ~vgpu_type)
-						pgpus
-					in
-					let viable_resident_pgpus = List.filter
-						(fun self -> Db.PGPU.get_host ~__context ~self = host)
-						viable_pgpus
-					in
-					snd (List.hd (List.hd (group_by_capacity viable_resident_pgpus)))
-				) viable_hosts
-			in
+			let host_lists =
+				group_hosts_by_best_pgpu_in_group ~__context gpu_group vgpu_type in
 			let rec select_host_from = function
 				| [] -> raise (Api_errors.Server_error (Api_errors.no_hosts_available, []))
 				| (hosts :: less_optimal_groups_of_hosts) ->
