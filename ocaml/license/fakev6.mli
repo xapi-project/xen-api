@@ -28,6 +28,3 @@ val get_version : string -> string
 (** Close and re-open the log file *)
 val reopen_logs : unit -> bool
 
-(** Call the [get_current_edition] function on the v6d *)
-val get_current_edition : string -> (string * string) list ->
-	string * Features.feature list * (string * string) list
