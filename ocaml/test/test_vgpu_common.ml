@@ -106,8 +106,20 @@ let string_of_pgpu_state pgpu =
 
 let make_vgpu ~__context pgpu_ref vgpu_type =
 	let vgpu_type_ref = find_or_create ~__context vgpu_type in
+	(* For the passthrough VGPU type, create a VM and mark it as attached to the
+	 * PGPU's PCI device. *)
+	let vm_ref_opt =
+		if Xapi_vgpu_type.requires_passthrough ~__context ~self:vgpu_type_ref
+		then begin
+			let vm_ref = Test_common.make_vm ~__context () in
+			let pci_ref = Db.PGPU.get_PCI ~__context ~self:pgpu_ref in
+			Db.PCI.add_attached_VMs ~__context ~self:pci_ref ~value:vm_ref;
+			Some vm_ref
+		end else None
+	in
 	let vgpu_ref = Ref.make () in
 	Test_common.make_vgpu ~__context
+		~vM:(Opt.default Ref.null vm_ref_opt)
 		~ref:vgpu_ref ~_type:vgpu_type_ref
 		~resident_on:pgpu_ref ();
 	vgpu_ref
