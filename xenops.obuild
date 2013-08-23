@@ -6,6 +6,6 @@ obuild-ver: 1
 library xenops
   src-dir: src
   modules: io, memory, netman, statdev, xenops_helpers, xenstore_watch
-  build-deps: log, xenctrl, xenstore, xenstore_transport.unix, uuid
+  build-deps: log, xenctrl, xenstore, xenstore_transport.unix, uuid, xenstore-compat
   cdir: src
   c-sources: statdev_stubs.c
