@@ -504,6 +504,8 @@ let _ =
     ~doc:"The GPU group contains active VGPUs and cannot be deleted." ();
   error Api_errors.gpu_group_contains_pgpu ["pgpus"] 
     ~doc:"The GPU group contains active PGPUs and cannot be deleted." ();
+  error Api_errors.gpu_group_contains_no_pgpus ["gpu_group"] 
+    ~doc:"The GPU group does not contain any PGPUs." ();
   error Api_errors.device_attach_timeout [ "type"; "ref" ]
     ~doc:"A timeout happened while attempting to attach a device to a VM." ();
   error Api_errors.device_detach_timeout [ "type"; "ref" ]
@@ -519,7 +521,7 @@ let _ =
     ~doc:"This PGPU is currently in use by running VMs." ();
   error Api_errors.pgpu_not_compatible_with_gpu_group ["type"; "group_types"]
     ~doc:"PGPU type not compatible with destination group." ();
-  error Api_errors.pgpu_insufficient_capacity_for_vgpu ["pgpu"; "vgpu"]
+  error Api_errors.pgpu_insufficient_capacity_for_vgpu ["pgpu"; "vgpu_type"]
     ~doc:"There is insufficient capacity on this PGPU to run the VGPU." ();
   error Api_errors.vgpu_type_not_enabled ["type"; "enabled_types"]
     ~doc:"VGPU type is not one of the PGPU's enabled types." ();

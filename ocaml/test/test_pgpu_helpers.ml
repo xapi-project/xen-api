@@ -12,6 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
+open Either
 open OUnit
 open Test_common
 open Test_highlevel
@@ -21,7 +22,7 @@ open Xapi_vgpu_type
 module GetRemainingCapacity = Generic.Make(Generic.EncapsulateState(struct
 	module Io = struct
 		type input_t = (pgpu_state * vgpu_type)
-		type output_t = int64
+		type output_t = (exn, int64) Either.t
 
 		let string_of_input_t (pgpu, vgpu_type) =
 			Printf.sprintf
@@ -29,7 +30,9 @@ module GetRemainingCapacity = Generic.Make(Generic.EncapsulateState(struct
 				(string_of_pgpu_state pgpu)
 				(string_of_vgpu_type vgpu_type)
 
-		let string_of_output_t = Int64.to_string
+		let string_of_output_t = function
+			| Left e -> Printexc.to_string e
+			| Right n -> Int64.to_string n
 	end
 
 	module State = XapiDb
@@ -40,12 +43,12 @@ module GetRemainingCapacity = Generic.Make(Generic.EncapsulateState(struct
 	let extract_output __context (_, vgpu_type) =
 		let pgpu_ref = List.hd (Db.PGPU.get_all ~__context) in
 		let vgpu_type_ref = find_or_create ~__context vgpu_type in
-		Xapi_pgpu_helpers.get_remaining_capacity
+		Xapi_pgpu_helpers.get_remaining_capacity_internal
 			~__context ~self:pgpu_ref ~vgpu_type:vgpu_type_ref
 
 	let tests = [
-		(default_k1, k100), 8L;
-		(default_k1, k140q), 4L;
+		(default_k1, k100), Right 8L;
+		(default_k1, k140q), Right 4L;
 	]
 end))
 

@@ -135,13 +135,10 @@ let set_GPU_group ~__context ~self ~value =
 	)
 
 let get_remaining_capacity ~__context ~self ~vgpu_type =
-	Xapi_pgpu_helpers.get_remaining_capacity ~__context ~self ~vgpu_type
+	match Xapi_pgpu_helpers.get_remaining_capacity_internal ~__context ~self ~vgpu_type with
+	| Either.Left _ -> 0L
+	| Either.Right capacity -> capacity
 
 let assert_can_run_VGPU ~__context ~self ~vgpu =
-	let new_type = Db.VGPU.get_type ~__context ~self:vgpu in
-	(* Check that the VGPU type is enabled, and can coexist with any other VGPUs
-	 * present on the PGPU. *)
-	Xapi_pgpu_helpers.assert_VGPU_type_allowed ~__context
-		~self ~vgpu_type:new_type;
-	(* Check there's space on the PGPU to run this particular VGPU. *)
-	Xapi_pgpu_helpers.assert_capacity_exists_for_VGPU ~__context ~self ~vgpu
+	let vgpu_type = Db.VGPU.get_type ~__context ~self:vgpu in
+	Xapi_pgpu_helpers.assert_capacity_exists_for_VGPU_type ~__context ~self ~vgpu_type
