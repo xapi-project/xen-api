@@ -51,9 +51,11 @@ module GetRemainingCapacity = Generic.Make(Generic.EncapsulateState(struct
 		 * GPU type. *)
 		(default_k1, k100), Right 8L;
 		(default_k1, k140q), Right 4L;
+		(default_k1, entire_gpu), Right 1L;
 		(default_k2, k200), Right 8L;
 		(default_k2, k240q), Right 4L;
 		(default_k2, k260q), Right 2L;
+		(default_k2, entire_gpu), Right 1L;
 	]
 end))
 
