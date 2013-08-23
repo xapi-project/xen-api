@@ -126,7 +126,7 @@ let make_vgpu ~__context pgpu_ref vgpu_type =
 
 let make_pgpu ~__context pgpu =
 	let pCI = Ref.make () in
-	Test_common.make_pci ~__context ~ref:pCI ();
+	Test_common.make_pci ~__context ~ref:pCI ~functions:1L ();
 	let supported_VGPU_types =
 		List.map (find_or_create ~__context) pgpu.supported_VGPU_types
 	in
