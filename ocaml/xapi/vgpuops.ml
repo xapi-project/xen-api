@@ -41,7 +41,7 @@ let vgpus_of_vm ~__context vm_r =
 let m = Mutex.create ()
 
 let create_passthrough_vgpu ~__context ~vm vgpu available_pgpus pcis =
-	debug "Create vGPUs";
+	debug "Creating passthrough VGPUs";
 	let compatible_pgpus = Db.GPU_group.get_PGPUs ~__context ~self:vgpu.gpu_group_ref in
 	let pgpus = List.intersect compatible_pgpus available_pgpus in
 	let rec reserve_one = function
@@ -94,6 +94,7 @@ let add_pcis_to_vm ~__context vm passthru_vgpus =
 	Db.VM.add_to_other_config ~__context ~self:vm ~key:Xapi_globs.vgpu_pci ~value
 
 let create_virtual_vgpu ~__context vm vgpu =
+	debug "Creating virtual VGPUs";
 	let host = Helpers.get_localhost ~__context in
 	let available_pgpus = Db.Host.get_PGPUs ~__context ~self:host in
 	let compatible_pgpus = Db.GPU_group.get_PGPUs ~__context ~self:vgpu.gpu_group_ref in
