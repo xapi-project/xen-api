@@ -53,7 +53,7 @@ module GetRemainingCapacity = Generic.Make(Generic.EncapsulateState(struct
 end))
 
 let test =
-	"pgpu_checks" >:::
+	"test_pgpu_helpers" >:::
 		[
 			"test_get_remaining_capacity" >:: GetRemainingCapacity.test;
 		]
