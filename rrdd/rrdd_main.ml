@@ -126,22 +126,16 @@ module Xs = struct
 	module Client = Xs_client_unix.Client(Xs_transport_unix_client)
 	include Client
 
-	(* Use one client for watching and one for reading. The xenstore client
-	 * deadlocks if used to read from within a watch callback. *)
-	let watch_client = ref None
-	let read_client = ref None
+	let client = ref None
 
 	(* Initialise the clients on demand - must be done after daemonisation! *)
-	let get_client cache =
-		match !cache with
+	let get_client () =
+		match !client with
 		| Some client -> client
 		| None ->
-			let client = Client.make () in
-			cache := Some client;
-			client
-
-	let get_watch_client () = get_client watch_client
-	let get_read_client () = get_client read_client
+			let c = Client.make () in
+			client := Some c;
+			c
 end
 
 (* Map from domid to the latest seen meminfo_free value *)
@@ -152,15 +146,15 @@ let meminfo_path domid = Printf.sprintf "/local/domain/%d/data/meminfo_free" dom
 module Meminfo = struct
 	let interesting_paths_for_domain domid uuid = [ meminfo_path domid ]
 
-	let fire_event_on_vm xs domid domains =
+	let fire_event_on_vm domid domains =
 		let d = int_of_string domid in
 		if not(IntMap.mem d domains)
 		then debug "Ignoring watch on shutdown domain %d" d
 		else
 			let path = meminfo_path d in
 			try
-				let xs_client = Xs.get_read_client () in
-				let meminfo_free_string = Xs.with_xs xs_client (fun xs -> Xs.read xs path) in
+				let client = Xs.get_client () in
+				let meminfo_free_string = Xs.with_xs client (fun xs -> Xs.read xs path) in
 				let meminfo_free = Int64.of_string meminfo_free_string in
 				debug "memfree has changed to %Ld in domain %d" meminfo_free d;
 				current_meminfofree_values := IntMap.add d meminfo_free !current_meminfofree_values
@@ -168,16 +162,16 @@ module Meminfo = struct
 				debug "Couldn't read path %s; forgetting last known memfree value for domain %d" path d;
 				current_meminfofree_values := IntMap.remove d !current_meminfofree_values
 
-	let watch_fired xc xs path domains _ =
+	let watch_fired xc path domains _ =
 		match List.filter (fun x -> x <> "") (Stringext.String.split '/' path) with
 		| "local" :: "domain" :: domid :: "data" :: "meminfo_free" :: [] ->
-			fire_event_on_vm xs domid domains
+			fire_event_on_vm domid domains
 		| _ -> debug "Ignoring unexpected watch: %s" path
 
 	let unmanaged_domain _ _ = false
 	let found_running_domain _ _ = ()
-	let domain_appeared _ _ _ = ()
-	let domain_disappeared _ _ _ = ()
+	let domain_appeared _ _ = ()
+	let domain_disappeared _ _ = ()
 end
 
 module Watcher = WatchXenstore(Meminfo)
@@ -669,7 +663,7 @@ let _ =
 	start (!Rrd_interface.default_path, !Rrd_interface.forwarded_path) Server.process;
 
 	debug "Starting xenstore-watching thread ..";
-        let () = Watcher.create_watcher_thread () in
+        let () = Watcher.create_watcher_thread (Xs.get_client ()) in
 
 	debug "Creating monitoring loop thread ..";
        	Debug.with_thread_associated "main" monitor_loop ();
