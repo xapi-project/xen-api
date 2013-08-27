@@ -124,9 +124,9 @@ let make_vgpu ~__context pgpu_ref vgpu_type =
 		~resident_on:pgpu_ref ();
 	vgpu_ref
 
-let make_pgpu ~__context pgpu =
+let make_pgpu ~__context ?(host=Ref.null) ?(gPU_group=Ref.null) pgpu =
 	let pCI = Ref.make () in
-	Test_common.make_pci ~__context ~ref:pCI ~functions:1L ();
+	Test_common.make_pci ~__context ~ref:pCI ~host ~functions:1L ();
 	let supported_VGPU_types =
 		List.map (find_or_create ~__context) pgpu.supported_VGPU_types
 	in
@@ -137,6 +137,8 @@ let make_pgpu ~__context pgpu =
 	Test_common.make_pgpu ~__context
 		~ref:pgpu_ref
 		~pCI
+		~host
+		~gPU_group
 		~supported_VGPU_types
 		~enabled_VGPU_types ();
 	List.iter

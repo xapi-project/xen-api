@@ -31,6 +31,7 @@ let base_suite =
 			Test_vgpu_type.test;
 			Test_pgpu.test;
 			Test_pgpu_helpers.test;
+			Test_vm_helpers.test;
 			Test_xenopsd_metadata.test;
 			Test_ca121350.test;
 		]
