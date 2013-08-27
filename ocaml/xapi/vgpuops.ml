@@ -38,28 +38,35 @@ let vgpu_of_vgpu ~__context vm_r vgpu =
 let vgpus_of_vm ~__context vm_r =
 	List.map (vgpu_of_vgpu ~__context vm_r) vm_r.API.vM_VGPUs
 
+let m = Mutex.create ()
+
 let create_passthrough_vgpu ~__context ~vm vgpu available_pgpus pcis =
-	debug "Create vGPUs";
+	debug "Creating passthrough VGPUs";
 	let compatible_pgpus = Db.GPU_group.get_PGPUs ~__context ~self:vgpu.gpu_group_ref in
 	let pgpus = List.intersect compatible_pgpus available_pgpus in
 	let rec reserve_one = function
 		| [] -> None
 		| pgpu :: remaining ->
-			let pci = Db.PGPU.get_PCI ~__context ~self:pgpu in
-			if Pciops.reserve ~__context pci then
-				Some (pgpu, pci)
-			else
-				reserve_one remaining
+			try
+				Xapi_pgpu_helpers.assert_capacity_exists_for_VGPU_type ~__context
+					~self:pgpu ~vgpu_type:vgpu.type_ref;
+				let pci = Db.PGPU.get_PCI ~__context ~self:pgpu in
+				if Pciops.reserve ~__context pci then
+					Some (pgpu, pci)
+				else failwith "Could not reserve PCI" (* will retry remaining *)
+			with _ -> reserve_one remaining
 	in
-	match reserve_one pgpus with
-	| None ->
-		raise (Api_errors.Server_error (Api_errors.vm_requires_gpu, [
-			Ref.string_of vm;
-			Ref.string_of vgpu.gpu_group_ref
-		]))
-	| Some (pgpu, pci) ->
-		List.filter (fun g -> g <> pgpu) available_pgpus,
-		pci :: pcis
+	Threadext.Mutex.execute m (fun () ->
+		match reserve_one pgpus with
+		| None ->
+			raise (Api_errors.Server_error (Api_errors.vm_requires_gpu, [
+				Ref.string_of vm;
+				Ref.string_of vgpu.gpu_group_ref
+			]))
+		| Some (pgpu, pci) ->
+			List.filter (fun g -> g <> pgpu) available_pgpus,
+			pci :: pcis
+	)
 
 let add_pcis_to_vm ~__context vm passthru_vgpus =
 	let pcis =
@@ -86,8 +93,8 @@ let add_pcis_to_vm ~__context vm passthru_vgpus =
 	let value = String.concat "," (List.map Pciops.to_string devs) in
 	Db.VM.add_to_other_config ~__context ~self:vm ~key:Xapi_globs.vgpu_pci ~value
 
-let m = Mutex.create ()
 let create_virtual_vgpu ~__context vm vgpu =
+	debug "Creating virtual VGPUs";
 	let host = Helpers.get_localhost ~__context in
 	let available_pgpus = Db.Host.get_PGPUs ~__context ~self:host in
 	let compatible_pgpus = Db.GPU_group.get_PGPUs ~__context ~self:vgpu.gpu_group_ref in
@@ -109,10 +116,9 @@ let create_virtual_vgpu ~__context vm vgpu =
 	let rec allocate_vgpu vgpu_type = function
 		| [] -> None
 		| pgpu :: remaining_pgpus ->
-			let open Xapi_pgpu_helpers in
 			try
-				assert_VGPU_type_allowed ~__context ~self:pgpu ~vgpu_type;
-				assert_capacity_exists_for_VGPU_type ~__context ~self:pgpu ~vgpu_type;
+				Xapi_pgpu_helpers.assert_capacity_exists_for_VGPU_type
+					~__context ~self:pgpu ~vgpu_type;
 				Some pgpu
 			with _ -> allocate_vgpu vgpu_type remaining_pgpus
 	in
