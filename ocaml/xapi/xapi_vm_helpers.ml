@@ -574,12 +574,13 @@ let group_hosts_by_best_pgpu_in_group ~__context gpu_group vgpu_type =
 		(List.map (fun pgpu -> Db.PGPU.get_host ~__context ~self:pgpu)
 			viable_pgpus)
 	in
-	Helpers.group_by
+	let ordering =
+		match Db.GPU_group.get_allocation_algorithm ~__context ~self:gpu_group with
+		| `depth_first -> `ascending | `breadth_first -> `descending
+	in
+	Helpers.group_by ~ordering
 		(fun host ->
-			let group_by_capacity pgpus =
-				(match Db.GPU_group.get_allocation_algorithm ~__context ~self:gpu_group with
-				| `depth_first -> Helpers.group_by ~descending:false
-				| `breadth_first -> Helpers.group_by ~descending:true)
+			let group_by_capacity pgpus = Helpers.group_by ~ordering
 				(fun pgpu -> Xapi_pgpu_helpers.get_remaining_capacity ~__context ~self:pgpu ~vgpu_type)
 				pgpus
 			in
