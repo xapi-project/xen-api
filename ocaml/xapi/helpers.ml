@@ -505,10 +505,10 @@ let group_by f list =
 
 (** Groups list elements by equality of result of function application sorted
  *  in order of that result *)
-let group_by ?(descending=false) f list =
-	match descending with
-	| true -> group_by f list
-	| false -> List.rev (group_by f list)
+let group_by ~ordering f list =
+	match ordering with
+	| `descending -> group_by f list
+	| `ascending -> List.rev (group_by f list)
 
 (** Schwarzian transform sort *)
 let sort_by_schwarzian ?(descending=false) f list =
