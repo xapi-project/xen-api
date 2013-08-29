@@ -1899,8 +1899,23 @@ let start ~__context ~self paused =
 											let vm_start = Client.VM.start dbg id in
 											info "xenops: Queueing VM.unpause %s" id;
 											let vm_unpause = Client.VM.unpause dbg id in
-											Pervasiveext.finally (fun () -> sync_with_task __context vm_start)
-											(fun () -> sync __context vm_unpause)
+											begin
+											  try 
+											    sync_with_task __context vm_start;
+											  with e ->
+											  (* If the VM.start throws an error, clean up the unpause
+											     which will fail in an irrelevant manor, then reraise
+											     the original error *)
+											    begin
+											      try sync __context vm_unpause with _ -> () 
+											    end;
+											    raise e
+											end;
+
+											(* At this point, the start paused has succeeded. Now
+											   we _do_ care about any error from unpause *)
+
+											sync_with_task __context vm_unpause
 										end
 									else
 										Client.VM.start dbg id |> sync_with_task __context;
