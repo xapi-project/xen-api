@@ -62,7 +62,7 @@ let create ~__context ~vendor_name ~model_name ~framebuffer_size ~max_heads ~siz
 let find_or_create ~__context vgpu_type =
 	let open Db_filter_types in
 	let existing_types =
-		Db.VGPU_type.get_records_where ~__context
+		Db.VGPU_type.get_internal_records_where ~__context
 			~expr:(And
 				(Eq (Field "vendor_name", Literal vgpu_type.vendor_name),
 				 And(
@@ -71,8 +71,22 @@ let find_or_create ~__context vgpu_type =
 				      Literal (Int64.to_string vgpu_type.framebuffer_size)))))
 	in
 	match existing_types with
-	| [vgpu_type, rc] ->
-		vgpu_type
+	| [vgpu_type_ref, rc] ->
+		(* Update anything about the VGPU type which might have changed since we
+		 * last read the config file. *)
+		if vgpu_type.max_heads <> rc.Db_actions.vGPU_type_max_heads then
+			Db.VGPU_type.set_max_heads ~__context
+				~self:vgpu_type_ref
+				~value:vgpu_type.max_heads;
+		if vgpu_type.size <> rc.Db_actions.vGPU_type_size then
+			Db.VGPU_type.set_size ~__context
+				~self:vgpu_type_ref
+				~value:vgpu_type.size;
+		if vgpu_type.internal_config <> rc.Db_actions.vGPU_type_internal_config then
+			Db.VGPU_type.set_internal_config ~__context
+				~self:vgpu_type_ref
+				~value:vgpu_type.internal_config;
+		vgpu_type_ref
 	| [] ->
 		create ~__context ~vendor_name:vgpu_type.vendor_name
 			~model_name:vgpu_type.model_name
