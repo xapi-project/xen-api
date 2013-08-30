@@ -960,8 +960,9 @@ module VGPUType : HandlerTools = struct
 		match choose_one compatible_types with
 		| Some (vgpu_type, _) -> Found_VGPU_type vgpu_type
 		| None ->
-			let msg = ""
-			in
+			let msg = Printf.sprintf "Unable to find equivalent VGPU_type '%s'"
+				vgpu_type_record.API.vGPU_type_model_name in
+			error "%s" msg;
 			Found_no_VGPU_type (Failure msg)
 
 	let handle_dry_run __context config rpc session_id state x precheck_result =
