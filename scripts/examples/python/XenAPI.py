@@ -97,6 +97,7 @@ class UDSHTTP(httplib.HTTP):
 
 class UDSTransport(xmlrpclib.Transport):
     def __init__(self, use_datetime=0):
+        xmlrpclib.Transport.__init__(self, use_datetime)
         self._use_datetime = use_datetime
         self._extra_headers=[]
     def add_extra_header(self, key, value):
