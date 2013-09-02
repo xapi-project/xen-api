@@ -24,6 +24,7 @@ let balance_check_interval = ref 10.
 
 let options = [
 	"balance-check-interval", Arg.Set_float balance_check_interval, (fun () -> string_of_float !balance_check_interval), "Seconds between memory balancing attempts";
+	"manage-domain-zero", Arg.Bool (fun b -> Squeeze.manage_domain_zero := b), (fun () -> string_of_bool !Squeeze.manage_domain_zero), "Manage domain zero";
 ]
 
 let _ = 
