@@ -17,6 +17,14 @@
 
 let service_name="storage"
 
+let default_sockets_dir = "/var/lib/xcp"
+let default_path = ref (Filename.concat default_sockets_dir service_name)
+
+let set_sockets_dir x =
+        default_path := Filename.concat x service_name
+
+let uri () = "file:" ^ !default_path
+
 open Vdi_automaton
 
 (** Primary key identifying the SR *)
@@ -58,6 +66,11 @@ type vdi_info = {
     (* xenstore_data: workaround via XenAPI *)
 	persistent: bool;
     sm_config: (string * string) list;
+}
+
+type sr_info = {
+    total_space: int64;        (** total number of bytes on the storage substrate *)
+    free_space: int64;         (** current free space on the storage substrate *)
 }
 
 let string_of_vdi_info (x: vdi_info) = Jsonrpc.to_string (rpc_of_vdi_info x)
@@ -247,6 +260,9 @@ module SR = struct
 		sr:sr -> vdi:vdi -> src_vdi:vdi_info ->
 		snapshot_pairs:(vdi * vdi_info) list -> unit = ""
 
+	(** [stat task sr] returns instantaneous SR-level statistics *)
+	external stat: dbg:debug_info -> sr:sr -> sr_info = ""
+
 	(** [list task] returns the list of currently attached SRs *)
 	external list: dbg:debug_info -> sr list = ""
 end
@@ -265,6 +281,11 @@ module VDI = struct
 
 	(** [clone task sr vdi_info] creates a new VDI which is a clone of [vdi_info] in [sr] *)
 	external clone : dbg:debug_info -> sr:sr -> vdi_info:vdi_info -> vdi_info = ""
+
+	(** [resize task sr vdi new_size] makes a VDI's virtual_size  at least [new_size] bytes.
+	    The function returns the new virtual_size which may be bigger (but not less than)
+	    requested. *)
+	external resize : dbg:debug_info -> sr:sr -> vdi:vdi -> new_size:int64 -> int64 = ""
 
     (** [destroy task sr vdi] removes [vdi] from [sr] *)
     external destroy : dbg:debug_info -> sr:sr -> vdi:vdi -> unit = ""
@@ -372,3 +393,4 @@ end
 module UPDATES = struct
 	external get: dbg:debug_info -> from:string -> timeout:int option -> Dynamic.id list * string = ""
 end
+
