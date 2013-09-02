@@ -49,7 +49,7 @@ for i in /etc/sysconfig/network-scripts/ifcfg-* ; do
 done
 
 
-BLACKLIST=/etc/modprobe.d/blacklist-bridge.conf
+BLACKLIST=/etc/modprobe.d/blacklist-bridge
 if [ "$new" = "openvswitch" ] ; then
 	# Add blacklist of bridge module so it can't be loaded.
 	echo "install bridge /bin/true" > $BLACKLIST
