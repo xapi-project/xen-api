@@ -51,6 +51,9 @@ let error fmt =
     ) fmt
 
 let manage_domain_zero = ref false
+let gib = Int64.(mul 1024L (mul 1024L 1024L))
+let domain_zero_dynamic_min : int64 ref = ref gib  (* 1 GiB minimum for safety *)
+let domain_zero_dynamic_max : int64 option ref = ref None (* static max *)
 
 (** Per-domain data *)
 type domain = {

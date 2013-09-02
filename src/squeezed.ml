@@ -25,6 +25,8 @@ let balance_check_interval = ref 10.
 let options = [
 	"balance-check-interval", Arg.Set_float balance_check_interval, (fun () -> string_of_float !balance_check_interval), "Seconds between memory balancing attempts";
 	"manage-domain-zero", Arg.Bool (fun b -> Squeeze.manage_domain_zero := b), (fun () -> string_of_bool !Squeeze.manage_domain_zero), "Manage domain zero";
+	"domain-zero-dynamic-min", Arg.String (fun x -> Squeeze.domain_zero_dynamic_min := Int64.of_string x), (fun () -> Int64.to_string !Squeeze.domain_zero_dynamic_min), "Always leave domain 0 with at least this much memory";
+	"domain-zero-dynamic-max", Arg.String (fun x -> Squeeze.domain_zero_dynamic_max := if x = "auto" then None else Some (Int64.of_string x)), (fun () -> match !Squeeze.domain_zero_dynamic_max with None -> "using the static-max value" | Some x -> Int64.to_string x), "Maximum memory to allow domain 0";
 ]
 
 let _ = 
@@ -47,6 +49,7 @@ let _ =
 
 	Memory_server.start_balance_thread balance_check_interval;
 	Squeeze_xen.Domain.start_watch_xenstore_thread ();
+	if !Squeeze.manage_domain_zero then Squeeze_xen.configure_domain_zero ();
 
 	Xcp_service.serve_forever server
 
