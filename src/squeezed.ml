@@ -18,7 +18,7 @@ open D
 
 let name = "squeezed"
 let major_version = 0
-let minor_version = 1
+let minor_version = 10
 
 let balance_check_interval = ref 10.
 
