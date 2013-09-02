@@ -1,4 +1,4 @@
-OCAMLPACKS    = oclock xml-light2 cdrom pciutil sexpr log stunnel http-svr xen-utils netdev tapctl rpclib nbd.unix xenstore-compat xenctrl uuid gzip vhdlib sha1 xcp.network xcp.rrd
+OCAMLPACKS    = oclock xml-light2 cdrom pciutil sexpr log stunnel http-svr xen-utils netdev tapctl rpclib nbd.unix xenstore-compat xenctrl uuid gzip vhdlib sha1 xcp.network xcp.rrd xcp.storage
 OCAML_LIBS    = ../fhs ../util/version ../util/vm_memory_constraints ../util/sanitycheck ../util/stats \
 	../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server ../util/ocamltest
 OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
@@ -6,8 +6,7 @@ OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
 	../xenops ../xva ../util \
 	../auth ../license ../client_records ../rfb ../gpg ../rrdd/interface ..
 
-UseCamlp4(rpclib.syntax, features vdi_automaton storage_impl xapi_udhcpd storage_migrate xapi_services system_domains cancel_tests)
-UseCamlp4(rpclib.idl, storage_interface)
+UseCamlp4(rpclib.syntax, features storage_impl xapi_udhcpd storage_migrate xapi_services system_domains cancel_tests)
 
 CFLAGS += -std=gnu99 -Wall -Werror -I$(shell ocamlc -where)
 
@@ -39,10 +38,8 @@ OCamlProgram(sparse_dd, sparse_dd sparse_encoding ../util/stats)
 OCamlProgram(show_bat, show_bat)
 #OCamlProgram(monitor_fake_plugin, monitor_fake_plugin rrdd_fake_common rrd)
 
-storage_interface.mli: storage_interface.ml vdi_automaton.cmi
-	ocamlfind ocamlc -package rpclib.idl -syntax camlp4o -i $< > $@
 
-OCamlProgram(storage_impl_test, sparse_encoding sparse_dd_wrapper ../xenops/updates storage_migrate storage_interface vdi_automaton storage_impl ../xenops/task_server storage_task storage_locks storage_impl_test)
+OCamlProgram(storage_impl_test, sparse_encoding sparse_dd_wrapper ../xenops/updates storage_migrate storage_impl ../xenops/task_server storage_task storage_locks storage_impl_test)
 
 OCamlProgram(cancel_tests, cancel_tests ../xenops/xenops_helpers)
 
@@ -88,8 +85,6 @@ XAPI_MODULES = $(COMMON) \
 	xapi_services \
 	sm_exec \
 	sm \
-	storage_interface \
-	vdi_automaton \
 	storage_impl \
 	storage_locks \
 	console \

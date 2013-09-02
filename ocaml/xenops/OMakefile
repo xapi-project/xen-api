@@ -8,13 +8,13 @@ OCAML_LINK_FLAGS+= $(XEN_OCAML_LINK_FLAGS) # $(XENLIGHT_LINK_FLAGS)
 
 CFLAGS          += $(XEN_CFLAGS)
 
-OCAMLPACKS     = oclock xml-light2 sexpr stunnel http-svr netdev rpclib threads xenctrl xenstore-compat xenctrlext stdext log cdrom netdev oUnit uuid # xenlight
+OCAMLPACKS     = oclock xml-light2 sexpr stunnel http-svr netdev rpclib threads xenctrl xenstore-compat xenctrlext stdext log cdrom netdev oUnit uuid xcp.storage # xenlight
 OCAMLFLAGS    += -thread
 
 UseCamlp4(rpclib.syntax, device_number xenops_utils xenops_server xenops_server_simulator xenops_migrate xenops_server_xen updates xenops_server_plugin domain device device_common xenops_hooks task_server)
 UseCamlp4(rpclib.idl, xenops_interface memory_interface)
 
-LIBFILES = ../util/table xenops_helpers cancel_utils xenbus_utils xenguestHelper domain hotplug device io statdev netman memory device_common squeeze squeeze_xen squeezed_state device_number stubdom bootloader xenops_interface memory_interface memory_client updates xenops_utils xenops_client xenops_server_plugin ../xapi/storage_interface ../xapi/vdi_automaton xenops_server xenops_migrate task_server xenops_task xenops_hooks ionice xenops_server_xen xenops_server_simulator xenstore_watch
+LIBFILES = ../util/table xenops_helpers cancel_utils xenbus_utils xenguestHelper domain hotplug device io statdev netman memory device_common squeeze squeeze_xen squeezed_state device_number stubdom bootloader xenops_interface memory_interface memory_client updates xenops_utils xenops_client xenops_server_plugin xenops_server xenops_migrate task_server xenops_task xenops_hooks ionice xenops_server_xen xenops_server_simulator xenstore_watch
 
 StaticCLibrary(statdev_stubs, statdev_stubs)
 OCamlLibraryClib(xenops, $(LIBFILES), statdev_stubs)
