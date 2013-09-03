@@ -24,6 +24,23 @@ open Common
 
 let with_xc f = Xenctrl.with_intf f
 
+module Xs = struct
+	module Client = Xs_client_unix.Client(Xs_transport_unix_client)
+	include Client
+
+	let client = ref None
+
+	(* Initialise the clients on demand - must be done after daemonisation! *)
+	let get_client () =
+		match !client with
+		| Some client -> client
+		| None ->
+			let c = Client.make () in
+			client := Some c;
+			c
+end
+
+
 (* Return a list of domids of VMs running on this host *)
 let get_running_domains xc =
 	Xenctrl.domain_getinfolist xc 0 |> List.map (fun di -> di.Xenctrl.domid)
@@ -39,7 +56,7 @@ module MemoryActions = struct
 		let keys = ["dynamic-max"; "dynamic-min"; "target"] in
 		List.map (fun key -> Printf.sprintf "/local/domain/%d/memory/%s" domid key) keys
 
-	let watch_fired xc xs path domains watches =
+	let watch_fired xc path domains watches =
 		D.debug "Watch fired on %s" path;
 		let read_new_value domid current_memory_values =
 			let domid = int_of_string domid in
@@ -47,7 +64,8 @@ module MemoryActions = struct
 			then D.debug "Ignoring watch on shutdown domain %d" domid
 			else
 				try
-					let value = xs.Xs.read path |> Int64.of_string |> Int64.mul 1024L (* convert from KiB to bytes *) in
+				        let client = Xs.get_client () in
+					let value = Xs.with_xs client (fun xs -> Xs.read xs path) |> Int64.of_string |> Int64.mul 1024L (* convert from KiB to bytes *) in
 					current_memory_values := IntMap.add domid value !current_memory_values
 				with Xs_protocol.Enoent _ ->
 					D.info "Couldn't read path %s; forgetting last known value for domain %d" path domid;
@@ -65,8 +83,8 @@ module MemoryActions = struct
 
 	let unmanaged_domain _ _ = false
 	let found_running_domain _ _ = ()
-	let domain_appeared _ _ _ = ()
-	let domain_disappeared _ _ _ = ()
+	let domain_appeared _ _ = ()
+	let domain_disappeared _ _ = ()
 end
 
 module Watcher = WatchXenstore(MemoryActions)
@@ -117,5 +135,5 @@ let generate_squeezed_dss () =
 
 let _ =
 	initialise ();
-	ignore (Watcher.create_watcher_thread ());
+        let () = Watcher.create_watcher_thread (Xs.get_client ()) in
 	main_loop ~neg_shift:0.5 ~dss_f:generate_squeezed_dss
