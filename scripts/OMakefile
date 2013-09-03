@@ -30,16 +30,12 @@ install:
 	mkdir -p $(DESTDIR)/var/lib/xcp
 	$(IPROG) base-path $(DESTDIR)/etc/xapi.d
 	$(IPROG) sm_diagnostics $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) xn_diagnostics $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) thread_diagnostics $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) xn_diagnostics $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) list_plugins $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)$(ETCDIR)/bugtool/xapi
 	mkdir -p $(DESTDIR)$(ETCDIR)/bugtool/xenopsd
 	$(IDATA) bugtool-plugin/xapi.xml $(DESTDIR)$(ETCDIR)/bugtool
 	$(IDATA) bugtool-plugin/xapi/stuff.xml $(DESTDIR)$(ETCDIR)/bugtool/xapi
-	$(IDATA) bugtool-plugin/xenopsd.xml $(DESTDIR)$(ETCDIR)/bugtool
-	$(IDATA) bugtool-plugin/xenopsd/stuff.xml $(DESTDIR)$(ETCDIR)/bugtool/xenopsd
 	$(IPROG) fence $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xha-lc $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xapi-health-check $(DESTDIR)$(LIBEXECDIR)
@@ -52,8 +48,6 @@ install:
 	$(IPROG) udhcpd.skel $(DESTDIR)/var/lib/xcp/udhcpd.skel
 	$(IDATA) xapi.conf $(DESTDIR)$(XAPICONF)
 	$(IDATA) sparse_dd.conf $(DESTDIR)/etc/sparse_dd.conf
-	$(IDATA) xenopsd.conf $(DESTDIR)/etc/xenopsd.conf
-	$(IDATA) squeezed.conf $(DESTDIR)/etc/squeezed.conf
 	$(IPROG) db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf
 	$(IPROG) rio.db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf.rio
 	mkdir -p $(DESTDIR)/etc/init.d
@@ -62,8 +56,6 @@ install:
 	$(IPROG) init.d-xapi $(DESTDIR)/etc/rc.d/init.d/xapi
 	$(IPROG) init.d-xapissl $(DESTDIR)$(LIBEXECDIR)/xapissl
 	$(IPROG) init.d-xapi-domains $(DESTDIR)/etc/rc.d/init.d/xapi-domains
-	$(IPROG) init.d-squeezed $(DESTDIR)/etc/rc.d/init.d/squeezed
-	$(IPROG) init.d-xenopsd $(DESTDIR)/etc/rc.d/init.d/xenopsd
 	$(IPROG) init.d-management-interface $(DESTDIR)/etc/rc.d/init.d/management-interface
 	$(IPROG) init.d-genptoken $(DESTDIR)/etc/rc.d/init.d/genptoken
 	$(IPROG) init.d-v6d $(DESTDIR)/etc/rc.d/init.d/v6d
@@ -91,7 +83,7 @@ install:
 	$(IPROG) pool.conf $(DESTDIR)$(ETCDIR)
 	mkdir -p $(DESTDIR)/etc/pam.d
 	$(IPROG) pam.d-xapi $(DESTDIR)/etc/pam.d/xapi
-	$(IPROG) qemu-dm-wrapper vncterm-wrapper upload-wrapper logs-download $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) vncterm-wrapper upload-wrapper logs-download $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/packages/iso #omg XXX
 	$(IPROG) interface-reconfigure $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) InterfaceReconfigure.py $(DESTDIR)$(LIBEXECDIR)

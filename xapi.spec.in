@@ -38,13 +38,6 @@ Group: System/Hypervisor
 %description tests
 This package contains a series of simple regression tests.
 
-%package squeezed
-Summary: The memory ballooning daemon
-Group: System/Hypervisor
-
-%description squeezed
-This package contains the Xen virtual firmware (hvmloader)
-
 %package v6d
 Summary: The editions and features daemon
 Group: System/Hypervisor
@@ -75,13 +68,6 @@ Group:   Development/Libraries
 %description datamodel-devel
 This package contains the internal xapi datamodel as a library suitable
 for writing additional code generators.
-
-%package xenstore-watch-devel
-Summary: xenstore-watch headers and libraries
-Group:   Development/Libraries
-
-%description xenstore-watch-devel
-This package contains a library of functions for watching xenstore.
 
 %prep 
 %setup -q
@@ -114,9 +100,6 @@ rm -rf $RPM_BUILD_ROOT
 [ ! -x /sbin/chkconfig ] || chkconfig --add xapi-domains
 [ ! -x /sbin/chkconfig ] || chkconfig --add perfmon
 [ ! -x /sbin/chkconfig ] || chkconfig --add genptoken
-
-%post squeezed
-[ ! -x /sbin/chkconfig ] || chkconfig squeezed on
 
 %post v6d
 [ ! -x /sbin/chkconfig ] || chkconfig --add v6d
@@ -255,15 +238,8 @@ rm -rf $RPM_BUILD_ROOT
 %files xe
 %defattr(-,root,root,-)
 @OPTDIR@/bin/xe
-@OPTDIR@/debug/sm
 /usr/bin/xe
 /etc/bash_completion.d/xe
-
-%files squeezed
-%defattr(-,root,root,-)
-@OPTDIR@/libexec/squeezed
-/etc/rc.d/init.d/squeezed
-%config(noreplace) /etc/squeezed.conf
 
 %files v6d
 %defattr(-,root,root,-)
@@ -317,10 +293,6 @@ rm -rf $RPM_BUILD_ROOT
 %files datamodel-devel
 %defattr(-,root,root,-)
 /usr/lib/ocaml/xapi-datamodel/*
-
-%files xenstore-watch-devel
-%defattr(-,root,root,-)
-/usr/lib/ocaml/xenstore-watch/*
 
 %changelog
 
