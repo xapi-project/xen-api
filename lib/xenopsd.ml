@@ -65,14 +65,10 @@ let main ?(specific_options=[]) ?(specific_essential_paths=[]) ?(specific_noness
 	Xcp_service.configure ~options ~resources ();
 
 	(* TODO: this should be indirected through the switch *)
-(*
-	(* Listen for arbitrary HTTP *)
-	let domain_server = Xcp_service.make_socket_server (path ()) raw_fn in
-*)
 
 	(* Listen for regular API calls *)
-	let json_server = Xcp_service.make
-		~path:(json_path ())
+	let xml_server = Xcp_service.make
+		~path:(path ())
 		~queue_name:!Xenops_interface.queue_name
 		~rpc_fn
 	        () in
@@ -95,7 +91,7 @@ let main ?(specific_options=[]) ?(specific_essential_paths=[]) ?(specific_noness
 		let (_: Thread.t) = Thread.create (fun () -> Xcp_service.serve_forever domain_server) () in
 		let (_: Thread.t) = Thread.create (fun () -> Xcp_service.serve_forever forwarded_server) () in
 *)
-		let (_: Thread.t) = Thread.create (fun () -> Xcp_service.serve_forever json_server) () in
+		let (_: Thread.t) = Thread.create (fun () -> Xcp_service.serve_forever xml_server) () in
 		()
 	) ();
 	Scheduler.start ();
