@@ -25,7 +25,7 @@ service xapi stop
 service v6d stop
 service squeezed stop
 service perfmon stop
-service xenopsd stop
+service xenopsd-xc stop
 service xcp-rrdd-plugins stop
 service xcp-rrdd stop
 [ -e /tmp/do-not-use-networkd ] || service xcp-networkd stop
@@ -43,7 +43,7 @@ service forkexecd start
 [ -e /tmp/do-not-use-networkd ] || service xcp-networkd start
 service xcp-rrdd start
 service xcp-rrdd-plugins start
-service xenopsd start
+service xenopsd-xc start
 service perfmon start
 service squeezed start
 service v6d start
