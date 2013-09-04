@@ -152,3 +152,19 @@ let balance_memory _ dbg =
 let get_host_reserved_memory _ dbg = Squeeze_xen.target_host_free_mem_kib
 
 let get_host_initial_free_memory _ dbg = 0L (* XXX *)
+
+let get_domain_zero_policy _ dbg =
+	wrap dbg
+	(fun () ->
+		Xenctrl.with_intf
+		(fun xc ->
+			let di = Xenctrl.domain_getinfo xc 0 in
+			let dom0_max = Int64.mul 1024L (Xenctrl.pages_to_kib (Int64.of_nativeint di.Xenctrl.total_memory_pages)) in
+			if !Squeeze.manage_domain_zero
+			then Auto_balloon(!Squeeze.domain_zero_dynamic_min, match !Squeeze.domain_zero_dynamic_max with
+				| None -> dom0_max
+				| Some x -> x)
+			else Fixed_size dom0_max
+		)
+	)
+
